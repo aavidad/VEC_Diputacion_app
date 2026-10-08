@@ -40,19 +40,22 @@ type ResolvedorSesion interface {
 	ResolverSesionADMIN(context.Context, *http.Request) (SesionConfiable, error)
 }
 
-// AuditorFrontera conserva denegaciones previas a la identidad sin guardar
-// cabeceras, certificado ni cuerpo. Sin recibo de auditoría se responde 503.
+// AuditorFrontera distingue la fase técnica previa a V2 de la nominal.
+// Una sesión resuelta incompatible nunca permite volver a la fase técnica.
 type AuditorFrontera interface {
 	RegistrarDenegacionADMIN(context.Context, DenegacionADMIN) error
 }
 
 type DenegacionADMIN struct {
+	SesionResuelta  bool `json:"-"`
 	Codigo          string
 	Accion          string
 	RecursoRef      string
 	ActorPersonaRef string
 	PerfilActivoRef string
 	CorrelacionRef  string
+	Actor           domain.ContextoActor                         `json:"-"`
+	Evidencia       domain.EvidenciaSesionAdministracionPerfiles `json:"-"`
 }
 
 // FuenteLecturas debe resolver el catálogo central del actor y admitir solo
@@ -87,14 +90,20 @@ type ServicioLotes interface {
 
 // Handler queda inyectable; ningún proceso lo monta en este corte.
 type Handler struct {
-	origen      string
-	host        string
-	sesiones    ResolvedorSesion
-	lecturas    FuenteLecturas
-	catalogo    ports.CatalogoRolesAdministrables
-	actos       ServicioActos
-	soloLectura bool
-	auditor     AuditorFrontera
+	origen           string
+	host             string
+	organizacionLote string
+	sesiones         ResolvedorSesion
+	lecturas         FuenteLecturas
+	catalogo         ports.CatalogoRolesAdministrables
+	actos            ServicioActos
+	lotes            ServicioLotesADMIN
+	motivosLote      []MotivoLote
+	gobiernoPlan     ServicioGobiernoPlanFirmaADMIN
+	efectos          map[string]efectoNominal
+	soloLectura      bool
+	soloMetadatos    bool
+	auditor          AuditorFrontera
 }
 
 func NuevoHandler(origen string, sesiones ResolvedorSesion, lecturas FuenteLecturas,
@@ -120,6 +129,17 @@ func NuevoHandlerLecturas(origen string, sesiones ResolvedorSesion, lecturas Fue
 	return &Handler{origen: origen, host: u.Host, sesiones: sesiones, lecturas: lecturas, auditor: auditor, soloLectura: true}, nil
 }
 
+// Sólo las dos consultas nominales de usuarios: las demás rutas se rechazan
+// en la frontera auditada sin ejecutar fuentes o fabricar capacidades.
+func NuevoHandlerUsuariosMetadatos(origen string, sesiones ResolvedorSesion, lecturas FuenteLecturas, auditor AuditorFrontera) (*Handler, error) {
+	h, err := NuevoHandlerLecturas(origen, sesiones, lecturas, auditor)
+	if err != nil {
+		return nil, err
+	}
+	h.soloMetadatos = true
+	return h, nil
+}
+
 func dependenciaNula(v any) bool {
 	if v == nil {
 		return true
@@ -134,7 +154,8 @@ func dependenciaNula(v any) bool {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h == nil || h.sesiones == nil || h.lecturas == nil || (!h.soloLectura && (h.catalogo == nil || h.actos == nil)) || h.auditor == nil {
+	if h == nil || h.sesiones == nil || h.lecturas == nil || h.auditor == nil ||
+		(!h.soloLectura && h.gobiernoPlan == nil && len(h.efectos) == 0 && (h.catalogo == nil || (h.actos == nil && h.lotes == nil))) {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
@@ -181,7 +202,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sesion.Actor.PersonaRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PrincipalID ||
 		sesion.Actor.PerfilActivoRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PerfilActivoRef ||
 		!domain.ReferenciaCorrelacionAutorizacionV2Valida(sesion.CorrelacionRef) {
-		h.denegar(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
+		h.denegarSesionIncompatible(w, r, sesion)
 		return
 	}
 	if r.Method == http.MethodGet {
@@ -211,6 +232,15 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 		return
 	}
 	p := r.URL.Path
+	if h.soloMetadatos && p != PrefijoV1+"/personas" && !strings.HasPrefix(p, PrefijoV1+"/personas/") {
+		h.denegarActor(w, r, s, http.StatusNotFound, "recurso_no_encontrado", "consultar", "")
+		return
+	}
+	// La preparación sólo existe donde se montó la autoridad del lote.
+	if persona, ok := rutaPreparacionLote(p); ok && h.lotes != nil {
+		h.getPreparacionLote(w, r, s, persona)
+		return
+	}
 	ctx := r.Context()
 	var result any
 	var err error
@@ -228,7 +258,15 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "buscar_personas", "")
 			return
 		}
+		if h.soloMetadatos && consulta.Texto != "" {
+			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "buscar_personas", "")
+			return
+		}
 		result, err = h.lecturas.BuscarPersonas(ctx, actor, s.Evidencia, consulta)
+		if pagina, ok := result.(PaginaPersonas); err == nil && ok && (h.soloMetadatos && pagina.Metadatos == nil || !pagina.metadatosValidos()) {
+			h.denegarActor(w, r, s, http.StatusServiceUnavailable, "respuesta_incompatible", "buscar_personas", "")
+			return
+		}
 	case strings.HasPrefix(p, PrefijoV1+"/personas/") && r.URL.RawQuery == "":
 		ref := strings.TrimPrefix(p, PrefijoV1+"/personas/")
 		if !refOpaca(ref, "per_") {
@@ -237,8 +275,16 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 		}
 		var ficha FichaPersona
 		ficha, err = h.lecturas.ConsultarPersona(ctx, actor, s.Evidencia, ref)
-		if err == nil && ficha.PersonaRef != ref {
+		if err == nil && ficha.referenciaEmitida() != ref {
+			if h.soloMetadatos || ficha.Metadatos != nil {
+				h.denegarActor(w, r, s, http.StatusServiceUnavailable, "respuesta_incompatible", "consultar_persona", ref)
+				return
+			}
 			err = ErrConfiguracionIncompleta
+		}
+		if err == nil && (h.soloMetadatos && ficha.Metadatos == nil || !ficha.metadatosValidos()) {
+			h.denegarActor(w, r, s, http.StatusServiceUnavailable, "respuesta_incompatible", "consultar_persona", ref)
+			return
 		}
 		result = ficha
 	case p == PrefijoV1+"/propuestas" && (r.URL.RawQuery == "" || r.URL.RawQuery == "estado=pendiente"):
@@ -341,11 +387,64 @@ func (h *Handler) denegar(w http.ResponseWriter, r *http.Request, estado int, co
 	fallo(w, estado, codigo)
 }
 
+// El retorno exitoso del resolutor fija la fase aunque su sesión sea inválida.
+func (h *Handler) denegarSesionIncompatible(w http.ResponseWriter, r *http.Request, s SesionConfiable) {
+	accion := "consultar"
+	if r.Method == http.MethodPost {
+		accion = "escribir"
+	}
+	registro := DenegacionADMIN{Codigo: "respuesta_incompatible", Accion: accion, SesionResuelta: true}
+	correlacion, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(r.Context())
+	if err != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	ref, err := correlacion.ValorCanonico()
+	if err != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	registro.CorrelacionRef = ref
+	actor, err := s.Actor.Clonar()
+	if err == nil {
+		resultado, err := s.Evidencia.ResultadoContexto.Clonar()
+		if err == nil {
+			evidencia := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: s.Evidencia.Vinculo}
+			if evidencia.ValidarPara(actor) == nil {
+				registro.Actor = actor
+				registro.Evidencia = evidencia
+				registro.ActorPersonaRef = actor.PersonaRef
+				registro.PerfilActivoRef = actor.PerfilActivoRef
+			}
+		}
+	}
+	if h.auditor.RegistrarDenegacionADMIN(r.Context(), registro) != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	fallo(w, http.StatusServiceUnavailable, "respuesta_incompatible")
+}
+
 func (h *Handler) denegarActor(w http.ResponseWriter, r *http.Request, s SesionConfiable,
 	estado int, codigo, accion, recurso string) {
-	registro := DenegacionADMIN{Codigo: codigo, Accion: accion, RecursoRef: recurso,
-		ActorPersonaRef: s.Actor.PersonaRef, PerfilActivoRef: s.Actor.PerfilActivoRef,
-		CorrelacionRef: s.CorrelacionRef}
+	actor, err := s.Actor.Clonar()
+	if err != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	resultado, err := s.Evidencia.ResultadoContexto.Clonar()
+	if err != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	evidencia := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: s.Evidencia.Vinculo}
+	if evidencia.ValidarPara(actor) != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	registro := DenegacionADMIN{SesionResuelta: true, Codigo: codigo, Accion: accion, RecursoRef: recurso,
+		ActorPersonaRef: actor.PersonaRef, PerfilActivoRef: actor.PerfilActivoRef,
+		CorrelacionRef: s.CorrelacionRef, Actor: actor, Evidencia: evidencia}
 	if h.auditor.RegistrarDenegacionADMIN(r.Context(), registro) != nil {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return

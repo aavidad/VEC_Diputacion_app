@@ -8,7 +8,7 @@
   "idioma": "Language",
   "ayuda_boton": "Help",
   "ayuda_titulo": "How to use the trial",
-  "ayuda_texto": "Choose a process, adjust the rules and select Compare applications. You can change the values and repeat the calculation. These examples can be removed and are not open recruitment calls.",
+  "ayuda_texto": "Choose a process, adjust the rules and example scores and select Compare applications. A blank score remains pending. These are example data, not open recruitment calls.",
   "cargando": "Loading examples…",
   "sin_ejemplos": "No examples are available at the moment.",
   "denegado": "You do not have access to this trial. Contact the person responsible for your unit.",
@@ -50,7 +50,7 @@
   "maximo_fase": "Maximum score: {puntos}",
   "desempate": "Tie-breaking stages",
   "desempate_ayuda": "Selected stages are applied in the order shown.",
-  "restablecer": "Reset rules",
+  "restablecer": "Reset rules and scores",
   "simular": "Compare applications",
   "validacion_titulo": "Check these fields before comparing:",
   "validacion": {
@@ -60,7 +60,8 @@
     "minimo": "The minimum score must be between zero and the stage maximum, with up to six decimal places.",
     "peso": "Enter a weight between 1 and 100 for each stage.",
     "suma_pesos": "The weights must add up to 100%.",
-    "desempates": "Select each tie-breaking stage once."
+    "desempates": "Select each tie-breaking stage once.",
+    "nota": "Enter a score between zero and the examination maximum, with up to six decimal places, or leave it blank."
   },
   "resultado_titulo": "Application comparison",
   "sin_resultado": "Adjust the rules and select Compare applications to see the result.",
@@ -118,7 +119,8 @@
   },
   "origen": {
     "prueba_embebida": "Examination score from the example.",
-    "motor_bolsa": "Merits calculated using the recruitment pool scoring rules."
+    "motor_bolsa": "Merits calculated using the recruitment pool scoring rules.",
+    "prueba_editada": "Examination score changed for this trial."
   },
   "causa": {
     "requisito_no_cumplido": "An entry requirement is not met.",
@@ -133,5 +135,70 @@
     "desempate_pendiente": "The tie requires an additional decision."
   },
   "menu": "Menu",
-  "cerrar_menu": "Close menu"
+  "cerrar_menu": "Close menu",
+  "notas_titulo": "Example examination scores",
+  "notas_pendientes": "Leave a score blank if it is pending.",
+  "nota_etiqueta": "{nombre} · {fase} (optional)",
+  "revision_notas": {
+    "saltar": "Skip to content",
+    "portal": "Employee portal",
+    "organizacion": "Provincial Council of Granada",
+    "navegacion": "Score review preparation",
+    "titulo": "Trial score review",
+    "contexto": "Selection processes · Local preparation",
+    "idioma": "Language",
+    "ayuda_signo": "?",
+    "ayuda": "Help",
+    "ayuda_texto": "Open the prepared file to compare earlier and proposed scores. A pending score remains ungraded. Official review, approval and publication are still pending.",
+    "abrir": "Open a preparation",
+    "solo_local": "Example data",
+    "limite": "Preparation using synthetic data. It does not register an appeal or approve a grade.",
+    "archivo": "Preparation JSON file",
+    "descargar": "Download original",
+    "cerrar": "Close file",
+    "archivo_pista": "The file is read on this page and is not sent to the server. Maximum: 1 MB.",
+    "vacio": "Open a file to see which scores change.",
+    "cargando": "Reading the file…",
+    "cargado": "Preparation loaded. Review the changes; no score is approved.",
+    "error_formato": "The file could not be opened. Check that it comes from the score review preparer.",
+    "error_tamano": "The file is empty or exceeds 1 MB. Choose a valid preparation.",
+    "error_catalogo": "The text could not be loaded. Reload the page.",
+    "descarga_lista": "The original file is ready to download.",
+    "nombre_descarga": "score-review.json",
+    "cambios": "Proposed scores",
+    "sin_cambios": "The proposal preserves the earlier scores.",
+    "solicitud": "Application",
+    "fase": "Examination",
+    "anterior": "Earlier",
+    "propuesta": "Proposed",
+    "pendiente": "Pending",
+    "nota": "Examination {numero}",
+    "comparacion": "Effect on the result",
+    "estado_anterior": "Earlier status",
+    "estado_propuesta": "Proposed status",
+    "total_anterior": "Earlier points",
+    "total_propuesta": "Proposed points",
+    "orden_anterior": "Earlier rank",
+    "orden_propuesta": "Proposed rank",
+    "sin_orden": "No rank",
+    "pendientes_titulo": "Pending actions",
+    "detalle_archivo": "File details",
+    "ver_detalle": "View references and hash",
+    "referencias_limite": "The hash comes from the file. Its origin and any approval have not been verified.",
+    "ejemplo_ref": "Example reference",
+    "huella": "Supplied hash of the earlier result",
+    "configuracion_version": "Configuration version",
+    "estado": {
+      "apta": "Passes the trial stages",
+      "no_apta": "Does not pass the trial stages",
+      "pendiente": "Awaiting data",
+      "empate_pendiente": "Tie awaiting resolution"
+    },
+    "actuacion": {
+      "revision_competente": "Review by the competent body",
+      "acto": "Approval decision",
+      "firma": "Decision signature",
+      "publicacion": "Official publication"
+    }
+  }
 }

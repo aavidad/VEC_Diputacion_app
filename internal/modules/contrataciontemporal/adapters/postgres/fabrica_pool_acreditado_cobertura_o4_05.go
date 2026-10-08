@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 type selloFabricaPoolO405 struct {
@@ -81,7 +82,8 @@ func nuevoPoolRecuperacionCoberturaO405PostgreSQL(
 		!configuracionPoolAcreditacionO405Valida(configuracion, modo) {
 		return nil, errorAcreditacionPoolO405(ctx)
 	}
-	poolCreado, err = pgxpool.NewWithConfig(ctx, configuracion)
+	postgresqlcompartido.FijarTamanoPool(configuracion, cadenaConexion, 4)
+	poolCreado, err = postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 	if err != nil || poolCreado == nil {
 		return nil, errorAcreditacionPoolO405(ctx)
 	}

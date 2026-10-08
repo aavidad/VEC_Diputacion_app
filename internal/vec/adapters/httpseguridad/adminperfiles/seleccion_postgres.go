@@ -2,7 +2,6 @@ package adminperfiles
 
 import (
 	"context"
-	"errors"
 	"strconv"
 	"time"
 
@@ -15,8 +14,6 @@ const listarPropiosSQL = `SELECT persona_ref,cuenta_ref,perfil_ref,vinculo_ref,a
  FROM vec_identidad_sesiones_v1.listar_perfiles_admin_v1($1,$2,$3,$4,$5,$6,$7,$8,$9)`
 const seleccionarPerfilSQL = `SELECT perfil_ref,seleccion_revision::text,seleccionada_en,auditoria_ref
  FROM vec_identidad_sesiones_v1.seleccionar_perfil_admin_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
-const autoseleccionarUnicoSQL = `SELECT perfil_ref,seleccion_revision::text,seleccionada_en,auditoria_ref
- FROM vec_identidad_sesiones_v1.autoseleccionar_perfil_admin_unico_v1($1,$2,$3,$4,$5,$6,$7,$8,$9)`
 
 func (p *PostgreSQL) ListarPropiosADMIN(ctx context.Context, o ObservacionADMIN) (PerfilesPropios, error) {
 	if p == nil || ctx == nil || ctx.Err() != nil || nulo(p.pool) || nulo(p.reloj) || !o.Valida(p.reloj.Ahora().UTC()) {
@@ -105,14 +102,6 @@ func (p *PostgreSQL) SeleccionarPerfilADMIN(ctx context.Context, o ObservacionAD
 		return SeleccionPerfil{}, errorAutoridad(err)
 	}
 	return seleccion, nil
-}
-
-func (p *PostgreSQL) autoseleccionarUnico(ctx context.Context, tx pgx.Tx, o ObservacionADMIN) (SeleccionPerfil, error) {
-	seleccion, err := p.leerSeleccion(ctx, tx, autoseleccionarUnicoSQL, argumentos(o)...)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return SeleccionPerfil{}, nil
-	}
-	return seleccion, err
 }
 
 func (p *PostgreSQL) leerSeleccion(ctx context.Context, tx pgx.Tx, consulta string, argumentos ...any) (SeleccionPerfil, error) {

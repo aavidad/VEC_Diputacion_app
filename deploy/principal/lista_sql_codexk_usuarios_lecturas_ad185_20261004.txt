@@ -1,0 +1,1 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000185_lecturas_usuarios_admin_nominal.up.sql

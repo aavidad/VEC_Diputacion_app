@@ -23,6 +23,7 @@ type Ejemplo struct {
 	ConvocatoriaRef string               `json:"convocatoria_ref"`
 	BasesVersion    int                  `json:"bases_version"`
 	Configuracion   domain.Configuracion `json:"configuracion"`
+	NotasPrueba     []NotaEditable       `json:"notas_prueba"`
 }
 type fixture struct {
 	Ejemplo
@@ -58,7 +59,9 @@ func Ejemplos() ([]Ejemplo, error) {
 	}
 	e := make([]Ejemplo, 0, len(fixtures))
 	for _, f := range fixtures {
-		e = append(e, f.Ejemplo)
+		ejemplo := f.Ejemplo
+		ejemplo.NotasPrueba = catalogoNotas(f)
+		e = append(e, ejemplo)
 	}
 	return e, nil
 }

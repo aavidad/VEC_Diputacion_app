@@ -186,7 +186,7 @@ func TestOrganizacionHistoricaHTTPClasificaDenegacionDelServicio(t *testing.T) {
 		estado     int
 		auditorias int
 	}{
-		{"concesion denegada", personaldomain.ErrConsultaOrganizacionHistoricaDenegada, 403, 1},
+		{"concesion denegada", personaldomain.ErrConsultaOrganizacionHistoricaDenegada, 403, 0},
 		{"dependencia no disponible", personaldomain.ErrOrganizacionHistoricaNoDisponible, 503, 0},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {

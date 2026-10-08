@@ -14,6 +14,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
@@ -153,7 +154,7 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 		return nil, err
 	}
 	p := &proveedorPeticionCentroDesarrollo{alta: alta, actores: make(map[string]*identidadPeticionCentroDesarrollo), catalogos: catalogos, version: cfg.PersonalOrganizacionVersion, reloj: reloj}
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	for _, principal := range principales {
 		adscripcion, ok := resolvedor.adscripcionCentro(principal.ID)

@@ -1,0 +1,1 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000191_gobierno_usuarios_alias.up.sql

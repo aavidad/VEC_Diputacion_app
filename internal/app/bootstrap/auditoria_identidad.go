@@ -8,7 +8,6 @@ import (
 
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/auditoria"
-	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 // Las tres identidades proceden de la autoridad de sesión mTLS. Cada lector
@@ -20,8 +19,7 @@ type dependenciasIdentidadAuditoriaConsultaRRHH struct {
 	IdentidadOpciones           auditoria.IdentidadConsulta
 	IdentidadCT, IdentidadBolsa auditoria.IdentidadConsulta
 	Opciones                    auditoria.ProveedorOpciones
-	Intentos                    vecports.RegistradorIntentosAuditoria
-	ConfiguracionIntentos       auditoria.ConfiguracionIntentosConsulta
+	Intentos                    auditoria.ConfiguracionIntentos
 }
 
 // nuevasRutasAuditoriaConsultaConIdentidadesRRHH solo cablea autoridades ya
@@ -32,7 +30,7 @@ func nuevasRutasAuditoriaConsultaConIdentidadesRRHH(d dependenciasIdentidadAudit
 	if d.PoolCT == nil || d.PoolBolsa == nil || dependenciaAuditoriaConsultaNula(d.EmisorCT) ||
 		dependenciaAuditoriaConsultaNula(d.EmisorBolsa) || dependenciaAuditoriaConsultaNula(d.IdentidadOpciones) ||
 		dependenciaAuditoriaConsultaNula(d.IdentidadCT) || dependenciaAuditoriaConsultaNula(d.IdentidadBolsa) ||
-		dependenciaAuditoriaConsultaNula(d.Opciones) || dependenciaAuditoriaConsultaNula(d.Intentos) {
+		dependenciaAuditoriaConsultaNula(d.Opciones) || dependenciaAuditoriaConsultaNula(d.Intentos.Registrador) {
 		return nil, auditoria.ErrNoDisponible
 	}
 	return nuevasRutasAuditoriaConsultaRRHH(dependenciasAuditoriaConsultaRRHH{
@@ -42,7 +40,7 @@ func nuevasRutasAuditoriaConsultaConIdentidadesRRHH(d dependenciasIdentidadAudit
 			opciones: d.IdentidadOpciones, ct: d.IdentidadCT, bolsa: d.IdentidadBolsa,
 		},
 		Opciones: d.Opciones,
-		Intentos: d.Intentos, ConfiguracionIntentos: d.ConfiguracionIntentos,
+		Intentos: d.Intentos,
 	})
 }
 

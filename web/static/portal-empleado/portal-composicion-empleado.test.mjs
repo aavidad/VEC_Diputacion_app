@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import * as i18nCronos from "./modulos/cronos/i18n.js";
-import * as composicionEmpleado from "./portal-composicion-empleado.js";
+import * as composicionEmpleado from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
-} from "./portal-composicion-empleado.js";
+} from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
 
 test("la composición no exporta montajes huérfanos de presentación", () => {
   assert.equal(Object.hasOwn(composicionEmpleado, "componerCronosVisible"), false);
@@ -135,6 +135,42 @@ test("Personal monta ficha antes de crear catálogos y limpia registros temprano
   assert.equal(desmontajeFicha, 1);
 });
 
+test("el acceso de Personal a correos usa sólo la ruta interna existente de preferencias", () => {
+  let entradaFicha; let peticiones = 0; const location = { hash: "#personal" }; const focos = [];
+  const personal = componerPersonalVisible({
+    ficha: { montarVistaFichaIntegralPersonal(entrada) { entradaFicha = entrada; return { desmontar() {} }; } },
+    clienteCategorias: { crearClienteHTTPCategoriasPersonal() { throw new Error("no debe consultar"); } },
+    vistaCategorias: { montarModuloPersonal() {} },
+  }, { location, document: { getElementById(id) {
+    assert.equal(id, "contenido-principal"); return { focus(opciones) { focos.push(opciones); } };
+  } }, fetch() { peticiones += 1; } }, { catalogosPublicos: false });
+  personal.montar({ raiz: {}, anunciar() {} });
+  entradaFicha.abrirCorreos();
+  assert.equal(location.hash, "#mis-preferencias");
+  assert.equal(peticiones, 0);
+  assert.deepEqual(focos, [{ preventScroll: true }]);
+  assert.deepEqual(entradaFicha.fuentes, {});
+});
+
+test("los accesos propios de Mi ficha llevan el foco al contenido estable al cambiar de vista", () => {
+  let entrada; const location = { hash: "#personal" }; const focos = [];
+  const personal = componerPersonalVisible({
+    ficha: { montarVistaFichaIntegralPersonal(opciones) { entrada = opciones; return { desmontar() {} }; } },
+    clienteCategorias: { crearClienteHTTPCategoriasPersonal() { throw new Error("sin consulta de catálogo"); } },
+    vistaCategorias: { montarModuloPersonal() {} },
+  }, { location, document: { getElementById(id) {
+    assert.equal(id, "contenido-principal"); return { focus(opciones) { focos.push(opciones); } };
+  } }, fetch() { assert.fail("navegar no consulta datos"); } }, { catalogosPublicos: false });
+  personal.montar({ raiz: {} });
+  for (const destino of ["cronos", "dietas"]) {
+    entrada.navegarModulo(destino);
+    assert.equal(location.hash, `#${destino}`);
+  }
+  entrada.navegarModulo("personal-registro");
+  assert.equal(location.hash, "#dietas", "no abre gestión desde estos accesos");
+  assert.deepEqual(focos, [{ preventScroll: true }, { preventScroll: true }]);
+});
+
 test("Personal limpia una vez también si un catálogo falla después de registrar temprano", async () => {
   let limpiarTemprano = 0;
   let resolverTardio;
@@ -171,6 +207,27 @@ test("Personal compone solo los catálogos públicos servidos y pasa accesos y o
   assert.deepEqual(entradas[0].destinosDisponibles, { dietas: true, cronos: false }, "la disponibilidad se evalúa al montar");
   await entradas[0].montarCatalogos({ raiz: {}, anunciar() {} });
   assert.deepEqual(clientes, ["categorias", "estructura"]);
+  const conRPT = componerPersonalVisible({ ...recursos(entradas),
+    clienteRPT: { crearClienteHTTPRPTPublica() { return {}; } },
+    vistaRPT: { montarModuloRPTPublica: async () => ({ desmontar() {} }) },
+  }, { fetch() {} }, { catalogosPublicos: ["rpt"], ocultarSinFuente: true });
+  assert.notEqual(conRPT, undefined);
+  conRPT.montar({ raiz: {}, anunciar() {} });
+  assert.equal(entradas[1].rptDisponible, true);
+  const estadoRPT = { estado: "incidencia" };
+  const conReintento = componerPersonalVisible({ ...recursos(entradas),
+    clienteRPT: { crearClienteHTTPRPTPublica() { clientes.push("rpt"); return {}; } },
+    vistaRPT: { montarModuloRPTPublica: async () => ({ desmontar() {} }) },
+  }, { fetch() {} }, { catalogosPublicos: [], ocultarSinFuente: true, estadoRPT,
+    reintentarRPT: async () => { estadoRPT.estado = "disponible"; return "disponible"; } });
+  conReintento.montar({ raiz: {}, anunciar() {} });
+  assert.equal(entradas[2].rptDisponible, false);
+  assert.equal(entradas[2].rptIncidencia, true);
+  await entradas[2].montarCatalogos({ raiz: {}, anunciar() {} });
+  assert.ok(!clientes.includes("rpt"), "una sonda fallida no monta la lista RPT");
+  assert.equal(await entradas[2].reintentarRPT(), "disponible");
+  await entradas[2].montarCatalogos({ raiz: {}, anunciar() {} });
+  assert.equal(clientes.filter((cliente) => cliente === "rpt").length, 1);
   // Pedir un catálogo servido sin sus recursos, o uno desconocido, no compone.
   assert.equal(componerPersonalVisible(recursos([]), {}, { catalogosPublicos: ["rpt"] }), undefined);
   assert.equal(componerPersonalVisible(recursos([]), {}, { catalogosPublicos: ["otro"] }), undefined);

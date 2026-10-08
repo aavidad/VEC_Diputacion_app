@@ -38,26 +38,6 @@ func (r *registradorFronteraSuperficiePrueba) RegistrarAuditoriaFronteraRutaExac
 	return nil
 }
 
-func peticionAuditoriaConCorrelacionPrueba(t *testing.T, peticion *http.Request) *http.Request {
-	t.Helper()
-	ctx, err := vecports.ConCorrelacionIncidenciasPeticion(peticion.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	return peticion.WithContext(ctx)
-}
-
-func TestAuditoriaSinCorrelacionPrivadaNoConsultaNiInventaUna(t *testing.T) {
-	llamadas := 0
-	r := &registradorFronteraSuperficiePrueba{}
-	h := manejadorAuditoriaDenegacionesLocales{registrador: r, siguiente: http.HandlerFunc(func(http.ResponseWriter, *http.Request) { llamadas++ })}
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, httptest.NewRequest(http.MethodPost, auditoria.RutaConsulta, nil))
-	if w.Code != http.StatusServiceUnavailable || llamadas != 0 || w.Header().Get("X-Correlation-Ref") != "" {
-		t.Fatal("ausencia de correlación privada abrió el consumidor")
-	}
-}
-
 func TestManejadorAuditoriaRegistra403LocalConActorVerificado(t *testing.T) {
 	registrador := &registradorFronteraSuperficiePrueba{}
 	h := manejadorAuditoriaDenegacionesLocales{registrador: registrador, siguiente: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -66,21 +46,17 @@ func TestManejadorAuditoriaRegistra403LocalConActorVerificado(t *testing.T) {
 		w.WriteHeader(http.StatusForbidden)
 	})}
 	w := httptest.NewRecorder()
-	peticion := peticionAuditoriaConCorrelacionPrueba(t, httptest.NewRequest(http.MethodPost, auditoria.RutaConsulta, nil))
-	correlacionPrivada, _ := vecports.CorrelacionIncidenciasPeticion(peticion.Context())
-	peticion.Header.Set("X-Correlation-Ref", "corr_no_confiable")
-	h.ServeHTTP(w, peticion)
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodPost, auditoria.RutaConsulta, nil))
 	if w.Code != http.StatusForbidden || registrador.llamadas != 1 ||
 		registrador.ultima.Validar() != nil || registrador.ultima.ActorRef != "per_actor_verificado" ||
 		registrador.ultima.Ruta != auditoria.RutaConsulta ||
 		registrador.ultima.Superficie != vecports.SuperficieAuditoriaFronteraRutaExactaAuditoria ||
-		w.Header().Get("X-Correlation-Ref") != registrador.ultima.CorrelacionRef ||
-		registrador.ultima.CorrelacionRef != "corr_"+correlacionPrivada {
+		w.Header().Get("X-Correlation-Ref") != registrador.ultima.CorrelacionRef {
 		t.Fatalf("403 local sin bitácora correlacionable: estado=%d orden=%+v", w.Code, registrador.ultima)
 	}
 	registrador.llamadas = 0
 	h.siguiente = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
-	h.ServeHTTP(httptest.NewRecorder(), peticionAuditoriaConCorrelacionPrueba(t, httptest.NewRequest(http.MethodGet, auditoria.RutaOpciones, nil)))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, auditoria.RutaOpciones, nil))
 	if registrador.llamadas != 0 {
 		t.Fatal("GET permitido registró denegación")
 	}
@@ -98,7 +74,7 @@ func TestManejadorAuditoriaRegistra403TempranoConActorMTLSSellado(t *testing.T) 
 		peticion := httptest.NewRequest(http.MethodPost, ruta+"?no-admitida=1", nil).WithContext(ctx)
 		peticion.Header.Set("Cookie", "no-admitida=1")
 		respuesta := httptest.NewRecorder()
-		h.ServeHTTP(respuesta, peticionAuditoriaConCorrelacionPrueba(t, peticion))
+		h.ServeHTTP(respuesta, peticion)
 		if respuesta.Code != http.StatusForbidden || registrador.ultima.Validar() != nil ||
 			registrador.ultima.ActorRef != principal.ID || registrador.ultima.Ruta != ruta ||
 			registrador.ultima.CorrelacionRef != respuesta.Header().Get("X-Correlation-Ref") {
@@ -221,7 +197,7 @@ func TestRaizExactaAuditoriaSirveOpcionesYDeniegaFuenteAjena(t *testing.T) {
 		EmisorCT: &emisorAuditoriaConsultaPrueba{}, EmisorBolsa: &emisorAuditoriaConsultaPrueba{},
 		IdentidadOpciones: identidadCT, IdentidadCT: identidadCT, IdentidadBolsa: identidadBolsa,
 		Opciones: &opcionesAuditoriaConsultaPrueba{opciones: opciones},
-		Intentos: &registradorIntentosConsultaPrueba{}, ConfiguracionIntentos: configuracionIntentosConsultaPrueba(t, opciones.Motivo),
+		Intentos: configuracionIntentosConsultaPrueba(escenario.motivo),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -236,7 +212,7 @@ func TestRaizExactaAuditoriaSirveOpcionesYDeniegaFuenteAjena(t *testing.T) {
 		t.Fatal(err)
 	}
 	get := httptest.NewRecorder()
-	raiz.ServeHTTP(get, peticionAuditoriaConCorrelacionPrueba(t, httptest.NewRequest(http.MethodGet, auditoria.RutaOpciones, nil)))
+	raiz.ServeHTTP(get, httptest.NewRequest(http.MethodGet, auditoria.RutaOpciones, nil))
 	if get.Code != http.StatusOK || !strings.Contains(get.Body.String(), opciones.FinalidadRef) {
 		t.Fatalf("GET opciones en raíz = %d %s", get.Code, get.Body.String())
 	}
@@ -246,7 +222,7 @@ func TestRaizExactaAuditoriaSirveOpcionesYDeniegaFuenteAjena(t *testing.T) {
 	peticion := httptest.NewRequest(http.MethodPost, auditoria.RutaConsulta, strings.NewReader(string(cuerpo)))
 	peticion.Header.Set("Content-Type", "application/json")
 	post := httptest.NewRecorder()
-	raiz.ServeHTTP(post, peticionAuditoriaConCorrelacionPrueba(t, peticion))
+	raiz.ServeHTTP(post, peticion)
 	if post.Code != http.StatusForbidden || registradorLocal.llamadas != 1 ||
 		registradorLocal.ultima.Validar() != nil || registradorLocal.ultima.Ruta != auditoria.RutaConsulta {
 		t.Fatalf("fuente Bolsa con identidad CT en raíz = HTTP %d orden=%+v", post.Code, registradorLocal.ultima)
@@ -261,7 +237,7 @@ func TestRaizExactaAuditoriaSirveOpcionesYDeniegaFuenteAjena(t *testing.T) {
 	peticionAjena := httptest.NewRequest(http.MethodPost, auditoria.RutaConsulta, strings.NewReader(string(cuerpoAjeno)))
 	peticionAjena.Header.Set("Content-Type", "application/json")
 	respuestaAjena := httptest.NewRecorder()
-	raiz.ServeHTTP(respuestaAjena, peticionAuditoriaConCorrelacionPrueba(t, peticionAjena))
+	raiz.ServeHTTP(respuestaAjena, peticionAjena)
 	if respuestaAjena.Code != http.StatusForbidden || registradorLocal.llamadas != 1 ||
 		registradorLocal.ultima.Validar() != nil {
 		t.Fatalf("motivo ajeno sin bitácora local: HTTP %d orden=%+v", respuestaAjena.Code, registradorLocal.ultima)

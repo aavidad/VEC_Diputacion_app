@@ -1,6 +1,7 @@
 package fichero
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,5 +39,18 @@ func TestSymlinkNoSeLee(t *testing.T) {
 	var f domain.FuenteServicios
 	if LeerJSON(ruta, &f) == nil {
 		t.Fatal("symlink accepted")
+	}
+}
+
+func TestFuenteDeEnsayoNoAdmiteLaFormaV1EscritaAMano(t *testing.T) {
+	ruta := filepath.Join(t.TempDir(), "v1.json")
+	contenido := `{"esquema":"vec.certificados.fuente-servicios.personal-v1.ensayo","sintetica":true,"procedencia_ref":"ensayo:x","nombre":"Elena Martín Robles",` +
+		`"corte":{"vigente_en":"2026-10-01","conocido_en":"2026-10-01T08:00:00Z"},"cobertura":"completa",` +
+		`"servicios":[{"inicio":"2024-01-01","fin":"2024-02-01","clase":"c","clase_version":1,"estado":"reconocido","certeza":"acreditado","servicio_ref":"s:1","acto_ref":"a:1"}]}`
+	if err := os.WriteFile(ruta, []byte(contenido), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (FuenteServicios{Ruta: ruta}).Obtener(context.Background()); err == nil {
+		t.Fatal("la forma V1 entró sin pasar por el traductor")
 	}
 }

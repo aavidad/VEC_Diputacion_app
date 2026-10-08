@@ -48,3 +48,23 @@ dirección el 2 de octubre de 2026.
 El kit local de recorridos mTLS está fijado a un plan SQL anterior. Para probar la rama de fin por causa en un clon completo hay que ampliar su lista de migraciones a CT165, CT166, CT167 y Bolsa B74, y proyectar los catálogos de reglas CT v3 y plantillas v2 con sus huellas. La adaptación debe conservar las comprobaciones de fuente, perfil, versión y preimagen; no se acepta saltarlas con variables sueltas. Después se acredita un POST real desde el navegador hasta recibo, replay y reinicio, antes del despliegue en cidonia.
 
 Una reserva de alta que todavía no se ha confirmado carece de expediente histórico del que recuperar la política de fin. Si RRHH cambia c12 durante esa ventana, hará falta conservar la instantánea junto a la reserva para permitir su reintento sin reinterpretar la regla. Las operaciones ya confirmadas recuperan su política original mediante CT167.
+
+## Selección: omitidas que reclaman en plazo
+
+Hoy una solicitud omitida en la provisional entra con una nueva revisión de esa provisional, que abre su propio plazo de subsanación. Cuando la persona reclamó la omisión dentro del plazo original y cumple los requisitos, la práctica habitual es incluirla directamente en la definitiva como reclamación estimada. Habría que permitir ese camino en la definitiva, con su antecedente S4, sin pasar por otra provisional.
+
+## Administración: anular un alta de perfil programada antes de que empiece
+
+El lote ordinario (AUT44) asigna perfiles con inicio inmediato o programado y los retira cuando están vigentes. Un alta programada todavía no vigente no se puede retirar: la revocación de CA20/CA35 exige un contexto vigente. Para anularla antes de que empiece hará falta una operación propia en Contexto Actor que cierre el vínculo pendiente sin pasar por el bloqueo de contexto vigente, con su recibo y auditoría. Mientras tanto, la persona administradora tiene que esperar al inicio y retirarlo entonces.
+
+## Administración: procedencias de actos fuera de otras fuentes
+
+CA35 registra la procedencia de cada lote también en `procedencia_acto_admin_v1` y sólo la admite para vínculos del lote. Las funciones de denominación (CA32) y titularidad (CA33) aún aceptan cualquier procedencia maestra existente; en su próxima reconstrucción deben excluir las de esa tabla.
+
+## Firmas: unidad de RRHH en la consulta R5 y en la vía externa
+
+Desde CT186, la consulta y la recuperación R5 V2 llevan la unidad de la asignación de quien consulta y la ligan a la unidad del paso del plan publicado (opción A, aprobada el 06/10). Eso cubre al firmante y su consulta previa. Una persona de RRHH con unidad que consulte las firmas de un expediente fuera de un paso queda denegada. Si RRHH lo necesita, se hará en su propio corte con la unidad del expediente (opción B), comprobada con el predicado de CT174 (`leer_revalidar_relacion_unidad_expediente_ct_v1`).
+
+La vía externa (RRHH registra una firma hecha en el portafirmas) sigue sólo con organización: AD206, AD209 y AD210 deniegan una unidad en esa vía, así que un operador de RRHH con unidad no puede registrar (decisión de dirección del 06/10, opción C). Las dos cosas dependen de cómo asigna RRHH unidades a su personal; está preguntado en `dudas.md` (148).
+
+La recuperación R5 V2 con unidad se comprueba contra el plan publicado en ese momento, no contra el que había cuando se firmó. Si el plan se republica sin ese paso o se retira, quien tiene unidad deja de poder recuperar el recibo de una firma anterior (falla cerrado). Si hace falta recuperar recibos históricos así, la recuperación debe ligarse a la versión del plan que consta en la firma original.

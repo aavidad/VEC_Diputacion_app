@@ -13,8 +13,12 @@ import (
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
+// Host es el nombre sin puerto que PostgreSQL contrasta con host_admin.
+// Autoridad es la cabecera Host exacta que la frontera exigió (con puerto si el
+// público no es 443); no viaja a SQL y el proveedor la vuelve a exigir.
 type ObservacionADMIN struct {
 	Entorno, Host, Audiencia, CertificadoSHA256, CASHA256 string
+	Autoridad                                             string
 	AutenticacionVerificadaEn, RevocacionVerificadaEn     time.Time
 	CRLVigenteHasta, CertificadoVigenteHasta              time.Time
 }
@@ -31,6 +35,7 @@ func (o ObservacionADMIN) Valida(ahora time.Time) bool {
 // CuentaADMIN procede de las fachadas IS12/CA23 y de la asignación nominal
 // vigente. Rol y perfil nunca se eligen mediante la petición HTTP.
 type CuentaADMIN struct {
+	materialCuentaSQL                                          string
 	SujetoID, CuentaID, CuentaOrdinariaID                      string
 	PersonaRef, CuentaRef, CuentaOrdinariaRef, PerfilActivoRef string
 	RolID, VinculoRef                                          string

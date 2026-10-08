@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdir, readFile, stat } from "node:fs/promises";
 import test from "node:test";
 import { normalizarIndiceIdiomas } from "./idioma.js";
-import { esMensajePlural } from "./textos.js";
+import { esCatalogoValido, esMensajePlural } from "./textos.js";
 import { LEGADO_CON_DICCIONARIO } from "./textos-legado.test-helper.mjs";
 import { esManifiestoPWA, validarManifiestoPWA } from "../pwa/manifiestos-validacion.test-helper.mjs";
 
@@ -70,6 +70,10 @@ for (const { codigo } of indice.idiomas) {
     const propios = (await readdir(new URL(`${codigo}/`, RAIZ_TEXTOS))).filter((n) => n.endsWith(".json")).sort();
     assert.deepEqual(propios, modulos.map((m) => `${m}.json`).sort(), `textos/${codigo}/ debe tener exactamente los módulos de ${porDefecto}`);
     for (const modulo of modulos) {
+      if (!esManifiestoPWA(modulo)) {
+        assert.equal(esCatalogoValido(await leerJSON(new URL(`${codigo}/${modulo}.json`, RAIZ_TEXTOS))), true,
+          `${codigo}/${modulo}.json debe ser un catálogo válido para la carga web`);
+      }
       const base = hojasDeModulo(await leerJSON(new URL(`${porDefecto}/${modulo}.json`, RAIZ_TEXTOS)), modulo, porDefecto);
       const traducido = hojasDeModulo(await leerJSON(new URL(`${codigo}/${modulo}.json`, RAIZ_TEXTOS)), modulo, codigo);
       const faltan = [...base.keys()].filter((clave) => !traducido.has(clave));

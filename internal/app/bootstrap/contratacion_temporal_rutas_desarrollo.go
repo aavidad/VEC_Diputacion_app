@@ -33,9 +33,9 @@ func nominalCT(metodo, guardia string) metodoRutaCTDesarrollo {
 // rutas de Bolsa, Calendarios, Usuarios ni Documentos aunque compartan slice.
 func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 	const (
-		llamamiento = "contratacion_temporal_comunicacion_llamamiento_desarrollo.go:proveedorComunicacionLlamamientoDesarrollo"
 		centro      = "contratacion_temporal_peticion_centro_http_desarrollo.go:manejadorPeticionCentroDesarrollo"
 		continuidad = "contratacion_temporal_continuidad_nominal.go:autoridadContinuidadNominal"
+		firmasR5V2  = "contratacion_temporal_firmas_r5_v2_desarrollo.go:fuenteNominalFirmasR5V2CTDesarrollo"
 	)
 	return map[string][]metodoRutaCTDesarrollo{
 		// PDP común: 21 pares base, POST de entrega, reincorporación y plantillas opcionales.
@@ -68,11 +68,20 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		plantillashttp.RutaPublicar:                     {pdpCT(http.MethodPost)},
 		plantillashttp.RutaBorradoresDisponibles:        {pdpCT(http.MethodPost)},
 		plantillashttp.RutaBorradores:                   {pdpCT(http.MethodPost)},
+		// Llamamiento: su autoridad decide en el PDP común (frontera por ruta
+		// y método en contratacion_temporal_llamamiento_pdp_comun_desarrollo.go).
+		httpinterno.RutaSeleccionLlamamiento:              {pdpCT(http.MethodPost)},
+		httpinterno.RutaRegistroComunicacionLlamamiento:   {pdpCT(http.MethodPost)},
+		httpinterno.RutaConsultaComunicacionesExpediente:  {pdpCT(http.MethodGet)},
+		httpinterno.RutaRegistroRespuestaRecibida:         {pdpCT(http.MethodPost)},
+		httpinterno.RutaConsultaReciboRespuesta:           {pdpCT(http.MethodGet)},
+		httpinterno.RutaResolucionComunicacionLlamamiento: {pdpCT(http.MethodPost)},
+		httpinterno.RutaContinuacionLlamamiento:           {pdpCT(http.MethodPost)},
+		httpinterno.RutaEventoPlazoLlamamiento:            {pdpCT(http.MethodPost)},
+		httpinterno.RutaPropuestaFormalizacion:            {pdpCT(http.MethodPost)},
 
 		// Autoridades nominales existentes. Una lectura sin acción V3 propia
 		// conserva su guarda de identidad/ruta; no se inventa una acción V3.
-		httpinterno.RutaSeleccionLlamamiento:                    {nominalCT(http.MethodPost, "contratacion_temporal_llamamiento_desarrollo.go:nuevasDependenciasLlamamientoContratacionTemporalDesarrollo")},
-		httpinterno.RutaPropuestaFormalizacion:                  {nominalCT(http.MethodPost, "contratacion_temporal_propuesta_formalizacion_desarrollo.go:ejecutorPropuestaFormalizacionDesarrollo")},
 		httpinterno.RutaCerrarAdministrativamente:               {nominalCT(http.MethodPost, "contratacion_temporal_capacidad_no_compuesta_desarrollo.go:capacidadNoCompuestaContratacionTemporalDesarrollo")},
 		httpinterno.RutaReabrirExcepcionalmente:                 {nominalCT(http.MethodPost, "contratacion_temporal_capacidad_no_compuesta_desarrollo.go:capacidadNoCompuestaContratacionTemporalDesarrollo")},
 		httpinterno.RutaReasignaciones:                          {nominalCT(http.MethodPost, "contratacion_temporal_asignacion_desarrollo.go:nuevasDependenciasAsignacionContratacionTemporalDesarrollo")},
@@ -84,7 +93,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		httpinterno.RutaRecuperacionAnotacionesAdministrativas:  {nominalCT(http.MethodGet, continuidad)},
 		httpinterno.RutaCerrarAdministrativamenteSinCese:        {nominalCT(http.MethodPost, continuidad)},
 		httpinterno.RutaPreparacionCierreSinCese:                {nominalCT(http.MethodGet, continuidad)},
-		httpinterno.RutaResolucionFormalizacion:                 {nominalCT(http.MethodGet, "contratacion_temporal_resolucion_formalizacion_desarrollo.go:ejecutorResolucionFormalizacionDesarrollo"), nominalCT(http.MethodPost, "contratacion_temporal_resolucion_formalizacion_desarrollo.go:ejecutorResolucionFormalizacionDesarrollo")},
+		httpinterno.RutaResolucionFormalizacion:                 {nominalCT(http.MethodGet, "contratacion_temporal_resolucion_formalizacion_desarrollo.go:ejecutorResolucionFormalizacionDesarrollo"), pdpCT(http.MethodPost)},
 		rutaOrganizacionContratacionTemporalDesarrollo:          {nominalCT(http.MethodGet, "contratacion_temporal_organizacion_desarrollo.go:manejadorOrganizacionContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_organizacion_desarrollo.go:manejadorOrganizacionContratacionTemporalDesarrollo")},
 		rutaCambiosOrganizacionContratacionTemporalDesarrollo:   {nominalCT(http.MethodPost, "contratacion_temporal_organizacion_edicion_desarrollo.go:proveedorOrganizacionDesarrollo")},
 		httpinterno.RutaEstadisticasRRHH:                        {nominalCT(http.MethodGet, "contratacion_temporal_estadisticas_desarrollo.go:resolutorAlcanceEstadisticasRRHHDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_estadisticas_desarrollo.go:resolutorAlcanceEstadisticasRRHHDesarrollo")},
@@ -95,13 +104,8 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		rutaConfirmacionIncorporacionCentro:                     {nominalCT(http.MethodPost, "contratacion_temporal_incorporacion_centro_desarrollo.go:incorporacionCentroDesarrollo")},
 		rutaCancelacionesCentro:                                 {nominalCT(http.MethodPost, "contratacion_temporal_cancelacion_centro_desarrollo.go:cancelacionCentroDesarrollo")},
 		rutaCancelacionCentro:                                   {nominalCT(http.MethodPost, "contratacion_temporal_cancelacion_centro_desarrollo.go:cancelacionCentroDesarrollo")},
-		httpinterno.RutaRegistroComunicacionLlamamiento:         {nominalCT(http.MethodPost, llamamiento)},
-		httpinterno.RutaResolucionComunicacionLlamamiento:       {nominalCT(http.MethodPost, llamamiento)},
-		httpinterno.RutaContinuacionLlamamiento:                 {nominalCT(http.MethodPost, llamamiento)},
-		httpinterno.RutaRegistroRespuestaRecibida:               {nominalCT(http.MethodPost, "contratacion_temporal_respuesta_recibida_desarrollo.go:proveedorRespuestaRecibidaDesarrollo")},
-		httpinterno.RutaConsultaReciboRespuesta:                 {nominalCT(http.MethodGet, "contratacion_temporal_consulta_recibo_respuesta_desarrollo.go:proveedorConsultaReciboRespuestaDesarrollo")},
-		httpinterno.RutaConsultaComunicacionesExpediente:        {nominalCT(http.MethodGet, "contratacion_temporal_consulta_comunicaciones_expediente_desarrollo.go:proveedorConsultaComunicacionesExpedienteDesarrollo")},
-		httpinterno.RutaEventoPlazoLlamamiento:                  {nominalCT(http.MethodPost, "contratacion_temporal_plazo_llamamiento_desarrollo.go:proveedorEventoPlazoDesarrollo")},
+		httpinterno.RutaConsultaFirmasR5V2:                      {nominalCT(http.MethodPost, firmasR5V2)},
+		httpinterno.RutaRecuperacionFirmasR5V2:                  {nominalCT(http.MethodPost, firmasR5V2)},
 		rutaCatalogosAltaContratacionTemporalDesarrollo:         {nominalCT(http.MethodGet, "contratacion_temporal_catalogos_alta_desarrollo.go:manejadorCatalogosAltaContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_catalogos_alta_desarrollo.go:manejadorCatalogosAltaContratacionTemporalDesarrollo")},
 		rutaConfiguracionAnalisisContratacionTemporalDesarrollo: {nominalCT(http.MethodGet, "contratacion_temporal_analisis_desarrollo.go:manejadorConfiguracionAnalisisContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_analisis_desarrollo.go:manejadorConfiguracionAnalisisContratacionTemporalDesarrollo")},
 		rutaCircuitoFirmaContratacionTemporalDesarrollo:         {nominalCT(http.MethodGet, "contratacion_temporal_circuito_firma_desarrollo.go:manejadorCircuitoFirmaContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_circuito_firma_desarrollo.go:manejadorCircuitoFirmaContratacionTemporalDesarrollo")},
@@ -218,6 +222,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == httpinterno.RutaConsultaReciboRespuesta ||
 		r.URL.Path == httpinterno.RutaConsultaComunicacionesExpediente ||
 		r.URL.Path == httpinterno.RutaConsultaCircuitoRRHH ||
+		rutaFirmasR5V2CTDesarrollo(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaEventoPlazoLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaResultadosFiscalizacion ||

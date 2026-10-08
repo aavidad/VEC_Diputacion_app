@@ -1,35 +1,36 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
-import { validarReciboAlta } from "./contrato.js?v=20261002-ct-fin-moad-v1";
+import { validarReciboAlta } from "./contrato.js?v=20261008-alta-circular-v3";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261002-ct-fin-moad-v1";
-import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261002-ct-fin-moad-v1";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { filtroListaValido } from "./recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
-import { renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
-import { cerrarFase, instalarPantallasFase, mostrarFase } from "./fases-expediente.js?v=20261002-ct-fin-moad-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-w-ct-borradores-main-v2";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-w-ct-borradores-main-v2";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-w-ct-borradores-main-v2";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261008-w-ct-borradores-main-v2";
+import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261008-alta-rpt-circular-v6";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
+import { filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261008-w-ct-borradores-main-v2";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { cerrarFase, instalarPantallasFase, mostrarFase } from "./fases-expediente.js?v=20261007-pantallas-textos-final-v1";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import {
   contextoLlamamientoDesdeEstado,
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
-import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
-import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261002-ct-fin-moad-v1";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261003-ct-firma-v2-v1";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261002-ct-fin-moad-v1";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261002-ct-fin-moad-v1";
-import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261002-ct-fin-moad-v1";
-import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261001-ct-a-i18n-v1";
-import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261001-ct-a-i18n-v1";
-import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
-import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261002-ct-fin-moad-v1";
-import { traducirPortal } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
+} from "./vista-expedientes-render.js?v=20261008-w-ct-borradores-main-v2";
+import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-w-ct-borradores-main-v2";
+import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-w-ct-borradores-main-v2";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-w-ct-borradores-main-v2";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-w-ct-borradores-main-v2";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-w-ct-borradores-main-v2";
+
+import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261008-w-ct-borradores-main-v2";
+import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
+import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261007-pantallas-textos-final-v1";
+import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20261007-pantallas-textos-final-v1";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261008-alta-rpt-circular-v6";
+import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   if (!expediente?.fases?.some(({ fase_ref: referencia }) =>
@@ -42,9 +43,9 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   return true;
 }
 
-export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
-export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
-export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-w-ct-borradores-main-v2";
+export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-w-ct-borradores-main-v2";
+export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261008-w-ct-borradores-main-v2";
 
 // Exportaciones auxiliares conservadas para compatibilidad con tests e importadores
 export {
@@ -129,6 +130,9 @@ export async function montarModuloContratacionTemporal({
   continuidad = null,
   incorporacionPersonalB2 = null,
   auditoriaComun = null,
+  // Lista común de documentos del expediente (consulta y descarga autorizadas
+  // por el servidor); sin ella la ficha solo indica dónde consultarlos.
+  documentosComun = null,
   llamamiento = null,
   clienteBorradorRRHH,
   clienteBorradoresPublicados,
@@ -203,7 +207,9 @@ export async function montarModuloContratacionTemporal({
   let desmontarEstadisticas = null;
   let desmontarSeguimientoCese = null;
   let desmontarReincorporacion = null;
+  let avisoCapacidadReincorporacion = null;
   let desmontarAuditoriaComun = null;
+  let desmontarDocumentosComun = null;
   let desmontarBorradoresPublicados = null;
   let zonaAuditoriaComun = null;
   let controladorCapacidadReincorporacion = null;
@@ -220,12 +226,73 @@ export async function montarModuloContratacionTemporal({
     controladorCapacidadReincorporacion = null;
     desmontarReincorporacion?.();
     desmontarReincorporacion = null;
+    avisoCapacidadReincorporacion?.remove();
+    avisoCapacidadReincorporacion = null;
+  }
+
+  function mostrarAvisoCapacidadReincorporacion(zona, error, estado, seguimiento) {
+    avisoCapacidadReincorporacion?.remove();
+    const denegada = error?.estado === 401 || error?.estado === 403;
+    const reintentable = !denegada && (error?.estado === 404 || error?.estado === 503
+      || !Number.isInteger(error?.estado));
+    const aviso = raiz.ownerDocument.createElement("div");
+    aviso.className = "ct-exp-mensaje ct-tono-peligro";
+    aviso.setAttribute("role", "alert");
+    aviso.setAttribute("data-ct-exp-capacidad-reincorporacion-aviso", "");
+    const texto = raiz.ownerDocument.createElement("p");
+    texto.textContent = traducirExpedientes(denegada
+      ? "reincorporacion_capacidad_denegada" : "reincorporacion_capacidad_no_disponible");
+    aviso.append(texto);
+    let destino = aviso;
+    if (reintentable) {
+      const boton = raiz.ownerDocument.createElement("button");
+      boton.type = "button";
+      boton.className = "boton-secundario";
+      boton.textContent = traducirExpedientes("reincorporacion_capacidad_reintentar");
+      boton.addEventListener("click", () => {
+        if (!montada || !aviso.isConnected || avisoCapacidadReincorporacion !== aviso) return;
+        const enfocarEstado = raiz.ownerDocument?.activeElement === boton;
+        montarReincorporacionSiProcede(estado, seguimiento, enfocarEstado);
+      });
+      aviso.append(boton);
+      destino = boton;
+    }
+    zona.append(aviso);
+    avisoCapacidadReincorporacion = aviso;
+    return destino;
   }
 
   function retirarAuditoriaComun() {
     desmontarAuditoriaComun?.();
     desmontarAuditoriaComun = null;
     zonaAuditoriaComun = null;
+  }
+
+  function retirarDocumentosComun() {
+    desmontarDocumentosComun?.();
+    desmontarDocumentosComun = null;
+  }
+
+  // Monta en la ficha real la lista común de documentos del expediente. La
+  // referencia solo selecciona; el servidor autoriza cada consulta y descarga.
+  function montarDocumentosComunSiProcede(estado) {
+    if (typeof documentosComun?.montar !== "function" || estado.vista !== "expediente"
+      || estado.carga !== "listo" || estado.expediente?.demostracion !== false
+      || estado.expediente.expediente_ref !== estado.expediente_ref) return;
+    const zona = raiz.querySelector("[data-ct-exp-documentos-comun]");
+    if (!zona) return;
+    const contenedor = raiz.ownerDocument?.createElement?.("div");
+    if (!contenedor) return;
+    try {
+      const montaje = documentosComun.montar({
+        raiz: contenedor, anunciar, expedienteRef: estado.expediente_ref,
+      });
+      if (typeof montaje?.desmontar !== "function") return;
+      desmontarDocumentosComun = montaje.desmontar;
+      zona.replaceChildren(contenedor);
+    } catch {
+      desmontarDocumentosComun = null;
+    }
   }
 
   function retirarBorradoresPublicados() {
@@ -237,6 +304,8 @@ export async function montarModuloContratacionTemporal({
     const contexto = contextoPlantillasPublicadasDesdeEstado(estado);
     const zona = raiz.querySelector(".ct-exp-contenido");
     if (!contexto || !zona || typeof raiz.ownerDocument?.createElement !== "function") return;
+    // Pista de composición del detalle auditado; nunca concede un permiso.
+    if (presentador.resolverDisponibilidadOpcional?.("borradores_publicados", contexto)?.estado === "sin_montaje") return;
     const contenedor = raiz.ownerDocument.createElement("div");
     contenedor.dataset.ctExpBorradoresPublicados = "";
     zona.append(contenedor);
@@ -266,38 +335,80 @@ export async function montarModuloContratacionTemporal({
     zonaAuditoriaComun = contenedor;
     desmontarAuditoriaComun = auditoriaComun.montar({ raiz: contenedor,
       fuente: auditoriaComun.fuente, expedienteRef: estado.expediente_ref,
+      numeroVisible: estado.expediente.numero_visible,
       fuenteContexto: "ct", anunciar }).desmontar;
   }
 
-  // La ficha y el cese proceden de consultas CT autorizadas. El GET de
-  // capacidad decide aparte si esta identidad puede registrar el efecto.
-  function montarReincorporacionSiProcede(estado) {
+  // La ficha y el cese proceden de consultas CT autorizadas. El POST de
+  // capacidad es una lectura que decide si se puede ofrecer el efecto.
+  function montarReincorporacionSiProcede(estado, seguimiento, enfocarEstado = false) {
+    retirarReincorporacion();
     const contexto = contextoSeguimientoCeseDesdeEstado(estado);
-    if (!clienteReincorporacion || !clienteSeguimientoCese || !contexto) return;
+    if (!clienteReincorporacion || !contexto
+      || seguimiento?.estado?.expediente_ref !== contexto.expediente_ref
+      || seguimiento.estado.cese?.causa_clave !== "fin_sustitucion") return;
+    const actualAntes = presentador.obtenerEstado();
+    if (actualAntes.carga !== "listo" || actualAntes.vista !== "expediente"
+      || actualAntes.expediente?.expediente_ref !== contexto.expediente_ref
+      || actualAntes.expediente.version !== contexto.version) return;
     const zona = raiz.querySelector(".ct-exp-contenido");
     if (!zona) return;
     const controlador = new AbortController();
     controladorCapacidadReincorporacion = controlador;
     const expediente = { expediente_ref: contexto.expediente_ref, version_esperada: contexto.version };
-    void Promise.all([
-      clienteReincorporacion.consultarCapacidadReincorporacion(expediente, { signal: controlador.signal }),
-      clienteSeguimientoCese.consultarSeguimientoCese(expediente.expediente_ref, { signal: controlador.signal }),
-    ]).then(([puedeRegistrar, seguimiento]) => {
+    if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "consultando";
+    let comprobando = null;
+    if (enfocarEstado) {
+      comprobando = raiz.ownerDocument.createElement("p");
+      comprobando.setAttribute("role", "status");
+      comprobando.setAttribute("tabindex", "-1");
+      comprobando.textContent = traducirExpedientes("reincorporacion_capacidad_comprobando");
+      zona.append(comprobando);
+      avisoCapacidadReincorporacion = comprobando;
+      comprobando.focus();
+    }
+    void Promise.resolve().then(() => {
+      if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador) return null;
+      return clienteReincorporacion.consultarCapacidadReincorporacion(expediente, { signal: controlador.signal });
+    })
+      .then((puedeRegistrar) => {
         if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
-          || puedeRegistrar !== true || !zona.isConnected
-          || seguimiento?.estado?.expediente_ref !== expediente.expediente_ref
-          || seguimiento.estado.cese?.causa_clave !== "fin_sustitucion") return;
+          || !zona.isConnected) return;
         const actual = presentador.obtenerEstado();
         if (actual.carga !== "listo" || actual.vista !== "expediente"
           || actual.expediente?.expediente_ref !== expediente.expediente_ref
           || actual.expediente?.version !== expediente.version_esperada) return;
+        if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = puedeRegistrar === true ? "permitida" : "denegada";
+        const conservarFoco = comprobando && raiz.ownerDocument?.activeElement === comprobando;
+        if (puedeRegistrar !== true) {
+          if (comprobando) comprobando.textContent = traducirExpedientes("reincorporacion_capacidad_no_habilitada");
+          return;
+        }
+        comprobando?.remove();
+        if (avisoCapacidadReincorporacion === comprobando) avisoCapacidadReincorporacion = null;
         const contenedor = raiz.ownerDocument.createElement("div");
         contenedor.dataset.ctExpReincorporacionTitular = "";
         zona.append(contenedor);
         desmontarReincorporacion = montarFormularioReincorporacionRRHH({ raiz: contenedor,
           cliente: clienteReincorporacion, expediente, puedeRegistrar: true,
           confirmarOperacion, locale, zonaHoraria });
-      }).catch(() => { /* Sin decisión positiva no se ofrece la escritura. */ });
+        if (conservarFoco) {
+          const destino = contenedor.querySelector("h3") ?? contenedor;
+          destino.setAttribute("tabindex", "-1");
+          destino.focus();
+        }
+      }).catch((error) => {
+        if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
+          || !zona.isConnected) return;
+        if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "error";
+        const conservarFoco = comprobando && raiz.ownerDocument?.activeElement === comprobando;
+        const destino = mostrarAvisoCapacidadReincorporacion(zona, error, estado, seguimiento);
+        if (conservarFoco) {
+          destino.setAttribute("tabindex", "-1");
+          destino.focus();
+        }
+        console.warn({ origen: "ct.capacidad_reincorporacion", estado: Number.isInteger(error?.estado) ? error.estado : null });
+      });
   }
 
   function retirarSeguimientoCese() {
@@ -321,6 +432,7 @@ export async function montarModuloContratacionTemporal({
     try {
       desmontarSeguimientoCese = montarPanelSeguimientoCese({
         contenedor, cliente: clienteSeguimientoCese, contexto, mensajes, locale, anunciar, confirmarOperacion, avisoInicial,
+        alConsultar: (seguimiento) => montarReincorporacionSiProcede(estado, seguimiento),
         alConfirmar: async (_recibo, aviso) => {
           avisoSeguimientoCese = aviso ? { expediente_ref: contexto.expediente_ref, aviso } : null;
           try {
@@ -514,6 +626,7 @@ export async function montarModuloContratacionTemporal({
     retirarSeguimientoCese();
     retirarReincorporacion();
     retirarAuditoriaComun();
+    retirarDocumentosComun();
     retirarBorradoresPublicados();
     const estado = presentador.obtenerEstado();
     if (estado.carga === "denegado") gestorTramitacion.invalidarSubsanacionPorDenegacion();
@@ -569,11 +682,11 @@ export async function montarModuloContratacionTemporal({
       gestorTramitacion.montarSubsanacionDesdeExpedienteActual();
       gestorInformeTrasSubsanacion.montarSiProcede();
       montarSeguimientoCeseSiProcede(estado);
-      montarReincorporacionSiProcede(estado);
       gestorCancelacion.montar(estado);
     }
     insertarConsultaCircuitoRRHH(raiz, estado.expediente);
     montarAuditoriaComunSiProcede(estado);
+    montarDocumentosComunSiProcede(estado);
     montarBorradoresPublicadosSiProcede(estado);
     if (selectorFoco) enfocar(raiz, selectorFoco);
     if (mensajeEstadoVisible(estado)) {
@@ -629,6 +742,7 @@ export async function montarModuloContratacionTemporal({
         zonaAuditoriaComun.hidden = false;
         desmontarAuditoriaComun = auditoriaComun.montar({ raiz: zonaAuditoriaComun,
           fuente: auditoriaComun.fuente, expedienteRef: estadoActual.expediente_ref,
+          numeroVisible: estadoActual.expediente.numero_visible,
           fuenteContexto: "ct", anunciar }).desmontar;
         consultarAuditoria.setAttribute("aria-expanded", "true");
       }
@@ -904,6 +1018,7 @@ export async function montarModuloContratacionTemporal({
       retirarSeguimientoCese();
       retirarReincorporacion();
       retirarAuditoriaComun();
+      retirarDocumentosComun();
       retirarBorradoresPublicados();
       raiz.removeEventListener("click", manejarClickRaiz);
       raiz.removeEventListener("input", manejarFiltroLocal);

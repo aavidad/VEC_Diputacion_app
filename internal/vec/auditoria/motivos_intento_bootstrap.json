@@ -1,0 +1,6 @@
+[
+  {"resultado":"permitido","motivo_ref":"bootstrap_registrado"},
+  {"resultado":"permitido","motivo_ref":"bootstrap_replay"},
+  {"resultado":"denegado","motivo_ref":"bootstrap_denegado"},
+  {"resultado":"error","motivo_ref":"bootstrap_error"}
+]

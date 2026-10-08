@@ -88,7 +88,7 @@ func (r *repositorioFichaPropiaPrueba) ConsultarFichaPropia(_ context.Context, o
 func TestServicioFichaPropiaConsultaConConcesionNominal(t *testing.T) {
 	a := &autorizadorFichaPropiaPrueba{accion: domain.AccionFichaPropia, t: t}
 	r := &repositorioFichaPropiaPrueba{}
-	s, err := NuevoServicioFichaPropia(a, r)
+	s, err := NuevoServicioFichaPropia(a, r, &registroIntentosFichaPropiaPrueba{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestServicioFichaPropiaDeniegaSinLlegarAlRepositorio(t *testing.T) {
 		t.Run(nombre, func(t *testing.T) {
 			caso.a.t = t
 			r := &repositorioFichaPropiaPrueba{}
-			s, _ := NuevoServicioFichaPropia(caso.a, r)
+			s, _ := NuevoServicioFichaPropia(caso.a, r, &registroIntentosFichaPropiaPrueba{})
 			_, err := s.Consultar(context.Background(), solicitudFichaPropiaPrueba(t, caso.prefijo))
 			if !errors.Is(err, caso.err) || r.llamadas != 0 || strings.Contains(err.Error(), "interno") {
 				t.Fatalf("error %v, se esperaba %v", err, caso.err)
@@ -124,7 +124,7 @@ func TestServicioFichaPropiaDeniegaSinLlegarAlRepositorio(t *testing.T) {
 
 func TestServicioFichaPropiaDistingueExcesoDeFilas(t *testing.T) {
 	a := &autorizadorFichaPropiaPrueba{accion: domain.AccionFichaPropia, t: t}
-	s, _ := NuevoServicioFichaPropia(a, &repositorioFichaPropiaPrueba{err: fmt.Errorf("envuelto: %w", domain.ErrFichaPropiaExcedeLimite)})
+	s, _ := NuevoServicioFichaPropia(a, &repositorioFichaPropiaPrueba{err: fmt.Errorf("envuelto: %w", domain.ErrFichaPropiaExcedeLimite)}, &registroIntentosFichaPropiaPrueba{})
 	if _, err := s.Consultar(context.Background(), solicitudFichaPropiaPrueba(t, "pep_")); !errors.Is(err, domain.ErrFichaPropiaExcedeLimite) || strings.Contains(err.Error(), "envuelto") {
 		t.Fatal("exceso de filas no distinguido u opaco", err)
 	}
@@ -132,11 +132,79 @@ func TestServicioFichaPropiaDistingueExcesoDeFilas(t *testing.T) {
 
 func TestServicioFichaPropiaRechazaEvidenciaAjena(t *testing.T) {
 	a := &autorizadorFichaPropiaPrueba{accion: domain.AccionFichaPropia, t: t}
-	s, _ := NuevoServicioFichaPropia(a, &repositorioFichaPropiaPrueba{decision: "dec_otra"})
+	s, _ := NuevoServicioFichaPropia(a, &repositorioFichaPropiaPrueba{decision: "dec_otra"}, &registroIntentosFichaPropiaPrueba{})
 	if _, err := s.Consultar(context.Background(), solicitudFichaPropiaPrueba(t, "pep_")); !errors.Is(err, domain.ErrFichaPropiaNoDisponible) {
 		t.Fatal("evidencia de otra decisión aceptada", err)
 	}
-	if _, err := NuevoServicioFichaPropia(nil, &repositorioFichaPropiaPrueba{}); err == nil {
+	if _, err := NuevoServicioFichaPropia(nil, &repositorioFichaPropiaPrueba{}, &registroIntentosFichaPropiaPrueba{}); err == nil {
 		t.Fatal("servicio sin autorizador compuesto")
+	}
+}
+
+type registroIntentosFichaPropiaPrueba struct {
+	intentos            []ports.IntentoFichaPropia
+	err, preflightError error
+	ctxErr              error
+	despues             func()
+}
+
+func (r *registroIntentosFichaPropiaPrueba) VerificarRegistroFichaPropia(context.Context) error {
+	return r.preflightError
+}
+func (r *registroIntentosFichaPropiaPrueba) RegistrarIntentoFichaPropia(ctx context.Context, in ports.IntentoFichaPropia) error {
+	r.intentos = append(r.intentos, in)
+	r.ctxErr = ctx.Err()
+	if r.despues != nil {
+		r.despues()
+	}
+	return r.err
+}
+func TestFichaPropiaAuditaFallosYFallaCerradaSiNoHayAcuse(t *testing.T) {
+	for _, caso := range []struct {
+		nombre        string
+		errorConsulta error
+		motivo        string
+		errorRegistro error
+		esperado      error
+	}{
+		{"denegado", domain.ErrFichaPropiaDenegada, "denegado", nil, domain.ErrFichaPropiaDenegada},
+		{"limite", domain.ErrFichaPropiaExcedeLimite, "no_disponible", nil, domain.ErrFichaPropiaExcedeLimite},
+		{"caido", errors.New("detalle privado"), "no_disponible", nil, domain.ErrFichaPropiaNoDisponible},
+		{"sin acuse", domain.ErrFichaPropiaDenegada, "denegado", errors.New("auditoria privada"), domain.ErrFichaPropiaNoDisponible},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			registro := &registroIntentosFichaPropiaPrueba{err: caso.errorRegistro}
+			repo := &repositorioFichaPropiaPrueba{err: caso.errorConsulta}
+			servicio, _ := NuevoServicioFichaPropia(&autorizadorFichaPropiaPrueba{accion: domain.AccionFichaPropia, t: t}, repo, registro)
+			r, err := servicio.Consultar(context.Background(), solicitudFichaPropiaPrueba(t, "pep_"))
+			if !errors.Is(err, caso.esperado) || r.Evidencia.ReciboRef != "" || r.Ficha.Relaciones != nil || len(registro.intentos) != 1 || registro.intentos[0].Motivo != caso.motivo || repo.llamadas != 1 {
+				t.Fatal("fallo no auditado o datos expuestos", err)
+			}
+		})
+	}
+}
+func TestFichaPropiaCanceladaConservaIntentoYNoAbreConsulta(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	registro := &registroIntentosFichaPropiaPrueba{}
+	repo := &repositorioFichaPropiaPrueba{}
+	a := &autorizadorFichaPropiaPrueba{}
+	s, _ := NuevoServicioFichaPropia(a, repo, registro)
+	_, err := s.Consultar(ctx, solicitudFichaPropiaPrueba(t, "pep_"))
+	if !errors.Is(err, context.Canceled) || len(registro.intentos) != 1 || registro.ctxErr != nil || repo.llamadas != 0 || a.llamadas != 0 {
+		t.Fatal("cancelación borró intento o abrió consulta", err)
+	}
+}
+func TestFichaPropiaPreflightImpideLecturaYExigeRegistro(t *testing.T) {
+	a := &autorizadorFichaPropiaPrueba{}
+	repo := &repositorioFichaPropiaPrueba{}
+	if _, err := NuevoServicioFichaPropia(a, repo, nil); !errors.Is(err, domain.ErrFichaPropiaNoDisponible) {
+		t.Fatal("auditoría opcional", err)
+	}
+	registro := &registroIntentosFichaPropiaPrueba{preflightError: errors.New("ACL privada")}
+	s, _ := NuevoServicioFichaPropia(a, repo, registro)
+	_, err := s.Consultar(context.Background(), solicitudFichaPropiaPrueba(t, "pep_"))
+	if !errors.Is(err, domain.ErrFichaPropiaNoDisponible) || len(registro.intentos) != 1 || a.llamadas != 0 || repo.llamadas != 0 {
+		t.Fatal("preflight no impide leer", err)
 	}
 }

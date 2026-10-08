@@ -1,0 +1,29 @@
+{
+  "general": {
+    "demo_titulo": "VEC · Signature recovery preview",
+    "demo_aviso": "Example screen. The information shown does not refer to a real signature.",
+    "titulo": "Recorded signatures",
+    "descripcion": "View this document's historical signature record.",
+    "limite": "This view does not check the certificate's current validity or establish legal effect on its own.",
+    "consultar": "View signatures",
+    "cancelar": "Cancel request",
+    "cargando": "Loading the signature record…",
+    "vacio": "No signatures are recorded for this request.",
+    "cancelada": "Request cancelled. Previously displayed data has been cleared.",
+    "denegada": "You cannot view these signatures. Sign in again or ask for your access to be reviewed.",
+    "no_disponible": "The record could not be loaded. Refresh the case and try again later.",
+    "no_confiable": "The response could not be verified. No data is shown.",
+    "firma": "Signature {numero}",
+    "firmado": "Recorded as signed",
+    "devuelto": "Returned",
+    "recibo": "Receipt",
+    "fecha": "Recorded on",
+    "paso": "Step",
+    "detalle_tecnico": "View check details",
+    "firma_ref": "Signature reference",
+    "revision_sha256": "Revision check code",
+    "material_root_sha256": "Original document check code",
+    "canon_nominal_sha256": "Previous accreditation check code",
+    "canon_nominal_ref": "Historical evidence reference"
+  }
+}

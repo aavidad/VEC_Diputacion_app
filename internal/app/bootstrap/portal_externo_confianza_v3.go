@@ -11,6 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
+
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 // LOGIN nominal y grupo del preflight externo (AD3-112). Las funciones SQL
@@ -32,7 +35,8 @@ func abrirPoolPreflightV3PortalExterno(ctx context.Context, dsn string) (*pgxpoo
 		validarTLSPostgreSQLBorradores(&c.ConnConfig.Config, true) != nil {
 		return nil, ErrMaterialV3PortalExternoInvalido
 	}
-	c.MaxConns, c.MinConns = 2, 0
+	postgresqlcompartido.FijarTamanoPool(c, dsn, 4)
+	c.MinConns = 0
 	c.ConnConfig.ConnectTimeout = 5 * time.Second
 	if c.ConnConfig.RuntimeParams == nil {
 		c.ConnConfig.RuntimeParams = map[string]string{}
@@ -44,7 +48,8 @@ func abrirPoolPreflightV3PortalExterno(ctx context.Context, dsn string) (*pgxpoo
 	} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
-	pool, err := pgxpool.NewWithConfig(ctx, c)
+	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, c)
 	if err != nil {
 		return nil, ErrMaterialV3PortalExternoInvalido
 	}

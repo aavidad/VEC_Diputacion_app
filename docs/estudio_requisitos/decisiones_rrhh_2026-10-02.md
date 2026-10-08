@@ -4,8 +4,8 @@ RRHH respondió por escrito las preguntas 1–15 de `dudas.md`. Este documento r
 
 ## Ofertas y llamamientos (preguntas 1, 2, 3 y 14)
 
-- **Publicación.** Se envía por correo un extracto del puesto: descripción, duración estimada y requisitos específicos. El Reglamento prevé además el portal web de la Diputación; RRHH quiere hablar si se publica también allí. Queda abierto en la pregunta 123.
-- **Plazo.** Dos días desde la notificación. Si también se publica en la web, contará desde la publicación, que deberá ser simultánea.
+- **Publicación.** Se envía por correo un extracto del puesto: descripción, duración estimada y requisitos específicos. El Reglamento prevé además el portal web de la Diputación. Dirección decidió el 2 de octubre que las ofertas se envíen solo por correo y no se publiquen en la web; así se cierra la pregunta 123. El canal queda configurable por si cambia la decisión.
+- **Plazo.** Dos días desde la notificación por correo.
 - **Respuesta.** El aspirante solo pulsa «Aceptar». No tiene que renunciar, y si no contesta se entiende que no acepta, sin ninguna consecuencia. No se admiten respuestas fuera de plazo.
 - **Adjudicación.** Se adjudica a quien tenga mejor posición en la bolsa entre los que aceptaron en plazo y estén disponibles (art. 9). El resto queda disponible para el siguiente llamamiento.
 - **Sin aceptación.** Si nadie acepta o ninguno está disponible, se hace un **llamamiento directo**. En esa llamada, el aspirante acepta, presenta una renuncia justificada o queda excluido de la bolsa. Con un justificante válido vuelve a estar disponible. Los justificantes los valida el Servicio de RRHH.

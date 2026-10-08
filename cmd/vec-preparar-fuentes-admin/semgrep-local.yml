@@ -1,0 +1,33 @@
+rules:
+  - id: fuentes-admin-no-ejecucion-shell
+    languages: [go]
+    severity: ERROR
+    message: La preparación offline no ejecuta órdenes del sistema.
+    pattern-either:
+      - pattern: exec.Command(...)
+      - pattern: exec.CommandContext(...)
+  - id: fuentes-admin-no-cripto-obsoleta
+    languages: [go]
+    severity: ERROR
+    message: Las huellas usan SHA256, sin MD5 ni SHA1.
+    pattern-either:
+      - pattern: md5.Sum(...)
+      - pattern: sha1.Sum(...)
+  - id: fuentes-admin-lectura-acotada
+    languages: [go]
+    severity: ERROR
+    message: La lectura de archivos debe estar acotada.
+    patterns:
+      - pattern: io.ReadAll($READER)
+      - pattern-not: io.ReadAll(io.LimitReader(...))
+    paths:
+      exclude: ['*_test.go']
+  - id: fuentes-admin-no-red
+    languages: [go]
+    severity: ERROR
+    message: La preparación no abre conexiones ni peticiones HTTP.
+    pattern-either:
+      - pattern: http.Get(...)
+      - pattern: http.Post(...)
+      - pattern: net.Dial(...)
+      - pattern: pgx.Connect(...)

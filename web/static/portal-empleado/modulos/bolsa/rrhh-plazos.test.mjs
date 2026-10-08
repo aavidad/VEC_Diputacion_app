@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { crearClientePoliticaOfertas, ESQUEMA_POLITICA_OFERTAS, RUTA_POLITICA_OFERTAS,
   RUTA_CAPACIDAD_POLITICA_OFERTAS,
-  validarPoliticaEditable, validarPoliticaRecibida, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas } from "./rrhh-plazos-api.js";
+  validarPoliticaEditable, validarPoliticaRecibida, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, crearLectorReglasCompartido } from "./rrhh-plazos-api.js";
 import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
-import { crearSuperficieRRHHPlazos as crearSuperficieRRHHPlazosReal, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieRRHHPlazos as crearSuperficieRRHHPlazosReal, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1";
+import { cargarEjemploPlazas as cargarEjemploPlazasSuperficie,
+  cargarConfirmacionAdjudicacion as cargarConfirmacionSuperficie } from "./rrhh-plazos-api.js?v=20261007-pantallas-textos-final-v1";
 
 const crearSuperficieRRHHPlazos = (opciones) => crearSuperficieRRHHPlazosReal({ cargarConfirmacion: async () => null, ...opciones });
 
@@ -429,4 +431,57 @@ test("guardar una versión nueva adopta la aceptación previa del catálogo sin 
   assert.equal(enviado.politica.adjudicacion.confirmacion, "aceptacion_previa");
   assert.equal(enviado.version_esperada, 1);
   assert.equal(antigua.politica.adjudicacion.confirmacion, undefined);
+});
+
+test("el lector compartido hace una sola lectura para peticiones simultáneas y vuelve a leer después", async () => {
+  let lecturas = 0;
+  let soltar;
+  const lector = crearLectorReglasCompartido(async () => ({ reglas: () => { lecturas++; return new Promise((r) => { soltar = r; }); } }));
+  const tres = [lector(), lector(), lector()];
+  await turno();
+  soltar({ catalogos: [] });
+  const resultados = await Promise.all(tres);
+  assert.equal(lecturas, 1);
+  assert.ok(resultados.every((r) => r === resultados[0]));
+  const otra = lector(); await turno(); soltar({ catalogos: [] }); await otra;
+  assert.equal(lecturas, 2, "terminada la lectura, la siguiente pide lo vigente");
+});
+
+test("abrir el llamamiento pide las reglas vigentes una sola vez", async () => {
+  const original = globalThis.fetch;
+  let lecturas = 0;
+  let avisarLecturasTerminadas;
+  const lecturasTerminadas = new Promise((resolver) => { avisarLecturasTerminadas = resolver; });
+  let consumidoresTerminados = 0;
+  const esperarConsumidor = (cargar) => async () => {
+    try { return await cargar(); }
+    finally { if (++consumidoresTerminados === 3) avisarLecturasTerminadas(); }
+  };
+  globalThis.fetch = async (ruta, opciones) => {
+    if (ruta !== "/api/vec/reglas/vigentes") return original(ruta, opciones);
+    lecturas++;
+    await turno();
+    const cuerpo = JSON.stringify({ data: { esquema: "vec.reglas.vigentes.v1", catalogos: [] } });
+    return { ok: true, status: 200, text: async () => cuerpo };
+  };
+  try {
+    const cliente = { consultar: async () => ({ ok: true, politica: vacia("bolsa:1").data }),
+      consultarCapacidad: async () => ({ ok: true, puede_publicar: false }) };
+    const superficie = crearSuperficieRRHHPlazosReal({ cliente, traducir: crearTraductorRRHHPlazos(),
+      cargarEjemplo: esperarConsumidor(cargarEjemploPlazasSuperficie),
+      cargarPlazo: esperarConsumidor(cargarPlazoCatalogo),
+      cargarConfirmacion: esperarConsumidor(cargarConfirmacionSuperficie) });
+    superficie.activar("bolsa:1");
+    let limite;
+    try {
+      await Promise.race([lecturasTerminadas, new Promise((_resolver, rechazar) => {
+        limite = setTimeout(() => rechazar(new Error("no terminaron las lecturas de reglas")), 2_000);
+      })]);
+    } finally {
+      clearTimeout(limite);
+    }
+    assert.equal(lecturas, 1);
+  } finally {
+    globalThis.fetch = original;
+  }
 });

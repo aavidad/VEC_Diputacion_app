@@ -16,13 +16,17 @@ import (
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/catalogoalta"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/numeracion"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
+	ctrpt "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/rptpublica"
 	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personalrpt "vec-diputacion-granada/internal/modules/personal/adapters/rptpublica"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	docxvec "vec-diputacion-granada/internal/vec/adapters/documentos/docx"
 	pdfvec "vec-diputacion-granada/internal/vec/adapters/documentos/pdf"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
@@ -76,6 +80,9 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalExportacionServicios             *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalHistoriaServicios                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalHistoriaRelaciones               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	gobiernoUsuariosPreferencias                     *pgxpool.Pool
 	materialUsuariosPreferenciasConsultaInterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -336,7 +343,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		sonda, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+		sonda, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 		defer cancelar()
 		fuenteAutorizacionPlantillas, err = abrirPoolAutorizacionRRHHDesarrollo(
 			sonda, dsnFuente, config.RolAutorizacionFuenteRRHH, "vec-ct-plantillas-fuente")
@@ -353,7 +360,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	catalogoDesarrollo, err := nuevoCatalogoDesarrollo(cfg.PersonalOrganizacionSourcePath, cfg.RPTCatalogoPath)
+	catalogoDesarrollo, err := nuevoCatalogoDesarrollo(cfg.PersonalOrganizacionSourcePath, cfg.RPTCatalogoPath, cfg.CTNecesidadesAltaSourcePath)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -378,13 +385,44 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	alta.soporte.reglasPlazo = reglasPlazoLlamamientoDesarrollo{resolutor: reglasLlamamiento}
 	cerrarAlta := true
 	defer func() {
 		if cerrarAlta {
 			alta.cerrar()
 		}
 	}()
+	// El alta de necesidad queda cerrada hasta declarar una publicación propia
+	// y disponer del confirmador CT193 y de la lectura pública exacta de RPT.
+	// La relectura de la instantánea usa la conexión del ejecutor: es el único
+	// rol al que CT193 concede leer_instantanea_necesidad_alta_v3.
+	if cfg.CTNecesidadesAltaSourcePath != "" {
+		recuperador, err := postgresct.NuevoRecuperadorNecesidadAltaPostgreSQL(alta.postgresql.ejecucion)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		fuenteNecesidades, err := catalogoalta.NuevaFuente(cfg.CTNecesidadesAltaSourcePath, recuperador)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		fuenteRPT, err := personalrpt.NuevaFuente(cfg.RPTCatalogoPath)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if _, err := fuenteRPT.ObtenerRPTPublica(context.Background()); err != nil {
+			return nil, nil, nil, err
+		}
+		verificadorRPT, err := ctrpt.NuevoVerificadorAlta(fuenteRPT)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if err := alta.servicio.ConfigurarFuenteNecesidadesAlta(fuenteNecesidades); err != nil {
+			return nil, nil, nil, err
+		}
+		if err := alta.servicio.ConfigurarVerificadorPuestoRPTAlta(verificadorRPT); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	alta.soporte.reglasPlazo = reglasPlazoLlamamientoDesarrollo{resolutor: reglasLlamamiento}
 	montajePreparacionBases, existePreparacionBases, err := NuevoMontajePreparacionBasesV3(cfg, alta.soporte, reloj)
 	if err != nil || existePreparacionBases != preparacionBasesActiva || preparacionBasesActiva && montajePreparacionBases.configuracion != configuracionPreparacionBases {
 		return nil, nil, nil, errMontajePreparacionBasesV3
@@ -402,6 +440,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if err != nil {
 			return nil, nil, nil, err
 		}
+	}
+	firmasR5V2, err := nuevasRutasFirmasR5V2CTDesarrollo(cfg, &alta, derivador, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if firmasR5V2 != nil {
+		alta.postgresql.cerrarFirmasR5V2 = firmasR5V2.cerrar
 	}
 	for _, descriptor := range descriptoresMaterialIncorporacionB2() {
 		_, seleccionada := alta.postgresql.catalogoMaterial.descriptorPara(descriptor.Audiencia)
@@ -432,7 +477,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	dependencias.retribucionesCT = reglasAnalisis.retribuciones
 	catalogoDesarrollo.componerOpcionesAnalisis(reglasAnalisis.opciones)
 	if alta.postgresql.ejecucion != nil {
-		ctxMigracion, cancelarMigracion := context.WithTimeout(context.Background(), 5*time.Second)
+		ctxMigracion, cancelarMigracion := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 		err = comprobarMigracionUrgenciaAnalisis(ctxMigracion, alta.postgresql.ejecucion)
 		cancelarMigracion()
 		if err != nil {
@@ -551,6 +596,21 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var consultaComunicacionesReal http.Handler
 	var eventoPlazoReal http.Handler
 	if alta.postgresql.bolsa != nil {
+		if alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.ejecucion == nil {
+			return nil, nil, nil, ports.ErrConsultaRRHHNoDisponible
+		}
+		ctxIntentos, cancelarIntentos := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
+		reservadosIntentos := []string{
+			alta.postgresql.gobierno.Config().ConnConfig.User,
+			alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
+			alta.postgresql.bolsa.Config().ConnConfig.User,
+		}
+		alta.auditoriaLecturasCT, alta.procesoAuditoriaLecturasCT, alta.cerrarAuditoriaLecturasCT, err =
+			AbrirRegistradorIntentosAuditoriaDesarrollo(ctxIntentos, cfg, alta.postgresql.ejecucion, reservadosIntentos)
+		cancelarIntentos()
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj, origen.etiquetasReferenciasCatalogosAlta())
 		if err != nil {
 			return nil, nil, nil, err
@@ -754,7 +814,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}()
 	if firmaDocumento != nil {
-		ctxFirma, cancelarFirma := context.WithTimeout(context.Background(), 15*time.Second)
+		ctxFirma, cancelarFirma := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 		err := prepararCuentaNominalFirmasIntervencionDesarrollo(ctxFirma, alta.postgresql.gobierno, fiscalizacionReal.soporte, derivador)
 		if err == nil {
 			err = firmaDocumento.configurarLecturaIntervencion(ctxFirma, fiscalizacionReal.soporte,
@@ -826,6 +886,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
 			PresentacionFlujoRRHH:           presentacionFlujoRRHH,
+			DescargaBorradorRRHH:            consultasRRHH.descargas,
 			IncorporacionV2:                 incorporacionV2,
 			AutoridadAlta:                   alta.soporte,
 			EjecutorAlta:                    alta.servicio,
@@ -869,6 +930,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			soporte: alta.soporte, reloj: reloj,
 		}
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaConsultaCircuitoRRHH, Manejador: consultaCircuitoRRHH})
+	}
+	if firmasR5V2 != nil {
+		rutas = append(rutas, firmasR5V2.rutas...)
 	}
 	if len(incorporacion) == 1 && incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil {
 		rutasB2, err := incorporacion[0].nominales.montajeB2.rutas(alta.soporte, catalogoFronteras)
@@ -918,7 +982,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaResolucionFormalizacion, Manejador: h})
 	}
 	rutas = append(rutas, rutasOrganizacion...)
-	rutasSeguimientoCese, err := nuevasRutasSeguimientoCeseDesarrollo(dependencias, &alta)
+	rutasSeguimientoCese, err := nuevasRutasSeguimientoCeseDesarrollo(dependencias, &alta, finCesePersonalB2(incorporacion, alta.soporte, catalogoFronteras))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -1019,7 +1083,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			cerrarPreparacionBases()
 		}
 	}()
-	sondaBaremo, cancelarBaremo := context.WithTimeout(context.Background(), 60*time.Second)
+	sondaBaremo, cancelarBaremo := context.WithTimeout(context.Background(), plazoarranque.Ampliar(60*time.Second))
 	rutasBaremo, cerrarBaremo, errBaremo := montajeBaremo.rutas(sondaBaremo, cfg, &alta,
 		consultasRRHH.identidad, seguridadBorrador, derivador, reloj)
 	cancelarBaremo()
@@ -1037,7 +1101,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if consultasRRHH.identidad == nil || alta.postgresql.proveedorMaterialPlantillasCatalogo == nil {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
 		}
-		sondaPlantillas, cancelarPlantillas := context.WithTimeout(context.Background(), 60*time.Second)
+		sondaPlantillas, cancelarPlantillas := context.WithTimeout(context.Background(), plazoarranque.Ampliar(60*time.Second))
 		defer cancelarPlantillas()
 		rutasPlantillas, err := nuevasRutasPlantillasCTDesarrollo(
 			sondaPlantillas, cfg, &alta, soportePlantillas, consultasRRHH.identidad,
@@ -1052,7 +1116,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if consultasRRHH.identidad == nil || alta.postgresql.proveedorMaterialPlantillasDocumental == nil {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
 		}
-		sondaDocumental, cancelarDocumental := context.WithTimeout(context.Background(), 60*time.Second)
+		sondaDocumental, cancelarDocumental := context.WithTimeout(context.Background(), plazoarranque.Ampliar(60*time.Second))
 		defer cancelarDocumental()
 		rutasDocumentales, err := nuevasRutasPlantillasDocumentalCTDesarrollo(
 			sondaDocumental, cfg, &alta, soporteDocumental, consultasRRHH.identidad,
@@ -1096,6 +1160,21 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 				return nil, nil, nil, errMiBolsaNoDisponible
 			}
 			portal = reglasPortalCandidatoDesarrollo{resolutor: reglasBolsa}
+		}
+		if alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.ejecucion == nil || alta.postgresql.bolsa == nil {
+			return nil, nil, nil, errMiBolsaNoDisponible
+		}
+		ctxIntentosBolsa, cancelarIntentosBolsa := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
+		reservadosIntentosBolsa := []string{
+			alta.postgresql.gobierno.Config().ConnConfig.User,
+			alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
+			alta.postgresql.ejecucion.Config().ConnConfig.User,
+		}
+		alta.postgresql.auditoriaLecturasBolsa, alta.postgresql.procesoAuditoriaLecturasBolsa, alta.postgresql.cerrarAuditoriaLecturasBolsa, err =
+			AbrirRegistradorIntentosAuditoriaExternaDesarrollo(ctxIntentosBolsa, cfg, alta.postgresql.bolsa, reservadosIntentosBolsa)
+		cancelarIntentosBolsa()
+		if err != nil {
+			return nil, nil, nil, err
 		}
 		rutasMiBolsa, err := nuevaRutaMiBolsaDesarrollo(
 			context.Background(), resolvedorDesarrollo.candidatoBolsa, sello, &alta,
@@ -1148,6 +1227,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialCronos:                                   alta.postgresql.materialCronos,
 		materialDocumentos:                               alta.postgresql.materialDocumentos,
 		materialPersonalFichaPropia:                      alta.postgresql.materialPersonalFichaPropia,
+		materialPersonalExportacionServicios:             alta.postgresql.materialPersonalExportacionServicios,
+		materialPersonalHistoriaServicios:                alta.postgresql.materialPersonalHistoriaServicios,
+		materialPersonalHistoriaRelaciones:               alta.postgresql.materialPersonalHistoriaRelaciones,
 		gobiernoUsuariosPreferencias:                     alta.postgresql.gobierno,
 		materialUsuariosPreferenciasConsultaInterna:      alta.postgresql.materialUsuariosPreferenciasConsultaInterna,
 		materialUsuariosPreferenciasActualizacionInterna: alta.postgresql.materialUsuariosPreferenciasActualizacionInterna,
@@ -1249,7 +1331,7 @@ func nuevasRutasAuditoriaConsultaDesarrollo(
 	if err != nil {
 		return fallo(nil)
 	}
-	sonda, cancelar := context.WithTimeout(ctx, 60*time.Second)
+	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(60*time.Second))
 	defer cancelar()
 	poolCT, err := abrirPoolConsultaAuditoriaCTDesarrollo(sonda, dsnCT)
 	if err != nil {
@@ -1266,15 +1348,7 @@ func nuevasRutasAuditoriaConsultaDesarrollo(
 		poolCT.Close()
 		return fallo(nil)
 	}
-	registradorIntentos, configuracionIntentos, cerrarIntentos, err := nuevoRegistradorIntentosConsulta(sonda, cfg, poolCT,
-		poolFuente, poolMotivos, alta.postgresql.gobierno, alta.postgresql.registroAutorizacion, alta.postgresql.bolsa)
-	if err != nil {
-		poolMotivos.Close()
-		poolFuente.Close()
-		poolCT.Close()
-		return fallo(nil)
-	}
-	cerrar := func() { cerrarIntentos(); poolMotivos.Close(); poolFuente.Close(); poolCT.Close() }
+	cerrar := func() { poolMotivos.Close(); poolFuente.Close(); poolCT.Close() }
 	if preflightAuditoriaConsultaDesarrollo(sonda, poolFuente, poolMotivos, alta.postgresql.bolsa) != nil {
 		return fallo(cerrar)
 	}
@@ -1338,8 +1412,6 @@ func nuevasRutasAuditoriaConsultaDesarrollo(
 	if err != nil {
 		return fallo(cerrar)
 	}
-	configuracionIntentos.RecursoCTRef, configuracionIntentos.RecursoBolsaRef = ctRef, bolsaRef
-	configuracionIntentos.FinalidadRef, configuracionIntentos.Motivo = opciones.FinalidadRef, opciones.Motivo
 	rutas, err := nuevasRutasAuditoriaConsultaConIdentidadesRRHH(dependenciasIdentidadAuditoriaConsultaRRHH{
 		PoolCT: poolCT, PoolBolsa: alta.postgresql.bolsa,
 		EmisorCT: emisorCT, EmisorBolsa: emisorBolsa,
@@ -1347,7 +1419,11 @@ func nuevasRutasAuditoriaConsultaDesarrollo(
 		IdentidadCT:       identidadSesionAuditoriaConsultaDesarrollo{identidadCT, auditoria.FuenteConsultaCT, auditoria.RutaConsulta, http.MethodPost},
 		IdentidadBolsa:    identidadSesionAuditoriaConsultaDesarrollo{identidadBolsa, auditoria.FuenteConsultaBolsa, auditoria.RutaConsulta, http.MethodPost},
 		Opciones:          proveedorOpciones,
-		Intentos:          registradorIntentos, ConfiguracionIntentos: configuracionIntentos,
+		Intentos: auditoria.ConfiguracionIntentos{
+			Registrador: alta.auditoriaLecturasCT, Proceso: alta.procesoAuditoriaLecturasCT,
+			Canal:     string(vecdomain.SuperficieAutenticacionInternaCorporativaV1),
+			Finalidad: opciones.FinalidadRef, Motivo: opciones.Motivo,
+		},
 	})
 	if err != nil {
 		return fallo(cerrar)

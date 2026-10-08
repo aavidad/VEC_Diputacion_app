@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresidentidad "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -62,7 +63,7 @@ func prepararCuentaNominalConsultasDesarrolloConTransaccion(
 		return errorCuentaNominalDesarrollo(ctx)
 	}
 	defer func() {
-		limpieza, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		limpieza, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancelar()
 		_ = tx.Rollback(limpieza)
 	}()

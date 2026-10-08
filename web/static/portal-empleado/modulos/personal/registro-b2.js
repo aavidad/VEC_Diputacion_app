@@ -1,14 +1,14 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20261002-b-base-401-acumulada-v3";
-import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260929-i18n-personal-v1";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20261008-alta-rpt-circular-v4";
+import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20261008-alta-rpt-circular-v4";
 import { crearTraductorTraza } from "./personal-traza-i18n.js?v=20261001-personal-expediente-v2";
 import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=20261002-b-vacantes-401-retoma-v2";
 import { crearPanelRelacionParaRPT } from "./preparacion-relacion-rpt.js?v=20261002-b-base-401-acumulada-v3";
 import { renderizarPreparacionAntecedentesCarrera, validarPreparacionAntecedentesCarrera } from "./preparacion-antecedentes-carrera.js?v=20261002-b-base-401-acumulada-v3";
 
-import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js?v=20261002-b-base-401-acumulada-v3";
+import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js?v=20261004-personal-vacantes-filtro-v1";
 
 import { montarComparacionFichaB2 } from "./comparacion-ficha-b2.js?v=20261003-personal-comparacion-b2-v3";
 

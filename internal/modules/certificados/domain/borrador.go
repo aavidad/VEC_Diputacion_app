@@ -24,30 +24,65 @@ var (
 
 const MaxServicios = 200
 
+const (
+	EsquemaFuenteEnsayo           = "vec.certificados.fuente-servicios.ensayo.v1"
+	EsquemaFuentePersonalV1Ensayo = "vec.certificados.fuente-servicios.personal-v1.ensayo"
+	CertezaAcreditado             = "acreditado"
+	CoberturaCompleta             = "completa"
+)
+
+var (
+	certezas         = map[string]bool{CertezaAcreditado: true, "pendiente": true, "no_acreditado": true}
+	coberturas       = map[string]bool{CoberturaCompleta: true, "parcial": true, "no_acreditada": true}
+	referenciaFuente = regexp.MustCompile(`^[A-Za-z0-9:._-]{1,256}$`)
+)
+
 var referencia = regexp.MustCompile(`^ensayo:[a-z0-9][a-z0-9._-]{0,99}$`)
 
 type Corte struct {
 	VigenteEn  string `json:"vigente_en"`
 	ConocidoEn string `json:"conocido_en"`
 }
+
+// Servicio es un periodo de la fuente. En la muestra con forma del contrato
+// V1 de Personal, Fin vacío es un periodo abierto, Dias no llega (V1 no los
+// trae) y Certeza, ServicioRef, ActoRef y ClaseVersion conservan su procedencia.
 type Servicio struct {
-	Inicio string `json:"inicio"`
-	Fin    string `json:"fin"`
-	Clase  string `json:"clase"`
-	Dias   int64  `json:"dias"`
-	Estado string `json:"estado"`
+	Inicio       string `json:"inicio"`
+	Fin          string `json:"fin"`
+	Clase        string `json:"clase"`
+	ClaseVersion int64  `json:"clase_version,omitempty"`
+	// EnCursoAlCorte: el fin previsto es posterior a la fecha de referencia;
+	// Fin se recorta a esa fecha y el borrador lo dice.
+	EnCursoAlCorte bool   `json:"en_curso_al_corte,omitempty"`
+	Dias           *int64 `json:"dias,omitempty"`
+	Estado         string `json:"estado"`
+	Certeza        string `json:"certeza,omitempty"`
+	ServicioRef    string `json:"servicio_ref,omitempty"`
+	ActoRef        string `json:"acto_ref,omitempty"`
+}
+
+// SustentaCertificacion: solo un servicio reconocido y con procedencia
+// acreditada puede sustentar un certificado (contrato V1 de Personal).
+func (s Servicio) SustentaCertificacion() bool {
+	return s.Estado == "reconocido" && s.Certeza == CertezaAcreditado
 }
 
 // FuenteServicios is a snapshot supplied by its owner. The present consumer
 // accepts only explicit rehearsal sources; it grants no permission for real data.
 type FuenteServicios struct {
-	Esquema        string     `json:"esquema"`
-	Sintetica      bool       `json:"sintetica"`
-	ProcedenciaRef string     `json:"procedencia_ref"`
-	Nombre         string     `json:"nombre"`
-	Corte          Corte      `json:"corte"`
-	Servicios      []Servicio `json:"servicios"`
+	Esquema        string `json:"esquema"`
+	Sintetica      bool   `json:"sintetica"`
+	ProcedenciaRef string `json:"procedencia_ref"`
+	Nombre         string `json:"nombre"`
+	Corte          Corte  `json:"corte"`
+	// Cobertura solo llega con la forma V1: completa, parcial o no_acreditada.
+	Cobertura string     `json:"cobertura,omitempty"`
+	Servicios []Servicio `json:"servicios"`
 }
+
+// ConFormaPersonalV1 indica si la fuente procede del traductor del contrato V1.
+func (f FuenteServicios) ConFormaPersonalV1() bool { return f.Esquema == EsquemaFuentePersonalV1Ensayo }
 
 func IdiomaValido(s string) bool {
 	return regexp.MustCompile(`^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$`).MatchString(s)
@@ -69,7 +104,8 @@ func TextoValido(s string, max int) bool {
 	return true
 }
 func (f FuenteServicios) ValidarEnsayo() error {
-	if f.Esquema != "vec.certificados.fuente-servicios.ensayo.v1" || !f.Sintetica ||
+	v1 := f.ConFormaPersonalV1()
+	if (f.Esquema != EsquemaFuenteEnsayo && !v1) || !f.Sintetica || v1 != coberturas[f.Cobertura] || (!v1 && f.Cobertura != "") ||
 		!referencia.MatchString(f.ProcedenciaRef) || !TextoValido(f.Nombre, 120) ||
 		!FechaValida(f.Corte.VigenteEn) || f.Servicios == nil || len(f.Servicios) > MaxServicios {
 		return ErrEntrada
@@ -79,9 +115,21 @@ func (f FuenteServicios) ValidarEnsayo() error {
 		return ErrEntrada
 	}
 	for _, s := range f.Servicios {
-		if !FechaValida(s.Inicio) || !FechaValida(s.Fin) || s.Fin < s.Inicio || s.Fin > f.Corte.VigenteEn ||
-			!TextoValido(s.Clase, 120) || s.Dias < 0 || s.Dias > 200000 ||
+		abierto := v1 && s.Fin == ""
+		if !FechaValida(s.Inicio) || (!abierto && (!FechaValida(s.Fin) || s.Fin < s.Inicio || s.Fin > f.Corte.VigenteEn)) ||
+			s.Inicio > f.Corte.VigenteEn || !TextoValido(s.Clase, 120) ||
 			(s.Estado != "declarado" && s.Estado != "comprobado" && s.Estado != "reconocido") {
+			return ErrEntrada
+		}
+		if s.EnCursoAlCorte && (!v1 || s.Fin != f.Corte.VigenteEn) {
+			return ErrEntrada
+		}
+		if v1 {
+			// V1 no trae días: no se inventan ni se calculan.
+			if s.Dias != nil || !certezas[s.Certeza] || s.ClaseVersion < 1 || !referenciaFuente.MatchString(s.ServicioRef) || !referenciaFuente.MatchString(s.ActoRef) {
+				return ErrEntrada
+			}
+		} else if s.Dias == nil || *s.Dias < 0 || *s.Dias > 200000 || s.Certeza != "" || s.ClaseVersion != 0 || s.ServicioRef != "" || s.ActoRef != "" {
 			return ErrEntrada
 		}
 	}
@@ -126,7 +174,9 @@ type Textos struct {
 var claves = []string{"titulo", "limite", "persona", "corte", "fuente", "plantilla", "criterio",
 	"declarado", "comprobado", "reconocido", "servicio", "vacio", "revision", "sin_servicios",
 	"cli_indice_idiomas", "cli_uso", "cli_fuente", "cli_plantilla", "cli_version", "cli_idioma", "cli_textos", "cli_salida", "cli_ensayo", "cli_ok",
-	"error_argumentos", "error_entrada", "error_catalogo", "error_salida", "error_no_disponible"}
+	"error_argumentos", "error_entrada", "error_catalogo", "error_salida", "error_no_disponible",
+	"servicio_v1", "servicio_v1_abierto", "servicio_v1_al_corte", "criterio_v1", "certeza_acreditado", "certeza_pendiente", "certeza_no_acreditado",
+	"sustenta_si", "sustenta_no", "cobertura_completa", "cobertura_parcial", "cobertura_no_acreditada"}
 
 func (t Textos) Validar() error {
 	if t.Esquema != "vec.certificados.textos.v1" || !IdiomaValido(t.Idioma) || len(t.Mensajes) != len(claves) || !TextoValido(t.FormatoFecha, 80) || !TextoValido(t.FormatoInstante, 80) {

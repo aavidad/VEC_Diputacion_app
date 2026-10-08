@@ -1,0 +1,24 @@
+{
+  "esquema": "cronos-saldo-csv-v1",
+  "referencia": "cronos-informe-saldo-csv-es",
+  "version": "1",
+  "idioma": "es-ES",
+  "formato_fecha": "02/01/2006",
+  "cabeceras": {
+    "persona_ejemplo": "Persona del ejemplo",
+    "desde": "Desde",
+    "hasta": "Hasta",
+    "previstos_minutos": "Tiempo previsto (minutos)",
+    "trabajados_minutos": "Tiempo trabajado (minutos)",
+    "saldo_minutos": "Saldo (minutos)",
+    "estado": "Estado del saldo",
+    "aviso": "Aviso"
+  },
+  "estados": {
+    "disponible": "Disponible",
+    "no_disponible": "No disponible",
+    "incompleto": "Incompleto"
+  },
+  "desconocido": "No disponible",
+  "sintetico": "EJEMPLO SINTÉTICO. Sin validez administrativa. La descarga para personas empleadas sigue pendiente."
+}

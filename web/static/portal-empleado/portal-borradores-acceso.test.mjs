@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20261001-ct-a-i18n-v1";
-import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20261001-ct-a-i18n-v1";
+import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20261008-borradores-error-legible-v1";
+import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20261008-borradores-error-legible-v1";
 import { opciones } from "./portal-borradores-fixtures.test-helper.mjs";
 
 function diferida() {
@@ -98,6 +98,25 @@ test("un fallo técnico se diferencia de una denegación y puede reintentarse", 
   assert.equal(await control.comprobar({ forzar: true }), true);
   assert.equal(intentos, 2);
   assert.equal(control.obtenerAcceso().vista, "elaboracion");
+});
+
+test("un 404 de opciones es «no disponible»: sin reintento automático ni denegación", async () => {
+  let intentos = 0;
+  const { control } = crearControl(async () => {
+    intentos += 1;
+    throw new ErrorAPIBorradores("Sin ruta.", 404, undefined, { codigo: "respuesta_error_no_valida" });
+  });
+  assert.equal(await control.comprobar(), false);
+  assert.deepEqual(control.obtenerAcceso(), {
+    disponible: false,
+    vista: "",
+    estado: "no_disponible",
+    etiqueta: "Borradores de convocatorias no disponibles",
+  });
+  assert.equal(await control.comprobar(), false);
+  assert.equal(intentos, 1, "una sola lectura mientras no se fuerce");
+  assert.equal(await control.comprobar({ forzar: true }), false);
+  assert.equal(intentos, 2);
 });
 
 test("un 401 o 403 de otra operación invalida opciones y comprobaciones en curso", async () => {

@@ -1,5 +1,10 @@
 # Organización y RPT: inventario y trabajo siguiente
 
+La consulta publicada permite quitar la búsqueda aplicada y volver a la primera
+página, conservando la pestaña. El buscador mantiene el texto aún sin enviar y
+el foco durante la carga. Esta mejora no cambia la fuente de la RPT ni acredita
+ocupación, vacantes o vigencia administrativa.
+
 Fecha: 1 de octubre de 2026. Base contrastada: `origin/main@0a62a3ea68e58fbf890885a2f59cc80343107e18`.
 Este plan recoge código publicado y candidatas separadas; no declara ORG/RPT completos.
 El inventario se hizo sobre esa base. Main avanzó a `f49e01089` con CT159;
@@ -240,3 +245,122 @@ La ronda posterior aplica la decisión de Dirección de las 17:40: RPT-005/006
 pertenecen a M; B aporta relación/persona por puerto y conserva los archivos
 mixtos hasta acordar su transición. Se evita una segunda autoridad de ocupación.
 La tarea 5 se estima una sola vez en M. PLA-001/002 quedan para después.
+
+
+## Consulta de plazas: búsqueda en la página — 4 de octubre de 2026
+
+Inventario sobre `origin/main@7141dedb5`: la consulta B2 de vacantes está montada
+con autorización nominal y lectura PostgreSQL. Aporta plazas de plantilla sin
+ocupación registrada y conserva corte, versión estructural, acto y fuente.
+La hoja ya distingue ese resultado de la ocupación del puesto y de la necesidad
+cubrible, que siguen pendientes de sus fuentes y criterios.
+
+La hoja añade búsqueda por código literal de plaza, denominación de unidad o
+puesto, dentro de la página recibida. Indica coincidencias y total de esa página;
+permite limpiar la búsqueda y distingue filtro sin coincidencias de consulta
+sin registros. La búsqueda no cambia ámbito, corte, origen ni autorización y
+no consulta más páginas. Cada hoja nueva parte sin filtro; los estados de fallo
+no reutilizan la lista anterior. Los padres y sus versiones de caché los actualiza
+Dirección en su turno de integración.
+
+Esta mejora usa el consumidor existente. No añade descarga ni publica fuentes,
+ocupaciones o reservas. Para obtener puestos sin ocupante y necesidades cubribles
+faltan lecturas nominales propias, cobertura de ocupaciones/reservas, vínculos y
+criterios acreditados. El contrato `LectorRelacionParaRPTV1` sigue preparado:
+una concesión B2 no lo convierte en una lectura autorizada para otro consumidor.
+La política de acreditación de fuentes de Personal 000011 continúa pendiente de
+una autoridad admitida; el revisor local ya integrado no la sustituye.
+
+## Preparación reutilizable de fuente — 4 de octubre de 2026
+
+Inventario sobre `origin/main@66233cc3e`: Personal 000011 conserva los contratos,
+el servicio de preparación/conciliación/publicación y el repositorio PostgreSQL.
+`vec-revisar-organizacion` revisa el paquete en memoria; `vec-organizacion-semilla`
+genera la semilla del catálogo preparatorio de Contratación, sin publicar historia
+Personal. La política de acreditación de fuentes sigue siendo un puerto: este
+corte no aporta una autoridad institucional ni verifica la instalación SQL.
+La corrección de decisiones de clase ajena de [#585](https://github.com/aavidad/VEC_Diputacion_app/pull/585)
+ya está integrada en esta base y se conserva.
+
+Se amplía el [revisor existente](../../cmd/vec-revisar-organizacion/README.md)
+con `--preparar`: además del informe entrega el paquete válido en el orden de
+su huella, reutilizable por el mismo lector. El rechazo conserva el informe y
+omite el paquete. Se reutilizan reglas, límites y pendientes de publicación;
+no se fabrica actor ni se ejecuta otro importador.
+
+Este corte aporta preparación local a la tarea 4. Para publicar y montar la
+consulta histórica siguen pendientes la fuente admitida, diccionario, actos,
+custodia, catálogos y concesiones nominales, con aprobación separada y consumo
+transaccional de autorización/auditoría. No cierra las tareas de plantilla,
+ocupación, reserva o vacantes; la ausencia de una fuente mantiene incertidumbre.
+
+
+Comprobación local: pruebas normales y de carrera, y `go vet`, verdes en
+`cmd/vec-revisar-organizacion` y `personal/application`. El ejemplo se exportó
+con `--preparar`, se extrajo y se volvió a leer con el mismo comando: conservó
+la huella `900a156e5ea86103a52ff065a9b56d716553257f2f6c6fae02e2b62b525815b6`.
+Semgrep con cuatro reglas locales y gosec focal no comunicaron hallazgos.
+La revisión independiente y la integración corresponden a Dirección.
+
+## Corrección candidata del PDF público, 7 de octubre de 2026
+
+El importador local separa las continuaciones por su columna en el texto de
+`pdftotext -layout`. En el PDF público con SHA-256
+`67cfc02f025c2697d6a3dc6e7a22ad7fe23b4e7c941a7f343e95beda377edb4a`,
+conserva 842 filas, 1.714 dotaciones y las 842 claves publicadas. Completa 57
+denominaciones de puesto que habían quedado cortadas; entre ellas, los puestos
+422, 412 y 296 ya no trasladan sus continuaciones a la categoría. En el 217,
+«ESPECÍFICA» sí continúa la celda de categoría. Las alternativas numeradas
+del puesto 407 son «ENFERMERO/A» y «MÉDICO/A»; el grupo compuesto A1/A2 se
+conserva en el puesto sin asignar un subgrupo a cada alternativa. El 748 tiene
+tres alternativas numeradas de ingeniería.
+
+El candidato generado para comparación queda fuera de Git. Tiene 842 puestos,
+1.714 dotaciones, 41 centros y 131 categorías frente a las 145 del v1 publicado.
+La comparación conserva claves de puesto, dotación, centro, delegación, nivel,
+complemento, tipo y provisión. El generador exige `--out`, impide escribir sobre
+el v1 publicado y emite `vec.catalogo.rpt.candidato.v1` con estado
+`preparacion_no_autoritativa`; los lectores del esquema v1 no lo aceptan. El
+ensayo local usó este comando tras extraer la importación del PDF acreditado:
+
+```bash
+python3 scripts/generar_catalogo_rpt.py --in /var/tmp/codext-rpt-import-20261007.json --out /var/tmp/codext-rpt-candidato-20261007.json --generated-on 2026-09-17
+```
+
+Las denominaciones sin grupo acreditado quedan anotadas en
+`categorias_pendientes_grupo` y, con su origen, junto a cada puesto afectado.
+Son 11 puestos en el ensayo. Todas las referencias de categoría de los puestos
+apuntan a una categoría presente en el candidato; una celda de varias opciones
+conserva vacía la referencia singular aunque una alternativa esté resuelta.
+El catálogo candidato no debe alimentar altas hasta que se acuerde el contrato
+de publicación y se revisen esas diferencias.
+
+`data/catalogos/rpt/v1.rpt-2026.json` y su huella siguen intactos. El lector
+de altas de desarrollo ofrece todas sus categorías, incluidas las referencias
+que podrían estar en expedientes existentes; no reconoce una marca de baja.
+Una versión posterior necesita conservar v1 para consultas históricas y definir
+cómo excluir opciones erróneas de nuevas altas sin perder referencias. La
+denominación «BASE B SIN CATEGORÍA ESPECÍFICA» está literalmente en el PDF del
+puesto 217. Su tratamiento de gobierno sigue pendiente: no se elimina por
+deducción del importador.
+
+## Contratos de gobierno para la fuente común — 7 de octubre de 2026
+
+Se recuperan cinco archivos Go de `a9001c097`: dominio, puertos y aplicación
+de gobierno de categorías. El consumidor inmediato es la fuente nominal
+común que prepara V; no se importa el handler, PostgreSQL ni Cat4/AD134
+como parte de este corte. Las rutas y acciones de escritura siguen cerradas.
+
+La aplicación exige actor, vínculo y contexto iguales, garantía High y
+versión de rol esperada. La revisión corrigió dos defectos: los errores
+al aprobar y confirmar se normalizan igual que al proponer, y se comprueban
+contexto y tamaños antes de copiar el mapa o calcular la huella documental.
+Pruebas focales normales y de carrera, gopls y diff correctos; dos revisiones
+independientes favorables del código `0772604ff`.
+
+V conserva identidad, sesión, perfil fijo, instantánea y emisor comunes.
+T conserva el adaptador RPT, handler y composición. La separación efectiva
+editor–aprobador, CAS, recibo durable y auditoría transaccional necesitan
+la conciliación SQL posterior; estos tipos no los acreditan por sí solos.
+AUT25, CA21 e IS10 se preservan hasta su decisión, sin duplicar fuentes ni
+activar una garantía sintética como producción.

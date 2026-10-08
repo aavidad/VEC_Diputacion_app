@@ -9,6 +9,7 @@ import (
 var ErrCalculoComisionInvalido = errors.New("dietas: cálculo de comisión inválido")
 var decimalRuta = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.[0-9]{4}$`)
 var decimalTarifa = regexp.MustCompile(`^0\.[0-9]{4}$`)
+var referenciaNormativaProvisional = regexp.MustCompile(`^BOE-A-[0-9]{4}-[0-9]{1,6} / RD [0-9]{1,4}/[0-9]{4}$`)
 
 // CalculoComision es una instantánea orientativa calculada en el servidor.
 // Las tres opciones de dieta no eligen el grupo de la persona: esa autoridad
@@ -61,10 +62,19 @@ type OpcionDietaComision struct {
 }
 
 type TarifaComisionProvisional struct {
-	Dieta      TarifaNacionalProvisional
-	EURPorKM   string
-	Vehiculo   string
-	Referencia string
+	Dieta                 TarifaNacionalProvisional
+	EURPorKM              string
+	Vehiculo              string
+	Referencia            string
+	ReferenciaDietas      string
+	ReferenciaKilometraje string
+}
+
+// Las referencias identifican las fuentes del catálogo sintético existente;
+// su presencia no constituye aprobación de las cuantías ni liquidación.
+func (t TarifaComisionProvisional) ReferenciasNormativasValidas() bool {
+	return referenciaNormativaProvisional.MatchString(t.ReferenciaDietas) &&
+		referenciaNormativaProvisional.MatchString(t.ReferenciaKilometraje)
 }
 
 func (c CalculoComision) Validar(codigos []string) error {

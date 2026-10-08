@@ -8,20 +8,25 @@ import (
 	"os"
 	"time"
 
+	"vec-diputacion-granada/internal/vec/adapters/catalogoincidencias"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
 // ConfiguracionRecolector es local y explícita. La retención solo afecta al
 // directorio privado de incidencias técnicas; nunca recibe auditoría funcional.
 type ConfiguracionRecolector struct {
-	Directorio        string                                    `json:"directorio"`
-	MaxLineaBytes     int                                       `json:"max_linea_bytes"`
-	MaxArchivoBytes   int64                                     `json:"max_archivo_bytes"`
-	MaxArchivos       int                                       `json:"max_archivos"`
-	RetencionSegundos int64                                     `json:"retencion_segundos"`
-	VentanaSegundos   int64                                     `json:"ventana_alertas_segundos"`
-	Umbrales          map[domain.CodigoIncidenciaTecnica]uint64 `json:"umbrales_alerta"`
-	UmbralesResultado map[domain.CodigoResultadoTecnico]uint64  `json:"umbrales_resultado,omitempty"`
+	// CatalogoIncidencias selecciona un catálogo local; vacío usa el índice
+	// común de idiomas del binario. Catalogo permite inyección ya validada.
+	CatalogoIncidencias string                                    `json:"catalogo_incidencias,omitempty"`
+	Catalogo            *catalogoincidencias.Catalogo             `json:"-"`
+	Directorio          string                                    `json:"directorio"`
+	MaxLineaBytes       int                                       `json:"max_linea_bytes"`
+	MaxArchivoBytes     int64                                     `json:"max_archivo_bytes"`
+	MaxArchivos         int                                       `json:"max_archivos"`
+	RetencionSegundos   int64                                     `json:"retencion_segundos"`
+	VentanaSegundos     int64                                     `json:"ventana_alertas_segundos"`
+	Umbrales            map[domain.CodigoIncidenciaTecnica]uint64 `json:"umbrales_alerta"`
+	UmbralesResultado   map[domain.CodigoResultadoTecnico]uint64  `json:"umbrales_resultado,omitempty"`
 }
 
 // MetricasRecolector no contiene etiquetas ni entradas aportadas por personas.
@@ -47,6 +52,22 @@ func recolectarIncidencias(entrada io.Reader, alertas io.Writer, cfg Configuraci
 	metricas.PorCodigo = make(map[domain.CodigoIncidenciaTecnica]uint64)
 	metricas.PorResultado = make(map[domain.CodigoResultadoTecnico]uint64)
 	if entrada == nil || alertas == nil || reloj == nil || !configuracionRecolectorValida(cfg) {
+		return metricas, os.ErrInvalid
+	}
+	if cfg.Catalogo != nil && cfg.CatalogoIncidencias != "" {
+		return metricas, os.ErrInvalid
+	}
+	if cfg.Catalogo == nil {
+		if cfg.CatalogoIncidencias != "" {
+			cfg.Catalogo, err = catalogoincidencias.DesdeArchivo(cfg.CatalogoIncidencias)
+		} else {
+			cfg.Catalogo, err = catalogoincidencias.Predeterminado()
+		}
+		if err != nil {
+			return metricas, os.ErrInvalid
+		}
+	}
+	if !cfg.Catalogo.Valido() {
 		return metricas, os.ErrInvalid
 	}
 	almacen, err := abrirAlmacenRecolector(cfg, reloj)
@@ -80,7 +101,7 @@ func recolectarIncidencias(entrada io.Reader, alertas io.Writer, cfg Configuraci
 			if errorLinea == nil {
 				switch esquema {
 				case domain.EsquemaIncidenciaTecnica:
-					incidencia, errorLinea = validarLineaRecolector(linea)
+					incidencia, errorLinea = validarLineaRecolectorConCatalogo(linea, cfg.Catalogo)
 					if errorLinea == nil {
 						datos, errorLinea = json.Marshal(incidencia)
 					}
@@ -148,6 +169,14 @@ func leerLineaRecolector(r *bufio.Reader, limite int) ([]byte, bool, error) {
 }
 
 func validarLineaRecolector(datos []byte) (lineaIncidencia, error) {
+	catalogo, err := catalogoincidencias.Predeterminado()
+	if err != nil {
+		return lineaIncidencia{}, os.ErrInvalid
+	}
+	return validarLineaRecolectorConCatalogo(datos, catalogo)
+}
+
+func validarLineaRecolectorConCatalogo(datos []byte, catalogo *catalogoincidencias.Catalogo) (lineaIncidencia, error) {
 	var l lineaIncidencia
 	if clavesUnicasRecolector(datos) != nil {
 		return l, os.ErrInvalid
@@ -161,15 +190,16 @@ func validarLineaRecolector(datos []byte) (lineaIncidencia, error) {
 	clasificacion, saneada := domain.ClasificarIncidenciaTecnica(domain.SolicitudIncidenciaTecnica{
 		Codigo: domain.CodigoIncidenciaTecnica(l.Codigo), Componente: domain.ComponenteIncidenciaTecnica(l.Componente), Etapa: domain.EtapaIncidenciaTecnica(l.Etapa), Recuento: l.Recuento,
 	})
-	if err != nil || instante.IsZero() || saneada || l.Esquema != domain.EsquemaIncidenciaTecnica || l.Recuento != clasificacion.Recuento ||
-		l.Severidad != string(clasificacion.Severidad) || l.Mensaje != clasificacion.Plantilla ||
+	plantilla, ok := catalogo.Plantilla(clasificacion.Codigo)
+	if !ok || err != nil || instante.IsZero() || saneada || l.Esquema != domain.EsquemaIncidenciaTecnica || l.Recuento != clasificacion.Recuento ||
+		l.Severidad != string(clasificacion.Severidad) || l.Mensaje != plantilla ||
 		l.Entorno != string(domain.NormalizarEntornoIncidenciaTecnica(l.Entorno)) ||
 		l.VersionBinario != domain.NormalizarVersionBinario(l.VersionBinario) || !domain.EsCorrelacionTecnicaValida(l.Correlacion) {
 		return lineaIncidencia{}, os.ErrInvalid
 	}
 	// Se conserva una proyección reconstruida; nunca el JSON original.
 	inc := domain.NuevaIncidenciaTecnica(clasificacion, instante, domain.EntornoIncidenciaTecnica(l.Entorno), l.VersionBinario, l.Correlacion)
-	return lineaIncidencia{Esquema: inc.Esquema, Instante: inc.Instante.Format(formatoInstante), Codigo: string(inc.Codigo), Severidad: string(inc.Severidad), Componente: string(inc.Componente), Etapa: string(inc.Etapa), Entorno: string(inc.Entorno), VersionBinario: inc.VersionBinario, Correlacion: inc.Correlacion, Recuento: inc.Recuento, Mensaje: inc.Mensaje}, nil
+	return lineaIncidencia{Esquema: inc.Esquema, Instante: inc.Instante.Format(formatoInstante), Codigo: string(inc.Codigo), Severidad: string(inc.Severidad), Componente: string(inc.Componente), Etapa: string(inc.Etapa), Entorno: string(inc.Entorno), VersionBinario: inc.VersionBinario, Correlacion: inc.Correlacion, Recuento: inc.Recuento, Mensaje: plantilla}, nil
 }
 
 func clavesUnicasRecolector(datos []byte) error {

@@ -158,6 +158,11 @@ fi
 # lectura, almacenamiento o inclusion entre origenes. (grep en vez de ripgrep:
 # el ejecutor de CI no trae rg.)
 transportes_mtls_revisados=(
+	# P7 común: rutas internas validadas, errores tipados y cola técnica sin datos personales.
+	static/comun/http.js
+	static/comun/registro-errores.js
+	# Aviso de arranque autónomo: solo índice y catálogo mínimo de origen fijo.
+	static/portal-empleado/portal-arranque-aviso.js
 	# Consulta exacta de Selección: POST interno fijo, same-origin, no-store,
 	# redirect error y no-referrer; contexto y permiso se derivan en servidor.
 	static/portal-empleado/modulos/seleccion/ficha-convocatoria/cliente-http.js
@@ -251,6 +256,12 @@ transportes_mtls_revisados=(
 	# fija, sin parámetros, same-origin, no-store, redirect error y no-referrer;
 	# persona y empleado los deriva el servidor del mTLS.
 	static/portal-empleado/modulos/personal/cliente-http-ficha-propia.js
+	# Exportación nominal de servicios propios: POST fijo con el recibo y corte
+	# consultados, same-origin, no-store, redirect error y no-referrer.
+	static/portal-empleado/modulos/personal/cliente-http-exportacion-servicios.js
+	# Historia propia: POST interno fijo, same-origin/no-store, sólo fechas.
+	static/portal-empleado/modulos/personal/cliente-http-historia-servicios-propia.js
+	static/portal-empleado/modulos/personal/cliente-http-historia-relaciones-propia.js
 	# Cambios del expediente de Contratación temporal (25/09, petición RRHH p.4):
 	# POST a la ruta fija del detalle con otro Accept, same-origin, no-store,
 	# redirect error y no-referrer; misma autorización que el detalle.

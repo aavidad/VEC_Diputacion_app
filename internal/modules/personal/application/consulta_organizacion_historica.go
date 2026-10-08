@@ -14,45 +14,66 @@ import (
 type ServicioConsultaOrganizacionHistorica struct {
 	autorizador ports.ProveedorAutorizacionConsultaOrganizacionHistorica
 	repositorio ports.RepositorioOrganizacionHistorica
+	intentos    ports.RegistroIntentosConsultaOrganizacionHistorica
 }
 
-func NuevoServicioConsultaOrganizacionHistorica(a ports.ProveedorAutorizacionConsultaOrganizacionHistorica, r ports.RepositorioOrganizacionHistorica) (*ServicioConsultaOrganizacionHistorica, error) {
-	if dependenciaOrganizacionHistoricaNula(a) || dependenciaOrganizacionHistoricaNula(r) {
+func NuevoServicioConsultaOrganizacionHistorica(a ports.ProveedorAutorizacionConsultaOrganizacionHistorica, r ports.RepositorioOrganizacionHistorica, i ports.RegistroIntentosConsultaOrganizacionHistorica) (*ServicioConsultaOrganizacionHistorica, error) {
+	if dependenciaOrganizacionHistoricaNula(a) || dependenciaOrganizacionHistoricaNula(r) || dependenciaOrganizacionHistoricaNula(i) {
 		return nil, domain.ErrOrganizacionHistoricaNoDisponible
 	}
-	return &ServicioConsultaOrganizacionHistorica{autorizador: a, repositorio: r}, nil
+	return &ServicioConsultaOrganizacionHistorica{autorizador: a, repositorio: r, intentos: i}, nil
 }
 
 func (s *ServicioConsultaOrganizacionHistorica) Consultar(ctx context.Context, solicitud domain.SolicitudConsultaOrganizacionHistorica) (ports.ResultadoConsultaOrganizacionHistorica, error) {
 	var vacio ports.ResultadoConsultaOrganizacionHistorica
-	if ctx == nil || s == nil || dependenciaOrganizacionHistoricaNula(s.autorizador) || dependenciaOrganizacionHistoricaNula(s.repositorio) {
+	if ctx == nil || s == nil || dependenciaOrganizacionHistoricaNula(s.autorizador) || dependenciaOrganizacionHistoricaNula(s.repositorio) || dependenciaOrganizacionHistoricaNula(s.intentos) {
 		return vacio, domain.ErrOrganizacionHistoricaNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
-		return vacio, err
+		return vacio, s.registrarFalloOrganizacionHistorica(ctx, err)
+	}
+	if err := s.intentos.VerificarRegistroConsultaOrganizacionHistorica(ctx); err != nil {
+		return vacio, s.registrarFalloOrganizacionHistorica(ctx, domain.ErrOrganizacionHistoricaNoDisponible)
 	}
 	material, err := domain.NuevoMaterialConsultaOrganizacionHistorica(solicitud)
 	if err != nil {
-		return vacio, domain.ErrConsultaOrganizacionHistoricaInvalida
+		return vacio, s.registrarFalloOrganizacionHistorica(ctx, domain.ErrConsultaOrganizacionHistoricaInvalida)
 	}
 	autorizacion, err := s.autorizador.AutorizarConsultaOrganizacionHistorica(ctx, material)
 	if err != nil {
-		return vacio, errorConsultaOrganizacionOpaco(ctx, err)
+		return vacio, s.registrarFalloOrganizacionHistorica(ctx, err)
 	}
 	if !autorizacionOrganizacionHistoricaValida(material, autorizacion) {
-		return vacio, domain.ErrConsultaOrganizacionHistoricaDenegada
+		return vacio, s.registrarFalloOrganizacionHistorica(ctx, domain.ErrConsultaOrganizacionHistoricaDenegada)
 	}
 	resultado, err := s.repositorio.ConsultarOrganizacionHistorica(ctx, ports.OrdenConsultaOrganizacionHistorica{Material: material, Autorizacion: autorizacion})
 	if err != nil {
-		return vacio, errorConsultaOrganizacionOpaco(ctx, err)
+		return vacio, s.registrarFalloOrganizacionHistorica(ctx, err)
 	}
 	if err := ctx.Err(); err != nil {
-		return vacio, err
+		return vacio, s.registrarFalloOrganizacionHistorica(ctx, err)
 	}
 	if !resultadoOrganizacionHistoricaValido(material, autorizacion, resultado) {
-		return vacio, domain.ErrOrganizacionHistoricaNoDisponible
+		return vacio, s.registrarFalloOrganizacionHistorica(ctx, domain.ErrOrganizacionHistoricaNoDisponible)
 	}
 	return resultado, nil
+}
+
+func (s *ServicioConsultaOrganizacionHistorica) registrarFalloOrganizacionHistorica(ctx context.Context, err error) error {
+	nominal := errorConsultaOrganizacionOpaco(ctx, err)
+	motivo := "no_disponible"
+	if errors.Is(nominal, domain.ErrConsultaOrganizacionHistoricaInvalida) {
+		motivo = "entrada_invalida"
+	}
+	if errors.Is(nominal, domain.ErrConsultaOrganizacionHistoricaDenegada) {
+		motivo = "denegado"
+	}
+	auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancelar()
+	if s.intentos.RegistrarIntentoConsultaOrganizacionHistorica(auditCtx, ports.IntentoConsultaOrganizacionHistorica{Motivo: motivo}) != nil {
+		return domain.ErrOrganizacionHistoricaNoDisponible
+	}
+	return nominal
 }
 
 func autorizacionOrganizacionHistoricaValida(m domain.MaterialConsultaOrganizacionHistorica, a vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) bool {
@@ -237,6 +258,9 @@ func errorConsultaOrganizacionOpaco(ctx context.Context, err error) error {
 	}
 	if errors.Is(err, domain.ErrConsultaOrganizacionHistoricaDenegada) {
 		return domain.ErrConsultaOrganizacionHistoricaDenegada
+	}
+	if errors.Is(err, domain.ErrConsultaOrganizacionHistoricaInvalida) {
+		return domain.ErrConsultaOrganizacionHistoricaInvalida
 	}
 	return domain.ErrOrganizacionHistoricaNoDisponible
 }

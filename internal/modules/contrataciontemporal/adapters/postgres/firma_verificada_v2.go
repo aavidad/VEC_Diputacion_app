@@ -15,6 +15,7 @@ import (
 	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 // RegistroFirmasVerificadasPostgreSQL consume las fachadas V2 con el LOGIN CT.
@@ -30,7 +31,9 @@ func NuevoRegistroFirmasVerificadasPostgreSQL(pool *pgxpool.Pool) (*RegistroFirm
 	return &RegistroFirmasVerificadasPostgreSQL{pool: pool}, nil
 }
 
-const consultarFirmasSQL172 = `SELECT vec_contratacion_temporal.consultar_firmas_r5_atestadas_v2($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
+// CT186: la v3 calcula la huella con los ámbitos de la asignación de quien
+// consulta (AD210) y liga UnidadRef al paso del plan publicado (CC10).
+const consultarFirmasSQL172 = `SELECT vec_contratacion_temporal.consultar_firmas_r5_atestadas_v3($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
 
 type firmaRevisionPDFSQL172 struct {
 	firmaExternaSQL170
@@ -88,7 +91,7 @@ func (r *RegistroFirmasVerificadasPostgreSQL) ConsultarFirmasAutorizadasV2(ctx c
 	confirmado := false
 	defer func() {
 		if !confirmado {
-			c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+			c, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 			defer cancelar()
 			if err := tx.Rollback(c); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 				slog.Warn("contratacion temporal: rollback de lectura de firmas V2 no confirmado")
@@ -104,8 +107,35 @@ func (r *RegistroFirmasVerificadasPostgreSQL) ConsultarFirmasAutorizadasV2(ctx c
 	}
 	defer clear(contenido)
 	var w respuestaFirmasR5SQL172
-	if decodificarFirma118(contenido, &w) != nil || w.Encontrado == nil || w.ExpedienteRef != m.ExpedienteRef ||
-		w.Firmas == nil || w.RevisionesPDF == nil || w.HistoriaRevision == nil ||
+	if decodificarFirma118(contenido, &w) != nil {
+		return cero, ports.ErrResultadoFirmaDocumentoInvalido
+	}
+	lectura, err := proyectarLecturaFirmasSQL172(m, w)
+	if err != nil {
+		return cero, err
+	}
+	if err = ctx.Err(); err != nil {
+		return cero, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		if ctx.Err() != nil {
+			return cero, ctx.Err()
+		}
+		return cero, ports.ErrRegistroFirmaDocumentoNoDisponible
+	}
+	confirmado = true
+	if !*w.Encontrado {
+		return cero, ports.ErrExpedienteConsultaFirmasNoEncontrado
+	}
+	return lectura, nil
+}
+
+// proyectarLecturaFirmasSQL172 valida la proyección común a consulta y recuperación.
+// La transacción llamadora conserva el resultado oculto hasta confirmar su COMMIT.
+func proyectarLecturaFirmasSQL172(m ports.MaterialConsultaFirmasR5V2, w respuestaFirmasR5SQL172) (ports.LecturaFirmasR5V2, error) {
+	var cero ports.LecturaFirmasR5V2
+	if w.Encontrado == nil || w.ExpedienteRef != m.ExpedienteRef ||
+		w.Firmas == nil || w.RevisionesPDF == nil || len(w.Firmas) > 128 || len(w.RevisionesPDF) > 128 || w.HistoriaRevision == nil ||
 		*w.HistoriaRevision > 9007199254740991 || w.CoincideFirmanteEnOtroPaso == nil ||
 		w.HistoriaSeparacionAcreditada == nil || !domain.HuellaSHA256FirmaValida(w.HistoriaHuella) ||
 		(!*w.Encontrado && (len(w.Firmas) != 0 || len(w.RevisionesPDF) != 0)) {
@@ -173,19 +203,6 @@ func (r *RegistroFirmasVerificadasPostgreSQL) ConsultarFirmasAutorizadasV2(ctx c
 			ContenidoFirmadoHuellaSHA256: v.ContenidoFirmadoHuellaSHA256, RevisionLongitud: v.RevisionLongitud,
 			EvidenciaFirmasCanonica:     json.RawMessage(v.EvidenciaFirmasCanonica),
 			EvidenciaFirmasHuellaSHA256: v.EvidenciaFirmasHuellaSHA256})
-	}
-	if err = ctx.Err(); err != nil {
-		return cero, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		if ctx.Err() != nil {
-			return cero, ctx.Err()
-		}
-		return cero, ports.ErrRegistroFirmaDocumentoNoDisponible
-	}
-	confirmado = true
-	if !*w.Encontrado {
-		return cero, ports.ErrExpedienteConsultaFirmasNoEncontrado
 	}
 	return ports.LecturaFirmasR5V2{LecturaFirmasR5: ports.LecturaFirmasR5{
 		Firmas: firmas, HistoriaRevision: *w.HistoriaRevision, HistoriaHuella: w.HistoriaHuella,

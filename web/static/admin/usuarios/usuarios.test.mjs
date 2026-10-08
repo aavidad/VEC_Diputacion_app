@@ -209,8 +209,46 @@ test("catálogos resuelven ES/EN sin faltantes y el grafo interno usa una URL po
     const c = await cargarTextos("admin-usuarios", { idioma: idioma.codigo }); assert.deepEqual(c.faltantes, []);
     for (const clave of claves(textos.mensajes)) assert.ok(c.traducir(clave));
   }
-  for (const archivo of ["entry.js", "vista.js", "propuestas.js", "propuestas-contratos.js"]) {
+  for (const archivo of ["entry.js", "vista.js", "render.js", "propuestas.js", "propuestas-contratos.js", "cambio-perfiles.js", "cambio-contratos.js"]) {
     const s = await readFile(new URL(archivo, import.meta.url), "utf8");
-    for (const [, modulo] of s.matchAll(/from "(\.\/[^"]+)"/gu)) assert.equal(new URL(modulo, import.meta.url).search, "?v=20261003-admin-usuarios-v5");
+    for (const [, modulo] of s.matchAll(/from "(\.\/[^"]+)"/gu)) assert.equal(new URL(modulo, import.meta.url).search, "?v=20261005-admin-lote-pantalla-v1");
   }
+});
+
+function metadataPersona() {
+  return { persona_ref: "per_aaaaaaaaaaaaaaaaaaaaaaaa", unidad_ref: "unidad:ensayo", denominacion_version: null,
+    nombre_estado: "no_registrado", perfiles: [{ perfil_ref: "prf_aaaaaaaaaaaaaaaaaaaaaaaa", rol_version_ref: "rol:administracion_perfiles:v5",
+      version: 1, estado: "vigente", vigente_desde: "2026-10-01T00:00:00Z", vigente_hasta: "2026-10-10T00:00:00Z" }] };
+}
+test("metadatos separan ausencia de nombre y consulta pendiente sin inventar historial", () => {
+  const p = metadataPersona();
+  const ficha = { ...p, proyeccion: "metadatos_v1", historia_estado: "no_consultada", actos_estado: "no_consultados" };
+  assert.equal(validarFicha(ficha, p.persona_ref).nombre_estado, "no_registrado");
+  assert.throws(() => validarFicha({ ...ficha, historia: [] }, p.persona_ref));
+  assert.throws(() => validarFicha({ ...ficha, actos_disponibles: [] }, p.persona_ref));
+  assert.throws(() => validarFicha({ ...ficha, nombre: "Elena Marquez" }, p.persona_ref));
+  assert.throws(() => validarFicha({ ...ficha, denominacion_version: 1 }, p.persona_ref));
+  assert.equal(validarFicha({ ...ficha, nombre_estado: "no_consultado", denominacion_version: 1 }, p.persona_ref).nombre_estado, "no_consultado");
+});
+test("metadatos mantienen 51 perfiles de una persona y limitan únicamente las personas de la página", () => {
+  const p = metadataPersona();
+  p.perfiles = Array.from({ length: 51 }, (_, i) => ({ ...p.perfiles[0], perfil_ref: `prf_${String(i).padStart(24, "0")}` }));
+  assert.equal(validarPersonas({ proyeccion: "metadatos_v1", personas: [p] }).personas[0].perfiles.length, 51);
+  assert.throws(() => validarPersonas({ proyeccion: "metadatos_v1", personas: Array(51).fill(p) }));
+});
+test("vista de metadatos consulta la lista directamente y mantiene cerrados cambios y consultas no realizadas", async () => {
+  const root = new Raiz(), p = metadataPersona();
+  let auxiliares = 0;
+  const c = { proyeccion: "metadatos_v1", capacidades: async () => { auxiliares++; throw new Error(); }, roles: async () => { auxiliares++; throw new Error(); },
+    buscar: async () => ({ proyeccion: "metadatos_v1", personas: [p] }),
+    persona: async () => ({ ...p, proyeccion: "metadatos_v1", historia_estado: "no_consultada", actos_estado: "no_consultados" }) };
+  const vista = montarUsuarios(root, { textos, cliente: c }); await vista.listo;
+  assert.equal(auxiliares, 0);
+  assert.equal(root.campo("consulta").disabled, true);
+  assert.equal(root.campo("tab-propuestas").disabled, true);
+  assert.match(root.campo("resultados").innerHTML, /Nombre sin registrar/u);
+  pulsar(root, "persona", p.persona_ref); await esperarVista();
+  assert.match(root.campo("detalle").innerHTML, /El historial no se ha consultado/u);
+  assert.doesNotMatch(root.campo("detalle").innerHTML, /No hay cambios|data-seleccion/u);
+  vista.desmontar();
 });

@@ -1,0 +1,5 @@
+# Orden: AD154 -> Personal27 -> Personal30; las dos primeras ya deben estar acreditadas.
+# Runtime: auditoría común AD169/IS13 + CA27 (fuente 7f34c770...) antes de intentos.
+# Seleccionar sólo pendientes: no reaplicar SQL instalada ni ejecutar DOWN.
+# L completa proceso/canal de consumos permitidos; montaje operativo aún cerrado.
+deploy/postgresql/personal/migraciones/000030_instante_decision_relacion_rpt.up.sql

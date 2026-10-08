@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	ports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -26,13 +27,21 @@ type componentesOrganizacionHistorica struct {
 
 // Usa el pool nominal existente de Personal. Una carencia deja únicamente
 // Organización fuera; no depende de que el montaje B2 esté activo.
-func montarOrganizacionHistoricaGobernada(ctx context.Context, directorio, login string, pool *pgxpool.Pool, base *internactproveedores.Proveedores, fuente *internagobierno.FuenteF1, auditoria ports.RegistradorAuditoriaFronteraRutaExacta, reloj relojGobiernoInterno) (componentesOrganizacionHistorica, bool) {
+func montarOrganizacionHistoricaGobernada(ctx context.Context, directorio, login string, pool *pgxpool.Pool, base *internactproveedores.Proveedores, fuente *internagobierno.FuenteF1, auditoria ports.RegistradorAuditoriaFronteraRutaExacta, reloj relojGobiernoInterno, intentos ...internactproveedores.DependenciasIntentosOrganizacionHistorica) (componentesOrganizacionHistorica, bool) {
 	var vacio componentesOrganizacionHistorica
 	vacio.seleccionada = materialOrganizacionHistoricaSeleccionado(directorio)
 	if !vacio.seleccionada {
 		return vacio, false
 	}
 	if ctx == nil || ctx.Err() != nil || directorio == "" || pool == nil || base == nil || fuente == nil || interfazNulaIdentidadOffline(auditoria) {
+		return vacio, false
+	}
+	if len(intentos) != 1 {
+		return vacio, false
+	}
+	registro, err := internactproveedores.NuevoRegistroIntentosOrganizacionHistorica(intentos[0])
+	if err != nil || registro.PreflightIntentosOrganizacionHistorica(ctx) != nil {
+		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
 	m, err := internactproveedores.CargarMaterialOrganizacionHistorica(directorio)
@@ -60,12 +69,17 @@ func montarOrganizacionHistoricaGobernada(ctx context.Context, directorio, login
 		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
-	servicio, err := personalapp.NuevoServicioConsultaOrganizacionHistorica(proveedor, repositorio)
+	servicio, err := personalapp.NuevoServicioConsultaOrganizacionHistorica(proveedor, repositorio, registro)
 	if err != nil {
 		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
-	handler, err := httpapi.NewHandlerOrganizacionHistoricaPersonal(internactproveedores.AutoridadContextoOrganizacionHistorica{Fuente: fuente}, servicio, internactproveedores.AuditorDenegacionOrganizacionHistorica{Registrador: auditoria})
+	consulta, err := internactproveedores.NuevaConsultaOrganizacionHistoricaConIntentos(servicio, fuente, registro)
+	if err != nil {
+		log.Print("composicion interna: organizacion_historica_no_disponible")
+		return vacio, false
+	}
+	handler, err := httpapi.NewHandlerOrganizacionHistoricaPersonal(internactproveedores.AutoridadContextoOrganizacionHistorica{Fuente: fuente}, consulta, internactproveedores.AuditorDenegacionOrganizacionHistorica{Registrador: auditoria})
 	if err != nil {
 		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
@@ -89,7 +103,7 @@ func acreditarPoolOrganizacionHistorica(ctx context.Context, pool *pgxpool.Pool,
 	if acreditarPoolSeguimiento(ctx, pool, perfil) != nil {
 		return ErrPoolsSeguimientoNoDisponibles
 	}
-	ctxSonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	ctxSonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	tablas := []string{"org_nodo_historia", "version_rpt_historia", "version_plantilla_historia", "puesto_tipo_historia", "dotacion_rpt_historia", "plaza_plantilla_historia", "puesto_rpt_historia", "vinculo_plaza_puesto_historia", "recibo_consulta_organizacion"}
 	const sql = `SELECT count(*)=9 AND NOT COALESCE(bool_or(pg_catalog.has_table_privilege(session_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')),true) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='vec_personal' AND c.relname=ANY($1::text[]) AND c.relkind IN ('r','p')`

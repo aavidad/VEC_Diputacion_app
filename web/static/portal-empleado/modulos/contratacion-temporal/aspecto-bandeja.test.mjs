@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { numeroExpedienteVisible, renderizarCuadro } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { renderizarCabeceraModulo } from "./vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
+import { renderizarCabeceraModulo } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
 
 const t = crearTraductorExpedientesContratacion();
 const expediente = (sufijo, estado = "en_curso") => ({
@@ -45,15 +45,15 @@ test("una sola página deja la paginación al marco común; con más páginas va
 test("la cabecera no lleva sobrelínea, descripción ni aviso de presentación y ofrece Centros y Peticiones", () => {
   const cuadro = renderizarCabeceraModulo({ vista: "cuadro", cuadro: { demostracion: true } }, t);
   assert.match(cuadro, /<h2>Peticiones de personal temporal<\/h2>/u);
-  assert.match(cuadro, /class="acciones-vista ct-exp-acciones-cabecera"[\s\S]*>Centros<\/a>[\s\S]*>Peticiones<\/a>/u);
-  assert.match(cuadro, /href="\/portal-empleado\/calendarios\/"[^>]*>Calendarios<\/a>/u);
+  assert.match(cuadro, /class="acciones-vista ct-exp-acciones-cabecera"[\s\S]*>Centros <span[\s\S]*?<\/a>[\s\S]*>Peticiones recibidas de los centros <span[\s\S]*?<\/a>/u);
+  assert.match(cuadro, /href="\/portal-empleado\/calendarios\/"[^>]*>Calendarios <span aria-hidden="true">↗<\/span><span class="solo-lectura"> \(se abre en otra pestaña\)<\/span><\/a>/u);
   assert.doesNotMatch(cuadro, /sobrelinea|Flujo guiado|Presentación RRHH|sintéticos|ct-exp-aviso-presentacion/u);
   const detalle = renderizarCabeceraModulo({ vista: "expediente" }, t);
   assert.doesNotMatch(detalle, /ct-exp-acciones-cabecera/u);
 });
 
 test("el número técnico anterior a la numeración figura sin numerar; el legible no cambia", () => {
-  assert.equal(numeroExpedienteVisible("2026/CT-8c17ba0b2be0fa7d84131e1dc93db150"), "Sin numerar");
+  assert.equal(numeroExpedienteVisible("2026/CT-8c17ba0b2be0fa7d84131e1dc93db150"), "Sin número asignado");
   assert.equal(numeroExpedienteVisible("2026/CT-000013"), "2026/CT-000013");
   assert.equal(numeroExpedienteVisible(null), "");
 });

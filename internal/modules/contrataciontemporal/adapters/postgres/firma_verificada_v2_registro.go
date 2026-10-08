@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -11,11 +12,25 @@ import (
 	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
 var _ ports.RegistroFirmasVerificadasV2 = (*RegistroFirmasVerificadasPostgreSQL)(nil)
 
-const registrarFirmaSQL172 = `SELECT vec_contratacion_temporal.registrar_firma_verificada_v2($1,$2::timestamptz,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12,$13)::text`
+// CT181: la v3 calcula la huella interior con los ámbitos de la asignación
+// de quien firma (AD206). El ejecutor CT no la ejecuta directamente: toda
+// firma V2 entra por registrar_firma_con_plan_v4 (CT185), que liga tipo,
+// acción, finalidad, cargo y enlace al plan publicado; la composición nunca
+// usa este registro directo (sólo su consulta).
+const registrarFirmaSQL172 = `SELECT vec_contratacion_temporal.registrar_firma_verificada_v3($1,$2::timestamptz,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12,$13)::text`
+
+// CT172 añade dos referencias nominales al recibo CT118 de doce claves.
+// El DTO de CT118 permanece separado para las funciones anteriores.
+type reciboFirmaSQLV2 struct {
+	reciboFirmaSQL118
+	CompetenciaEvidenciaRef          string `json:"CompetenciaEvidenciaRef"`
+	CompetenciaEvidenciaHuellaSHA256 string `json:"CompetenciaEvidenciaHuellaSHA256"`
+}
 
 func (r *RegistroFirmasVerificadasPostgreSQL) RegistrarFirmaVerificadaV2(ctx context.Context, m ports.MaterialFirmaVerificadaV2, c ports.CapacidadFirmaVerificadaV2) (ports.ReciboFirmaDocumento, error) {
 	var cero ports.ReciboFirmaDocumento
@@ -85,7 +100,7 @@ func (r *RegistroFirmasVerificadasPostgreSQL) registrarFirmaV2UnaVez(ctx context
 	confirmado := false
 	defer func() {
 		if !confirmado {
-			ctxRollback, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+			ctxRollback, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 			defer cancelar()
 			if err := tx.Rollback(ctxRollback); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 				slog.Warn("contratacion temporal: rollback de registro de firma V2 no confirmado")
@@ -100,18 +115,13 @@ func (r *RegistroFirmasVerificadasPostgreSQL) registrarFirmaV2UnaVez(ctx context
 		return cero, err
 	}
 	defer clear(contenido)
-	var w reciboFirmaSQL118
-	if decodificarFirma118(contenido, &w) != nil {
-		return cero, ports.ErrResultadoFirmaDocumentoInvalido
+	var w reciboFirmaSQLV2
+	if err := decodificarFirma118(contenido, &w); err != nil {
+		return cero, errors.Join(ports.ErrResultadoFirmaDocumentoInvalido, err)
 	}
-	recibo := ports.ReciboFirmaDocumento{FirmaRef: w.FirmaRef, ReciboRef: w.ReciboRef, Secuencia: w.Secuencia, Resultado: domain.ResultadoFirmaDocumento(w.Resultado),
-		ExpedienteVersion: w.ExpedienteVersion, ActorRef: w.ActorRef, PerfilRef: w.PerfilRef, RegistradaEn: w.RegistradaEn.UTC(), SolicitudHuella: w.SolicitudHuella, YaRegistrada: w.YaRegistrada,
-		DocumentoCustodiaRef: textoFirma118(w.DocumentoCustodia), DocumentoCustodiaVersion: versionFirma118(w.VersionCustodia)}
-	if !domain.ReferenciaOpacaValida(recibo.FirmaRef) || !domain.ReferenciaOpacaValida(recibo.ReciboRef) || recibo.SolicitudHuella != huella ||
-		recibo.Secuencia != m.Secuencia || recibo.ExpedienteVersion != m.VersionExpediente || recibo.Resultado != domain.ResultadoFirmaFirmado ||
-		recibo.ActorRef == "" || (recibo.ActorRef == m.FirmantePrincipalRef) != (m.Via == ports.ViaFirmaCertificadoVEC) ||
-		recibo.PerfilRef != m.PerfilActivoOperadorRef || recibo.RegistradaEn.IsZero() || recibo.DocumentoCustodiaRef != m.DocumentoCustodiaRef || recibo.DocumentoCustodiaVersion != m.DocumentoCustodiaVersion {
-		return cero, ports.ErrResultadoFirmaDocumentoInvalido
+	recibo, err := proyectarReciboFirmaV2(w, m, huella)
+	if err != nil {
+		return cero, err
 	}
 	if err = ctx.Err(); err != nil {
 		return cero, err
@@ -124,5 +134,24 @@ func (r *RegistroFirmasVerificadasPostgreSQL) registrarFirmaV2UnaVez(ctx context
 		return cero, ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
 	confirmado = true
+	return recibo, nil
+}
+
+func proyectarReciboFirmaV2(w reciboFirmaSQLV2, m ports.MaterialFirmaVerificadaV2, huella string) (ports.ReciboFirmaDocumento, error) {
+	var cero ports.ReciboFirmaDocumento
+	if !strings.HasPrefix(w.CompetenciaEvidenciaRef, "evidencia:competencia-firmante-ct:") ||
+		!domain.HuellaSHA256FirmaValida(strings.TrimPrefix(w.CompetenciaEvidenciaRef, "evidencia:competencia-firmante-ct:")) ||
+		!domain.HuellaSHA256FirmaValida(w.CompetenciaEvidenciaHuellaSHA256) {
+		return cero, ports.ErrResultadoFirmaDocumentoInvalido
+	}
+	recibo := ports.ReciboFirmaDocumento{FirmaRef: w.FirmaRef, ReciboRef: w.ReciboRef, Secuencia: w.Secuencia, Resultado: domain.ResultadoFirmaDocumento(w.Resultado),
+		ExpedienteVersion: w.ExpedienteVersion, ActorRef: w.ActorRef, PerfilRef: w.PerfilRef, RegistradaEn: w.RegistradaEn.UTC(), SolicitudHuella: w.SolicitudHuella, YaRegistrada: w.YaRegistrada,
+		DocumentoCustodiaRef: textoFirma118(w.DocumentoCustodia), DocumentoCustodiaVersion: versionFirma118(w.VersionCustodia)}
+	if !domain.ReferenciaOpacaValida(recibo.FirmaRef) || !domain.ReferenciaOpacaValida(recibo.ReciboRef) || recibo.SolicitudHuella != huella ||
+		recibo.Secuencia != m.Secuencia || recibo.ExpedienteVersion != m.VersionExpediente || recibo.Resultado != domain.ResultadoFirmaFirmado ||
+		recibo.ActorRef == "" || (recibo.ActorRef == m.FirmantePrincipalRef) != (m.Via == ports.ViaFirmaCertificadoVEC) ||
+		recibo.PerfilRef != m.PerfilActivoOperadorRef || recibo.RegistradaEn.IsZero() || recibo.DocumentoCustodiaRef != m.DocumentoCustodiaRef || recibo.DocumentoCustodiaVersion != m.DocumentoCustodiaVersion {
+		return cero, ports.ErrResultadoFirmaDocumentoInvalido
+	}
 	return recibo, nil
 }

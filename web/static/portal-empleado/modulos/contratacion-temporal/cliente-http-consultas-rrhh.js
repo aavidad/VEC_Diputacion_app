@@ -82,7 +82,8 @@ function entero(valor, minimo = 0) {
 }
 
 function validarSolicitudCuadro(entrada) {
-  if (!camposCerrados(entrada, ["filtros", "paginacion"])
+  if (!camposCerrados(entrada, ["filtros", "paginacion"], ["resumen"])
+    || (Object.hasOwn(entrada, "resumen") && entrada.resumen !== true)
     || !camposCerrados(entrada.filtros, ["texto", "estado_clave", "fase_clave"])
     || !camposCerrados(entrada.paginacion, ["limite", "cursor"])
     || !cadena(entrada.filtros.texto, {
@@ -152,18 +153,32 @@ function totalesValidos(totales) {
     && valores.every((v) => v <= totales.total);
 }
 
+// Resumen de la portada (CT-000184): solo recuentos de todo el corte
+// filtrado, enteros no negativos, y el reparto por fase del servidor.
+const CAMPOS_RESUMEN_PORTADA = ["en_tramite", "con_incidencia", "vencidos", "vencen_hoy", "vencen_semana", "sin_calcular"];
+function resumenPortadaValido(resumen) {
+  if (!camposCerrados(resumen, [...CAMPOS_RESUMEN_PORTADA, "por_fase"])
+    || !CAMPOS_RESUMEN_PORTADA.every((campo) => entero(resumen[campo]))
+    || !esRegistro(resumen.por_fase)) return false;
+  const fases = Object.entries(resumen.por_fase);
+  return fases.length <= 64 && fases.every(([fase, numero]) => clave(fase) && entero(numero, 1))
+    && resumen.con_incidencia <= resumen.en_tramite
+    && fases.reduce((suma, [, numero]) => suma + numero, 0) === resumen.en_tramite;
+}
+
 function validarPagina(entrada) {
   if (!camposCerrados(
     entrada,
     ["esquema", "generada_en", "expedientes", "hay_mas"],
-    ["cursor_siguiente", "totales"],
+    ["cursor_siguiente", "totales", "resumen"],
   ) || entrada.esquema !== ESQUEMA_CUADRO || !instante(entrada.generada_en)
     || !Array.isArray(entrada.expedientes)
     || entrada.expedientes.length > MAXIMO_EXPEDIENTES
     || typeof entrada.hay_mas !== "boolean"
     || (Object.hasOwn(entrada, "cursor_siguiente")
       && !cursor(entrada.cursor_siguiente))
-    || (Object.hasOwn(entrada, "totales") && !totalesValidos(entrada.totales))) {
+    || (Object.hasOwn(entrada, "totales") && !totalesValidos(entrada.totales))
+    || (Object.hasOwn(entrada, "resumen") && !resumenPortadaValido(entrada.resumen))) {
     throw new TypeError("página de cuadro RRHH no válida");
   }
   const expedientes = entrada.expedientes.map(validarResumen);
@@ -270,7 +285,7 @@ function validarDetalle(entrada) {
   if (!camposCerrados(
     entrada,
     ["esquema", "resumen", "solicitud", "hitos"],
-    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion"],
+    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion", "capacidades_ficha"],
   ) || entrada.esquema !== ESQUEMA_DETALLE || !Array.isArray(entrada.hitos)
     || entrada.hitos.length > MAXIMO_HITOS) {
     throw new TypeError("detalle RRHH no válido");

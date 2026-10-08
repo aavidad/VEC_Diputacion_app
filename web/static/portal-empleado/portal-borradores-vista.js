@@ -1,6 +1,7 @@
 import { referenciaCopiableTraducida } from "./portal-justificante.js";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261001-ct-a-i18n-v1";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { FASE_NO_DISPONIBLE } from "./portal-borradores-ui-soporte.js?v=20261008-borradores-error-legible-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 const FASE_INICIAL = "inicial";
 const FASE_CARGANDO = "cargando";
@@ -50,10 +51,6 @@ export function crearRenderizadorBorradores({
           <h3 id="titulo-error-borrador">${escaparHTML(error.mensaje)}</h3>
           ${error.conservarCambiosLocales ? "<p>" + textoPortal("txt_los_cambios_introducidos_continuan_en_este_edito") + "</p>" : ""}
         </div>
-        <dl class="metadatos-error">
-          <div><dt>${textoPortal("txt_codigo")}</dt><dd><code>${escaparHTML(error.codigo)}</code></dd></div>
-          ${error.correlacion ? `<div><dt>${textoPortal("txt_correlacion")}</dt><dd><code>${escaparHTML(error.correlacion)}</code></dd></div>` : ""}
-        </dl>
       </section>`;
   }
 
@@ -86,7 +83,7 @@ export function crearRenderizadorBorradores({
     const avisoActualizacion = estado.errorLista ? `
       <div class="borrador-aviso" role="status">
         <strong>${textoPortal("txt_no_se_pudo_actualizar_la_bandeja")}</strong>
-        <span>${escaparHTML(estado.errorLista.mensaje)} · <code>${escaparHTML(estado.errorLista.codigo)}</code></span>
+        <span>${escaparHTML(estado.errorLista.mensaje)}</span>
       </div>` : "";
     const filas = elementos.map((item) => {
       const seleccionada = item.referencia_estado.referencia === estado.referenciaSeleccionada;
@@ -389,7 +386,20 @@ export function crearRenderizadorBorradores({
       </section>`;
   }
 
+  // Sin API de borradores en este servidor: se dice en llano, sin códigos ni
+  // reintento, y se ofrece volver al cuadro.
+  function renderNoDisponible() {
+    return `
+      <header class="encabezado-vista"><div><h2>${textoPortal("txt_borradores_de_convocatorias")}</h2></div></header>
+      <section class="panel" aria-labelledby="titulo-borradores-no-disponible"><div class="cuerpo-panel vacio-controlado">
+        <h3 id="titulo-borradores-no-disponible">${textoPortal("borradores_no_disponible_titulo")}</h3>
+        <p>${textoPortal("borradores_no_disponible_texto")}</p>
+        <div class="acciones-vista"><button type="button" class="boton-secundario" data-vista="resumen">${textoPortal("txt_volver_al_cuadro_de_mando")}</button></div>
+      </div></section>`;
+  }
+
   function renderizar() {
+    if (estado.faseLista === FASE_NO_DISPONIBLE) return renderNoDisponible();
     const cabecera = `
       <header class="encabezado-vista">
         <div><p class="sobrelinea">${textoPortal("txt_gestion_interna_de_bolsa")}</p><h2>${textoPortal("txt_borradores_de_convocatorias")}</h2><p>${textoPortal("txt_edicion_durable_con_catalogos_versionados_contro")}</p></div>

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 const rolResolutorMotivosRRHHPostgreSQL = "vec_autorizacion_motivos_rrhh_resolutor"
@@ -120,6 +121,7 @@ func nuevoPoolResolucionMotivosRRHHPostgreSQL(
 		!configuracionPoolAcreditacionO405Valida(configuracion, modo) {
 		return nil, errorPoolResolucionMotivosRRHH(ctx)
 	}
+	postgresqlcompartido.FijarTamanoPool(configuracion, cadenaConexion, 4)
 	return construirPoolResolucionMotivosRRHH(
 		ctx, configuracion, loginNominal, modo,
 		crearOrigenPoolResolucionMotivosRRHHPostgreSQL,
@@ -190,7 +192,7 @@ func crearOrigenPoolResolucionMotivosRRHHPostgreSQL(
 	ctx context.Context,
 	configuracion *pgxpool.Config,
 ) (origenPoolResolucionMotivosRRHH, error) {
-	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 	if err != nil || pool == nil {
 		return nil, err
 	}

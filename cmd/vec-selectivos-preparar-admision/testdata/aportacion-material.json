@@ -1,0 +1,100 @@
+{
+  "material_s4": {
+    "preparacion_ref": "preparacion:revision-sintetica",
+    "revision": 1,
+    "alcance": "preparacion_sintetica",
+    "bases": {
+      "referencia": "bases:sinteticas",
+      "version": "1",
+      "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "solicitud_contexto": {
+      "huella_archivo_original_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "identificador_publico": "convocatoria-sintetica",
+      "version": "1",
+      "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "estado": "sin_presentar"
+    },
+    "requisitos": [
+      {
+        "titulo_propuesto": "Titulación exigida en las bases propuestas",
+        "referencia": "requisito:titulacion",
+        "version": "1",
+        "representacion": "estructurada",
+        "regla_ref": "regla:titulacion",
+        "regla_version": "1",
+        "hito_ref": "hito:fin-presentacion-propuesto",
+        "hito_fecha": "2026-10-01",
+        "hechos_esperados": [
+          {
+            "referencia": "hecho:titulacion",
+            "version": 1
+          }
+        ]
+      },
+      {
+        "titulo_propuesto": "Otros requisitos pendientes de estructurar",
+        "referencia": "requisito:texto",
+        "version": "1",
+        "representacion": "texto_libre",
+        "hito_ref": "hito:fin-presentacion-propuesto",
+        "hito_fecha": "2026-10-01",
+        "hechos_esperados": []
+      }
+    ],
+    "hechos": {
+      "alcance": "preparacion_sintetica",
+      "version_paquete": "paquete:1",
+      "hechos": [
+        {
+          "referencia": "hecho:titulacion",
+          "version": 1,
+          "tipo": "titulacion",
+          "concepto_ref": "concepto:titulacion",
+          "procedencia": {
+            "fuente_ref": "fuente:sintetica",
+            "version": "1",
+            "hecho_origen_ref": "origen:titulacion",
+            "capturada_en": "2026-09-20T10:00:00Z"
+          },
+          "vigencia": {
+            "desde": "2026-09-20"
+          },
+          "estado": "declarado",
+          "evidencias": [],
+          "vigencia_en_corte": "vigente",
+          "pendientes": [
+            "meritos.pendiente.procedencia"
+          ]
+        }
+      ]
+    }
+  },
+  "propuesta": {
+    "alcance": "preparacion_sintetica",
+    "aportacion_ref": "aportacion:propuesta",
+    "revision": 1,
+    "antecedente": {
+      "esquema_material": "seleccion.admision.material-local.v1",
+      "preparacion_ref": "preparacion:revision-sintetica",
+      "revision": 1,
+      "huella_material_sha256": "c3c916fa70d6d898cb2ac2ecca9bbf6d8dfc2dcc1838e3900c716c10922da6fc"
+    },
+    "requisito_ref": "requisito:titulacion",
+    "requisito_version": "1",
+    "soportes_propuestos": [
+      {
+        "hecho": {
+          "referencia": "hecho:titulacion",
+          "version": 1
+        },
+        "documentos": [
+          {
+            "id": "documento:propuesto",
+            "version": 1
+          }
+        ]
+      }
+    ]
+  }
+}

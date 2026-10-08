@@ -15,8 +15,10 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	consultafirmas "vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmas"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
@@ -148,21 +150,81 @@ type firmaDocumentoCTDesarrollo struct {
 	// servicio queda al componer las rutas: la custodia en Documentos se le
 	// añade después, cuando Documentos ya está compuesto.
 	servicio *ctapplication.ServicioFirmaDocumento
+	// Se fija después de componer Documentos y antes de servir HTTP. El cliente
+	// ya construido consulta esta fuente sólo al observar una respuesta real.
+	resultadosFirma func() puertosvec.EmisorResultadosTecnicosConContexto
 	// Las vías R5 se preparan juntas sobre el mismo servicio, circuito y
 	// custodia. Ninguna de ellas se entrega a una ruta mientras falte su
 	// autoridad nominal y transaccional.
 	firmaExterna *ctapplication.ServicioFirmaExterna
 	firmaVec     *ctapplication.ServicioFirmaVec
+	// Registro que reciben ambas vías: siempre el decorador con plan (CT176).
+	registroR5 ports.RegistroFirmasVerificadasV2
+	// verificadorR5 es el mismo cliente GrxFirma de la vía V1, visto como
+	// verificador acumulado de firmas múltiples. Nil sin verificación: entonces
+	// R5 no se compone (componerFirmasR5 exige d.verificador).
+	verificadorR5 docports.VerificadorFirmasDocumento
 	// Se fija únicamente después de que Documentos acepte la custodia. Los
 	// constructores R5 la exigen; no consumimos el original antes de tiempo.
 	custodiaR5Compuesta bool
 }
 
+func (f *firmaDocumentoCTDesarrollo) emisorResultadosFirma() puertosvec.EmisorResultadosTecnicosConContexto {
+	if f == nil || f.resultadosFirma == nil {
+		return nil
+	}
+	return f.resultadosFirma()
+}
+
+func vincularResultadosFirmaCT(f *firmaDocumentoCTDesarrollo, d *autoridadDocumentosDesarrollo) {
+	if f == nil || d == nil {
+		return
+	}
+	f.resultadosFirma = func() puertosvec.EmisorResultadosTecnicosConContexto {
+		emisor, ok := d.incidencias.(puertosvec.EmisorResultadosTecnicosConContexto)
+		if !ok {
+			return nil
+		}
+		return emisor
+	}
+}
+
+// registroFirmaV2DurableDesarrollo es lo único que el montaje usa del
+// adaptador durable de firmas V2: la consulta y el registro con plan fijado
+// (CT176). No incluye el registro directo de CT172, así que esta dependencia
+// no puede entregarse a las vías R5 por error: no compilaría.
+type registroFirmaV2DurableDesarrollo interface {
+	ConsultarFirmasAutorizadasV2(context.Context, ports.MaterialConsultaFirmasR5V2,
+		ports.CapacidadConsultaFirmasR5V2) (ports.LecturaFirmasR5V2, error)
+	ports.RegistradorFirmaConPlanV2
+}
+
+// consultaFirmasV2SinRegistroDirecto adapta la consulta durable al puerto que
+// pide el decorador. Su registro directo rechaza siempre: RegistroConPlanV2
+// sólo escribe por CT176.
+type consultaFirmasV2SinRegistroDirecto struct {
+	durable registroFirmaV2DurableDesarrollo
+}
+
+func (c consultaFirmasV2SinRegistroDirecto) RegistrarFirmaVerificadaV2(context.Context,
+	ports.MaterialFirmaVerificadaV2, ports.CapacidadFirmaVerificadaV2) (ports.ReciboFirmaDocumento, error) {
+	return ports.ReciboFirmaDocumento{}, ports.ErrRegistroFirmaDocumentoNoDisponible
+}
+
+func (c consultaFirmasV2SinRegistroDirecto) ConsultarFirmasAutorizadasV2(ctx context.Context,
+	m ports.MaterialConsultaFirmasR5V2, cap ports.CapacidadConsultaFirmasR5V2) (ports.LecturaFirmasR5V2, error) {
+	return c.durable.ConsultarFirmasAutorizadasV2(ctx, m, cap)
+}
+
 // Ambas vías consumen una sola historia nominal V2, el mismo verificador
-// acumulado y la custodia de las revisiones del PDF original.
+// acumulado y la custodia de las revisiones del PDF original. Desde CT176 una
+// firma V2 sin plan fijado no se confirma: las vías nunca reciben el registro
+// directo de CT172, sólo el decorador que liga el plan publicado.
 type dependenciasFirmaR5Desarrollo struct {
 	original          ports.FuenteOriginalFirmaAutorizado
-	registro          ports.RegistroFirmasVerificadasV2
+	registro          registroFirmaV2DurableDesarrollo
+	descriptorPlan    ports.FuenteDescriptorPlanFijadoFirmaV2
+	emisorPlan        ports.EmisorMaterialPlanFirmaV2
 	consulta          ports.AutorizadorConsultaFirmasR5V2
 	autorizar         ports.AutorizadorFirmaVerificadaV2
 	verificador       docports.VerificadorFirmasDocumento
@@ -179,6 +241,8 @@ func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desar
 		f.firmaExterna != nil || f.firmaVec != nil ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.original) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.registro) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.descriptorPlan) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.emisorPlan) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.consulta) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.autorizar) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.verificador) ||
@@ -187,21 +251,26 @@ func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desar
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.politicaFirmantes) {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
+	registro, err := firmaautorizacionv2.NuevoRegistroConPlanV2(d.descriptorPlan, d.emisorPlan, d.registro,
+		consultaFirmasV2SinRegistroDirecto{d.registro})
+	if err != nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
 	base := *f.servicio
 	if err := base.ComponerOriginalAutorizado(d.original); err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	externa, err := ctapplication.NuevoServicioFirmaExternaV2(&base, d.verificador, d.registro,
+	externa, err := ctapplication.NuevoServicioFirmaExternaV2(&base, d.verificador, registro,
 		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
 	if err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	vec, err := ctapplication.NuevoServicioFirmaVecV2(&base, d.verificador, d.registro,
+	vec, err := ctapplication.NuevoServicioFirmaVecV2(&base, d.verificador, registro,
 		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
 	if err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	f.firmaExterna, f.firmaVec = externa, vec
+	f.firmaExterna, f.firmaVec, f.registroR5 = externa, vec, registro
 	return nil
 }
 
@@ -281,7 +350,7 @@ func nuevaFirmaDocumentoCTDesarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
 	if !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
@@ -362,8 +431,10 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 	if err != nil {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
-	if operativo.Resultado.Contexto.PerfilActivoRef != perfil.perfilRef() ||
-		operativo.Resultado.Contexto.PersonaRef != capacidad.principal.ID {
+	// La sesión revalidada debe ser la registrada del perfil de este paso. El
+	// identificador del certificado mTLS no es la persona registrada: ya lo
+	// cotejan capacidadValida y la huella del certificado.
+	if !contextoRegistradoPerfilFijoCTDesarrollo(operativo.Resultado.Contexto, perfil) {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	motivo := motivoFirmaDocumentoCTDesarrollo()
@@ -564,6 +635,44 @@ func (f fuenteCircuitoFirmaReglasDesarrollo) CircuitoFirma(ctx context.Context) 
 	return salida, nil
 }
 
+// verificadorFirmasR5 conserva el cliente sólo si también verifica firmas
+// múltiples. Un verificador motivado que no lo haga deja R5 sin componer.
+func verificadorFirmasR5(v docports.VerificadorFirmaMotivado) docports.VerificadorFirmasDocumento {
+	if dependenciaEsNulaContratacionTemporalDesarrollo(v) {
+		return nil
+	}
+	multiple, ok := v.(docports.VerificadorFirmasDocumento)
+	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(multiple) {
+		return nil
+	}
+	return multiple
+}
+
+// PoliticaMismaPersonaEnPasos lee la bandera del mismo circuito vigente que
+// fija el paso. Sólo responde para la versión y huella exactas que pide la
+// firma: otra versión, una huella distinta o el catálogo caído nunca permiten
+// que la misma persona firme dos pasos.
+func (f fuenteCircuitoFirmaReglasDesarrollo) PoliticaMismaPersonaEnPasos(ctx context.Context, ref, huella string) (ports.PoliticaMismaPersonaEnPasos, error) {
+	if ctx == nil {
+		return ports.PoliticaMismaPersonaEnPasos{}, ctapplication.ErrCircuitoFirmaNoDisponible
+	}
+	c, err := f.CircuitoFirma(ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ports.PoliticaMismaPersonaEnPasos{}, ctx.Err()
+		}
+		return ports.PoliticaMismaPersonaEnPasos{}, ctapplication.ErrCircuitoFirmaNoDisponible
+	}
+	p := ports.PoliticaMismaPersonaEnPasos{CatalogoRef: c.CatalogoRef, CatalogoHuella: c.HuellaCatalogo,
+		Permite: c.PermiteMismaPersonaEnPasos}
+	if err := p.ValidarContra(ref, huella); err != nil {
+		return ports.PoliticaMismaPersonaEnPasos{}, err
+	}
+	return p, nil
+}
+
+var _ ports.FuentePoliticaMismaPersonaEnPasos = fuenteCircuitoFirmaReglasDesarrollo{}
+
 // rutas compone las dos rutas exactas. Sin circuito no hay firma.
 func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.Resolutor) ([]vechttp.RutaExacta, error) {
 	if f == nil {
@@ -572,7 +681,9 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 	if circuito == nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	verificador, err := nuevoVerificadorFirmaDocumentos(cfg)
+	// Una composición fallida no conserva el verificador de un intento anterior.
+	f.verificadorR5 = nil
+	verificador, err := nuevoVerificadorFirmaDocumentos(cfg, f.emisorResultadosFirma)
 	if err != nil {
 		return nil, err
 	}
@@ -587,6 +698,7 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	f.servicio = servicio
+	f.verificadorR5 = verificadorFirmasR5(verificador)
 	f.custodiaR5Compuesta = false
 	h, err := httpinterno.NuevoManejadorFirmaDocumento(f, servicio)
 	if err != nil {

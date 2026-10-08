@@ -1,0 +1,5 @@
+# Aplicar sólo tras AD184, AD185, AD192 y AD194 (y en la principal también IS16, CA36 y AUT47), sobre la postimagen medida.
+# AD194 tiene número mayor pero se instaló antes: no toca el núcleo, el comprobador, el CHECK ni las fachadas AD184/AD185.
+# Aplicar con poco uso: una petición de vec-admin en vuelo durante el COMMIT puede dar un 403 aislado; se reintenta. Si sale 55P03 o 40P01, repetir más tarde.
+# AD193 incluye la adaptación de las tres fachadas AD184/AD185 que exigían la familia v3. Una sola vez; sin DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000193_transaccion_origen_consumo_v4.up.sql

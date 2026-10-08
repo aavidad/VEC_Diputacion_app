@@ -1,6 +1,6 @@
 import { cargarTextos } from "../comun/textos.js";
-import { consultarCandidatosBolsa } from "./portal-bolsas-api.js?v=20261002-r-rrhh18-v3";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { consultarCandidatosBolsa } from "./portal-bolsas-api.js?v=20261008-w-bolsa-ficha-main-v2";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 const textos = await cargarTextos("bolsa-historial-ofrecimientos");
 export const RUTA_HISTORIAL_OFRECIMIENTOS = "/api/vec/bolsa/ofertas/contactos";

@@ -53,14 +53,22 @@ function crearTransporte({ fetchImpl = globalThis.fetch, origen = globalThis.loc
 }
 /** Transporte de solo lectura, también cuando el servidor anuncie cambios. */
 export function crearClienteLecturasUsuarios(opciones = {}) {
+  if (opciones.proyeccion !== undefined && opciones.proyeccion !== "metadatos_v1") throw new TypeError("proyeccion_invalida");
   const pedir = crearTransporte(opciones);
   return Object.freeze({
+    ...(opciones.proyeccion ? { proyeccion: opciones.proyeccion } : {}),
     capacidades: (signal) => pedir("/capacidades", signal),
     roles: (signal) => pedir("/roles", signal),
     propuestas: (signal) => pedir("/propuestas?estado=pendiente", signal),
     persona: (ref, signal) => { if (typeof ref !== "string" || !REFERENCIA.test(ref)) throw new TypeError("referencia_invalida"); return pedir(`/personas/${encodeURIComponent(ref)}`, signal); },
+    // Preparación del cambio de perfiles (consume una autorización y queda auditada).
+    preparar: (ref, unidad, signal) => {
+      if (typeof ref !== "string" || !/^per_[A-Za-z0-9_-]{22,128}$/u.test(ref) || typeof unidad !== "string" || !/^[a-z][a-z0-9_:-]{2,127}$/u.test(unidad)) throw new TypeError("referencia_invalida");
+      return pedir(`/personas/${encodeURIComponent(ref)}/preparacion-lote?${new URLSearchParams({ unidad_ref: unidad })}`, signal);
+    },
     buscar: (filtros = {}, signal) => {
       const { busqueda = "", cursor = "", perfil_ref = "", unidad_ref = "", estado = "" } = filtros;
+      if (opciones.proyeccion === "metadatos_v1" && busqueda !== "") throw new TypeError("filtros_invalidos");
       if (typeof busqueda !== "string" || (busqueda && (busqueda.trim().length < 2 || busqueda.length > 132))
         || typeof cursor !== "string" || cursor.length > 256 || (typeof perfil_ref !== "string" || (perfil_ref && !REFERENCIA.test(perfil_ref)))
         || (typeof unidad_ref !== "string" || (unidad_ref && !REFERENCIA.test(unidad_ref))) || !["", "vigente", "caducado"].includes(estado)) throw new TypeError("filtros_invalidos");

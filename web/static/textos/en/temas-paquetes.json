@@ -1,0 +1,18 @@
+{
+  "temas": {
+    "paquetes": {
+      "error": {
+        "argumentos": "Provide the reviewed policy and its SHA-256 hash. Supply the package through standard input.",
+        "entrada": "The document could not be read. Check the JSON format, size and keys.",
+        "huella_politica": "The policy does not match the expected hash. Use the version reviewed by the platform.",
+        "politica": "The policy does not meet the contract. Check its limits, tokens and contrast pairs.",
+        "paquete": "The package does not meet the policy. Check the references, names and colours in both variants.",
+        "contraste": "A colour pair does not reach the required contrast. Check both package variants.",
+        "salida": "The result could not be written. Check the destination and validate the package again."
+      },
+      "estado": {
+        "validado_sin_instalar": "Package validated locally. Installation is still pending."
+      }
+    }
+  }
+}

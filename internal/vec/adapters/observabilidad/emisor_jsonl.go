@@ -21,10 +21,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"vec-diputacion-granada/internal/vec/adapters/catalogoincidencias"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -44,6 +46,9 @@ var ErrDestinoIncidenciasAusente = errors.New("observabilidad: destino de incide
 
 // OpcionesEmisor configura un EmisorJSONLines.
 type OpcionesEmisor struct {
+	// Catalogo es una instantánea validada. Nil usa el catálogo embebido
+	// seleccionado por el índice común de idiomas.
+	Catalogo *catalogoincidencias.Catalogo
 	// Destino recibe líneas JSON completas, una llamada Write por línea.
 	Destino io.Writer
 	// Capacidad de la cola; 0 usa la predeterminada y se acota a CapacidadMaxima.
@@ -72,6 +77,7 @@ type elementoCola struct {
 // EmisorJSONLines es seguro para uso concurrente. Un puntero nil es un
 // emisor inerte válido: Emitir no hace nada.
 type EmisorJSONLines struct {
+	catalogo  *catalogoincidencias.Catalogo
 	destino   io.Writer
 	entorno   domain.EntornoIncidenciaTecnica
 	version   string
@@ -106,9 +112,10 @@ type EmisorJSONLines struct {
 }
 
 var (
-	_ ports.EmisorIncidenciasTecnicasConContexto = (*EmisorJSONLines)(nil)
-	_ ports.ConsultaMetricasEmisionIncidencias   = (*EmisorJSONLines)(nil)
-	_ ports.CierreEmisionIncidencias             = (*EmisorJSONLines)(nil)
+	_ ports.EmisorIncidenciasTecnicasConContexto    = (*EmisorJSONLines)(nil)
+	_ ports.AceptadorIncidenciasTecnicasConContexto = (*EmisorJSONLines)(nil)
+	_ ports.ConsultaMetricasEmisionIncidencias      = (*EmisorJSONLines)(nil)
+	_ ports.CierreEmisionIncidencias                = (*EmisorJSONLines)(nil)
 )
 
 // NuevoEmisorJSONLines crea el emisor y arranca su trabajador. Debe cerrarse
@@ -116,6 +123,17 @@ var (
 func NuevoEmisorJSONLines(o OpcionesEmisor) (*EmisorJSONLines, error) {
 	if o.Destino == nil {
 		return nil, ErrDestinoIncidenciasAusente
+	}
+	catalogo := o.Catalogo
+	if catalogo == nil {
+		var err error
+		catalogo, err = catalogoincidencias.Predeterminado()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !catalogo.Valido() {
+		return nil, os.ErrInvalid
 	}
 	capacidad := o.Capacidad
 	if capacidad <= 0 {
@@ -137,6 +155,7 @@ func NuevoEmisorJSONLines(o OpcionesEmisor) (*EmisorJSONLines, error) {
 		periodo = PeriodoInformeDescartesPredeterminado
 	}
 	e := &EmisorJSONLines{
+		catalogo:  catalogo,
 		destino:   o.Destino,
 		entorno:   domain.NormalizarEntornoIncidenciaTecnica(o.Entorno),
 		version:   domain.NormalizarVersionBinario(o.VersionBinario),
@@ -154,14 +173,20 @@ func NuevoEmisorJSONLines(o OpcionesEmisor) (*EmisorJSONLines, error) {
 
 // Emitir sanea la solicitud y la encola sin bloquear. Nunca hace E/S.
 func (e *EmisorJSONLines) Emitir(s domain.SolicitudIncidenciaTecnica) {
-	e.EmitirConContexto(nil, s)
+	e.EmitirConContexto(context.Background(), s)
 }
 
 // EmitirConContexto copia únicamente la correlación interna antes de encolar.
 // No retiene contexto ni genera aleatoriedad o hace E/S en el llamante.
 func (e *EmisorJSONLines) EmitirConContexto(ctx context.Context, s domain.SolicitudIncidenciaTecnica) {
+	e.AceptarConContexto(ctx, s)
+}
+
+// AceptarConContexto confirma solo la entrada en la cola no bloqueante.
+// El destino se escribe más tarde; una escritura fallida queda en métricas.
+func (e *EmisorJSONLines) AceptarConContexto(ctx context.Context, s domain.SolicitudIncidenciaTecnica) bool {
 	if e == nil {
-		return
+		return false
 	}
 	// Invariante: incrementar enVuelo ANTES de leer cerrado. Cerrar marca la
 	// bandera y después espera a enVuelo == 0; si el orden se invirtiera, una
@@ -170,7 +195,7 @@ func (e *EmisorJSONLines) EmitirConContexto(ctx context.Context, s domain.Solici
 	defer e.enVuelo.Add(-1)
 	if e.cerrado.Load() {
 		e.descartadas.Add(1)
-		return
+		return false
 	}
 	clasificacion, saneada := domain.ClasificarIncidenciaTecnica(s)
 	correlacion, _ := ports.CorrelacionIncidenciasPeticion(ctx)
@@ -180,8 +205,10 @@ func (e *EmisorJSONLines) EmitirConContexto(ctx context.Context, s domain.Solici
 		if saneada {
 			e.saneadas.Add(1)
 		}
+		return true
 	default:
 		e.descartadas.Add(1)
+		return false
 	}
 }
 
@@ -304,6 +331,11 @@ func (e *EmisorJSONLines) escribir(c domain.ClasificacionIncidenciaTecnica, inst
 		}
 	}
 	incidencia := domain.NuevaIncidenciaTecnica(c, instante, e.entorno, e.version, correlacion)
+	plantilla, ok := e.catalogo.Plantilla(incidencia.Codigo)
+	if !ok {
+		e.fallosEscritura.Add(1)
+		return
+	}
 	linea := lineaIncidencia{
 		Esquema:        incidencia.Esquema,
 		Instante:       incidencia.Instante.Format(formatoInstante),
@@ -315,7 +347,7 @@ func (e *EmisorJSONLines) escribir(c domain.ClasificacionIncidenciaTecnica, inst
 		VersionBinario: incidencia.VersionBinario,
 		Correlacion:    incidencia.Correlacion,
 		Recuento:       incidencia.Recuento,
-		Mensaje:        incidencia.Mensaje,
+		Mensaje:        plantilla,
 	}
 	datos, err := json.Marshal(linea)
 	if err != nil {

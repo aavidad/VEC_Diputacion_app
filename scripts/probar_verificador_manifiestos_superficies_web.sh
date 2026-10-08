@@ -5,7 +5,9 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 temporal="$(mktemp -d)"
-trap 'rm -rf "${temporal}"' EXIT
+json_canal_no_autorizado="$(mktemp web/static/canal-interno/autoprueba-XXXXXX.json)"
+ruta_json_canal_no_autorizado="${json_canal_no_autorizado#web/}"
+trap 'rm -f "${json_canal_no_autorizado}"; rm -rf "${temporal}"' EXIT
 
 cp web/publico.manifest "${temporal}/publico.manifest"
 cp web/interno.manifest "${temporal}/interno.manifest"
@@ -16,7 +18,7 @@ restaurar() {
 	cp "${temporal}/interno.manifest" web/interno.manifest
 	cp "${temporal}/interno.locales.manifest" web/interno.locales.manifest
 }
-trap 'restaurar; rm -rf "${temporal}"' EXIT
+trap 'restaurar; rm -f "${json_canal_no_autorizado}"; rm -rf "${temporal}"' EXIT
 
 scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1
 
@@ -36,6 +38,30 @@ for catalogo in static/bolsa/i18n-publica.js static/verificar/i18n.js; do
 	}
 	restaurar
 done
+restaurar
+
+cp web/static/canal-interno/destinos.json "${json_canal_no_autorizado}"
+printf '%s\n' "${ruta_json_canal_no_autorizado}" >>web/publico.manifest
+if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
+	printf 'El verificador acepto otro JSON del canal interno.\n' >&2
+	exit 1
+fi
+grep -Fq "JSON no autorizado en publico: ${ruta_json_canal_no_autorizado}" "${temporal}/salida" || {
+	cat "${temporal}/salida" >&2
+	exit 1
+}
+restaurar
+rm -f "${json_canal_no_autorizado}"
+
+printf '%s\n' 'static/canal-interno/destinos.json' >>web/interno.manifest
+if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
+	printf 'El verificador acepto el catalogo de enlaces en la superficie interna.\n' >&2
+	exit 1
+fi
+grep -Fq 'Catalogo de enlaces publico en superficie interna' "${temporal}/salida" || {
+	cat "${temporal}/salida" >&2
+	exit 1
+}
 restaurar
 
 printf '%s\n' 'cartografia/granada-base-20260719-z8-z12.zip' >>web/publico.manifest

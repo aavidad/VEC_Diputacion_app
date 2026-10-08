@@ -1,0 +1,19 @@
+# Huellas SHA256 de pg_proc.prosrc de
+# vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna sobre las
+# que se cotejó ternas.tsv (perfil -> grupo ejecutor y pares audiencia/operación).
+# Si el núcleo de la principal cambia, el guion se para: volver a cotejar la
+# lista con el texto nuevo y añadir aquí su huella en la misma revisión.
+#
+# Principal el 06/10/2026: postimagen de AD193.
+bb21afce73af87d532574c99da4f3ea8cd0534edc4910f14018d9ee55eb2a79b
+# La misma más AD208 (#809), que solo cambia el SQLSTATE del rechazo de AD172.
+c0d805eefe3b01304dc49ecd4a8414d2dd325af45e823a7e2c0b445afbe43e48
+# Post AD214 sobre HX→AD211/P22→AD175/P32→AD180/P34. Sólo Bolsa RRHH;
+# definición 63afb3d4e6f33d4ee8efce1e54d7e8f92ac9f8cec58506c2af146e88dca4552e.
+78137d8750422597c0da56797fd3ddff797cd54f18d98b0c1c8f4b7f742079dd
+# Post AD216: sólo bolsa_ref de candidatos acotada; definición del núcleo
+# 96d92f060ddfd4970bf47167c5b23ee140bc67bd521166363c942f6f83203bc3.
+03621298761d25e5e5decb2a8bee13cb2193f9fc07035a6dd7145ea5e5eec1cd
+# Post AD218: acto B1 de carga desde CONVOCA; definición del núcleo
+# c74551eab17bea78bb564d14d96b77f33bd24a5874b7bdb6e100a59d8f2fe714.
+79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5

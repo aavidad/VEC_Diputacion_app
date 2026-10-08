@@ -6,13 +6,13 @@ import {
   crearGestorInformeTrasSubsanacion,
   informeNuevoEmitidoEnSubsanacion,
   montarFormularioInformeTrasSubsanacion,
-} from "./informe-tras-subsanacion.js?v=20261001-ct-a-i18n-v1";
-import { contextoFiscalizacionDesdeEstado, renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261001-ct-a-i18n-v1";
+} from "./informe-tras-subsanacion.js?v=20261008-alta-rpt-circular-v6";
+import { contextoFiscalizacionDesdeEstado, renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
 import { RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { codigoValidoParaRuta } from "./cliente-http-transporte.js";
-import { RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js";
+import { RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js?v=20261008-alta-circular-v3";
 import { MENSAJES_INFORME_TRAS_SUBSANACION_ES as M } from "./i18n-informe-tras-subsanacion.js?v=20261001-ct-a-i18n-v1";
 
 const EXP = "expediente:ct:informe-nuevo:001";

@@ -39,7 +39,8 @@ func (s *ServicioPeticionCentro) Ejecutar(ctx context.Context, entrada ports.Com
 	if err != nil {
 		return vacio, err
 	}
-	if comando.Solicitud != nil && comando.Solicitud.Periodo.PoliticaFin != (domain.PoliticaFin{}) {
+	if comando.Solicitud != nil && (comando.Solicitud.Periodo.PoliticaFin != (domain.PoliticaFin{}) ||
+		comando.Solicitud.Necesidad != nil) {
 		return vacio, domain.ErrPeticionCentroInvalida
 	}
 	actor, err := s.autoridad.ActorPeticionCentro(ctx)

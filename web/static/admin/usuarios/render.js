@@ -1,25 +1,29 @@
+import { etiquetaNombreMetadatos } from "./metadatos.js?v=20261005-admin-lote-pantalla-v1";
 export const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
   .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
-export function crearRender({ root, id, textos }) {
+export function crearRender({ root, id, textos, metadatos = false }) {
   const t = textos.traducir;
   const tx = (clave, variables) => escapar(t(clave, variables));
   const el = (clave) => root.querySelector(`#${id(clave)}`);
   const fecha = (valor) => valor ? textos.fecha(new Date(valor), { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }) : t("detalle.sin_fecha");
   const campo = (clave, valor) => `<div class="fila-resumen"><dt>${tx(clave)}</dt><dd>${escapar(valor)}</dd></div>`;
   const boton = (accion, clave, extra = "", clase = "boton-secundario") => `<button type="button" class="${clase}" data-accion="${accion}" ${extra}>${tx(clave)}</button>`;
-  const estado = (valor) => `<span class="estado-chip ${valor === "activo" ? "exito" : "neutro"}">${tx(`estados.${valor}`)}</span>`;
+  const estado = (valor) => `<span class="estado-chip ${["activo", "vigente"].includes(valor) ? "exito" : "neutro"}">${tx(`estados.${valor === "vigente" ? "activo" : valor}`)}</span>`;
+  const nombre = (p) => p.proyeccion === "metadatos_v1" ? etiquetaNombreMetadatos(p, t) : p.nombre;
+  const unidadNombre = (p) => p.proyeccion === "metadatos_v1" ? t("metadatos.unidad_no_consultada") : p.unidad_nombre;
   const tecnico = (ref) => `<details><summary>${tx("general.tecnico")}</summary><code>${escapar(ref)}</code></details>`;
   function pantalla() {
     root.innerHTML = `<section class="usuarios" aria-labelledby="${id("titulo")}">
       <header class="cabeza-pagina"><div><h2 id="${id("titulo")}">${tx("general.titulo")}</h2></div>
-        ${boton("recargar", "general.recargar", `id="${id("recargar")}"`)}<details class="usuarios-ayuda"><summary class="boton-secundario" aria-label="${tx("general.ayuda_nombre")}">${tx("general.ayuda")}</summary><p>${tx("general.ayuda_contenido")}</p></details></header>
+        ${boton("recargar", "general.recargar", `id="${id("recargar")}"`)}<details class="usuarios-ayuda"><summary class="boton-secundario" aria-label="${tx("general.ayuda_nombre")}">${tx("general.ayuda")}</summary><p>${tx(metadatos ? "metadatos.ayuda" : "general.ayuda_contenido")}</p></details></header>
       <div class="usuarios-pestanas" role="tablist" aria-label="${tx("general.pestanas")}">
         <button class="boton-secundario" type="button" role="tab" aria-selected="true" aria-controls="${id("panel-usuarios")}" id="${id("tab-usuarios")}" data-accion="usuarios">${tx("general.usuarios")}</button>
         <button class="boton-secundario" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="${id("panel-perfiles")}" id="${id("tab-perfiles")}" data-accion="perfiles">${tx("general.perfiles")}</button>
         <button class="boton-secundario" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="${id("panel-propuestas")}" id="${id("tab-propuestas")}" data-accion="propuestas">${tx("propuestas.titulo")}</button></div>
       <p id="${id("estado")}" role="status" aria-live="polite" class="usuarios-estado"></p>
       <div class="usuarios-trabajo"><section role="tabpanel" id="${id("panel-usuarios")}" aria-labelledby="${id("tab-usuarios")}">
-        <section class="panel" id="${id("listado")}" aria-labelledby="${id("lista-titulo")}"><div class="cabecera-panel"><h3 id="${id("lista-titulo")}">${tx("busqueda.titulo")}</h3></div>
+        <section class="panel" id="${id("listado")}" aria-labelledby="${id("lista-titulo")}"><div class="cabecera-panel"><h3 id="${id("lista-titulo")}">${tx(metadatos ? "metadatos.titulo_lista" : "busqueda.titulo")}</h3></div>
+          ${metadatos ? `<p class="cuerpo-panel texto-secundario">${tx("metadatos.filtros_no_disponibles")}</p>` : ""}
           <form id="${id("buscar")}" class="cuerpo-panel usuarios-filtros">
             <label class="campo" for="${id("consulta")}"><span>${tx("busqueda.texto")}</span><input type="search" id="${id("consulta")}" maxlength="132" autocomplete="off"></label>
             <label class="campo" for="${id("perfil")}"><span>${tx("busqueda.perfil")}</span><select id="${id("perfil")}"></select></label>
@@ -54,8 +58,8 @@ export function crearRender({ root, id, textos }) {
   }
   function tabla(pagina, roles) {
     el("resultados").innerHTML = pagina.personas.length ? `<div class="tabla-contenedor" tabindex="0" aria-label="${tx("busqueda.tabla")}"><table class="tabla-datos"><caption>${tx("busqueda.cuenta", { cuenta: textos.numero(pagina.personas.length) })}</caption><thead><tr>
-      <th scope="col">${tx("busqueda.nombre")}</th><th scope="col">${tx("busqueda.unidad")}</th><th scope="col">${tx("busqueda.perfiles")}</th></tr></thead><tbody>${pagina.personas.map((p) => `<tr><th scope="row"><button type="button" class="enlace-fila" data-accion="persona" data-ref="${escapar(p.persona_ref)}">${escapar(p.nombre)}</button></th>
-      <td>${escapar(p.unidad_nombre)}</td><td>${p.perfiles?.length ? p.perfiles.map((perfil) => `<div>${escapar(roles.find((r) => r.version_ref === perfil.rol_version_ref)?.etiqueta || t("detalle.nombre_pendiente"))} ${estado(perfil.estado)}</div>`).join("") : tx(p.perfiles ? "detalle.sin_perfiles" : "detalle.resumen_pendiente")}</td></tr>`).join("")}</tbody></table></div>`
+      <th scope="col">${tx("busqueda.nombre")}</th><th scope="col">${tx("busqueda.unidad")}</th><th scope="col">${tx("busqueda.perfiles")}</th></tr></thead><tbody>${pagina.personas.map((p, n) => `<tr><th scope="row"><button type="button" class="enlace-fila" data-accion="persona" data-ref="${escapar(p.persona_ref)}">${escapar(p.proyeccion === "metadatos_v1" && p.nombre_estado !== "consultado" ? t("metadatos.persona_en_lista", { numero: textos.numero(n + 1), nombre: nombre(p) }) : nombre(p))}</button></th>
+      <td>${escapar(unidadNombre(p))}</td><td>${p.perfiles?.length ? p.perfiles.map((perfil, i) => `<div>${escapar(roles.find((r) => r.version_ref === perfil.rol_version_ref)?.etiqueta || (p.proyeccion === "metadatos_v1" ? t("metadatos.perfil_en_lista", { numero: textos.numero(i + 1) }) : t("detalle.nombre_pendiente")))} ${estado(perfil.estado)}</div>`).join("") : tx(p.perfiles ? "detalle.sin_perfiles" : "detalle.resumen_pendiente")}</td></tr>`).join("")}</tbody></table></div>`
       : `<p class="cuerpo-panel">${tx("busqueda.vacia")}</p>`;
     if (pagina.siguiente_cursor) el("resultados").innerHTML += `<div class="pie-panel">${boton("mas", "busqueda.mas")}</div>`;
   }
@@ -64,7 +68,16 @@ export function crearRender({ root, id, textos }) {
       <div class="tabla-contenedor" tabindex="0" aria-label="${tx("catalogo.tabla")}"><table class="tabla-datos"><caption>${tx("catalogo.tabla")}</caption><thead><tr><th scope="col">${tx("catalogo.nombre")}</th><th scope="col">${tx("catalogo.circuito")}</th><th scope="col">${tx("catalogo.definicion")}</th></tr></thead><tbody>
       ${roles.map((r) => `<tr><th scope="row">${escapar(r.etiqueta)}</th><td>${tx(r.clase === "ordinario" ? "catalogo.ordinario" : "catalogo.doble")}</td><td>${tx(r.fijo ? "catalogo.fijo" : "catalogo.gestionado")}</td></tr>`).join("")}</tbody></table></div>`;
   }
-  function ficha(datos, roles, disponibles) {
+  function ficha(datos, roles, disponibles, puedeCambiar = false) {
+    if (datos.proyeccion === "metadatos_v1") {
+      el("detalle").innerHTML = `<div class="cabecera-panel"><div><h3>${escapar(nombre(datos))}</h3><p>${tx("metadatos.unidad_no_consultada")}</p></div><div class="acciones-ficha">${puedeCambiar ? boton("cambiar-perfiles", "lote.cambiar", "hidden", "boton-primario") : ""}${boton("volver", "general.volver")}</div></div><div class="cuerpo-panel">
+        <p class="texto-secundario">${tx("metadatos.alcance")}</p><h4>${tx("detalle.perfiles")}</h4>
+        ${datos.perfiles.length ? `<ul class="usuarios-perfiles">${datos.perfiles.map((p, i) => `<li><div class="usuarios-fila-perfil"><strong>${tx("metadatos.perfil_en_lista", { numero: textos.numero(i + 1) })}</strong>${estado(p.estado)}</div>
+          <dl class="resumen-expediente">${campo("detalle.desde", fecha(p.vigente_desde))}${campo("detalle.hasta", fecha(p.vigente_hasta))}</dl>${tecnico(p.perfil_ref)}${puedeCambiar ? `<div class="usuarios-accion-perfil" data-retirada-ref="${escapar(p.perfil_ref)}"></div>` : ""}</li>`).join("")}</ul>` : `<p>${tx("detalle.sin_perfiles")}</p>`}
+        ${puedeCambiar ? "" : `<p>${tx("metadatos.actos_no_consultados")}</p>`}
+        <p>${tx("metadatos.historia_no_consultada")}</p>${tecnico(datos.persona_ref)}</div>`;
+      return;
+    }
     rolesHistoria = roles;
     el("detalle").innerHTML = `<div class="cabecera-panel"><div><h3>${escapar(datos.nombre)}</h3><p>${escapar(datos.unidad_nombre)}</p></div>${boton("volver", "general.volver")}</div><div class="cuerpo-panel">
       <h4>${tx("detalle.perfiles")}</h4>${datos.perfiles.length ? `<ul class="usuarios-perfiles">${datos.perfiles.map((p) => `<li><div class="usuarios-fila-perfil"><strong>${escapar(roles.find((r) => r.version_ref === p.rol_version_ref)?.etiqueta || t("detalle.nombre_pendiente"))}</strong>${estado(p.estado)}</div>

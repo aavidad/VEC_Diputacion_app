@@ -1,5 +1,38 @@
 # Portal del empleado: inventario y continuación
 
+## Continuación del 4 de octubre de 2026
+
+Este apartado actualiza el inventario del 1 de octubre conservado debajo.
+Base comprobada: `origin/main@77a4e7470`.
+
+- I-01 e I-03 ya están montadas: Inicio ofrece accesos propios y «Mis trámites»
+  reúne las lecturas existentes de Cronos y Dietas. La PR #364 incorporó las
+  hojas que el plan inicial conservaba como WIP; no hay que recuperarlas otra vez.
+- Este corte corrige los accesos desde «Mi ficha»: Cronos y Dietas pueden abrirse
+  en una sesión nueva, sin visitar antes sus pantallas. El catálogo y el estado
+  de carga deciden la navegación; cada operación conserva su autorización en
+  servidor. Un destino ausente o cuya carga falló sigue deshabilitado. Al entrar,
+  el foco permanece en el contenido principal.
+- I-04 ya consume referencias de actos en las historias propias de Personal;
+  los documentos necesitan el vínculo autorizado con su versión. I-05
+  no dispone de plazos administrativos en las lecturas actuales; las fechas de
+  permiso o comisión no permiten deducirlos. I-06 conserva el recibo de Dietas,
+  sin convertirlo en registro oficial o notificación legal.
+- La parte de catálogos ES/EN de I-09 ya usa el lector común y `solicitudes.json`.
+  El componente genérico de Solicitudes carece de consumidor productivo; esta
+  comprobación no da por cerrado el trámite gobernado de I-08.
+
+La continuación añade tres mejoras en «Mis trámites»: al caducar la sesión,
+retira los datos de ambos paneles; el justificante de Dietas muestra la versión
+exacta del recibo; y una devolución permite consultar motivo, etapa, versión y
+fecha del hecho, con acceso a «Mis dietas» para revisarla. Esa fecha no fija un
+plazo administrativo. No se añade una descarga ni se repite una escritura.
+
+Validación de los accesos: pruebas focales de coordinación, composición y ficha;
+Chrome del sistema en ES/EN, 1440/390 y ampliación al 200 %, con teclado y foco.
+El navegador monta coordinador y Personal reales con respuestas HTTP sintéticas;
+no acredita mTLS, PostgreSQL nominal ni instalación en la principal.
+
 Estado a 1 de octubre de 2026. Equipo I. Base comprobada:
 `origin/main@0a62a3ea68e58fbf890885a2f59cc80343107e18`.
 La orden de dirección de las 16:50 y 16:55 es conservar el trabajo, entregar

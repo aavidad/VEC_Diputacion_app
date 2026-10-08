@@ -41,8 +41,9 @@ type AutorizacionV3 struct {
 
 func (a AutorizacionV3) ValidarPara(accion string, ahora time.Time) error {
 	if a.Material.ValidarEstructura() != nil || a.Accion != accion ||
-		!domain.ReferenciaOpacaValida(a.RecursoRef) ||
-		!domain.ReferenciaOpacaValida(a.AmbitoRef) ||
+		!((accion == AccionListar && domain.ReferenciaExpedienteValida(a.RecursoRef)) ||
+			(accion != AccionListar && domain.ReferenciaOpacaValida(a.RecursoRef))) ||
+		!domain.ReferenciaExpedienteValida(a.AmbitoRef) ||
 		!domain.ReferenciaValida(a.PrincipalID) ||
 		!domain.ReferenciaValida(a.PerfilActivoRef) ||
 		!domain.ReferenciaValida(a.CorrelacionRef) ||
@@ -140,7 +141,7 @@ type AltaExternaPersistente struct {
 func (a AltaExternaPersistente) PreimagenExterna() ([]byte, error) {
 	if a.Politica.Validar() != nil || a.Custodia.Validar() != nil ||
 		!domain.ReferenciaOpacaValida(a.ID) || !domain.ReferenciaOpacaValida(a.ClaveIdempotencia) ||
-		!domain.IdentificadorTecnicoValido(a.ModuloID) || !domain.ReferenciaOpacaValida(a.ExpedienteRef) ||
+		!domain.IdentificadorTecnicoValido(a.ModuloID) || !domain.ReferenciaExpedienteModuloValida(a.ModuloID, a.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(a.TipoRef) || a.Version == 0 || a.Tamano < 0 ||
 		(a.MIME != "" && !domain.MIMEValido(a.MIME)) {
 		return nil, ErrSolicitudInvalida
@@ -223,7 +224,7 @@ type Repositorio interface {
 }
 
 func (q ConsultaExpediente) PreimagenListar() ([]byte, error) {
-	if !domain.ReferenciaOpacaValida(q.ExpedienteRef) || q.Limite == 0 || q.Limite > 100 ||
+	if !domain.ReferenciaExpedienteValida(q.ExpedienteRef) || q.Limite == 0 || q.Limite > 100 ||
 		(q.Cursor != "" && !domain.ReferenciaValida(q.Cursor)) {
 		return nil, ErrSolicitudInvalida
 	}
@@ -268,7 +269,7 @@ func (p PreparacionNotificacion) PreimagenPreparar() ([]byte, error) {
 func (a AltaPersistente) PreimagenAlta() ([]byte, error) {
 	if a.Politica.Validar() != nil || !domain.HuellaValida(a.HuellaSHA256) ||
 		!domain.ReferenciaOpacaValida(a.ID) || !domain.ReferenciaOpacaValida(a.ClaveIdempotencia) ||
-		!domain.IdentificadorTecnicoValido(a.ModuloID) || !domain.ReferenciaOpacaValida(a.ExpedienteRef) ||
+		!domain.IdentificadorTecnicoValido(a.ModuloID) || !domain.ReferenciaExpedienteModuloValida(a.ModuloID, a.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(a.TipoRef) || a.Version == 0 || a.Tamano < 1 {
 		return nil, ErrSolicitudInvalida
 	}

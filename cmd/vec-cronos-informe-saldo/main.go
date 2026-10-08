@@ -1,4 +1,4 @@
-// vec-cronos-informe-saldo emite exclusivamente un PDF sintético por stdout.
+// vec-cronos-informe-saldo emite exclusivamente un PDF o CSV sintético por stdout.
 // No compone el caso de uso de exportación ni una autoridad de lectura/auditoría.
 package main
 
@@ -25,6 +25,12 @@ type escenarioSintetico struct {
 }
 
 func ejecutar(ctx context.Context, args []string, salida io.Writer) error {
+	if len(args) > 0 && strings.HasPrefix(args[0], "--formato=") {
+		if args[0] != "--formato=csv" {
+			return ports.ErrExportacionSaldoInvalida
+		}
+		return ejecutarCSV(ctx, args[1:], salida)
+	}
 	if len(args) > 0 && strings.HasPrefix(args[0], "--vista=") {
 		if args[0] != "--vista=movimientos" {
 			return ports.ErrExportacionSaldoInvalida

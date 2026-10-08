@@ -22,6 +22,7 @@ import (
 	dietaspg "vec-diputacion-granada/internal/modules/dietas/adapters/postgres"
 	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
 	dp "vec-diputacion-granada/internal/modules/dietas/ports"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
@@ -31,6 +32,9 @@ import (
 	vecapp "vec-diputacion-granada/internal/vec/application"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
+
+	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
 )
 
 // El manifiesto privado selecciona cuentas/perfiles ya registrados. No crea
@@ -150,7 +154,7 @@ func nuevasRutasDietasDesarrollo(cfg config.Config, resolvedor httpapi.DemoIdent
 		}
 		cuentas[cuenta.CertificadoSHA256] = cuenta
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancelar()
 	var pools []*pgxpool.Pool
 	var cerrarMaterial func()
@@ -283,7 +287,8 @@ func abrirPoolRutasDietas(ctx context.Context, dsn, rol string) (*pgxpool.Pool, 
 	for k, v := range map[string]string{"application_name": "vec-dietas-rutas-desarrollo", "timezone": "UTC", "search_path": "pg_catalog", "statement_timeout": "10s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "15s"} {
 		c.ConnConfig.RuntimeParams[k] = v
 	}
-	pool, e := pgxpool.NewWithConfig(ctx, c)
+	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
+	pool, e := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, c)
 	if e != nil {
 		return nil, "", fallo
 	}

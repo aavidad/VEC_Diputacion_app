@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
-import { contextoLlamamientoDesdeEstado } from "./vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { contextoLlamamientoDesdeEstado } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
 
 // Dobles de transporte y DOM; adapter, contratos, presentador y vista son los reales.
 const A = "expediente:ct:001", B = "expediente:ct:002";
@@ -231,6 +231,11 @@ test("la selección de llamamiento exige la fase de llamamiento", () => {
   assert.equal(contextoLlamamientoDesdeEstado(estado), null);
   estado.expediente.fiscalizacion = { resultado_clave: "favorable" };
   estado.expediente.historial = [{ accion_clave: "registrar_fiscalizacion", version_expediente: 7 }];
+  assert.deepEqual(contextoLlamamientoDesdeEstado(estado), {
+    expediente_ref: A, version_esperada: 7,
+  });
+  // Clave real que registra el servidor en el historial del detalle.
+  estado.expediente.historial = [{ accion_clave: "contratacion_temporal.fiscalizacion.registrar", version_expediente: 7 }];
   assert.deepEqual(contextoLlamamientoDesdeEstado(estado), {
     expediente_ref: A, version_esperada: 7,
   });

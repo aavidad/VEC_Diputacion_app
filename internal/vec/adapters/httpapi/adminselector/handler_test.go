@@ -366,6 +366,23 @@ func TestGETNoAceptaCuerpoNiLecturaIncoherente(t *testing.T) {
 	}
 }
 
+// La selección auditada real (IS14/AD171) devuelve la referencia de la
+// auditoría común; el manejador debe publicarla tras el COMMIT.
+func TestPOSTPublicaReferenciaDeAuditoriaComun(t *testing.T) {
+	h, _, s, _ := escenario(t)
+	s.recibo.AuditoriaRef = "aud_v3_p_" + strings.Repeat("0a", 16)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticion(http.MethodPost, RutaSeleccion, cuerpoValido()))
+	if w.Code != 200 || !strings.Contains(w.Body.String(), s.recibo.AuditoriaRef) {
+		t.Fatalf("referencia común rechazada: %d %s", w.Code, w.Body)
+	}
+	for _, mala := range []string{"aud_v3_p_" + strings.Repeat("A", 32), "aud_v3_p_" + strings.Repeat("a", 31), "aud_v3_p_" + strings.Repeat("a", 33), "aud_v3_x_" + strings.Repeat("a", 32)} {
+		if auditoriaValida(mala) {
+			t.Fatalf("referencia malformada admitida: %s", mala)
+		}
+	}
+}
+
 func TestPOSTNoConfirmaReciboIncoherente(t *testing.T) {
 	for nombre, cambiar := range map[string]func(*adminperfiles.SeleccionPerfil){
 		"perfil ajeno":  func(s *adminperfiles.SeleccionPerfil) { s.PerfilActivoRef = perfilA },

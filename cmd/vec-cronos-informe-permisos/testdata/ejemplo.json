@@ -3,6 +3,7 @@
   "nombre": "Carmen Molina Ortega",
   "ejercicio": 2026,
   "corte_utc": "2026-10-01T10:00:00Z",
+  "campos_permitidos": ["etiqueta", "unidad", "computo", "pendiente_resolver", "concedido", "restante", "conciliacion"],
   "filas": [
     {
       "tipo_ref": "vacaciones_ejemplo",

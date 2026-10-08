@@ -119,7 +119,8 @@ func (f FuenteServicios) Obtener(ctx context.Context) (domain.FuenteServicios, e
 	if ctx == nil || ctx.Err() != nil {
 		return fuente, domain.ErrNoDisponible
 	}
-	if LeerJSON(f.Ruta, &fuente) != nil || fuente.ValidarEnsayo() != nil {
+	// La forma V1 solo entra por el traductor de personalv1, nunca escrita a mano.
+	if LeerJSON(f.Ruta, &fuente) != nil || fuente.Esquema != domain.EsquemaFuenteEnsayo || fuente.ValidarEnsayo() != nil {
 		return domain.FuenteServicios{}, domain.ErrEntrada
 	}
 	return fuente, nil

@@ -1,0 +1,6 @@
+# AD198: gobierno genérico de las claves de capacidad de Administración por conjunto cerrado y versionado.
+# Requiere AD188 y AD191 (gobierno de usuarios) y AD190 (lista_sql_claude_lote_perfiles_ad190_20261005.txt),
+# que admite la audiencia del lote en la tabla de claves. Instalarla no publica claves: lo hace después
+# vec-gobierno-usuarios-admin con "conjunto_capacidades": 1 y un LOGIN del grupo vec_gobierno_capacidades_admin_operador.
+# Una sola vez; sin DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000198_gobierno_capacidades_admin.up.sql

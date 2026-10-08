@@ -297,6 +297,9 @@ export function extraerDatos(envoltorio, errorCliente, exigirCamposExactos, esRe
 
 export function claveI18nValida(ruta, codigo, clave, rutas) {
   if (typeof clave !== "string") return false;
+  if (ruta === `${rutas.catalogosAlta}?version=2` && codigo === "capacidad_no_configurada") {
+    return clave === "api.contratacion_temporal.catalogos_alta.error.capacidad_no_configurada";
+  }
   if (clave === `api.vec.ruta_exacta.error.${codigo}`) {
     return [
       "recurso_no_encontrado",
@@ -344,7 +347,17 @@ export function claveI18nValida(ruta, codigo, clave, rutas) {
 // Rechazo del cierre sin cese cuando la regla de cierre (c10) no lo contempla.
 export const CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO = "cierre_sin_cese_no_contemplado";
 
+// Sin crédito no se ofrece: la propuesta de cobertura (ya autorizada) explica
+// el motivo con un código propio. La decisión no lo revela.
+export const CONFLICTOS_SIN_CREDITO_COBERTURA = Object.freeze([
+  "sin_credito_analisis_pendiente", "sin_credito_retencion_rechazada", "sin_credito_partidas_sin_coste",
+]);
+
 export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
+  if (ruta === `${rutas.catalogosAlta}?version=2` && estado === 503
+    && codigo === "capacidad_no_configurada") return true;
+  if (ruta === rutas.propuestaCobertura && estado === 409
+    && CONFLICTOS_SIN_CREDITO_COBERTURA.includes(codigo)) return true;
   if (ruta === rutas.propuestaCobertura
     && estado === 403
     && codigo === "datos_no_disponibles_perfil") return true;

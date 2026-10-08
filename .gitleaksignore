@@ -71,6 +71,9 @@ f2fd58e53da6d7eaf8c8b76d58d5118f7b2fecda:deploy/postgresql/bolsa_llamamientos/pr
 # Referencia pública de caché Bolsa, no credencial
 2a84532885f56ff267e6ed1d8c52f80b4c11302d:web/static/portal-empleado/portal-i18n.test.mjs:generic-api-key:93
 
+# Identificador público de clave sintética RPT, no secreto.
+4436cb09d3c184bcf1f8dd1dd0d7c72ef15e4c18:deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027.sql.borrador:vep-clave-castellana-asignada:111
+4436cb09d3c184bcf1f8dd1dd0d7c72ef15e4c18:deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027_pg18.sh.borrador:vep-clave-castellana-asignada:99
 # Identificador público de clave sintética CRN11, no secreto
 dcfb876c98a9d674b24efee1884f3d06dd82916c:deploy/postgresql/personal/pruebas_sql/vinculo_propio_historico_crn11_000026.sql:vep-clave-castellana-asignada:51
 dcfb876c98a9d674b24efee1884f3d06dd82916c:deploy/postgresql/personal/pruebas_sql/vinculo_propio_historico_crn11_000026_pg18.sh:vep-clave-castellana-asignada:58
@@ -92,3 +95,7 @@ f548260d7c6bc962fd5f1fcd6a5d4b1e3d144106:deploy/postgresql/bolsa_llamamientos/pr
 
 # AD171: SHA256 público del consumo sintético idéntico al vector V2; no es un token SumoLogic.
 9cc9e7a84a8f19940364aa9cf829421d611b59be:cmd/vec-auditoria-verificar/testdata/preperfil_mixta_v3.json:sumologic-access-token:1
+
+# Copias: referencia pública de cuenta ordinaria sintética en fixture sellada.
+# No es clave, credencial ni dato personal; sólo este hallazgo histórico.
+440cebf1ade5acc38857d784e9745dbca9c69000:internal/modules/administracion/adapters/intentoscopias/fixture_test.go:generic-api-key:65

@@ -1,0 +1,343 @@
+{
+  "lista_ref": "lista:aux-adm-2026-provisional",
+  "revision": 1,
+  "alcance": "preparacion_sintetica",
+  "bases": {
+    "referencia": "bases:sinteticas",
+    "version": "1",
+    "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "catalogo_ref": "seleccion-admision-ejemplo",
+  "catalogo_version": "ejemplo-1",
+  "revisiones_s4": [
+    {
+      "preparacion_ref": "preparacion:aux-adm-2026-0007",
+      "revision": 1,
+      "alcance": "preparacion_sintetica",
+      "bases": {
+        "referencia": "bases:sinteticas",
+        "version": "1",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "solicitud_contexto": {
+        "huella_archivo_original_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "identificador_publico": "convocatoria-sintetica",
+        "version": "1",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "estado": "sin_presentar"
+      },
+      "requisitos": [
+        {
+          "titulo_propuesto": "Titulación exigida en las bases propuestas",
+          "referencia": "requisito:titulacion",
+          "version": "1",
+          "representacion": "estructurada",
+          "regla_ref": "regla:titulacion",
+          "regla_version": "1",
+          "hito_ref": "hito:fin-presentacion-propuesto",
+          "hito_fecha": "2026-10-01",
+          "hechos_esperados": [
+            {
+              "referencia": "hecho:titulacion",
+              "version": 1
+            }
+          ]
+        },
+        {
+          "titulo_propuesto": "Otros requisitos pendientes de estructurar",
+          "referencia": "requisito:texto",
+          "version": "1",
+          "representacion": "texto_libre",
+          "hito_ref": "hito:fin-presentacion-propuesto",
+          "hito_fecha": "2026-10-01",
+          "hechos_esperados": []
+        }
+      ],
+      "hechos": {
+        "alcance": "preparacion_sintetica",
+        "version_paquete": "paquete:1",
+        "hechos": [
+          {
+            "referencia": "hecho:titulacion",
+            "version": 1,
+            "tipo": "titulacion",
+            "concepto_ref": "concepto:titulacion",
+            "procedencia": {
+              "fuente_ref": "fuente:sintetica",
+              "version": "1",
+              "hecho_origen_ref": "origen:titulacion",
+              "capturada_en": "2026-09-20T10:00:00Z"
+            },
+            "vigencia": {
+              "desde": "2026-09-20"
+            },
+            "estado": "declarado",
+            "evidencias": [],
+            "vigencia_en_corte": "vigente",
+            "pendientes": [
+              "meritos.pendiente.procedencia"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "preparacion_ref": "preparacion:aux-adm-2026-0012",
+      "revision": 1,
+      "alcance": "preparacion_sintetica",
+      "bases": {
+        "referencia": "bases:sinteticas",
+        "version": "1",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "solicitud_contexto": {
+        "huella_archivo_original_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "identificador_publico": "convocatoria-sintetica",
+        "version": "1",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "estado": "sin_presentar"
+      },
+      "requisitos": [
+        {
+          "titulo_propuesto": "Titulación exigida en las bases propuestas",
+          "referencia": "requisito:titulacion",
+          "version": "1",
+          "representacion": "estructurada",
+          "regla_ref": "regla:titulacion",
+          "regla_version": "1",
+          "hito_ref": "hito:fin-presentacion-propuesto",
+          "hito_fecha": "2026-10-01",
+          "hechos_esperados": [
+            {
+              "referencia": "hecho:titulacion",
+              "version": 1
+            }
+          ]
+        },
+        {
+          "titulo_propuesto": "Otros requisitos pendientes de estructurar",
+          "referencia": "requisito:texto",
+          "version": "1",
+          "representacion": "texto_libre",
+          "hito_ref": "hito:fin-presentacion-propuesto",
+          "hito_fecha": "2026-10-01",
+          "hechos_esperados": []
+        }
+      ],
+      "hechos": {
+        "alcance": "preparacion_sintetica",
+        "version_paquete": "paquete:1",
+        "hechos": [
+          {
+            "referencia": "hecho:titulacion",
+            "version": 1,
+            "tipo": "titulacion",
+            "concepto_ref": "concepto:titulacion",
+            "procedencia": {
+              "fuente_ref": "fuente:sintetica",
+              "version": "1",
+              "hecho_origen_ref": "origen:titulacion",
+              "capturada_en": "2026-09-20T10:00:00Z"
+            },
+            "vigencia": {
+              "desde": "2026-09-20"
+            },
+            "estado": "declarado",
+            "evidencias": [],
+            "vigencia_en_corte": "vigente",
+            "pendientes": [
+              "meritos.pendiente.procedencia"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "preparacion_ref": "preparacion:aux-adm-2026-0019",
+      "revision": 1,
+      "alcance": "preparacion_sintetica",
+      "bases": {
+        "referencia": "bases:sinteticas",
+        "version": "1",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "solicitud_contexto": {
+        "huella_archivo_original_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "identificador_publico": "convocatoria-sintetica",
+        "version": "1",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "estado": "sin_presentar"
+      },
+      "requisitos": [
+        {
+          "titulo_propuesto": "Titulación exigida en las bases propuestas",
+          "referencia": "requisito:titulacion",
+          "version": "1",
+          "representacion": "estructurada",
+          "regla_ref": "regla:titulacion",
+          "regla_version": "1",
+          "hito_ref": "hito:fin-presentacion-propuesto",
+          "hito_fecha": "2026-10-01",
+          "hechos_esperados": [
+            {
+              "referencia": "hecho:titulacion",
+              "version": 1
+            }
+          ]
+        },
+        {
+          "titulo_propuesto": "Otros requisitos pendientes de estructurar",
+          "referencia": "requisito:texto",
+          "version": "1",
+          "representacion": "texto_libre",
+          "hito_ref": "hito:fin-presentacion-propuesto",
+          "hito_fecha": "2026-10-01",
+          "hechos_esperados": []
+        }
+      ],
+      "hechos": {
+        "alcance": "preparacion_sintetica",
+        "version_paquete": "paquete:1",
+        "hechos": [
+          {
+            "referencia": "hecho:titulacion",
+            "version": 1,
+            "tipo": "titulacion",
+            "concepto_ref": "concepto:titulacion",
+            "procedencia": {
+              "fuente_ref": "fuente:sintetica",
+              "version": "1",
+              "hecho_origen_ref": "origen:titulacion",
+              "capturada_en": "2026-09-20T10:00:00Z"
+            },
+            "vigencia": {
+              "desde": "2026-09-20"
+            },
+            "estado": "declarado",
+            "evidencias": [],
+            "vigencia_en_corte": "vigente",
+            "pendientes": [
+              "meritos.pendiente.procedencia"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "preparacion_ref": "preparacion:aux-adm-2026-0003",
+      "revision": 1,
+      "alcance": "preparacion_sintetica",
+      "bases": {
+        "referencia": "bases:sinteticas",
+        "version": "1",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "solicitud_contexto": {
+        "huella_archivo_original_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "identificador_publico": "convocatoria-sintetica",
+        "version": "1",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "estado": "sin_presentar"
+      },
+      "requisitos": [
+        {
+          "titulo_propuesto": "Titulación exigida en las bases propuestas",
+          "referencia": "requisito:titulacion",
+          "version": "1",
+          "representacion": "estructurada",
+          "regla_ref": "regla:titulacion",
+          "regla_version": "1",
+          "hito_ref": "hito:fin-presentacion-propuesto",
+          "hito_fecha": "2026-10-01",
+          "hechos_esperados": [
+            {
+              "referencia": "hecho:titulacion",
+              "version": 1
+            }
+          ]
+        },
+        {
+          "titulo_propuesto": "Otros requisitos pendientes de estructurar",
+          "referencia": "requisito:texto",
+          "version": "1",
+          "representacion": "texto_libre",
+          "hito_ref": "hito:fin-presentacion-propuesto",
+          "hito_fecha": "2026-10-01",
+          "hechos_esperados": []
+        }
+      ],
+      "hechos": {
+        "alcance": "preparacion_sintetica",
+        "version_paquete": "paquete:1",
+        "hechos": [
+          {
+            "referencia": "hecho:titulacion",
+            "version": 1,
+            "tipo": "titulacion",
+            "concepto_ref": "concepto:titulacion",
+            "procedencia": {
+              "fuente_ref": "fuente:sintetica",
+              "version": "1",
+              "hecho_origen_ref": "origen:titulacion",
+              "capturada_en": "2026-09-20T10:00:00Z"
+            },
+            "vigencia": {
+              "desde": "2026-09-20"
+            },
+            "estado": "declarado",
+            "evidencias": [],
+            "vigencia_en_corte": "vigente",
+            "pendientes": [
+              "meritos.pendiente.procedencia"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "decisiones": [
+    {
+      "antecedente": {
+        "esquema_material": "seleccion.admision.material-local.v1",
+        "preparacion_ref": "preparacion:aux-adm-2026-0007",
+        "revision": 1,
+        "huella_material_sha256": "5b80defac135762488bdf7338f56798e01db6aad4ae3a4e8d39a3a29c6474491"
+      },
+      "decision": "admitida"
+    },
+    {
+      "antecedente": {
+        "esquema_material": "seleccion.admision.material-local.v1",
+        "preparacion_ref": "preparacion:aux-adm-2026-0012",
+        "revision": 1,
+        "huella_material_sha256": "683c9e36c182579789a3eb0305b3fa9f053e6635c99bb987ae21c50586382b4d"
+      },
+      "decision": "excluida",
+      "motivos": [
+        "tasa_no_justificada",
+        "documento_identidad_no_aportado"
+      ]
+    },
+    {
+      "antecedente": {
+        "esquema_material": "seleccion.admision.material-local.v1",
+        "preparacion_ref": "preparacion:aux-adm-2026-0019",
+        "revision": 1,
+        "huella_material_sha256": "cce4a0bb6f7f1dc8c1b77addd4bd7071c7b013da108b4c5072f3108a31bb8e96"
+      },
+      "decision": "excluida",
+      "motivos": [
+        "solicitud_fuera_de_plazo"
+      ]
+    },
+    {
+      "antecedente": {
+        "esquema_material": "seleccion.admision.material-local.v1",
+        "preparacion_ref": "preparacion:aux-adm-2026-0003",
+        "revision": 1,
+        "huella_material_sha256": "c162034906b585ac9dbfb4f7e3d58ccf716bf5d51b46a0d431b5882f9a08396e"
+      },
+      "decision": "admitida"
+    }
+  ]
+}

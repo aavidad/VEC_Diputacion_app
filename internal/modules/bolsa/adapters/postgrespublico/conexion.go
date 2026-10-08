@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/puertos"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 const (
@@ -105,7 +106,7 @@ func Abrir(
 	if err != nil {
 		return nil, err
 	}
-	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 	if err != nil {
 		return nil, ErrPostgreSQLPublicoNoDisponible
 	}
@@ -207,7 +208,8 @@ func prepararConfiguracionPool(dsn string) (*pgxpool.Config, error) {
 	if err := validarTLSPostgreSQLPublico(&configuracion.ConnConfig.Config); err != nil {
 		return nil, err
 	}
-	configuracion.MaxConns = 6
+	// 6 por defecto, como los cupos de convocatorias del manejador público.
+	postgresqlcompartido.FijarTamanoPool(configuracion, dsn, 6)
 	configuracion.MinConns = 0
 	configuracion.MinIdleConns = 0
 	configuracion.MaxConnLifetime = duracionVidaPostgreSQLPublica
@@ -325,14 +327,20 @@ WITH vistas_esperadas(nombre) AS (VALUES
      WHERE espacio.nspname !~ '^pg_'
        AND espacio.nspname <> 'information_schema'
        AND relacion.relkind IN ('r','p','v','m','f')
+), funciones_fuera_del_catalogo AS MATERIALIZED (
+    -- Se filtran primero por esquema y solo después se pregunta el privilegio:
+    -- el resultado es el mismo, pero has_function_privilege deja de evaluarse
+    -- sobre las miles de funciones de pg_catalog en cada préstamo del pool.
+    SELECT funcion.oid
+      FROM pg_catalog.pg_proc AS funcion
+      JOIN pg_catalog.pg_namespace AS espacio ON espacio.oid = funcion.pronamespace
+     WHERE espacio.nspname !~ '^pg_'
+       AND espacio.nspname <> 'information_schema'
 ), privilegios_funciones AS (
     SELECT NOT EXISTS (
         SELECT 1
-          FROM pg_catalog.pg_proc AS funcion
-          JOIN pg_catalog.pg_namespace AS espacio ON espacio.oid = funcion.pronamespace
-         WHERE espacio.nspname !~ '^pg_'
-           AND espacio.nspname <> 'information_schema'
-           AND pg_catalog.has_function_privilege(session_user, funcion.oid, 'EXECUTE')
+          FROM funciones_fuera_del_catalogo AS funcion
+         WHERE pg_catalog.has_function_privilege(session_user, funcion.oid, 'EXECUTE')
     ) AS validos
 ), privilegios_secuencias AS (
     SELECT NOT EXISTS (

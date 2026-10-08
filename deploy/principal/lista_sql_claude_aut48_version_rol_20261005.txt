@@ -1,0 +1,4 @@
+# AUT48: las comprobaciones del perfil fijo de Aplicación aceptan la versión que señala la asignación actual
+# si contiene la concesión exacta. Requiere AUT45 instalada (despachadores medidos). Una sola vez; sin DOWN.
+# Se puede aplicar con vec-admin en marcha: sólo reemplaza cuatro despachadores y añade cuatro funciones.
+deploy/postgresql/autorizacion/migraciones/000048_version_vigente_rol_aplicacion.up.sql

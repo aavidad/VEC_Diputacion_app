@@ -1,0 +1,3 @@
+# AUT47: CONNECT sobre la base actual al grupo vec_admin_usuarios_lector.
+# Requiere AUT43 instalada. Idempotente: si el grupo ya tiene CONNECT no hace nada. Sin DOWN.
+deploy/postgresql/autorizacion/migraciones/000047_connect_lector_usuarios_admin.up.sql

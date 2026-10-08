@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -66,7 +67,7 @@ func ejecutarConsumoADMIN(ctx context.Context, pool conexion, emisor Emisor, rel
 		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	defer func() {
-		rollbackCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
 		defer cancel()
 		_ = tx.Rollback(rollbackCtx)
 	}()

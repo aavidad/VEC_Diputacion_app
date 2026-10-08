@@ -26,6 +26,15 @@ type EmisorIncidenciasTecnicasConContexto interface {
 	EmitirConContexto(context.Context, domain.SolicitudIncidenciaTecnica)
 }
 
+// AceptadorIncidenciasTecnicasConContexto añade un acuse local opcional.
+// True solo significa entrada en la cola del emisor; no acredita escritura,
+// entrega al destino ni persistencia. False indica descarte o cierre.
+// Conserva la emisión no bloqueante y el saneamiento del contrato base.
+type AceptadorIncidenciasTecnicasConContexto interface {
+	EmisorIncidenciasTecnicasConContexto
+	AceptarConContexto(context.Context, domain.SolicitudIncidenciaTecnica) bool
+}
+
 // MetricasEmisionIncidencias son contadores acumulados desde la creación del
 // emisor. No llevan etiquetas por persona, expediente ni correlación.
 type MetricasEmisionIncidencias struct {

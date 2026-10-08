@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title></title>
+  <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1">
+  <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20260930-codexf-temas-v2">
+  <link rel="stylesheet" href="/portal-empleado/portal-patrones.css?v=20261003-s2-consulta-v1">
+  <link rel="stylesheet" href="/portal-empleado/portal-flujos.css?v=20261003-s2-consulta-v1">
+  <link rel="stylesheet" href="./preparacion-notas.css?v=20261004-s6-revision-notas-v1">
+</head>
+<body class="portal-empleado-app modulo-preparacion-notas">
+  <a class="salto-contenido" href="#contenido-principal" data-texto="saltar"></a>
+  <div class="portal-empleado-shell">
+    <aside class="portal-lateral">
+      <div class="marca-portal"><strong data-texto="portal"></strong><p data-texto="organizacion"></p></div>
+      <nav class="navegacion-modulos" data-aria="navegacion"><a class="enlace-lateral" href="./index.html" aria-current="page"><span class="indicador-menu" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7"/></svg></span><span data-texto="titulo"></span></a></nav>
+    </aside>
+    <div class="portal-superficie">
+      <header class="cabecera-portal">
+        <div class="contexto-cabecera"><div class="migas" data-texto="contexto"></div><h1 data-texto="titulo"></h1></div>
+        <div class="acciones-cabecera">
+          <label class="selector-idioma"><span data-texto="idioma"></span><select id="notas-idioma" disabled></select></label>
+          <button type="button" class="boton-secundario" id="notas-ayuda" data-texto="ayuda_signo" data-aria="ayuda" aria-expanded="false" aria-controls="notas-ayuda-contenido" disabled></button>
+        </div>
+      </header>
+      <main id="contenido-principal" class="contenido-portal" tabindex="-1"><div id="espacio-trabajo"><div class="pila">
+        <section id="notas-ayuda-contenido" class="panel" hidden><header class="cabecera-panel"><h2 data-texto="ayuda"></h2></header><div class="cuerpo-panel"><p data-texto="ayuda_texto"></p></div></section>
+        <section class="panel"><header class="cabecera-panel"><h2 data-texto="abrir"></h2><span class="insignia aviso" data-texto="solo_local"></span></header><div class="cuerpo-panel pila notas-apertura">
+          <p data-texto="limite"></p>
+          <div class="rejilla-dos"><label class="campo" for="notas-archivo"><span data-texto="archivo"></span><input id="notas-archivo" type="file" accept=".json,application/json" aria-describedby="notas-pista notas-estado" disabled></label>
+          <div class="acciones-vista"><button id="notas-descargar" type="button" class="boton-secundario" data-texto="descargar" disabled></button><button id="notas-cerrar" type="button" class="boton-secundario" data-texto="cerrar" disabled></button></div></div>
+          <p id="notas-pista" class="texto-secundario" data-texto="archivo_pista"></p>
+          <p id="notas-estado" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></p>
+        </div></section>
+        <div id="notas-resultados" class="pila"></div>
+      </div></div></main>
+    </div>
+  </div>
+  <script type="module" src="./entrada.js?v=20261004-s6-revision-notas-v1"></script>
+</body>
+</html>

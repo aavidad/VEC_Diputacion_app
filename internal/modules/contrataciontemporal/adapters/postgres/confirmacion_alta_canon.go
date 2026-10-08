@@ -169,8 +169,12 @@ func canonEfectoAlta(
 		len(expediente.Actuaciones) != 1 {
 		return nil, "", ports.ErrOrdenAltaInvalida
 	}
-	efecto := construirEfectoAltaCanonico(expediente, datosCandidatura)
-	alta, err := json.Marshal(efecto)
+	var alta []byte
+	if expediente.Solicitud.Necesidad == nil {
+		alta, err = json.Marshal(construirEfectoAltaCanonico(expediente, datosCandidatura))
+	} else {
+		alta, err = json.Marshal(construirEfectoAltaCanonicoV3(expediente, datosCandidatura))
+	}
 	if err != nil || len(alta) < 256 || len(alta) > 32*1024 {
 		borrarBytes(alta)
 		return nil, "", ports.ErrOrdenAltaInvalida

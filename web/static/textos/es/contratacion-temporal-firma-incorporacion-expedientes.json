@@ -2,7 +2,7 @@
   "incorporacion": {
     "incorporacion_consulta_bajo_demanda": "La incorporación al ejercicio se consulta al pedirla. Consultarla no registra ninguna incorporación.",
     "incorporacion_consultar": "Consultar la incorporación al ejercicio",
-    "incorporacion_preparacion_cargando": "Consultando la preparación de incorporación guardada en el servidor.",
+    "incorporacion_preparacion_cargando": "Cargando la preparación de la incorporación…",
     "incorporacion_preparacion_denegada": "No dispone de permiso para consultar la incorporación de este expediente.",
     "incorporacion_preparacion_pendiente": "La preparación de incorporación no está disponible para este expediente. Esta consulta no registra una incorporación.",
     "incorporacion_preparacion_detalle_obsoleto": "El detalle mostrado (v{version_anterior}) está obsoleto. No se habilita ninguna acción hasta que se recupere la versión {version_actual}.",
@@ -19,10 +19,10 @@
     "continuidad_expediente_documentos": "Consultar documentos del expediente",
     "continuidad_documentos_titulo": "Ficha GINPIX y seguimiento",
     "continuidad_documentos_ficha": "Ficha manual para GINPIX",
-    "continuidad_documentos_ficha_estado": "La descarga se ofrece en el expediente solo con recibo de incorporación confirmado y consulta disponible.",
+    "continuidad_documentos_ficha_estado": "La ficha se descarga desde el expediente cuando conste la incorporación.",
     "continuidad_documentos_ficha_limite": "La ficha descargada no transmite datos ni confirma un alta en GINPIX.",
     "continuidad_documentos_seguimiento": "Seguimiento de la incorporación",
-    "continuidad_documentos_seguimiento_estado": "El seguimiento original se consulta desde el mismo recibo en el expediente, cuando la consulta está disponible.",
+    "continuidad_documentos_seguimiento_estado": "El seguimiento se consulta en el expediente, una vez registrada la incorporación.",
     "continuidad_documentos_seguimiento_limite": "Consultar el seguimiento no registra anotaciones ni cierra la relación."
   },
   "firma": {
@@ -38,7 +38,7 @@
     "firma_enviar": "Enviar a firma",
     "firma_enviar_motivo": "La conexión con Firmadoc aún no está disponible. Falta confirmar el circuito de firmantes.",
     "firma_autofirma_prueba_titulo": "Prueba con GrxFirma o AutoFirma",
-    "firma_autofirma_prueba": "Su programa de firma (GrxFirma o AutoFirma) solo permite probar una firma local; no acredita envío a Firmadoc ni una firma eficaz en el expediente.",
+    "firma_autofirma_prueba": "Puede probar la firma con GrxFirma o AutoFirma. Esta prueba no envía el documento a Firmadoc ni completa la firma oficial del expediente.",
     "firma_pendiente_documento": "Documento previo",
     "firma_pendiente_documento_valor": "Informe jurídico preparado; no consta firmado.",
     "firma_pendiente_destino": "Circuito previsto",

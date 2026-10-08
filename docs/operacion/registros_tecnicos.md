@@ -193,3 +193,57 @@ para entradas acotadas y rotación, de [Vector](https://vector.dev/docs/referenc
 para separar el destino de archivos, y de [OpenTelemetry](https://opentelemetry.io/docs/concepts/context-propagation/)
 para conservar la correlación del contexto. Aquí se reutiliza el formato técnico
 cerrado de VEC, sin añadir esas dependencias.
+
+El registro de acceso por petición, las métricas y los perfiles se explican en
+[Seguir una petición lenta](observabilidad_tecnica.md). No pasan por esta
+herramienta.
+
+## Consulta local para Sistemas
+
+`vec-registro-tecnico-consultar` lee archivos JSONL locales sin modificar el
+recolector ni sus registros. Admite incidencias y resultados con el mismo
+contrato que valida el recolector, y los eventos `http.server.request` y
+`vec.process.startup` de los procesos. La consulta usa el instante de cada
+evento, nunca la fecha del archivo. Al abrir cada archivo fija su tamaño y lee
+solo ese prefijo. `bytes_prefijo` indica cuánto entró en el resumen; una
+ampliación posterior quedará para otra consulta.
+
+```sh
+GOCACHE="$HOME/.cache/go-build" GOPROXY=off go run ./cmd/vec-registro-tecnico-consultar \
+  --desde 2026-10-07T10:00:00Z --hasta 2026-10-07T11:00:00Z \
+  --archivo /ruta/privada/tecnico.jsonl \
+  --ruta '/api/vec/personal/rpt/positions/{valor}'
+```
+
+`--desde` se incluye y `--hasta` se excluye. Se pueden indicar hasta ocho
+`--archivo` absolutos. `--codigo` acepta un código de incidencia del catálogo;
+`--ruta` exige el camino depurado exacto que escribe el servidor. Los dos filtros
+se usan por separado. Sin ellos, el resumen incluye las cuatro familias. Las
+fechas RFC3339 se comparan en UTC. `--idioma en` cambia los mensajes de ayuda y
+estado al inglés.
+
+La salida suma incidencias por código, resultados por tipo y errores por clase
+cerrada. Para peticiones muestra cantidad, lentas, errores 5xx, consultas a la
+base de datos y duración total, media y máxima de petición, consulta y espera de
+conexión. Para el arranque muestra preparaciones, fallos y tiempos. Las unidades
+son segundos. No devuelve líneas originales, rutas consultadas, correlaciones,
+texto SQL, direcciones ni mensajes de error libres.
+
+La lectura admite como máximo 16 MiB por archivo y 16 KiB por línea, y el
+intervalo no puede superar 31 días. Una línea ajena al contrato o incompleta
+incrementa `rechazadas`: el resumen se entrega como `parcial` y el proceso
+termina con código 3. Esto incluye una última línea sin salto final, aunque el
+archivo reciba más bytes después de abrirlo. Un archivo ilegible, un enlace
+simbólico, el mismo archivo indicado dos veces, un objeto no regular o el
+truncamiento del prefijo durante la lectura termina con código 2 y no entrega
+un resumen incompleto. Un archivo que supera el límite también termina con
+código 2. Una consulta completa termina con código 0.
+
+`rechazos_por_clase` distingue formato o instante inválido, línea larga o
+incompleta y fallo de validación no clasificado. Solo aparecen estas clases
+cerradas; el contenido rechazado no sale en el resumen.
+
+Esta CLI sirve a quien ya tiene acceso local a esos archivos. La acción
+administrativa `administracion.registros_tecnicos.consultar` conserva su propio
+circuito de sesión, autorización y auditoría. Esta herramienta no lo invoca ni
+admite el formato de la auditoría funcional.

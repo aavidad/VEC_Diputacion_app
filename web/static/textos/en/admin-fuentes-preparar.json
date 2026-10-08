@@ -1,0 +1,12 @@
+{
+  "idioma": "en",
+  "mensajes": {
+    "limite": "Preparing this plan does not create sources or accounts or grant permissions. The provider must check private configuration, preimage and approval before applying it.",
+    "uso_invalido": "Provide the source, plan and message catalog. Add --cotejar to check an existing plan.",
+    "fuente_insegura": "The source cannot be read. Use a private file up to 64 KiB in a private directory outside the repository.",
+    "fuente_invalida": "The source does not meet the synthetic initial sources contract or has expired. Check versions, references and validity periods.",
+    "plan_inseguro": "The private plan cannot be read for comparison.",
+    "plan_divergente": "The existing plan differs from the source or its destination is unsafe. It has not been overwritten.",
+    "plan_preparado": "The plan is prepared and its hash has been calculated. Keep it for review."
+  }
+}

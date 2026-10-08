@@ -16,6 +16,7 @@ const MaximoBytes = 64 * 1024
 type Solicitud struct {
 	EjemploRef    string               `json:"ejemplo_ref"`
 	Configuracion domain.Configuracion `json:"configuracion"`
+	NotasPrueba   []NotaPrueba         `json:"notas_prueba,omitempty"`
 }
 
 func Decodificar(datos []byte) (Solicitud, error) {
@@ -32,9 +33,36 @@ func Decodificar(datos []byte) (Solicitud, error) {
 	}
 	d = json.NewDecoder(bytes.NewReader(datos))
 	d.DisallowUnknownFields()
-	var s Solicitud
-	if err := d.Decode(&s); err != nil || len(s.EjemploRef) == 0 || len(s.EjemploRef) > 64 {
+	var forma struct {
+		EjemploRef    string               `json:"ejemplo_ref"`
+		Configuracion domain.Configuracion `json:"configuracion"`
+		NotasPrueba   json.RawMessage      `json:"notas_prueba"`
+	}
+	if err := d.Decode(&forma); err != nil || len(forma.EjemploRef) == 0 || len(forma.EjemploRef) > 64 {
 		return Solicitud{}, ErrSolicitud
+	}
+	s := Solicitud{EjemploRef: forma.EjemploRef, Configuracion: forma.Configuracion}
+	if len(forma.NotasPrueba) == 0 {
+		return s, nil
+	}
+	if bytes.Equal(forma.NotasPrueba, []byte("null")) {
+		return Solicitud{}, ErrSolicitud
+	}
+	nd := json.NewDecoder(bytes.NewReader(forma.NotasPrueba))
+	nd.DisallowUnknownFields()
+	var propuestas []notaPruebaJSON
+	if err := nd.Decode(&propuestas); err != nil || propuestas == nil {
+		return Solicitud{}, ErrSolicitud
+	}
+	for _, propuesta := range propuestas {
+		if propuesta.SolicitudRef == "" || propuesta.FaseRef == "" || len(propuesta.PuntosMicropuntos) == 0 {
+			return Solicitud{}, ErrSolicitud
+		}
+		var puntos *int64
+		if err := json.Unmarshal(propuesta.PuntosMicropuntos, &puntos); err != nil {
+			return Solicitud{}, ErrSolicitud
+		}
+		s.NotasPrueba = append(s.NotasPrueba, NotaPrueba{SolicitudRef: propuesta.SolicitudRef, FaseRef: propuesta.FaseRef, PuntosMicropuntos: puntos})
 	}
 	return s, nil
 }

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 import { RUTA_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js";
 
 const recibo = {

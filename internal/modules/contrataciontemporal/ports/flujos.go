@@ -41,10 +41,12 @@ var (
 )
 
 type SolicitudResolverFlujo struct {
+	EsquemaAlta     string
 	OrganizacionRef string
 	CentroRef       string
 	CategoriaRef    string
 	MotivoClave     domain.ClaveCatalogo
+	Necesidad       *domain.DatosNecesidadAlta
 	Instante        time.Time
 }
 
@@ -52,7 +54,8 @@ func (s SolicitudResolverFlujo) Validar() error {
 	if !domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(s.CentroRef) ||
 		!domain.ReferenciaOpacaValida(s.CategoriaRef) ||
-		!s.MotivoClave.Valida() || !domain.InstanteUTCCanonico(s.Instante) {
+		!s.MotivoClave.Valida() || !materialNecesidadAltaValido(s.EsquemaAlta, s.Necesidad, s.MotivoClave) ||
+		!domain.InstanteUTCCanonico(s.Instante) {
 		return ErrFlujoNoDisponible
 	}
 	return nil

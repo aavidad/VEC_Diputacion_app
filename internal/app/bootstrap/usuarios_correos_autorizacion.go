@@ -51,7 +51,15 @@ func (p *proveedorCorreosUsuarios) ProveerMaterialCorreos(ctx context.Context, v
 	if err != nil {
 		return vacia, err
 	}
-	correlacion, err := core.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridad.GeneradorReferenciasCriptograficas{})
+	var correlacion core.ReferenciaCorrelacionAutorizacionV2
+	if m.Accion == usuariosports.AccionConsultarCorreos && p.autoridad.intentosConsultaCorreos != nil {
+		if p.autoridad.PrepararIntentoConsultaCorreos(ctx) != nil {
+			return vacia, usuariosports.ErrCorreosNoDisponible
+		}
+		correlacion, err = vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
+	} else {
+		correlacion, err = core.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridad.GeneradorReferenciasCriptograficas{})
+	}
 	if err != nil {
 		return vacia, usuariosports.ErrCorreosNoDisponible
 	}

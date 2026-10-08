@@ -1,0 +1,216 @@
+package administracionperfiles
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"net/http"
+	"regexp"
+	"strings"
+	"time"
+
+	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
+)
+
+// SufijoPreparacionLote completa /personas/{persona_ref}. La unidad va en la
+// consulta (unidad_ref) y es la única clave admitida.
+const SufijoPreparacionLote = "/preparacion-lote"
+
+// ServicioLotesADMIN es la autoridad que monta vec-admin para el lote: aplicar
+// y preparar. No incluye actos singulares ni propuestas.
+type ServicioLotesADMIN interface {
+	ServicioLotes
+	PrepararLoteOrdinario(context.Context, domain.SolicitudPreparacionLoteAdministracionPerfiles) (domain.PreparacionLoteAdministracionPerfiles, error)
+}
+
+// MotivoLote es un motivo admitido para un cambio de perfiles: la referencia
+// del catálogo y la clave de texto con la que la pantalla lo nombra.
+type MotivoLote struct {
+	Motivo
+	ClaveI18N string `json:"clave_i18n"`
+}
+
+var claveMotivoLote = regexp.MustCompile(`^[a-z][a-z0-9_]{1,63}$`)
+
+// NuevoHandlerUsuariosMetadatosConLote conserva las dos lecturas nominales de
+// usuarios y abre sólo la preparación (GET) y el lote ordinario (POST). La
+// organización y los motivos admitidos vienen de la configuración privada,
+// nunca de la petición.
+func NuevoHandlerUsuariosMetadatosConLote(origen, organizacion string, motivos []MotivoLote, sesiones ResolvedorSesion,
+	lecturas FuenteLecturas, catalogo ports.CatalogoRolesAdministrables, lotes ServicioLotesADMIN, auditor AuditorFrontera) (*Handler, error) {
+	if !organizacionPrivadaLote.MatchString(organizacion) || dependenciaNula(catalogo) || dependenciaNula(lotes) ||
+		len(motivos) == 0 || len(motivos) > 16 {
+		return nil, ErrConfiguracionIncompleta
+	}
+	vistos := map[Motivo]bool{}
+	claves := map[string]bool{}
+	for _, m := range motivos {
+		if m.dominio().Validar() != nil || !claveMotivoLote.MatchString(m.ClaveI18N) || vistos[m.Motivo] || claves[m.ClaveI18N] {
+			return nil, ErrConfiguracionIncompleta
+		}
+		vistos[m.Motivo], claves[m.ClaveI18N] = true, true
+	}
+	h, err := NuevoHandlerUsuariosMetadatos(origen, sesiones, lecturas, auditor)
+	if err != nil {
+		return nil, err
+	}
+	h.soloLectura, h.catalogo, h.lotes, h.organizacionLote = false, catalogo, lotes, organizacion
+	h.motivosLote = append([]MotivoLote(nil), motivos...)
+	return h, nil
+}
+
+// motivoLoteAdmitido: sin lista configurada (handler anterior) se admite
+// cualquiera; con lista, sólo uno de ella.
+func (h *Handler) motivoLoteAdmitido(m Motivo) bool {
+	if len(h.motivosLote) == 0 {
+		return true
+	}
+	for _, x := range h.motivosLote {
+		if x.Motivo == m {
+			return true
+		}
+	}
+	return false
+}
+
+type AltaPreparacion struct {
+	RolVersionRef             string    `json:"rol_version_ref"`
+	Nombre                    string    `json:"nombre"`
+	UnidadRequerida           bool      `json:"unidad_requerida"`
+	VigenteHastaMaxima        time.Time `json:"vigente_hasta_maxima"`
+	DuracionPropuestaSegundos int64     `json:"duracion_propuesta_segundos"`
+	PerfilRef                 string    `json:"perfil_ref"`
+	VinculoRef                string    `json:"vinculo_ref"`
+	HuellaSHA256              string    `json:"huella_sha256"`
+}
+
+type BajaPreparacion struct {
+	RolVersionRef  string    `json:"rol_version_ref"`
+	Nombre         string    `json:"nombre"`
+	PerfilRef      string    `json:"perfil_ref"`
+	PerfilVersion  uint64    `json:"perfil_version"`
+	VinculoRef     string    `json:"vinculo_ref"`
+	VinculoVersion uint64    `json:"vinculo_version"`
+	VigenteDesde   time.Time `json:"vigente_desde"`
+	VigenteHasta   time.Time `json:"vigente_hasta"`
+	HuellaSHA256   string    `json:"huella_sha256"`
+}
+
+// PreparacionLote trae lo que la pantalla copia en cada cambio del lote: la
+// preimagen común (persona, cuenta, procedencia) y la propia de cada opción.
+type PreparacionLote struct {
+	OperacionRef            string            `json:"operacion_ref"`
+	AuditoriaRef            string            `json:"auditoria_ref"`
+	PreparadaEn             time.Time         `json:"preparada_en"`
+	PersonaRef              string            `json:"persona_ref"`
+	PersonaVersion          uint64            `json:"persona_version"`
+	CuentaRef               string            `json:"cuenta_ref"`
+	CuentaVersion           uint64            `json:"cuenta_version"`
+	ProcedenciaRef          string            `json:"procedencia_ref"`
+	ProcedenciaVersion      uint64            `json:"procedencia_version"`
+	ProcedenciaHuellaSHA256 string            `json:"procedencia_huella_sha256"`
+	UnidadRef               string            `json:"unidad_ref"`
+	Altas                   []AltaPreparacion `json:"altas"`
+	Bajas                   []BajaPreparacion `json:"bajas"`
+	Truncado                bool              `json:"truncado"`
+	// Motivos admitidos para el cambio, en el orden configurado.
+	Motivos []MotivoLote `json:"motivos"`
+}
+
+func preparacionDTO(p domain.PreparacionLoteAdministracionPerfiles) PreparacionLote {
+	r := PreparacionLote{OperacionRef: p.OperacionRef, AuditoriaRef: p.AuditoriaRef, PreparadaEn: p.PreparadaEn,
+		PersonaRef: p.PersonaRef, PersonaVersion: p.PersonaVersion, CuentaRef: p.CuentaRef, CuentaVersion: p.CuentaVersion,
+		ProcedenciaRef: p.ProcedenciaRef, ProcedenciaVersion: p.ProcedenciaVersion,
+		ProcedenciaHuellaSHA256: p.ProcedenciaHuellaSHA256, UnidadRef: p.UnidadRef, Truncado: p.Truncado,
+		Altas: make([]AltaPreparacion, 0, len(p.Altas)), Bajas: make([]BajaPreparacion, 0, len(p.Bajas))}
+	for _, a := range p.Altas {
+		r.Altas = append(r.Altas, AltaPreparacion{RolVersionRef: a.RolVersionRef, Nombre: a.Nombre,
+			UnidadRequerida: a.UnidadRequerida, VigenteHastaMaxima: a.VigenteHastaMaxima,
+			DuracionPropuestaSegundos: int64(a.DuracionPropuesta / time.Second), PerfilRef: a.PerfilRef,
+			VinculoRef: a.VinculoRef, HuellaSHA256: a.HuellaSHA256})
+	}
+	for _, b := range p.Bajas {
+		r.Bajas = append(r.Bajas, BajaPreparacion{RolVersionRef: b.RolVersionRef, Nombre: b.Nombre, PerfilRef: b.PerfilRef,
+			PerfilVersion: b.PerfilVersion, VinculoRef: b.VinculoRef, VinculoVersion: b.VinculoVersion,
+			VigenteDesde: b.VigenteDesde, VigenteHasta: b.VigenteHasta, HuellaSHA256: b.HuellaSHA256})
+	}
+	return r
+}
+
+// rutaPreparacionLote devuelve la persona de /personas/{ref}/preparacion-lote.
+func rutaPreparacionLote(p string) (string, bool) {
+	if !strings.HasPrefix(p, PrefijoV1+"/personas/") || !strings.HasSuffix(p, SufijoPreparacionLote) {
+		return "", false
+	}
+	ref := strings.TrimSuffix(strings.TrimPrefix(p, PrefijoV1+"/personas/"), SufijoPreparacionLote)
+	return ref, true
+}
+
+func unidadPreparacionLote(raw string) (string, bool) {
+	// unidad_ref= y 128 caracteres como mucho: se corta antes de interpretar.
+	if len(raw) > 256 {
+		return "", false
+	}
+	// Sólo «unidad_ref=<valor>»: el valor del patrón cerrado admite «:», que el
+	// navegador envía como %3A. Cualquier otra clave, escape o separador deja
+	// un valor que no cumple el patrón y se rechaza.
+	valor, ok := strings.CutPrefix(raw, "unidad_ref=")
+	if !ok {
+		return "", false
+	}
+	valor = strings.ReplaceAll(strings.ReplaceAll(valor, "%3A", ":"), "%3a", ":")
+	if !organizacionPrivadaLote.MatchString(valor) {
+		return "", false
+	}
+	return valor, true
+}
+
+func nuevaReferenciaPreparacion() (string, error) {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	return "prep_admin:" + hex.EncodeToString(b[:]), nil
+}
+
+func (h *Handler) getPreparacionLote(w http.ResponseWriter, r *http.Request, s SesionConfiable, persona string) {
+	// Destino propio en la auditoría: una preparación no es aplicar un lote.
+	const accion = "preparar_lote_ordinario"
+	if h.lotes == nil || h.organizacionLote == "" {
+		h.denegarActor(w, r, s, http.StatusServiceUnavailable, "servicio_no_disponible", accion, "")
+		return
+	}
+	unidad, ok := unidadPreparacionLote(r.URL.RawQuery)
+	if !refOpaca(persona, "per_") || !ok || persona == s.Actor.PersonaRef {
+		h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", accion, "")
+		return
+	}
+	operacion, err := nuevaReferenciaPreparacion()
+	if err != nil {
+		h.denegarActor(w, r, s, http.StatusServiceUnavailable, "servicio_no_disponible", accion, persona)
+		return
+	}
+	solicitud := domain.SolicitudPreparacionLoteAdministracionPerfiles{OperacionRef: operacion,
+		OrganizacionRef: h.organizacionLote, UnidadRef: unidad, PersonaRef: persona,
+		Actor: s.Actor, Evidencia: s.Evidencia, InstantaneaAutorizacion: s.InstantaneaAutorizacion,
+		CorrelacionRef: s.CorrelacionRef}
+	if solicitud.Validar() != nil {
+		h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", accion, persona)
+		return
+	}
+	p, err := h.lotes.PrepararLoteOrdinario(r.Context(), solicitud)
+	if err != nil {
+		h.denegarErrorLote(w, r, s, err, accion, persona)
+		return
+	}
+	if p.ValidarPara(solicitud) != nil {
+		h.denegarActor(w, r, s, http.StatusServiceUnavailable, "respuesta_incompatible", accion, persona)
+		return
+	}
+	dto := preparacionDTO(p)
+	dto.Motivos = append([]MotivoLote(nil), h.motivosLote...)
+	jsonRespuesta(w, http.StatusOK, struct {
+		Preparacion PreparacionLote `json:"preparacion"`
+	}{dto})
+}

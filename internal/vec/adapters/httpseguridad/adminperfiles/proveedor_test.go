@@ -86,6 +86,40 @@ func TestResolverVerificaTLSAntesDeConsultarCuentaNominal(t *testing.T) {
 	}
 }
 
+// El proveedor exige de nuevo la autoridad exacta de la frontera (con puerto
+// público) y que su nombre sin puerto sea el de la observación (host_admin).
+func TestResolverExigeAutoridadExactaYNombreSinPuerto(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	estado := estadoTLSReal(t, ahora)
+	for _, caso := range []struct {
+		autoridad, cabecera string
+		llamadas            int
+	}{
+		{"admin.example.invalid", "admin.example.invalid", 1},
+		{"admin.example.invalid:8444", "admin.example.invalid:8444", 1},
+		{"admin.example.invalid:8444", "admin.example.invalid", 0},
+		{"admin.example.invalid:8444", "admin.example.invalid:8443", 0},
+		{"admin.example.invalid:8444", "admin.example.invalid:443", 0},
+		{"admin.example.invalid", "admin.example.invalid:8444", 0},
+		{"", "admin.example.invalid", 0},
+		{"otro.example.invalid:8444", "otro.example.invalid:8444", 0},
+		{"admin.example.invalid:", "admin.example.invalid:", 0},
+		{"admin.example.invalid:84a4", "admin.example.invalid:84a4", 0},
+		{"admin.example.invalid:8444:1", "admin.example.invalid:8444:1", 0},
+		{"[admin.example.invalid]:8444", "[admin.example.invalid]:8444", 0},
+	} {
+		o := observacionTLS(estado, ahora)
+		o.Autoridad = caso.autoridad
+		cuentas := &cuentasDenegadas{}
+		e := estado
+		p := &Proveedor{config: configADMINPrueba(ahora), deps: Dependencias{Cuentas: cuentas, Registro: registroDenegado{}, Reloj: relojPrueba{ahora}}}
+		_, err := p.Resolver(context.Background(), &http.Request{Host: caso.cabecera, TLS: &e}, o)
+		if cuentas.llamadas != caso.llamadas || (caso.llamadas == 0) != errors.Is(err, api.ErrAutenticacionRequerida) {
+			t.Fatalf("autoridad %q Host %q: consultas=%d error=%v", caso.autoridad, caso.cabecera, cuentas.llamadas, err)
+		}
+	}
+}
+
 func configADMINPrueba(ahora time.Time) h.ConfiguracionSuperficie {
 	return h.ConfiguracionSuperficie{
 		Superficie: h.SuperficieAdministracionPrivilegiada, ZonaRed: h.ZonaRedAdministracion,
@@ -102,7 +136,7 @@ func configADMINPrueba(ahora time.Time) h.ConfiguracionSuperficie {
 
 func observacionTLS(e tls.ConnectionState, ahora time.Time) ObservacionADMIN {
 	certHash, caHash := sha256.Sum256(e.VerifiedChains[0][0].Raw), sha256.Sum256(e.VerifiedChains[0][1].Raw)
-	return ObservacionADMIN{Entorno: "desarrollo", Host: "admin.example.invalid", Audiencia: "vec.admin.perfiles.v1",
+	return ObservacionADMIN{Entorno: "desarrollo", Host: "admin.example.invalid", Autoridad: "admin.example.invalid", Audiencia: "vec.admin.perfiles.v1",
 		CertificadoSHA256: hex.EncodeToString(certHash[:]), CASHA256: hex.EncodeToString(caHash[:]),
 		AutenticacionVerificadaEn: ahora, RevocacionVerificadaEn: ahora,
 		CRLVigenteHasta: ahora.Add(time.Minute), CertificadoVigenteHasta: e.VerifiedChains[0][0].NotAfter.UTC()}

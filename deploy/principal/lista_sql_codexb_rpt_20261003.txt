@@ -1,0 +1,9 @@
+# Orden propio: POST149 -> AD154 -> Personal27 -> Personal30.
+# No reaplicar ninguna SQL ya instalada: comprobar inventario y seleccionar pendientes.
+# Runtime de intentos: AD169/IS13 y CA27 comunes acreditadas, pool nominal.
+# CA27 fuente 7f34c77014113bbb54069312e84dd1a62d7c8b6f es prerrequisito externo.
+# Personal30 fuente 86ee0557827da7d4d61c5e00e85af0083209afbd pertenece a su lista propia.
+# Tras instalar sólo pendientes154/27, continuar con lista_sql_codexb_personal30_20261003.txt.
+# Proceso/canal de consumos permitidos pendientes de L; montaje operativo cerrado.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000154_consumidor_relacion_para_rpt.up.sql
+deploy/postgresql/personal/migraciones/000027_relacion_para_rpt.up.sql

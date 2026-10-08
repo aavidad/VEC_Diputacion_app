@@ -1,0 +1,11 @@
+rules:
+  - id: admin-preperfil-public-execute
+    languages: [generic]
+    severity: ERROR
+    message: Revisar concesión administrativa a PUBLIC.
+    pattern: GRANT EXECUTE ON FUNCTION ... TO PUBLIC
+  - id: admin-preperfil-public-table
+    languages: [generic]
+    severity: ERROR
+    message: Revisar concesión de tabla administrativa a PUBLIC.
+    pattern: GRANT ... ON TABLE ... TO PUBLIC

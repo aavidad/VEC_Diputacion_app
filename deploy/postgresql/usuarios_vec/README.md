@@ -92,3 +92,36 @@ Lista `deploy/principal/lista_sql_trabajo_usuarios_superficie_20260929.txt`, tod
 La superficie de cada versión y recibo existente se toma de la decisión V3 firmada que la autorizó (lectura única del DBA en la migración). Cada portal queda con su última versión propia. Si el estado de imagen de un portal apunta a una foto que subió el otro o que ya se retiró, ese portal vuelve a iniciales con su paleta y la historia lo anota con una versión marcada `migracion:usuarios:000009`. Cada dirección de correo va con el portal donde se añadió, con todos sus desafíos, intentos, historia, recibos y envíos; cada población conserva la versión más alta de su propia historia. Si alguna acción sobre una dirección se hizo desde el otro portal, 000010 se para (55000) para revisarlo a mano. Si una población queda con direcciones verificadas y ninguna activa, se activa la primera verificada con una versión marcada `migracion:usuarios:000010`. En el Área personal esa dirección, que la persona confirmó allí pero no eligió como activa, pasa a ser la que usan los avisos de llamamiento (antes se habría usado el correo del alta); en la principal no hay correos todavía, así que no ocurre. Las versiones marcadas por 000009 y 000010 no tienen decisión V3 ni recibo: las hizo la migración. Los límites de direcciones y de códigos pasan a contarse por portal. Al final, los propietarios por población pierden CREATE sobre la base. Las migraciones comprueban fila a fila que nada se pierde ni cambia (salvo la columna nueva) y se detienen con 55000 si falta una decisión.
 
 `pruebas_sql/superficie_pg18.sh` siembra datos de la misma persona desde los dos portales, ensaya cada migración con ROLLBACK (la base queda idéntica, roles incluidos), provoca un fallo a mitad (tampoco deja rastro), migra y comprueba el reparto, que cada portal solo lee y escribe lo suyo, que un LOGIN no alcanza el esquema del otro, que las reaplicaciones y los DOWN se rechazan y que la historia sigue siendo de solo adición.
+
+# Fallos de «Mis correos» en la auditoría común (PR #608)
+
+Desde #608, el proceso interno registra en la auditoría común de intentos (AD169) las consultas de «Mis correos» que se deniegan o fallan después de identificar a la persona. No hay SQL nueva: AD169 ya está en la principal desde H9.
+
+## Lo que necesita la principal antes de subir el binario
+
+Si el proceso interno tiene activadas las preferencias de Usuarios (`VEC_USUARIOS_PREFERENCIAS_ENABLED`) y monta «Mis correos», el arranque exige el registrador común de intentos. Sin él, la composición falla y el proceso interno no arranca: no se pierde solo una ruta. Hay que preparar tres cosas:
+
+1. En el material privado del proceso interno, el archivo `auditoria-intentos.json` (máximo 16 KiB, sin claves repetidas ni campos de más):
+
+   ```json
+   {
+     "esquema": "vec.auditoria.intentos.servidor.v1",
+     "dsn_file": "<ruta relativa al material con el DSN>",
+     "proceso": "<nombre del proceso, p. ej. vec-interno>",
+     "canal": "interna_corporativa",
+     "limite_segundos": 10
+   }
+   ```
+
+   `limite_segundos` va de 1 a 30. El DSN usa TLS, sin servidores de reserva.
+2. Un LOGIN propio para ese DSN. No puede coincidir con ninguna cuenta de Usuarios del mismo proceso (ejecutor, registros de autorización y frontera, motivos) ni con la cuenta de gobierno. Debe ser miembro de `vec_autorizacion_atestada_v3_registrador_intentos` y tener `CONNECT` sobre la base.
+3. La fila de ese LOGIN en `vec_autorizacion_atestada_v3.configuracion_runtime_intentos`, con el mismo `proceso` y `canal` del archivo. La inserta el DBA como `vec_autorizacion_atestada_v3_propietario`. La fila no se puede cambiar: otro proceso o canal necesita otro LOGIN.
+
+Al arrancar se comprueba `preflight_registrador_intentos_v1(proceso, canal)` y que la base sea la misma que usa Usuarios. Si el proceso interno ya usa este archivo para Mi ficha de Personal, sirve el mismo: no hace falta otro.
+
+«Mis correos» del Área personal no usa este registrador. Pero el mismo archivo lo exigen también otras piezas, aunque las preferencias estén apagadas:
+
+- Contratación temporal con Bolsa (`VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL`) registra sus lecturas auditadas de RRHH con `auditoria-intentos.json`, canal `interna_corporativa`.
+- Mi Bolsa del portal de candidato (`VEC_BOLSA_PORTAL_CANDIDATO_ENABLED=true`) usa otro archivo, `auditoria-intentos-externa.json`, con el mismo formato y canal `externa_personal`. Necesita su propio LOGIN y su propia fila: no comparte cuenta con el interno.
+
+Si falta cualquiera de los dos, el arranque se para con `auditoria.intentos.configuracion_no_disponible`. En la principal los crea el instalador de la tanda H13 (06/10/2026), con los procesos `vec-rrhh` y `vec-portal-personal`.

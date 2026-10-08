@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { LIMITE_TEXTO_FICHA_PROPIA, RUTA_FICHA_PROPIA, crearFuentesFichaPropia } from "./cliente-http-ficha-propia.js";
-import { LIMITE_TEXTO_CAMPO_FICHA } from "./vista-ficha-integral.js";
+import { LIMITE_TEXTO_FICHA_PROPIA, RUTA_FICHA_PROPIA, ACCEPT_FICHA_PROPIA_EXPORTACION, crearFuentesFichaPropia } from "./cliente-http-ficha-propia.js";
+import { LIMITE_TEXTO_CAMPO_FICHA } from "./vista-ficha-integral.js?v=20261008-alta-rpt-circular-v4";
 import { crearTraductorFichaPropia, formatearDiasFichaPropia } from "./i18n-ficha-propia.js";
 
 const FICHA = Object.freeze({
   data: {
+    exportacion_servicios_disponible: true,
     ficha: {
       corte: { vigente_en: "2026-09-25", conocido_en: "2026-09-25T08:59:59.000000Z" },
       relaciones: [
@@ -36,11 +37,18 @@ test("una sola consulta same-origin alimenta relaciones y servicios con textos l
   assert.deepEqual([opciones.method, opciones.credentials, opciones.mode, opciones.cache, opciones.redirect, opciones.referrerPolicy],
     ["GET", "same-origin", "same-origin", "no-store", "error", "no-referrer"]);
   assert.equal(opciones.body, undefined);
+  assert.equal(opciones.headers.Accept, ACCEPT_FICHA_PROPIA_EXPORTACION);
   assert.equal(relaciones.estado, "disponible");
   assert.equal(relaciones.fuente, "Registro de Personal");
   assert.equal(relaciones.actualizado_en, "2026-09-25T09:00:00.000000Z");
   assert.deepEqual(relaciones.items[0], { desde: "2026-01-01", hasta: "Actualidad", regimen: "Funcionario interino · Vacante", puesto: "Técnico/a de gestión", unidad: "Servicio de Personal", estado: "Servicio activo" });
   assert.deepEqual(relaciones.items[1], { desde: "2020-03-01", hasta: "2020-12-31", regimen: "Laboral temporal", puesto: "", unidad: "", estado: "Finalizada" });
+  assert.equal(servicios.exportacion_servicios_disponible, true);
+  assert.equal(servicios.recibo_ref, FICHA.data.recibo_ref);
+  assert.deepEqual(servicios.corte, FICHA.data.ficha.corte);
+  assert.ok(Object.isFrozen(servicios.corte));
+  assert.equal(typeof fuentes.servicios.exportarPropios, "function");
+  assert.equal(fuentes.relaciones.exportarPropios, undefined);
   assert.deepEqual(servicios.items, [{ desde: "2019-01-01", hasta: "2019-12-31", procedencia: "Servicios previos", reconocimiento: "1365 días", estado: "Reconocido" }]);
   assert.ok(!JSON.stringify([relaciones, servicios]).match(/(?:emp|per|rel|srv)_/u), "sin referencias internas");
 });
@@ -138,7 +146,7 @@ test("más filas de las que se muestran: los apartados se ofrecen con estado pro
 test("una ficha sin registros deja los apartados vacíos, no en cero inventado", async () => {
   const vacia = { data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, relaciones: [], servicios: [] } } };
   const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => respuesta(vacia) }).preparar();
-  assert.deepEqual(await fuentes.servicios.consultarPropios({}), { estado: "vacio", fuente: "Registro de Personal", actualizado_en: "2026-09-25T09:00:00.000000Z", items: [], fecha_referencia: "2026-09-25" });
+  assert.deepEqual(await fuentes.servicios.consultarPropios({}), { estado: "vacio", fuente: "Registro de Personal", actualizado_en: "2026-09-25T09:00:00.000000Z", items: [], fecha_referencia: "2026-09-25", exportacion_servicios_disponible: true, historia_servicios_disponible: false, recibo_ref: FICHA.data.recibo_ref, corte: FICHA.data.ficha.corte });
 });
 
 test("actualizar borra la ficha anterior y no permite que una respuesta tardía repueble la caché", async () => {
@@ -239,5 +247,98 @@ test("el catálogo dedicado ofrece las mismas claves y variables en ambos idioma
   for (const clave of Object.keys(castellano.general)) {
     assert.ok(castellano.general[clave] && ingles.general[clave]);
     assert.deepEqual(castellano.general[clave].match(/\{[a-z_]+\}/gu), ingles.general[clave].match(/\{[a-z_]+\}/gu));
+  }
+});
+
+
+test("exportar Servicios conserva la consulta original y no vuelve a hacer GET", async () => {
+  const { createHash } = await import("node:crypto");
+  const csv = new TextEncoder().encode("Inicio,Fin\n");
+  const peticiones = [];
+  const fuentes = await crearFuentesFichaPropia({ fetchImpl: async (ruta, opciones) => {
+    peticiones.push({ ruta, opciones });
+    if (opciones.method === "GET") return respuesta(FICHA);
+    return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Length": String(csv.length), "Content-Disposition": "attachment; filename=servicios.csv", "X-Content-SHA256": createHash("sha256").update(csv).digest("hex"), "X-Recibo-Ref": FICHA.data.recibo_ref } });
+  } }).preparar();
+  const resultado = await fuentes.servicios.consultarPropios();
+  const archivo = await fuentes.servicios.exportarPropios({ reciboRef: resultado.recibo_ref, corte: resultado.corte });
+  assert.deepEqual(archivo.bytes, csv);
+  assert.deepEqual(peticiones.map(({ opciones }) => opciones.method), ["GET", "POST"]);
+  assert.deepEqual(JSON.parse(peticiones[1].opciones.body).corte, FICHA.data.ficha.corte);
+  assert.equal(JSON.parse(peticiones[1].opciones.body).recibo_ref, FICHA.data.recibo_ref);
+});
+
+
+test("servidor anterior o exportación no montada conserva la consulta y declara disponibilidad falsa", async () => {
+  for (const valor of [undefined, false, true]) {
+    const data = { ...FICHA.data }; delete data.exportacion_servicios_disponible;
+    if (valor !== undefined) data.exportacion_servicios_disponible = valor;
+    const llamadas = [];
+    const fuentes = await crearFuentesFichaPropia({ fetchImpl: async (ruta, opciones) => { llamadas.push([ruta, opciones]); return respuesta({ data }); } }).preparar();
+    const servicios = await fuentes.servicios.consultarPropios();
+    assert.equal(servicios.estado, "disponible");
+    assert.equal(servicios.exportacion_servicios_disponible, valor === true);
+    assert.equal(servicios.recibo_ref, FICHA.data.recibo_ref); assert.deepEqual(servicios.corte, FICHA.data.ficha.corte);
+    assert.equal(llamadas.length, 1); assert.equal(llamadas[0][1].headers.Accept, ACCEPT_FICHA_PROPIA_EXPORTACION);
+  }
+});
+
+test("disponibilidad con tipo erróneo o claves extra rechaza el DTO", async () => {
+  for (const data of [{ ...FICHA.data, exportacion_servicios_disponible: "true" }, { ...FICHA.data, exportacion_servicios_disponible: 1 }, { ...FICHA.data, permiso_exportar: true }]) {
+    const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => respuesta({ data }) }).preparar();
+    assert.deepEqual(await fuentes.servicios.consultarPropios(), { estado: "error" });
+  }
+});
+
+test("sesión caducada al exportar retira toda la ficha cacheada sin GET hasta actualizar", async () => {
+  const peticiones = [];
+  const fuentes = await crearFuentesFichaPropia({ fetchImpl: async (ruta, opciones) => {
+    peticiones.push(opciones.method);
+    if (opciones.method === "GET") return respuesta(FICHA);
+    const cuerpo = JSON.stringify({ error: "autenticacion_requerida" });
+    return new Response(cuerpo, { status: 401, headers: { "Content-Type": "application/json; charset=utf-8", "Content-Length": String(Buffer.byteLength(cuerpo)) } });
+  } }).preparar();
+  const servicios = await fuentes.servicios.consultarPropios();
+  await assert.rejects(fuentes.servicios.exportarPropios({ reciboRef: servicios.recibo_ref, corte: servicios.corte }), { estado: 401 });
+  for (const fuente of [fuentes.servicios, fuentes.relaciones]) {
+    assert.deepEqual(await fuente.consultarPropios(), { estado: "denegado", aviso_exportacion: "sesion_caducada" });
+  }
+  assert.deepEqual(peticiones, ["GET", "POST"]);
+  fuentes.servicios.actualizar();
+  assert.equal((await fuentes.servicios.consultarPropios()).estado, "disponible");
+  assert.deepEqual(peticiones, ["GET", "POST", "GET"]);
+});
+
+test("denegar exportación conserva consulta y bloqueo al reabrir, sin reutilizar permiso de consulta", async () => {
+  for (const estado of [403, 404]) {
+    const peticiones = [];
+    const fuentes = await crearFuentesFichaPropia({ fetchImpl: async (ruta, opciones) => {
+      peticiones.push(opciones.method);
+      if (opciones.method === "GET") return respuesta(FICHA);
+      const cuerpo = JSON.stringify({ error: estado === 403 ? "acceso_denegado" : "no_encontrada" });
+      return new Response(cuerpo, { status: estado, headers: { "Content-Type": "application/json; charset=utf-8", "Content-Length": String(Buffer.byteLength(cuerpo)) } });
+    } }).preparar();
+    const consulta = await fuentes.servicios.consultarPropios();
+    const entrada = { reciboRef: consulta.recibo_ref, corte: consulta.corte };
+    await assert.rejects(fuentes.servicios.exportarPropios(entrada), { codigo: "denegado" });
+    const conservada = await fuentes.servicios.consultarPropios();
+    assert.deepEqual(conservada.items, consulta.items);
+    assert.deepEqual(conservada.corte, consulta.corte);
+    assert.equal(conservada.exportacion_servicios_disponible, false);
+    await assert.rejects(fuentes.servicios.exportarPropios(entrada), { codigo: "denegado" });
+    assert.deepEqual(peticiones, ["GET", "POST"]);
+  }
+});
+
+test("historia sólo se ofrece con disponibilidad explícita y conserva exportación del servidor anterior", async () => {
+  for (const valor of [undefined,false,true,"true"]) {
+    const data={...FICHA.data};if(valor!==undefined)data.historia_servicios_disponible=valor;
+    let peticion;
+    const fuentes=await crearFuentesFichaPropia({fetchImpl:async(_,opciones)=>{peticion=opciones;return respuesta({data});}}).preparar();
+    const servicios=await fuentes.servicios.consultarPropios();
+    if(typeof valor==="string"){assert.equal(servicios.estado,"error");continue;}
+    assert.equal(servicios.historia_servicios_disponible,valor===true);
+    assert.equal(servicios.exportacion_servicios_disponible,true);
+    assert.equal(peticion.headers.Prefer,"vec-personal-historia-servicios-v1, vec-personal-historia-relaciones-v1");
   }
 });

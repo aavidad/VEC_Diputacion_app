@@ -7,13 +7,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	h "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
-	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 type Proveedor struct {
@@ -29,6 +30,9 @@ func Nuevo(config h.ConfiguracionSuperficie, deps Dependencias) (*Proveedor, err
 		nulo(deps.Contextos) || nulo(deps.Autorizacion) || nulo(deps.Reloj) {
 		return nil, api.ErrConfiguracionIncompleta
 	}
+	if _, ok := deps.Cuentas.(FuenteCuentasADMINConAcuse); !ok {
+		return nil, api.ErrConfiguracionIncompleta
+	}
 	config.RedesPermitidas = append([]string(nil), config.RedesPermitidas...)
 	config.HuellasProxyTLSPermitidas = append([]string(nil), config.HuellasProxyTLSPermitidas...)
 	config.IdentidadesSANProxyPermitidas = append([]string(nil), config.IdentidadesSANProxyPermitidas...)
@@ -42,7 +46,7 @@ func Nuevo(config h.ConfiguracionSuperficie, deps Dependencias) (*Proveedor, err
 func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o ObservacionADMIN) (api.SesionConfiable, error) {
 	var vacia api.SesionConfiable
 	if p == nil || ctx == nil || ctx.Err() != nil || r == nil || r.TLS == nil ||
-		!r.TLS.HandshakeComplete || r.TLS.DidResume || r.Host != o.Host ||
+		!r.TLS.HandshakeComplete || r.TLS.DidResume || r.Host != o.Autoridad || nombreHostPeticion(o.Autoridad) != o.Host ||
 		len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) != 2 ||
 		r.TLS.VerifiedChains[0][0] == nil || r.TLS.VerifiedChains[0][1] == nil ||
 		o.Audiencia != p.config.Audiencia || !o.Valida(p.deps.Reloj.Ahora().UTC()) {
@@ -104,10 +108,19 @@ func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o Observacion
 		auditoria.Superficie() != h.SuperficieAdministracionPrivilegiada {
 		return vacia, api.ErrAccesoDenegado
 	}
-	if err = p.deps.Cuentas.VincularSesionADMIN(ctx, o, cuenta, ReferenciasSesionADMIN{
+	conAcuse, ok := p.deps.Cuentas.(FuenteCuentasADMINConAcuse)
+	if !ok {
+		return vacia, api.ErrConfiguracionIncompleta
+	}
+	ligadura, err := conAcuse.VincularSesionADMINConAcuse(ctx, o, cuenta, ReferenciasSesionADMIN{
 		AutenticacionRef: auditoria.AutenticacionRef(), SesionRef: auditoria.SesionRef(),
-	}); err != nil {
+	})
+	if err != nil {
 		return vacia, errorAutoridad(err)
+	}
+	ctx, err = ContextoConVinculoSesionADMIN(ctx, ligadura)
+	if err != nil {
+		return vacia, api.ErrConfiguracionIncompleta
 	}
 	vinculo, resultado, err := domain.CrearVinculoAutenticacionActorV2ConResultado(ctx, p.deps.Revalidador,
 		domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: auditoria.AutenticacionRef(), SesionRef: auditoria.SesionRef()},
@@ -148,7 +161,7 @@ func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o Observacion
 	if _, _, err = identidad.ProyectarCuentaAutenticada(ctx, sesion); err != nil {
 		return vacia, api.ErrAccesoDenegado
 	}
-	correlacion, err := domain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridad.GeneradorReferenciasCriptograficas{})
+	correlacion, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil || ctx.Err() != nil {
 		return vacia, api.ErrConfiguracionIncompleta
 	}
@@ -184,4 +197,22 @@ func errorAutoridad(err error) error {
 		return api.ErrAccesoDenegado
 	}
 	return api.ErrConfiguracionIncompleta
+}
+
+// nombreHostPeticion quita el puerto de la autoridad que la frontera ADMIN
+// exigió en la cabecera Host. La observación lleva aparte el nombre (host_admin
+// de la política). Una forma inválida devuelve "" y nunca coincide con una
+// observación válida.
+func nombreHostPeticion(autoridad string) string {
+	if strings.ContainsAny(autoridad, "[]") {
+		return ""
+	}
+	nombre, puerto, conPuerto := strings.Cut(autoridad, ":")
+	if !conPuerto {
+		return autoridad
+	}
+	if nombre == "" || puerto == "" || strings.Trim(puerto, "0123456789") != "" {
+		return ""
+	}
+	return nombre
 }

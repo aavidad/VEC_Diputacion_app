@@ -13,6 +13,7 @@ import (
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -289,7 +290,7 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 	if err != nil {
 		return err
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
 	if !vigente {
@@ -556,6 +557,8 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 			return fallo(ports.ErrAutorizacionDenegada)
 		}
 		correlacion, err = resultado.auditoria.CorrelacionPara(resultado.solicitud)
+	} else if a.consultaReciboRespuesta || a.consultaComunicacionesExpediente {
+		correlacion, err = puertosvec.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	} else {
 		correlacion, err = dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
 	}

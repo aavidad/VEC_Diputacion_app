@@ -7,7 +7,7 @@
  * deduce responsables ni tareas: un expediente «pendiente» es el que tiene el
  * plazo de su fase vencido o que vence hoy, o una incidencia abierta.
  */
-import { FASES_RRHH, faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { FASES_RRHH, faseRRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
 
 const TERMINADOS = new Set(["completado", "cancelado"]);
 const PATRON_DIA = /^\d{4}-\d{2}-\d{2}$/u;
@@ -93,7 +93,8 @@ export function resumirPeticiones({ expedientes = [], parcial = false, generadoE
 
 /** Filtros de la lista que se aplican en pantalla sobre la consulta ya cargada. */
 export const FILTRO_LISTA_INICIAL = Object.freeze({ texto: "", fase: "", centro: "", categoria: "", mostrar: "en_tramite" });
-export const OPCIONES_MOSTRAR = Object.freeze(["en_tramite", "vencidos", "atencion", "vencen_semana", "espera", "terminadas", "todas"]);
+export const OPCIONES_MOSTRAR = Object.freeze(["en_tramite", "vencidos", "vence_hoy", "incidencia", "sin_plazo", "atencion",
+  "vencen_semana", "espera", "terminadas", "todas"]);
 
 /** Normaliza un filtro recibido (de la portada o del formulario) sin aceptar claves ajenas. */
 export function filtroListaValido(entrada = {}) {
@@ -116,6 +117,11 @@ function cumpleMostrar(expediente, mostrar, hoy) {
   if (mostrar === "terminadas") return !enTramite(expediente);
   if (!enTramite(expediente)) return false;
   if (mostrar === "vencidos") return tienePlazoVencido(expediente);
+  // Las mismas cifras que la portada: vencen hoy, incidencia abierta y plazo
+  // que no se pudo calcular.
+  if (mostrar === "vence_hoy") return expediente.plazo_estado === "vence_hoy";
+  if (mostrar === "incidencia") return expediente.estado_clave === "incidencia";
+  if (mostrar === "sin_plazo") return expediente.plazo_estado === "no_calculado";
   if (mostrar === "atencion") return requiereAtencion(expediente);
   if (mostrar === "espera") return expediente.estado_clave === "espera";
   if (mostrar === "vencen_semana") {

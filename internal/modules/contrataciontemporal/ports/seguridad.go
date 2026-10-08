@@ -117,15 +117,18 @@ type ResolutorContextoAutorizacionAltaV3 interface {
 // administrable resuelva la versión publicada exacta del catálogo. El texto
 // funcional recibido nunca se usa directamente como clave de autorización.
 type SolicitudResolverMotivoAutorizacionAltaV3 struct {
+	EsquemaAlta     string
 	OrganizacionRef string
 	Flujo           domain.ReferenciaFlujo
 	MotivoClave     domain.ClaveCatalogo
+	Necesidad       *domain.DatosNecesidadAlta
 	Instante        time.Time
 }
 
 func (s SolicitudResolverMotivoAutorizacionAltaV3) Validar() error {
 	if !domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
 		s.Flujo.Validar() != nil || !s.MotivoClave.Valida() ||
+		!materialNecesidadAltaValido(s.EsquemaAlta, s.Necesidad, s.MotivoClave) ||
 		!domain.InstanteUTCCanonico(s.Instante) {
 		return ErrMotivoAutorizacionNoDisponible
 	}

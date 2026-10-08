@@ -44,7 +44,7 @@ func catalogoPrueba(t *testing.T, idioma string) []byte {
 }
 func resumenPrueba() ports.ResumenPermisosInforme {
 	concedido := int64(150)
-	return ports.ResumenPermisosInforme{Ejercicio: 2026, CorteUTC: time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC), Filas: []ports.FilaInformePermisos{{Etiqueta: "Permiso propio de ejemplo", Unidad: domain.LeaveUnitHour, Computo: domain.ComputoLaborables, Concedido: &concedido, Conciliacion: ports.ConciliacionPermisosPendiente}}}
+	return ports.ResumenPermisosInforme{Ejercicio: 2026, CorteUTC: time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC), CamposPermitidos: []string{"etiqueta", "unidad", "computo", "pendiente_resolver", "concedido", "restante", "conciliacion"}, Filas: []ports.FilaInformePermisos{{Etiqueta: "Permiso propio de ejemplo", Unidad: domain.LeaveUnitHour, Computo: domain.ComputoLaborables, Concedido: &concedido, Conciliacion: ports.ConciliacionPermisosPendiente}}}
 }
 func TestInformePermisosSoloResumenSinHuecosNiSubtotales(t *testing.T) {
 	r := &rendererPrueba{}
@@ -72,7 +72,7 @@ func TestInformePermisosSoloResumenSinHuecosNiSubtotales(t *testing.T) {
 	s := resumenPrueba()
 	s.Filas[0].Etiqueta = "{{concedido}}"
 	_, err = p.PrepararInformePermisos(context.Background(), s)
-	if err != nil || !strings.Contains(strings.Join(r.contenido.Parrafos, "\n"), "{{concedido}}.") {
+	if err != nil || !strings.Contains(strings.Join(r.contenido.Parrafos, "\n"), "{{concedido}};") {
 		t.Fatal("etiqueta reinterpretada", err)
 	}
 }
@@ -120,7 +120,7 @@ func TestInformePermisosCatalogoEstricto(t *testing.T) {
 			t.Fatal("versión no canónica", version)
 		}
 	}
-	malos := [][]byte{bytes.Replace(base, []byte(`"version": "1"`), []byte(`"version": 1`), 1), bytes.Replace(base, []byte(`"version": "1"`), []byte(`"version": "1", "version": "2"`), 1), bytes.Replace(base, []byte(`"version": "1"`), []byte(`"version": "1", "dato_ajeno": "x"`), 1), bytes.Replace(base, []byte("{{restante}}"), []byte("restante"), 1), append(append([]byte(nil), base...), []byte(` {}`)...)}
+	malos := [][]byte{bytes.Replace(base, []byte(`"version": "2"`), []byte(`"version": 2`), 1), bytes.Replace(base, []byte(`"version": "2"`), []byte(`"version": "2", "version": "3"`), 1), bytes.Replace(base, []byte(`"version": "2"`), []byte(`"version": "2", "dato_ajeno": "x"`), 1), bytes.Replace(base, []byte(`"Restante: {{valor}}"`), []byte(`"Restante"`), 1), append(append([]byte(nil), base...), []byte(` {}`)...)}
 	for _, b := range malos {
 		if _, err := Nuevo(&rendererPrueba{}, bytes.NewReader(b)); err == nil {
 			t.Fatal("catálogo incompleto/ambiguo admitido")
@@ -133,7 +133,7 @@ func TestInformePermisosPDFRealYCancelacion(t *testing.T) {
 		t.Fatal(err)
 	}
 	d, err := p.PrepararEjemploSintetico(context.Background(), resumenPrueba(), "Carmen Molina Ortega")
-	if err != nil || !bytes.HasPrefix(d.Contenido, []byte("%PDF-")) || d.CatalogoVersion != 1 {
+	if err != nil || !bytes.HasPrefix(d.Contenido, []byte("%PDF-")) || d.CatalogoVersion != 2 {
 		t.Fatal(err, len(d.Contenido))
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -143,6 +143,64 @@ func TestInformePermisosPDFRealYCancelacion(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestInformePermisosSubconjuntoSinRotulosExcluidos(t *testing.T) {
+	r := &rendererPrueba{}
+	p, err := Nuevo(r, bytes.NewReader(catalogoPrueba(t, "es")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := resumenPrueba()
+	s.CamposPermitidos = []string{"etiqueta", "unidad", "concedido"}
+	if _, err := p.PrepararInformePermisos(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	texto := strings.Join(r.contenido.Parrafos, "\n")
+	if !strings.Contains(texto, "Concedido: 2 h 30 min") || !strings.Contains(texto, "Unidad: Horas") {
+		t.Fatal(texto)
+	}
+	for _, excluido := range []string{"Pendiente de resolver:", "Restante:", "Conciliación:", "Cómputo:", "No disponible", "Los valores no disponibles"} {
+		if strings.Contains(texto, excluido) {
+			t.Fatal("se filtró el campo", excluido, texto)
+		}
+	}
+	for _, campos := range [][]string{nil, {"etiqueta", "etiqueta"}, {"etiqueta", "motivo"}, {"concedido"}} {
+		s.CamposPermitidos = campos
+		d, err := p.PrepararInformePermisos(context.Background(), s)
+		if err == nil || len(d.Contenido) != 0 {
+			t.Fatal("selección inválida admitida", campos)
+		}
+	}
+}
+
+func TestInformePermisosAceptaFilaMinimizada(t *testing.T) {
+	r := &rendererPrueba{}
+	p, err := Nuevo(r, bytes.NewReader(catalogoPrueba(t, "es")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := resumenPrueba()
+	s.CamposPermitidos = []string{"computo"}
+	s.Filas[0] = ports.FilaInformePermisos{Computo: domain.ComputoLaborables}
+	if _, err := p.PrepararInformePermisos(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	texto := strings.Join(r.contenido.Parrafos, "\n")
+	if !strings.Contains(texto, "Cómputo: Días laborables") || strings.Contains(texto, "Permiso propio") || strings.Contains(texto, "Unidad:") {
+		t.Fatal(texto)
+	}
+	s.CamposPermitidos = []string{"unidad", "restante"}
+	s.Filas[0] = ports.FilaInformePermisos{Unidad: domain.LeaveUnitDay, Restante: cantidadInformePermisosPrueba(4)}
+	if _, err := p.PrepararInformePermisos(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	texto = strings.Join(r.contenido.Parrafos, "\n")
+	if !strings.Contains(texto, "Restante: 4") || strings.Contains(texto, "Conciliación:") {
+		t.Fatal(texto)
+	}
+}
+
+func cantidadInformePermisosPrueba(v int64) *int64 { return &v }
 
 func TestInformePermisosParserPropagaErrorCerrado(t *testing.T) {
 	for _, raw := range []string{

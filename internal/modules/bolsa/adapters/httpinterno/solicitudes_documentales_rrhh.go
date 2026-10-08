@@ -2,11 +2,13 @@ package httpinterno
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
 	"regexp"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/bolsa/application"
 	"vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
@@ -62,6 +64,14 @@ func (h *HandlerSolicitudesDocumentalesRRHH) ServeHTTP(w http.ResponseWriter, r 
 	}
 	items, err := h.consultor.ListarSolicitudesDocumentalesRRHH(r.Context(), q)
 	if err != nil {
+		if acuse, confirmado := application.AcuseConsultaDocumentalesFallida(err); confirmado {
+			w.Header().Set("X-Audit-Ref", acuse.AuditoriaRef)
+			w.Header().Set("X-Correlation-Ref", acuse.CorrelacionRef)
+		}
+		if errors.Is(err, ports.ErrSituacionParticipacionNoDisponible) || errors.Is(err, application.ErrCambioSituacionParticipacionNoDisponible) {
+			responderOperacion(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+			return
+		}
 		responderErrorOperacion(w, err)
 		return
 	}

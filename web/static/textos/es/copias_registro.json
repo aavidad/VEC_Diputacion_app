@@ -23,5 +23,8 @@
   "revisar_ensayo_fallido": "Revisa el ensayo declarado como fallido.",
   "historia_invalida": "Conserva el registro y revisa la historia de la operación.",
   "listado_registrado": "Consulta registrada. Las operaciones muestran el progreso declarado.",
-  "registro_destino_ocupado": "El destino tiene otra operación pendiente. Consulta y concilia esa operación antes de iniciar una nueva."
+  "registro_destino_ocupado": "El destino tiene otra operación pendiente. Consulta y concilia esa operación antes de iniciar una nueva.",
+  "revisar_abandono_confirmado": "La captura se ha abandonado tras confirmar el fallo, la cancelación de su reserva y la ausencia de efectos pendientes. Revisa la causa antes de iniciar otra operación.",
+  "operacion_abandono_no_confirmado": "El efecto o la cancelación de su reserva no están confirmados. El destino sigue ocupado.",
+  "registro_abandono_no_autorizado": "No se ha podido revalidar la autoridad y la observación del ejecutor para abandonar la captura."
 }

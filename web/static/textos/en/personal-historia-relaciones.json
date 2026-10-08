@@ -1,0 +1,64 @@
+{
+  "general": {
+    "titulo": "My service relationship history",
+    "ayuda": "? Help with relationship history",
+    "explicacion": "View the recorded revisions of your service relationships within an effective date range.",
+    "desde": "Effective from (included)",
+    "hasta": "Effective until (excluded)",
+    "consultar": "View history",
+    "cancelar": "Cancel query",
+    "intervalo_invalido": "Check the dates. The end date must be later than the start date.",
+    "sin_consulta": "Select the dates and choose View history.",
+    "cargando": "Loading relationship history…",
+    "cancelada": "Query cancelled. You can change the dates and query again.",
+    "vacio": "There are no revisions within the interval and information cutoff queried.",
+    "no_configurado": "Relationship history is not yet available in this portal.",
+    "no_disponible": "Relationship history could not be retrieved. Please try again.",
+    "denegado": "You are not authorised to view this history. Contact Personnel if you need access.",
+    "sesion_caducada": "Your session has ended. Sign in again and query again.",
+    "excede_limite": "The interval contains too many revisions. Narrow the dates and query again.",
+    "respuesta_no_valida": "The response could not be verified. Please query again.",
+    "alcance": "Shows revisions of your service relationships. References to acts do not prove signature or administrative effectiveness.",
+    "intervalo": "Records effective from {desde} until {hasta}, excluding the end date.",
+    "conocido": "Information known as of: {fecha}",
+    "consultada": "Query performed: {fecha}",
+    "abierto": "No end date registered",
+    "no_consta": "Not recorded",
+    "procedencia": "View provenance",
+    "relacion": "Relationship reference",
+    "acto": "Act reference",
+    "fuente": "Source",
+    "version_fuente": "Source version",
+    "recibo": "Query reference",
+    "detalle": "View query reference",
+    "desplazar": "Scroll the table horizontally to see all columns."
+  },
+  "columnas": {
+    "estado": "Status",
+    "desde": "Effective from",
+    "hasta": "Effective until (excluded)",
+    "registrada": "Registered at",
+    "version": "Revision",
+    "procedencia": "Provenance",
+    "regimen": "Service regime",
+    "modalidad": "Type",
+    "unidad": "Unit",
+    "puesto": "Post",
+    "situacion": "Administrative status"
+  },
+  "cobertura": {
+    "completa": "Complete coverage of the queried interval",
+    "parcial": "Partial coverage: the history may contain other revisions.",
+    "no_acreditada": "Unconfirmed coverage: these revisions do not establish a complete history."
+  },
+  "estados": {
+    "vigente": "Active",
+    "suspendida": "Suspended",
+    "finalizada": "Ended"
+  },
+  "ayuda": {
+    "periodos": "Effective start and end dates define the period of the administrative record. The end date is excluded.",
+    "conocimiento": "Information known as of fixes the revisions available when queried. Registered at identifies when each revision was recorded.",
+    "versiones": "Previous revisions of each relationship are retained. References to acts do not prove signed documents."
+  }
+}

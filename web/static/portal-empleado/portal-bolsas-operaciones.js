@@ -1,11 +1,11 @@
 import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260930-portales-i18n-integracion-v1";
-import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20261002-a-recuperar-379-v1";
-import { cargarReincorporacionesTitularFicha, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261001-ct-a-i18n-v1";
-import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261002-r-rrhh18-v2";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+import { cargarReincorporacionesTitularFicha, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-w-bolsa-ficha-main-v2";
+import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261007-pantallas-textos-final-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { actorTraducido, justificanteTraducido } from "./portal-justificante.js";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261001-ct-a-i18n-v1";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo, traducirHuellaArchivo } from "./portal-huella-archivo.js";
 
 const BASE = "/api/vec/bolsa/bolsas";
@@ -47,6 +47,23 @@ export function rutaOperacionesSituacion(bolsa, participacion) {
   return `${BASE}/${segmento(bolsa)}/candidatos/${segmento(participacion)}/operaciones`;
 }
 
+
+const SECCIONES_FICHA = ["solicitudes_documentales", "reincorporaciones_titular"];
+const ESTADOS_DISPONIBILIDAD = ["disponible", "no_autorizado", "sin_montaje", "indisponible"];
+
+function disponibilidadFicha(datos, bolsa, participacion) {
+  const salida = {};
+  for (const clave of SECCIONES_FICHA) {
+    const registro = datos?.[clave];
+    const valido = registro && typeof registro === "object" && !Array.isArray(registro)
+      && Object.keys(registro).length === 3 && ESTADOS_DISPONIBILIDAD.includes(registro.estado)
+      && registro.bolsa_ref === bolsa && registro.participacion_ref === participacion;
+    salida[clave] = Object.freeze(valido ? { ...registro }
+      : { estado: "indisponible", bolsa_ref: bolsa, participacion_ref: participacion });
+  }
+  return Object.freeze(salida);
+}
+
 function respuestaInvalida(mensaje) {
   return { ok: false, status: 0, codigo: "respuesta_invalida", mensaje };
 }
@@ -58,6 +75,8 @@ export async function consultarOperacionesSituacion(bolsa, participacion, { fetc
     });
     if (!respuesta.ok) {
       const cuerpoError = await respuesta.json().catch(() => ({}));
+      if (respuesta.status === 403) return { ...errorHttp(403, cuerpoError?.error?.codigo),
+        mensaje: traducirPortal("txt_acceso_denegado") };
       return errorHttp(respuesta.status, cuerpoError?.error?.codigo);
     }
     const cuerpo = await respuesta.json();
@@ -72,7 +91,9 @@ export async function consultarOperacionesSituacion(bolsa, participacion, { fetc
     const cambios = validarCambiosTraza(cuerpo.data.cambios);
     const vigente = cuerpo.data.situacion_vigente;
     const vigenteValida = vigente === undefined || (vigente && typeof vigente.situacion === "string" && instanteValido(vigente.desde));
-    return valido && cambios && vigenteValida ? { ok: true, datos: items, cambios, situacionVigente: vigente ?? null } : respuestaInvalida(traducirPortal("txt_un_registro_del_historial_no_respeta_su_contrato"));
+    return valido && cambios && vigenteValida ? { ok: true, datos: items, cambios, situacionVigente: vigente ?? null,
+      ...(Object.hasOwn(cuerpo.data, "capacidades_ficha")
+        ? { capacidadesFicha: disponibilidadFicha(cuerpo.data.capacidades_ficha, bolsa, participacion) } : {}) } : respuestaInvalida(traducirPortal("txt_un_registro_del_historial_no_respeta_su_contrato"));
   } catch (error) {
     return { ok: false, status: 0, codigo: "error_red", mensaje: traducirPortal("txt_no_se_pudo_comunicar_con_el_historial_de_operaci") };
   }
@@ -85,7 +106,12 @@ export async function consultarSolicitudesDocumentalesRRHH(bolsa, participacion,
       method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", signal,
       headers: { Accept: "application/json" },
     });
-    if (!respuesta.ok) return { ok: false, status: respuesta.status, mensaje: traducirPortal("txt_b8_solicitudes_documentales_error") };
+    if (!respuesta.ok) {
+      const clave = ({ 401: "txt_se_requiere_una_sesion_interna_autenticada",
+        403: "txt_acceso_denegado", 404: "txt_operacion_no_disponible_todavia" })[respuesta.status]
+        || "txt_b8_solicitudes_documentales_error";
+      return { ok: false, status: respuesta.status, mensaje: traducirPortal(clave) };
+    }
     const cuerpo = await respuesta.json();
     const items = cuerpo?.data?.items;
     const valido = cuerpo?.data?.esquema === "vec.bolsa.rrhh.solicitudes_documentales.v1" && Array.isArray(items)
@@ -105,6 +131,7 @@ export async function consultarSolicitudesDocumentalesRRHH(bolsa, participacion,
 function errorHttp(status, codigoServidor = "") {
   const errores = {
     400: ["solicitud_invalida", traducirPortal("txt_la_solicitud_no_es_valida_revise_los_campos_del")],
+    401: ["no_autenticado", traducirPortal("txt_se_requiere_una_sesion_interna_autenticada")],
     403: ["acceso_denegado", traducirPortal("txt_la_sesion_no_dispone_de_permiso_para_registrar_e")],
     404: ["recurso_no_encontrado", traducirPortal("txt_operacion_no_disponible_todavia")],
     409: codigoServidor === "clave_reutilizada"
@@ -187,6 +214,7 @@ export function operacionesDisponibles(estadoClave, transiciones) {
 }
 
 function operacionesAdmitidasCandidato(candidato, estado) {
+  if (estado.carga !== "listo" || estado.noDisponible) return [];
   return operacionesDisponibles(candidato.estado_clave, estado.transiciones)
     .filter((operacion) => (operacion === "excluir" && candidato.estado_clave !== "en_revision") || instanteValido(candidato.estado_desde))
     .filter((operacion) => {
@@ -215,14 +243,19 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
   const actual = estado.carga || "cargando";
   const disponibles = operacionesAdmitidasCandidato(candidato, estado);
   const solicitudes = estado.solicitudesDocumentales || [];
-  const acciones = disponibles.filter((operacion) => operacion !== "regularizar" || (!solicitudes.length && !estado.solicitudesError))
+  const acciones = disponibles.filter((operacion) => operacion !== "regularizar" || (!solicitudes.length && (!estado.solicitudesError || estado.solicitudesMetadatos)))
     .map((operacion) => `<button type="button" class="boton-secundario" data-b8-accion="seleccionar" data-operacion="${operacion}">${escaparHTML(etiquetaOperacion(operacion, candidato))}</button>`).join("");
-  const solicitudesVista = actual === "listo" && !(estado.paso > 0) ? `${estado.solicitudesError ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.solicitudesError)}</p><button type="button" class="boton-secundario" data-b8-accion="reintentar">${textoPortal("txt_reintentar_historial")}</button>` : ""}${solicitudes.map((solicitud) => `<div class="panel-separado"><p>${textoPortal("txt_b8_solicitud_pendiente", { fecha: instanteLegible(solicitud.registrada_en) })}</p><button type="button" class="boton-secundario" data-b8-accion="seleccionar-solicitud" data-solicitud-ref="${escaparHTML(solicitud.solicitud_ref)}" ${disponibles.includes("regularizar") && (solicitud.fecha_fin_causa === null || fechaCausaValida(solicitud.fecha_fin_causa)) ? "" : "disabled"}>${textoPortal("txt_b8_validar_solicitud")}</button></div>`).join("")}` : "";
+  const solicitudesReintentables = !estado.solicitudesOmitidas && ![401, 403, 404].includes(estado.solicitudesStatus);
+  const solicitudesVista = actual === "listo" && !(estado.paso > 0) ? `${estado.solicitudesCargando
+    ? `<p role="status" aria-busy="true">${textoPortal("txt_comprobando_acceso")}</p>`
+    : estado.solicitudesError ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.solicitudesError)}</p>${solicitudesReintentables
+      ? `<button type="button" class="boton-secundario" data-b8-accion="reintentar-solicitudes">${textoPortal("txt_reintentar_historial")}</button>` : ""}` : ""}${solicitudes.map((solicitud) => `<div class="panel-separado"><p>${textoPortal("txt_b8_solicitud_pendiente", { fecha: instanteLegible(solicitud.registrada_en) })}</p><button type="button" class="boton-secundario" data-b8-accion="seleccionar-solicitud" data-solicitud-ref="${escaparHTML(solicitud.solicitud_ref)}" ${disponibles.includes("regularizar") && (solicitud.fecha_fin_causa === null || fechaCausaValida(solicitud.fecha_fin_causa)) ? "" : "disabled"}>${textoPortal("txt_b8_validar_solicitud")}</button></div>`).join("")}` : "";
   const botones = estado.paso > 0 ? `<button type="button" class="boton-secundario" data-b8-accion="cancelar" ${estado.enviando ? "disabled" : ""}>${textoPortal("txt_cancelar")}</button>`
     : estado.noDisponible ? "" : acciones;
   let contenido = "";
   if (actual === "cargando") contenido = '<p class="vacio-controlado" role="status" aria-busy="true">' + textoPortal("txt_cargando_historial_de_operaciones") + '</p>';
-  else if (actual === "error") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || traducirPortal("txt_no_se_pudo_consultar_el_historial"))}</p><button type="button" class="boton-secundario" data-b8-accion="reintentar">${textoPortal("txt_reintentar_historial")}</button>`;
+  else if (actual === "error") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || traducirPortal("txt_no_se_pudo_consultar_el_historial"))}</p>${[401, 403, 404].includes(estado.errorStatus)
+    ? "" : `<button type="button" class="boton-secundario" data-b8-accion="reintentar">${textoPortal("txt_reintentar_historial")}</button>`}`;
   else if (!estado.items?.length) contenido = '<p class="vacio-controlado" role="status">' + textoPortal("txt_no_hay_operaciones_registradas") + '</p>';
   else {
     const total = estado.items.length;
@@ -235,7 +268,7 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
   const pendiente = actual === "listo" && ["renuncia", "en_revision", "excluido"].includes(candidato.estado_clave)
     && !disponibles.some((operacion) => ["revisar", "regularizar"].includes(operacion))
     ? `<p role="status">${textoPortal("txt_b8_regularizacion_no_disponible")}</p>` : "";
-  return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>${textoPortal("txt_b8_gestion_estado")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p><p>${textoPortal("txt_b8_ayuda_llamamiento_directo")}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${solicitudesVista}${pendiente}${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.reciboResolucion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_b8_resolucion_solicitud")} ${justificanteTraducido(estado.reciboResolucion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
+  return `<section class="panel panel-separado" data-b8-raiz="true" tabindex="-1"><div class="cabecera-panel"><div><h4>${textoPortal("txt_b8_gestion_estado")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p><p>${textoPortal("txt_b8_ayuda_llamamiento_directo")}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${solicitudesVista}${pendiente}${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.reciboResolucion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_b8_resolucion_solicitud")} ${justificanteTraducido(estado.reciboResolucion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
 }
 
 // El historial llega con instantes ISO, claves de situación y referencias de
@@ -282,35 +315,99 @@ function renderizarPaso(estado, escaparHTML, candidato) {
   return `<form data-b8-form="operacion" data-b8-paso="${etapa}"><p><strong>${textoPortal("txt_operacion_seleccionada")}</strong> ${escaparHTML(etiqueta)}</p><h5>${textoPortal("txt_paso_de_tres", { etapa, nombre: traducirPortal(etapa === 1 ? "txt_motivo" : etapa === 2 ? "txt_justificante" : "txt_validacion") })}</h5>${revision}${campos}<p class="mensaje-error" role="alert">${escaparHTML(estado.errorFormulario || "")}</p><div class="acciones-vista"><button type="button" class="boton-secundario" data-b8-accion="anterior" ${etapa === 1 || estado.enviando ? "disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${estado.enviando ? traducirPortal("txt_registrando") : etapa < 3 ? traducirPortal("txt_continuar") : validarDisponibilidad ? traducirPortal("txt_b8_confirmar_disponibilidad") : traducirPortal("txt_confirmar_operacion_nombre", { operacion: etiqueta })}</button></div></form>`;
 }
 
-export function crearControladorOperacionesSituacion({ estado, renderizar, recargar, consultarReglas = consultarReglasSituacion, consultarDocumentales = consultarSolicitudesDocumentalesRRHH }) {
-  async function cargar(modalFicha) {
-    // B13: el histórico de contratos se carga junto a la ficha, en paralelo.
-    void cargarContratosFicha(modalFicha, { estado, renderizar, renderizarAlIniciar: false });
-    void cargarReincorporacionesTitularFicha(modalFicha, { estado, renderizar, renderizarAlIniciar: false });
+export function crearControladorOperacionesSituacion({ estado, renderizar, recargar, consultarReglas = consultarReglasSituacion,
+  consultarOperaciones = consultarOperacionesSituacion, consultarReincorporaciones,
+  consultarDocumentales = consultarSolicitudesDocumentalesRRHH }) {
+  async function cargar(modalFicha, { incluirSecciones = true } = {}) {
+    if (incluirSecciones) void cargarContratosFicha(modalFicha, { estado, renderizar, renderizarAlIniciar: false });
     const controlador = new AbortController();
     modalFicha.controladorOperaciones?.abort();
+    modalFicha.controladorReincorporaciones?.abort();
     modalFicha.controladorOperaciones = controlador;
-    modalFicha.operacionesB8 = { ...modalFicha.operacionesB8, carga: "cargando", items: [], cambios: [] };
+    const bolsa = estado.bolsaSeleccionada;
+    const participacion = modalFicha.candidato.participacion_ref;
+    const solicitudesPrevias = modalFicha.operacionesB8;
+    modalFicha.operacionesB8 = { ...solicitudesPrevias, carga: "cargando", items: [], cambios: [], capacidadesFicha: null };
     renderizar();
-    // Sin catálogo o situación vigente del servidor, las acciones nuevas
-    // quedan cerradas; nunca se deduce el CAS del último registro histórico.
+    const vigente = () => !controlador.signal.aborted && estado.modalFicha === modalFicha
+      && estado.bolsaSeleccionada === bolsa && modalFicha.candidato.participacion_ref === participacion;
     const finRelacion = modalFicha.candidato.estado_clave === "trabajando" ? hoyCivil() : "";
-    const [res, reglas, solicitudes] = await Promise.all([
-      consultarOperacionesSituacion(estado.bolsaSeleccionada, modalFicha.candidato.participacion_ref, { signal: controlador.signal }),
+    const [res, reglas] = await Promise.all([
+      consultarOperaciones(bolsa, participacion, { signal: controlador.signal }),
       consultarReglas({ finRelacion, signal: controlador.signal }),
-      consultarDocumentales(estado.bolsaSeleccionada, modalFicha.candidato.participacion_ref, { signal: controlador.signal }),
     ]);
-    if (controlador.signal.aborted || estado.modalFicha !== modalFicha) return;
+    if (!vigente()) return;
+    const capacidades = res.capacidadesFicha ?? null;
+    const documental = capacidades?.solicitudes_documentales;
+    const leerDocumental = !documental || documental.estado === "disponible";
+    const reincorporaciones = incluirSecciones || capacidades
+      ? cargarReincorporacionesTitularFicha(modalFicha, { estado, renderizar,
+        disponibilidad: capacidades?.reincorporaciones_titular,
+        ...(consultarReincorporaciones ? { consultar: consultarReincorporaciones } : {}),
+        renderizarAlIniciar: false }) : Promise.resolve();
+    modalFicha.promesaReincorporaciones = reincorporaciones;
+    const solicitudes = !leerDocumental
+      ? { ok: false, status: null, omitida: documental.estado !== "indisponible",
+        metadatos: documental.estado === "indisponible", mensaje: documental.estado === "indisponible"
+          ? traducirPortal("txt_b8_solicitudes_documentales_error") : "" }
+      : !capacidades && !incluirSecciones && [401, 403, 404].includes(solicitudesPrevias?.solicitudesStatus)
+        ? { ok: false, status: solicitudesPrevias.solicitudesStatus, mensaje: solicitudesPrevias.solicitudesError }
+        : await consultarDocumentales(bolsa, participacion, { signal: controlador.signal });
+    if (!vigente()) return;
     modalFicha.reglasSituacion = reglas.ok ? reglas.datos : null;
-    modalFicha.candidato = { ...modalFicha.candidato, estado_desde: res.ok ? res.situacionVigente?.desde : undefined };
-    if (res.ok && res.situacionVigente) modalFicha.candidato.estado_clave = res.situacionVigente.situacion;
-    const causas = causasBaja(modalFicha.reglasSituacion);
-    const transiciones = modalFicha.reglasSituacion?.transiciones ?? null;
+    if (res.ok) modalFicha.candidato = { ...modalFicha.candidato,
+      estado_clave: res.situacionVigente?.situacion ?? modalFicha.candidato.estado_clave,
+      estado_desde: res.situacionVigente?.desde };
+    const comunes = { ...modalFicha.operacionesB8,
+      causasBaja: causasBaja(modalFicha.reglasSituacion), transiciones: modalFicha.reglasSituacion?.transiciones ?? null,
+      capacidadesFicha: capacidades,
+      solicitudesDocumentales: solicitudes.ok ? solicitudes.datos : [], solicitudesError: solicitudes.ok ? "" : solicitudes.mensaje,
+      solicitudesStatus: solicitudes.ok ? 200 : solicitudes.status, solicitudesCargando: false,
+      solicitudesOmitidas: solicitudes.omitida === true, solicitudesMetadatos: solicitudes.metadatos === true };
     modalFicha.operacionesB8 = res.ok
-      ? { ...modalFicha.operacionesB8, carga: "listo", noDisponible: false, items: res.datos, cambios: res.cambios, causasBaja: causas, transiciones,
-        solicitudesDocumentales: solicitudes.ok ? solicitudes.datos : [], solicitudesError: solicitudes.ok ? "" : solicitudes.mensaje }
-      : { ...modalFicha.operacionesB8, carga: "error", noDisponible: res.status === 404, error: res.mensaje, items: [], cambios: [], causasBaja: causas, transiciones,
-        solicitudesDocumentales: [], solicitudesError: solicitudes.ok ? "" : solicitudes.mensaje };
+      ? { ...comunes, carga: "listo", noDisponible: !res.situacionVigente, items: res.datos, cambios: res.cambios }
+      : { ...comunes, carga: "error", noDisponible: true, error: res.mensaje, errorStatus: res.status, items: [], cambios: [] };
+    renderizar();
+  }
+
+  function revalidarDisponibilidad(modal) {
+    if (modal.promesaDisponibilidad) return modal.promesaDisponibilidad;
+    const promesa = cargar(modal, { incluirSecciones: false }).finally(() => {
+      if (modal.promesaDisponibilidad === promesa) delete modal.promesaDisponibilidad;
+    });
+    modal.promesaDisponibilidad = promesa;
+    return promesa;
+  }
+
+  async function reintentarSolicitudes(modal) {
+    const flujo = modal.operacionesB8;
+    const controlador = modal.controladorOperaciones;
+    if (flujo?.solicitudesMetadatos) {
+      if (flujo.solicitudesCargando) return;
+      flujo.solicitudesCargando = true;
+      renderizar();
+      await revalidarDisponibilidad(modal);
+      await modal.promesaReincorporaciones;
+      if (estado.modalFicha === modal) (globalThis.document?.querySelector?.('[data-b8-accion="reintentar-solicitudes"]')
+        ?? globalThis.document?.querySelector?.('[data-b8-raiz="true"]'))?.focus?.();
+      return;
+    }
+    if (!flujo || flujo.solicitudesCargando || !controlador || controlador.signal.aborted
+      || [401, 403, 404].includes(flujo.solicitudesStatus)) return;
+    flujo.solicitudesCargando = true;
+    renderizar();
+    let respuesta;
+    try {
+      respuesta = await consultarDocumentales(estado.bolsaSeleccionada, modal.candidato.participacion_ref,
+        { signal: controlador.signal });
+    } catch {
+      respuesta = { ok: false, status: 0, mensaje: traducirPortal("txt_b8_solicitudes_documentales_error") };
+    }
+    if (controlador.signal.aborted || estado.modalFicha !== modal || modal.operacionesB8 !== flujo) return;
+    flujo.solicitudesCargando = false;
+    flujo.solicitudesDocumentales = respuesta.ok ? respuesta.datos : [];
+    flujo.solicitudesError = respuesta.ok ? "" : respuesta.mensaje;
+    flujo.solicitudesStatus = respuesta.ok ? 200 : respuesta.status;
     renderizar();
   }
 
@@ -361,7 +458,11 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       }
       flujo.paso = Math.max(1, Number(flujo.paso || 1) - 1);
     } else if (control.dataset.b8Accion === "reintentar") {
-      void cargar(modal);
+      if ([401, 403, 404].includes(flujo.errorStatus)) return true;
+      void cargar(modal, { incluirSecciones: false });
+      return true;
+    } else if (control.dataset.b8Accion === "reintentar-solicitudes") {
+      void reintentarSolicitudes(modal);
       return true;
     } else if (control.dataset.b8Accion === "pagina-traza") {
       flujo.paginaTraza = Math.max(0, Number(control.dataset.pagina) || 0);
@@ -456,7 +557,18 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
   function instalar(documento = globalThis.document) {
     instalarHuellaArchivo(documento);
     documento.addEventListener("click", (evento) => {
-      if (manejarClickReincorporacionesTitular(evento, { estado, renderizar })) return;
+      if (manejarClickReincorporacionesTitular(evento, { estado, renderizar,
+        reintentarMetadatos: async () => {
+          const modal = estado.modalFicha;
+          if (!modal || modal.reincorporacionesTitular?.metadatosCargando) return;
+          modal.reincorporacionesTitular.metadatosCargando = true;
+          renderizar();
+          await revalidarDisponibilidad(modal);
+          await modal.promesaReincorporaciones;
+          if (estado.modalFicha === modal) (globalThis.document?.querySelector?.('[data-reincorporacion-accion="reintentar"]')
+            ?? globalThis.document?.querySelector?.('#reincorporacion-titulo')
+            ?? globalThis.document?.querySelector?.('[data-b8-raiz="true"]'))?.focus?.();
+        } })) return;
       if (!manejarClickContratos(evento, { estado, renderizar })) manejarClick(evento);
     });
     documento.addEventListener("submit", (evento) => { manejarSubmit(evento); });
@@ -467,6 +579,6 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
 }
 
 function operacionAdmitida(modal, flujo, operacion) {
-  return operacionesAdmitidasCandidato(modal.candidato, flujo).includes(operacion)
+  return !flujo.noDisponible && operacionesAdmitidasCandidato(modal.candidato, flujo).includes(operacion)
     && ((operacion === "excluir" && modal.candidato.estado_clave !== "en_revision") || instanteValido(modal.candidato.estado_desde));
 }

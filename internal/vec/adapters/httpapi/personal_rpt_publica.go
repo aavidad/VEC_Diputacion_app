@@ -6,34 +6,23 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
-	"vec-diputacion-granada/config"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 )
-
-const rutaRPTPublicaPresentacion = "/api/vec/personal/rpt-publica"
-
-var ErrConcesionRPTPublicaPresentacionInvalida = errors.New("httpapi: concesion RPT publica de presentacion invalida")
 
 type ConsultaRPTPublica interface {
 	Listar(context.Context) (personaldomain.CatalogoRPTPublica, error)
 }
 
-// NewHandlerRPTPublicaPresentacion es una concesion de lectura exacta: catálogo
-// publicado sin personas, ocupantes ni inferencias de jefatura.
-func NewHandlerRPTPublicaPresentacion(cfg config.Config, consulta ConsultaRPTPublica) (http.Handler, error) {
-	if !cfg.Normalize().RRHHPresentationEnabledByDoubleGuard() || dependenciaHTTPNula(consulta) {
-		return nil, ErrConcesionRPTPublicaPresentacionInvalida
-	}
-	return handlerRPTPublica(consulta), nil
-}
-
 type vistaRPTPublica string
+
+var patronCodigoPuestoRPTFiltro = regexp.MustCompile(`^[A-Z0-9][A-Z0-9-]{0,63}$`)
 
 const (
 	vistaRPTCategorias vistaRPTPublica = "categorias"
@@ -43,6 +32,7 @@ const (
 type filtroRPTPublica struct {
 	vista         vistaRPTPublica
 	q             string
+	codigoPuesto  string
 	limit, offset int
 }
 
@@ -52,7 +42,7 @@ func filtroRPTPublicaDesdePeticion(r *http.Request) (filtroRPTPublica, error) {
 		return filtroRPTPublica{}, err
 	}
 	for clave, valoresClave := range valores {
-		if (clave != "vista" && clave != "q" && clave != "limit" && clave != "offset") || len(valoresClave) != 1 {
+		if (clave != "vista" && clave != "q" && clave != "limit" && clave != "offset" && clave != "codigo_puesto") || len(valoresClave) != 1 {
 			return filtroRPTPublica{}, errors.New("filtro")
 		}
 	}
@@ -61,6 +51,10 @@ func filtroRPTPublicaDesdePeticion(r *http.Request) (filtroRPTPublica, error) {
 		vista = vistaRPTPublica(recibida)
 	}
 	if vista != vistaRPTCategorias && vista != vistaRPTPuestos {
+		return filtroRPTPublica{}, errors.New("filtro")
+	}
+	codigoPuesto := valores.Get("codigo_puesto")
+	if valores.Has("codigo_puesto") && (vista != vistaRPTPuestos || !patronCodigoPuestoRPTFiltro.MatchString(codigoPuesto)) {
 		return filtroRPTPublica{}, errors.New("filtro")
 	}
 	q := strings.TrimSpace(valores.Get("q"))
@@ -75,7 +69,7 @@ func filtroRPTPublicaDesdePeticion(r *http.Request) (filtroRPTPublica, error) {
 	if err != nil || offset < 0 {
 		return filtroRPTPublica{}, errors.New("filtro")
 	}
-	return filtroRPTPublica{vista: vista, q: q, limit: limit, offset: offset}, nil
+	return filtroRPTPublica{vista: vista, q: q, codigoPuesto: codigoPuesto, limit: limit, offset: offset}, nil
 }
 func enteroRPTPublica(valor string) (int, error) {
 	if valor == "" || strings.TrimSpace(valor) != valor || (len(valor) > 1 && valor[0] == '0') {
@@ -101,6 +95,9 @@ func servirRPTPublica(w http.ResponseWriter, r *http.Request, consulta ConsultaR
 	if filtro.vista == vistaRPTPuestos {
 		filtrados := make([]personaldomain.PuestoRPTPublico, 0, len(catalogo.Puestos))
 		for _, puesto := range catalogo.Puestos {
+			if filtro.codigoPuesto != "" && puesto.Codigo != filtro.codigoPuesto {
+				continue
+			}
 			if q == "" || strings.Contains(textoRPTPublica(strings.Join([]string{puesto.Codigo, puesto.Denominacion, puesto.CentroCodigo, puesto.Centro, puesto.Delegacion, strings.Join(puesto.Grupos, " "), puesto.Escala, puesto.CategoriaClave, puesto.Tipo, puesto.Provision}, " ")), q) {
 				filtrados = append(filtrados, puesto.Clonar())
 			}

@@ -57,6 +57,7 @@ func (h *HandlerHistorial) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := h.consultor.ConsultarHistorial(r.Context(), orden, pagina)
 	if err != nil {
+		publicarAcuseLecturaFallida(w, err)
 		responderErrorHistorial(w, err)
 		return
 	}

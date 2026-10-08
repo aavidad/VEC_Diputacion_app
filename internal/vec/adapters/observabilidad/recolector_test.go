@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/internal/vec/adapters/catalogoincidencias"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -25,6 +26,11 @@ func lineaRecolectorPrueba(t *testing.T) []byte {
 	t.Helper()
 	clasificacion, _ := domain.ClasificarIncidenciaTecnica(domain.SolicitudIncidenciaTecnica{Codigo: domain.IncidenciaArranqueFallido, Componente: domain.ComponenteIncidenciaServidor, Etapa: domain.EtapaIncidenciaEscucha})
 	inc := domain.NuevaIncidenciaTecnica(clasificacion, time.Date(2026, 10, 3, 0, 0, 0, 0, time.UTC), domain.EntornoIncidenciaPruebas, "936aac665", "0123456789abcdef0123456789abcdef")
+	catalogo, err := catalogoincidencias.Predeterminado()
+	if err != nil {
+		t.Fatal(err)
+	}
+	inc.Mensaje, _ = catalogo.Plantilla(inc.Codigo)
 	b, err := json.Marshal(lineaIncidencia{inc.Esquema, inc.Instante.Format(formatoInstante), string(inc.Codigo), string(inc.Severidad), string(inc.Componente), string(inc.Etapa), string(inc.Entorno), inc.VersionBinario, inc.Correlacion, inc.Recuento, inc.Mensaje})
 	if err != nil || len(b) > 512 {
 		t.Fatal("fixture de incidencia no conforme", err, len(b))

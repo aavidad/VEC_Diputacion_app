@@ -1,0 +1,11 @@
+rules:
+  - id: personal31-no-public-execute
+    languages: [generic]
+    severity: ERROR
+    message: Revisar concesión privada a PUBLIC.
+    pattern: GRANT EXECUTE ON FUNCTION ... TO PUBLIC
+  - id: personal31-no-public-table
+    languages: [generic]
+    severity: ERROR
+    message: Revisar concesión de tabla privada a PUBLIC.
+    pattern: GRANT ... ON TABLE ... TO PUBLIC

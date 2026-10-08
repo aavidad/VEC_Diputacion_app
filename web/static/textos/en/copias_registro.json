@@ -23,5 +23,8 @@
   "revisar_ensayo_fallido": "Review the trial declared as failed.",
   "historia_invalida": "Preserve the journal and review the operation history.",
   "listado_registrado": "Query recorded. Operations show declared progress.",
-  "registro_destino_ocupado": "The destination has another pending operation. Read and reconcile it before starting a new one."
+  "registro_destino_ocupado": "The destination has another pending operation. Read and reconcile it before starting a new one.",
+  "revisar_abandono_confirmado": "Capture was abandoned after confirming the failure, lease cancellation and absence of pending effects. Review the cause before starting another operation.",
+  "operacion_abandono_no_confirmado": "The stopped effect or lease cancellation has not been confirmed. The destination remains occupied.",
+  "registro_abandono_no_autorizado": "Current authority and executor observation for abandoning capture could not be revalidated."
 }

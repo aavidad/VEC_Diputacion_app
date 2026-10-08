@@ -69,3 +69,30 @@ Se mantienen los códigos de salida: 0 para una cadena verificada, 1 para una
 divergencia, 2 para argumentos o JSON no admitidos y 4 si no se puede escribir
 el informe. Los fallos AD171 muestran claves y estados fijos; no reproducen
 referencias ni el contenido rechazado.
+
+## Consumos con sello de transacción AD193
+
+Los esquemas mixtos que admiten consumo v3 también admiten
+`consumo_confirmado_v4`, con `version_consumo: 4`, dentro del objeto `consumo`.
+Conserva los campos v3 y añade `transaccion_origen` y
+`transaccion_consumo_origen`, ambos obligatorios e iguales. Se reciben como
+cadenas decimales positivas canónicas del rango uint64; nunca como números
+JSON. Por ejemplo, `"9007199254740993"` y `"18446744073709551615"` mantienen
+todos sus dígitos. Cero, signos, espacios, ceros iniciales, exponentes,
+desbordamientos, valores nulos y campos omitidos se rechazan.
+
+El eslabón conserva el orden de quince campos de AD193 y añade como campo 16
+el sello de auditoría. El sello del consumo se coteja por igualdad; no añade
+un campo 17. Las fechas de registro y consumo siguen siendo UTC con seis
+decimales e iguales. Los formatos anteriores conservan sus huellas y no
+admiten los campos nuevos. LOGIN técnico y actor humano mantienen familias
+separadas.
+
+Los [vectores AD193](testdata/consumo_transaccion_ad193.json) contienen tres
+consumos históricos y dos v4 encuadrados con Python/SHA256. Su
+[checkpoint](testdata/consumo_transaccion_ad193_checkpoint.json) permite
+usar el comando anterior sustituyendo el archivo de entrada y la ruta de
+`--checkpoint` por estos dos archivos, con `--max-registros 5`. Verificar estas cadenas
+no acredita COSE, procedencia de extracción ni instalación de AD193. XID
+identifica una transacción dentro de una instalación; no identifica de forma
+global una transacción entre bases o después de una importación.

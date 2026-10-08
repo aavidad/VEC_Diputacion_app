@@ -1,0 +1,20 @@
+{
+  "idioma": "es",
+  "mensajes": {
+    "limite": "La preparación no crea la unidad. La aplicación exige aprobación y configuración externas; solo después de COMMIT confirma el recibo y la auditoría del intento.",
+    "uso_invalido": "Indique material del plan, fuente separada, destino del plan y catálogo de textos. Añada --cotejar para comprobar un plan existente.",
+    "fuente_insegura": "No se puede leer un archivo privado. Use archivos de hasta 64 KiB en un directorio privado fuera del repositorio.",
+    "fuente_invalida": "El plan o su fuente no cumplen el contrato de unidad inicial o han caducado. Revise las referencias, el catálogo, las fechas y la huella de la fuente.",
+    "plan_inseguro": "No se puede leer el plan privado para cotejarlo.",
+    "plan_divergente": "El plan existente no coincide con el material y la fuente o el destino no es seguro. No se ha sobrescrito.",
+    "plan_preparado": "El plan de unidad está preparado y su huella se ha calculado. Guárdelo para su revisión.",
+    "operacion_no_confirmada": "La operación no se ha confirmado. No se muestra ningún recibo ni auditoría como persistidos.",
+    "commit_no_confirmado": "No se ha podido confirmar COMMIT. El resultado es indeterminado. Conserve el plan y solicite su comprobación antes de actuar.",
+    "acuse_inseguro": "El destino del acuse no es seguro o ya existe. Use otro archivo privado antes de enviar la operación.",
+    "acuse_no_guardado": "COMMIT está confirmado, pero no se ha podido guardar el acuse. Conserve el plan para recuperar el recibo original con un acuse nuevo.",
+    "unidad_confirmada": "La operación se ha confirmado y el acuse se ha guardado.",
+    "unidad_rechazada": "La base ha rechazado la operación y ha confirmado el registro de su intento. Consulte el acuse privado.",
+    "unidad_no_disponible": "La operación ha terminado con error y se ha confirmado el registro de su intento. Consulte el acuse privado.",
+    "aplicacion_entrada_invalida": "La conexión o la aprobación privada no cumplen el contrato."
+  }
+}

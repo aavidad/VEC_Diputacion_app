@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   crearClienteHTTPContratacionTemporal,
   RUTAS_HTTP_CONTRATACION_TEMPORAL,
-} from "./cliente-http.js";
+} from "./cliente-http.js?v=20261008-alta-circular-v3";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",
@@ -283,5 +283,33 @@ test("acepta los totales del conjunto filtrado y rechaza totales incoherentes", 
     await assert.rejects(
       crearClienteHTTPContratacionTemporal({ fetchImpl: paginaCon(invalidos) }).consultarCuadroRRHH(solicitud),
     );
+  }
+});
+
+// Resumen de la portada (CT-000184): solo se pide con resumen: true y la
+// respuesta solo admite recuentos enteros cuyo reparto por fase suma «en trámite».
+test("el resumen de la portada se pide con un indicador cerrado y se valida", async () => {
+  const resumenValido = { en_tramite: 3, con_incidencia: 1, vencidos: 1, vencen_hoy: 0, vencen_semana: 2, sin_calcular: 0,
+    por_fase: { solicitud: 2, fiscalizacion: 1 } };
+  const pagina = (resumenPortada) => ({ data: { esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
+    generada_en: "2026-09-03T08:05:00Z", expedientes: [], hay_mas: false, resumen: resumenPortada } });
+  let cuerpoEnviado = null;
+  const cliente = (resumenPortada) => crearClienteHTTPContratacionTemporal({
+    fetchImpl: async (_ruta, opciones) => { cuerpoEnviado = JSON.parse(opciones.body); return respuesta(pagina(resumenPortada)); },
+  });
+  const solicitud = { filtros: { texto: "", estado_clave: "", fase_clave: "" }, paginacion: { limite: 1, cursor: "" }, resumen: true };
+  const leida = await cliente(resumenValido).consultarCuadroRRHH(solicitud);
+  assert.equal(cuerpoEnviado.resumen, true);
+  assert.deepEqual(leida.resumen, resumenValido);
+  await assert.rejects(async () => cliente(resumenValido).consultarCuadroRRHH({ ...solicitud, resumen: false }));
+  await assert.rejects(async () => cliente(resumenValido).consultarCuadroRRHH({ ...solicitud, resumen: "si" }));
+  for (const malo of [
+    { ...resumenValido, por_fase: { solicitud: 1 } },
+    { ...resumenValido, vencidos: -1 },
+    { ...resumenValido, con_incidencia: 4 },
+    { ...resumenValido, expediente_ref: "e:1" },
+    { ...resumenValido, por_fase: { "Fase mala": 3 } },
+  ]) {
+    await assert.rejects(async () => cliente(malo).consultarCuadroRRHH(solicitud), undefined, JSON.stringify(malo));
   }
 });

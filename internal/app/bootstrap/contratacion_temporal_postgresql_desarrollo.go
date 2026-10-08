@@ -19,9 +19,11 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -79,6 +81,10 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 }
 
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
+	auditoriaLecturasBolsa            puertosvec.RegistradorIntentosAuditoria
+	procesoAuditoriaLecturasBolsa     string
+	cerrarAuditoriaLecturasBolsa      func()
+	cerrarFirmasR5V2                  func()
 	ejecucion                         *pgxpool.Pool
 	bolsa                             *pgxpool.Pool
 	calculadorPoliticaOfertas         *pgxpool.Pool
@@ -105,6 +111,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialContacto                        *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaContacto                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialDatosContacto                   *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaDatosContacto           *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialEmision                         *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialPoliticaOfertas                 *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaPoliticaOfertas         *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -120,6 +127,9 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalExportacionServicios             *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalHistoriaServicios                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalHistoriaRelaciones               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaInterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaExterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -141,6 +151,12 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
 	if d == nil {
 		return
+	}
+	if d.cerrarAuditoriaLecturasBolsa != nil {
+		d.cerrarAuditoriaLecturasBolsa()
+	}
+	if d.cerrarFirmasR5V2 != nil {
+		d.cerrarFirmasR5V2()
 	}
 	if d.cerrarUnaVez != nil {
 		d.cerrarUnaVez()
@@ -187,7 +203,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	etapa = "derivar_material_atestacion"
 	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(
@@ -592,6 +608,39 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 	}
+	seleccionExportacion, err := exportacionServiciosPersonalSolicitada(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if seleccionExportacion {
+		etapa = "material_personal_exportacion_servicios"
+		dependencias.materialPersonalExportacionServicios, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaExportacionServiciosPropios)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	seleccionHistoria, err := historiaServiciosPersonalSolicitada(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if seleccionHistoria {
+		etapa = "material_personal_historia_servicios"
+		dependencias.materialPersonalHistoriaServicios, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaHistoriaServiciosPropia)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	seleccionHistoriaRelaciones, err := historiaRelacionesPersonalSolicitada(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if seleccionHistoriaRelaciones {
+		etapa = "material_personal_historia_relaciones"
+		dependencias.materialPersonalHistoriaRelaciones, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaHistoriaRelacionesPropia)
+		if err != nil {
+			return vacias, err
+		}
+	}
 	etapa = "material_firma_documento"
 	if firmaDocumento {
 		dependencias.proveedorMaterialFirmaDocumento, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, ports.AudienciaFirmaDocumentoV3)
@@ -744,6 +793,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				return vacias, err
 			}
 			dependencias.proveedorMaterialDatosContacto = proveedorDatosContacto
+			if dependencias.proveedorMaterialConsultaDatosContacto, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConsultarDatosContactoParticipacion); err != nil {
+				return vacias, err
+			}
 			proveedorEmision, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaEmitirLlamamiento)
 			if err != nil {
 				return vacias, err

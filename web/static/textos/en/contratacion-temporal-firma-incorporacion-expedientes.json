@@ -2,7 +2,7 @@
   "incorporacion": {
     "incorporacion_consulta_bajo_demanda": "Commencement of duty is checked on request. Checking it does not record any commencement.",
     "incorporacion_consultar": "Check commencement of duty",
-    "incorporacion_preparacion_cargando": "Checking the commencement preparation stored on the server.",
+    "incorporacion_preparacion_cargando": "Loading the preparation for the start of work…",
     "incorporacion_preparacion_denegada": "You do not have permission to check commencement for this case file.",
     "incorporacion_preparacion_pendiente": "Commencement preparation is not available for this case file. This enquiry does not record a commencement.",
     "incorporacion_preparacion_detalle_obsoleto": "The displayed details (v{version_anterior}) are out of date. No action is enabled until version {version_actual} is retrieved.",
@@ -19,10 +19,10 @@
     "continuidad_expediente_documentos": "View case-file documents",
     "continuidad_documentos_titulo": "GINPIX form and tracking",
     "continuidad_documentos_ficha": "Manual GINPIX form",
-    "continuidad_documentos_ficha_estado": "The download is available in the case file only when there is a confirmed commencement receipt and the enquiry is available.",
+    "continuidad_documentos_ficha_estado": "You can download the form from the case file once the start of service is recorded.",
     "continuidad_documentos_ficha_limite": "The downloaded form does not transmit data or confirm registration in GINPIX.",
     "continuidad_documentos_seguimiento": "Commencement tracking",
-    "continuidad_documentos_seguimiento_estado": "The original tracking information can be viewed from the same receipt in the case file when the enquiry is available.",
+    "continuidad_documentos_seguimiento_estado": "Follow-up can be viewed in the case file once the start of service is recorded.",
     "continuidad_documentos_seguimiento_limite": "Viewing the tracking information does not record notes or end the employment relationship."
   },
   "firma": {
@@ -38,7 +38,7 @@
     "firma_enviar": "Send for signature",
     "firma_enviar_motivo": "The Firmadoc connection is not available yet. The signers' workflow must be confirmed.",
     "firma_autofirma_prueba_titulo": "Test with GrxFirma or AutoFirma",
-    "firma_autofirma_prueba": "Your signing program (GrxFirma or AutoFirma) can only test a local signature; it does not evidence submission to Firmadoc or an effective signature in this case.",
+    "firma_autofirma_prueba": "You can try signing with GrxFirma or AutoFirma. This trial does not send the document to Firmadoc or complete the case's official signature.",
     "firma_pendiente_documento": "Preliminary document",
     "firma_pendiente_documento_valor": "Legal report prepared; no signature is recorded.",
     "firma_pendiente_destino": "Intended workflow",

@@ -2,15 +2,17 @@
 
 import "./atajos-incidencia.js";
 import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261002-ct-fin-modalidad-v1";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261008-w-ct-borradores-main-v2";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
-import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-expedientes-lista.js?v=20261001-f-reconciliacion-325-v1";
+import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { origenLlamamientoValido } from "../../portal-llamamiento-origen.js";
+import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-expedientes-lista.js?v=20261008-ct-inicio-v1";
 import {
   renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
   renderizarLineaFases, renderizarSiguientePasoFicha,
-} from "./vista-expedientes-ficha.js?v=20261001-f-reconciliacion-324-v1";
+} from "./vista-expedientes-ficha.js?v=20261007-pantallas-textos-final-v1";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 
@@ -59,12 +61,12 @@ export function renderizarEstadoCarga(estado, t) {
 }
 
 
-function centroVisible(centro) {
+function centroVisible(centro, t = traductorPorOmision) {
   const referencia = String(centro ?? "");
   const coincidencia = /^centro:([^:]+):(\d+)$/u.exec(referencia);
   if (!coincidencia) return { etiqueta: referencia, referencia: "" };
   const [, ambito, numero] = coincidencia;
-  return { etiqueta: traductorPorOmision("centro_visible", { ambito: ambito.replaceAll(/[-_]+/g, " "), numero }), referencia };
+  return { etiqueta: t("centro_visible", { ambito: ambito.replaceAll(/[-_]+/g, " "), numero }), referencia };
 }
 
 
@@ -76,10 +78,14 @@ export function numeroExpedienteVisible(numero, t = traductorPorOmision) {
 }
 
 // Número y centro legibles que la lista necesita (evita dependencias circulares).
-const AYUDAS_LISTA = Object.freeze({
-  numeroVisible: (numero) => numeroExpedienteVisible(numero),
-  centroVisible: (centro) => centroVisible(centro),
-});
+// Con el traductor del idioma activo, para que el centro sin nombre también
+// se diga en ese idioma.
+function ayudasLista(t) {
+  return Object.freeze({
+    numeroVisible: (numero) => numeroExpedienteVisible(numero, t),
+    centroVisible: (centro) => centroVisible(centro, t),
+  });
+}
 
 
 export function renderizarCuadro(estado, t, filtroLista = FILTRO_LISTA_INICIAL) {
@@ -97,13 +103,14 @@ export function renderizarCuadro(estado, t, filtroLista = FILTRO_LISTA_INICIAL) 
     <button type="button" class="boton-secundario" data-ct-exp-pagina="siguiente"
       ${cuadro.paginacion.cursor_siguiente && !estado.paginacion_requiere_reinicio && estado.carga !== "error" ? "" : "disabled"}>${escaparHTML(t("pagina_siguiente"))}</button>
   </nav>` : "";
-  if (estado.carga === "vacio") return renderizarEstadoCarga(estado, t);
-  return renderizarListaPeticiones(estado, t, filtroListaValido(filtroLista), AYUDAS_LISTA, paginacion);
+  const filtrosServidor = Object.values(estado.filtros ?? {}).some((valor) => valor !== "" && valor != null);
+  if (estado.carga === "vacio" && filtrosServidor) return renderizarEstadoCarga(estado, t);
+  return renderizarListaPeticiones(estado, t, filtroListaValido(filtroLista), ayudasLista(t), paginacion);
 }
 
 /** Solo la parte de resultados, para repintar al escribir sin perder el foco. */
 export function renderizarResultadosCuadro(estado, t, filtroLista = FILTRO_LISTA_INICIAL) {
-  return estado.cuadro ? renderizarResultadosLista(estado, t, filtroListaValido(filtroLista), AYUDAS_LISTA) : "";
+  return estado.cuadro ? renderizarResultadosLista(estado, t, filtroListaValido(filtroLista), ayudasLista(t)) : "";
 }
 
 // La incidencia se explica con lo que el detalle ya trae: la fase marcada, el
@@ -158,11 +165,10 @@ function renderizarBorradoresFormalizacion(t) {
   return `<section class="ct-exp-borradores" aria-labelledby="ct-exp-borradores-titulo">
     <div class="ct-exp-borradores-cabecera"><div>
       <h4 id="ct-exp-borradores-titulo">${escaparHTML(t("borradores_titulo"))}</h4>
-      <p>${escaparHTML(t("borradores_descripcion"))}</p>
+      <p>${escaparHTML(t("borradores_aviso"))}</p>
     </div><button type="button" class="boton-terciario" data-ct-exp-accion="cancelar-descarga" disabled>${escaparHTML(t("cancelar_descarga"))}</button></div>
     <ul>${BORRADORES_FORMALIZACION.map(([clave, accion]) => `<li>
       <h5>${escaparHTML(t(`${clave}_titulo`))}</h5>
-      <p>${escaparHTML(t("borrador_sin_firma"))}</p>
       <div class="ct-exp-borradores-acciones">
         <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-${accion}">${escaparHTML(t(`${clave}_descargar`))}</button>
         <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-docx-${accion}">${escaparHTML(t(`${clave}_descargar_docx`))}</button>
@@ -220,6 +226,26 @@ function valorCampoCabecera(campo, t, resolverBolsa) {
   return `<button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(campo.valor)}" data-pestana="historico" aria-label="${escaparHTML(t("enlace_bolsa_historico_aria", { bolsa: bolsa.categoria }))}">${escaparHTML(bolsa.categoria)}</button>`;
 }
 
+// «Abrir llamamiento en Bolsa»: la bolsa elegida para cubrir la petición o, si
+// no hay, la vigente de su categoría. Bolsa abre el asistente con la referencia,
+// el centro y la fecha de inicio de la petición ya puestos.
+function renderizarAbrirLlamamiento(expediente, resolverBolsa) {
+  if (typeof resolverBolsa !== "function") return "";
+  const valor = (clave) => expediente.cabecera?.find((campo) => campo.clave === clave)?.valor;
+  const cobertura = valor("bolsa_cobertura");
+  let bolsaRef = typeof cobertura === "string" && resolverBolsa(cobertura) ? cobertura : "";
+  if (!bolsaRef) {
+    const categoriaRef = expediente.analisis_previo?.categoria_ref ?? expediente.datos_peticion?.categoria_ref;
+    bolsaRef = typeof categoriaRef === "string" ? resolverBolsa("", { categoriaRef })?.bolsa_ref || "" : "";
+  }
+  const origen = bolsaRef ? origenLlamamientoValido({
+    expediente_ref: expediente.expediente_ref, referencia: expediente.numero_visible, centro: valor("centro"),
+    fecha_inicio: expediente.analisis_previo?.periodo?.inicio ?? expediente.datos_peticion?.periodo?.inicio,
+  }) : null;
+  if (!origen) return "";
+  const atributo = (nombre, dato) => (dato ? ` data-origen-${nombre}="${escaparHTML(dato)}"` : "");
+  return `<div class="acciones-vista"><button type="button" class="boton-primario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}"${atributo("expediente", origen.expediente_ref)}${atributo("referencia", origen.referencia)}${atributo("centro", origen.centro)}${atributo("inicio", origen.fecha_inicio)}>${escaparHTML(traducirPortal("panel_ct_abrir_llamamiento"))}</button></div>`;
+}
 
 function renderizarTareas(expediente, tareaRef, t) {
   return `<nav class="ct-exp-tareas" aria-label="${escaparHTML(t("tareas_expediente"))}">
@@ -336,11 +362,13 @@ function renderizarRecibo(recibo, t, locale, zonaHoraria) {
     <dl>
       <div><dt>${escaparHTML(t("recibo_referencia"))}</dt><dd>${justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
       <div><dt>${escaparHTML(t("recibo_expediente"))}</dt><dd>${escaparHTML(recibo.numero_visible)}</dd></div>
-      <div><dt>${escaparHTML(t("recibo_version"))}</dt><dd>${escaparHTML(recibo.version)}</dd></div>
       <div><dt>${escaparHTML(t("recibo_actuacion"))}</dt><dd>${escaparHTML(recibo.actuacion)}</dd></div>
       <div><dt>${escaparHTML(t("recibo_estado"))}</dt><dd>${escaparHTML(recibo.estado_resultante)}</dd></div>
       <div><dt>${escaparHTML(t("recibo_fecha"))}</dt><dd>${escaparHTML(fecha)}</dd></div>
     </dl>
+    <details class="detalle-tecnico-plegado"><summary>${escaparHTML(t("ficha_detalle_tecnico"))}</summary>
+      <dl><div><dt>${escaparHTML(t("recibo_version"))}</dt><dd>${escaparHTML(recibo.version)}</dd></div></dl>
+    </details>
   </section>`;
 }
 
@@ -399,11 +427,15 @@ function renderizarTarea(
     <dl class="ct-exp-metadata">
       <div><dt>${escaparHTML(t("unidad"))}</dt><dd>${escaparHTML(tarea.unidad)}</dd></div>
       <div><dt>${escaparHTML(t("responsable"))}</dt><dd>${escaparHTML(tarea.responsable)}</dd></div>
-      <div><dt>${escaparHTML(t("entrada"))}</dt><dd>${escaparHTML(tarea.entrada)}</dd></div>
-      <div><dt>${escaparHTML(t("salida"))}</dt><dd>${escaparHTML(tarea.salida || "—")}</dd></div>
       <div><dt>${escaparHTML(t("tiempo"))}</dt><dd>${escaparHTML(tarea.tiempo)}</dd></div>
-      <div><dt>${escaparHTML(t("recibo"))}</dt><dd>${justificanteTraducido(tarea.recibo_ref, escaparHTML, t)}</dd></div>
     </dl>
+    <details class="detalle-tecnico-plegado"><summary>${escaparHTML(t("ficha_detalle_tecnico"))}</summary>
+      <dl class="ct-exp-metadata">
+        <div><dt>${escaparHTML(t("entrada"))}</dt><dd>${escaparHTML(tarea.entrada)}</dd></div>
+        <div><dt>${escaparHTML(t("salida"))}</dt><dd>${escaparHTML(tarea.salida || "—")}</dd></div>
+        <div><dt>${escaparHTML(t("recibo"))}</dt><dd>${justificanteTraducido(tarea.recibo_ref, escaparHTML, t)}</dd></div>
+      </dl>
+    </details>
     ${montarAnalisis ? '<div data-ct-exp-analisis></div>' : `<form data-ct-exp-tarea-form aria-label="${escaparHTML(t("formulario_tarea", { tarea: tarea.etiqueta }))}">
       ${editable ? "" : `<p class="ct-exp-solo-lectura">${escaparHTML(t("tarea_solo_lectura"))}</p>`}
       <div class="ct-exp-paneles">${tarea.paneles.map((panel) => (
@@ -473,6 +505,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
       </div>
       <div class="pila">
         ${renderizarDatosPeticion(expediente, t, { valorCampo: (campo) => valorCampoCabecera(campo, t, resolverBolsa), faseDeCampo })}
+        ${renderizarAbrirLlamamiento(expediente, resolverBolsa)}
         ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
       </div>
     </div>
@@ -493,7 +526,7 @@ function renderizarContinuidadDesdeExpediente(estado, t) {
     || estado.navegacion?.documentos !== true) return "";
   return `<section class="ct-exp-continuidad" aria-labelledby="ct-exp-continuidad-titulo">
     <div><h3 id="ct-exp-continuidad-titulo">${escaparHTML(t("continuidad_expediente_titulo"))}</h3>
-      <p>${escaparHTML(t("continuidad_expediente_descripcion"))}</p></div>
+</div>
     <button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escaparHTML(t("continuidad_expediente_documentos"))}</button>
   </section>`;
 }
@@ -504,11 +537,9 @@ function renderizarContinuidadDesdeDocumentos(expediente, t) {
     <h3 id="ct-exp-continuidad-documentos-titulo">${escaparHTML(t("continuidad_documentos_titulo"))}</h3>
     <div class="ct-exp-continuidad-pasos">
       <article><h4>${escaparHTML(t("continuidad_documentos_ficha"))}</h4>
-        <p>${escaparHTML(t("continuidad_documentos_ficha_estado"))}</p>
-        <small>${escaparHTML(t("continuidad_documentos_ficha_limite"))}</small></article>
+        <p>${escaparHTML(t("continuidad_documentos_ficha_estado"))}</p></article>
       <article><h4>${escaparHTML(t("continuidad_documentos_seguimiento"))}</h4>
-        <p>${escaparHTML(t("continuidad_documentos_seguimiento_estado"))}</p>
-        <small>${escaparHTML(t("continuidad_documentos_seguimiento_limite"))}</small></article>
+        <p>${escaparHTML(t("continuidad_documentos_seguimiento_estado"))}</p></article>
     </div>
   </section>`;
 }
@@ -546,7 +577,7 @@ export function renderizarAuditoria(estado, t) {
   const auditoria = estado.auditoria;
   if (!expediente || !auditoria) return renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
   return `${renderizarCabeceraFicha(expediente, estado, t)}
-    <header class="ct-exp-subcabecera"><h3>${escaparHTML(t("auditoria_titulo"))}</h3><p>${escaparHTML(t("auditoria_descripcion"))}</p></header>
+    <header class="ct-exp-subcabecera"><h3>${escaparHTML(t("auditoria_titulo"))}</h3></header>
     <div class="tabla-contenedor tabla-contenedor--prioritaria" tabindex="0">
       <table class="tabla-datos tabla-datos--prioritaria ct-exp-tabla-auditoria">
         <caption>${escaparHTML(t("auditoria_tabla"))}</caption>

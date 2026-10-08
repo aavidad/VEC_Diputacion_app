@@ -38,7 +38,7 @@ test("P-WEB-12 monta Avisos inmediatamente después del cuadro B12 y declara el 
 
 test("P-WEB-12 consulta Avisos una sola vez al montar y cancela al salir", () => {
   assert.match(portal, /if \(vista === "resumen" && estado\.datosAvisos === null\) void cargarAvisosBolsa\(\);/);
-  assert.match(portal, /controladorBolsas\.cancelarPeticiones\(\); cancelarAvisosBolsa\(\);/);
+  assert.match(portal, /controladorBolsas\?\.cancelarPeticiones\(\); cancelarAvisosBolsa\(\);/);
   assert.match(portal, /estado\.datosAvisos = \{ carga: "cargando", datos: null, cursor, error: "" \}/);
 });
 

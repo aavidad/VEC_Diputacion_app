@@ -1,0 +1,65 @@
+{
+  "esquema": "vec.auditoria.verificacion.v3",
+  "manifiesto": {
+    "cadena_id": "cadena:sintetica:ad173",
+    "primera_secuencia": 1,
+    "ultima_secuencia": 3,
+    "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "cabeza_sha256": "1fd09b6a02575affc13f73bb77df2fe9ea4f797d711063a13d97e280afb3d034",
+    "registros": 3
+  },
+  "registros": [
+    {
+      "tipo_registro": "consumo_confirmado",
+      "consumo": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 1,
+        "decision_ref": "decision:ad173:1",
+        "efecto_ref": "efecto:ad173:1",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "huella_sha256": "93ececed53f785e63b60483482c7e669d52c0b840812404348ca71922f971fc7"
+      }
+    },
+    {
+      "tipo_registro": "consumo_confirmado_v2",
+      "consumo": {
+        "auditoria_ref": "aud_v3_cccccccccccccccccccccccccccccccc",
+        "secuencia": 2,
+        "decision_ref": "decision:ad173:2",
+        "efecto_ref": "efecto:ad173:2",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "93ececed53f785e63b60483482c7e669d52c0b840812404348ca71922f971fc7",
+        "consumo_huella_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "tipo_registro": "consumo_confirmado_v2",
+        "version_consumo": 2,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "huella_sha256": "30c23ce4b4ee53e63a11886ec4821a829c0c3e94c165dd689c9a998fcdf11b95"
+      }
+    },
+    {
+      "tipo_registro": "consumo_confirmado_v3",
+      "consumo": {
+        "auditoria_ref": "aud_v3_dddddddddddddddddddddddddddddddd",
+        "secuencia": 3,
+        "decision_ref": "decision:ad173:3",
+        "efecto_ref": "efecto:ad173:3",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "30c23ce4b4ee53e63a11886ec4821a829c0c3e94c165dd689c9a998fcdf11b95",
+        "consumo_huella_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "tipo_registro": "consumo_confirmado_v3",
+        "version_consumo": 3,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "registrada_en": "2026-10-03T12:34:56.123456Z",
+        "consumida_en": "2026-10-03T12:34:56.123456Z",
+        "actor_ref": "per_aaaaaaaaaaaaaaaaaaaaaa",
+        "perfil_activo_ref": "prf_bbbbbbbbbbbbbbbbbbbbbb",
+        "finalidad_ref": "gestion_personal",
+        "huella_sha256": "1fd09b6a02575affc13f73bb77df2fe9ea4f797d711063a13d97e280afb3d034"
+      }
+    }
+  ]
+}

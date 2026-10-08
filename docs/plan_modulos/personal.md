@@ -137,3 +137,139 @@ auditoría en la transacción de la fuente. Quedan sin implementación, SQL, HTT
 composición ni autorización operativa. Las fuentes actuales de CER y H05 siguen
 siendo de ensayo. Los DTO no contienen nombre, DNI ni correo y no sustituyen
 las proyecciones puras de dominio ni crean otra ficha de persona.
+
+### Servicios para Certificados: primer corte, autoservicio (5 de octubre de 2026)
+
+`LectorServiciosParaCertificadosV1` ya tiene implementación y se añade
+`LectorServiciosParaCertificadosV2`, con la misma consulta y los días
+reconocidos que guarda Personal17. V1 sigue disponible y es la misma lectura
+sin los días.
+
+- Sólo autoservicio: el empleado tiene que ser el único empleado canónico de
+  la persona que consulta. Se comprueba en Go con el ContextoActor y otra vez en
+  SQL con la proyección de Personal16. Si se pide otro empleado, se deniega. La
+  consulta de RRHH sobre otra persona necesita una competencia propia y queda
+  para otro corte.
+- Fuente: `vec_personal.consultar_servicios_certificados_propios_v1`
+  (Personal36). Toma la última revisión conocida de cada servicio en el
+  organismo pedido, vigente en la fecha del corte y ya comenzado entonces. El
+  periodo y los días salen tal como constan, sin recalcular. Cobertura y certeza
+  van como «no acreditada», porque la fuente no tiene eficacia administrativa.
+  Con más de 200 servicios la consulta da error y no devuelve datos.
+- Autorización: consumidor propio AD195 (`personal.servicios_certificados.consultar`,
+  audiencia `vec_personal.servicios_certificados.v1`, finalidad
+  `consultar_servicios_para_certificados`). Consumo, lectura y auditoría común
+  van en la misma transacción. El recibo es la referencia de esa auditoría. Los
+  rechazos se registran en la auditoría común de intentos.
+- Código: `ports/servicios_para_certificados.go` (V2),
+  `ports/lector_servicios_certificados.go`, `domain/lector_servicios_certificados.go`,
+  `application/lector_servicios_certificados.go`,
+  `adapters/postgres/lector_servicios_certificados.go` y
+  `adapters/composicion/lector_servicios_certificados.go`
+  (`ComponerLectorServiciosCertificados`).
+- SQL en orden: `deploy/principal/lista_sql_claude_personal_servicios_certificados_20261005.txt`.
+  Va después de AD193. AD195 mide el núcleo posterior a AD193: si otra
+  migración lo reescribe antes, se detiene sin cambiar nada y hay que medirla
+  de nuevo. Comprobación: `pruebas_sql/servicios_certificados_propios_000036.sql`.
+
+Falta todavía montar la ruta del consumidor (Certificados), dar el permiso en
+administración, configurar el origen técnico de consumo para el LOGIN de
+Personal y pasar el traductor de Certificados a V2.
+
+## Preparación propia de una revisión de servicios — 4 de octubre de 2026
+
+La historia propia de servicios incorpora «Preparar revisión» en cada fila
+recibida. Permite elegir un dato de esa revisión y describir propuesta, motivo
+y evidencia declarada. El estado permanece «Preparación sin presentar».
+Discutir el dato no determina que sea jurídicamente rectificable.
+
+«Revisar borrador» vuelve a consultar la historia propia por su cliente
+autorizado existente, con las mismas fechas y sin enviar referencias de persona,
+empleado, propuesta, motivo ni evidencia. Comprueba las revisiones del servicio,
+sus valores, fuente, acto y versiones. Si cambian o falla el acceso, retira la
+historia anterior y el borrador. La procedencia del borrador revisado conserva
+servicio, revisión, fuente, acto, corte y referencia de la consulta nueva.
+
+La preparación vive únicamente en memoria y se limpia al descartarla, actualizar
+la historia, cambiar fechas o desmontar la vista. No tiene descarga, portapapeles,
+adjuntos, envío, registro, SQL ni permiso de escritura. Personal no utiliza el
+circuito de rectificación de Dietas. El circuito de presentación y decisión
+competente continúa pendiente; este corte no cierra PER-005.
+
+Las 23 pruebas Node focales de preparación, vista e HTTP lector existente pasan
+con Node 20.19.2. Incluyen selector ajeno, revisión sustituida, revocación,
+dependencia caída, respuestas tardías, limpieza, texto hostil mediante textContent
+y catálogos ES/EN. Semgrep local sobre cuatro archivos de implementación:
+cuatro reglas, ningún hallazgo. No se ejecutaron Go, SQL ni servicios reales.
+La revisión sensible y de usabilidad del candidato final, la cadena de caché y
+los manifiestos corresponden a Dirección antes de integrar.
+
+El valor recibido aparece junto al valor propuesto, antes del motivo y la evidencia.
+La comparación se conserva al elegir fechas, días, estado o clase, con los formatos existentes.
+La prueba Node focal comprueba su ubicación y actualización; la revisión visual corresponde a Dirección.
+
+
+## Ficha propia: reanclaje de autorización — 7 de octubre de 2026
+
+AD211 recupera el consumidor nominal de AD74 para la ficha propia ya
+implementada. Es una migración nueva: AD74 permanece intacta. La lista
+`deploy/principal/lista_sql_codext_ficha_personal_20261007.txt` ordena
+AD211 y Personal22 para una base donde ambas capacidades estén ausentes.
+Si Personal22 o el consumidor ya están instalados, no se ejecuta esa lista.
+
+Ensayo en clon propio PostgreSQL 18.4, en disco y con límite de 2 GB:
+UP únicos correctos, ACL y negativa de material nulo correctas. El núcleo
+conserva sus metadatos y la inversión textual de la extensión reproduce la preimagen;
+los 6.240 consumos, registros de auditoría y cabeza anteriores permanecen idénticos.
+Dos revisiones independientes favorables del código `e8e767e84`.
+
+La preimagen incluye AD195/AD196 y después AD178/AD177, AD190, AD197,
+AD198, AD200, AD199, AD208 y AD207, con sus dependencias de las listas de main.
+Otra extensión del núcleo o del CHECK obliga a medir de nuevo antes de instalar.
+No se ha instalado en la principal ni demostrado acceso nominal desde navegador:
+faltan identidad, perfil y origen V3 propios para esa comprobación.
+Tampoco se ha medido el rendimiento de esta lectura autorizada.
+La siguiente dependencia es reanclar AD175/Personal32 (#555) y después
+AD180/Personal34 (#577), conservando sus consumidores y recibos existentes.
+
+
+## Exportación propia: retoma de #555 — 7 de octubre de 2026
+
+AD175 se reancla sobre AD211 con su permiso de exportación separado del de
+consulta. Personal32 conserva el corte en los recibos nuevos y rechaza los
+antiguos sin corte; no rellena ni modifica sus datos históricos. Se acotan
+todos los argumentos antes del primer parseo de JSON.
+
+En un clon PostgreSQL 18.4 se aplica AD175 y la prueba de preservación instala
+Personal32 una sola vez. Un recibo ficticio, insertado directamente para esta
+prueba, mantiene su contenido y los dos cortes NULL; su modificación falla.
+Metadatos de la consulta e inversión textual del parche correctos. ACL y
+tres negativas reales de tamaños inválidos correctas con un LOGIN técnico
+exclusivo. Dos revisiones favorables del código `7c9e7ecb2`.
+
+El recibo de prueba no procede de una lectura nominal: falta ensayar una
+exportación con identidad, permiso, origen y material firmados propios,
+recuperarla tras reinicio y medir su latencia. Orden: AD211/Personal22,
+después la lista de AD175/Personal32, y finalmente AD180/Personal34.
+No se instala nada en la principal por esta retoma.
+
+
+## Historia propia: retoma de #577 — 7 de octubre de 2026
+
+AD180 se reancla sobre AD175 y conserva el permiso propio de lectura de
+revisiones. Personal34 consulta el periodo efectivo y el corte de conocimiento,
+con un límite de 200 revisiones, procedencia y cobertura explícita. Los
+argumentos se acotan antes de convertirlos a JSON.
+
+Ensayo del código `53c69babe` en un clon nuevo PostgreSQL 18.4: UP180 y
+Personal34 únicos, ACL, estructura, rechazo sin consumo y tres negativas
+reales de tamaño correctos. Una dependencia ausente se probó dentro de una
+transacción revertida: el diagnóstico dio su clave, actual=false y esperado=true.
+Dos revisiones independientes favorables. No se reaplica la versión ensayada
+en la copia anterior.
+
+La prueba nominal preparada no se ha ejecutado: falta el material firmado
+propio y su configuración de identidad, perfil y origen. Siguen pendientes
+recorrido de navegador, revocación concurrente, recuperación tras reinicio y
+latencia de la lectura autorizada. Orden final: AD211/Personal22,
+AD175/Personal32 y AD180/Personal34, sin repetir SQL instalada ni DOWN.

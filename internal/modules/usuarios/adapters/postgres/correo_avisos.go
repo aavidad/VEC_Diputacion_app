@@ -16,6 +16,14 @@ import (
 // personal (Usuarios 000010): el LOGIN interno solo alcanza esa función.
 const leerCorreoAvisosSQL = `SELECT vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 
+// Los seis ajustes mantienen los valores y el alcance de SET LOCAL.
+const ajustesTransaccionCorreoAvisosSQL = `SELECT pg_catalog.set_config('search_path','pg_catalog',true),
+ pg_catalog.set_config('row_security','on',true),
+ pg_catalog.set_config('timezone','UTC',true),
+ pg_catalog.set_config('lock_timeout','2s',true),
+ pg_catalog.set_config('statement_timeout','5s',true),
+ pg_catalog.set_config('idle_in_transaction_session_timeout','20s',true)`
+
 // El pool de avisos usa el LOGIN ejecutor interno de Usuarios: sólo hereda ese
 // grupo, puede ejecutar la lectura de avisos y no alcanza ni las tablas ni el
 // esquema de correos del Área personal.
@@ -89,17 +97,8 @@ func (r *RegistroCorreoAvisosPostgreSQL) abrir(ctx context.Context) (transaccion
 		_ = tx.Rollback(context.Background())
 		return nil, errorCorreosSeguro(ctx, err)
 	}
-	for _, ajuste := range [...]string{
-		"SET LOCAL search_path = pg_catalog",
-		"SET LOCAL row_security = on",
-		"SET LOCAL TIME ZONE 'UTC'",
-		"SET LOCAL lock_timeout = '2s'",
-		"SET LOCAL statement_timeout = '5s'",
-		"SET LOCAL idle_in_transaction_session_timeout = '20s'", // AD3 exige ≤ 20 s.
-	} {
-		if _, err := tx.Exec(ctx, ajuste); err != nil {
-			return fallar(err)
-		}
+	if _, err := tx.Exec(ctx, ajustesTransaccionCorreoAvisosSQL); err != nil {
+		return fallar(err)
 	}
 	var valido bool
 	if err := tx.QueryRow(ctx, acreditarEjecutorCorreoAvisosSQL).Scan(&valido); err != nil {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -73,11 +74,22 @@ type politicaOrdenRRHHDesarrollo struct {
 }
 
 type bolsasRRHHDesarrollo struct {
-	cargar    func(context.Context) (datasetBolsasRRHHDesarrollo, error)
-	mutar     http.Handler
-	invalidar func()
-	contactos lectorContactosBolsaDesarrollo
-	avisos    *bolsaapplication.ServicioAvisosRRHH
+	cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	// resumen y cargarBolsa acotan la lectura (ver alcanceCargaBolsasRRHH);
+	// si faltan, se usa cargar con todo el detalle.
+	resumen     func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	cargarBolsa func(context.Context, string) (datasetBolsasRRHHDesarrollo, error)
+	mutar       http.Handler
+	invalidar   func()
+	contactos   lectorContactosBolsaDesarrollo
+	avisos      *bolsaapplication.ServicioAvisosRRHH
+	// canales publica los canales de aviso activos para el asistente del
+	// llamamiento; sin él la lectura no los anuncia (el cliente asume correo).
+	canales proveedorCanalesLlamamientoDesarrollo
+}
+
+type proveedorCanalesLlamamientoDesarrollo interface {
+	CanalesLlamamientoActivos(context.Context) []dominiobolsa.CanalLlamamiento
 }
 
 type lectorContactosBolsaDesarrollo interface {
@@ -98,11 +110,14 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 	manejador := nuevoManejadorBolsasRRHHDesarrollo(cargar)
 	if fuente != nil {
 		manejador.avisos = fuente.avisos
+		manejador.resumen = fuente.cargarResumen
+		manejador.cargarBolsa = fuente.cargarBolsa
 	}
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]
 		manejador.invalidar = invalidar
 		manejador.contactos, _ = mutadores[0].(lectorContactosBolsaDesarrollo)
+		manejador.canales, _ = mutadores[0].(proveedorCanalesLlamamientoDesarrollo)
 	}
 	return []vechttp.RutaExacta{
 			{Ruta: rutaBolsasRRHHDesarrollo, Manejador: manejador},
@@ -180,7 +195,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
 		}
-		vista, ok := h.vistaDurable(r.Context(), w)
+		vista, ok := h.vistaResumen(w, r)
 		if !ok {
 			return
 		}
@@ -196,7 +211,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
 		}
-		vista, ok := h.vistaDurable(r.Context(), w)
+		vista, ok := h.vistaResumen(w, r)
 		if !ok {
 			return
 		}
@@ -213,18 +228,31 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	vista, ok := h.vistaDurable(r.Context(), w)
+	vista, ok := h.vistaBolsa(w, r, bolsaRef)
 	if !ok {
 		return
 	}
-	if (h.contactos == nil && h.mutar != nil) || (h.contactos != nil && !h.cargarContactos(r.Context(), vista, bolsaRef)) {
-		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+	if h.contactos == nil && h.mutar != nil {
+		responderFalloBolsaRRHHDesarrollo(w, r, "contactos", ErrComposicionDesarrolloIncompleta)
 		return
+	}
+	if h.contactos != nil {
+		if err := h.cargarContactos(r.Context(), vista, bolsaRef); err != nil {
+			responderFalloBolsaRRHHDesarrollo(w, r, "contactos", err)
+			return
+		}
 	}
 	respuesta, encontrada := vista.respuestaCandidatos(bolsaRef, consulta)
 	if !encontrada {
 		responderBolsaRRHHDesarrollo(w, http.StatusNotFound, map[string]string{"codigo": "recurso_no_encontrado"})
 		return
+	}
+	if h.canales != nil {
+		canales := h.canales.CanalesLlamamientoActivos(r.Context())
+		if canales == nil {
+			canales = []dominiobolsa.CanalLlamamiento{}
+		}
+		respuesta["canales_llamamiento"] = canales
 	}
 	responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
 }
@@ -292,29 +320,60 @@ func consultaAvisosRRHH(cruda string) (bolsaapplication.ConsultaAvisos, bool) {
 	return resultado, true
 }
 
-func (h *bolsasRRHHDesarrollo) cargarContactos(ctx context.Context, vista *bolsasRRHHDesarrolloDatos, bolsa string) bool {
+// cargarContactos lee los contactos de la bolsa por páginas. Cada página
+// consume su propia autorización V3, así que una página incompleta es la
+// última: pedir otra solo para recibirla vacía duplicaba la autorización.
+func (h *bolsasRRHHDesarrollo) cargarContactos(ctx context.Context, vista *bolsasRRHHDesarrolloDatos, bolsa string) error {
+	const porPagina = 100
 	cursor := ""
 	for pagina := 0; pagina < 100; pagina++ {
-		p, err := h.contactos.ListarContactosBolsa(ctx, bolsa, cursor, 100)
+		p, err := h.contactos.ListarContactosBolsa(ctx, bolsa, cursor, porPagina)
 		if err != nil {
-			return false
+			return err
 		}
 		vista.datos.Contactos = append(vista.datos.Contactos, p.Contactos...)
-		if p.CursorSiguiente == "" {
-			return true
+		if p.CursorSiguiente == "" || len(p.Contactos) < porPagina {
+			return nil
 		}
 		if p.CursorSiguiente == cursor {
-			return false
+			return errContactosBolsaRRHHIncoherentes
 		}
 		cursor = p.CursorSiguiente
 	}
-	return false
+	return errContactosBolsaRRHHIncoherentes
 }
 
-func (h *bolsasRRHHDesarrollo) vistaDurable(ctx context.Context, w http.ResponseWriter) (*bolsasRRHHDesarrolloDatos, bool) {
-	datos, err := h.cargar(ctx)
+func (h *bolsasRRHHDesarrollo) vistaDurable(w http.ResponseWriter, r *http.Request) (*bolsasRRHHDesarrolloDatos, bool) {
+	datos, err := h.cargar(r.Context())
 	if err != nil {
-		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		responderFalloBolsaRRHHDesarrollo(w, r, "carga", err)
+		return nil, false
+	}
+	return &bolsasRRHHDesarrolloDatos{datos: datos}, true
+}
+
+// vistaResumen sirve el cuadro y las estadísticas: cada petición hace su
+// propia lectura, sin compartirla con otras peticiones.
+func (h *bolsasRRHHDesarrollo) vistaResumen(w http.ResponseWriter, r *http.Request) (*bolsasRRHHDesarrolloDatos, bool) {
+	if h.resumen == nil {
+		return h.vistaDurable(w, r)
+	}
+	datos, err := h.resumen(r.Context())
+	if err != nil {
+		responderFalloBolsaRRHHDesarrollo(w, r, "resumen", err)
+		return nil, false
+	}
+	return &bolsasRRHHDesarrolloDatos{datos: datos}, true
+}
+
+// vistaBolsa lee solo la bolsa pedida, con nombres y marcas.
+func (h *bolsasRRHHDesarrollo) vistaBolsa(w http.ResponseWriter, r *http.Request, bolsaRef string) (*bolsasRRHHDesarrolloDatos, bool) {
+	if h.cargarBolsa == nil {
+		return h.vistaDurable(w, r)
+	}
+	datos, err := h.cargarBolsa(r.Context(), bolsaRef)
+	if err != nil {
+		responderFalloBolsaRRHHDesarrollo(w, r, "bolsa", err)
 		return nil, false
 	}
 	return &bolsasRRHHDesarrolloDatos{datos: datos}, true
@@ -323,7 +382,13 @@ func (h *bolsasRRHHDesarrollo) vistaDurable(ctx context.Context, w http.Response
 type consultaCandidatosRRHH struct {
 	estado, texto, cursor string
 	limite                int
+	// llamamiento limita la lista a las personas de ese llamamiento (las que
+	// tienen algún aviso o llamada suyos), en el orden de la bolsa, para
+	// seguirlo por teléfono. No se combina con otros filtros ni con cursor.
+	llamamiento string
 }
+
+var patronLlamamientoCandidatosRRHH = regexp.MustCompile(`^llamamiento:[A-Za-z0-9:_-]{8,200}$`)
 
 func consultaCandidatos(cruda string) (consultaCandidatosRRHH, bool) {
 	resultado := consultaCandidatosRRHH{limite: 50}
@@ -361,9 +426,17 @@ func consultaCandidatos(cruda string) (consultaCandidatosRRHH, bool) {
 				return resultado, false
 			}
 			resultado.limite = n
+		case "llamamiento":
+			if !patronLlamamientoCandidatosRRHH.MatchString(valor) {
+				return resultado, false
+			}
+			resultado.llamamiento = valor
 		default:
 			return resultado, false
 		}
+	}
+	if resultado.llamamiento != "" && (resultado.estado != "" || resultado.texto != "" || resultado.cursor != "") {
+		return resultado, false
 	}
 	return resultado, true
 }
@@ -441,8 +514,17 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 	turno := bolsaapplication.ProyectarTurnoCandidatos(bolsa.PoliticaOrden.Referencia, bolsa.PoliticaOrden.Version, bolsa.PoliticaOrden.Provisional, todos, contactosBolsa)
 	candidatas := make([]bolsaapplication.CandidatoTurno, 0)
 	indices := make(map[string]int)
+	var delLlamamiento map[string]bool
+	if consulta.llamamiento != "" {
+		delLlamamiento = make(map[string]bool)
+		for _, contacto := range contactosBolsa {
+			if contacto.LlamamientoRef == consulta.llamamiento {
+				delLlamamiento[contacto.ParticipacionRef] = true
+			}
+		}
+	}
 	for indice, candidata := range h.datos.Candidaturas {
-		if candidata.BolsaRef != ref || (consulta.estado != "" && estadoBolsaCanonico(candidata.Estado) != consulta.estado) || (consulta.texto != "" && !strings.Contains(strings.ToLower(candidata.Nombre+" "+candidata.Documento), consulta.texto)) {
+		if candidata.BolsaRef != ref || (consulta.estado != "" && estadoBolsaCanonico(candidata.Estado) != consulta.estado) || (consulta.texto != "" && !strings.Contains(strings.ToLower(candidata.Nombre+" "+candidata.Documento), consulta.texto)) || (delLlamamiento != nil && !delLlamamiento[candidata.Referencia]) {
 			continue
 		}
 		candidatas = append(candidatas, bolsaapplication.CandidatoTurno{ParticipacionRef: candidata.Referencia, NombreVisible: candidata.Nombre, Orden: candidata.Orden, OrdenActa: candidata.OrdenActa, Estado: candidata.Estado})

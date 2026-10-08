@@ -1,0 +1,12 @@
+/* El visor consume las superficies, distribución y tablas del portal. */
+.modulo-preparacion-notas .cabecera-panel { background: var(--portal-superficie-alterna); }
+.modulo-preparacion-notas :is(p, dd, td, th, li) { overflow-wrap: anywhere; }
+.modulo-preparacion-notas #notas-archivo { min-width: 0; max-width: 100%; }
+.modulo-preparacion-notas .cuerpo-panel > p { margin: 0; }
+.modulo-preparacion-notas .notas-apertura { gap: 12px; }
+.modulo-preparacion-notas .tabla-datos :is(td, th) { white-space: normal; vertical-align: top; }
+.modulo-preparacion-notas .tabla-contenedor { max-height: min(440px, 60vh); }
+.modulo-preparacion-notas .notas-original { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; font-size: .8125rem; }
+.modulo-preparacion-notas input[aria-invalid="true"] { border-color: var(--portal-peligro); }
+.modulo-preparacion-notas summary { min-height: 32px; padding-block: 6px; cursor: pointer; }
+.modulo-preparacion-notas .salto-contenido:focus { position: fixed; top: 8px; max-width: calc(100% - 16px); }

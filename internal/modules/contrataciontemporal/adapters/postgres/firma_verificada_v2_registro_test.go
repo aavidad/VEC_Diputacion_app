@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,9 +31,11 @@ func TestRegistroFirmaV2UnaFachadaConservaReciboReplay(t *testing.T) {
 			}
 			ref, version := m.DocumentoCustodiaRef, m.DocumentoCustodiaVersion
 			fecha := time.Date(2026, 10, 3, 11, 59, 0, 0, time.UTC)
-			w := reciboFirmaSQL118{FirmaRef: "firma:registrada", ReciboRef: "recibo:registrado", Secuencia: m.Secuencia, Resultado: "firmado",
+			w := reciboFirmaSQLV2{reciboFirmaSQL118: reciboFirmaSQL118{FirmaRef: "firma:registrada", ReciboRef: "recibo:registrado", Secuencia: m.Secuencia, Resultado: "firmado",
 				ExpedienteVersion: m.VersionExpediente, ActorRef: m.FirmantePrincipalRef, PerfilRef: m.PerfilActivoOperadorRef, RegistradaEn: fecha, SolicitudHuella: h,
-				YaRegistrada: replay, DocumentoCustodia: &ref, VersionCustodia: &version}
+				YaRegistrada: replay, DocumentoCustodia: &ref, VersionCustodia: &version},
+				CompetenciaEvidenciaRef:          "evidencia:competencia-firmante-ct:" + strings.Repeat("d", 64),
+				CompetenciaEvidenciaHuellaSHA256: strings.Repeat("e", 64)}
 			contenido, err := json.Marshal(w)
 			if err != nil {
 				t.Fatal(err)
@@ -58,7 +61,7 @@ func TestRegistroFirmaV2UnaFachadaConservaReciboReplay(t *testing.T) {
 }
 
 func TestRegistroFirmaV2RevierteSinExponerRecibo(t *testing.T) {
-	for _, caso := range []string{"recibo_incoherente", "revocado_replay", "commit_incierto"} {
+	for _, caso := range []string{"recibo_incoherente", "evidencia_ausente", "evidencia_alterada", "revocado_replay", "commit_incierto"} {
 		t.Run(caso, func(t *testing.T) {
 			m, _ := fixtureRegistroFirmaV2(t)
 			canon, err := m.Canonico()
@@ -70,10 +73,18 @@ func TestRegistroFirmaV2RevierteSinExponerRecibo(t *testing.T) {
 				t.Fatal(err)
 			}
 			ref, version := m.DocumentoCustodiaRef, m.DocumentoCustodiaVersion
-			w := reciboFirmaSQL118{FirmaRef: "firma:prueba", ReciboRef: "recibo:prueba", Secuencia: m.Secuencia, Resultado: "firmado", ExpedienteVersion: m.VersionExpediente,
-				ActorRef: m.FirmantePrincipalRef, PerfilRef: m.PerfilActivoOperadorRef, RegistradaEn: m.ComprobadaEn, SolicitudHuella: h, DocumentoCustodia: &ref, VersionCustodia: &version}
+			w := reciboFirmaSQLV2{reciboFirmaSQL118: reciboFirmaSQL118{FirmaRef: "firma:prueba", ReciboRef: "recibo:prueba", Secuencia: m.Secuencia, Resultado: "firmado", ExpedienteVersion: m.VersionExpediente,
+				ActorRef: m.FirmantePrincipalRef, PerfilRef: m.PerfilActivoOperadorRef, RegistradaEn: m.ComprobadaEn, SolicitudHuella: h, DocumentoCustodia: &ref, VersionCustodia: &version},
+				CompetenciaEvidenciaRef:          "evidencia:competencia-firmante-ct:" + strings.Repeat("d", 64),
+				CompetenciaEvidenciaHuellaSHA256: strings.Repeat("e", 64)}
 			if caso == "recibo_incoherente" {
 				w.Secuencia++
+			}
+			if caso == "evidencia_ausente" {
+				w.CompetenciaEvidenciaRef = ""
+			}
+			if caso == "evidencia_alterada" {
+				w.CompetenciaEvidenciaHuellaSHA256 = "invalida"
 			}
 			contenido, err := json.Marshal(w)
 			if err != nil {

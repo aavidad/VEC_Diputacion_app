@@ -1,0 +1,16 @@
+{
+  "referencia": "cronos-informe-movimientos-csv-es",
+  "version": "1",
+  "idioma": "es-ES",
+  "formato_fecha": "02/01/2006",
+  "formato_hora": "15:04:05 -07:00 MST",
+  "cabeceras": {"registro": "Registro", "fecha": "Fecha", "hora": "Hora", "movimiento": "Movimiento", "origen": "Origen", "desde": "Desde", "hasta": "Hasta", "zona_horaria": "Zona horaria", "estado_fuente": "Estado de la fuente", "aviso": "Aviso"},
+  "contexto": "Contexto del ejemplo",
+  "marcaje": "Fichaje del ejemplo",
+  "sintetico": "Ejemplo sintético. No consulta el registro real ni tiene validez administrativa. La descarga para empleados sigue pendiente.",
+  "fuente_completa": "La fuente del ejemplo se declara completa. No acredita el registro real.",
+  "fuente_incompleta": "La fuente del ejemplo es incompleta. Puede faltar información.",
+  "origen_sin_verificar": "Sin verificar",
+  "movimientos": {"entrada": "Entrada", "salida": "Salida", "inicio_pausa": "Inicio de pausa", "fin_pausa": "Fin de pausa"},
+  "origenes": {"terminal": "Terminal (declarado)", "remoto": "Remoto (declarado)"}
+}

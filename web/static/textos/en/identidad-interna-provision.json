@@ -1,0 +1,17 @@
+{
+  "idioma": "en",
+  "mensajes": {
+    "limite": "Preparatory synthetic exercise. Does not establish identity, employment, profiles or portal access.",
+    "uso_invalido": "The arguments are invalid. Run --help, then provide the required files.",
+    "entrada_insegura": "The private file does not meet path or permission requirements.",
+    "entrada_invalida": "The plan, approval or connection do not match.",
+    "acuse_inseguro": "Could not prepare the private output file.",
+    "operacion_no_confirmada": "The request could not be confirmed. Keep the files and check the result with reconcile before repeating apply.",
+    "commit_no_confirmado": "The preparatory declaration may have been registered. Keep the plan, connection and approval; run reconcile with a new receipt file. Do not repeat apply.",
+    "acuse_no_guardado": "The response was confirmed, but the receipt file was not saved. Keep the same files and run reconcile with a new receipt file.",
+    "identidad_confirmada": "Preparatory declaration registered. Does not establish identity or portal access.",
+    "identidad_rechazada": "The request was denied and its attempt was audited. Check the private receipt file.",
+    "identidad_no_disponible": "The request did not complete; its attempt was audited. Check the private receipt file.",
+    "plan_preparado": "Plan prepared. Private approval and SQL authority application are required."
+  }
+}

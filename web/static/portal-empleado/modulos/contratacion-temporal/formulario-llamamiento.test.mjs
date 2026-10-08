@@ -2,16 +2,20 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { File } from "node:buffer";
 import test from "node:test";
-import { fechaRespuestaMadridUTC } from "./formulario-llamamiento.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
+import { fechaRespuestaMadridUTC } from "./formulario-llamamiento.js?v=20261008-alta-rpt-circular-v6";
+import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 import {
   CLAVE, EXPEDIENTE, PUBLICACIONES_PROPUESTA, seleccion, recibo,
   raizPrueba, montar, estadoSeleccionado, montarExpedienteSeleccionado,
   CORREO, HUELLA, archivoCorreo, comunicacionRegistrada, declaracion,
   justificante, abrirRespuesta, CLAVE_RESOLUCION, revisionManual,
   resolucionConfirmada, reciboResolucion, abrirResolucion,
-} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-firma-verificador-v2";
+} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
+
+const MENSAJES_LLAMAMIENTO_EN = (await cargarCatalogosContratacionEnIdioma(
+  "contratacion-temporal-llamamiento", "en",
+)).actual;
 
 test("la vista de alta no monta el bloque de llamamiento sin expediente fiscalizado", async () => {
   const alta = { catalogos: {}, ejecutor: () => { throw new Error("no debe registrar otra petición"); } };
@@ -45,13 +49,13 @@ test("cuarta operación exige justificante confirmado de aceptación o renuncia 
     assert.equal(llamadas, 0);
     if (opcion !== "recibo_invalido") {
       const formulario = raiz.innerHTML.match(/<form data-ct-llamamiento-form="resolucion"[\s\S]*?<\/form>/u)[0];
-      assert.match(formulario, /name="clave_idempotencia" value=""/u); assert.doesNotMatch(formulario, /type="file"|name="(?:actor_ref|estado_plazo|evaluacion_plazo_ref|politica_ref)"/u); assert.match(formulario, /name="respuesta" required disabled/u); assert.match(formulario, new RegExp(`value="${opcion}"\\s+selected`, "u"));
+      assert.doesNotMatch(formulario, /clave_idempotencia|data-ct-llamamiento-clave|Clave de operación/u); assert.doesNotMatch(formulario, /type="file"|name="(?:actor_ref|estado_plazo|evaluacion_plazo_ref|politica_ref)"/u); assert.match(formulario, /name="respuesta" required disabled/u); assert.match(formulario, new RegExp(`value="${opcion}"\\s+selected`, "u"));
       for (const nombre of Object.keys(revisionManual)) {
         const control = formulario.match(new RegExp(`<input[^>]*name="${nombre}"[^>]*>`, "u"))[0];
         assert.match(control, /type="checkbox"/u); assert.doesNotMatch(control, /\schecked|\sdisabled/u); assert.match(formulario, new RegExp(`label for="ct-llamamiento-resolucion-${nombre}"`, "u"));
       }
-      assert.match(formulario, /name="criterio_validacion_ref" value="politica:ct:revision-manual-sintetica:20260906"[^>]*readonly/u); assert.doesNotMatch(formulario, /sintétic|validacion-ayuda/u); assert.match(formulario, /He comprobado la respuesta y su justificante/u);
-      assert.match(formulario, /Dejo constancia de la revisión manual exigida; no evalúa inicio, plazo ni vencimiento/u);
+      assert.match(formulario, /name="criterio_validacion_ref" value="politica:ct:revision-manual-sintetica:20260906"[^>]*readonly/u); assert.doesNotMatch(formulario, /sintétic|validacion-ayuda/u); assert.match(formulario, /He comprobado la respuesta y el correo/u);
+      assert.match(formulario, /He revisado el plazo de respuesta/u);
       for (const campo of ["organizacion_ref", "expediente_ref", "llamamiento_ref",
         "comunicacion_ref", "version_esperada", "prueba_respuesta_ref"]) {
         assert.match(formulario, new RegExp(`name="${campo}"[^>]*readonly`, "u"));
@@ -75,11 +79,7 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} exi
   } }, opcion);
   for (const [revision_respuesta_rrhh, revision_plazo_rrhh] of [[false, false], [true, false], [false, true], ["true", "true"]]) {
     await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, revision_respuesta_rrhh, revision_plazo_rrhh });
-    assert.equal(solicitudes.length, 0); assert.equal(confirmaciones.length, 0); assert.match(raiz.innerHTML, /Marque ambas comprobaciones manuales\./u);
-  }
-  for (const clave_idempotencia of [CLAVE, justificante({}).clave_idempotencia]) {
-    await raiz.enviar("resolucion", { clave_idempotencia, ...revisionManual });
-    assert.match(raiz.innerHTML, /utilice una clave propia de resolución/u);
+    assert.equal(solicitudes.length, 0); assert.equal(confirmaciones.length, 0); assert.match(raiz.innerHTML, /Marque las dos casillas de comprobación\./u);
   }
   assert.equal(confirmaciones.length, 0);
   await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
@@ -95,11 +95,11 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} exi
     llamamiento_ref: recibo.llamamiento_ref, comunicacion_ref: comunicacionRegistrada.comunicacion_ref,
     version_esperada: 2, respuesta: opcion, prueba_respuesta_ref: justificante({}).justificante_ref,
     ...revisionManual, criterio_validacion_ref: "politica:ct:revision-manual-sintetica:20260906" }]);
-  assert.ok(Object.isFrozen(solicitudes[0])); assert.match(confirmaciones.at(-1).advertencia, /El vencimiento no se evalúa porque faltan inicio y política gobernados/u); assert.match(confirmaciones.at(-1).advertencia, /politica:ct:revision-manual-sintetica:20260906/u); assert.match(confirmaciones.at(-1).advertencia, /justificante:sintetico:001/u);
-  assert.match(confirmaciones.at(-1).advertencia, new RegExp(`Resolución de ${opcion === "renuncia" ? "renuncia" : "aceptación"}`, "u")); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="resolucion"/u); assert.match(raiz.innerHTML, new RegExp(`${opcion === "renuncia" ? "Renuncia" : "Aceptación"} registrada`, "u"));
+  assert.ok(Object.isFrozen(solicitudes[0])); assert.match(confirmaciones.at(-1).advertencia, /Va a confirmar esta respuesta:/u); assert.doesNotMatch(confirmaciones.at(-1).advertencia, /politica:|justificante:|versión/u);
+  assert.match(confirmaciones.at(-1).advertencia, new RegExp(`esta respuesta: ${opcion === "renuncia" ? "Renuncia" : "Aceptación"}\\.`, "u")); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="resolucion"/u); assert.match(raiz.innerHTML, new RegExp(`${opcion === "renuncia" ? "Renuncia" : "Aceptación"} confirmada`, "u"));
   if (opcion === "renuncia") {
-    assert.match(raiz.innerHTML, /Siguiente candidato pendiente/u); assert.match(raiz.innerHTML, /intencion:siguiente:001/u); assert.match(raiz.innerHTML, /2026-09-05T09:05:00.12345Z/u); assert.doesNotMatch(raiz.innerHTML, /No se ha seleccionado ni avisado a otra persona/u); assert.doesNotMatch(raiz.innerHTML, /Aceptación registrada/u);
-  } else assert.doesNotMatch(raiz.innerHTML, /Siguiente candidato pendiente|intencion:siguiente:001|Renuncia registrada|data-ct-llamamiento-form="siguiente"/u);
+    assert.match(raiz.innerHTML, /Pendiente de llamar/u); assert.match(raiz.innerHTML, /intencion:siguiente:001/u); assert.match(raiz.innerHTML, /2026-09-05T09:05:00.12345Z/u); assert.doesNotMatch(raiz.innerHTML, /Todavía no se ha llamado a la siguiente persona\./u); assert.doesNotMatch(raiz.innerHTML, /Aceptación confirmada/u);
+  } else assert.doesNotMatch(raiz.innerHTML, /Pendiente de llamar|intencion:siguiente:001|Renuncia confirmada|data-ct-llamamiento-form="siguiente"/u);
   assert.doesNotMatch(raiz.innerHTML, /El servidor confirma el registro manual en Contratación temporal y Bolsa/u); assert.match(raiz.innerHTML, /2026-09-05T09:05:00.123450Z/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="resolucion"]');
   await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION });
   assert.equal(solicitudes.length, 1);
@@ -117,7 +117,7 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
     assert.match(raiz.innerHTML, new RegExp(`name="${campo}"[^>]*readonly`, "u"));
   }
   await raiz.archivo(archivoCorreo());
-  assert.equal(solicitudes.length, 0, "calcular la huella no registra nada"); assert.match(raiz.innerHTML, /Correo comprobado en este equipo/u); assert.match(raiz.innerHTML, /Fecha y hora en que llegó la respuesta \(Madrid\)/u);
+  assert.equal(solicitudes.length, 0, "calcular la huella no registra nada"); assert.match(raiz.innerHTML, /Correo comprobado\./u); assert.match(raiz.innerHTML, /Fecha y hora en que llegó la respuesta/u);
   await raiz.enviar("respuesta", { ...declaracion(), organizacion_ref: "org:inventada",
     expediente_ref: "exp:inventado", llamamiento_ref: "llam:inventado",
     comunicacion_ref: "com:inventada", version_comunicacion_esperada: "99",
@@ -129,13 +129,13 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
     correo_sha256: HUELLA, recibida_en: "2026-09-05T08:30:00Z",
   }]);
   const confirmacion = confirmaciones.at(-1);
-  assert.equal(confirmacion.referencia, EXPEDIENTE); assert.match(confirmacion.advertencia, /no el correo ni su custodia/u); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
-  assert.doesNotMatch(raiz.innerHTML, /no resuelve aceptación o renuncia/u); assert.match(raiz.innerHTML, /2026-09-05T09:00:00.123456Z/u); assert.doesNotMatch(raiz.innerHTML, /Subject:|respuesta-sintetica.eml|name="actor_ref"/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="respuesta"]');
-  assert.match(raiz.innerHTML, /Estado de la respuesta y del circuito/u);
-  assert.match(raiz.innerHTML, /Aceptación declarada en el correo; recibo recuperable registrado/u);
-  assert.match(raiz.innerHTML, /Pendiente de revisión y resolución expresa por RRHH/u);
-  assert.doesNotMatch(raiz.innerHTML, /La declaración no equivale a resolución/u);
-  assert.match(raiz.innerHTML, /Vencimiento/u);
+  assert.equal(confirmacion.referencia, EXPEDIENTE); assert.match(confirmacion.advertencia, /Va a anotar esta respuesta:/u); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
+  assert.doesNotMatch(raiz.innerHTML, /Respuesta anotada\. El correo sigue en su buzón\./u); assert.match(raiz.innerHTML, /2026-09-05T09:00:00.123456Z/u); assert.doesNotMatch(raiz.innerHTML, /Subject:|respuesta-sintetica.eml|name="actor_ref"/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="respuesta"]');
+  assert.match(raiz.innerHTML, /Cómo va el llamamiento/u);
+  assert.match(raiz.innerHTML, /<dd>Ha aceptado<\/dd>/u);
+  assert.match(raiz.innerHTML, /Pendiente de que RRHH revise y confirme la respuesta\./u);
+  assert.doesNotMatch(raiz.innerHTML, /Anotar la respuesta no la confirma: la confirma RRHH después/u);
+  assert.match(raiz.innerHTML, /Plazo para responder/u);
   await raiz.enviar("respuesta", declaracion());
   assert.equal(solicitudes.length, 1);
   cerrar();
@@ -145,9 +145,10 @@ test("respuesta omite clave cliente y convierte la hora de Madrid sin cambiar el
   const raiz = raizPrueba(), solicitudes = [];
   await abrirRespuesta(raiz, { registrarRespuestaRecibida: async (s) => {
     solicitudes.push(s); return justificante(s);
-  } }, { generarClaveIdempotencia: () => assert.fail("la respuesta no genera clave") });
+  } }, { generarClaveIdempotencia: (operacion) => operacion === "respuesta"
+    ? assert.fail("la respuesta no genera clave") : CLAVE });
   const formulario = raiz.innerHTML.match(/<form data-ct-llamamiento-form="respuesta"[\s\S]*?<\/form>/u)[0];
-  assert.match(raiz.innerHTML, /Registrar respuesta del candidato/u);
+  assert.match(raiz.innerHTML, /Anotar la respuesta de la persona llamada/u);
   assert.match(formulario, /Ha aceptado/u);
   assert.match(formulario, /Ha renunciado/u);
   assert.doesNotMatch(formulario, /data-ct-llamamiento-clave="respuesta"|name="clave_idempotencia"|Huella SHA-256 declarada/u);
@@ -155,7 +156,7 @@ test("respuesta omite clave cliente y convierte la hora de Madrid sin cambiar el
   await raiz.enviar("respuesta", { ...declaracion(), clave_idempotencia: "", recibida_en: "2026-09-05T10:30" });
   assert.equal(Object.hasOwn(solicitudes[0], "clave_idempotencia"), false);
   assert.equal(solicitudes[0].recibida_en, "2026-09-05T08:30:00Z");
-  assert.match(raiz.innerHTML, /Siguiente acción/u);
+  assert.match(raiz.innerHTML, /Siguiente paso/u);
 });
 
 for (const estado of ["registrada_por_rrhh", "replay_registrada_por_rrhh"])
@@ -164,7 +165,7 @@ for (const ingles of [false, true]) test(`consulta 404 y POST ${estado} ${ingles
   const cerrar = await abrirRespuesta(raiz, { registrarRespuestaRecibida: async (solicitud) => ({
     ...justificante(solicitud), estado,
   }) }, ingles ? { mensajes: MENSAJES_LLAMAMIENTO_EN, locale: "en-GB" } : {});
-  assert.match(raiz.innerHTML, ingles ? /No reply can be viewed/u : /No consta una respuesta consultable/u);
+  assert.match(raiz.innerHTML, ingles ? /No reply has been recorded yet\./u : /Todavía no hay ninguna respuesta anotada\./u);
   await raiz.archivo(archivoCorreo());
   await raiz.enviar("respuesta", declaracion());
   assert.doesNotMatch(raiz.innerHTML, /No consta una respuesta consultable|No reply can be viewed/u);
@@ -193,7 +194,7 @@ test("recarga con contexto autorizado consulta y muestra solo la respuesta ya re
     consulta_respuesta: consultaRespuesta } });
   await new Promise(setImmediate);
   assert.equal(consultas, 1);
-  assert.match(raiz.innerHTML, /Respuesta registrada por el Departamento/u);
+  assert.match(raiz.innerHTML, /Ya hay una respuesta anotada\./u);
   assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="consultaRespuesta"/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
   await raiz.enviar("respuesta", declaracion());
@@ -213,10 +214,10 @@ test("consulta 404 permite registrar tras el aviso; 401/403 ocultan datos y bloq
       registrarRespuestaRecibida: async () => { escrituras += 1; },
     });
     if (estado === 404) {
-      assert.match(raiz.innerHTML, /No consta una respuesta consultable/u);
+      assert.match(raiz.innerHTML, /Todavía no hay ninguna respuesta anotada\./u);
       assert.match(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
     } else {
-      assert.match(raiz.innerHTML, /No puede consultar esta respuesta/u);
+      assert.match(raiz.innerHTML, /No tiene permiso para ver esta respuesta\. Si lo necesita, pí/u);
       assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=|justificante:sintetico/u);
       await raiz.archivo(archivoCorreo());
       await raiz.enviar("respuesta", declaracion());
@@ -236,7 +237,7 @@ test("404 tras recarga sin antecedente autorizado conserva cerrado el POST", asy
   }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
     consulta_respuesta: consultaRespuesta } });
   await new Promise(setImmediate);
-  assert.match(raiz.innerHTML, /Abra el llamamiento y pida a RRHH/u);
+  assert.match(raiz.innerHTML, /No hay ninguna respuesta anotada y no se puede anotar desde/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
   await raiz.enviar("respuesta", declaracion());
   assert.equal(escrituras, 0);
@@ -255,7 +256,7 @@ test("consulta temporal fallida bloquea POST hasta un 404 autorizado y permite r
     },
     registrarRespuestaRecibida: async () => { escrituras += 1; },
   });
-  assert.match(raiz.innerHTML, /Reintente la consulta antes de registrar otra/u);
+  assert.match(raiz.innerHTML, /No se ha podido comprobar si ya hay respuesta\. Pulse «Volver/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
   await raiz.archivo(archivoCorreo());
   await raiz.enviar("respuesta", declaracion());
@@ -277,7 +278,7 @@ test("consulta en inglés explica la denegación sin mostrar formulario ni recib
     contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
       consulta_respuesta: consultaRespuesta } });
   await new Promise(setImmediate);
-  assert.match(raiz.innerHTML, /You cannot view this reply/u);
+  assert.match(raiz.innerHTML, /You do not have permission to see this reply\. If you need it/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=|recibo:respuesta:001/u);
   cerrar();
 });
@@ -294,7 +295,7 @@ test("consulta pendiente bloquea POST y se cancela al desmontar o cambiar de exp
     }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
       consulta_respuesta: consultaRespuesta } });
     await new Promise(setImmediate);
-    assert.match(raiz.innerHTML, /Comprobando si ya consta una respuesta/u);
+    assert.match(raiz.innerHTML, /Comprobando si ya hay una respuesta anotada…/u);
     assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
     await raiz.enviar("respuesta", declaracion());
     assert.equal(escrituras, 0);
@@ -320,18 +321,19 @@ test("hora ambigua muestra una acción clara y no registra la respuesta", async 
   await raiz.archivo(archivoCorreo());
   await raiz.enviar("respuesta", { ...declaracion(), recibida_en: "2026-10-25T02:30" });
   assert.equal(llamadas, 0);
-  assert.match(raiz.innerHTML, /se repitió por el cambio horario/u);
+  assert.match(raiz.innerHTML, /Esa hora no existe o se repite por el cambio de hora\. Avise/u);
 });
 
 test("respuesta en inglés conserva campos obligatorios y explica el límite del correo", async () => {
   const raiz = raizPrueba();
   await abrirRespuesta(raiz, {}, { mensajes: MENSAJES_LLAMAMIENTO_EN, locale: "en-GB" });
-  assert.match(raiz.innerHTML, /Record the candidate/u);
+  assert.match(raiz.innerHTML, /Record the reply from the person called/u);
   assert.match(raiz.innerHTML, /They accepted/u);
   assert.match(raiz.innerHTML, /They declined/u);
-  assert.match(raiz.innerHTML, /Date and time the reply arrived \(Madrid\)/u);
+  assert.match(raiz.innerHTML, /Date and time the reply arrived/u);
   assert.match(raiz.innerHTML, /class="opcion-grande"[\s\S]*?You can then prepare the appointment proposal/u);
-  assert.match(raiz.innerHTML, /This is the proof of the reply[\s\S]*its content is not stored/u);
+  // Los pasos para exportar el correo y sus límites están en la ayuda «?», no en pantalla.
+  assert.doesNotMatch(raiz.innerHTML, /This is the proof of the reply|its content is not stored|2 MiB/u);
 });
 
 test("respuesta exige comunicación confirmada, archivo, datos y confirmación explícita", async () => {
@@ -345,7 +347,7 @@ test("respuesta exige comunicación confirmada, archivo, datos y confirmación e
     confirmarOperacion: (datos) => !datos.datos.respuesta,
   });
   await otra.enviar("respuesta", declaracion());
-  assert.match(otra.innerHTML, /Adjunte un .eml de hasta 2 MB/u);
+  assert.match(otra.innerHTML, /Elija la respuesta, escriba la referencia del correo y la fe/u);
   await otra.archivo(archivoCorreo());
   await otra.enviar("respuesta", { ...declaracion(), respuesta: "expiracion_gobernada" });
   await otra.enviar("respuesta", declaracion());
@@ -366,7 +368,7 @@ test("correo limita tamaño antes de leer, vacía huella anterior y falla cerrad
   const raiz = raizPrueba();
   await abrirRespuesta(raiz, {}, { criptografia: null });
   await raiz.archivo(archivoCorreo());
-  assert.match(raiz.innerHTML, /No se pudo calcular la huella/u); assert.match(raiz.innerHTML, /name="correo_sha256" type="hidden" value=""/u);
+  assert.match(raiz.innerHTML, /No se ha podido leer el correo\. Elija un archivo \.eml de has/u); assert.match(raiz.innerHTML, /name="correo_sha256" type="hidden" value=""/u);
 });
 
 test("huella admite exactamente 2 MiB y descarta bytes locales al terminar", async () => {
@@ -384,7 +386,7 @@ test("huella en curso bloquea envío y desmontar descarta su resolución tardía
   const bytes = new Uint8Array([65]);
   const pendiente = raiz.archivo({ name: "pendiente.eml", size: 1,
     arrayBuffer: () => new Promise((resolve) => { resolver = resolve; }) });
-  assert.match(raiz.innerHTML, /Calculando la huella local/u);
+  assert.match(raiz.innerHTML, /Comprobando el correo…/u);
   await raiz.enviar("respuesta", declaracion());
   assert.equal(llamadas, 0);
   cerrar();
@@ -405,7 +407,7 @@ test("respuesta perdida conserva fecha, declaración y huella; reintento usa el 
   } });
   await raiz.archivo(archivoCorreo());
   await raiz.enviar("respuesta", declaracion());
-  assert.match(raiz.innerHTML, /Reintentar la misma declaración/u);
+  assert.match(raiz.innerHTML, /Volver a intentar/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-clave="respuesta"/u); // gitleaks:allow — selector HTML, no credencial.
   await raiz.archivo(new File(["otro"], "otro.eml"));
   await raiz.enviar("respuesta", { ...declaracion(), respuesta: "renuncia",
@@ -413,7 +415,7 @@ test("respuesta perdida conserva fecha, declaración y huella; reintento usa el 
   assert.deepEqual(solicitudes[0], solicitudes[1]); assert.equal(solicitudes[0].correo_sha256, HUELLA);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-clave="respuesta"/u); // gitleaks:allow — selector HTML, no credencial.
   await raiz.enviar("respuesta", { ...declaracion(), respuesta: "renuncia" });
-  assert.deepEqual(solicitudes[0], solicitudes[2]); assert.match(raiz.innerHTML, /Misma declaración recuperada, sin nuevo registro/u);
+  assert.deepEqual(solicitudes[0], solicitudes[2]); assert.match(raiz.innerHTML, /Ya estaba anotada; no se ha repetido/u);
 });
 
 test("doble envío de respuesta no duplica y conflicto impide reintentar", async () => {
@@ -437,7 +439,7 @@ test("doble envío de respuesta no duplica y conflicto impide reintentar", async
     await otra.enviar("respuesta", declaracion());
     assert.equal(llamadas, 1);
     assert.match(otra.innerHTML, codigo === "contenido_respuesta_en_conflicto"
-      ? /Ya existe una respuesta distinta.*Abra el expediente/u : /requiere revisión del servidor/u);
+      ? /Ya hay otra respuesta anotada para este llamamiento\. Abra el/u : /No se ha podido guardar porque el expediente ha cambiado\. No/u);
     assert.doesNotMatch(otra.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
   }
 });
@@ -452,14 +454,16 @@ test("conflicto de contenido en inglés bloquea otro POST y remite al expediente
   await raiz.enviar("respuesta", declaracion());
   await raiz.enviar("respuesta", declaracion());
   assert.equal(llamadas, 1);
-  assert.match(raiz.innerHTML, /A different reply already exists.*Open the case/u);
+  assert.match(raiz.innerHTML, /Another reply is already recorded for this call-up\. Open the/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
 });
 
-test("el expediente fiscalizado seleccionado rellena el formulario existente sin POST ni clave automática", async () => {
+test("el expediente fiscalizado seleccionado rellena el formulario sin POST y sin enseñar referencia, versión ni clave", async () => {
   const montaje = await montarExpedienteSeleccionado(estadoSeleccionado());
   const html = montaje.formulario().innerHTML;
-  assert.match(html, /Datos del expediente fiscalizado/u); assert.match(html, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value="expediente:ct:sintetico:001"/u); assert.match(html, /id="ct-llamamiento-seleccion-version_esperada"[^>]*value="6"/u); assert.match(html, /id="ct-llamamiento-seleccion-clave_idempotencia"[^>]*value=""/u);
+  assert.match(html, /Llamamiento de este expediente/u); assert.match(html, /Llamar a la siguiente persona/u);
+  assert.match(html, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value="expediente:ct:sintetico:001"[^>]*type="hidden"/u); assert.match(html, /id="ct-llamamiento-seleccion-version_esperada"[^>]*value="6"[^>]*type="hidden"/u);
+  assert.doesNotMatch(html, /clave_idempotencia|data-ct-llamamiento-clave|Versión 6 del expediente|Referencia del expediente|Versión esperada/u);
   assert.equal(montaje.peticiones(), 0);
   montaje.desmontar();
 });
@@ -491,7 +495,7 @@ test("abrir otro expediente no reutiliza referencias ni clave del formulario ant
   anterior.preparar("seleccion", seleccion());
   await montaje.abrir("expediente:ct:sintetico:002");
   const actual = montaje.formulario();
-  assert.notEqual(actual, anterior); assert.equal(anterior.eventos.size, 0); assert.match(actual.innerHTML, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value="expediente:ct:sintetico:002"/u); assert.match(actual.innerHTML, /id="ct-llamamiento-seleccion-clave_idempotencia"[^>]*value=""/u);
+  assert.notEqual(actual, anterior); assert.equal(anterior.eventos.size, 0); assert.match(actual.innerHTML, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value="expediente:ct:sintetico:002"/u); assert.doesNotMatch(actual.innerHTML, /clave_idempotencia/u);
   assert.doesNotMatch(actual.innerHTML, /expediente:ct:sintetico:001/u); assert.equal(montaje.peticiones(), 0);
   montaje.desmontar();
 });
@@ -500,7 +504,7 @@ test("enlaza fiscalización y exige confirmación sin inventar candidato ni auto
   const raiz = raizPrueba(); let llamadas = 0;
   const desmontar = montar(raiz, { seleccionarLlamamiento: () => { llamadas += 1; } },
     { confirmarOperacion: () => false });
-  assert.equal(desmontar.actualizarContexto({ expediente_ref: EXPEDIENTE, version_esperada: 6 }), true); assert.match(raiz.innerHTML, /Datos del expediente fiscalizado/u); assert.match(raiz.innerHTML, /value="expediente:ct:sintetico:001"/u);
+  assert.equal(desmontar.actualizarContexto({ expediente_ref: EXPEDIENTE, version_esperada: 6 }), true); assert.match(raiz.innerHTML, /Llamamiento de este expediente/u); assert.match(raiz.innerHTML, /value="expediente:ct:sintetico:001"/u);
   await raiz.enviar("seleccion", seleccion());
   assert.equal(llamadas, 0); assert.doesNotMatch(raiz.innerHTML, /candidatura_ref|name="actor_ref"/u);
   desmontar();
@@ -517,9 +521,9 @@ test("doble envío no duplica operación y el recibo minimizado abre comunicaci�
   assert.equal(solicitudes.length, 1);
   resolver(recibo);
   await primera;
-  assert.match(raiz.innerHTML, /<details data-ct-llamamiento-datos-registrados="seleccion"><summary>Consultar datos de la operación registrada<\/summary>/u);
+  assert.match(raiz.innerHTML, /<details data-ct-llamamiento-datos-registrados="seleccion"><summary>Ver los datos guardados<\/summary>/u);
   assert.match(raiz.innerHTML, /<\/form>\s*<\/details>[\s\S]*?data-ct-llamamiento-recibo="seleccion"/u);
-  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="seleccion"/u); assert.match(raiz.innerHTML, /data-ct-llamamiento-comunicacion open/u); assert.doesNotMatch(raiz.innerHTML, /No expone identidad/u); assert.equal(solicitudes[0].version_esperada, 6);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="seleccion"/u); assert.match(raiz.innerHTML, /data-ct-llamamiento-comunicacion open/u); assert.doesNotMatch(raiz.innerHTML, /Persona llamada\. El justificante no muestra sus datos\./u); assert.equal(solicitudes[0].version_esperada, 6);
 });
 
 test("respuesta perdida: recuperación usa petición congelada aunque cambien controles", async () => {
@@ -530,7 +534,7 @@ test("respuesta perdida: recuperación usa petición congelada aunque cambien co
     return recibo;
   } });
   await raiz.enviar("seleccion", seleccion());
-  assert.match(raiz.innerHTML, /Recuperar con los mismos datos/u);
+  assert.match(raiz.innerHTML, /Volver a intentar/u);
   await raiz.enviar("seleccion", { ...seleccion(), expediente_ref: "expediente:distinto" });
   assert.deepEqual(solicitudes[0], solicitudes[1]);
 });
@@ -548,7 +552,7 @@ test("tras desmontar permite recuperar mediante los inputs visibles, sin memoria
   const segunda = raizPrueba();
   montar(segunda, cliente);
   await segunda.enviar("seleccion", seleccion());
-  assert.deepEqual(solicitudes[0], solicitudes[1]); assert.match(segunda.innerHTML, /Recibo verificado/u);
+  assert.deepEqual(solicitudes[0], solicitudes[1]); assert.match(segunda.innerHTML, /Guardado/u);
 });
 
 test("conflicto no reintentable mantiene datos y no permite otra escritura", async () => {
@@ -559,7 +563,7 @@ test("conflicto no reintentable mantiene datos y no permite otra escritura", asy
   } });
   await raiz.enviar("seleccion", seleccion());
   await raiz.enviar("seleccion", seleccion());
-  assert.equal(llamadas, 1); assert.match(raiz.innerHTML, /requiere revisión del servidor/u);
+  assert.equal(llamadas, 1); assert.match(raiz.innerHTML, /No se ha podido guardar porque el expediente ha cambiado\. No/u);
 });
 
 test("comunicación exige sus referencias y muestra registro, no envío de correo", async () => {
@@ -575,7 +579,7 @@ test("comunicación exige sus referencias y muestra registro, no envío de corre
   } });
   await raiz.enviar("seleccion", seleccion());
   await raiz.enviar("comunicacion", { clave_idempotencia: CLAVE });
-  assert.equal(solicitud.version_esperada, 1); assert.doesNotMatch(raiz.innerHTML, /Comunicación registrada/u); assert.doesNotMatch(raiz.innerHTML, /no acredita envío de correo real/u);
+  assert.equal(solicitud.version_esperada, 1); assert.doesNotMatch(raiz.innerHTML, /Aviso anotado\. VEC no envía el correo\./u); assert.doesNotMatch(raiz.innerHTML, /Aviso anotado\. VEC no envía el correo\./u);
 });
 
 test("desmontar cancela la espera y una respuesta tardía no repinta", async () => {
@@ -618,7 +622,8 @@ test("encadenado selección y replay autorrellenan comunicación local sin trans
         });
       },
     });
-    const cerrar = montar(raiz, cliente);
+    // Sin lista de llamamientos previos: el expediente parte de cero.
+    const cerrar = montar(raiz, { ...cliente, consultarComunicacionesExpediente: undefined });
     assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="comunicacion"/u);
     await raiz.enviar("seleccion", seleccion());
     for (const [campo, valor] of Object.entries({
@@ -642,7 +647,7 @@ test("encadenado selección y replay autorrellenan comunicación local sin trans
       llamamiento_ref: recibo.llamamiento_ref, version_esperada: 1,
       prueba_entrega_ref: recibo.recibo_ref,
     });
-    assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="comunicacion"/u); assert.match(raiz.innerHTML, /Sin entrega acreditada/u); assert.doesNotMatch(raiz.innerHTML, /Plazo de respuesta registrado/u);
+    assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="comunicacion"/u); assert.match(raiz.innerHTML, /Anotado/u); assert.doesNotMatch(raiz.innerHTML, /Plazo para responder/u);
     cerrar();
   }
   assert.deepEqual(llamadas.slice(0, 2), llamadas.slice(2));
@@ -667,7 +672,7 @@ test("aceptación tras subsanación ofrece propuesta v8 y conserva recibo v9", a
  await raiz.enviar("propuesta", { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174005", version_esperada: 6 });
  assert.equal(solicitudes.length, 1);
  assert.equal(solicitudes[0].version_esperada, 8);
- assert.match(raiz.innerHTML, /Propuesta registrada/u);
+ assert.match(raiz.innerHTML, /Propuesta guardada/u);
  cerrar();
 });
 
@@ -685,4 +690,72 @@ test("revisar propuesta conserva la navegación y enfoca su formulario sin envia
   assert.equal(raiz.foco.at(-1), "#ct-llamamiento-propuesta-titulo");
   assert.equal(raiz.innerHTML, anterior);
   desmontar();
+});
+
+test("sin expediente abierto no hay formulario ni campos de referencia o versión que teclear", async () => {
+  const raiz = raizPrueba(); let llamadas = 0;
+  const cerrar = montar(raiz, { seleccionarLlamamiento: async () => { llamadas += 1; return recibo; } }, { contexto: null });
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-sin-expediente/u);
+  assert.match(raiz.innerHTML, /Abra el expediente desde la lista de peticiones/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=|expediente_ref|version_esperada|clave_idempotencia/u);
+  await raiz.enviar("seleccion", seleccion());
+  assert.equal(llamadas, 0);
+  cerrar();
+});
+
+test("la clave se genera sola al enviar, no se ve y se reutiliza al reintentar; tras un rechazo, otra", async () => {
+  const raiz = raizPrueba(), solicitudes = [], claves = [];
+  let fallo = "red";
+  montar(raiz, { seleccionarLlamamiento: async (solicitud) => {
+    solicitudes.push(solicitud);
+    if (fallo === "red") { fallo = "rechazo"; throw new Error("red"); }
+    if (fallo === "rechazo") {
+      fallo = "";
+      throw Object.assign(new Error(), { envelopeValido: true, resultadoIndeterminado: false, codigo: "acceso_denegado" });
+    }
+    return recibo;
+  } }, { generarClaveIdempotencia: (operacion) => {
+    const clave = `123e4567-e89b-42d3-a456-42661417400${claves.length}`;
+    claves.push([operacion, clave]); return clave;
+  } });
+  assert.doesNotMatch(raiz.innerHTML, /clave_idempotencia|data-ct-llamamiento-clave|Clave de operación/u);
+  await raiz.enviar("seleccion", {});
+  assert.deepEqual(claves, [["seleccion", "123e4567-e89b-42d3-a456-426614174000"]]);
+  assert.equal(solicitudes[0].clave_idempotencia, claves[0][1]);
+  // Resultado incierto: el reintento envía la misma petición, con la misma clave.
+  await raiz.enviar("seleccion", {});
+  assert.equal(solicitudes.length, 2); assert.strictEqual(solicitudes[1], solicitudes[0]); assert.equal(claves.length, 1);
+  assert.doesNotMatch(raiz.innerHTML, /123e4567-e89b-42d3-a456-426614174000/u);
+  // Rechazo de ese reintento: el original pudo surtir efecto, así que la clave se conserva.
+  await raiz.enviar("seleccion", {});
+  assert.equal(solicitudes.length, 3); assert.equal(solicitudes[2].clave_idempotencia, claves[0][1]); assert.equal(claves.length, 1);
+});
+
+test("tras rechazar el primer intento sin efecto, el siguiente lleva una clave nueva", async () => {
+  const raiz = raizPrueba(), solicitudes = []; let generadas = 0;
+  montar(raiz, { seleccionarLlamamiento: async (solicitud) => {
+    solicitudes.push(solicitud);
+    if (solicitudes.length === 1) {
+      throw Object.assign(new Error(), { envelopeValido: true, resultadoIndeterminado: false, codigo: "acceso_denegado" });
+    }
+    return recibo;
+  } }, { generarClaveIdempotencia: () => `123e4567-e89b-42d3-a456-42661417401${generadas++}` });
+  await raiz.enviar("seleccion", {});
+  assert.match(raiz.innerHTML, /No se ha guardado\. Revise los datos/u);
+  await raiz.enviar("seleccion", {});
+  assert.equal(solicitudes.length, 2); assert.notEqual(solicitudes[0].clave_idempotencia, solicitudes[1].clave_idempotencia);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="seleccion"/u);
+});
+
+test("una clave generada que coincide con la de otra operación se descarta y se genera otra", async () => {
+  const raiz = raizPrueba(), solicitudes = [];
+  const generadas = [CLAVE, "123e4567-e89b-42d3-a456-426614174009"];
+  const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: async (s) => {
+    solicitudes.push(s); return reciboResolucion("aceptacion");
+  } }, { generarClaveIdempotencia: (operacion) => operacion === "resolucion" ? generadas.shift() : CLAVE });
+  await raiz.enviar("resolucion", revisionManual);
+  assert.equal(solicitudes.length, 0); assert.equal(generadas.length, 1);
+  await raiz.enviar("resolucion", revisionManual);
+  assert.equal(solicitudes.length, 1); assert.equal(solicitudes[0].clave_idempotencia, "123e4567-e89b-42d3-a456-426614174009");
+  cerrar();
 });

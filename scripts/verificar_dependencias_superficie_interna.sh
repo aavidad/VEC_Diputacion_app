@@ -18,11 +18,16 @@ trap 'unlink "${dependencias}" 2>/dev/null || true' EXIT
 # completos de las rutas CT, httpapi y vec/application: de ahi proceden tambien
 # dependencias de Personal, Bolsa, Dietas, Cronos y Administracion. Estar en el
 # grafo no registra sus rutas; la composicion y sus pruebas mantienen esa guarda.
+# El verificador común de auditoría aporta el cotejo de los paquetes de
+# exportación; compilarlo no monta una captura, ruta o fuente nominal.
 # No admitir nuevas importaciones por prefijo ni normalizar la lista con go list.
 LC_ALL=C go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' "${objetivo}" |
 	LC_ALL=C sed '/^$/d' | LC_ALL=C sort -u >"${dependencias}"
 
 prohibidas=()
+# internal/shared/plazoarranque: solo biblioteca estándar. vec-interno nunca llama a
+# Fijar, así que Ampliar devuelve el plazo declarado; lo importan adaptadores que
+# comparte con vec-server, donde amplía las comprobaciones de arranque (#822).
 while IFS= read -r paquete; do
 	case "${paquete}" in
 		github.com/fxamacker/cbor/v2 | \
@@ -71,6 +76,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/app/server" | \
 			"${modulo}/internal/modules/administracion" | \
 			"${modulo}/internal/modules/bolsa" | \
+			"${modulo}/internal/modules/contrataciontemporal/adapters/auditoriafirma" | \
 			"${modulo}/internal/modules/contrataciontemporal/adapters/ginpixfichero" | \
 			"${modulo}/internal/modules/contrataciontemporal/adapters/historiaincorporacion" | \
 			"${modulo}/internal/modules/contrataciontemporal/adapters/httpinterno" | \
@@ -78,6 +84,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/modules/contrataciontemporal/adapters/postgres" | \
 			"${modulo}/internal/modules/contrataciontemporal/application" | \
 			"${modulo}/internal/modules/contrataciontemporal/application/consultafirmas" | \
+			"${modulo}/internal/modules/contrataciontemporal/application/consultafirmasv2" | \
 			"${modulo}/internal/modules/contrataciontemporal/application/diagnostico" | \
 			"${modulo}/internal/modules/contrataciontemporal/application/firmaautorizacionv2" | \
 			"${modulo}/internal/modules/contrataciontemporal/cobertura" | \
@@ -95,6 +102,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/modules/personal/ports" | \
 			"${modulo}/internal/shared/i18n" | \
 			"${modulo}/internal/shared/limiteshttp" | \
+			"${modulo}/internal/shared/plazoarranque" | \
 			"${modulo}/internal/shared/postgresql" | \
 			"${modulo}/internal/vec/adapters/contextoactor/postgres" | \
 			"${modulo}/internal/vec/adapters/httpapi" | \
@@ -106,6 +114,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/vec/adapters/seguridad/verificacioncose" | \
 			"${modulo}/internal/vec/adapters/seudonimizacionpkcs11" | \
 			"${modulo}/internal/vec/application" | \
+			"${modulo}/internal/vec/auditoria" | \
 			"${modulo}/internal/vec/canonico/almacen" | \
 			"${modulo}/internal/vec/canonico/documental" | \
 			"${modulo}/internal/vec/canonico/pagos" | \

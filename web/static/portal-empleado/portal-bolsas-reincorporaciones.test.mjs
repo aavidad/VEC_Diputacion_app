@@ -271,7 +271,7 @@ test("cancela el resultado antiguo al cambiar de ficha y deja la situación sin 
 test("la ficha muestra recibo y fecha sin inventar actor ni mutar disponibilidad", () => {
   const html = renderizarReincorporacionesTitular({ estado: { carga: "listo", items: [{ ...item, recibo_ct_ref: "recibo:<script>" }] }, escaparHTML });
   assert.match(html, /<section[^>]+aria-labelledby="reincorporacion-titulo"/);
-  assert.match(html, /<h4 id="reincorporacion-titulo">Reincorporación de la persona titular<\/h4>/);
+  assert.match(html, /<h4 id="reincorporacion-titulo" tabindex="-1">Reincorporación de la persona titular<\/h4>/);
   assert.doesNotMatch(html, /Reflejo recibido desde Contratación temporal|La disponibilidad se consulta en su situación actual/);
   assert.match(html, /Cese aplicado en Bolsa/);
   assert.match(html, /recibo:&lt;script&gt;/);
@@ -282,19 +282,26 @@ test("la ficha muestra recibo y fecha sin inventar actor ni mutar disponibilidad
   assert.doesNotMatch(renderizarReincorporacionesTitular({ estado: { carga: "denegado" }, escaparHTML }), /data-reincorporacion-accion="reintentar"/);
 });
 
-test("403 en la ficha muestra solo la denegación y no expone filas ni ayuda fija", async () => {
-  const modalFicha = { candidato: { participacion_ref: "participacion:1" } };
-  const estado = { bolsaSeleccionada: "bolsa:1", modalFicha };
-  await cargarReincorporacionesTitularFicha(modalFicha, {
-    estado,
-    renderizar() {},
-    consultar: async () => ({ ok: false, status: 403, mensaje: traducirPortal("reincorporacion_error_403") }),
-  });
-  assert.equal(modalFicha.reincorporacionesTitular.carga, "denegado");
-  assert.deepEqual(modalFicha.reincorporacionesTitular.items, []);
-  const html = renderizarReincorporacionesTitular({ estado: modalFicha.reincorporacionesTitular, escaparHTML });
-  assert.match(html, /role="alert"/);
-  assert.doesNotMatch(html, /<table|recibo:ct:1|data-reincorporacion-accion="reintentar"|Reflejo recibido desde Contratación temporal/);
+test("401 y 403 opcionales muestran su denegación sin reintento ni ocultar al candidato", async () => {
+  for (const status of [401, 403]) {
+    const modalFicha = { candidato: { participacion_ref: "participacion:1", nombre_visible: "Persona autorizada" } };
+    const estado = { bolsaSeleccionada: "bolsa:1", modalFicha };
+    await cargarReincorporacionesTitularFicha(modalFicha, {
+      estado,
+      renderizar() {},
+      consultar: async () => ({ ok: false, status, mensaje: traducirPortal(`reincorporacion_error_${status}`) }),
+    });
+    assert.equal(modalFicha.reincorporacionesTitular.carga, "denegado");
+    assert.deepEqual(modalFicha.reincorporacionesTitular.items, []);
+    assert.equal(modalFicha.candidato.nombre_visible, "Persona autorizada");
+    const html = renderizarReincorporacionesTitular({ estado: modalFicha.reincorporacionesTitular, escaparHTML });
+    assert.match(html, /role="alert"/);
+    assert.doesNotMatch(html, /<table|recibo:ct:1|data-reincorporacion-accion="reintentar"|Reflejo recibido desde Contratación temporal/);
+    const accion = { dataset: { reincorporacionAccion: "reintentar" } };
+    assert.equal(manejarClickReincorporacionesTitular({ target: { closest: () => accion }, preventDefault() {} }, {
+      estado, renderizar() {}, consultar() { assert.fail("una denegación no se reintenta"); },
+    }), true);
+  }
 });
 
 test("catálogo común cubre todos los textos y el control pagina sin llamada de red", () => {

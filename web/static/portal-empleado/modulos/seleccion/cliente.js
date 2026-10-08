@@ -1,6 +1,6 @@
 const RUTA = '/api/seleccion/v1/';
 
-/** Transporte del ensayo local: únicamente referencias y reglas, sin credenciales. */
+/** Transporte del ensayo local: referencias, reglas y notas del ejemplo, sin credenciales. */
 export function crearClienteSeleccion({ fetchImpl = globalThis.fetch } = {}) {
   async function enviar(recurso, { signal, body } = {}) {
     const respuesta = await fetchImpl(`${RUTA}${recurso}`, {
@@ -22,8 +22,10 @@ export function crearClienteSeleccion({ fetchImpl = globalThis.fetch } = {}) {
   }
   return Object.freeze({
     listar: ({ signal } = {}) => enviar('ensayos', { signal }),
-    simular: ({ ejemplo_ref, configuracion }, { signal } = {}) => enviar('simulaciones', {
-      signal, body: { ejemplo_ref, configuracion },
+    simular: ({ ejemplo_ref, configuracion, notas_prueba }, { signal } = {}) => enviar('simulaciones', {
+      signal, body: { ejemplo_ref, configuracion,
+        ...(notas_prueba ? { notas_prueba: notas_prueba.map(({ solicitud_ref, fase_ref, puntos_micropuntos }) => ({ solicitud_ref, fase_ref, puntos_micropuntos })) } : {}),
+      },
     }),
   });
 }

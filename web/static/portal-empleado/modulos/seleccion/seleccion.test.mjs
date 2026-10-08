@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { crearTextos } from '../../../comun/textos.js';
-import { INDICE_IDIOMAS, localizacionDe } from '../../../comun/idioma.js';
+import { INDICE_IDIOMAS, localizacionDe, prepararIdiomas } from '../../../comun/idioma.js';
 import { crearClienteSeleccion } from './cliente.js';
-import { aMicropuntos, validarConfiguracion, validarEjemplos, validarResultado } from './configuracion.js';
+import { aMicropuntos, validarConfiguracion, validarEjemplos, validarResultado, validarNotasPropuestas, validarNotasEjemplo } from './configuracion.js';
 import { crearEstadoEnsayo } from './estado.js';
 import { montarSeleccion } from './montaje.js';
 
@@ -18,6 +18,7 @@ const resultado = (datos = ejemplo()) => ({ version: datos.configuracion.version
   solicitudes: [{ referencia: 'sol_1', nombre: '<img src=x onerror=alert(1)>', acceso: 'cumple', acceso_detalle: [{ referencia: 'titulacion_acceso', estado: 'cumple' }], estado: 'apta', propuesta: 'propuesta_provisional', total_micropuntos: 5000000, orden: 1, causas: [],
     fases: datos.configuracion.fases.map(f => ({ ...f, puntos_micropuntos: 2000000, estado: 'superada', origen: f.tipo === 'meritos' ? 'motor_bolsa' : 'prueba_embebida', reglas: f.tipo === 'meritos' ? [{ referencia: 'curso', puntos_micropuntos: 1000000 }] : [] })) }] });
 
+await prepararIdiomas();
 const catalogos = await Promise.all(INDICE_IDIOMAS.idiomas.map(async ({ codigo }) => ({ codigo,
   fuente: await readFile(new URL(`../../../textos/${codigo}/seleccion.json`, import.meta.url), 'utf8') })));
 const respaldo = JSON.parse(catalogos.find(c => c.codigo === INDICE_IDIOMAS.por_defecto)?.fuente ?? catalogos[0].fuente);
@@ -181,4 +182,79 @@ test('editar una fase inferior conserva scroll de ambos paneles, foco visible y 
   assert.equal(d.getElementById('seleccion-panel-resultado').scrollTop, 120);
   assert.equal(montaje.obtenerEstado().configuracion.fases[1].minimo_micropuntos, 500000);
   montaje.desmontar();
+});
+
+function ejemploConNotas() {
+  const e = ejemplo();
+  e.notas_prueba = [{ solicitud_ref: 'solicitud_ana', nombre: 'Ana Molina Ruiz', fase_ref: e.configuracion.fases[0].referencia, puntos_micropuntos: 7000000 }];
+  return e;
+}
+
+test('notas del ejemplo: vacío pendiente, cero válido, exactitud y referencias cerradas', () => {
+  const e = ejemploConNotas(); const n = e.notas_prueba[0];
+  assert.equal(validarNotasEjemplo(e).length, 1);
+  for (const puntos_micropuntos of [null, 0, 5000001, 10000000]) {
+    assert.deepEqual(validarNotasPropuestas(e, e.configuracion, [{ ...n, puntos_micropuntos }]), []);
+  }
+  for (const puntos_micropuntos of [-1, 10000001, NaN, 0.5, undefined]) {
+    assert.equal(validarNotasPropuestas(e, e.configuracion, [{ ...n, puntos_micropuntos }])[0].clave, 'validacion.nota');
+  }
+  for (const cambio of [{ solicitud_ref: 'otra' }, { fase_ref: e.configuracion.fases[1].referencia }]) {
+    assert.equal(validarNotasPropuestas(e, e.configuracion, [{ ...n, ...cambio }]).length, 1);
+  }
+  assert.equal(validarNotasPropuestas(e, e.configuracion, [n, n]).length, 1);
+  assert.throws(() => validarNotasEjemplo({ ...e, notas_prueba: [n, n] }));
+});
+
+test('el transporte envía sólo referencias de notas y valor, nunca nombres o hechos', async () => {
+  let enviado;
+  const c = crearClienteSeleccion({ fetchImpl: async (_, opciones) => { enviado = JSON.parse(opciones.body); return new Response('{}'); } });
+  await c.simular({ ...ejemploConNotas(), ejemplo_ref: 'ensayo', actor: 'no_enviar' });
+  assert.deepEqual(Object.keys(enviado).sort(), ['configuracion', 'ejemplo_ref', 'notas_prueba']);
+  assert.deepEqual(Object.keys(enviado.notas_prueba[0]).sort(), ['fase_ref', 'puntos_micropuntos', 'solicitud_ref']);
+  assert.equal(enviado.notas_prueba[0].puntos_micropuntos, 7000000);
+});
+
+test('editar notas invalida resultado, conserva texto inválido/foco y restablece el ejemplo', async () => {
+  for (const textos of traductores) {
+    const e = ejemploConNotas(); const d = dom(); const llamadas = [];
+    const m = montarSeleccion({ raiz: d.raiz, textos, cliente: { listar: async () => ({ ejemplos: [e] }), simular: async datos => { llamadas.push(datos); return resultado(datos); } } });
+    await terminarCarga();
+    const nota = d.getElementById('seleccion-nota-0');
+    assert.equal(nota.value, '7'); nota.focus(); nota.value = '5,000001'; nota.setSelectionRange(8, 8); await nota.emitir('input');
+    assert.equal(d.activeElement.id, nota.id); assert.equal(d.activeElement.selectionStart, 8);
+    await elementos(d.raiz).find(el => el.tagName === 'FORM').emitir('submit');
+    assert.equal(llamadas[0].notas_prueba[0].puntos_micropuntos, 5000001);
+    const invalida = d.getElementById(nota.id); invalida.value = '11'; await invalida.emitir('input');
+    assert.equal(m.obtenerEstado().resultado, null);
+    assert.equal(d.getElementById(nota.id).value, '11'); assert.equal(d.getElementById(nota.id).getAttribute('aria-invalid'), 'true');
+    await elementos(d.raiz).find(el => el.tagName === 'FORM').emitir('submit');
+    assert.equal(llamadas.length, 1); assert.equal(d.activeElement.id, 'seleccion-errores');
+    const vacia = d.getElementById(nota.id); vacia.value = ''; await vacia.emitir('input');
+    await elementos(d.raiz).find(el => el.tagName === 'FORM').emitir('submit');
+    assert.equal(llamadas[1].notas_prueba[0].puntos_micropuntos, null);
+    await elementos(d.raiz).find(el => el.tagName === 'BUTTON' && el.textContent === textos.traducir('restablecer')).emitir('click');
+    assert.equal(d.getElementById(nota.id).value, '7');
+    await elementos(d.raiz).find(el => el.tagName === 'FORM').emitir('submit');
+    assert.deepEqual(llamadas[2].notas_prueba, []); m.desmontar();
+  }
+});
+
+
+test('editar una nota en móvil conserva el scroll y el foco debajo de la cabecera', async () => {
+  const d = dom(); d.scrollingElement = { scrollTop: 900, scrollLeft: 0 }; d.defaultView = { innerHeight: 800 };
+  d.querySelector = () => ({ getBoundingClientRect: () => ({ bottom: 105 }) });
+  const e = ejemploConNotas();
+  const m = montarSeleccion({ raiz: d.raiz, textos: traductores[0], cliente: { listar: async () => ({ ejemplos: [e] }), simular: async datos => resultado(datos) } });
+  await terminarCarga();
+  const rect = () => ({ top: 1350 - d.scrollingElement.scrollTop, bottom: 1390 - d.scrollingElement.scrollTop });
+  const crear = d.createElement;
+  d.createElement = tag => { const el = crear(tag); if (tag === 'section') el.scrollHeight = el.clientHeight; if (tag === 'input') el.getBoundingClientRect = rect; return el; };
+  const campo = d.getElementById('seleccion-nota-0'); campo.focus(); campo.value = '6,1';
+  await campo.emitir('input');
+  assert.equal(d.activeElement.id, campo.id); assert.equal(d.scrollingElement.scrollTop, 900);
+  d.scrollingElement.scrollTop = 1300; const arriba = d.getElementById(campo.id); arriba.value = '6,2';
+  await arriba.emitir('input');
+  assert.equal(d.scrollingElement.scrollTop, 1241); assert.ok(rect().top >= 109 && rect().bottom <= 796);
+  m.desmontar();
 });

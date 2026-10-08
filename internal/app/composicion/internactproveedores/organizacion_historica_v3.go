@@ -192,7 +192,14 @@ func (p *ProveedorAutorizacionOrganizacionHistorica) AutorizarConsultaOrganizaci
 	}
 	// Conservar exactamente el resultado sellado para el actor HTTP; una
 	// segunda resolución F1 rompería la ligadura de ResueltoEn.
-	base, organismo, unidad, err := p.fuente.ContextoVinculadoOrganizacionHistorica(ctx)
+	var base ct.ContextoAutorizacionAltaV3
+	var organismo, unidad string
+	var err error
+	if original, errOriginal := intentoOriginalOrganizacionHistorica(ctx); errOriginal == nil {
+		base, organismo, unidad, err = original.identidad, original.organismo, original.unidad, nil
+	} else {
+		base, organismo, unidad, err = p.fuente.ContextoVinculadoOrganizacionHistorica(ctx)
+	}
 	if err != nil || base.Resultado.Validar() != nil || base.Vinculo.ValidarPara(base.Resultado) != nil || !reflect.DeepEqual(s.Actor, base.Resultado.Contexto) {
 		return vacio, ErrOrganizacionHistoricaV3NoDisponible
 	}
@@ -203,7 +210,12 @@ func (p *ProveedorAutorizacionOrganizacionHistorica) AutorizarConsultaOrganizaci
 		!base.Vinculo.VigenteEn(p.reloj.Ahora(), base.Resultado) {
 		return vacio, ErrOrganizacionHistoricaV3NoDisponible
 	}
-	correlacion, err := core.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seg.GeneradorReferenciasCriptograficas{})
+	var correlacion core.ReferenciaCorrelacionAutorizacionV2
+	if _, errOriginal := intentoOriginalOrganizacionHistorica(ctx); errOriginal == nil {
+		correlacion, err = vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
+	} else {
+		correlacion, err = core.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seg.GeneradorReferenciasCriptograficas{})
+	}
 	if err != nil {
 		return vacio, ErrOrganizacionHistoricaV3NoDisponible
 	}

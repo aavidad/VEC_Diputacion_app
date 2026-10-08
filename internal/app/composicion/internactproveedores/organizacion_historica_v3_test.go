@@ -37,6 +37,11 @@ func (f *fuenteOHPrueba) ContextoVinculadoOrganizacionHistorica(context.Context)
 	return f.valor, f.organismo, f.unidad, f.err
 }
 
+func (f *fuenteOHPrueba) ContextoOriginalOrganizacionHistoricaParaAuditoria(context.Context) (ct.ContextoAutorizacionAltaV3, string, string, error) {
+	f.llamadas++
+	return f.valor, f.organismo, f.unidad, f.err
+}
+
 type revalidadorOHPrueba struct {
 	valor core.AutenticacionRevalidadaV1
 }

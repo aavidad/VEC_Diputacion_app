@@ -25,6 +25,7 @@ import (
 	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
 	cronosdomain "vec-diputacion-granada/internal/modules/cronos/domain"
 	cronosports "vec-diputacion-granada/internal/modules/cronos/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
@@ -57,7 +58,10 @@ type configuracionCronosEmpleadoDesarrollo struct {
 	DSNCronos                string                        `json:"dsn_cronos"`
 	DSNCronosAuditor         string                        `json:"dsn_cronos_auditor"`
 	ZonaHoraria              string                        `json:"zona_horaria"`
-	Motivos                  struct {
+	AuditoriaIntentos        struct {
+		MotivoDenegado core.ReferenciaEntradaCatalogo `json:"motivo_denegado"`
+	} `json:"auditoria_intentos"`
+	Motivos struct {
 		Saldo          core.ReferenciaEntradaCatalogo `json:"saldo"`
 		Marcaje        core.ReferenciaEntradaCatalogo `json:"marcaje"`
 		Disponibilidad core.ReferenciaEntradaCatalogo `json:"disponibilidad"`
@@ -89,12 +93,15 @@ type configuracionCronosEmpleadoDesarrollo struct {
 // permisos) cuando todas sus dependencias están compuestas; toda otra ruta
 // bajo el prefijo se deniega.
 type autoridadCronosEmpleadoDesarrollo struct {
-	base        *autoridadRutasDietasDesarrollo
-	reloj       vecports.Reloj
-	cuentas     map[string]cuentaRutasDietasDesarrollo
-	rutas       map[string]http.Handler
-	registrador cronosports.RegistroDenegacionFronteraCronos
-	cerrar      func()
+	base              *autoridadRutasDietasDesarrollo
+	reloj             vecports.Reloj
+	cuentas           map[string]cuentaRutasDietasDesarrollo
+	rutas             map[string]http.Handler
+	registrador       cronosports.RegistroDenegacionFronteraCronos
+	auditoriaIntentos vecports.RegistradorIntentosAuditoria
+	procesoIntentos   string
+	motivoDenegado    core.ReferenciaEntradaCatalogo
+	cerrar            func()
 }
 
 type claveContextoCronosEmpleado struct{}
@@ -184,7 +191,16 @@ func (a *autoridadCronosEmpleadoDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 		a.denegar(w, r, http.StatusServiceUnavailable, cronosports.MotivoFronteraDependencia, "no_disponible", "")
 		return
 	}
-	ctx := context.WithValue(r.Context(), claveContextoCronosEmpleado{}, contextoCronosEmpleado{autoridad: a, seguridad: contextoSeguridadComunDesarrollo{Vinculo: vinculo, Resultado: resultado}})
+	holder := contextoSeguridadComunDesarrollo{Vinculo: vinculo, Resultado: resultado}
+	ctx := context.WithValue(r.Context(), claveContextoCronosEmpleado{}, contextoCronosEmpleado{autoridad: a, seguridad: holder})
+	registroVinculo, err := nuevoRegistroDenegacionVinculoCronos(a, holder, r.URL.Path)
+	if err != nil {
+		responderDenegacionCronosEmpleado(w, http.StatusServiceUnavailable, "no_disponible")
+		return
+	}
+	if registroVinculo != nil {
+		ctx = cronosapp.ConRegistroDenegacionVinculo(ctx, registroVinculo)
+	}
 	ctx = cronospg.ContextoConEstadoRemoto(ctx)
 	manejador.ServeHTTP(w, r.WithContext(ctx))
 }
@@ -205,7 +221,7 @@ func (a *autoridadCronosEmpleadoDesarrollo) denegar(w http.ResponseWriter, r *ht
 	if _, err := rand.Read(aleatorio[:]); err == nil {
 		correlacion = "corr_" + hex.EncodeToString(aleatorio[:])
 	}
-	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
+	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), plazoarranque.Ampliar(2*time.Second))
 	defer cancelar()
 	if a.registrador == nil || a.registrador.RegistrarDenegacionFronteraCronos(ctx, cronosports.OrdenDenegacionFronteraCronos{CorrelacionRef: correlacion, Motivo: motivo, Ruta: ruta, Metodo: metodo, ActorRef: actorRef}) != nil {
 		responderDenegacionCronosEmpleado(w, http.StatusServiceUnavailable, "no_disponible")
@@ -380,6 +396,10 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 	}
 	motivos := cronoscomp.MotivosCronos{Saldo: c.Motivos.Saldo, Marcaje: c.Motivos.Marcaje, Disponibilidad: c.Motivos.Disponibilidad, Recuperacion: c.Motivos.Recuperacion,
 		Movimientos: c.Motivos.Movimientos, Correccion: c.Motivos.Correccion, Permisos: c.Motivos.Permisos, Permiso: c.Motivos.Permiso}
+	if !core.ReferenciaMotivoAutorizacionV2Valida(c.AuditoriaIntentos.MotivoDenegado) ||
+		c.AuditoriaIntentos.MotivoDenegado.Referencia() == motivos.Saldo.Referencia() {
+		return nil, errCronosEmpleadoEn()
+	}
 	comunes := []core.ReferenciaEntradaCatalogo{motivos.Marcaje, motivos.Disponibilidad, motivos.Recuperacion, motivos.Movimientos, motivos.Correccion, motivos.Permisos, motivos.Permiso}
 	// La resolución exige sus cuatro motivos con su selector; sin él se
 	// ignoran para no emitir decisiones de una capacidad no compuesta.
@@ -394,7 +414,7 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		comunes = append(comunes, motivos.Notificacion, motivos.Notificaciones, motivos.BandejaNotificaciones, motivos.AtencionNotificacion)
 	}
 	for _, m := range comunes {
-		if m.CatalogoID != motivos.Saldo.CatalogoID {
+		if m.CatalogoID != motivos.Saldo.CatalogoID || m.Referencia() == c.AuditoriaIntentos.MotivoDenegado.Referencia() {
 			return nil, errCronosEmpleadoEn()
 		}
 	}
@@ -420,7 +440,7 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		}
 		cuentas[cuenta.CertificadoSHA256] = cuenta
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancel()
 	entradas := []struct{ dsn, rol string }{
 		{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"},
@@ -429,9 +449,13 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		{c.DSNCronos, "vec_cronos_v1_ejecutor"}, {c.DSNCronosAuditor, "vec_cronos_v1_auditor"},
 	}
 	var pools []*pgxpool.Pool
+	var cerrarIntentos func()
 	var unaVez sync.Once
 	cerrar := func() {
 		unaVez.Do(func() {
+			if cerrarIntentos != nil {
+				cerrarIntentos()
+			}
 			for _, p := range pools {
 				p.Close()
 			}
@@ -462,6 +486,15 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		}
 		return nil, errCronosEmpleadoEn()
 	}
+	reservadosIntentos := make([]string, 0, len(usuarios))
+	for usuario := range usuarios {
+		reservadosIntentos = append(reservadosIntentos, usuario)
+	}
+	registroIntentos, procesoIntentos, cierreRegistroIntentos, err := AbrirRegistradorIntentosAuditoriaDesarrollo(ctx, cfg, pools[6], reservadosIntentos)
+	if err != nil {
+		return nil, errCronosEmpleadoEn()
+	}
+	cerrarIntentos = cierreRegistroIntentos
 	registro, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, pools[0], pools[1], &seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
 	if err != nil {
 		return nil, errCronosEmpleadoEn()
@@ -493,6 +526,9 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 	}
 	validadorMotivos, err := vecpg.NuevoValidadorReferenciaMotivoPostgreSQLV2(pools[5], motivos.Saldo.CatalogoID)
 	if err != nil {
+		return nil, errCronosEmpleadoEn()
+	}
+	if validarMotivoDenegadoCronos(ctx, validadorMotivos, c.AuditoriaIntentos.MotivoDenegado, motivos.Saldo.CatalogoID, reloj.Ahora()) != nil {
 		return nil, errCronosEmpleadoEn()
 	}
 	autorizador, err := vecapp.NuevoServicioAutorizacionSolicitudLigadaV3(fuente, registroAutorizacion, registroAutorizacion, validadorMotivos, reloj, seguridad.GeneradorReferenciasCriptograficas{}, vecapp.ConfiguracionServicioAutorizacion{VigenciaDecision: 30 * time.Second})
@@ -542,7 +578,8 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		return nil, errCronosEmpleadoEn()
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
-	a := &autoridadCronosEmpleadoDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: registrador, cerrar: cerrar}
+	a := &autoridadCronosEmpleadoDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: registrador,
+		auditoriaIntentos: registroIntentos, procesoIntentos: procesoIntentos, motivoDenegado: c.AuditoriaIntentos.MotivoDenegado, cerrar: cerrar}
 	rutas, err := componerManejadoresCronosEmpleado(dependenciasCronosEmpleado{
 		ejecutor: pools[6], auditor: pools[7], identidad: seguridadCronosEmpleadoDesarrollo{autoridad: a},
 		autorizador: autorizadorCronos, canal: canal, zona: zona,

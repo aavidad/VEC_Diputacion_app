@@ -1,0 +1,31 @@
+{
+  "formato": {
+    "referencia": "personal:servicios_propios:csv",
+    "version": "1",
+    "nombre_archivo": "servicios.csv"
+  },
+  "csv": {
+    "fecha_inicio": "Start",
+    "fecha_fin": "End",
+    "clase": "Origin",
+    "dias": "Days",
+    "estado": "Status"
+  },
+  "general": {
+    "descargar": "Download CSV summary",
+    "preparando": "Preparing the summary…",
+    "preparada": "The server has prepared the summary and its download has started.",
+    "error": "The summary could not be prepared. Please try again.",
+    "denegado": "This query cannot be exported. Refresh the data and try again.",
+    "sin_consulta": "Refresh the query before downloading the summary.",
+    "alcance": "Includes the services in this query. It does not calculate seniority or establish entitlements.",
+    "no_disponible": "Export is currently unavailable. Please try again.",
+    "respuesta_no_valida": "The received file could not be verified. Please try again.",
+    "sesion_caducada": "Your session has ended. Sign in again and refresh the query."
+  },
+  "estados": {
+    "declarado": "Declared",
+    "comprobado": "Verified",
+    "reconocido": "Recognised"
+  }
+}

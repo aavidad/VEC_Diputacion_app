@@ -1,29 +1,44 @@
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
 const catalogosMOAD = await cargarCatalogosContratacion("contratacion-temporal-moad");
 const MENSAJES_MOAD_ES = catalogosMOAD.exportaciones.ES;
 const MENSAJES_MOAD_EN = catalogosMOAD.exportaciones.EN;
+function aplanarMensajesNecesidades(seccion, prefijo = "", salida = {}) {
+  for (const [clave, valor] of Object.entries(seccion ?? {})) {
+    const nombre = prefijo ? `${prefijo}.${clave}` : clave;
+    if (typeof valor === "string") salida[nombre] = valor;
+    else aplanarMensajesNecesidades(valor, nombre, salida);
+  }
+  return salida;
+}
+/** El catálogo de necesidades se pide al entrar en Alta, nunca al importar CT. */
+export async function cargarMensajesNecesidadesAlta(idioma) {
+  const catalogo = idioma === undefined
+    ? await cargarCatalogosContratacion("contratacion-temporal-necesidades-alta")
+    : await cargarCatalogosContratacionEnIdioma("contratacion-temporal-necesidades-alta", idioma);
+  return Object.freeze(aplanarMensajesNecesidades(catalogo.actual));
+}
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
-import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js?v=20261007-pantallas-textos-final-v1";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
-import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js?v=20261007-pantallas-textos-final-v1";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_EN } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
-import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20261001-ct-a-i18n-v1";
-import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
-import { rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20261007-pantallas-textos-final-v1";
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
+import { FASES_RRHH, rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
 
-export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
+const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   ...MENSAJES_MOAD_ES,
-  ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "es"),
+  ...rotulosFasesComoMensajes("contratacion_temporal.fase."),
   justificante_registrado: "Justificante registrado",
   justificante_copiar: "Copiar referencia",
   justificante_copiado: "Referencia copiada",
@@ -178,16 +193,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_estado_listo: "El análisis está preparado para su revisión.",
   analisis_estado_solo_lectura: "La rectificación está disponible solo para consulta.",
   analisis_estado_validacion: "Revise los campos indicados antes de continuar.",
-  analisis_estado_enviando: "Enviando una única petición. Espere la confirmación.",
   analisis_estado_cancelando: "Cancelando la espera de respuesta.",
-  analisis_estado_confirmado: "El recibo del análisis se ha verificado.",
-  analisis_estado_indeterminado:
-    "El resultado no puede determinarse. La operación queda bloqueada.",
-  analisis_estado_acceso_denegado: "No dispone de autorización para esta operación.",
-  analisis_estado_conflicto:
-    "El expediente cambió o la intención entra en conflicto. Revise su estado antes de continuar.",
-  analisis_estado_rechazado: "La operación fue rechazada sin confirmar el análisis.",
-  analisis_estado_error: "No se pudo confirmar el análisis.",
   analisis_campos_leyenda: "Datos del análisis",
   analisis_modalidad: "Modalidad",
   analisis_categoria: "Categoría profesional",
@@ -223,16 +229,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_error_observaciones: "Las observaciones no pueden superar 4.000 caracteres ni incluir caracteres no admitidos.",
   analisis_error_motivo: "Seleccione un motivo disponible para rectificar.",
   analisis_error_contrato: "Revise los datos del análisis antes de continuar.",
-  analisis_indeterminado_titulo: "Resultado indeterminado",
-  analisis_indeterminado_descripcion:
-    "No repita la operación. Consulte el estado por el canal protegido o solicite asistencia.",
-  analisis_recibo_sobrelinea: "Confirmación verificada",
-  analisis_recibo_titulo: "Análisis confirmado",
-  analisis_recibo_rectificacion_titulo: "Rectificación confirmada",
-  analisis_recibo_descripcion:
-    "El recibo corresponde a la operación, el expediente y la versión enviados.",
   analisis_recibo_expediente: "Referencia del expediente",
-  analisis_recibo_version: "Versión resultante",
   analisis_recibo_referencia: "Justificante",
   analisis_recibo_fecha: "Fecha de confirmación",
   cobertura_titulo: "Decidir la vía de cobertura",
@@ -489,9 +486,9 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
 });
 
 /** British English messages for the temporary staff requests module. */
-export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
+const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   ...MENSAJES_MOAD_EN,
-  ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "en"),
+  ...rotulosFasesComoMensajes("contratacion_temporal.fase."),
   justificante_registrado: "Receipt recorded",
   justificante_copiar: "Copy reference",
   justificante_copiado: "Reference copied",
@@ -636,14 +633,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   analisis_estado_listo: "The assessment is ready for review.",
   analisis_estado_solo_lectura: "The correction is available for viewing only.",
   analisis_estado_validacion: "Review the indicated fields before continuing.",
-  analisis_estado_enviando: "Submitting one request. Wait for confirmation.",
   analisis_estado_cancelando: "Cancelling the wait for a response.",
-  analisis_estado_confirmado: "The assessment receipt has been verified.",
-  analisis_estado_indeterminado: "The result cannot be determined. The operation remains blocked.",
-  analisis_estado_acceso_denegado: "You are not authorised to perform this operation.",
-  analisis_estado_conflicto: "The case has changed or the request conflicts with its state. Review the state before continuing.",
-  analisis_estado_rechazado: "The operation was rejected without confirming the assessment.",
-  analisis_estado_error: "The assessment could not be confirmed.",
   analisis_campos_leyenda: "Assessment details",
   analisis_modalidad: "Type of appointment",
   analisis_categoria: "Job category",
@@ -675,14 +665,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   analisis_error_observaciones: "Comments cannot exceed 4,000 characters or contain prohibited characters.",
   analisis_error_motivo: "Select an available reason for correction.",
   analisis_error_contrato: "Review the assessment details before continuing.",
-  analisis_indeterminado_titulo: "Uncertain result",
-  analisis_indeterminado_descripcion: "Do not repeat the operation. Check its status through the protected channel or request assistance.",
-  analisis_recibo_sobrelinea: "Confirmation verified",
-  analisis_recibo_titulo: "Assessment confirmed",
-  analisis_recibo_rectificacion_titulo: "Correction confirmed",
-  analisis_recibo_descripcion: "The receipt matches the submitted operation, case and version.",
   analisis_recibo_expediente: "Case reference",
-  analisis_recibo_version: "Resulting version",
   analisis_recibo_referencia: "Receipt",
   analisis_recibo_fecha: "Confirmation date",
 
@@ -941,13 +924,18 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   ...MENSAJES_FIRMA_INCORPORACION.portal.EN,
 });
 
+export const MENSAJES_CONTRATACION_TEMPORAL_ES = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? MENSAJES_CONTRATACION_TEMPORAL_ES_BASE : undefined;
+export const MENSAJES_CONTRATACION_TEMPORAL_EN = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+  ? undefined : MENSAJES_CONTRATACION_TEMPORAL_EN_BASE;
+
 export function crearTraductorContratacionTemporal(sobrescrituras = {}) {
   if (sobrescrituras === null || typeof sobrescrituras !== "object"
     || Array.isArray(sobrescrituras)) {
     throw new TypeError("mensajes de contratación temporal no válidos");
   }
-  const base = IDIOMA_ACTUAL === "en"
-    ? MENSAJES_CONTRATACION_TEMPORAL_EN : MENSAJES_CONTRATACION_TEMPORAL_ES;
+  const base = IDIOMA_ACTUAL === IDIOMA_POR_DEFECTO
+    ? MENSAJES_CONTRATACION_TEMPORAL_ES : MENSAJES_CONTRATACION_TEMPORAL_EN;
   const mensajes = { ...base, ...sobrescrituras };
   for (const [clave, valor] of Object.entries(mensajes)) {
     if (typeof valor !== "string" || valor.trim() === "") {
@@ -961,4 +949,35 @@ export function crearTraductorContratacionTemporal(sobrescrituras = {}) {
       mensajes[clave],
     );
   };
+}
+
+/** Prepara otro idioma solo cuando un consumidor lo solicita expresamente. */
+export async function cargarMensajesContratacionTemporalEnIdioma(idioma) {
+  const catalogos = await Promise.all([
+    cargarCatalogosContratacionEnIdioma("portal", idioma, "fases_rrhh"),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-moad", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-llamamiento", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-subsanacion-reparos", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-avisos-via-cobertura", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-analisis-catalogo", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-textos-vistas", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-borradores-publicados", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-firma-incorporacion-portal", idioma),
+  ]);
+  if (catalogos.some((catalogo) => catalogo.idioma !== idioma)) {
+    if (idioma === IDIOMA_POR_DEFECTO) throw new Error("catálogo de contratación no disponible");
+    return cargarMensajesContratacionTemporalEnIdioma(IDIOMA_POR_DEFECTO);
+  }
+  const base = idioma === IDIOMA_POR_DEFECTO
+    ? MENSAJES_CONTRATACION_TEMPORAL_ES_BASE : MENSAJES_CONTRATACION_TEMPORAL_EN_BASE;
+  const mensajes = { ...base };
+  for (const catalogo of catalogos.slice(1)) {
+    for (const [clave, valor] of Object.entries(catalogo.actual)) {
+      if (!Object.hasOwn(mensajes, clave)) mensajes[clave] = valor;
+    }
+  }
+  for (const fase of FASES_RRHH) {
+    mensajes[`contratacion_temporal.fase.${fase}`] = catalogos[0].actual[`fase_${fase}`];
+  }
+  return Object.freeze(mensajes);
 }

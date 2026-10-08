@@ -1,4 +1,8 @@
 import test from "node:test";
+import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+await prepararTextosPortal("bolsa");
+await prepararMensajesContratos();
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
@@ -23,7 +27,7 @@ import {
   validarPayloadCrearLlamamiento,
   validarPayloadResultadoLlamamiento,
   construirEnvelopeAccionBolsa,
-} from "./portal-bolsas-contrato.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-bolsas-contrato.js?v=20261007-pantallas-textos-final-v1";
 import {
   consultarBolsas,
   consultarCandidatosBolsa,
@@ -37,7 +41,7 @@ import {
   rutaCandidatosBolsa,
   seleccionarParticipacionesPorEstado,
   crearControladorBolsas,
-} from "./portal-bolsas-api.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1";
 function comprobarTransporteInterno(opciones) {
   assert.equal(opciones.credentials, "same-origin");
   assert.equal(opciones.mode, "same-origin");
@@ -111,7 +115,7 @@ test("cambiar situación B2 envía idempotencia y conserva el recibo", async () 
   comprobarTransporteInterno(observada.opciones);
   assert.match(observada.url, /\/bolsa:01\/candidatos\/participacion:01\/situacion$/);
 });
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1";
 const rutaDemoJson = new URL("../../../data/demo/bolsa/v1.bolsas-demo.json", import.meta.url);
 const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));
 /**
@@ -553,8 +557,9 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
   assert.match(htmlListo, /Disponibles/);
   assert.match(htmlListo, /ADMINISTRATIVO/);
   const bolsaRef = datosBolsasValidadas.bolsas[0].bolsa_ref;
-  assert.match(htmlListo, new RegExp(`<button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" aria-label="Abrir candidatos de la bolsa [^"]+">`));
-  assert.match(htmlListo, new RegExp(`<button type="button" class="estado-chip exito" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" data-estado="disponible" aria-label="Ver \\d+ candidatos disponibles de [^"]+">`));
+  const refURL = encodeURIComponent(bolsaRef);
+  assert.match(htmlListo, new RegExp(`<a class="enlace-tabla" href="\\?bolsa_ref=${refURL}#bolsa/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" aria-label="Abrir candidatos de la bolsa [^"]+">`));
+  assert.match(htmlListo, new RegExp(`<a class="estado-chip exito" href="\\?bolsa_ref=${refURL}&estado=disponible#bolsa/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" data-estado="disponible" aria-label="Ver \\d+ candidatos disponibles de [^"]+">`));
   assert.doesNotMatch(htmlListo, /<th scope="col">Acciones<\/th>|Ver candidatos/);
   // Vigencia: solo la fecha de fin, sin hora; sin fin, «Sin fecha de fin» (igual que la portada).
   assert.match(htmlListo, /<td>Sin fecha de fin<\/td>/);
@@ -623,7 +628,7 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /Registrar resultado/);
   assert.match(htmlB5, /data-bolsa-accion="iniciar-b7"/);
   assert.match(htmlB5, /Criterios de orden/);
-  assert.match(htmlB5, /Puntuación descendente; desempate estable por nº del acta/);
+  assert.match(htmlB5, /Por puntuación; si hay empate, por orden del acta/);
   assert.doesNotMatch(htmlB5, /Pendiente de RRHH/);
   filtrosBolsa = { ...filtrosBolsa, pestana: "historico" };
   const htmlHistorico = presentador.renderizarVista("bolsa-candidatos");
@@ -705,14 +710,14 @@ test("presentadorPanelInterno muestra la ficha B5 en línea junto al único cand
     obtenerModalFicha: () => modalFicha,
   });
   const htmlInicial = presentador.renderizarVista("bolsa-candidatos");
-  assert.doesNotMatch(htmlInicial, /Ficha de participación/);
+  assert.doesNotMatch(htmlInicial, /Ficha de /);
   assert.match(htmlInicial, /data-bolsa-control-principal="true"/);
   assert.match(htmlInicial, /aria-expanded="false"/);
   assert.doesNotMatch(htmlInicial, /Ficha en aspirante|<th scope="col">Acciones<\/th>/);
   modalFicha = { abierto: true, candidato, bolsa: datos.bolsa };
   const htmlAbierto = presentador.renderizarVista("bolsa-candidatos");
   const fichaId = `ficha-participacion-${candidato.participacion_ref}`;
-  assert.match(htmlAbierto, /Ficha de participación/);
+  assert.match(htmlAbierto, new RegExp(`<h3 id="titulo-${fichaId}">Ficha de ${candidato.nombre_visible}</h3>`));
   // La referencia interna solo enlaza la fila con su ficha; no se muestra como dato.
   assert.doesNotMatch(htmlAbierto, /Referencia de participación|<code>participacion:/);
   assert.match(htmlAbierto, /data-bolsa-accion="cerrar-ficha"/);
@@ -733,7 +738,7 @@ test("presentadorPanelInterno muestra la ficha B5 en línea junto al único cand
   assert.match(htmlSegundo, new RegExp(`data-participacion-ref="${candidato.participacion_ref}"[^>]*>[\\s\\S]*?aria-expanded="false"`));
   modalFicha = null;
   const htmlCerrado = presentador.renderizarVista("bolsa-candidatos");
-  assert.doesNotMatch(htmlCerrado, /Fila de participación|fila-ficha-participacion|Ficha de participación/);
+  assert.doesNotMatch(htmlCerrado, /Fila de participación|fila-ficha-participacion|<h3 id="titulo-ficha/);
 });
 test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativos", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
@@ -758,7 +763,7 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   flujo.paso = 2;
   html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /2\. Seleccionar candidatos/);
-  assert.match(html, /Respetar orden de prelación \(obligatorio\)/);
+  assert.match(html, /<p>Los candidatos se llaman siempre por el orden de la bolsa\.<\/p>.*<th scope="col">Selección<\/th><th scope="col">Nº orden<\/th>/s);
   // Las explicaciones del paso van en la ayuda «?», no en la pantalla.
   assert.doesNotMatch(html, /no ocupan turno|<summary/);
   assert.doesNotMatch(html, new RegExp(pausado.nombre_visible));
@@ -771,8 +776,8 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   assert.match(html, /3\. Configurar llamamiento/);
   assert.doesNotMatch(html, /comunes a todas las personas|no presupone un plazo legal|no acreditan entrega/);
   assert.match(html, /name="plazo" required minlength="2" maxlength="160" value=""/);
-  assert.match(html, /<label class="campo campo-ancho"><span>Plazo de respuesta indicado por RRHH<\/span><input name="plazo"/);
-  assert.match(html, /<label class="campo"><span>Modalidad<\/span><select name="modalidad"/);
+  assert.match(html, /<label class="campo campo-ancho"><span>Plazo de respuesta indicado por RRHH \(obligatorio\)<\/span><input name="plazo"/);
+  assert.match(html, /<label class="campo"><span>Modalidad \(obligatorio\)<\/span><select name="modalidad".*<fieldset class="campo campo-ancho"><legend>Canales de aviso<\/legend><label><input type="checkbox" checked disabled> Correo electrónico al emitir el llamamiento<\/label><\/fieldset>/s);
   assert.doesNotMatch(html, /48 horas|relay de desarrollo|value="Pendiente de definición por RRHH"/);
   assert.match(html, /<input type="hidden" name="plantilla_version" value="bolsa-llamamiento-v1">/);
   assert.doesNotMatch(html, /<span>Plantilla<\/span>/);
@@ -786,12 +791,41 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
 });
 test("P-WEB-08 presenta estadísticas y enlaza cada cifra por bolsa con B5", () => {
   const estadisticas = validarRespuestaEstadisticas({ data: { esquema: ESQUEMA_ESTADISTICAS, generado_en: "2026-09-23T08:00:00Z", bolsas: { total: 1, vigentes: 1, sustituidas: 0 }, personas: { total: 2, por_estado: { disponible: 1, no_disponible: 0, trabajando: 1, pendiente_incorporacion: 0, renuncia: 0, excluido: 0, disponible_desde: 0 } }, llamamientos: { total: 1, por_canal: { correo: 1 }, por_resultado: { pendiente: 1 } }, por_bolsa: [{ bolsa_ref: "bolsa:01", categoria: "Auxiliar", tipo_lista: "ordinaria", vigente: true, total: 2, por_estado: { disponible: 1, no_disponible: 0, trabajando: 1, pendiente_incorporacion: 0, renuncia: 0, excluido: 0, disponible_desde: 0 } }] } });
-  const presentador = crearPresentadorPanelInterno({ claseEstado: (c) => c, encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`, escaparHTML: (v) => String(v ?? ""), numero: (n) => String(n ?? 0), obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }), tituloVista: (v) => v, obtenerDatosEstadisticas: () => ({ carga: "listo", datos: estadisticas, error: "" }) });
+  const presentador = crearPresentadorPanelInterno({ claseEstado: (c) => c, encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`, escaparHTML: (v) => String(v ?? ""), numero: (n) => String(n ?? 0), obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }), tituloVista: (v) => v, obtenerDatosEstadisticas: () => ({ carga: "listo", datos: estadisticas, error: "" }), obtenerDatosBolsas: () => ({ carga: "listo", datos: { bolsas: [{ llamamientos_en_curso: 2 }] } }) });
   const html = presentador.renderizarVista("estadisticas");
   assert.doesNotMatch(html, /B5|Seleccione una cifra|Desglose agregado|1 bolsas/);
   assert.match(html, /aria-label="Abrir 1 personas disponibles de Auxiliar en la lista de candidatos"/);
   assert.match(html, /data-accion="ver-bolsa" data-bolsa-ref="bolsa:01" data-estado="disponible"/);
   assert.match(html, /Personas y llamamientos/);
+  assert.match(html, /<strong class="valor-kpi">2<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
+  assert.match(html, /Histórico de llamamientos<\/h4><p[^>]*>No disponible<\/p>/);
+  assert.doesNotMatch(html, /Por canal|Por resultado|Sin desglose por canal|Sin desglose por resultado/);
+});
+
+test("estadísticas no convierten un histórico sin carga en cero ni una lectura fallida en cero", () => {
+  const datos = validarRespuestaEstadisticas({ data: { esquema: ESQUEMA_ESTADISTICAS, generado_en: "2026-10-07T10:00:00Z",
+    bolsas: { total: 1, vigentes: 1, sustituidas: 0 }, personas: { total: 0, por_estado: { disponible: 0, no_disponible: 0, trabajando: 0, pendiente_incorporacion: 0, renuncia: 0, excluido: 0, disponible_desde: 0 } },
+    llamamientos: { total: 0, por_canal: {}, por_resultado: {} }, por_bolsa: [] } });
+  let lectura = { carga: "listo", datos: { bolsas: [{ llamamientos_en_curso: 1 }] } };
+  const presentador = crearPresentadorPanelInterno({ claseEstado: (c) => c, encabezadoVista: (_s, titulo) => `<h2>${titulo}</h2>`,
+    escaparHTML: String, numero: String, obtenerDatosPanel: () => ({}), tituloVista: (vista) => vista,
+    obtenerDatosEstadisticas: () => ({ carga: "listo", datos }), obtenerDatosBolsas: () => lectura });
+  let html = presentador.renderizarEstadisticasBolsa();
+  assert.match(html, /<strong class="valor-kpi">1<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
+  assert.match(html, /Histórico de llamamientos<\/h4><p[^>]*>No disponible<\/p>/);
+  assert.doesNotMatch(html, /<strong class="valor-kpi">0<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
+  lectura = { carga: "error", datos: null };
+  html = presentador.renderizarEstadisticasBolsa();
+  assert.match(html, /<strong class="valor-kpi">No disponible<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
+  lectura = { carga: "listo", datos: { bolsas: [{ llamamientos_en_curso: Number.MAX_SAFE_INTEGER }, { llamamientos_en_curso: 1 }] } };
+  html = presentador.renderizarEstadisticasBolsa();
+  assert.match(html, /<strong class="valor-kpi">No disponible<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
+  lectura = { carga: "listo", datos: { bolsas: [{ llamamientos_en_curso: -1 }] } };
+  html = presentador.renderizarEstadisticasBolsa();
+  assert.match(html, /<strong class="valor-kpi">No disponible<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
+  lectura = { carga: "listo", datos: { bolsas: [{ llamamientos_en_curso: 0 }] } };
+  html = presentador.renderizarEstadisticasBolsa();
+  assert.match(html, /<strong class="valor-kpi">0<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
 });
 test("controlador de B5 lleva el foco a la ficha inline y lo recupera en su control principal", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();

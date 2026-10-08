@@ -19,6 +19,9 @@ type seleccionMaterialCTDesarrollo struct {
 	dietas, cronos, documentos, cronosResolucion, cronosAvisos       bool
 	fichaPropiaPersonal, firmaDocumento, seguimientoCese, personalB2 bool
 	cancelacion                                                      bool
+	exportacionServiciosPersonal                                     bool
+	historiaServiciosPersonal                                        bool
+	historiaRelacionesPersonal                                       bool
 	incorporacionAcreditada, incorporacionB2                         bool
 	reincorporacionTitular                                           bool
 	politicaOfertas                                                  bool
@@ -68,26 +71,41 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		return s, fmt.Errorf("%w: falta Mi bolsa (PostgreSQL de llamamientos o identidad del candidato)",
 			config.ErrConfiguracionBolsaPortalCandidatoActivacion)
 	}
+	exportacionServicios, err := exportacionServiciosPersonalSolicitada(cfg)
+	if err != nil {
+		return s, err
+	}
+	historiaServicios, err := historiaServiciosPersonalSolicitada(cfg)
+	if err != nil {
+		return s, err
+	}
+	historiaRelaciones, err := historiaRelacionesPersonalSolicitada(cfg)
+	if err != nil {
+		return s, err
+	}
 	s = seleccionMaterialCTDesarrollo{
-		borradoresBolsa:         cfg.BolsaBorradoresEnabled,
-		miBolsa:                 debeComponerMiBolsaDesarrollo(cfg),
-		portalCandidato:         debeComponerPortalCandidatoDesarrollo(cfg),
-		dietas:                  dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled),
-		cronos:                  cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled),
-		documentos:              documentosSolicitados(cfg.DocumentosEnabled),
-		cronosResolucion:        cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled),
-		cronosAvisos:            cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled),
-		fichaPropiaPersonal:     personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled),
-		firmaDocumento:          firma,
-		seguimientoCese:         seguimientoCeseSolicitado(cfg),
-		cancelacion:             cancelacionCTSolicitada(cfg),
-		personalB2:              personalB2,
-		incorporacionB2:         incorporacionB2,
-		incorporacionAcreditada: incorporacionAcreditadaSolicitada(cfg),
-		reincorporacionTitular:  reincorporacion,
-		politicaOfertas:         politicaOfertas,
-		plantillasCatalogo:      plantillasCatalogo,
-		plantillasDocumental:    plantillasDocumental,
+		borradoresBolsa:              cfg.BolsaBorradoresEnabled,
+		miBolsa:                      debeComponerMiBolsaDesarrollo(cfg),
+		portalCandidato:              debeComponerPortalCandidatoDesarrollo(cfg),
+		dietas:                       dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled),
+		cronos:                       cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled),
+		documentos:                   documentosSolicitados(cfg.DocumentosEnabled),
+		cronosResolucion:             cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled),
+		cronosAvisos:                 cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled),
+		fichaPropiaPersonal:          personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled),
+		exportacionServiciosPersonal: exportacionServicios,
+		historiaServiciosPersonal:    historiaServicios,
+		historiaRelacionesPersonal:   historiaRelaciones,
+		firmaDocumento:               firma,
+		seguimientoCese:              seguimientoCeseSolicitado(cfg),
+		cancelacion:                  cancelacionCTSolicitada(cfg),
+		personalB2:                   personalB2,
+		incorporacionB2:              incorporacionB2,
+		incorporacionAcreditada:      incorporacionAcreditadaSolicitada(cfg),
+		reincorporacionTitular:       reincorporacion,
+		politicaOfertas:              politicaOfertas,
+		plantillasCatalogo:           plantillasCatalogo,
+		plantillasDocumental:         plantillasDocumental,
 	}
 	return s, nil
 }
@@ -173,6 +191,15 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.fichaPropiaPersonal {
 		d = append(d, descriptorMaterialFichaPropiaPersonalDesarrollo())
+	}
+	if s.historiaServiciosPersonal {
+		d = append(d, descriptorMaterialHistoriaServiciosPersonal())
+	}
+	if s.historiaRelacionesPersonal {
+		d = append(d, descriptorMaterialHistoriaRelacionesPersonal())
+	}
+	if s.exportacionServiciosPersonal {
+		d = append(d, descriptorMaterialExportacionServiciosPersonal())
 	}
 	if s.firmaDocumento {
 		d = append(d, descriptorMaterialFirmaDocumentoCTDesarrollo(), descriptorMaterialConsultaFirmasDocumentoCTDesarrollo())

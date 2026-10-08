@@ -197,7 +197,7 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 	if disponible {
 		recursos.personalB2 = personalB2.proveedor
 	}
-	organizacion, disponibleOH := montarOrganizacionHistoricaGobernada(ctx, directorio, materialCT.AltaPersonal.Login, configuracionV2.AltaPersonal, recursos.ct, fuenteF1, auditoria, reloj)
+	organizacion, disponibleOH := montarOrganizacionHistoricaGobernada(ctx, directorio, materialCT.AltaPersonal.Login, configuracionV2.AltaPersonal, recursos.ct, fuenteF1, auditoria, reloj, cfg.IntentosOrganizacionHistorica)
 	if disponibleOH {
 		recursos.organizacionHistorica = organizacion.proveedor
 	}

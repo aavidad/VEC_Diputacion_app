@@ -1,0 +1,25 @@
+/* Sólo distribución del visor; componentes y colores del portal común. */
+.modulo-lista-admision :is(p, dd, td, th, li) { overflow-wrap: anywhere; }
+.modulo-lista-admision #lista-archivo { min-width: 0; max-width: 100%; }
+.modulo-lista-admision .cuerpo-panel > p { margin: 0; }
+.modulo-lista-admision .lista-archivo-acciones { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: end; }
+.modulo-lista-admision .lista-admision-estado { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.modulo-lista-admision .rejilla-kpi { margin-bottom: 0; }
+.modulo-lista-admision .lista-admision-tabla :is(td, th) { white-space: normal; vertical-align: top; }
+.modulo-lista-admision .lista-admision-tabla th[scope="row"] { width: 32%; font-weight: 600; }
+.modulo-lista-admision .lista-motivos { margin: 0; padding-left: 18px; }
+.modulo-lista-admision .lista-comprobacion p { margin: 0; font-size: .875rem; }
+.modulo-lista-admision .tabla-contenedor { max-height: min(440px, 60vh); }
+.modulo-lista-admision .estado-subsanacion { display: inline-flex; align-items: center; gap: 8px; }
+.modulo-lista-admision .estado-subsanacion::before { content: ""; width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--portal-aviso); }
+.modulo-lista-admision .estado-subsanacion[data-subsanable="false"]::before { background: var(--portal-peligro); }
+.modulo-lista-admision .lista-admision-original { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; font-size: .8125rem; }
+.modulo-lista-admision input[aria-invalid="true"] { border-color: var(--portal-peligro); }
+.modulo-lista-admision summary { min-height: 32px; padding-block: 6px; cursor: pointer; }
+.modulo-lista-admision .salto-contenido:focus { position: fixed; top: 8px; max-width: calc(100% - 16px); }
+@media (max-width: 1100px) { .modulo-lista-admision .lista-archivo-acciones { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .modulo-lista-admision .lista-admision-tabla th[scope="row"] { width: auto; } }
+.modulo-lista-admision .lista-admision-tabla tbody tr:last-child > th { border-bottom: 0; }
+/* El armazón común recorta con overflow:hidden y el navegador lo desplaza al
+   enfocar contenido del borde; clip recorta igual sin permitir ese desplazamiento. */
+@media (min-width: 1024px) { .modulo-lista-admision .portal-empleado-shell { overflow: clip; } }

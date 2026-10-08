@@ -14,6 +14,7 @@ import (
 	bolsaports "vec-diputacion-granada/internal/modules/bolsa/ports"
 	selauth "vec-diputacion-granada/internal/modules/seleccion/adapters/autorizacion"
 	selhttp "vec-diputacion-granada/internal/modules/seleccion/adapters/http"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -98,7 +99,7 @@ func (m *MontajePreparacionBasesV3) Componer(ctx context.Context, d Dependencias
 			return nil, nil, errMontajePreparacionBasesV3
 		}
 	}
-	ctx, cancelar := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(30*time.Second))
 	defer cancelar()
 	pools, cerrar, err := m.abrirPools(ctx, d)
 	if err != nil {

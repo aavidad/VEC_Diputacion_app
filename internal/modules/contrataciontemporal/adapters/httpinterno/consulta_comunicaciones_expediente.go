@@ -58,6 +58,7 @@ func NuevoManejadorConsultaComunicacionesExpediente(a AutoridadCanalConsultaComu
 			return
 		}
 		pagina, err := c.ConsultarComunicacionesExpediente(r.Context(), peticion)
+		adjuntarAcuseAuditoriaLectura(w, err)
 		if errContexto := r.Context().Err(); errContexto != nil {
 			responderErrorComunicacionLlamamiento(w, r, clasificarErrorConsultaComunicacionesExpediente(errContexto))
 			return

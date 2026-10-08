@@ -16,6 +16,7 @@ import (
 	usuariosapp "vec-diputacion-granada/internal/modules/usuarios/application"
 	"vec-diputacion-granada/internal/modules/usuarios/canonico"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -58,7 +59,7 @@ func abrirPoolCorreoAvisosDesarrollo(ctx context.Context, cfg config.Config) (*p
 // preflightSQLCorreoAvisosDesarrollo comprueba, antes de publicar la
 // audiencia, que Usuarios 000008 está instalada y es ejecutable.
 func preflightSQLCorreoAvisosDesarrollo(cfg config.Config) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancel()
 	pool, err := abrirPoolCorreoAvisosDesarrollo(ctx, cfg)
 	if err != nil {

@@ -1,4 +1,4 @@
-import { crearTraductorPersonal } from "../modulos/personal/i18n.js";
+import { crearTraductorPersonal } from "../modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
 import { ZONA_MADRID, instanteDesdeHoraMadrid, localMadrid } from "../hora-madrid.js";
 import { LOCALIZACION_ACTUAL } from "../../comun/idioma.js";
 
