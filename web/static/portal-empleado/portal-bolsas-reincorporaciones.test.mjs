@@ -296,12 +296,25 @@ test("401 y 403 opcionales muestran su denegación sin reintento ni ocultar al c
     assert.equal(modalFicha.candidato.nombre_visible, "Persona autorizada");
     const html = renderizarReincorporacionesTitular({ estado: modalFicha.reincorporacionesTitular, escaparHTML });
     assert.match(html, /role="alert"/);
+    if (status === 401) assert.doesNotMatch(html, /Inicie sesión en el portal interno/u);
     assert.doesNotMatch(html, /<table|recibo:ct:1|data-reincorporacion-accion="reintentar"|Reflejo recibido desde Contratación temporal/);
     const accion = { dataset: { reincorporacionAccion: "reintentar" } };
     assert.equal(manejarClickReincorporacionesTitular({ target: { closest: () => accion }, preventDefault() {} }, {
       estado, renderizar() {}, consultar() { assert.fail("una denegación no se reintenta"); },
     }), true);
   }
+});
+
+test("un historial sin montaje queda visible con la dependencia y no emite GET", async () => {
+  const modalFicha = { candidato: { participacion_ref: "participacion:1" } };
+  const estado = { bolsaSeleccionada: "bolsa:1", modalFicha };
+  await cargarReincorporacionesTitularFicha(modalFicha, { estado, renderizar() {},
+    disponibilidad: { estado: "sin_montaje", bolsa_ref: "bolsa:1", participacion_ref: "participacion:1" },
+    consultar: async () => assert.fail("no debe consultar la ruta ausente"),
+  });
+  const vista = renderizarReincorporacionesTitular({ estado: modalFicha.reincorporacionesTitular, escaparHTML });
+  assert.match(vista, /Informática debe habilitarlo/u);
+  assert.doesNotMatch(vista, /Inicie sesión|<table|data-reincorporacion-accion="reintentar"/u);
 });
 
 test("catálogo común cubre todos los textos y el control pagina sin llamada de red", () => {

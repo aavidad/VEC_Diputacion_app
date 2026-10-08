@@ -63,6 +63,8 @@ test("RRHH18 muestra revisión traducida en ficha, filtro, cuadro y estadística
   const estadisticas = presentador.renderizarVista("estadisticas");
   assert.match(estadisticas, /<th scope="col">En revisión<\/th>/);
   assert.match(estadisticas, /data-estado="en_revision"/);
+  assert.match(estadisticas, /Histórico de llamamientos[\s\S]*Consulte el histórico de llamamientos de cada bolsa\./u);
+  assert.doesNotMatch(estadisticas, /Histórico de llamamientos[\s\S]*No disponible<\/p>/u);
   assert.doesNotMatch(estadisticas, /NaN|undefined/);
 });
 

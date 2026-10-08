@@ -4,10 +4,12 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261008-alta-global-v1";
-const versionCircuito = "20261008-alta-rechazo-v2";
-const versionVista = "20261008-alta-rechazo-v2";
-const versionRender = "20261008-documentos-ficha-v1";
+const versionCoordinador = "20261008-r-traza-idioma-v1";
+const versionCircuito = "20261008-r-fichas-idioma-nav-v1";
+const versionVista = "20261008-r-fichas-idioma-nav-v1";
+const versionVistaPortal = "20261008-r-traza-idioma-v1";
+const versionAdaptador = "20261008-r-fichas-idioma-nav-v1";
+const versionRender = "20261008-r-fichas-idioma-nav-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -33,7 +35,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
   exigirVersiones(vista, "./vista-expedientes-render.js", versionRender, 2);
   exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
-  exigirVersiones(llamamiento, "./vista-expedientes.js", versionVista);
+  exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
 });
 
 test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuito de firma", async () => {
@@ -56,7 +58,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
     exigirVersiones(portal, "./portal-modulos-coordinador.js", nueva),
   ];
   assert.equal(new Set(versiones).size, 1);
-  exigirVersiones(coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", versionVista);
+  exigirVersiones(coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", versionVistaPortal);
   // La consulta de circuito RRHH no cambió: conserva su URL anterior.
   exigirVersiones(vista, "./vista-circuito-rrhh.js", "20261002-ct-r5-grafo-v2");
   exigirVersiones(vista, "./circuito-firma.js", firma);
@@ -79,10 +81,10 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   const cohorteCT = "20261008-alta-rechazo-v2";
   exigirVersiones(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", version);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteCT);
-  exigirVersiones(coordinador, "./modulos/contratacion-temporal/adaptador-http-expedientes.js", cohorteCT);
+  exigirVersiones(coordinador, "./modulos/contratacion-temporal/adaptador-http-expedientes.js", versionAdaptador);
   for (const hoja of ["./modulos/documentos/vista.js", "./modulos/documentos/cliente-http.js"])
     exigirVersiones(coordinador, hoja, version);
-  exigirVersiones(coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", versionVista);
+  exigirVersiones(coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", versionVistaPortal);
   exigirVersiones(formalizacion, "../documentos/cliente-http.js", version);
   exigirVersiones(firma, "../documentos/cliente-http.js", version);
   exigirVersiones(categorias, "./arranque.js", "20261008-hz8-idioma-v1");
@@ -107,12 +109,13 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     vista, presentadorAlta, rendererAlta, i18n, contrato, interno, produccion, cache] = await Promise.all(
     nombres.map((nombre) => readFile(new URL(nombre, raiz), "utf8")));
   const cohorte = "20261008-alta-rechazo-v2";
+  const cohorteNavegacion = "20261008-r-traza-idioma-v1";
   const cohorteClienteHTTP = cohorte;
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = cohorte;
-  const cohorteIdioma = "20261008-alta-global-v1";
-  const cohorteEntrada = "20261008-alta-global-v1";
-  const cohorteFicha = cohorte;
+  const cohorteIdioma = cohorteNavegacion;
+  const cohorteEntrada = "20261008-r-traza-idioma-v1";
+  const cohorteFicha = "20261008-r-fichas-idioma-nav-v1";
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
     ["/portal-empleado/portal-modulos-coordinador.js", "20261008-ct-inicio-v1"],
@@ -127,7 +130,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     [coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteClienteHTTP],
     [cliente, "./cliente-http-alta.js", cohorte],
     [cliente, "./cliente-http-transporte.js", "20261008-alta-corte-v1"],
-    [coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", cohorteFicha],
+    [coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", cohorteNavegacion],
     [expedientes, "./vista-expedientes-tramitacion.js", cohorteFicha],
     [tramitacion, "./vista.js", cohorteCapacidad],
     [tramitacion, "./presentador.js", cohorte],
@@ -151,5 +154,22 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
       const ruta = `static/textos/${idioma}/contratacion-temporal-necesidades-alta.json`;
       assert.equal(contenido.split(ruta).length - 1, 1, ruta);
     }
+  }
+});
+
+test("la ficha compartible y su aviso usan una única cohorte empaquetada", async () => {
+  const [html, portal, coordinador, interno, produccion, cache] = await Promise.all([
+    "index.html", "portal.js", "portal-modulos-coordinador.js",
+    "../../interno.manifest", "../../produccion.manifest", "cache-publica-v1.json",
+  ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
+  const cohorte = "20261008-r-fichas-idioma-nav-v1";
+  const entrada = "20261008-r-traza-idioma-v1";
+  exigirVersiones(html, "/portal-empleado/portal-ct-ruta-ficha.js", cohorte);
+  exigirVersiones(portal, "./portal-ct-ruta-ficha.js", cohorte);
+  exigirVersiones(coordinador, "./portal-ct-ruta-ficha.js", cohorte);
+  exigirVersiones(html, "/portal-empleado/portal.js", entrada);
+  exigirVersiones(cache, "/portal-empleado/portal.js", entrada);
+  for (const manifiesto of [interno, produccion]) {
+    assert.equal(manifiesto.split("static/portal-empleado/portal-ct-ruta-ficha.js").length - 1, 1);
   }
 });

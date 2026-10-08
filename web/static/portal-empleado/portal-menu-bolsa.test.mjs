@@ -112,25 +112,25 @@ test("las diez categorías reproducen la jerarquía funcional facilitada por RRH
     "Bolsas y candidatos", "Llamamientos automáticos",
     "Contratos, ceses y reincorporaciones", "Reglas y baremación",
     "Consulta de candidatos", "Cuadro de mando",
-    "Estadísticas", "Documentos y firma",
+    "Estadísticas",
     "Correo y mensajería", "Auditoría y control",
   ]) assert.match(html, new RegExp(`<span data-i18n-portal="txt_[a-z0-9_]+">${texto}</span>`));
+  assert.match(html, /data-i18n-portal="bolsa_documentos_titulo">Documentos de Bolsa<\/span>/u);
   // Rótulos de negocio, sin referencias internas ni dudas pendientes en el menú.
   assert.doesNotMatch(html, /\bB(5|6|7|12)\b|dudas? 1\d|relay/u);
 });
 
-test("el menú de Bolsa no anuncia servicios pendientes, ni en pantalla ni para el lector", () => {
+test("Documentos de Bolsa explica la capacidad ausente sin abrir Contratación", () => {
   const menu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
   assert.ok(menu.length > 0);
-  // Lo pendiente se explica tras el «?», no en el menú (visible, lector o title).
-  assert.doesNotMatch(menu, /pendiente|Desde cada bolsa|solo-lectura|aria-describedby|title="/iu);
-  assert.doesNotMatch(html, /Pendiente: sin servicio autorizado/u);
-  for (const categoria of ["llamamientos", "contratos", "documentos", "comunicaciones"]) {
+  assert.match(menu, /data-categoria-bolsa="documentos" data-vista="documentos"[^>]*disabled/u);
+  assert.match(menu, /id="bolsa-documentos-pendientes"[^>]*data-i18n-portal="bolsa_documentos_pendiente"/u);
+  assert.doesNotMatch(menu, /data-categoria-bolsa="documentos" data-vista="contratacion-temporal"/u);
+  for (const categoria of ["llamamientos", "contratos", "comunicaciones"]) {
     const entrada = html.match(new RegExp(`<button[^>]*data-categoria-bolsa="${categoria}"[^>]*>`, "u"))?.[0] || "";
     assert.doesNotMatch(entrada, /disabled|aria-disabled/u);
   }
   assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratos"/u);
-  assert.match(html, /data-categoria-bolsa="documentos" data-vista="contratacion-temporal"/u);
 });
 
 test("el menú agrupa solo las rutas de gestión con superficie conservada", () => {
@@ -147,10 +147,10 @@ test("el menú agrupa solo las rutas de gestión con superficie conservada", () 
   assert.deepEqual([...vistasMapeadas].sort(), [...vistas].sort());
   assert.equal(vistasEnPlantilla.length, 17);
   assert.deepEqual([...vistasEnPlantilla].filter((vista) => vistas.includes(vista)).sort(), [
-    ...vistas.filter((vista) => !["documentos", "comunicaciones"].includes(vista)),
+    ...vistas.filter((vista) => vista !== "comunicaciones"),
     "llamamientos",
   ].sort());
-  assert.equal(vistasEnPlantilla.filter((vista) => vista === "contratacion-temporal").length, 1);
+  assert.equal(vistasEnPlantilla.filter((vista) => vista === "contratacion-temporal").length, 0);
   assert.equal(vistasEnPlantilla.filter((vista) => vista === "llamamientos").length, 2);
   assert.equal(categoriaDeVistaBolsa("convocatorias"), "bolsas-candidatos");
   assert.equal(categoriaDeVistaBolsa("baremacion"), "reglas");
@@ -188,13 +188,14 @@ test("la subvista activa se anuncia y B5 conserva abierto su grupo", () => {
 });
 
 test("las entradas del menú llevan solo a recorridos disponibles", () => {
-  const entradas = ["llamamientos", "contratos", "documentos", "comunicaciones"];
+  const entradas = ["llamamientos", "contratos", "comunicaciones"];
   const fragmentoMenu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
   for (const categoria of entradas) {
     const boton = fragmentoMenu.match(new RegExp(`<button[^>]*data-categoria-bolsa="${categoria}"[^>]*>[\\s\\S]*?<\\/button>`))?.[0] || "";
     assert.doesNotMatch(boton, /categoria-menu-pendiente|\sdisabled(?:\s|=|>)|aria-disabled="true"/);
     assert.doesNotMatch(boton, /aria-describedby|pendiente/iu);
   }
+  assert.match(fragmentoMenu, /data-categoria-bolsa="documentos"[^>]*disabled/u);
   assert.equal(vistaBolsaPendienteNoCompuesta("llamamientos"), false);
   assert.equal(vistaBolsaPendienteNoCompuesta("contratos"), true);
   assert.equal(vistaBolsaPendienteNoCompuesta("resumen"), false);
@@ -275,7 +276,7 @@ test("accesoBolsaEfectivo abre el cuadro cuando hay bolsas reales aunque los bor
 test("las etiquetas visibles del menú son cortas", () => {
   const menu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
   const etiquetas = [...menu.matchAll(/<span class="etiqueta-menu" aria-hidden="true"[^>]*>([^<]*)<\/span>/gu)].map((m) => m[1]);
-  assert.deepEqual(etiquetas, ["Consulta", "Borradores PDF", "Correo"]);
+  assert.deepEqual(etiquetas, ["Consulta", "Correo"]);
   for (const etiqueta of etiquetas) assert.ok(etiqueta.length <= 20, etiqueta);
 });
 
@@ -348,16 +349,16 @@ test("sin panel interno ni borradores, el menú de Bolsa solo ofrece lo que tien
   // Grupos enteros sin servicio (convocatorias…, reglas, auditoría) quedan ocultos.
   assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").length, 3);
   assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").every((grupo) => grupo.hidden), true);
-  // Sin contratación temporal, «Documentos y firma» tampoco se ofrece.
+  // El aviso de Documentos de Bolsa no depende de la capacidad de CT.
   aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false });
-  assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas"]);
+  assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos"]);
 });
 
 test("el menú espera la lectura positiva de bolsas sin impedir el estado de una URL directa", async () => {
   const { aplicarDisponibilidadMenuBolsa, vistaBolsaNavegable } = await import("./portal-menu-bolsa.js");
   const raiz = menuDesdeHTML();
   aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: false, borradores: false, contratacionTemporal: false });
-  assert.deepEqual(categoriasVisibles(raiz), []);
+  assert.deepEqual(categoriasVisibles(raiz), ["documentos"]);
   for (const vista of ["resumen", "estadisticas", "llamamientos"]) {
     assert.equal(vistaBolsaNavegable(vista, { bolsasConsultables: false }), true, vista);
   }

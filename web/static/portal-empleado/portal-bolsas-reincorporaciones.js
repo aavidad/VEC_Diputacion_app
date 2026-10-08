@@ -165,7 +165,7 @@ export async function cargarReincorporacionesTitularFicha(modal, { estado, rende
     ? disponibilidad : disponibilidad ? { estado: "indisponible" } : null;
   if (registro && registro.estado !== "disponible") {
     modal.reincorporacionesTitular = { carga: registro.estado === "indisponible" ? "metadatos" : "omitida",
-      items: [], pagina: 0 };
+      motivo: registro.estado, items: [], pagina: 0 };
     if (renderizarAlIniciar) renderizar();
     return;
   }
@@ -193,9 +193,9 @@ function fechaVisible(valor) {
 export function renderizarReincorporacionesTitular({ estado = {}, escaparHTML }) {
   const t = (clave, variables) => textoPortal(`reincorporacion_${clave}`, variables);
   const carga = estado.carga || "cargando";
-  if (carga === "omitida") return "";
   let contenido;
-  if (carga === "cargando") contenido = `<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`;
+  if (carga === "omitida") contenido = `<p class="mensaje-error" role="status">${t(estado.motivo === "sin_montaje" ? "sin_montaje" : "no_autorizado")}</p>`;
+  else if (carga === "cargando") contenido = `<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`;
   else if (carga === "metadatos") contenido = `<p class="${estado.metadatosCargando ? "vacio-controlado" : "mensaje-error"}" role="${estado.metadatosCargando ? "status" : "alert"}">${estado.metadatosCargando ? textoPortal("txt_comprobando_acceso") : t("error_503")}</p><button type="button" class="boton-secundario" data-reincorporacion-accion="reintentar" ${estado.metadatosCargando ? "disabled" : ""}>${t("reintentar")}</button>`;
   else if (carga === "denegado") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || traducirPortal("reincorporacion_error_403"))}</p>`;
   else if (carga === "pendiente" || carga === "error") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || traducirPortal("reincorporacion_error_red"))}</p><button type="button" class="boton-secundario" data-reincorporacion-accion="reintentar">${t("reintentar")}</button>`;

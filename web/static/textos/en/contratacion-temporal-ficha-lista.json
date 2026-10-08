@@ -9,6 +9,8 @@
     "ficha_siguiente_paso_fase": "Next step: {fase}",
     "ficha_siguiente_paso_espera": "Waiting for another unit",
     "ficha_siguiente_paso_terminado": "Case finished",
+    "ficha_siguiente_paso_cobertura_titulo": "Next step: choose the recruitment route",
+    "ficha_siguiente_paso_cobertura_que": "The analysis has been recorded. Choose how to cover the request in the section below.",
     "ficha_plazo_fase": "{fecha} (stage deadline)",
     "ficha_plazo_fase_estado": "{fecha} (stage deadline · {estado})",
     "ficha_ir_tramite": "Go to this stage’s procedure",

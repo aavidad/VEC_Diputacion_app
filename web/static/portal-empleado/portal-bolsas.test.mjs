@@ -633,6 +633,7 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   filtrosBolsa = { ...filtrosBolsa, pestana: "historico" };
   const htmlHistorico = presentador.renderizarVista("bolsa-candidatos");
   assert.match(htmlHistorico, /Histórico de contactos y llamamientos/);
+  assert.match(htmlHistorico, /Registros: [0-9]+/u);
   assert.match(htmlHistorico, /<th scope="col">Contacto<\/th>/);
   assert.match(htmlHistorico, /Sin llamamientos registrados|Llamamiento/);
   assert.match(htmlHistorico, /<section class="panel" hidden>/);
@@ -798,7 +799,7 @@ test("P-WEB-08 presenta estadísticas y enlaza cada cifra por bolsa con B5", () 
   assert.match(html, /data-accion="ver-bolsa" data-bolsa-ref="bolsa:01" data-estado="disponible"/);
   assert.match(html, /Personas y llamamientos/);
   assert.match(html, /<strong class="valor-kpi">2<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
-  assert.match(html, /Histórico de llamamientos<\/h4><p[^>]*>No disponible<\/p>/);
+  assert.match(html, /Histórico de llamamientos<\/h4><p[^>]*>Consulte el histórico de llamamientos de cada bolsa\.<\/p>/u);
   assert.doesNotMatch(html, /Por canal|Por resultado|Sin desglose por canal|Sin desglose por resultado/);
 });
 
@@ -812,7 +813,7 @@ test("estadísticas no convierten un histórico sin carga en cero ni una lectura
     obtenerDatosEstadisticas: () => ({ carga: "listo", datos }), obtenerDatosBolsas: () => lectura });
   let html = presentador.renderizarEstadisticasBolsa();
   assert.match(html, /<strong class="valor-kpi">1<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
-  assert.match(html, /Histórico de llamamientos<\/h4><p[^>]*>No disponible<\/p>/);
+  assert.match(html, /Histórico de llamamientos<\/h4><p[^>]*>Consulte el histórico de llamamientos de cada bolsa\.<\/p>/u);
   assert.doesNotMatch(html, /<strong class="valor-kpi">0<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
   lectura = { carga: "error", datos: null };
   html = presentador.renderizarEstadisticasBolsa();
