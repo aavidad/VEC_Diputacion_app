@@ -71,7 +71,7 @@ func TestFuenteConstituidaRRHHCandidatosLeeSoloSuBolsa(t *testing.T) {
 func TestBolsasRRHHDesarrolloSinB92FallaSoloLaLista(t *testing.T) {
 	f, _ := fuenteVariasBolsasRRHHPrueba(t, 1, 2, true)
 	h := nuevoManejadorBolsasRRHHDesarrollo(f.cargar)
-	h.cargarBolsa = f.cargarBolsa
+	h.cargarBolsa = f.cargarBolsaRRHH
 	lista := httptest.NewRecorder()
 	h.ServeHTTP(lista, httptest.NewRequest(http.MethodGet, rutaBolsasRRHHDesarrollo+"/bolsa:prueba:01/candidatos", nil))
 	if lista.Code != http.StatusServiceUnavailable {

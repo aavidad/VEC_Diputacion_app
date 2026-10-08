@@ -111,7 +111,7 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 	if fuente != nil {
 		manejador.avisos = fuente.avisos
 		manejador.resumen = fuente.cargarResumen
-		manejador.cargarBolsa = fuente.cargarBolsa
+		manejador.cargarBolsa = fuente.cargarBolsaRRHH
 	}
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]

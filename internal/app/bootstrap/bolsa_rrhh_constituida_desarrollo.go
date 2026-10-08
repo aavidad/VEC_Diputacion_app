@@ -248,10 +248,17 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarResumen(ctx context.Context) (da
 
 // cargarBolsa sirve la lista de candidatos de una sola bolsa.
 func (f *fuenteConstituidaRRHHDesarrollo) cargarBolsa(ctx context.Context, bolsaRef string) (datasetBolsasRRHHDesarrollo, error) {
-	if bolsaRef == "" || f == nil || f.bolsaConjunto == nil {
+	if bolsaRef == "" || f == nil {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
 	return f.cargarAlcance(ctx, alcanceCargaBolsasRRHH{bolsa: bolsaRef, detalle: true})
+}
+
+func (f *fuenteConstituidaRRHHDesarrollo) cargarBolsaRRHH(ctx context.Context, bolsaRef string) (datasetBolsasRRHHDesarrollo, error) {
+	if f == nil || f.bolsaConjunto == nil {
+		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+	}
+	return f.cargarBolsa(ctx, bolsaRef)
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alcance alcanceCargaBolsasRRHH) (datasetBolsasRRHHDesarrollo, error) {
