@@ -631,6 +631,34 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("portal-preferencias-integracion.js", "20261008-inicio-idioma-v1");
   for (const ruta of ["portal-modulos-coordinador.js", "portal.js"])
     versionesEspeciales.set(ruta, "20261008-documentos-ficha-v2");
+  // El análisis confirmado renovó estos consumidores; las hojas de Documentos
+  // que no cambiaron conservan su versión anterior en el mapa.
+  for (const ruta of [
+    "categorias-rpt/cliente.js", "categorias-rpt/montaje.js",
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/presentador-expedientes.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-modulos-coordinador.js", "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261008-analisis-confirmado-v2");
+  for (const ruta of [
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/alta-renderer-puro.js",
+    "modulos/contratacion-temporal/cliente-http-alta.js",
+    "modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/cliente-http-transporte.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/contrato.js",
+    "modulos/contratacion-temporal/formulario-cobertura.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/presentador.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista.js",
+  ]) versionesEspeciales.set(ruta, "20261008-alta-corte-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -768,7 +796,8 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-documentos-ficha-v2");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionPortal);
+  assert.notEqual(versionPortal, "20261008-documentos-ficha-v2");
 
 });
 
@@ -778,9 +807,11 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   const [html, portal, coordinador, recorridos, borradores] = await Promise.all(
     rutas.map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const version = "20261007-u-dietas-catalogo-v1";
-  const versionRaiz = "20261008-documentos-ficha-v2";
-  const versionCoordinador = "20261008-documentos-ficha-v2";
+  const versionRaiz = versionDe(html, "/portal-empleado/portal.js");
+  const versionCoordinador = versionDe(portal, "./portal-modulos-coordinador.js");
   const comun = "20261007-pantallas-textos-final-v1";
+  assert.notEqual(versionRaiz, "20261008-documentos-ficha-v2");
+  assert.notEqual(versionCoordinador, "20261008-documentos-ficha-v2");
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionRaiz);
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionCoordinador);
   assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionCoordinador);

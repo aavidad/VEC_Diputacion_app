@@ -618,7 +618,7 @@ test("ningún módulo del portal se pide con dos URL distintas (una sola descarg
     "/portal-empleado/portal-bolsas-api.js?v=20261008-w-bolsa-ficha-main-v2",
     "/portal-empleado/portal-bolsas-contrato.js?v=20261008-canal-telefono-v2",
     `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
-    "/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1",
+    "/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261008-alta-corte-v1",
   ]) assert.ok(urls.has(url), `${url}: el portal debe alcanzar ambas ramas integradas`);
   const porFichero = new Map();
   for (const url of urls) {
