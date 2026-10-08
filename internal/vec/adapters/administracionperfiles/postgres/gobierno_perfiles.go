@@ -218,13 +218,13 @@ func (a *AutoridadGobiernoRolNuevo) disponibleGobierno(ctx context.Context) erro
 func (a *AutoridadGobiernoRolNuevo) ejecutarGobierno(ctx context.Context, actor domain.ContextoActor,
 	evidencia domain.EvidenciaSesionAdministracionPerfiles, instantanea domain.InstantaneaAutorizacion,
 	e Efecto, consulta string, validar func([]byte) error) error {
-	fallo := ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	errNoDisponible := ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	if err := a.disponibleGobierno(ctx); err != nil {
 		return err
 	}
 	if validar == nil || evidencia.ValidarEn(actor, a.reloj.Ahora()) != nil ||
 		!domain.ReferenciaCorrelacionAutorizacionV2Valida(e.CorrelacionAccesoRef) {
-		return fallo
+		return errNoDisponible
 	}
 	recurso, err := RecursoGobiernoRolNuevo(e, instantanea.AsignacionPerfil)
 	if err != nil {
@@ -239,11 +239,11 @@ func (a *AutoridadGobiernoRolNuevo) ejecutarGobierno(ctx context.Context, actor 
 		if errors.Is(err, domain.ErrAutorizacionDenegada) {
 			return err
 		}
-		return fallo
+		return errNoDisponible
 	}
 	h, err := recurso.HuellaContextoAutorizacionSHA256()
 	if err != nil {
-		return fallo
+		return errNoDisponible
 	}
 	r := m.ResumenCapacidad()
 	ahora := a.reloj.Ahora()
@@ -253,7 +253,7 @@ func (a *AutoridadGobiernoRolNuevo) ejecutarGobierno(ctx context.Context, actor 
 		r.ContextoHuellaSHA256() != evidencia.ResultadoContexto.HuellaSHA256 ||
 		m.PersonaVersion() != actor.Instantanea.PersonaVersion || m.PerfilVersion() != actor.Instantanea.PerfilVersion ||
 		ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) {
-		return fallo
+		return errNoDisponible
 	}
 	args := []any{string(e.Material), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(),
 		m.ContextoActorCanonico(), strconv.FormatUint(m.PersonaVersion(), 10), strconv.FormatUint(m.PerfilVersion(), 10),
@@ -267,7 +267,7 @@ func (a *AutoridadGobiernoRolNuevo) ejecutarGobierno(ctx context.Context, actor 
 	}()
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil || ausente(tx) {
-		return fallo
+		return errNoDisponible
 	}
 	defer func() {
 		c, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
@@ -282,7 +282,7 @@ func (a *AutoridadGobiernoRolNuevo) ejecutarGobierno(ctx context.Context, actor 
 		"SET LOCAL TimeZone = 'UTC'",
 	} {
 		if _, err := tx.Exec(ctx, configuracion); err != nil {
-			return fallo
+			return errNoDisponible
 		}
 	}
 	var b []byte
@@ -304,12 +304,12 @@ func (a *AutoridadGobiernoRolNuevo) ejecutarGobierno(ctx context.Context, actor 
 		if intento.AuditoriaIntento.AuditoriaRef == "" ||
 			(intento.Estado == "denegado" && intento.Codigo != "gobierno_rol_nuevo_denegado") ||
 			(intento.Estado == "error" && intento.Codigo != "gobierno_rol_nuevo_error") {
-			return fallo
+			return errNoDisponible
 		}
 		if intento.Estado == "denegado" {
 			errorIntento = domain.ErrAutorizacionDenegada
 		} else {
-			errorIntento = fallo
+			errorIntento = errNoDisponible
 		}
 	} else if err := validar(b); err != nil {
 		return err
@@ -320,7 +320,7 @@ func (a *AutoridadGobiernoRolNuevo) ejecutarGobierno(ctx context.Context, actor 
 	if err := tx.Commit(ctx); err != nil {
 		// Un COMMIT indeterminado se recupera mediante la misma operación y
 		// autorización nueva, nunca entregando un recibo provisional.
-		return fallo
+		return errNoDisponible
 	}
 	if errorIntento != nil {
 		return errors.Join(ports.ErrGobiernoRolIntentoAuditado, errorIntento)

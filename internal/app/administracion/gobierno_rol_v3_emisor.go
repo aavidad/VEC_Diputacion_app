@@ -73,14 +73,14 @@ func (e *EmisorGobiernoRolNuevoV3) EmitirGobiernoRolNuevo(ctx context.Context, a
 	evidencia domain.EvidenciaSesionAdministracionPerfiles, snapshot domain.InstantaneaAutorizacion,
 	efecto gobierno.Efecto) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	var vacia ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
-	fallo := ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	errNoDisponible := ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	if e == nil || ctx == nil || ctx.Err() != nil || dependenciaConfianzaPerfilesNula(e.reloj) ||
 		e.emisores[efecto.Audiencia] == nil {
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	ahora := e.reloj.Ahora()
 	if actor.Validar() != nil || evidencia.ValidarEn(actor, ahora) != nil || !actor.Instantanea.VigenteEn(ahora) {
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	recurso, err := gobierno.RecursoGobiernoRolNuevo(efecto, snapshot.AsignacionPerfil)
 	if err != nil {
@@ -88,24 +88,24 @@ func (e *EmisorGobiernoRolNuevoV3) EmitirGobiernoRolNuevo(ctx context.Context, a
 	}
 	vinculo, err := evidencia.Vinculo.Datos()
 	if err != nil {
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	if !vinculo.CuentaPrivilegiada || vinculo.Superficie != domain.SuperficieAutenticacionAdministracionPrivilegiadaV1 ||
 		vinculo.GarantiaObservada != domain.AuthAssuranceHigh ||
 		!snapshotGobiernoRolNuevo(snapshot, actor, recurso, efecto.Accion, ahora) {
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	correlacion, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	valor, err := correlacion.ValorCanonico()
 	if err != nil || valor != efecto.CorrelacionAccesoRef {
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	resultado, err := evidencia.ResultadoContexto.Clonar()
 	if err != nil {
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	motivo := e.motivos[efecto.Audiencia]
 	solicitud, err := domain.NuevaSolicitudAutorizacionLigadaV3(domain.DatosSolicitudAutorizacionLigadaV3{
@@ -113,28 +113,28 @@ func (e *EmisorGobiernoRolNuevoV3) EmitirGobiernoRolNuevo(ctx context.Context, a
 		Recurso: recurso, Finalidad: gobierno.FinalidadGobiernoRol, Correlacion: correlacion,
 	})
 	if err != nil {
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	decision, confirmacion, exportador, err := e.emisores[efecto.Audiencia].EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
 	if err != nil {
 		if ctx.Err() == nil && errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
 			return vacia, domain.ErrAutorizacionDenegada
 		}
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	ahora = e.reloj.Ahora()
 	if ctx.Err() != nil || dependenciaConfianzaPerfilesNula(exportador) || confirmacion.Validar() != nil ||
 		validarDecisionGobiernoRolNuevo(decision, confirmacion, solicitud, motivo, resultado, ahora) != nil ||
 		!evidencia.Vinculo.VigenteEn(ahora, resultado) {
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
 	if err != nil {
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	h, err := recurso.HuellaContextoAutorizacionSHA256()
 	if err != nil {
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	r := material.ResumenCapacidad()
 	if material.ValidarEstructura() != nil || ctx.Err() != nil || r.Operacion() != efecto.Accion ||
@@ -143,7 +143,7 @@ func (e *EmisorGobiernoRolNuevoV3) EmitirGobiernoRolNuevo(ctx context.Context, a
 		!bytes.Equal(material.ContextoActorCanonico(), resultado.RepresentacionCanonica) ||
 		material.PersonaVersion() != resultado.Contexto.Instantanea.PersonaVersion ||
 		material.PerfilVersion() != resultado.Contexto.Instantanea.PerfilVersion {
-		return vacia, fallo
+		return vacia, errNoDisponible
 	}
 	return material, nil
 }

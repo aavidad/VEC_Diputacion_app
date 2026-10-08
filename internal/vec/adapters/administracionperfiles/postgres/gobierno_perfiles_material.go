@@ -105,19 +105,19 @@ func materialCierreGobiernoRol(s domain.SolicitudCierreGobiernoPerfil) (Efecto, 
 // asignación actual. La huella de material se recalcula en AUT60; el caller
 // jamás aporta ámbitos ni atributos positivos.
 func RecursoGobiernoRolNuevo(e Efecto, asignacion domain.AsignacionPerfil) (domain.RecursoAutorizable, error) {
-	fallo := ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	errNoDisponible := ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	if len(e.Material) == 0 || len(e.Material) > 65536 || asignacion.Validar() != nil || len(asignacion.Ambitos) != 2 {
-		return domain.RecursoAutorizable{}, fallo
+		return domain.RecursoAutorizable{}, errNoDisponible
 	}
 	ambitos := make(map[string]string, 2)
 	for _, a := range asignacion.Ambitos {
 		if len(a.Valores) != 1 || (a.Clave != "organizacion_ref" && a.Clave != "unidad_ref") {
-			return domain.RecursoAutorizable{}, fallo
+			return domain.RecursoAutorizable{}, errNoDisponible
 		}
 		ambitos[a.Clave] = a.Valores[0]
 	}
 	if ambitos["organizacion_ref"] == "" || ambitos["unidad_ref"] == "" {
-		return domain.RecursoAutorizable{}, fallo
+		return domain.RecursoAutorizable{}, errNoDisponible
 	}
 	var tipo string
 	switch {
@@ -125,21 +125,21 @@ func RecursoGobiernoRolNuevo(e Efecto, asignacion domain.AsignacionPerfil) (doma
 		var p propuestaGobiernoRolEnvelope
 		if decodificarGobiernoRol(e.Material, &p) != nil || p.Esquema != "administracion_gobierno_rol_nuevo_propuesta_v1" ||
 			p.CorrelacionRef != e.CorrelacionAccesoRef || len(p.MaterialCanon) == 0 || len(p.MaterialCanon) > 60000 {
-			return domain.RecursoAutorizable{}, fallo
+			return domain.RecursoAutorizable{}, errNoDisponible
 		}
 		var m domain.MaterialPropuestaGobiernoPerfil
 		if decodificarGobiernoRol([]byte(p.MaterialCanon), &m) != nil || m.Plan.Operacion != domain.OperacionCrearPerfilGobernado ||
 			m.Plan.DefinicionNueva == nil || m.Plan.DefinicionNueva.Version != 1 || m.Plan.Base != nil ||
 			len(m.Plan.Selecciones) != 1 || len(m.Plan.DefinicionNueva.Concesiones) != 1 ||
 			m.Plan.VersionRolObjetivoRef != e.Referencia {
-			return domain.RecursoAutorizable{}, fallo
+			return domain.RecursoAutorizable{}, errNoDisponible
 		}
 		canon, err := json.Marshal(m)
 		mh, eh := m.HuellaSHA256()
 		ph, ep := m.Plan.HuellaSHA256()
 		if err != nil || eh != nil || ep != nil || !bytes.Equal(canon, []byte(p.MaterialCanon)) ||
 			mh != p.MaterialSHA256 || ph != p.PlanSHA256 {
-			return domain.RecursoAutorizable{}, fallo
+			return domain.RecursoAutorizable{}, errNoDisponible
 		}
 		tipo = "definicion_rol"
 	case e.Accion == AccionGobiernoRolAprobar && e.Audiencia == AudienciaGobiernoRolAprobar:
@@ -149,17 +149,17 @@ func RecursoGobiernoRolNuevo(e Efecto, asignacion domain.AsignacionPerfil) (doma
 			c.CorrelacionRef != e.CorrelacionAccesoRef || c.PropuestaHuellaSHA256 == "" ||
 			!domain.ReferenciaAdministracionPerfilesValida(c.OperacionRef, "cierre_admin:") ||
 			!domain.ReferenciaAdministracionPerfilesValida(c.PropuestaRef, "propuesta_admin:") {
-			return domain.RecursoAutorizable{}, fallo
+			return domain.RecursoAutorizable{}, errNoDisponible
 		}
 		tipo = "propuesta_definicion_rol"
 	default:
-		return domain.RecursoAutorizable{}, fallo
+		return domain.RecursoAutorizable{}, errNoDisponible
 	}
 	h := sha256.Sum256(e.Material)
 	recurso := domain.RecursoAutorizable{Referencia: e.Referencia, ModuloID: "administracion", Tipo: tipo,
 		Ambitos: ambitos, Atributos: map[string]string{atributoMaterialGobiernoRol: hex.EncodeToString(h[:])}}
 	if recurso.Validar() != nil || !asignacion.Cubre(recurso) {
-		return domain.RecursoAutorizable{}, fallo
+		return domain.RecursoAutorizable{}, errNoDisponible
 	}
 	return recurso, nil
 }
