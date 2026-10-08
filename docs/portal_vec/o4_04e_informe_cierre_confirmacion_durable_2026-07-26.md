@@ -86,4 +86,4 @@ duro de 800; dividirlas expondría estados intermedios instalables.
 Este cierre no registra rutas HTTP ni convierte la pantalla en productiva.
 La composición neutral para web, escritorio, CLI y MCP, el cliente del portal
 y el E2E visual pertenecen a O4-05. La siguiente referencia obligatoria es
-[el plan O4-05](o4_05_plan_integracion_web_2026-07-26.md).
+el plan O4-05 (retirado el 08/10/2026; consultar la historia de Git).

@@ -1,5 +1,7 @@
 # Plan de Nóminas: 4 de octubre de 2026
 
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+
 La persona consultará sus recibos originales por entidad, relación y periodo, con
 lectura y descarga autorizadas por separado. Podrá pedir revisión de una discrepancia.
 El cálculo, cierre, cotización, fiscalidad y pago mantienen sus autoridades y quedan
