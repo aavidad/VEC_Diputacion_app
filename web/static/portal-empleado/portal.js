@@ -401,15 +401,48 @@ function obtenerSesion() {
   promesaSesion ??= consultarSesionPortal().catch((error) => { promesaSesion = null; throw error; });
   return promesaSesion;
 }
+// La ficha de CT consulta Bolsa solo tras acreditar su detalle. Este contexto
+// no alimenta el cuadro, los indicadores ni el controlador general de Bolsa.
+let contextoBolsaCT = null;
+async function prepararBolsaFichaCT({ expedienteRef, signal }) {
+  if (typeof expedienteRef !== "string" || !expedienteRef || signal?.aborted) return;
+  contextoBolsaCT = { expedienteRef, carga: "cargando", datos: null };
+  if (estado.datosBolsas?.carga === "listo" && Array.isArray(estado.datosBolsas.datos?.bolsas)) {
+    contextoBolsaCT = { expedienteRef, carga: "listo", datos: estado.datosBolsas.datos };
+    return;
+  }
+  try {
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261008-canal-telefono-v2");
+    if (signal?.aborted) return;
+    const resultado = await consultarBolsas({ signal });
+    if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
+    contextoBolsaCT = resultado.ok && Array.isArray(resultado.datos?.bolsas)
+      ? { expedienteRef, carga: "listo", datos: resultado.datos }
+      : { expedienteRef, carga: resultado.status === 401 || resultado.status === 403 ? "denegado" : "error", datos: null };
+  } catch {
+    if (!signal?.aborted && contextoBolsaCT?.expedienteRef === expedienteRef)
+      contextoBolsaCT = { expedienteRef, carga: "error", datos: null };
+  }
+}
 const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar,
   consultarSesion: () => obtenerSesion(),
   montajeBolsa: Object.freeze({
     disponible: (vista) => VISTAS_INTERNAS_BOLSA.includes(vista) && !vista.startsWith("seleccion-"),
+    prepararFicha: prepararBolsaFichaCT,
+    limpiarFicha: () => { contextoBolsaCT = null; },
+    fallarFicha: (expedienteRef) => {
+      if (contextoBolsaCT?.expedienteRef === expedienteRef)
+        contextoBolsaCT = { expedienteRef, carga: "error", datos: null };
+    },
     // Otros módulos enlazan con una bolsa solo si el perfil la ve en el cuadro.
     // Sin referencia, «categoriaRef» busca la bolsa vigente de esa categoría de la RPT.
     resolverBolsa: (bolsaRef, { categoriaRef = "" } = {}) => {
+      if (estado.vista === "contratacion-temporal" && ["error", "denegado"].includes(contextoBolsaCT?.carga))
+        return Object.freeze({ estado: contextoBolsaCT.carga });
       if (!vistaPermitida(VISTA_CANDIDATOS_BOLSA)) return null;
-      const bolsas = estado.datosBolsas?.carga === "listo" ? estado.datosBolsas.datos?.bolsas : null;
+      const bolsas = estado.datosBolsas?.carga === "listo" ? estado.datosBolsas.datos?.bolsas
+        : estado.vista === "contratacion-temporal" && contextoBolsaCT?.carga === "listo"
+          ? contextoBolsaCT.datos?.bolsas : null;
       if (!Array.isArray(bolsas)) return null;
       const categoria = typeof categoriaRef === "string" ? categoriaRef.replace(/^categoria:rpt:/u, "") : "";
       const bolsa = bolsaRef ? bolsas.find((item) => item?.bolsa_ref === bolsaRef)
@@ -557,7 +590,8 @@ function capacidadesBolsa() {
   const borradores = superficieBorradores.obtenerAcceso();
   return {
     panelInterno: estado.fuenteLista === true,
-    bolsasConsultables: estado.datosBolsas?.carga === "listo",
+    bolsasConsultables: estado.datosBolsas?.carga === "listo"
+      || estado.vista === "contratacion-temporal" && contextoBolsaCT?.carga === "listo",
     borradores: borradores?.disponible === true ? true
       : (borradores?.estado === "denegado" || borradores?.estado === "error" ? false : null),
     contratacionTemporal: coordinadorModulos.vistaDisponible("contratacion-temporal"),
@@ -724,6 +758,7 @@ async function cargarFuenteDatos() {
   generacionCuadroBolsas += 1;
   controladorBolsas?.cancelarPeticiones();
   estado.datosBolsas = null;
+  contextoBolsaCT = null;
   cicloLecturaBolsas = 0;
   estado.errorFuente = "";
   consultaAccesoPlantillas?.abort();
@@ -991,6 +1026,7 @@ function navegar(vista, opciones = {}) {
     estado.datosBolsas = null;
     cicloLecturaBolsas = 0;
   }
+  if (estado.vista === "contratacion-temporal" && vista !== "contratacion-temporal") contextoBolsaCT = null;
   if (vista !== "auditoria") estado.auditoriaReferencia = "";
   if (vista !== "bolsa-candidatos") rutaCandidatosAplicada = null;
   const filtroServidorRuta = vista === "contratacion-temporal"

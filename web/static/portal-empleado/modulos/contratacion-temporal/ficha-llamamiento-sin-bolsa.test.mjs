@@ -43,3 +43,23 @@ test("la traducción inglesa del aviso procede del catálogo de la ficha", async
     crearTraductorExpedientesContratacion(mensajes));
   assert.match(html, /There is no active job pool for this category\. Review the case file&#039;s recruitment route\./u);
 });
+
+test("error y denegación de Bolsa no afirman ausencia; solo el error permite reintentar", () => {
+  const error = renderizar(estado(), () => ({ estado: "error" }));
+  assert.match(error, /No se pudo comprobar si hay una bolsa vigente para esta categoría/u);
+  assert.match(error, /data-ct-bolsa-reintentar/u);
+  assert.doesNotMatch(error, /No hay bolsa vigente|data-accion="ver-bolsa"/u);
+  const denegado = renderizar(estado(), () => ({ estado: "denegado" }));
+  assert.match(denegado, /No tiene permiso para consultar las bolsas de esta categoría/u);
+  assert.doesNotMatch(denegado, /No hay bolsa vigente|data-ct-bolsa-reintentar|data-accion="ver-bolsa"/u);
+  const cobertura = renderizar(estado({ cabecera: [{ clave: "bolsa_cobertura", valor: "bolsa:oculta" }] }),
+    () => ({ estado: "error" }));
+  assert.doesNotMatch(cobertura, /data-bolsa-ref="bolsa:oculta"/u);
+});
+
+test("la fecha civil del detalle CT llega al asistente de Bolsa sin perderse", () => {
+  const ficha = estado({ datos_peticion: { categoria_ref: "categoria:rpt:auxiliar",
+    periodo: { inicio: "2026-10-20T00:00:00Z" } } });
+  const html = renderizar(ficha, () => ({ categoria: "Auxiliar", bolsa_ref: "bolsa:sintetica:1" }));
+  assert.match(html, /data-origen-inicio="2026-10-20"/u);
+});

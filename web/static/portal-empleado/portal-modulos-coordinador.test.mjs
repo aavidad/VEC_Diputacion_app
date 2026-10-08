@@ -1330,6 +1330,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     ["en-GB", "Case file loaded.", "Request list", "Date recorded"],
   ]) {
     const llamadas = [];
+    const fichasBolsa = [];
     let presentador;
     let mensajesAdaptador;
     const rotuloCircuito = idioma === "en-GB" ? "Request signing" : "Firma de la petición";
@@ -1343,6 +1344,9 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
       escaparHTML: String,
       locale: idioma,
       cargarCatalogoInterno: async () => catalogo,
+      montajeBolsa: { disponible: () => false, montar: () => ({ desmontar() {} }),
+        prepararFicha: ({ expedienteRef, signal }) => { fichasBolsa.push({ expedienteRef, signal }); },
+        limpiarFicha() {}, resolverBolsa: () => null },
       cargadoresInternos: { contratacion_temporal: async () => ({
         cliente: { crearClienteHTTPContratacionTemporal: () => ({
           obtenerCatalogosAlta: async () => { throw new Error("sin alta"); },
@@ -1384,6 +1388,9 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     const raiz = raizFalsa();
     assert.equal(await coordinador.montarVista("contratacion-temporal", raiz, { expedienteRef: referencia }), true);
     assert.deepEqual(llamadas, ["cuadro", `detalle:${referencia}`]);
+    assert.equal(fichasBolsa.length, 1, "solo el detalle CT autorizado prepara una lectura de Bolsa");
+    assert.equal(fichasBolsa[0].expedienteRef, referencia);
+    assert.equal(fichasBolsa[0].signal.aborted, false);
     assert.equal(presentador.obtenerEstado().vista, "expediente");
     assert.equal(presentador.obtenerEstado().carga, "listo");
     assert.match(raiz.innerHTML, new RegExp(texto.replaceAll(".", "\\."), "u"));
@@ -1399,6 +1406,10 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
 
     assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
     assert.deepEqual(llamadas, ["cuadro", `detalle:${referencia}`]);
+    assert.equal(fichasBolsa[0].signal.aborted, true, "salir de la ficha cancela Bolsa");
+    assert.equal(fichasBolsa.length, 1, "el cuadro no consulta Bolsa");
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raiz, { subvista: "alta" }), true);
+    assert.equal(fichasBolsa.length, 1, "Alta no consulta Bolsa");
     await presentador.cargar(); // camino ordinario del Cuadro
     await presentador.seleccionarExpediente(referencia);
     assert.deepEqual(llamadas.slice(-2), ["cuadro", `detalle:${referencia}`]);
@@ -1408,6 +1419,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     assert.deepEqual(llamadas.slice(-2), ["cuadro", "detalle-denegado"]);
     assert.equal(presentador.obtenerEstado().carga, "error");
     assert.equal(presentador.obtenerEstado().expediente, null);
+    assert.equal(fichasBolsa.length, 1, "el detalle denegado no consulta Bolsa");
     assert.doesNotMatch(raiz.innerHTML, new RegExp(texto.replaceAll(".", "\\."), "u"));
 
     const antes = llamadas.length;
@@ -1416,6 +1428,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     }), true);
     assert.deepEqual(llamadas.slice(antes), ["cuadro"]);
     assert.equal(presentador.obtenerEstado().vista, "cuadro");
+    assert.equal(fichasBolsa.length, 1, "el expediente fuera del cuadro tampoco consulta Bolsa");
     coordinador.desmontarVistaActual();
   }
 });

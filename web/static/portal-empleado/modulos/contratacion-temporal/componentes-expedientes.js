@@ -229,24 +229,34 @@ function valorCampoCabecera(campo, t, resolverBolsa) {
 // «Abrir llamamiento en Bolsa»: la bolsa elegida para cubrir la petición o, si
 // no hay, la vigente de su categoría. Bolsa abre el asistente con la referencia,
 // el centro y la fecha de inicio de la petición ya puestos.
-function renderizarAbrirLlamamiento(expediente, resolverBolsa, t) {
+export function renderizarAbrirLlamamiento(expediente, resolverBolsa, t) {
   if (typeof resolverBolsa !== "function") return "";
   const valor = (clave) => expediente.cabecera?.find((campo) => campo.clave === clave)?.valor;
   const cobertura = valor("bolsa_cobertura");
-  let bolsaRef = typeof cobertura === "string" && resolverBolsa(cobertura) ? cobertura : "";
+  let bolsaRef = typeof cobertura === "string" && resolverBolsa(cobertura)?.categoria ? cobertura : "";
   let sinBolsaConfirmada = false;
+  let incidenciaBolsa = "";
   if (!bolsaRef) {
     const categoriaRef = expediente.analisis_previo?.categoria_ref ?? expediente.datos_peticion?.categoria_ref;
     const bolsaCategoria = typeof categoriaRef === "string" ? resolverBolsa("", { categoriaRef }) : null;
     bolsaRef = bolsaCategoria?.bolsa_ref || "";
     sinBolsaConfirmada = !cobertura && bolsaCategoria?.estado === "sin_bolsa";
+    incidenciaBolsa = ["error", "denegado"].includes(bolsaCategoria?.estado) ? bolsaCategoria.estado : "";
   }
+  // El detalle CT conserva fechas civiles a medianoche UTC; el origen de Bolsa
+  // transporta solo el día y valida de nuevo su calendario.
+  const inicioCT = expediente.analisis_previo?.periodo?.inicio ?? expediente.datos_peticion?.periodo?.inicio;
+  const inicioBolsa = typeof inicioCT === "string" && /^\d{4}-\d{2}-\d{2}T00:00:00Z$/u.test(inicioCT)
+    ? inicioCT.slice(0, 10) : inicioCT;
   const origen = bolsaRef ? origenLlamamientoValido({
     expediente_ref: expediente.expediente_ref, referencia: expediente.numero_visible, centro: valor("centro"),
-    fecha_inicio: expediente.analisis_previo?.periodo?.inicio ?? expediente.datos_peticion?.periodo?.inicio,
+    fecha_inicio: inicioBolsa,
   }) : null;
-  if (!origen) return sinBolsaConfirmada
-    ? `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t("ficha_llamamiento_sin_bolsa"))}</p></div></section>` : "";
+  if (!origen) {
+    if (sinBolsaConfirmada) return `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t("ficha_llamamiento_sin_bolsa"))}</p></div></section>`;
+    if (incidenciaBolsa) return `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t(`ficha_llamamiento_bolsa_${incidenciaBolsa}`))}</p>${incidenciaBolsa === "error" ? `<button type="button" class="boton-secundario" data-ct-bolsa-reintentar>${escaparHTML(t("ficha_llamamiento_bolsa_reintentar"))}</button>` : ""}</div></section>`;
+    return "";
+  }
   const atributo = (nombre, dato) => (dato ? ` data-origen-${nombre}="${escaparHTML(dato)}"` : "");
   return `<div class="acciones-vista"><button type="button" class="boton-primario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}"${atributo("expediente", origen.expediente_ref)}${atributo("referencia", origen.referencia)}${atributo("centro", origen.centro)}${atributo("inicio", origen.fecha_inicio)}>${escaparHTML(traducirPortal("panel_ct_abrir_llamamiento"))}</button></div>`;
 }
@@ -509,7 +519,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
       </div>
       <div class="pila">
         ${renderizarDatosPeticion(expediente, t, { valorCampo: (campo) => valorCampoCabecera(campo, t, resolverBolsa), faseDeCampo })}
-        ${renderizarAbrirLlamamiento(expediente, resolverBolsa, t)}
+        ${typeof resolverBolsa === "function" ? `<div data-ct-bolsa-ficha aria-live="polite">${renderizarAbrirLlamamiento(expediente, resolverBolsa, t)}</div>` : ""}
         ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
       </div>
     </div>

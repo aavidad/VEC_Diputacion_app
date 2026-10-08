@@ -85,6 +85,7 @@ const CLAVES_CUADRO_LIGERO = Object.freeze([
   "lista_filtro_no_disponible", "lista_resultados_pagina",
   "lista_titulo_conjunto", "lista_buscar_pista_servidor",
   "lista_fase_servidor_preparacion", "lista_fase_servidor_llamamiento", "lista_fase_servidor_cierre",
+  "lista_centro_nombre_no_disponible", "lista_categoria_nombre_no_disponible",
   "plazo_fase_en_plazo", "plazo_fase_vence_hoy",
   "plazo_fase_vencido", "plazo_fase_sin_calcular",
 ]);
@@ -101,7 +102,10 @@ const CLAVES_REINCORPORACION_CAPACIDAD = Object.freeze([
   "reincorporacion_capacidad_reintentar", "reincorporacion_capacidad_comprobando",
   "reincorporacion_capacidad_no_habilitada",
 ]);
-const CLAVES_FICHA_SIN_BOLSA = Object.freeze(["ficha_llamamiento_sin_bolsa"]);
+const CLAVES_FICHA_SIN_BOLSA = Object.freeze([
+  "ficha_llamamiento_sin_bolsa", "ficha_llamamiento_bolsa_error",
+  "ficha_llamamiento_bolsa_denegado", "ficha_llamamiento_bolsa_reintentar",
+]);
 // Nuevas claves de Alta: se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_CAPACIDAD_ALTA = Object.freeze({
   "i18n-textos-vistas.js": ["motivo_sustitucion"],

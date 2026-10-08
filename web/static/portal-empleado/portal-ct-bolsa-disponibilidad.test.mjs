@@ -8,11 +8,12 @@ const inicio = fuente.indexOf("resolverBolsa: (");
 const fin = fuente.indexOf("    montar:", inicio);
 assert.ok(inicio > 0 && fin > inicio);
 
-function resolver({ permiso = true, carga = "listo", bolsas = [] } = {}) {
+function resolver({ permiso = true, carga = "listo", bolsas = [], ct = false, ctCarga = "listo", ctBolsas = [] } = {}) {
   return runInNewContext(`({${fuente.slice(inicio, fin)}}).resolverBolsa`, {
     vistaPermitida: () => permiso,
     VISTA_CANDIDATOS_BOLSA: "bolsa-candidatos",
-    estado: { datosBolsas: { carga, datos: { bolsas } } },
+    estado: { vista: ct ? "contratacion-temporal" : "portal", datosBolsas: { carga, datos: { bolsas } } },
+    contextoBolsaCT: ct ? { carga: ctCarga, datos: { bolsas: ctBolsas } } : null,
   });
 }
 
@@ -37,4 +38,15 @@ test("la bolsa vigente conserva el acceso desde CT sin crear otro llamamiento", 
   assert.equal(porCategoria.categoria, bolsa.categoria);
   assert.equal(buscar(bolsa.bolsa_ref).categoria, bolsa.categoria);
   assert.equal(buscar("bolsa:otra"), null);
+});
+
+test("la ficha CT usa solo su contexto autorizado y expone error o denegación como estados distintos", () => {
+  const bolsa = { bolsa_ref: "bolsa:auxiliar", categoria_clave: "auxiliar", categoria: "Auxiliar", vigente_hasta: null };
+  assert.equal(resolver({ carga: "error", ct: true, ctBolsas: [bolsa] })("", { categoriaRef: "categoria:rpt:auxiliar" }).bolsa_ref, bolsa.bolsa_ref);
+  assert.equal(resolver({ carga: "error", ct: true, ctBolsas: [] })("", { categoriaRef: "categoria:rpt:auxiliar" }).estado, "sin_bolsa");
+  for (const [ctCarga, esperado] of [["error", "error"], ["denegado", "denegado"]]) {
+    const buscar = resolver({ carga: "error", ct: true, ctCarga });
+    assert.equal(buscar("", { categoriaRef: "categoria:rpt:auxiliar" }).estado, esperado);
+  }
+  assert.equal(resolver({ carga: "error", ct: true, ctCarga: "cargando" })("", { categoriaRef: "categoria:rpt:auxiliar" }), null);
 });
