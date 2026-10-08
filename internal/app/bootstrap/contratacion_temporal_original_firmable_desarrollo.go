@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -33,14 +34,16 @@ import (
 // La custodia común (almacen.CustodiaDocumentosOriginalCT) necesita, para
 // cada lectura o alta del original, decisiones V3 de Documentos para el
 // recurso exacto. Aquí las emite el PDP de CT con la identidad de la MISMA
-// petición y el perfil fijo propio de la ruta del original, como la custodia
-// del PDF firmado: nadie aporta actor, perfil ni capacidad desde la petición.
+// petición y el perfil fijo propio de su ruta: nadie aporta actor, perfil ni
+// capacidad desde la petición.
 //
-// Cuatro decisiones, todas de la audiencia vec_documentos.operacion.v1 o del
-// almacén, y cada una ligada a lo que CT pidió en esta petición:
+// La ruta original V1 puede pedir cuatro decisiones, de la audiencia
+// vec_documentos.operacion.v1 o del almacén, ligadas al original solicitado:
 //   - documentos.original.descargar (SQL y concesión de lectura del objeto),
 //   - documentos.original_firmable.reservar y .confirmar (AD158, Documentos13),
 //   - documentos.original_firmable.almacen.escribir (objeto del intento).
+// Preflight R5 y registro externo V2 sólo usan la primera y su lectura de
+// objeto; no pueden reservar ni confirmar el original.
 //
 // El predicado del PDP solo concede si el contexto lleva el original que se
 // está leyendo o custodiando (esperadoOriginalFirmableCTDesarrollo) y el
@@ -57,11 +60,35 @@ const (
 
 var errOriginalFirmableCTDenegado = fmt.Errorf("%w: original firmable de contratación temporal", docports.ErrAccesoDenegado)
 
-// rutaOriginalFirmableCTDesarrollo enumera las rutas que pueden pedir estas
-// decisiones. Hoy solo la del original; la firma R5 (4c-5/4c-8) la ampliará
-// con su propio perfil cuando sus rutas existan.
+// La ruta original conserva las cuatro operaciones. Preflight y registro
+// externo sólo pueden descargar el original o el PDF firmado anterior.
 func rutaOriginalFirmableCTDesarrollo(ruta string) bool {
-	return ruta == httpinterno.RutaOriginalFirmableCT
+	return ruta == httpinterno.RutaOriginalFirmableCT || ruta == httpinterno.RutaPreflightFirmaR5 ||
+		ruta == httpinterno.RutaRegistroFirmaExterna
+}
+
+func rutaOperacionOriginalFirmableCTDesarrollo(ruta, accion string) bool {
+	switch ruta {
+	case httpinterno.RutaOriginalFirmableCT:
+		return accion == docports.AccionDescargar || accion == puertosvec.AccionNegocioLeerOriginalDocumentoGenerado ||
+			accion == docports.AccionReservarOriginalFirmable || accion == docports.AccionConfirmarOriginalFirmable ||
+			accion == puertosvec.AccionNegocioEscribirOriginalFirmable
+	case httpinterno.RutaPreflightFirmaR5, httpinterno.RutaRegistroFirmaExterna:
+		return accion == docports.AccionDescargar || accion == puertosvec.AccionNegocioLeerOriginalDocumentoGenerado
+	default:
+		return false
+	}
+}
+
+func motivoRutaOriginalFirmableCTDesarrollo(ruta string) (dominiovec.ReferenciaEntradaCatalogo, bool) {
+	switch ruta {
+	case httpinterno.RutaOriginalFirmableCT:
+		return motivoOriginalFirmableCTDesarrollo(), true
+	case httpinterno.RutaPreflightFirmaR5, httpinterno.RutaRegistroFirmaExterna:
+		return motivoFirmaV2CTDesarrollo(), true
+	default:
+		return dominiovec.ReferenciaEntradaCatalogo{}, false
+	}
 }
 
 func motivoOriginalFirmableCTDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
@@ -72,10 +99,13 @@ func motivoOriginalFirmableCTDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
 	}
 }
 
-// motivoOriginalFirmableCTAdmitido: el PDP valida además que el motivo sea el
-// de la ruta sellada. Las rutas de firma R5 añadirán aquí el suyo.
-func motivoOriginalFirmableCTAdmitido(m dominiovec.ReferenciaEntradaCatalogo) bool {
-	return m == motivoOriginalFirmableCTDesarrollo()
+// El motivo queda fijado por la ruta sellada antes de pedir la decisión.
+func motivoOriginalFirmableCTAdmitido(e *esperadoOriginalFirmableCTDesarrollo, m dominiovec.ReferenciaEntradaCatalogo) bool {
+	if e == nil {
+		return false
+	}
+	actual := e.motivoEsperado()
+	return actual != (dominiovec.ReferenciaEntradaCatalogo{}) && m == actual
 }
 
 // concesionesOriginalFirmableCTDesarrollo son las del rol del perfil fijo.
@@ -115,9 +145,26 @@ type esperadoOriginalFirmableCTDesarrollo struct {
 	tamano                                     int64
 	decisionDescarga, correlacionDescarga      string // lectura del objeto: la descarga ya consumida
 	mu                                         sync.Mutex
+	motivo                                     dominiovec.ReferenciaEntradaCatalogo
 	preimagenes                                map[string]string // acción -> SHA-256 de la preimagen admitida
 	decisionReserva                            string
 	reservaRef, claveAlmacenRef, intentoNumero string
+}
+
+func (e *esperadoOriginalFirmableCTDesarrollo) fijarMotivo(m dominiovec.ReferenciaEntradaCatalogo) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.motivo != (dominiovec.ReferenciaEntradaCatalogo{}) && e.motivo != m {
+		return false
+	}
+	e.motivo = m
+	return true
+}
+
+func (e *esperadoOriginalFirmableCTDesarrollo) motivoEsperado() dominiovec.ReferenciaEntradaCatalogo {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.motivo
 }
 
 func (e *esperadoOriginalFirmableCTDesarrollo) fijarPreimagen(accion string, preimagen []byte) {
@@ -168,8 +215,11 @@ func esperadoOriginalFirmableDe(ctx context.Context) (*esperadoOriginalFirmableC
 func solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
 	e, ok := esperadoOriginalFirmableDe(ctx)
 	r := datos.Recurso
-	if !ok || !motivoOriginalFirmableCTAdmitido(datos.ReferenciaMotivo) || r.ModuloID != moduloRecursoDocumentosCT ||
+	if !ok || !motivoOriginalFirmableCTAdmitido(e, datos.ReferenciaMotivo) || r.ModuloID != moduloRecursoDocumentosCT ||
 		r.Referencia != e.documentoRef || !maps.Equal(r.Ambitos, map[string]string{"organizacion_ref": docports.OrganizacionRefV3}) {
+		return false
+	}
+	if e.motivoEsperado() == motivoFirmaV2CTDesarrollo() && datos.Accion != docports.AccionDescargar {
 		return false
 	}
 	a := r.Atributos
@@ -235,11 +285,15 @@ func (p pdpCTOriginalFirmableDesarrollo) solicitarOriginalV3(ctx context.Context
 	s := p.alta.soporte
 	capacidad, valida := s.capacidadValida(ctx)
 	perfil := s.perfilFijoParaContexto(ctx, capacidad.ruta)
-	if !valida || !rutaOriginalFirmableCTDesarrollo(capacidad.ruta) || perfil == nil {
+	if !valida || !rutaOperacionOriginalFirmableCTDesarrollo(capacidad.ruta, accion) || perfil == nil ||
+		(capacidad.ruta == httpinterno.RutaOriginalFirmableCT && perfil.clave != clavePerfilFijoOriginalFirmableCTDesarrollo) ||
+		(capacidad.ruta != httpinterno.RutaOriginalFirmableCT &&
+			(capacidad.metodo != http.MethodPost || perfil.clave != clavePerfilFijoFirmaExternaV2CTDesarrollo)) {
 		return vacia, errOriginalFirmableCTDenegado
 	}
 	motivo, motivoValido := s.motivoAutorizacionParaContexto(ctx, capacidad.ruta)
-	if !motivoValido || !motivoOriginalFirmableCTAdmitido(motivo) {
+	esperadoMotivo, rutaValida := motivoRutaOriginalFirmableCTDesarrollo(capacidad.ruta)
+	if !motivoValido || !rutaValida || motivo != esperadoMotivo {
 		return vacia, errOriginalFirmableCTDenegado
 	}
 	_, estadoPerfil := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil)
@@ -258,6 +312,10 @@ func (p pdpCTOriginalFirmableDesarrollo) solicitarOriginalV3(ctx context.Context
 	}
 	actor, err := operativo.Vinculo.Datos()
 	if err != nil || !contextoRegistradoPerfilFijoCTDesarrollo(operativo.Resultado.Contexto, perfil) {
+		return vacia, errOriginalFirmableCTDenegado
+	}
+	e, ok := esperadoOriginalFirmableDe(ctx)
+	if !ok || !e.fijarMotivo(motivo) {
 		return vacia, errOriginalFirmableCTDenegado
 	}
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridad.GeneradorReferenciasCriptograficas{})

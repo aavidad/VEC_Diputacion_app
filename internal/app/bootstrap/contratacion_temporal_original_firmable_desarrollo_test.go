@@ -48,6 +48,70 @@ func sha256HexPrueba(b []byte) string {
 	return hex.EncodeToString(s[:])
 }
 
+func TestRutasDocumentalesOriginalFirmableSeparanLecturaYEscritura(t *testing.T) {
+	for _, ruta := range []string{httpinterno.RutaPreflightFirmaR5, httpinterno.RutaRegistroFirmaExterna} {
+		if !rutaOriginalFirmableCTDesarrollo(ruta) || !rutaOperacionOriginalFirmableCTDesarrollo(ruta, docports.AccionDescargar) ||
+			!rutaOperacionOriginalFirmableCTDesarrollo(ruta, puertosvec.AccionNegocioLeerOriginalDocumentoGenerado) {
+			t.Fatalf("lectura documental V2 cerrada: %s", ruta)
+		}
+		for _, accion := range []string{docports.AccionReservarOriginalFirmable, docports.AccionConfirmarOriginalFirmable,
+			puertosvec.AccionNegocioEscribirOriginalFirmable} {
+			if rutaOperacionOriginalFirmableCTDesarrollo(ruta, accion) {
+				t.Fatalf("escritura de original V2 abierta: %s %s", ruta, accion)
+			}
+		}
+		if m, ok := motivoRutaOriginalFirmableCTDesarrollo(ruta); !ok || m != motivoFirmaV2CTDesarrollo() {
+			t.Fatalf("motivo de lectura V2 incorrecto: %s", ruta)
+		}
+	}
+	if m, ok := motivoRutaOriginalFirmableCTDesarrollo(httpinterno.RutaOriginalFirmableCT); !ok || m != motivoOriginalFirmableCTDesarrollo() ||
+		!rutaOperacionOriginalFirmableCTDesarrollo(httpinterno.RutaOriginalFirmableCT, docports.AccionReservarOriginalFirmable) {
+		t.Fatal("la ruta original perdió su contrato V1")
+	}
+	for _, ruta := range []string{"", httpinterno.RutaRegistroFirmaVec, httpinterno.RutaFirmaDocumento, httpinterno.RutaRegistroFirmaExterna + "/"} {
+		if rutaOriginalFirmableCTDesarrollo(ruta) || rutaOperacionOriginalFirmableCTDesarrollo(ruta, docports.AccionDescargar) {
+			t.Fatalf("ruta ajena admitida: %s", ruta)
+		}
+	}
+}
+
+func TestPredicadoOriginalFirmaV2SoloDescargaExacta(t *testing.T) {
+	s, ref, expediente := solicitudOriginalFirmablePrueba()
+	preimagen, err := (docports.ConsultaDocumento{DocumentoID: ref, Version: s.OriginalVersion}).PreimagenDescargar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	recurso, err := docports.RecursoV3(docports.AccionDescargar, ref, preimagen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &esperadoOriginalFirmableCTDesarrollo{documentoRef: ref, expedienteRef: expediente, version: s.OriginalVersion}
+	e.fijarPreimagen(docports.AccionDescargar, preimagen)
+	if !e.fijarMotivo(motivoFirmaV2CTDesarrollo()) || e.fijarMotivo(motivoOriginalFirmableCTDesarrollo()) {
+		t.Fatal("el motivo de una petición se pudo sustituir")
+	}
+	ctx := context.WithValue(context.Background(), claveOriginalFirmableCTDesarrollo{}, e)
+	datos := datosOriginalPrueba(docports.AccionDescargar, finalidadDescargaDocumento, recurso)
+	if solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos) {
+		t.Fatal("motivo V1 aceptado en lectura V2")
+	}
+	datos.ReferenciaMotivo = motivoFirmaV2CTDesarrollo()
+	if !solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos) {
+		t.Fatal("descarga V2 exacta rechazada")
+	}
+	datos.Recurso.Referencia = "ref:" + strings.Repeat("a", 64)
+	if solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos) {
+		t.Fatal("documento ajeno admitido")
+	}
+	datos.Recurso.Referencia = ref
+	e.escritura = true
+	e.fijarPreimagen(docports.AccionReservarOriginalFirmable, []byte("reserva"))
+	datos.Accion, datos.Finalidad, datos.Recurso.Tipo = docports.AccionReservarOriginalFirmable, docports.FinalidadOriginalFirmable, tipoRecursoOriginalFirmableCT
+	if solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos) {
+		t.Fatal("reserva admitida bajo motivo V2")
+	}
+}
+
 // El rol del perfil fijo solo cubre las cuatro operaciones de Documentos sobre
 // el original, con los campos exactos de cada consumidor y sin obligaciones.
 func TestInstantaneaOriginalFirmableConcedeSoloOperacionesDelOriginal(t *testing.T) {
@@ -84,7 +148,8 @@ func TestPredicadoOriginalFirmableLigadoAlOriginalEnCurso(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := &esperadoOriginalFirmableCTDesarrollo{documentoRef: ref, expedienteRef: expediente, version: s.OriginalVersion}
+	e := &esperadoOriginalFirmableCTDesarrollo{documentoRef: ref, expedienteRef: expediente, version: s.OriginalVersion,
+		motivo: motivoOriginalFirmableCTDesarrollo()}
 	ctx := context.WithValue(context.Background(), claveOriginalFirmableCTDesarrollo{}, e)
 	descarga := datosOriginalPrueba(docports.AccionDescargar, finalidadDescargaDocumento, recurso)
 	if solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, descarga) {
@@ -159,7 +224,7 @@ func TestPredicadoOriginalFirmableLigadoAlOriginalEnCurso(t *testing.T) {
 		t.Fatal("reserva admitida en una lectura")
 	}
 	w := &esperadoOriginalFirmableCTDesarrollo{documentoRef: ref, expedienteRef: expediente, version: 7, escritura: true,
-		tipoRef: "ref:" + strings.Repeat("c", 64), huellaSHA256: strings.Repeat("1", 64)}
+		tipoRef: "ref:" + strings.Repeat("c", 64), huellaSHA256: strings.Repeat("1", 64), motivo: motivoOriginalFirmableCTDesarrollo()}
 	cw := context.WithValue(context.Background(), claveOriginalFirmableCTDesarrollo{}, w)
 	w.fijarPreimagen(docports.AccionReservarOriginalFirmable, reservaPre)
 	if !solicitudAutorizacionOriginalFirmableCTDesarrolloValida(cw, reserva) {
@@ -202,6 +267,9 @@ func (p *pdpOriginalPrueba) solicitarOriginalV3(ctx context.Context, accion, fin
 	p.pedidas = append(p.pedidas, accion)
 	if p.err != nil {
 		return solicitudCustodiaCTDesarrollo{}, p.err
+	}
+	if e, ok := esperadoOriginalFirmableDe(ctx); ok && e.motivoEsperado() == (dominiovec.ReferenciaEntradaCatalogo{}) {
+		e.fijarMotivo(motivoOriginalFirmableCTDesarrollo())
 	}
 	if !solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datosOriginalPrueba(accion, finalidad, r)) {
 		return solicitudCustodiaCTDesarrollo{}, errOriginalFirmableCTDenegado

@@ -19,7 +19,8 @@ import (
 
 func esperadoCustodiaPrueba() *esperadoCustodiaFirmadoCTDesarrollo {
 	return &esperadoCustodiaFirmadoCTDesarrollo{documentoRef: "ref:" + strings.Repeat("d", 64),
-		expedienteRef: "ref:" + strings.Repeat("e", 64), huellaSHA256: strings.Repeat("1", 64)}
+		expedienteRef: "ref:" + strings.Repeat("e", 64), huellaSHA256: strings.Repeat("1", 64),
+		motivo: motivoFirmaDocumentoCTDesarrollo()}
 }
 
 func preimagenCustodiaPrueba(e *esperadoCustodiaFirmadoCTDesarrollo, cambios map[string]any) []byte {
@@ -125,6 +126,36 @@ func TestPredicadoCustodiaFirmadoCTLigadoAlDocumentoYLaDecision(t *testing.T) {
 		if solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx, x) {
 			t.Errorf("concesión de almacén con %s ajeno admitida", clave)
 		}
+	}
+}
+
+func TestPredicadoCustodiaExternaV2ConservaMotivoYPDFExacto(t *testing.T) {
+	e := esperadoCustodiaPrueba()
+	e.motivo = dominiovec.ReferenciaEntradaCatalogo{}
+	preimagen := preimagenCustodiaPrueba(e, nil)
+	recurso, err := docports.RecursoV3(docports.AccionCustodiarFirmado, e.documentoRef, preimagen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	suma := sha256.Sum256(preimagen)
+	e.fijar(hex.EncodeToString(suma[:]), "")
+	if !e.fijarMotivo(motivoFirmaV2CTDesarrollo()) || e.fijarMotivo(motivoFirmaDocumentoCTDesarrollo()) {
+		t.Fatal("el motivo de custodia se pudo sustituir")
+	}
+	ctx := context.WithValue(context.Background(), claveCustodiaFirmadoCTDesarrollo{}, e)
+	datos := dominiovec.DatosSolicitudAutorizacionLigadaV3{Accion: docports.AccionCustodiarFirmado,
+		Finalidad: docports.FinalidadCustodiarFirmado, ReferenciaMotivo: motivoFirmaV2CTDesarrollo(), Recurso: recurso}
+	if !solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx, datos) {
+		t.Fatal("custodia V2 exacta rechazada")
+	}
+	datos.ReferenciaMotivo = motivoFirmaDocumentoCTDesarrollo()
+	if solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx, datos) {
+		t.Fatal("motivo V1 aceptado en custodia V2")
+	}
+	datos.ReferenciaMotivo = motivoFirmaV2CTDesarrollo()
+	datos.Recurso.Atributos["preimagen_sha256"] = strings.Repeat("2", 64)
+	if solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx, datos) {
+		t.Fatal("PDF ajeno aceptado en custodia V2")
 	}
 }
 

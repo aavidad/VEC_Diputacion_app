@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"maps"
+	"net/http"
 	"sync"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -26,7 +27,7 @@ import (
 // Documentos (qué documento del circuito va a qué tipo documental). Las dos
 // autorizaciones de Documentos (la V3 que consume la SQL y la concesión del
 // almacén) las da el PDP de CT a la identidad de la MISMA petición de firma,
-// con el rol del perfil de firma de CT: ningún otro perfil ni ruta las obtiene,
+// con el perfil publicado de la ruta de firma: ninguna otra ruta las obtiene,
 // y solo para el documento y el PDF exactos que CT está custodiando.
 
 const moduloProductorCustodiaCT = "contratacion_temporal"
@@ -44,6 +45,23 @@ type esperadoCustodiaFirmadoCTDesarrollo struct {
 	// preimagenSHA256 y decisionRef los fija el autorizador al pedir la V3:
 	// la concesión del almacén debe ligarse a esa decisión.
 	preimagenSHA256, decisionRef string
+	motivo                       dominiovec.ReferenciaEntradaCatalogo
+}
+
+func (e *esperadoCustodiaFirmadoCTDesarrollo) fijarMotivo(m dominiovec.ReferenciaEntradaCatalogo) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.motivo != (dominiovec.ReferenciaEntradaCatalogo{}) && e.motivo != m {
+		return false
+	}
+	e.motivo = m
+	return true
+}
+
+func (e *esperadoCustodiaFirmadoCTDesarrollo) motivoEsperado() dominiovec.ReferenciaEntradaCatalogo {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.motivo
 }
 
 func (e *esperadoCustodiaFirmadoCTDesarrollo) fijar(preimagen, decision string) {
@@ -79,7 +97,7 @@ func solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx context.Context,
 	e, ok := esperadoCustodiaDe(ctx)
 	r := datos.Recurso
 	if !ok || datos.Accion != docports.AccionCustodiarFirmado || datos.Finalidad != docports.FinalidadCustodiarFirmado ||
-		datos.ReferenciaMotivo != motivoFirmaDocumentoCTDesarrollo() || r.Referencia != e.documentoRef ||
+		e.motivoEsperado() == (dominiovec.ReferenciaEntradaCatalogo{}) || datos.ReferenciaMotivo != e.motivoEsperado() || r.Referencia != e.documentoRef ||
 		r.ModuloID != "documentos" || r.Tipo != "documento_firmado" ||
 		!maps.Equal(r.Ambitos, map[string]string{"organizacion_ref": docports.OrganizacionRefV3}) {
 		return false
@@ -241,7 +259,16 @@ func (f *firmaDocumentoCTDesarrollo) solicitarCustodiaV3(ctx context.Context, re
 	s := f.alta.soporte
 	capacidad, valida := s.capacidadValida(ctx)
 	perfil := s.perfilFijoParaContexto(ctx, capacidad.ruta)
-	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento || perfil == nil {
+	if !valida || perfil == nil ||
+		(capacidad.ruta == httpinterno.RutaFirmaDocumento && perfil.clave != clavePerfilFijoFirmaCTDesarrollo) ||
+		(capacidad.ruta == httpinterno.RutaRegistroFirmaExterna &&
+			(capacidad.metodo != http.MethodPost || perfil.clave != clavePerfilFijoFirmaExternaV2CTDesarrollo)) ||
+		(capacidad.ruta != httpinterno.RutaFirmaDocumento && capacidad.ruta != httpinterno.RutaRegistroFirmaExterna) {
+		return vacia, errCustodiaFirmadoCTDenegada
+	}
+	motivo, motivoValido := s.motivoAutorizacionParaContexto(ctx, capacidad.ruta)
+	if !motivoValido || (capacidad.ruta == httpinterno.RutaFirmaDocumento && motivo != motivoFirmaDocumentoCTDesarrollo()) ||
+		(capacidad.ruta == httpinterno.RutaRegistroFirmaExterna && motivo != motivoFirmaV2CTDesarrollo()) {
 		return vacia, errCustodiaFirmadoCTDenegada
 	}
 	_, estadoPerfil := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil)
@@ -267,11 +294,15 @@ func (f *firmaDocumentoCTDesarrollo) solicitarCustodiaV3(ctx context.Context, re
 		return vacia, errCustodiaFirmadoCTDenegada
 	}
 	actor, err := operativo.Vinculo.Datos()
-	if err != nil {
+	if err != nil || !contextoRegistradoPerfilFijoCTDesarrollo(operativo.Resultado.Contexto, perfil) {
+		return vacia, errCustodiaFirmadoCTDenegada
+	}
+	e, ok := esperadoCustodiaDe(ctx)
+	if !ok || !e.fijarMotivo(motivo) {
 		return vacia, errCustodiaFirmadoCTDenegada
 	}
 	datos := dominiovec.DatosSolicitudAutorizacionLigadaV3{
-		VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: motivoFirmaDocumentoCTDesarrollo(),
+		VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: motivo,
 		Accion: docports.AccionCustodiarFirmado, Recurso: recurso, Finalidad: docports.FinalidadCustodiarFirmado, Correlacion: correlacion,
 	}
 	if !solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx, datos) {
@@ -315,10 +346,18 @@ func (f *firmaDocumentoCTDesarrollo) materialCustodiaV3(ctx context.Context, p s
 	if f == nil || f.alta == nil || f.alta.postgresql.materialDocumentos == nil {
 		return vacio, docports.ErrCapacidadNoDisponible
 	}
+	datos, err := p.solicitud.Datos()
+	if err != nil {
+		return vacio, docports.ErrCapacidadNoDisponible
+	}
+	motivo := datos.ReferenciaMotivo
+	if motivo != motivoFirmaDocumentoCTDesarrollo() && motivo != motivoFirmaV2CTDesarrollo() {
+		return vacio, errCustodiaFirmadoCTDenegada
+	}
 	material, err := f.alta.postgresql.materialDocumentos.proveerMaterialConfirmacion(ctx, p.solicitud, p.decision,
-		p.confirmacion, motivoFirmaDocumentoCTDesarrollo(), p.operativo.Resultado)
+		p.confirmacion, motivo, p.operativo.Resultado)
 	if err != nil || !puertosvec.MaterialAtestadoLigadoV3(p.solicitud, p.decision, p.confirmacion,
-		p.operativo.Resultado, motivoFirmaDocumentoCTDesarrollo(), material, docports.AudienciaV3) {
+		p.operativo.Resultado, motivo, material, docports.AudienciaV3) {
 		return vacio, errors.Join(docports.ErrCapacidadNoDisponible, err)
 	}
 	return material, nil
