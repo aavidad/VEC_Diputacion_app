@@ -110,6 +110,10 @@ type autoridadDocumentosDesarrollo struct {
 	cerrar      func()
 	// custodia es nil salvo con la sección custodia_firmado del material.
 	custodia *custodiaDocumentosDesarrollo
+	// R5 comparte el registro, el almacén y el catálogo montados por Documentos.
+	servicio       *docapp.Servicio
+	politicas      *conservacion.Catalogo
+	seudonimizador *seudonimizadorAlmacenDesarrollo
 }
 
 type registradorDenegacionesDocumentos interface {
@@ -654,7 +658,11 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 		return nil, errDocumentosEn()
 	}
 	reloj := relojRutasDietas{}
-	politicas, err := conservacion.NuevoCatalogoProvisional(reloj)
+	firmasR5, err := selectorCapacidadRRHHDesarrollo(cfg, envCTFirmasR5V2Enabled)
+	if err != nil {
+		return nil, errDocumentosEn()
+	}
+	politicas, resolutorPoliticas, err := catalogosDocumentosR5Desarrollo(reloj, firmasR5)
 	if err != nil {
 		return nil, errDocumentosEn()
 	}
@@ -736,8 +744,9 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	if err != nil {
 		return nil, errDocumentosEn()
 	}
-	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicas, Reloj: reloj,
+	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: resolutorPoliticas, Reloj: reloj,
 		ContextosLectura: lectura, VerificadorFirma: verificadorFirma}
+	a.servicio, a.politicas, a.seudonimizador = servicio, politicas, seudonimosAlmacen
 	a.custodia, err = nuevaCustodiaDocumentosDesarrollo(c.CustodiaFirmado, repositorio, almacen, politicas, reloj, seudonimosAlmacen)
 	if err != nil {
 		return nil, errDocumentosEn()
