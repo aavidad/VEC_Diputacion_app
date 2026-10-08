@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
 
-function montarControlador({ estado, propuesta, datosPanel = { necesidades_llamamiento: [] } } = {}) {
+function montarControlador({ estado, propuesta, datosPanel = { necesidades_llamamiento: [] }, navegar = () => {} } = {}) {
   const escuchas = new Map();
   const anuncios = [];
   const dialogo = { open: false, addEventListener() {}, showModal() { this.open = true; } };
@@ -28,7 +28,7 @@ function montarControlador({ estado, propuesta, datosPanel = { necesidades_llama
     cerrarMenuMovil() {},
     escaparHTML: (valor) => String(valor).replaceAll("<", "&lt;").replaceAll(">", "&gt;"),
     estado,
-    navegar() {},
+    navegar,
     notaOperacionNoCompuesta: () => "Capacidad pendiente",
     obtenerDatosPanel: () => datosPanel,
     porId: (id) => controles[id],
@@ -46,6 +46,13 @@ function montarControlador({ estado, propuesta, datosPanel = { necesidades_llama
         target: { closest: (selector) => selector === "[data-accion]" ? boton : null },
       });
     },
+    clicVista(extra = {}) {
+      const boton = { dataset: { vista: "contratacion-temporal", ...extra } };
+      escuchas.get("click")({
+        preventDefault() {},
+        target: { closest: (selector) => selector === "[data-vista]" ? boton : null },
+      });
+    },
     limpiar() {
       globalThis.document = documentoAnterior;
       globalThis.window = ventanaAnterior;
@@ -54,6 +61,26 @@ function montarControlador({ estado, propuesta, datosPanel = { necesidades_llama
     get solicitudes() { return solicitudes; },
   };
 }
+
+test("las tarjetas de plazo conservan su filtro de servidor al navegar", () => {
+  const destinos = [];
+  const prueba = montarControlador({ estado: {}, navegar: (vista, opciones) => destinos.push({ vista, opciones }) });
+  try {
+    for (const plazo of ["vencido", "vence_hoy", "vence_semana"]) {
+      prueba.clicVista({ ctExpVista: "expedientes", ctExpListaPlazoEstado: plazo });
+      assert.deepEqual(destinos.at(-1), {
+        vista: "contratacion-temporal",
+        opciones: { subvista: "expedientes", filtroServidorRuta: {
+          texto: "", estado_clave: "", fase_clave: "", plazo_estado: plazo,
+        } },
+      });
+    }
+    prueba.clicVista({ ctExpListaMostrar: "incidencia" });
+    assert.deepEqual(destinos.at(-1).opciones, { filtroLista: { fase: "", mostrar: "incidencia" } });
+  } finally {
+    prueba.limpiar();
+  }
+});
 
 test("las acciones heredadas de presentación no producen recibos ni alteran el estado", () => {
   const estado = { modoPresentacion: true, pasoLlamamiento: 4, reciboLlamamiento: null };
