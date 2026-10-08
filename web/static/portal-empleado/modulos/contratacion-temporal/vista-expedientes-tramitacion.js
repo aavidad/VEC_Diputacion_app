@@ -54,6 +54,7 @@ export function crearGestorTramitacion({
   let desmontarAlta = null;
   let catalogosNecesidadesAlta = null;
   let consultaCatalogosNecesidadesAlta = null;
+  let soloSustituciones = false;
   let desmontarAnalisis = null;
   let desmontarCobertura = null;
   let desmontarAsignacion = null;
@@ -627,6 +628,7 @@ export function crearGestorTramitacion({
     if (!esMontada() || estado.vista !== "alta") return;
     const contenedor = raiz.querySelector("[data-ct-exp-alta]");
     if (!contenedor) return;
+    if (typeof desmontarAlta === "function") return;
     if (!altaDisponible || !alta?.catalogos || typeof alta?.ejecutor !== "function"
       || typeof alta?.obtenerCatalogosNecesidadesAlta !== "function") {
       contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
@@ -635,28 +637,54 @@ export function crearGestorTramitacion({
     if (catalogosNecesidadesAlta === null) {
       contenedor.innerHTML = `<section class="ct-exp-estado-global" role="status" aria-live="polite"><h3>${escaparHTML(tExpedientes("cargando_titulo"))}</h3><p>${escaparHTML(tExpedientes("cargando_detalle"))}</p></section>`;
       if (consultaCatalogosNecesidadesAlta === null) {
-        consultaCatalogosNecesidadesAlta = Promise.resolve()
+        const intento = Promise.resolve()
           .then(() => alta.obtenerCatalogosNecesidadesAlta())
           .then((respuesta) => {
+            if (consultaCatalogosNecesidadesAlta !== intento || !esMontada()) return;
             const catalogos = validarCatalogosAlta(respuesta);
             if (catalogos.esquema !== ESQUEMA_CATALOGOS_NECESIDADES) {
               throw new TypeError("catálogo de necesidades incompatible");
             }
             catalogosNecesidadesAlta = catalogos;
+            soloSustituciones = false;
             consultaCatalogosNecesidadesAlta = null;
             if (esMontada() && presentador.obtenerEstado().vista === "alta") montarAltaSiProcede();
           })
-          .catch(() => {
+          .catch((error) => {
+            if (consultaCatalogosNecesidadesAlta !== intento || !esMontada()) return;
             consultaCatalogosNecesidadesAlta = null;
+            if (error?.estado === 503 && error?.codigo === "capacidad_no_configurada"
+              && error?.envelopeValido === true
+              && error?.claveI18n === "api.contratacion_temporal.catalogos_alta.error.capacidad_no_configurada") {
+              try {
+                const catalogosV1 = validarCatalogosAlta(alta.catalogos);
+                if (catalogosV1.esquema === "vec.contratacion_temporal.catalogos_alta.v1"
+                  && catalogosV1.motivos.length === 1
+                  && catalogosV1.motivos[0].clave === "sustitucion") {
+                  catalogosNecesidadesAlta = catalogosV1;
+                  soloSustituciones = true;
+                  if (presentador.obtenerEstado().vista === "alta") montarAltaSiProcede();
+                  return;
+                }
+              } catch {
+                // Un catálogo v1 inválido conserva el error de carga.
+              }
+            }
             if (esMontada() && presentador.obtenerEstado().vista === "alta") {
               const actual = raiz.querySelector("[data-ct-exp-alta]");
               if (actual) actual.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
             }
           });
+        consultaCatalogosNecesidadesAlta = intento;
       }
       return;
     }
     try {
+      const formularioRaiz = soloSustituciones && contenedor.ownerDocument?.createElement
+        ? contenedor.ownerDocument.createElement("div") : contenedor;
+      if (formularioRaiz !== contenedor) {
+        contenedor.replaceChildren(formularioRaiz);
+      }
       const presentadorAlta = crearPresentadorAltaContratacionTemporal({
         catalogos: catalogosNecesidadesAlta,
         capacidad: alta.capacidad,
@@ -668,12 +696,35 @@ export function crearGestorTramitacion({
         generarClaveIdempotencia: alta.generarClaveIdempotencia,
       });
       desmontarAlta = montarAltaContratacionTemporal({
-        raiz: contenedor,
+        raiz: formularioRaiz,
         presentador: presentadorAlta,
         anunciar,
         locale,
         zonaHoraria,
       });
+      if (soloSustituciones) {
+        const aviso = contenedor.ownerDocument?.createElement?.("section");
+        if (aviso && typeof contenedor.prepend === "function") {
+          aviso.className = "ct-exp-estado-global";
+          aviso.setAttribute("role", "status");
+          aviso.setAttribute("aria-live", "polite");
+          const texto = contenedor.ownerDocument.createElement("p");
+          texto.textContent = tExpedientes("alta_solo_sustituciones");
+          const boton = contenedor.ownerDocument.createElement("button");
+          boton.type = "button";
+          boton.className = "boton-secundario";
+          boton.textContent = tExpedientes("reintentar");
+          boton.addEventListener("click", () => {
+            if (!esMontada() || presentador.obtenerEstado().vista !== "alta") return;
+            retirarAlta();
+            catalogosNecesidadesAlta = null;
+            soloSustituciones = false;
+            montarAltaSiProcede();
+          });
+          aviso.append(texto, boton);
+          contenedor.prepend(aviso);
+        }
+      }
     } catch {
       contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
     }
