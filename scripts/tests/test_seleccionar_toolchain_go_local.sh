@@ -15,7 +15,13 @@ FAKES="$TEMPORAL/fakes"
 MODCACHE="$TEMPORAL/modcache"
 REPO_PRUEBA="$TEMPORAL/repo"
 mkdir -p "$FAKES" "$MODCACHE" "$REPO_PRUEBA/scripts"
-cp "$RAIZ_REPOSITORIO/go.mod" "$REPO_PRUEBA/go.mod"
+cat >"$REPO_PRUEBA/go.mod" <<'MODULO_PRUEBA'
+module vec-toolchain-prueba
+
+go 1.25.12
+
+toolchain go1.26.6
+MODULO_PRUEBA
 cp "$RAIZ_REPOSITORIO/scripts/seleccionar_toolchain_go_local.sh" \
   "$REPO_PRUEBA/scripts/seleccionar_toolchain_go_local.sh"
 chmod 700 "$REPO_PRUEBA/scripts/seleccionar_toolchain_go_local.sh"
