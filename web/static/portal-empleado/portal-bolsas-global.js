@@ -18,6 +18,7 @@ function fecha(valor) {
 function numero(valor) { return new Intl.NumberFormat(LOCALIZACION_PORTAL).format(valor); }
 
 export function renderizarGlobalBolsa(estado, { encabezadoVista, escaparHTML }) {
+  if (!mensajes && estado?.carga === "cargando") return `${encabezadoVista("", traducirPortal("txt_bolsas_de_trabajo"), "", "")}<section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel">${escaparHTML(traducirPortal("txt_cargando_lista_de_candidatos"))}</div></section>`;
   if (!mensajes) return `${encabezadoVista("", traducirPortal("txt_bolsas_de_trabajo"), "", "")}<section class="panel" role="alert"><div class="cuerpo-panel"><p>${escaparHTML(traducirPortal("txt_no_se_pudo_cargar_la_relacion_de_aspirantes"))}</p><button type="button" class="boton-secundario" data-bolsa-accion="reintentar-global">${escaparHTML(traducirPortal("txt_reintentar"))}</button><button type="button" class="boton-secundario" data-vista="resumen">${escaparHTML(traducirPortal("txt_volver_al_cuadro"))}</button></div></section>`;
   const filtro = estado?.filtro || "todos";
   const titulo = t(filtro);
