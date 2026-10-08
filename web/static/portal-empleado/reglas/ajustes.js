@@ -27,7 +27,7 @@ const instanteRFC3339 = (valor) => typeof valor === "string"
   && !Number.isNaN(Date.parse(valor)) && new Date(valor).toISOString().replace(".000Z", "Z") === valor;
 
 /** Rechaza las horas inexistentes o ambiguas en los cambios de horario de Madrid. */
-export function normalizarFechaMadrid(valor, ahora = Date.now()) {
+export function normalizarFechaMadrid(valor, ahora = Date.now(), minimo = ahora) {
   if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u.test(valor)) throw new ErrorAjustes("ajustesFechaInvalida");
   const [anio, mes, dia, hora, minuto] = valor.match(/\d+/gu).map(Number);
   const base = Date.UTC(anio, mes - 1, dia, hora, minuto);
@@ -38,7 +38,7 @@ export function normalizarFechaMadrid(valor, ahora = Date.now()) {
     return Number(partes.year) === anio && Number(partes.month) === mes && Number(partes.day) === dia
       && Number(partes.hour) === hora && Number(partes.minute) === minuto;
   });
-  if (candidatos.length !== 1 || candidatos[0] <= ahora) throw new ErrorAjustes("ajustesFechaInvalida");
+  if (candidatos.length !== 1 || candidatos[0] <= ahora || candidatos[0] < minimo) throw new ErrorAjustes("ajustesFechaInvalida");
   return new Date(candidatos[0]).toISOString().replace(".000Z", "Z");
 }
 const CONTRATOS = Object.freeze({
@@ -74,15 +74,21 @@ export function validarLecturaAjustes(respuesta, contrato = CONTRATO_CT) {
   exigir(d?.esquema === c.esquema && d.catalogo_id === c.catalogoID
     && version(d.version_esperada) && typeof d.puede_ajustar === "boolean" && Array.isArray(d.reglas)
     && d.reglas.length <= 64 && Array.isArray(d.historial) && d.historial.length <= 50
-    && typeof d.hay_mas === "boolean" && d.activacion
+    && typeof d.hay_mas === "boolean" && typeof d.hay_mas_programados === "boolean"
+    && typeof d.consultada_en === "string" && !Number.isNaN(Date.parse(d.consultada_en)) && d.activacion
     && ["activa", "inactiva", "sin_publicar"].includes(d.activacion.estado)
     && Object.keys(d.activacion).length === 1);
-  const versionPublicada = (v) => v && version(v.version) && v.version > 0
+  const ajustesValidos = (ajustes) => ajustes && typeof ajustes === "object" && !Array.isArray(ajustes)
+    && Object.keys(ajustes).length <= 64 && Object.entries(ajustes).every(([regla, campos]) => clave(regla)
+      && campos && typeof campos === "object" && !Array.isArray(campos)
+      && Object.keys(campos).length <= CAMPOS.size && Object.entries(campos).every(([campo, valor]) => CAMPOS.has(campo)
+        && cadena(valor, 80) && valor.length > 0));
+  const versionPublicada = (v) => v && version(v.version) && v.version > 0 && ajustesValidos(v.ajustes)
     && typeof v.vigente_desde === "string" && !Number.isNaN(Date.parse(v.vigente_desde))
     && typeof v.publicada_en === "string" && !Number.isNaN(Date.parse(v.publicada_en));
   exigir((d.cabeza === null && d.version_esperada === 0 || versionPublicada(d.cabeza) && d.cabeza.version === d.version_esperada)
     && (d.vigente_hoy === null || versionPublicada(d.vigente_hoy) && d.vigente_hoy.version <= d.version_esperada)
-    && Array.isArray(d.programados) && d.programados.length <= 256
+    && Array.isArray(d.programados) && d.programados.length <= 50
     && d.programados.every((p) => versionPublicada(p) && p.version <= d.version_esperada
       && p.version > (d.vigente_hoy?.version ?? 0))
     && d.programados.every((p, i) => i === 0 || Date.parse(d.programados[i - 1].vigente_desde) <= Date.parse(p.vigente_desde)));
@@ -195,9 +201,11 @@ const CLAVES_CAMPO = Object.freeze({
   computo: "ajustesCampo_computo",
 });
 const etiquetaCampo = (campo) => t(CLAVES_CAMPO[campo]);
-const etiquetaOpcion = (tipo, valor) => t(`${tipo}_${valor}`);
+const etiquetaOpcion = (tipo, valor) => existeClaveReglas(`${tipo}_${valor}`)
+  ? t(`${tipo}_${valor}`) : t("ajustesValorHistoricoNoDisponible");
 const presentarValor = (regla, campo, valor, unidad = regla.valores.unidad ?? regla.unidad) => ["cantidad", "cantidad_urgente"].includes(campo)
-  ? `${formatearNumero(Number(valor))} ${etiquetaOpcion("unidad", unidad)}`
+  ? (/^\d+$/u.test(String(valor)) && Number.isSafeInteger(Number(valor))
+    ? `${formatearNumero(Number(valor))} ${etiquetaOpcion("unidad", unidad)}` : t("ajustesValorHistoricoNoDisponible"))
   : etiquetaOpcion(campo, valor);
 const valorHistorico = (campo, valor) => {
   if (campo === "unidad" || campo === "computo") {
@@ -208,13 +216,48 @@ const valorHistorico = (campo, valor) => {
     ? formatearNumero(Number(valor)) : t("ajustesValorHistoricoNoDisponible");
 };
 const fecha = (iso) => Number.isNaN(Date.parse(iso)) ? "" : fechaAjustes(iso);
+function fechaMadridControl(iso) {
+  const instante = Date.parse(iso);
+  if (Number.isNaN(instante)) return "";
+  const partes = Object.fromEntries(new Intl.DateTimeFormat(undefined, { timeZone: "Europe/Madrid",
+    numberingSystem: "latn", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit",
+    minute: "2-digit", hourCycle: "h23" }).formatToParts(instante).map(({ type, value }) => [type, value]));
+  return `${partes.year}-${partes.month}-${partes.day}T${partes.hour}:${partes.minute}`;
+}
+const cabezaFutura = (modelo) => Boolean(modelo.cabeza
+  && Date.parse(modelo.cabeza.vigente_desde) > Date.parse(modelo.consultada_en));
+
+/** La edición y la comparación CAS parten de la cabeza, aunque aún no esté vigente. */
+export function valoresParaEditar(modelo, regla) {
+  return { ...regla.valores, ...(modelo.cabeza?.ajustes?.[regla.clave] ?? {}) };
+}
+
+export function cambiosDesdeCabeza(modelo, regla, borrador) {
+  const antes = valoresParaEditar(modelo, regla);
+  return regla.edicion.campos.filter((campo) => borrador?.[campo] !== antes[campo])
+    .map((campo) => ({ regla_clave: regla.clave, campo, nuevo: String(borrador[campo]) }));
+}
+
+function validarValoresFormulario(regla, borrador) {
+  for (const campo of regla.edicion.campos) {
+    const valor = borrador[campo];
+    if (["cantidad", "cantidad_urgente"].includes(campo)) {
+      const n = Number(valor);
+      if (!/^\d+$/u.test(valor) || !Number.isSafeInteger(n)
+        || n < regla.edicion.cantidad_minima || n > regla.edicion.cantidad_maxima) return false;
+    } else if (campo === "unidad" && !regla.edicion.opciones_unidad.includes(valor)
+      || campo === "computo" && !regla.edicion.opciones_computo.includes(valor)) return false;
+  }
+  return !borrador.cantidad_urgente || !borrador.cantidad
+    || Number(borrador.cantidad_urgente) <= Number(borrador.cantidad);
+}
 
 function renderizarHistoriaSinBase(historial, motivos) {
   if (!historial.length) return "";
   const entradas = historial.map((h) => {
     const motivo = motivos.find((m) => m.clave === h.motivo_clave);
     const motivoTexto = motivo ? t(motivo.texto_clave) : t("ajustesMotivoNoIdentificado");
-    const cambios = h.cambios.map((c) => `<li>${esc(etiquetaCampo(c.campo))}: ${esc(valorHistorico(c.campo, c.anterior))} → ${esc(valorHistorico(c.campo, c.nuevo))} <small>${esc(t("ajustesReglaHistorica"))} <code>${esc(c.regla_clave)}</code></small></li>`).join("");
+    const cambios = h.cambios.map((c) => `<li>${esc(t("ajustesReglaSinNombre"))} · ${esc(etiquetaCampo(c.campo))}: ${esc(valorHistorico(c.campo, c.anterior))} → ${esc(valorHistorico(c.campo, c.nuevo))}</li>`).join("");
     return `<li><span>${esc(fecha(h.vigente_desde))}</span> · ${esc(h.actor_nombre || t("ajustesAutorNoDisponible"))} · ${esc(t("ajustesVersion", { version: formatearNumero(h.version) }))} · ${esc(motivoTexto)}
       <ul>${cambios}</ul>
       ${h.referencia ? `<p>${esc(t("ajustesReferenciaHistoria", { referencia: h.referencia }))}</p>` : ""}
@@ -232,7 +275,11 @@ export function renderizarAjustes(modelo, { reglaActiva = "", borrador = null, f
   const editable = modelo.puede_ajustar && motivos.length > 0 && !bloqueado;
   const reglas = modelo.reglas.map((r) => {
     const activa = r.clave === reglaActiva;
+    const baseEdicion = valoresParaEditar(modelo, r);
     const valores = r.ajuste_no_aplicable ? "" : r.edicion.campos.map((campo) => `<div><dt>${esc(etiquetaCampo(campo))}</dt><dd>${esc(presentarValor(r, campo, r.valores[campo]))}</dd></div>`).join("");
+    const tieneProgramado = !r.ajuste_no_aplicable && cabezaFutura(modelo)
+      && r.edicion.campos.some((campo) => r.valores[campo] !== baseEdicion[campo]);
+    const siguiente = tieneProgramado ? `<div class="rg-ajuste-revision"><strong>${esc(t("ajustesValorProgramado", { fecha: fecha(modelo.cabeza.vigente_desde) }))}</strong><dl class="rg-ajuste-valores">${r.edicion.campos.map((campo) => `<div><dt>${esc(etiquetaCampo(campo))}</dt><dd>${esc(presentarValor({ ...r, valores: baseEdicion }, campo, baseEdicion[campo]))}</dd></div>`).join("")}</dl></div>` : "";
     const historial = modelo.historial.filter((h) => h.cambios.some((c) => c.regla_clave === r.clave));
     const listaHistorial = historial.length ? historial.map((h) => `<li><span>${esc(fecha(h.vigente_desde))}</span> · ${esc(h.actor_nombre || t("ajustesAutorNoDisponible"))} · ${esc(motivos.find((m) => m.clave === h.motivo_clave)?.texto_clave ? t(motivos.find((m) => m.clave === h.motivo_clave).texto_clave) : t("ajustesMotivoNoIdentificado"))}
       <ul>${h.cambios.filter((c) => c.regla_clave === r.clave).map((c) => `<li>${esc(etiquetaCampo(c.campo))}: ${esc(valorHistorico(c.campo, c.anterior))} → ${esc(valorHistorico(c.campo, c.nuevo))}</li>`).join("")}</ul>
@@ -243,13 +290,23 @@ export function renderizarAjustes(modelo, { reglaActiva = "", borrador = null, f
     const motivoDesactivado = modelo.puede_ajustar && !motivos.length ? `<p class="rg-aviso">${esc(t("ajustesSinMotivos"))}</p>` : "";
     const revision = r.ajuste_no_aplicable ? `<p class="rg-aviso rg-aviso--error">${esc(t("ajusteRevisionDetalle"))}</p>` : "";
     return `<article class="rg-ajuste-regla" aria-labelledby="rg-ajuste-${esc(r.clave)}"><div class="rg-ajuste-cabecera"><h3 id="rg-ajuste-${esc(r.clave)}"${idiomaAjustes() === idiomaDatosAjustes() ? "" : ` lang="${esc(idiomaDatosAjustes())}"`}>${esc(r.etiqueta)}</h3>${accion}</div>
-      ${valores ? `<dl class="rg-ajuste-valores">${valores}</dl>` : ""}${revision}${motivoDesactivado}
-      ${activa && editable && !r.ajuste_no_aplicable ? renderizarFormulario(r, motivos, borrador, fase) : ""}
+      ${valores ? `<p class="rg-meta">${esc(t("ajustesValorEnVigor"))}</p><dl class="rg-ajuste-valores">${valores}</dl>` : ""}${siguiente}${revision}${motivoDesactivado}
+      ${activa && editable && !r.ajuste_no_aplicable ? renderizarFormulario(r, baseEdicion, cabezaFutura(modelo), modelo.cabeza?.vigente_desde, motivos, borrador, fase) : ""}
       <details class="rg-ajuste-historial"><summary>${esc(t("ajustesHistorial"))}</summary><ol>${listaHistorial}</ol></details></article>`;
   }).join("");
   const historiaSinBase = !baseActiva ? renderizarHistoriaSinBase(modelo.historial, motivos) : "";
   const mensajeBase = !baseActiva ? t(modelo.activacion.estado === "sin_publicar" ? "ajustesBaseSinPublicar" : "ajustesBaseInactiva") : "";
-  const programados = modelo.programados?.length ? `<details class="rg-ajuste-historial"><summary>${esc(t("ajustesProgramados"))}</summary><ol>${modelo.programados.map((p) => `<li>${esc(t("ajustesProgramado", { version: formatearNumero(p.version), fecha: fecha(p.vigente_desde) }))}</li>`).join("")}</ol></details>` : "";
+  const reglasPorClave = new Map(modelo.reglas.map((r) => [r.clave, r]));
+  const programados = modelo.programados?.length || modelo.hay_mas_programados
+    ? `<details class="rg-ajuste-historial"><summary>${esc(t("ajustesProgramados"))}</summary><ol>${modelo.programados.map((p) => {
+      const valoresVersion = Object.entries(p.ajustes).map(([claveRegla, campos]) => {
+        const r = reglasPorClave.get(claveRegla);
+        const valoresEsaVersion = r ? { ...r.valores, ...campos } : campos;
+        const nombre = r?.etiqueta || t("ajustesReglaSinNombre");
+        return `<li><strong>${esc(nombre)}</strong><dl>${Object.entries(campos).map(([campo, valor]) => `<div><dt>${esc(etiquetaCampo(campo))}</dt><dd>${esc(r ? presentarValor({ ...r, valores: valoresEsaVersion }, campo, valor) : valorHistorico(campo, valor))}</dd></div>`).join("")}</dl></li>`;
+      }).join("");
+      return `<li><details><summary>${esc(t("ajustesProgramado", { version: formatearNumero(p.version), fecha: fecha(p.vigente_desde) }))}</summary><p>${esc(t("ajustesValoresVersion"))}</p><ul>${valoresVersion}</ul></details></li>`;
+    }).join("")}</ol>${modelo.hay_mas_programados ? `<p class="rg-aviso" role="status">${esc(t("ajustesProgramadosParciales"))}</p>` : ""}</details>` : "";
   const versionVigente = baseActiva && modelo.vigente_hoy
     ? t("ajustesVersionVigente", { version: formatearNumero(modelo.vigente_hoy.version) }) : t("ajustesSinVersionVigente");
   const versionCabeza = modelo.cabeza && modelo.cabeza.version !== modelo.vigente_hoy?.version
@@ -264,22 +321,23 @@ export function renderizarAjustes(modelo, { reglaActiva = "", borrador = null, f
     ${modelo.hay_mas ? `<div class="rg-ajuste-mas"><button type="button" class="rg-secundario" data-ajustes-mas>${esc(t("ajustesMasHistoria"))}</button></div>` : ""}</section>`;
 }
 
-function renderizarFormulario(regla, motivos, borrador, fase) {
+function renderizarFormulario(regla, baseEdicion, hayCabezaFutura, fechaCabeza, motivos, borrador, fase) {
   const bloqueado = fase === "revision" ? " disabled" : "";
   const motivoElegido = motivos.find((m) => m.clave === borrador?.motivo_clave);
   const controles = regla.edicion.campos.map((campo) => {
-    const valor = borrador?.[campo] ?? regla.valores[campo];
+    const valor = borrador?.[campo] ?? baseEdicion[campo];
     const opciones = campo === "unidad" ? regla.edicion.opciones_unidad : campo === "computo" ? regla.edicion.opciones_computo : null;
     const control = opciones ? `<select name="${campo}" required${bloqueado}>${opciones.map((opcion) => `<option value="${esc(opcion)}"${opcion === valor ? " selected" : ""}>${esc(etiquetaOpcion(campo, opcion))}</option>`).join("")}</select>`
       : `<input name="${campo}" type="number" inputmode="numeric" required min="${regla.edicion.cantidad_minima}" max="${regla.edicion.cantidad_maxima}" step="1" value="${esc(valor)}"${bloqueado}>`;
     return `<label><span>${esc(etiquetaCampo(campo))}</span>${control}</label>`;
   }).join("");
   const motivo = `<label><span>${esc(t("ajustesMotivo"))}</span><select name="motivo_clave" required${bloqueado}><option value="">${esc(t("ajustesElegirMotivo"))}</option>${motivos.map((m) => `<option value="${esc(m.clave)}"${m.clave === borrador?.motivo_clave ? " selected" : ""}>${esc(t(m.texto_clave))}</option>`).join("")}</select></label>`;
-  const inicio = borrador?.inicio_efecto === "futuro" ? "futuro" : "ahora";
-  const valorFecha = borrador?.fecha_madrid ?? "";
-  const fechaControl = `<fieldset class="rg-ajuste-nota"><legend>${esc(t("ajustesInicioEfecto"))}</legend><label><input type="radio" name="inicio_efecto" value="ahora"${inicio === "ahora" ? " checked" : ""}${bloqueado}>${esc(t("ajustesDesdeAhora"))}</label><label><input type="radio" name="inicio_efecto" value="futuro"${inicio === "futuro" ? " checked" : ""}${bloqueado}>${esc(t("ajustesFechaFutura"))}</label>${inicio === "futuro" ? `<label><span>${esc(t("ajustesFechaHoraMadrid"))}</span><input name="fecha_madrid" type="datetime-local" required value="${esc(valorFecha)}"${bloqueado}></label>` : ""}</fieldset>`;
-  const efecto = inicio === "futuro" ? t("ajustesEfectoFuturo", { fecha: fecha(borrador.vigente_desde) }) : t("ajustesEfecto");
-  const resumen = fase === "revision" ? `<div class="rg-ajuste-revision" tabindex="-1" data-ajustes-revision><h4>${esc(t("ajustesRevisar"))}</h4><p>${esc(efecto)}</p><dl>${regla.edicion.campos.filter((campo) => borrador[campo] !== regla.valores[campo]).map((campo) => `<div><dt>${esc(etiquetaCampo(campo))}</dt><dd>${esc(presentarValor(regla, campo, regla.valores[campo]))} → ${esc(presentarValor(regla, campo, borrador[campo], borrador.unidad ?? regla.valores.unidad ?? regla.unidad))}</dd></div>`).join("")}
+  const inicio = hayCabezaFutura || borrador?.inicio_efecto === "futuro" ? "futuro" : "ahora";
+  const valorFecha = borrador?.fecha_madrid ?? (hayCabezaFutura ? fechaMadridControl(fechaCabeza) : "");
+  const fechaControl = `<fieldset class="rg-ajuste-nota"><legend>${esc(t("ajustesInicioEfecto"))}</legend><label><input type="radio" name="inicio_efecto" value="ahora"${inicio === "ahora" ? " checked" : ""}${bloqueado || hayCabezaFutura ? " disabled" : ""}>${esc(t("ajustesDesdeAhora"))}</label><label><input type="radio" name="inicio_efecto" value="futuro"${inicio === "futuro" ? " checked" : ""}${bloqueado}>${esc(t("ajustesFechaFutura"))}</label>${hayCabezaFutura ? `<p class="rg-meta">${esc(t("ajustesAhoraBloqueado", { fecha: fecha(fechaCabeza) }))}</p>` : ""}${inicio === "futuro" ? `<label><span>${esc(t("ajustesFechaHoraMadrid"))}</span><input name="fecha_madrid" type="datetime-local" required value="${esc(valorFecha)}"${bloqueado}></label>` : ""}</fieldset>`;
+  const efecto = inicio === "futuro" ? t("ajustesEfectoFuturo", { fecha: fecha(borrador?.vigente_desde) }) : t("ajustesEfecto");
+  const reglaCabeza = { ...regla, valores: baseEdicion };
+  const resumen = fase === "revision" ? `<div class="rg-ajuste-revision" tabindex="-1" data-ajustes-revision><h4>${esc(t("ajustesRevisar"))}</h4><p>${esc(efecto)}</p>${hayCabezaFutura ? `<p>${esc(t("ajustesSustituyeProgramado", { fecha: fecha(fechaCabeza) }))}</p>` : ""}<dl>${regla.edicion.campos.filter((campo) => borrador[campo] !== baseEdicion[campo]).map((campo) => `<div><dt>${esc(etiquetaCampo(campo))}</dt><dd>${esc(presentarValor(reglaCabeza, campo, baseEdicion[campo]))} → ${esc(presentarValor(reglaCabeza, campo, borrador[campo], borrador.unidad ?? baseEdicion.unidad ?? regla.unidad))}</dd></div>`).join("")}
     <div><dt>${esc(t("ajustesMotivo"))}</dt><dd>${esc(motivoElegido ? t(motivoElegido.texto_clave) : t("ajustesMotivoNoIdentificado"))}</dd></div>
     ${borrador.referencia ? `<div><dt>${esc(t("ajustesReferencia"))}</dt><dd>${esc(borrador.referencia)}</dd></div>` : ""}
     ${borrador.nota ? `<div><dt>${esc(t("ajustesNota"))}</dt><dd>${esc(borrador.nota)}</dd></div>` : ""}</dl></div>` : "";
@@ -364,8 +422,7 @@ export async function iniciarAjustes(doc, cliente = crearClienteAjustes(), { mod
       return false;
     }
   };
-  const cambios = (regla) => regla.edicion.campos.filter((campo) => borrador?.[campo] !== regla.valores[campo])
-    .map((campo) => ({ regla_clave: regla.clave, campo, nuevo: String(borrador[campo]) }));
+  const cambios = (regla) => cambiosDesdeCabeza(modelo, regla, borrador);
   const leerFormulario = (form, regla) => {
     const datos = new FormData(form);
     const siguiente = { motivo_clave: String(datos.get("motivo_clave") ?? ""), referencia: String(datos.get("referencia") ?? "").trim(),
@@ -391,6 +448,7 @@ export async function iniciarAjustes(doc, cliente = crearClienteAjustes(), { mod
       const resultado = await cliente.guardar(comando, { signal: escritura.signal });
       if (desmontado) return;
       recibo = resultado.recibo;
+      pendiente = null;
       const leido = await cargar();
       if (desmontado) return;
       aviso = t(leido ? "ajustesGuardado" : "ajustesGuardadoSinLectura"); error = !leido; pintar();
@@ -411,7 +469,7 @@ export async function iniciarAjustes(doc, cliente = crearClienteAjustes(), { mod
       void reintentarTextosAjustes().then(() => { if (!desmontado) pintar(); }).catch(() => { if (!desmontado) pintar(); });
       return;
     }
-    if (evento.target.closest?.("[data-ajustes-reintentar]")) { void cargar({ conservarBorrador: Boolean(borrador) }); return; }
+    if (evento.target.closest?.("[data-ajustes-reintentar]")) { void cargar({ conservarBorrador: !recibo && Boolean(borrador) }); return; }
     if (evento.target.closest?.("[data-ajustes-mas]")) {
       const menor = modelo?.historial.at(-1)?.version;
       if (Number.isInteger(menor) && menor > 1) void cargar({ antesDeVersion: menor });
@@ -453,8 +511,12 @@ export async function iniciarAjustes(doc, cliente = crearClienteAjustes(), { mod
     if (fase !== "revision") {
       if (!form.reportValidity()) return;
       borrador = leerFormulario(form, regla);
+      if (!validarValoresFormulario(regla, borrador)) { comunicar("ajustesValorInvalido", true); return; }
       try {
-        borrador.vigente_desde = borrador.inicio_efecto === "futuro" ? normalizarFechaMadrid(borrador.fecha_madrid) : undefined;
+        if (cabezaFutura(modelo) && borrador.inicio_efecto !== "futuro") throw new ErrorAjustes("ajustesFechaInvalida");
+        const minimo = Math.max(Date.parse(modelo.consultada_en), Date.parse(modelo.cabeza?.vigente_desde ?? modelo.consultada_en));
+        borrador.vigente_desde = borrador.inicio_efecto === "futuro"
+          ? normalizarFechaMadrid(borrador.fecha_madrid, Date.now(), minimo) : undefined;
       } catch (e) { comunicar(e instanceof ErrorAjustes ? e.codigo : "ajustesFechaInvalida", true); return; }
       if (!modelo.motivos.some((m) => m.clave === borrador.motivo_clave)) { comunicar("ajustesMotivoRequerido", true); return; }
       if (!cambios(regla).length) { comunicar("ajustesSinCambios", true); return; }

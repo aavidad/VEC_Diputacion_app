@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { API_AJUSTES, ErrorAjustes, crearClienteAjustes, normalizarFechaMadrid, renderizarAjustes, validarLecturaAjustes, validarReciboAjustes } from "./ajustes.js";
+import { API_AJUSTES, ErrorAjustes, cambiosDesdeCabeza, crearClienteAjustes, normalizarFechaMadrid,
+  renderizarAjustes, validarLecturaAjustes, validarReciboAjustes, valoresParaEditar } from "./ajustes.js";
 import { cargarTextosAjustes } from "./ajustes-i18n.js";
 
 await cargarTextosAjustes();
 
 const lectura = () => ({ data: { esquema: "vec.contratacion_temporal.reglas.ajustes.v1",
   catalogo_id: "vec.contratacion_temporal.reglas.ajustes", version_esperada: 2, puede_ajustar: true,
-  activacion: { estado: "activa" },
-  cabeza: { version: 2, vigente_desde: "2026-09-30T12:00:00Z", publicada_en: "2026-09-29T12:00:00Z" },
-  vigente_hoy: { version: 2, vigente_desde: "2026-09-30T12:00:00Z", publicada_en: "2026-09-29T12:00:00Z" },
-  programados: [],
+  activacion: { estado: "activa" }, consultada_en: "2026-10-08T10:00:00Z", hay_mas_programados: false,
+  cabeza: { version: 2, ajustes: { "c03.plazo_fiscalizacion": { cantidad: "10", cantidad_urgente: "5" } },
+    vigente_desde: "2026-09-30T12:00:00Z", publicada_en: "2026-09-29T12:00:00Z" },
+  vigente_hoy: { version: 2, ajustes: { "c03.plazo_fiscalizacion": { cantidad: "10", cantidad_urgente: "5" } },
+    vigente_desde: "2026-09-30T12:00:00Z", publicada_en: "2026-09-29T12:00:00Z" }, programados: [],
   motivos: [{ clave: "respuesta_rrhh_duda", texto_clave: "ajustesMotivo_respuesta_rrhh_duda" }],
   reglas: [{ clave: "c03.plazo_fiscalizacion", etiqueta: "Plazo de fiscalización", unidad: "dias_habiles", cantidad: 10,
     valores: { cantidad: "10", cantidad_urgente: "5", unidad: "dias_habiles" },
@@ -54,7 +56,8 @@ test("una base sin publicar o inactiva muestra historia sin afirmar valores vige
     const html = renderizarAjustes(modelo);
     assert.match(html, /Ver historial/u);
     assert.match(html, /Duda 63/u);
-    assert.match(html, /Identificador de la regla: <code>c03\.plazo_fiscalizacion<\/code>/u);
+    assert.match(html, /Regla sin nombre disponible/u);
+    assert.doesNotMatch(html, /<code>c03\.plazo_fiscalizacion<\/code>/u);
     assert.match(html, /Cantidad: 12 → 10/u);
     assert.match(html, /Revisado/u);
     assert.doesNotMatch(html, /data-ajustes-editar/u);
@@ -68,7 +71,8 @@ test("una base sin publicar o inactiva muestra historia sin afirmar valores vige
 test("la cabeza programada conserva CAS independiente del valor vigente", () => {
   const respuesta = lectura();
   respuesta.data.version_esperada = 3;
-  respuesta.data.cabeza = { version: 3, vigente_desde: "2027-01-15T09:30:00Z", publicada_en: "2026-10-08T10:00:00Z" };
+  respuesta.data.cabeza = { version: 3, ajustes: { "c03.plazo_fiscalizacion": { cantidad: "7", cantidad_urgente: "4" } },
+    vigente_desde: "2027-01-15T09:30:00Z", publicada_en: "2026-10-08T10:00:00Z" };
   respuesta.data.programados = [respuesta.data.cabeza];
   const datos = validarLecturaAjustes(respuesta);
   assert.equal(datos.vigente_hoy.version, 2);
@@ -78,6 +82,27 @@ test("la cabeza programada conserva CAS independiente del valor vigente", () => 
   assert.match(html, /Última versión publicada: 3/u);
   assert.match(html, /Versión 3: se aplicará desde/u);
   assert.match(html, /10 Días hábiles/u);
+  assert.match(html, /7 Días hábiles/u);
+  assert.match(html, /Valor en vigor ahora/u);
+  assert.match(html, /Valor programado desde/u);
+  assert.match(html, /Valores de esta versión/u);
+  assert.deepEqual(cambiosDesdeCabeza(datos, datos.reglas[0], { cantidad: "7", cantidad_urgente: "4" }), []);
+  assert.deepEqual(cambiosDesdeCabeza(datos, datos.reglas[0], { cantidad: "7", cantidad_urgente: "3" }),
+    [{ regla_clave: "c03.plazo_fiscalizacion", campo: "cantidad_urgente", nuevo: "3" }]);
+  assert.deepEqual(cambiosDesdeCabeza(datos, datos.reglas[0], { cantidad: "10", cantidad_urgente: "4" }),
+    [{ regla_clave: "c03.plazo_fiscalizacion", campo: "cantidad", nuevo: "10" }]);
+  assert.deepEqual(valoresParaEditar(datos, datos.reglas[0]), { cantidad: "7", cantidad_urgente: "4", unidad: "dias_habiles" });
+  const revision = renderizarAjustes(datos, { reglaActiva: "c03.plazo_fiscalizacion", fase: "revision",
+    borrador: { cantidad: "6", cantidad_urgente: "4", motivo_clave: "respuesta_rrhh_duda", inicio_efecto: "futuro",
+      fecha_madrid: "2027-01-15T10:30", vigente_desde: "2027-01-15T09:30:00Z" } });
+  assert.match(revision, /7 Días hábiles → 6 Días hábiles/u);
+  assert.match(revision, /name="inicio_efecto" value="ahora"[^>]*disabled/u);
+  assert.doesNotMatch(revision, /10 Días hábiles → 6 Días hábiles/u);
+  assert.throws(() => normalizarFechaMadrid("2027-01-14T10:30", Date.parse("2026-10-08"), Date.parse(datos.cabeza.vigente_desde)), ErrorAjustes);
+  assert.equal(normalizarFechaMadrid("2027-01-15T10:30", Date.parse("2026-10-08"), Date.parse(datos.cabeza.vigente_desde)),
+    datos.cabeza.vigente_desde);
+  const parcial = { ...datos, hay_mas_programados: true };
+  assert.match(renderizarAjustes(parcial), /Hay más cambios programados/u);
   assert.throws(() => validarLecturaAjustes({ data: { ...respuesta.data, version_esperada: 2 } }), ErrorAjustes);
 });
 

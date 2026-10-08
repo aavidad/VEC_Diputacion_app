@@ -66,7 +66,7 @@
     "ajustesDesdeAhora": "Desde ahora",
     "ajustesFechaFutura": "En una fecha futura",
     "ajustesFechaHoraMadrid": "Fecha y hora de Madrid",
-    "ajustesFechaInvalida": "Introduzca una fecha y hora futura válida de Madrid. Evite la hora del cambio de horario y vuelva a revisar.",
+    "ajustesFechaInvalida": "Elija una fecha futura válida. Si hay un cambio programado, no puede ser anterior. Evite las horas del cambio de horario.",
     "ajustesEfectoFuturo": "Solicitará que el nuevo valor se aplique desde {fecha}. Los plazos ya iniciados conservan su valor.",
     "ajustesAutorNoDisponible": "Autor no disponible",
     "ajustesTitulo_bolsa": "Plazos de Bolsa",
@@ -80,6 +80,13 @@
     "ajustesProgramado": "Versión {version}: se aplicará desde {fecha}",
     "ajustesVersionVigente": "Versión {version} en vigor",
     "ajustesSinVersionVigente": "Sin ajustes en vigor",
-    "ajustesVersionCabeza": "Última versión publicada: {version}"
+    "ajustesVersionCabeza": "Última versión publicada: {version}",
+    "ajustesValorEnVigor": "Valor en vigor ahora",
+    "ajustesValorProgramado": "Valor programado desde {fecha}",
+    "ajustesAhoraBloqueado": "Hay un cambio programado para {fecha}. Elija esa fecha o una posterior.",
+    "ajustesSustituyeProgramado": "La comparación parte de la versión programada para {fecha}.",
+    "ajustesReglaSinNombre": "Regla sin nombre disponible",
+    "ajustesValoresVersion": "Valores de esta versión",
+    "ajustesProgramadosParciales": "Hay más cambios programados. Consulte el historial y cargue los cambios anteriores."
   }
 }

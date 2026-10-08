@@ -66,7 +66,7 @@
     "ajustesDesdeAhora": "From now",
     "ajustesFechaFutura": "On a future date",
     "ajustesFechaHoraMadrid": "Madrid date and time",
-    "ajustesFechaInvalida": "Enter a valid future Madrid date and time. Avoid the clock change hour and review it again.",
+    "ajustesFechaInvalida": "Choose a valid future date. If a change is scheduled, the date cannot be earlier. Avoid the clock change hours.",
     "ajustesEfectoFuturo": "You will request the new value to apply from {fecha}. Deadlines already started keep their value.",
     "ajustesAutorNoDisponible": "Author unavailable",
     "ajustesTitulo_bolsa": "Job pool deadlines",
@@ -80,6 +80,13 @@
     "ajustesProgramado": "Version {version}: applies from {fecha}",
     "ajustesVersionVigente": "Version {version} in effect",
     "ajustesSinVersionVigente": "No adjustments in effect",
-    "ajustesVersionCabeza": "Latest published version: {version}"
+    "ajustesVersionCabeza": "Latest published version: {version}",
+    "ajustesValorEnVigor": "Value in effect now",
+    "ajustesValorProgramado": "Value scheduled from {fecha}",
+    "ajustesAhoraBloqueado": "A change is scheduled for {fecha}. Choose that date or a later one.",
+    "ajustesSustituyeProgramado": "The comparison starts from the version scheduled for {fecha}.",
+    "ajustesReglaSinNombre": "Rule name unavailable",
+    "ajustesValoresVersion": "Values in this version",
+    "ajustesProgramadosParciales": "There are more scheduled changes. Check the history and load earlier changes."
   }
 }
