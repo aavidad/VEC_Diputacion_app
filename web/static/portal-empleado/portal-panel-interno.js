@@ -598,6 +598,8 @@ export function crearPresentadorPanelInterno(dependencias) {
         ? `${fechaVisible(bolsa.vigente_desde)} — ${fechaVisible(bolsa.vigente_hasta)}`
         : traducirPortal("txt_vigencia_abierta", { desde: fechaVisible(bolsa.vigente_desde) }))
       : traducirPortal("txt_no_disponible");
+    const busquedaPersonas = new URLSearchParams(globalThis.location?.search ?? "");
+    busquedaPersonas.delete("texto");
     const accionesBolsa = `<div class="cuerpo-panel acciones-vista">
             <button type="button" class="boton-secundario boton-ancho" data-bolsa-accion="cambiar-pestana" data-pestana="historico">${textoPortal("txt_consultar_historial_de_contactos")}</button>
             <button type="button" class="boton-primario boton-ancho" data-bolsa-accion="iniciar-b7">${textoPortal("txt_nuevo_llamamiento")}</button>
@@ -624,7 +626,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               <div class="fila-resumen"><dt>${textoPortal("txt_categoria")}</dt><dd>${escaparHTML(bolsa.categoria)}</dd></div>
               <div class="fila-resumen"><dt>${textoPortal("txt_tipo_de_lista")}</dt><dd>${escaparHTML(etiquetaTipoLista(bolsa.tipo_lista))}</dd></div>
               <div class="fila-resumen"><dt>${textoPortal("txt_vigencia")}</dt><dd>${escaparHTML(vigenciaBolsa)}</dd></div>
-              <div class="fila-resumen"><dt>${textoPortal("txt_personas_en_bolsa")}</dt><dd>${numero(bolsa.total)}</dd></div>
+              <div class="fila-resumen"><dt><a class="enlace-tabla" href="${escaparHTML(rutaCandidatosBolsaCompartible(busquedaPersonas.toString(), bolsa.bolsa_ref))}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-pestana="candidatos" aria-label="${textoPortal("txt_aria_abrir_personas_bolsa", { total: numero(bolsa.total), categoria: bolsa.categoria })}">${textoPortal("txt_personas_en_bolsa")}</a></dt><dd>${numero(bolsa.total)}</dd></div>
             </dl>
           </div>
         </section>

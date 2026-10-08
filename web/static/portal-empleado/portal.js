@@ -122,7 +122,7 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261008-r-traza-idioma-v1"),
+        import("./portal-bolsas-ofertas.js?v=20261008-r-personas-v1"),
         import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
@@ -413,7 +413,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261008-r-traza-idioma-v1");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261008-r-personas-v1");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -1572,8 +1572,8 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261008-r-traza-idioma-v1"),
-    import("./portal-bolsas-api.js?v=20261008-r-traza-idioma-v1"),
+    import("./portal-panel-interno.js?v=20261008-r-personas-v1"),
+    import("./portal-bolsas-api.js?v=20261008-r-personas-v1"),
     import("./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2"),
   ]).then(([panel, bolsas, rutas]) => {
     if (!vistaNecesitaBolsa()) {
@@ -1722,7 +1722,8 @@ function instalarEnlacesBolsa() {
     if (filtro.seguimiento) controladorBolsas?.olvidarEmisionConfirmada?.();
     estado.bolsaSeleccionada = filtro.bolsaRef;
     estado.filtrosBolsa = { estado: filtro.estado, texto: "",
-      ...(esHistoricoCT ? { pestana: "historico" } : {}) };
+      ...(control.dataset.pestana === "candidatos" ? { pestana: "candidatos" }
+        : esHistoricoCT ? { pestana: "historico" } : {}) };
     estado.datosCandidatos = null;
     estado.origenLlamamientoB7 = null;
     rutaCandidatosAplicada = null;
