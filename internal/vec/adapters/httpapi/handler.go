@@ -19,7 +19,7 @@ import (
 
 type Handler struct {
 	service                                  *application.Service
-	manejadorSesionNominal                   http.Handler
+	manejadorSesionNominal                   ManejadorSesionNominal
 	soloRutasExactas                         bool
 	internal                                 *application.InternalOperations
 	personalCatalog                          CatalogoPersonal
@@ -38,7 +38,7 @@ type Handler struct {
 type HandlerOptions struct {
 	// ManejadorSesionNominal llega de la composición confiable y decide
 	// autenticación, auditoría y método para las dos rutas de sesión exactas.
-	ManejadorSesionNominal                   http.Handler
+	ManejadorSesionNominal                   ManejadorSesionNominal
 	InternalOperations                       *application.InternalOperations
 	PersonalCatalog                          CatalogoPersonal
 	CategoriasProfesionales                  ConsultaCategoriasProfesionales
@@ -65,6 +65,16 @@ type HandlerOptions struct {
 // ErrSesionNominalInvalida rechaza una dependencia inválida o mezclada con
 // fuentes de identidad demo y cabeceras confiadas.
 var ErrSesionNominalInvalida = errors.New("vec http handler: nominal session handler invalid")
+
+var errAuditoriaSesionNominalNoDisponible = errors.New("vec http: nominal session audit unavailable")
+
+// ManejadorSesionNominal recibe sólo las rutas canónicas de sesión. Las
+// variantes de URL que decodifican a ellas se auditan por referencia fija,
+// sin entregar la petición hostil al manejador ni iniciar identidad.
+type ManejadorSesionNominal interface {
+	http.Handler
+	AuditarRechazoSesionNoCanonica(context.Context, string) error
+}
 
 // DemoIdentityResolver es el unico origen admitido para el modo fake. La
 // implementacion local de demostracion resuelve un Bearer opaco contra un
@@ -170,6 +180,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.manejadorSesionNominal != nil &&
 		(r.URL.Path == "/api/vec/session" || r.URL.Path == "/api/vec/session/start") {
+		if !peticionRutaExactaCanonica(r) || r.URL.RawQuery != "" {
+			rutaCanonica := "/api/vec/session"
+			if r.URL.Path == "/api/vec/session/start" {
+				rutaCanonica = "/api/vec/session/start"
+			}
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			errAuditoria := h.manejadorSesionNominal.AuditarRechazoSesionNoCanonica(r.Context(), rutaCanonica)
+			if errAuditoria != nil || r.Context().Err() != nil {
+				h.responderFalloRegistroAuditoria(w, r,
+					errors.Join(errAuditoriaSesionNominalNoDisponible, errAuditoria, r.Context().Err()))
+				return
+			}
+			h.writeError(w, http.StatusBadRequest, "solicitud_invalida")
+			return
+		}
 		// También se delegan métodos inesperados: el manejador nominal los
 		// audita antes de rechazarlos.
 		h.manejadorSesionNominal.ServeHTTP(w, r)
@@ -528,7 +554,9 @@ func (h *Handler) responderFalloCatalogoModulos(w http.ResponseWriter, r *http.R
 // registrarse: declara AUDITORIA_NO_REGISTRADA y responde 503 fijo. La
 // denegación conserva su 403.
 func (h *Handler) responderFalloRegistroAuditoria(w http.ResponseWriter, r *http.Request, err error) {
-	if errors.Is(err, domain.ErrPermissionDenied) {
+	// Si falló el registro del rechazo de sesión, la indisponibilidad prevalece
+	// aunque la causa interna contenga una denegación de permisos.
+	if errors.Is(err, domain.ErrPermissionDenied) && !errors.Is(err, errAuditoriaSesionNominalNoDisponible) {
 		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
 		return
 	}
