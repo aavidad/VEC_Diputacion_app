@@ -190,6 +190,7 @@ type Config struct {
 	CronosResolucionEnabled                     string
 	CTFirmaRegistroEnabled                      string
 	BolsaPortalCandidatoEnabled                 string
+	BolsaInscripcionesEnabled                   string
 	CTSeguimientoCeseEnabled                    string
 	CTCancelacionEnabled                        string
 	CTIncorporacionAcreditadaEnabled            string
@@ -314,6 +315,7 @@ func Load() Config {
 		CronosResolucionEnabled:            envFirst(EnvCronosResolucionEnabled),
 		CTFirmaRegistroEnabled:             envFirst(EnvCTFirmaRegistroEnabled),
 		BolsaPortalCandidatoEnabled:        envFirst(EnvBolsaPortalCandidatoEnabled),
+		BolsaInscripcionesEnabled:          envFirst(EnvBolsaInscripcionesEnabled),
 		CTSeguimientoCeseEnabled:           envFirst(EnvCTSeguimientoCeseEnabled),
 		CTCancelacionEnabled:               envFirst(EnvCTCancelacionEnabled),
 		CTIncorporacionAcreditadaEnabled:   envFirst(EnvCTIncorporacionAcreditadaEnabled),
@@ -469,6 +471,7 @@ func (c Config) Normalize() Config {
 	c.CronosResolucionEnabled = strings.TrimSpace(c.CronosResolucionEnabled)
 	c.CTFirmaRegistroEnabled = strings.TrimSpace(c.CTFirmaRegistroEnabled)
 	c.BolsaPortalCandidatoEnabled = strings.TrimSpace(c.BolsaPortalCandidatoEnabled)
+	c.BolsaInscripcionesEnabled = strings.TrimSpace(c.BolsaInscripcionesEnabled)
 	c.CTSeguimientoCeseEnabled = strings.TrimSpace(c.CTSeguimientoCeseEnabled)
 	c.CTCancelacionEnabled = strings.TrimSpace(c.CTCancelacionEnabled)
 	c.CTIncorporacionAcreditadaEnabled = strings.TrimSpace(c.CTIncorporacionAcreditadaEnabled)
