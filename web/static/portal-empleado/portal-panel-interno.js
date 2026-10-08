@@ -884,8 +884,8 @@ export function crearPresentadorPanelInterno(dependencias) {
   function renderizarSoloBolsas(vista) {
     if (vista === "bolsa-candidatos") return renderizarCandidatosBolsa();
     const estadoAvisos = typeof obtenerDatosAvisos === "function" ? obtenerDatosAvisos() : null;
-    return `<div class="cuadro-bolsa-solo">
-      ${encabezadoVista("", traducirPortal("txt_bolsas_de_trabajo"), "", `<a class="boton-secundario" href="${RUTA_PANTALLA_CARGA_CONVOCA}">${textoPortal("txt_cargar_bolsa_convoca")}</a>`)}
+    return `${encabezadoVista("", traducirPortal("txt_bolsas_de_trabajo"), "", `<a class="boton-secundario" href="${RUTA_PANTALLA_CARGA_CONVOCA}">${textoPortal("txt_cargar_bolsa_convoca")}</a>`)}
+      <div class="cuadro-bolsa-solo">
       ${renderizarCuadroB12()}
       ${renderizarBloqueAvisos({
         estado: estadoAvisos?.carga || "cargando",

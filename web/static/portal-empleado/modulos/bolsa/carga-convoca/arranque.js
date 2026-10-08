@@ -29,7 +29,9 @@ async function iniciar(reintento = false) {
       error.hidden = false;
       error.focus();
     } catch {
-      // El aviso común del portal tampoco se pudo leer; conserva la pantalla sin datos.
+      // El lector común y su respaldo no están disponibles; queda el control de recarga.
+      error.hidden = false;
+      error.focus();
     }
   } finally {
     boton.disabled = false;
