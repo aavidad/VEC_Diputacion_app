@@ -28,7 +28,7 @@ type autoridadInscripcionPrueba struct {
 	huella, canal  string
 }
 
-func (a autoridadInscripcionPrueba) CapturarLectura(_ context.Context, ctx contextoSeguridadComunDesarrollo, accion, recurso string, filtro inscripcion.Filtro) (inscripcion.CapturaLectura, error) {
+func (a autoridadInscripcionPrueba) CapturarLectura(_ context.Context, ctx contextoSeguridadComunDesarrollo, _ AcreditacionSesionInscripcionBolsa, accion, recurso string, filtro inscripcion.Filtro) (inscripcion.CapturaLectura, error) {
 	v, _ := ctx.Vinculo.Datos()
 	if a.alterarRecurso {
 		recurso = "otro_recurso"
@@ -123,7 +123,7 @@ func acreditacionSesionInscripcionPrueba(t *testing.T, ctx contextoSeguridadComu
 		VerificadaEn: ahora.Add(-time.Second), ValidaHasta: ahora.Add(time.Minute)}
 }
 
-func (autoridadInscripcionPrueba) AutorizarEscritura(context.Context, contextoSeguridadComunDesarrollo, string, string, []byte, []byte) (AutorizacionEscrituraInscripcionBolsa, error) {
+func (autoridadInscripcionPrueba) AutorizarEscritura(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, []byte, []byte) (AutorizacionEscrituraInscripcionBolsa, error) {
 	return AutorizacionEscrituraInscripcionBolsa{Material: vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}}, inscripcion.ErrAccesoDenegado
 }
 
