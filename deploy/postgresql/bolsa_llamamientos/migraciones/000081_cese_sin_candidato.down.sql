@@ -13,6 +13,7 @@ BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
     OR to_regclass('vec_bolsa_llamamientos.cese_sin_candidato_bolsa') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer)') IS NULL
     OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()'::regprocedure)
        IS DISTINCT FROM '393d7534b44ca5db82ef3ed77ecbdafd' THEN
   RAISE EXCEPTION 'Bolsa 000081 DOWN: instalación incompatible' USING ERRCODE='55000';
@@ -49,5 +50,7 @@ BEGIN
  END IF;
 END $post$;
 DROP FUNCTION vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint);
+DROP FUNCTION vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer);
+DROP INDEX vec_bolsa_llamamientos.constitucion_entrada_participacion_b81_idx;
 DROP TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa;
 COMMIT;

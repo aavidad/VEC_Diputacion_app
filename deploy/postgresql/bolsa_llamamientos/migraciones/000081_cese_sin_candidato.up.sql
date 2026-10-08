@@ -37,7 +37,8 @@ BEGIN
     OR NOT has_function_privilege('vec_bolsa_llamamientos_propietario',
         'vec_contratacion_temporal.verificar_auditoria_cese_publicado_bolsa_v1(text,text,bigint)','EXECUTE')
     OR to_regclass('vec_bolsa_llamamientos.cese_sin_candidato_bolsa') IS NOT NULL
-    OR to_regprocedure('vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)') IS NOT NULL THEN
+    OR to_regprocedure('vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)') IS NOT NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer)') IS NOT NULL THEN
   RAISE EXCEPTION 'Bolsa 000081: preimagen incompatible o ya instalada' USING ERRCODE='55000';
  END IF;
  -- El cursor se sustituye solo si es exactamente el de Bolsa 000045.
@@ -76,6 +77,10 @@ CREATE TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa (
 );
 CREATE INDEX cese_sin_candidato_bolsa_cursor_idx
  ON vec_bolsa_llamamientos.cese_sin_candidato_bolsa(origen_posicion DESC,origen_ref DESC);
+CREATE INDEX cese_sin_candidato_bolsa_participacion_idx
+ ON vec_bolsa_llamamientos.cese_sin_candidato_bolsa(participacion_ref);
+CREATE INDEX constitucion_entrada_participacion_b81_idx
+ ON vec_bolsa_llamamientos.constitucion_entrada(participacion_ref);
 ALTER TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa FORCE ROW LEVEL SECURITY;
 CREATE POLICY cese_sin_candidato_bolsa_solo_propietario ON vec_bolsa_llamamientos.cese_sin_candidato_bolsa
@@ -155,18 +160,6 @@ BEGIN
     OR v_b13.participacion_ref !~ '^participacion-sintetica-[1-9][0-9]{0,2}:[a-z]{16,128}$' THEN
   RAISE EXCEPTION 'cese sin candidato fuera del puente sintético' USING ERRCODE='23503';
  END IF;
- -- Una participación o bolsa constituida puede recibir su vínculo más tarde:
- -- ese cese no es «sin candidato» y sigue pendiente.
- IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.constitucion_entrada e WHERE e.participacion_ref=v_b13.participacion_ref)
-    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.vinculo_candidato vc WHERE vc.participacion_ref=v_b13.participacion_ref)
-    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.constitucion c WHERE c.bolsa_ref=v_b13.bolsa_ref)
-    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.bolsa_constituida b WHERE b.bolsa_ref=v_b13.bolsa_ref) THEN
-  RAISE EXCEPTION 'candidato de cese pendiente en bolsa constituida' USING ERRCODE='23503';
- END IF;
- IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r WHERE r.evento_ref=v_evento_ref OR r.origen_ref=p_origen_ref)
-    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.cese_ajeno_bolsa a WHERE a.origen_ref=p_origen_ref) THEN
-  RAISE EXCEPTION 'cese ya resuelto por otra vía' USING ERRCODE='VBC01';
- END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:cese-sin-candidato:'||p_origen_ref,0));
  SELECT * INTO v_previa FROM vec_bolsa_llamamientos.cese_sin_candidato_bolsa s WHERE s.origen_ref=p_origen_ref;
  IF FOUND THEN
@@ -177,6 +170,18 @@ BEGIN
    RAISE EXCEPTION 'cese sin candidato divergente' USING ERRCODE='VBC01';
   END IF;
   RETURN true;
+ END IF;
+ IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r WHERE r.evento_ref=v_evento_ref OR r.origen_ref=p_origen_ref)
+    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.cese_ajeno_bolsa a WHERE a.origen_ref=p_origen_ref) THEN
+  RAISE EXCEPTION 'cese ya resuelto por otra vía' USING ERRCODE='VBC01';
+ END IF;
+ -- Una repetición conserva la proyección histórica. Para un cese nuevo, una
+ -- participación o bolsa ya constituida exige resolver primero su vínculo.
+ IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.constitucion_entrada e WHERE e.participacion_ref=v_b13.participacion_ref)
+    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.vinculo_candidato vc WHERE vc.participacion_ref=v_b13.participacion_ref)
+    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.constitucion c WHERE c.bolsa_ref=v_b13.bolsa_ref)
+    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.bolsa_constituida b WHERE b.bolsa_ref=v_b13.bolsa_ref) THEN
+  RAISE EXCEPTION 'candidato de cese pendiente en bolsa constituida' USING ERRCODE='23503';
  END IF;
  v_ahora:=date_trunc('microseconds',clock_timestamp());
  v_registro:=jsonb_build_object('esquema','vec.bolsa.cese.sin-candidato.proyeccion.v1','evento_ref',v_evento_ref,
@@ -196,6 +201,42 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint) TO vec_bolsa_llamamientos_relevo_cese;
+
+-- B8 puede vincular después del cese. Esta página técnica conserva la
+-- proyección pendiente hasta que el mismo relevo aplica B45; no mueve el
+-- cursor de publicaciones CT ni el recibo histórico de B81.
+CREATE FUNCTION vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(p_limite integer)
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp
+SET statement_timeout='5s' AS $pendientes$
+DECLARE v_pagina jsonb;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_relevo_cese','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
+    OR p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 100 THEN
+  RAISE EXCEPTION 'B81: consulta técnica pendiente no autorizada' USING ERRCODE='42501';
+ END IF;
+ SELECT coalesce(jsonb_agg(jsonb_build_object(
+   'origen_ref',x.origen_ref,'huella_sha256',x.origen_huella_sha256,
+   'origen_posicion',x.origen_posicion) ORDER BY x.origen_posicion,x.origen_ref),'[]'::jsonb)
+ INTO v_pagina
+ FROM (
+  SELECT s.origen_ref,s.origen_huella_sha256,s.origen_posicion
+  FROM vec_bolsa_llamamientos.cese_sin_candidato_bolsa s
+  JOIN vec_bolsa_llamamientos.vinculo_candidato vc
+    ON vc.participacion_ref=s.participacion_ref
+  WHERE NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r
+                    WHERE r.origen_ref=s.origen_ref)
+  ORDER BY s.origen_posicion,s.origen_ref LIMIT p_limite
+ ) x;
+ RETURN v_pagina;
+END $pendientes$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer)
+ TO vec_bolsa_llamamientos_relevo_cese;
 
 -- El cursor cuenta también los ceses sin candidato. Mismas guardas, firma,
 -- ACL que la preimagen instalada postHX+HZ+B85+B86+CT193+B87.
@@ -226,6 +267,7 @@ END $function$;
 DO $post$
 DECLARE f regprocedure:='vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)'::regprocedure;
  c regprocedure:='vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()'::regprocedure;
+ p regprocedure:='vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer)'::regprocedure;
 BEGIN
  IF (SELECT array_agg(a.grantee::regrole::text ORDER BY a.grantee::regrole::text) FROM pg_proc p
        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)
@@ -234,9 +276,15 @@ BEGIN
        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=c)
       IS DISTINCT FROM ARRAY['vec_bolsa_llamamientos_propietario','vec_bolsa_llamamientos_relevo_cese']
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_bolsa_llamamientos_propietario'::regrole
+    OR (SELECT proowner FROM pg_proc WHERE oid=p) IS DISTINCT FROM 'vec_bolsa_llamamientos_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=c) IS NOT TRUE
+    OR (SELECT prosecdef FROM pg_proc WHERE oid=p) IS NOT TRUE
     OR (SELECT proconfig FROM pg_proc WHERE oid=c) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp']
     OR (SELECT 'search_path=pg_catalog, pg_temp'=ANY(p.proconfig) FROM pg_proc p WHERE p.oid=f) IS NOT TRUE
+    OR (SELECT 'search_path=pg_catalog, pg_temp'=ANY(q.proconfig) FROM pg_proc q WHERE q.oid=p) IS NOT TRUE
+    OR (SELECT array_agg(a.grantee::regrole::text ORDER BY a.grantee::regrole::text) FROM pg_proc q
+        CROSS JOIN LATERAL aclexplode(coalesce(q.proacl,acldefault('f',q.proowner))) a WHERE q.oid=p)
+       IS DISTINCT FROM ARRAY['vec_bolsa_llamamientos_propietario','vec_bolsa_llamamientos_relevo_cese']
     OR has_table_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.cese_sin_candidato_bolsa','SELECT,INSERT,UPDATE,DELETE')
     OR has_table_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.cese_sin_candidato_bolsa','SELECT,INSERT,UPDATE,DELETE') THEN
   RAISE EXCEPTION 'Bolsa 000081: postimagen incompatible' USING ERRCODE='55000';

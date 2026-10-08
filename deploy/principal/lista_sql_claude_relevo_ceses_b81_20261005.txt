@@ -1,5 +1,7 @@
 # SQL nuevas de #774; postHX + 14 HZ + B85 + B86 + CT193 + B87 ya instaladas.
 # CT197 SHA256 9a887b37a0d84d989d418901de2e134b4b2df124f3fa6960daf233be92925847
 deploy/postgresql/contratacion_temporal/migraciones/000197_testigo_auditoria_cese_bolsa.up.sql
-# B81 SHA256 ff83536bcf201aa4e2a329aaf03c5dfb4ec1c3ae729f331a789af3259b6afdcc
+# B81 SHA256 47824bbcb12ec4bfb05d7ad605a142e05f4407b2cd6c026ce861f387d52902ca
 deploy/postgresql/bolsa_llamamientos/migraciones/000081_cese_sin_candidato.up.sql
+# B90 SHA256 c57b10e00ec7b69a770eba89421ec04bf990d314e56839299c548de6d5218672
+deploy/postgresql/bolsa_llamamientos/migraciones/000090_cese_pendiente_elegibilidad.up.sql

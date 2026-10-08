@@ -10,16 +10,21 @@ B81 permite continuar el relevo cuando el llamamiento del puente CT eligió
 una participación que no pertenece a ninguna bolsa constituida. Conserva el
 cese y su proyección con la referencia del evento y de la auditoría común CT115;
 el registro local identifica al proceso de entrega. No asigna candidato ni cambia
-disponibilidad. Si la bolsa está constituida y falta el vínculo, el cese sigue
-pendiente y el relevo se detiene. El camino de regreso a la bolsa requiere
-que CT utilice participaciones reales de la bolsa; queda fuera de esta PR.
+disponibilidad al recibirlo. Si la bolsa está constituida y falta el vínculo,
+el cese sigue pendiente y el relevo se detiene. Si el vínculo aparece después,
+el cese original deberá quedar pendiente para el candidato y el mismo relevo
+aplicará la restricción B45. Hasta entonces no podrá ser elegible. El camino ordinario de
+regreso a la bolsa requiere que CT utilice participaciones reales de ella.
 
 La rama se actualiza con main y el cursor se toma de la definición instalada
 en postHX + HZ + B85 + B86 + CT193 + B87. CT197 añade un testigo técnico que
 verifica el cese publicado con CT129 y entrega a Bolsa su `auditoria_ref` exacta.
 La función no concede lectura de la tabla CT a Bolsa ni modifica CT129.
-CT197 y B81 están reservadas para #774; la lista instala CT197 antes de B81.
-Claude revisa las dos SQL exactas y el ensayo final antes de integrar. Ninguna
+CT197, B81 y B90 están reservadas para #774; la lista las instala en ese orden.
+B90 prepara el estado pendiente desde B13, aun si B81 todavía no registró la
+proyección, hasta que B45 confirme la restricción. La misma migración lo integra
+en el orden y el resumen que consultan las pantallas y la selección.
+Claude revisa las SQL exactas y el ensayo final antes de integrar. Ninguna
 está instalada en una base compartida. CONFIG NUEVA: ninguna.
 
 El primer ensayo de B81, previo al vínculo de auditoría, instaló en 0,09 s y
