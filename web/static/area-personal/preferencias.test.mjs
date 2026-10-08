@@ -5,6 +5,7 @@ import { cargarPreferenciasIniciales, crearClientePreferencias, ErrorPreferencia
 import { alternarVisualSesion, crearOperacionPreferencias, renderizarPreferencias, sincronizarAtajosVisuales } from "./preferencias.js";
 import { idiomaAreaPersonal, iniciarI18nAreaPersonal } from "./i18n.js";
 import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js";
+import { peticionesEnSerie } from "../comun/imagen-propia.js";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const valores = Object.freeze({ idioma: "en", tamano_texto: "grande", alto_contraste: true,
@@ -35,6 +36,38 @@ const estado = Object.freeze({ persona_ref: "persona:propia", version: 0,
   catalogo_version_ref: catalogo.version_ref, valores });
 const json = (data, status = 200) => ({ status, headers: { get: (nombre) => nombre === "Content-Type" ? "application/json" : null },
   text: async () => JSON.stringify({ data }) });
+
+test("la misma cola serializa preferencias e imagen y conserva 401, 403 y 503", async () => {
+  let activas = 0; let maximo = 0;
+  const rutas = [];
+  const fetchUsuarios = peticionesEnSerie(async (ruta) => {
+    rutas.push(ruta);
+    activas += 1;
+    maximo = Math.max(maximo, activas);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    activas -= 1;
+    return new Response(JSON.stringify({ data: { catalogo, estado } }),
+      { status: 200, headers: { "Content-Type": "application/json" } });
+  });
+  const cliente = crearClientePreferencias({ fetchImpl: fetchUsuarios });
+  const [lectura, imagen] = await Promise.all([
+    cliente.cargar(), fetchUsuarios("/api/vec/usuarios/area-personal/mi-imagen", { method: "GET" }),
+  ]);
+  assert.deepEqual(lectura.estado, estado);
+  assert.equal(imagen.status, 200);
+  assert.equal(maximo, 1);
+  assert.deepEqual(rutas, [RUTA_MIS_PREFERENCIAS, "/api/vec/usuarios/area-personal/mi-imagen"]);
+  for (const [estadoHTTP, codigo] of [[401, "autenticacion"], [403, "denegado"], [503, "servicio"]]) {
+    let consultas = 0;
+    const denegado = crearClientePreferencias({ fetchImpl: peticionesEnSerie(async () => {
+      consultas += 1;
+      return new Response("", { status: estadoHTTP });
+    }) });
+    await assert.rejects(cargarPreferenciasIniciales(denegado),
+      (error) => error instanceof ErrorPreferencias && error.codigo === codigo);
+    assert.equal(consultas, 1);
+  }
+});
 
 test("GET y PUT usan el contrato único, usan credenciales de mismo origen y conservan recibo real", async () => {
   assert.equal(RUTA_MIS_PREFERENCIAS, "/api/vec/usuarios/area-personal/mis-preferencias");

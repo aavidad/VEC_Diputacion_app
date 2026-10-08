@@ -89,7 +89,7 @@
 875 internal/vec/ports/reconciliacion_documental_v4.go
 1179 scripts/smoke_nominas_peoplenet.js
 13067 web/static/app.js
-688 web/static/area-personal/aplicacion.js
+781 web/static/area-personal/aplicacion.js
 612 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 865 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 925 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
@@ -118,9 +118,9 @@
 780 internal/app/server/server_test.go
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1568 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1593 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
-1006 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
+1025 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
 1053 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 983 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 623 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
@@ -138,3 +138,6 @@
 2917 deploy/postgresql/autorizacion_atestada_v3/migraciones/000218_carga_convoca_bolsa.up.sql
 840 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
 868 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitacion.js
+470 deploy/postgresql/contratacion_temporal/migraciones/000194_validacion_necesidad_alta_v3.up.sql
+639 internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_test.go
+405 internal/modules/contrataciontemporal/adapters/httpinterno/alta_seguridad_test.go

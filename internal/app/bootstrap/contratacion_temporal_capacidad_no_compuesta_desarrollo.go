@@ -16,13 +16,11 @@ import (
 const claveI18nCapacidadNoCompuestaContratacionTemporal = "api.vec.ruta_exacta.error.servicio_no_disponible"
 
 var rutasCapacidadNoCompuestaContratacionTemporal = map[string]struct{}{
-	httpinterno.RutaSeleccionLlamamiento:      {},
-	httpinterno.RutaPropuestaFormalizacion:    {},
-	httpinterno.RutaCerrarAdministrativamente: {},
-	httpinterno.RutaReabrirExcepcionalmente:   {},
-	httpinterno.RutaConsultaCuadroRRHH:        {},
-	httpinterno.RutaConsultaDetalleRRHH:       {},
-	httpinterno.RutaReasignaciones:            {},
+	httpinterno.RutaSeleccionLlamamiento:   {},
+	httpinterno.RutaPropuestaFormalizacion: {},
+	httpinterno.RutaConsultaCuadroRRHH:     {},
+	httpinterno.RutaConsultaDetalleRRHH:    {},
+	httpinterno.RutaReasignaciones:         {},
 }
 
 // capacidadNoCompuestaContratacionTemporalDesarrollo es la única dependencia
@@ -39,8 +37,6 @@ var (
 	_ httpinterno.EjecutorSeleccionLlamamiento            = (*capacidadNoCompuestaContratacionTemporalDesarrollo)(nil)
 	_ httpinterno.AutoridadServidorPropuestaFormalizacion = (*capacidadNoCompuestaContratacionTemporalDesarrollo)(nil)
 	_ httpinterno.EjecutorPropuestaFormalizacion          = (*capacidadNoCompuestaContratacionTemporalDesarrollo)(nil)
-	_ httpinterno.AutoridadServidorCierreAdministrativo   = (*capacidadNoCompuestaContratacionTemporalDesarrollo)(nil)
-	_ httpinterno.EjecutorCierreAdministrativo            = (*capacidadNoCompuestaContratacionTemporalDesarrollo)(nil)
 	_ httpinterno.ConsultorCuadroRRHH                     = (*consultorCuadroNoCompuestoContratacionTemporalDesarrollo)(nil)
 	_ httpinterno.ConsultorDetalleRRHH                    = (*consultorDetalleNoCompuestoContratacionTemporalDesarrollo)(nil)
 )
@@ -144,26 +140,6 @@ func (*capacidadNoCompuestaContratacionTemporalDesarrollo) PrepararYConfirmar(
 ) (ports.ResultadoPropuestaFormalizacion, error) {
 	return ports.ResultadoPropuestaFormalizacion{},
 		application.ErrPropuestaFormalizacionNoDisponible
-}
-
-func (*capacidadNoCompuestaContratacionTemporalDesarrollo) ResolverOrganizacionCierreAdministrativo(
-	context.Context,
-) (string, error) {
-	return "", application.ErrCierreAdministrativoNoDisponible
-}
-
-func (*capacidadNoCompuestaContratacionTemporalDesarrollo) Cerrar(
-	context.Context,
-	application.SolicitudCerrarAdministrativamente,
-) (ports.ResultadoCierreAdministrativo, error) {
-	return ports.ResultadoCierreAdministrativo{}, application.ErrCierreAdministrativoNoDisponible
-}
-
-func (*capacidadNoCompuestaContratacionTemporalDesarrollo) ReabrirExcepcionalmente(
-	context.Context,
-	application.SolicitudReabrirExcepcionalmente,
-) (ports.ResultadoCierreAdministrativo, error) {
-	return ports.ResultadoCierreAdministrativo{}, application.ErrCierreAdministrativoNoDisponible
 }
 
 type consultorCuadroNoCompuestoContratacionTemporalDesarrollo struct {
