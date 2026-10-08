@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+ejecutar_ensayo_ct193() {
 umask 077
 ulimit -f 262144  # 256 MiB por fichero del runner y sus salidas privadas.
-if [[ ${VEC_CT_E3_TIMEOUT_INTERNO:-} != SI ]]; then
-    export VEC_CT_E3_TIMEOUT_INTERNO=SI
-    exec timeout --signal=TERM --kill-after=60s 1740s bash "$0" "$@"
-fi
-unset VEC_CT_E3_TIMEOUT_INTERNO
 
 # CT193: preimagen real construida desde migraciones, PostgreSQL 18 aislado y bundles
 # VEC-AD-3 emitidos por el código Go real. No toca la principal ni ejecuta DOWN.
@@ -16,7 +12,7 @@ readonly prefijo="vec-ct193-e3-${UID}-$$"
 readonly contenedor="${prefijo}-db"
 readonly volumen="${prefijo}-datos"
 
-directorio="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+directorio="$(cd -- "$(dirname -- "$0")" && pwd -P)"
 raiz="$(git -C "$directorio" rev-parse --show-toplevel)"
 if [[ ${VEC_CT_E3_BD_DESECHABLE:-} != SI ]]; then
     printf 'CT193 E3 exige VEC_CT_E3_BD_DESECHABLE=SI\n' >&2
@@ -766,3 +762,9 @@ for fase in abierto colision concurrente; do
     probar_fase "$fase"
 done
 printf '[CT193:E3] E2 pre/post, E3 recuperada tras reinicio, abierto, colisión y concurrencia completas\n'
+}
+
+export -f ejecutar_ensayo_ct193
+script_ct193="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/$(basename -- "${BASH_SOURCE[0]}")"
+timeout --signal=TERM --kill-after=60s 1740s \
+    bash -Eeuo pipefail -c 'ejecutar_ensayo_ct193' "$script_ct193"

@@ -37,6 +37,8 @@ cuando dos rutas comparten sistema de ficheros y sale **78** si no caben.
 Imprime dispositivo, rutas, espacio disponible y mínimo exigido en cada
 comparación. Un timeout envolvente termina el ensayo a los 29 minutos y deja
 hasta un minuto para la limpieza, con límite total de 30 minutos.
+La entrada del script siempre aplica ese timeout; ya no acepta una variable
+heredada para omitirlo.
 No configura una cuota total para el volumen Docker; el tiempo y los recursos
 del ensayo están acotados y solo usa datos sintéticos propios. La compilación
 y el test Go usan `bwrap` sin red, fuente y módulos de solo lectura,
