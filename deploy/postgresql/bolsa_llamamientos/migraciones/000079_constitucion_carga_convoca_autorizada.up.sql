@@ -45,6 +45,7 @@ CREATE TABLE vec_bolsa_llamamientos.recibo_carga_convoca (
  registrada_en timestamptz(6) NOT NULL DEFAULT pg_catalog.clock_timestamp()
 );
 REVOKE ALL ON vec_bolsa_llamamientos.recibo_carga_convoca FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.recibo_carga_convoca FROM PUBLIC;
 CREATE FUNCTION vec_bolsa_llamamientos.negar_mutacion_recibo_carga_v1()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
 BEGIN
