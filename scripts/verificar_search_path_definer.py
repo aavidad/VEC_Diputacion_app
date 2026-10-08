@@ -195,6 +195,17 @@ def added_lines(diff: str) -> set[int]:
 # Excepción revisada al parche literal de ORQ-1. Cualquier cambio en el DO
 # o en sus dos bloques vuelve al rechazo genérico de SQL dinámico.
 AD225_PATH = "deploy/postgresql/autorizacion_atestada_v3/migraciones/000225_reanudacion_solicitud_llamamiento.up.sql"
+AD225_PREAMBULO = (
+    "\\set ON_ERROR_STOP on\n"
+    "BEGIN;\n"
+    "SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;\n"
+    "SET LOCAL search_path = pg_catalog;\n"
+    "SET LOCAL lock_timeout = '5s';\n"
+    "SET LOCAL statement_timeout = '30s';\n"
+    "SELECT pg_advisory_xact_lock(hashtextextended('vec:orq1:ad225',0));\n"
+    "-- Parche del bloque completo de reanudación sobre dos preimágenes instaladas:\n"
+    "-- postHX+HZ14 y post AD211/214/216/218. El resto del núcleo queda literal.\n"
+)
 AD225_DO_SHA256 = "b509bd272e2daf80c8dffda414b3addaee6895be93489627c628b75a70ff1b43"
 AD225_MARCA_SHA256 = "d511878f1086b13f6e6ece691492a10a1110b9b3b6ef465f8728fd92312da0b7"
 AD225_AMPLIACION_SHA256 = "a056298c5d30fbcf2507c67740f378cf348ef6c9d70d8b68b6815b6bdd0afcf4"
@@ -206,9 +217,11 @@ AD225_PREIMAGENES = {
 }
 
 
-def reconstruccion_ad225_revisada(body: str, filename: str | None) -> bool:
+def reconstruccion_ad225_revisada(body: str, filename: str | None, sql: str) -> bool:
     """Admite sólo el DO que preserva dos núcleos V3 instalados byte a byte."""
-    if filename != AD225_PATH or hashlib.sha256(body.encode()).hexdigest() != AD225_DO_SHA256:
+    if filename != AD225_PATH or not sql.startswith(AD225_PREAMBULO + "DO $parche$") \
+            or sql.count("DO $parche$") != 1 \
+            or hashlib.sha256(body.encode()).hexdigest() != AD225_DO_SHA256:
         return False
     marca = re.search(r"marca text := \$marca225\$(.*?)\$marca225\$;", body, re.S)
     ampliacion = re.search(r"ampliacion text := \$ampliacion225\$(.*?)\$ampliacion225\$;", body, re.S)
@@ -251,6 +264,14 @@ def reconstruccion_ad225_revisada(body: str, filename: str | None) -> bool:
 
 def inspect_sql(sql: str, changed: set[int], filename: str | None = None) -> list[tuple[int, str]]:
     failures: list[tuple[int, str]] = []
+    # El preámbulo se comprueba aunque el diff sólo cambie una línea anterior
+    # al DO: de lo contrario el recorrido por sentencias no visitaría su cuerpo.
+    if filename == AD225_PATH and changed:
+        cuerpos = [t for t in tokens(sql) if t.kind == "body" and
+                   "pg_get_functiondef" in t.value and "EXECUTE" in t.value]
+        if len(cuerpos) != 1 or not reconstruccion_ad225_revisada(cuerpos[0].value, filename, sql):
+            failures.append((cuerpos[0].line if cuerpos else min(changed),
+                             "reconstrucción dinámica de función: preámbulo o parche AD225 divergente"))
 
     def inspect(segment: str, first_line: int, depth: int = 0) -> None:
         if depth > 5:
@@ -284,7 +305,7 @@ def inspect_sql(sql: str, changed: set[int], filename: str | None = None) -> lis
                 body_tokens = tokens(body.value, body.line)
                 if any(t.upper == "PG_GET_FUNCTIONDEF" for t in body_tokens) and any(
                     t.upper == "EXECUTE" for t in body_tokens
-                ) and not reconstruccion_ad225_revisada(body.value, filename):
+                ) and not reconstruccion_ad225_revisada(body.value, filename, sql):
                     failures.append((body.line, "reconstrucción dinámica de función: exigir definición final explícita y revisión SQL"))
                 if any(t.upper == "EXECUTE" for t in body_tokens):
                     literals = [t for t in body_tokens if t.kind in ("string", "body")]

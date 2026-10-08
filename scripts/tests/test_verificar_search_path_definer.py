@@ -121,6 +121,7 @@ $body$;'''
         repo = Path(__file__).resolve().parents[2]
         sql = (repo / AD225_PATH).read_text(encoding="utf-8")
         self.assertEqual(inspect_sql(sql, {10}, filename=AD225_PATH), [])
+        self.assertEqual(inspect_sql(sql, {4}, filename=AD225_PATH), [])
         self.assertTrue(any("reconstrucción dinámica" in reason
                             for _, reason in inspect_sql(sql, {10}, filename="otro/archivo.sql")))
         self.assertTrue(any("reconstrucción dinámica" in reason
@@ -150,6 +151,15 @@ $body$;'''
                 self.assertTrue(any("reconstrucción dinámica" in reason for _, reason in fallos))
         no_aprobado = "DO $$ DECLARE ddl text; BEGIN SELECT pg_get_functiondef('a()'::regprocedure) INTO ddl; EXECUTE ddl; END $$;"
         self.assertTrue(inspect_sql(no_aprobado, {1}, filename=AD225_PATH))
+        for original, alterado, linea in (
+            ("SET LOCAL search_path = pg_catalog;", "SET LOCAL search_path = public, pg_catalog;", 4),
+            ("SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;",
+             "SET LOCAL ROLE vec_bolsa_llamamientos_propietario;", 3),
+        ):
+            with self.subTest(preambulo=original):
+                self.assertIn(original, sql)
+                fallos = inspect_sql(sql.replace(original, alterado, 1), {linea}, filename=AD225_PATH)
+                self.assertTrue(any("preámbulo" in reason for _, reason in fallos))
         cabecera = "SET search_path = pg_catalog, pg_temp SET lock_timeout = '2s'"
         self.assertIn(cabecera, sql)
         insegura = sql.replace(cabecera, "SET search_path = public SET lock_timeout = '2s'", 1)
