@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -209,6 +210,50 @@ func TestConfirmacionAltaReintenta40001Y40P01EnTransaccionNueva(t *testing.T) {
 				iniciador.reconciliaciones != 0 || fallo.commits != 1 || exito.commits != 1 {
 				t.Fatalf("reintento transaccional divergente: recibo=%+v err=%v inicios=%d reconciliaciones=%d commits=%d/%d",
 					recibo, err, base.inicios, iniciador.reconciliaciones, fallo.commits, exito.commits)
+			}
+		})
+	}
+}
+
+func TestConfirmacionAltaDistingueCarreraDeConfiguracionEnFuncionSQL(t *testing.T) {
+	evidencia, _ := evidenciaConfirmacionPostgreSQLPrueba(t)
+	const detallePrivado = "dato privado de la funcion SQL"
+	for _, caso := range []struct {
+		nombre      string
+		codigo      string
+		inicios     int
+		commits     int
+		esperaExito bool
+	}{
+		{nombre: "40001 envuelto reintenta", codigo: "40001", inicios: 2, commits: 1, esperaExito: true},
+		{nombre: "55000 envuelto no reintenta", codigo: "55000", inicios: 1},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			fallo := &transaccionAltaCandidataPrueba{fila: filaAltaCandidataPrueba{
+				err: fmt.Errorf("consulta: %w", &pgconn.PgError{Code: caso.codigo, Message: detallePrivado}),
+			}}
+			exito := &transaccionAltaCandidataPrueba{fila: filaSQLConfirmacionPostgreSQLPrueba(evidencia)}
+			base := &iniciadorAltaCandidataPrueba{transacciones: []pgx.Tx{fallo, exito}}
+			iniciador := &iniciadorConfirmacionPrueba{base: base}
+			recibo, err := (&TransaccionAltasPostgreSQLCandidata{pool: iniciador}).confirmarConEntradas(
+				context.Background(), evidencia, entradasConfirmarAlta{},
+			)
+			if base.inicios != caso.inicios || iniciador.reconciliaciones != 0 ||
+				fallo.commits != 0 || fallo.rollbacks != 1 ||
+				exito.commits != caso.commits {
+				t.Fatalf("tratamiento SQLSTATE %s divergente: inicios=%d reconciliaciones=%d commits=%d/%d rollbacks=%d",
+					caso.codigo, base.inicios, iniciador.reconciliaciones, fallo.commits, exito.commits, fallo.rollbacks)
+			}
+			if caso.esperaExito {
+				if err != nil || recibo.ExpedienteRef != evidencia.Expediente.Referencia {
+					t.Fatalf("carrera sin recuperacion nominal: recibo=%+v err=%v", recibo, err)
+				}
+				return
+			}
+			var postgres *pgconn.PgError
+			if !errors.Is(err, ports.ErrPersistenciaNoDisponible) || errors.As(err, &postgres) ||
+				strings.Contains(err.Error(), detallePrivado) || recibo != (ports.ReciboAlta{}) {
+				t.Fatalf("configuracion SQL sin normalizar: recibo=%+v err=%v", recibo, err)
 			}
 		})
 	}
