@@ -43,7 +43,7 @@ func capturaEscrituraInscripcion(actor inscripcion.Actor, accion, audiencia, can
 		return nil, inscripcion.ErrAccesoDenegado
 	}
 	vinculo, err := actor.Vinculo.Datos()
-	if err != nil || string(vinculo.Superficie) != canal || vinculo.SesionRef != actor.SesionRef ||
+	if err != nil || actor.Canal != canal || string(vinculo.Superficie) != canal || vinculo.SesionRef != actor.SesionRef ||
 		vinculo.PrincipalID != actor.PersonaRef || vinculo.PerfilActivoRef != actor.PerfilRef ||
 		vinculo.CuentaRef != actor.ResultadoContexto.Contexto.Instantanea.CuentaRef {
 		return nil, inscripcion.ErrAccesoDenegado
