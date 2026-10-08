@@ -230,8 +230,9 @@ func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (dat
 // protegida (nombres y documentos) ni calculan marcas. La lista de
 // candidatos de una bolsa lee solo esa bolsa, con todo su detalle.
 type alcanceCargaBolsasRRHH struct {
-	bolsa   string
-	detalle bool
+	bolsa    string
+	detalle  bool
+	conjunto bool
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBolsasRRHHDesarrollo, error) {
@@ -255,10 +256,10 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarBolsa(ctx context.Context, bolsa
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) cargarBolsaRRHH(ctx context.Context, bolsaRef string) (datasetBolsasRRHHDesarrollo, error) {
-	if f == nil || f.bolsaConjunto == nil {
+	if f == nil || f.bolsaConjunto == nil || bolsaRef == "" {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
-	return f.cargarBolsa(ctx, bolsaRef)
+	return f.cargarAlcance(ctx, alcanceCargaBolsasRRHH{bolsa: bolsaRef, detalle: true, conjunto: true})
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alcance alcanceCargaBolsasRRHH) (datasetBolsasRRHHDesarrollo, error) {
@@ -266,6 +267,9 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
 	if f.ceseActivo && f.estadosCese == nil {
+		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+	}
+	if alcance.conjunto && (alcance.bolsa == "" || f.bolsaConjunto == nil) {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
 	corte := f.ahora()
@@ -286,7 +290,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 		var ordenVigente dominiobolsa.OrdenVigenteBolsa
 		var filasResumen []ports.SituacionBolsaRRHH
 		var totalCurso int
-		if alcance.bolsa != "" && f.bolsaConjunto != nil {
+		if alcance.conjunto {
 			ordenVigente, filasResumen, totalCurso, err = f.bolsaConjunto.LeerBolsa(ctx, vigente.Bolsa.BolsaRef, corte)
 		} else {
 			ordenVigente, err = f.orden.Consultar(ctx, vigente.Bolsa.BolsaRef)
