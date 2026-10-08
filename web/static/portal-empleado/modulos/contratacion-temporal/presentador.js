@@ -11,7 +11,7 @@ import {
   validarBorradorAlta,
   validarCatalogosAlta,
   validarReciboAlta,
-} from "./contrato.js?v=20261008-alta-corte-v1";
+} from "./contrato.js?v=20261008-alta-rechazo-v2";
 
 const FASE_EDICION = "edicion";
 const FASE_REVISION = "revision";

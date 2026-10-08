@@ -1658,6 +1658,7 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
   });
   let consultasCuadro = 0;
   let consultasCatalogo = 0;
+  let opcionesCatalogo;
   let consultasAnalisis = 0;
   const orden = [];
   let argumentosPresentador;
@@ -1676,7 +1677,8 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
     async ejecutar() { throw new Error("actuación no compuesta"); },
   });
   const cliente = Object.freeze({
-    async obtenerCatalogosAlta() {
+    async obtenerCatalogosAlta(opciones) {
+      opcionesCatalogo = opciones;
       consultasCatalogo += 1;
       orden.push("alta");
       return catalogosAlta;
@@ -1735,6 +1737,9 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
   assert.deepEqual(argumentosPresentador.capacidades, []);
   assert.strictEqual(altaMontada.catalogos, catalogosAlta);
   assert.strictEqual(altaMontada.ejecutor, registrarSolicitud);
+  const opcionesRefresco = { signal: new AbortController().signal };
+  assert.strictEqual(await altaMontada.obtenerCatalogosAlta(opcionesRefresco), catalogosAlta);
+  assert.strictEqual(opcionesCatalogo, opcionesRefresco);
   assert.equal(Object.hasOwn(altaMontada, "desarrolloNoAutoritativo"), false);
   assert.strictEqual(analisisMontado.cliente, cliente);
   assert.strictEqual(

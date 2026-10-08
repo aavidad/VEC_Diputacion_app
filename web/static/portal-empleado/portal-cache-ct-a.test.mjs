@@ -4,9 +4,9 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261008-alta-corte-v1";
-const versionCircuito = "20261008-alta-corte-v1";
-const versionVista = "20261008-alta-corte-v1";
+const versionCoordinador = "20261008-alta-rechazo-v2";
+const versionCircuito = "20261008-alta-rechazo-v2";
+const versionVista = "20261008-alta-rechazo-v2";
 const versionRender = "20261008-documentos-ficha-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
@@ -76,7 +76,7 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   const [html, coordinador, formalizacion, firma, categorias, montajeCategorias, clienteCategorias] =
     await Promise.all(rutas.map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const version = "20261007-pantallas-textos-final-v1";
-  const cohorteCT = "20261008-alta-corte-v1";
+  const cohorteCT = "20261008-alta-rechazo-v2";
   exigirVersiones(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", version);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteCT);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/adaptador-http-expedientes.js", cohorteCT);
@@ -106,7 +106,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const [html, portal, coordinador, cliente, altaHTTP, transporte, expedientes, tramitacion,
     vista, presentadorAlta, rendererAlta, i18n, contrato, interno, produccion, cache] = await Promise.all(
     nombres.map((nombre) => readFile(new URL(nombre, raiz), "utf8")));
-  const cohorte = "20261008-alta-corte-v1";
+  const cohorte = "20261008-alta-rechazo-v2";
   const cohorteClienteHTTP = cohorte;
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = cohorte;
@@ -126,7 +126,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     [portal, "./portal-modulos-coordinador.js", cohorteIdioma],
     [coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteClienteHTTP],
     [cliente, "./cliente-http-alta.js", cohorte],
-    [cliente, "./cliente-http-transporte.js", cohorte],
+    [cliente, "./cliente-http-transporte.js", "20261008-alta-corte-v1"],
     [coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", cohorteFicha],
     [expedientes, "./vista-expedientes-tramitacion.js", cohorteFicha],
     [tramitacion, "./vista.js", cohorteCapacidad],

@@ -1,6 +1,6 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
-import { validarReciboAlta } from "./contrato.js?v=20261008-alta-corte-v1";
+import { validarReciboAlta } from "./contrato.js?v=20261008-alta-rechazo-v2";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-corte-v1";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-documentos-ficha-v1";
@@ -20,10 +20,10 @@ import {
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes-render.js?v=20261008-documentos-ficha-v1";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-documentos-ficha-v1";
-import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-alta-corte-v1";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-alta-corte-v1";
+import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-alta-rechazo-v2";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-alta-rechazo-v2";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-alta-corte-v1";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-alta-corte-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-alta-rechazo-v2";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261008-documentos-ficha-v1";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
