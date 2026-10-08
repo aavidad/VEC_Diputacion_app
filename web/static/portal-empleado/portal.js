@@ -1151,8 +1151,11 @@ function aplicarRutaCandidatosBolsa() {
   const ruta = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (rutaCandidatosAplicada?.ruta === ruta && rutaCandidatosAplicada?.datos === estado.datosBolsas.datos) return true;
   rutaCandidatosAplicada = { ruta, datos: estado.datosBolsas.datos };
+  const mostrarHistorico = estado.bolsaSeleccionada === filtro.bolsaRef
+    && estado.filtrosBolsa?.pestana === "historico";
   estado.bolsaSeleccionada = filtro.bolsaRef;
   estado.filtrosBolsa = { estado: filtro.estado, texto: "",
+    ...(mostrarHistorico ? { pestana: "historico" } : {}),
     ...(filtro.seguimiento ? { seguimiento: { llamamiento_ref: filtro.seguimiento, bolsa_ref: filtro.bolsaRef } } : {}) };
   // El origen de una petición de personal vive fuera de los filtros: el asistente lo copia al iniciarse.
   estado.origenLlamamientoB7 = filtro.origen ? Object.freeze({ ...filtro.origen, bolsa_ref: filtro.bolsaRef }) : null;
@@ -1646,8 +1649,12 @@ function instalarEnlacesBolsa() {
     if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
     const vistaAlClic = estado.vista;
     const cuadroBolsaAlClic = estado.datosBolsas;
-    const esFichaCT = estado.vista === "contratacion-temporal"
+    const esLlamamientoCT = estado.vista === "contratacion-temporal"
       && Boolean(control.closest?.("[data-ct-bolsa-ficha]"));
+    const esHistoricoCT = estado.vista === "contratacion-temporal" && !esLlamamientoCT
+      && control.dataset?.pestana === "historico" && control.classList?.contains("enlace-tabla")
+      && Boolean(control.closest?.(".ct-expedientes"));
+    const esFichaCT = esLlamamientoCT || esHistoricoCT;
     const fichaCT = esFichaCT ? contextoBolsaCT : null;
     const bolsas = esFichaCT
       ? fichaCT?.carga === "listo" ? fichaCT.datos?.bolsas : null
@@ -1655,8 +1662,10 @@ function instalarEnlacesBolsa() {
     let destino; let filtro;
     try {
       const datos = control.dataset;
-      if (!Array.isArray(bolsas) || (esFichaCT && (datos.origenExpediente !== fichaCT.expedienteRef
-        || !bolsas.some((bolsa) => bolsa?.bolsa_ref === datos.bolsaRef)))) throw new TypeError("Bolsa pendiente");
+      if (!Array.isArray(bolsas) || (esFichaCT && (!fichaCT?.expedienteRef
+        || !bolsas.some((bolsa) => bolsa?.bolsa_ref === datos.bolsaRef)
+        || esLlamamientoCT && datos.origenExpediente !== fichaCT.expedienteRef
+        || esHistoricoCT && (datos.origenExpediente || datos.estado || datos.seguimiento)))) throw new TypeError("Bolsa pendiente");
       let rutas;
       try { rutas = await prepararRutasBolsa(); }
       catch {
@@ -1678,18 +1687,20 @@ function instalarEnlacesBolsa() {
       filtro = rutas.leerCandidatosBolsaCompartible(destino.search, bolsas);
       if (!filtro || filtro.bolsaRef !== datos.bolsaRef || filtro.estado !== (datos.estado ?? "")
         || (filtro.seguimiento ?? "") !== (datos.seguimiento ?? "") || Boolean(filtro.origen) !== Boolean(origen)) throw new TypeError("filtro ajeno");
-      if (esFichaCT && (filtro.seguimiento || !filtro.origen
+      if (esLlamamientoCT && (filtro.seguimiento || !filtro.origen
         || filtro.origen.expediente_ref !== fichaCT.expedienteRef
         || filtro.origen.referencia !== origen.referencia
         || filtro.origen.centro !== origen.centro
         || filtro.origen.fecha_inicio !== origen.fecha_inicio)) throw new TypeError("origen ajeno");
+      if (esHistoricoCT && (filtro.origen || filtro.seguimiento)) throw new TypeError("histórico ajeno");
     } catch {
       anunciar(traducirPortal("txt_la_vista_solicitada_no_esta_autorizada_para_el_p"));
       return;
     }
     if (filtro.seguimiento) controladorBolsas?.olvidarEmisionConfirmada?.();
     estado.bolsaSeleccionada = filtro.bolsaRef;
-    estado.filtrosBolsa = { estado: filtro.estado, texto: "" };
+    estado.filtrosBolsa = { estado: filtro.estado, texto: "",
+      ...(esHistoricoCT ? { pestana: "historico" } : {}) };
     estado.datosCandidatos = null;
     estado.origenLlamamientoB7 = null;
     rutaCandidatosAplicada = null;
