@@ -47,6 +47,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
   let intento = null;
   let enviando = false;
   let enfocarLista = false;
+  let enfocarRecibo = false;
   const t = (clave, vars = {}) => catalogo.traducir(`rrhh.${clave}`, vars);
   const et = (clave, vars) => esc(t(clave, vars));
   const fecha = (valor) => esc(catalogo.fecha(valor, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" }));
@@ -85,15 +86,16 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
         <dl>${detalle.persona_resumen ? `<dt>${et("persona")}</dt><dd>${esc(detalle.persona_resumen)}</dd>` : ""}<dt>${et("convocatoria")}</dt><dd>${esc(detalle.categoria)}</dd><dt>${et("estado")}</dt><dd>${et(`estado_${detalle.estado}`)}</dd>${detalle.motivo_etiqueta ? `<dt>${et("motivo")}</dt><dd>${esc(detalle.motivo_etiqueta)}</dd>` : ""}<dt>${et("fecha")}</dt><dd>${fecha(detalle.registrada_en)}</dd><dt>${et("plazo")}</dt><dd>${fecha(detalle.plazo_inicio)} – ${fecha(detalle.plazo_fin)}</dd></dl>
         ${requisitos}${decision ? `<h4>${et("revision")}</h4>${selector}${evidencia}` : ""}${confirmar}</div></section>`;
     }
-    const confirmacion = recibo ? `<section class="panel" role="status"><div class="cuerpo-panel"><p>${et(recibo.estado === "rechazada" ? "rechazada" : recibo.estado === "incorporada" ? "incorporada" : "admitida_a_convocatoria")}</p><p>${et("recibo")}: ${esc(recibo.recibo_ref)}</p><button type="button" class="boton-secundario" data-inscripcion-cerrar-recibo>${et("volver_lista")}</button></div></section>` : "";
+    const confirmacion = recibo ? `<section class="panel" id="inscripcion-recibo" tabindex="-1" role="status"><div class="cuerpo-panel"><p>${et(recibo.estado === "rechazada" ? "rechazada" : recibo.estado === "incorporada" ? "incorporada" : "admitida_a_convocatoria")}</p><p>${et("recibo")}: ${esc(recibo.recibo_ref)}</p><button type="button" class="boton-secundario" data-inscripcion-cerrar-recibo>${et("volver_lista")}</button></div></section>` : "";
     raiz.innerHTML = `<section class="panel" aria-labelledby="inscripciones-titulo"><header class="cabecera-panel"><div><h2 id="inscripciones-titulo" tabindex="-1">${et("titulo")}</h2></div><button type="button" class="boton-secundario" data-inscripcion-ayuda aria-expanded="${ayuda}" aria-controls="inscripcion-ayuda" aria-label="${et("ayuda_boton")}">?</button></header>
       <div class="cuerpo-panel"><div id="inscripcion-ayuda" ${ayuda ? "" : "hidden"}>${et("ayuda")}</div><form data-inscripcion-filtros><label for="inscripcion-estado">${et("estado")}</label><select id="inscripcion-estado" name="estado">${opcionesEstado}</select>
       <button class="boton-secundario" type="submit">${et("filtrar")}</button></form>${filtroActivo}
       ${estado}${cuenta}${listado?.total ? `<div class="tabla-contenedor" role="region" tabindex="0" aria-label="${et("lista")}"><table class="tabla-datos"><thead><tr><th scope="col">${et("persona")}</th><th scope="col">${et("convocatoria")}</th><th scope="col">${et("estado")}</th><th scope="col">${et("fecha")}</th></tr></thead><tbody>${filas}</tbody></table></div>` : ""}${paginacion}</div></section>${ficha}${confirmacion}`;
+    if (enfocarRecibo && recibo) raiz.querySelector?.("#inscripcion-recibo")?.focus?.({ preventScroll: true });
   }
   function navegar(nuevo) {
     filtro = nuevo; detalle = null; motivos = null; decision = ""; recibo = null; intento = null;
-    enfocarLista = true;
+    enfocarLista = true; enfocarRecibo = false;
     historial.pushState(null, "", rutaInscripcionesRRHH(localizacion.href, filtro));
     void cargarLista();
   }
@@ -104,6 +106,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
       const data = await cliente.listar({ ...filtro, idioma: catalogo.idioma, signal: controlador.signal });
       if (!vivo || orden !== secuencia || controlador.signal.aborted) return;
       listado = data; estadoVista = "lista"; pintar();
+      enfocarRecibo = false;
       if (enfocarLista) { enfocarLista = false; raiz.querySelector?.("#inscripciones-titulo")?.focus?.({ preventScroll: true }); }
     } catch (error) {
       if (!vivo || orden !== secuencia || controlador.signal.aborted) return;
@@ -158,6 +161,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
       const data = decision === "incorporar" ? await cliente.incorporar(intento) : await cliente.decidir(intento);
       if (!vivo || orden !== secuencia) return;
       recibo = data; detalle = null; decision = ""; motivos = null; estadoVista = "lista";
+      enfocarRecibo = true;
       pintar(); void cargarLista();
     } catch (error) {
       if (!vivo || orden !== secuencia) return;
@@ -191,7 +195,8 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     else if (accion.hasAttribute("data-inscripcion-total")) navegar({ ...filtro, cursor: "" });
     else if (accion.dataset.inscripcionConvocatoria) navegar({ ...filtro, convocatoria: accion.dataset.inscripcionConvocatoria, cursor: "" });
     else if (accion.hasAttribute("data-inscripcion-quitar-filtro")) navegar({ ...filtro, convocatoria: "", cursor: "" });
-    else if (accion.hasAttribute("data-inscripcion-cerrar-recibo")) { recibo = null; pintar(); }
+    else if (accion.hasAttribute("data-inscripcion-cerrar-recibo")) { recibo = null; enfocarRecibo = false; pintar();
+      raiz.querySelector?.("#inscripciones-titulo")?.focus?.({ preventScroll: true }); }
   };
   const submit = (evento) => {
     if (!evento.target?.matches?.("[data-inscripcion-filtros]")) return;
