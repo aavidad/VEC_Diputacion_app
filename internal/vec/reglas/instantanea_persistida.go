@@ -108,7 +108,7 @@ func (c *CacheInstantaneasPersistidas) Rehidratar(p InstantaneaPersistidaRegla) 
 	if c == nil || !claveCanonica(p.CatalogoBaseID) ||
 		(p.ReglaClave != "" && !claveCanonica(p.ReglaClave)) ||
 		!claveCanonica(p.Fase) || p.FaseDesde.IsZero() || p.PreparadaEn.IsZero() ||
-		p.CatalogoAjustesID != CatalogoAjustesDe(p.CatalogoBaseID) ||
+		p.CatalogoAjustesID != CatalogoAjustesDe(p.CatalogoBaseID) || !claveCanonica(p.CatalogoAjustesID) ||
 		len(p.CatalogoBaseCanonico) == 0 || len(p.CatalogoBaseCanonico) > 1<<20 ||
 		len(p.CanonicoAjustes) == 0 || len(p.CanonicoAjustes) > maximoBytesAjustes {
 		return vacia, ErrReglasNoDisponibles
@@ -230,9 +230,9 @@ func rehidratarConCatalogos(p InstantaneaPersistidaRegla, contenidos catalogosIn
 		CanonicoAjustes:     append([]byte(nil), p.CanonicoAjustes...),
 		AjustesVigenteDesde: p.AjustesVigenteDesde, PreparadaEn: p.PreparadaEn,
 	}}
-	if !instantanea.valida() {
-		return vacia, ErrReglasNoDisponibles
-	}
+	// Las postcondiciones de valida ya se establecieron al decodificar el par
+	// íntegro y al comprobar los metadatos de este tramo. Datos y
+	// CalcularConInstantanea mantienen su validación al exponerlo.
 	return instantanea, nil
 }
 

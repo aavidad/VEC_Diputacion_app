@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -172,7 +173,7 @@ func TestCacheInstantaneasPersistidasValidaCadaTramoYSeparaPares(t *testing.T) {
 	primera := instantaneaPersistidaPrueba(t, resolutor)
 	cache := NuevaCacheInstantaneasPersistidas()
 	uno, err := cache.Rehidratar(primera)
-	if err != nil || uno.datos.Efectiva.Cantidad != 10 {
+	if err != nil || !uno.valida() || uno.datos.Efectiva.Cantidad != 10 {
 		t.Fatalf("primera captura: %+v, %v", uno.datos.Efectiva, err)
 	}
 	segunda := primera
@@ -190,7 +191,7 @@ func TestCacheInstantaneasPersistidasValidaCadaTramoYSeparaPares(t *testing.T) {
 		t.Fatal(err)
 	}
 	dos, err := cache.Rehidratar(segunda)
-	if err != nil || dos.datos.Efectiva.Cantidad != 7 || len(cache.entradas) != 2 {
+	if err != nil || !dos.valida() || dos.datos.Efectiva.Cantidad != 7 || len(cache.entradas) != 2 {
 		t.Fatalf("segundo par no aislado: %+v, %v, entradas=%d", dos.datos.Efectiva, err, len(cache.entradas))
 	}
 	alterada := primera
@@ -280,7 +281,7 @@ func TestCacheInstantaneasPersistidasAislaDatosExpuestosYAjuste(t *testing.T) {
 		t.Fatal(err)
 	}
 	conAjuste, err := cache.Rehidratar(ajustada)
-	if err != nil {
+	if err != nil || !conAjuste.valida() {
 		t.Fatal(err)
 	}
 	esperadaBase, err := primera.Datos()
@@ -315,7 +316,7 @@ func TestCacheInstantaneasPersistidasAislaDatosExpuestosYAjuste(t *testing.T) {
 			t.Fatal(err)
 		}
 		datos, err := otra.Datos()
-		if err != nil || !reflect.DeepEqual(datos, caso.esperada) {
+		if err != nil || !otra.valida() || !reflect.DeepEqual(datos, caso.esperada) {
 			t.Fatalf("la mutación alcanzó la caché: datos=%+v err=%v", datos, err)
 		}
 	}
@@ -323,5 +324,25 @@ func TestCacheInstantaneasPersistidasAislaDatosExpuestosYAjuste(t *testing.T) {
 	ajustadaOtraVez, _ := conAjuste.Datos()
 	if !reflect.DeepEqual(primeraOtraVez, esperadaBase) || !reflect.DeepEqual(ajustadaOtraVez, esperadaAjustada) {
 		t.Fatal("la mutación alcanzó una instantánea anterior")
+	}
+}
+
+func TestRehidratarInstantaneaRechazaIDDeAjustesDemasiadoLargo(t *testing.T) {
+	resolutor := resolutorCTConAjustes(t, &ajustesMemoria{}, nil)
+	p := instantaneaPersistidaPrueba(t, resolutor)
+	var base domain.CatalogoConfigurable
+	if err := json.Unmarshal(p.CatalogoBaseCanonico, &base); err != nil {
+		t.Fatal(err)
+	}
+	base.ID = strings.Repeat("a", 121) // válido solo; con ".ajustes" supera 128.
+	var err error
+	p.CatalogoBaseCanonico, p.CatalogoBaseHuella, err = CanonicoCatalogoBaseReglas(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.CatalogoBaseID = base.ID
+	p.CatalogoAjustesID = CatalogoAjustesDe(base.ID)
+	if _, err := NuevaCacheInstantaneasPersistidas().Rehidratar(p); !errors.Is(err, ErrReglasNoDisponibles) {
+		t.Fatalf("ID de ajustes no canónico admitido: %v", err)
 	}
 }
