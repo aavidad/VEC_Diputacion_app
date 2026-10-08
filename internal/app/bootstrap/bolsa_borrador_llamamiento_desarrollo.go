@@ -435,6 +435,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	identidadCT *proveedorSesionConsultaRRHHDesarrollo,
 	personalizacion *fuentePersonalizacionB7,
 	autorizacionesAdicionales []descriptorAutorizacionComunDesarrollo,
+	autoridadesCargaConvoca *autoridadesCargaConvocaPostgreSQL,
 	proveedorReincorporacion ...*proveedorMaterialAltaContratacionTemporalDesarrollo,
 ) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, http.Handler, catalogoFronterasComunDesarrollo, func(http.Handler) http.Handler, func(), error) {
 	vacio := catalogoFronterasComunDesarrollo{}
@@ -561,7 +562,18 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if publicarPolitica != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	cargaConvocaActiva := alta.postgresql.proveedorMaterialCargaConvoca != nil && politicaBolsa.permiteCargaConvoca()
+	_, fronteraCargaConvocaDeclarada := catalogoFronteras.porClave[claveFronteraConfirmarCargaConvocaBolsa]
+	cargaConvocaActiva := fronteraCargaConvocaDeclarada && autoridadesCargaConvoca != nil &&
+		alta.postgresql.proveedorMaterialCargaConvoca != nil && politicaBolsa.permiteCargaConvoca()
+	var politicaCargaConvoca politicaAutorizacionSolicitudLigadaV3Desarrollo
+	if cargaConvocaActiva {
+		politicaCargaConvoca, cargaConvocaActiva, err = politicaCargaConvocaPostgreSQL(ctx,
+			autoridadesCargaConvoca.fuente, autoridadesCargaConvoca.motivos, alta.postgresql.registroAutorizacion,
+			politicaBolsa.instantanea, dependenciasCT.reloj.Ahora())
+		if err != nil || !cargaConvocaActiva {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+	}
 	if cargaConvocaActiva && publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
 		[]dominiovec.ReferenciaEntradaCatalogo{motivoConfirmarCargaConvocaBolsaDesarrollo()}, desde) != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
@@ -577,6 +589,13 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	descriptoresBolsa, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politicaB, politicaOfertasActiva, reincorporacionActiva)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	if cargaConvocaActiva {
+		descriptor, e := descriptorAutorizacionCargaConvocaGobernadaBolsaDesarrollo(politicaCargaConvoca)
+		if e != nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		descriptoresBolsa = append(descriptoresBolsa, descriptor)
 	}
 	descriptoresAutorizacion := append(descriptoresAutorizacionContratacionTemporalDesarrollo(politicaCT, reincorporacionActiva,
 		firmaDocumentoPerfilFijoCompuesto(alta.soporte),

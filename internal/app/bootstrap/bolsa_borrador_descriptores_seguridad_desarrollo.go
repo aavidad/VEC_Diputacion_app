@@ -223,6 +223,21 @@ func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 	return descriptores, nil
 }
 
+func descriptorAutorizacionCargaConvocaGobernadaBolsaDesarrollo(
+	politica politicaAutorizacionSolicitudLigadaV3Desarrollo,
+) (descriptorAutorizacionComunDesarrollo, error) {
+	if !politica.valida() {
+		return descriptorAutorizacionComunDesarrollo{}, errAutorizacionComunDesarrolloNoDisponible
+	}
+	return descriptorAutorizacionComunDesarrollo{
+		Accion:         puertosbolsa.AccionConfirmarCargaConvoca,
+		ClavePolitica:  clavePoliticaBorradorLlamamientoBolsaDesarrollo,
+		ClaveCapacidad: claveCapacidadCargaConvocaBolsa,
+		Fronteras:      []string{claveFronteraVistaPreviaCargaConvocaBolsa, claveFronteraConfirmarCargaConvocaBolsa},
+		Politica:       politica,
+	}, nil
+}
+
 // descriptoresMaterialBorradorLlamamientoBolsaDesarrollo conserva las dos
 // audiencias B-BACK y sus separaciones de dominio y clave nominales.
 func descriptoresMaterialBorradorLlamamientoBolsaDesarrollo() []descriptorMaterialConsumidorV3Desarrollo {
