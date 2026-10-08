@@ -2,9 +2,9 @@
   "miBolsa": {
     "historial": {
       "titulo": "Histórico de mi bolsa",
-      "subtitulo": "Actuaciones de mis participaciones registradas en VEC",
+      "subtitulo": "Actuaciones de mis participaciones",
       "cargando": "Cargando histórico autorizado…",
-      "vacio": "No constan actuaciones en el histórico de VEC.",
+      "vacio": "No constan actuaciones en el historial de su bolsa.",
       "sinCampos": "El servicio no ha habilitado datos del histórico para esta identidad.",
       "error": "El histórico todavía no está disponible. Puede volver a consultarlo más tarde.",
       "autenticacion": "Identifíquese de nuevo para consultar su histórico.",
@@ -34,7 +34,7 @@
       "modo": "Tratamiento",
       "firme": "Registro directo en Bolsa",
       "propuesta_rrhh": "Pendiente de confirmación de RRHH",
-      "limite": "Aquí solo aparece lo registrado en VEC. Que se enviara un correo no significa que llegara, y una renuncia o incorporación anotada aún puede estar pendiente de que RRHH la resuelva."
+      "limite": "Aquí aparecen las actuaciones registradas. Un correo enviado puede tardar en llegar; RRHH puede tener pendiente la revisión de una renuncia o incorporación."
     },
     "situacion": {
       "titulo": "Última situación registrada de mi participación",
@@ -318,13 +318,13 @@
     "autoridadServidor": "La autoridad efectiva se comprueba en el servidor para cada operación."
   },
   "ayuda": {
-    "descripcion": "Guías, preguntas frecuentes y opciones de lectura.",
+    "descripcion": "Consulte cómo usar Mi bolsa y ajuste la visualización.",
     "guia": {
       "titulo": "Guía de uso",
       "subtitulo": "Texto completo de la ayuda",
       "encabezado": "Leer esta ayuda",
-      "texto": "Esta guía explica el área personal de Bolsa. Ahora puede consultar la información de Mi bolsa que el servicio haya recuperado. Las convocatorias, los plazos, las solicitudes, los méritos y la autobaremación todavía no están disponibles en esta consulta. Una actuación solo queda registrada cuando el servicio confirma su recibo.",
-      "limiteServicio": "Cada operación real depende de la confirmación del servicio autorizado."
+      "texto": "En Mi bolsa puede consultar sus participaciones, su situación y el historial disponible. Si hay una petición para responder, revise los datos y espere la confirmación antes de volver a enviarla.",
+      "limiteServicio": "Si no puede cargar los datos, pulse Reintentar. Si sigue igual, contacte con RRHH."
     }
   },
   "vista": {
@@ -337,7 +337,7 @@
         "titulo": "Su participación en Bolsa",
         "descripcion": "Consulte los datos de su participación que ya están disponibles.",
         "subtitulo": "Información disponible en esta consulta",
-        "detalle": "Aquí puede consultar su participación en Bolsa. Los plazos y las solicitudes de convocatorias aún no están disponibles en esta área.",
+        "detalle": "Abra Mi bolsa para consultar sus participaciones, la situación registrada y las actuaciones disponibles.",
         "abrir": "Ver Mi bolsa"
       },
       "cifras": {
@@ -465,7 +465,7 @@
         "subtitulo": "Seleccione los avisos que desea recibir"
       },
       "titulo": "Perfil, identidad y contacto",
-      "descripcion": "Una identidad común para solicitudes, bolsas, certificados y futuros módulos.",
+      "descripcion": "Consulte su ficha y los datos de contacto disponibles.",
       "identidad": {
         "titulo": "Datos de identidad",
         "subtitulo": "La identidad principal procede del sistema de autenticación",
@@ -479,7 +479,7 @@
       "privacidad": {
         "titulo": "Privacidad y trazabilidad",
         "subtitulo": "Control sobre el uso de sus datos",
-        "texto": "Los accesos y cambios relevantes quedan sujetos a registro de auditoría. Desde esta área podrá consultar el origen de los datos, rectificarlos cuando proceda y conocer qué documentos se reutilizan.",
+        "texto": "Consulte los datos disponibles en su ficha. Si necesita corregirlos y no ve una opción para hacerlo, contacte con RRHH.",
         "enlace": "Consultar protección de datos"
       }
     },
@@ -767,11 +767,11 @@
         "nota": "No incluya documentación personal en consultas generales de ayuda."
       },
       "rapida": {
-        "titulo": "Navegación rápida",
-        "subtitulo": "Recorridos habituales",
+        "titulo": "Ir a Mi bolsa",
+        "subtitulo": "Consulte sus participaciones",
         "inscribirme": "Inscribirme",
         "meritos": "Aportar méritos",
-        "llamamiento": "Responder llamamiento"
+        "llamamiento": "Abrir Mi bolsa"
       }
     }
   },
@@ -837,10 +837,10 @@
     "grupoResumen": "Resumen",
     "grupoInformacion": "Mi información",
     "grupoTramitacion": "Tramitación",
-    "grupoComunicaciones": "Comunicaciones y ayuda",
+    "grupoComunicaciones": "Ayuda",
     "miBolsa": "Mi bolsa",
-    "pieLateral": "Portal genérico de RRHH",
-    "pieLateralDetalle": "Fase inicial · Módulo Bolsa",
+    "pieLateral": "Área personal de Bolsa",
+    "pieLateralDetalle": "Sus participaciones y gestiones",
     "abrirNavegacion": "Abrir navegación",
     "migas": "Migas de pan",
     "cargando": "Cargando área personal…",

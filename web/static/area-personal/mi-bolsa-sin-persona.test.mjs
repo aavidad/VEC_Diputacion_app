@@ -14,8 +14,6 @@ test("Mi bolsa vacía no fabrica persona, iniciales ni referencias para el área
   assert.equal(datos.sesion.persona_ref, null);
   assert.equal(datos.perfil.referencia, null);
   assert.equal(datos.perfil.nombre_visible, "");
-  assert.deepEqual(datos.capacidades, {});
-  assert.equal(datos.disponibilidad.disponible, false);
   const texto = `${JSON.stringify(datos)}\n${renderizarPerfil(datos)}`;
   assert.doesNotMatch(texto, /Candidato identificado|candidato:identificado|perfil:pendiente|"CI"|DEMO-/u);
   assert.doesNotMatch(texto, /Identidad no facilitada|sint[ée]tic/iu);

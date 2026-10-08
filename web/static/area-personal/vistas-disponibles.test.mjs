@@ -9,7 +9,7 @@ const catalogo = JSON.parse(textoCatalogo);
 const VISTAS_DISPONIBLES = leerVistasDisponibles(catalogo);
 
 test("las vistas sin servicio en el servidor no se ofrecen", () => {
-  for (const vista of ["subsanaciones", "alegaciones", "mensajes", "certificados"]) {
+  for (const vista of ["convocatorias", "meritos", "seguimiento", "subsanaciones", "alegaciones", "mensajes", "certificados"]) {
     assert.equal(VISTAS_DISPONIBLES.has(vista), false, vista);
   }
   for (const vista of ["inicio", "llamamientos", "perfil", "preferencias", "ayuda"]) {
@@ -24,12 +24,9 @@ test("el catálogo cubre cada vista que registra la aplicación", async () => {
   assert.deepEqual(Object.keys(catalogo.vistas).sort(), registradas);
 });
 
-test("activar una vista es cambiar el catálogo, y lo que no nombra queda cerrado", () => {
-  const activada = structuredClone(catalogo);
-  activada.vistas.mensajes = true;
-  assert.equal(leerVistasDisponibles(activada).has("mensajes"), true);
-  const { mensajes: _omitida, ...sinMensajes } = catalogo.vistas;
-  assert.equal(leerVistasDisponibles({ ...catalogo, vistas: sinMensajes }).has("mensajes"), false);
+test("el catálogo permite solo las vistas registradas", () => {
+  const retiradas = ["convocatorias", "meritos", "seguimiento", "subsanaciones", "alegaciones", "mensajes", "certificados"];
+  for (const vista of retiradas) assert.equal(VISTAS_DISPONIBLES.has(vista), false);
 });
 
 test("un catálogo mal formado detiene el arranque en lugar de abrir vistas", () => {

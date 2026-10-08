@@ -1,17 +1,13 @@
-import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
+import { escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
   sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261007-p7-imagen-v1";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
-import {
-  renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
-} from "./vistas/inicio-convocatorias.js?v=20261005-b4-v1";
-import { renderizarMeritos, renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js";
-import {
-  renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261005-b4-v1";
-import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261008-b4-v1";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261008-b4-v1";
+import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js?v=20261008-b4-v1";
+import { renderizarAyuda } from "./vistas/comunicaciones-ayuda.js?v=20261008-b4-v1";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261005-b4b-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261002-rrhh17-v1";
@@ -21,30 +17,14 @@ import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
 const RUTAS = Object.freeze({
   inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
   preferencias: ["areaPersonal.preferencias.titulo", (_, estado) => renderizarPreferencias(estado.preferencias) + (estado.imagen?.renderizar() ?? "") + (estado.correos?.renderizar() ?? "")],
-  convocatorias: ["areaPersonal.rutas.convocatorias", renderizarConvocatorias],
   oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
-  convocatoria: ["areaPersonal.rutas.convocatoria", renderizarDetalleConvocatoria],
   perfil: ["areaPersonal.rutas.perfil", renderizarPerfil],
-  meritos: ["areaPersonal.rutas.meritos", renderizarMeritos],
-  seguimiento: ["areaPersonal.rutas.seguimiento", renderizarSeguimiento],
   llamamientos: ["areaPersonal.rutas.llamamientos", renderizarLlamamientos],
-  subsanaciones: ["areaPersonal.rutas.subsanaciones", renderizarSubsanaciones],
-  alegaciones: ["areaPersonal.rutas.alegaciones", renderizarAlegaciones],
-  mensajes: ["areaPersonal.rutas.mensajes", renderizarMensajes],
-  certificados: ["areaPersonal.rutas.certificados", renderizarCertificados],
   ayuda: ["areaPersonal.rutas.ayuda", renderizarAyuda],
 });
 
-// Operaciones que todavía pintan las vistas; su título visible está en el
-// catálogo (`areaPersonal.operacion.<operación>`). Ninguna tiene servicio en el
-// servidor: los controles quedan bloqueados y solo avisan de que no está disponible.
-const OPERACIONES = Object.freeze(new Set([
-  "incorporar_merito", "presentar_subsanacion", "presentar_alegacion", "marcar_mensaje",
-  "actualizar_notificaciones", "solicitar_certificado", "solicitar_descarga",
-]));
 // Una vista se abre solo si existe y el catálogo `vistas.json` la activa.
 const rutaDisponible = (estado, vista) => Object.hasOwn(RUTAS, vista) && estado.vistasDisponibles.has(vista);
-const tituloOperacion = (operacion) => (OPERACIONES.has(operacion) ? traducir(`areaPersonal.operacion.${operacion}`) : "");
 const t = (clave, variables) => traducir(`areaPersonal.app.${clave}`, variables);
 
 export function conservarResultadoContactoPropio(estado, { reciboRef, version, correo }) {
@@ -61,8 +41,8 @@ export function esOrigenSinteticoODesarrollo(meta = {}) {
     .some((declaracion) => /\bsint(?:e|é)tic(?:o|a|os|as)?\b|\bdesarrollo\b/iu.test(declaracion));
 }
 
-// Únicos parámetros que el área personal genera en sus propias URL; cualquier
-// otro (incluido el antiguo `?presentacion=`) detiene el arranque.
+// El identificador se admite solo para redirigir enlaces antiguos; las URL nuevas
+// usan vista e idioma. Otros parámetros (como `?presentacion=`) se rechazan.
 const PARAMETROS_URL_ADMITIDOS = Object.freeze(new Set(["vista", "id", "lang"]));
 
 export function exigirParametrosConocidos(parametros) {
@@ -84,28 +64,11 @@ function rutaDesdeURL(estado) {
   return rutaDisponible(estado, vista) ? vista : "llamamientos";
 }
 
-function formularioAObjeto(formulario) {
-  const resultado = {};
-  for (const [nombre, valor] of new FormData(formulario).entries()) {
-    let normalizado = valor;
-    if (valor instanceof File) {
-      normalizado = valor.name ? { nombre: valor.name.slice(0, 180), tipo: valor.type.slice(0, 100), tamano: valor.size } : null;
-    }
-    if (Object.hasOwn(resultado, nombre)) {
-      resultado[nombre] = Array.isArray(resultado[nombre]) ? [...resultado[nombre], normalizado] : [resultado[nombre], normalizado];
-    } else {
-      resultado[nombre] = normalizado;
-    }
-  }
-  return resultado;
-}
-
-function crearURL(estado, vista, opciones = {}) {
+function crearURL(estado, vista) {
   const url = new URL(window.location.pathname, window.location.origin);
   url.searchParams.set("vista", vista);
   const idiomaURL = new URLSearchParams(window.location.search).get("lang");
   if (IDIOMAS_DISPONIBLES.some(({ codigo }) => codigo === idiomaURL)) url.searchParams.set("lang", idiomaURL);
-  if (opciones.id) url.searchParams.set("id", opciones.id);
   return `${url.pathname}${url.search}`;
 }
 
@@ -126,33 +89,7 @@ function actualizarEnlacesNavegacion(estado) {
   }
   document.querySelectorAll("a[data-ruta]").forEach((enlace) => {
     if (enlace === inicioInstitucional) return;
-    enlace.setAttribute("href", crearURL(estado, enlace.dataset.ruta || "inicio", {
-      id: enlace.dataset.id || "",
-    }));
-  });
-}
-
-function aplicarCapacidadesVisibles(estado) {
-  let secuencia = 0;
-  document.querySelectorAll("[data-operacion]").forEach((control) => {
-    const operacion = control.dataset.operacion || "";
-    if (estado.datos.capacidades[operacion] === true) return;
-    secuencia += 1;
-    const idAyuda = `capacidad-bloqueada-${secuencia}`;
-    const botones = control.matches("button")
-      ? [control]
-      : [...control.querySelectorAll('button[type="submit"], input[type="submit"]')];
-    botones.forEach((boton) => {
-      boton.disabled = true;
-      boton.setAttribute("aria-disabled", "true");
-      boton.setAttribute("aria-describedby", idAyuda);
-      boton.title = t("accionNoHabilitada");
-    });
-    const ayuda = document.createElement("small");
-    ayuda.id = idAyuda;
-    ayuda.className = "nota aviso ayuda-capacidad";
-    ayuda.textContent = traducir("areaPersonal.capacidad.noHabilitada", { operacion: tituloOperacion(operacion) || t("estaAccion") });
-    control.insertAdjacentElement("afterend", ayuda);
+    enlace.setAttribute("href", crearURL(estado, enlace.dataset.ruta || "inicio"));
   });
 }
 
@@ -188,10 +125,7 @@ export function datosMinimosMiBolsa(consulta) {
   return Object.freeze({
     meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en, busqueda_convocatorias_disponible: false },
     sesion: { nombre_visible: "", iniciales: "—", metodo: traducir("areaPersonal.miBolsa.identidad.metodoNoFacilitado"), persona_ref: null },
-    resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
     perfil: { referencia: null, nombre_visible: "", identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), telefono: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), domicilio: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), estado_verificacion: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado") },
-    plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
-    disponibilidad: { disponible: false, estado: t("noDisponible") }, capacidades: {},
   });
 }
 
@@ -221,22 +155,14 @@ function actualizarShell(estado) {
   const titulo = traducir(RUTAS[vista][0]);
   document.title = t("tituloDocumento", { titulo });
   porId("titulo-vista").textContent = titulo;
-  porId("busqueda-global").hidden = datos.meta?.busqueda_convocatorias_disponible === false;
   porId("migas-pan").textContent = vista === "inicio" ? t("migas") : t("migasVista", { titulo });
   pintarInicialesSesion(estado, porId("avatar-sesion"), datos.sesion.iniciales);
   porId("nombre-sesion").textContent = datos.sesion.nombre_visible;
   porId("perfil-sesion").textContent = datos.sesion.metodo;
   document.querySelectorAll("[data-ruta]").forEach((enlace) => {
-    const activa = enlace.dataset.ruta === vista || (vista === "convocatoria" && enlace.dataset.ruta === "convocatorias");
+    const activa = enlace.dataset.ruta === vista;
     if (activa) enlace.setAttribute("aria-current", "page"); else enlace.removeAttribute("aria-current");
   });
-  const pendientesLlamamiento = datos.llamamientos.filter((item) => item.estado === "Pendiente de respuesta").length;
-  const contadorLlamamientos = porId("contador-llamamientos");
-  contadorLlamamientos.textContent = pendientesLlamamiento;
-  contadorLlamamientos.hidden = pendientesLlamamiento === 0;
-  const contadorMensajes = porId("contador-mensajes");
-  contadorMensajes.textContent = datos.resumen.mensajes_no_leidos;
-  contadorMensajes.hidden = datos.resumen.mensajes_no_leidos === 0;
 }
 
 function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {}) {
@@ -271,7 +197,6 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
     estado.desmontarOportunidades = vista.desmontar;
   }
   actualizarEnlacesNavegacion(estado);
-  aplicarCapacidadesVisibles(estado);
   if (estado.vista === "perfil") {
     estado.controladorContactoPropio ??= crearControladorContactoPropio({
       autorizacionServidor: estado.contactoPropio,
@@ -305,13 +230,11 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   }
 }
 
-function navegar(estado, vista, opciones = {}) {
+function navegar(estado, vista) {
   if (!rutaDisponible(estado, vista)) vista = "inicio";
   estado.vista = vista;
   estado.avisoInicio = false;
-  if (vista === "convocatoria") estado.convocatoriaSeleccionada = opciones.id || estado.convocatoriaSeleccionada;
-  if (vista === "seguimiento" && opciones.id) estado.expedienteSeleccionado = opciones.id;
-  window.history.pushState({ vista }, "", crearURL(estado, vista, opciones));
+  window.history.pushState({ vista }, "", crearURL(estado, vista));
   cerrarMenu();
   cerrarMenuIdentidad();
   if (vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
@@ -390,25 +313,8 @@ function verSesion(estado) {
   const prefijoTraduccion = "areaPersonal.sesion.";
   const campos = [...(sesion.nombre_visible ? [[traducir(`${prefijoTraduccion}persona`), escaparHTML(sesion.nombre_visible)]] : []),
     ...(sesion.persona_ref ? [[traducir(`${prefijoTraduccion}referencia`), escaparHTML(sesion.persona_ref)]] : []),
-    [traducir(`${prefijoTraduccion}metodo`), escaparHTML(sesion.metodo)],
-    [traducir(`${prefijoTraduccion}origen`), escaparHTML(estado.datos.meta.origen)]];
-  mostrarDetalle(traducir(`${prefijoTraduccion}titulo`), `${listaDatos(campos)}<p class="nota">${escaparHTML(traducir(`${prefijoTraduccion}autoridadServidor`))}</p>`);
-}
-
-function verDocumento(estado, id) {
-  const documento = estado.datos.documentos.find((item) => item.id === id);
-  if (!documento) {
-    notificar(traducir("areaPersonal.documento.noDisponible"));
-    return;
-  }
-  mostrarDetalle(documento.nombre, listaDatos([[t("documento.referencia"), escaparHTML(documento.id)], [t("documento.tipo"), escaparHTML(documento.tipo)], [t("documento.fecha"), escaparHTML(documento.fecha)], [t("documento.estado"), escaparHTML(documento.estado)], [t("documento.huella"), escaparHTML(documento.huella || t("documento.huellaPendiente"))]]));
-}
-
-function avisarOperacionNoDisponible(operacion) {
-  notificar(OPERACIONES.has(operacion)
-    ? traducir("areaPersonal.capacidad.noHabilitada", { operacion: tituloOperacion(operacion) })
-    : traducir("areaPersonal.capacidad.accionNoReconocida"));
-  anunciar(traducir("areaPersonal.capacidad.operacionNoDisponible"));
+    [traducir(`${prefijoTraduccion}metodo`), escaparHTML(sesion.metodo)]];
+  mostrarDetalle(traducir(`${prefijoTraduccion}titulo`), listaDatos(campos));
 }
 
 function leerPantalla(estado) {
@@ -519,15 +425,6 @@ function atenderAccion(estado, boton) {
     estado.paginaParticipaciones = Math.max(1, Number(boton.dataset.pagina || 1));
     return renderizar(estado, { enfocar: true });
   }
-  if (accion === "abrir-convocatoria") return navegar(estado, "convocatoria", { id: boton.dataset.id });
-  if (accion === "volver-convocatorias") return navegar(estado, "convocatorias");
-  if (accion === "abrir-expediente") { estado.expedienteSeleccionado = boton.dataset.id; return navegar(estado, "seguimiento", { id: boton.dataset.id }); }
-  if (accion === "abrir-documento") return verDocumento(estado, boton.dataset.id);
-  if (accion === "enfocar-nuevo-merito") {
-    document.querySelector(".panel-nuevo-merito")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    return document.querySelector("#merito-tipo")?.focus();
-  }
-  if (accion === "preparar-operacion") return avisarOperacionNoDisponible(boton.dataset.operacion);
 }
 
 function conectarEventos(estado) {
@@ -555,23 +452,6 @@ function conectarEventos(estado) {
       enviarPortalMiBolsa(formulario, { fetchImpl: estado.fetchImpl, alRegistrar: () => cargar(estado) });
       return;
     }
-    if (formulario.id === "busqueda-global") {
-      if (estado.datos?.meta?.busqueda_convocatorias_disponible === false) return;
-      estado.filtros.termino = formularioAObjeto(formulario).consulta || "";
-      navegar(estado, "convocatorias");
-      return;
-    }
-    if (formulario.dataset.accion === "filtrar-convocatorias") {
-      estado.filtros = formularioAObjeto(formulario);
-      renderizar(estado);
-      return;
-    }
-    if (formulario.dataset.accion === "buscar-ayuda") {
-      estado.consultaAyuda = formularioAObjeto(formulario).consulta || "";
-      renderizar(estado);
-      return;
-    }
-    if (formulario.dataset.operacion) avisarOperacionNoDisponible(formulario.dataset.operacion);
   });
   window.addEventListener("popstate", () => {
     cerrarMenu();
@@ -580,7 +460,6 @@ function conectarEventos(estado) {
     const inicioAjeno = inicioAjenoElegido(estado.preferencias.estado);
     estado.vista = parametros.has("vista") ? rutaDesdeURL(estado) : inicioAjeno ? "inicio" : "llamamientos";
     estado.avisoInicio = !parametros.has("vista") && inicioAjeno;
-    estado.convocatoriaSeleccionada = parametros.get("id") || estado.convocatoriaSeleccionada;
     if (estado.vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
       estado.datos = null;
       estado.soloPreferencias = false;
@@ -659,10 +538,6 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     soloPreferencias: false,
     avisoInicio: inicioAjeno && !parametros.has("vista"),
     filasPreferidas: preferencias?.estado.valores.filas || 20,
-    filtros: { termino: "", estado: "", categoria: "" },
-    consultaAyuda: "",
-    convocatoriaSeleccionada: parametros.get("id") || "",
-    expedienteSeleccionado: parametros.get("id") || "",
     contactoPropio: null,
     contactoPropioRecibo: null,
     controladorContactoPropio: null,

@@ -116,9 +116,9 @@
     },
     "historial": {
       "titulo": "My job pool history",
-      "subtitulo": "Actions recorded in VEC for my participations",
+      "subtitulo": "Actions relating to my participations",
       "cargando": "Loading authorised history…",
-      "vacio": "No actions are recorded in your VEC history.",
+      "vacio": "No actions are recorded in your job pool history.",
       "sinCampos": "The service has not enabled history details for this identity.",
       "error": "Your history is not available yet. You can check again later.",
       "autenticacion": "Identify yourself again to view your history.",
@@ -148,7 +148,7 @@
       "modo": "Handling",
       "firme": "Recorded directly in the job pool",
       "propuesta_rrhh": "Awaiting Human Resources confirmation",
-      "limite": "Only what is recorded in VEC appears here. A sent email may not have arrived, and a recorded decline or start of work may still be waiting for HR to resolve it."
+      "limite": "Recorded actions appear here. An email may take time to arrive, and HR may still need to review a decline or start of work."
     },
     "categoriaSinNombre": "Unnamed category"
   },
@@ -222,13 +222,13 @@
     "autoridadServidor": "Effective authorisation is checked on the server for every operation."
   },
   "ayuda": {
-    "descripcion": "Guides, frequently asked questions and reading options.",
+    "descripcion": "Find out how to use My job pool and adjust the display.",
     "guia": {
       "titulo": "User guide",
       "subtitulo": "Full help text",
       "encabezado": "Read this guide",
-      "texto": "This guide explains the job pool personal area. You can now view the information retrieved for My job pool. Calls for applications, deadlines, applications, merits and self-assessment are not yet available in this enquiry. An action is recorded only when the service confirms its receipt.",
-      "limiteServicio": "Every real operation depends on confirmation from the authorised service."
+      "texto": "In My job pool you can view your participations, current status and available history. If you have a request to answer, check the details and wait for confirmation before sending it again.",
+      "limiteServicio": "If your details do not load, select Retry. If the problem continues, contact HR."
     }
   },
   "ofertas": {
@@ -337,7 +337,7 @@
         "titulo": "Your job pool participation",
         "descripcion": "View the details of your participation that are already available.",
         "subtitulo": "Information available in this enquiry",
-        "detalle": "You can view your job pool participation here. Recruitment deadlines and applications are not yet available in this area.",
+        "detalle": "Open My job pool to view your participations, recorded status and available actions.",
         "abrir": "View my job pool"
       },
       "cifras": {
@@ -465,7 +465,7 @@
         "subtitulo": "Choose the alerts you want to receive"
       },
       "titulo": "Profile, identity and contact details",
-      "descripcion": "A single identity for applications, job pools, certificates and future modules.",
+      "descripcion": "View your profile and available contact details.",
       "identidad": {
         "titulo": "Identity details",
         "subtitulo": "Your main identity comes from the authentication system",
@@ -479,7 +479,7 @@
       "privacidad": {
         "titulo": "Privacy and audit trail",
         "subtitulo": "Control over how your data is used",
-        "texto": "Access and significant changes are recorded in the audit log. From this area you can see where your data comes from, correct it where appropriate and find out which documents are reused.",
+        "texto": "View the details available in your profile. If you need to correct them and cannot see an option to do so, contact HR.",
         "enlace": "Read about data protection"
       }
     },
@@ -767,11 +767,11 @@
         "nota": "Do not include personal documents in general help questions."
       },
       "rapida": {
-        "titulo": "Quick links",
-        "subtitulo": "Common tasks",
+        "titulo": "Go to My job pool",
+        "subtitulo": "View your participations",
         "inscribirme": "Register",
         "meritos": "Submit merits",
-        "llamamiento": "Respond to a call-up"
+        "llamamiento": "Open My job pool"
       }
     }
   },
@@ -837,10 +837,10 @@
     "grupoResumen": "Summary",
     "grupoInformacion": "My information",
     "grupoTramitacion": "Procedures",
-    "grupoComunicaciones": "Messages and help",
+    "grupoComunicaciones": "Help",
     "miBolsa": "My job pool",
-    "pieLateral": "General HR portal",
-    "pieLateralDetalle": "Initial phase · Job pools module",
+    "pieLateral": "Job pools personal area",
+    "pieLateralDetalle": "Your participations and requests",
     "abrirNavegacion": "Open navigation",
     "migas": "Breadcrumbs",
     "cargando": "Loading personal area…",

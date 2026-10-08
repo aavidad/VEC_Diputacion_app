@@ -2,9 +2,8 @@
  * Vistas del área personal que se ofrecen a la persona.
  *
  * El catálogo `vistas.json` decide qué vista aparece en el menú y se puede
- * abrir. Una vista sin servicio en el servidor queda desactivada (su código se
- * conserva) y se activa cambiando el catálogo cuando exista su ruta. Lo que el
- * catálogo no nombra queda cerrado. El servidor sirve los JSON sin caché, así
+ * abrir. Las vistas sin recorrido conectado no se registran en la aplicación.
+ * Lo que el catálogo no nombra queda cerrado. El servidor sirve los JSON sin caché, así
  * que el cambio no exige renovar versiones.
  */
 const RUTA_CATALOGO = "/area-personal/vistas.json";
