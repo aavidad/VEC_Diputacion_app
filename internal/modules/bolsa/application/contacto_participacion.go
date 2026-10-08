@@ -48,7 +48,11 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 	}
 	h := sha256.Sum256([]byte(solicitud.ParticipacionRef + "\x1f" + solicitud.ClaveIdempotencia))
 	sufijo := hex.EncodeToString(h[:])
-	contacto := dominiobolsa.ContactoParticipacion{ContactoRef: "contacto:" + sufijo, BolsaRef: solicitud.BolsaRef, ParticipacionRef: solicitud.ParticipacionRef, LlamamientoRef: solicitud.LlamamientoRef, OfertaRef: solicitud.OfertaRef, EvidenciaRef: solicitud.EvidenciaRef, EvidenciaHuellaSHA256: solicitud.EvidenciaHuellaSHA256, Canal: solicitud.Canal, Instante: solicitud.Instante.UTC().Truncate(time.Microsecond), Actor: actor.PersonaRef, Resultado: solicitud.Resultado, Anotacion: solicitud.Anotacion}
+	instante := time.Time{}
+	if !solicitud.InstanteServidor {
+		instante = solicitud.Instante.UTC().Truncate(time.Microsecond)
+	}
+	contacto := dominiobolsa.ContactoParticipacion{ContactoRef: "contacto:" + sufijo, BolsaRef: solicitud.BolsaRef, ParticipacionRef: solicitud.ParticipacionRef, LlamamientoRef: solicitud.LlamamientoRef, OfertaRef: solicitud.OfertaRef, EvidenciaRef: solicitud.EvidenciaRef, EvidenciaHuellaSHA256: solicitud.EvidenciaHuellaSHA256, Canal: solicitud.Canal, Instante: instante, InstanteServidor: solicitud.InstanteServidor, Actor: actor.PersonaRef, Resultado: solicitud.Resultado, Anotacion: solicitud.Anotacion}
 	if contacto.Validar() != nil {
 		return puertosbolsa.RegistroContactoParticipacion{}, dominiobolsa.ErrContactoParticipacionInvalido
 	}
@@ -69,16 +73,23 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(auth, decision, confirmacion, solicitud.ResultadoContexto, solicitud.MotivoAutorizacion, material, puertosbolsa.AudienciaRegistrarContactoParticipacion) {
 		return puertosbolsa.RegistroContactoParticipacion{}, errorDependenciaSituacion(err)
 	}
-	comando := puertosbolsa.ComandoRegistrarContactoParticipacion{Contacto: contacto, ClaveIdempotencia: solicitud.ClaveIdempotencia, ReciboRef: "recibo:contacto:" + sufijo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}
+	comando := puertosbolsa.ComandoRegistrarContactoParticipacion{Contacto: contacto, ClaveIdempotencia: solicitud.ClaveIdempotencia, ReciboRef: "recibo:contacto:" + sufijo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material, InstanteServidor: solicitud.InstanteServidor}
 	if intento != nil {
 		politica := intento.politica
 		comando.ControlIntentos = &politica
+		comando.FechaDiaHabil = intento.fechaDiaHabil
+		comando.DiaHabil = intento.diaHabil
 	}
 	registro, err := s.repositorio.RegistrarContacto(ctx, comando)
 	if err != nil {
 		return puertosbolsa.RegistroContactoParticipacion{}, err
 	}
-	if err = completarIntento(intento, contacto, &registro); err != nil {
+	if solicitud.InstanteServidor && intento != nil && intento.politica.Franja.Zona != nil && intento.politica.Franja.SoloDiasHabiles {
+		if intento.diaHabil, err = s.intentos.calendario.EsDiaHabil(ctx, registro.Contacto.Instante.In(intento.politica.Franja.Zona)); err != nil {
+			return puertosbolsa.RegistroContactoParticipacion{}, puertosbolsa.ErrContactoParticipacionNoDisponible
+		}
+	}
+	if err = completarIntento(intento, registro.Contacto, &registro); err != nil {
 		return puertosbolsa.RegistroContactoParticipacion{}, err
 	}
 	return registro, nil
