@@ -1,23 +1,24 @@
 /** Montaje y gestión de estados de las fases de tramitación (alta, análisis, cobertura, asignación, informe, fiscalización y subsanación). */
 
 import { escaparHTML } from "./componentes-expedientes.js?v=20261008-ct-inicio-v1";
-import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261007-pantallas-textos-final-v1";
-import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261007-pantallas-textos-final-v1";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261007-pantallas-textos-final-v1";
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261007-pantallas-textos-final-v1";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261007-pantallas-textos-final-v1";
+import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v5";
+import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v5";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v5";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v5";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261008-alta-rpt-circular-v5";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261002-ct-fin-moad-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
+import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-circular-v3";
+import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261008-alta-circular-v3";
 import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261008-ct-inicio-v1";
-import { montarAltaContratacionTemporal } from "./vista.js?v=20261007-pantallas-textos-final-v1";
+} from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v5";
+import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-alta-rpt-circular-v5";
 
 function enfocarElemento(raiz, selector) {
   const elemento = raiz.querySelector(selector);
@@ -51,6 +52,8 @@ export function crearGestorTramitacion({
 } = {}) {
   const tExpedientes = crearTraductorExpedientesContratacion(mensajes);
   let desmontarAlta = null;
+  let catalogosNecesidadesAlta = null;
+  let consultaCatalogosNecesidadesAlta = null;
   let desmontarAnalisis = null;
   let desmontarCobertura = null;
   let desmontarAsignacion = null;
@@ -624,13 +627,38 @@ export function crearGestorTramitacion({
     if (!esMontada() || estado.vista !== "alta") return;
     const contenedor = raiz.querySelector("[data-ct-exp-alta]");
     if (!contenedor) return;
-    if (!altaDisponible || !alta?.catalogos || typeof alta?.ejecutor !== "function") {
+    if (!altaDisponible || !alta?.catalogos || typeof alta?.ejecutor !== "function"
+      || typeof alta?.obtenerCatalogosNecesidadesAlta !== "function") {
       contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
+      return;
+    }
+    if (catalogosNecesidadesAlta === null) {
+      contenedor.innerHTML = `<section class="ct-exp-estado-global" role="status" aria-live="polite"><h3>${escaparHTML(tExpedientes("cargando_titulo"))}</h3><p>${escaparHTML(tExpedientes("cargando_detalle"))}</p></section>`;
+      if (consultaCatalogosNecesidadesAlta === null) {
+        consultaCatalogosNecesidadesAlta = Promise.resolve()
+          .then(() => alta.obtenerCatalogosNecesidadesAlta())
+          .then((respuesta) => {
+            const catalogos = validarCatalogosAlta(respuesta);
+            if (catalogos.esquema !== ESQUEMA_CATALOGOS_NECESIDADES) {
+              throw new TypeError("catálogo de necesidades incompatible");
+            }
+            catalogosNecesidadesAlta = catalogos;
+            consultaCatalogosNecesidadesAlta = null;
+            if (esMontada() && presentador.obtenerEstado().vista === "alta") montarAltaSiProcede();
+          })
+          .catch(() => {
+            consultaCatalogosNecesidadesAlta = null;
+            if (esMontada() && presentador.obtenerEstado().vista === "alta") {
+              const actual = raiz.querySelector("[data-ct-exp-alta]");
+              if (actual) actual.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
+            }
+          });
+      }
       return;
     }
     try {
       const presentadorAlta = crearPresentadorAltaContratacionTemporal({
-        catalogos: alta.catalogos,
+        catalogos: catalogosNecesidadesAlta,
         capacidad: alta.capacidad,
         ejecutor: crearEjecutorAltaConRefresco(
           alta.ejecutor,

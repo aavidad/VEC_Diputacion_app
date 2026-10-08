@@ -1,0 +1,24 @@
+{
+  "esquema": "vec.ct.modalidades_analisis.v1",
+  "referencia": "catalogo:ct:modalidades_analisis:ejemplo",
+  "version": 1,
+  "es_ejemplo": true,
+  "activo": false,
+  "fuentes": {
+    "trebep_10": "https://www.boe.es/buscar/act.php?id=BOE-A-2015-11719#a10",
+    "andaluza_14": "https://www.boe.es/buscar/act.php?id=BOE-A-2023-16066#a1-6",
+    "et_15": "https://www.boe.es/buscar/act.php?id=BOE-A-2015-11430#a15",
+    "circular_necesidad": "https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf"
+  },
+  "modalidades": [
+    {"regimen": "funcionario_interino", "causa": "vacante", "subtipo": "plaza_vacante", "etiqueta_clave": "ct.modalidad.funcionario.vacante", "necesidad_compatible": ["vacante"], "fuente": "trebep_10", "limite_meses": 36},
+    {"regimen": "funcionario_interino", "causa": "sustitucion", "subtipo": "titular_transitorio", "etiqueta_clave": "ct.modalidad.funcionario.sustitucion", "necesidad_compatible": ["sustitucion"], "fuente": "trebep_10", "limite": "tiempo_estrictamente_necesario"},
+    {"regimen": "funcionario_interino", "causa": "programa_temporal", "subtipo": "ejecucion_programa", "etiqueta_clave": "ct.modalidad.funcionario.programa", "necesidad_compatible": ["programa_temporal"], "fuente": "andaluza_14", "limite_meses": 36, "prorroga_maxima_meses": 12, "prorroga_condicion": "necesidad_justificada_y_decision_expresa"},
+    {"regimen": "funcionario_interino", "causa": "acumulacion_tareas", "subtipo": "exceso_acumulacion", "etiqueta_clave": "ct.modalidad.funcionario.acumulacion", "necesidad_compatible": ["acumulacion_tareas"], "fuente": "trebep_10", "limite_meses": 9, "ventana_meses": 18},
+    {"regimen": "laboral_temporal", "causa": "circunstancias_produccion", "subtipo": "imprevisible", "etiqueta_clave": "ct.modalidad.laboral.produccion_imprevisible", "necesidad_compatible": ["acumulacion_tareas"], "fuente": "et_15", "limite_meses": 6, "ampliacion": "solo_convenio_sectorial_aplicable_hasta_12_meses"},
+    {"regimen": "laboral_temporal", "causa": "circunstancias_produccion", "subtipo": "previsible_corta", "etiqueta_clave": "ct.modalidad.laboral.produccion_previsible", "necesidad_compatible": ["acumulacion_tareas"], "fuente": "et_15", "limite_dias_ano": 90, "dias_no_continuados": true},
+    {"regimen": "laboral_temporal", "causa": "sustitucion", "subtipo": "reserva_puesto", "etiqueta_clave": "ct.modalidad.laboral.sustitucion_reserva", "necesidad_compatible": ["sustitucion"], "fuente": "et_15", "requiere": ["persona_sustituida", "causa_sustitucion"]},
+    {"regimen": "laboral_temporal", "causa": "sustitucion", "subtipo": "jornada_reducida", "etiqueta_clave": "ct.modalidad.laboral.sustitucion_jornada", "necesidad_compatible": ["sustitucion"], "fuente": "et_15", "requiere": ["persona_sustituida", "causa_reduccion"]},
+    {"regimen": "laboral_temporal", "causa": "sustitucion", "subtipo": "seleccion_cobertura_fija", "etiqueta_clave": "ct.modalidad.laboral.sustitucion_seleccion", "necesidad_compatible": ["vacante"], "fuente": "et_15", "limite_meses": 3, "convenio": "plazo_inferior_si_aplica"}
+  ]
+}

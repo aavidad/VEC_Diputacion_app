@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES, cargarMensajesNecesidadesAlta } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
 import {
   VISTAS_MODULOS_CONECTADOS,
   VISTAS_MODULOS_PERSONALES,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "../../portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
+} from "../../portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v5";
 
 const directorio = new URL("./", import.meta.url);
 const [
@@ -33,13 +33,15 @@ const [
   readFile(new URL("formulario-cobertura.js", directorio), "utf8"),
 ]);
 
-test("i18n cubre los textos estáticos y CSS hereda tema, zoom y contraste", () => {
+test("i18n cubre los textos estáticos y CSS hereda tema, zoom y contraste", async () => {
+  const mensajesNecesidades = await cargarMensajesNecesidadesAlta("es");
   const clavesEstaticas = [...`${vistaFuente}\n${rendererPuroFuente}`.matchAll(/\bt\("([^"]+)"/g)]
     .map((coincidencia) => coincidencia[1]);
   assert.ok(clavesEstaticas.length > 50);
   for (const clave of clavesEstaticas) {
     assert.ok(
-      Object.hasOwn(MENSAJES_CONTRATACION_TEMPORAL_ES, clave),
+      Object.hasOwn(MENSAJES_CONTRATACION_TEMPORAL_ES, clave)
+        || Object.hasOwn(mensajesNecesidades, clave),
       `falta la traducción ${clave}`,
     );
   }
@@ -107,7 +109,7 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos, Die
   assert.match(coordinadorFuente, /componerCronosInterno/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-saldo-conectado\.js\?v=/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-permisos-propios\.js\?v=/);
-  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261007-pantallas-textos-final-v1"\)/);
+  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261008-alta-rpt-circular-v5"\)/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);
   assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/vista-expedientes\.js\?v=/);

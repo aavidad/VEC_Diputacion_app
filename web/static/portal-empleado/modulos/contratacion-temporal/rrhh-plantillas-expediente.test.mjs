@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { contextoPlantillasPublicadasDesdeEstado } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
+import { contextoPlantillasPublicadasDesdeEstado } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v5";
 
 const expediente = Object.freeze({ expediente_ref: "expediente:ct:uno", version: 3, demostracion: false });
 const cuadro = Object.freeze({ demostracion: false, expedientes: [{ expediente_ref: expediente.expediente_ref,

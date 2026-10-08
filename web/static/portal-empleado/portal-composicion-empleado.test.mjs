@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import * as i18nCronos from "./modulos/cronos/i18n.js";
-import * as composicionEmpleado from "./portal-composicion-empleado.js";
+import * as composicionEmpleado from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
-} from "./portal-composicion-empleado.js";
+} from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
 
 test("la composición no exporta montajes huérfanos de presentación", () => {
   assert.equal(Object.hasOwn(composicionEmpleado, "componerCronosVisible"), false);
@@ -207,6 +207,27 @@ test("Personal compone solo los catálogos públicos servidos y pasa accesos y o
   assert.deepEqual(entradas[0].destinosDisponibles, { dietas: true, cronos: false }, "la disponibilidad se evalúa al montar");
   await entradas[0].montarCatalogos({ raiz: {}, anunciar() {} });
   assert.deepEqual(clientes, ["categorias", "estructura"]);
+  const conRPT = componerPersonalVisible({ ...recursos(entradas),
+    clienteRPT: { crearClienteHTTPRPTPublica() { return {}; } },
+    vistaRPT: { montarModuloRPTPublica: async () => ({ desmontar() {} }) },
+  }, { fetch() {} }, { catalogosPublicos: ["rpt"], ocultarSinFuente: true });
+  assert.notEqual(conRPT, undefined);
+  conRPT.montar({ raiz: {}, anunciar() {} });
+  assert.equal(entradas[1].rptDisponible, true);
+  const estadoRPT = { estado: "incidencia" };
+  const conReintento = componerPersonalVisible({ ...recursos(entradas),
+    clienteRPT: { crearClienteHTTPRPTPublica() { clientes.push("rpt"); return {}; } },
+    vistaRPT: { montarModuloRPTPublica: async () => ({ desmontar() {} }) },
+  }, { fetch() {} }, { catalogosPublicos: [], ocultarSinFuente: true, estadoRPT,
+    reintentarRPT: async () => { estadoRPT.estado = "disponible"; return "disponible"; } });
+  conReintento.montar({ raiz: {}, anunciar() {} });
+  assert.equal(entradas[2].rptDisponible, false);
+  assert.equal(entradas[2].rptIncidencia, true);
+  await entradas[2].montarCatalogos({ raiz: {}, anunciar() {} });
+  assert.ok(!clientes.includes("rpt"), "una sonda fallida no monta la lista RPT");
+  assert.equal(await entradas[2].reintentarRPT(), "disponible");
+  await entradas[2].montarCatalogos({ raiz: {}, anunciar() {} });
+  assert.equal(clientes.filter((cliente) => cliente === "rpt").length, 1);
   // Pedir un catálogo servido sin sus recursos, o uno desconocido, no compone.
   assert.equal(componerPersonalVisible(recursos([]), {}, { catalogosPublicos: ["rpt"] }), undefined);
   assert.equal(componerPersonalVisible(recursos([]), {}, { catalogosPublicos: ["otro"] }), undefined);

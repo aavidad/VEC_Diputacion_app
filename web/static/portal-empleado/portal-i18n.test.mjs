@@ -362,9 +362,117 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
   ]) versionesEspeciales.set(ruta, "20261008-ct-inicio-v1");
-  versionesEspeciales.set("portal-ct-ruta-filtro.js", "20261008-bolsa-inicio-v2");
-  for (const ruta of ["portal-inicio.js", "portal.js"])
-    versionesEspeciales.set(ruta, "20261008-inicio-sin-sae-v1");
+  for (const ruta of ["portal-ct-ruta-filtro.js", "portal-inicio.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261008-bolsa-inicio-v2");
+  // Alta por circular: una URL para cada módulo y para sus importadores hasta la entrada.
+  for (const ruta of [
+    "categorias-rpt/arranque.js",
+    "categorias-rpt/cliente.js",
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/alta-renderer-puro.js",
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/cliente-http-alta.js",
+    "modulos/contratacion-temporal/cliente-http-estadisticas.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/contrato-estadisticas.js",
+    "modulos/contratacion-temporal/contrato.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-analisis.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-asignacion.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-cobertura.js",
+    "modulos/contratacion-temporal/formulario-fiscalizacion.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/i18n.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/presentador-expedientes.js",
+    "modulos/contratacion-temporal/presentador.js",
+    "modulos/contratacion-temporal/rrhh-plantillas-cliente.js",
+    "modulos/contratacion-temporal/rrhh-plantillas-vista.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vista-borradores-publicados.js",
+    "modulos/contratacion-temporal/vista-estadisticas.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vista.js",
+    "peticiones-centro/arranque-peticiones-centro.js",
+    "peticiones-centro/peticiones-centro.js",
+    "portal-modulos-coordinador.js",
+    "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261008-alta-circular-v3");
+  versionesEspeciales.set("portal-inicio.js", "20261008-inicio-sin-sae-v1");
+  // RPT recuperable: estas hojas cambiaron o alcanzan la ficha desde la entrada.
+  for (const ruta of [
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vista.js",
+    "modulos/personal/cliente-http-rpt-publica.js",
+    "modulos/personal/i18n.js",
+    "modulos/personal/registro-b2-actos.js",
+    "modulos/personal/registro-b2-catalogos.js",
+    "modulos/personal/registro-b2.js",
+    "modulos/personal/vista-estructura-organizativa-publica.js",
+    "modulos/personal/vista-ficha-integral.js",
+    "modulos/personal/vista-rpt-publica.js",
+    "modulos/personal/vista.js",
+    "organizacion/arranque.js",
+    "organizacion/historico.js",
+    "organizacion/organizacion.js",
+    "portal-composicion-empleado.js",
+    "portal-modulos-coordinador.js",
+    "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261008-alta-rpt-circular-v4");
+  // Cohorte v5: las dos hojas corregidas y sus importadores hasta las entradas.
+  for (const ruta of [
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/alta-renderer-puro.js",
+    "modulos/contratacion-temporal/cliente-http-estadisticas.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/contrato-estadisticas.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-analisis.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-asignacion.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-cobertura.js",
+    "modulos/contratacion-temporal/formulario-fiscalizacion.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/i18n.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/presentador-expedientes.js",
+    "modulos/contratacion-temporal/rrhh-plantillas-cliente.js",
+    "modulos/contratacion-temporal/rrhh-plantillas-vista.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vista-borradores-publicados.js",
+    "modulos/contratacion-temporal/vista-estadisticas.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vista.js",
+    "peticiones-centro/arranque-peticiones-centro.js",
+    "peticiones-centro/peticiones-centro.js",
+    "portal-modulos-coordinador.js",
+    "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261008-alta-rpt-circular-v5");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -502,7 +610,7 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-inicio-sin-sae-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-alta-rpt-circular-v5");
 
 });
 
@@ -512,8 +620,8 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   const [html, portal, coordinador, recorridos, borradores] = await Promise.all(
     rutas.map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const version = "20261007-u-dietas-catalogo-v1";
-  const versionRaiz = "20261008-inicio-sin-sae-v1";
-  const versionCoordinador = "20261008-ct-inicio-v1";
+  const versionRaiz = "20261008-alta-rpt-circular-v5";
+  const versionCoordinador = "20261008-alta-rpt-circular-v5";
   const comun = "20261007-pantallas-textos-final-v1";
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionRaiz);
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionCoordinador);

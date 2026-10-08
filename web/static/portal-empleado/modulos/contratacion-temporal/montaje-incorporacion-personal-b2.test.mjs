@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { cargarTextos } from "../../../comun/textos.js";
-import { crearGestorIncorporacion, crearResolverEtiquetasIncorporacionB2 } from "./vista-expedientes-incorporacion.js?v=20261001-ct-a-i18n-v1";
+import { crearGestorIncorporacion, crearResolverEtiquetasIncorporacionB2 } from "./vista-expedientes-incorporacion.js?v=20261008-alta-rpt-circular-v5";
 import { ESQUEMA_CONSULTA_B2, ESQUEMA_RECIBO_B2 } from "./contrato-incorporacion-personal-b2.js";
 
 const expedienteRef = "expediente:b2:montaje";

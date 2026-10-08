@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderizarExpediente } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorExpedientesContratacion } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { EVENTO_EXPEDIENTES_CENTRO, renderizarPeticionCentro, renderizarPeticionesCentroRRHH } from "./peticiones-centro/peticiones-centro.js?v=20261001-ct-a-i18n-v1";
+import { EVENTO_EXPEDIENTES_CENTRO, renderizarPeticionCentro, renderizarPeticionesCentroRRHH } from "./peticiones-centro/peticiones-centro.js?v=20261008-alta-rpt-circular-v5";
 import { EVENTO_EXPEDIENTES_CENTRO as EVENTO_INCORPORACIONES, idFilaExpediente } from "./peticiones-centro/incorporaciones-centro.js";
 
 // Los datos que tiene sentido abrir llevan enlace a su pantalla, y solo si el

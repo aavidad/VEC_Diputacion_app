@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { centrosDeOrganizacion } from "./portal-modulos-coordinador.js";
+import { centrosDeOrganizacion } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v5";
 
 test("los centros de Organización se nombran con su clave y con la forma de Contratación", () => {
   const centros = centrosDeOrganizacion([

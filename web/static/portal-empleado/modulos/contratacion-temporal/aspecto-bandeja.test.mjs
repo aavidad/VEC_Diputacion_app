@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { numeroExpedienteVisible, renderizarCuadro } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { renderizarCabeceraModulo } from "./vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
+import { renderizarCabeceraModulo } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v5";
 
 const t = crearTraductorExpedientesContratacion();
 const expediente = (sufijo, estado = "en_curso") => ({

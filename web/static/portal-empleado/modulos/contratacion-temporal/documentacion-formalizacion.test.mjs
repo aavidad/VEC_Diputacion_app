@@ -6,7 +6,7 @@ import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizac
 import {
   crearFuenteDocumentacionFormalizacionHTTP, validarDocumentacionFormalizacion, RUTA_DOCUMENTACION_FORMALIZACION,
 } from "./cliente-http-documentacion-formalizacion.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js";
 
 const EXPEDIENTE = "expediente:ct:fe4934a1c7a9f9ad91aaccc6026ff7d39a494031d14d8a98dcd0d6a140619ba7";
@@ -268,7 +268,7 @@ test("el cliente lista anotaciones externas por tipo y registra sin módulo ni c
 
 test("el formulario de llamamiento pinta el panel tras la aceptación con su instante y expediente", async () => {
   const { raizPrueba, abrirResolucion, resolucionConfirmada, revisionManual, CLAVE_RESOLUCION, PUBLICACIONES_PROPUESTA, EXPEDIENTE: EXP } =
-    await import("./formulario-llamamiento-pruebas.js");
+    await import("./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v5");
   const raiz = raizPrueba();
   const fuente = fuentePrueba();
   const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: async () => resolucionConfirmada }, {

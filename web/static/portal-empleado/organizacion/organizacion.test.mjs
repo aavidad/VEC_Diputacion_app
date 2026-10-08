@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderizarCuadro } from "../modulos/contratacion-temporal/componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { renderizarCabeceraModulo } from "../modulos/contratacion-temporal/vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
-import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarCabeceraModulo } from "../modulos/contratacion-temporal/vista-expedientes-render.js?v=20261008-alta-rpt-circular-v5";
+import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
 
 await prepararTextosPersonal();
 const {
@@ -14,7 +14,7 @@ const {
   validarOrganizacion,
   crearCliente,
   crearEstadoFormulario,
-} = await import("./organizacion.js");
+} = await import("./organizacion.js?v=20261008-alta-rpt-circular-v4");
 
 const unidad = (extra = {}) => ({
   clave: "u-1",
@@ -245,7 +245,7 @@ test("filtra por texto, padre y acentos sin alterar la fuente", () => {
 test("expone endpoint real y no añade almacenamiento ni datos de demostración", async () => {
   let llamada;
   const body = new TextEncoder().encode(JSON.stringify(base()));
-  const cliente = (await import("./organizacion.js")).crearCliente(
+  const cliente = (await import("./organizacion.js?v=20261008-alta-rpt-circular-v4")).crearCliente(
     async (url, options) => {
       llamada = { url, options };
       return {

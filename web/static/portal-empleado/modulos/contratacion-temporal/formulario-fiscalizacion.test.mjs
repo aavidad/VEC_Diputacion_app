@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261001-ct-a-i18n-v1";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v5";
 import { renderizarModuloContratacionTemporal,
   montarModuloContratacionTemporal,
-  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
-import { contextoFiscalizacionDesdeEstado } from "./vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
+  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v5";
+import { contextoFiscalizacionDesdeEstado } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v5";
 
 const EXPEDIENTE = "expediente:ct:fiscalizacion:formulario-001";
 const CLAVE = "123e4567-e89b-42d3-a456-426614174000";

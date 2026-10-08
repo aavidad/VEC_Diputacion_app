@@ -9,9 +9,9 @@
  * - Sin uso de la palabra "demo".
  */
 
-import { generarCSVEstadisticas, PERIODOS_ESTADISTICAS } from "./contrato-estadisticas.js?v=20261007-pantallas-textos-final-v1";
-import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261007-pantallas-textos-final-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { generarCSVEstadisticas, PERIODOS_ESTADISTICAS } from "./contrato-estadisticas.js?v=20261008-alta-rpt-circular-v5";
+import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261008-alta-rpt-circular-v5";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
 import { IDIOMA_ACTUAL, localizacionDe } from "../../../comun/idioma.js";
 
 import { cargarFichaIndicadores, renderizarFichaIndicadores } from "../analitica/ficha-indicadores.js?v=20261001-ana002-v4";

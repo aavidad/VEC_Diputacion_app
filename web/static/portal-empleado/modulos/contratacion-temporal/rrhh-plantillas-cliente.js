@@ -1,5 +1,5 @@
 /** Transporte de la configuración RRHH. La identidad y V3 se resuelven en el servidor. */
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
 import { MENSAJES_RRHH_PLANTILLAS_ES, MENSAJES_RRHH_PLANTILLAS_EN } from "./rrhh-plantillas-i18n.js";
 import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 

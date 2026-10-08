@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderizarContextoEstadisticas, renderizarVistaEstadisticas, montarVistaEstadisticas } from "./vista-estadisticas.js";
+import { renderizarContextoEstadisticas, renderizarVistaEstadisticas, montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261008-alta-rpt-circular-v5";
 
 const datos = Object.freeze({ esquema: "vec.ct.estadisticas.v1", periodo: "mensual",
   desde: "2026-01-15", hasta: "2026-06-08", zona_horaria: "Europe/Madrid", corte_global: 73,

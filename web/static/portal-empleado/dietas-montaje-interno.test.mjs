@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
+import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v5";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 
 test("el catálogo interno monta Dietas con clientes HTTP, ruta y mapa, sin dependencias demo", async () => {

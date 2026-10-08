@@ -1,4 +1,4 @@
-import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261002-ct-fin-moad-v1";
+import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261008-alta-circular-v3";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,

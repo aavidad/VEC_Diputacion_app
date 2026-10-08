@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261002-ct-fin-moad-v1";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v5";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-moad-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261002-ct-fin-moad-v1";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v5";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v5";
 
 const expediente_ref = "expediente:ct:montaje";
 const recibo = Object.freeze({
@@ -64,7 +64,7 @@ test("montaje: los seis assets nuevos están declarados e importados sin perder 
   }
   const [cliente, vista] = await Promise.all(["cliente-http.js", "vista-expedientes.js"].map((asset) => readFile(new URL(asset, modulo), "utf8")));
   for (const asset of esperados.slice(2, 4)) assert.match(cliente, new RegExp(`from "\\./${asset}"`, "u"));
-  for (const asset of esperados.slice(4)) assert.match(vista, new RegExp(`from "\\./${asset}\\?v=20261008-ct-inicio-v1"`, "u"));
+  for (const asset of esperados.slice(4)) assert.match(vista, new RegExp(`from "\\./${asset}\\?v=20261008-alta-rpt-circular-v5"`, "u"));
 });
 
 test("montaje: el aviso de detalle obsoleto de incorporación usa el catálogo", async () => {

@@ -12,7 +12,7 @@ import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
 import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=20261001-ct-a-i18n-v1";
 import { cargarMensajesTramitePortalEnIdioma, mensajesTramite, rotuloTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorContratacionTemporal, cargarMensajesContratacionTemporalEnIdioma } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal, cargarMensajesContratacionTemporalEnIdioma } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
 import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 // Huellas de las exportaciones originales en 463f7c176, anteriores al traslado.

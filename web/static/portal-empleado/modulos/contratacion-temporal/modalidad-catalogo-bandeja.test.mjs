@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v5";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001", numero_visible: "2026/CT-000001", version: 6,

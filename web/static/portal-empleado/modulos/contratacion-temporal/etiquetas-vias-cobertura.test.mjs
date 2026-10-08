@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { cargarEtiquetasViasCobertura, etiquetasViasDesdeReglas } from "./etiquetas-vias-cobertura.js";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261001-ct-a-i18n-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v5";
 
 const HUELLA = "a".repeat(64);
 const reglas = (reglasCT) => ({ esquema: "vec.reglas.vigentes.v1", catalogos: [
