@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"maps"
+	"net/http"
 	"slices"
 	"strings"
 	"testing"
@@ -49,7 +50,20 @@ func sha256HexPrueba(b []byte) string {
 }
 
 func TestRutasDocumentalesOriginalFirmableSeparanLecturaYEscritura(t *testing.T) {
+	if !perfilRutaOriginalFirmableCTDesarrollo(httpinterno.RutaOriginalFirmableCT, "", clavePerfilFijoOriginalFirmableCTDesarrollo) ||
+		!perfilRutaOriginalFirmableCTDesarrollo(httpinterno.RutaOriginalFirmableCT, http.MethodPost, clavePerfilFijoFirmaExternaV2CTDesarrollo) {
+		t.Fatal("la ruta original no admite los dos perfiles fijos seleccionados por montaje")
+	}
+	if perfilRutaOriginalFirmableCTDesarrollo(httpinterno.RutaOriginalFirmableCT, http.MethodGet, clavePerfilFijoFirmaExternaV2CTDesarrollo) ||
+		perfilRutaOriginalFirmableCTDesarrollo(httpinterno.RutaOriginalFirmableCT, http.MethodPost, "perfil_ajeno") ||
+		perfilRutaOriginalFirmableCTDesarrollo(httpinterno.RutaRegistroFirmaVec, http.MethodPost, clavePerfilFijoFirmaExternaV2CTDesarrollo) {
+		t.Fatal("perfil o método ajeno admitido en el original")
+	}
 	for _, ruta := range []string{httpinterno.RutaPreflightFirmaR5, httpinterno.RutaRegistroFirmaExterna} {
+		if !perfilRutaOriginalFirmableCTDesarrollo(ruta, http.MethodPost, clavePerfilFijoFirmaExternaV2CTDesarrollo) ||
+			perfilRutaOriginalFirmableCTDesarrollo(ruta, http.MethodPost, clavePerfilFijoOriginalFirmableCTDesarrollo) {
+			t.Fatalf("perfil incorrecto en lectura V2: %s", ruta)
+		}
 		if !rutaOriginalFirmableCTDesarrollo(ruta) || !rutaOperacionOriginalFirmableCTDesarrollo(ruta, docports.AccionDescargar) ||
 			!rutaOperacionOriginalFirmableCTDesarrollo(ruta, puertosvec.AccionNegocioLeerOriginalDocumentoGenerado) {
 			t.Fatalf("lectura documental V2 cerrada: %s", ruta)
@@ -448,16 +462,26 @@ type escenarioOriginalPDP struct {
 	principal dominiovec.Principal
 }
 
-func nuevoEscenarioOriginalPDP(t *testing.T) escenarioOriginalPDP {
+func nuevoEscenarioOriginalPDP(t *testing.T, clavePerfil ...string) escenarioOriginalPDP {
 	t.Helper()
 	s, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	ahora := s.reloj.Ahora()
-	p, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoOriginalFirmableCTDesarrollo,
+	clave := clavePerfilFijoOriginalFirmableCTDesarrollo
+	if len(clavePerfil) == 1 {
+		clave = clavePerfil[0]
+	}
+	p, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clave,
 		[]string{httpinterno.RutaOriginalFirmableCT},
 		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
 			return instantaneaOriginalFirmableCTDesarrollo(actor, ref, ahora)
 		})
-	if err != nil || s.registrarPerfilFijoCTDesarrollo(p) != nil {
+	if err != nil {
+		t.Fatal(err)
+	}
+	if clave == clavePerfilFijoFirmaExternaV2CTDesarrollo {
+		p.metodo = http.MethodPost
+	}
+	if err := s.registrarPerfilFijoCTDesarrollo(p); err != nil {
 		t.Fatal(err)
 	}
 	p.contextoEsperadoRegistrado = p.contexto.Resultado
@@ -563,5 +587,39 @@ func TestOriginalFirmablePDPConsumePerfilFijoDeLaRuta(t *testing.T) {
 	a.asignaciones[e.perfil.perfilRef()] = publicada
 	if _, err := e.pdp.solicitarOriginalV3(ctx, docports.AccionDescargar, finalidadDescargaDocumento, recurso); !errors.Is(err, docports.ErrAccesoDenegado) {
 		t.Fatalf("perfil revocado: %v", err)
+	}
+}
+
+// La plantilla documental de esta prueba representa sólo la proyección de
+// Documentos. La publicación del rol completo pertenece al montaje.
+func TestOriginalFirmablePDPUsaPerfilExternoSeleccionadoEnLaMismaPeticion(t *testing.T) {
+	e := nuevoEscenarioOriginalPDP(t, clavePerfilFijoFirmaExternaV2CTDesarrollo)
+	ctx, recurso := e.descarga(t, httpinterno.RutaOriginalFirmableCT)
+	capacidad := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+	capacidad.metodo = http.MethodPost
+	ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+	pedida, err := e.pdp.solicitarOriginalV3(ctx, docports.AccionDescargar, finalidadDescargaDocumento, recurso)
+	if err != nil || pedida.actor.PerfilActivoRef != e.perfil.perfilRef() ||
+		pedida.actor.PrincipalID != e.perfil.plantilla.AsignacionPerfil.PrincipalID {
+		t.Fatalf("el original no consumió el perfil externo y la persona de la petición: %v", err)
+	}
+	datos, err := pedida.solicitud.Datos()
+	if err != nil || datos.ReferenciaMotivo != motivoOriginalFirmableCTDesarrollo() {
+		t.Fatalf("motivo V1 del original alterado por el perfil externo: %v", err)
+	}
+	capacidad.metodo = http.MethodGet
+	ctxGet := context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+	if _, err := e.pdp.solicitarOriginalV3(ctxGet, docports.AccionDescargar, finalidadDescargaDocumento, recurso); !errors.Is(err, docports.ErrAccesoDenegado) {
+		t.Fatalf("método ajeno admitido: %v", err)
+	}
+	capacidad.metodo = http.MethodPost
+	capacidad.principal.ID = "per_otra_persona_00000000"
+	ctxAjeno := context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+	if _, err := e.pdp.solicitarOriginalV3(ctxAjeno, docports.AccionDescargar, finalidadDescargaDocumento, recurso); !errors.Is(err, docports.ErrAccesoDenegado) {
+		t.Fatalf("persona ajena admitida: %v", err)
+	}
+	e.perfil.clave = clavePerfilFijoAltaCTDesarrollo
+	if _, err := e.pdp.solicitarOriginalV3(ctx, docports.AccionDescargar, finalidadDescargaDocumento, recurso); !errors.Is(err, docports.ErrAccesoDenegado) {
+		t.Fatalf("perfil ajeno admitido: %v", err)
 	}
 }

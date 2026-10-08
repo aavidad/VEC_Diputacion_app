@@ -80,6 +80,22 @@ func rutaOperacionOriginalFirmableCTDesarrollo(ruta, accion string) bool {
 	}
 }
 
+// El montaje elige un único perfil fijo efectivo para la petición. La ruta
+// original acepta el legado o el registrador externo completo; las rutas V2
+// de lectura sólo aceptan el segundo. La concesión publicada sigue siendo
+// obligatoria y se consume más abajo por el PDP común.
+func perfilRutaOriginalFirmableCTDesarrollo(ruta, metodo, clave string) bool {
+	switch ruta {
+	case httpinterno.RutaOriginalFirmableCT:
+		return clave == clavePerfilFijoOriginalFirmableCTDesarrollo ||
+			metodo == http.MethodPost && clave == clavePerfilFijoFirmaExternaV2CTDesarrollo
+	case httpinterno.RutaPreflightFirmaR5, httpinterno.RutaRegistroFirmaExterna:
+		return metodo == http.MethodPost && clave == clavePerfilFijoFirmaExternaV2CTDesarrollo
+	default:
+		return false
+	}
+}
+
 func motivoRutaOriginalFirmableCTDesarrollo(ruta string) (dominiovec.ReferenciaEntradaCatalogo, bool) {
 	switch ruta {
 	case httpinterno.RutaOriginalFirmableCT:
@@ -286,9 +302,7 @@ func (p pdpCTOriginalFirmableDesarrollo) solicitarOriginalV3(ctx context.Context
 	capacidad, valida := s.capacidadValida(ctx)
 	perfil := s.perfilFijoParaContexto(ctx, capacidad.ruta)
 	if !valida || !rutaOperacionOriginalFirmableCTDesarrollo(capacidad.ruta, accion) || perfil == nil ||
-		(capacidad.ruta == httpinterno.RutaOriginalFirmableCT && perfil.clave != clavePerfilFijoOriginalFirmableCTDesarrollo) ||
-		(capacidad.ruta != httpinterno.RutaOriginalFirmableCT &&
-			(capacidad.metodo != http.MethodPost || perfil.clave != clavePerfilFijoFirmaExternaV2CTDesarrollo)) {
+		!perfilRutaOriginalFirmableCTDesarrollo(capacidad.ruta, capacidad.metodo, perfil.clave) {
 		return vacia, errOriginalFirmableCTDenegado
 	}
 	motivo, motivoValido := s.motivoAutorizacionParaContexto(ctx, capacidad.ruta)
