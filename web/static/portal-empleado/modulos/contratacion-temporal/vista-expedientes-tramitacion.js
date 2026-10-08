@@ -19,6 +19,7 @@ import {
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
 } from "./vista-expedientes-render.js?v=20261008-documentos-ficha-v1";
 import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-alta-capacidad-v3";
+import { justificanteTraducido } from "../../portal-justificante.js";
 
 function enfocarElemento(raiz, selector) {
   const elemento = raiz.querySelector(selector);
@@ -175,11 +176,12 @@ export function crearGestorTramitacion({
       return;
     }
     sesion.etapa = etapa;
-    if (etapa !== "transmitiendo") restaurarOcupacionAnalisis(sesion);
+    if (etapa === "confirmado") restaurarControlesAnalisis(sesion);
+    else if (etapa !== "transmitiendo") restaurarOcupacionAnalisis(sesion);
   }
 
   function analisisEstableActivo() {
-    return sesionAnalisis?.intentoIniciado === true;
+    return sesionAnalisis?.intentoIniciado === true && sesionAnalisis.etapa !== "confirmado";
   }
 
   function anunciarBloqueoAnalisis() {
@@ -623,6 +625,57 @@ export function crearGestorTramitacion({
     }
   }
 
+  async function refrescarDetalleTrasAnalisis(recibo, sesion) {
+    const seleccionado = presentador.obtenerEstado();
+    if (!esMontada() || sesionAnalisis !== sesion || seleccionado.vista !== "expediente"
+      || seleccionado.expediente?.expediente_ref !== recibo.expediente_ref) return;
+    const vigente = () => esMontada() && sesionAnalisis === sesion;
+    const avisarPendiente = () => {
+      if (vigente()) anunciar(tExpedientes("estado_confirmada_actualizacion_pendiente"), "aviso");
+    };
+    try {
+      await presentador.cargar();
+      if (!vigente()) return;
+      const resumen = presentador.obtenerEstado().cuadro?.expedientes?.find(
+        ({ expediente_ref: referencia }) => referencia === recibo.expediente_ref,
+      );
+      if (!resumen || resumen.version < recibo.version_resultante) {
+        avisarPendiente();
+        return;
+      }
+      await presentador.seleccionarExpediente(recibo.expediente_ref, "expediente");
+      if (!vigente()) return;
+      const actualizado = presentador.obtenerEstado().expediente;
+      if (actualizado?.expediente_ref !== recibo.expediente_ref
+        || actualizado.version < recibo.version_resultante) {
+        avisarPendiente();
+        return;
+      }
+      repintar();
+      const destino = raiz.querySelector("[data-ct-exp-rectificacion]")
+        ?? raiz.querySelector("[data-ct-exp-analisis]");
+      const documento = destino?.ownerDocument;
+      if (documento?.createElement && typeof destino?.append === "function") {
+        const t = crearTraductorContratacionTemporal(mensajes);
+        const confirmacion = documento.createElement("section");
+        confirmacion.className = "ct-recibo";
+        confirmacion.setAttribute("data-ct-analisis-recibo", "");
+        confirmacion.setAttribute("role", "status");
+        confirmacion.innerHTML = `<h3>${escaparHTML(t(recibo.operacion === "rectificar"
+          ? "analisis_recibo_rectificacion_titulo" : "analisis_recibo_titulo"))}</h3>
+          <dl><div><dt>${escaparHTML(t("analisis_recibo_referencia"))}</dt>
+          <dd>${justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
+          <div><dt>${escaparHTML(t("analisis_recibo_fecha"))}</dt>
+          <dd>${escaparHTML(new Intl.DateTimeFormat(locale, {
+            dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
+          }).format(new Date(recibo.confirmada_en)))}</dd></div></dl>`;
+        destino.append(confirmacion);
+      }
+    } catch {
+      avisarPendiente();
+    }
+  }
+
   function montarAltaSiProcede() {
     const estado = presentador.obtenerEstado();
     if (!esMontada() || estado.vista !== "alta") return;
@@ -736,7 +789,10 @@ export function crearGestorTramitacion({
       composicionAnalisis,
       contexto,
       (etapa, vuelo) => cambiarEtapaAnalisis(sesion, etapa, vuelo),
-      montarCoberturaDesdeAnalisis,
+      (recibo) => {
+        montarCoberturaDesdeAnalisis(recibo);
+        void refrescarDetalleTrasAnalisis(recibo, sesion);
+      },
       (recibo) => mostrarErrorMontaje(
         contenedor,
         "cobertura",
