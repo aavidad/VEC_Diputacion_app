@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js";
+import { prepararIdiomas } from "../comun/idioma.js";
+
+await prepararIdiomas();
 
 const instante = "2026-10-09T09:00:00Z";
 const bolsa = { convocatoria_ref: "convocatoria:plaza-42", titulo: "Bolsa de auxiliares 2026",
@@ -18,7 +21,7 @@ test("la persona consulta páginas y presenta sin datos de identidad del navegad
     { data: { esquema: "vec.bolsa.inscripcion.recibo.v1", solicitud_ref: "solicitud:42", recibo_ref: "recibo:42",
       convocatoria_ref: bolsa.convocatoria_ref, categoria: bolsa.categorias[0].categoria, estado: "pendiente", version: 1, registrada_en: instante, repetida: false } },
   ];
-  const cliente = crearClienteInscripcionBolsa({ fetchImpl: async (ruta, opciones) => {
+  const cliente = crearClienteInscripcionBolsa({ idioma: "es", fetchImpl: async (ruta, opciones) => {
     llamadas.push({ ruta, opciones });
     return { ok: true, status: 200, json: async () => respuestas.shift() };
   } });
@@ -28,8 +31,8 @@ test("la persona consulta páginas y presenta sin datos de identidad del navegad
     categoriaRef: bolsa.categorias[0].categoria_ref, catalogoVersion: 2,
     claveIdempotencia: "77777777-7777-4777-8777-777777777777" });
   assert.equal(recibo.estado, "pendiente");
-  assert.equal(llamadas[0].ruta, "/api/vec/bolsa/inscripciones/convocatorias-abiertas?limite=20");
-  assert.equal(llamadas[1].ruta, "/api/vec/bolsa/inscripciones/convocatorias-abiertas/convocatoria:plaza-42");
+  assert.equal(llamadas[0].ruta, "/api/vec/bolsa/inscripciones/convocatorias-abiertas?limite=20&idioma=es");
+  assert.equal(llamadas[1].ruta, "/api/vec/bolsa/inscripciones/convocatorias-abiertas/convocatoria:plaza-42?idioma=es");
   assert.equal(llamadas[2].ruta, "/api/vec/bolsa/mi-bolsa/inscripciones");
   assert.deepEqual(JSON.parse(llamadas[2].opciones.body), { convocatoria_ref: bolsa.convocatoria_ref,
     categoria_ref: bolsa.categorias[0].categoria_ref,
@@ -69,4 +72,16 @@ test("una denegación propia requiere motivo visible y no muestra el código", a
   solicitud.motivo_etiqueta = "No consta la titulación exigida";
   assert.equal((await cliente.detallePropio("solicitud:42")).solicitud.motivo_etiqueta,
     "No consta la titulación exigida");
+});
+
+test("la lectura propia pide sólo el idioma activo", async () => {
+  const rutas = [];
+  const solicitud = { solicitud_ref: "solicitud:42", recibo_ref: "recibo:42", convocatoria_ref: bolsa.convocatoria_ref,
+    categoria: bolsa.categorias[0].categoria, estado: "pendiente", version: 1, registrada_en: instante };
+  const cliente = crearClienteInscripcionBolsa({ idioma: "en", fetchImpl: async (ruta) => {
+    rutas.push(ruta);
+    return { ok: true, json: async () => ({ data: { esquema: "vec.bolsa.inscripcion.propias.detalle.v1", solicitud } }) };
+  } });
+  await cliente.detallePropio("solicitud:42");
+  assert.deepEqual(rutas, ["/api/vec/bolsa/mi-bolsa/inscripciones/solicitud:42?idioma=en"]);
 });

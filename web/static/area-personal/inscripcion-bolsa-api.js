@@ -1,4 +1,6 @@
 /** Cliente de inscripción de la persona identificada por la sesión externa. */
+import { IDIOMA_ACTUAL, INDICE_IDIOMAS } from "../comun/idioma.js";
+
 const BASE = "/api/vec/bolsa";
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,199}$/u;
 const CLAVE = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,127}$/u;
@@ -141,26 +143,32 @@ function parametrosPagina({ limite = 20, cursor: siguiente = "" } = {}) {
   return parametros;
 }
 
-export function crearClienteInscripcionBolsa({ fetchImpl = globalThis.fetch } = {}) {
+export function crearClienteInscripcionBolsa({ fetchImpl = globalThis.fetch, idioma = IDIOMA_ACTUAL } = {}) {
+  if (!INDICE_IDIOMAS.idiomas.some(({ codigo }) => codigo === idioma)) throw new TypeError("Idioma no disponible");
+  const idiomaConsulta = new URLSearchParams({ idioma });
   return Object.freeze({
     async abiertas(opciones = {}) {
-      const datos = await peticion(`${BASE}/inscripciones/convocatorias-abiertas?${parametrosPagina(opciones)}`,
+      const parametros = parametrosPagina(opciones);
+      parametros.set("idioma", idioma);
+      const datos = await peticion(`${BASE}/inscripciones/convocatorias-abiertas?${parametros}`,
         { fetchImpl, signal: opciones.signal });
       return validar("abiertas", datos);
     },
     async convocatoria(convocatoriaRef, { signal } = {}) {
-      const datos = await peticion(`${BASE}/inscripciones/convocatorias-abiertas/${segmento(convocatoriaRef)}`, { fetchImpl, signal });
+      const datos = await peticion(`${BASE}/inscripciones/convocatorias-abiertas/${segmento(convocatoriaRef)}?${idiomaConsulta}`, { fetchImpl, signal });
       const validada = validar("convocatoria", datos);
       if (validada.convocatoria.convocatoria_ref !== convocatoriaRef) throw new TypeError("Ficha de otra convocatoria");
       return validada;
     },
     async propias(opciones = {}) {
-      const datos = await peticion(`${BASE}/mi-bolsa/inscripciones?${parametrosPagina(opciones)}`,
+      const parametros = parametrosPagina(opciones);
+      parametros.set("idioma", idioma);
+      const datos = await peticion(`${BASE}/mi-bolsa/inscripciones?${parametros}`,
         { fetchImpl, signal: opciones.signal });
       return validar("propias", datos);
     },
     async detallePropio(solicitudRef, { signal } = {}) {
-      const datos = await peticion(`${BASE}/mi-bolsa/inscripciones/${segmento(solicitudRef)}`, { fetchImpl, signal });
+      const datos = await peticion(`${BASE}/mi-bolsa/inscripciones/${segmento(solicitudRef)}?${idiomaConsulta}`, { fetchImpl, signal });
       const validado = validar("detallePropio", datos);
       if (validado.solicitud.solicitud_ref !== solicitudRef) throw new TypeError("Solicitud propia distinta");
       return validado;
