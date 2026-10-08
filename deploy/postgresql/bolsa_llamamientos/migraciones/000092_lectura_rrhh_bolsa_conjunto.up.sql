@@ -101,8 +101,7 @@ BEGIN
   RETURN;
  END IF;
 
- SELECT count(*),array_agg(e.participacion_ref ORDER BY e.orden)
-   INTO v_entradas,v_referencias
+ SELECT count(*) INTO v_entradas
    FROM vec_bolsa_llamamientos.constitucion_entrada e
   WHERE e.instantanea_ref=v_constitucion.instantanea_ref
     AND e.version_instantanea=v_constitucion.version_instantanea;
@@ -111,6 +110,10 @@ BEGIN
   RAISE EXCEPTION 'B92: clave=entradas_bolsa bolsa=% actual=% esperado=% maximo=20000',
    p_bolsa_ref,v_entradas,v_constitucion.total_participaciones USING ERRCODE='55000';
  END IF;
+ SELECT array_agg(e.participacion_ref ORDER BY e.orden) INTO v_referencias
+   FROM vec_bolsa_llamamientos.constitucion_entrada e
+  WHERE e.instantanea_ref=v_constitucion.instantanea_ref
+    AND e.version_instantanea=v_constitucion.version_instantanea;
 
  RETURN QUERY
  WITH ceses AS MATERIALIZED (
