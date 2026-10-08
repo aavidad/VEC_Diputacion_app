@@ -98,3 +98,16 @@ El historial de operaciones leído y auditado incorpora la disponibilidad de sol
 La ficha espera esa respuesta antes de pedir las secciones opcionales. Omite las ausentes o no autorizadas, conserva el candidato y el historial si falla la comprobación y permite reintentar. Los requisitos de Regularizar y su comprobación V3 se conservan. Sin metadata del servidor mantiene el recorrido anterior. No lleva SQL ni configuración nueva. Se reutiliza el proyector de V (`8d481727`) sin reescribirlo.
 
 La lista global de los totales sigue pendiente del consumidor de lectura y acceso correcto en la misma transacción. La disponibilidad de una participación no cubre ese acceso global.
+
+
+## B1: revisión de la carga de CONVOCA — 8 de octubre de 2026
+
+Las PR #751, #752 y #759 continúan en revisión, en ese orden. El núcleo de #751 prepara el Excel una sola vez y exige autorización antes de interpretarlo. La confirmación guarda acta, original cifrado, bolsa, vínculos de candidaturas y recibo en una única transacción junto con el consumo y la auditoría comunes. Una recuperación exige una autorización vigente nueva y conserva el recibo original. El fichero y la persona que lo cargó deben coincidir con el acta histórica.
+
+AD218 sustituye la dependencia antigua AD203. Esta última se retiró del cambio pendiente; no se reescribe ni reaplica. Las SQL nuevas son BIC7, B79 y B80, con orden y huellas en `deploy/principal/lista_sql_claude_b1_carga_convoca_20261005.txt`. PostgreSQL 18.4 desechable pasó instalación, negativos, segregación de roles, RLS e historia. El positivo firmado, la recuperación y el reinicio nominales siguen sin ejecutarse. La prueba no habilita la carga para RRHH.
+
+La constitución por terminal requiere `VEC_BOLSA_CONSTITUCION_DATABASE_URL`, con un LOGIN exclusivo del grupo `vec_bolsa_llamamientos_constituidor`, separado de web e importación. El servidor HTTP no abre esa conexión ni exige esta variable para arrancar. El DBA aprovisiona su LOGIN y conexión fuera de Git.
+
+Con datos de ejemplo verosímiles y 2.000 filas, la preparación y vista Go en memoria tuvieron p95 de 56,512 ms, en 20 muestras tras calentamiento. Chrome con API simulada tuvo p95 de 30,4 ms hasta el segundo cuadro de pintura, en 160 muestras ES/EN de 500/2.000 filas a 1440/390 px. Estas cifras no miden SQL, red ni una confirmación real. La pantalla permite revisar errores y avisos, aceptar descartes y recuperar una carga fallida de textos.
+
+Para terminar #752 y habilitar #759 faltan dos dependencias comunes: leer la plantilla de carga publicada por administración y registrar el éxito de cada vista previa con la sesión certificada vigente. La ruta permanece cerrada hasta disponer de ambas. La duda 144 conserva los casos de identidad ambigua; la 145 queda resuelta por la orden de auditoría total. Claude revisa el SQL exacto y decide la integración.
