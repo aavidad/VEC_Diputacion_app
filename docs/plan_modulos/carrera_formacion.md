@@ -1,5 +1,7 @@
 # Carrera y Formación: continuación de Codex-H
 
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+
 ## Cierre del 2 de octubre de 2026: estado vigente
 
 Este apartado prevalece sobre los estados y la próxima acción del plan inicial

@@ -1,5 +1,7 @@
 # Plan de Prevención de riesgos laborales: 4 de octubre de 2026
 
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+
 VEC permitirá seguir evaluaciones preventivas y medidas de un centro: responsable,
 plazo, evidencia de ejecución y revisión por el técnico competente. La persona
 consultará instrucciones aplicables. La clínica conserva custodia sanitaria separada;
