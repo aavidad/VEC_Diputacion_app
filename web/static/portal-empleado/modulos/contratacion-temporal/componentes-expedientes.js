@@ -492,7 +492,6 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     </div>`;
   // Orden de la ficha: qué toca, en qué fase está y qué hay; los trámites de
   // la fase se montan después, a partir de la marca «ct-exp-tramite».
-  const informeDisponible = solicitudInformeDefinitivoDesdeEstado(estado) !== null;
   return `${renderizarCabeceraFicha(expediente, estado, t)}
     ${renderizarSiguientePasoFicha(expediente, estado, t)}
     ${renderizarIncidencia(expediente, t, estado.navegacion)}
@@ -506,7 +505,6 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
       <div class="pila">
         ${renderizarDatosPeticion(expediente, t, { valorCampo: (campo) => valorCampoCabecera(campo, t, resolverBolsa), faseDeCampo })}
         ${renderizarAbrirLlamamiento(expediente, resolverBolsa)}
-        ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
       </div>
     </div>
     ${tramitacion}

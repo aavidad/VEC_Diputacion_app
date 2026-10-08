@@ -53,6 +53,21 @@ test("la continuidad real abre el índice documental sin fingir envío GINPIX ni
   assert.doesNotMatch(renderizarExpediente({ ...estado, expediente: { ...expediente, version: 7 } }, t, "es-ES", "Europe/Madrid"), /ct-exp-continuidad/u);
 });
 
+test("la ficha reserva Documentos para ambas consultas sin mostrar vacío mientras cargan", () => {
+  const expediente = { ...crearExpedienteContratacionTemporalPresentacion(), demostracion: false, version: 8 };
+  const estado = { vista: "expediente", carga: "listo", expediente,
+    expediente_ref: expediente.expediente_ref, tarea_ref: expediente.tareas[0].tarea_ref };
+  const html = renderizarExpediente(estado, crearTraductorExpedientesContratacion(), "es-ES", "Europe/Madrid");
+  const inicio = html.indexOf('class="panel ct-exp-ficha-documentos"');
+  const fin = html.indexOf('data-ct-exp-ancla-firma', inicio);
+  const bloque = html.slice(inicio, fin);
+  assert.match(bloque, /data-ct-exp-borradores-publicados/u);
+  assert.match(bloque, /data-ct-exp-documentos-comun/u);
+  assert.match(bloque, /Consultando documentos generados/u);
+  assert.match(bloque, /Consultando documentos incorporados/u);
+  assert.doesNotMatch(html, /data-ct-exp-accion="descargar-docx-informe-definitivo"/u);
+});
+
 test("documentos explica ficha manual y seguimiento con textos inyectados escapados", () => {
   const expediente = { ...crearExpedienteContratacionTemporalPresentacion(),
     demostracion: false, version: 8 };

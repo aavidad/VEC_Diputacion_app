@@ -9,17 +9,20 @@ export function renderizarBorradoresPublicados({ estado = "cargando", catalogo =
   ayudaAbierta = false, mensaje = "", mensajeError = false, ocupado = false } = {}) {
   const traducir = crearTraductorContratacionTemporal();
   const t = (clave, variables) => esc(traducir(`bp_${clave}`, variables));
-  const filas = catalogo?.tipos?.map((tipo) => `<tr><th scope="row"><strong>${esc(tipo.etiqueta)}</strong></th>
-    <td>${tipo.formatos.map((formato) => `<button type="button" class="boton-secundario" data-bp-descargar="${esc(tipo.clave)}" data-bp-formato="${formato}" ${ocupado ? "disabled" : ""}>${t(formato)}</button>`).join("")}</td></tr>`).join("") ?? "";
+  const filas = catalogo?.tipos?.map((tipo) => `<li class="ct-exp-documento">
+    <div class="ct-exp-documento-principal"><strong>${esc(tipo.etiqueta)}</strong>
+      <span class="ct-exp-chip">${t("estado_borrador")}</span></div>
+    <div class="ct-exp-borradores-acciones">${tipo.formatos.map((formato) => `<button type="button" class="boton-secundario" data-bp-descargar="${esc(tipo.clave)}" data-bp-formato="${formato}" ${ocupado ? "disabled" : ""}>${t(formato === "docx" ? "ficha_docx" : formato)}</button>`).join("")}</div>
+  </li>`).join("") ?? "";
   const estadoTexto = estado === "cargando" ? t("cargando") : estado === "denegado" ? t("denegado")
     : estado === "conflicto" ? t("conflicto") : estado === "error" ? t("error") : "";
-  return `<section class="panel ct-bp" data-ct-borradores-publicados>
-    <header class="cabecera-panel"><div><h3>${t("titulo")}</h3></div>
+  return `<section class="ct-bp" data-ct-borradores-publicados aria-labelledby="ct-bp-titulo">
+    <header class="cabecera-panel"><div><h4 id="ct-bp-titulo">${t("ficha_titulo")}</h4></div>
       <button type="button" class="boton-secundario ct-bp-ayuda-boton" data-bp-ayuda aria-label="${t("ayuda_boton")}" aria-expanded="${ayudaAbierta}" aria-controls="ct-bp-ayuda">?</button></header>
     <p id="ct-bp-ayuda" class="ct-bp-ayuda" ${ayudaAbierta ? "" : "hidden"}>${t("ayuda")}</p>
     <div class="cuerpo-panel">${estadoTexto ? `<p role="${estado === "cargando" ? "status" : "alert"}">${estadoTexto}</p>` : ""}
       ${estado === "lista" && catalogo?.tipos?.length === 0 ? `<p role="status">${t("vacio")}</p>` : ""}
-      ${estado === "lista" && filas ? `<div class="ct-bp-tabla" role="region" tabindex="0" aria-label="${t("tipo")}"><table class="tabla-datos"><thead><tr><th scope="col">${t("tipo")}</th><th scope="col">${t("formatos")}</th></tr></thead><tbody>${filas}</tbody></table></div>` : ""}
+      ${estado === "lista" && filas ? `<ul class="ct-exp-documentos-lista" aria-label="${t("tipo")}">${filas}</ul>` : ""}
       ${catalogo && estado === "lista" ? `<p class="ct-bp-catalogo">${t("publicacion_recibo", { recibo: catalogo.procedencia_ref })}</p>` : ""}
       ${ocupado ? `<p role="status">${t("descargando")}</p><button type="button" class="boton-secundario" data-bp-cancelar>${t("cancelar")}</button>` : ""}
       ${mensaje ? `<p class="ct-bp-mensaje${mensajeError ? " ct-bp-mensaje--error" : ""}" role="${mensajeError ? "alert" : "status"}">${esc(mensaje)}</p>` : ""}

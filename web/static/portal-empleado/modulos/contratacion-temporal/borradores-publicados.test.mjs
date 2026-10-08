@@ -115,6 +115,25 @@ test("el panel solo ofrece tipos recibidos y ayuda tras ?", () => {
   assert.doesNotMatch(renderizarBorradoresPublicados({ estado: "denegado" }), /data-bp-descargar/u);
 });
 
+test("la ficha muestra los diez tipos disponibles como borradores con solo sus formatos publicados", () => {
+  const claves = ["informe_definitivo", "resolucion", "diligencia", "toma_posesion", "notificacion",
+    "comunicacion_centro", "contrato_laboral", "nombramiento", "cese", "modificacion_nombramiento"];
+  const tipos = claves.map((clave, indice) => ({ clave, etiqueta: `Documento ${indice + 1}`,
+    formatos: indice === 9 ? ["pdf"] : ["pdf", "docx"] }));
+  const html = renderizarBorradoresPublicados({ estado: "lista",
+    catalogo: validarBorradoresDisponibles({ ...catalogo, tipos }) });
+  assert.equal((html.match(/class="ct-exp-documento"/gu) ?? []).length, 10);
+  assert.equal((html.match(/data-bp-formato="pdf"/gu) ?? []).length, 10);
+  assert.equal((html.match(/data-bp-formato="docx"/gu) ?? []).length, 9);
+  assert.match(html, /Borrador sin firmar/u);
+  assert.match(html, /Descargar Word/u);
+  assert.doesNotMatch(html, /data-bp-descargar="modificacion_nombramiento" data-bp-formato="docx"/u);
+  assert.doesNotMatch(html, />Firmado</u);
+  for (const estado of ["cargando", "denegado", "error"]) {
+    assert.doesNotMatch(renderizarBorradoresPublicados({ estado }), /data-bp-descargar=/u);
+  }
+});
+
 test("el panel descarga solo la opción del catálogo y muestra huella sin recibo inventado", async () => {
   const eventos = new Map(), clics = [], revocadas = [], solicitudes = [];
   const raiz = { innerHTML: "", hidden: false, contains: () => true,

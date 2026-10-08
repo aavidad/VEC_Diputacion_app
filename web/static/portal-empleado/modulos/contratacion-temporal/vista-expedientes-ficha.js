@@ -146,13 +146,14 @@ export function renderizarDocumentosFicha(estado, t) {
     : `<button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escapar(t("ficha_documentos_ver"))}</button>`;
   // Sin índice propio, el montaje coloca aquí la lista común de documentos
   // del expediente (con su botón «Descargar») si el portal la ofrece.
-  const cuerpo = indice && indice.documentos.length
-    ? renderizarListaDocumentos(indice.documentos, t)
-    : `<div class="cuerpo-panel" data-ct-exp-documentos-comun><p>${escapar(t(sinPantallaPropia
-      ? "ficha_documentos_no_disponibles" : "ficha_documentos_aparte"))}</p>${verDocumentos}</div>`;
+  const cuerpo = `<div class="cuerpo-panel">
+    <div data-ct-exp-borradores-publicados><p role="status">${escapar(t("ficha_borradores_cargando"))}</p></div>
+    ${indice?.documentos?.length ? renderizarListaDocumentos(indice.documentos, t) : ""}
+    <div data-ct-exp-documentos-comun><p role="status">${escapar(t("ficha_documentos_cargando"))}</p></div>
+    ${verDocumentos}</div>`;
   return `<section class="panel ct-exp-ficha-documentos" aria-labelledby="ct-exp-ficha-documentos-titulo">
     <div class="cabecera-panel"><h3 id="ct-exp-ficha-documentos-titulo">${escapar(t("ficha_documentos_titulo"))}</h3>
-      ${indice ? `<p class="texto-secundario">${escapar(t("ficha_documentos_recuento", { total: indice.documentos.length }))}</p>` : ""}</div>
+      ${indice?.documentos?.length ? `<p class="texto-secundario">${escapar(t("ficha_documentos_recuento_indice", { total: indice.documentos.length }))}</p>` : ""}</div>
     ${cuerpo}
   </section>
   <div data-ct-exp-ancla-firma hidden></div>`;

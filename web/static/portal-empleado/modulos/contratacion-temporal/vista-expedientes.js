@@ -276,22 +276,29 @@ export async function montarModuloContratacionTemporal({
   // Monta en la ficha real la lista común de documentos del expediente. La
   // referencia solo selecciona; el servidor autoriza cada consulta y descarga.
   function montarDocumentosComunSiProcede(estado) {
-    if (typeof documentosComun?.montar !== "function" || estado.vista !== "expediente"
-      || estado.carga !== "listo" || estado.expediente?.demostracion !== false
-      || estado.expediente.expediente_ref !== estado.expediente_ref) return;
     const zona = raiz.querySelector("[data-ct-exp-documentos-comun]");
     if (!zona) return;
+    if (typeof documentosComun?.montar !== "function" || estado.vista !== "expediente"
+      || estado.carga !== "listo" || estado.expediente?.demostracion !== false
+      || estado.expediente.expediente_ref !== estado.expediente_ref) {
+      zona.textContent = traducirExpedientes("ficha_documentos_no_montados");
+      return;
+    }
     const contenedor = raiz.ownerDocument?.createElement?.("div");
     if (!contenedor) return;
     try {
       const montaje = documentosComun.montar({
         raiz: contenedor, anunciar, expedienteRef: estado.expediente_ref,
       });
-      if (typeof montaje?.desmontar !== "function") return;
+      if (typeof montaje?.desmontar !== "function") {
+        zona.textContent = traducirExpedientes("ficha_documentos_error");
+        return;
+      }
       desmontarDocumentosComun = montaje.desmontar;
       zona.replaceChildren(contenedor);
     } catch {
       desmontarDocumentosComun = null;
+      zona.textContent = traducirExpedientes("ficha_documentos_error");
     }
   }
 
@@ -302,16 +309,28 @@ export async function montarModuloContratacionTemporal({
 
   function montarBorradoresPublicadosSiProcede(estado) {
     const contexto = contextoPlantillasPublicadasDesdeEstado(estado);
-    const zona = raiz.querySelector(".ct-exp-contenido");
-    if (!contexto || !zona || typeof raiz.ownerDocument?.createElement !== "function") return;
+    const zona = raiz.querySelector("[data-ct-exp-borradores-publicados]");
+    if (!zona) return;
+    if (!contexto || typeof raiz.ownerDocument?.createElement !== "function") {
+      zona.textContent = traducirExpedientes("ficha_borradores_no_montados");
+      return;
+    }
     // Pista de composición del detalle auditado; nunca concede un permiso.
-    if (presentador.resolverDisponibilidadOpcional?.("borradores_publicados", contexto)?.estado === "sin_montaje") return;
+    if (presentador.resolverDisponibilidadOpcional?.("borradores_publicados", contexto)?.estado === "sin_montaje") {
+      zona.textContent = traducirExpedientes("ficha_borradores_no_montados");
+      return;
+    }
     const contenedor = raiz.ownerDocument.createElement("div");
     contenedor.dataset.ctExpBorradoresPublicados = "";
-    zona.append(contenedor);
-    desmontarBorradoresPublicados = montarBorradoresPublicados({ raiz: contenedor,
-      contexto, ...(clienteBorradoresPublicados === undefined ? {} : { cliente: clienteBorradoresPublicados }),
-      entornoDescarga, anunciar }).desmontar;
+    zona.replaceChildren(contenedor);
+    try {
+      desmontarBorradoresPublicados = montarBorradoresPublicados({ raiz: contenedor,
+        contexto, ...(clienteBorradoresPublicados === undefined ? {} : { cliente: clienteBorradoresPublicados }),
+        entornoDescarga, anunciar }).desmontar;
+    } catch {
+      desmontarBorradoresPublicados = null;
+      zona.textContent = traducirExpedientes("ficha_borradores_error");
+    }
   }
 
   function montarAuditoriaComunSiProcede(estado) {

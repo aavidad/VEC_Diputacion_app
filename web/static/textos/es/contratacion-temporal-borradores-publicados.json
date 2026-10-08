@@ -1,6 +1,8 @@
 {
   "general": {
     "bp_titulo": "Borradores del catálogo publicado",
+    "bp_ficha_titulo": "Documentos generados",
+    "bp_estado_borrador": "Borrador sin firmar",
     "bp_subtitulo": "Tipos disponibles para este expediente y su versión actual",
     "bp_ayuda_boton": "Ayuda sobre los borradores publicados",
     "bp_ayuda": "Se ofrecen únicamente los tipos y formatos que devolvió el catálogo publicado para este expediente. Cada descarga consulta de nuevo los permisos y conserva los bytes originales. Un borrador descargado no es un documento firmado ni enviado.",
@@ -14,6 +16,7 @@
     "bp_formatos": "Formatos",
     "bp_pdf": "Descargar PDF",
     "bp_docx": "Descargar DOCX",
+    "bp_ficha_docx": "Descargar Word",
     "bp_descargando": "Descargando y comprobando el documento…",
     "bp_cancelar": "Cancelar espera",
     "bp_cancelada": "La descarga se ha cancelado.",

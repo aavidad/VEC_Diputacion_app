@@ -79,6 +79,14 @@ const CLAVES_CONTEXTO_ANA002 = Object.freeze([
   "ct_txt_contexto_corte_publicado",
   "ct_txt_contexto_no_comunicado",
 ]);
+const CLAVES_DOCUMENTOS_FICHA = Object.freeze([
+  "ficha_documentos_cargando", "ficha_documentos_error", "ficha_documentos_no_montados",
+  "ficha_borradores_no_montados", "ficha_borradores_cargando", "ficha_borradores_error",
+  "ficha_documentos_recuento_indice",
+]);
+const CLAVES_BORRADORES_FICHA = Object.freeze([
+  "bp_ficha_titulo", "bp_estado_borrador", "bp_ficha_docx",
+]);
 const CLAVES_CUADRO_LIGERO = Object.freeze([
   "filtros", "tabla_expedientes", "marca_urgente", "lista_actualizar", "lista_vacia_sin_alta",
   "lista_textos_respaldo",
@@ -151,12 +159,20 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
           .filter(([clave]) => !CLAVES_CONTEXTO_ANA002.includes(clave)));
       }
       if (archivo === "i18n-ficha-lista.js") {
-        for (const clave of [...CLAVES_CUADRO_LIGERO, ...CLAVES_REINCORPORACION_CAPACIDAD]) {
+        for (const clave of [...CLAVES_CUADRO_LIGERO, ...CLAVES_REINCORPORACION_CAPACIDAD, ...CLAVES_DOCUMENTOS_FICHA]) {
           assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
         }
         preimagen = Object.fromEntries(Object.entries(valor)
-          .filter(([clave]) => !CLAVES_CUADRO_LIGERO.includes(clave) && !CLAVES_REINCORPORACION_CAPACIDAD.includes(clave)));
+          .filter(([clave]) => !CLAVES_CUADRO_LIGERO.includes(clave) && !CLAVES_REINCORPORACION_CAPACIDAD.includes(clave)
+            && !CLAVES_DOCUMENTOS_FICHA.includes(clave)));
 
+      }
+      if (archivo === "i18n-borradores-publicados.js") {
+        for (const clave of CLAVES_BORRADORES_FICHA) {
+          assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
+        }
+        preimagen = Object.fromEntries(Object.entries(valor)
+          .filter(([clave]) => !CLAVES_BORRADORES_FICHA.includes(clave)));
       }
       if (CLAVES_CAPACIDAD_ALTA[archivo]) {
         for (const clave of CLAVES_CAPACIDAD_ALTA[archivo]) {
