@@ -84,8 +84,6 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 
 		// Autoridades nominales existentes. Una lectura sin acción V3 propia
 		// conserva su guarda de identidad/ruta; no se inventa una acción V3.
-		httpinterno.RutaCerrarAdministrativamente:               {nominalCT(http.MethodPost, "contratacion_temporal_capacidad_no_compuesta_desarrollo.go:capacidadNoCompuestaContratacionTemporalDesarrollo")},
-		httpinterno.RutaReabrirExcepcionalmente:                 {nominalCT(http.MethodPost, "contratacion_temporal_capacidad_no_compuesta_desarrollo.go:capacidadNoCompuestaContratacionTemporalDesarrollo")},
 		httpinterno.RutaReasignaciones:                          {nominalCT(http.MethodPost, "contratacion_temporal_asignacion_desarrollo.go:nuevasDependenciasAsignacionContratacionTemporalDesarrollo")},
 		httpinterno.RutaResultadosFiscalizacion:                 {nominalCT(http.MethodPost, "contratacion_temporal_fiscalizacion_desarrollo.go:soporteFiscalizacionContratacionTemporalDesarrollo")},
 		httpinterno.RutaIncorporacionEjercicioV2:                {nominalCT(http.MethodGet, "contratacion_temporal_incorporacion_v2.go:ligarContextoIncorporacionV2Desarrollo"), nominalCT(http.MethodPost, "contratacion_temporal_incorporacion_v2.go:ligarContextoIncorporacionV2Desarrollo")},
