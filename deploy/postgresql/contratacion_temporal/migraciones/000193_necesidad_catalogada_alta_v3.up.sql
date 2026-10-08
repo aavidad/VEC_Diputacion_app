@@ -267,7 +267,7 @@ BEGIN
   ('vec_contratacion_temporal.reconstruir_efecto_alta_v2(jsonb)','6143987ae2c1129902c3921c013eb23344a64009d448705010066d676f680149'),
   ('vec_contratacion_temporal.reconciliar_agregado_alta_v1(bytea,text,text,text,text,text,text)','ea874f747173da65b05e62e8f4c78ed217799f58f44cd92f7fd094b6887d674c'),
   ('vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','ee55c83862ecf750f396e7e4eae7a71c9a6f00cdafda81035b19d56c49924472'),
-  ('vec_contratacion_temporal.materializar_version_inicial_v1(text,numeric,bytea,text,numeric,text,text,text,timestamp with time zone)','0b1872b16ad62786eaccea72d4981fd76839adee57a9093b2dd6bed8b1108bd0')
+  ('vec_contratacion_temporal.materializar_version_inicial_v1(text,numeric,bytea,text,numeric,text,text,text,timestamp with time zone)','12bb6154ecfaff8c089a0f67c1734e93eaa5b7f005aaa121e8b7cc7d4f168259')
  ) AS esperado(firma,huella) LOOP
    f:=pg_catalog.to_regprocedure(item.firma);
    IF f IS NULL THEN
@@ -1611,6 +1611,13 @@ BEGIN
             v_efecto -> 'actuacion'
         )
     );
+    -- CT164: la terna del flujo llega en el material atestado, no en HTTP.
+    IF p_flujo_ref='flujo:ct:rrhh:20261002' THEN
+        IF vec_contratacion_temporal.circuito_flujo_nuevo_ct164(v_efecto->'flujo') IS NOT TRUE
+        THEN RAISE EXCEPTION 'CT164: definición R5 divergente' USING ERRCODE='42501'; END IF;
+        v_agregado := jsonb_set(v_agregado,'{circuito}',jsonb_build_object(
+            'definicion',v_efecto->'flujo','estado_actual','solicitud','hitos','[]'::jsonb),true);
+    END IF;
     v_agregado_huella := pg_catalog.encode(
         pg_catalog.sha256(
             pg_catalog.convert_to(v_agregado::text, 'UTF8')
@@ -1677,7 +1684,7 @@ BEGIN
  FOR item IN SELECT * FROM (VALUES
   ('vec_contratacion_temporal.reconciliar_agregado_alta_v1(bytea,text,text,text,text,text,text)','c14f8bf5628d1b24c87bd31b0d560159a043718132796f7ca6ce32d3a524489b',ARRAY['search_path=pg_catalog, pg_temp']::text[]),
   ('vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','35d99b5e553f95ca06a67c3ae11854eb842482c201b315edab3c6081ffc9a218',ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']::text[]),
-  ('vec_contratacion_temporal.materializar_version_inicial_v1(text,numeric,bytea,text,numeric,text,text,text,timestamp with time zone)','d6670161f8dcae0b0da0625569e35174c910cd237b502b4a793219194f768414',ARRAY['search_path=pg_catalog, pg_temp']::text[]),
+  ('vec_contratacion_temporal.materializar_version_inicial_v1(text,numeric,bytea,text,numeric,text,text,text,timestamp with time zone)','c1cdc02cbc92352714b0cdfd9ca93b8a7f4c4e824f6b9c6c82567e09ca72e9ef',ARRAY['search_path=pg_catalog, pg_temp']::text[]),
   ('vec_contratacion_temporal.reconstruir_efecto_alta_v2(jsonb)','6143987ae2c1129902c3921c013eb23344a64009d448705010066d676f680149',ARRAY['search_path=pg_catalog']::text[]),
   ('vec_contratacion_temporal.reconstruir_efecto_alta_v3(jsonb)','2bf5d8591ccace7beb46d1004be617285e6274912d2383e7d28f1d333d61fece',NULL::text[])
  ) AS esperado(firma,huella,configuracion) LOOP

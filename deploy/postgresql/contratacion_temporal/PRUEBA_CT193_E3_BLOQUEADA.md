@@ -1,10 +1,12 @@
 # CT193: ensayo firmado E3 en PostgreSQL 18 efímero
 
-Estado de esta revisión: CT193 define explícitamente las cuatro funciones que
-antes se reconstruían en bloques dinámicos. El UP tiene SHA256 `83a14d71a916494b323b4fe726c7f5ff092d254fd7be81193e7157c027a6e798`.
-Las tres funciones privilegiadas fijan `search_path=pg_catalog,pg_temp`; las
-guardas cotejan preimagen, postimagen, propietario, permisos y metadatos.
-Esta versión recibió dos revisiones independientes y pasó el ensayo PostgreSQL 18 nuevo descrito al final.
+Estado de esta revisión: CT193 conserva el bloque CT164 de
+`materializar_version_inicial_v1`. El UP tiene SHA256
+`eefd7bc69e2e82693d7adeb2c51eb184414ecfb026865a0469524f9612e96bb3`.
+Las guardas cotejan la preimagen `12bb6154…`, la postimagen `c1cdc02c…`,
+propietario, permisos y metadatos. El ensayo PostgreSQL 18 sobre la copia
+postHX más HZ terminó con código 0. Quedan por emitir las revisiones
+independientes del hash final.
 Los resultados anteriores de `c5bc06e8…715c` se conservan como historia y no
 acreditan esta sustitución.
 
@@ -140,3 +142,49 @@ La candidata `fc65b23c2b0208ca6313aa1d843659767be8b0fd` pasó el ensayo con UP S
 El intento anterior `d730df7b` falló por un argumento `bytea` sobrante en una firma de la guarda posterior. El ajuste fue revisado por separado; la lógica y los cuerpos no cambiaron. El runner ahora conserva un diagnóstico privado de un fallo SQL y muestra su ruta, sin imprimir su contenido. Los registros originales quedan fuera de Git con modo0600.
 
 Este resultado acredita el UP explícito en una base nueva. La CI de la PR y el recorrido HTTP nominal siguen pendientes; no se instaló SQL en la base compartida.
+
+## Conservación de CT164 y ensayo de la preimagen principal
+
+El dictamen del PR #895 identificó un P0: el cuerpo literal de
+`materializar_version_inicial_v1` había perdido la creación del circuito de
+CT164. El UP ahora repone sus siete líneas después de construir `v_agregado`.
+El runner verifica la definición CT164 instalada y la preimagen exacta antes
+de aplicar CT193 una sola vez.
+
+La base de este ensayo es una copia privada del volcado **postHX** de la
+principal, con sus roles y ACL restauradas, seguida de las 14 SQL de **HZ**
+en orden causal. No es el fixture vacío de CT48/CT165 del ensayo anterior.
+El runner recibe los cuatro archivos privados y la raíz SQL de HZ mediante
+`VEC_CT_E3_DUMP`, `VEC_CT_E3_GLOBALS`, `VEC_CT_E3_ACL`,
+`VEC_CT_E3_HZ_LIST` y `VEC_CT_E3_HZ_ROOT`. Exige además
+`VEC_CT_E3_BD_DESECHABLE=SI` y `VEC_CT_E3_POSTHX_HZ=SI`. Los archivos
+privados no se incluyen en Git ni se montan en el contenedor. Las huellas
+SHA256 exigidas son, en ese orden, `52a2fe17…4f25d`,
+`f1f1dcf9…12ed`, `efb8582a…96fa7` y `756cf773…0187`.
+La huella compuesta de las 14 SQL HZ, calculada con sus SHA256 individuales
+en orden, es `9423ed7f…59a95e`. Sin el modo postHX+HZ, el runner sale con
+código 77: el fixture mínimo no contiene CT164 y no reproduce la preimagen
+`12bb6154…`.
+
+La ejecución final salió con código **0** en PostgreSQL 18.4 local, con
+`--rm --restart=no --memory=2g`, sin red ni puertos publicados. La guarda
+encontró CT164 y la huella previa `12bb6154…`; CT193 comprobó también la
+postimagen `c1cdc02c…` y los OID, propietario, ACL y configuración de las
+funciones conservadas (`pg_temp` añadido a las tres funciones privilegiadas).
+El resumen de las 71 altas se tomó antes de HZ y coincidió después de HZ y
+después de CT193. También coincidió el inventario de las cinco funciones
+CT164 (OID, definición, dueño, ACL y configuración) y del trigger activo,
+antes y después de ambos cortes. Las 71 altas se reconstruyeron mediante
+`reconstruir_efecto_alta_v2` con bytes idénticos a `alta_canonica`.
+Pasaron `ct193_canon_necesidad_pg18.sql`, `ct193_reglas_causa_pg18.sql`,
+`ct193_lectura_estados_pg18.sql` y `ct193_ct164_circuito_inicial_pg18.sql`.
+La cuarta prueba usa material sintético derivado de un alta E2 y comprueba
+que `materializar_version_inicial_v1` crea el circuito inicial con la terna
+R5 de CT164. Una huella divergente recibe `42501`; la guarda rechaza un
+estado de circuito adulterado. La transacción se revierte. Esta llamada
+aislada no consume autorización V3 ni constituye un alta R5 confirmada.
+La salida no dejó contenedor ni volumen
+propios. No se ejecutó DOWN, ni se reaplicó ninguna migración ya instalada
+en una base compartida. Esta repetición focal no volvió a ejecutar las fases
+Go E2/E3 del fixture mínimo; sus resultados anteriores no acreditan CT164.
+Tampoco acredita todavía el POST nominal.

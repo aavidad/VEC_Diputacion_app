@@ -18,6 +18,10 @@ if [[ ${VEC_CT_E3_BD_DESECHABLE:-} != SI ]]; then
     printf 'CT193 E3 exige VEC_CT_E3_BD_DESECHABLE=SI\n' >&2
     exit 64
 fi
+if [[ ${VEC_CT_E3_POSTHX_HZ:-} != SI && ${VEC_CT_E3_SOLO_PREIMAGEN:-} != SI ]]; then
+    printf 'CT193 E3 exige postHX+HZ: el fixture CT48/CT165 carece de CT164 (preimagen esperada 12bb6154); usar VEC_CT_E3_POSTHX_HZ=SI\n' >&2
+    exit 77
+fi
 for herramienta in docker flock go stat df awk bwrap timeout prlimit sha256sum rg tar; do
     command -v "$herramienta" >/dev/null 2>&1 || {
         printf 'CT193 E3: falta %s\n' "$herramienta" >&2
@@ -58,7 +62,7 @@ fi
 readonly migracion=${migraciones[0]}
 readonly sha_ct48='f33cf450fb6189ab0b21712a90ff80f4df95f20fb3a142b13a54bc65c9b6c6cc'
 readonly sha_ct165='7a7ac82c0137d77339996022e234c416843a2525cf426f306430c0c66a05bf6e'
-readonly migracion_sha='83a14d71a916494b323b4fe726c7f5ff092d254fd7be81193e7157c027a6e798'
+readonly migracion_sha='eefd7bc69e2e82693d7adeb2c51eb184414ecfb026865a0469524f9612e96bb3'
 if [[ -n $(git -C "$raiz" status --porcelain=v1) ]]; then
     printf 'CT193 E3: el worktree debe estar limpio para atribuir el ensayo\n' >&2
     exit 65
@@ -260,6 +264,7 @@ psql_como() {
 consultar() {
     psql_admin -At --command "$1" 2>/dev/null
 }
+
 cargar() {
     local nombre=$1 archivo=$2
     if [[ $archivo != "$raiz/"* ]]; then
@@ -280,6 +285,132 @@ cargar() {
     fi
 }
 
+huella_altas() {
+    consultar "SELECT pg_catalog.count(*) || '|' || pg_catalog.encode(pg_catalog.sha256(
+      pg_catalog.convert_to(pg_catalog.string_agg(
+        expediente_ref || ':' || version::text || ':' || pg_catalog.encode(alta_canonica,'hex'),
+        E'\\n' ORDER BY expediente_ref,version),'UTF8')),'hex')
+      FROM vec_contratacion_temporal.expediente_alta_version"
+}
+inventario_ct164() {
+    consultar "WITH firmas(firma) AS (VALUES
+      ('vec_contratacion_temporal.circuito_flujo_nuevo_ct164(jsonb)'),
+      ('vec_contratacion_temporal.circuito_agregado_valido_ct164(jsonb)'),
+      ('vec_contratacion_temporal.circuito_acto_admitido_ct164(jsonb,jsonb)'),
+      ('vec_contratacion_temporal.circuito_proyectar_acto_ct164(jsonb,jsonb,jsonb)'),
+      ('vec_contratacion_temporal.proteger_version_circuito_ct164()')),
+    funciones AS (
+      SELECT p.oid, p.proowner, p.proacl, p.proconfig,
+        pg_catalog.pg_get_functiondef(p.oid) AS definicion
+      FROM firmas f JOIN pg_catalog.pg_proc p ON p.oid=pg_catalog.to_regprocedure(f.firma)),
+    disparador AS (
+      SELECT t.* FROM pg_catalog.pg_trigger t
+      WHERE t.tgname='expediente_version_integral_circuito_ct164'
+        AND t.tgrelid='vec_contratacion_temporal.expediente_version_integral'::pg_catalog.regclass
+        AND t.tgenabled='O' AND NOT t.tgisinternal)
+    SELECT (SELECT pg_catalog.count(*) FROM funciones) || '|' ||
+      (SELECT pg_catalog.count(*) FROM disparador) || '|' ||
+      pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+        pg_catalog.jsonb_build_object(
+          'funciones',(SELECT pg_catalog.jsonb_agg(pg_catalog.to_jsonb(f) ORDER BY f.oid) FROM funciones f),
+          'disparador',(SELECT pg_catalog.jsonb_agg(pg_catalog.to_jsonb(t) ORDER BY t.oid) FROM disparador t)
+        )::text,'UTF8')),'hex')"
+}
+if [[ ${VEC_CT_E3_POSTHX_HZ:-} == SI ]]; then
+    # Los cuatro caminos son privados y se entregan por entorno; ninguno se
+    # archiva en Git ni se monta dentro del contenedor.
+    for variable in VEC_CT_E3_DUMP VEC_CT_E3_GLOBALS VEC_CT_E3_ACL VEC_CT_E3_HZ_LIST VEC_CT_E3_HZ_ROOT; do
+        [[ -n ${!variable:-} ]] || { printf 'CT193 E3: falta %s\n' "$variable" >&2; exit 65; }
+    done
+    for archivo in "$VEC_CT_E3_DUMP" "$VEC_CT_E3_GLOBALS" "$VEC_CT_E3_ACL" "$VEC_CT_E3_HZ_LIST"; do
+        [[ -f $archivo && -r $archivo && ! -L $archivo ]] || {
+            printf 'CT193 E3: fuente privada inválida\n' >&2; exit 65;
+        }
+    done
+    [[ -d $VEC_CT_E3_HZ_ROOT && ! -L $VEC_CT_E3_HZ_ROOT ]] || {
+        printf 'CT193 E3: raíz HZ inválida\n' >&2; exit 65;
+    }
+    if [[ $(sha256sum "$VEC_CT_E3_DUMP" | cut -d ' ' -f 1) != 52a2fe17eba761ba643bbf23b1305bc3ad24e85812e4b08e2bcfe0203b34f25d ||
+          $(sha256sum "$VEC_CT_E3_GLOBALS" | cut -d ' ' -f 1) != f1f1dcf9f866439489015af73aac348b00d1fa586fec0ac4aa024fa7f54412ed ||
+          $(sha256sum "$VEC_CT_E3_ACL" | cut -d ' ' -f 1) != efb8582abb341bb0f1a73354a728e313b0611c19830d33858c45a29b7f596fa7 ||
+          $(sha256sum "$VEC_CT_E3_HZ_LIST" | cut -d ' ' -f 1) != 756cf77395f431c9c720c77084598fd625343a2290fa8df5b6eb442bb48c0187 ]]; then
+        printf 'CT193 E3: huella privada postHX/HZ incompatible\n' >&2; exit 65;
+    fi
+    printf '[CT193:E3] restaurando postHX en PostgreSQL 18 aislado\n'
+    if ! sed '/^CREATE ROLE postgres;$/d' "$VEC_CT_E3_GLOBALS" | psql_admin >"$temporal/globals.log" 2>&1; then
+        printf 'CT193 E3: fallo al restaurar roles globales\n' >&2; exit 1;
+    fi
+    if ! docker exec -i "$contenedor" pg_restore -U postgres -d postgres \
+        --clean --if-exists --exit-on-error <"$VEC_CT_E3_DUMP" >"$temporal/restore.log" 2>&1; then
+        printf 'CT193 E3: fallo al restaurar postHX\n' >&2; exit 1;
+    fi
+    if ! psql_admin <"$VEC_CT_E3_ACL" >"$temporal/acl.log" 2>&1; then
+        printf 'CT193 E3: fallo al restaurar ACL de base y tablas\n' >&2; exit 1;
+    fi
+    base_altas="$(huella_altas)"
+    base_ct164="$(inventario_ct164)"
+    [[ $base_altas == 71\|* && $base_ct164 == 5\|1\|* ]] || {
+        printf 'CT193 E3: postHX carece de 71 altas o del inventario CT164 completo\n' >&2; exit 1;
+    }
+    huella_sql_hz="$(while IFS= read -r ruta || [[ -n $ruta ]]; do
+        [[ -z $ruta || $ruta == \#* ]] && continue
+        [[ $ruta == deploy/postgresql/* && $ruta != *..* ]] || exit 1
+        archivo="$VEC_CT_E3_HZ_ROOT/$ruta"
+        [[ -f $archivo && -r $archivo && ! -L $archivo ]] || exit 1
+        sha256sum "$archivo" | cut -d ' ' -f 1
+    done <"$VEC_CT_E3_HZ_LIST" | sha256sum | cut -d ' ' -f 1)"
+    [[ $huella_sql_hz == 9423ed7f99c1b2e002b78e4e58de26823a1ba70728c0bcea484612d99959a95e ]] || {
+        printf 'CT193 E3: contenido de las 14 SQL HZ incompatible\n' >&2; exit 65;
+    }
+    while IFS= read -r ruta || [[ -n $ruta ]]; do
+        [[ -z $ruta || $ruta == \#* ]] && continue
+        [[ $ruta == deploy/postgresql/* && $ruta != *..* ]] || {
+            printf 'CT193 E3: ruta HZ fuera de la lista causal\n' >&2; exit 65;
+        }
+        archivo="$VEC_CT_E3_HZ_ROOT/$ruta"
+        [[ -f $archivo && -r $archivo && ! -L $archivo ]] || {
+            printf 'CT193 E3: falta SQL HZ\n' >&2; exit 65;
+        }
+        if ! psql_admin <"$archivo" >"$temporal/hz.log" 2>&1; then
+            printf 'CT193 E3: fallo SQL HZ en %s\n' "$ruta" >&2; exit 1;
+        fi
+    done <"$VEC_CT_E3_HZ_LIST"
+    [[ $(huella_altas) == "$base_altas" && $(inventario_ct164) == "$base_ct164" ]] || {
+        printf 'CT193 E3: HZ alteró altas o definiciones/ACL/trigger CT164\n' >&2; exit 1;
+    }
+    preimagen="$(consultar "SELECT pg_catalog.concat_ws('|',
+      pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+        pg_catalog.pg_get_functiondef('vec_contratacion_temporal.materializar_version_inicial_v1(text,numeric,bytea,text,numeric,text,text,text,timestamp with time zone)'::pg_catalog.regprocedure),'UTF8')),'hex'),
+      pg_catalog.to_regprocedure('vec_contratacion_temporal.circuito_flujo_nuevo_ct164(jsonb)') IS NOT NULL,
+      (SELECT pg_catalog.count(DISTINCT expediente_ref) FROM vec_contratacion_temporal.expediente_alta_version))")"
+    if [[ $preimagen != '12bb6154ecfaff8c089a0f67c1734e93eaa5b7f005aaa121e8b7cc7d4f168259|t|71' ]]; then
+        printf 'CT193 E3: postHX+HZ no reproduce CT164 y las 71 altas (%s)\n' "$preimagen" >&2; exit 1;
+    fi
+    if [[ $(sha256sum "$migracion" | cut -d ' ' -f 1) != "$migracion_sha" ]]; then
+        printf 'CT193 E3: UP alterado durante la restauración\n' >&2; exit 65;
+    fi
+    cargar 'CT193 UP sobre postHX+HZ' "$migracion"
+    [[ $(huella_altas) == "$base_altas" && $(inventario_ct164) == "$base_ct164" ]] || {
+        printf 'CT193 E3: CT193 alteró altas o definiciones/ACL/trigger CT164\n' >&2; exit 1;
+    }
+    printf '[CT193:E3] inventario CT164 funciones/trigger/SHA256=%s; altas conteo/SHA256=%s\n' \
+        "$base_ct164" "$base_altas"
+    reconstruidas="$(consultar "SELECT pg_catalog.count(*) || '|' ||
+      pg_catalog.count(*) FILTER (WHERE
+        pg_catalog.convert_from(alta_canonica,'UTF8')::jsonb->>'esquema'
+          = 'vec.contratacion-temporal.efecto-alta.v2'
+        AND vec_contratacion_temporal.reconstruir_efecto_alta_v2(
+          pg_catalog.convert_from(alta_canonica,'UTF8')::jsonb) = alta_canonica)
+      FROM vec_contratacion_temporal.expediente_alta_version")"
+    [[ $reconstruidas == '71|71' ]] || {
+        printf 'CT193 E3: reconstrucción byte a byte incompleta (%s)\n' "$reconstruidas" >&2; exit 1;
+    }
+    for fixture in ct193_canon_necesidad_pg18.sql ct193_reglas_causa_pg18.sql ct193_lectura_estados_pg18.sql ct193_ct164_circuito_inicial_pg18.sql; do
+        cargar "$fixture" "$directorio/pruebas_sql/$fixture"
+    done
+    printf '[CT193:E3] postHX+HZ: CT164 presente, 71 altas reconstruidas byte a byte, guardas OID/ACL/config y cuatro pruebas SQL OK\n'
+    exit 0
+fi
 if [[ $(consultar "SELECT current_database()||'|'||(current_setting('server_version_num')::integer/10000)") != 'postgres|18' ]]; then
     printf 'CT193 E3: destino PostgreSQL inesperado\n' >&2
     exit 1
