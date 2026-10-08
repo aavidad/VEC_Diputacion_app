@@ -11,6 +11,7 @@ import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } f
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261002-ct-fin-moad-v1";
+import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261002-ct-fin-moad-v1";
 import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
@@ -51,6 +52,8 @@ export function crearGestorTramitacion({
 } = {}) {
   const tExpedientes = crearTraductorExpedientesContratacion(mensajes);
   let desmontarAlta = null;
+  let catalogosNecesidadesAlta = null;
+  let consultaCatalogosNecesidadesAlta = null;
   let desmontarAnalisis = null;
   let desmontarCobertura = null;
   let desmontarAsignacion = null;
@@ -624,13 +627,38 @@ export function crearGestorTramitacion({
     if (!esMontada() || estado.vista !== "alta") return;
     const contenedor = raiz.querySelector("[data-ct-exp-alta]");
     if (!contenedor) return;
-    if (!altaDisponible || !alta?.catalogos || typeof alta?.ejecutor !== "function") {
+    if (!altaDisponible || !alta?.catalogos || typeof alta?.ejecutor !== "function"
+      || typeof alta?.obtenerCatalogosNecesidadesAlta !== "function") {
       contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
+      return;
+    }
+    if (catalogosNecesidadesAlta === null) {
+      contenedor.innerHTML = `<section class="ct-exp-estado-global" role="status" aria-live="polite"><h3>${escaparHTML(tExpedientes("cargando_titulo"))}</h3><p>${escaparHTML(tExpedientes("cargando_detalle"))}</p></section>`;
+      if (consultaCatalogosNecesidadesAlta === null) {
+        consultaCatalogosNecesidadesAlta = Promise.resolve()
+          .then(() => alta.obtenerCatalogosNecesidadesAlta())
+          .then((respuesta) => {
+            const catalogos = validarCatalogosAlta(respuesta);
+            if (catalogos.esquema !== ESQUEMA_CATALOGOS_NECESIDADES) {
+              throw new TypeError("catálogo de necesidades incompatible");
+            }
+            catalogosNecesidadesAlta = catalogos;
+            consultaCatalogosNecesidadesAlta = null;
+            if (esMontada() && presentador.obtenerEstado().vista === "alta") montarAltaSiProcede();
+          })
+          .catch(() => {
+            consultaCatalogosNecesidadesAlta = null;
+            if (esMontada() && presentador.obtenerEstado().vista === "alta") {
+              const actual = raiz.querySelector("[data-ct-exp-alta]");
+              if (actual) actual.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
+            }
+          });
+      }
       return;
     }
     try {
       const presentadorAlta = crearPresentadorAltaContratacionTemporal({
-        catalogos: alta.catalogos,
+        catalogos: catalogosNecesidadesAlta,
         capacidad: alta.capacidad,
         ejecutor: crearEjecutorAltaConRefresco(
           alta.ejecutor,

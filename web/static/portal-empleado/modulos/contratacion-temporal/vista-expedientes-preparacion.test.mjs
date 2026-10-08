@@ -65,3 +65,30 @@ test("sin relación por vía, el error del formulario de alta sigue visible y re
   assert.match(actual.alta.innerHTML, /data-ct-exp-accion="reintentar"/u);
   gestor.retirarComponentes();
 });
+
+test("la consulta de necesidades v2 espera a abrir Alta y comparte el intento en curso", async () => {
+  const actual = superficie();
+  let vista = "cuadro";
+  let llamadas = 0;
+  let rechazar;
+  const pendiente = new Promise((_, rechazo) => { rechazar = rechazo; });
+  const gestor = crearGestorTramitacion({
+    raiz: actual.raiz,
+    presentador: { obtenerEstado: () => ({ vista }) },
+    altaDisponible: true,
+    alta: { catalogos: {}, ejecutor: async () => {},
+      obtenerCatalogosNecesidadesAlta: () => { llamadas++; return pendiente; } },
+  });
+  gestor.montarAltaSiProcede();
+  assert.equal(llamadas, 0);
+  vista = "alta";
+  gestor.montarAltaSiProcede();
+  gestor.montarAltaSiProcede();
+  await Promise.resolve();
+  assert.equal(llamadas, 1);
+  assert.match(actual.alta.innerHTML, /role="status"/u);
+  rechazar(new Error("catálogo no disponible"));
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.match(actual.alta.innerHTML, /data-ct-exp-accion="reintentar"/u);
+  gestor.retirarComponentes();
+});
