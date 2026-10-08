@@ -57,7 +57,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
   function pintar() {
     if (!vivo || !catalogo) return;
     const lista = listado?.solicitudes || [];
-    const filas = lista.map((s) => `<tr><th scope="row"><button type="button" class="boton-enlace" data-inscripcion-abrir="${esc(s.solicitud_ref)}">${esc(s.persona_resumen || t("ver_solicitud"))}</button></th>
+    const filas = lista.map((s) => `<tr><th scope="row"><button type="button" class="enlace-tabla" data-inscripcion-abrir="${esc(s.solicitud_ref)}">${esc(s.persona_resumen || t("ver_solicitud"))}</button></th>
       <td>${esc(s.bolsa_ref)}</td><td><span class="estado-chip ${s.estado === "pendiente" ? "aviso" : s.estado === "incorporada" ? "exito" : s.estado === "rechazada" ? "peligro" : "info"}">${et(`estado_${s.estado}`)}</span></td><td><time datetime="${esc(s.registrada_en)}">${fecha(s.registrada_en)}</time></td></tr>`).join("");
     const opcionesEstado = [...ESTADOS].map((e) => `<option value="${e}" ${filtro.estado === e ? "selected" : ""}>${et(`estado_${e}`)}</option>`).join("");
     const estado = estadoVista === "cargando" ? `<p role="status" aria-busy="true">${et("cargando")}</p>`
@@ -85,7 +85,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     raiz.innerHTML = `<section class="panel" aria-labelledby="inscripciones-titulo"><header class="cabecera-panel"><div><h2 id="inscripciones-titulo">${et("titulo")}</h2></div><button type="button" class="boton-secundario" data-inscripcion-ayuda aria-expanded="${ayuda}" aria-controls="inscripcion-ayuda" aria-label="${et("ayuda_boton")}">?</button></header>
       <div class="cuerpo-panel"><div id="inscripcion-ayuda" ${ayuda ? "" : "hidden"}>${et("ayuda")}</div><form data-inscripcion-filtros><label for="inscripcion-estado">${et("estado")}</label><select id="inscripcion-estado" name="estado">${opcionesEstado}</select>
       <label for="inscripcion-bolsa">${et("bolsa")}</label><input id="inscripcion-bolsa" name="bolsa" value="${esc(filtro.bolsa)}" maxlength="512"><button class="boton-secundario" type="submit">${et("filtrar")}</button></form>
-      ${estado}${cuenta}${listado?.total ? `<div class="tabla-desplazable" role="region" tabindex="0" aria-label="${et("lista")}"><table class="tabla-datos"><thead><tr><th scope="col">${et("persona")}</th><th scope="col">${et("bolsa")}</th><th scope="col">${et("estado")}</th><th scope="col">${et("fecha")}</th></tr></thead><tbody>${filas}</tbody></table></div>` : ""}${paginacion}</div></section>${ficha}${confirmacion}`;
+      ${estado}${cuenta}${listado?.total ? `<div class="tabla-contenedor" role="region" tabindex="0" aria-label="${et("lista")}"><table class="tabla-datos"><thead><tr><th scope="col">${et("persona")}</th><th scope="col">${et("bolsa")}</th><th scope="col">${et("estado")}</th><th scope="col">${et("fecha")}</th></tr></thead><tbody>${filas}</tbody></table></div>` : ""}${paginacion}</div></section>${ficha}${confirmacion}`;
   }
   function navegar(nuevo) {
     filtro = nuevo; detalle = null; motivos = null; decision = ""; recibo = null; intento = null;
