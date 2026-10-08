@@ -62,7 +62,7 @@ test("la lista global consulta una página de 50 y exige el mismo corte", async 
 test("la relación global minimiza referencias y ofrece paginación accesible", () => {
   const html = renderizarGlobalBolsa({ global: true, carga: "listo", filtro: "llamamientos", datos: {
     desde: 1, hasta: 1, total: 51, hay_mas: true, cursor_siguiente: "1", items: [{
-      bolsa_ref: BOLSA.bolsa_ref, categoria: BOLSA.categoria, llamamiento_ref: "secreto:llamamiento",
+      bolsa_ref: BOLSA.bolsa_ref, categoria: BOLSA.categoria, llamamiento_ref: "llamamiento:prueba:00000001",
       referencia: "secreto:referencia", emitido_en: "2026-10-08T10:00:00Z", participaciones: 2,
     }],
   } }, { encabezadoVista: (_s, titulo, _d, acciones) => `<header><h2>${titulo}</h2>${acciones}</header>`,
@@ -71,6 +71,7 @@ test("la relación global minimiza referencias y ofrece paginación accesible", 
   assert.match(html, /data-bolsa-accion="pagina-global" data-cursor="1"/u);
   assert.match(html, /data-accion="ver-bolsa"/u);
   assert.doesNotMatch(html, /secreto/u);
+  assert.match(html, /data-seguimiento="llamamiento:prueba:00000001"/u);
 });
 
 test("los resúmenes nuevos conservan los campos validados y activan enlaces con corte", async () => {
