@@ -122,4 +122,3 @@ El historial de operaciones leído y auditado incorpora la disponibilidad de sol
 La ficha espera esa respuesta antes de pedir las secciones opcionales. Omite las ausentes o no autorizadas, conserva el candidato y el historial si falla la comprobación y permite reintentar. Los requisitos de Regularizar y su comprobación V3 se conservan. Sin metadata del servidor mantiene el recorrido anterior. No lleva SQL ni configuración nueva. Se reutiliza el proyector de V (`8d481727`) sin reescribirlo.
 
 La lista global de los totales sigue pendiente del consumidor de lectura y acceso correcto en la misma transacción. La disponibilidad de una participación no cubre ese acceso global.
-
