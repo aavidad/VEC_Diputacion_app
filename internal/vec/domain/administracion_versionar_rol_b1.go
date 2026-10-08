@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -74,7 +75,7 @@ func (p PlanVersionarRolBolsa) HuellaSHA256() (string, error) {
 		return "", ErrVersionarRolBolsaInvalido
 	}
 	for i, anterior := range p.Base.Rol.Concesiones {
-		if !concesionesPerfilAdministracionIguales(anterior, p.DefinicionNueva.Concesiones[i]) {
+		if !reflect.DeepEqual(anterior, p.DefinicionNueva.Concesiones[i]) {
 			return "", ErrVersionarRolBolsaInvalido
 		}
 		if anterior.ModuloID == "bolsa" && anterior.Accion == "bolsa.carga_convoca.confirmar" &&

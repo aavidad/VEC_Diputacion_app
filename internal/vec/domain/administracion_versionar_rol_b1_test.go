@@ -103,3 +103,15 @@ func TestVersionarRolBolsaB1RechazaPreimagenOCapacidadDistinta(t *testing.T) {
 		})
 	}
 }
+
+func TestVersionarRolBolsaB1ExigeCopiaExactaDeListasVacias(t *testing.T) {
+	c, s, ahora := escenarioVersionarRolBolsaB1(t)
+	plan, err := PrepararPlanVersionarRolBolsa(c, s, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.DefinicionNueva.Concesiones[0].CamposPermitidos = nil
+	if _, err := plan.HuellaSHA256(); err == nil {
+		t.Fatal("el plan equiparó la lista vacía publicada con null")
+	}
+}
