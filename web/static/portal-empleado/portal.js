@@ -590,8 +590,7 @@ function capacidadesBolsa() {
   const borradores = superficieBorradores.obtenerAcceso();
   return {
     panelInterno: estado.fuenteLista === true,
-    bolsasConsultables: estado.datosBolsas?.carga === "listo"
-      || estado.vista === "contratacion-temporal" && contextoBolsaCT?.carga === "listo",
+    bolsasConsultables: estado.datosBolsas?.carga === "listo",
     borradores: borradores?.disponible === true ? true
       : (borradores?.estado === "denegado" || borradores?.estado === "error" ? false : null),
     contratacionTemporal: coordinadorModulos.vistaDisponible("contratacion-temporal"),
@@ -1529,6 +1528,14 @@ function instalarEventosBorradores() {
 let presentadorPanelInterno = null;
 let controladorBolsas = null;
 let rutasBolsa = null;
+let promesaRutasBolsa = null;
+function prepararRutasBolsa() {
+  if (rutasBolsa) return Promise.resolve(rutasBolsa);
+  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js")
+    .then((rutas) => { rutasBolsa = rutas; return rutas; })
+    .catch((error) => { promesaRutasBolsa = null; throw error; });
+  return promesaRutasBolsa;
+}
 let rutaCandidatosAplicada = null;
 let promesaBolsaBase = null;
 let errorBolsaBase = false;
@@ -1629,7 +1636,7 @@ function instalarEventosAvisosBolsa() {
 }
 
 function instalarEnlacesBolsa() {
-  document.addEventListener("click", (evento) => {
+  document.addEventListener("click", async (evento) => {
     const control = evento.target?.closest?.('[data-accion="ver-bolsa"][data-bolsa-ref]');
     if (!control || !porId("espacio-trabajo")?.contains(control)) return;
     const esEnlace = control.tagName?.toLowerCase() === "a" && control.hasAttribute("href");
@@ -1637,21 +1644,45 @@ function instalarEnlacesBolsa() {
     if (esEnlace && (evento.button > 0 || evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.altKey)) return;
     evento.preventDefault();
     if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
-    const bolsas = estado.datosBolsas?.carga === "listo" ? estado.datosBolsas.datos?.bolsas : null;
+    const vistaAlClic = estado.vista;
+    const cuadroBolsaAlClic = estado.datosBolsas;
+    const esFichaCT = estado.vista === "contratacion-temporal"
+      && Boolean(control.closest?.("[data-ct-bolsa-ficha]"));
+    const fichaCT = esFichaCT ? contextoBolsaCT : null;
+    const bolsas = esFichaCT
+      ? fichaCT?.carga === "listo" ? fichaCT.datos?.bolsas : null
+      : estado.datosBolsas?.carga === "listo" ? estado.datosBolsas.datos?.bolsas : null;
     let destino; let filtro;
     try {
-      if (!rutasBolsa || !Array.isArray(bolsas)) throw new TypeError("Bolsa pendiente");
       const datos = control.dataset;
+      if (!Array.isArray(bolsas) || (esFichaCT && (datos.origenExpediente !== fichaCT.expedienteRef
+        || !bolsas.some((bolsa) => bolsa?.bolsa_ref === datos.bolsaRef)))) throw new TypeError("Bolsa pendiente");
+      let rutas;
+      try { rutas = await prepararRutasBolsa(); }
+      catch {
+        anunciar(traducirPortal("txt_no_se_pudieron_cargar_las_bolsas_de_trabajo"));
+        return;
+      }
+      // La ficha puede cambiar mientras se carga el helper de rutas. Su bolsa
+      // y su origen solo valen para la selección que atendió este clic.
+      if (!porId("espacio-trabajo")?.contains(control) || estado.vista !== vistaAlClic
+        || (!esFichaCT && estado.datosBolsas !== cuadroBolsaAlClic)
+        || esFichaCT && (estado.vista !== "contratacion-temporal" || contextoBolsaCT !== fichaCT)) return;
       const origen = datos.origenExpediente ? { expediente_ref: datos.origenExpediente, referencia: datos.origenReferencia,
         centro: datos.origenCentro, fecha_inicio: datos.origenInicio } : null;
-      const href = esEnlace ? control.getAttribute("href") : rutasBolsa.rutaCandidatosBolsaCompartible(
+      const href = esEnlace ? control.getAttribute("href") : rutas.rutaCandidatosBolsaCompartible(
         window.location.search, datos.bolsaRef, datos.estado ?? "", { seguimiento: datos.seguimiento ?? "", origen });
       destino = new URL(href, window.location.href);
       if (destino.origin !== window.location.origin || destino.pathname !== window.location.pathname
         || destino.hash !== "#bolsa/bolsa-candidatos") throw new TypeError("destino ajeno");
-      filtro = rutasBolsa.leerCandidatosBolsaCompartible(destino.search, bolsas);
+      filtro = rutas.leerCandidatosBolsaCompartible(destino.search, bolsas);
       if (!filtro || filtro.bolsaRef !== datos.bolsaRef || filtro.estado !== (datos.estado ?? "")
         || (filtro.seguimiento ?? "") !== (datos.seguimiento ?? "") || Boolean(filtro.origen) !== Boolean(origen)) throw new TypeError("filtro ajeno");
+      if (esFichaCT && (filtro.seguimiento || !filtro.origen
+        || filtro.origen.expediente_ref !== fichaCT.expedienteRef
+        || filtro.origen.referencia !== origen.referencia
+        || filtro.origen.centro !== origen.centro
+        || filtro.origen.fecha_inicio !== origen.fecha_inicio)) throw new TypeError("origen ajeno");
     } catch {
       anunciar(traducirPortal("txt_la_vista_solicitada_no_esta_autorizada_para_el_p"));
       return;
@@ -1660,6 +1691,7 @@ function instalarEnlacesBolsa() {
     estado.bolsaSeleccionada = filtro.bolsaRef;
     estado.filtrosBolsa = { estado: filtro.estado, texto: "" };
     estado.datosCandidatos = null;
+    estado.origenLlamamientoB7 = null;
     rutaCandidatosAplicada = null;
     const ruta = `${destino.pathname}${destino.search}${destino.hash}`;
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
