@@ -3,7 +3,7 @@
 ## Bolsa en la presentación a RRHH — 28 de septiembre de 2026
 
 Esta actualización describe lo integrado en `main@7247682cb`, a partir del
-[corte de presentación del 26 de septiembre](../../ESTADO_PROYECTO.md#bolsa-y-contratación-temporal-cerradas-para-la-presentación--26-de-septiembre-de-2026).
+[corte de presentación del 26 de septiembre](https://github.com/aavidad/VEC_Diputacion_app/blob/033fda6ed/ESTADO_PROYECTO.md#bolsa-y-contratación-temporal-cerradas-para-la-presentación--26-de-septiembre-de-2026).
 «Mi bolsa» y el portal del candidato figuran en ese corte como desplegados y
 habilitados en la instancia principal de presentación. Use solo identidades y
 datos **sintéticos** facilitados por Sistemas. La presentación no autoriza

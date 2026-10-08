@@ -1,10 +1,10 @@
 import { cargarTextos, urlCatalogo } from "../comun/textos.js";
-import { IDIOMA_ACTUAL } from "../comun/idioma.js";
+import { prepararIdiomas, resolverIdiomaNavegacion } from "../comun/idioma.js";
 
 const VERSION = "20261003-pwa-ci-v5";
 const VERSION_MANIFIESTO = "20261002-pwa-v1";
 
-export async function iniciarPWA({ documento = globalThis.document, ventana = globalThis.window, navegador = globalThis.navigator, idioma = IDIOMA_ACTUAL } = {}) {
+export async function iniciarPWA({ documento = globalThis.document, ventana = globalThis.window, navegador = globalThis.navigator, idioma } = {}) {
   const navegacion = documento?.querySelector?.("[data-pwa-navegacion]");
   const manifiesto = documento?.querySelector?.("link[data-pwa-manifest]");
   if (!navegacion || !manifiesto || !ventana) return;
@@ -14,6 +14,10 @@ export async function iniciarPWA({ documento = globalThis.document, ventana = gl
   if (!scope || !/^\/[a-z0-9-]+(?:\/[a-z0-9-]+)?\/$/u.test(scope) ||
       !/^pwa-[a-z0-9-]+$/u.test(portal) || !ventana.location.pathname.startsWith(scope)) return;
 
+  if (idioma === undefined) {
+    try { await prepararIdiomas(); } catch { /* El selector común conserva su idioma de respaldo. */ }
+    idioma = resolverIdiomaNavegacion({ ubicacion: ventana.location, navegador });
+  }
   const textos = await cargarTextos("pwa", { idioma });
   const urlManifiesto = urlCatalogo(textos.idioma, portal, new URL("/textos/", ventana.location.origin));
   urlManifiesto.searchParams.set("v", VERSION_MANIFIESTO);

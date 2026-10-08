@@ -557,6 +557,80 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-panel-interno.js",
     "portal.js",
   ]) versionesEspeciales.set(ruta, "20261008-w-bolsa-ficha-main-v2");
+  for (const ruta of [
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/componentes-expedientes.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/documentacion-formalizacion.js",
+    "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-modulos-coordinador.js",
+    "portal.js"
+]) versionesEspeciales.set(ruta, "20261008-ct-sin-bolsa-v2");
+  // HZ8 conserva su idioma, pero consume el cliente y los contratos W de main.
+  for (const ruta of ["categorias-rpt/arranque.js", "categorias-rpt/vista.js"])
+    versionesEspeciales.set(ruta, "20261008-hz8-idioma-v1");
+  versionesEspeciales.set("categorias-rpt/montaje.js", "20261008-hz8-idioma-v2");
+  for (const ruta of ["portal-modulos-coordinador.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261008-hz8-idioma-v4");
+  // HZ8 conserva la vista y el idioma; la lista ligera CT renueva la raíz.
+  for (const ruta of ["categorias-rpt/arranque.js", "categorias-rpt/vista.js"])
+    versionesEspeciales.set(ruta, "20261008-hz8-idioma-v1");
+  versionesEspeciales.set("categorias-rpt/montaje.js", "20261008-hz8-idioma-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261008-ct-centros-v1");
+  // Documentos: el consumidor renovado debe llegar a la misma URL en todo el grafo.
+  for (const ruta of [
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/componentes-expedientes.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/documentacion-formalizacion.js",
+    "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vista-borradores-publicados.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-ficha.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-modulos-coordinador.js", "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261008-documentos-ficha-v1");
+  versionesEspeciales.set("portal-preferencias-integracion.js", "20261008-inicio-idioma-v1");
+  for (const ruta of ["portal-modulos-coordinador.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261008-documentos-ficha-v2");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -694,7 +768,7 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-w-bolsa-ficha-main-v2");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-documentos-ficha-v2");
 
 });
 
@@ -704,8 +778,8 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   const [html, portal, coordinador, recorridos, borradores] = await Promise.all(
     rutas.map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const version = "20261007-u-dietas-catalogo-v1";
-  const versionRaiz = "20261008-w-bolsa-ficha-main-v2";
-  const versionCoordinador = "20261008-w-ct-borradores-main-v2";
+  const versionRaiz = "20261008-documentos-ficha-v2";
+  const versionCoordinador = "20261008-documentos-ficha-v2";
   const comun = "20261007-pantallas-textos-final-v1";
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionRaiz);
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionCoordinador);

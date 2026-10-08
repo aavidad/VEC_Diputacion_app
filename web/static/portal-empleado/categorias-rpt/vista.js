@@ -45,11 +45,15 @@ function textoEn(doc, contenido, idiomaDatos, idiomaUI) {
   return nodo;
 }
 
-export function filtrarCategorias(categorias, consulta = "", grupo = "", localizacion) {
+export function grupoVisible(grupo, idiomaDatos, idiomaUI) {
+  return idiomaDatos === idiomaUI ? grupo.etiqueta : grupo.clave;
+}
+
+export function filtrarCategorias(categorias, consulta = "", grupo = "", localizacion, idiomaDatos, idiomaUI) {
   const buscado = consulta.trim().toLocaleLowerCase(localizacion);
   return categorias.filter((categoria) =>
     (!grupo || categoria.grupos_subgrupos.some((g) => g.clave === grupo))
-    && (!buscado || [categoria.etiqueta, ...categoria.grupos_subgrupos.map((g) => g.etiqueta)]
+    && (!buscado || [categoria.etiqueta, ...categoria.grupos_subgrupos.map((g) => grupoVisible(g, idiomaDatos, idiomaUI))]
       .some((valor) => valor.toLocaleLowerCase(localizacion).includes(buscado))));
 }
 
@@ -81,7 +85,7 @@ export function montarVistaCategorias({ raiz, puerto, t, idiomaUI, idiomaDatos, 
   let secuencia = 0;
 
   function pintar() {
-    const visibles = filtrarCategorias(categorias, buscar.value, grupo.value, localizacion);
+    const visibles = filtrarCategorias(categorias, buscar.value, grupo.value, localizacion, idiomaDatos, idiomaUI);
     const totalPaginas = Math.max(1, Math.ceil(visibles.length / TAMANO_PAGINA));
     pagina = Math.min(pagina, totalPaginas);
     const mostradas = visibles.slice((pagina - 1) * TAMANO_PAGINA, pagina * TAMANO_PAGINA);
@@ -109,8 +113,9 @@ export function montarVistaCategorias({ raiz, puerto, t, idiomaUI, idiomaDatos, 
         boton.type = "button";
         boton.className = "boton-terciario";
         boton.dataset.grupo = g.clave;
-        boton.setAttribute("aria-label", t("filtrarGrupo", { grupo: g.etiqueta }));
-        boton.append(textoEn(doc, g.etiqueta, idiomaDatos, idiomaUI));
+        const etiqueta = grupoVisible(g, idiomaDatos, idiomaUI);
+        boton.setAttribute("aria-label", t("filtrarGrupo", { grupo: etiqueta }));
+        boton.append(idiomaDatos === idiomaUI ? textoEn(doc, etiqueta, idiomaDatos, idiomaUI) : etiqueta);
         celdaGrupo.append(boton);
       });
       fila.append(celdaNombre, celdaGrupo);
@@ -136,7 +141,8 @@ export function montarVistaCategorias({ raiz, puerto, t, idiomaUI, idiomaDatos, 
       if (actual !== secuencia || controlador.signal.aborted) return;
       if (!Array.isArray(opciones)) throw new TypeError("respuesta no válida");
       categorias = opciones;
-      const grupos = new Map(opciones.flatMap((c) => c.grupos_subgrupos.map((g) => [g.clave, g.etiqueta])));
+      const grupos = new Map(opciones.flatMap((c) => c.grupos_subgrupos.map((g) => [g.clave,
+        grupoVisible(g, idiomaDatos, idiomaUI)])));
       const todos = doc.createElement("option");
       todos.value = "";
       todos.textContent = t("todos");

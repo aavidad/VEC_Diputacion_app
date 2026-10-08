@@ -6,7 +6,7 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-w-ct-borradores-main-v2";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-documentos-ficha-v2";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
@@ -21,7 +21,7 @@ import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-aviso
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
 import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20261007-pantallas-textos-final-v1";
-import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20261007-pantallas-textos-final-v1";
+import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20261008-inicio-idioma-v1";
 let tamanoPaginaMarco = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = tamanoPaginaMarco) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : tamanoPaginaMarco; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
     .filter((pagina) => pagina >= 1 && pagina <= calculo.paginas)
@@ -401,19 +401,53 @@ function obtenerSesion() {
   promesaSesion ??= consultarSesionPortal().catch((error) => { promesaSesion = null; throw error; });
   return promesaSesion;
 }
+// La ficha de CT consulta Bolsa solo tras acreditar su detalle. Este contexto
+// no alimenta el cuadro, los indicadores ni el controlador general de Bolsa.
+let contextoBolsaCT = null;
+async function prepararBolsaFichaCT({ expedienteRef, signal }) {
+  if (typeof expedienteRef !== "string" || !expedienteRef || signal?.aborted) return;
+  contextoBolsaCT = { expedienteRef, carga: "cargando", datos: null };
+  if (estado.datosBolsas?.carga === "listo" && Array.isArray(estado.datosBolsas.datos?.bolsas)) {
+    contextoBolsaCT = { expedienteRef, carga: "listo", datos: estado.datosBolsas.datos };
+    return;
+  }
+  try {
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261008-w-bolsa-ficha-main-v2");
+    if (signal?.aborted) return;
+    const resultado = await consultarBolsas({ signal });
+    if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
+    contextoBolsaCT = resultado.ok && Array.isArray(resultado.datos?.bolsas)
+      ? { expedienteRef, carga: "listo", datos: resultado.datos }
+      : { expedienteRef, carga: resultado.status === 401 || resultado.status === 403 ? "denegado" : "error", datos: null };
+  } catch {
+    if (!signal?.aborted && contextoBolsaCT?.expedienteRef === expedienteRef)
+      contextoBolsaCT = { expedienteRef, carga: "error", datos: null };
+  }
+}
 const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar,
   consultarSesion: () => obtenerSesion(),
   montajeBolsa: Object.freeze({
     disponible: (vista) => VISTAS_INTERNAS_BOLSA.includes(vista) && !vista.startsWith("seleccion-"),
+    prepararFicha: prepararBolsaFichaCT,
+    limpiarFicha: () => { contextoBolsaCT = null; },
+    fallarFicha: (expedienteRef) => {
+      if (contextoBolsaCT?.expedienteRef === expedienteRef)
+        contextoBolsaCT = { expedienteRef, carga: "error", datos: null };
+    },
     // Otros módulos enlazan con una bolsa solo si el perfil la ve en el cuadro.
     // Sin referencia, «categoriaRef» busca la bolsa vigente de esa categoría de la RPT.
     resolverBolsa: (bolsaRef, { categoriaRef = "" } = {}) => {
+      if (estado.vista === "contratacion-temporal" && ["error", "denegado"].includes(contextoBolsaCT?.carga))
+        return Object.freeze({ estado: contextoBolsaCT.carga });
       if (!vistaPermitida(VISTA_CANDIDATOS_BOLSA)) return null;
-      const bolsas = estado.datosBolsas?.carga === "listo" ? estado.datosBolsas.datos?.bolsas : null;
+      const bolsas = estado.datosBolsas?.carga === "listo" ? estado.datosBolsas.datos?.bolsas
+        : estado.vista === "contratacion-temporal" && contextoBolsaCT?.carga === "listo"
+          ? contextoBolsaCT.datos?.bolsas : null;
       if (!Array.isArray(bolsas)) return null;
       const categoria = typeof categoriaRef === "string" ? categoriaRef.replace(/^categoria:rpt:/u, "") : "";
       const bolsa = bolsaRef ? bolsas.find((item) => item?.bolsa_ref === bolsaRef)
         : categoria ? bolsas.find((item) => item?.vigente_hasta === null && item?.categoria_clave === categoria) : null;
+      if (!bolsa && !bolsaRef && categoria) return Object.freeze({ estado: "sin_bolsa" });
       return bolsa && typeof bolsa.categoria === "string"
         ? Object.freeze({ categoria: bolsa.categoria, ...(bolsaRef ? {} : { bolsa_ref: bolsa.bolsa_ref }) }) : null;
     },
@@ -723,6 +757,7 @@ async function cargarFuenteDatos() {
   generacionCuadroBolsas += 1;
   controladorBolsas?.cancelarPeticiones();
   estado.datosBolsas = null;
+  contextoBolsaCT = null;
   cicloLecturaBolsas = 0;
   estado.errorFuente = "";
   consultaAccesoPlantillas?.abort();
@@ -990,6 +1025,7 @@ function navegar(vista, opciones = {}) {
     estado.datosBolsas = null;
     cicloLecturaBolsas = 0;
   }
+  if (estado.vista === "contratacion-temporal" && vista !== "contratacion-temporal") contextoBolsaCT = null;
   if (vista !== "auditoria") estado.auditoriaReferencia = "";
   if (vista !== "bolsa-candidatos") rutaCandidatosAplicada = null;
   const filtroServidorRuta = vista === "contratacion-temporal"
@@ -1115,8 +1151,11 @@ function aplicarRutaCandidatosBolsa() {
   const ruta = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (rutaCandidatosAplicada?.ruta === ruta && rutaCandidatosAplicada?.datos === estado.datosBolsas.datos) return true;
   rutaCandidatosAplicada = { ruta, datos: estado.datosBolsas.datos };
+  const mostrarHistorico = estado.bolsaSeleccionada === filtro.bolsaRef
+    && estado.filtrosBolsa?.pestana === "historico";
   estado.bolsaSeleccionada = filtro.bolsaRef;
   estado.filtrosBolsa = { estado: filtro.estado, texto: "",
+    ...(mostrarHistorico ? { pestana: "historico" } : {}),
     ...(filtro.seguimiento ? { seguimiento: { llamamiento_ref: filtro.seguimiento, bolsa_ref: filtro.bolsaRef } } : {}) };
   // El origen de una petición de personal vive fuera de los filtros: el asistente lo copia al iniciarse.
   estado.origenLlamamientoB7 = filtro.origen ? Object.freeze({ ...filtro.origen, bolsa_ref: filtro.bolsaRef }) : null;
@@ -1492,6 +1531,14 @@ function instalarEventosBorradores() {
 let presentadorPanelInterno = null;
 let controladorBolsas = null;
 let rutasBolsa = null;
+let promesaRutasBolsa = null;
+function prepararRutasBolsa() {
+  if (rutasBolsa) return Promise.resolve(rutasBolsa);
+  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js")
+    .then((rutas) => { rutasBolsa = rutas; return rutas; })
+    .catch((error) => { promesaRutasBolsa = null; throw error; });
+  return promesaRutasBolsa;
+}
 let rutaCandidatosAplicada = null;
 let promesaBolsaBase = null;
 let errorBolsaBase = false;
@@ -1592,7 +1639,7 @@ function instalarEventosAvisosBolsa() {
 }
 
 function instalarEnlacesBolsa() {
-  document.addEventListener("click", (evento) => {
+  document.addEventListener("click", async (evento) => {
     const control = evento.target?.closest?.('[data-accion="ver-bolsa"][data-bolsa-ref]');
     if (!control || !porId("espacio-trabajo")?.contains(control)) return;
     const esEnlace = control.tagName?.toLowerCase() === "a" && control.hasAttribute("href");
@@ -1600,29 +1647,62 @@ function instalarEnlacesBolsa() {
     if (esEnlace && (evento.button > 0 || evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.altKey)) return;
     evento.preventDefault();
     if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
-    const bolsas = estado.datosBolsas?.carga === "listo" ? estado.datosBolsas.datos?.bolsas : null;
+    const vistaAlClic = estado.vista;
+    const cuadroBolsaAlClic = estado.datosBolsas;
+    const esLlamamientoCT = estado.vista === "contratacion-temporal"
+      && Boolean(control.closest?.("[data-ct-bolsa-ficha]"));
+    const esHistoricoCT = estado.vista === "contratacion-temporal" && !esLlamamientoCT
+      && control.dataset?.pestana === "historico" && control.classList?.contains("enlace-tabla")
+      && Boolean(control.closest?.(".ct-expedientes"));
+    const esFichaCT = esLlamamientoCT || esHistoricoCT;
+    const fichaCT = esFichaCT ? contextoBolsaCT : null;
+    const bolsas = esFichaCT
+      ? fichaCT?.carga === "listo" ? fichaCT.datos?.bolsas : null
+      : estado.datosBolsas?.carga === "listo" ? estado.datosBolsas.datos?.bolsas : null;
     let destino; let filtro;
     try {
-      if (!rutasBolsa || !Array.isArray(bolsas)) throw new TypeError("Bolsa pendiente");
       const datos = control.dataset;
+      if (!Array.isArray(bolsas) || (esFichaCT && (!fichaCT?.expedienteRef
+        || !bolsas.some((bolsa) => bolsa?.bolsa_ref === datos.bolsaRef)
+        || esLlamamientoCT && datos.origenExpediente !== fichaCT.expedienteRef
+        || esHistoricoCT && (datos.origenExpediente || datos.estado || datos.seguimiento)))) throw new TypeError("Bolsa pendiente");
+      let rutas;
+      try { rutas = await prepararRutasBolsa(); }
+      catch {
+        anunciar(traducirPortal("txt_no_se_pudieron_cargar_las_bolsas_de_trabajo"));
+        return;
+      }
+      // La ficha puede cambiar mientras se carga el helper de rutas. Su bolsa
+      // y su origen solo valen para la selección que atendió este clic.
+      if (!porId("espacio-trabajo")?.contains(control) || estado.vista !== vistaAlClic
+        || (!esFichaCT && estado.datosBolsas !== cuadroBolsaAlClic)
+        || esFichaCT && (estado.vista !== "contratacion-temporal" || contextoBolsaCT !== fichaCT)) return;
       const origen = datos.origenExpediente ? { expediente_ref: datos.origenExpediente, referencia: datos.origenReferencia,
         centro: datos.origenCentro, fecha_inicio: datos.origenInicio } : null;
-      const href = esEnlace ? control.getAttribute("href") : rutasBolsa.rutaCandidatosBolsaCompartible(
+      const href = esEnlace ? control.getAttribute("href") : rutas.rutaCandidatosBolsaCompartible(
         window.location.search, datos.bolsaRef, datos.estado ?? "", { seguimiento: datos.seguimiento ?? "", origen });
       destino = new URL(href, window.location.href);
       if (destino.origin !== window.location.origin || destino.pathname !== window.location.pathname
         || destino.hash !== "#bolsa/bolsa-candidatos") throw new TypeError("destino ajeno");
-      filtro = rutasBolsa.leerCandidatosBolsaCompartible(destino.search, bolsas);
+      filtro = rutas.leerCandidatosBolsaCompartible(destino.search, bolsas);
       if (!filtro || filtro.bolsaRef !== datos.bolsaRef || filtro.estado !== (datos.estado ?? "")
         || (filtro.seguimiento ?? "") !== (datos.seguimiento ?? "") || Boolean(filtro.origen) !== Boolean(origen)) throw new TypeError("filtro ajeno");
+      if (esLlamamientoCT && (filtro.seguimiento || !filtro.origen
+        || filtro.origen.expediente_ref !== fichaCT.expedienteRef
+        || filtro.origen.referencia !== origen.referencia
+        || filtro.origen.centro !== origen.centro
+        || filtro.origen.fecha_inicio !== origen.fecha_inicio)) throw new TypeError("origen ajeno");
+      if (esHistoricoCT && (filtro.origen || filtro.seguimiento)) throw new TypeError("histórico ajeno");
     } catch {
       anunciar(traducirPortal("txt_la_vista_solicitada_no_esta_autorizada_para_el_p"));
       return;
     }
     if (filtro.seguimiento) controladorBolsas?.olvidarEmisionConfirmada?.();
     estado.bolsaSeleccionada = filtro.bolsaRef;
-    estado.filtrosBolsa = { estado: filtro.estado, texto: "" };
+    estado.filtrosBolsa = { estado: filtro.estado, texto: "",
+      ...(esHistoricoCT ? { pestana: "historico" } : {}) };
     estado.datosCandidatos = null;
+    estado.origenLlamamientoB7 = null;
     rutaCandidatosAplicada = null;
     const ruta = `${destino.pathname}${destino.search}${destino.hash}`;
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
@@ -1692,6 +1772,10 @@ async function inicializar() {
   superficiePreferencias.instalar(porId("espacio-trabajo"));
   void actualizarSesionVisible();
   const cargaPreferencias = superficiePreferencias.cargar();
+  if (integracionPreferencias.prepararInicio()) {
+    await cargaPreferencias;
+    if (integracionPreferencias.cambioIdiomaPendiente()) return;
+  }
   // cargarFuenteDatos pinta el resultado: Inicio conservando el foco y una
   // vista de módulo solo si no se montó ya durante la carga.
   await cargarFuenteDatos();

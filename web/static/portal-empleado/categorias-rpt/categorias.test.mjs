@@ -4,7 +4,7 @@ import test from "node:test";
 import { crearClienteHTTPContratacionTemporal } from "../modulos/contratacion-temporal/cliente-http.js";
 import { crearClienteCategorias } from "./cliente.js";
 import { crearPuertoCategorias } from "./puerto.js";
-import { filtrarCategorias, TAMANO_PAGINA } from "./vista.js";
+import { filtrarCategorias, grupoVisible, TAMANO_PAGINA } from "./vista.js";
 
 const catalogo = () => ({
   esquema: "vec.contratacion_temporal.catalogos_alta.v1",
@@ -81,4 +81,27 @@ test("filtra por categoría y grupo sin alterar la fuente y pagina a veinte fila
   assert.equal(filtrarCategorias(opciones, "", "C2", "es-ES").length, 1);
   assert.equal(filtrarCategorias(opciones, "", "A1", "es-ES").length, 0);
   assert.equal(TAMANO_PAGINA, 20);
+});
+
+test("un grupo del catálogo español se muestra por código en la pantalla inglesa", () => {
+  const grupo = catalogo().categorias[0].grupos_subgrupos[0];
+  assert.equal(grupoVisible(grupo, "es", "en"), "C2");
+  assert.equal(grupoVisible(grupo, "es", "es"), "Grupo C2");
+  assert.equal(filtrarCategorias(catalogo().categorias, "C2", "", "en-GB", "es", "en").length, 1);
+  assert.equal(filtrarCategorias(catalogo().categorias, "Grupo C2", "", "en-GB", "es", "en").length, 0);
+});
+
+test("la ruta antigua de categorías conserva el idioma válido de la URL", async () => {
+  const anterior = globalThis.window;
+  const redirecciones = [];
+  globalThis.window = { location: {
+    href: "https://vec.example/portal-empleado/categorias-rpt/?lang=en",
+    replace: (ruta) => redirecciones.push(ruta),
+  } };
+  try {
+    await import(`./arranque.js?prueba-idioma=${Date.now()}`);
+    assert.deepEqual(redirecciones, ["/portal-empleado/?lang=en#contratacion-temporal/categorias-rpt"]);
+  } finally {
+    globalThis.window = anterior;
+  }
 });
