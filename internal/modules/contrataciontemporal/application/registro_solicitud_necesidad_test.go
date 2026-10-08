@@ -158,7 +158,8 @@ func TestProgramaTemporalV3EsNecesidadSinModalidadPrecargada(t *testing.T) {
 	escenario.solicitud.NecesidadEntrada.Campos = map[string]string{
 		"organica_codigo": "100", "funcional_codigo": "200", "proyecto_gasto_codigo": "300",
 		"porcentaje_financiacion": "100", "programa_denominacion": "Programa temporal de refuerzo",
-		"programa_fin": "2026-10-31", "proyecto_codigo": "P01",
+		"numero_personas": "2",
+		"programa_fin":    "2026-10-31", "proyecto_codigo": "P01",
 		"financiacion_ref": "financiacion:opaca:1", "rc_ref": "rc:opaca:1",
 	}
 	servicio, dobles := construirServicioRegistro(t, escenario)
