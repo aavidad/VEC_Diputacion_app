@@ -78,3 +78,26 @@ test("un servidor sin metadata conserva el lector anterior y sus secciones opera
   await controlador.cargar(modal, { incluirSecciones: false });
   assert.equal(consultas, 1); assert.equal(modal.operacionesB8.carga, "listo");
 });
+
+test("una disponibilidad que falla se reconsulta desde el historial y recupera solo su sección", async () => {
+  let bases = 0, documentales = 0;
+  const { modal, controlador } = preparar({ consultarOperaciones: async () => leer(historial(++bases === 1 ? "indisponible" : "disponible")),
+    consultarDocumentales: async () => { documentales++; return { ok: true, datos: [] }; } });
+  await controlador.cargar(modal, { incluirSecciones: false });
+  assert.equal(documentales, 0); assert.equal(modal.operacionesB8.solicitudesMetadatos, true);
+  const control = { dataset: { b8Accion: "reintentar-solicitudes" } };
+  controlador.manejarClick({ target: { closest: () => control }, preventDefault() {} });
+  await new Promise(setImmediate); await new Promise(setImmediate);
+  assert.equal(bases, 2); assert.equal(documentales, 1);
+  assert.equal(modal.operacionesB8.solicitudesMetadatos, false);
+});
+
+test("un fallo real de una sección disponible se muestra y conserva el candidato", async () => {
+  const { modal, controlador } = preparar({ consultarOperaciones: async () => leer(historial("disponible")),
+    consultarDocumentales: async () => ({ ok: false, status: 503, mensaje: "No se han podido consultar los documentos. Reintente la consulta." }) });
+  await controlador.cargar(modal, { incluirSecciones: false });
+  assert.equal(modal.candidato.nombre_visible, "Elena García");
+  assert.equal(modal.operacionesB8.carga, "listo");
+  assert.equal(modal.operacionesB8.solicitudesStatus, 503);
+  assert.match(renderizarOperacionesSituacion({ candidato: modal.candidato, estado: modal.operacionesB8 }), /data-b8-accion="reintentar-solicitudes"/);
+});

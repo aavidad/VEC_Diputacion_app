@@ -114,7 +114,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     ["./i18n.js", "20261007-pantallas-textos-final-v1"],
   ]);
   const aristas = [
-    [html, "/portal-empleado/portal.js", cohorteTelefono],
+    [html, "/portal-empleado/portal.js", "20261008-w-bolsa-ficha-nominal-v1"],
     [html, "/portal-empleado/portal-modulos-coordinador.js", cohorteTelefono],
     [portal, "./portal-modulos-coordinador.js", cohorteTelefono],
     [coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorte],
@@ -129,7 +129,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     exigirVersiones(fuente, ruta, version);
     if (antiguas.has(ruta)) assert.ok(!fuente.includes(`${ruta}?v=${antiguas.get(ruta)}`), ruta);
   }
-  exigirVersiones(cache, "/portal-empleado/portal.js", cohorteTelefono);
+  exigirVersiones(cache, "/portal-empleado/portal.js", "20261008-w-bolsa-ficha-nominal-v1");
   assert.match(altaHTTP, /obtenerCatalogosNecesidadesAlta/u);
   assert.match(i18n, /export async function cargarMensajesNecesidadesAlta/u);
   assert.match(contrato, /export const ESQUEMA_ALTA_NECESIDAD/u);

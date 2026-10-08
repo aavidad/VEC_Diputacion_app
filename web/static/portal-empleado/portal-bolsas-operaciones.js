@@ -1,7 +1,7 @@
 import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
-import { cargarReincorporacionesTitularFicha, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261007-pantallas-textos-final-v1";
+import { cargarReincorporacionesTitularFicha, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-w-bolsa-ficha-nominal-v1";
 import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261007-pantallas-textos-final-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { actorTraducido, justificanteTraducido } from "./portal-justificante.js";
@@ -268,7 +268,7 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
   const pendiente = actual === "listo" && ["renuncia", "en_revision", "excluido"].includes(candidato.estado_clave)
     && !disponibles.some((operacion) => ["revisar", "regularizar"].includes(operacion))
     ? `<p role="status">${textoPortal("txt_b8_regularizacion_no_disponible")}</p>` : "";
-  return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>${textoPortal("txt_b8_gestion_estado")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p><p>${textoPortal("txt_b8_ayuda_llamamiento_directo")}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${solicitudesVista}${pendiente}${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.reciboResolucion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_b8_resolucion_solicitud")} ${justificanteTraducido(estado.reciboResolucion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
+  return `<section class="panel panel-separado" data-b8-raiz="true" tabindex="-1"><div class="cabecera-panel"><div><h4>${textoPortal("txt_b8_gestion_estado")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p><p>${textoPortal("txt_b8_ayuda_llamamiento_directo")}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${solicitudesVista}${pendiente}${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.reciboResolucion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_b8_resolucion_solicitud")} ${justificanteTraducido(estado.reciboResolucion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
 }
 
 // El historial llega con instantes ISO, claves de situación y referencias de
@@ -340,12 +340,11 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     const capacidades = res.capacidadesFicha ?? null;
     const documental = capacidades?.solicitudes_documentales;
     const leerDocumental = !documental || documental.estado === "disponible";
-    if (incluirSecciones || capacidades) {
-      void cargarReincorporacionesTitularFicha(modalFicha, { estado, renderizar,
+    const reincorporaciones = incluirSecciones || capacidades
+      ? cargarReincorporacionesTitularFicha(modalFicha, { estado, renderizar,
         disponibilidad: capacidades?.reincorporaciones_titular,
         ...(consultarReincorporaciones ? { consultar: consultarReincorporaciones } : {}),
-        renderizarAlIniciar: false });
-    }
+        renderizarAlIniciar: false }) : Promise.resolve();
     const solicitudes = !leerDocumental
       ? { ok: false, status: null, omitida: documental.estado !== "indisponible",
         metadatos: documental.estado === "indisponible", mensaje: documental.estado === "indisponible"
@@ -353,6 +352,7 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       : !capacidades && !incluirSecciones && [401, 403, 404].includes(solicitudesPrevias?.solicitudesStatus)
         ? { ok: false, status: solicitudesPrevias.solicitudesStatus, mensaje: solicitudesPrevias.solicitudesError }
         : await consultarDocumentales(bolsa, participacion, { signal: controlador.signal });
+    await reincorporaciones;
     if (!vigente()) return;
     modalFicha.reglasSituacion = reglas.ok ? reglas.datos : null;
     if (res.ok) modalFicha.candidato = { ...modalFicha.candidato,
@@ -378,7 +378,8 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       flujo.solicitudesCargando = true;
       renderizar();
       await cargar(modal, { incluirSecciones: false });
-      if (estado.modalFicha === modal) globalThis.document?.querySelector?.('[data-b8-accion="reintentar-solicitudes"]')?.focus?.();
+      if (estado.modalFicha === modal) (globalThis.document?.querySelector?.('[data-b8-accion="reintentar-solicitudes"]')
+        ?? globalThis.document?.querySelector?.('[data-b8-raiz="true"]'))?.focus?.();
       return;
     }
     if (!flujo || flujo.solicitudesCargando || !controlador || controlador.signal.aborted
@@ -551,7 +552,9 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
           const modal = estado.modalFicha;
           if (!modal) return;
           await cargar(modal, { incluirSecciones: false });
-          if (estado.modalFicha === modal) globalThis.document?.querySelector?.('[data-reincorporacion-accion="reintentar"]')?.focus?.();
+          if (estado.modalFicha === modal) (globalThis.document?.querySelector?.('[data-reincorporacion-accion="reintentar"]')
+            ?? globalThis.document?.querySelector?.('#reincorporacion-titulo')
+            ?? globalThis.document?.querySelector?.('[data-b8-raiz="true"]'))?.focus?.();
         } })) return;
       if (!manejarClickContratos(evento, { estado, renderizar })) manejarClick(evento);
     });

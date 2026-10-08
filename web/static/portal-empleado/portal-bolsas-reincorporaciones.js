@@ -213,7 +213,7 @@ export function renderizarReincorporacionesTitular({ estado = {}, escaparHTML })
     const paginacion = paginas > 1 ? `<nav class="paginacion-bolsa" aria-label="${t("paginacion")}"><span>${t("mostrando", { desde, hasta, total })}</span><button type="button" class="boton-secundario" data-reincorporacion-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>${t("anterior")}</button><button type="button" class="boton-secundario" data-reincorporacion-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 === paginas ? "disabled" : ""}>${t("siguiente")}</button></nav>` : `<p>${t("mostrando", { desde, hasta, total })}</p>`;
     contenido = `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${t("tabla")}"><table class="tabla-datos"><caption>${t("tabla")}</caption><thead><tr><th scope="col">${t("col_hecho")}</th><th scope="col">${t("col_fecha")}</th><th scope="col">${t("col_disponibilidad")}</th><th scope="col">${t("col_recibo")}</th></tr></thead><tbody>${filas}</tbody></table></div>${paginacion}`;
   }
-  return `<section class="panel panel-separado" data-reincorporacion-raiz="true" aria-labelledby="reincorporacion-titulo"><div class="cabecera-panel"><h4 id="reincorporacion-titulo">${t("titulo")}</h4></div><div class="cuerpo-panel">${contenido}</div></section>`;
+  return `<section class="panel panel-separado" data-reincorporacion-raiz="true" aria-labelledby="reincorporacion-titulo"><div class="cabecera-panel"><h4 id="reincorporacion-titulo" tabindex="-1">${t("titulo")}</h4></div><div class="cuerpo-panel">${contenido}</div></section>`;
 }
 
 export function manejarClickReincorporacionesTitular(evento, { estado, renderizar, consultar } = {}) {
