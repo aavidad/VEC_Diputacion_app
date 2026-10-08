@@ -46,6 +46,10 @@ CREATE TABLE vec_bolsa_llamamientos.recibo_carga_convoca (
 );
 REVOKE ALL ON vec_bolsa_llamamientos.recibo_carga_convoca FROM PUBLIC;
 REVOKE ALL ON TYPE vec_bolsa_llamamientos.recibo_carga_convoca FROM PUBLIC;
+ALTER TABLE vec_bolsa_llamamientos.recibo_carga_convoca ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.recibo_carga_convoca FORCE ROW LEVEL SECURITY;
+CREATE POLICY recibo_solo_propietario ON vec_bolsa_llamamientos.recibo_carga_convoca
+ FOR ALL TO vec_bolsa_llamamientos_propietario USING (true) WITH CHECK (true);
 CREATE FUNCTION vec_bolsa_llamamientos.negar_mutacion_recibo_carga_v1()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
 BEGIN
@@ -146,6 +150,9 @@ BEGIN
  IF acta_durable->>'acta_ref' IS DISTINCT FROM p_acta_ref
  OR acta_durable->>'categoria_ref' IS DISTINCT FROM p_categoria_ref
  OR acta_durable->>'bolsa_ref' IS DISTINCT FROM p_bolsa_ref
+ OR acta_durable->>'actor_ref' IS DISTINCT FROM p_acta->>'actor_ref'
+ OR acta_durable->>'nombre_fichero' IS DISTINCT FROM p_acta->>'nombre_fichero'
+ OR acta_durable->>'fichero_custodiado_ref' IS DISTINCT FROM p_acta->>'fichero_custodiado_ref'
  OR acta_durable->>'huella_fichero_sha256' IS DISTINCT FROM p_acta->>'huella_fichero_sha256'
  THEN RAISE EXCEPTION 'B79: acta histórica incompatible' USING ERRCODE='23505'; END IF;
  SELECT * INTO STRICT carga FROM vec_bolsa_importacion_convoca.guardar_lote_v1(acta_durable,p_filas_cifradas);
@@ -154,7 +161,7 @@ BEGIN
  PERFORM vec_bolsa_importacion_convoca.guardar_original_v1(carga.acta_canonica,p_original_cifrado);
  SELECT * INTO previo FROM vec_bolsa_llamamientos.recibo_carga_convoca WHERE acta_ref=p_acta_ref FOR SHARE;
  IF FOUND THEN
-  IF previo.categoria_ref<>p_categoria_ref OR previo.bolsa_ref<>p_bolsa_ref
+  IF previo.actor_ref<>p_actor_ref OR previo.categoria_ref<>p_categoria_ref OR previo.bolsa_ref<>p_bolsa_ref
   OR previo.huella_fichero_sha256<>p_acta->>'huella_fichero_sha256'
   OR previo.recibo_constitucion->>'version_bolsa' IS DISTINCT FROM p_version_bolsa::text
   OR previo.recibo_constitucion->>'instantanea_ref' IS DISTINCT FROM p_instantanea_ref
