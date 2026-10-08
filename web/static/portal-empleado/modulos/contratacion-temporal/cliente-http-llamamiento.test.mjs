@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { createHash, webcrypto } from "node:crypto";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-circular-v3";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v4";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 import {
   validarSolicitudSeleccionLlamamiento, validarReciboSeleccionLlamamiento,

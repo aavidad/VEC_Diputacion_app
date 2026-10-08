@@ -1,5 +1,5 @@
 import { cargarTextos } from "../../comun/textos.js";
-import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
 
 const URL_ORGANIZACION = "./organizacion.js?v=20261007-pantallas-textos-final-v1";
 const registrarFallo = (error) => globalThis.console?.error?.("organizacion.arranque.fallido", {

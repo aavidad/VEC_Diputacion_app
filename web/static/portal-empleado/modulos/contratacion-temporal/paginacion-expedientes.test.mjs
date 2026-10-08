@@ -9,7 +9,7 @@ import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-e
 import {
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js?v=20261008-alta-circular-v3";
+} from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v4";
 
 const CURSOR_B = "A".repeat(43);
 const CURSOR_C = "B".repeat(42) + "E";

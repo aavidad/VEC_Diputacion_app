@@ -189,7 +189,7 @@ test("si el servidor no compone la cancelación (404 de ruta) el panel no se mon
 
 test("la bandeja y el cuadro muestran el expediente cancelado con su estado legible", async () => {
   const { crearAdaptadorHTTPExpedientesContratacionTemporal } = await import("./adaptador-http-expedientes.js?v=20261008-alta-circular-v3");
-  const { renderizarModuloContratacionTemporal } = await import("./vista-expedientes.js?v=20261008-alta-circular-v3");
+  const { renderizarModuloContratacionTemporal } = await import("./vista-expedientes.js?v=20261008-alta-rpt-circular-v4");
   const fila = { expediente_ref: EXP, numero_visible: "2026/CT-0042", version: 4, flujo_ref: "flujo:ct:desarrollo", flujo_version: 1,
     flujo_huella_sha256: "a".repeat(64), fase_clave: "asignacion_unidad", estado_clave: "cancelado", centro_ref: "centro:desarrollo:001",
     categoria_ref: "categoria:desarrollo:c2", modalidad_clave: "sustitucion", unidad_ref: "unidad:desarrollo:rrhh",

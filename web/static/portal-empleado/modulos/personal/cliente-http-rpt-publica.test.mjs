@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteHTTPRPTPublica, ErrorClienteRPTPublica } from "./cliente-http-rpt-publica.js";
+import { crearClienteHTTPRPTPublica, ErrorClienteRPTPublica } from "./cliente-http-rpt-publica.js?v=20261008-alta-rpt-circular-v4";
 function categoria() { return { clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 57, dotacion: 158 }; }
 function puesto() { return { codigo: "430-101-001", denominacion: "SECRETARIA DE GRUPO", centro_codigo: "101", centro: "GABINETE DE PRESIDENCIA", delegacion: "PRESIDENCIA", grupos: [], escala: "", categoria_clave: "", nivel_destino: 0, complemento_especifico_anual_centimos: 0, dotacion: 3, tipo: "E", provision: "I" }; }
 function sobre(vista = "categorias") { return { data: { rpt: { items: [vista === "puestos" ? puesto() : categoria()], total: 1, limit: 25, offset: 0, vista, esquema: "vec.catalogo.rpt.v1", fuente: { documento: "RPT publicada", importacion: "rpt-publica-v1", generado_en: "2026-09-17", aviso: "Datos públicos sin ocupantes.", huella_sha256: "a".repeat(64) }, resumen: { puestos: 842, dotacion: 1714, categorias: 145, centros: 41 } } } }; }

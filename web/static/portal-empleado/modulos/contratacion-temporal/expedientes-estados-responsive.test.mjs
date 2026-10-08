@@ -16,7 +16,7 @@ import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-e
 import {
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js?v=20261008-alta-circular-v3";
+} from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v4";
 
 const t = crearTraductorExpedientesContratacion();
 

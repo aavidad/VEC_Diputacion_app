@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { crearCatalogoModulosDesdeManifiestos } from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
-import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261008-alta-circular-v3";
+import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v4";
 
 function raizFalsa() {
   const eventos = new Map();

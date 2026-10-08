@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { MENSAJES_PERSONAL, crearTraductorPersonal, formatearFechaEstructuraOrganizativa, formatearRecuentoCategorias, formatearRecuentoRPT, prepararTextosPersonal } from "./i18n.js";
+import { MENSAJES_PERSONAL, crearTraductorPersonal, formatearFechaEstructuraOrganizativa, formatearRecuentoCategorias, formatearRecuentoRPT, prepararTextosPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
 
 test.before(async () => {
   await prepararTextosPersonal();
 });
 
 test("el módulo se importa sin cargar textos y exige preparación antes de traducir", async () => {
-  const aislado = await import("./i18n.js?sin-preparar");
+  const aislado = await import("./i18n.js?v=20261008-alta-rpt-circular-v4");
   assert.equal(aislado.MENSAJES_PERSONAL, undefined);
   assert.throws(() => aislado.crearTraductorPersonal(), /pendientes de preparación/);
 });
@@ -87,7 +87,7 @@ test("Personal adopta el idioma efectivo y comunica la incidencia de respaldo", 
 });
 
 test("un catálogo inaccesible no rompe la importación y permite otra preparación", async () => {
-  const aislado = await import("./i18n.js?recuperacion");
+  const aislado = await import("./i18n.js?v=20261008-alta-rpt-circular-v4");
   const datos = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
   await assert.rejects(aislado.prepararTextosPersonal({
     idioma: "es", porDefecto: "es", avisar: () => {}, leer: async () => { throw new Error("sin catálogo"); },
@@ -101,7 +101,7 @@ test("un catálogo inaccesible no rompe la importación y permite otra preparaci
 });
 
 test("un JSON válido con general vacío no publica textos y se recupera al reintentar", async () => {
-  const aislado = await import("./i18n.js?general-vacio");
+  const aislado = await import("./i18n.js?v=20261008-alta-rpt-circular-v4");
   const datos = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
   let lecturas = 0;
   await assert.rejects(aislado.prepararTextosPersonal({
@@ -127,7 +127,7 @@ function diferida() {
 }
 
 test("dos preparaciones simultáneas resuelven con el último idioma ya disponible", async () => {
-  const aislado = await import("./i18n.js?preparaciones-simultaneas");
+  const aislado = await import("./i18n.js?v=20261008-alta-rpt-circular-v4");
   const datosES = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
   const datosEN = JSON.parse(await readFile(new URL("../../../textos/en/personal.json", import.meta.url), "utf8"));
   const primeraLectura = diferida();
@@ -148,7 +148,7 @@ test("dos preparaciones simultáneas resuelven con el último idioma ya disponib
 });
 
 test("si la última preparación falla, ninguna llamada anterior confirma textos obsoletos", async () => {
-  const aislado = await import("./i18n.js?ultima-preparacion-fallida");
+  const aislado = await import("./i18n.js?v=20261008-alta-rpt-circular-v4");
   const datos = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
   const primeraLectura = diferida();
   const ultimaLectura = diferida();

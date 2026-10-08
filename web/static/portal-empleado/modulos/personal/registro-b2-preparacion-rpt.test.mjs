@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { prepararTextosPersonal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
 
 test.before(async () => { await prepararTextosPersonal(); });
-import { montarRegistroB2 } from "./registro-b2.js";
+import { montarRegistroB2 } from "./registro-b2.js?v=20261008-alta-rpt-circular-v4";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js";
 
 function raizFalsa() {

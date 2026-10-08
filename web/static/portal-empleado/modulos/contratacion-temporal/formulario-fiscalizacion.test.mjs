@@ -4,7 +4,7 @@ import test from "node:test";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-circular-v3";
 import { renderizarModuloContratacionTemporal,
   montarModuloContratacionTemporal,
-  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-circular-v3";
+  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v4";
 import { contextoFiscalizacionDesdeEstado } from "./vista-expedientes-render.js?v=20261008-alta-circular-v3";
 
 const EXPEDIENTE = "expediente:ct:fiscalizacion:formulario-001";

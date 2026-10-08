@@ -11,7 +11,7 @@ import {
   CORREO, HUELLA, archivoCorreo, comunicacionRegistrada, declaracion,
   justificante, abrirRespuesta, CLAVE_RESOLUCION, revisionManual,
   resolucionConfirmada, reciboResolucion, abrirResolucion,
-} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-circular-v3";
+} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v4";
 
 const MENSAJES_LLAMAMIENTO_EN = (await cargarCatalogosContratacionEnIdioma(
   "contratacion-temporal-llamamiento", "en",

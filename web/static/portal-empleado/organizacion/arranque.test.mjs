@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearArranqueOrganizacion } from "./arranque.js";
+import { crearArranqueOrganizacion } from "./arranque.js?v=20261008-alta-rpt-circular-v4";
 
 function documentoFalso() {
   class Nodo {

@@ -6,7 +6,7 @@ import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=202610
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-circular-v3";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-moad-v1";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-circular-v3";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-circular-v3";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v4";
 
 const expediente_ref = "expediente:ct:montaje";
 const recibo = Object.freeze({

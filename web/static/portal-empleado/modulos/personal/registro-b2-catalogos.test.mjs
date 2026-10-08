@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { prepararTextosPersonal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
 
 test.before(async () => { await prepararTextosPersonal(); });
 import { calcularHuellaPublicacionCatalogoB2, crearClienteCatalogosRegistroB2, ErrorCatalogosRegistroB2 } from "./registro-b2-catalogos-cliente.js";
-import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js";
+import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20261008-alta-rpt-circular-v4";
 
 const completar = () => new Promise((resolver) => setImmediate(resolver));
 const huella = "b08fcb659efbcff4bf474e6d1d1051ca7e110007562dce9253bcd2fb69d47e62";

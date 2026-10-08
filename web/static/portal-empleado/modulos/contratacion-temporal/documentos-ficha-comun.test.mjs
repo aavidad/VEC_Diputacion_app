@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-circular-v3";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-circular-v3";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-circular-v3";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v4";
 
 // La ficha real coloca la lista común de documentos (consulta y descarga
 // autorizadas por el servidor) dentro de su panel «Documentos».

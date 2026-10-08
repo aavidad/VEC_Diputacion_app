@@ -67,7 +67,7 @@
          paralelo con la entrada, sin esperar a leer cada nivel de import. Primero
          la cadena que carga el catálogo y los módulos. Deben coincidir exactamente
          con las URL que importa el código (lo comprueba portal-carga-rapida.test.mjs). -->
-    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261008-alta-circular-v3">
+    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v4">
 
     <link rel="modulepreload" href="/comun/correos-propios.js?v=20260929-correos-508b-v1">
     <link rel="modulepreload" href="/comun/iconos-vec.js?v=20260925-aspecto-v1">
@@ -80,7 +80,7 @@
     <link rel="modulepreload" href="/portal-empleado/modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1">
     <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1">
     <link rel="modulepreload" href="/portal-empleado/modulos/bolsa/rrhh-politica-cese-vista.js?v=20261007-pantallas-textos-final-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1">
+    <link rel="modulepreload" href="/portal-empleado/modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4">
 
     <link rel="modulepreload" href="/portal-empleado/portal-bolsas-avisos.js?v=20261007-pantallas-textos-final-v1">
 
@@ -93,7 +93,7 @@
     <link rel="modulepreload" href="/portal-empleado/portal-borradores-ui.js?v=20261008-borradores-error-legible-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-borradores-vista.js?v=20261008-borradores-error-legible-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-composicion-empleado.js?v=20261005-b-contacto-v3">
+    <link rel="modulepreload" href="/portal-empleado/portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4">
     <link rel="modulepreload" href="/portal-empleado/portal-contrato.js?v=20260925-sin-demo2-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-ct-ruta-filtro.js?v=20261008-bolsa-inicio-v2">
     <link rel="modulepreload" href="/portal-empleado/portal-eventos.js?v=20261008-ct-inicio-v1">
@@ -115,3 +115,177 @@
     <!-- Carga clásica y síncrona: globalThis.L existe antes de evaluar cualquier módulo. -->
     <script src="/portal-empleado/vendor/leaflet-1.9.4/leaflet.js?v=1.9.4" integrity="sha384-tM1WyRnQZLXgeuR/dXHqqQcD5jN9+bgKmZW55OJtM9Bv7zCG4VFwmgdJudAtzIni"></script>
     <script type="module" src="/portal-empleado/portal-arranque-aviso.js?v=20261007-pantallas-textos-final-v1"></script>
+    <script type="module" src="/portal-empleado/portal.js?v=20261008-alta-rpt-circular-v4"></script>
+
+    <script type="module" src="/pwa/instalar.js?v=20261003-pwa-ci-v5"></script>
+  </head>
+  <body class="portal-empleado-app">
+    <a class="salto-contenido" href="#contenido-principal" data-i18n-portal="txt_saltar_al_contenido_principal">Saltar al contenido principal</a>
+
+    <div class="portal-empleado-shell">
+      <aside class="portal-lateral" id="navegacion-lateral" aria-label="Portal del Empleado" data-i18n-portal-aria-label="txt_portal_del_empleado">
+        <a class="marca-portal" id="enlace-inicio-institucional" href="#portal" data-vista="portal" data-identidad-institucional="diputacion-granada" aria-label="Ir al inicio del Portal del Empleado" data-i18n-portal-aria-label="txt_ir_al_inicio_del_portal_del_empleado">
+          <img class="logo-institucional" src="/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada" data-i18n-portal-alt="txt_diputacion_de_granada">
+          <div class="marca-portal-contexto">
+            <strong data-i18n-portal="txt_portal_del_empleado">Portal del Empleado</strong>
+            <span data-i18n-portal="txt_gestion_de_recursos_humanos">Gestión de Recursos Humanos</span>
+          </div>
+        </a>
+
+        <div class="fase-portal" id="estado-modulos-portal">
+          <span class="punto-estado" aria-hidden="true"></span>
+          <span id="texto-estado-modulos-portal" data-i18n-portal="txt_comprobando_modulos">Comprobando módulos</span>
+        </div>
+
+        <nav class="navegacion-modulos" aria-label="Módulos del portal" data-i18n-portal-aria-label="txt_modulos_del_portal">
+          <button type="button" class="enlace-lateral enlace-portal" data-vista="portal">
+            <span class="indicador-menu" aria-hidden="true">I</span>
+            <span data-i18n-portal="menu_inicio">Inicio</span>
+          </button>
+
+          <p class="titulo-navegacion solo-lectura" id="titulo-modulos-portal" data-i18n-portal="txt_modulos">Módulos</p>
+          <div id="navegacion-modulos-dinamica" aria-labelledby="titulo-modulos-portal"></div>
+          <button type="button" id="enlace-plantillas-rrhh" class="enlace-lateral enlace-submenu" data-vista="plantillas-rrhh" hidden><span data-i18n-portal="plantillas_rrhh_nav">Plantillas de documentos</span></button>
+        </nav>
+
+        <nav class="navegacion-bolsa" id="navegacion-bolsa" aria-label="Gestión de Bolsas" hidden data-i18n-portal-aria-label="txt_gestion_de_bolsas">
+          <p class="titulo-navegacion" data-i18n-portal="txt_gestion_de_bolsas">Gestión de Bolsas</p>
+
+          <div class="grupo-menu-bolsa">
+            <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="bolsas-candidatos" data-grupo-bolsa="bolsas-candidatos" aria-expanded="false" aria-controls="submenu-bolsas-candidatos">
+              <span class="numero-menu tono-azul" aria-hidden="true">1</span>
+              <span data-i18n-portal="txt_bolsas_y_candidatos">Bolsas y candidatos</span>
+              <span class="marca-expansion" aria-hidden="true">⌄</span>
+            </button>
+            <div class="submenu-bolsa" id="submenu-bolsas-candidatos" role="group" aria-label="Opciones de bolsas y candidatos" hidden data-i18n-portal-aria-label="txt_opciones_de_bolsas_y_candidatos">
+              <button type="button" class="enlace-lateral enlace-submenu" data-vista="elaboracion"><span data-i18n-portal="txt_elaboracion_y_borradores">Elaboración y borradores</span></button>
+              <button type="button" class="enlace-lateral enlace-submenu" data-vista="convocatorias"><span data-i18n-portal="txt_convocatorias_bases_y_calendario">Convocatorias, bases y calendario</span></button>
+              <button type="button" class="enlace-lateral enlace-submenu" data-vista="solicitudes"><span data-i18n-portal="txt_solicitudes_y_admision">Solicitudes y admisión</span></button>
+              <button type="button" class="enlace-lateral enlace-submenu" data-vista="meritos"><span data-i18n-portal="txt_revision_de_meritos">Revisión de méritos</span></button>
+              <button type="button" class="enlace-lateral enlace-submenu" data-vista="alegaciones"><span data-i18n-portal="txt_alegaciones">Alegaciones</span></button>
+              <button type="button" class="enlace-lateral enlace-submenu" data-vista="importacion"><span data-i18n-portal="txt_importacion_convoca">Importación Convoca</span></button>
+            </div>
+          </div>
+
+          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="llamamientos" data-vista="llamamientos">
+            <span class="numero-menu tono-verde" aria-hidden="true">2</span><span data-i18n-portal="txt_llamamientos_automaticos">Llamamientos automáticos</span>
+          </button>
+          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="contratos" data-vista="contratos">
+            <span class="numero-menu tono-naranja" aria-hidden="true">3</span><span data-i18n-portal="txt_contratos_ceses_y_reincorporaciones">Contratos, ceses y reincorporaciones</span><span class="etiqueta-menu" aria-hidden="true" data-i18n-portal="contratos_consulta_etiqueta">Consulta</span>
+          </button>
+
+          <div class="grupo-menu-bolsa">
+            <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="reglas" data-grupo-bolsa="reglas" aria-expanded="false" aria-controls="submenu-reglas">
+              <span class="numero-menu tono-violeta" aria-hidden="true">4</span>
+              <span data-i18n-portal="txt_reglas_y_baremacion">Reglas y baremación</span>
+              <span class="marca-expansion" aria-hidden="true">⌄</span>
+            </button>
+            <div class="submenu-bolsa" id="submenu-reglas" role="group" aria-label="Opciones de reglas y baremación" hidden data-i18n-portal-aria-label="txt_opciones_de_reglas_y_baremacion">
+              <button type="button" class="enlace-lateral enlace-submenu" data-vista="reglas"><span data-i18n-portal="txt_reglas_y_versiones">Reglas y versiones</span></button>
+              <button type="button" class="enlace-lateral enlace-submenu" data-vista="baremacion"><span data-i18n-portal="txt_baremacion_y_ranking">Baremación y ranking</span></button>
+            </div>
+          </div>
+
+          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="consulta" data-vista="consulta">
+            <span class="numero-menu tono-cian" aria-hidden="true">5</span><span data-i18n-portal="txt_consulta_de_candidatos">Consulta de candidatos</span>
+          </button>
+          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="resumen" data-vista="resumen">
+            <span class="numero-menu tono-rojo" aria-hidden="true">6</span><span data-i18n-portal="txt_cuadro_de_mando">Cuadro de mando</span>
+          </button>
+          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="estadisticas" data-vista="estadisticas">
+            <span class="numero-menu tono-oliva" aria-hidden="true">7</span><span data-i18n-portal="txt_estadisticas">Estadísticas</span>
+          </button>
+          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="documentos" data-vista="contratacion-temporal">
+            <span class="numero-menu tono-ambar" aria-hidden="true">8</span><span data-i18n-portal="txt_documentos_y_firma">Documentos y firma</span><span class="etiqueta-menu" aria-hidden="true" data-i18n-portal="txt_borradores_pdf">Borradores PDF</span>
+          </button>
+          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="comunicaciones" data-vista="llamamientos">
+            <span class="numero-menu tono-turquesa" aria-hidden="true">9</span><span data-i18n-portal="txt_correo_y_mensajeria">Correo y mensajería</span><span class="etiqueta-menu" aria-hidden="true" data-i18n-portal="txt_correo">Correo</span>
+          </button>
+
+          <div class="grupo-menu-bolsa">
+            <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="auditoria" data-grupo-bolsa="auditoria" aria-expanded="false" aria-controls="submenu-auditoria">
+              <span class="numero-menu tono-morado" aria-hidden="true">10</span>
+              <span data-i18n-portal="txt_auditoria_y_control">Auditoría y control</span>
+              <span class="marca-expansion" aria-hidden="true">⌄</span>
+            </button>
+            <div class="submenu-bolsa" id="submenu-auditoria" role="group" aria-label="Opciones de auditoría y administración" hidden data-i18n-portal-aria-label="txt_opciones_de_auditoria_y_administracion">
+              <button type="button" class="enlace-lateral enlace-submenu" data-vista="auditoria"><span data-i18n-portal="txt_auditoria_y_trazabilidad">Auditoría y trazabilidad</span></button>
+              <button type="button" class="enlace-lateral enlace-submenu" data-vista="configuracion"><span data-i18n-portal="txt_configuracion_roles_y_permisos">Configuración, roles y permisos</span></button>
+            </div>
+          </div>
+        </nav>
+
+        <div class="pie-lateral">
+          <span data-i18n-portal="txt_portal_de_recursos_humanos">Portal de Recursos Humanos</span>
+        </div>
+      </aside>
+
+      <div class="portal-superficie">
+        <header class="cabecera-portal">
+          <button type="button" class="boton-menu-movil" id="boton-menu" aria-controls="navegacion-lateral" aria-expanded="false">
+            <span aria-hidden="true">☰</span><span class="solo-lectura" data-i18n-portal="txt_abrir_navegacion">Abrir navegación</span>
+          </button>
+          <div class="contexto-cabecera">
+            <nav class="migas" aria-label="Migas de pan" id="migas-pan" data-i18n-portal-aria-label="txt_migas_de_pan" data-i18n-portal="txt_portal_del_empleado">Portal del Empleado</nav>
+            <h1 id="titulo-vista" data-i18n-portal="txt_portal_del_empleado">Portal del Empleado</h1>
+          </div>
+          <div class="acciones-cabecera">
+            <label class="selector-idioma" for="idioma-interfaz"><span data-i18n-portal="selector_idioma_etiqueta">Idioma de la interfaz</span>
+              <select id="idioma-interfaz" name="lang"><option value="es" data-i18n-portal="selector_idioma_es">Español</option><option value="en" data-i18n-portal="selector_idioma_en">Inglés</option></select>
+            </label>
+            <button type="button" class="boton-cabecera" id="boton-texto" aria-label="Aumentar o restablecer el tamaño del texto" aria-pressed="false" title="Aumentar tamaño del texto" data-i18n-portal-aria-label="txt_aumentar_o_restablecer_el_tamano_del_texto" data-i18n-portal-title="txt_aumentar_tamano_del_texto">A+</button>
+            <button type="button" class="boton-cabecera boton-icono" id="boton-contraste" aria-label="Activar o desactivar el alto contraste" aria-pressed="false" title="Alto contraste" data-i18n-portal-aria-label="txt_activar_o_desactivar_el_alto_contraste" data-i18n-portal-title="txt_alto_contraste"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+            <button type="button" class="boton-cabecera boton-ayuda-cabecera" data-accion="ayuda" aria-label="?" title="Ayuda de esta pantalla" data-i18n-portal-aria-label="txt_ayuda_pantalla" data-i18n-portal-title="txt_ayuda_pantalla" aria-haspopup="dialog">?</button>
+            <button type="button" class="boton-cabecera boton-icono boton-avisos" data-accion="avisos" title="Avisos" data-i18n-portal-title="txt_avisos">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z M10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span aria-label="Avisos pendientes sin resolver" data-i18n-portal-aria-label="txt_avisos_pendientes_sin_resolver"></span><b class="solo-lectura" data-i18n-portal="txt_avisos">Avisos</b>
+            </button>
+            <div class="sesion-presentacion" id="sesion-visible" role="group" aria-label="Sesión" data-i18n-portal-aria-label="sesion_etiqueta">
+              <button type="button" id="boton-identidad" class="sesion-identidad" aria-haspopup="menu" aria-controls="menu-identidad" aria-expanded="false" disabled>
+                <span class="avatar" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" focusable="false"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+                <span data-sesion-texto hidden><strong></strong><small></small></span>
+                <span aria-hidden="true">⌄</span>
+              </button>
+              <div id="menu-identidad" class="menu-identidad" role="menu" hidden>
+                <button type="button" role="menuitem" id="abrir-mis-preferencias" data-i18n-portal="preferencias_titulo_base">Mis preferencias</button>
+              </div>
+            </div>
+          </div>
+          <nav class="pwa-navegacion" data-pwa-navegacion data-pwa-scope="/portal-empleado/" hidden>
+            <button type="button" data-pwa-accion="volver"></button>
+            <button type="button" data-pwa-accion="inicio"></button>
+            <button type="button" data-pwa-accion="recargar"></button>
+          </nav>
+        </header>
+
+        <main id="contenido-principal" class="contenido-portal" tabindex="-1">
+          <p id="aviso-inicio-preferido" class="pref-aviso" role="status" hidden></p>
+          <div id="espacio-trabajo" aria-live="off"></div>
+        </main>
+
+        <footer class="pie-portal">
+          <span data-i18n-portal="txt_2026_diputacion_de_granada_portal_del_empleado">© 2026 Diputación de Granada · Portal del Empleado</span>
+          <span data-i18n-portal="txt_proteccion_de_datos_accesibilidad_ayuda">Protección de datos · Accesibilidad · Ayuda</span>
+        </footer>
+      </div>
+    </div>
+
+    <dialog id="dialogo-detalle" class="dialogo-detalle" aria-labelledby="titulo-dialogo">
+      <form method="dialog">
+        <div class="cabecera-dialogo">
+          <div>
+            <p class="sobrelinea" data-i18n-portal="txt_detalle_de_gestion">Detalle de gestión</p>
+            <h2 id="titulo-dialogo" data-i18n-portal="txt_detalle">Detalle</h2>
+          </div>
+          <button type="submit" class="boton-cerrar" aria-label="Cerrar detalle" data-i18n-portal-aria-label="txt_cerrar_detalle">×</button>
+        </div>
+        <div id="contenido-dialogo" class="contenido-dialogo"></div>
+        <div class="acciones-dialogo">
+          <button type="submit" class="boton-secundario" data-i18n-portal="txt_cerrar">Cerrar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="solo-lectura" id="anuncios" aria-live="polite"></div>
+    <div class="velo-menu" id="velo-menu" hidden></div>
+  </body>
+</html>

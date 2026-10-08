@@ -18,7 +18,7 @@ import {
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
 } from "./vista-expedientes-render.js?v=20261008-alta-circular-v3";
-import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-alta-circular-v3";
+import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-alta-rpt-circular-v4";
 
 function enfocarElemento(raiz, selector) {
   const elemento = raiz.querySelector(selector);
