@@ -4,12 +4,31 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"time"
 )
 
 var ErrTokenSesionMemoriaCertificadoNoValido = errors.New("token de sesion de certificado no valido")
+
+// Conserva la causa para diagnóstico interno sin exponer contenido del token
+// ni del catálogo por Error, fmt o slog.
+type falloTokenSesionMemoriaCertificado struct{ causa error }
+
+func (falloTokenSesionMemoriaCertificado) Error() string {
+	return ErrTokenSesionMemoriaCertificadoNoValido.Error()
+}
+func (f falloTokenSesionMemoriaCertificado) Unwrap() []error {
+	return []error{ErrTokenSesionMemoriaCertificadoNoValido, f.causa}
+}
+func (f falloTokenSesionMemoriaCertificado) Format(s fmt.State, _ rune) {
+	_, _ = io.WriteString(s, f.Error())
+}
+func (f falloTokenSesionMemoriaCertificado) LogValue() slog.Value {
+	return slog.StringValue(f.Error())
+}
 
 const (
 	esquemaSesionMemoriaCertificado = "vec.identidad.sesion-memoria-certificado.v1"
@@ -45,15 +64,28 @@ func CargarPoliticaSesionMemoriaCertificado(lector io.Reader) (PoliticaSesionMem
 		return vacia, ErrTokenSesionMemoriaCertificadoNoValido
 	}
 	contenido, err := io.ReadAll(io.LimitReader(lector, maximoDocumentoPoliticaSesion+1))
-	if err != nil || len(contenido) == 0 || len(contenido) > maximoDocumentoPoliticaSesion ||
-		!clavesUnicasPoliticaSesion(contenido) {
+	if err != nil {
+		return vacia, falloTokenSesionMemoriaCertificado{causa: err}
+	}
+	if len(contenido) == 0 || len(contenido) > maximoDocumentoPoliticaSesion {
 		return vacia, ErrTokenSesionMemoriaCertificadoNoValido
+	}
+	if err := clavesUnicasPoliticaSesion(contenido); err != nil {
+		return vacia, err
 	}
 	decodificador := json.NewDecoder(bytes.NewReader(contenido))
 	decodificador.DisallowUnknownFields()
 	var documento documentoPoliticaSesionMemoriaCertificado
-	if decodificador.Decode(&documento) != nil || decodificador.Decode(new(any)) != io.EOF ||
-		documento.Esquema != esquemaSesionMemoriaCertificado ||
+	if err := decodificador.Decode(&documento); err != nil {
+		return vacia, falloTokenSesionMemoriaCertificado{causa: err}
+	}
+	if err := decodificador.Decode(new(any)); err != io.EOF {
+		if err != nil {
+			return vacia, falloTokenSesionMemoriaCertificado{causa: err}
+		}
+		return vacia, ErrTokenSesionMemoriaCertificadoNoValido
+	}
+	if documento.Esquema != esquemaSesionMemoriaCertificado ||
 		!referenciaPoliticaSesionValida(documento.Referencia) || documento.Version == 0 ||
 		documento.TTLSegundos == 0 || documento.TTLSegundos > uint64(maximoTecnicoVidaToken/time.Second) ||
 		documento.Capacidad == 0 || documento.Capacidad > maximoTecnicoTokens {
@@ -66,31 +98,46 @@ func CargarPoliticaSesionMemoriaCertificado(lector io.Reader) (PoliticaSesionMem
 	}, nil
 }
 
-func clavesUnicasPoliticaSesion(contenido []byte) bool {
+func clavesUnicasPoliticaSesion(contenido []byte) error {
 	decodificador := json.NewDecoder(bytes.NewReader(contenido))
 	apertura, err := decodificador.Token()
-	if err != nil || apertura != json.Delim('{') {
-		return false
+	if err != nil {
+		return falloTokenSesionMemoriaCertificado{causa: err}
+	}
+	if apertura != json.Delim('{') {
+		return ErrTokenSesionMemoriaCertificadoNoValido
 	}
 	vistas := map[string]bool{}
 	for decodificador.More() {
 		clave, err := decodificador.Token()
+		if err != nil {
+			return falloTokenSesionMemoriaCertificado{causa: err}
+		}
 		nombre, ok := clave.(string)
-		if err != nil || !ok || vistas[nombre] {
-			return false
+		if !ok || vistas[nombre] {
+			return ErrTokenSesionMemoriaCertificadoNoValido
 		}
 		vistas[nombre] = true
 		var valor json.RawMessage
-		if decodificador.Decode(&valor) != nil {
-			return false
+		if err := decodificador.Decode(&valor); err != nil {
+			return falloTokenSesionMemoriaCertificado{causa: err}
 		}
 	}
 	cierre, err := decodificador.Token()
-	if err != nil || cierre != json.Delim('}') || len(vistas) != 5 {
-		return false
+	if err != nil {
+		return falloTokenSesionMemoriaCertificado{causa: err}
+	}
+	if cierre != json.Delim('}') || len(vistas) != 5 {
+		return ErrTokenSesionMemoriaCertificadoNoValido
 	}
 	_, err = decodificador.Token()
-	return err == io.EOF
+	if err == io.EOF {
+		return nil
+	}
+	if err != nil {
+		return falloTokenSesionMemoriaCertificado{causa: err}
+	}
+	return ErrTokenSesionMemoriaCertificadoNoValido
 }
 
 func referenciaPoliticaSesionValida(referencia string) bool {

@@ -3,14 +3,41 @@ package httpseguridad
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 )
+
+type lectorPoliticaFallido struct{ causa error }
+
+func (l lectorPoliticaFallido) Read([]byte) (int, error) { return 0, l.causa }
+
+func TestSesionMemoriaCausasInternasRedactadas(t *testing.T) {
+	causa := errors.New("ruta privada de prueba")
+	_, err := CargarPoliticaSesionMemoriaCertificado(lectorPoliticaFallido{causa: causa})
+	if !errors.Is(err, causa) || !errors.Is(err, ErrTokenSesionMemoriaCertificadoNoValido) ||
+		err.Error() != ErrTokenSesionMemoriaCertificadoNoValido.Error() ||
+		strings.Contains(fmt.Sprintf("%#v", err), "ruta privada") {
+		t.Fatalf("fallo de lectura no conservó causa redactada: %v", err)
+	}
+	err = clavesUnicasPoliticaSesion([]byte(`{"esquema":`))
+	if err == nil || !errors.Is(err, io.EOF) || err.Error() != ErrTokenSesionMemoriaCertificadoNoValido.Error() {
+		t.Fatalf("JSON truncado perdió causa: %v", err)
+	}
+	_, err = huellaTokenSesion(strings.Repeat("!", 43))
+	var corrupto base64.CorruptInputError
+	if !errors.As(err, &corrupto) || err.Error() != ErrTokenSesionMemoriaCertificadoNoValido.Error() ||
+		strings.Contains(fmt.Sprintf("%#v", err), "!") {
+		t.Fatalf("token mal codificado perdió causa redactada: %v", err)
+	}
+}
 
 func politicaSesionMemoriaPrueba(t *testing.T, capacidad int) PoliticaSesionMemoriaCertificado {
 	t.Helper()
@@ -64,6 +91,11 @@ func TestSesionMemoriaEmisionUnicaConcurrenteYRevocacion(t *testing.T) {
 	vinculado, err := s.VincularCapsulaPresentacion(ctx, capsula, credencial.canal)
 	if err != nil {
 		t.Fatal(err)
+	}
+	doble := context.WithValue(vinculado, claveCapsulaIdentidad{}, capsulaIdentidadVinculada{})
+	if _, err := capsulaTokenCertificadoVinculada(doble, s, prueba, credencial.canal, reloj.Ahora(), true); !errors.Is(err, ErrPresentacionCertificadoNoValida) ||
+		err.Error() != ErrTokenSesionMemoriaCertificadoNoValido.Error() {
+		t.Fatalf("fallo interno de cápsula no propagado y redactado: %v", err)
 	}
 	cancelado, cancelar := context.WithCancel(vinculado)
 	cancelar()
