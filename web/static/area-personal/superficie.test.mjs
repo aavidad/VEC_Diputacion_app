@@ -89,8 +89,8 @@ test("la dirección admite el identificador de enlaces antiguos para poder redir
 test("el menú muestra solo las vistas con recorrido actual", async () => {
   const html = await readFile(join(RAIZ, "index.html"), "utf8");
   const vistas = JSON.parse(await readFile(join(RAIZ, "vistas.json"), "utf8"));
-  assert.deepEqual(Object.keys(vistas.vistas).sort(), ["ayuda", "inicio", "llamamientos", "oportunidades", "perfil", "preferencias"]);
-  for (const nombre of ["inicio", "llamamientos", "perfil", "ayuda"]) assert.match(html, new RegExp(`data-ruta="${nombre}"`, "u"));
+  assert.deepEqual(Object.keys(vistas.vistas).sort(), ["ayuda", "inicio", "inscripcion", "llamamientos", "oportunidades", "perfil", "preferencias"]);
+  for (const nombre of ["inicio", "llamamientos", "inscripcion", "perfil", "ayuda"]) assert.match(html, new RegExp(`data-ruta="${nombre}"`, "u"));
   assert.doesNotMatch(html, /data-ruta="(?:convocatorias|convocatoria|meritos|seguimiento|subsanaciones|alegaciones|mensajes|certificados|solicitud)"/u);
   assert.match(html, /<main\b/u);
   assert.match(html, /name="viewport" content="width=device-width, initial-scale=1"/u);
