@@ -160,6 +160,8 @@ export async function montarCuadroContratacionLigero({
       + renderizarListaPeticiones({ cuadro: cuadroVisible(), filtros: {} },
       t, filtro, ayudas, paginacion(t), { altaDisponible: typeof abrirAlta === "function",
         actualizarDisponible: true, filtroResultados: filtroResultados(),
+        opcionesFaseServidor: FASES_SERVIDOR_V1, opcionesMostrarServidor: MOSTRAR_SERVIDOR_V1,
+        buscadorServidor: true, tituloConjunto: true, ocultarFiltrosLocales: true,
         totalConjunto: filtro.mostrar === "en_tramite"
           ? cuadro.resumen?.en_tramite ?? null : cuadro.totales?.total ?? null,
         enTramiteConjunto: cuadro.resumen?.en_tramite ?? null,
@@ -208,6 +210,7 @@ export async function montarCuadroContratacionLigero({
       const pagina = await cliente.consultarCuadroRRHH(solicitud, { signal: actual.signal });
       if (!vigente || actual !== controlador) return;
       cuadro = proyectarPagina(pagina, preparado.secciones["portal.fases_rrhh"], localizacionDe(preparado.idioma));
+      alCambiarFiltroLista?.(solicitud.filtros);
       if (soloResultados) pintarConFocoDeFiltro();
       else pintar();
       restaurarFoco(foco);
@@ -218,8 +221,9 @@ export async function montarCuadroContratacionLigero({
         mostrarError(raiz, { error, mensaje, reintentar: () => {
           if (filtroNoDisponible) {
             filtroRuta = null;
+            filtroServidorRuta = null;
             filtroServidorActual = null;
-            filtro = FILTRO_LISTA_INICIAL;
+            filtro = FILTRO_LIGERO_INICIAL;
             paginaIndice = 0;
             cursores.length = 1;
           }
@@ -255,9 +259,11 @@ export async function montarCuadroContratacionLigero({
       paginaIndice--;
       await cargar({ foco: '[data-ct-pagina="anterior"]' });
     } else if (boton.dataset.ctExpQuitarFiltro) {
-      filtro = boton.dataset.ctExpQuitarFiltro === "todos" ? FILTRO_LISTA_INICIAL
-        : filtroListaValido({ ...filtro, [boton.dataset.ctExpQuitarFiltro]: "" });
-      filtroRuta = { ...filtro, mostrar: filtro.mostrar === "en_tramite" ? "todas" : filtro.mostrar };
+      filtro = boton.dataset.ctExpQuitarFiltro === "todos" ? FILTRO_LIGERO_INICIAL
+        : filtroLigeroValido({ ...filtro, [boton.dataset.ctExpQuitarFiltro]:
+          boton.dataset.ctExpQuitarFiltro === "mostrar" ? "todas" : "" });
+      filtroRuta = { ...filtro };
+      filtroServidorRuta = null;
       filtroServidorActual = null;
       paginaIndice = 0;
       cursores.length = 1;
@@ -269,17 +275,19 @@ export async function montarCuadroContratacionLigero({
     const formulario = evento.target?.closest?.("[data-ct-exp-filtros-locales]");
     if (!formulario || !cuadro || !vigente || signal?.aborted) return;
     const datos = Object.fromEntries(new FormData(formulario).entries());
-    if (evento.type === "input" && evento.target?.name === "texto" && datos.mostrar === "en_tramite") {
-      datos.mostrar = "todas";
-      const selector = formulario.elements?.namedItem?.("mostrar");
-      if (selector) selector.value = "todas";
+    let nuevoFiltro;
+    try { nuevoFiltro = filtroLigeroValido(datos); }
+    catch (error) {
+      mostrarError(raiz, { error, mensaje: crearTraductorCuadroCT(preparado)("lista_filtro_no_disponible"),
+        reintentar: () => cargar({ reintentar: true }) });
+      return;
     }
-    const nuevoFiltro = filtroListaValido(datos);
     const claveNueva = JSON.stringify(nuevoFiltro);
     if (claveNueva === filtroConsultado && temporizadorBusqueda === null) return;
     if (claveNueva !== JSON.stringify(filtro)) {
       filtro = nuevoFiltro;
       filtroRuta = { ...datos };
+      filtroServidorRuta = null;
       filtroServidorActual = null;
       filtroConsultado = null;
       controlador?.abort();

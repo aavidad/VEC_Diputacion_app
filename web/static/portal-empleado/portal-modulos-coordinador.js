@@ -1148,6 +1148,8 @@ export function crearCoordinadorModulosPortal({
           const modulo = await moduloLigero.montarCuadroContratacionLigero({
             raiz, cliente: temporal.cliente, idioma: locale === "en-GB" ? "en" : "es",
             filtroLista: opciones?.filtroLista ?? null, signal: controladorMontaje.signal,
+            filtroServidorRuta: opciones?.filtroServidorRuta ?? null,
+            alCambiarFiltroLista: opciones?.alCambiarFiltroLista ?? null,
             abrirDetalle: ({ expedienteRef }) => montarVista("contratacion-temporal", raiz, { ...opciones, expedienteRef }),
             abrirAlta: esPerfilRRHH() ? () => montarVista("contratacion-temporal", raiz, { ...opciones, subvista: "alta" }) : null,
             mostrarError,

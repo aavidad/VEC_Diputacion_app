@@ -150,6 +150,69 @@ test("incidencia conserva el mismo total autorizado a través de 100 más 1 fila
   montaje.desmontar();
 });
 
+test("quitar incidencia y buscar por prefijo notifican solo filtros confirmados por el servidor", async () => {
+  const raiz = raizFalsa(), solicitudes = [], aplicados = [];
+  const previo = globalThis.FormData;
+  globalThis.FormData = class { constructor(formulario) { this.campos = formulario.campos; }
+    entries() { return Object.entries(this.campos); } };
+  try {
+    const montaje = await montarCuadroContratacionLigero({ raiz, idioma: "es",
+      filtroServidorRuta: { texto: "", estado_clave: "incidencia", fase_clave: "" },
+      alCambiarFiltroLista: (filtro) => aplicados.push({ ...filtro }),
+      abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => { throw datos.error; },
+      cliente: { consultarCuadroRRHH: async (solicitud) => {
+        solicitudes.push(solicitud);
+        return { generada_en: "2026-10-01T09:00:00Z", expedientes: [fila], hay_mas: false };
+      } },
+    });
+    assert.deepEqual(aplicados, [{ texto: "", estado_clave: "incidencia", fase_clave: "" }]);
+    assert.match(raiz.innerHTML, /name="mostrar"[^>]*>[\s\S]*?value="incidencia" selected/u);
+    assert.doesNotMatch(raiz.innerHTML, /name="centro"|name="categoria"|Vencen hoy/u);
+    await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctExpQuitarFiltro: "mostrar" } }) } });
+    assert.equal(solicitudes.length, 2);
+    assert.deepEqual(aplicados.at(-1), { texto: "", estado_clave: "", fase_clave: "" });
+    const formulario = { campos: { texto: "2026/CT", fase: "", mostrar: "todas" } };
+    raiz.eventos.get("change")({ type: "change", target: { closest: () => formulario } });
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(solicitudes.length, 3);
+    assert.deepEqual(aplicados.at(-1), { texto: "2026/CT", estado_clave: "", fase_clave: "" });
+    assert.equal(aplicados.length, 3, "una notificación por respuesta válida, sin POST añadido");
+    montaje.desmontar();
+  } finally { globalThis.FormData = previo; }
+});
+
+test("una fase exacta puede contener terminadas: el listado usa su total, no el recuento activo de Inicio", async () => {
+  const raiz = raizFalsa(), solicitudes = [];
+  const activa = { ...fila, fase_clave: "nombramiento", estado_clave: "en_curso" };
+  const terminada = { ...fila, expediente_ref: "expediente:ct:002", numero_visible: "2026/CT-0002",
+    fase_clave: "nombramiento", estado_clave: "completado" };
+  const montaje = await montarCuadroContratacionLigero({ raiz, idioma: "es",
+    filtroServidorRuta: { texto: "", estado_clave: "", fase_clave: "nombramiento" },
+    abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => { throw datos.error; },
+    cliente: { consultarCuadroRRHH: async (solicitud) => {
+      solicitudes.push(solicitud);
+      return { generada_en: "2026-10-01T09:00:00Z", expedientes: [activa, terminada], hay_mas: false,
+        totales: { total: 2, en_tramitacion: 1, con_incidencia: 0, en_llamamiento: 0 },
+        resumen: { en_tramite: 1, con_incidencia: 0, vencidos: 0, vencen_hoy: 0,
+          vencen_semana: 0, sin_calcular: 0, por_fase: { nombramiento: 1 } } };
+    } },
+  });
+  assert.deepEqual(solicitudes[0].filtros, { texto: "", estado_clave: "", fase_clave: "nombramiento" });
+  assert.match(raiz.innerHTML, /<h3 class="ct-exp-lista-titulo">Peticiones<\/h3>/u);
+  assert.match(raiz.innerHTML, /2 de 2 peticiones/u);
+  assert.equal((raiz.innerHTML.match(/data-ct-exp-abrir=/gu) ?? []).length, 2);
+  assert.match(raiz.innerHTML, /value="nombramiento" selected/u);
+  const fases = raiz.innerHTML.match(/<select name="fase">([\s\S]*?)<\/select>/u)?.[1] ?? "";
+  assert.deepEqual([...fases.matchAll(/<option value="([^"]*)"/gu)].map((m) => m[1]),
+    ["", "solicitud", "analisis", "preparacion", "fiscalizacion", "llamamiento", "nombramiento", "incorporacion", "cierre"]);
+  const estados = raiz.innerHTML.match(/<select name="mostrar">([\s\S]*?)<\/select>/u)?.[1] ?? "";
+  assert.deepEqual([...estados.matchAll(/<option value="([^"]*)"/gu)].map((m) => m[1]),
+    ["todas", "incidencia", "espera"]);
+  assert.match(raiz.innerHTML, /placeholder="Prefijo del número de expediente"/u);
+  assert.doesNotMatch(raiz.innerHTML, /1 petición en trámite/u);
+  montaje.desmontar();
+});
+
 test("una señal ya abortada no consulta, modifica DOM ni instala eventos", async () => {
   const controlador = new AbortController(), raiz = raizFalsa();
   controlador.abort();
@@ -182,7 +245,7 @@ test("buscar encuentra una fila fuera de la primera página sin robar foco ni re
     controlInicial.value = "objetivo";
     controlInicial.focus();
     controlInicial.setSelectionRange(2, 6, "forward");
-    const formulario = { campos: { texto: "objetivo", fase: "", centro: "", categoria: "", mostrar: "en_tramite" },
+    const formulario = { campos: { texto: "objetivo", fase: "", centro: "", categoria: "", mostrar: "todas" },
       elements: { namedItem: () => ({ value: "" }) } };
     raiz.eventos.get("input")({ type: "input", target: { name: "texto",
       closest: () => formulario } });
@@ -221,7 +284,7 @@ test("buscar vuelve a mostrar Siguiente si la respuesta filtrada tiene otra pág
     assert.doesNotMatch(raiz.innerHTML, /data-ct-pagina="siguiente"/u);
     buscador().value = "objetivo";
     buscador().focus();
-    const formulario = { campos: { texto: "objetivo", fase: "", centro: "", categoria: "", mostrar: "en_tramite" } };
+    const formulario = { campos: { texto: "objetivo", fase: "", centro: "", categoria: "", mostrar: "todas" } };
     formulario.elements = { namedItem: () => ({
       set value(valor) { formulario.campos.mostrar = valor; },
       get value() { return formulario.campos.mostrar; },
@@ -284,13 +347,13 @@ test("el título y resultado de la lista usan el total autorizado, no las filas 
         ...(!solicitud.paginacion.cursor ? { cursor_siguiente: "cursor_sintetico_de_pagina" } : {}) };
     } },
   });
-  assert.match(raiz.innerHTML, /5071 peticiones en trámite/u);
+  assert.match(raiz.innerHTML, /<h3 class="ct-exp-lista-titulo">Peticiones<\/h3>/u);
   assert.match(raiz.innerHTML, /2 de 5071 peticiones/u);
   assert.equal(solicitudes[0].resumen, true, "el resumen viaja en la misma POST de la página");
   assert.doesNotMatch(raiz.innerHTML, /2 peticiones en trámite/u);
   await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctPagina: "siguiente" } }) } });
   assert.equal(solicitudes[1].paginacion.cursor, "cursor_sintetico_de_pagina");
-  assert.match(raiz.innerHTML, /5071 peticiones en trámite/u);
+  assert.match(raiz.innerHTML, /<h3 class="ct-exp-lista-titulo">Peticiones<\/h3>/u);
   assert.match(raiz.innerHTML, /1 de 5071 peticiones/u);
   montaje.desmontar();
 });
