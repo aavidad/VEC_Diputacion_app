@@ -115,3 +115,12 @@ dialog#rg-ayuda p { line-height: 1.5; }
 .rg-ajustes :is([data-ajustes-revision], [data-ajustes-recibo], [data-ajustes-estado], #rg-ajustes-titulo):focus { outline: 3px solid var(--portal-foco); outline-offset: 2px; scroll-margin-block: 16px; }
 @media (max-width: 850px) { .rg-ajustes-cuerpo { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .rg-ajuste-cabecera { flex-direction: column; } .rg-ajuste-valores, .rg-ajuste-campos, .rg-ajuste-revision dl { grid-template-columns: 1fr; } .rg-ajuste-acciones button { flex: 1 1 100%; } }
+
+/* Escritorio: cabecera fija y contenido desplazable dentro del lienzo. */
+@media (min-width: 851px) {
+  body.rg-app { overflow: hidden; }
+  .rg-shell { height: 100dvh; min-height: 0; display: flex; flex-direction: column; padding-bottom: 24px; }
+  .rg-cabecera { flex: none; }
+  .rg-contenido { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+}
+.rg-contenido:focus-visible { outline: 3px solid var(--portal-foco); outline-offset: -3px; }

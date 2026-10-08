@@ -16,7 +16,7 @@
       <header class="rg-cabecera">
         <div>
           <p class="rg-miga" data-i18n="miga"></p>
-          <h1 data-i18n="titulo"></h1>
+          <h1 id="rg-titulo" data-i18n="titulo"></h1>
         </div>
         <div class="rg-cabecera-acciones">
           <button type="button" class="rg-boton-ayuda" id="rg-ayuda-abrir" data-i18n-label="ayudaAbrir">?</button>
@@ -24,6 +24,7 @@
         </div>
       </header>
 
+      <div class="rg-contenido" tabindex="0" role="region" aria-labelledby="rg-titulo">
       <p id="rg-estado" class="rg-aviso" tabindex="-1" role="status" aria-live="polite" hidden></p>
 
       <div id="rg-ajustes" aria-live="polite"></div>
@@ -38,6 +39,8 @@
         </form>
 
         <div id="rg-catalogos"></div>
+      </div>
+
       </div>
 
       <dialog id="rg-ayuda" aria-labelledby="rg-ayuda-titulo">
