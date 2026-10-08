@@ -28,9 +28,9 @@ Para abrir la lista general, pulse «Ver todas las peticiones» **(6)** en la ca
 
 ![Lista general de peticiones con búsqueda, filtros, fase, estado y plazo.](img/rrhh-navegacion-peticiones.webp)
 
-## Consultar las categorías de la RPT · 2
+## Consultar las categorías de los puestos · 2
 
-Desde Inicio, pulse «Categorías de la RPT» **(2)**. Se abre el «Listado de categorías», con un campo «Buscar categoría o grupo», otro de «Grupo o subgrupo» y el número de categorías encontradas. El día de la comprobación se mostraban 151.
+Desde Inicio, pulse «Categorías de la RPT» **(2)**. RPT es la relación de puestos de trabajo. Se abre el «Listado de categorías», con un campo «Buscar categoría o grupo», otro de «Grupo o subgrupo» y el número de categorías encontradas. El día de la comprobación se mostraban 151.
 
 ![Listado de categorías de la RPT y controles de búsqueda.](img/rrhh-navegacion-categorias.webp)
 
@@ -47,3 +47,41 @@ Pulse «Bolsas de trabajo» **(5)** en el menú lateral de Inicio. Se abre «Bol
 ![Resumen de bolsas de trabajo activas y distribución por situación.](img/rrhh-navegacion-bolsas.webp)
 
 Para volver a Inicio, pulse «Inicio» en el menú lateral o use el botón Atrás del navegador.
+
+
+## Ver los integrantes de una bolsa
+
+En el resumen de bolsas, pulse la cifra de la columna «Disponibles» de la bolsa que necesita. Se abre «Candidatos de la bolsa» con esa situación seleccionada. En el ejemplo, ENCARGADO muestra 16 personas disponibles.
+
+![Lista de personas disponibles de la bolsa ENCARGADO.](img/rrhh-bolsa-disponibles.webp)
+
+Use «Buscar» para localizar a una persona y «Situación» para cambiar el estado que consulta. Pulse «Filtrar» para aplicar los cambios. «Limpiar» los retira. Cuando hay varias páginas, «Siguiente» muestra las siguientes personas.
+
+## Emitir un llamamiento
+
+1. En la lista de candidatos, pulse «Nuevo llamamiento» y seleccione la bolsa.
+2. Marque las personas siguiendo el orden que muestra la lista. Revise quiénes ha seleccionado antes de avanzar.
+
+![Selección de la primera persona de la bolsa.](img/rrhh-bolsa-seleccion.webp)
+
+3. En «Configurar llamamiento», indique la necesidad, el centro y los canales de aviso. Complete el asunto y el texto del correo.
+
+![Configuración del llamamiento y canales de aviso.](img/rrhh-bolsa-configuracion.webp)
+
+4. En «Revisar y enviar», compruebe las personas, los canales y el contenido del aviso. Marque la confirmación expresa y pulse «Emitir llamamiento» una sola vez.
+
+![Revisión del llamamiento antes de confirmar.](img/rrhh-bolsa-revision.webp)
+
+5. La pantalla muestra «Llamamiento emitido» y «pendiente de respuesta». Pulse «Copiar referencia» para conservar el justificante. Vuelva a la lista y consulte «Histórico de llamamientos» para ver la nueva actuación.
+
+![Confirmación del llamamiento registrado.](img/rrhh-bolsa-recibo.webp)
+
+«Pendiente de respuesta» significa que todavía debe comprobarse la respuesta de la persona. La emisión del llamamiento y la llegada del correo son comprobaciones distintas.
+
+## Si algo sale mal
+
+Mientras aparece «Comprobando», espere a que termine la carga. Si el mensaje permanece y no aparecen los datos, recargue la página. Si sigue igual, indique a Informática qué pantalla abrió y el mensaje que ve.
+
+Cuando una petición muestra «Con incidencia», abra su ficha antes de seguir con el trámite. El estado avisa de que hay un asunto pendiente; por sí solo no indica qué debe corregir.
+
+Para consultar y descargar los borradores de una petición, siga la [guía de fichas y documentos](responsable_rrhh.md).
