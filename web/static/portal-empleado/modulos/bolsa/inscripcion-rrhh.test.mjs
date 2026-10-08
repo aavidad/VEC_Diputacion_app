@@ -61,6 +61,15 @@ test("incorporación pide evidencia y acepta solo una participación verificada 
     clave_idempotencia: "inscripcion-12345678" });
 });
 
+test("admisión que dice incorporada exige referencia de participación", async () => {
+  const cliente = crearClienteInscripcionesRRHH({ fetchImpl: async () => respuesta(201,
+    { esquema: "vec.bolsa.inscripcion.decision.recibo.v1", solicitud_ref: "solicitud:1",
+      recibo_ref: "recibo:1", estado: "incorporada", version: 2,
+      decidida_en: "2026-10-09T00:00:00Z", repetida: false }) });
+  await assert.rejects(cliente.decidir({ solicitudRef: "solicitud:1", decision: "admitir",
+    versionEsperada: 1, claveIdempotencia: "inscripcion-12345678" }), /recibo incompatible/u);
+});
+
 test("filtro compartible conserva la URL y normaliza estado desconocido", () => {
   assert.deepEqual(leerRutaInscripcionesRRHH("?inscripcion_estado=otro&inscripcion_bolsa=bolsa%3A1"),
     { estado: "pendiente", bolsa: "bolsa:1", cursor: "" });

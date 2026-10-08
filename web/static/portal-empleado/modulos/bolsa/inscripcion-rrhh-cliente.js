@@ -97,7 +97,8 @@ export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } =
         || !Number.isSafeInteger(data.version) || data.version <= versionEsperada
         || typeof data.decidida_en !== "string" || !Number.isFinite(Date.parse(data.decidida_en))
         || typeof data.repetida !== "boolean" || (data.participacion_ref != null && !referencia(data.participacion_ref))
-        || (data.estado !== "incorporada" && data.participacion_ref != null)) {
+        || (data.estado !== "incorporada" && data.participacion_ref != null)
+        || (data.estado === "incorporada" && !data.participacion_ref)) {
         throw new TypeError("recibo incompatible");
       }
       return data;
