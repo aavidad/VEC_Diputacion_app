@@ -140,6 +140,14 @@ test("un POST aceptado con recibo incompatible exige comprobar la bolsa antes de
   assert.match(textoError(textos, new ErrorCargaConvoca(0, "recibo_incoherente")), /Consulte las bolsas/u);
 });
 
+test("el plazo de confirmación puede vencer sin respuesta de un POST ya enviado", async () => {
+  const cliente = crearClienteCargaConvoca({ plazoMs: 1, fetchImpl: async (_ruta, opciones) =>
+    new Promise((_resolver, rechazar) => opciones.signal.addEventListener("abort", () =>
+      rechazar(new DOMException("", "AbortError")), { once: true })) });
+  await assert.rejects(cliente.confirmar({ nombre: "bolsa.xlsx", base64: "AAAA", categoria: "auxiliar" }),
+    (error) => error.name === "AbortError");
+});
+
 test("la página del servidor y la URL conservan solo filtro, página y otros parámetros", async () => {
   const textos = await textosDe("es");
   const filas = validarVistaPrevia(vista()).filas;

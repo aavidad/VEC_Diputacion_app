@@ -172,6 +172,7 @@
     "peticion_no_valida": "The file could not be sent. Choose it again and repeat.",
     "servicio_no_disponible": "This could not be completed right now. Press the button again; if it keeps failing, contact IT.",
     "paginacion_no_valida": "That page could not be opened. Go back to the first page or choose another filter.",
-    "recibo_incoherente": "The result could not be verified. Check the pools or select “Recover result” to retrieve the receipt for the same load."
+    "recibo_incoherente": "The result could not be verified. Check the pools or select “Recover result” to retrieve the receipt for the same load.",
+    "resultado_indeterminado": "No final response was received. The load may already be recorded. Select “Recover result” to retrieve the receipt for that same load."
   }
 }

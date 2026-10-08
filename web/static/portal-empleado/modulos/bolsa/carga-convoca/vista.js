@@ -352,9 +352,11 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       pintarHecho(recibo);
       irAPaso(3);
     } catch (error) {
-      if (error?.name === "AbortError") return;
+      const fallo = error?.codigo === "recibo_incoherente" ? error
+        : !Number.isInteger(error?.estado) || error.estado === 0 || error.estado >= 500
+          ? new ErrorCargaConvoca(0, "resultado_indeterminado") : error;
       $("estado-revisar").textContent = "";
-      if (error?.codigo === "recibo_incoherente") {
+      if (fallo?.codigo === "recibo_incoherente" || fallo?.codigo === "resultado_indeterminado") {
         estado.indeterminado = true;
       }
       if (estado.indeterminado) {
@@ -363,7 +365,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
         $("recuperar-ayuda").hidden = false;
         $("ver-bolsas-tras-error").hidden = false;
       }
-      mostrarErrorRevision(textoError(textos, error));
+      mostrarErrorRevision(textoError(textos, fallo));
     } finally {
       controladorConfirmacion = null;
       estado.ocupado = false;

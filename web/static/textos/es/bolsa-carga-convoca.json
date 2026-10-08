@@ -172,6 +172,7 @@
     "peticion_no_valida": "No se ha podido enviar el fichero. Vuelva a elegirlo y repita.",
     "servicio_no_disponible": "No se ha podido completar ahora. Pulse el botón otra vez; si sigue igual, avise a Informática.",
     "paginacion_no_valida": "No se pudo abrir esa página. Vuelva a la primera o elija otro filtro.",
-    "recibo_incoherente": "No se puede verificar el resultado. Consulte las bolsas o pulse «Recuperar resultado» para obtener el recibo de la misma carga."
+    "recibo_incoherente": "No se puede verificar el resultado. Consulte las bolsas o pulse «Recuperar resultado» para obtener el recibo de la misma carga.",
+    "resultado_indeterminado": "No se recibió una respuesta definitiva. La carga puede estar registrada. Pulse «Recuperar resultado» para obtener el recibo de esa misma carga."
   }
 }
