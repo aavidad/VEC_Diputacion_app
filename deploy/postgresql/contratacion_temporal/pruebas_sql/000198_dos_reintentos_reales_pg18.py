@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Comprueba dos reintentos HTTPS sobre una intención CT/Bolsa pendiente real.
+"""Prueba HTTP mTLS de dos reintentos sobre una intención CT/Bolsa pendiente real.
 
 Requiere un clon PostgreSQL 18 aislado, app con mTLS y una petición sintética
 canónica. La preparación del 503 parcial y la restitución de su permiso se

@@ -5,8 +5,8 @@ SET LOCAL search_path = pg_catalog;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec:orq1:ad225',0));
--- Parche del bloque completo de reanudación sobre dos preimágenes instaladas:
--- postHX+HZ14 y post AD211/214/216/218. El resto del núcleo queda literal.
+-- Instalar sólo después de IS17, CA37, AD215, AUT57, AD211, P22, AD175,
+-- P32, AD180, P34, AD214, AD216 y AD218. Parchea únicamente POST218.
 DO $parche$
 DECLARE
  f oid := to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
@@ -67,11 +67,9 @@ BEGIN
  INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  def_sha:=encode(sha256(convert_to(original,'UTF8')),'hex');
  src_sha:=encode(sha256(convert_to(fuente,'UTF8')),'hex');
- IF NOT ((def_sha='092367a3c6be54e163eceb26d58a86442f83addc044e0cae2e85e572c7e56faf'
-          AND src_sha='559555ec535ad40cc3aad6361286899c28aede91ff73b2901eb30970d95ac986')
-       OR (def_sha='c74551eab17bea78bb564d14d96b77f33bd24a5874b7bdb6e100a59d8f2fe714'
-          AND src_sha='79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5')) THEN
-  RAISE EXCEPTION 'AD225: PARO clave=nucleo_preimagen actual=def:%/src:% esperado=postHX:092367a3/559555ec_o_postAD218:c74551ea/79d2f297',def_sha,src_sha USING ERRCODE='55000';
+ IF def_sha IS DISTINCT FROM 'c74551eab17bea78bb564d14d96b77f33bd24a5874b7bdb6e100a59d8f2fe714'
+    OR src_sha IS DISTINCT FROM '79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5' THEN
+  RAISE EXCEPTION 'AD225: PARO clave=nucleo_preimagen actual=def:%/src:% esperado=postAD218:c74551ea/79d2f297',def_sha,src_sha USING ERRCODE='55000';
  END IF;
  IF NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=f
    AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole

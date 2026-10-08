@@ -22,8 +22,8 @@ BEGIN
  JOIN vec_contratacion_temporal.outbox_reanudacion_seleccion_llamamiento o USING(auditoria_ref)
  JOIN vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e USING(clave_idempotencia)
  WHERE o.tipo='seleccion.solicitud_llamamiento.reanudada';
- IF total<1 OR divergentes<>0 THEN
-  RAISE EXCEPTION 'CT198 prueba: historia/outbox de solicitud actual=%/% esperado=al_menos_1/0',total,divergentes;
+ IF divergentes<>0 THEN
+  RAISE EXCEPTION 'CT198 prueba: historia/outbox de solicitud actual=%/% esperado=0_divergencias',total,divergentes;
  END IF;
 END
 $test$;

@@ -1,3 +1,7 @@
+# Requisito obligatorio ANTES de esta lista: IS17, CA37, AD215, AUT57,
+# AD211, P22, AD175, P32, AD180, P34, AD214, AD216 y AD218.
+# AD225 sólo admite el núcleo instalado POST218 (def c74551ea… / prosrc 79d2f297…).
+# Orden de esta entrega: AD225 → CT198 → AD226 → CT199; nunca DOWN ni reaplicar.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000225_reanudacion_solicitud_llamamiento.up.sql
 deploy/postgresql/contratacion_temporal/migraciones/000198_reanudacion_solicitud_llamamiento.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000226_origen_reanudacion_solicitud_llamamiento.up.sql

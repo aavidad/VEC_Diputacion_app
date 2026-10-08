@@ -9,10 +9,8 @@ BEGIN
  SELECT pg_get_functiondef(f),p.prosrc INTO STRICT definicion,fuente FROM pg_proc p WHERE p.oid=f;
  def_sha:=encode(sha256(convert_to(definicion,'UTF8')),'hex');
  src_sha:=encode(sha256(convert_to(fuente,'UTF8')),'hex');
- IF NOT ((def_sha='7727d537e05e3320f013ec216e83da32f64ddacf5fd13b47b39f883e6f33abcb'
-          AND src_sha='d43a29e1827b2e809b00475d4f34dbe0f57a195ffcc7acb17d72f69de573fe15')
-       OR (def_sha='03f151286ed21039cfe2f96840f474062a8aecb61c546601ef71cf20cc716212'
-          AND src_sha='fc80e4851d7a63a147cce6a40ca924d24d0b5e671686134be90e98e0f53c906c')) THEN
+ IF def_sha IS DISTINCT FROM '03f151286ed21039cfe2f96840f474062a8aecb61c546601ef71cf20cc716212'
+    OR src_sha IS DISTINCT FROM 'fc80e4851d7a63a147cce6a40ca924d24d0b5e671686134be90e98e0f53c906c' THEN
   RAISE EXCEPTION 'AD225 prueba: postimagen divergente def=% src=%',def_sha,src_sha;
  END IF;
  IF strpos(definicion,'reanudacion_seleccion')=0
