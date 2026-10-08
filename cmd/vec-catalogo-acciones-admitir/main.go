@@ -261,7 +261,7 @@ func validarPlanAntesDeEnviar(plan []byte, aprobada string) (planAdmision, error
 		}
 	}
 	var p planAdmision
-	if json.Unmarshal(plan, &p) != nil || p.Esquema != "vec.admin.catalogo-acciones.plan.v1" ||
+	if json.Unmarshal(plan, &p) != nil || p.Esquema != "vec.admin.catalogo-acciones.plan.v2" ||
 		p.CatalogoCanon == "" || p.PaqueteCanon == "" || !huellaValida(p.CatalogoSHA256) ||
 		!huellaValida(p.PaqueteSHA256) || !huellaValida(p.AprobacionSHA256) ||
 		p.AprobacionRef == "" || p.PaqueteRef == "" || p.CatalogoRef == "" ||
@@ -287,6 +287,10 @@ func validarPlanAntesDeEnviar(plan []byte, aprobada string) (planAdmision, error
 	if err != nil || h != p.CatalogoSHA256 || p.CatalogoRef != c.Referencia ||
 		p.CatalogoVersion != strconv.Itoa(c.Version) || p.PaqueteRef != c.FuenteRef ||
 		p.PaqueteVersion != strconv.Itoa(c.FuenteVersion) || p.PaqueteSHA256 != c.FuenteHuellaSHA256 {
+		return vacio, os.ErrInvalid
+	}
+	if adminpg.ValidarPaqueteCatalogoAccionesV2([]byte(p.PaqueteCanon), c,
+		p.PaqueteRef, c.FuenteVersion, p.PaqueteSHA256) != nil {
 		return vacio, os.ErrInvalid
 	}
 	return p, nil
