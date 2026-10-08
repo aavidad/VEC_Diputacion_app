@@ -34,13 +34,12 @@ async function resolverCliente() {
 try {
   const dependencias = await resolverCliente();
   const estado = await iniciarAreaPersonal({ ...dependencias, clientePreferencias, preferencias,
-    errorPreferencias, controladorVisual, fetchUsuarios });
+    errorPreferencias, controladorVisual, fetchUsuarios, preferenciasAplazadas: idiomaExplicito });
   if (idiomaExplicito) {
-    const lectura = cargarPreferenciasIniciales(clientePreferencias);
-    estado.lecturaPreferenciasInicial = lectura;
-    try { aplicarPreferenciasInicialesAplazadas(estado, await lectura); }
-    catch (error) { aplicarPreferenciasInicialesAplazadas(estado, null, error); }
-    finally { estado.lecturaPreferenciasInicial = null; }
+    let lectura = null; let errorPreferencia = null;
+    try { lectura = await cargarPreferenciasIniciales(clientePreferencias); }
+    catch (error) { errorPreferencia = error; }
+    aplicarPreferenciasInicialesAplazadas(estado, lectura, errorPreferencia);
   }
 } catch {
   const carga = document.getElementById("estado-carga");

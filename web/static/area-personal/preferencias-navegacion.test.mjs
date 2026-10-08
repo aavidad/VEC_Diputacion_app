@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { aplicarPreferenciasInicialesAplazadas, iniciarAreaPersonal } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal } from "./i18n.js";
 import { crearClienteHTTPAreaPersonal } from "./cliente-http.js";
+import { cargarPreferenciasIniciales } from "./cliente-http.js";
 import { peticionesEnSerie } from "../comun/imagen-propia.js";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
@@ -207,4 +208,105 @@ test("un consumidor Bolsa conserva una respuesta válida mayor de 64 KiB fuera d
     globalThis.document = original.document;
     globalThis.window = original.window;
   }
+});
+
+test("GET tardío pinta el formulario y devuelve el foco a Recargar en el panel", async () => {
+  const original = { document: globalThis.document, window: globalThis.window };
+  const { documento } = documentoFalso();
+  globalThis.document = documento;
+  globalThis.window = { location: { search: "?vista=preferencias&lang=en", pathname: "/area-personal/", origin: "https://vec.example" },
+    history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
+  try {
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(),
+      ubicacion: { href: "https://vec.example/area-personal/?vista=preferencias&lang=en" } });
+    const estado = await iniciarAreaPersonal({ cliente: { async cargar() { return { consulta: {
+      consultada_en: "2026-10-08T10:00:00Z", participaciones: [] } }; } },
+    vistasDisponibles: new Set(["preferencias", "llamamientos", "inicio"]), preferenciasAplazadas: true });
+    const contenido = documento.getElementById("espacio-trabajo");
+    assert.match(contenido.innerHTML, /Loading authorised information/u);
+    assert.doesNotMatch(contenido.innerHTML, /could not be retrieved/u);
+    const anterior = { dataset: { accion: "recargar-preferencias" } };
+    const restaurado = { focus() { documento.activeElement = this; } };
+    contenido.contains = (elemento) => elemento === anterior;
+    contenido.querySelector = (selector) => selector === '[data-accion="recargar-preferencias"]' ? restaurado : null;
+    documento.activeElement = anterior;
+    aplicarPreferenciasInicialesAplazadas(estado, preferencias);
+    assert.match(contenido.innerHTML, /id="formulario-preferencias"/u);
+    assert.equal(documento.activeElement, restaurado);
+  } finally { globalThis.document = original.document; globalThis.window = original.window; }
+});
+
+test("Recargar antes y después de Mi Bolsa comparte la lectura diferida y no crea dos GET iniciales", async () => {
+  const original = { document: globalThis.document, window: globalThis.window };
+  const { documento, eventos } = documentoFalso();
+  globalThis.document = documento;
+  globalThis.window = { location: { search: "?vista=preferencias&lang=es", pathname: "/area-personal/", origin: "https://vec.example" },
+    history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
+  try {
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(),
+      ubicacion: { href: "https://vec.example/area-personal/?vista=preferencias&lang=es" } });
+    let terminarBolsa;
+    const bolsa = new Promise((_resolver, rechazar) => { terminarBolsa = rechazar; });
+    let consultas = 0;
+    const clientePreferencias = { async cargar() { consultas += 1; return preferencias; } };
+    const inicio = iniciarAreaPersonal({ cliente: { cargar: () => bolsa },
+      vistasDisponibles: new Set(["inicio", "llamamientos", "preferencias"]),
+      clientePreferencias, preferenciasAplazadas: true });
+    pulsar(eventos, "[data-accion]", "recargar-preferencias");
+    assert.equal(consultas, 0);
+    terminarBolsa({ codigo: "servicio_no_disponible" });
+    const estado = await inicio;
+    const contenido = documento.getElementById("espacio-trabajo");
+    assert.match(contenido.innerHTML, /Cargando información autorizada/u);
+    assert.doesNotMatch(contenido.innerHTML, /No se pudieron consultar sus preferencias/u);
+    pulsar(eventos, "[data-accion]", "recargar-preferencias");
+    assert.equal(consultas, 0);
+    aplicarPreferenciasInicialesAplazadas(estado, await cargarPreferenciasIniciales(clientePreferencias));
+    await Promise.resolve();
+    assert.equal(consultas, 1);
+    assert.equal(estado.preferencias.estado, preferencias.estado);
+    assert.match(contenido.innerHTML, /id="formulario-preferencias"/u);
+  } finally { globalThis.document = original.document; globalThis.window = original.window; }
+});
+
+test("sin lang explícito, Recargar hace una lectura nueva tras el arranque previo", async () => {
+  const original = { document: globalThis.document, window: globalThis.window };
+  const { documento, eventos } = documentoFalso();
+  globalThis.document = documento;
+  globalThis.window = { location: { search: "?vista=preferencias", pathname: "/area-personal/", origin: "https://vec.example" },
+    history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
+  try {
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(),
+      ubicacion: { href: "https://vec.example/area-personal/?vista=preferencias" } });
+    let consultas = 0;
+    const estado = await iniciarAreaPersonal({ cliente: { async cargar() { assert.fail("preferencias precargadas"); } },
+      vistasDisponibles: new Set(["preferencias", "llamamientos", "inicio"]), preferencias,
+      clientePreferencias: { async cargar() { consultas += 1; return preferencias; } } });
+    assert.equal(estado.lecturaPreferenciasInicial, null);
+    pulsar(eventos, "[data-accion]", "recargar-preferencias");
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(consultas, 1);
+  } finally { globalThis.document = original.document; globalThis.window = original.window; }
+});
+
+test("un fallo del GET inicial permite una nueva lectura explícita desde Preferencias", async () => {
+  const original = { document: globalThis.document, window: globalThis.window };
+  const { documento, eventos } = documentoFalso();
+  globalThis.document = documento;
+  globalThis.window = { location: { search: "?vista=preferencias&lang=es", pathname: "/area-personal/", origin: "https://vec.example" },
+    history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
+  try {
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(),
+      ubicacion: { href: "https://vec.example/area-personal/?vista=preferencias&lang=es" } });
+    let consultas = 0;
+    const estado = await iniciarAreaPersonal({ cliente: { async cargar() { throw { codigo: "servicio_no_disponible" }; } },
+      vistasDisponibles: new Set(["preferencias", "llamamientos", "inicio"]), preferenciasAplazadas: true,
+      clientePreferencias: { async cargar() { consultas += 1; return preferencias; } } });
+    aplicarPreferenciasInicialesAplazadas(estado, null, { codigo: "servicio" });
+    assert.equal(consultas, 0);
+    pulsar(eventos, "[data-accion]", "recargar-preferencias");
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(consultas, 1);
+    assert.equal(estado.preferencias.estado, preferencias.estado);
+  } finally { globalThis.document = original.document; globalThis.window = original.window; }
 });

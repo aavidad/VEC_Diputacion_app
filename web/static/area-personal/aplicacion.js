@@ -20,7 +20,10 @@ import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
 
 const RUTAS = Object.freeze({
   inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
-  preferencias: ["areaPersonal.preferencias.titulo", (_, estado) => renderizarPreferencias(estado.preferencias) + (estado.imagen?.renderizar() ?? "") + (estado.correos?.renderizar() ?? "")],
+  preferencias: ["areaPersonal.preferencias.titulo", (_, estado) => (
+    estado.lecturaPreferenciasInicial && !estado.preferencias.estado && !estado.preferencias.error
+      ? `<section class="panel preferencias-panel"><header><h2 tabindex="-1">${escaparHTML(traducir("areaPersonal.preferencias.titulo"))}</h2></header><div class="panel-contenido"><p role="status">${escaparHTML(traducir("areaPersonal.html.cargandoInformacion"))}</p><button type="button" class="boton-secundario" data-accion="recargar-preferencias">${escaparHTML(traducir("areaPersonal.preferencias.recargar"))}</button></div></section>`
+      : renderizarPreferencias(estado.preferencias)) + (estado.imagen?.renderizar() ?? "") + (estado.correos?.renderizar() ?? "")],
   convocatorias: ["areaPersonal.rutas.convocatorias", renderizarConvocatorias],
   oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   convocatoria: ["areaPersonal.rutas.convocatoria", renderizarDetalleConvocatoria],
@@ -206,7 +209,8 @@ function datosMinimosPreferencias(identidadConfirmada) {
 
 function asegurarShellPreferencias(estado) {
   if (estado.vista !== "preferencias" || estado.datos
-    || (!estado.preferencias.estado && !estado.preferencias.error)) return false;
+    || (!estado.preferencias.estado && !estado.preferencias.error
+      && !(estado.lecturaPreferenciasInicial && estado.miBolsaIntentada))) return false;
   estado.datos = datosMinimosPreferencias(Boolean(estado.preferencias.estado));
   estado.soloPreferencias = true;
   return true;
@@ -419,6 +423,7 @@ function leerPantalla(estado) {
 }
 
 async function recargarPreferencias(estado) {
+  if (estado.lecturaPreferenciasInicial) return estado.lecturaPreferenciasInicial;
   const preferencias = estado.preferencias;
   preferencias.guardando = true;
   preferencias.error = null;
@@ -629,6 +634,7 @@ async function cargar(estado) {
   porId("espacio-trabajo").replaceChildren();
   try {
     const respuesta = await estado.cliente.cargar();
+    estado.miBolsaIntentada = true;
     const datos = datosDeRespuesta(respuesta);
     estado.datos = exigirDatosOperativos(datos);
     estado.soloPreferencias = false;
@@ -643,13 +649,18 @@ async function cargar(estado) {
     estado.error = null;
     renderizar(estado);
   } catch (error) {
-    mostrarError(estado, error); if (reintento) porId("espacio-trabajo").querySelector('[data-accion="reintentar"]')?.focus();
+    estado.miBolsaIntentada = true;
+    if (asegurarShellPreferencias(estado)) renderizar(estado);
+    else {
+      mostrarError(estado, error);
+      if (reintento) porId("espacio-trabajo").querySelector('[data-accion="reintentar"]')?.focus();
+    }
   }
 }
 
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
-  errorPreferencias = null, controladorVisual = null } = {}) {
+  errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }
@@ -660,6 +671,7 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     cliente,
     vistasDisponibles,
     datos: null,
+    miBolsaIntentada: false,
     vista: parametros.has("vista") ? rutaDesdeURL({ vistasDisponibles }) : inicioAjeno ? "inicio" : "llamamientos",
     clientePreferencias,
     preferencias: { catalogo: preferencias?.catalogo || null, estado: preferencias?.estado || null,
@@ -690,6 +702,9 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     fuenteBolsa: "real",
     causaBolsa: "",
   };
+  if (preferenciasAplazadas) {
+    estado.lecturaPreferenciasInicial = new Promise((resolve) => { estado.resolverLecturaPreferenciasInicial = resolve; });
+  }
   ocultarRutasNoDisponibles(estado);
   // Una dirección antigua (p. ej. ?vista=solicitud) se corrige a la vista que se muestra.
   if (parametros.has("vista") && !rutaDisponible(estado, parametros.get("vista"))) {
@@ -725,11 +740,22 @@ export function aplicarPreferenciasInicialesAplazadas(estado, lectura, error = n
   } else {
     preferencias.error = error;
   }
-  // Al entrar en Preferencias antes del GET no había formulario que preservar.
-  // Si el foco ya está dentro del panel, el botón Recargar usa la misma lectura.
   const contenido = porId("espacio-trabajo");
-  if (estado.vista === "preferencias" && contenido && !contenido.contains?.(document.activeElement)) {
+  if (estado.vista === "preferencias" && contenido) {
+    const activo = document.activeElement;
+    const dentro = contenido.contains?.(activo) === true;
+    const idFoco = dentro ? activo?.id : "";
+    const recargando = dentro && activo?.dataset?.accion === "recargar-preferencias";
     asegurarShellPreferencias(estado);
     renderizar(estado);
+    if (dentro) {
+      const destino = (idFoco && document.getElementById(idFoco))
+        || (recargando && contenido.querySelector('[data-accion="recargar-preferencias"]'))
+        || contenido.querySelector(".preferencias-panel h2");
+      destino?.focus({ preventScroll: true });
+    }
   }
+  estado.resolverLecturaPreferenciasInicial?.();
+  estado.lecturaPreferenciasInicial = null;
+  estado.resolverLecturaPreferenciasInicial = null;
 }
