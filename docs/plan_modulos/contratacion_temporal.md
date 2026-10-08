@@ -77,3 +77,8 @@ La consulta web distingue ahora una ruta de auditoría no disponible (404) de un
 La activación sigue en manos de dirección: el despliegue requiere `VEC_RRHH_AUDITORIA_ENABLED` y sus dependencias nominales. Esta corrección de interfaz no activa el servicio ni cambia permisos, consultas o registros de auditoría. El contrato Go y SQL de Documentos D14 del equipo V está integrado en main (#845). La ficha de #850 transmite la referencia `expediente:ct:<64 hex>` y rechaza la referencia vacía de desarrollo. La instalación de D14 y la consulta nominal en el entorno de destino siguen requiriendo su comprobación; esta entrega no las acredita.
 
 Siguiente corte: recuperación de carga de CT, ficha y navegación de Bolsa; después, las lecturas de Bolsa con una decisión V3, auditoría y consulta en la misma transacción, paginación SQL y listas filtradas para las cifras del resumen. CT187 está integrado desde la PR #840; su medición y sus límites constan allí. No se da por terminado el recorrido completo ni la firma.
+
+
+## Inicio sin acceso SAE pendiente — 8 de octubre de 2026
+
+Se retiran la tarjeta y la entrada de ofertas al SAE de Inicio: abrían una pantalla sin gestión disponible. Inicio conserva los indicadores de peticiones y Bolsa, en la rejilla compacta común. La elección de cobertura en el expediente y los datos de las ofertas de Bolsa conservan su recorrido. La gestión del SAE se ofrecerá cuando tenga un consumidor real.

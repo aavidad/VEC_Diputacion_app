@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261008-bolsa-inicio-v2";
+import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261008-inicio-sin-sae-v1";
 import { leerCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js";
 import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
 import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
@@ -255,8 +255,7 @@ test("los indicadores conservan los recuentos del servidor sin enlaces a predica
   assert.match(html, /<div class="tarjeta-kpi" data-metrica="en_tramite">[\s\S]*?<strong class="valor-kpi">3<\/strong>/u);
   assert.match(html, /data-metrica="vencen_semana"[^>]*>[\s\S]*?<strong class="valor-kpi">2<\/strong>/u);
   assert.match(html, /data-metrica="disponibles" data-vista="resumen">[\s\S]*?<strong class="valor-kpi">42<\/strong>[\s\S]*?Personas disponibles en 2 bolsas/u);
-  // Ofertas al SAE: sin cifra, explicado.
-  assert.match(html, /data-metrica="sae" data-vista="ofertas-sae">[\s\S]*?Pendiente de definir con RRHH/u);
+  assert.doesNotMatch(html, /data-metrica="sae"|data-vista="ofertas-sae"|Pendiente de definir con RRHH/u);
   // El reparto pasa de la fase del servidor a las ocho fases de RRHH.
   assert.match(html, /<th scope="row">2\. Análisis RRHH<\/th>\s*<td class="numero">1<\/td>/u);
   assert.match(html, /<th scope="row">4\. [^<]*<\/th>\s*<td class="numero">1<\/td>/u);
@@ -311,7 +310,7 @@ test("Inicio RRHH explica la caída de CT anunciado y permite reintentar sin abr
   assert.match(conCT, /La gestión de peticiones de personal temporal no está disponible ahora/u);
   assert.match(conCT, /data-accion="recargar-fuente">Reintentar<\/button>/u);
   assert.doesNotMatch(conCT, /data-vista="contratacion-temporal"/u);
-  assert.ok(conCT.indexOf("inicio-ct-no-disponible") < conCT.indexOf("rejilla-kpi cuatro"));
+  assert.ok(conCT.indexOf("inicio-ct-no-disponible") < conCT.indexOf("rejilla-kpi"));
   const sinCT = portadaRRHH({ resolverAcceso: (clave) => clave === "contratacion_temporal" ? accesoCT() : { disponible: true, vista: "resumen" } });
   assert.doesNotMatch(sinCT, /inicio-ct-no-disponible/u);
 });
@@ -370,7 +369,7 @@ test("las claves de la portada se traducen con el traductor común", async () =>
   assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Needs attention<\/h3>/u);
   assert.match(html, /Deadline passed/u);
   assert.match(html, /Requests by stage[\s\S]*?4\. Financial review/u);
-  assert.match(html, /To be agreed with HR/u);
+  assert.doesNotMatch(html, /To be agreed with HR|data-vista="ofertas-sae"/u);
   assert.match(html, /Tuesday, 29 September 2026/u);
   assert.match(html, /aria-label="View 30 candidates in Auxiliar &lt;A&gt; with status: available"/u);
   assert.doesNotMatch(html, /Lo pendiente|Análisis RRHH|Peticiones por fase/u);
