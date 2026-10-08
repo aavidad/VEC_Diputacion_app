@@ -1242,7 +1242,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261008-hz8-idioma-v1");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261008-hz8-idioma-v2");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
