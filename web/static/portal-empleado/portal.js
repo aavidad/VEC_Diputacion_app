@@ -979,7 +979,8 @@ function anunciar(mensaje) {
 }
 function alCambiarFiltroListaCT(filtroAplicado) {
   if (estado.vista !== "contratacion-temporal" || !filtroServidorCTValido(filtroAplicado)) return;
-  const ruta = rutaPortalConFiltroCT(window.location, rutaDeVista("contratacion-temporal"), filtroAplicado);
+  const rutaFiltrada = rutaPortalConFiltroCT(window.location, rutaDeVista("contratacion-temporal"), filtroAplicado);
+  const ruta = rutaConFichaCT(new URL(rutaFiltrada, window.location.href));
   if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
     history.replaceState(null, "", ruta);
 }

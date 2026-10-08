@@ -4,7 +4,7 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { FILTRO_CT_NO_SOPORTADO, FILTRO_INCIDENCIA_CT, filtroServidorCTValido,
   leerFiltroCTDeRuta, limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js";
-import { leerFichaCTDeRuta } from "./portal-ct-ruta-ficha.js";
+import { leerFichaCTDeRuta, rutaConFichaCT } from "./portal-ct-ruta-ficha.js";
 
 test("la URL CT V1 conserva idioma y expediente y solo codifica el predicado aplicado", () => {
   const ubicacion = { pathname: "/portal-empleado/", search: "?lang=en&expediente=expediente%3Act%3A1" };
@@ -99,4 +99,19 @@ test("F5 conserva referencia, versión e idioma sin consumir la URL ni cambiar e
   assert.equal(opciones.expedienteVersion, 7);
   assert.deepEqual({ ...opciones.filtroServidorRuta }, FILTRO_INCIDENCIA_CT);
   assert.match(location.search, /expediente_version=7/u);
+});
+
+test("aplicar otro filtro de lista retira la ficha anterior de la URL", async () => {
+  const portal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
+  const inicio = portal.indexOf("function alCambiarFiltroListaCT(filtroAplicado)");
+  const fin = portal.indexOf("function alCambiarFichaCT(", inicio);
+  const location = { pathname: "/portal-empleado/", search: "?lang=es&expediente=expediente%3Act%3A127&expediente_version=7",
+    hash: "#contratacion-temporal", href: "https://vec.example/portal-empleado/?lang=es#contratacion-temporal" };
+  const reemplazos = [];
+  const aplicar = runInNewContext(`${portal.slice(inicio, fin)}; alCambiarFiltroListaCT`, {
+    estado: { vista: "contratacion-temporal" }, window: { location }, history: { replaceState(_a, _b, ruta) { reemplazos.push(ruta); } },
+    filtroServidorCTValido, rutaPortalConFiltroCT, rutaConFichaCT, rutaDeVista: () => "#contratacion-temporal", URL,
+  });
+  aplicar(FILTRO_INCIDENCIA_CT);
+  assert.deepEqual(reemplazos, ["/portal-empleado/?lang=es&ct_estado=incidencia#contratacion-temporal"]);
 });
