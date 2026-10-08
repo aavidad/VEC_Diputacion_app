@@ -27,7 +27,6 @@ import (
 
 type preparadorCargaConvocaBolsa struct {
 	base *preparadorBorradorLlamamientoDesarrollo
-	pdp  *autorizadorComunDesarrollo
 	cfg  config.Config
 }
 
@@ -101,42 +100,10 @@ func correlacionIntentoCargaConvocaBolsa(ctx context.Context, generador interfac
 	return dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, generador)
 }
 
-// La vista previa verifica la concesión propia antes de leer el fichero. La
-// referencia opaca de esta comprobación no representa ningún acta importada.
-func (p *preparadorCargaConvocaBolsa) PrepararVistaPreviaCargaConvoca(ctx context.Context) error {
-	if p == nil || p.base == nil || p.pdp == nil || ctx == nil {
-		return puertosbolsa.ErrCargaConvocaNoDisponible
-	}
-	seguridad, err := p.base.contextoRevalidado(ctx)
-	if err != nil {
-		return err
-	}
-	correlacion, err := correlacionIntentoCargaConvocaBolsa(ctx, p.base.generar)
-	if err != nil {
-		return puertosbolsa.ErrCargaConvocaNoDisponible
-	}
-	capturarIntentoCargaConvocaBolsa(ctx, seguridad, correlacion)
-	recurso := dominiovec.RecursoAutorizable{
-		Referencia: "acta:importacion-convoca:" + "0000000000000000000000000000000000000000000000000000000000000000",
-		ModuloID:   puertosbolsa.ModuloCargaConvoca, Tipo: puertosbolsa.TipoRecursoCargaConvoca,
-		Ambitos: map[string]string{"unidad_ref": p.base.soporte.unidadRef, "ambito_ref": p.base.soporte.ambitoRef},
-	}
-	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{
-		VinculoAutenticacionActor: seguridad.Vinculo, ReferenciaMotivo: motivoConfirmarCargaConvocaBolsaDesarrollo(),
-		Accion: puertosbolsa.AccionConfirmarCargaConvoca, Recurso: recurso,
-		Finalidad: puertosbolsa.FinalidadConfirmarCargaConvoca, Correlacion: correlacion,
-	})
-	if err != nil {
-		return puertosbolsa.ErrCargaConvocaNoDisponible
-	}
-	decision, _, err := p.pdp.ExigirSolicitudLigadaV3(ctx, solicitud, seguridad.Resultado)
-	if errors.Is(err, puertosvec.ErrDenegacionExplicitaAutorizacionLigadaV3) || errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
-		return dominiovec.ErrAutorizacionDenegada
-	}
-	if err != nil || decision.ValidarPara(solicitud) != nil {
-		return puertosbolsa.ErrCargaConvocaNoDisponible
-	}
-	return nil
+// La consulta de filas no dispone aún de consumidor nominal de lectura. No
+// usa la acción V3 de confirmar ni un acta inventada para habilitarla.
+func (p *preparadorCargaConvocaBolsa) PrepararVistaPreviaCargaConvoca(context.Context) error {
+	return puertosbolsa.ErrCargaConvocaNoDisponible
 }
 
 func (p *preparadorCargaConvocaBolsa) PrepararConfirmacionCargaConvoca(ctx context.Context, entrada bolsahttp.EntradaConfirmarCargaConvoca) (puertosbolsa.SolicitudConfirmarCargaConvoca, error) {
@@ -290,9 +257,12 @@ func nuevoHandlerCargaConvocaBolsaDesarrollo(ctx context.Context, cfg config.Con
 	if err != nil {
 		return nil, nil, err
 	}
+	// No hay todavía un registrador común de lectura correcta para B1. El
+	// constructor exige esa dependencia y bloquea el montaje hasta conectarla.
+	var registradorLectura bolsahttp.RegistradorVistaPreviaCargaConvoca
 	handler, err := bolsahttp.NuevoHandlerCargaConvoca(
-		&preparadorCargaConvocaBolsa{base: preparador, pdp: pdp, cfg: cfg}, operadorCargaConvocaBolsa{vista: vista, servicio: servicio},
-		&auditorCargaConvocaBolsa{preparador: preparador, registrador: registrador, proceso: proceso})
+		&preparadorCargaConvocaBolsa{base: preparador, cfg: cfg}, operadorCargaConvocaBolsa{vista: vista, servicio: servicio},
+		&auditorCargaConvocaBolsa{preparador: preparador, registrador: registrador, proceso: proceso}, registradorLectura)
 	if err != nil {
 		return nil, nil, err
 	}

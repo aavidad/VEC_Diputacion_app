@@ -19,8 +19,8 @@ import (
 )
 
 // B1: RRHH carga una bolsa desde el Excel de CONVOCA. POST vista-previa
-// valida el fichero sin dejar rastro; POST cargas-convoca lo importa y
-// constituye la bolsa con la decisión propia de la carga. El fichero viaja en
+// valida y registra la lectura sin constituir la bolsa. POST cargas-convoca
+// importa y constituye la bolsa con la decisión propia. El fichero viaja en
 // base64 dentro de un JSON cerrado; las respuestas solo llevan códigos, que la
 // pantalla traduce con su catálogo.
 const (
@@ -55,10 +55,9 @@ type EntradaConfirmarCargaConvoca struct {
 	ExcluirConError bool
 }
 
-// PreparadorCargaConvoca autentica a RRHH en la frontera interna. La vista
-// previa exige el mismo permiso que la carga, sin consumirlo; la confirmación
-// añade el vínculo, el contexto, la correlación y el motivo del servidor y
-// resuelve la categoría contra el catálogo RPT.
+// PreparadorCargaConvoca aplica la frontera de acceso de cada operación. La
+// lectura queda cerrada hasta disponer del consumidor nominal de consulta;
+// confirmar conserva su vínculo, contexto y autorización V3 propios.
 type PreparadorCargaConvoca interface {
 	PrepararVistaPreviaCargaConvoca(context.Context) error
 	PrepararConfirmacionCargaConvoca(context.Context, EntradaConfirmarCargaConvoca) (puertosbolsa.SolicitudConfirmarCargaConvoca, error)
@@ -75,10 +74,27 @@ type AuditorIntentosCargaConvoca interface {
 	RegistrarIntentoFallidoCargaConvoca(ctx context.Context, operacion string, fallo error) error
 }
 
+// RegistroVistaPreviaCargaConvoca sólo lleva una referencia opaca al fichero
+// y la página consultada. El registrador obtiene actor y correlación de la
+// sesión verificada del contexto, nunca de datos enviados por el cliente.
+type RegistroVistaPreviaCargaConvoca struct {
+	RecursoRef     string
+	Filtro         string
+	Limite         int
+	Desplazamiento int
+}
+
+// RegistradorVistaPreviaCargaConvoca confirma el apunte común de lectura antes
+// de devolver filas. La composición requiere una implementación durable real.
+type RegistradorVistaPreviaCargaConvoca interface {
+	RegistrarVistaPreviaCargaConvoca(context.Context, RegistroVistaPreviaCargaConvoca) error
+}
+
 type HandlerCargaConvoca struct {
 	preparador PreparadorCargaConvoca
 	operador   OperadorCargaConvoca
 	auditor    AuditorIntentosCargaConvoca
+	lectura    RegistradorVistaPreviaCargaConvoca
 }
 
 type claveRecursoIntentoCargaConvoca struct{}
@@ -100,11 +116,13 @@ func RecursoIntentoCargaConvoca(ctx context.Context) (string, bool) {
 	return ref, ok && ref != ""
 }
 
-func NuevoHandlerCargaConvoca(p PreparadorCargaConvoca, o OperadorCargaConvoca, a AuditorIntentosCargaConvoca) (http.Handler, error) {
-	if dependenciaNula(p) || dependenciaNula(o) || dependenciaNula(a) {
+func NuevoHandlerCargaConvoca(p PreparadorCargaConvoca, o OperadorCargaConvoca,
+	a AuditorIntentosCargaConvoca, lectura RegistradorVistaPreviaCargaConvoca,
+) (http.Handler, error) {
+	if dependenciaNula(p) || dependenciaNula(o) || dependenciaNula(a) || dependenciaNula(lectura) {
 		return nil, puertosbolsa.ErrCargaConvocaNoDisponible
 	}
-	return &HandlerCargaConvoca{preparador: p, operador: o, auditor: a}, nil
+	return &HandlerCargaConvoca{preparador: p, operador: o, auditor: a, lectura: lectura}, nil
 }
 
 type cuerpoCargaConvoca struct {
@@ -124,7 +142,7 @@ type paginaVistaPreviaCargaConvoca struct {
 }
 
 func (h *HandlerCargaConvoca) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h == nil || r == nil || r.URL == nil || dependenciaNula(h.preparador) || dependenciaNula(h.operador) || dependenciaNula(h.auditor) {
+	if h == nil || r == nil || r.URL == nil || dependenciaNula(h.preparador) || dependenciaNula(h.operador) || dependenciaNula(h.auditor) || dependenciaNula(h.lectura) {
 		responderCodigoCargaConvoca(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
@@ -173,6 +191,17 @@ func (h *HandlerCargaConvoca) previsualizar(w http.ResponseWriter, r *http.Reque
 	}
 	vista, err := h.operador.Previsualizar(r.Context(), cuerpo.NombreFichero, contenido)
 	if err != nil {
+		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, err)
+		return
+	}
+	recurso, ok := RecursoIntentoCargaConvoca(r.Context())
+	if !ok || recurso == "" {
+		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, puertosbolsa.ErrCargaConvocaNoDisponible)
+		return
+	}
+	if err := h.lectura.RegistrarVistaPreviaCargaConvoca(r.Context(), RegistroVistaPreviaCargaConvoca{
+		RecursoRef: recurso, Filtro: pagina.filtro, Limite: pagina.limite, Desplazamiento: pagina.desplazamiento,
+	}); err != nil {
 		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, err)
 		return
 	}
