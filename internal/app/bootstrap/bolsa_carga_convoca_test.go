@@ -2,6 +2,9 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,6 +13,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
+	importacionapp "vec-diputacion-granada/internal/modules/bolsa/application/importacionconvoca"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 )
@@ -125,6 +129,7 @@ func TestPreparadorCargaConvocaTomaContextoYCategoriaDelServidor(t *testing.T) {
 		t.Fatal("ruta B1 sin frontera")
 	}
 	ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: http.MethodPost, ruta: ruta, superficie: superficieInternaSeguridadComunDesarrollo, catalogo: catalogo, descriptor: descriptor})
+	ctx = context.WithValue(ctx, claveIntentoCargaConvocaBolsa{}, &intentoCargaConvocaBolsa{})
 	entrada := bolsahttp.EntradaConfirmarCargaConvoca{CategoriaClave: "auxiliar-administrativo", NombreFichero: filepath.Base("acta.xlsx"), Contenido: []byte("contenido")}
 	solicitud, err := preparador.PrepararConfirmacionCargaConvoca(ctx, entrada)
 	if err != nil || solicitud.Validar() != nil || solicitud.CategoriaRef != "categoria:rpt:auxiliar-administrativo" ||
@@ -135,5 +140,30 @@ func TestPreparadorCargaConvocaTomaContextoYCategoriaDelServidor(t *testing.T) {
 	entrada.CategoriaClave = "inventada"
 	if _, err := preparador.PrepararConfirmacionCargaConvoca(ctx, entrada); err != bolsahttp.ErrCategoriaCargaConvocaNoValida {
 		t.Fatalf("categoría ajena al RPT aceptada: %v", err)
+	}
+	seguridadCapturada, correlacionCapturada, ok := intentoVerificadoCargaConvocaBolsa(ctx)
+	if !ok || seguridadCapturada.Resultado.Validar() != nil || correlacionCapturada.Validar() != nil {
+		t.Fatal("el intento perdió identidad o correlación verificadas")
+	}
+	registrador := &registradorIntentosBaremoPrueba{}
+	auditor := &auditorCargaConvocaBolsa{preparador: base, registrador: registrador, proceso: "vec-server"}
+	// Simula una revocación posterior: auditar el fallo conserva el contexto
+	// verificado y no solicita otra sesión.
+	base.sesion = nil
+	if err := auditor.RegistrarIntentoFallidoCargaConvoca(ctx, bolsahttp.OperacionConfirmarCargaConvoca, errors.New("fallo de prueba")); err != nil {
+		t.Fatalf("auditoría tras revocación: %v", err)
+	}
+	if len(registrador.ordenes) != 1 {
+		t.Fatalf("intentos auditados = %d", len(registrador.ordenes))
+	}
+	datos, err := registrador.ordenes[0].Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	correlacion, _ := correlacionCapturada.ValorCanonico()
+	huella := sha256.Sum256(entrada.Contenido)
+	acta := importacionapp.ReferenciaActa(hex.EncodeToString(huella[:]), solicitud.CategoriaRef)
+	if datos.Datos.CorrelacionRef != correlacion || datos.Datos.RecursoRef != acta {
+		t.Fatalf("auditoría no conservó recurso/correlación: %+v", datos.Datos)
 	}
 }

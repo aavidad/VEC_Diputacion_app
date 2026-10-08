@@ -2,15 +2,17 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
-	importacionpg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgresimportacionconvoca"
 	protector "vec-diputacion-granada/internal/modules/bolsa/adapters/protectorstagingdesarrollo"
 	xls "vec-diputacion-granada/internal/modules/bolsa/adapters/xlsconvoca"
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
@@ -27,6 +29,76 @@ type preparadorCargaConvocaBolsa struct {
 	cfg  config.Config
 }
 
+// La petición conserva solo la identidad revalidada y la correlación acuñada
+// por el servidor. Un fallo posterior no debe provocar otra resolución de
+// sesión, que podría perder al actor tras una revocación o cancelación.
+type claveIntentoCargaConvocaBolsa struct{}
+
+type intentoCargaConvocaBolsa struct {
+	mu          sync.Mutex
+	seguridad   contextoSeguridadComunDesarrollo
+	correlacion dominiovec.ReferenciaCorrelacionAutorizacionV2
+	recurso     string
+	verificada  bool
+}
+
+func capturarIntentoCargaConvocaBolsa(ctx context.Context, seguridad contextoSeguridadComunDesarrollo, correlacion dominiovec.ReferenciaCorrelacionAutorizacionV2) {
+	intento, ok := ctx.Value(claveIntentoCargaConvocaBolsa{}).(*intentoCargaConvocaBolsa)
+	if !ok || intento == nil || seguridad.Resultado.Validar() != nil ||
+		seguridad.Vinculo.ValidarPara(seguridad.Resultado) != nil {
+		return
+	}
+	intento.mu.Lock()
+	intento.seguridad, intento.correlacion, intento.verificada = seguridad, correlacion, true
+	intento.mu.Unlock()
+}
+
+func intentoVerificadoCargaConvocaBolsa(ctx context.Context) (contextoSeguridadComunDesarrollo, dominiovec.ReferenciaCorrelacionAutorizacionV2, bool) {
+	if ctx == nil {
+		return contextoSeguridadComunDesarrollo{}, dominiovec.ReferenciaCorrelacionAutorizacionV2{}, false
+	}
+	intento, ok := ctx.Value(claveIntentoCargaConvocaBolsa{}).(*intentoCargaConvocaBolsa)
+	if !ok || intento == nil {
+		return contextoSeguridadComunDesarrollo{}, dominiovec.ReferenciaCorrelacionAutorizacionV2{}, false
+	}
+	intento.mu.Lock()
+	defer intento.mu.Unlock()
+	return intento.seguridad, intento.correlacion, intento.verificada
+}
+
+func capturarActaCargaConvocaBolsa(ctx context.Context, contenido []byte, categoriaRef string) {
+	intento, ok := ctx.Value(claveIntentoCargaConvocaBolsa{}).(*intentoCargaConvocaBolsa)
+	if !ok || intento == nil || len(contenido) == 0 || categoriaRef == "" {
+		return
+	}
+	huella := sha256.Sum256(contenido)
+	acta := importacionapp.ReferenciaActa(hex.EncodeToString(huella[:]), categoriaRef)
+	intento.mu.Lock()
+	if intento.verificada {
+		intento.recurso = acta
+	}
+	intento.mu.Unlock()
+}
+
+func recursoActaCargaConvocaBolsa(ctx context.Context) (string, bool) {
+	intento, ok := ctx.Value(claveIntentoCargaConvocaBolsa{}).(*intentoCargaConvocaBolsa)
+	if !ok || intento == nil {
+		return "", false
+	}
+	intento.mu.Lock()
+	defer intento.mu.Unlock()
+	return intento.recurso, intento.verificada && intento.recurso != ""
+}
+
+func correlacionIntentoCargaConvocaBolsa(ctx context.Context, generador interface {
+	NuevaReferenciaCorrelacionAutorizacionV2(context.Context) (string, error)
+}) (dominiovec.ReferenciaCorrelacionAutorizacionV2, error) {
+	if _, correlacion, ok := intentoVerificadoCargaConvocaBolsa(ctx); ok && correlacion.Validar() == nil {
+		return correlacion, nil
+	}
+	return dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, generador)
+}
+
 // La vista previa verifica la concesión propia antes de leer el fichero. La
 // referencia opaca de esta comprobación no representa ningún acta importada.
 func (p *preparadorCargaConvocaBolsa) PrepararVistaPreviaCargaConvoca(ctx context.Context) error {
@@ -37,10 +109,11 @@ func (p *preparadorCargaConvocaBolsa) PrepararVistaPreviaCargaConvoca(ctx contex
 	if err != nil {
 		return err
 	}
-	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.base.generar)
+	correlacion, err := correlacionIntentoCargaConvocaBolsa(ctx, p.base.generar)
 	if err != nil {
 		return puertosbolsa.ErrCargaConvocaNoDisponible
 	}
+	capturarIntentoCargaConvocaBolsa(ctx, seguridad, correlacion)
 	recurso := dominiovec.RecursoAutorizable{
 		Referencia: "acta:importacion-convoca:" + "0000000000000000000000000000000000000000000000000000000000000000",
 		ModuloID:   puertosbolsa.ModuloCargaConvoca, Tipo: puertosbolsa.TipoRecursoCargaConvoca,
@@ -72,14 +145,16 @@ func (p *preparadorCargaConvocaBolsa) PrepararConfirmacionCargaConvoca(ctx conte
 	if err != nil {
 		return puertosbolsa.SolicitudConfirmarCargaConvoca{}, err
 	}
+	correlacion, err := correlacionIntentoCargaConvocaBolsa(ctx, p.base.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudConfirmarCargaConvoca{}, puertosbolsa.ErrCargaConvocaNoDisponible
+	}
+	capturarIntentoCargaConvocaBolsa(ctx, seguridad, correlacion)
 	categoriaRef, err := validarCategoriaImportacionConvoca(p.cfg, entrada.CategoriaClave)
 	if err != nil {
 		return puertosbolsa.SolicitudConfirmarCargaConvoca{}, bolsahttp.ErrCategoriaCargaConvocaNoValida
 	}
-	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.base.generar)
-	if err != nil {
-		return puertosbolsa.SolicitudConfirmarCargaConvoca{}, puertosbolsa.ErrCargaConvocaNoDisponible
-	}
+	capturarActaCargaConvocaBolsa(ctx, entrada.Contenido, categoriaRef)
 	return puertosbolsa.SolicitudConfirmarCargaConvoca{
 		Vinculo: seguridad.Vinculo, ResultadoContexto: seguridad.Resultado, Correlacion: correlacion,
 		MotivoAutorizacion: motivoConfirmarCargaConvocaBolsaDesarrollo(), CategoriaRef: categoriaRef,
@@ -88,35 +163,6 @@ func (p *preparadorCargaConvocaBolsa) PrepararConfirmacionCargaConvoca(ctx conte
 		BolsaRef:      "",
 		NombreFichero: entrada.NombreFichero, Contenido: entrada.Contenido,
 	}, nil
-}
-
-type importadorCargaConvocaBolsa struct {
-	servicio    *importacionapp.Servicio
-	recuperador *importacionpg.RepositorioRecuperacionPostgreSQL
-}
-
-func (i importadorCargaConvocaBolsa) ActaImportada(ctx context.Context, huella, categoria string) (bool, error) {
-	if i.recuperador == nil {
-		return false, puertosbolsa.ErrCargaConvocaNoDisponible
-	}
-	_, existe, err := i.recuperador.ConsultarEstado(ctx, huella, categoria)
-	return existe, err
-}
-
-func (i importadorCargaConvocaBolsa) Importar(ctx context.Context, solicitud importacionapp.SolicitudImportacion) (importacionapp.ResultadoImportacion, error) {
-	if i.servicio == nil {
-		return importacionapp.ResultadoImportacion{}, puertosbolsa.ErrCargaConvocaNoDisponible
-	}
-	return i.servicio.Importar(ctx, solicitud)
-}
-
-type custodioCargaConvocaBolsa struct{ cfg config.Config }
-
-func (c custodioCargaConvocaBolsa) Custodiar(ctx context.Context, contenido []byte) (string, error) {
-	if ctx == nil || ctx.Err() != nil {
-		return "", puertosbolsa.ErrCargaConvocaNoDisponible
-	}
-	return custodiarImportacionConvocaDesarrollo(c.cfg, contenido)
 }
 
 type operadorCargaConvocaBolsa struct {
@@ -148,12 +194,8 @@ func (a *auditorCargaConvocaBolsa) RegistrarIntentoFallidoCargaConvoca(ctx conte
 	if a == nil || a.preparador == nil || a.registrador == nil || ctx == nil || fallo == nil {
 		return puertosvec.ErrIntentoAuditoriaNoDisponible
 	}
-	seguridad, err := a.preparador.contextoRevalidado(ctx)
-	if err != nil {
-		return puertosvec.ErrIntentoAuditoriaNoDisponible
-	}
-	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, a.preparador.generar)
-	if err != nil {
+	seguridad, correlacion, ok := intentoVerificadoCargaConvocaBolsa(ctx)
+	if !ok {
 		return puertosvec.ErrIntentoAuditoriaNoDisponible
 	}
 	valorCorrelacion, err := correlacion.ValorCanonico()
@@ -173,6 +215,11 @@ func (a *auditorCargaConvocaBolsa) RegistrarIntentoFallidoCargaConvoca(ctx conte
 		recurso = "carga:convoca:vista_previa"
 	} else if operacion != bolsahttp.OperacionConfirmarCargaConvoca {
 		return puertosvec.ErrIntentoAuditoriaNoDisponible
+	}
+	if acta, capturada := recursoActaCargaConvocaBolsa(ctx); capturada {
+		recurso = acta
+	} else if fichero, capturado := bolsahttp.RecursoIntentoCargaConvoca(ctx); capturado {
+		recurso = fichero
 	}
 	orden, err := puertosvec.NuevaOrdenIntentoAuditoria(ref, seguridad.Resultado, seguridad.Vinculo, dominiovec.DatosIntentoAuditoria{
 		Accion: puertosbolsa.AccionConfirmarCargaConvoca, ModuloID: puertosbolsa.ModuloCargaConvoca,
@@ -211,51 +258,52 @@ func nuevoHandlerCargaConvocaBolsaDesarrollo(ctx context.Context, cfg config.Con
 	if err != nil {
 		return nil, nil, err
 	}
-	poolImportacion, err := abrirPoolImportacionConvoca(ctx, cfg)
+	repoCarga, err := postgresbolsa.NuevoRepositorioCargaConvocaPostgreSQL(poolBolsa, protectorStaging)
 	if err != nil {
 		return nil, nil, err
 	}
-	cerrar := func() { poolImportacion.Close() }
-	fallar := func(err error) (http.Handler, func(), error) { cerrar(); return nil, nil, err }
-	repoImportacion, err := importacionpg.NuevoRepositorioPostgreSQL(poolImportacion, protectorStaging)
-	if err != nil {
-		return fallar(err)
-	}
-	recuperador, err := importacionpg.NuevoRepositorioRecuperacionPostgreSQL(poolImportacion, protectorStaging)
-	if err != nil {
-		return fallar(err)
-	}
-	repoConstitucion, err := postgresbolsa.NuevoRepositorioConstitucionPostgreSQL(poolBolsa)
-	if err != nil {
-		return fallar(err)
-	}
 	lector := xls.NuevoLectorConLimiteFilas(aplicacionbolsa.MaximoFilasCargaConvoca)
-	importador, err := importacionapp.NuevoServicio(lector, repoImportacion, reloj)
+	preparadorLote, err := importacionapp.NuevoPreparador(lector, reloj)
 	if err != nil {
-		return fallar(err)
+		return nil, nil, err
 	}
-	constituidorBase, err := constitucion.NuevoServicio(recuperador, repoConstitucion, derivador, reloj)
+	constituidor, err := constitucion.NuevoServicioAutorizado(derivador, reloj, repoCarga)
 	if err != nil {
-		return fallar(err)
+		return nil, nil, err
 	}
-	constituidor, err := constitucion.NuevoServicioAutorizado(constituidorBase, repoConstitucion)
+	original, err := protector.NuevoProtectorOriginal(material.claveKMS)
 	if err != nil {
-		return fallar(err)
+		return nil, nil, err
 	}
 	vista, err := aplicacionbolsa.NuevoPrevisualizadorCargaConvoca(lector)
 	if err != nil {
-		return fallar(err)
+		return nil, nil, err
 	}
 	servicio, err := aplicacionbolsa.NuevoServicioCargaConvoca(vista, preparador, emisor,
-		custodioCargaConvocaBolsa{cfg}, importadorCargaConvocaBolsa{importador, recuperador}, constituidor, reloj)
+		original, preparadorLote, constituidor, reloj)
 	if err != nil {
-		return fallar(err)
+		return nil, nil, err
 	}
 	handler, err := bolsahttp.NuevoHandlerCargaConvoca(
 		&preparadorCargaConvocaBolsa{base: preparador, pdp: pdp, cfg: cfg}, operadorCargaConvocaBolsa{vista: vista, servicio: servicio},
 		&auditorCargaConvocaBolsa{preparador: preparador, registrador: registrador, proceso: proceso})
 	if err != nil {
-		return fallar(err)
+		return nil, nil, err
 	}
-	return handler, cerrar, nil
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r == nil {
+			handler.ServeHTTP(w, r)
+			return
+		}
+		ctx := context.WithValue(r.Context(), claveIntentoCargaConvocaBolsa{}, &intentoCargaConvocaBolsa{})
+		// La captura previa permite auditar también un JSON mal formado o una
+		// revocación entre esta comprobación y la operación. Solo se conserva
+		// cuando la frontera real entregó una sesión válida.
+		if seguridad, err := preparador.contextoRevalidado(ctx); err == nil {
+			if correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, preparador.generar); err == nil {
+				capturarIntentoCargaConvocaBolsa(ctx, seguridad, correlacion)
+			}
+		}
+		handler.ServeHTTP(w, r.WithContext(ctx))
+	}), func() {}, nil
 }
