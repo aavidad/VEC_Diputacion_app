@@ -2,7 +2,7 @@
   "incorporacion": {
     "incorporacion_consulta_bajo_demanda": "Commencement of duty is checked on request. Checking it does not record any commencement.",
     "incorporacion_consultar": "Check commencement of duty",
-    "incorporacion_preparacion_cargando": "Checking the commencement preparation stored on the server.",
+    "incorporacion_preparacion_cargando": "Loading the preparation for the start of work…",
     "incorporacion_preparacion_denegada": "You do not have permission to check commencement for this case file.",
     "incorporacion_preparacion_pendiente": "Commencement preparation is not available for this case file. This enquiry does not record a commencement.",
     "incorporacion_preparacion_detalle_obsoleto": "The displayed details (v{version_anterior}) are out of date. No action is enabled until version {version_actual} is retrieved.",
@@ -38,7 +38,7 @@
     "firma_enviar": "Send for signature",
     "firma_enviar_motivo": "The Firmadoc connection is not available yet. The signers' workflow must be confirmed.",
     "firma_autofirma_prueba_titulo": "Test with GrxFirma or AutoFirma",
-    "firma_autofirma_prueba": "Your signing program (GrxFirma or AutoFirma) can only test a local signature; it does not evidence submission to Firmadoc or an effective signature in this case.",
+    "firma_autofirma_prueba": "You can try signing with GrxFirma or AutoFirma. This trial does not send the document to Firmadoc or complete the case's official signature.",
     "firma_pendiente_documento": "Preliminary document",
     "firma_pendiente_documento_valor": "Legal report prepared; no signature is recorded.",
     "firma_pendiente_destino": "Intended workflow",

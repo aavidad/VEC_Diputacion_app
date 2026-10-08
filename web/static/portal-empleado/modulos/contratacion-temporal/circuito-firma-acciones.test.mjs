@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
-import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
+import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261008-alta-circular-v3";
 import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
 
 const pdf = new TextEncoder().encode("%PDF-1.7\noriginal con primera firma\n%%EOF");

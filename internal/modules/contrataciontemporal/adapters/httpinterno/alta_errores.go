@@ -129,6 +129,7 @@ func clasificarErrorAlta(err error) errorPublicoAlta {
 	case errors.Is(err, ErrContextoCanalNoDisponible),
 		errors.Is(err, application.ErrServicioRegistroInvalido),
 		errors.Is(err, ports.ErrPersistenciaNoDisponible),
+		errors.Is(err, ports.ErrFuenteNecesidadesAltaNoDisponible),
 		errors.Is(err, ports.ErrFlujoNoDisponible),
 		errors.Is(err, ports.ErrMotivoAutorizacionNoDisponible):
 		return errorServicioNoDisponible

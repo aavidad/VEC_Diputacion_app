@@ -4,8 +4,12 @@ import {
   EXPEDIENTE, recibo, raizPrueba, montar, archivoCorreo, declaracion, justificante,
   CLAVE_RESOLUCION, revisionManual, reciboResolucion, continuacionConfirmada,
   PUBLICACIONES_PROPUESTA,
-} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-firma-verificador-v2";
-import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
+} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
+import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+
+const MENSAJES_LLAMAMIENTO_EN = (await cargarCatalogosContratacionEnIdioma(
+  "contratacion-temporal-llamamiento", "en",
+)).actual;
 
 const fila = (n) => ({
   organizacion_ref: recibo.organizacion_ref, expediente_ref: EXPEDIENTE,

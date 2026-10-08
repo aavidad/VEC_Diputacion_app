@@ -1,5 +1,5 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 const { cargarTextos, crearTextos } = await import("../../../comun/textos.js");
 const textos = await cargarTextos("solicitudes");
@@ -27,6 +27,6 @@ export function formatearFechaSolicitudes(valor, localizacion = LOCALIZACION_ACT
   if (!Number.isFinite(dia.getTime()) || dia.toISOString().slice(0, 10) !== valor.slice(0, 10)) return sinDato;
   const instante = valor.length === 10 ? dia : new Date(valor);
   return Number.isFinite(instante.getTime())
-    ? crearTextos({ modulo: "solicitudes", localizacion, respaldo: {} }).fecha(instante, OPCIONES_FECHA)
+    ? new Intl.DateTimeFormat(localizacion, OPCIONES_FECHA).format(instante)
     : sinDato;
 }

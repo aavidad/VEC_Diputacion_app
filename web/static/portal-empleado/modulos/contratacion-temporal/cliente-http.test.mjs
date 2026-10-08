@@ -5,7 +5,7 @@ import {
   ErrorClienteHTTPContratacionTemporal,
   RUTAS_HTTP_CONTRATACION_TEMPORAL,
   crearClienteHTTPContratacionTemporal,
-} from "./cliente-http.js";
+} from "./cliente-http.js?v=20261008-alta-circular-v3";
 import {
   liberaBloqueoResultadoCobertura,
   validarPropuestaCobertura,
@@ -571,6 +571,15 @@ test("el catálogo de alta se consulta sin cuerpo, caché ni autoridad fabricada
     "authorization", "cookie", "remote-user", "x-forwarded-user",
     "x-auth-subject", "x-vec-subject", "actor", "perfil",
   ]) assert.equal(llamadas[0].opciones.headers.has(prohibida), false);
+});
+
+test("una respuesta JSON consumida no se cancela después de validarse", async () => {
+  const respuesta = respuestaJSON({ data: catalogosAlta() }, 200);
+  let cancelaciones = 0;
+  Object.defineProperty(respuesta.body, "cancel", { value: () => { cancelaciones++; } });
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta });
+  await cliente.obtenerCatalogosAlta();
+  assert.equal(cancelaciones, 0);
 });
 
 test("la configuración es cerrada y no admite autoridad del navegador", () => {

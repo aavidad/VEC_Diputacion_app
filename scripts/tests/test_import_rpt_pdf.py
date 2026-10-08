@@ -20,6 +20,42 @@ ESPECIFICACION.loader.exec_module(IMPORTADOR)
 
 
 class PrivacidadImportadorRPTTests(unittest.TestCase):
+    def test_continuaciones_respetan_columnas_del_pdf(self) -> None:
+        texto = "\n".join([
+            "422 RESPONS. DE RR. HH. DE LA MILAGROSA Y SERVS.   1    S    F   C A2/C1        DG     AG                            22   RTDIP      19.201,98 €    111/SI   NO",
+            "    GRALES. DE ARMILLA",
+            "412 JEF. NEGOCIADO GESTIÓN DE JORNADA Y           1    S    F   C     C1        DG   AGAE                             21   RTDIP      17.194,38 €     10/SI   NO",
+            "    HORARIOS DE TRABAJO",
+            "217 INSPECTOR TERRITORIO                        2    N    F   C         B     DG      AE   149 BASE B SIN CATEGORÍA   18   RTDIP      19.125,26 €     9/SI    SI",
+            "                                                                                                  ESPECÍFICA",
+            "407 RESP. CALIDAD Y GESTION ASISTENCIAL       1    S    F   C A1/A2        DG      AE       37 ENFERMERO/A         25   RTDIP      21.521,08 €     12/SI   NO",
+            "                                                                                             73 MÉDICO/ A",
+        ])
+        puestos = IMPORTADOR.parse_text(texto)
+        self.assertEqual(len(puestos), 4)
+        self.assertEqual(puestos[0]["name"], "RESPONS. DE RR. HH. DE LA MILAGROSA Y SERVS. GRALES. DE ARMILLA")
+        self.assertNotIn("category_code", puestos[0])
+        self.assertEqual(puestos[1]["name"], "JEF. NEGOCIADO GESTIÓN DE JORNADA Y HORARIOS DE TRABAJO")
+        self.assertEqual(puestos[2]["category_code"], "149 BASE B SIN CATEGORÍA ESPECÍFICA")
+        self.assertEqual(puestos[3]["category_code"], "37 ENFERMERO/A 73 MÉDICO/ A")
+
+    def test_una_linea_amplia_nombre_y_categoria_por_separado(self) -> None:
+        texto = "\n".join([
+            "748 JEFATURA SECCIÓN DE ASISTENCIA TÉCNICA EN         1    S    F   C A1/A2        DG     AE       63 INGENIERO/ A DE     25   RTDIP      21.521,08 €     12/SI   SI",
+            "    INGENIERÍA E INSTALACIONES                                                                    TELECOMUNICACIONES",
+            "                                                                                               64 INGENIERO/ A INDUSTRIAL",
+            "                                                                                                66 INGENIERO TÉCNICO/ A",
+        ])
+        puesto, = IMPORTADOR.parse_text(texto)
+        self.assertEqual(
+            puesto["name"],
+            "JEFATURA SECCIÓN DE ASISTENCIA TÉCNICA EN INGENIERÍA E INSTALACIONES",
+        )
+        self.assertEqual(
+            puesto["category_code"],
+            "63 INGENIERO/ A DE TELECOMUNICACIONES 64 INGENIERO/ A INDUSTRIAL 66 INGENIERO TÉCNICO/ A",
+        )
+
     def test_payload_no_conserva_la_ruta_del_pdf(self) -> None:
         posiciones = [{"official_code": "1", "name": "Puesto de prueba"}]
 

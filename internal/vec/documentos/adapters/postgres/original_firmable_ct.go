@@ -84,7 +84,7 @@ func (r *Repositorio) ReservarOriginalFirmable(ctx context.Context, solicitud po
 func (r *Repositorio) ConfirmarOriginalFirmable(ctx context.Context, confirmacion ports.ConfirmacionOriginalFirmable) (domain.Documento, error) {
 	preimagen, err := docapp.PreimagenConfirmacionOriginalFirmable(confirmacion)
 	if err != nil || confirmacion.Autorizacion.RecursoRef != confirmacion.Intento.DocumentoID ||
-		!domain.ReferenciaOpacaValida(confirmacion.Autorizacion.AmbitoRef) {
+		!domain.ReferenciaExpedienteValida(confirmacion.Autorizacion.AmbitoRef) {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
 	material, err := validarAutorizacionOriginalFirmable(confirmacion.Autorizacion, ports.AccionConfirmarOriginalFirmable, preimagen)

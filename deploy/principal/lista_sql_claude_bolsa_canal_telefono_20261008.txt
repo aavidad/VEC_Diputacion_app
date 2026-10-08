@@ -1,0 +1,5 @@
+# Canales del llamamiento de Bolsa: seguimiento por teléfono (Bolsa 000087).
+# Precondiciones: principal con HZ6 (B85 y B86 instaladas). Una sola vez, tras copia
+# de seguridad; nunca DOWN ni reaplicar. Prueba posterior (se revierte sola):
+#   deploy/postgresql/bolsa_llamamientos/pruebas_sql/b87_contacto_telefonico_actual.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000087_contacto_telefonico_actual.up.sql

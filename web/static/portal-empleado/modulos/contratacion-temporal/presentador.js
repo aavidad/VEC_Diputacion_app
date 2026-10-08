@@ -6,10 +6,11 @@ import {
   clonarYCongelarAlta,
   crearBorradorAlta,
   crearComandoAlta,
+  ESQUEMA_CATALOGOS_NECESIDADES,
   validarBorradorAlta,
   validarCatalogosAlta,
   validarReciboAlta,
-} from "./contrato.js?v=20261002-ct-fin-moad-v1";
+} from "./contrato.js?v=20261008-alta-circular-v3";
 
 const FASE_EDICION = "edicion";
 const FASE_REVISION = "revision";
@@ -41,15 +42,17 @@ function generarClaveSegura() {
   return globalThis.crypto.randomUUID();
 }
 
-function camposBorrador() {
-  return Object.keys(crearBorradorAlta({ conNumeroMOAD: true }));
+function camposBorrador(catalogos) {
+  return Object.keys(crearBorradorAlta({ conNumeroMOAD: true,
+    conNecesidad: catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES,
+    jornadaReferenciaMinutos: catalogos.necesidades?.jornada_referencia_minutos }));
 }
 
-function copiarBorradorEntrada(entrada) {
+function copiarBorradorEntrada(entrada, catalogos) {
   if (!entrada || typeof entrada !== "object" || Array.isArray(entrada)) {
     throw new ErrorValidacionAlta({ general: "contrato_cerrado" });
   }
-  const campos = camposBorrador();
+  const campos = camposBorrador(catalogos);
   const claves = Object.keys(entrada);
   if (claves.length !== campos.length || claves.some((clave) => !campos.includes(clave))
     || campos.some((campo) => !Object.hasOwn(entrada, campo))) {
@@ -99,7 +102,9 @@ function crearEstadoInicial(catalogos, disponible) {
     disponible,
     ocupado: false,
     catalogos,
-    borrador: crearBorradorAlta({ conNumeroMOAD: true }),
+    borrador: crearBorradorAlta({ conNumeroMOAD: true,
+      conNecesidad: catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES,
+      jornadaReferenciaMinutos: catalogos.necesidades?.jornada_referencia_minutos }),
     errores: {},
     mensaje_clave: disponible ? "estado_disponible" : "estado_no_disponible",
     tipo_mensaje: disponible ? "informacion" : "aviso",
@@ -144,7 +149,7 @@ export function crearPresentadorAltaContratacionTemporal({
     }
     let borrador;
     try {
-      borrador = copiarBorradorEntrada(entrada);
+      borrador = copiarBorradorEntrada(entrada, catalogos);
     } catch (error) {
       const errores = error instanceof ErrorValidacionAlta
         ? error.errores
@@ -157,6 +162,14 @@ export function crearPresentadorAltaContratacionTemporal({
     }
     if (borrador.categoria_ref !== estado.borrador.categoria_ref) {
       borrador = clonarYCongelarAlta({ ...borrador, grupo_subgrupo: "" });
+    }
+    if (catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES
+      && borrador.motivo_clave !== estado.borrador.motivo_clave) {
+      const causa = catalogos.necesidades.causas.find((dato) => dato.clave === borrador.motivo_clave);
+      borrador = clonarYCongelarAlta(Object.fromEntries(Object.entries(borrador).map(([campo, valor]) =>
+        [campo, campo === "jornada_minutos" || !estado.borrador[campo]
+          || !catalogos.necesidades.causas.some((dato) => dato.campos_permitidos.includes(campo))
+          || causa?.campos_permitidos.includes(campo) ? valor : ""])));
     }
     if (borrador.rc_existe === false) borrador = clonarYCongelarAlta(limpiarDatosRC(borrador));
     sustituirEstado({
@@ -174,7 +187,7 @@ export function crearPresentadorAltaContratacionTemporal({
     }
     let borrador;
     try {
-      borrador = copiarBorradorEntrada(entrada);
+      borrador = copiarBorradorEntrada(entrada, catalogos);
     } catch (error) {
       const errores = error instanceof ErrorValidacionAlta
         ? error.errores
@@ -201,10 +214,7 @@ export function crearPresentadorAltaContratacionTemporal({
           catalogos,
           comandoActual.clave_idempotencia,
         );
-        comandoActual = solicitudesCanonicasIguales(
-          { numero: candidatoMismaClave.numero_expediente_moad, solicitud: candidatoMismaClave.solicitud },
-          { numero: comandoActual.numero_expediente_moad, solicitud: comandoActual.solicitud },
-        )
+        comandoActual = solicitudesCanonicasIguales(candidatoMismaClave, comandoActual)
           ? candidatoMismaClave
           : crearComandoAlta(borrador, catalogos, generarClaveIdempotencia());
       }

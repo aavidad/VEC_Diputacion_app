@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CLAVES_I18N_SEGUIMIENTO_INCORPORACION, montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { CLAVES_I18N_SEGUIMIENTO_INCORPORACION, montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261008-alta-rpt-circular-v6";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 
 const recibo = Object.freeze({
   esquema: "vec.contratacion-temporal.incorporacion-ejercicio.recibo.v2",
@@ -109,9 +109,9 @@ test("seguimiento: una clave sin etiqueta publicada se presenta como dato técni
   const raiz = crearRaiz();
   const destruir = montarSeguimientoIncorporacion({ raiz, recibo, mensajes: {}, cliente: { async consultar() { return datos; } } });
   await raiz.pulsarConsulta();
-  assert.match(raiz.innerHTML, /Valor técnico sin etiqueta publicada: estado_no_publicado <small><code>estado_no_publicado<\/code>/u);
-  assert.match(raiz.innerHTML, /Valor técnico sin etiqueta publicada: transicion_no_publicada/u);
-  assert.match(raiz.innerHTML, /Valor técnico sin etiqueta publicada: documento_no_publicado/u);
+  assert.match(raiz.innerHTML, /Dato sin descripción: estado_no_publicado <small><code>estado_no_publicado<\/code>/u);
+  assert.match(raiz.innerHTML, /Dato sin descripción: transicion_no_publicada/u);
+  assert.match(raiz.innerHTML, /Dato sin descripción: documento_no_publicado/u);
   destruir();
 });
 
@@ -121,7 +121,7 @@ test("seguimiento: sin recibo V2 confirmado mantiene el control inactivo y no co
     consultar() { assert.fail("consulta inesperada"); },
   } });
   assert.match(raiz.innerHTML, /data-ct-seguimiento-consultar disabled/u);
-  assert.match(raiz.innerHTML, /solo se consulta desde un recibo V2 confirmado/u);
+  assert.match(raiz.innerHTML, /abra el justificante confirmado de la incorporación/u);
   await raiz.pulsarConsulta();
   destruir();
 });

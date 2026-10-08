@@ -1,6 +1,6 @@
 import { validarContextoRecuperacionCierreAdministrativo, validarDatosRecuperacionCierreAdministrativo, validarPreparacionCierreAdministrativo, validarSolicitudCierreAdministrativo, validarReciboCierreAdministrativo } from "./contrato-cierre-administrativo.js";
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261008-canal-telefono-v2";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
 const TRANSICION = "cerrar_administrativamente_sin_cese", MAXIMO_ARCHIVO = 8 * 1024;
 function clave() { return globalThis.crypto?.randomUUID?.() ?? ""; }

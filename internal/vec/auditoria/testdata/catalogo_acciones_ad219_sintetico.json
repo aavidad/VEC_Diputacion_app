@@ -1,0 +1,87 @@
+{
+  "esquema": "vec.auditoria.verificacion.catalogo-acciones-admin.v1",
+  "manifiesto": {
+    "cadena_id": "cadena:comun:interna",
+    "primera_secuencia": 1,
+    "ultima_secuencia": 2,
+    "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "cabeza_sha256": "fc205a04a08553e4495bcebc78359d972aa38d9825e4f668b06f6a43f951d864",
+    "registros": 2
+  },
+  "registros": [
+    {
+      "tipo_registro": "catalogo_acciones_admin",
+      "catalogo_acciones": {
+        "operador_login": "vec_ensayo_caa_20261008",
+        "accion": "registrar_catalogo_acciones_admin_v1",
+        "modulo_id": "administracion",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "catalogo_acciones_admin",
+        "auditoria_ref": "aud_v3_caa_648ed0b58775bc8779ca32b175bc19dc",
+        "secuencia": 1001,
+        "anterior_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "registrada_en": "2026-10-08T08:00:01.000001Z",
+        "evento_ref": "evento_648ed0b58775bc8779ca32b175bc19dc",
+        "correlacion_ref": "correlacion_b583ed7def9de2e036c42e2c48863b04",
+        "recurso_ref": "catalogo_acciones_admin:caa_abcdefghijklmnopqrstuv",
+        "resultado": "permitido",
+        "motivo_ref": "catalogo_acciones_registrado",
+        "operacion_ref": "caa_abcdefghijklmnopqrstuv",
+        "plan_sha256": "64879f7d6b960a01909762d911a32d4582c20010c5641ee90278b644a9e3b525",
+        "catalogo_ref": "catalogo:acciones:base",
+        "catalogo_version": "2",
+        "catalogo_sha256": "5d30794986031e3a7ad53838070603fc4b34e12ec6f47f0709aba42ccc025730",
+        "paquete_ref": "paquete:catalogo:fuente",
+        "paquete_version": "3",
+        "paquete_sha256": "84a68012ab19099c46a8d4b9ece7dd3235dac1d29996aeb7c44b1468f2339285",
+        "censo_sha256": "ff7c5659a3c22ad219570fb5f462d1dbec8cb651a2faecefe2fa04ba64915697",
+        "entradas_numero": "12",
+        "perfiles_numero": "4",
+        "aprobacion_ref": "aprobacion:catalogo:uno",
+        "aprobacion_sha256": "46b9c7ac86bb9372da2cd5e47d626a0e1982ff77b12c6645b4eb6f6644db0d34",
+        "evento_material_sha256": "f890610eebeb2bcb15d1f6a9c5130bb26c4fe7629b7d30ff9dab244c7f42dd12",
+        "huella_sha256": "2b55fe0dd4734637613ab72c038c1e46660af998173d1e7014e338dfac544335"
+      },
+      "eslabon": {
+        "posicion": 1,
+        "secuencia": 1001,
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "eslabon_sha256": "e3e75e70a7600cdf04e6a8cdd8a0b47ab88ad488bb14ceb6d41a2093024be69b",
+        "registrada_en": "2026-10-08T08:00:01.000001Z",
+        "sellado_en": "2026-10-08T08:00:01.000002Z"
+      }
+    },
+    {
+      "tipo_registro": "intento_catalogo_acciones_admin",
+      "intento_catalogo_acciones": {
+        "operador_login": "vec_ensayo_caa_20261008",
+        "accion": "registrar_catalogo_acciones_admin_v1",
+        "modulo_id": "administracion",
+        "proceso": "postgresql",
+        "canal": "operacion_tecnica_privada",
+        "finalidad_ref": "catalogo_acciones_admin",
+        "auditoria_ref": "aud_v3_caai_4861ba3c5fd14c3d67798d3de92501be",
+        "secuencia": 1002,
+        "anterior_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "registrada_en": "2026-10-08T08:00:02.000001Z",
+        "evento_ref": "evento_4861ba3c5fd14c3d67798d3de92501be",
+        "correlacion_ref": "correlacion_4caf88cc66ceef60a06f32bb02b26639",
+        "recurso_ref": "solicitud_catalogo_acciones_admin:cf1d8b90b85003ad19a1761941e5de0b",
+        "resultado": "denegado",
+        "motivo_ref": "catalogo_acciones_denegado",
+        "solicitud_sha256": "54f6cb7477eb1b8c0d45c1af71015b7364231e861cd448b643ed253dda4573a3",
+        "evento_material_sha256": "dcc678ed5cc81b3d99884e689f610863b4a8f730a90096de470a8a9c9ae864c6",
+        "huella_sha256": "fc329a0246c6303da32d9d6056570cc2f0a85fd3d1c42b078a2979b97b7410db"
+      },
+      "eslabon": {
+        "posicion": 2,
+        "secuencia": 1002,
+        "anterior_sha256": "e3e75e70a7600cdf04e6a8cdd8a0b47ab88ad488bb14ceb6d41a2093024be69b",
+        "eslabon_sha256": "fc205a04a08553e4495bcebc78359d972aa38d9825e4f668b06f6a43f951d864",
+        "registrada_en": "2026-10-08T08:00:02.000001Z",
+        "sellado_en": "2026-10-08T08:00:02.000002Z"
+      }
+    }
+  ]
+}

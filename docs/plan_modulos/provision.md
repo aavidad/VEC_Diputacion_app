@@ -1,5 +1,20 @@
 # Provisión: inventario y plan de continuación
 
+## Bases públicas transcritas — 7 de octubre de 2026
+
+`vec-provision-bases` consulta una transcripción versionada del concurso
+2026/PPT_01/000026 y de la libre designación 2025/PPT_01/000474. Puede comprobar
+la huella de los PDF locales y señalar diferencias de expediente, CVE, corte y
+máximos del baremo frente a un borrador. La libre designación conserva su
+circuito de idoneidad y carece de ranking automático.
+
+El contraste es parcial: no coteja los códigos de puesto del borrador con los
+nueve códigos publicados, porque sus referencias opacas aún no tienen una
+correspondencia acreditada. Declara ese pendiente aunque no encuentre otras
+diferencias. No reconoce vacantes ni aprueba bases. La revisión independiente
+de `498f64306319` y las pruebas focales pasaron; PV02 requiere completar las
+fórmulas, las excepciones y el vínculo de la oferta con la fuente RPT.
+
 Fecha: 4 de octubre de 2026. Base inspeccionada:
 `origin/main@77a4e7470cac5e0a02adce40dbdedd1c7a15b6db`.
 

@@ -2,7 +2,7 @@
 
 Este guion abre **informes** y **catálogo de tarifas** con datos sintéticos. Sirve para revisar su presentación y sus límites. No consulta el servidor VEC, no autentica a nadie y no acredita publicación ni un cálculo de tarifas aprobado.
 
-Necesita una **copia fuente sintética controlada** que contenga las dos páginas y sus archivos estáticos. El servidor propio expone los archivos públicos de `web/static` y únicamente estos datos: `data/demo/dietas/informes.json`, `data/demo/dietas/catalogo-rrhh.json` y `data/catalogos/dietas/informes-ejemplo-v1.json`. Debe usar una copia que reúna los cortes de informes y catálogo; una de las ramas por separado no basta. No pase como fuente un repositorio con secretos o datos privados.
+Necesita una **copia fuente sintética controlada** que contenga los cuatro archivos de `scripts/recorridos-g/previews/paginas/dietas/`, los estáticos de `web/static` y tres JSON: `data/demo/dietas/informes.json`, `data/demo/dietas/catalogo-rrhh.json` y `data/catalogos/dietas/informes-ejemplo-v1.json`. Las páginas de prueba viven fuera de `web/static`; el producto no las sirve. No pase como fuente un repositorio con secretos o datos privados.
 
 Primero compruebe las dependencias sin abrir Chrome ni red:
 
@@ -24,7 +24,7 @@ En catálogo, prepara por separado una propuesta local de 42,50 € y comprueba 
 
 La prueba de reintento devuelve un único `503` **solo desde el navegador al JSON de catálogo**, sin tocar el archivo ni un servidor VEC. Cualquier otro `503` corta el recorrido. El resultado informa qué pasó; una dependencia ausente nunca cuenta como recorrido verde.
 
-El servidor escucha en `127.0.0.1` con un puerto efímero. Deniega métodos distintos de GET, rutas `/api`, datos fuera de esos tres JSON y enlaces simbólicos. El navegador bloquea WebSocket, otros orígenes y cualquier ruta fuera de la lista. Se cierra y elimina el perfil temporal de Chrome al terminar.
+El servidor escucha en `127.0.0.1` con un puerto efímero. Solo sirve cuatro rutas exactas de preview, los estáticos de `web/static` y los tres JSON indicados. Deniega otros métodos, rutas `/api` y enlaces simbólicos. El navegador bloquea WebSocket, otros orígenes y cualquier ruta fuera de la lista. Se cierra y elimina el perfil temporal de Chrome al terminar.
 
 Ejecute Chrome dentro de un aislamiento de sistema operativo: fuente y herramientas de solo lectura, red externa cerrada, bucle local aislado, un único espacio temporal escribible y límites de CPU, memoria, procesos y tiempo. El modo `plan` no necesita navegador ni red.
 

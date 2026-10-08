@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20261001-ct-a-i18n-v1";
-import { crearAyudanteTramites, MENSAJES_AYUDANTE_TRAMITES_ES } from "./ayudante-tramites.js?v=20261001-ct-a-i18n-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+await prepararTextosPortal("ayuda");
+const { TRAMITES_AYUDANTE_PORTAL } = await import("./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1");
+const { crearAyudanteTramites, MENSAJES_AYUDANTE_TRAMITES_ES } =
+  await import("./ayudante-tramites.js?v=20261007-pantallas-textos-final-v1");
 
 test("el ayudante cubre trámites comunes de Dietas, Cronos y Personal", () => {
   const ids = new Set(TRAMITES_AYUDANTE_PORTAL.map((tramite) => tramite.id));
@@ -47,8 +50,8 @@ test("la guía de llamamiento separa la consulta de los efectos autorizados", ()
   assert.equal(ultimo.vista, "bolsa-candidatos");
   assert.equal(ultimo.selector, "[data-bolsa-c23-pendiente]");
   assert.equal(ultimo.bloqueado, true);
-  assert.match(ultimo.limite, /no acredita contacto, apertura ni resultado/u);
-  assert.match(ultimo.limite, /capacidad y su recibo/u);
+  assert.match(ultimo.limite, /no contacta a nadie ni abre un llamamiento/u);
+  assert.match(ultimo.limite, /justificante de cada actuación/u);
   assert.equal(llamamiento.pasos.some((paso) => "activar" in paso), false);
 });
 
@@ -63,7 +66,7 @@ test("la guía presenta pasos, detalle accesible y límites sin interpolar HTML"
   assert.match(paso, /aria-expanded="false"/u);
   assert.match(paso, /data-ayudante-detalle/u);
   assert.match(paso, /Límite o dependencia/u);
-  assert.match(paso, /queda detenido/u);
+  assert.match(paso, /espera a que esté disponible la actuación indicada/u);
 });
 
 test("los pasos usan sus selectores concretos y solo avisan de detención cuando procede", async () => {

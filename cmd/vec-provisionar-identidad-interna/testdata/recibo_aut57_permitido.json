@@ -1,0 +1,61 @@
+{
+  "estado": "permitido",
+  "codigo": null,
+  "recibo": {
+    "esquema": "vec.aut.fuentes-identidad-interna-sintetica.v1",
+    "recibo_ref": "recibo_identidad:11111111111111111111111111111111",
+    "operacion_ref": "piis_aaaaaaaaaaaaaaaaaaaaaa",
+    "plan_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "preimagen_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "configuracion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "operador_login": "vec_ensayo_identidad",
+    "aprobacion_ref": "aprobacion_ensayo",
+    "auditoria_ref": "aud_v3_ii_11111111111111111111111111111111",
+    "auditoria_secuencia": 1,
+    "auditoria_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "registrada_en": "2026-10-07T00:00:00Z",
+    "is": {
+      "esquema": "vec.is.identidad-interna-sintetica.v1",
+      "version": 1,
+      "recibo_ref": "recibo_is_identidad:11111111111111111111111111111111",
+      "operacion_ref": "piis_aaaaaaaaaaaaaaaaaaaaaa",
+      "plan_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "aprobacion_ref": "aprobacion_ensayo",
+      "alcance_fuente": "sintetico_declarado",
+      "registrada_en": "2026-10-07T00:00:00Z",
+      "datos": {
+        "persona_ref": "per_bbbbbbbbbbbbbbbbbbbbbb",
+        "cuenta_ordinaria_ref": "cta_dddddddddddddddddddddd",
+        "version_titularidad": 1
+      },
+      "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "ca": {
+      "esquema": "vec.ca.identidad-interna-sintetica.v1",
+      "version": 1,
+      "recibo_ref": "recibo_ca_identidad:11111111111111111111111111111111",
+      "operacion_ref": "piis_aaaaaaaaaaaaaaaaaaaaaa",
+      "plan_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "aprobacion_ref": "aprobacion_ensayo",
+      "alcance_fuente": "sintetico_declarado",
+      "registrada_en": "2026-10-07T00:00:00Z",
+      "datos": {
+        "organizacion_ref": "org_cccccccccccccccc",
+        "organizacion_version": 2,
+        "persona_ref": "per_bbbbbbbbbbbbbbbbbbbbbb",
+        "persona_version": 1,
+        "cuenta_ordinaria_ref": "cta_dddddddddddddddddddddd",
+        "proyeccion_cuenta_version": 1
+      },
+      "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "replay": false,
+  "auditoria_intento": {
+    "auditoria_ref": "aud_v3_iii_22222222222222222222222222222222",
+    "secuencia": 2,
+    "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "correlacion_ref": "correlacion_22222222222222222222222222222222",
+    "registrada_en": "2026-10-07T00:00:00Z"
+  }
+}

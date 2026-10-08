@@ -1,0 +1,5 @@
+# Requiere AD207, AD218 y AD215 instaladas con su historia exacta.
+# Si AD215 falta, instalarla por su lista causal revisada antes de esta lista.
+# Instalar cada UP nueva una sola vez; no ejecutar DOWN ni reaplicar AD215.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000219_catalogo_acciones_admin.up.sql
+deploy/postgresql/autorizacion/migraciones/000058_catalogo_acciones_admin.up.sql

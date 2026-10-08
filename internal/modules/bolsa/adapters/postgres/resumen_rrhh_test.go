@@ -4,20 +4,44 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sort"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
+type contadorConsultasResumenRRHH struct {
+	situaciones, politicas, llamamientos atomic.Int64
+}
+
+func (c *contadorConsultasResumenRRHH) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+	if strings.Contains(data.SQL, "leer_resumen_situaciones_bolsas_v1") {
+		c.situaciones.Add(1)
+	}
+	if strings.Contains(data.SQL, "leer_politicas_orden_vigentes_v1") {
+		c.politicas.Add(1)
+	}
+	if strings.Contains(data.SQL, "leer_llamamientos_en_curso_bolsas_v1") {
+		c.llamamientos.Add(1)
+	}
+	return ctx
+}
+
+func (*contadorConsultasResumenRRHH) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {
+}
+
 func TestLectorResumenBolsasFallaCerradoSinBase(t *testing.T) {
 	var l *LectorResumenBolsasPostgreSQL
-	if _, _, err := l.LeerResumen(context.Background(), time.Now()); !errors.Is(err, ports.ErrResumenBolsasNoDisponible) {
+	if _, err := l.LeerResumen(context.Background(), time.Now()); !errors.Is(err, ports.ErrResumenBolsasNoDisponible) {
 		t.Fatalf("lector nulo: %v", err)
 	}
 	l = &LectorResumenBolsasPostgreSQL{pool: &pgxpool.Pool{}}
-	if _, _, err := l.LeerResumen(context.Background(), time.Time{}); !errors.Is(err, ports.ErrResumenBolsasNoDisponible) {
+	if _, err := l.LeerResumen(context.Background(), time.Time{}); !errors.Is(err, ports.ErrResumenBolsasNoDisponible) {
 		t.Fatalf("corte vacío: %v", err)
 	}
 	if _, err := NuevoLectorResumenBolsasPostgreSQL(nil); err == nil {
@@ -33,7 +57,13 @@ func TestLectorResumenBolsasCoincideConLecturasIndividualesPostgreSQL(t *testing
 		t.Skip("sin VEC_BOLSA_LOTES_PG_DSN")
 	}
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
+	config, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consultas := &contadorConsultasResumenRRHH{}
+	config.ConnConfig.Tracer = consultas
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,9 +73,14 @@ func TestLectorResumenBolsasCoincideConLecturasIndividualesPostgreSQL(t *testing
 	ceses, _ := NuevaConsultaEstadoCesePostgreSQL(pool)
 	orden, _ := NuevaConsultaOrdenVigentePostgreSQL(pool)
 	corte := time.Now()
-	filas, politicas, err := lector.LeerResumen(ctx, corte)
+	resumen, err := lector.LeerResumen(ctx, corte)
+	filas, politicas := resumen.Situaciones, resumen.Politicas
 	if err != nil || len(filas) == 0 {
 		t.Fatalf("resumen: %d filas, %v", len(filas), err)
+	}
+	if consultas.situaciones.Load() != 1 || consultas.politicas.Load() != 1 || consultas.llamamientos.Load() != 1 {
+		t.Fatalf("consultas por petición: situaciones=%d políticas=%d recuentos=%d",
+			consultas.situaciones.Load(), consultas.politicas.Load(), consultas.llamamientos.Load())
 	}
 	refs := make([]string, 0, len(filas))
 	for _, fila := range filas {
@@ -78,6 +113,20 @@ func TestLectorResumenBolsasCoincideConLecturasIndividualesPostgreSQL(t *testing
 	if len(politicas) == 0 {
 		t.Fatal("sin políticas")
 	}
+	bolsas := map[string]struct{}{}
+	for _, fila := range filas {
+		bolsas[fila.BolsaRef] = struct{}{}
+	}
+	if len(resumen.LlamamientosEnCurso) != len(bolsas) {
+		t.Fatalf("recuentos agrupados=%d bolsas=%d", len(resumen.LlamamientosEnCurso), len(bolsas))
+	}
+	for bolsa := range bolsas {
+		var individual int
+		if err := pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.contar_llamamientos_en_curso_v1($1)`, bolsa).Scan(&individual); err != nil ||
+			resumen.LlamamientosEnCurso[bolsa] != individual {
+			t.Fatalf("recuento de %s: conjunto=%d individual=%d error=%v", bolsa, resumen.LlamamientosEnCurso[bolsa], individual, err)
+		}
+	}
 	for bolsa, politica := range politicas {
 		vigente, err := orden.ConsultarOrdenVigente(ctx, bolsa)
 		if err != nil {
@@ -90,4 +139,45 @@ func TestLectorResumenBolsasCoincideConLecturasIndividualesPostgreSQL(t *testing
 		}
 	}
 	t.Logf("%d participaciones (%d con cese), %d políticas", len(filas), conCese, len(politicas))
+}
+
+// La medición explícita usa el mismo lector de producción y exige un clon con
+// al menos 2000 participaciones; no atribuye al adaptador el tiempo HTTP.
+func TestLectorResumenBolsasP95ClonPostgreSQL(t *testing.T) {
+	dsn := os.Getenv("VEC_BOLSA_LOTES_PG_DSN")
+	if dsn == "" {
+		t.Skip("sin VEC_BOLSA_LOTES_PG_DSN")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	lector, err := NuevoLectorResumenBolsasPostgreSQL(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	primero, err := lector.LeerResumen(ctx, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(primero.Situaciones) < 2000 {
+		t.Skipf("clon con %d participaciones; se requieren al menos 2000", len(primero.Situaciones))
+	}
+	const muestras = 100
+	duraciones := make([]time.Duration, 0, muestras)
+	for range muestras {
+		inicio := time.Now()
+		if _, err := lector.LeerResumen(ctx, inicio); err != nil {
+			t.Fatal(err)
+		}
+		duraciones = append(duraciones, time.Since(inicio))
+	}
+	sort.Slice(duraciones, func(i, j int) bool { return duraciones[i] < duraciones[j] })
+	p95 := duraciones[(muestras*95+99)/100-1]
+	t.Logf("adaptador: %d participaciones, %d muestras, p95=%s", len(primero.Situaciones), muestras, p95)
+	if p95 >= 300*time.Millisecond {
+		t.Fatalf("p95 del adaptador supera 300 ms: %s", p95)
+	}
 }

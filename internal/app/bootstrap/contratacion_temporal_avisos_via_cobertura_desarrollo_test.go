@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -32,6 +33,15 @@ func (s situacionFijaAvisosViaPrueba) SituacionBolsaCobertura(context.Context, s
 	return s.situacion, nil
 }
 
+type situacionDatasetAvisosViaPrueba struct {
+	datos datasetBolsasRRHHDesarrollo
+	ahora time.Time
+}
+
+func (s situacionDatasetAvisosViaPrueba) SituacionBolsaCobertura(_ context.Context, categoriaRef string) (ports.SituacionBolsaCobertura, error) {
+	return resumirSituacionBolsaCobertura(s.datos, categoriaRef, s.ahora)
+}
+
 type relojFijoAvisosViaPrueba struct{ instante time.Time }
 
 func (r relojFijoAvisosViaPrueba) Ahora() time.Time { return r.instante }
@@ -51,8 +61,8 @@ func TestResumenSituacionBolsaCoberturaSoloCuentaDisponibles(t *testing.T) {
 	if despues, _ := resumirSituacionBolsaCobertura(datos, "categoria:rpt:auxiliar", time.Date(2026, 12, 2, 0, 0, 0, 0, time.UTC)); despues.Disponibles != 1 {
 		t.Fatalf("disponibilidad alcanzada no contada: %+v", despues)
 	}
-	if sinBolsa, err := resumirSituacionBolsaCobertura(datos, "categoria:rpt:inexistente", ahora); err != nil || sinBolsa.Existe {
-		t.Fatalf("sin bolsa: %+v %v", sinBolsa, err)
+	if sinBolsa, err := resumirSituacionBolsaCobertura(datos, "categoria:rpt:inexistente", ahora); !errors.Is(err, ports.ErrSituacionBolsaCoberturaNoDisponible) || sinBolsa.Existe {
+		t.Fatalf("sin referencia nominal no se acredita ausencia de bolsa: %+v %v", sinBolsa, err)
 	}
 }
 
@@ -88,6 +98,21 @@ func TestAvisosViaCoberturaConReglasDeEjemplo(t *testing.T) {
 	}
 	if len(convocatoria.Motivos) != 2 || convocatoria.VigenciaHasta != "2026-02-01" || convocatoria.Reglas[0].Articulo != "arts. 7.b y 3.4" {
 		t.Fatalf("nueva convocatoria inesperada: %+v", convocatoria)
+	}
+	var datos datasetBolsasRRHHDesarrollo
+	if err := json.Unmarshal([]byte(datasetAvisosViaPrueba), &datos); err != nil {
+		t.Fatal(err)
+	}
+	evaluadorSinVinculo, err := application.NuevoEvaluadorAvisosViaCobertura(
+		situacionDatasetAvisosViaPrueba{datos: datos, ahora: reloj.ahora}, compuestas.bolsa,
+		relojFijoAvisosViaPrueba{reloj.ahora},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sinVinculo, evaluado := evaluadorSinVinculo.Evaluar(t.Context(), "categoria:desarrollo:a2", periodo)
+	if !evaluado || sinVinculo.Estado != application.EstadoAvisosNoDisponible || len(sinVinculo.Avisos) != 0 {
+		t.Fatalf("una categoría sin vínculo exacto no debe anunciar ausencia ni vía viable: %+v", sinVinculo)
 	}
 	// Sin catálogo o sin fuente no se compone nada y no hay pánico.
 	configurarAvisosViaCoberturaDesarrollo(nil, compuestas.bolsa, nil)

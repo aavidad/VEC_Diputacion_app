@@ -5,9 +5,9 @@
  * subsanación está registrada y el informe nuevo todavía no. */
 
 import { validarSolicitudInformeJuridico } from "./contrato-informe-juridico.js";
-import { escaparHTML } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
-import { MENSAJES_INFORME_TRAS_SUBSANACION_ES } from "./i18n-informe-tras-subsanacion.js?v=20261001-ct-a-i18n-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261008-canal-telefono-v2";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { MENSAJES_INFORME_TRAS_SUBSANACION_ACTUAL } from "./i18n-informe-tras-subsanacion.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 const ACCION_SUBSANACION = "contratacion_temporal.subsanacion_reparos.registrar";
@@ -61,7 +61,7 @@ export function montarFormularioInformeTrasSubsanacion({
     || !Number.isSafeInteger(contexto?.version_esperada) || contexto.version_esperada < 1) {
     throw new TypeError("dependencias del informe tras subsanación no válidas");
   }
-  const t = crearTraductorContratacionTemporal({ ...MENSAJES_INFORME_TRAS_SUBSANACION_ES, ...mensajes });
+  const t = crearTraductorContratacionTemporal({ ...MENSAJES_INFORME_TRAS_SUBSANACION_ACTUAL, ...mensajes });
   const formateador = new Intl.DateTimeFormat(locale, { dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria });
   let montado = true;
   let solicitud = null;
@@ -169,7 +169,7 @@ export function crearGestorInformeTrasSubsanacion({
   repintar = () => {}, esMontada = () => true,
 } = {}) {
   let desmontar = null;
-  const t = crearTraductorContratacionTemporal({ ...MENSAJES_INFORME_TRAS_SUBSANACION_ES, ...mensajes });
+  const t = crearTraductorContratacionTemporal({ ...MENSAJES_INFORME_TRAS_SUBSANACION_ACTUAL, ...mensajes });
 
   async function refrescar(recibo, panel) {
     const sigue = () => esMontada() && raiz.querySelector("[data-ct-exp-informe-nuevo]") === panel;
@@ -214,6 +214,6 @@ export function crearGestorInformeTrasSubsanacion({
 
 /** Aviso del detalle cuando el informe nuevo ya está emitido y falta fiscalizar. */
 export function renderizarAvisoInformeNuevoEmitido(mensajes = {}) {
-  const t = crearTraductorContratacionTemporal({ ...MENSAJES_INFORME_TRAS_SUBSANACION_ES, ...mensajes });
+  const t = crearTraductorContratacionTemporal({ ...MENSAJES_INFORME_TRAS_SUBSANACION_ACTUAL, ...mensajes });
   return `<p class="ct-exp-mensaje ct-tono-informacion" role="status">${escaparHTML(t("informe_nuevo_pendiente_fiscalizacion"))}</p>`;
 }

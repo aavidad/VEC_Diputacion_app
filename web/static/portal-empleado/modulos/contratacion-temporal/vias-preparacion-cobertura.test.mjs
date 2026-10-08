@@ -3,12 +3,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { validarPropuestaCobertura } from "./contrato-cobertura.js";
-import { validarCatalogosAlta } from "./contrato.js";
+import { validarCatalogosAlta } from "./contrato.js?v=20261008-alta-circular-v3";
 import {
   preparacionPresentable, renderizarViasPreparacion, selectorPestanaPreparacion, viaPreparacionDeEvento,
 } from "./vias-preparacion-cobertura.js";
-import { renderizarAlta } from "./vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261001-ct-a-i18n-v1";
+import { renderizarAlta } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v6";
 
 const HUELLA = "a".repeat(64);
 const t = (clave) => clave;
@@ -135,9 +135,10 @@ test("los catálogos del alta admiten la relación por vía y la validan cerrada
   assert.throws(() => validarCatalogosAlta(catalogosAlta({ extra: true })), /contrato cerrado/u);
 });
 
-test("la nueva petición reserva la zona de la relación antes del formulario", () => {
+test("la nueva petición no antepone la relación de ejemplo de cobertura al formulario", () => {
   const alta = renderizarAlta(t, true, false, false, false, false, false);
-  assert.ok(alta.indexOf("data-ct-exp-preparacion") < alta.indexOf("data-ct-exp-alta"));
+  assert.doesNotMatch(alta, /data-ct-exp-preparacion/u);
+  assert.match(alta, /data-ct-exp-alta/u);
 });
 
 test("el catálogo de ejemplo de reglas tiene texto en castellano e inglés para cada elemento", async () => {

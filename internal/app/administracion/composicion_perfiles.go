@@ -44,8 +44,10 @@ type DependenciasComposicionPerfiles struct {
 // catálogo de perfiles registrados y servicio de aplicación del lote.
 type LoteADMIN struct {
 	Organizacion string
-	Catalogo     ports.CatalogoRolesAdministrables
-	Servicio     api.ServicioLotesADMIN
+	// Motivos admitidos para dar o quitar perfiles, de la configuración.
+	Motivos  []api.MotivoLote
+	Catalogo ports.CatalogoRolesAdministrables
+	Servicio api.ServicioLotesADMIN
 }
 
 func ComponerServidorPerfiles(ctx context.Context, cfg Configuracion, deps DependenciasComposicionPerfiles) (*http.Server, error) {

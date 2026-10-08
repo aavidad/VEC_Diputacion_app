@@ -5,7 +5,7 @@
  * negocio. Las acciones sin comando de servidor compuesto permanecen
  * informativas y nunca producen efectos administrativos en el navegador.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { validarAvisosPortal } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 
 const NOMBRES_FILTRO = Object.freeze({
@@ -431,7 +431,7 @@ export function crearControladorPortal(dependencias) {
     window.addEventListener("hashchange", () => {
       const vista = vistaDesdeHash();
       if (vista !== estado.vista) {
-        navegar(vista, { enfocar: false });
+        navegar(vista, { enfocar: false, desdeRuta: true });
       }
     });
     window.addEventListener("keydown", (evento) => {

@@ -1,8 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
+import { traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+await prepararTextosPortal("ayuda");
+await prepararTextosPortal("bolsa");
+await prepararMensajesContratos();
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js";
 
 test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () => {
@@ -35,7 +39,7 @@ test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () =>
   const configuracion = renderizar();
   assert.match(configuracion, /name="plazo" required minlength="2" maxlength="160" value=""/);
   assert.doesNotMatch(configuracion, /no presupone un plazo legal|no acreditan entrega/);
-  assert.match(traducirPortal("ayuda_b7_configurar_limite"), /no presupone un plazo legal.*no acreditan la entrega/);
+  assert.match(traducirPortal("ayuda_b7_configurar_limite"), /RRHH debe indicar el plazo aplicable.*compruebe.*aviso se ha enviado y entregado/);
   assert.doesNotMatch(configuracion, /48 horas|relay de desarrollo|Recorrido real B7/);
   flujo.configuracion = { plazo: "Pendiente de definición por RRHH" };
   assert.match(renderizar(), /name="plazo" required minlength="2" maxlength="160" value=""/);

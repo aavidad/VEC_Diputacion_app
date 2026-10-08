@@ -9,6 +9,8 @@ function referencia(valor) {
   return typeof valor === "string" && (/^ref:[0-9a-f]{64}$/u.test(valor) && !/^ref:0{64}$/u.test(valor)
     || /^[a-z][a-z0-9_]{1,31}:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(valor));
 }
+const referenciaExpediente = (valor) => referencia(valor) || typeof valor === "string"
+  && /^expediente:ct:[0-9a-f]{64}$/u.test(valor) && !/^expediente:ct:0{64}$/u.test(valor);
 
 function fallo(codigo, estado) {
   return Object.assign(new Error(codigo), { codigo, estado });
@@ -87,11 +89,11 @@ export function crearFuenteDocumentosHTTP({ expedienteRef = "", fetchImpl } = {}
   let expediente = expedienteRef;
   return Object.freeze({
     seleccionarExpediente(valor) {
-      if (!referencia(valor)) throw fallo("referencia_invalida");
+      if (!referenciaExpediente(valor)) throw fallo("referencia_invalida");
       expediente = valor;
     },
     async listar({ signal, cursor = "" } = {}) {
-      if (!referencia(expediente)) throw fallo("referencia_invalida");
+      if (!referenciaExpediente(expediente)) throw fallo("referencia_invalida");
       if (cursor && (typeof cursor !== "string" || cursor.length > 512 || /[\s\\/?%*]/u.test(cursor))) throw fallo("referencia_invalida");
       return pedir(RUTA_LISTA, { expediente_ref: expediente, cursor, limite: 50 }, { signal, maximo: MAX_JSON, fetchImpl });
     },
@@ -99,7 +101,7 @@ export function crearFuenteDocumentosHTTP({ expedienteRef = "", fetchImpl } = {}
     // sistema. El fichero nunca sale del navegador: solo viaja su SHA-256.
     // Módulo y custodio los fija la configuración del servidor, no el cliente.
     async registrarExterno({ tipo, referencia: referenciaCustodia, huella, claveIdempotencia, signal } = {}) {
-      if (!referencia(expediente) || !referencia(claveIdempotencia)
+      if (!referenciaExpediente(expediente) || !referencia(claveIdempotencia)
         || typeof tipo !== "string" || !/^[a-z][a-z0-9_.-]{1,127}$/u.test(tipo)
         || typeof referenciaCustodia !== "string" || !/^[!-~]{3,128}$/u.test(referenciaCustodia)
         || /[/\\*?%]|\.\./u.test(referenciaCustodia)
@@ -110,7 +112,7 @@ export function crearFuenteDocumentosHTTP({ expedienteRef = "", fetchImpl } = {}
     async descargar(ref, { version, signal, mime, huella } = {}) {
       // La descarga liga documento, versión y expediente consultado: el
       // servidor autoriza esa terna exacta, nunca solo el documento.
-      if (!referencia(expediente) || !referencia(ref) || !Number.isSafeInteger(version) || version < 1 || version > 2147483647) throw fallo("referencia_invalida");
+      if (!referenciaExpediente(expediente) || !referencia(ref) || !Number.isSafeInteger(version) || version < 1 || version > 2147483647) throw fallo("referencia_invalida");
       const { bytes, cabeceras } = await pedir(RUTA_DESCARGA, { expediente_ref: expediente, documento_ref: ref, version }, { signal, maximo: MAX_ORIGINAL, binario: true, fetchImpl });
       const tipo = cabeceras.get("Content-Type")?.split(";", 1)[0]?.trim();
       const huellaRespuesta = cabeceras.get("X-Content-SHA256");
