@@ -44,3 +44,9 @@ No se programan hasta tener respuesta. Las propuestas con fuente pública están
 - Listas más rápidas (CT187): #840. Acceso al SAE retirado de Inicio hasta que tenga gestión: #893.
 
 Ficheros que conviene no engordar: `internal/app/bootstrap/contratacion_temporal_desarrollo.go`, `contratacion_temporal_postgresql_desarrollo.go` y `contratacion_temporal_seguimiento_cese_desarrollo.go`. Lo nuevo va en ficheros nuevos.
+
+## Validación de nuevas peticiones — 8 de octubre de 2026
+
+CT194 añade comprobaciones SQL del porcentaje, los códigos, las referencias, las fechas y los textos de la necesidad. Conserva los errores de concurrencia para que el alta pueda reintentar la transacción; una dependencia no disponible sigue devolviendo el error nominal. La migración parte de las dos funciones instaladas después de postHX, los 14 cambios HZ, B85, B86, CT193 y B87. No cambia las 71 altas conservadas ni sus recibos, historia, permisos o circuito inicial CT164.
+
+La publicación vigente del catálogo de necesidades es v3 y cita la circular de peticiones de personal firmada el 8 de mayo de 2026. Conserva la misma ruta configurable. Los expedientes anteriores mantienen su instantánea y huella, incluida la publicación v2 que citaba la circular de febrero. El GET del catálogo conserva el esquema v2. El alta limitada sin catálogo ya está en main y no se vuelve a implementar. Para desplegar sólo se instala CT194 una vez, según `deploy/principal/lista_sql_codexx_p2_alta_20261008.txt`; no requiere configuración nueva. El ensayo PostgreSQL 18 y las pruebas de reintento SQL y respuesta HTTP pasan. La medición de la validadora dio 0,099 ms por llamada en 1000 llamadas locales; no mide una petición HTTP completa. Las tarjetas de plazo CT192 siguen en una pieza separada y necesitan la sesión nominal y el apunte común en la misma transacción.

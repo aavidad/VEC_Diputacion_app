@@ -258,6 +258,23 @@ func TestManejadorAltaClasificaResultadoPendienteSinInducirReintento(t *testing.
 	}
 }
 
+func TestManejadorAltaConfiguracionSQLNoDisponibleSinDetallePrivado(t *testing.T) {
+	manejador, _, ejecutor := nuevoEscenarioPrueba(t)
+	ejecutor.recibo = ports.ReciboAlta{}
+	ejecutor.err = errors.Join(ports.ErrPersistenciaNoDisponible,
+		errors.New("SQLSTATE 55000: dato privado de configuracion"))
+	respuesta := ejecutarPeticionPrueba(t, manejador, nuevaPeticionPrueba(t, cuerpoValidoPrueba()))
+	if respuesta.Code != http.StatusServiceUnavailable ||
+		codigoErrorPrueba(t, respuesta) != "servicio_no_disponible" {
+		t.Fatalf("configuracion SQL: %d %s", respuesta.Code, respuesta.Body.String())
+	}
+	if strings.Contains(respuesta.Body.String(), "55000") ||
+		strings.Contains(respuesta.Body.String(), "dato privado") ||
+		respuesta.Header().Get("Retry-After") != "" {
+		t.Fatalf("respuesta publica detalle o plazo de reintento: %v %s", respuesta.Header(), respuesta.Body.String())
+	}
+}
+
 func TestManejadorAltaRechazaReciboIncompletoAdulteradoFuturoONoLigado(t *testing.T) {
 	casos := []struct {
 		nombre string
