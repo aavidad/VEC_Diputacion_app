@@ -33,6 +33,7 @@ test("origen desconocido u otra participación no consulta; 404 autorizado conse
       disponibilidad: { estado: estadoCap, bolsa_ref: "bolsa:uno", participacion_ref: "participacion:uno" } });
     assert.equal(modal.reincorporacionesTitular.carga,
       estadoCap === "no_autorizado" ? "denegado" : "no_disponible");
+    assert.equal(renderizarReincorporacionesTitular({ estado: modal.reincorporacionesTitular, escaparHTML }), "");
   }
   assert.equal(llamadas, 0);
   assert.equal(modal.reincorporacionesTitular.carga, "no_disponible");

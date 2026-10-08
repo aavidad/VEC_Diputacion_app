@@ -825,3 +825,41 @@ test("con análisis registrado, el expediente no ofrece datos de la petición", 
   await adaptador.listar();
   assert.equal((await adaptador.obtener(resumen.expediente_ref)).datos_peticion, undefined);
 });
+
+
+test("la ficha recibe del detalle la disponibilidad del mismo expediente y versión", async () => {
+  const cliente = clienteFalso([]);
+  const leer = cliente.consultarDetalleRRHH;
+  let registro = { estado: "sin_montaje", expediente_ref: resumen.expediente_ref, version_observada: resumen.version };
+  cliente.consultarDetalleRRHH = async (...args) => ({ ...await leer(...args),
+    capacidades_ficha: { borradores_publicados: registro } });
+  const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await fuente.listar();
+  await fuente.obtener(resumen.expediente_ref);
+  const contexto = { expediente_ref: resumen.expediente_ref, version_observada: resumen.version };
+  assert.deepEqual(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), registro);
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", { ...contexto, version_observada: 99 }), null);
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", { ...contexto, expediente_ref: "expediente:otro" }), null);
+  registro = { ...registro, estado: "disponible", version_observada: 99 };
+  await fuente.obtener(resumen.expediente_ref);
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), null);
+  registro = { ...registro, estado: "otro", version_observada: resumen.version };
+  await fuente.obtener(resumen.expediente_ref);
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), null);
+});
+
+test("una relectura fallida retira los metadatos previos sin permitir consultas opcionales", async () => {
+  const cliente = clienteFalso([]);
+  const leer = cliente.consultarDetalleRRHH;
+  cliente.consultarDetalleRRHH = async (...args) => ({ ...await leer(...args), capacidades_ficha: {
+    borradores_publicados: { estado: "disponible", expediente_ref: resumen.expediente_ref, version_observada: resumen.version },
+  } });
+  const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await fuente.listar();
+  await fuente.obtener(resumen.expediente_ref);
+  const contexto = { expediente_ref: resumen.expediente_ref, version_observada: resumen.version };
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto).estado, "disponible");
+  cliente.consultarDetalleRRHH = async () => { throw new Error("fuente caída"); };
+  await assert.rejects(fuente.obtener(resumen.expediente_ref));
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), null);
+});

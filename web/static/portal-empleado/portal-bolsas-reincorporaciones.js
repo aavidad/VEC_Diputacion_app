@@ -172,7 +172,7 @@ export async function cargarReincorporacionesTitularFicha(modal, { estado, rende
     modal.reincorporacionesTitular = { carga: estadoCap === "indisponible" ? "metadatos"
       : estadoCap === "no_autorizado" ? "denegado" : "no_disponible",
     error: estadoCap === "no_autorizado" ? traducirPortal("reincorporacion_error_403") : "",
-    items: [], pagina: 0 };
+    omitida: estadoCap !== "indisponible", items: [], pagina: 0 };
     if (renderizarAlIniciar) renderizar();
     return;
   }
@@ -187,7 +187,7 @@ export async function cargarReincorporacionesTitularFicha(modal, { estado, rende
     modal.reincorporacionesTitular = { carga: estadoCap === "indisponible" ? "metadatos"
       : estadoCap === "no_autorizado" ? "denegado" : "no_disponible",
     error: estadoCap === "no_autorizado" ? traducirPortal("reincorporacion_error_403") : "",
-    items: [], pagina: 0 };
+    omitida: estadoCap !== "indisponible", items: [], pagina: 0 };
     renderizar();
     return;
   }
@@ -208,6 +208,7 @@ function fechaVisible(valor) {
 export function renderizarReincorporacionesTitular({ estado = {}, escaparHTML }) {
   const t = (clave, variables) => textoPortal(`reincorporacion_${clave}`, variables);
   const carga = estado.carga || "cargando";
+  if (estado.omitida === true || carga === "no_disponible") return "";
   let contenido;
   if (carga === "cargando") contenido = `<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`;
   else if (carga === "no_disponible") contenido = `<p class="vacio-controlado" role="status">${traducirPortal("reincorporacion_error_404")}</p>`;

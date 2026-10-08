@@ -2,7 +2,7 @@
 
 import "./atajos-incidencia.js";
 import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261008-w-fichas-capacidades-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";

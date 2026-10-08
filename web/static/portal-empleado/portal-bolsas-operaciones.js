@@ -1,7 +1,7 @@
 import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
-import { cargarReincorporacionesTitularFicha, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261007-pantallas-textos-final-v1";
+import { cargarReincorporacionesTitularFicha, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-w-fichas-capacidades-v1";
 import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261007-pantallas-textos-final-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { actorTraducido, justificanteTraducido } from "./portal-justificante.js";
@@ -229,7 +229,7 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
   const solicitudesReintentables = !estado.solicitudesNoDisponible && ![401, 403].includes(estado.solicitudesStatus);
   const solicitudesVista = actual === "listo" && !(estado.paso > 0) ? `${estado.solicitudesCargando
     ? `<p role="status" aria-busy="true">${textoPortal("txt_comprobando_acceso")}</p>`
-    : estado.solicitudesError ? `<p class="${estado.solicitudesNoDisponible && !estado.solicitudesDenegada ? "vacio-controlado" : "mensaje-error"}" role="${estado.solicitudesNoDisponible && !estado.solicitudesDenegada ? "status" : "alert"}">${escaparHTML(estado.solicitudesError)}</p>${solicitudesReintentables
+    : estado.solicitudesError && !estado.solicitudesNoDisponible ? `<p class="${estado.solicitudesNoDisponible && !estado.solicitudesDenegada ? "vacio-controlado" : "mensaje-error"}" role="${estado.solicitudesNoDisponible && !estado.solicitudesDenegada ? "status" : "alert"}">${escaparHTML(estado.solicitudesError)}</p>${solicitudesReintentables
       ? `<button type="button" class="boton-secundario" data-b8-accion="reintentar-solicitudes">${textoPortal(estado.solicitudesMetaIndisponibles ? "txt_reintentar" : "txt_reintentar_historial")}</button>` : ""}` : ""}${solicitudes.map((solicitud) => `<div class="panel-separado"><p>${textoPortal("txt_b8_solicitud_pendiente", { fecha: instanteLegible(solicitud.registrada_en) })}</p><button type="button" class="boton-secundario" data-b8-accion="seleccionar-solicitud" data-solicitud-ref="${escaparHTML(solicitud.solicitud_ref)}" ${disponibles.includes("regularizar") && (solicitud.fecha_fin_causa === null || fechaCausaValida(solicitud.fecha_fin_causa)) ? "" : "disabled"}>${textoPortal("txt_b8_validar_solicitud")}</button></div>`).join("")}` : "";
   const botones = estado.paso > 0 ? `<button type="button" class="boton-secundario" data-b8-accion="cancelar" ${estado.enviando ? "disabled" : ""}>${textoPortal("txt_cancelar")}</button>`
     : estado.noDisponible ? "" : acciones;
