@@ -21,12 +21,13 @@ import (
 
 type autorizadoPrueba struct {
 	guardada ports.Constitucion
+	lote     importacion.LoteValidado
 	vinculos []ports.VinculoCandidato
 	err      error
 }
 
-func (a *autorizadoPrueba) ConfirmarCargaConvocaAutorizada(_ context.Context, _ importacion.LoteValidado, c ports.Constitucion, vinculos []ports.VinculoCandidato, _ ports.OriginalProtegidoCargaConvoca, _ puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error) {
-	a.guardada, a.vinculos = c, vinculos
+func (a *autorizadoPrueba) ConfirmarCargaConvocaAutorizada(_ context.Context, lote importacion.LoteValidado, c ports.Constitucion, vinculos []ports.VinculoCandidato, _ ports.OriginalProtegidoCargaConvoca, _ puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error) {
+	a.guardada, a.lote, a.vinculos = c, lote, vinculos
 	if a.err != nil {
 		return ports.ReciboCargaConvoca{}, a.err
 	}
@@ -61,7 +62,7 @@ func TestServicioAutorizadoConstituyeConElMismoOrdenYRegistraVinculos(t *testing
 		t.Fatal(err)
 	}
 	lote, err := preparador.PrepararLote(context.Background(), importacionapp.SolicitudImportacion{
-		CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-10-05", NombreFichero: "carga_convoca_ejemplo.xlsx",
+		CategoriaRef: "categoria:rpt:administrativo", NombreFichero: "carga_convoca_ejemplo.xlsx",
 		FicheroCustodiadoRef: "original:convoca:" + strings.Repeat("a", 64), ActorRef: "actor:rrhh:prueba", Contenido: contenido,
 	})
 	if err != nil {
@@ -80,12 +81,22 @@ func TestServicioAutorizadoConstituyeConElMismoOrdenYRegistraVinculos(t *testing
 	if autorizado.guardada.ActorRef != "per_0123456789abcdefghijkl" || len(autorizado.guardada.Entradas) != 11 || autorizado.guardada.Entradas[0].FilaNumero != 2 {
 		t.Fatalf("constitución inesperada: actor=%q entradas=%d primera=%d", autorizado.guardada.ActorRef, len(autorizado.guardada.Entradas), autorizado.guardada.Entradas[0].FilaNumero)
 	}
+	if autorizado.lote.Acta.BolsaRef == "" || autorizado.lote.Acta.BolsaRef != autorizado.guardada.Bolsa.BolsaRef ||
+		autorizado.lote.Acta.ActaRef != autorizado.guardada.ActaRef {
+		t.Fatalf("acta y constitución divergen: acta=%q bolsa_acta=%q bolsa_constitucion=%q", autorizado.lote.Acta.ActaRef, autorizado.lote.Acta.BolsaRef, autorizado.guardada.Bolsa.BolsaRef)
+	}
 	if recibo.AuditoriaRef == "" || len(autorizado.vinculos) != 9 {
 		t.Fatalf("recibo o vínculos inesperados: %+v %+v", recibo, autorizado.vinculos)
 	}
 	autorizado.err = dominiovec.ErrAutorizacionDenegada
 	if _, err := s.Constituir(context.Background(), lote, Solicitud{HuellaFicheroSHA256: lote.Acta.HuellaFicheroSHA256, CategoriaRef: lote.Acta.CategoriaRef, ActorRef: "per_0123456789abcdefghijkl"}, original, materialPruebaConstitucion(t)); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
 		t.Fatalf("denegación: err=%v", err)
+	}
+	autorizado.err = nil
+	autorizado.guardada = ports.Constitucion{}
+	lote.Acta.BolsaRef = "bolsa:otra:referencia"
+	if _, err := s.Constituir(context.Background(), lote, Solicitud{HuellaFicheroSHA256: lote.Acta.HuellaFicheroSHA256, CategoriaRef: lote.Acta.CategoriaRef, ActorRef: "per_0123456789abcdefghijkl"}, original, materialPruebaConstitucion(t)); !errors.Is(err, ports.ErrConstitucionBolsaInvalida) || autorizado.guardada.ActaRef != "" {
+		t.Fatalf("referencia ajena alcanzó el repositorio: %v", err)
 	}
 }
 

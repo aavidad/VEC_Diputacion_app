@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -92,6 +93,12 @@ func (c *originalCargaPrueba) Preparar(_ context.Context, actaRef, _ string, for
 
 type lectorContadoCarga struct {
 	llamadas int
+}
+
+type preparadorErrorCarga struct{ err error }
+
+func (p preparadorErrorCarga) PrepararLote(context.Context, importacionapp.SolicitudImportacion) (importacion.LoteValidado, error) {
+	return importacion.LoteValidado{}, p.err
 }
 
 func (l *lectorContadoCarga) Decodificar(ctx context.Context, r io.ReadSeeker) (importacion.HojaStaging, error) {
@@ -219,9 +226,14 @@ func TestConfirmarCargaConvocaDenegadaNoEscribe(t *testing.T) {
 		t.Fatal("escribió tras una denegación")
 	}
 	e = nuevoEscenarioCargaConvoca(t)
-	e.autorizador.base.err = errors.New("PDP caído")
+	e.autorizador.base.err = errors.New("PDP caído: dato personal sintético")
 	if _, err := e.servicio.Confirmar(context.Background(), e.solicitud, true); !errors.Is(err, puertosbolsa.ErrCargaConvocaNoDisponible) {
 		t.Fatalf("una indisponibilidad se convirtió en otra cosa: %v", err)
+	} else {
+		var causa CausaInternaCargaConvoca
+		if !errors.As(err, &causa) || causa.Etapa != "autorizacion" || causa.Codigo != "dependencia_no_disponible" || strings.Contains(err.Error(), "dato personal") {
+			t.Fatalf("causa interna insegura: %v", err)
+		}
 	}
 }
 
@@ -233,6 +245,16 @@ func TestConfirmarCargaConvocaLimitaUnMiBAntesDeAutorizarYDecodificar(t *testing
 	}
 	if len(e.autorizador.solicitudes) != 0 || e.lector.llamadas != 0 || e.original.llamadas != 0 {
 		t.Fatal("fichero excesivo alcanzó el PDP, el lector o el cifrador")
+	}
+}
+
+func TestConfirmarCargaConvocaMinimizaErrorDelPreparador(t *testing.T) {
+	e := nuevoEscenarioCargaConvoca(t)
+	e.servicio.preparador = preparadorErrorCarga{err: errors.New("fila con nombre personal sintético")}
+	_, err := e.servicio.Confirmar(context.Background(), e.solicitud, true)
+	var causa CausaInternaCargaConvoca
+	if !errors.Is(err, ErrFicheroCargaConvocaInvalido) || !errors.As(err, &causa) || causa.Etapa != "preparar_lote" || strings.Contains(err.Error(), "nombre personal") || e.original.llamadas != 0 {
+		t.Fatalf("error del preparador inseguro: %v", err)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"os"
 	"time"
 
@@ -20,6 +21,16 @@ import (
 )
 
 var ErrConstitucionBolsaNoDisponible = errors.New("bootstrap: constitucion de bolsa no disponible")
+
+// CausaConstitucionBolsa expone solo una clase estable a los registros
+// internos. Nunca incorpora DSN, mensajes de PostgreSQL ni datos del acta.
+type CausaConstitucionBolsa struct{ Codigo string }
+
+func (c CausaConstitucionBolsa) Error() string { return "bootstrap.bolsa_constitucion." + c.Codigo }
+
+func errorConstitucionBolsaInterno(codigo string) error {
+	return errors.Join(ErrConstitucionBolsaNoDisponible, CausaConstitucionBolsa{Codigo: codigo})
+}
 
 // Actor de la confirmación en el perfil de desarrollo: el subcomando se ejecuta
 // por el operador de RRHH dentro del contenedor. En producción el actor vendrá
@@ -96,16 +107,16 @@ func EjecutarConstitucionBolsa(ctx context.Context, cfg config.Config, s Solicit
 // LOGIN usado por las rutas web de llamamientos. No acepta su DSN ni su rol.
 func abrirPoolConstitucionBolsaDesarrollo(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
 	if ctx == nil {
-		return nil, ErrConstitucionBolsaNoDisponible
+		return nil, errorConstitucionBolsaInterno("contexto_ausente")
 	}
 	dsn, err := cfg.DSNBolsaConstitucionSeparado()
 	if err != nil {
-		return nil, ErrConstitucionBolsaNoDisponible
+		return nil, errorConstitucionBolsaInterno("configuracion_no_separada")
 	}
 	pc, err := pgxpool.ParseConfig(dsn)
 	if err != nil || pc == nil || pc.ConnConfig == nil ||
 		validarTLSPostgreSQLBorradores(&pc.ConnConfig.Config, true) != nil {
-		return nil, ErrConstitucionBolsaNoDisponible
+		return nil, errorConstitucionBolsaInterno("dsn_o_tls_invalido")
 	}
 	pc.MaxConns = 4
 	pc.MinConns = 0
@@ -126,15 +137,22 @@ func abrirPoolConstitucionBolsaDesarrollo(ctx context.Context, cfg config.Config
 		return comprobarIdentidadConstitucionBolsaDesarrollo(ctx, conn)
 	}
 	pc.BeforeAcquire = func(ctx context.Context, conn *pgx.Conn) bool {
-		return comprobarIdentidadConstitucionBolsaDesarrollo(ctx, conn) == nil
+		if err := comprobarIdentidadConstitucionBolsaDesarrollo(ctx, conn); err != nil {
+			var causa CausaConstitucionBolsa
+			if errors.As(err, &causa) {
+				slog.Warn("bolsa_constitucion_pool_rechazo", "codigo", causa.Codigo)
+			}
+			return false
+		}
+		return true
 	}
 	pool, err := pgxpool.NewWithConfig(ctx, pc)
 	if err != nil {
-		return nil, ErrConstitucionBolsaNoDisponible
+		return nil, errorConstitucionBolsaInterno("pool_no_disponible")
 	}
 	if err := comprobarIdentidadConstitucionBolsaDesarrollo(ctx, pool); err != nil {
 		pool.Close()
-		return nil, ErrConstitucionBolsaNoDisponible
+		return nil, err
 	}
 	return pool, nil
 }
@@ -143,7 +161,7 @@ func comprobarIdentidadConstitucionBolsaDesarrollo(ctx context.Context, q interf
 	QueryRow(context.Context, string, ...any) pgx.Row
 }) error {
 	if ctx == nil || q == nil {
-		return ErrConstitucionBolsaNoDisponible
+		return errorConstitucionBolsaInterno("consulta_no_disponible")
 	}
 	var valida bool
 	err := q.QueryRow(ctx, `
@@ -169,8 +187,11 @@ func comprobarIdentidadConstitucionBolsaDesarrollo(ctx context.Context, q interf
 		  FROM pg_catalog.pg_roles AS identidad
 		  JOIN pg_catalog.pg_roles AS grupo ON grupo.rolname = $1
 		 WHERE identidad.rolname = session_user`, rolConstitucionBolsaDesarrollo).Scan(&valida)
-	if err != nil || !valida {
-		return ErrConstitucionBolsaNoDisponible
+	if err != nil {
+		return errorConstitucionBolsaInterno("consulta_identidad_fallida")
+	}
+	if !valida {
+		return errorConstitucionBolsaInterno("rol_no_segregado")
 	}
 	return nil
 }
