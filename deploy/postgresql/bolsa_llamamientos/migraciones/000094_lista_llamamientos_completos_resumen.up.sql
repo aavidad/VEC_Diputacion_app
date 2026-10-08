@@ -10,27 +10,54 @@ SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_l
 
 DO $pre$
 DECLARE f oid:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.leer_llamamientos_en_curso_bolsas_v1()');
+        v_dependencias jsonb;
+        v_metadata jsonb;
+        v_acl jsonb;
 BEGIN
- IF pg_catalog.current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
-    OR current_user<>'vec_bolsa_llamamientos_propietario'
-    OR f IS NULL
-    OR pg_catalog.to_regprocedure('vec_bolsa_llamamientos.listar_constituciones_v1()') IS NULL
-    OR pg_catalog.to_regclass('vec_bolsa_llamamientos.completitud_correo_llamamiento') IS NULL
-    OR pg_catalog.to_regclass('vec_bolsa_llamamientos.llamamiento_emitido') IS NULL
-    OR pg_catalog.to_regprocedure('vec_bolsa_llamamientos.leer_llamamientos_completos_resumen_v1()') IS NOT NULL
- THEN RAISE EXCEPTION 'B94: preimagen incompatible' USING ERRCODE='55000'; END IF;
- IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=f
-      AND p.proowner='vec_bolsa_llamamientos_propietario'::pg_catalog.regrole
-      AND p.prosecdef AND p.provolatile='s'
-      AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
-    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
-      CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
-      WHERE p.oid=f AND (a.grantee NOT IN (p.proowner,'vec_bolsa_llamamientos_ejecutor'::pg_catalog.regrole)
-        OR a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
-    OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc p
-      CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
-      WHERE p.oid=f)<>2
- THEN RAISE EXCEPTION 'B94: B86 ACL o metadata incompatible' USING ERRCODE='42501'; END IF;
+ IF pg_catalog.current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999 THEN
+   RAISE EXCEPTION 'B94: clave=server_version_num esperado=18xxxx obtenido=%',
+     pg_catalog.current_setting('server_version_num') USING ERRCODE='55000';
+ END IF;
+ IF current_user<>'vec_bolsa_llamamientos_propietario' THEN
+   RAISE EXCEPTION 'B94: clave=current_user esperado=vec_bolsa_llamamientos_propietario obtenido=%',
+     current_user USING ERRCODE='42501';
+ END IF;
+ v_dependencias:=pg_catalog.jsonb_build_object(
+   'B85_B86_lector',f IS NOT NULL,
+   'constituciones',pg_catalog.to_regprocedure('vec_bolsa_llamamientos.listar_constituciones_v1()') IS NOT NULL,
+   'completitud',pg_catalog.to_regclass('vec_bolsa_llamamientos.completitud_correo_llamamiento') IS NOT NULL,
+   'emisiones',pg_catalog.to_regclass('vec_bolsa_llamamientos.llamamiento_emitido') IS NOT NULL);
+ IF v_dependencias IS DISTINCT FROM '{"B85_B86_lector":true,"constituciones":true,"completitud":true,"emisiones":true}'::jsonb THEN
+   RAISE EXCEPTION 'B94: clave=dependencias_B86 esperado=% obtenido=%',
+     '{"B85_B86_lector":true,"constituciones":true,"completitud":true,"emisiones":true}'::jsonb,
+     v_dependencias USING ERRCODE='55000';
+ END IF;
+ IF pg_catalog.to_regprocedure('vec_bolsa_llamamientos.leer_llamamientos_completos_resumen_v1()') IS NOT NULL THEN
+   RAISE EXCEPTION 'B94: clave=funcion_B94_existente esperado=false obtenido=true' USING ERRCODE='55000';
+ END IF;
+ SELECT pg_catalog.jsonb_build_object('owner',p.proowner::pg_catalog.regrole::text,
+     'security_definer',p.prosecdef,'volatility',p.provolatile,'config',p.proconfig)
+ INTO v_metadata FROM pg_catalog.pg_proc p WHERE p.oid=f;
+ IF v_metadata IS DISTINCT FROM pg_catalog.jsonb_build_object(
+     'owner','vec_bolsa_llamamientos_propietario','security_definer',true,'volatility','s',
+     'config',ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']) THEN
+   RAISE EXCEPTION 'B94: clave=B86.metadata esperado=% obtenido=%',
+     pg_catalog.jsonb_build_object('owner','vec_bolsa_llamamientos_propietario',
+       'security_definer',true,'volatility','s',
+       'config',ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']),v_metadata
+     USING ERRCODE='42501';
+ END IF;
+ SELECT pg_catalog.jsonb_build_object('total',pg_catalog.count(*),
+   'grant_invalido',pg_catalog.count(*) FILTER (WHERE
+     a.grantee NOT IN (p.proowner,'vec_bolsa_llamamientos_ejecutor'::pg_catalog.regrole)
+     OR a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
+ INTO v_acl FROM pg_catalog.pg_proc p
+ CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+ WHERE p.oid=f;
+ IF v_acl IS DISTINCT FROM '{"total":2,"grant_invalido":0}'::jsonb THEN
+   RAISE EXCEPTION 'B94: clave=B86.ACL esperado=% obtenido=%',
+     '{"total":2,"grant_invalido":0}'::jsonb,v_acl USING ERRCODE='42501';
+ END IF;
 END $pre$;
 
 CREATE FUNCTION vec_bolsa_llamamientos.leer_llamamientos_completos_resumen_v1()
@@ -60,19 +87,32 @@ REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.leer_llamamientos_completos_resume
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.leer_llamamientos_completos_resumen_v1() TO vec_bolsa_llamamientos_ejecutor;
 DO $acl$
 DECLARE f oid:='vec_bolsa_llamamientos.leer_llamamientos_completos_resumen_v1()'::pg_catalog.regprocedure;
+        v_acl jsonb;
+        v_metadata jsonb;
 BEGIN
- IF NOT pg_catalog.has_function_privilege('vec_bolsa_llamamientos_ejecutor',f,'EXECUTE')
-    OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc p
-      CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
-      WHERE p.oid=f)<>2
-    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
-      CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
-      WHERE p.oid=f AND (a.grantee NOT IN (p.proowner,'vec_bolsa_llamamientos_ejecutor'::pg_catalog.regrole)
-        OR a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
-    OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=f
-      AND p.proowner='vec_bolsa_llamamientos_propietario'::pg_catalog.regrole
-      AND p.prosecdef AND p.provolatile='s'
-      AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
- THEN RAISE EXCEPTION 'B94: ACL o metadata incompatible' USING ERRCODE='42501'; END IF;
+ SELECT pg_catalog.jsonb_build_object('ejecutor_execute',
+     pg_catalog.has_function_privilege('vec_bolsa_llamamientos_ejecutor',f,'EXECUTE'),
+     'total',pg_catalog.count(*),'grant_invalido',pg_catalog.count(*) FILTER (WHERE
+       a.grantee NOT IN (p.proowner,'vec_bolsa_llamamientos_ejecutor'::pg_catalog.regrole)
+       OR a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
+ INTO v_acl FROM pg_catalog.pg_proc p
+ CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+ WHERE p.oid=f;
+ IF v_acl IS DISTINCT FROM '{"ejecutor_execute":true,"total":2,"grant_invalido":0}'::jsonb THEN
+   RAISE EXCEPTION 'B94: clave=B94.ACL esperado=% obtenido=%',
+     '{"ejecutor_execute":true,"total":2,"grant_invalido":0}'::jsonb,v_acl USING ERRCODE='42501';
+ END IF;
+ SELECT pg_catalog.jsonb_build_object('owner',p.proowner::pg_catalog.regrole::text,
+     'security_definer',p.prosecdef,'volatility',p.provolatile,'config',p.proconfig)
+ INTO v_metadata FROM pg_catalog.pg_proc p WHERE p.oid=f;
+ IF v_metadata IS DISTINCT FROM pg_catalog.jsonb_build_object(
+     'owner','vec_bolsa_llamamientos_propietario','security_definer',true,'volatility','s',
+     'config',ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']) THEN
+   RAISE EXCEPTION 'B94: clave=B94.metadata esperado=% obtenido=%',
+     pg_catalog.jsonb_build_object('owner','vec_bolsa_llamamientos_propietario',
+       'security_definer',true,'volatility','s',
+       'config',ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']),v_metadata
+     USING ERRCODE='42501';
+ END IF;
 END $acl$;
 COMMIT;
