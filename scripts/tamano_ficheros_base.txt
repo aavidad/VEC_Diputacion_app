@@ -90,7 +90,7 @@
 1179 scripts/smoke_nominas_peoplenet.js
 13086 web/static/app.js
 962 web/static/area-personal/aplicacion.js
-863 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
+602 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 827 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 925 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 850 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
@@ -106,7 +106,7 @@
 1527 web/static/portal-empleado/portal-modulos-coordinador.js
 1539 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1034 web/static/portal-empleado/portal-componentes.css
-1708 web/static/portal-empleado/portal.js
+1709 web/static/portal-empleado/portal.js
 1201 web/static/portal-empleado/portal-bolsas-api.js
 924 web/static/portal-empleado/portal-bolsas.test.mjs
 1028 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js

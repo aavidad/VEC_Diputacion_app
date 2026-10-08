@@ -1,16 +1,16 @@
 /** Montaje y refresco de resolución de formalización e incorporación al ejercicio. */
 
 import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js";
-import { escaparHTML } from "./componentes-expedientes.js?v=20261008-canal-telefono-v2";
-import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-alta-rpt-circular-v6";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261008-ct-sin-bolsa-v1";
+import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261008-ct-sin-bolsa-v1";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-ct-sin-bolsa-v1";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-ct-sin-bolsa-v1";
+import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261008-ct-sin-bolsa-v1";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-ct-sin-bolsa-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261008-alta-rpt-circular-v6";
-import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261008-ct-inicio-v1";
+import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261008-ct-sin-bolsa-v1";
+import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261008-ct-sin-bolsa-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 
 export function crearResolverEtiquetasIncorporacionB2(textos, personal) {
