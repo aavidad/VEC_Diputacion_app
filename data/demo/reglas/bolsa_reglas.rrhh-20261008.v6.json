@@ -844,6 +844,6 @@
     "publicado_en": "2026-10-08T00:00:00Z",
     "aprobacion_ref": "sin_aprobacion_rrhh:ejemplo_desarrollo",
     "motivo_publicacion": "Igual que la versión 4; la llamada que comunica cuenta como intento sin contacto (supuesto de trabajo pendiente de RRHH, duda 151).",
-    "version_anterior_ref": "vec.bolsa.reglas:4"
+    "version_anterior_ref": "vec.bolsa.reglas:5"
   }
 }
