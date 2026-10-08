@@ -126,7 +126,7 @@ BEGIN
   SELECT pg_catalog.jsonb_agg(e.value-'fuente_huella_sha256' ORDER BY e.n)
    INTO proyectadas FROM pg_catalog.jsonb_array_elements(fuente->'entradas') WITH ORDINALITY AS e(value,n);
   IF fuente->>'entradas_canon' IS DISTINCT FROM canon
-  OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(canon,'UTF8')),'hex') IS DISTINCT FROM fuente->>'huella_sha256'
+  OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(fuente->>'entradas_canon','UTF8')),'hex') IS DISTINCT FROM fuente->>'huella_sha256'
   OR (fuente->>'entradas_canon')::jsonb IS DISTINCT FROM proyectadas THEN
    RAISE EXCEPTION 'AUT61: huella o canon de fuente divergente' USING ERRCODE='42501';END IF;
   FOR e IN SELECT value FROM pg_catalog.jsonb_array_elements(fuente->'entradas') WITH ORDINALITY AS x(value,n) ORDER BY n LOOP
