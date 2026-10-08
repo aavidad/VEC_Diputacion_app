@@ -3,6 +3,8 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -22,29 +24,59 @@ type cesePendienteB81 struct {
 	OrigenPosicion int64  `json:"origen_posicion"`
 }
 
+const consultaCesesPendientesB81 = `SELECT vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1($1,$2,$3)`
+
 func (r *reconciliacionCesesB81) entregar(ctx context.Context) (resultadoEntregaContratosCT, error) {
 	var resultado resultadoEntregaContratosCT
 	if r == nil || r.pool == nil || r.lote < 1 || r.lote > 100 || ctx == nil {
 		return resultado, puertosct.ErrPublicacionContratosBolsaNoDisponible
 	}
 	vistos := make(map[string]struct{})
+	var desdePosicion any
+	var desdeRef any
+	var ultimo cesePendienteB81
+	hayUltimo := false
+	var primerError error
+	fallos := 0
+	errorAplicaciones := func() error {
+		if fallos == 0 {
+			return nil
+		}
+		return fmt.Errorf("%w: clave=aplicaciones_B45_fallidas esperado=0 actual=%d", primerError, fallos)
+	}
 	for pagina := 0; pagina < maximoPaginasEntregaContratosCT; pagina++ {
 		var bruto []byte
-		if err := r.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1($1)`, r.lote).Scan(&bruto); err != nil {
-			return resultado, falloRelevoCeseBolsaDesarrollo(err)
+		if err := r.pool.QueryRow(ctx, consultaCesesPendientesB81,
+			r.lote, desdePosicion, desdeRef).Scan(&bruto); err != nil {
+			return resultado, errors.Join(falloRelevoCeseBolsaDesarrollo(err), errorAplicaciones())
 		}
 		var pendientes []cesePendienteB81
 		if len(bruto) == 0 || json.Unmarshal(bruto, &pendientes) != nil || pendientes == nil || len(pendientes) > r.lote {
-			return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
+			return resultado, errors.Join(fmt.Errorf("%w: clave=pagina_ceses_B81 esperado=json_array_hasta_%d actual=invalida",
+				puertosbolsa.ErrContratosParticipacionNoDisponible, r.lote), errorAplicaciones())
 		}
+		// Validar la página completa antes de invocar B45: el cursor debe
+		// avanzar estrictamente también cuando un elemento falle.
 		for _, pendiente := range pendientes {
 			if pendiente.OrigenRef == "" || pendiente.HuellaSHA256 == "" || pendiente.OrigenPosicion < 0 {
-				return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
+				return resultado, errors.Join(fmt.Errorf("%w: clave=marcador_cese_B81 esperado=ref_huella_posicion_validos actual=invalido",
+					puertosbolsa.ErrContratosParticipacionNoDisponible), errorAplicaciones())
 			}
 			if _, repetido := vistos[pendiente.OrigenRef]; repetido {
-				return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
+				return resultado, errors.Join(fmt.Errorf("%w: clave=origen_ref_B81 esperado=unico actual=repetido",
+					puertosbolsa.ErrContratosParticipacionNoDisponible), errorAplicaciones())
+			}
+			if hayUltimo && (pendiente.OrigenPosicion < ultimo.OrigenPosicion ||
+				pendiente.OrigenPosicion == ultimo.OrigenPosicion && pendiente.OrigenRef <= ultimo.OrigenRef) {
+				return resultado, errors.Join(fmt.Errorf("%w: clave=orden_ceses_B81 esperado=posterior_a_%d/%s actual=%d/%s",
+					puertosbolsa.ErrContratosParticipacionNoDisponible,
+					ultimo.OrigenPosicion, ultimo.OrigenRef, pendiente.OrigenPosicion, pendiente.OrigenRef), errorAplicaciones())
 			}
 			vistos[pendiente.OrigenRef] = struct{}{}
+			ultimo = pendiente
+			hayUltimo = true
+		}
+		for _, pendiente := range pendientes {
 			var reutilizada bool
 			var recibo, candidato string
 			var disponible time.Time
@@ -53,10 +85,19 @@ func (r *reconciliacionCesesB81) entregar(ctx context.Context) (resultadoEntrega
 				FROM vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1($1,$2,$3)`,
 				pendiente.OrigenRef, pendiente.HuellaSHA256, pendiente.OrigenPosicion).
 				Scan(&reutilizada, &recibo, &candidato, &disponible, &politica); err != nil {
-				return resultado, falloRelevoCeseBolsaDesarrollo(err)
+				fallo := falloRelevoCeseBolsaDesarrollo(err)
+				if primerError == nil {
+					primerError = fallo
+				}
+				fallos++
+				continue
 			}
 			if recibo == "" || candidato == "" || disponible.IsZero() || politica < 1 {
-				return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
+				if primerError == nil {
+					primerError = puertosbolsa.ErrContratosParticipacionNoDisponible
+				}
+				fallos++
+				continue
 			}
 			if reutilizada {
 				resultado.reentregas++
@@ -65,10 +106,30 @@ func (r *reconciliacionCesesB81) entregar(ctx context.Context) (resultadoEntrega
 			}
 		}
 		if len(pendientes) < r.lote {
-			return resultado, nil
+			return resultado, errorAplicaciones()
 		}
+		desdePosicion, desdeRef = ultimo.OrigenPosicion, ultimo.OrigenRef
 	}
-	return resultado, nil
+	// La última página llena no demuestra que haya más trabajo. Una lectura
+	// acotada confirma si el límite dejó alguna fila posterior sin procesar.
+	var bruto []byte
+	if err := r.pool.QueryRow(ctx, consultaCesesPendientesB81, 1, desdePosicion, desdeRef).Scan(&bruto); err != nil {
+		return resultado, errors.Join(falloRelevoCeseBolsaDesarrollo(err), errorAplicaciones())
+	}
+	var siguientes []cesePendienteB81
+	if len(bruto) == 0 || json.Unmarshal(bruto, &siguientes) != nil || siguientes == nil || len(siguientes) > 1 {
+		return resultado, errors.Join(fmt.Errorf("%w: clave=sondeo_ceses_B81 esperado=json_array_hasta_1 actual=invalido",
+			puertosbolsa.ErrContratosParticipacionNoDisponible), errorAplicaciones())
+	}
+	if len(siguientes) == 0 {
+		return resultado, errorAplicaciones()
+	}
+	return resultado, errors.Join(
+		fmt.Errorf("%w: clave=paginas_reconciliacion_B81 esperado<%d actual=%d",
+			puertosbolsa.ErrContratosParticipacionNoDisponible,
+			maximoPaginasEntregaContratosCT, maximoPaginasEntregaContratosCT),
+		errorAplicaciones(),
+	)
 }
 
 // Ambas pasadas usan estado propio. Un error de publicación CT no oculta los

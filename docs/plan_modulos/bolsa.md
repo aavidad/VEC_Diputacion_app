@@ -7,13 +7,14 @@ Base comprobada: `origin/main@033fda6ed` más las PR fusionadas el 08/10 (#895 a
 ## Ceses sin candidato — revisión de #774, 8 de octubre de 2026
 
 B81 permite continuar el relevo cuando el llamamiento del puente CT eligió
-una participación que no pertenece a ninguna bolsa constituida. Conserva el
-cese y su proyección con la referencia del evento y de la auditoría común CT115;
-el registro local identifica al proceso de entrega. Si la bolsa ya está
-constituida y falta el vínculo, el cese sigue pendiente y el relevo se detiene.
-Si el vínculo aparece después, B90 mantiene al candidato pendiente desde el
-instante real de recepción B13. El mismo relevo aplica B45; hasta entonces no
-ocupa turno ni resulta elegible. El replay B81 conserva el registro original.
+una participación sin candidato vinculado. Conserva el cese, su motivo y las
+referencias del evento y de la auditoría común CT115. Si la bolsa ya está
+constituida, comprueba antes que esa participación figura en su acta; una
+referencia ajena sigue rechazándose. Cuando aparece el vínculo, B90 mantiene
+al candidato pendiente desde la recepción B13. El relevo aplica B45; hasta
+entonces no ocupa turno ni aparece disponible en «Mi Bolsa». Si una aplicación
+falla, el relevo intenta los demás ceses y vuelve a intentar el fallido en la
+pasada siguiente. El replay B81 conserva el registro original.
 
 La rama se actualiza con main y el cursor se toma de la definición instalada
 en postHX + HZ + B85 + B86 + CT193 + B87. CT197 añade un testigo técnico que
@@ -23,22 +24,25 @@ CT197, B81 y B90 están reservadas para #774; la lista las instala en ese orden.
 B90 calcula el pendiente desde B13 incluso si B81 aún no registró la
 proyección. Aplica el corte temporal de cada lectura: un cese futuro no cambia
 el orden anterior y una resolución B45 posterior no borra el intervalo
-pendiente. La misma migración actualiza el orden y el resumen que consultan
-las pantallas y la selección, y ofrece una lectura por lote.
+pendiente. La misma migración actualiza el orden, el resumen y «Mi Bolsa» sin
+cambiar el consumo V3 existente, y ofrece una lectura por lote. B81 pagina
+sus pendientes por posición y referencia para que un fallo no tape los demás.
 Claude revisa las SQL exactas y el ensayo final antes de integrar. Ninguna
 está instalada en una base compartida. CONFIG NUEVA: ninguna.
 
-En un clon PostgreSQL 18.4 postHX + HZ + B85 + B86 + CT193 + B87, las tres
-SQL se instalaron una vez (104–106 ms cada una). Las pruebas B81/B90 pasaron
-en ROLLBACK (205/206 ms): alta y replay únicos, vínculo posterior, pendiente
-sin fecha inventada, restricción B45, permisos e historia. CT129 real verifica
-el origen; la fixture prepara CT/B13 directamente y no acredita un cese desde
-RRHH ni navegador. En 10.000 filas, el índice por participación y el cursor
-tardaron 0,019 y 0,014 ms. En diez lecturas SQL con 2.390 estados variados,
-el lote tuvo p95 de 94,764 ms; con 10.000 estados mezclados tardó 546,4 ms.
-La base observada tiene 41 vínculos. Estas cifras no miden HTTP ni acreditan
-pantalla <300 ms: la fuente RRHH aún carga todas las entradas antes de paginar.
-Faltan la medición HTTP y la revisión final del corte.
+En un clon PostgreSQL 18.4 postHX + 14 HZ + B85 + B86 + CT193 + B87, las
+tres SQL se instalaron una vez (unos 106 ms cada una). Las pruebas B81/B90
+pasaron en ROLLBACK (211/309 ms): bolsa constituida sin vínculo, pertenencia
+al acta, replay, cursor paginado, cese pendiente, permisos e historia. Con
+20.001 entradas, el resumen global respondió y la fachada limitó la petición
+individual. La página de 100 entre 10.000 marcadores tardó 0,076 ms con
+índice; el lote de 2.390 estados variados tuvo p95 de 91,879 ms en el ensayo
+anterior, con el mismo SQL B90. CT129 verifica el origen; la fixture prepara
+CT/B13 directamente, sin acreditar una actuación RRHH ni «Mi Bolsa» con V3
+nominal. La línea base HTTP de la fuente anterior dio p95 de 285,223 ms con
+2.000 candidaturas y 2.009 consultas por petición, pero B90 estaba apagada:
+no mide este cambio. Faltan la revisión SQL final de Claude y la CI del nuevo
+hash. La mejora de consultas RRHH va aparte en #917.
 
 ## Lectura de conjunto por bolsa
 
@@ -69,7 +73,7 @@ esas lecturas está en [pendientes_v2.md](../estudio_requisitos/pendientes_v2.md
 | # | Qué | Quién o qué lo frena | Cómo se comprueba |
 | --- | --- | --- | --- |
 | 1 | **Vuelta a la bolsa tras el cese de CT.** En cidonia falta `VEC_BOLSA_CESE_CT_ENABLED` y el LOGIN del relevo. El LOGIN y el entorno están preparados en #771. | Claude, en el despliegue de cidonia. | Cese en CT y la persona vuelve a «Disponible» (o «disponible desde») en su bolsa, también tras reiniciar. |
-| 2 | **Cese de una bolsa no constituida sin bloquear el relevo** (CT197, B81, B90). | Codex-T, PR #774 en borrador; CI y medición HTTP pendientes. | Revisión SQL completada, ensayo PG18 verde; falta CI de la cabeza final y medir el recorrido HTTP nominal. |
+| 2 | **Cese sin candidato vinculado sin bloquear el relevo** (CT197, B81, B90), también en bolsa constituida si la participación consta en su acta. | Codex-T, PR #774 en borrador; revisión SQL final y CI pendientes. | PG18 verde; comprobar alta, cursor, vínculo posterior, restricción B45 y estado pendiente en «Mi Bolsa». |
 | 3 | **Carga de bolsas desde el Excel de CONVOCA en pantalla (B1).** Cadena #751 (núcleo, verde) → #752 (HTTP, en conflicto) → #759 (pantalla). Faltan rutas, concesión al rol de RRHH, plantilla publicada por Administración, LOGIN propio de constitución (B80) y AD218 en cidonia. | Claude (ramas `claude-b1-*`). Dudas 144 y 145. La rama `codexu-b1-nucleo-20261008` repite #751: no encargarla otra vez. | RRHH sube un Excel sintético, ve los errores por fila y confirma; la bolsa aparece con sus posiciones. |
 | 4 | **Recorrido de la oferta con varias plazas y del llamamiento directo**, de punta a punta. El código está; falta el acta. Va dentro del recorrido completo de [OBJETIVOS.md](OBJETIVOS.md). | Claude, con el recorrido de CT. | Acta con varias aceptaciones, adjudicación por posición, «sin respuesta» sin consecuencia y llamamiento directo. |
 | 5 | **Reglas que ya no encajan con el Reglamento (duda 147).** El Reglamento (BOP 16/01/2026, arts. 8 y 11) no recoge el plazo de 24 horas por plaza ni «no responder equivale a no aceptar» en la oferta. Basta con cambiar el catálogo. | Dirección decide; luego, cambio de catálogo. | Catálogo nuevo cargado y la pregunta 147 retirada de `dudas.md`. |
