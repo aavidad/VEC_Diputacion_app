@@ -136,7 +136,7 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   assert.match(html, /RRHH declaró un correo externo/);
   assert.match(html, /correo:oferta-1/);
   assert.match(html, /Fecha y hora del correo/);
-  assert.match(html, /Esta declaración no acredita la entrega/);
+  assert.match(html, /Compruebe la entrega por el canal correspondiente/);
   assert.doesNotMatch(html, /plazas-oferta/, "una oferta abierta no despliega sus plazas");
   const datos = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Des", numero_plazas: "3",
     notificada_en: "2026-09-25T10:00", referencia_correo: "correo:oferta-1", huella_correo_sha256: "a".repeat(64) };
@@ -151,7 +151,7 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await turno();
   assert.equal(enviadas.length, 0, "no envía un identificador personal como referencia opaca");
-  assert.match(s.renderizar(), /no puede incluir un DNI/);
+  assert.match(s.renderizar(), /no debe incluir DNI, NIE ni otros datos de identidad/);
   datos.referencia_correo = "correo:oferta-1";
   datos.notificada_en = "2026-03-29T02:30";
   s.manejarSubmit({ target: formulario, preventDefault() {} });

@@ -56,7 +56,7 @@ test("la portada sin catálogo ofrece reintento y el clic activa la recarga exis
   });
   let html = vista();
   assert.match(html, /role="alert" aria-labelledby="error-catalogo-modulos-titulo"/u);
-  assert.match(html, /El catálogo interno de módulos no está disponible/u);
+  assert.match(html, /No se han podido cargar las áreas del portal/u);
   assert.match(html, /<button[^>]*data-accion="recargar-fuente"[^>]*>Reintentar<\/button>/u);
 
   const documentoAnterior = globalThis.document;
@@ -142,7 +142,7 @@ test("Inicio del empleado sin módulos disponibles muestra un estado vacío i18n
   assert.match(html, /role="status" data-inicio-sin-modulos>\s*<p>«inicio_empleado_sin_modulos»<\/p>/u);
   assert.ok(claves.includes("inicio_empleado_sin_modulos"));
   assert.doesNotMatch(html, /data-modulo-catalogo=|data-accion="ayuda"|rejilla-modulos/u);
-  assert.match(renderizar({ disponible: false, vista: "", estado: "denegado" }), /No hay módulos disponibles para su perfil\./u);
+  assert.match(renderizar({ disponible: false, vista: "", estado: "denegado" }), /No hay áreas disponibles para su perfil\./u);
   // Con el catálogo caído manda su aviso con reintento, no el estado vacío.
   const fallido = vista(true);
   assert.match(fallido, /data-accion="recargar-fuente"/u);

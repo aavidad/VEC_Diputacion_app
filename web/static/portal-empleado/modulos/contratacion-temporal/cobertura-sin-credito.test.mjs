@@ -47,7 +47,7 @@ test("sin crédito la pantalla dice el motivo en llano y no ofrece decidir", asy
   const esperados = {
     sin_credito_retencion_rechazada: /la retención de crédito está rechazada y sin crédito no se tramita/u,
     sin_credito_analisis_pendiente: /falta el análisis de RRHH con la retención de crédito/u,
-    sin_credito_partidas_sin_coste: /consta el estado de las partidas, pero falta el coste aproximado/u,
+    sin_credito_partidas_sin_coste: /falta el coste aproximado.*Revise la fecha de fin y las retribuciones/u,
   };
   for (const [codigo, texto] of Object.entries(esperados)) {
     const raiz = raizFalsa();

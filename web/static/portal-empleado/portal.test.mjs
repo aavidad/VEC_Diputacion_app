@@ -299,7 +299,7 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   assert.match(resumen, /Prueba de lectura/);
   assert.doesNotMatch(resumen, /Datos conectados|Cuadro B12|>BOL<|>LLA</);
   assert.match(resumen, /class="rejilla-cuadro-mando"/);
-  assert.ok(resumen.indexOf("Llamamientos pendientes") < resumen.indexOf("Convocatorias del ámbito autorizado"));
+  assert.ok(resumen.indexOf("Llamamientos pendientes") < resumen.indexOf("Convocatorias disponibles"));
   assert.ok(resumen.indexOf("Convocatorias del ámbito autorizado") < resumen.indexOf("Actuaciones pendientes"));
   assert.ok(resumen.indexOf("Actuaciones pendientes") < resumen.indexOf("Prueba de lectura"));
   for (const etiqueta of [
@@ -515,7 +515,7 @@ test("la ayuda configurable usa FAQ y guía textual veraz", () => {
   assert.ok(AYUDA_PORTAL_BOLSA.preguntas.length >= 3);
   assert.match(javascript, /ayuda_preguntas/);
   assert.match(javascript, /ayuda_transcripcion/);
-  assert.match(AYUDA_PORTAL_BOLSA.transcripcion, /Abrir esta ayuda no guarda ni comunica datos/);
+  assert.match(AYUDA_PORTAL_BOLSA.transcripcion, /Abrir esta ayuda no guarda ni envía datos/);
   assert.doesNotMatch(javascript, /ayuda-llamamiento-bolsa\.mp3/);
   assert.match(ayuda, /Contenido de ayuda sustituible por catálogo o conector/);
 });
