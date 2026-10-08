@@ -159,3 +159,27 @@ test("impedimento acreditado desactiva presentación y explica por qué", async 
   assert.equal(envios, 0);
   montaje.destruir();
 });
+
+test("403 tardío del POST borra la lista personal abierta después de navegar", async () => {
+  const { contenedor, ventana, pulsar } = entorno();
+  let rechazarPost;
+  const cliente = {
+    abiertas: async () => ({ convocatorias: [bolsa], total: 1, cursor_siguiente: null }),
+    convocatoria: async () => ({ convocatoria: { ...bolsa, requisitos: [] } }),
+    propias: async () => ({ solicitudes: [{ solicitud_ref: "solicitud:secreta", recibo_ref: "recibo:secreto",
+      convocatoria_ref: bolsa.convocatoria_ref, categoria: bolsa.categorias[0].categoria,
+      estado: "pendiente", version: 1, registrada_en: instante }], cursor_siguiente: null }),
+    detallePropio: async () => { throw new Error("sin uso"); },
+    inscribir: async () => new Promise((_resolver, rechazar) => { rechazarPost = rechazar; }),
+  };
+  const montaje = montarInscripcionBolsa({ contenedor, ventana, cliente, idioma: "es", textoBase: () => "Cargando" });
+  await pausa(); pulsar("bolsa", bolsa.convocatoria_ref); await pausa();
+  pulsar("revisar"); pulsar("confirmar"); await pausa();
+  pulsar("propias"); await pausa();
+  assert.match(contenedor.innerHTML, /Auxiliar administrativo/u);
+  rechazarPost(Object.assign(new Error("denegado"), { status: 403 }));
+  await pausa();
+  assert.doesNotMatch(contenedor.innerHTML, /solicitud:secreta|recibo:secreto|Auxiliar administrativo/u);
+  assert.match(contenedor.innerHTML, /no permite hacer esta consulta/u);
+  montaje.destruir();
+});

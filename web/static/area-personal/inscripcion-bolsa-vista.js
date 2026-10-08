@@ -140,15 +140,18 @@ function vistaPropias(estado, textos) {
       </div></article>`).join("")}</div>${estado.cursorPropias ? `<button type="button" class="boton-secundario" data-inscripcion-accion="mas-propias">${t("mostrarMas")}</button>` : ""}</div>`;
 }
 
-export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetch, cliente = crearClienteInscripcionBolsa({ fetchImpl }),
-  idioma, ventana = globalThis.window, anunciar = () => {}, textoBase = () => "" } = {}) {
+export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetch,
+  cliente = null, idioma,
+  ventana = globalThis.window, anunciar = () => {}, textoBase = () => "" } = {}) {
   if (!contenedor?.addEventListener || !contenedor?.removeEventListener || !ventana?.location
-    || !ventana?.history || !cliente?.abiertas || !cliente?.convocatoria || !cliente?.propias
-    || !cliente?.detallePropio || !cliente?.inscribir) throw new TypeError("Montaje de inscripción inválido");
+    || !ventana?.history || (cliente !== null && (!cliente?.abiertas || !cliente?.convocatoria
+      || !cliente?.propias || !cliente?.detallePropio || !cliente?.inscribir)))
+    throw new TypeError("Montaje de inscripción inválido");
   const estado = { tipo: "abiertas", carga: true, abiertas: [], propias: [], total: 0,
     cursor: null, cursorPropias: null, bolsa: null, solicitud: null, error: "", revision: false,
     enviando: false, comprobarEnvio: false, ayuda: false, declaraciones: new Set(), categoriaRef: "" };
   let textos = null;
+  let clienteEfectivo = cliente;
   let montado = true;
   let consulta = null;
   let secuencia = 0;
@@ -158,6 +161,18 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     estado.abiertas = []; estado.propias = []; estado.bolsa = null; estado.solicitud = null;
     estado.cursor = null; estado.cursorPropias = null; estado.declaraciones.clear();
     estado.categoriaRef = ""; estado.revision = false; estado.total = 0;
+  }
+
+  function cerrarPorDenegacion(error) {
+    if (!montado || (error?.status !== 401 && error?.status !== 403)) return false;
+    ++secuencia;
+    consulta?.abort();
+    limpiarDatosPrivados();
+    estado.carga = false;
+    estado.enviando = false;
+    estado.error = descripcionError(error, textos);
+    pintar(); anunciar(estado.error);
+    return true;
   }
 
   function pintar() {
@@ -191,13 +206,13 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     const { version, signal } = iniciarConsulta();
     estado.tipo = "abiertas"; estado.carga = true; estado.error = ""; pintar();
     try {
-      const datos = await cliente.abiertas({ cursor: mas ? estado.cursor : "", signal });
+      const datos = await clienteEfectivo.abiertas({ cursor: mas ? estado.cursor : "", signal });
       if (!montado || signal.aborted || version !== secuencia) return;
       estado.abiertas = mas ? [...estado.abiertas, ...datos.convocatorias] : datos.convocatorias;
       estado.total = datos.total; estado.cursor = datos.cursor_siguiente;
     } catch (error) {
+      if (cerrarPorDenegacion(error)) return;
       if (!montado || signal.aborted || version !== secuencia) return;
-      if (error?.status === 401 || error?.status === 403) limpiarDatosPrivados();
       estado.error = descripcionError(error, textos);
       anunciar(estado.error);
     } finally {
@@ -213,7 +228,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     estado.tipo = "bolsa"; estado.carga = true; estado.error = ""; estado.bolsa = null;
     estado.revision = false; estado.comprobarEnvio = false; estado.declaraciones = new Set(); pintar();
     try {
-      const datos = await cliente.convocatoria(ref, { signal });
+      const datos = await clienteEfectivo.convocatoria(ref, { signal });
       if (!montado || signal.aborted || version !== secuencia) return;
       estado.bolsa = datos.convocatoria;
       const pendiente = CLAVES_PENDIENTES.get(ref);
@@ -221,8 +236,8 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
       estado.categoriaRef = pendiente?.categoriaRef ?? (datos.convocatoria.categorias.length === 1
         ? datos.convocatoria.categorias[0].categoria_ref : "");
     } catch (error) {
+      if (cerrarPorDenegacion(error)) return;
       if (!montado || signal.aborted || version !== secuencia) return;
-      if (error?.status === 401 || error?.status === 403) limpiarDatosPrivados();
       estado.error = descripcionError(error, textos); anunciar(estado.error);
     } finally {
       if (montado && version === secuencia) {
@@ -236,12 +251,12 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     const { version, signal } = iniciarConsulta();
     estado.tipo = "solicitud"; estado.carga = true; estado.error = ""; estado.solicitud = null; pintar();
     try {
-      const datos = await cliente.detallePropio(ref, { signal });
+      const datos = await clienteEfectivo.detallePropio(ref, { signal });
       if (!montado || signal.aborted || version !== secuencia) return;
       estado.solicitud = datos.solicitud;
     } catch (error) {
+      if (cerrarPorDenegacion(error)) return;
       if (!montado || signal.aborted || version !== secuencia) return;
-      if (error?.status === 401 || error?.status === 403) limpiarDatosPrivados();
       estado.error = descripcionError(error, textos); anunciar(estado.error);
     } finally {
       if (montado && version === secuencia) {
@@ -256,13 +271,13 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     estado.tipo = "propias"; estado.carga = true; estado.error = "";
     estado.bolsa = null; estado.solicitud = null; pintar();
     try {
-      const datos = await cliente.propias({ cursor: mas ? estado.cursorPropias : "", signal });
+      const datos = await clienteEfectivo.propias({ cursor: mas ? estado.cursorPropias : "", signal });
       if (!montado || signal.aborted || version !== secuencia) return;
       estado.propias = mas ? [...estado.propias, ...datos.solicitudes] : datos.solicitudes;
       estado.cursorPropias = datos.cursor_siguiente;
     } catch (error) {
+      if (cerrarPorDenegacion(error)) return;
       if (!montado || signal.aborted || version !== secuencia) return;
-      if (error?.status === 401 || error?.status === 403) limpiarDatosPrivados();
       estado.error = descripcionError(error, textos); anunciar(estado.error);
     } finally {
       if (montado && version === secuencia) { estado.carga = false; pintar(); }
@@ -287,7 +302,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     ENVIOS_ACTIVOS.add(bolsa.convocatoria_ref);
     estado.enviando = true; estado.error = ""; pintar();
     try {
-      const recibo = await cliente.inscribir({ convocatoriaRef: bolsa.convocatoria_ref,
+      const recibo = await clienteEfectivo.inscribir({ convocatoriaRef: bolsa.convocatoria_ref,
         categoriaRef: peticion.categoriaRef,
         catalogoVersion: peticion.catalogoVersion, claveIdempotencia: peticion.clave,
         declaraciones: peticion.declaraciones });
@@ -303,10 +318,10 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
       estado.solicitud = { ...recibo, categoria: categoria.categoria }; estado.tipo = "solicitud"; estado.revision = false;
       cambiarURL(`solicitud:${recibo.solicitud_ref}`); anunciar(t("registrada"));
     } catch (error) {
+      if (cerrarPorDenegacion(error)) return;
       if (error?.status === 400 || error?.status === 422) CLAVES_PENDIENTES.delete(bolsa.convocatoria_ref);
       if (!montado || version !== secuencia || estado.tipo !== "bolsa" || estado.bolsa?.convocatoria_ref !== bolsa.convocatoria_ref) return;
       estado.error = descripcionError(error, textos); anunciar(estado.error);
-      if (error?.status === 401 || error?.status === 403) limpiarDatosPrivados();
     } finally {
       ENVIOS_ACTIVOS.delete(bolsa.convocatoria_ref);
       if (montado && (version === secuencia || (estado.tipo === "bolsa" && estado.bolsa?.convocatoria_ref === bolsa.convocatoria_ref))) {
@@ -368,6 +383,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
       try { textos = await cargarTextos("bolsa-inscripcion-aspirante", { idioma }); }
       catch { textos = await reintentarTextos("bolsa-inscripcion-aspirante", { idioma }); }
       if (!montado) return;
+      clienteEfectivo ??= crearClienteInscripcionBolsa({ fetchImpl, idioma: textos.idioma });
       const id = leerId(ventana.location.href);
       if (id?.tipo === "bolsa") await cargarBolsa(id.ref);
       else if (id?.tipo === "solicitud") await cargarSolicitud(id.ref);
