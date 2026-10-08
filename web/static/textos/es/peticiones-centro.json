@@ -210,7 +210,8 @@
     "seleccionar": "Seleccione una opción",
     "si": "Sí",
     "titulo": "Nueva petición de personal temporal",
-    "volver_editar": "Volver a editar"
+    "volver_editar": "Volver a editar",
+    "motivo_sustitucion": "Sustitución temporal"
   },
   "ayuda": {
     "pc_ayuda_abrir": "Ayuda sobre la petición del centro",

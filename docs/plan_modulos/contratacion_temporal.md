@@ -95,3 +95,8 @@ CT193 y Go conservan la necesidad y el catálogo en el efecto sellado. Dos revis
 ## Etiquetas de Alta y ayuda de Inicio — 08/10
 
 Las etiquetas de plaza y puesto RPT siguen los campos obligatorios del catálogo de cada causa. La plaza opcional lleva una sola indicación; la obligatoria lleva asterisco y el control exige el valor. La ayuda de Inicio describe las áreas disponibles, sin ofrecer las ofertas al SAE retiradas. La validación de las cuatro causas y los permisos se conserva. Este corte no requiere SQL ni configuración nueva.
+
+
+## Alta con capacidad limitada — 08/10
+
+Sin publicación de necesidades configurada, el catálogo v2 responde con una capacidad ausente específica; no usa las cuatro causas del ejemplo. La pantalla conserva el alta de sustitución que ofrece el catálogo v1 y explica qué se puede registrar. Sólo activa ese recorrido ante la respuesta validada del servidor y un catálogo v1 limitado a sustitución. Una avería, denegación o respuesta inválida mantiene el error y el reintento. La capacidad ausente no ofrece un reintento junto al formulario: conserva los datos y la operación activa. Después de configurar la fuente y volver a cargar el portal, el catálogo v2 ofrece las causas publicadas. No añade SQL ni configuración nueva; para las otras causas sigue siendo necesario configurar la fuente de #895 después de CT193.
