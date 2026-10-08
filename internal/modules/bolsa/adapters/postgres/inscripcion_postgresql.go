@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"reflect"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -16,26 +17,57 @@ import (
 	"vec-diputacion-granada/internal/shared/postgresql"
 )
 
-// RepositorioInscripcionesPostgreSQL mantiene separados los tres privilegios
-// técnicos. Cada método elige su pool de forma fija; nunca acepta el rol del
-// cliente como argumento SQL.
+// RepositorioInscripcionesPostgreSQL separa escrituras externa/interna de tres
+// lectores nominales. El pool lector depende sólo del canal y la acción
+// validados por el servidor, nunca de un selector recibido por HTTP.
 type RepositorioInscripcionesPostgreSQL struct {
-	externo iniciadorTransacciones
-	interno iniciadorTransacciones
-	lector  iniciadorTransacciones
+	externo        iniciadorTransacciones
+	interno        iniciadorTransacciones
+	lectorExterno  iniciadorTransacciones
+	lectorEmpleado iniciadorTransacciones
+	lectorRRHH     iniciadorTransacciones
 }
 
 var _ inscripcion.Repositorio = (*RepositorioInscripcionesPostgreSQL)(nil)
 
-func NuevoRepositorioInscripcionesPostgreSQL(externo, interno, lector *pgxpool.Pool) (*RepositorioInscripcionesPostgreSQL, error) {
-	return nuevoRepositorioInscripcionesPostgreSQL(externo, interno, lector)
+func NuevoRepositorioInscripcionesPostgreSQL(
+	externo, interno, lectorExterno, lectorEmpleado, lectorRRHH *pgxpool.Pool,
+) (*RepositorioInscripcionesPostgreSQL, error) {
+	return nuevoRepositorioInscripcionesPostgreSQL(externo, interno, lectorExterno, lectorEmpleado, lectorRRHH)
 }
 
-func nuevoRepositorioInscripcionesPostgreSQL(externo, interno, lector iniciadorTransacciones) (*RepositorioInscripcionesPostgreSQL, error) {
-	if valorNulo(externo) || valorNulo(interno) || valorNulo(lector) {
-		return nil, inscripcion.ErrNoDisponible
+func nuevoRepositorioInscripcionesPostgreSQL(
+	externo, interno, lectorExterno, lectorEmpleado, lectorRRHH iniciadorTransacciones,
+) (*RepositorioInscripcionesPostgreSQL, error) {
+	fuentes := []iniciadorTransacciones{externo, interno, lectorExterno, lectorEmpleado, lectorRRHH}
+	for i, fuente := range fuentes {
+		if valorNulo(fuente) {
+			return nil, inscripcion.ErrNoDisponible
+		}
+		for j := 0; j < i; j++ {
+			if mismaFuenteInscripcion(fuente, fuentes[j]) {
+				return nil, inscripcion.ErrNoDisponible
+			}
+		}
 	}
-	return &RepositorioInscripcionesPostgreSQL{externo: externo, interno: interno, lector: lector}, nil
+	return &RepositorioInscripcionesPostgreSQL{
+		externo: externo, interno: interno, lectorExterno: lectorExterno,
+		lectorEmpleado: lectorEmpleado, lectorRRHH: lectorRRHH,
+	}, nil
+}
+
+func mismaFuenteInscripcion(a, b iniciadorTransacciones) bool {
+	va, vb := reflect.ValueOf(a), reflect.ValueOf(b)
+	if !va.IsValid() || !vb.IsValid() || va.Type() != vb.Type() {
+		return false
+	}
+	if va.Kind() == reflect.Pointer {
+		return va.Pointer() == vb.Pointer()
+	}
+	if va.Type().Comparable() {
+		return a == b
+	}
+	return true
 }
 
 func capturaEscrituraInscripcion(actor inscripcion.Actor, accion, audiencia, canal string) ([]byte, error) {
