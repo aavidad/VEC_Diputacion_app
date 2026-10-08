@@ -235,7 +235,7 @@ func cruzarVentanasYGobiernoMaterialConsumoV3(
 	configExpira, errConfigExpira := parsearInstanteCapacidadV3(documento.ConfiguracionExpiraEn)
 	raizDesde, errRaizDesde := parsearInstanteCapacidadV3(documento.RaizValidaDesde)
 	raizHasta, errRaizHasta := parsearInstanteCapacidadV3(documento.RaizValidaHasta)
-	decisionHasta, errDecisionHasta := parsearInstanteCapacidadV3(documento.DecisionValidaHasta)
+	decisionHasta, errDecisionHasta := parsearInstanteDecisionCapacidadV3(documento.DecisionValidaHasta)
 	if errVerificada != nil || errPublicada != nil || errConfigExpira != nil ||
 		errRaizDesde != nil || errRaizHasta != nil || errDecisionHasta != nil ||
 		!decisionHasta.Equal(decisionValidaHasta) ||

@@ -1,10 +1,12 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20261007-pantallas-textos-final-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20261008-ct-inicio-v1";
+import { FILTRO_INCIDENCIA_CT, filtroServidorCTValido, leerFiltroCTDeRuta,
+  limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261008-bolsa-inicio-v2";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261007-pantallas-textos-final-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261007-pantallas-textos-final-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-ct-alta-vista-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-ct-inicio-v1";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1";
@@ -107,7 +109,7 @@ function cargarRecursosVista(grupo) {
   if (cargasRecursosVistas.has(grupo)) return;
   const carga = grupo === "inicio"
     ? Promise.all([
-      import("./portal-inicio.js?v=20261008-bolsa-enlaces-root-v1"),
+      import("./portal-inicio.js?v=20261008-bolsa-inicio-v2"),
       import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2"),
     ]).then(([inicio, accesos]) => ({ ...inicio, accesos }))
     : grupo === "accesos"
@@ -875,17 +877,25 @@ async function solicitarPropuestaLlamamiento() {
 // referencia solo navega; el servidor decide si el perfil puede consultarlo.
 function opcionesDesdeEnlace(vista) {
   const parametros = new URLSearchParams(window.location.search);
-  if (!parametros.has("expediente")) return null;
+  const filtroServidorRuta = vista === "contratacion-temporal" ? leerFiltroCTDeRuta(window.location.search) : null;
+  const opcionesCT = vista === "contratacion-temporal"
+    ? { alCambiarFiltroLista: alCambiarFiltroListaCT,
+      ...(filtroServidorRuta ? { filtroServidorRuta } : {}) } : null;
+  if (!parametros.has("expediente")) return opcionesCT;
   const referencia = parametros.get("expediente") || "";
-  history.replaceState(null, "", `${window.location.pathname}${window.location.hash}`);
+  parametros.delete("expediente");
+  const busqueda = parametros.toString();
+  history.replaceState(null, "", `${window.location.pathname}${busqueda ? `?${busqueda}` : ""}${window.location.hash}`);
   return vista === "contratacion-temporal" && /^[A-Za-z0-9:_.-]{1,200}$/u.test(referencia)
-    ? { expedienteRef: referencia } : null;
+    ? { ...opcionesCT, expedienteRef: referencia } : opcionesCT;
 }
 
 function vistaDesdeHash() {
   const valor = window.location.hash.replace(/^#\/?/, "").trim();
   if (!valor || valor === "portal") {
-    if (window.location.hash !== "#portal") history.replaceState(null, "", "#portal");
+    const ruta = rutaPortalConFiltroCT(window.location, "#portal");
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
+      history.replaceState(null, "", ruta);
     return "portal";
   } const candidata = valor.split("/").filter(Boolean).at(-1);
   if (Object.hasOwn(TITULOS, candidata)) return candidata;
@@ -937,6 +947,12 @@ function anunciar(mensaje) {
   region.textContent = "";
   window.setTimeout(() => { region.textContent = mensaje; }, 20);
 }
+function alCambiarFiltroListaCT(filtroAplicado) {
+  if (estado.vista !== "contratacion-temporal" || !filtroServidorCTValido(filtroAplicado)) return;
+  const ruta = rutaPortalConFiltroCT(window.location, rutaDeVista("contratacion-temporal"), filtroAplicado);
+  if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
+    history.replaceState(null, "", ruta);
+}
 function navegar(vista, opciones = {}) {
   if (!Object.hasOwn(TITULOS, vista)) return;
   if (vista !== VISTA_PLANTILLAS_RRHH) destinoPlantillasInicial = false;
@@ -944,7 +960,9 @@ function navegar(vista, opciones = {}) {
   if (sondearCapacidadAlAbrir(vista)) return;
   if (!vistaPermitida(vista) && vistaBolsaPendienteNoCompuesta(vista)) {
     const hash = rutaDeVista(vista);
-    if (window.location.hash !== hash) history.pushState(null, "", hash);
+    const ruta = rutaPortalConFiltroCT(window.location, hash);
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
+      history.pushState(null, "", ruta);
     estado.vista = vista;
     renderizar();
     cerrarMenuMovil();
@@ -954,7 +972,9 @@ function navegar(vista, opciones = {}) {
   if (!vistaPermitida(vista)) {
     const vistaSegura = "portal";
     const hashSeguro = rutaDeVista(vistaSegura);
-    if (window.location.hash !== hashSeguro) history.replaceState(null, "", hashSeguro);
+    const rutaSegura = rutaPortalConFiltroCT(window.location, hashSeguro);
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== rutaSegura)
+      history.replaceState(null, "", rutaSegura);
     estado.vista = vistaSegura;
     renderizar();
     cerrarMenuMovil();
@@ -974,12 +994,27 @@ function navegar(vista, opciones = {}) {
   }
   if (vista !== "auditoria") estado.auditoriaReferencia = "";
   if (vista !== "bolsa-candidatos") rutaCandidatosAplicada = null;
+  const filtroServidorRuta = vista === "contratacion-temporal"
+    ? (opciones.desdeRuta === true ? leerFiltroCTDeRuta(window.location.search)
+      : opciones.filtroServidorRuta ?? (opciones.filtroLista?.mostrar === "incidencia"
+        && !opciones.filtroLista?.fase ? FILTRO_INCIDENCIA_CT : null))
+    : null;
   if (vista === "resumen" && rutasBolsa) {
-    const ruta = rutasBolsa.rutaResumenBolsasCompartible(window.location.search);
+    const ruta = rutasBolsa.rutaResumenBolsasCompartible(limpiarFiltroCTDeBusqueda(window.location.search));
     if (`${window.location.search}${window.location.hash}` !== ruta) history.pushState(null, "", ruta);
-  } else if (window.location.hash !== hash) history.pushState(null, "", hash);
+  } else if (opciones.desdeRuta !== true) {
+    const ruta = rutaPortalConFiltroCT(window.location, hash,
+      vista === "contratacion-temporal" && filtroServidorCTValido(filtroServidorRuta) ? filtroServidorRuta : null);
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
+      history.pushState(null, "", ruta);
+  } else if (vista !== "contratacion-temporal") {
+    const ruta = rutaPortalConFiltroCT(window.location, hash);
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
+      history.replaceState(null, "", ruta);
+  }
   estado.vista = vista;
-  estado.opcionesVista = opciones;
+  estado.opcionesVista = vista === "contratacion-temporal"
+    ? { ...opciones, filtroServidorRuta, alCambiarFiltroLista: alCambiarFiltroListaCT } : opciones;
   if (vista === "portal" && esPerfilRRHH() && estadoResumenInicio !== "listo") {
     estadoResumenInicio = "cargando";
     void prepararResumenInicioVisible();
@@ -1581,8 +1616,10 @@ function instalarEnlacesBolsa() {
     aplicarRutaCandidatosBolsa();
   }, true);
   window.addEventListener("popstate", () => {
-    if (window.location.hash !== "#bolsa/bolsa-candidatos") return;
-    if (estado.vista !== "bolsa-candidatos") navegar("bolsa-candidatos", { enfocar: false });
+    const vista = vistaDesdeHash();
+    if (vista !== estado.vista || vista === "contratacion-temporal")
+      navegar(vista, { enfocar: false, desdeRuta: true });
+    if (vista !== "bolsa-candidatos") return;
     rutaCandidatosAplicada = null;
     aplicarRutaCandidatosBolsa();
   });

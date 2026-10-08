@@ -1,5 +1,5 @@
 import { validarReciboAnotacionAdministrativa, validarSolicitudAnotacionAdministrativa, validarRecuperacionAnotacionAdministrativa } from "./contrato-anotacion-administrativa.js";
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261007-carga-pantalla-v1";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261008-ct-inicio-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
 import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
 

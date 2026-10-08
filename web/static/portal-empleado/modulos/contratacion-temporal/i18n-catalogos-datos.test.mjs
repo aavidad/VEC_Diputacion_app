@@ -83,6 +83,8 @@ const CLAVES_CUADRO_LIGERO = Object.freeze([
   "filtros", "tabla_expedientes", "marca_urgente", "lista_actualizar", "lista_vacia_sin_alta",
   "lista_textos_respaldo",
   "lista_filtro_no_disponible", "lista_resultados_pagina",
+  "lista_titulo_conjunto", "lista_buscar_pista_servidor",
+  "lista_fase_servidor_preparacion", "lista_fase_servidor_llamamiento", "lista_fase_servidor_cierre",
   "plazo_fase_en_plazo", "plazo_fase_vence_hoy",
   "plazo_fase_vencido", "plazo_fase_sin_calcular",
 ]);

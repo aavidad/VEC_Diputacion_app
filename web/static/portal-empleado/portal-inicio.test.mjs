@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261007-ct-menu-recuperacion-v1";
+import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261008-bolsa-inicio-v2";
+import { leerCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js";
 import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
 import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
@@ -237,35 +238,37 @@ function portadaRRHH(opciones = {}) {
   })();
 }
 
-test("la portada de RRHH empieza por lo pendiente y cada cifra lleva a la lista filtrada", () => {
+test("la portada de RRHH enlaza solo el recuento cuyo filtro V1 conserva todo el conjunto", () => {
   const html = portadaRRHH();
   assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Lo pendiente<\/h3>/u);
-  assert.match(html, /data-metrica="vencidos" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-lista-mostrar="vencidos" aria-label="1 con el plazo vencido: ver la lista">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Con el plazo vencido/u);
-  assert.match(html, /data-metrica="vencen_hoy"[^>]*data-ct-exp-lista-mostrar="vence_hoy" aria-label="1 vencen hoy: ver la lista">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Vencen hoy/u);
+  assert.match(html, /<div class="tarjeta-kpi kpi--peligro" data-metrica="vencidos">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Con el plazo vencido/u);
+  assert.match(html, /<div class="tarjeta-kpi kpi--advertencia" data-metrica="vencen_hoy">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Vencen hoy/u);
   assert.match(html, /data-metrica="incidencias"[^>]*data-ct-exp-lista-mostrar="incidencia" aria-label="1 con una incidencia abierta: ver la lista">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Con una incidencia abierta/u);
+  assert.doesNotMatch(html, /data-ct-exp-lista-mostrar="(?:vencidos|vence_hoy|vencen_semana|en_tramite|sin_plazo)"|data-ct-exp-lista-fase=/u);
   // La portada no descarga ni muestra expedientes sueltos.
   assert.doesNotMatch(html, /tareas-pendientes|data-ct-exp-abrir-inicio|Recuento parcial/u);
   assert.doesNotMatch(html, /Todos los módulos|rejilla-modulos|data-accion="ayuda"/u);
 });
 
-test("los indicadores usan los recuentos del servidor y llevan a la lista filtrada", () => {
+test("los indicadores conservan los recuentos del servidor sin enlaces a predicados parciales", () => {
   const html = portadaRRHH();
-  assert.match(html, /data-metrica="en_tramite" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-lista-mostrar="en_tramite">[\s\S]*?<strong class="valor-kpi">3<\/strong>/u);
+  assert.match(html, /<div class="tarjeta-kpi" data-metrica="en_tramite">[\s\S]*?<strong class="valor-kpi">3<\/strong>/u);
   assert.match(html, /data-metrica="vencen_semana"[^>]*>[\s\S]*?<strong class="valor-kpi">2<\/strong>/u);
   assert.match(html, /data-metrica="disponibles" data-vista="resumen">[\s\S]*?<strong class="valor-kpi">42<\/strong>[\s\S]*?Personas disponibles en 2 bolsas/u);
   // Ofertas al SAE: sin cifra, explicado.
   assert.match(html, /data-metrica="sae" data-vista="ofertas-sae">[\s\S]*?Pendiente de definir con RRHH/u);
   // El reparto pasa de la fase del servidor a las ocho fases de RRHH.
-  assert.match(html, /data-ct-exp-lista-fase="analisis_rrhh"[^>]*>2\. Análisis RRHH<\/button><\/th>\s*<td class="numero">1<\/td>/u);
-  assert.match(html, /data-ct-exp-lista-fase="fiscalizacion"[^>]*>4\. [^<]*<\/button><\/th>\s*<td class="numero">1<\/td>/u);
-  assert.match(html, /data-ct-exp-lista-fase="seguimiento"[^>]*>8\. Seguimiento<\/button><\/th>\s*<td class="numero">0<\/td>/u);
+  assert.match(html, /<th scope="row">2\. Análisis RRHH<\/th>\s*<td class="numero">1<\/td>/u);
+  assert.match(html, /<th scope="row">4\. [^<]*<\/th>\s*<td class="numero">1<\/td>/u);
+  assert.match(html, /<th scope="row">8\. Seguimiento<\/th>\s*<td class="numero">0<\/td>/u);
   assert.match(html, /Auxiliar &lt;A&gt;[\s\S]*?Sin fecha de fin/u);
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-vista="alta">Nueva petición de personal/u);
 });
 
-test("si algún plazo no se pudo calcular la portada lo dice y lleva a cuáles", () => {
+test("si algún plazo no se pudo calcular la portada lo dice sin prometer un filtro ausente", () => {
   const html = portadaRRHH({ obtenerCuadroInicio: () => cuadroInicio({ ...resumenServidor, sin_calcular: 2 }) });
-  assert.match(html, /role="status">En 2 peticiones no se ha podido calcular el plazo\.[\s\S]*?data-ct-exp-lista-mostrar="sin_plazo">Ver cuáles/u);
+  assert.match(html, /role="status">En 2 peticiones no se ha podido calcular el plazo\.<\/p>/u);
+  assert.doesNotMatch(html, /data-ct-exp-lista-mostrar="sin_plazo"|Ver cuáles/u);
   assert.match(portadaRRHH({ obtenerCuadroInicio: () => cuadroInicio({ ...resumenServidor, sin_calcular: 1 }) }), /En 1 petición no se ha podido calcular el plazo\./u);
   assert.doesNotMatch(portadaRRHH(), /no se ha podido calcular el plazo/u);
   // Sin nada pendiente pero con plazos sin calcular, no se dice que no vence nada.
@@ -330,7 +333,28 @@ test("Inicio enlaza cada bolsa del GET a su lista exacta sin enlazar totales glo
   const html = portadaRRHH();
   assert.match(html, /href="\?bolsa_ref=bolsa%3A1#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:1"/u);
   assert.match(html, /href="\?bolsa_ref=bolsa%3A2#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:2"/u);
-  assert.equal((html.match(/data-accion="ver-bolsa"/gu) ?? []).length, 2, "solo las dos bolsas leídas ofrecen enlace");
+  assert.equal((html.match(/data-accion="ver-bolsa"/gu) ?? []).length, 4, "nombre y disponibles enlazan las dos bolsas leídas");
+  assert.match(html, /<td class="numero"><a class="enlace-tabla" href="\?bolsa_ref=bolsa%3A1&amp;estado=disponible#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:1" data-estado="disponible" aria-label="Ver 30 candidatos disponibles de Auxiliar &lt;A&gt;">30<\/a><\/td>/u);
+  const destino = html.match(/href="(\?bolsa_ref=bolsa%3A1&amp;estado=disponible#bolsa\/bolsa-candidatos)"/u)?.[1].replaceAll("&amp;", "&");
+  assert.deepEqual(leerCandidatosBolsaCompartible(new URL(destino, "https://vec.example/portal-empleado/").search, bolsasListas.datos.bolsas),
+    { bolsaRef: "bolsa:1", estado: "disponible" });
+});
+
+test("Inicio enlaza cero disponibles y deja sin acción el dato ausente o la referencia inválida", () => {
+  const bolsas = [
+    { ...bolsasListas.datos.bolsas[0], por_estado: { disponible: 0 } },
+    { ...bolsasListas.datos.bolsas[1], por_estado: {} },
+    { ...bolsasListas.datos.bolsas[1], bolsa_ref: "bolsa/ajena", categoria: "Sin referencia válida", por_estado: { disponible: 4 } },
+  ];
+  const previo = globalThis.fetch;
+  globalThis.fetch = () => assert.fail("pintar Inicio no consulta candidatos");
+  try {
+    const html = portadaRRHH({ obtenerBolsasInicio: () => ({ carga: "listo", datos: { ...bolsasListas.datos, bolsas } }) });
+    assert.match(html, /<td class="numero"><a class="enlace-tabla" href="\?bolsa_ref=bolsa%3A1&amp;estado=disponible#bolsa\/bolsa-candidatos"[^>]*data-estado="disponible"[^>]*>0<\/a><\/td>/u);
+    assert.match(html, /<th scope="row"><a[^>]*>Técnica<\/a><\/th>\s*<td class="numero">—<\/td>/u);
+    assert.match(html, /<th scope="row">Sin referencia válida<\/th>\s*<td class="numero">4<\/td>/u);
+    assert.equal((html.match(/data-estado="disponible"/gu) ?? []).length, 1);
+  } finally { globalThis.fetch = previo; }
 });
 
 test("las claves de la portada se traducen con el traductor común", async () => {
@@ -348,5 +372,6 @@ test("las claves de la portada se traducen con el traductor común", async () =>
   assert.match(html, /Requests by stage[\s\S]*?4\. Financial review/u);
   assert.match(html, /To be agreed with HR/u);
   assert.match(html, /Tuesday, 29 September 2026/u);
+  assert.match(html, /aria-label="View 30 candidates in Auxiliar &lt;A&gt; with status: available"/u);
   assert.doesNotMatch(html, /Lo pendiente|Análisis RRHH|Peticiones por fase/u);
 });

@@ -38,9 +38,9 @@ export function resumenPortadaDesdeServidor(resumen) {
   });
 }
 
-// Lo pendiente: cuántas peticiones tienen el plazo vencido, cuántas vencen hoy
-// y cuántas tienen una incidencia; cada cifra lleva a la lista con ese mismo
-// filtro. Las cifras pueden solaparse (una vencida con incidencia cuenta en dos).
+// Los recuentos pueden solaparse. El cuadro V1 solo puede consultar todas las
+// páginas de «incidencia» con el mismo predicado del resumen; los plazos son
+// informativos hasta disponer de un filtro de servidor equivalente.
 function renderizarPendientes(resumen, escaparHTML, traducir, numero) {
   const t = (clave, variables) => escaparHTML(traducir(clave, variables));
   const total = resumen.vencidos + resumen.vencenHoy + resumen.conIncidencia;
@@ -51,12 +51,12 @@ function renderizarPendientes(resumen, escaparHTML, traducir, numero) {
   ].map(([clave, iconoNombre, tono, valor, mostrar, rotulo]) => renderizarIndicador({
     clave, iconoNombre, tono, valor: numero(valor), etiqueta: traducir(rotulo),
     ariaEtiqueta: traducir(`${rotulo}_aria`, { total: numero(valor) }),
-    destino: `${DESTINO_LISTA} data-ct-exp-lista-mostrar="${mostrar}"`, escaparHTML, traducir,
+    destino: mostrar === "incidencia" ? `${DESTINO_LISTA} data-ct-exp-lista-mostrar="incidencia"` : "",
+    escaparHTML, traducir,
   })).join("");
   const sinCalcular = resumen.sinCalcular > 0
     ? `<p class="portal-rrhh-parcial" role="status">${resumen.sinCalcular === 1 ? t("inicio_rrhh_sin_calcular_uno")
-      : t("inicio_rrhh_sin_calcular_varias", { total: numero(resumen.sinCalcular) })}
-      <button type="button" class="boton-terciario" ${DESTINO_LISTA} data-ct-exp-lista-mostrar="sin_plazo">${t("inicio_rrhh_sin_calcular_ver")}</button></p>` : "";
+      : t("inicio_rrhh_sin_calcular_varias", { total: numero(resumen.sinCalcular) })}</p>` : "";
   return `<section class="panel portal-rrhh-pendientes" aria-labelledby="inicio-rrhh-pendientes-titulo">
     <div class="cabecera-panel"><h3 id="inicio-rrhh-pendientes-titulo">${t("inicio_rrhh_pendientes_titulo")}</h3>
       <button type="button" class="boton-terciario" ${DESTINO_LISTA}>${t("inicio_rrhh_ver_peticiones")} →</button></div>
@@ -84,8 +84,7 @@ function renderizarPorFase(resumen, escaparHTML, traducir, numero) {
     const nombre = traducir(`tramite_fase_${fase}`);
     const total = resumen.porFase[fase] ?? 0;
     return `<tr>
-      <th scope="row"><button type="button" class="enlace-tabla" ${DESTINO_LISTA} data-ct-exp-lista-fase="${fase}"
-        aria-label="${t("inicio_rrhh_por_fase_aria", { total, fase: nombre })}">${indice + 1}. ${escaparHTML(nombre)}</button></th>
+      <th scope="row">${indice + 1}. ${escaparHTML(nombre)}</th>
       <td class="numero">${escaparHTML(numero(total))}</td>
     </tr>`;
   }).join("");
@@ -144,13 +143,22 @@ function renderizarBolsasInicio(resumen, acceso, escaparHTML, traducir, numero, 
     const filas = resumen.bolsas.slice(0, MAXIMO_BOLSAS_INICIO).map((bolsa) => {
       const disponibles = bolsa?.por_estado?.disponible;
       let enlace = null;
-      try { enlace = rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", bolsa.bolsa_ref); }
+      let enlaceDisponibles = null;
+      try {
+        enlace = rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", bolsa.bolsa_ref);
+        if (Number.isSafeInteger(disponibles) && disponibles >= 0) {
+          enlaceDisponibles = rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", bolsa.bolsa_ref, "disponible");
+        }
+      }
       catch { /* Una referencia no válida se muestra sin enlace. */ }
+      const cifraDisponibles = enlaceDisponibles
+        ? `<a class="enlace-tabla" href="${escaparHTML(enlaceDisponibles)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="disponible" aria-label="${escaparHTML(traducir("txt_aria_ver_candidatos_estado", { total: numero(disponibles), estado: traducir("inicio_rrhh_col_disponibles").toLocaleLowerCase(locale), categoria: bolsa.categoria }))}">${escaparHTML(numero(disponibles))}</a>`
+        : Number.isSafeInteger(disponibles) && disponibles >= 0 ? escaparHTML(numero(disponibles)) : "—";
       return `<tr>
         <th scope="row">${enlace
           ? `<a class="enlace-tabla" href="${escaparHTML(enlace)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}">${escaparHTML(bolsa.categoria)}</a>`
           : escaparHTML(bolsa.categoria)}</th>
-        <td class="numero">${Number.isSafeInteger(disponibles) ? escaparHTML(numero(disponibles)) : "—"}</td>
+        <td class="numero">${cifraDisponibles}</td>
         <td class="numero">${Number.isSafeInteger(bolsa.llamamientos_en_curso) ? escaparHTML(numero(bolsa.llamamientos_en_curso)) : "—"}</td>
         <td>${escaparHTML(finVigenciaBolsaPortal(bolsa.vigente_hasta, traducir))}</td>
       </tr>`;
@@ -239,9 +247,9 @@ export function crearVistaInicioPortal({
     const fecha = new Intl.DateTimeFormat(locale, { dateStyle: "full", timeZone: "Europe/Madrid" }).format(ahora());
     const indicadores = [
       { clave: "en_tramite", iconoNombre: "expediente", tono: "", valor: resumen ? numero(resumen.enTramite) : null,
-        etiqueta: traducir("inicio_rrhh_kpi_en_tramite"), destino: disponibleCT ? `${DESTINO_LISTA} data-ct-exp-lista-mostrar="en_tramite"` : "" },
+        etiqueta: traducir("inicio_rrhh_kpi_en_tramite"), destino: "" },
       { clave: "vencen_semana", iconoNombre: "reloj", tono: "advertencia", valor: resumen?.vencenSemana == null ? null : numero(resumen.vencenSemana),
-        etiqueta: traducir("inicio_rrhh_kpi_vencen_semana"), destino: disponibleCT ? `${DESTINO_LISTA} data-ct-exp-lista-mostrar="vencen_semana"` : "" },
+        etiqueta: traducir("inicio_rrhh_kpi_vencen_semana"), destino: "" },
       { clave: "disponibles", iconoNombre: "personas", tono: "exito", valor: disponiblesBolsa === null ? null : numero(disponiblesBolsa),
         etiqueta: traducir("inicio_rrhh_kpi_disponibles", { total: bolsas.bolsas?.length ?? 0 }), destino: disponiblesBolsa === null ? "" : 'data-vista="resumen"' },
     ].map((indicador) => renderizarIndicador({ ...indicador, escaparHTML, traducir })).join("");

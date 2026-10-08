@@ -1,15 +1,15 @@
 import {
   crearClienteBorradores,
   generarClaveIdempotencia,
-} from "./portal-borradores-api.js?v=20261007-pantallas-textos-final-v1";
-import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20261007-pantallas-textos-final-v1";
+} from "./portal-borradores-api.js?v=20261008-borradores-error-legible-v1";
+import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20261008-borradores-error-legible-v1";
 import { ESQUEMAS_BORRADORES } from "./portal-borradores-contrato.js";
 import {
   crearEstadoBorradores,
   limpiarEstadoBorradoresRevocado,
 } from "./portal-borradores-estado.js?v=20260721-acceso-real-v2";
 import { crearCoordinadorOperacionesBorradores } from "./portal-borradores-operaciones.js?v=20260721-acceso-real-v2";
-import { crearRenderizadorBorradores } from "./portal-borradores-vista.js?v=20261007-pantallas-textos-final-v1";
+import { crearRenderizadorBorradores } from "./portal-borradores-vista.js?v=20261008-borradores-error-legible-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import {
   FASE_CARGANDO,
@@ -22,8 +22,8 @@ import {
   editorDesdeDetalle,
   editorNuevo,
   errorSeguro,
-} from "./portal-borradores-ui-soporte.js?v=20261007-pantallas-textos-final-v1";
-export { instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui-soporte.js?v=20261007-pantallas-textos-final-v1";
+} from "./portal-borradores-ui-soporte.js?v=20261008-borradores-error-legible-v1";
+export { instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui-soporte.js?v=20261008-borradores-error-legible-v1";
 
 export function crearSuperficieBorradoresPortal({
   escaparHTML,
