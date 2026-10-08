@@ -29,3 +29,35 @@ deploy/principal/publicar_catalogo_ct190.sh \
 Para ensayar el paquete de ejemplo en una base sintética, use `VEC_CT190_ENTORNO=desarrollo VEC_CT190_PERMITIR_EJEMPLO=1` y prepare antes los artefactos con `-permitir-ejemplo`. Esa vía no representa una aprobación de RRHH. La referencia de aprobación de una publicación real debe coincidir con la del catálogo y proceder del circuito administrativo.
 
 El script comprueba las huellas y publica la versión y su activación en una transacción serializable. Si la secuencia cambió, falla sin conservar una publicación parcial. Conserve los tres ficheros hasta cotejar la fila publicada, la activación y sus huellas. Si cambia la fuente, prepare nuevos artefactos; una versión publicada es inmutable. La cuenta técnica que publica queda en `publicada_por` y `activada_por`; esos campos no atribuyen una decisión a RRHH.
+
+## Habilitar la edición en «Reglas vigentes»
+
+Instale una vez CT190 y CT191, en el orden de `deploy/principal/lista_sql_codexy_ct_plazos_minimo_20261008.txt`. Mantenga detenida la admisión de operaciones durante la instalación y la primera publicación. Prepare la base a partir del mismo fichero que usa `VEC_CT_REGLAS_SOURCE_PATH`; la primera activación, con secuencia esperada `0`, conserva esa base para los tramos anteriores. Exige que todavía no haya ajustes CT148. Esa referencia de transición no atribuye reglas históricas a esos tramos. Los nuevos tramos conservan su propia captura.
+
+Copie `data/catalogos/contratacion_temporal/motivos_ajuste_v1.json` al directorio de configuración que ya se monta en cidonia, como `/vec-incorporacion/motivos_ajuste_ct_v1.json`. Configure:
+
+```text
+VEC_CT_REGLAS_AJUSTES_ENABLED=true
+VEC_CT_REGLAS_AJUSTES_MOTIVOS_PATH=/vec-incorporacion/motivos_ajuste_ct_v1.json
+```
+
+Conserve la fuente CT ya configurada. El arranque comprueba que su identificador, versión, huella y aprobación coinciden con la base activa de CT191; una diferencia impide habilitar la edición.
+
+La edición reutiliza el perfil fijo `entrega-peticion-rrhh-lector`. Administración debe aprobar la ampliación de su asignación vigente mediante las variables existentes `VEC_CT_PROVISION_PERFILES_RRHH_APROBACION` y `VEC_CT_PROVISION_PERFILES_RRHH_PREIMAGENES`. La primera contiene la referencia del acto de aprobación; la segunda, la huella SHA256 exacta de la asignación actual, o varias huellas separadas por comas. No use una huella de otro entorno. El aviso de provisión pendiente del arranque indica el perfil y su preimagen; también se puede obtener con la consulta de solo lectura siguiente, usando la conexión privada de gobierno:
+
+```sql
+BEGIN READ ONLY;
+SET LOCAL ROLE vec_autorizacion_propietario;
+SELECT v.perfil_activo_ref, a.huella_sha256
+FROM vec_autorizacion.asignacion_perfil_actual v
+JOIN vec_autorizacion.asignacion_perfil a
+  ON a.perfil_activo_ref = v.perfil_activo_ref
+ AND a.asignacion_ref = v.asignacion_ref
+JOIN vec_autorizacion.version_rol r
+  ON r.version_rol_ref = a.version_rol_ref
+WHERE v.acto_ref = 'acto:ct:perfil-fijo:asignacion:v1'
+  AND r.documento->>'rol_id' = 'entrega-peticion-rrhh-lector';
+ROLLBACK;
+```
+
+Después de la provisión aprobada, retire ambas variables de aprobación. El arranque y las peticiones consumen la asignación publicada; nunca conceden acceso por el contenido del POST. Sin activar la edición, se conservan la lectura de reglas y los permisos anteriores.
