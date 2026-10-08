@@ -2,6 +2,7 @@ package httppersonal
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +12,23 @@ import (
 	"vec-diputacion-granada/internal/modules/bolsa/application/mibolsa"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
+
+func TestAccionesPortalPausaAusenteEsNullExplicito(t *testing.T) {
+	reglas := &puertosbolsa.ReglasPortalVisibles{CausasRenuncia: []string{"enfermedad"},
+		ModoRespuesta: puertosbolsa.ModoRespuestaPortalFirme}
+	_, acciones := respuestaPortal(puertosbolsa.InstantaneaMiBolsa{ReglasPortal: reglas})
+	contenido, err := json.Marshal(acciones)
+	if err != nil || !strings.Contains(string(contenido), `"pausa_maxima":null`) {
+		t.Fatalf("la ausencia de pausa no quedó explícita: %v", err)
+	}
+	fecha := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+	reglas.PausaMaxima = &fecha
+	_, acciones = respuestaPortal(puertosbolsa.InstantaneaMiBolsa{ReglasPortal: reglas})
+	contenido, err = json.Marshal(acciones)
+	if err != nil || !strings.Contains(string(contenido), `"pausa_maxima":"2027-01-01T00:00:00.000000Z"`) {
+		t.Fatalf("la pausa vigente perdió su fecha: %v", err)
+	}
+}
 
 type ejecutorPortalPrueba struct {
 	llamadas   int

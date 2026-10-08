@@ -44,8 +44,9 @@ func (r *registroPortalPrueba) ResponderPortal(_ context.Context, s bolsa.Respue
 }
 
 type reglasPortalPrueba struct {
-	modo   string
-	maxima time.Time
+	modo      string
+	maxima    time.Time
+	maximaErr error
 }
 
 func (r reglasPortalPrueba) ModoRespuesta(context.Context) (string, string, error) {
@@ -61,6 +62,9 @@ func (reglasPortalPrueba) SituacionesAdmitidas(_ context.Context, tipo string) (
 	return []string{"no_disponible"}, "vec.bolsa.reglas:1:b29.portal_candidato", nil
 }
 func (r reglasPortalPrueba) PausaMaxima(context.Context, time.Time) (time.Time, string, error) {
+	if r.maximaErr != nil {
+		return time.Time{}, "", r.maximaErr
+	}
 	return r.maxima, "vec.bolsa.reglas:1:b18.pausa_voluntaria", nil
 }
 func (reglasPortalPrueba) VencimientoRespuesta(_ context.Context, contacto time.Time) (time.Time, string, error) {
@@ -180,6 +184,17 @@ func TestPortalSolicitaPausaConAccionPropiaYReglas(t *testing.T) {
 	exigir(t, err)
 	if p.registro.solicitudes[1].SolicitudRef != s.SolicitudRef {
 		t.Fatal("la repetición cambia la referencia")
+	}
+}
+
+func TestPortalSinReglaPausaNoAutorizaNiEscribe(t *testing.T) {
+	p := nuevoEntornoPortal(t, bolsa.AccionSolicitarPausaPropia, bolsa.AudienciaSolicitarPausaPropia,
+		reglasPortalPrueba{modo: bolsa.ModoRespuestaPortalFirme, maximaErr: bolsa.ErrPausaPortalNoConfigurada})
+	_, err := p.portal.SolicitarPausa(t.Context(), p.orden, "bolsa:auxiliar",
+		p.ahora.Add(24*time.Hour), "clave-pausa-retirada")
+	if !errors.Is(err, bolsa.ErrPortalCandidatoNoDisponible) ||
+		p.firmas != 0 || len(p.proveedor.acciones) != 0 || len(p.registro.solicitudes) != 0 {
+		t.Fatalf("pausa sin regla produjo efecto o permiso: %v", err)
 	}
 }
 

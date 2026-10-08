@@ -148,10 +148,22 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 		causas, errCausas := s.portal.CausasRenunciaJustificada(ctx)
 		maxima, _, errMaxima := s.portal.PausaMaxima(ctx, ahora)
 		modo, _, errModo := s.portal.ModoRespuesta(ctx)
+		pausaConfigurada := errMaxima == nil
+		if errMaxima == puertosbolsa.ErrPausaPortalNoConfigurada {
+			errMaxima = nil
+		}
 		if err := errors.Join(errCausas, errMaxima, errModo); err != nil {
 			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
 		}
-		visibles = &puertosbolsa.ReglasPortalVisibles{CausasRenuncia: slices.Clone(causas), PausaMaxima: maxima.UTC(), ModoRespuesta: modo}
+		var pausaMaxima *time.Time
+		if pausaConfigurada {
+			if !maxima.After(ahora) {
+				return puertosbolsa.InstantaneaMiBolsa{}, puertosbolsa.ErrMaterialMiBolsaNoDisponible
+			}
+			fecha := maxima.UTC()
+			pausaMaxima = &fecha
+		}
+		visibles = &puertosbolsa.ReglasPortalVisibles{CausasRenuncia: slices.Clone(causas), PausaMaxima: pausaMaxima, ModoRespuesta: modo}
 	}
 	resultado, err := s.consulta.ConsultarMiBolsa(ctx, solicitud)
 	if err != nil {

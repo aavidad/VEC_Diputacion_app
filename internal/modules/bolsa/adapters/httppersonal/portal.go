@@ -346,7 +346,7 @@ type estadoPortal struct {
 
 type accionesPortal struct {
 	CausasRenuncia []string `json:"causas_renuncia"`
-	PausaMaxima    string   `json:"pausa_maxima"`
+	PausaMaxima    *string  `json:"pausa_maxima"`
 	ModoRespuesta  string   `json:"modo_respuesta"`
 }
 
@@ -364,7 +364,7 @@ func respuestaPortal(i puertosbolsa.InstantaneaMiBolsa) ([]estadoPortal, *accion
 	}
 	acciones := &accionesPortal{
 		CausasRenuncia: append([]string{}, i.ReglasPortal.CausasRenuncia...),
-		PausaMaxima:    i.ReglasPortal.PausaMaxima.UTC().Format(formatoInstantePortal),
+		PausaMaxima:    instantePortal(i.ReglasPortal.PausaMaxima),
 		ModoRespuesta:  i.ReglasPortal.ModoRespuesta,
 	}
 	estados := make([]estadoPortal, 0, len(i.Portal))

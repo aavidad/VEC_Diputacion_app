@@ -89,6 +89,32 @@ func TestReglasPortalCandidatoCambianSinTocarCodigo(t *testing.T) {
 	}
 }
 
+func TestReglasRRHH18SinPausaConservanConsultaYDenieganPlazo(t *testing.T) {
+	for _, ruta := range []string{
+		"../../../data/demo/reglas/bolsa_reglas.rrhh-20261002.v4.json",
+		"../../../data/demo/reglas/bolsa_reglas.rrhh-20261008.v5.json",
+	} {
+		t.Run(filepath.Base(ruta), func(t *testing.T) {
+			resolutor, err := nuevoResolutorReglasEjemplo(ruta, reglas.CatalogoBolsa, reglas.ModuloBolsa,
+				new(calculadoraPortalPrueba), relojReglasEjemploPrueba{ahora: time.Date(2026, 10, 9, 8, 0, 0, 0, time.UTC)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := reglasPortalCandidatoDesarrollo{resolutor: resolutor}
+			efectivos, err := r.ResultadosContactoEfectivo(t.Context())
+			if err != nil || !slices.Equal(efectivos, []string{"contactado"}) {
+				t.Fatalf("contacto efectivo vigente: %v %v", efectivos, err)
+			}
+			if modo, _, err := r.ModoRespuesta(t.Context()); err != nil || modo == "" {
+				t.Fatalf("modo vigente: %q %v", modo, err)
+			}
+			if _, _, err := r.PausaMaxima(t.Context(), time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)); err != puertosbolsa.ErrPausaPortalNoConfigurada {
+				t.Fatalf("la pausa retirada no debe tener plazo: %v", err)
+			}
+		})
+	}
+}
+
 func TestMiBolsaConPortalConcedeSoloAccionesPropias(t *testing.T) {
 	identidad := &identidadCandidatoBolsaDesarrollo{
 		personaRef:   "per_candidato_sintetico_1234567890123456",

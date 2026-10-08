@@ -66,6 +66,9 @@ func (r reglasPortalCandidatoDesarrollo) SituacionesAdmitidas(ctx context.Contex
 
 func (r reglasPortalCandidatoDesarrollo) PausaMaxima(ctx context.Context, desde time.Time) (time.Time, string, error) {
 	regla, vencimiento, err := r.resolutor.Vencimiento(ctx, reglas.BolsaPausaVoluntaria, desde, "")
+	if errors.Is(err, reglas.ErrReglaNoEncontrada) {
+		return time.Time{}, "", puertosbolsa.ErrPausaPortalNoConfigurada
+	}
 	if err != nil {
 		return time.Time{}, "", errors.Join(puertosbolsa.ErrPortalCandidatoNoDisponible, err)
 	}
