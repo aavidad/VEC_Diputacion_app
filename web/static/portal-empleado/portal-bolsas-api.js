@@ -899,7 +899,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           if (seguimiento) olvidarEmisionConfirmada();
           estado.bolsaSeleccionada = ref;
           estado.filtrosBolsa = { estado: seguimiento ? "" : botonVer.dataset.estado || "", texto: "",
-            ...(botonVer.dataset.pestana === "historico" ? { pestana: "historico" } : {}),
+            ...(["historico", "candidatos"].includes(botonVer.dataset.pestana) ? { pestana: botonVer.dataset.pestana } : {}),
             ...(seguimiento ? { seguimiento: { llamamiento_ref: seguimiento, bolsa_ref: ref } } : {}) };
           navegar("bolsa-candidatos");
           void cargarCandidatosBolsa(ref, { enfocarDestino: true });
