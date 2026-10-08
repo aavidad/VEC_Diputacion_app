@@ -100,3 +100,9 @@ Las etiquetas de plaza y puesto RPT siguen los campos obligatorios del catálogo
 ## Alta con capacidad limitada — 08/10
 
 Sin publicación de necesidades configurada, el catálogo v2 responde con una capacidad ausente específica; no usa las cuatro causas del ejemplo. La pantalla conserva el alta de sustitución que ofrece el catálogo v1 y explica qué se puede registrar. Sólo activa ese recorrido ante la respuesta validada del servidor y un catálogo v1 limitado a sustitución. Una avería, denegación o respuesta inválida mantiene el error y el reintento. La capacidad ausente no ofrece un reintento junto al formulario: conserva los datos y la operación activa. Después de configurar la fuente y volver a cargar el portal, el catálogo v2 ofrece las causas publicadas. No añade SQL ni configuración nueva; para las otras causas sigue siendo necesario configurar la fuente de #895 después de CT193.
+
+## Ficha sin consulta de borradores ausentes — 8 de octubre de 2026
+
+El detalle leído y auditado informa del montaje de la consulta de borradores. La ficha evita pedir esa consulta cuando el servidor confirma que no está montada, conservando el expediente y sus operaciones. La pista corresponde al mismo expediente y versión; se retira antes de otra lectura. Con la consulta montada se conserva su recorrido y su autorización en el servidor. Esta información no concede permisos.
+
+El corte no lleva SQL ni configuración nueva. La proyección nominal de capacidades por recurso de V sigue pendiente para evitar también consultas de secciones sin permiso. No se incorporan los consumidores opcionales de S mientras falte su proveedor nominal: retiraban funciones disponibles de CT y Bolsa.
