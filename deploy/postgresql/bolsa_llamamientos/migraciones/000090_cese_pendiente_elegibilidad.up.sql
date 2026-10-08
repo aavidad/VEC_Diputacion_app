@@ -153,7 +153,7 @@ SET statement_timeout='5s' AS $f$
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
     OR p_corte IS NULL OR NOT isfinite(p_corte)
-    OR p_participaciones IS NULL OR cardinality(p_participaciones) NOT BETWEEN 0 AND 20000
+    OR p_participaciones IS NULL
     OR EXISTS (SELECT 1 FROM unnest(p_participaciones) x
                 WHERE x IS NULL OR octet_length(x) NOT BETWEEN 1 AND 512) THEN
   RAISE EXCEPTION 'B90: consulta de ceses en lote denegada' USING ERRCODE='42501';
@@ -267,7 +267,8 @@ BEGIN
     OR pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER') IS NOT TRUE
     OR pg_has_role(session_user,'vec_bolsa_llamamientos_relevo_cese','MEMBER')
     OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
-    OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER') THEN
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
+    OR p_participaciones IS NULL OR cardinality(p_participaciones) NOT BETWEEN 0 AND 20000 THEN
   RAISE EXCEPTION 'B90: consulta nominal de ceses en lote denegada' USING ERRCODE='42501';
  END IF;
  RETURN QUERY SELECT x.participacion_ref,x.fecha_efecto,x.disponible_desde,
@@ -392,6 +393,163 @@ BEGIN
    LEFT JOIN ceses x ON x.participacion_ref=e.participacion_ref
   ORDER BY k.categoria_ref,e.orden;
 END $function$;
+
+-- Mi Bolsa: reconstrucción literal de la definición final instalada,
+-- con el pendiente B13 en la misma transacción del consumo V3 existente.
+DO $mi_pre$
+DECLARE f oid:=to_regprocedure('vec_bolsa_llamamientos.consultar_mi_bolsa_v1(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ actual jsonb; esperado jsonb:=jsonb_build_object(
+ 'rol',true,'owner','vec_bolsa_llamamientos_propietario','security_definer',true,
+ 'return_type','jsonb','md5_prosrc','a81ac5b086c82d60119387605b156fdc',
+ 'def_sha256','b34363311643e728121102964f8ffba920994356d6b593c1637c4218ba06d15f',
+ 'config',to_jsonb(ARRAY['search_path=pg_catalog','lock_timeout=2s','statement_timeout=15s']),
+ 'acl',to_jsonb(ARRAY['vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos_portal_externo','vec_bolsa_llamamientos_propietario']));
+BEGIN
+ SELECT jsonb_build_object('rol',current_user='vec_bolsa_llamamientos_propietario',
+  'owner',p.proowner::regrole::text,'security_definer',p.prosecdef,
+  'return_type',p.prorettype::regtype::text,'md5_prosrc',md5(p.prosrc),
+  'def_sha256',encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex'),
+  'config',to_jsonb(p.proconfig),
+  'acl',(SELECT to_jsonb(array_agg(a.grantee::regrole::text ORDER BY a.grantee::regrole::text))
+          FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a)) INTO actual
+ FROM pg_proc p WHERE p.oid=f;
+ IF actual IS DISTINCT FROM esperado THEN
+  RAISE EXCEPTION 'B90: clave=preimagen_mi_bolsa esperado=% actual=%',esperado,actual USING ERRCODE='55000';
+ END IF;
+END $mi_pre$;
+
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.consultar_mi_bolsa_v1(p_candidato_ref text, p_consultada_en timestamp with time zone, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET lock_timeout TO '2s'
+ SET statement_timeout TO '15s'
+AS $function$
+DECLARE c jsonb; d jsonb; x jsonb; v_candidatos integer; v_pendiente_desde timestamptz;
+BEGIN
+ IF p_candidato_ref IS NULL OR p_candidato_ref !~ '^can_[A-Za-z0-9_-]{22,128}$' OR p_consultada_en IS NULL
+    OR p_capacidad IS NULL OR p_decision IS NULL OR p_motivo IS NULL OR p_contexto IS NULL OR p_persona_version IS NULL OR p_perfil_version IS NULL OR p_payload IS NULL OR p_sobre IS NULL OR p_evidencia IS NULL OR p_raiz IS NULL THEN
+   RAISE EXCEPTION 'consulta Mi bolsa inválida' USING ERRCODE='22023';
+ END IF;
+ BEGIN
+   c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb; x:=convert_from(p_contexto,'UTF8')::jsonb;
+ EXCEPTION WHEN data_exception OR invalid_text_representation OR character_not_in_repertoire OR untranslatable_character THEN
+   RAISE EXCEPTION 'consulta Mi bolsa inválida' USING ERRCODE='22023';
+ END;
+ IF c->>'efecto_ref' IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref
+    OR d->>'recurso_ref' IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref
+    OR c->>'huella_efecto_sha256' IS DISTINCT FROM d->>'contexto_recurso_huella_sha256'
+    OR jsonb_typeof(x->'vinculos') IS DISTINCT FROM 'array' THEN
+   RAISE EXCEPTION 'consulta Mi bolsa denegada' USING ERRCODE='42501';
+ END IF;
+ SELECT count(*) INTO v_candidatos FROM jsonb_array_elements(x->'vinculos') e
+  WHERE e->>'tipo'='candidato' AND e->>'estado'='activo';
+ IF v_candidatos<>1 OR NOT EXISTS (SELECT 1 FROM jsonb_array_elements(x->'vinculos') e WHERE e->>'tipo'='candidato' AND e->>'estado'='activo' AND e->>'referencia'=p_candidato_ref) THEN
+   RAISE EXCEPTION 'consulta Mi bolsa denegada' USING ERRCODE='42501';
+ END IF;
+ PERFORM 1 FROM vec_autorizacion_atestada_v3.registrar_y_consumir_mi_bolsa_v3_atestada(p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ -- Una lectura por candidato tras el consumo V3 existente, en la misma TX.
+ SELECT min(cp.recibido_en) INTO v_pendiente_desde
+ FROM vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 cp
+ WHERE cp.candidato_ref=p_candidato_ref
+   AND cp.ocurrido_en<=p_consultada_en AND cp.origen_creada_en<=p_consultada_en
+   AND cp.recibido_en<=p_consultada_en
+   AND (cp.restriccion_recibida_en IS NULL OR cp.restriccion_recibida_en>p_consultada_en)
+   AND (cp.ajeno_recibido_en IS NULL OR cp.ajeno_recibido_en>p_consultada_en);
+ SELECT coalesce(jsonb_agg(jsonb_build_object(
+    'bolsa',participacion.bolsa_ref,'categoria',participacion.categoria_ref,'version',participacion.version_bolsa,'orden_inicial',participacion.orden,'total_instantanea',participacion.total_participaciones,'estado_bolsa',participacion.estado,'vigente_desde',to_char(participacion.vigente_desde AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'vigente_hasta',CASE WHEN participacion.vigente_hasta IS NULL THEN NULL ELSE to_char(participacion.vigente_hasta AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END,
+    'situacion_actual',CASE WHEN situacion.participacion_ref IS NULL AND v_pendiente_desde IS NULL THEN NULL ELSE jsonb_build_object(
+      'estado',CASE WHEN v_pendiente_desde IS NOT NULL
+       AND (situacion.participacion_ref IS NULL OR situacion.situacion IN ('disponible','trabajando','disponible_desde')) THEN 'no_disponible'
+      WHEN situacion.situacion IN ('disponible','trabajando','disponible_desde')
+       AND plazo.disponible_en>p_consultada_en THEN 'disponible_desde'
+       WHEN cese.trabajo_cesado OR situacion.situacion='disponible_desde' THEN 'disponible'
+       ELSE situacion.situacion END,
+      'desde',to_char((CASE
+       WHEN v_pendiente_desde IS NOT NULL
+         AND (situacion.participacion_ref IS NULL OR situacion.situacion IN ('disponible','trabajando','disponible_desde')) THEN v_pendiente_desde
+       WHEN cese.en_restriccion AND plazo.disponible_en>p_consultada_en
+         AND situacion.situacion IN ('disponible','trabajando','disponible_desde')
+         AND (situacion.fecha_disponible IS NULL OR plazo.cese_disponible_en>situacion.fecha_disponible)
+         THEN greatest(situacion.desde,cese.fecha_efecto::timestamp AT TIME ZONE 'Europe/Madrid')
+       WHEN plazo.disponible_en<=p_consultada_en AND plazo.disponible_en IS NOT NULL
+         AND (cese.trabajo_cesado OR situacion.situacion='disponible_desde')
+         THEN greatest(situacion.desde,plazo.disponible_en)
+       ELSE situacion.desde END)
+       AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+      'hasta',CASE WHEN v_pendiente_desde IS NOT NULL
+         AND (situacion.participacion_ref IS NULL OR situacion.situacion IN ('disponible','trabajando','disponible_desde')) THEN NULL
+       WHEN situacion.hasta IS NULL THEN NULL ELSE to_char(situacion.hasta AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END,
+      'fecha_disponible',CASE
+       WHEN v_pendiente_desde IS NOT NULL
+         AND (situacion.participacion_ref IS NULL OR situacion.situacion IN ('disponible','trabajando','disponible_desde')) THEN NULL
+       WHEN situacion.situacion IN ('disponible','trabajando','disponible_desde')
+         AND plazo.disponible_en>p_consultada_en
+         THEN to_char(plazo.disponible_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+       ELSE NULL END
+    ) END,
+    'ultimo_llamamiento',CASE WHEN ultimo.llamamiento_ref IS NULL THEN NULL ELSE jsonb_build_object(
+      'emitido_en',to_char(ultimo.emitido_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+      'canal','correo','resultado',ultimo.resultado
+    ) END
+  ) ORDER BY participacion.confirmada_en DESC,participacion.categoria_ref),'[]'::jsonb) INTO x
+ FROM vec_bolsa_llamamientos.listar_participaciones_candidato_v1(p_candidato_ref) participacion
+ LEFT JOIN LATERAL (
+   SELECT s.participacion_ref,s.situacion,s.desde,s.hasta,s.fecha_disponible
+     FROM vec_bolsa_llamamientos.situacion_participacion s
+    WHERE s.participacion_ref=participacion.participacion_ref AND s.desde<=p_consultada_en
+    ORDER BY s.desde DESC LIMIT 1
+ ) situacion ON true
+ LEFT JOIN LATERAL vec_bolsa_llamamientos.estado_cese_bolsa_v1(
+   participacion.participacion_ref,p_consultada_en) cese ON true
+ LEFT JOIN LATERAL (
+   SELECT greatest(
+     CASE WHEN situacion.situacion='disponible_desde' THEN situacion.fecha_disponible END,
+     CASE WHEN (cese.en_restriccion OR cese.trabajo_cesado)
+            AND situacion.situacion IN ('disponible','trabajando','disponible_desde')
+       THEN cese.disponible_desde::timestamp AT TIME ZONE 'Europe/Madrid' END
+   ) AS disponible_en,
+   cese.disponible_desde::timestamp AT TIME ZONE 'Europe/Madrid' AS cese_disponible_en
+ ) plazo ON true
+ LEFT JOIN LATERAL (
+   SELECT l.llamamiento_ref,l.emitido_en,contacto.resultado
+     FROM vec_bolsa_llamamientos.llamamiento_emitido l
+     JOIN vec_bolsa_llamamientos.contacto_participacion contacto
+       ON contacto.llamamiento_ref=l.llamamiento_ref
+      AND contacto.bolsa_ref=l.bolsa_ref
+      AND contacto.participacion_ref=participacion.participacion_ref
+      AND contacto.canal='correo'
+      AND contacto.resultado IN('enviado','no_enviado')
+      AND contacto.instante<=p_consultada_en
+    WHERE l.bolsa_ref=participacion.bolsa_ref
+      AND l.participaciones ? participacion.participacion_ref
+      AND l.emitido_en<=p_consultada_en
+    ORDER BY l.emitido_en DESC,l.llamamiento_ref DESC,contacto.instante DESC,contacto.contacto_ref DESC
+    LIMIT 1
+ ) ultimo ON true;
+ RETURN jsonb_build_object('consultada_en',to_char(p_consultada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'participaciones',x);
+END $function$;
+
+DO $mi_post$
+DECLARE f oid:=to_regprocedure('vec_bolsa_llamamientos.consultar_mi_bolsa_v1(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ actual jsonb; esperado jsonb:=jsonb_build_object(
+ 'owner','vec_bolsa_llamamientos_propietario','security_definer',true,
+ 'return_type','jsonb','pending_source',true,
+ 'config',to_jsonb(ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s','statement_timeout=15s']),
+ 'acl',to_jsonb(ARRAY['vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos_portal_externo','vec_bolsa_llamamientos_propietario']));
+BEGIN
+ SELECT jsonb_build_object('owner',p.proowner::regrole::text,'security_definer',p.prosecdef,
+  'return_type',p.prorettype::regtype::text,
+  'pending_source',position('candidatos_cese_pendiente_b90' in p.prosrc)>0,
+  'config',to_jsonb(p.proconfig),
+  'acl',(SELECT to_jsonb(array_agg(a.grantee::regrole::text ORDER BY a.grantee::regrole::text))
+          FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a)) INTO actual
+ FROM pg_proc p WHERE p.oid=f;
+ IF actual IS DISTINCT FROM esperado THEN
+  RAISE EXCEPTION 'B90: clave=postimagen_mi_bolsa esperado=% actual=%',esperado,actual USING ERRCODE='55000';
+ END IF;
+END $mi_post$;
 
 DO $post$
 DECLARE actual jsonb; esperado jsonb:=jsonb_build_object(

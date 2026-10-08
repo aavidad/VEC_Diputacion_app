@@ -130,25 +130,106 @@ BEGIN
 END $fixture$;
 SET LOCAL session_replication_role = origin;
 
--- Una bolsa constituida nunca entra en la rama sin candidato.
+-- Una bolsa constituida sin vínculo conserva el cese con su motivo propio;
+-- el cursor avanza sin aplicar una restricción a un candidato inexistente.
 SAVEPOINT bolsa_constituida;
+DO $constituida_sin_vinculo$
+DECLARE b text:=current_setting('vec.b81.bolsa'); p text:=current_setting('vec.b81.participacion');
+ ahora timestamptz:=date_trunc('microseconds',clock_timestamp());
+ bolsa_material bytea:=convert_to('{"bolsa":"b81-774"}','UTF8');
+ instante_material bytea:=convert_to('{"participaciones":1}','UTF8');
+ bolsa_sha text; instante_sha text;
+BEGIN
+ bolsa_sha:=encode(sha256(bolsa_material),'hex');
+ instante_sha:=encode(sha256(instante_material),'hex');
+ INSERT INTO vec_bolsa_llamamientos.bolsa_constituida(
+  bolsa_ref,version,huella_bolsa_sha256,bolsa_canonica,categoria_ref,
+  vigente_desde,vigente_hasta,estado,registrada_en)
+ VALUES(b,1,bolsa_sha,bolsa_material,'categoria:b81:774',ahora,NULL,'vigente',ahora);
+ INSERT INTO vec_bolsa_llamamientos.instantanea_orden_bolsa(
+  instantanea_ref,version,huella_instantanea_sha256,instantanea_canonica,
+  bolsa_ref,version_bolsa,huella_bolsa_sha256,total_participaciones,
+  referida_en,generada_en,registrada_en)
+ VALUES('instantanea:b81:774',1,instante_sha,instante_material,
+  b,1,bolsa_sha,1,ahora,ahora,ahora);
+ INSERT INTO vec_bolsa_llamamientos.constitucion(
+  acta_ref,bolsa_ref,version_bolsa,huella_bolsa_sha256,instantanea_ref,
+  version_instantanea,huella_instantanea_sha256,categoria_ref,actor_ref,
+  confirmada_en,registrada_en)
+ VALUES('acta:b81:774',b,1,bolsa_sha,'instantanea:b81:774',1,instante_sha,
+  'categoria:b81:774','actor:b81:774',ahora,ahora);
+ INSERT INTO vec_bolsa_llamamientos.constitucion_entrada(
+  instantanea_ref,version_instantanea,orden,participacion_ref,fila_numero)
+ VALUES('instantanea:b81:774',1,1,p,1);
+END $constituida_sin_vinculo$;
+SET SESSION AUTHORIZATION vec_b81_774_relevo;
+DO $constituida_sin_vinculo$
+DECLARE o text:=current_setting('vec.b81.origen'); h text:=current_setting('vec.b81.huella');
+ p bigint:=current_setting('vec.b81.posicion')::bigint; v record;
+BEGIN
+ IF vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(o,h,p) IS DISTINCT FROM false
+    OR vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(o,h,p) IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'B81: clave=replay_bolsa_constituida esperado=false_true actual=divergente';
+ END IF;
+ SELECT * INTO STRICT v FROM vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1();
+ IF v.origen_posicion<>p OR v.origen_ref<>o THEN
+  RAISE EXCEPTION 'B81: clave=cursor_bolsa_constituida esperado=%/% actual=%/%',p,o,v.origen_posicion,v.origen_ref;
+ END IF;
+ IF vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(100)<>'[]'::jsonb THEN
+  RAISE EXCEPTION 'B81: clave=sin_vinculo_no_aplicable esperado=[] actual=pendiente_reconciliable';
+ END IF;
+END $constituida_sin_vinculo$;
+RESET SESSION AUTHORIZATION;
+DO $motivo_constituido$
+DECLARE motivo text; motivo_registro text;
+BEGIN
+ SELECT s.motivo,s.registro->>'motivo' INTO STRICT motivo,motivo_registro
+  FROM vec_bolsa_llamamientos.cese_sin_candidato_bolsa s
+ WHERE s.origen_ref=current_setting('vec.b81.origen');
+ IF motivo<>'vinculo_candidato_pendiente' OR motivo_registro IS DISTINCT FROM motivo THEN
+  RAISE EXCEPTION 'B81: clave=motivo_bolsa_constituida esperado=vinculo_candidato_pendiente actual=%/%',motivo,motivo_registro;
+ END IF;
+END $motivo_constituido$;
+INSERT INTO vec_bolsa_llamamientos.vinculo_candidato(
+ participacion_ref,candidato_ref,acta_ref,instantanea_ref,version_instantanea,registrada_en)
+VALUES(current_setting('vec.b81.participacion'),'can_'||repeat('a',22),
+ 'acta:b81:774','instantanea:b81:774',1,clock_timestamp());
+SET SESSION AUTHORIZATION vec_b81_774_relevo;
+DO $replay_con_vinculo$
+DECLARE pagina jsonb;
+BEGIN
+ IF vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(
+  current_setting('vec.b81.origen'),current_setting('vec.b81.huella'),
+  current_setting('vec.b81.posicion')::bigint) IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'B81: clave=replay_tras_vinculo esperado=true actual=false';
+ END IF;
+ pagina:=vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(100);
+ IF jsonb_array_length(pagina)<>1 OR pagina->0->>'origen_ref'<>current_setting('vec.b81.origen') THEN
+  RAISE EXCEPTION 'B81: clave=pendiente_tras_vinculo esperado=1_y_origen_actual actual=%',pagina;
+ END IF;
+END $replay_con_vinculo$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK TO SAVEPOINT bolsa_constituida;
+
+-- La bolsa sola no acredita que la participación elegida pertenezca al acta.
+SAVEPOINT bolsa_sin_entrada;
 INSERT INTO vec_bolsa_llamamientos.bolsa_constituida(
  bolsa_ref,version,huella_bolsa_sha256,bolsa_canonica,categoria_ref,
  vigente_desde,vigente_hasta,estado,registrada_en)
 VALUES(current_setting('vec.b81.bolsa'),1,encode(sha256('{}'::bytea),'hex'),'{}'::bytea,
  'categoria:b81:774',clock_timestamp(),NULL,'vigente',clock_timestamp());
 SET SESSION AUTHORIZATION vec_b81_774_relevo;
-DO $denegada$
-DECLARE o text:=current_setting('vec.b81.origen'); h text:=current_setting('vec.b81.huella');
- p bigint:=current_setting('vec.b81.posicion')::bigint;
+DO $bolsa_sin_entrada$
 BEGIN
  BEGIN
-  PERFORM vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(o,h,p);
-  RAISE EXCEPTION 'B81: bolsa constituida aceptada';
- EXCEPTION WHEN foreign_key_violation THEN NULL; END;
-END $denegada$;
+  PERFORM vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(
+   current_setting('vec.b81.origen'),current_setting('vec.b81.huella'),current_setting('vec.b81.posicion')::bigint);
+  RAISE EXCEPTION 'B81: clave=pertenencia_positiva esperado=23503 actual=aceptada';
+ EXCEPTION WHEN foreign_key_violation THEN NULL;
+ END;
+END $bolsa_sin_entrada$;
 RESET SESSION AUTHORIZATION;
-ROLLBACK TO SAVEPOINT bolsa_constituida;
+ROLLBACK TO SAVEPOINT bolsa_sin_entrada;
 
 -- CT197 debe devolver el vínculo sin dejar la marca RLS abierta.
 SELECT set_config('vec.ct129.origen_ref','marca-previa-b81',true);
