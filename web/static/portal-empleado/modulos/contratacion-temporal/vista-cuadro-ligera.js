@@ -185,6 +185,8 @@ export async function montarCuadroContratacionLigero({
         buscadorServidor: true, tituloConjunto: true, ocultarFiltrosLocales: true,
         totalConjunto: filtro.mostrar === "en_tramite"
           ? cuadro.resumen?.en_tramite ?? null : cuadro.totales?.total ?? null,
+        totalConjuntoExacto: Boolean(filtroServidorActual?.plazo_estado)
+          && cuadro.totales?.total !== null && cuadro.totales?.total !== undefined,
         enTramiteConjunto: cuadro.resumen?.en_tramite ?? null,
         paginaAnterior: paginaIndice > 0 });
   }

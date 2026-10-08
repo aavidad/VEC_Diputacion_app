@@ -148,6 +148,7 @@ test("plazo V2 pide la página y el total del mismo filtro, conserva el cursor y
   assert.equal(solicitudes[0].resumen, true);
   assert.equal((raiz.innerHTML.match(/data-ct-exp-abrir=/gu) ?? []).length, 100);
   assert.match(raiz.innerHTML, /100 de 101 peticiones/u);
+  assert.doesNotMatch(raiz.innerHTML, /Recuento parcial/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-exp-busqueda-parcial/u);
   await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctPagina: "siguiente" } }) } });
   assert.equal(solicitudes[1].paginacion.cursor, "cursor_plazo");

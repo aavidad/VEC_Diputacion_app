@@ -136,7 +136,8 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
   { altaDisponible = true, actualizarDisponible = false, filtroResultados = filtro,
     totalConjunto = null, enTramiteConjunto = null, paginaAnterior = false,
     opcionesFaseServidor = null, opcionesMostrarServidor = null,
-    buscadorServidor = false, tituloConjunto = false, ocultarFiltrosLocales = false } = {}) {
+    buscadorServidor = false, tituloConjunto = false, ocultarFiltrosLocales = false,
+    totalConjuntoExacto = false } = {}) {
   const cuadro = estado.cuadro;
   const resumen = resumirPeticiones({ expedientes: cuadro.expedientes });
   const parcial = Boolean(cuadro.paginacion?.cursor_siguiente);
@@ -155,7 +156,8 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
       ${altaDisponible ? `<button type="button" class="boton-primario" data-ct-exp-vista="alta">${escapar(t("lista_nueva_peticion"))}</button>` : ""}
       ${actualizarDisponible ? `<button type="button" class="boton-terciario" data-ct-exp-recargar>${escapar(t("lista_actualizar"))}</button>` : ""}
     </header>
-    ${parcial ? `<p class="ct-exp-lista-parcial" role="status">${escapar(t("lista_recuento_parcial"))}</p>` : ""}
+    ${parcial && !(totalConjuntoExacto && Number.isSafeInteger(totalConjunto) && totalConjunto >= 0)
+      ? `<p class="ct-exp-lista-parcial" role="status">${escapar(t("lista_recuento_parcial"))}</p>` : ""}
     <section class="panel ct-exp-listado" aria-labelledby="ct-exp-lista-titulo-panel">
       <h3 class="solo-lectura" id="ct-exp-lista-titulo-panel">${escapar(t("tabla_expedientes"))}</h3>
       ${sinPeticiones ? "" : `<form class="filtros-quitables" data-ct-exp-filtros-locales role="search" aria-label="${escapar(t("filtros"))}">
