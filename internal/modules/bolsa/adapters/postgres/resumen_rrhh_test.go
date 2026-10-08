@@ -49,6 +49,48 @@ func TestLectorResumenBolsasFallaCerradoSinBase(t *testing.T) {
 	}
 }
 
+func TestCeseResumenDistinguePendienteAusenteYHistorico(t *testing.T) {
+	corte := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	pendiente, no := true, false
+	estado, err := interpretarCeseResumen(nil, nil, &pendiente, &no, corte)
+	if err != nil || estado == nil || !estado.CesePendiente || !estado.FechaEfecto.IsZero() || !estado.DisponibleDesde.IsZero() {
+		t.Fatalf("proyección pendiente sin fecha inventada: estado=%+v error=%v", estado, err)
+	}
+	estado, err = interpretarCeseResumen(nil, nil, nil, nil, corte)
+	if err != nil || estado != nil {
+		t.Fatalf("ausencia de cese: estado=%+v error=%v", estado, err)
+	}
+	efecto := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	disponible := time.Date(2027, 3, 1, 0, 0, 0, 0, time.UTC)
+	estado, err = interpretarCeseResumen(&efecto, &disponible, &pendiente, &pendiente, corte)
+	if err != nil || estado == nil || estado.CesePendiente || !estado.EnRestriccion || !estado.TrabajoCesado || estado.FechaEfecto.IsZero() {
+		t.Fatalf("cese histórico: estado=%+v error=%v", estado, err)
+	}
+}
+
+func TestCeseResumenRechazaColumnasIncoherentes(t *testing.T) {
+	corte := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	efecto := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	si, no := true, false
+	casos := []struct {
+		nombre              string
+		efecto, disponible  *time.Time
+		restringida, cesado *bool
+	}{
+		{"pendiente sin ambos indicadores", nil, nil, &si, nil},
+		{"fechas nulas con indicadores no pendientes", nil, nil, &no, &no},
+		{"fecha parcial", &efecto, nil, &si, &no},
+		{"fecha sin indicadores", &efecto, &efecto, nil, nil},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			if estado, err := interpretarCeseResumen(caso.efecto, caso.disponible, caso.restringida, caso.cesado, corte); estado != nil || !errors.Is(err, ports.ErrResumenBolsasNoDisponible) {
+				t.Fatalf("estado=%+v error=%v", estado, err)
+			}
+		})
+	}
+}
+
 // Con Bolsa 000082 instalada (VEC_BOLSA_LOTES_PG_DSN, rol ejecutor), las
 // lecturas de conjunto coinciden fila a fila con las individuales.
 func TestLectorResumenBolsasCoincideConLecturasIndividualesPostgreSQL(t *testing.T) {
@@ -102,8 +144,10 @@ func TestLectorResumenBolsasCoincideConLecturasIndividualesPostgreSQL(t *testing
 			t.Fatalf("situación distinta para %s", fila.ParticipacionRef)
 		}
 		estado, presente := cesesIndividuales[fila.ParticipacionRef]
-		if presente != (fila.Cese != nil) || (presente && (!estado.FechaEfecto.Equal(fila.Cese.FechaEfecto) ||
-			!estado.DisponibleDesde.Equal(fila.Cese.DisponibleDesde) || estado.EnRestriccion != fila.Cese.EnRestriccion || estado.TrabajoCesado != fila.Cese.TrabajoCesado)) {
+		if presente != (fila.Cese != nil) || (presente && (estado.CesePendiente != fila.Cese.CesePendiente ||
+			(!estado.CesePendiente && (!estado.FechaEfecto.Equal(fila.Cese.FechaEfecto) ||
+				!estado.DisponibleDesde.Equal(fila.Cese.DisponibleDesde) || estado.EnRestriccion != fila.Cese.EnRestriccion ||
+				estado.TrabajoCesado != fila.Cese.TrabajoCesado)))) {
 			t.Fatalf("cese distinto para %s", fila.ParticipacionRef)
 		}
 		if presente {
