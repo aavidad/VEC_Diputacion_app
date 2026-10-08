@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"vec-diputacion-granada/internal/modules/bolsa/adapters/xlsconvoca"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
@@ -56,6 +57,12 @@ func (p *ProtectorOriginal) Preparar(ctx context.Context, actaRef, huella, forma
 		return ports.OriginalProtegidoCargaConvoca{}, ErrOriginalNoConfiable
 	}
 	if _, err := hex.DecodeString(strings.TrimPrefix(actaRef, "acta:importacion-convoca:")); err != nil {
+		return ports.OriginalProtegidoCargaConvoca{}, ErrOriginalNoConfiable
+	}
+	// El lector ya validó el libro; aquí se coteja únicamente la firma física
+	// para que la extensión no determine metadatos ni AAD falsos.
+	formatoFisico, err := xlsconvoca.FormatoContenido(contenido)
+	if err != nil || formatoFisico != formato {
 		return ports.OriginalProtegidoCargaConvoca{}, ErrOriginalNoConfiable
 	}
 	b, err := aes.NewCipher(p.clave[:])

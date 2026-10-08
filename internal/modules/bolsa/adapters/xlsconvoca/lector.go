@@ -119,13 +119,11 @@ func validarContenedor(origen io.ReadSeeker) (bool, error) {
 	if _, err := origen.Seek(0, io.SeekStart); err != nil {
 		return false, ErrXLSInvalido
 	}
-	if n == len(firma) && firma == firmaContenedorOLE2 {
-		return false, nil
+	formato, err := FormatoContenido(firma[:n])
+	if err != nil {
+		return false, err
 	}
-	if string(firma[:4]) == "PK\x03\x04" {
-		return true, nil
-	}
-	return false, ErrXLSInvalido
+	return formato == "xlsx", nil
 }
 
 func leerCabeceras(fila *xls.Row) ([]string, error) {
