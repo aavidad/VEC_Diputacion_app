@@ -157,7 +157,7 @@ func (r *RepositorioInscripcionesPostgreSQL) Abiertas(ctx context.Context, actor
 				return inscripcion.ErrNoDisponible
 			}
 			for _, bolsa := range p.Bolsas {
-				if bolsa.ConvocatoriaRef == "" || bolsa.Titulo == "" || bolsa.CatalogoVersion == 0 {
+				if validarBolsaAbiertaInscripcion(bolsa, false) != nil {
 					return inscripcion.ErrNoDisponible
 				}
 			}
@@ -172,11 +172,39 @@ func (r *RepositorioInscripcionesPostgreSQL) DetalleAbierta(ctx context.Context,
 	}
 	return consultarInscripcion(ctx, r, actor, inscripcion.AccionDetalleAbierta, recurso, inscripcion.Filtro{},
 		selectorConvocatoriaInscripcion{ConvocatoriaRef: ref}, func(b inscripcion.BolsaAbierta) error {
-			if b.ConvocatoriaRef != ref || b.Titulo == "" || b.CatalogoVersion == 0 || len(b.Categorias) == 0 {
+			if b.ConvocatoriaRef != ref || validarBolsaAbiertaInscripcion(b, true) != nil {
 				return inscripcion.ErrNoDisponible
 			}
 			return nil
 		})
+}
+
+func validarBolsaAbiertaInscripcion(b inscripcion.BolsaAbierta, detalle bool) error {
+	if b.ConvocatoriaRef == "" || b.Titulo == "" || b.NumeroCategorias < 1 || b.NumeroCategorias > 128 ||
+		b.CatalogoVersion == 0 || b.PlazoInicio.IsZero() || !b.PlazoFin.After(b.PlazoInicio) ||
+		b.RequisitosResumen == "" || (b.EstadoPropio == nil) != (b.SolicitudRef == nil) ||
+		!b.PuedeIniciar && b.ImpedimentoEtiqueta == "" {
+		return inscripcion.ErrNoDisponible
+	}
+	if detalle {
+		if uint64(len(b.Categorias)) != b.NumeroCategorias {
+			return inscripcion.ErrNoDisponible
+		}
+		vistas := make(map[string]struct{}, len(b.Categorias))
+		for _, categoria := range b.Categorias {
+			if categoria.CategoriaRef == "" || len(categoria.CategoriaRef) > 200 ||
+				categoria.Categoria == "" || len(categoria.Categoria) > 200 {
+				return inscripcion.ErrNoDisponible
+			}
+			if _, repetida := vistas[categoria.CategoriaRef]; repetida {
+				return inscripcion.ErrNoDisponible
+			}
+			vistas[categoria.CategoriaRef] = struct{}{}
+		}
+	} else if len(b.Categorias) != 0 {
+		return inscripcion.ErrNoDisponible
+	}
+	return nil
 }
 
 func (r *RepositorioInscripcionesPostgreSQL) Propias(ctx context.Context, actor inscripcion.Actor, filtro inscripcion.Filtro) (inscripcion.Pagina, error) {

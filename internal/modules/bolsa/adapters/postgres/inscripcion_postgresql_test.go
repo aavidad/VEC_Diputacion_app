@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -97,6 +98,41 @@ func TestInscripcionPoolsLectoresSegregados(t *testing.T) {
 	}
 }
 
+func TestInscripcionProyeccionAbiertaListaYDetalle(t *testing.T) {
+	base := inscripcion.BolsaAbierta{
+		ConvocatoriaRef: "cv1_abc_v1", Titulo: "Convocatoria de prueba",
+		NumeroCategorias: 2, CatalogoVersion: 1,
+		PlazoInicio:       time.Date(2026, 10, 9, 8, 0, 0, 0, time.UTC),
+		PlazoFin:          time.Date(2026, 10, 19, 8, 0, 0, 0, time.UTC),
+		RequisitosResumen: "Requisitos publicados", PuedeIniciar: true,
+	}
+	if err := validarBolsaAbiertaInscripcion(base, false); err != nil {
+		t.Fatalf("la lista mínima válida fue rechazada: %v", err)
+	}
+	base.Categorias = []inscripcion.Categoria{
+		{CategoriaRef: "categoria:a", Categoria: "Categoría A"},
+		{CategoriaRef: "categoria:b", Categoria: "Categoría B"},
+	}
+	if err := validarBolsaAbiertaInscripcion(base, false); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("la lista incluyó categorías: %v", err)
+	}
+	if err := validarBolsaAbiertaInscripcion(base, true); err != nil {
+		t.Fatalf("el detalle completo fue rechazado: %v", err)
+	}
+	base.Categorias[1] = base.Categorias[0]
+	if err := validarBolsaAbiertaInscripcion(base, true); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("el detalle duplicó una categoría: %v", err)
+	}
+	base.Categorias = base.Categorias[:1]
+	if err := validarBolsaAbiertaInscripcion(base, true); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("el detalle omitió una categoría: %v", err)
+	}
+	base.NumeroCategorias = 129
+	if err := validarBolsaAbiertaInscripcion(base, false); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("el recuento excedió el contrato: %v", err)
+	}
+}
+
 func TestInscripcionEntregaSoloTrasAuditoriaYCommit(t *testing.T) {
 	tx := &transaccionInscripcionPrueba{}
 	p := &iniciadorInscripcionPrueba{tx: tx}
@@ -153,6 +189,10 @@ func TestInscripcionErrorPostgreSQLConservaCausaNominalSinTextoSQL(t *testing.T)
 		{"B9604", inscripcion.ErrSolicitudExistente},
 		{"B9605", inscripcion.ErrDeclaracionInvalida},
 		{"B9606", inscripcion.ErrRequisitoInvalido},
+		{"B9607", inscripcion.ErrNoDisponible},
+		{"B9701", inscripcion.ErrVinculoIdentidadPendiente},
+		{"B9702", inscripcion.ErrActaNoDisponible},
+		{"B9703", inscripcion.ErrConflicto},
 	}
 	for _, caso := range casos {
 		t.Run(caso.codigo, func(t *testing.T) {
