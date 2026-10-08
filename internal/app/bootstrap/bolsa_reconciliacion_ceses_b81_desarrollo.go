@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -37,6 +38,8 @@ func (r *reconciliacionCesesB81) entregar(ctx context.Context) (resultadoEntrega
 		if len(bruto) == 0 || json.Unmarshal(bruto, &pendientes) != nil || pendientes == nil || len(pendientes) > r.lote {
 			return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
 		}
+		var primerError error
+		fallos := 0
 		for _, pendiente := range pendientes {
 			if pendiente.OrigenRef == "" || pendiente.HuellaSHA256 == "" || pendiente.OrigenPosicion < 0 {
 				return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
@@ -53,16 +56,30 @@ func (r *reconciliacionCesesB81) entregar(ctx context.Context) (resultadoEntrega
 				FROM vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1($1,$2,$3)`,
 				pendiente.OrigenRef, pendiente.HuellaSHA256, pendiente.OrigenPosicion).
 				Scan(&reutilizada, &recibo, &candidato, &disponible, &politica); err != nil {
-				return resultado, falloRelevoCeseBolsaDesarrollo(err)
+				fallo := falloRelevoCeseBolsaDesarrollo(err)
+				if primerError == nil {
+					primerError = fallo
+				}
+				fallos++
+				continue
 			}
 			if recibo == "" || candidato == "" || disponible.IsZero() || politica < 1 {
-				return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
+				if primerError == nil {
+					primerError = puertosbolsa.ErrContratosParticipacionNoDisponible
+				}
+				fallos++
+				continue
 			}
 			if reutilizada {
 				resultado.reentregas++
 			} else {
 				resultado.nuevos++
 			}
+		}
+		if fallos > 0 {
+			// La siguiente página volvería a incluir los fallidos. Se deja el
+			// resto para otra pasada y se conserva el error de esta.
+			return resultado, fmt.Errorf("%w: clave=aplicaciones_B45_fallidas esperado=0 actual=%d", primerError, fallos)
 		}
 		if len(pendientes) < r.lote {
 			return resultado, nil
