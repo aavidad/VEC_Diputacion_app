@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"time"
+	"vec-diputacion-granada/internal/app/composicion/identidadcertificado"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 
 	"github.com/jackc/pgx/v5"
@@ -26,8 +27,8 @@ func preflightPoliticaCertificado(
 	material materialIdentidadCertificado, retirada time.Time,
 ) error {
 	if ctx == nil || ctx.Err() != nil || q == nil ||
-		!identificadorCertificadoPersonalValido(material.politicaRef, "pga_") ||
-		!huellaCertificadoPersonalValida(material.huellaPolitica) ||
+		!identidadcertificado.IdentificadorValido(material.politicaRef, "pga_") ||
+		!identidadcertificado.HuellaValida(material.huellaPolitica) ||
 		retirada.IsZero() || retirada.Location() != time.UTC || retirada.Nanosecond() != 0 {
 		return ErrCertificadoPersonalNoDisponible
 	}

@@ -10,6 +10,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"vec-diputacion-granada/internal/app/composicion/identidadcertificado"
 )
 
 type materialIdentidadCertificado struct {
@@ -39,12 +41,12 @@ func cargarMaterialIdentidadCertificado(directorio string) (materialIdentidadCer
 	if err != nil || !info.IsDir() || info.Mode().Perm() != 0700 {
 		return vacio, ErrCertificadoPersonalNoDisponible
 	}
-	meta, err := leerArchivoPrivadoIdentidad(filepath.Join(directorioIdentidad, "emisor.json"), 4096)
+	meta, err := identidadcertificado.LeerArchivoPrivado(filepath.Join(directorioIdentidad, "emisor.json"), 4096)
 	if err != nil {
 		return vacio, err
 	}
 	defer clear(meta)
-	if rechazarClavesDuplicadasPools(meta) != nil {
+	if identidadcertificado.RechazarClavesDuplicadas(meta) != nil {
 		return vacio, ErrCertificadoPersonalNoDisponible
 	}
 	var documento documentoEmisorCertificado
@@ -52,11 +54,11 @@ func cargarMaterialIdentidadCertificado(directorio string) (materialIdentidadCer
 	lector.DisallowUnknownFields()
 	if lector.Decode(&documento) != nil || lector.Decode(new(any)) != io.EOF ||
 		documento.Version != 1 || !claveEmisorCertificadoValida(documento.ClaveID) ||
-		!identificadorCertificadoPersonalValido(documento.PoliticaRef, "pga_") ||
-		!huellaCertificadoPersonalValida(documento.PoliticaHuella) {
+		!identidadcertificado.IdentificadorValido(documento.PoliticaRef, "pga_") ||
+		!identidadcertificado.HuellaValida(documento.PoliticaHuella) {
 		return vacio, ErrCertificadoPersonalNoDisponible
 	}
-	claveBytes, err := leerArchivoPrivadoIdentidad(filepath.Join(directorioIdentidad, "emisor.key"), 8192)
+	claveBytes, err := identidadcertificado.LeerArchivoPrivado(filepath.Join(directorioIdentidad, "emisor.key"), 8192)
 	if err != nil {
 		return vacio, err
 	}
@@ -74,7 +76,7 @@ func cargarMaterialIdentidadCertificado(directorio string) (materialIdentidadCer
 		return vacio, ErrCertificadoPersonalNoDisponible
 	}
 	rutaCertificados := filepath.Join(directorioIdentidad, "certificados.json")
-	if _, err := nuevoRegistroCertificadosPersonales(rutaCertificados); err != nil {
+	if _, err := identidadcertificado.NuevoRegistro(rutaCertificados); err != nil {
 		return vacio, err
 	}
 	return materialIdentidadCertificado{
@@ -95,28 +97,4 @@ func claveEmisorCertificadoValida(v string) bool {
 		}
 	}
 	return true
-}
-
-func leerArchivoPrivadoIdentidad(ruta string, limite int64) ([]byte, error) {
-	info, err := os.Lstat(ruta)
-	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 ||
-		info.Size() <= 0 || info.Size() > limite {
-		return nil, ErrCertificadoPersonalNoDisponible
-	}
-	archivo, err := os.Open(ruta)
-	if err != nil {
-		return nil, ErrCertificadoPersonalNoDisponible
-	}
-	defer archivo.Close()
-	actual, err := archivo.Stat()
-	if err != nil || !os.SameFile(info, actual) || !actual.Mode().IsRegular() ||
-		actual.Mode().Perm() != 0600 {
-		return nil, ErrCertificadoPersonalNoDisponible
-	}
-	contenido, err := io.ReadAll(io.LimitReader(archivo, limite+1))
-	if err != nil || len(contenido) == 0 || int64(len(contenido)) > limite {
-		clear(contenido)
-		return nil, ErrCertificadoPersonalNoDisponible
-	}
-	return contenido, nil
 }

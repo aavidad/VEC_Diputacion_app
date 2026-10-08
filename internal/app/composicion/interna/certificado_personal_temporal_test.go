@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/internal/app/composicion/identidadcertificado"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -34,10 +35,14 @@ func TestCertificadoTLSRealEmiteAsercionLigadaAPeticionYRevocable(t *testing.T) 
 		CuentaID:           "cta_bbbbbbbbbbbbbbbbbbbbbb",
 		ProteccionClaveRef: proteccionClavePersonalPKCS11, Activo: true,
 	}
-	ruta := filepath.Join(t.TempDir(), "certificados.json")
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	ruta := filepath.Join(dir, "certificados.json")
 	escribirCRLPrueba(t, filepath.Dir(ruta), intercambio, nil)
 	escribirRegistroCertificadoPrueba(t, ruta, c)
-	registro, err := nuevoRegistroCertificadosPersonales(ruta)
+	registro, err := identidadcertificado.NuevoRegistro(ruta)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +118,11 @@ func TestCertificadoTLSRealEmiteAsercionLigadaAPeticionYRevocable(t *testing.T) 
 }
 
 func TestCertificadoPersonalRevocadoCortaEmisionYGarantiaSinReinicio(t *testing.T) {
-	ruta := filepath.Join(t.TempDir(), "certificados.json")
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	ruta := filepath.Join(dir, "certificados.json")
 	escribirCRLPrueba(t, filepath.Dir(ruta), nuevoIntercambioTLSIdentidadOfflinePrueba(t, tls.VersionTLS13), nil)
 	const huella = "sha256:" + "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899"
 	c := certificadoPersonalRegistrado{
@@ -124,7 +133,7 @@ func TestCertificadoPersonalRevocadoCortaEmisionYGarantiaSinReinicio(t *testing.
 		Activo:             true,
 	}
 	escribirRegistroCertificadoPrueba(t, ruta, c)
-	registro, err := nuevoRegistroCertificadosPersonales(ruta)
+	registro, err := identidadcertificado.NuevoRegistro(ruta)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +165,7 @@ func TestCertificadoPersonalRevocadoCortaEmisionYGarantiaSinReinicio(t *testing.
 	}
 	c.Activo = false
 	escribirRegistroCertificadoPrueba(t, ruta, c)
-	if _, err := registro.resolver(context.Background(), huella); !errors.Is(err, ErrCertificadoPersonalNoDisponible) {
+	if _, err := registro.Resolver(context.Background(), huella); !errors.Is(err, ErrCertificadoPersonalNoDisponible) {
 		t.Fatalf("certificado retirado resuelto: %v", err)
 	}
 	if _, err := evaluador.Evaluar(context.Background(), entrada); !errors.Is(err, ErrCertificadoPersonalNoDisponible) {
