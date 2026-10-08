@@ -9,6 +9,8 @@
     "ficha_siguiente_paso_fase": "Siguiente paso: {fase}",
     "ficha_siguiente_paso_espera": "Esperando a otra unidad",
     "ficha_siguiente_paso_terminado": "Expediente terminado",
+    "ficha_siguiente_paso_cobertura_titulo": "Siguiente paso: decidir la vía de cobertura",
+    "ficha_siguiente_paso_cobertura_que": "El análisis está registrado. Decida cómo cubrir la petición en el apartado de abajo.",
     "ficha_plazo_fase": "{fecha} (plazo de la fase)",
     "ficha_plazo_fase_estado": "{fecha} (plazo de la fase · {estado})",
     "ficha_ir_tramite": "Ir al trámite de esta fase",
