@@ -45,6 +45,7 @@ CREATE TABLE vec_bolsa_importacion_convoca.original_exportacion_cifrada (
  registrada_en timestamptz(6) NOT NULL DEFAULT pg_catalog.clock_timestamp()
 );
 REVOKE ALL ON vec_bolsa_importacion_convoca.original_exportacion_cifrada FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_importacion_convoca.original_exportacion_cifrada FROM PUBLIC;
 
 CREATE FUNCTION vec_bolsa_importacion_convoca.negar_mutacion_original_v1()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
