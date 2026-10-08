@@ -26,10 +26,14 @@ func consultarInscripcion[T any](ctx context.Context, r *RepositorioInscripcione
 	actor inscripcion.Actor, accion, recurso string, filtro inscripcion.Filtro,
 	selector any, validar func(T) error) (T, error) {
 	var cero T
-	if r == nil || valorNulo(r.lector) || validar == nil {
+	if r == nil || validar == nil {
 		return cero, inscripcion.ErrNoDisponible
 	}
 	contexto, vinculo, captura, err := prepararCapturaLecturaInscripcion(actor, accion, recurso, filtro)
+	if err != nil {
+		return cero, err
+	}
+	lector, err := r.seleccionarLectorInscripcion(actor.Canal, accion)
 	if err != nil {
 		return cero, err
 	}
@@ -39,7 +43,7 @@ func consultarInscripcion[T any](ctx context.Context, r *RepositorioInscripcione
 	}
 	var salida sobreLecturaInscripcion
 	var proyeccion T
-	_, err = transaccionInscripcion(ctx, r.lector, func(tx pgx.Tx) ([]byte, error) {
+	_, err = transaccionInscripcion(ctx, lector, func(tx pgx.Tx) ([]byte, error) {
 		var respuesta []byte
 		err := tx.QueryRow(ctx, consultaLecturaInscripcion, accion, selectorJSON, contexto, vinculo, captura).Scan(&respuesta)
 		return respuesta, err
@@ -74,6 +78,36 @@ func consultarInscripcion[T any](ctx context.Context, r *RepositorioInscripcione
 		return cero, inscripcion.ErrNoEncontrada
 	}
 	return proyeccion, nil
+}
+
+func (r *RepositorioInscripcionesPostgreSQL) seleccionarLectorInscripcion(canal, accion string) (iniciadorTransacciones, error) {
+	if r == nil {
+		return nil, inscripcion.ErrNoDisponible
+	}
+	var lector iniciadorTransacciones
+	switch accion {
+	case inscripcion.AccionListarAbiertas, inscripcion.AccionDetalleAbierta,
+		inscripcion.AccionListarPropias, inscripcion.AccionDetallePropia:
+		switch canal {
+		case "externa_personal":
+			lector = r.lectorExterno
+		case "interna_corporativa":
+			lector = r.lectorEmpleado
+		default:
+			return nil, inscripcion.ErrAccesoDenegado
+		}
+	case inscripcion.AccionListarRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH:
+		if canal != "interna_corporativa" {
+			return nil, inscripcion.ErrAccesoDenegado
+		}
+		lector = r.lectorRRHH
+	default:
+		return nil, inscripcion.ErrAccesoDenegado
+	}
+	if valorNulo(lector) {
+		return nil, inscripcion.ErrNoDisponible
+	}
+	return lector, nil
 }
 
 type selectorListaInscripcion struct {

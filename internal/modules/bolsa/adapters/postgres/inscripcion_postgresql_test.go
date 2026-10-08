@@ -36,12 +36,65 @@ func (t *transaccionInscripcionPrueba) Rollback(context.Context) error {
 type iniciadorInscripcionPrueba struct {
 	tx       *transaccionInscripcionPrueba
 	opciones pgx.TxOptions
+	inicios  int
 }
 
 func (p *iniciadorInscripcionPrueba) BeginTx(_ context.Context, opciones pgx.TxOptions) (pgx.Tx, error) {
+	p.inicios++
 	p.opciones = opciones
 	p.tx.pasos = append(p.tx.pasos, "abrir")
 	return p.tx, nil
+}
+
+func TestInscripcionPoolsLectoresSegregados(t *testing.T) {
+	externo := &iniciadorInscripcionPrueba{tx: &transaccionInscripcionPrueba{}}
+	interno := &iniciadorInscripcionPrueba{tx: &transaccionInscripcionPrueba{}}
+	lectorExterno := &iniciadorInscripcionPrueba{tx: &transaccionInscripcionPrueba{}}
+	lectorEmpleado := &iniciadorInscripcionPrueba{tx: &transaccionInscripcionPrueba{}}
+	lectorRRHH := &iniciadorInscripcionPrueba{tx: &transaccionInscripcionPrueba{}}
+	r, err := nuevoRepositorioInscripcionesPostgreSQL(externo, interno, lectorExterno, lectorEmpleado, lectorRRHH)
+	if err != nil {
+		t.Fatal(err)
+	}
+	casos := []struct {
+		canal, accion string
+		esperado      iniciadorTransacciones
+	}{
+		{"externa_personal", inscripcion.AccionListarAbiertas, lectorExterno},
+		{"externa_personal", inscripcion.AccionDetallePropia, lectorExterno},
+		{"interna_corporativa", inscripcion.AccionListarPropias, lectorEmpleado},
+		{"interna_corporativa", inscripcion.AccionDetalleAbierta, lectorEmpleado},
+		{"interna_corporativa", inscripcion.AccionListarRRHH, lectorRRHH},
+		{"interna_corporativa", inscripcion.AccionDetalleRRHH, lectorRRHH},
+		{"interna_corporativa", inscripcion.AccionMotivosRRHH, lectorRRHH},
+	}
+	for _, caso := range casos {
+		obtenido, err := r.seleccionarLectorInscripcion(caso.canal, caso.accion)
+		if err != nil || obtenido != caso.esperado {
+			t.Fatalf("lector cruzado para %s/%s: %v", caso.canal, caso.accion, err)
+		}
+	}
+	if _, err := r.seleccionarLectorInscripcion("externa_personal", inscripcion.AccionListarRRHH); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+		t.Fatalf("RRHH externo: %v", err)
+	}
+	if _, err := r.seleccionarLectorInscripcion("interna_corporativa", "accion_desconocida"); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+		t.Fatalf("accion desconocida: %v", err)
+	}
+	if _, err := nuevoRepositorioInscripcionesPostgreSQL(externo, interno, lectorExterno, lectorEmpleado, lectorEmpleado); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("pool compartido empleado/RRHH: %v", err)
+	}
+	if _, err := nuevoRepositorioInscripcionesPostgreSQL(externo, interno, lectorExterno, lectorEmpleado, nil); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("pool RRHH ausente: %v", err)
+	}
+	_, err = consultarInscripcion(context.Background(), r,
+		inscripcion.Actor{Canal: "interna_corporativa"}, inscripcion.AccionListarRRHH,
+		"inscripciones_rrhh_invalida", inscripcion.Filtro{Limite: 1},
+		selectorListaInscripcion{Limite: 1}, func(inscripcion.Pagina) error { return nil })
+	if !errors.Is(err, inscripcion.ErrAccesoDenegado) || lectorExterno.inicios != 0 ||
+		lectorEmpleado.inicios != 0 || lectorRRHH.inicios != 0 {
+		t.Fatalf("captura inválida alcanzó pool lector: err=%v inicios=%d/%d/%d",
+			err, lectorExterno.inicios, lectorEmpleado.inicios, lectorRRHH.inicios)
+	}
 }
 
 func TestInscripcionEntregaSoloTrasAuditoriaYCommit(t *testing.T) {
