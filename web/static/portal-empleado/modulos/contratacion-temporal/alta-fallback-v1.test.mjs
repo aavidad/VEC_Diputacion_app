@@ -87,7 +87,7 @@ test("el cliente HTTP conserva el rechazo validado y rechaza sobres incompatible
   }
 });
 
-test("el rechazo validado monta el formulario v1 limitado a sustituciones y permite reconsultar v2", async () => {
+test("el rechazo validado monta sólo sustituciones sin desmontar su edición para reconsultar v2", async () => {
   const actual = escenario([
     () => Promise.reject(noConfigurada()),
     () => Promise.reject({ estado: 503, codigo: "servicio_no_disponible", envelopeValido: true }),
@@ -104,11 +104,11 @@ test("el rechazo validado monta el formulario v1 limitado a sustituciones y perm
   assert.doesNotMatch(formulario.innerHTML, /Vacante/u);
   formulario.innerHTML = "edición";
   assert.equal(actual.contenedor.children[0], aviso, "el aviso queda fuera del formulario repintado");
-  aviso.children[1].eventos.click();
+  assert.equal(aviso.children.length, 1, "la capacidad ausente no ofrece reintentar sobre una operación activa");
   actual.gestor.montarAltaSiProcede();
   await esperar();
-  assert.equal(actual.consultas(), 2);
-  assert.match(actual.contenedor.innerHTML, /data-ct-exp-accion="reintentar"/u);
+  assert.equal(actual.consultas(), 1);
+  assert.equal(formulario.innerHTML, "edición", "se conserva el formulario montado");
   actual.gestor.retirarComponentes();
 });
 

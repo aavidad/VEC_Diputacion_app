@@ -710,18 +710,9 @@ export function crearGestorTramitacion({
           aviso.setAttribute("aria-live", "polite");
           const texto = contenedor.ownerDocument.createElement("p");
           texto.textContent = tExpedientes("alta_solo_sustituciones");
-          const boton = contenedor.ownerDocument.createElement("button");
-          boton.type = "button";
-          boton.className = "boton-secundario";
-          boton.textContent = tExpedientes("reintentar");
-          boton.addEventListener("click", () => {
-            if (!esMontada() || presentador.obtenerEstado().vista !== "alta") return;
-            retirarAlta();
-            catalogosNecesidadesAlta = null;
-            soloSustituciones = false;
-            montarAltaSiProcede();
-          });
-          aviso.append(texto, boton);
+          // La edición y su operación permanecen montadas; una ausencia de
+          // capacidad no ofrece un reintento que pueda perder sus datos.
+          aviso.append(texto);
           contenedor.prepend(aviso);
         }
       }

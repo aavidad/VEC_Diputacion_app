@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	vecports "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -196,5 +197,36 @@ func TestCatalogoAltaDeclaradoAusenteImpideComposicion(t *testing.T) {
 	ruta := filepath.Join(t.TempDir(), "necesidades-ausentes.json")
 	if _, err := nuevoCatalogoDesarrollo("", "", ruta); err == nil {
 		t.Fatal("la composición sustituyó silenciosamente la ruta declarada")
+	}
+}
+
+func TestErrorCatalogosAltaCapacidadConservaCorrelacionComun(t *testing.T) {
+	for _, nominal := range []bool{false, true} {
+		ctx := context.Background()
+		esperado := "corr_no_disponible"
+		if nominal {
+			var err error
+			ctx, err = vecports.ConCorrelacionIncidenciasPeticion(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			actual, _ := vecports.CorrelacionIncidenciasPeticion(ctx)
+			esperado = "corr_" + actual
+		}
+		r := httptest.NewRequest(http.MethodGet, rutaCatalogosAltaContratacionTemporalDesarrollo+"?version=2", nil).WithContext(ctx)
+		w := httptest.NewRecorder()
+		prepararCabecerasCatalogosAltaContratacionTemporalDesarrollo(w)
+		responderErrorCatalogosAltaContratacionTemporalDesarrollo(w, r, http.StatusServiceUnavailable, "capacidad_no_configurada")
+		var sobre map[string]map[string]string
+		if err := json.Unmarshal(w.Body.Bytes(), &sobre); err != nil {
+			t.Fatal(err)
+		}
+		e := sobre["error"]
+		if len(sobre) != 1 || len(e) != 3 || e["codigo"] != "capacidad_no_configurada" || e["clave_i18n"] != "api.contratacion_temporal.catalogos_alta.error.capacidad_no_configurada" || e["correlacion_ref"] != esperado {
+			t.Fatalf("contrato error de capacidad inesperado: %s", w.Body.String())
+		}
+		if !nominal {
+			t.Logf("sobre_capacidad=%s", w.Body.String())
+		}
 	}
 }

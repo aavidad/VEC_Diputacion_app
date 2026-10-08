@@ -17,6 +17,7 @@ import (
 	personalcatalogos "vec-diputacion-granada/internal/modules/personal/adapters/catalogosvec"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -633,10 +634,17 @@ func responderErrorCatalogosAltaContratacionTemporalDesarrollo(
 	estado int,
 	codigo string,
 ) {
+	correlacion := "corr_no_disponible"
+	if r != nil {
+		if actual, ok := vecports.CorrelacionIncidenciasPeticion(r.Context()); ok {
+			correlacion = "corr_" + actual
+		}
+	}
 	contenido, err := json.Marshal(map[string]any{
 		"error": map[string]string{
-			"codigo":     codigo,
-			"clave_i18n": "api.contratacion_temporal.catalogos_alta.error." + codigo,
+			"codigo":          codigo,
+			"clave_i18n":      "api.contratacion_temporal.catalogos_alta.error." + codigo,
+			"correlacion_ref": correlacion,
 		},
 	})
 	if err != nil {
