@@ -7,7 +7,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
+	"fmt"
+	"io"
 	"strconv"
 	"time"
 
@@ -75,26 +76,32 @@ func nuevoRegistradorFronteraIdentidadTecnicaPostgreSQL(
 		return nil, ports.ErrFronteraIdentidadTecnicaNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, errorFronteraIdentidadTecnica(ctx)
+		return nil, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil || valorNuloPostgreSQL(tx) {
-		return nil, errorFronteraIdentidadTecnica(ctx)
+		return nil, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
 	defer revertirTransaccionPostgreSQL(tx)
-	if configurarTransaccionAutorizacion(ctx, tx) != nil {
-		return nil, errorFronteraIdentidadTecnica(ctx)
+	if err := configurarTransaccionAutorizacion(ctx, tx); err != nil {
+		return nil, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
 	var raw []byte
-	if tx.QueryRow(ctx, consultaPreflightFronteraIdentidadTecnica).Scan(&raw) != nil {
-		return nil, errorFronteraIdentidadTecnica(ctx)
+	if err := tx.QueryRow(ctx, consultaPreflightFronteraIdentidadTecnica).Scan(&raw); err != nil {
+		return nil, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
 	config, err := leerPreflightFronteraIdentidadTecnica(raw)
-	if err != nil || ctx.Err() != nil {
-		return nil, errorFronteraIdentidadTecnica(ctx)
+	if err != nil {
+		return nil, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
-	if tx.Commit(ctx) != nil {
-		return nil, errorFronteraIdentidadTecnica(ctx)
+	if err := ctx.Err(); err != nil {
+		return nil, errorFronteraIdentidadTecnica(ctx, err, nil)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, errorFronteraIdentidadTecnica(ctx, err, ports.ErrFronteraIdentidadTecnicaCommitIncierto)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
 	return &RegistradorFronteraIdentidadTecnicaPostgreSQL{pool: pool, config: config}, nil
 }
@@ -181,7 +188,7 @@ func (r *RegistradorFronteraIdentidadTecnicaPostgreSQL) RegistrarRechazoInicioSe
 		return vacio, ports.ErrFronteraIdentidadTecnicaNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
-		return vacio, errorFronteraIdentidadTecnica(ctx)
+		return vacio, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
 	datos, err := orden.Datos()
 	if err != nil {
@@ -193,7 +200,7 @@ func (r *RegistradorFronteraIdentidadTecnicaPostgreSQL) RegistrarRechazoInicioSe
 	}
 	var aleatorio [16]byte
 	if _, err := rand.Read(aleatorio[:]); err != nil {
-		return vacio, ports.ErrFronteraIdentidadTecnicaNoDisponible
+		return vacio, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
 	e := eventoFronteraIdentidadTecnica{
 		TipoRegistro: tipoFronteraIdentidadTecnica, EventoRef: "evento_" + hex.EncodeToString(aleatorio[:]),
@@ -207,40 +214,40 @@ func (r *RegistradorFronteraIdentidadTecnicaPostgreSQL) RegistrarRechazoInicioSe
 	material := huellaMaterialFronteraIdentidadTecnica(e)
 	payload, err := json.Marshal(e)
 	if err != nil {
-		return vacio, ports.ErrFronteraIdentidadTecnicaNoDisponible
+		return vacio, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil || valorNuloPostgreSQL(tx) {
-		return vacio, errorFronteraIdentidadTecnica(ctx)
+		return vacio, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
 	defer revertirTransaccionPostgreSQL(tx)
-	if configurarTransaccionAutorizacion(ctx, tx) != nil {
-		return vacio, errorFronteraIdentidadTecnica(ctx)
+	if err := configurarTransaccionAutorizacion(ctx, tx); err != nil {
+		return vacio, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
 	var secuenciaSQL string
 	var acuse ports.AcuseFronteraIdentidadTecnica
-	if tx.QueryRow(ctx, consultaRegistroFronteraIdentidadTecnica, payload).Scan(
+	if err := tx.QueryRow(ctx, consultaRegistroFronteraIdentidadTecnica, payload).Scan(
 		&acuse.AuditoriaRef, &secuenciaSQL, &acuse.MaterialSHA256,
 		&acuse.CorrelacionRef, &acuse.RegistradaEn,
-	) != nil {
-		return vacio, errorFronteraIdentidadTecnica(ctx)
+	); err != nil {
+		return vacio, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
 	acuse.Secuencia, err = strconv.ParseUint(secuenciaSQL, 10, 64)
 	if err != nil {
-		return vacio, errors.Join(ports.ErrFronteraIdentidadTecnicaNoDisponible,
-			ports.ErrAcuseFronteraIdentidadTecnicaInvalido)
+		return vacio, errorFronteraIdentidadTecnica(ctx, err, ports.ErrAcuseFronteraIdentidadTecnicaInvalido)
 	}
 	acuse.RegistradaEn = acuse.RegistradaEn.UTC()
-	if acuse.ValidarPara(orden, e.EventoRef, material, time.Now().UTC()) != nil {
-		return vacio, errors.Join(ports.ErrFronteraIdentidadTecnicaNoDisponible,
-			ports.ErrAcuseFronteraIdentidadTecnicaInvalido)
+	if err := acuse.ValidarPara(orden, e.EventoRef, material, time.Now().UTC()); err != nil {
+		return vacio, errorFronteraIdentidadTecnica(ctx, err, ports.ErrAcuseFronteraIdentidadTecnicaInvalido)
 	}
-	if ctx.Err() != nil {
-		return vacio, errorFronteraIdentidadTecnica(ctx)
+	if err := ctx.Err(); err != nil {
+		return vacio, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
-	if tx.Commit(ctx) != nil {
-		return vacio, errors.Join(ports.ErrFronteraIdentidadTecnicaNoDisponible,
-			ports.ErrFronteraIdentidadTecnicaCommitIncierto, ctx.Err())
+	if err := tx.Commit(ctx); err != nil {
+		return vacio, errorFronteraIdentidadTecnica(ctx, err, ports.ErrFronteraIdentidadTecnicaCommitIncierto)
+	}
+	if err := ctx.Err(); err != nil {
+		return vacio, errorFronteraIdentidadTecnica(ctx, err, nil)
 	}
 	return acuse, nil
 }
@@ -263,11 +270,33 @@ func huellaMaterialFronteraIdentidadTecnica(e eventoFronteraIdentidadTecnica) st
 	return hex.EncodeToString(huella[:])
 }
 
-func errorFronteraIdentidadTecnica(ctx context.Context) error {
-	if ctx != nil {
-		if err := ctx.Err(); err != nil {
-			return errors.Join(ports.ErrFronteraIdentidadTecnicaNoDisponible, err)
+// Error muestra siempre el mismo texto público. Unwrap conserva las causas
+// originales para diagnóstico interno con errors.Is/As, sin exponer el mensaje
+// del driver en HTTP, fmt o logs ordinarios.
+type falloFronteraIdentidadTecnicaPostgreSQL struct {
+	causa, clase, cancelacion error
+}
+
+func (falloFronteraIdentidadTecnicaPostgreSQL) Error() string {
+	return ports.ErrFronteraIdentidadTecnicaNoDisponible.Error()
+}
+func (f falloFronteraIdentidadTecnicaPostgreSQL) Unwrap() []error {
+	causas := []error{ports.ErrFronteraIdentidadTecnicaNoDisponible}
+	for _, causa := range []error{f.clase, f.causa, f.cancelacion} {
+		if causa != nil {
+			causas = append(causas, causa)
 		}
 	}
-	return ports.ErrFronteraIdentidadTecnicaNoDisponible
+	return causas
+}
+func (f falloFronteraIdentidadTecnicaPostgreSQL) Format(s fmt.State, _ rune) {
+	_, _ = io.WriteString(s, f.Error())
+}
+
+func errorFronteraIdentidadTecnica(ctx context.Context, causa, clase error) error {
+	var cancelacion error
+	if ctx != nil {
+		cancelacion = ctx.Err()
+	}
+	return falloFronteraIdentidadTecnicaPostgreSQL{causa: causa, clase: clase, cancelacion: cancelacion}
 }

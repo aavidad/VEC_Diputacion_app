@@ -26,11 +26,15 @@ const preflightFronteraIdentidadPrueba = `{
 "codigos":[{"motivo_ref":"certificado_requerido","resultado":"denegado"},{"motivo_ref":"autenticacion_requerida","resultado":"denegado"},{"motivo_ref":"acceso_denegado","resultado":"denegado"},{"motivo_ref":"metodo_no_permitido","resultado":"denegado"},{"motivo_ref":"recurso_no_encontrado","resultado":"denegado"},{"motivo_ref":"solicitud_invalida","resultado":"denegado"},{"motivo_ref":"servicio_no_disponible","resultado":"error"},{"motivo_ref":"respuesta_incompatible","resultado":"error"}]}`
 
 type poolFronteraIdentidadPrueba struct {
-	txs     []*txFronteraIdentidadPrueba
-	inicios int
+	txs      []*txFronteraIdentidadPrueba
+	inicios  int
+	beginErr error
 }
 
 func (p *poolFronteraIdentidadPrueba) BeginTx(_ context.Context, o pgx.TxOptions) (pgx.Tx, error) {
+	if p.beginErr != nil {
+		return nil, p.beginErr
+	}
 	if o.IsoLevel != pgx.Serializable || o.AccessMode != pgx.ReadWrite || len(p.txs) == 0 {
 		return nil, errors.New("transaccion no acreditada")
 	}
@@ -46,6 +50,7 @@ type txFronteraIdentidadPrueba struct {
 	escrito                             eventoFronteraIdentidadTecnica
 	consulta                            string
 	consultaErr                         error
+	execErr                             error
 	commitErr                           error
 	commitHook                          func()
 	materialAjeno                       bool
@@ -54,6 +59,9 @@ type txFronteraIdentidadPrueba struct {
 }
 
 func (t *txFronteraIdentidadPrueba) Exec(_ context.Context, q string, _ ...any) (pgconn.CommandTag, error) {
+	if t.execErr != nil {
+		return pgconn.CommandTag{}, t.execErr
+	}
 	if !strings.Contains(q, "set_config('search_path'") || !strings.Contains(q, "set_config('timezone', 'UTC'") {
 		return pgconn.CommandTag{}, errors.New("configuracion transaccional ausente")
 	}
@@ -251,7 +259,8 @@ func TestFronteraIdentidadTecnicaConservaCancelacionDuranteCommitIncierto(t *tes
 	r, _, tx := entornoFronteraIdentidadPrueba(t)
 	ctx, cancelar := context.WithCancel(context.Background())
 	tx.commitHook = cancelar
-	tx.commitErr = errors.New("confirmacion perdida")
+	causa := errors.New("confirmacion perdida")
+	tx.commitErr = causa
 	orden, err := ports.NuevaOrdenFronteraIdentidadTecnica(domain.MetodoInicioSesionGET,
 		domain.RutaSesionActual, ports.MotivoFronteraIdentidadAutenticacionRequerida)
 	if err != nil {
@@ -260,7 +269,76 @@ func TestFronteraIdentidadTecnicaConservaCancelacionDuranteCommitIncierto(t *tes
 	acuse, err := r.RegistrarRechazoInicioSesion(ctx, orden)
 	if acuse != (ports.AcuseFronteraIdentidadTecnica{}) ||
 		!errors.Is(err, ports.ErrFronteraIdentidadTecnicaCommitIncierto) ||
-		!errors.Is(err, context.Canceled) || strings.Contains(err.Error(), "confirmacion perdida") {
+		!errors.Is(err, context.Canceled) || !errors.Is(err, causa) ||
+		strings.Contains(err.Error(), "confirmacion perdida") {
 		t.Fatalf("commit incierto/cancelacion no cerraron START: %v", err)
 	}
+}
+
+func TestFronteraIdentidadTecnicaPropagaCausasSinMostrarDriver(t *testing.T) {
+	causa := errors.New("detalle privado del driver")
+	pgError := &pgconn.PgError{Code: "42501", Message: "detalle privado del servidor SQL"}
+	for _, caso := range []struct {
+		nombre   string
+		mutar    func(*poolFronteraIdentidadPrueba, *txFronteraIdentidadPrueba)
+		esperada error
+	}{
+		{"begin", func(p *poolFronteraIdentidadPrueba, _ *txFronteraIdentidadPrueba) { p.beginErr = causa }, causa},
+		{"configuracion", func(_ *poolFronteraIdentidadPrueba, tx *txFronteraIdentidadPrueba) { tx.execErr = causa }, causa},
+		{"scan_sqlstate", func(_ *poolFronteraIdentidadPrueba, tx *txFronteraIdentidadPrueba) { tx.consultaErr = pgError }, pgError},
+		{"commit", func(_ *poolFronteraIdentidadPrueba, tx *txFronteraIdentidadPrueba) { tx.commitErr = causa }, causa},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			r, pool, tx := entornoFronteraIdentidadPrueba(t)
+			caso.mutar(pool, tx)
+			orden, err := ports.NuevaOrdenFronteraIdentidadTecnica(domain.MetodoInicioSesionGET,
+				domain.RutaSesionActual, ports.MotivoFronteraIdentidadAccesoDenegado)
+			if err != nil {
+				t.Fatal(err)
+			}
+			acuse, err := r.RegistrarRechazoInicioSesion(context.Background(), orden)
+			if acuse != (ports.AcuseFronteraIdentidadTecnica{}) ||
+				!errors.Is(err, ports.ErrFronteraIdentidadTecnicaNoDisponible) ||
+				!errors.Is(err, caso.esperada) ||
+				strings.Contains(err.Error(), "privado") || strings.Contains(fmt.Sprintf("%#v", err), "privado") {
+				t.Fatalf("causa interna no preservada u opacidad perdida: %v", err)
+			}
+			if caso.nombre == "scan_sqlstate" {
+				var recuperado *pgconn.PgError
+				if !errors.As(err, &recuperado) || recuperado.Code != "42501" {
+					t.Fatal("SQLSTATE original no disponible para diagnostico interno")
+				}
+			}
+			if caso.nombre == "commit" && !errors.Is(err, ports.ErrFronteraIdentidadTecnicaCommitIncierto) {
+				t.Fatal("confirmacion incierta no conservada")
+			}
+		})
+	}
+}
+
+func TestFronteraIdentidadTecnicaPostCommitCanceladoNoDevuelveExito(t *testing.T) {
+	t.Run("preflight", func(t *testing.T) {
+		ctx, cancelar := context.WithCancel(context.Background())
+		tx := &txFronteraIdentidadPrueba{preflight: []byte(preflightFronteraIdentidadPrueba), commitHook: cancelar}
+		pool := &poolFronteraIdentidadPrueba{txs: []*txFronteraIdentidadPrueba{tx}}
+		r, err := nuevoRegistradorFronteraIdentidadTecnicaPostgreSQL(ctx, pool)
+		if r != nil || tx.commits != 1 || !errors.Is(err, context.Canceled) {
+			t.Fatalf("preflight cancelado entrego autoridad: %v", err)
+		}
+	})
+	t.Run("registro", func(t *testing.T) {
+		r, _, tx := entornoFronteraIdentidadPrueba(t)
+		ctx, cancelar := context.WithCancel(context.Background())
+		tx.commitHook = cancelar
+		orden, err := ports.NuevaOrdenFronteraIdentidadTecnica(domain.MetodoInicioSesionPOST,
+			domain.RutaInicioSesion, ports.MotivoFronteraIdentidadServicioNoDisponible)
+		if err != nil {
+			t.Fatal(err)
+		}
+		acuse, err := r.RegistrarRechazoInicioSesion(ctx, orden)
+		if acuse != (ports.AcuseFronteraIdentidadTecnica{}) || tx.commits != 1 ||
+			!errors.Is(err, context.Canceled) || !errors.Is(err, ports.ErrFronteraIdentidadTecnicaNoDisponible) {
+			t.Fatalf("post-commit cancelado entrego acuse: %v", err)
+		}
+	})
 }
