@@ -27,6 +27,9 @@ const (
 type Preparador interface {
 	Aspirante(*http.Request) (inscripcion.Actor, error)
 	RRHH(*http.Request) (inscripcion.Actor, error)
+	PrepararPresentacion(*http.Request, inscripcion.Presentacion) (inscripcion.Actor, error)
+	PrepararDecision(*http.Request, inscripcion.Decision) (inscripcion.Actor, error)
+	PrepararIncorporacion(*http.Request, inscripcion.Incorporacion) (inscripcion.Actor, error)
 }
 
 type Aplicacion interface {
@@ -144,11 +147,6 @@ func (h *Handler) detalleAbierta(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) propias(w http.ResponseWriter, r *http.Request) {
-	actor, err := h.preparador.Aspirante(r)
-	if err != nil {
-		responderFallo(w, err)
-		return
-	}
 	switch r.Method {
 	case http.MethodGet:
 		if !sinCuerpo(r) {
@@ -158,6 +156,11 @@ func (h *Handler) propias(w http.ResponseWriter, r *http.Request) {
 		limite, cursor, err := paginarCon(r.URL.Query(), "idioma")
 		if err != nil {
 			responderError(w, 400, "datos_no_validos")
+			return
+		}
+		actor, err := h.preparador.Aspirante(r)
+		if err != nil {
+			responderFallo(w, err)
 			return
 		}
 		if actor.Idioma, err = idioma(r.URL.Query()); err != nil {
@@ -185,11 +188,17 @@ func (h *Handler) propias(w http.ResponseWriter, r *http.Request) {
 		if !decodificar(w, r, &cuerpo) {
 			return
 		}
-		recibo, err := h.servicio.Presentar(r.Context(), actor, inscripcion.Presentacion{
+		presentacion := inscripcion.Presentacion{
 			ConvocatoriaRef: cuerpo.ConvocatoriaRef, CategoriaRef: cuerpo.CategoriaRef,
 			CatalogoVersion:   cuerpo.CatalogoVersion,
 			ClaveIdempotencia: cuerpo.ClaveIdempotencia, Declaraciones: cuerpo.Declaraciones,
-		})
+		}
+		actor, err := h.preparador.PrepararPresentacion(r, presentacion)
+		if err != nil {
+			responderFallo(w, err)
+			return
+		}
+		recibo, err := h.servicio.Presentar(r.Context(), actor, presentacion)
 		if err != nil {
 			responderFallo(w, err)
 			return
@@ -306,13 +315,13 @@ func (h *Handler) detalleODecisionRRHH(w http.ResponseWriter, r *http.Request) {
 		responderError(w, 400, "datos_no_validos")
 		return
 	}
-	actor, err := h.preparador.RRHH(r)
-	if err != nil {
-		responderFallo(w, err)
-		return
-	}
 	if len(partes) == 1 {
 		if !soloGET(w, r) {
+			return
+		}
+		actor, err := h.preparador.RRHH(r)
+		if err != nil {
+			responderFallo(w, err)
 			return
 		}
 		if actor.Idioma, err = idioma(r.URL.Query()); err != nil {
@@ -341,10 +350,16 @@ func (h *Handler) detalleODecisionRRHH(w http.ResponseWriter, r *http.Request) {
 		if !decodificar(w, r, &cuerpo) {
 			return
 		}
-		recibo, err := h.servicio.Incorporar(r.Context(), actor, inscripcion.Incorporacion{
+		incorporacion := inscripcion.Incorporacion{
 			SolicitudRef: partes[0], EvidenciaRef: cuerpo.EvidenciaRef,
 			VersionEsperada: cuerpo.VersionEsperada, ClaveIdempotencia: cuerpo.ClaveIdempotencia,
-		})
+		}
+		actor, err := h.preparador.PrepararIncorporacion(r, incorporacion)
+		if err != nil {
+			responderFallo(w, err)
+			return
+		}
+		recibo, err := h.servicio.Incorporar(r.Context(), actor, incorporacion)
 		if err != nil {
 			responderFallo(w, err)
 			return
@@ -365,10 +380,16 @@ func (h *Handler) detalleODecisionRRHH(w http.ResponseWriter, r *http.Request) {
 	if !decodificar(w, r, &cuerpo) {
 		return
 	}
-	recibo, err := h.servicio.Decidir(r.Context(), actor, inscripcion.Decision{
+	decision := inscripcion.Decision{
 		SolicitudRef: partes[0], Tipo: cuerpo.Decision, MotivoCodigo: cuerpo.MotivoCodigo,
 		VersionEsperada: cuerpo.VersionEsperada, ClaveIdempotencia: cuerpo.ClaveIdempotencia,
-	})
+	}
+	actor, err := h.preparador.PrepararDecision(r, decision)
+	if err != nil {
+		responderFallo(w, err)
+		return
+	}
+	recibo, err := h.servicio.Decidir(r.Context(), actor, decision)
 	if err != nil {
 		responderFallo(w, err)
 		return
@@ -552,6 +573,8 @@ func responderFallo(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, inscripcion.ErrSolicitudInvalida):
 		responderError(w, 400, "datos_no_validos")
+	case errors.Is(err, inscripcion.ErrSesionAusente):
+		responderError(w, 401, "sesion_ausente")
 	case errors.Is(err, inscripcion.ErrAccesoDenegado):
 		responderError(w, 403, "acceso_denegado")
 	case errors.Is(err, inscripcion.ErrNoEncontrada):
@@ -570,6 +593,8 @@ func responderFallo(w http.ResponseWriter, err error) {
 		responderError(w, 409, "solicitud_existente")
 	case errors.Is(err, inscripcion.ErrClaveConflicto):
 		responderError(w, 409, "clave_en_conflicto")
+	case errors.Is(err, inscripcion.ErrActaNoDisponible):
+		responderError(w, 409, "acta_pendiente")
 	default:
 		responderError(w, 503, "servicio_no_disponible")
 	}
