@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	protectororiginal "vec-diputacion-granada/internal/modules/bolsa/adapters/protectorstagingdesarrollo"
 	"vec-diputacion-granada/internal/modules/bolsa/adapters/xlsconvoca"
 	"vec-diputacion-granada/internal/modules/bolsa/application/constitucion"
 	importacionapp "vec-diputacion-granada/internal/modules/bolsa/application/importacionconvoca"
@@ -255,6 +256,21 @@ func TestConfirmarCargaConvocaMinimizaErrorDelPreparador(t *testing.T) {
 	var causa CausaInternaCargaConvoca
 	if !errors.Is(err, ErrFicheroCargaConvocaInvalido) || !errors.As(err, &causa) || causa.Etapa != "preparar_lote" || strings.Contains(err.Error(), "nombre personal") || e.original.llamadas != 0 {
 		t.Fatalf("error del preparador inseguro: %v", err)
+	}
+}
+
+func TestConfirmarCargaConvocaNoPersisteXLSXRenombrado(t *testing.T) {
+	e := nuevoEscenarioCargaConvoca(t)
+	p, err := protectororiginal.NuevoProtectorOriginal([32]byte{1, 2, 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.servicio.original = p
+	e.solicitud.NombreFichero = "carga_convoca_ejemplo.xls"
+	_, err = e.servicio.Confirmar(context.Background(), e.solicitud, true)
+	var causa CausaInternaCargaConvoca
+	if !errors.Is(err, puertosbolsa.ErrCargaConvocaNoDisponible) || !errors.As(err, &causa) || causa.Etapa != "cifrar_original" || len(e.constituidor.solicitudes) != 0 {
+		t.Fatalf("formato falso alcanzó la transacción: %v", err)
 	}
 }
 

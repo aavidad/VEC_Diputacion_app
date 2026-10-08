@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -88,6 +90,14 @@ func (r *RepositorioConstitucionPostgreSQL) Constituir(ctx context.Context, c po
 // argumentosConstitucion valida la constitución y prepara, en orden, los
 // catorce argumentos de constituir_bolsa_v1 (también los primeros de B79).
 func argumentosConstitucion(c ports.Constitucion) ([]any, error) {
+	versionBolsa, err := versionBigintConstitucion(c.Bolsa.Version)
+	if err != nil {
+		return nil, ports.ErrConstitucionBolsaInvalida
+	}
+	versionInstantanea, err := versionBigintConstitucion(c.Instantanea.Version)
+	if err != nil {
+		return nil, ports.ErrConstitucionBolsaInvalida
+	}
 	bolsa, err := c.Bolsa.ClonarCanonica()
 	if err != nil || c.Instantanea.Validar() != nil || len(c.Entradas) == 0 ||
 		len(c.Entradas) != len(c.Instantanea.Entradas) || c.ActaRef == "" || c.ActorRef == "" || c.CategoriaRef == "" {
@@ -109,9 +119,22 @@ func argumentosConstitucion(c ports.Constitucion) ([]any, error) {
 	if err != nil {
 		return nil, ports.ErrConstitucionBolsaInvalida
 	}
-	return []any{c.ActaRef, c.ActorRef, c.CategoriaRef, bolsa.BolsaRef, int64(bolsa.Version), bolsaCanonica, bolsa.VigenteDesde,
-		c.Instantanea.InstantaneaRef, int64(c.Instantanea.Version), instantaneaCanonica,
+	return []any{c.ActaRef, c.ActorRef, c.CategoriaRef, bolsa.BolsaRef, versionBolsa, bolsaCanonica, bolsa.VigenteDesde,
+		c.Instantanea.InstantaneaRef, versionInstantanea, instantaneaCanonica,
 		c.Instantanea.ReferidaEn, c.Instantanea.GeneradaEn, entradasJSON, c.ConfirmadaEn}, nil
+}
+
+func versionBigintConstitucion(version uint64) (int64, error) {
+	if version > math.MaxInt64 {
+		return 0, ports.ErrConstitucionBolsaInvalida
+	}
+	// ParseInt evita una conversión entera que el análisis estático no puede
+	// demostrar segura aunque la cota anterior sea explícita.
+	valor, err := strconv.ParseInt(strconv.FormatUint(version, 10), 10, 64)
+	if err != nil {
+		return 0, ports.ErrConstitucionBolsaInvalida
+	}
+	return valor, nil
 }
 
 // traducir convierte el recibo JSON de constituir_bolsa_v1.
@@ -175,7 +198,11 @@ func (r *RepositorioConstitucionPostgreSQL) Entradas(ctx context.Context, instan
 	if ctx == nil || r == nil || r.pool == nil || instantaneaRef == "" || version == 0 {
 		return nil, ports.ErrConstitucionBolsaNoDisponible
 	}
-	filas, err := r.pool.Query(ctx, `SELECT orden, participacion_ref, fila_numero FROM vec_bolsa_llamamientos.listar_entradas_constitucion_v1($1::text, $2::bigint)`, instantaneaRef, int64(version))
+	versionSQL, err := versionBigintConstitucion(version)
+	if err != nil {
+		return nil, ports.ErrConstitucionBolsaInvalida
+	}
+	filas, err := r.pool.Query(ctx, `SELECT orden, participacion_ref, fila_numero FROM vec_bolsa_llamamientos.listar_entradas_constitucion_v1($1::text, $2::bigint)`, instantaneaRef, versionSQL)
 	if err != nil {
 		return nil, errorConstitucion(ctx, err)
 	}
