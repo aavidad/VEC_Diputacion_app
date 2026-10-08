@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"net/http"
+	"slices"
 
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	bolsapuertos "vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -101,7 +102,20 @@ func (p proyectorDisponibilidadFichaOperacionesBolsa) ProyectarDisponibilidadFic
 		return vacio, vecdomain.ErrConfiguracionAccesoInvalida
 	}
 	estado := func(i int) bolsahttp.EstadoDisponibilidadFichaOperaciones {
-		return bolsahttp.EstadoDisponibilidadFichaOperaciones{Estado: string(proyeccion.Resultados[i].Estado),
+		r := proyeccion.Resultados[i]
+		estado := r.Estado
+		if estado == vecapp.CapacidadRecursoDisponible {
+			camposExactos := len(r.CamposPermitidos) == 0
+			if i == 1 {
+				camposExactos = slices.Equal(r.CamposPermitidos, []string{bolsapuertos.CampoConsultarReincorporacionTitular})
+			}
+			// Los consumidores nominales exigen estos campos exactos y ninguna
+			// obligación pendiente (AD155/B77 y B55). La proyección no los ejecuta.
+			if !camposExactos || len(r.Obligaciones) != 0 {
+				estado = vecapp.CapacidadRecursoNoAutorizado
+			}
+		}
+		return bolsahttp.EstadoDisponibilidadFichaOperaciones{Estado: string(estado),
 			BolsaRef: q.BolsaRef, ParticipacionRef: q.ParticipacionRef}
 	}
 	return bolsahttp.DisponibilidadFichaOperaciones{
