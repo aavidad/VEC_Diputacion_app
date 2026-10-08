@@ -32,6 +32,10 @@
     "ficha_historial_fase": "Stage: {fase}",
     "ficha_datos_titulo": "Request details",
     "ficha_datos_todos": "View all details",
+    "ficha_llamamiento_sin_bolsa": "There is no active job pool for this category. Review the case file's recruitment route.",
+    "ficha_llamamiento_bolsa_error": "We could not check whether there is an active job pool for this category.",
+    "ficha_llamamiento_bolsa_denegado": "You do not have permission to view the job pools for this category.",
+    "ficha_llamamiento_bolsa_reintentar": "Retry job pool check",
     "ficha_detalle_tecnico": "View technical details",
     "ficha_detalle_flujo": "Workflow",
     "ficha_detalle_version": "Case version",
@@ -102,6 +106,8 @@
     "centro_visible": "Centre with code {numero}",
     "alta_solo_sustituciones": "You can record replacements. Other staffing needs are not available yet.",
     "necesidades_alta_no_disponibles_titulo": "Staffing needs could not be loaded",
-    "necesidades_alta_no_disponibles_detalle": "Try again. If the problem continues, contact IT support."
+    "necesidades_alta_no_disponibles_detalle": "Try again. If the problem continues, contact IT support.",
+    "lista_centro_nombre_no_disponible": "Centre name unavailable",
+    "lista_categoria_nombre_no_disponible": "Category name unavailable"
   }
 }

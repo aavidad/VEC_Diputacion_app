@@ -1,5 +1,7 @@
 # Plan de Igualdad: 4 de octubre de 2026
 
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+
 La unidad competente seguirá medidas de un plan de empleo acreditado, responsables,
 evidencias y evaluación anual. Los indicadores se consumirán desde sus propietarios
 con metodología y revisión de calidad; publicación y remisión conservarán controles

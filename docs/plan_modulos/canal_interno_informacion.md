@@ -1,5 +1,7 @@
 # Plan del Canal interno de información — 4 de octubre de 2026
 
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+
 ## Estado del primer corte — 7 de octubre de 2026
 
 **CAN01 es candidato local, pendiente de integración y publicación.** La rama
