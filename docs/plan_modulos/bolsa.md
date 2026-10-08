@@ -60,12 +60,17 @@ sin permiso, rechaza una constitución ambigua y una bolsa con 20.001 entradas,
 y coteja orden y participaciones con B6 al mismo corte. En ese clon, el lector
 Go hizo una consulta B6, una B92 y una B85 con el LOGIN ejecutor. El ensayo no
 ha instalado B92 en una base compartida ni acredita el acceso HTTP nominal.
+El reensayo en otra copia nueva con B90 final (`c5f9141e`) y B92 (`cf09bbd4`)
+conservó propietario, ACL e historia; Go mostró el pendiente desde B13 y
+mantuvo las fechas propias de exclusión y renuncia.
 
-En un clon PostgreSQL 18, una prueba sintética con 2.390 participaciones en
-una bolsa dio un p95 SQL de 46,712 ms en diez lecturas; con 10.000 en una sola
-bolsa dio 358,134 ms. Son tiempos de la consulta B92, sin HTTP, recuperación del
-acta ni contactos. La lista conserva la búsqueda y la página actuales: aún
-recupera el acta protegida y los contactos completos. El trabajo para acotar
+Con B90 anterior (`65282a43`) en un clon PostgreSQL 18, una prueba sintética
+con 2.390 participaciones en una bolsa dio un p95 SQL de 46,712 ms en diez
+lecturas; con 10.000 en una sola bolsa dio 358,134 ms. B90 final (`c5f9141e`)
+pasó el ensayo funcional junto a B92, pero no se repitió esa medición masiva.
+Los tiempos no incluyen HTTP, recuperación del acta ni contactos. La lista
+conserva la búsqueda y la página actuales; recupera el acta protegida y los
+contactos completos. El trabajo para acotar
 esas lecturas está en [pendientes_v2.md](../estudio_requisitos/pendientes_v2.md).
 
 ## Lo que falta
