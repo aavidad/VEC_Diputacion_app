@@ -4,7 +4,7 @@ Estado de esta revisión: CT193 define explícitamente las cuatro funciones que
 antes se reconstruían en bloques dinámicos. El UP tiene SHA256 `83a14d71a916494b323b4fe726c7f5ff092d254fd7be81193e7157c027a6e798`.
 Las tres funciones privilegiadas fijan `search_path=pg_catalog,pg_temp`; las
 guardas cotejan preimagen, postimagen, propietario, permisos y metadatos.
-Esta versión requiere revisión independiente y un ensayo PostgreSQL 18 nuevo.
+Esta versión recibió dos revisiones independientes y pasó el ensayo PostgreSQL 18 nuevo descrito al final.
 Los resultados anteriores de `c5bc06e8…715c` se conservan como historia y no
 acreditan esta sustitución.
 
@@ -131,3 +131,12 @@ La salida original del runner se conservó fuera de Git, con modo 0600; este res
 
 
 El ensayo ampliado en `1dbc5bf2d01f77e80d9700688da6ee2d62ccdf40` comprueba el dato nuevo: el vector cerrado y los de colisión/concurrencia contienen catálogo2 y `numero_personas="2"` dentro de `necesidad.campos`. El test exige ese valor en el canon y en la instantánea, y coteja los bytes persistidos y el recibo después de reiniciar. Salida0 y todas las fasesPASS; el vector abierto conserva catálogo1. El UP sigue siendo `c5bc06e8…715c`, aplicado una vez en otra base nueva; no quedaron recursos propios. La salida original está custodiada fuera deGit con modo0600.
+
+
+## Definiciones explícitas: ensayo final del 08/10
+
+La candidata `fc65b23c2b0208ca6313aa1d843659767be8b0fd` pasó el ensayo con UP SHA256 `83a14d71a916494b323b4fe726c7f5ff092d254fd7be81193e7157c027a6e798`. La ejecución terminó con código 0, después de E2 antes y después, E3 con catálogo2 y número de personas igual a2, recuperación tras reinicio, periodo abierto, colisión y concurrencia. Las guardas de preimagen y postimagen se ejecutaron sobre las cuatro definiciones explícitas. Versiones, actuaciones, auditoría, outbox y recibo mantuvieron las cardinalidades esperadas. La inspección posterior encontró cero contenedores y volúmenes propios con la etiqueta del ensayo.
+
+El intento anterior `d730df7b` falló por un argumento `bytea` sobrante en una firma de la guarda posterior. El ajuste fue revisado por separado; la lógica y los cuerpos no cambiaron. El runner ahora conserva un diagnóstico privado de un fallo SQL y muestra su ruta, sin imprimir su contenido. Los registros originales quedan fuera de Git con modo0600.
+
+Este resultado acredita el UP explícito en una base nueva. La CI de la PR y el recorrido HTTP nominal siguen pendientes; no se instaló SQL en la base compartida.
