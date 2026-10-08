@@ -99,7 +99,7 @@
 729 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
 848 web/static/bolsa/bolsa.css
 969 web/static/bolsa/lista-bolsas.test.mjs
-1089 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
+1257 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
 998 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 835 web/static/portal-empleado/modulos/dietas/dietas.css
 2017 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
@@ -137,7 +137,7 @@
 1196 scripts/recorridos/propuesta_firma/recorrer.py
 2917 deploy/postgresql/autorizacion_atestada_v3/migraciones/000218_carga_convoca_bolsa.up.sql
 864 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
-868 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitacion.js
+942 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitacion.js
 470 deploy/postgresql/contratacion_temporal/migraciones/000194_validacion_necesidad_alta_v3.up.sql
 639 internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_test.go
 405 internal/modules/contrataciontemporal/adapters/httpinterno/alta_seguridad_test.go

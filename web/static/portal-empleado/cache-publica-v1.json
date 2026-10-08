@@ -1,5 +1,5 @@
 {
-  "version": "20261003-pwa-ci-v5",
+  "version": "20261008-analisis-confirmado-v1",
   "comunes": [
     "/pwa/instalar.js?v=20261008-pwa-idioma-v1",
     "/pwa/navegacion.css?v=20261002-pwa-v2",
@@ -12,6 +12,6 @@
   "propios": [
     "/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1",
     "/portal-empleado/portal-componentes.css?v=20261008-bolsa-enlaces-v1",
-    "/portal-empleado/portal.js?v=20261008-alta-corte-v1"
+    "/portal-empleado/portal.js?v=20261008-analisis-confirmado-v1"
   ]
 }
