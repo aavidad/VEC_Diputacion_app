@@ -1,4 +1,4 @@
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261008-ct-inicio-v1";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261008-canal-telefono-v2";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261008-ct-inicio-v1";
 import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261008-ct-inicio-v1";
