@@ -131,7 +131,7 @@ func (h *Manejador) consultar(w http.ResponseWriter, r *http.Request, actor vecd
 		return
 	}
 	estadoActivacion := lectura.Activacion.Estado
-	if estadoActivacion != "activa" && estadoActivacion != "inactiva" && estadoActivacion != "sin_publicar" ||
+	if lectura.CorteEn.IsZero() || estadoActivacion != "activa" && estadoActivacion != "inactiva" && estadoActivacion != "sin_publicar" ||
 		estadoActivacion != "activa" && (lectura.PuedeAjustar || len(lectura.Reglas) != 0) {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
@@ -156,6 +156,7 @@ func (h *Manejador) consultar(w http.ResponseWriter, r *http.Request, actor vecd
 	}
 	responder(w, http.StatusOK, map[string]any{"data": map[string]any{
 		"esquema": Esquema, "catalogo_id": reglas.CatalogoAjustesDe(reglas.CatalogoContratacionTemporal),
+		"consultada_en":    lectura.CorteEn,
 		"activacion":       map[string]string{"estado": estadoActivacion},
 		"version_esperada": version, "puede_ajustar": puedeAjustar,
 		"cabeza":      versionAjustesVista(lectura.Vigente, lectura.CabezaPublicadaEn),

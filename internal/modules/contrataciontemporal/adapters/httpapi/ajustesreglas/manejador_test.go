@@ -39,7 +39,7 @@ func (s *servicioPrueba) Consultar(context.Context, vecdomain.ContextoActor, int
 	}
 	if estado != "activa" {
 		return app.Lectura{Activacion: app.ActivacionBase{Estado: estado}, Historial: []app.CambioHistorico{},
-			Reglas: []reglas.Regla{}}, nil
+			Reglas: []reglas.Regla{}, CorteEn: time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)}, nil
 	}
 	return app.Lectura{PuedeAjustar: true, Reglas: []reglas.Regla{{
 		Clave: reglas.CTPlazoFiscalizacion, Etiqueta: "Fiscalización", Unidad: reglas.UnidadDiasHabiles,
@@ -48,7 +48,7 @@ func (s *servicioPrueba) Consultar(context.Context, vecdomain.ContextoActor, int
 		Edicion: &reglas.Edicion{Campos: []string{reglas.CampoCantidad, reglas.CampoCantidadUrgente, reglas.CampoUnidad},
 			OpcionesUnidad: []reglas.Unidad{reglas.UnidadDiasHabiles, reglas.UnidadDiasNaturales}, CantidadMinima: 1, CantidadMaxima: 60},
 		AjusteNoAplicable: s.invalida,
-	}}, Activacion: app.ActivacionBase{Estado: estado}}, nil
+	}}, Activacion: app.ActivacionBase{Estado: estado}, CorteEn: time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)}, nil
 }
 func (s *servicioPrueba) Publicar(context.Context, vecdomain.ContextoActor, app.Solicitud) (app.Resultado, error) {
 	s.publicaciones++
@@ -168,6 +168,7 @@ func TestSoloLecturaNoAnunciaNiEjecutaGuardado(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"puede_ajustar":false`) ||
+		!strings.Contains(w.Body.String(), `"consultada_en":"2026-09-30T12:00:00Z"`) ||
 		!strings.Contains(w.Body.String(), `"activacion":{"estado":"activa"}`) ||
 		!strings.Contains(w.Body.String(), `"cantidad_urgente":"5"`) ||
 		!strings.Contains(w.Body.String(), `"opciones_unidad"`) ||
