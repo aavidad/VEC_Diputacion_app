@@ -364,7 +364,7 @@ CREATE FUNCTION vec_contratacion_temporal.leer_instantanea_necesidad_alta_v3(
  p_perfil_ref text
 ) RETURNS TABLE(estado text, instantanea bytea)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path=pg_catalog SET row_security=on SET TimeZone='UTC'
+SET search_path=pg_catalog,pg_temp SET row_security=on SET TimeZone='UTC'
 SET statement_timeout='15s' AS $funcion$
 DECLARE
  v_raiz text;

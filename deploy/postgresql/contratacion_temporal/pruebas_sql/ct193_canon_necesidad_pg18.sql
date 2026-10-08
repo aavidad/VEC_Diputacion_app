@@ -3,7 +3,7 @@ BEGIN;
 DO $prueba$
 DECLARE
  raw bytea := pg_catalog.convert_to(
-   '{"esquema":"vec.ct.necesidades_alta.v1","referencia":"catalogo:ct:ejemplo","version":1,"jornada_referencia_minutos":2250,"causas":[{"clave":"sustitucion","fecha_fin":"opcional","causa_fin":"reincorporacion_titular","maximo_meses":36,"campos_permitidos":["puesto_codigo"],"campos_obligatorios":["puesto_codigo"]}]}',
+   '{"esquema":"vec.ct.necesidades_alta.v1","referencia":"catalogo:ct:ejemplo","version":1,"jornada_referencia_minutos":2250,"causas":[{"clave":"sustitucion","regla_ref":"regla:ct:sustitucion:v1","fecha_fin":"opcional","causa_fin":"reincorporacion_titular","maximo_meses":36,"campos_permitidos":["puesto_codigo"],"campos_obligatorios":["puesto_codigo"]}]}',
    'UTF8');
  n jsonb;
  s jsonb;
@@ -11,6 +11,9 @@ DECLARE
  canon_v2 text;
  canon_v3 text;
  efecto_v3 text;
+ p_abierto jsonb;
+ s_abierta jsonb;
+ canon_abierto text;
 BEGIN
  n:=pg_catalog.jsonb_build_object(
    'esquema','vec.ct.necesidad_alta.v1',
@@ -88,11 +91,38 @@ BEGIN
        || pg_catalog.jsonb_build_object('solicitud',s-'necesidad')) THEN
    RAISE EXCEPTION 'CT193: canon de efecto divergente';
  END IF;
+ p_abierto:=pg_catalog.jsonb_build_object(
+   'inicio','2026-10-01','causa_fin','reincorporacion_titular',
+   'politica_fin',pg_catalog.jsonb_build_object(
+      'regla_ref','regla:ct:sustitucion:v1','catalogo_version',1,
+      'catalogo_huella_sha256',pg_catalog.encode(pg_catalog.sha256(raw),'hex'),
+      'fecha_fin','opcional','causa_fin','reincorporacion_titular'));
+ s_abierta:=pg_catalog.jsonb_set(
+   pg_catalog.jsonb_set(s,'{periodo}',p_abierto),'{necesidad,periodo}',p_abierto);
+ canon_abierto:=vec_contratacion_temporal.reconstruir_solicitud_efecto_v3(s_abierta);
+ IF vec_contratacion_temporal.necesidad_alta_valida_v3(s_abierta) IS NOT TRUE
+    OR canon_abierto NOT LIKE '%"periodo":{"inicio":"2026-10-01","causa_fin":"reincorporacion_titular","politica_fin":{"regla_ref":"regla:ct:sustitucion:v1","catalogo_version":1,"catalogo_huella_sha256":"%'
+    OR pg_catalog.convert_from(vec_contratacion_temporal.reconstruir_efecto_alta_v3(
+       pg_catalog.jsonb_set(a,'{solicitud}',s_abierta)),'UTF8')
+       NOT LIKE '%"solicitud":' || canon_abierto || ',"creado_en":%' THEN
+   RAISE EXCEPTION 'CT193: canon abierto de sustitución divergente';
+ END IF;
  IF pg_catalog.has_function_privilege('vec_contratacion_temporal_ejecutor',
       'vec_contratacion_temporal.necesidad_alta_valida_v3(jsonb)','EXECUTE')
     OR NOT pg_catalog.has_function_privilege('vec_contratacion_temporal_ejecutor',
       'vec_contratacion_temporal.leer_instantanea_necesidad_alta_v3(text,text,text,text)','EXECUTE') THEN
    RAISE EXCEPTION 'CT193: ACL divergente';
+ END IF;
+ IF NOT EXISTS (
+   SELECT 1 FROM pg_catalog.pg_proc p
+    WHERE p.oid=pg_catalog.to_regprocedure(
+      'vec_contratacion_temporal.leer_instantanea_necesidad_alta_v3(text,text,text,text)')
+      AND p.prosecdef
+      AND EXISTS (SELECT 1 FROM pg_catalog.unnest(p.proconfig) cfg
+                   WHERE pg_catalog.regexp_replace(cfg,'[[:space:]]','','g')
+                         ='search_path=pg_catalog,pg_temp')
+      AND p.proconfig @> ARRAY['row_security=on']) THEN
+   RAISE EXCEPTION 'CT193: guarda SECURITY DEFINER divergente';
  END IF;
 END $prueba$;
 ROLLBACK;
