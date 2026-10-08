@@ -27,9 +27,16 @@ type SituacionResumenParticipacion struct {
 	Cese               *EstadoCese
 }
 
-// LectorResumenBolsas lee de una vez, para todas las bolsas constituidas, lo
-// que el cuadro de RRHH necesita: situaciones, ceses y políticas de orden.
-// LeerResumen hace las dos lecturas en una misma instantánea.
+// ResumenBolsasRRHH reúne los datos del cuadro y el recuento de llamamientos
+// en curso para cada bolsa de la misma instantánea. El mapa incluye los ceros.
+type ResumenBolsasRRHH struct {
+	Situaciones         []SituacionResumenParticipacion
+	Politicas           map[string]dominio.PoliticaOrdenBolsa
+	LlamamientosEnCurso map[string]int
+}
+
+// LectorResumenBolsas lee situaciones, políticas y recuentos agrupados en una
+// misma instantánea de PostgreSQL, sin una consulta de emisiones por bolsa.
 type LectorResumenBolsas interface {
-	LeerResumen(context.Context, time.Time) ([]SituacionResumenParticipacion, map[string]dominio.PoliticaOrdenBolsa, error)
+	LeerResumen(context.Context, time.Time) (ResumenBolsasRRHH, error)
 }

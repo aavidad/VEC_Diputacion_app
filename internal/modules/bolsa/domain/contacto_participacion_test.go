@@ -46,3 +46,25 @@ func TestContactoDeOfertaDistingueEnvioYEntregaDeclarada(t *testing.T) {
 		}
 	}
 }
+
+func TestTelefonoActualComunicaConNotaOpcionalSinAlterarLegado(t *testing.T) {
+	base := ContactoParticipacion{ContactoRef: "contacto:01234567", BolsaRef: "bolsa:01234567", ParticipacionRef: "participacion:01234567", LlamamientoRef: "llamamiento:01234567", Canal: CanalContactoTelefono, Actor: "per_0123456789abcdefghijkl", Resultado: ResultadoContactoComunica, Anotacion: "", InstanteServidor: true}
+	if err := base.Validar(); err != nil {
+		t.Fatalf("modo servidor: %v", err)
+	}
+	conFecha := base
+	conFecha.InstanteServidor = false
+	conFecha.Instante = time.Date(2026, 10, 8, 10, 0, 0, 0, time.UTC)
+	if err := conFecha.Validar(); err != nil {
+		t.Fatalf("lectura del registro B87: %v", err)
+	}
+	for _, resultado := range []string{ResultadoContactoEnviado, ResultadoContactoNoEntregado, ResultadoContactoOtro} {
+		if ResultadoTelefonoActualValido(resultado) {
+			t.Errorf("%s no pertenece al modo telefono actual", resultado)
+		}
+	}
+	base.Canal = CanalContactoCorreo
+	if base.Validar() == nil {
+		t.Fatal("comunica no puede registrarse como correo")
+	}
+}

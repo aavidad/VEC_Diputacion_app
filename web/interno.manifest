@@ -5,6 +5,8 @@ static/comun/tema-vec.css
 static/comun/iconos-vec.js
 static/comun/idioma.js
 static/comun/textos.js
+static/comun/http.js
+static/comun/registro-errores.js
 static/comun/correos-propios.js
 static/comun/correos-propios.css
 static/comun/imagen-propia.js
@@ -53,6 +55,7 @@ static/portal-empleado/reglas/reglas.js
 static/portal-empleado/reglas/reglas.css
 static/portal-empleado/reglas/i18n.js
 static/portal-empleado/reglas/enlace.js
+static/portal-empleado/peticiones-centro/arranque-peticiones-centro.js
 static/portal-empleado/peticiones-centro/index.html
 static/portal-empleado/peticiones-centro/peticiones-centro.js
 static/portal-empleado/peticiones-centro/incorporaciones-centro.js
@@ -93,6 +96,7 @@ static/textos/es/cronos-fichaje.json
 static/textos/en/cronos-fichaje.json
 static/portal-empleado/modulos/cronos/vista-movimientos-conectado.js
 static/portal-empleado/modulos/cronos/vista-movimientos-propios.js
+static/portal-empleado/modulos/cronos/fecha-civil.js
 static/portal-empleado/modulos/cronos/i18n-incidencias.js
 static/textos/es/cronos-incidencias.json
 static/textos/en/cronos-incidencias.json
@@ -177,10 +181,14 @@ static/portal-empleado/modulos/personal/vista-rpt-publica.js
 static/portal-empleado/modulos/personal/vista-estructura-organizativa-publica.js
 static/textos/es/portal.json
 static/textos/en/portal.json
+static/textos/es/portal-arranque.json
+static/textos/en/portal-arranque.json
 static/textos/es/portal-ayuda.json
 static/textos/en/portal-ayuda.json
 static/textos/es/portal-bolsa.json
 static/textos/en/portal-bolsa.json
+static/textos/es/portal-bolsa-telefono.json
+static/textos/en/portal-bolsa-telefono.json
 static/portal-empleado/estado-entrega.css
 static/portal-empleado/estado-entrega-i18n.js
 static/portal-empleado/estado-entrega.js
@@ -329,8 +337,11 @@ static/portal-empleado/portal-bolsas-contacto-registro.js
 static/portal-empleado/portal-bolsas-operaciones.js
 static/portal-empleado/portal-bolsas-reincorporaciones.js
 static/portal-empleado/portal-bolsas-intentos.js
+static/portal-empleado/portal-bolsas-seguimiento.js
+static/portal-empleado/portal-llamamiento-origen.js
 static/portal-empleado/portal-bolsas-reglas-situacion.js
 static/portal-empleado/portal-bolsas-reglas-situacion-i18n.js
+static/portal-empleado/portal-bolsas-ruta-filtros.js
 static/portal-empleado/portal-bolsas-sanciones.js
 static/portal-empleado/portal-bolsas-traza-valores.js
 static/portal-empleado/portal-bolsas-contrato.js
@@ -350,6 +361,7 @@ static/portal-empleado/portal-componentes.css
 static/portal-empleado/portal-patrones.css
 static/portal-empleado/portal-contratos.css
 static/portal-empleado/portal-contrato.js
+static/portal-empleado/portal-ct-ruta-filtro.js
 static/portal-empleado/portal-eventos.js
 static/portal-empleado/portal-flujos.css
 static/portal-empleado/portal-i18n.js
@@ -374,6 +386,7 @@ static/portal-empleado/portal-llamamientos-contrato.js
 static/portal-empleado/portal-llamamientos-flujo.js
 static/portal-empleado/portal-llamamientos-operaciones-api.js
 static/portal-empleado/portal-menu-bolsa.css
+static/portal-empleado/portal-llamamientos-selector.js
 static/portal-empleado/portal-menu-bolsa.js
 static/portal-empleado/portal-modulos-coordinador.js
 static/portal-empleado/portal-modulos-carga.js
@@ -384,6 +397,7 @@ static/portal-empleado/portal-vistas-operaciones.js
 static/portal-empleado/portal-vistas-utilidades.js
 static/portal-empleado/portal.css
 static/portal-empleado/portal-pagina-larga.css
+static/portal-empleado/portal-arranque-aviso.js
 static/portal-empleado/portal.js
 static/textos/es/bolsa.json
 static/textos/en/bolsa.json
@@ -433,6 +447,7 @@ static/portal-empleado/modulos/contratacion-temporal/avisos-via-cobertura.css
 static/portal-empleado/modulos/contratacion-temporal/analisis-catalogo.css
 static/portal-empleado/categorias-rpt/index.html
 static/portal-empleado/categorias-rpt/arranque.js
+static/portal-empleado/categorias-rpt/montaje.js
 static/portal-empleado/categorias-rpt/vista.js
 static/portal-empleado/categorias-rpt/puerto.js
 static/portal-empleado/categorias-rpt/cliente.js
@@ -463,6 +478,7 @@ static/textos/es/contratacion-temporal-ficha-lista.json
 static/textos/es/contratacion-temporal-informe-tras-subsanacion.json
 static/textos/es/contratacion-temporal-llamamiento.json
 static/textos/es/contratacion-temporal-moad.json
+static/textos/es/contratacion-temporal-necesidades-alta.json
 static/textos/es/contratacion-temporal-subsanacion-reparos.json
 static/textos/es/contratacion-temporal-textos-vistas.json
 static/textos/es/contratacion-temporal-compatibilidad.json
@@ -475,6 +491,7 @@ static/textos/en/contratacion-temporal-ficha-lista.json
 static/textos/en/contratacion-temporal-informe-tras-subsanacion.json
 static/textos/en/contratacion-temporal-llamamiento.json
 static/textos/en/contratacion-temporal-moad.json
+static/textos/en/contratacion-temporal-necesidades-alta.json
 static/textos/en/contratacion-temporal-subsanacion-reparos.json
 static/textos/en/contratacion-temporal-textos-vistas.json
 static/textos/en/contratacion-temporal-compatibilidad.json
@@ -616,3 +633,11 @@ static/portal-empleado/modulos/personal/vista-historia-relaciones-propia.js
 static/portal-empleado/modulos/personal/i18n-historia-relaciones-propia.js
 static/textos/es/personal-historia-relaciones.json
 static/textos/en/personal-historia-relaciones.json
+static/portal-empleado/modulos/contratacion-temporal/fases-rrhh-datos.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-vistas.js
+static/portal-empleado/modulos/contratacion-temporal/vista-cuadro-ligera.js
+static/portal-empleado/modulos/contratacion-temporal/alta-renderer-puro.js
+static/portal-empleado/peticiones-centro/i18n-peticiones-centro.js
+static/textos/es/peticiones-centro.json
+static/textos/en/peticiones-centro.json
+static/portal-empleado/organizacion/arranque.js

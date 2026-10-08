@@ -1,4 +1,4 @@
-import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261002-ct-fin-moad-v1";
+import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261008-alta-circular-v3";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -298,6 +298,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
       throw errorCliente("cabeceras_no_disponibles", { causa: error });
     }
     let respuesta;
+    let respuestaConsumida = false;
     try {
       const opcionesFetch = {
         method: metodo,
@@ -375,13 +376,14 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
           causa: error,
         });
       }
+      respuestaConsumida = true;
       return validada;
     } catch (error) {
       throw efecto
         ? clasificarResultadoEfecto(error, rechazoDeterminado)
         : error;
     } finally {
-      await cancelarRespuesta(respuesta);
+      if (!respuestaConsumida) await cancelarRespuesta(respuesta);
     }
   }
 

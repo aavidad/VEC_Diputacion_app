@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 
 const expediente_ref = "expediente:ct:anotacion";
 const clave_idempotencia = "8e2ee4bf-5c95-48da-a0ed-f1d8ca2c4a50";

@@ -120,7 +120,7 @@ func (s *Servicio) CustodiarOriginalFirmable(
 ) (ports.IntentoOriginalFirmable, error) {
 	if !s.disponible() || dependenciaNula(autoridad) || ctx == nil || ctx.Err() != nil ||
 		!domain.ReferenciaOpacaValida(in.ID) || !domain.ReferenciaOpacaValida(in.ClaveIdempotencia) ||
-		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaOpacaValida(in.ExpedienteRef) ||
+		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaExpedienteModuloValida(in.ModuloID, in.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(in.TipoRef) || in.Version == 0 || in.Version > 9007199254740991 ||
 		in.MIME != "application/pdf" || len(in.Contenido) < 8 || len(in.Contenido) > 1<<20 ||
 		!bytes.HasPrefix(in.Contenido, []byte("%PDF-")) || in.SolicitudPolitica.Validar() != nil ||

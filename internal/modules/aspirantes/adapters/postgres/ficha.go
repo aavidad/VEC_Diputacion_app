@@ -36,6 +36,14 @@ const (
 	altaSQL        = `SELECT vec_aspirantes.alta_ficha_propia_v1($1::text,$12::jsonb,` + firmaV3 + `)`
 	aplicarSQL     = `SELECT vec_aspirantes.aplicar_rectificacion_ficha_v1($1::jsonb)`
 	maxRespuestaDB = 64 << 10
+	// Los seis ajustes conservan el valor y el alcance de SET LOCAL. La
+	// acreditación del LOGIN sigue en la siguiente llamada de cada transacción.
+	ajustesTransaccionSQL = `SELECT pg_catalog.set_config('search_path','pg_catalog',true),
+ pg_catalog.set_config('row_security','on',true),
+ pg_catalog.set_config('timezone','UTC',true),
+ pg_catalog.set_config('lock_timeout','3s',true),
+ pg_catalog.set_config('statement_timeout','15s',true),
+ pg_catalog.set_config('idle_in_transaction_session_timeout','20s',true)`
 )
 
 // El LOGIN solo puede heredar el ejecutor externo, sin SET ROLE ni otras
@@ -119,17 +127,8 @@ func (r *RegistroFichasPostgreSQL) abrir(ctx context.Context) (transaccion, erro
 		_ = tx.Rollback(context.Background())
 		return nil, errorSeguro(ctx, err)
 	}
-	for _, ajuste := range [...]string{
-		"SET LOCAL search_path = pg_catalog",
-		"SET LOCAL row_security = on",
-		"SET LOCAL TIME ZONE 'UTC'",
-		"SET LOCAL lock_timeout = '3s'",
-		"SET LOCAL statement_timeout = '15s'",
-		"SET LOCAL idle_in_transaction_session_timeout = '20s'", // AD3 exige ≤ 20 s.
-	} {
-		if _, err := tx.Exec(ctx, ajuste); err != nil {
-			return fallar(err)
-		}
+	if _, err := tx.Exec(ctx, ajustesTransaccionSQL); err != nil {
+		return fallar(err)
 	}
 	var valido bool
 	if err := tx.QueryRow(ctx, acreditarEjecutorSQL, RolEjecutor).Scan(&valido); err != nil {

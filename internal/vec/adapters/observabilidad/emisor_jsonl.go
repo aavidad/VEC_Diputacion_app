@@ -112,9 +112,10 @@ type EmisorJSONLines struct {
 }
 
 var (
-	_ ports.EmisorIncidenciasTecnicasConContexto = (*EmisorJSONLines)(nil)
-	_ ports.ConsultaMetricasEmisionIncidencias   = (*EmisorJSONLines)(nil)
-	_ ports.CierreEmisionIncidencias             = (*EmisorJSONLines)(nil)
+	_ ports.EmisorIncidenciasTecnicasConContexto    = (*EmisorJSONLines)(nil)
+	_ ports.AceptadorIncidenciasTecnicasConContexto = (*EmisorJSONLines)(nil)
+	_ ports.ConsultaMetricasEmisionIncidencias      = (*EmisorJSONLines)(nil)
+	_ ports.CierreEmisionIncidencias                = (*EmisorJSONLines)(nil)
 )
 
 // NuevoEmisorJSONLines crea el emisor y arranca su trabajador. Debe cerrarse
@@ -172,14 +173,20 @@ func NuevoEmisorJSONLines(o OpcionesEmisor) (*EmisorJSONLines, error) {
 
 // Emitir sanea la solicitud y la encola sin bloquear. Nunca hace E/S.
 func (e *EmisorJSONLines) Emitir(s domain.SolicitudIncidenciaTecnica) {
-	e.EmitirConContexto(nil, s)
+	e.EmitirConContexto(context.Background(), s)
 }
 
 // EmitirConContexto copia únicamente la correlación interna antes de encolar.
 // No retiene contexto ni genera aleatoriedad o hace E/S en el llamante.
 func (e *EmisorJSONLines) EmitirConContexto(ctx context.Context, s domain.SolicitudIncidenciaTecnica) {
+	e.AceptarConContexto(ctx, s)
+}
+
+// AceptarConContexto confirma solo la entrada en la cola no bloqueante.
+// El destino se escribe más tarde; una escritura fallida queda en métricas.
+func (e *EmisorJSONLines) AceptarConContexto(ctx context.Context, s domain.SolicitudIncidenciaTecnica) bool {
 	if e == nil {
-		return
+		return false
 	}
 	// Invariante: incrementar enVuelo ANTES de leer cerrado. Cerrar marca la
 	// bandera y después espera a enVuelo == 0; si el orden se invirtiera, una
@@ -188,7 +195,7 @@ func (e *EmisorJSONLines) EmitirConContexto(ctx context.Context, s domain.Solici
 	defer e.enVuelo.Add(-1)
 	if e.cerrado.Load() {
 		e.descartadas.Add(1)
-		return
+		return false
 	}
 	clasificacion, saneada := domain.ClasificarIncidenciaTecnica(s)
 	correlacion, _ := ports.CorrelacionIncidenciasPeticion(ctx)
@@ -198,8 +205,10 @@ func (e *EmisorJSONLines) EmitirConContexto(ctx context.Context, s domain.Solici
 		if saneada {
 			e.saneadas.Add(1)
 		}
+		return true
 	default:
 		e.descartadas.Add(1)
+		return false
 	}
 }
 

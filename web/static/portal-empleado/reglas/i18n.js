@@ -6,7 +6,15 @@
  * portal usa el catálogo común y no depende de esta carga opcional.
  */
 const { cargarTextos } = await import("../../comun/textos.js");
-const { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, LOCALIZACION_ACTUAL } = await import("../../comun/idioma.js");
+const idioma = await import("../../comun/idioma.js");
+
+// La lectura del catálogo prepara el índice antes de fijar los idiomas de esta página.
+export let ERROR_TEXTOS_REGLAS = null;
+const TEXTOS_REGLAS = await cargarTextos("reglas").catch((error) => {
+  ERROR_TEXTOS_REGLAS = error;
+  return null;
+});
+const { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, LOCALIZACION_ACTUAL } = idioma;
 
 /** Idioma de la interfaz, para el atributo `lang` de la página. */
 export const IDIOMA_REGLAS = IDIOMA_ACTUAL;
@@ -32,12 +40,14 @@ const catalogoCompleto = (catalogo) => catalogo && typeof catalogo === "object"
   && CLAVES.every((clave) => typeof catalogo[clave] === "string" && catalogo[clave] !== "")
   && catalogo.parteEjemplo.includes("{texto}");
 
-const TEXTOS_REGLAS = await cargarTextos("reglas").catch(() => null);
 export const MENSAJES_REGLAS = (() => {
   try {
     const catalogo = TEXTOS_REGLAS?.seccion("general");
-    return catalogoCompleto(catalogo) ? catalogo : null;
-  } catch {
+    if (catalogoCompleto(catalogo)) return catalogo;
+    if (TEXTOS_REGLAS) ERROR_TEXTOS_REGLAS = new TypeError("catálogo i18n de reglas incompleto");
+    return null;
+  } catch (error) {
+    ERROR_TEXTOS_REGLAS = error;
     return null;
   }
 })();

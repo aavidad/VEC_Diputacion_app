@@ -1,16 +1,11 @@
 import { escaparHTML } from "./vistas/comunes.js";
-import { IDIOMAS_DISPONIBLES, IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../comun/idioma.js";
-import { cargarTextos } from "../comun/textos.js";
+import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
+import { traducir } from "./i18n.js";
 import { cargarTextosCorreos, crearClienteCorreos, crearSuperficieCorreos } from "../comun/correos-propios.js?v=20260929-correos-508b-v1";
-import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20260929-imagen-508c-v2";
+import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20261007-p7-http-v1";
 
-const textosPorIdioma = new Map(await Promise.all(IDIOMAS_DISPONIBLES.map(async ({ codigo }) =>
-  [codigo, await cargarTextos("preferencias", { idioma: codigo })])));
-const P = (clave, variables = {}) => {
-  const idioma = globalThis.document?.documentElement?.lang ?? IDIOMA_ACTUAL;
-  const textos = textosPorIdioma.get(idioma) ?? textosPorIdioma.get(IDIOMA_POR_DEFECTO);
-  return textos.traducir(`areaPersonal.preferencias.${clave}`, variables);
-};
+// i18n.js ya carga el idioma activo y prepara el índice antes de este módulo.
+const P = (clave, variables = {}) => traducir(`areaPersonal.preferencias.${clave}`, variables);
 const CAMPOS = Object.freeze([
   ["idioma", "idiomas"], ["tamano_texto", "tamanos_texto"],
   ["tema", "temas"], ["inicio", "inicios"], ["filas", "filas"],

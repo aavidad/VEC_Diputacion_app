@@ -169,8 +169,28 @@ func Middleware(o Opciones, siguiente http.Handler) http.Handler {
 				slog.Int64("vec.bd.consultas", consultas),
 				slog.Float64("vec.bd.duracion", segundos(time.Duration(bd.bd.Load()))),
 			}
+			if fases := bd.resumenFases(); len(fases) > 0 {
+				atributos = append(atributos, slog.Any("vec.fases", fases))
+			}
 			if espera := time.Duration(bd.espera.Load()); espera > 0 {
 				atributos = append(atributos, slog.Float64("vec.bd.espera_conexion", segundos(espera)))
+			}
+			if lotes := bd.lotes.Load(); lotes > 0 {
+				atributos = append(atributos,
+					slog.Int64("vec.bd.lotes", lotes),
+					slog.Int64("vec.bd.lote.resultados_observados", bd.resultadosLote.Load()),
+					slog.Int64("vec.bd.lote.errores", bd.erroresLote.Load()),
+					slog.Float64("vec.bd.lote.duracion_hasta_cierre", time.Duration(bd.duracionLote.Load()).Seconds()))
+			}
+			if lenta || estado >= 400 {
+				// Las operaciones son nombres depurados, con cardinalidad acotada.
+				// Un lote tiene duración propia: no se asigna al primer SQL.
+				if desconocidas := bd.desconocidas.Load(); desconocidas > 0 {
+					atributos = append(atributos, slog.Int64("vec.bd.operaciones_desconocidas", desconocidas))
+				}
+				if resumen := bd.resumenOperaciones(); len(resumen) > 0 {
+					atributos = append(atributos, slog.Any("vec.bd.operaciones", resumen))
+				}
 			}
 			bd.mu.Lock()
 			if bd.ultimoErr != "" {
@@ -186,11 +206,10 @@ func Middleware(o Opciones, siguiente http.Handler) http.Handler {
 				atributos = append(atributos, slog.String("error.type", tipo))
 			}
 			if lenta {
-				// El análisis del texto SQL solo se hace en las lentas.
 				atributos = append(atributos, slog.Bool("vec.lenta", true))
-				if bd.sqlMaxima != "" {
-					atributos = append(atributos, slog.String("vec.bd.consulta_mas_lenta", operacion(bd.sqlMaxima)),
-						slog.Float64("vec.bd.consulta_mas_lenta.duracion", segundos(bd.maxima)))
+				if bd.opMaxima != "" {
+					atributos = append(atributos, slog.String("vec.bd.consulta_mas_lenta", bd.opMaxima),
+						slog.Float64("vec.bd.consulta_mas_lenta.duracion", bd.maxima.Seconds()))
 				}
 			}
 			bd.mu.Unlock()

@@ -1,5 +1,5 @@
-import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20261001-ct-a-i18n-v1";
-import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20261008-borradores-error-legible-v1";
+import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 export const FASE_INICIAL = "inicial";
 export const FASE_CARGANDO = "cargando";

@@ -54,3 +54,32 @@ Fuera de este plan: el envío de SMS y Telegram (decisión del 02/10: solo corre
 Cada pieza sigue las reglas de siempre. Si toca SQL: reserva previa en `RESERVAS_MIGRACIONES.md`, `revisar-sql-vec`, ensayo en el clon de la principal y revisión SQL independiente. Si toca pantallas: `usabilidad-vec`, `aspecto-vec` e `impeccable` antes de programar y revisión de usabilidad independiente. Textos en catálogos por idioma.
 
 Ficheros grandes que conviene no engordar más: `bootstrap/bolsa_borrador_llamamiento_desarrollo.go` (936 líneas), `web/static/portal-empleado/portal-bolsas-api.js` (1152) y `bolsa/domain/llamamientos.go` (1208). Una pieza nueva va en un fichero nuevo.
+
+## Recuento de llamamientos en el cuadro RRHH — 7 de octubre de 2026
+
+El corte B85, preparado en `1b5b48e2117a45ee8fa22426b463062d2c14310a`, agrupa los llamamientos en curso de las bolsas constituidas. El cuadro y las estadísticas leen situaciones, políticas y recuentos en tres consultas dentro de una transacción `REPEATABLE READ`. La ruta de conjunto deja de consultar los llamamientos bolsa por bolsa. B85 conserva el criterio de la función B17 y devuelve cero para las bolsas sin llamamientos. Requiere B82 instalada y no añade configuración. Si falta B85, la aplicación arranca con el camino legado completo: continúa una consulta `ContarEnCurso` por bolsa y, por tanto, el N+1.
+
+En un clon local PostgreSQL 18.4 con 13 bolsas y 2.390 candidaturas, B85 se instaló una vez. Sus 13 recuentos coincidieron con B17; la suma fue 1. El test del adaptador registró exactamente una consulta de situaciones, una de políticas y una de recuentos. En 100 lecturas del adaptador, el p95 fue de 12,99 ms; esa cifra no incluye HTTP.
+
+El recorrido HTTP del mismo código fuente usó la autenticación mTLS y el perfil técnico vigente de la ruta existente. `/api/vec/bolsa/bolsas` y `/api/vec/bolsa/estadisticas` respondieron 200 en 11 peticiones cada una, con tres consultas SQL por petición. Entre las diez peticiones de medición, el p95 fue de 19,298 ms para bolsas y 18,039 ms para estadísticas. El conjunto conservó 13 bolsas y 2.390 participaciones; la respuesta de bolsas sumó un llamamiento en curso. La prueba no habilitó una acción V3 nueva ni cambió el alcance del permiso. La interfaz sigue indicando «No disponible» para el histórico de llamamientos, que este corte no acredita.
+
+La evidencia HTTP se conserva fuera de Git con SHA256 `526249a66918018e2b4a7bc3638da964153e4244e117c1fba90315d3b2eb75b1`. La instalación y el recorrido fueron locales; no acreditan instalación en la principal ni producción.
+
+### Optimización posterior B86 — 8 de octubre de 2026
+
+B85 evita el N+1, pero su consulta todavía descompone las participaciones de cada llamamiento histórico de una bolsa vigente. B86 prepara una marca privada de completitud de correo por llamamiento y la rellena una vez con el predicado exacto de B17. En adelante, los INSERT de emisiones y contactos actualizan la proyección en la misma transacción; el cuadro suma las marcas por bolsa, sin volver a recorrer los contactos históricos. Una fila privada de coordinación por llamamiento impide que dos contactos simultáneos confirmen una marca incompleta bajo `READ COMMITTED`, `REPEATABLE READ` o `SERIALIZABLE`. La proyección conserva referencias opacas y no guarda datos de contacto ni modifica la historia B13/B17.
+
+B86 requiere B17, B82 y B85 instaladas. B85 ya tiene historia: no debe repetirse su UP ni ejecutarse un DOWN. El candidato `c5ed5154946568b319aef04b432569b53cbdbabd` recibió dos revisiones estáticas favorables. Se instaló una vez en un clon aislado PostgreSQL 18.4, después de restaurar HX, aplicar las 14 SQL de HZ y B85 en orden. No se ha instalado en una base compartida ni añade una decisión de autorización.
+
+En ese clon, el backfill de B86 sobre 39.000 llamamientos y 100.002 contactos quedó incluido en una instalación de 0,87 s. Los 30.001 completos coincidieron con B17. Tras ampliar el historial a 100.012 llamamientos, la prueba volvió a confirmar paridad; la lectura agrupada tuvo p95 de 12,184 ms en 100 consultas SQL, frente a 13,103 ms con 39.000. Son tiempos de SQL local, sin HTTP. Se probaron seis carreras: dos últimos contactos y contacto anterior a la emisión bajo `READ COMMITTED`, `REPEATABLE READ` y `SERIALIZABLE`; en las dos últimas, la escritura concurrente obtuvo `40001` y el reintento completo del ensayo dejó una sola marca. El backend no hace ese reintento automáticamente, por lo que esta prueba no acredita recuperación transparente de una finalización concurrente. También pasaron el lote de 100 contactos, una entrada inválida, un replay sin incremento, la reversión y la lectura tras reiniciar PostgreSQL.
+
+Antes de actualizar estadísticas, una lectura B85 sobre el historial nuevo seguía activa a los 185 s y se canceló; después de `ANALYZE` tardó 0,59 s. Estas cifras miden planes distintos y no se usan como una comparación directa de p95. Una base vacía copiada solo a nivel de esquema devolvió cero bolsas y pasó las pruebas tras restituir los permisos de sus tipos de fila, que la copia de esquema no había conservado. La evidencia completa queda fuera de Git, en el entorno privado de ensayo. Faltan la revisión SQL final del resultado físico, la integración y el despliegue controlado.
+
+
+## Inicio y filtros al volver — 8 de octubre de 2026
+
+La cifra de disponibles de cada bolsa en Inicio abre su lista paginada con el estado «Disponible». También permite consultar una lista vacía cuando la cifra es cero. Un dato desconocido o una referencia inválida se muestra sin enlace. El nombre de la bolsa sigue abriendo la lista completa; la portada no pide candidaturas hasta que se pulsa el enlace.
+
+Al salir de una lista de Bolsa hacia Inicio se retiran `bolsa_ref`, `estado` y `cursor` de la URL; se conservan los parámetros del portal. Atrás y Adelante recuperan la entrada anterior con su filtro. Las URL antiguas que ya apuntan a Inicio se corrigen sin crear otra entrada de historial.
+
+Los tres totales globales siguen pendientes de una lectura global autorizada y paginada. Hoy suman participaciones en bolsas, por lo que una persona incluida en varias bolsas puede contar varias veces. No se debe sustituir ese conjunto por una lista de una sola bolsa ni consultar cada bolsa desde el navegador para reconstruirlo.

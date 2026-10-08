@@ -6,6 +6,7 @@ import {
   VISTA_CANDIDATOS_BOLSA,
   VISTAS_INTERNAS_BOLSA,
   alternarGrupoBolsa,
+  aplicarDisponibilidadMenuBolsa,
   categoriaDeVistaBolsa,
   instalarMenuBolsa,
   resumenAccesosModulos,
@@ -27,13 +28,13 @@ test("Reglas de cese solo se ofrecen tras su consulta V3 positiva", () => {
 
 test("P-WEB-14 no anuncia un total mientras Bolsa sigue comprobando", () => {
   const accesos = [{ disponible: true, estado: "disponible" }, { disponible: false, estado: "cargando" }];
-  assert.equal(resumenAccesosModulos(accesos, false), "Comprobando módulos");
-  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], true), "Comprobando módulos");
-  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], false), "1 módulo disponible");
-  assert.equal(resumenAccesosModulos([{ disponible: false, estado: "denegado" }], false), "Sin módulos disponibles");
+  assert.equal(resumenAccesosModulos(accesos, false), "Comprobando áreas");
+  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], true), "Comprobando áreas");
+  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], false), "1 área disponible");
+  assert.equal(resumenAccesosModulos([{ disponible: false, estado: "denegado" }], false), "Sin áreas disponibles");
   assert.doesNotMatch(resumenAccesosModulos([], false), /fase inicial/iu);
   const dos = [{ disponible: true, estado: "disponible" }, { disponible: true, estado: "disponible" }];
-  assert.equal(resumenAccesosModulos(dos, false), "2 módulos disponibles");
+  assert.equal(resumenAccesosModulos(dos, false), "2 áreas disponibles");
   // Los textos salen del catálogo i18n, no de literales del módulo.
   const claves = [];
   resumenAccesosModulos(dos, false, (clave, variables) => { claves.push([clave, variables]); return clave; });
@@ -194,7 +195,7 @@ test("las entradas del menú llevan solo a recorridos disponibles", () => {
     assert.doesNotMatch(boton, /categoria-menu-pendiente|\sdisabled(?:\s|=|>)|aria-disabled="true"/);
     assert.doesNotMatch(boton, /aria-describedby|pendiente/iu);
   }
-  assert.equal(vistaBolsaPendienteNoCompuesta("llamamientos"), true);
+  assert.equal(vistaBolsaPendienteNoCompuesta("llamamientos"), false);
   assert.equal(vistaBolsaPendienteNoCompuesta("contratos"), true);
   assert.equal(vistaBolsaPendienteNoCompuesta("resumen"), false);
   assert.equal(vistaBolsaPendienteNoCompuesta("desconocida"), false);
@@ -341,15 +342,25 @@ function categoriasVisibles(raiz) {
 test("sin panel interno ni borradores, el menú de Bolsa solo ofrece lo que tiene servicio", async () => {
   const { aplicarDisponibilidadMenuBolsa } = await import("./portal-menu-bolsa.js");
   const raiz = menuDesdeHTML();
-  const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: false, contratacionTemporal: true });
+  const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: true });
   assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos"]);
   assert.equal(indicadores.length, 4, "se renumeran solo las categorías visibles");
   // Grupos enteros sin servicio (convocatorias…, reglas, auditoría) quedan ocultos.
   assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").length, 3);
   assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").every((grupo) => grupo.hidden), true);
   // Sin contratación temporal, «Documentos y firma» tampoco se ofrece.
-  aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: false, contratacionTemporal: false });
+  aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false });
   assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas"]);
+});
+
+test("el menú espera la lectura positiva de bolsas sin impedir el estado de una URL directa", async () => {
+  const { aplicarDisponibilidadMenuBolsa, vistaBolsaNavegable } = await import("./portal-menu-bolsa.js");
+  const raiz = menuDesdeHTML();
+  aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: false, borradores: false, contratacionTemporal: false });
+  assert.deepEqual(categoriasVisibles(raiz), []);
+  for (const vista of ["resumen", "estadisticas", "llamamientos"]) {
+    assert.equal(vistaBolsaNavegable(vista, { bolsasConsultables: false }), true, vista);
+  }
 });
 
 // E10/P1: RRHH sin panel interno no perdía «Elaboración y borradores» aunque su
@@ -362,32 +373,32 @@ test("Elaboración solo se ofrece a RRHH cuando su API consta disponible", async
   const raiz = menuDesdeHTML();
   const elaboracion = () => raiz.querySelectorAll(".submenu-bolsa [data-vista]")
     .find((control) => control.getAttribute("data-vista") === "elaboracion");
-  aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: true, contratacionTemporal: true });
+  aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: true, contratacionTemporal: true });
   assert.equal(elaboracion().hidden, false);
   assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos"]);
   for (const borradores of [null, false]) {
-    aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores, contratacionTemporal: true });
+    aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores, contratacionTemporal: true });
     assert.equal(elaboracion().hidden, true, String(borradores));
     assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos"]);
   }
 });
 
-test("cada capacidad real vuelve a ofrecer sus entradas del menú de Bolsa", async () => {
+test("el panel antiguo no anuncia recorridos sin API compuesta", async () => {
   const { aplicarDisponibilidadMenuBolsa } = await import("./portal-menu-bolsa.js");
   const raiz = menuDesdeHTML();
-  aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: true, contratacionTemporal: true });
+  aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: true, contratacionTemporal: true });
   const grupoBolsas = raiz.querySelectorAll(".grupo-menu-bolsa")[0];
   assert.equal(grupoBolsas.hidden, false);
   assert.deepEqual(grupoBolsas.querySelectorAll(".submenu-bolsa [data-vista]").filter((control) => !control.hidden)
     .map((control) => control.getAttribute("data-vista")), ["elaboracion"]);
-  const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: true, borradores: true, contratacionTemporal: true });
-  assert.equal(indicadores.length, 10);
-  assert.deepEqual(categoriasVisibles(raiz), Object.keys(CATEGORIAS_MENU_BOLSA));
+  const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: true, borradores: true, contratacionTemporal: true });
+  assert.equal(indicadores.length, 5);
+  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos"]);
 });
 
 test("la navegación directa a una vista de Bolsa sin servicio no se permite", async () => {
   const { vistaBolsaNavegable, vistaBolsaOfrecida } = await import("./portal-menu-bolsa.js");
-  const sinServicio = { panelInterno: false, borradores: false, contratacionTemporal: false };
+  const sinServicio = { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false };
   for (const vista of ["convocatorias", "solicitudes", "meritos", "alegaciones", "importacion", "contratos",
     "reglas", "baremacion", "consulta", "documentos", "comunicaciones", "auditoria", "configuracion", "elaboracion"]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), false, vista);
@@ -406,10 +417,37 @@ test("la navegación directa a una vista de Bolsa sin servicio no se permite", a
 
 test("el llamamiento con bolsa elegida no pinta el aviso del panel interno", () => {
   const inicio = codigoPortal.indexOf("function montarVistaBolsa(");
-  const fin = codigoPortal.indexOf("function renderizarLlamamientoSinBolsa(", inicio);
+  const fin = codigoPortal.indexOf("function actualizarVistaBolsa(", inicio);
   const montaje = codigoPortal.slice(inicio, fin);
   assert.ok(inicio > 0 && fin > inicio);
   assert.doesNotMatch(montaje, /renderizarFuenteNoDisponible\(\)\}\$\{superficieBorradorLlamamiento/u);
-  assert.match(montaje, /encabezadoVista\("", tituloDeVista\(vista\)\[1\], ""\)\}\$\{superficieBorradorLlamamiento\.renderizar\(\)\}/u);
+  assert.match(montaje, /renderizarPantallaLlamamientos\(\{ estado, encabezadoVista, escaparHTML, presentador: presentadorPanelInterno \}\)/u);
+  assert.doesNotMatch(montaje, /superficieBorradorLlamamiento\.renderizar/u);
   assert.match(codigoPortal, /if \(moduloDeVistaPortal\(vista\) === "bolsa"\) return vistaBolsaNavegable\(vista, capacidadesBolsa\(\)\)/u);
+});
+
+
+test("los controles de rutas sin consumidor se retiran del DOM y se conserva la auditoría de la ficha", () => {
+  const retirados = [];
+  const raiz = { querySelectorAll(selector) {
+    if (selector !== "[data-vista]") return [];
+    return ["documentos", "contratos", "importacion", "auditoria"].map((vista) => ({
+      getAttribute: () => vista, dataset: {}, remove: () => retirados.push(vista),
+    }));
+  } };
+  aplicarDisponibilidadMenuBolsa(raiz, { auditoriaReferencia: true });
+  assert.deepEqual(retirados, ["documentos", "contratos", "importacion"]);
+});
+
+
+test("las rutas pendientes conservan su vista al navegar y al pintar tras F5 sin habilitar operaciones", () => {
+  const inicio = codigoPortal.indexOf("function vistaPermitida(");
+  const fin = codigoPortal.indexOf("\n}\n", inicio);
+  const decidir = new Function("vistaBolsaPendienteNoCompuesta", `${codigoPortal.slice(inicio, fin + 3)}; return vistaPermitida;`)(vistaBolsaPendienteNoCompuesta);
+  for (const vista of ["contratos", "documentos", "comunicaciones", "convocatorias"]) {
+    assert.equal(decidir(vista), true);
+    assert.equal(vistaBolsaOfrecida(vista, { bolsasConsultables: true, panelInterno: true }), false);
+  }
+  const montar = codigoPortal.slice(codigoPortal.indexOf("function montarVistaBolsa("), codigoPortal.indexOf("function actualizarVistaBolsa("));
+  assert.match(montar, /if \(vistaBolsaPendienteNoCompuesta\(vista\)\) \{\s*contenedor.innerHTML = renderizarFuenteNoDisponible\(\);\s*return;/u);
 });

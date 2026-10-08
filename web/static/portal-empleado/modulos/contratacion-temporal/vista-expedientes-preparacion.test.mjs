@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261001-ct-a-i18n-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-alta-rpt-circular-v6";
 
 const HUELLA = "b".repeat(64);
 
@@ -17,19 +17,20 @@ function catalogo() {
 
 function superficie() {
   const eventos = new Map();
-  const zona = { innerHTML: "", eventos, enfocado: null,
+  const consultas = [];
+  const zona = { innerHTML: "", eventos,
     addEventListener(tipo, funcion) { eventos.set(tipo, funcion); },
     removeEventListener(tipo) { eventos.delete(tipo); },
     replaceChildren() { this.innerHTML = ""; },
-    querySelector(selector) { return { focus: () => { zona.enfocado = selector; } }; },
   };
   const alta = { innerHTML: "", replaceChildren() { this.innerHTML = ""; } };
   const raiz = { querySelector(selector) {
+    consultas.push(selector);
     if (selector === "[data-ct-exp-preparacion]") return zona;
     if (selector === "[data-ct-exp-alta]") return alta;
     return null;
   } };
-  return { zona, alta, raiz };
+  return { zona, alta, raiz, consultas };
 }
 
 function gestorPara(superficieActual, catalogos) {
@@ -37,46 +38,57 @@ function gestorPara(superficieActual, catalogos) {
     raiz: superficieActual.raiz,
     presentador: { obtenerEstado: () => ({ vista: "alta" }) },
     altaDisponible: true,
-    // Sin presentador de alta válido el formulario cae a su aviso propio: la
-    // relación por vía no depende de él.
     alta: { catalogos, ejecutor: async () => {} },
   });
 }
 
-function pulsar(zona, via, type = "click", key) {
-  zona.eventos.get(type)({ type, key, preventDefault() {},
-    target: { closest: (selector) => (selector === "[data-ct-preparacion-pestana]"
-      ? { dataset: { ctPreparacionPestana: via } } : null) } });
-}
-
-test("la nueva petición muestra la relación por vía que trae el catálogo del alta, sin otra consulta", () => {
+test("el alta no monta la relación de cobertura de ejemplo ni sus escuchas", () => {
   const actual = superficie();
   const gestor = gestorPara(actual, { preparacion_vias: catalogo() });
   gestor.montarAltaSiProcede();
-  assert.match(actual.zona.innerHTML, /role="tablist"/u);
-  assert.match(actual.zona.innerHTML, /id="ct-preparacion-alta-pestana-bolsa_vigente"[^>]*aria-selected="true"/u);
-  assert.match(actual.zona.innerHTML, /No hace falta nada en este apartado/u);
-  pulsar(actual.zona, "oferta_sae");
-  assert.match(actual.zona.innerHTML, /id="ct-preparacion-alta-pestana-oferta_sae"[^>]*aria-selected="true"/u);
-  assert.equal(actual.zona.enfocado, '[data-ct-preparacion-pestana="oferta_sae"]');
-  pulsar(actual.zona, "oferta_sae", "keydown", "Home");
-  assert.match(actual.zona.innerHTML, /id="ct-preparacion-alta-pestana-bolsa_vigente"[^>]*aria-selected="true"/u);
-  gestor.retirarComponentes();
+  assert.ok(actual.consultas.includes("[data-ct-exp-alta]"));
+  assert.ok(!actual.consultas.includes("[data-ct-exp-preparacion]"));
   assert.equal(actual.zona.innerHTML, "");
+  assert.equal(actual.zona.eventos.size, 0);
+  gestor.montarAltaSiProcede();
+  assert.equal(actual.zona.eventos.size, 0);
+  gestor.retirarComponentes();
   assert.equal(actual.zona.eventos.size, 0);
 });
 
-test("sin relación en el catálogo del alta la zona queda vacía y volver a montar no duplica escuchas", () => {
+test("sin relación por vía, el error del formulario de alta sigue visible y recuperable", () => {
   const actual = superficie();
   const gestor = gestorPara(actual, {});
   gestor.montarAltaSiProcede();
   assert.equal(actual.zona.innerHTML, "");
   assert.equal(actual.zona.eventos.size, 0);
-  const con = superficie();
-  const otro = gestorPara(con, { preparacion_vias: catalogo() });
-  otro.montarAltaSiProcede();
-  otro.montarAltaSiProcede();
-  assert.equal(con.zona.eventos.size, 2);
-  assert.match(con.zona.innerHTML, /data-ct-preparacion-vias/u);
-  otro.retirarComponentes();
+  assert.match(actual.alta.innerHTML, /data-ct-exp-accion="reintentar"/u);
+  gestor.retirarComponentes();
+});
+
+test("la consulta de necesidades v2 espera a abrir Alta y comparte el intento en curso", async () => {
+  const actual = superficie();
+  let vista = "cuadro";
+  let llamadas = 0;
+  let rechazar;
+  const pendiente = new Promise((_, rechazo) => { rechazar = rechazo; });
+  const gestor = crearGestorTramitacion({
+    raiz: actual.raiz,
+    presentador: { obtenerEstado: () => ({ vista }) },
+    altaDisponible: true,
+    alta: { catalogos: {}, ejecutor: async () => {},
+      obtenerCatalogosNecesidadesAlta: () => { llamadas++; return pendiente; } },
+  });
+  gestor.montarAltaSiProcede();
+  assert.equal(llamadas, 0);
+  vista = "alta";
+  gestor.montarAltaSiProcede();
+  gestor.montarAltaSiProcede();
+  await Promise.resolve();
+  assert.equal(llamadas, 1);
+  assert.match(actual.alta.innerHTML, /role="status"/u);
+  rechazar(new Error("catálogo no disponible"));
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.match(actual.alta.innerHTML, /data-ct-exp-accion="reintentar"/u);
+  gestor.retirarComponentes();
 });

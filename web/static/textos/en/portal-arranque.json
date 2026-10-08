@@ -1,0 +1,7 @@
+{
+  "titulo": "Employee Portal",
+  "cargando": "Checking access…",
+  "titulo_error": "This screen is not available",
+  "error": "The portal could not open. Check your connection and select Try again. If it still fails, contact IT.",
+  "reintentar": "Try again"
+}

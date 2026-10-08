@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { API_ORGANIZACION_HISTORICA, RUTAS_IMPORTACION, crearClienteHistorico, crearClienteImportacion,
+import { MENSAJES_PERSONAL, crearTraductorPersonal, prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
+
+await prepararTextosPersonal();
+const { API_ORGANIZACION_HISTORICA, RUTAS_IMPORTACION, crearClienteHistorico, crearClienteImportacion,
   filtrosHistoricos, validarPaginaHistorica, validarPaqueteImportacion, validarDecisionesImportacion,
   renderizarResumenImportacion, formatearRecuentoImportacion, formatearFechaReciboImportacion,
-  formatearConocidoEn, instanteDesdeHoraMadrid } from "./historico.js";
-import { MENSAJES_PERSONAL, crearTraductorPersonal } from "../modulos/personal/i18n.js";
+  formatearConocidoEn, instanteDesdeHoraMadrid } = await import("./historico.js?v=20261008-alta-rpt-circular-v4");
 
 const respuesta = () => ({
   data: {

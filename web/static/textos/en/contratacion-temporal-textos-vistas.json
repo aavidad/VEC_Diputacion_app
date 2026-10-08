@@ -69,7 +69,7 @@
     "ct_txt_no_se_pudo_conectar_con_el_servicio_de_estadisti": "The statistics service could not be reached.",
     "ct_txt_numero_visible": "Display number",
     "ct_txt_observaciones": "Notes",
-    "ct_txt_obteniendo_series_temporales_agregadas_del_servi": "Retrieving aggregated time series from the server.",
+    "ct_txt_obteniendo_series_temporales_agregadas_del_servi": "Loading the data over time…",
     "ct_txt_parametros_de_consulta_de_estadisticas_no_valido": "Invalid statistics enquiry parameters.",
     "ct_txt_periodo": "Period",
     "ct_txt_periodo_2": "Period:",
@@ -94,6 +94,7 @@
     "ct_txt_totales": "TOTALS",
     "ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum": "Showing the 50 most recent requests.",
     "ct_txt_ultimas_50_peticiones_visibles_para_su_identidad": "Showing your 50 most recent requests.",
-    "ct_txt_validacion_manual": "Manual validation"
+    "ct_txt_validacion_manual": "Manual validation",
+    "motivo_sustitucion": "Temporary replacement"
   }
 }

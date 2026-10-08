@@ -27,6 +27,14 @@ import (
 
 const maxRespuestaCorreos = 64 << 10
 
+// Los seis ajustes mantienen los valores y el alcance de SET LOCAL.
+const ajustesTransaccionCorreosSQL = `SELECT pg_catalog.set_config('search_path','pg_catalog',true),
+ pg_catalog.set_config('row_security','on',true),
+ pg_catalog.set_config('timezone','UTC',true),
+ pg_catalog.set_config('lock_timeout','3s',true),
+ pg_catalog.set_config('statement_timeout','15s',true),
+ pg_catalog.set_config('idle_in_transaction_session_timeout','20s',true)`
+
 // Las fachadas de «Mis correos» viven en un esquema por población (Usuarios
 // 000010): el personal en vec_usuarios_correos_interno y el Área personal en
 // vec_usuarios_correos_externo. @ESQ@ se sustituye por el esquema de la
@@ -171,17 +179,8 @@ func (r *RegistroCorreosPostgreSQL) abrir(ctx context.Context) (transaccionCorre
 		_ = tx.Rollback(context.Background())
 		return nil, errorCorreosSeguro(ctx, err)
 	}
-	for _, ajuste := range [...]string{
-		"SET LOCAL search_path = pg_catalog",
-		"SET LOCAL row_security = on",
-		"SET LOCAL TIME ZONE 'UTC'",
-		"SET LOCAL lock_timeout = '3s'",
-		"SET LOCAL statement_timeout = '15s'",
-		"SET LOCAL idle_in_transaction_session_timeout = '20s'", // AD3 exige ≤ 20 s.
-	} {
-		if _, err := tx.Exec(ctx, ajuste); err != nil {
-			return fallar(err)
-		}
+	if _, err := tx.Exec(ctx, ajustesTransaccionCorreosSQL); err != nil {
+		return fallar(err)
 	}
 	var valido bool
 	if err := tx.QueryRow(ctx, r.sql.acreditar, rolEjecutorPreferencias(r.superficie)).Scan(&valido); err != nil {

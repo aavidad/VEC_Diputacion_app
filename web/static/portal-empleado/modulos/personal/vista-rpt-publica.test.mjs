@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { montarModuloRPTPublica } from "./vista-rpt-publica.js";
+import { montarModuloRPTPublica } from "./vista-rpt-publica.js?v=20261008-alta-rpt-circular-v4";
 
 function raiz() { class Nodo { constructor(documento, etiqueta = "div") { this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {}; this.listeners = new Map(); this.parent = null; this.textContent = ""; this.atributos = new Map(); this.focused = false; } append(...nodos) { this.children.push(...nodos); nodos.forEach((n) => { n.parent = this; }); } replaceChildren(...nodos) { this.children.forEach((n) => { n.parent = null; }); this.children = []; this.append(...nodos); } removeChild(n) { this.children = this.children.filter((h) => h !== n); n.parent = null; } remove() { this.parent?.removeChild(this); } addEventListener(t, h) { this.listeners.set(t, h); } setAttribute(k, v) { this.atributos.set(k, v); } contains(n) { for (let actual = n; actual; actual = actual.parent) { if (actual === this) return true; } return false; } focus() { let actual = this; while (actual) { if (actual === this.ownerDocument.raiz) { this.focused = true; this.ownerDocument.activeElement = this; return; } actual = actual.parent; } } matches(s) { const k = s.match(/^\[data-([a-z-]+)\]$/u)?.[1]?.replace(/-([a-z])/g, (_m, l) => l.toUpperCase()); return k ? this.dataset[k] !== undefined : false; } querySelector(s) { if (this.matches(s)) return this; for (const h of this.children) { const e = h.querySelector(s); if (e) return e; } return null; } } const d = { createElement: (e) => new Nodo(d, e) }; const salida = new Nodo(d, "root"); d.raiz = salida; return salida; }
 function textoNodo(nodo) { return `${nodo.textContent} ${nodo.children.map(textoNodo).join(" ")}`; }
@@ -111,4 +111,26 @@ test("una búsqueda tardía no reaparece al quitarla y desmontar cancela la cons
   assert.equal(pendientes[1].signal.aborted, true);
   pendientes[1].resolve(pagina()); await esperarRespuesta();
   assert.equal(r.querySelector("[data-personal-rpt-publica]"), null);
+});
+
+test("vista RPT conserva el código exacto y permite quitarlo sin perder la búsqueda", async () => {
+  const r = raiz(), llamadas = [];
+  const puesto = { codigo: "217", denominacion: "TÉCNICO", centro_codigo: "101", centro: "CENTRO",
+    delegacion: "PRESIDENCIA", grupos: [], escala: "", categoria_clave: "", nivel_destino: 17,
+    complemento_especifico_anual_centimos: 0, dotacion: 1, tipo: "E", provision: "I" };
+  await montarModuloRPTPublica({ raiz: r, codigoPuesto: "217", cliente: { async listar(consulta) {
+    llamadas.push(consulta);
+    return pagina({ vista: consulta.vista, total: consulta.vista === "puestos" ? 1 : 0,
+      items: consulta.vista === "puestos" ? [puesto] : [] });
+  } } });
+  assert.equal(llamadas[0].codigo_puesto, "217");
+  assert.equal(llamadas[0].vista, "puestos");
+  assert.match(textoNodo(r.querySelector("[data-personal-rpt-publica-codigo-aplicado]")), /Puesto: 217/u);
+  r.querySelector("[data-personal-rpt-publica-quitar-codigo]").listeners.get("click")();
+  await esperarRespuesta();
+  assert.equal(llamadas.at(-1).codigo_puesto, "");
+  assert.equal(llamadas.at(-1).vista, "puestos");
+  assert.equal(r.querySelector("[data-personal-rpt-publica-codigo-aplicado]"), null);
+  await assert.rejects(() => montarModuloRPTPublica({ raiz: raiz(), codigoPuesto: "217 ",
+    cliente: { listar: async () => pagina() } }), TypeError);
 });

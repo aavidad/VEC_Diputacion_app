@@ -8,13 +8,17 @@
     <title data-i18n="tituloDocumento"></title>
     <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1" />
     <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1" />
-    <link rel="stylesheet" href="./carga-convoca.css?v=20261005-b1-carga-v1" />
-    <script type="module" src="./arranque.js?v=20261005-b1-carga-v1"></script>
+    <link rel="stylesheet" href="./carga-convoca.css?v=20261008-b1-correctivo-v1" />
+    <script type="module" src="./arranque.js?v=20261008-b1-correctivo-v1"></script>
   </head>
-  <body class="portal-empleado-app">
+  <body class="portal-empleado-app carga-convoca-pagina">
     <a class="salto-contenido" href="#carga" data-i18n="saltarContenido"></a>
-    <main class="portal-superficie" id="carga" tabindex="-1">
-      <header class="cabecera-portal">
+    <main class="portal-superficie" id="carga" tabindex="0">
+      <section class="panel carga-arranque-error" id="arranque-error" role="alert" hidden>
+        <div class="cabecera-panel"><h2 id="arranque-error-titulo"></h2></div>
+        <div class="cuerpo-panel"><p id="arranque-error-detalle"></p><button type="button" class="boton-primario" id="arranque-reintentar"></button></div>
+      </section>
+      <header class="cabecera-portal" id="carga-cabecera" hidden>
         <div class="contexto-cabecera">
           <nav class="migas" data-i18n-label="ruta">
             <a href="/portal-empleado/" data-i18n="portal"></a> <span aria-hidden="true">›</span>
@@ -29,7 +33,7 @@
         </div>
       </header>
 
-      <div class="contenido-portal carga-convoca">
+      <div class="contenido-portal carga-convoca" id="carga-contenido" hidden>
         <ol class="carga-pasos" data-i18n-label="pasos">
           <li id="marca-paso-1" aria-current="step"><span class="carga-pasos__numero" aria-hidden="true">1</span><span data-i18n="paso1"></span><span class="carga-oculto carga-pasos__estado"></span></li>
           <li id="marca-paso-2"><span class="carga-pasos__numero" aria-hidden="true">2</span><span data-i18n="paso2"></span><span class="carga-oculto carga-pasos__estado"></span></li>
@@ -78,18 +82,19 @@
           <div class="cuerpo-panel">
             <p id="bloqueo" class="carga-aviso carga-aviso--peligro" role="alert" hidden></p>
             <div class="rejilla-kpi rejilla-kpi--compacta carga-kpi">
-              <div class="tarjeta-kpi"><div><strong class="valor-kpi" id="kpi-leidas"></strong><span class="etiqueta-kpi" data-i18n="kpiLeidas"></span></div></div>
-              <div class="tarjeta-kpi"><div><strong class="valor-kpi" id="kpi-cargaran"></strong><span class="etiqueta-kpi" data-i18n="kpiCargaran"></span></div></div>
-              <div class="tarjeta-kpi"><div><strong class="valor-kpi" id="kpi-errores"></strong><span class="etiqueta-kpi" data-i18n="kpiErrores"></span></div></div>
-              <div class="tarjeta-kpi"><div><strong class="valor-kpi" id="kpi-avisos"></strong><span class="etiqueta-kpi" data-i18n="kpiAvisos"></span></div></div>
+              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="todas"><strong class="valor-kpi" id="kpi-leidas"></strong><span class="etiqueta-kpi" data-i18n="kpiLeidas"></span></button>
+              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="aceptadas"><strong class="valor-kpi" id="kpi-cargaran"></strong><span class="etiqueta-kpi" data-i18n="kpiCargaran"></span></button>
+              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="errores"><strong class="valor-kpi" id="kpi-errores"></strong><span class="etiqueta-kpi" data-i18n="kpiErrores"></span></button>
+              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="avisos"><strong class="valor-kpi" id="kpi-avisos"></strong><span class="etiqueta-kpi" data-i18n="kpiAvisos"></span></button>
             </div>
             <fieldset class="carga-filtro">
               <legend data-i18n="filtro"></legend>
               <label><input type="radio" name="filtro" value="todas" checked /> <span data-i18n="filtroTodas"></span></label>
+              <label><input type="radio" name="filtro" value="aceptadas" /> <span data-i18n="filtroAceptadas"></span></label>
               <label><input type="radio" name="filtro" value="errores" /> <span data-i18n="filtroErrores"></span></label>
               <label><input type="radio" name="filtro" value="avisos" /> <span data-i18n="filtroAvisos"></span></label>
             </fieldset>
-            <p id="cuenta" aria-live="polite"></p>
+            <p id="cuenta" aria-live="polite" tabindex="-1"></p>
           </div>
           <div class="tabla-contenedor" id="tabla-contenedor" role="region" tabindex="0" data-i18n-label="tablaTitulo">
             <table class="tabla-datos carga-tabla">
@@ -134,11 +139,7 @@
               <h3 data-i18n="hechoPendientes"></h3>
               <ul id="hecho-pendientes-lista" class="carga-datos"></ul>
             </div>
-            <details class="carga-detalle">
-              <summary data-i18n="detalleTecnico"></summary>
-              <p id="detalle-registro"></p>
-              <p id="detalle-huella"></p>
-            </details>
+            <p id="detalle-registro" class="carga-detalle"></p>
             <div class="carga-acciones">
               <button type="button" class="boton-secundario" id="otra-carga" data-i18n="otraCarga"></button>
               <a class="boton-primario" href="/portal-empleado/#resumen" data-i18n="verBolsas"></a>

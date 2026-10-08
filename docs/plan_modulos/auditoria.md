@@ -122,3 +122,20 @@ expediente en v8 o v9 el borrador sale del original de propuesta v7, y se
 registra 7. La fila significa «descarga autorizada y registrada», no «bytes
 recibidos por el cliente». Una consulta no observable (404), que no distingue
 entre denegación e inexistencia, queda como intento «denegado».
+
+### Provisión de identidad interna sintética — AD215
+
+La rama `trabajo/codexv-provision-identidad-20261007` añade dos tipos a la cadena
+común: provisión confirmada e intento de provisión o recuperación. El SQL AD215,
+su vector y el verificador CLI aceptan ambos tipos; la operación se confirmó en
+una base local sintética y devolvió el mismo recibo tras reiniciar PostgreSQL.
+Este corte todavía no está instalado en la principal y no acredita empleo,
+perfil, certificado ni uso en producción.
+
+La exportación general de auditoría no incluye aún estas dos familias en
+`internal/vec/auditoria/exportacion_documento.go`. El paquete de exportación
+existente tampoco tiene una fuente nominal autorizada que capture el tramo.
+Cuando se abra ese recorrido, crear un corte dependiente con formato versionado,
+captura y consumidor autorizados para los dos tipos, y probar la cadena mixta
+con asientos anteriores y nuevos. Hasta entonces, el vector SQL y el verificador
+CLI prueban su formato y huellas; no equivalen a una exportación judicial completa.

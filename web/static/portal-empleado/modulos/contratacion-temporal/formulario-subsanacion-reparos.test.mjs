@@ -13,7 +13,7 @@ test("subsanación confirma solo el recibo de servidor", async () => {
   eventos.get("click")({target:{closest:(selector)=>selector==="[data-ct-subsanacion-guardar]"?{}:null},preventDefault(){}});
   assert.equal(envios,0);
   await eventos.get("click")({target:{closest:(selector)=>selector==="[data-ct-subsanacion-enviar]"?{}:null},preventDefault(){}});
-  assert.equal(envios,1); assert.match(raiz.innerHTML,/Subsanación confirmada por el servidor/); assert.match(raiz.innerHTML,/Subsanación por la unidad/); desmontar();
+  assert.equal(envios,1); assert.match(raiz.innerHTML,/Subsanación registrada/); assert.match(raiz.innerHTML,/Subsanación por la unidad/); desmontar();
   assert.deepEqual(confirmaciones, [[recibo, contexto]]);
   assert.deepEqual(orden,[false,true,"recibo",null]);
 });

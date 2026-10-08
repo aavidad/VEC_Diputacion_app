@@ -11,17 +11,18 @@ import (
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
-// lectorResumenBolsasInstalado compone el lector de conjunto solo si Bolsa
-// 000082 está instalada; si no, el cuadro sigue con la lectura por bolsa.
+// lectorResumenBolsasInstalado compone el lector de conjunto solo si B82 y
+// B85 están instaladas; si falta una, el cuadro sigue con la lectura previa.
 func lectorResumenBolsasInstalado(ctx context.Context, pool *pgxpool.Pool) ports.LectorResumenBolsas {
 	var instalada bool
 	if err := pool.QueryRow(ctx, `SELECT to_regprocedure('vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)') IS NOT NULL
-		AND to_regprocedure('vec_bolsa_llamamientos.leer_politicas_orden_vigentes_v1(timestamptz)') IS NOT NULL`).Scan(&instalada); err != nil {
-		log.Printf("bolsa rrhh: no se pudo comprobar el resumen de conjunto (Bolsa 000082); el cuadro lee bolsa a bolsa: %v", err)
+		AND to_regprocedure('vec_bolsa_llamamientos.leer_politicas_orden_vigentes_v1(timestamptz)') IS NOT NULL
+		AND to_regprocedure('vec_bolsa_llamamientos.leer_llamamientos_en_curso_bolsas_v1()') IS NOT NULL`).Scan(&instalada); err != nil {
+		log.Printf("bolsa rrhh: no se pudo comprobar el resumen de conjunto (B82/B85); el cuadro lee bolsa a bolsa: %v", err)
 		return nil
 	}
 	if !instalada {
-		log.Printf("bolsa rrhh: resumen de conjunto (Bolsa 000082) no instalado; el cuadro lee bolsa a bolsa")
+		log.Printf("bolsa rrhh: resumen de conjunto (B82/B85) no instalado; el cuadro lee bolsa a bolsa")
 		return nil
 	}
 	lector, err := postgresbolsa.NuevoLectorResumenBolsasPostgreSQL(pool)
@@ -33,17 +34,17 @@ func lectorResumenBolsasInstalado(ctx context.Context, pool *pgxpool.Pool) ports
 }
 
 // cargarResumenConjunto produce el mismo conjunto que cargarAlcance sin
-// detalle, con dos consultas de conjunto en lugar de una por bolsa y por
-// participación: situaciones y ceses de todas las participaciones, y la
-// política de orden vigente de cada bolsa. La proyección del cese es la misma.
+// detalle, con tres consultas de conjunto en una instantánea: situaciones y
+// ceses, políticas de orden y recuentos de llamamientos. La proyección del
+// cese es la misma.
 // No descarga la instantánea canónica de cada bolsa (ListarVigentes), que con
 // miles de participaciones son megas por petición.
 func (f *fuenteConstituidaRRHHDesarrollo) cargarResumenConjunto(ctx context.Context) (datasetBolsasRRHHDesarrollo, error) {
-	if f == nil || f.emisiones == nil || f.resumenConjunto == nil || f.ahora == nil {
+	if f == nil || f.resumenConjunto == nil || f.ahora == nil {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
 	corte := f.ahora()
-	filas, politicas, err := f.resumenConjunto.LeerResumen(ctx, corte)
+	resumen, err := f.resumenConjunto.LeerResumen(ctx, corte)
 	if err != nil {
 		return datasetBolsasRRHHDesarrollo{}, err
 	}
@@ -52,7 +53,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarResumenConjunto(ctx context.Cont
 	// incoherente y se rechaza.
 	var orden []string
 	porBolsa := map[string][]ports.SituacionResumenParticipacion{}
-	for _, fila := range filas {
+	for _, fila := range resumen.Situaciones {
 		if _, vista := porBolsa[fila.BolsaRef]; !vista {
 			orden = append(orden, fila.BolsaRef)
 		} else if orden[len(orden)-1] != fila.BolsaRef {
@@ -60,20 +61,23 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarResumenConjunto(ctx context.Cont
 		}
 		porBolsa[fila.BolsaRef] = append(porBolsa[fila.BolsaRef], fila)
 	}
+	if len(resumen.LlamamientosEnCurso) != len(orden) {
+		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+	}
 	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: corte.UTC().Format(time.RFC3339)}
 	for _, bolsaRef := range orden {
 		participaciones := porBolsa[bolsaRef]
 		primera := participaciones[0]
-		p, existe := politicas[bolsaRef]
+		p, existe := resumen.Politicas[bolsaRef]
 		// Igual que la lectura del orden vigente: sin política la bolsa no se
 		// puede servir.
 		if !existe || p.Validar() != nil {
 			return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 		}
 		politica := politicaOrdenRRHHDesarrollo{Referencia: p.PoliticaRef, Criterio: p.Criterio, TipoLista: p.TipoLista, Reposicion: p.Reposicion, Rotulo: p.Rotulo, Actor: p.Actor, VigenteDesde: p.VigenteDesde.UTC().Format(time.RFC3339), Version: p.Version, Provisional: p.Provisional}
-		totalCurso, err := f.emisiones.ContarEnCurso(ctx, bolsaRef)
-		if err != nil {
-			return datasetBolsasRRHHDesarrollo{}, err
+		totalCurso, existe := resumen.LlamamientosEnCurso[bolsaRef]
+		if !existe || totalCurso < 0 {
+			return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 		}
 		datos.Bolsas = append(datos.Bolsas, struct {
 			Referencia          string                      `json:"bolsa_ref"`

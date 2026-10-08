@@ -67,6 +67,12 @@ func ejecutar(args []string, entrada io.Reader, salida io.Writer) int {
 			return responderFallo(salida, "documento_invalido", "entrada", 2)
 		}
 		informe = auditoria.VerificarCadenaPerfilesAsignablesV1(d, checkpoint, *maxRegistros)
+	case auditoria.EsquemaVerificacionCatalogoAcciones:
+		var d auditoria.DocumentoVerificacionMixta
+		if decodificarJSONCatalogoAcciones(contenido, &d) != nil {
+			return responderFallo(salida, "documento_invalido", "entrada", 2)
+		}
+		informe = auditoria.VerificarCadenaCatalogoAccionesV1(d, checkpoint, *maxRegistros)
 	case auditoria.EsquemaVerificacionFronteraAdminTecnicaV1:
 		var documento auditoria.DocumentoVerificacionMixta
 		if decodificarJSONEstricto(contenido, &documento) != nil {
@@ -134,6 +140,12 @@ func ejecutar(args []string, entrada io.Reader, salida io.Writer) int {
 			codigo = 1
 		}
 		return responder(salida, r, codigo)
+	case auditoria.EsquemaVerificacionIdentidadInternaSintetica:
+		var d auditoria.DocumentoVerificacionMixta
+		if decodificarJSONIdentidadInterna(contenido, &d) != nil {
+			return responderFallo(salida, "documento_invalido", "entrada", 2)
+		}
+		informe = auditoria.VerificarCadenaIdentidadInternaSinteticaV1(d, checkpoint, *maxRegistros)
 	default:
 		return responderFallo(salida, "documento_invalido", "entrada", 2)
 	}

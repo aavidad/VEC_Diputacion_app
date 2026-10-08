@@ -31,6 +31,13 @@ const (
 	recuperarImagenSQL = `SELECT vec_usuarios.recuperar_imagen_operacion_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 	guardarImagenSQL   = `SELECT vec_usuarios.guardar_imagen_propia_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`
 	maxRespuestaImagen = 16 << 10
+	// Los seis ajustes mantienen los valores y el alcance de SET LOCAL.
+	ajustesTransaccionImagenSQL = `SELECT pg_catalog.set_config('search_path','pg_catalog',true),
+ pg_catalog.set_config('row_security','on',true),
+ pg_catalog.set_config('timezone','UTC',true),
+ pg_catalog.set_config('lock_timeout','3s',true),
+ pg_catalog.set_config('statement_timeout','15s',true),
+ pg_catalog.set_config('idle_in_transaction_session_timeout','20s',true)`
 )
 
 // El LOGIN sólo puede heredar el ejecutor de su superficie y ejecutar las
@@ -104,17 +111,8 @@ func (r *RegistroImagenPostgreSQL) abrir(ctx context.Context) (transaccionCorreo
 		_ = tx.Rollback(context.Background())
 		return nil, errorImagenSeguro(ctx, err)
 	}
-	for _, ajuste := range [...]string{
-		"SET LOCAL search_path = pg_catalog",
-		"SET LOCAL row_security = on",
-		"SET LOCAL TIME ZONE 'UTC'",
-		"SET LOCAL lock_timeout = '3s'",
-		"SET LOCAL statement_timeout = '15s'",
-		"SET LOCAL idle_in_transaction_session_timeout = '20s'", // AD3 exige ≤ 20 s.
-	} {
-		if _, err := tx.Exec(ctx, ajuste); err != nil {
-			return fallar(err)
-		}
+	if _, err := tx.Exec(ctx, ajustesTransaccionImagenSQL); err != nil {
+		return fallar(err)
 	}
 	var valido bool
 	if err := tx.QueryRow(ctx, acreditarEjecutorImagenSQL, rolEjecutorPreferencias(r.superficie)).Scan(&valido); err != nil {

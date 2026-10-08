@@ -98,12 +98,15 @@
     },
     "hechoPendientes": "Rows you need to check",
     "hechoFecha": "Loaded on {fecha}",
-    "detalleTecnico": "Show technical details",
-    "detalleRegistro": "Audit record: {referencia}",
-    "detalleHuella": "File fingerprint: {huella}",
+    "detalleRegistro": "Load reference: {referencia}",
     "verBolsas": "See the pools",
     "otraCarga": "Load another pool",
-    "sinCategorias": "There are no categories in the current staff list. Ask the person who manages categories to add them."
+    "sinCategorias": "There are no categories available for this load. Ask the person responsible for categories to add them.",
+    "filtroAceptadas": "Will enter",
+    "confirmarDescartes": {
+      "one": "{cuenta} row with errors will be left out.",
+      "other": "{cuenta} rows with errors will be left out."
+    }
   },
   "campos": {
     "dni_nie": "Document",
@@ -149,7 +152,7 @@
     "fichero_no_valido": "The file is not recognised. Use the CONVOCA export without changing its columns or sheet name.",
     "fichero_no_cargable": "This file cannot be loaded. Check the message above the list.",
     "filas_con_errores_sin_aceptar": "Tick the box to load without the rows with errors, or fix the spreadsheet.",
-    "categoria_no_valida": "The chosen category is not in the current staff list. Choose another one.",
+    "categoria_no_valida": "The chosen category is no longer available. Choose another one.",
     "bolsa_en_conflicto": "This file was already loaded into another pool. Check the chosen category.",
     "peticion_no_valida": "The file could not be sent. Choose it again and repeat.",
     "servicio_no_disponible": "This could not be completed right now. Press the button again; if it keeps failing, contact IT."

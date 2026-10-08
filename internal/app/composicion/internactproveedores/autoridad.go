@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
+	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -17,24 +18,33 @@ var ErrAutoridadCTNoDisponible = errors.New("composicion interna: autoridad CT n
 // el perfil y la sesión al consultar Detalle. Organización es una selección
 // nominal, nunca una persona ni un permiso.
 type AutoridadDetalle struct {
-	Fuente *internagobierno.FuenteF1
-	Reloj  ct.Reloj
+	Fuente       *internagobierno.FuenteF1
+	Reloj        ct.Reloj
+	fuentePrueba fuentePeticionYContextoDetalle
+}
+
+type fuentePeticionYContextoDetalle interface {
+	ResolverPeticionYContexto(context.Context) (inc.PeticionAutoridad, ct.ContextoAutorizacionAltaV3, error)
 }
 
 func (a AutoridadDetalle) ResolverContextoConsultaRRHH(ctx context.Context) (ct.ContextoConsultaRRHH, error) {
-	if a.Fuente == nil || a.Reloj == nil || ctx == nil || ctx.Err() != nil {
+	if (a.Fuente == nil && a.fuentePrueba == nil) || a.Reloj == nil || ctx == nil || ctx.Err() != nil {
 		return ct.ContextoConsultaRRHH{}, ErrAutoridadCTNoDisponible
 	}
-	p, err := a.Fuente.PeticionVerificada(ctx)
-	if err != nil {
-		return ct.ContextoConsultaRRHH{}, ErrAutoridadCTNoDisponible
+	var fuente fuentePeticionYContextoDetalle = a.fuentePrueba
+	if a.Fuente != nil {
+		fuente = a.Fuente
 	}
-	autoridad, err := a.Fuente.ResolverContexto(ctx)
+	p, autoridad, err := fuente.ResolverPeticionYContexto(ctx)
 	if err != nil || ctx.Err() != nil {
 		return ct.ContextoConsultaRRHH{}, ErrAutoridadCTNoDisponible
 	}
 	v, err := autoridad.Vinculo.Datos()
-	if err != nil || v.PerfilActivoRef != p.Contexto.PerfilActivoRef ||
+	if err != nil || autoridad.Vinculo.ValidarPara(autoridad.Resultado) != nil ||
+		v.AutenticacionRef != p.Autenticacion.AutenticacionRef ||
+		v.SesionRef != p.Autenticacion.SesionRef ||
+		v.PrincipalID != p.PreparacionCT.ActorRef ||
+		v.PerfilActivoRef != p.Contexto.PerfilActivoRef ||
 		v.CuentaRef != p.Contexto.Cuenta.CuentaRef ||
 		autoridad.Resultado.Contexto.PersonaRef != v.PrincipalID {
 		return ct.ContextoConsultaRRHH{}, ErrAutoridadCTNoDisponible

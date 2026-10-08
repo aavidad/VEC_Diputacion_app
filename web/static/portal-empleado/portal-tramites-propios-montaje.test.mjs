@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal } from "./portal-modulos-coordinador.js";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
 import { crearFuenteTramitesPropios } from "./modulos/solicitudes/fuente-tramites-propios.js";
 
 const permiso = { permiso_ref: "permiso:cronos:formacion", version_ref: "catalogo:cronos:formacion:v1", nombre: "Formación", unidad: "dia", computo: "laborables", circuito: "J-A", minimo: 1, maximo_solicitud: null, maximo_mensual: null, maximo_anual: null, justificante_exigido: false, solicitable: true, sintetico: true, solicitado: 1, concedido: 0, pendiente_justificar: 0, resta: null };

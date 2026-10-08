@@ -84,6 +84,37 @@ func referenciaPoliticaConservacionDocumentalPrueba(caracter byte) string {
 	return "ref:" + strings.Repeat(string(caracter), 64)
 }
 
+func TestSolicitudConservacionAdmiteCTTipadoSoloComoExpediente(t *testing.T) {
+	base := nuevosVinculosPoliticaConservacionDocumentalPrueba()
+	base.expedienteRef = "expediente:ct:" + strings.Repeat("a", 64)
+	base.construir(t)
+	for _, expediente := range []string{
+		"expediente:bolsa:" + strings.Repeat("a", 64),
+		"expediente:CT:" + strings.Repeat("a", 64),
+		"expediente:ct:" + strings.Repeat("A", 64),
+		"expediente:ct:" + strings.Repeat("a", 63),
+	} {
+		copia := base
+		copia.expedienteRef = expediente
+		if _, err := NuevaSolicitudPoliticaConservacionDocumental(
+			copia.procedimientoRef, copia.serieDocumentalRef, copia.tipoDocumentalRef,
+			copia.expedienteRef, copia.politicaRef, copia.versionPolitica,
+			copia.huellaPolitica, copia.baseJuridicaRef, copia.vigenteDesde, copia.vigenteHasta,
+		); !errors.Is(err, ErrSolicitudPoliticaConservacionDocumentalInvalida) {
+			t.Errorf("admitió expediente %q: %v", expediente, err)
+		}
+	}
+	copia := base
+	copia.politicaRef = base.expedienteRef
+	if _, err := NuevaSolicitudPoliticaConservacionDocumental(
+		copia.procedimientoRef, copia.serieDocumentalRef, copia.tipoDocumentalRef,
+		copia.expedienteRef, copia.politicaRef, copia.versionPolitica,
+		copia.huellaPolitica, copia.baseJuridicaRef, copia.vigenteDesde, copia.vigenteHasta,
+	); !errors.Is(err, ErrSolicitudPoliticaConservacionDocumentalInvalida) {
+		t.Errorf("admitió referencia tipada en política: %v", err)
+	}
+}
+
 func TestPoliticaConservacionDocumentalValoresNeutralesValidosYBloqueoPrevalece(t *testing.T) {
 	vinculos := nuevosVinculosPoliticaConservacionDocumentalPrueba()
 	solicitud := vinculos.construir(t)

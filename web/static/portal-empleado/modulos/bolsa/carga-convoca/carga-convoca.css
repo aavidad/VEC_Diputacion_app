@@ -2,6 +2,16 @@
    estructura (panel, KPI, tabla, botones, estados) viene del tema común. */
 .carga-convoca { display: grid; align-content: start; gap: var(--portal-espacio-4); min-width: 0; }
 
+@media (min-width: 721px) {
+  .carga-convoca-pagina .portal-superficie {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  .carga-convoca-pagina .contenido-portal { overflow: visible; flex: 0 0 auto; }
+}
+.carga-arranque-error { margin: var(--portal-espacio-4); }
+
 .carga-pasos {
   display: flex; flex-wrap: wrap; gap: var(--portal-espacio-3);
   margin: 0; padding: 0; list-style: none; counter-reset: none;
@@ -46,6 +56,8 @@
 .carga-estado:empty { display: none; }
 
 .carga-kpi .tarjeta-kpi { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+.carga-kpi-boton { display: grid; justify-items: start; width: 100%; text-align: left; cursor: pointer; font: inherit; }
+.carga-kpi-boton:hover { border-color: var(--portal-azul-700); }
 .carga-filtro { display: flex; flex-wrap: wrap; gap: var(--portal-espacio-3); margin: var(--portal-espacio-3) 0 0; padding: 0; border: 0; }
 .carga-filtro legend { float: left; margin-right: var(--portal-espacio-2); font-weight: 600; }
 .carga-filtro label { display: inline-flex; min-height: 24px; align-items: center; gap: var(--portal-espacio-1); }

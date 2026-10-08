@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"vec-diputacion-granada/config"
 )
 
 func TestStaticHandlerProduccionSirveActivosConsumidosF2(t *testing.T) {
@@ -18,6 +20,8 @@ func TestStaticHandlerProduccionSirveActivosConsumidosF2(t *testing.T) {
 		"/comun/iconos-vec.js",
 		"/comun/idioma.js",
 		"/comun/textos.js",
+		"/comun/http.js",
+		"/comun/registro-errores.js",
 		"/comun/correos-propios.js",
 		"/comun/correos-propios.css",
 		"/comun/imagen-propia.js",
@@ -71,6 +75,31 @@ func TestStaticHandlerProduccionSirveActivosConsumidosF2(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestActivosHTTPComunesSoloRutasExactasEnPortalInterno(t *testing.T) {
+	handler := NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler())
+	for _, ruta := range []string{"/comun/http.js", "/comun/registro-errores.js"} {
+		for _, metodo := range []string{http.MethodGet, http.MethodHead} {
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, peticionServidorPrueba(metodo, ruta, nil))
+			if rec.Code != http.StatusOK {
+				t.Errorf("%s %s = %d; esperado 200", metodo, ruta, rec.Code)
+			}
+		}
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodPost, ruta, nil))
+		if rec.Code != http.StatusMethodNotAllowed {
+			t.Errorf("POST %s = %d; esperado 405", ruta, rec.Code)
+		}
+	}
+	for _, ruta := range []string{"/comun/http.test.mjs", "/comun/http.js/ajena", "/comun/registro-errores.test.mjs"} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("GET %s = %d; esperado 404", ruta, rec.Code)
+		}
 	}
 }
 

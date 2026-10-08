@@ -2,19 +2,20 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES, cargarMensajesNecesidadesAlta } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import {
   VISTAS_MODULOS_CONECTADOS,
   VISTAS_MODULOS_PERSONALES,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "../../portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
+} from "../../portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
 
 const directorio = new URL("./", import.meta.url);
 const [
   contratoFuente,
   presentadorFuente,
   vistaFuente,
+  rendererPuroFuente,
   estilos,
   coordinadorFuente,
   indicePortal,
@@ -24,6 +25,7 @@ const [
   readFile(new URL("contrato.js", directorio), "utf8"),
   readFile(new URL("presentador.js", directorio), "utf8"),
   readFile(new URL("vista.js", directorio), "utf8"),
+  readFile(new URL("alta-renderer-puro.js", directorio), "utf8"),
   readFile(new URL("contratacion-temporal.css", directorio), "utf8"),
   readFile(new URL("../../portal-modulos-coordinador.js", directorio), "utf8"),
   readFile(new URL("../../index.html", directorio), "utf8"),
@@ -31,13 +33,15 @@ const [
   readFile(new URL("formulario-cobertura.js", directorio), "utf8"),
 ]);
 
-test("i18n cubre los textos estáticos y CSS hereda tema, zoom y contraste", () => {
-  const clavesEstaticas = [...vistaFuente.matchAll(/\bt\("([^"]+)"/g)]
+test("i18n cubre los textos estáticos y CSS hereda tema, zoom y contraste", async () => {
+  const mensajesNecesidades = await cargarMensajesNecesidadesAlta("es");
+  const clavesEstaticas = [...`${vistaFuente}\n${rendererPuroFuente}`.matchAll(/\bt\("([^"]+)"/g)]
     .map((coincidencia) => coincidencia[1]);
   assert.ok(clavesEstaticas.length > 50);
   for (const clave of clavesEstaticas) {
     assert.ok(
-      Object.hasOwn(MENSAJES_CONTRATACION_TEMPORAL_ES, clave),
+      Object.hasOwn(MENSAJES_CONTRATACION_TEMPORAL_ES, clave)
+        || Object.hasOwn(mensajesNecesidades, clave),
       `falta la traducción ${clave}`,
     );
   }
@@ -51,18 +55,18 @@ test("i18n cubre los textos estáticos y CSS hereda tema, zoom y contraste", () 
   assert.match(estilos, /scroll-margin-block: 84px/);
   assert.match(estilos, /\.ct-estado-exito\s*\{[^}]+color: var\(--portal-tinta\)/s);
   assert.doesNotMatch(estilos, /font-family:|#[0-9a-f]{3,8}\b/i);
-  assert.doesNotMatch(vistaFuente, /style="/);
+  assert.doesNotMatch(`${vistaFuente}\n${rendererPuroFuente}`, /style="/);
 });
 
 test("el módulo no usa red, cookies, almacenamiento web ni registra claves", () => {
-  const fuentes = `${contratoFuente}\n${presentadorFuente}\n${vistaFuente}\n${coberturaFuente}`;
+  const fuentes = `${contratoFuente}\n${presentadorFuente}\n${vistaFuente}\n${rendererPuroFuente}\n${coberturaFuente}`;
   assert.doesNotMatch(
     fuentes,
     /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(|document\.cookie|localStorage|sessionStorage|indexedDB/i,
   );
   assert.doesNotMatch(fuentes, /\b(?:console|logger|registrarTraza)\s*\./i);
   assert.doesNotMatch(vistaFuente, /idempotencia|hmac|decisi[oó]n|atestaci[oó]n|token/i);
-  assert.match(vistaFuente, /function escaparHTML/);
+  assert.match(rendererPuroFuente, /function escaparHTML/);
   assert.match(vistaFuente, /scrollIntoView\?\.\(\{ block: "nearest", inline: "nearest" \}\)/);
   assert.match(vistaFuente, /raiz\.innerHTML = renderizarAltaContratacionTemporal/);
   assert.match(vistaFuente, /if \(!montada\) return/);
@@ -105,7 +109,7 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos, Die
   assert.match(coordinadorFuente, /componerCronosInterno/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-saldo-conectado\.js\?v=/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-permisos-propios\.js\?v=/);
-  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261006-resumen-inicio-v2"\)/);
+  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261008-alta-rpt-circular-v6"\)/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);
   assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/vista-expedientes\.js\?v=/);

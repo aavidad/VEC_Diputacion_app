@@ -10,6 +10,7 @@ import (
 
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -110,7 +111,12 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) registrarDenegacion(ctx contex
 	if orden.Validar() != nil {
 		return errComposicionUsuariosPreferencias
 	}
-	return a.registrador.RegistrarAuditoriaFronteraRutaExacta(ctxAuditoria, orden)
+	inicioAuditoria := time.Now()
+	err = a.registrador.RegistrarAuditoriaFronteraRutaExacta(ctxAuditoria, orden)
+	if a.ruta == usuarioshttp.RutaMisPreferencias || a.ruta == usuarioshttp.RutaMisPreferenciasAreaPersonal {
+		telemetria.RegistrarFase(ctxAuditoria, telemetria.FaseAuditoria, time.Since(inicioAuditoria), err)
+	}
+	return err
 }
 
 func (a *autoridadPreferenciasUsuariosDesarrollo) AuditarDenegacionPreferencias(ctx context.Context, estado int) error {

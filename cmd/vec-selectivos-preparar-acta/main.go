@@ -45,7 +45,8 @@ func cargarCatalogo(dir, idioma string) (*i18n.Catalog, error) {
 		return nil, errEntradaJSON
 	}
 	for _, clave := range []string{"titulo", "limite", "error_entrada", "error_salida", "antecedente_no_cotejado",
-		"pertenencia_no_verificada", "material_ausente", "circuito_pendiente", "campo_antecedente_tribunal",
+		"pertenencia_no_verificada", "limite_cotejo_local", "antecedente_cotejado_local", "fase_cotejada_local",
+		"material_ausente", "circuito_pendiente", "campo_antecedente_tribunal",
 		"campo_fase_propuesta", "campo_designacion", "campo_habilitacion", "campo_sesion_celebrada", "campo_asistencia",
 		"campo_deliberaciones", "campo_acuerdos_adoptados", "campo_aprobacion", "campo_firma", "campo_sesion_ref",
 		"campo_fecha_propuesta", "campo_orden_dia_propuesto", "campo_acuerdos_propuestos", "campo_textos_orden_dia", "campo_textos_acuerdos"} {
@@ -67,6 +68,7 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 	opciones.SetOutput(io.Discard)
 	dir := opciones.String("catalogos-dir", "web/static/textos", "")
 	idioma := opciones.String("idioma", i18n.DefaultLocale, "")
+	salidaTribunal := opciones.String("tribunal-salida", "", "")
 	if opciones.Parse(args) != nil || opciones.NArg() != 0 || salida == nil || errores == nil {
 		return informarError(errores, nil, *idioma, errEntradaJSON.Error())
 	}
@@ -76,12 +78,19 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 		err = leerJSON(entrada, &material)
 	}
 	var preparacion domain.PreparacionActa
-	if err == nil {
+	if err == nil && *salidaTribunal != "" {
+		var tribunal domain.PreparacionTribunal
+		var huella string
+		tribunal, huella, err = leerSalidaTribunal(*salidaTribunal)
+		if err == nil {
+			preparacion, err = application.CotejarSalidaTribunal(ctx, tribunal, huella, material)
+		}
+	} else if err == nil {
 		preparacion, err = application.PrepararMaterialActa(ctx, material)
 	}
 	if err != nil {
 		clave := errEntradaJSON.Error()
-		if err == domain.ErrMaterialActaInvalido || err == application.ErrPreparacionActaNoDisponible {
+		if err == domain.ErrMaterialActaInvalido || err == application.ErrPreparacionActaNoDisponible || err == application.ErrCotejoTribunalActa {
 			clave = err.Error()
 		}
 		return informarError(errores, catalogo, *idioma, clave)
@@ -96,7 +105,11 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 		mensajes = append(mensajes, pendienteVisible{pendiente.Campo, pendiente.Codigo, campo + ": " + motivo})
 	}
 	titulo, _ := catalogo.Message(*idioma, "titulo")
-	limite, _ := catalogo.Message(*idioma, "limite")
+	claveLimite := "limite"
+	if *salidaTribunal != "" {
+		claveLimite = "limite_cotejo_local"
+	}
+	limite, _ := catalogo.Message(*idioma, claveLimite)
 	enc := json.NewEncoder(salida)
 	enc.SetIndent("", "  ")
 	if enc.Encode(struct {
@@ -104,10 +117,18 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 		Preparacion domain.PreparacionActa `json:"preparacion"`
 		Limite      string                 `json:"limite"`
 		Mensajes    []pendienteVisible     `json:"mensajes"`
-	}{titulo, preparacion, limite, mensajes}) != nil {
+		CotejoLocal string                 `json:"cotejo_local,omitempty"`
+	}{titulo, preparacion, limite, mensajes, cotejoLocal(*salidaTribunal)}) != nil {
 		return informarError(errores, catalogo, *idioma, "seleccion.acta_preparacion.salida_no_disponible")
 	}
 	return 0
+}
+
+func cotejoLocal(archivo string) string {
+	if archivo != "" {
+		return "salida_tribunal_sha256"
+	}
+	return ""
 }
 
 func informarError(w io.Writer, c *i18n.Catalog, idioma, clave string) int {

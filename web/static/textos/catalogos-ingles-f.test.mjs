@@ -64,7 +64,7 @@ test("emitir un llamamiento no presenta el correo como enviado o entregado", asy
     assert.match(texto, /issued/i);
     assert.doesNotMatch(texto, /sent|delivered/i);
   }
-  assert.match(portal.traducir("panel_interno.panel_b7_correo_limite"), /does not prove delivery/);
+  assert.match(portal.traducir("panel_interno.panel_b7_correo_limite"), /does not confirm that the notice was sent or delivered/);
   assert.match(ayuda.traducir("ayuda.ayuda_b7_emitir_instruccion"), /Issue call-up/);
   assert.match(ayuda.traducir("ayuda.ayuda_b7_emitir_resultado"), /issued and awaiting response/);
   assert.match(ayuda.traducir("ayuda.ayuda_b7_emitir_titulo"), /issue/i);

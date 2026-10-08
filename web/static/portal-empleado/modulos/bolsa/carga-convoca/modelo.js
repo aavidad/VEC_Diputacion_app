@@ -1,8 +1,9 @@
 /** Lógica de presentación de la carga, sin DOM: filtros, páginas y mensajes. */
 export const TAMANO_PAGINA = 50;
-export const FILTROS = Object.freeze(["todas", "errores", "avisos"]);
+export const FILTROS = Object.freeze(["todas", "aceptadas", "errores", "avisos"]);
 
 export function filtrarFilas(filas, filtro) {
+  if (filtro === "aceptadas") return filas.filter((f) => f.estado === "aceptada");
   if (filtro === "errores") return filas.filter((f) => f.estado === "rechazada");
   if (filtro === "avisos") return filas.filter((f) => f.avisos.length > 0);
   return filas;

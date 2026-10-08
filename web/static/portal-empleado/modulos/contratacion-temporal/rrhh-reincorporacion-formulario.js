@@ -1,5 +1,5 @@
 import { validarReciboReincorporacionRRHH, validarSolicitudReincorporacionRRHH } from "./rrhh-reincorporacion-contrato.js";
-import { crearTraductorReincorporacionRRHH } from "./rrhh-reincorporacion-i18n.js";
+import { crearTraductorReincorporacionRRHH } from "./rrhh-reincorporacion-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 const REF = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const traducirPorDefecto = crearTraductorReincorporacionRRHH();

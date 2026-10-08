@@ -98,12 +98,15 @@
     },
     "hechoPendientes": "Filas que debe comprobar",
     "hechoFecha": "Cargada el {fecha}",
-    "detalleTecnico": "Ver detalle técnico",
-    "detalleRegistro": "Registro de auditoría: {referencia}",
-    "detalleHuella": "Huella del fichero: {huella}",
+    "detalleRegistro": "Referencia de la carga: {referencia}",
     "verBolsas": "Ver las bolsas",
     "otraCarga": "Cargar otra bolsa",
-    "sinCategorias": "No hay categorías en la RPT vigente. Pida a quien gestiona las categorías que las dé de alta."
+    "sinCategorias": "No hay categorías disponibles para esta carga. Pida a la persona responsable de las categorías que las dé de alta.",
+    "filtroAceptadas": "Entrarán",
+    "confirmarDescartes": {
+      "one": "Se dejará fuera {cuenta} fila con errores.",
+      "other": "Se dejarán fuera {cuenta} filas con errores."
+    }
   },
   "campos": {
     "dni_nie": "Documento",
@@ -149,7 +152,7 @@
     "fichero_no_valido": "No se reconoce el fichero. Use la exportación de CONVOCA sin modificar sus columnas ni el nombre de la hoja.",
     "fichero_no_cargable": "Este fichero no se puede cargar. Revise el aviso de la lista.",
     "filas_con_errores_sin_aceptar": "Marque la casilla para cargar sin las filas con errores, o corrija el Excel.",
-    "categoria_no_valida": "La categoría elegida no está en la RPT vigente. Elija otra.",
+    "categoria_no_valida": "La categoría elegida ya no está disponible. Elija otra.",
     "bolsa_en_conflicto": "Ese fichero ya se cargó en otra bolsa. Revise la categoría elegida.",
     "peticion_no_valida": "No se ha podido enviar el fichero. Vuelva a elegirlo y repita.",
     "servicio_no_disponible": "No se ha podido completar ahora. Pulse el botón otra vez; si sigue igual, avise a Informática."

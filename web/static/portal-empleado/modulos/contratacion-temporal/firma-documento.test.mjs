@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { crearClienteAutoFirma, ErrorAutoFirma, paraPruebas } from "./firma-autofirma.js";
 import { crearClienteFirmaDocumento, ErrorFirmaDocumento, RUTA_CONSULTA_FIRMA_DOCUMENTO, RUTA_FIRMA_DOCUMENTO, validarEstadoFirmas } from "./firma-documento-cliente.js";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261002-ct-r5-grafo-v1";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261008-alta-circular-v3";
 import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261001-ct-firma-verificador-v2";
 
 const t = crearTraductorCircuitoFirma();
@@ -141,7 +141,7 @@ test("fusiona el estado real y deja cerrados los controles del paso pendiente", 
   const html = renderizarAccionesPaso(fusion, fusion.documentos[0], fusion.documentos[0].pasos[1], t);
   assert.match(html, /<button[^>]*disabled[^>]*>Firmar en PRUEBA<\/button>/u);
   assert.match(html, /<button[^>]*disabled[^>]*>Devolver en PRUEBA<\/button>/u);
-  assert.match(html, /permiso nominal para firmar este expediente/u);
+  assert.match(html, /Todavía no puede firmar este documento con certificado en VEC/u);
   assert.doesNotMatch(html, /data-ct-firma-accion=|<label|<textarea/u);
   assert.equal(fusionarEstadoFirmas(circuitoCatalogo(), validarEstadoFirmas(estadoServidor({ huella_sha256: "f".repeat(64) }))), null);
   assert.equal(renderizarAccionesPaso(circuitoCatalogo(), circuitoCatalogo().documentos[0], circuitoCatalogo().documentos[0].pasos[0], t), "");
@@ -183,7 +183,7 @@ test("clics forjados de firma y devolución no descargan, no abren AutoFirma ni 
 
 test("la ayuda y los textos dicen que la firma no tiene eficacia administrativa", async () => {
   const ayuda = await readFile(new URL("../../../textos/es/portal-ayuda.json", import.meta.url), "utf8");
-  assert.match(ayuda, /"ayuda_contenido_421": ".*AutoFirma.*sin eficacia administrativa.*portafirmas corporativo/u);
+  assert.match(ayuda, /"ayuda_contenido_421": ".*AutoFirma.*no tiene eficacia administrativa.*portafirmas corporativo/u);
   assert.match(t("circuito_firma_registrada", { recibo: "r" }), /No tiene eficacia administrativa hasta el portafirmas corporativo/u);
 });
 

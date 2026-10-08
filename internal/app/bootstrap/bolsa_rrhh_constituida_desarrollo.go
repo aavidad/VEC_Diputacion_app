@@ -33,8 +33,8 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	marcas         ports.ConsultaMarcasParticipaciones
 	intentos       ports.PoliticaIntentosContacto
 	emisiones      contadorLlamamientosEnCursoBolsa
-	// resumenConjunto (Bolsa 000082) sirve el cuadro y las estadísticas con
-	// dos consultas de conjunto; nil si la migración aún no está instalada.
+	// Con B82 y B85, resumenConjunto sirve cuadro y estadísticas con tres
+	// consultas en una instantánea. Sin B85 se usa todo el camino legado.
 	resumenConjunto ports.LectorResumenBolsas
 	recuperador     constitucion.Recuperador
 	categorias      map[string]string
@@ -47,8 +47,8 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	hasta    time.Time
 }
 
-// contadorLlamamientosEnCursoBolsa es la única lectura de emisiones que usa la
-// fuente; la interfaz permite probar la carga sin PostgreSQL.
+// contadorLlamamientosEnCursoBolsa se usa sólo en el camino legado, una vez
+// por bolsa, cuando falta el resumen de conjunto B82/B85.
 type contadorLlamamientosEnCursoBolsa interface {
 	ContarEnCurso(context.Context, string) (int, error)
 }

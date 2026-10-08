@@ -19,6 +19,7 @@ import (
 	usuariosapp "vec-diputacion-granada/internal/modules/usuarios/application"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
@@ -265,7 +266,11 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 			denegarTemprano()
 			return
 		}
+		inicioIdentidad := time.Now()
 		principal, err := a.base.resolvedor.ResolveDemoIdentity(r.Context(), r)
+		if a.ruta == usuarioshttp.RutaMisPreferencias || a.ruta == usuarioshttp.RutaMisPreferenciasAreaPersonal {
+			telemetria.RegistrarFase(r.Context(), telemetria.FaseIdentidad, time.Since(inicioIdentidad), err)
+		}
 		cert := r.TLS.VerifiedChains[0][0]
 		ahora := a.reloj.Ahora()
 		if err != nil {

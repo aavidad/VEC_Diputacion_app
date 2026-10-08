@@ -6,6 +6,9 @@ export const FIJOS = Object.freeze({ antecedente_tribunal: 'antecedente_no_cotej
   designacion: 'circuito_pendiente', habilitacion: 'circuito_pendiente', sesion_celebrada: 'circuito_pendiente',
   asistencia: 'circuito_pendiente', deliberaciones: 'circuito_pendiente', acuerdos_adoptados: 'circuito_pendiente',
   aprobacion: 'circuito_pendiente', firma: 'circuito_pendiente' });
+export const COTEJO_LOCAL = 'salida_tribunal_sha256';
+export const FIJOS_COTEJO_LOCAL = Object.freeze({ ...FIJOS, antecedente_tribunal: 'antecedente_cotejado_local',
+  fase_propuesta: 'fase_cotejada_local' });
 const AUSENTES = ['sesion_ref', 'fecha_propuesta', 'orden_dia_propuesto', 'acuerdos_propuestos', 'textos_orden_dia', 'textos_acuerdos'];
 const cadena = v => typeof v === 'string' && new TextEncoder().encode(v).byteLength <= 65536;
 const texto = v => cadena(v) && new TextEncoder().encode(v).byteLength <= 4096
@@ -24,7 +27,8 @@ const material = v => forma(v, { alcance: x => x === 'preparacion_sintetica', id
   && unico(v.orden_dia_propuesto, 'punto_ref') && unico(v.acuerdos_propuestos, 'propuesta_ref')
   && v.acuerdos_propuestos.every(a => v.orden_dia_propuesto.some(p => p.punto_ref === a.punto_ref));
 const pendiente = v => forma(v, { campo: x => Object.hasOwn(FIJOS, x) || AUSENTES.includes(x),
-  codigo: x => ['antecedente_no_cotejado', 'pertenencia_no_verificada', 'circuito_pendiente', 'material_ausente'].includes(x) });
+  codigo: x => ['antecedente_no_cotejado', 'pertenencia_no_verificada', 'antecedente_cotejado_local',
+    'fase_cotejada_local', 'circuito_pendiente', 'material_ausente'].includes(x) });
 const mensaje = v => forma(v, { campo: cadena, codigo: cadena, mensaje: cadena });
 
 /** Valida sólo transporte y enlaces locales; nunca acredita una sesión ni sus acuerdos. */
@@ -34,9 +38,10 @@ export function leerSalida(bytes) {
   try { const s = new TextDecoder('utf-8', { fatal: true }).decode(bytes); comprobarClaves(s); dto = JSON.parse(s); }
   catch { throw new TypeError('formato'); }
   const preparacion = v => forma(v, { estado: x => x === 'borrador_propuesto', material_propuesto: material, pendientes: lista(pendiente, 16) });
-  if (!forma(dto, { titulo: cadena, preparacion, limite: cadena, mensajes: lista(mensaje, 16) })) throw new TypeError('formato');
+  if (!forma(dto, { titulo: cadena, preparacion, limite: cadena, mensajes: lista(mensaje, 16) }, ['cotejo_local'])
+    || (Object.hasOwn(dto, 'cotejo_local') && dto.cotejo_local !== COTEJO_LOCAL)) throw new TypeError('formato');
   const p = dto.preparacion.pendientes, m = dto.preparacion.material_propuesto;
-  const esperados = { ...FIJOS };
+  const esperados = { ...(Object.hasOwn(dto, 'cotejo_local') ? FIJOS_COTEJO_LOCAL : FIJOS) };
   for (const [campo, falta] of Object.entries({ sesion_ref: !m.sesion_ref, fecha_propuesta: !m.fecha_propuesta,
     orden_dia_propuesto: !m.orden_dia_propuesto.length, acuerdos_propuestos: !m.acuerdos_propuestos.length,
     textos_orden_dia: m.orden_dia_propuesto.some(x => !x.texto_propuesto.trim()), textos_acuerdos: m.acuerdos_propuestos.some(x => !x.texto_propuesto.trim()) })) {

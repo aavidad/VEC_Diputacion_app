@@ -1,13 +1,42 @@
 # Plan del Canal interno de información — 4 de octubre de 2026
 
+## Estado del primer corte — 7 de octubre de 2026
+
+**CAN01 es candidato local, pendiente de integración y publicación.** La rama
+`trabajo/codexv-canal-publico-20261007` contiene la entrada pública
+`/canal-interno/`, catálogos de texto castellano e inglés y
+`web/static/canal-interno/destinos.json`, versión 1. El paquete enlaza el canal
+que figura en la [página institucional](https://www.dipgra.es/e-administracion/administracion-electronica/sistema-interno-de-informacion/),
+la [Estrategia del BOP 157/2024](https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1723590017898-final-7e73c306-2.pdf?p=1779215866944),
+el [Reglamento definitivo del BOP 124/2025](https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1751497250139-final-40f10e71-1.pdf)
+y la [Ley 2/2023 del BOE](https://www.boe.es/eli/es/l/2023/02/20/2/con).
+Cada destino conserva órgano, fuente, fecha de publicación conocida y estado de
+vigencia observado. El enlace Centinela se comprobó en la página institucional;
+no se abrió su formulario.
+
+El candidato de interfaz y montaje es `bae7e9508fa97cea4e04495a763ccf82b4651dea`,
+con revisión independiente de usabilidad **GO** sobre ese hash. Tres pruebas Node,
+la prueba focal del handler Go y Semgrep local pasaron. Chrome comprobó ES a
+1440 px, EN a 390 px, teclado/ayuda y recuperación de un catálogo y de enlaces
+caídos en un servidor estático local: sin desbordamiento, cookies, almacenamiento
+web ni peticiones automáticas a Centinela. El handler Go comprobó GET/HEAD,
+redirección, POST rechazado y archivos no enumerados. El servidor VEC aún no se ha
+recorrido en Chrome; no se afirma despliegue, recepción ni seguimiento de denuncias.
+
+**CAN02 queda pendiente:** cambio nominal y auditado de esa configuración pública
+con permiso exacto y autoridad común K/L. También quedan pendientes la decisión
+136 del Responsable y DPD para cualquier intercambio, su contrato técnico,
+custodios y política de eliminación. Hasta entonces el Sistema institucional
+conserva recepción, acuses, investigación y libro-registro.
+
 VEC ofrecerá acceso público al Sistema Interno de Información institucional y sus
 normas, sin recoger denuncias, identidad o documentos. La primera entrega no exige
 login de VEC ni relación de empleo. Recepción, acuses, seguimiento, investigación y
 libro-registro permanecen en el Sistema institucional. Una integración mínima solo
-se abrirá si la aprueba su Responsable. Este encargo entrega documentación, sin
-código, SQL, instalación ni acceso a expedientes del canal.
+se abrirá si la aprueba su Responsable. La edición original de este plan entregó
+solo documentación, sin código, SQL, instalación ni acceso a expedientes del canal.
 
-Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
+Base del inventario inicial: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos: [ficha del Canal interno integrada](../estudio_requisitos/ficha_canal_interno_informacion_2026-10-04.md),
 CAN1–CAN10. La cola vigente y las autoridades de identidad/autorización K,
 núcleo/auditoría L y Documentos se conservan. Personal B no produce un vínculo
@@ -137,9 +166,9 @@ de K/L y del Sistema institucional se separan del consumo propio de VEC.
 | Corte y base | Salida usable por PR | Archivos propios previstos | Dependencias | Horas |
 | --- | --- | --- | --- | ---: |
 | C00 · inventario | Revalidar destino/normas en base vigente y qué mantiene cada custodio. | Este plan, en su turno. | Ficha; sin inspección de expedientes ni formulario del proveedor. | 1–2 |
-| C01 · B3/CAN3 | Fuente pública versionada de enlace/normas con consumidor y validación de destino. | Nuevos datos `data/catalogos/canal-interno/` y lector de configuración propio. | Fuente institucional; enlace sin campos de persona/empleado/sesión. | 2–3 |
+| C01 · B3/CAN3 | Fuente pública versionada de enlace/normas con consumidor y validación de destino. | `web/static/canal-interno/destinos.json` y lector propio en el candidato CAN01. | Fuente institucional; enlace sin campos de persona/empleado/sesión. | 2–3 |
 | C02 · B1/CAN10 | Cambio nominal de configuración con permiso exacto/auditoría; lectura pública solo devuelve campos públicos. | Consumidor propio de configuración/auditoría; común por custodio. | C01, K/L y gobierno existente; sin historial nominal de visitas al canal. | 4–6 |
-| C03 · CAN1/2 | Acceso público útil al canal y normas, ámbito/vías claros y ayuda desde catálogos. | Vista/cliente/textos propios en nueva superficie pública; montaje por dueño. | C01/C02; sin login/certificado, sin recoger hechos o documentos, revisión usabilidad. | 3–5 |
+| C03 · CAN1/2 | Acceso público útil al canal y normas, ámbito/vías claros y ayuda desde catálogos. | Vista/cliente/textos propios en nueva superficie pública; montaje por dueño. | C01 para lectura pública; C02 pendiente para cambio gobernado; sin login/certificado ni recogida de datos. | 3–5 |
 | C04 · entrega inicial | Chrome comprueba enlace, teclado, público sin login y ausencia de identidad/referrer/parámetros transmitidos. | Pruebas focales/recorrido y ayuda propias. | C03; revisión de frontera/usabilidad; no acredita recepción del proveedor. | 2–4 |
 | C05 · decisión, opcional | Contrato mínimo autorizado por Responsable y DPD, límites/datos/retención y sistema de referencia fijados. | Contrato junto al futuro adaptador; actualización de este plan en su turno. | 136 resuelta para integración; proveedor/Sistemas admiten interfaz; sin inferir API. | 3–5 |
 | C06 · B1/CAN4/6 | Consumidor nominal segregado de gestores con consulta focal y los tres resultados auditados. | Nuevos `canalinterno/ports/{autorizacion,auditoria}.go`, consumidor propio. | C05, K/L, designaciones/perfiles fijos, conflictos y superficie segregada por custodio. | 6–10 |

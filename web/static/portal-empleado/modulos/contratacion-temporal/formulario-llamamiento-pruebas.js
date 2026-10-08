@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { createHash, webcrypto } from "node:crypto";
 import { File } from "node:buffer";
 import { readFile } from "node:fs/promises";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261006-resumen-inicio-v2";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261006-resumen-inicio-v2";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261008-alta-rpt-circular-v6";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-capacidad-v3";
+
 
 export const CLAVE = "123e4567-e89b-42d3-a456-426614174000";
 export const EXPEDIENTE = "expediente:ct:sintetico:001";

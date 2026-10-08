@@ -1,7 +1,7 @@
-import { bytesABase64, comprobarFichero } from "./cliente.js?v=20261005-b1-carga-v1";
+import { bytesABase64, comprobarFichero } from "./cliente.js?v=20261008-b1-correctivo-v1";
 import {
   claveCategoria, filtrarFilas, nombrePersona, paginar, textoAviso, textoBloqueo, textoError, textoIncidencia,
-} from "./modelo.js?v=20261005-b1-carga-v1";
+} from "./modelo.js?v=20261008-b1-correctivo-v1";
 
 const ZONA = "Europe/Madrid";
 const CODIGOS_FICHERO = new Set(["fichero_no_valido", "fichero_demasiado_grande", "demasiadas_filas", "peticion_no_valida"]);
@@ -56,6 +56,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   // Paso 1: categorías y validación del formulario.
   async function cargarCategorias() {
     const select = $("categoria");
+    if (select.options.length > 1) return;
     select.disabled = true;
     $("categorias-reintentar").hidden = true;
     $("categorias-estado").textContent = t("categoriasCargando");
@@ -241,7 +242,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     if (!v || v.bloqueo || estado.ocupado) return;
     if (v.rechazadas > 0 && !$("excluir").checked) { mostrarErrorRevision(t("faltaExcluir")); return; }
     $("error-revisar").hidden = true;
-    $("confirmar-texto").textContent = t("confirmarTexto", { cuenta: v.aceptadas, categoria: estado.categoria.etiqueta });
+    $("confirmar-texto").textContent = `${t("confirmarTexto", { cuenta: v.aceptadas, categoria: estado.categoria.etiqueta })} ${v.rechazadas ? t("confirmarDescartes", { cuenta: v.rechazadas }) : ""}`.trim();
     $("confirmar").showModal?.();
   }
 
@@ -284,7 +285,6 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       return li;
     }));
     $("detalle-registro").textContent = t("detalleRegistro", { referencia: recibo.auditoria_ref });
-    $("detalle-huella").textContent = t("detalleHuella", { huella: recibo.huella_sha256 });
   }
 
   function reiniciar() {
@@ -305,6 +305,14 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     estado.filtro = radio.value;
     estado.pagina = 1;
     pintarFilas();
+  }));
+  doc.querySelectorAll(".carga-kpi-boton").forEach((boton) => boton.addEventListener("click", () => {
+    estado.filtro = boton.dataset.filtro;
+    estado.pagina = 1;
+    const radio = doc.querySelector(`input[name="filtro"][value="${estado.filtro}"]`);
+    if (radio) radio.checked = true;
+    pintarFilas();
+    $("tabla-contenedor").hidden ? $("cuenta").focus() : $("tabla-contenedor").focus();
   }));
   $("anterior").addEventListener("click", () => { estado.pagina -= 1; pintarFilas(); });
   $("siguiente").addEventListener("click", () => { estado.pagina += 1; pintarFilas(); });

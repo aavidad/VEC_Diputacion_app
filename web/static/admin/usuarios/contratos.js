@@ -1,4 +1,4 @@
-import { validarPaginaMetadatos, validarFichaMetadatos } from "./metadatos.js?v=20261004-admin-usuarios-metadata-v1";
+import { validarPaginaMetadatos, validarFichaMetadatos } from "./metadatos.js?v=20261005-admin-lote-pantalla-v1";
 const SHA = /^[a-f0-9]{64}$/u;
 const REF = /^[A-Za-z0-9][A-Za-z0-9_:.-]{2,255}$/u;
 const ACCIONES = new Set(["consultar", "aplicar_ordinario", "proponer", "cerrar_propuesta", "aplicar_lote_ordinario"]);

@@ -45,7 +45,7 @@ test("sin fuente montada las tres vistas ignoran incluso un payload poblado", ()
   for (const renderizar of [vistas.renderizarMeritos, vistas.renderizarBaremacion,
     vistas.renderizarAlegaciones]) {
     const html = renderizar(datos);
-    assert.match(html, /Fuente no configurada/);
+    assert.match(html, /Datos aún no disponibles/);
     assert.doesNotMatch(html, /MER-1|PER-1|ALE-1|99|3,0/);
     assert.match(html, /<summary aria-label="Ayuda:/);
   }
@@ -58,14 +58,14 @@ test("carga, error, denegación y origen no autorizado cierran los datos", () =>
   ]) {
     for (const [carga, etiqueta] of [
       ["cargando", "Consultando"], ["error", "Servicio no disponible"],
-      ["denegado", "Acceso denegado"], ["no_configurado", "Fuente no configurada"],
+      ["denegado", "Acceso denegado"], ["no_configurado", "Datos aún no disponibles"],
     ]) {
       const html = renderizar(datos, { vistasBaremacion: { [vista]: { carga } } });
       assert.match(html, new RegExp(etiqueta));
       assert.doesNotMatch(html, /MER-1|PER-1|ALE-1/);
     }
     assert.match(renderizar(datos, { vistasBaremacion: { [vista]: { carga: "disponible" } } }),
-      /Fuente no configurada/);
+      /Datos aún no disponibles/);
   }
 });
 
@@ -79,11 +79,11 @@ test("un dato declarado no cumple requisitos ni hereda puntos o decisiones ajena
   const html = vistas.renderizarMeritos(datos, disponible("meritos"));
   assert.match(html, /Curso/);
   assert.match(html, /Declarado/);
-  assert.match(html, /Sin fuente verificable/);
+  assert.match(html, /Sin justificante comprobable/);
   assert.match(html, /Sin evaluación de acceso estructurada/);
   assert.match(html, /Sin valoración de esta convocatoria/);
   assert.match(html, /Revisión administrativa no conectada/);
-  assert.doesNotMatch(html, /99|Cumple requisito|Acreditado según fuente/);
+  assert.doesNotMatch(html, /99|Cumple requisito|Dato comprobado/);
   for (const comando of ["aceptar-merito", "rechazar-merito", "revocar-merito", "rehabilitar-merito"]) {
     assert.match(html, new RegExp(`data-comando="${comando}"[^>]+disabled aria-disabled="true"`));
   }
@@ -99,7 +99,7 @@ test("acreditación, acceso, valoración y revisión exigen sus fuentes propias"
     revision: { estado: "Validado", motivo: "Documento comprobado", fuente: "Registro",
       version_criterio: "v4" } };
   const html = vistas.renderizarMeritos({ meritos_revision: [item] }, disponible("meritos"));
-  assert.match(html, /Acreditado según fuente/);
+  assert.match(html, /Dato comprobado/);
   assert.match(html, /Cumple requisito/);
   assert.match(html, /Título exigido · Bases/);
   assert.match(html, /CON-1 · REQ-1 · v4/);
@@ -130,7 +130,7 @@ test("una titulación futura no habilita una bolsa y necesita previsión admitid
 });
 
 test("el ranking exige contexto de solicitud, bases y fuente, sin referencia fabricada", () => {
-  assert.match(vistas.renderizarBaremacion(datos, disponible("baremacion")), /Fuente no configurada/);
+  assert.match(vistas.renderizarBaremacion(datos, disponible("baremacion")), /Datos aún no disponibles/);
   const completo = { ...datos, contexto_baremacion: { convocatoria_ref: "CON-3",
     entrada_ref: "ENT-3", version_reglas: "v2", fuente_calculo: "CAL-3",
     estado_salida: "Provisional" } };
@@ -142,10 +142,10 @@ test("el ranking exige contexto de solicitud, bases y fuente, sin referencia fab
   assert.match(html, /data-comando="publicar-lista-provisional"[^>]+disabled/);
   assert.match(html, /data-vista="baremacion" aria-current="page"/);
   completo.ranking[0].version_reglas = "v1";
-  assert.match(vistas.renderizarBaremacion(completo, disponible("baremacion")), /Fuente no configurada/);
+  assert.match(vistas.renderizarBaremacion(completo, disponible("baremacion")), /Datos aún no disponibles/);
   completo.ranking[0].version_reglas = "v2";
   completo.contexto_baremacion.estado_salida = "Definitivo";
-  assert.match(vistas.renderizarBaremacion(completo, disponible("baremacion")), /Fuente no configurada/);
+  assert.match(vistas.renderizarBaremacion(completo, disponible("baremacion")), /Datos aún no disponibles/);
   Object.assign(completo.contexto_baremacion, {
     lista_ref: "LIST-3", acta_ref: "ACT-3", firma_ref: "FIR-3", publicacion_ref: "PUB-3",
   });

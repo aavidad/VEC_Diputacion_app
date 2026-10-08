@@ -7,13 +7,13 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import test from "node:test";
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../../../comun/textos.js";
-import { IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
+import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
 import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=20261001-ct-a-i18n-v1";
-import { mensajesTramite, mensajesTramitePortal, rotuloTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { cargarMensajesTramitePortalEnIdioma, mensajesTramite, rotuloTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal, cargarMensajesContratacionTemporalEnIdioma } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 // Huellas de las exportaciones originales en 463f7c176, anteriores al traslado.
 // Incluyen nombres, orden de claves, textos completos y marcadores sin duplicar los textos.
@@ -28,8 +28,8 @@ const PREIMAGEN = {
   },
   "i18n-borradores-publicados.js": {
     // Excepción a la preimagen: corrección EN de bp_subtitulo posterior al traslado.
-    "MENSAJES_BORRADORES_PUBLICADOS_EN": "595e5671fbc26190164f2b12bbb6a8f6ee52f872443d6a22385a64960a9cb1ef",
-    "MENSAJES_BORRADORES_PUBLICADOS_ES": "6c9b8fb8abac09567848e5fbe00c33a54a26d8014032302648af8b6e297997ad"
+    "MENSAJES_BORRADORES_PUBLICADOS_EN": "bd0c9e68b006dd257bc9e6d78de80a69824dbe6b298fad2b270e9965ae5f2963",
+    "MENSAJES_BORRADORES_PUBLICADOS_ES": "bc98aa0b080c0008dfe99a1a7501da0649169422065c18758d1077a416754bc3"
   },
   "i18n-cambios-expediente.js": {
     "MENSAJES_CAMBIOS_EXPEDIENTE_EN": "9a37c4630d4ed716d2b5176229ab039b5cfd4731828050ed3c2852dfbd5dd8a4",
@@ -59,16 +59,16 @@ const PREIMAGEN = {
   "i18n-llamamiento.js": {
     // Excepción a la preimagen: textos reescritos en lenguaje llano (05/10/2026), sin
     // clave de operación ni modo manual en pantalla; los límites pasan a la ayuda «?».
-    "MENSAJES_LLAMAMIENTO_EN": "1f57663b12641ccc9b3189f2bc6cc35b2217e9a4d74519e3fafed7a1d8cecabf",
-    "MENSAJES_LLAMAMIENTO_ES": "88a4c249b8fdd7f430c74356ffefa84e4c82a30af369ef21aeff4eae3e3ba054"
+    "MENSAJES_LLAMAMIENTO_EN": "01cf19c78d4178976b57cf40991ab35583f098b94696073b273c8cffbe0971d7",
+    "MENSAJES_LLAMAMIENTO_ES": "59fefb4d78cab9bb79bdda15fc54c79d187a4ee0f503d18afc7430c34c21de7b"
   },
   "i18n-subsanacion-reparos.js": {
-    "MENSAJES_SUBSANACION_REPAROS_EN": "64125e70d662c685f79970383cc504776bf0923b034ea24825d30209c139833a",
-    "MENSAJES_SUBSANACION_REPAROS_ES": "d153f27640795c4a871f3a5ac083127b259c9ac4d59398c3e6ced1366551b867"
+    "MENSAJES_SUBSANACION_REPAROS_EN": "d3dc09b6d8b28dfbfd56e64d54e6d40b9f3dd988562a67c28e1ccde882f6a12d",
+    "MENSAJES_SUBSANACION_REPAROS_ES": "e8d65c1e4b79ea981ed7cdc39b3444536749a1e192cfa128a68c2cc824cdc8fb"
   },
   "i18n-textos-vistas.js": {
-    "MENSAJES_TEXTOS_VISTAS_EN": "c0bcbbd15ba13c327909b80f2b5ea8f721583d9a0703bf144185c9e2607f01d5",
-    "MENSAJES_TEXTOS_VISTAS_ES": "8e3d9f5fc7ff76ae4c729bb9ec1bd308cfa91e4888c1200d40d67e47a55dcea4"
+    "MENSAJES_TEXTOS_VISTAS_EN": "3b62dd78417e9910cb3d4bdb6f0cc311d068cf6cef06f01dddb945d14febcd9b",
+    "MENSAJES_TEXTOS_VISTAS_ES": "837edbba7b1bbd2e492d3841a1dc65313f37f92e819681785bc819ed137f3ae8"
   }
 };
 // ANA002 añade cinco rótulos de contexto; la preimagen sigue comprobando todos los textos anteriores.
@@ -79,6 +79,15 @@ const CLAVES_CONTEXTO_ANA002 = Object.freeze([
   "ct_txt_contexto_corte_publicado",
   "ct_txt_contexto_no_comunicado",
 ]);
+const CLAVES_CUADRO_LIGERO = Object.freeze([
+  "filtros", "tabla_expedientes", "marca_urgente", "lista_actualizar", "lista_vacia_sin_alta",
+  "lista_textos_respaldo",
+  "lista_filtro_no_disponible", "lista_resultados_pagina",
+  "lista_titulo_conjunto", "lista_buscar_pista_servidor",
+  "lista_fase_servidor_preparacion", "lista_fase_servidor_llamamiento", "lista_fase_servidor_cierre",
+  "plazo_fase_en_plazo", "plazo_fase_vence_hoy",
+  "plazo_fase_vencido", "plazo_fase_sin_calcular",
+]);
 
 const CLAVES_FIN_MODALIDAD = Object.freeze({
   "i18n-analisis-catalogo.js": [
@@ -87,17 +96,43 @@ const CLAVES_FIN_MODALIDAD = Object.freeze({
   ],
   "i18n-avisos-via-cobertura.js": ["avisos_via_propuesta_oferta_sae_sin_fin"],
 });
+const CLAVES_REINCORPORACION_CAPACIDAD = Object.freeze([
+  "reincorporacion_capacidad_denegada", "reincorporacion_capacidad_no_disponible",
+  "reincorporacion_capacidad_reintentar", "reincorporacion_capacidad_comprobando",
+  "reincorporacion_capacidad_no_habilitada",
+]);
+// Nuevas claves de Alta: se comprueban aparte sin reescribir la preimagen anterior.
+const CLAVES_CAPACIDAD_ALTA = Object.freeze({
+  "i18n-textos-vistas.js": ["motivo_sustitucion"],
+  "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",
+    "necesidades_alta_no_disponibles_detalle"],
+});
 const huella = (valor) => createHash("sha256").update(JSON.stringify(valor)).digest("hex");
 const codigos = (await cargarTextos("contratacion-temporal-compatibilidad")).seccion("idiomas_exportados");
+
+async function preimagenEnIdioma(archivo, nombre) {
+  const codigo = nombre.endsWith("_EN") || nombre === "rotulos_en" ? codigos.EN : codigos.ES;
+  if (nombre.startsWith("rotulos_")) {
+    const { actual } = await cargarCatalogosContratacionEnIdioma("portal", codigo, "fases_rrhh");
+    return actual;
+  }
+  const base = archivo.replace(/^i18n-/u, "contratacion-temporal-").replace(/\.js$/u, "");
+  if (archivo === "i18n-ficha-lista.js") {
+    const [ficha, plazos] = await Promise.all([
+      cargarCatalogosContratacionEnIdioma(base, codigo),
+      cargarCatalogosContratacionEnIdioma("contratacion-temporal-lista-plazos", codigo, "lista"),
+    ]);
+    return Object.freeze({ ...plazos.actual, ...ficha.actual });
+  }
+  return (await cargarCatalogosContratacionEnIdioma(base, codigo)).actual;
+}
 
 for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
   test(`${archivo}: conserva la preimagen de las exportaciones y los rótulos`, async () => {
     const modulo = await import(new URL(archivo, import.meta.url));
     for (const [nombre, anterior] of Object.entries(exportaciones)) {
-      const valor = nombre.startsWith("rotulos_")
-        ? Object.fromEntries(Object.entries(mensajesTramitePortal(nombre.slice("rotulos_".length)))
-          .map(([clave, texto]) => [clave.slice("tramite_".length), texto]))
-        : modulo[nombre];
+      const valor = nombre === "FASES_RRHH" || nombre === "FASE_RRHH_DE_ORIGEN"
+        ? modulo[nombre] : await preimagenEnIdioma(archivo, nombre);
       let preimagen = valor;
 	  if (CLAVES_FIN_MODALIDAD[archivo]) {
 	    for (const clave of CLAVES_FIN_MODALIDAD[archivo]) {
@@ -115,19 +150,32 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
         preimagen = Object.fromEntries(Object.entries(valor)
           .filter(([clave]) => !CLAVES_CONTEXTO_ANA002.includes(clave)));
       }
+      if (archivo === "i18n-ficha-lista.js") {
+        for (const clave of [...CLAVES_CUADRO_LIGERO, ...CLAVES_REINCORPORACION_CAPACIDAD]) {
+          assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
+        }
+        preimagen = Object.fromEntries(Object.entries(valor)
+          .filter(([clave]) => !CLAVES_CUADRO_LIGERO.includes(clave) && !CLAVES_REINCORPORACION_CAPACIDAD.includes(clave)));
+
+      }
+      if (CLAVES_CAPACIDAD_ALTA[archivo]) {
+        for (const clave of CLAVES_CAPACIDAD_ALTA[archivo]) {
+          assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
+        }
+        preimagen = Object.fromEntries(Object.entries(preimagen)
+          .filter(([clave]) => !CLAVES_CAPACIDAD_ALTA[archivo].includes(clave)));
+      }
       assert.equal(huella(preimagen), anterior, nombre);
-      assert.ok(Object.isFrozen(valor) || nombre.startsWith("rotulos_"), nombre);
+      assert.ok(Object.isFrozen(valor), nombre);
     }
   });
 }
 
 test("los catálogos y los traductores conservan marcadores, sobrescrituras y claves desconocidas", async () => {
-  const contratacion = await import("./i18n.js");
-  const expedientes = await import("./i18n-expedientes.js");
-  for (const [nombre, codigo] of Object.entries(codigos)) {
+  for (const codigo of Object.values(codigos)) {
     for (const [mensajes, crear] of [
-      [contratacion[`MENSAJES_CONTRATACION_TEMPORAL_${nombre}`], crearTraductorContratacionTemporal],
-      [expedientes[`MENSAJES_EXPEDIENTES_CONTRATACION_${nombre}`], crearTraductorExpedientesContratacion],
+      [await cargarMensajesContratacionTemporalEnIdioma(codigo), crearTraductorContratacionTemporal],
+      [await cargarMensajesExpedientesContratacionEnIdioma(codigo), crearTraductorExpedientesContratacion],
     ]) {
       const traducir = crear(mensajes);
       for (const [clave, original] of Object.entries(mensajes)) {
@@ -141,11 +189,18 @@ test("los catálogos y los traductores conservan marcadores, sobrescrituras y cl
       assert.throws(() => crear({ titulo: "" }));
       assert.throws(() => crear(null));
     }
-    const fases = (await cargarTextos("portal", { idioma: codigo })).seccion("fases_rrhh");
-    for (const [clave, texto] of Object.entries(fases)) assert.equal(rotuloTramite(clave, {}, codigo), texto);
-    const tramite = mensajesTramite(codigo);
-    assert.equal(tramite.fase_rrhh_orden_nombre, fases.fase_de_nombre);
-    assert.equal(tramite.etiqueta_fase_incorporacion, fases.fase_incorporacion);
+    const fases = (await cargarCatalogosContratacionEnIdioma("portal", codigo, "fases_rrhh")).actual;
+    const mensajesPortal = await cargarMensajesTramitePortalEnIdioma(codigo);
+    for (const [clave, texto] of Object.entries(fases)) assert.equal(mensajesPortal[`tramite_${clave}`], texto);
+    if (codigo === IDIOMA_ACTUAL) {
+      for (const [clave, texto] of Object.entries(fases)) assert.equal(rotuloTramite(clave, {}, codigo), texto);
+      const tramite = mensajesTramite(codigo);
+      assert.equal(tramite.fase_rrhh_orden_nombre, fases.fase_de_nombre);
+      assert.equal(tramite.etiqueta_fase_incorporacion, fases.fase_incorporacion);
+    } else {
+      assert.throws(() => rotuloTramite("fase_incorporacion", {}, codigo), /idioma solicitado/u);
+      assert.throws(() => mensajesTramite(codigo), /idioma solicitado/u);
+    }
   }
   const traducir = crearTraductorCancelacion({ "cancelacion.titulo": "{uno} {dos}" });
   assert.equal(traducir("titulo", { uno: 0 }), "0 {dos}");
@@ -175,11 +230,11 @@ test("las exportaciones no cambian al reordenar el índice ni al cambiar el idio
     indice.por_defecto = codigos.EN;
     await writeFile(join(temporal, "textos/idiomas.json"), JSON.stringify(indice));
     const modulo = await import(pathToFileURL(join(temporal, "portal-empleado/modulos/contratacion-temporal/i18n-analisis-catalogo.js")));
-    const original = await import("./i18n-analisis-catalogo.js");
-    assert.deepEqual(modulo.MENSAJES_ANALISIS_CATALOGO_ES, original.MENSAJES_ANALISIS_CATALOGO_ES);
-    assert.deepEqual(modulo.MENSAJES_ANALISIS_CATALOGO_EN, original.MENSAJES_ANALISIS_CATALOGO_EN);
+    const esperado = (await cargarCatalogosContratacionEnIdioma("contratacion-temporal-analisis-catalogo", codigos.EN)).actual;
+    assert.equal(modulo.MENSAJES_ANALISIS_CATALOGO_ES, undefined);
+    assert.deepEqual(modulo.MENSAJES_ANALISIS_CATALOGO_EN, esperado);
     const helper = await import(pathToFileURL(join(temporal, "portal-empleado/modulos/contratacion-temporal/i18n-catalogos.js")));
-    assert.deepEqual((await helper.cargarCatalogosContratacion("contratacion-temporal-analisis-catalogo")).actual, original.MENSAJES_ANALISIS_CATALOGO_EN);
+    assert.deepEqual((await helper.cargarCatalogosContratacion("contratacion-temporal-analisis-catalogo")).actual, esperado);
   } finally {
     await rm(temporal, { recursive: true, force: true });
   }

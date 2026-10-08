@@ -101,7 +101,7 @@ func (c capacidadAtestacionAutorizacionV3JSON) valoresAutenticados() []string {
 func (c capacidadAtestacionAutorizacionV3JSON) validarEstructura() error {
 	emitidaEn, errEmitida := parsearInstanteCapacidadV3(c.EmitidaEn)
 	expiraEn, errExpira := parsearInstanteCapacidadV3(c.ExpiraEn)
-	decisionHasta, errDecision := parsearInstanteCapacidadV3(c.DecisionValidaHasta)
+	decisionHasta, errDecision := parsearInstanteDecisionCapacidadV3(c.DecisionValidaHasta)
 	verificadaEn, errVerificada := parsearInstanteCapacidadV3(c.VerificadaEn)
 	publicadaEn, errPublicada := parsearInstanteCapacidadV3(c.ConfiguracionPublicadaEn)
 	configuracionExpira, errConfiguracion := parsearInstanteCapacidadV3(c.ConfiguracionExpiraEn)
