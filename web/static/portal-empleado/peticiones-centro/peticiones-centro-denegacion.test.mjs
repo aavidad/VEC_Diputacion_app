@@ -316,3 +316,22 @@ test("RRHH descarta el comando incierto tras POST 503 y reintento 401", async ()
   await raiz.pulsar({ accion: "reintentar-alta-rrhh" });
   assert.equal(post, 2);
 });
+
+test("la recuperación y la denegación notifican el contexto vigente a las secciones", async () => {
+  const cambios = [];
+  let fallo = 503;
+  const capacidades = { incorporaciones: true, cancelaciones: true };
+  const vista = await iniciarPeticionCentro({ raiz: raizFalsa(), alCambiarContexto: (c) => cambios.push(c),
+    cliente: async (ruta) => {
+      if (fallo) throw { status: fallo };
+      return ruta.endsWith("/contexto") ? { ...contexto, capacidades } : { peticiones: [] };
+    },
+  });
+  assert.equal(cambios.at(-1), undefined, "un fallo no publica capacidades anteriores");
+  fallo = 0;
+  await vista.recargar();
+  assert.equal(cambios.at(-1), capacidades);
+  fallo = 403;
+  await vista.recargar();
+  assert.equal(cambios.at(-1), undefined, "denegar retira ambas secciones");
+});

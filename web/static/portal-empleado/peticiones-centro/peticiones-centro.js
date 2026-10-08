@@ -453,7 +453,7 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
 }
 
 export async function iniciarPeticionCentro({ raiz = document.querySelector("#aplicacion"), cliente = pedir,
-  prepararAnalisis = prepararAnalisisPeticionesCentro } = {}) {
+  prepararAnalisis = prepararAnalisisPeticionesCentro, alCambiarContexto = () => {} } = {}) {
   if (new URLSearchParams(globalThis.location?.search || "").get("vista") === "rrhh") {
     return iniciarPeticionesCentroRRHH({ raiz, cliente });
   }
@@ -483,6 +483,7 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     mensaje = `${modo === "denegado" ? TEXTO.accesoDenegado : TEXTO.lecturaFallida}${confirmada ? ` ${TEXTO.operacionConfirmadaOculta}` : ""}${resultadoIncierto ? ` ${TEXTO.operacionInciertaOculta}` : ""}`;
   };
   const dibujar = () => {
+    alCambiarContexto(contexto?.capacidades);
     const activo = raiz.ownerDocument?.activeElement;
     const enfocado = raiz.contains?.(activo) ? activo.dataset?.seleccionar || activo.dataset?.pcIrExpediente || "" : "";
     raiz.innerHTML = renderizarPeticionCentro({ contexto, peticiones, peticion, modo, estado, recibo, mensaje, motivo, confirmado, expedientes });
@@ -640,7 +641,7 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
   globalThis.addEventListener?.("beforeunload", (event) => { if (ocupado || operacionPendiente) { event.preventDefault(); event.returnValue = ""; } });
   raiz.innerHTML = `<p class="pc-cargando">${esc(TEXTO.cargar)}</p>`;
   await cargar();
-  return { recargar: cargar, capacidades: contexto?.capacidades };
+  return { recargar: cargar };
 }
 
 /**

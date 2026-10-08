@@ -89,6 +89,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
   if (!contenedor || typeof contenedor.addEventListener !== "function") throw new TypeError("contenedor no válido");
   contenedor.setAttribute?.("lang", IDIOMA_EFECTIVO_PETICIONES_CENTRO);
   const t = crearTraductorCancelacionesCentro(mensajes);
+  let activo = true;
   let datos = null;
   let aviso = null;
   let abierto = null;
@@ -118,6 +119,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
   }
 
   function pintar() {
+    if (!activo) return;
     if (datos?.ausente) { contenedor.innerHTML = ""; contenedor.hidden = true; return; }
     contenedor.hidden = false;
     const cabecera = `<h2 id="cc-titulo">${escapar(t("titulo"))}</h2>`;
@@ -140,14 +142,17 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
   // canal: se consultan con el primero en curso. Un 404 (sin componer) o un
   // 403 (perfil que no cancela) ocultan la sección.
   async function cargar() {
+    if (!activo) return;
     datos = null; pintar();
     try {
       const filas = (await bandeja.bandeja()).expedientes;
+      if (!activo) return;
       const enCurso = filas.filter((e) => e.estado === "en_curso");
       if (enCurso.length === 0) {
         datos = { expedientes: filas.filter((e) => e.estado === "cancelado"), opciones: { motivos: [], fases_admitidas: [] } };
       } else {
         const opciones = await cliente.consultar(enCurso[0].expediente_ref);
+        if (!activo) return;
         datos = { opciones, expedientes: filas.filter((e) => e.estado === "cancelado" || (e.estado === "en_curso" && opciones.fases_admitidas.includes(e.fase))) };
       }
     } catch (error) {
@@ -178,6 +183,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
       aviso = { tono: "exito", texto: t("exito"), recibo: recibo.recibo_ref };
       pintar();
     } catch (error) {
+      if (!activo) return;
       ocupado = false;
       if (error?.indeterminado) aviso = { tono: "aviso", texto: t("error_pendiente") };
       else {
@@ -211,6 +217,8 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
   contenedor.addEventListener("submit", alEnviar);
   cargar();
   return () => {
+    activo = false; datos = null;
+    contenedor.hidden = true; contenedor.innerHTML = "";
     contenedor.removeEventListener("click", alPulsar);
     contenedor.removeEventListener("submit", alEnviar);
   };

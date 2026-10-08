@@ -153,6 +153,7 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
   contenedor.setAttribute?.("lang", IDIOMA_EFECTIVO_PETICIONES_CENTRO);
   const t = crearTraductorIncorporacionesCentro(mensajes);
   const documento = (tipo) => { const c = `documento_${tipo}`; const v = t(c); return v === c ? tipo : v; };
+  let activo = true;
   let datos = null;
   let aviso = null;
   let abierto = null;
@@ -190,6 +191,7 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
   }
 
   function pintar() {
+    if (!activo) return;
     if (datos?.ausente) { contenedor.innerHTML = ""; contenedor.hidden = true; return; }
     contenedor.hidden = false;
     const cabecera = `<h2 id="ic-titulo">${escapar(t("titulo"))}</h2>`;
@@ -216,8 +218,10 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
   }
 
   async function cargar() {
+    if (!activo) return;
     datos = null; pintar();
     try { datos = await cliente.bandeja(); } catch (error) { datos = error?.estado === 404 ? { ausente: true } : { error: true }; }
+    if (!activo) return;
     pintar();
     publicarExpedientes();
   }
@@ -239,11 +243,13 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
     ocupado = true; aviso = { tono: "aviso", texto: t("enviando") }; pintar();
     try {
       const recibo = await cliente.confirmar(solicitud, hoyMadrid(ahora()));
+      if (!activo) return;
       claves.delete(e.expediente_ref);
       ocupado = false; abierto = null;
       aviso = { tono: "exito", texto: t("exito", { fecha: fechaVisible(recibo.fecha_incorporacion) }), recibo: recibo.recibo_ref };
       await cargar();
     } catch (error) {
+      if (!activo) return;
       ocupado = false;
       if (error?.indeterminado) aviso = { tono: "aviso", texto: t("error_pendiente") };
       else {
@@ -275,6 +281,9 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
   contenedor.addEventListener("submit", alEnviar);
   cargar();
   return () => {
+    activo = false; datos = null;
+    contenedor.hidden = true; contenedor.innerHTML = "";
+    publicarExpedientes();
     retirarHuella();
     contenedor.removeEventListener("click", alPulsar);
     contenedor.removeEventListener("submit", alEnviar);

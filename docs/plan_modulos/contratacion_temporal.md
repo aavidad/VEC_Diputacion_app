@@ -100,7 +100,7 @@ Las etiquetas de plaza y puesto RPT siguen los campos obligatorios del catálogo
 
 El contexto del centro informa de las secciones efectivamente publicadas al arrancar. La página monta incorporaciones y cancelaciones después de leer ese contexto; si no recibe una señal positiva, no consulta la bandeja. Ambas secciones comparten la petición simultánea, sin conservar datos entre recargas. Los permisos de lectura y los actos siguen comprobándose en sus rutas. El montaje de RRHH conserva su propia bandeja.
 
-Pruebas focales: 39 Node y cinco combinaciones de capacidad Go. Chrome, con respuestas de prueba y la página completa, recorrió seis estados en español a 1440 px y en inglés a 390 px: ausencia, contexto antiguo, incorporaciones, ambas secciones, vacío y fallo. Arranque observado de 91 a 136 ms; cero consultas a la ruta ausente y una cuando está publicada, sin errores JavaScript ni desbordamiento. Estos tiempos no acreditan PostgreSQL ni el despliegue nominal. No requiere SQL ni configuración nueva.
+Pruebas focales: 41 Node y cinco combinaciones de capacidad Go. Chrome, con respuestas de prueba y la página completa, recorrió ocho estados en español a 1440 px y en inglés a 390 px: ausencia, contexto antiguo, incorporaciones, ambas secciones, vacío, fallo, recuperación y revocación. Arranque observado de 103 a 144 ms, y recuperación medida por separado; cero consultas a la ruta ausente y una cuando está publicada, sin errores JavaScript ni desbordamiento. Estos tiempos no acreditan PostgreSQL ni el despliegue nominal. No requiere SQL ni configuración nueva.
 
 
 ## Alta con capacidad limitada — 08/10

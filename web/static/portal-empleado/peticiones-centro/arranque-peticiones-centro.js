@@ -54,19 +54,13 @@ async function arrancar(origen = null) {
       const peticiones = await import("./peticiones-centro.js?v=20261008-pc-capacidades-w1");
       peticiones.instalarAyudaPeticionCentro(document);
       ayuda.disabled = false;
-      const pantalla = await peticiones.iniciarPeticionCentro();
-      if (pantalla.capacidades?.incorporaciones === true) {
-        const incorporaciones = await import("./incorporaciones-centro.js?v=20261008-pc-capacidades-w1");
-        const bandeja = incorporaciones.crearClienteIncorporacionesCentro();
-        incorporaciones.instalarAyudaIncorporacionesCentro(document);
-        let cancelaciones = null;
-        if (pantalla.capacidades.cancelaciones === true) {
-          cancelaciones = await import("./cancelaciones-centro.js?v=20261008-pc-capacidades-w1");
-          cancelaciones.instalarAyudaCancelacionesCentro(document);
-        }
-        incorporaciones.montarIncorporacionesCentro({ contenedor: document.querySelector("#incorporaciones-centro"), cliente: bandeja });
-        cancelaciones?.montarCancelacionesCentro({ contenedor: document.querySelector("#cancelaciones-centro"), bandeja });
-      }
+      const [incorporaciones, cancelaciones, secciones] = await Promise.all([
+        import("./incorporaciones-centro.js?v=20261008-pc-capacidades-w1"),
+        import("./cancelaciones-centro.js?v=20261008-pc-capacidades-w1"),
+        import("./montaje-secciones-centro.js?v=20261008-pc-capacidades-w1"),
+      ]);
+      const montaje = secciones.crearMontajeSeccionesCentro({ documento: document, incorporaciones, cancelaciones });
+      await peticiones.iniciarPeticionCentro({ alCambiarContexto: montaje.actualizar });
       montado = true;
       if (puedeDevolverFoco(origen)) {
         const titulo = raiz.querySelector("h1, h2");
