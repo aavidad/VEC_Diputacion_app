@@ -6,7 +6,7 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-ct-centros-v2";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-ct-centros-v3";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
@@ -488,8 +488,8 @@ function renderizarContenidoAyuda(contexto = null) {
         try {
           await prepararTextosPortal("ayuda");
           const [ayudaContenido, ayudanteTramites] = await Promise.all([
-            import("./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1"),
-            import("./ayudante-tramites.js?v=20261007-pantallas-textos-final-v1"),
+            import("./ayuda-contenido.js?v=20261008-alta-etiquetas-ayuda-v2"),
+            import("./ayudante-tramites.js?v=20261008-alta-etiquetas-ayuda-v2"),
           ]);
           if (!activo || actual !== turno || estado.vista !== vistaAlAbrir) return;
           const ayuda = renderizarAyudaPreparada(contexto, ayudaContenido, ayudanteTramites);

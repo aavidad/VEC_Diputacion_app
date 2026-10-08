@@ -23,7 +23,7 @@ import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedient
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-alta-circular-v3";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-alta-circular-v3";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-alta-rpt-circular-v6";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-canal-telefono-v2";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-alta-capacidad-v3";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261008-alta-rpt-circular-v6";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";

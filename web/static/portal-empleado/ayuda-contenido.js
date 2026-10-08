@@ -37,7 +37,6 @@ export const AYUDA_PORTAL_RRHH = Object.freeze({
     traducirPortal("ayuda_rrhh_portada_paso_expedientes"),
     traducirPortal("ayuda_rrhh_portada_paso_nueva"),
     traducirPortal("ayuda_rrhh_portada_paso_bolsas"),
-    traducirPortal("ayuda_rrhh_portada_paso_sae"),
   ]),
   preguntas: Object.freeze([
     Object.freeze({

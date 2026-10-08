@@ -484,14 +484,34 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261008-canal-telefono-v2");
   for (const ruta of [
+    "ayuda-contenido.js",
+    "ayudante-tramites.js",
+    "modulos/contratacion-temporal/alta-renderer-puro.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vista.js",
+    "peticiones-centro/arranque-peticiones-centro.js",
+    "peticiones-centro/peticiones-centro.js",
+    "portal-modulos-coordinador.js",
+    "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261008-alta-etiquetas-ayuda-v2");
+  for (const ruta of [
+    "modulos/contratacion-temporal/alta-renderer-puro.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vista.js",
+    "peticiones-centro/arranque-peticiones-centro.js",
+    "peticiones-centro/peticiones-centro.js",
+    "portal-modulos-coordinador.js",
+    "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261008-alta-capacidad-v3");
+  for (const ruta of [
     "categorias-rpt/arranque.js",
     "categorias-rpt/montaje.js",
     "categorias-rpt/vista.js",
-    "portal-modulos-coordinador.js",
-    "portal.js",
   ]) versionesEspeciales.set(ruta, "20261008-hz8-idioma-v1");
   for (const ruta of ["portal-modulos-coordinador.js", "portal.js"])
-    versionesEspeciales.set(ruta, "20261008-ct-centros-v2");
+    versionesEspeciales.set(ruta, "20261008-ct-centros-v3");
   versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261008-ct-centros-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
@@ -630,7 +650,7 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-ct-centros-v2");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-ct-centros-v3");
 
 });
 
@@ -640,8 +660,8 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   const [html, portal, coordinador, recorridos, borradores] = await Promise.all(
     rutas.map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const version = "20261007-u-dietas-catalogo-v1";
-  const versionRaiz = "20261008-ct-centros-v2";
-  const versionCoordinador = "20261008-ct-centros-v2";
+  const versionRaiz = "20261008-ct-centros-v3";
+  const versionCoordinador = "20261008-ct-centros-v3";
   const comun = "20261007-pantallas-textos-final-v1";
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionRaiz);
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionCoordinador);
