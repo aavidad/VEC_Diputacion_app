@@ -316,7 +316,8 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 			captura.AutenticacionRef != vinculo.AutenticacionRef ||
 			captura.CertificadoHuellaSHA256 != acreditacion.CertificadoHuellaSHA256 ||
 			captura.Accion != accion || captura.RecursoRef != recurso || captura.Filtro != filtro ||
-			captura.RevisionPermisos == 0 || captura.Canal != canalEsperado || captura.Finalidad == "" ||
+			captura.RevisionPermisos == 0 || !huellaCertificadoInscripcionValida(captura.HuellaInstantaneaSHA256) ||
+			captura.Canal != canalEsperado || captura.Finalidad == "" ||
 			captura.CorrelacionRef == "" || captura.EmitidaEn.After(ahoraLectura) ||
 			!captura.ValidaHasta.After(ahoraLectura) || captura.ValidaHasta.After(vinculo.SesionValidaHasta) ||
 			!actorConLecturaValidaInscripcion(actor, &captura, accion, recurso, filtro) {

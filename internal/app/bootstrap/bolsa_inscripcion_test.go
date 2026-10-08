@@ -47,7 +47,8 @@ func (a autoridadInscripcionPrueba) CapturarLectura(_ context.Context, ctx conte
 		CertificadoHuellaSHA256: huella,
 		Canal:                   canal, Accion: accion, RecursoRef: recurso, Filtro: filtro,
 		Finalidad: "revision_inscripciones", CorrelacionRef: "cor_prueba_001", RevisionPermisos: 1,
-		EmitidaEn: ahora, ValidaHasta: ahora.Add(20 * time.Second)}, nil
+		HuellaInstantaneaSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		EmitidaEn:               ahora, ValidaHasta: ahora.Add(20 * time.Second)}, nil
 }
 
 type selectorCanalInscripcionPrueba struct{ canal string }
