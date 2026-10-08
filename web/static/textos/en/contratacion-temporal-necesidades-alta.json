@@ -14,6 +14,8 @@
     },
     "causa_fin_reincorporacion_titular": "Until the employee returns",
     "jornada_minutos": "Weekly working time (hours and minutes)",
+    "numero_personas": "Number of people requested",
+    "error_numero_personas": "Enter a whole number of people between 1 and 4,294,967,295.",
     "jornada_formato": "Enter 37:30 or 37.5 for 37 hours and 30 minutes.",
     "puesto_busqueda": "Post code in the published RPT",
     "puesto_buscar": "Find post",

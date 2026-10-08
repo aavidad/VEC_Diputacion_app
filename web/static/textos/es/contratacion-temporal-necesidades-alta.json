@@ -14,6 +14,8 @@
     },
     "causa_fin_reincorporacion_titular": "Hasta la reincorporación de la persona titular",
     "jornada_minutos": "Jornada semanal (horas y minutos)",
+    "numero_personas": "Número de personas solicitadas",
+    "error_numero_personas": "Indique un número entero de personas entre 1 y 4.294.967.295.",
     "jornada_formato": "Escriba 37:30 o 37,5 para indicar 37 horas y 30 minutos.",
     "puesto_busqueda": "Código del puesto en la RPT",
     "puesto_buscar": "Buscar puesto",

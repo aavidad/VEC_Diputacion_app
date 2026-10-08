@@ -20,7 +20,7 @@ const ESQUEMA_CATALOGOS = "vec.contratacion_temporal.catalogos_alta.v1";
 export const ESQUEMA_CATALOGOS_NECESIDADES = "vec.contratacion_temporal.catalogos_alta.v2";
 export const ESQUEMA_ALTA_NECESIDAD = "vec.ct.alta_necesidad.v1";
 const CAMPOS_NECESIDAD = Object.freeze([
-  "puesto_codigo", "plaza_codigo", "titular_ref", "vacancia_fuente_ref",
+  "numero_personas", "puesto_codigo", "plaza_codigo", "titular_ref", "vacancia_fuente_ref",
   "rpt_catalogo_ref", "rpt_catalogo_huella_sha256",
   "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion",
   "justificacion_temporal", "programa_denominacion", "programa_fin", "proyecto_codigo",
@@ -481,6 +481,9 @@ function validarCatalogosNecesidades(catalogos) {
 
 function valorNecesidadValido(campo, valor) {
   if (typeof valor !== "string" || valor === "" || valor !== valor.trim()) return false;
+  if (campo === "numero_personas") {
+    return /^[1-9][0-9]{0,9}$/u.test(valor) && Number(valor) <= 4_294_967_295;
+  }
   if (["justificacion_temporal", "programa_denominacion"].includes(campo)) {
     return textoValido(valor, 4000, false);
   }
@@ -647,7 +650,9 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
       for (const campo of CAMPOS_NECESIDAD) {
         const valor = borrador[campo];
         if (typeof valor !== "string" || (valor && !valorNecesidadValido(campo, valor))
-          || (valor && !causa.campos_permitidos.includes(campo))) agregarError(errores, campo, "campo_necesidad");
+          || (valor && !causa.campos_permitidos.includes(campo))) {
+          agregarError(errores, campo, campo === "numero_personas" ? "numero_personas" : "campo_necesidad");
+        }
         if (causa.campos_obligatorios.includes(campo) && !valor) agregarError(errores, campo, "texto_obligatorio");
       }
       for (const grupo of causa.uno_de ?? []) {

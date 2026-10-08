@@ -230,7 +230,6 @@ function camposNecesidad(estado, t, deshabilitado) {
   const causa = estado.catalogos.necesidades.causas.find(
     (dato) => dato.clave === estado.borrador.motivo_clave);
   const campos = causa?.campos_permitidos ?? [];
-  const tienePuesto = campos.includes("puesto_codigo");
   return `<fieldset class="ct-bloque">
     <legend>${escaparHTML(t("necesidad_leyenda"))}</legend>
     <div class="ct-campos">
@@ -242,7 +241,9 @@ function camposNecesidad(estado, t, deshabilitado) {
         <small id="ct-jornada-formato">${escaparHTML(t("jornada_formato"))}</small>
         ${errorCampo(estado, "jornada_minutos", t)}
       </div>
-      ${tienePuesto ? `<div class="ct-campo ct-campo-ancho">
+      ${[...CAMPOS_RPT_INTERNOS].map((campo) => `<input type="hidden" name="${campo}" value="${escaparHTML(estado.borrador[campo] ?? "")}">`).join("")}
+      ${campos.filter((campo) => !CAMPOS_RPT_PUBLICACION.has(campo)).map((campo) => {
+    if (campo === "puesto_codigo") return `<div class="ct-campo ct-campo-ancho">
         <label for="ct-puesto_busqueda">${escaparHTML(t("puesto_busqueda"))}</label>
         <input id="ct-puesto_busqueda" name="puesto_busqueda" type="search" maxlength="64"
           ${[...CAMPOS_RPT_INTERNOS].some((campo) => estado.errores[campo])
@@ -252,16 +253,14 @@ function camposNecesidad(estado, t, deshabilitado) {
         <div data-ct-puesto-resultado role="status" aria-live="polite">${escaparHTML(t(estado.puestoRPT?.mensaje ?? "puesto_sin_seleccion"))}${estado.puestoRPT?.denominacion ? `: ${escaparHTML(estado.puestoRPT.codigo)} · ${escaparHTML(estado.puestoRPT.denominacion)}` : ""}</div>
         ${[...CAMPOS_RPT_INTERNOS].some((campo) => estado.errores[campo])
     ? `<span class="ct-error-campo" id="ct-puesto_codigo-error">${escaparHTML(t("error_puesto_publicacion"))}</span>` : ""}
-      </div>` : ""}
-      ${[...CAMPOS_RPT_INTERNOS].map((campo) => `<input type="hidden" name="${campo}" value="${escaparHTML(estado.borrador[campo] ?? "")}">`).join("")}
-      ${campos.filter((campo) => !CAMPOS_RPT_INTERNOS.has(campo)).map((campo) => {
+      </div>`;
     const obligatorio = causa.campos_obligatorios.includes(campo);
     const largo = ["justificacion_temporal", "programa_denominacion"].includes(campo);
     return `<div class="ct-campo">
       <label for="ct-${campo}">${escaparHTML(t(campo))}${obligatorio ? ' <b aria-hidden="true">*</b>' : ""}</label>
       ${largo ? `<textarea id="ct-${campo}" name="${campo}" maxlength="4000" rows="3"${obligatorio ? " required" : ""}
         ${atributosAccesibles(estado, campo)}${deshabilitado ? " disabled" : ""}>${escaparHTML(estado.borrador[campo])}</textarea>`
-    : `<input id="ct-${campo}" name="${campo}" type="${campo === "programa_fin" ? "date" : campo === "porcentaje_financiacion" ? "number" : "text"}" maxlength="160"${obligatorio ? " required" : ""}
+    : `<input id="ct-${campo}" name="${campo}" type="${campo === "programa_fin" ? "date" : ["numero_personas", "porcentaje_financiacion"].includes(campo) ? "number" : "text"}"${campo === "numero_personas" ? ' min="1" max="4294967295" step="1" inputmode="numeric"' : ' maxlength="160"'}${obligatorio ? " required" : ""}
         value="${escaparHTML(estado.borrador[campo])}"
         ${atributosAccesibles(estado, campo)}${deshabilitado ? " disabled" : ""}>`}
       ${errorCampo(estado, campo, t)}
@@ -526,7 +525,7 @@ export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
   const minutosJornada = minutosDesdeJornadaVisible(jornadaEntrada);
   const adicionales = necesidad ? {
     jornada_minutos: minutosJornada === null ? jornadaEntrada : String(minutosJornada),
-    ...Object.fromEntries("puesto_codigo plaza_codigo titular_ref vacancia_fuente_ref rpt_catalogo_ref rpt_catalogo_huella_sha256 organica_codigo funcional_codigo proyecto_gasto_codigo porcentaje_financiacion justificacion_temporal programa_denominacion programa_fin proyecto_codigo financiacion_ref rc_ref intervencion_ref".split(" ").map((campo) =>
+    ...Object.fromEntries("numero_personas puesto_codigo plaza_codigo titular_ref vacancia_fuente_ref rpt_catalogo_ref rpt_catalogo_huella_sha256 organica_codigo funcional_codigo proyecto_gasto_codigo porcentaje_financiacion justificacion_temporal programa_denominacion programa_fin proyecto_codigo financiacion_ref rc_ref intervencion_ref".split(" ").map((campo) =>
       [campo, String(datos.get(campo) ?? "")])) } : {};
   return {
     ...(conNumeroMOAD ? { numero_expediente_moad: String(datos.get("numero_expediente_moad") ?? "") } : {}),
