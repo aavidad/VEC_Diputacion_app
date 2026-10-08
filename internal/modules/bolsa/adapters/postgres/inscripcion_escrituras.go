@@ -29,6 +29,7 @@ type salidaPresentacionInscripcion struct {
 	ConvocatoriaRef  string     `json:"convocatoria_ref"`
 	CategoriaRef     string     `json:"categoria_ref"`
 	Categoria        string     `json:"categoria"`
+	DeclaracionRef   string     `json:"declaracion_ref"`
 	Estado           string     `json:"estado"`
 	Version          uint64     `json:"version"`
 	RegistradaEn     time.Time  `json:"registrada_en"`
@@ -89,6 +90,7 @@ func (r *RepositorioInscripcionesPostgreSQL) Incorporar(ctx context.Context, act
 	recibo := inscripcion.Recibo{Solicitud: inscripcion.Solicitud{
 		SolicitudRef: salida.SolicitudRef, ReciboRef: salida.ReciboRef,
 		ConvocatoriaRef: salida.ConvocatoriaRef, CategoriaRef: salida.CategoriaRef,
+		DeclaracionRef: salida.DeclaracionRef,
 		BolsaRef: salida.BolsaRef, Categoria: salida.Categoria,
 		Estado: salida.Estado, Version: salida.Version,
 		RegistradaEn: salida.RegistradaEn.UTC(), DecididaEn: salida.DecididaEn,
@@ -151,6 +153,7 @@ func (r *RepositorioInscripcionesPostgreSQL) Decidir(ctx context.Context, actor 
 	recibo := inscripcion.Recibo{Solicitud: inscripcion.Solicitud{
 		SolicitudRef: salida.SolicitudRef, ReciboRef: salida.ReciboRef,
 		ConvocatoriaRef: salida.ConvocatoriaRef, CategoriaRef: salida.CategoriaRef,
+		DeclaracionRef: salida.DeclaracionRef,
 		Categoria: salida.Categoria, Estado: salida.Estado, Version: salida.Version,
 		RegistradaEn: salida.RegistradaEn.UTC(), DecididaEn: salida.DecididaEn,
 		BasesRef: salida.BasesRef, MotivoCodigo: salida.MotivoCodigo,
@@ -211,6 +214,7 @@ func (r *RepositorioInscripcionesPostgreSQL) Presentar(ctx context.Context, acto
 	recibo := inscripcion.Recibo{Solicitud: inscripcion.Solicitud{
 		SolicitudRef: salida.SolicitudRef, ReciboRef: salida.ReciboRef,
 		ConvocatoriaRef: salida.ConvocatoriaRef, CategoriaRef: salida.CategoriaRef,
+		DeclaracionRef: salida.DeclaracionRef,
 		Categoria: salida.Categoria, Estado: salida.Estado, Version: salida.Version,
 		RegistradaEn: salida.RegistradaEn.UTC(), BasesRef: salida.BasesRef,
 	}, Repetida: *salida.Repetida}
