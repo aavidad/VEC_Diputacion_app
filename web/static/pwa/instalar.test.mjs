@@ -50,12 +50,23 @@ test("fuera del modo instalado no muestra acciones; sin contexto seguro no regis
   assert.deepEqual(caso.registros, []);
 });
 
-test("los dos portales montan PWA; el área espera a elegir idioma", async () => {
+test("el idioma de la URL se resuelve después de cargar el índice antes de pedir textos PWA", async () => {
+  const caso = preparar("/portal-empleado/", true);
+  caso.ventana.location.href = "https://vec.example/portal-empleado/?lang=en";
+  await iniciarPWA(caso);
+  assert.match(caso.manifiesto.href, /^\/textos\/en\/pwa-portal-empleado\.json\?/u);
+  assert.equal(caso.botones[1].textContent, "Home");
+  caso.botones[1].click();
+  assert.deepEqual(caso.movimientos, ["/portal-empleado/?lang=en"]);
+});
+
+test("ambos portales enlazan PWA; el área espera a elegir idioma", async () => {
   const portal = await readFile(new URL("../portal-empleado/index.html", import.meta.url), "utf8");
   assert.match(portal, /data-pwa-manifest="pwa-portal-empleado"/u);
-  assert.match(portal, /\/pwa\/instalar\.js\?v=20261003-pwa-ci-v5/u);
+  assert.match(portal, /\/pwa\/instalar\.js\?v=20261008-pwa-idioma-v1/u);
   assert.match(portal, /\/pwa\/navegacion\.css\?v=20261002-pwa-v2/u);
   assert.match(portal, /data-pwa-scope="\/portal-empleado\/"/u);
+  assert.doesNotMatch(portal, /href="\/textos\/es\/pwa-portal-empleado\.json/u);
 
   const [area, arranque] = await Promise.all([
     readFile(new URL("../area-personal/index.html", import.meta.url), "utf8"),
@@ -65,5 +76,5 @@ test("los dos portales montan PWA; el área espera a elegir idioma", async () =>
   assert.doesNotMatch(area, /<script[^>]+\/pwa\/instalar\.js/u);
   assert.match(area, /\/pwa\/navegacion\.css\?v=20261002-pwa-v2/u);
   assert.match(area, /data-pwa-scope="\/area-personal\/"/u);
-  assert.match(arranque, /const idioma = await iniciarI18nAreaPersonal\([\s\S]*if \(idioma === idiomaAreaPersonal[\s\S]*import\("\.\.\/pwa\/instalar\.js\?v=20261003-pwa-ci-v5"\)/u);
+  assert.match(arranque, /const idioma = await iniciarI18nAreaPersonal\([\s\S]*if \(idioma === idiomaAreaPersonal[\s\S]*import\("\.\.\/pwa\/instalar\.js\?v=20261008-pwa-idioma-v1"\)/u);
 });

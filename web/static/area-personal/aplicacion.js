@@ -4,12 +4,12 @@ import { idiomaActivoAreaPersonal, iniciarI18nAreaPersonal, textosErrorCargaArea
   textosPreferenciasAreaPersonal, traducir } from "./i18n.js";
 import { alternarVisualSesion, crearOperacionPreferencias, montarAvatarAreaPersonal, montarUsuariosAreaPersonal,
   pintarInicialesSesion, reintentarImagenAreaPersonal, renderizarPreferencias,
-  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261008-b4-v5";
+  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261008-b4-v6";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
-import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261008-b4-v5";
-import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261008-b4-v5";
-import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js?v=20261008-b4-v5";
-import { renderizarAyuda } from "./vistas/comunicaciones-ayuda.js?v=20261008-b4-v5";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261008-b4-v6";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261008-b4-v6";
+import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js?v=20261008-b4-v6";
+import { renderizarAyuda } from "./vistas/comunicaciones-ayuda.js?v=20261008-b4-v6";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261005-b4b-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261002-rrhh17-v1";

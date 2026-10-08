@@ -1,4 +1,4 @@
-import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261008-b4-v5";
+import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261008-b4-v6";
 import { idiomaAreaPersonal, iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20261005-b4b-v1";
 import { cargarVistasDisponibles } from "./vistas-disponibles.js?v=20261005-b4b-v1";
@@ -13,7 +13,7 @@ const idioma = await iniciarI18nAreaPersonal(document, { idiomaPreferido: prefer
 // La PWA se inicia después del idioma del área; si falla el elegido, la página
 // sigue con el respaldo sin pedir un catálogo PWA en otro idioma.
 if (idioma === idiomaAreaPersonal(undefined, window.location, preferencias?.estado.valores.idioma)) {
-  void import("../pwa/instalar.js?v=20261003-pwa-ci-v5");
+  void import("../pwa/instalar.js?v=20261008-pwa-idioma-v1");
 }
 const controladorVisual = preferencias && typeof temaComun.aplicarPreferenciasVisuales === "function"
   ? temaComun.aplicarPreferenciasVisuales(preferencias.estado.valores, { documento: document, ventana: window })
