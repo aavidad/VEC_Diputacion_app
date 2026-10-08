@@ -10,6 +10,8 @@ import {
   validarSolicitudCrearBorrador,
 } from "./portal-borradores-contrato.js";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261007-pantallas-textos-final-v1";
+import { crearEstadoBorradores } from "./portal-borradores-estado.js";
+import { crearRenderizadorBorradores } from "./portal-borradores-vista.js?v=20261007-pantallas-textos-final-v1";
 import {
   CLAVE_IDEMPOTENCIA_A,
   CLAVE_IDEMPOTENCIA_B,
@@ -53,6 +55,27 @@ function crearSuperficie({ cliente, claves } = {}) {
   });
   return { anuncios, cambios, superficie };
 }
+
+test("la pantalla conserva el diagnóstico estructurado sin enseñar código ni correlación", () => {
+  const estado = crearEstadoBorradores();
+  estado.faseLista = "error";
+  estado.errorLista = { mensaje: "No se pudo completar esta acción. Revise la lista.",
+    codigo: "rechazo_no_catalogado", correlacion: "correlacion:borradores:418", estadoHTTP: 418 };
+  const renderizar = crearRenderizadorBorradores({ escaparHTML, estado,
+    motivoSeleccionado: () => null, plantillaSeleccionada: () => null }).renderizar;
+  let html = renderizar();
+  assert.match(html, /No se pudo completar esta acción/u);
+  assert.match(html, /borradores-recargar/u);
+  assert.doesNotMatch(html, /rechazo_no_catalogado|correlacion:borradores:418|<dt>Código<\/dt>|\b418\b/u);
+  estado.faseLista = "listo";
+  estado.opciones = opciones();
+  estado.lista = lista();
+  html = renderizar();
+  assert.match(html, /No se pudo completar esta acción/u);
+  assert.doesNotMatch(html, /rechazo_no_catalogado|correlacion:borradores:418|\b418\b/u);
+  assert.equal(estado.errorLista.codigo, "rechazo_no_catalogado");
+  assert.equal(estado.errorLista.correlacion, "correlacion:borradores:418");
+});
 
 function cambiar(superficie, ruta, valor, tipo = "text", checked = false) {
   assert.equal(superficie.actualizarCampo({ ruta, valor, tipo, checked }), true);
@@ -461,7 +484,7 @@ test("un 412 compara la revisión vigente sin pisar cambios y reaplica con su ET
   let html = superficie.renderizar();
   assert.match(html, /El borrador cambió mientras lo editaba/);
   assert.match(html, /Título local sin guardar/);
-  assert.match(html, /fedcba9876543210/);
+  assert.doesNotMatch(html, /fedcba9876543210|conflicto_revision|<dt>Código<\/dt>/u);
   assert.equal(await superficie.manejarAccion({ accion: "borradores-cargar-vigente" }), true);
   html = superficie.renderizar();
   assert.match(html, /Comparación antes de resolver/);
