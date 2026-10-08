@@ -1,2 +1,4 @@
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000225_reanudacion_solicitud_llamamiento.up.sql
 deploy/postgresql/contratacion_temporal/migraciones/000198_reanudacion_solicitud_llamamiento.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000226_origen_reanudacion_solicitud_llamamiento.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000199_huella_recibo_llamamiento_recuperado.up.sql
