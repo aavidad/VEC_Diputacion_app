@@ -45,17 +45,38 @@ func TestManejadorAuditoriaNoEmiteDenegacionSinApunteConfirmado(t *testing.T) {
 	for _, codigo := range []int{http.StatusUnauthorized, http.StatusForbidden} {
 		h := manejadorAuditoriaDenegacionesLocales{registrador: registrador,
 			siguiente: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Length", "17")
 				http.Error(w, "detalle reservado", codigo)
 			})}
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest(http.MethodPost, auditoria.RutaConsulta, nil))
 		if w.Code != http.StatusServiceUnavailable || strings.Contains(w.Body.String(), "detalle reservado") ||
+			w.Result().Header.Get("Content-Length") != "" ||
 			registrador.ultima.Validar() != nil {
 			t.Fatalf("denegacion sin apunte confirmado: HTTP %d cuerpo=%q orden=%+v", w.Code, w.Body.String(), registrador.ultima)
 		}
 	}
 	if registrador.llamadas != 2 {
 		t.Fatalf("se esperaban dos intentos de apunte, hay %d", registrador.llamadas)
+	}
+}
+
+func TestManejadorAuditoriaAcotaCuerpoDenegado(t *testing.T) {
+	registrador := &registradorFronteraSuperficiePrueba{}
+	h := manejadorAuditoriaDenegacionesLocales{registrador: registrador,
+		siguiente: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Length", "4097")
+			w.WriteHeader(http.StatusForbidden)
+			if _, err := w.Write([]byte(strings.Repeat("x", 4097))); err != nil {
+				t.Fatalf("escribir cuerpo de prueba: %v", err)
+			}
+		})}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodPost, auditoria.RutaConsulta, nil))
+	if w.Code != http.StatusServiceUnavailable || strings.Contains(w.Body.String(), "xxxx") ||
+		w.Result().Header.Get("Content-Length") != "" || registrador.llamadas != 1 ||
+		registrador.ultima.Validar() != nil {
+		t.Fatalf("cuerpo denegado excedido: HTTP %d cabeceras=%v orden=%+v", w.Code, w.Result().Header, registrador.ultima)
 	}
 }
 
