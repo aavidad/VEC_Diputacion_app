@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { iniciarAreaPersonal } from "./aplicacion.js";
+import { aplicarPreferenciasInicialesAplazadas, iniciarAreaPersonal } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal } from "./i18n.js";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
@@ -98,5 +98,76 @@ test("GET preferencias 403 conserva su denegación aunque Mi Bolsa falle, ES/EN"
     assert.ok(resultado.vistaPreferencias.includes(mensaje));
     assert.doesNotMatch(resultado.reabierta, /id="formulario-preferencias"/u);
     assert.match(resultado.metodo, /no confirmada|not confirmed/u);
+  }
+});
+
+test("la preferencia tardía conserva la navegación, datos, capacidades y foco", async () => {
+  const documentoAnterior = globalThis.document;
+  const { documento } = documentoFalso();
+  globalThis.document = documento;
+  try {
+    const datos = { capacidades: { consultar: true } };
+    const foco = documento.getElementById("foco-actual");
+    documento.activeElement = foco;
+    const aplicadas = [];
+    const estado = { vista: "perfil", datos, preferencias: { estado: null, catalogo: null, error: null },
+      filasPreferidas: 20, inicioTardio: true, navegacionVersion: 2, interaccionVersion: 1,
+      ajusteVisualVersion: 0, controladorVisual: { aplicarPreferenciasServidor: (valor) => aplicadas.push(valor) } };
+    const lectura = { ...preferencias, estado: { ...preferencias.estado,
+      valores: { ...valores, inicio: "cuadro", filas: 50, tema: "oscuro" } } };
+    aplicarPreferenciasInicialesAplazadas(estado, lectura);
+    assert.equal(estado.vista, "perfil");
+    assert.equal(estado.datos, datos);
+    assert.equal(estado.datos.capacidades.consultar, true);
+    assert.equal(documento.activeElement, foco);
+    assert.equal(estado.filasPreferidas, 50);
+    assert.deepEqual(aplicadas, [lectura.estado.valores]);
+    assert.equal(estado.preferencias.estado, lectura.estado);
+  } finally { globalThis.document = documentoAnterior; }
+});
+
+test("un atajo usado durante la carga prevalece sobre el tema tardío y un error no cambia datos ni rol", () => {
+  const documentoAnterior = globalThis.document;
+  const { documento } = documentoFalso();
+  globalThis.document = documento;
+  try {
+    const datos = { capacidades: { consultar: true } };
+    const estado = { vista: "perfil", datos, preferencias: { estado: null, catalogo: null, error: null },
+      filasPreferidas: 20, inicioTardio: true, navegacionVersion: 1, interaccionVersion: 1,
+      ajusteVisualVersion: 1, controladorVisual: { aplicarPreferenciasServidor() { assert.fail("no pisar atajo"); } } };
+    aplicarPreferenciasInicialesAplazadas(estado, preferencias);
+    for (const codigo of ["autenticacion", "denegado", "servicio"]) {
+      aplicarPreferenciasInicialesAplazadas(estado, null, { codigo });
+      assert.equal(estado.preferencias.error.codigo, codigo);
+      assert.equal(estado.datos, datos);
+      assert.equal(estado.datos.capacidades.consultar, true);
+    }
+  } finally { globalThis.document = documentoAnterior; }
+});
+
+test("con respuesta de preferencias a 250 ms, la carga de Mi Bolsa ya puede terminar", async () => {
+  const original = { document: globalThis.document, window: globalThis.window };
+  const { documento } = documentoFalso();
+  globalThis.document = documento;
+  globalThis.window = { location: { search: "?lang=en", pathname: "/area-personal/", origin: "https://vec.example" },
+    history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
+  try {
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(),
+      ubicacion: { href: "https://vec.example/area-personal/?lang=en" } });
+    let consultasBolsa = 0;
+    const estado = await iniciarAreaPersonal({
+      cliente: { async cargar() { consultasBolsa += 1; throw { codigo: "servicio_no_disponible" }; } },
+      vistasDisponibles: new Set(["inicio", "llamamientos", "preferencias"]),
+    });
+    const lectura = new Promise((resolve) => setTimeout(() => resolve(preferencias), 250));
+    assert.equal(consultasBolsa, 1);
+    assert.equal(estado.preferencias.estado, null);
+    assert.match(documento.getElementById("espacio-trabajo").innerHTML, /estado-error/u);
+    aplicarPreferenciasInicialesAplazadas(estado, await lectura);
+    assert.equal(estado.preferencias.estado, preferencias.estado);
+    assert.equal(consultasBolsa, 1);
+  } finally {
+    globalThis.document = original.document;
+    globalThis.window = original.window;
   }
 });

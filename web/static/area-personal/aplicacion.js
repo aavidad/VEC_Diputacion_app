@@ -306,6 +306,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
 }
 
 function navegar(estado, vista, opciones = {}) {
+  estado.navegacionVersion += 1;
   if (!rutaDisponible(estado, vista)) vista = "inicio";
   estado.vista = vista;
   estado.avisoInicio = false;
@@ -424,7 +425,7 @@ async function recargarPreferencias(estado) {
   renderizar(estado);
   porId("espacio-trabajo")?.querySelector(".preferencias-panel h2")?.focus({ preventScroll: true });
   try {
-    const lectura = await estado.clientePreferencias.cargar();
+    const lectura = await (estado.lecturaPreferenciasInicial ?? estado.clientePreferencias.cargar());
     Object.assign(preferencias, { ...lectura, error: null, recibo: null, pendiente: null, borrador: null });
     preferencias.avisoInicio = inicioAjenoElegido(lectura.estado);
     estado.filasPreferidas = lectura.estado.valores.filas;
@@ -497,6 +498,7 @@ async function guardarPreferencias(estado, formulario, { reintento = false } = {
 
 function atenderAccion(estado, boton) {
   const accion = boton.dataset.accion;
+  if (accion === "alternar-texto" || accion === "alternar-contraste") estado.ajusteVisualVersion += 1;
   if (accion === "alternar-menu") return alternarMenu();
   if (accion === "cerrar-menu") return cerrarMenu({ restaurarFoco: true });
   if (accion === "alternar-texto" || accion === "alternar-contraste") {
@@ -531,7 +533,12 @@ function atenderAccion(estado, boton) {
 }
 
 function conectarEventos(estado) {
+  document.addEventListener("input", () => { estado.interaccionVersion += 1; });
+  document.addEventListener("change", () => { estado.interaccionVersion += 1; });
+  document.addEventListener("keydown", () => { estado.interaccionVersion += 1; });
+  window.addEventListener("scroll", () => { estado.interaccionVersion += 1; }, { passive: true });
   document.addEventListener("click", (evento) => {
+    estado.interaccionVersion += 1;
     if (!evento.target.closest(".identidad-cabecera") && !porId("menu-identidad")?.hidden) cerrarMenuIdentidad();
     const enlace = evento.target.closest("[data-ruta]");
     if (enlace) {
@@ -543,6 +550,7 @@ function conectarEventos(estado) {
     if (boton) atenderAccion(estado, boton);
   });
   document.addEventListener("submit", (evento) => {
+    estado.interaccionVersion += 1;
     const formulario = evento.target;
     if (!(formulario instanceof HTMLFormElement)) return;
     if (formulario.method === "dialog") return;
@@ -574,6 +582,7 @@ function conectarEventos(estado) {
     if (formulario.dataset.operacion) avisarOperacionNoDisponible(formulario.dataset.operacion);
   });
   window.addEventListener("popstate", () => {
+    estado.navegacionVersion += 1;
     cerrarMenu();
     cerrarMenuIdentidad();
     const parametros = new URLSearchParams(window.location.search);
@@ -656,6 +665,11 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
       error: errorPreferencias, recibo: null, pendiente: null, borrador: null,
       guardando: false, avisoInicio: inicioAjeno },
     controladorVisual,
+    inicioTardio: !parametros.has("vista") && !preferencias,
+    navegacionVersion: 0,
+    interaccionVersion: 0,
+    ajusteVisualVersion: 0,
+    lecturaPreferenciasInicial: null,
     soloPreferencias: false,
     avisoInicio: inicioAjeno && !parametros.has("vista"),
     filasPreferidas: preferencias?.estado.valores.filas || 20,
@@ -680,9 +694,41 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
   if (parametros.has("vista") && !rutaDisponible(estado, parametros.get("vista"))) {
     window.history.replaceState({ vista: estado.vista }, "", crearURL(estado, estado.vista));
   }
-  await montarUsuariosAreaPersonal(estado, fetchImpl, porId("espacio-trabajo"));
   conectarEventos(estado);
   sincronizarAtajosVisuales(preferencias?.estado?.valores);
   await cargar(estado);
+  await montarUsuariosAreaPersonal(estado, fetchImpl, porId("espacio-trabajo"));
+  if (estado.vista === "preferencias" && estado.datos) renderizar(estado);
   return estado;
+}
+
+/** Completa el GET tardío sin sustituir los datos ni reconstruir la vista activa. */
+export function aplicarPreferenciasInicialesAplazadas(estado, lectura, error = null) {
+  if (!estado) return;
+  const preferencias = estado.preferencias;
+  if (lectura) {
+    preferencias.catalogo = lectura.catalogo;
+    preferencias.estado = lectura.estado;
+    preferencias.error = null;
+    estado.filasPreferidas = lectura.estado.valores.filas;
+    if (estado.ajusteVisualVersion === 0) {
+      estado.controladorVisual?.aplicarPreferenciasServidor(lectura.estado.valores);
+      sincronizarAtajosVisuales(lectura.estado.valores);
+    }
+    if (estado.inicioTardio && estado.navegacionVersion === 0 && estado.interaccionVersion === 0
+      && estado.vista === "llamamientos" && estado.datos && inicioAjenoElegido(lectura.estado)) {
+      estado.vista = "inicio";
+      estado.avisoInicio = true;
+      renderizar(estado);
+    }
+  } else {
+    preferencias.error = error;
+  }
+  // Al entrar en Preferencias antes del GET no había formulario que preservar.
+  // Si el foco ya está dentro del panel, el botón Recargar usa la misma lectura.
+  const contenido = porId("espacio-trabajo");
+  if (estado.vista === "preferencias" && contenido && !contenido.contains?.(document.activeElement)) {
+    asegurarShellPreferencias(estado);
+    renderizar(estado);
+  }
 }
