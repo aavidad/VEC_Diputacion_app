@@ -53,6 +53,21 @@ test("la continuidad real abre el índice documental sin fingir envío GINPIX ni
   assert.doesNotMatch(renderizarExpediente({ ...estado, expediente: { ...expediente, version: 7 } }, t, "es-ES", "Europe/Madrid"), /ct-exp-continuidad/u);
 });
 
+test("la ficha reserva Documentos para ambas consultas sin mostrar vacío mientras cargan", () => {
+  const expediente = { ...crearExpedienteContratacionTemporalPresentacion(), demostracion: false, version: 8 };
+  const estado = { vista: "expediente", carga: "listo", expediente,
+    expediente_ref: expediente.expediente_ref, tarea_ref: expediente.tareas[0].tarea_ref };
+  const html = renderizarExpediente(estado, crearTraductorExpedientesContratacion(), "es-ES", "Europe/Madrid");
+  const inicio = html.indexOf('class="panel ct-exp-ficha-documentos"');
+  const fin = html.indexOf('data-ct-exp-ancla-firma', inicio);
+  const bloque = html.slice(inicio, fin);
+  assert.match(bloque, /data-ct-exp-borradores-publicados/u);
+  assert.match(bloque, /data-ct-exp-documentos-comun/u);
+  assert.match(bloque, /Consultando documentos generados/u);
+  assert.match(bloque, /Consultando documentos incorporados/u);
+  assert.doesNotMatch(html, /data-ct-exp-accion="descargar-docx-informe-definitivo"/u);
+});
+
 test("documentos explica ficha manual y seguimiento con textos inyectados escapados", () => {
   const expediente = { ...crearExpedienteContratacionTemporalPresentacion(),
     demostracion: false, version: 8 };
@@ -69,16 +84,16 @@ test("documentos explica ficha manual y seguimiento con textos inyectados escapa
   assert.doesNotMatch(html, /<externa>|data-ct-ficha-ginpix-descargar|data-ct-seguimiento-consultar/u);
 });
 
-test("el índice documental mantiene el regreso al expediente y explica el estado vacío", () => {
+test("Documentos conserva el regreso y espera ambas fuentes antes de declarar vacío", () => {
   const expediente = crearExpedienteContratacionTemporalPresentacion();
   const t = crearTraductorExpedientesContratacion();
   const html = renderizarDocumentos({ expediente, documentos: { documentos: [] } }, t);
 
-  assert.match(html, /class="panel ct-exp-documentos" aria-labelledby="ct-exp-documentos-titulo"/u);
-  assert.match(html, /class="cabecera-panel ct-exp-subcabecera ct-exp-documentos-cabecera"/u);
-  assert.match(html, /id="ct-exp-documentos-titulo" tabindex="-1"/u);
+  assert.match(html, /class="panel ct-exp-ficha-documentos"/u);
   assert.match(html, /data-ct-exp-vista="expediente">Expediente<\/button>/u);
-  assert.match(html, /role="status">No hay datos disponibles en este panel\.<\/p>/u);
+  assert.match(html, /Consultando documentos generados/u);
+  assert.match(html, /Consultando documentos incorporados/u);
+  assert.doesNotMatch(html, /No hay datos disponibles/u);
   assert.doesNotMatch(html, /<table/u);
   assert.doesNotMatch(html, /data-ct-ficha-ginpix-descargar|data-ct-exp-efecto="[^"]*ginpix\.enviar/u);
 });
@@ -86,18 +101,18 @@ test("el índice documental mantiene el regreso al expediente y explica el estad
 test("el índice documental lista el estado autorizado sin inventar una descarga", () => {
   const expediente = crearExpedienteContratacionTemporalPresentacion();
   const t = crearTraductorExpedientesContratacion();
-  const html = renderizarDocumentos({ expediente, documentos: { documentos: [{
+  const html = renderizarDocumentos({ expediente, documentos: { expediente_ref: expediente.expediente_ref,
+    version: expediente.version, documentos: [{
     titulo: "Ficha <GINPIX>", documento_ref: "documento:<interno>", tipo: "JSON",
     version: 1, estado: "Preparado", firma: "Sin firma", fecha: "24/09/2026",
     descarga_disponible: true,
   }] } }, t);
 
   // El documento se nombra; su referencia interna no se muestra.
-  assert.match(html, /<h4>Ficha &lt;GINPIX&gt;<\/h4>/u);
+  assert.match(html, /<strong>Ficha &lt;GINPIX&gt;<\/strong>/u);
   assert.doesNotMatch(html, /documento:&lt;interno&gt;<\/code>/u);
-  assert.match(html, /<span class="ct-exp-chip">Preparado<\/span>/u);
-  assert.match(html, /<dt>Firma<\/dt><dd>Sin firma<\/dd>/u);
-  assert.match(html, /El índice señala una descarga disponible, pero esta pantalla aún no puede abrirla/u);
+  assert.match(html, /Está · Preparado · Sin firma/u);
+  assert.doesNotMatch(html, /data-ct-exp-accion="descargar-ficha/u);
   assert.doesNotMatch(html, /<GINPIX>|data-ct-ficha-ginpix-descargar|>Descargar<\/button>/u);
 });
 
