@@ -6,7 +6,7 @@ import {
   extraerDatosEnvelopeCanonico,
   validarPanelBolsa,
 } from "./portal-contrato.js";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
 import { MENSAJES_PORTAL, traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 await prepararTextosPortal("ayuda");
 const { AYUDA_PORTAL_BOLSA } = await import("./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1");

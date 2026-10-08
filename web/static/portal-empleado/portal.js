@@ -110,7 +110,7 @@ function cargarRecursosVista(grupo) {
   if (cargasRecursosVistas.has(grupo)) return;
   const carga = grupo === "inicio"
     ? Promise.all([
-      import("./portal-inicio.js?v=20261008-alta-rpt-circular-v6"),
+      import("./portal-inicio.js?v=20261008-bolsa-global-v2"),
       import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2"),
     ]).then(([inicio, accesos]) => ({ ...inicio, accesos }))
     : grupo === "accesos"
@@ -1146,6 +1146,20 @@ function aplicarRutaCandidatosBolsa() {
   if (estado.vista !== "bolsa-candidatos" || estado.datosBolsas?.carga !== "listo"
     || !rutasBolsa || !controladorBolsas) return false;
   const bolsas = estado.datosBolsas.datos?.bolsas;
+  let filtroGlobal;
+  try { filtroGlobal = rutasBolsa.leerGlobalBolsaCompartible(window.location.search); }
+  catch { filtroGlobal = null; }
+  if (filtroGlobal) {
+    const ruta = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (rutaCandidatosAplicada?.ruta === ruta && rutaCandidatosAplicada?.datos === estado.datosBolsas.datos) return true;
+    rutaCandidatosAplicada = { ruta, datos: estado.datosBolsas.datos };
+    const pagina = estado.datosCandidatos;
+    if (pagina?.global && pagina.carga === "listo" && pagina.filtro === filtroGlobal.filtro
+      && pagina.corte === filtroGlobal.corte && pagina.bolsa === filtroGlobal.bolsa) return true;
+    estado.filtrosBolsa = {};
+    void controladorBolsas.cargarGlobalBolsa(filtroGlobal.filtro, filtroGlobal);
+    return true;
+  }
   let filtro;
   try { filtro = rutasBolsa.leerCandidatosBolsaCompartible(window.location.search, bolsas); }
   catch { filtro = null; }
@@ -1542,7 +1556,7 @@ let rutasBolsa = null;
 let promesaRutasBolsa = null;
 function prepararRutasBolsa() {
   if (rutasBolsa) return Promise.resolve(rutasBolsa);
-  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js")
+  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2")
     .then((rutas) => { rutasBolsa = rutas; return rutas; })
     .catch((error) => { promesaRutasBolsa = null; throw error; });
   return promesaRutasBolsa;
@@ -1560,7 +1574,7 @@ function prepararBolsaBase() {
   promesaBolsaBase = Promise.all([
     import("./portal-panel-interno.js?v=20261008-r-traza-idioma-v1"),
     import("./portal-bolsas-api.js?v=20261008-r-traza-idioma-v1"),
-    import("./portal-bolsas-ruta-filtros.js"),
+    import("./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2"),
   ]).then(([panel, bolsas, rutas]) => {
     if (!vistaNecesitaBolsa()) {
       promesaBolsaBase = null;

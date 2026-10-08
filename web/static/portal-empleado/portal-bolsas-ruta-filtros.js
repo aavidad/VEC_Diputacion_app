@@ -15,6 +15,8 @@ const CLAVES_ORIGEN = Object.freeze({
 });
 const HASH_CANDIDATOS = "#bolsa/bolsa-candidatos";
 const HASH_RESUMEN = "#bolsa/resumen";
+const FILTROS_GLOBALES = new Set(["todos", "disponible", "renuncia", "llamamientos"]);
+const CLAVES_GLOBALES = ["bolsa_global", "corte_bolsa", "bolsa_curso"];
 
 function parametrosDe(search) {
   if (typeof search !== "string" || search.length > 4_096) throw new TypeError("URL de Bolsa no válida");
@@ -32,9 +34,43 @@ function estadoValido(estado) {
 }
 
 function quitarFiltros(parametros) {
-  for (const clave of [CLAVE_BOLSA, CLAVE_ESTADO, CLAVE_SEGUIMIENTO, "cursor", ...Object.values(CLAVES_ORIGEN)]) {
+  for (const clave of [CLAVE_BOLSA, CLAVE_ESTADO, CLAVE_SEGUIMIENTO, "cursor", ...Object.values(CLAVES_ORIGEN), ...CLAVES_GLOBALES]) {
     parametros.delete(clave);
   }
+}
+
+export function rutaGlobalBolsaCompartible(search, filtro, corte = "", bolsa = "") {
+  if (!FILTROS_GLOBALES.has(filtro) || (corte && !/^[a-f0-9]{64}$/u.test(corte))
+    || (bolsa && (filtro !== "llamamientos" || !referenciaValida(bolsa)))) {
+    throw new TypeError("filtro global de Bolsa no válido");
+  }
+  const origen = parametrosDe(search);
+  const parametros = new URLSearchParams();
+  for (const clave of ["lang", "tema"]) {
+    const valor = origen.get(clave);
+    if (valor) parametros.set(clave, valor);
+  }
+  parametros.set("bolsa_global", filtro);
+  if (corte) parametros.set("corte_bolsa", corte);
+  if (bolsa) parametros.set("bolsa_curso", bolsa);
+  return `?${parametros}${HASH_CANDIDATOS}`;
+}
+
+export function leerGlobalBolsaCompartible(search) {
+  const parametros = parametrosDe(search);
+  const filtro = unico(parametros, "bolsa_global");
+  const corte = unico(parametros, "corte_bolsa") ?? "";
+  const bolsa = unico(parametros, "bolsa_curso") ?? "";
+  if (filtro === undefined) {
+    if (corte || bolsa) throw new TypeError("filtro global de Bolsa incompleto");
+    return null;
+  }
+  if (!FILTROS_GLOBALES.has(filtro) || (corte && !/^[a-f0-9]{64}$/u.test(corte))
+    || (bolsa && (filtro !== "llamamientos" || !referenciaValida(bolsa)))
+    || [CLAVE_BOLSA, CLAVE_ESTADO, CLAVE_SEGUIMIENTO, "cursor", ...Object.values(CLAVES_ORIGEN)].some((clave) => parametros.has(clave))) {
+    throw new TypeError("filtro global de Bolsa no válido");
+  }
+  return Object.freeze({ filtro, corte, bolsa });
 }
 
 export function rutaCandidatosBolsaCompartible(search, bolsaRef, estado = "", { seguimiento = "", origen = null } = {}) {
@@ -70,6 +106,7 @@ function unico(parametros, clave) {
 /** La URL selecciona un filtro, nunca acredita acceso a una bolsa. */
 export function leerCandidatosBolsaCompartible(search, bolsasAutorizadas) {
   const parametros = parametrosDe(search);
+  if (CLAVES_GLOBALES.some((clave) => parametros.has(clave))) return null;
   const bolsaRef = unico(parametros, CLAVE_BOLSA);
   const estado = unico(parametros, CLAVE_ESTADO) ?? "";
   const seguimiento = unico(parametros, CLAVE_SEGUIMIENTO) ?? "";

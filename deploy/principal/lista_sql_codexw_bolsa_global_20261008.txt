@@ -1,0 +1,3 @@
+# B94 requiere B85 y B86 instaladas. No reaplicar ninguna migración anterior.
+# SHA256 B94: 32182f227d7df2dc7bd6e0d6ca1677d5cc0c499c3a0889166ade89a4df85f9d8
+deploy/postgresql/bolsa_llamamientos/migraciones/000094_lista_llamamientos_completos_resumen.up.sql

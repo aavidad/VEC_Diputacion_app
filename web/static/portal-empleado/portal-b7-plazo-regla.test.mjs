@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { consultarPlazoRespuestaLlamamiento, crearControladorBolsas, propuestaPlazoRespuesta, RUTA_PLAZO_RESPUESTA_LLAMAMIENTO } from "./portal-bolsas-api.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
+import { consultarPlazoRespuestaLlamamiento, crearControladorBolsas, propuestaPlazoRespuesta, RUTA_PLAZO_RESPUESTA_LLAMAMIENTO } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
 
 const ESQUEMA = "vec.bolsa.llamamiento.plazo_respuesta.v1";
 const conRegla = (regla = {}) => ({

@@ -683,6 +683,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
   ]) versionesEspeciales.set(ruta, "20261008-r-fichas-idioma-nav-v1");
+  for (const ruta of ["portal-bolsas-ruta-filtros.js", "portal-bolsas-global.js",
+    "portal-bolsas-seguimiento.js", "portal-inicio.js"])
+    versionesEspeciales.set(ruta, "20261008-bolsa-global-v2");
   for (const ruta of ["portal-bolsas-api.js", "portal-bolsas-historial-ofrecimientos.js",
     "portal-bolsas-ofertas.js", "portal-bolsas-operaciones.js", "portal-bolsas-sanciones.js",
     "portal-bolsas-traza-valores.js", "portal-panel-interno.js", "portal-modulos-coordinador.js",
