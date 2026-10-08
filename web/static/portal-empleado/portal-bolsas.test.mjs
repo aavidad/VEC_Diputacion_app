@@ -777,7 +777,7 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   assert.doesNotMatch(html, /comunes a todas las personas|no presupone un plazo legal|no acreditan entrega/);
   assert.match(html, /name="plazo" required minlength="2" maxlength="160" value=""/);
   assert.match(html, /<label class="campo campo-ancho"><span>Plazo de respuesta indicado por RRHH \(obligatorio\)<\/span><input name="plazo"/);
-  assert.match(html, /<label class="campo"><span>Modalidad \(obligatorio\)<\/span><select name="modalidad".*<label class="campo"><span>Canal<\/span><input value="Correo electrónico" readonly>/s);
+  assert.match(html, /<label class="campo"><span>Modalidad \(obligatorio\)<\/span><select name="modalidad".*<fieldset class="campo campo-ancho"><legend>Canales de aviso<\/legend><label><input type="checkbox" checked disabled> Correo electrónico al emitir el llamamiento<\/label><\/fieldset>/s);
   assert.doesNotMatch(html, /48 horas|relay de desarrollo|value="Pendiente de definición por RRHH"/);
   assert.match(html, /<input type="hidden" name="plantilla_version" value="bolsa-llamamiento-v1">/);
   assert.doesNotMatch(html, /<span>Plantilla<\/span>/);

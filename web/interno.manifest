@@ -187,6 +187,8 @@ static/textos/es/portal-ayuda.json
 static/textos/en/portal-ayuda.json
 static/textos/es/portal-bolsa.json
 static/textos/en/portal-bolsa.json
+static/textos/es/portal-bolsa-telefono.json
+static/textos/en/portal-bolsa-telefono.json
 static/portal-empleado/estado-entrega.css
 static/portal-empleado/estado-entrega-i18n.js
 static/portal-empleado/estado-entrega.js
@@ -335,6 +337,8 @@ static/portal-empleado/portal-bolsas-contacto-registro.js
 static/portal-empleado/portal-bolsas-operaciones.js
 static/portal-empleado/portal-bolsas-reincorporaciones.js
 static/portal-empleado/portal-bolsas-intentos.js
+static/portal-empleado/portal-bolsas-seguimiento.js
+static/portal-empleado/portal-llamamiento-origen.js
 static/portal-empleado/portal-bolsas-reglas-situacion.js
 static/portal-empleado/portal-bolsas-reglas-situacion-i18n.js
 static/portal-empleado/portal-bolsas-ruta-filtros.js
