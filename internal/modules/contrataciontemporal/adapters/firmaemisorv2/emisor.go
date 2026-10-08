@@ -7,10 +7,12 @@ import (
 	"errors"
 	"maps"
 	"reflect"
+	"time"
 
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
+	vecapp "vec-diputacion-granada/internal/vec/application"
 	vd "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
@@ -37,6 +39,13 @@ type EmisorComunV3 interface {
 	EmitirMaterialAutorizacionAtestadaV3(context.Context, vd.SolicitudAutorizacionLigadaV3, vd.ResultadoContextoActorRegistradoV2) (vd.DecisionAutorizacionLigadaV3, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vp.ExportadorMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
+// El emisor de desarrollo devuelve la captura evaluada por el mismo PDP que
+// registró la decisión. No admite una instantánea elegida por este adaptador.
+type EmisorComunV3ConCaptura interface {
+	EmisorComunV3
+	EmitirMaterialAutorizacionAtestadaV3ConCaptura(context.Context, vd.SolicitudAutorizacionLigadaV3, vd.ResultadoContextoActorRegistradoV2) (vd.DecisionAutorizacionLigadaV3, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vp.ExportadorMaterialConsumoAutorizacionAtestadaV3, vp.CapturaEvaluacionSolicitudLigadaV3, error)
+}
+
 type Emisor struct {
 	fuente FuenteContextoActorFirmaV2
 	emisor EmisorComunV3
@@ -45,6 +54,10 @@ type Emisor struct {
 	// autorizacion lee la asignación vigente del perfil activo. Sin ella el
 	// emisor no autoriza firmas: sólo consultas y recuperaciones.
 	autorizacion vp.FuenteAutorizacion
+	// Sólo el constructor DEV instala esta admisión; la vía corporativa
+	// conserva su requisito HIGH y no consume excepciones de desarrollo.
+	admision         *vecapp.AdmisionGarantiaFirmaVecDesarrollo
+	emisorConCaptura EmisorComunV3ConCaptura
 }
 
 // NuevoEmisor recibe el motivo gobernado y el reloj común en composición.
@@ -70,7 +83,31 @@ func NuevoEmisorConAmbitos(f FuenteContextoActorFirmaV2, e EmisorComunV3, motivo
 	return x, nil
 }
 
+// NuevoEmisorFirmaVecDesarrollo exige la admisión común del acto VEC. No
+// concede permiso: V3 y su consumidor durable conservan sus guardas propias.
+func NuevoEmisorFirmaVecDesarrollo(f FuenteContextoActorFirmaV2, e EmisorComunV3ConCaptura,
+	motivo vd.ReferenciaEntradaCatalogo, reloj vd.RelojVinculoAutenticacionActorV2,
+	autorizacion vp.FuenteAutorizacion, admision *vecapp.AdmisionGarantiaFirmaVecDesarrollo,
+) (*Emisor, error) {
+	if admision == nil || nulo(e) {
+		return nil, ports.ErrCompetenciaFirmanteNoDisponible
+	}
+	x, err := NuevoEmisorConAmbitos(f, e, motivo, reloj, autorizacion)
+	if err != nil {
+		return nil, err
+	}
+	x.admision = admision
+	x.emisorConCaptura = e
+	return x, nil
+}
+
 func (e *Emisor) contexto(ctx context.Context) (ContextoActorFirmaV2, error) {
+	return e.contextoParaActo(ctx, false)
+}
+
+// Sólo el registro VEC de desarrollo puede intentar la garantía temporal.
+// Consulta, recuperación y lecturas previas conservan la frontera corporativa.
+func (e *Emisor) contextoParaActo(ctx context.Context, firmaVecDesarrollo bool) (ContextoActorFirmaV2, error) {
 	var cero ContextoActorFirmaV2
 	if e == nil || ctx == nil || nulo(e.fuente) || nulo(e.emisor) || nulo(e.reloj) || !vd.ReferenciaMotivoAutorizacionV2Valida(e.motivo) {
 		return cero, ports.ErrFirmaDocumentoDenegada
@@ -88,7 +125,9 @@ func (e *Emisor) contexto(ctx context.Context) (ContextoActorFirmaV2, error) {
 	}
 	d, err := base.Vinculo.Datos()
 	if err != nil || d.Superficie != vd.SuperficieAutenticacionInternaCorporativaV1 || d.CuentaPrivilegiada ||
-		d.MetodoObservado != vd.AuthMethodCertificate || d.GarantiaObservada != vd.AuthAssuranceHigh {
+		d.MetodoObservado != vd.AuthMethodCertificate ||
+		(e.admision == nil && d.GarantiaObservada != vd.AuthAssuranceHigh) ||
+		(e.admision != nil && (!firmaVecDesarrollo || d.GarantiaObservada != vd.AuthAssuranceSubstantial)) {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	if ctx.Err() != nil {
@@ -118,27 +157,35 @@ func (e *Emisor) ObtenerAmbitosOperadorFirmaV2(ctx context.Context) (ports.Ambit
 // ambitosAsignacion sólo admite organización y, como mucho, unidad, cada una
 // con un único valor: cualquier otra forma no puede ser un recurso de firma.
 func (e *Emisor) ambitosAsignacion(ctx context.Context, base ContextoActorFirmaV2) (ports.AmbitosOperadorFirmaV2, error) {
+	a, _, err := e.ambitosConInstantanea(ctx, base)
+	return a, err
+}
+
+// La admisión DEV consume la misma captura usada para resolver los ámbitos;
+// esta función realiza una sola lectura de autorización.
+func (e *Emisor) ambitosConInstantanea(ctx context.Context, base ContextoActorFirmaV2) (ports.AmbitosOperadorFirmaV2, vd.InstantaneaAutorizacion, error) {
 	var cero ports.AmbitosOperadorFirmaV2
+	var sinInstantanea vd.InstantaneaAutorizacion
 	if nulo(e.autorizacion) {
-		return cero, ports.ErrFirmaDocumentoDenegada
+		return cero, sinInstantanea, ports.ErrFirmaDocumentoDenegada
 	}
 	d, err := base.Vinculo.Datos()
 	if err != nil {
-		return cero, ports.ErrFirmaDocumentoDenegada
+		return cero, sinInstantanea, ports.ErrFirmaDocumentoDenegada
 	}
 	s, err := e.autorizacion.ObtenerInstantaneaAutorizacion(ctx, d.PrincipalID, d.PerfilActivoRef)
 	if err != nil || ctx.Err() != nil {
-		return cero, opaco(ctx, err)
+		return cero, sinInstantanea, opaco(ctx, err)
 	}
 	a := s.AsignacionPerfil
 	if s.Validar() != nil || a.PrincipalID != d.PrincipalID || a.PerfilActivoRef != d.PerfilActivoRef || !a.VigenteEn(e.reloj.Ahora()) ||
 		len(a.Ambitos) < 1 || len(a.Ambitos) > 2 {
-		return cero, ports.ErrFirmaDocumentoDenegada
+		return cero, sinInstantanea, ports.ErrFirmaDocumentoDenegada
 	}
 	var r ports.AmbitosOperadorFirmaV2
 	for _, ambito := range a.Ambitos {
 		if len(ambito.Valores) != 1 {
-			return cero, ports.ErrFirmaDocumentoDenegada
+			return cero, sinInstantanea, ports.ErrFirmaDocumentoDenegada
 		}
 		switch ambito.Clave {
 		case "organizacion_ref":
@@ -146,13 +193,13 @@ func (e *Emisor) ambitosAsignacion(ctx context.Context, base ContextoActorFirmaV
 		case "unidad_ref":
 			r.UnidadRef = ambito.Valores[0]
 		default:
-			return cero, ports.ErrFirmaDocumentoDenegada
+			return cero, sinInstantanea, ports.ErrFirmaDocumentoDenegada
 		}
 	}
 	if r.OrganizacionRef == "" || (len(a.Ambitos) == 2 && r.UnidadRef == "") {
-		return cero, ports.ErrFirmaDocumentoDenegada
+		return cero, sinInstantanea, ports.ErrFirmaDocumentoDenegada
 	}
-	return r, nil
+	return r, s, nil
 }
 
 func (e *Emisor) AutorizarMaterialFirmaVerificadaV2(ctx context.Context, m ports.MaterialFirmaVerificadaV2, r vd.RecursoAutorizable) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -179,7 +226,18 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 	if m.Validar() != nil || !recursoExactoConHuella(m, r, claveHuella) {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
-	base, err := e.contexto(ctx)
+	var base ContextoActorFirmaV2
+	var err error
+	var evidenciaAdmision vecapp.EvidenciaAdmisionGarantiaActo
+	var descriptorAdmision vecapp.DescriptorAdmisionGarantiaActo
+	if e.admision != nil {
+		if m.Via != ports.ViaFirmaCertificadoVEC {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		base, err = e.contextoParaActo(ctx, true)
+	} else {
+		base, err = e.contexto(ctx)
+	}
 	if err != nil {
 		return cero, err
 	}
@@ -189,7 +247,7 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 	}
 	// Las dos decisiones, interior y exterior del plan, llevan los ámbitos de
 	// la asignación vigente (AD206 y AD209 los releen en el consumo).
-	esperados, err := e.ambitosAsignacion(ctx, base)
+	esperados, instantanea, err := e.ambitosConInstantanea(ctx, base)
 	if err != nil {
 		return cero, err
 	}
@@ -207,6 +265,30 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 		// CT172 separa explícitamente al operador RRHH del firmante externo.
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
+	if e.admision != nil {
+		if m.Via != ports.ViaFirmaCertificadoVEC || accion != ports.AccionRegistrarFirmaVec ||
+			audiencia != ports.AudienciaFirmaVecV2 {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		huellaMaterial, err := m.HuellaSHA256()
+		if err != nil || r.Atributos["material_sha256"] != huellaMaterial {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		descriptorAdmision = vecapp.DescriptorAdmisionGarantiaActo{
+			Accion: accion, Audiencia: audiencia, ModuloID: r.ModuloID,
+			TipoRecurso: r.Tipo, Finalidad: ports.FinalidadFirmaDocumento,
+			RecursoRef: r.Referencia, MaterialHuellaSHA256: huellaMaterial,
+		}
+		evidenciaAdmision, err = e.admision.Admitir(ctx, base.Vinculo, base.Resultado, instantanea, descriptorAdmision)
+		if err != nil || ctx.Err() != nil {
+			return cero, opaco(ctx, err)
+		}
+		resumen, err := evidenciaAdmision.Resumen()
+		if err != nil || resumen.GarantiaReal != vd.AuthAssuranceSubstantial ||
+			!e.reloj.Ahora().Before(resumen.VigenteHasta) {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+	}
 	correlacion, err := vp.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
 		return cero, ports.ErrFirmaDocumentoDenegada
@@ -223,11 +305,22 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 	if err != nil || ctx.Err() != nil {
 		return cero, opaco(ctx, err)
 	}
-	decision, confirmacion, exportador, err := e.emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+	var decision vd.DecisionAutorizacionLigadaV3
+	var confirmacion vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3
+	var exportador vp.ExportadorMaterialConsumoAutorizacionAtestadaV3
+	var captura vp.CapturaEvaluacionSolicitudLigadaV3
+	if e.admision != nil {
+		if nulo(e.emisorConCaptura) {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		decision, confirmacion, exportador, captura, err = e.emisorConCaptura.EmitirMaterialAutorizacionAtestadaV3ConCaptura(ctx, solicitud, resultado)
+	} else {
+		decision, confirmacion, exportador, err = e.emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+	}
 	if err != nil || ctx.Err() != nil {
 		return cero, opaco(ctx, err)
 	}
-	if decision.ValidarPara(solicitud) != nil || nulo(exportador) {
+	if decision.ValidarPara(solicitud) != nil || nulo(exportador) || (e.admision != nil && nulo(captura)) {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	restricciones, err := decision.RestriccionesProyeccionPara(solicitud)
@@ -245,6 +338,25 @@ func (e *Emisor) autorizarMaterial(ctx context.Context, m ports.MaterialFirmaVer
 	ahora, resumen := e.reloj.Ahora(), material.ResumenCapacidad()
 	if ahora.Before(resumen.EmitidaEn()) || !ahora.Before(resumen.ExpiraEn()) {
 		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	if e.admision != nil {
+		ahoraCanonico := ahora.UTC().Truncate(time.Microsecond)
+		evaluada, err := captura.InstantaneaPara(solicitud, resultado, decision, confirmacion, material, audiencia, ahoraCanonico)
+		if err != nil || ctx.Err() != nil {
+			return cero, opaco(ctx, err)
+		}
+		if err := e.admision.ValidarEvidencia(ctx, evidenciaAdmision, base.Vinculo, resultado, evaluada, descriptorAdmision); err != nil || ctx.Err() != nil {
+			return cero, opaco(ctx, err)
+		}
+		emitidaEn, validaHasta, err := decision.VentanaValidez()
+		if err != nil || evidenciaAdmision.ExigirVentanaDecisionV3(emitidaEn, validaHasta) != nil {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		resumenAdmision, err := evidenciaAdmision.Resumen()
+		if err != nil || resumen.ExpiraEn().After(resumenAdmision.VigenteHasta) ||
+			!ahoraCanonico.Before(resumenAdmision.VigenteHasta) {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
 	}
 	if ctx.Err() != nil {
 		return cero, opaco(ctx, nil)

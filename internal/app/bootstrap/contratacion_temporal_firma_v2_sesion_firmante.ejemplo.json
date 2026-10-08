@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "autoridad": "no_autoritativo",
+  "dsn_registro_identidad": "COMPLETAR_EN_CONFIGURACION_PRIVADA",
+  "dsn_revalidacion_identidad": "COMPLETAR_EN_CONFIGURACION_PRIVADA",
+  "dsn_contexto": "COMPLETAR_EN_CONFIGURACION_PRIVADA",
+  "retirada_en": "2026-12-31T00:00:00Z"
+}
