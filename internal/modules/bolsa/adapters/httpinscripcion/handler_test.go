@@ -13,22 +13,22 @@ import (
 
 type preparadorPrueba struct{ propias, rrhh int }
 
-func (p *preparadorPrueba) Aspirante(*http.Request) (inscripcion.Actor, error) {
+func (p *preparadorPrueba) PrepararLecturaAspirante(_ *http.Request, _, _ string, _ inscripcion.Filtro, _ string) (inscripcion.Actor, error) {
 	p.propias++
 	return inscripcion.Actor{PersonaRef: "per_prueba_0001", PerfilRef: "prf_prueba_0001", SesionRef: "ses_prueba_0001"}, nil
 }
-func (p *preparadorPrueba) RRHH(*http.Request) (inscripcion.Actor, error) {
+func (p *preparadorPrueba) PrepararLecturaRRHH(_ *http.Request, _, _ string, _ inscripcion.Filtro, _ string) (inscripcion.Actor, error) {
 	p.rrhh++
 	return inscripcion.Actor{PersonaRef: "per_rrhh_0001", PerfilRef: "prf_rrhh_0001", SesionRef: "ses_rrhh_0001"}, nil
 }
 func (p *preparadorPrueba) PrepararPresentacion(r *http.Request, _ inscripcion.Presentacion) (inscripcion.Actor, error) {
-	return p.Aspirante(r)
+	return p.PrepararLecturaAspirante(r, "", "", inscripcion.Filtro{}, "es")
 }
 func (p *preparadorPrueba) PrepararDecision(r *http.Request, _ inscripcion.Decision) (inscripcion.Actor, error) {
-	return p.RRHH(r)
+	return p.PrepararLecturaRRHH(r, "", "", inscripcion.Filtro{}, "es")
 }
 func (p *preparadorPrueba) PrepararIncorporacion(r *http.Request, _ inscripcion.Incorporacion) (inscripcion.Actor, error) {
-	return p.RRHH(r)
+	return p.PrepararLecturaRRHH(r, "", "", inscripcion.Filtro{}, "es")
 }
 
 type servicioPrueba struct {

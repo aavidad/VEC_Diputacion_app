@@ -25,8 +25,8 @@ const (
 )
 
 type Preparador interface {
-	Aspirante(*http.Request) (inscripcion.Actor, error)
-	RRHH(*http.Request) (inscripcion.Actor, error)
+	PrepararLecturaAspirante(*http.Request, string, string, inscripcion.Filtro, string) (inscripcion.Actor, error)
+	PrepararLecturaRRHH(*http.Request, string, string, inscripcion.Filtro, string) (inscripcion.Actor, error)
 	PrepararPresentacion(*http.Request, inscripcion.Presentacion) (inscripcion.Actor, error)
 	PrepararDecision(*http.Request, inscripcion.Decision) (inscripcion.Actor, error)
 	PrepararIncorporacion(*http.Request, inscripcion.Incorporacion) (inscripcion.Actor, error)
@@ -99,13 +99,14 @@ func (h *Handler) abiertas(w http.ResponseWriter, r *http.Request) {
 		responderError(w, 400, "datos_no_validos")
 		return
 	}
-	actor, err := h.preparador.Aspirante(r)
+	idiomaActivo, err := idioma(r.URL.Query())
 	if err != nil {
-		responderFallo(w, err)
+		responderError(w, 400, "datos_no_validos")
 		return
 	}
-	if actor.Idioma, err = idioma(r.URL.Query()); err != nil {
-		responderError(w, 400, "datos_no_validos")
+	actor, err := h.preparador.PrepararLecturaAspirante(r, inscripcion.AccionListarAbiertas, "", inscripcion.Filtro{Limite: limite, Cursor: cursor}, idiomaActivo)
+	if err != nil {
+		responderFallo(w, err)
 		return
 	}
 	p, err := h.servicio.Abiertas(r.Context(), actor, limite, cursor)
@@ -129,13 +130,14 @@ func (h *Handler) detalleAbierta(w http.ResponseWriter, r *http.Request) {
 		responderError(w, 404, "recurso_no_encontrado")
 		return
 	}
-	actor, err := h.preparador.Aspirante(r)
+	idiomaActivo, err := idioma(r.URL.Query())
 	if err != nil {
-		responderFallo(w, err)
+		responderError(w, 400, "datos_no_validos")
 		return
 	}
-	if actor.Idioma, err = idioma(r.URL.Query()); err != nil {
-		responderError(w, 400, "datos_no_validos")
+	actor, err := h.preparador.PrepararLecturaAspirante(r, inscripcion.AccionDetalleAbierta, ref, inscripcion.Filtro{}, idiomaActivo)
+	if err != nil {
+		responderFallo(w, err)
 		return
 	}
 	b, err := h.servicio.DetalleAbierta(r.Context(), actor, ref)
@@ -158,16 +160,18 @@ func (h *Handler) propias(w http.ResponseWriter, r *http.Request) {
 			responderError(w, 400, "datos_no_validos")
 			return
 		}
-		actor, err := h.preparador.Aspirante(r)
+		idiomaActivo, err := idioma(r.URL.Query())
+		if err != nil {
+			responderError(w, 400, "datos_no_validos")
+			return
+		}
+		filtro := inscripcion.Filtro{Limite: limite, Cursor: cursor}
+		actor, err := h.preparador.PrepararLecturaAspirante(r, inscripcion.AccionListarPropias, "", filtro, idiomaActivo)
 		if err != nil {
 			responderFallo(w, err)
 			return
 		}
-		if actor.Idioma, err = idioma(r.URL.Query()); err != nil {
-			responderError(w, 400, "datos_no_validos")
-			return
-		}
-		p, err := h.servicio.Propias(r.Context(), actor, inscripcion.Filtro{Limite: limite, Cursor: cursor})
+		p, err := h.servicio.Propias(r.Context(), actor, filtro)
 		if err != nil {
 			responderFallo(w, err)
 			return
@@ -227,13 +231,14 @@ func (h *Handler) propia(w http.ResponseWriter, r *http.Request) {
 		responderError(w, 404, "recurso_no_encontrado")
 		return
 	}
-	actor, err := h.preparador.Aspirante(r)
+	idiomaActivo, err := idioma(r.URL.Query())
 	if err != nil {
-		responderFallo(w, err)
+		responderError(w, 400, "datos_no_validos")
 		return
 	}
-	if actor.Idioma, err = idioma(r.URL.Query()); err != nil {
-		responderError(w, 400, "datos_no_validos")
+	actor, err := h.preparador.PrepararLecturaAspirante(r, inscripcion.AccionDetallePropia, ref, inscripcion.Filtro{}, idiomaActivo)
+	if err != nil {
+		responderFallo(w, err)
 		return
 	}
 	s, err := h.servicio.Propia(r.Context(), actor, ref)
@@ -257,18 +262,18 @@ func (h *Handler) rrhh(w http.ResponseWriter, r *http.Request) {
 	if estado == "" {
 		estado = inscripcion.EstadoPendiente
 	}
-	actor, err := h.preparador.RRHH(r)
+	idiomaActivo, err := idioma(r.URL.Query())
+	if err != nil {
+		responderError(w, 400, "datos_no_validos")
+		return
+	}
+	filtro := inscripcion.Filtro{Estado: estado, ConvocatoriaRef: r.URL.Query().Get("convocatoria_ref"), Limite: limite, Cursor: cursor}
+	actor, err := h.preparador.PrepararLecturaRRHH(r, inscripcion.AccionListarRRHH, "", filtro, idiomaActivo)
 	if err != nil {
 		responderFallo(w, err)
 		return
 	}
-	if actor.Idioma, err = idioma(r.URL.Query()); err != nil {
-		responderError(w, 400, "datos_no_validos")
-		return
-	}
-	p, err := h.servicio.PendientesRRHH(r.Context(), actor, inscripcion.Filtro{
-		Estado: estado, ConvocatoriaRef: r.URL.Query().Get("convocatoria_ref"), Limite: limite, Cursor: cursor,
-	})
+	p, err := h.servicio.PendientesRRHH(r.Context(), actor, filtro)
 	if err != nil {
 		responderFallo(w, err)
 		return
@@ -285,13 +290,14 @@ func (h *Handler) motivos(w http.ResponseWriter, r *http.Request) {
 		responderError(w, 400, "datos_no_validos")
 		return
 	}
-	actor, err := h.preparador.RRHH(r)
+	idiomaActivo, err := idioma(query)
 	if err != nil {
-		responderFallo(w, err)
+		responderError(w, 400, "datos_no_validos")
 		return
 	}
-	if actor.Idioma, err = idioma(query); err != nil {
-		responderError(w, 400, "datos_no_validos")
+	actor, err := h.preparador.PrepararLecturaRRHH(r, inscripcion.AccionMotivosRRHH, query.Get("decision"), inscripcion.Filtro{}, idiomaActivo)
+	if err != nil {
+		responderFallo(w, err)
 		return
 	}
 	m, err := h.servicio.MotivosRRHH(r.Context(), actor, query.Get("decision"))
@@ -319,13 +325,14 @@ func (h *Handler) detalleODecisionRRHH(w http.ResponseWriter, r *http.Request) {
 		if !soloGET(w, r) {
 			return
 		}
-		actor, err := h.preparador.RRHH(r)
+		idiomaActivo, err := idioma(r.URL.Query())
 		if err != nil {
-			responderFallo(w, err)
+			responderError(w, 400, "datos_no_validos")
 			return
 		}
-		if actor.Idioma, err = idioma(r.URL.Query()); err != nil {
-			responderError(w, 400, "datos_no_validos")
+		actor, err := h.preparador.PrepararLecturaRRHH(r, inscripcion.AccionDetalleRRHH, partes[0], inscripcion.Filtro{}, idiomaActivo)
+		if err != nil {
+			responderFallo(w, err)
 			return
 		}
 		s, err := h.servicio.DetalleRRHH(r.Context(), actor, partes[0])

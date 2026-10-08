@@ -7,6 +7,15 @@ import (
 
 type Servicio struct{ repositorio Repositorio }
 
+func lecturaAutorizada(actor Actor, accion string, filtro Filtro, ref string) bool {
+	idioma := actor.Idioma
+	if idioma == "" {
+		idioma = "es"
+	}
+	recurso, err := RecursoLectura(accion, actor.PersonaRef, idioma, filtro, ref)
+	return err == nil && actor.LecturaValida(accion, recurso, filtro)
+}
+
 func NuevoServicio(r Repositorio) (*Servicio, error) {
 	if r == nil || reflect.ValueOf(r).Kind() == reflect.Pointer && reflect.ValueOf(r).IsNil() {
 		return nil, ErrNoDisponible
@@ -18,7 +27,7 @@ func (s *Servicio) Abiertas(ctx context.Context, actor Actor, limite int, cursor
 	if s == nil || s.repositorio == nil {
 		return PaginaAbiertas{}, ErrNoDisponible
 	}
-	if !actor.LecturaValida(AccionListarAbiertas, "convocatorias-abiertas", Filtro{Limite: limite, Cursor: cursor}) || limite < 1 || limite > 100 || len(cursor) > 512 {
+	if !lecturaAutorizada(actor, AccionListarAbiertas, Filtro{Limite: limite, Cursor: cursor}, "") || limite < 1 || limite > 100 || len(cursor) > 512 {
 		return PaginaAbiertas{}, ErrSolicitudInvalida
 	}
 	p, err := s.repositorio.Abiertas(ctx, actor, limite, cursor)
@@ -40,7 +49,7 @@ func (s *Servicio) DetalleAbierta(ctx context.Context, actor Actor, ref string) 
 	if s == nil || s.repositorio == nil {
 		return BolsaAbierta{}, ErrNoDisponible
 	}
-	if !referenciaOpaca.MatchString(ref) || !actor.LecturaValida(AccionDetalleAbierta, ref, Filtro{}) {
+	if !lecturaAutorizada(actor, AccionDetalleAbierta, Filtro{}, ref) {
 		return BolsaAbierta{}, ErrSolicitudInvalida
 	}
 	b, err := s.repositorio.DetalleAbierta(ctx, actor, ref)
@@ -57,7 +66,7 @@ func (s *Servicio) MotivosRRHH(ctx context.Context, actor Actor, decision string
 	if s == nil || s.repositorio == nil {
 		return CatalogoMotivos{}, ErrNoDisponible
 	}
-	if (decision != "admitir" && decision != "rechazar") || !actor.LecturaValida(AccionMotivosRRHH, "motivos:"+decision, Filtro{}) {
+	if (decision != "admitir" && decision != "rechazar") || !lecturaAutorizada(actor, AccionMotivosRRHH, Filtro{}, decision) {
 		return CatalogoMotivos{}, ErrSolicitudInvalida
 	}
 	c, err := s.repositorio.MotivosRRHH(ctx, actor, decision)
@@ -76,7 +85,7 @@ func (s *Servicio) MotivosRRHH(ctx context.Context, actor Actor, decision string
 }
 
 func bolsaAbiertaValida(b BolsaAbierta) bool {
-	if !referenciaOpaca.MatchString(b.ConvocatoriaRef) || b.Titulo == "" ||
+	if !convocatoriaRefValida(b.ConvocatoriaRef) || b.Titulo == "" ||
 		b.CategoriasResumen == "" || len(b.Categorias) == 0 || len(b.Categorias) > 32 ||
 		b.CatalogoVersion == 0 ||
 		b.PlazoInicio.IsZero() || !b.PlazoFin.After(b.PlazoInicio) ||
@@ -99,7 +108,7 @@ func bolsaAbiertaValida(b BolsaAbierta) bool {
 		}
 	}
 	for _, c := range b.Categorias {
-		if !referenciaOpaca.MatchString(c.CategoriaRef) || c.Categoria == "" || len(c.Categoria) > 200 {
+		if !referenciaOpaca.MatchString(c.CategoriaRef) || len(c.CategoriaRef) > 200 || c.Categoria == "" || len(c.Categoria) > 200 {
 			return false
 		}
 	}
@@ -131,7 +140,7 @@ func (s *Servicio) Propias(ctx context.Context, actor Actor, filtro Filtro) (Pag
 	if s == nil || s.repositorio == nil {
 		return Pagina{}, ErrNoDisponible
 	}
-	if filtro.Validar() != nil || !actor.LecturaValida(AccionListarPropias, "inscripciones:propias:"+actor.PersonaRef, filtro) {
+	if filtro.Validar() != nil || !lecturaAutorizada(actor, AccionListarPropias, filtro, "") {
 		return Pagina{}, ErrSolicitudInvalida
 	}
 	p, err := s.repositorio.Propias(ctx, actor, filtro)
@@ -148,7 +157,7 @@ func (s *Servicio) Propia(ctx context.Context, actor Actor, ref string) (Solicit
 	if s == nil || s.repositorio == nil {
 		return Solicitud{}, ErrNoDisponible
 	}
-	if !referenciaOpaca.MatchString(ref) || !actor.LecturaValida(AccionDetallePropia, ref, Filtro{}) {
+	if !lecturaAutorizada(actor, AccionDetallePropia, Filtro{}, ref) {
 		return Solicitud{}, ErrSolicitudInvalida
 	}
 	r, err := s.repositorio.Propia(ctx, actor, ref)
@@ -165,7 +174,7 @@ func (s *Servicio) PendientesRRHH(ctx context.Context, actor Actor, filtro Filtr
 	if s == nil || s.repositorio == nil {
 		return Pagina{}, ErrNoDisponible
 	}
-	if filtro.Validar() != nil || !actor.LecturaValida(AccionListarRRHH, "inscripciones:rrhh", filtro) {
+	if filtro.Validar() != nil || !lecturaAutorizada(actor, AccionListarRRHH, filtro, "") {
 		return Pagina{}, ErrSolicitudInvalida
 	}
 	p, err := s.repositorio.PendientesRRHH(ctx, actor, filtro)
@@ -182,7 +191,7 @@ func (s *Servicio) DetalleRRHH(ctx context.Context, actor Actor, ref string) (So
 	if s == nil || s.repositorio == nil {
 		return Solicitud{}, ErrNoDisponible
 	}
-	if !referenciaOpaca.MatchString(ref) || !actor.LecturaValida(AccionDetalleRRHH, ref, Filtro{}) {
+	if !lecturaAutorizada(actor, AccionDetalleRRHH, Filtro{}, ref) {
 		return Solicitud{}, ErrSolicitudInvalida
 	}
 	r, err := s.repositorio.DetalleRRHH(ctx, actor, ref)
@@ -199,7 +208,7 @@ func (s *Servicio) Decidir(ctx context.Context, actor Actor, d Decision) (Recibo
 	if s == nil || s.repositorio == nil {
 		return Recibo{}, ErrNoDisponible
 	}
-	if !actor.EscrituraValida() || d.Validar() != nil {
+	if !actor.EscrituraValida() || actor.Canal != "interna_corporativa" || d.Validar() != nil {
 		return Recibo{}, ErrSolicitudInvalida
 	}
 	r, err := s.repositorio.Decidir(ctx, actor, d)
@@ -218,7 +227,7 @@ func (s *Servicio) Incorporar(ctx context.Context, actor Actor, i Incorporacion)
 	if s == nil || s.repositorio == nil {
 		return Recibo{}, ErrNoDisponible
 	}
-	if !actor.EscrituraValida() || i.Validar() != nil {
+	if !actor.EscrituraValida() || actor.Canal != "interna_corporativa" || i.Validar() != nil {
 		return Recibo{}, ErrSolicitudInvalida
 	}
 	r, err := s.repositorio.Incorporar(ctx, actor, i)
