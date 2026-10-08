@@ -70,11 +70,12 @@ func (c calculadoraPlazoFaseCT) PrepararPlazosFase(ctx context.Context) (ports.C
 	if err != nil {
 		return nil, err
 	}
-	return calculadoraPlazoFaseCTLeida{lectura: lectura, vigentes: lectura.Reglas()}, nil
+	return calculadoraPlazoFaseCTLeida{reglas: c.reglas, lectura: lectura, vigentes: lectura.Reglas()}, nil
 }
 
 // calculadoraPlazoFaseCTLeida calcula con una lectura de reglas ya hecha.
 type calculadoraPlazoFaseCTLeida struct {
+	reglas   *reglas.Resolutor
 	lectura  reglas.ReglasLeidas
 	vigentes []reglas.Regla
 }
@@ -117,6 +118,10 @@ func plazoFaseCT(
 	if err != nil {
 		return ports.PlazoFaseRRHH{}, false, err
 	}
+	return resultadoPlazoFaseCT(solicitud, regla, vencimiento)
+}
+
+func resultadoPlazoFaseCT(solicitud ports.SolicitudPlazoFaseRRHH, regla reglas.Regla, vencimiento reglas.Vencimiento) (ports.PlazoFaseRRHH, bool, error) {
 	hoy, err := calendariosdomain.FechaCivilDe(solicitud.Ahora)
 	if err != nil {
 		return ports.PlazoFaseRRHH{}, false, reglas.ErrCalculoNoDisponible
@@ -133,6 +138,40 @@ func plazoFaseCT(
 		Estado: estado, ReglaRef: regla.Referencia,
 		ReglaEjemplo: regla.EsEjemplo() || regla.PaqueteEjemplo,
 	}, true, nil
+}
+
+func (c calculadoraPlazoFaseCT) CalcularPlazoConCaptura(ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH, captura ports.CapturaPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	return calcularPlazoConCapturaCT(c.reglas, ctx, solicitud, captura)
+}
+
+func (c calculadoraPlazoFaseCTLeida) CalcularPlazoConCaptura(ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH, captura ports.CapturaPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	return calcularPlazoConCapturaCT(c.reglas, ctx, solicitud, captura)
+}
+
+func calcularPlazoConCapturaCT(resolutor *reglas.Resolutor, ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH, captura ports.CapturaPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	if ctx == nil || resolutor == nil || (captura.Estado != "capturada" && captura.Estado != "legado_base_transicion") || captura.Fase != solicitud.Fase || !captura.FaseDesde.Equal(solicitud.Desde) {
+		return ports.PlazoFaseRRHH{}, false, reglas.ErrReglasNoDisponibles
+	}
+	guardada := reglas.InstantaneaPersistidaRegla{
+		CatalogoBaseID: captura.BaseID, CatalogoBaseVersion: captura.BaseVersion,
+		CatalogoBaseHuella: captura.BaseHuella, CatalogoBaseCanonico: captura.BaseCanonico,
+		CatalogoAjustesID: captura.AjustesID, AjustesEncontrados: captura.AjustesEncontrados,
+		VersionAjustes: captura.AjustesVersion, HuellaAjustes: captura.AjustesHuella,
+		CanonicoAjustes: captura.AjustesCanonico, AjustesVigenteDesde: captura.AjustesVigenteDesde,
+		PreparadaEn: captura.CapturadaEn, Fase: string(captura.Fase), FaseDesde: captura.FaseDesde,
+	}
+	instantanea, err := reglas.RehidratarInstantaneaRegla(guardada)
+	if err != nil {
+		if errors.Is(err, reglas.ErrReglaNoEncontrada) {
+			return ports.PlazoFaseRRHH{}, false, nil
+		}
+		return ports.PlazoFaseRRHH{}, false, err
+	}
+	regla, vencimiento, err := resolutor.CalcularConInstantanea(ctx, instantanea, solicitud.Desde, "", solicitud.Urgente)
+	if err != nil {
+		return ports.PlazoFaseRRHH{}, false, err
+	}
+	return resultadoPlazoFaseCT(solicitud, regla, vencimiento)
 }
 
 func reglaCubreFaseCT(regla reglas.Regla, fase string) bool {

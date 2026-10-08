@@ -16,6 +16,44 @@ type calculadoraPlazoFasePrueba struct {
 	err         error
 }
 
+type calculadoraCapturaPrueba struct {
+	actual   int
+	capturas []string
+}
+
+func (c *calculadoraCapturaPrueba) CalcularPlazoFase(context.Context, ports.SolicitudPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	c.actual++
+	return ports.PlazoFaseRRHH{}, false, nil
+}
+
+func (c *calculadoraCapturaPrueba) CalcularPlazoConCaptura(_ context.Context, _ ports.SolicitudPlazoFaseRRHH, captura ports.CapturaPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	c.capturas = append(c.capturas, captura.BaseHuella)
+	p := plazoFaseValidoPrueba()
+	p.ReglaRef = captura.BaseHuella
+	return p, true, nil
+}
+
+func TestPlazoFaseUsaCapturaYNoCabezaActual(t *testing.T) {
+	t.Parallel()
+	desde := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	calculadora := &calculadoraCapturaPrueba{}
+	clave := clavePlazoFaseCuadro{fase: "fiscalizacion", desde: desde}
+	legado := ports.CapturaPlazoFaseRRHH{Estado: "legado_sin_instantanea", Fase: clave.fase, FaseDesde: desde}
+	if p := calcularPlazoFase(t.Context(), calculadora, clave, desde.Add(time.Hour), &legado); p == nil || p.Estado != ports.PlazoFaseNoCalculado || calculadora.actual != 0 {
+		t.Fatalf("legado sin baseline: %+v", p)
+	}
+	for _, huella := range []string{"base-anterior", "base-posterior"} {
+		captura := ports.CapturaPlazoFaseRRHH{Estado: "legado_base_transicion", Fase: clave.fase, FaseDesde: desde, BaseHuella: huella}
+		p := calcularPlazoFase(t.Context(), calculadora, clave, desde.Add(time.Hour), &captura)
+		if p == nil || p.ReglaRef != huella {
+			t.Fatalf("captura %s: %+v", huella, p)
+		}
+	}
+	if calculadora.actual != 0 || len(calculadora.capturas) != 2 {
+		t.Fatalf("se consultó cabeza actual: %+v", calculadora)
+	}
+}
+
 func (c *calculadoraPlazoFasePrueba) CalcularPlazoFase(
 	_ context.Context,
 	solicitud ports.SolicitudPlazoFaseRRHH,

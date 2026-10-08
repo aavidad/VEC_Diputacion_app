@@ -23,6 +23,7 @@ type clavePlazoFaseCuadro struct {
 	fase    domain.ClaveFase
 	desde   time.Time
 	urgente bool
+	captura string
 }
 
 // completarPlazos devuelve el vencimiento de la fase actual de cada
@@ -90,13 +91,20 @@ func calcularPlazosPagina(
 		if ctx.Err() != nil {
 			return nil
 		}
+		var captura *ports.CapturaPlazoFaseRRHH
+		if len(pagina.CapturasPlazo) == len(pagina.Expedientes) {
+			captura = &pagina.CapturasPlazo[indice]
+		}
 		clave := clavePlazoFaseCuadro{
 			fase: resumen.FaseClave, desde: pagina.FasesDesde[indice],
 			urgente: len(pagina.Urgentes) == len(pagina.Expedientes) && pagina.Urgentes[indice],
 		}
+		if captura != nil {
+			clave.captura = captura.Estado + ":" + captura.BaseHuella + ":" + captura.AjustesHuella + ":" + captura.CapturadaEn.Format(time.RFC3339Nano)
+		}
 		plazo, visto := calculados[clave]
 		if !visto {
-			plazo = calcularPlazoFase(ctx, calculadora, clave, ahora)
+			plazo = calcularPlazoFase(ctx, calculadora, clave, ahora, captura)
 			calculados[clave] = plazo
 		}
 		if plazo != nil {
@@ -116,10 +124,29 @@ func calcularPlazoFase(
 	calculadora ports.CalculadoraPlazoFaseRRHH,
 	clave clavePlazoFaseCuadro,
 	ahora time.Time,
+	captura *ports.CapturaPlazoFaseRRHH,
 ) *ports.PlazoFaseRRHH {
-	plazo, aplicable, err := calculadora.CalcularPlazoFase(ctx, ports.SolicitudPlazoFaseRRHH{
+	if captura != nil && captura.Estado == "legado_sin_instantanea" {
+		return &ports.PlazoFaseRRHH{Estado: ports.PlazoFaseNoCalculado}
+	}
+	if calculadora == nil {
+		return &ports.PlazoFaseRRHH{Estado: ports.PlazoFaseNoCalculado}
+	}
+	solicitud := ports.SolicitudPlazoFaseRRHH{
 		Fase: clave.fase, Desde: clave.desde, Ahora: ahora, Urgente: clave.urgente,
-	})
+	}
+	var plazo ports.PlazoFaseRRHH
+	var aplicable bool
+	var err error
+	if captura != nil {
+		conCaptura, ok := calculadora.(ports.CalculadoraConCapturaPlazoFaseRRHH)
+		if !ok || (captura.Estado != "capturada" && captura.Estado != "legado_base_transicion") {
+			return &ports.PlazoFaseRRHH{Estado: ports.PlazoFaseNoCalculado}
+		}
+		plazo, aplicable, err = conCaptura.CalcularPlazoConCaptura(ctx, solicitud, *captura)
+	} else {
+		plazo, aplicable, err = calculadora.CalcularPlazoFase(ctx, solicitud)
+	}
 	switch {
 	case err != nil:
 		// El fallo se publica en la fila como «no calculado»: no es un

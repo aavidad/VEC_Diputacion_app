@@ -49,6 +49,12 @@ BEGIN
    'aprobacion:sintetica:ct190');
  SELECT coalesce(max(secuencia),0) INTO secuencia_previa
   FROM vec_contratacion_temporal.regla_base_activacion_v1;
+ BEGIN
+  INSERT INTO vec_contratacion_temporal.regla_base_activacion_v1
+   (secuencia,secuencia_esperada,activa,aprobacion_ref)
+  VALUES (secuencia_previa+1,secuencia_previa,false,'aprobacion:sintetica:ct190');
+  RAISE EXCEPTION 'CT190: primera activación inactiva aceptada';
+ EXCEPTION WHEN SQLSTATE '55000' THEN NULL; END;
  INSERT INTO vec_contratacion_temporal.regla_base_activacion_v1
   (secuencia,secuencia_esperada,activa,catalogo_id,version,huella_sha256,aprobacion_ref)
  VALUES (secuencia_previa+1,secuencia_previa,true,
@@ -147,7 +153,94 @@ BEGIN
   END IF;
   anterior:=nueva;
  END LOOP;
+ IF (SELECT t.base_version FROM vec_contratacion_temporal.regla_legado_transicion_v1 t)
+    IS DISTINCT FROM base_version
+    OR (SELECT t.ajustes_version FROM vec_contratacion_temporal.regla_legado_transicion_v1 t)<>0
+ THEN RAISE EXCEPTION 'CT190: baseline legado cambió tras editar ajustes'; END IF;
+ canonico:=jsonb_set(canonico::jsonb,'{version}',to_jsonb(base_version+1))::text;
+ huella:=encode(sha256(convert_to(canonico,'UTF8')),'hex');
+ INSERT INTO vec_contratacion_temporal.regla_base_publicada_v1
+  (catalogo_id,version,huella_sha256,canonico,fuente_sha256,aprobacion_ref)
+ VALUES ('vec.contratacion_temporal.reglas',base_version+1,huella,canonico,
+  encode(sha256(convert_to('fuente sintética CT190 posterior','UTF8')),'hex'),
+  'aprobacion:sintetica:ct190');
+ INSERT INTO vec_contratacion_temporal.regla_base_activacion_v1
+  (secuencia,secuencia_esperada,activa,catalogo_id,version,huella_sha256,aprobacion_ref)
+ VALUES (secuencia_previa+2,secuencia_previa+1,true,
+  'vec.contratacion_temporal.reglas',base_version+1,huella,'aprobacion:sintetica:ct190');
+ IF (SELECT t.base_version FROM vec_contratacion_temporal.regla_legado_transicion_v1 t)
+    IS DISTINCT FROM base_version
+ THEN RAISE EXCEPTION 'CT190: activación posterior movió baseline legado'; END IF;
 END $prueba$;
 
 SELECT 'CT190-PRUEBAS-OK' AS resultado;
+DO $lectores$
+DECLARE v_contenido bytea; v_contextos jsonb; v_grupos integer;
+BEGIN
+ SELECT contenido_canonico INTO v_contenido
+ FROM vec_contratacion_temporal.prueba_resultado_recibo_rrhh_v2
+ WHERE substring(contenido_canonico FROM 1 FOR 32)=
+  convert_to('VEC-CT-CONTENIDO-CUADRO-RRHH-V1'||chr(10),'UTF8')
+  AND EXISTS (SELECT 1 FROM vec_contratacion_temporal.expedientes_contenido_cuadro_rrhh_v1(contenido_canonico))
+ LIMIT 1;
+ IF v_contenido IS NULL THEN RAISE EXCEPTION 'CT190: falta canon sintético de página'; END IF;
+ v_contextos:=vec_contratacion_temporal.leer_capturas_pagina_rrhh_v1(v_contenido);
+ IF jsonb_typeof(v_contextos->'filas')<>'array'
+  OR jsonb_typeof(v_contextos->'bases')<>'object'
+  OR jsonb_typeof(v_contextos->'ajustes')<>'object' THEN
+  RAISE EXCEPTION 'CT190: diccionario de página incompleto'; END IF;
+ SELECT count(*) INTO v_grupos
+ FROM vec_contratacion_temporal.contar_resumen_cuadro_rrhh_v1(
+  ROW('organizacion:desarrollo:dipgra','organizacion','organizacion:desarrollo:dipgra')::
+   vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+  ROW('','','',100,'')::vec_contratacion_temporal.consulta_cuadro_rrhh_v1,'') r
+ WHERE r.clase='plazo' AND r.captura->>'estado' IN ('capturada','legado_base_transicion');
+ IF v_grupos<1 THEN RAISE EXCEPTION 'CT190: grupos sin captura'; END IF;
+END $lectores$;
+-- Doble privado transaccional de v3: ejercita v4/v5 sin atribuir autorización V3 nominal.
+CREATE OR REPLACE FUNCTION vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v3(
+ p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+ p_consulta vec_contratacion_temporal.consulta_cuadro_rrhh_v1,
+ p_capacidad_canonica bytea,p_decision_canonica bytea,p_motivo_canonico bytea,
+ p_contexto_actor_canonico bytea,p_persona_version numeric,p_perfil_version numeric,
+ p_payload_vec_ad_3 bytea,p_sobre_cose_sign_1 bytea,p_evidencia_verificacion bytea,p_raiz_publica_spki bytea)
+RETURNS TABLE(contenido_canonico bytea,cursor_siguiente text,esquema text,acceso_ref text,
+ secuencia numeric,anterior_sha256 text,huella_sha256 text,vinculo_identidad_huella_sha256 text,
+ alcance_huella_sha256 text,registrada_en timestamptz,auditoria_vec_ref text,
+ auditoria_vec_huella_sha256 text,consumo_vec_huella_sha256 text,contenido_huella_sha256 text,
+ resultado_huella_sha256 text,cursor_huella_sha256 text,generada_en timestamptz,
+ expediente_ref text,version_expediente numeric,total smallint,recibo_sello_sha256 text,
+ total_filtrado numeric,en_tramitacion numeric,con_incidencia numeric,en_llamamiento numeric,
+ fase_desde_expedientes text[],fase_desde_instantes timestamptz[])
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security='on' AS $f$
+DECLARE v_contenido bytea; v_refs text[]; v_desde timestamptz[]; v_total smallint; v_filtrado numeric; v_tramite numeric;
+BEGIN
+ SELECT p.contenido_canonico INTO v_contenido FROM vec_contratacion_temporal.prueba_resultado_recibo_rrhh_v2 p
+ WHERE substring(p.contenido_canonico FROM 1 FOR 32)=convert_to('VEC-CT-CONTENIDO-CUADRO-RRHH-V1'||chr(10),'UTF8')
+ AND EXISTS (SELECT 1 FROM vec_contratacion_temporal.expedientes_contenido_cuadro_rrhh_v1(p.contenido_canonico)) LIMIT 1;
+ SELECT coalesce(array_agg(e.expediente_ref ORDER BY e.orden),'{}'),coalesce(array_agg(s.fase_desde ORDER BY e.orden),'{}'),count(*)::smallint
+ INTO v_refs,v_desde,v_total FROM vec_contratacion_temporal.expedientes_contenido_cuadro_rrhh_v1(v_contenido) e
+ JOIN vec_contratacion_temporal.fase_regla_instantanea_v1 s ON s.expediente_ref=e.expediente_ref AND s.version=e.version;
+ SELECT coalesce(sum(r.numero),0) INTO v_filtrado FROM vec_contratacion_temporal.contar_resumen_cuadro_rrhh_v1(p_alcance,p_consulta,p_consulta.cursor) r WHERE r.clase='estado_fase';
+ SELECT coalesce(sum(r.numero),0) INTO v_tramite FROM vec_contratacion_temporal.contar_resumen_cuadro_rrhh_v1(p_alcance,p_consulta,p_consulta.cursor) r WHERE r.clase='plazo';
+ RETURN QUERY SELECT v_contenido,''::text,'doble'::text,'acceso:doble'::text,1::numeric,
+ repeat('0',64),repeat('1',64),repeat('2',64),repeat('3',64),clock_timestamp(),
+ 'auditoria:doble'::text,repeat('4',64),repeat('5',64),repeat('6',64),repeat('7',64),repeat('8',64),
+ clock_timestamp(), 'expediente:doble'::text,1::numeric,v_total,repeat('9',64),
+ v_filtrado,v_tramite,0::numeric,0::numeric,v_refs,v_desde;
+END $f$;
+DO $test$
+DECLARE v_resultado record;
+BEGIN
+ SELECT * INTO STRICT v_resultado FROM vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v5(
+  ROW('organizacion:desarrollo:dipgra','organizacion','organizacion:desarrollo:dipgra')::vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+  ROW('','','',100,'')::vec_contratacion_temporal.consulta_cuadro_rrhh_v1,
+  '\x00'::bytea,'\x00'::bytea,'\x00'::bytea,'\x00'::bytea,1,1,
+  '\x00'::bytea,'\x00'::bytea,'\x00'::bytea,'\x00'::bytea);
+ IF jsonb_array_length(v_resultado.capturas_plazo->'filas')<>v_resultado.total
+ OR jsonb_array_length(v_resultado.capturas_grupos->'grupos')<>cardinality(v_resultado.plazo_fases)
+ OR v_resultado.capturas_grupos->'bases'='{}'::jsonb THEN
+  RAISE EXCEPTION 'CT190: v5 desalineada'; END IF;
+END $test$;
+
 ROLLBACK;

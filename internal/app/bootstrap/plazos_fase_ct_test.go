@@ -12,6 +12,7 @@ import (
 	calendariosports "vec-diputacion-granada/internal/modules/calendarios/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -68,6 +69,56 @@ func TestPlazoFaseCTSaleDelAtributoFasesDelCatalogo(t *testing.T) {
 		if plazo, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), ports.SolicitudPlazoFaseRRHH{Fase: fase, Desde: desde, Ahora: ahora}); err != nil || aplicable {
 			t.Fatalf("la fase %s no tiene regla en el catálogo: %+v %v %v", fase, plazo, aplicable, err)
 		}
+	}
+}
+
+func TestPlazoFaseCTRehidrataCapturaYRespetaFaseSinRegla(t *testing.T) {
+	calendarios := calendariosPlazoFasePrueba(t)
+	consulta, err := fichero.NuevaConsultaCatalogos(rutaReglasCTEjemploPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolutor, err := reglas.NuevoResolutor(reglas.Configuracion{
+		Consulta: consulta, Metadatos: consulta, CatalogoID: reglas.CatalogoContratacionTemporal,
+		ModuloID: reglas.ModuloContratacionTemporal, Calculadora: calculadoraPlazosCalendarios{consulta: calendarios},
+		Reloj: relojPresentacionReglasEjemplo, MunicipioSede: reglas.MunicipioSedeDiputacion,
+		Ajustes: ajustesPlazoFasePrueba{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparada, err := resolutor.PrepararInstantaneaRegla(t.Context(), reglas.CTPlazoFiscalizacion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos, err := preparada.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, _, _, err := resolutor.CatalogoVigente(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	canon, huella, err := reglas.CanonicoCatalogoBaseReglas(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	desde := time.Date(2026, 9, 15, 9, 30, 0, 0, time.UTC)
+	captura := ports.CapturaPlazoFaseRRHH{Estado: "capturada", Fase: "fiscalizacion", FaseDesde: desde,
+		BaseID: base.ID, BaseVersion: base.Version, BaseHuella: huella, BaseCanonico: canon,
+		AjustesID: datos.CatalogoAjustesID, AjustesEncontrados: datos.AjustesEncontrados,
+		AjustesVersion: datos.VersionAjustes, AjustesHuella: datos.HuellaAjustes,
+		AjustesCanonico: datos.CanonicoAjustes, AjustesVigenteDesde: datos.AjustesVigenteDesde,
+		CapturadaEn: datos.PreparadaEn}
+	solicitud := ports.SolicitudPlazoFaseRRHH{Fase: "fiscalizacion", Desde: desde, Ahora: time.Date(2026, 9, 28, 8, 0, 0, 0, time.UTC)}
+	plazo, aplicable, err := calcularPlazoConCapturaCT(resolutor, t.Context(), solicitud, captura)
+	if err != nil || !aplicable || !plazo.Valido() || calendarios.recibida.Cantidad != 10 {
+		t.Fatalf("captura: %+v %v %v", plazo, aplicable, err)
+	}
+	solicitud.Fase = "solicitud"
+	captura.Fase = "solicitud"
+	if _, aplicable, err := calcularPlazoConCapturaCT(resolutor, t.Context(), solicitud, captura); err != nil || aplicable {
+		t.Fatalf("fase sin regla: %v %v", aplicable, err)
 	}
 }
 

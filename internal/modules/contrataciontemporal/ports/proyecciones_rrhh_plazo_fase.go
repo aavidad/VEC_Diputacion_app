@@ -55,6 +55,32 @@ type SolicitudPlazoFaseRRHH struct {
 	Urgente bool
 }
 
+// CapturaPlazoFaseRRHH contiene la definición fijada al abrir el tramo.
+// El adaptador SQL reconstruye sus dos canónicos desde diccionarios por huella.
+// El legado carece de atribución histórica y se calcula como no_calculado.
+type CapturaPlazoFaseRRHH struct {
+	Estado              string
+	Fase                domain.ClaveFase
+	FaseDesde           time.Time
+	BaseID              string
+	BaseVersion         int
+	BaseHuella          string
+	BaseCanonico        []byte
+	AjustesID           string
+	AjustesEncontrados  bool
+	AjustesVersion      int
+	AjustesHuella       string
+	AjustesCanonico     []byte
+	AjustesVigenteDesde time.Time
+	CapturadaEn         time.Time
+}
+
+// CalculadoraConCapturaPlazoFaseRRHH no consulta cabezas editables al
+// recuperar un tramo que ya tiene instantánea.
+type CalculadoraConCapturaPlazoFaseRRHH interface {
+	CalcularPlazoConCaptura(context.Context, SolicitudPlazoFaseRRHH, CapturaPlazoFaseRRHH) (PlazoFaseRRHH, bool, error)
+}
+
 // CalculadoraPlazoFaseRRHH resuelve el plazo de una fase con el catálogo de
 // reglas. Devuelve aplicable=false si ninguna regla vigente cubre la fase. Un
 // error significa que no se pudo calcular: nunca se sustituye por un plazo.
