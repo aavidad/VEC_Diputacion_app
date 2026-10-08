@@ -256,26 +256,53 @@ func TestReconciliacionB81PaginaPorReferenciaEnMismaPosicion(t *testing.T) {
 	}
 }
 
-func TestReconciliacionB81AvisaAlAgotarPaginas(t *testing.T) {
-	pasos := make([]pasoReconciliacionB81, 0, maximoPaginasEntregaContratosCT*2)
-	var previo string
-	for i := 0; i < maximoPaginasEntregaContratosCT; i++ {
-		ref := fmt.Sprintf("ref:outbox:%03d", i)
-		args := []any{1, nil, nil}
-		if i > 0 {
-			args = []any{1, int64(i - 1), previo}
-		}
-		pasos = append(pasos,
-			pasoReconciliacionB81{"listar_ceses_sin_candidato_pendientes_v1", args, filaPendientesB81(ref, int64(i))},
-			pasoReconciliacionB81{"registrar_restriccion_cese_bolsa_v1", []any{ref, huellaReconciliacionB81, int64(i)}, filaB45B81(false)},
-		)
-		previo = ref
-	}
-	q := &consultasReconciliacionB81{t: t, pasos: pasos}
-	resultado, err := (&reconciliacionCesesB81{pool: q, lote: 1}).entregar(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "clave=paginas_reconciliacion_B81") ||
-		resultado.nuevos != maximoPaginasEntregaContratosCT || q.llamadas != len(pasos) {
-		t.Fatalf("límite silencioso: %+v, %v, consultas=%d", resultado, err, q.llamadas)
+func TestReconciliacionB81SondeaTrasUltimaPaginaLlena(t *testing.T) {
+	for _, caso := range []struct {
+		nombre, errorEsperado      string
+		haySiguiente, fallaPrimero bool
+		aplicados                  int
+	}{
+		{"limite_exacto", "", false, false, maximoPaginasEntregaContratosCT},
+		{"limite_con_pendiente", "clave=paginas_reconciliacion_B81", true, false, maximoPaginasEntregaContratosCT},
+		{"limite_con_fallo", "clave=aplicaciones_B45_fallidas", false, true, maximoPaginasEntregaContratosCT - 1},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			pasos := make([]pasoReconciliacionB81, 0, maximoPaginasEntregaContratosCT*2+1)
+			var previo string
+			for i := 0; i < maximoPaginasEntregaContratosCT; i++ {
+				ref := fmt.Sprintf("ref:outbox:%03d", i)
+				args := []any{1, nil, nil}
+				if i > 0 {
+					args = []any{1, int64(i - 1), previo}
+				}
+				respuesta := filaB45B81(false)
+				if i == 0 && caso.fallaPrimero {
+					respuesta = filaCeseB81{err: &pgconn.PgError{Code: "08006"}}
+				}
+				pasos = append(pasos,
+					pasoReconciliacionB81{"listar_ceses_sin_candidato_pendientes_v1", args, filaPendientesB81(ref, int64(i))},
+					pasoReconciliacionB81{"registrar_restriccion_cese_bolsa_v1", []any{ref, huellaReconciliacionB81, int64(i)}, respuesta},
+				)
+				previo = ref
+			}
+			siguiente := filaPendientesB81("", 0)
+			if caso.haySiguiente {
+				siguiente = filaPendientesB81("ref:outbox:100", int64(maximoPaginasEntregaContratosCT))
+			}
+			pasos = append(pasos, pasoReconciliacionB81{
+				"listar_ceses_sin_candidato_pendientes_v1",
+				[]any{1, int64(maximoPaginasEntregaContratosCT - 1), previo}, siguiente,
+			})
+			q := &consultasReconciliacionB81{t: t, pasos: pasos}
+			resultado, err := (&reconciliacionCesesB81{pool: q, lote: 1}).entregar(context.Background())
+			errorCorrecto := err == nil
+			if caso.errorEsperado != "" {
+				errorCorrecto = err != nil && strings.Contains(err.Error(), caso.errorEsperado)
+			}
+			if resultado.nuevos != caso.aplicados || q.llamadas != len(pasos) || !errorCorrecto {
+				t.Fatalf("sondeo del límite: %+v, %v, consultas=%d", resultado, err, q.llamadas)
+			}
+		})
 	}
 }
 
