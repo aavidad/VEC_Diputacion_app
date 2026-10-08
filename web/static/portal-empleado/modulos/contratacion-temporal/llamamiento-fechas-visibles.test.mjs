@@ -6,7 +6,7 @@ import {
   recibo as seleccion, comunicacionRegistrada, justificante, declaracion,
   reciboResolucion, continuacionConfirmada, avisoSiguienteRegistrado,
   justificanteSiguiente, declaracionSiguiente, reciboResolucionSucesor,
-} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-circular-v3";
+} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v4";
 
 const fecha = new Intl.DateTimeFormat("es-ES", {
   dateStyle: "medium", timeStyle: "medium", timeZone: "Europe/Madrid",

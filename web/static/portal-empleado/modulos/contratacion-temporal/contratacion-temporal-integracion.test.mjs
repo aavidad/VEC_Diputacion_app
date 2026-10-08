@@ -8,7 +8,7 @@ import {
   VISTAS_MODULOS_PERSONALES,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "../../portal-modulos-coordinador.js?v=20261008-alta-circular-v3";
+} from "../../portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v4";
 
 const directorio = new URL("./", import.meta.url);
 const [

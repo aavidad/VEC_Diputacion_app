@@ -5,7 +5,7 @@ import { renderizarCuadro } from "./componentes-expedientes.js?v=20261001-ct-a-i
 import { validarCuadroContratacionTemporal } from "./contrato-expedientes.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-circular-v3";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-circular-v3";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v4";
 
 const t = crearTraductorExpedientesContratacion();
 

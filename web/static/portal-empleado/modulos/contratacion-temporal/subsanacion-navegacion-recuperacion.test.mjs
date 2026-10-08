@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-alta-circular-v3";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-alta-rpt-circular-v4";
 import { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-alta-circular-v3";
 
 const A = "expediente:subsanacion:A01";

@@ -18,7 +18,7 @@ import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=202
 import {
   montarAltaContratacionTemporal,
   renderizarAltaContratacionTemporal,
-} from "./vista.js?v=20261008-alta-circular-v3";
+} from "./vista.js?v=20261008-alta-rpt-circular-v4";
 
 const directorio = new URL("./", import.meta.url);
 const [contratoFuente, vistaFuente] = await Promise.all([

@@ -268,7 +268,7 @@ test("el cliente lista anotaciones externas por tipo y registra sin módulo ni c
 
 test("el formulario de llamamiento pinta el panel tras la aceptación con su instante y expediente", async () => {
   const { raizPrueba, abrirResolucion, resolucionConfirmada, revisionManual, CLAVE_RESOLUCION, PUBLICACIONES_PROPUESTA, EXPEDIENTE: EXP } =
-    await import("./formulario-llamamiento-pruebas.js?v=20261008-alta-circular-v3");
+    await import("./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v4");
   const raiz = raizPrueba();
   const fuente = fuentePrueba();
   const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: async () => resolucionConfirmada }, {

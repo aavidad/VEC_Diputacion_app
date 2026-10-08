@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=20261008-alta-circular-v3";
 import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261008-alta-circular-v3";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-circular-v3";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v4";
 
 const EXPEDIENTE = "expediente:ct:sintetico:informe-001";
 const CLAVE = "123e4567-e89b-42d3-a456-426614174000";

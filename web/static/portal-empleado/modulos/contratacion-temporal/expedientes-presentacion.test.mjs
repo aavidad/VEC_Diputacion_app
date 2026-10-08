@@ -28,7 +28,7 @@ import {
   crearEjecutorAltaConRefresco,
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js?v=20261008-alta-circular-v3";
+} from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v4";
 
 function presentadorDe(fuente, capacidades = fuente.capacidades) {
   return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });

@@ -3,7 +3,7 @@ import test from "node:test";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-circular-v3";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-circular-v3";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-circular-v3";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v4";
 import { contextoLlamamientoDesdeEstado } from "./vista-expedientes-render.js?v=20261008-alta-circular-v3";
 
 // Dobles de transporte y DOM; adapter, contratos, presentador y vista son los reales.
