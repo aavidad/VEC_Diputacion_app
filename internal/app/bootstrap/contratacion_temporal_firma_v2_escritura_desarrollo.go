@@ -4,7 +4,9 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 // Firma V2 de escritura (4c-5): material de las dos audiencias de registro y
@@ -37,10 +39,11 @@ func descriptoresMaterialFirmaV2EscrituraCTDesarrollo() (vec, externa descriptor
 // Cambiarlo deniega todo registro de firma externa.
 const rolFirmaExternaRegistroCTDesarrollo = "firma_externa_registro_ct_desarrollo"
 
-// nuevaInstantaneaFirmaExternaV2CTDesarrollo: registrar la firma externa
-// (interior y exterior del plan usan la misma acción, sin campos ni
-// obligaciones, como exigen AD170 y AD177) y consultar las firmas R5 V2 con
-// los campos exactos de AD162.
+// nuevaInstantaneaFirmaExternaV2CTDesarrollo define una sola versión de rol
+// para el registrador RRHH. Su publicación y asignación tienen que ser
+// aprobadas y cotejadas con la fuente central; esta plantilla no concede
+// permisos por sí misma. Las operaciones de Documentos pertenecen al mismo
+// actor y perfil que consulta y registra, con motivos y predicados distintos.
 func nuevaInstantaneaFirmaExternaV2CTDesarrollo(principalID, perfilRef string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
 		rolFirmaExternaRegistroCTDesarrollo, "Registro de firmas externas V2 de desarrollo",
@@ -51,6 +54,21 @@ func nuevaInstantaneaFirmaExternaV2CTDesarrollo(principalID, perfilRef string, a
 			{Accion: ports.AccionConsultarFirmasR5V2, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoConsultaFirmasR5,
 				Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
 				CamposPermitidos: ports.CamposConsultaFirmasR5V2()},
+			{Accion: docports.AccionDescargar, ModuloID: moduloRecursoDocumentosCT, TipoRecurso: tipoRecursoDescargaOriginalCT,
+				Finalidades: []string{finalidadDescargaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+				CamposPermitidos: []string{"contenido", "documento"}},
+			{Accion: docports.AccionReservarOriginalFirmable, ModuloID: moduloRecursoDocumentosCT, TipoRecurso: tipoRecursoOriginalFirmableCT,
+				Finalidades: []string{docports.FinalidadOriginalFirmable}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+				CamposPermitidos: []string{"intento", "reserva"}},
+			{Accion: docports.AccionConfirmarOriginalFirmable, ModuloID: moduloRecursoDocumentosCT, TipoRecurso: tipoRecursoOriginalFirmableCT,
+				Finalidades: []string{docports.FinalidadOriginalFirmable}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+				CamposPermitidos: []string{"documento", "recibo"}},
+			{Accion: puertosvec.AccionNegocioEscribirOriginalFirmable, ModuloID: moduloRecursoDocumentosCT, TipoRecurso: tipoRecursoOriginalFirmableCT,
+				Finalidades: []string{docports.FinalidadOriginalFirmable}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+				CamposPermitidos: []string{"evidencia_almacen", "original_firmable.contenido"}},
+			{Accion: docports.AccionCustodiarFirmado, ModuloID: moduloRecursoDocumentosCT, TipoRecurso: "documento_firmado",
+				Finalidades: []string{docports.FinalidadCustodiarFirmado}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+				CamposPermitidos: []string{"documento_firmado.custodia", "evidencia_custodia"}},
 		},
 		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
 }

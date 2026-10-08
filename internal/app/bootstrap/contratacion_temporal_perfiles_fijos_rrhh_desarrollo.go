@@ -493,8 +493,16 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 			valida = solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos)
 		case rutaFirmasR5V2CTDesarrollo(ruta):
 			valida = solicitudAutorizacionFirmasR5V2CTDesarrolloValida(ruta, datos)
-		case rutaFirmaExternaV2CTDesarrollo(ruta):
-			valida = solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(datos)
+		case ruta == httpinterno.RutaPreflightFirmaR5:
+			// La preparación solo consulta la historia V2 y descarga el
+			// original exacto. Nunca registra una firma ni custodia un PDF.
+			valida = datos.Accion == ports.AccionConsultarFirmasR5V2 &&
+				solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(datos) ||
+				solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos)
+		case ruta == httpinterno.RutaRegistroFirmaExterna:
+			valida = solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(datos) ||
+				solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos) ||
+				solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx, datos)
 		case rutaOriginalFirmableCTDesarrollo(ruta):
 			valida = solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos)
 		}

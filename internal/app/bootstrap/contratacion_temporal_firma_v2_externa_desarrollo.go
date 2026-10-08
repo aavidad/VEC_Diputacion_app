@@ -2,7 +2,9 @@ package bootstrap
 
 import (
 	"context"
+	"net/http"
 	"strings"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/firmaemisorv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -18,14 +20,35 @@ import (
 // de firma_externa.registrar; todas con el perfil fijo de la vía externa
 // (PR 1), sólo de organización, y con el motivo propio de la firma V2.
 
+// nuevoPerfilFijoFirmaExternaV2CTDesarrollo prepara el contrato exacto de
+// las tres rutas R5. La composición decide si publica o consume esta versión;
+// el constructor no escribe ni repara una versión de rol divergente.
+func nuevoPerfilFijoFirmaExternaV2CTDesarrollo(principal dominiovec.Principal,
+	base ports.ContextoAutorizacionAltaV3, ahora time.Time,
+) (*perfilFijoCTDesarrollo, error) {
+	p, err := nuevoPerfilFijoCTDesarrollo(principal, base, ahora, clavePerfilFijoFirmaExternaV2CTDesarrollo,
+		[]string{httpinterno.RutaOriginalFirmableCT, httpinterno.RutaPreflightFirmaR5, httpinterno.RutaRegistroFirmaExterna},
+		func(actor, perfil string) (dominiovec.InstantaneaAutorizacion, error) {
+			return nuevaInstantaneaFirmaExternaV2CTDesarrollo(actor, perfil, ahora)
+		})
+	if err != nil {
+		return nil, ports.ErrRegistroFirmaDocumentoNoDisponible
+	}
+	p.metodo = http.MethodPost
+	return p, nil
+}
+
 func rutaFirmaExternaV2CTDesarrollo(ruta string) bool {
-	return ruta == httpinterno.RutaRegistroFirmaExterna
+	return ruta == httpinterno.RutaRegistroFirmaExterna || ruta == httpinterno.RutaPreflightFirmaR5
 }
 
 // accionFirmaExternaV2CTDesarrollo: la acción que se audita en la ruta.
 func accionFirmaExternaV2CTDesarrollo(ruta string) (string, bool) {
-	if rutaFirmaExternaV2CTDesarrollo(ruta) {
+	switch ruta {
+	case httpinterno.RutaRegistroFirmaExterna:
 		return ports.AccionRegistrarFirmaExterna, true
+	case httpinterno.RutaPreflightFirmaR5:
+		return ports.AccionConsultarFirmasR5V2, true
 	}
 	return "", false
 }
@@ -93,7 +116,25 @@ func (a ambitosPerfilFijoCTDesarrollo) ObtenerInstantaneaAutorizacion(ctx contex
 func nuevoEmisorFirmaExternaV2CTDesarrollo(s *soporteAltaContratacionTemporalDesarrollo, fijo *perfilFijoCTDesarrollo,
 	consulta, firmaExterna *emisorMaterialRenovableCTDesarrollo, reloj relojContratacionTemporalDesarrollo, proceso string,
 ) (*firmaemisorv2.Emisor, *fuenteNominalFirmasR5V2CTDesarrollo, error) {
-	if s == nil || fijo == nil || consulta == nil || firmaExterna == nil || proceso == "" {
+	if s == nil || fijo == nil || consulta == nil || firmaExterna == nil || proceso == "" ||
+		fijo.clave != clavePerfilFijoFirmaExternaV2CTDesarrollo ||
+		fijo.metodo != http.MethodPost ||
+		!fijo.atiende(httpinterno.RutaOriginalFirmableCT) ||
+		!fijo.atiende(httpinterno.RutaPreflightFirmaR5) ||
+		!fijo.atiende(httpinterno.RutaRegistroFirmaExterna) ||
+		fijo.plantilla.VersionRol.RolID != rolFirmaExternaRegistroCTDesarrollo {
+		return nil, nil, ports.ErrRegistroFirmaDocumentoNoDisponible
+	}
+	esperada, err := nuevaInstantaneaFirmaExternaV2CTDesarrollo(fijo.plantilla.AsignacionPerfil.PrincipalID,
+		fijo.perfilRef(), reloj.Ahora())
+	if err != nil || !mismasHuellasInstantaneaDesarrollo(esperada, fijo.plantilla) {
+		return nil, nil, ports.ErrRegistroFirmaDocumentoNoDisponible
+	}
+	// La publicación es la fuente de verdad: un rol v1 antiguo de dos
+	// concesiones, una asignación revocada o una preimagen divergente no
+	// habilitan el emisor ni provocan aquí ningún intento de provisión.
+	if i, estado := s.consumirPerfilFijoCTDesarrolloConEstado(context.Background(), fijo); estado != perfilFijoConsumoVigente ||
+		i.AsignacionPerfil.PerfilActivoRef != fijo.perfilRef() {
 		return nil, nil, ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
 	fuente := &fuenteNominalFirmasR5V2CTDesarrollo{soporte: s, perfil: fijo, reloj: reloj, proceso: proceso,

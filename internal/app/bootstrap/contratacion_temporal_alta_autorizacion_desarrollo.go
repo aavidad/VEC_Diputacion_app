@@ -556,7 +556,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return motivoFirmasR5V2CTDesarrollo(), s.perfilFijoParaRuta(ruta) != nil
 	case httpinterno.RutaOriginalFirmableCT:
 		return motivoOriginalFirmableCTDesarrollo(), s.perfilFijoParaRuta(ruta) != nil
-	case httpinterno.RutaRegistroFirmaExterna:
+	case httpinterno.RutaRegistroFirmaExterna, httpinterno.RutaPreflightFirmaR5:
 		return motivoFirmaV2CTDesarrollo(), s.perfilFijoParaRuta(ruta) != nil
 	case httpinterno.RutaAltaSolicitudes:
 		return s.motivo, true

@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
-// El perfil fijo de la firma externa concede exactamente registrar la firma
-// externa (sin campos ni obligaciones, como AD170/AD177) y consultar las
-// firmas R5 V2 con los campos de AD162, en la organización y sin unidad.
+// Una única versión de rol debe cubrir las operaciones anidadas de Documentos,
+// la consulta y el registro; la fuente publicada sigue siendo la autoridad.
 func TestFirmaExternaV2InstantaneaConcedeLoQueExigeElNucleo(t *testing.T) {
 	i, err := nuevaInstantaneaFirmaExternaV2CTDesarrollo("per_firma_externa_prueba", "prf_firma_externa_prueba", time.Now().UTC().Truncate(time.Microsecond))
 	if err != nil || i.Validar() != nil {
@@ -22,20 +23,27 @@ func TestFirmaExternaV2InstantaneaConcedeLoQueExigeElNucleo(t *testing.T) {
 		t.Fatalf("rol distinto del que exige el núcleo: %q", i.AsignacionPerfil.VersionRolRef)
 	}
 	esperadas := map[string]struct {
-		tipo   string
-		campos []string
+		modulo    string
+		tipo      string
+		finalidad string
+		campos    []string
 	}{
-		ports.AccionRegistrarFirmaExterna: {ports.TipoRecursoFirmaExterna, nil},
-		ports.AccionConsultarFirmasR5V2:   {ports.TipoRecursoConsultaFirmasR5, ports.CamposConsultaFirmasR5V2()},
+		ports.AccionRegistrarFirmaExterna:                {ports.ModuloContratacion, ports.TipoRecursoFirmaExterna, ports.FinalidadFirmaDocumento, nil},
+		ports.AccionConsultarFirmasR5V2:                  {ports.ModuloContratacion, ports.TipoRecursoConsultaFirmasR5, ports.FinalidadFirmaDocumento, ports.CamposConsultaFirmasR5V2()},
+		docports.AccionDescargar:                         {moduloRecursoDocumentosCT, tipoRecursoDescargaOriginalCT, finalidadDescargaDocumento, []string{"contenido", "documento"}},
+		docports.AccionReservarOriginalFirmable:          {moduloRecursoDocumentosCT, tipoRecursoOriginalFirmableCT, docports.FinalidadOriginalFirmable, []string{"intento", "reserva"}},
+		docports.AccionConfirmarOriginalFirmable:         {moduloRecursoDocumentosCT, tipoRecursoOriginalFirmableCT, docports.FinalidadOriginalFirmable, []string{"documento", "recibo"}},
+		puertosvec.AccionNegocioEscribirOriginalFirmable: {moduloRecursoDocumentosCT, tipoRecursoOriginalFirmableCT, docports.FinalidadOriginalFirmable, []string{"evidencia_almacen", "original_firmable.contenido"}},
+		docports.AccionCustodiarFirmado:                  {moduloRecursoDocumentosCT, "documento_firmado", docports.FinalidadCustodiarFirmado, []string{"documento_firmado.custodia", "evidencia_custodia"}},
 	}
 	if len(i.VersionRol.Concesiones) != len(esperadas) {
 		t.Fatal("concesiones de más o de menos")
 	}
 	for _, c := range i.VersionRol.Concesiones {
 		e, ok := esperadas[c.Accion]
-		if !ok || c.TipoRecurso != e.tipo || c.ModuloID != ports.ModuloContratacion || !slices.Equal(c.CamposPermitidos, e.campos) ||
+		if !ok || c.TipoRecurso != e.tipo || c.ModuloID != e.modulo || !slices.Equal(c.CamposPermitidos, e.campos) ||
 			len(c.Obligaciones) != 0 || c.GarantiaMinima != dominiovec.AuthAssuranceHigh ||
-			!slices.Equal(c.Finalidades, []string{ports.FinalidadFirmaDocumento}) {
+			!slices.Equal(c.Finalidades, []string{e.finalidad}) {
 			t.Fatalf("concesión %q distinta de la que exige el núcleo: %+v", c.Accion, c)
 		}
 	}

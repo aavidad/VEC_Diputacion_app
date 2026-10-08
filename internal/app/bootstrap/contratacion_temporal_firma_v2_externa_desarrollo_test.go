@@ -20,15 +20,10 @@ func nuevoEscenarioFirmaExternaV2Prueba(t *testing.T) escenarioFirmasR5V2Prueba 
 	t.Helper()
 	s, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	ahora := s.reloj.Ahora()
-	p, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmaExternaV2CTDesarrollo,
-		[]string{httpinterno.RutaRegistroFirmaExterna},
-		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaFirmaExternaV2CTDesarrollo(actor, ref, ahora)
-		})
+	p, err := nuevoPerfilFijoFirmaExternaV2CTDesarrollo(principal, s.contexto, ahora)
 	if err != nil {
 		t.Fatal(err)
 	}
-	p.metodo = http.MethodPost
 	if err := s.registrarPerfilFijoCTDesarrollo(p); err != nil {
 		t.Fatal(err)
 	}
@@ -141,6 +136,10 @@ func TestFirmaExternaV2FuenteYEmisor(t *testing.T) {
 	if err != nil || actor.Resultado.Contexto.PerfilActivoRef != e.perfil.perfilRef() {
 		t.Fatalf("la sesión del perfil de la vía externa se ha denegado: %v", err)
 	}
+	preflight, err := fuente.RevalidarContextoActorFirmaV2(e.ctx(httpinterno.RutaPreflightFirmaR5, http.MethodPost))
+	if err != nil || preflight.Resultado.Contexto.PerfilActivoRef != actor.Resultado.Contexto.PerfilActivoRef {
+		t.Fatalf("preflight no conserva el perfil RRHH del registrador: %v", err)
+	}
 	for _, ruta := range []string{httpinterno.RutaRegistroFirmaVec, httpinterno.RutaConsultaFirmasR5V2} {
 		if _, err := fuente.RevalidarContextoActorFirmaV2(e.ctx(ruta, http.MethodPost)); err == nil {
 			t.Fatalf("%s atendida por la fuente de la vía externa", ruta)
@@ -148,6 +147,20 @@ func TestFirmaExternaV2FuenteYEmisor(t *testing.T) {
 	}
 	if _, err := fuente.RevalidarContextoActorFirmaV2(e.ctx(httpinterno.RutaRegistroFirmaExterna, http.MethodGet)); err == nil {
 		t.Fatal("GET atendido")
+	}
+}
+
+func TestFirmaExternaV2EmisorNoUsaRolPublicadoAntiguo(t *testing.T) {
+	e := nuevoEscenarioFirmaExternaV2Prueba(t)
+	consulta, firma := &emisorMaterialRenovableCTDesarrollo{}, &emisorMaterialRenovableCTDesarrollo{}
+	publicadas := e.soporte.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
+	antigua := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(e.perfil.plantilla)
+	antigua.VersionRol.Concesiones = antigua.VersionRol.Concesiones[:2]
+	publicadas.asignaciones[e.perfil.perfilRef()] = instantaneaPublicadaDesarrollo{
+		instantanea: antigua, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo,
+	}
+	if emisor, fuente, err := nuevoEmisorFirmaExternaV2CTDesarrollo(e.soporte, e.perfil, consulta, firma, e.soporte.reloj, "vec-rrhh"); err == nil || emisor != nil || fuente != nil {
+		t.Fatal("el rol v1 anterior de dos concesiones activó la vía externa")
 	}
 }
 
@@ -177,6 +190,27 @@ func TestFirmaExternaV2PDPConsumePerfilFijoConSolicitudExacta(t *testing.T) {
 	}
 	if m, ok := e.soporte.motivoAutorizacionParaContexto(ctx, httpinterno.RutaRegistroFirmaExterna); !ok || m != motivoFirmaV2CTDesarrollo() {
 		t.Fatal("la ruta externa no tiene el motivo de la firma V2")
+	}
+	if m, ok := e.soporte.motivoAutorizacionParaContexto(e.ctx(httpinterno.RutaPreflightFirmaR5, http.MethodPost), httpinterno.RutaPreflightFirmaR5); !ok || m != motivoFirmaV2CTDesarrollo() {
+		t.Fatal("preflight no tiene el motivo de la firma V2")
+	}
+	if fijo := e.soporte.perfilFijoParaContexto(e.ctx(httpinterno.RutaOriginalFirmableCT, http.MethodPost), httpinterno.RutaOriginalFirmableCT); fijo != e.perfil {
+		t.Fatal("el original R5 cambió de perfil activo")
+	}
+	consulta := dominiovec.DatosSolicitudAutorizacionLigadaV3{Accion: ports.AccionConsultarFirmasR5V2,
+		Recurso: dominiovec.RecursoAutorizable{Referencia: "exp:prueba", ModuloID: ports.ModuloContratacion,
+			Tipo: ports.TipoRecursoConsultaFirmasR5, Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo},
+			Atributos: map[string]string{"material_sha256": h}},
+		Finalidad: ports.FinalidadFirmaDocumento, ReferenciaMotivo: motivoFirmaV2CTDesarrollo()}
+	preflight := e.ctx(httpinterno.RutaPreflightFirmaR5, http.MethodPost)
+	preflight = context.WithValue(preflight, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, consulta)
+	if _, ok := e.soporte.instantaneaPerfilFijoParaContexto(preflight, httpinterno.RutaPreflightFirmaR5, e.perfil); !ok {
+		t.Fatal("preflight no consultó con el perfil vigente")
+	}
+	datos.Accion = ports.AccionRegistrarFirmaExterna
+	preflight = context.WithValue(preflight, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
+	if _, ok := e.soporte.instantaneaPerfilFijoParaContexto(preflight, httpinterno.RutaPreflightFirmaR5, e.perfil); ok {
+		t.Fatal("preflight pudo registrar una firma")
 	}
 }
 
