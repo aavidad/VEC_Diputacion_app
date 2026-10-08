@@ -14,6 +14,7 @@ import (
 type lectorBolsaConjuntoPrueba struct {
 	repo     repositorioVariasBolsasRRHHPrueba
 	lecturas *atomic.Int64
+	alterar  func([]ports.SituacionResumenParticipacion)
 }
 
 func (l lectorBolsaConjuntoPrueba) LeerBolsa(ctx context.Context, bolsa string, corte time.Time) (dominiobolsa.OrdenVigenteBolsa, []ports.SituacionResumenParticipacion, int, error) {
@@ -32,6 +33,9 @@ func (l lectorBolsaConjuntoPrueba) LeerBolsa(ctx context.Context, bolsa string, 
 			filas = append(filas, fila)
 		}
 	}
+	if l.alterar != nil {
+		l.alterar(filas)
+	}
 	return orden, filas, 0, nil
 }
 
@@ -39,7 +43,7 @@ func TestFuenteConstituidaRRHHBolsaConjuntoConservaListaSinConsultasPorParticipa
 	const bolsas, personasPorBolsa = 2, 200
 	legado, _ := fuenteVariasBolsasRRHHPrueba(t, bolsas, personasPorBolsa, true)
 	ref := "bolsa:prueba:01"
-	esperado, err := legado.cargarBolsa(context.Background(), ref)
+	esperado, err := legado.cargarAlcance(context.Background(), alcanceCargaBolsasRRHH{bolsa: ref, detalle: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,5 +76,27 @@ func TestFuenteConstituidaRRHHBolsaConjuntoRechazaInstantaneaDivergente(t *testi
 	filas[0].VersionInstantanea++
 	if _, _, err := mapearSituacionesConjuntoBolsa(repo.vigentes[0], repo.entradas[repo.vigentes[0].Instantanea.InstantaneaRef], filas); err == nil {
 		t.Fatal("se aceptó una situación de otra instantánea")
+	}
+}
+
+func TestFuenteConstituidaRRHHBolsaConjuntoConservaExclusionAnteCesePendiente(t *testing.T) {
+	f, _ := fuenteVariasBolsasRRHHPrueba(t, 1, 2, true)
+	repo := f.repositorio.(repositorioVariasBolsasRRHHPrueba)
+	pendienteDesde := f.ahora().Add(-time.Hour)
+	excluidaDesde := f.ahora().Add(-24 * time.Hour)
+	var lecturas atomic.Int64
+	f.bolsaConjunto = lectorBolsaConjuntoPrueba{repo: repo, lecturas: &lecturas, alterar: func(filas []ports.SituacionResumenParticipacion) {
+		filas[0].Situacion = &ports.SituacionParticipacion{ParticipacionRef: filas[0].ParticipacionRef, Situacion: "disponible", Desde: excluidaDesde}
+		filas[0].Cese = &ports.EstadoCese{CesePendiente: true, PendienteDesde: pendienteDesde}
+		filas[1].Situacion = &ports.SituacionParticipacion{ParticipacionRef: filas[1].ParticipacionRef, Situacion: "excluido", Desde: excluidaDesde}
+		filas[1].Cese = &ports.EstadoCese{CesePendiente: true, PendienteDesde: pendienteDesde}
+	}}
+	datos, err := f.cargarBolsa(context.Background(), repo.vigentes[0].Bolsa.BolsaRef)
+	if err != nil || lecturas.Load() != 1 || len(datos.Candidaturas) != 2 {
+		t.Fatalf("lectura pendiente: error=%v lecturas=%d candidaturas=%d", err, lecturas.Load(), len(datos.Candidaturas))
+	}
+	if datos.Candidaturas[0].Estado != "no_disponible" || datos.Candidaturas[0].EstadoDesde != pendienteDesde.UTC().Format(time.RFC3339) ||
+		datos.Candidaturas[1].Estado != "excluido" || datos.Candidaturas[1].EstadoDesde != excluidaDesde.UTC().Format(time.RFC3339) {
+		t.Fatalf("estados después de B13: primera=%+v segunda=%+v", datos.Candidaturas[0], datos.Candidaturas[1])
 	}
 }

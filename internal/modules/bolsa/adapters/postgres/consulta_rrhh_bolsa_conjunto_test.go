@@ -22,6 +22,12 @@ func TestLectorBolsaRRHHConjuntoFallaCerradoSinBase(t *testing.T) {
 	if _, err := NuevoLectorBolsaRRHHConjunto(nil); !errors.Is(err, ports.ErrResumenBolsasNoDisponible) {
 		t.Fatalf("pool nulo: %v", err)
 	}
+	ctx, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	l = &LectorBolsaRRHHConjunto{pool: &pgxpool.Pool{}}
+	if _, _, _, err := l.LeerBolsa(ctx, "bolsa:prueba", time.Now()); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelación perdida: %v", err)
+	}
 }
 
 type contadorConsultasBolsaRRHHConjunto struct{ orden, situaciones, recuentos atomic.Int64 }
@@ -30,7 +36,7 @@ func (c *contadorConsultasBolsaRRHHConjunto) TraceQueryStart(ctx context.Context
 	switch {
 	case strings.Contains(data.SQL, "leer_orden_vigente_bolsa_v1"):
 		c.orden.Add(1)
-	case strings.Contains(data.SQL, "leer_resumen_situaciones_bolsas_v1"):
+	case strings.Contains(data.SQL, "leer_situaciones_bolsa_rrhh_v1"):
 		c.situaciones.Add(1)
 	case strings.Contains(data.SQL, "leer_llamamientos_en_curso_bolsas_v1"):
 		c.recuentos.Add(1)

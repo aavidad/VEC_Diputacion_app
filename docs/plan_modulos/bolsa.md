@@ -40,6 +40,30 @@ La base observada tiene 41 vínculos. Estas cifras no miden HTTP ni acreditan
 pantalla <300 ms: la fuente RRHH aún carga todas las entradas antes de paginar.
 Faltan la medición HTTP y la revisión final del corte.
 
+## Lectura de conjunto por bolsa
+
+B92 prepara la lista de candidatos de RRHH con una lectura de situaciones y
+ceses de la bolsa solicitada. La aplicación obtiene orden, situaciones y
+recuento en una transacción de solo lectura con el mismo corte. Comprueba la
+bolsa, la instantánea, la versión y el orden de cada fila antes de mostrarla.
+La lista requiere B92 instalada y su permiso técnico exacto; si falta, responde
+con el error habitual y el cuadro sigue disponible. Esta PR depende de que
+#774 instale antes CT197, B81 y B90. No añade configuración.
+
+La migración B92 corregida se instaló una vez en un clon PostgreSQL 18 nuevo,
+después de la cadena de #774. La prueba transaccional pasó: deniega un LOGIN
+sin permiso, rechaza una constitución ambigua y una bolsa con 20.001 entradas,
+y coteja orden y participaciones con B6 al mismo corte. En ese clon, el lector
+Go hizo una consulta B6, una B92 y una B85 con el LOGIN ejecutor. El ensayo no
+ha instalado B92 en una base compartida ni acredita el acceso HTTP nominal.
+
+En un clon PostgreSQL 18, una prueba sintética con 2.390 participaciones en
+una bolsa dio un p95 SQL de 46,712 ms en diez lecturas; con 10.000 en una sola
+bolsa dio 358,134 ms. Son tiempos de la consulta B92, sin HTTP, recuperación del
+acta ni contactos. La lista conserva la búsqueda y la página actuales: aún
+recupera el acta protegida y los contactos completos. El trabajo para acotar
+esas lecturas está en [pendientes_v2.md](../estudio_requisitos/pendientes_v2.md).
+
 ## Lo que falta
 
 | # | Qué | Quién o qué lo frena | Cómo se comprueba |

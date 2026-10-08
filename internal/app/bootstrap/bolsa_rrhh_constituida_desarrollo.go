@@ -37,6 +37,7 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	// Con B82 y B85, resumenConjunto sirve cuadro y estadísticas con tres
 	// consultas en una instantánea. Sin B85 se usa todo el camino legado.
 	resumenConjunto ports.LectorResumenBolsas
+	// B92 acota las situaciones a la bolsa pedida; la lista exige este lector.
 	bolsaConjunto   lectorBolsaRRHHConjunto
 	recuperador     constitucion.Recuperador
 	categorias      map[string]string
@@ -197,16 +198,7 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		return nil
 	}
 	resumenConjunto := lectorResumenBolsasInstalado(ctx, poolBolsa)
-	var bolsaConjunto lectorBolsaRRHHConjunto
-	if resumenConjunto != nil {
-		bolsaConjunto, err = postgresbolsa.NuevoLectorBolsaRRHHConjunto(poolBolsa)
-		if err != nil {
-			registrarFalloFuenteConstituidaRRHHDesarrollo("lector_bolsa_conjunto", err)
-			poolBolsa.Close()
-			poolImportacion.Close()
-			return nil
-		}
-	}
+	bolsaConjunto := lectorBolsaRRHHConjuntoInstalado(ctx, poolBolsa)
 	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, resumenConjunto: resumenConjunto, bolsaConjunto: bolsaConjunto, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
@@ -256,7 +248,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarResumen(ctx context.Context) (da
 
 // cargarBolsa sirve la lista de candidatos de una sola bolsa.
 func (f *fuenteConstituidaRRHHDesarrollo) cargarBolsa(ctx context.Context, bolsaRef string) (datasetBolsasRRHHDesarrollo, error) {
-	if bolsaRef == "" {
+	if bolsaRef == "" || f == nil || f.bolsaConjunto == nil {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
 	return f.cargarAlcance(ctx, alcanceCargaBolsasRRHH{bolsa: bolsaRef, detalle: true})

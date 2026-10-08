@@ -46,10 +46,11 @@ func TestFuenteConstituidaRRHHResumenNoDescifraActaNiCreceConLasPersonas(t *test
 	}
 }
 
-// La lista de candidatos de una bolsa lee y descifra solo esa bolsa.
+// El camino previo conserva la lectura acotada a una bolsa para consumidores
+// históricos; la ruta RRHH exige el lector de conjunto B92.
 func TestFuenteConstituidaRRHHCandidatosLeeSoloSuBolsa(t *testing.T) {
 	f, c := fuenteVariasBolsasRRHHPrueba(t, 5, 50, true)
-	datos, err := f.cargarBolsa(context.Background(), "bolsa:prueba:03")
+	datos, err := f.cargarAlcance(context.Background(), alcanceCargaBolsasRRHH{bolsa: "bolsa:prueba:03", detalle: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,6 +65,22 @@ func TestFuenteConstituidaRRHHCandidatosLeeSoloSuBolsa(t *testing.T) {
 	}
 	if _, err := f.cargarBolsa(context.Background(), ""); err == nil {
 		t.Fatal("se aceptó una bolsa vacía")
+	}
+}
+
+func TestBolsasRRHHDesarrolloSinB92FallaSoloLaLista(t *testing.T) {
+	f, _ := fuenteVariasBolsasRRHHPrueba(t, 1, 2, true)
+	h := nuevoManejadorBolsasRRHHDesarrollo(f.cargar)
+	h.cargarBolsa = f.cargarBolsa
+	lista := httptest.NewRecorder()
+	h.ServeHTTP(lista, httptest.NewRequest(http.MethodGet, rutaBolsasRRHHDesarrollo+"/bolsa:prueba:01/candidatos", nil))
+	if lista.Code != http.StatusServiceUnavailable {
+		t.Fatalf("lista sin B92: status=%d body=%s", lista.Code, lista.Body.String())
+	}
+	cuadro := httptest.NewRecorder()
+	h.ServeHTTP(cuadro, httptest.NewRequest(http.MethodGet, rutaBolsasRRHHDesarrollo, nil))
+	if cuadro.Code != http.StatusOK {
+		t.Fatalf("cuadro sin B92: status=%d body=%s", cuadro.Code, cuadro.Body.String())
 	}
 }
 

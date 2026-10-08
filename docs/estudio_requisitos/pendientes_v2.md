@@ -68,3 +68,7 @@ Desde CT186, la consulta y la recuperación R5 V2 llevan la unidad de la asignac
 La vía externa (RRHH registra una firma hecha en el portafirmas) sigue sólo con organización: AD206, AD209 y AD210 deniegan una unidad en esa vía, así que un operador de RRHH con unidad no puede registrar (decisión de dirección del 06/10, opción C). Las dos cosas dependen de cómo asigna RRHH unidades a su personal; está preguntado en `dudas.md` (148).
 
 La recuperación R5 V2 con unidad se comprueba contra el plan publicado en ese momento, no contra el que había cuando se firmó. Si el plan se republica sin ese paso o se retira, quien tiene unidad deja de poder recuperar el recibo de una firma anterior (falla cerrado). Si hace falta recuperar recibos históricos así, la recuperación debe ligarse a la versión del plan que consta en la firma original.
+
+## Bolsa: página de candidatos y contactos
+
+La lista RRHH recupera el acta protegida completa para buscar por nombre o documento y mostrar las identidades de una página. También lee todos los contactos de la bolsa para calcular el turno y el historial que presenta. Una mejora posterior debe recuperar sólo las filas protegidas necesarias para la página, conservar la búsqueda en todo el conjunto cuando se introduzca texto y devolver el recuento con el mismo filtro y corte. Los contactos de la página y el último contacto que determina el turno necesitan una lectura conjunta con la autorización y la auditoría nominal actuales. Hasta tener ese contrato, se conserva la lectura completa del acta y de los contactos.

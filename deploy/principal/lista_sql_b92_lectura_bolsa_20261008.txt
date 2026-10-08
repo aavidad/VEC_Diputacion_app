@@ -1,0 +1,3 @@
+# B92 depende de CT197 → B81 → B90 (#774) ya instaladas. No reaplicarlas.
+# SHA256 B92: cf09bbd408b9b81a14d47ac592b91ea382f7647ed80c4d0c4f5cc1094b2c922b
+deploy/postgresql/bolsa_llamamientos/migraciones/000092_lectura_rrhh_bolsa_conjunto.up.sql
