@@ -1,112 +1,49 @@
-# Contratación temporal: inventario y continuación
+# Contratación temporal
 
-Estado del 5 de octubre de 2026 sobre `origin/main@dfcbab6ce`. El objetivo es que RRHH pueda tramitar de verdad un expediente de personal temporal, desde la petición del centro hasta el cese, con Bolsa y Personal. Se ha hecho leyendo el código, la composición de arranque, las pantallas y los documentos. No se ha ejecutado nada. Que algo aparezca como existente no significa que esté instalado en la principal ni probado otra vez en navegador.
+**Estado a 8 de octubre de 2026:** en cidonia RRHH tramita un expediente desde la petición del centro hasta la resolución, con el alta según la circular de mayo (CT193, instalada con HZ8); faltan el recorrido completo con reinicio hasta el cese, el paso a Personal, la incorporación acreditada y la firma de dos personas.
 
-El circuito que RRHH describió el 2 de octubre (petición, autorización, crédito, oferta, adjudicación, informe, fiscalización, resolución, GINPIX y toma de posesión) está en [decisiones_rrhh_2026-10-02.md](../estudio_requisitos/decisiones_rrhh_2026-10-02.md). Las preguntas abiertas se citan por su número en [`dudas.md`](../../dudas.md). La firma tiene su propio plan en [firmas.md](firmas.md) y aquí no se repite.
+Base comprobada: `origin/main@033fda6ed` más las PR fusionadas el 08/10 (#895 a #904). Los criterios para dar CT por cerrada están en [OBJETIVOS.md](OBJETIVOS.md). La firma tiene su plan en [firmas.md](firmas.md). El circuito que describió RRHH está en [decisiones_rrhh_2026-10-02.md](../estudio_requisitos/decisiones_rrhh_2026-10-02.md).
 
-## Cómo se monta hoy
+## Lo que falta
 
-Hay una sola composición: la que sirve `vec-server`. Está en `internal/app/bootstrap/contratacion_temporal_*.go` y es la que corre en la principal. Cada fase se activa con un selector `VEC_CT_*` (seguimiento y cese, cancelación, registro de firma, firmas R5, plantillas, reincorporación del titular, incorporación acreditada). Si falta lo que una fase necesita, su ruta no se registra o responde «no disponible». Las rutas cuelgan de `/api/vec/contratacion-temporal`. Las del paso a Personal cuelgan de `/api/interno/`. Las pantallas están en `web/static/portal-empleado/modulos/contratacion-temporal/`.
+| # | Qué | Quién o qué lo frena | Cómo se comprueba |
+| --- | --- | --- | --- |
+| 1 | **Recorrido completo con el main actual**: petición, ratificación, análisis, llamamiento, aceptación, informe, fiscalización con un reparo, resolución, GINPIX, Personal, cese y vuelta a Bolsa; después, reinicio de aplicación y PostgreSQL. El único acta ([05/10](../estudio_requisitos/acta_recorrido_ct_bolsa_20261005.md)) se paró en la resolución de la aceptación; sus fallos están arreglados salvo ORQ-1. | Claude. Necesita antes los puntos 2 y 3. | Acta nueva con respuesta HTTP y captura por paso, antes y después del reinicio. |
+| 2 | **ORQ-1: selección a medias entre CT y Bolsa.** Si la selección falla entre los dos módulos, el expediente queda bloqueado. Es lo único del acta sin arreglo. | Sin dueño. Hay que encargarlo. | Fallo provocado a mitad de la selección y el expediente se recupera con la misma clave. |
+| 3 | **Encender en cidonia lo que ya existe**: incorporación acreditada y cancelación por el centro (`VEC_CT_INCORPORACION_ACREDITADA_ENABLED=false`), paso a Personal (`VEC_PERSONAL_B2_GOBIERNO_ENABLED=false`, con su SQL de Personal pendiente: AD211/P22, AD175/P32, AD180/P34 y siguientes) y auditoría de RRHH (`VEC_RRHH_AUDITORIA_ENABLED`, ausente). | Claude, en el despliegue. Duda 140 para el momento de la toma de posesión. | Los pasos 17 y siguientes del acta responden 200, no 404. |
+| 4 | **PR abiertas de CT.** #910 ficha y llamamiento visibles cuando la categoría no tiene bolsa (Codex-S); #906 nombres de centro en la lista ligera (Codex-S); #905 peticiones del centro sin consultas duplicadas (equipo W, en conflicto); #907 CT194, validar el alta en SQL (Codex-X); #540 auditoría de consultas fallidas (Codex-T). | Sus equipos. Revisión y fusión: Claude. | CI verde, revisiones y fusión. |
+| 5 | **Plazos de CT editables en pantalla.** Hoy los plazos de CT solo se leen. | Codex-Y, rama `codexy-plazos-20261008` sin PR (CT190, 191, 195 y 196 reservadas). Al fusionarla se cierran #233, #237 y #240. | RRHH cambia un plazo, queda versión y auditoría, y el cuadro lo usa. |
+| 6 | **Tarjetas de plazo en Inicio (CT192).** | Codex-S, rama `codexs-ct-filtros-plazos-20261008` sin PR. | Cada tarjeta abre su lista filtrada. |
+| 7 | **Cuadro de CT por debajo de 300 ms.** La última medida (#840) dio 363–372 ms de p95. | Sin dueño. Medir primero en cidonia. | p95 menor de 300 ms con el volumen de la principal. |
+| 8 | **Documentos de la ficha en un solo sitio.** | Codex-S. Hay un commit `046a2f2fa` solo en local, sin subir. | Todos los documentos del expediente se ven y descargan desde la ficha. |
+| 9 | **Ruta muerta del cierre administrativo.** `RutaCerrarAdministrativamente` y `RutaReabrirExcepcionalmente` responden siempre «no disponible»; la pantalla ya usa `/seguimiento/cerrar-sin-cese`. Retirarlas. | Sin dueño. Tarea pequeña. | Ninguna ruta de CT responde «no disponible» sin motivo. |
+| 10 | **Bandeja de Intervención.** No consta una bandeja propia; el formulario de fiscalización se abre desde la ficha. | Comprobar con RRHH si hace falta. | — |
+| 11 | **Firma de dos personas.** Ver [firmas.md](firmas.md). | Codex-V. | — |
 
-## Qué existe y funciona
+## Esperan a RRHH
 
-| Paso | Qué hay | Límite actual |
-| --- | --- | --- |
-| Petición del centro y ratificación | `peticiones-centro/*`, con bandeja, operaciones, entrega a RRHH, cancelación y confirmación de incorporación. | Quién puede tener el perfil de entrega a RRHH está pendiente (duda 141). |
-| Alta del expediente | `/solicitudes` y `/catalogos-alta`. El número de expediente lo guarda VEC y lo genera MOAD (`domain/politica_numero_expediente.go`). | — |
-| Análisis RRHH | `/configuracion-analisis` y `/analisis/{registros,rectificaciones}`, con urgencia y motivo, jornada y entradas de retención de crédito. | La urgencia se declara al analizar como valor provisional (duda 63). La jornada no puede superar la completa (duda 38). La retención se pide como dato y documento porque no hay conexión con SICAL (duda 125). |
-| Cuadro, lista y detalle | `/cuadro/consultas`, `/expedientes/consultas`, `/estadisticas`, `/expedientes/{comunicaciones,borradores}`. | Necesitan el PostgreSQL de consultas; sin él responden «no disponible». |
-| Vía de cobertura | `/cobertura/{propuesta,decisiones,rectificaciones,resultados}`. | La oferta al SAE (Servicio Andaluz de Empleo) es solo un aviso, sin envío (dudas 72, 73 y 126). |
-| Informe, fiscalización y subsanación | `/informes-juridicos/preparaciones`, `/fiscalizaciones/resultados` y `/subsanacion-reparos`, con informe nuevo tras subsanar (CT123). | Si el plazo se reanuda o empieza de nuevo tras subsanar está pendiente (duda 95), igual que el justificante de cada subsanación (duda 96). |
-| Llamamiento a Bolsa | `/llamamientos/{seleccion,comunicaciones,resoluciones,respuestas/*,plazos/eventos,siguientes}`: oferta, respuesta, aceptación, renuncia y siguiente candidato. | Solo funciona si Bolsa tiene PostgreSQL. Las reglas son las de Bolsa ([bolsa.md](bolsa.md)). |
-| Propuesta y resolución | `/formalizacion/{propuestas,documentacion}` y `/resoluciones-formalizacion`. | — |
-| Documentos | Borradores PDF y DOCX de diez tipos: informe, resolución, diligencia, toma de posesión, notificación, comunicación al centro, contrato, nombramiento, cese y modificación. También `/plantillas`. | Las plantillas son de ejemplo y no tienen validez. Faltan las de RRHH en Word (duda 124). La descarga auditada está en marcha (#734). |
-| Firma | GrxFirma por `afirma://`, circuito de firma, registro y verificación, y recuperación con el plan de firmantes. | Lo que falta está en [firmas.md](firmas.md). Está en marcha (#736–#742). El portafirmas de Diputación tiene un conector apagado (`adapters/portafirmasapagado`) y depende de las dudas 74 y 128. |
-| GINPIX | Ficha resumen para grabar a mano, seguimiento y `/confirmaciones-ginpix`, que deja constancia de cuándo se grabó. | No hay importación automática (duda 127). Así lo decidió RRHH para empezar. |
-| Cese, cierre y cambios | `/ceses`, `/cierres-expediente`, `/modificaciones-nombramiento`, `/no-incorporaciones`, `/seguimiento-cese`, cerrar sin cese, reapertura excepcional, reincorporación del titular y cancelación. | El paso del cese a Personal está en marcha (#715). |
-| Paso a Personal | Plan y confirmación de la incorporación (`/api/interno/contratacion-temporal/incorporacion-personal-b2/*`). | Qué datos se dan por buenos y cuándo cuenta la toma de posesión: duda 140. |
-| Auditoría | Auditoría común de las operaciones y de las denegaciones de frontera. Las lecturas fallidas de recibos y comunicaciones están en marcha (#713). | — |
+No se programan hasta tener respuesta. Las propuestas con fuente pública están en la PR #908.
 
-Migraciones: la más alta en main es CT176. CT177 y CT178 están reservadas por #734 y #742.
+- Plantillas Word de contratos, informes y resoluciones (duda 124). La herramienta de plantillas ya existe.
+- Oferta al SAE: datos, canal y selección (dudas 72, 73 y 126). Reunión con RRHH.
+- Delegaciones de firma y suplencias (dudas 122, 128 y 143), con Secretaría General.
+- Portafirmas Firmadoc (duda 74), con Informática.
+- Qué cuenta como toma de posesión y fecha de efectos del cese (duda 140).
+- Quién declara la urgencia y en qué documento (duda 63).
+- Coste cuando no hay fecha de fin (duda 146).
+- Plazo de fiscalización tras subsanar (duda 95): el RD 424/2017 (arts. 10.2 y 12.4) manda un cómputo nuevo, que es lo que VEC ya hace. Se puede retirar de `dudas.md`.
 
-## Qué no existe o está a medias
+## Ya hecho, no reencargar
 
-| Hueco | Qué recorrido de RRHH bloquea | SQL | Depende de | Tamaño | En paralelo |
-| --- | --- | --- | --- | --- | --- |
-| **C1. Recorrido completo en el clon de la principal.** Petición, ratificación, análisis, llamamiento, aceptación, informe, fiscalización con un reparo, resolución, GINPIX, Personal y cese con vuelta a Bolsa. Después, reinicio de la aplicación y de PostgreSQL. Cada fallo se anota como una PR aparte. | Saber qué falla antes de que RRHH lo use. | No. | Firma como sustituto marcado mientras no esté el recorrido de dos firmas. | M | Sí: es una prueba. |
-| **C2. Selectores de la principal.** Lista de los `VEC_CT_*` y `VEC_BOLSA_*` que deben estar encendidos para el uso real, con lo que necesita cada uno y una comprobación al arrancar que avise si falta una dependencia. | Que ninguna fase aparezca como «no disponible» sin motivo. | No. | Ninguna. | S | Sí: fichero nuevo junto a `config/selectores_despliegue_bolsa_ct.go` y su prueba. |
-| **C3. Cierre administrativo sin componer.** `AutoridadCierreAdministrativo` y `EjecutorCierreAdministrativo` siguen como «no compuesta» (`contratacion_temporal_desarrollo.go`, hacia la línea 857). El cierre real va por el seguimiento del cese. Hay que retirar la ruta muerta o componerla. | Evita un botón o una ruta que siempre responde «no disponible». | No. | Ninguna. | S | Después de #713, #715 y #734, que tocan el mismo fichero. |
-| **C4. Retención de crédito como condición.** El 02/10 RRHH dijo que sin crédito no se tramita nada. Hay que comprobar que el expediente no avanza a la oferta sin número y documento de la retención, o sin la constancia del estado de las partidas, y mostrar por qué. | Respetar el orden de RRHH: crédito antes de ofrecer. | Puede necesitarlo, si la guarda tiene que estar en la transición. | Duda 125 (solo para conectar con SICAL; la guarda no espera). | S–M | Sí: análisis y cobertura. |
-| **C5. Plantillas oficiales.** Cargar las plantillas Word de RRHH con sus campos variables por el catálogo de `/plantillas`, sin tocar código. | Generar documentos válidos. | No. | Duda 124 (RRHH envía las plantillas). | S por plantilla | Sí, cuando lleguen. |
-| **C6. Plazo de fiscalización tras subsanar.** Configurable: reanudar o empezar de nuevo. | El plazo que se ve en el cuadro. | Posiblemente, si va en la instantánea de reglas. | Duda 95. Conviene antes decidir sobre las PR #233, #237 y #240 (plazos), que siguen en borrador. | S | Sí. |
-| **C7. Oferta al SAE.** Datos, canal y selección de los candidatos que remite el SAE. | Cubrir cuando la bolsa se agota. | Sí. | Dudas 72, 73 y 126 (reunión con RRHH). | L | Después de la reunión. |
-| **C8. Delegaciones de firma y suplencias.** Recibirlas y aplicarlas como perfiles con referencia del acto. | Saber quién firma cada día. | Sí (Autorización). | Dudas 122 y 128. Dueño: Administración. | M | Sí, en Administración. |
-| **C9. Portafirmas de Diputación.** Sustituir el conector apagado por el real. | Firma por Firmadoc en lugar de GrxFirma, si RRHH lo pide. | Puede. | Duda 74 y el contrato técnico con Informática. | L | Después de las firmas en curso. |
-| **C10. Paso a Personal sin volver a teclear.** Rellenar el alta en Personal con los datos del expediente y fijar cuándo cuenta la toma de posesión. | Alta de la persona contratada en Personal. | Puede. | Duda 140, y #715 fusionada. Dueño: Personal ([personal.md](personal.md)). | M | Después de #715. |
-| **C11. Revisión de usabilidad del recorrido de RRHH.** Una persona de RRHH sin formación previa recorre bandeja, detalle, análisis y llamamiento. Se apuntan los cambios por pantalla. | Que RRHH lo use sin manual. | No. | Ninguna. | S para revisar; los arreglos por separado | Sí: es una revisión. |
+- Alta según la circular de mayo con número de personas y puesto RPT exacto: #895, #897, #899 y #900 (CT193).
+- Ficha sin pedir borradores no montados: #901. RRHH entra en peticiones del centro sin «Acceso denegado»: #904.
+- Selectores con aviso al arrancar: #745. Sin crédito no se ofrece: #766. Coste por partidas: #775.
+- Arreglos del acta del 05/10: CT179 y CT180 (`21f7bc496`), #767, #768, #771, #777, #778, #808 y #809.
+- Arreglos de usabilidad: #750, #754–#757, #761, #762, #878 y #884.
+- Nombre del centro en la ficha: #763. Documentos del expediente en la custodia: #845 y #850.
+- Listas más rápidas (CT187): #840. Acceso al SAE retirado de Inicio hasta que tenga gestión: #893.
 
-## Por dónde seguir
-
-1. Dejar que terminen las PR en marcha: #713, #715, #734 y la cadena de firmas #736–#742.
-2. Se puede empezar ya y en paralelo: C1 (recorrido), C2 (selectores), C4 (crédito) y C11 (usabilidad). No tocan los ficheros de esas PR.
-3. C3 cuando estén fusionadas #713, #715 y #734.
-4. C5, C6, C7, C9 y C10 cuando llegue la respuesta de RRHH que les corresponde. C5 y C6 son cambios de catálogo.
-5. La firma sigue el orden de [firmas.md](firmas.md). El recorrido de dos firmas (tarea 6) es lo que falta para decir que un documento sale firmado.
-
-Ficheros que no conviene engordar más: `bootstrap/contratacion_temporal_desarrollo.go` (1510 líneas), `contratacion_temporal_postgresql_desarrollo.go` (1047) y `contratacion_temporal_seguimiento_cese_desarrollo.go` (964). Lo nuevo va en ficheros nuevos.
-
-## Encargos para empezar ya (Bolsa y Contratación temporal)
-
-Ninguno toca las PR en marcha (#713, #715, #719, #727, #733, #734, #736–#742). Cada uno va en su rama y su PR, con las skills que le correspondan.
-
-1. **C1 · Recorrido completo de Contratación temporal y Bolsa en el clon de la principal.** Skill `probar-recorridos-vec` y Playwright con el Chrome del sistema. Entrega un acta con cada paso, la respuesta HTTP y una captura, antes y después del reinicio. Cada fallo queda como una tarea aparte; no se arregla dentro de este encargo. Tamaño M.
-2. **B2 · Oferta con varias plazas y llamamiento directo según las reglas del 02/10.** Recorrido en el clon: varias aceptaciones, adjudicación por posición, «sin respuesta» sin consecuencia, llamamiento directo con exclusión o renuncia justificada. Se corrigen en la misma rama solo los fallos que estén en ficheros nuevos o en la aplicación de Bolsa. Tamaño M.
-3. **B4 · Retirar del área personal el asistente antiguo de solicitud,** que llama a rutas sin servidor (`mis-solicitudes/*`, `mis-llamamientos`, `mis-subsanaciones` y las demás). Solo `web/static/area-personal/`, con `usabilidad-vec` y una revisión de usabilidad independiente. Tamaño S.
-4. **C2 · Selectores de la principal.** Documento y comprobación al arrancar de los `VEC_CT_*` y `VEC_BOLSA_*` necesarios para el uso real, con un aviso claro si falta una dependencia. Fichero nuevo en `config/` y su prueba. Tamaño S.
-5. **C4 · Sin crédito no se ofrece.** Guarda en el expediente que impide pasar a la oferta sin la retención o la constancia de las partidas, con el motivo en pantalla. Si necesita SQL: reserva, `revisar-sql-vec`, ensayo en el clon y revisión SQL independiente. Tamaño S–M.
-6. **B1 · Carga de bolsas desde el Excel de CONVOCA en una pantalla,** con vista previa por fila y confirmación. Reutiliza el importador. Permiso propio y auditoría común. Lleva SQL y pantalla, así que necesita todas las revisiones. Tamaño M.
-7. **C11 · Revisión de usabilidad del recorrido de RRHH** (bandeja, detalle, análisis, llamamiento, ficha del candidato de Bolsa) con `revisor-usabilidad-vec`. Entrega la lista de cambios por pantalla, ordenada por gravedad. Tamaño S.
-8. **B6 · Decidir sobre las PR antiguas** del proceso externo (#179, #204, #205, #206, #209, #221) y de plazos (#233, #237, #240): qué se rescata, sobre qué main y qué se cierra. Lo decide dirección. Desbloquea B5 (correo corporativo) y C6 (plazo tras subsanar). Tamaño S.
-9. **B3 · Renuncia justificada y «en revisión» de punta a punta:** el aspirante entrega el justificante desde Mi Bolsa, RRHH lo valida y el estado cambia, con auditoría. Va después de B2. Tamaño S–M.
-
-
-## Correcciones del recorrido del 07/10: auditoría del expediente
-
-La consulta web distingue ahora una ruta de auditoría no disponible (404) de un acceso denegado (401/403). Ante un fallo temporal permite reintentar y mantiene los filtros cerrados hasta recuperar las opciones del servidor. El número del expediente se recibe como dato de presentación desde la ficha; no se deduce de su referencia opaca. El montaje que lo transmite se entrega con la corrección de la ficha de CT.
-
-La activación sigue en manos de dirección: el despliegue requiere `VEC_RRHH_AUDITORIA_ENABLED` y sus dependencias nominales. Esta corrección de interfaz no activa el servicio ni cambia permisos, consultas o registros de auditoría. El contrato Go y SQL de Documentos D14 del equipo V está integrado en main (#845). La ficha de #850 transmite la referencia `expediente:ct:<64 hex>` y rechaza la referencia vacía de desarrollo. La instalación de D14 y la consulta nominal en el entorno de destino siguen requiriendo su comprobación; esta entrega no las acredita.
-
-Siguiente corte: recuperación de carga de CT, ficha y navegación de Bolsa; después, las lecturas de Bolsa con una decisión V3, auditoría y consulta en la misma transacción, paginación SQL y listas filtradas para las cifras del resumen. CT187 está integrado desde la PR #840; su medición y sus límites constan allí. No se da por terminado el recorrido completo ni la firma.
-
-
-## Inicio sin acceso SAE pendiente — 8 de octubre de 2026
-
-Se retiran la tarjeta y la entrada de ofertas al SAE de Inicio: abrían una pantalla sin gestión disponible. Inicio conserva los indicadores de peticiones y Bolsa, en la rejilla compacta común. La elección de cobertura en el expediente y los datos de las ofertas de Bolsa conservan su recorrido. La gestión del SAE se ofrecerá cuando tenga un consumidor real.
-
-## Alta según la circular del 19/02/2026 — preparación del 08/10
-
-El catálogo v2 distingue vacante, sustitución, acumulación de tareas y programa. Recoge el número de personas y exige los códigos de plaza y puesto para vacante. La jornada se muestra en horas y minutos y se conserva en minutos enteros. La modalidad jurídica se decide durante el análisis. El catálogo de ejemplo es configurable y cita la circular oficial comprobada.
-
-Los textos de necesidades se cargan en el idioma activo al abrir Alta, con reintento. La interfaz valida las referencias alternativas de financiación y los periodos de cada causa. El coordinador entrega el getter v2 sin pedirlo en otras vistas. El recibo HTTP conserva sus cinco campos. La consulta RPT por código exacto, cedida por Personal, filtra antes del recuento y la paginación; la recuperación de la ficha distingue incidencia, ausencia y denegación.
-
-CT193 y Go conservan la necesidad y el catálogo en el efecto sellado. Dos revisiones estáticas y el ensayo PostgreSQL 18 desechable verificaron catálogo v2 y número de personas igual a2, incluidos reinicio, colisión y concurrencia; las instantáneas anteriores conservaron sus reglas. El formulario pasó Chrome con APIs de prueba. Falta el recorrido HTTP nominal completo. La puerta de calidad rechazó los bloques de reconstrucción dinámica. El primer cambio a definiciones explícitas (`83a14d71…e798`) omitía CT164; dirección lo rechazó y su ensayo no reproducía la principal. La corrección `eefd7bc6…6bb3` parte de postHX más los 14 cambios HZ: conserva CT164 y reconstruye las 71 altas con los mismos bytes. El ensayo PostgreSQL 18 terminó con código 0 y mantuvo las cinco funciones y el trigger de CT164. La prueba del circuito inicial usa una transacción revertida; no acredita un alta V3 nominal. La prueba de programa temporal que fallaba en CI ya incluye el número de personas obligatorio y pasa. Las revisiones finales y la CI del correctivo siguen pendientes. CONFIG NUEVA: `VEC_CT_NECESIDADES_ALTA_SOURCE_PATH=/app/data/catalogos/contratacion-temporal/necesidades_v1.ejemplo.json`. Docker copia la fuente única a esa ruta. En el kit nativo se copia la misma fuente a `data/catalogos/contratacion-temporal/necesidades_v1.ejemplo.json`; dirección monta el directorio data ya usado por la aplicación y activa el selector después de instalar CT193. La imagen no activa el selector por defecto. No se instaló SQL en una base compartida.
-
-
-## Etiquetas de Alta y ayuda de Inicio — 08/10
-
-Las etiquetas de plaza y puesto RPT siguen los campos obligatorios del catálogo de cada causa. La plaza opcional lleva una sola indicación; la obligatoria lleva asterisco y el control exige el valor. La ayuda de Inicio describe las áreas disponibles, sin ofrecer las ofertas al SAE retiradas. La validación de las cuatro causas y los permisos se conserva. Este corte no requiere SQL ni configuración nueva.
-
-
-## Alta con capacidad limitada — 08/10
-
-Sin publicación de necesidades configurada, el catálogo v2 responde con una capacidad ausente específica; no usa las cuatro causas del ejemplo. La pantalla conserva el alta de sustitución que ofrece el catálogo v1 y explica qué se puede registrar. Sólo activa ese recorrido ante la respuesta validada del servidor y un catálogo v1 limitado a sustitución. Una avería, denegación o respuesta inválida mantiene el error y el reintento. La capacidad ausente no ofrece un reintento junto al formulario: conserva los datos y la operación activa. Después de configurar la fuente y volver a cargar el portal, el catálogo v2 ofrece las causas publicadas. No añade SQL ni configuración nueva; para las otras causas sigue siendo necesario configurar la fuente de #895 después de CT193.
-
-## Ficha sin consulta de borradores ausentes — 8 de octubre de 2026
-
-El detalle leído y auditado informa del montaje de la consulta de borradores. La ficha evita pedir esa consulta cuando el servidor confirma que no está montada, conservando el expediente y sus operaciones. La pista corresponde al mismo expediente y versión; se retira antes de otra lectura. Con la consulta montada se conserva su recorrido y su autorización en el servidor. Esta información no concede permisos.
-
-El corte no lleva SQL ni configuración nueva. La proyección nominal de capacidades por recurso de V sigue pendiente para evitar también consultas de secciones sin permiso. No se incorporan los consumidores opcionales de S mientras falte su proveedor nominal: retiraban funciones disponibles de CT y Bolsa.
-
+Ficheros que conviene no engordar: `internal/app/bootstrap/contratacion_temporal_desarrollo.go`, `contratacion_temporal_postgresql_desarrollo.go` y `contratacion_temporal_seguimiento_cese_desarrollo.go`. Lo nuevo va en ficheros nuevos.
 
 ## Edición de plazos CT: preparación del 8 de octubre
 
