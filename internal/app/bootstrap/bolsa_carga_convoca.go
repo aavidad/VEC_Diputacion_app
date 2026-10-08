@@ -100,10 +100,53 @@ func correlacionIntentoCargaConvocaBolsa(ctx context.Context, generador interfac
 	return dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, generador)
 }
 
-// La consulta de filas no dispone aún de consumidor nominal de lectura. No
-// usa la acción V3 de confirmar ni un acta inventada para habilitarla.
-func (p *preparadorCargaConvocaBolsa) PrepararVistaPreviaCargaConvoca(context.Context) error {
-	return puertosbolsa.ErrCargaConvocaNoDisponible
+// La sesión se comprueba antes de leer el cuerpo. El acto V3 posterior se
+// ligará al acta real derivada del fichero y de la categoría RPT validada.
+func (p *preparadorCargaConvocaBolsa) PrepararVistaPreviaCargaConvoca(ctx context.Context) error {
+	if p == nil || p.base == nil || ctx == nil {
+		return puertosbolsa.ErrCargaConvocaNoDisponible
+	}
+	seguridad, err := p.base.contextoRevalidado(ctx)
+	if err != nil {
+		return err
+	}
+	correlacion, err := correlacionIntentoCargaConvocaBolsa(ctx, p.base.generar)
+	if err != nil {
+		return puertosbolsa.ErrCargaConvocaNoDisponible
+	}
+	capturarIntentoCargaConvocaBolsa(ctx, seguridad, correlacion)
+	return nil
+}
+
+func (p *preparadorCargaConvocaBolsa) PrepararSolicitudVistaPreviaCargaConvoca(ctx context.Context,
+	entrada bolsahttp.EntradaVistaPreviaCargaConvoca,
+) (puertosbolsa.SolicitudVistaPreviaCargaConvoca, error) {
+	if p == nil || p.base == nil || ctx == nil {
+		return puertosbolsa.SolicitudVistaPreviaCargaConvoca{}, puertosbolsa.ErrCargaConvocaNoDisponible
+	}
+	seguridad, err := p.base.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudVistaPreviaCargaConvoca{}, err
+	}
+	correlacion, err := correlacionIntentoCargaConvocaBolsa(ctx, p.base.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudVistaPreviaCargaConvoca{}, puertosbolsa.ErrCargaConvocaNoDisponible
+	}
+	capturarIntentoCargaConvocaBolsa(ctx, seguridad, correlacion)
+	categoriaRef, err := validarCategoriaImportacionConvoca(p.cfg, entrada.CategoriaClave)
+	if err != nil {
+		return puertosbolsa.SolicitudVistaPreviaCargaConvoca{}, bolsahttp.ErrCategoriaCargaConvocaNoValida
+	}
+	capturarActaCargaConvocaBolsa(ctx, entrada.Contenido, categoriaRef)
+	q := puertosbolsa.SolicitudVistaPreviaCargaConvoca{
+		Vinculo: seguridad.Vinculo, ResultadoContexto: seguridad.Resultado, Correlacion: correlacion,
+		MotivoAutorizacion: motivoConfirmarCargaConvocaBolsaDesarrollo(), CategoriaRef: categoriaRef,
+		NombreFichero: entrada.NombreFichero, Contenido: entrada.Contenido, Pagina: entrada.Pagina,
+	}
+	if q.Validar() != nil {
+		return puertosbolsa.SolicitudVistaPreviaCargaConvoca{}, puertosbolsa.ErrCargaConvocaNoDisponible
+	}
+	return q, nil
 }
 
 func (p *preparadorCargaConvocaBolsa) PrepararConfirmacionCargaConvoca(ctx context.Context, entrada bolsahttp.EntradaConfirmarCargaConvoca) (puertosbolsa.SolicitudConfirmarCargaConvoca, error) {
@@ -139,15 +182,44 @@ type operadorCargaConvocaBolsa struct {
 	servicio *aplicacionbolsa.ServicioCargaConvoca
 }
 
+func formatoFicheroCargaConvocaCoincide(nombre string, contenido []byte) bool {
+	formato, err := xls.FormatoContenido(contenido)
+	return err == nil && strings.EqualFold(filepath.Ext(nombre), "."+formato)
+}
+
 func (o operadorCargaConvocaBolsa) Previsualizar(ctx context.Context, nombre string, contenido []byte) (aplicacionbolsa.VistaPreviaCargaConvoca, error) {
 	if o.vista == nil {
 		return aplicacionbolsa.VistaPreviaCargaConvoca{}, puertosbolsa.ErrCargaConvocaNoDisponible
 	}
-	formato, err := xls.FormatoContenido(contenido)
-	if err != nil || !strings.EqualFold(filepath.Ext(nombre), "."+formato) {
+	if !formatoFicheroCargaConvocaCoincide(nombre, contenido) {
 		return aplicacionbolsa.VistaPreviaCargaConvoca{}, aplicacionbolsa.ErrFicheroCargaConvocaInvalido
 	}
 	return o.vista.Previsualizar(ctx, nombre, contenido)
+}
+
+type vistaAutorizadaCargaConvocaBolsa struct {
+	servicio *aplicacionbolsa.ServicioVistaPreviaCargaConvocaAutorizada
+}
+
+func (v vistaAutorizadaCargaConvocaBolsa) Preparar(ctx context.Context,
+	q puertosbolsa.SolicitudVistaPreviaCargaConvoca,
+) (aplicacionbolsa.VistaPreviaCargaConvocaPreparada, error) {
+	if v.servicio == nil {
+		return aplicacionbolsa.VistaPreviaCargaConvocaPreparada{}, puertosbolsa.ErrVistaPreviaCargaConvocaNoDisponible
+	}
+	if !formatoFicheroCargaConvocaCoincide(q.NombreFichero, q.Contenido) {
+		return aplicacionbolsa.VistaPreviaCargaConvocaPreparada{}, aplicacionbolsa.ErrFicheroCargaConvocaInvalido
+	}
+	return v.servicio.Preparar(ctx, q)
+}
+
+func (v vistaAutorizadaCargaConvocaBolsa) Consumir(ctx context.Context,
+	p aplicacionbolsa.VistaPreviaCargaConvocaPreparada,
+) (puertosbolsa.AcuseVistaPreviaCargaConvoca, error) {
+	if v.servicio == nil {
+		return puertosbolsa.AcuseVistaPreviaCargaConvoca{}, puertosbolsa.ErrVistaPreviaCargaConvocaNoDisponible
+	}
+	return v.servicio.Consumir(ctx, p)
 }
 
 func (o operadorCargaConvocaBolsa) Confirmar(ctx context.Context, solicitud puertosbolsa.SolicitudConfirmarCargaConvoca, excluirConErrores bool) (aplicacionbolsa.ResultadoCargaConvoca, error) {
@@ -235,6 +307,10 @@ func nuevoHandlerCargaConvocaBolsaDesarrollo(ctx context.Context, cfg config.Con
 	if err != nil {
 		return nil, nil, err
 	}
+	consumidorVista, err := postgresbolsa.NuevoConsumidorVistaPreviaCargaConvocaPostgreSQL(poolBolsa)
+	if err != nil {
+		return nil, nil, err
+	}
 	lector := xls.NuevoLectorConLimiteFilas(aplicacionbolsa.MaximoFilasCargaConvoca)
 	preparadorLote, err := importacionapp.NuevoPreparador(lector, reloj)
 	if err != nil {
@@ -252,17 +328,19 @@ func nuevoHandlerCargaConvocaBolsaDesarrollo(ctx context.Context, cfg config.Con
 	if err != nil {
 		return nil, nil, err
 	}
+	vistaAutorizada, err := aplicacionbolsa.NuevoServicioVistaPreviaCargaConvocaAutorizada(vista, preparador, emisor, consumidorVista)
+	if err != nil {
+		return nil, nil, err
+	}
 	servicio, err := aplicacionbolsa.NuevoServicioCargaConvoca(vista, preparador, emisor,
 		original, preparadorLote, constituidor, reloj)
 	if err != nil {
 		return nil, nil, err
 	}
-	// No hay todavía un registrador común de lectura correcta para B1. El
-	// constructor exige esa dependencia y bloquea el montaje hasta conectarla.
-	var registradorLectura bolsahttp.RegistradorVistaPreviaCargaConvoca
 	handler, err := bolsahttp.NuevoHandlerCargaConvoca(
 		&preparadorCargaConvocaBolsa{base: preparador, cfg: cfg}, operadorCargaConvocaBolsa{vista: vista, servicio: servicio},
-		&auditorCargaConvocaBolsa{preparador: preparador, registrador: registrador, proceso: proceso}, registradorLectura)
+		&auditorCargaConvocaBolsa{preparador: preparador, registrador: registrador, proceso: proceso},
+		vistaAutorizadaCargaConvocaBolsa{servicio: vistaAutorizada})
 	if err != nil {
 		return nil, nil, err
 	}

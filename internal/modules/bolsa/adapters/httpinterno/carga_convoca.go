@@ -27,7 +27,7 @@ const (
 	RutaVistaPreviaCargaConvoca = "/api/vec/bolsa/cargas-convoca/vista-previa"
 	RutaConfirmarCargaConvoca   = "/api/vec/bolsa/cargas-convoca"
 
-	EsquemaVistaPreviaCargaConvoca = "vec.bolsa.rrhh.carga_convoca.vista_previa.v1"
+	EsquemaVistaPreviaCargaConvoca = puertosbolsa.EsquemaVistaPreviaCargaConvocaV1
 	EsquemaReciboCargaConvoca      = "vec.bolsa.rrhh.carga_convoca.recibo.v1"
 
 	OperacionVistaPreviaCargaConvoca = "vista_previa"
@@ -55,11 +55,19 @@ type EntradaConfirmarCargaConvoca struct {
 	ExcluirConError bool
 }
 
+type EntradaVistaPreviaCargaConvoca struct {
+	NombreFichero  string
+	Contenido      []byte
+	CategoriaClave string
+	Pagina         puertosbolsa.PaginaVistaPreviaCargaConvoca
+}
+
 // PreparadorCargaConvoca aplica la frontera de acceso de cada operación. La
 // lectura queda cerrada hasta disponer del consumidor nominal de consulta;
 // confirmar conserva su vínculo, contexto y autorización V3 propios.
 type PreparadorCargaConvoca interface {
 	PrepararVistaPreviaCargaConvoca(context.Context) error
+	PrepararSolicitudVistaPreviaCargaConvoca(context.Context, EntradaVistaPreviaCargaConvoca) (puertosbolsa.SolicitudVistaPreviaCargaConvoca, error)
 	PrepararConfirmacionCargaConvoca(context.Context, EntradaConfirmarCargaConvoca) (puertosbolsa.SolicitudConfirmarCargaConvoca, error)
 }
 
@@ -74,27 +82,18 @@ type AuditorIntentosCargaConvoca interface {
 	RegistrarIntentoFallidoCargaConvoca(ctx context.Context, operacion string, fallo error) error
 }
 
-// RegistroVistaPreviaCargaConvoca sólo lleva una referencia opaca al fichero
-// y la página consultada. El registrador obtiene actor y correlación de la
-// sesión verificada del contexto, nunca de datos enviados por el cliente.
-type RegistroVistaPreviaCargaConvoca struct {
-	RecursoRef     string
-	Filtro         string
-	Limite         int
-	Desplazamiento int
-}
-
-// RegistradorVistaPreviaCargaConvoca confirma el apunte común de lectura antes
-// de devolver filas. La composición requiere una implementación durable real.
-type RegistradorVistaPreviaCargaConvoca interface {
-	RegistrarVistaPreviaCargaConvoca(context.Context, RegistroVistaPreviaCargaConvoca) error
+// La preparación calcula y pagina en aplicación; el consumo V3/B93 confirma
+// el apunte común antes de que HTTP pueda escribir la respuesta ya serializada.
+type VistaPreviaAutorizadaCargaConvoca interface {
+	Preparar(context.Context, puertosbolsa.SolicitudVistaPreviaCargaConvoca) (aplicacionbolsa.VistaPreviaCargaConvocaPreparada, error)
+	Consumir(context.Context, aplicacionbolsa.VistaPreviaCargaConvocaPreparada) (puertosbolsa.AcuseVistaPreviaCargaConvoca, error)
 }
 
 type HandlerCargaConvoca struct {
 	preparador PreparadorCargaConvoca
 	operador   OperadorCargaConvoca
 	auditor    AuditorIntentosCargaConvoca
-	lectura    RegistradorVistaPreviaCargaConvoca
+	lectura    VistaPreviaAutorizadaCargaConvoca
 }
 
 type claveRecursoIntentoCargaConvoca struct{}
@@ -117,7 +116,7 @@ func RecursoIntentoCargaConvoca(ctx context.Context) (string, bool) {
 }
 
 func NuevoHandlerCargaConvoca(p PreparadorCargaConvoca, o OperadorCargaConvoca,
-	a AuditorIntentosCargaConvoca, lectura RegistradorVistaPreviaCargaConvoca,
+	a AuditorIntentosCargaConvoca, lectura VistaPreviaAutorizadaCargaConvoca,
 ) (http.Handler, error) {
 	if dependenciaNula(p) || dependenciaNula(o) || dependenciaNula(a) || dependenciaNula(lectura) {
 		return nil, puertosbolsa.ErrCargaConvocaNoDisponible
@@ -189,23 +188,37 @@ func (h *HandlerCargaConvoca) previsualizar(w http.ResponseWriter, r *http.Reque
 		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, err)
 		return
 	}
-	vista, err := h.operador.Previsualizar(r.Context(), cuerpo.NombreFichero, contenido)
+	solicitud, err := h.preparador.PrepararSolicitudVistaPreviaCargaConvoca(r.Context(), EntradaVistaPreviaCargaConvoca{
+		NombreFichero: cuerpo.NombreFichero, Contenido: contenido, CategoriaClave: cuerpo.Categoria,
+		Pagina: puertosbolsa.PaginaVistaPreviaCargaConvoca{Filtro: pagina.filtro, Limite: pagina.limite, Desplazamiento: pagina.desplazamiento},
+	})
 	if err != nil {
 		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, err)
 		return
 	}
-	recurso, ok := RecursoIntentoCargaConvoca(r.Context())
-	if !ok || recurso == "" {
-		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, puertosbolsa.ErrCargaConvocaNoDisponible)
-		return
-	}
-	if err := h.lectura.RegistrarVistaPreviaCargaConvoca(r.Context(), RegistroVistaPreviaCargaConvoca{
-		RecursoRef: recurso, Filtro: pagina.filtro, Limite: pagina.limite, Desplazamiento: pagina.desplazamiento,
-	}); err != nil {
+	preparada, err := h.lectura.Preparar(r.Context(), solicitud)
+	if err != nil {
 		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, err)
 		return
 	}
-	responderJSON(w, http.StatusOK, map[string]any{"data": vistaPreviaCargaConvocaJSON(vista, pagina)})
+	respuesta, err := json.Marshal(map[string]any{"data": vistaPreviaCargaConvocaJSON(preparada)})
+	if err != nil {
+		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, puertosbolsa.ErrVistaPreviaCargaConvocaNoDisponible)
+		return
+	}
+	defer clear(respuesta)
+	acuse, err := h.lectura.Consumir(r.Context(), preparada)
+	if err != nil || acuse.Validar() != nil {
+		if err == nil {
+			err = puertosbolsa.ErrVistaPreviaCargaConvocaNoDisponible
+		}
+		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, err)
+		return
+	}
+	aplicarCabeceras(w)
+	w.Header().Set("Content-Length", strconv.Itoa(len(respuesta)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(respuesta)
 }
 
 func (h *HandlerCargaConvoca) confirmar(w http.ResponseWriter, r *http.Request, cuerpo cuerpoCargaConvoca, contenido []byte) {
@@ -270,14 +283,14 @@ func leerCuerpoCargaConvoca(w http.ResponseWriter, r *http.Request, operacion st
 		cuerpo.ContenidoBase64 == "" || int64(len(cuerpo.ContenidoBase64)) > MaximoCuerpoCargaConvoca {
 		return cuerpo, nil, errEntradaCargaConvoca
 	}
-	if operacion == OperacionVistaPreviaCargaConvoca && (cuerpo.Categoria != "" || cuerpo.ExcluirFilasConErrores) {
+	if operacion == OperacionVistaPreviaCargaConvoca && cuerpo.ExcluirFilasConErrores {
 		return cuerpo, nil, errEntradaCargaConvoca
 	}
 	if operacion == OperacionConfirmarCargaConvoca &&
 		(len(cuerpo.Filtro) != 0 || len(cuerpo.Limite) != 0 || len(cuerpo.Desplazamiento) != 0) {
 		return cuerpo, nil, errEntradaCargaConvoca
 	}
-	if operacion == OperacionConfirmarCargaConvoca && !claveCategoriaCargaConvoca.MatchString(cuerpo.Categoria) {
+	if !claveCategoriaCargaConvoca.MatchString(cuerpo.Categoria) {
 		return cuerpo, nil, ErrCategoriaCargaConvocaNoValida
 	}
 	if base64.StdEncoding.DecodedLen(len(cuerpo.ContenidoBase64)) > aplicacionbolsa.MaximoBytesCargaConvoca+2 {
@@ -382,7 +395,7 @@ func paginaVistaPreviaDesdeCuerpo(c cuerpoCargaConvoca) (paginaVistaPreviaCargaC
 		if err != nil {
 			return paginaVistaPreviaCargaConvoca{}, err
 		}
-		if desplazamiento < 0 {
+		if desplazamiento < 0 || desplazamiento > aplicacionbolsa.MaximoFilasCargaConvoca {
 			return paginaVistaPreviaCargaConvoca{}, errPaginacionCargaConvocaNoValida
 		}
 		pagina.desplazamiento = desplazamiento
@@ -462,17 +475,10 @@ type filaCargaConvocaJSON struct {
 	Avisos          []string                     `json:"avisos"`
 }
 
-func vistaPreviaCargaConvocaJSON(v aplicacionbolsa.VistaPreviaCargaConvoca, pagina paginaVistaPreviaCargaConvoca) map[string]any {
-	filas := make([]filaCargaConvocaJSON, 0, pagina.limite)
-	totalFiltrado := 0
+func vistaPreviaCargaConvocaJSON(preparada aplicacionbolsa.VistaPreviaCargaConvocaPreparada) map[string]any {
+	v, pagina := preparada.Vista, preparada.Pagina
+	filas := make([]filaCargaConvocaJSON, 0, len(v.Filas))
 	for _, f := range v.Filas {
-		if !filaEnFiltroCargaConvoca(f, pagina.filtro) {
-			continue
-		}
-		if totalFiltrado < pagina.desplazamiento || len(filas) >= pagina.limite {
-			totalFiltrado++
-			continue
-		}
 		fila := filaCargaConvocaJSON{Numero: f.Numero, Estado: f.Estado, Posicion: f.Posicion, Documento: f.Documento,
 			PrimerApellido: f.PrimerApellido, SegundoApellido: f.SegundoApellido, Nombre: f.Nombre,
 			Experiencia: f.Experiencia, Formacion: f.Formacion, Total: f.Total,
@@ -481,28 +487,12 @@ func vistaPreviaCargaConvocaJSON(v aplicacionbolsa.VistaPreviaCargaConvoca, pagi
 			fila.Errores = append(fila.Errores, incidenciaCargaConvocaJSON{Campo: e.Campo, Codigo: e.Codigo})
 		}
 		filas = append(filas, fila)
-		totalFiltrado++
 	}
 	return map[string]any{
 		"esquema": EsquemaVistaPreviaCargaConvoca, "huella_sha256": v.HuellaSHA256, "nombre_fichero": v.NombreFichero,
 		"esquema_fichero": v.Esquema, "filas_leidas": v.FilasLeidas, "aceptadas": v.Aceptadas, "rechazadas": v.Rechazadas,
-		"con_avisos": v.ConAvisos, "bloqueo": v.Bloqueo, "filtro": pagina.filtro, "limite": pagina.limite,
-		"desplazamiento": pagina.desplazamiento, "total_filtrado": totalFiltrado, "filas": filas,
-	}
-}
-
-func filaEnFiltroCargaConvoca(f aplicacionbolsa.FilaVistaPreviaCargaConvoca, filtro string) bool {
-	switch filtro {
-	case "todas":
-		return true
-	case "aceptadas":
-		return f.Estado == aplicacionbolsa.EstadoFilaCargaAceptada
-	case "rechazadas":
-		return f.Estado == aplicacionbolsa.EstadoFilaCargaRechazada
-	case "con_avisos":
-		return len(f.Avisos) > 0
-	default:
-		return false
+		"con_avisos": v.ConAvisos, "bloqueo": v.Bloqueo, "filtro": pagina.Filtro, "limite": pagina.Limite,
+		"desplazamiento": pagina.Desplazamiento, "total_filtrado": preparada.TotalFiltrado, "filas": filas,
 	}
 }
 

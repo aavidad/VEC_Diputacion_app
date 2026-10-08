@@ -19,6 +19,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/bolsa/adapters/xlsconvoca"
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
+	importacionapp "vec-diputacion-granada/internal/modules/bolsa/application/importacionconvoca"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -30,6 +31,11 @@ type preparadorCargaPrueba struct {
 
 func (p *preparadorCargaPrueba) PrepararVistaPreviaCargaConvoca(context.Context) error {
 	return p.errVista
+}
+func (p *preparadorCargaPrueba) PrepararSolicitudVistaPreviaCargaConvoca(_ context.Context,
+	e EntradaVistaPreviaCargaConvoca) (puertosbolsa.SolicitudVistaPreviaCargaConvoca, error) {
+	return puertosbolsa.SolicitudVistaPreviaCargaConvoca{CategoriaRef: "categoria:rpt:" + e.CategoriaClave,
+		NombreFichero: e.NombreFichero, Contenido: e.Contenido, Pagina: e.Pagina}, nil
 }
 func (p *preparadorCargaPrueba) PrepararConfirmacionCargaConvoca(_ context.Context, e EntradaConfirmarCargaConvoca) (puertosbolsa.SolicitudConfirmarCargaConvoca, error) {
 	p.entrada = e
@@ -46,17 +52,48 @@ type operadorCargaPrueba struct {
 }
 
 type registradorVistaPreviaCargaPrueba struct {
-	registros []RegistroVistaPreviaCargaConvoca
-	err       error
-	antes     func()
+	registros     []registroVistaPreviaCargaPrueba
+	err           error
+	acuseInvalido bool
+	antes         func()
+	operador      *operadorCargaPrueba
+	actaRef       string
 }
 
-func (a *registradorVistaPreviaCargaPrueba) RegistrarVistaPreviaCargaConvoca(_ context.Context, registro RegistroVistaPreviaCargaConvoca) error {
+type registroVistaPreviaCargaPrueba struct {
+	RecursoRef     string
+	Filtro         string
+	Limite         int
+	Desplazamiento int
+}
+
+func (a *registradorVistaPreviaCargaPrueba) Preparar(ctx context.Context,
+	s puertosbolsa.SolicitudVistaPreviaCargaConvoca) (aplicacionbolsa.VistaPreviaCargaConvocaPreparada, error) {
+	vista, err := a.operador.Previsualizar(ctx, s.NombreFichero, s.Contenido)
+	if err != nil {
+		return aplicacionbolsa.VistaPreviaCargaConvocaPreparada{}, err
+	}
+	a.actaRef = importacionapp.ReferenciaActa(vista.HuellaSHA256, s.CategoriaRef)
+	return aplicacionbolsa.PaginarVistaPreviaCargaConvoca(vista, s.Pagina)
+}
+
+func (a *registradorVistaPreviaCargaPrueba) Consumir(_ context.Context,
+	preparada aplicacionbolsa.VistaPreviaCargaConvocaPreparada) (puertosbolsa.AcuseVistaPreviaCargaConvoca, error) {
 	if a.antes != nil {
 		a.antes()
 	}
-	a.registros = append(a.registros, registro)
-	return a.err
+	a.registros = append(a.registros, registroVistaPreviaCargaPrueba{RecursoRef: a.actaRef,
+		Filtro: preparada.Pagina.Filtro, Limite: preparada.Pagina.Limite,
+		Desplazamiento: preparada.Pagina.Desplazamiento})
+	if a.err != nil {
+		return puertosbolsa.AcuseVistaPreviaCargaConvoca{}, a.err
+	}
+	if a.acuseInvalido {
+		return puertosbolsa.AcuseVistaPreviaCargaConvoca{}, nil
+	}
+	return puertosbolsa.AcuseVistaPreviaCargaConvoca{DecisionRef: "decision:prueba", ActaRef: a.actaRef,
+		HuellaContextoSHA256: strings.Repeat("a", 64), AuditoriaRef: "aud_v3_0123456789abcdef0123456789abcdef",
+		ConsumidaEn: time.Now().UTC().Truncate(time.Microsecond)}, nil
 }
 
 func (o *operadorCargaPrueba) Previsualizar(ctx context.Context, nombre string, contenido []byte) (aplicacionbolsa.VistaPreviaCargaConvoca, error) {
@@ -91,6 +128,7 @@ func handlerCargaPrueba(t *testing.T) (http.Handler, *preparadorCargaPrueba, *op
 		t.Fatal(err)
 	}
 	p, o, a := &preparadorCargaPrueba{}, &operadorCargaPrueba{previsualizador: previsualizador, lectura: &registradorVistaPreviaCargaPrueba{}}, &auditorCargaPrueba{}
+	o.lectura.operador = o
 	h, err := NuevoHandlerCargaConvoca(p, o, a, o.lectura)
 	if err != nil {
 		t.Fatal(err)
@@ -108,6 +146,18 @@ func ejemploCargaHTTP(t *testing.T) string {
 }
 
 func peticionCarga(ruta string, cuerpo any) *http.Request {
+	if ruta == RutaVistaPreviaCargaConvoca {
+		if campos, ok := cuerpo.(map[string]any); ok {
+			copia := make(map[string]any, len(campos)+1)
+			for clave, valor := range campos {
+				copia[clave] = valor
+			}
+			if _, existe := copia["categoria"]; !existe {
+				copia["categoria"] = "auxiliar_administrativo"
+			}
+			cuerpo = copia
+		}
+	}
 	b, _ := json.Marshal(cuerpo)
 	r := httptest.NewRequest(http.MethodPost, ruta, bytes.NewReader(b))
 	r.Header.Set("Content-Type", "application/json")
@@ -187,7 +237,7 @@ func TestCargaConvocaVistaPreviaAuditaAntesDeDevolverFilas(t *testing.T) {
 		t.Fatal(err)
 	}
 	huella := sha256.Sum256(contenido)
-	if registro := o.lectura.registros[0]; registro.RecursoRef != "fichero:sha256:"+hex.EncodeToString(huella[:]) ||
+	if registro := o.lectura.registros[0]; registro.RecursoRef != importacionapp.ReferenciaActa(hex.EncodeToString(huella[:]), "categoria:rpt:auxiliar_administrativo") ||
 		registro.Filtro != "todas" || registro.Limite != 50 || registro.Desplazamiento != 0 {
 		t.Fatalf("apunte no nominal: %+v", registro)
 	}
@@ -208,14 +258,27 @@ func TestCargaConvocaVistaPreviaNoDevuelveFilasSinAuditoriaCorrecta(t *testing.T
 	}
 	registro := o.lectura.registros[0]
 	if registro.Filtro != "con_avisos" || registro.Limite != 1 || registro.Desplazamiento != 1 ||
-		!strings.HasPrefix(registro.RecursoRef, "fichero:sha256:") {
+		!strings.HasPrefix(registro.RecursoRef, "acta:importacion-convoca:") {
 		t.Fatalf("intento de lectura sin referencia/página: %+v", registro)
+	}
+}
+
+func TestCargaConvocaVistaPreviaNoEntregaFilasConAcuseInvalido(t *testing.T) {
+	h, _, o, a := handlerCargaPrueba(t)
+	o.lectura.acuseInvalido = true
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionCarga(RutaVistaPreviaCargaConvoca, map[string]any{
+		"nombre_fichero": "carga_convoca_ejemplo.xlsx", "contenido_base64": ejemploCargaHTTP(t),
+	}))
+	if w.Code != http.StatusServiceUnavailable || codigoErrorCarga(t, w) != "servicio_no_disponible" ||
+		strings.Contains(w.Body.String(), `"filas"`) || len(a.operaciones) != 1 {
+		t.Fatalf("acuse vacío entregó filas: %d %s", w.Code, w.Body.String())
 	}
 }
 
 func TestCargaConvocaRechazaRegistradorLecturaNuloInclusoTipado(t *testing.T) {
 	_, preparador, operador, auditor := handlerCargaPrueba(t)
-	for _, lectura := range []RegistradorVistaPreviaCargaConvoca{nil, (*registradorVistaPreviaCargaPrueba)(nil)} {
+	for _, lectura := range []VistaPreviaAutorizadaCargaConvoca{nil, (*registradorVistaPreviaCargaPrueba)(nil)} {
 		h, err := NuevoHandlerCargaConvoca(preparador, operador, auditor, lectura)
 		if h != nil || !errors.Is(err, puertosbolsa.ErrCargaConvocaNoDisponible) {
 			t.Fatalf("registrador ausente montó la ruta: handler=%v error=%v", h, err)
@@ -378,6 +441,20 @@ func TestCargaConvocaPaginacionRechazaValoresYConfirmacionLosProhibe(t *testing.
 	}
 }
 
+func TestCargaConvocaVistaPreviaExigeCategoriaEstructural(t *testing.T) {
+	h, _, o, a := handlerCargaPrueba(t)
+	cuerpo := `{"nombre_fichero":"carga_convoca_ejemplo.xlsx","contenido_base64":"` + ejemploCargaHTTP(t) + `"}`
+	r := httptest.NewRequest(http.MethodPost, RutaVistaPreviaCargaConvoca, strings.NewReader(cuerpo))
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Accept", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusUnprocessableEntity || codigoErrorCarga(t, w) != "categoria_no_valida" ||
+		len(o.lectura.registros) != 0 || len(a.operaciones) != 1 {
+		t.Fatalf("vista previa sin categoría: %d %s", w.Code, w.Body.String())
+	}
+}
+
 func TestCargaConvocaRechazaEntradaAntesDeLeerYAudita(t *testing.T) {
 	contenido := ejemploCargaHTTP(t)
 	casos := []struct {
@@ -394,7 +471,7 @@ func TestCargaConvocaRechazaEntradaAntesDeLeerYAudita(t *testing.T) {
 		{"campo desconocido", nil, RutaVistaPreviaCargaConvoca, map[string]any{"nombre_fichero": "a.xlsx", "contenido_base64": contenido, "persona": "per_x"}, 400, "peticion_no_valida"},
 		{"base64 roto", nil, RutaVistaPreviaCargaConvoca, map[string]any{"nombre_fichero": "a.xlsx", "contenido_base64": "no es base64!"}, 400, "peticion_no_valida"},
 		{"nombre con ruta", nil, RutaVistaPreviaCargaConvoca, map[string]any{"nombre_fichero": "../a.xlsx", "contenido_base64": contenido}, 400, "peticion_no_valida"},
-		{"vista con categoría", nil, RutaVistaPreviaCargaConvoca, map[string]any{"nombre_fichero": "a.xlsx", "contenido_base64": contenido, "categoria": "auxiliar"}, 400, "peticion_no_valida"},
+		{"categoría de vista mal formada", nil, RutaVistaPreviaCargaConvoca, map[string]any{"nombre_fichero": "a.xlsx", "contenido_base64": contenido, "categoria": "Aux iliar"}, 422, "categoria_no_valida"},
 		{"categoría mal formada", nil, RutaConfirmarCargaConvoca, map[string]any{"nombre_fichero": "a.xlsx", "contenido_base64": contenido, "categoria": "Aux iliar"}, 422, "categoria_no_valida"},
 		{"declarado excesivo", func(r *http.Request) { r.ContentLength = MaximoCuerpoCargaConvoca + 1 }, RutaVistaPreviaCargaConvoca, map[string]any{"nombre_fichero": "a.xlsx", "contenido_base64": contenido}, 413, "fichero_demasiado_grande"},
 		{"fichero excesivo", nil, RutaVistaPreviaCargaConvoca, map[string]any{"nombre_fichero": "a.xlsx", "contenido_base64": base64.StdEncoding.EncodeToString(make([]byte, aplicacionbolsa.MaximoBytesCargaConvoca+1))}, 413, "fichero_demasiado_grande"},
