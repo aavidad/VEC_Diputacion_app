@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000225_reanudacion_solicitud_llamamiento.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000198_reanudacion_solicitud_llamamiento.up.sql
