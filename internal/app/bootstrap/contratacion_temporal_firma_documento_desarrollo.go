@@ -233,10 +233,9 @@ type dependenciasFirmaR5Desarrollo struct {
 	politicaFirmantes ports.FuentePoliticaMismaPersonaEnPasos
 }
 
-// Se prepara en una copia antes de publicar ambas vías. Un fallo no ocupa la
-// fuente del original ni modifica el servicio anterior. Cada vía exige la
-// misma historia V2, verificador acumulado, custodia y revisión de entrada.
-func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desarrollo) error {
+// prepararFirmasR5 construye la base y el registro CT176 sin publicar estado.
+// Así un fallo no ocupa el original ni modifica el servicio anterior.
+func (f *firmaDocumentoCTDesarrollo) prepararFirmasR5(d dependenciasFirmaR5Desarrollo) (*ctapplication.ServicioFirmaDocumento, ports.RegistroFirmasVerificadasV2, error) {
 	if f == nil || f.servicio == nil || !f.custodiaR5Compuesta ||
 		f.firmaExterna != nil || f.firmaVec != nil ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.original) ||
@@ -249,23 +248,49 @@ func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desar
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.pdfAnterior) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.competencia) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.politicaFirmantes) {
-		return errFirmaDocumentoCTDesarrolloNoDisponible
+		return nil, nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	registro, err := firmaautorizacionv2.NuevoRegistroConPlanV2(d.descriptorPlan, d.emisorPlan, d.registro,
 		consultaFirmasV2SinRegistroDirecto{d.registro})
 	if err != nil {
-		return errFirmaDocumentoCTDesarrolloNoDisponible
+		return nil, nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	base := *f.servicio
 	if err := base.ComponerOriginalAutorizado(d.original); err != nil {
-		return errFirmaDocumentoCTDesarrolloNoDisponible
+		return nil, nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	externa, err := ctapplication.NuevoServicioFirmaExternaV2(&base, d.verificador, registro,
+	return &base, registro, nil
+}
+
+// componerFirmasR5Externa publica únicamente el registro externo de RRHH.
+// La vía Vec requiere su propia autoridad de firmante y se compone aparte.
+func (f *firmaDocumentoCTDesarrollo) componerFirmasR5Externa(d dependenciasFirmaR5Desarrollo) error {
+	base, registro, err := f.prepararFirmasR5(d)
+	if err != nil {
+		return err
+	}
+	externa, err := ctapplication.NuevoServicioFirmaExternaV2(base, d.verificador, registro,
 		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
 	if err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	vec, err := ctapplication.NuevoServicioFirmaVecV2(&base, d.verificador, registro,
+	f.firmaExterna, f.registroR5 = externa, registro
+	return nil
+}
+
+// componerFirmasR5 conserva el montaje conjunto para quien ya dispone de
+// ambas autoridades. Publica las dos vías sólo después de construirlas.
+func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desarrollo) error {
+	base, registro, err := f.prepararFirmasR5(d)
+	if err != nil {
+		return err
+	}
+	externa, err := ctapplication.NuevoServicioFirmaExternaV2(base, d.verificador, registro,
+		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
+	if err != nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	vec, err := ctapplication.NuevoServicioFirmaVecV2(base, d.verificador, registro,
 		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
 	if err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
