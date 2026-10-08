@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/url"
 	"regexp"
@@ -62,16 +63,22 @@ func (c CatalogoNecesidadesAlta) Validar() error {
 		!huellaValida(c.HuellaSHA256) ||
 		len(c.ContenidoCanonico) == 0 || len(c.ContenidoCanonico) > MaximoInstantaneaCatalogoNecesidadesAltaBytes ||
 		huellaContenidoNecesidadesAlta(c.ContenidoCanonico) != c.HuellaSHA256 ||
-		!referenciaValida(c.FuenteRef) || !fuentePublicaValida(c.FuenteURL) ||
+		!referenciaValida(c.FuenteRef) ||
 		!referenciaValida(c.JornadaFuenteRef) ||
 		c.JornadaReferenciaMinutos == 0 || c.JornadaReferenciaMinutos > 7*24*60 ||
 		len(c.Causas) == 0 || len(c.Causas) > 32 {
 		return ErrNecesidadAltaInvalida
 	}
+	if err := validarFuentePublica(c.FuenteURL); err != nil {
+		return err
+	}
 	vistas := make(map[ClaveCatalogo]bool, len(c.Causas))
 	for _, causa := range c.Causas {
+		if err := validarFuentePublica(causa.FuenteURL); err != nil {
+			return err
+		}
 		if !causa.Clave.Valida() || vistas[causa.Clave] ||
-			!referenciaValida(causa.FuenteRef) || !fuentePublicaValida(causa.FuenteURL) ||
+			!referenciaValida(causa.FuenteRef) ||
 			!referenciaValida(causa.ReglaRef) ||
 			!ClaveCatalogo(causa.EtiquetaClave).Valida() ||
 			causa.MaximoMeses == 0 || causa.MaximoMeses > 120 ||
@@ -146,17 +153,22 @@ func RestaurarCatalogoNecesidadesAlta(contenido []byte) (CatalogoNecesidadesAlta
 	return c, nil
 }
 
-func fuentePublicaValida(valor string) bool {
+// validarFuentePublica exige un enlace https sin credenciales, puerto, consulta
+// ni fragmento a una fuente oficial admitida (BOE o Diputación de Granada).
+func validarFuentePublica(valor string) error {
 	u, err := url.Parse(valor)
-	if err != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" ||
+	if err != nil {
+		return fmt.Errorf("%w: fuente pública: %w", ErrNecesidadAltaInvalida, err)
+	}
+	if u.Scheme != "https" || u.User != nil || u.Port() != "" ||
 		u.RawQuery != "" || u.Fragment != "" || u.Path == "" {
-		return false
+		return ErrNecesidadAltaInvalida
 	}
 	switch u.Hostname() {
 	case "www.boe.es", "www.dipgra.es", "bop.dipgra.es":
-		return true
+		return nil
 	}
-	return false
+	return ErrNecesidadAltaInvalida
 }
 
 // CausasAdmitidas filtra exclusivamente por claves que otro componente haya
