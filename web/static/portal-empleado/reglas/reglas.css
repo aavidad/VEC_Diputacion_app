@@ -13,10 +13,10 @@ body.rg-app { margin: 0; background: var(--portal-fondo); color: var(--portal-ti
 .rg-aviso--error { background: var(--portal-peligro-suave); color: var(--portal-peligro); }
 .rg-panel .rg-aviso { margin: 16px 20px; }
 .rg-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
-.rg-kpi { display: grid; grid-template-columns: 48px 1fr; grid-template-rows: auto auto; column-gap: 16px; align-items: center; background: var(--portal-superficie); border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); box-shadow: var(--portal-sombra-sm); padding: 16px 20px; }
+.rg-kpi { display: grid; min-width: 0; grid-template-columns: 48px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 16px; align-items: center; background: var(--portal-superficie); border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); box-shadow: var(--portal-sombra-sm); padding: 16px 20px; }
 .rg-kpi-icono { grid-row: 1 / 3; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; }
 .rg-kpi-icono svg { width: 24px; height: 24px; }
-.rg-kpi-rotulo { font-size: 13px; color: var(--portal-muted); }
+.rg-kpi-rotulo { min-width: 0; overflow-wrap: anywhere; font-size: 13px; color: var(--portal-muted); }
 .rg-kpi strong { font-size: 26px; font-weight: 600; line-height: 1.1; }
 .rg-kpi--total .rg-kpi-icono { background: var(--portal-azul-100); color: var(--portal-azul-700); }
 .rg-kpi--total strong { color: var(--portal-azul-700); }
