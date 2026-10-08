@@ -25,7 +25,7 @@ func TestVerificadorAltaCompruebaPuestoYPublicacionExacta(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := ports.SolicitudVerificarPuestoRPTAlta{
-		CatalogoRef: c.Fuente.Importacion, CatalogoVersion: 1,
+		CatalogoRef:          c.Fuente.Importacion,
 		CatalogoHuellaSHA256: c.Fuente.HuellaSHA256, PuestoCodigo: c.Puestos[0].Codigo,
 	}
 	resultado, err := v.VerificarPuestoRPTAlta(context.Background(), s)

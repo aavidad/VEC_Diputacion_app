@@ -39,7 +39,6 @@ BEGIN
    'proyecto_gasto_codigo','300','porcentaje_financiacion','100');
  rpt:=pg_catalog.jsonb_build_object(
    'puesto_codigo','3388','rpt_catalogo_ref','catalogo:rpt:prueba',
-   'rpt_catalogo_version','1',
    'rpt_catalogo_huella_sha256',pg_catalog.repeat('a',64));
  campos_vacante:=presupuestos||rpt;
  campos_sustitucion:=presupuestos||rpt;
@@ -61,15 +60,15 @@ BEGIN
        'fuente_ref','circular:ct:prueba','fuente_url','https://www.dipgra.es/ct',
        'regla_ref','regla:ct:vacante:v1','fecha_fin','obligatoria',
        'maximo_meses',36,
-       'campos_permitidos','["plaza_codigo","puesto_codigo","rpt_catalogo_ref","rpt_catalogo_version","rpt_catalogo_huella_sha256","organica_codigo","funcional_codigo","proyecto_gasto_codigo","porcentaje_financiacion"]'::jsonb,
-       'campos_obligatorios','["puesto_codigo","rpt_catalogo_ref","rpt_catalogo_version","rpt_catalogo_huella_sha256","organica_codigo","funcional_codigo","proyecto_gasto_codigo","porcentaje_financiacion"]'::jsonb),
+       'campos_permitidos','["plaza_codigo","puesto_codigo","rpt_catalogo_ref","rpt_catalogo_huella_sha256","organica_codigo","funcional_codigo","proyecto_gasto_codigo","porcentaje_financiacion"]'::jsonb,
+       'campos_obligatorios','["puesto_codigo","rpt_catalogo_ref","rpt_catalogo_huella_sha256","organica_codigo","funcional_codigo","proyecto_gasto_codigo","porcentaje_financiacion"]'::jsonb),
      pg_catalog.jsonb_build_object(
        'clave','sustitucion','etiqueta_clave','ct.necesidad.sustitucion',
        'fuente_ref','circular:ct:prueba','fuente_url','https://www.dipgra.es/ct',
        'regla_ref','regla:ct:sustitucion:v1','fecha_fin','opcional',
        'causa_fin','reincorporacion_titular','maximo_meses',36,
-       'campos_permitidos','["puesto_codigo","plaza_codigo","rpt_catalogo_ref","rpt_catalogo_version","rpt_catalogo_huella_sha256","titular_ref","organica_codigo","funcional_codigo","proyecto_gasto_codigo","porcentaje_financiacion"]'::jsonb,
-       'campos_obligatorios','["puesto_codigo","rpt_catalogo_ref","rpt_catalogo_version","rpt_catalogo_huella_sha256","organica_codigo","funcional_codigo","proyecto_gasto_codigo","porcentaje_financiacion"]'::jsonb),
+       'campos_permitidos','["puesto_codigo","plaza_codigo","rpt_catalogo_ref","rpt_catalogo_huella_sha256","titular_ref","organica_codigo","funcional_codigo","proyecto_gasto_codigo","porcentaje_financiacion"]'::jsonb,
+       'campos_obligatorios','["puesto_codigo","rpt_catalogo_ref","rpt_catalogo_huella_sha256","organica_codigo","funcional_codigo","proyecto_gasto_codigo","porcentaje_financiacion"]'::jsonb),
      pg_catalog.jsonb_build_object(
        'clave','programa_temporal','etiqueta_clave','ct.necesidad.programa',
        'fuente_ref','circular:ct:prueba','fuente_url','https://www.dipgra.es/ct',
@@ -103,6 +102,9 @@ BEGIN
     OR vec_contratacion_temporal.necesidad_alta_valida_v3(
        pg_temp.ct193_solicitud(raw,'vacante',p_finito,
          campos_vacante||pg_catalog.jsonb_build_object('titular_ref','persona:opaca:1'),2250)) IS NOT FALSE
+    OR vec_contratacion_temporal.necesidad_alta_valida_v3(
+       pg_temp.ct193_solicitud(raw,'vacante',p_finito,
+         campos_vacante||pg_catalog.jsonb_build_object('rpt_catalogo_version','1'),2250)) IS NOT FALSE
     OR vec_contratacion_temporal.necesidad_alta_valida_v3(
        pg_temp.ct193_solicitud(raw,'vacante',p_finito,campos_vacante,10081)) IS NOT FALSE THEN
    RAISE EXCEPTION 'CT193: vacante, RPT, campo inesperado o jornada divergente';

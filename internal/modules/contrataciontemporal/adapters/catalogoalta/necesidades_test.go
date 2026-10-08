@@ -72,7 +72,7 @@ func TestNecesidadRechazaDatosIncompatiblesYDuracion(t *testing.T) {
 	periodo := func(fin time.Time) domain.PeriodoPrevisto { return domain.PeriodoPrevisto{Inicio: inicio, Fin: fin} }
 	vacante := domain.DatosNecesidadAlta{CausaClave: "vacante", Periodo: periodo(inicio.AddDate(1, 0, -1)), JornadaMinutos: 2250,
 		Campos: campos(map[string]string{"plaza_codigo": "1201", "puesto_codigo": "3388",
-			"rpt_catalogo_ref": "rpt:dipgra:2026", "rpt_catalogo_version": "1",
+			"rpt_catalogo_ref":           "rpt:dipgra:2026",
 			"rpt_catalogo_huella_sha256": strings.Repeat("a", 64)})}
 	ligar(&vacante)
 	if err := c.ValidarDatos(vacante); err != nil {
@@ -93,6 +93,11 @@ func TestNecesidadRechazaDatosIncompatiblesYDuracion(t *testing.T) {
 		t.Fatal("titular incompatible con vacante")
 	}
 	delete(vacante.Campos, "titular_ref")
+	vacante.Campos["rpt_catalogo_version"] = "1"
+	if c.ValidarDatos(vacante) == nil {
+		t.Fatal("versión de esquema RPT confundida con publicación")
+	}
+	delete(vacante.Campos, "rpt_catalogo_version")
 	vacante.JornadaMinutos = 2251
 	if err := c.ValidarDatos(vacante); err != nil {
 		t.Fatal("la jornada de referencia es precarga editable, no máximo", err)
@@ -141,7 +146,7 @@ func TestNecesidadRechazaDatosIncompatiblesYDuracion(t *testing.T) {
 		t.Fatal("programa más corto que la cobertura")
 	}
 	sustitucion := domain.DatosNecesidadAlta{CausaClave: "sustitucion", Periodo: domain.PeriodoPrevisto{Inicio: inicio, CausaFin: "reincorporacion_titular"}, JornadaMinutos: 2250, Campos: campos(map[string]string{"puesto_codigo": "3388",
-		"rpt_catalogo_ref": "rpt:dipgra:2026", "rpt_catalogo_version": "1",
+		"rpt_catalogo_ref":           "rpt:dipgra:2026",
 		"rpt_catalogo_huella_sha256": strings.Repeat("a", 64)})}
 	ligar(&sustitucion)
 	if err := c.ValidarDatos(sustitucion); err != nil {
@@ -195,7 +200,7 @@ func TestNecesidadSelladaConservaCatalogoYClonNoComparteDatos(t *testing.T) {
 		CausaClave: "vacante", Periodo: domain.PeriodoPrevisto{Inicio: inicio, Fin: inicio.AddDate(1, 0, -1)},
 		JornadaMinutos: 2250,
 		Campos: map[string]string{"plaza_codigo": "1201", "puesto_codigo": "3388", "organica_codigo": "100",
-			"rpt_catalogo_ref": "rpt:dipgra:2026", "rpt_catalogo_version": "1",
+			"rpt_catalogo_ref":           "rpt:dipgra:2026",
 			"rpt_catalogo_huella_sha256": strings.Repeat("a", 64),
 			"funcional_codigo":           "200", "proyecto_gasto_codigo": "300", "porcentaje_financiacion": "100"},
 	}

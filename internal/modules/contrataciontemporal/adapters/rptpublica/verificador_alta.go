@@ -31,12 +31,12 @@ func (v *VerificadorAlta) VerificarPuestoRPTAlta(
 	catalogo, err := v.fuente.ObtenerRPTPublica(ctx)
 	if err != nil || catalogo.Validar() != nil || ctx.Err() != nil ||
 		catalogo.Esquema != "vec.catalogo.rpt.v1" ||
-		catalogo.Fuente.Importacion != solicitud.CatalogoRef || solicitud.CatalogoVersion != 1 ||
+		catalogo.Fuente.Importacion != solicitud.CatalogoRef ||
 		subtle.ConstantTimeCompare([]byte(catalogo.Fuente.HuellaSHA256), []byte(solicitud.CatalogoHuellaSHA256)) != 1 {
 		return ports.PuestoRPTAltaVerificado{}, ports.ErrFuenteNecesidadesAltaNoDisponible
 	}
 	resultado := ports.PuestoRPTAltaVerificado{
-		CatalogoRef: solicitud.CatalogoRef, CatalogoVersion: solicitud.CatalogoVersion,
+		CatalogoRef:          solicitud.CatalogoRef,
 		CatalogoHuellaSHA256: solicitud.CatalogoHuellaSHA256, PuestoCodigo: solicitud.PuestoCodigo,
 	}
 	for _, puesto := range catalogo.Puestos {

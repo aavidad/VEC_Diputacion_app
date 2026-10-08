@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"regexp"
-	"strconv"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
@@ -84,14 +83,12 @@ type FuenteNecesidadesAlta interface {
 // publicación exacta. La RPT pública no acredita ocupación ni vacancia.
 type SolicitudVerificarPuestoRPTAlta struct {
 	CatalogoRef          string
-	CatalogoVersion      uint64
 	CatalogoHuellaSHA256 string
 	PuestoCodigo         string
 }
 
 func (s SolicitudVerificarPuestoRPTAlta) Validar() error {
-	if !domain.ReferenciaOpacaValida(s.CatalogoRef) || s.CatalogoVersion == 0 ||
-		s.CatalogoVersion > 1<<53-1 ||
+	if !domain.ReferenciaOpacaValida(s.CatalogoRef) ||
 		!patronHuellaPuestoRPTAlta.MatchString(s.CatalogoHuellaSHA256) ||
 		!patronCodigoPuestoRPTAlta.MatchString(s.PuestoCodigo) {
 		return ErrFuenteNecesidadesAltaNoDisponible
@@ -101,7 +98,6 @@ func (s SolicitudVerificarPuestoRPTAlta) Validar() error {
 
 type PuestoRPTAltaVerificado struct {
 	CatalogoRef          string
-	CatalogoVersion      uint64
 	CatalogoHuellaSHA256 string
 	PuestoCodigo         string
 	ExisteEnPublicacion  bool
@@ -109,7 +105,7 @@ type PuestoRPTAltaVerificado struct {
 
 func (p PuestoRPTAltaVerificado) ValidarPara(s SolicitudVerificarPuestoRPTAlta) error {
 	if s.Validar() != nil || p.CatalogoRef != s.CatalogoRef ||
-		p.CatalogoVersion != s.CatalogoVersion || p.CatalogoHuellaSHA256 != s.CatalogoHuellaSHA256 ||
+		p.CatalogoHuellaSHA256 != s.CatalogoHuellaSHA256 ||
 		p.PuestoCodigo != s.PuestoCodigo || !p.ExisteEnPublicacion {
 		return ErrFuenteNecesidadesAltaNoDisponible
 	}
@@ -121,12 +117,8 @@ type VerificadorPuestoRPTAlta interface {
 }
 
 func SolicitudPuestoRPTDesdeCampos(campos map[string]string) (SolicitudVerificarPuestoRPTAlta, error) {
-	version, err := strconv.ParseUint(campos["rpt_catalogo_version"], 10, 64)
-	if err != nil {
-		return SolicitudVerificarPuestoRPTAlta{}, ErrFuenteNecesidadesAltaNoDisponible
-	}
 	s := SolicitudVerificarPuestoRPTAlta{
-		CatalogoRef: campos["rpt_catalogo_ref"], CatalogoVersion: version,
+		CatalogoRef:          campos["rpt_catalogo_ref"],
 		CatalogoHuellaSHA256: campos["rpt_catalogo_huella_sha256"], PuestoCodigo: campos["puesto_codigo"],
 	}
 	return s, s.Validar()
