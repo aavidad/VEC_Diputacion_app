@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
+	postgresidentidad "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
 	seguridad "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	"vec-diputacion-granada/internal/vec/adapters/seudonimizacionpkcs11"
 )
@@ -126,7 +127,7 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 		materialIdentidad, cfg.RetiradaPoliticaInternaEn) != nil {
 		return vacio, ErrDependenciasProductivasNoDisponibles
 	}
-	identidad, extractor, err := montarServicioIdentidadCertificado(
+	identidad, extractor, registroCertificados, err := montarServicioIdentidadCertificado(
 		cfg, materialIdentidad.claveID, materialIdentidad.firmante,
 		materialIdentidad.rutaCertificados,
 		materialIdentidad.politicaRef, materialIdentidad.huellaPolitica,
@@ -134,6 +135,30 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 	)
 	if err != nil {
 		return vacio, ErrDependenciasProductivasNoDisponibles
+	}
+	var presentacion *httpseguridad.ServicioPresentacionCertificado
+	if recursos.pools.Presentador != nil {
+		certificador, err := NuevoCertificadorPresentacionPersonal(registroCertificados)
+		if err != nil {
+			return vacio, ErrDependenciasProductivasNoDisponibles
+		}
+		registroPresentaciones, err := postgresidentidad.NuevoRegistroPresentacionesCertificadoPostgreSQL(
+			ctx, recursos.pools.Presentador, recursos.hmac,
+			postgresidentidad.CoordenadasPresentacionCertificado{
+				EspacioIdentidad: hmacConfig.EspacioIdentidad,
+				DominioRef:       hmacConfig.DominioRef,
+				ClaveID:          hmacConfig.ClaveID,
+				ClaveVersion:     hmacConfig.ClaveVersion,
+			},
+		)
+		if err != nil {
+			return vacio, ErrDependenciasProductivasNoDisponibles
+		}
+		presentacion, err = httpseguridad.NuevoServicioPresentacionCertificado(
+			identidad, certificador, registroPresentaciones)
+		if err != nil {
+			return vacio, ErrDependenciasProductivasNoDisponibles
+		}
 	}
 	reloj := relojGobiernoInterno{}
 	contextoPG, err := internagobierno.NuevoContextoPostgreSQL(ctx,
@@ -203,7 +228,8 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 	}
 	salida := proveedoresConsultaSeguimiento{
 		identidad: identidad, extractor: extractor,
-		autoridadRutas: autoridadRuta, auditoriaRutas: auditoria,
+		presentacionCertificado: presentacion,
+		autoridadRutas:          autoridadRuta, auditoriaRutas: auditoria,
 		configuracionV2: configuracionV2,
 		recursos:        []recursoCerrableAplicacionInterna{recursos},
 	}

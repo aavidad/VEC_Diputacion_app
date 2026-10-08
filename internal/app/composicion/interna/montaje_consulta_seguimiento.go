@@ -34,6 +34,7 @@ type extractorAsercionInstitucional interface {
 type proveedoresConsultaSeguimiento struct {
 	identidad                         *httpseguridad.ServicioIdentidad
 	extractor                         extractorAsercionInstitucional
+	presentacionCertificado           *httpseguridad.ServicioPresentacionCertificado
 	autoridadRutas                    httpapi.AutoridadRutasExactas
 	auditoriaRutas                    vecports.RegistradorAuditoriaFronteraRutaExacta
 	vincularPersonalB2                func(context.Context) (context.Context, error)
@@ -57,6 +58,7 @@ func obtenerProveedoresConsultaSeguimiento(ctx context.Context, cfg Configuracio
 
 type puenteConsultaSeguimiento struct {
 	extractor                         extractorAsercionInstitucional
+	presentacionCertificado           *httpseguridad.ServicioPresentacionCertificado
 	api                               http.Handler
 	auditoria                         vecports.RegistradorAuditoriaFronteraRutaExacta
 	vincularB2                        func(context.Context) (context.Context, error)
@@ -267,7 +269,8 @@ func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p prove
 		return nil, ErrAPIInternaNoDisponible
 	}
 	limiteCuerpo := min(cfg.normalizar().MaximoBytesPeticion, int64(1<<20))
-	puente := &puenteConsultaSeguimiento{extractor: p.extractor, api: api, auditoria: p.auditoriaRutas, limiteCuerpo: limiteCuerpo,
+	puente := &puenteConsultaSeguimiento{extractor: p.extractor, presentacionCertificado: p.presentacionCertificado,
+		api: api, auditoria: p.auditoriaRutas, limiteCuerpo: limiteCuerpo,
 		vincularB2: p.vincularPersonalB2,
 		vincularOH: p.vincularOrganizacionHistorica, organizacionHistorica: !manejadorNulo(p.organizacionHistorica),
 		organizacionHistoricaNoDisponible: p.organizacionHistoricaNoDisponible,
