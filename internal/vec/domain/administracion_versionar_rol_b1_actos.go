@@ -186,7 +186,7 @@ func (c CierreVersionarRolBolsa) ValidarPara(s SolicitudCierreVersionarRolBolsa)
 		return ErrVersionarRolBolsaInvalido
 	}
 	for i := range d.Concesiones {
-		if !concesionesPerfilAdministracionIguales(d.Concesiones[i], r.VersionRol.Concesiones[i]) {
+		if !reflect.DeepEqual(d.Concesiones[i], r.VersionRol.Concesiones[i]) {
 			return ErrVersionarRolBolsaInvalido
 		}
 	}
