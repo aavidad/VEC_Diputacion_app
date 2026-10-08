@@ -84,6 +84,32 @@ BEGIN
 END $prueba$;
 RESET SESSION AUTHORIZATION;
 
+-- El resumen interno puede agregar más de 20.000 entradas de todas las
+-- bolsas; solo la fachada nominal acota una petición HTTP individual.
+SET ROLE vec_bolsa_llamamientos_propietario;
+DO $lote_interno_global$
+DECLARE n bigint;
+BEGIN
+ SELECT count(*) INTO n FROM vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(
+  array_fill(current_setting('vec.b91_participacion'),ARRAY[20001]),clock_timestamp());
+ IF n<>1 THEN
+  RAISE EXCEPTION 'B90: clave=lote_interno_global esperado=1 actual=%',n;
+ END IF;
+END $lote_interno_global$;
+RESET ROLE;
+SET SESSION AUTHORIZATION vec_b91_ejecutor_test;
+DO $lote_fachada_acotado$
+DECLARE n bigint;
+BEGIN
+ BEGIN
+  SELECT count(*) INTO n FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(
+   array_fill(current_setting('vec.b91_participacion'),ARRAY[20001]),clock_timestamp());
+  RAISE EXCEPTION 'B90: clave=limite_fachada esperado=42501 actual=aceptada_con_%',n;
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+END $lote_fachada_acotado$;
+RESET SESSION AUTHORIZATION;
+
 -- Una exclusión ya decidida conserva su propio estado y su fecha: el cese
 -- pendiente no convierte «excluido desde X» en «excluido desde B13».
 SAVEPOINT estado_excluido;
