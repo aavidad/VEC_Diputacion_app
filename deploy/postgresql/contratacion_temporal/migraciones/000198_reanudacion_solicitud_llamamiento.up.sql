@@ -238,14 +238,18 @@ BEGIN
            fencing_version = v_ejecucion.fencing_version + 1,
            lease_hasta = v_ahora + interval '30 seconds', actualizada_en = v_ahora
      WHERE e.clave_idempotencia = v_ejecucion.clave_idempotencia;
-    INSERT INTO vec_contratacion_temporal.historia_reanudacion_seleccion_llamamiento VALUES (
+    INSERT INTO vec_contratacion_temporal.historia_reanudacion_seleccion_llamamiento (
+        auditoria_ref,clave_idempotencia,huella_semantica,fencing_anterior,fencing_nuevo,
+        reserva_anterior_sha256,reserva_nueva_sha256,decision_ref,consumo_huella_sha256,
+        reanudada_en,lease_hasta) VALUES (
         v_consumo.auditoria_ref, v_ejecucion.clave_idempotencia, v_ejecucion.huella_semantica,
         v_ejecucion.fencing_version, v_ejecucion.fencing_version + 1,
         encode(sha256(convert_to(v_ejecucion.reserva_ref,'UTF8')),'hex'),
         encode(sha256(convert_to(v_reserva,'UTF8')),'hex'),
         v_consumo.decision_ref, v_consumo.consumo_huella_sha256, v_ahora, v_ahora + interval '30 seconds');
     v_evento := 'evento:ct:reanudacion:' || gen_random_uuid()::text;
-    INSERT INTO vec_contratacion_temporal.outbox_reanudacion_seleccion_llamamiento VALUES (
+    INSERT INTO vec_contratacion_temporal.outbox_reanudacion_seleccion_llamamiento (
+        evento_ref,auditoria_ref,tipo,carga_json,creada_en) VALUES (
         v_evento, v_consumo.auditoria_ref, 'seleccion.solicitud_llamamiento.reanudada',
         jsonb_build_object('organizacion_ref',s->>'organizacion_ref',
             'expediente_ref',s->>'expediente_ref','clave_idempotencia',v_ejecucion.clave_idempotencia,
