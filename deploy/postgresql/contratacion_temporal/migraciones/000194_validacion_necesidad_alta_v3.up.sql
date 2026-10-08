@@ -186,8 +186,9 @@ BEGIN
    ELSIF v_clave IN ('justificacion_temporal','programa_denominacion') THEN
      IF pg_catalog.char_length(v_texto)>4000
         OR normalize(v_texto,NFC) IS DISTINCT FROM v_texto
-        OR v_texto ~ '(^[[:space:]]|[[:space:]]$)'
-        OR pg_catalog.translate(v_texto,E'\t\n','') ~ '[[:cntrl:]]' THEN
+        OR pg_catalog.btrim(v_texto,U&'\0009\000A\000B\000C\000D\0020\0085\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000') IS DISTINCT FROM v_texto
+        OR pg_catalog.translate(v_texto,U&'\0001\0002\0003\0004\0005\0006\0007\0008\000B\000C\000D\000E\000F\0010\0011\0012\0013\0014\0015\0016\0017\0018\0019\001A\001B\001C\001D\001E\001F\007F\0080\0081\0082\0083\0084\0085\0086\0087\0088\0089\008A\008B\008C\008D\008E\008F\0090\0091\0092\0093\0094\0095\0096\0097\0098\0099\009A\009B\009C\009D\009E\009F','')
+           IS DISTINCT FROM v_texto THEN
        RETURN false;
      END IF;
    ELSIF v_clave NOT IN ('numero_personas','programa_fin') THEN
@@ -444,7 +445,7 @@ DECLARE
  actual_config text;
 BEGIN
  FOR item IN SELECT * FROM (VALUES
-    ('vec_contratacion_temporal.necesidad_alta_valida_v3(jsonb)', 'db5185f959d6fe36f85ff87cc14268dbcc6e36fb14e0e549cf3ed160a0d856d3', 'vec_contratacion_temporal_propietario', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}', '{search_path=pg_catalog}'),
+    ('vec_contratacion_temporal.necesidad_alta_valida_v3(jsonb)', 'e1dd8ab71ca6f92d3a98152096e2639bc851a5d613309aaa5ed7a96a5d69264d', 'vec_contratacion_temporal_propietario', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}', '{search_path=pg_catalog}'),
     ('vec_contratacion_temporal.leer_instantanea_necesidad_alta_v3(text,text,text,text)', 'f2896f419c9248a3c891103092b9284a06d68e0bdf11e22bcabffdee71d09f81', 'vec_contratacion_temporal_propietario', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}', '{"search_path=pg_catalog, pg_temp",row_security=on,TimeZone=UTC,statement_timeout=15s}')
  ) AS v(firma,huella,propietario,acl,configuracion) LOOP
    f:=pg_catalog.to_regprocedure(item.firma);
