@@ -2,6 +2,9 @@ package application
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"log/slog"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -14,6 +17,20 @@ type ResultadoFiltroPlazoCuadroRRHH struct {
 	VencenHoy    uint64
 	VencenSemana uint64
 	SinCalcular  uint64
+}
+
+func (ResultadoFiltroPlazoCuadroRRHH) String() string {
+	return "[resultado-filtro-plazo-rrhh-redactado]"
+}
+func (r ResultadoFiltroPlazoCuadroRRHH) GoString() string { return r.String() }
+func (r ResultadoFiltroPlazoCuadroRRHH) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, r.String())
+}
+func (r ResultadoFiltroPlazoCuadroRRHH) LogValue() slog.Value {
+	return slog.StringValue(r.String())
+}
+func (ResultadoFiltroPlazoCuadroRRHH) MarshalJSON() ([]byte, error) {
+	return nil, ports.ErrMaterialConsultaRRHHSensible
 }
 
 // SeleccionarPlazosCuadroRRHH recorre el corte completo, con una calculadora

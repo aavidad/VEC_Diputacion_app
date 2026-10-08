@@ -2,7 +2,11 @@ package application
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,6 +40,10 @@ func TestFiltroPlazoCuadroComparteClasificacionConResumenCompleto(t *testing.T) 
 		!reflect.DeepEqual(seleccion.Referencias, []string{"expediente:ct:001", "expediente:ct:006"}) ||
 		calculadora.llamadas != 5 {
 		t.Fatalf("selección de todo el corte incorrecta: %+v, llamadas=%d, err=%v", seleccion, calculadora.llamadas, err)
+	}
+	if _, err := json.Marshal(seleccion); !errors.Is(err, ports.ErrMaterialConsultaRRHHSensible) ||
+		strings.Contains(fmt.Sprintf("%+v", seleccion), "expediente:ct:001") {
+		t.Fatal("el conjunto de referencias quedó serializable o visible en bitácora")
 	}
 	agregados := ports.AgregadosCuadroRRHH{GruposPlazo: []ports.GrupoPlazoCuadroRRHH{
 		{FaseClave: "fase_vencida", Desde: desde, Numero: 2},
