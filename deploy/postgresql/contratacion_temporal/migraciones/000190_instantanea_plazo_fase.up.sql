@@ -118,7 +118,7 @@ COMMENT ON TABLE vec_contratacion_temporal.regla_legado_transicion_v1 IS
 'Base congelada en la primera activación CT190 para conservar cálculos existentes; no acredita qué regla originó un tramo histórico.';
 CREATE FUNCTION vec_contratacion_temporal.congelar_regla_legado_transicion_v1()
 RETURNS trigger LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET row_security='on' SET "TimeZone"='UTC' AS $function$
+SET search_path=pg_catalog,pg_temp SET row_security='on' SET "TimeZone"='UTC' AS $function$
 DECLARE v_ahora timestamptz(6);
 BEGIN
  IF TG_OP<>'INSERT' OR TG_TABLE_SCHEMA<>'vec_contratacion_temporal'
@@ -311,7 +311,7 @@ REVOKE ALL ON FUNCTION vec_contratacion_temporal.comprobar_activacion_regla_base
 -- fachada atestada tras la decisión V3; las bases se envían una sola vez.
 CREATE FUNCTION vec_contratacion_temporal.leer_capturas_pagina_rrhh_v1(p_contenido bytea)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path=pg_catalog SET row_security='on' SET "TimeZone"='UTC'
+SET search_path=pg_catalog,pg_temp SET row_security='on' SET "TimeZone"='UTC'
 SET lock_timeout='1s' SET statement_timeout='4s' SET idle_in_transaction_session_timeout='6s'
 AS $function$
 DECLARE v_resultado jsonb; v_filas integer; v_capturas integer;
@@ -374,7 +374,7 @@ CREATE OR REPLACE FUNCTION vec_contratacion_temporal.contar_resumen_cuadro_rrhh_
  RETURNS TABLE(clase text, estado_clave text, fase_clave text, fase_desde timestamp with time zone, urgente boolean, numero numeric, captura jsonb)
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
- SET search_path TO 'pg_catalog'
+ SET search_path TO 'pg_catalog', 'pg_temp'
  SET row_security TO 'on'
  SET "TimeZone" TO 'UTC'
  SET lock_timeout TO '1s'
@@ -478,7 +478,7 @@ CREATE OR REPLACE FUNCTION vec_contratacion_temporal.consultar_cuadro_rrhh_atest
  RETURNS TABLE(contenido_canonico bytea, cursor_siguiente text, esquema text, acceso_ref text, secuencia numeric, anterior_sha256 text, huella_sha256 text, vinculo_identidad_huella_sha256 text, alcance_huella_sha256 text, registrada_en timestamp with time zone, auditoria_vec_ref text, auditoria_vec_huella_sha256 text, consumo_vec_huella_sha256 text, contenido_huella_sha256 text, resultado_huella_sha256 text, cursor_huella_sha256 text, generada_en timestamp with time zone, expediente_ref text, version_expediente numeric, total smallint, recibo_sello_sha256 text, total_filtrado numeric, en_tramitacion numeric, con_incidencia numeric, en_llamamiento numeric, fase_desde_expedientes text[], fase_desde_instantes timestamp with time zone[], urgente_expedientes boolean[], capturas_plazo jsonb)
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'pg_catalog'
+ SET search_path TO 'pg_catalog', 'pg_temp'
  SET row_security TO 'on'
  SET "TimeZone" TO 'UTC'
  SET lock_timeout TO '1s'
@@ -540,7 +540,7 @@ CREATE OR REPLACE FUNCTION vec_contratacion_temporal.consultar_cuadro_rrhh_atest
  RETURNS TABLE(contenido_canonico bytea, cursor_siguiente text, esquema text, acceso_ref text, secuencia numeric, anterior_sha256 text, huella_sha256 text, vinculo_identidad_huella_sha256 text, alcance_huella_sha256 text, registrada_en timestamp with time zone, auditoria_vec_ref text, auditoria_vec_huella_sha256 text, consumo_vec_huella_sha256 text, contenido_huella_sha256 text, resultado_huella_sha256 text, cursor_huella_sha256 text, generada_en timestamp with time zone, expediente_ref text, version_expediente numeric, total smallint, recibo_sello_sha256 text, total_filtrado numeric, en_tramitacion numeric, con_incidencia numeric, en_llamamiento numeric, fase_desde_expedientes text[], fase_desde_instantes timestamp with time zone[], urgente_expedientes boolean[], capturas_plazo jsonb, recuento_estados text[], recuento_fases text[], recuento_numeros numeric[], plazo_fases text[], plazo_desde timestamp with time zone[], plazo_urgentes boolean[], plazo_numeros numeric[], capturas_grupos jsonb)
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'pg_catalog'
+ SET search_path TO 'pg_catalog', 'pg_temp'
  SET row_security TO 'on'
  SET "TimeZone" TO 'UTC'
  SET lock_timeout TO '1s'

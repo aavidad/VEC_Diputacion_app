@@ -212,7 +212,7 @@ RETURNS TABLE(contenido_canonico bytea,cursor_siguiente text,esquema text,acceso
  expediente_ref text,version_expediente numeric,total smallint,recibo_sello_sha256 text,
  total_filtrado numeric,en_tramitacion numeric,con_incidencia numeric,en_llamamiento numeric,
  fase_desde_expedientes text[],fase_desde_instantes timestamptz[])
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security='on' AS $f$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security='on' AS $f$
 DECLARE v_contenido bytea; v_refs text[]; v_desde timestamptz[]; v_total smallint; v_filtrado numeric; v_tramite numeric;
 BEGIN
  SELECT p.contenido_canonico INTO v_contenido FROM vec_contratacion_temporal.prueba_resultado_recibo_rrhh_v2 p
