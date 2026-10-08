@@ -316,3 +316,36 @@ test("RRHH descarta el comando incierto tras POST 503 y reintento 401", async ()
   await raiz.pulsar({ accion: "reintentar-alta-rrhh" });
   assert.equal(post, 2);
 });
+
+test("RRHH que entra sin ?vista=rrhh recibe su propia vista, no «Acceso denegado»", async () => {
+  const anteriorLocation = globalThis.location, anteriorHistory = globalThis.history;
+  const urls = [];
+  globalThis.location = { href: "https://vec.example/portal-empleado/peticiones-centro/", search: "" };
+  globalThis.history = { replaceState: (_e, _t, url) => urls.push(String(url)) };
+  try {
+    const raiz = raizFalsa();
+    const rutas = [];
+    await iniciarPeticionCentro({ raiz, cliente: async (ruta) => {
+      rutas.push(ruta);
+      if (ruta.endsWith("/contexto")) throw { status: 403 };
+      if (ruta.endsWith("/rrhh")) return { limite: 50, peticiones: [] };
+      throw { status: 404 };
+    } });
+    assert.equal(rutas.filter((r) => r.endsWith("/contexto")).length, 1);
+    assert.ok(rutas.some((r) => r.endsWith("/peticiones-centro/rrhh")));
+    assert.deepEqual(urls, ["https://vec.example/portal-empleado/peticiones-centro/?vista=rrhh"]);
+    assert.doesNotMatch(raiz.innerHTML, /Acceso denegado/u);
+  } finally {
+    globalThis.location = anteriorLocation; globalThis.history = anteriorHistory;
+  }
+});
+
+test("un centro lee su contexto una sola vez al entrar", async () => {
+  const raiz = raizFalsa();
+  const rutas = [];
+  await iniciarPeticionCentro({ raiz, cliente: async (ruta) => {
+    rutas.push(ruta);
+    return ruta.endsWith("/contexto") ? contexto : { peticiones: [] };
+  } });
+  assert.equal(rutas.filter((r) => r.endsWith("/contexto")).length, 1);
+});
