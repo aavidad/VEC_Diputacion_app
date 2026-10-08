@@ -45,19 +45,26 @@ func TestMaterialIdentidadPresentadorOpcionalYNominal(t *testing.T) {
 	if err != nil || material.presentador != (entradaPoolSeguimiento{}) {
 		t.Fatalf("configuración previa rechazada: %v", err)
 	}
-	escribir(`,"presentador":{"login":"id_presentador","dsn":"dsn_presentador"}`)
+	const presentador = `,"presentador":{"login":"id_presentador","dsn":"dsn_presentador"}`
+	const frontera = `,"frontera_identidad_tecnica":{"login":"id_frontera","dsn":"dsn_frontera"}`
+	escribir(presentador + frontera)
 	material, err = cargarMaterialPoolsIdentidad(base, ct)
-	if err != nil || material.presentador.Login != "id_presentador" {
-		t.Fatalf("presentador dedicado rechazado: %v", err)
+	if err != nil || material.presentador.Login != "id_presentador" || material.fronteraIdentidadTecnica.Login != "id_frontera" {
+		t.Fatalf("pools C4 dedicados rechazados: %v", err)
 	}
 	for nombre, campo := range map[string]string{
-		"nulo":            `,"presentador":null`,
-		"vacio":           `,"presentador":{}`,
-		"incompleto":      `,"presentador":{"login":"id_presentador"}`,
-		"reusa identidad": `,"presentador":{"login":"id_reg","dsn":"dsn_presentador"}`,
-		"reusa CT":        `,"presentador":{"login":"ct_a","dsn":"dsn_presentador"}`,
-		"duplicado":       `,"presentador":{"login":"id_presentador","login":"otro","dsn":"dsn_presentador"}`,
-		"desconocido":     `,"presentador":{"login":"id_presentador","dsn":"dsn_presentador","rol":"privilegiado"}`,
+		"sin auditor":          presentador,
+		"sin presentador":      frontera,
+		"nulo":                 `,"presentador":null` + frontera,
+		"vacio":                `,"presentador":{}` + frontera,
+		"incompleto":           `,"presentador":{"login":"id_presentador"}` + frontera,
+		"reusa identidad":      presentador + `,"frontera_identidad_tecnica":{"login":"id_reg","dsn":"dsn_frontera"}`,
+		"reusa CT":             presentador + `,"frontera_identidad_tecnica":{"login":"ct_a","dsn":"dsn_frontera"}`,
+		"reusa presentador":    presentador + `,"frontera_identidad_tecnica":{"login":"id_presentador","dsn":"dsn_frontera"}`,
+		"frontera vacía":       presentador + `,"frontera_identidad_tecnica":{}`,
+		"frontera desconocida": presentador + `,"frontera_identidad_tecnica":{"login":"id_frontera","dsn":"dsn_frontera","rol":"privilegiado"}`,
+		"duplicado":            `,"presentador":{"login":"id_presentador","login":"otro","dsn":"dsn_presentador"}` + frontera,
+		"desconocido":          `,"presentador":{"login":"id_presentador","dsn":"dsn_presentador","rol":"privilegiado"}` + frontera,
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			escribir(campo)
@@ -68,7 +75,7 @@ func TestMaterialIdentidadPresentadorOpcionalYNominal(t *testing.T) {
 	}
 }
 
-func TestCerrarPoolsIdentidadIncluyePresentador(t *testing.T) {
+func TestCerrarPoolsIdentidadIncluyePresentadorYFrontera(t *testing.T) {
 	cfg, err := pgxpool.ParseConfig("postgresql://presentador:prueba@127.0.0.1:1/vec?sslmode=verify-full")
 	if err != nil {
 		t.Fatal(err)
@@ -77,8 +84,15 @@ func TestCerrarPoolsIdentidadIncluyePresentador(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	PoolsIdentidadInterna{Presentador: pool}.Cerrar()
+	frontera, err := pgxpool.NewWithConfig(t.Context(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	PoolsIdentidadInterna{Presentador: pool, FronteraIdentidadTecnica: frontera}.Cerrar()
 	if _, err := pool.Acquire(context.Background()); !errors.Is(err, puddle.ErrClosedPool) {
 		t.Fatalf("presentador quedó abierto tras cerrar recursos: %v", err)
+	}
+	if _, err := frontera.Acquire(context.Background()); !errors.Is(err, puddle.ErrClosedPool) {
+		t.Fatalf("frontera quedó abierta tras cerrar recursos: %v", err)
 	}
 }
