@@ -215,6 +215,24 @@ test("una fase exacta puede contener terminadas: el listado usa su total, no el 
   montaje.desmontar();
 });
 
+test("las filas de preparación y cierre conservan el rótulo del filtro en ES y EN", async () => {
+  for (const [idioma, faseEtiqueta, preparacion, cierre] of [
+    ["es", "Fase", "Preparación", "Cierre"], ["en", "Stage", "Preparation", "Closure"],
+  ]) {
+    const raiz = raizFalsa();
+    const montaje = await montarCuadroContratacionLigero({ raiz, idioma,
+      abrirDetalle: async () => {}, mostrarError: (_raiz, datos) => { throw datos.error; },
+      cliente: { consultarCuadroRRHH: async () => ({ generada_en: "2026-10-01T09:00:00Z", hay_mas: false,
+        expedientes: [{ ...fila, fase_clave: "preparacion" },
+          { ...fila, expediente_ref: "expediente:ct:002", numero_visible: "2026/CT-0002", fase_clave: "cierre" }] }) },
+    });
+    assert.match(raiz.innerHTML, new RegExp(`<td data-etiqueta="${faseEtiqueta}">${preparacion}<\\/td>`, "u"));
+    assert.match(raiz.innerHTML, new RegExp(`<td data-etiqueta="${faseEtiqueta}">${cierre}`, "u"));
+    assert.doesNotMatch(raiz.innerHTML, new RegExp(`<td data-etiqueta="${faseEtiqueta}">(?:preparacion|cierre)`, "u"));
+    montaje.desmontar();
+  }
+});
+
 test("una señal ya abortada no consulta, modifica DOM ni instala eventos", async () => {
   const controlador = new AbortController(), raiz = raizFalsa();
   controlador.abort();

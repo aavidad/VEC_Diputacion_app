@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 import { FILTRO_CT_NO_SOPORTADO, FILTRO_INCIDENCIA_CT, filtroServidorCTValido,
   leerFiltroCTDeRuta, limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js";
 
@@ -27,4 +29,24 @@ test("el lector deniega filtros duplicados, plazos y claves ajenas sin convertir
   assert.equal(filtroServidorCTValido({ texto: "", estado_clave: "incidencia", fase_clave: "gestion_bolsa" }), false);
   assert.equal(limpiarFiltroCTDeBusqueda("?lang=es&ct_estado=incidencia&ct_fase=cierre&vista=ct"), "?lang=es&vista=ct");
   assert.throws(() => rutaPortalConFiltroCT({ pathname: "//otro.example/", search: "" }, "#portal"));
+});
+
+test("F5 entrega también el callback que mantiene la URL al editar el filtro", async () => {
+  const portal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
+  const inicio = portal.indexOf("function opcionesDesdeEnlace(vista)");
+  const fin = portal.indexOf("function vistaDesdeHash()", inicio);
+  assert.ok(inicio > 0 && fin > inicio);
+  const location = { pathname: "/portal-empleado/", search: "?lang=en&ct_estado=incidencia", hash: "#contratacion-temporal" };
+  const callback = () => {};
+  const leer = runInNewContext(`${portal.slice(inicio, fin)}; opcionesDesdeEnlace`, {
+    window: { location }, URLSearchParams, leerFiltroCTDeRuta,
+    alCambiarFiltroListaCT: callback, history: { replaceState() {} },
+  });
+  const opciones = leer("contratacion-temporal");
+  assert.deepEqual({ ...opciones.filtroServidorRuta }, FILTRO_INCIDENCIA_CT);
+  assert.equal(opciones.alCambiarFiltroLista, callback);
+  location.search = "?lang=en";
+  assert.equal(leer("contratacion-temporal").alCambiarFiltroLista, callback,
+    "la entrada CT sin filtro también sincroniza cambios posteriores");
+  assert.equal(leer("portal"), null);
 });

@@ -878,14 +878,16 @@ async function solicitarPropuestaLlamamiento() {
 function opcionesDesdeEnlace(vista) {
   const parametros = new URLSearchParams(window.location.search);
   const filtroServidorRuta = vista === "contratacion-temporal" ? leerFiltroCTDeRuta(window.location.search) : null;
-  if (!parametros.has("expediente")) return filtroServidorRuta ? { filtroServidorRuta } : null;
+  const opcionesCT = vista === "contratacion-temporal"
+    ? { alCambiarFiltroLista: alCambiarFiltroListaCT,
+      ...(filtroServidorRuta ? { filtroServidorRuta } : {}) } : null;
+  if (!parametros.has("expediente")) return opcionesCT;
   const referencia = parametros.get("expediente") || "";
   parametros.delete("expediente");
   const busqueda = parametros.toString();
   history.replaceState(null, "", `${window.location.pathname}${busqueda ? `?${busqueda}` : ""}${window.location.hash}`);
   return vista === "contratacion-temporal" && /^[A-Za-z0-9:_.-]{1,200}$/u.test(referencia)
-    ? { expedienteRef: referencia, ...(filtroServidorRuta ? { filtroServidorRuta } : {}) }
-    : (filtroServidorRuta ? { filtroServidorRuta } : null);
+    ? { ...opcionesCT, expedienteRef: referencia } : opcionesCT;
 }
 
 function vistaDesdeHash() {

@@ -36,7 +36,7 @@ function filtroLigeroValido(entrada) {
 const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu,
   (caracter) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[caracter]);
 
-function proyectarPagina(pagina, fases, locale) {
+function proyectarPagina(pagina, fases, locale, traducir) {
   if (!Array.isArray(pagina?.expedientes) || typeof pagina.generada_en !== "string"
     || typeof pagina.hay_mas !== "boolean"
     || (pagina.totales && !pagina.resumen)
@@ -48,6 +48,7 @@ function proyectarPagina(pagina, fases, locale) {
   const fecha = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeZone: "Europe/Madrid" });
   const expedientes = pagina.expedientes.map((entrada) => {
     const fase = FASE_RRHH_DE_ORIGEN[entrada.fase_clave];
+    const etiquetaFase = FASES_SERVIDOR_V1.find(([clave]) => clave === entrada.fase_clave)?.[1];
     const estadoClave = entrada.estado_clave === "espera_externa" ? "espera" : entrada.estado_clave;
     const plazo = entrada.plazo_fase;
     return Object.freeze({
@@ -56,7 +57,7 @@ function proyectarPagina(pagina, fases, locale) {
       centro: entrada.centro_ref,
       categoria: entrada.categoria_ref,
       fase_clave: entrada.fase_clave,
-      fase_actual: fases[`fase_${fase}`] ?? entrada.fase_clave,
+      fase_actual: etiquetaFase ? traducir(etiquetaFase) : fases[`fase_${fase}`] ?? entrada.fase_clave,
       estado_clave: estadoClave,
       estado: fases[`estado_${estadoClave}`] ?? entrada.estado_clave,
       plazo_estado: plazo?.estado ?? "no_calculado",
@@ -209,7 +210,8 @@ export async function montarCuadroContratacionLigero({
       filtroConsultado = JSON.stringify(filtro);
       const pagina = await cliente.consultarCuadroRRHH(solicitud, { signal: actual.signal });
       if (!vigente || actual !== controlador) return;
-      cuadro = proyectarPagina(pagina, preparado.secciones["portal.fases_rrhh"], localizacionDe(preparado.idioma));
+      cuadro = proyectarPagina(pagina, preparado.secciones["portal.fases_rrhh"],
+        localizacionDe(preparado.idioma), crearTraductorCuadroCT(preparado));
       alCambiarFiltroLista?.(solicitud.filtros);
       if (soloResultados) pintarConFocoDeFiltro();
       else pintar();
