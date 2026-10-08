@@ -352,9 +352,9 @@ function validarCategoria(categoria, indice) {
 }
 
 export function numeroExpedienteMOADValido(valor) {
-  // Envolvente de transporte; el patrón de negocio sólo lo aplica el servidor.
-  return textoValido(valor, LIMITES_ALTA_CONTRATACION.numeroExpediente, false)
-    && !/[\p{Cc}\p{Cf}]/u.test(valor);
+  // Misma envolvente técnica que el servidor; la política publicada se
+  // comprueba allí sin ejecutar su patrón en el navegador.
+  return typeof valor === "string" && PATRON_NUMERO.test(valor);
 }
 
 export function validarPoliticaNumeroMOAD(politica) {
@@ -495,6 +495,14 @@ function valorNecesidadValido(campo, valor) {
   return PATRON_CODIGO_NECESIDAD.test(valor);
 }
 
+function errorValorNecesidad(campo) {
+  if (["numero_personas", "porcentaje_financiacion", "justificacion_temporal"].includes(campo)) return campo;
+  if (["organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "proyecto_codigo"].includes(campo)) {
+    return "codigo_necesidad";
+  }
+  return "campo_necesidad";
+}
+
 export function crearBorradorAlta({ conNumeroMOAD = false, conNecesidad = false,
   jornadaReferenciaMinutos = 0 } = {}) {
   return clonarYCongelarAlta({
@@ -564,7 +572,7 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
   }
 
   if (conNumero && !numeroExpedienteMOADValido(borrador.numero_expediente_moad)) {
-    agregarError(errores, "numero_expediente_moad", "numero_moad");
+    agregarError(errores, "numero_expediente_moad", "numero_moad_formato");
   }
   const centro = catalogos.centros.find((opcion) => opcion.referencia === borrador.centro_ref);
   if (!centro) agregarError(errores, "centro_ref", "opcion_catalogo");
@@ -649,11 +657,14 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
       }
       for (const campo of CAMPOS_NECESIDAD) {
         const valor = borrador[campo];
-        if (typeof valor !== "string" || (valor && !valorNecesidadValido(campo, valor))
-          || (valor && !causa.campos_permitidos.includes(campo))) {
-          agregarError(errores, campo, campo === "numero_personas" ? "numero_personas" : "campo_necesidad");
+        const codigoError = errorValorNecesidad(campo);
+        if (typeof valor !== "string" || (valor && !valorNecesidadValido(campo, valor))) {
+          agregarError(errores, campo, codigoError);
         }
-        if (causa.campos_obligatorios.includes(campo) && !valor) agregarError(errores, campo, "texto_obligatorio");
+        if (valor && !causa.campos_permitidos.includes(campo)) agregarError(errores, campo, "campo_necesidad");
+        if (causa.campos_obligatorios.includes(campo) && !valor) {
+          agregarError(errores, campo, codigoError === "campo_necesidad" ? "texto_obligatorio" : codigoError);
+        }
       }
       for (const grupo of causa.uno_de ?? []) {
         if (grupo.filter((campo) => borrador[campo]).length !== 1) agregarError(errores, grupo[0], "uno_de");
