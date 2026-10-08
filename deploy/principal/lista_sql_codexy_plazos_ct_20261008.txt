@@ -1,0 +1,6 @@
+# Base postHX+HZ14+B85+B86+CT193+B87; verificar diario antes de cada UP.
+# CT190 abre captura de tramos; CT191 guarda base activa; CT195 programa efectos.
+# No reaplicar una migración instalada ni ejecutar DOWN con historia.
+deploy/postgresql/contratacion_temporal/migraciones/000190_instantanea_plazo_fase.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000191_activacion_ajustes_reglas.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000195_programacion_ajustes_reglas.up.sql
