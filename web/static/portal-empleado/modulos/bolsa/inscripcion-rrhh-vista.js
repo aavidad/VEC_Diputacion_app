@@ -1,0 +1,192 @@
+import { cargarTextos, reintentarTextos } from "../../../comun/textos.js";
+import { crearClienteInscripcionesRRHH } from "./inscripcion-rrhh-cliente.js";
+
+const ESTADOS = new Set(["pendiente", "admitida_a_convocatoria", "incorporada", "rechazada"]);
+const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+  .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+const claveNueva = () => `inscripcion-${globalThis.crypto.randomUUID()}`;
+
+export function leerRutaInscripcionesRRHH(busqueda = "") {
+  const q = new URLSearchParams(busqueda);
+  const estado = q.get("inscripcion_estado") || "pendiente";
+  const bolsa = q.get("inscripcion_bolsa") || "";
+  const cursor = q.get("inscripcion_cursor") || "";
+  return Object.freeze({ estado: ESTADOS.has(estado) ? estado : "pendiente",
+    bolsa: bolsa.length <= 512 ? bolsa : "", cursor: cursor.length <= 512 ? cursor : "" });
+}
+
+export function rutaInscripcionesRRHH(actual, filtro) {
+  const url = new URL(actual);
+  for (const nombre of ["inscripcion_estado", "inscripcion_bolsa", "inscripcion_cursor"]) url.searchParams.delete(nombre);
+  if (filtro.estado && filtro.estado !== "pendiente") url.searchParams.set("inscripcion_estado", filtro.estado);
+  if (filtro.bolsa) url.searchParams.set("inscripcion_bolsa", filtro.bolsa);
+  if (filtro.cursor) url.searchParams.set("inscripcion_cursor", filtro.cursor);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInscripcionesRRHH(),
+  localizacion = globalThis.location, historial = globalThis.history,
+  cargarCatalogo = cargarTextos, reintentarCatalogo = reintentarTextos,
+  alDenegacion = () => {} } = {}) {
+  if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
+    || !cliente?.listar || !cliente?.detalle || !cliente?.motivos || !cliente?.decidir || !cliente?.incorporar) {
+    throw new TypeError("superficie no disponible");
+  }
+  let vivo = true;
+  let secuencia = 0;
+  let controlador = null;
+  let catalogo = null;
+  let listado = null;
+  let detalle = null;
+  let motivos = null;
+  let decision = "";
+  let recibo = null;
+  let estadoVista = "cargando";
+  let ayuda = false;
+  let filtro = leerRutaInscripcionesRRHH(localizacion.search);
+  let intento = null;
+  let enviando = false;
+  const t = (clave, vars = {}) => catalogo.traducir(`rrhh.${clave}`, vars);
+  const et = (clave, vars) => esc(t(clave, vars));
+  const fecha = (valor) => esc(catalogo.fecha(valor, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" }));
+
+  function limpiarDenegacion() {
+    ++secuencia; controlador?.abort(); listado = null; detalle = null; motivos = null; recibo = null;
+    intento = null; estadoVista = "denegada"; alDenegacion(); pintar();
+  }
+  function pintar() {
+    if (!vivo || !catalogo) return;
+    const lista = listado?.solicitudes || [];
+    const filas = lista.map((s) => `<tr><th scope="row"><button type="button" class="boton-enlace" data-inscripcion-abrir="${esc(s.solicitud_ref)}">${esc(s.persona_resumen || t("ver_solicitud"))}</button></th>
+      <td>${esc(s.bolsa_ref)}</td><td><span class="estado-chip ${s.estado === "pendiente" ? "aviso" : s.estado === "incorporada" ? "exito" : s.estado === "rechazada" ? "peligro" : "info"}">${et(`estado_${s.estado}`)}</span></td><td><time datetime="${esc(s.registrada_en)}">${fecha(s.registrada_en)}</time></td></tr>`).join("");
+    const opcionesEstado = [...ESTADOS].map((e) => `<option value="${e}" ${filtro.estado === e ? "selected" : ""}>${et(`estado_${e}`)}</option>`).join("");
+    const estado = estadoVista === "cargando" ? `<p role="status" aria-busy="true">${et("cargando")}</p>`
+      : estadoVista === "denegada" ? `<p role="alert">${et("denegada")}</p>`
+        : ["error", "conflicto", "falta_acta"].includes(estadoVista) ? `<p role="alert">${et(estadoVista === "error" && detalle && decision ? "error_decision" : estadoVista)}</p>${detalle && decision ? "" : `<button type="button" class="boton-secundario" data-inscripcion-reintentar>${et("reintentar")}</button>`}`
+          : listado?.total === 0 ? `<p>${et("vacio")}</p>` : "";
+    const cuenta = listado ? `<a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, cursor: "" }))}" data-inscripcion-total>${et("total", { cuenta: catalogo.numero(listado.total) })}</a>` : "";
+    const paginacion = listado?.cursor_siguiente ? `<nav aria-label="${et("paginacion")}"><a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, cursor: listado.cursor_siguiente }))}" data-inscripcion-siguiente>${et("siguiente")}</a></nav>` : "";
+    let ficha = "";
+    if (detalle) {
+      const opciones = motivos?.motivos?.map((m) => `<option value="${esc(m.codigo)}" ${intento?.motivoCodigo === m.codigo ? "selected" : ""}>${esc(m.etiqueta)}</option>`).join("") || "";
+      const selector = decision && motivos?.motivos?.length ? `<label for="inscripcion-motivo">${et("motivo")}</label><select id="inscripcion-motivo" data-inscripcion-motivo ${decision === "rechazar" ? "required" : ""}><option value="">${et("sin_motivo")}</option>${opciones}</select>` : "";
+      const sinMotivos = decision === "rechazar" && !motivos?.motivos?.length;
+      const requisitosNoResueltos = detalle.requisitos?.some((r) => r.obligatorio && r.estado !== "cumple") ?? true;
+      const requisitos = `<section aria-labelledby="inscripcion-requisitos"><h4 id="inscripcion-requisitos">${et("requisitos")}</h4><ul>${(detalle.requisitos || []).map((r) => `<li>${esc(r.descripcion)} — ${et(`requisito_${r.estado}`)}</li>`).join("")}</ul></section>`;
+      const evidencia = decision === "incorporar" ? `<label for="inscripcion-evidencia">${et("evidencia")}</label><input id="inscripcion-evidencia" data-inscripcion-evidencia value="${esc(intento?.evidenciaRef || "")}" required maxlength="512">` : "";
+      const confirmar = decision ? `${sinMotivos ? `<p role="status">${et("motivos_no_disponibles")}</p>` : ""}<div class="acciones-vista"><button type="button" class="boton-secundario" data-inscripcion-cancelar>${et("cambiar")}</button><button type="button" class="boton-principal" data-inscripcion-confirmar ${enviando || sinMotivos ? "disabled" : ""}>${et(decision === "admitir" ? "confirmar_admision" : decision === "incorporar" ? "confirmar_incorporacion" : "confirmar_rechazo")}</button></div>`
+        : detalle.estado === "pendiente" ? `<div class="acciones-vista">${requisitosNoResueltos ? `<p>${et("requisitos_pendientes")}</p>` : ""}<button type="button" class="boton-principal" data-inscripcion-decidir="admitir" ${requisitosNoResueltos ? "disabled" : ""}>${et("admitir")}</button><button type="button" class="boton-secundario" data-inscripcion-decidir="rechazar">${et("rechazar")}</button></div>`
+          : detalle.estado === "admitida_a_convocatoria" ? `<div class="acciones-vista"><button type="button" class="boton-principal" data-inscripcion-decidir="incorporar">${et("incorporar")}</button></div>` : "";
+      ficha = `<section class="panel" aria-labelledby="inscripcion-detalle-titulo"><header class="cabecera-panel"><h3 id="inscripcion-detalle-titulo" tabindex="-1">${et("detalle")}</h3><button type="button" class="boton-secundario" data-inscripcion-cerrar>${et("cerrar")}</button></header><div class="cuerpo-panel">
+        <dl>${detalle.persona_resumen ? `<dt>${et("persona")}</dt><dd>${esc(detalle.persona_resumen)}</dd>` : ""}<dt>${et("bolsa")}</dt><dd>${esc(detalle.bolsa_ref)}</dd><dt>${et("estado")}</dt><dd>${et(`estado_${detalle.estado}`)}</dd><dt>${et("fecha")}</dt><dd>${fecha(detalle.registrada_en)}</dd><dt>${et("plazo")}</dt><dd>${fecha(detalle.plazo_inicio)} – ${fecha(detalle.plazo_fin)}</dd></dl>
+        ${requisitos}${decision ? `<h4>${et("revision")}</h4>${selector}${evidencia}` : ""}${confirmar}</div></section>`;
+    }
+    const confirmacion = recibo ? `<section class="panel" role="status"><div class="cuerpo-panel"><p>${et(recibo.estado === "rechazada" ? "rechazada" : recibo.estado === "incorporada" ? "incorporada" : "admitida_a_convocatoria")}</p><p>${et("recibo")}: ${esc(recibo.recibo_ref)}</p><button type="button" class="boton-secundario" data-inscripcion-cerrar-recibo>${et("volver_lista")}</button></div></section>` : "";
+    raiz.innerHTML = `<section class="panel" aria-labelledby="inscripciones-titulo"><header class="cabecera-panel"><div><h2 id="inscripciones-titulo">${et("titulo")}</h2></div><button type="button" class="boton-secundario" data-inscripcion-ayuda aria-expanded="${ayuda}" aria-controls="inscripcion-ayuda" aria-label="${et("ayuda_boton")}">?</button></header>
+      <div class="cuerpo-panel"><div id="inscripcion-ayuda" ${ayuda ? "" : "hidden"}>${et("ayuda")}</div><form data-inscripcion-filtros><label for="inscripcion-estado">${et("estado")}</label><select id="inscripcion-estado" name="estado">${opcionesEstado}</select>
+      <label for="inscripcion-bolsa">${et("bolsa")}</label><input id="inscripcion-bolsa" name="bolsa" value="${esc(filtro.bolsa)}" maxlength="512"><button class="boton-secundario" type="submit">${et("filtrar")}</button></form>
+      ${estado}${cuenta}${listado?.total ? `<div class="tabla-desplazable" role="region" tabindex="0" aria-label="${et("lista")}"><table class="tabla-datos"><thead><tr><th scope="col">${et("persona")}</th><th scope="col">${et("bolsa")}</th><th scope="col">${et("estado")}</th><th scope="col">${et("fecha")}</th></tr></thead><tbody>${filas}</tbody></table></div>` : ""}${paginacion}</div></section>${ficha}${confirmacion}`;
+  }
+  function navegar(nuevo) {
+    filtro = nuevo; detalle = null; motivos = null; decision = ""; recibo = null; intento = null;
+    historial.pushState(null, "", rutaInscripcionesRRHH(localizacion.href, filtro));
+    void cargarLista();
+  }
+  async function cargarLista() {
+    controlador?.abort(); const orden = ++secuencia; controlador = new AbortController();
+    listado = null; detalle = null; estadoVista = "cargando"; pintar();
+    try {
+      const data = await cliente.listar({ ...filtro, signal: controlador.signal });
+      if (!vivo || orden !== secuencia || controlador.signal.aborted) return;
+      listado = data; estadoVista = "lista"; pintar();
+    } catch (error) {
+      if (!vivo || orden !== secuencia || controlador.signal.aborted) return;
+      if ([401, 403].includes(error?.estado)) limpiarDenegacion();
+      else { estadoVista = "error"; pintar(); }
+    }
+  }
+  async function abrir(ref) {
+    controlador?.abort(); const orden = ++secuencia; controlador = new AbortController();
+    detalle = null; motivos = null; recibo = null; decision = ""; pintar();
+    try {
+      const data = await cliente.detalle(ref, { signal: controlador.signal });
+      if (!vivo || orden !== secuencia || controlador.signal.aborted) return;
+      detalle = data; pintar(); raiz.querySelector?.("#inscripcion-detalle-titulo")?.focus?.({ preventScroll: true });
+    } catch (error) {
+      if (!vivo || orden !== secuencia || controlador.signal.aborted) return;
+      if ([401, 403].includes(error?.estado)) limpiarDenegacion();
+      else { estadoVista = "error"; pintar(); }
+    }
+  }
+  async function prepararDecision(elegida) {
+    if (!detalle || !(detalle.estado === "pendiente" && ["admitir", "rechazar"].includes(elegida)
+      || detalle.estado === "admitida_a_convocatoria" && elegida === "incorporar")) return;
+    if (elegida === "admitir" && detalle.requisitos?.some((r) => r.obligatorio && r.estado !== "cumple")) return;
+    controlador?.abort(); const orden = ++secuencia; controlador = new AbortController();
+    decision = ""; motivos = null;
+    try {
+      const data = elegida === "incorporar" ? null : await cliente.motivos(elegida, { signal: controlador.signal });
+      if (!vivo || orden !== secuencia || controlador.signal.aborted) return;
+      motivos = data; decision = elegida; intento = null; pintar();
+    } catch (error) {
+      if (!vivo || orden !== secuencia || controlador.signal.aborted) return;
+      if ([401, 403].includes(error?.estado)) limpiarDenegacion();
+      else { estadoVista = "error"; pintar(); }
+    }
+  }
+  async function confirmar() {
+    if (!detalle || !decision || enviando || (decision === "rechazar" && !motivos?.motivos?.length)) return;
+    const motivoCodigo = raiz.querySelector?.("[data-inscripcion-motivo]")?.value || "";
+    const evidenciaRef = raiz.querySelector?.("[data-inscripcion-evidencia]")?.value?.trim() || "";
+    if (decision === "incorporar" && !evidenciaRef) { raiz.querySelector?.("[data-inscripcion-evidencia]")?.reportValidity?.(); return; }
+    if ((decision === "rechazar" || motivos?.motivos?.some((m) => m.obligatorio)) && !motivoCodigo) {
+      raiz.querySelector?.("[data-inscripcion-motivo]")?.reportValidity?.(); return;
+    }
+    if (motivoCodigo && !motivos?.motivos?.some((m) => m.codigo === motivoCodigo)) return;
+    if (!intento || intento.motivoCodigo !== motivoCodigo || intento.evidenciaRef !== evidenciaRef) intento = {
+      solicitudRef: detalle.solicitud_ref, decision, motivoCodigo, evidenciaRef,
+      versionEsperada: detalle.version, claveIdempotencia: claveNueva() };
+    const orden = secuencia; enviando = true; pintar();
+    try {
+      const data = decision === "incorporar" ? await cliente.incorporar(intento) : await cliente.decidir(intento);
+      if (!vivo || orden !== secuencia) return;
+      recibo = data; detalle = null; decision = ""; motivos = null; estadoVista = "lista";
+      pintar(); void cargarLista();
+    } catch (error) {
+      if (!vivo || orden !== secuencia) return;
+      if ([401, 403].includes(error?.estado)) limpiarDenegacion();
+      else { estadoVista = error?.estado === 409 ? decision === "incorporar" ? "falta_acta" : "conflicto" : "error";
+        if (estadoVista === "conflicto") { detalle = null; decision = ""; motivos = null; intento = null; }
+        pintar(); }
+    } finally { enviando = false; }
+  }
+  const click = (evento) => {
+    const accion = evento.target?.closest?.("[data-inscripcion-abrir], [data-inscripcion-decidir], [data-inscripcion-confirmar], [data-inscripcion-cancelar], [data-inscripcion-cerrar], [data-inscripcion-reintentar], [data-inscripcion-ayuda], [data-inscripcion-siguiente], [data-inscripcion-total], [data-inscripcion-cerrar-recibo]");
+    if (!accion || !raiz.contains(accion)) return;
+    if (accion.matches("a")) evento.preventDefault();
+    if (accion.dataset.inscripcionAbrir) void abrir(accion.dataset.inscripcionAbrir);
+    else if (accion.dataset.inscripcionDecidir) void prepararDecision(accion.dataset.inscripcionDecidir);
+    else if (accion.hasAttribute("data-inscripcion-confirmar")) void confirmar();
+    else if (accion.hasAttribute("data-inscripcion-cancelar")) { decision = ""; motivos = null; intento = null; pintar(); }
+    else if (accion.hasAttribute("data-inscripcion-cerrar")) { ++secuencia; controlador?.abort(); detalle = null; decision = ""; motivos = null; pintar(); }
+    else if (accion.hasAttribute("data-inscripcion-reintentar")) void cargarLista();
+    else if (accion.hasAttribute("data-inscripcion-ayuda")) { ayuda = !ayuda; pintar(); raiz.querySelector?.("[data-inscripcion-ayuda]")?.focus?.(); }
+    else if (accion.hasAttribute("data-inscripcion-siguiente")) navegar({ ...filtro, cursor: listado.cursor_siguiente });
+    else if (accion.hasAttribute("data-inscripcion-total")) navegar({ ...filtro, cursor: "" });
+    else if (accion.hasAttribute("data-inscripcion-cerrar-recibo")) { recibo = null; pintar(); }
+  };
+  const submit = (evento) => {
+    if (!evento.target?.matches?.("[data-inscripcion-filtros]")) return;
+    evento.preventDefault(); const form = new FormData(evento.target);
+    navegar({ estado: form.get("estado"), bolsa: String(form.get("bolsa") || "").trim(), cursor: "" });
+  };
+  const pop = () => { filtro = leerRutaInscripcionesRRHH(localizacion.search); void cargarLista(); };
+  raiz.addEventListener("click", click); raiz.addEventListener("submit", submit);
+  globalThis.addEventListener?.("popstate", pop);
+  try { catalogo = await cargarCatalogo("bolsa-inscripcion-rrhh"); }
+  catch { catalogo = await reintentarCatalogo("bolsa-inscripcion-rrhh"); }
+  if (vivo) void cargarLista();
+  return Object.freeze({ desmontar() { vivo = false; ++secuencia; controlador?.abort();
+    raiz.removeEventListener("click", click); raiz.removeEventListener("submit", submit);
+    globalThis.removeEventListener?.("popstate", pop); raiz.replaceChildren(); } });
+}
