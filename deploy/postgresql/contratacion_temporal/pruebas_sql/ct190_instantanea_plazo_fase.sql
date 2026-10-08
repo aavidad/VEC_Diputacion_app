@@ -78,6 +78,7 @@ DECLARE
  secuencia_previa bigint; base_version bigint; version_ajustes_previa bigint;
  fase_nueva text; fase_siguiente text; canonico text; huella text;
  ajustes text; ajustes_huella text; ajustes_futuros text; instante timestamptz(6); paso integer;
+ v_legado_correcto boolean; v_grupos integer;
 BEGIN
  IF (SELECT count(*) FROM vec_contratacion_temporal.fase_regla_instantanea_v1)
     <> (SELECT count(*) FROM vec_contratacion_temporal.fase_entrada_publicacion_rrhh)
@@ -121,6 +122,16 @@ BEGIN
   (secuencia,secuencia_esperada,activa,catalogo_id,version,huella_sha256,aprobacion_ref)
  VALUES (secuencia_previa+1,secuencia_previa,true,
   'vec.contratacion_temporal.reglas',base_version,huella,'aprobacion:sintetica:ct190');
+ SELECT count(*),bool_and(r.captura->>'estado'='legado_base_transicion'
+    AND r.captura->>'base_huella'=huella)
+ INTO v_grupos,v_legado_correcto
+ FROM vec_contratacion_temporal.contar_resumen_cuadro_rrhh_v1(
+  ROW('organizacion:desarrollo:dipgra','organizacion','organizacion:desarrollo:dipgra')::vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+  ROW('2026/CT190-SIN-BASE','','',100,'')::vec_contratacion_temporal.consulta_cuadro_rrhh_v1,'') r
+ WHERE r.clase='plazo';
+ IF v_grupos<>1 OR v_legado_correcto IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'CT190: legado anterior a primera activación perdió la transición';
+ END IF;
  BEGIN
   INSERT INTO vec_contratacion_temporal.regla_base_activacion_v1
    (secuencia,secuencia_esperada,activa,catalogo_id,version,huella_sha256,aprobacion_ref)
@@ -255,6 +266,21 @@ BEGIN
   WHERE expediente_ref=nueva.expediente_ref AND version=nueva.version;
  IF instantanea.estado<>'legado_sin_instantanea' OR instantanea.base_version IS NOT NULL THEN
   RAISE EXCEPTION 'CT190: clave=inactiva.estado esperado=legado_sin_instantanea observado=%',instantanea.estado;
+ END IF;
+ IF instantanea.fase_desde <= (SELECT t.capturada_en
+   FROM vec_contratacion_temporal.regla_legado_transicion_v1 t) THEN
+  RAISE EXCEPTION 'CT190: la fase de prueba no es posterior a la transición';
+ END IF;
+ SELECT count(*),bool_and(r.captura->>'estado'='legado_sin_instantanea'
+    AND r.captura->>'base_huella' IS NULL
+    AND r.captura->>'capturada_en' IS NULL)
+ INTO v_grupos,v_legado_correcto
+ FROM vec_contratacion_temporal.contar_resumen_cuadro_rrhh_v1(
+  ROW('organizacion:desarrollo:dipgra','organizacion','organizacion:desarrollo:dipgra')::vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+  ROW(nueva.agregado_json->>'numero_visible','','',100,'')::vec_contratacion_temporal.consulta_cuadro_rrhh_v1,'') r
+ WHERE r.clase='plazo' AND r.fase_clave=nueva.fase_clave;
+ IF v_grupos<>1 OR v_legado_correcto IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'CT190: fase abierta tras desactivación recibió transición anterior';
  END IF;
 END $prueba$;
 

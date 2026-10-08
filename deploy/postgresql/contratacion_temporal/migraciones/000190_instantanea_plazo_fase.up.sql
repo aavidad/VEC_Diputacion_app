@@ -10,6 +10,26 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '60s';
 SELECT pg_catalog.pg_advisory_xact_lock(
   pg_catalog.hashtextextended('vec_contratacion_temporal:migracion:000190', 0));
+-- Solo se sustituyen los tres cuerpos instalados y comprobados en la principal.
+-- La comprobación precede a los bloqueos de las tablas de publicación.
+DO $huellas$
+DECLARE v_funcion record; v_observada text;
+BEGIN
+ FOR v_funcion IN SELECT * FROM (VALUES
+  ('vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v4(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)', '11d50801eaf4435e2af608359c63ffe504005298aa78274abee1660614ef6370'),
+  ('vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v5(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)', 'a4488c2d424371f033f0859d81400831112527e0012c90980113c32ae6a7e66a'),
+  ('vec_contratacion_temporal.contar_resumen_cuadro_rrhh_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,text)', 'b820203e211aa615dff50d6c49a26dce0e9f43daa2ec0854a9d3036bee401cf7')
+ ) AS f(firma,huella_esperada) LOOP
+  SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')
+    INTO v_observada FROM pg_catalog.pg_proc p
+   WHERE p.oid=pg_catalog.to_regprocedure(v_funcion.firma)
+     AND p.proowner='vec_contratacion_temporal_propietario'::pg_catalog.regrole;
+  IF v_observada IS DISTINCT FROM v_funcion.huella_esperada THEN
+   RAISE EXCEPTION 'CT-190: preimagen de función incompatible: %',v_funcion.firma
+    USING ERRCODE='55000';
+  END IF;
+ END LOOP;
+END $huellas$;
 LOCK TABLE vec_contratacion_temporal.publicacion_version_rrhh IN SHARE MODE;
 LOCK TABLE vec_contratacion_temporal.fase_entrada_publicacion_rrhh IN SHARE MODE;
 DO $pre$
@@ -344,7 +364,7 @@ BEGIN
   FROM pagina p LEFT JOIN vec_contratacion_temporal.fase_regla_instantanea_v1 s
    ON s.expediente_ref=p.expediente_ref AND s.version=p.version
   LEFT JOIN vec_contratacion_temporal.regla_legado_transicion_v1 t
-   ON s.estado='legado_sin_instantanea'
+   ON s.estado='legado_sin_instantanea' AND s.fase_desde<=t.capturada_en
   LEFT JOIN vec_contratacion_temporal.regla_base_publicada_v1 b
    ON b.catalogo_id=coalesce(s.base_catalogo_id,t.base_catalogo_id)
     AND b.version=coalesce(s.base_version,t.base_version)
@@ -467,7 +487,7 @@ BEGIN
       LEFT JOIN vec_contratacion_temporal.fase_regla_instantanea_v1 s
         ON s.expediente_ref=filtrada.expediente_ref AND s.version=filtrada.version
       LEFT JOIN vec_contratacion_temporal.regla_legado_transicion_v1 t
-        ON s.estado='legado_sin_instantanea'
+        ON s.estado='legado_sin_instantanea' AND s.fase_desde<=t.capturada_en
       LEFT JOIN (
           SELECT expediente_ref, pg_catalog.min(version) AS primera_version
             FROM vec_contratacion_temporal.urgencia_expediente_analisis
@@ -680,6 +700,15 @@ GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.consultar_cuadro_rrhh_atesta
 ALTER FUNCTION vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v5(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) OWNER TO vec_contratacion_temporal_propietario;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v5(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v5(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_contratacion_temporal_consultor_rrhh;
+COMMENT ON FUNCTION vec_contratacion_temporal.contar_resumen_cuadro_rrhh_v1(
+ vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+ vec_contratacion_temporal.consulta_cuadro_rrhh_v1,text) IS
+'Solo del propietario: agregados de la portada RRHH con el mismo corte y los mismos predicados que contar_totales_cuadro_rrhh_v1, sin referencias de expediente.';
+COMMENT ON FUNCTION vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v5(
+ vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+ vec_contratacion_temporal.consulta_cuadro_rrhh_v1,
+ bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) IS
+'Fachada v5 del cuadro RRHH: la v4 (misma autorización, consumo y auditoría) más el recuento por estado y fase y los grupos de plazo de los expedientes en trámite de todo el corte filtrado, sin referencias de expediente.';
 
 DO $post$
 BEGIN
