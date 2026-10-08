@@ -1,0 +1,17 @@
+{
+  "idioma": "en",
+  "mensajes": {
+    "catalogo_no_disponible": "The message catalog could not be loaded.",
+    "uso_invalido": "Check the options and paths provided.",
+    "entrada_insegura": "Input files must be outside Git and have 0600 permissions.",
+    "entrada_invalida": "The plan, connection or approval does not meet the contract.",
+    "aprobacion_divergente": "The plan hash does not match the supplied approval.",
+    "acuse_inseguro": "A private receipt file could not be reserved.",
+    "ratificacion_no_confirmada": "The ratification was not confirmed.",
+	"ratificacion_rechazada": "The ratification was rejected and the attempt was recorded.",
+	"ratificacion_no_disponible": "The ratification is unavailable; the attempt was recorded.",
+    "commit_indeterminado": "It is unknown whether PostgreSQL committed the operation. Recover with the same key.",
+    "acuse_no_guardado": "PostgreSQL committed the operation, but the local receipt could not be saved.",
+    "ratificacion_confirmada": "The ratification was confirmed and the receipt was saved."
+  }
+}
