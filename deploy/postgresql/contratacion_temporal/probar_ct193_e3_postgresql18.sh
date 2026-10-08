@@ -268,7 +268,14 @@ cargar() {
     fi
     if ! psql_admin --file "/repo/${archivo#"$raiz/"}" \
         >"$temporal/psql.log" 2>&1; then
-        printf 'CT193 E3: falló %s; salida SQL privada omitida\n' "$nombre" >&2
+        local diagnostico
+        diagnostico="$(mktemp /var/tmp/vec-ct193-fallo.XXXXXX.log)" || exit 1
+        if ! cat -- "$temporal/psql.log" >"$diagnostico"; then
+            printf 'CT193 E3: no se pudo conservar el diagnóstico SQL privado\n' >&2
+            exit 1
+        fi
+        printf 'PARO clave=ct193_sql fase=%s esperado=SQL_OK actual=ERROR diagnostico_privado=%s\n' \
+            "$nombre" "$diagnostico" >&2
         exit 1
     fi
 }
