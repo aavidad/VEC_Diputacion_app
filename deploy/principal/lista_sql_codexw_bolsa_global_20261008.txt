@@ -1,0 +1,2 @@
+# B94 requiere B85 y B86 instaladas. No reaplicar ninguna migración anterior.
+deploy/postgresql/bolsa_llamamientos/migraciones/000094_lista_llamamientos_completos_resumen.up.sql
