@@ -83,3 +83,10 @@ Siguiente corte: recuperación de carga de CT, ficha y navegación de Bolsa; des
 
 Se retiran la tarjeta y la entrada de ofertas al SAE de Inicio: abrían una pantalla sin gestión disponible. Inicio conserva los indicadores de peticiones y Bolsa, en la rejilla compacta común. La elección de cobertura en el expediente y los datos de las ofertas de Bolsa conservan su recorrido. La gestión del SAE se ofrecerá cuando tenga un consumidor real.
 
+## Alta según la circular del 19/02/2026 — preparación del 08/10
+
+El catálogo v2 distingue vacante, sustitución, acumulación de tareas y programa. Recoge el número de personas y exige los códigos de plaza y puesto para vacante. La jornada se muestra en horas y minutos y se conserva en minutos enteros. La modalidad jurídica se decide durante el análisis. El catálogo de ejemplo es configurable y cita la circular oficial comprobada.
+
+Los textos de necesidades se cargan en el idioma activo al abrir Alta, con reintento. La interfaz valida las referencias alternativas de financiación y los periodos de cada causa. El coordinador entrega el getter v2 sin pedirlo en otras vistas. El recibo HTTP conserva sus cinco campos. La consulta RPT por código exacto, cedida por Personal, filtra antes del recuento y la paginación; la recuperación de la ficha distingue incidencia, ausencia y denegación.
+
+CT193 y Go conservan la necesidad y el catálogo en el efecto sellado. Dos revisiones estáticas y el ensayo PostgreSQL 18 desechable verificaron catálogo v2 y número de personas igual a2, incluidos reinicio, colisión y concurrencia; las instantáneas anteriores conservaron sus reglas. El formulario pasó Chrome con APIs de prueba. Falta el recorrido HTTP nominal completo y la puerta de calidad de la unión final. La configuración nueva es `VEC_CT_NECESIDADES_ALTA_SOURCE_PATH`; su valor exacto y el paquete se fijan en la PR antes de desplegar. No se instaló SQL en una base compartida.
