@@ -10,7 +10,7 @@ import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261
 import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261008-alta-rpt-circular-v6";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261008-ct-inicio-v1";
+import { renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261008-canal-telefono-v2";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { cerrarFase, instalarPantallasFase, mostrarFase } from "./fases-expediente.js?v=20261007-pantallas-textos-final-v1";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
@@ -18,12 +18,12 @@ import {
   contextoLlamamientoDesdeEstado,
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
+} from "./vista-expedientes-render.js?v=20261008-canal-telefono-v2";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-alta-circular-v3";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-alta-circular-v3";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-alta-rpt-circular-v6";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-alta-etiquetas-ayuda-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-alta-etiquetas-ayuda-v2";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261008-alta-rpt-circular-v6";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
@@ -43,9 +43,9 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   return true;
 }
 
-export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
+export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-canal-telefono-v2";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
-export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261008-ct-inicio-v1";
+export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261008-canal-telefono-v2";
 
 // Exportaciones auxiliares conservadas para compatibilidad con tests e importadores
 export {
