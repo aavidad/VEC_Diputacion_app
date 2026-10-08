@@ -108,7 +108,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = "20261008-alta-capacidad-v3";
   const cohorteIdioma = "20261008-ct-sin-bolsa-v2";
-  const cohorteEntrada = "20261008-ct-sin-bolsa-v3";
+  const cohorteEntrada = "20261008-inicio-idioma-v1";
   const cohorteFicha = "20261008-ct-sin-bolsa-v2";
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
