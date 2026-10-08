@@ -1,5 +1,7 @@
 # Procesos selectivos: inventario y siguiente trabajo
 
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+
 ## Cotejo local del tribunal al preparar un acta — 7 de octubre de 2026
 
 `vec-selectivos-preparar-acta -tribunal-salida` comprueba la salida exacta del
