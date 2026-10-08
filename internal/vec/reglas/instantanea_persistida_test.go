@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -263,5 +264,64 @@ func TestCacheInstantaneasPersistidasConservaParSinReglaYNoConfiaEnMetadatos(t *
 	}
 	if _, err := cache.Rehidratar(valida); err != nil {
 		t.Fatalf("par íntegro rechazado tras metadato erróneo: %v", err)
+	}
+}
+
+func TestCacheInstantaneasPersistidasAislaDatosExpuestosYAjuste(t *testing.T) {
+	almacen := &ajustesMemoria{}
+	resolutor := resolutorCTConAjustes(t, almacen, nil)
+	base := instantaneaPersistidaPrueba(t, resolutor)
+	almacen.versiones = append(almacen.versiones, versionAjustes(t, 1, diaPresentacion.Ahora().Add(-time.Hour),
+		map[string]map[string]string{CTPlazoFiscalizacion: {CampoCantidad: "7"}}))
+	ajustada := instantaneaPersistidaPrueba(t, resolutor)
+	cache := NuevaCacheInstantaneasPersistidas()
+	primera, err := cache.Rehidratar(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conAjuste, err := cache.Rehidratar(ajustada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	esperadaBase, err := primera.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	esperadaAjustada, err := conAjuste.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if esperadaBase.Base.Cantidad != 10 || esperadaBase.Efectiva.Cantidad != 10 ||
+		esperadaAjustada.Base.Cantidad != 10 || esperadaAjustada.Efectiva.Cantidad != 7 ||
+		esperadaAjustada.Efectiva.Ajuste == nil || esperadaBase.Base.Edicion == nil || len(esperadaBase.Base.Edicion.Campos) == 0 {
+		t.Fatal("fixtures de base y ajuste inesperadas")
+	}
+	mutablesBase, _ := primera.Datos()
+	mutablesBase.Base.Atributos[CampoCantidad] = "1"
+	mutablesBase.Efectiva.Atributos[CampoCantidad] = "1"
+	mutablesBase.Base.Edicion.Campos[0] = "alterado"
+	mutablesBase.CanonicoAjustes[0] = '!'
+	mutablesAjustados, _ := conAjuste.Datos()
+	mutablesAjustados.Base.Atributos[CampoCantidad] = "1"
+	mutablesAjustados.Efectiva.Atributos[CampoCantidad] = "1"
+	mutablesAjustados.Efectiva.Ajuste.Campos[CampoCantidad] = "1"
+	mutablesAjustados.CanonicoAjustes[0] = '!'
+	for _, caso := range []struct {
+		p        InstantaneaPersistidaRegla
+		esperada DatosInstantaneaRegla
+	}{{base, esperadaBase}, {ajustada, esperadaAjustada}} {
+		otra, err := cache.Rehidratar(caso.p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		datos, err := otra.Datos()
+		if err != nil || !reflect.DeepEqual(datos, caso.esperada) {
+			t.Fatalf("la mutación alcanzó la caché: datos=%+v err=%v", datos, err)
+		}
+	}
+	primeraOtraVez, _ := primera.Datos()
+	ajustadaOtraVez, _ := conAjuste.Datos()
+	if !reflect.DeepEqual(primeraOtraVez, esperadaBase) || !reflect.DeepEqual(ajustadaOtraVez, esperadaAjustada) {
+		t.Fatal("la mutación alcanzó una instantánea anterior")
 	}
 }

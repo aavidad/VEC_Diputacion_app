@@ -211,7 +211,9 @@ func rehidratarConCatalogos(p InstantaneaPersistidaRegla, contenidos catalogosIn
 	if p.ReglaClave != "" && p.ReglaClave != entrada.Clave {
 		return vacia, ErrReglaInvalida
 	}
-	reglaBase := copiarRegla(contenidos.reglasBase[indiceEncontrada])
+	// La regla tipada del par es inmutable. aplicarAjuste copia los atributos
+	// antes de modificarlos; Datos y CalcularConInstantanea copian al exponer.
+	reglaBase := contenidos.reglasBase[indiceEncontrada]
 	efectiva := reglaBase
 	if campos, existe := ajustes[entrada.Clave]; p.AjustesEncontrados && existe {
 		var err error
@@ -222,7 +224,7 @@ func rehidratarConCatalogos(p InstantaneaPersistidaRegla, contenidos catalogosIn
 		}
 	}
 	instantanea := InstantaneaRegla{datos: DatosInstantaneaRegla{
-		Base: copiarRegla(reglaBase), Efectiva: copiarRegla(efectiva),
+		Base: reglaBase, Efectiva: efectiva,
 		CatalogoAjustesID: p.CatalogoAjustesID, AjustesEncontrados: p.AjustesEncontrados,
 		VersionAjustes: p.VersionAjustes, HuellaAjustes: p.HuellaAjustes,
 		CanonicoAjustes:     append([]byte(nil), p.CanonicoAjustes...),
