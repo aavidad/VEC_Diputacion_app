@@ -1,6 +1,6 @@
 /** Montaje y gestión de estados de las fases de tramitación (alta, análisis, cobertura, asignación, informe, fiscalización y subsanación). */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261008-ct-inicio-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261008-canal-telefono-v1";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v5";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v5";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v5";
@@ -17,7 +17,7 @@ import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v5";
+} from "./vista-expedientes-render.js?v=20261008-canal-telefono-v1";
 import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-alta-rpt-circular-v5";
 
 function enfocarElemento(raiz, selector) {

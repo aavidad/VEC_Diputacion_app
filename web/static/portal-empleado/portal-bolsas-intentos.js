@@ -11,9 +11,12 @@ import { cargarTextos } from "../comun/textos.js";
 // Si falla, queda disponible la ficha y se puede reintentar la consulta.
 let textosTelefono;
 let cargaTextosTelefono;
-async function prepararTextosTelefono() {
+function leerTextosTelefono() {
+  return cargarTextos("portal-bolsa-telefono");
+}
+export async function prepararTextosTelefono() {
   if (textosTelefono) return textosTelefono;
-  cargaTextosTelefono ??= cargarTextos("portal-bolsa-telefono");
+  cargaTextosTelefono ||= leerTextosTelefono();
   try {
     textosTelefono = await cargaTextosTelefono;
     return textosTelefono;
@@ -24,6 +27,21 @@ async function prepararTextosTelefono() {
 
 function telefono(titulo) {
   return textosTelefono.traducir(`telefono.${titulo}`);
+}
+
+/** Etiqueta de un resultado telefónico si el catálogo ya está cargado y la tiene. */
+export function etiquetaResultadoTelefono(resultado) {
+  if (!textosTelefono || typeof resultado !== "string"
+    || !Object.hasOwn(textosTelefono.seccion("telefono"), `resultado_${resultado}`)) return null;
+  return telefono(`resultado_${resultado}`);
+}
+
+/**
+ * Llamamiento al que apunta el panel de la ficha. El seguimiento por teléfono
+ * de un llamamiento concreto prevalece sobre el último llamamiento de la persona.
+ */
+export function llamamientoDeFicha(modal) {
+  return modal?.llamamientoSeguimiento || modal?.candidato?.ultimo_llamamiento?.llamamiento_ref || "";
 }
 
 function registroTelefonoValido(registro) {
@@ -153,11 +171,11 @@ function formularios(e, i, candidato, flujo) {
   return `${intento}${rebote}`;
 }
 
-export function renderizarIntentosContacto({ candidato, estado = {}, escaparHTML = html }) {
+export function renderizarIntentosContacto({ candidato, estado = {}, escaparHTML = html, llamamientoRef = "" }) {
   const e = escaparHTML;
   const cabecera = (extra = "") => `<div class="cabecera-panel"><h4 id="titulo-intentos-contacto">${t("titulo")}</h4>${extra}</div>`;
   const envolver = (extra, cuerpo) => `<section class="panel panel-separado" data-intentos-raiz="true" aria-labelledby="titulo-intentos-contacto">${cabecera(extra)}<div class="cuerpo-panel">${cuerpo}</div></section>`;
-  if (!candidato?.ultimo_llamamiento?.llamamiento_ref) return envolver("", `<p class="vacio-controlado" role="status">${t("sin_llamamiento")}</p>`);
+  if (!llamamientoRef && !candidato?.ultimo_llamamiento?.llamamiento_ref) return envolver("", `<p class="vacio-controlado" role="status">${t("sin_llamamiento")}</p>`);
   const actual = estado.carga || "cargando";
   const reciboVisible = estado.recibo ? `<p class="mensaje-exito" role="status">${e(t("registrado"))} ${justificanteTraducido(estado.recibo, e, (clave) => traducirPortal(`panel_${clave}`))}${estado.registradoEn ? ` <time datetime="${e(estado.registradoEn)}">${e(instante(estado.registradoEn))}</time>` : ""}</p>` : "";
   if (actual === "cargando") return envolver("", `${reciboVisible}<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`);
@@ -186,7 +204,7 @@ export function renderizarIntentosContacto({ candidato, estado = {}, escaparHTML
 export function crearControladorIntentosContacto({ estado, renderizar, fetchImpl }) {
   const opciones = fetchImpl ? { fetchImpl } : {};
   async function cargar(modal) {
-    const llamamiento = modal?.candidato?.ultimo_llamamiento?.llamamiento_ref;
+    const llamamiento = llamamientoDeFicha(modal);
     if (!modal || !llamamiento) return;
     if (modal.intentosContacto?.carga === "cargando" && modal.intentosLlamamiento === llamamiento
       && modal.controladorIntentos && !modal.controladorIntentos.signal.aborted) return;
@@ -265,7 +283,7 @@ export function crearControladorIntentosContacto({ estado, renderizar, fetchImpl
     void enviar(modal, flujo, {
       canal: rebote ? "correo" : "telefono", resultado, anotacion,
       ...(!registro ? { instante: fecha.toISOString() } : {}),
-      llamamiento_ref: modal.candidato.ultimo_llamamiento.llamamiento_ref,
+      llamamiento_ref: llamamientoDeFicha(modal),
     }, tipo);
     return true;
   }

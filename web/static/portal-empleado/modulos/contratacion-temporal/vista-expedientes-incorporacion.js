@@ -1,7 +1,7 @@
 /** Montaje y refresco de resolución de formalización e incorporación al ejercicio. */
 
 import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js";
-import { escaparHTML } from "./componentes-expedientes.js?v=20261008-ct-inicio-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261008-canal-telefono-v1";
 import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261008-alta-rpt-circular-v5";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-alta-rpt-circular-v5";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-alta-rpt-circular-v5";

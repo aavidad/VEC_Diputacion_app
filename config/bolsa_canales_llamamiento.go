@@ -29,7 +29,7 @@ func CatalogoCanalesLlamamientoBolsa() ([]byte, error) {
 	if ruta == "" {
 		return append([]byte(nil), catalogoCanalesLlamamientoBolsaV1...), nil
 	}
-	fichero, err := os.Open(ruta)
+	fichero, err := os.Open(ruta) // #nosec G304 G703 -- ruta del operador en la configuración privada, nunca de una petición
 	if err != nil {
 		return nil, ErrCatalogoCanalesLlamamientoBolsa
 	}

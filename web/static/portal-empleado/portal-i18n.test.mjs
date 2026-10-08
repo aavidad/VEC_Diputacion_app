@@ -473,6 +473,16 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-modulos-coordinador.js",
     "portal.js",
   ]) versionesEspeciales.set(ruta, "20261008-alta-rpt-circular-v5");
+  // Canales de aviso y seguimiento por teléfono de Bolsa, y su acceso desde la ficha CT.
+  for (const ruta of [
+    "modulos/contratacion-temporal/componentes-expedientes.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-bolsas-api.js", "portal-bolsas-contrato.js", "portal-bolsas-intentos.js",
+    "portal-llamamientos-operaciones-api.js", "portal-panel-interno.js",
+    "portal-modulos-coordinador.js", "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261008-canal-telefono-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -610,7 +620,7 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-alta-rpt-circular-v5");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-canal-telefono-v1");
 
 });
 
@@ -620,8 +630,8 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   const [html, portal, coordinador, recorridos, borradores] = await Promise.all(
     rutas.map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const version = "20261007-u-dietas-catalogo-v1";
-  const versionRaiz = "20261008-alta-rpt-circular-v5";
-  const versionCoordinador = "20261008-alta-rpt-circular-v5";
+  const versionRaiz = "20261008-canal-telefono-v1";
+  const versionCoordinador = "20261008-canal-telefono-v1";
   const comun = "20261007-pantallas-textos-final-v1";
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionRaiz);
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionCoordinador);
