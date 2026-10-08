@@ -140,7 +140,7 @@ function vistaPropias(estado, textos) {
       </div></article>`).join("")}</div>${estado.cursorPropias ? `<button type="button" class="boton-secundario" data-inscripcion-accion="mas-propias">${t("mostrarMas")}</button>` : ""}</div>`;
 }
 
-export function montarInscripcionBolsa({ contenedor, cliente = crearClienteInscripcionBolsa(),
+export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetch, cliente = crearClienteInscripcionBolsa({ fetchImpl }),
   idioma, ventana = globalThis.window, anunciar = () => {}, textoBase = () => "" } = {}) {
   if (!contenedor?.addEventListener || !contenedor?.removeEventListener || !ventana?.location
     || !ventana?.history || !cliente?.abiertas || !cliente?.convocatoria || !cliente?.propias
@@ -153,6 +153,12 @@ export function montarInscripcionBolsa({ contenedor, cliente = crearClienteInscr
   let consulta = null;
   let secuencia = 0;
   const t = (clave) => textos.traducir(`vista.${clave}`);
+
+  function limpiarDatosPrivados() {
+    estado.abiertas = []; estado.propias = []; estado.bolsa = null; estado.solicitud = null;
+    estado.cursor = null; estado.cursorPropias = null; estado.declaraciones.clear();
+    estado.categoriaRef = ""; estado.revision = false; estado.total = 0;
+  }
 
   function pintar() {
     if (!montado) return;
@@ -191,9 +197,7 @@ export function montarInscripcionBolsa({ contenedor, cliente = crearClienteInscr
       estado.total = datos.total; estado.cursor = datos.cursor_siguiente;
     } catch (error) {
       if (!montado || signal.aborted || version !== secuencia) return;
-      if (error?.status === 401 || error?.status === 403) {
-        estado.abiertas = []; estado.total = 0; estado.cursor = null;
-      }
+      if (error?.status === 401 || error?.status === 403) limpiarDatosPrivados();
       estado.error = descripcionError(error, textos);
       anunciar(estado.error);
     } finally {
@@ -218,6 +222,7 @@ export function montarInscripcionBolsa({ contenedor, cliente = crearClienteInscr
         ? datos.convocatoria.categorias[0].categoria_ref : "");
     } catch (error) {
       if (!montado || signal.aborted || version !== secuencia) return;
+      if (error?.status === 401 || error?.status === 403) limpiarDatosPrivados();
       estado.error = descripcionError(error, textos); anunciar(estado.error);
     } finally {
       if (montado && version === secuencia) {
@@ -236,6 +241,7 @@ export function montarInscripcionBolsa({ contenedor, cliente = crearClienteInscr
       estado.solicitud = datos.solicitud;
     } catch (error) {
       if (!montado || signal.aborted || version !== secuencia) return;
+      if (error?.status === 401 || error?.status === 403) limpiarDatosPrivados();
       estado.error = descripcionError(error, textos); anunciar(estado.error);
     } finally {
       if (montado && version === secuencia) {
@@ -256,9 +262,7 @@ export function montarInscripcionBolsa({ contenedor, cliente = crearClienteInscr
       estado.cursorPropias = datos.cursor_siguiente;
     } catch (error) {
       if (!montado || signal.aborted || version !== secuencia) return;
-      if (error?.status === 401 || error?.status === 403) {
-        estado.propias = []; estado.cursorPropias = null;
-      }
+      if (error?.status === 401 || error?.status === 403) limpiarDatosPrivados();
       estado.error = descripcionError(error, textos); anunciar(estado.error);
     } finally {
       if (montado && version === secuencia) { estado.carga = false; pintar(); }
@@ -302,9 +306,7 @@ export function montarInscripcionBolsa({ contenedor, cliente = crearClienteInscr
       if (error?.status === 400 || error?.status === 422) CLAVES_PENDIENTES.delete(bolsa.convocatoria_ref);
       if (!montado || version !== secuencia || estado.tipo !== "bolsa" || estado.bolsa?.convocatoria_ref !== bolsa.convocatoria_ref) return;
       estado.error = descripcionError(error, textos); anunciar(estado.error);
-      if (error?.status === 401 || error?.status === 403) {
-        estado.bolsa = null; estado.declaraciones.clear(); estado.revision = false;
-      }
+      if (error?.status === 401 || error?.status === 403) limpiarDatosPrivados();
     } finally {
       ENVIOS_ACTIVOS.delete(bolsa.convocatoria_ref);
       if (montado && (version === secuencia || (estado.tipo === "bolsa" && estado.bolsa?.convocatoria_ref === bolsa.convocatoria_ref))) {
