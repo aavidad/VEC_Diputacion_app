@@ -85,7 +85,7 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", versionVista);
   exigirVersiones(formalizacion, "../documentos/cliente-http.js", version);
   exigirVersiones(firma, "../documentos/cliente-http.js", version);
-  exigirVersiones(categorias, "./arranque.js", "20261008-alta-rpt-circular-v6");
+  exigirVersiones(categorias, "./arranque.js", "20261008-hz8-idioma-v1");
   exigirVersiones(montajeCategorias, "./cliente.js", cohorteCT);
   exigirVersiones(clienteCategorias, "../modulos/contratacion-temporal/cliente-http.js", cohorteCT);
 });
@@ -115,9 +115,9 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     ["./i18n.js", "20261007-pantallas-textos-final-v1"],
   ]);
   const aristas = [
-    [html, "/portal-empleado/portal.js", "20261008-w-bolsa-ficha-main-v2"],
-    [html, "/portal-empleado/portal-modulos-coordinador.js", cohorteTelefono],
-    [portal, "./portal-modulos-coordinador.js", cohorteTelefono],
+    [html, "/portal-empleado/portal.js", "20261008-ct-centros-v5"],
+    [html, "/portal-empleado/portal-modulos-coordinador.js", "20261008-ct-centros-v5"],
+    [portal, "./portal-modulos-coordinador.js", "20261008-ct-centros-v5"],
     [coordinador, "./modulos/contratacion-temporal/cliente-http.js", "20261008-w-ct-borradores-main-v2"],
     [cliente, "./cliente-http-alta.js", cohorte],
     [coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", cohorteTelefono],
@@ -130,7 +130,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     exigirVersiones(fuente, ruta, version);
     if (antiguas.has(ruta)) assert.ok(!fuente.includes(`${ruta}?v=${antiguas.get(ruta)}`), ruta);
   }
-  exigirVersiones(cache, "/portal-empleado/portal.js", "20261008-w-bolsa-ficha-main-v2");
+  exigirVersiones(cache, "/portal-empleado/portal.js", "20261008-ct-centros-v5");
   assert.match(altaHTTP, /obtenerCatalogosNecesidadesAlta/u);
   assert.match(i18n, /export async function cargarMensajesNecesidadesAlta/u);
   assert.match(contrato, /export const ESQUEMA_ALTA_NECESIDAD/u);
