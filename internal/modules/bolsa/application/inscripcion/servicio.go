@@ -18,7 +18,7 @@ func (s *Servicio) Abiertas(ctx context.Context, actor Actor, limite int, cursor
 	if s == nil || s.repositorio == nil {
 		return PaginaAbiertas{}, ErrNoDisponible
 	}
-	if !actor.Valido() || limite < 1 || limite > 100 || len(cursor) > 512 {
+	if !actor.LecturaValida(AccionListarAbiertas, "convocatorias-abiertas", Filtro{Limite: limite, Cursor: cursor}) || limite < 1 || limite > 100 || len(cursor) > 512 {
 		return PaginaAbiertas{}, ErrSolicitudInvalida
 	}
 	p, err := s.repositorio.Abiertas(ctx, actor, limite, cursor)
@@ -40,7 +40,7 @@ func (s *Servicio) DetalleAbierta(ctx context.Context, actor Actor, ref string) 
 	if s == nil || s.repositorio == nil {
 		return BolsaAbierta{}, ErrNoDisponible
 	}
-	if !actor.Valido() || !referenciaOpaca.MatchString(ref) {
+	if !referenciaOpaca.MatchString(ref) || !actor.LecturaValida(AccionDetalleAbierta, ref, Filtro{}) {
 		return BolsaAbierta{}, ErrSolicitudInvalida
 	}
 	b, err := s.repositorio.DetalleAbierta(ctx, actor, ref)
@@ -57,7 +57,7 @@ func (s *Servicio) MotivosRRHH(ctx context.Context, actor Actor, decision string
 	if s == nil || s.repositorio == nil {
 		return CatalogoMotivos{}, ErrNoDisponible
 	}
-	if !actor.Valido() || decision != "admitir" && decision != "rechazar" {
+	if (decision != "admitir" && decision != "rechazar") || !actor.LecturaValida(AccionMotivosRRHH, "motivos:"+decision, Filtro{}) {
 		return CatalogoMotivos{}, ErrSolicitudInvalida
 	}
 	c, err := s.repositorio.MotivosRRHH(ctx, actor, decision)
@@ -113,7 +113,7 @@ func (s *Servicio) Presentar(ctx context.Context, actor Actor, p Presentacion) (
 	if s == nil || s.repositorio == nil {
 		return Recibo{}, ErrNoDisponible
 	}
-	if !actor.Valido() || p.Validar() != nil {
+	if !actor.EscrituraValida() || p.Validar() != nil {
 		return Recibo{}, ErrSolicitudInvalida
 	}
 	r, err := s.repositorio.Presentar(ctx, actor, p)
@@ -131,7 +131,7 @@ func (s *Servicio) Propias(ctx context.Context, actor Actor, filtro Filtro) (Pag
 	if s == nil || s.repositorio == nil {
 		return Pagina{}, ErrNoDisponible
 	}
-	if !actor.Valido() || filtro.Validar() != nil {
+	if filtro.Validar() != nil || !actor.LecturaValida(AccionListarPropias, "inscripciones:propias:"+actor.PersonaRef, filtro) {
 		return Pagina{}, ErrSolicitudInvalida
 	}
 	p, err := s.repositorio.Propias(ctx, actor, filtro)
@@ -148,7 +148,7 @@ func (s *Servicio) Propia(ctx context.Context, actor Actor, ref string) (Solicit
 	if s == nil || s.repositorio == nil {
 		return Solicitud{}, ErrNoDisponible
 	}
-	if !actor.Valido() || !referenciaOpaca.MatchString(ref) {
+	if !referenciaOpaca.MatchString(ref) || !actor.LecturaValida(AccionDetallePropia, ref, Filtro{}) {
 		return Solicitud{}, ErrSolicitudInvalida
 	}
 	r, err := s.repositorio.Propia(ctx, actor, ref)
@@ -165,7 +165,7 @@ func (s *Servicio) PendientesRRHH(ctx context.Context, actor Actor, filtro Filtr
 	if s == nil || s.repositorio == nil {
 		return Pagina{}, ErrNoDisponible
 	}
-	if !actor.Valido() || filtro.Validar() != nil {
+	if filtro.Validar() != nil || !actor.LecturaValida(AccionListarRRHH, "inscripciones:rrhh", filtro) {
 		return Pagina{}, ErrSolicitudInvalida
 	}
 	p, err := s.repositorio.PendientesRRHH(ctx, actor, filtro)
@@ -182,7 +182,7 @@ func (s *Servicio) DetalleRRHH(ctx context.Context, actor Actor, ref string) (So
 	if s == nil || s.repositorio == nil {
 		return Solicitud{}, ErrNoDisponible
 	}
-	if !actor.Valido() || !referenciaOpaca.MatchString(ref) {
+	if !referenciaOpaca.MatchString(ref) || !actor.LecturaValida(AccionDetalleRRHH, ref, Filtro{}) {
 		return Solicitud{}, ErrSolicitudInvalida
 	}
 	r, err := s.repositorio.DetalleRRHH(ctx, actor, ref)
@@ -199,7 +199,7 @@ func (s *Servicio) Decidir(ctx context.Context, actor Actor, d Decision) (Recibo
 	if s == nil || s.repositorio == nil {
 		return Recibo{}, ErrNoDisponible
 	}
-	if !actor.Valido() || d.Validar() != nil {
+	if !actor.EscrituraValida() || d.Validar() != nil {
 		return Recibo{}, ErrSolicitudInvalida
 	}
 	r, err := s.repositorio.Decidir(ctx, actor, d)
@@ -218,7 +218,7 @@ func (s *Servicio) Incorporar(ctx context.Context, actor Actor, i Incorporacion)
 	if s == nil || s.repositorio == nil {
 		return Recibo{}, ErrNoDisponible
 	}
-	if !actor.Valido() || i.Validar() != nil {
+	if !actor.EscrituraValida() || i.Validar() != nil {
 		return Recibo{}, ErrSolicitudInvalida
 	}
 	r, err := s.repositorio.Incorporar(ctx, actor, i)

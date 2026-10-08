@@ -177,6 +177,7 @@ func (h *Handler) propias(w http.ResponseWriter, r *http.Request) {
 		}
 		var cuerpo struct {
 			ConvocatoriaRef   string                    `json:"convocatoria_ref"`
+			CategoriaRef      string                    `json:"categoria_ref"`
 			CatalogoVersion   uint64                    `json:"catalogo_version"`
 			ClaveIdempotencia string                    `json:"clave_idempotencia"`
 			Declaraciones     []inscripcion.Declaracion `json:"declaraciones"`
@@ -185,7 +186,8 @@ func (h *Handler) propias(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		recibo, err := h.servicio.Presentar(r.Context(), actor, inscripcion.Presentacion{
-			ConvocatoriaRef: cuerpo.ConvocatoriaRef, CatalogoVersion: cuerpo.CatalogoVersion,
+			ConvocatoriaRef: cuerpo.ConvocatoriaRef, CategoriaRef: cuerpo.CategoriaRef,
+			CatalogoVersion:   cuerpo.CatalogoVersion,
 			ClaveIdempotencia: cuerpo.ClaveIdempotencia, Declaraciones: cuerpo.Declaraciones,
 		})
 		if err != nil {
