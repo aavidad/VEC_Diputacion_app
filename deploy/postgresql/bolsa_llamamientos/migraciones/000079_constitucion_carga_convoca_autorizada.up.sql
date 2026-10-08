@@ -169,6 +169,7 @@ BEGIN
   OR previo.huella_entradas_sha256<>huella_entradas OR previo.huella_vinculos_sha256<>huella_vinculos
   THEN RAISE EXCEPTION 'B79: reintento incompatible' USING ERRCODE='23505'; END IF;
   RETURN previo.recibo_constitucion||pg_catalog.jsonb_build_object(
+   'reutilizada',true,
    'decision_ref',previo.decision_ref,'auditoria_ref',previo.auditoria_ref,
    'consumida_en',pg_catalog.to_char(previo.consumida_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
    'auditoria_acceso_ref',consumo.auditoria_ref,
