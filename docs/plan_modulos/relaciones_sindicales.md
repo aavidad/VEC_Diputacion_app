@@ -1,5 +1,7 @@
 # Plan de Relaciones sindicales — 4 de octubre de 2026
 
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+
 VEC gestionará representación acreditada, mandatos, órganos, crédito horario,
 cesiones, dispensas y consumo; después incorporará mesas, actas, acuerdos y la
 proyección pública revisada. El descuento de cuota tendrá custodia y permisos

@@ -11,7 +11,7 @@ La fuente funcional es el documento recibido:
 «Pantalla de procedimiento de gestión de contratación y gestión de bolsas».
 Las cuatro imágenes incorporadas al Word miden `1536 × 1024` y contienen las
 diecisiete pantallas numeradas que se recogen en
-[el estado de la web](../estado_web_contratacion_temporal_2026-07-23.md).
+el estado de la web del 23/07 (retirado el 08/10/2026; consultar la historia de Git).
 
 ## Correcciones realizadas
 
