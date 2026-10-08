@@ -221,8 +221,9 @@ export function montarAltaContratacionTemporal({
       return;
     }
     if (control.dataset.ctAccion === "volver") {
+      const primerCampoInvalido = Object.keys(presentador.obtenerEstado().errores)[0];
       presentador.volverAEdicion();
-      repintar("#ct-centro_ref");
+      repintar(primerCampoInvalido ? `#ct-${primerCampoInvalido}` : "#ct-centro_ref");
       return;
     }
     if (control.dataset.ctAccion === "cancelar") {

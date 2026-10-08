@@ -92,6 +92,7 @@ export class ErrorClienteHTTPContratacionTemporal extends Error {
     estado = 0,
     claveI18n = "",
     correlacionRef = null,
+    campo = "",
     envelopeValido = false,
     resultadoIndeterminado = codigo === "operacion_pendiente"
       || codigo === "resultado_indeterminado",
@@ -104,6 +105,7 @@ export class ErrorClienteHTTPContratacionTemporal extends Error {
     this.estado = estado;
     this.claveI18n = claveI18n;
     this.correlacionRef = correlacionRef;
+    this.campo = campo;
     this.envelopeValido = envelopeValido;
     this.resultadoIndeterminado = resultadoIndeterminado;
     this.requiereRecuperacion = resultadoIndeterminado;
@@ -137,6 +139,7 @@ function convertirEnResultadoIndeterminado(error) {
     estado: error.estado,
     claveI18n: error.claveI18n,
     correlacionRef: error.correlacionRef,
+    campo: error.campo,
     envelopeValido: error.envelopeValido,
     resultadoIndeterminado: true,
   });

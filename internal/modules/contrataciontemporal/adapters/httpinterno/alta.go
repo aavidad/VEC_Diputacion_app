@@ -214,5 +214,10 @@ func errorEntradaAlta(err error) errorPublicoAlta {
 	if errors.Is(err, errContenidoAltaNoValido) {
 		return errorContenidoNoValido
 	}
+	if errors.Is(err, errNumeroMOADAltaNoValido) {
+		problema := errorContenidoNoValido
+		problema.campo = "numero_expediente_moad"
+		return problema
+	}
 	return errorPeticionNoValida
 }

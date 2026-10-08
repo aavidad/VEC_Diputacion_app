@@ -35,6 +35,16 @@ function esResultadoIndeterminado(error) {
   }
 }
 
+function esNumeroMOADRechazado(error) {
+  try {
+    return error instanceof Error && error.envelopeValido === true
+      && error.estado === 422 && error.codigo === "contenido_no_valido"
+      && error.campo === "numero_expediente_moad";
+  } catch {
+    return false;
+  }
+}
+
 function generarClaveSegura() {
   if (typeof globalThis.crypto?.randomUUID !== "function") {
     throw errorPublico("generador_no_disponible");
@@ -241,9 +251,9 @@ export function crearPresentadorAltaContratacionTemporal({
     }
     sustituirEstado({
       fase: FASE_EDICION,
-      errores: {},
-      mensaje_clave: "estado_disponible",
-      tipo_mensaje: "informacion",
+      errores: estado.errores,
+      mensaje_clave: Object.keys(estado.errores).length ? "errores_descripcion" : "estado_disponible",
+      tipo_mensaje: Object.keys(estado.errores).length ? "error" : "informacion",
     });
   }
 
@@ -286,16 +296,20 @@ export function crearPresentadorAltaContratacionTemporal({
       } catch (_errorPrivado) {
         const resultadoIndeterminado =
           esResultadoIndeterminado(_errorPrivado);
+        const numeroMOADInvalido = !resultadoIndeterminado
+          && esNumeroMOADRechazado(_errorPrivado);
         const canceladaSinRespuesta = cancelacionSolicitada && !respuestaRecibida;
         sustituirEstado({
           fase: resultadoIndeterminado ? FASE_PENDIENTE : FASE_REVISION,
           ocupado: false,
           recibo: null,
+          errores: numeroMOADInvalido ? { numero_expediente_moad: "numero_moad_formato" } : {},
           mensaje_clave: resultadoIndeterminado
             ? "estado_operacion_pendiente"
             : canceladaSinRespuesta
             ? "estado_cancelado"
-            : (respuestaRecibida ? "estado_recibo_invalido" : "estado_error"),
+            : (respuestaRecibida ? "estado_recibo_invalido"
+              : numeroMOADInvalido ? "estado_numero_moad_no_valido" : "estado_error"),
           tipo_mensaje: resultadoIndeterminado || canceladaSinRespuesta
             ? "aviso"
             : "error",
