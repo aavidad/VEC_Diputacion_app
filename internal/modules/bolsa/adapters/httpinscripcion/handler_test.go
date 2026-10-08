@@ -1,7 +1,10 @@
 package httpinscripcion
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +13,25 @@ import (
 
 	"vec-diputacion-granada/internal/modules/bolsa/application/inscripcion"
 )
+
+type diagnosticoPrueba struct{}
+
+func (diagnosticoPrueba) Error() string                            { return "dato privado: 12345678Z" }
+func (diagnosticoPrueba) DiagnosticoInscripcion() (string, string) { return "ejecutar", "42501" }
+
+func TestFalloTecnicoNoRegistraDatosPersonales(t *testing.T) {
+	var registro bytes.Buffer
+	anterior := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&registro, nil)))
+	t.Cleanup(func() { slog.SetDefault(anterior) })
+	r := httptest.NewRequest(http.MethodGet, RutaRRHH+"/solicitud_inscripcion_"+strings.Repeat("a", 64), nil)
+	registrarFalloInscripcion(r, errors.Join(inscripcion.ErrNoDisponible, diagnosticoPrueba{}))
+	texto := registro.String()
+	if !strings.Contains(texto, "sqlstate=42501") || !strings.Contains(texto, "etapa=ejecutar") ||
+		strings.Contains(texto, "12345678Z") || strings.Contains(texto, "solicitud_inscripcion_") {
+		t.Fatalf("diagnostico no minimizado: %s", texto)
+	}
+}
 
 type preparadorPrueba struct{ propias, rrhh int }
 

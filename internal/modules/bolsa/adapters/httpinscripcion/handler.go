@@ -106,12 +106,12 @@ func (h *Handler) abiertas(w http.ResponseWriter, r *http.Request) {
 	}
 	actor, err := h.preparador.PrepararLecturaAspirante(r, inscripcion.AccionListarAbiertas, "", inscripcion.Filtro{Limite: limite, Cursor: cursor}, idiomaActivo)
 	if err != nil {
-		responderFallo(w, err)
+		responderFallo(w, r, err)
 		return
 	}
 	p, err := h.servicio.Abiertas(r.Context(), actor, limite, cursor)
 	if err != nil {
-		responderFallo(w, err)
+		responderFallo(w, r, err)
 		return
 	}
 	responder(w, 200, "vec.bolsa.inscripciones.convocatorias_abiertas.v1", p)
@@ -137,12 +137,12 @@ func (h *Handler) detalleAbierta(w http.ResponseWriter, r *http.Request) {
 	}
 	actor, err := h.preparador.PrepararLecturaAspirante(r, inscripcion.AccionDetalleAbierta, ref, inscripcion.Filtro{}, idiomaActivo)
 	if err != nil {
-		responderFallo(w, err)
+		responderFallo(w, r, err)
 		return
 	}
 	b, err := h.servicio.DetalleAbierta(r.Context(), actor, ref)
 	if err != nil {
-		responderFallo(w, err)
+		responderFallo(w, r, err)
 		return
 	}
 	responder(w, 200, "vec.bolsa.inscripcion.convocatoria.v1", map[string]any{"convocatoria": b})
@@ -168,12 +168,12 @@ func (h *Handler) propias(w http.ResponseWriter, r *http.Request) {
 		filtro := inscripcion.Filtro{Limite: limite, Cursor: cursor}
 		actor, err := h.preparador.PrepararLecturaAspirante(r, inscripcion.AccionListarPropias, "", filtro, idiomaActivo)
 		if err != nil {
-			responderFallo(w, err)
+			responderFallo(w, r, err)
 			return
 		}
 		p, err := h.servicio.Propias(r.Context(), actor, filtro)
 		if err != nil {
-			responderFallo(w, err)
+			responderFallo(w, r, err)
 			return
 		}
 		responder(w, 200, "vec.bolsa.inscripciones.propias.v1", p)
@@ -199,12 +199,12 @@ func (h *Handler) propias(w http.ResponseWriter, r *http.Request) {
 		}
 		actor, err := h.preparador.PrepararPresentacion(r, presentacion)
 		if err != nil {
-			responderFallo(w, err)
+			responderFallo(w, r, err)
 			return
 		}
 		recibo, err := h.servicio.Presentar(r.Context(), actor, presentacion)
 		if err != nil {
-			responderFallo(w, err)
+			responderFallo(w, r, err)
 			return
 		}
 		estado := http.StatusCreated
@@ -238,12 +238,12 @@ func (h *Handler) propia(w http.ResponseWriter, r *http.Request) {
 	}
 	actor, err := h.preparador.PrepararLecturaAspirante(r, inscripcion.AccionDetallePropia, ref, inscripcion.Filtro{}, idiomaActivo)
 	if err != nil {
-		responderFallo(w, err)
+		responderFallo(w, r, err)
 		return
 	}
 	s, err := h.servicio.Propia(r.Context(), actor, ref)
 	if err != nil {
-		responderFallo(w, err)
+		responderFallo(w, r, err)
 		return
 	}
 	responder(w, 200, "vec.bolsa.inscripcion.propias.detalle.v1", map[string]any{"solicitud": s})
@@ -270,12 +270,12 @@ func (h *Handler) rrhh(w http.ResponseWriter, r *http.Request) {
 	filtro := inscripcion.Filtro{Estado: estado, ConvocatoriaRef: r.URL.Query().Get("convocatoria_ref"), Limite: limite, Cursor: cursor}
 	actor, err := h.preparador.PrepararLecturaRRHH(r, inscripcion.AccionListarRRHH, "", filtro, idiomaActivo)
 	if err != nil {
-		responderFallo(w, err)
+		responderFallo(w, r, err)
 		return
 	}
 	p, err := h.servicio.PendientesRRHH(r.Context(), actor, filtro)
 	if err != nil {
-		responderFallo(w, err)
+		responderFallo(w, r, err)
 		return
 	}
 	responder(w, 200, "vec.bolsa.inscripciones.rrhh.v1", p)
@@ -297,12 +297,12 @@ func (h *Handler) motivos(w http.ResponseWriter, r *http.Request) {
 	}
 	actor, err := h.preparador.PrepararLecturaRRHH(r, inscripcion.AccionMotivosRRHH, query.Get("decision"), inscripcion.Filtro{}, idiomaActivo)
 	if err != nil {
-		responderFallo(w, err)
+		responderFallo(w, r, err)
 		return
 	}
 	m, err := h.servicio.MotivosRRHH(r.Context(), actor, query.Get("decision"))
 	if err != nil {
-		responderFallo(w, err)
+		responderFallo(w, r, err)
 		return
 	}
 	responder(w, 200, "vec.bolsa.inscripcion.motivos.v1", m)
@@ -332,12 +332,12 @@ func (h *Handler) detalleODecisionRRHH(w http.ResponseWriter, r *http.Request) {
 		}
 		actor, err := h.preparador.PrepararLecturaRRHH(r, inscripcion.AccionDetalleRRHH, partes[0], inscripcion.Filtro{}, idiomaActivo)
 		if err != nil {
-			responderFallo(w, err)
+			responderFallo(w, r, err)
 			return
 		}
 		s, err := h.servicio.DetalleRRHH(r.Context(), actor, partes[0])
 		if err != nil {
-			responderFallo(w, err)
+			responderFallo(w, r, err)
 			return
 		}
 		responder(w, 200, "vec.bolsa.inscripcion.rrhh.v1", map[string]any{"solicitud": s})
@@ -363,12 +363,12 @@ func (h *Handler) detalleODecisionRRHH(w http.ResponseWriter, r *http.Request) {
 		}
 		actor, err := h.preparador.PrepararIncorporacion(r, incorporacion)
 		if err != nil {
-			responderFallo(w, err)
+			responderFallo(w, r, err)
 			return
 		}
 		recibo, err := h.servicio.Incorporar(r.Context(), actor, incorporacion)
 		if err != nil {
-			responderFallo(w, err)
+			responderFallo(w, r, err)
 			return
 		}
 		estado := http.StatusCreated
@@ -393,12 +393,12 @@ func (h *Handler) detalleODecisionRRHH(w http.ResponseWriter, r *http.Request) {
 	}
 	actor, err := h.preparador.PrepararDecision(r, decision)
 	if err != nil {
-		responderFallo(w, err)
+		responderFallo(w, r, err)
 		return
 	}
 	recibo, err := h.servicio.Decidir(r.Context(), actor, decision)
 	if err != nil {
-		responderFallo(w, err)
+		responderFallo(w, r, err)
 		return
 	}
 	estado := http.StatusCreated
@@ -576,7 +576,7 @@ func responderError(w http.ResponseWriter, estado int, codigo string) {
 	}
 }
 
-func responderFallo(w http.ResponseWriter, err error) {
+func responderFallo(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, inscripcion.ErrSolicitudInvalida):
 		responderError(w, 400, "datos_no_validos")
@@ -603,6 +603,51 @@ func responderFallo(w http.ResponseWriter, err error) {
 	case errors.Is(err, inscripcion.ErrActaNoDisponible):
 		responderError(w, 409, "acta_pendiente")
 	default:
+		registrarFalloInscripcion(r, err)
 		responderError(w, 503, "servicio_no_disponible")
 	}
+}
+
+// El registro técnico conserva etapa y SQLSTATE sin mensaje SQL, cuerpo ni
+// referencias personales. El monitor HTTP común mide la duración completa.
+func registrarFalloInscripcion(r *http.Request, err error) {
+	etapa, sqlstate := "desconocida", ""
+	var diagnostico interface{ DiagnosticoInscripcion() (string, string) }
+	if errors.As(err, &diagnostico) {
+		candidata, codigo := diagnostico.DiagnosticoInscripcion()
+		switch candidata {
+		case "abrir", "configurar", "ejecutar", "validar_proyeccion", "confirmar":
+			etapa = candidata
+		}
+		if len(codigo) == 5 {
+			valido := true
+			for _, c := range codigo {
+				if c < '0' || c > '9' && c < 'A' || c > 'Z' {
+					valido = false
+					break
+				}
+			}
+			if valido {
+				sqlstate = codigo
+			}
+		}
+	}
+	ruta, metodo := "otra", "otro"
+	if r != nil {
+		if r.URL != nil {
+			switch {
+			case strings.HasPrefix(r.URL.Path, RutaAbiertas):
+				ruta = "convocatorias_abiertas"
+			case strings.HasPrefix(r.URL.Path, RutaPropias):
+				ruta = "inscripciones_propias"
+			case strings.HasPrefix(r.URL.Path, RutaRRHH):
+				ruta = "inscripciones_rrhh"
+			}
+		}
+		if r.Method == http.MethodGet || r.Method == http.MethodPost {
+			metodo = r.Method
+		}
+	}
+	slog.Error("operacion de inscripcion no disponible", "ruta_clase", ruta, "metodo", metodo,
+		"estado_http", 503, "etapa", etapa, "sqlstate", sqlstate)
 }
