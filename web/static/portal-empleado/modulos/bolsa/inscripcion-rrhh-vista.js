@@ -64,7 +64,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     const filtroActivo = filtro.convocatoria ? `<p>${et("filtro_activo")}: ${esc(nombreConvocatoria)}. <a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, convocatoria: "", cursor: "" }))}" data-inscripcion-quitar-filtro>${et("quitar_filtro")}</a></p>` : "";
     const estado = estadoVista === "cargando" ? `<p role="status" aria-busy="true">${et("cargando")}</p>`
       : estadoVista === "denegada" ? `<p role="alert">${et("denegada")}</p>`
-        : ["error", "conflicto", "falta_acta"].includes(estadoVista) ? `<p role="alert">${et(estadoVista === "error" && detalle && decision ? "error_decision" : estadoVista)}</p>${detalle && decision ? "" : `<button type="button" class="boton-secundario" data-inscripcion-reintentar>${et("reintentar")}</button>`}`
+        : ["error", "conflicto", "falta_acta", "regla_incompatible", "evidencia_invalida"].includes(estadoVista) ? `<p role="alert">${et(estadoVista === "error" && detalle && decision ? "error_decision" : estadoVista)}</p>${detalle && decision ? "" : `<button type="button" class="boton-secundario" data-inscripcion-reintentar>${et("reintentar")}</button>`}`
           : listado?.total === 0 ? `<p>${et("vacio")}</p>` : "";
     const cuenta = listado ? `<a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, cursor: "" }))}" data-inscripcion-total>${et("total", { cuenta: catalogo.numero(listado.total) })}</a>` : "";
     const paginacion = listado?.cursor_siguiente ? `<nav aria-label="${et("paginacion")}"><a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, cursor: listado.cursor_siguiente }))}" data-inscripcion-siguiente>${et("siguiente")}</a></nav>` : "";
@@ -158,8 +158,9 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     } catch (error) {
       if (!vivo || orden !== secuencia) return;
       if ([401, 403].includes(error?.estado)) limpiarDenegacion();
-      else { estadoVista = error?.estado === 409 ? decision === "incorporar" ? "falta_acta" : "conflicto" : "error";
-        if (estadoVista === "conflicto") { detalle = null; decision = ""; motivos = null; intento = null; }
+      else { estadoVista = error?.estado === 409 ? decision === "incorporar" ? "falta_acta" : "conflicto"
+        : error?.estado === 422 ? decision === "incorporar" ? "evidencia_invalida" : "regla_incompatible" : "error";
+        if (["conflicto", "regla_incompatible"].includes(estadoVista)) { detalle = null; decision = ""; motivos = null; intento = null; }
         pintar(); }
     } finally { enviando = false; }
   }

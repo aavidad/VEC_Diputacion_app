@@ -9,6 +9,8 @@
     "error_decision": "The decision could not be confirmed. Select Confirm again with the same details. If the problem continues, contact IT support.",
     "conflicto": "The application has changed since you opened it. Refresh the list and check its status before deciding.",
     "falta_acta": "The applicant cannot be added to the pool yet. Check that the final list and its evidence are available, then try again.",
+    "regla_incompatible": "The admission rules have changed. Refresh the list and review the application again.",
+    "evidencia_invalida": "The final list reference was not recognised. Check it and confirm entry into the pool again.",
     "reintentar": "Retry",
     "vacio": "There are no applications matching these filters. Change the status or clear the recruitment process filter to search again.",
     "total": "{cuenta} applications. View from the start",
