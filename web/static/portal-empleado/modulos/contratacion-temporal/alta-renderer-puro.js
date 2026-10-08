@@ -6,7 +6,8 @@ const CAMPOS_RPT_PUBLICACION = new Set(["rpt_catalogo_ref", "rpt_catalogo_huella
 const CAMPOS_RPT_INTERNOS = new Set(["puesto_codigo", ...CAMPOS_RPT_PUBLICACION]);
 function esNecesidad(estado) { return estado.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES; }
 function etiquetaMotivo(estado, opcion, t) {
-  return esNecesidad(estado) ? t(opcion.etiqueta) : opcion.etiqueta;
+  if (esNecesidad(estado)) return t(opcion.etiqueta);
+  return opcion.clave === "sustitucion" ? t("motivo_sustitucion") : opcion.etiqueta;
 }
 
 export function escaparHTML(valor) {

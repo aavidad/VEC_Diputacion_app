@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
+import { crearPresentadorAltaContratacionTemporal } from "./presentador.js";
+import { renderizarAltaContratacionTemporal } from "./vista.js";
+import { readFile } from "node:fs/promises";
 import { claveI18nValida, codigoValidoParaRuta } from "./cliente-http-transporte.js";
 
 const RUTA = "/api/vec/contratacion-temporal/catalogos-alta";
@@ -154,4 +157,16 @@ test("una respuesta tardía después del desmontaje no monta ni altera la vista"
   assert.equal(actual.contenedor.innerHTML, anterior);
   assert.deepEqual(actual.contenedor.children, []);
   assert.equal(actual.consultas(), 1);
+});
+
+
+test("el motivo v1 se presenta en inglés sin traducir los nombres propios del catálogo", async () => {
+  const mensajes = JSON.parse(await readFile(new URL("../../../textos/en/contratacion-temporal-textos-vistas.json", import.meta.url), "utf8")).general;
+  const presentador = crearPresentadorAltaContratacionTemporal({ catalogos: catalogosV1(),
+    capacidad: "contratacion_temporal.solicitud.crear", ejecutor: async () => { throw Error("sin envío"); } });
+  const html = renderizarAltaContratacionTemporal(presentador.obtenerEstado(),
+    { mensajes, locale: "en-GB" });
+  assert.match(html, /<option value="sustitucion"[^>]*>Temporary replacement<\/option>/u);
+  assert.doesNotMatch(html, /<option value="sustitucion"[^>]*>Sustitución/u);
+  presentador.desmontar();
 });

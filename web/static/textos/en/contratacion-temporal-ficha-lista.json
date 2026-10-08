@@ -100,6 +100,8 @@
     "ficha_titulo_modulo_sin_numero": "Case file with no number assigned",
     "borradores_aviso": "These are drafts: they are not signed, have not been sent, and do not appoint or register anyone.",
     "centro_visible": "Centre with code {numero}",
-    "alta_solo_sustituciones": "You can record replacements. Other staffing needs are not available yet."
+    "alta_solo_sustituciones": "You can record replacements. Other staffing needs are not available yet.",
+    "necesidades_alta_no_disponibles_titulo": "Staffing needs could not be loaded",
+    "necesidades_alta_no_disponibles_detalle": "Try again. If the problem continues, contact IT support."
   }
 }

@@ -672,7 +672,7 @@ export function crearGestorTramitacion({
             }
             if (esMontada() && presentador.obtenerEstado().vista === "alta") {
               const actual = raiz.querySelector("[data-ct-exp-alta]");
-              if (actual) actual.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
+              if (actual) actual.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("necesidades_alta_no_disponibles_titulo"))}</h3><p>${escaparHTML(tExpedientes("necesidades_alta_no_disponibles_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
             }
           });
         consultaCatalogosNecesidadesAlta = intento;
