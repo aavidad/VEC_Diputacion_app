@@ -70,7 +70,7 @@ test("envía la vista previa y la confirmación por POST JSON sin credenciales p
     llamadas.push([ruta, opciones]);
     return respuestaJSON(ruta === RUTA_VISTA_PREVIA ? vista() : recibo(), ruta === RUTA_CONFIRMAR ? 201 : 200);
   } });
-  const v = await cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA" });
+  const v = await cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA", categoria: "auxiliar" });
   assert.equal(v.filas.length, 3);
   const r = await cliente.confirmar({ nombre: "bolsa.xlsx", base64: "AAAA", categoria: "auxiliar", excluir: true,
     filtro: "rechazadas", limite: 1, desplazamiento: 50 });
@@ -81,7 +81,7 @@ test("envía la vista previa y la confirmación por POST JSON sin credenciales p
     assert.equal(opciones.cache, "no-store");
     assert.deepEqual(Object.keys(opciones.headers).sort(), ["Accept", "Content-Type"]);
   }
-  assert.deepEqual(JSON.parse(llamadas[0][1].body), { nombre_fichero: "bolsa.xlsx", contenido_base64: "AAAA",
+  assert.deepEqual(JSON.parse(llamadas[0][1].body), { nombre_fichero: "bolsa.xlsx", contenido_base64: "AAAA", categoria: "auxiliar",
     filtro: "todas", limite: 50, desplazamiento: 0 });
   assert.deepEqual(JSON.parse(llamadas[1][1].body), { nombre_fichero: "bolsa.xlsx", contenido_base64: "AAAA", categoria: "auxiliar", excluir_filas_con_errores: true });
 });
@@ -94,19 +94,21 @@ test("pide una página exacta y rechaza una respuesta que suplante filtro o posi
     return respuestaJSON({ data: { ...vista().data, filtro: "rechazadas", limite: 1,
       desplazamiento: 0, total_filtrado: 1, filas: [vista().data.filas[2]] } });
   } });
-  const pagina = await cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA", filtro: "rechazadas", limite: 1, desplazamiento: 0 });
+  const pagina = await cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA", categoria: "auxiliar", filtro: "rechazadas", limite: 1, desplazamiento: 0 });
   assert.equal(pagina.filas.length, 1);
   assert.equal(peticiones[0].filtro, "rechazadas");
+  assert.equal(peticiones[0].categoria, "auxiliar");
   assert.equal(peticiones[0].limite, 1);
   assert.equal(peticiones[0].desplazamiento, 0);
-  await assert.rejects(cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA", filtro: "todas" }), /página de vista previa incompatible/u);
-  await assert.rejects(cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA", filtro: "otro" }), TypeError);
+  await assert.rejects(cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA", categoria: "auxiliar", filtro: "todas" }), /página de vista previa incompatible/u);
+  await assert.rejects(cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA", categoria: "auxiliar", filtro: "otro" }), TypeError);
+  await assert.rejects(cliente.previsualizar({ nombre: "bolsa.xlsx", base64: "AAAA", categoria: "" }), TypeError);
 });
 
 test("traduce los fallos a mensajes en llano sin códigos", async () => {
   const textos = await textosDe("es");
   const cliente = crearClienteCargaConvoca({ fetchImpl: async () => respuestaJSON({ error: { codigo: "acceso_denegado" } }, 403) });
-  await assert.rejects(cliente.previsualizar({ nombre: "a.xlsx", base64: "AAAA" }), (e) => e instanceof ErrorCargaConvoca && e.estado === 403 && e.codigo === "acceso_denegado");
+  await assert.rejects(cliente.previsualizar({ nombre: "a.xlsx", base64: "AAAA", categoria: "auxiliar" }), (e) => e instanceof ErrorCargaConvoca && e.estado === 403 && e.codigo === "acceso_denegado");
   assert.match(textoError(textos, new ErrorCargaConvoca(403, "acceso_denegado")), /perfil no permite/u);
   assert.match(textoError(textos, new ErrorCargaConvoca(502, "codigo_que_no_existe")), /avise a Informática/u);
   assert.match(textoError(textos, new TypeError("red")), /avise a Informática/u);

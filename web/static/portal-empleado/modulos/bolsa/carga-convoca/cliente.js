@@ -136,12 +136,13 @@ export function crearClienteCargaConvoca({ fetchImpl = globalThis.fetch, plazoMs
     }
   }
   return Object.freeze({
-    async previsualizar({ nombre, base64, filtro = "todas", limite = TAMANO_PAGINA, desplazamiento = 0, signal }) {
-      if (!FILTROS_SERVIDOR.includes(filtro) || !entero(limite) || limite < 1 || limite > 100 || !entero(desplazamiento)) {
+    async previsualizar({ nombre, base64, categoria, filtro = "todas", limite = TAMANO_PAGINA, desplazamiento = 0, signal }) {
+      if (!texto(categoria, 160) || !categoria.trim() || categoria !== categoria.trim()
+        || !FILTROS_SERVIDOR.includes(filtro) || !entero(limite) || limite < 1 || limite > 100 || !entero(desplazamiento)) {
         throw new TypeError("paginación de vista previa no válida");
       }
       const vista = validarVistaPrevia(await enviar(RUTA_VISTA_PREVIA,
-        { nombre_fichero: nombre, contenido_base64: base64, filtro, limite, desplazamiento }, signal));
+        { nombre_fichero: nombre, contenido_base64: base64, categoria, filtro, limite, desplazamiento }, signal));
       if (vista.filtro !== filtro || vista.limite !== limite || vista.desplazamiento !== desplazamiento) {
         throw new TypeError("página de vista previa incompatible");
       }

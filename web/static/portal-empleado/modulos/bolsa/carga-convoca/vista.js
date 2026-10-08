@@ -1,4 +1,4 @@
-import { bytesABase64, comprobarFichero, ErrorCargaConvoca } from "./cliente.js?v=20261008-u-b1-recibo-v2";
+import { bytesABase64, comprobarFichero, ErrorCargaConvoca } from "./cliente.js?v=20261008-u-b1-preview-v6";
 import { rutaCandidatosBolsaCompartible } from "../../../portal-bolsas-ruta-filtros.js";
 import {
   claveCategoria, escribirEstadoRuta, filtroControl, filtroServidor, leerEstadoRuta, nombrePersona,
@@ -170,12 +170,14 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     const promesa = (async () => {
       try {
         let respuesta = await cliente.previsualizar({ nombre: estado.nombre, base64: estado.base64,
+          categoria: claveCategoria(estado.categoria.referencia),
           filtro, limite: TAMANO_PAGINA, desplazamiento: (pagina - 1) * TAMANO_PAGINA, signal });
         if (secuencia !== estado.secuencia || signal.aborted) return null;
         const ultimaPagina = Math.max(1, Math.ceil(respuesta.total_filtrado / TAMANO_PAGINA));
         if (pagina > ultimaPagina) {
           pagina = ultimaPagina;
           respuesta = await cliente.previsualizar({ nombre: estado.nombre, base64: estado.base64,
+            categoria: claveCategoria(estado.categoria.referencia),
             filtro, limite: TAMANO_PAGINA, desplazamiento: (pagina - 1) * TAMANO_PAGINA, signal });
         }
         if (secuencia !== estado.secuencia || signal.aborted) return null;
