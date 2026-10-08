@@ -109,7 +109,7 @@ function cargarRecursosVista(grupo) {
   if (cargasRecursosVistas.has(grupo)) return;
   const carga = grupo === "inicio"
     ? Promise.all([
-      import("./portal-inicio.js?v=20261008-bolsa-inicio-v2"),
+      import("./portal-inicio.js?v=20261008-inicio-sin-sae-v1"),
       import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2"),
     ]).then(([inicio, accesos]) => ({ ...inicio, accesos }))
     : grupo === "accesos"
@@ -912,25 +912,17 @@ function actualizarNavegacionModulos() {
   const moduloActivo = moduloActivoDeVista(estado.vista);
   const disponibilidad = disponibilidadBolsa();
   contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
-  // Ofertas al SAE es parte del trabajo de RRHH: se ofrece con Peticiones o Bolsas.
-  const enlaceSAE = porId("enlace-ofertas-sae");
-  if (enlaceSAE) {
-    enlaceSAE.hidden = !(coordinadorModulos.vistaDisponible("contratacion-temporal")
-      || resolverAccesoPerfil("bolsa")?.disponible === true);
-  }
   const enlacePlantillas = porId("enlace-plantillas-rrhh");
   if (enlacePlantillas) enlacePlantillas.hidden = estado.plantillasAutorizadas !== true;
   aplicarDisponibilidadMenuBolsa(porId("navegacion-bolsa"), capacidadesBolsa())
     .forEach((indicador, indice) => { indicador.textContent = String(indice + 1); });
   const fase = porId("texto-estado-modulos-portal");
   if (fase) {
-    // El recuento cuadra con lo visible: las entradas de módulo que el menú
-    // muestra, más Ofertas al SAE cuando se ofrece.
+    // El recuento corresponde a las entradas de módulo que muestra el menú.
     const accesos = [...contenedor.querySelectorAll("[data-modulo-portal]")].map((boton) => ({
       disponible: boton.classList.contains("modulo-habilitado"),
       estado: boton.getAttribute("aria-busy") === "true" ? "cargando" : "",
     }));
-    if (enlaceSAE && !enlaceSAE.hidden) accesos.push({ disponible: true, estado: "" });
     const accesosPropios = coordinadorModulos.obtenerAccesosEmpleado();
     const crearResumen = recursosVistas.get("accesos")?.crearTraductorResumenAccesosEmpleado;
     const bolsaPendiente = disponibilidadBolsa()?.estado === "cargando";

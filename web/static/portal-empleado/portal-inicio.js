@@ -253,11 +253,6 @@ export function crearVistaInicioPortal({
       { clave: "disponibles", iconoNombre: "personas", tono: "exito", valor: disponiblesBolsa === null ? null : numero(disponiblesBolsa),
         etiqueta: traducir("inicio_rrhh_kpi_disponibles", { total: bolsas.bolsas?.length ?? 0 }), destino: disponiblesBolsa === null ? "" : 'data-vista="resumen"' },
     ].map((indicador) => renderizarIndicador({ ...indicador, escaparHTML, traducir })).join("");
-    // Ofertas al SAE: sin fuente todavía; se dice en llano y sin cifra.
-    const sae = `<button type="button" class="tarjeta-kpi portal-rrhh-sae" data-metrica="sae" data-vista="ofertas-sae">
-      <span class="icono-kpi">${icono("contrato")}</span>
-      <div><strong class="valor-kpi portal-rrhh-sae-valor">${t("inicio_rrhh_kpi_sae_valor")}</strong>
-      <span class="etiqueta-kpi">${t("inicio_rrhh_kpi_sae")}</span></div></button>`;
     return `
       ${avisoCatalogo}
       <section class="portal-rrhh-inicio" aria-label="${t("menu_inicio")}">
@@ -269,7 +264,7 @@ export function crearVistaInicioPortal({
         ${estadoCT}
         ${renderizarAccesosEmpleado({ accesos: obtenerAccesosEmpleado(), escaparHTML })}
         ${resumen ? renderizarPendientes(resumen, escaparHTML, traducir, numero) : ""}
-        <div class="rejilla-kpi cuatro">${indicadores}${sae}</div>
+        <div class="rejilla-kpi rejilla-kpi--compacta">${indicadores}</div>
         <div class="rejilla-dos">
           ${resumen ? renderizarPorFase(resumen, escaparHTML, traducir, numero) : ""}
           ${renderizarBolsasInicio(bolsas, accesoBolsa, escaparHTML, traducir, numero, locale)}
