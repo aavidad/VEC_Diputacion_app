@@ -107,3 +107,9 @@ Sin publicación de necesidades configurada, el catálogo v2 responde con una ca
 La lista ligera muestra el nombre del centro y la categoría. Reutiliza el catálogo de Alta y consulta la estructura pública de Organización sólo si falta algún centro de la página. Comparte ambas consultas entre las filas y conserva la lista si no puede recuperar los nombres, con un aviso en el idioma activo. Un cuadro denegado no inicia consultas de etiquetas.
 
 La carga permite usar el idioma de respaldo del documento cuando falla el índice de idiomas. Pruebas focales y Chrome local comprueban los rótulos en escritorio y móvil; las APIs del navegador son de prueba, sin acreditar una lectura nominal de PostgreSQL. No requiere SQL ni configuración nueva.
+
+## Ficha sin consulta de borradores ausentes — 8 de octubre de 2026
+
+El detalle leído y auditado informa del montaje de la consulta de borradores. La ficha evita pedir esa consulta cuando el servidor confirma que no está montada, conservando el expediente y sus operaciones. La pista corresponde al mismo expediente y versión; se retira antes de otra lectura. Con la consulta montada se conserva su recorrido y su autorización en el servidor. Esta información no concede permisos.
+
+El corte no lleva SQL ni configuración nueva. La proyección nominal de capacidades por recurso de V sigue pendiente para evitar también consultas de secciones sin permiso. No se incorporan los consumidores opcionales de S mientras falte su proveedor nominal: retiraban funciones disponibles de CT y Bolsa.

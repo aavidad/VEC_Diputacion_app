@@ -4,10 +4,10 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261008-ct-centros-v4";
-const versionCircuito = "20261008-alta-circular-v3";
-const versionVista = "20261008-alta-capacidad-v3";
-const versionRender = "20261008-canal-telefono-v2";
+const versionCoordinador = "20261008-ct-centros-v5";
+const versionCircuito = "20261008-w-ct-borradores-main-v2";
+const versionVista = "20261008-w-ct-borradores-main-v2";
+const versionRender = "20261008-w-ct-borradores-main-v2";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -76,16 +76,16 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   const [html, coordinador, formalizacion, firma, categorias, montajeCategorias, clienteCategorias] =
     await Promise.all(rutas.map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const version = "20261007-pantallas-textos-final-v1";
-  const cohorteCT = "20261008-alta-circular-v3";
+  const cohorteCT = "20261008-w-ct-borradores-main-v2";
   exigirVersiones(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", version);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteCT);
-  exigirVersiones(coordinador, "./modulos/contratacion-temporal/adaptador-http-expedientes.js", "20261008-alta-rpt-circular-v6");
+  exigirVersiones(coordinador, "./modulos/contratacion-temporal/adaptador-http-expedientes.js", "20261008-w-ct-borradores-main-v2");
   for (const hoja of ["./modulos/documentos/vista.js", "./modulos/documentos/cliente-http.js"])
     exigirVersiones(coordinador, hoja, version);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", versionVista);
   exigirVersiones(formalizacion, "../documentos/cliente-http.js", version);
   exigirVersiones(firma, "../documentos/cliente-http.js", version);
-  exigirVersiones(categorias, "./arranque.js", "20261008-hz8-idioma-v1");
+  exigirVersiones(categorias, "./arranque.js", "20261008-alta-rpt-circular-v6");
   exigirVersiones(montajeCategorias, "./cliente.js", cohorteCT);
   exigirVersiones(clienteCategorias, "../modulos/contratacion-temporal/cliente-http.js", cohorteCT);
 });
@@ -106,7 +106,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const cohorte = "20261008-alta-circular-v3";
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = "20261008-alta-capacidad-v3";
-  const cohorteIdioma = "20261008-ct-centros-v4";
+  const cohorteTelefono = "20261008-w-ct-borradores-main-v2";
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
     ["/portal-empleado/portal-modulos-coordinador.js", "20261008-ct-inicio-v1"],
@@ -115,13 +115,13 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     ["./i18n.js", "20261007-pantallas-textos-final-v1"],
   ]);
   const aristas = [
-    [html, "/portal-empleado/portal.js", cohorteIdioma],
-    [html, "/portal-empleado/portal-modulos-coordinador.js", cohorteIdioma],
-    [portal, "./portal-modulos-coordinador.js", cohorteIdioma],
-    [coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorte],
+    [html, "/portal-empleado/portal.js", "20261008-w-bolsa-ficha-main-v2"],
+    [html, "/portal-empleado/portal-modulos-coordinador.js", cohorteTelefono],
+    [portal, "./portal-modulos-coordinador.js", cohorteTelefono],
+    [coordinador, "./modulos/contratacion-temporal/cliente-http.js", "20261008-w-ct-borradores-main-v2"],
     [cliente, "./cliente-http-alta.js", cohorte],
-    [coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", cohorteCapacidad],
-    [expedientes, "./vista-expedientes-tramitacion.js", cohorteCapacidad],
+    [coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", cohorteTelefono],
+    [expedientes, "./vista-expedientes-tramitacion.js", cohorteTelefono],
     [tramitacion, "./vista.js", cohorteCapacidad],
     [vista, "./i18n.js", cohorteRPT],
     [vista, "./contrato.js", cohorte],
@@ -130,7 +130,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     exigirVersiones(fuente, ruta, version);
     if (antiguas.has(ruta)) assert.ok(!fuente.includes(`${ruta}?v=${antiguas.get(ruta)}`), ruta);
   }
-  exigirVersiones(cache, "/portal-empleado/portal.js", cohorteIdioma);
+  exigirVersiones(cache, "/portal-empleado/portal.js", "20261008-w-bolsa-ficha-main-v2");
   assert.match(altaHTTP, /obtenerCatalogosNecesidadesAlta/u);
   assert.match(i18n, /export async function cargarMensajesNecesidadesAlta/u);
   assert.match(contrato, /export const ESQUEMA_ALTA_NECESIDAD/u);
