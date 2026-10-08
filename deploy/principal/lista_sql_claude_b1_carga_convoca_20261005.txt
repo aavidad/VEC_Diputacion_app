@@ -9,3 +9,7 @@ deploy/postgresql/bolsa_importacion_convoca/migraciones/000007_acceso_wrapper_ca
 deploy/postgresql/bolsa_llamamientos/migraciones/000079_constitucion_carga_convoca_autorizada.up.sql
 # SHA256 eaea77b8d0e6e3d9857e9cf1775e277541b0ed71a55c33ea3b5756f631aeddc2 B80
 deploy/postgresql/bolsa_llamamientos/migraciones/000080_separacion_constituidor_cli.up.sql
+# B95 instala la única entrada web de confirmación con contexto V3 exacto;
+# depende de B79/B80 y retira EXECUTE web de v1, sin alterar su definición.
+# SHA256 eb8a57ca4d21457fcc50300434ebe905abe3bc47b4391a76d3c163d57c26b589 B95
+deploy/postgresql/bolsa_llamamientos/migraciones/000095_confirmacion_carga_convoca_contexto_v2.up.sql
