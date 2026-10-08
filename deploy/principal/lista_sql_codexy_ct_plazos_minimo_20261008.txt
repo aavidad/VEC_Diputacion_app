@@ -1,0 +1,2 @@
+deploy/postgresql/contratacion_temporal/migraciones/000190_instantanea_plazo_fase.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000191_activacion_ajustes_reglas.up.sql
