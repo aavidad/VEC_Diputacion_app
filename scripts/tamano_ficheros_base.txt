@@ -103,10 +103,10 @@
 998 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1719 web/static/portal-empleado/modulos/dietas/dietas.css
 2017 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
-1516 web/static/portal-empleado/portal-modulos-coordinador.js
+1527 web/static/portal-empleado/portal-modulos-coordinador.js
 1539 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1034 web/static/portal-empleado/portal-componentes.css
-1685 web/static/portal-empleado/portal.js
+1686 web/static/portal-empleado/portal.js
 1183 web/static/portal-empleado/portal-bolsas-api.js
 924 web/static/portal-empleado/portal-bolsas.test.mjs
 1028 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
