@@ -112,10 +112,10 @@ func capsulaTokenCertificadoVinculada(
 	ctx context.Context, servicio *ServicioPresentacionCertificado,
 	prueba PruebaCertificadoActual, canal CanalProxyAutenticado,
 	ahora time.Time, inicio bool,
-) (*datosCapsulaPresentacionCertificado, bool) {
+) (*datosCapsulaPresentacionCertificado, error) {
 	if !pruebaTokenCertificadoActual(ctx, servicio, prueba, canal, ahora) ||
 		!prueba.datos.consumida.Load() {
-		return nil, false
+		return nil, ErrTokenSesionMemoriaCertificadoNoValido
 	}
 	vinculada, ok := ctx.Value(claveCapsulaPresentacionCertificado{}).(capsulaPresentacionCertificadoVinculada)
 	if !ok || vinculada.capsula.datos == nil || vinculada.capsula.datos.servicio != servicio ||
@@ -123,19 +123,19 @@ func capsulaTokenCertificadoVinculada(
 		vinculada.capsula.datos.inicioExplicito != inicio ||
 		!vinculada.capsula.datos.consumida.Load() ||
 		subtle.ConstantTimeCompare([]byte(vinculada.canalRef), []byte(canal.ReferenciaVinculacion())) != 1 {
-		return nil, false
+		return nil, ErrTokenSesionMemoriaCertificadoNoValido
 	}
 	c := vinculada.capsula.datos
 	if c.presentacion.CertificadoSHA256 != prueba.datos.certificadoSHA256 ||
 		c.presentacion.CASHA256 != prueba.datos.caSHA256 ||
 		c.estadoActual.audiencia != servicio.identidad.configuracion.Audiencia ||
 		validarResultadoPresentacionCertificado(c.resultado, c.presentacion, c.estadoActual, inicio, ahora) != nil {
-		return nil, false
+		return nil, ErrTokenSesionMemoriaCertificadoNoValido
 	}
 	if _, _, err := servicio.identidad.datosCapsulaPresentacion(ctx); err != nil {
-		return nil, false
+		return nil, falloTokenSesionMemoriaCertificado{causa: err}
 	}
-	return c, true
+	return c, nil
 }
 
 // EmitirDesdeInicio requiere la cápsula de una orden Iniciar confirmada y ya
@@ -150,8 +150,11 @@ func (r *RegistroSesionMemoriaCertificado) EmitirDesdeInicio(
 	if err != nil {
 		return "", vacio, err
 	}
-	c, valido := capsulaTokenCertificadoVinculada(ctx, servicio, prueba, canal, ahora, true)
-	if !valido || c.resultado.SesionOriginal.SesionRef == "" || c.resultado.Recibo.SesionGeneracion == 0 {
+	c, err := capsulaTokenCertificadoVinculada(ctx, servicio, prueba, canal, ahora, true)
+	if err != nil {
+		return "", vacio, err
+	}
+	if c.resultado.SesionOriginal.SesionRef == "" || c.resultado.Recibo.SesionGeneracion == 0 {
 		return "", vacio, ErrTokenSesionMemoriaCertificadoNoValido
 	}
 	vence := ahora.Add(r.politica.vida)
@@ -215,18 +218,22 @@ func (r *RegistroSesionMemoriaCertificado) purgarCaducadosBloqueado(ahora time.T
 	}
 }
 
-func huellaTokenSesion(token string) ([sha256.Size]byte, bool) {
+func huellaTokenSesion(token string) ([sha256.Size]byte, error) {
 	if len(token) != base64.RawURLEncoding.EncodedLen(bytesTokenSesion) {
-		return [sha256.Size]byte{}, false
+		return [sha256.Size]byte{}, ErrTokenSesionMemoriaCertificadoNoValido
 	}
 	material, err := base64.RawURLEncoding.Strict().DecodeString(token)
-	if err != nil || len(material) != bytesTokenSesion || base64.RawURLEncoding.EncodeToString(material) != token {
+	if err != nil {
 		clear(material)
-		return [sha256.Size]byte{}, false
+		return [sha256.Size]byte{}, falloTokenSesionMemoriaCertificado{causa: err}
+	}
+	if len(material) != bytesTokenSesion || base64.RawURLEncoding.EncodeToString(material) != token {
+		clear(material)
+		return [sha256.Size]byte{}, ErrTokenSesionMemoriaCertificadoNoValido
 	}
 	huella := sha256.Sum256(material)
 	clear(material)
-	return huella, true
+	return huella, nil
 }
 
 // VerificarActual solo habilita la consulta durable posterior. No abre sesión,
@@ -241,9 +248,9 @@ func (r *RegistroSesionMemoriaCertificado) VerificarActual(
 		prueba.datos.consumida.Load() {
 		return vacio, ErrTokenSesionMemoriaCertificadoNoValido
 	}
-	huella, valida := huellaTokenSesion(token)
-	if !valida {
-		return vacio, ErrTokenSesionMemoriaCertificadoNoValido
+	huella, err := huellaTokenSesion(token)
+	if err != nil {
+		return vacio, err
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
