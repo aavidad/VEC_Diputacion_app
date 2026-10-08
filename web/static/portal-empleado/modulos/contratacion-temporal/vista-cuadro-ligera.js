@@ -1,7 +1,7 @@
 /** Entrada de solo lectura a la lista CT. El detalle conserva su montaje propio. */
 import { localizacionDe } from "../../../comun/idioma.js";
 import { FASE_RRHH_DE_ORIGEN } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
-import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
+import { FILTRO_LISTA_INICIAL } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarListaPeticiones } from "./vista-expedientes-lista.js?v=20261007-carga-pantalla-v1";
 import { crearTraductorCuadroCT, prepararTextosContratacionVista } from "./i18n-vistas.js?v=20261007-pantallas-textos-final-v1";
 
@@ -9,6 +9,30 @@ const SOLICITUD_INICIAL = Object.freeze({
   filtros: Object.freeze({ texto: "", estado_clave: "", fase_clave: "" }),
   paginacion: Object.freeze({ limite: 100, cursor: "" }),
 });
+const FASES_SERVIDOR_V1 = Object.freeze([
+  ["solicitud", "etiqueta_fase_solicitud"], ["analisis", "etiqueta_fase_analisis_rrhh"],
+  ["preparacion", "lista_fase_servidor_preparacion"], ["fiscalizacion", "etiqueta_fase_fiscalizacion"],
+  ["llamamiento", "lista_fase_servidor_llamamiento"], ["nombramiento", "etiqueta_fase_nombramiento"],
+  ["incorporacion", "etiqueta_fase_incorporacion"], ["cierre", "lista_fase_servidor_cierre"],
+]);
+const MOSTRAR_SERVIDOR_V1 = Object.freeze([
+  ["todas", "lista_mostrar_todas"], ["incidencia", "lista_mostrar_incidencia"],
+  ["espera", "lista_mostrar_espera"],
+]);
+const ESTADO_DE_MOSTRAR = Object.freeze({ todas: "", incidencia: "incidencia", espera: "espera_externa" });
+const MOSTRAR_DE_ESTADO = Object.freeze({ "": "todas", incidencia: "incidencia", espera_externa: "espera" });
+const FILTRO_LIGERO_INICIAL = Object.freeze({ ...FILTRO_LISTA_INICIAL, mostrar: "todas" });
+const TEXTO_SERVIDOR = /^[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ/._ -]{0,80}$/u;
+const errorFiltro = () => Object.assign(new Error("filtro CT sin alcance completo en el servidor"),
+  { codigo: "filtro_servidor_no_disponible" });
+function filtroLigeroValido(entrada) {
+  const texto = entrada?.texto ?? "", fase = entrada?.fase ?? "", mostrar = entrada?.mostrar ?? "todas";
+  if (typeof texto !== "string" || texto !== texto.trim() || !TEXTO_SERVIDOR.test(texto)
+    || typeof fase !== "string" || fase !== "" && !FASES_SERVIDOR_V1.some(([clave]) => clave === fase)
+    || !Object.hasOwn(ESTADO_DE_MOSTRAR, mostrar)
+    || (entrada?.centro ?? "") !== "" || (entrada?.categoria ?? "") !== "") throw errorFiltro();
+  return Object.freeze({ texto, fase, centro: "", categoria: "", mostrar });
+}
 const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu,
   (caracter) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[caracter]);
 
@@ -54,12 +78,13 @@ function proyectarPagina(pagina, fases, locale) {
  */
 export async function montarCuadroContratacionLigero({
   raiz, cliente, idioma, abrirDetalle, abrirAlta = null, mostrarError,
-  filtroLista = null, signal = null,
+  filtroLista = null, filtroServidorRuta = null, alCambiarFiltroLista = null, signal = null,
   nombreCentro = (referencia) => referencia, nombreCategoria = (referencia) => referencia,
 } = {}) {
   if (!raiz?.addEventListener || !raiz?.querySelector
     || typeof cliente?.consultarCuadroRRHH !== "function"
     || typeof abrirDetalle !== "function" || typeof mostrarError !== "function"
+    || (alCambiarFiltroLista !== null && typeof alCambiarFiltroLista !== "function")
     || (signal !== null && (typeof signal?.addEventListener !== "function"
       || typeof signal.aborted !== "boolean"))) {
     throw new TypeError("dependencias de cuadro CT incompletas");
@@ -72,7 +97,7 @@ export async function montarCuadroContratacionLigero({
   let cuadro;
   let paginaIndice = 0;
   const cursores = [""];
-  let filtro = FILTRO_LISTA_INICIAL;
+  let filtro = FILTRO_LIGERO_INICIAL;
   let filtroRuta = filtroLista;
   let filtroServidorActual = null;
   let temporizadorBusqueda = null;
@@ -80,24 +105,28 @@ export async function montarCuadroContratacionLigero({
 
   function filtroServidor() {
     if (filtroServidorActual) return filtroServidorActual;
+    if (filtroServidorRuta !== null) {
+      if (!filtroServidorRuta || typeof filtroServidorRuta !== "object"
+        || Object.keys(filtroServidorRuta).some((clave) => !["texto", "estado_clave", "fase_clave"].includes(clave))
+        || typeof filtroServidorRuta.texto !== "string" || filtroServidorRuta.texto !== filtroServidorRuta.texto.trim()
+        || !TEXTO_SERVIDOR.test(filtroServidorRuta.texto)
+        || !Object.hasOwn(MOSTRAR_DE_ESTADO, filtroServidorRuta.estado_clave)
+        || typeof filtroServidorRuta.fase_clave !== "string"
+        || filtroServidorRuta.fase_clave !== "" && !FASES_SERVIDOR_V1.some(([clave]) => clave === filtroServidorRuta.fase_clave))
+        throw errorFiltro();
+      filtroServidorActual = Object.freeze({ texto: filtroServidorRuta.texto,
+        estado_clave: filtroServidorRuta.estado_clave, fase_clave: filtroServidorRuta.fase_clave });
+      filtro = Object.freeze({ ...FILTRO_LIGERO_INICIAL, texto: filtroServidorRuta.texto,
+        fase: filtroServidorRuta.fase_clave, mostrar: MOSTRAR_DE_ESTADO[filtroServidorRuta.estado_clave] });
+      return filtroServidorActual;
+    }
     if (filtroRuta === null) return SOLICITUD_INICIAL.filtros;
-    if (!filtroRuta || typeof filtroRuta !== "object" || Array.isArray(filtroRuta)) {
-      throw new TypeError("filtro CT de ruta no válido");
-    }
-    const validado = filtroListaValido({ mostrar: "todas", ...filtroRuta });
-    if (Object.keys(filtroRuta).some((clave) => !Object.hasOwn(FILTRO_LISTA_INICIAL, clave))
-      || Object.entries(filtroRuta).some(([clave, valor]) => valor !== undefined && valor !== null
-        && String(valor).trim() !== validado[clave])
-      || validado.fase || validado.centro || validado.categoria
-      || !["incidencia", "espera", "todas"].includes(validado.mostrar)) {
-      throw Object.assign(new Error("filtro CT sin alcance completo en el servidor"),
-        { codigo: "filtro_servidor_no_disponible" });
-    }
+    if (!filtroRuta || typeof filtroRuta !== "object" || Array.isArray(filtroRuta)
+      || Object.keys(filtroRuta).some((clave) => !Object.hasOwn(FILTRO_LIGERO_INICIAL, clave))) throw errorFiltro();
+    const validado = filtroLigeroValido(filtroRuta);
     filtro = validado;
     filtroServidorActual = Object.freeze({ texto: validado.texto,
-      estado_clave: validado.mostrar === "incidencia" ? "incidencia"
-        : (validado.mostrar === "espera" ? "espera_externa" : ""),
-      fase_clave: "" });
+      estado_clave: ESTADO_DE_MOSTRAR[validado.mostrar], fase_clave: validado.fase });
     return filtroServidorActual;
   }
   const ayudas = Object.freeze({
@@ -111,6 +140,7 @@ export async function montarCuadroContratacionLigero({
   const filtroResultados = () => ({ ...filtro,
     ...(filtroServidorActual?.texto ? { texto: "" } : {}),
     ...(filtroServidorActual?.estado_clave ? { mostrar: "todas" } : {}),
+    ...(filtroServidorActual?.fase_clave ? { fase: "" } : {}),
   });
 
   function paginacion(t) {
