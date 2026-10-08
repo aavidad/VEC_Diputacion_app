@@ -2,7 +2,7 @@
 -- AD222: registro técnico preacreditación de START/session en la cadena AD207.
 -- No crea LOGIN, no asigna perfiles y no concede autorizaciones V3.
 BEGIN;
-SET LOCAL search_path=pg_catalog;
+SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
@@ -206,7 +206,7 @@ REVOKE ALL ON TABLE vec_autorizacion_atestada_v3.config_frontera_identidad_tecni
 REVOKE ALL ON TYPE vec_autorizacion_atestada_v3.config_frontera_identidad_tecnica_v1 FROM PUBLIC;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.codigos_frontera_identidad_tecnica_v1()
-RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $funcion$
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $funcion$
  SELECT $datos$[
   {"motivo_ref":"certificado_requerido","resultado":"denegado"},
   {"motivo_ref":"autenticacion_requerida","resultado":"denegado"},
@@ -225,7 +225,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.codigos_frontera_identidad_t
 CREATE FUNCTION vec_autorizacion_atestada_v3.exigir_frontera_identidad_tecnica_v1()
 RETURNS vec_autorizacion_atestada_v3.config_frontera_identidad_tecnica_v1
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path=pg_catalog SET row_security=on
+SET search_path=pg_catalog,pg_temp SET row_security=on
 SET lock_timeout='2s' SET statement_timeout='10s'
 AS $funcion$
 DECLARE l record;g record;c vec_autorizacion_atestada_v3.config_frontera_identidad_tecnica_v1;
@@ -299,7 +299,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.exigir_frontera_identidad_te
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.acreditar_frontera_identidad_tecnica_v1()
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path=pg_catalog SET row_security=on
+SET search_path=pg_catalog,pg_temp SET row_security=on
 SET lock_timeout='2s' SET statement_timeout='10s'
 AS $funcion$
 DECLARE c vec_autorizacion_atestada_v3.config_frontera_identidad_tecnica_v1;
@@ -319,7 +319,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_frontera_identidad_tecnic
 RETURNS TABLE(auditoria_ref text,secuencia numeric,material_sha256 text,
  correlacion_ref text,registrada_en timestamptz)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path=pg_catalog SET row_security=on SET timezone='UTC'
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET lock_timeout='2s' SET statement_timeout='10s'
 AS $funcion$
 DECLARE

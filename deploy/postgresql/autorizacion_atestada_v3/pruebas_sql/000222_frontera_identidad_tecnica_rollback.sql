@@ -3,7 +3,7 @@
 -- sellador AD207 vivo. Todo el material y LOGIN son sintéticos. El ROLLBACK
 -- conserva tablas/historia, aunque la secuencia AD207 puede dejar un hueco.
 BEGIN ISOLATION LEVEL SERIALIZABLE;
-SET LOCAL search_path=pg_catalog;
+SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
