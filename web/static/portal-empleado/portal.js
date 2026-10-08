@@ -1,6 +1,7 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20261008-ct-inicio-v1";
 import { FILTRO_INCIDENCIA_CT, filtroServidorCTValido, leerFiltroCTDeRuta,
   limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261008-bolsa-inicio-v2";
+import { leerFichaCTDeRuta, rutaConFichaCT } from "./portal-ct-ruta-ficha.js?v=20261008-r-navegacion-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261007-pantallas-textos-final-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
@@ -917,18 +918,14 @@ async function solicitarPropuestaLlamamiento() {
 // «?expediente=<referencia>#contratacion-temporal» abre ese expediente. La
 // referencia solo navega; el servidor decide si el perfil puede consultarlo.
 function opcionesDesdeEnlace(vista) {
-  const parametros = new URLSearchParams(window.location.search);
   const filtroServidorRuta = vista === "contratacion-temporal" ? leerFiltroCTDeRuta(window.location.search) : null;
+  const fichaRuta = vista === "contratacion-temporal" ? leerFichaCTDeRuta(window.location.search) : null;
   const opcionesCT = vista === "contratacion-temporal"
-    ? { alCambiarFiltroLista: alCambiarFiltroListaCT,
+    ? { alCambiarFiltroLista: alCambiarFiltroListaCT, alCambiarFicha: alCambiarFichaCT,
+      ...(fichaRuta ? { expedienteRef: fichaRuta.expedienteRef,
+        ...(fichaRuta.version !== null ? { expedienteVersion: fichaRuta.version } : {}) } : {}),
       ...(filtroServidorRuta ? { filtroServidorRuta } : {}) } : null;
-  if (!parametros.has("expediente")) return opcionesCT;
-  const referencia = parametros.get("expediente") || "";
-  parametros.delete("expediente");
-  const busqueda = parametros.toString();
-  history.replaceState(null, "", `${window.location.pathname}${busqueda ? `?${busqueda}` : ""}${window.location.hash}`);
-  return vista === "contratacion-temporal" && /^[A-Za-z0-9:_.-]{1,200}$/u.test(referencia)
-    ? { ...opcionesCT, expedienteRef: referencia } : opcionesCT;
+  return opcionesCT;
 }
 
 function vistaDesdeHash() {
@@ -985,6 +982,12 @@ function alCambiarFiltroListaCT(filtroAplicado) {
   const ruta = rutaPortalConFiltroCT(window.location, rutaDeVista("contratacion-temporal"), filtroAplicado);
   if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
     history.replaceState(null, "", ruta);
+}
+function alCambiarFichaCT(ficha) {
+  if (estado.vista !== "contratacion-temporal") return;
+  const ruta = rutaConFichaCT(window.location, ficha);
+  if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
+    history.pushState(null, "", ruta);
 }
 function navegar(vista, opciones = {}) {
   if (!Object.hasOwn(TITULOS, vista)) return;
@@ -1047,8 +1050,12 @@ function navegar(vista, opciones = {}) {
       history.replaceState(null, "", ruta);
   }
   estado.vista = vista;
+  const fichaRuta = vista === "contratacion-temporal" && opciones.desdeRuta === true
+    ? leerFichaCTDeRuta(window.location.search) : null;
   estado.opcionesVista = vista === "contratacion-temporal"
-    ? { ...opciones, filtroServidorRuta, alCambiarFiltroLista: alCambiarFiltroListaCT } : opciones;
+    ? { ...opciones, ...(fichaRuta ? { expedienteRef: fichaRuta.expedienteRef,
+      ...(fichaRuta.version !== null ? { expedienteVersion: fichaRuta.version } : {}) } : {}),
+      filtroServidorRuta, alCambiarFiltroLista: alCambiarFiltroListaCT, alCambiarFicha: alCambiarFichaCT } : opciones;
   if (vista === "portal" && esPerfilRRHH() && estadoResumenInicio !== "listo") {
     estadoResumenInicio = "cargando";
     void prepararResumenInicioVisible();

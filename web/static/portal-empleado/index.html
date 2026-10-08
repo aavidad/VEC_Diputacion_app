@@ -195,9 +195,10 @@
           <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="estadisticas" data-vista="estadisticas">
             <span class="numero-menu tono-oliva" aria-hidden="true">7</span><span data-i18n-portal="txt_estadisticas">Estadísticas</span>
           </button>
-          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="documentos" data-vista="contratacion-temporal">
-            <span class="numero-menu tono-ambar" aria-hidden="true">8</span><span data-i18n-portal="txt_documentos_y_firma">Documentos y firma</span><span class="etiqueta-menu" aria-hidden="true" data-i18n-portal="txt_borradores_pdf">Borradores PDF</span>
+          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="documentos" data-vista="documentos" aria-describedby="bolsa-documentos-pendientes" disabled>
+            <span class="numero-menu tono-ambar" aria-hidden="true">8</span><span data-i18n-portal="bolsa_documentos_titulo">Documentos de Bolsa</span>
           </button>
+          <p id="bolsa-documentos-pendientes" class="dato-secundario" data-i18n-portal="bolsa_documentos_pendiente">Los documentos de Bolsa no están disponibles aquí. Consulte los documentos desde la petición de contratación correspondiente.</p>
           <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="comunicaciones" data-vista="llamamientos">
             <span class="numero-menu tono-turquesa" aria-hidden="true">9</span><span data-i18n-portal="txt_correo_y_mensajeria">Correo y mensajería</span><span class="etiqueta-menu" aria-hidden="true" data-i18n-portal="txt_correo">Correo</span>
           </button>

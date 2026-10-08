@@ -638,6 +638,33 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
     return modalidades === null ? catalogos : { ...(catalogos ?? {}), modalidades };
   }
 
+  async function obtenerConVersion(expedienteRef, version, { signal } = {}) {
+    disponibilidadFicha = null;
+    const secuencia = ++secuenciaDetalle;
+    if (typeof expedienteRef !== "string" || !/^[A-Za-z0-9:_.-]{1,200}$/u.test(expedienteRef)
+      || !Number.isSafeInteger(version) || version < 1 || version > 1_000_000_000) {
+      throw new TypeError("referencia o versión de expediente no válida");
+    }
+    const [detalle, catalogos] = await Promise.all([
+      cliente.consultarDetalleRRHH({ expediente_ref: expedienteRef, version_observada: version }, { signal }),
+      resolverEtiquetas(),
+    ]);
+    if (detalle?.resumen?.expediente_ref !== expedienteRef || detalle.resumen.version !== version) {
+      throw new TypeError("detalle ajeno o versión modificada");
+    }
+    const expediente = proyectarExpediente(detalle, locale, catalogos, t, mensajes, obtenerJornadaCompleta());
+    if (!signal?.aborted && secuencia === secuenciaDetalle) {
+      const registro = detalle.capacidades_ficha?.borradores_publicados;
+      if (registro && Object.keys(registro).length === 3
+        && ["montado", "sin_montaje"].includes(registro.estado)
+        && registro.expediente_ref === expedienteRef && registro.version_observada === version) {
+        disponibilidadFicha = Object.freeze({ borradores_publicados: Object.freeze({ ...registro }) });
+      }
+    }
+    capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
+    return expediente;
+  }
+
   const adaptador = {
     get capacidades() {
       return Object.freeze([...capacidadesConsultadas]);
@@ -685,32 +712,14 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
         && registro?.version_observada === contexto?.version_observada ? registro : null;
     },
     async obtener(expedienteRef, { signal } = {}) {
-      disponibilidadFicha = null;
-      const secuencia = ++secuenciaDetalle;
       const version = versiones.get(expedienteRef);
       if (!Number.isSafeInteger(version) || version < 1) {
         throw new TypeError("expediente fuera del cuadro consultado");
       }
-      const [detalle, catalogos] = await Promise.all([
-        cliente.consultarDetalleRRHH({
-          expediente_ref: expedienteRef,
-          version_observada: version,
-        }, { signal }),
-        resolverEtiquetas(),
-      ]);
-      const expediente = proyectarExpediente(
-        detalle, locale, catalogos, t, mensajes, obtenerJornadaCompleta(),
-      );
-      if (!signal?.aborted && secuencia === secuenciaDetalle) {
-        const registro = detalle.capacidades_ficha?.borradores_publicados;
-        if (registro && Object.keys(registro).length === 3
-          && ["montado", "sin_montaje"].includes(registro.estado)
-          && registro.expediente_ref === expedienteRef && registro.version_observada === version) {
-          disponibilidadFicha = Object.freeze({ borradores_publicados: Object.freeze({ ...registro }) });
-        }
-      }
-      capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
-      return expediente;
+      return obtenerConVersion(expedienteRef, version, { signal });
+    },
+    obtenerDesdeEnlace(expedienteRef, version, { signal } = {}) {
+      return obtenerConVersion(expedienteRef, version, { signal });
     },
     async ejecutar() {
       const error = new Error("Las actuaciones todavía no están conectadas");

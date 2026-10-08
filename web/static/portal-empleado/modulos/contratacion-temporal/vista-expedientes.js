@@ -154,12 +154,14 @@ export async function montarModuloContratacionTemporal({
   prepararFichaBolsa = null,
   // Filtros de pantalla de la lista (p. ej. desde un indicador de Inicio).
   filtroLista: filtroListaInicial = null,
+  alCambiarFicha = () => {},
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.querySelector !== "function"
     || typeof presentador?.obtenerEstado !== "function"
     || typeof presentador?.cargar !== "function"
-    || typeof anunciar !== "function" || typeof confirmarOperacion !== "function") {
+    || typeof anunciar !== "function" || typeof confirmarOperacion !== "function"
+    || typeof alCambiarFicha !== "function") {
     throw new TypeError("dependencias del módulo de contratación temporal no válidas");
   }
   const traducirExpedientes = crearTraductorExpedientesContratacion(mensajes);
@@ -776,6 +778,7 @@ export async function montarModuloContratacionTemporal({
       return;
     }
     presentador.cambiarVista(vista);
+    if (vista === "cuadro") alCambiarFicha(null);
     repintar(vista === "cuadro" ? "[data-ct-exp-filtros]" : (vista === "alta" ? "#ct-alta-titulo" : (vista === "estadisticas" ? '[data-ct-form="filtros-estadisticas"]' : ".ct-exp-contenido")));
   }
 
@@ -875,6 +878,7 @@ export async function montarModuloContratacionTemporal({
         if (estado.carga === "listo" && estado.vista === "expediente"
           && estado.expediente_ref === abrir.dataset.ctExpAbrir
           && estado.expediente?.expediente_ref === abrir.dataset.ctExpAbrir) {
+          alCambiarFicha({ expedienteRef: estado.expediente_ref, version: estado.expediente.version });
           repintar();
           enfocarCabeceraExpediente(raiz);
         } else {

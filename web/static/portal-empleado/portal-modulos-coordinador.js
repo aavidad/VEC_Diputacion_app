@@ -1352,7 +1352,11 @@ export function crearCoordinadorModulosPortal({
         await presentadorCT.cargar({ texto: "", estado: "", fase: "", ...(opciones.filtros || {}) });
         if (montaje !== secuenciaMontaje) return false;
       }
-      if (!esFiscalizacion && expedienteRef
+      if (!esFiscalizacion && expedienteRef && Number.isSafeInteger(opciones?.expedienteVersion)
+        && typeof presentadorCT?.seleccionarExpedienteDesdeEnlace === "function") {
+        await presentadorCT.seleccionarExpedienteDesdeEnlace(expedienteRef, opciones.expedienteVersion);
+        if (montaje !== secuenciaMontaje) return false;
+      } else if (!esFiscalizacion && expedienteRef
         && presentadorCT?.obtenerEstado?.().cuadro?.expedientes?.some(
           (expediente) => expediente.expediente_ref === expedienteRef,
         ) && typeof presentadorCT?.seleccionarExpediente === "function") {
@@ -1373,6 +1377,7 @@ export function crearCoordinadorModulosPortal({
           raiz,
           presentador: presentadorCT,
           filtroLista: opciones?.filtroLista ?? null,
+          alCambiarFicha: opciones?.alCambiarFicha,
           locale,
           zonaHoraria: ZONA_HORARIA_PORTAL,
           mensajes: temporal.mensajesExpedientes,

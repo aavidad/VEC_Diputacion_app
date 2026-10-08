@@ -90,6 +90,56 @@ function clienteFalso(llamadas) {
   };
 }
 
+test("F5 consulta un único detalle autorizado por referencia y versión, sin recorrer el cuadro", async () => {
+  const llamadas = [];
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteFalso(llamadas) });
+  const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente: adaptador,
+    capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"] });
+  await assert.rejects(() => presentador.seleccionarExpediente(resumen.expediente_ref), /fuera del cuadro/);
+  await presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, resumen.version);
+  assert.equal(presentador.obtenerEstado().expediente_ref, resumen.expediente_ref);
+  assert.equal(presentador.obtenerEstado().carga, "listo");
+  assert.deepEqual(llamadas.map((llamada) => llamada.operacion), ["detalle"]);
+  assert.deepEqual(llamadas[0].solicitud,
+    { expediente_ref: resumen.expediente_ref, version_observada: resumen.version });
+  await assert.rejects(() => adaptador.obtener(resumen.expediente_ref), /fuera del cuadro consultado/);
+});
+
+test("el enlace de ficha conserva denegación y rechaza una versión ajena", async () => {
+  for (const estado of [401, 403]) {
+    const cliente = clienteFalso([]);
+    cliente.consultarDetalleRRHH = async () => { const error = new Error("denegado"); error.estado = estado; throw error; };
+    const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+    const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente: adaptador,
+      capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"] });
+    await presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, resumen.version);
+    assert.equal(presentador.obtenerEstado().carga, "denegado");
+    assert.equal(presentador.obtenerEstado().expediente, null);
+    await assert.rejects(() => presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, 0), /enlace.*no válido/);
+  }
+  const clienteAjeno = clienteFalso([]);
+  const adaptadorAjeno = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteAjeno });
+  await assert.rejects(() => adaptadorAjeno.obtenerDesdeEnlace(resumen.expediente_ref, resumen.version + 1), /versión modificada/);
+});
+
+test("desmontar cancela el detalle abierto por URL sin publicar una respuesta tardía", async () => {
+  let completar;
+  const cliente = clienteFalso([]);
+  cliente.consultarDetalleRRHH = (_solicitud, { signal }) => new Promise((resolve) => {
+    completar = () => resolve({ ...resumen, resumen });
+    signal.addEventListener("abort", () => resolve({ ...resumen, resumen }), { once: true });
+  });
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente: adaptador,
+    capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"] });
+  const tarea = presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, resumen.version);
+  await Promise.resolve();
+  presentador.desmontar();
+  completar?.();
+  await tarea;
+  assert.equal(presentador.obtenerEstado().expediente, null);
+});
+
 test("expediente sin fecha de fin muestra la causa en solicitud y análisis", async () => {
   const cliente = clienteFalso([]);
   const obtenerDetalle = cliente.consultarDetalleRRHH;
