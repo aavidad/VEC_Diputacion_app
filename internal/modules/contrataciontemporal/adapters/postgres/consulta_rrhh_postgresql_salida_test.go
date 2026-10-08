@@ -177,7 +177,8 @@ func TestContratoSQLConsultaRRHHTieneLigadurasYSalidasExactas(t *testing.T) {
 			append(destinosCierreEsperadosConsultaRRHH(&cuadro.cierre),
 				&cuadro.totalFiltrado, &cuadro.enTramitacion,
 				&cuadro.conIncidencia, &cuadro.enLlamamiento,
-				&cuadro.faseDesdeExpedientes, &cuadro.faseDesdeInstantes, &cuadro.urgentes)...,
+				&cuadro.faseDesdeExpedientes, &cuadro.faseDesdeInstantes, &cuadro.urgentes,
+				&cuadro.capturasPlazo)...,
 		),
 	)
 	comprobarIdentidadDestinosConsultaRRHH(

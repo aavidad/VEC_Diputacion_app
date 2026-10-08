@@ -27,6 +27,14 @@ function aplazarCarga(superficie) {
 export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, estado, renderizar,
   aplicarFilas, navegar, vistaBolsaDisponible, altaCTDisponible, anunciar, traducir }) {
   let controladorVisual = null;
+  let cambioIdiomaSolicitado = false;
+  // Con un idioma explícito admitido la URL fija esta carga: la consulta de
+  // preferencias puede acompañar al montaje sin provocar una redirección.
+  // Sin él, la raíz espera esa consulta antes de iniciar lecturas de módulos.
+  function prepararInicio() {
+    const solicitado = new URL(ventana.location.href).searchParams.get("lang");
+    return !IDIOMAS_DISPONIBLES.some(({ codigo }) => codigo === solicitado);
+  }
   function aplicarVisual(valores) {
     const visuales = { tema: valores.tema, alto_contraste: valores.alto_contraste, tamano_texto: valores.tamano_texto };
     if (controladorVisual) controladorVisual.aplicarPreferenciasServidor(visuales);
@@ -60,7 +68,9 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
     }
     if (idioma === documento.documentElement.lang) return;
     url.searchParams.set("lang", idioma);
-    ventana.location.replace(url.href);
+    cambioIdiomaSolicitado = true;
+    try { ventana.location.replace(url.href); }
+    catch (error) { cambioIdiomaSolicitado = false; throw error; }
   }
   // Preferencias, imagen y correos comparten una cola: la identidad de
   // desarrollo no admite dos altas de sesión simultáneas de la misma cuenta.
@@ -141,5 +151,6 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
     return preparado;
   }
   return Object.freeze({ superficie, instalarMenu, aplicarInicio, alternarVisualVolatil, fijarIniciales, prepararTextosPreferencias,
+    prepararInicio, cambioIdiomaPendiente: () => cambioIdiomaSolicitado,
     detenerRegistroErrores: clientePreferencias.detenerRegistroErrores });
 }

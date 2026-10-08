@@ -164,7 +164,8 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 			r.Tipo == esperado.Tipo && maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
 	}
 	if ruta == httpinterno.RutaSeleccionLlamamiento {
-		if datos.Accion == ports.AccionReanudacionSeleccionLlamamiento {
+		if datos.Accion == ports.AccionReanudacionSeleccionLlamamiento ||
+			datos.Accion == ports.AccionReanudacionSolicitudLlamamiento {
 			reserva, existe := ctx.Value(claveReanudacionSeleccionDesarrollo{}).(ports.SolicitudReservaEjecucionSeleccionLlamamiento)
 			if !existe || datos.ReferenciaMotivo != motivoLlamamientoDesarrollo(false) ||
 				!reservaReanudacionLigadaAPreparacionDesarrollo(p, reserva) {
@@ -290,6 +291,14 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 	if err != nil {
 		return err
 	}
+	reanudacionSolicitud, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
+		"reanudacion_solicitud_llamamiento_desarrollo", "Reanudación de solicitud de llamamiento", "reanudacion-solicitud-llamamiento-desarrollo",
+		[]dominiovec.ConcesionRol{concesion(ports.AccionReanudacionSolicitudLlamamiento, "contratacion_temporal", ports.TipoRecursoReanudacionSeleccionLlamamiento)},
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+	if err != nil {
+		return err
+	}
 	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
@@ -353,6 +362,7 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 	s.mu.Lock()
 	s.instantaneaLlamamiento, s.instantaneaComunicacion = seleccion, comunicacion
 	s.instantaneaReanudacionLlamamiento = reanudacion
+	s.instantaneaReanudacionSolicitudLlamamiento = reanudacionSolicitud
 	s.motivoLlamamiento, s.motivoComunicacion = motivoLlamamientoDesarrollo(false), motivoLlamamientoDesarrollo(true)
 	s.instantaneaRespuestaRecibida, s.motivoRespuestaRecibida = respuesta, motivoRespuestaRecibidaDesarrollo()
 	s.instantaneaConsultaJustificante, s.motivoConsultaJustificante = consultaJustificante, motivoConsultaJustificanteRespuestaDesarrollo()
@@ -546,7 +556,8 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 		(!a.respuestaRecibida && capacidad.ruta == httpinterno.RutaRegistroRespuestaRecibida) ||
 		(a.despachoCorreo && (a.resultadoCorreo || accion != ctapplication.AccionDespacharCorreoLlamamiento || capacidad.ruta != httpinterno.RutaRegistroComunicacionLlamamiento)) ||
 		(a.resultadoCorreo && (a.despachoCorreo || accion != ctapplication.AccionRegistrarResultadoCorreoLlamamiento || capacidad.ruta != httpinterno.RutaRegistroComunicacionLlamamiento)) ||
-		(accion == ports.AccionReanudacionSeleccionLlamamiento && (a.comunicacion || a.respuestaRecibida)) {
+		((accion == ports.AccionReanudacionSeleccionLlamamiento ||
+			accion == ports.AccionReanudacionSolicitudLlamamiento) && (a.comunicacion || a.respuestaRecibida)) {
 		return fallo(ports.ErrAutorizacionDenegada)
 	}
 	var correlacion dominiovec.ReferenciaCorrelacionAutorizacionV2

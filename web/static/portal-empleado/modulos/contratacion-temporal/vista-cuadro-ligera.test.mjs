@@ -51,6 +51,8 @@ test("la bandeja ligera usa una consulta autorizada y abre detalle solo tras pul
       return { generada_en: "2026-10-01T09:00:00Z", expedientes: [fila], hay_mas: false };
     } },
     idioma: "es",
+    nombreCentro: () => "Centro solicitante",
+    nombreCategoria: () => "Auxiliar",
     abrirDetalle: async (datos) => { abiertos.push(datos); },
     mostrarError: (_raiz, datos) => { errores.push(datos); },
   });
@@ -58,6 +60,9 @@ test("la bandeja ligera usa una consulta autorizada y abre detalle solo tras pul
   assert.equal(consultas.length, 1);
   assert.equal(consultas[0].solicitud.paginacion.limite, 100);
   assert.match(raiz.innerHTML, /2026\/CT-0001/u);
+  assert.match(raiz.innerHTML, />Centro solicitante<small>Auxiliar<\/small>/u);
+  assert.match(raiz.innerHTML, /aria-label="Abrir el expediente 2026\/CT-0001"/u);
+  assert.doesNotMatch(raiz.innerHTML, /title="centro:rpt:600"/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-exp-vista="alta"/u);
   assert.equal(abiertos.length, 0);
   await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctExpAbrir: fila.expediente_ref } }) } });

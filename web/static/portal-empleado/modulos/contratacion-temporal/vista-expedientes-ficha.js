@@ -55,7 +55,7 @@ export function renderizarCabeceraFicha(expediente, estado, t) {
  * plazo es el de la fase del expediente (el que calcula el servidor) y se
  * nombra así; no se atribuye a una persona.
  */
-export function renderizarSiguientePasoFicha(expediente, estado, t) {
+export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPendiente = false) {
   const tarea = expediente.tareas.find(({ estado_clave: e }) => e === "en_curso")
     ?? expediente.tareas.find(({ estado_clave: e }) => e === "espera")
     ?? expediente.tareas.find(({ estado_clave: e }) => e === "pendiente");
@@ -80,12 +80,15 @@ export function renderizarSiguientePasoFicha(expediente, estado, t) {
   const terminado = ["completado", "cancelado"].includes(resumen?.estado_clave);
   const espera = resumen?.estado_clave === "espera";
   const incidencia = resumen?.estado_clave === "incidencia";
-  const titulo = terminado ? t("ficha_siguiente_paso_terminado")
+  const guiaCobertura = coberturaPendiente === true && !bloqueado && !terminado && !espera;
+  const titulo = guiaCobertura ? t("ficha_siguiente_paso_cobertura_titulo")
+    : terminado ? t("ficha_siguiente_paso_terminado")
     : (espera ? t("ficha_siguiente_paso_espera")
       : (nombreFase ? t("ficha_siguiente_paso_fase", { fase: nombreFase }) : t("siguiente_paso_titulo")));
-  const que = accion?.etiqueta ?? (tarea ? t("siguiente_paso_espera", { tarea: tarea.etiqueta }) : t("siguiente_paso_sin_tarea"));
+  const que = guiaCobertura ? t("ficha_siguiente_paso_cobertura_que")
+    : accion?.etiqueta ?? (tarea ? t("siguiente_paso_espera", { tarea: tarea.etiqueta }) : t("siguiente_paso_sin_tarea"));
   const conPlazo = resumen?.plazo_estado && resumen.plazo_estado !== "no_calculado";
-  const plazo = conPlazo ? t("ficha_plazo_fase_estado", {
+  const plazo = guiaCobertura ? t("siguiente_paso_plazo_desconocido") : conPlazo ? t("ficha_plazo_fase_estado", {
     fecha: resumen.plazo, estado: t(`plazo_fase_${resumen.plazo_estado}`),
   }) : t("siguiente_paso_plazo_desconocido");
   const clase = terminado || espera ? " en-espera" : (incidencia ? " con-incidencia" : "");
@@ -93,14 +96,14 @@ export function renderizarSiguientePasoFicha(expediente, estado, t) {
     <div>
       <h3 id="ct-exp-siguiente-paso-titulo">${escapar(titulo)}</h3>
       <dl>
-        <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera ? escapar(que)
+        <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera || guiaCobertura ? escapar(que)
     : `<span class="ct-exp-que-con-tramite">${escapar(t("siguiente_paso_tramite_abajo"))}</span><span class="ct-exp-que-sin-tramite">${escapar(que)}</span>`}</dd></div>
-        ${tarea ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(actor || t("siguiente_paso_quien_desconocido"))}</dd></div>` : ""}
+        ${tarea && !guiaCobertura ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(actor || t("siguiente_paso_quien_desconocido"))}</dd></div>` : ""}
         <div><dt>${escapar(t("siguiente_paso_hasta"))}</dt><dd>${escapar(plazo)}</dd></div>
       </dl>
       <p id="ct-exp-siguiente-paso-estado" role="status" aria-live="polite" aria-atomic="true">${bloqueado ? escapar(t(mensajeBloqueo)) : ""}</p>
     </div>
-    ${terminado || espera ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite"${bloqueado ? ' disabled aria-disabled="true" aria-describedby="ct-exp-siguiente-paso-estado"' : ""}>${escapar(t("ficha_ir_tramite"))}</button>`}
+    ${terminado || espera || guiaCobertura ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite"${bloqueado ? ' disabled aria-disabled="true" aria-describedby="ct-exp-siguiente-paso-estado"' : ""}>${escapar(t("ficha_ir_tramite"))}</button>`}
   </section>`;
 }
 
@@ -138,21 +141,24 @@ export function renderizarLineaFases(expediente, t) {
  * Documentos: si el índice del expediente ya está consultado, como lista de
  * comprobación; si no, el acceso a su pantalla. La firma se ancla debajo.
  */
-export function renderizarDocumentosFicha(estado, t) {
+export function renderizarDocumentosFicha(estado, t, borradoresLegados = "") {
   const expediente = estado.expediente;
   const indice = estado.documentos?.expediente_ref === expediente.expediente_ref ? estado.documentos : null;
-  const sinPantallaPropia = estado.navegacion?.documentos === false;
+  const sinPantallaPropia = estado.navegacion?.documentos === false || estado.vista === "documentos";
   const verDocumentos = sinPantallaPropia ? ""
     : `<button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escapar(t("ficha_documentos_ver"))}</button>`;
   // Sin índice propio, el montaje coloca aquí la lista común de documentos
   // del expediente (con su botón «Descargar») si el portal la ofrece.
-  const cuerpo = indice && indice.documentos.length
-    ? renderizarListaDocumentos(indice.documentos, t)
-    : `<div class="cuerpo-panel" data-ct-exp-documentos-comun><p>${escapar(t(sinPantallaPropia
-      ? "ficha_documentos_no_disponibles" : "ficha_documentos_aparte"))}</p>${verDocumentos}</div>`;
+  const cuerpo = `<div class="cuerpo-panel">
+    <div data-ct-exp-borradores-publicados><p role="status">${escapar(t("ficha_borradores_cargando"))}</p></div>
+    <div data-ct-exp-borradores-legados>${borradoresLegados}</div>
+    <div data-ct-exp-firmados></div>
+    ${indice?.documentos?.length ? renderizarListaDocumentos(indice.documentos, t) : ""}
+    <div data-ct-exp-documentos-comun><p role="status">${escapar(t("ficha_documentos_cargando"))}</p></div>
+    ${verDocumentos}</div>`;
   return `<section class="panel ct-exp-ficha-documentos" aria-labelledby="ct-exp-ficha-documentos-titulo">
     <div class="cabecera-panel"><h3 id="ct-exp-ficha-documentos-titulo">${escapar(t("ficha_documentos_titulo"))}</h3>
-      ${indice ? `<p class="texto-secundario">${escapar(t("ficha_documentos_recuento", { total: indice.documentos.length }))}</p>` : ""}</div>
+      ${indice?.documentos?.length ? `<p class="texto-secundario">${escapar(t("ficha_documentos_recuento_indice", { total: indice.documentos.length }))}</p>` : ""}</div>
     ${cuerpo}
   </section>
   <div data-ct-exp-ancla-firma hidden></div>`;
@@ -161,11 +167,10 @@ export function renderizarDocumentosFicha(estado, t) {
 /** Lista de comprobación de documentos; el símbolo acompaña a la palabra. */
 export function renderizarListaDocumentos(documentos, t) {
   return `<ul class="lista-documentos" aria-label="${escapar(t("documentos_tabla"))}">${documentos.map((documento) => {
-    const enFirma = /firma|sign/iu.test(String(documento.firma ?? "")) && !/firmad|signed/iu.test(String(documento.firma ?? ""));
     const esta = documento.descarga_disponible === true;
-    const clase = enFirma ? "firma" : (esta ? "esta" : "falta");
-    const simbolo = { firma: "…", esta: "✓", falta: "—" }[clase];
-    const palabra = t({ firma: "ficha_documento_firma", esta: "ficha_documento_esta", falta: "ficha_documento_falta" }[clase]);
+    const clase = esta ? "esta" : "falta";
+    const simbolo = esta ? "✓" : "—";
+    const palabra = t(esta ? "ficha_documento_esta" : "ficha_documento_falta");
     return `<li class="${clase}">
       <span class="simbolo" aria-hidden="true">${simbolo}</span>
       <div><strong>${escapar(documento.titulo)}</strong>

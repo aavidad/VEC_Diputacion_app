@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -309,6 +310,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	cfg, resolvedorDesarrollo, derivador, registro := dependencias.cfg, dependencias.resolvedor, dependencias.derivador, dependencias.registro
 	plantillasActivas, err := plantillasCatalogoCTDesarrolloSolicitado(cfg)
+	ajustesCTActivos, errAjustes := ajustesReglasCTSolicitados(cfg)
+	if errAjustes != nil || ajustesCTActivos && !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
+		return nil, nil, nil, errMontajeAjustesReglasCT
+	}
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -321,6 +326,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, errMontajePreparacionBasesV3
 	}
 	var fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas *pgxpool.Pool
+	var autoridadesCargaConvoca *autoridadesCargaConvocaPostgreSQL
 	cerrarAutoridadesPlantillas := func() {
 		if motivosEvaluadorPlantillas != nil {
 			motivosEvaluadorPlantillas.Close()
@@ -335,7 +341,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			cerrarAutoridadesPlantillas()
 		}
 	}()
-	if plantillasActivas || documentalActiva || preparacionBasesActiva {
+	autoridadesBolsaConfiguradas := debeComponerBorradorLlamamientoDesarrollo(cfg) &&
+		(strings.TrimSpace(os.Getenv(config.EnvAutorizacionFuenteDatabaseURL)) != "" ||
+			strings.TrimSpace(os.Getenv(config.EnvAutorizacionMotivosEvaluadorDatabaseURL)) != "")
+	if plantillasActivas || documentalActiva || preparacionBasesActiva || ajustesCTActivos || autoridadesBolsaConfiguradas {
 		if !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
 		}
@@ -354,6 +363,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			sonda, dsnMotivos, config.RolAutorizacionMotivosEvaluadorRRHH, "vec-ct-plantillas-motivos")
 		if err != nil || preflightAutoridadesPlantillasCT(sonda, fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas) != nil {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
+		}
+		if debeComponerBorradorLlamamientoDesarrollo(cfg) {
+			autoridadesCargaConvoca = &autoridadesCargaConvocaPostgreSQL{
+				fuente: fuenteAutorizacionPlantillas, motivos: motivosEvaluadorPlantillas,
+			}
 		}
 	}
 	noCompuesta, err := nuevaCapacidadNoCompuestaContratacionTemporalDesarrollo(registro)
@@ -391,6 +405,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			alta.cerrar()
 		}
 	}()
+	if ajustesCTActivos {
+		if err := conectarAjustesReglasCTAlResolutor(cfg, reglasEjemplo.contratacionTemporal,
+			alta.postgresql.ejecucion, reglasEjemplo.calendarios, reloj); err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	// El alta de necesidad queda cerrada hasta declarar una publicación propia
 	// y disponer del confirmador CT193 y de la lectura pública exacta de RPT.
 	// La relectura de la instantánea usa la conexión del ejecutor: es el único
@@ -685,6 +705,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if ajustesCTActivos {
+		declaracionesFrontera = append(declaracionesFrontera, descriptoresFronteraAjustesReglasCT(perfilCTCatalogo)...)
+	}
 	if consultaCircuitoRRHH != nil {
 		declaracionesFrontera = append(declaracionesFrontera,
 			fronteraContratacionTemporalDesarrollo("ct-circuito-rrhh-consultar",
@@ -760,7 +783,25 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, fmt.Errorf("%w: %w", errBorradorNoDisponibleEn(), err)
 		}
 		perfilBolsa := soporteBolsaCatalogo.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef
-		bolsaFronteras, e := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfilBolsa, politicaOfertasActiva, reincorporacionTitular)
+		cargaConvocaGobernada := false
+		if autoridadesCargaConvoca != nil {
+			versionBase := 5
+			if politicaOfertasActiva {
+				versionBase++
+			}
+			if reincorporacionTitular {
+				versionBase += 2
+			}
+			sondaCarga, cancelarCarga := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
+			cargaConvocaGobernada, err = permiteMontarCargaConvocaPostgreSQL(sondaCarga,
+				autoridadesCargaConvoca.fuente, soporteBolsaCatalogo, reloj.Ahora(), versionBase)
+			cancelarCarga()
+			if err != nil {
+				log.Printf("bolsa CONVOCA: no se pudo comprobar la concesión de carga (%T)", err)
+				cargaConvocaGobernada = false
+			}
+		}
+		bolsaFronteras, e := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfilBolsa, politicaOfertasActiva, reincorporacionTitular, cargaConvocaGobernada)
 		if e != nil {
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
@@ -905,8 +946,6 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			EjecutorSeleccion:               seleccionReal,
 			AutoridadPropuestaFormalizacion: autoridadPropuestaReal,
 			EjecutorPropuestaFormalizacion:  propuestaReal,
-			AutoridadCierreAdministrativo:   noCompuesta,
-			EjecutorCierreAdministrativo:    noCompuesta,
 			AutoridadAsignacion:             alta.soporte,
 			EjecutorAsignacion:              asignacionReal,
 			AutoridadInformeJuridico:        alta.soporte,
@@ -1055,6 +1094,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		rutasBorrador, coleccionesBorrador, manejadorSituacion, seguridadBorrador, envolverBorrador, cerrarBorrador, errBorrador = nuevasDependenciasBorradorLlamamientoDesarrollo(
 			context.Background(), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad, personalizacionB7,
 			autorizacionesPreparacionBases,
+			autoridadesCargaConvoca,
 			alta.postgresql.proveedorMaterialConsultaReincorporacionTitular,
 		)
 		if errBorrador != nil {
@@ -1111,6 +1151,18 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, err
 		}
 		rutas = append(rutas, rutasPlantillas...)
+	}
+	if ajustesCTActivos {
+		sondaAjustes, cancelarAjustes := sondaAjustesReglasCT()
+		rutaAjustes, err := nuevaRutaAjustesReglasCT(sondaAjustes, cfg, &alta,
+			seguridadBorrador, fuenteAutorizacionPlantillas,
+			motivosEvaluadorPlantillas, alta.postgresql.proveedorMaterialAjustesReglasCT,
+			reglasEjemplo.contratacionTemporal, reloj)
+		cancelarAjustes()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, rutaAjustes)
 	}
 	if documentalActiva {
 		if consultasRRHH.identidad == nil || alta.postgresql.proveedorMaterialPlantillasDocumental == nil {

@@ -42,6 +42,7 @@ type errorPublicoAlta struct {
 	estado    int
 	codigo    string
 	claveI18n string
+	campo     string
 }
 
 var (
@@ -146,6 +147,7 @@ type detalleErrorAlta struct {
 	Codigo         string `json:"codigo"`
 	ClaveI18n      string `json:"clave_i18n"`
 	CorrelacionRef string `json:"correlacion_ref"`
+	Campo          string `json:"campo,omitempty"`
 }
 
 func responderErrorAlta(w http.ResponseWriter, r *http.Request, problema errorPublicoAlta, causas ...error) {
@@ -154,6 +156,7 @@ func responderErrorAlta(w http.ResponseWriter, r *http.Request, problema errorPu
 		Codigo:         problema.codigo,
 		ClaveI18n:      problema.claveI18n,
 		CorrelacionRef: correlacion,
+		Campo:          problema.campo,
 	}}, causas...)
 }
 

@@ -156,9 +156,19 @@ export async function consultarReincorporacionesTitular(bolsa, participacion, { 
   }
 }
 
-export async function cargarReincorporacionesTitularFicha(modal, { estado, renderizar, consultar = consultarReincorporacionesTitular, renderizarAlIniciar = true }) {
+export async function cargarReincorporacionesTitularFicha(modal, { estado, renderizar, consultar = consultarReincorporacionesTitular, disponibilidad, renderizarAlIniciar = true }) {
   if (!modal?.candidato?.participacion_ref) return;
   modal.controladorReincorporaciones?.abort();
+  const registro = disponibilidad && disponibilidad.bolsa_ref === estado.bolsaSeleccionada
+    && disponibilidad.participacion_ref === modal.candidato.participacion_ref
+    && ["disponible", "no_autorizado", "sin_montaje", "indisponible"].includes(disponibilidad.estado)
+    ? disponibilidad : disponibilidad ? { estado: "indisponible" } : null;
+  if (registro && registro.estado !== "disponible") {
+    modal.reincorporacionesTitular = { carga: registro.estado === "indisponible" ? "metadatos" : "omitida",
+      motivo: registro.estado, items: [], pagina: 0 };
+    if (renderizarAlIniciar) renderizar();
+    return;
+  }
   const controlador = new AbortController();
   modal.controladorReincorporaciones = controlador;
   modal.reincorporacionesTitular = { carga: "cargando", items: [], pagina: 0 };
@@ -184,7 +194,9 @@ export function renderizarReincorporacionesTitular({ estado = {}, escaparHTML })
   const t = (clave, variables) => textoPortal(`reincorporacion_${clave}`, variables);
   const carga = estado.carga || "cargando";
   let contenido;
-  if (carga === "cargando") contenido = `<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`;
+  if (carga === "omitida") contenido = `<p class="mensaje-error" role="status">${t(estado.motivo === "sin_montaje" ? "sin_montaje" : "no_autorizado")}</p>`;
+  else if (carga === "cargando") contenido = `<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`;
+  else if (carga === "metadatos") contenido = `<p class="${estado.metadatosCargando ? "vacio-controlado" : "mensaje-error"}" role="${estado.metadatosCargando ? "status" : "alert"}">${estado.metadatosCargando ? textoPortal("txt_comprobando_acceso") : t("error_503")}</p><button type="button" class="boton-secundario" data-reincorporacion-accion="reintentar" ${estado.metadatosCargando ? "disabled" : ""}>${t("reintentar")}</button>`;
   else if (carga === "denegado") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || traducirPortal("reincorporacion_error_403"))}</p>`;
   else if (carga === "pendiente" || carga === "error") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || traducirPortal("reincorporacion_error_red"))}</p><button type="button" class="boton-secundario" data-reincorporacion-accion="reintentar">${t("reintentar")}</button>`;
   else if (!estado.items?.length) contenido = `<p class="vacio-controlado" role="status">${t("vacio")}</p>`;
@@ -202,14 +214,18 @@ export function renderizarReincorporacionesTitular({ estado = {}, escaparHTML })
     const paginacion = paginas > 1 ? `<nav class="paginacion-bolsa" aria-label="${t("paginacion")}"><span>${t("mostrando", { desde, hasta, total })}</span><button type="button" class="boton-secundario" data-reincorporacion-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>${t("anterior")}</button><button type="button" class="boton-secundario" data-reincorporacion-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 === paginas ? "disabled" : ""}>${t("siguiente")}</button></nav>` : `<p>${t("mostrando", { desde, hasta, total })}</p>`;
     contenido = `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${t("tabla")}"><table class="tabla-datos"><caption>${t("tabla")}</caption><thead><tr><th scope="col">${t("col_hecho")}</th><th scope="col">${t("col_fecha")}</th><th scope="col">${t("col_disponibilidad")}</th><th scope="col">${t("col_recibo")}</th></tr></thead><tbody>${filas}</tbody></table></div>${paginacion}`;
   }
-  return `<section class="panel panel-separado" data-reincorporacion-raiz="true" aria-labelledby="reincorporacion-titulo"><div class="cabecera-panel"><h4 id="reincorporacion-titulo">${t("titulo")}</h4></div><div class="cuerpo-panel">${contenido}</div></section>`;
+  return `<section class="panel panel-separado" data-reincorporacion-raiz="true" aria-labelledby="reincorporacion-titulo"><div class="cabecera-panel"><h4 id="reincorporacion-titulo" tabindex="-1">${t("titulo")}</h4></div><div class="cuerpo-panel">${contenido}</div></section>`;
 }
 
-export function manejarClickReincorporacionesTitular(evento, { estado, renderizar, consultar } = {}) {
+export function manejarClickReincorporacionesTitular(evento, { estado, renderizar, consultar, reintentarMetadatos } = {}) {
   const control = evento.target?.closest?.("[data-reincorporacion-accion]");
   if (!control || !estado?.modalFicha) return false;
   evento.preventDefault();
   if (control.dataset.reincorporacionAccion === "reintentar") {
+    if (estado.modalFicha.reincorporacionesTitular?.carga === "metadatos") {
+      if (typeof reintentarMetadatos === "function") void reintentarMetadatos();
+      return true;
+    }
     if (estado.modalFicha.reincorporacionesTitular?.carga === "denegado") return true;
     void cargarReincorporacionesTitularFicha(estado.modalFicha, { estado, renderizar, ...(consultar ? { consultar } : {}) });
   } else if (control.dataset.reincorporacionAccion === "pagina" && estado.modalFicha.reincorporacionesTitular) {

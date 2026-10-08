@@ -7,10 +7,11 @@ import {
   crearBorradorAlta,
   crearComandoAlta,
   ESQUEMA_CATALOGOS_NECESIDADES,
+  numeroExpedienteMOADValido,
   validarBorradorAlta,
   validarCatalogosAlta,
   validarReciboAlta,
-} from "./contrato.js?v=20261008-alta-circular-v3";
+} from "./contrato.js?v=20261008-alta-rechazo-v2";
 
 const FASE_EDICION = "edicion";
 const FASE_REVISION = "revision";
@@ -30,6 +31,16 @@ function esResultadoIndeterminado(error) {
     return error instanceof Error
       && error.resultadoIndeterminado === true
       && error.reintentoPermitido === false;
+  } catch {
+    return false;
+  }
+}
+
+function esNumeroMOADRechazado(error) {
+  try {
+    return error instanceof Error && error.envelopeValido === true
+      && error.estado === 422 && error.codigo === "contenido_no_valido"
+      && error.campo === "numero_expediente_moad";
   } catch {
     return false;
   }
@@ -122,7 +133,7 @@ export function crearPresentadorAltaContratacionTemporal({
   ejecutor,
   generarClaveIdempotencia = generarClaveSegura,
 } = {}) {
-  const catalogos = validarCatalogosAlta(catalogosSinValidar);
+  let catalogos = validarCatalogosAlta(catalogosSinValidar);
   if (typeof generarClaveIdempotencia !== "function") {
     throw new TypeError("generador de clave de operación no válido");
   }
@@ -133,7 +144,10 @@ export function crearPresentadorAltaContratacionTemporal({
   let comandoActual = null;
   let envioActual = null;
   let controladorEnvio = null;
+  let controladorRefresco = null;
   let cancelacionSolicitada = false;
+  let numeroMOADRechazado = null;
+  let refrescoCatalogosPendiente = false;
 
   function sustituirEstado(cambios) {
     estado = clonarYCongelarAlta({ ...estado, ...cambios });
@@ -172,11 +186,22 @@ export function crearPresentadorAltaContratacionTemporal({
           || causa?.campos_permitidos.includes(campo) ? valor : ""])));
     }
     if (borrador.rc_existe === false) borrador = clonarYCongelarAlta(limpiarDatosRC(borrador));
+    if (numeroMOADRechazado !== null
+      && borrador.numero_expediente_moad !== estado.borrador.numero_expediente_moad) {
+      refrescoCatalogosPendiente = true;
+    }
+    const numeroSinCorregir = numeroMOADRechazado !== null
+      && borrador.numero_expediente_moad === numeroMOADRechazado;
+    const numeroConFormatoInvalido = numeroMOADRechazado !== null
+      && !numeroExpedienteMOADValido(borrador.numero_expediente_moad);
+    const errorNumero = numeroSinCorregir || numeroConFormatoInvalido;
     sustituirEstado({
       borrador,
-      errores: {},
-      mensaje_clave: disponible ? "estado_disponible" : "estado_no_disponible",
-      tipo_mensaje: disponible ? "informacion" : "aviso",
+      errores: errorNumero ? { numero_expediente_moad: "numero_moad_formato" } : {},
+      mensaje_clave: errorNumero ? "estado_numero_moad_no_valido"
+        : refrescoCatalogosPendiente ? "estado_catalogo_numero_pendiente"
+          : disponible ? "estado_disponible" : "estado_no_disponible",
+      tipo_mensaje: errorNumero ? "error" : disponible ? "informacion" : "aviso",
     });
     return obtenerEstado();
   }
@@ -193,6 +218,21 @@ export function crearPresentadorAltaContratacionTemporal({
         ? error.errores
         : { general: "contrato_cerrado" };
       sustituirEstado({ errores, mensaje_clave: "errores_descripcion", tipo_mensaje: "error" });
+      return false;
+    }
+    if (numeroMOADRechazado !== null && borrador.numero_expediente_moad === numeroMOADRechazado) {
+      sustituirEstado({ borrador, errores: { numero_expediente_moad: "numero_moad_formato" },
+        mensaje_clave: "estado_numero_moad_no_valido", tipo_mensaje: "error" });
+      return false;
+    }
+    if (numeroMOADRechazado !== null && !numeroExpedienteMOADValido(borrador.numero_expediente_moad)) {
+      sustituirEstado({ borrador, errores: { numero_expediente_moad: "numero_moad_formato" },
+        mensaje_clave: "estado_numero_moad_no_valido", tipo_mensaje: "error" });
+      return false;
+    }
+    if (refrescoCatalogosPendiente) {
+      sustituirEstado({ borrador, errores: { general: "catalogo_no_actualizado" },
+        mensaje_clave: "estado_catalogo_numero_pendiente", tipo_mensaje: "aviso" });
       return false;
     }
     const validacion = validarBorradorAlta(borrador, catalogos);
@@ -241,15 +281,53 @@ export function crearPresentadorAltaContratacionTemporal({
     }
     sustituirEstado({
       fase: FASE_EDICION,
-      errores: {},
-      mensaje_clave: "estado_disponible",
-      tipo_mensaje: "informacion",
+      errores: estado.errores,
+      mensaje_clave: Object.keys(estado.errores).length ? "errores_descripcion" : "estado_disponible",
+      tipo_mensaje: Object.keys(estado.errores).length ? "error" : "informacion",
     });
+  }
+
+  function necesitaRefrescoCatalogos() {
+    return refrescoCatalogosPendiente && numeroMOADRechazado !== null
+      && estado.borrador.numero_expediente_moad !== numeroMOADRechazado
+      && numeroExpedienteMOADValido(estado.borrador.numero_expediente_moad);
+  }
+
+  async function refrescarCatalogos(obtenerActuales) {
+    if (estado.fase !== FASE_EDICION || estado.ocupado || !necesitaRefrescoCatalogos()) {
+      return false;
+    }
+    const controlador = new AbortController();
+    controladorRefresco = controlador;
+    sustituirEstado({ ocupado: true, errores: {},
+      mensaje_clave: "estado_catalogo_numero_cargando", tipo_mensaje: "informacion" });
+    try {
+      if (typeof obtenerActuales !== "function") throw new TypeError("catálogo no disponible");
+      const nuevos = validarCatalogosAlta(await obtenerActuales({ signal: controlador.signal }));
+      if (controlador.signal.aborted || controladorRefresco !== controlador) return false;
+      if (nuevos.esquema !== catalogos.esquema || !catalogosAltaOperables(nuevos)) {
+        throw new TypeError("catálogo incompatible");
+      }
+      catalogos = nuevos;
+      refrescoCatalogosPendiente = false;
+      sustituirEstado({ ocupado: false, catalogos: nuevos, errores: {},
+        mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" });
+      return true;
+    } catch {
+      if (controlador.signal.aborted || controladorRefresco !== controlador) return false;
+      sustituirEstado({ ocupado: false, errores: { general: "catalogo_no_actualizado" },
+        mensaje_clave: "estado_catalogo_numero_error", tipo_mensaje: "error" });
+      return false;
+    } finally {
+      if (controladorRefresco === controlador) controladorRefresco = null;
+    }
   }
 
   function enviar() {
     if (envioActual) return envioActual;
-    if (!disponible || estado.fase !== FASE_REVISION || comandoActual === null) {
+    if (!disponible || estado.fase !== FASE_REVISION || comandoActual === null
+      || Object.keys(estado.errores).length !== 0 || refrescoCatalogosPendiente
+      || comandoActual.numero_expediente_moad === numeroMOADRechazado) {
       return Promise.reject(errorPublico("servicio_no_disponible"));
     }
     controladorEnvio = new AbortController();
@@ -282,20 +360,30 @@ export function crearPresentadorAltaContratacionTemporal({
           tipo_mensaje: "exito",
         });
         comandoActual = null;
+        numeroMOADRechazado = null;
+        refrescoCatalogosPendiente = false;
         return recibo;
       } catch (_errorPrivado) {
         const resultadoIndeterminado =
           esResultadoIndeterminado(_errorPrivado);
+        const numeroMOADInvalido = !resultadoIndeterminado
+          && esNumeroMOADRechazado(_errorPrivado);
+        if (numeroMOADInvalido) {
+          numeroMOADRechazado = comando.numero_expediente_moad;
+          refrescoCatalogosPendiente = true;
+        }
         const canceladaSinRespuesta = cancelacionSolicitada && !respuestaRecibida;
         sustituirEstado({
           fase: resultadoIndeterminado ? FASE_PENDIENTE : FASE_REVISION,
           ocupado: false,
           recibo: null,
+          errores: numeroMOADInvalido ? { numero_expediente_moad: "numero_moad_formato" } : {},
           mensaje_clave: resultadoIndeterminado
             ? "estado_operacion_pendiente"
             : canceladaSinRespuesta
             ? "estado_cancelado"
-            : (respuestaRecibida ? "estado_recibo_invalido" : "estado_error"),
+            : (respuestaRecibida ? "estado_recibo_invalido"
+              : numeroMOADInvalido ? "estado_numero_moad_no_valido" : "estado_error"),
           tipo_mensaje: resultadoIndeterminado || canceladaSinRespuesta
             ? "aviso"
             : "error",
@@ -329,6 +417,7 @@ export function crearPresentadorAltaContratacionTemporal({
 
   function desmontar() {
     cancelarEnvio();
+    controladorRefresco?.abort();
   }
 
   return Object.freeze({
@@ -336,8 +425,11 @@ export function crearPresentadorAltaContratacionTemporal({
     cancelarEnvio,
     desmontar,
     enviar,
+    necesitaRefrescoCatalogos,
     obtenerEstado,
     prepararRevision,
+    refrescarCatalogos,
+    tieneRechazoNumero: () => numeroMOADRechazado !== null,
     volverAEdicion,
   });
 }

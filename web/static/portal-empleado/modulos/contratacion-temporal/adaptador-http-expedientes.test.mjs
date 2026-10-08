@@ -90,6 +90,83 @@ function clienteFalso(llamadas) {
   };
 }
 
+test("F5 consulta un único detalle autorizado por referencia y versión, sin recorrer el cuadro", async () => {
+  const llamadas = [];
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteFalso(llamadas) });
+  const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente: adaptador,
+    capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"] });
+  await assert.rejects(() => presentador.seleccionarExpediente(resumen.expediente_ref), /fuera del cuadro/);
+  await presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, resumen.version);
+  assert.equal(presentador.obtenerEstado().expediente_ref, resumen.expediente_ref);
+  assert.equal(presentador.obtenerEstado().carga, "listo");
+  assert.deepEqual(llamadas.map((llamada) => llamada.operacion), ["detalle"]);
+  assert.deepEqual(llamadas[0].solicitud,
+    { expediente_ref: resumen.expediente_ref, version_observada: resumen.version });
+  await assert.rejects(() => adaptador.obtener(resumen.expediente_ref), /fuera del cuadro consultado/);
+});
+
+test("la lectura autorizada del resumen permite montar la lista aunque Alta esté ausente", async () => {
+  const cliente = clienteFalso([]);
+  cliente.consultarCuadroRRHH = async () => ({ resumen: { en_tramite: 0, con_incidencia: 0,
+    vencidos: 0, vencen_hoy: 0, vencen_semana: 0, sin_calcular: 0, por_fase: {} },
+    generada_en: "2026-10-08T18:00:00Z" });
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  assert.deepEqual(adaptador.capacidades, []);
+  await adaptador.resumenInicio();
+  assert.deepEqual(adaptador.capacidades, ["contratacion_temporal.cuadro.consultar"]);
+  const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente: adaptador,
+    capacidades: adaptador.capacidades, altaDisponible: false });
+  assert.equal(presentador.obtenerEstado().carga, "inicial");
+});
+
+test("un resumen 401 o 403 no habilita el cuadro ni provoca consulta de detalle", async () => {
+  for (const estado of [401, 403]) {
+    let detalles = 0;
+    const cliente = clienteFalso([]);
+    cliente.consultarCuadroRRHH = async () => { const error = new Error("denegado"); error.estado = estado; throw error; };
+    cliente.consultarDetalleRRHH = async () => { detalles += 1; throw new Error("no debía consultarse"); };
+    const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+    await assert.rejects(() => adaptador.resumenInicio(), /denegado/);
+    assert.deepEqual(adaptador.capacidades, []);
+    assert.equal(detalles, 0);
+  }
+});
+
+test("el enlace de ficha conserva denegación y rechaza una versión ajena", async () => {
+  for (const estado of [401, 403]) {
+    const cliente = clienteFalso([]);
+    cliente.consultarDetalleRRHH = async () => { const error = new Error("denegado"); error.estado = estado; throw error; };
+    const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+    const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente: adaptador,
+      capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"] });
+    await presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, resumen.version);
+    assert.equal(presentador.obtenerEstado().carga, "denegado");
+    assert.equal(presentador.obtenerEstado().expediente, null);
+    await assert.rejects(() => presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, 0), /enlace.*no válido/);
+  }
+  const clienteAjeno = clienteFalso([]);
+  const adaptadorAjeno = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteAjeno });
+  await assert.rejects(() => adaptadorAjeno.obtenerDesdeEnlace(resumen.expediente_ref, resumen.version + 1), /versión modificada/);
+});
+
+test("desmontar cancela el detalle abierto por URL sin publicar una respuesta tardía", async () => {
+  let completar;
+  const cliente = clienteFalso([]);
+  cliente.consultarDetalleRRHH = (_solicitud, { signal }) => new Promise((resolve) => {
+    completar = () => resolve({ ...resumen, resumen });
+    signal.addEventListener("abort", () => resolve({ ...resumen, resumen }), { once: true });
+  });
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente: adaptador,
+    capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"] });
+  const tarea = presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, resumen.version);
+  await Promise.resolve();
+  presentador.desmontar();
+  completar?.();
+  await tarea;
+  assert.equal(presentador.obtenerEstado().expediente, null);
+});
+
 test("expediente sin fecha de fin muestra la causa en solicitud y análisis", async () => {
   const cliente = clienteFalso([]);
   const obtenerDetalle = cliente.consultarDetalleRRHH;
@@ -824,4 +901,42 @@ test("con análisis registrado, el expediente no ofrece datos de la petición", 
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteFalso([]) });
   await adaptador.listar();
   assert.equal((await adaptador.obtener(resumen.expediente_ref)).datos_peticion, undefined);
+});
+
+
+test("la ficha recibe del detalle la disponibilidad del mismo expediente y versión", async () => {
+  const cliente = clienteFalso([]);
+  const leer = cliente.consultarDetalleRRHH;
+  let registro = { estado: "sin_montaje", expediente_ref: resumen.expediente_ref, version_observada: resumen.version };
+  cliente.consultarDetalleRRHH = async (...args) => ({ ...await leer(...args),
+    capacidades_ficha: { borradores_publicados: registro } });
+  const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await fuente.listar();
+  await fuente.obtener(resumen.expediente_ref);
+  const contexto = { expediente_ref: resumen.expediente_ref, version_observada: resumen.version };
+  assert.deepEqual(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), registro);
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", { ...contexto, version_observada: 99 }), null);
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", { ...contexto, expediente_ref: "expediente:otro" }), null);
+  registro = { ...registro, estado: "montado", version_observada: 99 };
+  await fuente.obtener(resumen.expediente_ref);
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), null);
+  registro = { ...registro, estado: "otro", version_observada: resumen.version };
+  await fuente.obtener(resumen.expediente_ref);
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), null);
+});
+
+test("una relectura fallida retira los metadatos previos sin permitir consultas opcionales", async () => {
+  const cliente = clienteFalso([]);
+  const leer = cliente.consultarDetalleRRHH;
+  cliente.consultarDetalleRRHH = async (...args) => ({ ...await leer(...args), capacidades_ficha: {
+    borradores_publicados: { estado: "montado", expediente_ref: resumen.expediente_ref, version_observada: resumen.version },
+  } });
+  const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await fuente.listar();
+  await fuente.obtener(resumen.expediente_ref);
+  const contexto = { expediente_ref: resumen.expediente_ref, version_observada: resumen.version };
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto).estado, "montado");
+  cliente.consultarDetalleRRHH = async () => { throw new Error("fuente caída"); };
+  await assert.rejects(fuente.obtener(resumen.expediente_ref));
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), null);
 });

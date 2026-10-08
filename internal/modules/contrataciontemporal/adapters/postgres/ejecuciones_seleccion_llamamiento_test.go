@@ -267,6 +267,26 @@ func TestEjecucionesSeleccionO6ResuelveSoloTerminalDurable(t *testing.T) {
 	}
 }
 
+func TestEjecucionesSeleccionO6TerminalDistinguePendienteYDenegadoSinFiltrarSQL(t *testing.T) {
+	consulta, instante := consultaTerminalSeleccionO6Prueba(t)
+	for _, caso := range []struct {
+		codigo   string
+		esperado error
+	}{
+		{"55000", ports.ErrEjecucionSeleccionLlamamientoPendiente},
+		{"42501", ports.ErrAutorizacionDenegada},
+		{"22023", errEjecucionesSeleccionLlamamientoPostgreSQL},
+	} {
+		adaptador, _, tx := nuevoAdaptadorEjecucionSeleccionO6Prueba(t,
+			filaEjecucionSeleccionO6Prueba{err: &pgconn.PgError{Code: caso.codigo, Message: "detalle privado"}})
+		_, confirmado, err := adaptador.ResolverTerminal(context.Background(), consulta, instante)
+		if confirmado || !errors.Is(err, caso.esperado) || strings.Contains(err.Error(), "detalle privado") ||
+			tx.confirmaciones != 0 || tx.reversiones != 1 {
+			t.Fatalf("SQLSTATE %s no conservó la frontera: %v", caso.codigo, err)
+		}
+	}
+}
+
 func TestEjecucionesSeleccionO6ResolverExigeCapacidadVigenteAntesDePGX(t *testing.T) {
 	adaptador, iniciador, _ := nuevoAdaptadorEjecucionSeleccionO6Prueba(
 		t, filaEjecucionSeleccionO6Prueba{valores: []any{"", "", "", "", "", ""}},

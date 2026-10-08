@@ -4,7 +4,7 @@ import {
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
-import { validarCatalogosAlta } from "./contrato.js?v=20261008-alta-circular-v3";
+import { validarCatalogosAlta } from "./contrato.js?v=20261008-alta-rechazo-v2";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { faseRRHH } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
@@ -577,6 +577,8 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   const t = crearTraductorExpedientesContratacion(mensajes);
   const versiones = new Map();
   const capacidadesConsultadas = new Set();
+  let disponibilidadFicha = null;
+  let secuenciaDetalle = 0;
   let secuenciaCuadro = 0;
   let catalogosCargados = null;
   let promesaCatalogos = null;
@@ -636,6 +638,33 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
     return modalidades === null ? catalogos : { ...(catalogos ?? {}), modalidades };
   }
 
+  async function obtenerConVersion(expedienteRef, version, { signal } = {}) {
+    disponibilidadFicha = null;
+    const secuencia = ++secuenciaDetalle;
+    if (typeof expedienteRef !== "string" || !/^[A-Za-z0-9:_.-]{1,200}$/u.test(expedienteRef)
+      || !Number.isSafeInteger(version) || version < 1 || version > 1_000_000_000) {
+      throw new TypeError("referencia o versión de expediente no válida");
+    }
+    const [detalle, catalogos] = await Promise.all([
+      cliente.consultarDetalleRRHH({ expediente_ref: expedienteRef, version_observada: version }, { signal }),
+      resolverEtiquetas(),
+    ]);
+    if (detalle?.resumen?.expediente_ref !== expedienteRef || detalle.resumen.version !== version) {
+      throw new TypeError("detalle ajeno o versión modificada");
+    }
+    const expediente = proyectarExpediente(detalle, locale, catalogos, t, mensajes, obtenerJornadaCompleta());
+    if (!signal?.aborted && secuencia === secuenciaDetalle) {
+      const registro = detalle.capacidades_ficha?.borradores_publicados;
+      if (registro && Object.keys(registro).length === 3
+        && ["montado", "sin_montaje"].includes(registro.estado)
+        && registro.expediente_ref === expedienteRef && registro.version_observada === version) {
+        disponibilidadFicha = Object.freeze({ borradores_publicados: Object.freeze({ ...registro }) });
+      }
+    }
+    capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
+    return expediente;
+  }
+
   const adaptador = {
     get capacidades() {
       return Object.freeze([...capacidadesConsultadas]);
@@ -675,25 +704,23 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
         resumen: true,
       }, { signal });
       if (!pagina?.resumen) throw new TypeError("resumen de la portada no disponible");
+      if (!signal?.aborted) capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarCuadro);
       return Object.freeze({ resumen: pagina.resumen, generadoEn: pagina.generada_en });
+    },
+    resolverDisponibilidadOpcional(clave, contexto) {
+      const registro = disponibilidadFicha?.[clave];
+      return registro?.expediente_ref === contexto?.expediente_ref
+        && registro?.version_observada === contexto?.version_observada ? registro : null;
     },
     async obtener(expedienteRef, { signal } = {}) {
       const version = versiones.get(expedienteRef);
       if (!Number.isSafeInteger(version) || version < 1) {
         throw new TypeError("expediente fuera del cuadro consultado");
       }
-      const [detalle, catalogos] = await Promise.all([
-        cliente.consultarDetalleRRHH({
-          expediente_ref: expedienteRef,
-          version_observada: version,
-        }, { signal }),
-        resolverEtiquetas(),
-      ]);
-      const expediente = proyectarExpediente(
-        detalle, locale, catalogos, t, mensajes, obtenerJornadaCompleta(),
-      );
-      capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
-      return expediente;
+      return obtenerConVersion(expedienteRef, version, { signal });
+    },
+    obtenerDesdeEnlace(expedienteRef, version, { signal } = {}) {
+      return obtenerConVersion(expedienteRef, version, { signal });
     },
     async ejecutar() {
       const error = new Error("Las actuaciones todavía no están conectadas");

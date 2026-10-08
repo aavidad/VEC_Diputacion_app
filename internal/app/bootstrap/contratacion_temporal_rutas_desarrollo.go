@@ -8,6 +8,7 @@ import (
 
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
 	plantillashttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -64,6 +65,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		httpinterno.RutaReincorporacionesTitular:        {pdpCT(http.MethodPost)},
 		httpinterno.RutaCapacidadReincorporacionTitular: {pdpCT(http.MethodPost)},
 		plantillashttp.RutaCatalogo:                     {pdpCT(http.MethodGet)},
+		ajusteshttp.Ruta:                                {pdpCT(http.MethodGet), pdpCT(http.MethodPost)},
 		plantillashttp.RutaEntradas:                     {pdpCT(http.MethodPost)},
 		plantillashttp.RutaPublicar:                     {pdpCT(http.MethodPost)},
 		plantillashttp.RutaBorradoresDisponibles:        {pdpCT(http.MethodPost)},
@@ -82,8 +84,6 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 
 		// Autoridades nominales existentes. Una lectura sin acción V3 propia
 		// conserva su guarda de identidad/ruta; no se inventa una acción V3.
-		httpinterno.RutaCerrarAdministrativamente:               {nominalCT(http.MethodPost, "contratacion_temporal_capacidad_no_compuesta_desarrollo.go:capacidadNoCompuestaContratacionTemporalDesarrollo")},
-		httpinterno.RutaReabrirExcepcionalmente:                 {nominalCT(http.MethodPost, "contratacion_temporal_capacidad_no_compuesta_desarrollo.go:capacidadNoCompuestaContratacionTemporalDesarrollo")},
 		httpinterno.RutaReasignaciones:                          {nominalCT(http.MethodPost, "contratacion_temporal_asignacion_desarrollo.go:nuevasDependenciasAsignacionContratacionTemporalDesarrollo")},
 		httpinterno.RutaResultadosFiscalizacion:                 {nominalCT(http.MethodPost, "contratacion_temporal_fiscalizacion_desarrollo.go:soporteFiscalizacionContratacionTemporalDesarrollo")},
 		httpinterno.RutaIncorporacionEjercicioV2:                {nominalCT(http.MethodGet, "contratacion_temporal_incorporacion_v2.go:ligarContextoIncorporacionV2Desarrollo"), nominalCT(http.MethodPost, "contratacion_temporal_incorporacion_v2.go:ligarContextoIncorporacionV2Desarrollo")},
@@ -215,6 +215,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	}
 	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaPlanB2 || r.URL.Path == httpinterno.RutaConfirmacionB2 || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || rutaAnalisisContratacionTemporalDesarrollo(r.URL.Path) ||
 		rutaPlantillasCatalogoCTDesarrollo(r.URL.Path) ||
+		r.URL.Path == ajusteshttp.Ruta ||
 		rutaPlantillasDocumentalCTDesarrollo(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||
