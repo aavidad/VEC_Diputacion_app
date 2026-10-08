@@ -10,13 +10,13 @@
 import { finVigenciaBolsaPortal, LOCALIZACION_PORTAL, MENSAJES_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-w-bolsa-ficha-main-v2";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-r-fichas-idioma-nav-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261008-canal-telefono-v2";
 import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-w-bolsa-ficha-main-v2";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261008-w-bolsa-ficha-main-v2";
+import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-r-fichas-idioma-nav-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261008-r-fichas-idioma-nav-v1";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js?v=20260930-portales-i18n-integracion-v1";

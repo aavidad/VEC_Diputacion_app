@@ -10,14 +10,14 @@ import {
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { enlaceCTSinVersionFueraDePagina } from "./portal-ct-ruta-ficha.js?v=20261008-r-navegacion-alta-v1";
+import { enlaceCTSinVersionFueraDePagina } from "./portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261008-r-navegacion-alta-v1";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261008-r-fichas-idioma-nav-v1";
 import { cargarTextos } from "../comun/textos.js";
 import { INDICE_IDIOMAS } from "../comun/idioma.js";
 import {
@@ -121,8 +121,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
-        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-r-navegacion-alta-v1"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261008-r-navegacion-alta-v1"),
+        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-r-fichas-idioma-nav-v1"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261008-r-fichas-idioma-nav-v1"),
         import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261008-alta-corte-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
@@ -133,7 +133,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-r-navegacion-alta-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-r-fichas-idioma-nav-v1");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),

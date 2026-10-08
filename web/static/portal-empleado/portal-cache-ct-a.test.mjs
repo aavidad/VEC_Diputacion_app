@@ -4,11 +4,11 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261008-r-navegacion-alta-v1";
-const versionCircuito = "20261008-alta-rechazo-v2";
-const versionVista = "20261008-alta-rechazo-v2";
-const versionVistaPortal = "20261008-r-navegacion-alta-v1";
-const versionRender = "20261008-documentos-ficha-v1";
+const versionCoordinador = "20261008-r-fichas-idioma-nav-v1";
+const versionCircuito = "20261008-r-fichas-idioma-nav-v1";
+const versionVista = "20261008-r-fichas-idioma-nav-v1";
+const versionVistaPortal = "20261008-r-fichas-idioma-nav-v1";
+const versionRender = "20261008-r-fichas-idioma-nav-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -108,13 +108,13 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     vista, presentadorAlta, rendererAlta, i18n, contrato, interno, produccion, cache] = await Promise.all(
     nombres.map((nombre) => readFile(new URL(nombre, raiz), "utf8")));
   const cohorte = "20261008-alta-rechazo-v2";
-  const cohorteNavegacion = "20261008-r-navegacion-alta-v1";
+  const cohorteNavegacion = "20261008-r-fichas-idioma-nav-v1";
   const cohorteClienteHTTP = cohorte;
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = cohorte;
   const cohorteIdioma = cohorteNavegacion;
   const cohorteEntrada = cohorteNavegacion;
-  const cohorteFicha = cohorte;
+  const cohorteFicha = cohorteNavegacion;
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
     ["/portal-empleado/portal-modulos-coordinador.js", "20261008-ct-inicio-v1"],
@@ -161,7 +161,7 @@ test("la ficha compartible y su aviso usan una única cohorte empaquetada", asyn
     "index.html", "portal.js", "portal-modulos-coordinador.js",
     "../../interno.manifest", "../../produccion.manifest", "cache-publica-v1.json",
   ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
-  const cohorte = "20261008-r-navegacion-alta-v1";
+  const cohorte = "20261008-r-fichas-idioma-nav-v1";
   exigirVersiones(html, "/portal-empleado/portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(portal, "./portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(coordinador, "./portal-ct-ruta-ficha.js", cohorte);
