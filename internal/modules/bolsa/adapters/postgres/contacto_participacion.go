@@ -31,14 +31,22 @@ func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx conte
 	if r == nil || r.pool == nil || ctx == nil || c.Contacto.Validar() != nil || c.ClaveIdempotencia == "" || c.ReciboRef == "" || c.Material.ValidarEstructura() != nil {
 		return ports.RegistroContactoParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	iso := pgx.Serializable
+	if c.InstanteServidor {
+		// El cerrojo por clave e intento precede al reloj y a la lectura. En
+		// READ COMMITTED, un replay concurrente ve el INSERT ya confirmado.
+		iso = pgx.ReadCommitted
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: iso, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return ports.RegistroContactoParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
 	defer tx.Rollback(context.Background())
 	m := c.Material
 	out := ports.RegistroContactoParticipacion{Contacto: c.Contacto}
-	if c.Contacto.OfertaRef != "" {
+	if c.InstanteServidor {
+		err = registrarContactoTelefonoServidorV4(ctx, tx, c, &out)
+	} else if c.Contacto.OfertaRef != "" {
 		err = registrarContactoOfertaV3(ctx, tx, c, &out)
 	} else if requiereRegistroContactoV2(c) {
 		err = registrarContactoV2(ctx, tx, c, &out)
@@ -48,7 +56,18 @@ func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx conte
 	if err != nil {
 		return ports.RegistroContactoParticipacion{}, errorContactoParticipacion(err)
 	}
-	if out.ReciboRef != c.ReciboRef {
+	if !c.InstanteServidor && out.Reutilizado {
+		var verificador bool
+		if err = tx.QueryRow(ctx, `SELECT pg_catalog.to_regprocedure('vec_bolsa_llamamientos.verificar_replay_contacto_legado_v1(text,text)') IS NOT NULL`).Scan(&verificador); err != nil {
+			return ports.RegistroContactoParticipacion{}, errorContactoParticipacion(err)
+		}
+		if verificador {
+			if err = tx.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.verificar_replay_contacto_legado_v1($1,$2)`, c.Contacto.ParticipacionRef, c.ClaveIdempotencia).Scan(&verificador); err != nil {
+				return ports.RegistroContactoParticipacion{}, errorContactoParticipacion(err)
+			}
+		}
+	}
+	if out.ReciboRef != c.ReciboRef || (c.InstanteServidor && out.Contacto.Instante.IsZero()) {
 		return ports.RegistroContactoParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -108,6 +127,12 @@ func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context,
 		return ports.PaginaContactosParticipacion{}, errorContactoParticipacion(err)
 	}
 	filas.Close()
+	// La capacidad sólo se publica después de la lectura V3 autorizada y
+	// cuando B87 está realmente instalada para el ejecutor vigente.
+	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.registrar_contacto_telefonico_actual_v1(text,text,text,text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,integer,integer,boolean,text[],text,integer,integer,boolean,text,date,boolean)') AND pg_catalog.has_function_privilege(current_user,p.oid,'EXECUTE'))`).Scan(&p.RegistroTelefonoDisponible)
+	if err != nil {
+		return ports.PaginaContactosParticipacion{}, errorContactoParticipacion(err)
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return ports.PaginaContactosParticipacion{}, errorContactoParticipacion(err)
 	}
@@ -131,12 +156,14 @@ func errorContactoParticipacion(err error) error {
 			return dominiovec.ErrAutorizacionDenegada
 		case "23503":
 			return ports.ErrContactoParticipacionNoEncontrado
-		case "VBC01", "22023":
+		case "VBC01", "22023", "23514":
 			return dominiobolsa.ErrContactoParticipacionInvalido
 		case "VBC02":
 			return dominiobolsa.ErrIntentoAntesDeSeparacion
 		case "VBC03":
 			return dominiobolsa.ErrIntentosContactoAgotados
+		case "VBC05":
+			return dominiobolsa.ErrIntentoFueraDeFranja
 		}
 	}
 	return ports.ErrContactoParticipacionNoDisponible

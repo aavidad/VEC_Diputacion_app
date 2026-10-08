@@ -20,6 +20,7 @@ import (
 type EntradaRegistrarContactoParticipacion struct {
 	BolsaRef, ParticipacionRef, LlamamientoRef, OfertaRef, EvidenciaRef, EvidenciaHuellaSHA256, Canal, Resultado, Anotacion, ClaveIdempotencia string
 	Instante                                                                                                                                   time.Time
+	InstanteServidor                                                                                                                           bool
 }
 
 const RutaContactosOferta = "/api/vec/bolsa/ofertas/contactos"
@@ -81,22 +82,35 @@ func (h *HandlerContactoParticipacion) registrar(w http.ResponseWriter, r *http.
 		return
 	}
 	var c struct {
-		Canal                 string    `json:"canal"`
-		Instante              time.Time `json:"instante"`
-		Resultado             string    `json:"resultado"`
-		Anotacion             string    `json:"anotacion"`
-		LlamamientoRef        string    `json:"llamamiento_ref"`
-		OfertaRef             string    `json:"oferta_ref"`
-		EvidenciaRef          string    `json:"evidencia_ref"`
-		EvidenciaHuellaSHA256 string    `json:"evidencia_huella_sha256"`
+		Canal                 string          `json:"canal"`
+		Instante              json.RawMessage `json:"instante"`
+		Resultado             string          `json:"resultado"`
+		Anotacion             string          `json:"anotacion"`
+		LlamamientoRef        string          `json:"llamamiento_ref"`
+		OfertaRef             string          `json:"oferta_ref"`
+		EvidenciaRef          string          `json:"evidencia_ref"`
+		EvidenciaHuellaSHA256 string          `json:"evidencia_huella_sha256"`
 	}
 	d := json.NewDecoder(io.LimitReader(r.Body, 4097))
 	d.DisallowUnknownFields()
-	if d.Decode(&c) != nil || d.Decode(&struct{}{}) != io.EOF || c.Instante.IsZero() {
+	if d.Decode(&c) != nil || d.Decode(&struct{}{}) != io.EOF {
 		responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
 		return
 	}
-	s, err := h.preparador.PrepararSolicitudRegistrarContacto(r.Context(), EntradaRegistrarContactoParticipacion{BolsaRef: bolsa, ParticipacionRef: participacion, LlamamientoRef: c.LlamamientoRef, OfertaRef: c.OfertaRef, EvidenciaRef: c.EvidenciaRef, EvidenciaHuellaSHA256: c.EvidenciaHuellaSHA256, Canal: c.Canal, Resultado: c.Resultado, Anotacion: c.Anotacion, ClaveIdempotencia: clave, Instante: c.Instante})
+	servidor := len(c.Instante) == 0 && c.Canal == dominiobolsa.CanalContactoTelefono && c.LlamamientoRef != "" && c.OfertaRef == ""
+	if servidor {
+		preparador, ok := h.preparador.(interface{ SoportaRegistroTelefonoServidor() bool })
+		if !ok || !preparador.SoportaRegistroTelefonoServidor() {
+			responderContacto(w, 503, map[string]any{"error": map[string]string{"codigo": "servicio_no_disponible"}})
+			return
+		}
+	}
+	var instante time.Time
+	if !servidor && (len(c.Instante) == 0 || json.Unmarshal(c.Instante, &instante) != nil || instante.IsZero()) {
+		responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
+		return
+	}
+	s, err := h.preparador.PrepararSolicitudRegistrarContacto(r.Context(), EntradaRegistrarContactoParticipacion{BolsaRef: bolsa, ParticipacionRef: participacion, LlamamientoRef: c.LlamamientoRef, OfertaRef: c.OfertaRef, EvidenciaRef: c.EvidenciaRef, EvidenciaHuellaSHA256: c.EvidenciaHuellaSHA256, Canal: c.Canal, Resultado: c.Resultado, Anotacion: c.Anotacion, ClaveIdempotencia: clave, Instante: instante, InstanteServidor: servidor})
 	if err != nil {
 		responderErrorContacto(w, err)
 		return
@@ -172,6 +186,11 @@ func (h *HandlerContactoParticipacion) listar(w http.ResponseWriter, r *http.Req
 			return
 		}
 		datos["intentos"] = intentos
+		if p.RegistroTelefonoDisponible {
+			if preparador, ok := h.preparador.(interface{ SoportaRegistroTelefonoServidor() bool }); ok && preparador.SoportaRegistroTelefonoServidor() {
+				intentos["registro_telefono"] = map[string]any{"esquema": "vec.bolsa.registro_telefono.v1", "resultados": []string{dominiobolsa.ResultadoContactoContactado, dominiobolsa.ResultadoContactoNoContesta, dominiobolsa.ResultadoContactoComunica, dominiobolsa.ResultadoContactoNumeroErroneo, dominiobolsa.ResultadoContactoAcepta, dominiobolsa.ResultadoContactoRechaza, dominiobolsa.ResultadoContactoAplazado, dominiobolsa.ResultadoContactoBuzon}, "instante_servidor": true, "anotacion_opcional": true}
+			}
+		}
 	}
 	responderContacto(w, 200, map[string]any{"data": datos})
 }
