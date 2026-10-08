@@ -193,7 +193,7 @@ test("rechazo del reintento no borra la incertidumbre original", async () => {
   assert.equal(x.peticiones.length, 2);
   assert.match(x.raiz.innerHTML, /data-ct-subsanacion-recuperar/u);
   assert.equal(x.documento.activeElement, x.raiz.querySelector("[data-ct-subsanacion-recuperar]"));
-  assert.match(x.raiz.innerHTML, /resultado de la operación original sigue sin verificarse/u);
+  assert.match(x.raiz.innerHTML, /No se ha podido confirmar el resultado. Consulte el expediente antes de volver a intentarlo/u);
   assert.doesNotMatch(x.raiz.innerHTML, /data-ct-subsanacion-form/u);
   await x.recuperar();
   assert.equal(x.peticiones.length, 3);

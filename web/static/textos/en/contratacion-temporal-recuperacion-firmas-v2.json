@@ -1,7 +1,7 @@
 {
   "general": {
     "demo_titulo": "VEC · Signature recovery preview",
-    "demo_aviso": "Interface preview with synthetic data. It does not query a real signature.",
+    "demo_aviso": "Example screen. The information shown does not refer to a real signature.",
     "titulo": "Recorded signatures",
     "descripcion": "View this document's historical signature record.",
     "limite": "This view does not check the certificate's current validity or establish legal effect on its own.",
@@ -19,11 +19,11 @@
     "recibo": "Receipt",
     "fecha": "Recorded on",
     "paso": "Step",
-    "detalle_tecnico": "View references and hashes",
+    "detalle_tecnico": "View check details",
     "firma_ref": "Signature reference",
-    "revision_sha256": "Revision hash",
-    "material_root_sha256": "Original material hash",
-    "canon_nominal_sha256": "Historical nominal evidence hash",
+    "revision_sha256": "Revision check code",
+    "material_root_sha256": "Original document check code",
+    "canon_nominal_sha256": "Previous accreditation check code",
     "canon_nominal_ref": "Historical evidence reference"
   }
 }

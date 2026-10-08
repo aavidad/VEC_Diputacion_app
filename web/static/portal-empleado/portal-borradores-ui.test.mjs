@@ -181,7 +181,7 @@ test("una referencia ausente no obtiene detalle ni abre la primera fila", async 
   }) });
   assert.equal(await superficie.activar({ referencia: "convocatoria:externa:inexistente" }), false);
   assert.equal(detalles, 0);
-  assert.match(superficie.renderizar(), /El borrador solicitado no está disponible en la bandeja autorizada/);
+  assert.match(superficie.renderizar(), /Este borrador no está disponible en su lista/);
   assert.match(superficie.renderizar(), /Seleccione un borrador o cree uno nuevo/);
   assert.ok(anuncios.includes("El borrador solicitado no está disponible"));
 });
@@ -253,7 +253,7 @@ test("la capacidad de consulta sin actualización deja el detalle realmente en s
   });
   await superficie.activar();
   const html = superficie.renderizar();
-  assert.match(html, /Solo lectura: sin capacidad/);
+  assert.match(html, /Solo consulta: no puede modificar datos/);
   assert.match(html, /data-borrador-form="editor" inert[^>]+aria-disabled="true"/);
   assert.equal(superficie.actualizarCampo({
     ruta: "contenido_editable.titulo", valor: "Cambio no autorizado",
@@ -426,7 +426,7 @@ test("un 409 conserva el formulario local y permite rotar conscientemente la cla
   assert.equal(await superficie.guardar(), false);
   let html = superficie.renderizar();
   assert.match(html, /Título local que debe sobrevivir/);
-  assert.match(html, /Conflicto de idempotencia \(HTTP 409\)/);
+  assert.match(html, /Esta operación ya se inició con otros datos/);
   assert.match(html, /Los cambios introducidos continúan en este editor/);
   assert.equal(await superficie.manejarAccion({ accion: "borradores-rotar-idempotencia" }), false);
   assert.deepEqual(claves, [CLAVE_IDEMPOTENCIA_A, CLAVE_IDEMPOTENCIA_B]);
@@ -459,7 +459,7 @@ test("un 412 compara la revisión vigente sin pisar cambios y reaplica con su ET
   cambiar(superficie, "contenido_editable.titulo", "Título local sin guardar");
   assert.equal(await superficie.guardar(), false);
   let html = superficie.renderizar();
-  assert.match(html, /Conflicto de revisión CAS \(HTTP 412\)/);
+  assert.match(html, /El borrador cambió mientras lo editaba/);
   assert.match(html, /Título local sin guardar/);
   assert.match(html, /fedcba9876543210/);
   assert.equal(await superficie.manejarAccion({ accion: "borradores-cargar-vigente" }), true);

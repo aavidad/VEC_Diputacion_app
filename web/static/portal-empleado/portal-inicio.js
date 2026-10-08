@@ -17,6 +17,7 @@ import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/fases-rrhh
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 import { renderizarAccesosEmpleado } from "./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js";
 
 const DESTINO_LISTA = 'data-vista="contratacion-temporal" data-ct-exp-vista="cuadro"';
 
@@ -142,8 +143,13 @@ function renderizarBolsasInicio(resumen, acceso, escaparHTML, traducir, numero, 
   } else {
     const filas = resumen.bolsas.slice(0, MAXIMO_BOLSAS_INICIO).map((bolsa) => {
       const disponibles = bolsa?.por_estado?.disponible;
+      let enlace = null;
+      try { enlace = rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", bolsa.bolsa_ref); }
+      catch { /* Una referencia no válida se muestra sin enlace. */ }
       return `<tr>
-        <th scope="row"><button type="button" class="enlace-tabla" data-vista="resumen">${escaparHTML(bolsa.categoria)}</button></th>
+        <th scope="row">${enlace
+          ? `<a class="enlace-tabla" href="${escaparHTML(enlace)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}">${escaparHTML(bolsa.categoria)}</a>`
+          : escaparHTML(bolsa.categoria)}</th>
         <td class="numero">${Number.isSafeInteger(disponibles) ? escaparHTML(numero(disponibles)) : "—"}</td>
         <td class="numero">${Number.isSafeInteger(bolsa.llamamientos_en_curso) ? escaparHTML(numero(bolsa.llamamientos_en_curso)) : "—"}</td>
         <td>${escaparHTML(finVigenciaBolsaPortal(bolsa.vigente_hasta, traducir))}</td>

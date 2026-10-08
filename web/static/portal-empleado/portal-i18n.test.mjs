@@ -31,8 +31,8 @@ test("miga, título, navegación y pie de CT usan el catálogo común en ambos i
     ["contratacion_temporal_miga", "Portal del Empleado → Peticiones de personal temporal", "Employee Portal → Temporary staff requests"],
     ["contratacion_temporal_titulo", "Gestión de peticiones de personal temporal", "Manage temporary staff requests"],
     ["plantillas_rrhh_nav", "Plantillas de documentos", "Document templates"],
-    ["txt_modulos", "Módulos", "Modules"],
-    ["txt_modulos_del_portal", "Módulos del portal", "Portal modules"],
+    ["txt_modulos", "Áreas", "Areas"],
+    ["txt_modulos_del_portal", "Áreas del portal", "Portal areas"],
     ["txt_portal_de_recursos_humanos", "Portal de Recursos Humanos", "Human Resources Portal"],
     ["txt_2026_diputacion_de_granada_portal_del_empleado", "© 2026 Diputación de Granada · Portal del Empleado", "© 2026 Diputación de Granada · Employee Portal"],
     ["txt_proteccion_de_datos_accesibilidad_ayuda", "Protección de datos · Accesibilidad · Ayuda", "Data protection · Accessibility · Help"],
@@ -325,6 +325,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261008-ct-alta-vista-v1");
+  versionesEspeciales.set("portal-panel-interno.js", "20261008-bolsa-enlaces-v1");
+  for (const ruta of ["portal-inicio.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261008-bolsa-enlaces-root-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -391,8 +394,8 @@ test("el catálogo i18n cubre los estados nuevos de acceso, navegación y reinte
   }
   assert.match(traducir("acceso_borradores_denegado"), /permiso/);
   assert.match(traducir("accion_reintentar"), /Reintentar/);
-  assert.match(traducir("error_catalogo_modulos"), /catálogo interno/u);
-  assert.match(traducir("titulo_error_catalogo_modulos"), /módulos/u);
+  assert.match(traducir("error_catalogo_modulos"), /áreas del portal/u);
+  assert.match(traducir("titulo_error_catalogo_modulos"), /áreas/u);
   assert.equal(traducir("personal_catalogo_profesional"), "Catálogo profesional de Personal");
 });
 
@@ -462,7 +465,7 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-ct-alta-vista-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-bolsa-enlaces-root-v1");
 
 });
 
@@ -472,11 +475,12 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   const [html, portal, coordinador, recorridos, borradores] = await Promise.all(
     rutas.map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const version = "20261007-u-dietas-catalogo-v1";
-  const versionRaiz = "20261008-ct-alta-vista-v1";
+  const versionRaiz = "20261008-bolsa-enlaces-root-v1";
+  const versionCoordinador = "20261008-ct-alta-vista-v1";
   const comun = "20261007-pantallas-textos-final-v1";
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionRaiz);
-  assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionRaiz);
-  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionRaiz);
+  assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionCoordinador);
+  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionCoordinador);
   assert.equal(versionDe(coordinador, "./modulos/dietas/vista-recorridos.js"), version);
   assert.equal(versionDe(coordinador, "./modulos/dietas/mapa-ruta.js"), version);
   assert.equal(versionDe(recorridos, "./vista-borradores-propios.js"), version);
