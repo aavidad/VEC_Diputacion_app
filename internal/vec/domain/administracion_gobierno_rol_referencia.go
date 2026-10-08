@@ -42,7 +42,8 @@ func (s SolicitudCierreGobiernoRolPorReferencia) CompletarCierreGobiernoRolConMa
 		m.OperacionRef != s.PropuestaRef || m.Plan.Operacion != OperacionCrearPerfilGobernado ||
 		m.Plan.Base != nil || m.Plan.DefinicionNueva == nil ||
 		m.Plan.DefinicionNueva.Version != 1 || len(m.Plan.DefinicionNueva.Concesiones) != 1 ||
-		len(m.Plan.Selecciones) != 1 || m.ProponentePersonaRef == s.Aprobador.PersonaRef {
+		len(m.Plan.Selecciones) != 1 || m.Plan.Motivo != s.Motivo ||
+		m.ProponentePersonaRef == s.Aprobador.PersonaRef {
 		return vacia, ErrPlanGobiernoPerfilInvalido
 	}
 	completa := SolicitudCierreGobiernoPerfil{OperacionRef: s.OperacionRef,

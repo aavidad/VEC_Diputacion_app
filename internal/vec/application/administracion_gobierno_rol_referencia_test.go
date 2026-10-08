@@ -91,6 +91,40 @@ func TestGobiernoRolRecuperaPropuestaConCatalogoHistoricoExacto(t *testing.T) {
 	}
 }
 
+func TestGobiernoRolNoProponeConcesionAdministrativaAunqueClaseSeaOrdinaria(t *testing.T) {
+	servicio, s, anterior, _ := gobiernoPerfilAplicacionPrueba(t)
+	entrada := &anterior.catalogo.Entradas[0]
+	entrada.Concesion.ModuloID = "administracion"
+	entrada.Concesion.Accion = "administracion.perfiles.definicion.aprobar"
+	s.Intencion.Publicacion.RolPropuesto.Concesiones[0] = entrada.Concesion
+	he, err := entrada.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hc, err := anterior.catalogo.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Intencion.Publicacion.Selecciones[0].EntradaHuellaSHA256 = he
+	s.Intencion.Publicacion.CatalogoHuellaSHA256 = hc
+	planGenerico, err := domain.PrepararPlanGobiernoPerfil(anterior.catalogo, s.Intencion, anterior.ahora)
+	if err != nil {
+		t.Fatalf("preparación genérica alterada: %v", err)
+	}
+	s.HuellaPlanEsperada, err = planGenerico.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	autoridad := &autoridadPropuestaRolRecuperablePrueba{autoridadGobiernoPerfilPrueba: anterior,
+		caduca: anterior.ahora.Add(time.Hour)}
+	servicio.actos = autoridad
+	r, err := servicio.ProponerGobiernoRolNuevo(context.Background(), s)
+	if err == nil || r.Propuesta.HuellaSHA256 != "" || anterior.lecturas != 1 || anterior.propuestas != 0 {
+		t.Fatalf("concesión ADMIN alcanzó propuesta: resultado=%+v error=%v lecturas=%d propuestas=%d",
+			r, err, anterior.lecturas, anterior.propuestas)
+	}
+}
+
 func (a *autoridadGobiernoPerfilPrueba) CerrarGobiernoRolPorReferencia(
 	_ context.Context, _ domain.SolicitudCierreGobiernoRolPorReferencia,
 ) (domain.CierreGobiernoPerfil, error) {
@@ -105,6 +139,17 @@ func TestGobiernoRolPorReferenciaRecuperaProponenteDelMaterialDurable(t *testing
 		Aprobador: completa.Aprobador, Evidencia: completa.Evidencia,
 		InstantaneaAutorizacion: completa.InstantaneaAutorizacion,
 		Decision:                completa.Decision, Motivo: completa.Motivo, CorrelacionRef: completa.CorrelacionRef}
+	otroMotivo := s
+	otroMotivo.Motivo.EntradaClave = "motivo_" + strings.Repeat("0", 32)
+	if otroMotivo.Motivo == s.Motivo {
+		otroMotivo.Motivo.EntradaClave = "motivo_" + strings.Repeat("1", 32)
+	}
+	if otroMotivo.Validar() != nil {
+		t.Fatal("motivo alternativo sintético inválido")
+	}
+	if _, err := otroMotivo.CompletarCierreGobiernoRolConMaterial(autoridad.cierre.Material); err == nil || autoridad.cierres != 0 {
+		t.Fatal("motivo distinto de la propuesta llegó al cierre")
+	}
 	cierre, err := servicio.CerrarGobiernoRolPorReferencia(context.Background(), s)
 	if err != nil || cierre.ValidarPara(completa) != nil || autoridad.cierres != 1 {
 		t.Fatalf("cierre por referencia: %v", err)
