@@ -2,7 +2,9 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 type ConsultaEstadoCesePostgreSQL struct{ pool *pgxpool.Pool }
 
 var _ ports.ConsultaEstadoCese = (*ConsultaEstadoCesePostgreSQL)(nil)
+var _ ports.ConsultaEstadosCese = (*ConsultaEstadoCesePostgreSQL)(nil)
 
 func NuevaConsultaEstadoCesePostgreSQL(pool *pgxpool.Pool) (*ConsultaEstadoCesePostgreSQL, error) {
 	if pool == nil {
@@ -22,86 +25,117 @@ func NuevaConsultaEstadoCesePostgreSQL(pool *pgxpool.Pool) (*ConsultaEstadoCeseP
 	return &ConsultaEstadoCesePostgreSQL{pool: pool}, nil
 }
 
-// ConsultarEstadoCese lee la fachada propia Bolsa 000050, nunca tablas
-// Personal/CT ni una referencia de candidato. La función B45 interna permanece
-// privada; la fachada solo concede EXECUTE al ejecutor nominal.
+// ConsultarEstadoCese lee la política y el pendiente propios de Bolsa.
+// La función no expone una referencia de candidato ni datos de Personal/CT.
 func (c *ConsultaEstadoCesePostgreSQL) ConsultarEstadoCese(ctx context.Context, participacionRef string, corte time.Time) (ports.EstadoCese, bool, error) {
 	if c == nil || c.pool == nil || ctx == nil || ctx.Err() != nil || participacionRef == "" ||
 		participacionRef != strings.TrimSpace(participacionRef) || corte.IsZero() {
 		return ports.EstadoCese{}, false, ports.ErrConsultaEstadoCeseNoDisponible
 	}
 	return escanearEstadoCese(c.pool.QueryRow(ctx,
-		`SELECT fecha_efecto,disponible_desde,en_restriccion,trabajo_cesado FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v1($1,$2)`,
+		`SELECT fecha_efecto,disponible_desde,en_restriccion,trabajo_cesado,cese_pendiente,pendiente_desde
+		FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2($1,$2)`,
 		participacionRef, corte.UTC()), corte)
 }
 
-var _ ports.ConsultaEstadosCese = (*ConsultaEstadoCesePostgreSQL)(nil)
-
 const maximoLoteEstadosCese = 20000
 
-// ConsultarEstadosCese envía en un único lote la misma consulta a la fachada
-// Bolsa 000050 que ConsultarEstadoCese, una por participación, y valida cada
-// fila igual. La función conserva su guarda de rol en cada llamada.
+// ConsultarEstadosCese emite una sola sentencia SQL para toda la página.
+// Una ausencia en el resultado conserva la situación anterior de la participación.
 func (c *ConsultaEstadoCesePostgreSQL) ConsultarEstadosCese(ctx context.Context, refs []string, corte time.Time) (map[string]ports.EstadoCese, error) {
 	if c == nil || c.pool == nil || ctx == nil || ctx.Err() != nil || corte.IsZero() || len(refs) > maximoLoteEstadosCese {
 		return nil, ports.ErrConsultaEstadoCeseNoDisponible
 	}
+	esperadas := make(map[string]struct{}, len(refs))
 	for _, ref := range refs {
 		if ref == "" || ref != strings.TrimSpace(ref) {
 			return nil, ports.ErrConsultaEstadoCeseNoDisponible
 		}
+		esperadas[ref] = struct{}{}
 	}
-	salida := make(map[string]ports.EstadoCese)
+	salida := make(map[string]ports.EstadoCese, len(refs))
 	if len(refs) == 0 {
 		return salida, nil
 	}
-	lote := &pgx.Batch{}
-	for _, ref := range refs {
-		lote.Queue(`SELECT fecha_efecto,disponible_desde,en_restriccion,trabajo_cesado FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v1($1,$2)`, ref, corte.UTC())
-	}
-	// Solo lectura y REPEATABLE READ: una instantánea coherente sin los
-	// bloqueos predicativos que acumularía una transacción SERIALIZABLE
-	// (el aislamiento por defecto de la sesión) con miles de lecturas.
-	tx, err := c.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	return consultarEstadosCeseLote(ctx, c.pool, refs, esperadas, corte, salida)
+}
+
+type consultaEstadosCeseQueryer interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}
+
+func consultarEstadosCeseLote(ctx context.Context, consulta consultaEstadosCeseQueryer, refs []string, esperadas map[string]struct{}, corte time.Time, salida map[string]ports.EstadoCese) (map[string]ports.EstadoCese, error) {
+	filas, err := consulta.Query(ctx,
+		`SELECT participacion_ref,fecha_efecto,disponible_desde,en_restriccion,trabajo_cesado,cese_pendiente,pendiente_desde
+		FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2($1::text[],$2)`, refs, corte.UTC())
 	if err != nil {
-		return nil, ports.ErrConsultaEstadoCeseNoDisponible
+		return nil, fmt.Errorf("%w: %w", ports.ErrConsultaEstadoCeseNoDisponible, err)
 	}
-	defer tx.Rollback(context.Background())
-	resultados := tx.SendBatch(ctx, lote)
-	defer resultados.Close()
-	for _, ref := range refs {
-		estado, presente, err := escanearEstadoCese(resultados.QueryRow(), corte)
-		if err != nil {
-			return nil, err
+	defer filas.Close()
+	for filas.Next() {
+		var ref string
+		var efecto, disponible, pendienteDesde sql.NullTime
+		var restringida, cesado, pendiente bool
+		if err := filas.Scan(&ref, &efecto, &disponible, &restringida, &cesado, &pendiente, &pendienteDesde); err != nil {
+			return nil, fmt.Errorf("%w: %w", ports.ErrConsultaEstadoCeseNoDisponible, err)
 		}
-		if presente {
-			salida[ref] = estado
+		if _, solicitada := esperadas[ref]; !solicitada || len(salida) >= len(esperadas) {
+			return nil, ports.ErrConsultaEstadoCeseNoDisponible
 		}
+		if _, repetida := salida[ref]; repetida {
+			return nil, ports.ErrConsultaEstadoCeseNoDisponible
+		}
+		estado, presente, err := validarEstadoCeseNullable(efecto, disponible, pendienteDesde, restringida, cesado, pendiente, corte)
+		if err != nil || !presente {
+			return nil, ports.ErrConsultaEstadoCeseNoDisponible
+		}
+		salida[ref] = estado
 	}
-	if err := resultados.Close(); err != nil {
-		return nil, ports.ErrConsultaEstadoCeseNoDisponible
+	if err := filas.Err(); err != nil {
+		return nil, fmt.Errorf("%w: %w", ports.ErrConsultaEstadoCeseNoDisponible, err)
 	}
 	return salida, nil
 }
 
 func escanearEstadoCese(fila pgx.Row, corte time.Time) (ports.EstadoCese, bool, error) {
-	var efecto, disponible time.Time
-	var restringida, cesado bool
-	err := fila.Scan(&efecto, &disponible, &restringida, &cesado)
+	var efecto, disponible, pendienteDesde sql.NullTime
+	var restringida, cesado, pendiente bool
+	err := fila.Scan(&efecto, &disponible, &restringida, &cesado, &pendiente, &pendienteDesde)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ports.EstadoCese{}, false, nil
 	}
 	if err != nil {
+		return ports.EstadoCese{}, false, fmt.Errorf("%w: %w", ports.ErrConsultaEstadoCeseNoDisponible, err)
+	}
+	return validarEstadoCeseNullable(efecto, disponible, pendienteDesde, restringida, cesado, pendiente, corte)
+}
+
+func validarEstadoCeseNullable(efecto, disponible, pendienteDesde sql.NullTime, restringida, cesado, pendiente bool, corte time.Time) (ports.EstadoCese, bool, error) {
+	if pendiente != pendienteDesde.Valid || pendiente && (pendienteDesde.Time.IsZero() || pendienteDesde.Time.After(corte)) || corte.IsZero() {
 		return ports.EstadoCese{}, false, ports.ErrConsultaEstadoCeseNoDisponible
 	}
-	return validarEstadoCese(efecto, disponible, restringida, cesado, corte)
+	if !efecto.Valid && !disponible.Valid && pendiente && !restringida && !cesado {
+		return ports.EstadoCese{CesePendiente: true, PendienteDesde: pendienteDesde.Time.UTC()}, true, nil
+	}
+	if !efecto.Valid || !disponible.Valid {
+		return ports.EstadoCese{}, false, ports.ErrConsultaEstadoCeseNoDisponible
+	}
+	estado, presente, err := validarEstadoCese(efecto.Time, disponible.Time, restringida, cesado, corte)
+	if err != nil {
+		return ports.EstadoCese{}, false, err
+	}
+	estado.CesePendiente = pendiente
+	if pendiente {
+		estado.PendienteDesde = pendienteDesde.Time.UTC()
+	}
+	return estado, presente, nil
 }
 
 // validarEstadoCese convierte las fechas del día de Madrid y rechaza estados
-// incoherentes con el corte; lo comparten la lectura individual y la de conjunto.
+// incoherentes con el corte; lo comparten el resumen legado y las lecturas v2.
 func validarEstadoCese(efecto, disponible time.Time, restringida, cesado bool, corte time.Time) (ports.EstadoCese, bool, error) {
 	madrid, err := time.LoadLocation("Europe/Madrid")
-	if err != nil || efecto.IsZero() || disponible.IsZero() {
+	if err != nil || efecto.IsZero() || disponible.IsZero() || corte.IsZero() {
 		return ports.EstadoCese{}, false, ports.ErrConsultaEstadoCeseNoDisponible
 	}
 	yE, mE, dE := efecto.Date()

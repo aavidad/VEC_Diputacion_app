@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -64,7 +65,7 @@ func TestCanonEfectoAltaV3ConservaOrdenV2YLigaNecesidad(t *testing.T) {
 	fragmento := `"observaciones":"","necesidad":{` +
 		`"esquema":"vec.ct.necesidad_alta.v1",` +
 		`"catalogo_ref":"` + n.CatalogoRef + `",` +
-		`"catalogo_version":2,` +
+		`"catalogo_version":` + strconv.FormatUint(uint64(n.CatalogoVersion), 10) + `,` +
 		`"catalogo_huella_sha256":"` + n.CatalogoHuellaSHA256 + `",` +
 		`"causa_clave":"acumulacion_tareas",` +
 		`"periodo":{"inicio":"2026-09-01","fin":"2026-09-30"},` +
