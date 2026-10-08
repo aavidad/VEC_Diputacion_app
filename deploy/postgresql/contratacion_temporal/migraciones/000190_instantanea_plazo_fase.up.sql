@@ -25,7 +25,8 @@ BEGIN
    WHERE p.oid=pg_catalog.to_regprocedure(v_funcion.firma)
      AND p.proowner='vec_contratacion_temporal_propietario'::pg_catalog.regrole;
   IF v_observada IS DISTINCT FROM v_funcion.huella_esperada THEN
-   RAISE EXCEPTION 'CT-190: preimagen de función incompatible: %',v_funcion.firma
+   RAISE EXCEPTION 'CT-190: PARO firma=% clave=huella_cuerpo esperado=% observado=%',
+    v_funcion.firma,v_funcion.huella_esperada,coalesce(v_observada,'ausente_o_propietario_distinto')
     USING ERRCODE='55000';
   END IF;
  END LOOP;

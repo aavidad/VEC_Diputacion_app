@@ -78,7 +78,7 @@ DECLARE
  secuencia_previa bigint; base_version bigint; version_ajustes_previa bigint;
  fase_nueva text; fase_siguiente text; canonico text; huella text;
  ajustes text; ajustes_huella text; ajustes_futuros text; instante timestamptz(6); paso integer;
- v_legado_correcto boolean; v_grupos integer;
+ v_legado_correcto boolean; v_grupos integer; v_numero_visible text;
 BEGIN
  IF (SELECT count(*) FROM vec_contratacion_temporal.fase_regla_instantanea_v1)
     <> (SELECT count(*) FROM vec_contratacion_temporal.fase_entrada_publicacion_rrhh)
@@ -271,16 +271,22 @@ BEGIN
    FROM vec_contratacion_temporal.regla_legado_transicion_v1 t) THEN
   RAISE EXCEPTION 'CT190: la fase de prueba no es posterior a la transición';
  END IF;
+ SELECT coalesce(n.numero_visible,p.numero_visible) INTO STRICT v_numero_visible
+ FROM vec_contratacion_temporal.publicacion_version_rrhh p
+ LEFT JOIN vec_contratacion_temporal.numeracion_anual_asignada n
+  ON n.expediente_ref=p.expediente_ref
+ WHERE p.expediente_ref=nueva.expediente_ref AND p.version=nueva.version;
  SELECT count(*),bool_and(r.captura->>'estado'='legado_sin_instantanea'
     AND r.captura->>'base_huella' IS NULL
     AND r.captura->>'capturada_en' IS NULL)
  INTO v_grupos,v_legado_correcto
  FROM vec_contratacion_temporal.contar_resumen_cuadro_rrhh_v1(
   ROW('organizacion:desarrollo:dipgra','organizacion','organizacion:desarrollo:dipgra')::vec_contratacion_temporal.alcance_consulta_rrhh_v1,
-  ROW(nueva.agregado_json->>'numero_visible','','',100,'')::vec_contratacion_temporal.consulta_cuadro_rrhh_v1,'') r
+  ROW(v_numero_visible,'','',100,'')::vec_contratacion_temporal.consulta_cuadro_rrhh_v1,'') r
  WHERE r.clase='plazo' AND r.fase_clave=nueva.fase_clave;
  IF v_grupos<>1 OR v_legado_correcto IS DISTINCT FROM true THEN
-  RAISE EXCEPTION 'CT190: fase abierta tras desactivación recibió transición anterior';
+  RAISE EXCEPTION 'CT190: clave=inactiva.resumen esperado=1_grupo_legado_sin_instantanea observado=grupos:% valido:% numero:% estado:%',
+   v_grupos,v_legado_correcto,v_numero_visible,nueva.estado;
  END IF;
 END $prueba$;
 
