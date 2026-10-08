@@ -30,7 +30,8 @@ CREATE FUNCTION vec_bolsa_llamamientos.autorizar_vista_previa_carga_convoca_v1(
  p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
  SET search_path=pg_catalog,pg_temp SET timezone='UTC'
- SET lock_timeout='2s' SET statement_timeout='30s' AS $f$
+ SET lock_timeout='2s' SET statement_timeout='15s'
+ SET idle_in_transaction_session_timeout='20s' AS $f$
 DECLARE recurso jsonb; decision jsonb; capacidad jsonb; consumo record;
         ambito text; unidad text; filtro text; limite text; desplazamiento text;
         canon text; huella text;

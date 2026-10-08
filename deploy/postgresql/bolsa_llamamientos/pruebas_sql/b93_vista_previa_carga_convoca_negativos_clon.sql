@@ -7,6 +7,9 @@ BEGIN
  IF f IS NULL OR NOT pg_catalog.has_function_privilege('vec_bolsa_llamamientos_desarrollo',f,'EXECUTE')
  OR pg_catalog.has_function_privilege('vec_bolsa_llamamientos_ejecutor',
    'vec_autorizacion_atestada_v3.consumir_carga_convoca_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=f
+   AND p.prosecdef AND p.proowner='vec_bolsa_llamamientos_propietario'::pg_catalog.regrole
+   AND p.proconfig @> ARRAY['statement_timeout=15s','idle_in_transaction_session_timeout=20s'])
  OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL
    pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
    WHERE p.oid=f AND a.grantee NOT IN (p.proowner,'vec_bolsa_llamamientos_ejecutor'::pg_catalog.regrole))
