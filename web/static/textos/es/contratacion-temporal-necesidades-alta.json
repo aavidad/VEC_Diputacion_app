@@ -1,0 +1,49 @@
+{
+  "general": {
+    "estado_no_disponible_detalle": "Ahora no puede registrar esta petición. Vuelva al cuadro e inténtelo más tarde.",
+    "necesidad_leyenda": "Necesidad y jornada",
+    "necesidad_ayuda_boton": "Ayuda para crear la petición",
+    "necesidad_ayuda": "Indique qué necesita el centro, durante cuánto tiempo y con qué jornada. Para una vacante o sustitución, busque el puesto publicado. Su código no acredita que esté libre. Selección Temporal decidirá después el tipo de nombramiento.",
+    "ct": {
+      "necesidad": {
+        "vacante": "Cobertura de un puesto vacante",
+        "sustitucion": "Sustitución de una persona",
+        "acumulacion_tareas": "Acumulación temporal de tareas",
+        "programa_temporal": "Programa temporal"
+      }
+    },
+    "causa_fin_reincorporacion_titular": "Hasta la reincorporación de la persona titular",
+    "jornada_minutos": "Jornada semanal (horas y minutos)",
+    "jornada_formato": "Escriba 37:30 o 37,5 para indicar 37 horas y 30 minutos.",
+    "puesto_busqueda": "Código del puesto en la RPT",
+    "puesto_buscar": "Buscar puesto",
+    "puesto_sin_seleccion": "Busque y seleccione el puesto publicado.",
+    "puesto_buscando": "Buscando el puesto publicado…",
+    "puesto_no_encontrado": "No aparece ese puesto en la RPT publicada. Revise el código y vuelva a buscar.",
+    "puesto_consulta_error": "No se pudo consultar la RPT. Pulse Buscar puesto para volver a intentarlo.",
+    "puesto_publicacion_pendiente": "El puesto aparece en la RPT, pero faltan los datos de publicación para registrar la petición. Vuelva a intentarlo más tarde.",
+    "puesto_seleccionado": "Puesto seleccionado",
+    "error_puesto_publicacion": "Seleccione un puesto de la RPT publicada antes de revisar la petición.",
+    "puesto_codigo": "Código del puesto",
+    "plaza_codigo": "Código de plaza (opcional)",
+    "titular_ref": "Referencia de la persona sustituida (opcional)",
+    "vacancia_fuente_ref": "Referencia que acredita la vacante (opcional)",
+    "rpt_catalogo_ref": "Publicación del puesto",
+    "rpt_catalogo_huella_sha256": "Huella de la publicación",
+    "organica_codigo": "Clasificación orgánica",
+    "funcional_codigo": "Clasificación funcional",
+    "proyecto_gasto_codigo": "Proyecto de gasto",
+    "porcentaje_financiacion": "Porcentaje de financiación",
+    "justificacion_temporal": "Justificación de las tareas temporales",
+    "programa_denominacion": "Nombre del programa",
+    "programa_fin": "Fin previsto del programa",
+    "proyecto_codigo": "Código del proyecto",
+    "financiacion_ref": "Referencia de financiación",
+    "rc_ref": "Referencia de RC",
+    "intervencion_ref": "Referencia de Intervención",
+    "error_jornada": "Indique horas y minutos completos, entre 1 minuto y 168 horas.",
+    "error_campo_necesidad": "Revise este dato de la necesidad.",
+    "error_uno_de": "Indique una sola de las referencias de financiación.",
+    "error_periodo_maximo_necesidad": "El periodo supera el máximo de esta necesidad. Revise la fecha de fin."
+  }
+}

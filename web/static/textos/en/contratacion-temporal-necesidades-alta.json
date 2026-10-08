@@ -1,0 +1,49 @@
+{
+  "general": {
+    "estado_no_disponible_detalle": "This request cannot be registered now. Return to the list and try again later.",
+    "necesidad_leyenda": "Staffing need and working time",
+    "necesidad_ayuda_boton": "Help with this request",
+    "necesidad_ayuda": "State what your centre needs, for how long and for how many hours each week. For a vacancy or replacement, find the published post. Its code does not prove that it is vacant. Temporary Staff Selection will decide the appointment type later.",
+    "ct": {
+      "necesidad": {
+        "vacante": "Fill a vacant post",
+        "sustitucion": "Replace an employee",
+        "acumulacion_tareas": "Temporary increase in workload",
+        "programa_temporal": "Temporary programme"
+      }
+    },
+    "causa_fin_reincorporacion_titular": "Until the employee returns",
+    "jornada_minutos": "Weekly working time (hours and minutes)",
+    "jornada_formato": "Enter 37:30 or 37.5 for 37 hours and 30 minutes.",
+    "puesto_busqueda": "Post code in the published RPT",
+    "puesto_buscar": "Find post",
+    "puesto_sin_seleccion": "Find and select the published post.",
+    "puesto_buscando": "Searching published posts…",
+    "puesto_no_encontrado": "This post is not in the published RPT. Check the code and search again.",
+    "puesto_consulta_error": "The RPT could not be checked. Select Find post to try again.",
+    "puesto_publicacion_pendiente": "The post is listed, but its publication details are unavailable. Try again later before submitting the request.",
+    "puesto_seleccionado": "Selected post",
+    "error_puesto_publicacion": "Select a post from the published RPT before reviewing the request.",
+    "puesto_codigo": "Post code",
+    "plaza_codigo": "Position code (optional)",
+    "titular_ref": "Reference of the employee being replaced (optional)",
+    "vacancia_fuente_ref": "Vacancy evidence reference (optional)",
+    "rpt_catalogo_ref": "Post publication",
+    "rpt_catalogo_huella_sha256": "Publication fingerprint",
+    "organica_codigo": "Organisational budget code",
+    "funcional_codigo": "Functional budget code",
+    "proyecto_gasto_codigo": "Spending project",
+    "porcentaje_financiacion": "Funding percentage",
+    "justificacion_temporal": "Reason for the temporary workload",
+    "programa_denominacion": "Programme name",
+    "programa_fin": "Expected programme end",
+    "proyecto_codigo": "Project code",
+    "financiacion_ref": "Funding reference",
+    "rc_ref": "Budget retention reference",
+    "intervencion_ref": "Financial control reference",
+    "error_jornada": "Enter whole hours and minutes, from 1 minute to 168 hours.",
+    "error_campo_necesidad": "Check this staffing need detail.",
+    "error_uno_de": "Enter only one of the funding references.",
+    "error_periodo_maximo_necesidad": "The period exceeds the limit for this need. Check the end date."
+  }
+}

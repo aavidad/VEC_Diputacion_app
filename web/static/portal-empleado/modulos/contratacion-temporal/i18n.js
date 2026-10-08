@@ -1,8 +1,19 @@
 import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_NECESIDADES_ALTA_ES, MENSAJES_NECESIDADES_ALTA_EN } from "./i18n-necesidades-alta.js";
-const catalogosMOAD = await cargarCatalogosContratacion("contratacion-temporal-moad");
+const [catalogosMOAD, catalogosNecesidadesAlta] = await Promise.all([
+  cargarCatalogosContratacion("contratacion-temporal-moad"),
+  cargarCatalogosContratacion("contratacion-temporal-necesidades-alta"),
+]);
 const MENSAJES_MOAD_ES = catalogosMOAD.exportaciones.ES;
 const MENSAJES_MOAD_EN = catalogosMOAD.exportaciones.EN;
+function aplanarMensajesNecesidades(seccion, prefijo = "", salida = {}) {
+  for (const [clave, valor] of Object.entries(seccion ?? {})) {
+    const nombre = prefijo ? `${prefijo}.${clave}` : clave;
+    if (typeof valor === "string") salida[nombre] = valor;
+    else aplanarMensajesNecesidades(valor, nombre, salida);
+  }
+  return salida;
+}
+const MENSAJES_NECESIDADES_ALTA_ACTUALES = aplanarMensajesNecesidades(catalogosNecesidadesAlta.actual);
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
 import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261007-pantallas-textos-final-v1";
 import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261007-pantallas-textos-final-v1";
@@ -23,7 +34,7 @@ import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 import { FASES_RRHH, rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
 
 const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
-  ...MENSAJES_NECESIDADES_ALTA_ES,
+  ...MENSAJES_NECESIDADES_ALTA_ACTUALES,
   ...MENSAJES_MOAD_ES,
   ...rotulosFasesComoMensajes("contratacion_temporal.fase."),
   justificante_registrado: "Justificante registrado",
@@ -84,8 +95,6 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   progreso_recibo: "Recibo",
   estado_disponible: "Puede revisar y registrar la solicitud",
   estado_no_disponible: "Servicio no disponible",
-  estado_no_disponible_detalle:
-    "La capacidad, los catálogos y el ejecutor real deben estar conectados antes de registrar.",
   estado_enviando: "Registrando la solicitud. No cierre esta pantalla.",
   estado_cancelando: "Cancelando la espera de respuesta.",
   estado_cancelado:
@@ -474,7 +483,7 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
 
 /** British English messages for the temporary staff requests module. */
 const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
-  ...MENSAJES_NECESIDADES_ALTA_EN,
+  ...MENSAJES_NECESIDADES_ALTA_ACTUALES,
   ...MENSAJES_MOAD_EN,
   ...rotulosFasesComoMensajes("contratacion_temporal.fase."),
   justificante_registrado: "Receipt recorded",
@@ -535,7 +544,6 @@ const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   progreso_recibo: "Receipt",
   estado_disponible: "You can review and record the request",
   estado_no_disponible: "Service unavailable",
-  estado_no_disponible_detalle: "The capability, catalogues and live processor must be connected before a request can be recorded.",
   estado_enviando: "Recording the request. Do not close this page.",
   estado_cancelando: "Cancelling the wait for a response.",
   estado_cancelado: "The wait was cancelled and the result may be uncertain. Retry only with the same content.",
@@ -944,6 +952,7 @@ export async function cargarMensajesContratacionTemporalEnIdioma(idioma) {
   const catalogos = await Promise.all([
     cargarCatalogosContratacionEnIdioma("portal", idioma, "fases_rrhh"),
     cargarCatalogosContratacionEnIdioma("contratacion-temporal-moad", idioma),
+    cargarCatalogosContratacionEnIdioma("contratacion-temporal-necesidades-alta", idioma),
     cargarCatalogosContratacionEnIdioma("contratacion-temporal-llamamiento", idioma),
     cargarCatalogosContratacionEnIdioma("contratacion-temporal-subsanacion-reparos", idioma),
     cargarCatalogosContratacionEnIdioma("contratacion-temporal-avisos-via-cobertura", idioma),
@@ -960,7 +969,12 @@ export async function cargarMensajesContratacionTemporalEnIdioma(idioma) {
     ? MENSAJES_CONTRATACION_TEMPORAL_ES_BASE : MENSAJES_CONTRATACION_TEMPORAL_EN_BASE;
   const mensajes = { ...base };
   for (const catalogo of catalogos.slice(1)) {
-    for (const [clave, valor] of Object.entries(catalogo.actual)) {
+    if (catalogo === catalogos[2]) {
+      Object.assign(mensajes, aplanarMensajesNecesidades(catalogo.actual));
+      continue;
+    }
+    const entradas = Object.entries(catalogo.actual);
+    for (const [clave, valor] of entradas) {
       if (!Object.hasOwn(mensajes, clave)) mensajes[clave] = valor;
     }
   }

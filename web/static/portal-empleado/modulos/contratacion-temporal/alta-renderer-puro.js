@@ -1,5 +1,5 @@
 /** Presentación pura del alta CT, compartida con la petición previa del centro. */
-import { LIMITES_ALTA_CONTRATACION } from "./contrato.js?v=20261002-ct-fin-moad-v1";
+import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261002-ct-fin-moad-v1";
 import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261002-ct-fin-moad-v1";
 
 const CAMPOS_RPT_PUBLICACION = new Set(["rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]);
@@ -236,9 +236,10 @@ function camposNecesidad(estado, t, deshabilitado) {
     <div class="ct-campos">
       <div class="ct-campo">
         <label for="ct-jornada_minutos">${escaparHTML(t("jornada_minutos"))} <b aria-hidden="true">*</b></label>
-        <input id="ct-jornada_minutos" name="jornada_minutos" type="number" min="1" max="10080" step="1" required
-          value="${escaparHTML(estado.borrador.jornada_minutos)}"
-          ${atributosAccesibles(estado, "jornada_minutos")}${deshabilitado ? " disabled" : ""}>
+        <input id="ct-jornada_minutos" name="jornada_horas" type="text" inputmode="decimal" maxlength="8" required
+          value="${escaparHTML(jornadaVisibleDesdeMinutos(estado.borrador.jornada_minutos) || estado.borrador.jornada_minutos)}"
+          ${atributosAccesibles(estado, "jornada_minutos", ["ct-jornada-formato"])}${deshabilitado ? " disabled" : ""}>
+        <small id="ct-jornada-formato">${escaparHTML(t("jornada_formato"))}</small>
         ${errorCampo(estado, "jornada_minutos", t)}
       </div>
       ${tienePuesto ? `<div class="ct-campo ct-campo-ancho">
@@ -480,7 +481,7 @@ export function revision(estado, t, locale) {
       ${filaResumen(t("resumen_categoria"), categoria?.etiqueta ?? borrador.categoria_ref)}
       ${filaResumen(t("resumen_grupo"), grupo)}
       ${filaResumen(t("resumen_motivo"), motivo)}
-      ${esNecesidad(estado) ? filaResumen(t("jornada_minutos"), borrador.jornada_minutos) : ""}
+      ${esNecesidad(estado) ? filaResumen(t("jornada_minutos"), jornadaVisibleDesdeMinutos(borrador.jornada_minutos)) : ""}
       ${esNecesidad(estado) ? estado.catalogos.necesidades.causas.find(
     (dato) => dato.clave === borrador.motivo_clave)?.campos_permitidos
     .filter((campo) => borrador[campo] && !CAMPOS_RPT_PUBLICACION.has(campo))
@@ -520,9 +521,11 @@ export function revision(estado, t, locale) {
 
 export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
   const datos = new FormData(formularioDOM);
-  const necesidad = Boolean(formularioDOM.querySelector?.('[name="jornada_minutos"]'));
+  const necesidad = Boolean(formularioDOM.querySelector?.('[name="jornada_horas"]'));
+  const jornadaEntrada = String(datos.get("jornada_horas") ?? "");
+  const minutosJornada = minutosDesdeJornadaVisible(jornadaEntrada);
   const adicionales = necesidad ? {
-    jornada_minutos: String(datos.get("jornada_minutos") ?? ""),
+    jornada_minutos: minutosJornada === null ? jornadaEntrada : String(minutosJornada),
     ...Object.fromEntries("puesto_codigo plaza_codigo titular_ref vacancia_fuente_ref rpt_catalogo_ref rpt_catalogo_huella_sha256 organica_codigo funcional_codigo proyecto_gasto_codigo porcentaje_financiacion justificacion_temporal programa_denominacion programa_fin proyecto_codigo financiacion_ref rc_ref intervencion_ref".split(" ").map((campo) =>
       [campo, String(datos.get(campo) ?? "")])) } : {};
   return {

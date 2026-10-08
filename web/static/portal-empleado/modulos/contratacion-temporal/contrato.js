@@ -176,6 +176,47 @@ function fechaCivilValida(valor) {
   return Number.isFinite(fecha.valueOf()) && fecha.toISOString().slice(0, 10) === valor;
 }
 
+function fechaFinDentroDeMeses(inicio, fin, meses) {
+  if (!fechaCivilValida(inicio) || !fechaCivilValida(fin)
+    || !Number.isSafeInteger(meses) || meses < 1) return false;
+  const fecha = new Date(`${inicio}T00:00:00Z`);
+  const dia = fecha.getUTCDate();
+  fecha.setUTCDate(1);
+  fecha.setUTCMonth(fecha.getUTCMonth() + meses);
+  const siguienteMes = new Date(fecha);
+  siguienteMes.setUTCMonth(siguienteMes.getUTCMonth() + 1);
+  const ultimoDia = new Date(siguienteMes);
+  ultimoDia.setUTCDate(0);
+  const limite = dia > ultimoDia.getUTCDate() ? siguienteMes : fecha;
+  if (dia <= ultimoDia.getUTCDate()) limite.setUTCDate(dia);
+  return Date.parse(`${fin}T00:00:00Z`) < limite.getTime();
+}
+
+// El formulario acepta horas decimales o h:mm, pero el contrato conserva
+// minutos enteros. Una fracción inferior a un minuto se rechaza sin redondear.
+export function minutosDesdeJornadaVisible(valor) {
+  if (typeof valor !== "string" || valor !== valor.trim()) return null;
+  const reloj = /^(\d{1,3}):([0-5]\d)$/u.exec(valor);
+  const decimal = /^(\d{1,3})(?:[.,](\d{1,3}))?$/u.exec(valor);
+  if (!reloj && !decimal) return null;
+  let minutos;
+  if (reloj) minutos = Number(reloj[1]) * 60 + Number(reloj[2]);
+  else {
+    const divisor = 10 ** (decimal[2]?.length ?? 0);
+    const fraccion = Number(decimal[2] ?? 0) * 60;
+    if (fraccion % divisor !== 0) return null;
+    minutos = Number(decimal[1]) * 60 + fraccion / divisor;
+  }
+  return Number.isSafeInteger(minutos) && minutos >= 1 && minutos <= 10080 ? minutos : null;
+}
+
+export function jornadaVisibleDesdeMinutos(valor) {
+  const minutos = Number(valor);
+  if (!/^(?:0|[1-9]\d*)$/u.test(String(valor)) || !Number.isSafeInteger(minutos)
+    || minutos < 1 || minutos > 10080) return "";
+  return `${Math.floor(minutos / 60)}:${String(minutos % 60).padStart(2, "0")}`;
+}
+
 function instanteCivilUTC(fecha) {
   return `${fecha}T00:00:00Z`;
 }
@@ -594,6 +635,15 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
       || Number(borrador.jornada_minutos) > 10080) agregarError(errores, "jornada_minutos", "jornada");
     const causa = catalogos.necesidades.causas.find((dato) => dato.clave === borrador.motivo_clave);
     if (causa) {
+      if (fechaCivilValida(borrador.inicio) && fechaCivilValida(borrador.fin)
+        && !fechaFinDentroDeMeses(borrador.inicio, borrador.fin, causa.maximo_meses)) {
+        agregarError(errores, "fin", "periodo_maximo_necesidad");
+      }
+      if (borrador.programa_fin && fechaCivilValida(borrador.programa_fin)
+        && ((fechaCivilValida(borrador.inicio) && borrador.programa_fin < borrador.inicio)
+          || (fechaCivilValida(borrador.fin) && borrador.programa_fin < borrador.fin))) {
+        agregarError(errores, "programa_fin", "campo_necesidad");
+      }
       for (const campo of CAMPOS_NECESIDAD) {
         const valor = borrador[campo];
         if (typeof valor !== "string" || (valor && !valorNecesidadValido(campo, valor))
@@ -601,7 +651,7 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
         if (causa.campos_obligatorios.includes(campo) && !valor) agregarError(errores, campo, "texto_obligatorio");
       }
       for (const grupo of causa.uno_de ?? []) {
-        if (!grupo.some((campo) => borrador[campo])) agregarError(errores, grupo[0], "uno_de");
+        if (grupo.filter((campo) => borrador[campo]).length !== 1) agregarError(errores, grupo[0], "uno_de");
       }
     }
   }

@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  crearBorradorAlta, crearComandoAlta, validarBorradorAlta, validarCatalogosAlta,
+  crearBorradorAlta, crearComandoAlta, jornadaVisibleDesdeMinutos,
+  minutosDesdeJornadaVisible, validarBorradorAlta, validarCatalogosAlta,
 } from "./contrato.js";
 import { crearAltaClienteHTTP } from "./cliente-http-alta.js";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js";
 import { renderizarAltaContratacionTemporal, seleccionarPuestoPublicadoRPT } from "./vista.js";
+import { cargarMensajesContratacionTemporalEnIdioma } from "./i18n.js";
 
 const CLAVE = "12345678-1234-4abc-8def-1234567890ab";
 const HUELLA = "a".repeat(64);
@@ -87,6 +89,51 @@ test("programa exige una referencia publicada y sustitución admite causa de fin
     { inicio: "2026-10-01T00:00:00Z", causa_fin: "reincorporacion_titular" });
 });
 
+test("programa acepta exactamente una vía de financiación y un fin que cubra el periodo", () => {
+  const programa = borrador({ motivo_clave: "programa_temporal", programa_denominacion: "Archivo",
+    programa_fin: "2026-11-01", proyecto_codigo: "PR-2026-7",
+    financiacion_ref: "financiacion:sintetica:001", rc_ref: "rc:sintetica:001" });
+  assert.equal(validarBorradorAlta(programa, catalogos()).valido, true);
+  assert.equal(validarBorradorAlta({ ...programa,
+    intervencion_ref: "intervencion:sintetica:001" }, catalogos()).errores.rc_ref, "uno_de");
+  assert.equal(validarBorradorAlta({ ...programa, programa_fin: "2026-10-15" },
+    catalogos()).errores.programa_fin, "campo_necesidad");
+  assert.equal(validarBorradorAlta({ ...programa, programa_fin: "2026-09-30" },
+    catalogos()).errores.programa_fin, "campo_necesidad");
+});
+
+test("el máximo de meses de cada causa usa fechas civiles y no admite el día exclusivo", () => {
+  const actual = catalogos();
+  actual.necesidades.causas = actual.necesidades.causas.map((dato) => dato.clave === "acumulacion_tareas"
+    ? { ...dato, maximo_meses: 9 } : dato);
+  const acumulacion = borrador({ motivo_clave: "acumulacion_tareas", inicio: "2026-05-31",
+    fin: "2027-02-28", justificacion_temporal: "Trabajo temporal del centro" });
+  assert.equal(validarBorradorAlta(acumulacion, actual).valido, true);
+  assert.equal(validarBorradorAlta({ ...acumulacion, fin: "2027-03-01" }, actual).errores.fin,
+    "periodo_maximo_necesidad");
+});
+
+test("la jornada visible conserva minutos enteros sin redondear una fracción", () => {
+  assert.equal(minutosDesdeJornadaVisible("37,5"), 2250);
+  assert.equal(minutosDesdeJornadaVisible("37.5"), 2250);
+  assert.equal(minutosDesdeJornadaVisible("37:30"), 2250);
+  assert.equal(jornadaVisibleDesdeMinutos("2250"), "37:30");
+  assert.equal(minutosDesdeJornadaVisible("37,01"), null);
+  assert.equal(minutosDesdeJornadaVisible("0:01"), 1);
+  const actual = borrador({ puesto_codigo: "217", rpt_catalogo_ref: "rpt-dipgra-2026",
+    rpt_catalogo_huella_sha256: HUELLA, jornada_minutos: "2250" });
+  assert.equal(crearComandoAlta(actual, catalogos(), CLAVE).necesidad.jornada_minutos, 2250);
+});
+
+test("los textos de la necesidad se cargan del catálogo del idioma solicitado", async () => {
+  const es = await cargarMensajesContratacionTemporalEnIdioma("es");
+  const en = await cargarMensajesContratacionTemporalEnIdioma("en");
+  assert.equal(es.jornada_minutos, "Jornada semanal (horas y minutos)");
+  assert.equal(en.jornada_minutos, "Weekly working time (hours and minutes)");
+  assert.match(es.necesidad_ayuda, /Selección Temporal decidirá/u);
+  assert.match(en.necesidad_ayuda, /Temporary Staff Selection will decide/u);
+});
+
 test("el alta v3 envía necesidad estructurada y conserva la clave de reintento", () => {
   const actual = borrador({ puesto_codigo: "217", rpt_catalogo_ref: "rpt-dipgra-2026",
     rpt_catalogo_huella_sha256: HUELLA });
@@ -138,6 +185,7 @@ test("la pantalla v2 ofrece causas y campos publicados y conserva recibo real", 
   const html = renderizarAltaContratacionTemporal(presentador.obtenerEstado());
   assert.match(html, /Cobertura de un puesto vacante/);
   assert.match(html, /Buscar puesto/);
+  assert.match(html, /name="jornada_horas"[^>]*value="35:00"/u);
   assert.doesNotMatch(html, /modalidad jurídica/i);
   assert.equal(presentador.prepararRevision(borrador({ puesto_codigo: "217" })), false);
   assert.equal(presentador.obtenerEstado().errores.rpt_catalogo_ref, "texto_obligatorio");
