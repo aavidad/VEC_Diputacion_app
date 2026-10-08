@@ -138,3 +138,5 @@
 2917 deploy/postgresql/autorizacion_atestada_v3/migraciones/000218_carga_convoca_bolsa.up.sql
 840 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
 868 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitacion.js
+2604 deploy/postgresql/autorizacion_atestada_v3/migraciones/000225_reanudacion_solicitud_llamamiento.up.sql
+817 internal/modules/contrataciontemporal/adapters/postgres/ejecuciones_seleccion_llamamiento_test.go
