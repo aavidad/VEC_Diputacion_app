@@ -46,6 +46,10 @@ CREATE TABLE vec_bolsa_importacion_convoca.original_exportacion_cifrada (
 );
 REVOKE ALL ON vec_bolsa_importacion_convoca.original_exportacion_cifrada FROM PUBLIC;
 REVOKE ALL ON TYPE vec_bolsa_importacion_convoca.original_exportacion_cifrada FROM PUBLIC;
+ALTER TABLE vec_bolsa_importacion_convoca.original_exportacion_cifrada ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_importacion_convoca.original_exportacion_cifrada FORCE ROW LEVEL SECURITY;
+CREATE POLICY original_solo_propietario ON vec_bolsa_importacion_convoca.original_exportacion_cifrada
+ FOR ALL TO vec_bolsa_importacion_convoca_propietario USING (true) WITH CHECK (true);
 
 CREATE FUNCTION vec_bolsa_importacion_convoca.negar_mutacion_original_v1()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
