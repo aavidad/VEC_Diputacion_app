@@ -305,3 +305,40 @@ test("la pantalla v2 ofrece causas y campos publicados y conserva recibo real", 
   assert.equal(enviados.length, 1);
   assert.equal(presentador.obtenerEstado().recibo.recibo_ref, "recibo:ct:001");
 });
+
+test("Alta marca plaza y búsqueda RPT según los campos obligatorios de cada causa", async () => {
+  const actual = catalogos();
+  actual.necesidades.causas = actual.necesidades.causas.map((dato) => {
+    if (dato.clave === "vacante") return { ...dato,
+      campos_permitidos: [...dato.campos_permitidos, "plaza_codigo"],
+      campos_obligatorios: [...dato.campos_obligatorios, "plaza_codigo"] };
+    if (dato.clave === "sustitucion") return { ...dato,
+      campos_permitidos: [...dato.campos_permitidos, "plaza_codigo"] };
+    return dato;
+  });
+  const mensajes = await cargarMensajesNecesidadesAlta();
+  const presentador = crearPresentadorAltaContratacionTemporal({ catalogos: actual,
+    capacidad: "contratacion_temporal.solicitud.crear",
+    ejecutor: async () => { throw new Error("No se registra en esta prueba"); },
+    generarClaveIdempotencia: () => CLAVE });
+  const pintar = (motivo_clave) => {
+    presentador.actualizarBorrador({ ...presentador.obtenerEstado().borrador, motivo_clave });
+    return renderizarAltaContratacionTemporal(presentador.obtenerEstado(), { mensajes });
+  };
+  const vacante = pintar("vacante");
+  assert.match(vacante, /<label for="ct-plaza_codigo">Código de plaza <b aria-hidden="true">\*<\/b><\/label>/u);
+  assert.match(vacante, /id="ct-plaza_codigo" name="plaza_codigo"[^>]* required/u);
+  assert.match(vacante, /<label for="ct-puesto_busqueda">Código del puesto en la RPT <b aria-hidden="true">\*<\/b><\/label>/u);
+  assert.match(vacante, /id="ct-puesto_busqueda" name="puesto_busqueda"[^>]* required/u);
+  const sustitucion = pintar("sustitucion");
+  assert.match(sustitucion, /<label for="ct-plaza_codigo">Código de plaza \(opcional\)<\/label>/u);
+  assert.doesNotMatch(sustitucion, /id="ct-plaza_codigo" name="plaza_codigo"[^>]* required/u);
+  assert.match(sustitucion, /<label for="ct-puesto_busqueda">Código del puesto en la RPT <b aria-hidden="true">\*<\/b><\/label>/u);
+  const mensajesEN = await cargarMensajesNecesidadesAlta("en");
+  const sustitucionEN = renderizarAltaContratacionTemporal(presentador.obtenerEstado(), { mensajes: mensajesEN });
+  assert.match(sustitucionEN, /<label for="ct-plaza_codigo">Position code \(optional\)<\/label>/u);
+  pintar("vacante");
+  assert.match(renderizarAltaContratacionTemporal(presentador.obtenerEstado(), { mensajes: mensajesEN }),
+    /<label for="ct-plaza_codigo">Position code <b aria-hidden="true">\*<\/b><\/label>/u);
+  assert.doesNotMatch(pintar("acumulacion_tareas"), /id="ct-puesto_busqueda"/u);
+});
