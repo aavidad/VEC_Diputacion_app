@@ -3,15 +3,15 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   ErrorAPIBorradores,
-} from "./portal-borradores-api.js?v=20261007-pantallas-textos-final-v1";
+} from "./portal-borradores-api.js?v=20261008-borradores-error-legible-v1";
 import {
   ESQUEMAS_BORRADORES,
   validarSolicitudActualizarBorrador,
   validarSolicitudCrearBorrador,
 } from "./portal-borradores-contrato.js";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261007-pantallas-textos-final-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearEstadoBorradores } from "./portal-borradores-estado.js";
-import { crearRenderizadorBorradores } from "./portal-borradores-vista.js?v=20261007-pantallas-textos-final-v1";
+import { crearRenderizadorBorradores } from "./portal-borradores-vista.js?v=20261008-borradores-error-legible-v1";
 import {
   CLAVE_IDEMPOTENCIA_A,
   CLAVE_IDEMPOTENCIA_B,
