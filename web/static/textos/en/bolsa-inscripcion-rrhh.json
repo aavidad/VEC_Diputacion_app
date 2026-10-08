@@ -9,6 +9,7 @@
     "error_decision": "The decision could not be confirmed. Select Confirm again with the same details. If the problem continues, contact IT support.",
     "conflicto": "The application has changed since you opened it. Refresh the list and check its status before deciding.",
     "falta_acta": "The applicant could not be added to the pool. Refresh the application and check the final list and its evidence before confirming again.",
+    "identidad_pendiente": "The applicant could not be identified with certainty. Ask Administration to check their identity, then confirm this same application again.",
     "regla_incompatible": "The admission rules have changed. Refresh the list and review the application again.",
     "evidencia_invalida": "The final list reference was not recognised. Check it and confirm entry into the pool again.",
     "plazo_cerrado": "The application period for this recruitment process has ended. Refresh the list and check the application status.",
