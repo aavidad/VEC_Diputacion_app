@@ -12,11 +12,44 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
+
+func TestPreparacionExternaR5ExigePasoPublicadoUnico(t *testing.T) {
+	sha := strings.Repeat("a", 64)
+	circuito := ctdomain.VersionPlanFirmaV2{Referencia: "circuito_firma_001", Version: 1, HuellaSHA256: sha}
+	paso := ctdomain.CompetenciaPasoFirmaV2{EntradaClave: "paso_firma_001", Circuito: circuito,
+		Documento: "informe_definitivo", PasoRef: "paso_001", PasoOrden: 1,
+		PerfilEsperadoRef: "perfil_firmante_001", RolID: "rol_firmante_001", CargoRef: "cargo_firmante_001",
+		OrganizacionRef: "organizacion_prueba_001", UnidadRef: "unidad_prueba_001",
+		Accion: "firma_competencial", Finalidad: "firmar_documento", TipoRecurso: "documento_ct",
+		EsquemaContexto: "esquema_contexto_001", MapeoVersion: 1, MapeoFuenteRef: "fuente_mapeo_001"}
+	plan := ctdomain.PlanCompetenciaFirmaV2{Version: ctdomain.VersionPlanFirmaV2{
+		Referencia: "plan_firma_001", Version: 1, HuellaSHA256: strings.Repeat("b", 64)},
+		FuenteRef: "fuente_plan_001", Pasos: []ctdomain.CompetenciaPasoFirmaV2{paso}}
+	q := ports.SolicitudDisponibilidadFirmaR5{Preflight: ports.SolicitudPreflightFirmaR5{
+		Canal: ports.SolicitudConsultaCircuitoRRHH{OrganizacionRef: paso.OrganizacionRef}, Documento: paso.Documento},
+		CatalogoRef: circuito.Referencia, CatalogoHuella: circuito.HuellaSHA256,
+		PasoRef: paso.PasoRef, PasoOrden: int(paso.PasoOrden)}
+	if got, ok := pasoPreparacionExternaR5CTDesarrollo(plan, q); !ok || got != paso {
+		t.Fatal("paso único publicado no encontrado")
+	}
+	segundo := paso
+	segundo.EntradaClave, segundo.UnidadRef = "paso_firma_002", "unidad_prueba_002"
+	plan.Pasos = append(plan.Pasos, segundo)
+	if _, ok := pasoPreparacionExternaR5CTDesarrollo(plan, q); ok {
+		t.Fatal("dos unidades posibles anticiparon competencia de un firmante desconocido")
+	}
+	plan.Pasos = plan.Pasos[:1]
+	q.CatalogoHuella = strings.Repeat("c", 64)
+	if _, ok := pasoPreparacionExternaR5CTDesarrollo(plan, q); ok {
+		t.Fatal("plan ajeno al circuito observado acreditado")
+	}
+}
 
 type escenarioFirmasR5V2Prueba struct {
 	soporte   *soporteAltaContratacionTemporalDesarrollo

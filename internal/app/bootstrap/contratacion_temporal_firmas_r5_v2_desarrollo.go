@@ -1,7 +1,10 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"log"
 	"net/http"
@@ -10,6 +13,7 @@ import (
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/firmaemisorv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/plannominal"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmasv2"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -406,4 +410,181 @@ func nuevasRutasFirmasR5V2CTDesarrollo(cfg config.Config, alta *dependenciasAlta
 		{Ruta: httpinterno.RutaConsultaFirmasR5V2, Manejador: consulta},
 		{Ruta: httpinterno.RutaRecuperacionFirmasR5V2, Manejador: recuperacion},
 	}}, nil
+}
+
+// Cada propietario acredita su preparación desde su propia fuente y LOGIN.
+// Estas interfaces no admiten una bandera de presencia ni una huella derivada
+// de la petición: entregan la referencia, versión, huella y vencimiento de la
+// política/ACL/configuración que acaban de cotejar.
+type comprobadorCustodiaPreparadaR5CTDesarrollo interface {
+	ComprobarCustodiaPreparadaR5(context.Context, ports.SolicitudDisponibilidadFirmaR5,
+		ctdomain.CompetenciaPasoFirmaV2) (ports.EvidenciaPreparacionExternaR5, error)
+}
+
+type comprobadorRegistroConPlanR5CTDesarrollo interface {
+	ComprobarRegistroConPlanR5(context.Context, ports.SolicitudDisponibilidadFirmaR5,
+		ctdomain.CompetenciaPasoFirmaV2) (ports.EvidenciaPreparacionExternaR5, error)
+}
+
+type comprobadorConfiguracionVerificadorR5CTDesarrollo interface {
+	ComprobarConfiguracionVerificadorR5(context.Context, ports.SolicitudDisponibilidadFirmaR5,
+		ctdomain.CompetenciaPasoFirmaV2) (ports.EvidenciaPreparacionExternaR5, error)
+}
+
+type fuentePreparacionExternaR5CTDesarrollo struct {
+	original    ports.FuenteOriginalFirmaAutorizado
+	plan        *plannominal.Fuente
+	registrador *fuenteNominalFirmasR5V2CTDesarrollo
+	custodia    comprobadorCustodiaPreparadaR5CTDesarrollo
+	registro    comprobadorRegistroConPlanR5CTDesarrollo
+	verificador comprobadorConfiguracionVerificadorR5CTDesarrollo
+	reloj       relojContratacionTemporalDesarrollo
+}
+
+var _ ports.ComprobadorPreparacionExternaR5 = (*fuentePreparacionExternaR5CTDesarrollo)(nil)
+
+func nuevaFuentePreparacionExternaR5CTDesarrollo(original ports.FuenteOriginalFirmaAutorizado,
+	plan *plannominal.Fuente, registrador *fuenteNominalFirmasR5V2CTDesarrollo,
+	custodia comprobadorCustodiaPreparadaR5CTDesarrollo, registro comprobadorRegistroConPlanR5CTDesarrollo,
+	verificador comprobadorConfiguracionVerificadorR5CTDesarrollo, reloj relojContratacionTemporalDesarrollo,
+) (*fuentePreparacionExternaR5CTDesarrollo, error) {
+	if dependenciaEsNulaContratacionTemporalDesarrollo(original) || plan == nil || registrador == nil ||
+		registrador.soporte == nil || registrador.perfil == nil ||
+		registrador.perfil.clave != clavePerfilFijoFirmaExternaV2CTDesarrollo ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(custodia) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(registro) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(verificador) {
+		return nil, ports.ErrPreflightFirmaR5NoDisponible
+	}
+	return &fuentePreparacionExternaR5CTDesarrollo{original, plan, registrador, custodia, registro, verificador, reloj}, nil
+}
+
+func (f *fuentePreparacionExternaR5CTDesarrollo) ComprobarPreparacionExternaR5(ctx context.Context,
+	q ports.SolicitudDisponibilidadFirmaR5,
+) (ports.PreparacionExternaR5Comprobada, error) {
+	var cero ports.PreparacionExternaR5Comprobada
+	if f == nil || ctx == nil || q.Preflight.Canal.Validar() != nil ||
+		q.ActorRef == "" || q.PerfilRef != q.Preflight.Canal.PerfilRef ||
+		!ctdomain.ClaveDocumentoFirmaValida(q.Preflight.Documento) ||
+		!ctdomain.ReferenciaOpacaValida(q.Preflight.OriginalRef) || q.Preflight.OriginalVersion == 0 ||
+		!ctdomain.HuellaSHA256FirmaValida(q.ContextoHuella) ||
+		!ctdomain.HuellaSHA256FirmaValida(q.CatalogoHuella) ||
+		!ctdomain.HuellaSHA256FirmaValida(q.OriginalHuella) ||
+		!ctdomain.HuellaSHA256FirmaValida(q.HistoriaHuella) ||
+		q.PasoOrden < 1 || q.PasoOrden > 2 || q.HistoriaRevision > 9007199254740991 {
+		return cero, ports.ErrPreparacionExternaR5NoAcreditada
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	ahora := f.reloj.Ahora()
+	if !ctdomain.InstanteUTCCanonico(ahora) {
+		return cero, ports.ErrPreflightFirmaR5NoDisponible
+	}
+	operativo, canal, err := f.registrador.contexto(ctx)
+	if err != nil {
+		return cero, err
+	}
+	vinculo, err := operativo.Vinculo.Datos()
+	if err != nil || operativo.Resultado.HuellaSHA256 != q.ContextoHuella ||
+		vinculo.PrincipalID != q.ActorRef || vinculo.PerfilActivoRef != q.PerfilRef ||
+		canal.ruta != httpinterno.RutaPreflightFirmaR5 || canal.metodo != http.MethodPost {
+		return cero, ports.ErrPreparacionExternaR5NoAcreditada
+	}
+	instantanea, estado := f.registrador.soporte.consumirPerfilFijoCTDesarrolloConEstado(ctx, f.registrador.perfil)
+	if estado != perfilFijoConsumoVigente || instantanea.AsignacionPerfil.PrincipalID != q.ActorRef ||
+		instantanea.AsignacionPerfil.PerfilActivoRef != q.PerfilRef ||
+		instantanea.VersionRol.Referencia() != "rol:"+rolFirmaExternaRegistroCTDesarrollo+":v1" {
+		return cero, ports.ErrPreparacionExternaR5NoAcreditada
+	}
+	huellaPerfil, err := instantanea.AsignacionPerfil.HuellaSHA256()
+	if err != nil {
+		return cero, ports.ErrPreflightFirmaR5NoDisponible
+	}
+	limite := ahora.Add(30 * time.Second)
+	for _, t := range []time.Time{instantanea.AsignacionPerfil.VigenteHasta, vinculo.SesionValidaHasta,
+		canal.certificadoValidoHasta, operativo.Resultado.Contexto.Instantanea.VigenteHasta} {
+		if t.Before(limite) {
+			limite = t
+		}
+	}
+	if !ahora.Before(limite) {
+		return cero, ports.ErrPreparacionExternaR5NoAcreditada
+	}
+	perfil := ports.EvidenciaPreparacionExternaR5{Referencia: q.PerfilRef,
+		Version: uint64(instantanea.AsignacionPerfil.Version), HuellaSHA256: huellaPerfil, VigenteHasta: limite}
+	solicitudOriginal := ports.SolicitudOriginalFirma{OrganizacionRef: q.Preflight.Canal.OrganizacionRef,
+		ExpedienteRef: q.Preflight.Canal.ExpedienteRef, Documento: q.Preflight.Documento,
+		OriginalRef: q.Preflight.OriginalRef, OriginalVersion: q.Preflight.OriginalVersion}
+	original, err := f.original.ObtenerOriginalFirma(ctx, solicitudOriginal)
+	if err != nil {
+		return cero, err
+	}
+	defer clear(original.Contenido)
+	huella := sha256.Sum256(original.Contenido)
+	if original.Solicitud != solicitudOriginal || original.HuellaSHA256 != q.OriginalHuella ||
+		hex.EncodeToString(huella[:]) != q.OriginalHuella || len(original.Contenido) > ports.MaximoDocumentoFirmaBytes ||
+		!bytes.HasPrefix(original.Contenido, []byte("%PDF-")) {
+		return cero, ports.ErrPreparacionExternaR5NoAcreditada
+	}
+	evidenciaOriginal := ports.EvidenciaPreparacionExternaR5{Referencia: solicitudOriginal.OriginalRef,
+		Version: solicitudOriginal.OriginalVersion, HuellaSHA256: original.HuellaSHA256, VigenteHasta: limite}
+	plan, err := f.plan.Plan(ctx)
+	if err != nil {
+		return cero, err
+	}
+	paso, unico := pasoPreparacionExternaR5CTDesarrollo(plan, q)
+	if !unico {
+		return cero, ports.ErrPreparacionExternaR5NoAcreditada
+	}
+	evidenciaPlan := ports.EvidenciaPreparacionExternaR5{Referencia: plan.Version.Referencia,
+		Version: plan.Version.Version, HuellaSHA256: plan.Version.HuellaSHA256, VigenteHasta: limite}
+	custodia, err := f.custodia.ComprobarCustodiaPreparadaR5(ctx, q, paso)
+	if err != nil {
+		return cero, err
+	}
+	registro, err := f.registro.ComprobarRegistroConPlanR5(ctx, q, paso)
+	if err != nil {
+		return cero, err
+	}
+	verificador, err := f.verificador.ComprobarConfiguracionVerificadorR5(ctx, q, paso)
+	if err != nil {
+		return cero, err
+	}
+	for _, e := range []ports.EvidenciaPreparacionExternaR5{custodia, registro, verificador} {
+		if !ctdomain.ReferenciaOpacaValida(e.Referencia) || e.Version == 0 ||
+			!ctdomain.HuellaSHA256FirmaValida(e.HuellaSHA256) || !ctdomain.InstanteUTCCanonico(e.VigenteHasta) ||
+			!ahora.Before(e.VigenteHasta) {
+			return cero, ports.ErrPreparacionExternaR5NoAcreditada
+		}
+		if e.VigenteHasta.Before(limite) {
+			limite = e.VigenteHasta
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	return ports.PreparacionExternaR5Comprobada{Solicitud: q, Original: evidenciaOriginal,
+		PlanCompetenciaVigente: evidenciaPlan, PerfilRegistradorVigente: perfil,
+		CustodiaPreparada: custodia, RegistroConPlanPreparado: registro,
+		ConfiguracionVerificadorValidada: verificador, ComprobadaEn: ahora, ValidaHasta: limite}, nil
+}
+
+func pasoPreparacionExternaR5CTDesarrollo(plan ctdomain.PlanCompetenciaFirmaV2,
+	q ports.SolicitudDisponibilidadFirmaR5,
+) (ctdomain.CompetenciaPasoFirmaV2, bool) {
+	var paso ctdomain.CompetenciaPasoFirmaV2
+	if plan.Validar() != nil {
+		return paso, false
+	}
+	encontrados := 0
+	for _, p := range plan.Pasos {
+		if p.Circuito.Referencia == q.CatalogoRef && p.Circuito.HuellaSHA256 == q.CatalogoHuella &&
+			p.Documento == q.Preflight.Documento && p.PasoRef == q.PasoRef && p.PasoOrden == uint64(q.PasoOrden) &&
+			p.OrganizacionRef == q.Preflight.Canal.OrganizacionRef {
+			paso = p
+			encontrados++
+		}
+	}
+	return paso, encontrados == 1 && paso.Validar() == nil
 }
