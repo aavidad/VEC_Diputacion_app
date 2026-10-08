@@ -1,0 +1,235 @@
+package postgres
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+
+	"vec-diputacion-granada/internal/modules/bolsa/application/inscripcion"
+)
+
+const consultaLecturaInscripcion = `SELECT vec_bolsa_llamamientos.consultar_inscripcion_v1(
+	$1::text,$2::jsonb,$3::bytea,$4::bytea,$5::jsonb)`
+
+type sobreLecturaInscripcion struct {
+	Resultado      string          `json:"resultado"`
+	Proyeccion     json.RawMessage `json:"proyeccion"`
+	AuditoriaRef   string          `json:"auditoria_ref"`
+	CorrelacionRef string          `json:"correlacion_ref"`
+	ConsultadaEn   time.Time       `json:"consultada_en"`
+}
+
+func consultarInscripcion[T any](ctx context.Context, r *RepositorioInscripcionesPostgreSQL,
+	actor inscripcion.Actor, accion, recurso string, filtro inscripcion.Filtro,
+	selector any, validar func(T) error) (T, error) {
+	var cero T
+	if r == nil || valorNulo(r.lector) || validar == nil {
+		return cero, inscripcion.ErrNoDisponible
+	}
+	contexto, vinculo, captura, err := prepararCapturaLecturaInscripcion(actor, accion, recurso, filtro)
+	if err != nil {
+		return cero, err
+	}
+	selectorJSON, err := json.Marshal(selector)
+	if err != nil || len(selectorJSON) == 0 || len(selectorJSON) > 2048 {
+		return cero, inscripcion.ErrSolicitudInvalida
+	}
+	var salida sobreLecturaInscripcion
+	var proyeccion T
+	_, err = transaccionInscripcion(ctx, r.lector, func(tx pgx.Tx) ([]byte, error) {
+		var respuesta []byte
+		err := tx.QueryRow(ctx, consultaLecturaInscripcion, accion, selectorJSON, contexto, vinculo, captura).Scan(&respuesta)
+		return respuesta, err
+	}, func(respuesta []byte) error {
+		salida = sobreLecturaInscripcion{}
+		proyeccion = cero
+		if decodificarInscripcionEstricta(respuesta, &salida) != nil ||
+			salida.AuditoriaRef == "" || salida.CorrelacionRef != actor.Lectura.CorrelacionRef ||
+			salida.ConsultadaEn.IsZero() {
+			return inscripcion.ErrNoDisponible
+		}
+		switch salida.Resultado {
+		case "no_encontrada":
+			if !bytes.Equal(bytes.TrimSpace(salida.Proyeccion), []byte("null")) {
+				return inscripcion.ErrNoDisponible
+			}
+			return nil
+		case "obtenida":
+			if len(salida.Proyeccion) == 0 || bytes.Equal(bytes.TrimSpace(salida.Proyeccion), []byte("null")) ||
+				decodificarInscripcionEstricta(salida.Proyeccion, &proyeccion) != nil || validar(proyeccion) != nil {
+				return inscripcion.ErrNoDisponible
+			}
+			return nil
+		default:
+			return inscripcion.ErrNoDisponible
+		}
+	})
+	if err != nil {
+		return cero, err
+	}
+	if salida.Resultado == "no_encontrada" {
+		return cero, inscripcion.ErrNoEncontrada
+	}
+	return proyeccion, nil
+}
+
+type selectorListaInscripcion struct {
+	Limite          int    `json:"limite"`
+	Cursor          string `json:"cursor"`
+	Estado          string `json:"estado"`
+	ConvocatoriaRef string `json:"convocatoria_ref"`
+}
+
+type selectorAbiertasInscripcion struct {
+	Limite int    `json:"limite"`
+	Cursor string `json:"cursor"`
+}
+
+type selectorDetalleInscripcion struct {
+	SolicitudRef string `json:"solicitud_ref"`
+}
+
+type selectorConvocatoriaInscripcion struct {
+	ConvocatoriaRef string `json:"convocatoria_ref"`
+}
+
+type selectorMotivosInscripcion struct {
+	Decision string `json:"decision"`
+}
+
+func recursoInscripcionLectura(actor inscripcion.Actor, accion string, filtro inscripcion.Filtro, ref string) (string, error) {
+	recurso, err := inscripcion.RecursoLectura(accion, actor.PersonaRef, idiomaInscripcion(actor.Idioma), filtro, ref)
+	if err != nil || actor.Lectura == nil || actor.Lectura.RecursoRef != recurso {
+		return "", inscripcion.ErrAccesoDenegado
+	}
+	return recurso, nil
+}
+
+func (r *RepositorioInscripcionesPostgreSQL) Abiertas(ctx context.Context, actor inscripcion.Actor, limite int, cursor string) (inscripcion.PaginaAbiertas, error) {
+	filtro := inscripcion.Filtro{Limite: limite, Cursor: cursor}
+	if filtro.Validar() != nil {
+		return inscripcion.PaginaAbiertas{}, inscripcion.ErrSolicitudInvalida
+	}
+	recurso, err := recursoInscripcionLectura(actor, inscripcion.AccionListarAbiertas, filtro, "")
+	if err != nil {
+		return inscripcion.PaginaAbiertas{}, err
+	}
+	return consultarInscripcion(ctx, r, actor, inscripcion.AccionListarAbiertas, recurso, filtro,
+		selectorAbiertasInscripcion{Limite: limite, Cursor: cursor}, func(p inscripcion.PaginaAbiertas) error {
+			if len(p.Bolsas) > limite || uint64(len(p.Bolsas)) > p.Total {
+				return inscripcion.ErrNoDisponible
+			}
+			for _, bolsa := range p.Bolsas {
+				if bolsa.ConvocatoriaRef == "" || bolsa.Titulo == "" || bolsa.CatalogoVersion == 0 {
+					return inscripcion.ErrNoDisponible
+				}
+			}
+			return nil
+		})
+}
+
+func (r *RepositorioInscripcionesPostgreSQL) DetalleAbierta(ctx context.Context, actor inscripcion.Actor, ref string) (inscripcion.BolsaAbierta, error) {
+	recurso, err := recursoInscripcionLectura(actor, inscripcion.AccionDetalleAbierta, inscripcion.Filtro{}, ref)
+	if err != nil {
+		return inscripcion.BolsaAbierta{}, err
+	}
+	return consultarInscripcion(ctx, r, actor, inscripcion.AccionDetalleAbierta, recurso, inscripcion.Filtro{},
+		selectorConvocatoriaInscripcion{ConvocatoriaRef: ref}, func(b inscripcion.BolsaAbierta) error {
+			if b.ConvocatoriaRef != ref || b.Titulo == "" || b.CatalogoVersion == 0 || len(b.Categorias) == 0 {
+				return inscripcion.ErrNoDisponible
+			}
+			return nil
+		})
+}
+
+func (r *RepositorioInscripcionesPostgreSQL) Propias(ctx context.Context, actor inscripcion.Actor, filtro inscripcion.Filtro) (inscripcion.Pagina, error) {
+	if filtro.Validar() != nil {
+		return inscripcion.Pagina{}, inscripcion.ErrSolicitudInvalida
+	}
+	recurso, err := recursoInscripcionLectura(actor, inscripcion.AccionListarPropias, filtro, "")
+	if err != nil {
+		return inscripcion.Pagina{}, err
+	}
+	return consultarInscripcion(ctx, r, actor, inscripcion.AccionListarPropias, recurso, filtro,
+		selectorListaInscripcion{Limite: filtro.Limite, Cursor: filtro.Cursor, Estado: filtro.Estado,
+			ConvocatoriaRef: filtro.ConvocatoriaRef}, validarPaginaInscripcion(filtro.Limite))
+}
+
+func (r *RepositorioInscripcionesPostgreSQL) Propia(ctx context.Context, actor inscripcion.Actor, ref string) (inscripcion.Solicitud, error) {
+	recurso, err := recursoInscripcionLectura(actor, inscripcion.AccionDetallePropia, inscripcion.Filtro{}, ref)
+	if err != nil {
+		return inscripcion.Solicitud{}, err
+	}
+	return consultarInscripcion(ctx, r, actor, inscripcion.AccionDetallePropia, recurso, inscripcion.Filtro{},
+		selectorDetalleInscripcion{SolicitudRef: ref}, validarSolicitudInscripcion(ref))
+}
+
+func (r *RepositorioInscripcionesPostgreSQL) PendientesRRHH(ctx context.Context, actor inscripcion.Actor, filtro inscripcion.Filtro) (inscripcion.Pagina, error) {
+	if filtro.Validar() != nil {
+		return inscripcion.Pagina{}, inscripcion.ErrSolicitudInvalida
+	}
+	recurso, err := recursoInscripcionLectura(actor, inscripcion.AccionListarRRHH, filtro, "")
+	if err != nil {
+		return inscripcion.Pagina{}, err
+	}
+	return consultarInscripcion(ctx, r, actor, inscripcion.AccionListarRRHH, recurso, filtro,
+		selectorListaInscripcion{Limite: filtro.Limite, Cursor: filtro.Cursor, Estado: filtro.Estado,
+			ConvocatoriaRef: filtro.ConvocatoriaRef}, validarPaginaInscripcion(filtro.Limite))
+}
+
+func (r *RepositorioInscripcionesPostgreSQL) DetalleRRHH(ctx context.Context, actor inscripcion.Actor, ref string) (inscripcion.Solicitud, error) {
+	recurso, err := recursoInscripcionLectura(actor, inscripcion.AccionDetalleRRHH, inscripcion.Filtro{}, ref)
+	if err != nil {
+		return inscripcion.Solicitud{}, err
+	}
+	return consultarInscripcion(ctx, r, actor, inscripcion.AccionDetalleRRHH, recurso, inscripcion.Filtro{},
+		selectorDetalleInscripcion{SolicitudRef: ref}, validarSolicitudInscripcion(ref))
+}
+
+func (r *RepositorioInscripcionesPostgreSQL) MotivosRRHH(ctx context.Context, actor inscripcion.Actor, decision string) (inscripcion.CatalogoMotivos, error) {
+	if decision != "admitir" && decision != "rechazar" {
+		return inscripcion.CatalogoMotivos{}, inscripcion.ErrSolicitudInvalida
+	}
+	recurso, err := recursoInscripcionLectura(actor, inscripcion.AccionMotivosRRHH, inscripcion.Filtro{}, decision)
+	if err != nil {
+		return inscripcion.CatalogoMotivos{}, err
+	}
+	return consultarInscripcion(ctx, r, actor, inscripcion.AccionMotivosRRHH, recurso, inscripcion.Filtro{},
+		selectorMotivosInscripcion{Decision: decision}, func(c inscripcion.CatalogoMotivos) error {
+			if c.Version == 0 {
+				return inscripcion.ErrNoDisponible
+			}
+			for _, motivo := range c.Motivos {
+				if motivo.Codigo == "" || motivo.Etiqueta == "" {
+					return inscripcion.ErrNoDisponible
+				}
+			}
+			return nil
+		})
+}
+
+func validarSolicitudInscripcion(ref string) func(inscripcion.Solicitud) error {
+	return func(s inscripcion.Solicitud) error {
+		if s.SolicitudRef != ref || s.Validar() != nil {
+			return inscripcion.ErrNoDisponible
+		}
+		return nil
+	}
+}
+
+func validarPaginaInscripcion(limite int) func(inscripcion.Pagina) error {
+	return func(p inscripcion.Pagina) error {
+		if len(p.Solicitudes) > limite || uint64(len(p.Solicitudes)) > p.Total {
+			return inscripcion.ErrNoDisponible
+		}
+		for _, s := range p.Solicitudes {
+			if s.Validar() != nil {
+				return inscripcion.ErrNoDisponible
+			}
+		}
+		return nil
+	}
+}
