@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261008-alta-rpt-circular-v5";
+import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261008-alta-rpt-circular-v6";
 
 const detallePrivado = "DSN privado: postgres://usuario:secreto@interno";
 

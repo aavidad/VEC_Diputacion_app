@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-alta-rpt-circular-v5";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-alta-rpt-circular-v6";
 
 test("preparación pendiente muestra actualización GET sin formulario ni POST", async () => {
   const expedienteRef = "expediente:ejercicio:sin-plan";

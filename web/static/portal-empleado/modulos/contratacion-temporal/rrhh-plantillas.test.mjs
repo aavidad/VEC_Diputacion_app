@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { crearClientePlantillasRRHH, ErrorPlantillasRRHH, RUTA_RRHH_PLANTILLAS,
-  RUTA_RRHH_PLANTILLAS_ENTRADAS, RUTA_RRHH_PLANTILLAS_PUBLICAR } from "./rrhh-plantillas-cliente.js?v=20261008-alta-rpt-circular-v5";
-import { montarRRHHPlantillas, prepararEntradaPlantilla } from "./rrhh-plantillas-vista.js?v=20261008-alta-rpt-circular-v5";
+  RUTA_RRHH_PLANTILLAS_ENTRADAS, RUTA_RRHH_PLANTILLAS_PUBLICAR } from "./rrhh-plantillas-cliente.js?v=20261008-alta-rpt-circular-v6";
+import { montarRRHHPlantillas, prepararEntradaPlantilla } from "./rrhh-plantillas-vista.js?v=20261008-alta-rpt-circular-v6";
 import { MENSAJES_RRHH_PLANTILLAS_ES } from "./rrhh-plantillas-i18n.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 
 const instante = "2026-09-28T09:00:00Z";
 const reciboEdicion = "recibo:ad6eaa70-bc5f-4a27-90b4-5bf02043d021";

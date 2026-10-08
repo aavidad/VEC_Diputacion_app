@@ -443,6 +443,7 @@ static/portal-empleado/modulos/contratacion-temporal/avisos-via-cobertura.css
 static/portal-empleado/modulos/contratacion-temporal/analisis-catalogo.css
 static/portal-empleado/categorias-rpt/index.html
 static/portal-empleado/categorias-rpt/arranque.js
+static/portal-empleado/categorias-rpt/montaje.js
 static/portal-empleado/categorias-rpt/vista.js
 static/portal-empleado/categorias-rpt/puerto.js
 static/portal-empleado/categorias-rpt/cliente.js

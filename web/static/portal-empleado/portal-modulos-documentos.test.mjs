@@ -4,7 +4,7 @@ import {
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v5";
+} from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
 
 // Documentos (servicio común) se compone como los demás módulos conectados:
 // solo si /api/vec/modules lo publica y su vista carga; nunca con la sección

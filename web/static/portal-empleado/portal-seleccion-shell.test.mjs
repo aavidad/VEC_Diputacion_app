@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { crearCoordinadorModulosPortal, rutaDeVistaPortal } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v5";
+import { crearCoordinadorModulosPortal, rutaDeVistaPortal } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 
 const vistasSeleccion = ["seleccion-inscripciones", "seleccion-pruebas", "seleccion-comunicaciones"];

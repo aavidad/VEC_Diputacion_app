@@ -8,7 +8,7 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v5";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
 
 const HUELLA = "a".repeat(64);
 const FORM_DATA_ORIGINAL = globalThis.FormData;

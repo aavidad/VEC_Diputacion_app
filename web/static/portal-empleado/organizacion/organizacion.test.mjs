@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderizarCuadro } from "../modulos/contratacion-temporal/componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { renderizarCabeceraModulo } from "../modulos/contratacion-temporal/vista-expedientes-render.js?v=20261008-alta-rpt-circular-v5";
+import { renderizarCabeceraModulo } from "../modulos/contratacion-temporal/vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
 import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
 
 await prepararTextosPersonal();

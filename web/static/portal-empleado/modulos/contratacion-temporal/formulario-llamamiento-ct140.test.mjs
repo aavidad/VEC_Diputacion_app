@@ -4,7 +4,7 @@ import {
   EXPEDIENTE, recibo, raizPrueba, montar, archivoCorreo, declaracion, justificante,
   CLAVE_RESOLUCION, revisionManual, reciboResolucion, continuacionConfirmada,
   PUBLICACIONES_PROPUESTA,
-} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v5";
+} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
 import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
 
 const MENSAJES_LLAMAMIENTO_EN = (await cargarCatalogosContratacionEnIdioma(
