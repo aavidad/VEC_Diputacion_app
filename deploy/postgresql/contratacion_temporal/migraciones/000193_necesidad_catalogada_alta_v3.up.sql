@@ -1676,7 +1676,7 @@ BEGIN
  END IF;
  FOR item IN SELECT * FROM (VALUES
   ('vec_contratacion_temporal.reconciliar_agregado_alta_v1(bytea,text,text,text,text,text,text)','c14f8bf5628d1b24c87bd31b0d560159a043718132796f7ca6ce32d3a524489b',ARRAY['search_path=pg_catalog, pg_temp']::text[]),
-  ('vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)','35d99b5e553f95ca06a67c3ae11854eb842482c201b315edab3c6081ffc9a218',ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']::text[]),
+  ('vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','35d99b5e553f95ca06a67c3ae11854eb842482c201b315edab3c6081ffc9a218',ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']::text[]),
   ('vec_contratacion_temporal.materializar_version_inicial_v1(text,numeric,bytea,text,numeric,text,text,text,timestamp with time zone)','d6670161f8dcae0b0da0625569e35174c910cd237b502b4a793219194f768414',ARRAY['search_path=pg_catalog, pg_temp']::text[]),
   ('vec_contratacion_temporal.reconstruir_efecto_alta_v2(jsonb)','6143987ae2c1129902c3921c013eb23344a64009d448705010066d676f680149',ARRAY['search_path=pg_catalog']::text[]),
   ('vec_contratacion_temporal.reconstruir_efecto_alta_v3(jsonb)','2bf5d8591ccace7beb46d1004be617285e6274912d2383e7d28f1d333d61fece',NULL::text[])
