@@ -30,7 +30,7 @@ VALUES('vec_ad222_ensayo_login','vec_interno',
 SET SESSION AUTHORIZATION vec_ad222_ensayo_login;
 DO $prueba$
 DECLARE c jsonb;e jsonb;g jsonb;v_recurso text;a record;b record;z record;
- v_material bytea;v_clave text;
+ v_material bytea;v_clave text;v_valor text;
  v_orden constant text[]:=ARRAY[
   'tipo_registro','evento_ref','operador_login','fase','metodo_esperado',
   'ruta','accion','recurso_ref','resultado','motivo_ref','proceso','canal',
@@ -71,10 +71,15 @@ BEGIN
   'proceso',c->>'proceso','canal',c->>'canal',
   'superficie',c->>'superficie','finalidad_ref','preacreditacion_identidad',
   'correlacion_ref','correlacion_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
- v_material:=vec_autorizacion_atestada_v3.encuadrar_mac(
-  'vec.auditoria.pre-identidad-tecnica.v1');
+ v_valor:='vec.auditoria.pre-identidad-tecnica.v1';
+ v_material:=pg_catalog.convert_to(
+  pg_catalog.octet_length(pg_catalog.convert_to(v_valor,'UTF8'))::text||
+  ':'||v_valor||E'\n','UTF8');
  FOREACH v_clave IN ARRAY v_orden LOOP
-  v_material:=v_material||vec_autorizacion_atestada_v3.encuadrar_mac(e->>v_clave);
+  v_valor:=e->>v_clave;
+  v_material:=v_material||pg_catalog.convert_to(
+   pg_catalog.octet_length(pg_catalog.convert_to(v_valor,'UTF8'))::text||
+   ':'||v_valor||E'\n','UTF8');
  END LOOP;
  SELECT * INTO a FROM vec_autorizacion_atestada_v3.registrar_frontera_identidad_tecnica_v1(e);
  SELECT * INTO b FROM vec_autorizacion_atestada_v3.registrar_frontera_identidad_tecnica_v1(e);
