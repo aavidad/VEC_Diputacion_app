@@ -1,4 +1,5 @@
 import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_NECESIDADES_ALTA_ES, MENSAJES_NECESIDADES_ALTA_EN } from "./i18n-necesidades-alta.js";
 const catalogosMOAD = await cargarCatalogosContratacion("contratacion-temporal-moad");
 const MENSAJES_MOAD_ES = catalogosMOAD.exportaciones.ES;
 const MENSAJES_MOAD_EN = catalogosMOAD.exportaciones.EN;
@@ -22,6 +23,7 @@ import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 import { FASES_RRHH, rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
 
 const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
+  ...MENSAJES_NECESIDADES_ALTA_ES,
   ...MENSAJES_MOAD_ES,
   ...rotulosFasesComoMensajes("contratacion_temporal.fase."),
   justificante_registrado: "Justificante registrado",
@@ -472,6 +474,7 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
 
 /** British English messages for the temporary staff requests module. */
 const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
+  ...MENSAJES_NECESIDADES_ALTA_EN,
   ...MENSAJES_MOAD_EN,
   ...rotulosFasesComoMensajes("contratacion_temporal.fase."),
   justificante_registrado: "Receipt recorded",

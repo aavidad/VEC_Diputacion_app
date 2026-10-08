@@ -17,6 +17,16 @@ export const LIMITES_ALTA_CONTRATACION = Object.freeze({
 });
 
 const ESQUEMA_CATALOGOS = "vec.contratacion_temporal.catalogos_alta.v1";
+export const ESQUEMA_CATALOGOS_NECESIDADES = "vec.contratacion_temporal.catalogos_alta.v2";
+export const ESQUEMA_ALTA_NECESIDAD = "vec.ct.alta_necesidad.v1";
+const CAMPOS_NECESIDAD = Object.freeze([
+  "puesto_codigo", "plaza_codigo", "titular_ref", "vacancia_fuente_ref",
+  "rpt_catalogo_ref", "rpt_catalogo_huella_sha256",
+  "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion",
+  "justificacion_temporal", "programa_denominacion", "programa_fin", "proyecto_codigo",
+  "financiacion_ref", "rc_ref", "intervencion_ref",
+]);
+const PATRON_CODIGO_NECESIDAD = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,79}$/u;
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/;
 const PATRON_CLAVE_CATALOGO = /^[a-z][a-z0-9._-]{1,79}$/;
 const PATRON_GRUPO = /^[A-Z][A-Z0-9/+.-]{0,19}$/;
@@ -321,6 +331,8 @@ export function validarCatalogosAlta(catalogos) {
   // publica la ruta de catálogos del alta de RRHH, no el contexto del centro.
   const conNumero = esRegistro(catalogos) && Object.hasOwn(catalogos, "numero_expediente_moad");
   const conPreparacion = esRegistro(catalogos) && Object.hasOwn(catalogos, "preparacion_vias");
+  const conNecesidades = catalogos?.esquema === ESQUEMA_CATALOGOS_NECESIDADES;
+  if (conNecesidades) return validarCatalogosNecesidades(catalogos);
   exigirCamposExactos(
     catalogos,
     ["esquema", "centros", "categorias", "motivos", "documentos",
@@ -361,7 +373,86 @@ export function validarCatalogosAlta(catalogos) {
   });
 }
 
-export function crearBorradorAlta({ conNumeroMOAD = false } = {}) {
+function validarCatalogosNecesidades(catalogos) {
+  const conNumero = Object.hasOwn(catalogos, "numero_expediente_moad");
+  const conPreparacion = Object.hasOwn(catalogos, "preparacion_vias");
+  // "motivos" solo aparece en la copia ya validada, nunca en la respuesta v2.
+  const conMotivos = Object.hasOwn(catalogos, "motivos");
+  exigirCamposExactos(catalogos, ["esquema", "centros", "categorias", "documentos", "necesidades",
+    ...(conNumero ? ["numero_expediente_moad"] : []),
+    ...(conPreparacion ? ["preparacion_vias"] : []), ...(conMotivos ? ["motivos"] : [])], "catálogos de necesidades");
+  const n = catalogos.necesidades;
+  exigirCamposExactos(n, ["referencia", "version", "huella_sha256", "es_ejemplo", "fuente_ref",
+    "fuente_url", "jornada_referencia_minutos", "jornada_fuente_ref", "causas"], "necesidades");
+  if (!referenciaValida(n.referencia) || !Number.isSafeInteger(n.version) || n.version < 1
+    || !/^[a-f0-9]{64}$/u.test(n.huella_sha256) || typeof n.es_ejemplo !== "boolean"
+    || !referenciaValida(n.fuente_ref) || typeof n.fuente_url !== "string"
+    || !/^https:\/\//u.test(n.fuente_url) || !Number.isSafeInteger(n.jornada_referencia_minutos)
+    || n.jornada_referencia_minutos < 1 || n.jornada_referencia_minutos > 10080
+    || !referenciaValida(n.jornada_fuente_ref) || !esListaPlana(n.causas, 16)
+    || n.causas.length !== 4) throw new TypeError("catálogo de necesidades incompatible");
+  const causas = n.causas.map((causa) => {
+    const conFin = Object.hasOwn(causa, "causa_fin");
+    const conVentana = Object.hasOwn(causa, "ventana_meses");
+    exigirCamposExactos(causa, ["clave", "etiqueta_clave", "fuente_ref", "fuente_url", "regla_ref",
+      "fecha_fin", "maximo_meses", "campos_permitidos", "campos_obligatorios",
+      ...(conFin ? ["causa_fin"] : []), ...(conVentana ? ["ventana_meses"] : []),
+      ...(Object.hasOwn(causa, "uno_de") ? ["uno_de"] : [])], "causa de necesidad");
+    if (!PATRON_CLAVE_CATALOGO.test(causa.clave) || !etiquetaValida(causa.etiqueta_clave)
+      || !referenciaValida(causa.fuente_ref) || typeof causa.fuente_url !== "string"
+      || !/^https:\/\//u.test(causa.fuente_url) || !referenciaValida(causa.regla_ref)
+      || !["obligatoria", "opcional", "no_aplica"].includes(causa.fecha_fin)
+      || (conFin && !PATRON_CLAVE_CATALOGO.test(causa.causa_fin))
+      || !Number.isSafeInteger(causa.maximo_meses) || causa.maximo_meses < 1
+      || (conVentana && (!Number.isSafeInteger(causa.ventana_meses) || causa.ventana_meses < 1))) {
+      throw new TypeError("causa de necesidad incompatible");
+    }
+    const permitidos = causa.campos_permitidos;
+    const obligatorios = causa.campos_obligatorios;
+    if (!esListaPlana(permitidos, 32) || !esListaPlana(obligatorios, 32)
+      || new Set(permitidos).size !== permitidos.length
+      || permitidos.some((campo) => !CAMPOS_NECESIDAD.includes(campo))
+      || obligatorios.some((campo) => !permitidos.includes(campo))
+      || (causa.uno_de && (!esListaPlana(causa.uno_de, 8)
+        || causa.uno_de.some((grupo) => !esListaPlana(grupo, 8)
+          || grupo.length < 2 || grupo.some((campo) => !permitidos.includes(campo)))))) {
+      throw new TypeError("campos de necesidad incompatibles");
+    }
+    return causa;
+  });
+  if (new Set(causas.map((causa) => causa.clave)).size !== 4
+    || !["vacante", "sustitucion", "acumulacion_tareas", "programa_temporal"]
+      .every((clave) => causas.some((causa) => causa.clave === clave))) {
+    throw new TypeError("causas de necesidad incompatibles");
+  }
+  const motivos = causas.map((causa) => ({ clave: causa.clave, etiqueta: causa.etiqueta_clave,
+    fecha_fin: causa.fecha_fin, ...(causa.causa_fin ? { causa_fin: causa.causa_fin } : {}) }));
+  if (conMotivos && JSON.stringify(catalogos.motivos) !== JSON.stringify(motivos)) {
+    throw new TypeError("motivos de necesidad alterados");
+  }
+  const base = validarCatalogosAlta({ esquema: ESQUEMA_CATALOGOS, centros: catalogos.centros,
+    categorias: catalogos.categorias, documentos: catalogos.documentos, motivos,
+    ...(conNumero ? { numero_expediente_moad: catalogos.numero_expediente_moad } : {}),
+    ...(conPreparacion ? { preparacion_vias: catalogos.preparacion_vias } : {}) });
+  return clonarYCongelarAlta({ ...base, esquema: ESQUEMA_CATALOGOS_NECESIDADES,
+    necesidades: n });
+}
+
+function valorNecesidadValido(campo, valor) {
+  if (typeof valor !== "string" || valor === "" || valor !== valor.trim()) return false;
+  if (["justificacion_temporal", "programa_denominacion"].includes(campo)) {
+    return textoValido(valor, 4000, false);
+  }
+  if (["titular_ref", "financiacion_ref", "rc_ref", "intervencion_ref",
+    "vacancia_fuente_ref", "rpt_catalogo_ref"].includes(campo)) return referenciaValida(valor);
+  if (campo === "rpt_catalogo_huella_sha256") return /^[a-f0-9]{64}$/u.test(valor);
+  if (campo === "porcentaje_financiacion") return /^(?:[1-9]|[1-9][0-9]|100)$/u.test(valor);
+  if (campo === "programa_fin") return fechaCivilValida(valor);
+  return PATRON_CODIGO_NECESIDAD.test(valor);
+}
+
+export function crearBorradorAlta({ conNumeroMOAD = false, conNecesidad = false,
+  jornadaReferenciaMinutos = 0 } = {}) {
   return clonarYCongelarAlta({
     ...(conNumeroMOAD ? { numero_expediente_moad: "" } : {}),
     centro_ref: "",
@@ -379,6 +470,8 @@ export function crearBorradorAlta({ conNumeroMOAD = false } = {}) {
     rc_documento_ref: "",
     documentos_adjuntos: [],
     observaciones: "",
+    ...(conNecesidad ? { jornada_minutos: String(jornadaReferenciaMinutos),
+      ...Object.fromEntries(CAMPOS_NECESIDAD.map((campo) => [campo, ""])) } : {}),
   });
 }
 
@@ -420,7 +513,9 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
   const catalogos = validarCatalogosAlta(catalogosSinValidar);
   const errores = {};
   const conNumero = esRegistro(borrador) && Object.hasOwn(borrador, "numero_expediente_moad");
-  if (!tieneCamposExactos(borrador, [...CAMPOS_BORRADOR, ...(conNumero ? ["numero_expediente_moad"] : [])])) {
+  const conNecesidad = catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES;
+  if (!tieneCamposExactos(borrador, [...CAMPOS_BORRADOR, ...(conNumero ? ["numero_expediente_moad"] : []),
+    ...(conNecesidad ? ["jornada_minutos", ...CAMPOS_NECESIDAD] : [])])) {
     return congelar({ valido: false, errores: { general: "contrato_cerrado" } });
   }
 
@@ -493,6 +588,22 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
       ),
     )) {
     agregarError(errores, "documentos_adjuntos", "adjuntos");
+  }
+  if (conNecesidad) {
+    if (!/^(?:[1-9][0-9]{0,4})$/u.test(borrador.jornada_minutos)
+      || Number(borrador.jornada_minutos) > 10080) agregarError(errores, "jornada_minutos", "jornada");
+    const causa = catalogos.necesidades.causas.find((dato) => dato.clave === borrador.motivo_clave);
+    if (causa) {
+      for (const campo of CAMPOS_NECESIDAD) {
+        const valor = borrador[campo];
+        if (typeof valor !== "string" || (valor && !valorNecesidadValido(campo, valor))
+          || (valor && !causa.campos_permitidos.includes(campo))) agregarError(errores, campo, "campo_necesidad");
+        if (causa.campos_obligatorios.includes(campo) && !valor) agregarError(errores, campo, "texto_obligatorio");
+      }
+      for (const grupo of causa.uno_de ?? []) {
+        if (!grupo.some((campo) => borrador[campo])) agregarError(errores, grupo[0], "uno_de");
+      }
+    }
   }
 
   return congelar({ valido: Object.keys(errores).length === 0, errores: { ...errores } });
@@ -602,14 +713,57 @@ export function crearComandoAlta(borrador, catalogos, claveIdempotencia) {
   if (!numeroExpedienteMOADValido(borrador.numero_expediente_moad)) {
     throw new ErrorValidacionAlta({ numero_expediente_moad: "numero_moad" });
   }
-  if (!validarCatalogosAlta(catalogos).numero_expediente_moad) {
+  const catalogosValidados = validarCatalogosAlta(catalogos);
+  if (!catalogosValidados.numero_expediente_moad) {
     throw new ErrorValidacionAlta({ general: "contrato_cerrado" });
   }
-  const { numero_expediente_moad, ...solicitud } = borrador;
+  const { numero_expediente_moad, jornada_minutos, ...resto } = borrador;
+  const solicitud = { ...resto };
+  for (const campo of CAMPOS_NECESIDAD) delete solicitud[campo];
+  const catalogoPeticion = catalogosValidados.esquema === ESQUEMA_CATALOGOS_NECESIDADES
+    ? { esquema: ESQUEMA_CATALOGOS, centros: catalogosValidados.centros, categorias: catalogosValidados.categorias,
+      motivos: catalogosValidados.motivos, documentos: catalogosValidados.documentos,
+      numero_expediente_moad: catalogosValidados.numero_expediente_moad,
+      ...(catalogosValidados.preparacion_vias ? { preparacion_vias: catalogosValidados.preparacion_vias } : {}) }
+    : catalogosValidados;
+  const base = crearComandoPeticionCentro(solicitud, catalogoPeticion, claveIdempotencia);
+  if (catalogosValidados.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
+    const n = catalogosValidados.necesidades;
+    const causa = n.causas.find((dato) => dato.clave === borrador.motivo_clave);
+    return validarComandoAltaNecesidad({ ...base, numero_expediente_moad,
+      esquema: ESQUEMA_ALTA_NECESIDAD,
+      necesidad: { esquema: "vec.ct.necesidad_alta.v1", catalogo_ref: n.referencia,
+        catalogo_version: n.version, catalogo_huella_sha256: n.huella_sha256,
+        causa_clave: causa.clave, jornada_minutos: Number(jornada_minutos),
+        campos: Object.fromEntries(causa.campos_permitidos.filter((campo) => borrador[campo])
+          .map((campo) => [campo, borrador[campo]])) } });
+  }
   return validarComandoAlta({
-    ...crearComandoPeticionCentro(solicitud, catalogos, claveIdempotencia),
+    ...base,
     numero_expediente_moad,
   });
+}
+
+export function validarComandoAltaNecesidad(comando) {
+  exigirCamposExactos(comando, ["clave_idempotencia", "numero_expediente_moad", "solicitud",
+    "esquema", "necesidad"], "alta con necesidad");
+  if (comando.esquema !== ESQUEMA_ALTA_NECESIDAD) throw new TypeError("esquema de alta incompatible");
+  validarComandoAlta({ clave_idempotencia: comando.clave_idempotencia,
+    numero_expediente_moad: comando.numero_expediente_moad, solicitud: comando.solicitud });
+  const n = comando.necesidad;
+  exigirCamposExactos(n, ["esquema", "catalogo_ref", "catalogo_version", "catalogo_huella_sha256",
+    "causa_clave", "jornada_minutos", "campos"], "necesidad");
+  if (n.esquema !== "vec.ct.necesidad_alta.v1" || !referenciaValida(n.catalogo_ref)
+    || !Number.isSafeInteger(n.catalogo_version) || n.catalogo_version < 1
+    || !/^[a-f0-9]{64}$/u.test(n.catalogo_huella_sha256)
+    || !PATRON_CLAVE_CATALOGO.test(n.causa_clave) || n.causa_clave !== comando.solicitud.motivo_clave
+    || !Number.isSafeInteger(n.jornada_minutos) || n.jornada_minutos < 1
+    || n.jornada_minutos > 10080 || !esRegistro(n.campos)
+    || Object.keys(n.campos).length > 32 || Object.entries(n.campos).some(([campo, valor]) =>
+      !CAMPOS_NECESIDAD.includes(campo) || !valorNecesidadValido(campo, valor))) {
+    throw new TypeError("necesidad de alta no válida");
+  }
+  return clonarYCongelarAlta(comando);
 }
 
 export function validarReciboAlta(recibo) {

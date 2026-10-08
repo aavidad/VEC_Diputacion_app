@@ -1,7 +1,22 @@
-import { LIMITES_ALTA_CONTRATACION, numeroExpedienteMOADValido } from "./contrato.js?v=20261002-ct-fin-moad-v1";
+import { ESQUEMA_CATALOGOS_NECESIDADES, LIMITES_ALTA_CONTRATACION, numeroExpedienteMOADValido } from "./contrato.js?v=20261002-ct-fin-moad-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
 import { cabecera, escaparHTML, extraerBorrador, filaResumen, formulario, revision } from "./alta-renderer-puro.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
+import { crearClienteHTTPRPTPublica } from "../personal/cliente-http-rpt-publica.js?v=20261008-rpt-enlaces-v1";
+
+export function seleccionarPuestoPublicadoRPT(pagina, codigo) {
+  const puesto = pagina?.total === 1 && Array.isArray(pagina.items) ? pagina.items[0] : null;
+  if (!puesto || puesto.codigo !== codigo || typeof puesto.denominacion !== "string"
+    || puesto.denominacion.trim() === "") return null;
+  if (typeof pagina.fuente?.importacion !== "string"
+    || !/^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u.test(pagina.fuente.importacion)
+    || !/^[a-f0-9]{64}$/u.test(pagina.fuente.huella_sha256)) {
+    throw new TypeError("publicación RPT incompatible");
+  }
+  return Object.freeze({ codigo: puesto.codigo, denominacion: puesto.denominacion,
+    rpt_catalogo_ref: pagina.fuente.importacion,
+    rpt_catalogo_huella_sha256: pagina.fuente.huella_sha256 });
+}
 
 function recibo(estado, t, locale, zonaHoraria) {
   const dato = estado.recibo;
@@ -28,10 +43,12 @@ export function renderizarAltaContratacionTemporal(estado, {
   mensajes = {},
   locale = "es-ES",
   zonaHoraria = "Europe/Madrid",
+  puestoRPT = null,
+  busquedaPuesto = "",
 } = {}) {
   const t = crearTraductorContratacionTemporal(mensajes);
   const contenido = estado.fase === "edicion"
-    ? formulario(estado, t)
+    ? formulario({ ...estado, puestoRPT, busquedaPuesto }, t)
     : (estado.fase === "recibo"
       ? recibo(estado, t, locale, zonaHoraria)
       : revision(estado, t, locale));
@@ -68,6 +85,7 @@ export function montarAltaContratacionTemporal({
   anunciar = () => {},
   locale = "es-ES",
   zonaHoraria = "Europe/Madrid",
+  clienteRPT = crearClienteHTTPRPTPublica(),
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.querySelector !== "function"
@@ -77,6 +95,9 @@ export function montarAltaContratacionTemporal({
   }
   const t = crearTraductorContratacionTemporal(mensajes);
   let montada = true;
+  let consultaPuesto = null;
+  let busquedaPuesto = "";
+  let puestoRPT = null;
 
   function repintar(selectorFoco = "") {
     if (!montada) return;
@@ -85,6 +106,8 @@ export function montarAltaContratacionTemporal({
       mensajes,
       locale,
       zonaHoraria,
+      puestoRPT,
+      busquedaPuesto,
     });
     if (selectorFoco) enfocarVisible(raiz.querySelector(selectorFoco));
     anunciar(t(estado.mensaje_clave), estado.tipo_mensaje);
@@ -105,13 +128,65 @@ export function montarAltaContratacionTemporal({
       evento.preventDefault();
       const campo = enfocar.dataset.ctEnfocar;
       if (Object.hasOwn(presentador.obtenerEstado().borrador, campo)) {
-        enfocarVisible(raiz.querySelector(`#ct-${campo}`));
+        enfocarVisible(raiz.querySelector(`#ct-${["puesto_codigo", "rpt_catalogo_ref",
+          "rpt_catalogo_huella_sha256"].includes(campo) ? "puesto_busqueda" : campo}`));
       }
       return;
     }
     const control = evento.target?.closest?.("[data-ct-accion]");
     if (!control || !raiz.contains(control)) return;
     evento.preventDefault();
+    if (control.dataset.ctAccion === "ayuda") {
+      const ayuda = raiz.querySelector("[data-ct-ayuda]");
+      if (ayuda) {
+        ayuda.hidden = !ayuda.hidden;
+        control.setAttribute("aria-expanded", String(!ayuda.hidden));
+      }
+      return;
+    }
+    if (control.dataset.ctAccion === "buscar-puesto") {
+      consultaPuesto?.abort();
+      const formularioAntes = raiz.querySelector("[data-ct-form]");
+      const codigo = raiz.querySelector("#ct-puesto_busqueda")?.value?.trim() ?? "";
+      if (formularioAntes) presentador.actualizarBorrador(extraerBorrador(formularioAntes));
+      busquedaPuesto = codigo;
+      puestoRPT = { mensaje: "puesto_buscando" };
+      repintar();
+      if (!/^[A-Z0-9][A-Z0-9-]{0,63}$/u.test(codigo)) {
+        puestoRPT = { mensaje: "puesto_no_encontrado" };
+        repintar("#ct-puesto_busqueda");
+        return;
+      }
+      const controlador = new AbortController();
+      consultaPuesto = controlador;
+      try {
+        const pagina = await clienteRPT.listar({ vista: "puestos", q: "", codigo_puesto: codigo,
+          limit: 1, offset: 0 }, { signal: controlador.signal });
+        if (!montada || consultaPuesto !== controlador || controlador.signal.aborted) return;
+        const puesto = seleccionarPuestoPublicadoRPT(pagina, codigo);
+        if (!puesto) {
+          puestoRPT = { mensaje: "puesto_no_encontrado" };
+        } else {
+          // El par de publicación pertenece a Personal; el esquema RPT no es
+          // una versión de la publicación.
+          const borrador = extraerBorrador(raiz.querySelector("[data-ct-form]"));
+          presentador.actualizarBorrador({ ...borrador, puesto_codigo: puesto.codigo,
+            rpt_catalogo_ref: puesto.rpt_catalogo_ref,
+            rpt_catalogo_huella_sha256: puesto.rpt_catalogo_huella_sha256 });
+          puestoRPT = { codigo: puesto.codigo, denominacion: puesto.denominacion,
+            mensaje: "puesto_seleccionado" };
+        }
+        repintar("#ct-puesto_busqueda");
+      } catch (error) {
+        if (!montada || controlador.signal.aborted) return;
+        puestoRPT = { mensaje: error instanceof TypeError
+          ? "puesto_publicacion_pendiente" : "puesto_consulta_error" };
+        repintar("#ct-puesto_busqueda");
+      } finally {
+        if (consultaPuesto === controlador) consultaPuesto = null;
+      }
+      return;
+    }
     if (control.dataset.ctAccion === "volver") {
       presentador.volverAEdicion();
       repintar("#ct-centro_ref");
@@ -149,6 +224,11 @@ export function montarAltaContratacionTemporal({
     const formularioDOM = evento.target.closest?.("[data-ct-form]");
     if (!formularioDOM || !raiz.contains(formularioDOM)) return;
     const borrador = extraerBorrador(formularioDOM);
+    if (campo === "motivo_clave") {
+      consultaPuesto?.abort();
+      puestoRPT = null;
+      busquedaPuesto = "";
+    }
     if (campo === "motivo_clave" && presentador.obtenerEstado().catalogos.motivos.find(
       ({ clave }) => clave === borrador.motivo_clave)?.fecha_fin === "no_aplica") borrador.fin = "";
     presentador.actualizarBorrador(borrador);
@@ -177,6 +257,24 @@ export function montarAltaContratacionTemporal({
 
   function alIntroducir(evento) {
     const campo = evento.target?.name;
+    if (campo === "puesto_busqueda") {
+      busquedaPuesto = evento.target.value;
+      if (puestoRPT?.codigo && busquedaPuesto !== puestoRPT.codigo) {
+        consultaPuesto?.abort();
+        const formularioDOM = evento.target.closest?.("[data-ct-form]");
+        if (formularioDOM && raiz.contains(formularioDOM)) {
+          const borrador = extraerBorrador(formularioDOM);
+          presentador.actualizarBorrador({ ...borrador, puesto_codigo: "",
+            rpt_catalogo_ref: "", rpt_catalogo_huella_sha256: "" });
+          for (const nombre of ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]) {
+            const oculto = formularioDOM.querySelector(`[name="${nombre}"]`);
+            if (oculto) oculto.value = "";
+          }
+        }
+        puestoRPT = null;
+      }
+      return;
+    }
     if (!["detalle", "observaciones"].includes(campo)) return;
     const contador = raiz.querySelector(`[data-ct-contador="${campo}"]`);
     if (contador) {
@@ -187,20 +285,37 @@ export function montarAltaContratacionTemporal({
     }
   }
 
+  function alTeclado(evento) {
+    if (evento.key !== "Escape") return;
+    const ayuda = raiz.querySelector("[data-ct-ayuda]");
+    if (!ayuda || ayuda.hidden) return;
+    ayuda.hidden = true;
+    const boton = raiz.querySelector('[data-ct-accion="ayuda"]');
+    boton?.setAttribute("aria-expanded", "false");
+    boton?.focus?.();
+  }
+
   raiz.addEventListener("click", alPulsar);
   raiz.addEventListener("submit", alEnviar);
   raiz.addEventListener("change", alCambiar);
   raiz.addEventListener("input", alIntroducir);
   raiz.addEventListener("focusout", alSalirCampo);
+  if (presentador.obtenerEstado().catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
+    raiz.addEventListener("keydown", alTeclado);
+  }
   repintar();
 
   return () => {
     montada = false;
+    consultaPuesto?.abort();
     raiz.removeEventListener("click", alPulsar);
     raiz.removeEventListener("submit", alEnviar);
     raiz.removeEventListener("change", alCambiar);
     raiz.removeEventListener("input", alIntroducir);
     raiz.removeEventListener("focusout", alSalirCampo);
+    if (presentador.obtenerEstado().catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
+      raiz.removeEventListener("keydown", alTeclado);
+    }
     presentador.desmontar?.();
   };
 }
