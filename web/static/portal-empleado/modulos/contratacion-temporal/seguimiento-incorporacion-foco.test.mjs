@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261008-alta-rpt-circular-v5";
+import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261008-alta-rpt-circular-v6";
 
 const recibo = Object.freeze({
   esquema: "vec.contratacion-temporal.incorporacion-ejercicio.recibo.v2",

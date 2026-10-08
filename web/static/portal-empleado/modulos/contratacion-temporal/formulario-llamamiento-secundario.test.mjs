@@ -13,7 +13,7 @@ import {
   declaracionSiguiente, justificanteSiguiente, abrirResolucion,
   abrirSiguiente, abrirRespuestaSiguiente, abrirResolucionSucesor,
   claveDePrueba,
-} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v5";
+} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
 
 for (const sucesor of [false, true])
 for (const caso of ["confirmado", "renuncia", "asset_invalido", "ambiguo", "fecha_anterior", "conflicto", "tardia"]) test(`propuesta ${sucesor ? "sucesor" : "original"}/${caso}: aceptación y publicaciones reales, misma clave y ningún efecto implícito`, async () => {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { diezmilesimasDesdeHorasMinutos, horasMinutosDesdeDiezmilesimas, montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v5";
+import { diezmilesimasDesdeHorasMinutos, horasMinutosDesdeDiezmilesimas, montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v6";
 
 const UUID = "123e4567-e89b-42d3-a456-426614174000";
 const HUELLA = "a".repeat(64);

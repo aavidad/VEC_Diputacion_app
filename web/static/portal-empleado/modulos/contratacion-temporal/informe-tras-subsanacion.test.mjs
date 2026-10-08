@@ -6,9 +6,9 @@ import {
   crearGestorInformeTrasSubsanacion,
   informeNuevoEmitidoEnSubsanacion,
   montarFormularioInformeTrasSubsanacion,
-} from "./informe-tras-subsanacion.js?v=20261008-alta-rpt-circular-v5";
-import { contextoFiscalizacionDesdeEstado, renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v5";
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v5";
+} from "./informe-tras-subsanacion.js?v=20261008-alta-rpt-circular-v6";
+import { contextoFiscalizacionDesdeEstado, renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
 import { RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { codigoValidoParaRuta } from "./cliente-http-transporte.js";

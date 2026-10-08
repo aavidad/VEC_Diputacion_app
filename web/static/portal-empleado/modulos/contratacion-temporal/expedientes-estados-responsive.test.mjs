@@ -12,11 +12,11 @@ import {
   crearExpedienteContratacionTemporalPresentacion,
 } from "./datos-presentacion.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v5";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
 import {
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v5";
+} from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
 
 const t = crearTraductorExpedientesContratacion();
 

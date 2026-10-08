@@ -7,8 +7,8 @@ import { validarCatalogosAlta } from "./contrato.js?v=20261008-alta-circular-v3"
 import {
   preparacionPresentable, renderizarViasPreparacion, selectorPestanaPreparacion, viaPreparacionDeEvento,
 } from "./vias-preparacion-cobertura.js";
-import { renderizarAlta } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v5";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v5";
+import { renderizarAlta } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v6";
 
 const HUELLA = "a".repeat(64);
 const t = (clave) => clave;

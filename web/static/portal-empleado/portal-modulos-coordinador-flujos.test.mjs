@@ -12,7 +12,7 @@ import {
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v5";
+} from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
 
 function raizFalsa() {
   const eventos = new Map();

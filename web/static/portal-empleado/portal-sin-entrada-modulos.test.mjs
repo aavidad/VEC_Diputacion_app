@@ -8,7 +8,7 @@ import {
   CLAVES_SIN_ENTRADA_PORTAL,
   crearCoordinadorModulosPortal,
   vistaConEntradaPortal,
-} from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v5";
+} from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261007-pantallas-textos-final-v1";
 
 // El portal solo ofrece Bolsa y la contratación temporal: Personal, Cronos y

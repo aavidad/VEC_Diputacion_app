@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 import { MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { cargarMensajesContratacionTemporalEnIdioma, crearTraductorContratacionTemporal } from "./modulos/contratacion-temporal/i18n.js?v=20261008-alta-rpt-circular-v5";
+import { cargarMensajesContratacionTemporalEnIdioma, crearTraductorContratacionTemporal } from "./modulos/contratacion-temporal/i18n.js?v=20261008-alta-rpt-circular-v6";
 const MENSAJES_CONTRATACION_TEMPORAL_ES = await cargarMensajesContratacionTemporalEnIdioma("es");
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n, mensajeValidacionPortal } from "./portal-idioma.js?v=20261001-ct-a-i18n-v1";
 import { cadenasHumanas, hallazgosHTML, hallazgosTextosLiterales } from "./textos-literales.test-helper.mjs";

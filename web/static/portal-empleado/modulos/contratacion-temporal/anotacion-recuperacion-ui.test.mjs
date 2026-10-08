@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-alta-rpt-circular-v5";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-alta-rpt-circular-v6";
 
 const expediente = { expediente_ref: "expediente:anotacion:1", version: 7 };
 // El contrato exige un UUID; el marcador deja claro que solo es un fixture sintético.
