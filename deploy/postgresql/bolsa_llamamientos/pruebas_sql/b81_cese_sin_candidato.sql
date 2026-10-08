@@ -175,7 +175,7 @@ BEGIN
  IF v.origen_posicion<>p OR v.origen_ref<>o THEN
   RAISE EXCEPTION 'B81: clave=cursor_bolsa_constituida esperado=%/% actual=%/%',p,o,v.origen_posicion,v.origen_ref;
  END IF;
- IF vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(100)<>'[]'::jsonb THEN
+ IF vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(100,NULL,NULL)<>'[]'::jsonb THEN
   RAISE EXCEPTION 'B81: clave=sin_vinculo_no_aplicable esperado=[] actual=pendiente_reconciliable';
  END IF;
 END $constituida_sin_vinculo$;
@@ -203,10 +203,20 @@ BEGIN
   current_setting('vec.b81.posicion')::bigint) IS DISTINCT FROM true THEN
   RAISE EXCEPTION 'B81: clave=replay_tras_vinculo esperado=true actual=false';
  END IF;
- pagina:=vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(100);
+ pagina:=vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(100,NULL,NULL);
  IF jsonb_array_length(pagina)<>1 OR pagina->0->>'origen_ref'<>current_setting('vec.b81.origen') THEN
   RAISE EXCEPTION 'B81: clave=pendiente_tras_vinculo esperado=1_y_origen_actual actual=%',pagina;
  END IF;
+ pagina:=vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(
+  100,current_setting('vec.b81.posicion')::bigint,current_setting('vec.b81.origen'));
+ IF pagina<>'[]'::jsonb THEN
+  RAISE EXCEPTION 'B81: clave=keyset_tras_ultimo esperado=[] actual=%',pagina;
+ END IF;
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(100,1,NULL);
+  RAISE EXCEPTION 'B81: clave=cursor_parcial esperado=42501 actual=aceptado';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
 END $replay_con_vinculo$;
 RESET SESSION AUTHORIZATION;
 ROLLBACK TO SAVEPOINT bolsa_constituida;
@@ -441,7 +451,7 @@ BEGIN
  IF vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(o,h,p) IS DISTINCT FROM true THEN
   RAISE EXCEPTION 'B81: replay tras constituir no reutilizó proyección';
  END IF;
- pagina:=vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(100);
+ pagina:=vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(100,NULL,NULL);
  IF jsonb_array_length(pagina)<>1 OR pagina->0->>'origen_ref'<>o
     OR pagina->0->>'huella_sha256'<>h
     OR (pagina->0->>'origen_posicion')::bigint<>p THEN
@@ -454,7 +464,7 @@ BEGIN
   RAISE EXCEPTION 'B45: reconciliación no aplicó restricción';
  END IF;
  IF vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(o,h,p) IS DISTINCT FROM true
-    OR vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(100)<>'[]'::jsonb THEN
+    OR vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(100,NULL,NULL)<>'[]'::jsonb THEN
   RAISE EXCEPTION 'B81: replay o salida de pendientes divergente';
  END IF;
 END $resolver_pendiente$;

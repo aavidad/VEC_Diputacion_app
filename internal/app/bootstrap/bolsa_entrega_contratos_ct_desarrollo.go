@@ -299,7 +299,7 @@ func iniciarEntregaCesesCTBolsaDesarrollo(ctx context.Context, cfg config.Config
 			'vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()',
 			'vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1(text,text,bigint)',
 			'vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)',
-			'vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer)']) f`).Scan(&instalada)
+			'vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer,bigint,text)']) f`).Scan(&instalada)
 	if err != nil || !instalada {
 		pool.Close()
 		return nada, puertosbolsa.ErrContratosParticipacionNoDisponible

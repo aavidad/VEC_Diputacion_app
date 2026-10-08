@@ -38,7 +38,7 @@ BEGIN
         'vec_contratacion_temporal.verificar_auditoria_cese_publicado_bolsa_v1(text,text,bigint)','EXECUTE')
     OR to_regclass('vec_bolsa_llamamientos.cese_sin_candidato_bolsa') IS NOT NULL
     OR to_regprocedure('vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)') IS NOT NULL
-    OR to_regprocedure('vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer)') IS NOT NULL THEN
+    OR to_regprocedure('vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer,bigint,text)') IS NOT NULL THEN
   RAISE EXCEPTION 'Bolsa 000081: preimagen incompatible o ya instalada' USING ERRCODE='55000';
  END IF;
  -- El cursor se sustituye solo si es exactamente el de Bolsa 000045.
@@ -77,7 +77,7 @@ CREATE TABLE vec_bolsa_llamamientos.cese_sin_candidato_bolsa (
  CHECK (evento_ref='evento:ct:contrato-bolsa:'||encode(sha256(convert_to('cese'||chr(31)||origen_ref,'UTF8')),'hex'))
 );
 CREATE INDEX cese_sin_candidato_bolsa_cursor_idx
- ON vec_bolsa_llamamientos.cese_sin_candidato_bolsa(origen_posicion DESC,origen_ref DESC);
+ ON vec_bolsa_llamamientos.cese_sin_candidato_bolsa(origen_posicion,origen_ref COLLATE "C");
 CREATE INDEX cese_sin_candidato_bolsa_participacion_idx
  ON vec_bolsa_llamamientos.cese_sin_candidato_bolsa(participacion_ref);
 CREATE INDEX constitucion_entrada_participacion_b81_idx
@@ -214,10 +214,12 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint) TO vec_bolsa_llamamientos_relevo_cese;
 
--- B8 puede vincular después del cese. Esta página técnica conserva la
--- proyección pendiente hasta que el mismo relevo aplica B45; no mueve el
+-- B8 puede vincular después del cese. La paginación técnica por
+-- (posición,referencia) avanza también tras un fallo B45: los posteriores se
+-- intentan ahora y el fallido reaparece al reiniciar la pasada. No mueve el
 -- cursor de publicaciones CT ni el recibo histórico de B81.
-CREATE FUNCTION vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(p_limite integer)
+CREATE FUNCTION vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(
+ p_limite integer,p_desde_posicion bigint,p_desde_ref text)
 RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp
 SET statement_timeout='5s' AS $pendientes$
@@ -228,12 +230,16 @@ BEGIN
     OR pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
     OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
     OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
-    OR p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 100 THEN
+    OR p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 100
+    OR (p_desde_posicion IS NULL) IS DISTINCT FROM (p_desde_ref IS NULL)
+    OR (p_desde_posicion IS NOT NULL AND (p_desde_posicion<0
+       OR octet_length(p_desde_ref) NOT BETWEEN 1 AND 512
+       OR p_desde_ref !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]*$')) THEN
   RAISE EXCEPTION 'B81: consulta técnica pendiente no autorizada' USING ERRCODE='42501';
  END IF;
  SELECT coalesce(jsonb_agg(jsonb_build_object(
    'origen_ref',x.origen_ref,'huella_sha256',x.origen_huella_sha256,
-   'origen_posicion',x.origen_posicion) ORDER BY x.origen_posicion,x.origen_ref),'[]'::jsonb)
+   'origen_posicion',x.origen_posicion) ORDER BY x.origen_posicion,x.origen_ref COLLATE "C"),'[]'::jsonb)
  INTO v_pagina
  FROM (
   SELECT s.origen_ref,s.origen_huella_sha256,s.origen_posicion
@@ -242,12 +248,14 @@ BEGIN
     ON vc.participacion_ref=s.participacion_ref
   WHERE NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r
                     WHERE r.origen_ref=s.origen_ref)
-  ORDER BY s.origen_posicion,s.origen_ref LIMIT p_limite
+   AND (p_desde_posicion IS NULL OR (s.origen_posicion,s.origen_ref COLLATE "C")>
+        (p_desde_posicion,p_desde_ref COLLATE "C"))
+  ORDER BY s.origen_posicion,s.origen_ref COLLATE "C" LIMIT p_limite
  ) x;
  RETURN v_pagina;
 END $pendientes$;
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer)
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer,bigint,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer,bigint,text)
  TO vec_bolsa_llamamientos_relevo_cese;
 
 -- El cursor cuenta también los ceses sin candidato. Mismas guardas, firma,
@@ -279,7 +287,7 @@ END $function$;
 DO $post$
 DECLARE f regprocedure:='vec_bolsa_llamamientos.confirmar_cese_sin_candidato_bolsa_v1(text,text,bigint)'::regprocedure;
  c regprocedure:='vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()'::regprocedure;
- p regprocedure:='vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer)'::regprocedure;
+ p regprocedure:='vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1(integer,bigint,text)'::regprocedure;
 BEGIN
  IF (SELECT array_agg(a.grantee::regrole::text ORDER BY a.grantee::regrole::text) FROM pg_proc p
        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)
