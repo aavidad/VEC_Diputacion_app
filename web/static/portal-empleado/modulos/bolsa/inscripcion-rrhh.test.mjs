@@ -82,6 +82,14 @@ test("los motivos se consultan sólo en el idioma activo", async () => {
   assert.equal(ruta, "/api/vec/bolsa/rrhh/inscripciones/motivos?decision=rechazar&idioma=en");
 });
 
+test("una respuesta excesiva se corta antes de convertirla en JSON", async () => {
+  const cliente = crearClienteInscripcionesRRHH({ fetchImpl: async () => ({ ok: true, status: 200,
+    redirected: false, headers: { get: (nombre) => nombre === "content-type" ? "application/json" : null },
+    body: new ReadableStream({ start(controlador) { controlador.enqueue(new Uint8Array(256 * 1024 + 1)); } }),
+    text: async () => { throw new Error("no debe leerse completa"); } }) });
+  await assert.rejects(cliente.listar(), /respuesta excesiva/u);
+});
+
 test("filtro compartible conserva la URL y normaliza estado desconocido", () => {
   assert.deepEqual(leerRutaInscripcionesRRHH("?inscripcion_estado=otro&inscripcion_convocatoria=convocatoria%3A1"),
     { estado: "pendiente", convocatoria: "convocatoria:1", cursor: "" });

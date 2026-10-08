@@ -7,6 +7,7 @@ const IDIOMA = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/u;
 const ESQUEMAS = Object.freeze({ lista: "vec.bolsa.inscripciones.rrhh.v1",
   detalle: "vec.bolsa.inscripcion.rrhh.v1", motivos: "vec.bolsa.inscripcion.motivos.v1",
   recibo: "vec.bolsa.inscripcion.decision.recibo.v1" });
+const MAXIMO_RESPUESTA = 256 * 1024;
 
 function referencia(valor) {
   if (typeof valor !== "string" || !REF.test(valor) || valor.trim() !== valor) throw new TypeError("referencia incompatible");
@@ -46,9 +47,30 @@ async function pedir(fetchImpl, ruta, { method = "GET", body, signal } = {}) {
   if (!respuesta.ok) throw Object.assign(new Error("operación no completada"), { estado: respuesta.status });
   if (!/^application\/json(?:;|$)/iu.test(respuesta.headers?.get?.("content-type") || "")) throw new TypeError("respuesta incompatible");
   const longitud = respuesta.headers?.get?.("content-length");
-  if (longitud && (!/^\d+$/u.test(longitud) || Number(longitud) > 256 * 1024)) throw new TypeError("respuesta excesiva");
-  const texto = await respuesta.text();
-  if (new TextEncoder().encode(texto).byteLength > 256 * 1024) throw new TypeError("respuesta excesiva");
+  if (longitud && (!/^\d+$/u.test(longitud) || Number(longitud) > MAXIMO_RESPUESTA)) throw new TypeError("respuesta excesiva");
+  const lector = respuesta.body?.getReader?.();
+  let texto;
+  if (lector) {
+    let total = 0;
+    const partes = [];
+    try {
+      for (;;) {
+        const { done, value } = await lector.read();
+        if (done) break;
+        if (!(value instanceof Uint8Array) || (total += value.byteLength) > MAXIMO_RESPUESTA) {
+          await lector.cancel(); throw new TypeError("respuesta excesiva");
+        }
+        partes.push(value);
+      }
+    } finally { lector.releaseLock(); }
+    const bytes = new Uint8Array(total);
+    let posicion = 0;
+    for (const parte of partes) { bytes.set(parte, posicion); posicion += parte.byteLength; }
+    texto = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } else {
+    texto = await respuesta.text();
+    if (new TextEncoder().encode(texto).byteLength > MAXIMO_RESPUESTA) throw new TypeError("respuesta excesiva");
+  }
   return { estado: respuesta.status, data: JSON.parse(texto)?.data };
 }
 
