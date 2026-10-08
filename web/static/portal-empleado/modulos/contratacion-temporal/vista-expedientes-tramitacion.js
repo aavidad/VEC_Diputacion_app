@@ -701,7 +701,8 @@ export function crearGestorTramitacion({
         anunciar,
         locale,
         zonaHoraria,
-        refrescarCatalogosAlta: alta.obtenerCatalogosNecesidadesAlta,
+        refrescarCatalogosAlta: soloSustituciones && typeof alta.obtenerCatalogosAlta === "function"
+          ? alta.obtenerCatalogosAlta : alta.obtenerCatalogosNecesidadesAlta,
       });
       if (soloSustituciones) {
         const aviso = contenedor.ownerDocument?.createElement?.("section");

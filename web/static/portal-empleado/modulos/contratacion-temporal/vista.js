@@ -238,6 +238,11 @@ export function montarAltaContratacionTemporal({
       repintar("[data-ct-accion='cancelar']");
       await tarea;
       const estado = presentador.obtenerEstado();
+      if (estado.errores.numero_expediente_moad
+        && !Object.hasOwn(mensajesMontaje, "estado_numero_moad_no_valido")) {
+        prepararTextosNecesidades();
+        return;
+      }
       repintar(estado.fase === "recibo"
         ? "[data-ct-recibo]"
         : (estado.fase === "pendiente"
