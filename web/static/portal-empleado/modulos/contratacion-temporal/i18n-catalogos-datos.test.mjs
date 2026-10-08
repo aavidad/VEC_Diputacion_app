@@ -86,6 +86,7 @@ const CLAVES_CUADRO_LIGERO = Object.freeze([
   "lista_filtro_no_disponible", "lista_resultados_pagina",
   "lista_titulo_conjunto", "lista_buscar_pista_servidor",
   "lista_fase_servidor_preparacion", "lista_fase_servidor_llamamiento", "lista_fase_servidor_cierre",
+  "lista_centro_nombre_no_disponible", "lista_categoria_nombre_no_disponible",
   "plazo_fase_en_plazo", "plazo_fase_vence_hoy",
   "plazo_fase_vencido", "plazo_fase_sin_calcular",
 ]);
@@ -101,6 +102,10 @@ const CLAVES_REINCORPORACION_CAPACIDAD = Object.freeze([
   "reincorporacion_capacidad_denegada", "reincorporacion_capacidad_no_disponible",
   "reincorporacion_capacidad_reintentar", "reincorporacion_capacidad_comprobando",
   "reincorporacion_capacidad_no_habilitada",
+]);
+const CLAVES_FICHA_SIN_BOLSA = Object.freeze([
+  "ficha_llamamiento_sin_bolsa", "ficha_llamamiento_bolsa_error",
+  "ficha_llamamiento_bolsa_denegado", "ficha_llamamiento_bolsa_reintentar",
 ]);
 // Nuevas claves de Alta: se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_CAPACIDAD_ALTA = Object.freeze({
@@ -152,11 +157,12 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
           .filter(([clave]) => !CLAVES_CONTEXTO_ANA002.includes(clave)));
       }
       if (archivo === "i18n-ficha-lista.js") {
-        for (const clave of [...CLAVES_CUADRO_LIGERO, ...CLAVES_REINCORPORACION_CAPACIDAD]) {
+        for (const clave of [...CLAVES_CUADRO_LIGERO, ...CLAVES_REINCORPORACION_CAPACIDAD, ...CLAVES_FICHA_SIN_BOLSA]) {
           assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
         }
         preimagen = Object.fromEntries(Object.entries(valor)
-          .filter(([clave]) => !CLAVES_CUADRO_LIGERO.includes(clave) && !CLAVES_REINCORPORACION_CAPACIDAD.includes(clave)));
+          .filter(([clave]) => !CLAVES_CUADRO_LIGERO.includes(clave) && !CLAVES_REINCORPORACION_CAPACIDAD.includes(clave)
+            && !CLAVES_FICHA_SIN_BOLSA.includes(clave)));
 
       }
       if (CLAVES_CAPACIDAD_ALTA[archivo]) {
