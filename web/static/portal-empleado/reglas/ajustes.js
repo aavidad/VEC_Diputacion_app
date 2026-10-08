@@ -1,6 +1,6 @@
 import { cargarTextosAjustes, reintentarTextosAjustes, idiomaAjustes, idiomaDatosAjustes,
   existeClaveAjustes, numeroAjustes, fechaAjustes, traducirAjustes, usaIdiomaRespaldoAjustes } from "./ajustes-i18n.js";
-import { crearTraductorReglas } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { cargarTextos } from "../../comun/textos.js";
 
 export const API_AJUSTES = "/api/vec/contratacion-temporal/reglas/ajustes";
 const ESQUEMA = "vec.contratacion_temporal.reglas.ajustes.v1";
@@ -223,8 +223,14 @@ export async function iniciarAjustes(doc, cliente = crearClienteAjustes()) {
   if (!contenedor) return () => {};
   try { await cargarTextosAjustes(); }
   catch {
-    const basico = crearTraductorReglas();
-    contenedor.innerHTML = `<section class="rg-panel rg-ajustes"><p class="rg-aviso rg-aviso--error" role="alert">${esc(basico("error_servicio_no_disponible"))}</p><button type="button" class="rg-secundario" data-ajustes-catalogo-reintentar>${esc(basico("reintentar"))}</button></section>`;
+    let mensaje = "";
+    let reintentar = "";
+    try {
+      const textos = (await cargarTextos("portal")).seccion("textos");
+      mensaje = textos.txt_el_servicio_no_esta_disponible_ahora_puede_reint;
+      reintentar = textos.txt_reintentar;
+    } catch { /* El catálogo de apoyo también está temporalmente ausente. */ }
+    contenedor.innerHTML = `<section class="rg-panel rg-ajustes"><p class="rg-aviso rg-aviso--error" role="alert">${esc(mensaje)}</p><button type="button" class="rg-secundario" data-ajustes-catalogo-reintentar>${esc(reintentar)}</button></section>`;
     let desmontado = false;
     contenedor.querySelector("[data-ajustes-catalogo-reintentar]")?.addEventListener("click", () => {
       void reintentarTextosAjustes().then(() => { if (!desmontado) void iniciarAjustes(doc, cliente); })

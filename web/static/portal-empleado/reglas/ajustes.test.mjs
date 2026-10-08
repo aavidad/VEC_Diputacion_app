@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import { readFile, mkdtemp, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { createServer } from "node:http";
+import { tmpdir } from "node:os";
+import { join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { API_AJUSTES, ErrorAjustes, crearClienteAjustes, renderizarAjustes, validarLecturaAjustes, validarReciboAjustes } from "./ajustes.js";
 import { cargarTextosAjustes } from "./ajustes-i18n.js";
 
@@ -153,5 +161,90 @@ test("los textos de ajuste existen en ambos idiomas y el módulo no incluye fras
   assert.deepEqual(Object.keys(ficheros[0]).sort(), Object.keys(ficheros[1]).sort());
   for (const texto of ["ajustesMotivo_respuesta_rrhh_duda", "ajustesConflicto", "ajustesEfecto", "ajustesAuditoria"]) {
     assert.ok(ficheros.every((fichero) => fichero[texto]), texto);
+  }
+});
+
+test("un fallo del catálogo común no oculta los plazos CT cuya API responde", { skip: !existsSync("/usr/bin/google-chrome") }, async () => {
+  const raiz = resolve(fileURLToPath(new URL("../../", import.meta.url)));
+  let lecturasCT = 0;
+  let fallosCatalogo = 0;
+  let escenario = "comun";
+  const rutasPedidas = [];
+  const servidor = createServer(async (peticion, respuestaHTTP) => {
+    const url = new URL(peticion.url, "http://127.0.0.1");
+    const ruta = url.pathname;
+    rutasPedidas.push(ruta);
+    const responder = (estado, tipo, cuerpo) => {
+      respuestaHTTP.writeHead(estado, { "Content-Type": tipo, "Cache-Control": "no-store" });
+      respuestaHTTP.end(cuerpo);
+    };
+    if (ruta === "/textos/es/reglas.json" && escenario === "comun") {
+      fallosCatalogo++;
+      responder(503, "application/json", "{}");
+      return;
+    }
+    if (ruta === "/textos/es/reglas-plazos.json" && escenario === "textos_ct") {
+      responder(503, "application/json", "{}");
+      return;
+    }
+    if (ruta === API_AJUSTES) {
+      lecturasCT++;
+      responder(escenario === "api_ct" ? 503 : 200, "application/json", JSON.stringify(lectura()));
+      return;
+    }
+    const destino = resolve(raiz, `.${ruta === "/portal-empleado/reglas/" ? "/portal-empleado/reglas/index.html" : ruta}`);
+    if (!destino.startsWith(raiz + sep)) { responder(404, "text/plain", ""); return; }
+    try {
+      let contenido = await readFile(destino);
+      if (destino.endsWith("index.html") && url.searchParams.has("zoom")) {
+        contenido = Buffer.from(contenido.toString().replace("</body>", `<script>setTimeout(() => {
+          document.body.style.zoom = '2';
+          document.documentElement.dataset.anchos = document.documentElement.scrollWidth + '/' + document.documentElement.clientWidth;
+        }, 1500);</script></body>`));
+      }
+      const tipo = destino.endsWith(".js") ? "text/javascript" : destino.endsWith(".json") ? "application/json"
+        : destino.endsWith(".css") ? "text/css" : destino.endsWith(".html") ? "text/html" : "application/octet-stream";
+      responder(200, tipo, contenido);
+    } catch { responder(404, "text/plain", ""); }
+  });
+  const cargarPagina = async (puerto, zoom = false) => {
+    const perfil = await mkdtemp(join(tmpdir(), "vec-reglas-ct-"));
+    try {
+      const { stdout } = await promisify(execFile)("/usr/bin/google-chrome", ["--headless=new", "--no-sandbox",
+        "--disable-gpu", "--disable-background-networking", "--no-proxy-server", "--no-first-run", `--user-data-dir=${perfil}`,
+        "--window-size=390,844", "--virtual-time-budget=6000", "--dump-dom",
+        `http://127.0.0.1:${puerto}/portal-empleado/reglas/?lang=es${zoom ? "&zoom=200" : ""}`],
+      { timeout: 20000, maxBuffer: 4 * 1024 * 1024 });
+      return stdout;
+    } finally { await rm(perfil, { recursive: true, force: true }); }
+  };
+  try {
+    await new Promise((listo) => servidor.listen(0, "127.0.0.1", listo));
+    const puerto = servidor.address().port;
+    const stdout = await cargarPagina(puerto);
+    assert.ok(fallosCatalogo > 0, `el catálogo común realmente falló: ${JSON.stringify(rutasPedidas)} ${stdout.match(/ERR_[A-Z_]+/u)?.[0] ?? ""}`);
+    assert.equal(lecturasCT, 1, "el panel CT hizo una sola lectura");
+    assert.match(stdout, /id="rg-ajustes"[\s\S]*Plazos de Contratación temporal/u);
+    assert.match(stdout, /data-ajustes-editar="c03\.plazo_fiscalizacion"/u);
+    assert.match(stdout, /id="rg-estado"[^>]*>El servicio no está disponible/u);
+    escenario = "textos_ct";
+    lecturasCT = 0;
+    const sinTextosCT = await cargarPagina(puerto);
+    assert.equal(lecturasCT, 0, "sin textos CT no se consulta la API");
+    assert.match(sinTextosCT, /data-ajustes-catalogo-reintentar/u);
+    assert.match(sinTextosCT, /id="rg-ajustes"[\s\S]*El servicio no está disponible/u);
+    escenario = "api_ct";
+    lecturasCT = 0;
+    const sinAPICT = await cargarPagina(puerto);
+    assert.equal(lecturasCT, 1, "la API CT falló una vez");
+    assert.match(sinAPICT, /data-ajustes-reintentar/u);
+    assert.match(sinAPICT, /id="rg-ajustes"[\s\S]*No se han podido consultar/u);
+    escenario = "normal";
+    const conZoom = await cargarPagina(puerto, true);
+    const [, ancho, visible] = /data-anchos="(\d+)\/(\d+)"/u.exec(conZoom) ?? [];
+    assert.ok(ancho && visible, "la página midió su ancho tras ampliar al 200 %");
+    assert.ok(Number(ancho) <= Number(visible), `sin desbordamiento: ${ancho}/${visible}`);
+  } finally {
+    await new Promise((listo) => servidor.close(listo));
   }
 });

@@ -78,6 +78,10 @@ dialog#rg-ayuda p { line-height: 1.5; }
 @media (max-width: 760px) { .rg-kpis { grid-template-columns: 1fr; } .rg-cabecera { flex-direction: column; align-items: flex-start; } }
 
 /* Edición de plazos: una superficie de trabajo dentro de Reglas vigentes. */
+#rg-ajustes { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.rg-ajustes { max-width: 100%; min-width: 0; }
+.rg-ajuste-recibo details { max-width: 100%; min-width: 0; }
+.rg-ajuste-recibo code, .rg-ajuste-historial code { overflow-wrap: anywhere; word-break: break-word; }
 .rg-ajustes-cuerpo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 20px; }
 .rg-ajuste-regla { min-width: 0; padding: 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); }
 .rg-ajuste-cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }

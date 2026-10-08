@@ -197,6 +197,47 @@ function traducirDocumento(doc) {
 }
 
 export async function iniciar(doc, cliente) {
+  // El panel CT se carga por separado para que una incidencia en la tabla común
+  // no oculte la lectura ni el historial de los plazos.
+  const contenedorAjustes = doc.getElementById("rg-ajustes");
+  if (contenedorAjustes?.querySelector) {
+    const contenedor = contenedorAjustes;
+    const montarAjustes = () => {
+      void import("./ajustes.js?v=20261008-ct-ajustes-v1")
+        .then(({ iniciarAjustes }) => iniciarAjustes(doc))
+        .catch(async () => {
+          let mensaje = "";
+          let etiquetaReintentar = "";
+          try {
+            const { cargarTextosAjustes, traducirAjustes } = await import("./ajustes-i18n.js");
+            await cargarTextosAjustes();
+            mensaje = traducirAjustes("ajustesNoDisponible");
+            etiquetaReintentar = traducirAjustes("reintentar");
+          } catch {
+            try {
+              const { cargarTextos } = await import("../../comun/textos.js");
+              const textos = (await cargarTextos("portal")).seccion("textos");
+              mensaje = textos.txt_el_servicio_no_esta_disponible_ahora_puede_reint;
+              etiquetaReintentar = textos.txt_reintentar;
+            } catch {
+              if (t) { mensaje = t("error_servicio_no_disponible"); etiquetaReintentar = t("reintentar"); }
+            }
+          }
+          contenedor.replaceChildren();
+          const aviso = doc.createElement("p");
+          aviso.className = "rg-aviso rg-aviso--error";
+          aviso.setAttribute("role", "alert");
+          aviso.textContent = mensaje;
+          const reintentar = doc.createElement("button");
+          reintentar.type = "button";
+          reintentar.className = "rg-secundario";
+          reintentar.textContent = etiquetaReintentar;
+          reintentar.addEventListener("click", montarAjustes, { once: true });
+          contenedor.append(aviso, reintentar);
+        });
+    };
+    montarAjustes();
+  }
   if (!t) {
     doc.documentElement.lang = IDIOMA_REGLAS;
     const aviso = doc.getElementById("rg-estado");
@@ -220,30 +261,6 @@ export async function iniciar(doc, cliente) {
     return;
   }
   traducirDocumento(doc);
-  // El panel CT se carga por separado para que una incidencia en la tabla común
-  // no oculte la lectura ni el historial de los plazos.
-  const contenedorAjustes = doc.getElementById("rg-ajustes");
-  if (contenedorAjustes?.querySelector) {
-    const contenedor = contenedorAjustes;
-    const montarAjustes = () => {
-      void import("./ajustes.js?v=20261008-ct-ajustes-v1")
-        .then(({ iniciarAjustes }) => iniciarAjustes(doc))
-        .catch(() => {
-          contenedor.replaceChildren();
-          const aviso = doc.createElement("p");
-          aviso.className = "rg-aviso rg-aviso--error";
-          aviso.setAttribute("role", "alert");
-          aviso.textContent = t("error_servicio_no_disponible");
-          const reintentar = doc.createElement("button");
-          reintentar.type = "button";
-          reintentar.className = "rg-secundario";
-          reintentar.textContent = t("reintentar");
-          reintentar.addEventListener("click", montarAjustes, { once: true });
-          contenedor.append(aviso, reintentar);
-        });
-    };
-    montarAjustes();
-  }
   const $ = (id) => doc.getElementById(id);
   const ayuda = $("rg-ayuda");
   $("rg-ayuda-abrir").addEventListener("click", () => ayuda.showModal?.());
