@@ -4,6 +4,30 @@ Estado del 5 de octubre de 2026 sobre `origin/main@dfcbab6ce`. Este plan sirve p
 
 Las respuestas de RRHH del 2 de octubre están en [decisiones_rrhh_2026-10-02.md](../estudio_requisitos/decisiones_rrhh_2026-10-02.md). Las preguntas que siguen abiertas están en [`dudas.md`](../../dudas.md) y aquí se citan por su número. El estado por punto de la petición de RRHH está en [estado_peticion_rrhh_2026-09-30.md](../portal_vec/estado_peticion_rrhh_2026-09-30.md). Los documentos de `docs/portal_vec/*bolsa*` son de julio y se han quedado atrás respecto al código.
 
+## Ceses sin candidato — revisión de #774, 8 de octubre de 2026
+
+B81 permite continuar el relevo cuando el llamamiento del puente CT eligió
+una participación que no pertenece a ninguna bolsa constituida. Conserva el
+cese y su registro con actor, fecha y huella; no asigna candidato ni cambia
+disponibilidad. Si la bolsa está constituida y falta el vínculo, el cese sigue
+pendiente y el relevo se detiene. El camino de regreso a la bolsa requiere
+que CT utilice participaciones reales de la bolsa; queda fuera de esta PR.
+
+La rama se actualiza con main y el cursor se toma de la definición instalada
+en postHX + HZ + B85 + B86 + CT193 + B87. B81 sigue reservada para #774,
+sin colisión con esas migraciones. Antes de integrar, Claude revisa el SQL
+exacto y comprueba el ensayo privado y la CI. No se ha instalado B81 en
+ninguna base compartida. La lista de instalación contiene solo B81; no se
+reaplican las migraciones anteriores. CONFIG NUEVA: ninguna.
+
+En el clon PostgreSQL 18.4 de esa base, B81 se instaló una vez en 0,09 s
+y la prueba SQL terminó en 0,11 s. Comprueba alta y replay únicos, avance
+del cursor, bolsa constituida y huella falsa denegadas, permisos y rechazo
+de UPDATE/DELETE. La fixture prepara historia CT/B13 dentro de ROLLBACK
+y usa el verificador CT129 real; no es un recorrido de navegador ni prueba
+el registro de un cese desde RRHH. Las pruebas Go comprueban la continuidad
+23503 → cese ajeno → sin candidato y la parada ante errores.
+
 ## Cómo se monta hoy
 
 Las pantallas internas de RRHH y «Mi Bolsa» se montan en la misma aplicación que sirve la principal. Se activan con dos selectores de despliegue, `VEC_BOLSA_BORRADORES_ENABLED` y `VEC_BOLSA_PORTAL_CANDIDATO_ENABLED` ([config/selectores_despliegue_bolsa_ct.go](../../config/selectores_despliegue_bolsa_ct.go)), además de la conexión a PostgreSQL. El registro de rutas está en `internal/app/bootstrap/bolsa_*.go`, en `contratacion_temporal_desarrollo.go` y, para el proceso externo del aspirante, en `portal_externo_mi_bolsa*.go`. Aunque los ficheros se llamen «desarrollo», son la composición que sirve la aplicación.
@@ -85,26 +109,17 @@ Al salir de una lista de Bolsa hacia Inicio se retiran `bolsa_ref`, `estado` y `
 Los tres totales globales siguen pendientes de una lectura global autorizada y paginada. Hoy suman participaciones en bolsas, por lo que una persona incluida en varias bolsas puede contar varias veces. No se debe sustituir ese conjunto por una lista de una sola bolsa ni consultar cada bolsa desde el navegador para reconstruirlo.
 
 
-## Ceses sin candidato — revisión de #774, 8 de octubre de 2026
+## Continuación de fichas y totales globales — 8 de octubre de 2026
 
-B81 permite continuar el relevo cuando el llamamiento del puente CT eligió
-una participación que no pertenece a ninguna bolsa constituida. Conserva el
-cese y su registro con actor, fecha y huella; no asigna candidato ni cambia
-disponibilidad. Si la bolsa está constituida y falta el vínculo, el cese sigue
-pendiente y el relevo se detiene. El camino de regreso a la bolsa requiere
-que CT utilice participaciones reales de la bolsa; queda fuera de esta PR.
+Las solicitudes documentales y las reincorporaciones de la ficha requieren disponibilidad nominal por participación antes de omitir sus consultas. La fuente preparada de S (`6455e0ead`) queda conservada en su rama; no se activa sin proveedor, porque también retiraría secciones operativas. Sigue pendiente conectar el contexto F1 real del lector con la proyección por recurso de V.
 
-La rama se actualiza con main y el cursor se toma de la definición instalada
-en postHX + HZ + B85 + B86 + CT193 + B87. B81 sigue reservada para #774,
-sin colisión con esas migraciones. Antes de integrar, Claude revisa el SQL
-exacto y comprueba el ensayo privado y la CI. No se ha instalado B81 en
-ninguna base compartida. La lista de instalación contiene solo B81; no se
-reaplican las migraciones anteriores. CONFIG NUEVA: ninguna.
+Los totales globales cuentan participaciones en bolsas. Su lista paginada debe devolver página y total con el mismo filtro y corte, y registrar el acceso correcto en la misma transacción. La continuidad de sesión de CT y los registradores de intentos fallidos no cubren esta lectura de Bolsa. Falta el consumidor común de lectura y auditoría solicitado a V. No se han añadido enlaces a listas incompletas, consultas por bolsa ni una fachada V3 nueva.
 
-En el clon PostgreSQL 18.4 de esa base, B81 se instaló una vez en 0,09 s
-y la prueba SQL terminó en 0,11 s. Comprueba alta y replay únicos, avance
-del cursor, bolsa constituida y huella falsa denegadas, permisos y rechazo
-de UPDATE/DELETE. La fixture prepara historia CT/B13 dentro de ROLLBACK
-y usa el verificador CT129 real; no es un recorrido de navegador ni prueba
-el registro de un cese desde RRHH. Las pruebas Go comprueban la continuidad
-23503 → cese ajeno → sin candidato y la parada ante errores.
+## Disponibilidad nominal de las secciones de la ficha — 8 de octubre de 2026
+
+El historial de operaciones leído y auditado incorpora la disponibilidad de solicitudes documentales y reincorporaciones de la persona titular para esa participación. La proyección reutiliza el contexto F1 del lector, una instantánea de permisos y los handlers realmente montados. Solo informa de disponibilidad; cada consulta y cada acto conservan su autorización.
+
+La ficha espera esa respuesta antes de pedir las secciones opcionales. Omite las ausentes o no autorizadas, conserva el candidato y el historial si falla la comprobación y permite reintentar. Los requisitos de Regularizar y su comprobación V3 se conservan. Sin metadata del servidor mantiene el recorrido anterior. No lleva SQL ni configuración nueva. Se reutiliza el proyector de V (`8d481727`) sin reescribirlo.
+
+La lista global de los totales sigue pendiente del consumidor de lectura y acceso correcto en la misma transacción. La disponibilidad de una participación no cubre ese acceso global.
+
