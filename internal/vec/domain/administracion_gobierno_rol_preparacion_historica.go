@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // PrepararPlanGobiernoRolNuevoDesdeCatalogo usa siempre el catálogo exacto
 // leído de AUT58. Si el descriptor ya caducó, prepara con su instante
@@ -38,10 +41,9 @@ func PrepararPlanGobiernoRolNuevoDesdeCatalogo(c CatalogoAccionesAdministracionV
 	if entrada == nil {
 		return vacio, time.Time{}, ErrPermisoPerfilAdministracionNoCoincide
 	}
-	// Crear un RolID ordinario exige una clase positiva de la fuente publicada.
-	// Ni una etiqueta ordinaria convierte una concesión ADMIN en ordinaria.
-	if entrada.ClaseControl != string(ClaseControlPerfilOrdinario) ||
-		entrada.Concesion.ModuloID == "administracion" {
+	// Crear un RolID ordinario exige una clase positiva y respeta las
+	// exclusiones estáticas ya usadas por AUT49 para roles asignables.
+	if !entradaYRolNuevoOrdinarios(*entrada, pub.RolPropuesto) {
 		return vacio, time.Time{}, ErrPermisoPerfilAdministracionNoCoincide
 	}
 	instante := ahora
@@ -60,4 +62,30 @@ func PrepararPlanGobiernoRolNuevoDesdeCatalogo(c CatalogoAccionesAdministracionV
 		return vacio, time.Time{}, ErrPlanGobiernoPerfilInvalido
 	}
 	return plan, instante, nil
+}
+
+func entradaYRolNuevoOrdinarios(entrada EntradaAccionAdministracionV1, rol VersionRol) bool {
+	concesion := entrada.Concesion
+	if entrada.ClaseControl != string(ClaseControlPerfilOrdinario) ||
+		concesion.ModuloID == "administracion" || concesion.ModuloID == "intervencion" ||
+		concesion.ModuloID == "aspirantes" ||
+		strings.HasPrefix(concesion.Accion, "administracion.") ||
+		strings.Contains(concesion.Accion, "fiscalizacion") ||
+		rol.RolID == "administracion_perfiles" || rol.RolID == "operador_plataforma" ||
+		strings.HasPrefix(rol.RolID, "candidato_") || strings.Contains(rol.RolID, "extern") ||
+		strings.HasPrefix(rol.RolID, "intervencion") {
+		return false
+	}
+	nombre := strings.ToLower(rol.Nombre)
+	if strings.Contains(nombre, "fiscaliz") || strings.Contains(nombre, "intervenc") {
+		return false
+	}
+	for _, finalidad := range concesion.Finalidades {
+		if strings.Contains(finalidad, "fiscaliz") {
+			return false
+		}
+	}
+	// Los roles existentes ya se rechazan al cotejar el censo AUT58; la
+	// autoridad central coteja en SQL las tripletas de acciones protegidas.
+	return true
 }

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -52,6 +53,21 @@ func TestGobiernoRolNuevoRechazaConcesionAdministrativaYClaseNoOrdinaria(t *test
 			c.Entradas[0].Concesion.ModuloID = "administracion"
 			c.Entradas[0].Concesion.Accion = "administracion.perfiles.definicion.aprobar"
 		}},
+		{"accion_administracion_con_modulo_ajeno", func(c *CatalogoAccionesAdministracionV1, _ *SolicitudPlanGobiernoPerfil) {
+			c.Entradas[0].Concesion.Accion = "administracion.perfiles.definicion.aprobar"
+		}},
+		{"modulo_intervencion", func(c *CatalogoAccionesAdministracionV1, _ *SolicitudPlanGobiernoPerfil) {
+			c.Entradas[0].Concesion.ModuloID = "intervencion"
+		}},
+		{"modulo_aspirantes", func(c *CatalogoAccionesAdministracionV1, _ *SolicitudPlanGobiernoPerfil) {
+			c.Entradas[0].Concesion.ModuloID = "aspirantes"
+		}},
+		{"accion_fiscalizacion", func(c *CatalogoAccionesAdministracionV1, _ *SolicitudPlanGobiernoPerfil) {
+			c.Entradas[0].Concesion.Accion = "sintetico.fiscalizacion.consultar"
+		}},
+		{"finalidad_fiscaliz", func(c *CatalogoAccionesAdministracionV1, _ *SolicitudPlanGobiernoPerfil) {
+			c.Entradas[0].Concesion.Finalidades = []string{"revision_fiscalizadora"}
+		}},
 		{"administrador_aplicacion", func(c *CatalogoAccionesAdministracionV1, _ *SolicitudPlanGobiernoPerfil) {
 			c.Entradas[0].ClaseControl = "administrador_aplicacion"
 		}},
@@ -63,6 +79,27 @@ func TestGobiernoRolNuevoRechazaConcesionAdministrativaYClaseNoOrdinaria(t *test
 		}},
 		{"clase_auditada_no_ordinaria", func(c *CatalogoAccionesAdministracionV1, _ *SolicitudPlanGobiernoPerfil) {
 			c.Entradas[0].ClaseControl = "consulta_auditada"
+		}},
+		{"rol_administracion_perfiles", func(_ *CatalogoAccionesAdministracionV1, s *SolicitudPlanGobiernoPerfil) {
+			s.Publicacion.RolPropuesto.RolID = "administracion_perfiles"
+		}},
+		{"rol_operador_plataforma", func(_ *CatalogoAccionesAdministracionV1, s *SolicitudPlanGobiernoPerfil) {
+			s.Publicacion.RolPropuesto.RolID = "operador_plataforma"
+		}},
+		{"rol_candidato", func(_ *CatalogoAccionesAdministracionV1, s *SolicitudPlanGobiernoPerfil) {
+			s.Publicacion.RolPropuesto.RolID = "candidato_sintetico"
+		}},
+		{"rol_externo", func(_ *CatalogoAccionesAdministracionV1, s *SolicitudPlanGobiernoPerfil) {
+			s.Publicacion.RolPropuesto.RolID = "rol_externo_sintetico"
+		}},
+		{"rol_intervencion", func(_ *CatalogoAccionesAdministracionV1, s *SolicitudPlanGobiernoPerfil) {
+			s.Publicacion.RolPropuesto.RolID = "intervencion_sintetica"
+		}},
+		{"nombre_fiscalizacion", func(_ *CatalogoAccionesAdministracionV1, s *SolicitudPlanGobiernoPerfil) {
+			s.Publicacion.RolPropuesto.Nombre = "Fiscalización sintética"
+		}},
+		{"nombre_intervencion", func(_ *CatalogoAccionesAdministracionV1, s *SolicitudPlanGobiernoPerfil) {
+			s.Publicacion.RolPropuesto.Nombre = "Intervención sintética"
 		}},
 		{"rol_publicado", func(c *CatalogoAccionesAdministracionV1, s *SolicitudPlanGobiernoPerfil) {
 			s.Publicacion.RolPropuesto.RolID = c.Perfiles[0].Rol.RolID
@@ -76,6 +113,9 @@ func TestGobiernoRolNuevoRechazaConcesionAdministrativaYClaseNoOrdinaria(t *test
 			plan, _, err := PrepararPlanGobiernoRolNuevoDesdeCatalogo(c, s, instante, "per_"+strings.Repeat("a", 24))
 			if err == nil || plan.VersionRolObjetivoRef != "" {
 				t.Fatalf("%s admitido: %+v", caso.nombre, plan)
+			}
+			if caso.nombre != "rol_publicado" && !errors.Is(err, ErrPermisoPerfilAdministracionNoCoincide) {
+				t.Fatalf("%s: fallo ajeno a la exclusión ordinaria: %v", caso.nombre, err)
 			}
 		})
 	}
