@@ -105,9 +105,9 @@ function vistaBolsa(estado, textos) {
       <dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd></div></dl>
     ${bolsa.categorias.length > 10 ? `<div class="campo"><label for="buscar-categoria-inscripcion-bolsa">${t("buscarCategoria")}</label>
       <input id="buscar-categoria-inscripcion-bolsa" type="search" data-inscripcion-buscar-categoria
-        value="${esc(estado.filtroCategoria)}" autocomplete="off" ${pendiente ? "disabled" : ""}></div>` : ""}
+        value="${esc(estado.filtroCategoria)}" autocomplete="off" ${pendiente || estado.revision ? "disabled" : ""}></div>` : ""}
     <div class="campo"><label for="categoria-inscripcion-bolsa">${t("categoria")}</label>
-      <select id="categoria-inscripcion-bolsa" data-inscripcion-categoria ${pendiente || bolsa.categorias.length === 1 || !categoriasVisibles.length ? "disabled" : ""}>
+      <select id="categoria-inscripcion-bolsa" data-inscripcion-categoria ${pendiente || estado.revision || bolsa.categorias.length === 1 || !categoriasVisibles.length ? "disabled" : ""}>
       ${bolsa.categorias.length > 1 ? `<option value="">${t("elegirCategoria")}</option>` : ""}
       ${categoriasVisibles.map((c) => `<option value="${esc(c.categoria_ref)}" ${c.categoria_ref === estado.categoriaRef ? "selected" : ""}>${esc(c.categoria)}</option>`).join("")}
       </select>${categoriasVisibles.length ? "" : `<p role="status">${t("sinCategorias")}</p>`}</div>
@@ -119,7 +119,7 @@ function vistaBolsa(estado, textos) {
       <p>${t(pendiente ? "revisarPendiente" : "revisarActo")}</p><p>${t("declaracionesRevisar")}</p>
       ${declarados.length ? `<ul>${declarados.map((requisito) => `<li>${esc(requisito.descripcion)} · ${t(`requisito_${requisito.estado}`)}</li>`).join("")}</ul>` : `<p>${t("sinDeclaraciones")}</p>`}
       <div class="acciones-vista"><button type="button" class="boton-secundario" data-inscripcion-accion="corregir" ${enviando ? "disabled" : ""}>${t("corregir")}</button>
-      <button type="button" class="boton-primario" data-inscripcion-accion="confirmar" ${enviando || estado.bloqueoActo ? "disabled" : ""}>${t(enviando ? "enviando" : "confirmar")}</button></div></div></section>`
+      <button type="button" class="boton-primario" data-inscripcion-accion="confirmar" ${enviando || estado.bloqueoActo || !categoria ? "disabled" : ""}>${t(enviando ? "enviando" : "confirmar")}</button></div></div></section>`
       : `<div class="acciones-vista">${bolsa.puede_iniciar ? "" : `<p role="status">${esc(bolsa.impedimento_etiqueta)}</p>`}
         <button type="button" class="boton-primario" data-inscripcion-accion="revisar" ${enviando || estado.comprobarEnvio || estado.bloqueoActo || !bolsa.puede_iniciar || !categoria ? "disabled" : ""}>${t("solicitar")}</button></div>`}
     ${estado.error ? `<p role="alert">${esc(estado.error)}</p>${estado.bloqueoActo
@@ -380,7 +380,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
 
   function cambiar(evento) {
     if (evento.target?.matches?.("[data-inscripcion-categoria]") && estado.tipo === "bolsa") {
-      if (CLAVES_PENDIENTES.has(estado.bolsa?.convocatoria_ref)) return;
+      if (estado.revision || CLAVES_PENDIENTES.has(estado.bolsa?.convocatoria_ref)) return;
       const ref = evento.target.value;
       estado.categoriaRef = estado.bolsa?.categorias.some((c) => c.categoria_ref === ref) ? ref : "";
       pintar(); contenedor.querySelector?.("[data-inscripcion-categoria]")?.focus?.({ preventScroll: true });
@@ -396,7 +396,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
 
   function buscarCategoria(evento) {
     if (!evento.target?.matches?.("[data-inscripcion-buscar-categoria]") || estado.tipo !== "bolsa"
-      || CLAVES_PENDIENTES.has(estado.bolsa?.convocatoria_ref)) return;
+      || estado.revision || CLAVES_PENDIENTES.has(estado.bolsa?.convocatoria_ref)) return;
     estado.filtroCategoria = String(evento.target.value ?? "").slice(0, 120);
     if (estado.categoriaRef && !estado.bolsa.categorias.some((c) => c.categoria_ref === estado.categoriaRef
       && textoBuscable(c.categoria).includes(textoBuscable(estado.filtroCategoria.trim())))) estado.categoriaRef = "";

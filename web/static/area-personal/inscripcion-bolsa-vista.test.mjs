@@ -272,6 +272,10 @@ test("la categoría 33 y la 128 siguen visibles y se envían por su referencia e
       contenedor.handlers.change({ target: { matches: () => true, value: `categoria:${numero}` } });
       pulsar("revisar");
       assert.match(contenedor.innerHTML, new RegExp(`Categoría ${numero}`, "u"));
+      assert.match(contenedor.innerHTML, /data-inscripcion-buscar-categoria[^>]*disabled/u);
+      assert.match(contenedor.innerHTML, /data-inscripcion-categoria disabled/u);
+      contenedor.handlers.input({ target: { matches: () => true, value: "Sin coincidencia", selectionStart: 15 } });
+      assert.match(contenedor.innerHTML, new RegExp(`Categoría ${numero}`, "u"));
       pulsar("confirmar"); await pausa();
       assert.equal(enviados.length, 1);
       assert.equal(enviados[0].categoriaRef, `categoria:${numero}`);
