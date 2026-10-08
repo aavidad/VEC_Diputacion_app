@@ -23,13 +23,35 @@ type OperadorOperacionesSituacion interface {
 type HandlerOperacionesSituacion struct {
 	preparador PreparadorSituacionParticipacion
 	operador   OperadorOperacionesSituacion
+	proyector  ProyectorDisponibilidadFichaOperaciones
 }
 
-func NuevoHandlerOperacionesSituacion(p PreparadorSituacionParticipacion, o OperadorOperacionesSituacion) (http.Handler, error) {
-	if p == nil || o == nil {
+// ProyectorDisponibilidadFichaOperaciones sólo recibe la solicitud del GET
+// cuya lectura autorizada y auditada ya concluyó. Su salida no autoriza rutas.
+type ProyectorDisponibilidadFichaOperaciones interface {
+	ProyectarDisponibilidadFichaOperaciones(context.Context, ports.SolicitudCambiarSituacionParticipacion) (DisponibilidadFichaOperaciones, error)
+}
+
+type EstadoDisponibilidadFichaOperaciones struct {
+	Estado           string `json:"estado"`
+	BolsaRef         string `json:"bolsa_ref"`
+	ParticipacionRef string `json:"participacion_ref"`
+}
+
+type DisponibilidadFichaOperaciones struct {
+	SolicitudesDocumentales  EstadoDisponibilidadFichaOperaciones `json:"solicitudes_documentales"`
+	ReincorporacionesTitular EstadoDisponibilidadFichaOperaciones `json:"reincorporaciones_titular"`
+}
+
+func NuevoHandlerOperacionesSituacion(p PreparadorSituacionParticipacion, o OperadorOperacionesSituacion, proyectores ...ProyectorDisponibilidadFichaOperaciones) (http.Handler, error) {
+	if p == nil || o == nil || len(proyectores) > 1 || len(proyectores) == 1 && proyectores[0] == nil {
 		return nil, ports.ErrSituacionParticipacionNoDisponible
 	}
-	return &HandlerOperacionesSituacion{p, o}, nil
+	h := &HandlerOperacionesSituacion{preparador: p, operador: o}
+	if len(proyectores) == 1 {
+		h.proyector = proyectores[0]
+	}
+	return h, nil
 }
 
 func ReferenciasRutaOperacionesSituacion(r *http.Request) (string, string, bool) {
@@ -88,6 +110,13 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		}
 		if vigente != nil {
 			datos["situacion_vigente"] = map[string]any{"situacion": vigente.Situacion, "desde": vigente.Desde.UTC().Format(time.RFC3339Nano), "fecha_disponible": vigente.FechaDisponible}
+		}
+		if h.proyector != nil {
+			disponibilidad, err := h.proyector.ProyectarDisponibilidadFichaOperaciones(r.Context(), q)
+			if err != nil || !disponibilidadFichaOperacionesValida(disponibilidad, q) {
+				disponibilidad = disponibilidadFichaOperacionesIndisponible(q)
+			}
+			datos["capacidades_ficha"] = disponibilidad
 		}
 		responderSituacion(w, 200, map[string]any{"data": datos})
 		return
@@ -176,6 +205,25 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		datos["resuelta_en"] = res.ResueltaEn.UTC().Format(time.RFC3339Nano)
 	}
 	responderSituacion(w, status, map[string]any{"data": datos})
+}
+
+func disponibilidadFichaOperacionesIndisponible(q ports.SolicitudCambiarSituacionParticipacion) DisponibilidadFichaOperaciones {
+	base := EstadoDisponibilidadFichaOperaciones{Estado: "indisponible", BolsaRef: q.BolsaRef, ParticipacionRef: q.ParticipacionRef}
+	return DisponibilidadFichaOperaciones{SolicitudesDocumentales: base, ReincorporacionesTitular: base}
+}
+
+func disponibilidadFichaOperacionesValida(d DisponibilidadFichaOperaciones, q ports.SolicitudCambiarSituacionParticipacion) bool {
+	for _, estado := range []EstadoDisponibilidadFichaOperaciones{d.SolicitudesDocumentales, d.ReincorporacionesTitular} {
+		if estado.BolsaRef != q.BolsaRef || estado.ParticipacionRef != q.ParticipacionRef {
+			return false
+		}
+		switch estado.Estado {
+		case "disponible", "no_autorizado", "sin_montaje", "indisponible":
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func responderOperacion(w http.ResponseWriter, status int, codigo string) {
