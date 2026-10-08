@@ -12,7 +12,7 @@ import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-ex
 import {
   renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
   renderizarLineaFases, renderizarSiguientePasoFicha,
-} from "./vista-expedientes-ficha.js?v=20261007-pantallas-textos-final-v1";
+} from "./vista-expedientes-ficha.js?v=20261008-documentos-ficha-v1";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 
@@ -165,13 +165,12 @@ function renderizarBorradoresFormalizacion(t) {
   return `<section class="ct-exp-borradores" aria-labelledby="ct-exp-borradores-titulo">
     <div class="ct-exp-borradores-cabecera"><div>
       <h4 id="ct-exp-borradores-titulo">${escaparHTML(t("borradores_titulo"))}</h4>
-      <p>${escaparHTML(t("borradores_aviso"))}</p>
     </div><button type="button" class="boton-terciario" data-ct-exp-accion="cancelar-descarga" disabled>${escaparHTML(t("cancelar_descarga"))}</button></div>
     <ul>${BORRADORES_FORMALIZACION.map(([clave, accion]) => `<li>
-      <h5>${escaparHTML(t(`${clave}_titulo`))}</h5>
+      <h5>${escaparHTML(t(`${clave}_titulo`))} <span class="ct-exp-chip">${escaparHTML(t("ficha_borrador_sin_firmar"))}</span></h5>
       <div class="ct-exp-borradores-acciones">
-        <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-${accion}">${escaparHTML(t(`${clave}_descargar`))}</button>
-        <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-docx-${accion}">${escaparHTML(t(`${clave}_descargar_docx`))}</button>
+        <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-${accion}" aria-label="${escaparHTML(t(`${clave}_descargar`))}">${escaparHTML(t("ficha_descargar_pdf"))}</button>
+        <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-docx-${accion}" aria-label="${escaparHTML(t(`${clave}_descargar_docx`))}">${escaparHTML(t("ficha_descargar_word"))}</button>
       </div>
       <p data-ct-exp-resultado-descarga="${accion}" role="status" aria-live="polite">${escaparHTML(t("descarga_sin_solicitar"))}</p>
       <button type="button" class="boton-terciario" data-ct-exp-accion="reintentar-descarga-${accion}" disabled hidden>${escaparHTML(t("reintentar_descarga"))}</button>
@@ -229,20 +228,34 @@ function valorCampoCabecera(campo, t, resolverBolsa) {
 // «Abrir llamamiento en Bolsa»: la bolsa elegida para cubrir la petición o, si
 // no hay, la vigente de su categoría. Bolsa abre el asistente con la referencia,
 // el centro y la fecha de inicio de la petición ya puestos.
-function renderizarAbrirLlamamiento(expediente, resolverBolsa) {
+export function renderizarAbrirLlamamiento(expediente, resolverBolsa, t) {
   if (typeof resolverBolsa !== "function") return "";
   const valor = (clave) => expediente.cabecera?.find((campo) => campo.clave === clave)?.valor;
   const cobertura = valor("bolsa_cobertura");
-  let bolsaRef = typeof cobertura === "string" && resolverBolsa(cobertura) ? cobertura : "";
+  let bolsaRef = typeof cobertura === "string" && resolverBolsa(cobertura)?.categoria ? cobertura : "";
+  let sinBolsaConfirmada = false;
+  let incidenciaBolsa = "";
   if (!bolsaRef) {
     const categoriaRef = expediente.analisis_previo?.categoria_ref ?? expediente.datos_peticion?.categoria_ref;
-    bolsaRef = typeof categoriaRef === "string" ? resolverBolsa("", { categoriaRef })?.bolsa_ref || "" : "";
+    const bolsaCategoria = typeof categoriaRef === "string" ? resolverBolsa("", { categoriaRef }) : null;
+    bolsaRef = bolsaCategoria?.bolsa_ref || "";
+    sinBolsaConfirmada = !cobertura && bolsaCategoria?.estado === "sin_bolsa";
+    incidenciaBolsa = ["error", "denegado"].includes(bolsaCategoria?.estado) ? bolsaCategoria.estado : "";
   }
+  // El detalle CT conserva fechas civiles a medianoche UTC; el origen de Bolsa
+  // transporta solo el día y valida de nuevo su calendario.
+  const inicioCT = expediente.analisis_previo?.periodo?.inicio ?? expediente.datos_peticion?.periodo?.inicio;
+  const inicioBolsa = typeof inicioCT === "string" && /^\d{4}-\d{2}-\d{2}T00:00:00Z$/u.test(inicioCT)
+    ? inicioCT.slice(0, 10) : inicioCT;
   const origen = bolsaRef ? origenLlamamientoValido({
     expediente_ref: expediente.expediente_ref, referencia: expediente.numero_visible, centro: valor("centro"),
-    fecha_inicio: expediente.analisis_previo?.periodo?.inicio ?? expediente.datos_peticion?.periodo?.inicio,
+    fecha_inicio: inicioBolsa,
   }) : null;
-  if (!origen) return "";
+  if (!origen) {
+    if (sinBolsaConfirmada) return `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t("ficha_llamamiento_sin_bolsa"))}</p></div></section>`;
+    if (incidenciaBolsa) return `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t(`ficha_llamamiento_bolsa_${incidenciaBolsa}`))}</p>${incidenciaBolsa === "error" ? `<button type="button" class="boton-secundario" data-ct-bolsa-reintentar>${escaparHTML(t("ficha_llamamiento_bolsa_reintentar"))}</button>` : ""}</div></section>`;
+    return "";
+  }
   const atributo = (nombre, dato) => (dato ? ` data-origen-${nombre}="${escaparHTML(dato)}"` : "");
   return `<div class="acciones-vista"><button type="button" class="boton-primario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}"${atributo("expediente", origen.expediente_ref)}${atributo("referencia", origen.referencia)}${atributo("centro", origen.centro)}${atributo("inicio", origen.fecha_inicio)}>${escaparHTML(traducirPortal("panel_ct_abrir_llamamiento"))}</button></div>`;
 }
@@ -492,21 +505,19 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     </div>`;
   // Orden de la ficha: qué toca, en qué fase está y qué hay; los trámites de
   // la fase se montan después, a partir de la marca «ct-exp-tramite».
-  const informeDisponible = solicitudInformeDefinitivoDesdeEstado(estado) !== null;
   return `${renderizarCabeceraFicha(expediente, estado, t)}
     ${renderizarSiguientePasoFicha(expediente, estado, t)}
     ${renderizarIncidencia(expediente, t, estado.navegacion)}
     ${renderizarLineaFases(expediente, t)}
     <div class="rejilla-principal ct-exp-ficha-rejilla">
       <div class="pila">
-        ${renderizarDocumentosFicha(estado, t)}
+        ${renderizarDocumentosFicha(estado, t, solicitudInformeDefinitivoDesdeEstado(estado) ? renderizarBorradoresFormalizacion(t) : "")}
         ${renderizarHistorialFicha(expediente, t, faseDeCampo)}
         ${renderizarCambiosExpediente(expediente)}
       </div>
       <div class="pila">
         ${renderizarDatosPeticion(expediente, t, { valorCampo: (campo) => valorCampoCabecera(campo, t, resolverBolsa), faseDeCampo })}
-        ${renderizarAbrirLlamamiento(expediente, resolverBolsa)}
-        ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
+        ${typeof resolverBolsa === "function" ? `<div data-ct-bolsa-ficha aria-live="polite">${renderizarAbrirLlamamiento(expediente, resolverBolsa, t)}</div>` : ""}
       </div>
     </div>
     ${tramitacion}
@@ -549,26 +560,8 @@ export function renderizarDocumentos(estado, t) {
   const indice = estado.documentos;
   if (!expediente || !indice) return renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
   return `${renderizarCabeceraFicha(expediente, estado, t)}
-    ${solicitudInformeDefinitivoDesdeEstado(estado) ? renderizarBorradoresFormalizacion(t) : ""}
-    <section class="panel ct-exp-documentos" aria-labelledby="ct-exp-documentos-titulo">
-      <header class="cabecera-panel ct-exp-subcabecera ct-exp-documentos-cabecera">
-        <div><h3 id="ct-exp-documentos-titulo" tabindex="-1">${escaparHTML(t("documentos_titulo"))}</h3>
-          <p>${escaparHTML(t("documentos_descripcion"))}</p></div>
-        <button type="button" class="boton-secundario" data-ct-exp-vista="expediente">${escaparHTML(t("nav_expediente"))}</button>
-      </header>
-      ${indice.documentos.length ? `<ul class="ct-exp-documentos-lista" aria-label="${escaparHTML(t("documentos_tabla"))}">
-        ${indice.documentos.map((documento) => `<li class="ct-exp-documento">
-          <div class="ct-exp-documento-principal"><h4>${escaparHTML(documento.titulo)}</h4>
-            <span class="ct-exp-chip">${escaparHTML(documento.estado)}</span></div>
-          <dl><div><dt>${escaparHTML(t("tipo"))}</dt><dd>${escaparHTML(documento.tipo)}</dd></div>
-            <div><dt>${escaparHTML(t("version"))}</dt><dd>${documento.version}</dd></div>
-            <div><dt>${escaparHTML(t("firma"))}</dt><dd>${escaparHTML(documento.firma)}</dd></div>
-            <div><dt>${escaparHTML(t("fecha"))}</dt><dd>${escaparHTML(documento.fecha)}</dd></div></dl>
-          <p class="ct-exp-documento-descarga">${escaparHTML(documento.descarga_disponible
-    ? t("descarga_indice_sin_accion") : t("descarga_no_disponible"))}</p>
-        </li>`).join("")}
-      </ul>` : `<p class="ct-exp-documentos-vacio" role="status">${escaparHTML(t("panel_sin_datos"))}</p>`}
-    </section>
+    <button type="button" class="boton-secundario" data-ct-exp-vista="expediente">${escaparHTML(t("nav_expediente"))}</button>
+    ${renderizarDocumentosFicha(estado, t, solicitudInformeDefinitivoDesdeEstado(estado) ? renderizarBorradoresFormalizacion(t) : "")}
     ${renderizarContinuidadDesdeDocumentos(expediente, t)}`;
 }
 

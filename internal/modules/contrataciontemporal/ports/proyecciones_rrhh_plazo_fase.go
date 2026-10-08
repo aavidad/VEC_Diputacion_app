@@ -65,7 +65,8 @@ type CalculadoraPlazoFaseRRHH interface {
 // PreparadorPlazosFaseRRHH lo implementa, opcionalmente, una calculadora que
 // puede leer su catálogo de reglas una sola vez para todos los plazos de una
 // consulta. La calculadora preparada da los mismos plazos que la original;
-// si la preparación falla, la consulta calcula con la original.
+// si la preparación falla, el cuadro conserva la causa y marca los plazos
+// como no_calculado sin volver a leer el catálogo por fila o grupo.
 type PreparadorPlazosFaseRRHH interface {
 	PrepararPlazosFase(context.Context) (CalculadoraPlazoFaseRRHH, error)
 }

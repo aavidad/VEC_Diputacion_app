@@ -156,8 +156,8 @@
       "menuIdentidad": "Open identity menu",
       "textoCorto": "Text ",
       "contrasteCorto": "Contrast",
-      "identidadServicio": "Identity verified by the Users service",
-      "identidadNoConfirmada": "Identity not confirmed by the preferences service",
+      "identidadServicio": "Identity verified",
+      "identidadNoConfirmada": "Identity pending",
       "atajo": {
         "textoActivo": "Larger text size for this session.",
         "textoInactivo": "Normal text size for this session.",

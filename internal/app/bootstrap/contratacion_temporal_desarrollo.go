@@ -905,8 +905,6 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			EjecutorSeleccion:               seleccionReal,
 			AutoridadPropuestaFormalizacion: autoridadPropuestaReal,
 			EjecutorPropuestaFormalizacion:  propuestaReal,
-			AutoridadCierreAdministrativo:   noCompuesta,
-			EjecutorCierreAdministrativo:    noCompuesta,
 			AutoridadAsignacion:             alta.soporte,
 			EjecutorAsignacion:              asignacionReal,
 			AutoridadInformeJuridico:        alta.soporte,
