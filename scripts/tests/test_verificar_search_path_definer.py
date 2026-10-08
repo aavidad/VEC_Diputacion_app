@@ -1,8 +1,9 @@
 """Casos sintéticos de la puerta SQL; no se conecta a PostgreSQL."""
 
 import unittest
+from pathlib import Path
 
-from scripts.verificar_search_path_definer import added_lines, inspect_sql
+from scripts.verificar_search_path_definer import AD225_PATH, added_lines, inspect_sql
 
 
 class VerificarSearchPathDefiner(unittest.TestCase):
@@ -115,6 +116,46 @@ $body$;'''
         alter_ok = "DO $$ BEGIN EXECUTE format('ALTER ROUTINE %I() SET search_path=pg_catalog,pg_temp', 'a'); END $$;"
         self.assertEqual(inspect_sql(alter_ok, {1}), [])
         self.assertEqual(inspect_sql("DO $$ BEGIN EXECUTE 'DROP FUNCTION a()'; END $$;", {1}), [])
+
+    def test_ad225_reconstruccion_exacta_revisada(self):
+        repo = Path(__file__).resolve().parents[2]
+        sql = (repo / AD225_PATH).read_text(encoding="utf-8")
+        self.assertEqual(inspect_sql(sql, {10}, filename=AD225_PATH), [])
+        self.assertTrue(any("reconstrucción dinámica" in reason
+                            for _, reason in inspect_sql(sql, {10}, filename="otro/archivo.sql")))
+        self.assertTrue(any("reconstrucción dinámica" in reason
+                            for _, reason in inspect_sql(sql, {10})))
+
+    def test_ad225_mutaciones_y_ddl_ajeno_se_rechazan(self):
+        repo = Path(__file__).resolve().parents[2]
+        sql = (repo / AD225_PATH).read_text(encoding="utf-8")
+        cambios = (
+            ("p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'",
+             "p.proconfig=ARRAY['search_path=public, pg_temp'"),
+            ("nuevo:=replace(original,marca,ampliacion);", "nuevo:=original;"),
+            ("EXECUTE nuevo;", "EXECUTE original;"),
+            ("replace(actual,ampliacion,marca) IS DISTINCT FROM original",
+             "replace(actual,marca,ampliacion) IS DISTINCT FROM original"),
+            ("559555ec535ad40cc3aad6361286899c28aede91ff73b2901eb30970d95ac986",
+             "059555ec535ad40cc3aad6361286899c28aede91ff73b2901eb30970d95ac986"),
+            ("p_perfil_mutacion IS NOT DISTINCT FROM 'reanudacion_seleccion'",
+             "p_perfil_mutacion IS NOT DISTINCT FROM 'reanudacion_orden_abierta'"),
+            ("strpos(original,'reanudacion_solicitud_llamamiento')<>0",
+             "strpos(original,'reanudacion_solicitud_llamamiento')=0"),
+        )
+        for original, alterado in cambios:
+            with self.subTest(cambio=original[:35]):
+                self.assertIn(original, sql)
+                fallos = inspect_sql(sql.replace(original, alterado, 1), {10}, filename=AD225_PATH)
+                self.assertTrue(any("reconstrucción dinámica" in reason for _, reason in fallos))
+        no_aprobado = "DO $$ DECLARE ddl text; BEGIN SELECT pg_get_functiondef('a()'::regprocedure) INTO ddl; EXECUTE ddl; END $$;"
+        self.assertTrue(inspect_sql(no_aprobado, {1}, filename=AD225_PATH))
+        cabecera = "SET search_path = pg_catalog, pg_temp SET lock_timeout = '2s'"
+        self.assertIn(cabecera, sql)
+        insegura = sql.replace(cabecera, "SET search_path = public SET lock_timeout = '2s'", 1)
+        linea = insegura[:insegura.index("SET search_path = public SET lock_timeout")].count("\n") + 1
+        self.assertTrue(any("SECURITY DEFINER" in reason
+                            for _, reason in inspect_sql(insegura, {linea}, filename=AD225_PATH)))
 
     def test_hunks_solo_lineas_añadidas(self):
         diff = "@@ -2,0 +3,2 @@\n+a\n+b\n@@ -8 +10 @@\n-x\n+y\n@@ -12 +13,0 @@\n-SET search_path=pg_catalog,pg_temp\n"
