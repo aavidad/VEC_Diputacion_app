@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -113,8 +114,14 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		}
 		if h.proyector != nil {
 			disponibilidad, err := h.proyector.ProyectarDisponibilidadFichaOperaciones(r.Context(), q)
-			if err != nil || !disponibilidadFichaOperacionesValida(disponibilidad, q) {
+			if err != nil {
+				registrarIncidenciaDisponibilidadFichaOperaciones(clasificarIncidenciaDisponibilidadFichaOperaciones(err))
 				disponibilidad = disponibilidadFichaOperacionesIndisponible(q)
+			} else if !disponibilidadFichaOperacionesValida(disponibilidad, q) {
+				registrarIncidenciaDisponibilidadFichaOperaciones("forma_incompatible")
+				disponibilidad = disponibilidadFichaOperacionesIndisponible(q)
+			} else if disponibilidad.SolicitudesDocumentales.Estado == "indisponible" || disponibilidad.ReincorporacionesTitular.Estado == "indisponible" {
+				registrarIncidenciaDisponibilidadFichaOperaciones("fuente_o_montaje_indisponible")
 			}
 			datos["capacidades_ficha"] = disponibilidad
 		}
@@ -205,6 +212,23 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		datos["resuelta_en"] = res.ResueltaEn.UTC().Format(time.RFC3339Nano)
 	}
 	responderSituacion(w, status, map[string]any{"data": datos})
+}
+
+func clasificarIncidenciaDisponibilidadFichaOperaciones(err error) string {
+	switch {
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return "contexto_cancelado"
+	case errors.Is(err, dominiovec.ErrAutorizacionDenegada):
+		return "ambito_no_resuelto"
+	case errors.Is(err, dominiovec.ErrConfiguracionAccesoInvalida):
+		return "proyeccion_invalida"
+	default:
+		return "dependencia_indisponible"
+	}
+}
+
+func registrarIncidenciaDisponibilidadFichaOperaciones(codigo string) {
+	slog.Warn("bolsa: disponibilidad de ficha no comprobada", "codigo", codigo)
 }
 
 func disponibilidadFichaOperacionesIndisponible(q ports.SolicitudCambiarSituacionParticipacion) DisponibilidadFichaOperaciones {

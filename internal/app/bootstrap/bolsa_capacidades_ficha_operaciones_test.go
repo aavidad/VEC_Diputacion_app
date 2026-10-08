@@ -134,4 +134,55 @@ func TestFichaOperacionesBolsaProyectaLoteF1DelGETLeido(t *testing.T) {
 	if err != nil || fuente.llamadas != 4 || resultado.SolicitudesDocumentales.Estado != "sin_montaje" || resultado.ReincorporacionesTitular.Estado != "sin_montaje" {
 		t.Fatalf("dispatcher sin adjuntos: %+v, llamadas=%d, err=%v", resultado, fuente.llamadas, err)
 	}
+	fuente.err = nil
+	fuente.instantanea, err = nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
+		datos.PrincipalID, datos.PerfilActivoRef, soporte.unidadRef, soporte.ambitoRef, ahora, 11)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err = nuevoProyectorDisponibilidadFichaOperacionesBolsa(preparador, fuente, reloj, documentales, documentales)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultado, err = p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q)
+	if err != nil || resultado.SolicitudesDocumentales.Estado != "disponible" || resultado.ReincorporacionesTitular.Estado != "disponible" {
+		t.Fatalf("concesiones completas: %+v err=%v", resultado, err)
+	}
+	for i := range fuente.instantanea.VersionRol.Concesiones {
+		if fuente.instantanea.VersionRol.Concesiones[i].Accion == bolsapuertos.AccionConsultarSolicitudesDocumentalesRRHH {
+			fuente.instantanea.VersionRol.Concesiones[i].CamposPermitidos = []string{"campo_parcial"}
+		}
+	}
+	resultado, err = p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q)
+	if err != nil || resultado.SolicitudesDocumentales.Estado != "no_autorizado" || resultado.ReincorporacionesTitular.Estado != "disponible" {
+		t.Fatalf("campo documental parcial anunciado: %+v err=%v", resultado, err)
+	}
+	fuente.instantanea, err = nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
+		datos.PrincipalID, datos.PerfilActivoRef, soporte.unidadRef, soporte.ambitoRef, ahora, 11)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range fuente.instantanea.VersionRol.Concesiones {
+		if fuente.instantanea.VersionRol.Concesiones[i].Accion == bolsapuertos.AccionConsultarReincorporacionTitular {
+			fuente.instantanea.VersionRol.Concesiones[i].CamposPermitidos = nil
+		}
+	}
+	resultado, err = p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q)
+	if err != nil || resultado.SolicitudesDocumentales.Estado != "disponible" || resultado.ReincorporacionesTitular.Estado != "no_autorizado" {
+		t.Fatalf("campo de reincorporación ausente anunciado: %+v err=%v", resultado, err)
+	}
+	fuente.instantanea, err = nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
+		datos.PrincipalID, datos.PerfilActivoRef, soporte.unidadRef, soporte.ambitoRef, ahora, 11)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range fuente.instantanea.VersionRol.Concesiones {
+		if fuente.instantanea.VersionRol.Concesiones[i].Accion == bolsapuertos.AccionConsultarReincorporacionTitular {
+			fuente.instantanea.VersionRol.Concesiones[i].Obligaciones = []string{"control_pendiente"}
+		}
+	}
+	resultado, err = p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q)
+	if err != nil || resultado.SolicitudesDocumentales.Estado != "disponible" || resultado.ReincorporacionesTitular.Estado != "no_autorizado" {
+		t.Fatalf("obligación no ejecutada anunciada: %+v err=%v", resultado, err)
+	}
 }
