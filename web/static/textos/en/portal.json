@@ -629,7 +629,7 @@
     "txt_n_gobernados": "{numero} managed",
     "txt_n_meses": "{numero} months",
     "txt_n_no_incorporaciones_por_revisar": "{numero} failures to start work to review",
-    "txt_n_registros": "{numero} records",
+    "txt_n_registros": "Records: {numero}",
     "txt_n_registros_ambito_autorizado": "{total} records available",
     "txt_n_respuestas_del_portal": "{numero} portal responses",
     "txt_n_saltos_de_orden": "{numero} skips in order",

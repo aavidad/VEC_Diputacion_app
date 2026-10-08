@@ -109,6 +109,7 @@ test("la lectura anterior no inventa un turno y las claves nuevas existen en amb
   assert.doesNotMatch(presentar(datos), /Turno de la bolsa/);
   for (const idioma of ["es", "en"]) {
     const mensajes = await cargarMensajesPortal(idioma);
+    assert.equal(mensajes.txt_n_registros, idioma === "es" ? "Registros: {numero}" : "Records: {numero}");
     for (const clave of ["bolsa_turno_titulo", "bolsa_turno_ultimo", "bolsa_turno_siguiente",
       "bolsa_turno_regla_provisional", "bolsa_turno_sin_disponibles", "bolsa_turno_aviso",
       "bolsa_historico_estadisticas_pendiente"]) {
