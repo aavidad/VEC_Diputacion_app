@@ -132,7 +132,7 @@ export async function montarCuadroContratacionLigero({
   }
   const ayudas = Object.freeze({
     numeroVisible: (numero) => numero,
-    centroVisible: (referencia) => Object.freeze({ etiqueta: nombreCentro(referencia), referencia }),
+    centroVisible: (referencia) => Object.freeze({ etiqueta: nombreCentro(referencia), referencia: "" }),
   });
 
   const cuadroVisible = () => ({ ...cuadro,
