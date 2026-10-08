@@ -165,20 +165,31 @@ func TestVersionarRolBolsaDenegacionSQLConfirmaAuditoria(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := json.Marshal(map[string]any{"estado": "denegado",
-		"codigo":            "version_rol_bolsa_denegado",
-		"auditoria_intento": map[string]any{"auditoria_ref": "aud_v3_" + strings.Repeat("a", 32)}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	tx := &txGobiernoReferenciaPrueba{fila: filaFalsa{dato: b}}
-	a := &AutoridadVersionarRolBolsa{pool: &poolGobiernoReferenciaPrueba{tx: tx},
-		catalogo: fuenteCatalogoGobiernoReferenciaPrueba{},
-		emisor:   emisorVersionarRolBolsaPrueba{t: t, ahora: ahora}, reloj: relojFijo(ahora)}
-	err = a.ejecutar(context.Background(), s.Aprobador, s.Evidencia, s.InstantaneaAutorizacion,
-		e, cerrarVersionarRolBolsaSQL, func([]byte) error { t.Fatal("denegación validada como éxito"); return nil })
-	if !errors.Is(err, ports.ErrGobiernoRolIntentoAuditado) ||
-		!errors.Is(err, domain.ErrAutorizacionDenegada) || tx.consultas != 1 || tx.commits != 1 {
-		t.Fatalf("denegación perdió auditoría: err=%v consultas=%d commits=%d", err, tx.consultas, tx.commits)
+	for _, caso := range []struct {
+		estado, codigo string
+		denegado       bool
+	}{
+		{"denegado", "version_rol_bolsa_denegado", true},
+		{"error", "version_rol_bolsa_error", false},
+	} {
+		t.Run(caso.estado, func(t *testing.T) {
+			b, err := json.Marshal(map[string]any{"estado": caso.estado,
+				"codigo":            caso.codigo,
+				"auditoria_intento": map[string]any{"auditoria_ref": "aud_v3_" + strings.Repeat("a", 32)}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			tx := &txGobiernoReferenciaPrueba{fila: filaFalsa{dato: b}}
+			a := &AutoridadVersionarRolBolsa{pool: &poolGobiernoReferenciaPrueba{tx: tx},
+				catalogo: fuenteCatalogoGobiernoReferenciaPrueba{},
+				emisor:   emisorVersionarRolBolsaPrueba{t: t, ahora: ahora}, reloj: relojFijo(ahora)}
+			err = a.ejecutar(context.Background(), s.Aprobador, s.Evidencia, s.InstantaneaAutorizacion,
+				e, cerrarVersionarRolBolsaSQL, func([]byte) error { t.Fatal("fallo validado como éxito"); return nil })
+			if !errors.Is(err, ports.ErrGobiernoRolIntentoAuditado) ||
+				errors.Is(err, domain.ErrAutorizacionDenegada) != caso.denegado ||
+				tx.consultas != 1 || tx.commits != 1 {
+				t.Fatalf("fallo perdió auditoría: err=%v consultas=%d commits=%d", err, tx.consultas, tx.commits)
+			}
+		})
 	}
 }
