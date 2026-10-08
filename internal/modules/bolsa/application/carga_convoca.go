@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -64,7 +65,7 @@ type PreparadorOriginalCargaConvoca interface {
 // ConstituidorCargaConvoca constituye la bolsa del acta consumiendo el
 // material de la decisión (constitucion.ServicioAutorizado).
 type ConstituidorCargaConvoca interface {
-	Constituir(context.Context, importacion.LoteValidado, constitucion.Solicitud, ports.OriginalProtegidoCargaConvoca, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error)
+	Constituir(context.Context, importacion.LoteValidado, constitucion.Solicitud, ports.OriginalProtegidoCargaConvoca, []byte, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error)
 }
 
 // ResultadoCargaConvoca es lo que la pantalla enseña tras confirmar.
@@ -125,6 +126,18 @@ func (s *ServicioCargaConvoca) Confirmar(ctx context.Context, solicitud ports.So
 	}
 	recurso := dominiovec.RecursoAutorizable{Referencia: actaRef, ModuloID: ports.ModuloCargaConvoca, Tipo: ports.TipoRecursoCargaConvoca,
 		Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
+	contextoRecurso, err := json.Marshal(struct {
+		Ambitos   map[string]string `json:"ambitos"`
+		Atributos map[string]string `json:"atributos"`
+	}{Ambitos: recurso.Ambitos, Atributos: map[string]string{}})
+	if err != nil {
+		return ResultadoCargaConvoca{}, errorCargaConCausa(ports.ErrCargaConvocaNoDisponible, "contexto_recurso", "serializacion")
+	}
+	huellaContexto, err := recurso.HuellaContextoAutorizacionSHA256()
+	sumaContexto := sha256.Sum256(contextoRecurso)
+	if err != nil || hex.EncodeToString(sumaContexto[:]) != huellaContexto {
+		return ResultadoCargaConvoca{}, errorCargaConCausa(ports.ErrCargaConvocaNoDisponible, "contexto_recurso", "huella_divergente")
+	}
 	auth, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{
 		VinculoAutenticacionActor: solicitud.Vinculo, ReferenciaMotivo: solicitud.MotivoAutorizacion,
 		Accion: ports.AccionConfirmarCargaConvoca, Recurso: recurso, Finalidad: ports.FinalidadConfirmarCargaConvoca,
@@ -143,6 +156,9 @@ func (s *ServicioCargaConvoca) Confirmar(ctx context.Context, solicitud ports.So
 	material, err := exportador.ExportarMaterialParaConsumidor()
 	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(auth, decision, confirmacion, solicitud.ResultadoContexto, solicitud.MotivoAutorizacion, material, ports.AudienciaConfirmarCargaConvoca) {
 		return ResultadoCargaConvoca{}, errorDependenciaCarga("material_autorizacion", err)
+	}
+	if material.ResumenCapacidad().EfectoHuellaSHA256() != huellaContexto {
+		return ResultadoCargaConvoca{}, errorCargaConCausa(ports.ErrCargaConvocaNoDisponible, "material_autorizacion", "contexto_divergente")
 	}
 	originalRef := "original:convoca:" + strings.TrimPrefix(actaRef, "acta:importacion-convoca:")
 	lote, err := s.preparador.PrepararLote(ctx, importacionapp.SolicitudImportacion{
@@ -177,7 +193,7 @@ func (s *ServicioCargaConvoca) Confirmar(ctx context.Context, solicitud ports.So
 	if sobre.Referencia != originalRef || sobre.Formato != formato || sobre.BytesOriginales != len(solicitud.Contenido) {
 		return ResultadoCargaConvoca{}, ports.ErrCargaConvocaNoDisponible
 	}
-	recibo, err := s.constituidor.Constituir(ctx, lote, constitucion.Solicitud{HuellaFicheroSHA256: huella, CategoriaRef: solicitud.CategoriaRef, ActorRef: actor.PersonaRef}, sobre, material)
+	recibo, err := s.constituidor.Constituir(ctx, lote, constitucion.Solicitud{HuellaFicheroSHA256: huella, CategoriaRef: solicitud.CategoriaRef, ActorRef: actor.PersonaRef}, sobre, contextoRecurso, material)
 	if err != nil {
 		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
 			return ResultadoCargaConvoca{}, err

@@ -2,6 +2,8 @@ package constitucion
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"time"
 
 	importacion "vec-diputacion-granada/internal/modules/bolsa/domain/importacionconvoca"
@@ -29,13 +31,17 @@ func NuevoServicioAutorizado(derivador DerivadorCandidato, reloj Reloj, autoriza
 // el material. El actor es el titular de la decisión.
 // El mismo lote que se previsualizó llega al repositorio, sin una lectura de
 // staging intermedia ni escrituras previas a la autorización.
-func (s *ServicioAutorizado) Constituir(ctx context.Context, lote importacion.LoteValidado, solicitud Solicitud, original ports.OriginalProtegidoCargaConvoca, material puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error) {
+func (s *ServicioAutorizado) Constituir(ctx context.Context, lote importacion.LoteValidado, solicitud Solicitud, original ports.OriginalProtegidoCargaConvoca, contextoRecurso []byte, material puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error) {
 	if ctx == nil || s == nil || s.derivador == nil || s.reloj == nil {
 		return ports.ReciboCargaConvoca{}, ErrDependenciasRequeridas
 	}
 	if solicitud.HuellaFicheroSHA256 == "" || solicitud.CategoriaRef == "" || solicitud.ActorRef == "" || material.ValidarEstructura() != nil ||
 		lote.Validar() != nil || lote.Acta.HuellaFicheroSHA256 != solicitud.HuellaFicheroSHA256 || lote.Acta.CategoriaRef != solicitud.CategoriaRef ||
-		original.Referencia != lote.Acta.FicheroCustodiadoRef {
+		original.Referencia != lote.Acta.FicheroCustodiadoRef || len(contextoRecurso) == 0 {
+		return ports.ReciboCargaConvoca{}, ports.ErrConstitucionBolsaInvalida
+	}
+	huellaContexto := sha256.Sum256(contextoRecurso)
+	if hex.EncodeToString(huellaContexto[:]) != material.ResumenCapacidad().EfectoHuellaSHA256() {
 		return ports.ReciboCargaConvoca{}, ports.ErrConstitucionBolsaInvalida
 	}
 	if lote.Acta.BolsaRef != "" && lote.Acta.BolsaRef != bolsaRefDerivadaActa(lote.Acta.ActaRef, lote.Acta.CategoriaRef) {
@@ -56,7 +62,7 @@ func (s *ServicioAutorizado) Constituir(ctx context.Context, lote importacion.Lo
 	if lote.Validar() != nil {
 		return ports.ReciboCargaConvoca{}, ports.ErrConstitucionBolsaInvalida
 	}
-	recibo, err := s.autorizado.ConfirmarCargaConvocaAutorizada(ctx, lote, constitucion, vinculos, original, material)
+	recibo, err := s.autorizado.ConfirmarCargaConvocaAutorizada(ctx, lote, constitucion, vinculos, original, contextoRecurso, material)
 	if err != nil {
 		return ports.ReciboCargaConvoca{}, err
 	}

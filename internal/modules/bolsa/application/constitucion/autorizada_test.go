@@ -3,6 +3,7 @@ package constitucion
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"os"
@@ -20,14 +21,15 @@ import (
 )
 
 type autorizadoPrueba struct {
-	guardada ports.Constitucion
-	lote     importacion.LoteValidado
-	vinculos []ports.VinculoCandidato
-	err      error
+	guardada        ports.Constitucion
+	lote            importacion.LoteValidado
+	vinculos        []ports.VinculoCandidato
+	contextoRecurso []byte
+	err             error
 }
 
-func (a *autorizadoPrueba) ConfirmarCargaConvocaAutorizada(_ context.Context, lote importacion.LoteValidado, c ports.Constitucion, vinculos []ports.VinculoCandidato, _ ports.OriginalProtegidoCargaConvoca, _ puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error) {
-	a.guardada, a.lote, a.vinculos = c, lote, vinculos
+func (a *autorizadoPrueba) ConfirmarCargaConvocaAutorizada(_ context.Context, lote importacion.LoteValidado, c ports.Constitucion, vinculos []ports.VinculoCandidato, _ ports.OriginalProtegidoCargaConvoca, contextoRecurso []byte, _ puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboCargaConvoca, error) {
+	a.guardada, a.lote, a.vinculos, a.contextoRecurso = c, lote, vinculos, append([]byte(nil), contextoRecurso...)
 	if a.err != nil {
 		return ports.ReciboCargaConvoca{}, a.err
 	}
@@ -47,7 +49,7 @@ func TestServicioAutorizadoExigeDependenciasYMaterial(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Constituir(context.Background(), importacion.LoteValidado{}, Solicitud{HuellaFicheroSHA256: "h", CategoriaRef: "c", ActorRef: "a"}, ports.OriginalProtegidoCargaConvoca{}, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}); !errors.Is(err, ports.ErrConstitucionBolsaInvalida) {
+	if _, err := s.Constituir(context.Background(), importacion.LoteValidado{}, Solicitud{HuellaFicheroSHA256: "h", CategoriaRef: "c", ActorRef: "a"}, ports.OriginalProtegidoCargaConvoca{}, nil, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}); !errors.Is(err, ports.ErrConstitucionBolsaInvalida) {
 		t.Fatalf("material vacío admitido: %v", err)
 	}
 }
@@ -69,12 +71,13 @@ func TestServicioAutorizadoConstituyeConElMismoOrdenYRegistraVinculos(t *testing
 		t.Fatal(err)
 	}
 	original := ports.OriginalProtegidoCargaConvoca{Referencia: lote.Acta.FicheroCustodiadoRef}
+	contextoRecurso := []byte(`{"ambitos":{"ambito_ref":"ambito:bolsa","unidad_ref":"unidad:seleccion"},"atributos":{}}`)
 	autorizado := &autorizadoPrueba{}
 	s, err := NuevoServicioAutorizado(derivadorPrueba(t), func() time.Time { return time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC) }, autorizado)
 	if err != nil {
 		t.Fatal(err)
 	}
-	recibo, err := s.Constituir(context.Background(), lote, Solicitud{HuellaFicheroSHA256: lote.Acta.HuellaFicheroSHA256, CategoriaRef: lote.Acta.CategoriaRef, ActorRef: "per_0123456789abcdefghijkl"}, original, materialPruebaConstitucion(t))
+	recibo, err := s.Constituir(context.Background(), lote, Solicitud{HuellaFicheroSHA256: lote.Acta.HuellaFicheroSHA256, CategoriaRef: lote.Acta.CategoriaRef, ActorRef: "per_0123456789abcdefghijkl"}, original, contextoRecurso, materialPruebaConstitucion(t, contextoRecurso))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,29 +91,38 @@ func TestServicioAutorizadoConstituyeConElMismoOrdenYRegistraVinculos(t *testing
 	if recibo.AuditoriaRef == "" || len(autorizado.vinculos) != 9 {
 		t.Fatalf("recibo o vínculos inesperados: %+v %+v", recibo, autorizado.vinculos)
 	}
+	if !bytes.Equal(autorizado.contextoRecurso, contextoRecurso) {
+		t.Fatal("el contexto cambió antes del repositorio")
+	}
+	autorizado.guardada = ports.Constitucion{}
+	contextoVistaPrevia := []byte(`{"ambitos":{"ambito_ref":"ambito:bolsa","unidad_ref":"unidad:seleccion"},"atributos":{"fase":"vista_previa"}}`)
+	if _, err := s.Constituir(context.Background(), lote, Solicitud{HuellaFicheroSHA256: lote.Acta.HuellaFicheroSHA256, CategoriaRef: lote.Acta.CategoriaRef, ActorRef: "per_0123456789abcdefghijkl"}, original, contextoVistaPrevia, materialPruebaConstitucion(t, contextoRecurso)); !errors.Is(err, ports.ErrConstitucionBolsaInvalida) || autorizado.guardada.ActaRef != "" {
+		t.Fatalf("contexto de vista previa alcanzó el repositorio: %v", err)
+	}
 	autorizado.err = dominiovec.ErrAutorizacionDenegada
-	if _, err := s.Constituir(context.Background(), lote, Solicitud{HuellaFicheroSHA256: lote.Acta.HuellaFicheroSHA256, CategoriaRef: lote.Acta.CategoriaRef, ActorRef: "per_0123456789abcdefghijkl"}, original, materialPruebaConstitucion(t)); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
+	if _, err := s.Constituir(context.Background(), lote, Solicitud{HuellaFicheroSHA256: lote.Acta.HuellaFicheroSHA256, CategoriaRef: lote.Acta.CategoriaRef, ActorRef: "per_0123456789abcdefghijkl"}, original, contextoRecurso, materialPruebaConstitucion(t, contextoRecurso)); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
 		t.Fatalf("denegación: err=%v", err)
 	}
 	autorizado.err = nil
 	autorizado.guardada = ports.Constitucion{}
 	lote.Acta.BolsaRef = "bolsa:otra:referencia"
-	if _, err := s.Constituir(context.Background(), lote, Solicitud{HuellaFicheroSHA256: lote.Acta.HuellaFicheroSHA256, CategoriaRef: lote.Acta.CategoriaRef, ActorRef: "per_0123456789abcdefghijkl"}, original, materialPruebaConstitucion(t)); !errors.Is(err, ports.ErrConstitucionBolsaInvalida) || autorizado.guardada.ActaRef != "" {
+	if _, err := s.Constituir(context.Background(), lote, Solicitud{HuellaFicheroSHA256: lote.Acta.HuellaFicheroSHA256, CategoriaRef: lote.Acta.CategoriaRef, ActorRef: "per_0123456789abcdefghijkl"}, original, contextoRecurso, materialPruebaConstitucion(t, contextoRecurso)); !errors.Is(err, ports.ErrConstitucionBolsaInvalida) || autorizado.guardada.ActaRef != "" {
 		t.Fatalf("referencia ajena alcanzó el repositorio: %v", err)
 	}
 }
 
 // materialPruebaConstitucion es un material estructuralmente válido: el
 // servicio no lo interpreta, solo lo entrega al repositorio que lo consume.
-func materialPruebaConstitucion(t *testing.T) puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
+func materialPruebaConstitucion(t *testing.T, contextoRecurso []byte) puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
 	t.Helper()
 	ahora := time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC)
 	c, _, err := pruebas.NuevoContextoRegistradoYVinculoV2(ahora, "per_0123456789abcdefghijkl", "prf_0123456789abcdefghijkl", dominiovec.AuthMethodCertificate, dominiovec.AuthAssuranceHigh)
 	if err != nil {
 		t.Fatal(err)
 	}
+	huella := sha256.Sum256(contextoRecurso)
 	r, err := puertosvec.NuevoResumenCapacidadAtestacionAutorizacionV3("decision:prueba", strings.Repeat("c", 64), strings.Repeat("d", 64), c.RegistroContextoRef, c.HuellaSHA256,
-		ports.AccionConfirmarCargaConvoca, "acta:importacion-convoca:"+strings.Repeat("ab", 32), strings.Repeat("e", 64), ports.AudienciaConfirmarCargaConvoca, ahora.Add(-time.Microsecond), ahora.Add(time.Second))
+		ports.AccionConfirmarCargaConvoca, "acta:importacion-convoca:"+strings.Repeat("ab", 32), hex.EncodeToString(huella[:]), ports.AudienciaConfirmarCargaConvoca, ahora.Add(-time.Microsecond), ahora.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
