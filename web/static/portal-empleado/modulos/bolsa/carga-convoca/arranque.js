@@ -29,9 +29,18 @@ async function iniciar(reintento = false) {
       error.hidden = false;
       error.focus();
     } catch {
-      // El lector común y su respaldo no están disponibles; queda el control de recarga.
-      error.hidden = false;
-      error.focus();
+      try {
+        const respaldo = await cargarTextos("bolsa-carga-convoca-recuperacion");
+        document.getElementById("arranque-error-titulo").textContent = respaldo.traducir("general.titulo");
+        document.getElementById("arranque-error-detalle").textContent = respaldo.traducir("general.detalle");
+        boton.textContent = respaldo.traducir("general.reintentar");
+        error.hidden = false;
+        error.focus();
+      } catch {
+        // Sin ningún catálogo disponible, el control queda visible para recuperar la carga.
+        error.hidden = false;
+        error.focus();
+      }
     }
   } finally {
     boton.disabled = false;

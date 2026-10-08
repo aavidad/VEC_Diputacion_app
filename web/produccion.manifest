@@ -529,6 +529,8 @@ static/portal-empleado/modulos/bolsa/carga-convoca/cliente.js
 static/portal-empleado/modulos/bolsa/carga-convoca/carga-convoca.css
 static/textos/es/bolsa-carga-convoca.json
 static/textos/en/bolsa-carga-convoca.json
+static/textos/es/bolsa-carga-convoca-recuperacion.json
+static/textos/en/bolsa-carga-convoca-recuperacion.json
 static/textos/es/cronos-permisos.json
 static/textos/en/cronos-permisos.json
 static/textos/es/cronos-resolucion.json
