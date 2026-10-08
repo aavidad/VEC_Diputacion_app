@@ -631,7 +631,9 @@ export function crearGestorTramitacion({
       || seleccionado.expediente?.expediente_ref !== recibo.expediente_ref) return;
     const vigente = () => esMontada() && sesionAnalisis === sesion;
     const avisarPendiente = () => {
-      if (vigente()) anunciar(tExpedientes("estado_confirmada_actualizacion_pendiente"), "aviso");
+      if (!vigente()) return;
+      sesion.lecturaPendiente = true;
+      if (sesion.reciboPintado) mostrarAvisoLecturaPendiente(sesion);
     };
     try {
       await presentador.cargar();
@@ -651,6 +653,12 @@ export function crearGestorTramitacion({
         avisarPendiente();
         return;
       }
+      const contenedorAnterior = raiz.querySelector("[data-ct-exp-rectificacion]")
+        ?? raiz.querySelector("[data-ct-exp-analisis]");
+      const documentoAnterior = contenedorAnterior?.ownerDocument;
+      const focoAnterior = documentoAnterior?.activeElement;
+      const enfocarConfirmacion = focoAnterior && focoAnterior !== documentoAnterior.body
+        && contenedorAnterior?.contains?.(focoAnterior);
       repintar();
       const destino = raiz.querySelector("[data-ct-exp-rectificacion]")
         ?? raiz.querySelector("[data-ct-exp-analisis]");
@@ -661,6 +669,7 @@ export function crearGestorTramitacion({
         confirmacion.className = "ct-recibo";
         confirmacion.setAttribute("data-ct-analisis-recibo", "");
         confirmacion.setAttribute("role", "status");
+        confirmacion.setAttribute("tabindex", "-1");
         confirmacion.innerHTML = `<h3>${escaparHTML(t(recibo.operacion === "rectificar"
           ? "analisis_recibo_rectificacion_titulo" : "analisis_recibo_titulo"))}</h3>
           <dl><div><dt>${escaparHTML(t("analisis_recibo_referencia"))}</dt>
@@ -670,10 +679,26 @@ export function crearGestorTramitacion({
             dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
           }).format(new Date(recibo.confirmada_en)))}</dd></div></dl>`;
         destino.append(confirmacion);
+        if (enfocarConfirmacion) confirmacion.focus?.();
       }
     } catch {
       avisarPendiente();
     }
+  }
+
+  function mostrarAvisoLecturaPendiente(sesion) {
+    if (!esMontada() || sesionAnalisis !== sesion || sesion.avisoLecturaMostrado) return;
+    const texto = tExpedientes("estado_confirmada_actualizacion_pendiente");
+    const recibo = raiz.querySelector("[data-ct-analisis-recibo]");
+    const aviso = recibo?.ownerDocument?.createElement?.("p");
+    if (aviso && typeof recibo.append === "function") {
+      aviso.setAttribute("data-ct-analisis-lectura-pendiente", "");
+      aviso.setAttribute("role", "alert");
+      aviso.textContent = texto;
+      recibo.append(aviso);
+    }
+    sesion.avisoLecturaMostrado = true;
+    anunciar(texto, "aviso");
   }
 
   function montarAltaSiProcede() {
@@ -786,6 +811,9 @@ export function crearGestorTramitacion({
       vuelo: null,
       controles: null,
       ariaBusy: null,
+      reciboPintado: false,
+      lecturaPendiente: false,
+      avisoLecturaMostrado: false,
     };
     const clienteCercado = crearClienteAnalisisCercado(
       composicionAnalisis,
@@ -814,7 +842,13 @@ export function crearGestorTramitacion({
         mensajes,
         locale,
         zonaHoraria,
-        anunciar,
+        anunciar: (mensaje, tipo) => {
+          anunciar(mensaje, tipo);
+          if (tipo === "exito" && sesion.etapa === "confirmado") {
+            sesion.reciboPintado = true;
+            if (sesion.lecturaPendiente) mostrarAvisoLecturaPendiente(sesion);
+          }
+        },
       });
       return true;
     } catch {
