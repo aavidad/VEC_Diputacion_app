@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { aplicarPreferenciasInicialesAplazadas, iniciarAreaPersonal } from "./aplicacion.js";
-import { iniciarI18nAreaPersonal } from "./i18n.js";
+import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { crearClienteHTTPAreaPersonal } from "./cliente-http.js";
 import { cargarPreferenciasIniciales } from "./cliente-http.js";
 import { peticionesEnSerie } from "../comun/imagen-propia.js";
@@ -313,6 +313,17 @@ test("Recargar antes y después de Mi Bolsa comparte la lectura diferida y no cr
     terminarBolsa({ codigo: "servicio_no_disponible" });
     const estado = await inicio;
     const contenido = prepararPanelDOM(documento);
+    const datosSinBolsa = estado.datos;
+    const capacidades = estado.datos.capacidades;
+    const personaRef = estado.datos.sesion.persona_ref;
+    const correo = { dataset: { correosAccion: "reenviar" } };
+    const borrador = { value: "código pendiente" };
+    const panelCorreo = { controles: [correo, borrador] };
+    contenido.panelCorreo = panelCorreo;
+    documento.activeElement = correo;
+    assert.equal(estado.soloPreferencias, true);
+    assert.equal(documento.getElementById("perfil-sesion").textContent,
+      traducir("areaPersonal.preferencias.identidadNoConfirmada"));
     assert.match(contenido.innerHTML, /Cargando información autorizada/u);
     assert.doesNotMatch(contenido.innerHTML, /No se pudieron consultar sus preferencias/u);
     pulsar(eventos, "[data-accion]", "recargar-preferencias");
@@ -321,6 +332,18 @@ test("Recargar antes y después de Mi Bolsa comparte la lectura diferida y no cr
     await Promise.resolve();
     assert.equal(consultas, 1);
     assert.equal(estado.preferencias.estado, preferencias.estado);
+    assert.equal(estado.datos, datosSinBolsa);
+    assert.equal(estado.datos.capacidades, capacidades);
+    assert.deepEqual(Object.keys(capacidades), []);
+    assert.equal(estado.datos.sesion.persona_ref, personaRef);
+    assert.equal(documento.getElementById("perfil-sesion").textContent,
+      traducir("areaPersonal.preferencias.identidadServicio"));
+    assert.equal(estado.datos.sesion.metodo, traducir("areaPersonal.preferencias.identidadServicio"));
+    assert.equal(documento.activeElement, correo);
+    assert.equal(contenido.panelCorreo, panelCorreo);
+    assert.equal(panelCorreo.controles[0], correo);
+    assert.equal(panelCorreo.controles[1], borrador);
+    assert.equal(borrador.value, "código pendiente");
     assert.match(contenido.innerHTML, /id="formulario-preferencias"/u);
   } finally { globalThis.document = original.document; globalThis.window = original.window; }
 });

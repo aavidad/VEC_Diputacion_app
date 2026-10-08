@@ -198,12 +198,16 @@ export function datosMinimosMiBolsa(consulta) {
   });
 }
 
+function metodoIdentidadPreferencias(identidadConfirmada) {
+  return traducir(identidadConfirmada
+    ? "areaPersonal.preferencias.identidadServicio" : "areaPersonal.preferencias.identidadNoConfirmada");
+}
+
 function datosMinimosPreferencias(identidadConfirmada) {
   const base = datosMinimosMiBolsa({ consultada_en: "" });
   return { ...base,
     meta: { presentacion: false, origen: "GET /api/vec/usuarios/area-personal/mis-preferencias", busqueda_convocatorias_disponible: false },
-    sesion: { ...base.sesion, metodo: traducir(identidadConfirmada
-      ? "areaPersonal.preferencias.identidadServicio" : "areaPersonal.preferencias.identidadNoConfirmada") },
+    sesion: { ...base.sesion, metodo: metodoIdentidadPreferencias(identidadConfirmada) },
   };
 }
 
@@ -726,6 +730,12 @@ export function aplicarPreferenciasInicialesAplazadas(estado, lectura, error = n
     preferencias.catalogo = lectura.catalogo;
     preferencias.estado = lectura.estado;
     preferencias.error = null;
+    if (estado.soloPreferencias && estado.datos?.sesion) {
+      const metodo = metodoIdentidadPreferencias(true);
+      estado.datos.sesion.metodo = metodo;
+      const perfilSesion = porId("perfil-sesion");
+      if (perfilSesion) perfilSesion.textContent = metodo;
+    }
     estado.filasPreferidas = lectura.estado.valores.filas;
     if (estado.ajusteVisualVersion === 0) {
       estado.controladorVisual?.aplicarPreferenciasServidor(lectura.estado.valores);
