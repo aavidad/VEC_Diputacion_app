@@ -2,7 +2,7 @@
 
 import {
   crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH, tipoBorradorDeAccion,
-} from "./cliente-http-informe-definitivo.js?v=20261008-analisis-confirmado-v2";
+} from "./cliente-http-informe-definitivo.js?v=20261008-analisis-bolsa-global-v3";
 import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261008-documentos-ficha-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 

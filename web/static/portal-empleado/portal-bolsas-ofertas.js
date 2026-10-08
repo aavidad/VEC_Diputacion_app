@@ -1,5 +1,5 @@
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearSuperficieHistorialOfrecimientos, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261008-w-bolsa-ficha-main-v2";
+import { crearSuperficieHistorialOfrecimientos, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261008-bolsa-global-v2";
 import { instanteDesdeHoraMadrid } from "./hora-madrid.js";
 import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261008-w-bolsa-ficha-main-v2";
 // Ofertas publicadas de una bolsa (Petición RRHH 3.06 y 3.07; Reglamento de

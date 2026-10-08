@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
 import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-f-reconciliacion-325-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261008-bolsa-global-v2";
 import { etiquetaCatalogo } from "./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
 import { numeroExpedienteVisible } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261001-f-reconciliacion-324-v1";
 
@@ -615,7 +615,7 @@ test("ningún módulo del portal se pide con dos URL distintas (una sola descarg
   const codigoPortal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
   const versionCoordinador = versionDe(codigoPortal, "./portal-modulos-coordinador.js");
   for (const url of [
-    "/portal-empleado/portal-bolsas-api.js?v=20261008-w-bolsa-ficha-main-v2",
+    "/portal-empleado/portal-bolsas-api.js?v=20261008-bolsa-global-v2",
     "/portal-empleado/portal-bolsas-contrato.js?v=20261008-canal-telefono-v2",
     `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
     "/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261008-alta-corte-v1",
@@ -655,8 +655,8 @@ test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras
     "/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2",
-    "/portal-empleado/portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1",
-    "/portal-empleado/portal-panel-interno.js?v=20261007-pantallas-textos-final-v1",
+    "/portal-empleado/portal-bolsas-api.js?v=20261008-bolsa-global-v2",
+    "/portal-empleado/portal-panel-interno.js?v=20261008-bolsa-global-v2",
     "/portal-empleado/portal-i18n-contratos.js?v=20260930-portales-i18n-integracion-v1",
   ]) assert.ok(!estatico.has(modulo), `${modulo} se abre solo con su pantalla`);
   const grupos = [...html.matchAll(/<template data-estilos-vista="([^"]+)">([\s\S]*?)<\/template>/g)];

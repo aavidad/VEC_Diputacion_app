@@ -630,7 +630,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   ]) versionesEspeciales.set(ruta, "20261008-documentos-ficha-v1");
   versionesEspeciales.set("portal-preferencias-integracion.js", "20261008-inicio-idioma-v1");
   for (const ruta of ["portal-modulos-coordinador.js", "portal.js"])
-    versionesEspeciales.set(ruta, "20261008-documentos-ficha-v2");
+    versionesEspeciales.set(ruta, "20261008-analisis-bolsa-global-v3");
   // El análisis confirmado renovó estos consumidores; las hojas de Documentos
   // que no cambiaron conservan su versión anterior en el mapa.
   for (const ruta of [
@@ -644,7 +644,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261008-analisis-confirmado-v2");
+  ]) versionesEspeciales.set(ruta, "20261008-analisis-bolsa-global-v3");
   for (const ruta of [
     "modulos/contratacion-temporal/adaptador-http-expedientes.js",
     "modulos/contratacion-temporal/alta-renderer-puro.js",
@@ -659,6 +659,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
     "modulos/contratacion-temporal/vista.js",
   ]) versionesEspeciales.set(ruta, "20261008-alta-corte-v1");
+  for (const ruta of ["portal-panel-interno.js", "portal-bolsas-api.js", "portal-bolsas-ruta-filtros.js", "portal-bolsas-global.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-seguimiento.js", "portal-inicio.js", "portal-bolsas-ofertas.js"]) versionesEspeciales.set(ruta, "20261008-bolsa-global-v2");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -798,6 +799,8 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionPortal);
   assert.notEqual(versionPortal, "20261008-documentos-ficha-v2");
+  assert.notEqual(versionPortal, "20261008-bolsa-global-v2");
+  assert.notEqual(versionPortal, "20261008-analisis-confirmado-v2");
 
 });
 
