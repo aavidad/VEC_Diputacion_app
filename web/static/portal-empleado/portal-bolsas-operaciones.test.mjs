@@ -341,7 +341,7 @@ test("P-WEB-13 traduce 400, 403, 409 y 503 sin exponer datos de error", async ()
     fetchImpl: async () => response(409, { error: { codigo: "clave_reutilizada" } }),
   });
   assert.equal(reutilizada.codigo, "clave_reutilizada");
-  assert.match(reutilizada.mensaje, /clave de idempotencia ya se usó/i);
+  assert.match(reutilizada.mensaje, /Esta operación ya se inició con otros datos.*Revise el historial/i);
 });
 
 test("P-WEB-13 señala 404 como operación aún no desplegada y valida el GET", async () => {

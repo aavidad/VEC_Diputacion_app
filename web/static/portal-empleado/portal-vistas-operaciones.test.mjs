@@ -29,10 +29,10 @@ test("contratos sin fuente ignora filas ajenas y no ofrece efectos volátiles", 
   const html = crearVistasOperaciones(utilidades()).renderizarContratos({
     contratos: [{ expediente: "EXP-LEGADO", acto: "Alta", bolsa: "Bolsa 1", estado: "Vigente" }],
   });
-  assert.match(html, /Una propuesta de llamamiento no acredita aceptación/);
+  assert.match(html, /La propuesta de llamamiento queda pendiente hasta que se confirme la aceptación/);
   assert.match(html, /Solo Personal confirma la relación y la incorporación/);
   assert.match(html, /El borrador y la autenticación no son firma/);
-  assert.match(html, /La ficha o descarga no acredita entrega al sistema/);
+  assert.match(html, /Descargar la ficha no la envía a GINPIX/);
   assert.match(html, /El cese acreditado precede a la política de Bolsa/);
   assert.match(html, /No configurado/);
   assert.match(html, /No hay relaciones disponibles para mostrar/);

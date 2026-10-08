@@ -28,6 +28,7 @@ import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
+import { rutaCandidatosBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
@@ -106,7 +107,8 @@ export function crearPresentadorPanelInterno(dependencias) {
   function controlEstadoBolsa(bolsa, estado, clase = "neutro") {
     const total = numero(bolsa.por_estado?.[estado]);
     const etiqueta = etiquetaEstadoBolsa(estado);
-    return `<button type="button" class="estado-chip ${escaparHTML(clase)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="${textoPortal("txt_aria_ver_candidatos_estado", { total, estado: etiqueta.toLocaleLowerCase(LOCALIZACION_PORTAL), categoria: bolsa.categoria })}">${escaparHTML(total)}</button>`;
+    const href = rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", bolsa.bolsa_ref, estado);
+    return `<a class="estado-chip ${escaparHTML(clase)}" href="${escaparHTML(href)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="${textoPortal("txt_aria_ver_candidatos_estado", { total, estado: etiqueta.toLocaleLowerCase(LOCALIZACION_PORTAL), categoria: bolsa.categoria })}">${escaparHTML(total)}</a>`;
   }
   function claseEstadoEstadistica(estado) {
     return ({ disponible: "exito", no_disponible: "peligro", excluido: "peligro", pendiente_incorporacion: "info", disponible_desde: "info", en_revision: "advertencia" })[estado] || "neutro";
@@ -128,7 +130,10 @@ export function crearPresentadorPanelInterno(dependencias) {
     const resumenEstados = Object.entries(datos.personas.por_estado).map(([estado, total]) => `<span class="estado-chip ${claseEstadoEstadistica(estado)}"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaEstadoEstadistica(estado))}</span>`).join("");
     // El contrato v1 no declara si cargó el histórico: su cero no acredita ausencia.
     const historico = `<div><h4>${textoPortal("txt_historico_de_llamamientos")}</h4><p class="estado-chip neutro" role="status">${textoPortal("txt_no_disponible")}</p></div>`;
-    const filas = datos.por_bolsa.map((bolsa) => `<tr><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}"><strong>${escaparHTML(bolsa.categoria)}</strong></button><br><small>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></td><td><span class="estado-chip ${bolsa.vigente ? "exito" : "neutro"}">${bolsa.vigente ? traducirPortal("txt_vigente") : traducirPortal("txt_sustituida")}</span></td><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" aria-label="${textoPortal("txt_aria_abrir_personas_bolsa", { total: numero(bolsa.total), categoria: bolsa.categoria })}">${numero(bolsa.total)}</button></td>${ESTADOS_BOLSA.map((estado) => `<td><button type="button" class="estado-chip ${claseEstadoEstadistica(estado)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="${textoPortal("txt_aria_abrir_personas_estado", { total: numero(bolsa.por_estado[estado]), estado: etiquetaEstadoEstadistica(estado).toLocaleLowerCase(LOCALIZACION_PORTAL), categoria: bolsa.categoria })}">${numero(bolsa.por_estado[estado])}</button></td>`).join("")}</tr>`).join("");
+    const filas = datos.por_bolsa.map((bolsa) => {
+      const href = escaparHTML(rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", bolsa.bolsa_ref));
+      return `<tr><td><a class="enlace-tabla" href="${href}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}"><strong>${escaparHTML(bolsa.categoria)}</strong></a><br><small>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></td><td><span class="estado-chip ${bolsa.vigente ? "exito" : "neutro"}">${bolsa.vigente ? traducirPortal("txt_vigente") : traducirPortal("txt_sustituida")}</span></td><td><a class="enlace-tabla" href="${href}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" aria-label="${textoPortal("txt_aria_abrir_personas_bolsa", { total: numero(bolsa.total), categoria: bolsa.categoria })}">${numero(bolsa.total)}</a></td>${ESTADOS_BOLSA.map((estado) => `<td><a class="estado-chip ${claseEstadoEstadistica(estado)}" href="${escaparHTML(rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", bolsa.bolsa_ref, estado))}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="${textoPortal("txt_aria_abrir_personas_estado", { total: numero(bolsa.por_estado[estado]), estado: etiquetaEstadoEstadistica(estado).toLocaleLowerCase(LOCALIZACION_PORTAL), categoria: bolsa.categoria })}">${numero(bolsa.por_estado[estado])}</a></td>`).join("")}</tr>`;
+    }).join("");
     return `${cabecera}<div class="rejilla-kpi" aria-label="${textoPortal("txt_totales_de_bolsa")}">${tarjetas.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, valor, etiqueta, sigla === "bolsas" ? {
       atributos: 'data-vista="resumen"',
       aria: traducirEnlacesBolsa("kpi_bolsas_aria", { total: valor }),
@@ -304,11 +309,11 @@ export function crearPresentadorPanelInterno(dependencias) {
     const totalPersonasEnRenuncia = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.renuncia || 0), 0);
     const filas = bolsas.map((b) => `
       <tr data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
-        <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="${textoPortal("txt_aria_abrir_candidatos_bolsa", { categoria: b.categoria })}"><strong>${escaparHTML(b.categoria)}</strong></button></td>
+        <td><a class="enlace-tabla" href="${escaparHTML(rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", b.bolsa_ref))}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="${textoPortal("txt_aria_abrir_candidatos_bolsa", { categoria: b.categoria })}"><strong>${escaparHTML(b.categoria)}</strong></a></td>
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
         <td>${escaparHTML(finVigenciaBolsaPortal(b.vigente_hasta))}</td>
-        <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="${textoPortal("txt_aria_ver_candidatos_bolsa", { total: numero(b.total), categoria: b.categoria })}"><strong>${numero(b.total)}</strong></button></td>
-        <td><button type="button" class="estado-chip info" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" data-pestana="historico" aria-label="${escaparHTML(traducirEnlacesBolsa("llamamientos_curso_aria", { total: numero(b.llamamientos_en_curso), bolsa: b.categoria }))}">${numero(b.llamamientos_en_curso)}</button></td>
+        <td><a class="enlace-tabla" href="${escaparHTML(rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", b.bolsa_ref))}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="${textoPortal("txt_aria_ver_candidatos_bolsa", { total: numero(b.total), categoria: b.categoria })}"><strong>${numero(b.total)}</strong></a></td>
+        <td><span class="estado-chip info">${numero(b.llamamientos_en_curso)}</span></td>
         <td>${controlEstadoBolsa(b, "disponible", "exito")}</td>
         <td>${controlEstadoBolsa(b, "trabajando")}</td>
         <td>${controlEstadoBolsa(b, "no_disponible", "peligro")}</td>
@@ -324,7 +329,7 @@ export function crearPresentadorPanelInterno(dependencias) {
           <h3 id="titulo-cuadro-b12">${textoPortal("txt_bolsas_de_trabajo_activas")}</h3>
         </div>
         <div class="rejilla-kpi cuadro-b12-kpi" aria-label="${textoPortal("txt_resumen_de_las_bolsas_de_trabajo")}">
-          <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("bolsas")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_bolsas_visibles")}</span><strong class="valor-kpi">${numero(bolsas.length)}</strong></div></article>
+          <a class="tarjeta-kpi" href="${escaparHTML(rutaResumenBolsasCompartible(globalThis.location?.search ?? ""))}" data-vista="resumen"><span class="icono-kpi" aria-hidden="true">${icono("bolsas")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_bolsas_visibles")}</span><strong class="valor-kpi">${numero(bolsas.length)}</strong></div></a>
           <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("personas")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_aspirantes")}</span><strong class="valor-kpi">${numero(totalAspirantes)}</strong></div></article>
           <article class="tarjeta-kpi kpi--exito"><span class="icono-kpi" aria-hidden="true">${icono("persona_ok")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_disponibles")}</span><strong class="valor-kpi">${numero(totalDisponibles)}</strong></div></article>
           <article class="tarjeta-kpi kpi--advertencia"><span class="icono-kpi" aria-hidden="true">${icono("persona_baja")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_personas_en_renuncia")}</span><strong class="valor-kpi">${numero(totalPersonasEnRenuncia)}</strong></div></article>

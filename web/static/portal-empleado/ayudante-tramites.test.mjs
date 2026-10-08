@@ -50,8 +50,8 @@ test("la guía de llamamiento separa la consulta de los efectos autorizados", ()
   assert.equal(ultimo.vista, "bolsa-candidatos");
   assert.equal(ultimo.selector, "[data-bolsa-c23-pendiente]");
   assert.equal(ultimo.bloqueado, true);
-  assert.match(ultimo.limite, /no acredita contacto, apertura ni resultado/u);
-  assert.match(ultimo.limite, /capacidad y su recibo/u);
+  assert.match(ultimo.limite, /no contacta a nadie ni abre un llamamiento/u);
+  assert.match(ultimo.limite, /justificante de cada actuación/u);
   assert.equal(llamamiento.pasos.some((paso) => "activar" in paso), false);
 });
 
@@ -66,7 +66,7 @@ test("la guía presenta pasos, detalle accesible y límites sin interpolar HTML"
   assert.match(paso, /aria-expanded="false"/u);
   assert.match(paso, /data-ayudante-detalle/u);
   assert.match(paso, /Límite o dependencia/u);
-  assert.match(paso, /queda detenido/u);
+  assert.match(paso, /espera a que esté disponible la actuación indicada/u);
 });
 
 test("los pasos usan sus selectores concretos y solo avisan de detención cuando procede", async () => {

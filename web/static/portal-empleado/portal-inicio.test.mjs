@@ -56,7 +56,7 @@ test("la portada sin catálogo ofrece reintento y el clic activa la recarga exis
   });
   let html = vista();
   assert.match(html, /role="alert" aria-labelledby="error-catalogo-modulos-titulo"/u);
-  assert.match(html, /El catálogo interno de módulos no está disponible/u);
+  assert.match(html, /No se han podido cargar las áreas del portal/u);
   assert.match(html, /<button[^>]*data-accion="recargar-fuente"[^>]*>Reintentar<\/button>/u);
 
   const documentoAnterior = globalThis.document;
@@ -142,7 +142,7 @@ test("Inicio del empleado sin módulos disponibles muestra un estado vacío i18n
   assert.match(html, /role="status" data-inicio-sin-modulos>\s*<p>«inicio_empleado_sin_modulos»<\/p>/u);
   assert.ok(claves.includes("inicio_empleado_sin_modulos"));
   assert.doesNotMatch(html, /data-modulo-catalogo=|data-accion="ayuda"|rejilla-modulos/u);
-  assert.match(renderizar({ disponible: false, vista: "", estado: "denegado" }), /No hay módulos disponibles para su perfil\./u);
+  assert.match(renderizar({ disponible: false, vista: "", estado: "denegado" }), /No hay áreas disponibles para su perfil\./u);
   // Con el catálogo caído manda su aviso con reintento, no el estado vacío.
   const fallido = vista(true);
   assert.match(fallido, /data-accion="recargar-fuente"/u);
@@ -324,6 +324,13 @@ test("la vigencia de Bolsa usa la fecha de la lectura y no inventa el recuento s
   // Sin «disponibles» por bolsa no se suma nada: el indicador queda en «—».
   const html = portadaRRHH({ obtenerBolsasInicio: () => lectura });
   assert.match(html, /data-metrica="disponibles">[\s\S]*?<strong class="valor-kpi">—<\/strong>/u);
+});
+
+test("Inicio enlaza cada bolsa del GET a su lista exacta sin enlazar totales globales", () => {
+  const html = portadaRRHH();
+  assert.match(html, /href="\?bolsa_ref=bolsa%3A1#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:1"/u);
+  assert.match(html, /href="\?bolsa_ref=bolsa%3A2#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:2"/u);
+  assert.equal((html.match(/data-accion="ver-bolsa"/gu) ?? []).length, 2, "solo las dos bolsas leídas ofrecen enlace");
 });
 
 test("las claves de la portada se traducen con el traductor común", async () => {
