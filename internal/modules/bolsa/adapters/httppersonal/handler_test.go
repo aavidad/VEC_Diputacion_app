@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -174,6 +175,59 @@ func TestMiBolsaErroresAplicacionSinFiltrarDetalle(t *testing.T) {
 				t.Fatalf("status=%d cuerpo=%s", w.Code, w.Body.String())
 			}
 		})
+	}
+}
+
+type errorDiagnosticoMiBolsaPrueba struct {
+	nominal  error
+	etapa    string
+	sqlstate string
+}
+
+func (e errorDiagnosticoMiBolsaPrueba) Error() string { return "secreto-canario" }
+func (e errorDiagnosticoMiBolsaPrueba) Unwrap() error { return e.nominal }
+func (e errorDiagnosticoMiBolsaPrueba) DiagnosticoLecturaMiBolsa() (string, string) {
+	return e.etapa, e.sqlstate
+}
+
+func TestMiBolsaRegistroTecnicoSaneadoConservaRespuesta(t *testing.T) {
+	anterior := slog.Default()
+	defer slog.SetDefault(anterior)
+	var registro bytes.Buffer
+	slog.SetDefault(slog.New(slog.NewTextHandler(&registro, nil)))
+
+	p := new(preparadorPrueba)
+	c := &consultorPrueba{err: errorDiagnosticoMiBolsaPrueba{
+		nominal: puertosbolsa.ErrMaterialMiBolsaNoDisponible, etapa: "consulta", sqlstate: "42883",
+	}}
+	h, _ := Nuevo(p, c)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaMiBolsa, nil))
+	if w.Code != http.StatusServiceUnavailable || w.Body.String() != `{"error":{"codigo":"servicio_no_disponible"}}` ||
+		w.Header().Get("Cache-Control") != "no-store" || w.Header().Get("Set-Cookie") != "" ||
+		w.Header().Get("X-Audit-Ref") != "" {
+		t.Fatalf("contrato HTTP alterado: estado=%d cuerpo=%q", w.Code, w.Body.String())
+	}
+	if !strings.Contains(registro.String(), "etapa=consulta") || !strings.Contains(registro.String(), "sqlstate=42883") ||
+		strings.Contains(registro.String(), "secreto-canario") {
+		t.Fatalf("registro técnico incorrecto: %q", registro.String())
+	}
+
+	registro.Reset()
+	c.err = errorDiagnosticoMiBolsaPrueba{nominal: dominiovec.ErrAutorizacionDenegada, etapa: "consulta", sqlstate: "42501"}
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaMiBolsa, nil))
+	if w.Code != http.StatusForbidden || w.Body.String() != `{"error":{"codigo":"acceso_denegado"}}` || registro.Len() != 0 {
+		t.Fatalf("denegación alterada: estado=%d cuerpo=%q registro=%q", w.Code, w.Body.String(), registro.String())
+	}
+
+	registro.Reset()
+	c.err = errorDiagnosticoMiBolsaPrueba{nominal: puertosbolsa.ErrMaterialMiBolsaNoDisponible,
+		etapa: "secreto-canario", sqlstate: "42x83"}
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, RutaMiBolsa, nil))
+	if !strings.Contains(registro.String(), "etapa=desconocida") || !strings.Contains(registro.String(), `sqlstate=""`) ||
+		strings.Contains(registro.String(), "secreto-canario") {
+		t.Fatalf("metadatos no canónicos expuestos: %q", registro.String())
 	}
 }
 
