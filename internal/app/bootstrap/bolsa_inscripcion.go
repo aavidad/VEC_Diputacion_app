@@ -24,8 +24,8 @@ import (
 // la captura sola no concede permiso. AutorizarEscritura debe decidir, registrar
 // y atestar V3 para la operación y el recurso recibidos.
 type AutoridadInscripcionBolsa interface {
-	CapturarLectura(context.Context, contextoSeguridadComunDesarrollo, string, string, inscripcion.Filtro) (inscripcion.CapturaLectura, error)
-	AutorizarEscritura(context.Context, contextoSeguridadComunDesarrollo, string, string, []byte, []byte) (AutorizacionEscrituraInscripcionBolsa, error)
+	CapturarLectura(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, inscripcion.Filtro) (inscripcion.CapturaLectura, error)
+	AutorizarEscritura(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, []byte, []byte) (AutorizacionEscrituraInscripcionBolsa, error)
 }
 
 type AutorizacionEscrituraInscripcionBolsa struct {
@@ -306,7 +306,7 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 		}
 	}
 	if r.Method == http.MethodGet {
-		captura, err := c.Autoridad.CapturarLectura(r.Context(), ctx, accion, recurso, filtro)
+		captura, err := c.Autoridad.CapturarLectura(r.Context(), ctx, acreditacion, accion, recurso, filtro)
 		ahoraLectura := c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 		if err != nil || !ahoraLectura.Before(acreditacion.ValidaHasta) ||
 			(empleado && !ahoraLectura.Before(empleadoValidoHasta)) ||
@@ -332,7 +332,7 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 		return vacio, inscripcion.ErrSolicitudInvalida
 	}
 	hash := sha256.Sum256(escritura.material)
-	concesion, err := c.Autoridad.AutorizarEscritura(r.Context(), ctx, accion, recurso, escritura.material, escritura.recurso)
+	concesion, err := c.Autoridad.AutorizarEscritura(r.Context(), ctx, acreditacion, accion, recurso, escritura.material, escritura.recurso)
 	ahoraEscritura := c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 	resumen := concesion.Material.ResumenCapacidad()
 	if err != nil || !ahoraEscritura.Before(acreditacion.ValidaHasta) ||
