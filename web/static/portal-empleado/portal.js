@@ -412,7 +412,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261008-canal-telefono-v2");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261008-w-bolsa-ficha-main-v2");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
