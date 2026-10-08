@@ -136,6 +136,8 @@ export async function montarModuloContratacionTemporal({
   llamamiento = null,
   clienteBorradorRRHH,
   clienteBorradoresPublicados,
+  resolverDisponibilidadOpcional = () => null,
+  reintentarDisponibilidadOpcional = async () => {},
   clienteCircuitoFirma,
   dependenciasFirma = {},
   entornoDescarga = globalThis,
@@ -153,10 +155,19 @@ export async function montarModuloContratacionTemporal({
     || typeof raiz.querySelector !== "function"
     || typeof presentador?.obtenerEstado !== "function"
     || typeof presentador?.cargar !== "function"
-    || typeof anunciar !== "function" || typeof confirmarOperacion !== "function") {
+    || typeof anunciar !== "function" || typeof confirmarOperacion !== "function"
+    || typeof resolverDisponibilidadOpcional !== "function"
+    || typeof reintentarDisponibilidadOpcional !== "function") {
     throw new TypeError("dependencias del módulo de contratación temporal no válidas");
   }
   const traducirExpedientes = crearTraductorExpedientesContratacion(mensajes);
+  const estadosDisponibilidad = new Set(["disponible", "no_autorizado", "sin_montaje", "indisponible"]);
+  const disponibilidadDe = (clave, contexto) => {
+    const registro = resolverDisponibilidadOpcional(clave, contexto);
+    return estadosDisponibilidad.has(registro?.estado)
+      && registro.expediente_ref === contexto.expediente_ref
+      && registro.version_observada === contexto.version_observada ? registro : null;
+  };
   instalarPantallasFase(raiz.ownerDocument ?? globalThis.document, traducirExpedientes);
   // Filtros de la lista aplicados en pantalla sobre la consulta ya cargada.
   let filtroLista = filtroListaValido(filtroListaInicial ?? {});
@@ -230,7 +241,7 @@ export async function montarModuloContratacionTemporal({
     avisoCapacidadReincorporacion = null;
   }
 
-  function mostrarAvisoCapacidadReincorporacion(zona, error, estado, seguimiento) {
+  function mostrarAvisoCapacidadReincorporacion(zona, error, estado, seguimiento, metadatos = false) {
     avisoCapacidadReincorporacion?.remove();
     const denegada = error?.estado === 401 || error?.estado === 403;
     const reintentable = !denegada && (error?.estado === 404 || error?.estado === 503
@@ -249,9 +260,27 @@ export async function montarModuloContratacionTemporal({
       boton.type = "button";
       boton.className = "boton-secundario";
       boton.textContent = traducirExpedientes("reincorporacion_capacidad_reintentar");
-      boton.addEventListener("click", () => {
+      boton.addEventListener("click", async () => {
         if (!montada || !aviso.isConnected || avisoCapacidadReincorporacion !== aviso) return;
         const enfocarEstado = raiz.ownerDocument?.activeElement === boton;
+        if (metadatos) {
+          const contexto = contextoSeguimientoCeseDesdeEstado(estado);
+          if (!contexto) return;
+          const recurso = { expediente_ref: contexto.expediente_ref, version_observada: contexto.version };
+          if (disponibilidadDe("reincorporacion_titular", recurso)?.estado !== "indisponible") {
+            montarReincorporacionSiProcede(estado, seguimiento, enfocarEstado);
+            return;
+          }
+          boton.disabled = true;
+          aviso.setAttribute("aria-busy", "true");
+          texto.textContent = traducirExpedientes("reincorporacion_capacidad_comprobando");
+          try {
+            await reintentarDisponibilidadOpcional("reincorporacion_titular", recurso);
+          } catch {
+            console.warn({ origen: "ct.metadatos_reincorporacion", codigo: "no_disponible" });
+          }
+          if (!montada || !aviso.isConnected || avisoCapacidadReincorporacion !== aviso) return;
+        }
         montarReincorporacionSiProcede(estado, seguimiento, enfocarEstado);
       });
       aviso.append(boton);
@@ -304,11 +333,15 @@ export async function montarModuloContratacionTemporal({
     const contexto = contextoPlantillasPublicadasDesdeEstado(estado);
     const zona = raiz.querySelector(".ct-exp-contenido");
     if (!contexto || !zona || typeof raiz.ownerDocument?.createElement !== "function") return;
+    const disponibilidad = disponibilidadDe("borradores_publicados", contexto);
+    if (!disponibilidad || ["no_autorizado", "sin_montaje"].includes(disponibilidad.estado)) return;
     const contenedor = raiz.ownerDocument.createElement("div");
     contenedor.dataset.ctExpBorradoresPublicados = "";
     zona.append(contenedor);
     desmontarBorradoresPublicados = montarBorradoresPublicados({ raiz: contenedor,
-      contexto, ...(clienteBorradoresPublicados === undefined ? {} : { cliente: clienteBorradoresPublicados }),
+      contexto, disponibilidad, obtenerDisponibilidad: () => disponibilidadDe("borradores_publicados", contexto),
+      reintentarMetadatos: () => reintentarDisponibilidadOpcional("borradores_publicados", contexto),
+      ...(clienteBorradoresPublicados === undefined ? {} : { cliente: clienteBorradoresPublicados }),
       entornoDescarga, anunciar }).desmontar;
   }
 
@@ -345,15 +378,28 @@ export async function montarModuloContratacionTemporal({
     if (!clienteReincorporacion || !contexto
       || seguimiento?.estado?.expediente_ref !== contexto.expediente_ref
       || seguimiento.estado.cese?.causa_clave !== "fin_sustitucion") return;
+    const contextoDisponibilidad = {
+      expediente_ref: contexto.expediente_ref, version_observada: contexto.version,
+    };
+    const disponibilidadActual = () => disponibilidadDe("reincorporacion_titular", contextoDisponibilidad);
+    const disponibleAhora = () => disponibilidadActual()?.estado === "disponible";
+    const disponibilidadInicial = disponibilidadActual();
+    if (!disponibilidadInicial || ["no_autorizado", "sin_montaje"].includes(disponibilidadInicial.estado)) return;
     const actualAntes = presentador.obtenerEstado();
     if (actualAntes.carga !== "listo" || actualAntes.vista !== "expediente"
       || actualAntes.expediente?.expediente_ref !== contexto.expediente_ref
       || actualAntes.expediente.version !== contexto.version) return;
     const zona = raiz.querySelector(".ct-exp-contenido");
     if (!zona) return;
+    if (disponibilidadInicial.estado === "indisponible") {
+      const destino = mostrarAvisoCapacidadReincorporacion(zona, { estado: 503 }, estado, seguimiento, true);
+      if (enfocarEstado) destino.focus();
+      return;
+    }
     const controlador = new AbortController();
     controladorCapacidadReincorporacion = controlador;
     const expediente = { expediente_ref: contexto.expediente_ref, version_esperada: contexto.version };
+    let consultaEnviada = false;
     if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "consultando";
     let comprobando = null;
     if (enfocarEstado) {
@@ -365,17 +411,31 @@ export async function montarModuloContratacionTemporal({
       avisoCapacidadReincorporacion = comprobando;
       comprobando.focus();
     }
+    const disponibilidadRetirada = () => {
+      if (disponibleAhora()) return false;
+      if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "no_disponible";
+      if (disponibilidadActual()?.estado === "indisponible") {
+        const conservarFoco = comprobando && raiz.ownerDocument?.activeElement === comprobando;
+        comprobando?.remove();
+        const destino = mostrarAvisoCapacidadReincorporacion(zona, { estado: 503 }, estado, seguimiento, true);
+        if (conservarFoco) destino.focus();
+      } else if (comprobando) comprobando.textContent = traducirExpedientes("reincorporacion_capacidad_no_habilitada");
+      return true;
+    };
     void Promise.resolve().then(() => {
-      if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador) return null;
+      if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
+        || !zona.isConnected || disponibilidadRetirada()) return null;
+      consultaEnviada = true;
       return clienteReincorporacion.consultarCapacidadReincorporacion(expediente, { signal: controlador.signal });
     })
       .then((puedeRegistrar) => {
-        if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
+        if (!consultaEnviada || !montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
           || !zona.isConnected) return;
         const actual = presentador.obtenerEstado();
         if (actual.carga !== "listo" || actual.vista !== "expediente"
           || actual.expediente?.expediente_ref !== expediente.expediente_ref
           || actual.expediente?.version !== expediente.version_esperada) return;
+        if (disponibilidadRetirada()) return;
         if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = puedeRegistrar === true ? "permitida" : "denegada";
         const conservarFoco = comprobando && raiz.ownerDocument?.activeElement === comprobando;
         if (puedeRegistrar !== true) {
@@ -398,6 +458,7 @@ export async function montarModuloContratacionTemporal({
       }).catch((error) => {
         if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
           || !zona.isConnected) return;
+        if (disponibilidadRetirada()) return;
         if (zona.dataset) zona.dataset.ctCapacidadReincorporacion = "error";
         const conservarFoco = comprobando && raiz.ownerDocument?.activeElement === comprobando;
         const destino = mostrarAvisoCapacidadReincorporacion(zona, error, estado, seguimiento);
@@ -484,6 +545,8 @@ export async function montarModuloContratacionTemporal({
     resolucionFormalizacionDisponible,
     incorporacionEjercicioDisponible,
     incorporacionPersonalB2,
+    resolverDisponibilidadOpcional,
+    reintentarDisponibilidadOpcional,
     confirmarOperacion,
     mensajes,
     locale,
@@ -890,6 +953,8 @@ export async function montarModuloContratacionTemporal({
       await gestorIncorporacion.montarIncorporacionEjercicio();
     } else if (accion.dataset.ctExpAccion === "reintentar-incorporacion-b2") {
       await gestorIncorporacion.ofrecerIncorporacionEjercicio();
+    } else if (accion.dataset.ctExpAccion === "reintentar-metadatos-b2") {
+      await gestorIncorporacion.reintentarMetadatosB2();
     } else if (accion.dataset.ctExpAccion === "cancelar-descarga") {
       if (gestorBorrador.cancelarDescargaInforme()) gestorBorrador.informarDescarga("descarga_cancelada", "informacion");
     } else if (gestorBorrador.esAccionDescarga(accion.dataset.ctExpAccion)) {

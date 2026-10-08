@@ -5,7 +5,7 @@ await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
 import assert from "node:assert/strict";
 import {
-  crearControladorOperacionesSituacion,
+  crearControladorOperacionesSituacion as crearControladorOperacionesSituacionReal,
   consultarOperacionesSituacion,
   consultarSolicitudesDocumentalesRRHH,
   registrarOperacionSituacion,
@@ -14,6 +14,131 @@ import {
   rutaOperacionesSituacion,
   operacionesDisponibles,
 } from "./portal-bolsas-operaciones.js?v=20261001-f-reconciliacion-323-v1";
+
+const crearControladorOperacionesSituacion = (opciones) => crearControladorOperacionesSituacionReal({
+  resolverDisponibilidadOpcional: (_clave, contexto) => ({ estado: "disponible", ...contexto }), ...opciones,
+});
+
+test("ficha autorizada omite lecturas opcionales sin disponibilidad exacta", async () => {
+  const anterior = globalThis.fetch;
+  const rutas = [];
+  globalThis.fetch = async (ruta) => {
+    rutas.push(String(ruta));
+    if (String(ruta).endsWith("/operaciones")) return response(200, { data: {
+      esquema: "vec.bolsa.rrhh.operaciones_situacion.v1", items: [],
+      situacion_vigente: { situacion: "en_revision", desde },
+    } });
+    if (String(ruta).endsWith("/contratos")) return response(404, {});
+    assert.fail(`lectura opcional inesperada: ${ruta}`);
+  };
+  try {
+    const modal = { candidato: { participacion_ref: "participacion:dos", nombre_visible: "Persona autorizada",
+      estado_clave: "en_revision", estado_desde: desde } };
+    const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: modal };
+    const controlador = crearControladorOperacionesSituacionReal({ estado, renderizar() {}, recargar() {},
+      consultarReglas: async () => ({ ok: true, datos: { transiciones: transicionesRRHH18 } }),
+      consultarDocumentales: () => assert.fail("sin disponibilidad documental no se consulta"),
+      resolverDisponibilidadOpcional: (_clave, contexto) => ({ estado: "disponible", ...contexto,
+        participacion_ref: "otra" }),
+    });
+    await controlador.cargar(modal);
+    assert.equal(modal.candidato.nombre_visible, "Persona autorizada");
+    assert.equal(modal.operacionesB8.carga, "listo");
+    assert.equal(modal.operacionesB8.solicitudesNoDisponible, true);
+    assert.equal(modal.reincorporacionesTitular.carga, "no_disponible");
+    assert.equal(rutas.some((ruta) => ruta.includes("solicitudes-documentales")
+      || ruta.includes("reincorporaciones-titular")), false);
+  } finally { globalThis.fetch = anterior; }
+});
+
+test("una lectura documental disponible que responde 404 muestra error y reintento", () => {
+  const vista = renderizarOperacionesSituacion({ candidato: { estado_clave: "en_revision", estado_desde: desde },
+    estado: { carga: "listo", items: [], transiciones: transicionesRRHH18,
+      solicitudesDocumentales: [], solicitudesError: "No se pudo consultar", solicitudesStatus: 404,
+      solicitudesNoDisponible: false } });
+  assert.match(vista, /No se pudo consultar/u);
+  assert.match(vista, /data-b8-accion="reintentar-solicitudes"/u);
+});
+
+test("metadatos documentales indisponibles se reintentan antes de leer solicitudes", async () => {
+  const anterior = globalThis.fetch;
+  let estadoCap = "indisponible", documentales = 0, refrescos = 0, resolver;
+  globalThis.fetch = async (ruta) => {
+    if (String(ruta).endsWith("/operaciones")) return response(200, { data: {
+      esquema: "vec.bolsa.rrhh.operaciones_situacion.v1", items: [],
+      situacion_vigente: { situacion: "en_revision", desde },
+    } });
+    assert.fail(`ruta inesperada: ${ruta}`);
+  };
+  try {
+    const modal = { candidato: { participacion_ref: "participacion:dos", nombre_visible: "Persona autorizada",
+      estado_clave: "en_revision", estado_desde: desde } };
+    const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: modal };
+    const controlador = crearControladorOperacionesSituacionReal({ estado, renderizar() {}, recargar() {},
+      resolverDisponibilidadOpcional: (clave, contexto) => clave === "solicitudes_documentales"
+        ? { estado: estadoCap, ...contexto } : null,
+      reintentarDisponibilidadOpcional: () => { refrescos++; return new Promise((terminar) => { resolver = terminar; }); },
+      consultarReglas: async () => ({ ok: true, datos: { transiciones: transicionesRRHH18 } }),
+      consultarDocumentales: async () => { documentales++; return { ok: true, datos: [] }; },
+    });
+    await controlador.cargar(modal, { incluirSecciones: false });
+    assert.equal(documentales, 0);
+    assert.equal(modal.operacionesB8.solicitudesMetaIndisponibles, true);
+    controlador.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: "reintentar-solicitudes" } }) },
+      preventDefault() {} });
+    await new Promise((terminar) => setImmediate(terminar));
+    assert.equal(refrescos, 1);
+    assert.equal(documentales, 0);
+    estadoCap = "disponible";
+    resolver();
+    await new Promise((terminar) => setImmediate(terminar));
+    assert.equal(documentales, 1);
+    assert.equal(modal.operacionesB8.solicitudesMetaIndisponibles, false);
+    estadoCap = "indisponible";
+    await controlador.cargar(modal, { incluirSecciones: false });
+    controlador.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: "reintentar-solicitudes" } }) },
+      preventDefault() {} });
+    await new Promise((terminar) => setImmediate(terminar));
+    estado.modalFicha = null;
+    estado.bolsaSeleccionada = "bolsa:otra";
+    estadoCap = "disponible";
+    resolver();
+    await new Promise((terminar) => setImmediate(terminar));
+    assert.equal(documentales, 1, "la ficha cerrada descarta el refresco tardío");
+    estado.modalFicha = modal;
+    estado.bolsaSeleccionada = "bolsa:uno";
+    estadoCap = "indisponible";
+    assert.equal(modal.operacionesB8.solicitudesCargando, false,
+      "la ficha conservada permite volver a reintentar");
+    controlador.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: "reintentar-solicitudes" } }) },
+      preventDefault() {} });
+    await new Promise((terminar) => setImmediate(terminar));
+    assert.equal(refrescos, 3);
+    assert.equal(documentales, 1);
+    estadoCap = "disponible";
+    resolver();
+    await new Promise((terminar) => setImmediate(terminar));
+    assert.equal(documentales, 2);
+    estadoCap = "indisponible";
+    await controlador.cargar(modal, { incluirSecciones: false });
+    controlador.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: "reintentar-solicitudes" } }) },
+      preventDefault() {} });
+    await new Promise((terminar) => setImmediate(terminar));
+    const resolverAntiguo = resolver;
+    await controlador.cargar(modal, { incluirSecciones: false });
+    controlador.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: "reintentar-solicitudes" } }) },
+      preventDefault() {} });
+    await new Promise((terminar) => setImmediate(terminar));
+    resolverAntiguo();
+    await new Promise((terminar) => setImmediate(terminar));
+    assert.equal(modal.operacionesB8.solicitudesCargando, true,
+      "el refresco viejo no libera el intento nuevo");
+    estadoCap = "disponible";
+    resolver();
+    await new Promise((terminar) => setImmediate(terminar));
+    assert.equal(documentales, 3);
+  } finally { globalThis.fetch = anterior; }
+});
 
 test("P-WEB-14 rechaza DNI, NIE y etiquetas de identidad antes del POST B8", async () => {
   for (const referencia of ["12345678Z", "REG/X1234567L", "exp:12.34.56.78-Z", "dni:123", "nie-ref"] ) {

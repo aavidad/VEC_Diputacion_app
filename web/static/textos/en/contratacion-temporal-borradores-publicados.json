@@ -8,6 +8,8 @@
     "bp_vacio": "No published types are available for this case.",
     "bp_denegado": "This session does not have permission to view these drafts.",
     "bp_error": "The published drafts could not be retrieved.",
+    "bp_metadatos_no_disponibles": "The availability of the documents could not be checked.",
+    "bp_metadatos_comprobando": "Checking whether the documents are available…",
     "bp_conflicto": "The case or catalogue has changed. Refresh the details before downloading.",
     "bp_reintentar": "Try again",
     "bp_tipo": "Document type",

@@ -6,32 +6,50 @@ const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 
 export function renderizarBorradoresPublicados({ estado = "cargando", catalogo = null,
-  ayudaAbierta = false, mensaje = "", mensajeError = false, ocupado = false } = {}) {
+  ayudaAbierta = false, mensaje = "", mensajeError = false, ocupado = false, metadatosOcupados = false } = {}) {
   const traducir = crearTraductorContratacionTemporal();
   const t = (clave, variables) => esc(traducir(`bp_${clave}`, variables));
   const filas = catalogo?.tipos?.map((tipo) => `<tr><th scope="row"><strong>${esc(tipo.etiqueta)}</strong></th>
     <td>${tipo.formatos.map((formato) => `<button type="button" class="boton-secundario" data-bp-descargar="${esc(tipo.clave)}" data-bp-formato="${formato}" ${ocupado ? "disabled" : ""}>${t(formato)}</button>`).join("")}</td></tr>`).join("") ?? "";
   const estadoTexto = estado === "cargando" ? t("cargando") : estado === "denegado" ? t("denegado")
-    : estado === "conflicto" ? t("conflicto") : estado === "error" ? t("error") : "";
+    : estado === "conflicto" ? t("conflicto") : estado === "error" ? t("error")
+      : estado === "metadatos" ? t(metadatosOcupados ? "metadatos_comprobando" : "metadatos_no_disponibles") : "";
   return `<section class="panel ct-bp" data-ct-borradores-publicados>
     <header class="cabecera-panel"><div><h3>${t("titulo")}</h3></div>
       <button type="button" class="boton-secundario ct-bp-ayuda-boton" data-bp-ayuda aria-label="${t("ayuda_boton")}" aria-expanded="${ayudaAbierta}" aria-controls="ct-bp-ayuda">?</button></header>
     <p id="ct-bp-ayuda" class="ct-bp-ayuda" ${ayudaAbierta ? "" : "hidden"}>${t("ayuda")}</p>
-    <div class="cuerpo-panel">${estadoTexto ? `<p role="${estado === "cargando" ? "status" : "alert"}">${estadoTexto}</p>` : ""}
+    <div class="cuerpo-panel">${estadoTexto ? `<p role="${estado === "cargando" || metadatosOcupados ? "status" : "alert"}">${estadoTexto}</p>` : ""}
       ${estado === "lista" && catalogo?.tipos?.length === 0 ? `<p role="status">${t("vacio")}</p>` : ""}
       ${estado === "lista" && filas ? `<div class="ct-bp-tabla" role="region" tabindex="0" aria-label="${t("tipo")}"><table class="tabla-datos"><thead><tr><th scope="col">${t("tipo")}</th><th scope="col">${t("formatos")}</th></tr></thead><tbody>${filas}</tbody></table></div>` : ""}
       ${catalogo && estado === "lista" ? `<p class="ct-bp-catalogo">${t("publicacion_recibo", { recibo: catalogo.procedencia_ref })}</p>` : ""}
       ${ocupado ? `<p role="status">${t("descargando")}</p><button type="button" class="boton-secundario" data-bp-cancelar>${t("cancelar")}</button>` : ""}
       ${mensaje ? `<p class="ct-bp-mensaje${mensajeError ? " ct-bp-mensaje--error" : ""}" role="${mensajeError ? "alert" : "status"}">${esc(mensaje)}</p>` : ""}
-      ${["error", "conflicto"].includes(estado) ? `<button type="button" class="boton-secundario" data-bp-reintentar>${t("reintentar")}</button>` : ""}
+      ${["error", "conflicto", "metadatos"].includes(estado) ? `<button type="button" class="boton-secundario" data-bp-reintentar ${metadatosOcupados ? "disabled" : ""}>${t("reintentar")}</button>` : ""}
     </div></section>`;
 }
 
-export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClienteBorradoresPublicados(),
+export function montarBorradoresPublicados({ raiz, contexto, disponibilidad = null,
+  obtenerDisponibilidad = () => disponibilidad, reintentarMetadatos = async () => {},
+  cliente = crearClienteBorradoresPublicados(),
   entornoDescarga = globalThis, anunciar = () => {} } = {}) {
   if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
     || typeof cliente?.consultarDisponibles !== "function" || typeof cliente?.descargar !== "function"
-    || typeof anunciar !== "function") throw new TypeError("montaje de borradores publicados no válido");
+    || typeof anunciar !== "function" || typeof obtenerDisponibilidad !== "function"
+    || typeof reintentarMetadatos !== "function") {
+    throw new TypeError("montaje de borradores publicados no válido");
+  }
+  const estadoDisponibilidad = () => {
+    const actual = obtenerDisponibilidad();
+    return actual && actual.expediente_ref === contexto?.expediente_ref
+      && actual.version_observada === contexto?.version_observada
+      && ["disponible", "no_autorizado", "sin_montaje", "indisponible"].includes(actual.estado)
+      ? actual.estado : null;
+  };
+  if (!["disponible", "indisponible"].includes(estadoDisponibilidad())) {
+    raiz.hidden = true;
+    raiz.replaceChildren();
+    return Object.freeze({ desmontar() {} });
+  }
   const t = crearTraductorContratacionTemporal();
   let montado = true;
   let estado = "cargando";
@@ -40,13 +58,15 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
   let mensaje = "";
   let mensajeError = false;
   let ocupado = false;
+  let metadatosOcupados = false;
   let controlador = null;
   let secuencia = 0;
   let urlDocumento = null;
   let revocacion = null;
   const pintar = () => { if (montado) {
     raiz.hidden = estado === "ausente";
-    raiz.innerHTML = estado === "ausente" ? "" : renderizarBorradoresPublicados({ estado, catalogo, ayudaAbierta, mensaje, mensajeError, ocupado });
+    raiz.innerHTML = estado === "ausente" ? "" : renderizarBorradoresPublicados({ estado, catalogo, ayudaAbierta,
+      mensaje, mensajeError, ocupado, metadatosOcupados });
   } };
   const liberarURL = () => { clearTimeout(revocacion); revocacion = null;
     if (urlDocumento) entornoDescarga.URL?.revokeObjectURL?.(urlDocumento); urlDocumento = null; };
@@ -54,6 +74,10 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
 
   async function cargar() {
     cancelar();
+    if (estadoDisponibilidad() !== "disponible") {
+      catalogo = null; estado = estadoDisponibilidad() === "indisponible" ? "metadatos" : "ausente";
+      pintar(); return;
+    }
     const actual = secuencia;
     controlador = new AbortController();
     const signal = controlador.signal;
@@ -61,16 +85,19 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
     try {
       const datos = await cliente.consultarDisponibles(contexto, { signal });
       if (!montado || signal.aborted || secuencia !== actual) return;
+      if (estadoDisponibilidad() !== "disponible") {
+        catalogo = null; estado = estadoDisponibilidad() === "indisponible" ? "metadatos" : "ausente"; return;
+      }
       catalogo = datos; estado = "lista";
     } catch (error) {
       if (!montado || signal.aborted || secuencia !== actual) return;
-      estado = error?.estado === 404 ? "ausente" : [401, 403].includes(error?.estado) ? "denegado"
+      estado = [401, 403].includes(error?.estado) ? "denegado"
         : error?.estado === 409 ? "conflicto" : "error";
     } finally { if (montado && secuencia === actual) { controlador = null; pintar(); } }
   }
 
   async function descargar(tipo, formato) {
-    if (!catalogo || estado !== "lista" || ocupado) return;
+    if (estadoDisponibilidad() !== "disponible" || !catalogo || estado !== "lista" || ocupado) return;
     const autorizado = catalogo.tipos.some((item) => item.clave === tipo && item.formatos.includes(formato));
     if (!autorizado) return;
     const actual = ++secuencia;
@@ -80,6 +107,9 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
     try {
       const resultado = await cliente.descargar(contexto, catalogo, tipo, formato, { signal });
       if (!montado || signal.aborted || secuencia !== actual) return;
+      if (estadoDisponibilidad() !== "disponible") {
+        catalogo = null; estado = estadoDisponibilidad() === "indisponible" ? "metadatos" : "ausente"; return;
+      }
       if (resultado?.catalogo_ref !== catalogo.catalogo_ref
         || resultado.catalogo_huella_sha256 !== catalogo.catalogo_huella_sha256
         || resultado.procedencia_ref !== catalogo.procedencia_ref) throw new TypeError("procedencia de descarga incompatible");
@@ -109,7 +139,20 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
     if (!accion || !raiz.contains?.(accion)) return;
     if (accion.hasAttribute("data-bp-ayuda")) { ayudaAbierta = !ayudaAbierta; pintar();
       raiz.querySelector?.("[data-bp-ayuda]")?.focus?.({ preventScroll: true }); }
-    else if (accion.hasAttribute("data-bp-reintentar")) void cargar();
+    else if (accion.hasAttribute("data-bp-reintentar")) {
+      if (estado !== "metadatos") { void cargar(); return; }
+      if (estadoDisponibilidad() !== "indisponible") { void cargar(); return; }
+      if (metadatosOcupados) return;
+      const actual = ++secuencia;
+      metadatosOcupados = true; pintar();
+      void Promise.resolve().then(() => reintentarMetadatos()).catch(() => {
+        console.warn({ origen: "ct.borradores.metadatos", codigo: "no_disponible" });
+      }).then(() => {
+        if (!montado || actual !== secuencia) return;
+        metadatosOcupados = false;
+        void cargar();
+      });
+    }
     else if (accion.hasAttribute("data-bp-cancelar")) { cancelar(); mensaje = t("bp_cancelada"); mensajeError = false; pintar(); }
     else void descargar(accion.dataset.bpDescargar, accion.dataset.bpFormato);
   };

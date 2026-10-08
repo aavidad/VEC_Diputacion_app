@@ -52,7 +52,7 @@ test("motivos gobernados y reserva tienen etiqueta ES/EN sin depender de textos 
 
 test("ficha real B2 hace un único GET, muestra formulario con decisión positiva y no abre legado", async () => {
   const s = superficie(); let lecturas = 0, escrituras = 0, legado = 0;
-  const gestor = crearGestorIncorporacion({ raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
+  const gestor = crearGestorIncorporacion({ resolverDisponibilidadOpcional: (_clave, contexto) => ({ estado: "disponible", ...contexto }), raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
     incorporacionPersonalB2: { consultar: async () => { lecturas++; return consulta(); }, preparar: () => { escrituras++; }, confirmar: () => { escrituras++; } },
     incorporacionEjercicioDisponible: true, clienteLlamamiento: { prepararIncorporacionEjercicio: () => { legado++; } },
   });
@@ -64,10 +64,46 @@ test("ficha real B2 hace un único GET, muestra formulario con decisión positiv
   gestor.retirar();
 });
 
+test("sin disponibilidad B2 exacta no consulta el plan", async () => {
+  const s = superficie(); let lecturas = 0;
+  for (const resolverDisponibilidadOpcional of [undefined,
+    (_clave, contexto) => ({ estado: "disponible", ...contexto, expediente_ref: "otro" }),
+    (_clave, contexto) => ({ estado: "disponible", ...contexto, version_observada: contexto.version_observada + 1 })]) {
+    const gestor = crearGestorIncorporacion({ raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
+      resolverDisponibilidadOpcional,
+      incorporacionPersonalB2: { consultar() { lecturas++; return consulta(); }, preparar() {}, confirmar() {} },
+      incorporacionEjercicioDisponible: false });
+    await gestor.ofrecerIncorporacionEjercicio();
+    gestor.retirar();
+  }
+  assert.equal(lecturas, 0);
+});
+
+test("metadatos B2 indisponibles solo refrescan capacidad antes de leer el plan", async () => {
+  const s = superficie(); let estadoCap = "indisponible", lecturas = 0, refrescos = 0, resolver;
+  const gestor = crearGestorIncorporacion({ raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
+    resolverDisponibilidadOpcional: (_clave, contexto) => ({ estado: estadoCap, ...contexto }),
+    reintentarDisponibilidadOpcional: () => { refrescos++; return new Promise((terminar) => { resolver = terminar; }); },
+    incorporacionPersonalB2: { consultar: async () => { lecturas++; return consulta(); }, preparar() {}, confirmar() {} },
+    incorporacionEjercicioDisponible: false });
+  await gestor.ofrecerIncorporacionEjercicio();
+  assert.equal(lecturas, 0);
+  assert.match(s.contenedor.innerHTML, /reintentar-metadatos-b2/u);
+  const pendiente = gestor.reintentarMetadatosB2();
+  await siguienteCiclo();
+  assert.equal(refrescos, 1);
+  assert.equal(lecturas, 0);
+  estadoCap = "disponible";
+  resolver();
+  await pendiente; await siguienteCiclo();
+  assert.equal(lecturas, 1);
+  gestor.retirar();
+});
+
 test("una clase reserva recibida de Personal usa la etiqueta de su catálogo", async () => {
   const s = superficie(); const c = consulta();
   c.opciones.clases_ocupacion = [{ valor: "reserva", texto_clave: "personal.ocupacion.clase.reserva" }];
-  const gestor = crearGestorIncorporacion({ raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
+  const gestor = crearGestorIncorporacion({ resolverDisponibilidadOpcional: (_clave, contexto) => ({ estado: "disponible", ...contexto }), raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
     incorporacionPersonalB2: { consultar: async () => c, preparar() { assert.fail(); }, confirmar() { assert.fail(); } },
   });
   await gestor.ofrecerIncorporacionEjercicio(); await siguienteCiclo();
@@ -77,7 +113,7 @@ test("una clase reserva recibida de Personal usa la etiqueta de su catálogo", a
 
 test("v8 sin decisión positiva B2 ofrece solo consulta del protocolo anterior", async () => {
   const s = superficie(8); let lecturas = 0;
-  const gestor = crearGestorIncorporacion({ raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
+  const gestor = crearGestorIncorporacion({ resolverDisponibilidadOpcional: (_clave, contexto) => ({ estado: "disponible", ...contexto }), raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
     incorporacionPersonalB2: { consultar: async () => { lecturas++; return consulta(8, false); }, preparar() { assert.fail(); }, confirmar() { assert.fail(); } },
     incorporacionEjercicioDisponible: true, clienteLlamamiento: { prepararIncorporacionEjercicio() { assert.fail("sin GET legado automático"); } },
   });
@@ -100,7 +136,7 @@ test("B2 recuperado en v8 conserva recibo y no ofrece el formulario anterior", a
   c.recibo = { esquema: ESQUEMA_RECIBO_B2, expediente_ref: expedienteRef, plan_ref: c.plan.plan_ref, plan_version: 1,
     recibo_ref: "recibo:b2:original", registrada_en: "2026-10-01T10:00:00.123456Z", empleado_ref: "empleado:1",
     relacion_ref: "relacion:1", ocupacion_ref: "ocupacion:1", firma_oficial: false, eficacia_administrativa: false };
-  const gestor = crearGestorIncorporacion({ raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
+  const gestor = crearGestorIncorporacion({ resolverDisponibilidadOpcional: (_clave, contexto) => ({ estado: "disponible", ...contexto }), raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
     incorporacionPersonalB2: { consultar: async () => c, preparar() { assert.fail(); }, confirmar() { assert.fail(); } },
     incorporacionEjercicioDisponible: true, clienteLlamamiento: { prepararIncorporacionEjercicio() { assert.fail(); } },
   });
@@ -113,7 +149,7 @@ test("B2 recuperado en v8 conserva recibo y no ofrece el formulario anterior", a
 test("errores 403, 409 y 503 B2 no abren el POST legado ni filtran el error", async () => {
   for (const estadoHTTP of [403, 409, 503]) {
     const s = superficie(8); let lecturas = 0;
-    const gestor = crearGestorIncorporacion({ raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
+    const gestor = crearGestorIncorporacion({ resolverDisponibilidadOpcional: (_clave, contexto) => ({ estado: "disponible", ...contexto }), raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
       incorporacionPersonalB2: { consultar: async () => { lecturas++; throw Object.assign(new Error("dato privado"),
         { estado: estadoHTTP, envelopeValido: true }); }, preparar() { assert.fail(); }, confirmar() { assert.fail(); } },
       incorporacionEjercicioDisponible: true, clienteLlamamiento: { prepararIncorporacionEjercicio() { assert.fail(); } },
@@ -128,7 +164,7 @@ test("errores 403, 409 y 503 B2 no abren el POST legado ni filtran el error", as
 
 test("retirar la ficha antes del GET B2 impide montar datos tardíos", async () => {
   const s = superficie(); let resolver;
-  const gestor = crearGestorIncorporacion({ raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
+  const gestor = crearGestorIncorporacion({ resolverDisponibilidadOpcional: (_clave, contexto) => ({ estado: "disponible", ...contexto }), raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
     incorporacionPersonalB2: { consultar: () => new Promise((terminar) => { resolver = terminar; }),
       preparar() { assert.fail(); }, confirmar() { assert.fail(); } },
   });
