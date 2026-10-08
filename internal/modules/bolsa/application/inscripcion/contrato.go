@@ -51,12 +51,14 @@ const (
 
 var referenciaOpaca = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9:._-]{2,255}$`)
 var referenciaConvocatoria = regexp.MustCompile(`^cv1_[A-Za-z0-9_-]+_v[1-9][0-9]*$`)
+var referenciaSolicitud = regexp.MustCompile(`^solicitud_inscripcion_[0-9a-f]{64}$`)
 var claveIdempotencia = regexp.MustCompile(`^[A-Za-z0-9_-]{16,128}$`)
 var huellaCertificado = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 func convocatoriaRefValida(ref string) bool {
 	return len(ref) <= 200 && referenciaConvocatoria.MatchString(ref)
 }
+func solicitudRefValida(ref string) bool { return referenciaSolicitud.MatchString(ref) }
 
 // Actor sólo se construye a partir de la sesión vinculada al certificado.
 // PersonaRef no forma parte de ningún DTO de petición.
@@ -177,7 +179,7 @@ type Incorporacion struct {
 }
 
 func (i Incorporacion) Validar() error {
-	if !referenciaOpaca.MatchString(i.SolicitudRef) ||
+	if !solicitudRefValida(i.SolicitudRef) ||
 		!referenciaOpaca.MatchString(i.EvidenciaRef) || i.VersionEsperada == 0 ||
 		!claveIdempotencia.MatchString(i.ClaveIdempotencia) {
 		return ErrSolicitudInvalida
@@ -186,7 +188,7 @@ func (i Incorporacion) Validar() error {
 }
 
 func (d Decision) Validar() error {
-	if !referenciaOpaca.MatchString(d.SolicitudRef) || d.VersionEsperada == 0 ||
+	if !solicitudRefValida(d.SolicitudRef) || d.VersionEsperada == 0 ||
 		!claveIdempotencia.MatchString(d.ClaveIdempotencia) ||
 		(d.Tipo != "admitir" && d.Tipo != "rechazar") ||
 		(d.Tipo == "rechazar" && !referenciaOpaca.MatchString(d.MotivoCodigo)) ||
@@ -223,7 +225,7 @@ type Solicitud struct {
 }
 
 func (s Solicitud) Validar() error {
-	if !referenciaOpaca.MatchString(s.SolicitudRef) || !referenciaOpaca.MatchString(s.ReciboRef) ||
+	if !solicitudRefValida(s.SolicitudRef) || !referenciaOpaca.MatchString(s.ReciboRef) ||
 		!convocatoriaRefValida(s.ConvocatoriaRef) || !referenciaOpaca.MatchString(s.CategoriaRef) || len(s.CategoriaRef) > 200 ||
 		s.Categoria == "" || len(s.Categoria) > 200 ||
 		s.Version == 0 || s.RegistradaEn.IsZero() {

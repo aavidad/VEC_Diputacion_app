@@ -20,7 +20,7 @@ func RecursoLectura(accion, personaRef, idioma string, filtro Filtro, ref string
 		}
 		return ref, nil
 	case AccionDetallePropia, AccionDetalleRRHH:
-		if !referenciaOpaca.MatchString(ref) || filtro != (Filtro{}) {
+		if !solicitudRefValida(ref) || filtro != (Filtro{}) {
 			return "", ErrSolicitudInvalida
 		}
 		return ref, nil
