@@ -391,6 +391,10 @@ export function crearPresentadorExpedientesContratacionTemporal({
       || !Number.isSafeInteger(versionResultante) || versionResultante < anterior.version) {
       throw errorPublico("expediente_no_seleccionado");
     }
+    reemplazar({
+      cuadro_desactualizado: true,
+      paginacion_requiere_reinicio: Boolean(estado.cuadro?.paginacion),
+    });
     cancelarEnCurso();
     const operacion = secuencia;
     controlador = new AbortController();
@@ -417,8 +421,6 @@ export function crearPresentadorExpedientesContratacionTemporal({
         documentos: null,
         auditoria: null,
         tarea_ref: siguienteTarea?.tarea_ref ?? "",
-        paginacion_requiere_reinicio: Boolean(estado.cuadro?.paginacion),
-        cuadro_desactualizado: true,
         mensaje_clave: "estado_expediente_listo",
         tipo_mensaje: "informacion",
       });
