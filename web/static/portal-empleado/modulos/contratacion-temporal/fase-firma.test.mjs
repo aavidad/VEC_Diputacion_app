@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { cargarTextos } from "../../../comun/textos.js";
-import { calcularFaseDocumento, cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js?v=20261001-ct-a-i18n-v1";
+import { calcularFaseDocumento, cargarTextosFaseFirma, renderizarFaseFirma,
+  renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261001-ct-a-i18n-v1";
 
 const es = await cargarTextos("contratacion-temporal-firma", { idioma: "es", porDefecto: "es" });
 const en = await cargarTextos("contratacion-temporal-firma", { idioma: "en", porDefecto: "es" });
@@ -137,4 +138,21 @@ test("un documento con PDF firmado guardado ofrece descargarlo, con la terna que
   const dos = documento(["firmado", "pendiente_firma"], 2);
   dos.pasos[0].documento_custodiado = c;
   assert.match(renderizarFaseFirma({ catalogo: { documentos: [dos] }, real: { documentos: [dos] }, textos: es }), /Firma del paso 1 de 2\./u);
+});
+
+test("el botón firmado se coloca en Documentos sólo con custodia real", () => {
+  const doc = documento(["firmado"], 0);
+  doc.pasos[0].documento_custodiado = {
+    expediente_ref: `ref:${"e".repeat(64)}`, documento_ref: `ref:${"d".repeat(64)}`,
+    version: 1, huella_sha256: "1".repeat(64),
+  };
+  const real = { registro: { verificacion: true }, documentos: [doc] };
+  const circuito = renderizarFaseFirma({ catalogo: real, real, textos: es, mostrarDescargaFirmado: false });
+  const documentos = renderizarFirmadosEnDocumentos(real, es);
+  assert.doesNotMatch(circuito, /data-ct-descargar-firmado/u);
+  assert.match(documentos, /data-ct-descargar-firmado/u);
+  assert.match(documentos, /data-ct-firmado-huella="1{64}"/u);
+  assert.equal(renderizarFirmadosEnDocumentos({ documentos: [doc] }, es), "");
+  assert.equal(renderizarFirmadosEnDocumentos({ registro: real.registro,
+    documentos: [documento(["pendiente_firma"], 1)] }, es), "");
 });

@@ -80,6 +80,7 @@ const CLAVES_CONTEXTO_ANA002 = Object.freeze([
   "ct_txt_contexto_no_comunicado",
 ]);
 const CLAVES_DOCUMENTOS_FICHA = Object.freeze([
+  "ficha_borrador_sin_firmar", "ficha_descargar_pdf", "ficha_descargar_word",
   "ficha_documentos_cargando", "ficha_documentos_error", "ficha_documentos_no_montados",
   "ficha_borradores_no_montados", "ficha_borradores_cargando", "ficha_borradores_error",
   "ficha_documentos_recuento_indice",

@@ -278,7 +278,7 @@ export async function montarModuloContratacionTemporal({
   function montarDocumentosComunSiProcede(estado) {
     const zona = raiz.querySelector("[data-ct-exp-documentos-comun]");
     if (!zona) return;
-    if (typeof documentosComun?.montar !== "function" || estado.vista !== "expediente"
+    if (typeof documentosComun?.montar !== "function" || !["expediente", "documentos"].includes(estado.vista)
       || estado.carga !== "listo" || estado.expediente?.demostracion !== false
       || estado.expediente.expediente_ref !== estado.expediente_ref) {
       zona.textContent = traducirExpedientes("ficha_documentos_no_montados");
@@ -294,6 +294,13 @@ export async function montarModuloContratacionTemporal({
         zona.textContent = traducirExpedientes("ficha_documentos_error");
         return;
       }
+      const tituloComun = contenedor.querySelector?.(".modulo-documentos > header h2");
+      if (tituloComun) {
+        const subtitulo = raiz.ownerDocument.createElement("h4");
+        subtitulo.textContent = tituloComun.textContent;
+        tituloComun.replaceWith(subtitulo);
+      }
+      contenedor.querySelector?.(".modulo-documentos > .panel")?.classList?.remove("panel", "documentos-panel");
       desmontarDocumentosComun = montaje.desmontar;
       zona.replaceChildren(contenedor);
     } catch {
@@ -310,25 +317,33 @@ export async function montarModuloContratacionTemporal({
   function montarBorradoresPublicadosSiProcede(estado) {
     const contexto = contextoPlantillasPublicadasDesdeEstado(estado);
     const zona = raiz.querySelector("[data-ct-exp-borradores-publicados]");
+    const legado = raiz.querySelector("[data-ct-exp-borradores-legados]");
     if (!zona) return;
+    zona.hidden = false;
     if (!contexto || typeof raiz.ownerDocument?.createElement !== "function") {
-      zona.textContent = traducirExpedientes("ficha_borradores_no_montados");
+      if (legado?.childElementCount) zona.hidden = true;
+      else zona.textContent = traducirExpedientes("ficha_borradores_no_montados");
       return;
     }
     // Pista de composición del detalle auditado; nunca concede un permiso.
     if (presentador.resolverDisponibilidadOpcional?.("borradores_publicados", contexto)?.estado === "sin_montaje") {
-      zona.textContent = traducirExpedientes("ficha_borradores_no_montados");
+      if (legado?.childElementCount) zona.hidden = true;
+      else zona.textContent = traducirExpedientes("ficha_borradores_no_montados");
       return;
     }
+    if (legado) legado.hidden = true;
     const contenedor = raiz.ownerDocument.createElement("div");
     contenedor.dataset.ctExpBorradoresPublicados = "";
     zona.replaceChildren(contenedor);
     try {
       desmontarBorradoresPublicados = montarBorradoresPublicados({ raiz: contenedor,
         contexto, ...(clienteBorradoresPublicados === undefined ? {} : { cliente: clienteBorradoresPublicados }),
-        entornoDescarga, anunciar }).desmontar;
+        entornoDescarga, anunciar,
+        alEstado: (estadoCatalogo) => { if (legado) legado.hidden = !["ausente", "error", "denegado", "conflicto"].includes(estadoCatalogo); },
+      }).desmontar;
     } catch {
       desmontarBorradoresPublicados = null;
+      if (legado) legado.hidden = false;
       zona.textContent = traducirExpedientes("ficha_borradores_error");
     }
   }

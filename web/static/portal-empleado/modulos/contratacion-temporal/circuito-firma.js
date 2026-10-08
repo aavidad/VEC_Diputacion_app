@@ -10,7 +10,7 @@
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261008-w-ct-borradores-main-v2";
 import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261008-w-ct-borradores-main-v2";
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
-import { cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js?v=20261008-w-ct-borradores-main-v2";
+import { cargarTextosFaseFirma, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261008-w-ct-borradores-main-v2";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
 
@@ -207,6 +207,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
     ${fase ? renderizarFaseFirma({
     catalogo: fase.catalogo, real: circuito?.registro ? circuito : null, textos: fase.textos,
     nombrar: (tipo, valor) => traducirValorCircuitoFirma(tipo, valor, t), aviso: estadoConsulta !== "denegado",
+    mostrarDescargaFirmado: false,
   }) : ""}
     <section class="ct-circuito-portafirmas" aria-labelledby="ct-circuito-portafirmas-titulo">
       <h4 id="ct-circuito-portafirmas-titulo">${escaparHTML(t("circuito_firma_envio_corporativo_titulo"))}</h4>
@@ -257,6 +258,12 @@ export function crearGestorCircuitoFirma({
     const catalogo = resultado?.catalogo ?? resultado?.circuito ?? null;
     return textos && catalogo ? { catalogo, textos } : null;
   };
+  function pintarFirmados(resultado, datosFase) {
+    const zona = raiz.querySelector?.("[data-ct-exp-firmados]");
+    if (!zona) return;
+    zona.innerHTML = renderizarFirmadosEnDocumentos(resultado?.circuito, datosFase?.textos,
+      (tipo, valor) => traducirValorCircuitoFirma(tipo, valor, t));
+  }
 
   async function obtenerCatalogo() {
     if (typeof cliente?.obtenerCircuitoConEstado === "function") {
@@ -312,6 +319,7 @@ export function crearGestorCircuitoFirma({
       const detallesAbiertos = Boolean(actual.querySelector?.("[data-ct-firma-detalles]")?.open);
       const limiteAbierto = Boolean(actual.querySelector?.(".ct-circuito-limite")?.open);
       actual.outerHTML = renderizarCircuitoFirma(nuevo.circuito, t, nuevo.estado, datosFase);
+      pintarFirmados(nuevo, datosFase);
       const repintado = raiz.querySelector?.("[data-ct-circuito-firma]");
       repintado?.addEventListener?.("click", manejar);
       const detalles = repintado?.querySelector?.("[data-ct-firma-detalles]");
@@ -334,9 +342,11 @@ export function crearGestorCircuitoFirma({
     if (descargando) return;
     descargando = true;
     boton.setAttribute("aria-disabled", "true");
-    boton.setAttribute("aria-describedby", "ct-firma-aviso");
+    boton.setAttribute("aria-describedby", boton.closest?.("[data-ct-exp-firmados]")
+      ? "ct-firma-descarga-aviso" : "ct-firma-aviso");
     const textos = await textosFase;
-    const aviso = boton.closest?.("[data-ct-circuito-firma]")?.querySelector?.("[data-ct-firma-aviso]");
+    const aviso = boton.closest?.("[data-ct-exp-firmados]")?.querySelector?.("#ct-firma-descarga-aviso")
+      ?? boton.closest?.("[data-ct-circuito-firma]")?.querySelector?.("[data-ct-firma-aviso]");
     const decir = (clave, valores) => { if (aviso && textos) aviso.textContent = textos.traducir(clave, valores); };
     const documento = boton.closest?.(".ct-fase-firma-fila")?.querySelector?.(".ct-fase-firma-documento strong")?.textContent?.trim();
     decir("fase.descargando");
@@ -373,6 +383,11 @@ export function crearGestorCircuitoFirma({
     if (boton?.dataset?.ctDescargarFirmado !== undefined) { void descargarFirmado(boton); return; }
     void acciones.manejarClic(evento);
   }
+  function manejarFirmadoEnDocumentos(evento) {
+    const boton = evento?.target?.closest?.("[data-ct-exp-firmados] [data-ct-descargar-firmado]");
+    if (boton && raiz.contains?.(boton)) { evento.preventDefault?.(); void descargarFirmado(boton); }
+  }
+  raiz.addEventListener?.("click", manejarFirmadoEnDocumentos);
 
   function insertar(resultado, datosFase) {
     if (!esMontada() || raiz.querySelector?.("[data-ct-circuito-firma]")) return;
@@ -382,6 +397,7 @@ export function crearGestorCircuitoFirma({
     if (typeof ancla?.insertAdjacentHTML !== "function") return;
     circuitoActual = resultado.circuito;
     ancla.insertAdjacentHTML("afterend", renderizarCircuitoFirma(resultado.circuito, t, resultado.estado, datosFase));
+    pintarFirmados(resultado, datosFase);
     raiz.querySelector?.("[data-ct-circuito-firma]")?.addEventListener?.("click", manejar);
   }
 
@@ -400,6 +416,6 @@ export function crearGestorCircuitoFirma({
 
   return Object.freeze({
     montarSiProcede,
-    retirar() { circuitoActual = null; acciones.retirar(); controlador.abort(); },
+    retirar() { circuitoActual = null; acciones.retirar(); controlador.abort(); raiz.removeEventListener?.("click", manejarFirmadoEnDocumentos); },
   });
 }

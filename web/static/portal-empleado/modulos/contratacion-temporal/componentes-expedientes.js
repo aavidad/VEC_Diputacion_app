@@ -165,13 +165,12 @@ function renderizarBorradoresFormalizacion(t) {
   return `<section class="ct-exp-borradores" aria-labelledby="ct-exp-borradores-titulo">
     <div class="ct-exp-borradores-cabecera"><div>
       <h4 id="ct-exp-borradores-titulo">${escaparHTML(t("borradores_titulo"))}</h4>
-      <p>${escaparHTML(t("borradores_aviso"))}</p>
     </div><button type="button" class="boton-terciario" data-ct-exp-accion="cancelar-descarga" disabled>${escaparHTML(t("cancelar_descarga"))}</button></div>
     <ul>${BORRADORES_FORMALIZACION.map(([clave, accion]) => `<li>
-      <h5>${escaparHTML(t(`${clave}_titulo`))}</h5>
+      <h5>${escaparHTML(t(`${clave}_titulo`))} <span class="ct-exp-chip">${escaparHTML(t("ficha_borrador_sin_firmar"))}</span></h5>
       <div class="ct-exp-borradores-acciones">
-        <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-${accion}">${escaparHTML(t(`${clave}_descargar`))}</button>
-        <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-docx-${accion}">${escaparHTML(t(`${clave}_descargar_docx`))}</button>
+        <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-${accion}" aria-label="${escaparHTML(t(`${clave}_descargar`))}">${escaparHTML(t("ficha_descargar_pdf"))}</button>
+        <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-docx-${accion}" aria-label="${escaparHTML(t(`${clave}_descargar_docx`))}">${escaparHTML(t("ficha_descargar_word"))}</button>
       </div>
       <p data-ct-exp-resultado-descarga="${accion}" role="status" aria-live="polite">${escaparHTML(t("descarga_sin_solicitar"))}</p>
       <button type="button" class="boton-terciario" data-ct-exp-accion="reintentar-descarga-${accion}" disabled hidden>${escaparHTML(t("reintentar_descarga"))}</button>
@@ -498,7 +497,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     ${renderizarLineaFases(expediente, t)}
     <div class="rejilla-principal ct-exp-ficha-rejilla">
       <div class="pila">
-        ${renderizarDocumentosFicha(estado, t)}
+        ${renderizarDocumentosFicha(estado, t, solicitudInformeDefinitivoDesdeEstado(estado) ? renderizarBorradoresFormalizacion(t) : "")}
         ${renderizarHistorialFicha(expediente, t, faseDeCampo)}
         ${renderizarCambiosExpediente(expediente)}
       </div>
@@ -547,26 +546,8 @@ export function renderizarDocumentos(estado, t) {
   const indice = estado.documentos;
   if (!expediente || !indice) return renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
   return `${renderizarCabeceraFicha(expediente, estado, t)}
-    ${solicitudInformeDefinitivoDesdeEstado(estado) ? renderizarBorradoresFormalizacion(t) : ""}
-    <section class="panel ct-exp-documentos" aria-labelledby="ct-exp-documentos-titulo">
-      <header class="cabecera-panel ct-exp-subcabecera ct-exp-documentos-cabecera">
-        <div><h3 id="ct-exp-documentos-titulo" tabindex="-1">${escaparHTML(t("documentos_titulo"))}</h3>
-          <p>${escaparHTML(t("documentos_descripcion"))}</p></div>
-        <button type="button" class="boton-secundario" data-ct-exp-vista="expediente">${escaparHTML(t("nav_expediente"))}</button>
-      </header>
-      ${indice.documentos.length ? `<ul class="ct-exp-documentos-lista" aria-label="${escaparHTML(t("documentos_tabla"))}">
-        ${indice.documentos.map((documento) => `<li class="ct-exp-documento">
-          <div class="ct-exp-documento-principal"><h4>${escaparHTML(documento.titulo)}</h4>
-            <span class="ct-exp-chip">${escaparHTML(documento.estado)}</span></div>
-          <dl><div><dt>${escaparHTML(t("tipo"))}</dt><dd>${escaparHTML(documento.tipo)}</dd></div>
-            <div><dt>${escaparHTML(t("version"))}</dt><dd>${documento.version}</dd></div>
-            <div><dt>${escaparHTML(t("firma"))}</dt><dd>${escaparHTML(documento.firma)}</dd></div>
-            <div><dt>${escaparHTML(t("fecha"))}</dt><dd>${escaparHTML(documento.fecha)}</dd></div></dl>
-          <p class="ct-exp-documento-descarga">${escaparHTML(documento.descarga_disponible
-    ? t("descarga_indice_sin_accion") : t("descarga_no_disponible"))}</p>
-        </li>`).join("")}
-      </ul>` : `<p class="ct-exp-documentos-vacio" role="status">${escaparHTML(t("panel_sin_datos"))}</p>`}
-    </section>
+    <button type="button" class="boton-secundario" data-ct-exp-vista="expediente">${escaparHTML(t("nav_expediente"))}</button>
+    ${renderizarDocumentosFicha(estado, t, solicitudInformeDefinitivoDesdeEstado(estado) ? renderizarBorradoresFormalizacion(t) : "")}
     ${renderizarContinuidadDesdeDocumentos(expediente, t)}`;
 }
 

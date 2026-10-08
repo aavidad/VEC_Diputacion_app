@@ -138,16 +138,18 @@ export function renderizarLineaFases(expediente, t) {
  * Documentos: si el índice del expediente ya está consultado, como lista de
  * comprobación; si no, el acceso a su pantalla. La firma se ancla debajo.
  */
-export function renderizarDocumentosFicha(estado, t) {
+export function renderizarDocumentosFicha(estado, t, borradoresLegados = "") {
   const expediente = estado.expediente;
   const indice = estado.documentos?.expediente_ref === expediente.expediente_ref ? estado.documentos : null;
-  const sinPantallaPropia = estado.navegacion?.documentos === false;
+  const sinPantallaPropia = estado.navegacion?.documentos === false || estado.vista === "documentos";
   const verDocumentos = sinPantallaPropia ? ""
     : `<button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escapar(t("ficha_documentos_ver"))}</button>`;
   // Sin índice propio, el montaje coloca aquí la lista común de documentos
   // del expediente (con su botón «Descargar») si el portal la ofrece.
   const cuerpo = `<div class="cuerpo-panel">
     <div data-ct-exp-borradores-publicados><p role="status">${escapar(t("ficha_borradores_cargando"))}</p></div>
+    <div data-ct-exp-borradores-legados>${borradoresLegados}</div>
+    <div data-ct-exp-firmados></div>
     ${indice?.documentos?.length ? renderizarListaDocumentos(indice.documentos, t) : ""}
     <div data-ct-exp-documentos-comun><p role="status">${escapar(t("ficha_documentos_cargando"))}</p></div>
     ${verDocumentos}</div>`;
@@ -162,11 +164,10 @@ export function renderizarDocumentosFicha(estado, t) {
 /** Lista de comprobación de documentos; el símbolo acompaña a la palabra. */
 export function renderizarListaDocumentos(documentos, t) {
   return `<ul class="lista-documentos" aria-label="${escapar(t("documentos_tabla"))}">${documentos.map((documento) => {
-    const enFirma = /firma|sign/iu.test(String(documento.firma ?? "")) && !/firmad|signed/iu.test(String(documento.firma ?? ""));
     const esta = documento.descarga_disponible === true;
-    const clase = enFirma ? "firma" : (esta ? "esta" : "falta");
-    const simbolo = { firma: "…", esta: "✓", falta: "—" }[clase];
-    const palabra = t({ firma: "ficha_documento_firma", esta: "ficha_documento_esta", falta: "ficha_documento_falta" }[clase]);
+    const clase = esta ? "esta" : "falta";
+    const simbolo = esta ? "✓" : "—";
+    const palabra = t(esta ? "ficha_documento_esta" : "ficha_documento_falta");
     return `<li class="${clase}">
       <span class="simbolo" aria-hidden="true">${simbolo}</span>
       <div><strong>${escapar(documento.titulo)}</strong>

@@ -31,7 +31,7 @@ export function renderizarBorradoresPublicados({ estado = "cargando", catalogo =
 }
 
 export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClienteBorradoresPublicados(),
-  entornoDescarga = globalThis, anunciar = () => {} } = {}) {
+  entornoDescarga = globalThis, anunciar = () => {}, alEstado = () => {} } = {}) {
   if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
     || typeof cliente?.consultarDisponibles !== "function" || typeof cliente?.descargar !== "function"
     || typeof anunciar !== "function") throw new TypeError("montaje de borradores publicados no válido");
@@ -50,6 +50,7 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
   const pintar = () => { if (montado) {
     raiz.hidden = estado === "ausente";
     raiz.innerHTML = estado === "ausente" ? "" : renderizarBorradoresPublicados({ estado, catalogo, ayudaAbierta, mensaje, mensajeError, ocupado });
+    alEstado(estado);
   } };
   const liberarURL = () => { clearTimeout(revocacion); revocacion = null;
     if (urlDocumento) entornoDescarga.URL?.revokeObjectURL?.(urlDocumento); urlDocumento = null; };
