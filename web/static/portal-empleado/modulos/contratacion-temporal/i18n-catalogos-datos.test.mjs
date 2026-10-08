@@ -80,6 +80,7 @@ const CLAVES_CONTEXTO_ANA002 = Object.freeze([
   "ct_txt_contexto_no_comunicado",
 ]);
 const CLAVES_CUADRO_LIGERO = Object.freeze([
+  "lista_centro_nombre_no_disponible", "lista_categoria_nombre_no_disponible",
   "filtros", "tabla_expedientes", "marca_urgente", "lista_actualizar", "lista_vacia_sin_alta",
   "lista_textos_respaldo",
   "lista_filtro_no_disponible", "lista_resultados_pagina",

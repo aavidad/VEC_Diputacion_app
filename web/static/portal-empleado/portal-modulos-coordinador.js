@@ -433,11 +433,10 @@ export function crearCoordinadorModulosPortal({
         // Las etiquetas sólo se consultan después de una página autorizada.
         // Una denegación del cuadro no inicia consultas auxiliares.
         const pagina = await paginaPromesa;
-        const catalogoPromesa = nombresCatalogo();
-        const textosPromesa = cargarTextos("contratacion-temporal-ficha-lista", { idioma: idiomaLista })
-          .then((textos) => ({ textos }), (error) => ({ error }));
-        const [catalogo, textosResultado] = await Promise.all([catalogoPromesa, textosPromesa]);
-        if (textosResultado.error) throw textosResultado.error;
+        const [catalogo, textos] = await Promise.all([
+          nombresCatalogo(),
+          cargarTextos("contratacion-temporal-ficha-lista", { idioma: idiomaLista }),
+        ]);
         const faltaCentro = Array.isArray(pagina?.expedientes) && pagina.expedientes.some(
           ({ centro_ref: referencia }) => !nombreCentroEn(catalogo?.centros, referencia));
         const organizacion = faltaCentro ? await nombresOrganizacion() : null;
@@ -445,7 +444,7 @@ export function crearCoordinadorModulosPortal({
           centrosCatalogo: catalogo?.centros ?? new Map(),
           centrosOrganizacion: organizacion ?? new Map(),
           categorias: catalogo?.categorias ?? new Map(),
-          textos: textosResultado.textos,
+          textos,
         };
         return pagina;
       };
