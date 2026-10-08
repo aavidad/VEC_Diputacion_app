@@ -12,11 +12,12 @@ func TestCanalExigeTLSVerificadoOSocketExplicito(t *testing.T) {
 	if canalValido(tcp, false) {
 		t.Fatal("aceptó TCP sin TLS")
 	}
-	tcp.TLSConfig = &tls.Config{InsecureSkipVerify: true, ServerName: "db.ejemplo"} // #nosec G402 -- caso negativo
+	tcp.TLSConfig = &tls.Config{ServerName: "db.ejemplo", MinVersion: tls.VersionTLS13}
+	tcp.TLSConfig.InsecureSkipVerify = true // #nosec G402 -- caso negativo
 	if canalValido(tcp, false) {
 		t.Fatal("aceptó TLS sin verificar")
 	}
-	tcp.TLSConfig = &tls.Config{ServerName: "db.ejemplo"}
+	tcp.TLSConfig = &tls.Config{ServerName: "db.ejemplo", MinVersion: tls.VersionTLS13}
 	if !canalValido(tcp, false) {
 		t.Fatal("rechazó TLS verificado")
 	}
