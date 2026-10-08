@@ -28,13 +28,13 @@ test("Reglas de cese solo se ofrecen tras su consulta V3 positiva", () => {
 
 test("P-WEB-14 no anuncia un total mientras Bolsa sigue comprobando", () => {
   const accesos = [{ disponible: true, estado: "disponible" }, { disponible: false, estado: "cargando" }];
-  assert.equal(resumenAccesosModulos(accesos, false), "Comprobando módulos");
-  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], true), "Comprobando módulos");
-  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], false), "1 módulo disponible");
-  assert.equal(resumenAccesosModulos([{ disponible: false, estado: "denegado" }], false), "Sin módulos disponibles");
+  assert.equal(resumenAccesosModulos(accesos, false), "Comprobando áreas");
+  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], true), "Comprobando áreas");
+  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], false), "1 área disponible");
+  assert.equal(resumenAccesosModulos([{ disponible: false, estado: "denegado" }], false), "Sin áreas disponibles");
   assert.doesNotMatch(resumenAccesosModulos([], false), /fase inicial/iu);
   const dos = [{ disponible: true, estado: "disponible" }, { disponible: true, estado: "disponible" }];
-  assert.equal(resumenAccesosModulos(dos, false), "2 módulos disponibles");
+  assert.equal(resumenAccesosModulos(dos, false), "2 áreas disponibles");
   // Los textos salen del catálogo i18n, no de literales del módulo.
   const claves = [];
   resumenAccesosModulos(dos, false, (clave, variables) => { claves.push([clave, variables]); return clave; });
