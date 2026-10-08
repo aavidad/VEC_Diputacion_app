@@ -28,7 +28,7 @@ const PREIMAGEN = {
   },
   "i18n-borradores-publicados.js": {
     // Excepción a la preimagen: corrección EN de bp_subtitulo posterior al traslado.
-    "MENSAJES_BORRADORES_PUBLICADOS_EN": "595e5671fbc26190164f2b12bbb6a8f6ee52f872443d6a22385a64960a9cb1ef",
+    "MENSAJES_BORRADORES_PUBLICADOS_EN": "bd0c9e68b006dd257bc9e6d78de80a69824dbe6b298fad2b270e9965ae5f2963",
     "MENSAJES_BORRADORES_PUBLICADOS_ES": "6c9b8fb8abac09567848e5fbe00c33a54a26d8014032302648af8b6e297997ad"
   },
   "i18n-cambios-expediente.js": {
@@ -59,15 +59,15 @@ const PREIMAGEN = {
   "i18n-llamamiento.js": {
     // Excepción a la preimagen: textos reescritos en lenguaje llano (05/10/2026), sin
     // clave de operación ni modo manual en pantalla; los límites pasan a la ayuda «?».
-    "MENSAJES_LLAMAMIENTO_EN": "1f57663b12641ccc9b3189f2bc6cc35b2217e9a4d74519e3fafed7a1d8cecabf",
+    "MENSAJES_LLAMAMIENTO_EN": "01cf19c78d4178976b57cf40991ab35583f098b94696073b273c8cffbe0971d7",
     "MENSAJES_LLAMAMIENTO_ES": "88a4c249b8fdd7f430c74356ffefa84e4c82a30af369ef21aeff4eae3e3ba054"
   },
   "i18n-subsanacion-reparos.js": {
-    "MENSAJES_SUBSANACION_REPAROS_EN": "64125e70d662c685f79970383cc504776bf0923b034ea24825d30209c139833a",
+    "MENSAJES_SUBSANACION_REPAROS_EN": "d3dc09b6d8b28dfbfd56e64d54e6d40b9f3dd988562a67c28e1ccde882f6a12d",
     "MENSAJES_SUBSANACION_REPAROS_ES": "d153f27640795c4a871f3a5ac083127b259c9ac4d59398c3e6ced1366551b867"
   },
   "i18n-textos-vistas.js": {
-    "MENSAJES_TEXTOS_VISTAS_EN": "c0bcbbd15ba13c327909b80f2b5ea8f721583d9a0703bf144185c9e2607f01d5",
+    "MENSAJES_TEXTOS_VISTAS_EN": "3b62dd78417e9910cb3d4bdb6f0cc311d068cf6cef06f01dddb945d14febcd9b",
     "MENSAJES_TEXTOS_VISTAS_ES": "8e3d9f5fc7ff76ae4c729bb9ec1bd308cfa91e4888c1200d40d67e47a55dcea4"
   }
 };

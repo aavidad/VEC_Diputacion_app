@@ -11,7 +11,7 @@ test("la ayuda del portal de bolsa preexistente permanece intacta y conforme", (
   assert.equal(typeof AYUDA_PORTAL_BOLSA.titulo, "string");
   assert.ok(AYUDA_PORTAL_BOLSA.pasos.length >= 4);
   assert.ok(AYUDA_PORTAL_BOLSA.preguntas.length >= 3);
-  assert.match(AYUDA_PORTAL_BOLSA.transcripcion, /Abrir esta ayuda no guarda ni comunica datos/);
+  assert.match(AYUDA_PORTAL_BOLSA.transcripcion, /Abrir esta ayuda no guarda ni envía datos/);
   assert.equal(AYUDA_PORTAL_BOLSA.audio, undefined);
 });
 

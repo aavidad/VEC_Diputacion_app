@@ -492,6 +492,6 @@ test("sin fuente B5 configurada no ofrece candidaturas ni acciones de muestra", 
   });
   const html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /Consulta no configurada/);
-  assert.match(html, /No hay una fuente autorizada/);
+  assert.match(html, /Todavía no hay candidaturas disponibles en esta pantalla/);
   assert.doesNotMatch(html, /DEMO-BOL|Historial sintético|data-bolsa-accion="iniciar-b7"|data-bolsa-accion="abrir-ficha"/);
 });
