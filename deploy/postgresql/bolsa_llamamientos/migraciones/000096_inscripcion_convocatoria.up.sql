@@ -18,6 +18,9 @@ BEGIN
  OR to_regprocedure('vec_catalogos_configurables.leer_etiquetas_inscripcion_v1(text,integer,text,text[],text)') IS NULL
  OR NOT has_function_privilege(current_user,
    'vec_catalogos_configurables.leer_etiquetas_inscripcion_v1(text,integer,text,text[],text)','EXECUTE')
+ OR to_regprocedure('vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb)') IS NULL
+ OR NOT has_function_privilege(current_user,
+   'vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb)','EXECUTE')
  OR to_regprocedure('vec_catalogos_configurables.comprobar_motivo_inscripcion_v1(text,integer,text,text)') IS NULL
  OR to_regprocedure('vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(text,integer,text)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_presentacion_inscripcion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
@@ -505,22 +508,9 @@ BEGIN
  OR c->>'huella_efecto_sha256' IS DISTINCT FROM v_recurso_sha
  THEN RAISE EXCEPTION 'B96: revisión sin decisión exacta' USING ERRCODE='42501'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:inscripcion:'||v_ref,0));
- SELECT * INTO solicitud FROM vec_bolsa_llamamientos.solicitud_inscripcion
- WHERE solicitud_ref=v_ref FOR SHARE;
- IF FOUND AND v_actor IS NOT DISTINCT FROM solicitud.persona_ref THEN
-  RAISE EXCEPTION 'B96: el solicitante no puede revisar su solicitud' USING ERRCODE='42501';
- END IF;
- -- Un recibo ya emitido sólo puede recuperarlo quien realizó aquel acto con
- -- el mismo perfil y cuenta. Rechazar aquí a otro RRHH evita consumir V3 para
- -- una recuperación que jamás le pertenece; la ruta positiva revalida V3.
- SELECT * INTO v_revision_version
- FROM vec_bolsa_llamamientos.solicitud_inscripcion_version
- WHERE solicitud_ref=v_ref AND version=v_esperada+1 FOR SHARE;
- IF FOUND AND (
-  v_revision_version.actor_ref IS DISTINCT FROM v_actor
-  OR v_revision_version.perfil_ref IS DISTINCT FROM d->>'perfil_activo_ref'
-  OR v_revision_version.cuenta_ref IS DISTINCT FROM contexto->>'cuenta_ref')
- THEN RAISE EXCEPTION 'B96: recibo de revisión ajeno' USING ERRCODE='B9604'; END IF;
+ -- Validar y consumir V3 antes de consultar la solicitud impide que un LOGIN
+ -- técnico con material sin firma sondee existencia, estado o autoría. Toda
+ -- denegación posterior revierte este consumo dentro de la misma transacción.
  SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.consumir_revision_inscripcion_v3_atestada(
   p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
   p_payload,p_sobre,p_evidencia,p_raiz);
@@ -866,9 +856,10 @@ AS $f$
 DECLARE
  v_items jsonb; v_item jsonb; v_categoria jsonb; v_requisito jsonb;
  v_selectores jsonb:='[]'::jsonb; v_etiquetas jsonb;
+ v_categorias_pedidos jsonb; v_categorias_validas jsonb;
  v_propias jsonb; v_categorias jsonb; v_requisitos jsonb; v_bolsas jsonb:='[]'::jsonb;
  v_etiqueta jsonb; v_requisitos_resumen text; v_num_categorias integer; v_carta jsonb;
- v_estado text; v_puede boolean; v_impedimento text;
+ v_estado text; v_puede boolean; v_catalogo_completo boolean; v_impedimento text;
  v_pos integer:=0; v_conv text; v_propia jsonb; v_salida jsonb;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
@@ -884,6 +875,9 @@ BEGIN
    coalesce(x.valor->>'numero_categorias','') !~ '^[1-9][0-9]{0,2}$'
    OR (x.valor->>'numero_categorias')::integer NOT BETWEEN 1 AND 128
    OR coalesce(x.valor->>'categoria_ref_comprobacion','')=''
+   OR jsonb_typeof(x.valor->'categorias_refs_comprobacion') IS DISTINCT FROM 'array'
+   OR jsonb_array_length(x.valor->'categorias_refs_comprobacion')
+      IS DISTINCT FROM (x.valor->>'numero_categorias')::integer
    OR x.valor ? 'categorias'))
   OR (NOT p_lista AND (
    jsonb_typeof(x.valor->'categorias') IS DISTINCT FROM 'array'
@@ -910,6 +904,21 @@ BEGIN
  IF jsonb_typeof(v_etiquetas) IS DISTINCT FROM 'array'
  OR jsonb_array_length(v_etiquetas)<>jsonb_array_length(v_selectores)
  THEN RAISE EXCEPTION 'B96: lote de etiquetas incompleto' USING ERRCODE='55000'; END IF;
+ IF p_lista THEN
+  SELECT coalesce(jsonb_agg(jsonb_build_object(
+   'catalogo_ref',item.valor->>'catalogo_ref',
+   'catalogo_version',(item.valor->>'catalogo_version')::integer,
+   'catalogo_sha256',item.valor->>'catalogo_sha256',
+   'categorias_refs',item.valor->'categorias_refs_comprobacion')
+   ORDER BY item.orden),'[]'::jsonb)
+  INTO v_categorias_pedidos
+  FROM jsonb_array_elements(v_items) WITH ORDINALITY AS item(valor,orden);
+  v_categorias_validas:=vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(
+   v_categorias_pedidos);
+  IF jsonb_typeof(v_categorias_validas) IS DISTINCT FROM 'array'
+   OR jsonb_array_length(v_categorias_validas)<>jsonb_array_length(v_items)
+  THEN RAISE EXCEPTION 'B96: cotejo de categorías incompleto' USING ERRCODE='55000'; END IF;
+ END IF;
  SELECT coalesce(jsonb_object_agg(q.convocatoria_ref,
    jsonb_build_object('solicitud_ref',q.solicitud_ref,'estado',q.estado)),'{}'::jsonb)
  INTO v_propias FROM (
@@ -928,6 +937,11 @@ BEGIN
   v_puede:=true;
   IF p_lista THEN
    v_num_categorias:=(v_item->>'numero_categorias')::integer;
+   IF jsonb_typeof(v_categorias_validas->v_pos->'catalogo_completo') IS DISTINCT FROM 'boolean'
+    OR v_categorias_validas->v_pos->>'numero_categorias'
+       IS DISTINCT FROM v_num_categorias::text
+   THEN RAISE EXCEPTION 'B96: cotejo de categorías divergente' USING ERRCODE='55000'; END IF;
+   v_catalogo_completo:=(v_categorias_validas->v_pos->>'catalogo_completo')::boolean;
    v_etiqueta:=v_etiquetas->v_pos;
    v_pos:=v_pos+1;
    IF v_etiqueta->>'categoria_ref' IS DISTINCT FROM v_item->>'categoria_ref_comprobacion'
@@ -936,7 +950,7 @@ BEGIN
     OR coalesce(v_etiqueta->>'motivo_etiqueta_pendiente','')=''
     OR coalesce(v_etiqueta->>'motivo_etiqueta_cumple','')=''
    THEN RAISE EXCEPTION 'B96: categoría del lote divergente' USING ERRCODE='55000'; END IF;
-   v_puede:=(v_etiqueta->>'politica_valida')::boolean;
+   v_puede:=(v_etiqueta->>'politica_valida')::boolean AND v_catalogo_completo;
   ELSE
    v_num_categorias:=jsonb_array_length(v_item->'categorias');
    IF v_item->>'numero_categorias' IS DISTINCT FROM v_num_categorias::text THEN

@@ -18,6 +18,7 @@ BEGIN
  OR to_regrole('vec_bolsa_llamamientos_propietario') IS NULL
  OR to_regprocedure('vec_catalogos_configurables.leer_etiquetas_inscripcion_v1(text,integer,text,text[],text)') IS NOT NULL
  OR to_regprocedure('vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(jsonb,text)') IS NOT NULL
+ OR to_regprocedure('vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb)') IS NOT NULL
  OR to_regprocedure('vec_catalogos_configurables.comprobar_politica_asociacion_inscripcion_v1(text,integer,text)') IS NOT NULL
  THEN RAISE EXCEPTION 'CC11: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
@@ -236,6 +237,74 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(jsonb,text)
  FROM PUBLIC,vec_bolsa_llamamientos_ejecutor;
 
+-- Comprueba todos los códigos de cada convocatoria contra la publicación
+-- exacta en una sola llamada. La falta de un código informa false; no oculta
+-- la convocatoria ni sustituye la etiqueta publicada del código de muestra.
+CREATE FUNCTION vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(
+ p_solicitudes jsonb
+) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER PARALLEL RESTRICTED
+SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s'
+AS $f$
+DECLARE resultado jsonb;
+BEGIN
+ IF current_user<>'vec_catalogos_configurables_propietario'
+ OR jsonb_typeof(p_solicitudes) IS DISTINCT FROM 'array'
+ OR jsonb_array_length(p_solicitudes)>100
+ OR octet_length(p_solicitudes::text)>16777216
+ THEN RAISE EXCEPTION 'CC11: lote de categorías inválido' USING ERRCODE='22023'; END IF;
+ IF jsonb_array_length(p_solicitudes)=0 THEN RETURN '[]'::jsonb; END IF;
+ IF EXISTS(
+  SELECT 1 FROM jsonb_array_elements(p_solicitudes) AS s(valor)
+  WHERE jsonb_typeof(s.valor) IS DISTINCT FROM 'object'
+   OR coalesce(s.valor->>'catalogo_ref','') !~ '^[a-z][a-z0-9_.:-]{2,127}$'
+   OR coalesce(s.valor->>'catalogo_version','') !~ '^[1-9][0-9]{0,8}$'
+   OR coalesce(s.valor->>'catalogo_sha256','') !~ '^[0-9a-f]{64}$'
+   OR jsonb_typeof(s.valor->'categorias_refs') IS DISTINCT FROM 'array'
+   OR jsonb_array_length(s.valor->'categorias_refs') NOT BETWEEN 1 AND 128
+   OR EXISTS(SELECT 1 FROM jsonb_array_elements(s.valor->'categorias_refs') AS r(valor)
+     WHERE jsonb_typeof(r.valor) IS DISTINCT FROM 'string'
+      OR r.valor#>>'{}' !~ '^[a-z][a-z0-9_.:-]{2,127}$')
+   OR (SELECT count(DISTINCT r.valor COLLATE "C")
+       FROM jsonb_array_elements_text(s.valor->'categorias_refs') AS r(valor))
+      <>jsonb_array_length(s.valor->'categorias_refs')
+ ) THEN RAISE EXCEPTION 'CC11: selector de categorías inválido' USING ERRCODE='22023'; END IF;
+
+ WITH pedidos AS MATERIALIZED (
+  SELECT s.orden,s.valor->>'catalogo_ref' AS catalogo_ref,
+   (s.valor->>'catalogo_version')::integer AS catalogo_version,
+   s.valor->>'catalogo_sha256' AS catalogo_sha256,
+   s.valor->'categorias_refs' AS categorias_refs
+  FROM jsonb_array_elements(p_solicitudes) WITH ORDINALITY AS s(valor,orden)
+ ), refs AS MATERIALIZED (
+  SELECT pedido.orden,ref.valor AS categoria_ref
+  FROM pedidos pedido CROSS JOIN LATERAL
+   jsonb_array_elements_text(pedido.categorias_refs) AS ref(valor)
+ ), contadas AS (
+  SELECT pedido.orden,jsonb_array_length(pedido.categorias_refs) AS numero_categorias,
+   count(entrada.categoria_id) AS publicadas
+  FROM pedidos pedido
+  JOIN refs ON refs.orden=pedido.orden
+  LEFT JOIN vec_catalogos_configurables.publicacion publicacion
+   ON publicacion.catalogo_id=pedido.catalogo_ref
+   AND publicacion.version=pedido.catalogo_version
+   AND publicacion.huella_sha256=pedido.catalogo_sha256
+  LEFT JOIN vec_catalogos_configurables.entrada_publicada entrada
+   ON entrada.catalogo_id=publicacion.catalogo_id
+   AND entrada.version=publicacion.version
+   AND entrada.huella_sha256=publicacion.huella_sha256
+   AND entrada.categoria_id=refs.categoria_ref
+  GROUP BY pedido.orden,pedido.categorias_refs
+ )
+ SELECT coalesce(jsonb_agg(jsonb_build_object(
+  'catalogo_completo',publicadas=numero_categorias,
+  'numero_categorias',numero_categorias) ORDER BY orden),'[]'::jsonb)
+ INTO resultado FROM contadas;
+ RETURN resultado;
+END $f$;
+REVOKE ALL ON FUNCTION vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb)
+ FROM PUBLIC,vec_bolsa_llamamientos_ejecutor;
+
 CREATE FUNCTION vec_catalogos_configurables.listar_motivos_inscripcion_v1(p_idioma text)
 RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER PARALLEL RESTRICTED
@@ -333,6 +402,8 @@ GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.leer_etiquetas_inscripcion
 GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(text,integer,text)
  TO vec_bolsa_llamamientos_propietario;
 GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(jsonb,text)
+ TO vec_bolsa_llamamientos_propietario;
+GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb)
  TO vec_bolsa_llamamientos_propietario;
 GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.listar_motivos_inscripcion_v1(text)
  TO vec_bolsa_llamamientos_propietario;

@@ -324,6 +324,7 @@ BEGIN
   'tipo',c#>>'{contenido,tipo}',
   'numero_categorias',jsonb_array_length(c#>'{contenido,categorias}'),
   'categoria_ref_comprobacion',c#>>'{contenido,categorias,0}',
+  'categorias_refs_comprobacion',c#>'{contenido,categorias}',
   'categorias',categorias,'numero_requisitos',jsonb_array_length(requisitos),
   'version_sha256',p_huella_sha256,'bases_ref',bases->>'publicacion_ref',
   'catalogo_ref',catalogo->>'catalogo_id',
@@ -372,7 +373,21 @@ BEGIN
    v.convocatoria_id,v.secuencia,v.version_canonica,v.huella_version_sha256,instante) AS datos
   FROM candidatas v
  ), abiertas AS MATERIALIZED (
-  SELECT p.datos - 'categorias' - 'requisitos' AS datos,
+  SELECT jsonb_build_object(
+   'convocatoria_ref',p.datos->>'convocatoria_ref',
+   'titulo',p.datos->>'titulo','resumen',p.datos->>'resumen',
+   'numero_categorias',p.datos->'numero_categorias',
+   'numero_requisitos',p.datos->'numero_requisitos',
+   'categoria_ref_comprobacion',p.datos->>'categoria_ref_comprobacion',
+   'categorias_refs_comprobacion',p.datos->'categorias_refs_comprobacion',
+   'catalogo_ref',p.datos->>'catalogo_ref',
+   'catalogo_version',p.datos->'catalogo_version',
+   'catalogo_sha256',p.datos->>'catalogo_sha256',
+   'politica_catalogo_ref',p.datos->>'politica_catalogo_ref',
+   'politica_catalogo_version',p.datos->'politica_catalogo_version',
+   'politica_catalogo_sha256',p.datos->>'politica_catalogo_sha256',
+   'plazo_abre_en',p.datos->'plazo_abre_en',
+   'plazo_cierra_en',p.datos->'plazo_cierra_en') AS datos,
    p.datos->>'convocatoria_ref' AS cursor
   FROM proyectadas p WHERE p.datos IS NOT NULL
  ), pagina AS (
@@ -434,7 +449,7 @@ BEGIN
  IF resultado IS NULL THEN
   RETURN NULL;
  END IF;
- RETURN resultado - 'categoria_ref_comprobacion';
+ RETURN resultado - 'categoria_ref_comprobacion' - 'categorias_refs_comprobacion';
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(text)
  FROM PUBLIC,vec_bolsa_convocatorias_ejecutor_consulta,vec_bolsa_convocatorias_ejecutor_preparacion_bases,

@@ -165,6 +165,7 @@ DECLARE
  recibo_primero text; caso integer;
  actor_caso text;perfil_caso text;cuenta_caso text;
  decision_invalida jsonb; material_invalido text;
+ ref_invalido text;codigo_v3 text;codigo_primero text;
 BEGIN
  solicitud_ref:='solicitud_inscripcion_'||encode(sha256(convert_to(
   'per_'||repeat('a',22)||chr(31)||ref_conv||chr(31)||'cat.alpha','UTF8')),'hex');
@@ -243,8 +244,60 @@ BEGIN
   EXCEPTION WHEN SQLSTATE 'B9605' THEN NULL;
   END;
  END LOOP;
+ -- El consumidor V3 de esta fixture rechaza evidencia marcada inválida.
+ -- B96 debe llegar a él ANTES de leer si el ref existe, pertenece a otra
+ -- persona o no existe; las tres llamadas devuelven la misma denegación.
+ FOR ref_invalido IN SELECT valor FROM (VALUES
+  (solicitud_ref),
+  ('solicitud_inscripcion_'||encode(sha256(convert_to(
+    'per_'||repeat('b',22)||chr(31)||ref_conv||chr(31)||'cat.alpha','UTF8')),'hex')),
+  ('solicitud_inscripcion_'||repeat('f',64))) AS refs(valor) LOOP
+  material:='{"esquema":"vec.bolsa.inscripcion.decidir.v1",'
+   ||'"solicitud_ref":'||to_json(ref_invalido)::text||','
+   ||'"decision":"admitir","motivo_codigo":"",'
+   ||'"version_esperada":1,"clave_idempotencia":"ClaveRevisionB96001"}';
+  contenido_sha:=encode(sha256(convert_to(material,'UTF8')),'hex');
+  recurso:='{"ambitos":{"solicitud_ref":'||to_json(ref_invalido)::text
+   ||'},"atributos":{"material_sha256":"'||contenido_sha||'"}}';
+  recurso_sha:=encode(sha256(convert_to(recurso,'UTF8')),'hex');
+  cap:=convert_to(jsonb_build_object('operacion','bolsa.inscripcion.rrhh.decidir',
+   'audiencia_consumo','vec_bolsa_llamamientos.inscripcion.revisar.v1',
+   'efecto_ref',ref_invalido,'huella_efecto_sha256',recurso_sha)::text,'UTF8');
+  dec:=convert_to(jsonb_build_object('decision_ref','decision:b96:invalida:'||ref_invalido,
+   'principal_id',actor,'perfil_activo_ref',perfil,'concedida',true,
+   'accion','bolsa.inscripcion.rrhh.decidir','modulo_id','bolsa',
+   'tipo_recurso','solicitud_inscripcion','finalidad','revisar_inscripcion',
+   'recurso_ref',ref_invalido,'contexto_recurso_huella_sha256',recurso_sha,
+   'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa'))::text,'UTF8');
+  contexto:=convert_to(jsonb_build_object('principal_ref',actor,
+   'perfil_activo_ref',perfil,'cuenta_ref',cuenta,'metodo','certificado',
+   'garantia','alto')::text,'UTF8');
+  captura:=jsonb_build_object('persona_ref',actor,'perfil_ref',perfil,
+   'cuenta_ref',cuenta,'canal','interna_corporativa','idioma','es');
+  BEGIN
+   PERFORM vec_bolsa_llamamientos.revisar_inscripcion_v1(
+    material,captura,cap,dec,convert_to('{}','UTF8'),contexto,1,1,
+    convert_to('x','UTF8'),convert_to('x','UTF8'),convert_to('firma_invalida','UTF8'),
+    convert_to(repeat('a',44),'UTF8'));
+   RAISE EXCEPTION 'B96 fixture: V3 inválida aceptada';
+  EXCEPTION WHEN OTHERS THEN
+   GET STACKED DIAGNOSTICS codigo_v3=RETURNED_SQLSTATE;
+   IF codigo_primero IS NULL THEN codigo_primero:=codigo_v3; END IF;
+   IF codigo_v3 IS DISTINCT FROM codigo_primero OR codigo_v3<>'42501' THEN
+    RAISE EXCEPTION 'B96 fixture: oracle V3 ref=% codigo=% esperado=%',
+     ref_invalido,codigo_v3,codigo_primero;
+   END IF;
+  END;
+ END LOOP;
 END $revision$;
 RESET SESSION AUTHORIZATION;
+DO $sin_efecto$
+BEGIN
+ IF (SELECT count(*) FROM vec_bolsa_llamamientos.solicitud_inscripcion_version)<>3
+ OR (SELECT count(*) FROM vec_bolsa_llamamientos.solicitud_inscripcion_historia)<>3
+ OR (SELECT count(*) FROM vec_bolsa_llamamientos.solicitud_inscripcion_acceso)<>5
+ THEN RAISE EXCEPTION 'B96 fixture: denegación alteró historia'; END IF;
+END $sin_efecto$;
 SET SESSION AUTHORIZATION vec_bolsa_inscripciones_lector;
 DO $lecturas$
 DECLARE
