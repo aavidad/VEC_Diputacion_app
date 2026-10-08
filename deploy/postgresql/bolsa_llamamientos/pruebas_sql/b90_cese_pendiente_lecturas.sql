@@ -83,4 +83,40 @@ BEGIN
  END IF;
 END $prueba$;
 RESET SESSION AUTHORIZATION;
+
+-- Una exclusión ya decidida conserva su propio estado y su fecha: el cese
+-- pendiente no convierte «excluido desde X» en «excluido desde B13».
+SAVEPOINT estado_excluido;
+SET ROLE vec_bolsa_llamamientos_propietario;
+DO $alta_excluida$
+DECLARE instante timestamptz:=date_trunc('microseconds',clock_timestamp());
+BEGIN
+ INSERT INTO vec_bolsa_llamamientos.situacion_participacion(
+  participacion_ref,situacion,desde,motivo,actor,registrada_en,clave_idempotencia,recibo_ref)
+ VALUES(current_setting('vec.b91_participacion'),'excluido',instante,
+  'Exclusión sintética B90','actor:prueba-b90',instante,
+  'b90:exclusion:prueba','recibo:b90:exclusion:prueba');
+ PERFORM set_config('vec.b90.excluido_desde',instante::text,true);
+END $alta_excluida$;
+RESET ROLE;
+SET SESSION AUTHORIZATION vec_b91_ejecutor_test;
+DO $fecha_excluida$
+DECLARE v record; orden record;
+BEGIN
+ SELECT situacion,desde INTO STRICT v
+  FROM vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(clock_timestamp())
+ WHERE participacion_ref=current_setting('vec.b91_participacion');
+ IF v.situacion<>'excluido' OR v.desde IS DISTINCT FROM current_setting('vec.b90.excluido_desde')::timestamptz THEN
+  RAISE EXCEPTION 'B90: clave=exclusion_fecha esperado=excluido/% actual=%',
+   current_setting('vec.b90.excluido_desde'),row_to_json(v);
+ END IF;
+ SELECT situacion,razon,orden_vigente INTO STRICT orden
+  FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(current_setting('vec.b91_bolsa'),clock_timestamp())
+ WHERE participacion_ref=current_setting('vec.b91_participacion');
+ IF orden.situacion<>'excluido' OR orden.razon='cese_pendiente' OR orden.orden_vigente IS NOT NULL THEN
+  RAISE EXCEPTION 'B90: clave=exclusion_orden esperado=excluido/sin_turno actual=%',row_to_json(orden);
+ END IF;
+END $fecha_excluida$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK TO SAVEPOINT estado_excluido;
 ROLLBACK;

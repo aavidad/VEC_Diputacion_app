@@ -324,11 +324,13 @@ AS $function$
  )
  SELECT p.politica_ref,p.version,p.criterio,p.tipo_lista,p.reposicion,p.provisional,p.rotulo,p.actor,p.vigente_desde,
         b.participacion_ref,b.orden_acta,e.orden_vigente,
-        CASE WHEN b.cese_pendiente THEN 'no_disponible'
+        CASE WHEN b.cese_pendiente AND b.situacion IN ('disponible','trabajando','disponible_desde')
+             THEN 'no_disponible'
              WHEN b.cese_restringido AND b.situacion IN ('disponible','trabajando','disponible_desde')
              THEN 'disponible_desde' WHEN b.trabajo_cesado THEN 'disponible'
              ELSE b.situacion END AS situacion,
-        CASE WHEN b.cese_pendiente THEN 'cese_pendiente'
+        CASE WHEN b.cese_pendiente AND b.situacion IN ('disponible','trabajando','disponible_desde')
+             THEN 'cese_pendiente'
              WHEN b.cese_restringido AND b.situacion IN ('disponible','trabajando','disponible_desde') THEN 'restriccion_cese'
              WHEN b.trabajo_cesado AND b.ocupa_turno THEN 'retorno_tras_cese'
              WHEN NOT b.ocupa_turno AND b.situacion IN ('no_disponible','disponible_desde') THEN 'pausa'
@@ -372,7 +374,9 @@ BEGIN
  )
  SELECT k.bolsa_ref,k.categoria_ref,k.confirmada_en,
         k.instantanea_ref,k.version_instantanea,e.orden,e.participacion_ref,
-        s.situacion,CASE WHEN x.cese_pendiente THEN x.pendiente_desde ELSE s.desde END,s.fecha_disponible,
+        s.situacion,CASE WHEN x.cese_pendiente
+          AND s.situacion IN ('disponible','trabajando','disponible_desde')
+          THEN x.pendiente_desde ELSE s.desde END,s.fecha_disponible,
         CASE WHEN x.cese_pendiente THEN NULL ELSE x.fecha_efecto END,
         CASE WHEN x.cese_pendiente THEN NULL ELSE x.disponible_desde END,
         CASE WHEN x.cese_pendiente THEN true ELSE x.en_restriccion END,
