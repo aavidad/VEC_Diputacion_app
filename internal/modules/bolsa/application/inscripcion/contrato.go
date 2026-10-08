@@ -7,6 +7,9 @@ import (
 	"errors"
 	"regexp"
 	"time"
+
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 var (
@@ -30,22 +33,80 @@ const (
 	EstadoRechazada             = "rechazada"
 )
 
+const (
+	AccionListarAbiertas = "bolsa.inscripcion.convocatorias.listar"
+	AccionDetalleAbierta = "bolsa.inscripcion.convocatoria.consultar"
+	AccionPresentar      = "bolsa.inscripcion.presentar"
+	AccionListarPropias  = "bolsa.inscripcion.propias.listar"
+	AccionDetallePropia  = "bolsa.inscripcion.propia.consultar"
+	AccionListarRRHH     = "bolsa.inscripcion.rrhh.listar"
+	AccionDetalleRRHH    = "bolsa.inscripcion.rrhh.consultar"
+	AccionMotivosRRHH    = "bolsa.inscripcion.rrhh.motivos"
+	AccionDecidir        = "bolsa.inscripcion.rrhh.decidir"
+	AccionIncorporar     = "bolsa.inscripcion.rrhh.incorporar"
+)
+
 var referenciaOpaca = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9:._-]{2,255}$`)
 var claveIdempotencia = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$`)
 
 // Actor sólo se construye a partir de la sesión vinculada al certificado.
 // PersonaRef no forma parte de ningún DTO de petición.
 type Actor struct {
-	PersonaRef string
-	PerfilRef  string
-	SesionRef  string
-	Idioma     string
+	PersonaRef        string
+	PerfilRef         string
+	SesionRef         string
+	Idioma            string
+	ResultadoContexto dominiovec.ResultadoContextoActorRegistradoV2
+	Vinculo           dominiovec.VinculoAutenticacionActorV2
+	Lectura           *CapturaLectura
+	MaterialEscritura *puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 
 func (a Actor) Valido() bool {
 	return referenciaOpaca.MatchString(a.PersonaRef) &&
 		referenciaOpaca.MatchString(a.PerfilRef) &&
-		referenciaOpaca.MatchString(a.SesionRef) && (a.Idioma == "" || a.Idioma == "es" || a.Idioma == "en")
+		referenciaOpaca.MatchString(a.SesionRef) && (a.Idioma == "" || a.Idioma == "es" || a.Idioma == "en") &&
+		a.ResultadoContexto.Validar() == nil && a.Vinculo.ValidarPara(a.ResultadoContexto) == nil &&
+		a.ResultadoContexto.Contexto.PersonaRef == a.PersonaRef &&
+		a.ResultadoContexto.Contexto.PerfilActivoRef == a.PerfilRef
+}
+
+// CapturaLectura es una decisión cerrada de la sesión en memoria, ligada a la
+// autenticación certificada y al recurso/filtro exacto. SQL recibe los datos
+// ya resueltos, restringe por ellos y asienta un acceso nominal en la misma TX.
+type CapturaLectura struct {
+	PersonaRef              string
+	PerfilRef               string
+	CuentaRef               string
+	SesionRef               string
+	AutenticacionRef        string
+	CertificadoHuellaSHA256 string
+	Canal                   string
+	Accion                  string
+	RecursoRef              string
+	Finalidad               string
+	CorrelacionRef          string
+	RevisionPermisos        uint64
+	Filtro                  Filtro
+	EmitidaEn               time.Time
+	ValidaHasta             time.Time
+}
+
+func (a Actor) LecturaValida(accion, recurso string, filtro Filtro) bool {
+	c := a.Lectura
+	ahora := time.Now().UTC()
+	return a.Valido() && c != nil && c.PersonaRef == a.PersonaRef &&
+		c.PerfilRef == a.PerfilRef && c.SesionRef == a.SesionRef &&
+		c.CuentaRef == a.ResultadoContexto.Contexto.Instantanea.CuentaRef &&
+		c.Accion == accion && c.RecursoRef == recurso && c.Filtro == filtro &&
+		c.Finalidad != "" && c.Canal != "" && c.CorrelacionRef != "" &&
+		c.AutenticacionRef != "" && len(c.CertificadoHuellaSHA256) == 64 &&
+		c.RevisionPermisos > 0 && !c.EmitidaEn.IsZero() && !c.EmitidaEn.After(ahora) &&
+		c.ValidaHasta.After(ahora)
+}
+
+func (a Actor) EscrituraValida() bool {
+	return a.Valido() && a.MaterialEscritura != nil && a.MaterialEscritura.ValidarEstructura() == nil
 }
 
 type Presentacion struct {
