@@ -103,6 +103,8 @@
     "centro_visible": "Centro con código {numero}",
     "alta_solo_sustituciones": "Puede registrar sustituciones. Las demás necesidades todavía no están disponibles.",
     "necesidades_alta_no_disponibles_titulo": "No se han podido cargar las necesidades",
-    "necesidades_alta_no_disponibles_detalle": "Vuelva a intentarlo. Si el problema continúa, avise a Informática."
+    "necesidades_alta_no_disponibles_detalle": "Vuelva a intentarlo. Si el problema continúa, avise a Informática.",
+    "lista_centro_nombre_no_disponible": "Nombre del centro no disponible",
+    "lista_categoria_nombre_no_disponible": "Nombre de la categoría no disponible"
   }
 }
