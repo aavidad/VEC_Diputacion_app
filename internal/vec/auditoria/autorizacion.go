@@ -27,14 +27,10 @@ func ValidarConsultaAutorizadaEn(q ConsultaAutorizada, ahora time.Time) error {
 	if q.Filtro.Validar() != nil || !instanteValido(ahora.UTC().Truncate(time.Microsecond)) {
 		return ErrDenegada
 	}
-	recurso, err := RecursoFiltro(q.Filtro)
-	if err != nil {
-		return ErrDenegada
-	}
 	datos, err := q.Solicitud.Datos()
 	if err != nil || datos.Accion != AccionConsultar || datos.Finalidad != q.Filtro.FinalidadRef ||
 		datos.ReferenciaMotivo.Referencia() != q.Filtro.MotivoRef ||
-		!reflect.DeepEqual(datos.Recurso, recurso) ||
+		!recursoConsultaLigadoAlFiltro(datos.Recurso, q.Filtro) ||
 		q.ResultadoContexto.Validar() != nil ||
 		datos.VinculoAutenticacionActor.ValidarPara(q.ResultadoContexto) != nil ||
 		!datos.VinculoAutenticacionActor.VigenteEn(ahora, q.ResultadoContexto) ||
@@ -52,7 +48,7 @@ func ValidarConsultaAutorizadaEn(q ConsultaAutorizada, ahora time.Time) error {
 	var d decisionConsultaCanonica
 	if json.Unmarshal(canon, &d) != nil || !d.Concedida || d.Accion != AccionConsultar ||
 		d.ModuloID != ModuloAutorizacion || d.TipoRecurso != TipoRecurso ||
-		d.RecursoRef != recurso.Referencia || d.Finalidad != q.Filtro.FinalidadRef ||
+		d.RecursoRef != q.Filtro.ExpedienteRef || d.Finalidad != q.Filtro.FinalidadRef ||
 		!reflect.DeepEqual(d.CamposPermitidos, camposPermitidos) || len(d.Obligaciones) != 0 {
 		return ErrDenegada
 	}
