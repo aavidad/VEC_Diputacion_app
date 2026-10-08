@@ -113,7 +113,7 @@ func ejecutar(args []string, out, errout io.Writer, abrir abrirTransaccion) int 
 	var c conexionPrivada
 	var a aprobacionPrivada
 	if !utf8.Valid(plan) || decodificarEstricto(plan, &p) != nil || decodificarEstricto(conexion, &c) != nil ||
-		decodificarEstricto(aprobacion, &a) != nil || !validarPlan(p) || c.DSN == "" ||
+		decodificarEstricto(aprobacion, &a) != nil || validarPlan(p) != nil || c.DSN == "" ||
 		len(c.DSN) > 4096 || !hashValido(a.HuellaPlanSHA256) ||
 		!referenciaAprobacion(a.AprobacionRef) || !hashValido(a.AprobacionSHA256) {
 		return fallo("entrada_invalida")

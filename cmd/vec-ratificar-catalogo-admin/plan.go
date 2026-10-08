@@ -2,9 +2,18 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 )
+
+var errPlan = errors.New("plan_invalido")
+var errFecha = errors.New("fecha_invalida")
+
+type fechaNoValida struct{ causa error }
+
+func (e fechaNoValida) Error() string { return errFecha.Error() }
+func (e fechaNoValida) Unwrap() error { return e.causa }
 
 var recursos = map[string]string{
 	"administracion.perfiles.aprobar":             "propuesta_perfil",
@@ -16,29 +25,32 @@ var recursos = map[string]string{
 	"administracion.perfiles.revocar":             "perfil",
 }
 
-func validarPlan(p documentoPlan) bool {
+func validarPlan(p documentoPlan) error {
 	if p.Esquema != "vec.admin.ratificacion-catalogo.v1" || p.Version != "0600" ||
 		p.RolRef != "rol:administracion_perfiles:v7" || !referenciaOperacion(p.OperacionRef) ||
 		!hashValido(p.RolSHA) || !hashValido(p.ControlSHA) || !hashValido(p.CatalogoSHA) ||
 		!hashValido(p.PreimagenSHA) || len(p.Descriptores) != len(recursos) {
-		return false
+		return errPlan
 	}
 	revision := p.ControlRevision.String()
 	if len(revision) == 0 || len(revision) > 18 || revision[0] < '1' || revision[0] > '9' {
-		return false
+		return errPlan
 	}
 	for _, c := range revision[1:] {
 		if c < '0' || c > '9' {
-			return false
+			return errPlan
 		}
 	}
-	preparado, ok := instanteUTC(p.PreparadoEn)
-	if !ok {
-		return false
+	preparado, err := instanteUTC(p.PreparadoEn)
+	if err != nil {
+		return err
 	}
-	caduca, ok := instanteUTC(p.CaducaEn)
-	if !ok || !caduca.After(preparado) || !caduca.After(time.Now().UTC()) || preparado.After(time.Now().UTC()) {
-		return false
+	caduca, err := instanteUTC(p.CaducaEn)
+	if err != nil {
+		return err
+	}
+	if !caduca.After(preparado) || !caduca.After(time.Now().UTC()) || preparado.After(time.Now().UTC()) {
+		return errPlan
 	}
 	previa := ""
 	for _, d := range p.Descriptores {
@@ -48,11 +60,11 @@ func validarPlan(p documentoPlan) bool {
 			d.Concesion.GarantiaMinima != "alto" || len(d.Concesion.Finalidades) != 1 ||
 			d.Concesion.Finalidades[0] != "gestion_perfiles" || len(d.DimensionesAmbito) != 1 ||
 			d.DimensionesAmbito[0] != "organizacion_ref" {
-			return false
+			return errPlan
 		}
 		previa = d.AccionRef
 	}
-	return true
+	return nil
 }
 
 func referenciaOperacion(v string) bool {
@@ -80,13 +92,19 @@ func referenciaAprobacion(v string) bool {
 	return true
 }
 
-func instanteUTC(v string) (time.Time, bool) {
+func instanteUTC(v string) (time.Time, error) {
 	t, err := time.Parse(time.RFC3339Nano, v)
-	if err != nil || t.Year() < 1 || t.Year() > 9999 {
-		return time.Time{}, false
+	if err != nil {
+		return time.Time{}, fechaNoValida{causa: err}
+	}
+	if t.Year() < 1 || t.Year() > 9999 {
+		return time.Time{}, errFecha
 	}
 	_, offset := t.Zone()
-	return t, offset == 0
+	if offset != 0 {
+		return time.Time{}, errFecha
+	}
+	return t, nil
 }
 
 func hashValido(v string) bool {

@@ -63,9 +63,9 @@ func validarRespuesta(b []byte, p documentoPlan, planSHA, descriptoresSHA string
 		!hashValido(a.HuellaSHA256) || !refHex(a.CorrelacionRef, "correlacion_") {
 		return resultadoRatificacion{}, errRecibo
 	}
-	registrada, ok := instanteUTC(a.RegistradaEn)
-	if !ok {
-		return resultadoRatificacion{}, errRecibo
+	registrada, err := instanteUTC(a.RegistradaEn)
+	if err != nil {
+		return resultadoRatificacion{}, errors.Join(errRecibo, err)
 	}
 	switch res.Estado {
 	case "denegado":
@@ -99,12 +99,15 @@ func validarRespuesta(b []byte, p documentoPlan, planSHA, descriptoresSHA string
 		!hashValido(r.AuditoriaSHA) || strings.TrimSpace(r.OperadorLogin) == "" {
 		return resultadoRatificacion{}, errRecibo
 	}
-	vigente, ok := instanteUTC(r.VigenteDesde)
-	if !ok {
-		return resultadoRatificacion{}, errRecibo
+	vigente, err := instanteUTC(r.VigenteDesde)
+	if err != nil {
+		return resultadoRatificacion{}, errors.Join(errRecibo, err)
 	}
-	confirmado, ok := instanteUTC(r.ConfirmadoEn)
-	if !ok || confirmado.Before(vigente) || registrada.Before(confirmado) {
+	confirmado, err := instanteUTC(r.ConfirmadoEn)
+	if err != nil {
+		return resultadoRatificacion{}, errors.Join(errRecibo, err)
+	}
+	if confirmado.Before(vigente) || registrada.Before(confirmado) {
 		return resultadoRatificacion{}, errRecibo
 	}
 	return resultadoRatificacion{Estado: res.Estado, Replay: res.Replay, Acuse: b}, nil

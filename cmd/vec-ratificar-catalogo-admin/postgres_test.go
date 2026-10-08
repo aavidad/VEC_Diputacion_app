@@ -27,7 +27,7 @@ func TestCanalExigeTLSVerificadoOSocketExplicito(t *testing.T) {
 	}
 	for _, dsn := range []string{"host=db.ejemplo dbname=vec_prueba", "postgres://login_prueba@db.ejemplo/",
 		"password='secreto host=db.ejemplo' user=login_prueba dbname=vec_prueba"} {
-		if dsnDeclaraIdentidad(dsn) {
+		if dsnDeclaraIdentidad(dsn) == nil {
 			t.Fatal("aceptó DSN con identidad o base implícita")
 		}
 	}

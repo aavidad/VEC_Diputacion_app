@@ -31,6 +31,11 @@ type abrirTransaccion func(context.Context, conexionPrivada) (transaccion, error
 var errOperacion = errors.New("ratificacion_no_confirmada")
 var errCommit = errors.New("commit_indeterminado")
 
+type dsnNoValido struct{ causa error }
+
+func (e dsnNoValido) Error() string { return errOperacion.Error() }
+func (e dsnNoValido) Unwrap() error { return e.causa }
+
 func ejecutarOperacion(ctx context.Context, cfg conexionPrivada, plan []byte, sha string, p documentoPlan, a aprobacionPrivada, abrir abrirTransaccion) (resultadoRatificacion, error) {
 	tx, err := abrir(ctx, cfg)
 	if err != nil {
@@ -110,8 +115,8 @@ func (t *transaccionPG) Cerrar(ctx context.Context) {
 }
 
 func nuevaTransaccionPG(ctx context.Context, cfg conexionPrivada) (transaccion, error) {
-	if !dsnDeclaraIdentidad(cfg.DSN) {
-		return nil, errOperacion
+	if err := dsnDeclaraIdentidad(cfg.DSN); err != nil {
+		return nil, err
 	}
 	pc, err := pgx.ParseConfig(cfg.DSN)
 	if err != nil || !canalValido(&pc.Config, cfg.PermitirSocketDesarrollo) {
@@ -137,13 +142,17 @@ func nuevaTransaccionPG(ctx context.Context, cfg conexionPrivada) (transaccion, 
 
 // Exigir los tres campos en el archivo privado impide que PGHOST, PGUSER o
 // PGDATABASE del entorno seleccionen un destino o principal distintos.
-func dsnDeclaraIdentidad(dsn string) bool {
+func dsnDeclaraIdentidad(dsn string) error {
 	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
 		u, err := url.Parse(dsn)
-		if err != nil || u.User == nil || u.User.Username() == "" || len(u.Path) < 2 {
-			return false
+		if err != nil {
+			return dsnNoValido{causa: err}
 		}
-		return u.Hostname() != "" || u.Query().Get("host") != ""
+		if u.User == nil || u.User.Username() == "" || len(u.Path) < 2 ||
+			(u.Hostname() == "" && u.Query().Get("host") == "") {
+			return errOperacion
+		}
+		return nil
 	}
 	campos := map[string]bool{"host": false, "user": false, "dbname": false}
 	for i := 0; i < len(dsn); {
@@ -158,7 +167,7 @@ func dsnDeclaraIdentidad(dsn string) bool {
 			i++
 		}
 		if i == inicio || i == len(dsn) || dsn[i] != '=' {
-			return false
+			return errOperacion
 		}
 		clave := dsn[inicio:i]
 		i++
@@ -181,7 +190,7 @@ func dsnDeclaraIdentidad(dsn string) bool {
 				i++
 			}
 			if !cerrada || i < len(dsn) && dsn[i] != ' ' && dsn[i] != '\t' {
-				return false
+				return errOperacion
 			}
 		} else {
 			for i < len(dsn) && dsn[i] != ' ' && dsn[i] != '\t' {
@@ -193,7 +202,10 @@ func dsnDeclaraIdentidad(dsn string) bool {
 			campos[clave] = true
 		}
 	}
-	return campos["host"] && campos["user"] && campos["dbname"]
+	if !campos["host"] || !campos["user"] || !campos["dbname"] {
+		return errOperacion
+	}
+	return nil
 }
 
 func canalValido(cfg *pgconn.Config, socket bool) bool {
