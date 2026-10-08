@@ -73,3 +73,31 @@ func TestProyeccionEstadoCeseConservaPausaB2Posterior(t *testing.T) {
 		}
 	}
 }
+
+func TestProyeccionCesePendienteImpideTurnoSinInventarFecha(t *testing.T) {
+	madrid, _ := time.LoadLocation("Europe/Madrid")
+	corte := time.Date(2026, 10, 8, 12, 0, 0, 0, madrid)
+	desde := time.Date(2026, 1, 5, 0, 0, 0, 0, madrid)
+	fecha := time.Date(2026, 11, 1, 0, 0, 0, 0, madrid)
+	for _, anterior := range []string{"disponible", "trabajando", "disponible_desde"} {
+		base := ports.SituacionParticipacion{Situacion: anterior, Desde: desde, FechaDisponible: &fecha}
+		actual, err := ProyectarSituacionConEstadoCese(base, ports.EstadoCese{CesePendiente: true}, true, corte)
+		if err != nil || actual.Situacion != "no_disponible" || actual.FechaDisponible != nil || !actual.Desde.Equal(desde) {
+			t.Fatalf("pendiente con situación %s: %+v %v", anterior, actual, err)
+		}
+		if EstadoPublicoRestriccionCese(actual, corte) != "no_disponible" {
+			t.Fatalf("pendiente visible como elegible: %+v", actual)
+		}
+	}
+	base := ports.SituacionParticipacion{Situacion: "disponible", Desde: desde}
+	for _, previo := range []ports.EstadoCese{{CesePendiente: true}, {CesePendiente: true, FechaEfecto: desde, DisponibleDesde: fecha, EnRestriccion: true, TrabajoCesado: true}} {
+		actual, err := ProyectarSituacionConEstadoCese(base, previo, true, corte)
+		if err != nil || actual.Situacion != "no_disponible" || actual.FechaDisponible != nil {
+			t.Fatalf("pendiente prevalece sobre B45 previo: %+v %v", actual, err)
+		}
+	}
+	sinCese, err := ProyectarSituacionConEstadoCese(base, ports.EstadoCese{}, false, corte)
+	if err != nil || sinCese.Situacion != "disponible" {
+		t.Fatalf("ausencia de cese alteró situación: %+v %v", sinCese, err)
+	}
+}
