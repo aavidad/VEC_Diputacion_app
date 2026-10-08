@@ -105,6 +105,33 @@ test("F5 consulta un único detalle autorizado por referencia y versión, sin re
   await assert.rejects(() => adaptador.obtener(resumen.expediente_ref), /fuera del cuadro consultado/);
 });
 
+test("la lectura autorizada del resumen permite montar la lista aunque Alta esté ausente", async () => {
+  const cliente = clienteFalso([]);
+  cliente.consultarCuadroRRHH = async () => ({ resumen: { en_tramite: 0, con_incidencia: 0,
+    vencidos: 0, vencen_hoy: 0, vencen_semana: 0, sin_calcular: 0, por_fase: {} },
+    generada_en: "2026-10-08T18:00:00Z" });
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  assert.deepEqual(adaptador.capacidades, []);
+  await adaptador.resumenInicio();
+  assert.deepEqual(adaptador.capacidades, ["contratacion_temporal.cuadro.consultar"]);
+  const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente: adaptador,
+    capacidades: adaptador.capacidades, altaDisponible: false });
+  assert.equal(presentador.obtenerEstado().carga, "inicial");
+});
+
+test("un resumen 401 o 403 no habilita el cuadro ni provoca consulta de detalle", async () => {
+  for (const estado of [401, 403]) {
+    let detalles = 0;
+    const cliente = clienteFalso([]);
+    cliente.consultarCuadroRRHH = async () => { const error = new Error("denegado"); error.estado = estado; throw error; };
+    cliente.consultarDetalleRRHH = async () => { detalles += 1; throw new Error("no debía consultarse"); };
+    const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+    await assert.rejects(() => adaptador.resumenInicio(), /denegado/);
+    assert.deepEqual(adaptador.capacidades, []);
+    assert.equal(detalles, 0);
+  }
+});
+
 test("el enlace de ficha conserva denegación y rechaza una versión ajena", async () => {
   for (const estado of [401, 403]) {
     const cliente = clienteFalso([]);

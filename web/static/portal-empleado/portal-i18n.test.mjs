@@ -631,6 +631,29 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("portal-preferencias-integracion.js", "20261008-inicio-idioma-v1");
   for (const ruta of ["portal-modulos-coordinador.js", "portal.js"])
     versionesEspeciales.set(ruta, "20261008-documentos-ficha-v2");
+  for (const ruta of [
+    "categorias-rpt/cliente.js", "categorias-rpt/montaje.js",
+    "modulos/contratacion-temporal/alta-renderer-puro.js",
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/cliente-http-alta.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/contrato.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/presentador.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista.js",
+    "peticiones-centro/peticiones-centro.js",
+  ]) versionesEspeciales.set(ruta, "20261008-alta-rechazo-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes-incorporacion.js", "20261008-alta-corte-v1");
+  for (const ruta of ["portal-modulos-coordinador.js", "portal.js",
+    "portal-ct-ruta-filtro.js", "portal-ct-ruta-ficha.js", "portal-menu-bolsa.js",
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/presentador-expedientes.js",
+    "modulos/contratacion-temporal/vista-expedientes.js"])
+    versionesEspeciales.set(ruta, "20261008-r-navegacion-alta-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

@@ -704,6 +704,7 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
         resumen: true,
       }, { signal });
       if (!pagina?.resumen) throw new TypeError("resumen de la portada no disponible");
+      if (!signal?.aborted) capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarCuadro);
       return Object.freeze({ resumen: pagina.resumen, generadoEn: pagina.generada_en });
     },
     resolverDisponibilidadOpcional(clave, contexto) {
