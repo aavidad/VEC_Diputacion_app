@@ -1,9 +1,11 @@
-# CT193: ensayo firmado E3 bloqueado por la ligadura V3
+# CT193: ensayo firmado E3 preparado para repetición
 
-Estado a 08/10/2026: **NO-GO dinámico y NO-EJECUTABLE bajo el perfil estricto
-de `security-audit` mientras no exista una cuota integral de disco**. Este
-artefacto conserva un ensayo preparado; no acredita la activación del POST v3 ni la instalación en la
-base principal.
+Estado a 08/10/2026: **NO-GO dinámico**. El ensayo ordinario está preparado
+para que dirección lo ejecute después de revisar el runner. Este cambio no
+acredita la activación del POST v3 ni la instalación en la base principal.
+La corrección V3 `2de6dabbf6cbd4950fd70a75015b67dbee99309b` está
+incorporada en esta rama mediante cherry-pick; sus dos revisiones sensibles
+corresponden a esa fuente exacta y la suite CT193 aún debe repetirse.
 
 La fuente CT preparada es `2703bda17b3acc226fb4427e192c6c710c05597f`.
 El único UP de CT193 tiene SHA256
@@ -19,7 +21,7 @@ CT193 antes de usar Docker. CT48 SHA256:
 CT165 SHA256:
 `7a7ac82c0137d77339996022e234c416843a2525cf426f306430c0c66a05bf6e`.
 
-Tras acotar el disco y corregir V3, para repetirlo se usa una copia aislada de esta rama con la imagen local
+Para repetirlo se usa esta rama limpia con la imagen local
 PostgreSQL 18.4 ya instalada y el comando
 `VEC_CT_E3_BD_DESECHABLE=SI bash deploy/postgresql/contratacion_temporal/probar_ct193_e3_postgresql18.sh`.
 El runner exige el daemon por `/var/run/docker.sock` Unix local y rechaza
@@ -27,24 +29,32 @@ El runner exige el daemon por `/var/run/docker.sock` Unix local y rechaza
 mutar recursos. Exige también `--pull=never`, red Docker deshabilitada,
 bloqueo sin truncado en `/run/user/<uid>` de dueño propio y modo 0700,
 socket PostgreSQL en ruta temporal privada, `umask 077`, un contenedor y volumen propios con etiqueta
-`vec.prueba=ct193-e3-pg18`; limita PostgreSQL a 1536 MiB, dos CPU y 256
-procesos. La compilación y el test Go usan `bwrap` sin red, fuente y módulos
-de solo lectura, `GOCACHE=$HOME/.cache/go-build` en su HOME temporal, `-p 6`
-y límites de tiempo, procesos, memoria y tamaño de fichero. El volumen de
-datos Docker y la capa escribible/logs del contenedor no tienen una cuota total
-de disco; comprobar espacio libre no cierra ese riesgo. Esta es una segunda
-condición pendiente antes de otra ejecución por agentes. El runner sale **78**
-antes de invocar Docker mientras la comprobación de cuota real no exista; hay
-que implementar y revisar esa comprobación, no sustituirla por una variable de
-confirmación. El sandbox Go ve un
-`/etc` vacío, sin montar el del
+`vec.prueba=ct193-e3-pg18`; limita PostgreSQL a 2 GiB, dos CPU y 256
+procesos, sin red, sin descarga, sin logs Docker y sin política de reinicio.
+El runner compara el espacio libre real con 2 GiB para `/var/tmp`, 3 GiB
+para el almacén Docker y 1 GiB para el GOCACHE ordinario. Suma los mínimos
+cuando dos rutas comparten sistema de ficheros y sale **78** si no caben.
+Imprime dispositivo, rutas, espacio disponible y mínimo exigido en cada
+comparación. Un timeout envolvente termina el ensayo a los 29 minutos y deja
+hasta un minuto para la limpieza, con límite total de 30 minutos.
+No configura una cuota total para el volumen Docker; el tiempo y los recursos
+del ensayo están acotados y solo usa datos sintéticos propios. La compilación
+y el test Go usan `bwrap` sin red, fuente y módulos de solo lectura,
+`GOCACHE=$HOME/.cache/go-build` del operador, `-p 6` y límites de tiempo,
+procesos, memoria y tamaño de fichero; el runner limita a 256 MiB cada fichero
+que escriben sus procesos. El sandbox Go ve un `/etc` vacío, sin montar el del
 host. El repositorio se extrae desde `git archive HEAD` a una carpeta privada;
 Docker y Go solo ven archivos versionados, sin ignorados del worktree. El
-runner reinicia solamente su contenedor durante el replay e intenta
+runner detiene su contenedor efímero y levanta otro con el mismo volumen para
+comprobar la recuperación; intenta
 eliminarlo junto con el volumen y temporales al salir, comprobando sus etiquetas
 antes de borrar; si Docker falla durante la limpieza, informa el residuo y
 requiere limpieza manual del recurso identificado. No usa la
 principal, cidonia, secretos reales ni los datos de volumen CT192.
+Una prueba mínima aislada con la imagen fijada confirmó que `--rm` retira el
+contenedor al detenerlo y que un segundo contenedor lee el marcador del
+mismo volumen propio. La etiqueta de esa prueba quedó sin contenedores ni
+volúmenes al terminar. Esta comprobación no ejecutó la suite CT193.
 
 La imagen local fijada es
 `postgres@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a`
@@ -82,8 +92,8 @@ textos literalmente. Es una diferencia anterior al control de caducidad; no
 se atribuye a TTL. No se sesgó la marca temporal para evitarla ni se modificó
 el núcleo V o una migración AD3 instalada.
 
-La repetición necesaria empieza después de una corrección focal del propietario
-V, con sus dos revisiones sensibles. Debe construir **otra** base nueva, aplicar
+La repetición necesaria usa la corrección focal V ya incorporada. Debe construir
+**otra** base nueva, aplicar
 CT193 una sola vez y pasar toda la suite sin divergencias, con digest opaco del
 efecto E3 confirmado por V. Solo entonces puede considerarse el GO dinámico;
 el consumidor visual y la autorización nominal requieren revisión propia.

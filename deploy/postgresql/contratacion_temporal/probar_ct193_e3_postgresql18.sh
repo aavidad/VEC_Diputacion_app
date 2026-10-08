@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 umask 077
+ulimit -f 262144  # 256 MiB por fichero del runner y sus salidas privadas.
+if [[ ${VEC_CT_E3_TIMEOUT_INTERNO:-} != SI ]]; then
+    export VEC_CT_E3_TIMEOUT_INTERNO=SI
+    exec timeout --signal=TERM --kill-after=60s 1740s bash "$0" "$@"
+fi
+unset VEC_CT_E3_TIMEOUT_INTERNO
 
 # CT193: preimagen real construida desde migraciones, PostgreSQL 18 aislado y bundles
 # VEC-AD-3 emitidos por el código Go real. No toca la principal ni ejecuta DOWN.
@@ -16,15 +22,7 @@ if [[ ${VEC_CT_E3_BD_DESECHABLE:-} != SI ]]; then
     printf 'CT193 E3 exige VEC_CT_E3_BD_DESECHABLE=SI\n' >&2
     exit 64
 fi
-# La fuente del runner se conserva para retoma, pero su volumen Docker y el
-# scratch Go no tienen aún una cuota integral verificable de disco. Una futura
-# implementación debe comprobar la cuota real aquí antes de permitir Docker.
-cuota_integral_verificada() { return 1; }
-if ! cuota_integral_verificada; then
-    printf 'CT193 E3: NO-GO de ejecución; falta cuota integral de disco y corrección de ligadura V3\n' >&2
-    exit 78
-fi
-for herramienta in docker flock go stat bwrap timeout prlimit sha256sum rg tar; do
+for herramienta in docker flock go stat df awk bwrap timeout prlimit sha256sum rg tar; do
     command -v "$herramienta" >/dev/null 2>&1 || {
         printf 'CT193 E3: falta %s\n' "$herramienta" >&2
         exit 69
@@ -119,6 +117,50 @@ if [[ $imagen_id != 'sha256:1bf3d6960db467e87a506daef30feb41fecc23b7c5f96b157e87
     exit 69
 fi
 
+# El ensayo ordinario usa datos y temporales en disco, además del GOCACHE
+# habitual del operador. Se compara el espacio libre real con la reserva de
+# cada uso y se suman reservas cuando comparten sistema de ficheros.
+if [[ ! ${HOME:-} == /* || ! -d $HOME ]]; then
+    printf 'CT193 E3: HOME local inválido para GOCACHE\n' >&2
+    exit 65
+fi
+export GOCACHE="$HOME/.cache/go-build"
+mkdir -p -- "$GOCACHE"
+docker_root="$(timeout 5s docker info --format '{{.DockerRootDir}}')" || {
+    printf 'CT193 E3: no se pudo comprobar el almacén Docker local\n' >&2
+    exit 69
+}
+if [[ $docker_root != /* || ! -d $docker_root ]]; then
+    printf 'CT193 E3: almacén Docker local inválido\n' >&2
+    exit 65
+fi
+declare -A requerido_kib=() libre_kib=() rutas_disco=()
+reservar_disco() {
+    local ruta=$1 minimo=$2 dispositivo libre
+    dispositivo="$(stat -c '%d' -- "$ruta")" || return 1
+    libre="$(df -Pk -- "$ruta" | awk 'NR==2 {print $4}')" || return 1
+    [[ $libre =~ ^[0-9]+$ ]] || return 1
+    requerido_kib[$dispositivo]=$(( ${requerido_kib[$dispositivo]:-0} + minimo ))
+    libre_kib[$dispositivo]=$libre
+    rutas_disco[$dispositivo]="${rutas_disco[$dispositivo]:-} $ruta"
+}
+reservar_disco /var/tmp 2097152 &&
+    reservar_disco "$docker_root" 3145728 &&
+    reservar_disco "$GOCACHE" 1048576 || {
+    printf 'CT193 E3: no se pudo medir el espacio libre local\n' >&2
+    exit 69
+}
+for dispositivo in "${!requerido_kib[@]}"; do
+    printf '[CT193:E3] preflight_disco dispositivo=%s rutas=%s disponible_kib=%s minimo_kib=%s\n' \
+        "$dispositivo" "${rutas_disco[$dispositivo]}" \
+        "${libre_kib[$dispositivo]}" "${requerido_kib[$dispositivo]}"
+    if (( libre_kib[$dispositivo] < requerido_kib[$dispositivo] )); then
+        printf 'CT193 E3: espacio libre insuficiente para scratch, Docker y GOCACHE (%s KiB disponibles; %s KiB requeridos)\n' \
+            "${libre_kib[$dispositivo]}" "${requerido_kib[$dispositivo]}" >&2
+        exit 78
+    fi
+done
+
 base="$(mktemp -d "/var/tmp/${prefijo}.XXXXXX")"
 temporal="$base/datos"
 sandbox_root="$base/raiz"
@@ -127,7 +169,7 @@ mkdir -m 0700 -- "$temporal" "$sandbox_root" "$raiz_export"
 socket="$temporal/socket"
 vectores="$temporal/vectores"
 mkdir -m 0777 -- "$socket"
-mkdir -m 0700 -- "$vectores" "$temporal/home"
+mkdir -m 0700 -- "$vectores"
 creado_volumen=0
 creado_contenedor=0
 limpiar() {
@@ -186,13 +228,16 @@ fi
 creado_volumen=1
 docker volume create --label "$etiqueta" "$volumen" >/dev/null
 creado_contenedor=1
-docker run -d --pull=never --name "$contenedor" --label "$etiqueta" \
-    --network none --memory=1536m --cpus=2 --pids-limit=256 \
+iniciar_contenedor() {
+docker run -d --pull=never --rm --restart=no --name "$contenedor" --label "$etiqueta" \
+    --network none --memory=2g --cpus=2 --pids-limit=256 --log-driver=none \
     --mount "type=volume,src=$volumen,dst=/var/lib/postgresql" \
     --mount "type=bind,src=$socket,dst=/var/run/postgresql" \
     --mount "type=bind,src=$raiz_export,dst=/repo,readonly" \
     --env POSTGRES_HOST_AUTH_METHOD=trust --env POSTGRES_INITDB_ARGS='--encoding=UTF8' \
     "$imagen" -c listen_addresses= -c unix_socket_directories=/var/run/postgresql >/dev/null
+}
+iniciar_contenedor
 
 listo=0
 for _ in {1..80}; do
@@ -424,23 +469,20 @@ then
     exit 1
 fi
 
-export HOME="$temporal/home"
-export GOCACHE="$HOME/.cache/go-build"
 export GOMODCACHE="$modcache"
 export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
 export TMPDIR="$temporal"
-mkdir -p -- "$GOCACHE"
 # La raíz del sandbox es hermana del scratch montado, por lo que el proceso
 # de prueba no puede modificarla a través de su único bind de escritura.
 mkdir -p -- "$sandbox_root/usr" "$sandbox_root/etc" \
     "$sandbox_root/dev" "$sandbox_root/proc" \
     "$sandbox_root$raiz" "$sandbox_root$modcache" \
-    "$sandbox_root$temporal"
+    "$sandbox_root$temporal" "$sandbox_root$GOCACHE"
 ln -s usr/bin "$sandbox_root/bin"
 ln -s usr/lib "$sandbox_root/lib"
 ln -s usr/lib64 "$sandbox_root/lib64"
 # El código Go de la prueba solo ve toolchain, módulo y repo de lectura,
-# y el scratch que contiene socket, vectores y recibos. Sin red ni home real.
+# el GOCACHE ordinario y el scratch de socket, vectores y recibos. Sin red.
 sandbox=(
     bwrap --die-with-parent --unshare-net --unshare-pid --unshare-ipc
     --unshare-uts --clearenv
@@ -449,6 +491,7 @@ sandbox=(
     --dev /dev --proc /proc
     --ro-bind "$raiz_export" "$raiz"
     --ro-bind "$modcache" "$modcache"
+    --bind "$GOCACHE" "$GOCACHE"
     --bind "$temporal" "$temporal"
     --setenv PATH "$modcache/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin:/usr/bin:/bin"
     --setenv HOME "$HOME" --setenv GOCACHE "$GOCACHE"
@@ -460,11 +503,11 @@ emisor="$temporal/emisor-o205.test"
 adaptador="$temporal/confirmacion-e3.test"
 (
     timeout --signal=TERM --kill-after=10s 600s \
-    prlimit --as=8589934592 --cpu=600 --nproc=8192 --fsize=134217728 -- \
+    prlimit --as=8589934592 --cpu=600 --nproc=2048 --fsize=134217728 -- \
     "${sandbox[@]}" -- "$go_bin" test -buildvcs=false -p 6 -c -o "$emisor" \
         ./internal/vec/adapters/seguridad/confianzaatestacion
     timeout --signal=TERM --kill-after=10s 600s \
-    prlimit --as=8589934592 --cpu=600 --nproc=8192 --fsize=134217728 -- \
+    prlimit --as=8589934592 --cpu=600 --nproc=2048 --fsize=134217728 -- \
     "${sandbox[@]}" -- "$go_bin" test -buildvcs=false -p 6 -c -o "$adaptador" \
         ./internal/modules/contrataciontemporal/adapters/postgres
 ) >"$temporal/go-build.log" 2>&1 || {
@@ -482,7 +525,7 @@ probar_fase() {
     esac
     estado_antes="$(estado_caso "$caso")"
     if ! timeout --signal=TERM --kill-after=5s 45s \
-        prlimit --as=4294967296 --cpu=40 --nproc=8192 --fsize=67108864 -- \
+        prlimit --as=4294967296 --cpu=40 --nproc=2048 --fsize=67108864 -- \
         "${sandbox[@]}" \
         --setenv VEC_CT_E3_PG18 SI --setenv VEC_CT_E3_FASE "$fase" \
         --setenv VEC_CT_E3_VECTORES_DIR "$vectores" \
@@ -537,7 +580,7 @@ emitir_aplicar() {
     consultar "SELECT public.exportar_entrada_go_o2_05('$caso')" >"$entrada"
     chmod 600 "$entrada"
     if ! timeout --signal=TERM --kill-after=5s 30s \
-        prlimit --as=4294967296 --cpu=25 --nproc=8192 --fsize=67108864 -- \
+        prlimit --as=4294967296 --cpu=25 --nproc=2048 --fsize=67108864 -- \
         "${sandbox[@]}" \
         --setenv VEC_O205_VECTOR_ENTRADA "$entrada" \
         --setenv VEC_O205_VECTOR_SALIDA "$bundle" \
@@ -683,8 +726,17 @@ if [[ ! -s $temporal/recibo-e3.json || ! -s $temporal/inicio-pg.json ]]; then
     printf 'CT193 E3: faltan recibo o instante de arranque previos al reinicio\n' >&2
     exit 1
 fi
-printf '[CT193:E3] reiniciando solo el contenedor efímero\n'
-docker restart "$contenedor" >/dev/null
+printf '[CT193:E3] recuperando PostgreSQL desde el mismo volumen efímero\n'
+docker stop -t 15 "$contenedor" >/dev/null
+for _ in {1..40}; do
+    if ! docker container inspect "$contenedor" >/dev/null 2>&1; then break; fi
+    sleep 0.25
+done
+if docker container inspect "$contenedor" >/dev/null 2>&1; then
+    printf 'CT193 E3: el contenedor anterior no se retiró tras stop\n' >&2
+    exit 1
+fi
+iniciar_contenedor
 listo=0
 for _ in {1..80}; do
     if docker exec "$contenedor" pg_isready -q -h /var/run/postgresql -U postgres 2>/dev/null; then
