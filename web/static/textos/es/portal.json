@@ -152,6 +152,7 @@
     "vista_no_disponible_texto": "No tiene acceso a esta pantalla o no está activada en esta instalación. Si la necesita, avise a Informática.",
     "accion_ir_inicio_portal": "Ir al inicio del Portal del Empleado",
     "operacion_no_compuesta": "Esta actuación aún no está disponible.",
+    "bolsa_historico_estadisticas_pendiente": "Consulte el histórico de llamamientos de cada bolsa.",
     "accion_entrar": "Entrar",
     "organizacion_arranque_reintentar": "Reintentar",
     "organizacion_arranque_titulo": "Organización",

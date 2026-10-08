@@ -110,7 +110,8 @@ test("la lectura anterior no inventa un turno y las claves nuevas existen en amb
   for (const idioma of ["es", "en"]) {
     const mensajes = await cargarMensajesPortal(idioma);
     for (const clave of ["bolsa_turno_titulo", "bolsa_turno_ultimo", "bolsa_turno_siguiente",
-      "bolsa_turno_regla_provisional", "bolsa_turno_sin_disponibles", "bolsa_turno_aviso"]) {
+      "bolsa_turno_regla_provisional", "bolsa_turno_sin_disponibles", "bolsa_turno_aviso",
+      "bolsa_historico_estadisticas_pendiente"]) {
       assert.ok(mensajes[clave], `${idioma}: ${clave}`);
     }
   }

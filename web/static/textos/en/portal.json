@@ -152,6 +152,7 @@
     "vista_no_disponible_texto": "You do not have access to this screen, or it is not turned on in this system. If you need it, contact IT.",
     "accion_ir_inicio_portal": "Go to the Employee Portal home page",
     "operacion_no_compuesta": "This action is not yet available.",
+    "bolsa_historico_estadisticas_pendiente": "Open each pool to view its call history.",
     "accion_entrar": "Open",
     "organizacion_arranque_reintentar": "Try again",
     "organizacion_arranque_titulo": "Organisation",
