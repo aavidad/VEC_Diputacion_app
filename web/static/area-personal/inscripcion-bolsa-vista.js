@@ -27,6 +27,7 @@ function descripcionError(error, textos) {
   if (error?.status === 401) return textos.traducir("vista.sinSesion");
   if (error?.status === 403) return textos.traducir("vista.denegada");
   if (error?.status === 404) return textos.traducir("vista.noEncontrada");
+  if (error?.status === 400) return textos.traducir("vista.datosNoAceptados");
   if (error?.status === 409) return textos.traducir("vista.conflicto");
   if (error?.status === 422 && error?.codigo === "plazo_cerrado") return textos.traducir("vista.plazoCerrado");
   if (error?.status === 422) return textos.traducir("vista.requisitosCambiados");
@@ -110,7 +111,9 @@ function vistaBolsa(estado, textos) {
       <button type="button" class="boton-primario" data-inscripcion-accion="confirmar" ${enviando || estado.bloqueoActo ? "disabled" : ""}>${t(enviando ? "enviando" : "confirmar")}</button></div></div></section>`
       : `<div class="acciones-vista">${bolsa.puede_iniciar ? "" : `<p role="status">${esc(bolsa.impedimento_etiqueta)}</p>`}
         <button type="button" class="boton-primario" data-inscripcion-accion="revisar" ${enviando || estado.comprobarEnvio || estado.bloqueoActo || !bolsa.puede_iniciar || !categoria ? "disabled" : ""}>${t("solicitar")}</button></div>`}
-    ${estado.error ? `<p role="alert">${esc(estado.error)}</p><button type="button" class="boton-secundario" data-inscripcion-accion="propias">${t("misSolicitudes")}</button>` : ""}</div>`;
+    ${estado.error ? `<p role="alert">${esc(estado.error)}</p>${estado.bloqueoActo
+      ? `<button type="button" class="boton-secundario" data-inscripcion-accion="actualizar-ficha">${t("actualizarFicha")}</button>` : ""}
+      <button type="button" class="boton-secundario" data-inscripcion-accion="propias">${t("misSolicitudes")}</button>` : ""}</div>`;
 }
 
 function vistaSolicitud(estado, textos) {
@@ -321,7 +324,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
       cambiarURL(`solicitud:${recibo.solicitud_ref}`); anunciar(t("registrada"));
     } catch (error) {
       if (cerrarPorDenegacion(error)) return;
-      if (error?.status === 400 || error?.status === 422) CLAVES_PENDIENTES.delete(bolsa.convocatoria_ref);
+      if (error?.status === 400 || error?.status === 409 || error?.status === 422) CLAVES_PENDIENTES.delete(bolsa.convocatoria_ref);
       if (!montado || version !== secuencia || estado.tipo !== "bolsa" || estado.bolsa?.convocatoria_ref !== bolsa.convocatoria_ref) return;
       if (error?.status === 400 || error?.status === 409 || error?.status === 422) estado.bloqueoActo = true;
       estado.error = descripcionError(error, textos); anunciar(estado.error);
@@ -350,6 +353,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     else if (accion === "solicitud" && REFERENCIA.test(ref ?? "")) { cambiarURL(`solicitud:${ref}`); void cargarSolicitud(ref); }
     else if (accion === "propias") { cambiarURL("mis-solicitudes"); void propias(); }
     else if (accion === "actualizar-propias") void propias();
+    else if (accion === "actualizar-ficha" && estado.bolsa?.convocatoria_ref) void cargarBolsa(estado.bolsa.convocatoria_ref);
     else if (accion === "mas" && estado.cursor) void abiertas({ mas: true });
     else if (accion === "mas-propias" && estado.cursorPropias) void propias({ mas: true });
     else if (accion === "revisar" && estado.bolsa?.puede_iniciar && estado.categoriaRef) {

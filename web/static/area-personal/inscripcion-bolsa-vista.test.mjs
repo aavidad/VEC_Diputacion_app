@@ -207,3 +207,24 @@ test("422 concluyente bloquea un segundo POST hasta volver a consultar la ficha"
   assert.equal(envios, 2, "la ficha recargada permite intentar con versión nueva del servidor");
   montaje.destruir();
 });
+
+test("400 muestra datos no aceptados y ofrece actualizar la ficha", async () => {
+  const { contenedor, ventana, pulsar } = entorno();
+  let consultas = 0;
+  const cliente = {
+    abiertas: async () => ({ convocatorias: [bolsa], total: 1, cursor_siguiente: null }),
+    convocatoria: async () => { consultas += 1; return { convocatoria: { ...bolsa, requisitos: [] } }; },
+    propias: async () => ({ solicitudes: [], cursor_siguiente: null }),
+    detallePropio: async () => { throw new Error("sin uso"); },
+    inscribir: async () => { throw Object.assign(new Error("rechazado"), { status: 400 }); },
+  };
+  const montaje = montarInscripcionBolsa({ contenedor, ventana, cliente, idioma: "es", textoBase: () => "Cargando" });
+  await pausa(); pulsar("bolsa", bolsa.convocatoria_ref); await pausa();
+  pulsar("revisar"); pulsar("confirmar"); await pausa();
+  assert.match(contenedor.innerHTML, /No se han aceptado los datos/u);
+  assert.doesNotMatch(contenedor.innerHTML, /Compruebe la conexión/u);
+  assert.match(contenedor.innerHTML, /Actualizar convocatoria/u);
+  pulsar("actualizar-ficha"); await pausa();
+  assert.equal(consultas, 2);
+  montaje.destruir();
+});
