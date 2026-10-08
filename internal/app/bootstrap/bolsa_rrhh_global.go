@@ -144,9 +144,6 @@ func (h *bolsasRRHHDesarrollo) adjuntarCorteGlobal(w http.ResponseWriter, r *htt
 		return false
 	}
 	respuesta["corte_ref"] = ref
-	if retenido, existe := h.global.leer(ref, time.Now()); existe {
-		respuesta["generado_en"] = retenido.GeneradoEn
-	}
 	respuesta["lista_llamamientos_disponible"] = conjunto.ListaLlamamientosDisponible
 	if llamamientos, ok := respuesta["llamamientos"].(map[string]any); ok {
 		total := 0
