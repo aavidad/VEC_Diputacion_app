@@ -22,6 +22,7 @@ const RUTAS = Object.freeze({
   oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   perfil: ["areaPersonal.rutas.perfil", renderizarPerfil],
   llamamientos: ["areaPersonal.rutas.llamamientos", renderizarLlamamientos],
+  inscripcion: ["areaPersonal.rutas.inscripcion", () => '<div id="inscripcion-bolsa-montaje"></div>'],
   ayuda: ["areaPersonal.rutas.ayuda", renderizarAyuda],
 });
 
@@ -187,6 +188,9 @@ function actualizarShell(estado) {
 
 function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {}) {
   if (!estado.datos) return;
+  const generacion = ++estado.generacionVista;
+  estado.destruirInscripcionBolsa?.();
+  estado.destruirInscripcionBolsa = null;
   estado.destruirHistorialMiBolsa?.();
   estado.destruirHistorialMiBolsa = null;
   estado.desmontarOportunidades?.();
@@ -200,6 +204,23 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
+  if (estado.vista === "inscripcion") {
+    const contenedor = porId("inscripcion-bolsa-montaje");
+    contenedor.innerHTML = `<p role="status">${escaparHTML(traducir("areaPersonal.html.cargandoInformacion"))}</p>`;
+    estado.cargarVistaInscripcion().then(({ montarInscripcionBolsa }) => {
+      if (estado.generacionVista !== generacion || estado.vista !== "inscripcion") return;
+      const montaje = montarInscripcionBolsa({ contenedor, fetchImpl: estado.fetchImpl,
+        idioma: idiomaActivoAreaPersonal(), ventana: window, anunciar,
+        textoBase: (clave) => traducir(clave === "cargando"
+          ? "areaPersonal.html.cargandoInformacion" : clave === "reintentar"
+            ? "areaPersonal.estado.error.reintentar" : "areaPersonal.estado.error.detalle") });
+      estado.destruirInscripcionBolsa = montaje.destruir;
+    }).catch((error) => {
+      if (estado.generacionVista !== generacion || estado.vista !== "inscripcion") return;
+      console.error("inscripcion_vista_carga", { tipo: error?.name ?? "Error" });
+      contenedor.innerHTML = renderizarErrorCargaAreaPersonal(error);
+    });
+  }
   if (estado.avisoInicio && estado.vista !== "preferencias") {
     const aviso = document.createElement("p");
     aviso.className = "preferencias-estado preferencias-aviso";
@@ -266,6 +287,12 @@ async function navegar(estado, vista) {
   window.history.pushState({ vista }, "", crearURL(estado, vista));
   cerrarMenu();
   cerrarMenuIdentidad();
+  if (vista === "inscripcion" || estado.soloInscripcion) {
+    estado.datos = null;
+    estado.soloInscripcion = false;
+    void cargar(estado);
+    return;
+  }
   if (vista !== "preferencias" && (estado.soloPreferencias || !estado.datos || estado.recargarDatosAlSalirPreferencias)) {
     estado.datos = null;
     estado.soloPreferencias = false;
@@ -521,6 +548,12 @@ function conectarEventos(estado) {
     }
     estado.vista = vista;
     estado.avisoInicio = !parametros.has("vista") && inicioAjeno;
+    if (vista === "inscripcion" || estado.soloInscripcion) {
+      estado.datos = null;
+      estado.soloInscripcion = false;
+      void cargar(estado);
+      return;
+    }
     if (estado.vista !== "preferencias" && (estado.soloPreferencias || !estado.datos || estado.recargarDatosAlSalirPreferencias)) {
       estado.datos = null;
       estado.soloPreferencias = false;
@@ -549,6 +582,18 @@ function conectarEventos(estado) {
 
 const inicioAjenoElegido = (e) => Boolean(e && e.version > 0 && e.valores?.inicio !== "bolsas"); // solo elección guardada (versión > 0)
 async function cargar(estado) {
+  const carga = ++estado.cargaDatosVersion;
+  if (estado.vista === "inscripcion") {
+    // Sólo contenedor y navegación: la frontera del endpoint resuelve la
+    // identidad y autoriza cada solicitud, incluso sin participación previa.
+    const base = datosMinimosMiBolsa({ consultada_en: "" });
+    estado.datos = { ...base, meta: { origen: "shell_inscripcion" },
+      sesion: { ...base.sesion, metodo: "" } };
+    estado.soloInscripcion = true;
+    estado.error = null;
+    renderizar(estado);
+    return;
+  }
   if (asegurarShellPreferencias(estado)) {
     renderizar(estado);
     return;
@@ -561,6 +606,7 @@ async function cargar(estado) {
   porId("espacio-trabajo").replaceChildren();
   try {
     const respuesta = await estado.cliente.cargar();
+    if (carga !== estado.cargaDatosVersion) return;
     estado.miBolsaIntentada = true;
     const datos = datosDeRespuesta(respuesta);
     estado.datos = exigirDatosOperativos(datos);
@@ -576,6 +622,7 @@ async function cargar(estado) {
     estado.error = null;
     renderizar(estado);
   } catch (error) {
+    if (carga !== estado.cargaDatosVersion) return;
     estado.miBolsaIntentada = true;
     if (asegurarShellPreferencias(estado)) renderizar(estado);
     else {
@@ -587,7 +634,8 @@ async function cargar(estado) {
 
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
-  errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false } = {}) {
+  errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false,
+  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261009-inscripcion-v1") } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }
@@ -598,6 +646,11 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     cliente,
     vistasDisponibles,
     datos: null,
+    cargarVistaInscripcion,
+    destruirInscripcionBolsa: null,
+    generacionVista: 0,
+    cargaDatosVersion: 0,
+    soloInscripcion: false,
     miBolsaIntentada: false,
     vista: parametros.has("vista") ? rutaDesdeURL({ vistasDisponibles }) : inicioAjeno ? "inicio" : "llamamientos",
     clientePreferencias,

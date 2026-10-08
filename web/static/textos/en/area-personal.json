@@ -12,7 +12,8 @@
     "mensajes": "Messages and updates",
     "certificados": "Certificates and downloads",
     "ayuda": "Help and accessibility",
-    "oportunidades": "Opportunities for you"
+    "oportunidades": "Opportunities for you",
+    "inscripcion": "Apply to a job pool"
   },
   "tabla": {
     "sinResultados": "No results",
@@ -269,7 +270,11 @@
       "errorIncierto": "The outcome could not be confirmed. Retrying keeps the original details; reload My job pool if you need to change them.",
       "ultima": "Latest document request",
       "reciboResolucion": "HR decision receipt",
-      "estado": {"pendiente_rrhh": "Pending HR decision", "validada": "Validated by HR", "rechazada": "Rejected by HR"}
+      "estado": {
+        "pendiente_rrhh": "Pending HR decision",
+        "validada": "Validated by HR",
+        "rechazada": "Rejected by HR"
+      }
     },
     "pausa": "Request a pause until",
     "pausaEnviar": "Request pause",
