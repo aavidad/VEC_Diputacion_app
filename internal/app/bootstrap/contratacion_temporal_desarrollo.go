@@ -310,6 +310,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	cfg, resolvedorDesarrollo, derivador, registro := dependencias.cfg, dependencias.resolvedor, dependencias.derivador, dependencias.registro
 	plantillasActivas, err := plantillasCatalogoCTDesarrolloSolicitado(cfg)
+	ajustesCTActivos, errAjustes := ajustesReglasCTSolicitados(cfg)
+	if errAjustes != nil || ajustesCTActivos && !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
+		return nil, nil, nil, errMontajeAjustesReglasCT
+	}
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -340,7 +344,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	autoridadesBolsaConfiguradas := debeComponerBorradorLlamamientoDesarrollo(cfg) &&
 		(strings.TrimSpace(os.Getenv(config.EnvAutorizacionFuenteDatabaseURL)) != "" ||
 			strings.TrimSpace(os.Getenv(config.EnvAutorizacionMotivosEvaluadorDatabaseURL)) != "")
-	if plantillasActivas || documentalActiva || preparacionBasesActiva || autoridadesBolsaConfiguradas {
+	if plantillasActivas || documentalActiva || preparacionBasesActiva || ajustesCTActivos || autoridadesBolsaConfiguradas {
 		if !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
 		}
@@ -401,6 +405,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			alta.cerrar()
 		}
 	}()
+	if ajustesCTActivos {
+		if err := conectarAjustesReglasCTAlResolutor(cfg, reglasEjemplo.contratacionTemporal,
+			alta.postgresql.ejecucion, reglasEjemplo.calendarios, reloj); err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	// El alta de necesidad queda cerrada hasta declarar una publicación propia
 	// y disponer del confirmador CT193 y de la lectura pública exacta de RPT.
 	// La relectura de la instantánea usa la conexión del ejecutor: es el único
@@ -694,6 +704,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		perfilCTCatalogo, perfilesConsulta, firmaDocumento != nil, plantillasActivas, perfilPlantillas)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if ajustesCTActivos {
+		declaracionesFrontera = append(declaracionesFrontera, descriptoresFronteraAjustesReglasCT(perfilCTCatalogo)...)
 	}
 	if consultaCircuitoRRHH != nil {
 		declaracionesFrontera = append(declaracionesFrontera,
@@ -1138,6 +1151,18 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, err
 		}
 		rutas = append(rutas, rutasPlantillas...)
+	}
+	if ajustesCTActivos {
+		sondaAjustes, cancelarAjustes := sondaAjustesReglasCT()
+		rutaAjustes, err := nuevaRutaAjustesReglasCT(sondaAjustes, cfg, &alta,
+			seguridadBorrador, fuenteAutorizacionPlantillas,
+			motivosEvaluadorPlantillas, alta.postgresql.proveedorMaterialAjustesReglasCT,
+			reglasEjemplo.contratacionTemporal, reloj)
+		cancelarAjustes()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, rutaAjustes)
 	}
 	if documentalActiva {
 		if consultasRRHH.identidad == nil || alta.postgresql.proveedorMaterialPlantillasDocumental == nil {

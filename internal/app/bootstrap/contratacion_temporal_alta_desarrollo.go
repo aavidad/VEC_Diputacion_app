@@ -343,7 +343,11 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		concesiones:              make(map[string]struct{}),
 		instantaneasPorSolicitud: make(map[string]dominiovec.InstantaneaAutorizacion),
 	}
-	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(soporte, principal, ahora, origen); err != nil {
+	ajustesReglasActivos, err := ajustesReglasCTSolicitados(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(soporte, principal, ahora, origen, ajustesReglasActivos); err != nil {
 		return vacias, err
 	}
 	firmaActiva, err := cfg.CTFirmaRegistroDesarrolloActivo()

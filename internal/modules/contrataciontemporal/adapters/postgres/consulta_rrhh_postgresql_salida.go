@@ -48,7 +48,9 @@ type salidaCuadroConsultaRRHH struct {
 	faseDesdeExpedientes []string
 	faseDesdeInstantes   []time.Time
 	// CT-000125: si cada expediente consta como urgente, en el mismo orden.
-	urgentes []bool
+	urgentes       []bool
+	capturasPlazo  []byte
+	capturasGrupos []byte
 	// CT-000184 (solo con resumen): agregados de todo el corte filtrado.
 	recuentoEstados []string
 	recuentoFases   []string

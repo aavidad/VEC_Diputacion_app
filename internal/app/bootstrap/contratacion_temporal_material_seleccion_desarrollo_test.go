@@ -19,7 +19,7 @@ func seleccionMaterialCTCompletaDesarrollo() seleccionMaterialCTDesarrollo {
 		dietas: true, cronos: true, documentos: true, cronosResolucion: true, cronosAvisos: true,
 		fichaPropiaPersonal: true, exportacionServiciosPersonal: true, historiaServiciosPersonal: true, historiaRelacionesPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true, cancelacion: true,
 		incorporacionAcreditada: true, incorporacionB2: true, reincorporacionTitular: true, politicaOfertas: true,
-		plantillasCatalogo: true, plantillasDocumental: true,
+		plantillasCatalogo: true, plantillasDocumental: true, ajustesReglasCT: true,
 	}
 }
 

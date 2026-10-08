@@ -199,7 +199,7 @@ test("el portal inicia en Chrome con el catálogo de reglas ausente, malformado 
       assert.match(pantalla, /<html lang="en"/u);
       assert.match(pantalla, /id="rg-estado"[^>]*>The service is not available right now/u);
       assert.match(pantalla, /<button type="button" class="rg-secundario">Try again<\/button>/u);
-      assert.match(pantalla, /<h1 data-i18n="titulo">Current rules<\/h1>/u);
+      assert.match(pantalla, /<h1\b[^>]*data-i18n="titulo"[^>]*>Current rules<\/h1>/u);
       const portal = await abrir("/portal-empleado/?lang=en", `${PORTAL_INICIADO}.test(document.documentElement.outerHTML)`);
       assert.match(portal, PORTAL_INICIADO);
     }
