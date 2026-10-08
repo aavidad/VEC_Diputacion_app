@@ -12,7 +12,7 @@ import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-ex
 import {
   renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
   renderizarLineaFases, renderizarSiguientePasoFicha,
-} from "./vista-expedientes-ficha.js?v=20261008-documentos-ficha-v1";
+} from "./vista-expedientes-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 
@@ -475,7 +475,7 @@ function renderizarTarea(
   </article>`;
 }
 
-export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDisponible = false, resolverBolsa = null) {
+export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDisponible = false, resolverBolsa = null, coberturaPendiente = false) {
   const expediente = estado.expediente;
   if (!expediente) {
     const esError = estado.carga === "error";
@@ -506,7 +506,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
   // Orden de la ficha: qué toca, en qué fase está y qué hay; los trámites de
   // la fase se montan después, a partir de la marca «ct-exp-tramite».
   return `${renderizarCabeceraFicha(expediente, estado, t)}
-    ${renderizarSiguientePasoFicha(expediente, estado, t)}
+    ${renderizarSiguientePasoFicha(expediente, estado, t, coberturaPendiente)}
     ${renderizarIncidencia(expediente, t, estado.navegacion)}
     ${renderizarLineaFases(expediente, t)}
     <div class="rejilla-principal ct-exp-ficha-rejilla">

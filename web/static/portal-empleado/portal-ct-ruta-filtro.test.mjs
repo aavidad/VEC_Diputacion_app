@@ -4,6 +4,7 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { FILTRO_CT_NO_SOPORTADO, FILTRO_INCIDENCIA_CT, filtroServidorCTValido,
   leerFiltroCTDeRuta, limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js";
+import { leerFichaCTDeRuta, rutaConFichaCT } from "./portal-ct-ruta-ficha.js";
 
 test("la URL CT V1 conserva idioma y expediente y solo codifica el predicado aplicado", () => {
   const ubicacion = { pathname: "/portal-empleado/", search: "?lang=en&expediente=expediente%3Act%3A1" };
@@ -16,7 +17,7 @@ test("la URL CT V1 conserva idioma y expediente y solo codifica el predicado apl
   assert.equal(enlace, "/portal-empleado/?lang=es&ct_texto=2026%2FCT&ct_estado=espera_externa&ct_fase=analisis#contratacion-temporal");
   assert.deepEqual(leerFiltroCTDeRuta(new URL(enlace, "https://vec.example").search), combinado);
   assert.equal(rutaPortalConFiltroCT({ ...ubicacion, search: "?lang=en&ct_estado=incidencia&expediente=expediente%3Act%3A1" },
-    "#portal"), "/portal-empleado/?lang=en&expediente=expediente%3Act%3A1#portal");
+    "#portal"), "/portal-empleado/?lang=en#portal");
 });
 
 test("el lector deniega filtros duplicados, plazos y claves ajenas sin convertirlos en incidencia", () => {
@@ -70,8 +71,8 @@ test("F5 entrega también el callback que mantiene la URL al editar el filtro", 
   const location = { pathname: "/portal-empleado/", search: "?lang=en&ct_estado=incidencia", hash: "#contratacion-temporal" };
   const callback = () => {};
   const leer = runInNewContext(`${portal.slice(inicio, fin)}; opcionesDesdeEnlace`, {
-    window: { location }, URLSearchParams, leerFiltroCTDeRuta,
-    alCambiarFiltroListaCT: callback, history: { replaceState() {} },
+    window: { location }, URLSearchParams, leerFiltroCTDeRuta, leerFichaCTDeRuta,
+    alCambiarFiltroListaCT: callback, alCambiarFichaCT: callback, history: { replaceState() {} },
   });
   const opciones = leer("contratacion-temporal");
   assert.deepEqual({ ...opciones.filtroServidorRuta }, FILTRO_INCIDENCIA_CT);
@@ -80,4 +81,37 @@ test("F5 entrega también el callback que mantiene la URL al editar el filtro", 
   assert.equal(leer("contratacion-temporal").alCambiarFiltroLista, callback,
     "la entrada CT sin filtro también sincroniza cambios posteriores");
   assert.equal(leer("portal"), null);
+});
+
+test("F5 conserva referencia, versión e idioma sin consumir la URL ni cambiar el filtro", async () => {
+  const portal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
+  const inicio = portal.indexOf("function opcionesDesdeEnlace(vista)");
+  const fin = portal.indexOf("function vistaDesdeHash()", inicio);
+  const location = { pathname: "/portal-empleado/",
+    search: "?lang=en&ct_estado=incidencia&expediente=expediente%3Act%3A127&expediente_version=7",
+    hash: "#contratacion-temporal" };
+  const leer = runInNewContext(`${portal.slice(inicio, fin)}; opcionesDesdeEnlace`, {
+    window: { location }, leerFiltroCTDeRuta, leerFichaCTDeRuta,
+    alCambiarFiltroListaCT: () => {}, alCambiarFichaCT: () => {},
+  });
+  const opciones = leer("contratacion-temporal");
+  assert.equal(opciones.expedienteRef, "expediente:ct:127");
+  assert.equal(opciones.expedienteVersion, 7);
+  assert.deepEqual({ ...opciones.filtroServidorRuta }, FILTRO_INCIDENCIA_CT);
+  assert.match(location.search, /expediente_version=7/u);
+});
+
+test("aplicar otro filtro de lista retira la ficha anterior de la URL", async () => {
+  const portal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
+  const inicio = portal.indexOf("function alCambiarFiltroListaCT(filtroAplicado)");
+  const fin = portal.indexOf("function alCambiarFichaCT(", inicio);
+  const location = { pathname: "/portal-empleado/", search: "?lang=es&expediente=expediente%3Act%3A127&expediente_version=7",
+    hash: "#contratacion-temporal", href: "https://vec.example/portal-empleado/?lang=es#contratacion-temporal" };
+  const reemplazos = [];
+  const aplicar = runInNewContext(`${portal.slice(inicio, fin)}; alCambiarFiltroListaCT`, {
+    estado: { vista: "contratacion-temporal" }, window: { location }, history: { replaceState(_a, _b, ruta) { reemplazos.push(ruta); } },
+    filtroServidorCTValido, rutaPortalConFiltroCT, rutaConFichaCT, rutaDeVista: () => "#contratacion-temporal", URL,
+  });
+  aplicar(FILTRO_INCIDENCIA_CT);
+  assert.deepEqual(reemplazos, ["/portal-empleado/?lang=es&ct_estado=incidencia#contratacion-temporal"]);
 });

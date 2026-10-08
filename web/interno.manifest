@@ -363,6 +363,7 @@ static/portal-empleado/portal-patrones.css
 static/portal-empleado/portal-contratos.css
 static/portal-empleado/portal-contrato.js
 static/portal-empleado/portal-ct-ruta-filtro.js
+static/portal-empleado/portal-ct-ruta-ficha.js
 static/portal-empleado/portal-eventos.js
 static/portal-empleado/portal-flujos.css
 static/portal-empleado/portal-i18n.js

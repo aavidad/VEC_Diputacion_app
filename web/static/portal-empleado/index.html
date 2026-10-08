@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="/portal-empleado/portal-flujos.css?v=20261001-inc-b2-a11y-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-capacidades.css?v=20261008-bolsa-enlaces-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-modulos.css?v=20260925-aspecto-v1">
-    <link rel="stylesheet" href="/portal-empleado/portal-menu-bolsa.css?v=20260930-codexf-temas-v2">
+    <link rel="stylesheet" href="/portal-empleado/portal-menu-bolsa.css?v=20261008-r-fichas-idioma-nav-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-contratos.css?v=20260925-aspecto-v1">
     <link rel="stylesheet" href="/portal-empleado/ayudante-tramites.css?v=20260920-ayudante-tramites-v1">
     <link rel="stylesheet" href="/portal-empleado/estado-entrega.css?v=20260920-recorridos-presentacion-v1">
@@ -67,7 +67,7 @@
          paralelo con la entrada, sin esperar a leer cada nivel de import. Primero
          la cadena que carga el catálogo y los módulos. Deben coincidir exactamente
          con las URL que importa el código (lo comprueba portal-carga-rapida.test.mjs). -->
-    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261008-alta-analisis-bolsa-v4">
+    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261008-alta-analisis-bolsa-fichas-v5">
 
     <link rel="modulepreload" href="/comun/correos-propios.js?v=20260929-correos-508b-v1">
     <link rel="modulepreload" href="/comun/iconos-vec.js?v=20260925-aspecto-v1">
@@ -95,7 +95,8 @@
     <link rel="modulepreload" href="/portal-empleado/portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4">
     <link rel="modulepreload" href="/portal-empleado/portal-contrato.js?v=20260925-sin-demo2-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-ct-ruta-filtro.js?v=20261008-bolsa-inicio-v2">
+    <link rel="modulepreload" href="/portal-empleado/portal-ct-ruta-filtro.js?v=20261008-r-fichas-idioma-nav-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-eventos.js?v=20261008-ct-inicio-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-i18n.js?v=20261007-pantallas-textos-final-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-idioma.js?v=20261007-pantallas-textos-final-v1">
@@ -103,7 +104,7 @@
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-api.js?v=20261007-pantallas-textos-final-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-menu-bolsa.js?v=20261007-pantallas-textos-final-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-menu-bolsa.js?v=20261008-r-fichas-idioma-nav-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-selector.js?v=20261007-pantallas-textos-final-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-preferencias-api.js?v=20261007-pantallas-textos-final-v1">
@@ -115,7 +116,7 @@
     <!-- Carga clásica y síncrona: globalThis.L existe antes de evaluar cualquier módulo. -->
     <script src="/portal-empleado/vendor/leaflet-1.9.4/leaflet.js?v=1.9.4" integrity="sha384-tM1WyRnQZLXgeuR/dXHqqQcD5jN9+bgKmZW55OJtM9Bv7zCG4VFwmgdJudAtzIni"></script>
     <script type="module" src="/portal-empleado/portal-arranque-aviso.js?v=20261007-pantallas-textos-final-v1"></script>
-    <script type="module" src="/portal-empleado/portal.js?v=20261008-alta-analisis-bolsa-v4"></script>
+    <script type="module" src="/portal-empleado/portal.js?v=20261008-alta-analisis-bolsa-fichas-v5"></script>
 
     <script type="module" src="/pwa/instalar.js?v=20261008-pwa-idioma-v1"></script>
   </head>
@@ -195,9 +196,10 @@
           <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="estadisticas" data-vista="estadisticas">
             <span class="numero-menu tono-oliva" aria-hidden="true">7</span><span data-i18n-portal="txt_estadisticas">Estadísticas</span>
           </button>
-          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="documentos" data-vista="contratacion-temporal">
-            <span class="numero-menu tono-ambar" aria-hidden="true">8</span><span data-i18n-portal="txt_documentos_y_firma">Documentos y firma</span><span class="etiqueta-menu" aria-hidden="true" data-i18n-portal="txt_borradores_pdf">Borradores PDF</span>
+          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="documentos" data-vista="documentos" aria-describedby="bolsa-documentos-pendientes" disabled>
+            <span class="numero-menu tono-ambar" aria-hidden="true">8</span><span data-i18n-portal="bolsa_documentos_titulo">Documentos de Bolsa</span>
           </button>
+          <p id="bolsa-documentos-pendientes" class="dato-secundario" data-i18n-portal="bolsa_documentos_pendiente">Los documentos de Bolsa no están disponibles aquí. Consulte los documentos desde la petición de contratación correspondiente.</p>
           <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="comunicaciones" data-vista="llamamientos">
             <span class="numero-menu tono-turquesa" aria-hidden="true">9</span><span data-i18n-portal="txt_correo_y_mensajeria">Correo y mensajería</span><span class="etiqueta-menu" aria-hidden="true" data-i18n-portal="txt_correo">Correo</span>
           </button>

@@ -7,10 +7,10 @@
  * Encima de todo va la fase de firma de cada documento (fase-firma.js).
  */
 
-import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261008-documentos-ficha-v1";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261008-alta-analisis-bolsa-v4";
+import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261008-r-fichas-idioma-nav-v1";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261008-alta-analisis-bolsa-fichas-v5";
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
-import { cargarTextosFaseFirma, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261008-documentos-ficha-v1";
+import { cargarTextosFaseFirma, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261008-r-fichas-idioma-nav-v1";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
 
