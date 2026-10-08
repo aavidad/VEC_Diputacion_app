@@ -16,6 +16,8 @@ import (
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
+const formatoInstanteDecisionCapacidadV3 = "2006-01-02T15:04:05.000000Z"
+
 // EmisorCapacidadesAtestacionAutorizacionV3 solo posee la clave HMAC de
 // emision. No contiene raices COSE ni una credencial de consumidor SQL.
 type EmisorCapacidadesAtestacionAutorizacionV3 struct {
@@ -98,6 +100,10 @@ func (e *EmisorCapacidadesAtestacionAutorizacionV3) Emitir(
 		!emitidaEn.Before(datosPrueba.RaizValidaHasta) {
 		return vacia, ErrCapacidadAtestacionV3NoDisponible
 	}
+	decisionValidaHastaCanonica, valida := instanteDecisionCanonicoCapacidadV3(decisionValidaHasta)
+	if !valida {
+		return vacia, ErrCapacidadAtestacionV3NoDisponible
+	}
 	// El perfil O2-04 cierra el conjunto de atributos del recurso. Por eso la
 	// capacidad no inventa dos atributos ni acepta un efecto por canal lateral:
 	// deriva la referencia y su huella de contexto del recurso completo que ya
@@ -159,7 +165,7 @@ func (e *EmisorCapacidadesAtestacionAutorizacionV3) Emitir(
 		Operacion:                 datosSolicitud.Accion,
 		EfectoRef:                 efectoRef,
 		HuellaEfectoSHA256:        huellaEfecto,
-		DecisionValidaHasta:       decisionValidaHasta.Format(time.RFC3339Nano),
+		DecisionValidaHasta:       decisionValidaHastaCanonica,
 		VerificadaEn:              datosPrueba.VerificadaEn.Format(time.RFC3339Nano),
 		RevisionConfianza:         datosPrueba.RevisionConfiguracion,
 		ConfiguracionSecuencia:    datosPrueba.SecuenciaConfiguracion,
@@ -186,6 +192,28 @@ func (e *EmisorCapacidadesAtestacionAutorizacionV3) Emitir(
 		return vacia, ErrCapacidadAtestacionV3NoDisponible
 	}
 	return capacidad, nil
+}
+
+// El documento de decisión V3 fija seis cifras de microsegundos. La capacidad
+// copia ese mismo instante como atributo literal para el cotejo SQL exacto.
+func instanteDecisionCanonicoCapacidadV3(instante time.Time) (string, bool) {
+	utc := instante.UTC()
+	if !instanteCanonicoConfianza(utc) {
+		return "", false
+	}
+	return utc.Format(formatoInstanteDecisionCapacidadV3), true
+}
+
+func parsearInstanteDecisionCapacidadV3(valor string) (time.Time, error) {
+	instante, err := time.Parse(formatoInstanteDecisionCapacidadV3, valor)
+	if err == nil && instanteCanonicoConfianza(instante) &&
+		instante.Format(formatoInstanteDecisionCapacidadV3) == valor {
+		return instante, nil
+	}
+	// Los vectores ya emitidos usaban RFC3339Nano. Aceptar sólo su forma
+	// canónica anterior conserva el lector histórico; Emitir siempre produce
+	// seis microsegundos y SQL sigue cotejando el literal de la decisión.
+	return parsearInstanteCapacidadV3(valor)
 }
 
 func preimagenMACCapacidadAtestacionV3(valores []string) []byte {
