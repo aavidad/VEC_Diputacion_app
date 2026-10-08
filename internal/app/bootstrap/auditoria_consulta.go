@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"log/slog"
@@ -60,7 +61,9 @@ func (a *actorAuditoriaLocal) valor() string {
 
 type respuestaEstadoAuditoriaLocal struct {
 	http.ResponseWriter
-	codigo int
+	codigo     int
+	pendiente  bytes.Buffer
+	desbordada bool
 }
 
 func (r *respuestaEstadoAuditoriaLocal) WriteHeader(codigo int) {
@@ -68,12 +71,21 @@ func (r *respuestaEstadoAuditoriaLocal) WriteHeader(codigo int) {
 		return
 	}
 	r.codigo = codigo
-	r.ResponseWriter.WriteHeader(codigo)
+	if codigo != http.StatusForbidden && codigo != http.StatusUnauthorized {
+		r.ResponseWriter.WriteHeader(codigo)
+	}
 }
 
 func (r *respuestaEstadoAuditoriaLocal) Write(b []byte) (int, error) {
 	if r.codigo == 0 {
 		r.WriteHeader(http.StatusOK)
+	}
+	if r.codigo == http.StatusForbidden || r.codigo == http.StatusUnauthorized {
+		if r.pendiente.Len()+len(b) > 4096 {
+			r.desbordada = true
+			return len(b), nil
+		}
+		return r.pendiente.Write(b)
 	}
 	return r.ResponseWriter.Write(b)
 }
@@ -135,6 +147,18 @@ func (m manejadorAuditoriaDenegacionesLocales) ServeHTTP(w http.ResponseWriter, 
 	}); err != nil {
 		slog.Error("auditoria: denegacion local sin bitacora", "correlacion_ref", correlacion,
 			"ruta", ruta, "causa", "registro_frontera_no_disponible")
+		w.Header().Del("X-Audit-Ref")
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		return
+	}
+	if respuesta.desbordada {
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		return
+	}
+	w.WriteHeader(respuesta.codigo)
+	if _, err := w.Write(respuesta.pendiente.Bytes()); err != nil {
+		slog.Error("auditoria: respuesta denegada interrumpida", "correlacion_ref", correlacion,
+			"ruta", ruta, "causa", "escritura_respuesta_no_disponible")
 	}
 }
 
