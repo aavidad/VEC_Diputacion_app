@@ -79,20 +79,20 @@ CHECK ((ratificacion_catalogo_detalle IS NULL AND ((((version_rol_bolsa_solicitu
  AND catalogo_acciones_solicitud_sha256 IS NULL
  AND gobierno_rol_nuevo_solicitud_sha256 IS NULL
  AND version_rol_bolsa_solicitud_sha256 IS NULL
- AND tipo_registro = 'ratificacion_catalogo_admin'
  AND evento_ref ~ '^evento_[0-9a-f]{32}$'
  AND evento_material_sha256 ~ '^[0-9a-f]{64}$'
  AND operador_login IS NOT NULL
  AND accion = 'ratificar_catalogo_admin_v7'
  AND modulo_id = 'administracion'
- AND recurso_ref = 'catalogo_admin_v7:'||substr(ratificacion_catalogo_detalle->>'plan_sha256',1,32)
  AND finalidad_ref = 'ratificacion_catalogo_admin_v7'
- AND resultado = 'permitido'
- AND motivo_ref = 'ratificacion_registrada'
  AND proceso = 'postgresql'
  AND canal = 'operacion_tecnica_privada'
  AND correlacion_ref ~ '^correlacion_[0-9a-f]{32}$'
  AND jsonb_typeof(ratificacion_catalogo_detalle) = 'object'
+ AND tipo_registro = 'ratificacion_catalogo_admin'
+ AND recurso_ref = 'catalogo_admin_v7:'||substr(ratificacion_catalogo_detalle->>'plan_sha256',1,32)
+ AND resultado = 'permitido'
+ AND motivo_ref = 'ratificacion_registrada'
  AND ratificacion_catalogo_detalle ?& ARRAY['plan_sha256','preimagen_sha256','catalogo_sha256','rol_sha256','control_sha256','aprobacion_ref','aprobacion_sha256','descriptores_sha256']
  AND ratificacion_catalogo_detalle->>'plan_sha256' ~ '^[0-9a-f]{64}$'
  AND ratificacion_catalogo_detalle->>'preimagen_sha256' ~ '^[0-9a-f]{64}$'
@@ -102,7 +102,74 @@ CHECK ((ratificacion_catalogo_detalle IS NULL AND ((((version_rol_bolsa_solicitu
  AND ratificacion_catalogo_detalle->>'aprobacion_sha256' ~ '^[0-9a-f]{64}$'
  AND ratificacion_catalogo_detalle->>'descriptores_sha256' ~ '^[0-9a-f]{64}$'
  AND ratificacion_catalogo_detalle->>'aprobacion_ref' ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'
- AND ratificacion_catalogo_detalle = jsonb_build_object('plan_sha256',ratificacion_catalogo_detalle->>'plan_sha256','preimagen_sha256',ratificacion_catalogo_detalle->>'preimagen_sha256','catalogo_sha256',ratificacion_catalogo_detalle->>'catalogo_sha256','rol_sha256',ratificacion_catalogo_detalle->>'rol_sha256','control_sha256',ratificacion_catalogo_detalle->>'control_sha256','aprobacion_ref',ratificacion_catalogo_detalle->>'aprobacion_ref','aprobacion_sha256',ratificacion_catalogo_detalle->>'aprobacion_sha256','descriptores_sha256',ratificacion_catalogo_detalle->>'descriptores_sha256')),false)));
+ AND ratificacion_catalogo_detalle = jsonb_build_object('plan_sha256',ratificacion_catalogo_detalle->>'plan_sha256','preimagen_sha256',ratificacion_catalogo_detalle->>'preimagen_sha256','catalogo_sha256',ratificacion_catalogo_detalle->>'catalogo_sha256','rol_sha256',ratificacion_catalogo_detalle->>'rol_sha256','control_sha256',ratificacion_catalogo_detalle->>'control_sha256','aprobacion_ref',ratificacion_catalogo_detalle->>'aprobacion_ref','aprobacion_sha256',ratificacion_catalogo_detalle->>'aprobacion_sha256','descriptores_sha256',ratificacion_catalogo_detalle->>'descriptores_sha256')),false))
+ OR (coalesce((decision_ref IS NULL
+ AND efecto_ref IS NULL
+ AND huella_efecto_sha256 IS NULL
+ AND intento_ref IS NULL
+ AND intento_material_sha256 IS NULL
+ AND actor_ref IS NULL
+ AND perfil_activo_ref IS NULL
+ AND registro_contexto_ref IS NULL
+ AND contexto_sha256 IS NULL
+ AND procedencia_sha256 IS NULL
+ AND autenticacion_ref IS NULL
+ AND sesion_ref IS NULL
+ AND autenticacion_sha256 IS NULL
+ AND vinculo_sha256 IS NULL
+ AND fuente_ref IS NULL
+ AND fuente_sha256 IS NULL
+ AND plan_sha256 IS NULL
+ AND aprobacion_ref IS NULL
+ AND version_consumo IS NULL
+ AND fuentes_plan_ref IS NULL
+ AND fuentes_preimagen_sha256 IS NULL
+ AND fuentes_configuracion_sha256 IS NULL
+ AND fuentes_alcance IS NULL
+ AND fuentes_solicitud_sha256 IS NULL
+ AND unidad_plan_ref IS NULL
+ AND unidad_preimagen_sha256 IS NULL
+ AND unidad_configuracion_sha256 IS NULL
+ AND unidad_alcance IS NULL
+ AND unidad_recibo_ref IS NULL
+ AND unidad_recibo_sha256 IS NULL
+ AND unidad_solicitud_sha256 IS NULL
+ AND bootstrap_solicitud_sha256 IS NULL
+ AND mantenimiento_detalle IS NULL
+ AND mantenimiento_solicitud_sha256 IS NULL
+ AND periodica_detalle IS NULL
+ AND preservacion_detalle IS NULL
+ AND gobierno_usuarios_detalle IS NULL
+ AND gobierno_usuarios_solicitud_sha256 IS NULL
+ AND transaccion_origen IS NULL
+ AND perfiles_asignables_detalle IS NULL
+ AND perfiles_asignables_solicitud_sha256 IS NULL
+ AND identidad_operacion_ref IS NULL
+ AND identidad_plan_ref IS NULL
+ AND identidad_preimagen_sha256 IS NULL
+ AND identidad_configuracion_sha256 IS NULL
+ AND identidad_alcance IS NULL
+ AND identidad_solicitud_sha256 IS NULL
+ AND catalogo_acciones_detalle IS NULL
+ AND catalogo_acciones_solicitud_sha256 IS NULL
+ AND gobierno_rol_nuevo_solicitud_sha256 IS NULL
+ AND version_rol_bolsa_solicitud_sha256 IS NULL
+ AND evento_ref ~ '^evento_[0-9a-f]{32}$'
+ AND evento_material_sha256 ~ '^[0-9a-f]{64}$'
+ AND operador_login IS NOT NULL
+ AND accion = 'ratificar_catalogo_admin_v7'
+ AND modulo_id = 'administracion'
+ AND finalidad_ref = 'ratificacion_catalogo_admin_v7'
+ AND proceso = 'postgresql'
+ AND canal = 'operacion_tecnica_privada'
+ AND correlacion_ref ~ '^correlacion_[0-9a-f]{32}$'
+ AND jsonb_typeof(ratificacion_catalogo_detalle) = 'object'
+ AND tipo_registro = 'intento_ratificacion_catalogo_admin'
+ AND ratificacion_catalogo_detalle ? 'solicitud_sha256'
+ AND ratificacion_catalogo_detalle->>'solicitud_sha256' ~ '^[0-9a-f]{64}$'
+ AND ratificacion_catalogo_detalle = jsonb_build_object('solicitud_sha256',ratificacion_catalogo_detalle->>'solicitud_sha256')
+ AND recurso_ref = 'solicitud_ratificacion_catalogo_admin:'||substr(ratificacion_catalogo_detalle->>'solicitud_sha256',1,32)
+ AND ((resultado='permitido' AND motivo_ref IN ('ratificacion_registrada','ratificacion_replay')) OR (resultado='denegado' AND motivo_ref='ratificacion_denegada') OR (resultado='error' AND motivo_ref='ratificacion_error'))),false)));
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_ratificacion_catalogo_admin_v1(p_evento jsonb)
 RETURNS TABLE(auditoria_ref text,secuencia numeric,huella_sha256 text,correlacion_ref text,registrada_en timestamptz)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
@@ -174,6 +241,74 @@ BEGIN
 END $funcion$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_ratificacion_catalogo_admin_v1(jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_ratificacion_catalogo_admin_v1(jsonb) TO vec_autorizacion_propietario;
+CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_intento_ratificacion_catalogo_admin_v1(p_evento jsonb)
+RETURNS TABLE(auditoria_ref text,secuencia numeric,huella_sha256 text,correlacion_ref text,registrada_en timestamptz)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s'
+AS $funcion$
+DECLARE
+ orden constant text[]:=ARRAY['tipo_registro','evento_ref','operador_login','solicitud_sha256','resultado','motivo_ref','proceso','canal','finalidad_ref','correlacion_ref'];
+ claves text[];k text;material bytea;material_sha text;anterior text;seq numeric;instante timestamptz(6);ref text;huella text;existente record;
+BEGIN
+ IF pg_catalog.current_setting('transaction_isolation')<>'serializable' OR pg_catalog.current_setting('transaction_read_only')<>'off'
+ OR pg_catalog.current_setting('TimeZone')<>'UTC' OR pg_catalog.current_setting('role')<>'none'
+ OR pg_catalog.to_regrole('vec_admin_ratificacion_catalogo_admin_ejecutor') IS NULL
+ OR NOT pg_catalog.pg_has_role(session_user,'vec_admin_ratificacion_catalogo_admin_ejecutor','member')
+ THEN RAISE EXCEPTION 'AD230: PARO clave=operador_intento actual=incompatible esperado=login_tecnico_serializable_rw_UTC' USING ERRCODE='25000'; END IF;
+ IF pg_catalog.jsonb_typeof(p_evento) IS DISTINCT FROM 'object' OR pg_catalog.octet_length(p_evento::text)>4096
+ THEN RAISE EXCEPTION 'AD230: intento inválido' USING ERRCODE='22023'; END IF;
+ SELECT pg_catalog.array_agg(x ORDER BY x COLLATE "C") INTO claves FROM pg_catalog.jsonb_object_keys(p_evento) x;
+ IF claves IS DISTINCT FROM (SELECT pg_catalog.array_agg(x ORDER BY x COLLATE "C") FROM pg_catalog.unnest(orden) x)
+ THEN RAISE EXCEPTION 'AD230: ABI de intento incompatible' USING ERRCODE='22023'; END IF;
+ FOREACH k IN ARRAY orden LOOP
+  IF pg_catalog.jsonb_typeof(p_evento->k) IS DISTINCT FROM 'string' OR pg_catalog.octet_length(p_evento->>k) NOT BETWEEN 1 AND 200
+  THEN RAISE EXCEPTION 'AD230: campo de intento inválido %',k USING ERRCODE='22023'; END IF;
+ END LOOP;
+ IF p_evento->>'tipo_registro' IS DISTINCT FROM 'intento_ratificacion_catalogo_admin'
+ OR p_evento->>'operador_login' IS DISTINCT FROM session_user::text
+ OR p_evento->>'evento_ref' !~ '^evento_[0-9a-f]{32}$'
+ OR p_evento->>'correlacion_ref' !~ '^correlacion_[0-9a-f]{32}$'
+ OR p_evento->>'solicitud_sha256' !~ '^[0-9a-f]{64}$'
+ OR NOT ((p_evento->>'resultado'='permitido' AND p_evento->>'motivo_ref' IN('ratificacion_registrada','ratificacion_replay'))
+  OR (p_evento->>'resultado'='denegado' AND p_evento->>'motivo_ref'='ratificacion_denegada')
+  OR (p_evento->>'resultado'='error' AND p_evento->>'motivo_ref'='ratificacion_error'))
+ OR p_evento->>'proceso' IS DISTINCT FROM 'postgresql'
+ OR p_evento->>'canal' IS DISTINCT FROM 'operacion_tecnica_privada'
+ OR p_evento->>'finalidad_ref' IS DISTINCT FROM 'ratificacion_catalogo_admin_v7'
+ THEN RAISE EXCEPTION 'AD230: semántica de intento incompatible' USING ERRCODE='22023'; END IF;
+ material:=vec_autorizacion_atestada_v3.encuadrar_mac('vec.auditoria.intento-ratificacion-catalogo-admin.v1');
+ FOREACH k IN ARRAY orden LOOP material:=material||vec_autorizacion_atestada_v3.encuadrar_mac(p_evento->>k); END LOOP;
+ material_sha:=pg_catalog.encode(pg_catalog.sha256(material),'hex');
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion_atestada_v3:evento-admin:'||(p_evento->>'evento_ref'),0));
+ SELECT a.tipo_registro,a.auditoria_ref,a.secuencia,a.huella_sha256,a.correlacion_ref,a.registrada_en,a.evento_material_sha256 INTO existente
+ FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a WHERE a.evento_ref=p_evento->>'evento_ref';
+ IF FOUND THEN
+  IF existente.tipo_registro IS DISTINCT FROM 'intento_ratificacion_catalogo_admin' OR existente.evento_material_sha256 IS DISTINCT FROM material_sha
+  THEN RAISE EXCEPTION 'AD230: replay de intento divergente' USING ERRCODE='23505'; END IF;
+  RETURN QUERY SELECT existente.auditoria_ref,existente.secuencia,existente.huella_sha256,existente.correlacion_ref,existente.registrada_en;
+  RETURN;
+ END IF;
+ SELECT r.secuencia_previa,r.anterior_sha256 INTO STRICT seq,anterior FROM vec_autorizacion_atestada_v3.reservar_asiento_auditoria_v5() r;
+ IF seq>=9007199254740991::numeric THEN RAISE EXCEPTION 'AD230: secuencia agotada' USING ERRCODE='22003'; END IF;
+ seq:=seq+1;instante:=pg_catalog.clock_timestamp();ref:='aud_v3_rcai_'||pg_catalog.substr(p_evento->>'evento_ref',8,32);
+ huella:=pg_catalog.encode(pg_catalog.sha256(
+  vec_autorizacion_atestada_v3.encuadrar_mac('vec.auditoria.eslabon.intento-ratificacion-catalogo-admin.v1')||
+  vec_autorizacion_atestada_v3.encuadrar_mac(seq::text)||vec_autorizacion_atestada_v3.encuadrar_mac(anterior)||
+  vec_autorizacion_atestada_v3.encuadrar_mac(ref)||vec_autorizacion_atestada_v3.encuadrar_mac(material_sha)||
+  vec_autorizacion_atestada_v3.encuadrar_mac(pg_catalog.to_char(instante AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))),'hex');
+ INSERT INTO vec_autorizacion_atestada_v3.auditoria_consumo_v3(
+  auditoria_ref,secuencia,anterior_sha256,huella_sha256,registrada_en,tipo_registro,evento_ref,evento_material_sha256,
+  operador_login,ratificacion_catalogo_detalle,accion,modulo_id,recurso_ref,finalidad_ref,resultado,motivo_ref,proceso,canal,correlacion_ref)
+ VALUES(ref,seq,anterior,huella,instante,'intento_ratificacion_catalogo_admin',p_evento->>'evento_ref',material_sha,
+  (p_evento->>'operador_login')::name,pg_catalog.jsonb_build_object('solicitud_sha256',p_evento->>'solicitud_sha256'),
+  'ratificar_catalogo_admin_v7','administracion',
+  'solicitud_ratificacion_catalogo_admin:'||pg_catalog.substr(p_evento->>'solicitud_sha256',1,32),
+  'ratificacion_catalogo_admin_v7',p_evento->>'resultado',p_evento->>'motivo_ref',
+  'postgresql','operacion_tecnica_privada',p_evento->>'correlacion_ref');
+ RETURN QUERY SELECT ref,seq,huella,p_evento->>'correlacion_ref',instante;
+END $funcion$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_ratificacion_catalogo_admin_v1(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_ratificacion_catalogo_admin_v1(jsonb) TO vec_autorizacion_propietario;
 RESET ROLE;
 DO $post$
 DECLARE actual text;f oid;
@@ -181,13 +316,17 @@ BEGIN
  SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_constraintdef(c.oid,false),'UTF8')),'hex') INTO actual
  FROM pg_catalog.pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::pg_catalog.regclass
  AND c.conname='auditoria_tipo_disjunto_v4' AND c.contype='c' AND c.convalidated;
- f:=pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_ratificacion_catalogo_admin_v1(jsonb)');
- IF actual IS DISTINCT FROM '015703bf240c8f66febd4059f5f2f65c367167985f68d700ed6bf37df8d2f161'
- OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::pg_catalog.regrole
-  AND p.prosecdef AND p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp','row_security=on'])
- OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) x
-  WHERE p.oid=f AND x.grantee<>p.proowner AND NOT(x.grantee='vec_autorizacion_propietario'::pg_catalog.regrole
-   AND x.privilege_type='EXECUTE' AND NOT x.is_grantable))
- THEN RAISE EXCEPTION 'AD230: PARO clave=postimagen actual=% esperado=015703bf240c8f66febd4059f5f2f65c367167985f68d700ed6bf37df8d2f161_ACL_minima',coalesce(actual,'ausente') USING ERRCODE='55000'; END IF;
+ IF actual IS DISTINCT FROM '734f6fe84ba26fdc8ed02a54ffe7432c503a86d3437c97e32c7d5de4ea79a655'
+ THEN RAISE EXCEPTION 'AD230: PARO clave=postimagen actual=% esperado=734f6fe84ba26fdc8ed02a54ffe7432c503a86d3437c97e32c7d5de4ea79a655',coalesce(actual,'ausente') USING ERRCODE='55000'; END IF;
+ FOREACH f IN ARRAY ARRAY[
+  'vec_autorizacion_atestada_v3.registrar_ratificacion_catalogo_admin_v1(jsonb)'::pg_catalog.regprocedure::oid,
+  'vec_autorizacion_atestada_v3.registrar_intento_ratificacion_catalogo_admin_v1(jsonb)'::pg_catalog.regprocedure::oid] LOOP
+  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::pg_catalog.regrole
+   AND p.prosecdef AND p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp','row_security=on'])
+  OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) x
+   WHERE p.oid=f AND x.grantee<>p.proowner AND NOT(x.grantee='vec_autorizacion_propietario'::pg_catalog.regrole
+    AND x.privilege_type='EXECUTE' AND NOT x.is_grantable))
+  THEN RAISE EXCEPTION 'AD230: PARO clave=ACL_funcion actual=divergente esperado=propietario_y_AUT' USING ERRCODE='55000'; END IF;
+ END LOOP;
 END $post$;
 COMMIT;

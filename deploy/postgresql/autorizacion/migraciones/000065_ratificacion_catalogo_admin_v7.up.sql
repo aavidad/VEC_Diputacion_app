@@ -14,6 +14,7 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=current_user AND rolsuper)
  OR pg_catalog.current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_ratificacion_catalogo_admin_v1(jsonb)') IS NULL
+ OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_ratificacion_catalogo_admin_v1(jsonb)') IS NULL
  OR pg_catalog.to_regprocedure('vec_autorizacion.acreditar_perfil_aplicacion_nominal_vigente_aut48(text,text,text,text,text,text,text,text,jsonb,jsonb)') IS NULL
  OR pg_catalog.to_regclass('vec_autorizacion.config_ratificacion_catalogo_admin_v1') IS NOT NULL
  OR pg_catalog.to_regrole('vec_admin_ratificacion_catalogo_admin_ejecutor') IS NOT NULL
@@ -113,7 +114,7 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.exigir_operador_ratificacion_catalogo_admin_v1() FROM PUBLIC;
 
-CREATE FUNCTION vec_autorizacion.ratificar_catalogo_admin_v7(plan_canonico text,sha_aprobado text)
+CREATE FUNCTION vec_autorizacion.aplicar_ratificacion_catalogo_admin_v7(plan_canonico text,sha_aprobado text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' SET statement_timeout='20s'
 AS $f$
@@ -258,6 +259,46 @@ BEGIN
  PERFORM vec_autorizacion.exigir_operador_ratificacion_catalogo_admin_v1();
  RETURN pg_catalog.jsonb_build_object('recibo',recibo,'replay',false);
 END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.aplicar_ratificacion_catalogo_admin_v7(text,text) FROM PUBLIC;
+CREATE FUNCTION vec_autorizacion.ratificar_catalogo_admin_v7(plan_canonico text,sha_aprobado text)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' SET statement_timeout='20s'
+AS $f$
+DECLARE respuesta jsonb;estado text:='permitido';codigo text;motivo text;aud record;
+ evento text;corr text;solsha text;sql_codigo text;cfg vec_autorizacion.config_ratificacion_catalogo_admin_v1;
+BEGIN
+ evento:='evento_'||pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-','');
+ corr:='correlacion_'||pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-','');
+ solsha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+  pg_catalog.jsonb_build_object('plan',plan_canonico,'sha_aprobado',sha_aprobado)::text,'UTF8')),'hex');
+ BEGIN
+  respuesta:=vec_autorizacion.aplicar_ratificacion_catalogo_admin_v7(plan_canonico,sha_aprobado);
+  motivo:=CASE WHEN (respuesta->>'replay')::boolean THEN 'ratificacion_replay' ELSE 'ratificacion_registrada' END;
+  codigo:=motivo;
+  SELECT * INTO STRICT aud FROM vec_autorizacion_atestada_v3.registrar_intento_ratificacion_catalogo_admin_v1(
+   pg_catalog.jsonb_build_object('tipo_registro','intento_ratificacion_catalogo_admin','evento_ref',evento,
+    'operador_login',session_user::text,'solicitud_sha256',solsha,'resultado','permitido','motivo_ref',motivo,
+    'proceso','postgresql','canal','operacion_tecnica_privada','finalidad_ref','ratificacion_catalogo_admin_v7','correlacion_ref',corr));
+  cfg:=vec_autorizacion.exigir_operador_ratificacion_catalogo_admin_v1();
+  IF plan_canonico IS NULL OR pg_catalog.clock_timestamp()>=(plan_canonico::jsonb->>'caduca_en')::timestamptz
+  THEN RAISE EXCEPTION 'AUT65: PARO clave=vigencia_tras_asiento actual=caducada esperado=plan_vigente' USING ERRCODE='42501'; END IF;
+ EXCEPTION WHEN OTHERS THEN
+  respuesta:=NULL;sql_codigo:=SQLSTATE;
+  estado:=CASE WHEN sql_codigo IN ('42501','22023','22007','22P02','40001','23505','25000') THEN 'denegado' ELSE 'error' END;
+  motivo:=CASE WHEN estado='denegado' THEN 'ratificacion_denegada' ELSE 'ratificacion_error' END;
+  codigo:=CASE WHEN estado='denegado' THEN 'ratificacion_rechazada' ELSE 'ratificacion_no_disponible' END;
+ END;
+ IF estado<>'permitido' THEN
+  SELECT * INTO STRICT aud FROM vec_autorizacion_atestada_v3.registrar_intento_ratificacion_catalogo_admin_v1(
+   pg_catalog.jsonb_build_object('tipo_registro','intento_ratificacion_catalogo_admin','evento_ref',evento,
+    'operador_login',session_user::text,'solicitud_sha256',solsha,'resultado',estado,'motivo_ref',motivo,
+    'proceso','postgresql','canal','operacion_tecnica_privada','finalidad_ref','ratificacion_catalogo_admin_v7','correlacion_ref',corr));
+ END IF;
+ RETURN pg_catalog.jsonb_build_object('estado',estado,'codigo',codigo,'recibo',respuesta->'recibo',
+  'replay',COALESCE((respuesta->>'replay')::boolean,false),'auditoria_intento',
+  pg_catalog.jsonb_build_object('auditoria_ref',aud.auditoria_ref,'secuencia',aud.secuencia,
+   'huella_sha256',aud.huella_sha256,'correlacion_ref',aud.correlacion_ref,'registrada_en',aud.registrada_en));
+END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.ratificar_catalogo_admin_v7(text,text) FROM PUBLIC;
 GRANT USAGE ON SCHEMA vec_autorizacion TO vec_admin_ratificacion_catalogo_admin_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.ratificar_catalogo_admin_v7(text,text) TO vec_admin_ratificacion_catalogo_admin_ejecutor;
@@ -267,6 +308,7 @@ DECLARE f oid;t regclass;g oid:='vec_admin_ratificacion_catalogo_admin_ejecutor'
 BEGIN
  FOREACH f IN ARRAY ARRAY[
   'vec_autorizacion.exigir_operador_ratificacion_catalogo_admin_v1()'::pg_catalog.regprocedure::oid,
+  'vec_autorizacion.aplicar_ratificacion_catalogo_admin_v7(text,text)'::pg_catalog.regprocedure::oid,
   'vec_autorizacion.ratificar_catalogo_admin_v7(text,text)'::pg_catalog.regprocedure::oid] LOOP
   IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=f AND p.proowner='vec_autorizacion_propietario'::pg_catalog.regrole
    AND p.prosecdef AND p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp','row_security=on'])
