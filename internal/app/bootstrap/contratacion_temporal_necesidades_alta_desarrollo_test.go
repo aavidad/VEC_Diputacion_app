@@ -26,29 +26,68 @@ func TestAltaV1ExigeModalidadMientrasV3ExigeNecesidadSellada(t *testing.T) {
 	}
 }
 
-func TestCatalogosAltaV1ConservadoYV2DistingueNecesidad(t *testing.T) {
+func TestCatalogosAltaSinFuenteConservaV1YOcultaCapacidadV2(t *testing.T) {
 	catalogos, err := nuevoCatalogoDesarrollo("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	manejador := &manejadorCatalogosAltaContratacionTemporalDesarrollo{origen: nuevoOrigenConsultasConCatalogoDesarrollo(catalogos)}
-	consultar := func(query string) (int, map[string]any) {
-		peticion := httptest.NewRequest(http.MethodGet, rutaCatalogosAltaContratacionTemporalDesarrollo+query, nil)
+	consultar := func(metodo, query string) (int, map[string]any, http.Header, int) {
+		peticion := httptest.NewRequest(metodo, rutaCatalogosAltaContratacionTemporalDesarrollo+query, nil)
 		respuesta := httptest.NewRecorder()
 		manejador.ServeHTTP(respuesta, peticion)
 		var cuerpo map[string]any
-		if err := json.Unmarshal(respuesta.Body.Bytes(), &cuerpo); err != nil {
-			t.Fatal(err)
+		if metodo == http.MethodGet {
+			if err := json.Unmarshal(respuesta.Body.Bytes(), &cuerpo); err != nil {
+				t.Fatal(err)
+			}
 		}
-		return respuesta.Code, cuerpo
+		return respuesta.Code, cuerpo, respuesta.Header(), respuesta.Body.Len()
 	}
-	if estado, cuerpo := consultar(""); estado != 200 || cuerpo["data"].(map[string]any)["esquema"] != esquemaCatalogosAltaContratacionTemporal ||
+	if estado, cuerpo, _, _ := consultar(http.MethodGet, ""); estado != 200 || cuerpo["data"].(map[string]any)["esquema"] != esquemaCatalogosAltaContratacionTemporal ||
 		len(cuerpo["data"].(map[string]any)["motivos"].([]any)) != 1 {
 		t.Fatal("se alteró el contrato v1")
 	}
-	estado, cuerpo := consultar("?version=2")
-	if estado != 200 {
-		t.Fatalf("v2 respondió %d", estado)
+	for _, metodo := range []string{http.MethodGet, http.MethodHead} {
+		estado, cuerpo, cabeceras, longitud := consultar(metodo, "?version=2")
+		if estado != http.StatusServiceUnavailable || cabeceras.Get("Cache-Control") != "no-store, no-transform" ||
+			cabeceras.Get("Content-Length") == "" || cabeceras.Get("Set-Cookie") != "" {
+			t.Fatalf("v2 sin fuente respondió %d con cabeceras %v", estado, cabeceras)
+		}
+		if metodo == http.MethodGet {
+			errorRespuesta := cuerpo["error"].(map[string]any)
+			if errorRespuesta["codigo"] != "capacidad_no_configurada" ||
+				errorRespuesta["clave_i18n"] != "api.contratacion_temporal.catalogos_alta.error.capacidad_no_configurada" ||
+				cuerpo["data"] != nil {
+				t.Fatalf("v2 anunció una capacidad ausente: %+v", cuerpo)
+			}
+		} else if longitud != 0 {
+			t.Fatal("HEAD devolvió cuerpo")
+		}
+	}
+	if estado, _, _, _ := consultar(http.MethodGet, "?version=3"); estado != 400 {
+		t.Fatalf("versión desconocida respondió %d", estado)
+	}
+	if estado, _, _, _ := consultar(http.MethodGet, "?version=%32"); estado != 400 {
+		t.Fatalf("versión no canónica respondió %d", estado)
+	}
+}
+
+func TestCatalogosAltaConFuenteExponeV2DistinguiendoNecesidad(t *testing.T) {
+	ruta := filepath.Join("..", "..", "modules", "contrataciontemporal", "adapters", "catalogoalta", "necesidades_v1.ejemplo.json")
+	catalogos, err := nuevoCatalogoDesarrollo("", "", ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manejador := &manejadorCatalogosAltaContratacionTemporalDesarrollo{origen: nuevoOrigenConsultasConCatalogoDesarrollo(catalogos)}
+	respuesta := httptest.NewRecorder()
+	manejador.ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet, rutaCatalogosAltaContratacionTemporalDesarrollo+"?version=2", nil))
+	if respuesta.Code != http.StatusOK {
+		t.Fatalf("v2 con fuente respondió %d: %s", respuesta.Code, respuesta.Body.String())
+	}
+	var cuerpo map[string]any
+	if err := json.Unmarshal(respuesta.Body.Bytes(), &cuerpo); err != nil {
+		t.Fatal(err)
 	}
 	datos := cuerpo["data"].(map[string]any)
 	necesidades := datos["necesidades"].(map[string]any)
@@ -60,11 +99,37 @@ func TestCatalogosAltaV1ConservadoYV2DistingueNecesidad(t *testing.T) {
 	if _, ok := necesidades["causas"].([]any)[0].(map[string]any)["etiqueta_clave"]; !ok {
 		t.Fatal("v2 sin clave i18n")
 	}
-	if estado, _ := consultar("?version=3"); estado != 400 {
-		t.Fatalf("versión desconocida respondió %d", estado)
+}
+
+func TestCatalogosAltaV2ConFuenteQueFallaNoFingeAusenciaDeConfiguracion(t *testing.T) {
+	origen := filepath.Join("..", "..", "modules", "contrataciontemporal", "adapters", "catalogoalta", "necesidades_v1.ejemplo.json")
+	contenido, err := os.ReadFile(origen)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if estado, _ := consultar("?version=%32"); estado != 400 {
-		t.Fatalf("versión no canónica respondió %d", estado)
+	ruta := filepath.Join(t.TempDir(), "necesidades.json")
+	if err := os.WriteFile(ruta, contenido, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	catalogos, err := nuevoCatalogoDesarrollo("", "", ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(ruta); err != nil {
+		t.Fatal(err)
+	}
+	manejador := &manejadorCatalogosAltaContratacionTemporalDesarrollo{origen: nuevoOrigenConsultasConCatalogoDesarrollo(catalogos)}
+	respuesta := httptest.NewRecorder()
+	manejador.ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet, rutaCatalogosAltaContratacionTemporalDesarrollo+"?version=2", nil))
+	if respuesta.Code != http.StatusServiceUnavailable {
+		t.Fatalf("fuente caída respondió %d", respuesta.Code)
+	}
+	var cuerpo map[string]map[string]any
+	if err := json.Unmarshal(respuesta.Body.Bytes(), &cuerpo); err != nil {
+		t.Fatal(err)
+	}
+	if cuerpo["error"]["codigo"] != "servicio_no_disponible" || cuerpo["data"] != nil {
+		t.Fatalf("fuente caída confundida con ausencia de capacidad: %+v", cuerpo)
 	}
 }
 
