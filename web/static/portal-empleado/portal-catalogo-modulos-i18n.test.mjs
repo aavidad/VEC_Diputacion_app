@@ -29,7 +29,7 @@ test("?lang=en elige traducción común, catálogo inglés y cifras en en-GB", a
   assert.deepEqual([IDIOMA_ACTUAL, LOCALIZACION_ACTUAL, llamadas[1].ruta, catalogo[0].titulo,
     presentarSesionPortal({ nombre: "Ana", roles: ["tecnico_rrhh"] }).perfil,
     traducirPortal("contratacion_temporal_encabezado"), formatearNumeroPortal(1234)],
-  ["en", "en-GB", "/locales/en.json", "Employment pools", "Human Resources", "Temporary staff requests", "1,234"]);
+  ["en", "en-GB", "/locales/en.json", "Job pools", "Human Resources", "Temporary staff requests", "1,234"]);
   assert.equal(llamadas[1].opciones.credentials, "same-origin");
   assert.equal(llamadas[1].opciones.redirect, "error");
   assert.equal(llamadas[1].opciones.cache, "no-store");
