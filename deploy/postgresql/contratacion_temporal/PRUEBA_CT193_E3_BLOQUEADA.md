@@ -1,11 +1,13 @@
-# CT193: ensayo firmado E3 preparado para repetición
+# CT193: ensayo firmado E3 en PostgreSQL 18 efímero
 
-Estado a 08/10/2026: **NO-GO dinámico**. El ensayo ordinario está preparado
-para que dirección lo ejecute después de revisar el runner. Este cambio no
-acredita la activación del POST v3 ni la instalación en la base principal.
+Estado a 08/10/2026: el ensayo ordinario de la rama
+`966a479051c9ea7730bd44f6a86db43b132394e8` terminó con código **0** en una
+base PostgreSQL 18 nueva. Su resultado queda pendiente de revisión independiente
+del runner final. No acredita la activación del POST v3 ni la instalación en la
+base principal.
 La corrección V3 `2de6dabbf6cbd4950fd70a75015b67dbee99309b` está
 incorporada en esta rama mediante cherry-pick; sus dos revisiones sensibles
-corresponden a esa fuente exacta y la suite CT193 aún debe repetirse.
+corresponden a esa fuente exacta.
 
 La fuente CT preparada es `2703bda17b3acc226fb4427e192c6c710c05597f`.
 El único UP de CT193 tiene SHA256
@@ -94,8 +96,19 @@ textos literalmente. Es una diferencia anterior al control de caducidad; no
 se atribuye a TTL. No se sesgó la marca temporal para evitarla ni se modificó
 el núcleo V o una migración AD3 instalada.
 
-La repetición necesaria usa la corrección focal V ya incorporada. Debe construir
-**otra** base nueva, aplicar
-CT193 una sola vez y pasar toda la suite sin divergencias, con digest opaco del
-efecto E3 confirmado por V. Solo entonces puede considerarse el GO dinámico;
-el consumidor visual y la autorización nominal requieren revisión propia.
+La repetición final construyó otra base nueva con CT193 ausente, aplicó su UP
+una sola vez y obtuvo los marcadores PASS de E2 antes y después, E3 con fin,
+E3 con `causa_fin`, replay tras reconstruir el contenedor sobre el mismo
+volumen, colisión y concurrencia. Versiones, actuaciones, auditoría, outbox y
+recibo válido pasaron de `0/0/0/0/0` a `1/1/1/1/1` en cada alta nueva; E2 tras
+CT193, replay y colisión conservaron `1/1/1/1/1`. El runner exige el marcador
+PASS exacto en cada fase y terminó en 24,1 segundos. La comprobación final por
+etiqueta encontró cero contenedores y cero volúmenes residuales.
+
+Un intento previo sobre la misma fuente falló durante la compilación con
+`bwrap: Creating new namespace failed: Resource temporarily unavailable`:
+el límite de 2048 procesos era menor que los 3487 hilos del UID compartido.
+Se restauró el límite anterior de 8192 en
+`966a479051c9ea7730bd44f6a86db43b132394e8`, manteniendo `-p 6`, la memoria
+y el tiempo acotados. Ese intento limpió sus recursos y no instaló CT193.
+El consumidor visual y la autorización nominal requieren revisión propia.
