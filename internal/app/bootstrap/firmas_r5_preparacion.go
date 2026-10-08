@@ -7,6 +7,8 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -152,7 +154,7 @@ func (c *comprobadorRegistroConPlanR5) ComprobarRegistroConPlanR5(ctx context.Co
 		if ctx.Err() != nil {
 			return cero, ctx.Err()
 		}
-		return cero, ports.ErrPreflightFirmaR5NoDisponible
+		return cero, fmt.Errorf("%w: %w", ports.ErrPreflightFirmaR5NoDisponible, err)
 	}
 	if sesion != c.loginEsperado || actual != sesion || !grupo || !sinPropietarioCT || !sinPropietarioAUT ||
 		!esquemaCT || !esquemaAUT || !ejecutarCT || !ejecutarAUT ||
@@ -210,16 +212,19 @@ func nuevosVerificadorYComprobadorPreparacionR5(cfg config.Config,
 	cfg = cfg.Normalize()
 	material, err := cargarMaterialFirmaDocumentos(cfg)
 	if err != nil {
-		return nil, nil, ports.ErrPreflightFirmaR5NoDisponible
+		return nil, nil, fmt.Errorf("%w: %w", ports.ErrPreflightFirmaR5NoDisponible, err)
 	}
 	defer material.borrar()
 	if _, err := vigenciaMaterialVerificadorR5(material, cfg, descriptor, ahora); err != nil {
+		if errors.Is(err, ports.ErrPreflightFirmaR5NoDisponible) {
+			return nil, nil, err
+		}
 		return nil, nil, ports.ErrPreflightFirmaR5NoDisponible
 	}
 	material.configuracion.Disponibilidad = observadorFirmaDocumentos(fuenteResultados...)
 	cliente, err := validadorautofirma.Nuevo(material.configuracion)
 	if err != nil {
-		return nil, nil, ports.ErrPreflightFirmaR5NoDisponible
+		return nil, nil, fmt.Errorf("%w: %w", ports.ErrPreflightFirmaR5NoDisponible, err)
 	}
 	c := &comprobadorConfiguracionVerificadorR5{configuracion: cfg.Normalize(), descriptor: descriptor,
 		cliente: cliente, reloj: reloj}
@@ -239,7 +244,7 @@ func (c *comprobadorConfiguracionVerificadorR5) ComprobarConfiguracionVerificado
 	ahora := c.reloj.Ahora()
 	hasta, err := c.comprobarMaterial(ahora)
 	if err != nil {
-		return cero, ports.ErrPreparacionExternaR5NoAcreditada
+		return cero, err
 	}
 	if err := ctx.Err(); err != nil {
 		return cero, err
@@ -255,12 +260,12 @@ func (c *comprobadorConfiguracionVerificadorR5) comprobarMaterial(ahora time.Tim
 	}
 	material, err := cargarMaterialFirmaDocumentos(c.configuracion)
 	if err != nil {
-		return time.Time{}, ports.ErrPreparacionExternaR5NoAcreditada
+		return time.Time{}, fmt.Errorf("%w: %w", ports.ErrPreflightFirmaR5NoDisponible, err)
 	}
 	defer material.borrar()
 	// Esta construcción valida de nuevo los bytes actuales sin tráfico remoto.
 	if _, err := validadorautofirma.Nuevo(material.configuracion); err != nil {
-		return time.Time{}, ports.ErrPreparacionExternaR5NoAcreditada
+		return time.Time{}, fmt.Errorf("%w: %w", ports.ErrPreflightFirmaR5NoDisponible, err)
 	}
 	return vigenciaMaterialVerificadorR5(material, c.configuracion, c.descriptor, ahora)
 }
@@ -305,7 +310,10 @@ func menorVencimientoCertificadosR5(material []byte, ahora time.Time) (time.Time
 			continue
 		}
 		cert, err := x509.ParseCertificate(bloque.Bytes)
-		if err != nil || ahora.Before(cert.NotBefore) || !ahora.Before(cert.NotAfter) {
+		if err != nil {
+			return time.Time{}, fmt.Errorf("%w: %w", ports.ErrPreflightFirmaR5NoDisponible, err)
+		}
+		if ahora.Before(cert.NotBefore) || !ahora.Before(cert.NotAfter) {
 			return time.Time{}, ports.ErrPreparacionExternaR5NoAcreditada
 		}
 		if hasta.IsZero() || cert.NotAfter.Before(hasta) {

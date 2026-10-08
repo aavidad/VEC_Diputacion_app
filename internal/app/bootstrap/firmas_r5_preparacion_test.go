@@ -22,6 +22,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/vec/adapters/conservacion"
+	"vec-diputacion-granada/internal/vec/documentos/adapters/validadorautofirma"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -69,9 +70,15 @@ func TestPreparacionR5CustodiaLeePoliticaDelObjeto(t *testing.T) {
 	}
 }
 
-type filaCatalogoRegistroR5Prueba struct{ valores []any }
+type filaCatalogoRegistroR5Prueba struct {
+	valores []any
+	err     error
+}
 
 func (f filaCatalogoRegistroR5Prueba) Scan(dest ...any) error {
+	if f.err != nil {
+		return f.err
+	}
 	if len(dest) != len(f.valores) {
 		return errors.New("fila incompleta")
 	}
@@ -84,11 +91,12 @@ func (f filaCatalogoRegistroR5Prueba) Scan(dest ...any) error {
 type lectorCatalogoRegistroR5Prueba struct {
 	valores  []any
 	consulta string
+	err      error
 }
 
 func (l *lectorCatalogoRegistroR5Prueba) QueryRow(_ context.Context, sql string, _ ...any) pgx.Row {
 	l.consulta = sql
-	return filaCatalogoRegistroR5Prueba{valores: l.valores}
+	return filaCatalogoRegistroR5Prueba{valores: l.valores, err: l.err}
 }
 
 func TestPreparacionR5RegistroCompruebaDosFachadasYLogin(t *testing.T) {
@@ -116,6 +124,11 @@ func TestPreparacionR5RegistroCompruebaDosFachadasYLogin(t *testing.T) {
 	lector.valores[1] = "otro_login"
 	if _, err := c.ComprobarRegistroConPlanR5(context.Background(), q, paso); !errors.Is(err, ports.ErrPreparacionExternaR5NoAcreditada) {
 		t.Fatal("SET ROLE ajeno se anunció como LOGIN CT")
+	}
+	causa := errors.New("lectura de catálogo interrumpida")
+	lector.err = causa
+	if _, err := c.ComprobarRegistroConPlanR5(context.Background(), q, paso); !errors.Is(err, ports.ErrPreflightFirmaR5NoDisponible) || !errors.Is(err, causa) {
+		t.Fatalf("causa SQL perdida: %v", err)
 	}
 }
 
@@ -182,5 +195,15 @@ func TestPreparacionR5VerificadorExigeDescriptorYMaterialExacto(t *testing.T) {
 	guardar("token", []byte(strings.Repeat("u", 40)))
 	if _, err := c.ComprobarConfiguracionVerificadorR5(context.Background(), q, paso); !errors.Is(err, ports.ErrPreparacionExternaR5NoAcreditada) {
 		t.Fatal("rotación de material no cerró la vía")
+	}
+	guardar("token", []byte(strings.Repeat(" ", 40)))
+	if _, err := c.ComprobarConfiguracionVerificadorR5(context.Background(), q, paso); !errors.Is(err, ports.ErrPreflightFirmaR5NoDisponible) || !errors.Is(err, validadorautofirma.ErrConfiguracion) {
+		t.Fatalf("causa del cliente perdida: %v", err)
+	}
+	if err := os.Remove(tokenRuta); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.ComprobarConfiguracionVerificadorR5(context.Background(), q, paso); !errors.Is(err, ports.ErrPreflightFirmaR5NoDisponible) || !errors.Is(err, ErrMaterialDesarrolloInvalido) {
+		t.Fatalf("causa de la carga privada perdida: %v", err)
 	}
 }

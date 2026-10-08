@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -35,7 +36,7 @@ func nuevoVerificadorFirmaDocumentos(cfg config.Config, fuenteResultados ...func
 	material.configuracion.Disponibilidad = observadorFirmaDocumentos(fuenteResultados...)
 	cliente, err := validadorautofirma.Nuevo(material.configuracion)
 	if err != nil {
-		return nil, ErrComposicionFirmaVerificacionNoDisponible
+		return nil, fmt.Errorf("%w: %w", ErrComposicionFirmaVerificacionNoDisponible, err)
 	}
 	return cliente, nil
 }
@@ -61,7 +62,10 @@ func cargarMaterialFirmaDocumentos(cfg config.Config) (materialFirmaDocumentos, 
 	var m materialFirmaDocumentos
 	cfg = cfg.Normalize()
 	activo, err := cfg.DocumentosDesarrolloActivo()
-	if cfg.FirmaVerificacionEnabled != "true" || err != nil || !activo {
+	if err != nil {
+		return m, fmt.Errorf("%w: %w", ErrComposicionFirmaVerificacionNoDisponible, err)
+	}
+	if cfg.FirmaVerificacionEnabled != "true" || !activo {
 		return m, ErrComposicionFirmaVerificacionNoDisponible
 	}
 	if cfg.FirmaVerificacionURL == "" || cfg.FirmaVerificacionCAFile == "" || cfg.FirmaVerificacionTimeout == "" ||
@@ -78,25 +82,25 @@ func cargarMaterialFirmaDocumentos(cfg config.Config) (materialFirmaDocumentos, 
 	}
 	m.ca, err = leerFicheroMaterialSeguro(cfg.FirmaVerificacionCAFile, 64<<10)
 	if err != nil {
-		return m, ErrComposicionFirmaVerificacionNoDisponible
+		return m, fmt.Errorf("%w: %w", ErrComposicionFirmaVerificacionNoDisponible, err)
 	}
 	if cfg.FirmaVerificacionTokenFile != "" {
 		m.token, err = leerFicheroMaterialSeguro(cfg.FirmaVerificacionTokenFile, 512)
 		if err != nil {
 			m.borrar()
-			return materialFirmaDocumentos{}, ErrComposicionFirmaVerificacionNoDisponible
+			return materialFirmaDocumentos{}, fmt.Errorf("%w: %w", ErrComposicionFirmaVerificacionNoDisponible, err)
 		}
 	}
 	if cfg.FirmaVerificacionCertFile != "" {
 		m.certificado, err = leerFicheroMaterialSeguro(cfg.FirmaVerificacionCertFile, 64<<10)
 		if err != nil {
 			m.borrar()
-			return materialFirmaDocumentos{}, ErrComposicionFirmaVerificacionNoDisponible
+			return materialFirmaDocumentos{}, fmt.Errorf("%w: %w", ErrComposicionFirmaVerificacionNoDisponible, err)
 		}
 		m.clave, err = leerFicheroMaterialSeguro(cfg.FirmaVerificacionKeyFile, 64<<10)
 		if err != nil {
 			m.borrar()
-			return materialFirmaDocumentos{}, ErrComposicionFirmaVerificacionNoDisponible
+			return materialFirmaDocumentos{}, fmt.Errorf("%w: %w", ErrComposicionFirmaVerificacionNoDisponible, err)
 		}
 	}
 	m.configuracion = validadorautofirma.Configuracion{URL: cfg.FirmaVerificacionURL, CAPEM: m.ca,
