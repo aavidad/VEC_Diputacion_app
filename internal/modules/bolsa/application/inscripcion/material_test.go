@@ -50,3 +50,20 @@ func TestMaterialDecisionLigaVersionMotivoYClave(t *testing.T) {
 		t.Fatal("una version distinta conserva la misma huella")
 	}
 }
+
+func TestMaterialIncorporacionLigaEvidenciaSinAceptarParticipacion(t *testing.T) {
+	i := Incorporacion{SolicitudRef: "solicitud_inscripcion_" + strings.Repeat("a", 64), EvidenciaRef: "acta:resolucion:001", VersionEsperada: 2, ClaveIdempotencia: "inscripcion-00000003"}
+	material, huella, err := MaterialIncorporacion(i)
+	if err != nil || !bytes.Contains(material, []byte(`"evidencia_ref":"acta:resolucion:001"`)) || bytes.Contains(material, []byte("participacion_ref")) {
+		t.Fatalf("material=%s err=%v", material, err)
+	}
+	recurso, err := RecursoIncorporacion(i, huella)
+	if err != nil || !bytes.Contains(recurso, []byte(i.SolicitudRef)) || !bytes.Contains(recurso, []byte(huella)) {
+		t.Fatalf("recurso=%s err=%v", recurso, err)
+	}
+	i.EvidenciaRef = "acta:resolucion:002"
+	_, otra, err := MaterialIncorporacion(i)
+	if err != nil || otra == huella {
+		t.Fatal("evidencia distinta conserva la huella")
+	}
+}
