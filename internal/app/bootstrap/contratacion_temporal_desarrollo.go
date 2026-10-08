@@ -393,8 +393,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}()
 	// El alta de necesidad queda cerrada hasta declarar una publicación propia
 	// y disponer del confirmador CT193 y de la lectura pública exacta de RPT.
+	// La relectura de la instantánea usa la conexión del ejecutor: es el único
+	// rol al que CT193 concede leer_instantanea_necesidad_alta_v3.
 	if cfg.CTNecesidadesAltaSourcePath != "" {
-		recuperador, err := postgresct.NuevoRecuperadorNecesidadAltaPostgreSQL(alta.postgresql.confirmador)
+		recuperador, err := postgresct.NuevoRecuperadorNecesidadAltaPostgreSQL(alta.postgresql.ejecucion)
 		if err != nil {
 			return nil, nil, nil, err
 		}
