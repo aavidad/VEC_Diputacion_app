@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import * as rutasBolsa from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v1";
+import * as rutasBolsa from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 
 const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
@@ -96,7 +96,7 @@ test("la cohorte de CSS, entrada y helper coincide con las URL servidas", async 
     "index.html", "cache-publica-v1.json", "../../interno.manifest", "../../produccion.manifest",
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const versionRaiz = versionDe(html, "/portal-empleado/portal.js");
-  assert.equal(versionRaiz, "20261008-bolsa-global-v1");
+  assert.equal(versionRaiz, "20261008-bolsa-global-v2");
   assert.equal(versionDe(cache, "/portal-empleado/portal.js"), versionRaiz);
   for (const css of ["portal-componentes.css", "portal-capacidades.css"])
     assert.equal(versionDe(html, `/portal-empleado/${css}`), "20261008-bolsa-enlaces-v1");

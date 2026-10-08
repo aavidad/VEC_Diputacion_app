@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import * as rutasBolsa from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v1";
+import * as rutasBolsa from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
 import { rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js";
 import { vistaBolsaNavegable, vistaBolsaOfrecida } from "./portal-menu-bolsa.js";
 import { moduloDeVistaPortal } from "./portal-modulos-coordinador.js";

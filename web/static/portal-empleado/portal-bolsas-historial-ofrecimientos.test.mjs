@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { crearClienteHistorialOfrecimientos, crearSuperficieHistorialOfrecimientos, validarHistorialOfrecimientos, validarRegistroOfrecimiento,
-  instanteDesdeFechaLocal, ESQUEMA_HISTORIAL_OFRECIMIENTOS, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261008-bolsa-global-v1";
+  instanteDesdeFechaLocal, ESQUEMA_HISTORIAL_OFRECIMIENTOS, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261008-bolsa-global-v2";
 import { crearTextos } from "../comun/textos.js";
 import { readFile } from "node:fs/promises";
 const bolsa = "bolsa:prueba", oferta = `oferta:${"a".repeat(64)}`, otraOferta = `oferta:${"b".repeat(64)}`;

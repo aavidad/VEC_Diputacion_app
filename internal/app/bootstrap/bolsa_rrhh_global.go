@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -33,7 +34,11 @@ type cacheGlobalBolsasRRHH struct {
 }
 
 func (c *cacheGlobalBolsasRRHH) guardar(datos bolsaapp.ConjuntoGlobalRRHH, ahora time.Time) (string, error) {
-	b, err := json.Marshal(datos)
+	// Una recarga del mismo conjunto reutiliza el corte emitido. La hora de
+	// lectura no cambia las filas ni justifica invalidar sus continuaciones.
+	huella := datos
+	huella.GeneradoEn = ""
+	b, err := json.Marshal(huella)
 	if err != nil {
 		return "", err
 	}
@@ -54,10 +59,10 @@ func (c *cacheGlobalBolsasRRHH) guardar(datos bolsaapp.ConjuntoGlobalRRHH, ahora
 	for _, corte := range c.cortes {
 		bytes += corte.bytes
 	}
-	for len(c.cortes) > 0 && (bytes > maximoBytesCortesGlobales || len(c.cortes) >= 8) {
-		bytes -= c.cortes[0].bytes
-		c.cortes[0] = corteGlobalBolsasRRHH{}
-		c.cortes = c.cortes[1:]
+	// Nunca retirar un corte vigente para admitir otro. Si la memoria está
+	// llena, la lectura nueva falla; los enlaces ya entregados siguen válidos.
+	if bytes > maximoBytesCortesGlobales {
+		return "", fmt.Errorf("bolsa: memoria de cortes esperado<=%d observado=%d", maximoBytesCortesGlobales, bytes)
 	}
 	c.cortes = append(c.cortes, corteGlobalBolsasRRHH{ref: ref, creado: ahora, bytes: len(b), datos: datos})
 	return ref, nil
@@ -139,6 +144,9 @@ func (h *bolsasRRHHDesarrollo) adjuntarCorteGlobal(w http.ResponseWriter, r *htt
 		return false
 	}
 	respuesta["corte_ref"] = ref
+	if retenido, existe := h.global.leer(ref, time.Now()); existe {
+		respuesta["generado_en"] = retenido.GeneradoEn
+	}
 	respuesta["lista_llamamientos_disponible"] = conjunto.ListaLlamamientosDisponible
 	if llamamientos, ok := respuesta["llamamientos"].(map[string]any); ok {
 		total := 0

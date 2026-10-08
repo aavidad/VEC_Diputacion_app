@@ -41,7 +41,7 @@ import {
   rutaCandidatosBolsa,
   seleccionarParticipacionesPorEstado,
   crearControladorBolsas,
-} from "./portal-bolsas-api.js?v=20261008-bolsa-global-v1";
+} from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
 function comprobarTransporteInterno(opciones) {
   assert.equal(opciones.credentials, "same-origin");
   assert.equal(opciones.mode, "same-origin");
@@ -115,7 +115,7 @@ test("cambiar situación B2 envía idempotencia y conserva el recibo", async () 
   comprobarTransporteInterno(observada.opciones);
   assert.match(observada.url, /\/bolsa:01\/candidatos\/participacion:01\/situacion$/);
 });
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
 const rutaDemoJson = new URL("../../../data/demo/bolsa/v1.bolsas-demo.json", import.meta.url);
 const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));
 /**

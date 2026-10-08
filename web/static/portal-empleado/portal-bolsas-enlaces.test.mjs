@@ -6,15 +6,15 @@ await prepararMensajesContratos();
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
-import * as rutasGlobales from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v1";
+import * as rutasGlobales from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
 
-import { consultarBolsas, consultarCandidatosBolsa, consultarEstadisticasBolsa, consultarGlobalBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v1";
-import { renderizarGlobalBolsa, prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261008-bolsa-global-v1";
+import { consultarBolsas, consultarCandidatosBolsa, consultarEstadisticasBolsa, consultarGlobalBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
+import { renderizarGlobalBolsa, prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261008-bolsa-global-v2";
 import {
   leerCandidatosBolsaCompartible, leerGlobalBolsaCompartible, rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible,
   rutaResumenBolsasCompartible,
-} from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v1";
+} from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
 import { SITUACIONES_PARTICIPACION_BOLSA } from "./portal-bolsas-contrato.js";
 
 await prepararTextosGlobalBolsa();
@@ -71,7 +71,7 @@ test("la relación global minimiza referencias y ofrece paginación accesible", 
   assert.match(html, /data-bolsa-accion="pagina-global" data-cursor="1"/u);
   assert.match(html, /data-accion="ver-bolsa"/u);
   assert.doesNotMatch(html, /secreto/u);
-  assert.match(html, /data-seguimiento="llamamiento:prueba:00000001"/u);
+  assert.doesNotMatch(html, /data-seguimiento|<th scope="col">Aspirantes<\/th>/u);
 });
 
 test("los resúmenes nuevos conservan los campos validados y activan enlaces con corte", async () => {

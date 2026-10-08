@@ -124,6 +124,41 @@ func TestBolsaGlobalCaducadoNoCambiaElCorteEnSilencio(t *testing.T) {
 	}
 }
 
+func TestBolsaGlobalRetieneEnlacesAunqueOtrosUsuariosRecarguen(t *testing.T) {
+	var cache cacheGlobalBolsasRRHH
+	ahora := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	conjunto := bolsaapp.ConjuntoGlobalRRHH{GeneradoEn: ahora.Format(time.RFC3339Nano), Participaciones: []bolsaapp.ParticipacionGlobalRRHH{{ParticipacionRef: "participacion:primera", Estado: "disponible"}}}
+	original, err := cache.guardar(conjunto, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for n := 1; n <= 20; n++ {
+		instante := ahora.Add(time.Duration(n) * time.Second)
+		conjunto.GeneradoEn = instante.Format(time.RFC3339Nano)
+		ref, err := cache.guardar(conjunto, instante)
+		if err != nil || ref != original {
+			t.Fatalf("recarga=%d corte esperado=%s observado=%s error=%v", n, original, ref, err)
+		}
+	}
+	retenido, ok := cache.leer(original, ahora.Add(time.Minute))
+	if !ok || retenido.GeneradoEn != ahora.Format(time.RFC3339Nano) {
+		t.Fatal("la recarga altera el corte original")
+	}
+	// Cambios reales crean otros cortes; tampoco invalidan los enlaces emitidos.
+	for n := 1; n <= 12; n++ {
+		nuevo := bolsaapp.ConjuntoGlobalRRHH{Participaciones: []bolsaapp.ParticipacionGlobalRRHH{{ParticipacionRef: "participacion:" + strconv.Itoa(n), Estado: "renuncia"}}}
+		if _, err := cache.guardar(nuevo, ahora.Add(time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, ok := cache.leer(original, ahora.Add(vigenciaCorteGlobalBolsas-time.Nanosecond)); !ok {
+		t.Fatal("otros usuarios expulsaron un enlace todavía vigente")
+	}
+	if _, ok := cache.leer(original, ahora.Add(vigenciaCorteGlobalBolsas)); ok {
+		t.Fatal("el corte vencido sigue disponible")
+	}
+}
+
 func TestBolsaGlobalLlamamientosConMismoTotalYPredicado(t *testing.T) {
 	datos := datosBolsasRRHHPrueba()
 	datos.ResumenConjunto = true

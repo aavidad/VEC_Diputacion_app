@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ESQUEMA_CANDIDATOS_TURNO, validarRespuestaCandidatosBolsa } from "./portal-bolsas-contrato.js?v=20261001-ct-a-i18n-v1";
-import { consultarCandidatosBolsa } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v1";
+import { consultarCandidatosBolsa } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
 import { cargarMensajesPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 const bolsa = {
