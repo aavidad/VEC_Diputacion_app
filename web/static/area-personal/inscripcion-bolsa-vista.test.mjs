@@ -262,6 +262,13 @@ test("la categoría 33 y la 128 siguen visibles y se envían por su referencia e
       assert.equal((contenedor.innerHTML.match(/<option value="categoria:/gu) ?? []).length, 128);
       assert.match(contenedor.innerHTML, /<option value="categoria:128"/u);
       assert.doesNotMatch(contenedor.innerHTML, /<table/u);
+      assert.match(contenedor.innerHTML, /Buscar categoría/u);
+      contenedor.handlers.input({ target: { matches: () => true, value: "Sin coincidencia", selectionStart: 15 } });
+      assert.match(contenedor.innerHTML, /No hay categorías que coincidan/u);
+      assert.match(contenedor.innerHTML, /data-inscripcion-categoria disabled/u);
+      contenedor.handlers.input({ target: { matches: () => true, value: `Categoria ${numero}`, selectionStart: 12 } });
+      assert.equal((contenedor.innerHTML.match(/<option value="categoria:/gu) ?? []).length, 1);
+      assert.match(contenedor.innerHTML, new RegExp(`<option value="categoria:${numero}"`, "u"));
       contenedor.handlers.change({ target: { matches: () => true, value: `categoria:${numero}` } });
       pulsar("revisar");
       assert.match(contenedor.innerHTML, new RegExp(`Categoría ${numero}`, "u"));

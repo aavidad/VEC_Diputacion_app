@@ -27,6 +27,8 @@
     "categorias": { "one": "{cuenta} categoría", "other": "{cuenta} categorías" },
     "convocatoria": "Convocatoria",
     "elegirCategoria": "Elija una categoría",
+    "buscarCategoria": "Buscar categoría",
+    "sinCategorias": "No hay categorías que coincidan. Pruebe con otro nombre.",
     "requisitos": "Requisitos",
     "sinRequisitos": "Esta bolsa no indica requisitos adicionales.",
     "obligatorio": "Obligatorio",

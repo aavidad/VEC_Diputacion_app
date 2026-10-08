@@ -27,6 +27,8 @@
     "categorias": { "one": "{cuenta} category", "other": "{cuenta} categories" },
     "convocatoria": "Call for applications",
     "elegirCategoria": "Choose a category",
+    "buscarCategoria": "Search categories",
+    "sinCategorias": "No categories match. Try another name.",
     "requisitos": "Requirements",
     "sinRequisitos": "This job pool lists no additional requirements.",
     "obligatorio": "Required",
