@@ -115,6 +115,16 @@ func TestPlazoFaseCTRehidrataCapturaYRespetaFaseSinRegla(t *testing.T) {
 	if err != nil || !aplicable || !plazo.Valido() || calendarios.recibida.Cantidad != 10 {
 		t.Fatalf("captura: %+v %v %v", plazo, aplicable, err)
 	}
+	consultaPreparada := calculadoraPlazoFaseCT{reglas: resolutor}.PrepararPlazosFaseConsulta(t.Context(), false)
+	calculadoraCapturas := consultaPreparada.(calculadoraPlazoFaseCTConsulta)
+	if calculadoraCapturas.actual != nil || calculadoraCapturas.errActual != nil {
+		t.Fatal("la captura preparó la cabeza actual")
+	}
+	for i := 0; i < 2; i++ {
+		if _, aplicable, err := calculadoraCapturas.CalcularPlazoConCaptura(t.Context(), solicitud, captura); err != nil || !aplicable {
+			t.Fatalf("captura preparada %d: %v %v", i, aplicable, err)
+		}
+	}
 	solicitud.Fase = "solicitud"
 	captura.Fase = "solicitud"
 	if _, aplicable, err := calcularPlazoConCapturaCT(resolutor, t.Context(), solicitud, captura); err != nil || aplicable {

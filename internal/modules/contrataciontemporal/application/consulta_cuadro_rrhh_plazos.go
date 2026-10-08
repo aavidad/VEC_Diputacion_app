@@ -23,7 +23,6 @@ type clavePlazoFaseCuadro struct {
 	fase    domain.ClaveFase
 	desde   time.Time
 	urgente bool
-	captura string
 }
 
 // completarPlazos devuelve el vencimiento de la fase actual de cada
@@ -49,15 +48,25 @@ func (s *ServicioConsultaCuadroRRHH) completarPlazos(
 	}
 	calculadora := s.plazos
 	_, calculaCapturas := calculadora.(ports.CalculadoraConCapturaPlazoFaseRRHH)
-	capturasCompletas := !conPlazos || len(pagina.CapturasPlazo) == len(pagina.Expedientes)
+	necesitaActual := conPlazos && len(pagina.CapturasPlazo) != len(pagina.Expedientes)
+	if conPlazos && !necesitaActual {
+		for _, captura := range pagina.CapturasPlazo {
+			if captura.Estado == "legado_sin_instantanea" {
+				necesitaActual = true
+				break
+			}
+		}
+	}
 	if pagina.Agregados != nil {
 		for _, grupo := range pagina.Agregados.GruposPlazo {
-			capturasCompletas = capturasCompletas && grupo.Captura != nil
+			necesitaActual = necesitaActual || grupo.Captura == nil || grupo.Captura.Estado == "legado_sin_instantanea"
 		}
 	}
 	// La consulta ya contiene las reglas fijadas. No leer una cabeza editable
 	// cuya disponibilidad o contenido no gobiernan estos tramos.
-	if !calculaCapturas || !capturasCompletas {
+	if preparador, admite := calculadora.(ports.PreparadorPlazosFaseConsultaRRHH); admite {
+		calculadora = preparador.PrepararPlazosFaseConsulta(ctx, necesitaActual)
+	} else if !calculaCapturas || necesitaActual {
 		calculadora = s.prepararPlazos(ctx)
 	}
 	var plazos []*ports.PlazoFaseRRHH
@@ -127,13 +136,19 @@ func calcularPlazosPagina(
 			fase: resumen.FaseClave, desde: pagina.FasesDesde[indice],
 			urgente: len(pagina.Urgentes) == len(pagina.Expedientes) && pagina.Urgentes[indice],
 		}
-		if captura != nil {
-			clave.captura = captura.Estado + ":" + captura.BaseHuella + ":" + captura.AjustesHuella + ":" + captura.CapturadaEn.Format(time.RFC3339Nano)
+		// Cada captura pasa por la validación propia de metadatos y bytes.
+		// Sólo los tramos sin instantánea comparten el resultado actual.
+		compartible := captura == nil || captura.Estado == "legado_sin_instantanea"
+		var plazo *ports.PlazoFaseRRHH
+		var visto bool
+		if compartible {
+			plazo, visto = calculados[clave]
 		}
-		plazo, visto := calculados[clave]
 		if !visto {
 			plazo = calcularPlazoFase(ctx, calculadora, clave, ahora, captura)
-			calculados[clave] = plazo
+			if compartible {
+				calculados[clave] = plazo
+			}
 		}
 		if plazo != nil {
 			copia := *plazo
@@ -155,7 +170,7 @@ func calcularPlazoFase(
 	captura *ports.CapturaPlazoFaseRRHH,
 ) *ports.PlazoFaseRRHH {
 	if captura != nil && captura.Estado == "legado_sin_instantanea" {
-		return &ports.PlazoFaseRRHH{Estado: ports.PlazoFaseNoCalculado}
+		captura = nil
 	}
 	if calculadora == nil {
 		return &ports.PlazoFaseRRHH{Estado: ports.PlazoFaseNoCalculado}

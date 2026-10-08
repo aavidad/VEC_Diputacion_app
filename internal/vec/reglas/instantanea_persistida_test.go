@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -163,4 +164,69 @@ func TestRehidratarInstantaneaPersistidaRechazaFaseAmbigua(t *testing.T) {
 	if _, err := RehidratarInstantaneaRegla(p); err == nil {
 		t.Fatal("dos reglas para la misma fase admitidas")
 	}
+}
+
+func TestCacheInstantaneasPersistidasValidaCadaTramoYSeparaPares(t *testing.T) {
+	resolutor := resolutorCTConAjustes(t, &ajustesMemoria{}, nil)
+	primera := instantaneaPersistidaPrueba(t, resolutor)
+	cache := NuevaCacheInstantaneasPersistidas()
+	uno, err := cache.Rehidratar(primera)
+	if err != nil || uno.datos.Efectiva.Cantidad != 10 {
+		t.Fatalf("primera captura: %+v, %v", uno.datos.Efectiva, err)
+	}
+	segunda := primera
+	var base domain.CatalogoConfigurable
+	if err := json.Unmarshal(primera.CatalogoBaseCanonico, &base); err != nil {
+		t.Fatal(err)
+	}
+	for i := range base.Entradas {
+		if base.Entradas[i].Clave == CTPlazoFiscalizacion {
+			base.Entradas[i].Atributos[CampoCantidad] = "7"
+		}
+	}
+	segunda.CatalogoBaseCanonico, segunda.CatalogoBaseHuella, err = CanonicoCatalogoBaseReglas(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dos, err := cache.Rehidratar(segunda)
+	if err != nil || dos.datos.Efectiva.Cantidad != 7 || len(cache.entradas) != 2 {
+		t.Fatalf("segundo par no aislado: %+v, %v, entradas=%d", dos.datos.Efectiva, err, len(cache.entradas))
+	}
+	alterada := primera
+	alterada.CatalogoBaseCanonico = bytes.Clone(primera.CatalogoBaseCanonico)
+	alterada.CatalogoBaseCanonico[0] ^= 1
+	if _, err := cache.Rehidratar(alterada); !errors.Is(err, ErrReglasNoDisponibles) {
+		t.Fatalf("bytes base alterados admitidos en acierto: %v", err)
+	}
+	alterada = primera
+	alterada.CanonicoAjustes = []byte("{ }")
+	if _, err := cache.Rehidratar(alterada); !errors.Is(err, ErrAjustesNoDisponibles) {
+		t.Fatalf("bytes de ajustes alterados admitidos en acierto: %v", err)
+	}
+	alterada = primera
+	alterada.CatalogoBaseVersion++
+	if _, err := cache.Rehidratar(alterada); !errors.Is(err, ErrReglasNoDisponibles) {
+		t.Fatalf("versión alterada admitida en acierto: %v", err)
+	}
+	alterada = primera
+	alterada.PreparadaEn = base.PublicadoEn.Add(-time.Second)
+	if _, err := cache.Rehidratar(alterada); !errors.Is(err, ErrReglasNoDisponibles) {
+		t.Fatalf("fecha anterior a publicación admitida: %v", err)
+	}
+	alterada = primera
+	alterada.Fase = "subsanacion_unidad"
+	if _, err := cache.Rehidratar(alterada); err != nil {
+		t.Fatalf("otra fase del mismo catálogo no resuelta: %v", err)
+	}
+	var grupo sync.WaitGroup
+	for i := 0; i < 16; i++ {
+		grupo.Add(1)
+		go func() {
+			defer grupo.Done()
+			if _, err := cache.Rehidratar(primera); err != nil {
+				t.Errorf("captura concurrente: %v", err)
+			}
+		}()
+	}
+	grupo.Wait()
 }

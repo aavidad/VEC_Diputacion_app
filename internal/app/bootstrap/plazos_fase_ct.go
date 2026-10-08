@@ -73,6 +73,37 @@ func (c calculadoraPlazoFaseCT) PrepararPlazosFase(ctx context.Context) (ports.C
 	return calculadoraPlazoFaseCTLeida{reglas: c.reglas, lectura: lectura, vigentes: lectura.Reglas()}, nil
 }
 
+// PrepararPlazosFaseConsulta conserva una caché limitada al cuadro. Si falla
+// la lectura actual, las capturas históricas siguen siendo independientes.
+func (c calculadoraPlazoFaseCT) PrepararPlazosFaseConsulta(ctx context.Context, necesitaActual bool) ports.CalculadoraPlazoFaseRRHH {
+	preparada := calculadoraPlazoFaseCTConsulta{reglas: c.reglas, capturas: reglas.NuevaCacheInstantaneasPersistidas()}
+	if necesitaActual {
+		preparada.actual, preparada.errActual = c.PrepararPlazosFase(ctx)
+	}
+	return preparada
+}
+
+type calculadoraPlazoFaseCTConsulta struct {
+	reglas    *reglas.Resolutor
+	capturas  *reglas.CacheInstantaneasPersistidas
+	actual    ports.CalculadoraPlazoFaseRRHH
+	errActual error
+}
+
+func (c calculadoraPlazoFaseCTConsulta) CalcularPlazoFase(ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	if c.errActual != nil {
+		return ports.PlazoFaseRRHH{}, false, c.errActual
+	}
+	if c.actual == nil {
+		return ports.PlazoFaseRRHH{}, false, reglas.ErrReglasNoDisponibles
+	}
+	return c.actual.CalcularPlazoFase(ctx, solicitud)
+}
+
+func (c calculadoraPlazoFaseCTConsulta) CalcularPlazoConCaptura(ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH, captura ports.CapturaPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	return calcularPlazoConCapturaCacheCT(c.reglas, c.capturas, ctx, solicitud, captura)
+}
+
 // calculadoraPlazoFaseCTLeida calcula con una lectura de reglas ya hecha.
 type calculadoraPlazoFaseCTLeida struct {
 	reglas   *reglas.Resolutor
@@ -149,6 +180,10 @@ func (c calculadoraPlazoFaseCTLeida) CalcularPlazoConCaptura(ctx context.Context
 }
 
 func calcularPlazoConCapturaCT(resolutor *reglas.Resolutor, ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH, captura ports.CapturaPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
+	return calcularPlazoConCapturaCacheCT(resolutor, reglas.NuevaCacheInstantaneasPersistidas(), ctx, solicitud, captura)
+}
+
+func calcularPlazoConCapturaCacheCT(resolutor *reglas.Resolutor, cache *reglas.CacheInstantaneasPersistidas, ctx context.Context, solicitud ports.SolicitudPlazoFaseRRHH, captura ports.CapturaPlazoFaseRRHH) (ports.PlazoFaseRRHH, bool, error) {
 	if ctx == nil || resolutor == nil || (captura.Estado != "capturada" && captura.Estado != "legado_base_transicion") || captura.Fase != solicitud.Fase || !captura.FaseDesde.Equal(solicitud.Desde) {
 		return ports.PlazoFaseRRHH{}, false, reglas.ErrReglasNoDisponibles
 	}
@@ -160,7 +195,7 @@ func calcularPlazoConCapturaCT(resolutor *reglas.Resolutor, ctx context.Context,
 		CanonicoAjustes: captura.AjustesCanonico, AjustesVigenteDesde: captura.AjustesVigenteDesde,
 		PreparadaEn: captura.CapturadaEn, Fase: string(captura.Fase), FaseDesde: captura.FaseDesde,
 	}
-	instantanea, err := reglas.RehidratarInstantaneaRegla(guardada)
+	instantanea, err := cache.Rehidratar(guardada)
 	if err != nil {
 		if errors.Is(err, reglas.ErrReglaNoEncontrada) {
 			return ports.PlazoFaseRRHH{}, false, nil

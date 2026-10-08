@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"time"
 
 	"vec-diputacion-granada/internal/vec/domain"
@@ -29,6 +30,28 @@ type InstantaneaPersistidaRegla struct {
 	ReglaClave           string
 	Fase                 string
 	FaseDesde            time.Time
+}
+
+// CacheInstantaneasPersistidas comparte las definiciones inmutables durante una
+// consulta. Las claves son las dos huellas; los bytes se comparan también en
+// cada acierto para que una captura alterada no herede una validación ajena.
+type CacheInstantaneasPersistidas struct {
+	mu       sync.Mutex
+	entradas map[parHuellasInstantanea]catalogosInstantanea
+}
+
+type parHuellasInstantanea struct{ base, ajustes string }
+type catalogosInstantanea struct {
+	base                    domain.CatalogoConfigurable
+	ajustes                 map[string]map[string]string
+	reglasBase              []Regla
+	bytesBase, bytesAjustes []byte
+}
+
+const maximoParesInstantanea = 16
+
+func NuevaCacheInstantaneasPersistidas() *CacheInstantaneasPersistidas {
+	return &CacheInstantaneasPersistidas{entradas: make(map[parHuellasInstantanea]catalogosInstantanea)}
 }
 
 // CanonicoCatalogoBaseReglas produce los mismos bytes que
@@ -74,8 +97,15 @@ func ValidarCatalogoBaseReglas(catalogo domain.CatalogoConfigurable) error {
 // RehidratarInstantaneaRegla valida la definición y reconstruye la regla con
 // el mismo motor del resolutor. No consulta el catálogo ni los ajustes actuales.
 func RehidratarInstantaneaRegla(p InstantaneaPersistidaRegla) (InstantaneaRegla, error) {
+	return NuevaCacheInstantaneasPersistidas().Rehidratar(p)
+}
+
+// Rehidratar valida los metadatos de cada tramo, aunque su par de catálogos
+// ya esté preparado. No conserva una regla por fase: la fase y la fecha de
+// captura se resuelven de nuevo para cada tramo.
+func (c *CacheInstantaneasPersistidas) Rehidratar(p InstantaneaPersistidaRegla) (InstantaneaRegla, error) {
 	var vacia InstantaneaRegla
-	if !claveCanonica(p.CatalogoBaseID) ||
+	if c == nil || !claveCanonica(p.CatalogoBaseID) ||
 		(p.ReglaClave != "" && !claveCanonica(p.ReglaClave)) ||
 		!claveCanonica(p.Fase) || p.FaseDesde.IsZero() || p.PreparadaEn.IsZero() ||
 		p.CatalogoAjustesID != CatalogoAjustesDe(p.CatalogoBaseID) ||
@@ -83,38 +113,88 @@ func RehidratarInstantaneaRegla(p InstantaneaPersistidaRegla) (InstantaneaRegla,
 		len(p.CanonicoAjustes) == 0 || len(p.CanonicoAjustes) > maximoBytesAjustes {
 		return vacia, ErrReglasNoDisponibles
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	clave := parHuellasInstantanea{p.CatalogoBaseHuella, p.HuellaAjustes}
+	contenidos, existe := c.entradas[clave]
+	if existe {
+		if !bytes.Equal(contenidos.bytesBase, p.CatalogoBaseCanonico) {
+			return vacia, ErrReglasNoDisponibles
+		}
+		if !bytes.Equal(contenidos.bytesAjustes, p.CanonicoAjustes) {
+			return vacia, ErrAjustesNoDisponibles
+		}
+	} else {
+		var err error
+		contenidos, err = decodificarCatalogosInstantanea(p)
+		if err != nil {
+			return vacia, err
+		}
+	}
+	instantanea, err := rehidratarConCatalogos(p, contenidos)
+	if err != nil {
+		return vacia, err
+	}
+	if !existe && len(c.entradas) < maximoParesInstantanea {
+		if c.entradas == nil {
+			c.entradas = make(map[parHuellasInstantanea]catalogosInstantanea)
+		}
+		c.entradas[clave] = contenidos
+	}
+	return instantanea, nil
+}
+
+func decodificarCatalogosInstantanea(p InstantaneaPersistidaRegla) (catalogosInstantanea, error) {
+	var contenidos catalogosInstantanea
 	var base domain.CatalogoConfigurable
 	if err := json.Unmarshal(p.CatalogoBaseCanonico, &base); err != nil {
-		return vacia, ErrReglasNoDisponibles
+		return contenidos, ErrReglasNoDisponibles
 	}
 	canonicoBase, huellaBase, err := CanonicoCatalogoBaseReglas(base)
-	if err != nil || !bytes.Equal(canonicoBase, p.CatalogoBaseCanonico) ||
-		base.ID != p.CatalogoBaseID || base.Version != p.CatalogoBaseVersion ||
-		huellaBase != p.CatalogoBaseHuella || !catalogoVigenteEn(base, p.PreparadaEn.UTC()) {
-		return vacia, ErrReglasNoDisponibles
+	if err != nil || !bytes.Equal(canonicoBase, p.CatalogoBaseCanonico) || huellaBase != p.CatalogoBaseHuella {
+		return contenidos, ErrReglasNoDisponibles
 	}
 	var ajustes map[string]map[string]string
 	if err := json.Unmarshal(p.CanonicoAjustes, &ajustes); err != nil || ajustes == nil {
-		return vacia, ErrAjustesNoDisponibles
+		return contenidos, ErrAjustesNoDisponibles
 	}
 	canonicoAjustes, err := CanonicoAjustes(ajustes)
 	if err != nil || !bytes.Equal(canonicoAjustes, p.CanonicoAjustes) {
-		return vacia, ErrAjustesNoDisponibles
+		return contenidos, ErrAjustesNoDisponibles
 	}
 	huellaAjustes, err := HuellaAjustes(ajustes)
 	if err != nil || huellaAjustes != p.HuellaAjustes {
-		return vacia, ErrAjustesNoDisponibles
+		return contenidos, ErrAjustesNoDisponibles
+	}
+	reglasBase := make([]Regla, len(base.Entradas))
+	for i, entrada := range base.Entradas {
+		reglasBase[i], err = reglaDesdeEntrada(base, huellaBase, base.FuenteRef == MarcaPaqueteEjemplo, entrada)
+		if err != nil {
+			return contenidos, ErrReglaInvalida
+		}
+	}
+	return catalogosInstantanea{base: base, ajustes: ajustes, reglasBase: reglasBase,
+		bytesBase: bytes.Clone(p.CatalogoBaseCanonico), bytesAjustes: bytes.Clone(p.CanonicoAjustes)}, nil
+}
+
+func rehidratarConCatalogos(p InstantaneaPersistidaRegla, contenidos catalogosInstantanea) (InstantaneaRegla, error) {
+	var vacia InstantaneaRegla
+	base, ajustes := contenidos.base, contenidos.ajustes
+	if base.ID != p.CatalogoBaseID || base.Version != p.CatalogoBaseVersion ||
+		!catalogoVigenteEn(base, p.PreparadaEn.UTC()) {
+		return vacia, ErrReglasNoDisponibles
 	}
 	version := VersionAjustes{CatalogoID: p.CatalogoAjustesID, Version: p.VersionAjustes,
 		HuellaSHA256: p.HuellaAjustes, VigenteDesde: p.AjustesVigenteDesde, Ajustes: ajustes}
 	if p.AjustesEncontrados {
-		if err := validarVersionAjustes(version, p.CatalogoAjustesID, p.PreparadaEn.UTC()); err != nil {
-			return vacia, err
+		if p.VersionAjustes < 1 || p.AjustesVigenteDesde.IsZero() || p.AjustesVigenteDesde.After(p.PreparadaEn.UTC()) {
+			return vacia, ErrAjustesNoDisponibles
 		}
 	} else if p.VersionAjustes != 0 || !p.AjustesVigenteDesde.IsZero() || string(p.CanonicoAjustes) != "{}" {
 		return vacia, ErrAjustesNoDisponibles
 	}
 	var encontrada *domain.EntradaCatalogoConfigurable
+	indiceEncontrada := -1
 	for indice := range base.Entradas {
 		entrada := &base.Entradas[indice]
 		if !entrada.VigenteEn(p.PreparadaEn.UTC()) || !contieneFaseRegla(entrada.Atributos["fases"], p.Fase) {
@@ -124,6 +204,7 @@ func RehidratarInstantaneaRegla(p InstantaneaPersistidaRegla) (InstantaneaRegla,
 			return vacia, ErrReglaInvalida
 		}
 		encontrada = entrada
+		indiceEncontrada = indice
 	}
 	if encontrada == nil {
 		return vacia, ErrReglaNoEncontrada
@@ -132,13 +213,11 @@ func RehidratarInstantaneaRegla(p InstantaneaPersistidaRegla) (InstantaneaRegla,
 	if p.ReglaClave != "" && p.ReglaClave != entrada.Clave {
 		return vacia, ErrReglaInvalida
 	}
-	reglaBase, err := reglaDesdeEntrada(base, huellaBase, base.FuenteRef == MarcaPaqueteEjemplo, entrada)
-	if err != nil {
-		return vacia, err
-	}
+	reglaBase := copiarRegla(contenidos.reglasBase[indiceEncontrada])
 	efectiva := reglaBase
 	if campos, existe := ajustes[entrada.Clave]; p.AjustesEncontrados && existe {
-		efectiva, err = aplicarAjuste(base, huellaBase, base.FuenteRef == MarcaPaqueteEjemplo,
+		var err error
+		efectiva, err = aplicarAjuste(base, p.CatalogoBaseHuella, base.FuenteRef == MarcaPaqueteEjemplo,
 			entrada, reglaBase, version, campos)
 		if err != nil {
 			return vacia, ErrAjusteInvalido
