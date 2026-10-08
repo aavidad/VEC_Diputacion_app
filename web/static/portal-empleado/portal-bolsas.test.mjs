@@ -557,8 +557,9 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
   assert.match(htmlListo, /Disponibles/);
   assert.match(htmlListo, /ADMINISTRATIVO/);
   const bolsaRef = datosBolsasValidadas.bolsas[0].bolsa_ref;
-  assert.match(htmlListo, new RegExp(`<button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" aria-label="Abrir candidatos de la bolsa [^"]+">`));
-  assert.match(htmlListo, new RegExp(`<button type="button" class="estado-chip exito" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" data-estado="disponible" aria-label="Ver \\d+ candidatos disponibles de [^"]+">`));
+  const refURL = encodeURIComponent(bolsaRef);
+  assert.match(htmlListo, new RegExp(`<a class="enlace-tabla" href="\\?bolsa_ref=${refURL}#bolsa/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" aria-label="Abrir candidatos de la bolsa [^"]+">`));
+  assert.match(htmlListo, new RegExp(`<a class="estado-chip exito" href="\\?bolsa_ref=${refURL}&estado=disponible#bolsa/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" data-estado="disponible" aria-label="Ver \\d+ candidatos disponibles de [^"]+">`));
   assert.doesNotMatch(htmlListo, /<th scope="col">Acciones<\/th>|Ver candidatos/);
   // Vigencia: solo la fecha de fin, sin hora; sin fin, «Sin fecha de fin» (igual que la portada).
   assert.match(htmlListo, /<td>Sin fecha de fin<\/td>/);
