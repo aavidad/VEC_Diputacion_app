@@ -38,7 +38,7 @@ function detalleValido(item) {
       && (r.evidencia_ref == null || referencia(r.evidencia_ref)));
 }
 
-async function pedir(fetchImpl, ruta, { method = "GET", body, signal } = {}) {
+async function pedirSinTiempo(fetchImpl, ruta, { method = "GET", body, signal } = {}) {
   const respuesta = await fetchImpl(ruta, { method, credentials: "same-origin", mode: "same-origin",
     cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal,
     headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
@@ -72,6 +72,19 @@ async function pedir(fetchImpl, ruta, { method = "GET", body, signal } = {}) {
     if (new TextEncoder().encode(texto).byteLength > MAXIMO_RESPUESTA) throw new TypeError("respuesta excesiva");
   }
   return { estado: respuesta.status, data: JSON.parse(texto)?.data };
+}
+
+async function pedir(fetchImpl, ruta, opciones = {}) {
+  const controlador = new AbortController();
+  const cancelar = () => controlador.abort();
+  if (opciones.signal?.aborted) cancelar();
+  else opciones.signal?.addEventListener?.("abort", cancelar, { once: true });
+  const temporizador = setTimeout(cancelar, 15_000);
+  try { return await pedirSinTiempo(fetchImpl, ruta, { ...opciones, signal: controlador.signal }); }
+  finally {
+    clearTimeout(temporizador);
+    opciones.signal?.removeEventListener?.("abort", cancelar);
+  }
 }
 
 export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } = {}) {
