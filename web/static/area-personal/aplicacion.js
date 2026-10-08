@@ -648,7 +648,8 @@ async function cargar(estado) {
 }
 
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
-  clientePreferencias = null, preferencias = null, errorPreferencias = null, controladorVisual = null } = {}) {
+  fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
+  errorPreferencias = null, controladorVisual = null } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }
@@ -697,7 +698,7 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
   conectarEventos(estado);
   sincronizarAtajosVisuales(preferencias?.estado?.valores);
   await cargar(estado);
-  await montarUsuariosAreaPersonal(estado, fetchImpl, porId("espacio-trabajo"));
+  await montarUsuariosAreaPersonal(estado, fetchUsuarios, porId("espacio-trabajo"));
   if (estado.vista === "preferencias" && estado.datos) renderizar(estado);
   return estado;
 }

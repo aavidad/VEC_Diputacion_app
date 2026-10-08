@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { aplicarPreferenciasInicialesAplazadas, iniciarAreaPersonal } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal } from "./i18n.js";
+import { crearClienteHTTPAreaPersonal } from "./cliente-http.js";
+import { peticionesEnSerie } from "../comun/imagen-propia.js";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const valores = { idioma: "navegador", tamano_texto: "normal", alto_contraste: false,
@@ -166,6 +168,41 @@ test("con respuesta de preferencias a 250 ms, la carga de Mi Bolsa ya puede term
     aplicarPreferenciasInicialesAplazadas(estado, await lectura);
     assert.equal(estado.preferencias.estado, preferencias.estado);
     assert.equal(consultasBolsa, 1);
+  } finally {
+    globalThis.document = original.document;
+    globalThis.window = original.window;
+  }
+});
+
+test("un consumidor Bolsa conserva una respuesta válida mayor de 64 KiB fuera de la cola de Usuarios", async () => {
+  const original = { document: globalThis.document, window: globalThis.window };
+  const { documento } = documentoFalso();
+  globalThis.document = documento;
+  globalThis.window = { location: { search: "?vista=preferencias&lang=en", pathname: "/area-personal/", origin: "https://vec.example" },
+    history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
+  try {
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(),
+      ubicacion: { href: "https://vec.example/area-personal/?vista=preferencias&lang=en" } });
+    const muestra = JSON.parse(await readFile(new URL("../../../internal/modules/bolsa/adapters/httppersonal/testdata/mi_bolsa_situacion.json", import.meta.url), "utf8"));
+    muestra.data.participaciones = Array.from({ length: 200 }, (_, numero) => ({
+      ...muestra.data.participaciones[0], bolsa: `bolsa:${numero + 1}`, categoria: `Auxiliar ${"X".repeat(190)}`,
+    }));
+    const cuerpo = JSON.stringify(muestra);
+    assert.ok(new TextEncoder().encode(cuerpo).byteLength > 65536);
+    const rutas = [];
+    const fetchNormal = async (ruta) => {
+      rutas.push(ruta);
+      return ruta === "/api/vec/bolsa/mi-bolsa"
+        ? new Response(cuerpo, { status: 200, headers: { "Content-Type": "application/json" } })
+        : new Response("", { status: 503 });
+    };
+    const estado = await iniciarAreaPersonal({ cliente: crearClienteHTTPAreaPersonal({ fetchImpl: fetchNormal }),
+      vistasDisponibles: new Set(["preferencias", "llamamientos", "inicio"]),
+      fetchImpl: fetchNormal, fetchUsuarios: peticionesEnSerie(fetchNormal) });
+    const posterior = await crearClienteHTTPAreaPersonal({ fetchImpl: estado.fetchImpl }).cargar();
+    assert.equal(estado.participaciones.length, 200);
+    assert.equal(posterior.consulta.participaciones.length, 200);
+    assert.equal(rutas.filter((ruta) => ruta === "/api/vec/bolsa/mi-bolsa").length, 2);
   } finally {
     globalThis.document = original.document;
     globalThis.window = original.window;

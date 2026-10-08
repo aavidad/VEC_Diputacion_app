@@ -34,7 +34,7 @@ async function resolverCliente() {
 try {
   const dependencias = await resolverCliente();
   const estado = await iniciarAreaPersonal({ ...dependencias, clientePreferencias, preferencias,
-    errorPreferencias, controladorVisual, fetchImpl: fetchUsuarios });
+    errorPreferencias, controladorVisual, fetchUsuarios });
   if (idiomaExplicito) {
     const lectura = cargarPreferenciasIniciales(clientePreferencias);
     estado.lecturaPreferenciasInicial = lectura;
