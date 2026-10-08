@@ -1,1 +1,4 @@
+# B93 consume la vista previa con AD218. Se instala una vez tras el núcleo
+# B1; requiere la función AD218 y la preimagen de Bolsa comprobadas.
+# SHA256 d998f0b4373916f5b4a6865bcf18b0d01b3156d87f14ca3b9f1ee289dde6e790 B93
 deploy/postgresql/bolsa_llamamientos/migraciones/000093_vista_previa_carga_convoca_autorizada.up.sql
