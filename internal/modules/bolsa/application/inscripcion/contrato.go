@@ -111,7 +111,7 @@ func (a Actor) LecturaValida(accion, recurso string, filtro Filtro) bool {
 	if c == nil || (strings.Contains(accion, ".rrhh.") && c.Canal != "interna_corporativa") {
 		return false
 	}
-	return a.Valido() && c != nil && c.PersonaRef == a.PersonaRef &&
+	return a.Valido() && c.PersonaRef == a.PersonaRef &&
 		c.PerfilRef == a.PerfilRef && c.SesionRef == a.SesionRef && c.Canal == a.Canal &&
 		c.CuentaRef == a.ResultadoContexto.Contexto.Instantanea.CuentaRef &&
 		c.Accion == accion && c.RecursoRef == recurso && c.Filtro == filtro &&
