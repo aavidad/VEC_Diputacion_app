@@ -390,6 +390,8 @@ proyectado en `cese_sin_candidato_bolsa`, con referencia a la auditoría común
 del acto CT115, y el relevo sigue con los siguientes; antes se reintentaba cada
 30 segundos y bloqueaba todos los posteriores. Si luego aparece el vínculo,
 el candidato queda pendiente desde B13 hasta que el mismo relevo aplica B45.
+La fecha visible de ese estado es `recibido_en` de B13; no se inventa una
+disponibilidad. Las lecturas con fecha de corte conservan el orden histórico.
 Si la participación es de una bolsa constituida y solo falta su vínculo, el
 cese sigue pendiente hasta rellenar los vínculos (apartado D3-B11-D). En la
 copia fría de la principal solo la bolsa de administrativo tiene vínculos

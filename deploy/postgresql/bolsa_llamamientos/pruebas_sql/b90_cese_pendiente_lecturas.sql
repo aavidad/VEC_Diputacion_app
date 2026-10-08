@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Ejecutar tras CT197, B81, B90 y B90 en PostgreSQL 18 desechable.
+-- Ejecutar tras CT197, B81 y B90 en PostgreSQL 18 desechable.
 -- Toda la evidencia sintética se deshace. Comprueba que B13 pendiente de B45
 -- excluye un turno y conserva señal sin fecha en B82 y en la consulta por lote.
 BEGIN;
@@ -47,7 +47,14 @@ SELECT set_config('vec.b91_bolsa',:bolsa_sql,true);
 SET SESSION AUTHORIZATION vec_b91_ejecutor_test;
 DO $prueba$
 DECLARE v_lote record; v_orden record; v_resumen record; v_filas bigint;
+ v_antes boolean; v_corte_anterior timestamptz:=clock_timestamp()-interval '1 day';
 BEGIN
+ SELECT coalesce(bool_or(cese_pendiente),false) INTO v_antes
+  FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(
+   ARRAY[current_setting('vec.b91_participacion')]::text[],v_corte_anterior);
+ IF v_antes THEN
+  RAISE EXCEPTION 'B90: clave=pendiente_antes_del_cese esperado=false actual=true';
+ END IF;
  SELECT count(*) INTO v_filas FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(
   ARRAY[current_setting('vec.b91_participacion'),current_setting('vec.b91_participacion')]::text[],clock_timestamp());
  IF v_filas<>1 THEN
@@ -55,8 +62,9 @@ BEGIN
  END IF;
  SELECT * INTO STRICT v_lote FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(
   ARRAY[current_setting('vec.b91_participacion')]::text[],clock_timestamp());
- IF v_lote.cese_pendiente IS NOT TRUE THEN
-  RAISE EXCEPTION 'B90: clave=cese_pendiente esperado=true actual=%',v_lote.cese_pendiente;
+ IF v_lote.cese_pendiente IS NOT TRUE OR v_lote.pendiente_desde IS NULL
+    OR v_lote.pendiente_desde<=v_corte_anterior THEN
+  RAISE EXCEPTION 'B90: clave=cese_pendiente_y_desde esperado=true_y_fecha_real actual=%',row_to_json(v_lote);
  END IF;
  SELECT orden_vigente,situacion,razon INTO STRICT v_orden
    FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(current_setting('vec.b91_bolsa'),clock_timestamp())
@@ -65,11 +73,12 @@ BEGIN
     OR v_orden.razon<>'cese_pendiente' THEN
   RAISE EXCEPTION 'B90: clave=orden_pendiente esperado=NULL/no_disponible/cese_pendiente actual=%',row_to_json(v_orden);
  END IF;
- SELECT cese_fecha_efecto,cese_disponible_desde,cese_en_restriccion,cese_trabajo_cesado
+ SELECT cese_fecha_efecto,cese_disponible_desde,cese_en_restriccion,cese_trabajo_cesado,desde
    INTO STRICT v_resumen FROM vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(clock_timestamp())
   WHERE participacion_ref=current_setting('vec.b91_participacion');
  IF v_resumen.cese_fecha_efecto IS NOT NULL OR v_resumen.cese_disponible_desde IS NOT NULL
-    OR v_resumen.cese_en_restriccion IS NOT TRUE OR v_resumen.cese_trabajo_cesado IS NOT FALSE THEN
+    OR v_resumen.cese_en_restriccion IS NOT TRUE OR v_resumen.cese_trabajo_cesado IS NOT FALSE
+    OR v_resumen.desde IS DISTINCT FROM v_lote.pendiente_desde THEN
   RAISE EXCEPTION 'B90: clave=resumen_pendiente esperado=NULL_NULL_true_false actual=%',row_to_json(v_resumen);
  END IF;
 END $prueba$;

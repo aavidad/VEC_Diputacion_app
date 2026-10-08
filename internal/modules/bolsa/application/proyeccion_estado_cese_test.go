@@ -78,11 +78,12 @@ func TestProyeccionCesePendienteImpideTurnoSinInventarFecha(t *testing.T) {
 	madrid, _ := time.LoadLocation("Europe/Madrid")
 	corte := time.Date(2026, 10, 8, 12, 0, 0, 0, madrid)
 	desde := time.Date(2026, 1, 5, 0, 0, 0, 0, madrid)
+	pendienteDesde := time.Date(2026, 10, 7, 15, 0, 0, 0, madrid)
 	fecha := time.Date(2026, 11, 1, 0, 0, 0, 0, madrid)
 	for _, anterior := range []string{"disponible", "trabajando", "disponible_desde"} {
 		base := ports.SituacionParticipacion{Situacion: anterior, Desde: desde, FechaDisponible: &fecha}
-		actual, err := ProyectarSituacionConEstadoCese(base, ports.EstadoCese{CesePendiente: true}, true, corte)
-		if err != nil || actual.Situacion != "no_disponible" || actual.FechaDisponible != nil || !actual.Desde.Equal(desde) {
+		actual, err := ProyectarSituacionConEstadoCese(base, ports.EstadoCese{CesePendiente: true, PendienteDesde: pendienteDesde}, true, corte)
+		if err != nil || actual.Situacion != "no_disponible" || actual.FechaDisponible != nil || !actual.Desde.Equal(pendienteDesde) {
 			t.Fatalf("pendiente con situación %s: %+v %v", anterior, actual, err)
 		}
 		if EstadoPublicoRestriccionCese(actual, corte) != "no_disponible" {
@@ -90,11 +91,15 @@ func TestProyeccionCesePendienteImpideTurnoSinInventarFecha(t *testing.T) {
 		}
 	}
 	base := ports.SituacionParticipacion{Situacion: "disponible", Desde: desde}
-	for _, previo := range []ports.EstadoCese{{CesePendiente: true}, {CesePendiente: true, FechaEfecto: desde, DisponibleDesde: fecha, EnRestriccion: true, TrabajoCesado: true}} {
+	for _, previo := range []ports.EstadoCese{{CesePendiente: true, PendienteDesde: pendienteDesde},
+		{CesePendiente: true, PendienteDesde: pendienteDesde, FechaEfecto: desde, DisponibleDesde: fecha, EnRestriccion: true, TrabajoCesado: true}} {
 		actual, err := ProyectarSituacionConEstadoCese(base, previo, true, corte)
 		if err != nil || actual.Situacion != "no_disponible" || actual.FechaDisponible != nil {
 			t.Fatalf("pendiente prevalece sobre B45 previo: %+v %v", actual, err)
 		}
+	}
+	if _, err := ProyectarSituacionConEstadoCese(base, ports.EstadoCese{CesePendiente: true}, true, corte); err == nil {
+		t.Fatal("pendiente sin instante B13 aceptado")
 	}
 	sinCese, err := ProyectarSituacionConEstadoCese(base, ports.EstadoCese{}, false, corte)
 	if err != nil || sinCese.Situacion != "disponible" {

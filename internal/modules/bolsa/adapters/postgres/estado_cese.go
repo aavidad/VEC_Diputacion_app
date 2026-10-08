@@ -33,7 +33,7 @@ func (c *ConsultaEstadoCesePostgreSQL) ConsultarEstadoCese(ctx context.Context, 
 		return ports.EstadoCese{}, false, ports.ErrConsultaEstadoCeseNoDisponible
 	}
 	return escanearEstadoCese(c.pool.QueryRow(ctx,
-		`SELECT fecha_efecto,disponible_desde,en_restriccion,trabajo_cesado,cese_pendiente
+		`SELECT fecha_efecto,disponible_desde,en_restriccion,trabajo_cesado,cese_pendiente,pendiente_desde
 		FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2($1,$2)`,
 		participacionRef, corte.UTC()), corte)
 }
@@ -66,7 +66,7 @@ type consultaEstadosCeseQueryer interface {
 
 func consultarEstadosCeseLote(ctx context.Context, consulta consultaEstadosCeseQueryer, refs []string, esperadas map[string]struct{}, corte time.Time, salida map[string]ports.EstadoCese) (map[string]ports.EstadoCese, error) {
 	filas, err := consulta.Query(ctx,
-		`SELECT participacion_ref,fecha_efecto,disponible_desde,en_restriccion,trabajo_cesado,cese_pendiente
+		`SELECT participacion_ref,fecha_efecto,disponible_desde,en_restriccion,trabajo_cesado,cese_pendiente,pendiente_desde
 		FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2($1::text[],$2)`, refs, corte.UTC())
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ports.ErrConsultaEstadoCeseNoDisponible, err)
@@ -74,9 +74,9 @@ func consultarEstadosCeseLote(ctx context.Context, consulta consultaEstadosCeseQ
 	defer filas.Close()
 	for filas.Next() {
 		var ref string
-		var efecto, disponible sql.NullTime
+		var efecto, disponible, pendienteDesde sql.NullTime
 		var restringida, cesado, pendiente bool
-		if err := filas.Scan(&ref, &efecto, &disponible, &restringida, &cesado, &pendiente); err != nil {
+		if err := filas.Scan(&ref, &efecto, &disponible, &restringida, &cesado, &pendiente, &pendienteDesde); err != nil {
 			return nil, fmt.Errorf("%w: %w", ports.ErrConsultaEstadoCeseNoDisponible, err)
 		}
 		if _, solicitada := esperadas[ref]; !solicitada || len(salida) >= len(esperadas) {
@@ -85,7 +85,7 @@ func consultarEstadosCeseLote(ctx context.Context, consulta consultaEstadosCeseQ
 		if _, repetida := salida[ref]; repetida {
 			return nil, ports.ErrConsultaEstadoCeseNoDisponible
 		}
-		estado, presente, err := validarEstadoCeseNullable(efecto, disponible, restringida, cesado, pendiente, corte)
+		estado, presente, err := validarEstadoCeseNullable(efecto, disponible, pendienteDesde, restringida, cesado, pendiente, corte)
 		if err != nil || !presente {
 			return nil, ports.ErrConsultaEstadoCeseNoDisponible
 		}
@@ -98,21 +98,24 @@ func consultarEstadosCeseLote(ctx context.Context, consulta consultaEstadosCeseQ
 }
 
 func escanearEstadoCese(fila pgx.Row, corte time.Time) (ports.EstadoCese, bool, error) {
-	var efecto, disponible sql.NullTime
+	var efecto, disponible, pendienteDesde sql.NullTime
 	var restringida, cesado, pendiente bool
-	err := fila.Scan(&efecto, &disponible, &restringida, &cesado, &pendiente)
+	err := fila.Scan(&efecto, &disponible, &restringida, &cesado, &pendiente, &pendienteDesde)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ports.EstadoCese{}, false, nil
 	}
 	if err != nil {
 		return ports.EstadoCese{}, false, fmt.Errorf("%w: %w", ports.ErrConsultaEstadoCeseNoDisponible, err)
 	}
-	return validarEstadoCeseNullable(efecto, disponible, restringida, cesado, pendiente, corte)
+	return validarEstadoCeseNullable(efecto, disponible, pendienteDesde, restringida, cesado, pendiente, corte)
 }
 
-func validarEstadoCeseNullable(efecto, disponible sql.NullTime, restringida, cesado, pendiente bool, corte time.Time) (ports.EstadoCese, bool, error) {
-	if !efecto.Valid && !disponible.Valid && pendiente && !restringida && !cesado && !corte.IsZero() {
-		return ports.EstadoCese{CesePendiente: true}, true, nil
+func validarEstadoCeseNullable(efecto, disponible, pendienteDesde sql.NullTime, restringida, cesado, pendiente bool, corte time.Time) (ports.EstadoCese, bool, error) {
+	if pendiente != pendienteDesde.Valid || pendiente && (pendienteDesde.Time.IsZero() || pendienteDesde.Time.After(corte)) || corte.IsZero() {
+		return ports.EstadoCese{}, false, ports.ErrConsultaEstadoCeseNoDisponible
+	}
+	if !efecto.Valid && !disponible.Valid && pendiente && !restringida && !cesado {
+		return ports.EstadoCese{CesePendiente: true, PendienteDesde: pendienteDesde.Time.UTC()}, true, nil
 	}
 	if !efecto.Valid || !disponible.Valid {
 		return ports.EstadoCese{}, false, ports.ErrConsultaEstadoCeseNoDisponible
@@ -122,6 +125,9 @@ func validarEstadoCeseNullable(efecto, disponible sql.NullTime, restringida, ces
 		return ports.EstadoCese{}, false, err
 	}
 	estado.CesePendiente = pendiente
+	if pendiente {
+		estado.PendienteDesde = pendienteDesde.Time.UTC()
+	}
 	return estado, presente, nil
 }
 

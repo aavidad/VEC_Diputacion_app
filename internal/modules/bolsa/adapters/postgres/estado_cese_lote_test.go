@@ -30,9 +30,9 @@ func (c *consultaCeseLotePrueba) Query(_ context.Context, sqlTexto string, args 
 }
 
 type filaCeseLotePrueba struct {
-	ref                            string
-	efecto, disponible             sql.NullTime
-	restringida, cesado, pendiente bool
+	ref                                string
+	efecto, disponible, pendienteDesde sql.NullTime
+	restringida, cesado, pendiente     bool
 }
 
 type filasCeseLotePrueba struct {
@@ -60,6 +60,7 @@ func (f *filasCeseLotePrueba) Scan(destinos ...any) error {
 	*destinos[3].(*bool) = fila.restringida
 	*destinos[4].(*bool) = fila.cesado
 	*destinos[5].(*bool) = fila.pendiente
+	*destinos[6].(*sql.NullTime) = fila.pendienteDesde
 	return nil
 }
 
@@ -67,10 +68,11 @@ func TestEstadoCeseLoteUnaSentenciaYPendienteSinFecha(t *testing.T) {
 	corte := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
 	refs := []string{"participacion:1", "participacion:2", "participacion:3"}
 	query := &consultaCeseLotePrueba{filas: &filasCeseLotePrueba{filas: []filaCeseLotePrueba{
-		{ref: refs[0], pendiente: true},
+		{ref: refs[0], pendiente: true, pendienteDesde: sql.NullTime{Time: corte.Add(-time.Hour), Valid: true}},
 		{ref: refs[1], efecto: sql.NullTime{Time: time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC), Valid: true},
 			disponible:  sql.NullTime{Time: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC), Valid: true},
-			restringida: true, cesado: true, pendiente: true},
+			restringida: true, cesado: true, pendiente: true,
+			pendienteDesde: sql.NullTime{Time: corte.Add(-30 * time.Minute), Valid: true}},
 	}}}
 	esperadas := map[string]struct{}{refs[0]: {}, refs[1]: {}, refs[2]: {}}
 	salida, err := consultarEstadosCeseLote(context.Background(), query, refs, esperadas, corte, map[string]ports.EstadoCese{})
@@ -78,7 +80,9 @@ func TestEstadoCeseLoteUnaSentenciaYPendienteSinFecha(t *testing.T) {
 		t.Fatalf("lote no ejecutado en una consulta: n=%d salida=%+v err=%v", query.n, salida, err)
 	}
 	if !salida[refs[0]].CesePendiente || !salida[refs[0]].FechaEfecto.IsZero() ||
-		!salida[refs[1]].CesePendiente || salida[refs[1]].FechaEfecto.IsZero() {
+		!salida[refs[0]].PendienteDesde.Equal(corte.Add(-time.Hour)) ||
+		!salida[refs[1]].CesePendiente || salida[refs[1]].FechaEfecto.IsZero() ||
+		!salida[refs[1]].PendienteDesde.Equal(corte.Add(-30*time.Minute)) {
 		t.Fatalf("estado pendiente o B45 previo alterado: %+v", salida)
 	}
 	if _, hay := salida[refs[2]]; hay {
@@ -95,7 +99,8 @@ func TestEstadoCeseLotePropagaErrorYRechazaFilaAjena(t *testing.T) {
 	if _, err := consultarEstadosCeseLote(context.Background(), consulta, []string{ref}, esperadas, corte, map[string]ports.EstadoCese{}); !errors.Is(err, fallo) || !errors.Is(err, ports.ErrConsultaEstadoCeseNoDisponible) {
 		t.Fatalf("error SQL silenciado: %v", err)
 	}
-	consulta = &consultaCeseLotePrueba{filas: &filasCeseLotePrueba{filas: []filaCeseLotePrueba{{ref: "participacion:ajena", pendiente: true}}}}
+	consulta = &consultaCeseLotePrueba{filas: &filasCeseLotePrueba{filas: []filaCeseLotePrueba{{ref: "participacion:ajena", pendiente: true,
+		pendienteDesde: sql.NullTime{Time: corte.Add(-time.Hour), Valid: true}}}}}
 	if _, err := consultarEstadosCeseLote(context.Background(), consulta, []string{ref}, esperadas, corte, map[string]ports.EstadoCese{}); !errors.Is(err, ports.ErrConsultaEstadoCeseNoDisponible) {
 		t.Fatalf("fila ajena aceptada: %v", err)
 	}

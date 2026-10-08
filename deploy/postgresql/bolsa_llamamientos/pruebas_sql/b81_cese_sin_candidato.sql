@@ -346,7 +346,7 @@ BEGIN
   current_setting('vec.b81.participacion'),'2030-01-02T00:00:00Z'::timestamptz);
  IF v.cese_pendiente IS NOT TRUE OR v.fecha_efecto IS NOT NULL
     OR v.disponible_desde IS NOT NULL OR v.en_restriccion IS NOT FALSE
-    OR v.trabajo_cesado IS NOT FALSE THEN
+    OR v.trabajo_cesado IS NOT FALSE OR v.pendiente_desde IS NULL THEN
   RAISE EXCEPTION 'B90: candidato con cese pendiente aparece elegible o con fecha inventada';
  END IF;
 END $estado_pendiente$;
@@ -366,6 +366,7 @@ BEGIN
     OR (pagina->0->>'origen_posicion')::bigint<>p THEN
   RAISE EXCEPTION 'B81: cese vinculado ausente de pendientes';
  END IF;
+ PERFORM set_config('vec.b81.corte_antes_b45',clock_timestamp()::text,true);
  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(o,h,p);
  IF r.reutilizada IS NOT FALSE OR r.candidato_ref<>'can_'||repeat('a',22)
     OR r.recibo_ref !~ '^recibo:bolsa:cese:' THEN
@@ -385,10 +386,26 @@ BEGIN
  SELECT * INTO STRICT v FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2(
   current_setting('vec.b81.participacion'),'2030-01-02T00:00:00Z'::timestamptz);
  IF v.cese_pendiente IS NOT FALSE OR v.fecha_efecto IS NULL
-    OR v.disponible_desde IS NULL OR v.en_restriccion IS NOT TRUE THEN
+    OR v.disponible_desde IS NULL OR v.en_restriccion IS NOT TRUE
+    OR v.pendiente_desde IS NOT NULL THEN
   RAISE EXCEPTION 'B90: restricción confirmada no sustituye estado pendiente';
  END IF;
 END $estado_restringido$;
+RESET SESSION AUTHORIZATION;
+
+-- La confirmación B45 posterior no borra retrospectivamente el intervalo
+-- en que B13 ya constaba pendiente para Bolsa.
+SET SESSION AUTHORIZATION vec_b81_774_ejecutor;
+DO $historico_pendiente$
+DECLARE v record;
+BEGIN
+ SELECT * INTO STRICT v FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2(
+  current_setting('vec.b81.participacion'),current_setting('vec.b81.corte_antes_b45')::timestamptz);
+ IF v.cese_pendiente IS NOT TRUE OR v.pendiente_desde IS NULL
+    OR v.pendiente_desde>current_setting('vec.b81.corte_antes_b45')::timestamptz THEN
+  RAISE EXCEPTION 'B90: corte previo a B45 perdió cese pendiente';
+ END IF;
+END $historico_pendiente$;
 RESET SESSION AUTHORIZATION;
 
 -- Otro cese B13 todavía pendiente puede coexistir con una restricción B45
@@ -420,7 +437,8 @@ BEGIN
  SELECT * INTO STRICT v FROM vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2(
   current_setting('vec.b81.participacion'),'2030-01-02T00:00:00Z'::timestamptz);
  IF v.cese_pendiente IS NOT TRUE OR v.fecha_efecto IS NULL
-    OR v.disponible_desde IS NULL OR v.en_restriccion IS NOT TRUE THEN
+    OR v.disponible_desde IS NULL OR v.en_restriccion IS NOT TRUE
+    OR v.pendiente_desde IS NULL THEN
   RAISE EXCEPTION 'B90: cese pendiente adicional ocultó fechas acreditadas o quedó elegible';
  END IF;
 END $estado_mixto$;

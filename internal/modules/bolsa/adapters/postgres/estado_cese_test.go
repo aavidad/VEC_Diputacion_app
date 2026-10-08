@@ -11,9 +11,9 @@ import (
 )
 
 type filaEstadoCesePrueba struct {
-	efecto, disponible             sql.NullTime
-	restringida, cesado, pendiente bool
-	err                            error
+	efecto, disponible, pendienteDesde sql.NullTime
+	restringida, cesado, pendiente     bool
+	err                                error
 }
 
 func (f filaEstadoCesePrueba) Scan(destinos ...any) error {
@@ -25,6 +25,7 @@ func (f filaEstadoCesePrueba) Scan(destinos ...any) error {
 	*destinos[2].(*bool) = f.restringida
 	*destinos[3].(*bool) = f.cesado
 	*destinos[4].(*bool) = f.pendiente
+	*destinos[5].(*sql.NullTime) = f.pendienteDesde
 	return nil
 }
 
@@ -39,16 +40,26 @@ func TestEstadoCeseLeeFechaRecienteYMaximoSinExponerCandidato(t *testing.T) {
 	if _, presente, err := escanearEstadoCese(filaEstadoCesePrueba{err: pgx.ErrNoRows}, corte); presente || err != nil {
 		t.Fatalf("ausencia de cese: %v %v", presente, err)
 	}
-	pendiente := filaEstadoCesePrueba{pendiente: true}
+	pendiente := filaEstadoCesePrueba{pendiente: true,
+		pendienteDesde: sql.NullTime{Time: corte.Add(-time.Hour), Valid: true}}
 	if estado, presente, err := escanearEstadoCese(pendiente, corte); err != nil || !presente || !estado.CesePendiente ||
-		!estado.FechaEfecto.IsZero() || !estado.DisponibleDesde.IsZero() {
+		!estado.FechaEfecto.IsZero() || !estado.DisponibleDesde.IsZero() || !estado.PendienteDesde.Equal(corte.Add(-time.Hour)) {
 		t.Fatalf("pendiente sin fecha inventada: %+v %v %v", estado, presente, err)
 	}
+	for _, invalida := range []sql.NullTime{{}, {Time: corte.Add(time.Hour), Valid: true}} {
+		pendiente.pendienteDesde = invalida
+		if _, presente, err := escanearEstadoCese(pendiente, corte); presente || !errors.Is(err, ports.ErrConsultaEstadoCeseNoDisponible) {
+			t.Fatalf("instante pendiente ausente o futuro aceptado: %+v %v", invalida, err)
+		}
+	}
+	pendiente.pendienteDesde = sql.NullTime{Time: corte.Add(-time.Hour), Valid: true}
 	fila.pendiente = true
+	fila.pendienteDesde = pendiente.pendienteDesde
 	if estado, presente, err := escanearEstadoCese(fila, corte); err != nil || !presente || !estado.CesePendiente || estado.FechaEfecto.IsZero() {
 		t.Fatalf("pendiente con cese previo acreditado: %+v %v %v", estado, presente, err)
 	}
 	fila.pendiente = false
+	fila.pendienteDesde = sql.NullTime{}
 	fila.disponible = fila.efecto
 	if _, presente, err := escanearEstadoCese(fila, corte); presente || !errors.Is(err, ports.ErrConsultaEstadoCeseNoDisponible) {
 		t.Fatalf("restricción vencida aceptada: %v %v", presente, err)

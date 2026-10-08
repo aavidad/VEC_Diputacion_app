@@ -27,20 +27,23 @@ BEGIN
  END IF;
 END $pre$;
 
--- Vista privada de conjunto. La proyección B81 no exime: el cese deja de
--- estar pendiente solo cuando B45 escribe la restricción correspondiente.
--- Una entrega B13 en cuarentena sigue pendiente y no abre elegibilidad.
+-- Vista privada de hechos: los lectores aplican su propio corte temporal.
+-- La proyección B81 no resuelve el cese; una entrega B13 en cuarentena sigue
+-- pendiente. El instante recibido_en fija desde cuándo Bolsa conoce el hecho.
 CREATE VIEW vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 AS
  SELECT vc.candidato_ref,cp.participacion_ref,cp.evento_ref,cp.origen_ref,
-        cp.huella_sha256,cp.origen_posicion
+        cp.huella_sha256,cp.origen_posicion,cp.ocurrido_en,cp.origen_creada_en,
+        cp.recibido_en,r.recibida_en AS restriccion_recibida_en,
+        a.recibido_en AS ajeno_recibido_en
  FROM vec_bolsa_llamamientos.contrato_participacion cp
  JOIN vec_bolsa_llamamientos.vinculo_candidato vc
    ON vc.participacion_ref=cp.participacion_ref
+ LEFT JOIN vec_bolsa_llamamientos.restriccion_cese_bolsa r
+   ON r.evento_ref=cp.evento_ref AND r.origen_ref=cp.origen_ref
+ LEFT JOIN vec_bolsa_llamamientos.cese_ajeno_bolsa a
+   ON a.origen_ref=cp.origen_ref AND a.llamamiento_ref=cp.llamamiento_ref
  WHERE cp.tipo='cese' AND cp.participacion_ref IS NOT NULL
-   AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r
-                   WHERE r.evento_ref=cp.evento_ref AND r.origen_ref=cp.origen_ref)
-   AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.cese_ajeno_bolsa a
-                   WHERE a.origen_ref=cp.origen_ref AND a.llamamiento_ref=cp.llamamiento_ref);
+ ;
 REVOKE ALL ON vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 FROM PUBLIC;
 REVOKE ALL ON TYPE vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 FROM PUBLIC;
 
@@ -50,7 +53,7 @@ REVOKE ALL ON TYPE vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 FROM PUB
 CREATE FUNCTION vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2(
  p_participacion_ref text,p_corte timestamptz)
 RETURNS TABLE(fecha_efecto date,disponible_desde date,en_restriccion boolean,
- trabajo_cesado boolean,cese_pendiente boolean)
+ trabajo_cesado boolean,cese_pendiente boolean,pendiente_desde timestamptz)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp
 SET statement_timeout='5s' AS $f$
 BEGIN
@@ -68,14 +71,19 @@ BEGIN
   SELECT vc.candidato_ref FROM vec_bolsa_llamamientos.vinculo_candidato vc
    WHERE vc.participacion_ref=p_participacion_ref
  ), pendiente AS (
-  SELECT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 cp
-                  JOIN titular t ON t.candidato_ref=cp.candidato_ref) AS presente
+  SELECT min(cp.recibido_en) AS desde
+    FROM vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 cp
+    JOIN titular t ON t.candidato_ref=cp.candidato_ref
+   WHERE cp.ocurrido_en<=p_corte AND cp.origen_creada_en<=p_corte
+     AND cp.recibido_en<=p_corte
+     AND (cp.restriccion_recibida_en IS NULL OR cp.restriccion_recibida_en>p_corte)
+     AND (cp.ajeno_recibido_en IS NULL OR cp.ajeno_recibido_en>p_corte)
  )
  SELECT ec.fecha_efecto,ec.disponible_desde,coalesce(ec.en_restriccion,false),
-        coalesce(ec.trabajo_cesado,false),p.presente
+        coalesce(ec.trabajo_cesado,false),p.desde IS NOT NULL,p.desde
  FROM pendiente p
  LEFT JOIN LATERAL vec_bolsa_llamamientos.estado_cese_bolsa_v1(p_participacion_ref,p_corte) ec ON true
- WHERE p.presente OR ec.fecha_efecto IS NOT NULL;
+ WHERE p.desde IS NOT NULL OR ec.fecha_efecto IS NOT NULL;
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2(text,timestamptz) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v2(text,timestamptz)
@@ -137,7 +145,8 @@ END $pre$;
 CREATE FUNCTION vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(
  p_participaciones text[],p_corte timestamptz)
 RETURNS TABLE(participacion_ref text,fecha_efecto date,disponible_desde date,
- en_restriccion boolean,trabajo_cesado boolean,cese_pendiente boolean)
+ en_restriccion boolean,trabajo_cesado boolean,cese_pendiente boolean,
+ pendiente_desde timestamptz)
 LANGUAGE plpgsql STABLE SECURITY INVOKER ROWS 20000
 SET search_path=pg_catalog,pg_temp
 SET statement_timeout='5s' AS $f$
@@ -158,8 +167,17 @@ BEGIN
  ), candidatos AS MATERIALIZED (
   SELECT DISTINCT candidato_ref FROM titulares
  ), pendientes AS MATERIALIZED (
-  SELECT DISTINCT cp.candidato_ref FROM vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 cp
-   JOIN candidatos c ON c.candidato_ref=cp.candidato_ref
+  SELECT coalesce(jsonb_object_agg(z.candidato_ref,to_jsonb(z.pendiente_desde)),'{}'::jsonb) AS mapa
+  FROM (
+   SELECT cp.candidato_ref,min(cp.recibido_en) AS pendiente_desde
+    FROM vec_bolsa_llamamientos.candidatos_cese_pendiente_b90 cp
+    JOIN candidatos c ON c.candidato_ref=cp.candidato_ref
+   WHERE cp.ocurrido_en<=p_corte AND cp.origen_creada_en<=p_corte
+     AND cp.recibido_en<=p_corte
+     AND (cp.restriccion_recibida_en IS NULL OR cp.restriccion_recibida_en>p_corte)
+     AND (cp.ajeno_recibido_en IS NULL OR cp.ajeno_recibido_en>p_corte)
+   GROUP BY cp.candidato_ref
+  ) z
  ), restricciones AS MATERIALIZED (
   SELECT r.candidato_ref,r.fecha_efecto,r.disponible_desde,r.llamamiento_ref,r.evento_ref
    FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r
@@ -203,13 +221,13 @@ BEGIN
      AND s.desde<((u.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid'))),false),
   coalesce(s.situacion='trabajando' AND pr.misma_relacion AND NOT pr.otra_abierta
    AND s.desde<((u.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid'),false),
-  (pe.candidato_ref IS NOT NULL)
- FROM titulares t LEFT JOIN ultimo u ON u.candidato_ref=t.candidato_ref
+  (p.mapa ? t.candidato_ref),(p.mapa->>t.candidato_ref)::timestamptz
+ FROM titulares t CROSS JOIN pendientes p
+  LEFT JOIN ultimo u ON u.candidato_ref=t.candidato_ref
   LEFT JOIN maximo m ON m.candidato_ref=t.candidato_ref
   LEFT JOIN ultimo_estado s ON s.participacion_ref=t.ref
   LEFT JOIN prueba pr ON pr.candidato_ref=t.candidato_ref
-  LEFT JOIN pendientes pe ON pe.candidato_ref=t.candidato_ref
- WHERE u.candidato_ref IS NOT NULL OR pe.candidato_ref IS NOT NULL;
+ WHERE u.candidato_ref IS NOT NULL OR p.mapa ? t.candidato_ref;
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(text[],timestamptz) FROM PUBLIC;
 
@@ -219,7 +237,8 @@ REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(
 CREATE FUNCTION vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(
  p_participaciones text[],p_corte timestamptz)
 RETURNS TABLE(participacion_ref text,fecha_efecto date,disponible_desde date,
- en_restriccion boolean,trabajo_cesado boolean,cese_pendiente boolean)
+ en_restriccion boolean,trabajo_cesado boolean,cese_pendiente boolean,
+ pendiente_desde timestamptz)
 LANGUAGE plpgsql STABLE SECURITY DEFINER ROWS 20000
 SET search_path=pg_catalog,pg_temp SET statement_timeout='5s' AS $fachada$
 BEGIN
@@ -231,7 +250,7 @@ BEGIN
   RAISE EXCEPTION 'B90: consulta nominal de ceses en lote denegada' USING ERRCODE='42501';
  END IF;
  RETURN QUERY SELECT x.participacion_ref,x.fecha_efecto,x.disponible_desde,
-  x.en_restriccion,x.trabajo_cesado,x.cese_pendiente
+  x.en_restriccion,x.trabajo_cesado,x.cese_pendiente,x.pendiente_desde
  FROM vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(p_participaciones,p_corte) x;
 END $fachada$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_estado_cese_bolsa_lote_v2(text[],timestamptz) FROM PUBLIC;
@@ -332,7 +351,7 @@ BEGIN
  )
  SELECT k.bolsa_ref,k.categoria_ref,k.confirmada_en,
         k.instantanea_ref,k.version_instantanea,e.orden,e.participacion_ref,
-        s.situacion,s.desde,s.fecha_disponible,
+        s.situacion,CASE WHEN x.cese_pendiente THEN x.pendiente_desde ELSE s.desde END,s.fecha_disponible,
         CASE WHEN x.cese_pendiente THEN NULL ELSE x.fecha_efecto END,
         CASE WHEN x.cese_pendiente THEN NULL ELSE x.disponible_desde END,
         CASE WHEN x.cese_pendiente THEN true ELSE x.en_restriccion END,
