@@ -1,5 +1,13 @@
 /** Presentación pura del alta CT, compartida con la petición previa del centro. */
-import { LIMITES_ALTA_CONTRATACION } from "./contrato.js?v=20261002-ct-fin-moad-v1";
+import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261002-ct-fin-moad-v1";
+import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261002-ct-fin-moad-v1";
+
+const CAMPOS_RPT_PUBLICACION = new Set(["rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]);
+const CAMPOS_RPT_INTERNOS = new Set(["puesto_codigo", ...CAMPOS_RPT_PUBLICACION]);
+function esNecesidad(estado) { return estado.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES; }
+function etiquetaMotivo(estado, opcion, t) {
+  return esNecesidad(estado) ? t(opcion.etiqueta) : opcion.etiqueta;
+}
 
 export function escaparHTML(valor) {
   return String(valor ?? "")
@@ -84,7 +92,8 @@ function resumenErrores(estado, t) {
     <ul>${entradas.map(([campo, codigo]) => {
     const etiqueta = campo === "general"
       ? t("errores_titulo")
-      : (Object.hasOwn(estado.borrador, campo) ? t(campo) : t("errores_titulo"));
+      : (CAMPOS_RPT_INTERNOS.has(campo) ? t("puesto_busqueda")
+        : (Object.hasOwn(estado.borrador, campo) ? t(campo) : t("errores_titulo")));
     const contenido = `${escaparHTML(etiqueta)}: ${escaparHTML(mensajeError(t, codigo))}`;
     return campo === "general"
       ? `<li>${contenido}</li>`
@@ -112,7 +121,13 @@ export function cabecera(estado, t) {
     <div>
       <h2 id="ct-alta-titulo">${escaparHTML(t("titulo"))}</h2>
     </div>
+    ${esNecesidad(estado) ? `<button type="button" class="boton-secundario" data-ct-accion="ayuda"
+      aria-controls="ct-ayuda-necesidad" aria-expanded="false"
+      aria-label="${escaparHTML(t("necesidad_ayuda_boton"))}">?</button>` : ""}
   </header>
+  ${esNecesidad(estado) ? `<section id="ct-ayuda-necesidad" class="panel ayuda-contextual" data-ct-ayuda hidden>
+    <div class="cuerpo-panel"><p>${escaparHTML(t("necesidad_ayuda"))}</p></div>
+  </section>` : ""}
   ${pasos(estado, t)}
   <div class="ct-estado ct-estado-${escaparHTML(estado.tipo_mensaje)}"
     data-ct-estado role="status" aria-live="polite" aria-atomic="true" tabindex="-1">
@@ -201,9 +216,57 @@ function camposCentro(estado, t, deshabilitado) {
     t,
     campo: "motivo_clave",
     etiqueta: t("motivo_clave"),
-    opciones: opcionesClave(estado.catalogos.motivos, estado.borrador.motivo_clave, t),
+    opciones: opcionesClave(estado.catalogos.motivos.map((opcion) => ({
+      ...opcion, etiqueta: etiquetaMotivo(estado, opcion, t),
+    })), estado.borrador.motivo_clave, t),
     deshabilitado,
   })}
+    </div>
+  </fieldset>`;
+}
+
+function camposNecesidad(estado, t, deshabilitado) {
+  if (!esNecesidad(estado)) return "";
+  const causa = estado.catalogos.necesidades.causas.find(
+    (dato) => dato.clave === estado.borrador.motivo_clave);
+  const campos = causa?.campos_permitidos ?? [];
+  const tienePuesto = campos.includes("puesto_codigo");
+  return `<fieldset class="ct-bloque">
+    <legend>${escaparHTML(t("necesidad_leyenda"))}</legend>
+    <div class="ct-campos">
+      <div class="ct-campo">
+        <label for="ct-jornada_minutos">${escaparHTML(t("jornada_minutos"))} <b aria-hidden="true">*</b></label>
+        <input id="ct-jornada_minutos" name="jornada_horas" type="text" inputmode="decimal" maxlength="8" required
+          value="${escaparHTML(jornadaVisibleDesdeMinutos(estado.borrador.jornada_minutos) || estado.borrador.jornada_minutos)}"
+          ${atributosAccesibles(estado, "jornada_minutos", ["ct-jornada-formato"])}${deshabilitado ? " disabled" : ""}>
+        <small id="ct-jornada-formato">${escaparHTML(t("jornada_formato"))}</small>
+        ${errorCampo(estado, "jornada_minutos", t)}
+      </div>
+      ${tienePuesto ? `<div class="ct-campo ct-campo-ancho">
+        <label for="ct-puesto_busqueda">${escaparHTML(t("puesto_busqueda"))}</label>
+        <input id="ct-puesto_busqueda" name="puesto_busqueda" type="search" maxlength="64"
+          ${[...CAMPOS_RPT_INTERNOS].some((campo) => estado.errores[campo])
+    ? 'aria-invalid="true" aria-describedby="ct-puesto_codigo-error"' : ""}
+          value="${escaparHTML(estado.busquedaPuesto ?? "")}"${deshabilitado ? " disabled" : ""}>
+        <button type="button" class="boton-secundario" data-ct-accion="buscar-puesto"${deshabilitado ? " disabled" : ""}>${escaparHTML(t("puesto_buscar"))}</button>
+        <div data-ct-puesto-resultado role="status" aria-live="polite">${escaparHTML(t(estado.puestoRPT?.mensaje ?? "puesto_sin_seleccion"))}${estado.puestoRPT?.denominacion ? `: ${escaparHTML(estado.puestoRPT.codigo)} · ${escaparHTML(estado.puestoRPT.denominacion)}` : ""}</div>
+        ${[...CAMPOS_RPT_INTERNOS].some((campo) => estado.errores[campo])
+    ? `<span class="ct-error-campo" id="ct-puesto_codigo-error">${escaparHTML(t("error_puesto_publicacion"))}</span>` : ""}
+      </div>` : ""}
+      ${[...CAMPOS_RPT_INTERNOS].map((campo) => `<input type="hidden" name="${campo}" value="${escaparHTML(estado.borrador[campo] ?? "")}">`).join("")}
+      ${campos.filter((campo) => !CAMPOS_RPT_INTERNOS.has(campo)).map((campo) => {
+    const obligatorio = causa.campos_obligatorios.includes(campo);
+    const largo = ["justificacion_temporal", "programa_denominacion"].includes(campo);
+    return `<div class="ct-campo">
+      <label for="ct-${campo}">${escaparHTML(t(campo))}${obligatorio ? ' <b aria-hidden="true">*</b>' : ""}</label>
+      ${largo ? `<textarea id="ct-${campo}" name="${campo}" maxlength="4000" rows="3"${obligatorio ? " required" : ""}
+        ${atributosAccesibles(estado, campo)}${deshabilitado ? " disabled" : ""}>${escaparHTML(estado.borrador[campo])}</textarea>`
+    : `<input id="ct-${campo}" name="${campo}" type="${campo === "programa_fin" ? "date" : campo === "porcentaje_financiacion" ? "number" : "text"}" maxlength="160"${obligatorio ? " required" : ""}
+        value="${escaparHTML(estado.borrador[campo])}"
+        ${atributosAccesibles(estado, campo)}${deshabilitado ? " disabled" : ""}>`}
+      ${errorCampo(estado, campo, t)}
+    </div>`;
+  }).join("")}
     </div>
   </fieldset>`;
 }
@@ -347,6 +410,7 @@ export function formulario(estado, t) {
   <form class="ct-formulario" data-ct-form novalidate>
     ${camposCentro(estado, t, deshabilitado)}
     ${camposDetalle(estado, t, deshabilitado)}
+    ${camposNecesidad(estado, t, deshabilitado)}
     ${camposRC(estado, t, deshabilitado)}
     ${camposDocumentos(estado, t, deshabilitado)}
     <div class="ct-acciones">
@@ -389,7 +453,9 @@ export function revision(estado, t, locale) {
   const categoria = obtenerCategoria(estado);
   const contacto = etiquetaReferencia(centro?.contactos ?? [], borrador.contacto_ref);
   const grupo = etiquetaClave(categoria?.grupos_subgrupos ?? [], borrador.grupo_subgrupo);
-  const motivo = etiquetaClave(estado.catalogos.motivos, borrador.motivo_clave);
+  const motivo = etiquetaClave(estado.catalogos.motivos.map((opcion) => ({
+    ...opcion, etiqueta: etiquetaMotivo(estado, opcion, t),
+  })), borrador.motivo_clave);
   const rc = borrador.rc_existe
     ? `${t("resumen_rc_si")} · ${borrador.rc_numero}`
       + ` · ${formatearFechaCivil(borrador.rc_fecha, locale)}`
@@ -415,6 +481,11 @@ export function revision(estado, t, locale) {
       ${filaResumen(t("resumen_categoria"), categoria?.etiqueta ?? borrador.categoria_ref)}
       ${filaResumen(t("resumen_grupo"), grupo)}
       ${filaResumen(t("resumen_motivo"), motivo)}
+      ${esNecesidad(estado) ? filaResumen(t("jornada_minutos"), jornadaVisibleDesdeMinutos(borrador.jornada_minutos)) : ""}
+      ${esNecesidad(estado) ? estado.catalogos.necesidades.causas.find(
+    (dato) => dato.clave === borrador.motivo_clave)?.campos_permitidos
+    .filter((campo) => borrador[campo] && !CAMPOS_RPT_PUBLICACION.has(campo))
+    .map((campo) => filaResumen(t(campo), borrador[campo])).join("") : ""}
       ${filaResumen(t("resumen_detalle"), borrador.detalle)}
       ${filaResumen(
     t("resumen_periodo"),
@@ -450,6 +521,13 @@ export function revision(estado, t, locale) {
 
 export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
   const datos = new FormData(formularioDOM);
+  const necesidad = Boolean(formularioDOM.querySelector?.('[name="jornada_horas"]'));
+  const jornadaEntrada = String(datos.get("jornada_horas") ?? "");
+  const minutosJornada = minutosDesdeJornadaVisible(jornadaEntrada);
+  const adicionales = necesidad ? {
+    jornada_minutos: minutosJornada === null ? jornadaEntrada : String(minutosJornada),
+    ...Object.fromEntries("puesto_codigo plaza_codigo titular_ref vacancia_fuente_ref rpt_catalogo_ref rpt_catalogo_huella_sha256 organica_codigo funcional_codigo proyecto_gasto_codigo porcentaje_financiacion justificacion_temporal programa_denominacion programa_fin proyecto_codigo financiacion_ref rc_ref intervencion_ref".split(" ").map((campo) =>
+      [campo, String(datos.get(campo) ?? "")])) } : {};
   return {
     ...(conNumeroMOAD ? { numero_expediente_moad: String(datos.get("numero_expediente_moad") ?? "") } : {}),
     centro_ref: String(datos.get("centro_ref") ?? ""),
@@ -467,6 +545,6 @@ export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
     rc_documento_ref: String(datos.get("rc_documento_ref") ?? ""),
     documentos_adjuntos: datos.getAll("documentos_adjuntos").map(String),
     observaciones: String(datos.get("observaciones") ?? ""),
+    ...adicionales,
   };
 }
-

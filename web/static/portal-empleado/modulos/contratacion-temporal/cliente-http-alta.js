@@ -1,6 +1,8 @@
 import {
   validarCatalogosAlta,
   validarComandoAlta,
+  validarComandoAltaNecesidad,
+  ESQUEMA_ALTA_NECESIDAD,
   validarReciboAlta,
 } from "./contrato.js?v=20261002-ct-fin-moad-v1";
 
@@ -23,7 +25,8 @@ export function crearAltaClienteHTTP({ ejecutar, validarOpciones } = {}) {
 
   async function registrarSolicitud(comando, opciones) {
     const { signal } = validarOpciones(opciones);
-    const entrada = validarComandoAlta(comando);
+    const entrada = comando?.esquema === ESQUEMA_ALTA_NECESIDAD
+      ? validarComandoAltaNecesidad(comando) : validarComandoAlta(comando);
     return ejecutar({
       metodo: "POST",
       ruta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
@@ -50,5 +53,19 @@ export function crearAltaClienteHTTP({ ejecutar, validarOpciones } = {}) {
     });
   }
 
-  return Object.freeze({ registrarSolicitud, obtenerCatalogosAlta });
+  async function obtenerCatalogosNecesidadesAlta(opciones) {
+    const { signal } = validarOpciones(opciones);
+    return ejecutar({
+      metodo: "GET",
+      ruta: `${RUTAS_ALTA_CONTRATACION_TEMPORAL.catalogosAlta}?version=2`,
+      signal,
+      estadoEsperado: 200,
+      maximoRespuesta: MAXIMO_RESPUESTA_CATALOGOS_BYTES,
+      validarRespuesta: validarCatalogosAlta,
+      efecto: false,
+    });
+  }
+
+  return Object.freeze({ registrarSolicitud, obtenerCatalogosAlta,
+    obtenerCatalogosNecesidadesAlta });
 }
