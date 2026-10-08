@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { iniciarAreaPersonal } from "./aplicacion.js";
-import { iniciarI18nAreaPersonal } from "./i18n.js";
+import { aplicarPreferenciasInicialesAplazadas, iniciarAreaPersonal } from "./aplicacion.js";
+import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
+import { crearClienteHTTPAreaPersonal } from "./cliente-http.js";
+import { cargarPreferenciasIniciales } from "./cliente-http.js";
+import { peticionesEnSerie } from "../comun/imagen-propia.js";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const valores = { idioma: "navegador", tamano_texto: "normal", alto_contraste: false,
@@ -39,6 +42,32 @@ function pulsar(eventos, selector, valor) {
   eventos.get("click")({ preventDefault() {}, target: { closest(patron) {
     return patron === selector ? control : null;
   } } });
+}
+
+function prepararPanelDOM(documento) {
+  const contenido = documento.getElementById("espacio-trabajo");
+  function crearPanel(html) {
+    const panel = { outerHTML: html,
+      contains(elemento) { return elemento?.panel === panel; },
+      querySelector(selector) {
+        if (selector !== '[data-accion="recargar-preferencias"]' && selector !== "h2") return null;
+        return { panel, focus() { documento.activeElement = this; } };
+      },
+      querySelectorAll() { return []; },
+      replaceWith(nuevo) { contenido.panel = nuevo; contenido.innerHTML = nuevo.outerHTML; },
+    };
+    return panel;
+  }
+  contenido.panel = crearPanel(contenido.innerHTML);
+  contenido.querySelector = (selector) => selector === ".preferencias-panel"
+    ? contenido.panel : { focus() {} };
+  documento.createElement = (tag) => {
+    assert.equal(tag, "template");
+    const plantilla = { content: { firstElementChild: null } };
+    Object.defineProperty(plantilla, "innerHTML", { set(html) { plantilla.content.firstElementChild = crearPanel(html); } });
+    return plantilla;
+  };
+  return contenido;
 }
 
 async function escenario(idioma, lectura, errorPreferencias = null) {
@@ -97,6 +126,267 @@ test("GET preferencias 403 conserva su denegación aunque Mi Bolsa falle, ES/EN"
     assert.doesNotMatch(resultado.vistaPreferencias, /id="formulario-preferencias"/u);
     assert.ok(resultado.vistaPreferencias.includes(mensaje));
     assert.doesNotMatch(resultado.reabierta, /id="formulario-preferencias"/u);
-    assert.match(resultado.metodo, /no confirmada|not confirmed/u);
+    assert.equal(resultado.metodo, traducir("areaPersonal.preferencias.identidadNoConfirmada"));
   }
+});
+
+test("la preferencia tardía conserva la navegación, datos, capacidades y foco", async () => {
+  const documentoAnterior = globalThis.document;
+  const { documento } = documentoFalso();
+  globalThis.document = documento;
+  try {
+    const datos = { capacidades: { consultar: true } };
+    const foco = documento.getElementById("foco-actual");
+    documento.activeElement = foco;
+    const aplicadas = [];
+    const estado = { vista: "perfil", datos, preferencias: { estado: null, catalogo: null, error: null },
+      filasPreferidas: 20, inicioTardio: true, navegacionVersion: 2, interaccionVersion: 1,
+      ajusteVisualVersion: 0, controladorVisual: { aplicarPreferenciasServidor: (valor) => aplicadas.push(valor) } };
+    const lectura = { ...preferencias, estado: { ...preferencias.estado,
+      valores: { ...valores, inicio: "cuadro", filas: 50, tema: "oscuro" } } };
+    aplicarPreferenciasInicialesAplazadas(estado, lectura);
+    assert.equal(estado.vista, "perfil");
+    assert.equal(estado.datos, datos);
+    assert.equal(estado.datos.capacidades.consultar, true);
+    assert.equal(documento.activeElement, foco);
+    assert.equal(estado.filasPreferidas, 50);
+    assert.deepEqual(aplicadas, [lectura.estado.valores]);
+    assert.equal(estado.preferencias.estado, lectura.estado);
+  } finally { globalThis.document = documentoAnterior; }
+});
+
+test("un atajo usado durante la carga prevalece sobre el tema tardío y un error no cambia datos ni rol", () => {
+  const documentoAnterior = globalThis.document;
+  const { documento } = documentoFalso();
+  globalThis.document = documento;
+  try {
+    const datos = { capacidades: { consultar: true } };
+    const estado = { vista: "perfil", datos, preferencias: { estado: null, catalogo: null, error: null },
+      filasPreferidas: 20, inicioTardio: true, navegacionVersion: 1, interaccionVersion: 1,
+      ajusteVisualVersion: 1, controladorVisual: { aplicarPreferenciasServidor() { assert.fail("no pisar atajo"); } } };
+    aplicarPreferenciasInicialesAplazadas(estado, preferencias);
+    for (const codigo of ["autenticacion", "denegado", "servicio"]) {
+      aplicarPreferenciasInicialesAplazadas(estado, null, { codigo });
+      assert.equal(estado.preferencias.error.codigo, codigo);
+      assert.equal(estado.datos, datos);
+      assert.equal(estado.datos.capacidades.consultar, true);
+    }
+  } finally { globalThis.document = documentoAnterior; }
+});
+
+test("con respuesta de preferencias a 250 ms, la carga de Mi Bolsa ya puede terminar", async () => {
+  const original = { document: globalThis.document, window: globalThis.window };
+  const { documento } = documentoFalso();
+  globalThis.document = documento;
+  globalThis.window = { location: { search: "?lang=en", pathname: "/area-personal/", origin: "https://vec.example" },
+    history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
+  try {
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(),
+      ubicacion: { href: "https://vec.example/area-personal/?lang=en" } });
+    let consultasBolsa = 0;
+    const estado = await iniciarAreaPersonal({
+      cliente: { async cargar() { consultasBolsa += 1; throw { codigo: "servicio_no_disponible" }; } },
+      vistasDisponibles: new Set(["inicio", "llamamientos", "preferencias"]),
+    });
+    const lectura = new Promise((resolve) => setTimeout(() => resolve(preferencias), 250));
+    assert.equal(consultasBolsa, 1);
+    assert.equal(estado.preferencias.estado, null);
+    assert.match(documento.getElementById("espacio-trabajo").innerHTML, /estado-error/u);
+    aplicarPreferenciasInicialesAplazadas(estado, await lectura);
+    assert.equal(estado.preferencias.estado, preferencias.estado);
+    assert.equal(consultasBolsa, 1);
+  } finally {
+    globalThis.document = original.document;
+    globalThis.window = original.window;
+  }
+});
+
+test("un consumidor Bolsa conserva una respuesta válida mayor de 64 KiB fuera de la cola de Usuarios", async () => {
+  const original = { document: globalThis.document, window: globalThis.window };
+  const { documento } = documentoFalso();
+  globalThis.document = documento;
+  globalThis.window = { location: { search: "?vista=preferencias&lang=en", pathname: "/area-personal/", origin: "https://vec.example" },
+    history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
+  try {
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(),
+      ubicacion: { href: "https://vec.example/area-personal/?vista=preferencias&lang=en" } });
+    const muestra = JSON.parse(await readFile(new URL("../../../internal/modules/bolsa/adapters/httppersonal/testdata/mi_bolsa_situacion.json", import.meta.url), "utf8"));
+    muestra.data.participaciones = Array.from({ length: 200 }, (_, numero) => ({
+      ...muestra.data.participaciones[0], bolsa: `bolsa:${numero + 1}`, categoria: `Auxiliar ${"X".repeat(190)}`,
+    }));
+    const cuerpo = JSON.stringify(muestra);
+    assert.ok(new TextEncoder().encode(cuerpo).byteLength > 65536);
+    const rutas = [];
+    const fetchNormal = async (ruta) => {
+      rutas.push(ruta);
+      return ruta === "/api/vec/bolsa/mi-bolsa"
+        ? new Response(cuerpo, { status: 200, headers: { "Content-Type": "application/json" } })
+        : new Response("", { status: 503 });
+    };
+    const estado = await iniciarAreaPersonal({ cliente: crearClienteHTTPAreaPersonal({ fetchImpl: fetchNormal }),
+      vistasDisponibles: new Set(["preferencias", "llamamientos", "inicio"]),
+      fetchImpl: fetchNormal, fetchUsuarios: peticionesEnSerie(fetchNormal) });
+    const posterior = await crearClienteHTTPAreaPersonal({ fetchImpl: estado.fetchImpl }).cargar();
+    assert.equal(estado.participaciones.length, 200);
+    assert.equal(posterior.consulta.participaciones.length, 200);
+    assert.equal(rutas.filter((ruta) => ruta === "/api/vec/bolsa/mi-bolsa").length, 2);
+  } finally {
+    globalThis.document = original.document;
+    globalThis.window = original.window;
+  }
+});
+
+test("GET tardío pinta el formulario y devuelve el foco a Recargar en el panel", async () => {
+  const original = { document: globalThis.document, window: globalThis.window };
+  const { documento } = documentoFalso();
+  globalThis.document = documento;
+  globalThis.window = { location: { search: "?vista=preferencias&lang=en", pathname: "/area-personal/", origin: "https://vec.example" },
+    history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
+  try {
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(),
+      ubicacion: { href: "https://vec.example/area-personal/?vista=preferencias&lang=en" } });
+    const estado = await iniciarAreaPersonal({ cliente: { async cargar() { return { consulta: {
+      consultada_en: "2026-10-08T10:00:00Z", participaciones: [] } }; } },
+    vistasDisponibles: new Set(["preferencias", "llamamientos", "inicio"]), preferenciasAplazadas: true });
+    const contenido = prepararPanelDOM(documento);
+    assert.match(contenido.innerHTML, /Loading authorised information/u);
+    assert.doesNotMatch(contenido.innerHTML, /could not be retrieved/u);
+    const anterior = { dataset: { accion: "recargar-preferencias" }, panel: contenido.panel };
+    documento.activeElement = anterior;
+    aplicarPreferenciasInicialesAplazadas(estado, preferencias);
+    assert.match(contenido.innerHTML, /id="formulario-preferencias"/u);
+    assert.equal(documento.activeElement.panel, contenido.panel);
+    assert.notEqual(documento.activeElement, anterior);
+  } finally { globalThis.document = original.document; globalThis.window = original.window; }
+});
+
+test("GET tardío conserva los nodos, foco y borrador de Mis correos", () => {
+  const documentoAnterior = globalThis.document;
+  const botonCorreo = { dataset: { correosAccion: "reenviar" } };
+  const borradorCorreo = { name: "codigo", value: "123456" };
+  const correos = { controles: [botonCorreo, borradorCorreo] };
+  const contenido = { children: [], querySelector(selector) {
+    return selector === ".preferencias-panel" ? this.children[0] : null;
+  } };
+  const crearPanel = () => ({ contains() { return false; }, replaceWith(nuevo) { contenido.children[0] = nuevo; },
+    querySelector() { return null; }, querySelectorAll() { return []; } });
+  const panelAnterior = crearPanel();
+  contenido.children = [panelAnterior, correos];
+  globalThis.document = { activeElement: botonCorreo, querySelectorAll() { return []; },
+    getElementById(id) { return id === "espacio-trabajo" ? contenido : null; },
+    createElement(tag) {
+      assert.equal(tag, "template");
+      return { content: { firstElementChild: crearPanel() }, set innerHTML(_html) {} };
+    } };
+  try {
+    const estado = { vista: "preferencias", datos: { capacidades: {} }, preferencias: { estado: null, catalogo: null },
+      filasPreferidas: 20, inicioTardio: false, navegacionVersion: 1, interaccionVersion: 1,
+      ajusteVisualVersion: 1, controladorVisual: null };
+    aplicarPreferenciasInicialesAplazadas(estado, preferencias);
+    assert.notEqual(contenido.children[0], panelAnterior);
+    assert.equal(contenido.children[1], correos);
+    assert.equal(correos.controles[0], botonCorreo);
+    assert.equal(correos.controles[1], borradorCorreo);
+    assert.equal(borradorCorreo.value, "123456");
+    assert.equal(globalThis.document.activeElement, botonCorreo);
+  } finally { globalThis.document = documentoAnterior; }
+});
+
+test("Recargar antes y después de Mi Bolsa comparte la lectura diferida y no crea dos GET iniciales", async () => {
+  const original = { document: globalThis.document, window: globalThis.window };
+  const { documento, eventos } = documentoFalso();
+  globalThis.document = documento;
+  globalThis.window = { location: { search: "?vista=preferencias&lang=es", pathname: "/area-personal/", origin: "https://vec.example" },
+    history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
+  try {
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(),
+      ubicacion: { href: "https://vec.example/area-personal/?vista=preferencias&lang=es" } });
+    let terminarBolsa;
+    const bolsa = new Promise((_resolver, rechazar) => { terminarBolsa = rechazar; });
+    let consultas = 0;
+    const clientePreferencias = { async cargar() { consultas += 1; return preferencias; } };
+    const inicio = iniciarAreaPersonal({ cliente: { cargar: () => bolsa },
+      vistasDisponibles: new Set(["inicio", "llamamientos", "preferencias"]),
+      clientePreferencias, preferenciasAplazadas: true });
+    pulsar(eventos, "[data-accion]", "recargar-preferencias");
+    assert.equal(consultas, 0);
+    terminarBolsa({ codigo: "servicio_no_disponible" });
+    const estado = await inicio;
+    const contenido = prepararPanelDOM(documento);
+    const datosSinBolsa = estado.datos;
+    const capacidades = estado.datos.capacidades;
+    const personaRef = estado.datos.sesion.persona_ref;
+    const correo = { dataset: { correosAccion: "reenviar" } };
+    const borrador = { value: "código pendiente" };
+    const panelCorreo = { controles: [correo, borrador] };
+    contenido.panelCorreo = panelCorreo;
+    documento.activeElement = correo;
+    assert.equal(estado.soloPreferencias, true);
+    assert.equal(documento.getElementById("perfil-sesion").textContent,
+      traducir("areaPersonal.preferencias.identidadNoConfirmada"));
+    assert.match(contenido.innerHTML, /Cargando información autorizada/u);
+    assert.doesNotMatch(contenido.innerHTML, /No se pudieron consultar sus preferencias/u);
+    pulsar(eventos, "[data-accion]", "recargar-preferencias");
+    assert.equal(consultas, 0);
+    aplicarPreferenciasInicialesAplazadas(estado, await cargarPreferenciasIniciales(clientePreferencias));
+    await Promise.resolve();
+    assert.equal(consultas, 1);
+    assert.equal(estado.preferencias.estado, preferencias.estado);
+    assert.equal(estado.datos, datosSinBolsa);
+    assert.equal(estado.datos.capacidades, capacidades);
+    assert.deepEqual(Object.keys(capacidades), []);
+    assert.equal(estado.datos.sesion.persona_ref, personaRef);
+    assert.equal(documento.getElementById("perfil-sesion").textContent,
+      traducir("areaPersonal.preferencias.identidadServicio"));
+    assert.equal(estado.datos.sesion.metodo, traducir("areaPersonal.preferencias.identidadServicio"));
+    assert.equal(documento.activeElement, correo);
+    assert.equal(contenido.panelCorreo, panelCorreo);
+    assert.equal(panelCorreo.controles[0], correo);
+    assert.equal(panelCorreo.controles[1], borrador);
+    assert.equal(borrador.value, "código pendiente");
+    assert.match(contenido.innerHTML, /id="formulario-preferencias"/u);
+  } finally { globalThis.document = original.document; globalThis.window = original.window; }
+});
+
+test("sin lang explícito, Recargar hace una lectura nueva tras el arranque previo", async () => {
+  const original = { document: globalThis.document, window: globalThis.window };
+  const { documento, eventos } = documentoFalso();
+  globalThis.document = documento;
+  globalThis.window = { location: { search: "?vista=preferencias", pathname: "/area-personal/", origin: "https://vec.example" },
+    history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
+  try {
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(),
+      ubicacion: { href: "https://vec.example/area-personal/?vista=preferencias" } });
+    let consultas = 0;
+    const estado = await iniciarAreaPersonal({ cliente: { async cargar() { assert.fail("preferencias precargadas"); } },
+      vistasDisponibles: new Set(["preferencias", "llamamientos", "inicio"]), preferencias,
+      clientePreferencias: { async cargar() { consultas += 1; return preferencias; } } });
+    assert.equal(estado.lecturaPreferenciasInicial, null);
+    pulsar(eventos, "[data-accion]", "recargar-preferencias");
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(consultas, 1);
+  } finally { globalThis.document = original.document; globalThis.window = original.window; }
+});
+
+test("un fallo del GET inicial permite una nueva lectura explícita desde Preferencias", async () => {
+  const original = { document: globalThis.document, window: globalThis.window };
+  const { documento, eventos } = documentoFalso();
+  globalThis.document = documento;
+  globalThis.window = { location: { search: "?vista=preferencias&lang=es", pathname: "/area-personal/", origin: "https://vec.example" },
+    history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
+  try {
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(),
+      ubicacion: { href: "https://vec.example/area-personal/?vista=preferencias&lang=es" } });
+    let consultas = 0;
+    const estado = await iniciarAreaPersonal({ cliente: { async cargar() { throw { codigo: "servicio_no_disponible" }; } },
+      vistasDisponibles: new Set(["preferencias", "llamamientos", "inicio"]), preferenciasAplazadas: true,
+      clientePreferencias: { async cargar() { consultas += 1; return preferencias; } } });
+    prepararPanelDOM(documento);
+    aplicarPreferenciasInicialesAplazadas(estado, null, { codigo: "servicio" });
+    assert.equal(consultas, 0);
+    pulsar(eventos, "[data-accion]", "recargar-preferencias");
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(consultas, 1);
+    assert.equal(estado.preferencias.estado, preferencias.estado);
+  } finally { globalThis.document = original.document; globalThis.window = original.window; }
 });

@@ -16,9 +16,13 @@ func TestNecesidadesEjemploSeparaCausasYReferencia(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !c.EsEjemplo || c.Version != 2 || c.JornadaReferenciaMinutos != 2250 ||
+	if !c.EsEjemplo || c.Version != 3 || c.JornadaReferenciaMinutos != 2250 ||
 		len(c.Causas) != 4 || len(c.HuellaSHA256) != 64 {
 		t.Fatalf("publicación inesperada: versión=%d causas=%d jornada=%d", c.Version, len(c.Causas), c.JornadaReferenciaMinutos)
+	}
+	if c.FuenteRef != "circular:dipgra:solicitudes_temporales:20260508" ||
+		!strings.HasSuffix(c.FuenteURL, "/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf") {
+		t.Fatal("la publicación vigente no cita la circular del 8 de mayo")
 	}
 	if c.Causas[0].Clave != "vacante" || c.Causas[1].Clave != "sustitucion" ||
 		c.Causas[2].Clave != "acumulacion_tareas" || c.Causas[3].Clave != "programa_temporal" {

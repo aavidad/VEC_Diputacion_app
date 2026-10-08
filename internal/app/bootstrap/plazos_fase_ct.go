@@ -60,8 +60,8 @@ func (c calculadoraPlazoFaseCT) CalcularPlazoFase(
 // PrepararPlazosFase lee las reglas una sola vez para todos los plazos de una
 // consulta: con un catálogo leído por cada fila, leerlo, clonarlo y resumirlo
 // dos veces por fila era casi todo el coste del cuadro. Los plazos son los
-// mismos que con CalcularPlazoFase; un fallo al leer deja que la aplicación
-// calcule fila a fila como antes.
+// mismos que con CalcularPlazoFase; si falla la lectura, la aplicación conserva
+// la causa y muestra el plazo sin calcular, sin nuevas consultas por fila.
 func (c calculadoraPlazoFaseCT) PrepararPlazosFase(ctx context.Context) (ports.CalculadoraPlazoFaseRRHH, error) {
 	if ctx == nil {
 		return nil, reglas.ErrCalculoNoDisponible

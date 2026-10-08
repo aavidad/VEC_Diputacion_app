@@ -1,0 +1,1 @@
+deploy/postgresql/contratacion_temporal/migraciones/000194_validacion_necesidad_alta_v3.up.sql

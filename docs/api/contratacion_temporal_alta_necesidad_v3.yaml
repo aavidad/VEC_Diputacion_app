@@ -190,8 +190,10 @@ components:
         causa_clave coincide con solicitud.motivo_clave. El catálogo v2 de
         consulta publica por causa los campos permitidos, obligatorios y uno_de,
         así como la jornada de referencia y el límite individual de periodo.
-        La publicación de ejemplo de 19/02/2026 exige
-        campos.numero_personas en las cuatro causas: cadena decimal canónica
+        La publicación de ejemplo v3 se basa en la Circular de peticiones de
+        personal firmada el 08/05/2026:
+        https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf
+        Exige campos.numero_personas en las cuatro causas: cadena decimal canónica
         entre 1 y 4294967295, sin valor supuesto por el servidor. Vacante
         exige plaza_codigo y puesto_codigo según la circular. Vacante y
         sustitución exigen puesto_codigo, rpt_catalogo_ref y
