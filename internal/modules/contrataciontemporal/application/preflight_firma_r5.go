@@ -16,9 +16,10 @@ import (
 // Reutiliza la lectura R5 y la ronda del servicio existente. No registra
 // firmas, reserva documentos ni convierte disponibilidad en autorización.
 type ServicioPreflightFirmaR5 struct {
-	firmas         *ServicioFirmaExterna
-	contextos      ports.ResolutorContextoAutorizacionAltaV3
-	disponibilidad ports.VerificadorDisponibilidadFirmaR5
+	firmas             *ServicioFirmaExterna
+	contextos          ports.ResolutorContextoAutorizacionAltaV3
+	disponibilidad     ports.VerificadorDisponibilidadFirmaR5
+	preparacionExterna ports.ComprobadorPreparacionExternaR5
 }
 
 func NuevoServicioPreflightFirmaR5(firmas *ServicioFirmaExterna, contextos ports.ResolutorContextoAutorizacionAltaV3, disponibilidad ports.VerificadorDisponibilidadFirmaR5) (*ServicioPreflightFirmaR5, error) {
@@ -29,6 +30,23 @@ func NuevoServicioPreflightFirmaR5(firmas *ServicioFirmaExterna, contextos ports
 		disponibilidad = nil
 	}
 	return &ServicioPreflightFirmaR5{firmas: firmas, contextos: contextos, disponibilidad: disponibilidad}, nil
+}
+
+// NuevoServicioPreflightFirmaR5V2Externa ofrece exclusivamente preparar la
+// vía externa. Su comprobante no afirma salud remota, firma válida ni
+// competencia de una persona que todavía no ha aportado su PDF.
+func NuevoServicioPreflightFirmaR5V2Externa(firmas *ServicioFirmaExterna,
+	contextos ports.ResolutorContextoAutorizacionAltaV3, fuente ports.ComprobadorPreparacionExternaR5,
+) (*ServicioPreflightFirmaR5, error) {
+	if dependenciaNula(fuente) {
+		return nil, ports.ErrPreflightFirmaR5NoDisponible
+	}
+	s, err := NuevoServicioPreflightFirmaR5(firmas, contextos, nil)
+	if err != nil || s.firmas.multiple == nil {
+		return nil, ports.ErrPreflightFirmaR5NoDisponible
+	}
+	s.preparacionExterna = fuente
+	return s, nil
 }
 
 func ValidarSolicitudPreflightFirmaR5(q ports.SolicitudPreflightFirmaR5) error {
@@ -252,6 +270,40 @@ func (s *ServicioPreflightFirmaR5) consultarNominalConEntrada(ctx context.Contex
 	if conEntrada && ValidarResultadoPreflightFirmaR5V2(r, q) != nil {
 		return cero, ports.ErrPreflightFirmaR5NoConfiable
 	}
+	if conEntrada && s.preparacionExterna != nil {
+		paso := doc.Pasos[estado.PasoPendiente-1]
+		solicitud := ports.SolicitudDisponibilidadFirmaR5{
+			Preflight: q, ActorRef: actor, PerfilRef: q.Canal.PerfilRef, ContextoHuella: contextoHuella,
+			CatalogoRef: catalogo.CatalogoRef, CatalogoHuella: catalogo.HuellaCatalogo,
+			PasoRef: paso.Referencia, PasoOrden: paso.Orden, HistoriaRevision: lectura.HistoriaRevision,
+			HistoriaHuella: lectura.HistoriaHuella, OriginalHuella: original.HuellaSHA256,
+		}
+		comprobada, err := s.preparacionExterna.ComprobarPreparacionExternaR5(ctx, solicitud)
+		if ctx.Err() != nil {
+			return cero, ctx.Err()
+		}
+		if errCabeza := s.validarCabezaPreflightConEntrada(ctx, q, actor, hex.EncodeToString(nonce[:]),
+			paso.Orden, catalogo, lectura); errCabeza != nil {
+			return cero, errCabeza
+		}
+		if errors.Is(err, ports.ErrPreparacionExternaR5NoAcreditada) {
+			return r, nil
+		}
+		if err != nil {
+			if errors.Is(err, ports.ErrFirmaDocumentoDenegada) || errors.Is(err, ports.ErrAutorizacionDenegada) {
+				return cero, ports.ErrFirmaDocumentoDenegada
+			}
+			return cero, ports.ErrPreflightFirmaR5NoDisponible
+		}
+		if !preparacionExternaR5Valida(comprobada, solicitud, time.Now().UTC().Truncate(time.Microsecond)) {
+			return cero, ports.ErrPreflightFirmaR5NoConfiable
+		}
+		r.ViasDisponibles = append(r.ViasDisponibles, ports.ViaFirmaExternaPortafirmas)
+		if ValidarResultadoPreflightFirmaR5V2(r, q) != nil {
+			return cero, ports.ErrPreflightFirmaR5NoConfiable
+		}
+		return r, nil
+	}
 	if s.disponibilidad == nil {
 		if err := s.validarCabezaPreflightConEntrada(ctx, q, actor, hex.EncodeToString(nonce[:]), estado.PasoPendiente, catalogo, lectura); err != nil {
 			return cero, err
@@ -318,6 +370,35 @@ func disponibilidadFirmaR5Valida(d ports.DisponibilidadFirmaR5Verificada, q port
 		if !domain.ReferenciaOpacaValida(c.Referencia) || !domain.HuellaSHA256FirmaValida(c.HuellaSHA256) {
 			return false
 		}
+	}
+	return true
+}
+
+// La validez del resumen externo no excede la de ninguna fuente consultada ni
+// una cota técnica breve. El constructor del proveedor acredita la procedencia
+// de cada huella; aquí se rechazan resultados incompletos, cruzados o futuros.
+func preparacionExternaR5Valida(p ports.PreparacionExternaR5Comprobada,
+	q ports.SolicitudDisponibilidadFirmaR5, ahora time.Time,
+) bool {
+	if p.Solicitud != q || p.Original.Referencia != q.Preflight.OriginalRef ||
+		p.Original.Version != q.Preflight.OriginalVersion || p.Original.HuellaSHA256 != q.OriginalHuella ||
+		!domain.InstanteUTCCanonico(p.ComprobadaEn) || !domain.InstanteUTCCanonico(p.ValidaHasta) ||
+		p.ComprobadaEn.After(ahora) || !ahora.Before(p.ValidaHasta) ||
+		p.ValidaHasta.After(p.ComprobadaEn.Add(time.Minute)) {
+		return false
+	}
+	evidencias := []ports.EvidenciaPreparacionExternaR5{
+		p.Original, p.PlanCompetenciaVigente, p.PerfilRegistradorVigente,
+		p.CustodiaPreparada, p.RegistroConPlanPreparado, p.ConfiguracionVerificadorValidada,
+	}
+	referencias := make(map[string]bool, len(evidencias))
+	for _, e := range evidencias {
+		if !domain.ReferenciaOpacaValida(e.Referencia) || referencias[e.Referencia] ||
+			e.Version == 0 || !domain.HuellaSHA256FirmaValida(e.HuellaSHA256) ||
+			!domain.InstanteUTCCanonico(e.VigenteHasta) || p.ValidaHasta.After(e.VigenteHasta) {
+			return false
+		}
+		referencias[e.Referencia] = true
 	}
 	return true
 }

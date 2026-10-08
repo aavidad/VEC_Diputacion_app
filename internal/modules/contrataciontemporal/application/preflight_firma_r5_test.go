@@ -226,3 +226,123 @@ func TestPreflightFirmaR5RechazaCapacidadDeOtroContextoAntesDeConsumir(t *testin
 		})
 	}
 }
+
+// Este doble cubre solo el contrato de coordinación. El proveedor real debe
+// obtener cada referencia, versión, huella y vigencia de su fuente propia.
+type preparacionExternaR5Prueba struct {
+	err     error
+	alterar func(*ports.PreparacionExternaR5Comprobada)
+	vistas  []ports.SolicitudDisponibilidadFirmaR5
+}
+
+func (f *preparacionExternaR5Prueba) ComprobarPreparacionExternaR5(_ context.Context,
+	q ports.SolicitudDisponibilidadFirmaR5,
+) (ports.PreparacionExternaR5Comprobada, error) {
+	f.vistas = append(f.vistas, q)
+	if f.err != nil {
+		return ports.PreparacionExternaR5Comprobada{}, f.err
+	}
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	hasta := ahora.Add(30 * time.Second)
+	evidencia := func(ref string, letra string) ports.EvidenciaPreparacionExternaR5 {
+		return ports.EvidenciaPreparacionExternaR5{Referencia: ref, Version: 1,
+			HuellaSHA256: strings.Repeat(letra, 64), VigenteHasta: hasta}
+	}
+	p := ports.PreparacionExternaR5Comprobada{Solicitud: q,
+		Original: ports.EvidenciaPreparacionExternaR5{Referencia: q.Preflight.OriginalRef,
+			Version: q.Preflight.OriginalVersion, HuellaSHA256: q.OriginalHuella, VigenteHasta: hasta},
+		PlanCompetenciaVigente:           evidencia("plan:preparacion:001", "a"),
+		PerfilRegistradorVigente:         evidencia("perfil:preparacion:001", "b"),
+		CustodiaPreparada:                evidencia("custodia:preparacion:001", "c"),
+		RegistroConPlanPreparado:         evidencia("registro:preparacion:001", "d"),
+		ConfiguracionVerificadorValidada: evidencia("configuracion:verificador:001", "e"),
+		ComprobadaEn:                     ahora, ValidaHasta: hasta}
+	if f.alterar != nil {
+		f.alterar(&p)
+	}
+	return p, nil
+}
+
+func servicioPreflightExternoV2Prueba(t *testing.T, fuente *preparacionExternaR5Prueba) (*ServicioPreflightFirmaR5,
+	ports.SolicitudPreflightFirmaR5, *dependenciasMultiplePrueba, *competenciaExternaPrueba,
+) {
+	t.Helper()
+	s, d, competencia, original := prepararServicioMultipleConsumidor(t)
+	externa, err := NuevoServicioFirmaExternaV2(s.base, d, d, d, d, d, competencia, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := solicitudPreflightPrueba()
+	sol := solicitudFirmaVecPrueba(original.contenido, "sin-registro")
+	q.Canal.OrganizacionRef, q.Canal.ExpedienteRef, q.Canal.VersionObservada = sol.OrganizacionRef, sol.ExpedienteRef, sol.VersionExpediente
+	q.OriginalRef, q.OriginalVersion = sol.OriginalRef, sol.OriginalVersion
+	return &ServicioPreflightFirmaR5{firmas: externa, preparacionExterna: fuente}, q, d, competencia
+}
+
+func TestPreflightFirmaR5PreparacionExternaSoloAcreditaPreparar(t *testing.T) {
+	f := &preparacionExternaR5Prueba{}
+	s, q, d, competencia := servicioPreflightExternoV2Prueba(t, f)
+	r, err := s.consultarNominalConEntrada(context.Background(), q, "per_registrador_prueba_001", strings.Repeat("a", 64), true)
+	if err != nil || !reflect.DeepEqual(r.ViasDisponibles, []string{ports.ViaFirmaExternaPortafirmas}) ||
+		r.EntradaDocumentoRef != q.OriginalRef || len(f.vistas) != 1 || f.vistas[0].ActorRef != "per_registrador_prueba_001" {
+		t.Fatalf("preparación externa exacta: %+v %v", r, err)
+	}
+	// La solicitud solo conoce registrador, paso e historia. No transporta
+	// certificado ni persona del futuro PDF; eso se decide al registrar.
+	if f.vistas[0].PasoRef == "" || f.vistas[0].OriginalHuella == "" || f.vistas[0].PerfilRef != q.Canal.PerfilRef {
+		t.Fatalf("petición de preparación incompleta: %+v", f.vistas[0])
+	}
+	if d.verificaciones != 0 || len(competencia.vistas) != 0 || len(d.materiales) != 0 {
+		t.Fatal("preflight verificó una firma futura, eligió firmante o registró efecto")
+	}
+}
+
+func TestPreflightFirmaR5PreparacionExternaNoConfundeFuentes(t *testing.T) {
+	casos := []struct {
+		nombre  string
+		alterar func(*ports.PreparacionExternaR5Comprobada)
+	}{
+		{"plan_ausente", func(p *ports.PreparacionExternaR5Comprobada) {
+			p.PlanCompetenciaVigente = ports.EvidenciaPreparacionExternaR5{}
+		}},
+		{"config_no_validada", func(p *ports.PreparacionExternaR5Comprobada) {
+			p.ConfiguracionVerificadorValidada = ports.EvidenciaPreparacionExternaR5{}
+		}},
+		{"perfil_ajeno", func(p *ports.PreparacionExternaR5Comprobada) { p.Solicitud.PerfilRef = "prf_ajeno" }},
+		{"original_otra_version", func(p *ports.PreparacionExternaR5Comprobada) { p.Original.Version++ }},
+		{"fuente_caducada", func(p *ports.PreparacionExternaR5Comprobada) {
+			p.ConfiguracionVerificadorValidada.VigenteHasta = p.ComprobadaEn.Add(-time.Second)
+		}},
+		{"sin_version", func(p *ports.PreparacionExternaR5Comprobada) { p.RegistroConPlanPreparado.Version = 0 }},
+	}
+	for _, tc := range casos {
+		t.Run(tc.nombre, func(t *testing.T) {
+			f := &preparacionExternaR5Prueba{alterar: tc.alterar}
+			s, q, _, _ := servicioPreflightExternoV2Prueba(t, f)
+			r, err := s.consultarNominalConEntrada(context.Background(), q, "per_registrador_prueba_001", strings.Repeat("a", 64), true)
+			if !errors.Is(err, ports.ErrPreflightFirmaR5NoConfiable) || len(r.ViasDisponibles) != 0 {
+				t.Fatalf("comprobante inválido ofreció vía: %+v %v", r, err)
+			}
+		})
+	}
+	f := &preparacionExternaR5Prueba{err: ports.ErrPreparacionExternaR5NoAcreditada}
+	s, q, _, _ := servicioPreflightExternoV2Prueba(t, f)
+	r, err := s.consultarNominalConEntrada(context.Background(), q, "per_registrador_prueba_001", strings.Repeat("a", 64), true)
+	if err != nil || len(r.ViasDisponibles) != 0 {
+		t.Fatalf("preparación no acreditada ofreció vía: %+v %v", r, err)
+	}
+	var ausente *preparacionExternaR5Prueba
+	if _, err := NuevoServicioPreflightFirmaR5V2Externa(s.firmas, &contextoPreflightPrueba{}, ausente); !errors.Is(err, ports.ErrPreflightFirmaR5NoDisponible) {
+		t.Fatal("constructor externo aceptó una fuente nula")
+	}
+}
+
+func TestPreflightFirmaR5PreparacionExternaReleeHistoria(t *testing.T) {
+	f := &preparacionExternaR5Prueba{}
+	s, q, d, _ := servicioPreflightExternoV2Prueba(t, f)
+	f.alterar = func(*ports.PreparacionExternaR5Comprobada) { d.lecturas.HistoriaRevision++ }
+	r, err := s.consultarNominalConEntrada(context.Background(), q, "per_registrador_prueba_001", strings.Repeat("a", 64), true)
+	if !errors.Is(err, ports.ErrPreflightFirmaR5NoDisponible) || len(r.ViasDisponibles) != 0 {
+		t.Fatalf("historia cambiada ofreció preparación: %+v %v", r, err)
+	}
+}

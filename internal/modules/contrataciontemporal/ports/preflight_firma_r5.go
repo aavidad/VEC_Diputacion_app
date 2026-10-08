@@ -7,9 +7,10 @@ import (
 )
 
 var (
-	ErrPreflightFirmaR5Invalido     = errors.New("contratacion temporal: preflight firma R5 invalido")
-	ErrPreflightFirmaR5NoDisponible = errors.New("contratacion temporal: preflight firma R5 no disponible")
-	ErrPreflightFirmaR5NoConfiable  = errors.New("contratacion temporal: preflight firma R5 no confiable")
+	ErrPreflightFirmaR5Invalido         = errors.New("contratacion temporal: preflight firma R5 invalido")
+	ErrPreflightFirmaR5NoDisponible     = errors.New("contratacion temporal: preflight firma R5 no disponible")
+	ErrPreflightFirmaR5NoConfiable      = errors.New("contratacion temporal: preflight firma R5 no confiable")
+	ErrPreparacionExternaR5NoAcreditada = errors.New("contratacion temporal: preparacion externa R5 no acreditada")
 )
 
 // Canal procede de la frontera autenticada. El cliente solo identifica el
@@ -85,4 +86,41 @@ type DisponibilidadFirmaR5Verificada struct {
 
 type VerificadorDisponibilidadFirmaR5 interface {
 	VerificarDisponibilidadFirmaR5(context.Context, SolicitudDisponibilidadFirmaR5) ([]DisponibilidadFirmaR5Verificada, error)
+}
+
+// EvidenciaPreparacionExternaR5 identifica la versión vigente de una fuente
+// que se acaba de comprobar. La huella procede de esa fuente, nunca de un
+// hash de la solicitud para rellenar un comprobante. Su validez termina en la
+// primera frontera conocida del dato o la configuración.
+type EvidenciaPreparacionExternaR5 struct {
+	Referencia   string
+	Version      uint64
+	HuellaSHA256 string
+	VigenteHasta time.Time
+}
+
+// PreparacionExternaR5Comprobada acredita que puede prepararse el paso
+// externo de un PDF concreto. PlanCompetenciaVigente acredita el paso/cargo
+// publicado y la fuente AUT56 accesible, nunca la competencia de una persona
+// todavía desconocida. ConfiguracionVerificadorValidada acredita la
+// configuración local de GrxFirma, nunca salud remota ni una firma futura.
+type PreparacionExternaR5Comprobada struct {
+	Solicitud                        SolicitudDisponibilidadFirmaR5
+	Original                         EvidenciaPreparacionExternaR5
+	PlanCompetenciaVigente           EvidenciaPreparacionExternaR5
+	PerfilRegistradorVigente         EvidenciaPreparacionExternaR5
+	CustodiaPreparada                EvidenciaPreparacionExternaR5
+	RegistroConPlanPreparado         EvidenciaPreparacionExternaR5
+	ConfiguracionVerificadorValidada EvidenciaPreparacionExternaR5
+	ComprobadaEn                     time.Time
+	ValidaHasta                      time.Time
+}
+
+// La fuente lee y coteja original, plan, asignación, política documental,
+// configuración del verificador y ACL del registro en la petición actual.
+// ErrPreparacionExternaR5NoAcreditada cierra la vía sin declarar caída del
+// sistema; otros errores son indisponibilidad. No toma certificado ni persona
+// firmante del navegador ni prueba que GrxFirma responderá después.
+type ComprobadorPreparacionExternaR5 interface {
+	ComprobarPreparacionExternaR5(context.Context, SolicitudDisponibilidadFirmaR5) (PreparacionExternaR5Comprobada, error)
 }
