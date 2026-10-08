@@ -15,7 +15,10 @@ const maximoFilasResumenBolsas = 200000
 
 // LectorResumenBolsasPostgreSQL lee las funciones de conjunto B82 y el
 // recuento agrupado B85. Todas comprueban en la base el rol de quien llama.
-type LectorResumenBolsasPostgreSQL struct{ pool *pgxpool.Pool }
+type LectorResumenBolsasPostgreSQL struct {
+	pool                 *pgxpool.Pool
+	conListaLlamamientos bool
+}
 
 var _ ports.LectorResumenBolsas = (*LectorResumenBolsasPostgreSQL)(nil)
 
@@ -24,6 +27,20 @@ func NuevoLectorResumenBolsasPostgreSQL(pool *pgxpool.Pool) (*LectorResumenBolsa
 		return nil, ports.ErrResumenBolsasNoDisponible
 	}
 	return &LectorResumenBolsasPostgreSQL{pool: pool}, nil
+}
+
+// NuevoLectorResumenBolsasConLlamamientosPostgreSQL exige B94 una vez al
+// montar el lector. La falta de instalación no degrada la lectura en silencio.
+func NuevoLectorResumenBolsasConLlamamientosPostgreSQL(ctx context.Context, pool *pgxpool.Pool) (*LectorResumenBolsasPostgreSQL, error) {
+	if ctx == nil || pool == nil {
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	var instalada bool
+	err := pool.QueryRow(ctx, `SELECT pg_catalog.to_regprocedure('vec_bolsa_llamamientos.leer_llamamientos_completos_resumen_v1()') IS NOT NULL`).Scan(&instalada)
+	if err != nil || !instalada {
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	return &LectorResumenBolsasPostgreSQL{pool: pool, conListaLlamamientos: true}, nil
 }
 
 // consultaResumenBolsas es lo que necesitan las lecturas de una transacción.
@@ -68,10 +85,59 @@ func (l *LectorResumenBolsasPostgreSQL) LeerResumen(ctx context.Context, corte t
 			return vacio, ports.ErrResumenBolsasNoDisponible
 		}
 	}
+	var llamamientos []ports.LlamamientoResumenRRHH
+	if l.conListaLlamamientos {
+		llamamientos, err = leerLlamamientosCompletosResumen(ctx, tx)
+		if err != nil {
+			return vacio, err
+		}
+		porBolsa := make(map[string]int, len(conteos))
+		for _, llamamiento := range llamamientos {
+			porBolsa[llamamiento.BolsaRef]++
+		}
+		if len(porBolsa) > len(conteos) {
+			return vacio, ports.ErrResumenBolsasNoDisponible
+		}
+		for bolsaRef, conteo := range conteos {
+			if porBolsa[bolsaRef] != conteo {
+				return vacio, ports.ErrResumenBolsasNoDisponible
+			}
+		}
+	}
 	if tx.Commit(ctx) != nil {
 		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
-	return ports.ResumenBolsasRRHH{Situaciones: filas, Politicas: politicas, LlamamientosEnCurso: conteos}, nil
+	return ports.ResumenBolsasRRHH{Situaciones: filas, Politicas: politicas, LlamamientosEnCurso: conteos, Llamamientos: llamamientos}, nil
+}
+
+func leerLlamamientosCompletosResumen(ctx context.Context, consulta consultaResumenBolsas) ([]ports.LlamamientoResumenRRHH, error) {
+	filas, err := consulta.Query(ctx, `SELECT llamamiento_ref,bolsa_ref,referencia,emitido_en,participaciones
+		FROM vec_bolsa_llamamientos.leer_llamamientos_completos_resumen_v1()`)
+	if err != nil {
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	defer filas.Close()
+	salida := make([]ports.LlamamientoResumenRRHH, 0)
+	vistas := map[string]struct{}{}
+	for filas.Next() {
+		if len(salida) >= maximoFilasResumenBolsas {
+			return nil, ports.ErrResumenBolsasNoDisponible
+		}
+		var fila ports.LlamamientoResumenRRHH
+		if err := filas.Scan(&fila.LlamamientoRef, &fila.BolsaRef, &fila.Referencia, &fila.EmitidoEn, &fila.Participaciones); err != nil ||
+			fila.LlamamientoRef == "" || fila.BolsaRef == "" || fila.Referencia == "" || fila.EmitidoEn.IsZero() || fila.Participaciones < 1 {
+			return nil, ports.ErrResumenBolsasNoDisponible
+		}
+		if _, repetida := vistas[fila.LlamamientoRef]; repetida {
+			return nil, ports.ErrResumenBolsasNoDisponible
+		}
+		vistas[fila.LlamamientoRef] = struct{}{}
+		salida = append(salida, fila)
+	}
+	if filas.Err() != nil {
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	return salida, nil
 }
 
 func leerLlamamientosEnCursoResumen(ctx context.Context, consulta consultaResumenBolsas) (map[string]int, error) {

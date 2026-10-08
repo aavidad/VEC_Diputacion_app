@@ -4,7 +4,7 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261008-alta-rechazo-v2";
+const versionCoordinador = "20261008-alta-global-v1";
 const versionCircuito = "20261008-alta-rechazo-v2";
 const versionVista = "20261008-alta-rechazo-v2";
 const versionRender = "20261008-documentos-ficha-v1";
@@ -110,8 +110,8 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const cohorteClienteHTTP = cohorte;
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = cohorte;
-  const cohorteIdioma = cohorte;
-  const cohorteEntrada = cohorte;
+  const cohorteIdioma = "20261008-alta-global-v1";
+  const cohorteEntrada = "20261008-alta-global-v1";
   const cohorteFicha = cohorte;
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],

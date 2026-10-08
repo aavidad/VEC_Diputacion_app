@@ -12,7 +12,7 @@ const { cargarMensajesPortal, crearTraductorPortal, traducirPortal, formatearNum
 const MENSAJES_PORTAL_CASTELLANO = await cargarMensajesPortal("es");
 const { aplicarIdiomaDocumento, aplicarTextosPortal } = await import("./portal-idioma.js");
 const { cargarCatalogoModulosInterno, presentarSesionPortal } = await import("./portal-catalogo-modulos.js");
-const { crearVistaInicioPortal } = await import("./portal-inicio.js");
+const { crearVistaInicioPortal } = await import("./portal-inicio.js?v=20261008-bolsa-global-v2");
 
 test("?lang=en elige traducción común, catálogo inglés y cifras en en-GB", async () => {
   const traducciones = JSON.parse(await readFile(new URL("../../../locales/en.json", import.meta.url), "utf8"));
