@@ -203,22 +203,20 @@ AD225_PREAMBULO = (
     "SET LOCAL lock_timeout = '5s';\n"
     "SET LOCAL statement_timeout = '30s';\n"
     "SELECT pg_advisory_xact_lock(hashtextextended('vec:orq1:ad225',0));\n"
-    "-- Parche del bloque completo de reanudación sobre dos preimágenes instaladas:\n"
-    "-- postHX+HZ14 y post AD211/214/216/218. El resto del núcleo queda literal.\n"
+    "-- Instalar sólo después de IS17, CA37, AD215, AUT57, AD211, P22, AD175,\n"
+    "-- P32, AD180, P34, AD214, AD216 y AD218. Parchea únicamente POST218.\n"
 )
-AD225_DO_SHA256 = "b509bd272e2daf80c8dffda414b3addaee6895be93489627c628b75a70ff1b43"
+AD225_DO_SHA256 = "e1f8592f43312992b7adf7c1b6fe5b5e615ed63fa0b566c7b46b75a70b84e130"
 AD225_MARCA_SHA256 = "d511878f1086b13f6e6ece691492a10a1110b9b3b6ef465f8728fd92312da0b7"
 AD225_AMPLIACION_SHA256 = "a056298c5d30fbcf2507c67740f378cf348ef6c9d70d8b68b6815b6bdd0afcf4"
 AD225_PREIMAGENES = {
-    ("092367a3c6be54e163eceb26d58a86442f83addc044e0cae2e85e572c7e56faf",
-     "559555ec535ad40cc3aad6361286899c28aede91ff73b2901eb30970d95ac986"),
     ("c74551eab17bea78bb564d14d96b77f33bd24a5874b7bdb6e100a59d8f2fe714",
      "79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5"),
 }
 
 
 def reconstruccion_ad225_revisada(body: str, filename: str | None, sql: str) -> bool:
-    """Admite sólo el DO que preserva dos núcleos V3 instalados byte a byte."""
+    """Admite sólo el DO que preserva el núcleo V3 posterior a AD218 byte a byte."""
     if filename != AD225_PATH or not sql.startswith(AD225_PREAMBULO + "DO $parche$") \
             or sql.count("DO $parche$") != 1 \
             or hashlib.sha256(body.encode()).hexdigest() != AD225_DO_SHA256:
@@ -234,8 +232,8 @@ def reconstruccion_ad225_revisada(body: str, filename: str | None, sql: str) -> 
             or not posterior.startswith(anterior)
             or re.search(r"\b(?:CREATE|ALTER|SET|RESET|SECURITY)\b", posterior, re.I)):
         return False
-    pares = re.findall(r"def_sha='([0-9a-f]{64})'\s+AND src_sha='([0-9a-f]{64})'", body)
-    if len(pares) != 2 or set(pares) != AD225_PREIMAGENES:
+    pares = re.findall(r"IF def_sha IS DISTINCT FROM '([0-9a-f]{64})'\s+OR src_sha IS DISTINCT FROM '([0-9a-f]{64})' THEN", body)
+    if len(pares) != 1 or set(pares) != AD225_PREIMAGENES:
         return False
     requeridos = (
         "f oid := to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')",
