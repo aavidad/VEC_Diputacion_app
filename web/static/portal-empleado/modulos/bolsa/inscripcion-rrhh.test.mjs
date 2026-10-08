@@ -5,11 +5,12 @@ import { leerRutaInscripcionesRRHH, rutaInscripcionesRRHH,
   montarInscripcionesRRHH } from "./inscripcion-rrhh-vista.js";
 import { cargarTextos } from "../../../comun/textos.js";
 
-const solicitud = { solicitud_ref: "solicitud:1", convocatoria_ref: "convocatoria:1", categoria: "Auxiliar administrativo",
-  bolsa_ref: null, persona_resumen: "Lucía Martín",
+const solicitud = { solicitud_ref: "solicitud:1", recibo_ref: "recibo:solicitud:1",
+  convocatoria_ref: "convocatoria:1", categoria_ref: "categoria:1", categoria: "Auxiliar administrativo",
+  declaracion_ref: "declaracion:1", bolsa_ref: null, persona_resumen: "Lucía Martín",
   estado: "pendiente", version: 1, registrada_en: "2026-10-08T10:00:00Z", motivo_codigo: null };
 const detalle = { ...solicitud, bases_ref: "bases:1", catalogo_version: 1,
-  plazo_inicio: "2026-10-01T00:00:00Z", plazo_fin: "2026-10-31T23:59:59Z", declaracion_ref: "declaracion:1",
+  plazo_inicio: "2026-10-01T00:00:00Z", plazo_fin: "2026-10-31T23:59:59Z",
   requisitos: [{ codigo: "titulo", descripcion: "Titulación requerida", obligatorio: true,
     estado: "cumple", fuente_ref: "fuente:1", evidencia_ref: "evidencia:1" }] };
 const respuesta = (status, data) => ({ ok: status >= 200 && status < 300, status, redirected: false,

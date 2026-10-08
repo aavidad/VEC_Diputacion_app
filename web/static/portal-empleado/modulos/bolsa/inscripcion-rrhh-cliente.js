@@ -15,25 +15,29 @@ function referencia(valor) {
 }
 
 function solicitudValida(item) {
-  return item && typeof item === "object" && referencia(item.solicitud_ref)
-    && referencia(item.convocatoria_ref) && (item.bolsa_ref == null || referencia(item.bolsa_ref))
+  return item && typeof item === "object" && referencia(item.solicitud_ref) && referencia(item.recibo_ref)
+    && referencia(item.convocatoria_ref) && referencia(item.categoria_ref) && referencia(item.declaracion_ref)
+    && (item.bolsa_ref == null || referencia(item.bolsa_ref))
     && typeof item.categoria === "string" && item.categoria.trim().length > 0 && item.categoria.length <= 240
     && (item.persona_resumen == null
       || typeof item.persona_resumen === "string" && item.persona_resumen.length <= 240)
     && ESTADOS.has(item.estado)
     && Number.isSafeInteger(item.version) && item.version > 0
     && typeof item.registrada_en === "string" && Number.isFinite(Date.parse(item.registrada_en))
-    && (item.motivo_codigo == null || referencia(item.motivo_codigo));
+    && (item.motivo_codigo == null || referencia(item.motivo_codigo))
+    && (item.motivo_etiqueta == null || typeof item.motivo_etiqueta === "string" && item.motivo_etiqueta.length <= 240);
 }
 function detalleValido(item) {
   return solicitudValida(item) && referencia(item.bases_ref)
     && Number.isSafeInteger(item.catalogo_version) && item.catalogo_version > 0
     && typeof item.plazo_inicio === "string" && Number.isFinite(Date.parse(item.plazo_inicio))
     && typeof item.plazo_fin === "string" && Number.isFinite(Date.parse(item.plazo_fin))
-    && referencia(item.declaracion_ref) && Array.isArray(item.requisitos) && item.requisitos.length <= 100
+    && Array.isArray(item.requisitos) && item.requisitos.length <= 100
     && item.requisitos.every((r) => r && referencia(r.codigo) && typeof r.descripcion === "string"
       && r.descripcion.length > 0 && r.descripcion.length <= 500 && typeof r.obligatorio === "boolean"
       && ["cumple", "no_cumple", "pendiente"].includes(r.estado)
+      && (r.motivo_etiqueta == null || typeof r.motivo_etiqueta === "string" && r.motivo_etiqueta.length <= 500)
+      && (r.hito_etiqueta == null || typeof r.hito_etiqueta === "string" && r.hito_etiqueta.length <= 240)
       && (r.fuente_ref == null || referencia(r.fuente_ref))
       && (r.evidencia_ref == null || referencia(r.evidencia_ref)));
 }
