@@ -210,7 +210,8 @@
     "seleccionar": "Select an option",
     "si": "Yes",
     "titulo": "New temporary staff request",
-    "volver_editar": "Back to editing"
+    "volver_editar": "Back to editing",
+    "motivo_sustitucion": "Temporary replacement"
   },
   "ayuda": {
     "pc_ayuda_abrir": "Help with the centre request",
