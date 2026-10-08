@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarRegistroB2 } from "./registro-b2.js";
+import { prepararTextosPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
+
+test.before(async () => { await prepararTextosPersonal(); });
+import { montarRegistroB2 } from "./registro-b2.js?v=20261008-alta-rpt-circular-v4";
 import { crearClienteRegistroB2, ErrorRegistroB2 } from "./registro-b2-cliente.js";
-import { montarActosRegistroB2, accionesRegistroB2Disponibles } from "./registro-b2-actos.js";
+import { montarActosRegistroB2, accionesRegistroB2Disponibles } from "./registro-b2-actos.js?v=20261008-alta-rpt-circular-v4";
 
 function raizFalsa() {
   class Nodo {

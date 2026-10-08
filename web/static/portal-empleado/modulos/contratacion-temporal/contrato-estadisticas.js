@@ -9,7 +9,7 @@
  * - Totales agregados coherentes.
  */
 
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 
 const traducirCT = crearTraductorContratacionTemporal();
 

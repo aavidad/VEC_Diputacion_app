@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 export const ESQUEMA_REINCORPORACIONES_TITULAR = "vec.bolsa.rrhh.reincorporaciones_titular.v1";
 const BASE = "/api/vec/bolsa/bolsas";
@@ -167,7 +167,9 @@ export async function cargarReincorporacionesTitularFicha(modal, { estado, rende
   if (controlador.signal.aborted || estado.modalFicha !== modal) return;
   modal.reincorporacionesTitular = respuesta.ok
     ? { carga: "listo", items: respuesta.datos, pagina: 0 }
-    : { carga: respuesta.status === 403 ? "denegado" : respuesta.status === 404 || respuesta.status === 503 ? "pendiente" : "error", error: respuesta.mensaje, items: [], pagina: 0 };
+    : { carga: [401, 403].includes(respuesta.status) ? "denegado"
+      : respuesta.status === 404 || respuesta.status === 503 ? "pendiente" : "error",
+      error: respuesta.mensaje, items: [], pagina: 0 };
   renderizar();
 }
 
@@ -208,6 +210,7 @@ export function manejarClickReincorporacionesTitular(evento, { estado, renderiza
   if (!control || !estado?.modalFicha) return false;
   evento.preventDefault();
   if (control.dataset.reincorporacionAccion === "reintentar") {
+    if (estado.modalFicha.reincorporacionesTitular?.carga === "denegado") return true;
     void cargarReincorporacionesTitularFicha(estado.modalFicha, { estado, renderizar, ...(consultar ? { consultar } : {}) });
   } else if (control.dataset.reincorporacionAccion === "pagina" && estado.modalFicha.reincorporacionesTitular) {
     estado.modalFicha.reincorporacionesTitular = { ...estado.modalFicha.reincorporacionesTitular, pagina: Math.max(0, Number(control.dataset.pagina) || 0) };

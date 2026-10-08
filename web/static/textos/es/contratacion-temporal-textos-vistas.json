@@ -69,7 +69,7 @@
     "ct_txt_no_se_pudo_conectar_con_el_servicio_de_estadisti": "No se pudo conectar con el servicio de estadísticas.",
     "ct_txt_numero_visible": "Número visible",
     "ct_txt_observaciones": "Observaciones",
-    "ct_txt_obteniendo_series_temporales_agregadas_del_servi": "Obteniendo series temporales agregadas del servidor.",
+    "ct_txt_obteniendo_series_temporales_agregadas_del_servi": "Cargando la evolución de los datos…",
     "ct_txt_parametros_de_consulta_de_estadisticas_no_valido": "Parámetros de consulta de estadísticas no válidos.",
     "ct_txt_periodo": "Periodo",
     "ct_txt_periodo_2": "Periodo:",
@@ -94,6 +94,7 @@
     "ct_txt_totales": "TOTALES",
     "ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum": "Se muestran las 50 peticiones más recientes.",
     "ct_txt_ultimas_50_peticiones_visibles_para_su_identidad": "Se muestran sus 50 peticiones más recientes.",
-    "ct_txt_validacion_manual": "Validación manual"
+    "ct_txt_validacion_manual": "Validación manual",
+    "motivo_sustitucion": "Sustitución temporal"
   }
 }

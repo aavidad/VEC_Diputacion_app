@@ -174,24 +174,24 @@ func validarManifiestoPortalExterno(ruta string, ca, servidor *x509.Certificate)
 func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer, emisor vecports.EmisorIncidenciasTecnicas) (*http.Server, error) {
 	cfg = cfg.Normalize()
 	if registro == nil {
-		return nil, ErrRegistroArranqueDesarrollo
+		return nil, marcarFalloComponenteArranque("registro_arranque", ErrRegistroArranqueDesarrollo)
 	}
 	if err := validarRedLocalDesarrollo(cfg); err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("red_local", err)
 	}
 	material, err := cargarMaterialPortalExterno(cfg)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("material_portal_externo", err)
 	}
 	consultaCategorias, _, err := nuevasDependenciasCategoriasProfesionales(cfg)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("categorias_profesionales", err)
 	}
 	cfgPublica := cfg
 	cfgPublica.AuthMode = config.AuthModeDisabled
 	publicaBolsaAPI, err := publicatransitoria.NuevaAPIConCatalogos(cfgPublica, consultaCategorias)
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("bolsa_publica_api", err)
 	}
 	api := http.NewServeMux()
 	api.Handle("/api/publico/", publicaBolsaAPI)
@@ -200,13 +200,13 @@ func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer,
 	bolsasPublicas, cerrarBolsasPublicas, err := nuevasBolsasPublicasPortalExterno(ctxPublico, cfg, dsnPublico)
 	cancelarPublico()
 	if err != nil {
-		return nil, err
+		return nil, marcarFalloComponenteArranque("bolsas_publicas", err)
 	}
 	bolsapublicahttp.RegistrarRutasBolsasPublicas(api, bolsasPublicas)
 	personal, cerrarPersonal, err := nuevasCapacidadesPersonalesPortalExterno(cfg, material.identidad, emisor)
 	if err != nil {
 		cerrarBolsasPublicas()
-		return nil, err
+		return nil, marcarFalloComponenteArranque("capacidades_personales", err)
 	}
 	if personal != nil {
 		api.Handle("/api/vec/", personal)
@@ -214,13 +214,13 @@ func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer,
 	if err := avisarArranquePortalExterno(registro); err != nil {
 		cerrarPersonal()
 		cerrarBolsasPublicas()
-		return nil, err
+		return nil, marcarFalloComponenteArranque("aviso_arranque_portal_externo", err)
 	}
 	servidor, err := server.NewHTTPServer(cfg, api)
 	if err != nil {
 		cerrarPersonal()
 		cerrarBolsasPublicas()
-		return nil, err
+		return nil, marcarFalloComponenteArranque("servidor_http", err)
 	}
 	servidor.TLSConfig = material.tls.Clone()
 	servidor.RegisterOnShutdown(cerrarPersonal)

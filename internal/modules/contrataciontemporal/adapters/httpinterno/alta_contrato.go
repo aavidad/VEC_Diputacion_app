@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -57,6 +58,36 @@ type solicitudAltaJSON struct {
 	NumeroExpedienteMOAD string               `json:"numero_expediente_moad"`
 	ClaveIdempotencia    string               `json:"clave_idempotencia"`
 	Solicitud            *solicitudCentroJSON `json:"solicitud"`
+}
+
+// solicitudAltaVersionadaJSON añade la necesidad sólo a la entrada v3; el
+// DTO v1 anterior conserva sus claves y su OpenAPI exactos.
+type solicitudAltaVersionadaJSON struct {
+	Esquema              string               `json:"esquema"`
+	NumeroExpedienteMOAD string               `json:"numero_expediente_moad"`
+	ClaveIdempotencia    string               `json:"clave_idempotencia"`
+	Solicitud            *solicitudCentroJSON `json:"solicitud"`
+	Necesidad            *necesidadAltaJSON   `json:"necesidad,omitempty"`
+}
+
+// necesidadAltaJSON sólo acepta hechos estructurados del centro. La
+// instantánea del catálogo se añade en aplicación desde una fuente confiable.
+type necesidadAltaJSON struct {
+	Esquema              string            `json:"esquema"`
+	CatalogoRef          string            `json:"catalogo_ref"`
+	CatalogoVersion      uint64            `json:"catalogo_version"`
+	CatalogoHuellaSHA256 string            `json:"catalogo_huella_sha256"`
+	CausaClave           string            `json:"causa_clave"`
+	JornadaMinutos       uint16            `json:"jornada_minutos"`
+	Campos               map[string]string `json:"campos"`
+}
+
+type entradaAltaDecodificada struct {
+	EsquemaAlta       string
+	ClaveIdempotencia string
+	NumeroMOAD        string
+	Solicitud         domain.SolicitudCentro
+	Necesidad         *domain.DatosNecesidadAlta
 }
 
 type periodoPrevistoJSON struct {
@@ -286,47 +317,76 @@ func valorUnicoNoVacio(valores []string) (string, bool) {
 func solicitudAltaDesdePeticion(
 	w http.ResponseWriter,
 	r *http.Request,
-) (string, string, domain.SolicitudCentro, error) {
+) (entradaAltaDecodificada, error) {
 	lector := http.MaxBytesReader(w, r.Body, MaximoCuerpoAltaBytes+1)
 	contenido, err := io.ReadAll(lector)
 	if err != nil {
 		var demasiadoGrande *http.MaxBytesError
 		if errors.As(err, &demasiadoGrande) {
-			return "", "", domain.SolicitudCentro{}, errCuerpoAltaDemasiadoGrande
+			return entradaAltaDecodificada{}, errCuerpoAltaDemasiadoGrande
 		}
-		return "", "", domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return entradaAltaDecodificada{}, errEntradaAltaInvalida
 	}
 	if len(contenido) == 0 {
-		return "", "", domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return entradaAltaDecodificada{}, errEntradaAltaInvalida
 	}
 	if len(contenido) > MaximoCuerpoAltaBytes {
-		return "", "", domain.SolicitudCentro{}, errCuerpoAltaDemasiadoGrande
+		return entradaAltaDecodificada{}, errCuerpoAltaDemasiadoGrande
 	}
 	if !utf8.Valid(contenido) {
-		return "", "", domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return entradaAltaDecodificada{}, errEntradaAltaInvalida
 	}
 	if err := validarJSONAltaSinDuplicados(contenido); err != nil {
-		return "", "", domain.SolicitudCentro{}, err
+		return entradaAltaDecodificada{}, err
 	}
-	var entrada solicitudAltaJSON
+	var entrada solicitudAltaVersionadaJSON
 	decodificador := json.NewDecoder(bytes.NewReader(contenido))
 	decodificador.DisallowUnknownFields()
 	if err := decodificador.Decode(&entrada); err != nil {
-		return "", "", domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return entradaAltaDecodificada{}, errEntradaAltaInvalida
 	}
 	if err := decodificador.Decode(&struct{}{}); err != io.EOF {
-		return "", "", domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return entradaAltaDecodificada{}, errEntradaAltaInvalida
+	}
+	var camposSobre map[string]json.RawMessage
+	if err := json.Unmarshal(contenido, &camposSobre); err != nil {
+		return entradaAltaDecodificada{}, errEntradaAltaInvalida
 	}
 	if !ports.ClaveIdempotenciaValida(entrada.ClaveIdempotencia) ||
 		entrada.Solicitud == nil ||
 		(entrada.NumeroExpedienteMOAD != "" && !domain.NumeroExpedienteValido(entrada.NumeroExpedienteMOAD)) {
-		return "", "", domain.SolicitudCentro{}, errContenidoAltaNoValido
+		return entradaAltaDecodificada{}, errContenidoAltaNoValido
+	}
+	if (entrada.Esquema == "" && (camposSobre["esquema"] != nil || camposSobre["necesidad"] != nil)) ||
+		(entrada.Esquema == application.EsquemaAltaNecesidadV1 && entrada.Necesidad == nil) ||
+		(entrada.Esquema == application.EsquemaAltaNecesidadV1 && entrada.NumeroExpedienteMOAD == "") ||
+		(entrada.Esquema != "" && entrada.Esquema != application.EsquemaAltaNecesidadV1) {
+		return entradaAltaDecodificada{}, errContenidoAltaNoValido
 	}
 	solicitud, err := entrada.Solicitud.dominio()
 	if err != nil {
-		return "", "", domain.SolicitudCentro{}, err
+		return entradaAltaDecodificada{}, err
 	}
-	return entrada.ClaveIdempotencia, entrada.NumeroExpedienteMOAD, solicitud, nil
+	salida := entradaAltaDecodificada{
+		EsquemaAlta: entrada.Esquema, ClaveIdempotencia: entrada.ClaveIdempotencia,
+		NumeroMOAD: entrada.NumeroExpedienteMOAD, Solicitud: solicitud,
+	}
+	if entrada.Necesidad != nil {
+		campos := make(map[string]string, len(entrada.Necesidad.Campos))
+		for clave, valor := range entrada.Necesidad.Campos {
+			campos[clave] = valor
+		}
+		salida.Necesidad = &domain.DatosNecesidadAlta{
+			Esquema:              entrada.Necesidad.Esquema,
+			CatalogoRef:          entrada.Necesidad.CatalogoRef,
+			CatalogoVersion:      entrada.Necesidad.CatalogoVersion,
+			CatalogoHuellaSHA256: entrada.Necesidad.CatalogoHuellaSHA256,
+			CausaClave:           domain.ClaveCatalogo(entrada.Necesidad.CausaClave),
+			Periodo:              solicitud.Periodo, JornadaMinutos: entrada.Necesidad.JornadaMinutos,
+			Campos: campos,
+		}
+	}
+	return salida, nil
 }
 
 func validarJSONAltaSinDuplicados(contenido []byte) error {

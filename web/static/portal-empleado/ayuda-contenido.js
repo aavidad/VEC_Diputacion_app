@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({
@@ -37,7 +37,6 @@ export const AYUDA_PORTAL_RRHH = Object.freeze({
     traducirPortal("ayuda_rrhh_portada_paso_expedientes"),
     traducirPortal("ayuda_rrhh_portada_paso_nueva"),
     traducirPortal("ayuda_rrhh_portada_paso_bolsas"),
-    traducirPortal("ayuda_rrhh_portada_paso_sae"),
   ]),
   preguntas: Object.freeze([
     Object.freeze({

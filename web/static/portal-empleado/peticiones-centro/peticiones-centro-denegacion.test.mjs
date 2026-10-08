@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { iniciarPeticionCentro, iniciarPeticionesCentroRRHH, pedir } from "./peticiones-centro.js?v=20261001-ct-a-i18n-v1";
+import { iniciarPeticionCentro, iniciarPeticionesCentroRRHH, pedir } from "./peticiones-centro.js?v=20261008-alta-rpt-circular-v6";
 
 const catalogos = {
   esquema: "vec.contratacion_temporal.catalogos_alta.v1",
@@ -18,6 +18,7 @@ function raizFalsa() {
   const manejadores = new Map();
   return {
     innerHTML: "",
+    isConnected: true,
     manejadores,
     setAttribute() {},
     insertAdjacentHTML(_posicion, contenido) { this.innerHTML = contenido + this.innerHTML; },
@@ -29,6 +30,59 @@ function raizFalsa() {
     },
   };
 }
+
+const catalogosConCausa = { ...catalogos,
+  motivos: [{ ...catalogos.motivos[0], causa_fin: "reincorporacion_titular" }] };
+
+test("Nueva petición no revive tras cambiar actor, denegar acceso o cerrar mientras carga el análisis", async () => {
+  for (const desenlace of ["otro_actor", 401, 403, "cerrada"]) {
+    const raiz = raizFalsa();
+    let actor = { ...contexto, catalogos: catalogosConCausa };
+    let estadoHTTP = 200;
+    let resolverAnalisis;
+    let preparaciones = 0, posts = 0;
+    const vista = await iniciarPeticionCentro({ raiz,
+      prepararAnalisis: () => { preparaciones++; return new Promise((resolver) => { resolverAnalisis = resolver; }); },
+      cliente: async (ruta, opciones) => {
+        if (opciones?.method === "POST") { posts++; throw new Error("sin efecto autorizado"); }
+        if (estadoHTTP !== 200) throw { status: estadoHTTP };
+        return ruta.endsWith("/contexto") ? actor : { peticiones: [] };
+      },
+    });
+    const pendiente = raiz.pulsar({ accion: "nueva" });
+    assert.equal(preparaciones, 1);
+    assert.match(raiz.innerHTML, /Preparando el formulario/u);
+    await raiz.pulsar({ accion: "nueva" });
+    assert.equal(preparaciones, 1, "la pantalla ocupada no inicia otra preparación");
+    if (desenlace === "otro_actor") {
+      actor = { ...actor, actor: { ...actor.actor, referencia: "actor:otro", puede_presentar: false, puede_ratificar: true } };
+      await vista.recargar();
+    } else if (desenlace === "cerrada") raiz.isConnected = false;
+    else { estadoHTTP = desenlace; await vista.recargar(); }
+    resolverAnalisis({});
+    await pendiente;
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-form/u);
+    assert.equal(posts, 0);
+    if ([401, 403].includes(desenlace)) assert.match(raiz.innerHTML, /Acceso denegado/u);
+  }
+});
+
+test("fallo del catálogo de análisis conserva la bandeja y ofrece reintento sin denegar", async () => {
+  const raiz = raizFalsa();
+  let posts = 0;
+  await iniciarPeticionCentro({ raiz,
+    prepararAnalisis: async () => { throw new Error("catálogo temporalmente caído"); },
+    cliente: async (ruta, opciones) => {
+      if (opciones?.method === "POST") posts++;
+      return ruta.endsWith("/contexto") ? { ...contexto, catalogos: catalogosConCausa } : { peticiones: [] };
+    },
+  });
+  await raiz.pulsar({ accion: "nueva" });
+  assert.match(raiz.innerHTML, /No se pudieron cargar las causas necesarias/u);
+  assert.match(raiz.innerHTML, /data-accion="nueva"/u);
+  assert.doesNotMatch(raiz.innerHTML, /Acceso denegado|data-ct-form/u);
+  assert.equal(posts, 0);
+});
 
 function verificarSinDatos(raiz) {
   assert.doesNotMatch(raiz.innerHTML, /Actor anterior sintético|Cargo anterior|Centro anterior|Dato personal previo sintético|peticion:centro:sintetica|recibo:sintetico:anterior|expediente:sintetico:anterior/);
@@ -261,4 +315,37 @@ test("RRHH descarta el comando incierto tras POST 503 y reintento 401", async ()
   await raiz.pulsar({ accion: "confirmar-alta-rrhh" });
   await raiz.pulsar({ accion: "reintentar-alta-rrhh" });
   assert.equal(post, 2);
+});
+
+test("RRHH que entra sin ?vista=rrhh recibe su propia vista, no «Acceso denegado»", async () => {
+  const anteriorLocation = globalThis.location, anteriorHistory = globalThis.history;
+  const urls = [];
+  globalThis.location = { href: "https://vec.example/portal-empleado/peticiones-centro/", search: "" };
+  globalThis.history = { replaceState: (_e, _t, url) => urls.push(String(url)) };
+  try {
+    const raiz = raizFalsa();
+    const rutas = [];
+    await iniciarPeticionCentro({ raiz, cliente: async (ruta) => {
+      rutas.push(ruta);
+      if (ruta.endsWith("/contexto")) throw { status: 403 };
+      if (ruta.endsWith("/rrhh")) return { limite: 50, peticiones: [] };
+      throw { status: 404 };
+    } });
+    assert.equal(rutas.filter((r) => r.endsWith("/contexto")).length, 1);
+    assert.ok(rutas.some((r) => r.endsWith("/peticiones-centro/rrhh")));
+    assert.deepEqual(urls, ["https://vec.example/portal-empleado/peticiones-centro/?vista=rrhh"]);
+    assert.doesNotMatch(raiz.innerHTML, /Acceso denegado/u);
+  } finally {
+    globalThis.location = anteriorLocation; globalThis.history = anteriorHistory;
+  }
+});
+
+test("un centro lee su contexto una sola vez al entrar", async () => {
+  const raiz = raizFalsa();
+  const rutas = [];
+  await iniciarPeticionCentro({ raiz, cliente: async (ruta) => {
+    rutas.push(ruta);
+    return ruta.endsWith("/contexto") ? contexto : { peticiones: [] };
+  } });
+  assert.equal(rutas.filter((r) => r.endsWith("/contexto")).length, 1);
 });

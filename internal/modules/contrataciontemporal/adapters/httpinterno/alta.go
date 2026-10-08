@@ -85,7 +85,7 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claveIdempotencia, numeroMOAD, solicitud, err := solicitudAltaDesdePeticion(w, r)
+	entrada, err := solicitudAltaDesdePeticion(w, r)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorAlta(w, r, clasificarErrorAlta(errContexto), errContexto)
 		return
@@ -105,9 +105,7 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	comando, correcto := comandoDesdeContextoCanal(
 		contextoCanal,
-		claveIdempotencia,
-		numeroMOAD,
-		solicitud,
+		entrada,
 	)
 	if !correcto {
 		responderErrorAlta(w, r, errorInterno)
@@ -119,7 +117,7 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	recibo, err := h.ejecutor.Registrar(r.Context(), comando)
-	if (recibo.NumeroVisible == numeroMOAD || numeroMOAD == "" && err == nil) &&
+	if (recibo.NumeroVisible == entrada.NumeroMOAD || entrada.NumeroMOAD == "" && err == nil) &&
 		reciboAltaSeguro(recibo, instanteRelojCanonico(h.reloj.Ahora())) {
 		// Un recibo válido confirma el COMMIT. Una cancelación observada a la
 		// vez no degrada el éxito a un resultado ambiguo ni induce reintento.
@@ -145,31 +143,41 @@ func rutaAltaExacta(r *http.Request) bool {
 
 func comandoDesdeContextoCanal(
 	contexto application.SolicitudRegistrarExpediente,
-	claveIdempotencia string,
-	numeroMOAD string,
-	solicitud domain.SolicitudCentro,
+	entrada entradaAltaDecodificada,
 ) (application.SolicitudRegistrarExpediente, bool) {
 	resolver := ports.SolicitudResolverContextoAutorizacionAltaV3{
 		AutenticacionRef: contexto.AutenticacionRef,
 		SesionRef:        contexto.SesionRef,
 		PerfilRef:        contexto.PerfilRef,
 	}
-	clon, err := solicitud.Clonar()
+	clon, err := entrada.Solicitud.Clonar()
 	if err != nil || resolver.Validar() != nil ||
 		!domain.ReferenciaOpacaValida(contexto.OrganizacionRef) ||
 		contexto.ClaveIdempotencia != "" || contexto.NumeroExpedienteMOAD != "" ||
-		!ports.ClaveIdempotenciaValida(claveIdempotencia) ||
+		contexto.EsquemaAlta != "" || contexto.NecesidadEntrada != nil ||
+		!ports.ClaveIdempotenciaValida(entrada.ClaveIdempotencia) ||
 		!reflect.DeepEqual(contexto.Solicitud, domain.SolicitudCentro{}) {
 		return application.SolicitudRegistrarExpediente{}, false
 	}
+	var necesidad *domain.DatosNecesidadAlta
+	if entrada.Necesidad != nil {
+		copia := *entrada.Necesidad
+		copia.Campos = make(map[string]string, len(entrada.Necesidad.Campos))
+		for clave, valor := range entrada.Necesidad.Campos {
+			copia.Campos[clave] = valor
+		}
+		necesidad = &copia
+	}
 	return application.SolicitudRegistrarExpediente{
+		EsquemaAlta:          entrada.EsquemaAlta,
 		AutenticacionRef:     contexto.AutenticacionRef,
 		SesionRef:            contexto.SesionRef,
 		PerfilRef:            contexto.PerfilRef,
 		OrganizacionRef:      contexto.OrganizacionRef,
-		ClaveIdempotencia:    claveIdempotencia,
-		NumeroExpedienteMOAD: numeroMOAD,
+		ClaveIdempotencia:    entrada.ClaveIdempotencia,
+		NumeroExpedienteMOAD: entrada.NumeroMOAD,
 		Solicitud:            clon,
+		NecesidadEntrada:     necesidad,
 	}, true
 }
 

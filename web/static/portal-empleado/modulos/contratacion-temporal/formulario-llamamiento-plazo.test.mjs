@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   CLAVE, seleccion, recibo, comunicacionRegistrada, declaracion, justificante,
   archivoCorreo, montar, raizPrueba,
-} from "./formulario-llamamiento-pruebas.js";
+} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
 
 const CLAVE_CONTACTO = "123e4567-e89b-42d3-a456-426614174011";
 const PLAZO = {

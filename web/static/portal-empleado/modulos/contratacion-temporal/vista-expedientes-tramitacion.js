@@ -1,24 +1,24 @@
 /** Montaje y gestión de estados de las fases de tramitación (alta, análisis, cobertura, asignación, informe, fiscalización y subsanación). */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
-import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261006-resumen-inicio-v2";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261008-w-ct-borradores-main-v2";
+import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261008-w-ct-borradores-main-v2";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
-import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261002-ct-fin-moad-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-circular-v3";
+import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261008-alta-circular-v3";
 import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261006-resumen-inicio-v2";
-import { montarAltaContratacionTemporal } from "./vista.js?v=20261002-ct-fin-moad-v1";
-import { montarPestanasPreparacion } from "./vias-preparacion-cobertura.js";
+} from "./vista-expedientes-render.js?v=20261008-w-ct-borradores-main-v2";
+import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-alta-capacidad-v3";
 
 function enfocarElemento(raiz, selector) {
   const elemento = raiz.querySelector(selector);
@@ -52,7 +52,9 @@ export function crearGestorTramitacion({
 } = {}) {
   const tExpedientes = crearTraductorExpedientesContratacion(mensajes);
   let desmontarAlta = null;
-  let desmontarPreparacionAlta = null;
+  let catalogosNecesidadesAlta = null;
+  let consultaCatalogosNecesidadesAlta = null;
+  let soloSustituciones = false;
   let desmontarAnalisis = null;
   let desmontarCobertura = null;
   let desmontarAsignacion = null;
@@ -198,8 +200,6 @@ export function crearGestorTramitacion({
   }
 
   function retirarAlta() {
-    desmontarPreparacionAlta?.();
-    desmontarPreparacionAlta = null;
     if (typeof desmontarAlta === "function") desmontarAlta();
     desmontarAlta = null;
   }
@@ -628,18 +628,65 @@ export function crearGestorTramitacion({
     if (!esMontada() || estado.vista !== "alta") return;
     const contenedor = raiz.querySelector("[data-ct-exp-alta]");
     if (!contenedor) return;
-    if (!altaDisponible || !alta?.catalogos || typeof alta?.ejecutor !== "function") {
+    if (typeof desmontarAlta === "function") return;
+    if (!altaDisponible || !alta?.catalogos || typeof alta?.ejecutor !== "function"
+      || typeof alta?.obtenerCatalogosNecesidadesAlta !== "function") {
       contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
       return;
     }
-    // Qué hay que preparar en cada vía, antes de rellenar la petición.
-    desmontarPreparacionAlta?.();
-    const zonaPreparacion = raiz.querySelector("[data-ct-exp-preparacion]");
-    desmontarPreparacionAlta = zonaPreparacion && alta.catalogos.preparacion_vias
-      ? montarPestanasPreparacion(zonaPreparacion, alta.catalogos.preparacion_vias, "ct-preparacion-alta") : null;
+    if (catalogosNecesidadesAlta === null) {
+      contenedor.innerHTML = `<section class="ct-exp-estado-global" role="status" aria-live="polite"><h3>${escaparHTML(tExpedientes("cargando_titulo"))}</h3><p>${escaparHTML(tExpedientes("cargando_detalle"))}</p></section>`;
+      if (consultaCatalogosNecesidadesAlta === null) {
+        const intento = Promise.resolve()
+          .then(() => alta.obtenerCatalogosNecesidadesAlta())
+          .then((respuesta) => {
+            if (consultaCatalogosNecesidadesAlta !== intento || !esMontada()) return;
+            const catalogos = validarCatalogosAlta(respuesta);
+            if (catalogos.esquema !== ESQUEMA_CATALOGOS_NECESIDADES) {
+              throw new TypeError("catálogo de necesidades incompatible");
+            }
+            catalogosNecesidadesAlta = catalogos;
+            soloSustituciones = false;
+            consultaCatalogosNecesidadesAlta = null;
+            if (esMontada() && presentador.obtenerEstado().vista === "alta") montarAltaSiProcede();
+          })
+          .catch((error) => {
+            if (consultaCatalogosNecesidadesAlta !== intento || !esMontada()) return;
+            consultaCatalogosNecesidadesAlta = null;
+            if (error?.estado === 503 && error?.codigo === "capacidad_no_configurada"
+              && error?.envelopeValido === true
+              && error?.claveI18n === "api.contratacion_temporal.catalogos_alta.error.capacidad_no_configurada") {
+              try {
+                const catalogosV1 = validarCatalogosAlta(alta.catalogos);
+                if (catalogosV1.esquema === "vec.contratacion_temporal.catalogos_alta.v1"
+                  && catalogosV1.motivos.length === 1
+                  && catalogosV1.motivos[0].clave === "sustitucion") {
+                  catalogosNecesidadesAlta = catalogosV1;
+                  soloSustituciones = true;
+                  if (presentador.obtenerEstado().vista === "alta") montarAltaSiProcede();
+                  return;
+                }
+              } catch {
+                // Un catálogo v1 inválido conserva el error de carga.
+              }
+            }
+            if (esMontada() && presentador.obtenerEstado().vista === "alta") {
+              const actual = raiz.querySelector("[data-ct-exp-alta]");
+              if (actual) actual.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("necesidades_alta_no_disponibles_titulo"))}</h3><p>${escaparHTML(tExpedientes("necesidades_alta_no_disponibles_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
+            }
+          });
+        consultaCatalogosNecesidadesAlta = intento;
+      }
+      return;
+    }
     try {
+      const formularioRaiz = soloSustituciones && contenedor.ownerDocument?.createElement
+        ? contenedor.ownerDocument.createElement("div") : contenedor;
+      if (formularioRaiz !== contenedor) {
+        contenedor.replaceChildren(formularioRaiz);
+      }
       const presentadorAlta = crearPresentadorAltaContratacionTemporal({
-        catalogos: alta.catalogos,
+        catalogos: catalogosNecesidadesAlta,
         capacidad: alta.capacidad,
         ejecutor: crearEjecutorAltaConRefresco(
           alta.ejecutor,
@@ -649,12 +696,26 @@ export function crearGestorTramitacion({
         generarClaveIdempotencia: alta.generarClaveIdempotencia,
       });
       desmontarAlta = montarAltaContratacionTemporal({
-        raiz: contenedor,
+        raiz: formularioRaiz,
         presentador: presentadorAlta,
         anunciar,
         locale,
         zonaHoraria,
       });
+      if (soloSustituciones) {
+        const aviso = contenedor.ownerDocument?.createElement?.("section");
+        if (aviso && typeof contenedor.prepend === "function") {
+          aviso.className = "ct-exp-estado-global";
+          aviso.setAttribute("role", "status");
+          aviso.setAttribute("aria-live", "polite");
+          const texto = contenedor.ownerDocument.createElement("p");
+          texto.textContent = tExpedientes("alta_solo_sustituciones");
+          // La edición y su operación permanecen montadas; una ausencia de
+          // capacidad no ofrece un reintento que pueda perder sus datos.
+          aviso.append(texto);
+          contenedor.prepend(aviso);
+        }
+      }
     } catch {
       contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
     }

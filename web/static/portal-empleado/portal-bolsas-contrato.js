@@ -16,7 +16,7 @@
  * - Contratos estrictos y cerrados: cualquier propiedad no declarada invalida la respuesta.
  */
 
-import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261001-ct-a-i18n-v1";
+import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261007-pantallas-textos-final-v1";
 
 export const ESQUEMA_BOLSAS = "vec.bolsa.rrhh.bolsas.v1";
 export const ESQUEMA_CANDIDATOS = "vec.bolsa.rrhh.candidatos.v1";
@@ -42,7 +42,7 @@ export const CANALES_LLAMAMIENTO = Object.freeze([
   "sede",
 ]);
 export const CANALES_CONTACTO = Object.freeze(["telefono", "correo", "sms", "presencial", "otro"]);
-export const RESULTADOS_CONTACTO = Object.freeze(["contactado", "no_contesta", "buzon", "acepta", "rechaza", "aplazado", "otro", "enviado", "no_enviado", "numero_erroneo", "no_entregado"]);
+export const RESULTADOS_CONTACTO = Object.freeze(["contactado", "no_contesta", "comunica", "buzon", "acepta", "rechaza", "aplazado", "otro", "enviado", "no_enviado", "numero_erroneo", "no_entregado"]);
 
 export const RESULTADOS_LLAMAMIENTO_BOLSA = Object.freeze([
   "aceptado",
@@ -319,7 +319,10 @@ export function validarCandidato(candidato) {
 export function validarRespuestaCandidatosBolsa(envelope) {
   const datos = extraerDatosEnvelopeCanonico(envelope);
   const conTurno = datos?.esquema === ESQUEMA_CANDIDATOS_TURNO;
-  exigirCamposExactos(datos, ["esquema", "generado_en", "bolsa", "candidatos", "contactos", "hay_mas", "cursor_siguiente", ...(conTurno ? ["turno"] : [])], "respuesta de candidatos");
+  // «canales_llamamiento» solo viaja cuando el servidor publica los canales activos.
+  const conCanales = esObjeto(datos) && Object.hasOwn(datos, "canales_llamamiento");
+  exigirCamposExactos(datos, ["esquema", "generado_en", "bolsa", "candidatos", "contactos", "hay_mas", "cursor_siguiente",
+    ...(conTurno ? ["turno"] : []), ...(conCanales ? ["canales_llamamiento"] : [])], "respuesta de candidatos");
 
   if (datos.esquema !== ESQUEMA_CANDIDATOS && !conTurno) {
     throw new Error(`esquema no compatible: ${datos.esquema}`);
@@ -358,7 +361,32 @@ export function validarRespuestaCandidatosBolsa(envelope) {
     contactos,
     hay_mas: datos.hay_mas,
     cursor_siguiente: cursorSiguiente,
+    ...(conCanales ? { canales_llamamiento: validarCanalesLlamamiento(datos.canales_llamamiento) } : {}),
   });
+}
+
+// Canales de aviso activos. Es información de presentación: un canal mal
+// formado o desconocido se descarta sin invalidar la lista de candidatos.
+const CANALES_AVISO = Object.freeze(["correo", "telefono"]);
+const PATRON_RESULTADO_CANAL = /^[a-z][a-z_]{1,39}$/u;
+function listaResultadosCanal(valor) {
+  return Array.isArray(valor) && valor.length <= 16 && new Set(valor).size === valor.length
+    && valor.every((resultado) => typeof resultado === "string" && PATRON_RESULTADO_CANAL.test(resultado));
+}
+export function validarCanalesLlamamiento(valor) {
+  if (!Array.isArray(valor) || valor.length > 8) return Object.freeze([]);
+  const canales = [];
+  for (const canal of valor) {
+    if (!esObjeto(canal) || !CANALES_AVISO.includes(canal.canal) || canales.some((c) => c.canal === canal.canal)
+      || typeof canal.modo !== "string" || typeof canal.al_emitir !== "boolean" || typeof canal.seguimiento !== "boolean") continue;
+    const resultados = canal.seguimiento ? canal.resultados : [];
+    const cierre = canal.seguimiento ? canal.resultados_cierre : [];
+    if (!listaResultadosCanal(resultados) || !listaResultadosCanal(cierre)
+      || (canal.seguimiento && resultados.length === 0) || cierre.some((r) => !resultados.includes(r))) continue;
+    canales.push(Object.freeze({ canal: canal.canal, modo: canal.modo, al_emitir: canal.al_emitir, seguimiento: canal.seguimiento,
+      resultados: Object.freeze([...resultados]), resultados_cierre: Object.freeze([...cierre]) }));
+  }
+  return Object.freeze(canales);
 }
 
 function validarTurno(turno, bolsa) {
@@ -424,7 +452,8 @@ export function validarContacto(contacto) {
     throw new Error(`resultado de contacto no reconocido: ${contacto.resultado}`);
   }
   const resultado = contacto.resultado;
-  const anotacion = exigirCadenaSegura(contacto.anotacion, "anotacion", { maximo: 1000 });
+  // La nota de una llamada telefónica es opcional y puede llegar vacía.
+  const anotacion = exigirCadenaSegura(contacto.anotacion, "anotacion", { maximo: 1000, admiteVacia: true });
 
   return Object.freeze({
     contacto_ref: contactoRef,

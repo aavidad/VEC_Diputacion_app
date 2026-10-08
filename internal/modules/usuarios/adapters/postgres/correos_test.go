@@ -71,11 +71,12 @@ type txCorreoPGPrueba struct {
 	respuestas         []filaCorreoPGPrueba
 	llamadas           []llamadaCorreoPG
 	commits, rollbacks int
+	errExec            error
 }
 
 func (t *txCorreoPGPrueba) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 	t.llamadas = append(t.llamadas, llamadaCorreoPG{sql, args})
-	return pgconn.CommandTag{}, nil
+	return pgconn.CommandTag{}, t.errExec
 }
 func (t *txCorreoPGPrueba) QueryRow(_ context.Context, sql string, args ...any) filaCorreos {
 	t.llamadas = append(t.llamadas, llamadaCorreoPG{sql, args})
@@ -88,6 +89,50 @@ func (t *txCorreoPGPrueba) QueryRow(_ context.Context, sql string, args ...any) 
 }
 func (t *txCorreoPGPrueba) Commit(context.Context) error   { t.commits++; return nil }
 func (t *txCorreoPGPrueba) Rollback(context.Context) error { t.rollbacks++; return nil }
+
+func TestAjustesUsuariosEnUnViajeYAntesDeAcreditar(t *testing.T) {
+	casos := []struct {
+		nombre    string
+		ajustes   string
+		lock      string
+		statement string
+		abrir     func(*txCorreoPGPrueba) (transaccionCorreos, error)
+	}{
+		{"imagen", ajustesTransaccionImagenSQL, "3s", "15s", func(tx *txCorreoPGPrueba) (transaccionCorreos, error) {
+			return (&RegistroImagenPostgreSQL{iniciar: func(context.Context) (transaccionCorreos, error) { return tx, nil }, superficie: vecdomain.SuperficieAutenticacionInternaCorporativaV1}).abrir(context.Background())
+		}},
+		{"correos", ajustesTransaccionCorreosSQL, "3s", "15s", func(tx *txCorreoPGPrueba) (transaccionCorreos, error) {
+			return pruebaRegistroCorreos(tx).abrir(context.Background())
+		}},
+		{"avisos", ajustesTransaccionCorreoAvisosSQL, "2s", "5s", func(tx *txCorreoPGPrueba) (transaccionCorreos, error) {
+			return registroAvisosPGPrueba(tx).abrir(context.Background())
+		}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			valores := []string{"'search_path','pg_catalog',true", "'row_security','on',true", "'timezone','UTC',true", "'lock_timeout','" + caso.lock + "',true", "'statement_timeout','" + caso.statement + "',true", "'idle_in_transaction_session_timeout','20s',true"}
+			anterior := -1
+			for _, valor := range valores {
+				indice := strings.Index(caso.ajustes, "pg_catalog.set_config("+valor+")")
+				if indice <= anterior {
+					t.Fatalf("ajustes ausentes o fuera de orden: %s", valor)
+				}
+				anterior = indice
+			}
+			if strings.Count(caso.ajustes, "pg_catalog.set_config(") != 6 {
+				t.Fatal("se esperan exactamente seis ajustes")
+			}
+			tx := &txCorreoPGPrueba{respuestas: []filaCorreoPGPrueba{{valor: false}}}
+			if _, err := caso.abrir(tx); err == nil || len(tx.llamadas) != 2 || tx.llamadas[0].sql != caso.ajustes || !strings.Contains(tx.llamadas[1].sql, "session_user=current_user") || tx.rollbacks == 0 {
+				t.Fatalf("acreditación falsa: err=%v llamadas=%v rollback=%d", err, tx.llamadas, tx.rollbacks)
+			}
+			tx = &txCorreoPGPrueba{errExec: errors.New("ajuste rechazado")}
+			if _, err := caso.abrir(tx); err == nil || len(tx.llamadas) != 1 || tx.llamadas[0].sql != caso.ajustes || tx.rollbacks == 0 {
+				t.Fatalf("fallo de ajustes: err=%v llamadas=%v rollback=%d", err, tx.llamadas, tx.rollbacks)
+			}
+		})
+	}
+}
 
 type revalidadorCorreoPGPrueba struct {
 	auth vecdomain.AutenticacionRevalidadaV1
@@ -414,7 +459,7 @@ func TestRecuperarSinOperacionYLimitesDeTransaccion(t *testing.T) {
 	for _, l := range tx.llamadas {
 		ajustes = append(ajustes, l.sql)
 	}
-	if !strings.Contains(strings.Join(ajustes, "\n"), "idle_in_transaction_session_timeout = '20s'") {
+	if !strings.Contains(strings.Join(ajustes, "\n"), "pg_catalog.set_config('idle_in_transaction_session_timeout','20s',true)") {
 		t.Fatalf("límite de inactividad incompatible con AD3: %v", ajustes)
 	}
 }

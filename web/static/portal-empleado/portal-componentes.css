@@ -172,32 +172,33 @@
 }
 
 /* Recuadro pulsable: lleva a la lista con su filtro ya puesto, como en Inicio. */
-button.tarjeta-kpi {
+:is(button, a).tarjeta-kpi {
   width: 100%;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
+  text-decoration: none;
   transition: box-shadow 120ms ease, transform 120ms ease, border-color 120ms ease;
 }
 
-button.tarjeta-kpi:hover {
+:is(button, a).tarjeta-kpi:hover {
   border-color: var(--portal-azul-700);
   box-shadow: var(--portal-sombra);
   transform: translateY(-1px);
 }
 
-button.tarjeta-kpi:focus-visible {
+:is(button, a).tarjeta-kpi:focus-visible {
   outline: 3px solid var(--portal-azul-700);
   outline-offset: 2px;
 }
 
-button.tarjeta-kpi[aria-pressed="true"] {
+:is(button, a).tarjeta-kpi[aria-pressed="true"] {
   border-color: var(--portal-azul-700);
   box-shadow: inset 0 0 0 1px var(--portal-azul-700);
 }
 
-button.tarjeta-kpi .metrica-enlace { margin-top: 4px; }
+:is(button, a).tarjeta-kpi .metrica-enlace { margin-top: 4px; }
 
 @media (prefers-reduced-motion: reduce) {
   button.tarjeta-kpi { transition: none; }
@@ -618,25 +619,36 @@ button.tarjeta-kpi .metrica-enlace { margin-top: 4px; }
   text-decoration: underline;
 }
 
+.enlace-tabla:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+
 /* Una cifra de tabla que abre su lista es un enlace coloreado, no una pastilla. */
-.tabla-datos td > button.estado-chip {
+.tabla-datos td > :is(button, a).estado-chip {
   min-height: 0;
   padding: 2px 4px;
   background: transparent;
   font-size: 0.92rem;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
+  text-decoration: none;
 }
 
-.tabla-datos td > button.estado-chip::before {
+.tabla-datos td > :is(button, a).estado-chip::before {
   display: none;
 }
 
-.tabla-datos td > button.estado-chip:hover {
+.tabla-datos td > :is(button, a).estado-chip:hover {
   text-decoration: underline;
 }
 
-.tabla-datos td > button.estado-chip.neutro {
+.tabla-datos td > :is(button, a).estado-chip:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+
+.tabla-datos td > :is(button, a).estado-chip.neutro {
   color: var(--portal-tinta);
 }
 

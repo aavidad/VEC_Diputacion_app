@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { montarVistaBorradoresPropios as montarVistaConPuerto } from "./vista-borradores-propios.js";
 import { crearClienteBorradoresDietasHTTP } from "./cliente-borradores-http.js";
+import { ESQUEMA_CATALOGO_RUTAS_DIETAS } from "./contrato.js";
 
 const catalogoProyectado = [
   { codigo: "18087", nombre: "Granada" }, { codigo: "18003", nombre: "Albolote" },
@@ -10,6 +11,11 @@ const catalogoProyectado = [
   ...Array.from({ length: 15 }, (_valor, indice) => ({ codigo: String(18001 + indice).padStart(5, "0"), nombre: `Municipio ${indice + 1}` }))
     .filter((punto) => punto.codigo !== "18003"),
 ];
+const catalogoRuta = (version = "granada-v1") => ({ esquema: ESQUEMA_CATALOGO_RUTAS_DIETAS,
+  demostracion: false, completo: false, version, puntos: [
+    { codigo: "18087", nombre: "Granada", tipo: "municipio", municipio_codigo: "18087", municipio_nombre: "Granada" },
+    { codigo: "18003", nombre: "Albolote", tipo: "municipio", municipio_codigo: "18003", municipio_nombre: "Albolote" },
+  ] });
 const montarVistaBorradoresPropios = (contenedor, opciones = {}) =>
   montarVistaConPuerto(contenedor, { catalogoProyectado, ...opciones });
 
@@ -134,6 +140,138 @@ const item = Object.freeze({
     registrado_en: "2026-09-20T10:00:00Z",
     repeticion: false,
   },
+});
+
+test("formulario y mapa comparten una sola lectura del catálogo de rutas", async () => {
+  const contenedor = raiz(); let lecturas = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item, crear: async () => item },
+    calculadorRuta: { obtenerCatalogo: async () => { lecturas++; return catalogoRuta(); },
+      obtenerCatalogoOtrosGastos: async () => null, calcular: async () => { throw new Error("sin ruta"); } },
+    visorRuta: { montar: () => ({ desmontar() {} }) },
+  });
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(lecturas, 1);
+  assert.ok(contenedor.querySelector("[data-dietas-mapa-comision]"));
+  const origen = contenedor.querySelector('[name="origen_codigo"]');
+  assert.ok(origen.querySelectorAll("option").some((opcion) => opcion.value === "18087"));
+  vista.desmontar();
+});
+
+test("un fallo conserva el formulario y Calcular ruta reintenta el catálogo una vez", async () => {
+  const contenedor = raiz(); let lecturas = 0;
+  const original = globalThis.FormData;
+  globalThis.FormData = DatosFormulario;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item, crear: async () => item },
+    calculadorRuta: { obtenerCatalogo: async () => {
+      if (++lecturas === 1) throw new Error("fuente no disponible");
+      return catalogoRuta();
+    }, obtenerCatalogoOtrosGastos: async () => null, calcular: async () => { throw new Error("sin ruta"); } },
+    visorRuta: { montar: () => ({ desmontar() {} }) },
+  });
+  try {
+    await new Promise((resolver) => setImmediate(resolver));
+    const formulario = contenedor.querySelector("[data-dietas-borrador-form]");
+    const boton = formulario.querySelector("[data-dietas-calcular-ruta]");
+    assert.ok(formulario);
+    assert.match(textoVisible(contenedor), /No se ha podido calcular la ruta/u);
+    assert.equal(boton.textContent, "Reintentar");
+    await contenedor.querySelector("[data-dietas-borradores-propios]").listeners.click({ target: boton });
+    assert.equal(lecturas, 2);
+    assert.ok(contenedor.querySelector("[data-dietas-mapa-comision]"));
+    assert.notEqual(boton.textContent, "Reintentar");
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
+test("dos clics en Reintentar comparten la lectura y conservan el foco", async () => {
+  const contenedor = raiz(); let lecturas = 0; let completar; let señal; const avisos = [];
+  const original = globalThis.FormData;
+  globalThis.FormData = DatosFormulario;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item, crear: async () => item },
+    calculadorRuta: { obtenerCatalogo: ({ signal }) => {
+      if (++lecturas === 1) throw new Error("fuente no disponible");
+      señal = signal;
+      return new Promise((resolver) => { completar = resolver; });
+    }, obtenerCatalogoOtrosGastos: async () => null, calcular: async () => { throw new Error("sin ruta"); } },
+    visorRuta: { montar: () => ({ desmontar() {} }) }, anunciar: (mensaje) => avisos.push(mensaje),
+  });
+  try {
+    await new Promise((resolver) => setImmediate(resolver));
+    const boton = contenedor.querySelector("[data-dietas-calcular-ruta]");
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    const erroresIniciales = avisos.filter((mensaje) => mensaje.includes("No se ha podido calcular la ruta")).length;
+    assert.equal(boton.textContent, "Reintentar");
+    boton.focus();
+    const primero = panel.listeners.click({ target: boton });
+    const segundo = panel.listeners.click({ target: boton });
+    await Promise.resolve(); await Promise.resolve();
+    assert.equal(lecturas, 2);
+    assert.equal(señal.aborted, false);
+    assert.equal(boton.attrs["aria-busy"], "true");
+    completar(catalogoRuta());
+    await Promise.all([primero, segundo]);
+    assert.equal(lecturas, 2);
+    assert.equal(señal.aborted, false);
+    assert.ok(contenedor.querySelector("[data-dietas-mapa-comision]"));
+    assert.notEqual(boton.textContent, "Reintentar");
+    assert.equal(boton.attrs["aria-busy"], undefined);
+    assert.equal(contenedor.ownerDocument.activeElement, boton);
+    assert.equal(avisos.filter((mensaje) => mensaje.includes("No se ha podido calcular la ruta")).length, erroresIniciales);
+    assert.equal(avisos.filter((mensaje) => mensaje.includes("localidades distintas")).length, 1);
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
+test("dos clics con ruta válida solo inician un cálculo mientras sigue pendiente", async () => {
+  const contenedor = raiz(); let calculos = 0; let rechazar;
+  const original = globalThis.FormData;
+  globalThis.FormData = DatosFormulario;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item, crear: async () => item },
+    calculadorRuta: { obtenerCatalogo: async () => catalogoRuta(), obtenerCatalogoOtrosGastos: async () => null,
+      calcular: () => { calculos++; return new Promise((_resolver, rechazarPromesa) => { rechazar = rechazarPromesa; }); } },
+    visorRuta: { montar: () => ({ desmontar() {} }) },
+  });
+  try {
+    await new Promise((resolver) => setImmediate(resolver));
+    const form = contenedor.querySelector("[data-dietas-borrador-form]");
+    form.querySelector('[name="origen_codigo"]').value = "18087";
+    form.querySelector('[name="destino_codigo"]').value = "18003";
+    const boton = form.querySelector("[data-dietas-calcular-ruta]");
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    const primero = panel.listeners.click({ target: boton });
+    const segundo = panel.listeners.click({ target: boton });
+    await Promise.resolve(); await Promise.resolve();
+    assert.equal(calculos, 1);
+    assert.equal(boton.attrs["aria-busy"], "true");
+    rechazar(new Error("servicio temporalmente no disponible"));
+    await Promise.all([primero, segundo]);
+    assert.equal(boton.attrs["aria-busy"], undefined);
+    const nuevoIntento = panel.listeners.click({ target: boton });
+    await Promise.resolve(); await Promise.resolve();
+    assert.equal(calculos, 2);
+    rechazar(new Error("servicio temporalmente no disponible"));
+    await nuevoIntento;
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
+test("una respuesta del catálogo tras desmontar no pinta mapa ni modifica el formulario", async () => {
+  const contenedor = raiz(); let completar; let señal; const avisos = [];
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item, crear: async () => item },
+    calculadorRuta: { obtenerCatalogo: ({ signal }) => { señal = signal; return new Promise((resolver) => { completar = resolver; }); },
+      obtenerCatalogoOtrosGastos: async () => null, calcular: async () => { throw new Error("sin ruta"); } },
+    visorRuta: { montar: () => ({ desmontar() {} }) }, anunciar: (mensaje) => avisos.push(mensaje),
+  });
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  vista.desmontar();
+  completar(catalogoRuta());
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(señal.aborted, true);
+  assert.equal(contenedor.querySelector("[data-dietas-mapa-comision]"), null);
+  assert.equal(form.querySelector('[name="origen_codigo"]').querySelectorAll("option").length, 1);
+  assert.deepEqual(avisos, []);
 });
 
 test("carga la colección propia real y recupera su detalle mediante el cliente inyectado", async () => {

@@ -3,9 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"strings"
 	"testing"
+
+	"vec-diputacion-granada/internal/modules/formacion/adapters/jsonio"
 )
 
 func TestCLIProyeccionDeterminista(t *testing.T) {
@@ -49,5 +52,22 @@ func TestCLIFalloNoFiltraEntrada(t *testing.T) {
 	var out, diagnostico bytes.Buffer
 	if run(strings.NewReader(`{"dato_personal":"no_imprimir"}`), &out, &diagnostico) == 0 || out.Len() != 0 || strings.Contains(diagnostico.String(), "no_imprimir") {
 		t.Fatal("fallo filtra entrada")
+	}
+}
+
+type escritorFallido struct{ err error }
+
+func (e escritorFallido) Write([]byte) (int, error) { return 0, e.err }
+
+func TestCLINoConfundeErrorDelEscritorConConfiguracion(t *testing.T) {
+	entrada, err := os.ReadFile("ejemplo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fallo := range []error{jsonio.ErrConfiguracion, errors.New("detalle privado")} {
+		var diagnostico bytes.Buffer
+		if run(bytes.NewReader(entrada), escritorFallido{fallo}, &diagnostico) != 1 || diagnostico.String() != "{\"error_clave\":\"formacion.error.salida\"}\n" {
+			t.Fatalf("diagnostico inesperado: %s", diagnostico.String())
+		}
 	}
 }

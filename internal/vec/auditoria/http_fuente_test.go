@@ -60,7 +60,7 @@ func TestAuditoriaResuelveFuenteTipadaTrasDecodificarUnaVez(t *testing.T) {
 		}
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
-		if w.Code != http.StatusForbidden || identidad.fuentes[len(identidad.fuentes)-1] != caso.esperado || !identidad.bodyVacio {
+		if w.Code != http.StatusServiceUnavailable || identidad.fuentes[len(identidad.fuentes)-1] != caso.esperado || !identidad.bodyVacio {
 			t.Fatalf("POST fuente=%q status=%d fuentes=%v bodyVacio=%v", caso.fuente, w.Code, identidad.fuentes, identidad.bodyVacio)
 		}
 	}

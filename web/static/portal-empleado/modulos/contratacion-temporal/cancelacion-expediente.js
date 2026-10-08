@@ -1,6 +1,6 @@
 /** Panel de cancelación del expediente antes de la fiscalización (RRHH). */
 
-import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarJustificante } from "../../portal-justificante.js";
 
 const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);

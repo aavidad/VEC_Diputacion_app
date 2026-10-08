@@ -128,7 +128,7 @@ func (h *manejadorRegistroExterno) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		HuellaSHA256      string `json:"huella_sha256"`
 	}
 	if err := decodificar(w, r, &entrada); err != nil || !domain.ReferenciaOpacaValida(entrada.ClaveIdempotencia) ||
-		!domain.ReferenciaOpacaValida(entrada.ExpedienteRef) || !domain.ReferenciaCustodioValida(entrada.Referencia) ||
+		!domain.ReferenciaExpedienteValida(entrada.ExpedienteRef) || !domain.ReferenciaCustodioValida(entrada.Referencia) ||
 		len(entrada.Referencia) > 128 || !domain.HuellaValida(entrada.HuellaSHA256) {
 		responderError(w, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return

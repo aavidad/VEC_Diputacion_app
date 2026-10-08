@@ -53,12 +53,12 @@ var rutasSoloExterno = rutasPortal{
 // Es una lista positiva: una ruta interna nueva queda fuera sin tocar nada.
 var rutasComunesExterno = rutasPortal{
 	exactas: []string{
-		"/bolsa", "/verificar", "/acceso", "/api/publico",
+		"/bolsa", "/canal-interno", "/verificar", "/acceso", "/api/publico",
 		"/styles.css", "/favicon.svg",
 		"/livez", "/readyz", "/healthz",
 	},
 	prefijos: []string{
-		"/bolsa/", "/verificar/", "/acceso/", "/api/publico/",
+		"/bolsa/", "/canal-interno/", "/verificar/", "/acceso/", "/api/publico/",
 		"/assets/", "/comun/", "/textos/", "/locales/", "/pwa/",
 	},
 }

@@ -1,0 +1,9 @@
+# Cadena causal para copia HX sin estas migraciones instaladas.
+# Cotejar el diario de la base antes de ejecutar: ninguna UP se reaplica.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000211_consumidor_ficha_propia_reanclado.up.sql
+deploy/postgresql/personal/migraciones/000022_ficha_propia_empleado.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000175_consumidor_exportacion_servicios_propios.up.sql
+deploy/postgresql/personal/migraciones/000032_exportacion_servicios_propios.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000180_consumidor_historia_servicios_propios.up.sql
+deploy/postgresql/personal/migraciones/000034_historia_servicios_propios.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000214_consultas_bolsa_rrhh.up.sql

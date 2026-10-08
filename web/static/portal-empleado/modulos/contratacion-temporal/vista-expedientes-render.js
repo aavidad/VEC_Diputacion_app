@@ -3,13 +3,13 @@
 import {
   escaparHTML, numeroExpedienteVisible, renderizarAuditoria, renderizarCuadro, renderizarDocumentos,
   renderizarEstadoCarga, renderizarExpediente,
-} from "./componentes-expedientes.js?v=20261006-resumen-inicio-v2";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
+} from "./componentes-expedientes.js?v=20261008-w-ct-borradores-main-v2";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
-import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20261001-ct-a-i18n-v1";
+import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20261006-resumen-inicio-v2";
+import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20261008-w-ct-borradores-main-v2";
 
 // Mensajes que describen la carga del cuadro de mando. Pertenecen a la pestaña
 // del cuadro: en «Nueva petición» el formulario no depende de esa carga y no
@@ -100,7 +100,7 @@ export function renderizarAlta(
       </div>
     </section>`;
   }
-  return `<div data-ct-exp-preparacion></div><div data-ct-exp-alta></div>
+  return `<div data-ct-exp-alta></div>
     ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}
     ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}
     ${asignacionDisponible ? '<div data-ct-exp-asignacion></div>' : ""}

@@ -27,12 +27,17 @@ type SolicitudRegistrarContactoParticipacion struct {
 	ResultadoContexto                                                                                                                          dominiovec.ResultadoContextoActorRegistradoV2
 	BolsaRef, ParticipacionRef, LlamamientoRef, OfertaRef, EvidenciaRef, EvidenciaHuellaSHA256, Canal, Resultado, Anotacion, ClaveIdempotencia string
 	Instante                                                                                                                                   time.Time
+	InstanteServidor                                                                                                                           bool
 	Correlacion                                                                                                                                dominiovec.ReferenciaCorrelacionAutorizacionV2
 	MotivoAutorizacion                                                                                                                         dominiovec.ReferenciaEntradaCatalogo
 }
 
 func (s SolicitudRegistrarContactoParticipacion) Validar() error {
-	if s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil || s.BolsaRef == "" || s.ParticipacionRef == "" || s.Canal == "" || s.Resultado == "" || s.Anotacion == "" || s.ClaveIdempotencia == "" || s.Instante.IsZero() || s.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.MotivoAutorizacion) {
+	if s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil || s.BolsaRef == "" || s.ParticipacionRef == "" || s.Canal == "" || s.Resultado == "" || s.ClaveIdempotencia == "" ||
+		(s.InstanteServidor && (!s.Instante.IsZero() || s.Canal != dominiobolsa.CanalContactoTelefono || s.LlamamientoRef == "" || s.OfertaRef != "" || s.EvidenciaRef != "" || s.EvidenciaHuellaSHA256 != "")) ||
+		(s.InstanteServidor && !dominiobolsa.ResultadoTelefonoActualValido(s.Resultado)) ||
+		(!s.InstanteServidor && (s.Instante.IsZero() || s.Anotacion == "" || s.Resultado == dominiobolsa.ResultadoContactoComunica)) ||
+		s.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.MotivoAutorizacion) {
 		return ErrContactoParticipacionNoDisponible
 	}
 	return nil
@@ -56,7 +61,12 @@ type ComandoRegistrarContactoParticipacion struct {
 	Material                     puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	// ControlIntentos, si existe, hace que el repositorio controle en la misma
 	// transacción los intentos telefónicos del llamamiento.
-	ControlIntentos *dominiobolsa.PoliticaIntentosTelefonicos
+	ControlIntentos  *dominiobolsa.PoliticaIntentosTelefonicos
+	InstanteServidor bool
+	// FechaDiaHabil coincide con el día civil de la zona de la franja; SQL
+	// comprueba la fecha de su propio reloj antes de usar DiaHabil.
+	FechaDiaHabil time.Time
+	DiaHabil      bool
 }
 type ConsultaContactosParticipacion struct {
 	Vinculo                                       dominiovec.VinculoAutenticacionActorV2
@@ -83,8 +93,9 @@ type ConsultaContactosBolsa struct {
 	Material                    puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 type PaginaContactosParticipacion struct {
-	Contactos       []dominiobolsa.ContactoParticipacion
-	CursorSiguiente string
+	Contactos                  []dominiobolsa.ContactoParticipacion
+	CursorSiguiente            string
+	RegistroTelefonoDisponible bool
 }
 type RepositorioContactoParticipacion interface {
 	ParticipacionPerteneceABolsa(context.Context, string, string) (bool, error)

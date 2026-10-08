@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   generarClaveIdempotencia,
   validarClaveIdempotencia,
-} from "./portal-borradores-api.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-borradores-api.js?v=20261008-borradores-error-legible-v1";
 import {
   ESQUEMAS_BORRADORES,
   derivarETagBorrador,
@@ -353,11 +353,11 @@ test("idempotencia usa exactamente 32 bytes CSPRNG y base64url sin padding", () 
   assert.equal(longitud, 32);
   assert.equal(clave, CLAVE_IDEMPOTENCIA_A, "solo se valida la forma; el cliente no infiere entropía");
   assert.equal(validarClaveIdempotencia(clave), clave);
-  assert.throws(() => validarClaveIdempotencia(`${clave}=`), /no válida/);
-  assert.throws(() => validarClaveIdempotencia("a".repeat(42)), /no válida/);
+  assert.throws(() => validarClaveIdempotencia(`${clave}=`), /No se ha podido comprobar esta operación/);
+  assert.throws(() => validarClaveIdempotencia("a".repeat(42)), /No se ha podido comprobar esta operación/);
   assert.throws(
     () => validarClaveIdempotencia(`${"A".repeat(42)}B`),
-    /no válida/,
+    /No se ha podido comprobar esta operación/,
     "los bits de relleno no nulos no forman Base64URL canónico",
   );
   assert.equal(validarClaveIdempotencia(CLAVE_IDEMPOTENCIA_B), CLAVE_IDEMPOTENCIA_B);

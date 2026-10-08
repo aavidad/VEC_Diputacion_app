@@ -4,10 +4,10 @@ import {
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
-import { validarCatalogosAlta } from "./contrato.js?v=20261002-ct-fin-moad-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { validarCatalogosAlta } from "./contrato.js?v=20261008-alta-circular-v3";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
+import { faseRRHH } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
 
 const ESTADOS_SERVIDOR_A_VISUAL = new Map([
   ["pendiente", "pendiente"],
@@ -478,8 +478,9 @@ function fasesDesdeHitos(detalle, traducir) {
     }
   }
   const actual = indice(presentacion.fase_actual || FASE_VISUAL[detalle.resumen.fase_clave]);
-  // La fase administrativa actual manda, salvo que una acción ya la haya cumplido (análisis registrado).
-  if (actual >= 0 && fases[actual].estado_clave !== ESTADO_FASE_COMPLETADO) {
+  // La fase actual del manifiesto es autoritativa para la posición del rail.
+  // Un hito puede completar una tarea de esa fase sin avanzar el expediente.
+  if (actual >= 0 && (presentacion.fase_actual || fases[actual].estado_clave !== ESTADO_FASE_COMPLETADO)) {
     fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
   }
   return fases;
@@ -576,6 +577,8 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   const t = crearTraductorExpedientesContratacion(mensajes);
   const versiones = new Map();
   const capacidadesConsultadas = new Set();
+  let disponibilidadFicha = null;
+  let secuenciaDetalle = 0;
   let secuenciaCuadro = 0;
   let catalogosCargados = null;
   let promesaCatalogos = null;
@@ -676,7 +679,14 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
       if (!pagina?.resumen) throw new TypeError("resumen de la portada no disponible");
       return Object.freeze({ resumen: pagina.resumen, generadoEn: pagina.generada_en });
     },
+    resolverDisponibilidadOpcional(clave, contexto) {
+      const registro = disponibilidadFicha?.[clave];
+      return registro?.expediente_ref === contexto?.expediente_ref
+        && registro?.version_observada === contexto?.version_observada ? registro : null;
+    },
     async obtener(expedienteRef, { signal } = {}) {
+      disponibilidadFicha = null;
+      const secuencia = ++secuenciaDetalle;
       const version = versiones.get(expedienteRef);
       if (!Number.isSafeInteger(version) || version < 1) {
         throw new TypeError("expediente fuera del cuadro consultado");
@@ -691,6 +701,14 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
       const expediente = proyectarExpediente(
         detalle, locale, catalogos, t, mensajes, obtenerJornadaCompleta(),
       );
+      if (!signal?.aborted && secuencia === secuenciaDetalle) {
+        const registro = detalle.capacidades_ficha?.borradores_publicados;
+        if (registro && Object.keys(registro).length === 3
+          && ["montado", "sin_montaje"].includes(registro.estado)
+          && registro.expediente_ref === expedienteRef && registro.version_observada === version) {
+          disponibilidadFicha = Object.freeze({ borradores_publicados: Object.freeze({ ...registro }) });
+        }
+      }
       capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
       return expediente;
     },

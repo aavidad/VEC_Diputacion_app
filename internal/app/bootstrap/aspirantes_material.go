@@ -18,6 +18,7 @@ import (
 	aspirantescertificado "vec-diputacion-granada/internal/modules/aspirantes/adapters/certificado"
 	aspirantespg "vec-diputacion-granada/internal/modules/aspirantes/adapters/postgres"
 	aspirantesports "vec-diputacion-granada/internal/modules/aspirantes/ports"
+	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/datospersonales"
 
 	"vec-diputacion-granada/internal/shared/plazoarranque"
@@ -146,7 +147,7 @@ func abrirPoolAspirantes(ctx context.Context, dsn string) (*pgxpool.Pool, error)
 		c.ConnConfig.RuntimeParams[k] = v
 	}
 	telemetria.Instrumentar(c) // consultas por petición en el registro de acceso
-	pool, err := pgxpool.NewWithConfig(ctx, c)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, c)
 	if err != nil {
 		return nil, errComposicionAspirantes
 	}

@@ -1,0 +1,12 @@
+# AD218: acto V3 B1 de carga desde CONVOCA. Aplicar UNA vez en copia PG18
+# POST216 (AD214→AD216 ya instaladas), sin AD217 pausada ni AD203 antigua.
+# Preimagen núcleo def 96d92f060ddfd4970bf47167c5b23ee140bc67bd521166363c942f6f83203bc3;
+# prosrc 03621298761d25e5e5decb2a8bee13cb2193f9fc07035a6dd7145ea5e5eec1cd;
+# CHECK validado 8dae0267b85ad237770d0ccdb7fbf9862afe6d7d022c0c93f4385c182bcbc68e.
+# Postimagen núcleo prevista def c74551eab17bea78bb564d14d96b77f33bd24a5874b7bdb6e100a59d8f2fe714;
+# prosrc 79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5.
+# HZ AD216 histórico: esta sucesora exige c.convalidated antes y después;
+# no cambia archivo/hash AD216 ni lo reaplica.
+# Orden futuro del productor S: AD218 → B79, con su fuente/CAS propios.
+# No ejecutar DOWN, ni copiar origen vec-rrhh del AD203 histórico.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000218_carga_convoca_bolsa.up.sql

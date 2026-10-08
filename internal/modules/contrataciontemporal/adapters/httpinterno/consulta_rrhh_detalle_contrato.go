@@ -27,6 +27,17 @@ type detalleRRHHJSON struct {
 	Fiscalizacion     *fiscalizacionRRHHJSON     `json:"fiscalizacion,omitempty"`
 	Hitos             []hitoExpedienteRRHHJSON   `json:"hitos"`
 	PresentacionFlujo *presentacionFlujoRRHHJSON `json:"presentacion_flujo,omitempty"`
+	CapacidadesFicha  *capacidadesFichaRRHHJSON  `json:"capacidades_ficha,omitempty"`
+}
+
+type capacidadesFichaRRHHJSON struct {
+	BorradoresPublicados disponibilidadBorradoresRRHHJSON `json:"borradores_publicados"`
+}
+
+type disponibilidadBorradoresRRHHJSON struct {
+	Estado           string `json:"estado"`
+	ExpedienteRef    string `json:"expediente_ref"`
+	VersionObservada uint64 `json:"version_observada"`
 }
 type presentacionFlujoRRHHJSON struct {
 	Esquema    string                          `json:"esquema"`
@@ -136,6 +147,13 @@ func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 			PeriodoCausaFin: string(entrada.Solicitud.PeriodoCausaFin),
 		},
 		Hitos: make([]hitoExpedienteRRHHJSON, len(entrada.Hitos)),
+	}
+	if entrada.EstadoBorradoresPublicados == ports.BorradoresRRHHSinMontaje ||
+		entrada.EstadoBorradoresPublicados == ports.BorradoresRRHHMontado {
+		salida.CapacidadesFicha = &capacidadesFichaRRHHJSON{BorradoresPublicados: disponibilidadBorradoresRRHHJSON{
+			Estado: string(entrada.EstadoBorradoresPublicados), ExpedienteRef: entrada.Resumen.ExpedienteRef,
+			VersionObservada: entrada.Resumen.Version,
+		}}
 	}
 	if entrada.Analisis != nil {
 		salida.Analisis = proyectarAnalisisRRHH(*entrada.Analisis)

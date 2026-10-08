@@ -106,7 +106,7 @@ func Abrir(
 	if err != nil {
 		return nil, err
 	}
-	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
+	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, configuracion)
 	if err != nil {
 		return nil, ErrPostgreSQLPublicoNoDisponible
 	}
