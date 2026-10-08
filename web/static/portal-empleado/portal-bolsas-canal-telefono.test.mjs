@@ -4,12 +4,12 @@ import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-text
 import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
-import { crearControladorBolsas, rutaCandidatosBolsa } from "./portal-bolsas-api.js?v=20261008-canal-telefono-v2";
+import { crearControladorBolsas, rutaCandidatosBolsa } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
 import { validarCanalesLlamamiento } from "./portal-bolsas-contrato.js?v=20261008-canal-telefono-v2";
 import { crearControladorIntentosContacto, llamamientoDeFicha, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261008-canal-telefono-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-canal-telefono-v2";
-import { canalesAviso, filasSeguimiento } from "./portal-bolsas-seguimiento.js";
-import { leerCandidatosBolsaCompartible, rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
+import { canalesAviso, filasSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261008-bolsa-global-v2";
+import { leerCandidatosBolsaCompartible, rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
 import { renderizarExpediente } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261008-canal-telefono-v2";
 import { crearTraductorExpedientesContratacion } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
