@@ -47,6 +47,21 @@ export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-documentos-ficha-v1";
 export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261008-documentos-ficha-v1";
 
+export function insertarAvisoEnlaceLegado(raiz, texto) {
+  if (!texto || !raiz?.ownerDocument?.createElement || typeof raiz.prepend !== "function") return;
+  const aviso = raiz.ownerDocument.createElement("section");
+  aviso.className = "panel panel-separado";
+  aviso.setAttribute("role", "status");
+  aviso.setAttribute("data-ct-enlace-legado", "");
+  const cuerpo = raiz.ownerDocument.createElement("div");
+  cuerpo.className = "cuerpo-panel";
+  const parrafo = raiz.ownerDocument.createElement("p");
+  parrafo.textContent = texto;
+  cuerpo.append(parrafo);
+  aviso.append(cuerpo);
+  raiz.prepend(aviso);
+}
+
 // Exportaciones auxiliares conservadas para compatibilidad con tests e importadores
 export {
   montarFormularioCobertura,
@@ -154,18 +169,23 @@ export async function montarModuloContratacionTemporal({
   prepararFichaBolsa = null,
   // Filtros de pantalla de la lista (p. ej. desde un indicador de Inicio).
   filtroLista: filtroListaInicial = null,
+  alCambiarFicha = () => {},
+  avisoEnlaceLegado = "",
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.querySelector !== "function"
     || typeof presentador?.obtenerEstado !== "function"
     || typeof presentador?.cargar !== "function"
-    || typeof anunciar !== "function" || typeof confirmarOperacion !== "function") {
+    || typeof anunciar !== "function" || typeof confirmarOperacion !== "function"
+    || typeof alCambiarFicha !== "function" || typeof avisoEnlaceLegado !== "string"
+    || avisoEnlaceLegado.length > 240) {
     throw new TypeError("dependencias del módulo de contratación temporal no válidas");
   }
   const traducirExpedientes = crearTraductorExpedientesContratacion(mensajes);
   instalarPantallasFase(raiz.ownerDocument ?? globalThis.document, traducirExpedientes);
   // Filtros de la lista aplicados en pantalla sobre la consulta ya cargada.
   let filtroLista = filtroListaValido(filtroListaInicial ?? {});
+  let avisoEnlaceLegadoPendiente = avisoEnlaceLegado;
 
   const altaDisponible = alta !== null && typeof alta === "object"
     && typeof alta.ejecutor === "function" && alta.catalogos !== undefined;
@@ -736,6 +756,7 @@ export async function montarModuloContratacionTemporal({
       montarSeguimientoCeseSiProcede(estado);
       gestorCancelacion.montar(estado);
     }
+    if (estado.vista === "cuadro") insertarAvisoEnlaceLegado(raiz, avisoEnlaceLegadoPendiente);
     insertarConsultaCircuitoRRHH(raiz, estado.expediente);
     montarAuditoriaComunSiProcede(estado);
     montarDocumentosComunSiProcede(estado);
@@ -788,6 +809,7 @@ export async function montarModuloContratacionTemporal({
       return;
     }
     presentador.cambiarVista(vista);
+    if (vista === "cuadro") alCambiarFicha(null);
     repintar(vista === "cuadro" ? "[data-ct-exp-filtros]" : (vista === "alta" ? "#ct-alta-titulo" : (vista === "estadisticas" ? '[data-ct-form="filtros-estadisticas"]' : ".ct-exp-contenido")));
   }
 
@@ -887,6 +909,8 @@ export async function montarModuloContratacionTemporal({
         if (estado.carga === "listo" && estado.vista === "expediente"
           && estado.expediente_ref === abrir.dataset.ctExpAbrir
           && estado.expediente?.expediente_ref === abrir.dataset.ctExpAbrir) {
+          avisoEnlaceLegadoPendiente = "";
+          alCambiarFicha({ expedienteRef: estado.expediente_ref, version: estado.expediente.version });
           repintar();
           enfocarCabeceraExpediente(raiz);
         } else {
