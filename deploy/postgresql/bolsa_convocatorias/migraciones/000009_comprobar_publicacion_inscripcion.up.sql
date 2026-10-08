@@ -113,10 +113,7 @@ BEGIN
  OR c#>>'{comprobacion_dependencias,convocatoria_ref}' IS DISTINCT FROM v.referencia
  OR c->>'publicada_en' IS NULL
  THEN RAISE EXCEPTION 'BC9: material publicado incompleto' USING ERRCODE='55000'; END IF;
- IF jsonb_array_length(c#>'{contenido,categorias}')>32 THEN
-  RAISE EXCEPTION 'BC9: formulario de inscripción supera 32 categorías' USING ERRCODE='B9607';
- END IF;
- IF jsonb_array_length(c#>'{contenido,categorias}')<1
+ IF jsonb_array_length(c#>'{contenido,categorias}') NOT BETWEEN 1 AND 128
  OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(c#>'{contenido,categorias}') AS x(valor)
    WHERE x.valor !~ '^[a-z][a-z0-9_.:-]{2,127}$')
  OR (SELECT count(DISTINCT x.valor) FROM jsonb_array_elements_text(c#>'{contenido,categorias}') AS x(valor))
@@ -237,15 +234,11 @@ BEGIN
  BEGIN c:=convert_from(p_canonica,'UTF8')::jsonb;
  EXCEPTION WHEN data_exception THEN
   RAISE EXCEPTION 'BC9: versión gobernada ilegible' USING ERRCODE='55000'; END;
- IF jsonb_typeof(c#>'{contenido,categorias}')='array'
-  AND jsonb_array_length(c#>'{contenido,categorias}')>32 THEN
-  RETURN NULL;
- END IF;
  IF jsonb_typeof(c) IS DISTINCT FROM 'object'
  OR c->>'id' IS DISTINCT FROM p_id OR c->>'secuencia' IS DISTINCT FROM p_secuencia::text
  OR c->>'estado_gobierno' IS DISTINCT FROM 'publicada'
  OR jsonb_typeof(c#>'{contenido,categorias}') IS DISTINCT FROM 'array'
- OR jsonb_array_length(c#>'{contenido,categorias}') NOT BETWEEN 1 AND 32
+ OR jsonb_array_length(c#>'{contenido,categorias}') NOT BETWEEN 1 AND 128
  OR jsonb_typeof(c#>'{contenido,plazos}') IS DISTINCT FROM 'array'
  OR jsonb_typeof(c#>'{contenido,requisitos}') IS DISTINCT FROM 'array'
  OR jsonb_array_length(c#>'{contenido,requisitos}')>256
@@ -328,7 +321,10 @@ BEGIN
   'convocatoria_ref',referencia,'convocatoria_id',p_id,'secuencia',p_secuencia,
   'identificador_publico',c#>>'{contenido,identificador_publico}',
   'titulo',c#>>'{contenido,titulo}','resumen',c#>>'{contenido,resumen}',
-  'tipo',c#>>'{contenido,tipo}','categorias',categorias,
+  'tipo',c#>>'{contenido,tipo}',
+  'numero_categorias',jsonb_array_length(c#>'{contenido,categorias}'),
+  'categoria_ref_comprobacion',c#>>'{contenido,categorias,0}',
+  'categorias',categorias,'numero_requisitos',jsonb_array_length(requisitos),
   'version_sha256',p_huella_sha256,'bases_ref',bases->>'publicacion_ref',
   'catalogo_ref',catalogo->>'catalogo_id',
   'catalogo_version',(catalogo->>'catalogo_version')::integer,
@@ -364,18 +360,21 @@ BEGIN
  OR (p_cursor IS NOT NULL AND (octet_length(p_cursor) NOT BETWEEN 9 AND 200
    OR p_cursor !~ '^cv1_[0-9a-f]{64}_v[1-9][0-9]{0,15}$'))
  THEN RAISE EXCEPTION 'BC9: paginación inválida' USING ERRCODE='22023'; END IF;
- WITH abiertas AS MATERIALIZED (
-  SELECT proyeccion.datos AS datos,proyeccion.datos->>'convocatoria_ref' AS cursor
+ WITH candidatas AS MATERIALIZED (
+  SELECT v.convocatoria_id,v.secuencia,v.version_canonica,v.huella_version_sha256
   FROM vec_bolsa_convocatorias.version_convocatoria AS v
-  CROSS JOIN LATERAL (
-   SELECT vec_bolsa_convocatorias.proyectar_abierta_inscripcion_v1(
-    v.convocatoria_id,v.secuencia,v.version_canonica,v.huella_version_sha256,instante) AS datos
-  ) AS proyeccion
   WHERE v.estado='publicada'
    AND NOT EXISTS(SELECT 1 FROM vec_bolsa_convocatorias.version_convocatoria AS posterior
     WHERE posterior.convocatoria_id=v.convocatoria_id AND posterior.secuencia>v.secuencia
      AND posterior.estado IN('publicada','sustituida','retirada'))
-   AND proyeccion.datos IS NOT NULL
+ ), proyectadas AS MATERIALIZED (
+  SELECT vec_bolsa_convocatorias.proyectar_abierta_inscripcion_v1(
+   v.convocatoria_id,v.secuencia,v.version_canonica,v.huella_version_sha256,instante) AS datos
+  FROM candidatas v
+ ), abiertas AS MATERIALIZED (
+  SELECT p.datos - 'categorias' - 'requisitos' AS datos,
+   p.datos->>'convocatoria_ref' AS cursor
+  FROM proyectadas p WHERE p.datos IS NOT NULL
  ), pagina AS (
   SELECT datos,cursor,row_number() OVER (ORDER BY cursor COLLATE "C") AS orden
   FROM abiertas WHERE p_cursor IS NULL OR cursor COLLATE "C">p_cursor COLLATE "C"
@@ -433,12 +432,9 @@ BEGIN
  resultado:=vec_bolsa_convocatorias.proyectar_abierta_inscripcion_v1(
   v.convocatoria_id,v.secuencia,v.version_canonica,v.huella_version_sha256,instante);
  IF resultado IS NULL THEN
-  IF jsonb_typeof(convert_from(v.version_canonica,'UTF8')::jsonb#>'{contenido,categorias}')='array'
-     AND jsonb_array_length(convert_from(v.version_canonica,'UTF8')::jsonb#>'{contenido,categorias}')>32
-  THEN RAISE EXCEPTION 'BC9: formulario de inscripción supera 32 categorías' USING ERRCODE='B9607'; END IF;
   RETURN NULL;
  END IF;
- RETURN resultado;
+ RETURN resultado - 'categoria_ref_comprobacion';
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(text)
  FROM PUBLIC,vec_bolsa_convocatorias_ejecutor_consulta,vec_bolsa_convocatorias_ejecutor_preparacion_bases,
@@ -497,7 +493,7 @@ BEGIN
  OR c#>>'{aprobacion_publicacion,convocatoria_ref}' IS DISTINCT FROM v.referencia
  OR c#>>'{comprobacion_dependencias,convocatoria_ref}' IS DISTINCT FROM v.referencia
  OR jsonb_typeof(c#>'{contenido,categorias}') IS DISTINCT FROM 'array'
- OR jsonb_array_length(c#>'{contenido,categorias}') NOT BETWEEN 1 AND 32
+ OR jsonb_array_length(c#>'{contenido,categorias}') NOT BETWEEN 1 AND 128
  OR jsonb_typeof(c#>'{contenido,plazos}') IS DISTINCT FROM 'array'
  OR jsonb_typeof(c#>'{contenido,requisitos}') IS DISTINCT FROM 'array'
  OR jsonb_array_length(c#>'{contenido,requisitos}')>256

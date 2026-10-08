@@ -69,8 +69,10 @@ SELECT f.solicitud_ref,f.persona_ref,'vca_'||repeat('v',22),1,
  'declaracion_inscripcion_'||f.huella,f.huella,f.huella,'externa_personal',f.presentada_en
 FROM b96_perf_filas f;
 INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion_version(
- solicitud_ref,version,estado,actor_ref,evaluacion,decision_ref,consumo_huella_sha256,auditoria_ref,aplicada_en)
-SELECT f.solicitud_ref,1,'pendiente',f.persona_ref,
+ solicitud_ref,version,estado,actor_ref,perfil_ref,cuenta_ref,
+ evaluacion,decision_ref,consumo_huella_sha256,auditoria_ref,aplicada_en)
+SELECT f.solicitud_ref,1,'pendiente',f.persona_ref,'prf_'||repeat('p',22),
+ 'cta_'||repeat('c',22),
  $requisito$[{"referencia":"identidad_certificada","codigo":"identidad_certificada",
   "descripcion":"Identidad con certificado","obligatorio":true,"estado":"cumple",
   "motivo_codigo":""}]$requisito$::jsonb,

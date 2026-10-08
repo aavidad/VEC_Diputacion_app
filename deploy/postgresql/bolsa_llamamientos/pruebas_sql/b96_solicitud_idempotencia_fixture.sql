@@ -163,10 +163,16 @@ DECLARE
  material text; contenido_sha text; recurso text; recurso_sha text;
  cap bytea; dec bytea; contexto bytea; captura jsonb; recibo jsonb;
  recibo_primero text; caso integer;
+ actor_caso text;perfil_caso text;cuenta_caso text;
+ decision_invalida jsonb; material_invalido text;
 BEGIN
  solicitud_ref:='solicitud_inscripcion_'||encode(sha256(convert_to(
   'per_'||repeat('a',22)||chr(31)||ref_conv||chr(31)||'cat.alpha','UTF8')),'hex');
- FOR caso IN 1..3 LOOP
+ FOR caso IN 1..5 LOOP
+  actor_caso:=CASE WHEN caso=3 THEN 'per_'||repeat('a',22)
+                   WHEN caso=4 THEN 'per_'||repeat('s',22) ELSE actor END;
+  perfil_caso:=CASE WHEN caso=5 THEN 'prf_'||repeat('s',22) ELSE perfil END;
+  cuenta_caso:=CASE WHEN caso=5 THEN 'cta_'||repeat('s',22) ELSE cuenta END;
   material:='{"esquema":"vec.bolsa.inscripcion.decidir.v1",'
    ||'"solicitud_ref":'||to_json(solicitud_ref)::text||','
    ||'"decision":"admitir","motivo_codigo":"",'
@@ -179,19 +185,18 @@ BEGIN
    'audiencia_consumo','vec_bolsa_llamamientos.inscripcion.revisar.v1',
    'efecto_ref',solicitud_ref,'huella_efecto_sha256',recurso_sha)::text,'UTF8');
   dec:=convert_to(jsonb_build_object('decision_ref','decision:b96:revision:'||caso,
-   'principal_id',CASE WHEN caso=3 THEN 'per_'||repeat('a',22) ELSE actor END,
-   'perfil_activo_ref',perfil,'concedida',true,
+   'principal_id',actor_caso,
+   'perfil_activo_ref',perfil_caso,'concedida',true,
    'accion','bolsa.inscripcion.rrhh.decidir','modulo_id','bolsa',
    'tipo_recurso','solicitud_inscripcion','finalidad','revisar_inscripcion',
    'recurso_ref',solicitud_ref,'contexto_recurso_huella_sha256',recurso_sha,
    'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa'))::text,'UTF8');
-  contexto:=convert_to(jsonb_build_object('principal_ref',
-   CASE WHEN caso=3 THEN 'per_'||repeat('a',22) ELSE actor END,
-   'perfil_activo_ref',perfil,'cuenta_ref',cuenta,'metodo','certificado',
+  contexto:=convert_to(jsonb_build_object('principal_ref',actor_caso,
+   'perfil_activo_ref',perfil_caso,'cuenta_ref',cuenta_caso,'metodo','certificado',
    'garantia','alto')::text,'UTF8');
-  captura:=jsonb_build_object('persona_ref',
-   CASE WHEN caso=3 THEN 'per_'||repeat('a',22) ELSE actor END,
-   'perfil_ref',perfil,'cuenta_ref',cuenta,'canal','interna_corporativa','idioma','es');
+  captura:=jsonb_build_object('persona_ref',actor_caso,
+   'perfil_ref',perfil_caso,'cuenta_ref',cuenta_caso,
+   'canal','interna_corporativa','idioma','es');
   IF caso=3 THEN
    BEGIN
     PERFORM vec_bolsa_llamamientos.revisar_inscripcion_v1(
@@ -200,6 +205,15 @@ BEGIN
      convert_to(repeat('a',44),'UTF8'));
     RAISE EXCEPTION 'B96 fixture: solicitante revisó su solicitud';
    EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+   END;
+  ELSIF caso IN(4,5) THEN
+   BEGIN
+    PERFORM vec_bolsa_llamamientos.revisar_inscripcion_v1(
+     material,captura,cap,dec,convert_to('{}','UTF8'),contexto,1,1,
+     convert_to('x','UTF8'),convert_to('x','UTF8'),convert_to('x','UTF8'),
+     convert_to(repeat('a',44),'UTF8'));
+    RAISE EXCEPTION 'B96 fixture: otro revisor recuperó recibo ajeno caso %',caso;
+   EXCEPTION WHEN SQLSTATE 'B9604' THEN NULL;
    END;
   ELSE
    recibo:=vec_bolsa_llamamientos.revisar_inscripcion_v1(
@@ -218,6 +232,17 @@ BEGIN
    END IF;
   END IF;
  END LOOP;
+ FOR decision_invalida IN SELECT valor FROM jsonb_array_elements('[null,123,{}]'::jsonb) AS x(valor) LOOP
+  material_invalido:=jsonb_set(material::jsonb,'{decision}',decision_invalida)::text;
+  BEGIN
+   PERFORM vec_bolsa_llamamientos.revisar_inscripcion_v1(
+    material_invalido,captura,cap,dec,convert_to('{}','UTF8'),contexto,1,1,
+    convert_to('x','UTF8'),convert_to('x','UTF8'),convert_to('x','UTF8'),
+    convert_to(repeat('a',44),'UTF8'));
+   RAISE EXCEPTION 'B96 fixture: decisión JSON inválida aceptada %',decision_invalida;
+  EXCEPTION WHEN SQLSTATE 'B9605' THEN NULL;
+  END;
+ END LOOP;
 END $revision$;
 RESET SESSION AUTHORIZATION;
 SET SESSION AUTHORIZATION vec_bolsa_inscripciones_lector;
@@ -229,11 +254,11 @@ DECLARE
  cuenta text:='cta_'||repeat('c',22); accion text; finalidad text;
  recurso text; selector jsonb; filtro jsonb; canon_recurso text;
  prefijo text; contexto bytea; vinculo bytea; captura jsonb;
- resultado jsonb; caso integer; canal text:='externa_personal';
+ resultado jsonb; captura_invalida jsonb; caso integer; canal text:='externa_personal';
 BEGIN
  ref_solicitud:='solicitud_inscripcion_'||encode(sha256(convert_to(
   'per_'||repeat('a',22)||chr(31)||ref_conv||chr(31)||'cat.alpha','UTF8')),'hex');
- FOR caso IN 1..4 LOOP
+ FOR caso IN 1..5 LOOP
   persona:=CASE WHEN caso=4 THEN 'per_'||repeat('b',22) ELSE 'per_'||repeat('a',22) END;
   prefijo:=NULL;
   IF caso IN(1,4) THEN
@@ -248,12 +273,18 @@ BEGIN
    selector:=jsonb_build_object('estado','','convocatoria_ref','','limite',10,'cursor','');
    filtro:=selector;
    prefijo:='inscripciones_propias_';
-  ELSE
+  ELSIF caso=3 THEN
    accion:='bolsa.inscripcion.convocatorias.listar';
    finalidad:='consulta_convocatoria_abierta';
    selector:=jsonb_build_object('limite',10,'cursor','');
    filtro:=jsonb_build_object('estado','','convocatoria_ref','','limite',10,'cursor','');
    prefijo:='inscripciones_abiertas_';
+  ELSE
+   accion:='bolsa.inscripcion.convocatoria.consultar';
+   finalidad:='consulta_convocatoria_abierta';
+   selector:=jsonb_build_object('convocatoria_ref',ref_conv);
+   filtro:=jsonb_build_object('estado','','convocatoria_ref','','limite',0,'cursor','');
+   recurso:=ref_conv;
   END IF;
   IF prefijo IS NOT NULL THEN
    canon_recurso:='{"accion":'||to_json(accion)::text||
@@ -306,17 +337,40 @@ BEGIN
     RAISE EXCEPTION 'B96 fixture: idioma cambiado con recurso antiguo';
    EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
    END;
+   FOR captura_invalida IN SELECT valor FROM jsonb_array_elements(jsonb_build_array(
+     captura-'emitida_en',
+     jsonb_set(captura,'{emitida_en}','null'::jsonb),
+     jsonb_set(captura,'{emitida_en}',to_jsonb(clock_timestamp()+interval '1 hour')),
+     jsonb_set(captura,'{valida_hasta}',to_jsonb(clock_timestamp()-interval '1 hour'))
+   )) AS x(valor) LOOP
+    BEGIN
+     PERFORM vec_bolsa_llamamientos.consultar_inscripcion_v1(accion,
+      selector,contexto,vinculo,captura_invalida);
+     RAISE EXCEPTION 'B96 fixture: ventana inválida aceptada %',captura_invalida;
+    EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+    END;
+   END LOOP;
   ELSIF caso=3 THEN
    IF resultado->>'resultado'<>'obtenida'
     OR resultado#>>'{proyeccion,total}'<>'1'
     OR resultado#>>'{proyeccion,convocatorias,0,puede_iniciar}'<>'false'
+    OR resultado#>>'{proyeccion,convocatorias,0,numero_categorias}'<>'1'
+    OR (resultado#>'{proyeccion,convocatorias,0}') ? 'categorias'
+    OR (resultado#>'{proyeccion,convocatorias,0}') ? 'categorias_resumen'
+    OR (resultado#>'{proyeccion,convocatorias,0}') ? 'requisitos'
     OR resultado#>>'{proyeccion,convocatorias,0,impedimento_etiqueta}'<>'Ya solicitada ES'
    THEN RAISE EXCEPTION 'B96 fixture: abierta propia incompleta %',resultado; END IF;
-  ELSE
+  ELSIF caso=4 THEN
    IF resultado->>'resultado'<>'no_encontrada'
     OR resultado->'proyeccion' IS DISTINCT FROM 'null'::jsonb
     OR coalesce(resultado->>'auditoria_ref','')=''
    THEN RAISE EXCEPTION 'B96 fixture: ajena filtrada incorrectamente %',resultado; END IF;
+  ELSE
+   IF resultado->>'resultado'<>'obtenida'
+    OR resultado#>>'{proyeccion,numero_categorias}'<>'1'
+    OR jsonb_array_length(resultado#>'{proyeccion,categorias}')<>1
+    OR jsonb_array_length(resultado#>'{proyeccion,requisitos}')<>1
+   THEN RAISE EXCEPTION 'B96 fixture: detalle abierto incompleto %',resultado; END IF;
   END IF;
  END LOOP;
 END $lecturas$;

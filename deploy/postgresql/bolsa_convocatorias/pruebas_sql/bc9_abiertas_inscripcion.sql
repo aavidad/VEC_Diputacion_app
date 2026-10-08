@@ -4,8 +4,8 @@ BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL statement_timeout='15s';
 SET LOCAL lock_timeout='2s';
 DO $test$
-DECLARE id text; material jsonb; bytes bytea; referencia text; ref33 text; ref4 text; ref_largo text;
- pagina jsonb; segunda jsonb; detalle jsonb; posterior jsonb;
+DECLARE id text; material jsonb; bytes bytea; referencia text; ref33 text; ref128 text; ref4 text; ref_largo text;
+ pagina jsonb; segunda jsonb; tercera jsonb; todos jsonb; item jsonb; detalle jsonb; posterior jsonb;
  f_lista regprocedure; f_detalle regprocedure; f_post regprocedure;
  i integer;
 BEGIN
@@ -67,7 +67,7 @@ BEGIN
  OR vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(ref4,'cat.alpha') IS NULL
  THEN RAISE EXCEPTION 'BC9: borrador posterior retiró la publicación original'; END IF;
 
- -- Un material abierto de 33 categorías nunca se ofrece parcialmente.
+ -- Una publicación de 33 categorías se ofrece y conserva todas.
  id:='proceso:bolsa:inscripcion-5';
  ref33:='cv1_'||encode(sha256(convert_to(id,'UTF8')),'hex')||'_v1';
  material:=jsonb_set(material,'{id}',to_jsonb(id));
@@ -76,6 +76,19 @@ BEGIN
  material:=jsonb_set(material,'{contenido,identificador_publico}','"bolsa-test-5"'::jsonb);
  material:=jsonb_set(material,'{contenido,categorias}',
   (SELECT jsonb_agg('cat.'||g ORDER BY g) FROM generate_series(1,33) AS g));
+ bytes:=convert_to(material::text,'UTF8');
+ INSERT INTO vec_bolsa_convocatorias.version_convocatoria
+  (convocatoria_id,secuencia,referencia,estado,version_canonica,huella_version_sha256,registrada_en)
+ VALUES(id,1,id||'#1','publicada',bytes,encode(sha256(bytes),'hex'),statement_timestamp());
+
+ id:='proceso:bolsa:inscripcion-6';
+ ref128:='cv1_'||encode(sha256(convert_to(id,'UTF8')),'hex')||'_v1';
+ material:=jsonb_set(material,'{id}',to_jsonb(id));
+ material:=jsonb_set(material,'{aprobacion_publicacion,convocatoria_ref}',to_jsonb(id||'#1'));
+ material:=jsonb_set(material,'{comprobacion_dependencias,convocatoria_ref}',to_jsonb(id||'#1'));
+ material:=jsonb_set(material,'{contenido,identificador_publico}','"bolsa-test-6"'::jsonb);
+ material:=jsonb_set(material,'{contenido,categorias}',
+  (SELECT jsonb_agg('cat.'||g ORDER BY g) FROM generate_series(1,128) AS g));
  bytes:=convert_to(material::text,'UTF8');
  INSERT INTO vec_bolsa_convocatorias.version_convocatoria
   (convocatoria_id,secuencia,referencia,estado,version_canonica,huella_version_sha256,registrada_en)
@@ -96,27 +109,57 @@ BEGIN
  VALUES(id,1,id||'#1','publicada',bytes,encode(sha256(bytes),'hex'),statement_timestamp());
 
  pagina:=vec_bolsa_convocatorias.listar_abiertas_inscripcion_v1(NULL,2);
- IF pagina->>'total'<>'4' OR pagina->>'hay_mas'<>'true'
+ IF pagina->>'total'<>'6' OR pagina->>'hay_mas'<>'true'
  OR jsonb_array_length(pagina->'items')<>2
  OR pagina#>>'{items,1,convocatoria_ref}' IS DISTINCT FROM pagina->>'siguiente_cursor'
  THEN RAISE EXCEPTION 'BC9: primer total/cursor: %',pagina; END IF;
  segunda:=vec_bolsa_convocatorias.listar_abiertas_inscripcion_v1(pagina->>'siguiente_cursor',2);
- IF segunda->>'total'<>'4' OR segunda->>'hay_mas'<>'false'
+ IF segunda->>'total'<>'6' OR segunda->>'hay_mas'<>'true'
  OR jsonb_array_length(segunda->'items')<>2
  OR segunda#>>'{items,0,convocatoria_ref}'=pagina#>>'{items,0,convocatoria_ref}'
  THEN RAISE EXCEPTION 'BC9: segunda página: %',segunda; END IF;
- IF NOT ((pagina->'items'||segunda->'items') @> jsonb_build_array(jsonb_build_object('convocatoria_ref',ref_largo)))
+ tercera:=vec_bolsa_convocatorias.listar_abiertas_inscripcion_v1(segunda->>'siguiente_cursor',2);
+ IF tercera->>'total'<>'6' OR tercera->>'hay_mas'<>'false'
+ OR jsonb_array_length(tercera->'items')<>2
+ THEN RAISE EXCEPTION 'BC9: tercera página: %',tercera; END IF;
+ todos:=pagina->'items'||segunda->'items'||tercera->'items';
+ IF NOT (todos @> jsonb_build_array(jsonb_build_object('convocatoria_ref',ref_largo)))
+ OR NOT (todos @> jsonb_build_array(jsonb_build_object('convocatoria_ref',ref33)))
+ OR NOT (todos @> jsonb_build_array(jsonb_build_object('convocatoria_ref',ref128)))
  OR vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(ref_largo) IS NULL
- THEN RAISE EXCEPTION 'BC9: convocatoria de 480 bytes oculta'; END IF;
- BEGIN
-  PERFORM vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(ref33,'cat.1');
-  RAISE EXCEPTION 'BC9: POST de 33 categorías aceptado';
- EXCEPTION WHEN SQLSTATE 'B9607' THEN NULL; END;
- BEGIN
-  PERFORM vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(ref33);
-  RAISE EXCEPTION 'BC9: detalle de 33 categorías aceptado';
- EXCEPTION WHEN SQLSTATE 'B9607' THEN NULL; END;
- referencia:=pagina#>>'{items,0,convocatoria_ref}';
+ THEN RAISE EXCEPTION 'BC9: convocatoria abierta omitida'; END IF;
+ FOR item IN SELECT valor FROM jsonb_array_elements(todos) AS x(valor) LOOP
+  IF item ? 'categorias' OR item ? 'requisitos'
+   OR coalesce(item->>'categoria_ref_comprobacion','')=''
+   OR (item->>'numero_categorias')::integer NOT BETWEEN 1 AND 128
+   OR (item->>'numero_requisitos')::integer<>1
+   OR coalesce(item->>'titulo','')=''
+   OR item->>'plazo_abre_en' IS NULL OR item->>'plazo_cierra_en' IS NULL
+  THEN RAISE EXCEPTION 'BC9: ítem de lista no compacto o incompleto: %',item; END IF;
+ END LOOP;
+ SELECT valor INTO item FROM jsonb_array_elements(todos) AS x(valor)
+  WHERE valor->>'convocatoria_ref'=ref33;
+ IF item->>'numero_categorias'<>'33' OR item->>'categoria_ref_comprobacion'<>'cat.1'
+ THEN RAISE EXCEPTION 'BC9: lista 33 categorías resumida mal: %',item; END IF;
+ SELECT valor INTO item FROM jsonb_array_elements(todos) AS x(valor)
+  WHERE valor->>'convocatoria_ref'=ref128;
+ IF item->>'numero_categorias'<>'128' OR item->>'categoria_ref_comprobacion'<>'cat.1'
+ THEN RAISE EXCEPTION 'BC9: lista 128 categorías resumida mal: %',item; END IF;
+ detalle:=vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(ref33);
+ posterior:=vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(ref33,'cat.33');
+ IF detalle->>'numero_categorias'<>'33' OR detalle ? 'categoria_ref_comprobacion'
+ OR detalle->>'numero_requisitos'<>'1' OR jsonb_array_length(detalle->'requisitos')<>1
+ OR jsonb_array_length(detalle->'categorias')<>33
+ OR jsonb_array_length(posterior->'categorias')<>33
+ THEN RAISE EXCEPTION 'BC9: 33 categorías truncadas'; END IF;
+ detalle:=vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(ref128);
+ posterior:=vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(ref128,'cat.128');
+ IF detalle->>'numero_categorias'<>'128' OR detalle ? 'categoria_ref_comprobacion'
+ OR detalle->>'numero_requisitos'<>'1' OR jsonb_array_length(detalle->'requisitos')<>1
+ OR jsonb_array_length(detalle->'categorias')<>128
+ OR jsonb_array_length(posterior->'categorias')<>128
+ THEN RAISE EXCEPTION 'BC9: 128 categorías truncadas'; END IF;
+ referencia:=ref4;
  detalle:=vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(referencia);
  IF detalle->>'convocatoria_ref'<>referencia
  OR jsonb_array_length(detalle->'categorias')<>2
