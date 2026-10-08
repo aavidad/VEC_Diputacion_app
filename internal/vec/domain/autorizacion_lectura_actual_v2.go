@@ -1,25 +1,61 @@
 package domain
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"sort"
 	"time"
 )
+
+const esquemaInstantaneaLecturaActualV3 = "vec.autorizacion.lectura-actual.v3.instantanea"
+
+// ReferenciaHuellaPoliticaLecturaActualV3 conserva la identidad y el contenido
+// de cada política del catálogo evaluado, incluidas las no aplicables.
+type ReferenciaHuellaPoliticaLecturaActualV3 struct {
+	Referencia   string `json:"referencia"`
+	HuellaSHA256 string `json:"huella_sha256"`
+}
+
+type instantaneaLecturaActualCanonicaV3 struct {
+	Esquema                       string                                    `json:"esquema"`
+	AsignacionRef                 string                                    `json:"asignacion_ref"`
+	AsignacionVersion             int                                       `json:"asignacion_version"`
+	AsignacionHuellaSHA256        string                                    `json:"asignacion_huella_sha256"`
+	VersionRolRef                 string                                    `json:"version_rol_ref"`
+	VersionRolVersion             int                                       `json:"version_rol_version"`
+	VersionRolHuellaSHA256        string                                    `json:"version_rol_huella_sha256"`
+	ControlVersionRolRef          string                                    `json:"control_version_rol_ref"`
+	RevisionControlVersionRol     uint64                                    `json:"revision_control_version_rol"`
+	ControlVersionRolHuellaSHA256 string                                    `json:"control_version_rol_huella_sha256"`
+	RevisionCatalogoPoliticas     uint64                                    `json:"revision_catalogo_politicas"`
+	CatalogoPoliticasHuellaSHA256 string                                    `json:"catalogo_politicas_huella_sha256"`
+	PoliticasEvaluadas            []ReferenciaHuellaPoliticaLecturaActualV3 `json:"politicas_evaluadas"`
+}
 
 // ResultadoLecturaActualAutorizacionV3 describe una evaluación puntual para
 // construir una captura de lectura. Sus revisiones identifican la instantánea
 // evaluada; el consumidor debe obtenerla de FuenteAutorizacion en cada lectura.
 // Este resultado no es una decisión ni una concesión ejecutable.
 type ResultadoLecturaActualAutorizacionV3 struct {
-	Permitido                 bool
-	AsignacionRef             string
-	AsignacionVersion         int
-	VersionRolRef             string
-	RevisionControlVersionRol uint64
-	RevisionCatalogoPoliticas uint64
-	EvaluadaEn                time.Time
-	ValidaHasta               time.Time
-	CamposPermitidos          []string
-	Obligaciones              []string
+	Permitido                     bool
+	AsignacionRef                 string
+	AsignacionVersion             int
+	AsignacionHuellaSHA256        string
+	VersionRolRef                 string
+	VersionRolVersion             int
+	VersionRolHuellaSHA256        string
+	ControlVersionRolRef          string
+	RevisionControlVersionRol     uint64
+	ControlVersionRolHuellaSHA256 string
+	RevisionCatalogoPoliticas     uint64
+	CatalogoPoliticasHuellaSHA256 string
+	PoliticasEvaluadas            []ReferenciaHuellaPoliticaLecturaActualV3
+	HuellaInstantaneaSHA256       string
+	RevisionPermisos              uint64
+	EvaluadaEn                    time.Time
+	ValidaHasta                   time.Time
+	CamposPermitidos              []string
+	Obligaciones                  []string
 }
 
 // EvaluarLecturaActualAutorizacionV3 exige el vínculo y el resultado V2 de la
@@ -56,6 +92,16 @@ func EvaluarLecturaActualAutorizacionV3(
 	sort.Slice(politicas, func(i, j int) bool {
 		return politicas[i].Referencia() < politicas[j].Referencia()
 	})
+	politicasEvaluadas := make([]ReferenciaHuellaPoliticaLecturaActualV3, 0, len(politicas))
+	for _, politica := range politicas {
+		huella, errHuella := politica.HuellaSHA256()
+		if errHuella != nil || !huellaSHA256AutorizacionV3NoNula(huella) {
+			return denegado, ErrAutorizacionDenegada
+		}
+		politicasEvaluadas = append(politicasEvaluadas, ReferenciaHuellaPoliticaLecturaActualV3{
+			Referencia: politica.Referencia(), HuellaSHA256: huella,
+		})
+	}
 	concedida, _, _, camposPermitidos, obligaciones, err := evaluarResultadoAutorizacionV3(
 		SolicitudAutorizacion{Accion: accion, Recurso: recurso, Finalidad: finalidad},
 		datos.GarantiaObservada, instantanea, politicas, instante,
@@ -75,18 +121,66 @@ func EvaluarLecturaActualAutorizacionV3(
 	if !limite.After(instante) {
 		return denegado, ErrAutorizacionDenegada
 	}
+	huellaAsignacion, err := instantanea.AsignacionPerfil.HuellaSHA256()
+	if err != nil || !huellaSHA256AutorizacionV3NoNula(huellaAsignacion) {
+		return denegado, ErrAutorizacionDenegada
+	}
+	huellaRol, err := instantanea.VersionRol.HuellaSHA256()
+	if err != nil || !huellaSHA256AutorizacionV3NoNula(huellaRol) {
+		return denegado, ErrAutorizacionDenegada
+	}
+	huellaControl, err := instantanea.ControlVigenciaVersionRol.HuellaSHA256()
+	if err != nil || !huellaSHA256AutorizacionV3NoNula(huellaControl) {
+		return denegado, ErrAutorizacionDenegada
+	}
+	manifiesto := instantaneaLecturaActualCanonicaV3{
+		Esquema:                       esquemaInstantaneaLecturaActualV3,
+		AsignacionRef:                 instantanea.AsignacionPerfil.Referencia(),
+		AsignacionVersion:             instantanea.AsignacionPerfil.Version,
+		AsignacionHuellaSHA256:        huellaAsignacion,
+		VersionRolRef:                 instantanea.VersionRol.Referencia(),
+		VersionRolVersion:             instantanea.VersionRol.Version,
+		VersionRolHuellaSHA256:        huellaRol,
+		ControlVersionRolRef:          instantanea.ControlVigenciaVersionRol.VersionRolRef,
+		RevisionControlVersionRol:     instantanea.ControlVigenciaVersionRol.Revision,
+		ControlVersionRolHuellaSHA256: huellaControl,
+		RevisionCatalogoPoliticas:     instantanea.RevisionCatalogoPoliticas,
+		CatalogoPoliticasHuellaSHA256: instantanea.CatalogoPoliticasHuellaSHA256,
+		PoliticasEvaluadas:            politicasEvaluadas,
+	}
+	huellaInstantanea, err := huellaAutorizacion(manifiesto)
+	if err != nil || !huellaSHA256AutorizacionV3NoNula(huellaInstantanea) {
+		return denegado, ErrAutorizacionDenegada
+	}
+	bytesHuella, err := hex.DecodeString(huellaInstantanea)
+	if err != nil {
+		return denegado, ErrAutorizacionDenegada
+	}
+	revisionPermisos := binary.BigEndian.Uint64(bytesHuella[:8])
+	if revisionPermisos == 0 {
+		return denegado, ErrAutorizacionDenegada
+	}
 	campos := append([]string(nil), camposSolicitados...)
 	sort.Strings(campos)
 	return ResultadoLecturaActualAutorizacionV3{
-		Permitido:                 true,
-		AsignacionRef:             instantanea.AsignacionPerfil.Referencia(),
-		AsignacionVersion:         instantanea.AsignacionPerfil.Version,
-		VersionRolRef:             instantanea.VersionRol.Referencia(),
-		RevisionControlVersionRol: instantanea.ControlVigenciaVersionRol.Revision,
-		RevisionCatalogoPoliticas: instantanea.RevisionCatalogoPoliticas,
-		EvaluadaEn:                instante,
-		ValidaHasta:               limite,
-		CamposPermitidos:          campos,
-		Obligaciones:              append([]string(nil), obligaciones...),
+		Permitido:                     true,
+		AsignacionRef:                 instantanea.AsignacionPerfil.Referencia(),
+		AsignacionVersion:             instantanea.AsignacionPerfil.Version,
+		AsignacionHuellaSHA256:        huellaAsignacion,
+		VersionRolRef:                 instantanea.VersionRol.Referencia(),
+		VersionRolVersion:             instantanea.VersionRol.Version,
+		VersionRolHuellaSHA256:        huellaRol,
+		ControlVersionRolRef:          instantanea.ControlVigenciaVersionRol.VersionRolRef,
+		RevisionControlVersionRol:     instantanea.ControlVigenciaVersionRol.Revision,
+		ControlVersionRolHuellaSHA256: huellaControl,
+		RevisionCatalogoPoliticas:     instantanea.RevisionCatalogoPoliticas,
+		CatalogoPoliticasHuellaSHA256: instantanea.CatalogoPoliticasHuellaSHA256,
+		PoliticasEvaluadas:            append([]ReferenciaHuellaPoliticaLecturaActualV3(nil), politicasEvaluadas...),
+		HuellaInstantaneaSHA256:       huellaInstantanea,
+		RevisionPermisos:              revisionPermisos,
+		EvaluadaEn:                    instante,
+		ValidaHasta:                   limite,
+		CamposPermitidos:              campos,
+		Obligaciones:                  append([]string(nil), obligaciones...),
 	}, nil
 }
