@@ -1,7 +1,10 @@
-# Manuales de usuario
+# Manuales del portal
 
-Todavía no hay un manual de proceso publicado en esta carpeta. La lista de recorridos que se cortan y el paso pendiente de cada uno están en [PENDIENTES.md](PENDIENTES.md).
+Guías comprobadas en la web el 8 de octubre de 2026:
 
-Un manual se incorpora aquí cuando una persona puede recorrer el proceso entero en el clon local, desde la entrada al portal hasta la firma y el cierre que correspondan. Cada paso llevará una captura del Chrome del sistema con un número junto al control que hay que pulsar; el texto usará ese mismo número. Se comprobarán el escritorio de 1440 píxeles y las pantallas de 390 píxeles donde el móvil cambie la forma de actuar.
+- [Técnico de Recursos Humanos](tecnico_rrhh.md): localizar peticiones, consultar categorías y bolsas, filtrar personas y emitir un llamamiento.
+- [Responsable de Recursos Humanos: consulta de fichas y borradores](responsable_rrhh.md): encontrar una petición, revisar sus datos y descargar documentos disponibles.
 
-Las capturas deben proceder de datos sintéticos y del programa y las migraciones que se indiquen en el propio manual. Antes de publicar, otra persona recorrerá las instrucciones y comprobará que los botones, los recibos y el final descritos siguen existiendo.
+Cada guía describe las acciones que se comprobaron desde la pantalla. La segunda guía cubre consultas; no enseña a resolver ni firmar. Las capturas muestran datos de ejemplo y las cifras pueden cambiar.
+
+Los recorridos pendientes de las comprobaciones anteriores se conservan en [PENDIENTES.md](PENDIENTES.md). Ese documento recoge su fecha y no sustituye las guías actuales.
