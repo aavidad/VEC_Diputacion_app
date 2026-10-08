@@ -567,6 +567,7 @@
     "buscar": "Search by name, code, centre, delegation or group",
     "accion_buscar": "Search",
     "busqueda_aplicada": "Applied search: {busqueda}",
+    "puesto_aplicado": "Post: {valor}",
     "quitar_busqueda": "Clear search",
     "cargando": "Loading published post structure…",
     "error": "The published post structure could not be checked. No previous data is shown.",

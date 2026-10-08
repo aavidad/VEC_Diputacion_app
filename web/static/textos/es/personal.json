@@ -567,6 +567,7 @@
     "buscar": "Buscar por denominación, código, centro, delegación o grupo",
     "accion_buscar": "Buscar",
     "busqueda_aplicada": "Búsqueda aplicada: {busqueda}",
+    "puesto_aplicado": "Puesto: {valor}",
     "quitar_busqueda": "Quitar búsqueda",
     "cargando": "Cargando RPT publicada…",
     "error": "No se pudo consultar la RPT publicada. No se muestran datos anteriores.",
