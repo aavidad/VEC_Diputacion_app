@@ -4,6 +4,9 @@ import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=202610
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { runInNewContext } from "node:vm";
+import * as rutasGlobales from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v1";
 
 import { consultarBolsas, consultarCandidatosBolsa, consultarEstadisticasBolsa, consultarGlobalBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v1";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v1";
@@ -248,4 +251,44 @@ test("abrir la ficha desde el histórico vuelve a candidatos y abre la ficha; el
   pulsar({ accion: "ver-bolsa", bolsaRef: BOLSA.bolsa_ref, pestana: "historico" }, '[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]');
   assert.equal(estado.filtrosBolsa.pestana, "historico");
   assert.deepEqual(navegaciones, ["bolsa-candidatos"]);
+});
+
+
+test("actualizar tras caducar consulta una vez y fija el corte nuevo para F5", async () => {
+  const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
+  const inicio = portal.indexOf("function aplicarRutaCandidatosBolsa()");
+  const fin = portal.indexOf("function actualizarVistaBolsa(", inicio);
+  const corteNuevo = "b".repeat(64);
+  const location = { pathname: "/portal-empleado/", search: `?lang=es&bolsa_global=todos&corte_bolsa=${CORTE_GLOBAL}`, hash: "#bolsa/bolsa-candidatos" };
+  const history = { replaceState(_a, _b, ruta) { const url = new URL(ruta, "https://vec.example"); location.search = url.search; location.hash = url.hash; } };
+  const estado = { vista: "bolsa-candidatos", datosBolsas: { carga: "listo", datos: { bolsas: [BOLSA], corte_ref: CORTE_GLOBAL } }, filtrosBolsa: {} };
+  const escuchas = [];
+  const documento = { addEventListener(tipo, fn) { if (tipo === "click") escuchas.push(fn); }, querySelector: () => null, querySelectorAll: () => [] };
+  const previo = { fetch: globalThis.fetch, location: globalThis.location, history: globalThis.history };
+  const consultas = [];
+  globalThis.location = location; globalThis.history = history;
+  globalThis.fetch = async (ruta) => {
+    consultas.push(new URL(ruta, "https://vec.example"));
+    if (consultas.length === 1) return new Response("{}", { status: 409 });
+    return new Response(JSON.stringify({ data: { esquema: "vec.bolsa.rrhh.global.v1", generado_en: "2026-10-08T10:00:00Z", corte_ref: corteNuevo,
+      filtro: "todos", bolsa_ref: null, total: 0, desde: 0, hasta: 0, hay_mas: false, cursor_siguiente: null, items: [] } }), { status: 200 });
+  };
+  let aplicar = () => {};
+  const controlador = crearControladorBolsas({ estado, documento, navegar() {}, renderizar: () => aplicar() });
+  const contexto = { estado, rutasBolsa: rutasGlobales, controladorBolsas: controlador, rutaCandidatosAplicada: null, window: { location }, history,
+    navegar() {}, anunciar() {}, traducirPortal: (clave) => clave };
+  aplicar = runInNewContext(`${portal.slice(inicio, fin)}; aplicarRutaCandidatosBolsa`, contexto);
+  const esperar = async (condicion) => { for (let n = 0; n < 100 && !condicion(); n++) await new Promise((r) => setTimeout(r, 5)); assert.ok(condicion()); };
+  try {
+    controlador.instalar(); aplicar();
+    await esperar(() => estado.datosCandidatos?.carga === "caducado");
+    const boton = { dataset: { bolsaAccion: "actualizar-global" } };
+    for (const escucha of escuchas) escucha({ preventDefault() {}, target: { closest: (selector) => selector === "[data-bolsa-accion]" ? boton : null } });
+    await esperar(() => estado.datosCandidatos?.carga === "listo");
+    assert.equal(consultas.length, 2);
+    assert.equal(consultas[0].searchParams.get("corte"), CORTE_GLOBAL);
+    assert.equal(consultas[1].searchParams.has("corte"), false);
+    assert.equal(new URLSearchParams(location.search).get("corte_bolsa"), corteNuevo);
+    aplicar(); assert.equal(consultas.length, 2, "repintar el corte nuevo no duplica GET");
+  } finally { controlador.cancelarPeticiones(); Object.assign(globalThis, previo); }
 });
