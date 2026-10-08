@@ -19,6 +19,7 @@ import (
 
 type Handler struct {
 	service                                  *application.Service
+	manejadorSesionNominal                   http.Handler
 	soloRutasExactas                         bool
 	internal                                 *application.InternalOperations
 	personalCatalog                          CatalogoPersonal
@@ -35,6 +36,9 @@ type Handler struct {
 }
 
 type HandlerOptions struct {
+	// ManejadorSesionNominal llega de la composición confiable y decide
+	// autenticación, auditoría y método para las dos rutas de sesión exactas.
+	ManejadorSesionNominal                   http.Handler
 	InternalOperations                       *application.InternalOperations
 	PersonalCatalog                          CatalogoPersonal
 	CategoriasProfesionales                  ConsultaCategoriasProfesionales
@@ -57,6 +61,10 @@ type HandlerOptions struct {
 	// composición raíz de vec-server siempre aporta uno real.
 	EmisorIncidenciasTecnicas ports.EmisorIncidenciasTecnicas
 }
+
+// ErrSesionNominalInvalida rechaza una dependencia inválida o mezclada con
+// fuentes de identidad demo y cabeceras confiadas.
+var ErrSesionNominalInvalida = errors.New("vec http handler: nominal session handler invalid")
 
 // DemoIdentityResolver es el unico origen admitido para el modo fake. La
 // implementacion local de demostracion resuelve un Bearer opaco contra un
@@ -99,6 +107,11 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 	if service == nil {
 		return nil, errors.New("vec http handler: service required")
 	}
+	if options.ManejadorSesionNominal != nil &&
+		(manejadorRutaExactaInvalido(options.ManejadorSesionNominal) || options.AllowDemoIdentity ||
+			options.DemoIdentityResolver != nil || options.TrustIdentityHeaders) {
+		return nil, ErrSesionNominalInvalida
+	}
 	if (len(options.RutasExactas) == 0 && len(options.RutasColeccion) == 0 && !dependenciaRutaExactaNula(options.AutoridadRutasExactas)) ||
 		((len(options.RutasExactas) != 0 || len(options.RutasColeccion) != 0) && dependenciaRutaExactaNula(options.AutoridadRutasExactas)) {
 		return nil, ErrRutaExactaInvalida
@@ -123,6 +136,7 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 	}
 	return &Handler{
 		service:                                  service,
+		manejadorSesionNominal:                   options.ManejadorSesionNominal,
 		internal:                                 options.InternalOperations,
 		personalCatalog:                          options.PersonalCatalog,
 		categoriasProfesionales:                  options.CategoriasProfesionales,
@@ -152,6 +166,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	if h.manejadorSesionNominal != nil &&
+		(r.URL.Path == "/api/vec/session" || r.URL.Path == "/api/vec/session/start") {
+		// También se delegan métodos inesperados: el manejador nominal los
+		// audita antes de rechazarlos.
+		h.manejadorSesionNominal.ServeHTTP(w, r)
 		return
 	}
 	if manejador, registrada := h.rutasExactas[r.URL.Path]; registrada {
