@@ -29,7 +29,9 @@ func RecursoLectura(accion, personaRef, idioma string, filtro Filtro, ref string
 			if ref != "admitir" && ref != "rechazar" {
 				return "", ErrSolicitudInvalida
 			}
-		} else if ref != "" || filtro.Validar() != nil {
+		} else if ref != "" || filtro.Validar() != nil ||
+			(accion == AccionListarAbiertas && filtro.Cursor != "" && !convocatoriaRefValida(filtro.Cursor)) ||
+			(accion != AccionListarAbiertas && filtro.Cursor != "" && !solicitudRefValida(filtro.Cursor)) {
 			return "", ErrSolicitudInvalida
 		}
 	default:
