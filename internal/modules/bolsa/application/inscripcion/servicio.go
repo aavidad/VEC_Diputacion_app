@@ -27,7 +27,8 @@ func (s *Servicio) Abiertas(ctx context.Context, actor Actor, limite int, cursor
 	if s == nil || s.repositorio == nil {
 		return PaginaAbiertas{}, ErrNoDisponible
 	}
-	if !lecturaAutorizada(actor, AccionListarAbiertas, Filtro{Limite: limite, Cursor: cursor}, "") || limite < 1 || limite > 100 || len(cursor) > 512 {
+	if (cursor != "" && !convocatoriaRefValida(cursor)) ||
+		!lecturaAutorizada(actor, AccionListarAbiertas, Filtro{Limite: limite, Cursor: cursor}, "") || limite < 1 || limite > 100 {
 		return PaginaAbiertas{}, ErrSolicitudInvalida
 	}
 	p, err := s.repositorio.Abiertas(ctx, actor, limite, cursor)
@@ -140,7 +141,8 @@ func (s *Servicio) Propias(ctx context.Context, actor Actor, filtro Filtro) (Pag
 	if s == nil || s.repositorio == nil {
 		return Pagina{}, ErrNoDisponible
 	}
-	if filtro.Validar() != nil || !lecturaAutorizada(actor, AccionListarPropias, filtro, "") {
+	if filtro.Validar() != nil || (filtro.Cursor != "" && !solicitudRefValida(filtro.Cursor)) ||
+		!lecturaAutorizada(actor, AccionListarPropias, filtro, "") {
 		return Pagina{}, ErrSolicitudInvalida
 	}
 	p, err := s.repositorio.Propias(ctx, actor, filtro)
@@ -174,7 +176,8 @@ func (s *Servicio) PendientesRRHH(ctx context.Context, actor Actor, filtro Filtr
 	if s == nil || s.repositorio == nil {
 		return Pagina{}, ErrNoDisponible
 	}
-	if filtro.Validar() != nil || !lecturaAutorizada(actor, AccionListarRRHH, filtro, "") {
+	if filtro.Validar() != nil || (filtro.Cursor != "" && !solicitudRefValida(filtro.Cursor)) ||
+		!lecturaAutorizada(actor, AccionListarRRHH, filtro, "") {
 		return Pagina{}, ErrSolicitudInvalida
 	}
 	p, err := s.repositorio.PendientesRRHH(ctx, actor, filtro)

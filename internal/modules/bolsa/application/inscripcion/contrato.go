@@ -269,7 +269,8 @@ type Filtro struct {
 func (f Filtro) Validar() error {
 	if f.Limite < 1 || f.Limite > 100 ||
 		(f.Estado != "" && f.Estado != EstadoPendiente && f.Estado != EstadoAdmitidaAConvocatoria && f.Estado != EstadoIncorporada && f.Estado != EstadoRechazada) ||
-		(f.ConvocatoriaRef != "" && !convocatoriaRefValida(f.ConvocatoriaRef)) || len(f.Cursor) > 512 {
+		(f.ConvocatoriaRef != "" && !convocatoriaRefValida(f.ConvocatoriaRef)) ||
+		(f.Cursor != "" && !solicitudRefValida(f.Cursor) && !convocatoriaRefValida(f.Cursor)) {
 		return ErrSolicitudInvalida
 	}
 	return nil
