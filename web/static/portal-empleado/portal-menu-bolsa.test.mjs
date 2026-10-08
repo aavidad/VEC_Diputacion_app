@@ -344,14 +344,14 @@ test("sin panel interno ni borradores, el menú de Bolsa solo ofrece lo que tien
   const { aplicarDisponibilidadMenuBolsa } = await import("./portal-menu-bolsa.js");
   const raiz = menuDesdeHTML();
   const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: true });
-  assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos"]);
-  assert.equal(indicadores.length, 4, "se renumeran solo las categorías visibles");
+  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos"]);
+  assert.equal(indicadores.length, 5, "se renumeran solo las categorías visibles");
   // Grupos enteros sin servicio (convocatorias…, reglas, auditoría) quedan ocultos.
   assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").length, 3);
-  assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").every((grupo) => grupo.hidden), true);
+  assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").filter((grupo) => !grupo.hidden).length, 1);
   // El aviso de Documentos de Bolsa no depende de la capacidad de CT.
   aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false });
-  assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos"]);
+  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos"]);
 });
 
 test("el menú espera la lectura positiva de bolsas sin impedir el estado de una URL directa", async () => {
@@ -380,7 +380,7 @@ test("Elaboración solo se ofrece a RRHH cuando su API consta disponible", async
   for (const borradores of [null, false]) {
     aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores, contratacionTemporal: true });
     assert.equal(elaboracion().hidden, true, String(borradores));
-    assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos"]);
+    assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos"]);
   }
 });
 
@@ -391,7 +391,7 @@ test("el panel antiguo no anuncia recorridos sin API compuesta", async () => {
   const grupoBolsas = raiz.querySelectorAll(".grupo-menu-bolsa")[0];
   assert.equal(grupoBolsas.hidden, false);
   assert.deepEqual(grupoBolsas.querySelectorAll(".submenu-bolsa [data-vista]").filter((control) => !control.hidden)
-    .map((control) => control.getAttribute("data-vista")), ["elaboracion"]);
+    .map((control) => control.getAttribute("data-vista")), ["elaboracion", "solicitudes"]);
   const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: true, borradores: true, contratacionTemporal: true });
   assert.equal(indicadores.length, 5);
   assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos"]);
@@ -400,11 +400,11 @@ test("el panel antiguo no anuncia recorridos sin API compuesta", async () => {
 test("la navegación directa a una vista de Bolsa sin servicio no se permite", async () => {
   const { vistaBolsaNavegable, vistaBolsaOfrecida } = await import("./portal-menu-bolsa.js");
   const sinServicio = { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false };
-  for (const vista of ["convocatorias", "solicitudes", "meritos", "alegaciones", "importacion", "contratos",
+  for (const vista of ["convocatorias", "meritos", "alegaciones", "importacion", "contratos",
     "reglas", "baremacion", "consulta", "documentos", "comunicaciones", "auditoria", "configuracion", "elaboracion"]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), false, vista);
   }
-  for (const vista of ["resumen", "estadisticas", "llamamientos", VISTA_CANDIDATOS_BOLSA]) {
+  for (const vista of ["resumen", "estadisticas", "llamamientos", "solicitudes", VISTA_CANDIDATOS_BOLSA]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), true, vista);
   }
   // Elaboración sin comprobar: no se ofrece en el menú, pero su enlace directo

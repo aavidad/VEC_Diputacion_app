@@ -367,6 +367,14 @@ function instalarReintentoTextosVista() {
 }
 let vistaAuditoriaBolsa = null;
 let vistaPoliticaCese = null;
+let vistaInscripcionesBolsa = null;
+let controladorInscripcionesBolsa = null;
+function desmontarInscripcionesBolsa() {
+  controladorInscripcionesBolsa?.abort();
+  controladorInscripcionesBolsa = null;
+  vistaInscripcionesBolsa?.desmontar();
+  vistaInscripcionesBolsa = null;
+}
 const clientePoliticaCese = crearClientePoliticaCeseRRHH();
 const porId = (id) => document.getElementById(id);
 function cerrarMenuMovil({ restaurarFoco = false } = {}) {
@@ -459,7 +467,8 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
       return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
         controladorBolsas?.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieOfertasBolsa?.desmontar(); superficieRRHHPlazos?.desmontar(); }
         if (vista === "auditoria") { vistaAuditoriaBolsa?.desmontar(); vistaAuditoriaBolsa = null; }
-        if (vista === "reglas") { vistaPoliticaCese?.desmontar(); vistaPoliticaCese = null; } } });
+        if (vista === "reglas") { vistaPoliticaCese?.desmontar(); vistaPoliticaCese = null; }
+        if (vista === "solicitudes") desmontarInscripcionesBolsa(); } });
     },
   }),
   confirmarOperacion: (descriptor) => window.confirm(traducirPortal("txt_confirmar_operacion", { titulo: descriptor.titulo, advertencia: descriptor.advertencia, referencia: descriptor.referencia })) });
@@ -1069,6 +1078,30 @@ function navegar(vista, opciones = {}) {
   anunciar(traducirPortal("txt_vista_abierta", { vista: tituloDeVista(vista)[1] }));
 }
 function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } = {}) {
+  if (vista === "solicitudes") {
+    if (controladorInscripcionesBolsa && contenedor.querySelector("[data-inscripciones-montaje]")) return;
+    desmontarInscripcionesBolsa();
+    const controlador = new AbortController();
+    controladorInscripcionesBolsa = controlador;
+    contenedor.innerHTML = `<div data-inscripciones-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_comprobando")}</p></div></section></div>`;
+    const raiz = contenedor.querySelector("[data-inscripciones-montaje]");
+    import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=20261009-inscripciones-v1").then(async ({ montarInscripcionesRRHH }) => {
+      if (controlador.signal.aborted || estado.vista !== vista) return;
+      const montaje = await montarInscripcionesRRHH({ raiz, signal: controlador.signal,
+        alDenegacion: () => { estado.solicitudes = []; } });
+      if (controlador.signal.aborted || estado.vista !== vista) { montaje?.desmontar(); return; }
+      vistaInscripcionesBolsa = montaje;
+    }).catch((error) => {
+      if (controlador.signal.aborted || estado.vista !== vista) return;
+      console.error("inscripciones_vista_carga", { tipo: error?.name ?? "Error" });
+      raiz.innerHTML = `<section class="panel" role="alert"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_no_disponible_titulo")}</p><button type="button" class="boton-secundario" data-inscripciones-montaje-reintentar>${textoPortal("accion_reintentar")}</button></div></section>`;
+      raiz.querySelector("[data-inscripciones-montaje-reintentar]")?.addEventListener("click", () => {
+        desmontarInscripcionesBolsa();
+        montarVistaBolsa(vista, contenedor);
+      }, { once: true });
+    });
+    return;
+  }
   if (vistaBolsaPendienteNoCompuesta(vista)) {
     contenedor.innerHTML = renderizarFuenteNoDisponible();
     return;
@@ -1216,7 +1249,7 @@ function renderizar() {
   const grupoEstilos = grupoEstilosDeVista(estado.vista);
   const estilosVistaNecesarios = grupoEstilos && coordinadorModulos.vistaDisponible(estado.vista);
   if (estilosVistaNecesarios) cargarEstilosVista(grupoEstilos);
-  const necesitaBolsaBase = moduloDeVistaPortal(estado.vista) === "bolsa"
+  const necesitaBolsaBase = estado.vista !== "solicitudes" && moduloDeVistaPortal(estado.vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(estado.vista);
   if (necesitaBolsaBase && !controladorBolsas && !promesaBolsaBase && !errorBolsaBase) {
     void prepararBolsaBase().catch(() => {});
@@ -1565,7 +1598,7 @@ let rutaCandidatosAplicada = null;
 let promesaBolsaBase = null;
 let errorBolsaBase = false;
 function vistaNecesitaBolsa(vista = estado.vista) {
-  return vista === "portal" || (moduloDeVistaPortal(vista) === "bolsa"
+  return vista === "portal" || (vista !== "solicitudes" && moduloDeVistaPortal(vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(vista));
 }
 function prepararBolsaBase() {
