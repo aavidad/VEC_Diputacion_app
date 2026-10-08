@@ -190,8 +190,8 @@ REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.leer_cabeza_ajustes_reglas_v1(text
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.leer_cabeza_ajustes_reglas_v1(text) TO vec_bolsa_llamamientos_ejecutor;
 
 -- Herramienta interna del propietario. Contiene actor y motivo y, por tanto,
--- no recibe EXECUTE del runtime. La futura ruta GET debe pasar por la
--- autoridad común de lectura W/V y auditar en la misma transacción.
+-- no recibe EXECUTE del runtime. Sólo una futura fachada propietaria podrá
+-- llamarla tras W/V y auditoría en la misma transacción.
 CREATE FUNCTION vec_bolsa_llamamientos.leer_historial_ajustes_reglas_v1(
  p_catalogo text,p_limite integer,p_antes_de bigint,p_instante timestamptz)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY INVOKER
@@ -200,7 +200,6 @@ AS $historial$
 DECLARE cabeza jsonb; vigente jsonb; filas jsonb; hay_mas boolean;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
-    OR session_user<>'vec_bolsa_llamamientos_propietario'
  THEN RAISE EXCEPTION 'B88: historial denegado' USING ERRCODE='42501'; END IF;
  IF p_catalogo IS DISTINCT FROM 'vec.bolsa.reglas.ajustes'
     OR p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 50
@@ -242,8 +241,8 @@ BEGIN
 END $historial$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.leer_historial_ajustes_reglas_v1(text,integer,bigint,timestamptz) FROM PUBLIC;
 
--- El material original puede contener nota/referencia libres. Sólo lo puede
--- usar una futura fachada de lectura nominal con W/V y auditoría misma TX.
+-- El material original puede contener nota/referencia libres. Sólo una
+-- futura fachada propietaria podrá llamarlo tras W/V y auditoría misma TX.
 CREATE FUNCTION vec_bolsa_llamamientos.leer_material_original_ajuste_reglas_v1(
  p_catalogo text,p_clave uuid)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY INVOKER
@@ -252,7 +251,6 @@ AS $original$
 DECLARE material jsonb;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
-    OR session_user<>'vec_bolsa_llamamientos_propietario'
  THEN RAISE EXCEPTION 'B88: material original denegado' USING ERRCODE='42501'; END IF;
  IF p_catalogo IS DISTINCT FROM 'vec.bolsa.reglas.ajustes' OR p_clave IS NULL
  THEN RAISE EXCEPTION 'B88: consulta original inválida' USING ERRCODE='22023'; END IF;
