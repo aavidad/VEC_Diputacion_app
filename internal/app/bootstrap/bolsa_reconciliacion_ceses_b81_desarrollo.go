@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,25 +30,51 @@ func (r *reconciliacionCesesB81) entregar(ctx context.Context) (resultadoEntrega
 		return resultado, puertosct.ErrPublicacionContratosBolsaNoDisponible
 	}
 	vistos := make(map[string]struct{})
+	var desdePosicion any
+	var desdeRef any
+	var ultimo cesePendienteB81
+	hayUltimo := false
+	var primerError error
+	fallos := 0
+	errorAplicaciones := func() error {
+		if fallos == 0 {
+			return nil
+		}
+		return fmt.Errorf("%w: clave=aplicaciones_B45_fallidas esperado=0 actual=%d", primerError, fallos)
+	}
 	for pagina := 0; pagina < maximoPaginasEntregaContratosCT; pagina++ {
 		var bruto []byte
-		if err := r.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1($1)`, r.lote).Scan(&bruto); err != nil {
-			return resultado, falloRelevoCeseBolsaDesarrollo(err)
+		if err := r.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1($1,$2,$3)`,
+			r.lote, desdePosicion, desdeRef).Scan(&bruto); err != nil {
+			return resultado, errors.Join(falloRelevoCeseBolsaDesarrollo(err), errorAplicaciones())
 		}
 		var pendientes []cesePendienteB81
 		if len(bruto) == 0 || json.Unmarshal(bruto, &pendientes) != nil || pendientes == nil || len(pendientes) > r.lote {
-			return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
+			return resultado, errors.Join(fmt.Errorf("%w: clave=pagina_ceses_B81 esperado=json_array_hasta_%d actual=invalida",
+				puertosbolsa.ErrContratosParticipacionNoDisponible, r.lote), errorAplicaciones())
 		}
-		var primerError error
-		fallos := 0
+		// Validar la página completa antes de invocar B45: el cursor debe
+		// avanzar estrictamente también cuando un elemento falle.
 		for _, pendiente := range pendientes {
 			if pendiente.OrigenRef == "" || pendiente.HuellaSHA256 == "" || pendiente.OrigenPosicion < 0 {
-				return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
+				return resultado, errors.Join(fmt.Errorf("%w: clave=marcador_cese_B81 esperado=ref_huella_posicion_validos actual=invalido",
+					puertosbolsa.ErrContratosParticipacionNoDisponible), errorAplicaciones())
 			}
 			if _, repetido := vistos[pendiente.OrigenRef]; repetido {
-				return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
+				return resultado, errors.Join(fmt.Errorf("%w: clave=origen_ref_B81 esperado=unico actual=repetido",
+					puertosbolsa.ErrContratosParticipacionNoDisponible), errorAplicaciones())
+			}
+			if hayUltimo && (pendiente.OrigenPosicion < ultimo.OrigenPosicion ||
+				pendiente.OrigenPosicion == ultimo.OrigenPosicion && pendiente.OrigenRef <= ultimo.OrigenRef) {
+				return resultado, errors.Join(fmt.Errorf("%w: clave=orden_ceses_B81 esperado=posterior_a_%d/%s actual=%d/%s",
+					puertosbolsa.ErrContratosParticipacionNoDisponible,
+					ultimo.OrigenPosicion, ultimo.OrigenRef, pendiente.OrigenPosicion, pendiente.OrigenRef), errorAplicaciones())
 			}
 			vistos[pendiente.OrigenRef] = struct{}{}
+			ultimo = pendiente
+			hayUltimo = true
+		}
+		for _, pendiente := range pendientes {
 			var reutilizada bool
 			var recibo, candidato string
 			var disponible time.Time
@@ -76,16 +103,17 @@ func (r *reconciliacionCesesB81) entregar(ctx context.Context) (resultadoEntrega
 				resultado.nuevos++
 			}
 		}
-		if fallos > 0 {
-			// La siguiente página volvería a incluir los fallidos. Se deja el
-			// resto para otra pasada y se conserva el error de esta.
-			return resultado, fmt.Errorf("%w: clave=aplicaciones_B45_fallidas esperado=0 actual=%d", primerError, fallos)
-		}
 		if len(pendientes) < r.lote {
-			return resultado, nil
+			return resultado, errorAplicaciones()
 		}
+		desdePosicion, desdeRef = ultimo.OrigenPosicion, ultimo.OrigenRef
 	}
-	return resultado, nil
+	return resultado, errors.Join(
+		fmt.Errorf("%w: clave=paginas_reconciliacion_B81 esperado<%d actual=%d",
+			puertosbolsa.ErrContratosParticipacionNoDisponible,
+			maximoPaginasEntregaContratosCT, maximoPaginasEntregaContratosCT),
+		errorAplicaciones(),
+	)
 }
 
 // Ambas pasadas usan estado propio. Un error de publicación CT no oculta los

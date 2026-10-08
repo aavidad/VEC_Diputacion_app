@@ -65,9 +65,9 @@ func TestReconciliacionB81RecuperaCeseAnteriorAlCursorCT(t *testing.T) {
 	ref := "ref:outbox:antiguo"
 	q := &consultasReconciliacionB81{t: t, pasos: []pasoReconciliacionB81{
 		{"cursor_restriccion_cese_bolsa_v1", nil, filaCeseB81{valores: []any{int64(500), "ref:outbox:reciente"}}},
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{1}, filaPendientesB81(ref, 7)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaPendientesB81(ref, 7)},
 		{"registrar_restriccion_cese_bolsa_v1", []any{ref, huellaReconciliacionB81, int64(7)}, filaB45B81(false)},
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{1}, filaPendientesB81("", 0)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(7), ref}, filaPendientesB81("", 0)},
 	}}
 	lector := lectorCesesB81{&lectorContratosCTPrueba{}}
 	principal := &entregaCesesCTBolsa{lector: lector, pool: q, lote: 1}
@@ -83,11 +83,11 @@ func TestReconciliacionB81RecuperaCeseAnteriorAlCursorCT(t *testing.T) {
 func TestReconciliacionB81EsperaVinculoYNoDuplicaReplay(t *testing.T) {
 	ref := "ref:outbox:pendiente"
 	q := &consultasReconciliacionB81{t: t, pasos: []pasoReconciliacionB81{
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{1}, filaPendientesB81("", 0)},
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{1}, filaPendientesB81(ref, 2)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaPendientesB81("", 0)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaPendientesB81(ref, 2)},
 		{"registrar_restriccion_cese_bolsa_v1", []any{ref, huellaReconciliacionB81, int64(2)}, filaB45B81(true)},
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{1}, filaPendientesB81("", 0)},
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{1}, filaPendientesB81("", 0)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(2), ref}, filaPendientesB81("", 0)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaPendientesB81("", 0)},
 	}}
 	r := &reconciliacionCesesB81{pool: q, lote: 1}
 	primero, err := r.entregar(context.Background())
@@ -107,11 +107,12 @@ func TestReconciliacionB81EsperaVinculoYNoDuplicaReplay(t *testing.T) {
 func TestReconciliacionB81ReintentaFalloB45(t *testing.T) {
 	ref := "ref:outbox:reintentar"
 	q := &consultasReconciliacionB81{t: t, pasos: []pasoReconciliacionB81{
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{1}, filaPendientesB81(ref, 3)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaPendientesB81(ref, 3)},
 		{"registrar_restriccion_cese_bolsa_v1", []any{ref, huellaReconciliacionB81, int64(3)}, filaCeseB81{err: &pgconn.PgError{Code: "08006"}}},
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{1}, filaPendientesB81(ref, 3)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(3), ref}, filaPendientesB81("", 0)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaPendientesB81(ref, 3)},
 		{"registrar_restriccion_cese_bolsa_v1", []any{ref, huellaReconciliacionB81, int64(3)}, filaB45B81(false)},
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{1}, filaPendientesB81("", 0)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(3), ref}, filaPendientesB81("", 0)},
 	}}
 	r := &reconciliacionCesesB81{pool: q, lote: 1}
 	primero, err := r.entregar(context.Background())
@@ -125,24 +126,26 @@ func TestReconciliacionB81ReintentaFalloB45(t *testing.T) {
 }
 
 func TestReconciliacionB81FalloPrimeroNoBloqueaSegundo(t *testing.T) {
-	ref1, ref2 := "ref:outbox:primero", "ref:outbox:segundo"
+	ref1, ref2, ref3 := "ref:outbox:primero", "ref:outbox:segundo", "ref:outbox:tercero"
 	q := &consultasReconciliacionB81{t: t, pasos: []pasoReconciliacionB81{
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{2}, filaLotePendientesB81(t,
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{2, nil, nil}, filaLotePendientesB81(t,
 			cesePendienteB81{OrigenRef: ref1, HuellaSHA256: huellaReconciliacionB81, OrigenPosicion: 1},
 			cesePendienteB81{OrigenRef: ref2, HuellaSHA256: huellaReconciliacionB81, OrigenPosicion: 2})},
 		{"registrar_restriccion_cese_bolsa_v1", []any{ref1, huellaReconciliacionB81, int64(1)}, filaCeseB81{err: &pgconn.PgError{Code: "08006"}}},
 		{"registrar_restriccion_cese_bolsa_v1", []any{ref2, huellaReconciliacionB81, int64(2)}, filaB45B81(false)},
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{2}, filaPendientesB81(ref1, 1)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{2, int64(2), ref2}, filaPendientesB81(ref3, 3)},
+		{"registrar_restriccion_cese_bolsa_v1", []any{ref3, huellaReconciliacionB81, int64(3)}, filaB45B81(false)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{2, nil, nil}, filaPendientesB81(ref1, 1)},
 		{"registrar_restriccion_cese_bolsa_v1", []any{ref1, huellaReconciliacionB81, int64(1)}, filaB45B81(false)},
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{2}, filaPendientesB81("", 0)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{2, nil, nil}, filaPendientesB81("", 0)},
 	}}
 	r := &reconciliacionCesesB81{pool: q, lote: 2}
 	primera, err := r.entregar(context.Background())
-	if err == nil || primera.nuevos != 1 || primera.reentregas != 0 || q.llamadas != 3 {
+	if err == nil || primera.nuevos != 2 || primera.reentregas != 0 || q.llamadas != 5 {
 		t.Fatalf("fallo primero bloqueó segundo: %+v, %v, consultas=%d", primera, err, q.llamadas)
 	}
 	segunda, err := r.entregar(context.Background())
-	if err != nil || segunda.nuevos != 1 || q.llamadas != 5 {
+	if err != nil || segunda.nuevos != 1 || q.llamadas != 7 {
 		t.Fatalf("pendiente primero no se reintentó: %+v, %v, consultas=%d", segunda, err, q.llamadas)
 	}
 	tercera, err := r.entregar(context.Background())
@@ -154,11 +157,12 @@ func TestReconciliacionB81FalloPrimeroNoBloqueaSegundo(t *testing.T) {
 func TestReconciliacionB81InformaTodosLosFallosDelLote(t *testing.T) {
 	ref1, ref2 := "ref:outbox:primero", "ref:outbox:segundo"
 	q := &consultasReconciliacionB81{t: t, pasos: []pasoReconciliacionB81{
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{2}, filaLotePendientesB81(t,
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{2, nil, nil}, filaLotePendientesB81(t,
 			cesePendienteB81{OrigenRef: ref1, HuellaSHA256: huellaReconciliacionB81, OrigenPosicion: 1},
 			cesePendienteB81{OrigenRef: ref2, HuellaSHA256: huellaReconciliacionB81, OrigenPosicion: 2})},
 		{"registrar_restriccion_cese_bolsa_v1", []any{ref1, huellaReconciliacionB81, int64(1)}, filaCeseB81{err: &pgconn.PgError{Code: "08006"}}},
 		{"registrar_restriccion_cese_bolsa_v1", []any{ref2, huellaReconciliacionB81, int64(2)}, filaCeseB81{err: &pgconn.PgError{Code: "23503"}}},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{2, int64(2), ref2}, filaPendientesB81("", 0)},
 	}}
 	resultado, err := (&reconciliacionCesesB81{pool: q, lote: 2}).entregar(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "actual=2") || resultado != (resultadoEntregaContratosCT{}) || q.llamadas != len(q.pasos) {
@@ -166,13 +170,122 @@ func TestReconciliacionB81InformaTodosLosFallosDelLote(t *testing.T) {
 	}
 }
 
+func TestReconciliacionB81LoteUnoAvanzaTrasFalloHastaPaginaPosterior(t *testing.T) {
+	refA, refC := "ref:outbox:A", "ref:outbox:C"
+	q := &consultasReconciliacionB81{t: t, pasos: []pasoReconciliacionB81{
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaPendientesB81(refA, 1)},
+		{"registrar_restriccion_cese_bolsa_v1", []any{refA, huellaReconciliacionB81, int64(1)}, filaCeseB81{err: &pgconn.PgError{Code: "08006"}}},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(1), refA}, filaPendientesB81(refC, 3)},
+		{"registrar_restriccion_cese_bolsa_v1", []any{refC, huellaReconciliacionB81, int64(3)}, filaB45B81(false)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(3), refC}, filaPendientesB81("", 0)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaPendientesB81(refA, 1)},
+		{"registrar_restriccion_cese_bolsa_v1", []any{refA, huellaReconciliacionB81, int64(1)}, filaB45B81(false)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(1), refA}, filaPendientesB81("", 0)},
+	}}
+	r := &reconciliacionCesesB81{pool: q, lote: 1}
+	primera, err := r.entregar(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "actual=1") || primera.nuevos != 1 || q.llamadas != 5 {
+		t.Fatalf("un fallo ocultó página posterior: %+v, %v, consultas=%d", primera, err, q.llamadas)
+	}
+	segunda, err := r.entregar(context.Background())
+	if err != nil || segunda.nuevos != 1 || q.llamadas != len(q.pasos) {
+		t.Fatalf("cese fallido no se reintentó desde el principio: %+v, %v, consultas=%d", segunda, err, q.llamadas)
+	}
+}
+
+func TestReconciliacionB81SumaFallosDePaginasDistintas(t *testing.T) {
+	refA, refB := "ref:outbox:A", "ref:outbox:B"
+	q := &consultasReconciliacionB81{t: t, pasos: []pasoReconciliacionB81{
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaPendientesB81(refA, 1)},
+		{"registrar_restriccion_cese_bolsa_v1", []any{refA, huellaReconciliacionB81, int64(1)}, filaCeseB81{err: &pgconn.PgError{Code: "08006"}}},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(1), refA}, filaPendientesB81(refB, 2)},
+		{"registrar_restriccion_cese_bolsa_v1", []any{refB, huellaReconciliacionB81, int64(2)}, filaCeseB81{err: &pgconn.PgError{Code: "23503"}}},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(2), refB}, filaPendientesB81("", 0)},
+	}}
+	resultado, err := (&reconciliacionCesesB81{pool: q, lote: 1}).entregar(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "actual=2") || resultado != (resultadoEntregaContratosCT{}) || q.llamadas != len(q.pasos) {
+		t.Fatalf("fallos de páginas distintas no agregados: %+v, %v, consultas=%d", resultado, err, q.llamadas)
+	}
+}
+
+func TestReconciliacionB81RechazaPaginaDesordenadaAntesDeB45(t *testing.T) {
+	q := &consultasReconciliacionB81{t: t, pasos: []pasoReconciliacionB81{
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{2, nil, nil}, filaLotePendientesB81(t,
+			cesePendienteB81{OrigenRef: "ref:outbox:B", HuellaSHA256: huellaReconciliacionB81, OrigenPosicion: 2},
+			cesePendienteB81{OrigenRef: "ref:outbox:A", HuellaSHA256: huellaReconciliacionB81, OrigenPosicion: 1})},
+	}}
+	resultado, err := (&reconciliacionCesesB81{pool: q, lote: 2}).entregar(context.Background())
+	if err == nil || resultado != (resultadoEntregaContratosCT{}) || q.llamadas != 1 {
+		t.Fatalf("se aplicó una página desordenada: %+v, %v, consultas=%d", resultado, err, q.llamadas)
+	}
+}
+
+func TestReconciliacionB81RechazaPaginaRepetidaORetrocedida(t *testing.T) {
+	for _, siguiente := range []cesePendienteB81{
+		{OrigenRef: "ref:outbox:B", HuellaSHA256: huellaReconciliacionB81, OrigenPosicion: 2},
+		{OrigenRef: "ref:outbox:A", HuellaSHA256: huellaReconciliacionB81, OrigenPosicion: 1},
+		{OrigenRef: "ref:outbox:A", HuellaSHA256: huellaReconciliacionB81, OrigenPosicion: 2},
+	} {
+		t.Run(fmt.Sprintf("%d_%s", siguiente.OrigenPosicion, siguiente.OrigenRef), func(t *testing.T) {
+			ref := "ref:outbox:B"
+			q := &consultasReconciliacionB81{t: t, pasos: []pasoReconciliacionB81{
+				{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaPendientesB81(ref, 2)},
+				{"registrar_restriccion_cese_bolsa_v1", []any{ref, huellaReconciliacionB81, int64(2)}, filaB45B81(false)},
+				{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(2), ref}, filaLotePendientesB81(t, siguiente)},
+			}}
+			resultado, err := (&reconciliacionCesesB81{pool: q, lote: 1}).entregar(context.Background())
+			if err == nil || resultado.nuevos != 1 || q.llamadas != len(q.pasos) {
+				t.Fatalf("cursor retrocedió o repitió fila: %+v, %v, consultas=%d", resultado, err, q.llamadas)
+			}
+		})
+	}
+}
+
+func TestReconciliacionB81PaginaPorReferenciaEnMismaPosicion(t *testing.T) {
+	refA, refB := "ref:outbox:A", "ref:outbox:B"
+	q := &consultasReconciliacionB81{t: t, pasos: []pasoReconciliacionB81{
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaPendientesB81(refA, 7)},
+		{"registrar_restriccion_cese_bolsa_v1", []any{refA, huellaReconciliacionB81, int64(7)}, filaB45B81(false)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(7), refA}, filaPendientesB81(refB, 7)},
+		{"registrar_restriccion_cese_bolsa_v1", []any{refB, huellaReconciliacionB81, int64(7)}, filaB45B81(false)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(7), refB}, filaPendientesB81("", 0)},
+	}}
+	resultado, err := (&reconciliacionCesesB81{pool: q, lote: 1}).entregar(context.Background())
+	if err != nil || resultado.nuevos != 2 || q.llamadas != len(q.pasos) {
+		t.Fatalf("desempate por referencia falló: %+v, %v, consultas=%d", resultado, err, q.llamadas)
+	}
+}
+
+func TestReconciliacionB81AvisaAlAgotarPaginas(t *testing.T) {
+	pasos := make([]pasoReconciliacionB81, 0, maximoPaginasEntregaContratosCT*2)
+	var previo string
+	for i := 0; i < maximoPaginasEntregaContratosCT; i++ {
+		ref := fmt.Sprintf("ref:outbox:%03d", i)
+		args := []any{1, nil, nil}
+		if i > 0 {
+			args = []any{1, int64(i - 1), previo}
+		}
+		pasos = append(pasos,
+			pasoReconciliacionB81{"listar_ceses_sin_candidato_pendientes_v1", args, filaPendientesB81(ref, int64(i))},
+			pasoReconciliacionB81{"registrar_restriccion_cese_bolsa_v1", []any{ref, huellaReconciliacionB81, int64(i)}, filaB45B81(false)},
+		)
+		previo = ref
+	}
+	q := &consultasReconciliacionB81{t: t, pasos: pasos}
+	resultado, err := (&reconciliacionCesesB81{pool: q, lote: 1}).entregar(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "clave=paginas_reconciliacion_B81") ||
+		resultado.nuevos != maximoPaginasEntregaContratosCT || q.llamadas != len(pasos) {
+		t.Fatalf("límite silencioso: %+v, %v, consultas=%d", resultado, err, q.llamadas)
+	}
+}
+
 func TestReconciliacionB81ContinuaSiLectorCTFalla(t *testing.T) {
 	ref := "ref:outbox:antiguo"
 	q := &consultasReconciliacionB81{t: t, pasos: []pasoReconciliacionB81{
 		{"cursor_restriccion_cese_bolsa_v1", nil, filaCeseB81{valores: []any{int64(500), "ref:outbox:reciente"}}},
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{1}, filaPendientesB81(ref, 7)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaPendientesB81(ref, 7)},
 		{"registrar_restriccion_cese_bolsa_v1", []any{ref, huellaReconciliacionB81, int64(7)}, filaB45B81(false)},
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{1}, filaPendientesB81("", 0)},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, int64(7), ref}, filaPendientesB81("", 0)},
 	}}
 	lector := lectorCesesB81{&lectorContratosCTPrueba{err: fmt.Errorf("fuente CT no disponible")}}
 	principal := &entregaCesesCTBolsa{lector: lector, pool: q, lote: 1}
@@ -207,7 +320,7 @@ func TestRelevoCesesExigeGuardasB90(t *testing.T) {
 
 func TestReconciliacionB81NoConfundeRespuestaNulaConListaVacia(t *testing.T) {
 	q := &consultasReconciliacionB81{t: t, pasos: []pasoReconciliacionB81{
-		{"listar_ceses_sin_candidato_pendientes_v1", []any{1}, filaCeseB81{valores: []any{[]byte(`null`)}}},
+		{"listar_ceses_sin_candidato_pendientes_v1", []any{1, nil, nil}, filaCeseB81{valores: []any{[]byte(`null`)}}},
 	}}
 	resultado, err := (&reconciliacionCesesB81{pool: q, lote: 1}).entregar(context.Background())
 	if err == nil || resultado != (resultadoEntregaContratosCT{}) || q.llamadas != 1 {
