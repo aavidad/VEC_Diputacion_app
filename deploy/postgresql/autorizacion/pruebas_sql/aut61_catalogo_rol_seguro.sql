@@ -10,7 +10,7 @@ DO $prueba$
 DECLARE canon text:=$json$[{"referencia":"accion:sintetica","version":1,"fuente_ref":"fuente:modulo","fuente_version":2,"concesion":{"accion":"sintetico.consultar","modulo_id":"sintetico","tipo_recurso":"expediente","finalidades":["revision"],"garantia_minima":"alto"},"dimensiones_ambito":["unidad"],"clase_control":"consulta_auditada","vigente_desde":"2026-10-01T00:00:00Z","vigente_hasta":"0001-01-01T00:00:00Z"}]$json$;
  huella text:='5fdabf454a5f15834a80e70cef1aef929648805dc481119064206654bc4c94cb';
  entrada jsonb;fuente jsonb;paquete jsonb;otro jsonb;ordinaria jsonb;central jsonb;
- nuevo_sha text;
+ nuevo_sha text;rol_existente text;
 BEGIN
  IF pg_catalog.octet_length(canon)<>390
  OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(canon,'UTF8')),'hex') IS DISTINCT FROM huella THEN
@@ -58,6 +58,15 @@ BEGIN
   RAISE EXCEPTION 'AUT61 prueba: RolID sintetico ocupado';END IF;
  ordinaria:=pg_catalog.jsonb_set(entrada,'{clase_control}',pg_catalog.to_jsonb('ordinario'::text));
  PERFORM vec_autorizacion.exigir_rol_ordinario_gobierno_v1(ordinaria,'aut61_prueba_ordinaria','Rol de prueba');
+ -- El cierre revalida este descriptor después de insertar la versión. La
+ -- unicidad del RolID corresponde al aplicar, bajo su bloqueo de escritura.
+ SELECT rol_id INTO rol_existente FROM vec_autorizacion.version_rol
+  WHERE rol_id ~ '^[a-z][a-z0-9_]{2,63}$'
+   AND rol_id NOT IN ('administracion_perfiles','operador_plataforma')
+   AND rol_id !~ '(^candidato_|extern|^intervencion)'
+  ORDER BY rol_id LIMIT 1;
+ IF rol_existente IS NULL THEN RAISE EXCEPTION 'AUT61 prueba: falta RolID previo ordinario';END IF;
+ PERFORM vec_autorizacion.exigir_rol_ordinario_gobierno_v1(ordinaria,rol_existente,'Rol de prueba');
  BEGIN
   PERFORM vec_autorizacion.exigir_rol_ordinario_gobierno_v1(entrada,'aut61_prueba_ordinaria','Rol de prueba');
   RAISE EXCEPTION 'AUT61 prueba: acepto clase desconocida';

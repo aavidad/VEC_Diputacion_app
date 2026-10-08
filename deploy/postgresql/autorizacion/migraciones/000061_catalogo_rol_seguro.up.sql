@@ -192,7 +192,6 @@ BEGIN
  OR p_rolid IN('administracion_perfiles','operador_plataforma')
  OR p_rolid ~ '(^candidato_|extern)' OR p_rolid ~ '^intervencion'
  OR p_nombre ~* '(fiscaliz|intervenc)'
- OR EXISTS(SELECT 1 FROM vec_autorizacion.version_rol v WHERE v.rol_id=p_rolid)
  OR p_entrada->>'clase_control' IS DISTINCT FROM 'ordinario'
  OR p_entrada#>>'{concesion,modulo_id}' IS NULL
  OR p_entrada#>>'{concesion,modulo_id}' IN('administracion','intervencion','aspirantes')
@@ -734,7 +733,7 @@ BEGIN
  EXCEPTION WHEN invalid_text_representation THEN material_no_json:=true;
  WHEN OTHERS THEN NULL;
  END;
- estado:=CASE WHEN material_no_json OR p_sqlstate IN('42501','22023','23505','P0002') THEN 'denegado' ELSE 'error' END;
+ estado:=CASE WHEN material_no_json OR p_sqlstate IN('42501','22023','23505','P0002','40001') THEN 'denegado' ELSE 'error' END;
  codigo:='gobierno_rol_nuevo_'||estado;
  SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.registrar_intento_gobierno_rol_nuevo_v1(
   jsonb_build_object('tipo_registro','intento_gobierno_rol_nuevo',
