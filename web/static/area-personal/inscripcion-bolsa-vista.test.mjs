@@ -25,6 +25,7 @@ test("lista vacía, plazo, revisión, reintento con la misma clave y recibo recu
   const { contenedor, ventana, pulsar } = entorno();
   let vacia = true;
   const claves = [];
+  const declaracionesRecibidas = [];
   const cliente = {
     abiertas: async () => ({ convocatorias: vacia ? [] : [resumen], total: vacia ? 0 : 1, cursor_siguiente: null }),
     convocatoria: async () => ({ convocatoria: { ...bolsa, puede_iniciar: true,
@@ -33,8 +34,9 @@ test("lista vacía, plazo, revisión, reintento con la misma clave y recibo recu
     propias: async () => ({ solicitudes: [], cursor_siguiente: null }),
     detallePropio: async () => ({ solicitud: { solicitud_ref: "solicitud:42", recibo_ref: "recibo:42", categoria: bolsa.categorias[0].categoria,
       convocatoria_ref: bolsa.convocatoria_ref, estado: "pendiente", version: 1, registrada_en: instante } }),
-    inscribir: async ({ claveIdempotencia }) => {
+    inscribir: async ({ claveIdempotencia, declaraciones }) => {
       claves.push(claveIdempotencia);
+      declaracionesRecibidas.push(declaraciones);
       if (claves.length === 1) throw Object.assign(new Error("red"), { status: 503 });
       return { solicitud_ref: "solicitud:42", recibo_ref: "recibo:42", convocatoria_ref: bolsa.convocatoria_ref,
         categoria: bolsa.categorias[0].categoria,
@@ -50,11 +52,16 @@ test("lista vacía, plazo, revisión, reintento con la misma clave y recibo recu
   assert.match(contenedor.innerHTML, /Auxiliar administrativo/u);
   assert.match(contenedor.innerHTML, /Título exigido/u);
   pulsar("revisar"); assert.match(contenedor.innerHTML, /Revise su solicitud/u);
+  assert.match(contenedor.innerHTML, /data-inscripcion-requisito="titulo"[^>]*disabled/u);
+  contenedor.handlers.change({ target: { matches: () => false, closest: () => ({
+    dataset: { inscripcionRequisito: "titulo" }, checked: true,
+  }) } });
   pulsar("confirmar"); await pausa();
   assert.match(contenedor.innerHTML, /No se ha podido completar/u);
   pulsar("confirmar"); await pausa();
   assert.equal(claves.length, 2);
   assert.equal(claves[0], claves[1]);
+  assert.deepEqual(declaracionesRecibidas, [[], []], "la revisión no cambia declaraciones a espaldas del resumen");
   assert.match(contenedor.innerHTML, /recibo:42/u);
   assert.match(ventana.location.href, /solicitud%3A42/u);
   montaje.destruir();

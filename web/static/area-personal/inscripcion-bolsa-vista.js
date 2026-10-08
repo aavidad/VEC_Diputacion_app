@@ -97,7 +97,7 @@ function vistaBolsa(estado, textos) {
     <p>${esc(requisito.motivo_etiqueta)}</p>
     ${requisito.hito_etiqueta ? `<p>${t("cuandoExigido")}: ${esc(requisito.hito_etiqueta)}${requisito.hito_fecha ? ` · ${fecha(textos, requisito.hito_fecha)}` : ""}</p>` : ""}
     <label class="opcion-check"><input type="checkbox" data-inscripcion-requisito="${esc(requisito.codigo)}"
-      ${estado.declaraciones.has(requisito.codigo) ? "checked" : ""} ${pendiente || requisito.estado === "no_cumple" ? "disabled" : ""}><span>${t("declarar")}: ${esc(requisito.descripcion)}</span></label></li>`).join("");
+      ${estado.declaraciones.has(requisito.codigo) ? "checked" : ""} ${pendiente || estado.revision || requisito.estado === "no_cumple" ? "disabled" : ""}><span>${t("declarar")}: ${esc(requisito.descripcion)}</span></label></li>`).join("");
   const declarados = bolsa.requisitos.filter((requisito) => estado.declaraciones.has(requisito.codigo));
   const enviando = estado.enviando || ENVIOS_ACTIVOS.has(bolsa.convocatoria_ref);
   return `<div class="cuerpo-panel"><button type="button" class="boton-secundario" data-inscripcion-accion="volver">${t("volver")}</button>
@@ -387,7 +387,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
       return;
     }
     const casilla = evento.target?.closest?.("[data-inscripcion-requisito]");
-    if (!casilla || !contenedor.contains(casilla) || estado.tipo !== "bolsa") return;
+    if (!casilla || !contenedor.contains(casilla) || estado.tipo !== "bolsa" || estado.revision) return;
     const codigo = casilla.dataset.inscripcionRequisito;
     if (!estado.bolsa?.requisitos.some((r) => r.codigo === codigo)) return;
     if (casilla.checked) estado.declaraciones.add(codigo);
