@@ -32,6 +32,32 @@
 -- evidencia_hex y raiz_hex. El LOGIN sólo posee las fachadas AUT60.
 \connect :aut61_db postgres
 SET search_path=pg_catalog,pg_temp;
+SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=:'aut61_login'
+ AND r.rolcanlogin AND r.rolinherit AND r.rolconfig IS NULL
+ AND NOT (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AS aut61_acl_login,
+ EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=:'aut61_login'
+ AND (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)=1
+ AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m
+  WHERE m.member=r.oid AND m.roleid=pg_catalog.to_regrole('vec_admin_gobierno_roles_ejecutor')
+   AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)) AS aut61_acl_grupo,
+ EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=:'aut61_login'
+ AND NOT pg_catalog.has_database_privilege(r.oid,current_database(),'CREATE,TEMP')
+ AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname LIKE 'vec\_%' ESCAPE '\'
+  AND pg_catalog.has_schema_privilege(r.oid,n.oid,'CREATE'))
+ AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname LIKE 'vec\_%' ESCAPE '\' AND c.relkind IN('r','p','v','m','f')
+   AND pg_catalog.has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE'))) AS aut61_acl_datos,
+ EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=:'aut61_login'
+ AND pg_catalog.has_function_privilege(r.oid,
+  'vec_autorizacion.proponer_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,'EXECUTE')
+ AND pg_catalog.has_function_privilege(r.oid,
+  'vec_autorizacion.cerrar_gobierno_rol_nuevo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,'EXECUTE')) AS aut61_acl_fachadas
+\gset
+SELECT 'login ordinario; grupo Gov exclusivo; sin tablas ni CREATE/TEMP; fachadas ejecutables' AS esperado,
+ jsonb_build_object('login',:'aut61_acl_login'::boolean,'grupo',:'aut61_acl_grupo'::boolean,
+  'datos',:'aut61_acl_datos'::boolean,'fachadas',:'aut61_acl_fachadas'::boolean) AS actual;
+SELECT 1 / CASE WHEN :'aut61_acl_login'='t' AND :'aut61_acl_grupo'='t'
+ AND :'aut61_acl_datos'='t' AND :'aut61_acl_fachadas'='t' THEN 1 ELSE 0 END AS acl_login_real;
 SELECT (:'aut61_propuesta_material'::jsonb->>'material_canon')::jsonb->>'OperacionRef' AS aut61_propuesta_ref,
  (:'aut61_propuesta_material'::jsonb->>'material_canon')::jsonb#>>'{Plan,version_rol_objetivo_ref}' AS aut61_version_rol_ref,
  (:'aut61_propuesta_material'::jsonb->>'material_canon')::jsonb#>>'{Plan,definicion_nueva,rol_id}' AS aut61_rol_id,
@@ -98,10 +124,16 @@ SELECT 1 / CASE WHEN
  AND (SELECT count(*) FROM vec_autorizacion.outbox_gobierno_rol_nuevo_v1 WHERE operacion_ref IN (:'aut61_propuesta_ref',:'aut61_cierre_ref'))=2
  AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a
   JOIN vec_autorizacion.propuesta_gobierno_rol_nuevo_v1 p ON p.auditoria_ref=a.auditoria_ref
-  WHERE p.propuesta_ref=:'aut61_propuesta_ref' AND a.accion='administracion.perfiles.definicion.proponer')=1
+  JOIN vec_autorizacion_atestada_v3.atestacion_decision_v3 d ON d.decision_ref=a.decision_ref
+  WHERE p.propuesta_ref=:'aut61_propuesta_ref' AND a.tipo_registro='consumo_confirmado_v4'
+   AND a.efecto_ref=:'aut61_version_rol_ref'
+   AND convert_from(d.decision_canonica,'UTF8')::jsonb->>'accion'='administracion.perfiles.definicion.proponer')=1
  AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a
   JOIN vec_autorizacion.cierre_gobierno_rol_nuevo_v1 c ON c.auditoria_ref=a.auditoria_ref
-  WHERE c.propuesta_ref=:'aut61_propuesta_ref' AND a.accion='administracion.perfiles.definicion.aprobar')=1
+  JOIN vec_autorizacion_atestada_v3.atestacion_decision_v3 d ON d.decision_ref=a.decision_ref
+  WHERE c.propuesta_ref=:'aut61_propuesta_ref' AND a.tipo_registro='consumo_confirmado_v4'
+   AND a.efecto_ref=:'aut61_propuesta_ref'
+   AND convert_from(d.decision_canonica,'UTF8')::jsonb->>'accion'='administracion.perfiles.definicion.aprobar')=1
  AND EXISTS(SELECT 1 FROM vec_autorizacion.cierre_gobierno_rol_nuevo_v1 c
   JOIN vec_autorizacion.version_rol v ON v.version_rol_ref=c.version_rol_ref AND v.huella_sha256=c.rol_sha256
   JOIN vec_autorizacion.control_vigencia_version_rol cv ON cv.version_rol_ref=v.version_rol_ref
