@@ -1,4 +1,4 @@
-import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1";
+import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20261008-alta-etiquetas-ayuda-v2";
 import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 const TEXTO = Object.freeze({
