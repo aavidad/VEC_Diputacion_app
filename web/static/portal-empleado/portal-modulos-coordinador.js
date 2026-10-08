@@ -114,14 +114,14 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261008-alta-circular-v3"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261008-w-ct-borradores-main-v2"),
 
     ]);
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
-        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-alta-rpt-circular-v6"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6"),
+        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-w-ct-borradores-main-v2"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261008-w-ct-borradores-main-v2"),
         import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });

@@ -114,3 +114,9 @@ La carga permite usar el idioma de respaldo del documento cuando falla el índic
 La ficha avisa cuando la lista autorizada de Bolsa confirma que no hay bolsa vigente para la categoría, y señala que debe revisarse la vía de cobertura. Los fallos de carga, la falta de acceso y una bolsa fijada que no se puede consultar no se presentan como ausencia. Cuando hay bolsa vigente, conserva el botón que abre el llamamiento real de Bolsa con los datos del expediente. No añade consultas ni un llamamiento paralelo.
 
 Ocho casos de Chrome local comprobaron el componente con catálogos reales en castellano a1440px e inglés a390px, teclado y ausencia de desbordamiento. El mayor p95 de renderizado hasta el siguiente frame fue16,5ms; no mide HTTP, PostgreSQL ni navegación nominal. No requiere SQL ni configuración nueva.
+
+## Ficha sin consulta de borradores ausentes — 8 de octubre de 2026
+
+El detalle leído y auditado informa del montaje de la consulta de borradores. La ficha evita pedir esa consulta cuando el servidor confirma que no está montada, conservando el expediente y sus operaciones. La pista corresponde al mismo expediente y versión; se retira antes de otra lectura. Con la consulta montada se conserva su recorrido y su autorización en el servidor. Esta información no concede permisos.
+
+El corte no lleva SQL ni configuración nueva. La proyección nominal de capacidades por recurso de V sigue pendiente para evitar también consultas de secciones sin permiso. No se incorporan los consumidores opcionales de S mientras falte su proveedor nominal: retiraban funciones disponibles de CT y Bolsa.

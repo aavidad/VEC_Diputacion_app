@@ -523,22 +523,30 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
     "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
     "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+=======
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+>>>>>>> origin/main
     "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
     "modulos/contratacion-temporal/formulario-llamamiento.js",
     "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
     "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
     "modulos/contratacion-temporal/incorporacion-personal-b2.js",
     "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+<<<<<<< HEAD
     "modulos/contratacion-temporal/renderizado-llamamiento.js",
     "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
     "modulos/contratacion-temporal/seguimiento-incorporacion.js",
     "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+=======
+    "modulos/contratacion-temporal/vista-expedientes-cambios.js",
+>>>>>>> origin/main
     "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
     "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
     "modulos/contratacion-temporal/vista-expedientes-render.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js",
+<<<<<<< HEAD
     "portal.js"
 ]) versionesEspeciales.set(ruta, "20261008-ct-sin-bolsa-v2");
   versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261008-ct-centros-v1");

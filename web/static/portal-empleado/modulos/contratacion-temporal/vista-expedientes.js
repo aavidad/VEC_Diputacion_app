@@ -313,6 +313,8 @@ export async function montarModuloContratacionTemporal({
     const contexto = contextoPlantillasPublicadasDesdeEstado(estado);
     const zona = raiz.querySelector(".ct-exp-contenido");
     if (!contexto || !zona || typeof raiz.ownerDocument?.createElement !== "function") return;
+    // Pista de composición del detalle auditado; nunca concede un permiso.
+    if (presentador.resolverDisponibilidadOpcional?.("borradores_publicados", contexto)?.estado === "sin_montaje") return;
     const contenedor = raiz.ownerDocument.createElement("div");
     contenedor.dataset.ctExpBorradoresPublicados = "";
     zona.append(contenedor);
