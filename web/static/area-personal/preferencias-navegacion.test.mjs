@@ -44,6 +44,32 @@ function pulsar(eventos, selector, valor) {
   } } });
 }
 
+function prepararPanelDOM(documento) {
+  const contenido = documento.getElementById("espacio-trabajo");
+  function crearPanel(html) {
+    const panel = { outerHTML: html,
+      contains(elemento) { return elemento?.panel === panel; },
+      querySelector(selector) {
+        if (selector !== '[data-accion="recargar-preferencias"]' && selector !== "h2") return null;
+        return { panel, focus() { documento.activeElement = this; } };
+      },
+      querySelectorAll() { return []; },
+      replaceWith(nuevo) { contenido.panel = nuevo; contenido.innerHTML = nuevo.outerHTML; },
+    };
+    return panel;
+  }
+  contenido.panel = crearPanel(contenido.innerHTML);
+  contenido.querySelector = (selector) => selector === ".preferencias-panel"
+    ? contenido.panel : { focus() {} };
+  documento.createElement = (tag) => {
+    assert.equal(tag, "template");
+    const plantilla = { content: { firstElementChild: null } };
+    Object.defineProperty(plantilla, "innerHTML", { set(html) { plantilla.content.firstElementChild = crearPanel(html); } });
+    return plantilla;
+  };
+  return contenido;
+}
+
 async function escenario(idioma, lectura, errorPreferencias = null) {
   const original = { document: globalThis.document, window: globalThis.window };
   const { documento, eventos } = documentoFalso();
@@ -222,18 +248,48 @@ test("GET tardío pinta el formulario y devuelve el foco a Recargar en el panel"
     const estado = await iniciarAreaPersonal({ cliente: { async cargar() { return { consulta: {
       consultada_en: "2026-10-08T10:00:00Z", participaciones: [] } }; } },
     vistasDisponibles: new Set(["preferencias", "llamamientos", "inicio"]), preferenciasAplazadas: true });
-    const contenido = documento.getElementById("espacio-trabajo");
+    const contenido = prepararPanelDOM(documento);
     assert.match(contenido.innerHTML, /Loading authorised information/u);
     assert.doesNotMatch(contenido.innerHTML, /could not be retrieved/u);
-    const anterior = { dataset: { accion: "recargar-preferencias" } };
-    const restaurado = { focus() { documento.activeElement = this; } };
-    contenido.contains = (elemento) => elemento === anterior;
-    contenido.querySelector = (selector) => selector === '[data-accion="recargar-preferencias"]' ? restaurado : null;
+    const anterior = { dataset: { accion: "recargar-preferencias" }, panel: contenido.panel };
     documento.activeElement = anterior;
     aplicarPreferenciasInicialesAplazadas(estado, preferencias);
     assert.match(contenido.innerHTML, /id="formulario-preferencias"/u);
-    assert.equal(documento.activeElement, restaurado);
+    assert.equal(documento.activeElement.panel, contenido.panel);
+    assert.notEqual(documento.activeElement, anterior);
   } finally { globalThis.document = original.document; globalThis.window = original.window; }
+});
+
+test("GET tardío conserva los nodos, foco y borrador de Mis correos", () => {
+  const documentoAnterior = globalThis.document;
+  const botonCorreo = { dataset: { correosAccion: "reenviar" } };
+  const borradorCorreo = { name: "codigo", value: "123456" };
+  const correos = { controles: [botonCorreo, borradorCorreo] };
+  const contenido = { children: [], querySelector(selector) {
+    return selector === ".preferencias-panel" ? this.children[0] : null;
+  } };
+  const crearPanel = () => ({ contains() { return false; }, replaceWith(nuevo) { contenido.children[0] = nuevo; },
+    querySelector() { return null; }, querySelectorAll() { return []; } });
+  const panelAnterior = crearPanel();
+  contenido.children = [panelAnterior, correos];
+  globalThis.document = { activeElement: botonCorreo, querySelectorAll() { return []; },
+    getElementById(id) { return id === "espacio-trabajo" ? contenido : null; },
+    createElement(tag) {
+      assert.equal(tag, "template");
+      return { content: { firstElementChild: crearPanel() }, set innerHTML(_html) {} };
+    } };
+  try {
+    const estado = { vista: "preferencias", datos: { capacidades: {} }, preferencias: { estado: null, catalogo: null },
+      filasPreferidas: 20, inicioTardio: false, navegacionVersion: 1, interaccionVersion: 1,
+      ajusteVisualVersion: 1, controladorVisual: null };
+    aplicarPreferenciasInicialesAplazadas(estado, preferencias);
+    assert.notEqual(contenido.children[0], panelAnterior);
+    assert.equal(contenido.children[1], correos);
+    assert.equal(correos.controles[0], botonCorreo);
+    assert.equal(correos.controles[1], borradorCorreo);
+    assert.equal(borradorCorreo.value, "123456");
+    assert.equal(globalThis.document.activeElement, botonCorreo);
+  } finally { globalThis.document = documentoAnterior; }
 });
 
 test("Recargar antes y después de Mi Bolsa comparte la lectura diferida y no crea dos GET iniciales", async () => {
@@ -256,7 +312,7 @@ test("Recargar antes y después de Mi Bolsa comparte la lectura diferida y no cr
     assert.equal(consultas, 0);
     terminarBolsa({ codigo: "servicio_no_disponible" });
     const estado = await inicio;
-    const contenido = documento.getElementById("espacio-trabajo");
+    const contenido = prepararPanelDOM(documento);
     assert.match(contenido.innerHTML, /Cargando información autorizada/u);
     assert.doesNotMatch(contenido.innerHTML, /No se pudieron consultar sus preferencias/u);
     pulsar(eventos, "[data-accion]", "recargar-preferencias");
@@ -302,6 +358,7 @@ test("un fallo del GET inicial permite una nueva lectura explícita desde Prefer
     const estado = await iniciarAreaPersonal({ cliente: { async cargar() { throw { codigo: "servicio_no_disponible" }; } },
       vistasDisponibles: new Set(["preferencias", "llamamientos", "inicio"]), preferenciasAplazadas: true,
       clientePreferencias: { async cargar() { consultas += 1; return preferencias; } } });
+    prepararPanelDOM(documento);
     aplicarPreferenciasInicialesAplazadas(estado, null, { codigo: "servicio" });
     assert.equal(consultas, 0);
     pulsar(eventos, "[data-accion]", "recargar-preferencias");

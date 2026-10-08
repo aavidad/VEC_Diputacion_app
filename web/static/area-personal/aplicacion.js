@@ -742,17 +742,27 @@ export function aplicarPreferenciasInicialesAplazadas(estado, lectura, error = n
   }
   const contenido = porId("espacio-trabajo");
   if (estado.vista === "preferencias" && contenido) {
-    const activo = document.activeElement;
-    const dentro = contenido.contains?.(activo) === true;
-    const idFoco = dentro ? activo?.id : "";
-    const recargando = dentro && activo?.dataset?.accion === "recargar-preferencias";
-    asegurarShellPreferencias(estado);
-    renderizar(estado);
-    if (dentro) {
-      const destino = (idFoco && document.getElementById(idFoco))
-        || (recargando && contenido.querySelector('[data-accion="recargar-preferencias"]'))
-        || contenido.querySelector(".preferencias-panel h2");
-      destino?.focus({ preventScroll: true });
+    if (!estado.datos) {
+      asegurarShellPreferencias(estado);
+      renderizar(estado);
+    } else {
+      const panel = contenido.querySelector(".preferencias-panel");
+      if (panel) {
+        const activo = document.activeElement;
+        const dentro = panel.contains?.(activo) === true;
+        const idFoco = dentro ? activo?.id : "";
+        const recargando = dentro && activo?.dataset?.accion === "recargar-preferencias";
+        const plantilla = document.createElement("template");
+        plantilla.innerHTML = renderizarPreferencias(preferencias);
+        const nuevoPanel = plantilla.content.firstElementChild;
+        panel.replaceWith(nuevoPanel);
+        if (dentro) {
+          const destino = (idFoco && [...nuevoPanel.querySelectorAll("[id]")].find((nodo) => nodo.id === idFoco))
+            || (recargando && nuevoPanel.querySelector('[data-accion="recargar-preferencias"]'))
+            || nuevoPanel.querySelector("h2");
+          destino?.focus({ preventScroll: true });
+        }
+      }
     }
   }
   estado.resolverLecturaPreferenciasInicial?.();
