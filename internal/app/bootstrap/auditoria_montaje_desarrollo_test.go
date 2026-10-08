@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -30,12 +31,32 @@ func (registradorRutaAuditoriaSintetica) RegistrarAuditoriaFronteraRutaExacta(co
 type registradorFronteraSuperficiePrueba struct {
 	llamadas int
 	ultima   vecports.OrdenAuditoriaFronteraRutaExacta
+	fallo    error
 }
 
 func (r *registradorFronteraSuperficiePrueba) RegistrarAuditoriaFronteraRutaExacta(_ context.Context, orden vecports.OrdenAuditoriaFronteraRutaExacta) error {
 	r.llamadas++
 	r.ultima = orden
-	return nil
+	return r.fallo
+}
+
+func TestManejadorAuditoriaNoEmiteDenegacionSinApunteConfirmado(t *testing.T) {
+	registrador := &registradorFronteraSuperficiePrueba{fallo: errors.New("sin apunte")}
+	for _, codigo := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		h := manejadorAuditoriaDenegacionesLocales{registrador: registrador,
+			siguiente: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, "detalle reservado", codigo)
+			})}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodPost, auditoria.RutaConsulta, nil))
+		if w.Code != http.StatusServiceUnavailable || strings.Contains(w.Body.String(), "detalle reservado") ||
+			registrador.ultima.Validar() != nil {
+			t.Fatalf("denegacion sin apunte confirmado: HTTP %d cuerpo=%q orden=%+v", w.Code, w.Body.String(), registrador.ultima)
+		}
+	}
+	if registrador.llamadas != 2 {
+		t.Fatalf("se esperaban dos intentos de apunte, hay %d", registrador.llamadas)
+	}
 }
 
 func TestManejadorAuditoriaRegistra403LocalConActorVerificado(t *testing.T) {
