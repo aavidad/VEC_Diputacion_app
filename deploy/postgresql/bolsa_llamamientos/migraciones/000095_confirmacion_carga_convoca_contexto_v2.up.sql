@@ -52,6 +52,7 @@ DECLARE decision jsonb; bolsa jsonb; recurso jsonb; capacidad jsonb; consumo rec
         carga record; recibo jsonb; vinculos_recibo jsonb; previo vec_bolsa_llamamientos.recibo_carga_convoca%ROWTYPE;
         huella_entradas text; huella_vinculos text; nueva boolean;
         ambito text; unidad text; canon text; huella_contexto text;
+        registrada_db timestamptz; registrada_texto text;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
  OR pg_catalog.current_setting('transaction_isolation')<>'serializable'
@@ -162,8 +163,25 @@ BEGIN
  OR acta_durable->>'huella_fichero_sha256' IS DISTINCT FROM p_acta->>'huella_fichero_sha256'
  THEN RAISE EXCEPTION 'B79: acta histórica incompatible' USING ERRCODE='23505'; END IF;
  SELECT * INTO STRICT carga FROM vec_bolsa_importacion_convoca.guardar_lote_v1(acta_durable,p_filas_cifradas);
- IF carga.acta_canonica IS DISTINCT FROM acta_durable THEN
+ -- BIC3 fija registrada_en con el reloj PostgreSQL al crear el lote; Go
+ -- aporta una fecha técnica previa. Todas las demás claves del acta deben
+ -- permanecer idénticas, también actor, categoría, custodia y demás fechas.
+ IF pg_catalog.jsonb_typeof(carga.acta_canonica) IS DISTINCT FROM 'object'
+ OR carga.acta_canonica - 'registrada_en' IS DISTINCT FROM acta_durable - 'registrada_en'
+ OR pg_catalog.jsonb_typeof(carga.acta_canonica->'registrada_en') IS DISTINCT FROM 'string'
+ THEN
   RAISE EXCEPTION 'B79: acta durable divergente' USING ERRCODE='55000'; END IF;
+ registrada_texto:=carga.acta_canonica->>'registrada_en';
+ IF registrada_texto !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{6}Z$'
+ THEN RAISE EXCEPTION 'B95: fecha de registro durable inválida' USING ERRCODE='55000'; END IF;
+ BEGIN
+  registrada_db:=registrada_texto::timestamptz;
+ EXCEPTION WHEN invalid_datetime_format OR datetime_field_overflow OR invalid_text_representation THEN
+  RAISE EXCEPTION 'B95: fecha de registro durable inválida' USING ERRCODE='55000';
+ END;
+ IF NOT pg_catalog.isfinite(registrada_db)
+ OR pg_catalog.to_char(registrada_db AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') IS DISTINCT FROM registrada_texto
+ THEN RAISE EXCEPTION 'B95: fecha de registro durable inválida' USING ERRCODE='55000'; END IF;
  PERFORM vec_bolsa_importacion_convoca.guardar_original_v1(carga.acta_canonica,p_original_cifrado);
  SELECT * INTO previo FROM vec_bolsa_llamamientos.recibo_carga_convoca WHERE acta_ref=p_acta_ref FOR SHARE;
  IF FOUND THEN

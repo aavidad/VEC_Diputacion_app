@@ -8,14 +8,17 @@ import (
 
 var ErrConsultaEstadoCeseNoDisponible = errors.New("bolsa: estado de cese no disponible")
 
-// EstadoCese es la proyección efectiva B45: fecha del último cese acreditado,
-// máximo de disponibilidad entre todos sus ceses y guardia de otra relación.
-// No traslada candidato_ref ni historia personal a la participación.
+// EstadoCese une la proyección efectiva B45 con un cese B13 aún sin resolver.
+// PendienteDesde es el instante real de recepción B13, no una fecha de plazo.
 type EstadoCese struct {
 	FechaEfecto     time.Time
 	DisponibleDesde time.Time
 	EnRestriccion   bool
 	TrabajoCesado   bool
+	// CesePendiente impide ofrecer la participación mientras el cese B13
+	// sigue sin restricción B45. No implica fecha de disponibilidad.
+	CesePendiente  bool
+	PendienteDesde time.Time
 }
 
 type ConsultaEstadoCese interface {
