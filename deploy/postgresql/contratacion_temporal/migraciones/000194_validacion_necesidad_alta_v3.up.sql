@@ -186,6 +186,7 @@ BEGIN
    ELSIF v_clave IN ('justificacion_temporal','programa_denominacion') THEN
      IF pg_catalog.char_length(v_texto)>4000
         OR normalize(v_texto,NFC) IS DISTINCT FROM v_texto
+        OR v_texto ~ '(^[[:space:]]|[[:space:]]$)'
         OR pg_catalog.translate(v_texto,E'\t\n','') ~ '[[:cntrl:]]' THEN
        RETURN false;
      END IF;
@@ -443,7 +444,7 @@ DECLARE
  actual_config text;
 BEGIN
  FOR item IN SELECT * FROM (VALUES
-    ('vec_contratacion_temporal.necesidad_alta_valida_v3(jsonb)', '3ef8509fdcaa5435f4ac18ec8f1fa9a850ec1ddc60e0715af9740b66dd07f5f0', 'vec_contratacion_temporal_propietario', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}', '{search_path=pg_catalog}'),
+    ('vec_contratacion_temporal.necesidad_alta_valida_v3(jsonb)', 'db5185f959d6fe36f85ff87cc14268dbcc6e36fb14e0e549cf3ed160a0d856d3', 'vec_contratacion_temporal_propietario', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}', '{search_path=pg_catalog}'),
     ('vec_contratacion_temporal.leer_instantanea_necesidad_alta_v3(text,text,text,text)', 'f2896f419c9248a3c891103092b9284a06d68e0bdf11e22bcabffdee71d09f81', 'vec_contratacion_temporal_propietario', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}', '{"search_path=pg_catalog, pg_temp",row_security=on,TimeZone=UTC,statement_timeout=15s}')
  ) AS v(firma,huella,propietario,acl,configuracion) LOOP
    f:=pg_catalog.to_regprocedure(item.firma);
