@@ -98,6 +98,7 @@ func TestInscripcionErrorPostgreSQLConservaCausaNominalSinTextoSQL(t *testing.T)
 		{"B9603", inscripcion.ErrClaveConflicto},
 		{"B9604", inscripcion.ErrSolicitudExistente},
 		{"B9605", inscripcion.ErrDeclaracionInvalida},
+		{"B9606", inscripcion.ErrRequisitoInvalido},
 	}
 	for _, caso := range casos {
 		t.Run(caso.codigo, func(t *testing.T) {

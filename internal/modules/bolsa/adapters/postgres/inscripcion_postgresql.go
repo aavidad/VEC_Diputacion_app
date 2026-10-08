@@ -153,6 +153,8 @@ func errorInscripcionPostgreSQL(ctx context.Context, err error) error {
 			return inscripcion.ErrSolicitudExistente
 		case "B9605":
 			return inscripcion.ErrDeclaracionInvalida
+		case "B9606":
+			return inscripcion.ErrRequisitoInvalido
 		case "22023":
 			return inscripcion.ErrSolicitudInvalida
 		case "23505":
