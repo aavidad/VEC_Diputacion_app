@@ -172,3 +172,39 @@ func TestProvisionBolsaConservaCompletaYRechazaHuellaORamaAjena(t *testing.T) {
 		t.Fatalf("rama ajena aceptada: err=%v", err)
 	}
 }
+
+func TestCargaConvocaNoSeProvisionaEnArranqueSinPlantillaGobernada(t *testing.T) {
+	concede := func(i dominiovec.InstantaneaAutorizacion) bool {
+		for _, c := range i.VersionRol.Concesiones {
+			if c.Accion == puertosbolsa.AccionConfirmarCargaConvoca {
+				return true
+			}
+		}
+		return false
+	}
+	politicaBase, _, datosBase := politicaProvisionBolsaPrueba(t, 0)
+	for v := 1; v <= 16; v++ {
+		base, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(datosBase.PrincipalID, datosBase.PerfilActivoRef,
+			politicaBase.soporte.unidadRef, politicaBase.soporte.ambitoRef, politicaBase.reloj.Ahora(), v)
+		if err != nil || concede(base) {
+			t.Fatalf("v%d concedió B1 sin plantilla gobernada: %v", v, err)
+		}
+	}
+	for _, v := range []int{17, 21, 29, 32} {
+		if _, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(datosBase.PrincipalID, datosBase.PerfilActivoRef,
+			politicaBase.soporte.unidadRef, politicaBase.soporte.ambitoRef, politicaBase.reloj.Ahora(), v); err == nil {
+			t.Fatalf("v%d fue admitida sin plantilla gobernada", v)
+		}
+	}
+	politica, autoridad, _ := politicaProvisionBolsaPrueba(t, 13)
+	if err := politica.PublicarInicial(context.Background()); err != nil || autoridad.publicadas != 0 || concede(politica.instantanea) || politica.permiteCargaConvoca() {
+		t.Fatalf("v13 adquirió B1: err=%v publicaciones=%d", err, autoridad.publicadas)
+	}
+	politica, autoridad, _ = politicaProvisionBolsaPrueba(t, 13)
+	t.Setenv(envCargaConvocaAprobacion, "aprobacion:prueba-b1")
+	t.Setenv(envCargaConvocaPreimagen, strings.Repeat("a", 64))
+	t.Setenv(envCargaConvocaObjetivo, strings.Repeat("b", 64))
+	if err := politica.PublicarInicial(context.Background()); err == nil || autoridad.publicadas != 0 || politica.publicada {
+		t.Fatalf("arranque aceptó ajustes B1 sin plantilla: err=%v publicaciones=%d", err, autoridad.publicadas)
+	}
+}
