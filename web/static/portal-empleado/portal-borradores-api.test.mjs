@@ -114,7 +114,8 @@ test("POST rechaza cualquier éxito sin 201, ETag y Location canónica concordan
   const location = "/api/vec/bolsa/convocatorias/borradores/convocatoria%3Aexterna%3A2026/versiones/1";
   await assert.rejects(
     ejecutarCon({ estado: 200, etag: recibo("crear").etag, location }),
-    /operación del borrador \(200\)/,
+    (error) => error instanceof ErrorAPIBorradores && error.estado === 200
+      && /No se pudo completar esta acción/u.test(error.message) && !/\b200\b|HTTP|API/u.test(error.message),
   );
   await assert.rejects(
     ejecutarCon({ estado: 201, etag: recibo("crear").etag }),
@@ -128,6 +129,47 @@ test("POST rechaza cualquier éxito sin 201, ETag y Location canónica concordan
     ejecutarCon({ estado: 201, location }),
     /No se ha podido comprobar la versión de los datos/,
   );
+});
+
+test("un estado inesperado conserva diagnóstico sin enseñar códigos ni repetir el POST", async () => {
+  let llamadas = 0;
+  const cliente = crearClienteBorradores({ fetchImpl: async () => {
+    llamadas++;
+    return respuestaError(418, "rechazo_no_catalogado", "correlacion:borradores:418");
+  } });
+  await assert.rejects(cliente.crear(solicitudCrear(), limites(), { claveIdempotencia: CLAVE_IDEMPOTENCIA_A }),
+    (error) => error instanceof ErrorAPIBorradores && error.estado === 418
+      && error.codigo === "rechazo_no_catalogado" && error.correlacion === "correlacion:borradores:418"
+      && /Compruebe en la lista/u.test(error.message)
+      && !/\b418\b|HTTP|API|rechazo_no_catalogado/u.test(error.message));
+  assert.equal(llamadas, 1);
+  const lectura = crearClienteBorradores({ fetchImpl: async () => respuestaError(418,
+    "rechazo_no_catalogado", "correlacion:borradores:418") });
+  await assert.rejects(lectura.obtenerOpciones(), (error) => error.estado === 418
+    && error.codigo === "rechazo_no_catalogado" && error.correlacion === "correlacion:borradores:418"
+    && /No se pudieron consultar los borradores/u.test(error.message)
+    && !/\b418\b|HTTP|API/u.test(error.message));
+});
+
+test("404 distingue lista y detalle sin atribuir una denegación al servidor", async () => {
+  const cliente = crearClienteBorradores({ fetchImpl: async () => respuestaError(404,
+    "recurso_no_encontrado", "correlacion:borradores:404") });
+  for (const consultar of [() => cliente.obtenerOpciones(), () => cliente.listar({ limite: 40 })]) {
+    await assert.rejects(consultar(), (error) => error.estado === 404
+      && error.codigo === "recurso_no_encontrado"
+      && /Esta función de borradores no está disponible/u.test(error.message)
+      && !/denegad|permiso|no es visible|\b404\b/iu.test(error.message));
+  }
+  await assert.rejects(cliente.obtenerDetalle("convocatoria:externa:2026#1", limites()),
+    (error) => error.estado === 404 && error.codigo === "recurso_no_encontrado"
+      && /no existe o no se puede ver/u.test(error.message)
+      && /Vuelva a la lista/u.test(error.message));
+  const malformada = crearClienteBorradores({ fetchImpl: async () => new Response("sin sobre", {
+    status: 404, headers: { "content-type": "text/plain" },
+  }) });
+  await assert.rejects(malformada.obtenerOpciones(), (error) => error.estado === 404
+    && error.codigo === "respuesta_error_no_valida" && error.cause instanceof Error
+    && /Esta función de borradores no está disponible/u.test(error.message));
 });
 
 test("PUT distingue 409 idempotencia y 412 CAS sin alterar cambios locales", async () => {

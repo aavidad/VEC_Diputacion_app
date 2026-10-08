@@ -51,10 +51,6 @@ export function crearRenderizadorBorradores({
           <h3 id="titulo-error-borrador">${escaparHTML(error.mensaje)}</h3>
           ${error.conservarCambiosLocales ? "<p>" + textoPortal("txt_los_cambios_introducidos_continuan_en_este_edito") + "</p>" : ""}
         </div>
-        <dl class="metadatos-error">
-          <div><dt>${textoPortal("txt_codigo")}</dt><dd><code>${escaparHTML(error.codigo)}</code></dd></div>
-          ${error.correlacion ? `<div><dt>${textoPortal("txt_correlacion")}</dt><dd><code>${escaparHTML(error.correlacion)}</code></dd></div>` : ""}
-        </dl>
       </section>`;
   }
 
@@ -87,7 +83,7 @@ export function crearRenderizadorBorradores({
     const avisoActualizacion = estado.errorLista ? `
       <div class="borrador-aviso" role="status">
         <strong>${textoPortal("txt_no_se_pudo_actualizar_la_bandeja")}</strong>
-        <span>${escaparHTML(estado.errorLista.mensaje)} · <code>${escaparHTML(estado.errorLista.codigo)}</code></span>
+        <span>${escaparHTML(estado.errorLista.mensaje)}</span>
       </div>` : "";
     const filas = elementos.map((item) => {
       const seleccionada = item.referencia_estado.referencia === estado.referenciaSeleccionada;
