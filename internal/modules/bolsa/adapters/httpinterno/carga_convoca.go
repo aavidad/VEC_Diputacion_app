@@ -2,7 +2,9 @@ package httpinterno
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -75,6 +77,25 @@ type HandlerCargaConvoca struct {
 	auditor    AuditorIntentosCargaConvoca
 }
 
+type claveRecursoIntentoCargaConvoca struct{}
+
+// El recurso del libro sólo se conoce después de decodificarlo. Se deriva de
+// sus bytes y nunca de un identificador, nombre o cabecera del navegador.
+func contextoRecursoIntentoCargaConvoca(ctx context.Context, contenido []byte) context.Context {
+	huella := sha256.Sum256(contenido)
+	return context.WithValue(ctx, claveRecursoIntentoCargaConvoca{}, "fichero:sha256:"+hex.EncodeToString(huella[:]))
+}
+
+// RecursoIntentoCargaConvoca devuelve la referencia opaca capturada por esta
+// frontera; una entrada rechazada antes de decodificarla no tiene acta.
+func RecursoIntentoCargaConvoca(ctx context.Context) (string, bool) {
+	if ctx == nil {
+		return "", false
+	}
+	ref, ok := ctx.Value(claveRecursoIntentoCargaConvoca{}).(string)
+	return ref, ok && ref != ""
+}
+
 func NuevoHandlerCargaConvoca(p PreparadorCargaConvoca, o OperadorCargaConvoca, a AuditorIntentosCargaConvoca) (http.Handler, error) {
 	if dependenciaNula(p) || dependenciaNula(o) || dependenciaNula(a) {
 		return nil, puertosbolsa.ErrCargaConvocaNoDisponible
@@ -131,6 +152,7 @@ func (h *HandlerCargaConvoca) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *HandlerCargaConvoca) previsualizar(w http.ResponseWriter, r *http.Request, cuerpo cuerpoCargaConvoca, contenido []byte) {
+	r = r.WithContext(contextoRecursoIntentoCargaConvoca(r.Context(), contenido))
 	vista, err := h.operador.Previsualizar(r.Context(), cuerpo.NombreFichero, contenido)
 	if err != nil {
 		h.fallar(w, r, OperacionVistaPreviaCargaConvoca, err)
@@ -140,6 +162,7 @@ func (h *HandlerCargaConvoca) previsualizar(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *HandlerCargaConvoca) confirmar(w http.ResponseWriter, r *http.Request, cuerpo cuerpoCargaConvoca, contenido []byte) {
+	r = r.WithContext(contextoRecursoIntentoCargaConvoca(r.Context(), contenido))
 	solicitud, err := h.preparador.PrepararConfirmacionCargaConvoca(r.Context(), EntradaConfirmarCargaConvoca{
 		NombreFichero: cuerpo.NombreFichero, Contenido: contenido, CategoriaClave: cuerpo.Categoria, ExcluirConError: cuerpo.ExcluirFilasConErrores})
 	if err != nil {

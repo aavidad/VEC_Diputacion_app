@@ -760,7 +760,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, fmt.Errorf("%w: %w", errBorradorNoDisponibleEn(), err)
 		}
 		perfilBolsa := soporteBolsaCatalogo.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef
-		bolsaFronteras, e := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfilBolsa, politicaOfertasActiva, reincorporacionTitular)
+		// La tercera capacidad sólo se declarará junto a una plantilla B1
+		// gobernada. Las plantillas publicadas actuales no la incluyen.
+		bolsaFronteras, e := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfilBolsa, politicaOfertasActiva, reincorporacionTitular, false)
 		if e != nil {
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}

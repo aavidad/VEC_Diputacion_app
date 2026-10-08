@@ -2,6 +2,9 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,13 +13,36 @@ import (
 
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
+	xls "vec-diputacion-granada/internal/modules/bolsa/adapters/xlsconvoca"
+	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
+	importacionapp "vec-diputacion-granada/internal/modules/bolsa/application/importacionconvoca"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 )
 
+func TestVistaPreviaCargaConvocaRechazaExtensionAjenaAlContenido(t *testing.T) {
+	vista, err := aplicacionbolsa.NuevoPrevisualizadorCargaConvoca(xls.NuevoLector())
+	if err != nil {
+		t.Fatal(err)
+	}
+	operador := operadorCargaConvocaBolsa{vista: vista}
+	for _, caso := range []struct{ ruta, nombre string }{
+		{filepath.Join("..", "..", "modules", "bolsa", "application", "testdata", "carga_convoca", "carga_convoca_ejemplo.xlsx"), "acta.xls"},
+		{filepath.Join("..", "..", "modules", "bolsa", "adapters", "xlsconvoca", "testdata", "xls_sinteticos", "resumen.xls"), "acta.xlsx"},
+	} {
+		contenido, err := os.ReadFile(caso.ruta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := operador.Previsualizar(context.Background(), caso.nombre, contenido); !errors.Is(err, aplicacionbolsa.ErrFicheroCargaConvocaInvalido) {
+			t.Fatalf("%s como %s: %v", caso.ruta, caso.nombre, err)
+		}
+	}
+}
+
 func TestCargaConvocaTieneFronterasAccionYMaterialPropios(t *testing.T) {
 	perfil := "prf_bolsa_bback"
-	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfil)
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfil, false, false, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +51,7 @@ func TestCargaConvocaTieneFronterasAccionYMaterialPropios(t *testing.T) {
 		t.Fatal(err)
 	}
 	politica := politicaDescriptoresBolsaPrueba(t)
-	autorizaciones, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politica)
+	autorizaciones, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politica, false, false, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,6 +83,31 @@ func TestCargaConvocaTieneFronterasAccionYMaterialPropios(t *testing.T) {
 	}
 }
 
+func TestCargaConvocaNoSeDeclaraEnCatalogoActivoSinPlantilla(t *testing.T) {
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo("prf_bolsa_bback", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(fronteras)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ruta := range []string{bolsahttp.RutaVistaPreviaCargaConvoca, bolsahttp.RutaConfirmarCargaConvoca} {
+		if _, ok := catalogo.resolver(http.MethodPost, ruta); ok {
+			t.Fatalf("B1 expuesta sin plantilla: %s", ruta)
+		}
+	}
+	autorizaciones, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politicaDescriptoresBolsaPrueba(t), false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, descriptor := range autorizaciones {
+		if descriptor.Accion == puertosbolsa.AccionConfirmarCargaConvoca {
+			t.Fatal("B1 autoriza sin plantilla")
+		}
+	}
+}
+
 func TestPreparadorCargaConvocaTomaContextoYCategoriaDelServidor(t *testing.T) {
 	e := nuevaSesionConsultaPrueba(t)
 	directorio := t.TempDir()
@@ -69,7 +120,7 @@ func TestPreparadorCargaConvocaTomaContextoYCategoriaDelServidor(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.resolutor.base = bolsa.soporteCanal.contexto.Resultado
-	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(bolsa.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef)
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(bolsa.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef, false, false, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,6 +151,7 @@ func TestPreparadorCargaConvocaTomaContextoYCategoriaDelServidor(t *testing.T) {
 		t.Fatal("ruta B1 sin frontera")
 	}
 	ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: http.MethodPost, ruta: ruta, superficie: superficieInternaSeguridadComunDesarrollo, catalogo: catalogo, descriptor: descriptor})
+	ctx = context.WithValue(ctx, claveIntentoCargaConvocaBolsa{}, &intentoCargaConvocaBolsa{})
 	entrada := bolsahttp.EntradaConfirmarCargaConvoca{CategoriaClave: "auxiliar-administrativo", NombreFichero: filepath.Base("acta.xlsx"), Contenido: []byte("contenido")}
 	solicitud, err := preparador.PrepararConfirmacionCargaConvoca(ctx, entrada)
 	if err != nil || solicitud.Validar() != nil || solicitud.CategoriaRef != "categoria:rpt:auxiliar-administrativo" ||
@@ -110,5 +162,30 @@ func TestPreparadorCargaConvocaTomaContextoYCategoriaDelServidor(t *testing.T) {
 	entrada.CategoriaClave = "inventada"
 	if _, err := preparador.PrepararConfirmacionCargaConvoca(ctx, entrada); err != bolsahttp.ErrCategoriaCargaConvocaNoValida {
 		t.Fatalf("categoría ajena al RPT aceptada: %v", err)
+	}
+	seguridadCapturada, correlacionCapturada, ok := intentoVerificadoCargaConvocaBolsa(ctx)
+	if !ok || seguridadCapturada.Resultado.Validar() != nil || correlacionCapturada.Validar() != nil {
+		t.Fatal("el intento perdió identidad o correlación verificadas")
+	}
+	registrador := &registradorIntentosBaremoPrueba{}
+	auditor := &auditorCargaConvocaBolsa{preparador: base, registrador: registrador, proceso: "vec-server"}
+	// Simula una revocación posterior: auditar el fallo conserva el contexto
+	// verificado y no solicita otra sesión.
+	base.sesion = nil
+	if err := auditor.RegistrarIntentoFallidoCargaConvoca(ctx, bolsahttp.OperacionConfirmarCargaConvoca, errors.New("fallo de prueba")); err != nil {
+		t.Fatalf("auditoría tras revocación: %v", err)
+	}
+	if len(registrador.ordenes) != 1 {
+		t.Fatalf("intentos auditados = %d", len(registrador.ordenes))
+	}
+	datos, err := registrador.ordenes[0].Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	correlacion, _ := correlacionCapturada.ValorCanonico()
+	huella := sha256.Sum256(entrada.Contenido)
+	acta := importacionapp.ReferenciaActa(hex.EncodeToString(huella[:]), solicitud.CategoriaRef)
+	if datos.Datos.CorrelacionRef != correlacion || datos.Datos.RecursoRef != acta {
+		t.Fatalf("auditoría no conservó recurso/correlación: %+v", datos.Datos)
 	}
 }

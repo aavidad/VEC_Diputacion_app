@@ -1,15 +1,11 @@
-# B1: carga de bolsas desde el Excel de CONVOCA por RRHH. AD203 añade al núcleo V3 el perfil de
-# mutación carga_convoca_bolsa (LOGIN de ejecución de Bolsa), la audiencia
-# vec_bolsa_llamamientos.carga_convoca.confirmar.v1 y su fachada; B79 constituye la bolsa de un acta
-# ya importada consumiendo esa decisión en la misma transacción.
-# Aplicar después de AD193, AD195, AD196, AD178, AD177, AD190, AD197,
-# AD199, AD200, AD207 y AD208. AD203 mide el núcleo 092367a3…/559555ec…
-# y el CHECK de audiencias 8496cf66… en esa preimagen.
-# Instalar la SQL antes del binario que publique la clave de capacidad de esa audiencia.
-# Fila de origen AD172 que el DBA añade después (inmutable; revisar antes el LOGIN real de Bolsa en la
-# principal). Sin ella AD208 emite VA172 (origen técnico no acreditado) y no
-# constituye bolsa; el adaptador debe tratarlo como indisponibilidad, no 403:
-#   vec_bolsa_llamamientos_desarrollo|vec_bolsa_llamamientos.carga_convoca.confirmar.v1|bolsa.carga_convoca.confirmar|vec-rrhh|interna_corporativa
-# Cada migración se aplica una sola vez; ninguna tiene DOWN.
-deploy/postgresql/autorizacion_atestada_v3/migraciones/000203_consumidor_carga_convoca_bolsa.up.sql
+# B1: acta, original cifrado, constitución, vínculos, consumo V3 y auditoría
+# en una sola transacción. Requiere AD218 y BIC5 instaladas previamente.
+# AD203 de esta rama se retiró: no es compatible con el núcleo posterior AD218.
+# B80 crea el grupo NOLOGIN de la orden CLI. Su LOGIN exclusivo se aprovisiona
+# fuera de Git, sin pertenencia al ejecutor web. Aplicar una sola vez y sin DOWN.
+# SHA256 c6995a03268b34105c466775673403f44465306deb7e9729c769fea1446d91cf BIC7
+deploy/postgresql/bolsa_importacion_convoca/migraciones/000007_acceso_wrapper_carga_bolsa.up.sql
+# SHA256 a82fa763044e39ebc1188915fd666b4a5adb2210e88e9f5984006f826f1ed033 B79
 deploy/postgresql/bolsa_llamamientos/migraciones/000079_constitucion_carga_convoca_autorizada.up.sql
+# SHA256 eaea77b8d0e6e3d9857e9cf1775e277541b0ed71a55c33ea3b5756f631aeddc2 B80
+deploy/postgresql/bolsa_llamamientos/migraciones/000080_separacion_constituidor_cli.up.sql

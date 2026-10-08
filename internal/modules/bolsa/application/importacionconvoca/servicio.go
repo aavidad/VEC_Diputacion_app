@@ -82,29 +82,64 @@ func NuevoServicio(
 	return &Servicio{decodificador: decodificador, repositorio: repositorio, reloj: reloj}, nil
 }
 
+// NuevoPreparador expone la misma validación para una transacción que ya posee
+// la persistencia y la autorización. No recibe acceso de escritura al staging.
+func NuevoPreparador(decodificador DecodificadorExportacion, reloj Reloj) (*Servicio, error) {
+	if decodificador == nil {
+		return nil, ErrDecodificadorRequerido
+	}
+	if reloj == nil {
+		return nil, ErrRelojRequerido
+	}
+	return &Servicio{decodificador: decodificador, reloj: reloj}, nil
+}
+
 func (s *Servicio) Importar(
 	ctx context.Context,
 	solicitud SolicitudImportacion,
 ) (ResultadoImportacion, error) {
-	if err := ctx.Err(); err != nil {
+	if s == nil || s.repositorio == nil {
+		return ResultadoImportacion{}, ErrRepositorioRequerido
+	}
+	lote, err := s.PrepararLote(ctx, solicitud)
+	if err != nil {
 		return ResultadoImportacion{}, err
 	}
+	actaGuardada, reutilizada, err := s.repositorio.GuardarSiAusente(ctx, lote)
+	if err != nil {
+		return ResultadoImportacion{}, err
+	}
+	if actaGuardada.Validar() != nil || !actaGuardada.CoincideExactamente(lote.Acta) {
+		return ResultadoImportacion{}, ErrResultadoInseguro
+	}
+	return ResultadoImportacion{Acta: actaGuardada, Reutilizada: reutilizada}, nil
+}
+
+// PrepararLote aplica las mismas reglas de importación que el CLI sin escribir
+// en PostgreSQL. B1 entrega este lote a su única transacción autorizada.
+func (s *Servicio) PrepararLote(ctx context.Context, solicitud SolicitudImportacion) (dominio.LoteValidado, error) {
+	if ctx == nil || s == nil || s.decodificador == nil || s.reloj == nil {
+		return dominio.LoteValidado{}, ErrDecodificadorRequerido
+	}
+	if err := ctx.Err(); err != nil {
+		return dominio.LoteValidado{}, err
+	}
 	if !solicitudValida(solicitud) {
-		return ResultadoImportacion{}, ErrSolicitudInvalida
+		return dominio.LoteValidado{}, ErrSolicitudInvalida
 	}
 	suma := sha256.Sum256(solicitud.Contenido)
 	huella := hex.EncodeToString(suma[:])
 	hoja, err := s.decodificador.Decodificar(ctx, bytes.NewReader(solicitud.Contenido))
 	if err != nil {
-		return ResultadoImportacion{}, err
+		return dominio.LoteValidado{}, err
 	}
 	staging, err := dominio.ValidarHoja(hoja)
 	if err != nil {
-		return ResultadoImportacion{}, err
+		return dominio.LoteValidado{}, err
 	}
 	registradaEn := s.reloj().UTC().Truncate(time.Microsecond)
 	if registradaEn.IsZero() {
-		return ResultadoImportacion{}, ErrResultadoInseguro
+		return dominio.LoteValidado{}, ErrResultadoInseguro
 	}
 	lote := dominio.LoteValidado{
 		Acta: dominio.ActaImportacion{
@@ -125,16 +160,9 @@ func (s *Servicio) Importar(
 		Aceptadas: append([]dominio.FilaAceptada(nil), staging.Aceptadas...),
 	}
 	if lote.Validar() != nil {
-		return ResultadoImportacion{}, ErrResultadoInseguro
+		return dominio.LoteValidado{}, ErrResultadoInseguro
 	}
-	actaGuardada, reutilizada, err := s.repositorio.GuardarSiAusente(ctx, lote)
-	if err != nil {
-		return ResultadoImportacion{}, err
-	}
-	if actaGuardada.Validar() != nil || !actaGuardada.CoincideExactamente(lote.Acta) {
-		return ResultadoImportacion{}, ErrResultadoInseguro
-	}
-	return ResultadoImportacion{Acta: actaGuardada, Reutilizada: reutilizada}, nil
+	return lote, nil
 }
 
 func solicitudValida(s SolicitudImportacion) bool {

@@ -255,6 +255,13 @@ los bloqueos de fila duran hasta el final de la transaccion:
   politica por filas, indices, restricciones y pruebas correspondientes.
 - El esquema no guarda binarios documentales ni secretos; conserva referencias
   opacas, huellas, versiones, estados y evidencia necesaria.
+  La fuente XLS/XLSX de una importación de CONVOCA es un payload técnico de
+  Bolsa. Su original puede conservarse cifrado en el almacenamiento privado de
+  importación, junto con su acta, dentro de la misma transacción autorizada que
+  constituye la bolsa. No es un documento administrativo ni una firma: estos
+  conservan sus referencias a la autoridad documental. El original exige
+  propósito de cifrado propio, acceso nominal, huella, límite de tamaño e
+  historia de solo adición; nunca se escribe primero en claro a disco.
 - Copias, WAL y restauracion a un punto se prueban. Restaurar datos sin claves,
   objetos o auditoria relacionados no se considera recuperacion completa.
 

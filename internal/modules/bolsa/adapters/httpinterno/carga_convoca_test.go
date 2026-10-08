@@ -3,7 +3,9 @@ package httpinterno
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -51,11 +53,14 @@ func (o *operadorCargaPrueba) Confirmar(_ context.Context, _ puertosbolsa.Solici
 type auditorCargaPrueba struct {
 	operaciones []string
 	fallos      []error
+	recursos    []string
 	err         error
 }
 
-func (a *auditorCargaPrueba) RegistrarIntentoFallidoCargaConvoca(_ context.Context, operacion string, fallo error) error {
+func (a *auditorCargaPrueba) RegistrarIntentoFallidoCargaConvoca(ctx context.Context, operacion string, fallo error) error {
 	a.operaciones, a.fallos = append(a.operaciones, operacion), append(a.fallos, fallo)
+	recurso, _ := RecursoIntentoCargaConvoca(ctx)
+	a.recursos = append(a.recursos, recurso)
 	return a.err
 }
 
@@ -249,6 +254,17 @@ func TestCargaConvocaConfirmar(t *testing.T) {
 		h.ServeHTTP(w, peticionCarga(RutaConfirmarCargaConvoca, cuerpo))
 		if codigoErrorCarga(t, w) != esperado {
 			t.Fatalf("%v: %d %s", fallo, w.Code, w.Body.String())
+		}
+	}
+	contenido, err := base64.StdEncoding.DecodeString(cuerpo["contenido_base64"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	huella := sha256.Sum256(contenido)
+	esperado := "fichero:sha256:" + hex.EncodeToString(huella[:])
+	for _, recurso := range a.recursos {
+		if recurso != esperado {
+			t.Fatalf("fallo tras decodificar perdió recurso: %q", recurso)
 		}
 	}
 }

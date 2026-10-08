@@ -271,7 +271,7 @@ test("cancela el resultado antiguo al cambiar de ficha y deja la situación sin 
 test("la ficha muestra recibo y fecha sin inventar actor ni mutar disponibilidad", () => {
   const html = renderizarReincorporacionesTitular({ estado: { carga: "listo", items: [{ ...item, recibo_ct_ref: "recibo:<script>" }] }, escaparHTML });
   assert.match(html, /<section[^>]+aria-labelledby="reincorporacion-titulo"/);
-  assert.match(html, /<h4 id="reincorporacion-titulo">Reincorporación de la persona titular<\/h4>/);
+  assert.match(html, /<h4 id="reincorporacion-titulo" tabindex="-1">Reincorporación de la persona titular<\/h4>/);
   assert.doesNotMatch(html, /Reflejo recibido desde Contratación temporal|La disponibilidad se consulta en su situación actual/);
   assert.match(html, /Cese aplicado en Bolsa/);
   assert.match(html, /recibo:&lt;script&gt;/);
