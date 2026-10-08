@@ -5,6 +5,7 @@ import test from "node:test";
 import { datosMinimosMiBolsa } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js";
+import { montarAvatarAreaPersonal, reintentarImagenAreaPersonal } from "./preferencias.js";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 test("Mi bolsa vacía no fabrica persona, iniciales ni referencias para el área personal", () => {
@@ -36,4 +37,22 @@ test("la identidad no facilitada usa las claves del catálogo real y el respaldo
   for (const clave of claves) assert.equal(respaldo.traducir(clave), clave);
   await respaldo.iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(), ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
   for (const clave of claves) assert.equal(respaldo.traducir(clave), catalogo[clave]);
+});
+
+test("un fallo de imagen deja un reintento visible sin repetir GET automáticamente", async () => {
+  let lecturas = 0;
+  const boton = { hidden: true, title: "", removeAttribute(nombre) { if (nombre === "title") this.title = ""; } };
+  const documento = { getElementById: (id) => id === "reintentar-imagen" ? boton : { textContent: "" } };
+  const estado = {};
+  montarAvatarAreaPersonal(estado, async () => {
+    lecturas += 1;
+    return new Response("{}", { status: 503, headers: { "Content-Type": "application/json" } });
+  }, documento);
+  const primera = estado.lecturaImagenEnCurso;
+  assert.equal(await primera, false);
+  assert.equal(lecturas, 1);
+  assert.equal(boton.hidden, false);
+  assert.match(boton.title, /No se ha podido cargar su imagen/u);
+  assert.equal(await reintentarImagenAreaPersonal(estado, documento), false);
+  assert.equal(lecturas, 2);
 });

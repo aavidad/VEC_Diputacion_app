@@ -202,6 +202,7 @@ a { color: var(--ap-azul-700); }
 }
 .boton-icono { display: inline-grid; min-width: 44px; place-items: center; padding: 7px; }
 .boton-utilidad { padding: 7px 10px; font-size: .875rem; font-weight: 600; }
+.aviso-imagen:not([hidden]) { min-width: 44px; border-color: var(--ap-rojo); color: var(--ap-rojo); }
 .boton-icono:hover, .boton-utilidad:hover { border-color: var(--ap-azul-700); background: var(--ap-azul-100); }
 .sesion-usuario { display: flex; min-width: 0; max-width: 188px; align-items: center; gap: 8px; overflow: hidden; padding: 5px 9px; text-align: left; }
 .sesion-usuario > span:last-child { min-width: 0; }

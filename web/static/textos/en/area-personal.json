@@ -824,18 +824,22 @@
     "solicitar_certificado": "Request certificate",
     "solicitar_descarga": "Prepare download"
   },
+  "imagen": {
+    "etiqueta": "Picture ",
+    "reintentar": "Your picture could not be loaded. Select to try again."
+  },
   "preferencias": {
     "titulo": "My preferences",
     "componentesNoDisponibles": "Some options on this page could not be loaded. Select Retry. If the problem continues, contact IT support.",
     "reintentarComponentes": "Retry loading",
-    "inicioAjeno": "The selected start page belongs to another area or is not authorised here. The safe Personal Area home page opens. This choice does not grant access.",
+    "inicioAjeno": "The home page you selected is not available here. Your personal area home page is shown.",
     "atajoTexto": "Enlarge or reset the text size for this session",
     "atajoContraste": "Turn high contrast on or off for this session",
     "menuIdentidad": "Open identity menu",
     "textoCorto": "Text ",
     "contrasteCorto": "Contrast",
-    "identidadServicio": "Identity verified by the Users service",
-    "identidadNoConfirmada": "Identity not confirmed by the preferences service",
+    "identidadServicio": "Signed-in session",
+    "identidadNoConfirmada": "Session verification pending",
     "atajo": {
       "textoActivo": "Larger text size for this session.",
       "textoInactivo": "Normal text size for this session.",

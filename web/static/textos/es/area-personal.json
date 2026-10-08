@@ -824,18 +824,22 @@
     "solicitar_certificado": "Solicitar certificado",
     "solicitar_descarga": "Preparar descarga"
   },
+  "imagen": {
+    "etiqueta": "Imagen ",
+    "reintentar": "No se ha podido cargar su imagen. Pulse para volver a intentarlo."
+  },
   "preferencias": {
     "titulo": "Mis preferencias",
     "componentesNoDisponibles": "No se han podido cargar todas las opciones de esta página. Pulse Reintentar. Si sigue igual, avise a Informática.",
     "reintentarComponentes": "Reintentar carga",
-    "inicioAjeno": "El inicio elegido pertenece a otra superficie o no está autorizado aquí. Se abre el inicio seguro del Área personal. Esta elección no concede acceso.",
+    "inicioAjeno": "La página de inicio que eligió no está disponible aquí. Se muestra el inicio de Mi área personal.",
     "atajoTexto": "Aumentar o restablecer el tamaño del texto en esta sesión",
     "atajoContraste": "Activar o desactivar el alto contraste en esta sesión",
     "menuIdentidad": "Abrir menú de identidad",
     "textoCorto": "Texto ",
     "contrasteCorto": "Contraste",
-    "identidadServicio": "Identidad comprobada por el servicio de Usuarios",
-    "identidadNoConfirmada": "Identidad no confirmada por el servicio de preferencias",
+    "identidadServicio": "Sesión identificada",
+    "identidadNoConfirmada": "Sesión pendiente de comprobación",
     "atajo": {
       "textoActivo": "Tamaño de texto ampliado para esta sesión.",
       "textoInactivo": "Tamaño de texto normal para esta sesión.",

@@ -24,6 +24,8 @@ test("las preferencias se cargan solo al abrir esa pantalla y en el idioma elegi
     ubicacion: { href: "https://vec.example/area-personal/?vista=preferencias&lang=en" } });
   assert.deepEqual(leer.pedidas, ["en/area-personal.json", "en/preferencias.json"]);
   assert.equal(traducir("areaPersonal.preferencias.campo.idioma"), "Language");
+  assert.equal(traducir("areaPersonal.preferencias.identidadServicio"), "Signed-in session");
+  assert.equal(traducir("areaPersonal.preferencias.identidadNoConfirmada"), "Session verification pending");
 });
 
 test("un fallo transitorio reintenta el idioma elegido antes de acudir al de defecto", async () => {

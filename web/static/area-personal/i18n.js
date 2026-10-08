@@ -41,8 +41,8 @@ async function cargarCatalogo(idioma, { leer, pantalla = "" } = {}) {
   const preferencias = pantalla === "preferencias" ? await cargarTextos("preferencias", opciones) : null;
   return Object.freeze({
     idioma,
-    entradas: Object.freeze({ ...(propios ? aplanar(propios.mensajes, PREFIJO) : activo.entradas),
-      ...(preferencias ? aplanar(preferencias.seccion(PREFIJO), PREFIJO) : {}) }),
+    entradas: Object.freeze({ ...(preferencias ? aplanar(preferencias.seccion(PREFIJO), PREFIJO) : {}),
+      ...(propios ? aplanar(propios.mensajes, PREFIJO) : activo.entradas) }),
     preferencias,
   });
 }

@@ -98,6 +98,6 @@ test("GET preferencias 403 conserva su denegación aunque Mi Bolsa falle, ES/EN"
     assert.doesNotMatch(resultado.vistaPreferencias, /id="formulario-preferencias"/u);
     assert.ok(resultado.vistaPreferencias.includes(mensaje));
     assert.doesNotMatch(resultado.reabierta, /id="formulario-preferencias"/u);
-    assert.match(resultado.metodo, /no confirmada|not confirmed/u);
+    assert.match(resultado.metodo, /pendiente de comprobación|verification pending/u);
   }
 });

@@ -97,6 +97,32 @@ export function sincronizarAtajosVisuales(valores, documento = globalThis.docume
 
 const MARCO_AREA_PERSONAL = Object.freeze({ panel: "panel preferencias-panel", cabecera: "header", claseCabecera: "", cuerpo: "panel-contenido" });
 
+function reflejarErrorImagen(documento, fallo) {
+  const reintentar = documento?.getElementById?.("reintentar-imagen");
+  if (!reintentar) return;
+  reintentar.hidden = !fallo;
+  if (fallo) reintentar.title = traducir("areaPersonal.imagen.reintentar");
+  else reintentar.removeAttribute?.("title");
+}
+
+/** El fallo del avatar conserva iniciales y ofrece un reintento visible. */
+export function reintentarImagenAreaPersonal(estado, documento = globalThis.document) {
+  if (estado.lecturaImagenEnCurso) return estado.lecturaImagenEnCurso;
+  const lectura = estado.clienteImagen.consultar();
+  estado.lecturaImagenInicial = lectura;
+  const resultado = lectura.then((vista) => {
+    estado.avatar.fijarImagen(vista);
+    reflejarErrorImagen(documento, false);
+    return true;
+  }, () => {
+    reflejarErrorImagen(documento, true);
+    return false;
+  });
+  estado.lecturaImagenEnCurso = resultado;
+  void resultado.then(() => { if (estado.lecturaImagenEnCurso === resultado) estado.lecturaImagenEnCurso = null; });
+  return resultado;
+}
+
 /** El avatar conserva su lectura sin cargar el catálogo de Preferencias. */
 export function montarAvatarAreaPersonal(estado, fetchImpl = globalThis.fetch, documento = globalThis.document) {
   if (estado.avatar) return;
@@ -105,8 +131,7 @@ export function montarAvatarAreaPersonal(estado, fetchImpl = globalThis.fetch, d
   estado.avatar = avatar;
   estado.fetchUsuariosEnSerie = enSerie;
   estado.clienteImagen = crearClienteImagen({ ruta: "/api/vec/usuarios/area-personal/mi-imagen", fetchImpl: enSerie });
-  estado.lecturaImagenInicial = estado.clienteImagen.consultar();
-  void estado.lecturaImagenInicial.then((vista) => avatar.fijarImagen(vista), () => {});
+  void reintentarImagenAreaPersonal(estado, documento);
 }
 
 /** Imagen y Correos se montan cuando la persona abre Preferencias. */

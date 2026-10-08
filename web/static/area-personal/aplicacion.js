@@ -3,13 +3,13 @@ import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 import { idiomaActivoAreaPersonal, iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal,
   textosPreferenciasAreaPersonal, traducir } from "./i18n.js";
 import { alternarVisualSesion, crearOperacionPreferencias, montarAvatarAreaPersonal, montarUsuariosAreaPersonal,
-  pintarInicialesSesion, renderizarPreferencias,
-  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261008-b4-v3";
+  pintarInicialesSesion, reintentarImagenAreaPersonal, renderizarPreferencias,
+  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261008-b4-v4";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
-import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261008-b4-v3";
-import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261008-b4-v3";
-import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js?v=20261008-b4-v3";
-import { renderizarAyuda } from "./vistas/comunicaciones-ayuda.js?v=20261008-b4-v3";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261008-b4-v4";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261008-b4-v4";
+import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js?v=20261008-b4-v4";
+import { renderizarAyuda } from "./vistas/comunicaciones-ayuda.js?v=20261008-b4-v4";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261005-b4b-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261002-rrhh17-v1";
@@ -436,6 +436,7 @@ function atenderAccion(estado, boton) {
     return anunciar(traducir(`areaPersonal.preferencias.atajo.${accion === "alternar-texto" ? "texto" : "contraste"}${activo ? "Activo" : "Inactivo"}`));
   }
   if (accion === "abrir-preferencias") return navegar(estado, "preferencias");
+  if (accion === "reintentar-imagen") return reintentarImagenAreaPersonal(estado, document);
   if (accion === "leer-pantalla") return leerPantalla(estado);
   if (accion === "ver-sesion") return alternarMenuIdentidad();
   if (accion === "ver-contexto-sesion") { cerrarMenuIdentidad(); return verSesion(estado); }
