@@ -452,11 +452,35 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
   return { recargar: cargar };
 }
 
-export async function iniciarPeticionCentro({ raiz = document.querySelector("#aplicacion"), cliente = pedir,
+export async function iniciarPeticionCentro({ raiz = document.querySelector("#aplicacion"), cliente: clienteBase = pedir,
   prepararAnalisis = prepararAnalisisPeticionesCentro } = {}) {
   if (new URLSearchParams(globalThis.location?.search || "").get("vista") === "rrhh") {
-    return iniciarPeticionesCentroRRHH({ raiz, cliente });
+    return iniciarPeticionesCentroRRHH({ raiz, cliente: clienteBase });
   }
+  // Sin vista indicada, quien no es un centro (RRHH) recibe una denegación del
+  // contexto del centro: se le lleva a su propia vista en lugar de un error.
+  // El contexto ya leído se reutiliza en la primera carga del centro.
+  let contextoPrevio;
+  try {
+    contextoPrevio = Promise.resolve(await clienteBase(RUTAS.contexto));
+  } catch (error) {
+    if (error?.status === 403 && globalThis.location) {
+      const destino = new URL(globalThis.location.href);
+      destino.searchParams.set("vista", "rrhh");
+      globalThis.history?.replaceState?.(null, "", destino);
+      return iniciarPeticionesCentroRRHH({ raiz, cliente: clienteBase });
+    }
+    contextoPrevio = Promise.reject(error);
+    contextoPrevio.catch(() => {});
+  }
+  const cliente = (ruta, ...resto) => {
+    if (ruta === RUTAS.contexto && contextoPrevio) {
+      const previo = contextoPrevio;
+      contextoPrevio = null;
+      return previo;
+    }
+    return clienteBase(ruta, ...resto);
+  };
   if (!raiz) throw new TypeError("falta la raíz de la aplicación");
   raiz.setAttribute?.("lang", IDIOMA_EFECTIVO_PETICIONES_CENTRO);
   let contexto; let peticiones = []; let peticion = null; let modo = "bandeja";
