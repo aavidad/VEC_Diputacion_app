@@ -18,6 +18,18 @@ type ejecucionesSeleccionReanudablesDesarrollo struct {
 func (e *ejecucionesSeleccionReanudablesDesarrollo) ReanudarPreparacionOrden(
 	ctx context.Context, solicitud ports.SolicitudReservaEjecucionSeleccionLlamamiento,
 ) (ports.EstadoEjecucionSeleccionLlamamiento, error) {
+	return e.reanudar(ctx, solicitud, ports.AccionReanudacionSeleccionLlamamiento)
+}
+
+func (e *ejecucionesSeleccionReanudablesDesarrollo) ReanudarSolicitudLlamamiento(
+	ctx context.Context, solicitud ports.SolicitudReservaEjecucionSeleccionLlamamiento,
+) (ports.EstadoEjecucionSeleccionLlamamiento, error) {
+	return e.reanudar(ctx, solicitud, ports.AccionReanudacionSolicitudLlamamiento)
+}
+
+func (e *ejecucionesSeleccionReanudablesDesarrollo) reanudar(
+	ctx context.Context, solicitud ports.SolicitudReservaEjecucionSeleccionLlamamiento, accion string,
+) (ports.EstadoEjecucionSeleccionLlamamiento, error) {
 	if ctx == nil || e == nil || e.EjecucionesSeleccionLlamamientoPostgreSQL == nil || e.autorizador == nil {
 		return ports.EstadoEjecucionSeleccionLlamamiento{}, ports.ErrAutorizacionDenegada
 	}
@@ -34,9 +46,15 @@ func (e *ejecucionesSeleccionReanudablesDesarrollo) ReanudarPreparacionOrden(
 		return ports.EstadoEjecucionSeleccionLlamamiento{}, err
 	}
 	ctx = context.WithValue(ctx, claveReanudacionSeleccionDesarrollo{}, solicitud)
-	material, err := e.autorizador.AutorizarOperacion(ctx, ports.AccionReanudacionSeleccionLlamamiento, recurso)
+	material, err := e.autorizador.AutorizarOperacion(ctx, accion, recurso)
 	if err != nil {
 		return ports.EstadoEjecucionSeleccionLlamamiento{}, err
 	}
-	return e.EjecucionesSeleccionLlamamientoPostgreSQL.ReanudarPreparacionOrden(ctx, solicitud, material)
+	if accion == ports.AccionReanudacionSeleccionLlamamiento {
+		return e.EjecucionesSeleccionLlamamientoPostgreSQL.ReanudarPreparacionOrden(ctx, solicitud, material)
+	}
+	if accion == ports.AccionReanudacionSolicitudLlamamiento {
+		return e.EjecucionesSeleccionLlamamientoPostgreSQL.ReanudarSolicitudLlamamiento(ctx, solicitud, material)
+	}
+	return ports.EstadoEjecucionSeleccionLlamamiento{}, ports.ErrAutorizacionDenegada
 }

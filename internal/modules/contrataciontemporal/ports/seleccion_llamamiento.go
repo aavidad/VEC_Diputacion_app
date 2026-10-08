@@ -13,6 +13,12 @@ var ErrEjecucionSeleccionLlamamientoInvalida = errors.New(
 	"contratacion temporal: ejecucion de seleccion y llamamiento invalida",
 )
 
+// La ventana durable aún pertenece al intento original. El canal conserva la
+// clave y puede repetir la misma petición cuando concluya el arrendamiento.
+var ErrEjecucionSeleccionLlamamientoPendiente = errors.New(
+	"contratacion temporal: ejecucion de seleccion y llamamiento pendiente",
+)
+
 type SituacionEjecucionSeleccionLlamamiento string
 
 const (

@@ -141,3 +141,4 @@
 470 deploy/postgresql/contratacion_temporal/migraciones/000194_validacion_necesidad_alta_v3.up.sql
 639 internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_test.go
 405 internal/modules/contrataciontemporal/adapters/httpinterno/alta_seguridad_test.go
+817 internal/modules/contrataciontemporal/adapters/postgres/ejecuciones_seleccion_llamamiento_test.go
