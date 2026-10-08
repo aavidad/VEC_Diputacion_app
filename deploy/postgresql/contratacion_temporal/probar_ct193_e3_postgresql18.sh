@@ -16,7 +16,15 @@ if [[ ${VEC_CT_E3_BD_DESECHABLE:-} != SI ]]; then
     printf 'CT193 E3 exige VEC_CT_E3_BD_DESECHABLE=SI\n' >&2
     exit 64
 fi
-for herramienta in docker flock go stat bwrap timeout prlimit sha256sum rg; do
+# La fuente del runner se conserva para retoma, pero su volumen Docker y el
+# scratch Go no tienen aún una cuota integral verificable de disco. Una futura
+# implementación debe comprobar la cuota real aquí antes de permitir Docker.
+cuota_integral_verificada() { return 1; }
+if ! cuota_integral_verificada; then
+    printf 'CT193 E3: NO-GO de ejecución; falta cuota integral de disco y corrección de ligadura V3\n' >&2
+    exit 78
+fi
+for herramienta in docker flock go stat bwrap timeout prlimit sha256sum rg tar; do
     command -v "$herramienta" >/dev/null 2>&1 || {
         printf 'CT193 E3: falta %s\n' "$herramienta" >&2
         exit 69
@@ -114,7 +122,8 @@ fi
 base="$(mktemp -d "/var/tmp/${prefijo}.XXXXXX")"
 temporal="$base/datos"
 sandbox_root="$base/raiz"
-mkdir -m 0700 -- "$temporal" "$sandbox_root"
+raiz_export="$base/repo"
+mkdir -m 0700 -- "$temporal" "$sandbox_root" "$raiz_export"
 socket="$temporal/socket"
 vectores="$temporal/vectores"
 mkdir -m 0777 -- "$socket"
@@ -125,31 +134,40 @@ limpiar() {
     local estado=$?
     local etiqueta_real
     trap - EXIT INT TERM
-    if (( creado_contenedor )) && docker container inspect "$contenedor" >/dev/null 2>&1; then
+    if (( creado_contenedor )) && timeout 5s docker container inspect "$contenedor" >/dev/null 2>&1; then
         etiqueta_real="$(docker container inspect --format '{{index .Config.Labels "vec.prueba"}}' "$contenedor" 2>/dev/null)" || estado=1
         if [[ $etiqueta_real == ct193-e3-pg18 ]]; then
             # postgres cambia la propiedad del bind de sockets y activa sticky bit.
-            docker exec -u 0 "$contenedor" chown -R "$(id -u):$(id -g)" \
+            timeout 10s docker exec -u 0 "$contenedor" chown -R "$(id -u):$(id -g)" \
                 /var/run/postgresql >/dev/null 2>&1 || estado=1
-            docker rm -f -v "$contenedor" >/dev/null 2>&1 || estado=1
+            timeout 15s docker rm -f -v "$contenedor" >/dev/null 2>&1 || estado=1
         else
             printf 'CT193 E3: etiqueta de contenedor ajena; no se elimina\n' >&2
             estado=1
         fi
+    elif (( creado_contenedor )) && ! timeout 5s docker info >/dev/null 2>&1; then
+        printf 'CT193 E3: daemon inaccesible; limpieza de contenedor no verificable\n' >&2
+        estado=1
     fi
-    if (( creado_volumen )) && docker volume inspect "$volumen" >/dev/null 2>&1; then
+    if (( creado_volumen )) && timeout 5s docker volume inspect "$volumen" >/dev/null 2>&1; then
         etiqueta_real="$(docker volume inspect --format '{{index .Labels "vec.prueba"}}' "$volumen" 2>/dev/null)" || estado=1
         if [[ $etiqueta_real == ct193-e3-pg18 ]]; then
-            docker volume rm -- "$volumen" >/dev/null 2>&1 || estado=1
+            timeout 15s docker volume rm -- "$volumen" >/dev/null 2>&1 || estado=1
         else
             printf 'CT193 E3: etiqueta de volumen ajena; no se elimina\n' >&2
             estado=1
         fi
+    elif (( creado_volumen )) && ! timeout 5s docker info >/dev/null 2>&1; then
+        printf 'CT193 E3: daemon inaccesible; limpieza de volumen no verificable\n' >&2
+        estado=1
     fi
     rm -rf -- "$base" || estado=1
-    if docker container inspect "$contenedor" >/dev/null 2>&1 ||
-       docker volume inspect "$volumen" >/dev/null 2>&1; then
+    if timeout 5s docker container inspect "$contenedor" >/dev/null 2>&1 ||
+       timeout 5s docker volume inspect "$volumen" >/dev/null 2>&1; then
         printf 'CT193 E3: limpieza incompleta\n' >&2
+        estado=1
+    elif ! timeout 5s docker info >/dev/null 2>&1; then
+        printf 'CT193 E3: daemon inaccesible; ausencia de recursos no verificable\n' >&2
         estado=1
     fi
     exit "$estado"
@@ -158,6 +176,13 @@ trap limpiar EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+# `git status` no muestra ignorados: solo el archivo HEAD versionado entra al
+# contenedor y al proceso Go. Ningún secreto local ignorado queda montado.
+if ! git -C "$raiz" archive --format=tar HEAD | tar -xf - -C "$raiz_export"; then
+    printf 'CT193 E3: no se pudo extraer la fuente versionada aislada\n' >&2
+    exit 1
+fi
+
 creado_volumen=1
 docker volume create --label "$etiqueta" "$volumen" >/dev/null
 creado_contenedor=1
@@ -165,7 +190,7 @@ docker run -d --pull=never --name "$contenedor" --label "$etiqueta" \
     --network none --memory=1536m --cpus=2 --pids-limit=256 \
     --mount "type=volume,src=$volumen,dst=/var/lib/postgresql" \
     --mount "type=bind,src=$socket,dst=/var/run/postgresql" \
-    --mount "type=bind,src=$raiz,dst=/repo,readonly" \
+    --mount "type=bind,src=$raiz_export,dst=/repo,readonly" \
     --env POSTGRES_HOST_AUTH_METHOD=trust --env POSTGRES_INITDB_ARGS='--encoding=UTF8' \
     "$imagen" -c listen_addresses= -c unix_socket_directories=/var/run/postgresql >/dev/null
 
@@ -422,7 +447,7 @@ sandbox=(
     --ro-bind "$sandbox_root" /
     --ro-bind /usr /usr
     --dev /dev --proc /proc
-    --ro-bind "$raiz" "$raiz"
+    --ro-bind "$raiz_export" "$raiz"
     --ro-bind "$modcache" "$modcache"
     --bind "$temporal" "$temporal"
     --setenv PATH "$modcache/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin:/usr/bin:/bin"

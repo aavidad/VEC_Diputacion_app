@@ -1,7 +1,8 @@
 # CT193: ensayo firmado E3 bloqueado por la ligadura V3
 
-Estado a 08/10/2026: **NO-GO dinámico**. Este artefacto conserva un ensayo
-reproducible; no acredita la activación del POST v3 ni la instalación en la
+Estado a 08/10/2026: **NO-GO dinámico y NO-EJECUTABLE bajo el perfil estricto
+de `security-audit` mientras no exista una cuota integral de disco**. Este
+artefacto conserva un ensayo preparado; no acredita la activación del POST v3 ni la instalación en la
 base principal.
 
 La fuente CT preparada es `2703bda17b3acc226fb4427e192c6c710c05597f`.
@@ -18,7 +19,7 @@ CT193 antes de usar Docker. CT48 SHA256:
 CT165 SHA256:
 `7a7ac82c0137d77339996022e234c416843a2525cf426f306430c0c66a05bf6e`.
 
-Para repetirlo se usa una copia aislada de esta rama con la imagen local
+Tras acotar el disco y corregir V3, para repetirlo se usa una copia aislada de esta rama con la imagen local
 PostgreSQL 18.4 ya instalada y el comando
 `VEC_CT_E3_BD_DESECHABLE=SI bash deploy/postgresql/contratacion_temporal/probar_ct193_e3_postgresql18.sh`.
 El runner exige el daemon por `/var/run/docker.sock` Unix local y rechaza
@@ -30,9 +31,16 @@ socket PostgreSQL en ruta temporal privada, `umask 077`, un contenedor y volumen
 procesos. La compilación y el test Go usan `bwrap` sin red, fuente y módulos
 de solo lectura, `GOCACHE=$HOME/.cache/go-build` en su HOME temporal, `-p 6`
 y límites de tiempo, procesos, memoria y tamaño de fichero. El volumen de
-datos Docker no tiene cuota de disco propia; el operador debe comprobar espacio
-local antes de repetir. El sandbox Go ve un `/etc` vacío, sin montar el del
-host. El runner reinicia solamente su contenedor durante el replay e intenta
+datos Docker y la capa escribible/logs del contenedor no tienen una cuota total
+de disco; comprobar espacio libre no cierra ese riesgo. Esta es una segunda
+condición pendiente antes de otra ejecución por agentes. El runner sale **78**
+antes de invocar Docker mientras la comprobación de cuota real no exista; hay
+que implementar y revisar esa comprobación, no sustituirla por una variable de
+confirmación. El sandbox Go ve un
+`/etc` vacío, sin montar el del
+host. El repositorio se extrae desde `git archive HEAD` a una carpeta privada;
+Docker y Go solo ven archivos versionados, sin ignorados del worktree. El
+runner reinicia solamente su contenedor durante el replay e intenta
 eliminarlo junto con el volumen y temporales al salir, comprobando sus etiquetas
 antes de borrar; si Docker falla durante la limpieza, informa el residuo y
 requiere limpieza manual del recurso identificado. No usa la
