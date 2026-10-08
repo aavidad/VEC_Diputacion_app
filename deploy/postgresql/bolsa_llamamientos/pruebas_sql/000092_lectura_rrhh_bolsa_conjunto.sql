@@ -3,7 +3,7 @@
 -- Los datos sintéticos y los LOGIN de prueba desaparecen con ROLLBACK.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
-SET LOCAL statement_timeout='20s';
+SET LOCAL statement_timeout='60s';
 CREATE ROLE vec_b92_ejecutor_test LOGIN;
 CREATE ROLE vec_b92_sin_permiso_test LOGIN;
 GRANT vec_bolsa_llamamientos_ejecutor TO vec_b92_ejecutor_test;
@@ -18,6 +18,8 @@ SELECT quote_literal(k.bolsa_ref) AS bolsa_sql,
     ON vc.participacion_ref=e.participacion_ref
  WHERE k.estado='vigente' AND k.vigente_desde<=clock_timestamp()
    AND (k.vigente_hasta IS NULL OR k.vigente_hasta>clock_timestamp())
+   AND EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(
+     k.bolsa_ref,clock_timestamp()) o WHERE o.participacion_ref=e.participacion_ref)
  ORDER BY k.confirmada_en DESC,e.orden LIMIT 1 \gset
 RESET ROLE;
 SELECT set_config('vec.b92.bolsa',:bolsa_sql,true);
@@ -27,7 +29,7 @@ SELECT set_config('vec.b92.corte_antes',clock_timestamp()::text,true);
 
 SET SESSION AUTHORIZATION vec_b92_ejecutor_test;
 DO $lectura$
-DECLARE n bigint; esperado bigint; v record; columnas integer;
+DECLARE n bigint; esperado bigint; v record; columnas integer; diferencias bigint;
 BEGIN
  SELECT count(*),count(DISTINCT orden) INTO n,esperado
    FROM vec_bolsa_llamamientos.leer_situaciones_bolsa_rrhh_v1(
@@ -43,6 +45,24 @@ BEGIN
       current_setting('vec.b92.bolsa'),current_setting('vec.b92.corte_antes')::timestamptz) LIMIT 1));
  IF n<>esperado THEN
   RAISE EXCEPTION 'B92: clave=total_bolsa actual=% esperado=%',n,esperado;
+ END IF;
+ -- B6 y B92 se leen con el mismo corte y dentro de esta transacción: el
+ -- conjunto de participaciones y posiciones de acta debe ser idéntico.
+ SELECT count(*) INTO diferencias FROM (
+  (SELECT orden,participacion_ref FROM vec_bolsa_llamamientos.leer_situaciones_bolsa_rrhh_v1(
+    current_setting('vec.b92.bolsa'),current_setting('vec.b92.corte_antes')::timestamptz)
+   EXCEPT
+   SELECT orden_acta,participacion_ref FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(
+    current_setting('vec.b92.bolsa'),current_setting('vec.b92.corte_antes')::timestamptz))
+  UNION ALL
+  (SELECT orden_acta,participacion_ref FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(
+    current_setting('vec.b92.bolsa'),current_setting('vec.b92.corte_antes')::timestamptz)
+   EXCEPT
+   SELECT orden,participacion_ref FROM vec_bolsa_llamamientos.leer_situaciones_bolsa_rrhh_v1(
+    current_setting('vec.b92.bolsa'),current_setting('vec.b92.corte_antes')::timestamptz))
+ ) comparacion;
+ IF diferencias<>0 THEN
+  RAISE EXCEPTION 'B92: clave=consistencia_b6 diferencias=% esperado=0',diferencias;
  END IF;
  SELECT * INTO STRICT v FROM vec_bolsa_llamamientos.leer_situaciones_bolsa_rrhh_v1(
   current_setting('vec.b92.bolsa'),current_setting('vec.b92.corte_antes')::timestamptz)
@@ -187,15 +207,80 @@ END $empate$;
 RESET ROLE;
 SET SESSION AUTHORIZATION vec_b92_ejecutor_test;
 DO $rechazo_empate$
+DECLARE rechazado boolean:=false;
 BEGIN
  BEGIN
   PERFORM 1 FROM vec_bolsa_llamamientos.leer_situaciones_bolsa_rrhh_v1(
    'bolsa:b92:seleccion:2',clock_timestamp());
-  RAISE EXCEPTION 'B92: clave=empate_no_rechazado';
  EXCEPTION WHEN SQLSTATE '55000' THEN
-  NULL;
+  rechazado:=true;
  END;
+ IF NOT rechazado THEN RAISE EXCEPTION 'B92: clave=empate_no_rechazado'; END IF;
 END $rechazo_empate$;
+RESET SESSION AUTHORIZATION;
+
+-- La ACL se prueba como sesión de un LOGIN ajeno, no con un cálculo de
+-- privilegios desde la sesión administrativa.
+SET SESSION AUTHORIZATION vec_b92_sin_permiso_test;
+DO $rechazo_permiso$
+DECLARE rechazado boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM 1 FROM vec_bolsa_llamamientos.leer_situaciones_bolsa_rrhh_v1(
+   current_setting('vec.b92.bolsa'),clock_timestamp());
+ EXCEPTION WHEN SQLSTATE '42501' THEN
+  rechazado:=true;
+ END;
+ IF NOT rechazado THEN RAISE EXCEPTION 'B92: clave=login_ajeno_no_rechazado'; END IF;
+END $rechazo_permiso$;
+RESET SESSION AUTHORIZATION;
+
+-- B7 admite instantáneas mayores. El lector debe contar y rechazar antes de
+-- agregar referencias o llamar al núcleo B90, cuya cota es 20.000.
+SET ROLE vec_bolsa_llamamientos_propietario;
+DO $demasiadas_entradas$
+DECLARE canon bytea:=convert_to('{"bolsa_ref":"bolsa:b92:20001","total_participaciones":20001}','UTF8');
+ t timestamptz:=clock_timestamp()-interval '1 day';
+BEGIN
+ INSERT INTO vec_bolsa_llamamientos.bolsa_constituida
+  (bolsa_ref,version,huella_bolsa_sha256,bolsa_canonica,categoria_ref,
+   vigente_desde,estado,registrada_en)
+  VALUES('bolsa:b92:20001',1,encode(sha256(canon),'hex'),canon,
+   'categoria:b92:20001',t,'vigente',t);
+ INSERT INTO vec_bolsa_llamamientos.instantanea_orden_bolsa
+  (instantanea_ref,version,huella_instantanea_sha256,instantanea_canonica,
+   bolsa_ref,version_bolsa,huella_bolsa_sha256,total_participaciones,
+   referida_en,generada_en,registrada_en)
+  VALUES('instantanea:b92:20001',1,encode(sha256(canon),'hex'),canon,
+   'bolsa:b92:20001',1,encode(sha256(canon),'hex'),20001,t,t,t);
+ INSERT INTO vec_bolsa_llamamientos.constitucion
+  (acta_ref,bolsa_ref,version_bolsa,huella_bolsa_sha256,instantanea_ref,
+   version_instantanea,huella_instantanea_sha256,categoria_ref,actor_ref,
+   confirmada_en,registrada_en)
+  VALUES('acta:b92:20001','bolsa:b92:20001',1,encode(sha256(canon),'hex'),
+   'instantanea:b92:20001',1,encode(sha256(canon),'hex'),
+   'categoria:b92:20001','actor:b92:prueba',t,t);
+ INSERT INTO vec_bolsa_llamamientos.constitucion_entrada
+  (instantanea_ref,version_instantanea,orden,participacion_ref,fila_numero)
+  SELECT 'instantanea:b92:20001',1,g,'participacion:b92:20001:'||g,g
+    FROM generate_series(1,20001) g;
+END $demasiadas_entradas$;
+RESET ROLE;
+SET SESSION AUTHORIZATION vec_b92_ejecutor_test;
+DO $rechazo_cota$
+DECLARE rechazado boolean:=false; detalle text;
+BEGIN
+ BEGIN
+  PERFORM 1 FROM vec_bolsa_llamamientos.leer_situaciones_bolsa_rrhh_v1(
+   'bolsa:b92:20001',clock_timestamp());
+ EXCEPTION WHEN SQLSTATE '55000' THEN
+  GET STACKED DIAGNOSTICS detalle=MESSAGE_TEXT;
+  rechazado:=detalle LIKE 'B92: clave=entradas_bolsa bolsa=bolsa:b92:20001 actual=20001 esperado=20001 maximo=20000';
+ END;
+ IF NOT rechazado THEN
+  RAISE EXCEPTION 'B92: clave=cota_no_rechazada detalle=%',coalesce(detalle,'sin_error');
+ END IF;
+END $rechazo_cota$;
 RESET SESSION AUTHORIZATION;
 
 DO $acl$
