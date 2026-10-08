@@ -565,3 +565,51 @@ func TestPrepararCambioConVersionPreviaConservaOtrosCampos(t *testing.T) {
 		}
 	}
 }
+
+func TestPrepararAjustesSobreCabezaFuturaConservaCamposYExigeFecha(t *testing.T) {
+	resolutor := resolutorReal(t, rutaReglasCTPrueba, CatalogoContratacionTemporal, ModuloContratacionTemporal, nil)
+	base, ahora, err := resolutor.catalogoVigente(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cabeza := versionAjustes(t, 2, ahora.Add(24*time.Hour), map[string]map[string]string{
+		CTPlazoFiscalizacion: {CampoCantidad: "7", CampoCantidadUrgente: "3"},
+		CTPlazoSubsanacion:   {CampoCantidad: "8"},
+	})
+	efecto := ahora.Add(48*time.Hour + 1234*time.Nanosecond).In(time.FixedZone("CET", 3600))
+	solicitud := []SolicitudCambioAjuste{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "9"}}
+	preparada, err := PrepararAjustesSobreVersion(base, ahora, &efecto, 2, cabeza, true, solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := preparada.Datos()
+	if d.VersionEsperada != 2 || d.Cambios[0].Anterior != "7" ||
+		d.Ajustes[CTPlazoFiscalizacion][CampoCantidadUrgente] != "3" ||
+		d.Ajustes[CTPlazoSubsanacion][CampoCantidad] != "8" || d.EfectoDesde == nil ||
+		d.EfectoDesde.Location() != time.UTC || !d.EfectoDesde.Equal(efecto.UTC().Truncate(time.Microsecond)) {
+		t.Fatalf("cabeza futura o fecha no conservadas: %+v", d)
+	}
+	*d.EfectoDesde = ahora
+	if otra := preparada.Datos(); !otra.EfectoDesde.Equal(efecto.UTC().Truncate(time.Microsecond)) {
+		t.Fatal("la fecha compartió un puntero mutable")
+	}
+	if _, err := PrepararAjustesSobreVersion(base, ahora, nil, 2, cabeza, true, solicitud); !errors.Is(err, ErrAjusteInvalido) {
+		t.Fatalf("cabeza futura adelantada por omisión: %v", err)
+	}
+	retroactiva := ahora.Add(-time.Hour)
+	if _, err := PrepararAjustesSobreVersion(base, ahora, &retroactiva, 2, cabeza, true, solicitud); !errors.Is(err, ErrAjusteInvalido) {
+		t.Fatalf("fecha retroactiva admitida: %v", err)
+	}
+	corrupta := cabeza
+	corrupta.HuellaSHA256 = strings.Repeat("0", 64)
+	if _, err := PrepararAjustesSobreVersion(base, ahora, &efecto, 2, corrupta, true, solicitud); !errors.Is(err, ErrAjustesNoDisponibles) {
+		t.Fatalf("cabeza sin integridad admitida: %v", err)
+	}
+	if _, err := PrepararAjustesSobreVersion(base, ahora, &efecto, 2, cabeza, true,
+		[]SolicitudCambioAjuste{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "61"}}); !errors.Is(err, ErrAjusteInvalido) {
+		t.Fatalf("ajuste inválido admitido: %v", err)
+	}
+	if cabeza.Ajustes[CTPlazoFiscalizacion][CampoCantidad] != "7" || cabeza.Ajustes[CTPlazoSubsanacion][CampoCantidad] != "8" {
+		t.Fatal("se modificó la fuente")
+	}
+}

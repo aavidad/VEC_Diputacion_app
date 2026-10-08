@@ -201,10 +201,12 @@ type DatosPreparacionAjustes struct {
 	VersionEsperada   int
 	BaseVersion       int
 	BaseHuellaSHA256  string
-	Ajustes           map[string]map[string]string
-	Canonico          []byte
-	HuellaSHA256      string
-	Cambios           []CambioAjustePreparado
+	// Nil conserva la omisión: el almacén fija entonces la fecha de publicación.
+	EfectoDesde  *time.Time
+	Ajustes      map[string]map[string]string
+	Canonico     []byte
+	HuellaSHA256 string
+	Cambios      []CambioAjustePreparado
 }
 
 // PreparacionAjustes conserva copias internas para que quien inspeccione sus
@@ -214,6 +216,10 @@ type PreparacionAjustes struct{ datos DatosPreparacionAjustes }
 func (p PreparacionAjustes) Datos() DatosPreparacionAjustes {
 	d := p.datos
 	d.Ajustes = copiarConjuntoAjustes(d.Ajustes)
+	if d.EfectoDesde != nil {
+		fecha := *d.EfectoDesde
+		d.EfectoDesde = &fecha
+	}
 	d.Canonico = slices.Clone(d.Canonico)
 	d.Cambios = slices.Clone(d.Cambios)
 	return d
@@ -245,13 +251,30 @@ func PrepararCambioAjustes(
 	catalogo domain.CatalogoConfigurable, instante time.Time, versionEsperada int,
 	previa VersionAjustes, encontrada bool, solicitadas []SolicitudCambioAjuste,
 ) (PreparacionAjustes, error) {
+	return PrepararAjustesSobreVersion(catalogo, instante, nil, versionEsperada, previa, encontrada, solicitadas)
+}
+
+// PrepararAjustesSobreVersion calcula una versión nueva desde la cabeza completa
+// que leyó un repositorio autorizado. La cabeza puede ser futura: su número,
+// contenido y huella son la preimagen del CAS, aunque todavía no rija hoy.
+// La fecha explícita se normaliza a la precisión de PostgreSQL. Nil conserva
+// la omisión para que el almacén fije el instante dentro de la transacción.
+func PrepararAjustesSobreVersion(
+	catalogo domain.CatalogoConfigurable, ahora time.Time, efectoDesde *time.Time,
+	versionEsperada int, cabeza VersionAjustes, encontrada bool,
+	solicitadas []SolicitudCambioAjuste,
+) (PreparacionAjustes, error) {
 	var vacia PreparacionAjustes
-	if instante.IsZero() || versionEsperada < 0 || versionEsperada > 9_999_998 ||
+	if ahora.IsZero() || versionEsperada < 0 || versionEsperada > 9_999_998 ||
 		len(solicitadas) == 0 || len(solicitadas) > maximoReglasAjustadas*4 {
 		return vacia, ErrAjusteInvalido
 	}
+	fecha, efecto, err := normalizarEfectoAjustes(ahora, efectoDesde, false)
+	if err != nil {
+		return vacia, err
+	}
 	base, err := catalogo.ClonarCanonico()
-	if err != nil || !catalogoVigenteEn(base, instante.UTC()) {
+	if err != nil || !catalogoVigenteEn(base, ahora.UTC()) || !catalogoVigenteEn(base, fecha) {
 		return vacia, ErrReglasNoDisponibles
 	}
 	huellaBase, err := base.HuellaSHA256()
@@ -260,22 +283,25 @@ func PrepararCambioAjustes(
 	}
 	id := CatalogoAjustesDe(base.ID)
 	if encontrada {
-		if err := validarVersionAjustes(previa, id, instante.UTC()); err != nil {
+		if err := validarCabezaAjustes(cabeza, id); err != nil {
 			return vacia, err
 		}
-	} else if !versionAjustesVacia(previa) {
+	} else if !versionAjustesVacia(cabeza) {
 		return vacia, ErrAjustesNoDisponibles
 	}
-	if previa.Version != versionEsperada {
+	if cabeza.Version != versionEsperada {
 		return vacia, ErrAjustesConflicto
 	}
-	ajustes := copiarConjuntoAjustes(previa.Ajustes)
+	if encontrada && fecha.Before(cabeza.VigenteDesde.UTC().Truncate(time.Microsecond)) {
+		return vacia, ErrAjusteInvalido
+	}
+	ajustes := copiarConjuntoAjustes(cabeza.Ajustes)
 	cambios := make([]CambioAjustePreparado, 0, len(solicitadas))
 	tocadas := make(map[string]domain.EntradaCatalogoConfigurable)
 	vistas := make(map[string]Regla)
 	vistasPorClave := make(map[string]domain.EntradaCatalogoConfigurable)
 	for _, entrada := range base.Entradas {
-		if entrada.VigenteEn(instante.UTC()) {
+		if entrada.VigenteEn(fecha) {
 			vistasPorClave[entrada.Clave] = entrada
 		}
 	}
@@ -302,7 +328,7 @@ func PrepararCambioAjustes(
 		if !regla.Edicion.Admite(solicitud.Campo) {
 			return vacia, ErrAjusteInvalido
 		}
-		anterior, ajustado := previa.Ajustes[solicitud.ReglaClave][solicitud.Campo]
+		anterior, ajustado := cabeza.Ajustes[solicitud.ReglaClave][solicitud.Campo]
 		if !ajustado {
 			anterior, ajustado = entrada.Atributos[solicitud.Campo]
 		}
@@ -326,8 +352,8 @@ func PrepararCambioAjustes(
 	if err != nil {
 		return vacia, err
 	}
-	versionCandidata := VersionAjustes{CatalogoID: id, Version: previa.Version + 1,
-		HuellaSHA256: huella, VigenteDesde: instante.UTC(), Ajustes: ajustes}
+	versionCandidata := VersionAjustes{CatalogoID: id, Version: cabeza.Version + 1,
+		HuellaSHA256: huella, VigenteDesde: fecha, Ajustes: ajustes}
 	for clave, entrada := range tocadas {
 		if _, err := aplicarAjuste(base, huellaBase, base.FuenteRef == MarcaPaqueteEjemplo,
 			entrada, vistas[clave], versionCandidata, ajustes[clave]); err != nil {
@@ -343,8 +369,34 @@ func PrepararCambioAjustes(
 	return PreparacionAjustes{datos: DatosPreparacionAjustes{
 		CatalogoAjustesID: id, VersionEsperada: versionEsperada,
 		BaseVersion: base.Version, BaseHuellaSHA256: huellaBase,
-		Ajustes: ajustes, Canonico: canonico, HuellaSHA256: huella, Cambios: cambios,
+		EfectoDesde: efecto,
+		Ajustes:     ajustes, Canonico: canonico, HuellaSHA256: huella, Cambios: cambios,
 	}}, nil
+}
+
+func validarCabezaAjustes(cabeza VersionAjustes, id string) error {
+	if cabeza.VigenteDesde.IsZero() {
+		return ErrAjustesNoDisponibles
+	}
+	return validarVersionAjustes(cabeza, id, cabeza.VigenteDesde)
+}
+
+func normalizarEfectoAjustes(ahora time.Time, solicitado *time.Time, repeticion bool) (time.Time, *time.Time, error) {
+	if ahora.IsZero() {
+		return time.Time{}, nil, ErrAjusteInvalido
+	}
+	actual := ahora.UTC().Truncate(time.Microsecond)
+	if solicitado == nil {
+		return actual, nil, nil
+	}
+	if solicitado.IsZero() {
+		return time.Time{}, nil, ErrAjusteInvalido
+	}
+	fecha := solicitado.UTC().Truncate(time.Microsecond)
+	if !repeticion && fecha.Before(actual) {
+		return time.Time{}, nil, ErrAjusteInvalido
+	}
+	return fecha, &fecha, nil
 }
 
 // CatalogoAjustesDe devuelve el identificador del catálogo de ajustes de un
