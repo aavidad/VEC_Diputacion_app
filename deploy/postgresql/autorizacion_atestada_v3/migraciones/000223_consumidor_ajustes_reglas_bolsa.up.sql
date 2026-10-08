@@ -53,9 +53,9 @@ BEGIN
     pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a WHERE p.oid=f
     AND a.grantee=p.proowner AND a.grantor=p.proowner AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
  THEN RAISE EXCEPTION 'AD223: núcleo instalado divergente; no reconstruir' USING ERRCODE='55000'; END IF;
- SELECT pg_catalog.coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(x) ORDER BY x.classid,x.objid,x.objsubid,x.refclassid,x.refobjid,x.refobjsubid,x.deptype),'[]'::jsonb)
+ SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(x) ORDER BY x.classid,x.objid,x.objsubid,x.refclassid,x.refobjid,x.refobjsubid,x.deptype),'[]'::jsonb)
  INTO deps FROM pg_catalog.pg_depend x WHERE x.classid='pg_catalog.pg_proc'::regclass AND x.objid=f;
- SELECT pg_catalog.coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(x) ORDER BY x.dbid,x.classid,x.objid,x.objsubid,x.refclassid,x.refobjid,x.deptype),'[]'::jsonb)
+ SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(x) ORDER BY x.dbid,x.classid,x.objid,x.objsubid,x.refclassid,x.refobjid,x.deptype),'[]'::jsonb)
  INTO compartidas FROM pg_catalog.pg_shdepend x WHERE x.dbid=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database())
  AND x.classid='pg_catalog.pg_proc'::regclass AND x.objid=f;
  PERFORM pg_catalog.set_config('vec.ad223.pre_meta',meta::text,true);
