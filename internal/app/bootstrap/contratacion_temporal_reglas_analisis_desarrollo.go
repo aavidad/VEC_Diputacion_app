@@ -38,6 +38,7 @@ func nuevasFuentesReglasAnalisisDesarrollo(
 		return fuentesReglasAnalisisDesarrollo{}, err
 	}
 	var fuentes fuentesReglasAnalisisDesarrollo
+	fuentes.jornada.rutaCatalogo = cfg.CTNecesidadesAltaSourcePath
 	if fuentes.jornada.resolutor, err = nuevoResolutorReglasEjemplo(
 		rutas.CTSourcePath, reglas.CatalogoContratacionTemporal, reglas.ModuloContratacionTemporal, nil, reloj,
 	); err != nil {

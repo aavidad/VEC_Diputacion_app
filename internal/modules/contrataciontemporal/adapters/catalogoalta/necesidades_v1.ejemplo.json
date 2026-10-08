@@ -16,8 +16,8 @@
       "regla_ref": "regla:ct:necesidad_vacante:v1",
       "fecha_fin": "obligatoria",
       "maximo_meses": 36,
-      "campos_permitidos": ["plaza_codigo", "puesto_codigo", "vacancia_fuente_ref", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"],
-      "campos_obligatorios": ["plaza_codigo", "puesto_codigo", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"]
+      "campos_permitidos": ["plaza_codigo", "puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_version", "rpt_catalogo_huella_sha256", "vacancia_fuente_ref", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"],
+      "campos_obligatorios": ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_version", "rpt_catalogo_huella_sha256", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"]
     },
     {
       "clave": "sustitucion",
@@ -28,8 +28,8 @@
       "fecha_fin": "opcional",
       "causa_fin": "reincorporacion_titular",
       "maximo_meses": 36,
-      "campos_permitidos": ["puesto_codigo", "plaza_codigo", "titular_ref", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"],
-      "campos_obligatorios": ["puesto_codigo", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"]
+      "campos_permitidos": ["puesto_codigo", "plaza_codigo", "rpt_catalogo_ref", "rpt_catalogo_version", "rpt_catalogo_huella_sha256", "titular_ref", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"],
+      "campos_obligatorios": ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_version", "rpt_catalogo_huella_sha256", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"]
     },
     {
       "clave": "acumulacion_tareas",

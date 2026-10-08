@@ -22,7 +22,7 @@ type datosCatalogosAltaV2 struct {
 }
 
 func datosCatalogosAltaV2Desde(actual catalogosAltaContratacionTemporalDesarrollo) (datosCatalogosAltaV2, error) {
-	necesidades, err := catalogoNecesidadesAltaDesarrollo()
+	necesidades, err := catalogoNecesidadesAltaDesarrollo(actual.rutaNecesidades)
 	if err != nil {
 		return datosCatalogosAltaV2{}, err
 	}
@@ -63,8 +63,15 @@ type causaNecesidadAltaV2JSON struct {
 	UnoDe              [][]string `json:"uno_de,omitempty"`
 }
 
-func catalogoNecesidadesAltaDesarrollo() (catalogoNecesidadesAltaV2JSON, error) {
-	c, err := catalogoalta.CargarNecesidades("")
+func catalogoNecesidadesAltaDesarrollo(rutas ...string) (catalogoNecesidadesAltaV2JSON, error) {
+	if len(rutas) > 1 {
+		return catalogoNecesidadesAltaV2JSON{}, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+	}
+	ruta := ""
+	if len(rutas) == 1 {
+		ruta = rutas[0]
+	}
+	c, err := catalogoalta.CargarNecesidades(ruta)
 	if err != nil {
 		return catalogoNecesidadesAltaV2JSON{}, err
 	}

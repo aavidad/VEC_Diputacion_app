@@ -1,13 +1,20 @@
 package domain
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
+
+const MaximoInstantaneaCatalogoNecesidadesAltaBytes = 8192
 
 var patronCodigoNecesidad = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,79}$`)
 
@@ -46,12 +53,15 @@ type CatalogoNecesidadesAlta struct {
 	JornadaFuenteRef         string               `json:"jornada_fuente_ref"`
 	Causas                   []CausaNecesidadAlta `json:"causas"`
 	HuellaSHA256             string               `json:"-"`
+	ContenidoCanonico        []byte               `json:"-"`
 }
 
 func (c CatalogoNecesidadesAlta) Validar() error {
 	if c.Esquema != "vec.ct.necesidades_alta.v1" || !referenciaValida(c.Referencia) ||
 		c.Version == 0 || c.Version > 1<<53-1 ||
 		!huellaValida(c.HuellaSHA256) ||
+		len(c.ContenidoCanonico) == 0 || len(c.ContenidoCanonico) > MaximoInstantaneaCatalogoNecesidadesAltaBytes ||
+		huellaContenidoNecesidadesAlta(c.ContenidoCanonico) != c.HuellaSHA256 ||
 		!referenciaValida(c.FuenteRef) || !fuentePublicaValida(c.FuenteURL) ||
 		!referenciaValida(c.JornadaFuenteRef) ||
 		c.JornadaReferenciaMinutos == 0 || c.JornadaReferenciaMinutos > 7*24*60 ||
@@ -109,6 +119,31 @@ func (c CatalogoNecesidadesAlta) Validar() error {
 		vistas[causa.Clave] = true
 	}
 	return nil
+}
+
+func huellaContenidoNecesidadesAlta(contenido []byte) string {
+	huella := sha256.Sum256(contenido)
+	return hex.EncodeToString(huella[:])
+}
+
+// RestaurarCatalogoNecesidadesAlta verifica una instantánea conservada, sin
+// consultar ni reinterpretar una publicación posterior.
+func RestaurarCatalogoNecesidadesAlta(contenido []byte) (CatalogoNecesidadesAlta, error) {
+	if len(contenido) == 0 || len(contenido) > MaximoInstantaneaCatalogoNecesidadesAltaBytes {
+		return CatalogoNecesidadesAlta{}, ErrNecesidadAltaInvalida
+	}
+	var c CatalogoNecesidadesAlta
+	lector := json.NewDecoder(bytes.NewReader(contenido))
+	lector.DisallowUnknownFields()
+	if lector.Decode(&c) != nil || lector.Decode(&struct{}{}) != io.EOF {
+		return CatalogoNecesidadesAlta{}, ErrNecesidadAltaInvalida
+	}
+	c.ContenidoCanonico = append([]byte(nil), contenido...)
+	c.HuellaSHA256 = huellaContenidoNecesidadesAlta(contenido)
+	if c.Validar() != nil {
+		return CatalogoNecesidadesAlta{}, ErrNecesidadAltaInvalida
+	}
+	return c, nil
 }
 
 func fuentePublicaValida(valor string) bool {
@@ -171,12 +206,14 @@ type DatosNecesidadAlta struct {
 	Periodo              PeriodoPrevisto   `json:"periodo"`
 	JornadaMinutos       uint16            `json:"jornada_minutos"`
 	Campos               map[string]string `json:"campos"`
+	CatalogoInstantanea  []byte            `json:"catalogo_instantanea"`
 }
 
 func (c CatalogoNecesidadesAlta) ValidarDatos(d DatosNecesidadAlta) error {
 	if c.Validar() != nil || d.Esquema != "vec.ct.necesidad_alta.v1" ||
 		d.CatalogoRef != c.Referencia ||
 		d.CatalogoVersion != c.Version || d.CatalogoHuellaSHA256 != c.HuellaSHA256 ||
+		(len(d.CatalogoInstantanea) != 0 && !bytes.Equal(d.CatalogoInstantanea, c.ContenidoCanonico)) ||
 		!d.CausaClave.Valida() || d.Periodo.Validar() != nil ||
 		d.JornadaMinutos == 0 || d.JornadaMinutos > c.JornadaReferenciaMinutos {
 		return ErrNecesidadAltaInvalida
@@ -189,6 +226,14 @@ func (c CatalogoNecesidadesAlta) ValidarDatos(d DatosNecesidadAlta) error {
 		}
 	}
 	if causa == nil {
+		return ErrNecesidadAltaInvalida
+	}
+	politicaEsperada := PoliticaFin{
+		ReglaRef: causa.ReglaRef, CatalogoVersion: c.Version,
+		CatalogoHuellaSHA256: c.HuellaSHA256, FechaFin: causa.FechaFin,
+		CausaFin: causa.CausaFin,
+	}
+	if d.Periodo.PoliticaFin != (PoliticaFin{}) && d.Periodo.PoliticaFin != politicaEsperada {
 		return ErrNecesidadAltaInvalida
 	}
 	if d.Periodo.Fin.IsZero() {
@@ -235,6 +280,57 @@ func (c CatalogoNecesidadesAlta) ValidarDatos(d DatosNecesidadAlta) error {
 	return nil
 }
 
+// SellarDatos adjunta al dato validado la publicación completa que regía la
+// decisión. El cliente aporta datos; esta instantánea procede del servidor.
+func (c CatalogoNecesidadesAlta) SellarDatos(d DatosNecesidadAlta) (DatosNecesidadAlta, error) {
+	if len(d.CatalogoInstantanea) != 0 || c.ValidarDatos(d) != nil {
+		return DatosNecesidadAlta{}, ErrNecesidadAltaInvalida
+	}
+	copia := d.clonar()
+	if copia.Periodo.Fin.IsZero() && copia.Periodo.PoliticaFin == (PoliticaFin{}) {
+		for _, causa := range c.Causas {
+			if causa.Clave == copia.CausaClave {
+				copia.Periodo.PoliticaFin = PoliticaFin{
+					ReglaRef: causa.ReglaRef, CatalogoVersion: c.Version,
+					CatalogoHuellaSHA256: c.HuellaSHA256, FechaFin: causa.FechaFin,
+					CausaFin: causa.CausaFin,
+				}
+				break
+			}
+		}
+	}
+	copia.CatalogoInstantanea = append([]byte(nil), c.ContenidoCanonico...)
+	if copia.ValidarInstantanea() != nil {
+		return DatosNecesidadAlta{}, ErrNecesidadAltaInvalida
+	}
+	return copia, nil
+}
+
+func (d DatosNecesidadAlta) ValidarInstantanea() error {
+	catalogo, err := RestaurarCatalogoNecesidadesAlta(d.CatalogoInstantanea)
+	if err != nil || catalogo.ValidarDatos(d) != nil {
+		return ErrNecesidadAltaInvalida
+	}
+	return nil
+}
+
+func (d DatosNecesidadAlta) clonar() DatosNecesidadAlta {
+	copia := d
+	copia.Campos = make(map[string]string, len(d.Campos))
+	for clave, valor := range d.Campos {
+		copia.Campos[clave] = valor
+	}
+	copia.CatalogoInstantanea = append([]byte(nil), d.CatalogoInstantanea...)
+	return copia
+}
+
+func (d DatosNecesidadAlta) Clonar() (DatosNecesidadAlta, error) {
+	if d.ValidarInstantanea() != nil {
+		return DatosNecesidadAlta{}, ErrNecesidadAltaInvalida
+	}
+	return d.clonar(), nil
+}
+
 // finExclusivoTrasMeses aplica el límite a fechas civiles, sin el desborde de
 // AddDate cuando el mes de destino carece del día inicial (p. ej. 31/05).
 func finExclusivoTrasMeses(inicio time.Time, meses int) time.Time {
@@ -252,6 +348,7 @@ func campoNecesidadConocido(campo string) bool {
 	case "plaza_codigo", "puesto_codigo", "titular_ref", "justificacion_temporal",
 		"programa_denominacion", "programa_fin", "proyecto_codigo",
 		"financiacion_ref", "rc_ref", "intervencion_ref", "vacancia_fuente_ref",
+		"rpt_catalogo_ref", "rpt_catalogo_version", "rpt_catalogo_huella_sha256",
 		"organica_codigo", "funcional_codigo", "proyecto_gasto_codigo",
 		"porcentaje_financiacion":
 		return true
@@ -264,8 +361,13 @@ func valorCampoNecesidadValido(campo, valor string) bool {
 		return false
 	}
 	switch campo {
-	case "titular_ref", "financiacion_ref", "rc_ref", "intervencion_ref", "vacancia_fuente_ref":
+	case "titular_ref", "financiacion_ref", "rc_ref", "intervencion_ref", "vacancia_fuente_ref", "rpt_catalogo_ref":
 		return referenciaValida(valor)
+	case "rpt_catalogo_version":
+		n, err := strconv.ParseUint(valor, 10, 64)
+		return err == nil && n > 0 && n <= 1<<53-1 && strconv.FormatUint(n, 10) == valor
+	case "rpt_catalogo_huella_sha256":
+		return huellaValida(valor)
 	case "porcentaje_financiacion":
 		n, err := strconv.ParseUint(valor, 10, 8)
 		return err == nil && n >= 1 && n <= 100 && strconv.FormatUint(n, 10) == valor

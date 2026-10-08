@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,6 +12,19 @@ import (
 
 	"vec-diputacion-granada/internal/vec/reglas"
 )
+
+func TestAltaV1ExigeModalidadMientrasV3ExigeNecesidadSellada(t *testing.T) {
+	soporte := &soporteAltaContratacionTemporalDesarrollo{}
+	if admitido, _ := soporte.motivoAltaAdmitido(context.Background(), "organizacion:dipgra", "programa_temporal", "", nil); admitido {
+		t.Fatal("v1 interpretó necesidad de programa como modalidad jurídica")
+	}
+	if admitido, err := soporte.motivoAltaAdmitido(context.Background(), "organizacion:dipgra", "sustitucion", "", nil); err != nil || !admitido {
+		t.Fatal("v1 dejó de admitir su modalidad histórica", err)
+	}
+	if admitido, _ := soporte.motivoAltaAdmitido(context.Background(), "organizacion:dipgra", "programa_temporal", "vec.ct.alta_necesidad.v1", nil); admitido {
+		t.Fatal("v3 admitió causa sin material sellado")
+	}
+}
 
 func TestCatalogosAltaV1ConservadoYV2DistingueNecesidad(t *testing.T) {
 	catalogos, err := nuevoCatalogoDesarrollo("", "")
@@ -110,5 +124,12 @@ func TestJornadaSinReglaUsaDatoYReglaDeclaradaIncompletaFalla(t *testing.T) {
 	invalida := fuenteJornadaCompletaDesarrollo{rutaCatalogo: rutaInvalida}
 	if _, err := invalida.minutos(t.Context()); !errors.Is(err, errJornadaCompletaNoDisponible) {
 		t.Fatalf("catálogo inválido se sustituyó: %v", err)
+	}
+}
+
+func TestCatalogoAltaDeclaradoAusenteImpideComposicion(t *testing.T) {
+	ruta := filepath.Join(t.TempDir(), "necesidades-ausentes.json")
+	if _, err := nuevoCatalogoDesarrollo("", "", ruta); err == nil {
+		t.Fatal("la composición sustituyó silenciosamente la ruta declarada")
 	}
 }

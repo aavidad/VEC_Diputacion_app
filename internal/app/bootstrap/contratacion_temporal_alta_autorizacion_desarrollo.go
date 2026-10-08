@@ -255,7 +255,15 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoDeCatalogo(clave domai
 // consultar para que el marcador privado coincida con actor y perfil vigentes.
 func (s *soporteAltaContratacionTemporalDesarrollo) motivoAltaAdmitido(
 	ctx context.Context, organizacionRef string, clave domain.ClaveCatalogo,
+	esquema string, necesidad *domain.DatosNecesidadAlta,
 ) (bool, error) {
+	if esquema == ports.EsquemaAltaNecesidadV1 {
+		return necesidad != nil && necesidad.CausaClave == clave &&
+			application.NecesidadAltaValidadaPara(ctx, organizacionRef, necesidad), nil
+	}
+	if esquema != "" || necesidad != nil {
+		return false, ports.ErrFlujoNoDisponible
+	}
 	if s.motivoDeCatalogo(clave) {
 		return true, nil
 	}
@@ -318,7 +326,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverFlujoAlta(
 		!s.categoriaDeCatalogo(solicitud.CategoriaRef) {
 		return ports.ConfiguracionAltaFlujo{}, ports.ErrFlujoNoDisponible
 	}
-	admitido, err := s.motivoAltaAdmitido(ctx, solicitud.OrganizacionRef, solicitud.MotivoClave)
+	admitido, err := s.motivoAltaAdmitido(ctx, solicitud.OrganizacionRef, solicitud.MotivoClave,
+		solicitud.EsquemaAlta, solicitud.Necesidad)
 	if err != nil {
 		return ports.ConfiguracionAltaFlujo{}, errors.Join(ports.ErrFlujoNoDisponible, err)
 	}
@@ -337,7 +346,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverMotivoAutorizacionAl
 		solicitud.Flujo != s.flujo.Flujo {
 		return dominiovec.ReferenciaEntradaCatalogo{}, ports.ErrMotivoAutorizacionNoDisponible
 	}
-	admitido, err := s.motivoAltaAdmitido(ctx, solicitud.OrganizacionRef, solicitud.MotivoClave)
+	admitido, err := s.motivoAltaAdmitido(ctx, solicitud.OrganizacionRef, solicitud.MotivoClave,
+		solicitud.EsquemaAlta, solicitud.Necesidad)
 	if err != nil {
 		return dominiovec.ReferenciaEntradaCatalogo{}, errors.Join(ports.ErrMotivoAutorizacionNoDisponible, err)
 	}

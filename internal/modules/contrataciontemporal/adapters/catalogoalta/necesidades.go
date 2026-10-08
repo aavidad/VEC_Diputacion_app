@@ -3,11 +3,7 @@
 package catalogoalta
 
 import (
-	"bytes"
-	"crypto/sha256"
 	_ "embed"
-	"encoding/hex"
-	"encoding/json"
 	"io"
 	"os"
 
@@ -28,21 +24,10 @@ func CargarNecesidades(ruta string) (domain.CatalogoNecesidadesAlta, error) {
 			return domain.CatalogoNecesidadesAlta{}, err
 		}
 		defer func() { _ = f.Close() }()
-		contenido, err = io.ReadAll(io.LimitReader(f, 32769))
-		if err != nil || len(contenido) > 32768 {
+		contenido, err = io.ReadAll(io.LimitReader(f, domain.MaximoInstantaneaCatalogoNecesidadesAltaBytes+1))
+		if err != nil || len(contenido) > domain.MaximoInstantaneaCatalogoNecesidadesAltaBytes {
 			return domain.CatalogoNecesidadesAlta{}, domain.ErrNecesidadAltaInvalida
 		}
 	}
-	var catalogo domain.CatalogoNecesidadesAlta
-	d := json.NewDecoder(bytes.NewReader(contenido))
-	d.DisallowUnknownFields()
-	if d.Decode(&catalogo) != nil || d.Decode(&struct{}{}) != io.EOF {
-		return domain.CatalogoNecesidadesAlta{}, domain.ErrNecesidadAltaInvalida
-	}
-	h := sha256.Sum256(contenido)
-	catalogo.HuellaSHA256 = hex.EncodeToString(h[:])
-	if catalogo.Validar() != nil {
-		return domain.CatalogoNecesidadesAlta{}, domain.ErrNecesidadAltaInvalida
-	}
-	return catalogo, nil
+	return domain.RestaurarCatalogoNecesidadesAlta(contenido)
 }

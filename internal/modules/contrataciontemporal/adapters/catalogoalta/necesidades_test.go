@@ -71,11 +71,18 @@ func TestNecesidadRechazaDatosIncompatiblesYDuracion(t *testing.T) {
 	}
 	periodo := func(fin time.Time) domain.PeriodoPrevisto { return domain.PeriodoPrevisto{Inicio: inicio, Fin: fin} }
 	vacante := domain.DatosNecesidadAlta{CausaClave: "vacante", Periodo: periodo(inicio.AddDate(1, 0, -1)), JornadaMinutos: 2250,
-		Campos: campos(map[string]string{"plaza_codigo": "1201", "puesto_codigo": "3388"})}
+		Campos: campos(map[string]string{"plaza_codigo": "1201", "puesto_codigo": "3388",
+			"rpt_catalogo_ref": "rpt:dipgra:2026", "rpt_catalogo_version": "1",
+			"rpt_catalogo_huella_sha256": strings.Repeat("a", 64)})}
 	ligar(&vacante)
 	if err := c.ValidarDatos(vacante); err != nil {
 		t.Fatal(err)
 	}
+	delete(vacante.Campos, "plaza_codigo")
+	if err := c.ValidarDatos(vacante); err != nil {
+		t.Fatal("plaza aún no cargada debe ser opcional", err)
+	}
+	vacante.Campos["plaza_codigo"] = "1201"
 	vacante.CatalogoVersion++
 	if c.ValidarDatos(vacante) == nil {
 		t.Fatal("otra versión de reglas admitida")
@@ -129,10 +136,17 @@ func TestNecesidadRechazaDatosIncompatiblesYDuracion(t *testing.T) {
 	if c.ValidarDatos(programa) == nil {
 		t.Fatal("programa más corto que la cobertura")
 	}
-	sustitucion := domain.DatosNecesidadAlta{CausaClave: "sustitucion", Periodo: domain.PeriodoPrevisto{Inicio: inicio, CausaFin: "reincorporacion_titular"}, JornadaMinutos: 2250, Campos: campos(map[string]string{"puesto_codigo": "3388"})}
+	sustitucion := domain.DatosNecesidadAlta{CausaClave: "sustitucion", Periodo: domain.PeriodoPrevisto{Inicio: inicio, CausaFin: "reincorporacion_titular"}, JornadaMinutos: 2250, Campos: campos(map[string]string{"puesto_codigo": "3388",
+		"rpt_catalogo_ref": "rpt:dipgra:2026", "rpt_catalogo_version": "1",
+		"rpt_catalogo_huella_sha256": strings.Repeat("a", 64)})}
 	ligar(&sustitucion)
 	if err := c.ValidarDatos(sustitucion); err != nil {
 		t.Fatal("fin por reincorporación rechazado", err)
+	}
+	selladaAbierta, err := c.SellarDatos(sustitucion)
+	if err != nil || selladaAbierta.Periodo.PoliticaFin.ReglaRef != c.Causas[1].ReglaRef ||
+		selladaAbierta.Periodo.PoliticaFin.CatalogoHuellaSHA256 != c.HuellaSHA256 {
+		t.Fatalf("fin abierto sin política versionada de necesidad: %v", err)
 	}
 	delete(sustitucion.Campos, "puesto_codigo")
 	if c.ValidarDatos(sustitucion) == nil {
@@ -162,5 +176,44 @@ func TestCatalogoDeclaradoAusenteOAlteradoNoUsaEjemplo(t *testing.T) {
 	}
 	if _, err := CargarNecesidades(ruta); err == nil {
 		t.Fatal("fuente ajena admitida")
+	}
+}
+
+func TestNecesidadSelladaConservaCatalogoYClonNoComparteDatos(t *testing.T) {
+	c, err := CargarNecesidades("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	inicio := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	d := domain.DatosNecesidadAlta{
+		Esquema: "vec.ct.necesidad_alta.v1", CatalogoRef: c.Referencia,
+		CatalogoVersion: c.Version, CatalogoHuellaSHA256: c.HuellaSHA256,
+		CausaClave: "vacante", Periodo: domain.PeriodoPrevisto{Inicio: inicio, Fin: inicio.AddDate(1, 0, -1)},
+		JornadaMinutos: 2250,
+		Campos: map[string]string{"plaza_codigo": "1201", "puesto_codigo": "3388", "organica_codigo": "100",
+			"rpt_catalogo_ref": "rpt:dipgra:2026", "rpt_catalogo_version": "1",
+			"rpt_catalogo_huella_sha256": strings.Repeat("a", 64),
+			"funcional_codigo":           "200", "proyecto_gasto_codigo": "300", "porcentaje_financiacion": "100"},
+	}
+	sellada, err := c.SellarDatos(d)
+	if err != nil || len(sellada.CatalogoInstantanea) != len(c.ContenidoCanonico) {
+		t.Fatal("sellado de snapshot", err)
+	}
+	s := domain.SolicitudCentro{
+		CentroRef: "centro:prueba", ContactoRef: "contacto:prueba", CategoriaRef: "categoria:prueba",
+		GrupoSubgrupo: "C2", MotivoClave: d.CausaClave, Detalle: "Necesidad temporal declarada.",
+		Periodo: d.Periodo, DocumentosAdjuntos: []string{}, Necesidad: &sellada,
+	}
+	clon, err := s.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	clon.Necesidad.Campos["puesto_codigo"] = "9999"
+	clon.Necesidad.CatalogoInstantanea[0] ^= 1
+	if s.Necesidad.Campos["puesto_codigo"] != "3388" || s.Necesidad.ValidarInstantanea() != nil {
+		t.Fatal("el clon modificó la solicitud original")
+	}
+	if clon.Validar() == nil {
+		t.Fatal("instantánea adulterada admitida")
 	}
 }
