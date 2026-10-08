@@ -202,3 +202,38 @@ test("una ficha tardía no sustituye la selección RRHH más reciente", async ()
   assert.doesNotMatch(raiz.innerHTML, /<dd>Lucía Martín<\/dd>/u);
   vista.desmontar();
 });
+
+test("identidad pendiente conserva solicitud y clave al reintentar incorporación", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "", addEventListener: (tipo, f) => eventos.set(tipo, f),
+    removeEventListener: (tipo) => eventos.delete(tipo), replaceChildren() { this.innerHTML = ""; },
+    contains: () => true,
+    querySelector: (selector) => selector === "[data-inscripcion-evidencia]" ? { value: "acta:1" } : null };
+  const admitida = { ...detalle, estado: "admitida_a_convocatoria", version: 2 };
+  const intentos = [];
+  const vista = await montarInscripcionesRRHH({ raiz,
+    localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
+    historial: { pushState() {} },
+    cliente: { listar: async () => ({ solicitudes: [admitida], total: 1, cursor_siguiente: null }),
+      detalle: async () => admitida, motivos: async () => ({ motivos: [] }), decidir: async () => ({}),
+      incorporar: async (argumento) => { intentos.push(argumento); throw Object.assign(new Error("pendiente"),
+        { estado: 409, codigo: "vinculo_identidad_pendiente" }); } } });
+  const pulsar = (atributo, valor) => eventos.get("click")({ target: { closest: () => ({
+    dataset: { [atributo]: valor }, matches: () => false,
+    hasAttribute: (nombre) => nombre === atributo }) } });
+  await new Promise((r) => setTimeout(r, 0));
+  pulsar("inscripcionAbrir", "solicitud:1");
+  await new Promise((r) => setTimeout(r, 0));
+  pulsar("inscripcionDecidir", "incorporar");
+  await new Promise((r) => setTimeout(r, 0));
+  const confirmar = () => eventos.get("click")({ target: { closest: () => ({ dataset: {}, matches: () => false,
+    hasAttribute: (nombre) => nombre === "data-inscripcion-confirmar" }) } });
+  confirmar(); await new Promise((r) => setTimeout(r, 0));
+  assert.match(raiz.innerHTML, /Pida a Administración que revise su identidad/u);
+  assert.match(raiz.innerHTML, /data-inscripcion-confirmar >/u);
+  confirmar(); await new Promise((r) => setTimeout(r, 0));
+  assert.equal(intentos.length, 2);
+  assert.equal(intentos[0].solicitudRef, "solicitud:1");
+  assert.equal(intentos[0].claveIdempotencia, intentos[1].claveIdempotencia);
+  vista.desmontar();
+});
