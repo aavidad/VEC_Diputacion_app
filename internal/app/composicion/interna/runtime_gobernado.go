@@ -14,8 +14,10 @@ import (
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	postgresidentidad "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
+	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seguridad "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	"vec-diputacion-granada/internal/vec/adapters/seudonimizacionpkcs11"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 type relojGobiernoInterno struct{}
@@ -137,7 +139,16 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 		return vacio, ErrDependenciasProductivasNoDisponibles
 	}
 	var presentacion *httpseguridad.ServicioPresentacionCertificado
+	var auditorSesion vecports.RegistradorFronteraIdentidadTecnica
 	if recursos.pools.Presentador != nil {
+		if recursos.pools.FronteraIdentidadTecnica == nil {
+			return vacio, ErrDependenciasProductivasNoDisponibles
+		}
+		auditorSesion, err = postgresvec.NuevoRegistradorFronteraIdentidadTecnicaPostgreSQL(
+			ctx, recursos.pools.FronteraIdentidadTecnica)
+		if err != nil {
+			return vacio, ErrDependenciasProductivasNoDisponibles
+		}
 		certificador, err := NuevoCertificadorPresentacionPersonal(registroCertificados)
 		if err != nil {
 			return vacio, ErrDependenciasProductivasNoDisponibles
@@ -229,6 +240,7 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 	salida := proveedoresConsultaSeguimiento{
 		identidad: identidad, extractor: extractor,
 		presentacionCertificado: presentacion,
+		auditorSesion:           auditorSesion,
 		autoridadRutas:          autoridadRuta, auditoriaRutas: auditoria,
 		configuracionV2: configuracionV2,
 		recursos:        []recursoCerrableAplicacionInterna{recursos},

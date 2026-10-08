@@ -35,6 +35,7 @@ type proveedoresConsultaSeguimiento struct {
 	identidad                         *httpseguridad.ServicioIdentidad
 	extractor                         extractorAsercionInstitucional
 	presentacionCertificado           *httpseguridad.ServicioPresentacionCertificado
+	auditorSesion                     vecports.RegistradorFronteraIdentidadTecnica
 	autoridadRutas                    httpapi.AutoridadRutasExactas
 	auditoriaRutas                    vecports.RegistradorAuditoriaFronteraRutaExacta
 	vincularPersonalB2                func(context.Context) (context.Context, error)
@@ -59,6 +60,7 @@ func obtenerProveedoresConsultaSeguimiento(ctx context.Context, cfg Configuracio
 type puenteConsultaSeguimiento struct {
 	extractor                         extractorAsercionInstitucional
 	presentacionCertificado           *httpseguridad.ServicioPresentacionCertificado
+	auditorSesion                     vecports.RegistradorFronteraIdentidadTecnica
 	api                               http.Handler
 	auditoria                         vecports.RegistradorAuditoriaFronteraRutaExacta
 	vincularB2                        func(context.Context) (context.Context, error)
@@ -80,6 +82,11 @@ func (p *puenteConsultaSeguimiento) ServeHTTP(w http.ResponseWriter, r *http.Req
 	if p == nil || r == nil || r.URL == nil || interfazNulaIdentidadOffline(p.extractor) ||
 		manejadorNulo(p.api) || p.fachada.Load() == nil {
 		responderPuenteSeguimiento(w, http.StatusServiceUnavailable)
+		return
+	}
+	if esRutaSesionC4(r.URL.Path) &&
+		(p.presentacionCertificado != nil || !interfazNulaIdentidadOffline(p.auditorSesion)) {
+		p.atenderSesionC4(w, r)
 		return
 	}
 	esOH := r.URL.Path == httpapi.RutaOrganizacionHistoricaPersonal
@@ -248,6 +255,7 @@ func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p prove
 		}
 	}()
 	if ctx == nil || ctx.Err() != nil || cfg.Validar() != nil || p.identidad == nil ||
+		(p.presentacionCertificado == nil) != interfazNulaIdentidadOffline(p.auditorSesion) ||
 		interfazNulaIdentidadOffline(p.extractor) ||
 		interfazNulaIdentidadOffline(p.autoridadRutas) ||
 		interfazNulaIdentidadOffline(p.auditoriaRutas) ||
@@ -270,7 +278,8 @@ func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p prove
 	}
 	limiteCuerpo := min(cfg.normalizar().MaximoBytesPeticion, int64(1<<20))
 	puente := &puenteConsultaSeguimiento{extractor: p.extractor, presentacionCertificado: p.presentacionCertificado,
-		api: api, auditoria: p.auditoriaRutas, limiteCuerpo: limiteCuerpo,
+		auditorSesion: p.auditorSesion,
+		api:           api, auditoria: p.auditoriaRutas, limiteCuerpo: limiteCuerpo,
 		vincularB2: p.vincularPersonalB2,
 		vincularOH: p.vincularOrganizacionHistorica, organizacionHistorica: !manejadorNulo(p.organizacionHistorica),
 		organizacionHistoricaNoDisponible: p.organizacionHistoricaNoDisponible,

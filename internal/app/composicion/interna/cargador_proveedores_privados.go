@@ -201,28 +201,32 @@ func cargarPoolsConsultaSeguimiento(ctx context.Context) (inc.ConfiguracionServi
 // PoolsIdentidadInterna mantiene separados los LOGIN nominales de identidad.
 // El presentador sólo existe cuando el material privado activa esa capacidad.
 type PoolsIdentidadInterna struct {
-	Registro, Revalidacion, Contexto, Auditoria, Presentador *pgxpool.Pool
+	Registro, Revalidacion, Contexto, Auditoria, Presentador, FronteraIdentidadTecnica *pgxpool.Pool
 }
 
 func (p PoolsIdentidadInterna) Cerrar() {
-	cerrarPoolsSeguimiento([]*pgxpool.Pool{p.Registro, p.Revalidacion, p.Contexto, p.Auditoria, p.Presentador})
+	cerrarPoolsSeguimiento([]*pgxpool.Pool{p.Registro, p.Revalidacion, p.Contexto, p.Auditoria, p.Presentador, p.FronteraIdentidadTecnica})
 }
 
 type documentoPoolsIdentidad struct {
 	Version int `json:"version"`
 	Pools   struct {
-		Registro     entradaPoolSeguimiento `json:"registro"`
-		Revalidacion entradaPoolSeguimiento `json:"revalidacion"`
-		Contexto     entradaPoolSeguimiento `json:"contexto"`
-		Auditoria    entradaPoolSeguimiento `json:"auditoria"`
-		Presentador  json.RawMessage        `json:"presentador"`
+		Registro                 entradaPoolSeguimiento `json:"registro"`
+		Revalidacion             entradaPoolSeguimiento `json:"revalidacion"`
+		Contexto                 entradaPoolSeguimiento `json:"contexto"`
+		Auditoria                entradaPoolSeguimiento `json:"auditoria"`
+		Presentador              json.RawMessage        `json:"presentador"`
+		FronteraIdentidadTecnica json.RawMessage        `json:"frontera_identidad_tecnica"`
 	} `json:"pools"`
-	presentador entradaPoolSeguimiento
+	presentador              entradaPoolSeguimiento
+	fronteraIdentidadTecnica entradaPoolSeguimiento
 }
 
 const (
-	firmaInicioPresentacionCertificado   = "vec_identidad_sesiones_v1.iniciar_y_consumir_presentacion_certificado_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text,bytea,bytea,bytea,text,text,timestamptz,timestamptz,timestamptz,timestamptz,timestamptz,timestamptz,text,text,text)"
-	firmaReanudarPresentacionCertificado = "vec_identidad_sesiones_v1.reanudar_y_consumir_presentacion_v1(text,text,text,text,bigint,text,bytea,bytea,bytea,bytea,bytea,text,text,timestamptz,timestamptz,timestamptz,timestamptz,timestamptz,timestamptz,text,text,text,text,text)"
+	firmaInicioPresentacionCertificado     = "vec_identidad_sesiones_v1.iniciar_y_consumir_presentacion_certificado_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text,bytea,bytea,bytea,text,text,timestamptz,timestamptz,timestamptz,timestamptz,timestamptz,timestamptz,text,text,text)"
+	firmaReanudarPresentacionCertificado   = "vec_identidad_sesiones_v1.reanudar_y_consumir_presentacion_v1(text,text,text,text,bigint,text,bytea,bytea,bytea,bytea,bytea,text,text,timestamptz,timestamptz,timestamptz,timestamptz,timestamptz,timestamptz,text,text,text,text,text)"
+	firmaPreflightFronteraIdentidadTecnica = "vec_autorizacion_atestada_v3.acreditar_frontera_identidad_tecnica_v1()"
+	firmaRegistroFronteraIdentidadTecnica  = "vec_autorizacion_atestada_v3.registrar_frontera_identidad_tecnica_v1(jsonb)"
 )
 
 func leerDocumentoIdentidadPrivado(base, nombre string) ([]byte, error) {
@@ -306,8 +310,11 @@ func cargarMaterialPoolsIdentidad(base string, ct MaterialPoolsSeguimiento) (doc
 		}
 		reservados[p.Login] = true
 	}
-	// La capacidad C4 sólo se activa al proporcionar el LOGIN presentador. La
-	// configuración anterior sigue siendo válida; un campo parcial falla cerrado.
+	// C4 sólo se activa con los dos LOGIN nominales. La configuración previa
+	// sigue siendo válida; un campo parcial falla antes de abrir conexiones.
+	if (len(documento.Pools.Presentador) == 0) != (len(documento.Pools.FronteraIdentidadTecnica) == 0) {
+		return vacio, ErrMaterialSeguimientoNoDisponible
+	}
 	if len(documento.Pools.Presentador) != 0 {
 		lectorPresentador := json.NewDecoder(bytes.NewReader(documento.Pools.Presentador))
 		lectorPresentador.DisallowUnknownFields()
@@ -317,6 +324,17 @@ func cargarMaterialPoolsIdentidad(base string, ct MaterialPoolsSeguimiento) (doc
 		p := documento.presentador
 		if p.Login == "" || p.DSN == "" || strings.TrimSpace(p.Login) != p.Login ||
 			strings.TrimSpace(p.DSN) != p.DSN || reservados[p.Login] {
+			return vacio, ErrMaterialSeguimientoNoDisponible
+		}
+		reservados[p.Login] = true
+		lectorFrontera := json.NewDecoder(bytes.NewReader(documento.Pools.FronteraIdentidadTecnica))
+		lectorFrontera.DisallowUnknownFields()
+		if lectorFrontera.Decode(&documento.fronteraIdentidadTecnica) != nil || lectorFrontera.Decode(new(any)) != io.EOF {
+			return vacio, ErrMaterialSeguimientoNoDisponible
+		}
+		f := documento.fronteraIdentidadTecnica
+		if f.Login == "" || f.DSN == "" || strings.TrimSpace(f.Login) != f.Login ||
+			strings.TrimSpace(f.DSN) != f.DSN || reservados[f.Login] {
 			return vacio, ErrMaterialSeguimientoNoDisponible
 		}
 	}
@@ -348,6 +366,11 @@ func abrirPoolsIdentidadInterna(ctx context.Context, base string, ct MaterialPoo
 			rol, funcion string
 			hereda       bool
 		}{m.presentador, "vec_identidad_sesiones_v1_presentador", firmaInicioPresentacionCertificado, false})
+		perfiles = append(perfiles, struct {
+			material     entradaPoolSeguimiento
+			rol, funcion string
+			hereda       bool
+		}{m.fronteraIdentidadTecnica, "vec_identidad_frontera_tecnica_ejecutor", firmaPreflightFronteraIdentidadTecnica, false})
 	}
 	abiertos := make([]*pgxpool.Pool, 0, len(perfiles))
 	defer func() {
@@ -375,8 +398,9 @@ func abrirPoolsIdentidadInterna(ctx context.Context, base string, ct MaterialPoo
 		}
 	}
 	salida := PoolsIdentidadInterna{Registro: abiertos[0], Revalidacion: abiertos[1], Contexto: abiertos[2], Auditoria: abiertos[3]}
-	if len(abiertos) == 5 {
+	if len(abiertos) == 6 {
 		salida.Presentador = abiertos[4]
+		salida.FronteraIdentidadTecnica = abiertos[5]
 	}
 	return salida, nil
 }
@@ -421,6 +445,18 @@ func configurarPoolIdentidadInterna(material entradaPoolSeguimiento, rol, funcio
 				Scan(&usuarioReanudar, &efectivoReanudar, &loginReanudar, &aclReanudar)
 			if err != nil || usuarioReanudar != material.Login || efectivoReanudar != usuarioReanudar ||
 				!loginReanudar || !aclReanudar {
+				return ErrMaterialSeguimientoNoDisponible
+			}
+		}
+		if rol == "vec_identidad_frontera_tecnica_ejecutor" {
+			var usuarioRegistro, efectivoRegistro string
+			var loginRegistro, aclRegistro bool
+			sondaRegistro, cancelarRegistro := context.WithTimeout(ctx, plazoarranque.Ampliar(plazoSondaPoolSeguimiento))
+			defer cancelarRegistro()
+			err = conn.QueryRow(sondaRegistro, consultaACLPoolSeguimiento, rol, firmaRegistroFronteraIdentidadTecnica, hereda).
+				Scan(&usuarioRegistro, &efectivoRegistro, &loginRegistro, &aclRegistro)
+			if err != nil || usuarioRegistro != material.Login || efectivoRegistro != usuarioRegistro ||
+				!loginRegistro || !aclRegistro {
 				return ErrMaterialSeguimientoNoDisponible
 			}
 		}

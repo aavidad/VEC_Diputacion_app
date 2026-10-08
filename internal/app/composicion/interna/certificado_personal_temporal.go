@@ -210,8 +210,15 @@ func montarServicioIdentidadCertificado(
 }
 
 func (e *extractorCertificadoPersonalDirecto) ExtraerAsercionProtegida(r *http.Request) ([]byte, error) {
+	inicioExplicito := r != nil && r.URL != nil && r.Method == http.MethodPost &&
+		r.URL.Path == "/api/vec/session/start" && r.URL.RawPath == "" &&
+		r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.Opaque == "" &&
+		r.URL.Scheme == "" && r.URL.Host == "" && r.URL.User == nil &&
+		r.URL.Fragment == "" && r.URL.RawFragment == "" &&
+		r.URL.EscapedPath() == r.URL.Path &&
+		(r.RequestURI == "" || r.RequestURI == r.URL.RequestURI())
 	if e == nil || e.emisor == nil || e.registro == nil || r == nil || r.URL == nil ||
-		r.TLS == nil || r.Method != http.MethodGet || r.Body != http.NoBody ||
+		r.TLS == nil || r.Method != http.MethodGet && !inicioExplicito || r.Body != http.NoBody ||
 		r.ContentLength > 0 || len(r.TransferEncoding) != 0 ||
 		!cabecerasCertificadoPersonalValidas(r.Header) {
 		return nil, ErrCertificadoPersonalNoDisponible
