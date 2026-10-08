@@ -17,6 +17,7 @@ import (
 	personalcatalogos "vec-diputacion-granada/internal/modules/personal/adapters/catalogosvec"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -230,8 +231,10 @@ func nuevoCatalogoDesarrollo(rutaFuente, rutaRPT string, rutasNecesidades ...str
 	if len(rutasNecesidades) == 1 {
 		rutaNecesidades = strings.TrimSpace(rutasNecesidades[0])
 	}
-	if _, err := catalogoalta.CargarNecesidades(rutaNecesidades); err != nil {
-		return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+	if rutaNecesidades != "" {
+		if _, err := catalogoalta.CargarNecesidades(rutaNecesidades); err != nil {
+			return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+		}
 	}
 	politica, err := numeracion.Cargar("")
 	if err != nil {
@@ -520,6 +523,14 @@ func (m *manejadorCatalogosAltaContratacionTemporalDesarrollo) ServeHTTP(
 	}
 	var contenido []byte
 	if r.URL.RawQuery == "version=2" {
+		// La fuente embebida es un ejemplo para pruebas. Sin publicación
+		// configurada tampoco se monta la escritura de necesidades.
+		if catalogos.rutaNecesidades == "" {
+			responderErrorCatalogosAltaContratacionTemporalDesarrollo(
+				w, r, http.StatusServiceUnavailable, "capacidad_no_configurada",
+			)
+			return
+		}
 		var datos datosCatalogosAltaV2
 		datos, err = datosCatalogosAltaV2Desde(catalogos)
 		if err == nil {
@@ -623,10 +634,17 @@ func responderErrorCatalogosAltaContratacionTemporalDesarrollo(
 	estado int,
 	codigo string,
 ) {
+	correlacion := "corr_no_disponible"
+	if r != nil {
+		if actual, ok := vecports.CorrelacionIncidenciasPeticion(r.Context()); ok {
+			correlacion = "corr_" + actual
+		}
+	}
 	contenido, err := json.Marshal(map[string]any{
 		"error": map[string]string{
-			"codigo":     codigo,
-			"clave_i18n": "api.contratacion_temporal.catalogos_alta.error." + codigo,
+			"codigo":          codigo,
+			"clave_i18n":      "api.contratacion_temporal.catalogos_alta.error." + codigo,
+			"correlacion_ref": correlacion,
 		},
 	})
 	if err != nil {

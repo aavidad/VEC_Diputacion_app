@@ -6,7 +6,8 @@ const CAMPOS_RPT_PUBLICACION = new Set(["rpt_catalogo_ref", "rpt_catalogo_huella
 const CAMPOS_RPT_INTERNOS = new Set(["puesto_codigo", ...CAMPOS_RPT_PUBLICACION]);
 function esNecesidad(estado) { return estado.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES; }
 function etiquetaMotivo(estado, opcion, t) {
-  return esNecesidad(estado) ? t(opcion.etiqueta) : opcion.etiqueta;
+  if (esNecesidad(estado)) return t(opcion.etiqueta);
+  return opcion.clave === "sustitucion" ? t("motivo_sustitucion") : opcion.etiqueta;
 }
 
 export function escaparHTML(valor) {
@@ -230,6 +231,7 @@ function camposNecesidad(estado, t, deshabilitado) {
   const causa = estado.catalogos.necesidades.causas.find(
     (dato) => dato.clave === estado.borrador.motivo_clave);
   const campos = causa?.campos_permitidos ?? [];
+  const obligatorios = causa?.campos_obligatorios ?? [];
   return `<fieldset class="ct-bloque">
     <legend>${escaparHTML(t("necesidad_leyenda"))}</legend>
     <div class="ct-campos">
@@ -244,8 +246,8 @@ function camposNecesidad(estado, t, deshabilitado) {
       ${[...CAMPOS_RPT_INTERNOS].map((campo) => `<input type="hidden" name="${campo}" value="${escaparHTML(estado.borrador[campo] ?? "")}">`).join("")}
       ${campos.filter((campo) => !CAMPOS_RPT_PUBLICACION.has(campo)).map((campo) => {
     if (campo === "puesto_codigo") return `<div class="ct-campo ct-campo-ancho">
-        <label for="ct-puesto_busqueda">${escaparHTML(t("puesto_busqueda"))}</label>
-        <input id="ct-puesto_busqueda" name="puesto_busqueda" type="search" maxlength="64"
+        <label for="ct-puesto_busqueda">${escaparHTML(t("puesto_busqueda"))}${obligatorios.includes(campo) ? ' <b aria-hidden="true">*</b>' : ""}</label>
+        <input id="ct-puesto_busqueda" name="puesto_busqueda" type="search" maxlength="64"${obligatorios.includes(campo) ? " required" : ""}
           ${[...CAMPOS_RPT_INTERNOS].some((campo) => estado.errores[campo])
     ? 'aria-invalid="true" aria-describedby="ct-puesto_codigo-error"' : ""}
           value="${escaparHTML(estado.busquedaPuesto ?? "")}"${deshabilitado ? " disabled" : ""}>
@@ -254,10 +256,10 @@ function camposNecesidad(estado, t, deshabilitado) {
         ${[...CAMPOS_RPT_INTERNOS].some((campo) => estado.errores[campo])
     ? `<span class="ct-error-campo" id="ct-puesto_codigo-error">${escaparHTML(t("error_puesto_publicacion"))}</span>` : ""}
       </div>`;
-    const obligatorio = causa.campos_obligatorios.includes(campo);
+    const obligatorio = obligatorios.includes(campo);
     const largo = ["justificacion_temporal", "programa_denominacion"].includes(campo);
     return `<div class="ct-campo">
-      <label for="ct-${campo}">${escaparHTML(t(campo))}${obligatorio ? ' <b aria-hidden="true">*</b>' : ""}</label>
+      <label for="ct-${campo}">${escaparHTML(t(campo === "plaza_codigo" && !obligatorio ? "plaza_codigo_opcional" : campo))}${obligatorio ? ' <b aria-hidden="true">*</b>' : ""}</label>
       ${largo ? `<textarea id="ct-${campo}" name="${campo}" maxlength="4000" rows="3"${obligatorio ? " required" : ""}
         ${atributosAccesibles(estado, campo)}${deshabilitado ? " disabled" : ""}>${escaparHTML(estado.borrador[campo])}</textarea>`
     : `<input id="ct-${campo}" name="${campo}" type="${campo === "programa_fin" ? "date" : ["numero_personas", "porcentaje_financiacion"].includes(campo) ? "number" : "text"}"${campo === "numero_personas" ? ' min="1" max="4294967295" step="1" inputmode="numeric"' : ' maxlength="160"'}${obligatorio ? " required" : ""}
