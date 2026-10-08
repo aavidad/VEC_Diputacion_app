@@ -473,7 +473,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
       ruta,
       entrada,
       signal,
-      estadoEsperado: 201,
+      estadoEsperado: [201, 200],
       maximoSolicitud: MAXIMO_SOLICITUD_ANALISIS_BYTES,
       maximoRespuesta: MAXIMO_RESPUESTA_ANALISIS_BYTES,
       validarRespuesta: (respuesta) => {
