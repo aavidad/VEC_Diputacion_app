@@ -8,7 +8,7 @@
     "error": "No se pudieron consultar las solicitudes. Pulse Reintentar. Si continúa el problema, contacte con Informática.",
     "error_decision": "No se pudo confirmar la decisión. Pulse de nuevo Confirmar con los mismos datos. Si continúa el problema, contacte con Informática.",
     "conflicto": "La solicitud ha cambiado desde que la abrió. Actualice la lista y revise su estado antes de decidir.",
-    "falta_acta": "Aún no se puede incorporar a la aspirante. Compruebe que la lista definitiva y su evidencia están disponibles; después, vuelva a intentarlo.",
+    "falta_acta": "No se pudo incorporar a la aspirante. Actualice la solicitud y compruebe la lista definitiva y su evidencia antes de volver a confirmar.",
     "regla_incompatible": "Las reglas de admisión han cambiado. Actualice la lista y revise de nuevo la solicitud.",
     "evidencia_invalida": "No se reconoce la referencia de la lista definitiva. Revísela y vuelva a confirmar la incorporación.",
     "plazo_cerrado": "El plazo de esta convocatoria ha terminado. Actualice la lista y compruebe el estado de la solicitud.",
