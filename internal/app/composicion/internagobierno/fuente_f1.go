@@ -100,41 +100,35 @@ func politicaConsultaValida(p inc.PoliticaConsultaDesarrollo, ahora time.Time) b
 // registrados por F1 para la cápsula de esta petición. Revalida en PostgreSQL
 // cada vez; no conserva persona ni autorización en la fuente.
 func (f *FuenteF1) ResolverContexto(ctx context.Context) (ct.ContextoAutorizacionAltaV3, error) {
-	if f == nil || f.revalidador == nil || f.resolutor == nil || f.reloj == nil {
-		return ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
-	}
-	p, err := f.PeticionVerificada(ctx)
+	_, vinculo, resultado, err := f.resolverPeticionActual(ctx)
 	if err != nil {
 		return ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
 	}
-	v, resultado, err := core.CrearVinculoAutenticacionActorV2ConResultado(ctx, f.revalidador, p.Autenticacion, f.resolutor, p.Contexto, f.reloj)
-	if err != nil || ctx.Err() != nil {
-		return ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
-	}
-	datos, err := v.Datos()
-	if err != nil || datos.PoliticaGarantiaRef != f.politica.Referencia ||
-		datos.PoliticaGarantiaHuellaSHA256 != f.politica.HuellaSHA256 ||
-		!f.reloj.Ahora().Before(f.politica.RetiradaEn) {
-		return ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
-	}
-	// La cuenta y el perfil pueden ser coherentes en F1 aunque el certificado
-	// pertenezca a otra persona. Identidad coteja el sujeto autenticado con la
-	// persona resuelta por F1 antes de entregar el contexto al detalle/V3.
-	if err := f.identidad.ExigirSujetoPersonaCertificadoTemporal(ctx, datos.PrincipalID); err != nil {
-		return ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
-	}
-	// El vínculo entregado es el segundo; si su versión cambió tras la
-	// revalidación de PeticionVerificada, se revalida el que realmente sale.
-	if err := f.exigirVinculoCorporativoVigente(ctx, datos); err != nil {
-		return ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
-	}
-	return ct.ContextoAutorizacionAltaV3{Vinculo: v, Resultado: resultado}, nil
+	return ct.ContextoAutorizacionAltaV3{Vinculo: vinculo, Resultado: resultado}, nil
 }
 
 func (f *FuenteF1) PeticionVerificada(ctx context.Context) (inc.PeticionAutoridad, error) {
+	peticion, _, _, err := f.resolverPeticionActual(ctx)
+	return peticion, err
+}
+
+// resolverPeticionActual conserva una sola resolución viva de autenticación y
+// F1. La petición, el vínculo y el resultado proceden de esa misma lectura;
+// ninguno de ellos se guarda para otra petición ni sustituye V3 posterior.
+func (f *FuenteF1) resolverPeticionActual(ctx context.Context) (
+	inc.PeticionAutoridad, core.VinculoAutenticacionActorV2,
+	core.ResultadoContextoActorRegistradoV2, error,
+) {
 	var vacia inc.PeticionAutoridad
-	if f == nil || f.identidad == nil || ctx == nil || ctx.Err() != nil {
-		return vacia, ErrGobiernoInternoNoDisponible
+	var sinVinculo core.VinculoAutenticacionActorV2
+	var sinResultado core.ResultadoContextoActorRegistradoV2
+	fallo := func() (inc.PeticionAutoridad, core.VinculoAutenticacionActorV2,
+		core.ResultadoContextoActorRegistradoV2, error) {
+		return vacia, sinVinculo, sinResultado, ErrGobiernoInternoNoDisponible
+	}
+	if f == nil || f.identidad == nil || f.revalidador == nil || f.resolutor == nil ||
+		f.corporativo == nil || f.reloj == nil || ctx == nil || ctx.Err() != nil {
+		return fallo()
 	}
 	cuenta, auditoria, err := f.identidad.ExtraerCapsulaIdentidadPeticion(ctx)
 	if err != nil || cuenta.Validar() != nil || cuenta.Metodo != core.AuthMethodCertificate ||
@@ -145,36 +139,45 @@ func (f *FuenteF1) PeticionVerificada(ctx context.Context) (inc.PeticionAutorida
 		auditoria.ControlSesionEstado() != httpseguridad.EstadoControlSesionActiva ||
 		auditoria.PoliticaGarantiaRef() != f.politica.Referencia ||
 		auditoria.PoliticaGarantiaHuellaSHA256() != f.politica.HuellaSHA256 {
-		return vacia, ErrGobiernoInternoNoDisponible
+		return fallo()
 	}
 	nominal, ok := f.porCuenta[cuenta.CuentaRef]
 	if !ok || auditoria.AutenticacionRef() == "" || auditoria.SesionRef() == "" {
-		return vacia, ErrGobiernoInternoNoDisponible
+		return fallo()
 	}
 	var nonce [32]byte
 	if _, err := rand.Read(nonce[:]); err != nil {
-		return vacia, ErrGobiernoInternoNoDisponible
+		return fallo()
 	}
 	solicitudAutenticacion := core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: auditoria.AutenticacionRef(), SesionRef: auditoria.SesionRef()}
 	solicitudContexto := core.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: nominal.PerfilActivoRef}
-	vinculo, _, err := core.CrearVinculoAutenticacionActorV2ConResultado(ctx, f.revalidador, solicitudAutenticacion, f.resolutor, solicitudContexto, f.reloj)
+	vinculo, resultadoF1, err := core.CrearVinculoAutenticacionActorV2ConResultado(ctx, f.revalidador, solicitudAutenticacion, f.resolutor, solicitudContexto, f.reloj)
 	if err != nil || ctx.Err() != nil {
-		return vacia, ErrGobiernoInternoNoDisponible
+		return fallo()
 	}
 	datos, err := vinculo.Datos()
 	if err != nil || !domct.ActorSeguimientoValido(datos.PrincipalID) ||
 		datos.PoliticaGarantiaRef != f.politica.Referencia ||
 		datos.PoliticaGarantiaHuellaSHA256 != f.politica.HuellaSHA256 ||
 		!f.reloj.Ahora().Before(f.politica.RetiradaEn) {
-		return vacia, ErrGobiernoInternoNoDisponible
+		return fallo()
 	}
 	// Sin este cotejo, un certificado personal A con cuenta F1 de B pasaría
 	// las dos validaciones por separado y recibiría autoridad de B.
 	if err := f.identidad.ExigirSujetoPersonaCertificadoTemporal(ctx, datos.PrincipalID); err != nil {
-		return vacia, ErrGobiernoInternoNoDisponible
+		return fallo()
 	}
 	if err := f.exigirVinculoCorporativoVigente(ctx, datos); err != nil {
-		return vacia, ErrGobiernoInternoNoDisponible
+		return fallo()
+	}
+	// El vínculo que sale es el mismo cotejado con certificado y corporativo.
+	// La ventana final se comprueba sin afirmar que permanezca actual después.
+	ahoraFinal := f.reloj.Ahora()
+	if ctx.Err() != nil || resultadoF1.Validar() != nil ||
+		vinculo.ValidarPara(resultadoF1) != nil ||
+		!vinculo.VigenteEn(ahoraFinal, resultadoF1) ||
+		!ahoraFinal.Before(f.politica.RetiradaEn) {
+		return fallo()
 	}
 	resultado := inc.PeticionAutoridad{
 		Autenticacion: solicitudAutenticacion,
@@ -183,9 +186,9 @@ func (f *FuenteF1) PeticionVerificada(ctx context.Context) (inc.PeticionAutorida
 		MotivoAlta:    f.motivoAlta, MotivoLectura: f.motivoLectura,
 	}
 	if resultado.Autenticacion.Validar() != nil || resultado.Contexto.Validar() != nil {
-		return vacia, ErrGobiernoInternoNoDisponible
+		return fallo()
 	}
-	return resultado, nil
+	return resultado, vinculo, resultadoF1, nil
 }
 
 // exigirVinculoCorporativoVigente pregunta a ContextoActor, en cada petición y
