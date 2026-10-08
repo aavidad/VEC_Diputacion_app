@@ -1,13 +1,16 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -97,6 +100,30 @@ func TestBolsaGlobalRechazaParametrosAntesDeLeer(t *testing.T) {
 	}
 	if lecturas != 0 {
 		t.Fatalf("entrada inválida lee: %d", lecturas)
+	}
+}
+
+func TestBolsaGlobalFormatoInvalidoNoExponeValoresEnRegistro(t *testing.T) {
+	var registros bytes.Buffer
+	anterior := log.Writer()
+	log.SetOutput(&registros)
+	t.Cleanup(func() { log.SetOutput(anterior) })
+	h := manejadorBolsasRRHHPrueba()
+	for _, query := range []string{"?filtro=todos&cursor=valor-privado-de-prueba", "?filtro=todos&corte=valor-privado-de-prueba", "?filtro=todos&cursor=%ZZvalor-privado-de-prueba"} {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, rutaBolsasRRHHDesarrollo+query, nil))
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("formato HTTP esperado=400 observado=%d", w.Code)
+		}
+		if strings.Contains(w.Body.String(), "valor-privado-de-prueba") {
+			t.Fatal("la respuesta contiene el valor rechazado")
+		}
+	}
+	if strings.Contains(registros.String(), "valor-privado-de-prueba") {
+		t.Fatal("el registro contiene el valor rechazado")
+	}
+	if !strings.Contains(registros.String(), "causa_tipo=") {
+		t.Fatal("falta la causa tipada del rechazo")
 	}
 }
 

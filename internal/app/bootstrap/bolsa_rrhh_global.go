@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -155,19 +156,22 @@ func (h *bolsasRRHHDesarrollo) adjuntarCorteGlobal(w http.ResponseWriter, r *htt
 	return true
 }
 
-func consultaGlobalBolsas(cruda string) (bolsaapp.ConsultaGlobalRRHH, string, bool) {
+func consultaGlobalBolsas(cruda string) (bolsaapp.ConsultaGlobalRRHH, string, error) {
 	q := bolsaapp.ConsultaGlobalRRHH{Limite: 50}
 	if len(cruda) > 4096 {
-		return q, "", false
+		return q, "", bolsaapp.ErrConsultaGlobalRRHHInvalida
 	}
 	v, err := url.ParseQuery(cruda)
-	if err != nil || len(v) > 6 {
-		return q, "", false
+	if err != nil {
+		return q, "", err
+	}
+	if len(v) > 6 {
+		return q, "", bolsaapp.ErrConsultaGlobalRRHHInvalida
 	}
 	corte := ""
 	for clave, valores := range v {
 		if len(valores) != 1 || valores[0] == "" || valores[0] != strings.TrimSpace(valores[0]) {
-			return q, corte, false
+			return q, corte, bolsaapp.ErrConsultaGlobalRRHHInvalida
 		}
 		valor := valores[0]
 		switch clave {
@@ -175,19 +179,25 @@ func consultaGlobalBolsas(cruda string) (bolsaapp.ConsultaGlobalRRHH, string, bo
 			q.Filtro = valor
 		case "bolsa":
 			if len(valor) > 512 || strings.ContainsAny(valor, "/\x00\r\n") {
-				return q, corte, false
+				return q, corte, bolsaapp.ErrConsultaGlobalRRHHInvalida
 			}
 			q.BolsaRef = valor
 		case "corte":
 			b, err := hex.DecodeString(valor)
-			if err != nil || len(b) != 32 || valor != strings.ToLower(valor) {
-				return q, corte, false
+			if err != nil {
+				return q, corte, err
+			}
+			if len(b) != 32 || valor != strings.ToLower(valor) {
+				return q, corte, bolsaapp.ErrConsultaGlobalRRHHInvalida
 			}
 			corte = valor
 		case "cursor", "limite":
 			n, err := strconv.Atoi(valor)
-			if err != nil || strconv.Itoa(n) != valor {
-				return q, corte, false
+			if err != nil {
+				return q, corte, err
+			}
+			if strconv.Itoa(n) != valor {
+				return q, corte, bolsaapp.ErrConsultaGlobalRRHHInvalida
 			}
 			if clave == "cursor" {
 				q.Desde = n
@@ -195,15 +205,23 @@ func consultaGlobalBolsas(cruda string) (bolsaapp.ConsultaGlobalRRHH, string, bo
 				q.Limite = n
 			}
 		default:
-			return q, corte, false
+			return q, corte, bolsaapp.ErrConsultaGlobalRRHHInvalida
 		}
 	}
-	return q, corte, q.Validar() == nil && (q.Desde == 0 || corte != "")
+	if err := q.Validar(); err != nil {
+		return q, corte, err
+	}
+	if q.Desde > 0 && corte == "" {
+		return q, corte, bolsaapp.ErrConsultaGlobalRRHHInvalida
+	}
+	return q, corte, nil
 }
 
 func (h *bolsasRRHHDesarrollo) responderGlobal(w http.ResponseWriter, r *http.Request) {
-	q, corte, ok := consultaGlobalBolsas(r.URL.RawQuery)
-	if !ok {
+	q, corte, err := consultaGlobalBolsas(r.URL.RawQuery)
+	if err != nil {
+		// No registrar el valor que provocó el error: puede contener datos personales.
+		log.Printf("bolsa rrhh: ruta=%s operacion=consulta_global codigo=solicitud_invalida causa_tipo=%T", rutaBolsasRRHHDesarrollo, err)
 		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
