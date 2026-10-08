@@ -1,12 +1,12 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20261008-ct-inicio-incidencia-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20261008-ct-inicio-v1";
 import { FILTRO_INCIDENCIA_CT, filtroServidorCTValido, leerFiltroCTDeRuta,
-  limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261008-ct-inicio-incidencia-v1";
+  limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261008-ct-inicio-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261007-pantallas-textos-final-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261007-pantallas-textos-final-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-ct-alta-vista-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-ct-inicio-v1";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261007-pantallas-textos-final-v1";
@@ -109,7 +109,7 @@ function cargarRecursosVista(grupo) {
   if (cargasRecursosVistas.has(grupo)) return;
   const carga = grupo === "inicio"
     ? Promise.all([
-      import("./portal-inicio.js?v=20261008-ct-inicio-incidencia-v1"),
+      import("./portal-inicio.js?v=20261008-ct-inicio-v1"),
       import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2"),
     ]).then(([inicio, accesos]) => ({ ...inicio, accesos }))
     : grupo === "accesos"
@@ -1611,8 +1611,10 @@ function instalarEnlacesBolsa() {
     aplicarRutaCandidatosBolsa();
   }, true);
   window.addEventListener("popstate", () => {
-    if (window.location.hash !== "#bolsa/bolsa-candidatos") return;
-    if (estado.vista !== "bolsa-candidatos") navegar("bolsa-candidatos", { enfocar: false });
+    const vista = vistaDesdeHash();
+    if (vista !== estado.vista || vista === "contratacion-temporal")
+      navegar(vista, { enfocar: false, desdeRuta: true });
+    if (vista !== "bolsa-candidatos") return;
     rutaCandidatosAplicada = null;
     aplicarRutaCandidatosBolsa();
   });
@@ -1663,12 +1665,6 @@ async function inicializar() {
   integracionPreferencias.instalarMenu();
   instalarEventosAvisosBolsa();
   instalarEnlacesBolsa();
-  window.addEventListener("popstate", () => {
-    // Un cambio solo de query no dispara hashchange: recuperar el filtro CT
-    // aquí evita una segunda consulta cuando también cambió la vista.
-    if (estado.vista === "contratacion-temporal" && vistaDesdeHash() === "contratacion-temporal")
-      navegar("contratacion-temporal", { desdeRuta: true, enfocar: false });
-  });
   instalarEventosAuditoriaBolsa();
   instalarMenuBolsa(porId("navegacion-bolsa"));
   instalarCopiaJustificantes(document);

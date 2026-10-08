@@ -326,8 +326,42 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261008-ct-alta-vista-v1");
   versionesEspeciales.set("portal-panel-interno.js", "20261008-bolsa-enlaces-v1");
-  for (const ruta of ["portal-ct-ruta-filtro.js", "portal-eventos.js", "portal-inicio.js", "portal.js"])
-    versionesEspeciales.set(ruta, "20261008-ct-inicio-incidencia-v1");
+  for (const ruta of ["portal-ct-ruta-filtro.js", "portal-eventos.js", "portal-inicio.js",
+    "modulos/contratacion-temporal/vista-expedientes-lista.js",
+    "modulos/contratacion-temporal/vista-cuadro-ligera.js", "portal-modulos-coordinador.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261008-ct-inicio-v1");
+  for (const recurso of ["portal-borradores-api.js", "portal-borradores-vista.js",
+    "portal-borradores-acceso.js", "portal-borradores-ui-soporte.js", "portal-borradores-ui.js"])
+    versionesEspeciales.set(recurso, "20261008-borradores-error-legible-v1");
+  // El selector V1 de la lista se comparte con la vista completa: propagar
+  // exactamente esa hoja por todos sus importadores evita dos instancias.
+  for (const ruta of [
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/componentes-expedientes.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/documentacion-formalizacion.js",
+    "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+  ]) versionesEspeciales.set(ruta, "20261008-ct-inicio-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -465,7 +499,7 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-ct-inicio-incidencia-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-ct-inicio-v1");
 
 });
 
@@ -475,8 +509,8 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   const [html, portal, coordinador, recorridos, borradores] = await Promise.all(
     rutas.map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const version = "20261007-u-dietas-catalogo-v1";
-  const versionRaiz = "20261008-ct-inicio-incidencia-v1";
-  const versionCoordinador = "20261008-ct-alta-vista-v1";
+  const versionRaiz = "20261008-ct-inicio-v1";
+  const versionCoordinador = "20261008-ct-inicio-v1";
   const comun = "20261007-pantallas-textos-final-v1";
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionRaiz);
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionCoordinador);
@@ -488,4 +522,29 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   assert.equal(versionDe(borradores, "./vista-rectificacion-dietas.js"), comun);
   assert.equal(versionDe(portal, "./portal-i18n.js"), comun);
   assert.equal(versionDe(coordinador, "./portal-i18n.js"), comun);
+});
+
+
+test("Borradores renueva todas las entradas que podían conservar errores antiguos", async () => {
+  const leer = (nombre) => readFile(new URL(nombre, import.meta.url), "utf8");
+  const [html, portal, ui, acceso, soporte, vista, cache] = await Promise.all([
+    "index.html", "portal.js", "portal-borradores-ui.js", "portal-borradores-acceso.js",
+    "portal-borradores-ui-soporte.js", "portal-borradores-vista.js", "cache-publica-v1.json",
+  ].map(leer));
+  const anterior = "20261007-pantallas-textos-final-v1";
+  const aristas = [
+    ["portal-borradores-api.js", [html, ui, acceso, soporte]],
+    ["portal-borradores-vista.js", [html, ui]],
+    ["portal-borradores-acceso.js", [html, ui]],
+    ["portal-borradores-ui-soporte.js", [html, ui, vista]],
+    ["portal-borradores-ui.js", [html, portal]],
+  ];
+  for (const [recurso, importadores] of aristas) {
+    const versiones = importadores.map((codigo) => versionDe(codigo, recurso));
+    assert.equal(new Set(versiones).size, 1, `${recurso}: todas las entradas coinciden`);
+    assert.notEqual(versiones[0], anterior, `${recurso}: descarta la caché publicada`);
+  }
+  const versionRaiz = versionDe(html, "portal.js");
+  assert.notEqual(versionRaiz, "20261008-bolsa-atras-v1");
+  assert.equal(versionDe(cache, "portal.js"), versionRaiz);
 });
