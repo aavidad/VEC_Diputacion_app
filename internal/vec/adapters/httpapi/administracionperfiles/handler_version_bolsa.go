@@ -61,7 +61,7 @@ func (h *Handler) postVersionarRolBolsaProponer(w http.ResponseWriter, r *http.R
 		return
 	}
 	var dto propuestaVersionarRolBolsaDTO
-	if err := decodificar(w, r, &dto); err != nil {
+	if err := decodificarLimitado(w, r, &dto, 64*1024); err != nil {
 		estado := http.StatusBadRequest
 		if errors.Is(err, errCuerpoExcesivo) {
 			estado = http.StatusRequestEntityTooLarge
