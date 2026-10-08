@@ -483,7 +483,7 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     mensaje = `${modo === "denegado" ? TEXTO.accesoDenegado : TEXTO.lecturaFallida}${confirmada ? ` ${TEXTO.operacionConfirmadaOculta}` : ""}${resultadoIncierto ? ` ${TEXTO.operacionInciertaOculta}` : ""}`;
   };
   const dibujar = () => {
-    alCambiarContexto(contexto?.capacidades);
+    alCambiarContexto(contexto);
     const activo = raiz.ownerDocument?.activeElement;
     const enfocado = raiz.contains?.(activo) ? activo.dataset?.seleccionar || activo.dataset?.pcIrExpediente || "" : "";
     raiz.innerHTML = renderizarPeticionCentro({ contexto, peticiones, peticion, modo, estado, recibo, mensaje, motivo, confirmado, expedientes });

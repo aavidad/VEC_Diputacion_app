@@ -330,7 +330,7 @@ test("la recuperación y la denegación notifican el contexto vigente a las secc
   assert.equal(cambios.at(-1), undefined, "un fallo no publica capacidades anteriores");
   fallo = 0;
   await vista.recargar();
-  assert.equal(cambios.at(-1), capacidades);
+  assert.equal(cambios.at(-1).capacidades, capacidades);
   fallo = 403;
   await vista.recargar();
   assert.equal(cambios.at(-1), undefined, "denegar retira ambas secciones");
