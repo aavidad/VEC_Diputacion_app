@@ -96,7 +96,7 @@ test("la cohorte de CSS, entrada y helper coincide con las URL servidas", async 
     "index.html", "cache-publica-v1.json", "../../interno.manifest", "../../produccion.manifest",
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const versionRaiz = versionDe(html, "/portal-empleado/portal.js");
-  assert.equal(versionRaiz, "20261008-b1-alta-v1");
+  assert.equal(versionRaiz, "20261008-b1-traza-v1");
   assert.equal(versionDe(cache, "/portal-empleado/portal.js"), versionRaiz);
   for (const css of ["portal-componentes.css", "portal-capacidades.css"])
     assert.equal(versionDe(html, `/portal-empleado/${css}`), "20261008-bolsa-enlaces-v1");

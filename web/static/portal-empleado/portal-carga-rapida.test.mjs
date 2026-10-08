@@ -618,7 +618,7 @@ test("ningún módulo del portal se pide con dos URL distintas (una sola descarg
   const versionIncorporacion = versionDe(codigoCoordinador,
     "./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js");
   for (const url of [
-    "/portal-empleado/portal-bolsas-api.js?v=20261008-bolsa-global-v2",
+    "/portal-empleado/portal-bolsas-api.js?v=20261008-r-traza-idioma-v1",
     "/portal-empleado/portal-bolsas-contrato.js?v=20261008-canal-telefono-v2",
     `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
     `/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=${versionIncorporacion}`,
@@ -659,7 +659,7 @@ test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras
     "/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2",
     "/portal-empleado/portal-bolsas-api.js?v=20261008-bolsa-global-v2",
-    "/portal-empleado/portal-panel-interno.js?v=20261008-u-b1-bolsa-global-v6",
+    "/portal-empleado/portal-panel-interno.js?v=20261008-b1-traza-v1",
     "/portal-empleado/portal-i18n-contratos.js?v=20260930-portales-i18n-integracion-v1",
   ]) assert.ok(!estatico.has(modulo), `${modulo} se abre solo con su pantalla`);
   const grupos = [...html.matchAll(/<template data-estilos-vista="([^"]+)">([\s\S]*?)<\/template>/g)];

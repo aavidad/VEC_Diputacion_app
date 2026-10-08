@@ -6,7 +6,7 @@ import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=202610
 await prepararTextosPortal("ayuda");
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-u-b1-bolsa-global-v6";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-b1-traza-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js";
 
 test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () => {

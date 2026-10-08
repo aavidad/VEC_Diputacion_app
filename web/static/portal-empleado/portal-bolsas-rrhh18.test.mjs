@@ -6,7 +6,7 @@ await prepararMensajesContratos();
 import assert from "node:assert/strict";
 import { validarBolsa, validarCandidato, validarRespuestaCandidatosBolsa, validarRespuestaEstadisticas } from "./portal-bolsas-contrato.js";
 import { consultarCandidatosBolsa, consultarEstadisticasBolsa, consultarSeleccionMasivaBolsa, seleccionarParticipacionesPorEstado } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-u-b1-bolsa-global-v6";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-b1-traza-v1";
 
 const estadosLegacy = { disponible: 1, no_disponible: 0, trabajando: 0, pendiente_incorporacion: 0, renuncia: 0, excluido: 0, disponible_desde: 0 };
 const bolsa = { bolsa_ref: "bolsa:sintetica", categoria_clave: "auxiliar", categoria: "Auxiliar", tipo_lista: "cerrada", vigente_desde: "2026-09-01", vigente_hasta: null, total: 1, por_estado: estadosLegacy, llamamientos_en_curso: 0,
@@ -63,6 +63,8 @@ test("RRHH18 muestra revisión traducida en ficha, filtro, cuadro y estadística
   const estadisticas = presentador.renderizarVista("estadisticas");
   assert.match(estadisticas, /<th scope="col">En revisión<\/th>/);
   assert.match(estadisticas, /data-estado="en_revision"/);
+  assert.match(estadisticas, /Histórico de llamamientos[\s\S]*Consulte el histórico de llamamientos de cada bolsa\./u);
+  assert.doesNotMatch(estadisticas, /Histórico de llamamientos[\s\S]*No disponible<\/p>/u);
   assert.doesNotMatch(estadisticas, /NaN|undefined/);
 });
 

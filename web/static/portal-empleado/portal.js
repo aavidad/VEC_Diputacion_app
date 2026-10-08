@@ -1,16 +1,17 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20261008-ct-inicio-v1";
 import { FILTRO_INCIDENCIA_CT, filtroServidorCTValido, leerFiltroCTDeRuta,
-  limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261008-bolsa-inicio-v2";
+  limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261008-r-fichas-idioma-nav-v1";
+import { leerFichaCTDeRuta, rutaConFichaCT } from "./portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261007-pantallas-textos-final-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-alta-global-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-r-traza-idioma-v1";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261007-pantallas-textos-final-v1";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261008-r-fichas-idioma-nav-v1";
 import { instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261007-pantallas-textos-final-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
@@ -121,7 +122,7 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261008-bolsa-global-v2"),
+        import("./portal-bolsas-ofertas.js?v=20261008-r-traza-idioma-v1"),
         import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
@@ -412,7 +413,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261008-bolsa-global-v2");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261008-r-traza-idioma-v1");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -917,18 +918,14 @@ async function solicitarPropuestaLlamamiento() {
 // «?expediente=<referencia>#contratacion-temporal» abre ese expediente. La
 // referencia solo navega; el servidor decide si el perfil puede consultarlo.
 function opcionesDesdeEnlace(vista) {
-  const parametros = new URLSearchParams(window.location.search);
   const filtroServidorRuta = vista === "contratacion-temporal" ? leerFiltroCTDeRuta(window.location.search) : null;
+  const fichaRuta = vista === "contratacion-temporal" ? leerFichaCTDeRuta(window.location.search) : null;
   const opcionesCT = vista === "contratacion-temporal"
-    ? { alCambiarFiltroLista: alCambiarFiltroListaCT,
+    ? { alCambiarFiltroLista: alCambiarFiltroListaCT, alCambiarFicha: alCambiarFichaCT,
+      ...(fichaRuta ? { expedienteRef: fichaRuta.expedienteRef,
+        ...(fichaRuta.version !== null ? { expedienteVersion: fichaRuta.version } : {}) } : {}),
       ...(filtroServidorRuta ? { filtroServidorRuta } : {}) } : null;
-  if (!parametros.has("expediente")) return opcionesCT;
-  const referencia = parametros.get("expediente") || "";
-  parametros.delete("expediente");
-  const busqueda = parametros.toString();
-  history.replaceState(null, "", `${window.location.pathname}${busqueda ? `?${busqueda}` : ""}${window.location.hash}`);
-  return vista === "contratacion-temporal" && /^[A-Za-z0-9:_.-]{1,200}$/u.test(referencia)
-    ? { ...opcionesCT, expedienteRef: referencia } : opcionesCT;
+  return opcionesCT;
 }
 
 function vistaDesdeHash() {
@@ -982,9 +979,16 @@ function anunciar(mensaje) {
 }
 function alCambiarFiltroListaCT(filtroAplicado) {
   if (estado.vista !== "contratacion-temporal" || !filtroServidorCTValido(filtroAplicado)) return;
-  const ruta = rutaPortalConFiltroCT(window.location, rutaDeVista("contratacion-temporal"), filtroAplicado);
+  const rutaFiltrada = rutaPortalConFiltroCT(window.location, rutaDeVista("contratacion-temporal"), filtroAplicado);
+  const ruta = rutaConFichaCT(new URL(rutaFiltrada, window.location.href));
   if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
     history.replaceState(null, "", ruta);
+}
+function alCambiarFichaCT(ficha) {
+  if (estado.vista !== "contratacion-temporal") return;
+  const ruta = rutaConFichaCT(window.location, ficha);
+  if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
+    history.pushState(null, "", ruta);
 }
 function navegar(vista, opciones = {}) {
   if (!Object.hasOwn(TITULOS, vista)) return;
@@ -1047,8 +1051,12 @@ function navegar(vista, opciones = {}) {
       history.replaceState(null, "", ruta);
   }
   estado.vista = vista;
+  const fichaRuta = vista === "contratacion-temporal" && opciones.desdeRuta === true
+    ? leerFichaCTDeRuta(window.location.search) : null;
   estado.opcionesVista = vista === "contratacion-temporal"
-    ? { ...opciones, filtroServidorRuta, alCambiarFiltroLista: alCambiarFiltroListaCT } : opciones;
+    ? { ...opciones, ...(fichaRuta ? { expedienteRef: fichaRuta.expedienteRef,
+      ...(fichaRuta.version !== null ? { expedienteVersion: fichaRuta.version } : {}) } : {}),
+      filtroServidorRuta, alCambiarFiltroLista: alCambiarFiltroListaCT, alCambiarFicha: alCambiarFichaCT } : opciones;
   if (vista === "portal" && esPerfilRRHH() && estadoResumenInicio !== "listo") {
     estadoResumenInicio = "cargando";
     void prepararResumenInicioVisible();
@@ -1564,8 +1572,8 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261008-u-b1-bolsa-global-v6"),
-    import("./portal-bolsas-api.js?v=20261008-bolsa-global-v2"),
+    import("./portal-panel-interno.js?v=20261008-b1-traza-v1"),
+    import("./portal-bolsas-api.js?v=20261008-r-traza-idioma-v1"),
     import("./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2"),
   ]).then(([panel, bolsas, rutas]) => {
     if (!vistaNecesitaBolsa()) {

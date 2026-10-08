@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { ESQUEMA_CANDIDATOS_TURNO, validarRespuestaCandidatosBolsa } from "./portal-bolsas-contrato.js?v=20261001-ct-a-i18n-v1";
 import { consultarCandidatosBolsa } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-u-b1-bolsa-global-v6";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-b1-traza-v1";
 import { cargarMensajesPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 const bolsa = {
@@ -108,9 +109,38 @@ test("la lectura anterior no inventa un turno y las claves nuevas existen en amb
   assert.doesNotMatch(presentar(datos), /Turno de la bolsa/);
   for (const idioma of ["es", "en"]) {
     const mensajes = await cargarMensajesPortal(idioma);
+    assert.equal(mensajes.txt_n_registros, idioma === "es" ? "Registros: {numero}" : "Records: {numero}");
     for (const clave of ["bolsa_turno_titulo", "bolsa_turno_ultimo", "bolsa_turno_siguiente",
-      "bolsa_turno_regla_provisional", "bolsa_turno_sin_disponibles", "bolsa_turno_aviso"]) {
+      "bolsa_turno_regla_provisional", "bolsa_turno_sin_disponibles", "bolsa_turno_aviso",
+      "bolsa_historico_estadisticas_pendiente"]) {
       assert.ok(mensajes[clave], `${idioma}: ${clave}`);
     }
   }
+});
+
+test("la lista inglesa traduce canal, resultado, falta de turno y tipo desde el catálogo activo", () => {
+  const dato = respuesta().data;
+  dato.candidatos = [{ participacion_ref: "participacion:sintetica:3", orden: null, orden_acta: 3,
+    razon_orden: "sin_turno", nombre_visible: "Persona sintética", documento_enmascarado: "***0003**",
+    estado_clave: "en_revision", estado_desde: "2026-09-21T08:00:00Z", disponible_desde: null,
+    ultimo_llamamiento: { llamamiento_ref: "llamamiento:sintetico:3", comunicado_en: "2026-09-20T10:00:00Z",
+      canal: "correo", resultado: "enviado" }, contactos_total: 1 }];
+  const modulo = new URL("./portal-panel-interno.js", import.meta.url).href;
+  const programa = `globalThis.location={href:"https://vec.example/portal-empleado/?lang=en",search:"?lang=en"};
+    const {crearPresentadorPanelInterno}=await import(${JSON.stringify(modulo)});
+    const datos=${JSON.stringify(dato)};
+    const presentador=crearPresentadorPanelInterno({
+      claseEstado:(valor)=>valor, encabezadoVista:(_vista,titulo)=>'<h2>'+titulo+'</h2>',
+      escaparHTML:(valor)=>String(valor??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'),
+      numero:(valor)=>String(valor), obtenerDatosPanel:()=>({esquema:'vec.bolsa.panel.interno.v1'}),
+      tituloVista:(vista)=>vista, obtenerDatosCandidatosBolsa:()=>({carga:'listo',datos}),
+      obtenerEstadoCandidatos:()=>({estado:'',texto:''})});
+    process.stdout.write(presentador.renderizarVista('bolsa-candidatos'));`;
+  const ejecutado = spawnSync(process.execPath, ["--input-type=module", "-e", programa],
+    { encoding: "utf8", maxBuffer: 2 * 1024 * 1024 });
+  assert.equal(ejecutado.status, 0, ejecutado.stderr);
+  assert.match(ejecutado.stdout, /Email · Sent/u);
+  assert.match(ejecutado.stdout, /no current position/u);
+  assert.match(ejecutado.stdout, /Rotating list/u);
+  assert.doesNotMatch(ejecutado.stdout, /Correo · Enviado|Sin turno|Rotatoria/u);
 });

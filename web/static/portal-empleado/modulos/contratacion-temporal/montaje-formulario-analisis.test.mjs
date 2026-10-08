@@ -187,6 +187,7 @@ function crearPresentador(estadoInicial, fallarCarga = false, refresco = null) {
     },
     async refrescarExpedienteConfirmado(recibo) {
       lecturasDetalle += 1;
+      estado = { ...estado, cuadro_desactualizado: true };
       if (refresco?.esperarCarga) await refresco.esperarCarga;
       if (fallarCarga) throw new Error("detalle temporalmente no disponible");
       if (!refresco || recibo.expediente_ref !== refresco.expediente.expediente_ref
@@ -199,7 +200,8 @@ function crearPresentador(estadoInicial, fallarCarga = false, refresco = null) {
     async volverAlCuadro() {
       lecturasCuadro += 1;
       estado = { ...estado, vista: "cuadro", carga: "vacio",
-        cuadro: refresco.cuadroAlVolver, cuadro_desactualizado: false };
+        cuadro: refresco?.cuadroAlVolver ?? { demostracion: false, expedientes: [] },
+        cuadro_desactualizado: false };
       return estado;
     },
     cambiarVista(vista) { estado = { ...estado, vista }; },
@@ -1065,6 +1067,7 @@ test("si falla la lectura posterior, el recibo y la navegación siguen disponibl
   const anuncios = [];
   const escenario = await montarEscenario({
     expediente, tareaRef, fallarCarga: true,
+    refresco: { cuadroAlVolver: { demostracion: false, expedientes: [] } },
     anunciar: (mensaje, tono) => anuncios.push({ mensaje, tono }),
     analisis: crearComposicion({
       registrarAnalisis() {
@@ -1083,8 +1086,9 @@ test("si falla la lectura posterior, el recibo y la navegación siguen disponibl
   assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
   await escenario.raiz.cambiarVista("cuadro");
   assert.equal(escenario.presentador.obtenerEstado().vista, "cuadro");
+  assert.equal(escenario.presentador.obtenerEstado().cuadro.expedientes.length, 0);
   assert.equal(registros, 1);
-  assert.deepEqual(escenario.presentador.obtenerLecturas(), { cuadro: 0, detalle: 1 });
+  assert.deepEqual(escenario.presentador.obtenerLecturas(), { cuadro: 1, detalle: 1 });
   escenario.modulo.desmontar();
 });
 

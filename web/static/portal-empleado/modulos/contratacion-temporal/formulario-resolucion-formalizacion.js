@@ -1,6 +1,6 @@
 import { validarSolicitudResolucionFormalizacion, validarReciboResolucionFormalizacion,
   validarPreparacionResolucionFormalizacion } from "./contrato-resolucion-formalizacion.js";
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261008-documentos-ficha-v1";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261008-r-fichas-idioma-nav-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
 
