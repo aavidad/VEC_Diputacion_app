@@ -29,7 +29,8 @@ import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { rutaCandidatosBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js";
+import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js";
+import { renderizarGlobalBolsa } from "./portal-bolsas-global.js";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
@@ -71,6 +72,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (!destino) return `
       <article class="tarjeta-kpi">${contenido}</div>
       </article>`;
+    if (destino.href) return `<a class="tarjeta-kpi" href="${escaparHTML(destino.href)}" aria-label="${escaparHTML(destino.aria)}">${contenido}<span class="metrica-enlace" aria-hidden="true">${escaparHTML(destino.enlace)}</span></div></a>`;
     return `
       <button type="button" class="tarjeta-kpi" ${destino.atributos} aria-label="${escaparHTML(destino.aria)}">${contenido}
         <span class="metrica-enlace" aria-hidden="true">${escaparHTML(destino.enlace)}</span></div>
@@ -122,13 +124,13 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (estadoEstadisticas.carga === "denegado" || estadoEstadisticas.carga === "error") return `${cabecera}<section class="panel"><div class="cuerpo-panel vacio-controlado" role="alert"><p><strong>${estadoEstadisticas.carga === "denegado" ? traducirPortal("txt_acceso_denegado") : traducirPortal("txt_no_se_pudieron_cargar_las_estadisticas")}</strong></p><p>${escaparHTML(estadoEstadisticas.error || traducirPortal("txt_la_sesion_no_puede_consultar_esta_informacion"))}</p>${estadoEstadisticas.carga === "error" ? '<button type="button" class="boton-secundario" data-bolsa-accion="reintentar-estadisticas">' + textoPortal("txt_reintentar") + '</button>' : ""}</div></section>`;
     const datos = estadoEstadisticas.datos;
     const lecturaBolsas = typeof obtenerDatosBolsas === "function" ? obtenerDatosBolsas() : null;
-    const conteosCurso = lecturaBolsas?.carga === "listo" && Array.isArray(lecturaBolsas.datos?.bolsas)
-      ? lecturaBolsas.datos.bolsas.map((bolsa) => bolsa.llamamientos_en_curso) : null;
-    const totalEnCurso = conteosCurso?.every((total) => Number.isSafeInteger(total) && total >= 0)
-      ? conteosCurso.reduce((suma, total) => suma + total, 0) : null;
+    const totalEnCurso = datos.llamamientos?.en_curso_total;
+    const listaCursoDisponible = datos.llamamientos?.lista_llamamientos_disponible === true || datos.lista_llamamientos_disponible === true;
     const enCurso = Number.isSafeInteger(totalEnCurso) ? numero(totalEnCurso) : traducirPortal("txt_no_disponible");
     const tarjetas = [["bolsas", numero(datos.bolsas.total), traducirPortal("txt_bolsas")], ["correcto", numero(datos.bolsas.vigentes), traducirPortal("txt_vigentes")], ["en_curso", numero(datos.bolsas.sustituidas), traducirPortal("txt_sustituidas")], ["personas", numero(datos.personas.total), traducirPortal("txt_personas")], ["llamamiento", enCurso, traducirPortal("txt_llamamientos_en_curso")]];
-    const resumenEstados = Object.entries(datos.personas.por_estado).map(([estado, total]) => `<span class="estado-chip ${claseEstadoEstadistica(estado)}"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaEstadoEstadistica(estado))}</span>`).join("");
+    const resumenEstados = Object.entries(datos.personas.por_estado).map(([estado, total]) => datos.corte_ref && ["disponible", "renuncia"].includes(estado)
+      ? `<a class="estado-chip ${claseEstadoEstadistica(estado)}" href="${escaparHTML(rutaGlobalBolsaCompartible(globalThis.location?.search ?? "", estado, datos.corte_ref))}"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaEstadoEstadistica(estado))}</a>`
+      : `<span class="estado-chip ${claseEstadoEstadistica(estado)}"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaEstadoEstadistica(estado))}</span>`).join("");
     // El contrato v1 no declara si cargó el histórico: su cero no acredita ausencia.
     const historico = `<div><h4>${textoPortal("txt_historico_de_llamamientos")}</h4><p class="estado-chip neutro" role="status">${textoPortal("txt_no_disponible")}</p></div>`;
     const filas = datos.por_bolsa.map((bolsa) => {
@@ -139,6 +141,9 @@ export function crearPresentadorPanelInterno(dependencias) {
       atributos: 'data-vista="resumen"',
       aria: traducirEnlacesBolsa("kpi_bolsas_aria", { total: valor }),
       enlace: traducirEnlacesBolsa("kpi_ver_cuadro"),
+    } : datos.corte_ref && (sigla === "personas" || (sigla === "llamamiento" && listaCursoDisponible)) ? {
+      href: rutaGlobalBolsaCompartible(globalThis.location?.search ?? "", sigla === "personas" ? "todos" : "llamamientos", datos.corte_ref),
+      aria: etiqueta, enlace: traducirEnlacesBolsa("kpi_ver_cuadro"),
     } : null)).join("")}</div><section class="panel panel-separado"><div class="cabecera-panel"><h3>${textoPortal("txt_personas_y_llamamientos")}</h3><time datetime="${escaparHTML(datos.generado_en)}">${textoPortal("txt_actualizado_en", { instante: instanteVisible(datos.generado_en) })}</time></div><div class="cuerpo-panel estadisticas-resumen"><div><h4>${textoPortal("txt_situacion_de_personas")}</h4><div class="lista-chips">${resumenEstados}</div></div>${historico}</div></section><section class="panel panel-separado"><div class="cabecera-panel"><h3>${textoPortal("txt_desglose_por_bolsa")}</h3></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${textoPortal("txt_personas_por_bolsa_y_situacion")}</caption><thead><tr><th scope="col">${textoPortal("txt_bolsa")}</th><th scope="col">${textoPortal("txt_vigencia")}</th><th scope="col">${textoPortal("txt_total")}</th>${ESTADOS_BOLSA.map((estado) => `<th scope="col">${escaparHTML(etiquetaEstadoEstadistica(estado))}</th>`).join("")}</tr></thead><tbody>${filas || '<tr><td colspan="11" class="vacio-controlado">' + textoPortal("txt_la_fuente_no_ha_devuelto_bolsas_para_este_ambito") + '</td></tr>'}</tbody></table></div></section>`;
   }
   function instanteVisible(instante) {
@@ -308,13 +313,20 @@ export function crearPresentadorPanelInterno(dependencias) {
     const totalAspirantes = bolsas.reduce((total, bolsa) => total + Number(bolsa.total || 0), 0);
     const totalDisponibles = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.disponible || 0), 0);
     const totalPersonasEnRenuncia = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.renuncia || 0), 0);
+    const corteGlobal = estadoBolsas.datos?.corte_ref || "";
+    const kpiGlobal = (iconoClave, etiqueta, valor, filtro, clase = "") => {
+      const contenido = `<span class="icono-kpi" aria-hidden="true">${icono(iconoClave)}</span><div><span class="etiqueta-kpi">${textoPortal(etiqueta)}</span><strong class="valor-kpi">${numero(valor)}</strong></div>`;
+      return corteGlobal
+        ? `<a class="tarjeta-kpi ${clase}" href="${escaparHTML(rutaGlobalBolsaCompartible(globalThis.location?.search ?? "", filtro, corteGlobal))}">${contenido}</a>`
+        : `<article class="tarjeta-kpi ${clase}">${contenido}</article>`;
+    };
     const filas = bolsas.map((b) => `
       <tr data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
         <td><a class="enlace-tabla" href="${escaparHTML(rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", b.bolsa_ref))}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="${textoPortal("txt_aria_abrir_candidatos_bolsa", { categoria: b.categoria })}"><strong>${escaparHTML(b.categoria)}</strong></a></td>
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
         <td>${escaparHTML(finVigenciaBolsaPortal(b.vigente_hasta))}</td>
         <td><a class="enlace-tabla" href="${escaparHTML(rutaCandidatosBolsaCompartible(globalThis.location?.search ?? "", b.bolsa_ref))}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="${textoPortal("txt_aria_ver_candidatos_bolsa", { total: numero(b.total), categoria: b.categoria })}"><strong>${numero(b.total)}</strong></a></td>
-        <td><span class="estado-chip info">${numero(b.llamamientos_en_curso)}</span></td>
+        <td>${corteGlobal && (b.lista_llamamientos_disponible === true || estadoBolsas.datos?.lista_llamamientos_disponible === true) ? `<a class="estado-chip info" href="${escaparHTML(rutaGlobalBolsaCompartible(globalThis.location?.search ?? "", "llamamientos", corteGlobal, b.bolsa_ref))}">${numero(b.llamamientos_en_curso)}</a>` : `<span class="estado-chip info">${numero(b.llamamientos_en_curso)}</span>`}</td>
         <td>${controlEstadoBolsa(b, "disponible", "exito")}</td>
         <td>${controlEstadoBolsa(b, "trabajando")}</td>
         <td>${controlEstadoBolsa(b, "no_disponible", "peligro")}</td>
@@ -331,9 +343,9 @@ export function crearPresentadorPanelInterno(dependencias) {
         </div>
         <div class="rejilla-kpi cuadro-b12-kpi" aria-label="${textoPortal("txt_resumen_de_las_bolsas_de_trabajo")}">
           <a class="tarjeta-kpi" href="${escaparHTML(rutaResumenBolsasCompartible(globalThis.location?.search ?? ""))}" data-vista="resumen"><span class="icono-kpi" aria-hidden="true">${icono("bolsas")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_bolsas_visibles")}</span><strong class="valor-kpi">${numero(bolsas.length)}</strong></div></a>
-          <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("personas")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_aspirantes")}</span><strong class="valor-kpi">${numero(totalAspirantes)}</strong></div></article>
-          <article class="tarjeta-kpi kpi--exito"><span class="icono-kpi" aria-hidden="true">${icono("persona_ok")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_disponibles")}</span><strong class="valor-kpi">${numero(totalDisponibles)}</strong></div></article>
-          <article class="tarjeta-kpi kpi--advertencia"><span class="icono-kpi" aria-hidden="true">${icono("persona_baja")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_personas_en_renuncia")}</span><strong class="valor-kpi">${numero(totalPersonasEnRenuncia)}</strong></div></article>
+          ${kpiGlobal("personas", "txt_aspirantes", totalAspirantes, "todos")}
+          ${kpiGlobal("persona_ok", "txt_disponibles", totalDisponibles, "disponible", "kpi--exito")}
+          ${kpiGlobal("persona_baja", "txt_personas_en_renuncia", totalPersonasEnRenuncia, "renuncia", "kpi--advertencia")}
         </div>
         <div class="tabla-contenedor">
           <table class="tabla-datos">
@@ -435,6 +447,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     const estadoCandidatos = typeof obtenerDatosCandidatosBolsa === "function"
       ? obtenerDatosCandidatosBolsa()
       : null;
+    if (estadoCandidatos?.global) return renderizarGlobalBolsa(estadoCandidatos, { encabezadoVista, escaparHTML });
     const filtrosActuales = typeof obtenerEstadoCandidatos === "function"
       ? obtenerEstadoCandidatos()
       : { estado: "", texto: "" };
