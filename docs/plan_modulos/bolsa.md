@@ -100,3 +100,11 @@ sin colisión con esas migraciones. Antes de integrar, Claude revisa el SQL
 exacto y comprueba el ensayo privado y la CI. No se ha instalado B81 en
 ninguna base compartida. La lista de instalación contiene solo B81; no se
 reaplican las migraciones anteriores. CONFIG NUEVA: ninguna.
+
+En el clon PostgreSQL 18.4 de esa base, B81 se instaló una vez en 0,09 s
+y la prueba SQL terminó en 0,11 s. Comprueba alta y replay únicos, avance
+del cursor, bolsa constituida y huella falsa denegadas, permisos y rechazo
+de UPDATE/DELETE. La fixture prepara historia CT/B13 dentro de ROLLBACK
+y usa el verificador CT129 real; no es un recorrido de navegador ni prueba
+el registro de un cese desde RRHH. Las pruebas Go comprueban la continuidad
+23503 → cese ajeno → sin candidato y la parada ante errores.
