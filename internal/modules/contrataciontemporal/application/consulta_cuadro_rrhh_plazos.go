@@ -63,19 +63,35 @@ func (s *ServicioConsultaCuadroRRHH) completarPlazos(
 }
 
 // prepararPlazos devuelve la calculadora con una sola lectura de reglas para
-// toda la consulta, si la calculadora lo admite; si no, o si falla, la
-// original, que calcula como siempre. Nil sin calculadora.
+// toda la consulta, si la calculadora lo admite. Si esa lectura falla, los
+// plazos quedan sin calcular: volver a la calculadora original repetiría la
+// misma lectura por cada fila y por cada grupo del resumen.
 func (s *ServicioConsultaCuadroRRHH) prepararPlazos(ctx context.Context) ports.CalculadoraPlazoFaseRRHH {
 	if s == nil || s.plazos == nil {
 		return nil
 	}
 	calculadora := s.plazos
 	if preparador, admite := calculadora.(ports.PreparadorPlazosFaseRRHH); admite {
-		if preparada, err := preparador.PrepararPlazosFase(ctx); err == nil && !dependenciaNula(preparada) {
-			calculadora = preparada
+		preparada, err := preparador.PrepararPlazosFase(ctx)
+		if err != nil {
+			return calculadoraPlazosNoDisponibles{causa: err}
 		}
+		if dependenciaNula(preparada) {
+			return calculadoraPlazosNoDisponibles{causa: ErrConsultaRRHHNoDisponible}
+		}
+		calculadora = preparada
 	}
 	return calculadora
+}
+
+// La indisponibilidad se representa por grupo o fila, sin otra lectura de
+// catálogo. El resumen puede contar esos grupos como «sin calcular».
+type calculadoraPlazosNoDisponibles struct{ causa error }
+
+func (c calculadoraPlazosNoDisponibles) CalcularPlazoFase(
+	context.Context, ports.SolicitudPlazoFaseRRHH,
+) (ports.PlazoFaseRRHH, bool, error) {
+	return ports.PlazoFaseRRHH{}, false, c.causa
 }
 
 func calcularPlazosPagina(

@@ -212,14 +212,14 @@ func (p *preparadorPlazoFasePrueba) PrepararPlazosFase(context.Context) (ports.C
 	return p.preparada, nil
 }
 
-// Con una calculadora que admite prepararse, la página calcula sus plazos con
-// una sola preparación; si la preparación falla, calcula fila a fila como antes.
+// Si falla la única lectura del catálogo, la página conserva el expediente y
+// muestra el plazo sin calcular, sin repetir la lectura por cada fila.
 func TestConsultaCuadroRRHHPreparaLosPlazosUnaVezPorConsulta(t *testing.T) {
 	t.Parallel()
 	for _, caso := range []struct {
 		nombre      string
 		errPreparar error
-	}{{"preparada", nil}, {"falla_y_calcula_fila_a_fila", errors.New("catálogo no disponible")}} {
+	}{{"preparada", nil}, {"falla_sin_lecturas_por_fila", errors.New("catálogo no disponible")}} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			entorno := nuevoEntornoConsultaRRHH(t)
 			entorno.sesion.pagina.FasesDesde = []time.Time{entorno.sesion.pagina.Expedientes[0].CreadoEn}
@@ -237,17 +237,39 @@ func TestConsultaCuadroRRHHPreparaLosPlazosUnaVezPorConsulta(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(pagina.Plazos) != 1 || pagina.Plazos[0] == nil || *pagina.Plazos[0] != plazoFaseValidoPrueba() {
+			esperado := plazoFaseValidoPrueba()
+			if caso.errPreparar != nil {
+				esperado = ports.PlazoFaseRRHH{Estado: ports.PlazoFaseNoCalculado}
+			}
+			if len(pagina.Plazos) != 1 || pagina.Plazos[0] == nil || *pagina.Plazos[0] != esperado {
 				t.Fatalf("plazo no proyectado: %+v", pagina.Plazos)
 			}
-			usadas, sinUsar := len(preparador.preparada.solicitudes), len(preparador.solicitudes)
+			esperadasPreparadas := 1
 			if caso.errPreparar != nil {
-				usadas, sinUsar = sinUsar, usadas
+				esperadasPreparadas = 0
 			}
-			if preparador.preparaciones != 1 || usadas != 1 || sinUsar != 0 {
+			if preparador.preparaciones != 1 ||
+				len(preparador.preparada.solicitudes) != esperadasPreparadas || len(preparador.solicitudes) != 0 {
 				t.Fatalf("preparaciones %d, preparada %d, fila a fila %d", preparador.preparaciones,
 					len(preparador.preparada.solicitudes), len(preparador.solicitudes))
 			}
 		})
+	}
+}
+
+func TestConsultaCuadroRRHHConservaCausaSinReleerCatalogo(t *testing.T) {
+	t.Parallel()
+	causa := errors.New("lectura de reglas interrumpida")
+	preparador := &preparadorPlazoFasePrueba{errPreparar: causa}
+	servicio := &ServicioConsultaCuadroRRHH{plazos: preparador}
+	calculadora := servicio.prepararPlazos(context.Background())
+	for i := 0; i < 100; i++ {
+		_, aplicable, err := calculadora.CalcularPlazoFase(context.Background(), ports.SolicitudPlazoFaseRRHH{})
+		if aplicable || !errors.Is(err, causa) {
+			t.Fatalf("cálculo %d: se perdió la causa original: %v", i, err)
+		}
+	}
+	if preparador.preparaciones != 1 || len(preparador.solicitudes) != 0 {
+		t.Fatalf("lecturas repetidas: preparación %d, filas %d", preparador.preparaciones, len(preparador.solicitudes))
 	}
 }
