@@ -192,8 +192,10 @@ function crearPresentador(estadoInicial, fallarCarga = false, refresco = null) {
     },
     async refrescarExpedienteConfirmado(recibo) {
       lecturasDetalle += 1;
+      const secuencia = ++secuenciaLecturas;
       estado = { ...estado, cuadro_desactualizado: true };
       if (refresco?.esperarCarga) await refresco.esperarCarga;
+      if (secuencia !== secuenciaLecturas) return estado;
       if (fallarCarga) throw new Error("detalle temporalmente no disponible");
       if (!refresco || recibo.expediente_ref !== refresco.expediente.expediente_ref
         || refresco.expediente.version < recibo.version_resultante) return estado;
@@ -1054,7 +1056,9 @@ test("el recibo confirmado refresca cuadro y ficha a la versión resultante sin 
     refresco,
     alCambiarFicha: (seleccion) => {
       cambiosFicha.push(seleccion);
-      urlFicha = seleccion ? `/portal-empleado/?ficha=${seleccion.expedienteRef}` : "/portal-empleado/";
+      urlFicha = seleccion
+        ? `/portal-empleado/?ficha=${seleccion.expedienteRef}&expediente_version=${seleccion.version}`
+        : "/portal-empleado/";
     },
     analisis: crearComposicion({
       registrarAnalisis() {
@@ -1069,6 +1073,8 @@ test("el recibo confirmado refresca cuadro y ficha a la versión resultante sin 
   assert.equal(llamadas, 1);
   assert.deepEqual(escenario.presentador.obtenerLecturas(), { cuadro: 0, detalle: 1 });
   assert.equal(escenario.presentador.obtenerEstado().expediente.version, actualizado.version);
+  assert.equal(urlFicha, `/portal-empleado/?ficha=${expediente.expediente_ref}&expediente_version=${actualizado.version}`);
+  assert.deepEqual(cambiosFicha, [{ expedienteRef: expediente.expediente_ref, version: actualizado.version }]);
   assert.match(escenario.raiz.raiz.innerHTML, /Resultado RC/u);
   const confirmacion = (escenario.raiz.obtenerRectificacion()
     ?? escenario.raiz.obtenerAnalisis()
@@ -1079,7 +1085,9 @@ test("el recibo confirmado refresca cuadro y ficha a la versión resultante sin 
   assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
   await escenario.raiz.cambiarVista("cuadro");
   assert.equal(urlFicha, "/portal-empleado/");
-  assert.deepEqual(cambiosFicha, [null]);
+  assert.deepEqual(cambiosFicha, [
+    { expedienteRef: expediente.expediente_ref, version: actualizado.version }, null,
+  ]);
   assert.equal(escenario.presentador.obtenerEstado().carga, "vacio");
   assert.equal(escenario.presentador.obtenerEstado().cuadro.expedientes.length, 0);
   assert.deepEqual(escenario.presentador.obtenerLecturas(), { cuadro: 1, detalle: 1 });
@@ -1115,7 +1123,9 @@ test("una vuelta tardía no borra la URL de otra ficha abierta", async () => {
     analisis: crearComposicion({ registrarAnalisis: async () => crearRecibo(expediente) }),
     alCambiarFicha: (seleccion) => {
       cambiosFicha.push(seleccion);
-      urlFicha = seleccion ? `/portal-empleado/?ficha=${seleccion.expedienteRef}` : "/portal-empleado/";
+      urlFicha = seleccion
+        ? `/portal-empleado/?ficha=${seleccion.expedienteRef}&expediente_version=${seleccion.version}`
+        : "/portal-empleado/";
     },
   });
   await escenario.raiz.obtenerAnalisis().enviar();
@@ -1125,9 +1135,45 @@ test("una vuelta tardía no borra la URL de otra ficha abierta", async () => {
   assert.equal(escenario.presentador.obtenerEstado().expediente_ref, otraFicha.expediente_ref);
   listaPendiente.resolver();
   await volver;
-  assert.equal(urlFicha, `/portal-empleado/?ficha=${otraFicha.expediente_ref}`);
-  assert.equal(cambiosFicha.length, 1);
-  assert.equal(cambiosFicha[0].expedienteRef, otraFicha.expediente_ref);
+  assert.equal(urlFicha, `/portal-empleado/?ficha=${otraFicha.expediente_ref}&expediente_version=${otraFicha.version}`);
+  assert.deepEqual(cambiosFicha, [
+    { expedienteRef: expediente.expediente_ref, version: actualizado.version },
+    { expedienteRef: otraFicha.expediente_ref, version: otraFicha.version },
+  ]);
+  assert.equal(escenario.presentador.obtenerEstado().expediente_ref, otraFicha.expediente_ref);
+  escenario.modulo.desmontar();
+});
+
+test("un detalle de análisis tardío no cambia la URL ni la selección nueva", async () => {
+  const { expediente: base, tareaRef } = crearExpediente();
+  const expediente = validarExpedienteContratacionTemporal({ ...base, demostracion: false });
+  const actualizado = validarExpedienteContratacionTemporal({ ...expediente, version: 8 });
+  const otraFicha = validarExpedienteContratacionTemporal({
+    ...expediente, expediente_ref: "expediente:ct:otra:002", numero_visible: "2026/CT-998",
+  });
+  const lecturaPendiente = crearDiferida();
+  const refresco = {
+    expediente: actualizado, otraFicha, esperarCarga: lecturaPendiente.promesa,
+  };
+  let urlFicha = `/portal-empleado/?ficha=${expediente.expediente_ref}&expediente_version=${expediente.version}`;
+  const cambiosFicha = [];
+  const escenario = await montarEscenario({
+    expediente, tareaRef, refresco,
+    analisis: crearComposicion({ registrarAnalisis: async () => crearRecibo(expediente) }),
+    alCambiarFicha: (seleccion) => {
+      cambiosFicha.push(seleccion);
+      urlFicha = seleccion
+        ? `/portal-empleado/?ficha=${seleccion.expedienteRef}&expediente_version=${seleccion.version}`
+        : "/portal-empleado/";
+    },
+  });
+  const formulario = escenario.raiz.obtenerAnalisis();
+  await formulario.enviar();
+  await escenario.raiz.abrirExpediente(otraFicha.expediente_ref);
+  lecturaPendiente.resolver();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(urlFicha, `/portal-empleado/?ficha=${otraFicha.expediente_ref}&expediente_version=${otraFicha.version}`);
+  assert.deepEqual(cambiosFicha, [{ expedienteRef: otraFicha.expediente_ref, version: otraFicha.version }]);
   assert.equal(escenario.presentador.obtenerEstado().expediente_ref, otraFicha.expediente_ref);
   escenario.modulo.desmontar();
 });
@@ -1136,10 +1182,12 @@ test("si falla la lectura posterior, el recibo y la navegación siguen disponibl
   const { expediente, tareaRef } = crearExpediente();
   let registros = 0;
   const anuncios = [];
+  const cambiosFicha = [];
   const escenario = await montarEscenario({
     expediente, tareaRef, fallarCarga: true,
     refresco: { cuadroAlVolver: { demostracion: false, expedientes: [] } },
     anunciar: (mensaje, tono) => anuncios.push({ mensaje, tono }),
+    alCambiarFicha: (seleccion) => cambiosFicha.push(seleccion),
     analisis: crearComposicion({
       registrarAnalisis() {
         registros += 1;
@@ -1154,6 +1202,7 @@ test("si falla la lectura posterior, el recibo y la navegación siguen disponibl
   assert.equal(anuncios.at(-1)?.tono, "aviso");
   assert.match(anuncios.at(-1)?.mensaje ?? "", /actualiz|abrir/u);
   assert.match(formulario.reciboNodo?.hijos.at(-1)?.textContent ?? "", /actualiz|abrir/u);
+  assert.deepEqual(cambiosFicha, []);
   assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
   await escenario.raiz.cambiarVista("cuadro");
   assert.equal(escenario.presentador.obtenerEstado().vista, "cuadro");

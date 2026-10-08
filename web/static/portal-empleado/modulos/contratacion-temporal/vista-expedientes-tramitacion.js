@@ -50,6 +50,7 @@ export function crearGestorTramitacion({
   anunciar = () => {},
   repintar = () => {},
   esMontada = () => true,
+  alCambiarFicha = () => {},
 } = {}) {
   const tExpedientes = crearTraductorExpedientesContratacion(mensajes);
   let desmontarAlta = null;
@@ -638,7 +639,10 @@ export function crearGestorTramitacion({
     try {
       await presentador.refrescarExpedienteConfirmado(recibo);
       if (!vigente()) return;
-      const actualizado = presentador.obtenerEstado().expediente;
+      const estadoActual = presentador.obtenerEstado();
+      const actualizado = estadoActual.expediente;
+      if (estadoActual.vista !== "expediente" || estadoActual.carga !== "listo"
+        || estadoActual.expediente_ref !== recibo.expediente_ref) return;
       if (actualizado?.expediente_ref !== recibo.expediente_ref
         || actualizado.version < recibo.version_resultante) {
         avisarPendiente();
@@ -673,6 +677,7 @@ export function crearGestorTramitacion({
         destino.append(confirmacion);
         if (enfocarConfirmacion) confirmacion.focus?.();
       }
+      alCambiarFicha({ expedienteRef: actualizado.expediente_ref, version: actualizado.version });
     } catch {
       avisarPendiente();
     }

@@ -596,6 +596,7 @@ export async function montarModuloContratacionTemporal({
     anunciar,
     repintar: (foco) => repintar(foco),
     esMontada,
+    alCambiarFicha,
   });
 
   const gestorInformeTrasSubsanacion = crearGestorInformeTrasSubsanacion({
