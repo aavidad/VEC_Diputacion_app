@@ -54,6 +54,18 @@ type ContextoAuditoriaAutenticada struct {
 	huellaConfiguracion       string
 	canalVinculadoRef         string
 	factores                  []ResumenFactorAuditoria
+	// La presentación actual nunca sustituye las referencias ni fechas de la
+	// autenticación y sesión originales que anteceden a estos campos.
+	presentacionRef                  string
+	presentacionOperacionRef         string
+	presentacionGeneracion           uint64
+	presentacionSesionGeneracion     uint64
+	presentacionReciboHuellaSHA256   string
+	presentacionAsercionHuellaSHA256 string
+	presentacionCanalHuellaSHA256    string
+	presentacionEmitidaEn            time.Time
+	presentacionValidaHasta          time.Time
+	presentacionFactores             []ResumenFactorAuditoria
 }
 
 func (c ContextoAuditoriaAutenticada) AutenticacionRef() string   { return c.autenticacionRef }
@@ -106,6 +118,34 @@ func (c ContextoAuditoriaAutenticada) HuellaConfiguracion() string { return c.hu
 func (c ContextoAuditoriaAutenticada) CanalVinculadoRef() string   { return c.canalVinculadoRef }
 func (c ContextoAuditoriaAutenticada) Factores() []ResumenFactorAuditoria {
 	return append([]ResumenFactorAuditoria(nil), c.factores...)
+}
+func (c ContextoAuditoriaAutenticada) PresentacionRef() string { return c.presentacionRef }
+func (c ContextoAuditoriaAutenticada) PresentacionOperacionRef() string {
+	return c.presentacionOperacionRef
+}
+func (c ContextoAuditoriaAutenticada) PresentacionGeneracion() uint64 {
+	return c.presentacionGeneracion
+}
+func (c ContextoAuditoriaAutenticada) PresentacionSesionGeneracion() uint64 {
+	return c.presentacionSesionGeneracion
+}
+func (c ContextoAuditoriaAutenticada) PresentacionReciboHuellaSHA256() string {
+	return c.presentacionReciboHuellaSHA256
+}
+func (c ContextoAuditoriaAutenticada) PresentacionAsercionHuellaSHA256() string {
+	return c.presentacionAsercionHuellaSHA256
+}
+func (c ContextoAuditoriaAutenticada) PresentacionCanalHuellaSHA256() string {
+	return c.presentacionCanalHuellaSHA256
+}
+func (c ContextoAuditoriaAutenticada) PresentacionEmitidaEn() time.Time {
+	return c.presentacionEmitidaEn
+}
+func (c ContextoAuditoriaAutenticada) PresentacionValidaHasta() time.Time {
+	return c.presentacionValidaHasta
+}
+func (c ContextoAuditoriaAutenticada) FactoresPresentacionActual() []ResumenFactorAuditoria {
+	return append([]ResumenFactorAuditoria(nil), c.presentacionFactores...)
 }
 
 func (ContextoAuditoriaAutenticada) String() string   { return contextoAuditoriaRedactado }

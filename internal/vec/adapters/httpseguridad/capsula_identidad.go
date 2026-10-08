@@ -178,7 +178,15 @@ func (s *ServicioIdentidad) ExtraerCapsulaIdentidadPeticion(
 	if err := ctx.Err(); err != nil {
 		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, err
 	}
-	vinculada, ok := ctx.Value(claveCapsulaIdentidad{}).(capsulaIdentidadVinculada)
+	original := ctx.Value(claveCapsulaIdentidad{})
+	presentacion := ctx.Value(claveCapsulaPresentacionCertificado{})
+	if (original == nil) == (presentacion == nil) {
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+	}
+	if presentacion != nil {
+		return s.datosCapsulaPresentacion(ctx)
+	}
+	vinculada, ok := original.(capsulaIdentidadVinculada)
 	if !ok {
 		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
@@ -199,12 +207,22 @@ func (s *ServicioIdentidad) ExigirSujetoPersonaCertificadoTemporal(ctx context.C
 	if _, _, err := s.ExtraerCapsulaIdentidadPeticion(ctx); err != nil {
 		return ErrSesionNoValida
 	}
-	vinculada, ok := ctx.Value(claveCapsulaIdentidad{}).(capsulaIdentidadVinculada)
-	if !ok || vinculada.capsula.servicio != s || vinculada.capsula.estado == nil ||
-		!vinculada.capsula.estado.vinculada.Load() {
-		return ErrSesionNoValida
+	var estado estadoIdentidadSesion
+	if ctx.Value(claveCapsulaPresentacionCertificado{}) != nil {
+		vinculada, ok := ctx.Value(claveCapsulaPresentacionCertificado{}).(capsulaPresentacionCertificadoVinculada)
+		if !ok || vinculada.capsula.datos == nil || vinculada.capsula.datos.servicio == nil ||
+			vinculada.capsula.datos.servicio.identidad != s || !vinculada.capsula.datos.consumida.Load() {
+			return ErrSesionNoValida
+		}
+		estado = vinculada.capsula.datos.estadoActual
+	} else {
+		vinculada, ok := ctx.Value(claveCapsulaIdentidad{}).(capsulaIdentidadVinculada)
+		if !ok || vinculada.capsula.servicio != s || vinculada.capsula.estado == nil ||
+			!vinculada.capsula.estado.vinculada.Load() {
+			return ErrSesionNoValida
+		}
+		estado = vinculada.capsula.identidad.estado
 	}
-	estado := vinculada.capsula.identidad.estado
 	if estado.superficie != SuperficieInternaCorporativa || estado.metodoPrimario != MetodoCertificado ||
 		estado.garantia != dominiovec.AuthAssuranceSubstantial ||
 		estado.acrVerificado != ACRCertificadoPersonalDesarrolloProtegido ||
