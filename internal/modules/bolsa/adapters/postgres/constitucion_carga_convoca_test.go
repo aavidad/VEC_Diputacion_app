@@ -7,18 +7,19 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	importacion "vec-diputacion-granada/internal/modules/bolsa/domain/importacionconvoca"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 func TestConstituirCargaConvocaAutorizadaFallaCerradaSinDependencias(t *testing.T) {
-	var r *RepositorioConstitucionPostgreSQL
-	if _, err := r.ConstituirCargaConvocaAutorizada(context.Background(), ports.Constitucion{}, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}); !errors.Is(err, ports.ErrConstitucionBolsaNoDisponible) {
+	var r *RepositorioCargaConvocaPostgreSQL
+	if _, err := r.ConfirmarCargaConvocaAutorizada(context.Background(), importacion.LoteValidado{}, ports.Constitucion{}, nil, ports.OriginalProtegidoCargaConvoca{}, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}); !errors.Is(err, ports.ErrConstitucionBolsaNoDisponible) {
 		t.Fatalf("repositorio nulo: %v", err)
 	}
-	r = &RepositorioConstitucionPostgreSQL{}
-	if _, err := r.ConstituirCargaConvocaAutorizada(context.Background(), ports.Constitucion{}, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}); !errors.Is(err, ports.ErrConstitucionBolsaNoDisponible) {
+	r = &RepositorioCargaConvocaPostgreSQL{}
+	if _, err := r.ConfirmarCargaConvocaAutorizada(context.Background(), importacion.LoteValidado{}, ports.Constitucion{}, nil, ports.OriginalProtegidoCargaConvoca{}, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}); !errors.Is(err, ports.ErrConstitucionBolsaNoDisponible) {
 		t.Fatalf("sin pool ni material: %v", err)
 	}
 }

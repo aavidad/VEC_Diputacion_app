@@ -577,6 +577,8 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   const t = crearTraductorExpedientesContratacion(mensajes);
   const versiones = new Map();
   const capacidadesConsultadas = new Set();
+  let disponibilidadFicha = null;
+  let secuenciaDetalle = 0;
   let secuenciaCuadro = 0;
   let catalogosCargados = null;
   let promesaCatalogos = null;
@@ -677,7 +679,14 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
       if (!pagina?.resumen) throw new TypeError("resumen de la portada no disponible");
       return Object.freeze({ resumen: pagina.resumen, generadoEn: pagina.generada_en });
     },
+    resolverDisponibilidadOpcional(clave, contexto) {
+      const registro = disponibilidadFicha?.[clave];
+      return registro?.expediente_ref === contexto?.expediente_ref
+        && registro?.version_observada === contexto?.version_observada ? registro : null;
+    },
     async obtener(expedienteRef, { signal } = {}) {
+      disponibilidadFicha = null;
+      const secuencia = ++secuenciaDetalle;
       const version = versiones.get(expedienteRef);
       if (!Number.isSafeInteger(version) || version < 1) {
         throw new TypeError("expediente fuera del cuadro consultado");
@@ -692,6 +701,14 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
       const expediente = proyectarExpediente(
         detalle, locale, catalogos, t, mensajes, obtenerJornadaCompleta(),
       );
+      if (!signal?.aborted && secuencia === secuenciaDetalle) {
+        const registro = detalle.capacidades_ficha?.borradores_publicados;
+        if (registro && Object.keys(registro).length === 3
+          && ["montado", "sin_montaje"].includes(registro.estado)
+          && registro.expediente_ref === expedienteRef && registro.version_observada === version) {
+          disponibilidadFicha = Object.freeze({ borradores_publicados: Object.freeze({ ...registro }) });
+        }
+      }
       capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
       return expediente;
     },

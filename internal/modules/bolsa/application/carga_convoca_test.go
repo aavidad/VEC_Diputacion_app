@@ -8,12 +8,14 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
+	"io"
 	"testing"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/bolsa/adapters/xlsconvoca"
 	"vec-diputacion-granada/internal/modules/bolsa/application/constitucion"
 	importacionapp "vec-diputacion-granada/internal/modules/bolsa/application/importacionconvoca"
+	importacion "vec-diputacion-granada/internal/modules/bolsa/domain/importacionconvoca"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -78,45 +80,42 @@ func materialCargaPrueba(t *testing.T, decision dominiovec.DecisionAutorizacionL
 	return material
 }
 
-type custodioCargaPrueba struct{ llamadas int }
+type originalCargaPrueba struct{ llamadas int }
 
-func (c *custodioCargaPrueba) Custodiar(_ context.Context, contenido []byte) (string, error) {
+func (c *originalCargaPrueba) Preparar(_ context.Context, actaRef, _ string, formato string, contenido []byte) (puertosbolsa.OriginalProtegidoCargaConvoca, error) {
 	c.llamadas++
-	suma := sha256.Sum256(contenido)
-	return "fichero:sha256:" + hex.EncodeToString(suma[:]), nil
+	return puertosbolsa.OriginalProtegidoCargaConvoca{
+		Referencia: "original:convoca:" + actaRef[len("acta:importacion-convoca:"):],
+		Formato:    formato, BytesOriginales: len(contenido), ContenidoCifrado: []byte("solo prueba"),
+	}, nil
 }
 
-type importadorCargaPrueba struct {
-	existe     bool
-	importadas []importacionapp.SolicitudImportacion
+type lectorContadoCarga struct {
+	llamadas int
 }
 
-func (i *importadorCargaPrueba) ActaImportada(context.Context, string, string) (bool, error) {
-	return i.existe, nil
-}
-
-func (i *importadorCargaPrueba) Importar(_ context.Context, s importacionapp.SolicitudImportacion) (importacionapp.ResultadoImportacion, error) {
-	i.importadas = append(i.importadas, s)
-	suma := sha256.Sum256(s.Contenido)
-	huella := hex.EncodeToString(suma[:])
-	var r importacionapp.ResultadoImportacion
-	r.Acta.ActaRef, r.Acta.HuellaFicheroSHA256 = importacionapp.ReferenciaActa(huella, s.CategoriaRef), huella
-	return r, nil
+func (l *lectorContadoCarga) Decodificar(ctx context.Context, r io.ReadSeeker) (importacion.HojaStaging, error) {
+	l.llamadas++
+	return xlsconvoca.NuevoLector().Decodificar(ctx, r)
 }
 
 type constituidorCargaPrueba struct {
 	solicitudes []constitucion.Solicitud
 	material    puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	lote        importacion.LoteValidado
+	original    puertosbolsa.OriginalProtegidoCargaConvoca
+	reutilizada bool
 	err         error
 }
 
-func (c *constituidorCargaPrueba) Constituir(_ context.Context, s constitucion.Solicitud, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (puertosbolsa.ReciboCargaConvoca, error) {
-	c.solicitudes, c.material = append(c.solicitudes, s), m
+func (c *constituidorCargaPrueba) Constituir(_ context.Context, lote importacion.LoteValidado, s constitucion.Solicitud, original puertosbolsa.OriginalProtegidoCargaConvoca, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (puertosbolsa.ReciboCargaConvoca, error) {
+	c.solicitudes, c.material, c.lote, c.original = append(c.solicitudes, s), m, lote, original
 	if c.err != nil {
 		return puertosbolsa.ReciboCargaConvoca{}, c.err
 	}
 	var r puertosbolsa.ReciboCargaConvoca
 	r.ActaRef, r.BolsaRef, r.DecisionRef, r.AuditoriaRef = importacionapp.ReferenciaActa(s.HuellaFicheroSHA256, s.CategoriaRef), "bolsa:auxiliar_administrativo:2026-10-05", "decision:borrador:prueba", "aud_v3_0123456789abcdef0123456789abcdef"
+	r.ActaReutilizada = c.reutilizada
 	return r, nil
 }
 
@@ -124,8 +123,8 @@ type escenarioCargaConvoca struct {
 	servicio     *ServicioCargaConvoca
 	solicitud    puertosbolsa.SolicitudConfirmarCargaConvoca
 	autorizador  *autorizadorCargaPrueba
-	custodio     *custodioCargaPrueba
-	importador   *importadorCargaPrueba
+	original     *originalCargaPrueba
+	lector       *lectorContadoCarga
 	constituidor *constituidorCargaPrueba
 }
 
@@ -141,12 +140,16 @@ func nuevoEscenarioCargaConvoca(t *testing.T) *escenarioCargaConvoca {
 	}
 	e := &escenarioCargaConvoca{
 		autorizador:  &autorizadorCargaPrueba{base: autorizadorBorradorPrueba{t: t, instante: instanteBorradorLlamamientoPrueba}, audiencia: puertosbolsa.AudienciaConfirmarCargaConvoca},
-		custodio:     &custodioCargaPrueba{},
-		importador:   &importadorCargaPrueba{},
+		original:     &originalCargaPrueba{},
+		lector:       &lectorContadoCarga{},
 		constituidor: &constituidorCargaPrueba{},
 	}
+	preparador, err := importacionapp.NuevoPreparador(e.lector, func() time.Time { return instanteBorradorLlamamientoPrueba })
+	if err != nil {
+		t.Fatal(err)
+	}
 	contexto := &contextualizadorBorradorPrueba{contexto: puertosbolsa.ContextoBorradorLlamamientoResuelto{UnidadRef: "unidad:seleccion", AmbitoRef: "ambito:bolsa"}}
-	e.servicio, err = NuevoServicioCargaConvoca(previsualizador, contexto, e.autorizador, e.custodio, e.importador, e.constituidor, func() time.Time { return instanteBorradorLlamamientoPrueba })
+	e.servicio, err = NuevoServicioCargaConvoca(previsualizador, contexto, e.autorizador, e.original, preparador, e.constituidor, func() time.Time { return instanteBorradorLlamamientoPrueba })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,8 +163,8 @@ func TestConfirmarCargaConvocaExigeAceptarLasFilasConErrores(t *testing.T) {
 	if _, err := e.servicio.Confirmar(context.Background(), e.solicitud, false); !errors.Is(err, ErrCargaConvocaConErrores) {
 		t.Fatalf("cargó con filas con errores sin aceptarlo: %v", err)
 	}
-	if len(e.autorizador.solicitudes) != 0 || len(e.importador.importadas) != 0 || len(e.constituidor.solicitudes) != 0 {
-		t.Fatal("pidió decisión o escribió antes de aceptar las filas con errores")
+	if len(e.autorizador.solicitudes) != 1 || e.lector.llamadas != 1 || e.original.llamadas != 0 || len(e.constituidor.solicitudes) != 0 {
+		t.Fatal("el rechazo de filas debe seguir autorización y parse único, sin efecto")
 	}
 }
 
@@ -186,9 +189,9 @@ func TestConfirmarCargaConvocaLigaDecisionAlActaEImporta(t *testing.T) {
 		d.Recurso.Ambitos["unidad_ref"] != "unidad:seleccion" || d.Recurso.Ambitos["ambito_ref"] != "ambito:bolsa" {
 		t.Fatalf("decisión no ligada a la carga: %+v", d)
 	}
-	if e.custodio.llamadas != 1 || len(e.importador.importadas) != 1 || e.importador.importadas[0].ActorRef != actorActaCargaConvoca("per_0123456789abcdefghijkl") ||
-		e.importador.importadas[0].BolsaRef != e.solicitud.BolsaRef || e.importador.importadas[0].NombreFichero != "carga_convoca_ejemplo.xlsx" {
-		t.Fatalf("importación inesperada: %+v", e.importador.importadas)
+	if e.original.llamadas != 1 || e.lector.llamadas != 1 || e.constituidor.lote.Acta.ActorRef != actorActaCargaConvoca("per_0123456789abcdefghijkl") ||
+		e.constituidor.lote.Acta.BolsaRef != e.solicitud.BolsaRef || e.constituidor.lote.Acta.NombreFichero != "carga_convoca_ejemplo.xlsx" {
+		t.Fatalf("preparación inesperada: %+v", e.constituidor.lote.Acta)
 	}
 	c := e.constituidor.solicitudes
 	if len(c) != 1 || c[0].ActorRef != "per_0123456789abcdefghijkl" || c[0].HuellaFicheroSHA256 != huella || c[0].CategoriaRef != categoriaCargaPrueba ||
@@ -199,10 +202,10 @@ func TestConfirmarCargaConvocaLigaDecisionAlActaEImporta(t *testing.T) {
 
 func TestConfirmarCargaConvocaReutilizaActaExistente(t *testing.T) {
 	e := nuevoEscenarioCargaConvoca(t)
-	e.importador.existe = true
+	e.constituidor.reutilizada = true
 	resultado, err := e.servicio.Confirmar(context.Background(), e.solicitud, true)
-	if err != nil || !resultado.ActaReutilizada || e.custodio.llamadas != 0 || len(e.importador.importadas) != 0 || len(e.constituidor.solicitudes) != 1 {
-		t.Fatalf("acta existente reimportada: %+v err=%v", resultado, err)
+	if err != nil || !resultado.ActaReutilizada || e.lector.llamadas != 1 || e.original.llamadas != 1 || len(e.constituidor.solicitudes) != 1 {
+		t.Fatalf("replay debe ser una sola operación atómica: %+v err=%v", resultado, err)
 	}
 }
 
@@ -212,13 +215,24 @@ func TestConfirmarCargaConvocaDenegadaNoEscribe(t *testing.T) {
 	if _, err := e.servicio.Confirmar(context.Background(), e.solicitud, true); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
 		t.Fatalf("denegación perdida: %v", err)
 	}
-	if e.custodio.llamadas != 0 || len(e.importador.importadas) != 0 || len(e.constituidor.solicitudes) != 0 {
+	if e.original.llamadas != 0 || e.lector.llamadas != 0 || len(e.constituidor.solicitudes) != 0 {
 		t.Fatal("escribió tras una denegación")
 	}
 	e = nuevoEscenarioCargaConvoca(t)
 	e.autorizador.base.err = errors.New("PDP caído")
 	if _, err := e.servicio.Confirmar(context.Background(), e.solicitud, true); !errors.Is(err, puertosbolsa.ErrCargaConvocaNoDisponible) {
 		t.Fatalf("una indisponibilidad se convirtió en otra cosa: %v", err)
+	}
+}
+
+func TestConfirmarCargaConvocaLimitaUnMiBAntesDeAutorizarYDecodificar(t *testing.T) {
+	e := nuevoEscenarioCargaConvoca(t)
+	e.solicitud.Contenido = make([]byte, MaximoBytesCargaConvoca+1)
+	if _, err := e.servicio.Confirmar(context.Background(), e.solicitud, true); !errors.Is(err, ErrFicheroCargaConvocaExcesivo) {
+		t.Fatalf("fichero excesivo admitido: %v", err)
+	}
+	if len(e.autorizador.solicitudes) != 0 || e.lector.llamadas != 0 || e.original.llamadas != 0 {
+		t.Fatal("fichero excesivo alcanzó el PDP, el lector o el cifrador")
 	}
 }
 
