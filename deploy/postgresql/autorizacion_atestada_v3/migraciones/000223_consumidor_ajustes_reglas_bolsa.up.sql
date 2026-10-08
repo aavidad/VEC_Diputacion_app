@@ -2669,7 +2669,7 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,false) INTO STRICT d FROM pg_catalog.pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '5100eef2c4d447eaa5704a43284c7cdf80fa1f6051b6bb021bf7439f455cd846'
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '2b9deba638b1f35e8b25a96bd47be4eb4728935cbc32f54c2e948c2ad60de3c0'
  THEN RAISE EXCEPTION 'AD223: audiencia postimagen divergente' USING ERRCODE='55000'; END IF;
 END $audiencia_post$;
 
