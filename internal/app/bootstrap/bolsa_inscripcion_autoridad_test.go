@@ -16,7 +16,7 @@ type decisorLecturaInscripcionPrueba struct {
 	llamadas int
 }
 
-func (d *decisorLecturaInscripcionPrueba) DecidirLecturaActual(_ context.Context, _ contextoSeguridadComunDesarrollo, _, _ string, _ inscripcion.Filtro) (DecisionLecturaActualInscripcionBolsa, error) {
+func (d *decisorLecturaInscripcionPrueba) DecidirLecturaActual(_ context.Context, _ contextoSeguridadComunDesarrollo, _ AcreditacionSesionInscripcionBolsa, _, _ string, _ inscripcion.Filtro) (DecisionLecturaActualInscripcionBolsa, error) {
 	d.llamadas++
 	return d.decision, d.err
 }
@@ -26,10 +26,10 @@ func TestAutoridadInscripcionDeniegaSinFuenteActual(t *testing.T) {
 		t.Fatalf("sin fuente común: %v", err)
 	}
 	a := &autoridadNominalInscripcionBolsa{}
-	if _, err := a.CapturarLectura(context.Background(), contextoSeguridadComunDesarrollo{}, inscripcion.AccionListarPropias, "inscripciones_propias_x", inscripcion.Filtro{Limite: 20}); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+	if _, err := a.CapturarLectura(context.Background(), contextoSeguridadComunDesarrollo{}, AcreditacionSesionInscripcionBolsa{}, inscripcion.AccionListarPropias, "inscripciones_propias_x", inscripcion.Filtro{Limite: 20}); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
 		t.Fatalf("lectura sin autoridad: %v", err)
 	}
-	if _, err := a.AutorizarEscritura(context.Background(), contextoSeguridadComunDesarrollo{}, inscripcion.AccionPresentar, "solicitud_inscripcion_x", []byte("{}"), []byte("{}")); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+	if _, err := a.AutorizarEscritura(context.Background(), contextoSeguridadComunDesarrollo{}, AcreditacionSesionInscripcionBolsa{}, inscripcion.AccionPresentar, "solicitud_inscripcion_x", []byte("{}"), []byte("{}")); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
 		t.Fatalf("escritura sin V3: %v", err)
 	}
 }
@@ -37,6 +37,7 @@ func TestAutoridadInscripcionDeniegaSinFuenteActual(t *testing.T) {
 func TestAutoridadInscripcionLecturaLigaDecisionYSesion(t *testing.T) {
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
 	s, _ := contextoInscripcionCanalPrueba(t, ahora, true, false)
+	acreditacion := acreditacionSesionInscripcionPrueba(t, s, "externa_personal", ahora)
 	v, err := s.Vinculo.Datos()
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +59,7 @@ func TestAutoridadInscripcionLecturaLigaDecisionYSesion(t *testing.T) {
 	a := &autoridadNominalInscripcionBolsa{c: ConfiguracionAutoridadInscripcionBolsa{Lectura: decisor, Reloj: relojFijoAltaContratacionTemporalDesarrollo{ahora: ahora}, Lecturas: map[string]DescriptorLecturaInscripcionBolsa{
 		inscripcion.AccionListarPropias: {Accion: inscripcion.AccionListarPropias, Finalidad: d.Finalidad, Campos: []string{"solicitud_ref"}},
 	}}}
-	captura, err := a.CapturarLectura(context.Background(), s, d.Accion, recurso, filtro)
+	captura, err := a.CapturarLectura(context.Background(), s, acreditacion, d.Accion, recurso, filtro)
 	if err != nil || captura.RecursoRef != recurso || captura.RevisionPermisos != 1 || captura.CorrelacionRef != d.CorrelacionRef {
 		t.Fatalf("captura exacta: %+v, %v", captura, err)
 	}
@@ -81,13 +82,13 @@ func TestAutoridadInscripcionLecturaLigaDecisionYSesion(t *testing.T) {
 			mutada := d
 			caso.cambiar(&mutada)
 			decisor.decision = mutada
-			if _, err := a.CapturarLectura(context.Background(), s, d.Accion, recurso, filtro); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+			if _, err := a.CapturarLectura(context.Background(), s, acreditacion, d.Accion, recurso, filtro); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
 				t.Fatalf("decisión alterada aceptada: %v", err)
 			}
 		})
 	}
 	decisor.err = errors.New("revocada")
-	if _, err := a.CapturarLectura(context.Background(), s, d.Accion, recurso, filtro); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+	if _, err := a.CapturarLectura(context.Background(), s, acreditacion, d.Accion, recurso, filtro); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
 		t.Fatalf("sesión revocada aceptada: %v", err)
 	}
 	if decisor.llamadas != len(casos)+2 {
@@ -95,7 +96,12 @@ func TestAutoridadInscripcionLecturaLigaDecisionYSesion(t *testing.T) {
 	}
 	decisor.err = nil
 	decisor.decision = d
-	if _, err := a.CapturarLectura(context.Background(), s, inscripcion.AccionListarRRHH, recurso, filtro); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+	acreditacionAjena := acreditacion
+	acreditacionAjena.CertificadoHuellaSHA256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	if _, err := a.CapturarLectura(context.Background(), s, acreditacionAjena, d.Accion, recurso, filtro); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+		t.Fatalf("certificado ajeno aceptado: %v", err)
+	}
+	if _, err := a.CapturarLectura(context.Background(), s, acreditacion, inscripcion.AccionListarRRHH, recurso, filtro); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
 		t.Fatalf("RRHH exterior: %v", err)
 	}
 	if v.Superficie != vecdomain.SuperficieAutenticacionExternaPersonalV1 {

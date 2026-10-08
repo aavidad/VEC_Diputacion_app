@@ -18,10 +18,10 @@ import (
 
 // DecisorLecturaActualInscripcionBolsa es el seam pendiente de la autoridad
 // común: debe revalidar la sesión revocable y la concesión central ACTUAL en
-// memoria, con acción, recurso, finalidad, perfil y campos exactos. No puede
+// su fuente PostgreSQL, con acción, recurso, finalidad, perfil y campos exactos. No puede
 // implementarse con una instantánea histórica ni con los roles del principal.
 type DecisorLecturaActualInscripcionBolsa interface {
-	DecidirLecturaActual(context.Context, contextoSeguridadComunDesarrollo, string, string, inscripcion.Filtro) (DecisionLecturaActualInscripcionBolsa, error)
+	DecidirLecturaActual(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, inscripcion.Filtro) (DecisionLecturaActualInscripcionBolsa, error)
 }
 
 // La decisión conserva todos los datos de una única lectura. El constructor
@@ -104,31 +104,31 @@ func NuevaAutoridadInscripcionBolsa(c ConfiguracionAutoridadInscripcionBolsa) (A
 	return &autoridadNominalInscripcionBolsa{c: c}, nil
 }
 
-func (a *autoridadNominalInscripcionBolsa) CapturarLectura(ctx context.Context, s contextoSeguridadComunDesarrollo, accion, recurso string, filtro inscripcion.Filtro) (inscripcion.CapturaLectura, error) {
+func (a *autoridadNominalInscripcionBolsa) CapturarLectura(ctx context.Context, s contextoSeguridadComunDesarrollo, acreditacion AcreditacionSesionInscripcionBolsa, accion, recurso string, filtro inscripcion.Filtro) (inscripcion.CapturaLectura, error) {
 	vacia := inscripcion.CapturaLectura{}
 	if a == nil || ctx == nil || ctx.Err() != nil || nuloInscripcionBolsa(a.c.Lectura) || nuloInscripcionBolsa(a.c.Reloj) ||
 		!accionLecturaInscripcion(accion) || s.Resultado.Validar() != nil || s.Vinculo.ValidarPara(s.Resultado) != nil {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
 	ahora := a.c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
-	if !s.Vinculo.VigenteEn(ahora, s.Resultado) {
+	if !acreditacionInscripcionBolsaActual(s, acreditacion, ahora) {
 		return vacia, inscripcion.ErrSesionAusente
 	}
 	v, err := s.Vinculo.Datos()
 	if err != nil {
 		return vacia, inscripcion.ErrSesionAusente
 	}
-	decision, err := a.c.Lectura.DecidirLecturaActual(ctx, s, accion, recurso, filtro)
+	decision, err := a.c.Lectura.DecidirLecturaActual(ctx, s, acreditacion, accion, recurso, filtro)
 	if err != nil || ctx.Err() != nil {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
 	ahora = a.c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 	descriptor, publicado := a.c.Lecturas[accion]
-	if !decision.Concedida || !s.Vinculo.VigenteEn(ahora, s.Resultado) ||
+	if !decision.Concedida || !acreditacionInscripcionBolsaActual(s, acreditacion, ahora) ||
 		!publicado || descriptor.Accion != accion || descriptor.Finalidad == "" || len(descriptor.Campos) == 0 ||
 		decision.PersonaRef != s.Resultado.Contexto.PersonaRef || decision.PerfilRef != v.PerfilActivoRef ||
 		decision.CuentaRef != v.CuentaRef || decision.SesionRef != v.SesionRef || decision.AutenticacionRef != v.AutenticacionRef ||
-		!huellaCertificadoInscripcionValida(decision.CertificadoHuellaSHA256) ||
+		decision.CertificadoHuellaSHA256 != acreditacion.CertificadoHuellaSHA256 ||
 		decision.Accion != accion || decision.RecursoRef != recurso || decision.Filtro != filtro ||
 		decision.RevisionPermisos == 0 || decision.Finalidad != descriptor.Finalidad ||
 		!vecdomain.ReferenciaCorrelacionAutorizacionV2Valida(decision.CorrelacionRef) ||
@@ -165,7 +165,7 @@ func canalLecturaInscripcion(a, canal string, superficie vecdomain.SuperficieAut
 		canal == "interna_corporativa" && superficie == vecdomain.SuperficieAutenticacionInternaCorporativaV1
 }
 
-func (a *autoridadNominalInscripcionBolsa) AutorizarEscritura(ctx context.Context, s contextoSeguridadComunDesarrollo, accion, recurso string, material, recursoCanonico []byte) (AutorizacionEscrituraInscripcionBolsa, error) {
+func (a *autoridadNominalInscripcionBolsa) AutorizarEscritura(ctx context.Context, s contextoSeguridadComunDesarrollo, acreditacion AcreditacionSesionInscripcionBolsa, accion, recurso string, material, recursoCanonico []byte) (AutorizacionEscrituraInscripcionBolsa, error) {
 	vacia := AutorizacionEscrituraInscripcionBolsa{}
 	if a == nil || ctx == nil || ctx.Err() != nil || a.c.PDP == nil || a.c.Material == nil ||
 		nuloInscripcionBolsa(a.c.Motivos) || nuloInscripcionBolsa(a.c.Reloj) ||
@@ -177,7 +177,7 @@ func (a *autoridadNominalInscripcionBolsa) AutorizarEscritura(ctx context.Contex
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
 	ahora := a.c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
-	if !s.Vinculo.VigenteEn(ahora, s.Resultado) || !materialEscrituraInscripcionExacto(accion, s.Resultado.Contexto.PersonaRef, recurso, material, recursoCanonico) {
+	if !acreditacionInscripcionBolsaActual(s, acreditacion, ahora) || !materialEscrituraInscripcionExacto(accion, s.Resultado.Contexto.PersonaRef, recurso, material, recursoCanonico) {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
 	v, err := s.Vinculo.Datos()
