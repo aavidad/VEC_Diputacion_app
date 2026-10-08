@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
 const claveSeleccionLlamamientoHTTPPrueba = "" +
@@ -159,31 +160,33 @@ func TestManejadorSeleccionLlamamientoReplayTerminalConservaSalidaPublica(
 	}
 }
 
-func TestManejadorSeleccionLlamamientoClasificaEstadosNoReintentables(
+func TestManejadorSeleccionLlamamientoDistingueRecuperacionColisionYDenegacion(
 	t *testing.T,
 ) {
 	t.Parallel()
-	casos := []error{
-		application.ErrClaveSeleccionLlamamientoEnColision,
-		application.ErrEjecucionSeleccionLlamamientoConcurrente,
-		application.ErrEjecucionSeleccionLlamamientoIndeterminada,
-		errors.Join(
-			application.ErrEjecucionSeleccionLlamamientoIndeterminada,
-			context.DeadlineExceeded,
-		),
+	casos := []struct {
+		fallo  error
+		estado int
+		codigo string
+	}{
+		{application.ErrClaveSeleccionLlamamientoEnColision, http.StatusConflict, "conflicto_no_reintentable"},
+		{application.ErrEjecucionSeleccionLlamamientoConcurrente, http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{application.ErrEjecucionSeleccionLlamamientoIndeterminada, http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{errors.Join(application.ErrEjecucionSeleccionLlamamientoIndeterminada, context.DeadlineExceeded), http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{ports.ErrAutorizacionDenegada, http.StatusForbidden, "acceso_denegado"},
 	}
-	for indice, fallo := range casos {
-		ejecutor := &ejecutorSeleccionLlamamientoHTTPPrueba{err: fallo}
+	for indice, caso := range casos {
+		ejecutor := &ejecutorSeleccionLlamamientoHTTPPrueba{err: caso.fallo}
 		manejador := nuevoManejadorSeleccionLlamamientoHTTPPrueba(t, ejecutor)
 		respuesta := httptest.NewRecorder()
 		manejador.ServeHTTP(
 			respuesta,
 			nuevaPeticionSeleccionLlamamientoHTTPPrueba(),
 		)
-		if respuesta.Code != http.StatusConflict ||
+		if respuesta.Code != caso.estado ||
 			!bytes.Contains(
 				respuesta.Body.Bytes(),
-				[]byte(`"codigo":"conflicto_no_reintentable"`),
+				[]byte(`"codigo":"`+caso.codigo+`"`),
 			) ||
 			respuesta.Header().Get("Retry-After") != "" || ejecutor.total() != 1 {
 			t.Fatalf(

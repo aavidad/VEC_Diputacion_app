@@ -404,7 +404,7 @@ func TestPuenteBolsaLlamamientoDesarrolloRecibosConAgregadoYFechasReales(t *test
 	if err != nil {
 		t.Fatal("firma llamamiento:", err)
 	}
-	if recibo.LlamamientoRef != llamamiento.LlamamientoRef || recibo.OrdenSeleccionado != 2 ||
+	if recibo.LlamamientoRecuperado || recibo.LlamamientoRef != llamamiento.LlamamientoRef || recibo.OrdenSeleccionado != 2 ||
 		recibo.ConfirmadaEn != rp.ConfirmadaEn || !recibo.PropuestaGenerada {
 		t.Fatal("recibo inventó agregado o fecha")
 	}
@@ -420,9 +420,35 @@ func TestPuenteBolsaLlamamientoDesarrolloRecibosConAgregadoYFechasReales(t *test
 	if r, err := p.firmarLlamamientoPersistido(ctx, comando, cLlamamiento, doc, sinAgregado); err == nil || r != (ports.ReciboSolicitudLlamamientoBolsa{}) {
 		t.Fatal("firmó sin agregado abierto")
 	}
-	rp.ConfirmadaEn = cLlamamiento.SolicitadaEn.Add(-time.Microsecond)
-	if r, err := p.firmarLlamamientoPersistido(ctx, comando, cLlamamiento, doc, rp); err == nil || r != (ports.ReciboSolicitudLlamamientoBolsa{}) {
-		t.Fatal("replay retocó fecha antigua")
+	// Se recupera el efecto original con otra ventana, sin retocar su fecha.
+	reloj.instante = reloj.instante.Add(time.Minute)
+	contextoRecuperacion, err := p.contexto(ctx, d, d.operacionPropuesta, puertosbolsa.AccionAbrirLlamamientoDesarrollo, reciboOrden.Orden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pruebaRecuperacion, _, err := p.Verificador().VerificarReciboOrden(ctx, orden, reciboOrden, reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	comandoRecuperacion, err := ports.NuevoComandoSolicitarLlamamientoBolsa(ports.PreparacionComandoSolicitarLlamamientoBolsa{
+		Contexto: contextoRecuperacion, ComandoOrden: orden, ReciboOrden: reciboOrden, ComprobanteOrden: pruebaRecuperacion, MaximaPosicionEvaluable: 3,
+	}, reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	datosRecuperacion, err := contextoRecuperacion.DatosEn(reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	recuperacion, err := p.firmarLlamamientoPersistido(ctx, comandoRecuperacion, datosRecuperacion, doc, rp)
+	if err != nil || !recuperacion.LlamamientoRecuperado || recuperacion.ConfirmadaEn != rp.ConfirmadaEn || recuperacion.ReciboRef != recibo.ReciboRef || recuperacion.LlamamientoRef != recibo.LlamamientoRef || recuperacion.Propuesta != recibo.Propuesta {
+		t.Fatal("recuperación cambió efecto o fecha original:", err)
+	}
+	if _, _, err := p.Verificador().VerificarReciboLlamamiento(ctx, comandoRecuperacion, recuperacion, reloj.Ahora()); err != nil {
+		t.Fatal("atestación fresca de llamamiento:", err)
+	}
+	if _, _, err := p.Verificador().VerificarReciboLlamamiento(ctx, comandoRecuperacion, recibo, reloj.Ahora()); err == nil {
+		t.Fatal("firma antigua aceptada con petición nueva")
 	}
 	// Atestación de la misma orden tras una petición posterior. La fixture no
 	// simula consumo SQL: comprueba la traducción que sigue al servicio real.

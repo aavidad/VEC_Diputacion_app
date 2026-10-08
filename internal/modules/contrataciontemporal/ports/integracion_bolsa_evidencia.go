@@ -287,6 +287,9 @@ func materialReciboLlamamientoBolsa(
 	c.campo("auditoria_ref", recibo.AuditoriaRef)
 	c.campo("evento_ref", recibo.EventoRef)
 	c.instante("confirmada_en", recibo.ConfirmadaEn)
+	if recibo.LlamamientoRecuperado {
+		c.booleano("recibo_llamamiento_recuperado", true)
+	}
 	return c.bytes()
 }
 
