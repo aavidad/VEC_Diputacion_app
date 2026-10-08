@@ -44,6 +44,12 @@ func (c *Conector) SeudonimizarPresentacionCertificado(
 		ids.CertificadoSHA256 == ids.CASHA256 {
 		return vacia, errors.New("identificadores de presentacion invalidos")
 	}
+	c.mu.Lock()
+	disponible := !c.cerrado && c.ctx != nil
+	c.mu.Unlock()
+	if !disponible {
+		return vacia, errors.New("conector PKCS#11 no disponible")
+	}
 
 	// El puerto de alta es la autoridad del formato HMAC de estos cuatro
 	// valores; no reconstruir su preimagen en una segunda implementación.

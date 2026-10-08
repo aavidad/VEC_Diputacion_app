@@ -103,6 +103,10 @@ func TestPresentacionCertificadoRechazaEntradaAntesDeUsarHSM(t *testing.T) {
 			}
 		})
 	}
+	if salida, err := c.SeudonimizarPresentacionCertificado(context.Background(), ids); err == nil ||
+		salida != (registro.SeudonimosPresentacionCertificado{}) {
+		t.Fatalf("conector sin Abrir admitio presentacion: %v", err)
+	}
 	ctx, cancelar := context.WithCancel(context.Background())
 	cancelar()
 	if _, err := c.SeudonimizarPresentacionCertificado(ctx, ids); err != context.Canceled {
