@@ -613,12 +613,15 @@ async function recorrerGrafo(entrada, { dinamicos }) {
 test("ningún módulo del portal se pide con dos URL distintas (una sola descarga y una sola instancia)", async () => {
   const urls = await recorrerGrafo("portal-empleado/portal.js", { dinamicos: true });
   const codigoPortal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
+  const codigoCoordinador = await readFile(new URL("./portal-modulos-coordinador.js", import.meta.url), "utf8");
   const versionCoordinador = versionDe(codigoPortal, "./portal-modulos-coordinador.js");
+  const versionIncorporacion = versionDe(codigoCoordinador,
+    "./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js");
   for (const url of [
     "/portal-empleado/portal-bolsas-api.js?v=20261008-bolsa-global-v2",
     "/portal-empleado/portal-bolsas-contrato.js?v=20261008-canal-telefono-v2",
     `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
-    "/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1",
+    `/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=${versionIncorporacion}`,
   ]) assert.ok(urls.has(url), `${url}: el portal debe alcanzar ambas ramas integradas`);
   const porFichero = new Map();
   for (const url of urls) {

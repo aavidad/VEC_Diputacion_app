@@ -4,9 +4,9 @@ import {
   validarBorradorAlta,
   validarCatalogosAlta,
   numeroExpedienteMOADValido,
-} from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
+} from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-rechazo-v2";
 import { extraerBorrador, formulario as renderizarFormularioPuro,
-  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261008-alta-capacidad-v3";
+  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261008-alta-rechazo-v2";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO, MENSAJES_AYUDA_PETICIONES_CENTRO,
   TEXTOS_LOCALES_PETICIONES_CENTRO, prepararAnalisisPeticionesCentro,

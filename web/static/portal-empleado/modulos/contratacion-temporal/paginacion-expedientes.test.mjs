@@ -3,7 +3,8 @@ import test from "node:test";
 
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
 import { renderizarCuadro } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { validarCuadroContratacionTemporal } from "./contrato-expedientes.js";
+import { validarCuadroContratacionTemporal, validarExpedienteContratacionTemporal } from "./contrato-expedientes.js";
+import { crearExpedienteContratacionTemporalPresentacion } from "./datos-presentacion.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
 import {
@@ -92,6 +93,86 @@ test("consume cada cursor una vez y reinicia antes de actualizar o cambiar filtr
   assert.deepEqual(llamadas.at(-1), {
     filtros: { texto: "", estado: "pendiente", fase: "" }, cursor: "", numeroPagina: 1,
   });
+});
+
+test("refresca la ficha confirmada fuera del filtro y conserva la página segunda", async () => {
+  const pagina = cuadro({ pagina: 2, cursor: CURSOR_B, siguiente: CURSOR_C, sufijo: "2" });
+  const base = crearExpedienteContratacionTemporalPresentacion();
+  const actual = validarExpedienteContratacionTemporal({
+    ...base, demostracion: false, expediente_ref: pagina.expedientes[0].expediente_ref,
+    numero_visible: pagina.expedientes[0].numero_visible, version: 7,
+  });
+  const posterior = validarExpedienteContratacionTemporal({
+    ...actual, version: 8,
+    cabecera: [...actual.cabecera, {
+      clave: "resultado_rc", etiqueta: "Resultado RC", valor: "validada", tono: "neutro",
+      control: "solo_lectura", obligatorio: false, opciones: [],
+    }],
+  });
+  let listados = 0;
+  let detalles = 0;
+  const fuente = {
+    async listar() { listados += 1; return pagina; },
+    async obtener() { detalles += 1; return detalles === 1 ? actual : posterior; },
+    async ejecutar() { assert.fail("el refresco no escribe"); },
+  };
+  const presentador = crearPresentadorExpedientesContratacionTemporal({
+    fuente,
+    capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"],
+  });
+  await presentador.cargar({ texto: "", estado: "", fase: "solicitud" }, {
+    cursor: CURSOR_B, numero: 2,
+  });
+  await presentador.seleccionarExpediente(actual.expediente_ref);
+  await presentador.refrescarExpedienteConfirmado({
+    expediente_ref: actual.expediente_ref, version_resultante: posterior.version,
+  });
+  const estado = presentador.obtenerEstado();
+  assert.equal(estado.vista, "expediente");
+  assert.equal(estado.expediente.version, 8);
+  assert.equal(estado.expediente.cabecera.at(-1).valor, "validada");
+  assert.equal(estado.cuadro_desactualizado, true);
+  assert.equal(estado.cuadro.paginacion.pagina, 2);
+  assert.deepEqual(estado.filtros, { texto: "", estado: "", fase: "solicitud" });
+  assert.deepEqual({ listados, detalles }, { listados: 1, detalles: 2 });
+  await assert.rejects(presentador.refrescarExpedienteConfirmado({
+    expediente_ref: "expediente:ct:ajeno", version_resultante: 9,
+  }));
+  await assert.rejects(presentador.refrescarExpedienteConfirmado({
+    expediente_ref: actual.expediente_ref, version_resultante: 7,
+  }));
+  assert.equal(detalles, 2);
+  let resolverTardia;
+  fuente.obtener = () => new Promise((resolve) => { resolverTardia = resolve; });
+  const lecturaTardia = presentador.refrescarExpedienteConfirmado({
+    expediente_ref: actual.expediente_ref, version_resultante: 9,
+  });
+  presentador.cambiarVista("documentos");
+  presentador.cambiarVista("expediente");
+  resolverTardia(validarExpedienteContratacionTemporal({ ...posterior, version: 9 }));
+  await lecturaTardia;
+  assert.equal(presentador.obtenerEstado().vista, "expediente");
+  assert.equal(presentador.obtenerEstado().expediente.version, 8);
+
+  const vacia = validarCuadroContratacionTemporal({
+    ...pagina, expedientes: [],
+    paginacion: { pagina: 1, cursor_actual: "", cursor_siguiente: "" },
+  });
+  fuente.listar = async ({ filtros, cursor, numeroPagina }) => {
+    assert.deepEqual(filtros, { texto: "", estado: "", fase: "solicitud" });
+    assert.equal(cursor, "");
+    assert.equal(numeroPagina, 1);
+    listados += 1;
+    return vacia;
+  };
+  await presentador.volverAlCuadro();
+  assert.equal(listados, 2);
+  assert.equal(presentador.obtenerEstado().vista, "cuadro");
+  assert.equal(presentador.obtenerEstado().carga, "vacio");
+  assert.equal(presentador.obtenerEstado().cuadro.expedientes.length, 0);
+  assert.equal(presentador.obtenerEstado().cuadro.paginacion.pagina, 1);
+  assert.deepEqual(presentador.obtenerEstado().filtros, { texto: "", estado: "", fase: "solicitud" });
+  assert.equal(presentador.obtenerEstado().cuadro_desactualizado, false);
 });
 
 test("descarta la página retrasada tras cambiar filtros y no conserva selección oculta", async () => {

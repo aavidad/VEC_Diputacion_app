@@ -1,4 +1,4 @@
-import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261008-alta-circular-v3";
+import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261008-alta-rechazo-v2";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -46,7 +46,7 @@ import {
   extraerDatos,
   construirErrorRespuesta,
   construirCabeceras,
-} from "./cliente-http-transporte.js";
+} from "./cliente-http-transporte.js?v=20261008-alta-corte-v1";
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
@@ -92,6 +92,7 @@ export class ErrorClienteHTTPContratacionTemporal extends Error {
     estado = 0,
     claveI18n = "",
     correlacionRef = null,
+    campo = "",
     envelopeValido = false,
     resultadoIndeterminado = codigo === "operacion_pendiente"
       || codigo === "resultado_indeterminado",
@@ -104,6 +105,7 @@ export class ErrorClienteHTTPContratacionTemporal extends Error {
     this.estado = estado;
     this.claveI18n = claveI18n;
     this.correlacionRef = correlacionRef;
+    this.campo = campo;
     this.envelopeValido = envelopeValido;
     this.resultadoIndeterminado = resultadoIndeterminado;
     this.requiereRecuperacion = resultadoIndeterminado;
@@ -137,6 +139,7 @@ function convertirEnResultadoIndeterminado(error) {
     estado: error.estado,
     claveI18n: error.claveI18n,
     correlacionRef: error.correlacionRef,
+    campo: error.campo,
     envelopeValido: error.envelopeValido,
     resultadoIndeterminado: true,
   });
@@ -473,7 +476,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
       ruta,
       entrada,
       signal,
-      estadoEsperado: 201,
+      estadoEsperado: [201, 200],
       maximoSolicitud: MAXIMO_SOLICITUD_ANALISIS_BYTES,
       maximoRespuesta: MAXIMO_RESPUESTA_ANALISIS_BYTES,
       validarRespuesta: (respuesta) => {
