@@ -29,7 +29,7 @@ func (c *contadorConsultasResumenRRHH) TraceQueryStart(ctx context.Context, _ *p
 	if strings.Contains(data.SQL, "leer_llamamientos_en_curso_bolsas_v1") {
 		c.llamamientos.Add(1)
 	}
-	if strings.Contains(data.SQL, "leer_llamamientos_completos_resumen_v1") {
+	if strings.Contains(data.SQL, "FROM vec_bolsa_llamamientos.leer_llamamientos_completos_resumen_v1()") {
 		c.lista.Add(1)
 	}
 	return ctx
@@ -233,5 +233,45 @@ func TestLectorResumenBolsasP95ClonPostgreSQL(t *testing.T) {
 	t.Logf("adaptador: %d participaciones, %d muestras, p95=%s", len(primero.Situaciones), muestras, p95)
 	if p95 >= 300*time.Millisecond {
 		t.Fatalf("p95 del adaptador supera 300 ms: %s", p95)
+	}
+}
+
+func TestLectorResumenBolsasConLlamamientosP95ClonPostgreSQL(t *testing.T) {
+	dsn := os.Getenv("VEC_BOLSA_LOTES_PG_DSN")
+	if dsn == "" {
+		t.Skip("sin VEC_BOLSA_LOTES_PG_DSN")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	lector, err := NuevoLectorResumenBolsasConLlamamientosPostgreSQL(ctx, pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	primero, err := lector.LeerResumen(ctx, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(primero.Situaciones) < 2000 {
+		t.Skipf("clon con %d participaciones; se requieren al menos 2000", len(primero.Situaciones))
+	}
+	const muestras = 100
+	duraciones := make([]time.Duration, 0, muestras)
+	for range muestras {
+		inicio := time.Now()
+		if _, err := lector.LeerResumen(ctx, inicio); err != nil {
+			t.Fatal(err)
+		}
+		duraciones = append(duraciones, time.Since(inicio))
+	}
+	sort.Slice(duraciones, func(i, j int) bool { return duraciones[i] < duraciones[j] })
+	p95 := duraciones[(muestras*95+99)/100-1]
+	t.Logf("adaptador con lista: %d participaciones, %d llamamientos, %d muestras, p95=%s",
+		len(primero.Situaciones), len(primero.Llamamientos), muestras, p95)
+	if p95 >= 300*time.Millisecond {
+		t.Fatalf("p95 del adaptador con lista supera 300 ms: %s", p95)
 	}
 }
