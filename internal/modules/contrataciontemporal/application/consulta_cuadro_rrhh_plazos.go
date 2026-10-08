@@ -47,7 +47,19 @@ func (s *ServicioConsultaCuadroRRHH) completarPlazos(
 	if !domain.InstanteUTCCanonico(ahora) {
 		return nil, nil, nil
 	}
-	calculadora := s.prepararPlazos(ctx)
+	calculadora := s.plazos
+	_, calculaCapturas := calculadora.(ports.CalculadoraConCapturaPlazoFaseRRHH)
+	capturasCompletas := !conPlazos || len(pagina.CapturasPlazo) == len(pagina.Expedientes)
+	if pagina.Agregados != nil {
+		for _, grupo := range pagina.Agregados.GruposPlazo {
+			capturasCompletas = capturasCompletas && grupo.Captura != nil
+		}
+	}
+	// La consulta ya contiene las reglas fijadas. No leer una cabeza editable
+	// cuya disponibilidad o contenido no gobiernan estos tramos.
+	if !calculaCapturas || !capturasCompletas {
+		calculadora = s.prepararPlazos(ctx)
+	}
 	var plazos []*ports.PlazoFaseRRHH
 	if conPlazos {
 		plazos = calcularPlazosPagina(ctx, calculadora, pagina, ahora)

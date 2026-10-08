@@ -54,6 +54,40 @@ func TestPlazoFaseUsaCapturaYNoCabezaActual(t *testing.T) {
 	}
 }
 
+type preparadorCapturaPrueba struct {
+	calculadoraCapturaPrueba
+	preparaciones int
+}
+
+func (c *preparadorCapturaPrueba) PrepararPlazosFase(context.Context) (ports.CalculadoraPlazoFaseRRHH, error) {
+	c.preparaciones++
+	return nil, errors.New("cabeza de reglas no disponible")
+}
+
+func TestConsultaCuadroCalculaCapturasSinLeerCabezaActual(t *testing.T) {
+	t.Parallel()
+	entorno := nuevoEntornoConsultaRRHH(t)
+	pagina := entorno.sesion.pagina
+	resumen := pagina.Expedientes[0]
+	captura := ports.CapturaPlazoFaseRRHH{Estado: "capturada", Fase: resumen.FaseClave,
+		FaseDesde: resumen.CreadoEn, BaseHuella: "base-fijada"}
+	pagina.FasesDesde = []time.Time{resumen.CreadoEn}
+	pagina.CapturasPlazo = []ports.CapturaPlazoFaseRRHH{captura}
+	pagina.Agregados = &ports.AgregadosCuadroRRHH{GruposPlazo: []ports.GrupoPlazoCuadroRRHH{
+		{FaseClave: resumen.FaseClave, Desde: resumen.CreadoEn, Numero: 1, Captura: &captura},
+	}}
+	calculadora := &preparadorCapturaPrueba{}
+	servicio := &ServicioConsultaCuadroRRHH{plazos: calculadora, reloj: entorno.reloj}
+	plazos, agregado, err := servicio.completarPlazos(t.Context(), pagina)
+	if err != nil || agregado == nil || len(plazos) != 1 || plazos[0] == nil || plazos[0].ReglaRef != captura.BaseHuella {
+		t.Fatalf("no se usó la regla fijada: plazos=%+v agregado=%+v error=%v", plazos, agregado, err)
+	}
+	if calculadora.preparaciones != 0 || calculadora.actual != 0 || len(calculadora.capturas) != 2 {
+		t.Fatalf("lectura ajena a las capturas: preparaciones=%d cabeza=%d capturas=%d",
+			calculadora.preparaciones, calculadora.actual, len(calculadora.capturas))
+	}
+}
+
 func (c *calculadoraPlazoFasePrueba) CalcularPlazoFase(
 	_ context.Context,
 	solicitud ports.SolicitudPlazoFaseRRHH,
