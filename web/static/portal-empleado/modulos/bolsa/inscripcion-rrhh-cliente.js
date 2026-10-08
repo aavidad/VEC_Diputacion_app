@@ -3,6 +3,7 @@ const ESTADOS = new Set(["pendiente", "admitida_a_convocatoria", "incorporada", 
 const DECISIONES = new Set(["admitir", "rechazar"]);
 const REF = /^[^/\u0000-\u001f\u007f-\u009f]{1,512}$/u;
 const CLAVE = /^[a-zA-Z0-9._:-]{8,128}$/u;
+const IDIOMA = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/u;
 const ESQUEMAS = Object.freeze({ lista: "vec.bolsa.inscripciones.rrhh.v1",
   detalle: "vec.bolsa.inscripcion.rrhh.v1", motivos: "vec.bolsa.inscripcion.motivos.v1",
   recibo: "vec.bolsa.inscripcion.decision.recibo.v1" });
@@ -14,7 +15,9 @@ function referencia(valor) {
 
 function solicitudValida(item) {
   return item && typeof item === "object" && referencia(item.solicitud_ref)
-    && referencia(item.bolsa_ref) && (item.persona_resumen == null
+    && referencia(item.convocatoria_ref) && (item.bolsa_ref == null || referencia(item.bolsa_ref))
+    && typeof item.categoria === "string" && item.categoria.trim().length > 0 && item.categoria.length <= 240
+    && (item.persona_resumen == null
       || typeof item.persona_resumen === "string" && item.persona_resumen.length <= 240)
     && ESTADOS.has(item.estado)
     && Number.isSafeInteger(item.version) && item.version > 0
@@ -52,12 +55,14 @@ async function pedir(fetchImpl, ruta, { method = "GET", body, signal } = {}) {
 export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== "function") throw new TypeError("transporte no disponible");
   return Object.freeze({
-    async listar({ estado = "pendiente", bolsa = "", cursor = "", limite = 50, signal } = {}) {
-      if (!ESTADOS.has(estado) || (bolsa && !referencia(bolsa)) || (cursor && !referencia(cursor))
-        || !Number.isSafeInteger(limite) || limite < 20 || limite > 100) throw new TypeError("filtro incompatible");
+    async listar({ estado = "pendiente", convocatoria = "", cursor = "", limite = 50, idioma = "", signal } = {}) {
+      if (!ESTADOS.has(estado) || (convocatoria && !referencia(convocatoria)) || (cursor && !referencia(cursor))
+        || !Number.isSafeInteger(limite) || limite < 20 || limite > 100
+        || (idioma && !IDIOMA.test(idioma))) throw new TypeError("filtro incompatible");
       const parametros = new URLSearchParams({ estado, limite: String(limite) });
-      if (bolsa) parametros.set("bolsa_ref", bolsa);
+      if (convocatoria) parametros.set("convocatoria_ref", convocatoria);
       if (cursor) parametros.set("cursor", cursor);
+      if (idioma) parametros.set("idioma", idioma);
       const { estado: http, data } = await pedir(fetchImpl, `${BASE}?${parametros}`, { signal });
       if (http !== 200 || data?.esquema !== ESQUEMAS.lista || !Array.isArray(data.solicitudes)
         || data.solicitudes.length > limite || !data.solicitudes.every(solicitudValida)
@@ -65,15 +70,19 @@ export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } =
         || (data.cursor_siguiente !== null && !referencia(data.cursor_siguiente))) throw new TypeError("lista incompatible");
       return data;
     },
-    async detalle(solicitudRef, { signal } = {}) {
-      const { estado, data } = await pedir(fetchImpl, `${BASE}/${encodeURIComponent(referencia(solicitudRef))}`, { signal });
+    async detalle(solicitudRef, { signal, idioma = "" } = {}) {
+      if (idioma && !IDIOMA.test(idioma)) throw new TypeError("idioma incompatible");
+      const ruta = `${BASE}/${encodeURIComponent(referencia(solicitudRef))}${idioma ? `?idioma=${encodeURIComponent(idioma)}` : ""}`;
+      const { estado, data } = await pedir(fetchImpl, ruta, { signal });
       if (estado !== 200 || data?.esquema !== ESQUEMAS.detalle || !detalleValido(data.solicitud)
         || data.solicitud.solicitud_ref !== solicitudRef) throw new TypeError("detalle incompatible");
       return data.solicitud;
     },
-    async motivos(decision, { signal } = {}) {
-      if (!DECISIONES.has(decision)) throw new TypeError("decisión incompatible");
-      const { estado, data } = await pedir(fetchImpl, `${BASE}/motivos?decision=${decision}`, { signal });
+    async motivos(decision, { signal, idioma = "" } = {}) {
+      if (!DECISIONES.has(decision) || (idioma && !IDIOMA.test(idioma))) throw new TypeError("decisión incompatible");
+      const parametros = new URLSearchParams({ decision });
+      if (idioma) parametros.set("idioma", idioma);
+      const { estado, data } = await pedir(fetchImpl, `${BASE}/motivos?${parametros}`, { signal });
       if (estado !== 200 || data?.esquema !== ESQUEMAS.motivos
         || !Number.isSafeInteger(data.catalogo_version) || data.catalogo_version < 1
         || !Array.isArray(data.motivos) || data.motivos.length > 100
