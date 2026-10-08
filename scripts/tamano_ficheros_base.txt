@@ -99,12 +99,12 @@
 960 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
 848 web/static/bolsa/bolsa.css
 969 web/static/bolsa/lista-bolsas.test.mjs
-1071 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
+1089 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
 998 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1719 web/static/portal-empleado/modulos/dietas/dietas.css
 2017 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
-1473 web/static/portal-empleado/portal-modulos-coordinador.js
-1473 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
+1516 web/static/portal-empleado/portal-modulos-coordinador.js
+1539 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1034 web/static/portal-empleado/portal-componentes.css
 1685 web/static/portal-empleado/portal.js
 1183 web/static/portal-empleado/portal-bolsas-api.js
@@ -123,7 +123,7 @@
 988 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
 948 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
 1052 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
-984 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
+983 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 887 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
 1004 scripts/recorridos/clon_runtime.py

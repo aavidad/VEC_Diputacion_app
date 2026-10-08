@@ -140,6 +140,7 @@ RUN groupadd --system --gid 10001 app \
 COPY --from=build /src/bin/vec-server /usr/local/bin/vec-server
 COPY --from=build /src/locales /app/locales
 COPY --from=build /src/web-produccion /app/web
+COPY --from=build --chown=app:app /src/internal/modules/contrataciontemporal/adapters/catalogoalta/necesidades_v1.ejemplo.json /app/data/catalogos/contratacion-temporal/necesidades_v1.ejemplo.json
 
 USER app
 WORKDIR /app
