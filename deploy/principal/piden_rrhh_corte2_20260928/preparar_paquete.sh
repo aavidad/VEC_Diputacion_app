@@ -13,8 +13,8 @@ command -v go >/dev/null || fallar 'falta Go'
 command -v sha256sum >/dev/null || fallar 'falta sha256sum'
 command -v file >/dev/null || fallar 'falta file'
 command -v ldd >/dev/null || fallar 'falta ldd'
-[[ $(GOTOOLCHAIN=go1.26.6 go version) == 'go version go1.26.6 linux/amd64' ]] \
-  || fallar 'se requiere Go 1.26.6 linux/amd64, igual que el Dockerfile'
+[[ $(GOTOOLCHAIN=go1.26.9 go version) == 'go version go1.26.9 linux/amd64' ]] \
+  || fallar 'se requiere Go 1.26.9 linux/amd64, igual que el Dockerfile'
 git -C "$repo" merge-base --is-ancestor "$base" HEAD || fallar 'checkout ajeno al candidato'
 git -C "$repo" diff --quiet "$base" HEAD -- . \
   ':(exclude)deploy/principal/piden_rrhh_corte2_20260928/**' \
@@ -58,7 +58,7 @@ destino=$(mktemp -d /dev/shm/vec-piden-corte2-20260928.XXXXXXXX)
 trap 'rm -rf -- "$destino"' ERR
 mkdir -p -- "$destino/web" "$destino/evidencia"
 mkdir -p -- "$destino/.go-cache"
-GOCACHE="$destino/.go-cache" GOTOOLCHAIN=go1.26.6 GOMAXPROCS=2 \
+GOCACHE="$destino/.go-cache" GOTOOLCHAIN=go1.26.9 GOMAXPROCS=2 \
   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
   go -C "$repo" build -buildvcs=false -trimpath -ldflags='-s -w' \
   -o "$destino/vec-server" ./cmd/vec-server

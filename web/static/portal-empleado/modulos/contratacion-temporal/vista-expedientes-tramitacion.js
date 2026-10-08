@@ -5,20 +5,20 @@ import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=2026100
 import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v6";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-corte-v1";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261008-r-fichas-idioma-nav-v1";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261008-alta-analisis-bolsa-fichas-v5";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-rechazo-v2";
-import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261008-alta-rechazo-v2";
+import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-analisis-bolsa-v4";
+import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261008-alta-analisis-bolsa-v4";
 import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
 } from "./vista-expedientes-render.js?v=20261008-r-fichas-idioma-nav-v1";
-import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-alta-rechazo-v2";
+import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-alta-analisis-bolsa-v4";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 function enfocarElemento(raiz, selector) {
@@ -50,6 +50,7 @@ export function crearGestorTramitacion({
   anunciar = () => {},
   repintar = () => {},
   esMontada = () => true,
+  alCambiarFicha = () => {},
 } = {}) {
   const tExpedientes = crearTraductorExpedientesContratacion(mensajes);
   let desmontarAlta = null;
@@ -638,7 +639,10 @@ export function crearGestorTramitacion({
     try {
       await presentador.refrescarExpedienteConfirmado(recibo);
       if (!vigente()) return;
-      const actualizado = presentador.obtenerEstado().expediente;
+      const estadoActual = presentador.obtenerEstado();
+      const actualizado = estadoActual.expediente;
+      if (estadoActual.vista !== "expediente" || estadoActual.carga !== "listo"
+        || estadoActual.expediente_ref !== recibo.expediente_ref) return;
       if (actualizado?.expediente_ref !== recibo.expediente_ref
         || actualizado.version < recibo.version_resultante) {
         avisarPendiente();
@@ -673,6 +677,7 @@ export function crearGestorTramitacion({
         destino.append(confirmacion);
         if (enfocarConfirmacion) confirmacion.focus?.();
       }
+      alCambiarFicha({ expedienteRef: actualizado.expediente_ref, version: actualizado.version });
     } catch {
       avisarPendiente();
     }
