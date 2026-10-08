@@ -143,7 +143,7 @@ func (p *preparadorCargaConvocaBolsa) PrepararSolicitudVistaPreviaCargaConvoca(c
 		MotivoAutorizacion: motivoConfirmarCargaConvocaBolsaDesarrollo(), CategoriaRef: categoriaRef,
 		NombreFichero: entrada.NombreFichero, Contenido: entrada.Contenido, Pagina: entrada.Pagina,
 	}
-	if q.Validar() != nil {
+	if aplicacionbolsa.ValidarSolicitudVistaPreviaCargaConvoca(q) != nil {
 		return puertosbolsa.SolicitudVistaPreviaCargaConvoca{}, puertosbolsa.ErrCargaConvocaNoDisponible
 	}
 	return q, nil

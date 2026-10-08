@@ -6,13 +6,88 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"strconv"
+	"strings"
+	"time"
 
 	importacionapp "vec-diputacion-granada/internal/modules/bolsa/application/importacionconvoca"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
+
+var referenciaActaVistaConvoca = regexp.MustCompile(`^acta:importacion-convoca:[0-9a-f]{64}$`)
+var huellaVistaConvoca = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var auditoriaVistaConvoca = regexp.MustCompile(`^aud_v3_[0-9a-f]{32}$`)
+var categoriaVistaConvoca = regexp.MustCompile(`^categoria:rpt:[a-z0-9][a-z0-9_.-]{0,63}$`)
+
+func ValidarPaginaVistaPreviaCargaConvoca(p ports.PaginaVistaPreviaCargaConvoca) error {
+	switch p.Filtro {
+	case "todas", "aceptadas", "rechazadas", "con_avisos":
+	default:
+		return ports.ErrVistaPreviaCargaConvocaInvalida
+	}
+	if p.Limite < 1 || p.Limite > 100 || p.Desplazamiento < 0 || p.Desplazamiento > MaximoFilasCargaConvoca {
+		return ports.ErrVistaPreviaCargaConvocaInvalida
+	}
+	return nil
+}
+
+func ValidarSolicitudVistaPreviaCargaConvoca(s ports.SolicitudVistaPreviaCargaConvoca) error {
+	if s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil ||
+		s.ResultadoContexto.Contexto.PersonaRef == "" || s.Correlacion.Validar() != nil ||
+		!dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.MotivoAutorizacion) ||
+		!categoriaVistaConvoca.MatchString(s.CategoriaRef) ||
+		s.NombreFichero == "" || len(s.Contenido) == 0 || ValidarPaginaVistaPreviaCargaConvoca(s.Pagina) != nil {
+		return ports.ErrVistaPreviaCargaConvocaInvalida
+	}
+	return nil
+}
+
+func ValidarOrdenVistaPreviaCargaConvoca(o ports.OrdenVistaPreviaCargaConvoca) error {
+	if !referenciaActaVistaConvoca.MatchString(o.ActaRef) || o.ActorRef == "" ||
+		len(o.ActorRef) > 256 || strings.TrimSpace(o.ActorRef) != o.ActorRef ||
+		!categoriaVistaConvoca.MatchString(o.CategoriaRef) ||
+		!huellaVistaConvoca.MatchString(o.HuellaFicheroSHA256) ||
+		len(o.ContextoRecursoCanonico) == 0 || len(o.ContextoRecursoCanonico) > 2048 {
+		return ports.ErrVistaPreviaCargaConvocaInvalida
+	}
+	acta := sha256.Sum256([]byte(o.HuellaFicheroSHA256 + "\x1f" + o.CategoriaRef))
+	if o.ActaRef != "acta:importacion-convoca:"+hex.EncodeToString(acta[:]) {
+		return ports.ErrVistaPreviaCargaConvocaInvalida
+	}
+	return nil
+}
+
+func ValidarAcuseVistaPreviaCargaConvoca(a ports.AcuseVistaPreviaCargaConvoca) error {
+	if a.DecisionRef == "" || !referenciaActaVistaConvoca.MatchString(a.ActaRef) ||
+		!huellaVistaConvoca.MatchString(a.HuellaContextoSHA256) ||
+		!auditoriaVistaConvoca.MatchString(a.AuditoriaRef) || a.ConsumidaEn.IsZero() ||
+		!a.ConsumidaEn.Equal(a.ConsumidaEn.Truncate(time.Microsecond)) {
+		return ports.ErrVistaPreviaCargaConvocaInvalida
+	}
+	return nil
+}
+
+func ValidarAcuseVistaPreviaCargaConvocaPara(a ports.AcuseVistaPreviaCargaConvoca,
+	o ports.OrdenVistaPreviaCargaConvoca, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3,
+) error {
+	if ValidarAcuseVistaPreviaCargaConvoca(a) != nil || ValidarOrdenVistaPreviaCargaConvoca(o) != nil ||
+		m.ValidarEstructura() != nil {
+		return ports.ErrVistaPreviaCargaConvocaInvalida
+	}
+	resumen := m.ResumenCapacidad()
+	huella := sha256.Sum256(o.ContextoRecursoCanonico)
+	if a.DecisionRef != resumen.DecisionRef() || a.ActaRef != o.ActaRef ||
+		a.HuellaContextoSHA256 != hex.EncodeToString(huella[:]) ||
+		a.HuellaContextoSHA256 != resumen.EfectoHuellaSHA256() ||
+		resumen.EfectoRef() != o.ActaRef || resumen.Operacion() != ports.AccionConfirmarCargaConvoca ||
+		resumen.AudienciaConsumo() != ports.AudienciaConfirmarCargaConvoca {
+		return ports.ErrVistaPreviaCargaConvocaInvalida
+	}
+	return nil
+}
 
 // VistaPreviaCargaConvocaPreparada sólo expone la página que HTTP puede
 // serializar en memoria. La solicitud V3 y la orden SQL permanecen privadas.
@@ -54,7 +129,7 @@ func NuevoServicioVistaPreviaCargaConvocaAutorizada(vista *PrevisualizadorCargaC
 func (s *ServicioVistaPreviaCargaConvocaAutorizada) Preparar(ctx context.Context,
 	q ports.SolicitudVistaPreviaCargaConvoca,
 ) (VistaPreviaCargaConvocaPreparada, error) {
-	if s == nil || s.vista == nil || s.contexto == nil || ctx == nil || q.Validar() != nil {
+	if s == nil || s.vista == nil || s.contexto == nil || ctx == nil || ValidarSolicitudVistaPreviaCargaConvoca(q) != nil {
 		return VistaPreviaCargaConvocaPreparada{}, ports.ErrVistaPreviaCargaConvocaNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
@@ -91,7 +166,7 @@ func (s *ServicioVistaPreviaCargaConvocaAutorizada) Preparar(ctx context.Context
 	}
 	orden := ports.OrdenVistaPreviaCargaConvoca{ActaRef: acta, ActorRef: actor.Principal.ID,
 		CategoriaRef: q.CategoriaRef, HuellaFicheroSHA256: huellaFichero, ContextoRecursoCanonico: canon}
-	if orden.Validar() != nil {
+	if ValidarOrdenVistaPreviaCargaConvoca(orden) != nil {
 		return VistaPreviaCargaConvocaPreparada{}, ports.ErrVistaPreviaCargaConvocaNoDisponible
 	}
 	preparada, err := PaginarVistaPreviaCargaConvoca(vista, q.Pagina)
@@ -108,7 +183,7 @@ func (s *ServicioVistaPreviaCargaConvocaAutorizada) Preparar(ctx context.Context
 func PaginarVistaPreviaCargaConvoca(vista VistaPreviaCargaConvoca,
 	pagina ports.PaginaVistaPreviaCargaConvoca,
 ) (VistaPreviaCargaConvocaPreparada, error) {
-	if pagina.Validar() != nil {
+	if ValidarPaginaVistaPreviaCargaConvoca(pagina) != nil {
 		return VistaPreviaCargaConvocaPreparada{}, ports.ErrVistaPreviaCargaConvocaInvalida
 	}
 	total := 0
@@ -167,7 +242,7 @@ func (s *ServicioVistaPreviaCargaConvocaAutorizada) Consumir(ctx context.Context
 	p VistaPreviaCargaConvocaPreparada,
 ) (ports.AcuseVistaPreviaCargaConvoca, error) {
 	if s == nil || s.autorizador == nil || s.consumidor == nil || ctx == nil ||
-		p.orden.Validar() != nil || p.Pagina.Validar() != nil || p.resultado.Validar() != nil ||
+		ValidarOrdenVistaPreviaCargaConvoca(p.orden) != nil || ValidarPaginaVistaPreviaCargaConvoca(p.Pagina) != nil || p.resultado.Validar() != nil ||
 		p.vinculo.ValidarPara(p.resultado) != nil {
 		return ports.AcuseVistaPreviaCargaConvoca{}, ports.ErrVistaPreviaCargaConvocaNoDisponible
 	}
@@ -204,7 +279,7 @@ func (s *ServicioVistaPreviaCargaConvocaAutorizada) Consumir(ctx context.Context
 	if errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
 		return ports.AcuseVistaPreviaCargaConvoca{}, err
 	}
-	if err != nil || acuse.ValidarPara(p.orden, material) != nil {
+	if err != nil || ValidarAcuseVistaPreviaCargaConvocaPara(acuse, p.orden, material) != nil {
 		return ports.AcuseVistaPreviaCargaConvoca{}, ports.ErrVistaPreviaCargaConvocaNoDisponible
 	}
 	return acuse, nil

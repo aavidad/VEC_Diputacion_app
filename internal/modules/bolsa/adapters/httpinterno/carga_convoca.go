@@ -208,7 +208,7 @@ func (h *HandlerCargaConvoca) previsualizar(w http.ResponseWriter, r *http.Reque
 	}
 	defer clear(respuesta)
 	acuse, err := h.lectura.Consumir(r.Context(), preparada)
-	if err != nil || acuse.Validar() != nil {
+	if err != nil || aplicacionbolsa.ValidarAcuseVistaPreviaCargaConvoca(acuse) != nil {
 		if err == nil {
 			err = puertosbolsa.ErrVistaPreviaCargaConvocaNoDisponible
 		}

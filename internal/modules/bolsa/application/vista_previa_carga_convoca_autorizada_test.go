@@ -74,7 +74,7 @@ func TestVistaPreviaCargaConvocaPreparaPaginaAntesDeConsumirAD218(t *testing.T) 
 		t.Fatalf("página/cifras inesperadas: %+v", preparada)
 	}
 	acuse, err := servicio.Consumir(context.Background(), preparada)
-	if err != nil || acuse.ValidarPara(consumidor.orden, consumidor.material) != nil ||
+	if err != nil || ValidarAcuseVistaPreviaCargaConvocaPara(acuse, consumidor.orden, consumidor.material) != nil ||
 		consumidor.llamadas != 1 || len(autorizador.solicitudes) != 1 || lector.llamadas != 1 {
 		t.Fatalf("consumo/acuse incorrecto: %v %+v", err, acuse)
 	}

@@ -197,10 +197,10 @@ func TestPreparadorCargaConvocaTomaContextoYCategoriaDelServidor(t *testing.T) {
 		NombreFichero: "acta.xlsx", Contenido: []byte("contenido"), CategoriaClave: "auxiliar-administrativo",
 		Pagina: puertosbolsa.PaginaVistaPreviaCargaConvoca{Filtro: "todas", Limite: 50},
 	})
-	if err != nil || qVista.Validar() != nil || qVista.CategoriaRef != solicitud.CategoriaRef ||
+	if err != nil || aplicacionbolsa.ValidarSolicitudVistaPreviaCargaConvoca(qVista) != nil || qVista.CategoriaRef != solicitud.CategoriaRef ||
 		qVista.ResultadoContexto.Contexto.Principal.ID == "" {
 		t.Fatalf("solicitud de lectura B1 sin identidad/categoría RPT: error=%v valida=%v categoria=%q principal_vacio=%t",
-			err, qVista.Validar(), qVista.CategoriaRef, qVista.ResultadoContexto.Contexto.Principal.ID == "")
+			err, aplicacionbolsa.ValidarSolicitudVistaPreviaCargaConvoca(qVista), qVista.CategoriaRef, qVista.ResultadoContexto.Contexto.Principal.ID == "")
 	}
 	sumaVista := sha256.Sum256([]byte("contenido"))
 	if actaVista, ok := recursoActaCargaConvocaBolsa(ctxVista); !ok ||

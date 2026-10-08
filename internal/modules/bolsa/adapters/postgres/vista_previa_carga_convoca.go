@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -36,7 +37,7 @@ func (r *ConsumidorVistaPreviaCargaConvocaPostgreSQL) ConsumirVistaPreviaCargaCo
 	ctx context.Context, orden ports.OrdenVistaPreviaCargaConvoca,
 	material puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3,
 ) (ports.AcuseVistaPreviaCargaConvoca, error) {
-	if r == nil || r.pool == nil || ctx == nil || orden.Validar() != nil || material.ValidarEstructura() != nil {
+	if r == nil || r.pool == nil || ctx == nil || aplicacionbolsa.ValidarOrdenVistaPreviaCargaConvoca(orden) != nil || material.ValidarEstructura() != nil {
 		return ports.AcuseVistaPreviaCargaConvoca{}, ports.ErrVistaPreviaCargaConvocaNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
@@ -65,7 +66,7 @@ func (r *ConsumidorVistaPreviaCargaConvocaPostgreSQL) ConsumirVistaPreviaCargaCo
 		return ports.AcuseVistaPreviaCargaConvoca{}, errorConsumoVistaPreviaCargaConvoca(ctx, err)
 	}
 	acuse, err := leerAcuseVistaPreviaCargaConvoca(contenido)
-	if err != nil || acuse.ValidarPara(orden, material) != nil {
+	if err != nil || aplicacionbolsa.ValidarAcuseVistaPreviaCargaConvocaPara(acuse, orden, material) != nil {
 		return ports.AcuseVistaPreviaCargaConvoca{}, ports.ErrVistaPreviaCargaConvocaNoDisponible
 	}
 	if err = tx.Commit(ctx); err != nil {
