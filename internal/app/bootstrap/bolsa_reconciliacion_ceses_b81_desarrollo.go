@@ -24,6 +24,8 @@ type cesePendienteB81 struct {
 	OrigenPosicion int64  `json:"origen_posicion"`
 }
 
+const consultaCesesPendientesB81 = `SELECT vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1($1,$2,$3)`
+
 func (r *reconciliacionCesesB81) entregar(ctx context.Context) (resultadoEntregaContratosCT, error) {
 	var resultado resultadoEntregaContratosCT
 	if r == nil || r.pool == nil || r.lote < 1 || r.lote > 100 || ctx == nil {
@@ -44,7 +46,7 @@ func (r *reconciliacionCesesB81) entregar(ctx context.Context) (resultadoEntrega
 	}
 	for pagina := 0; pagina < maximoPaginasEntregaContratosCT; pagina++ {
 		var bruto []byte
-		if err := r.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.listar_ceses_sin_candidato_pendientes_v1($1,$2,$3)`,
+		if err := r.pool.QueryRow(ctx, consultaCesesPendientesB81,
 			r.lote, desdePosicion, desdeRef).Scan(&bruto); err != nil {
 			return resultado, errors.Join(falloRelevoCeseBolsaDesarrollo(err), errorAplicaciones())
 		}
@@ -107,6 +109,20 @@ func (r *reconciliacionCesesB81) entregar(ctx context.Context) (resultadoEntrega
 			return resultado, errorAplicaciones()
 		}
 		desdePosicion, desdeRef = ultimo.OrigenPosicion, ultimo.OrigenRef
+	}
+	// La última página llena no demuestra que haya más trabajo. Una lectura
+	// acotada confirma si el límite dejó alguna fila posterior sin procesar.
+	var bruto []byte
+	if err := r.pool.QueryRow(ctx, consultaCesesPendientesB81, 1, desdePosicion, desdeRef).Scan(&bruto); err != nil {
+		return resultado, errors.Join(falloRelevoCeseBolsaDesarrollo(err), errorAplicaciones())
+	}
+	var siguientes []cesePendienteB81
+	if len(bruto) == 0 || json.Unmarshal(bruto, &siguientes) != nil || siguientes == nil || len(siguientes) > 1 {
+		return resultado, errors.Join(fmt.Errorf("%w: clave=sondeo_ceses_B81 esperado=json_array_hasta_1 actual=invalido",
+			puertosbolsa.ErrContratosParticipacionNoDisponible), errorAplicaciones())
+	}
+	if len(siguientes) == 0 {
+		return resultado, errorAplicaciones()
 	}
 	return resultado, errors.Join(
 		fmt.Errorf("%w: clave=paginas_reconciliacion_B81 esperado<%d actual=%d",
