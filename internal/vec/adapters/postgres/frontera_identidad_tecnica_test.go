@@ -234,6 +234,19 @@ func TestFronteraIdentidadTecnicaPreflightRechazaCatalogoAlterado(t *testing.T) 
 	}
 }
 
+func TestFronteraIdentidadTecnicaPreflightAceptaLoginTecnicoSQL(t *testing.T) {
+	preflight := &txFronteraIdentidadPrueba{preflight: []byte(strings.Replace(
+		preflightFronteraIdentidadPrueba,
+		`"operador_login":"vec_identidad_pre_f1_prueba"`,
+		`"operador_login":"VecIdentity_Role"`, 1,
+	))}
+	pool := &poolFronteraIdentidadPrueba{txs: []*txFronteraIdentidadPrueba{preflight}}
+	r, err := nuevoRegistradorFronteraIdentidadTecnicaPostgreSQL(context.Background(), pool)
+	if err != nil || r == nil || r.config.OperadorLogin != "VecIdentity_Role" || preflight.commits != 1 {
+		t.Fatalf("login devuelto por session_user rechazado localmente: %v", err)
+	}
+}
+
 func TestFronteraIdentidadTecnicaConservaCancelacionDuranteCommitIncierto(t *testing.T) {
 	r, _, tx := entornoFronteraIdentidadPrueba(t)
 	ctx, cancelar := context.WithCancel(context.Background())

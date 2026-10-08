@@ -120,7 +120,7 @@ func leerPreflightFronteraIdentidadTecnica(raw []byte) (configuracionFronteraIde
 }
 
 func preflightFronteraIdentidadValido(c configuracionFronteraIdentidadPreflight) bool {
-	if !nombreTecnicoFronteraIdentidad(c.OperadorLogin, 63) ||
+	if !identificadorPostgreSQLSeguro(c.OperadorLogin, 63) ||
 		!nombreTecnicoFronteraIdentidad(c.Proceso, 80) ||
 		c.Canal != canalFronteraIdentidadTecnica ||
 		c.Superficie != domain.SuperficieFronteraIdentidadTecnica ||
