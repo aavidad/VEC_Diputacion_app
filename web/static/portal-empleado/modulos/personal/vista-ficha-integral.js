@@ -253,7 +253,7 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       const boton = nodo(d, "button", t(estadoRPT === "incidencia" ? "ficha_rpt_reintentar" : "ficha_rpt_abrir"));
       boton.type = "button"; boton.className = "boton-secundario";
       boton.dataset[estadoRPT === "incidencia" ? "personalFichaRptReintentar" : "personalFichaRptAbrir"] = "";
-      boton.addEventListener("click", estadoRPT === "incidencia" ? reintentarRPTVisible : () => { if (activa && estadoRPT === "disponible") pintar("catalogos"); });
+      boton.addEventListener("click", estadoRPT === "incidencia" ? reintentarRPTVisible : () => { if (activa && estadoRPT === "disponible" && actual !== "catalogos") pintar("catalogos"); });
       avisoRPT.append(boton); controlRPT = boton;
     }
     if (conservarFoco) controlRPT?.focus?.({ preventScroll: true });

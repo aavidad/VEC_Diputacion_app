@@ -680,10 +680,14 @@ test("la pestaña RPT activa queda visible en móvil sin desplazar página ni mo
 });
 
 test("incidencia RPT permite un reintento, conserva la pestaña y ofrece abrir tras recuperarse", async () => {
-  const raiz = raizFalsa(); let resolver, intentos = 0, montajes = 0;
+  const raiz = raizFalsa(); let resolver, intentos = 0, montajes = 0, entradaCatalogo;
   const fuentes = { servicios: { consultarPropios: () => ({ estado: "vacio", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [] }) } };
   montarVistaFichaIntegralPersonal({ raiz, fuentes, ocultarSinFuente: true, rptIncidencia: true,
-    montarCatalogos: () => { montajes += 1; return { desmontar() {} }; },
+    montarCatalogos: ({ raiz: hueco }) => {
+      montajes += 1; entradaCatalogo = hueco.ownerDocument.createElement("input");
+      entradaCatalogo.dataset.personalFichaRptBusqueda = ""; hueco.append(entradaCatalogo);
+      return { desmontar() {} };
+    },
     reintentarRPT: () => { intentos += 1; return new Promise((r) => { resolver = r; }); } });
   const ficha = raiz.querySelector("[data-personal-ficha-integral]");
   assert.equal(tab(ficha, "ficha").atributos.get("aria-selected"), "true");
@@ -700,8 +704,14 @@ test("incidencia RPT permite un reintento, conserva la pestaña y ofrece abrir t
   assert.equal(raiz.ownerDocument.activeElement, focoAjeno);
   assert.ok(panel); assert.equal(montajes, 0);
   assert.match(texto(aviso), /ya está disponible/u);
-  ficha.querySelector("[data-personal-ficha-rpt-abrir]").click(); await completar();
+  const abrir = ficha.querySelector("[data-personal-ficha-rpt-abrir]");
+  abrir.click(); await completar();
   assert.equal(tab(ficha, "catalogos").atributos.get("aria-selected"), "true"); assert.equal(montajes, 1);
+  const entrada = entradaCatalogo; entrada.value = "búsqueda sin enviar"; entrada.focus();
+  abrir.click(); abrir.click(); await completar();
+  assert.equal(montajes, 1, "repetir Abrir no remonta ni consulta Catálogos");
+  assert.equal(ficha.querySelector("[data-personal-ficha-rpt-busqueda]"), entrada);
+  assert.equal(entrada.value, "búsqueda sin enviar"); assert.equal(raiz.ownerDocument.activeElement, entrada);
 });
 
 test("reintento RPT falla cerrado y ausencia o denegación no ofrecen reintento", async () => {
