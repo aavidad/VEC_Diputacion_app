@@ -496,6 +496,7 @@ export function crearCoordinadorModulosPortal({
           catalogos: recursos.contrato.validarCatalogosAlta(valor),
           capacidad: recursos.contrato.CAPACIDAD_CREAR_SOLICITUD,
           ejecutor: cliente.registrarSolicitud,
+          obtenerCatalogosNecesidadesAlta: (opciones) => cliente.obtenerCatalogosNecesidadesAlta(opciones),
         });
       } catch {
         alta = null;
