@@ -5,6 +5,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -71,6 +73,20 @@ type AcreditacionSesionInscripcionBolsa struct {
 	AutenticacionRef        string
 	VerificadaEn            time.Time
 	ValidaHasta             time.Time
+}
+
+const acreditacionInscripcionRedactada = "[ACREDITACION INSCRIPCION OCULTA]"
+
+func (AcreditacionSesionInscripcionBolsa) String() string   { return acreditacionInscripcionRedactada }
+func (AcreditacionSesionInscripcionBolsa) GoString() string { return acreditacionInscripcionRedactada }
+func (AcreditacionSesionInscripcionBolsa) Format(s fmt.State, _ rune) {
+	_, _ = s.Write([]byte(acreditacionInscripcionRedactada))
+}
+func (AcreditacionSesionInscripcionBolsa) MarshalJSON() ([]byte, error) {
+	return []byte(`{"acreditacion_inscripcion":"[OCULTA]"}`), nil
+}
+func (AcreditacionSesionInscripcionBolsa) LogValue() slog.Value {
+	return slog.StringValue(acreditacionInscripcionRedactada)
 }
 
 // ConfiguracionPreparadorInscripcionBolsa sólo admite identidades instaladas

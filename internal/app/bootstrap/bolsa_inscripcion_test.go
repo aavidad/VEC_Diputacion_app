@@ -2,9 +2,12 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +16,14 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+func TestAcreditacionInscripcionRedactada(t *testing.T) {
+	a := AcreditacionSesionInscripcionBolsa{CertificadoHuellaSHA256: strings.Repeat("a", 64), PersonaRef: "per_privada", SesionRef: "ses_privada"}
+	contenido, err := json.Marshal(a)
+	if err != nil || strings.Contains(string(contenido), "per_privada") || strings.Contains(fmt.Sprintf("%+v %#v", a, a), "ses_privada") || strings.Contains(a.LogValue().String(), "aaaa") {
+		t.Fatalf("acreditacion expuesta: %s %v", contenido, err)
+	}
+}
 
 type sesionInscripcionPrueba struct {
 	ctx          contextoSeguridadComunDesarrollo
