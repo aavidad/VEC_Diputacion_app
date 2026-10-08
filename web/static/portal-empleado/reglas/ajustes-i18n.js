@@ -3,8 +3,8 @@ import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 
 let catalogo = null;
 
-export async function cargarTextosAjustes() {
-  catalogo = await cargarTextos("reglas-plazos");
+export async function cargarTextosAjustes(opciones) {
+  catalogo = await cargarTextos("reglas-plazos", opciones);
   return catalogo;
 }
 

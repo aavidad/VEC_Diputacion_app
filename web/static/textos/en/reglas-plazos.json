@@ -35,10 +35,10 @@
     "ajustesMotivoNoIdentificado": "Earlier reason unavailable",
     "ajustesGuardado": "Change saved",
     "ajustesMasHistoria": "View earlier changes",
-    "ajustesCampo_cantidad": "Amount",
-    "ajustesCampo_cantidad_urgente": "Amount for urgent cases",
-    "ajustesCampo_unidad": "Unit",
-    "ajustesCampo_computo": "Calculation method",
+    "ajustesCampoCantidad": "Amount",
+    "ajustesCampoCantidadUrgente": "Amount for urgent cases",
+    "ajustesCampoUnidad": "Unit",
+    "ajustesCampoComputo": "Calculation method",
     "ajustesMotivo": "Reason for the change",
     "ajustesElegirMotivo": "Choose a reason",
     "ajustesMotivo_respuesta_rrhh_duda": "HR answer to an open question",
@@ -66,6 +66,11 @@
     "ajustesValorHistoricoNoDisponible": "Value unavailable",
     "ajustesIdiomaRespaldo": "Text in this section is shown in the available language.",
     "ajustesReintentarIdioma": "Reload language",
-    "ajustesGuardadoSinLectura": "The change was saved, but the deadlines could not be refreshed. Keep the receipt and try again."
+    "ajustesGuardadoSinLectura": "The change was saved, but the deadlines could not be refreshed. Keep the receipt and try again.",
+    "ajustesReglaC01PlazoAnalisis": "Analysis deadline",
+    "ajustesReglaC02PlazoInformes": "Reports deadline",
+    "ajustesReglaC03PlazoFiscalizacion": "Financial review deadline",
+    "ajustesReglaC04PlazoSubsanacion": "Correction deadline",
+    "ajustesReglaAnterior": "Earlier deadline"
   }
 }

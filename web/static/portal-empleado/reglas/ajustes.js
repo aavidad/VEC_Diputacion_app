@@ -127,10 +127,10 @@ export function crearClienteAjustes(fetchImpl = globalThis.fetch, timeoutMs = 10
 }
 
 const CLAVES_CAMPO = Object.freeze({
-  cantidad: "ajustesCampo_cantidad",
-  cantidad_urgente: "ajustesCampo_cantidad_urgente",
-  unidad: "ajustesCampo_unidad",
-  computo: "ajustesCampo_computo",
+  cantidad: "ajustesCampoCantidad",
+  cantidad_urgente: "ajustesCampoCantidadUrgente",
+  unidad: "ajustesCampoUnidad",
+  computo: "ajustesCampoComputo",
 });
 const etiquetaCampo = (campo) => t(CLAVES_CAMPO[campo]);
 const etiquetaOpcion = (tipo, valor) => t(`${tipo}_${valor}`);
@@ -152,7 +152,11 @@ function renderizarHistoriaSinBase(historial, motivos) {
   const entradas = historial.map((h) => {
     const motivo = motivos.find((m) => m.clave === h.motivo_clave);
     const motivoTexto = motivo ? t(motivo.texto_clave) : t("ajustesMotivoNoIdentificado");
-    const cambios = h.cambios.map((c) => `<li>${esc(etiquetaCampo(c.campo))}: ${esc(valorHistorico(c.campo, c.anterior))} → ${esc(valorHistorico(c.campo, c.nuevo))}</li>`).join("");
+    const cambios = h.cambios.map((c) => {
+      const claveNombre = `ajustesRegla${c.regla_clave.replace(/(^|[._])([a-z0-9])/gu, (_valor, _separador, letra) => letra.toUpperCase())}`;
+      const nombre = existeClaveReglas(claveNombre) ? t(claveNombre) : t("ajustesReglaAnterior");
+      return `<li>${esc(nombre)} · ${esc(etiquetaCampo(c.campo))}: ${esc(valorHistorico(c.campo, c.anterior))} → ${esc(valorHistorico(c.campo, c.nuevo))}</li>`;
+    }).join("");
     return `<li><span>${esc(fecha(h.vigente_desde))}</span> · ${esc(h.actor_nombre || t("ajustesPersonaGenerica"))} · ${esc(t("ajustesVersion", { version: formatearNumero(h.version) }))} · ${esc(motivoTexto)}
       <ul>${cambios}</ul>
       ${h.referencia ? `<p>${esc(t("ajustesReferenciaHistoria", { referencia: h.referencia }))}</p>` : ""}
@@ -168,6 +172,9 @@ export function renderizarAjustes(modelo, { reglaActiva = "", borrador = null, f
   const editable = modelo.puede_ajustar && motivos.length > 0 && !bloqueado;
   const reglas = modelo.reglas.map((r) => {
     const activa = r.clave === reglaActiva;
+    const claveNombre = `ajustesRegla${r.clave.replace(/(^|[._])([a-z0-9])/gu, (_valor, _separador, letra) => letra.toUpperCase())}`;
+    const nombreCatalogado = existeClaveReglas(claveNombre);
+    const nombre = nombreCatalogado ? t(claveNombre) : r.etiqueta;
     const valores = r.ajuste_no_aplicable ? "" : r.edicion.campos.map((campo) => `<div><dt>${esc(etiquetaCampo(campo))}</dt><dd>${esc(presentarValor(r, campo, r.valores[campo]))}</dd></div>`).join("");
     const historial = modelo.historial.filter((h) => h.cambios.some((c) => c.regla_clave === r.clave));
     const listaHistorial = historial.length ? historial.map((h) => `<li><span>${esc(fecha(h.vigente_desde))}</span> · ${esc(h.actor_nombre || t("ajustesPersonaGenerica"))} · ${esc(motivos.find((m) => m.clave === h.motivo_clave)?.texto_clave ? t(motivos.find((m) => m.clave === h.motivo_clave).texto_clave) : t("ajustesMotivoNoIdentificado"))}
@@ -178,7 +185,7 @@ export function renderizarAjustes(modelo, { reglaActiva = "", borrador = null, f
     const accion = modelo.puede_ajustar ? `<button type="button" class="rg-secundario" data-ajustes-editar="${esc(r.clave)}" ${editable && !r.ajuste_no_aplicable ? "" : "disabled"}>${esc(t("ajustesCambiar"))}</button>` : "";
     const motivoDesactivado = modelo.puede_ajustar && !motivos.length ? `<p class="rg-aviso">${esc(t("ajustesSinMotivos"))}</p>` : "";
     const revision = r.ajuste_no_aplicable ? `<p class="rg-aviso rg-aviso--error">${esc(t("ajusteRevisionDetalle"))}</p>` : "";
-    return `<article class="rg-ajuste-regla" aria-labelledby="rg-ajuste-${esc(r.clave)}"><div class="rg-ajuste-cabecera"><h3 id="rg-ajuste-${esc(r.clave)}"${idiomaAjustes() === idiomaDatosAjustes() ? "" : ` lang="${esc(idiomaDatosAjustes())}"`}>${esc(r.etiqueta)}</h3>${accion}</div>
+    return `<article class="rg-ajuste-regla" aria-labelledby="rg-ajuste-${esc(r.clave)}"><div class="rg-ajuste-cabecera"><h3 id="rg-ajuste-${esc(r.clave)}"${nombreCatalogado || idiomaAjustes() === idiomaDatosAjustes() ? "" : ` lang="${esc(idiomaDatosAjustes())}"`}>${esc(nombre)}</h3>${accion}</div>
       ${valores ? `<dl class="rg-ajuste-valores">${valores}</dl>` : ""}${revision}${motivoDesactivado}
       ${activa && editable && !r.ajuste_no_aplicable ? renderizarFormulario(r, motivos, borrador, fase) : ""}
       <details class="rg-ajuste-historial"><summary>${esc(t("ajustesHistorial"))}</summary><ol>${listaHistorial}</ol></details></article>`;

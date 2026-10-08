@@ -35,10 +35,10 @@
     "ajustesMotivoNoIdentificado": "Motivo anterior no disponible",
     "ajustesGuardado": "Cambio guardado",
     "ajustesMasHistoria": "Ver cambios anteriores",
-    "ajustesCampo_cantidad": "Cantidad",
-    "ajustesCampo_cantidad_urgente": "Cantidad en trámite urgente",
-    "ajustesCampo_unidad": "Unidad",
-    "ajustesCampo_computo": "Cómputo",
+    "ajustesCampoCantidad": "Cantidad",
+    "ajustesCampoCantidadUrgente": "Cantidad en trámite urgente",
+    "ajustesCampoUnidad": "Unidad",
+    "ajustesCampoComputo": "Cómputo",
     "ajustesMotivo": "Motivo del cambio",
     "ajustesElegirMotivo": "Elija un motivo",
     "ajustesMotivo_respuesta_rrhh_duda": "Respuesta de RRHH a una duda",
@@ -66,6 +66,11 @@
     "ajustesValorHistoricoNoDisponible": "Valor no disponible",
     "ajustesIdiomaRespaldo": "Los textos de esta sección se muestran en el idioma disponible.",
     "ajustesReintentarIdioma": "Volver a cargar idioma",
-    "ajustesGuardadoSinLectura": "El cambio se guardó, pero no se pudieron actualizar los plazos. Conserve el justificante y pulse Reintentar."
+    "ajustesGuardadoSinLectura": "El cambio se guardó, pero no se pudieron actualizar los plazos. Conserve el justificante y pulse Reintentar.",
+    "ajustesReglaC01PlazoAnalisis": "Plazo de análisis",
+    "ajustesReglaC02PlazoInformes": "Plazo para informes",
+    "ajustesReglaC03PlazoFiscalizacion": "Plazo de fiscalización",
+    "ajustesReglaC04PlazoSubsanacion": "Plazo de subsanación",
+    "ajustesReglaAnterior": "Plazo anterior"
   }
 }

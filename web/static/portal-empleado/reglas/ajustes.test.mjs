@@ -63,7 +63,7 @@ test("una base sin publicar o inactiva muestra historia sin afirmar valores vige
     assert.match(html, /Cantidad: 12 → 10/u);
     assert.match(html, /Revisado/u);
     assert.doesNotMatch(html, /data-ajustes-editar/u);
-    assert.doesNotMatch(html, /Plazo de fiscalización/u);
+    assert.match(html, /Plazo de fiscalización · Cantidad: 12 → 10/u);
     assert.match(html, estado === "sin_publicar" ? /no hay plazos publicados/u : /plazos están desactivados/u);
     const falsa = lectura(); falsa.data.activacion.estado = estado;
     assert.throws(() => validarLecturaAjustes(falsa), ErrorAjustes);
@@ -146,7 +146,7 @@ test("la pantalla muestra resumen, historia y recibo, escapa datos; desactiva ca
   const revision = { ...datos, reglas: [reglaNoAplicable()] };
   assert.doesNotMatch(renderizarAjustes(revision), /0 Días hábiles/u);
   assert.match(renderizarAjustes(revision), /RRHH debe revisarlo/u);
-  const malicioso = { ...datos, reglas: [{ ...datos.reglas[0], etiqueta: "<img src=x>" }] };
+  const malicioso = { ...datos, reglas: [{ ...datos.reglas[0], clave: "c99.plazo_prueba", etiqueta: "<img src=x>" }] };
   assert.ok(!renderizarAjustes(malicioso).includes("<img src=x>"));
   assert.match(renderizarAjustes(malicioso), /&lt;img src=x&gt;/u);
   const camposMaliciosos = renderizarAjustes(datos, { reglaActiva: "c03.plazo_fiscalizacion", fase: "revision",
@@ -162,6 +162,25 @@ test("los textos de ajuste existen en ambos idiomas y el módulo no incluye fras
   for (const texto of ["ajustesMotivo_respuesta_rrhh_duda", "ajustesConflicto", "ajustesEfecto", "ajustesAuditoria"]) {
     assert.ok(ficheros.every((fichero) => fichero[texto]), texto);
   }
+});
+
+test("los cuatro plazos editables y su historial usan el idioma elegido", async () => {
+  await cargarTextosAjustes({ idioma: "en", porDefecto: "es" });
+  try {
+    const datos = validarLecturaAjustes(lectura());
+    for (const [clave, nombre] of [
+      ["c01.plazo_analisis", "Analysis deadline"],
+      ["c02.plazo_informes", "Reports deadline"],
+      ["c03.plazo_fiscalizacion", "Financial review deadline"],
+      ["c04.plazo_subsanacion", "Correction deadline"],
+    ]) {
+      const html = renderizarAjustes({ ...datos, reglas: [{ ...datos.reglas[0], clave, etiqueta: "Nombre en español" }] });
+      assert.match(html, new RegExp(`<h3[^>]*>${nombre}</h3>`, "u"));
+      assert.doesNotMatch(html, /Nombre en español/u);
+    }
+    const sinBase = { ...datos, activacion: { estado: "sin_publicar" }, puede_ajustar: false, reglas: [] };
+    assert.match(renderizarAjustes(sinBase), /Financial review deadline · Amount: 12 → 10/u);
+  } finally { await cargarTextosAjustes({ idioma: "es", porDefecto: "es" }); }
 });
 
 test("un fallo del catálogo común no oculta los plazos CT cuya API responde", { skip: !existsSync("/usr/bin/google-chrome") }, async () => {
@@ -207,21 +226,27 @@ test("un fallo del catálogo común no oculta los plazos CT cuya API responde", 
       responder(200, tipo, contenido);
     } catch { responder(404, "text/plain", ""); }
   });
-  const cargarPagina = async (puerto, zoom = false) => {
-    const perfil = await mkdtemp(join(tmpdir(), "vec-reglas-ct-"));
-    try {
-      const { stdout } = await promisify(execFile)("/usr/bin/google-chrome", ["--headless=new", "--no-sandbox",
-        "--disable-gpu", "--disable-background-networking", "--no-proxy-server", "--no-first-run", `--user-data-dir=${perfil}`,
-        "--window-size=390,844", "--virtual-time-budget=6000", "--dump-dom",
-        `http://127.0.0.1:${puerto}/portal-empleado/reglas/?lang=es${zoom ? "&zoom=200" : ""}`],
-      { timeout: 20000, maxBuffer: 4 * 1024 * 1024 });
-      return stdout;
-    } finally { await rm(perfil, { recursive: true, force: true }); }
+  const cargarPagina = async (puerto, listo, zoom = false, idioma = "es") => {
+    let salida = "";
+    for (let intento = 0; intento < 3; intento++) {
+      lecturasCT = 0;
+      const perfil = await mkdtemp(join(tmpdir(), "vec-reglas-ct-"));
+      try {
+        const { stdout } = await promisify(execFile)("/usr/bin/google-chrome", ["--headless=new", "--no-sandbox",
+          "--disable-gpu", "--disable-background-networking", "--no-proxy-server", "--no-first-run", `--user-data-dir=${perfil}`,
+          "--window-size=390,844", "--virtual-time-budget=15000", "--dump-dom",
+          `http://127.0.0.1:${puerto}/portal-empleado/reglas/?lang=${idioma}${zoom ? "&zoom=200" : ""}`],
+        { timeout: 20000, maxBuffer: 4 * 1024 * 1024 });
+        salida = stdout;
+        if (listo.test(stdout)) return stdout;
+      } finally { await rm(perfil, { recursive: true, force: true }); }
+    }
+    return salida;
   };
   try {
     await new Promise((listo) => servidor.listen(0, "127.0.0.1", listo));
     const puerto = servidor.address().port;
-    const stdout = await cargarPagina(puerto);
+    const stdout = await cargarPagina(puerto, /data-ajustes-editar/u);
     assert.ok(fallosCatalogo > 0, `el catálogo común realmente falló: ${JSON.stringify(rutasPedidas)} ${stdout.match(/ERR_[A-Z_]+/u)?.[0] ?? ""}`);
     assert.equal(lecturasCT, 1, "el panel CT hizo una sola lectura");
     assert.match(stdout, /id="rg-ajustes"[\s\S]*Plazos de Contratación temporal/u);
@@ -229,21 +254,26 @@ test("un fallo del catálogo común no oculta los plazos CT cuya API responde", 
     assert.match(stdout, /id="rg-estado"[^>]*>El servicio no está disponible/u);
     escenario = "textos_ct";
     lecturasCT = 0;
-    const sinTextosCT = await cargarPagina(puerto);
+    const sinTextosCT = await cargarPagina(puerto, /data-ajustes-catalogo-reintentar/u);
     assert.equal(lecturasCT, 0, "sin textos CT no se consulta la API");
     assert.match(sinTextosCT, /data-ajustes-catalogo-reintentar/u);
     assert.match(sinTextosCT, /id="rg-ajustes"[\s\S]*El servicio no está disponible/u);
     escenario = "api_ct";
     lecturasCT = 0;
-    const sinAPICT = await cargarPagina(puerto);
+    const sinAPICT = await cargarPagina(puerto, /data-ajustes-reintentar/u);
     assert.equal(lecturasCT, 1, "la API CT falló una vez");
     assert.match(sinAPICT, /data-ajustes-reintentar/u);
     assert.match(sinAPICT, /id="rg-ajustes"[\s\S]*No se han podido consultar/u);
     escenario = "normal";
-    const conZoom = await cargarPagina(puerto, true);
+    const conZoom = await cargarPagina(puerto, /data-anchos/u, true);
     const [, ancho, visible] = /data-anchos="(\d+)\/(\d+)"/u.exec(conZoom) ?? [];
     assert.ok(ancho && visible, "la página midió su ancho tras ampliar al 200 %");
     assert.ok(Number(ancho) <= Number(visible), `sin desbordamiento: ${ancho}/${visible}`);
+    lecturasCT = 0;
+    const ingles = await cargarPagina(puerto, /Financial review deadline/u, false, "en");
+    assert.equal(lecturasCT, 1, "la pantalla inglesa hace una lectura CT");
+    assert.match(ingles, /<h3[^>]*>Financial review deadline<\/h3>/u);
+    assert.doesNotMatch(ingles, /<h3[^>]*>Plazo de fiscalización<\/h3>/u);
   } finally {
     await new Promise((listo) => servidor.close(listo));
   }
