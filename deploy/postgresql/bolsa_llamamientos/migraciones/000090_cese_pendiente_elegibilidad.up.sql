@@ -183,17 +183,24 @@ BEGIN
    FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r
    JOIN candidatos c ON c.candidato_ref=r.candidato_ref
   WHERE r.fecha_efecto<=(p_corte AT TIME ZONE 'Europe/Madrid')::date
- ), ultimo AS MATERIALIZED (
-  SELECT DISTINCT ON (r.candidato_ref) r.candidato_ref,r.fecha_efecto,r.llamamiento_ref
+ ), ultimo_y_maximo AS MATERIALIZED (
+  SELECT DISTINCT ON (r.candidato_ref) r.candidato_ref,r.fecha_efecto,r.llamamiento_ref,
+         max(r.disponible_desde) OVER (PARTITION BY r.candidato_ref) AS disponible_desde
    FROM restricciones r ORDER BY r.candidato_ref,r.fecha_efecto DESC,r.evento_ref DESC
- ), maximo AS MATERIALIZED (
-  SELECT r.candidato_ref,max(r.disponible_desde) AS disponible_desde
-   FROM restricciones r GROUP BY r.candidato_ref
+ ), mapa_ceses AS MATERIALIZED (
+  SELECT coalesce(jsonb_object_agg(u.candidato_ref,jsonb_build_object(
+   'fecha_efecto',u.fecha_efecto,'llamamiento_ref',u.llamamiento_ref,
+   'disponible_desde',u.disponible_desde)),'{}'::jsonb) AS mapa
+  FROM ultimo_y_maximo u
  ), ultimo_estado AS MATERIALIZED (
   SELECT DISTINCT ON (sp.participacion_ref) sp.participacion_ref,sp.situacion,sp.desde
    FROM vec_bolsa_llamamientos.situacion_participacion sp
    JOIN refs i ON i.ref=sp.participacion_ref
   WHERE sp.desde<=p_corte ORDER BY sp.participacion_ref,sp.desde DESC
+ ), mapa_estado AS MATERIALIZED (
+  SELECT coalesce(jsonb_object_agg(s.participacion_ref,jsonb_build_object(
+   'situacion',s.situacion,'desde',s.desde)),'{}'::jsonb) AS mapa
+  FROM ultimo_estado s
  ), incorporaciones AS MATERIALIZED (
   SELECT vc.candidato_ref,cp.llamamiento_ref,coalesce(cp.inicio,cp.ocurrido_en) AS inicio
    FROM candidatos c
@@ -203,31 +210,45 @@ BEGIN
  ), cierre_relacion AS MATERIALIZED (
   SELECT r.candidato_ref,r.llamamiento_ref,max(r.fecha_efecto) AS fecha_efecto
    FROM restricciones r GROUP BY r.candidato_ref,r.llamamiento_ref
+ ), cierres_por_candidato AS MATERIALIZED (
+  SELECT c.candidato_ref,jsonb_object_agg(c.llamamiento_ref,to_jsonb(c.fecha_efecto)) AS cierres
+   FROM cierre_relacion c GROUP BY c.candidato_ref
+ ), mapa_cierres AS MATERIALIZED (
+  SELECT coalesce(jsonb_object_agg(c.candidato_ref,c.cierres),'{}'::jsonb) AS mapa
+   FROM cierres_por_candidato c
  ), prueba AS MATERIALIZED (
-  SELECT u.candidato_ref,
-   coalesce(bool_or(i.llamamiento_ref=u.llamamiento_ref AND
-    i.inicio<((u.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid')),false) AS misma_relacion,
-   coalesce(bool_or(i.inicio IS NOT NULL AND (cr.fecha_efecto IS NULL OR
-    i.inicio>=((cr.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid'))),false) AS otra_abierta
-  FROM ultimo u LEFT JOIN incorporaciones i ON i.candidato_ref=u.candidato_ref
-   LEFT JOIN cierre_relacion cr ON cr.candidato_ref=i.candidato_ref
-    AND cr.llamamiento_ref=i.llamamiento_ref
-  GROUP BY u.candidato_ref
+  SELECT i.candidato_ref,
+   coalesce(bool_or(i.llamamiento_ref=(mc.mapa->i.candidato_ref->>'llamamiento_ref')
+    AND i.inicio<(((mc.mapa->i.candidato_ref->>'fecha_efecto')::date+1)::timestamp
+      AT TIME ZONE 'Europe/Madrid')),false) AS misma_relacion,
+   coalesce(bool_or((mcr.mapa->i.candidato_ref->>i.llamamiento_ref) IS NULL OR
+    i.inicio>=(((mcr.mapa->i.candidato_ref->>i.llamamiento_ref)::date+1)::timestamp
+      AT TIME ZONE 'Europe/Madrid')),false) AS otra_abierta
+  FROM incorporaciones i CROSS JOIN mapa_ceses mc CROSS JOIN mapa_cierres mcr
+  WHERE mc.mapa ? i.candidato_ref
+  GROUP BY i.candidato_ref
+ ), mapa_prueba AS MATERIALIZED (
+  SELECT coalesce(jsonb_object_agg(pr.candidato_ref,jsonb_build_object(
+   'misma_relacion',pr.misma_relacion,'otra_abierta',pr.otra_abierta)),'{}'::jsonb) AS mapa
+   FROM prueba pr
  )
- SELECT t.ref,u.fecha_efecto,m.disponible_desde,
-  coalesce(m.disponible_desde>(p_corte AT TIME ZONE 'Europe/Madrid')::date AND
+ SELECT t.ref,ce.fecha_efecto,ce.disponible_desde,
+  coalesce(ce.disponible_desde>(p_corte AT TIME ZONE 'Europe/Madrid')::date AND
    (s.situacion IS DISTINCT FROM 'trabajando' OR
     (s.situacion='trabajando' AND pr.misma_relacion AND NOT pr.otra_abierta
-     AND s.desde<((u.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid'))),false),
+     AND s.desde<((ce.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid'))),false),
   coalesce(s.situacion='trabajando' AND pr.misma_relacion AND NOT pr.otra_abierta
-   AND s.desde<((u.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid'),false),
+   AND s.desde<((ce.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid'),false),
   (p.mapa ? t.candidato_ref),(p.mapa->>t.candidato_ref)::timestamptz
- FROM titulares t CROSS JOIN pendientes p
-  LEFT JOIN ultimo u ON u.candidato_ref=t.candidato_ref
-  LEFT JOIN maximo m ON m.candidato_ref=t.candidato_ref
-  LEFT JOIN ultimo_estado s ON s.participacion_ref=t.ref
-  LEFT JOIN prueba pr ON pr.candidato_ref=t.candidato_ref
- WHERE u.candidato_ref IS NOT NULL OR p.mapa ? t.candidato_ref;
+ FROM titulares t CROSS JOIN pendientes p CROSS JOIN mapa_ceses mc
+  CROSS JOIN mapa_estado ms CROSS JOIN mapa_prueba mp
+  LEFT JOIN LATERAL jsonb_to_record(mc.mapa->t.candidato_ref)
+   AS ce(fecha_efecto date,llamamiento_ref text,disponible_desde date) ON true
+  LEFT JOIN LATERAL jsonb_to_record(ms.mapa->t.ref)
+   AS s(situacion text,desde timestamptz) ON true
+  LEFT JOIN LATERAL jsonb_to_record(mp.mapa->t.candidato_ref)
+   AS pr(misma_relacion boolean,otra_abierta boolean) ON true
+ WHERE ce.fecha_efecto IS NOT NULL OR p.mapa ? t.candidato_ref;
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(text[],timestamptz) FROM PUBLIC;
 

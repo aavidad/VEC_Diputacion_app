@@ -3,5 +3,5 @@
 deploy/postgresql/contratacion_temporal/migraciones/000197_testigo_auditoria_cese_bolsa.up.sql
 # B81 SHA256 47824bbcb12ec4bfb05d7ad605a142e05f4407b2cd6c026ce861f387d52902ca
 deploy/postgresql/bolsa_llamamientos/migraciones/000081_cese_sin_candidato.up.sql
-# B90 SHA256 cb43918fe830eba0c39dce395a34d5cc151dd83f256d30d11adcd23d65a1967f
+# B90 SHA256 901b6348af6855f368d641e0efed9d9bf68b4b41a0bc96f1fce6ed78c214db03
 deploy/postgresql/bolsa_llamamientos/migraciones/000090_cese_pendiente_elegibilidad.up.sql

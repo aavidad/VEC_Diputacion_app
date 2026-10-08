@@ -34,9 +34,11 @@ en ROLLBACK (205/206 ms): alta y replay únicos, vínculo posterior, pendiente
 sin fecha inventada, restricción B45, permisos e historia. CT129 real verifica
 el origen; la fixture prepara CT/B13 directamente y no acredita un cese desde
 RRHH ni navegador. En 10.000 filas, el índice por participación y el cursor
-tardaron 0,019 y 0,014 ms; el lote de 10.000 estados tardó 284,5 ms de SQL.
-No es una medición HTTP ni prueba pantalla <300 ms a ese volumen. La base
-observada tiene 41 vínculos; faltan medición HTTP y revisión final del corte.
+tardaron 0,019 y 0,014 ms. En diez lecturas SQL con 2.390 estados variados,
+el lote tuvo p95 de 94,764 ms; con 10.000 estados mezclados tardó 546,4 ms.
+La base observada tiene 41 vínculos. Estas cifras no miden HTTP ni acreditan
+pantalla <300 ms: la fuente RRHH aún carga todas las entradas antes de paginar.
+Faltan la medición HTTP y la revisión final del corte.
 
 ## Cómo se monta hoy
 
