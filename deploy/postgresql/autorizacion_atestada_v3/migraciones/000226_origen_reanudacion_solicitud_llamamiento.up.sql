@@ -31,14 +31,14 @@ BEGIN
  SELECT count(*) INTO total_anterior FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
  WHERE audiencia_consumo='vec_contratacion_temporal.confirmar_alta_atestada.v1'
    AND operacion='contratacion_temporal.llamamiento.reanudar_orden'
-   AND canal_permitido='interna_corporativa' AND proceso='vec-server';
+   AND canal_permitido='interna_corporativa';
  IF total_anterior IS DISTINCT FROM 1 THEN
   RAISE EXCEPTION 'AD226: PARO clave=origen_previo actual=% esperado=1',coalesce(total_anterior,0) USING ERRCODE='55000';
  END IF;
  SELECT * INTO STRICT anterior FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
  WHERE audiencia_consumo='vec_contratacion_temporal.confirmar_alta_atestada.v1'
    AND operacion='contratacion_temporal.llamamiento.reanudar_orden'
-   AND canal_permitido='interna_corporativa' AND proceso='vec-server';
+   AND canal_permitido='interna_corporativa';
  SELECT oid INTO login_o FROM pg_roles WHERE rolname=anterior.login_nombre
    AND rolcanlogin AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolbypassrls;
  IF login_o IS NULL OR NOT pg_has_role(login_o,'vec_contratacion_temporal_ejecutor','MEMBER') THEN

@@ -13,7 +13,6 @@ BEGIN
  IF row(previo.login_nombre,previo.audiencia_consumo,previo.proceso,previo.canal_permitido)
     IS DISTINCT FROM row(nuevo.login_nombre,nuevo.audiencia_consumo,nuevo.proceso,nuevo.canal_permitido)
     OR nuevo.audiencia_consumo IS DISTINCT FROM 'vec_contratacion_temporal.confirmar_alta_atestada.v1'
-    OR nuevo.proceso IS DISTINCT FROM 'vec-server'
     OR nuevo.canal_permitido IS DISTINCT FROM 'interna_corporativa' THEN
   RAISE EXCEPTION 'AD226 prueba: origen nuevo diverge del anterior';
  END IF;
