@@ -431,10 +431,12 @@ export async function construirErrorRespuesta(respuesta, signal, ruta, errorClie
     });
   }
   const detalle = envoltorio?.error;
+  const campoAlta = ruta === rutas.alta && respuesta.status === 422
+    && detalle?.campo === "numero_expediente_moad";
   if (!exigirCamposExactos(envoltorio, ["error"])
     || !exigirCamposExactos(
       detalle,
-      ["codigo", "clave_i18n", "correlacion_ref"],
+      ["codigo", "clave_i18n", "correlacion_ref", ...(campoAlta ? ["campo"] : [])],
     )
     || !codigoValidoParaRuta(ruta, respuesta.status, detalle.codigo, rutas)
     || !claveI18nValida(ruta, detalle.codigo, detalle.clave_i18n, rutas)
@@ -448,6 +450,7 @@ export async function construirErrorRespuesta(respuesta, signal, ruta, errorClie
     estado: respuesta.status,
     claveI18n: detalle.clave_i18n,
     correlacionRef: detalle.correlacion_ref,
+    campo: campoAlta ? detalle.campo : "",
     envelopeValido: true,
   });
 }

@@ -166,6 +166,21 @@ function eventoAccion(accion) {
   };
 }
 
+test("un 422 con campo MOAD vuelve a edición y conserva el error corregible", async () => {
+  const presentador = crearPresentador({ ejecutor: async () => {
+    const error = new Error("rechazo sintético");
+    Object.assign(error, { codigo: "contenido_no_valido", estado: 422,
+      campo: "numero_expediente_moad", envelopeValido: true });
+    throw error;
+  } });
+  assert.equal(presentador.prepararRevision(borradorValido()), true);
+  assert.equal(await presentador.enviar(), null);
+  assert.equal(presentador.obtenerEstado().mensaje_clave, "estado_numero_moad_no_valido");
+  assert.equal(presentador.obtenerEstado().errores.numero_expediente_moad, "numero_moad_formato");
+  presentador.volverAEdicion();
+  assert.equal(presentador.obtenerEstado().errores.numero_expediente_moad, "numero_moad_formato");
+});
+
 test("el contrato es cerrado, clona catálogos y conserva relaciones inyectadas", () => {
   const entrada = catalogosPrueba();
   const catalogos = validarCatalogosAlta(entrada);
