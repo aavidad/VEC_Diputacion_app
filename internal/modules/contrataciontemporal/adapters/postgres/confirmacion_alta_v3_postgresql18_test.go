@@ -21,19 +21,14 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-// TestConfirmacionAltaV3PostgreSQL18 exige una base desechable PG18 con CT193,
-// VEC-AD-3 y la política HMAC de R3B. Los cuatro bundles son salidas reales de
-// TestGenerarVectorO205ParaSQL, guardadas en un directorio temporal del runner:
-// e2.json (confirmado ANTES de CT193), e3.json, colision.json y concurrente.json.
-// colision comparte el ámbito HMAC de e3, pero cambia jornada_minutos y la
-// huella de petición; concurrente tiene ámbito y decisión propios. El runner
-// instala CT193 una sola vez, después de confirmar e2, y activa este test con
-// VEC_CT_E3_PG18=SI, VEC_CT_E3_VECTORES_DIR y ambos DSN VEC_CT_E3_*_DSN.
+// Cada ejecución consume una fase recién emitida del runner desechable.
+// La capacidad VEC-AD-3 caduca a los cinco segundos: no se preparan cuatro
+// bundles por adelantado ni se confunde un replay con otra confirmación.
 func TestConfirmacionAltaV3PostgreSQL18(t *testing.T) {
 	if os.Getenv("VEC_CT_E3_PG18") != "SI" {
 		t.Skip("requiere runner E3 en PostgreSQL 18 desechable")
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancelar()
 	runtime := abrirPoolR3B(t, ctx, "VEC_CT_E3_RUNTIME_DSN")
 	defer runtime.Close()
@@ -46,21 +41,159 @@ func TestConfirmacionAltaV3PostgreSQL18(t *testing.T) {
 	if err := admin.QueryRow(ctx, `SELECT current_setting('server_version_num')::integer`).Scan(&version); err != nil || version/10000 != 18 {
 		t.Fatalf("se exige PostgreSQL 18 desechable: versión=%d error=%v", version, err)
 	}
-	var instalada bool
-	if err := admin.QueryRow(ctx, `SELECT to_regprocedure('vec_contratacion_temporal.necesidad_alta_valida_v3(jsonb)') IS NOT NULL`).Scan(&instalada); err != nil || !instalada {
-		t.Fatalf("CT193 no instalada: %v", err)
+	var fixture bool
+	if err := admin.QueryRow(ctx, `SELECT current_database()='postgres'
+		AND to_regclass('public.ct193_e3_desechable') IS NOT NULL
+		AND to_regclass('public.vectores_o2_05') IS NOT NULL`).Scan(&fixture); err != nil || !fixture {
+		t.Fatalf("la conexión no apunta al fixture PG18 desechable: %v", err)
+	}
+	if err := admin.QueryRow(ctx, `SELECT count(*)=1 AND bool_and(marca='SI') FROM public.ct193_e3_desechable`).Scan(&fixture); err != nil || !fixture {
+		t.Fatalf("marcador PG18 desechable inválido: %v", err)
 	}
 	dir := os.Getenv("VEC_CT_E3_VECTORES_DIR")
 	if dir == "" {
-		t.Fatal("falta VEC_CT_E3_VECTORES_DIR con cuatro bundles firmados")
+		t.Fatal("falta VEC_CT_E3_VECTORES_DIR con bundle de fase")
 	}
-	e2 := cargarVectorAltaE3PG(t, filepath.Join(dir, "e2.json"))
-	e3 := cargarVectorAltaE3PG(t, filepath.Join(dir, "e3.json"))
-	colision := cargarVectorAltaE3PG(t, filepath.Join(dir, "colision.json"))
-	concurrente := cargarVectorAltaE3PG(t, filepath.Join(dir, "concurrente.json"))
-	if e2.efecto.Esquema != esquemaEfectoAltaV2 || e3.efecto.Esquema != esquemaEfectoAltaV3 ||
-		colision.efecto.Esquema != esquemaEfectoAltaV3 || concurrente.efecto.Esquema != esquemaEfectoAltaV3 {
-		t.Fatal("los bundles no representan E2, E3, E3 colisión y E3 concurrente")
+	fase := os.Getenv("VEC_CT_E3_FASE")
+	var instalada bool
+	if err := admin.QueryRow(ctx, `SELECT to_regprocedure('vec_contratacion_temporal.necesidad_alta_valida_v3(jsonb)') IS NOT NULL`).Scan(&instalada); err != nil {
+		t.Fatal(err)
+	}
+	if instalada != (fase != "e2_pre") {
+		t.Fatalf("preimagen CT193 incompatible con fase %q", fase)
+	}
+	vector := func(nombre string) vectorAltaE3PG {
+		return cargarVectorAltaE3PG(t, filepath.Join(dir, nombre+".json"))
+	}
+	switch fase {
+	case "e2_pre":
+		e2 := vector("e2")
+		if e2.efecto.Esquema != esquemaEfectoAltaV2 {
+			t.Fatal("la preimagen debe ser E2")
+		}
+		resolverCandidaturaAltaE3PG(t, ctx, runtime, e2)
+		fila, err := confirmarVectorAltaE3PG(ctx, runtime, e2.argumentos())
+		if err != nil || fila.expedienteRef != e2.efecto.ExpedienteRef {
+			t.Fatalf("E2 previa a CT193 no confirmada: %+v, %v", fila, err)
+		}
+		assertBytesVersionAltaE3PG(t, ctx, admin, e2)
+		assertCardinalidadAltaE3PG(t, ctx, admin, e2.efecto.ExpedienteRef)
+		guardarReciboAltaE3PG(t, "VEC_CT_E3_RECIBO_E2", fila)
+	case "e2_post":
+		e2 := vector("e2")
+		if e2.efecto.Esquema != esquemaEfectoAltaV2 {
+			t.Fatal("el replay debe conservar E2")
+		}
+		assertBytesVersionAltaE3PG(t, ctx, admin, e2)
+		antes := estadoEfectosR3B(t, ctx, admin)
+		replay, err := confirmarVectorAltaE3PG(ctx, segundo, e2.argumentos())
+		if err != nil || replay != leerReciboAltaE3PG(t, "VEC_CT_E3_RECIBO_E2") || estadoEfectosR3B(t, ctx, admin) != antes {
+			t.Fatalf("E2 cambió recibo o historia tras CT193: %+v, %v", replay, err)
+		}
+		assertBytesVersionAltaE3PG(t, ctx, admin, e2)
+	case "e3":
+		probarAltaE3PG(t, ctx, runtime, segundo, admin, vector("e3"), false)
+	case "e3_replay":
+		probarReplayReinicioAltaE3PG(t, ctx, runtime, admin, vector("e3"))
+	case "abierto":
+		probarAltaE3PG(t, ctx, runtime, segundo, admin, vector("abierto"), true)
+	case "colision":
+		probarColisionAltaE3PG(t, ctx, segundo, admin, vector("e3"), vector("colision"))
+	case "concurrente":
+		probarConcurrenciaAltaE3PG(t, ctx, runtime, segundo, admin, vector("concurrente"))
+	default:
+		t.Fatalf("fase E3 no reconocida: %q", fase)
+	}
+}
+
+func probarAltaE3PG(t *testing.T, ctx context.Context, runtime, segundo, admin *pgxpool.Pool, v vectorAltaE3PG, abierto bool) {
+	t.Helper()
+	if v.efecto.Esquema != esquemaEfectoAltaV3 {
+		t.Fatal("alta E3 sin esquema V3")
+	}
+	var forma struct {
+		Solicitud struct {
+			Periodo map[string]json.RawMessage `json:"periodo"`
+		} `json:"solicitud"`
+	}
+	if err := json.Unmarshal(v.alta, &forma); err != nil {
+		t.Fatal(err)
+	}
+	_, tieneFin := forma.Solicitud.Periodo["fin"]
+	_, tieneCausa := forma.Solicitud.Periodo["causa_fin"]
+	_, tienePolitica := forma.Solicitud.Periodo["politica_fin"]
+	if abierto && (tieneFin || !tieneCausa || !tienePolitica || v.efecto.Solicitud.MotivoClave != "sustitucion") {
+		t.Fatal("el vector abierto debe conservar causa_fin y politica_fin sin fecha fin")
+	}
+	if !abierto && (!tieneFin || tieneCausa) {
+		t.Fatal("el vector de fin cerrado debe conservar fecha fin")
+	}
+	resolverCandidaturaAltaE3PG(t, ctx, runtime, v)
+	primero, err := confirmarVectorAltaE3PG(ctx, runtime, v.argumentos())
+	if err != nil || primero.expedienteRef != v.efecto.ExpedienteRef || primero.version != 1 {
+		t.Fatalf("confirmación E3 inválida: %+v, %v", primero, err)
+	}
+	assertBytesVersionAltaE3PG(t, ctx, admin, v)
+	antes := estadoEfectosR3B(t, ctx, admin)
+	replay, err := confirmarVectorAltaE3PG(ctx, segundo, v.argumentos())
+	if err != nil || replay != primero || estadoEfectosR3B(t, ctx, admin) != antes {
+		t.Fatalf("replay E3 duplicó o alteró recibo: %+v/%+v, %v", primero, replay, err)
+	}
+	assertCardinalidadAltaE3PG(t, ctx, admin, v.efecto.ExpedienteRef)
+	if !abierto {
+		guardarReciboAltaE3PG(t, "VEC_CT_E3_RECIBO_E3", primero)
+		guardarInicioPGAltaE3PG(t, ctx, admin)
+	}
+}
+
+func probarReplayReinicioAltaE3PG(t *testing.T, ctx context.Context, runtime, admin *pgxpool.Pool, v vectorAltaE3PG) {
+	t.Helper()
+	var inicio time.Time
+	if err := admin.QueryRow(ctx, `SELECT pg_postmaster_start_time()`).Scan(&inicio); err != nil {
+		t.Fatal(err)
+	}
+	var anterior time.Time
+	leerJSONPrivadoAltaE3PG(t, "VEC_CT_E3_INICIO_PG", &anterior)
+	if !inicio.After(anterior) {
+		t.Fatalf("PostgreSQL no se reinició: inicio=%s anterior=%s", inicio, anterior)
+	}
+	assertBytesVersionAltaE3PG(t, ctx, admin, v)
+	antes := estadoEfectosR3B(t, ctx, admin)
+	replay, err := confirmarVectorAltaE3PG(ctx, runtime, v.argumentos())
+	if err != nil || replay != leerReciboAltaE3PG(t, "VEC_CT_E3_RECIBO_E3") || estadoEfectosR3B(t, ctx, admin) != antes {
+		t.Fatalf("replay E3 tras reinicio alteró recibo o historia: %+v, %v", replay, err)
+	}
+	var necesidad struct {
+		CatalogoInstantanea string `json:"catalogo_instantanea"`
+	}
+	if err := json.Unmarshal(v.necesidad, &necesidad); err != nil {
+		t.Fatal(err)
+	}
+	esperada := decodificarPublicoR3B(t, necesidad.CatalogoInstantanea)
+	tx, err := runtime.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(context.Background())
+	var estado string
+	var instantanea []byte
+	err = tx.QueryRow(ctx, `SELECT estado,instantanea
+		FROM vec_contratacion_temporal.leer_instantanea_necesidad_alta_v3($1,$2,$3,$4)`,
+		v.sellos.Activo.AmbitoHMAC, v.efecto.OrganizacionRef,
+		v.efecto.ActorRef, v.efecto.PerfilRef).Scan(&estado, &instantanea)
+	if err != nil || estado != "confirmada_v3" || !bytes.Equal(instantanea, esperada) {
+		t.Fatalf("instantánea E3 no sobrevivió al reinicio: estado=%s error=%v", estado, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	assertCardinalidadAltaE3PG(t, ctx, admin, v.efecto.ExpedienteRef)
+}
+
+func probarColisionAltaE3PG(t *testing.T, ctx context.Context, segundo, admin *pgxpool.Pool, e3, colision vectorAltaE3PG) {
+	t.Helper()
+	if e3.efecto.Esquema != esquemaEfectoAltaV3 || colision.efecto.Esquema != esquemaEfectoAltaV3 {
+		t.Fatal("la colisión requiere dos altas E3")
 	}
 	if e3.sellos.Activo.AmbitoHMAC != colision.sellos.Activo.AmbitoHMAC ||
 		e3.sellos.Activo.HuellaHMAC == colision.sellos.Activo.HuellaHMAC ||
@@ -72,9 +205,8 @@ func TestConfirmacionAltaV3PostgreSQL18(t *testing.T) {
 		e3.efecto.ActorRef != colision.efecto.ActorRef ||
 		e3.efecto.PerfilRef != colision.efecto.PerfilRef ||
 		!reflect.DeepEqual(e3.efecto.Solicitud, colision.efecto.Solicitud) ||
-		bytes.Equal(decodificarPublicoR3B(t, e3.bundle.DecisionB64), decodificarPublicoR3B(t, colision.bundle.DecisionB64)) ||
-		concurrente.sellos.Activo.AmbitoHMAC == e3.sellos.Activo.AmbitoHMAC {
-		t.Fatal("los vectores no aíslan colisión de campo y concurrencia")
+		bytes.Equal(decodificarPublicoR3B(t, e3.bundle.DecisionB64), decodificarPublicoR3B(t, colision.bundle.DecisionB64)) {
+		t.Fatal("los vectores no aíslan la colisión de campo")
 	}
 	var necesidadE3, necesidadColision struct {
 		Jornada int `json:"jornada_minutos"`
@@ -87,28 +219,8 @@ func TestConfirmacionAltaV3PostgreSQL18(t *testing.T) {
 		necesidadE3.Jornada == necesidadColision.Jornada {
 		t.Fatal("la colisión debe cambiar jornada_minutos con firma nueva")
 	}
-
-	// El E2 se confirmó antes de instalar CT193: su alta canónica no puede cambiar.
-	assertBytesVersionAltaE3PG(t, ctx, admin, e2)
-	replayE2, err := confirmarVectorAltaE3PG(ctx, runtime, e2.argumentos())
-	if err != nil || replayE2.expedienteRef != e2.efecto.ExpedienteRef {
-		t.Fatalf("E2 dejó de recuperar por confirmar_alta_atestada_v3: %+v, %v", replayE2, err)
-	}
-	assertBytesVersionAltaE3PG(t, ctx, admin, e2)
-
-	resolverCandidaturaAltaE3PG(t, ctx, runtime, e3)
-	primero, err := confirmarVectorAltaE3PG(ctx, runtime, e3.argumentos())
-	if err != nil || primero.expedienteRef != e3.efecto.ExpedienteRef || primero.version != 1 {
-		t.Fatalf("confirmación E3 inválida: %+v, %v", primero, err)
-	}
 	assertBytesVersionAltaE3PG(t, ctx, admin, e3)
 	antes := estadoEfectosR3B(t, ctx, admin)
-	// El segundo pool simula un proceso nuevo; debe recuperar el recibo íntegro.
-	replay, err := confirmarVectorAltaE3PG(ctx, segundo, e3.argumentos())
-	if err != nil || replay != primero || estadoEfectosR3B(t, ctx, admin) != antes {
-		t.Fatalf("replay E3 duplicó o alteró el recibo: original=%+v replay=%+v error=%v", primero, replay, err)
-	}
-
 	resolutor, err := NuevoResolutorCandidaturaAltaPostgreSQL(segundo)
 	if err != nil {
 		t.Fatal(err)
@@ -119,16 +231,23 @@ func TestConfirmacionAltaV3PostgreSQL18(t *testing.T) {
 	}
 	_, err = confirmarVectorAltaE3PG(ctx, segundo, colision.argumentos())
 	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || pgErr.Code != "23505" || estadoEfectosR3B(t, ctx, admin) != antes {
-		t.Fatalf("confirmación directa de clave conflictiva no fue atómica: %v", err)
+	if !errors.As(err, &pgErr) || pgErr.Code != "42501" || estadoEfectosR3B(t, ctx, admin) != antes {
+		t.Fatalf("confirmación directa sin candidatura exacta no fue denegada atómicamente: %v", err)
 	}
 	assertBytesVersionAltaE3PG(t, ctx, admin, e3)
+}
 
+func probarConcurrenciaAltaE3PG(t *testing.T, ctx context.Context, runtime, segundo, admin *pgxpool.Pool, concurrente vectorAltaE3PG) {
+	t.Helper()
+	if concurrente.efecto.Esquema != esquemaEfectoAltaV3 {
+		t.Fatal("la carrera requiere un alta E3")
+	}
 	resolverCandidaturaAltaE3PG(t, ctx, runtime, concurrente)
 	alterada := append([]any(nil), concurrente.argumentos()...)
 	alterada[10] = cambiarJornadaAltaE3PG(t, concurrente.alta)
-	antes = estadoEfectosR3B(t, ctx, admin)
-	_, err = confirmarVectorAltaE3PG(ctx, runtime, alterada)
+	antes := estadoEfectosR3B(t, ctx, admin)
+	_, err := confirmarVectorAltaE3PG(ctx, runtime, alterada)
+	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.Code != "42501" || estadoEfectosR3B(t, ctx, admin) != antes {
 		t.Fatalf("digest V3 divergente consumió decisión o escribió historia: %v", err)
 	}
@@ -176,6 +295,78 @@ func TestConfirmacionAltaV3PostgreSQL18(t *testing.T) {
 	}
 	assertCardinalidadAltaE3PG(t, ctx, admin, concurrente.efecto.ExpedienteRef)
 	assertBytesVersionAltaE3PG(t, ctx, admin, concurrente)
+}
+
+func guardarReciboAltaE3PG(t *testing.T, variable string, fila filaConfirmacionAlta) {
+	t.Helper()
+	datos, err := json.Marshal([]any{fila.expedienteRef, fila.numeroVisible, fila.version,
+		fila.reciboRef, fila.auditoriaRef, fila.eventoRef, fila.confirmadaEn, fila.huellaRecibo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	guardarBytesPrivadosAltaE3PG(t, variable, datos)
+}
+
+func leerReciboAltaE3PG(t *testing.T, variable string) filaConfirmacionAlta {
+	t.Helper()
+	var valores []json.RawMessage
+	leerJSONPrivadoAltaE3PG(t, variable, &valores)
+	if len(valores) != 8 {
+		t.Fatal("recibo previo inválido")
+	}
+	var fila filaConfirmacionAlta
+	campos := []any{&fila.expedienteRef, &fila.numeroVisible, &fila.version,
+		&fila.reciboRef, &fila.auditoriaRef, &fila.eventoRef, &fila.confirmadaEn, &fila.huellaRecibo}
+	for i, campo := range campos {
+		if err := json.Unmarshal(valores[i], campo); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return fila
+}
+
+func guardarInicioPGAltaE3PG(t *testing.T, ctx context.Context, admin *pgxpool.Pool) {
+	t.Helper()
+	var inicio time.Time
+	if err := admin.QueryRow(ctx, `SELECT pg_postmaster_start_time()`).Scan(&inicio); err != nil {
+		t.Fatal(err)
+	}
+	datos, err := json.Marshal(inicio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guardarBytesPrivadosAltaE3PG(t, "VEC_CT_E3_INICIO_PG", datos)
+}
+
+func guardarBytesPrivadosAltaE3PG(t *testing.T, variable string, datos []byte) {
+	t.Helper()
+	ruta := os.Getenv(variable)
+	if ruta == "" {
+		t.Fatalf("falta %s en scratch privado", variable)
+	}
+	archivo, err := os.OpenFile(ruta, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := archivo.Write(datos); err != nil {
+		archivo.Close()
+		t.Fatal(err)
+	}
+	if err := archivo.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func leerJSONPrivadoAltaE3PG(t *testing.T, variable string, destino any) {
+	t.Helper()
+	ruta := os.Getenv(variable)
+	if ruta == "" {
+		t.Fatalf("falta %s en scratch privado", variable)
+	}
+	datos, err := os.ReadFile(ruta)
+	if err != nil || json.Unmarshal(datos, destino) != nil {
+		t.Fatalf("dato previo %s ausente o inválido: %v", variable, err)
+	}
 }
 
 type vectorAltaE3PG struct {
