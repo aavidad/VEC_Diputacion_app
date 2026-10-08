@@ -96,10 +96,26 @@ func TestCapacidadesRecursoCoberturaDesconocidaYFuenteCaidaSonIndisponibles(t *t
 		t.Fatalf("cobertura desconocida se tomo por denegacion: %+v, %v", r, err)
 	}
 	montaje.vista.Completa = true
+	montaje.err = ports.ErrFuenteAutorizacionNoDisponible
+	r, err = p.Proyectar(context.Background(), lote)
+	if !errors.Is(err, ports.ErrFuenteAutorizacionNoDisponible) || len(r.Resultados) != 0 || e.fuente.invocaciones != 0 {
+		t.Fatalf("fallo de montaje oculto o proyección parcial: %+v, %v", r, err)
+	}
+	montaje.err = nil
 	e.fuente.err = ports.ErrFuenteAutorizacionNoDisponible
 	r, err = p.Proyectar(context.Background(), lote)
-	if err != nil || r.Resultados[0].Estado != CapacidadRecursoIndisponible {
-		t.Fatalf("fuente caida se tomo por denegacion: %+v, %v", r, err)
+	if !errors.Is(err, ports.ErrFuenteAutorizacionNoDisponible) || len(r.Resultados) != 0 {
+		t.Fatalf("fuente caida se oculto o publicó proyección parcial: %+v, %v", r, err)
+	}
+	e.fuente.err = ports.ErrAsignacionPerfilNoEncontrada
+	r, err = p.Proyectar(context.Background(), lote)
+	if err != nil || len(r.Resultados) != 1 || r.Resultados[0].Estado != CapacidadRecursoNoAutorizado {
+		t.Fatalf("asignación inexistente no se distinguió del fallo de fuente: %+v, %v", r, err)
+	}
+	e.fuente.err = errors.Join(ports.ErrAsignacionPerfilNoEncontrada, ports.ErrFuenteAutorizacionNoDisponible)
+	r, err = p.Proyectar(context.Background(), lote)
+	if !errors.Is(err, ports.ErrFuenteAutorizacionNoDisponible) || len(r.Resultados) != 0 {
+		t.Fatalf("fallo real compuesto se tomó por ausencia legítima: %+v, %v", r, err)
 	}
 }
 

@@ -118,11 +118,21 @@ func TestFichaOperacionesBolsaProyectaLoteF1DelGETLeido(t *testing.T) {
 	}
 	fuente.err = vecports.ErrFuenteAutorizacionNoDisponible
 	resultado, err = p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q)
-	if err != nil || fuente.llamadas != 4 || resultado.SolicitudesDocumentales.Estado != "indisponible" || resultado.ReincorporacionesTitular.Estado != "indisponible" {
+	if !errors.Is(err, vecports.ErrFuenteAutorizacionNoDisponible) || fuente.llamadas != 4 || resultado.SolicitudesDocumentales.Estado != "" || resultado.ReincorporacionesTitular.Estado != "" {
 		t.Fatalf("fuente caída: %+v, llamadas=%d, err=%v", resultado, fuente.llamadas, err)
 	}
+	respuesta = httptest.NewRecorder()
+	h, err = bolsahttp.NuevoHandlerOperacionesSituacion(preparadorFichaOperacionesHTTPPrueba{q: q}, operadorFichaOperacionesHTTPPrueba{}, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusOK || fuente.llamadas != 5 || !strings.Contains(respuesta.Body.String(), `"items":[]`) ||
+		!strings.Contains(respuesta.Body.String(), `"solicitudes_documentales":{"estado":"indisponible"`) {
+		t.Fatalf("fallo de fuente destruyó historial o metadata segura: estado=%d, llamadas=%d, cuerpo=%s", respuesta.Code, fuente.llamadas, respuesta.Body.String())
+	}
 	q.BolsaRef = "bolsa:ajena"
-	if _, err := p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q); !errors.Is(err, vecdomain.ErrAutorizacionDenegada) || fuente.llamadas != 4 {
+	if _, err := p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q); !errors.Is(err, vecdomain.ErrAutorizacionDenegada) || fuente.llamadas != 5 {
 		t.Fatalf("bolsa ajena alcanzó la fuente: err=%v llamadas=%d", err, fuente.llamadas)
 	}
 	q.BolsaRef = "bolsa:b2:desarrollo"
@@ -131,7 +141,7 @@ func TestFichaOperacionesBolsaProyectaLoteF1DelGETLeido(t *testing.T) {
 		t.Fatal(err)
 	}
 	resultado, err = p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q)
-	if err != nil || fuente.llamadas != 4 || resultado.SolicitudesDocumentales.Estado != "sin_montaje" || resultado.ReincorporacionesTitular.Estado != "sin_montaje" {
+	if err != nil || fuente.llamadas != 5 || resultado.SolicitudesDocumentales.Estado != "sin_montaje" || resultado.ReincorporacionesTitular.Estado != "sin_montaje" {
 		t.Fatalf("dispatcher sin adjuntos: %+v, llamadas=%d, err=%v", resultado, fuente.llamadas, err)
 	}
 	fuente.err = nil
