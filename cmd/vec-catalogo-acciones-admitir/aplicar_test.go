@@ -141,3 +141,26 @@ func TestAdmisionDenegadaAuditaYCommitAmbiguoNoSeDaPorExito(t *testing.T) {
 		t.Fatalf("sin respuesta confirmó efecto: %v", err)
 	}
 }
+
+func TestFechaUTCConservaCausaDeParseo(t *testing.T) {
+	err := fechaUTC([]byte(`"fecha-invalida"`), time.Now().UTC())
+	var parseo *time.ParseError
+	if !errors.Is(err, errRespuestaAdmision) || !errors.As(err, &parseo) {
+		t.Fatalf("se perdió la causa temporal: %v", err)
+	}
+}
+
+func TestAdmisionPropagaCausaTemporalSinConfirmar(t *testing.T) {
+	p, sha, respuesta := respuestaAdmisionPrueba(t)
+	respuesta["recibo"].(map[string]any)["confirmado_en"] = "fecha-invalida"
+	b, err := json.Marshal(respuesta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx := &txAdmisionPrueba{respuesta: b}
+	_, err = aplicarPlanEnTransaccion(context.Background(), tx, []byte(`{}`), sha, p)
+	var parseo *time.ParseError
+	if !errors.Is(err, errRespuestaAdmision) || !errors.As(err, &parseo) || tx.commits != 0 || tx.rollbacks != 1 {
+		t.Fatalf("error temporal perdido o efecto confirmado: %v, commits=%d", err, tx.commits)
+	}
+}

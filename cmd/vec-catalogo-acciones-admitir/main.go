@@ -12,6 +12,7 @@ import (
 	"errors"
 	"flag"
 	"io"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -87,7 +88,7 @@ func ejecutar(args []string, stdout, stderr io.Writer) int {
 	}
 	mensajes, err := leerMensajes(idioma)
 	if err != nil {
-		return 2
+		return informarFalloCatalogoCLI(stderr, err)
 	}
 	emitir := func(w io.Writer, codigo string, extra salida, estado int) int {
 		extra.Codigo, extra.Mensaje = codigo, mensajes[codigo]
@@ -186,6 +187,22 @@ func leerMensajes(idioma string) (map[string]string, error) {
 		}
 	}
 	return m, nil
+}
+
+// Si falta el catálogo, el CLI emite sólo códigos de protocolo. La causa
+// queda clasificada sin imprimir rutas privadas ni el error original.
+func informarFalloCatalogoCLI(w io.Writer, causa error) int {
+	motivo := "catalogo_invalido"
+	if errors.Is(causa, os.ErrNotExist) {
+		motivo = "catalogo_ausente"
+	}
+	if err := json.NewEncoder(w).Encode(struct {
+		Codigo string `json:"codigo"`
+		Causa  string `json:"causa"`
+	}{Codigo: "catalogo_no_disponible", Causa: motivo}); err != nil {
+		slog.Error("catalogo_cli_salida_error", "causa", err)
+	}
+	return 2
 }
 
 func huellaValida(s string) bool {

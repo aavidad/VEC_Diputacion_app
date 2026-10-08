@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -70,13 +71,17 @@ func validarRespuestaAdmision(b []byte, plan planAdmision, planSHA string) (resp
 	if json.Unmarshal(m["replay"], &replay) != nil || replay == nil {
 		return respuestaAdmision{}, errRespuestaAdmision
 	}
-	if validarAuditoriaIntento(m["auditoria_intento"], ahora) != nil {
-		return respuestaAdmision{}, errRespuestaAdmision
+	if err := validarAuditoriaIntento(m["auditoria_intento"], ahora); err != nil {
+		return respuestaAdmision{}, err
 	}
 	if estado == "permitido" {
-		if !esNulo(m["codigo"]) || esNulo(m["recibo"]) ||
-			validarReciboAdmision(m["recibo"], plan, planSHA, ahora) != nil ||
-			!intentoPosteriorAlRecibo(m["recibo"], m["auditoria_intento"]) {
+		if !esNulo(m["codigo"]) || esNulo(m["recibo"]) {
+			return respuestaAdmision{}, errRespuestaAdmision
+		}
+		if err := validarReciboAdmision(m["recibo"], plan, planSHA, ahora); err != nil {
+			return respuestaAdmision{}, err
+		}
+		if !intentoPosteriorAlRecibo(m["recibo"], m["auditoria_intento"]) {
 			return respuestaAdmision{}, errRespuestaAdmision
 		}
 		return respuestaAdmision{Estado: estado, Replay: *replay, Recibo: m["recibo"]}, nil
@@ -128,8 +133,11 @@ func validarReciboAdmision(b []byte, p planAdmision, planSHA string, ahora time.
 	}
 	auditoria, ok := cadenaJSON(m["auditoria_ref"])
 	if !ok || !referenciaAuditoria(auditoria, "aud_v3_caa_") ||
-		!secuenciaPositiva(m["auditoria_secuencia"]) || !fechaUTC(m["confirmado_en"], ahora) {
+		!secuenciaPositiva(m["auditoria_secuencia"]) {
 		return errRespuestaAdmision
+	}
+	if err := fechaUTC(m["confirmado_en"], ahora); err != nil {
+		return err
 	}
 	return nil
 }
@@ -141,9 +149,11 @@ func validarAuditoriaIntento(b []byte, ahora time.Time) error {
 	}
 	ref, ok := cadenaJSON(m["auditoria_ref"])
 	if !ok || !referenciaAuditoria(ref, "aud_v3_caai_") ||
-		!secuenciaPositiva(m["secuencia"]) || !huellaValidaValor(m["huella_sha256"]) ||
-		!fechaUTC(m["registrada_en"], ahora) {
+		!secuenciaPositiva(m["secuencia"]) || !huellaValidaValor(m["huella_sha256"]) {
 		return errRespuestaAdmision
+	}
+	if err := fechaUTC(m["registrada_en"], ahora); err != nil {
+		return err
 	}
 	corr, ok := cadenaJSON(m["correlacion_ref"])
 	if !ok || !referenciaAuditoria(corr, "correlacion_") {
@@ -218,17 +228,23 @@ func secuenciaPositiva(b []byte) bool {
 	return err == nil && n > 0
 }
 
-func fechaUTC(b []byte, ahora time.Time) bool {
+func fechaUTC(b []byte, ahora time.Time) error {
 	s, ok := cadenaJSON(b)
 	if !ok {
-		return false
+		return fmt.Errorf("%w: fecha no textual", errRespuestaAdmision)
 	}
 	instante, err := time.Parse(time.RFC3339Nano, s)
-	if err != nil || instante.Nanosecond()%1000 != 0 {
-		return false
+	if err != nil {
+		return fmt.Errorf("%w: fecha UTC: %w", errRespuestaAdmision, err)
+	}
+	if instante.Nanosecond()%1000 != 0 {
+		return fmt.Errorf("%w: precisión temporal", errRespuestaAdmision)
 	}
 	_, desplazamiento := instante.Zone()
-	return desplazamiento == 0 && !instante.After(ahora)
+	if desplazamiento != 0 || instante.After(ahora) {
+		return fmt.Errorf("%w: fecha fuera de vigencia", errRespuestaAdmision)
+	}
+	return nil
 }
 
 func intentoPosteriorAlRecibo(recibo, intento []byte) bool {

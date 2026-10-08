@@ -93,22 +93,45 @@ ALTER TABLE vec_autorizacion.cabeza_catalogo_acciones_admin_v1 ADD CONSTRAINT ca
  REFERENCES vec_autorizacion.registro_catalogo_acciones_admin_v1(catalogo_ref,version,huella_sha256)
  DEFERRABLE INITIALLY DEFERRED;
 
-DO $tablas$
-DECLARE t text;
-BEGIN
- FOREACH t IN ARRAY ARRAY['config_catalogo_acciones_admin_v1','cabeza_catalogo_acciones_admin_v1',
-  'registro_catalogo_acciones_admin_v1','operacion_catalogo_acciones_admin_v1'] LOOP
-  EXECUTE pg_catalog.format('ALTER TABLE vec_autorizacion.%I ENABLE ROW LEVEL SECURITY',t);
-  EXECUTE pg_catalog.format('ALTER TABLE vec_autorizacion.%I FORCE ROW LEVEL SECURITY',t);
-  EXECUTE pg_catalog.format('CREATE POLICY propietario_exacto ON vec_autorizacion.%I FOR ALL TO vec_autorizacion_propietario USING(current_user=''vec_autorizacion_propietario'') WITH CHECK(current_user=''vec_autorizacion_propietario'')',t);
-  EXECUTE pg_catalog.format('REVOKE ALL ON TABLE vec_autorizacion.%I FROM PUBLIC',t);
-  EXECUTE pg_catalog.format('REVOKE ALL ON TYPE vec_autorizacion.%I FROM PUBLIC',t);
-  IF t IN ('registro_catalogo_acciones_admin_v1','operacion_catalogo_acciones_admin_v1') THEN
-   EXECUTE pg_catalog.format('CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_autorizacion.%I FOR EACH ROW EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable()',t);
-   EXECUTE pg_catalog.format('CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_autorizacion.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable()',t);
-  END IF;
- END LOOP;
-END $tablas$;
+ALTER TABLE vec_autorizacion.config_catalogo_acciones_admin_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_autorizacion.config_catalogo_acciones_admin_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_autorizacion.config_catalogo_acciones_admin_v1
+ FOR ALL TO vec_autorizacion_propietario
+ USING(current_user='vec_autorizacion_propietario') WITH CHECK(current_user='vec_autorizacion_propietario');
+REVOKE ALL ON TABLE vec_autorizacion.config_catalogo_acciones_admin_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.config_catalogo_acciones_admin_v1 FROM PUBLIC;
+
+ALTER TABLE vec_autorizacion.cabeza_catalogo_acciones_admin_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_autorizacion.cabeza_catalogo_acciones_admin_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_autorizacion.cabeza_catalogo_acciones_admin_v1
+ FOR ALL TO vec_autorizacion_propietario
+ USING(current_user='vec_autorizacion_propietario') WITH CHECK(current_user='vec_autorizacion_propietario');
+REVOKE ALL ON TABLE vec_autorizacion.cabeza_catalogo_acciones_admin_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.cabeza_catalogo_acciones_admin_v1 FROM PUBLIC;
+
+ALTER TABLE vec_autorizacion.registro_catalogo_acciones_admin_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_autorizacion.registro_catalogo_acciones_admin_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_autorizacion.registro_catalogo_acciones_admin_v1
+ FOR ALL TO vec_autorizacion_propietario
+ USING(current_user='vec_autorizacion_propietario') WITH CHECK(current_user='vec_autorizacion_propietario');
+REVOKE ALL ON TABLE vec_autorizacion.registro_catalogo_acciones_admin_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.registro_catalogo_acciones_admin_v1 FROM PUBLIC;
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_autorizacion.registro_catalogo_acciones_admin_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_autorizacion.registro_catalogo_acciones_admin_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable();
+
+ALTER TABLE vec_autorizacion.operacion_catalogo_acciones_admin_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_autorizacion.operacion_catalogo_acciones_admin_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_autorizacion.operacion_catalogo_acciones_admin_v1
+ FOR ALL TO vec_autorizacion_propietario
+ USING(current_user='vec_autorizacion_propietario') WITH CHECK(current_user='vec_autorizacion_propietario');
+REVOKE ALL ON TABLE vec_autorizacion.operacion_catalogo_acciones_admin_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.operacion_catalogo_acciones_admin_v1 FROM PUBLIC;
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_autorizacion.operacion_catalogo_acciones_admin_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_autorizacion.operacion_catalogo_acciones_admin_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_autorizacion.rechazar_mutacion_inmutable();
 
 -- ACL y pertenencia se comprueban de nuevo en cada operación; la configuración
 -- se bloquea contra revocación concurrente hasta el COMMIT del efecto.

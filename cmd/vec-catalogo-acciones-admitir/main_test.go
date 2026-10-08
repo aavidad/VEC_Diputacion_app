@@ -130,3 +130,17 @@ func TestArchivoPrivadoNiegaPermisosAmpliosYEnlaces(t *testing.T) {
 		t.Fatal("plan legible por otros aceptado")
 	}
 }
+
+func TestFalloCatalogoClasificaSinFiltrarCausa(t *testing.T) {
+	var salida bytes.Buffer
+	if codigo := informarFalloCatalogoCLI(&salida, os.ErrNotExist); codigo != 2 ||
+		!bytes.Contains(salida.Bytes(), []byte(`"catalogo_ausente"`)) {
+		t.Fatalf("fallo de catálogo sin causa clasificada: %d %s", codigo, salida.String())
+	}
+	salida.Reset()
+	if codigo := informarFalloCatalogoCLI(&salida, os.ErrPermission); codigo != 2 ||
+		!bytes.Contains(salida.Bytes(), []byte(`"catalogo_invalido"`)) ||
+		bytes.Contains(salida.Bytes(), []byte("permission denied")) {
+		t.Fatalf("fallo de catálogo filtró la causa privada: %d %s", codigo, salida.String())
+	}
+}
