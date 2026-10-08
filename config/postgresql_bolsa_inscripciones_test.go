@@ -27,4 +27,14 @@ func TestInscripcionesLectorExigeLoginSeparadoYRedactaDSN(t *testing.T) {
 	if _, err := Load().DSNBolsaInscripcionesLectorSeparado(); !errors.Is(err, ErrBolsaInscripcionesLectorNoSeparado) {
 		t.Fatalf("login compartido: %v", err)
 	}
+	t.Setenv(EnvExternoBolsaDatabaseURL, "postgres://vec_externo_bolsa_desarrollo:otra@localhost/vec?sslmode=require")
+	t.Setenv(EnvBolsaInscripcionesEmpleadoLectorDatabaseURL, "postgres://vec_bolsa_inscripciones_empleado_lector:prueba@localhost/vec?sslmode=require")
+	t.Setenv(EnvBolsaInscripcionesRRHHLectorDatabaseURL, "postgres://vec_bolsa_inscripciones_rrhh_lector:prueba@localhost/vec?sslmode=require")
+	if _, _, _, err := Load().DSNBolsaInscripcionesLectoresSeparados(); err != nil {
+		t.Fatalf("tres lectores separados: %v", err)
+	}
+	t.Setenv(EnvBolsaInscripcionesRRHHLectorDatabaseURL, "postgres://vec_bolsa_inscripciones_empleado_lector:otra@localhost/vec?sslmode=require")
+	if _, _, _, err := Load().DSNBolsaInscripcionesLectoresSeparados(); !errors.Is(err, ErrBolsaInscripcionesLectorNoSeparado) {
+		t.Fatalf("lector RRHH comparte LOGIN: %v", err)
+	}
 }
