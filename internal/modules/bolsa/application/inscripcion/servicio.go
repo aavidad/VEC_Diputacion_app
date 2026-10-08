@@ -87,7 +87,7 @@ func (s *Servicio) MotivosRRHH(ctx context.Context, actor Actor, decision string
 
 func bolsaAbiertaValida(b BolsaAbierta) bool {
 	if !convocatoriaRefValida(b.ConvocatoriaRef) || b.Titulo == "" ||
-		b.CategoriasResumen == "" || len(b.Categorias) == 0 || len(b.Categorias) > 32 ||
+		b.CategoriasResumen == "" || len(b.Categorias) == 0 || len(b.Categorias) > 128 ||
 		b.CatalogoVersion == 0 ||
 		b.PlazoInicio.IsZero() || !b.PlazoFin.After(b.PlazoInicio) ||
 		b.RequisitosResumen == "" ||
