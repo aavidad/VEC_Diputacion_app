@@ -83,3 +83,10 @@ La cifra de disponibles de cada bolsa en Inicio abre su lista paginada con el es
 Al salir de una lista de Bolsa hacia Inicio se retiran `bolsa_ref`, `estado` y `cursor` de la URL; se conservan los parámetros del portal. Atrás y Adelante recuperan la entrada anterior con su filtro. Las URL antiguas que ya apuntan a Inicio se corrigen sin crear otra entrada de historial.
 
 Los tres totales globales siguen pendientes de una lectura global autorizada y paginada. Hoy suman participaciones en bolsas, por lo que una persona incluida en varias bolsas puede contar varias veces. No se debe sustituir ese conjunto por una lista de una sola bolsa ni consultar cada bolsa desde el navegador para reconstruirlo.
+
+
+## Secciones opcionales de la ficha y totales globales — 8 de octubre de 2026
+
+La ficha conserva el candidato y su lista sin consultar automáticamente las solicitudes documentales ni las reincorporaciones del titular cuando falta disponibilidad nominal para esa participación. Las secciones ausentes o no autorizadas se omiten. Si una sección disponible falla al consultarla, muestra el error y permite reintentar los fallos temporales. Se reutiliza la fuente de S (`6455e0ead`); no cambia ningún acto ni sus permisos.
+
+Los totales globales siguen pendientes de una lista global paginada. Cuentan participaciones en bolsas, no personas distintas. El lector nominal debe devolver página y total con el mismo filtro y corte, y registrar el acceso correcto en la misma transacción. La continuidad de sesión de CT y los registradores de intentos fallidos no cubren esta lectura de Bolsa. Antes de activar los enlaces globales falta el consumidor común de lectura y auditoría solicitado a V; abrir una lista por bolsa añadiría N+1. No se ha creado una fachada V3 nueva ni una migración para sustituirlo.
