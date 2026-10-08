@@ -183,3 +183,27 @@ test("403 tardío del POST borra la lista personal abierta después de navegar",
   assert.match(contenedor.innerHTML, /no permite hacer esta consulta/u);
   montaje.destruir();
 });
+
+test("422 concluyente bloquea un segundo POST hasta volver a consultar la ficha", async () => {
+  const { contenedor, ventana, pulsar } = entorno();
+  let envios = 0;
+  const cliente = {
+    abiertas: async () => ({ convocatorias: [bolsa], total: 1, cursor_siguiente: null }),
+    convocatoria: async () => ({ convocatoria: { ...bolsa, requisitos: [] } }),
+    propias: async () => ({ solicitudes: [], cursor_siguiente: null }),
+    detallePropio: async () => { throw new Error("sin uso"); },
+    inscribir: async () => { envios += 1; throw Object.assign(new Error("catálogo cambiado"), {
+      status: 422, codigo: "catalogo_cambiado",
+    }); },
+  };
+  const montaje = montarInscripcionBolsa({ contenedor, ventana, cliente, idioma: "es", textoBase: () => "Cargando" });
+  await pausa(); pulsar("bolsa", bolsa.convocatoria_ref); await pausa();
+  pulsar("revisar"); pulsar("confirmar"); await pausa();
+  assert.match(contenedor.innerHTML, /data-inscripcion-accion="confirmar" disabled/u);
+  pulsar("confirmar"); await pausa();
+  assert.equal(envios, 1);
+  pulsar("volver"); await pausa(); pulsar("bolsa", bolsa.convocatoria_ref); await pausa();
+  pulsar("revisar"); pulsar("confirmar"); await pausa();
+  assert.equal(envios, 2, "la ficha recargada permite intentar con versión nueva del servidor");
+  montaje.destruir();
+});

@@ -107,9 +107,9 @@ function vistaBolsa(estado, textos) {
       <p>${t(pendiente ? "revisarPendiente" : "revisarActo")}</p><p>${t("declaracionesRevisar")}</p>
       ${declarados.length ? `<ul>${declarados.map((requisito) => `<li>${esc(requisito.descripcion)} · ${t(`requisito_${requisito.estado}`)}</li>`).join("")}</ul>` : `<p>${t("sinDeclaraciones")}</p>`}
       <div class="acciones-vista"><button type="button" class="boton-secundario" data-inscripcion-accion="corregir" ${enviando ? "disabled" : ""}>${t("corregir")}</button>
-      <button type="button" class="boton-primario" data-inscripcion-accion="confirmar" ${enviando ? "disabled" : ""}>${t(enviando ? "enviando" : "confirmar")}</button></div></div></section>`
+      <button type="button" class="boton-primario" data-inscripcion-accion="confirmar" ${enviando || estado.bloqueoActo ? "disabled" : ""}>${t(enviando ? "enviando" : "confirmar")}</button></div></div></section>`
       : `<div class="acciones-vista">${bolsa.puede_iniciar ? "" : `<p role="status">${esc(bolsa.impedimento_etiqueta)}</p>`}
-        <button type="button" class="boton-primario" data-inscripcion-accion="revisar" ${enviando || estado.comprobarEnvio || !bolsa.puede_iniciar || !categoria ? "disabled" : ""}>${t("solicitar")}</button></div>`}
+        <button type="button" class="boton-primario" data-inscripcion-accion="revisar" ${enviando || estado.comprobarEnvio || estado.bloqueoActo || !bolsa.puede_iniciar || !categoria ? "disabled" : ""}>${t("solicitar")}</button></div>`}
     ${estado.error ? `<p role="alert">${esc(estado.error)}</p><button type="button" class="boton-secundario" data-inscripcion-accion="propias">${t("misSolicitudes")}</button>` : ""}</div>`;
 }
 
@@ -149,7 +149,8 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     throw new TypeError("Montaje de inscripción inválido");
   const estado = { tipo: "abiertas", carga: true, abiertas: [], propias: [], total: 0,
     cursor: null, cursorPropias: null, bolsa: null, solicitud: null, error: "", revision: false,
-    enviando: false, comprobarEnvio: false, ayuda: false, declaraciones: new Set(), categoriaRef: "" };
+    enviando: false, comprobarEnvio: false, bloqueoActo: false,
+    ayuda: false, declaraciones: new Set(), categoriaRef: "" };
   let textos = null;
   let clienteEfectivo = cliente;
   let montado = true;
@@ -226,7 +227,8 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
   async function cargarBolsa(ref) {
     const { version, signal } = iniciarConsulta();
     estado.tipo = "bolsa"; estado.carga = true; estado.error = ""; estado.bolsa = null;
-    estado.revision = false; estado.comprobarEnvio = false; estado.declaraciones = new Set(); pintar();
+    estado.revision = false; estado.comprobarEnvio = false; estado.bloqueoActo = false;
+    estado.declaraciones = new Set(); pintar();
     try {
       const datos = await clienteEfectivo.convocatoria(ref, { signal });
       if (!montado || signal.aborted || version !== secuencia) return;
@@ -288,7 +290,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     const bolsa = estado.bolsa;
     const categoria = bolsa?.categorias.find((c) => c.categoria_ref === estado.categoriaRef);
     if (!bolsa || !categoria || !bolsa.puede_iniciar || !estado.revision || estado.enviando || ENVIOS_ACTIVOS.has(bolsa.convocatoria_ref)
-      || estado.comprobarEnvio) return;
+      || estado.comprobarEnvio || estado.bloqueoActo) return;
     const version = secuencia;
     let peticion = CLAVES_PENDIENTES.get(bolsa.convocatoria_ref);
     if (!peticion) {
@@ -321,6 +323,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
       if (cerrarPorDenegacion(error)) return;
       if (error?.status === 400 || error?.status === 422) CLAVES_PENDIENTES.delete(bolsa.convocatoria_ref);
       if (!montado || version !== secuencia || estado.tipo !== "bolsa" || estado.bolsa?.convocatoria_ref !== bolsa.convocatoria_ref) return;
+      if (error?.status === 400 || error?.status === 409 || error?.status === 422) estado.bloqueoActo = true;
       estado.error = descripcionError(error, textos); anunciar(estado.error);
     } finally {
       ENVIOS_ACTIVOS.delete(bolsa.convocatoria_ref);
