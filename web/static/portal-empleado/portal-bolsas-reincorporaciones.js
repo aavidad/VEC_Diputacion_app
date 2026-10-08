@@ -156,9 +156,19 @@ export async function consultarReincorporacionesTitular(bolsa, participacion, { 
   }
 }
 
-export async function cargarReincorporacionesTitularFicha(modal, { estado, renderizar, consultar = consultarReincorporacionesTitular, renderizarAlIniciar = true }) {
+export async function cargarReincorporacionesTitularFicha(modal, { estado, renderizar, consultar = consultarReincorporacionesTitular, disponibilidad, renderizarAlIniciar = true }) {
   if (!modal?.candidato?.participacion_ref) return;
   modal.controladorReincorporaciones?.abort();
+  const registro = disponibilidad && disponibilidad.bolsa_ref === estado.bolsaSeleccionada
+    && disponibilidad.participacion_ref === modal.candidato.participacion_ref
+    && ["disponible", "no_autorizado", "sin_montaje", "indisponible"].includes(disponibilidad.estado)
+    ? disponibilidad : disponibilidad ? { estado: "indisponible" } : null;
+  if (registro && registro.estado !== "disponible") {
+    modal.reincorporacionesTitular = { carga: registro.estado === "indisponible" ? "metadatos" : "omitida",
+      items: [], pagina: 0 };
+    if (renderizarAlIniciar) renderizar();
+    return;
+  }
   const controlador = new AbortController();
   modal.controladorReincorporaciones = controlador;
   modal.reincorporacionesTitular = { carga: "cargando", items: [], pagina: 0 };
@@ -183,6 +193,7 @@ function fechaVisible(valor) {
 export function renderizarReincorporacionesTitular({ estado = {}, escaparHTML }) {
   const t = (clave, variables) => textoPortal(`reincorporacion_${clave}`, variables);
   const carga = estado.carga || "cargando";
+  if (carga === "omitida") return "";
   let contenido;
   if (carga === "cargando") contenido = `<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`;
   else if (carga === "denegado") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || traducirPortal("reincorporacion_error_403"))}</p>`;
@@ -210,6 +221,10 @@ export function manejarClickReincorporacionesTitular(evento, { estado, renderiza
   if (!control || !estado?.modalFicha) return false;
   evento.preventDefault();
   if (control.dataset.reincorporacionAccion === "reintentar") {
+    if (estado.modalFicha.reincorporacionesTitular?.carga === "metadatos" && reintentarMetadatos) {
+      void reintentarMetadatos();
+      return true;
+    }
     if (estado.modalFicha.reincorporacionesTitular?.carga === "denegado") return true;
     void cargarReincorporacionesTitularFicha(estado.modalFicha, { estado, renderizar, ...(consultar ? { consultar } : {}) });
   } else if (control.dataset.reincorporacionAccion === "pagina" && estado.modalFicha.reincorporacionesTitular) {

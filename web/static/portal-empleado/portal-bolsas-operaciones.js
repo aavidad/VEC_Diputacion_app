@@ -47,6 +47,23 @@ export function rutaOperacionesSituacion(bolsa, participacion) {
   return `${BASE}/${segmento(bolsa)}/candidatos/${segmento(participacion)}/operaciones`;
 }
 
+
+const SECCIONES_FICHA = ["solicitudes_documentales", "reincorporaciones_titular"];
+const ESTADOS_DISPONIBILIDAD = ["disponible", "no_autorizado", "sin_montaje", "indisponible"];
+
+function disponibilidadFicha(datos, bolsa, participacion) {
+  const salida = {};
+  for (const clave of SECCIONES_FICHA) {
+    const registro = datos?.[clave];
+    const valido = registro && typeof registro === "object" && !Array.isArray(registro)
+      && Object.keys(registro).length === 3 && ESTADOS_DISPONIBILIDAD.includes(registro.estado)
+      && registro.bolsa_ref === bolsa && registro.participacion_ref === participacion;
+    salida[clave] = Object.freeze(valido ? { ...registro }
+      : { estado: "indisponible", bolsa_ref: bolsa, participacion_ref: participacion });
+  }
+  return Object.freeze(salida);
+}
+
 function respuestaInvalida(mensaje) {
   return { ok: false, status: 0, codigo: "respuesta_invalida", mensaje };
 }
@@ -74,7 +91,9 @@ export async function consultarOperacionesSituacion(bolsa, participacion, { fetc
     const cambios = validarCambiosTraza(cuerpo.data.cambios);
     const vigente = cuerpo.data.situacion_vigente;
     const vigenteValida = vigente === undefined || (vigente && typeof vigente.situacion === "string" && instanteValido(vigente.desde));
-    return valido && cambios && vigenteValida ? { ok: true, datos: items, cambios, situacionVigente: vigente ?? null } : respuestaInvalida(traducirPortal("txt_un_registro_del_historial_no_respeta_su_contrato"));
+    return valido && cambios && vigenteValida ? { ok: true, datos: items, cambios, situacionVigente: vigente ?? null,
+      ...(Object.hasOwn(cuerpo.data, "capacidades_ficha")
+        ? { capacidadesFicha: disponibilidadFicha(cuerpo.data.capacidades_ficha, bolsa, participacion) } : {}) } : respuestaInvalida(traducirPortal("txt_un_registro_del_historial_no_respeta_su_contrato"));
   } catch (error) {
     return { ok: false, status: 0, codigo: "error_red", mensaje: traducirPortal("txt_no_se_pudo_comunicar_con_el_historial_de_operaci") };
   }
@@ -224,9 +243,9 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
   const actual = estado.carga || "cargando";
   const disponibles = operacionesAdmitidasCandidato(candidato, estado);
   const solicitudes = estado.solicitudesDocumentales || [];
-  const acciones = disponibles.filter((operacion) => operacion !== "regularizar" || (!solicitudes.length && !estado.solicitudesError))
+  const acciones = disponibles.filter((operacion) => operacion !== "regularizar" || (!solicitudes.length && (!estado.solicitudesError || estado.solicitudesMetadatos)))
     .map((operacion) => `<button type="button" class="boton-secundario" data-b8-accion="seleccionar" data-operacion="${operacion}">${escaparHTML(etiquetaOperacion(operacion, candidato))}</button>`).join("");
-  const solicitudesReintentables = ![401, 403, 404].includes(estado.solicitudesStatus);
+  const solicitudesReintentables = !estado.solicitudesOmitidas && ![401, 403, 404].includes(estado.solicitudesStatus);
   const solicitudesVista = actual === "listo" && !(estado.paso > 0) ? `${estado.solicitudesCargando
     ? `<p role="status" aria-busy="true">${textoPortal("txt_comprobando_acceso")}</p>`
     : estado.solicitudesError ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.solicitudesError)}</p>${solicitudesReintentables
@@ -296,52 +315,72 @@ function renderizarPaso(estado, escaparHTML, candidato) {
   return `<form data-b8-form="operacion" data-b8-paso="${etapa}"><p><strong>${textoPortal("txt_operacion_seleccionada")}</strong> ${escaparHTML(etiqueta)}</p><h5>${textoPortal("txt_paso_de_tres", { etapa, nombre: traducirPortal(etapa === 1 ? "txt_motivo" : etapa === 2 ? "txt_justificante" : "txt_validacion") })}</h5>${revision}${campos}<p class="mensaje-error" role="alert">${escaparHTML(estado.errorFormulario || "")}</p><div class="acciones-vista"><button type="button" class="boton-secundario" data-b8-accion="anterior" ${etapa === 1 || estado.enviando ? "disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${estado.enviando ? traducirPortal("txt_registrando") : etapa < 3 ? traducirPortal("txt_continuar") : validarDisponibilidad ? traducirPortal("txt_b8_confirmar_disponibilidad") : traducirPortal("txt_confirmar_operacion_nombre", { operacion: etiqueta })}</button></div></form>`;
 }
 
-export function crearControladorOperacionesSituacion({ estado, renderizar, recargar, consultarReglas = consultarReglasSituacion, consultarDocumentales = consultarSolicitudesDocumentalesRRHH }) {
+export function crearControladorOperacionesSituacion({ estado, renderizar, recargar, consultarReglas = consultarReglasSituacion,
+  consultarOperaciones = consultarOperacionesSituacion, consultarReincorporaciones,
+  consultarDocumentales = consultarSolicitudesDocumentalesRRHH }) {
   async function cargar(modalFicha, { incluirSecciones = true } = {}) {
-    // B13: el histórico de contratos se carga junto a la ficha, en paralelo.
-    if (incluirSecciones) {
-      void cargarContratosFicha(modalFicha, { estado, renderizar, renderizarAlIniciar: false });
-      void cargarReincorporacionesTitularFicha(modalFicha, { estado, renderizar, renderizarAlIniciar: false });
-    }
+    if (incluirSecciones) void cargarContratosFicha(modalFicha, { estado, renderizar, renderizarAlIniciar: false });
     const controlador = new AbortController();
     modalFicha.controladorOperaciones?.abort();
+    modalFicha.controladorReincorporaciones?.abort();
     modalFicha.controladorOperaciones = controlador;
-    modalFicha.operacionesB8 = { ...modalFicha.operacionesB8, carga: "cargando", items: [], cambios: [] };
-    renderizar();
-    // Sin catálogo o situación vigente del servidor, las acciones nuevas
-    // quedan cerradas; nunca se deduce el CAS del último registro histórico.
-    const finRelacion = modalFicha.candidato.estado_clave === "trabajando" ? hoyCivil() : "";
+    const bolsa = estado.bolsaSeleccionada;
+    const participacion = modalFicha.candidato.participacion_ref;
     const solicitudesPrevias = modalFicha.operacionesB8;
-    const consultaDocumental = !incluirSecciones && [401, 403, 404].includes(solicitudesPrevias?.solicitudesStatus)
-      ? Promise.resolve({ ok: false, status: solicitudesPrevias.solicitudesStatus,
-        mensaje: solicitudesPrevias.solicitudesError })
-      : consultarDocumentales(estado.bolsaSeleccionada, modalFicha.candidato.participacion_ref, { signal: controlador.signal });
-    const [res, reglas, solicitudes] = await Promise.all([
-      consultarOperacionesSituacion(estado.bolsaSeleccionada, modalFicha.candidato.participacion_ref, { signal: controlador.signal }),
+    modalFicha.operacionesB8 = { ...solicitudesPrevias, carga: "cargando", items: [], cambios: [], capacidadesFicha: null };
+    renderizar();
+    const vigente = () => !controlador.signal.aborted && estado.modalFicha === modalFicha
+      && estado.bolsaSeleccionada === bolsa && modalFicha.candidato.participacion_ref === participacion;
+    const finRelacion = modalFicha.candidato.estado_clave === "trabajando" ? hoyCivil() : "";
+    const [res, reglas] = await Promise.all([
+      consultarOperaciones(bolsa, participacion, { signal: controlador.signal }),
       consultarReglas({ finRelacion, signal: controlador.signal }),
-      consultaDocumental,
     ]);
-    if (controlador.signal.aborted || estado.modalFicha !== modalFicha) return;
+    if (!vigente()) return;
+    const capacidades = res.capacidadesFicha ?? null;
+    const documental = capacidades?.solicitudes_documentales;
+    const leerDocumental = !documental || documental.estado === "disponible";
+    if (incluirSecciones || capacidades) {
+      void cargarReincorporacionesTitularFicha(modalFicha, { estado, renderizar,
+        disponibilidad: capacidades?.reincorporaciones_titular,
+        ...(consultarReincorporaciones ? { consultar: consultarReincorporaciones } : {}),
+        renderizarAlIniciar: false });
+    }
+    const solicitudes = !leerDocumental
+      ? { ok: false, status: null, omitida: documental.estado !== "indisponible",
+        metadatos: documental.estado === "indisponible", mensaje: documental.estado === "indisponible"
+          ? traducirPortal("txt_b8_solicitudes_documentales_error") : "" }
+      : !capacidades && !incluirSecciones && [401, 403, 404].includes(solicitudesPrevias?.solicitudesStatus)
+        ? { ok: false, status: solicitudesPrevias.solicitudesStatus, mensaje: solicitudesPrevias.solicitudesError }
+        : await consultarDocumentales(bolsa, participacion, { signal: controlador.signal });
+    if (!vigente()) return;
     modalFicha.reglasSituacion = reglas.ok ? reglas.datos : null;
     if (res.ok) modalFicha.candidato = { ...modalFicha.candidato,
       estado_clave: res.situacionVigente?.situacion ?? modalFicha.candidato.estado_clave,
       estado_desde: res.situacionVigente?.desde };
-    const causas = causasBaja(modalFicha.reglasSituacion);
-    const transiciones = modalFicha.reglasSituacion?.transiciones ?? null;
+    const comunes = { ...modalFicha.operacionesB8,
+      causasBaja: causasBaja(modalFicha.reglasSituacion), transiciones: modalFicha.reglasSituacion?.transiciones ?? null,
+      capacidadesFicha: capacidades,
+      solicitudesDocumentales: solicitudes.ok ? solicitudes.datos : [], solicitudesError: solicitudes.ok ? "" : solicitudes.mensaje,
+      solicitudesStatus: solicitudes.ok ? 200 : solicitudes.status, solicitudesCargando: false,
+      solicitudesOmitidas: solicitudes.omitida === true, solicitudesMetadatos: solicitudes.metadatos === true };
     modalFicha.operacionesB8 = res.ok
-      ? { ...modalFicha.operacionesB8, carga: "listo", noDisponible: !res.situacionVigente, items: res.datos, cambios: res.cambios, causasBaja: causas, transiciones,
-        solicitudesDocumentales: solicitudes.ok ? solicitudes.datos : [], solicitudesError: solicitudes.ok ? "" : solicitudes.mensaje,
-        solicitudesStatus: solicitudes.ok ? 200 : solicitudes.status, solicitudesCargando: false }
-      : { ...modalFicha.operacionesB8, carga: "error", noDisponible: true, error: res.mensaje,
-        errorStatus: res.status, items: [], cambios: [], causasBaja: causas, transiciones,
-        solicitudesDocumentales: [], solicitudesError: solicitudes.ok ? "" : solicitudes.mensaje,
-        solicitudesStatus: solicitudes.ok ? 200 : solicitudes.status, solicitudesCargando: false };
+      ? { ...comunes, carga: "listo", noDisponible: !res.situacionVigente, items: res.datos, cambios: res.cambios }
+      : { ...comunes, carga: "error", noDisponible: true, error: res.mensaje, errorStatus: res.status, items: [], cambios: [] };
     renderizar();
   }
 
   async function reintentarSolicitudes(modal) {
     const flujo = modal.operacionesB8;
     const controlador = modal.controladorOperaciones;
+    if (flujo?.solicitudesMetadatos) {
+      if (flujo.solicitudesCargando) return;
+      flujo.solicitudesCargando = true;
+      renderizar();
+      await cargar(modal, { incluirSecciones: false });
+      if (estado.modalFicha === modal) globalThis.document?.querySelector?.('[data-b8-accion="reintentar-solicitudes"]')?.focus?.();
+      return;
+    }
     if (!flujo || flujo.solicitudesCargando || !controlador || controlador.signal.aborted
       || [401, 403, 404].includes(flujo.solicitudesStatus)) return;
     flujo.solicitudesCargando = true;
@@ -507,7 +546,13 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
   function instalar(documento = globalThis.document) {
     instalarHuellaArchivo(documento);
     documento.addEventListener("click", (evento) => {
-      if (manejarClickReincorporacionesTitular(evento, { estado, renderizar })) return;
+      if (manejarClickReincorporacionesTitular(evento, { estado, renderizar,
+        reintentarMetadatos: async () => {
+          const modal = estado.modalFicha;
+          if (!modal) return;
+          await cargar(modal, { incluirSecciones: false });
+          if (estado.modalFicha === modal) globalThis.document?.querySelector?.('[data-reincorporacion-accion="reintentar"]')?.focus?.();
+        } })) return;
       if (!manejarClickContratos(evento, { estado, renderizar })) manejarClick(evento);
     });
     documento.addEventListener("submit", (evento) => { manejarSubmit(evento); });
