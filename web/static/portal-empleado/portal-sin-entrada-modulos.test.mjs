@@ -9,7 +9,7 @@ import {
   crearCoordinadorModulosPortal,
   vistaConEntradaPortal,
 } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261007-pantallas-textos-final-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261008-bolsa-global-v1";
 
 // El portal solo ofrece Bolsa y la contratación temporal: Personal, Cronos y
 // Dietas se siguen cargando (su URL directa funciona), pero no tienen entrada

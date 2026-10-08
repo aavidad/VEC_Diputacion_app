@@ -13,7 +13,7 @@ import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamient
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-w-bolsa-ficha-main-v2";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261008-canal-telefono-v2";
-import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js";
+import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261008-bolsa-global-v1";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-w-bolsa-ficha-main-v2";
 import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261008-w-bolsa-ficha-main-v2";
@@ -29,8 +29,8 @@ import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js";
-import { renderizarGlobalBolsa } from "./portal-bolsas-global.js";
+import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v1";
+import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261008-bolsa-global-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
@@ -124,7 +124,9 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (estadoEstadisticas.carga === "denegado" || estadoEstadisticas.carga === "error") return `${cabecera}<section class="panel"><div class="cuerpo-panel vacio-controlado" role="alert"><p><strong>${estadoEstadisticas.carga === "denegado" ? traducirPortal("txt_acceso_denegado") : traducirPortal("txt_no_se_pudieron_cargar_las_estadisticas")}</strong></p><p>${escaparHTML(estadoEstadisticas.error || traducirPortal("txt_la_sesion_no_puede_consultar_esta_informacion"))}</p>${estadoEstadisticas.carga === "error" ? '<button type="button" class="boton-secundario" data-bolsa-accion="reintentar-estadisticas">' + textoPortal("txt_reintentar") + '</button>' : ""}</div></section>`;
     const datos = estadoEstadisticas.datos;
     const lecturaBolsas = typeof obtenerDatosBolsas === "function" ? obtenerDatosBolsas() : null;
-    const totalEnCurso = datos.llamamientos?.en_curso_total;
+    const lecturaLegada = !datos.corte_ref && typeof obtenerDatosBolsas === "function" ? obtenerDatosBolsas() : null;
+    const conteosLegados = lecturaLegada?.carga === "listo" ? lecturaLegada.datos?.bolsas?.map((b) => b.llamamientos_en_curso) : null;
+    const totalEnCurso = datos.llamamientos?.en_curso_total ?? (conteosLegados?.every((n) => Number.isSafeInteger(n) && n >= 0) ? conteosLegados.reduce((a, b) => a + b, 0) : null);
     const listaCursoDisponible = datos.llamamientos?.lista_llamamientos_disponible === true || datos.lista_llamamientos_disponible === true;
     const enCurso = Number.isSafeInteger(totalEnCurso) ? numero(totalEnCurso) : traducirPortal("txt_no_disponible");
     const tarjetas = [["bolsas", numero(datos.bolsas.total), traducirPortal("txt_bolsas")], ["correcto", numero(datos.bolsas.vigentes), traducirPortal("txt_vigentes")], ["en_curso", numero(datos.bolsas.sustituidas), traducirPortal("txt_sustituidas")], ["personas", numero(datos.personas.total), traducirPortal("txt_personas")], ["llamamiento", enCurso, traducirPortal("txt_llamamientos_en_curso")]];

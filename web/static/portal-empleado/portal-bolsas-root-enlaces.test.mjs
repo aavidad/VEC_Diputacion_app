@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import * as rutasBolsa from "./portal-bolsas-ruta-filtros.js";
+import * as rutasBolsa from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v1";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 
 const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
@@ -11,13 +11,13 @@ const fin = portal.indexOf("function actualizarVistaBolsa(", inicio);
 assert.ok(inicio > 0 && fin > inicio, "el consumidor del enlace pertenece a la raíz");
 
 function escenario() {
-  const llamadas = [], avisos = [], navegaciones = [];
+  const llamadas = [], avisos = [], navegaciones = [], globales = [];
   const location = { pathname: "/portal-empleado/", search: "?lang=es&bolsa_ref=bolsa%3A1&estado=disponible",
     hash: "#bolsa/bolsa-candidatos" };
   const datos = { bolsas: [{ bolsa_ref: "bolsa:1" }, { bolsa_ref: "bolsa:2" }] };
   const estado = { vista: "bolsa-candidatos", datosBolsas: { carga: "listo", datos },
     bolsaSeleccionada: "", filtrosBolsa: {}, datosCandidatos: { carga: "listo" } };
-  const entorno = { estado, rutasBolsa, controladorBolsas: { cargarCandidatosBolsa: (...argumentos) => {
+  const entorno = { estado, rutasBolsa, controladorBolsas: { cargarGlobalBolsa: (...argumentos) => { globales.push(argumentos); return Promise.resolve(); }, cargarCandidatosBolsa: (...argumentos) => {
     llamadas.push(argumentos); return Promise.resolve();
   } }, rutaCandidatosAplicada: null, window: { location },
   history: { replaceState(_estado, _titulo, ruta) {
@@ -25,7 +25,7 @@ function escenario() {
   } }, navegar: (vista) => { estado.vista = vista; navegaciones.push(vista); },
   anunciar: (mensaje) => avisos.push(mensaje), traducirPortal: (clave) => clave };
   const aplicar = runInNewContext(`${portal.slice(inicio, fin)}; aplicarRutaCandidatosBolsa`, entorno);
-  return { aplicar, estado, location, llamadas, navegaciones, avisos };
+  return { aplicar, estado, location, llamadas, navegaciones, avisos, globales };
 }
 
 test("la raíz consulta el predicado de la URL solo tras cotejar su bolsa con el GET autorizado", () => {
@@ -96,7 +96,7 @@ test("la cohorte de CSS, entrada y helper coincide con las URL servidas", async 
     "index.html", "cache-publica-v1.json", "../../interno.manifest", "../../produccion.manifest",
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const versionRaiz = versionDe(html, "/portal-empleado/portal.js");
-  assert.equal(versionRaiz, "20261008-documentos-ficha-v2");
+  assert.equal(versionRaiz, "20261008-bolsa-global-v1");
   assert.equal(versionDe(cache, "/portal-empleado/portal.js"), versionRaiz);
   for (const css of ["portal-componentes.css", "portal-capacidades.css"])
     assert.equal(versionDe(html, `/portal-empleado/${css}`), "20261008-bolsa-enlaces-v1");
@@ -104,4 +104,19 @@ test("la cohorte de CSS, entrada y helper coincide con las URL servidas", async 
   for (const manifiesto of [interno, produccion]) {
     assert.equal(manifiesto.split("static/portal-empleado/portal-bolsas-ruta-filtros.js").length - 1, 1);
   }
+});
+
+
+test("el total global abre una sola página del corte y no consulta ninguna bolsa individual", () => {
+  const caso = escenario();
+  caso.location.search = `?lang=es&bolsa_global=renuncia&corte_bolsa=${"a".repeat(64)}`;
+  assert.equal(caso.aplicar(), true);
+  assert.equal(caso.aplicar(), true);
+  assert.deepEqual(caso.llamadas, []);
+  assert.equal(caso.globales.length, 1);
+  assert.equal(caso.globales[0][0], "renuncia");
+  assert.equal(caso.globales[0][1].corte, "a".repeat(64));
+  caso.location.search = `?lang=es&bolsa_global=disponible&corte_bolsa=${"a".repeat(64)}`;
+  caso.aplicar();
+  assert.equal(caso.globales.length, 2, "Atrás o filtro nuevo piden solo su página");
 });

@@ -367,6 +367,9 @@
     "sin_posicion": "Sin posición disponible",
     "llamamiento": "Llamamiento",
     "referencia": "Referencia",
-    "sin_referencia": "Sin referencia visible"
+    "sin_referencia": "Sin referencia visible",
+    "anterior": "Ver anteriores",
+    "caducado": "La relación ha cambiado o lleva un tiempo abierta. Actualícela para ver los datos actuales.",
+    "actualizar": "Actualizar la relación"
   }
 }

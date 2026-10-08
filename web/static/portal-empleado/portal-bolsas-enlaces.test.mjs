@@ -5,15 +5,16 @@ await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
 import assert from "node:assert/strict";
 
-import { consultarBolsas, consultarCandidatosBolsa, consultarEstadisticasBolsa, consultarGlobalBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarGlobalBolsa } from "./portal-bolsas-global.js";
+import { consultarBolsas, consultarCandidatosBolsa, consultarEstadisticasBolsa, consultarGlobalBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v1";
+import { renderizarGlobalBolsa, prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261008-bolsa-global-v1";
 import {
   leerCandidatosBolsaCompartible, leerGlobalBolsaCompartible, rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible,
   rutaResumenBolsasCompartible,
-} from "./portal-bolsas-ruta-filtros.js";
+} from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v1";
 import { SITUACIONES_PARTICIPACION_BOLSA } from "./portal-bolsas-contrato.js";
 
+await prepararTextosGlobalBolsa();
 const BOLSA = Object.freeze({
   bolsa_ref: "bolsa:sintetica:1", categoria_clave: "administrativo", categoria: "ADMINISTRATIVO",
   tipo_lista: "rotatoria", vigente_desde: "2026-09-18T00:43:00Z", vigente_hasta: null, total: 2,

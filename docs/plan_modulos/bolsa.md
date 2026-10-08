@@ -42,3 +42,23 @@ Publicación de convocatorias (B7) y baremación con firma (B8) van con Selectiv
 - Selectores de Bolsa y CT con aviso al arrancar: #745.
 
 Ficheros que conviene no engordar: `internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go`, `web/static/portal-empleado/portal-bolsas-api.js` y `internal/modules/bolsa/domain/llamamientos.go`. Lo nuevo va en ficheros nuevos.
+
+## Candidata: cifras globales y sus listas (Codex-W, 08/10)
+
+Rama `trabajo/codexw-bolsa-global-20261008`: los totales de aspirantes,
+disponibles y renuncia abren su relación paginada. Las filas muestran categoría,
+posición de acta y situación; «Ver bolsa» abre la relación con nombres ya existente.
+Los llamamientos completos tienen su lista por bolsa o general (SQL nueva B94).
+La cifra y las páginas conservan el mismo corte durante cinco minutos; al caducar,
+la pantalla ofrece actualizarlo. Se cuentan participaciones, no personas distintas.
+
+Ensayo B94: PostgreSQL 18.4 propio, postHX + 14 HZ + B85 + B86 + CT193 + B87.
+Sin reconstruir SQL instalada ni cambiar permisos o configuración. La lectura usa
+la vía de Bolsa de main admitida por Dirección el 08/10 a las 19:12; no cierra C4
+ni acredita auditoría nominal común en cada lectura. Revisión, CI e instalación
+pendientes de Dirección; no se declara terminado el punto 7 de este plan.
+
+Medición con 2.390 participaciones: lector de cuatro consultas p95 19,96 ms
+(100 muestras); manejador HTTP de resumen p95 17,31 ms y páginas p95 < 1 ms
+(30 muestras por filtro). HTTP medido sobre el cargador y manejador reales contra
+el clon: no incluye TLS ni la frontera nominal. B94: EXPLAIN ANALYZE 2,64 ms.

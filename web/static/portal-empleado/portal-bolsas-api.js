@@ -24,7 +24,9 @@ import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamami
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261008-canal-telefono-v2";
 import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261007-pantallas-textos-final-v1";
 import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
-import { canalesAviso } from "./portal-bolsas-seguimiento.js";
+import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261008-bolsa-global-v1";
+import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v1";
+import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261008-bolsa-global-v1";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 const FILTROS_GLOBALES = new Set(["todos", "disponible", "renuncia", "llamamientos"]);
@@ -45,14 +47,17 @@ export async function consultarGlobalBolsa(filtro, { corte = "", bolsa = "", cur
       || !Array.isArray(datos.items) || !Number.isSafeInteger(datos.total)
       || !Number.isSafeInteger(datos.desde) || !Number.isSafeInteger(datos.hasta)
       || datos.total < 0 || datos.desde < 0 || datos.hasta < 0 || datos.hasta > datos.total
-      || datos.items.length > 50
+      || datos.items.length > 50 || (datos.items.length === 0 ? datos.desde !== 0 || datos.hasta !== datos.total : datos.hasta - datos.desde + 1 !== datos.items.length)
+      || datos.hay_mas !== (datos.hasta < datos.total)
+      || (datos.hay_mas ? datos.cursor_siguiente !== String(datos.hasta) : datos.cursor_siguiente !== null)
+      || !Number.isFinite(Date.parse(datos.generado_en))
       || typeof datos.corte_ref !== "string" || !/^[a-f0-9]{64}$/u.test(datos.corte_ref)
       || typeof datos.hay_mas !== "boolean" || (datos.hay_mas && !/^[0-9]+$/u.test(datos.cursor_siguiente ?? ""))
       || datos.items.some((item) => !item || typeof item.bolsa_ref !== "string" || typeof item.categoria !== "string"
         || (filtro === "llamamientos" ? typeof item.llamamiento_ref !== "string" || typeof item.referencia !== "string"
           || typeof item.emitido_en !== "string" || !Number.isSafeInteger(item.participaciones)
           : typeof item.participacion_ref !== "string" || !Number.isSafeInteger(item.orden_acta)
-          || !SITUACIONES_PARTICIPACION_BOLSA.includes(item.estado_clave) || typeof item.estado_desde !== "string"))) {
+          || item.orden_acta < 1 || !SITUACIONES_PARTICIPACION_BOLSA.includes(item.estado_clave) || (filtro !== "todos" && item.estado_clave !== filtro) || typeof item.estado_desde !== "string"))) {
       return { ok: false, status: 0 };
     }
     return { ok: true, datos };
@@ -708,14 +713,14 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   async function cargarGlobalBolsa(filtro, { corte = "", bolsa = "", cursor = "" } = {}) {
     const controlador = iniciarLectura("candidatos");
     estado.bolsaSeleccionada = null;
-    estado.datosCandidatos = { carga: "cargando", datos: null, error: "", global: true, filtro, corte, bolsa };
+    estado.datosCandidatos = { carga: "cargando", datos: null, error: "", global: true, filtro, corte, bolsa, cursor };
     renderizar();
-    const res = await resolverLectura("candidatos", controlador, () => consultarGlobalBolsa(filtro, { corte, bolsa, cursor }, { signal: controlador.signal }));
+    const res = await resolverLectura("candidatos", controlador, async () => { await prepararTextosGlobalBolsa(); return consultarGlobalBolsa(filtro, { corte, bolsa, cursor }, { signal: controlador.signal }); });
     if (res === null || !lecturaVigente("candidatos", controlador)) return;
     terminarLectura("candidatos", controlador);
     estado.datosCandidatos = res.ok
-      ? { carga: "listo", datos: res.datos, error: "", global: true, filtro, corte: res.datos.corte_ref, bolsa }
-      : { carga: [401, 403].includes(res.status) ? "denegado" : "error", datos: null, error: "", global: true, filtro, corte, bolsa };
+      ? { carga: "listo", datos: res.datos, error: "", global: true, filtro, corte: res.datos.corte_ref, bolsa, cursor }
+      : { carga: [401, 403].includes(res.status) ? "denegado" : res.status === 409 ? "caducado" : "error", datos: null, error: "", global: true, filtro, corte, bolsa, cursor };
     renderizar();
   }
 
@@ -859,6 +864,19 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       }
     });
     documento.addEventListener("click", (evento) => {
+      const enlaceGlobal = evento.target?.closest?.('a[href*="bolsa_global="]');
+      if (enlaceGlobal && enlaceGlobal.closest?.("#espacio-trabajo") && !(evento.button > 0 || evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.altKey)) {
+        const destino = new URL(enlaceGlobal.getAttribute("href"), globalThis.location.href);
+        if (destino.origin === globalThis.location.origin && destino.pathname === globalThis.location.pathname && destino.hash === "#bolsa/bolsa-candidatos") {
+          try {
+            if (!leerGlobalBolsaCompartible(destino.search)) return;
+          } catch { return; }
+          evento.preventDefault();
+          globalThis.history.pushState(null, "", `${destino.pathname}${destino.search}${destino.hash}`);
+          navegar("bolsa-candidatos", { enfocar: false });
+          return;
+        }
+      }
       const botonVer = evento.target?.closest?.('[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]');
       if (botonVer) {
         evento.preventDefault();
@@ -890,10 +908,19 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       } else if (accion === "reintentar-candidatos") {
         evento.preventDefault();
         void cargarCandidatosBolsa(estado.bolsaSeleccionada, { cursor: estado.filtrosBolsa?.nuevo_llamamiento?.cursoresPagina?.at(-1) || "" });
-      } else if (accion === "reintentar-global" || accion === "pagina-global") {
+      } else if (accion === "reintentar-global" || accion === "pagina-global" || accion === "actualizar-global") {
         evento.preventDefault();
         const global = estado.datosCandidatos;
-        if (global?.global) void cargarGlobalBolsa(global.filtro, { corte: global.corte, bolsa: global.bolsa, cursor: accion === "pagina-global" ? botonAccion.dataset.cursor || "" : "" });
+        if (global?.global) {
+          if (accion === "actualizar-global") {
+            const ruta = rutaGlobalBolsaCompartible(globalThis.location?.search ?? "", global.filtro, "", global.bolsa);
+            globalThis.history?.replaceState(null, "", ruta);
+            navegar("bolsa-candidatos", { enfocar: false });
+            return;
+          }
+          void cargarGlobalBolsa(global.filtro, { corte: accion === "actualizar-global" ? "" : global.corte,
+            bolsa: global.bolsa, cursor: accion === "pagina-global" ? botonAccion.dataset.cursor || "" : accion === "actualizar-global" ? "" : global.cursor || "" });
+        }
       } else if (accion === "reintentar-estadisticas") {
         evento.preventDefault();
         void cargarEstadisticas();
