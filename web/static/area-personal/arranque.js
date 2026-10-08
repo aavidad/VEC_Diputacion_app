@@ -1,5 +1,5 @@
-import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261008-b4-v1";
-import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
+import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261008-b4-v3";
+import { idiomaAreaPersonal, iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20261005-b4b-v1";
 import { cargarVistasDisponibles } from "./vistas-disponibles.js?v=20261005-b4b-v1";
 import * as temaComun from "../comun/tema-vec.js?v=20260930-codexf-temas-v2";
@@ -9,7 +9,12 @@ let preferencias = null;
 let errorPreferencias = null;
 try { preferencias = await cargarPreferenciasIniciales(clientePreferencias); }
 catch (error) { errorPreferencias = error; }
-await iniciarI18nAreaPersonal(document, { idiomaPreferido: preferencias?.estado.valores.idioma });
+const idioma = await iniciarI18nAreaPersonal(document, { idiomaPreferido: preferencias?.estado.valores.idioma });
+// La PWA se inicia después del idioma del área; si falla el elegido, la página
+// sigue con el respaldo sin pedir un catálogo PWA en otro idioma.
+if (idioma === idiomaAreaPersonal(undefined, window.location, preferencias?.estado.valores.idioma)) {
+  void import("../pwa/instalar.js?v=20261003-pwa-ci-v5");
+}
 const controladorVisual = preferencias && typeof temaComun.aplicarPreferenciasVisuales === "function"
   ? temaComun.aplicarPreferenciasVisuales(preferencias.estado.valores, { documento: document, ventana: window })
   : typeof temaComun.crearControladorPreferenciasVisuales === "function"

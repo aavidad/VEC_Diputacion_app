@@ -5,7 +5,7 @@ import { traducir } from "../i18n.js";
 const p = (clave, variables) => traducir(`areaPersonal.vista.perfil.${clave}`, variables);
 
 export function renderizarPerfil() {
-  return `${encabezadoVista(p("titulo"), p("descripcion"))}
+  return `${encabezadoVista(p("titulo"), "")}
     <div class="rejilla-principal perfil"><div>
       ${panel(traducir("areaPersonal.ficha.panel.titulo"), "", '<div id="ficha-aspirante"></div>')}
       ${panel(textoContactoPropio("titulo"), textoContactoPropio("subtitulo"), '<div id="contacto-propio"></div>')}

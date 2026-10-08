@@ -824,6 +824,25 @@
     "solicitar_certificado": "Request certificate",
     "solicitar_descarga": "Prepare download"
   },
+  "preferencias": {
+    "titulo": "My preferences",
+    "componentesNoDisponibles": "Some options on this page could not be loaded. Select Retry. If the problem continues, contact IT support.",
+    "reintentarComponentes": "Retry loading",
+    "inicioAjeno": "The selected start page belongs to another area or is not authorised here. The safe Personal Area home page opens. This choice does not grant access.",
+    "atajoTexto": "Enlarge or reset the text size for this session",
+    "atajoContraste": "Turn high contrast on or off for this session",
+    "menuIdentidad": "Open identity menu",
+    "textoCorto": "Text ",
+    "contrasteCorto": "Contrast",
+    "identidadServicio": "Identity verified by the Users service",
+    "identidadNoConfirmada": "Identity not confirmed by the preferences service",
+    "atajo": {
+      "textoActivo": "Larger text size for this session.",
+      "textoInactivo": "Normal text size for this session.",
+      "contrasteActivo": "High contrast turned on for this session.",
+      "contrasteInactivo": "High contrast turned off for this session."
+    }
+  },
   "html": {
     "titulo": "My personal area · Job pools",
     "saltar": "Skip to main content",

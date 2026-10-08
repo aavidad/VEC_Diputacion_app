@@ -11,9 +11,9 @@ test("Inicio enlaza Mi bolsa sin presentar convocatorias ni solicitudes sin serv
     readFile(new URL("../arranque.js", import.meta.url), "utf8"),
     readFile(new URL("../aplicacion.js", import.meta.url), "utf8"),
   ]);
-  assert.match(html, /arranque\.js\?v=20261008-b4-v1/u);
-  assert.match(arranque, /aplicacion\.js\?v=20261008-b4-v1/u);
-  assert.match(aplicacion, /inicio-convocatorias\.js\?v=20261008-b4-v1/u);
+  assert.match(html, /arranque\.js\?v=20261008-b4-v3/u);
+  assert.match(arranque, /aplicacion\.js\?v=20261008-b4-v3/u);
+  assert.match(aplicacion, /inicio-convocatorias\.js\?v=20261008-b4-v3/u);
   for (const [idioma, boton] of [["es", "Ver Mi bolsa"], ["en", "View my job pool"]]) {
     await iniciarI18nAreaPersonal({ querySelectorAll: () => [], documentElement: {} }, {
       leer: lectorCatalogos(), ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` },
@@ -21,6 +21,6 @@ test("Inicio enlaza Mi bolsa sin presentar convocatorias ni solicitudes sin serv
     const vista = renderizarInicio();
     assert.match(vista, /data-ruta="llamamientos"/u);
     assert.ok(vista.includes(boton));
-    assert.doesNotMatch(vista, /iniciar-solicitud|abrir-expediente|resumen-cifras|filtros-convocatorias/u);
+    assert.doesNotMatch(vista, /iniciar-solicitud|abrir-expediente|resumen-cifras|filtros-convocatorias|<p>/u);
   }
 });

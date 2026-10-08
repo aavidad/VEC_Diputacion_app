@@ -1,3 +1,4 @@
+import "./inicializar-i18n.test-helper.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -32,5 +33,7 @@ test("la identidad no facilitada usa las claves del catálogo real y el respaldo
   assert.equal(datos.sesion.metodo, traducir(claves[1]));
   assert.equal(datos.perfil.identificador_visible, traducir(claves[2]));
   const respaldo = await import("./i18n.js?prueba-respaldo-mi-bolsa");
+  for (const clave of claves) assert.equal(respaldo.traducir(clave), clave);
+  await respaldo.iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(), ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
   for (const clave of claves) assert.equal(respaldo.traducir(clave), catalogo[clave]);
 });

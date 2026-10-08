@@ -1,8 +1,8 @@
 /**
  * Textos del área personal.
  *
- * Viven en `textos/<idioma>/area-personal.json` y, para «Mis preferencias», en
- * la sección `areaPersonal` de `textos/<idioma>/preferencias.json`; se leen con
+ * Viven en `textos/<idioma>/area-personal.json` y, al abrir «Mis preferencias»,
+ * en la sección `areaPersonal` de `textos/<idioma>/preferencias.json`; se leen con
  * el lector común (`comun/textos.js`). Las pantallas usan claves planas
  * `areaPersonal.<sección>.<clave>`: este módulo aplana el catálogo anidado. En
  * una sección, la clave `_` es el mensaje de la propia sección cuando esta
@@ -10,9 +10,10 @@
  *
  * El idioma sigue a la URL (`?lang=`), después a la preferencia guardada de la
  * persona y por último al navegador (`comun/idioma.js`). Mientras no se cargue
- * el catálogo elegido se usa el del idioma por defecto.
+ * el catálogo elegido se reintenta y se usa el del idioma por defecto si falla.
  */
-import { IDIOMA_POR_DEFECTO, localizacionDe, resolverIdiomaNavegacion } from "../comun/idioma.js";
+import { IDIOMA_POR_DEFECTO, leerRecursoJSON, localizacionDe, prepararIdiomas, reintentarIdiomas,
+  resolverIdiomaNavegacion } from "../comun/idioma.js";
 import { cargarTextos, esMensajePlural } from "../comun/textos.js";
 
 const PREFIJO = "areaPersonal";
@@ -27,17 +28,27 @@ function aplanar(seccion, prefijo, salida = {}) {
   return salida;
 }
 
-async function cargarCatalogo(idioma, opciones = {}) {
-  const [propios, preferencias] = await Promise.all(["area-personal", "preferencias"]
-    .map((modulo) => cargarTextos(modulo, { ...opciones, idioma })));
+async function cargarCatalogo(idioma, { leer, pantalla = "" } = {}) {
+  // El transporte común reintenta errores de red/503; el lector inyectado en
+  // pruebas o un adaptador también recibe un segundo intento.
+  const leerConReintento = leer ? async (url) => {
+    try { return await leer(url); }
+    catch { return leer(url); }
+  } : leerRecursoJSON;
+  const opciones = { idioma, porDefecto: idioma, leer: leerConReintento, avisar: () => {} };
+  const reutilizarArea = !leer && activo.idioma === idioma && Object.keys(activo.entradas).length > 0;
+  const propios = reutilizarArea ? null : await cargarTextos("area-personal", opciones);
+  const preferencias = pantalla === "preferencias" ? await cargarTextos("preferencias", opciones) : null;
   return Object.freeze({
-    idioma: propios.idioma,
-    entradas: Object.freeze({ ...aplanar(preferencias.seccion(PREFIJO), PREFIJO), ...aplanar(propios.mensajes, PREFIJO) }),
+    idioma,
+    entradas: Object.freeze({ ...(propios ? aplanar(propios.mensajes, PREFIJO) : activo.entradas),
+      ...(preferencias ? aplanar(preferencias.seccion(PREFIJO), PREFIJO) : {}) }),
+    preferencias,
   });
 }
 
-const RESPALDO = await cargarCatalogo(IDIOMA_POR_DEFECTO);
-let activo = RESPALDO;
+let activo = Object.freeze({ idioma: IDIOMA_POR_DEFECTO, entradas: Object.freeze({}), preferencias: null });
+let secuenciaCarga = 0;
 
 function interpolar(plantilla, variables) {
   return plantilla.replace(PATRON_VARIABLE, (_coincidencia, nombre) => String(variables?.[nombre] ?? ""));
@@ -46,6 +57,11 @@ function interpolar(plantilla, variables) {
 /** Idioma de los textos mostrados. */
 export function idiomaActivoAreaPersonal() {
   return activo.idioma;
+}
+
+/** Catálogo ya leído al abrir Preferencias, compartido con Imagen y Correos. */
+export function textosPreferenciasAreaPersonal() {
+  return activo.preferencias;
 }
 
 /** Localización Intl del idioma de los textos mostrados (fechas, cifras). */
@@ -59,7 +75,7 @@ export function localizacionAreaPersonal() {
  * Una clave desconocida se devuelve tal cual.
  */
 export function traducir(clave, variables = {}) {
-  const mensaje = activo.entradas[clave] ?? RESPALDO.entradas[clave];
+  const mensaje = activo.entradas[clave];
   if (typeof mensaje === "string") return interpolar(mensaje, variables);
   if (esMensajePlural(mensaje)) {
     const localizacion = localizacionAreaPersonal();
@@ -133,13 +149,28 @@ export function aplicarCatalogoAreaPersonal(documento, entradas) {
  */
 export async function iniciarI18nAreaPersonal(documento = globalThis.document, {
   preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location, idiomaPreferido = "navegador", leer,
+  pantalla,
 } = {}) {
+  const secuencia = ++secuenciaCarga;
+  try { await prepararIdiomas(); }
+  catch { try { await reintentarIdiomas(); } catch { /* Se conserva el último idioma válido. */ } }
+  if (secuencia !== secuenciaCarga) return activo.idioma;
   const idioma = idiomaAreaPersonal(preferidos, ubicacion, idiomaPreferido);
-  try {
-    activo = await cargarCatalogo(idioma, leer ? { leer, avisar: () => {} } : {});
-  } catch {
-    activo = RESPALDO;
+  const vista = pantalla ?? (ubicacion?.href ? new URL(ubicacion.href).searchParams.get("vista") : "");
+  if (!leer && activo.idioma === idioma && Object.keys(activo.entradas).length > 0
+    && (vista !== "preferencias" || Object.hasOwn(activo.entradas, "areaPersonal.preferencias.campo.idioma"))) {
+    aplicarCatalogoAreaPersonal(documento, activo.entradas);
+    if (documento?.documentElement) documento.documentElement.lang = activo.idioma;
+    return activo.idioma;
   }
+  let siguiente = null;
+  try { siguiente = await cargarCatalogo(idioma, { leer, pantalla: vista }); }
+  catch {
+    try { siguiente = await cargarCatalogo(IDIOMA_POR_DEFECTO, { leer, pantalla: vista }); }
+    catch { /* Se conserva el último catálogo válido y el documento no se desmonta. */ }
+  }
+  if (secuencia !== secuenciaCarga) return activo.idioma;
+  if (siguiente) activo = siguiente;
   aplicarCatalogoAreaPersonal(documento, activo.entradas);
   if (documento?.documentElement) documento.documentElement.lang = activo.idioma;
   return activo.idioma;

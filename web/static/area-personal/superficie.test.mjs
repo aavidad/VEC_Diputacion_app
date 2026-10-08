@@ -1,3 +1,4 @@
+import "./inicializar-i18n.test-helper.mjs";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";

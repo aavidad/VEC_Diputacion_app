@@ -1,3 +1,4 @@
+import "./inicializar-i18n.test-helper.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
@@ -36,7 +37,7 @@ function documentoFalso() {
 
 function pulsar(eventos, selector, valor) {
   const control = { dataset: selector === "[data-ruta]" ? { ruta: valor } : { accion: valor } };
-  eventos.get("click")({ preventDefault() {}, target: { closest(patron) {
+  return eventos.get("click")({ preventDefault() {}, target: { closest(patron) {
     return patron === selector ? control : null;
   } } });
 }
@@ -44,12 +45,12 @@ function pulsar(eventos, selector, valor) {
 async function escenario(idioma, lectura, errorPreferencias = null) {
   const original = { document: globalThis.document, window: globalThis.window };
   const { documento, eventos } = documentoFalso();
-  const ventana = { location: { search: "", pathname: "/area-personal/", origin: "https://vec.example" },
+  const ventana = { location: { href: `https://vec.example/area-personal/?lang=${idioma}`, search: `?lang=${idioma}`, pathname: "/area-personal/", origin: "https://vec.example" },
     history: { pushState() {} }, addEventListener() {}, scrollTo() {} };
   globalThis.document = documento;
   globalThis.window = ventana;
   try {
-    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(), preferidos: [idioma],
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(), pantalla: "preferencias", preferidos: [idioma],
       ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` } });
     let consultasBolsa = 0;
     const cliente = { async cargar() { consultasBolsa += 1; throw { codigo: "servicio_no_disponible" }; } };
@@ -59,7 +60,7 @@ async function escenario(idioma, lectura, errorPreferencias = null) {
     assert.equal(estado.datos, null);
     pulsar(eventos, "[data-accion]", "ver-sesion");
     assert.equal(documento.getElementById("menu-identidad").hidden, false);
-    pulsar(eventos, "[data-accion]", "abrir-preferencias");
+    await pulsar(eventos, "[data-accion]", "abrir-preferencias");
     assert.equal(documento.getElementById("menu-identidad").hidden, true);
     const vistaPreferencias = documento.getElementById("espacio-trabajo").innerHTML;
     assert.equal(estado.soloPreferencias, true);
@@ -72,7 +73,7 @@ async function escenario(idioma, lectura, errorPreferencias = null) {
     assert.equal(estado.datos, null);
     assert.doesNotMatch(vueltaBolsa, /formulario-preferencias/u);
     pulsar(eventos, "[data-accion]", "ver-sesion");
-    pulsar(eventos, "[data-accion]", "abrir-preferencias");
+    await pulsar(eventos, "[data-accion]", "abrir-preferencias");
     const reabierta = documento.getElementById("espacio-trabajo").innerHTML;
     return { vistaPreferencias, vueltaBolsa, reabierta, metodo };
   } finally {

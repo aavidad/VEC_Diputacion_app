@@ -1,13 +1,15 @@
 import { escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
-import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
-import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
-  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261007-p7-imagen-v1";
+import { idiomaActivoAreaPersonal, iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal,
+  textosPreferenciasAreaPersonal, traducir } from "./i18n.js";
+import { alternarVisualSesion, crearOperacionPreferencias, montarAvatarAreaPersonal, montarUsuariosAreaPersonal,
+  pintarInicialesSesion, renderizarPreferencias,
+  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261008-b4-v3";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
-import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261008-b4-v1";
-import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261008-b4-v1";
-import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js?v=20261008-b4-v1";
-import { renderizarAyuda } from "./vistas/comunicaciones-ayuda.js?v=20261008-b4-v1";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261008-b4-v3";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261008-b4-v3";
+import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js?v=20261008-b4-v3";
+import { renderizarAyuda } from "./vistas/comunicaciones-ayuda.js?v=20261008-b4-v3";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261005-b4b-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261002-rrhh17-v1";
@@ -16,7 +18,7 @@ import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
 
 const RUTAS = Object.freeze({
   inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
-  preferencias: ["areaPersonal.preferencias.titulo", (_, estado) => renderizarPreferencias(estado.preferencias) + (estado.imagen?.renderizar() ?? "") + (estado.correos?.renderizar() ?? "")],
+  preferencias: ["areaPersonal.preferencias.titulo", (_, estado) => renderizarPreferenciasArea(estado)],
   oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   perfil: ["areaPersonal.rutas.perfil", renderizarPerfil],
   llamamientos: ["areaPersonal.rutas.llamamientos", renderizarLlamamientos],
@@ -26,6 +28,15 @@ const RUTAS = Object.freeze({
 // Una vista se abre solo si existe y el catálogo `vistas.json` la activa.
 const rutaDisponible = (estado, vista) => Object.hasOwn(RUTAS, vista) && estado.vistasDisponibles.has(vista);
 const t = (clave, variables) => traducir(`areaPersonal.app.${clave}`, variables);
+
+function renderizarPreferenciasArea(estado) {
+  const incidencia = estado.errorUsuarios || !textosPreferenciasAreaPersonal()
+    ? `<section class="estado-error" role="alert"><p>${escaparHTML(traducir("areaPersonal.preferencias.componentesNoDisponibles"))}</p><button type="button" class="boton-secundario" data-accion="reintentar-usuarios">${escaparHTML(traducir("areaPersonal.preferencias.reintentarComponentes"))}</button></section>`
+    : "";
+  if (!textosPreferenciasAreaPersonal()) return incidencia;
+  return renderizarPreferencias(estado.preferencias) + (estado.imagen?.renderizar() ?? "")
+    + (estado.correos?.renderizar() ?? "") + incidencia;
+}
 
 export function conservarResultadoContactoPropio(estado, { reciboRef, version, correo }) {
   estado.contactoPropio = { ...estado.contactoPropio, version };
@@ -230,16 +241,25 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   }
 }
 
-function navegar(estado, vista) {
+async function navegar(estado, vista) {
+  const secuencia = ++estado.secuenciaNavegacion;
   if (!rutaDisponible(estado, vista)) vista = "inicio";
+  if (vista === "preferencias") {
+    await iniciarI18nAreaPersonal(document, { ubicacion: window.location,
+      idiomaPreferido: estado.preferencias.estado?.valores?.idioma,
+      pantalla: "preferencias" });
+    if (secuencia !== estado.secuenciaNavegacion) return;
+    estado.errorUsuarios = !montarUsuariosAreaPersonal(estado, estado.fetchImpl, porId("espacio-trabajo"));
+  }
   estado.vista = vista;
   estado.avisoInicio = false;
   window.history.pushState({ vista }, "", crearURL(estado, vista));
   cerrarMenu();
   cerrarMenuIdentidad();
-  if (vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
+  if (vista !== "preferencias" && (estado.soloPreferencias || !estado.datos || estado.recargarDatosAlSalirPreferencias)) {
     estado.datos = null;
     estado.soloPreferencias = false;
+    estado.recargarDatosAlSalirPreferencias = false;
     void cargar(estado);
     return;
   }
@@ -337,7 +357,10 @@ async function recargarPreferencias(estado) {
     estado.paginaParticipaciones = 1;
     estado.controladorVisual?.aplicarPreferenciasServidor(lectura.estado.valores);
     sincronizarAtajosVisuales(lectura.estado.valores);
+    const idiomaAnterior = idiomaActivoAreaPersonal();
     await iniciarI18nAreaPersonal(document, { idiomaPreferido: lectura.estado.valores.idioma });
+    if (idiomaActivoAreaPersonal() !== idiomaAnterior) estado.recargarDatosAlSalirPreferencias = true;
+    estado.errorUsuarios = !montarUsuariosAreaPersonal(estado, estado.fetchImpl, porId("espacio-trabajo"));
   } catch (error) {
     preferencias.error = error;
     preferencias.catalogo = null;
@@ -387,7 +410,10 @@ async function guardarPreferencias(estado, formulario, { reintento = false } = {
     estado.paginaParticipaciones = 1;
     estado.controladorVisual?.aplicarPreferenciasServidor(resultado.valores);
     sincronizarAtajosVisuales(resultado.valores);
+    const idiomaAnterior = idiomaActivoAreaPersonal();
     await iniciarI18nAreaPersonal(document, { idiomaPreferido: resultado.valores.idioma });
+    if (idiomaActivoAreaPersonal() !== idiomaAnterior) estado.recargarDatosAlSalirPreferencias = true;
+    estado.errorUsuarios = !montarUsuariosAreaPersonal(estado, estado.fetchImpl, porId("espacio-trabajo"));
     anunciar(traducir("areaPersonal.preferencias.guardado", { recibo: resultado.recibo_ref }));
   } catch (error) {
     preferencias.error = error;
@@ -421,6 +447,13 @@ function atenderAccion(estado, boton) {
     return;
   }
   if (accion === "reintentar") return cargar(estado);
+  if (accion === "reintentar-usuarios") {
+    return iniciarI18nAreaPersonal(document, { ubicacion: window.location,
+      idiomaPreferido: estado.preferencias.estado?.valores?.idioma, pantalla: "preferencias" }).then(() => {
+      estado.errorUsuarios = !montarUsuariosAreaPersonal(estado, estado.fetchImpl, porId("espacio-trabajo"));
+      if (estado.vista === "preferencias") renderizar(estado);
+    });
+  }
   if (accion === "pagina-participaciones") {
     estado.paginaParticipaciones = Math.max(1, Number(boton.dataset.pagina || 1));
     return renderizar(estado, { enfocar: true });
@@ -433,11 +466,10 @@ function conectarEventos(estado) {
     const enlace = evento.target.closest("[data-ruta]");
     if (enlace) {
       evento.preventDefault();
-      navegar(estado, enlace.dataset.ruta);
-      return;
+      return navegar(estado, enlace.dataset.ruta);
     }
     const boton = evento.target.closest("[data-accion]");
-    if (boton) atenderAccion(estado, boton);
+    if (boton) return atenderAccion(estado, boton);
   });
   document.addEventListener("submit", (evento) => {
     const formulario = evento.target;
@@ -453,16 +485,26 @@ function conectarEventos(estado) {
       return;
     }
   });
-  window.addEventListener("popstate", () => {
+  window.addEventListener("popstate", async () => {
+    const secuencia = ++estado.secuenciaNavegacion;
     cerrarMenu();
     cerrarMenuIdentidad();
     const parametros = new URLSearchParams(window.location.search);
     const inicioAjeno = inicioAjenoElegido(estado.preferencias.estado);
-    estado.vista = parametros.has("vista") ? rutaDesdeURL(estado) : inicioAjeno ? "inicio" : "llamamientos";
+    const vista = parametros.has("vista") ? rutaDesdeURL(estado) : inicioAjeno ? "inicio" : "llamamientos";
+    if (vista === "preferencias") {
+      await iniciarI18nAreaPersonal(document, { ubicacion: window.location,
+        idiomaPreferido: estado.preferencias.estado?.valores?.idioma,
+        pantalla: "preferencias" });
+      if (secuencia !== estado.secuenciaNavegacion) return;
+      estado.errorUsuarios = !montarUsuariosAreaPersonal(estado, estado.fetchImpl, porId("espacio-trabajo"));
+    }
+    estado.vista = vista;
     estado.avisoInicio = !parametros.has("vista") && inicioAjeno;
-    if (estado.vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
+    if (estado.vista !== "preferencias" && (estado.soloPreferencias || !estado.datos || estado.recargarDatosAlSalirPreferencias)) {
       estado.datos = null;
       estado.soloPreferencias = false;
+      estado.recargarDatosAlSalirPreferencias = false;
       void cargar(estado);
       return;
     }
@@ -549,13 +591,19 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     paginaParticipaciones: 1,
     fuenteBolsa: "real",
     causaBolsa: "",
+    errorUsuarios: false,
+    recargarDatosAlSalirPreferencias: false,
+    secuenciaNavegacion: 0,
   };
   ocultarRutasNoDisponibles(estado);
   // Una dirección antigua (p. ej. ?vista=solicitud) se corrige a la vista que se muestra.
   if (parametros.has("vista") && !rutaDisponible(estado, parametros.get("vista"))) {
     window.history.replaceState({ vista: estado.vista }, "", crearURL(estado, estado.vista));
   }
-  await montarUsuariosAreaPersonal(estado, fetchImpl, porId("espacio-trabajo"));
+  montarAvatarAreaPersonal(estado, fetchImpl, document);
+  if (estado.vista === "preferencias") {
+    estado.errorUsuarios = !montarUsuariosAreaPersonal(estado, fetchImpl, porId("espacio-trabajo"));
+  }
   conectarEventos(estado);
   sincronizarAtajosVisuales(preferencias?.estado?.valores);
   await cargar(estado);
