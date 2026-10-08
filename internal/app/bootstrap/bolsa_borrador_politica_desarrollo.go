@@ -99,6 +99,11 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) publicarInicial(ctx context
 	if p.publicada {
 		return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 	}
+	// B1 todavía no tiene una plantilla de rol acordada en la autoridad V3.
+	// Estos ajustes históricos no pueden convertir el arranque en publicador.
+	if os.Getenv(envCargaConvocaAprobacion) != "" || os.Getenv(envCargaConvocaPreimagen) != "" || os.Getenv(envCargaConvocaObjetivo) != "" {
+		return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
+	}
 	datos, err := p.soporte.soporteCanal.contexto.Vinculo.Datos()
 	if err != nil {
 		return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
@@ -122,6 +127,15 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) publicarInicial(ctx context
 			return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 		}
 		version := publicada.instantanea.VersionRol.Version
+		// Una nueva versión gobernada del mismo rol puede añadir B1 sin que el
+		// arranque publique ni reconstruya la asignación. Se consume la copia
+		// central y se mantiene íntegra su identidad y su historia.
+		if encontrada && instantaneaBolsaCargaConvocaCompatible(publicada.instantanea, datos,
+			p.soporte, ahora, versionRol) && procedenciaCargaConvocaGobernada(publicada, p.autoridad) {
+			p.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
+			p.publicada = true
+			return nil
+		}
 		objetivoVersion := versionRol + saltoProvisionDatosContactoBolsa
 		const envPreimagen = "VEC_BOLSA_DOCUMENTAL_PROVISION_PREIMAGEN_SHA256"
 		const envObjetivo = "VEC_BOLSA_DOCUMENTAL_PROVISION_OBJETIVO_SHA256"
@@ -247,13 +261,20 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrollo(
 	return nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(principalID, perfilRef, unidadRef, ambitoRef, ahora, 5)
 }
 
+const (
+	envCargaConvocaAprobacion = "VEC_BOLSA_CARGA_CONVOCA_PROVISION_APROBACION_REF"
+	envCargaConvocaPreimagen  = "VEC_BOLSA_CARGA_CONVOCA_PROVISION_PREIMAGEN_SHA256"
+	envCargaConvocaObjetivo   = "VEC_BOLSA_CARGA_CONVOCA_PROVISION_OBJETIVO_SHA256"
+)
+
 func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 	principalID, perfilRef, unidadRef, ambitoRef string, ahora time.Time, versionRol int,
 ) (dominiovec.InstantaneaAutorizacion, error) {
 	desde, hasta, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(ahora)
-	if !vigente || principalID == "" || perfilRef == "" || unidadRef == "" || ambitoRef == "" {
+	if !vigente || principalID == "" || perfilRef == "" || unidadRef == "" || ambitoRef == "" || versionRol < 1 || versionRol > 16 {
 		return dominiovec.InstantaneaAutorizacion{}, errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 	}
+	versionBase := versionRol
 	concesion := func(accion, finalidad string) dominiovec.ConcesionRol {
 		tipoRecurso := puertosbolsa.TipoRecursoBorradorLlamamiento
 		if accion == puertosbolsa.AccionCambiarSituacionParticipacion || accion == puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH || accion == puertosbolsa.AccionRegistrarContactoParticipacion || accion == puertosbolsa.AccionConsultarContactoParticipacion || accion == puertosbolsa.AccionRegistrarDatosContactoParticipacion || accion == puertosbolsa.AccionConsultarDatosContactoParticipacion || accion == puertosbolsa.AccionEmitirLlamamiento {
@@ -272,27 +293,27 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 		concesion(puertosbolsa.AccionCrearBorradorLlamamientoInterno, puertosbolsa.FinalidadCrearBorradorLlamamientoInterno),
 		concesion(puertosbolsa.AccionConsultarBorradorLlamamientoInterno, puertosbolsa.FinalidadConsultarBorradorLlamamientoInterno),
 	}
-	if versionRol >= 2 {
+	if versionBase >= 2 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionCambiarSituacionParticipacion, puertosbolsa.FinalidadCambiarSituacionParticipacion))
 	}
-	if versionRol >= 3 {
+	if versionBase >= 3 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionRegistrarContactoParticipacion, puertosbolsa.FinalidadRegistrarContactoParticipacion))
 	}
-	if versionRol >= 4 {
+	if versionBase >= 4 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionConsultarContactoParticipacion, puertosbolsa.FinalidadConsultarContactoParticipacion))
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionEmitirLlamamiento, puertosbolsa.FinalidadEmitirLlamamiento))
 	}
-	if versionRol >= 5 {
+	if versionBase >= 5 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionRegistrarDatosContactoParticipacion, puertosbolsa.FinalidadRegistrarDatosContactoParticipacion))
 	}
-	if versionRol >= 9 {
+	if versionBase >= 9 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH, puertosbolsa.FinalidadCambiarSituacionParticipacion))
 	}
-	if versionRol >= 9+saltoProvisionDocumentalBolsa {
+	if versionBase >= 9+saltoProvisionDocumentalBolsa {
 		// Correo y teléfonos completos: acción y finalidad propias (AD197/B78).
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionConsultarDatosContactoParticipacion, puertosbolsa.FinalidadConsultarDatosContactoParticipacion))
 	}
-	if versionRolBolsaConPoliticaOfertas(versionRol) {
+	if versionRolBolsaConPoliticaOfertas(versionBase) {
 		concesiones = append(concesiones, dominiovec.ConcesionRol{
 			Accion: puertosbolsa.AccionPublicarPoliticaOfertas, ModuloID: "bolsa",
 			TipoRecurso: "bolsa_constituida", Finalidades: []string{puertosbolsa.FinalidadPoliticaOfertas},
@@ -304,7 +325,7 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 			GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: []string{puertosbolsa.CampoConsultarPoliticaOfertas},
 		})
 	}
-	if versionRolBolsaConReincorporacion(versionRol) {
+	if versionRolBolsaConReincorporacion(versionBase) {
 		concesiones = append(concesiones, dominiovec.ConcesionRol{
 			Accion: puertosbolsa.AccionConsultarReincorporacionTitular, ModuloID: puertosbolsa.ModuloSituacionParticipacion,
 			TipoRecurso:      puertosbolsa.TipoRecursoSituacionParticipacion,
@@ -361,6 +382,23 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) ObtenerInstantaneaAutorizac
 	return clonarInstantaneaAutorizacionPostgreSQLDesarrollo(p.instantanea), nil
 }
 
+// La composición sólo puede montar B1 si la asignación publicada y contrastada
+// contiene exactamente su concesión; la semilla histórica no la añade.
+func (p *politicaBorradorLlamamientoBolsaDesarrollo) permiteCargaConvoca() bool {
+	if p == nil {
+		return false
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if !p.publicada || p.instantanea.Validar() != nil ||
+		!p.instantanea.AsignacionPerfil.VigenteEn(p.reloj.Ahora()) ||
+		p.instantanea.VersionRol.Estado != dominiovec.EstadoVersionRolPublicada ||
+		p.instantanea.ControlVigenciaVersionRol.Estado != dominiovec.EstadoControlVigenciaVersionRolHabilitada {
+		return false
+	}
+	return concesionCargaConvocaExacta(p.instantanea.VersionRol.Concesiones)
+}
+
 func (p *politicaBorradorLlamamientoBolsaDesarrollo) ValidarReferenciaMotivoAutorizacionV2(
 	ctx context.Context, referencia dominiovec.ReferenciaEntradaCatalogo, instante time.Time,
 ) error {
@@ -389,6 +427,9 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) ValidarReferenciaMotivoAuto
 	// la deniega y la denegación queda registrada (403, no indisponibilidad).
 	if referencia == motivoConsultarDatosContactoParticipacionBolsaDesarrollo() {
 		return nil
+	}
+	if referencia == motivoConfirmarCargaConvocaBolsaDesarrollo() {
+		return nil // La concesión positiva se evalúa en el PDP sobre la versión vigente.
 	}
 	if referencia != motivoCrearBorradorLlamamientoBolsaDesarrollo() && referencia != motivoConsultarBorradorLlamamientoBolsaDesarrollo() && referencia != motivoCambiarSituacionParticipacionBolsaDesarrollo() && referencia != motivoRegistrarContactoParticipacionBolsaDesarrollo() && referencia != motivoConsultarContactoParticipacionBolsaDesarrollo() && referencia != motivoRegistrarDatosContactoParticipacionBolsaDesarrollo() && referencia != motivoEmitirLlamamientoBolsaDesarrollo() {
 		return dominiovec.ErrSolicitudAutorizacionInvalida
@@ -472,6 +513,8 @@ func motivoBorradorLlamamientoCorresponde(accion string, motivo dominiovec.Refer
 		return motivo == motivoConsultarPoliticaOfertasBolsaDesarrollo()
 	case puertosbolsa.AccionConsultarReincorporacionTitular:
 		return motivo == motivoConsultarReincorporacionTitularBolsaDesarrollo()
+	case puertosbolsa.AccionConfirmarCargaConvoca:
+		return motivo == motivoConfirmarCargaConvocaBolsaDesarrollo()
 	default:
 		return false
 	}
@@ -525,6 +568,12 @@ func motivoConsultarBorradorLlamamientoBolsaDesarrollo() dominiovec.ReferenciaEn
 	return dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_borrador_llamamiento_bolsa", CatalogoVersion: 1,
 		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-bolsa-bback-v1"),
 		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-bback-consultar")}
+}
+
+func motivoConfirmarCargaConvocaBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
+	return dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_carga_convoca_bolsa", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-bolsa-b1-v1"),
+		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-b1-carga-convoca-confirmar")}
 }
 
 var _ puertosvec.FuenteAutorizacion = (*politicaBorradorLlamamientoBolsaDesarrollo)(nil)
