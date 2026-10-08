@@ -12,19 +12,30 @@ El runner nuevo es `probar_ct193_e3_postgresql18.sh`, su fixture es
 `internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_v3_postgresql18_test.go`.
 La compilación del test sin `VEC_CT_E3_PG18=SI` lo omite; ese resultado no es
 una prueba PostgreSQL.
+El runner exige un worktree Git limpio y las huellas fijadas de CT48, CT165 y
+CT193 antes de usar Docker. CT48 SHA256:
+`f33cf450fb6189ab0b21712a90ff80f4df95f20fb3a142b13a54bc65c9b6c6cc`;
+CT165 SHA256:
+`7a7ac82c0137d77339996022e234c416843a2525cf426f306430c0c66a05bf6e`.
 
 Para repetirlo se usa una copia aislada de esta rama con la imagen local
 PostgreSQL 18.4 ya instalada y el comando
 `VEC_CT_E3_BD_DESECHABLE=SI bash deploy/postgresql/contratacion_temporal/probar_ct193_e3_postgresql18.sh`.
-El runner exige `--pull=never`, red Docker deshabilitada, socket Unix en ruta
-temporal privada, `umask 077`, un contenedor y volumen propios con etiqueta
+El runner exige el daemon por `/var/run/docker.sock` Unix local y rechaza
+`DOCKER_HOST`, `DOCKER_CONTEXT`, TLS o configuración Docker heredada antes de
+mutar recursos. Exige también `--pull=never`, red Docker deshabilitada,
+bloqueo sin truncado en `/run/user/<uid>` de dueño propio y modo 0700,
+socket PostgreSQL en ruta temporal privada, `umask 077`, un contenedor y volumen propios con etiqueta
 `vec.prueba=ct193-e3-pg18`; limita PostgreSQL a 1536 MiB, dos CPU y 256
 procesos. La compilación y el test Go usan `bwrap` sin red, fuente y módulos
 de solo lectura, `GOCACHE=$HOME/.cache/go-build` en su HOME temporal, `-p 6`
 y límites de tiempo, procesos, memoria y tamaño de fichero. El volumen de
 datos Docker no tiene cuota de disco propia; el operador debe comprobar espacio
-local antes de repetir. El runner reinicia solamente su contenedor durante el
-replay y lo elimina junto con el volumen y temporales al salir. No usa la
+local antes de repetir. El sandbox Go ve un `/etc` vacío, sin montar el del
+host. El runner reinicia solamente su contenedor durante el replay e intenta
+eliminarlo junto con el volumen y temporales al salir, comprobando sus etiquetas
+antes de borrar; si Docker falla durante la limpieza, informa el residuo y
+requiere limpieza manual del recurso identificado. No usa la
 principal, cidonia, secretos reales ni los datos de volumen CT192.
 
 La imagen local fijada es
@@ -44,6 +55,10 @@ aplica CT193 una sola vez; recupera E2 y prueba E3 con fin, E3 con
 confirmaciones concurrentes. Cada vector sintético se emite, aplica y consume
 de inmediato porque la capacidad dura cinco segundos. Los bundles y la clave
 HMAC sintética permanecen en temporales `0600` fuera de Git.
+El modo de diagnóstico `VEC_CT_E3_SOLO_PREIMAGEN=SI` sale con código **77** y
+mensaje NO-GO antes de compilar o instalar CT193; no acredita E3. Cada fase
+exige el marcador PASS del test exacto, además del código de salida; INT y
+TERM salen con códigos 130 y 143 tras el intento de limpieza.
 
 Un ensayo en una base nueva completó esas fases. La colisión devolvió 409 en
 la barrera de candidatura y 42501 en la llamada SQL directa sin alias de

@@ -22,6 +22,19 @@ for herramienta in docker flock go stat bwrap timeout prlimit sha256sum rg; do
         exit 69
     }
 done
+# Un contexto heredado puede enviar incluso `docker run --network none` a un
+# daemon remoto. Se exige el socket Unix local antes de cualquier Docker CLI.
+for variable in DOCKER_HOST DOCKER_CONTEXT DOCKER_CONFIG DOCKER_TLS DOCKER_TLS_VERIFY DOCKER_CERT_PATH; do
+    if [[ -n ${!variable:-} ]]; then
+        printf 'CT193 E3: configuración Docker externa no admitida (%s)\n' "$variable" >&2
+        exit 65
+    fi
+done
+if [[ ! -S /var/run/docker.sock || -L /var/run/docker.sock ]]; then
+    printf 'CT193 E3: se exige /var/run/docker.sock local\n' >&2
+    exit 65
+fi
+docker() { command docker --host unix:///var/run/docker.sock "$@"; }
 export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
 modcache="$(go env GOMODCACHE)"
 if [[ ! -d $modcache || $modcache != /* ]]; then
@@ -41,8 +54,24 @@ if (( ${#migraciones[@]} != 1 )); then
     exit 66
 fi
 readonly migracion=${migraciones[0]}
-migracion_sha="$(sha256sum "$migracion" | cut -d ' ' -f 1)"
-readonly migracion_sha
+readonly sha_ct48='f33cf450fb6189ab0b21712a90ff80f4df95f20fb3a142b13a54bc65c9b6c6cc'
+readonly sha_ct165='7a7ac82c0137d77339996022e234c416843a2525cf426f306430c0c66a05bf6e'
+readonly migracion_sha='cbef35ad78d8b7551d639b8769f020ac9fd4a56c92a15292d0356d89ec127a2a'
+if [[ -n $(git -C "$raiz" status --porcelain=v1) ]]; then
+    printf 'CT193 E3: el worktree debe estar limpio para atribuir el ensayo\n' >&2
+    exit 65
+fi
+for especificacion in \
+    "$sha_ct48 $directorio/migraciones/000048_replay_alta_tras_reinicio_o2_07.up.sql" \
+    "$sha_ct165 $directorio/migraciones/000165_periodo_fin_segun_modalidad.up.sql" \
+    "$migracion_sha $migracion"
+do
+    IFS=' ' read -r esperado ruta_sql <<<"$especificacion"
+    if [[ ! -r $ruta_sql || $(sha256sum "$ruta_sql" | cut -d ' ' -f 1) != "$esperado" ]]; then
+        printf 'CT193 E3: hash de preimagen/UP incompatible (%s)\n' "${ruta_sql##*/}" >&2
+        exit 65
+    fi
+done
 readonly fixture_o205="$raiz/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/preparar_entorno_o2_05.sql"
 readonly helpers_o205="$raiz/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ayudantes_o2_05.sql"
 readonly fixture_e3="$directorio/pruebas_sql/ct193_e3_preparar.sql"
@@ -58,7 +87,15 @@ unset PGSSLCERT PGSSLKEY PGSSLROOTCERT PGSSLCRL PGSSLCRLDIR PGREQUIREPEER
 unset PGGSSENCMODE PGKRBSRVNAME PGGSSLIB PGSYSCONFDIR PGLOCALEDIR
 unset DATABASE_URL DB_DSN DSN VEC_DATABASE_URL
 
-exec 9>/var/tmp/vec-postgres-dynamic-ct193-e3.lock
+bloqueo_dir="/run/user/$(id -u)"
+readonly bloqueo_dir
+if [[ ! -d $bloqueo_dir || -L $bloqueo_dir ||
+      $(stat -c '%u:%a' "$bloqueo_dir") != "$(id -u):700" ]]; then
+    printf 'CT193 E3: falta directorio de bloqueo privado del UID\n' >&2
+    exit 65
+fi
+# `<>` crea el fichero con umask 077 y no trunca otro bloqueo existente.
+exec 9<>"$bloqueo_dir/vec-postgres-dynamic-ct193-e3.lock"
 if ! flock -w 900 9; then
     printf 'CT193 E3: no se adquirió el bloqueo PostgreSQL dinámico\n' >&2
     exit 75
@@ -86,17 +123,30 @@ creado_volumen=0
 creado_contenedor=0
 limpiar() {
     local estado=$?
+    local etiqueta_real
     trap - EXIT INT TERM
-    if (( creado_contenedor )); then
-        # postgres cambia la propiedad del bind de sockets y activa sticky bit.
-        docker exec -u 0 "$contenedor" chown -R "$(id -u):$(id -g)" \
-            /var/run/postgresql >/dev/null 2>&1 || estado=1
-        docker rm -f -v "$contenedor" >/dev/null 2>&1 || estado=1
+    if (( creado_contenedor )) && docker container inspect "$contenedor" >/dev/null 2>&1; then
+        etiqueta_real="$(docker container inspect --format '{{index .Config.Labels "vec.prueba"}}' "$contenedor" 2>/dev/null)" || estado=1
+        if [[ $etiqueta_real == ct193-e3-pg18 ]]; then
+            # postgres cambia la propiedad del bind de sockets y activa sticky bit.
+            docker exec -u 0 "$contenedor" chown -R "$(id -u):$(id -g)" \
+                /var/run/postgresql >/dev/null 2>&1 || estado=1
+            docker rm -f -v "$contenedor" >/dev/null 2>&1 || estado=1
+        else
+            printf 'CT193 E3: etiqueta de contenedor ajena; no se elimina\n' >&2
+            estado=1
+        fi
     fi
-    if (( creado_volumen )); then
-        docker volume rm -- "$volumen" >/dev/null 2>&1 || estado=1
+    if (( creado_volumen )) && docker volume inspect "$volumen" >/dev/null 2>&1; then
+        etiqueta_real="$(docker volume inspect --format '{{index .Labels "vec.prueba"}}' "$volumen" 2>/dev/null)" || estado=1
+        if [[ $etiqueta_real == ct193-e3-pg18 ]]; then
+            docker volume rm -- "$volumen" >/dev/null 2>&1 || estado=1
+        else
+            printf 'CT193 E3: etiqueta de volumen ajena; no se elimina\n' >&2
+            estado=1
+        fi
     fi
-    rm -rf -- "$base"
+    rm -rf -- "$base" || estado=1
     if docker container inspect "$contenedor" >/dev/null 2>&1 ||
        docker volume inspect "$volumen" >/dev/null 2>&1; then
         printf 'CT193 E3: limpieza incompleta\n' >&2
@@ -104,10 +154,13 @@ limpiar() {
     fi
     exit "$estado"
 }
-trap limpiar EXIT INT TERM
+trap limpiar EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-docker volume create --label "$etiqueta" "$volumen" >/dev/null
 creado_volumen=1
+docker volume create --label "$etiqueta" "$volumen" >/dev/null
+creado_contenedor=1
 docker run -d --pull=never --name "$contenedor" --label "$etiqueta" \
     --network none --memory=1536m --cpus=2 --pids-limit=256 \
     --mount "type=volume,src=$volumen,dst=/var/lib/postgresql" \
@@ -115,7 +168,6 @@ docker run -d --pull=never --name "$contenedor" --label "$etiqueta" \
     --mount "type=bind,src=$raiz,dst=/repo,readonly" \
     --env POSTGRES_HOST_AUTH_METHOD=trust --env POSTGRES_INITDB_ARGS='--encoding=UTF8' \
     "$imagen" -c listen_addresses= -c unix_socket_directories=/var/run/postgresql >/dev/null
-creado_contenedor=1
 
 listo=0
 for _ in {1..80}; do
@@ -317,8 +369,8 @@ if [[ $preflight != 't|t|t|t|t|t' ]]; then
     exit 1
 fi
 if [[ ${VEC_CT_E3_SOLO_PREIMAGEN:-} == SI ]]; then
-    printf '[CT193:E3] preimagen CT48+CT165 completa en base efímera; sin prueba Go\n'
-    exit 0
+    printf '[CT193:E3] SOLO PREIMAGEN CT48+CT165: sin CT193 ni prueba firmada; NO-GO\n' >&2
+    exit 77
 fi
 if [[ $(consultar "SELECT EXISTS(SELECT 1 FROM vec_autorizacion.decision_concedida_contexto_actor_v3 WHERE decision_ref='decision:registro-v3:positiva')") != t ]]; then
     printf 'CT193 E3: la preimagen carece del contexto/decisión sintéticos O2-05\n' >&2
@@ -369,7 +421,7 @@ sandbox=(
     --unshare-uts --clearenv
     --ro-bind "$sandbox_root" /
     --ro-bind /usr /usr
-    --ro-bind /etc /etc --dev /dev --proc /proc
+    --dev /dev --proc /proc
     --ro-bind "$raiz" "$raiz"
     --ro-bind "$modcache" "$modcache"
     --bind "$temporal" "$temporal"
@@ -414,7 +466,7 @@ probar_fase() {
         --setenv VEC_CT_E3_INICIO_PG "$temporal/inicio-pg.json" \
         --setenv VEC_CT_E3_RUNTIME_DSN "host=$socket port=5432 dbname=postgres user=vec_ct_e3_runtime sslmode=disable" \
         --setenv VEC_CT_E3_ADMIN_DSN "host=$socket port=5432 dbname=postgres user=postgres sslmode=disable" \
-        -- "$adaptador" -test.run '^TestConfirmacionAltaV3PostgreSQL18$' -test.count=1 \
+        -- "$adaptador" -test.run '^TestConfirmacionAltaV3PostgreSQL18$' -test.count=1 -test.v \
         >"$temporal/go-fase.log" 2>&1; then
         printf 'CT193 E3: fase %s falló; salida privada omitida\n' "$fase" >&2
         diagnostico="$(rg -m1 'confirmacion_alta_v3_postgresql18_test[.]go:[0-9]+:' \
@@ -422,6 +474,10 @@ probar_fase() {
         if [[ -n $diagnostico ]]; then
             printf 'CT193 E3: diagnóstico focal sintético: %s\n' "$diagnostico" >&2
         fi
+        exit 1
+    fi
+    if ! rg -q -- '^--- PASS: TestConfirmacionAltaV3PostgreSQL18 \(' "$temporal/go-fase.log"; then
+        printf 'CT193 E3: fase %s sin marcador de prueba ejecutada; NO-GO\n' "$fase" >&2
         exit 1
     fi
     estado_despues="$(estado_caso "$caso")"
