@@ -85,7 +85,7 @@ func (p *ProyectorCapacidadesRecurso) Proyectar(
 	}
 	datos, err := lote.Vinculo.Datos()
 	if err != nil {
-		return resultado, nil
+		return ProyeccionCapacidadesRecurso{}, err
 	}
 	resultado.PerfilActivoRef = datos.PerfilActivoRef
 	ahora := p.reloj.Ahora().UTC().Truncate(time.Microsecond)
@@ -97,7 +97,10 @@ func (p *ProyectorCapacidadesRecurso) Proyectar(
 	if cancelada := ctx.Err(); cancelada != nil {
 		return ProyeccionCapacidadesRecurso{}, cancelada
 	}
-	if err != nil || !vistaMontajeCapacidadRecursoValida(vista, lote.Superficie, datos.PerfilActivoRef) {
+	if err != nil {
+		return ProyeccionCapacidadesRecurso{}, err
+	}
+	if !vistaMontajeCapacidadRecursoValida(vista, lote.Superficie, datos.PerfilActivoRef) {
 		return resultado, nil
 	}
 	montadas := make(map[string]struct{}, len(vista.Rutas))
@@ -134,16 +137,18 @@ func (p *ProyectorCapacidadesRecurso) Proyectar(
 	if err != nil {
 		if errors.Is(err, ports.ErrAsignacionPerfilNoEncontrada) && !errors.Is(err, ports.ErrFuenteAutorizacionNoDisponible) {
 			cambiarEstadosIndiceCapacidadRecurso(resultado.Resultados, indices, CapacidadRecursoNoAutorizado)
+			return resultado, nil
 		}
-		return resultado, nil
+		return ProyeccionCapacidadesRecurso{}, err
 	}
 	ahora = p.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	evaluadas, limite, err := domain.EvaluarCapacidadesInformativasV3(lote.Vinculo, lote.Resultado, instantanea, consultas, ahora)
 	if err != nil {
 		if errors.Is(err, domain.ErrAutorizacionDenegada) {
 			cambiarEstadosIndiceCapacidadRecurso(resultado.Resultados, indices, CapacidadRecursoNoAutorizado)
+			return resultado, nil
 		}
-		return resultado, nil
+		return ProyeccionCapacidadesRecurso{}, err
 	}
 	if err := ctx.Err(); err != nil {
 		return ProyeccionCapacidadesRecurso{}, err

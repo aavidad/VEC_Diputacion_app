@@ -98,7 +98,10 @@ func (p proyectorDisponibilidadFichaOperacionesBolsa) ProyectarDisponibilidadFic
 				Finalidad: bolsapuertos.FinalidadConsultarReincorporacionTitular, Recurso: recurso()},
 		},
 	})
-	if err != nil || len(proyeccion.Resultados) != 2 || proyeccion.Resultados[0].Indice != 0 || proyeccion.Resultados[1].Indice != 1 {
+	if err != nil {
+		return vacio, err
+	}
+	if len(proyeccion.Resultados) != 2 || proyeccion.Resultados[0].Indice != 0 || proyeccion.Resultados[1].Indice != 1 {
 		return vacio, vecdomain.ErrConfiguracionAccesoInvalida
 	}
 	estado := func(i int) bolsahttp.EstadoDisponibilidadFichaOperaciones {
