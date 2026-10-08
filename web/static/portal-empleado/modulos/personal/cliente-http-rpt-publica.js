@@ -6,18 +6,19 @@ function registro(v) { return v !== null && typeof v === "object" && !Array.isAr
 function texto(v, maximo, vacio = false) { return typeof v === "string" && v === v.trim() && (vacio || v.length > 0) && v.length <= maximo && !/[\x00-\x1F\x7F-\x9F]/u.test(v); }
 function entero(v, minimo = 0) { return Number.isSafeInteger(v) && v >= minimo; }
 export function validarConsultaRPTPublica(consulta) {
-  const claves = ["vista", "q", "limit", "offset", "categoria_clave", "centro_codigo"];
+  const claves = ["vista", "q", "limit", "offset", "categoria_clave", "centro_codigo", "codigo_puesto"];
   if (!registro(consulta) || Object.keys(consulta).some((clave) => !claves.includes(clave))
     || !["categorias", "puestos", "centros"].includes(consulta.vista)
     || typeof consulta.q !== "string" || consulta.q !== consulta.q.trim() || consulta.q.length > 100
     || !entero(consulta.limit, 1) || consulta.limit > 100 || !entero(consulta.offset))
     throw new TypeError("consulta RPT pública no válida");
-  const categoria_clave = consulta.categoria_clave ?? "", centro_codigo = consulta.centro_codigo ?? "";
+  const categoria_clave = consulta.categoria_clave ?? "", centro_codigo = consulta.centro_codigo ?? "", codigo_puesto = consulta.codigo_puesto ?? "";
   if ((categoria_clave !== "" && (categoria_clave.length > 64 || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(categoria_clave)))
     || (centro_codigo !== "" && (!texto(centro_codigo, 64) || /[\x00-\x1F\x7F-\x9F]/u.test(centro_codigo)))
-    || (consulta.vista !== "puestos" && (categoria_clave !== "" || centro_codigo !== "")))
+    || typeof codigo_puesto !== "string" || (codigo_puesto !== "" && !/^[A-Z0-9][A-Z0-9-]{0,63}$/u.test(codigo_puesto))
+    || (consulta.vista !== "puestos" && (categoria_clave !== "" || centro_codigo !== "" || codigo_puesto !== "")))
     throw new TypeError("consulta RPT pública no válida");
-  return Object.freeze({ vista: consulta.vista, q: consulta.q, limit: consulta.limit, offset: consulta.offset, categoria_clave, centro_codigo });
+  return Object.freeze({ vista: consulta.vista, q: consulta.q, limit: consulta.limit, offset: consulta.offset, categoria_clave, centro_codigo, codigo_puesto });
 }
 function validarSignal(signal) { if (signal === undefined) return undefined; if (!signal || typeof signal !== "object" || typeof signal.aborted !== "boolean" || typeof signal.addEventListener !== "function" || typeof signal.removeEventListener !== "function") throw error("signal_no_valida"); if (signal.aborted) throw error("operacion_abortada"); return signal; }
 async function cancelar(respuesta) { try { await respuesta?.body?.cancel?.("respuesta descartada"); } catch {} }
@@ -42,7 +43,7 @@ function validarPagina(valor, consulta) {
   const rpt = valor?.data?.rpt;
   if (!registro(valor) || Object.keys(valor).length !== 1 || !registro(valor.data) || Object.keys(valor.data).length !== 1
     || !registro(rpt) || Object.keys(rpt).length !== 9 || rpt.enlaces !== true || !Array.isArray(rpt.items)
-    || !entero(rpt.total) || rpt.limit !== consulta.limit || rpt.offset !== consulta.offset
+    || !entero(rpt.total) || consulta.codigo_puesto && rpt.total > 1 || rpt.limit !== consulta.limit || rpt.offset !== consulta.offset
     || rpt.vista !== consulta.vista || rpt.esquema !== "vec.catalogo.rpt.v1"
     || !validarFuente(rpt.fuente) || !validarResumen(rpt.resumen)
     || rpt.items.length !== Math.min(rpt.limit, Math.max(0, rpt.total - rpt.offset)))
@@ -53,7 +54,8 @@ function validarPagina(valor, consulta) {
   const items = rpt.items.map((item) => {
     if (!validar(item) || vistos.has(item[clave])
       || consulta.vista === "puestos" && ((consulta.categoria_clave && item.categoria_clave !== consulta.categoria_clave)
-      || (consulta.centro_codigo && item.centro_codigo !== consulta.centro_codigo)))
+      || (consulta.centro_codigo && item.centro_codigo !== consulta.centro_codigo)
+      || (consulta.codigo_puesto && item.codigo !== consulta.codigo_puesto)))
       throw new TypeError("fila RPT pública incompatible");
     vistos.add(item[clave]);
     return Object.freeze({ ...item,
@@ -75,6 +77,7 @@ export function crearClienteHTTPRPTPublica({ fetchImpl = globalThis.fetch, plazo
     if (consulta.vista !== "categorias") parametros.set("vista", consulta.vista);
     if (consulta.categoria_clave) parametros.set("categoria_clave", consulta.categoria_clave);
     if (consulta.centro_codigo) parametros.set("centro_codigo", consulta.centro_codigo);
+    if (consulta.codigo_puesto) parametros.set("codigo_puesto", consulta.codigo_puesto);
     const respuesta = await ejecutarConPlazo(async (signal) => {
       let resultado;
       try {

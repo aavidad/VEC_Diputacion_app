@@ -90,3 +90,54 @@ func TestRPTPublicaEnlacesOptativosConFiltrosExactos(t *testing.T) {
 		}
 	}
 }
+
+func TestRPTPublicaCodigoPuestoExactoYContratoAnterior(t *testing.T) {
+	puesto := func(codigo, centro string) domain.PuestoRPTPublico {
+		return domain.PuestoRPTPublico{Codigo: codigo, Denominacion: "ADMINISTRATIVO", CentroCodigo: centro,
+			Centro: "CENTRO " + centro, Delegacion: "PERSONAL", Grupos: []string{"C1"},
+			CategoriaClave: "administrativo", NivelDestino: 17, ComplementoEspecificoAnualCentimos: 1000000,
+			Dotacion: 1, Tipo: "F", Provision: "C"}
+	}
+	catalogo := domain.CatalogoRPTPublica{Esquema: "vec.catalogo.rpt.v1",
+		Fuente:     domain.FuenteRPTPublica{Documento: "RPT publicada", Importacion: "rpt-v1", GeneradoEn: "2026-09-17", Aviso: "Sin ocupantes", HuellaSHA256: strings.Repeat("a", 64)},
+		Resumen:    domain.ResumenRPTPublica{Puestos: 2, Dotacion: 2, Categorias: 1, Centros: 2},
+		Categorias: []domain.CategoriaRPTPublica{{Clave: "administrativo", Denominacion: "ADMINISTRATIVO", Grupos: []string{"C1"}, Escalas: []string{}, Puestos: 2, Dotacion: 2}},
+		Puestos:    []domain.PuestoRPTPublico{puesto("217", "101"), puesto("1217", "102")}}
+	h, err := NewHandlerRPTPublica(consultaRPTPublicaPrueba{catalogo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pedir := func(query string) *httptest.ResponseRecorder {
+		t.Helper()
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaRPTPublicaPersonal+"?"+query, nil))
+		return w
+	}
+	base := "vista=puestos&q=administrativo&limit=25&offset=0&enlaces=1"
+	exacta := pedir(base + "&codigo_puesto=217")
+	if exacta.Code != 200 || !strings.Contains(exacta.Body.String(), `"total":1`) || !strings.Contains(exacta.Body.String(), `"codigo":"217"`) || strings.Contains(exacta.Body.String(), `"codigo":"1217"`) {
+		t.Fatalf("código 217 no exacto: %d %s", exacta.Code, exacta.Body.String())
+	}
+	combinada := pedir(base + "&categoria_clave=administrativo&centro_codigo=101&codigo_puesto=217")
+	if combinada.Code != 200 || !strings.Contains(combinada.Body.String(), `"total":1`) {
+		t.Fatalf("combinación exacta: %d %s", combinada.Code, combinada.Body.String())
+	}
+	noCoincide := pedir(base + "&centro_codigo=102&codigo_puesto=217")
+	if noCoincide.Code != 200 || !strings.Contains(noCoincide.Body.String(), `"total":0`) || !strings.Contains(noCoincide.Body.String(), `"items":[]`) {
+		t.Fatalf("combinación distinta: %d %s", noCoincide.Code, noCoincide.Body.String())
+	}
+	legacy := pedir("vista=puestos&q=&limit=25&offset=0")
+	if legacy.Code != 200 || !strings.Contains(legacy.Body.String(), `"total":2`) || strings.Contains(legacy.Body.String(), `"enlaces"`) {
+		t.Fatalf("legacy alterado: %d %s", legacy.Code, legacy.Body.String())
+	}
+	for _, query := range []string{
+		"vista=puestos&q=&limit=25&offset=0&codigo_puesto=217",
+		"vista=categorias&q=&limit=25&offset=0&enlaces=1&codigo_puesto=217",
+		base + "&codigo_puesto=", base + "&codigo_puesto=217&codigo_puesto=1217",
+		base + "&codigo_puesto=217a", base + "&codigo_puesto=%20217", base + "&codigo_puesto=217%2F1",
+	} {
+		if w := pedir(query); w.Code != 400 {
+			t.Errorf("filtro indebido %s: %d", query, w.Code)
+		}
+	}
+}

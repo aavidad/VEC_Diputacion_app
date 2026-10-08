@@ -394,3 +394,17 @@ Esta navegación reutiliza la RPT publicada. Siguen pendientes la edición
 nominal de categorías con aprobación separada y la conciliación SQL de su
 gobierno. P39/AD217 permanece preservado y pausado por dirección; este corte
 no instala ni sustituye esa cadena.
+
+El lector público admite también `codigo_puesto`, por igualdad exacta, junto
+a centro y categoría. Se usa con `enlaces=1&vista=puestos`; `217` no selecciona
+`1217`. El cliente comprueba el código devuelto y un total de cero o uno.
+El visor conserva `rpt_codigo` en la URL y permite quitar sólo ese filtro.
+Este es el contrato para que Contratación elija un puesto sin leer tablas de
+Personal. Jornada, titular y vacancia no figuran en la fuente v1; tampoco se
+convierte el código público de centro en un ámbito autorizado de otro módulo.
+
+Tras añadir el filtro exacto, el mismo ensayo de 200 muestras dio p95 de
+0,814 ms con los 842 puestos, 0,691 ms para el puesto 217 y 6,637 ms con
+10.000 sintéticos. Sigue siendo handler con catálogo en memoria, sin SQL ni
+medición de sesión nominal. La ayuda conserva el documento público y su
+fecha; las huellas y mensajes técnicos del importador no se presentan.

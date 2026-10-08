@@ -8,7 +8,7 @@ function formulario(documento, consulta, recargar, t) {
   const salida = nodo(documento, "form");
   salida.className = "panel filtros-quitables";
   salida.dataset.personalRptPublicaFiltros = "";
-  salida.dataset.personalRptPublicaConsulta = `${consulta.q}|${consulta.categoria_clave}|${consulta.centro_codigo}`;
+  salida.dataset.personalRptPublicaConsulta = `${consulta.q}|${consulta.categoria_clave}|${consulta.centro_codigo}|${consulta.codigo_puesto}`;
   const etiqueta = nodo(documento, "label"), entrada = nodo(documento, "input");
   entrada.type = "search"; entrada.name = "q"; entrada.value = consulta.q; entrada.maxLength = 100;
   entrada.dataset.personalRptPublicaBusqueda = "";
@@ -31,6 +31,7 @@ function formulario(documento, consulta, recargar, t) {
   filtro("q", consulta.q, "busqueda_aplicada", { q: "", offset: 0 });
   filtro("categoria_clave", consulta.categoria_clave, "categoria_aplicada", { categoria_clave: "", offset: 0 });
   filtro("centro_codigo", consulta.centro_codigo, "centro_aplicado", { centro_codigo: "", offset: 0 });
+  filtro("codigo_puesto", consulta.codigo_puesto, "puesto_aplicado", { codigo_puesto: "", offset: 0 });
   if (activos.children.length > 0) salida.append(activos);
   salida.addEventListener("submit", (evento) => { evento.preventDefault(); recargar({ q: entrada.value.trim(), offset: 0 }); });
   return salida;
@@ -38,7 +39,7 @@ function formulario(documento, consulta, recargar, t) {
 function conservarFormulario(documento, contenedor, consulta, recargar, t) {
   const anterior = contenedor.querySelector("[data-personal-rpt-publica-filtros]");
   const recuperar = Boolean(anterior?.contains?.(documento.activeElement));
-  const clave = `${consulta.q}|${consulta.categoria_clave}|${consulta.centro_codigo}`;
+  const clave = `${consulta.q}|${consulta.categoria_clave}|${consulta.centro_codigo}|${consulta.codigo_puesto}`;
   const elemento = anterior?.dataset.personalRptPublicaConsulta === clave ? anterior : formulario(documento, consulta, recargar, t);
   return { elemento, restaurarFoco() { if (recuperar) elemento.querySelector("[data-personal-rpt-publica-busqueda]")?.focus?.(); } };
 }
@@ -48,7 +49,7 @@ function pestañas(documento, consulta, recargar, t) {
     const boton = nodo(documento, "button", t(clave)); boton.type = "button";
     boton.dataset.personalRptPublicaVista = vista;
     boton.setAttribute("aria-pressed", String(consulta.vista === vista)); boton.disabled = consulta.vista === vista;
-    boton.addEventListener("click", () => recargar({ vista, categoria_clave: "", centro_codigo: "", offset: 0 }, { enfocarResultado: true })); salida.append(boton);
+    boton.addEventListener("click", () => recargar({ vista, categoria_clave: "", centro_codigo: "", codigo_puesto: "", offset: 0 }, { enfocarResultado: true })); salida.append(boton);
   });
   return salida;
 }
@@ -115,7 +116,7 @@ function tablaRPT(documento, pagina, t, recargar) {
               pagina.vista === "centros" ? item.puestos : item.puestos_vinculados,
               pagina.vista === "centros" ? item.dotacion : item.dotacion_vinculada));
             if (cifra) boton.setAttribute("tabindex", "-1");
-            boton.addEventListener("click", () => recargar({ vista: "puestos", q: "", categoria_clave: pagina.vista === "categorias" ? item.clave : "", centro_codigo: pagina.vista === "centros" ? item.codigo : "", offset: 0 }, { enfocarResultado: true }));
+            boton.addEventListener("click", () => recargar({ vista: "puestos", q: "", categoria_clave: pagina.vista === "categorias" ? item.clave : "", centro_codigo: pagina.vista === "centros" ? item.codigo : "", codigo_puesto: "", offset: 0 }, { enfocarResultado: true }));
             celda.append(boton);
           } else celda.textContent = valor(item, campo, t);
           if (pagina.vista === "categorias" && campo === "denominacion" && !item.recuento_coincide) {
@@ -151,7 +152,7 @@ function resumenEnlazado(documento, pagina, recargar, t) {
   [["puestos", "puestos", "puestos"], ["dotacion", "dotacion", "puestos"], ["categorias", "categorias", "categorias"], ["centros", "centros", "centros"]].forEach(([campo, clave, vista]) => {
     const boton = nodo(documento, "button", t(`resumen_${clave}`, { total: numero.format(pagina.resumen[campo]) }));
     boton.type = "button"; boton.className = "enlace-tabla"; boton.dataset.personalRptPublicaResumenEnlace = campo;
-    boton.addEventListener("click", () => recargar({ vista, q: "", categoria_clave: "", centro_codigo: "", offset: 0 }, { enfocarResultado: true }));
+    boton.addEventListener("click", () => recargar({ vista, q: "", categoria_clave: "", centro_codigo: "", codigo_puesto: "", offset: 0 }, { enfocarResultado: true }));
     cuerpo.append(boton);
   });
   resumen.append(cuerpo); return resumen;
@@ -190,11 +191,9 @@ function pintar(raiz, contenedor, estado, recargar, t) {
     filtros.restaurarFoco(); return;
   }
   const { pagina } = estado;
-  cuerpoAyuda.append(nodo(documento, "p", t("fuente", pagina.fuente)));
+  cuerpoAyuda.append(nodo(documento, "p", t("fuente", { documento: pagina.fuente.documento, aviso: "" })));
   const generada = fechaGeneracionRPT(pagina.fuente.generado_en);
   if (generada) cuerpoAyuda.append(nodo(documento, "p", t("generacion", { valor: generada })));
-  const huella = nodo(documento, "p", t("huella", { importacion: pagina.fuente.importacion, huella: pagina.fuente.huella_sha256 }));
-  huella.className = "rpt-huella"; cuerpoAyuda.append(huella);
   contenedor.append(resumenEnlazado(documento, pagina, recargar, t), pestañas(documento, estado.consulta, recargar, t), filtros.elemento, tablaRPT(documento, pagina, t, recargar));
   const navegacion = nodo(documento, "nav"); navegacion.setAttribute("aria-label", t("paginacion"));
   const anterior = nodo(documento, "button", t("anterior")); anterior.type = "button"; anterior.dataset.personalRptPublicaAnterior = ""; anterior.disabled = pagina.offset === 0;
@@ -207,15 +206,16 @@ function pintar(raiz, contenedor, estado, recargar, t) {
 function consultaDesdeURL() {
   const parametros = new URLSearchParams(globalThis.window?.location?.search || "");
   const base = validarConsultaRPTPublica({ vista: "categorias", q: "", limit: 25, offset: 0 });
-  const claves = ["rpt_vista", "rpt_q", "rpt_categoria", "rpt_centro", "rpt_offset"];
+  const claves = ["rpt_vista", "rpt_q", "rpt_categoria", "rpt_centro", "rpt_codigo", "rpt_offset"];
   const presentes = [...parametros.keys()].filter((clave) => clave.startsWith("rpt_"));
   const invalida = presentes.some((clave) => !claves.includes(clave) || parametros.getAll(clave).length !== 1);
   const offsetTexto = parametros.get("rpt_offset") || "0";
-  if (invalida || !/^(?:0|[1-9][0-9]*)$/u.test(offsetTexto)) return { consulta: base, invalida: presentes.length > 0 };
+  if (invalida || parametros.has("rpt_codigo") && parametros.get("rpt_codigo") === "" || !/^(?:0|[1-9][0-9]*)$/u.test(offsetTexto)) return { consulta: base, invalida: presentes.length > 0 };
   try {
     return { consulta: validarConsultaRPTPublica({
       vista: parametros.get("rpt_vista") || "categorias", q: parametros.get("rpt_q") || "",
       categoria_clave: parametros.get("rpt_categoria") || "", centro_codigo: parametros.get("rpt_centro") || "",
+      codigo_puesto: parametros.get("rpt_codigo") || "",
       limit: 25, offset: Number(offsetTexto),
     }), invalida: false };
   } catch { return { consulta: base, invalida: presentes.length > 0 }; }
@@ -230,6 +230,7 @@ function conservarConsultaURL(consulta, historia = "push") {
   if (consulta.q) parametros.set("rpt_q", consulta.q);
   if (consulta.categoria_clave) parametros.set("rpt_categoria", consulta.categoria_clave);
   if (consulta.centro_codigo) parametros.set("rpt_centro", consulta.centro_codigo);
+  if (consulta.codigo_puesto) parametros.set("rpt_codigo", consulta.codigo_puesto);
   if (consulta.offset) parametros.set("rpt_offset", String(consulta.offset));
   const query = parametros.toString();
   const ruta = `${ventana.location.pathname}${query ? `?${query}` : ""}${ventana.location.hash || ""}`;

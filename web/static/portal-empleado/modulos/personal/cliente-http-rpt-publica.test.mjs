@@ -29,3 +29,21 @@ test("cliente RPT coteja recuentos enlazados y lista de centros", async () => {
   const lista = await crearClienteHTTPRPTPublica({ fetchImpl: async () => respuesta(centros) }).listar({ vista: "centros", q: "", limit: 25, offset: 0 });
   assert.equal(lista.items[0].codigo, "101");
 });
+
+test("cliente RPT sólo admite el puesto del código exacto y combina filtros", async () => {
+  const llamadas = [];
+  const correcto = sobre("puestos"); correcto.data.rpt.items[0].codigo = "217";
+  correcto.data.rpt.items[0].categoria_clave = "administrativo";
+  const cliente = crearClienteHTTPRPTPublica({ fetchImpl: async (url) => { llamadas.push(url); return respuesta(correcto); } });
+  const consulta = { vista: "puestos", q: "secretaria", categoria_clave: "administrativo", centro_codigo: "101", codigo_puesto: "217", limit: 25, offset: 0 };
+  assert.equal((await cliente.listar(consulta)).items[0].codigo, "217");
+  assert.equal(llamadas[0], "/api/vec/personal/rpt-publica?q=secretaria&limit=25&offset=0&enlaces=1&vista=puestos&categoria_clave=administrativo&centro_codigo=101&codigo_puesto=217");
+  const parcial = structuredClone(correcto); parcial.data.rpt.items[0].codigo = "1217";
+  await assert.rejects(() => crearClienteHTTPRPTPublica({ fetchImpl: async () => respuesta(parcial) }).listar(consulta), ErrorClienteRPTPublica);
+  const multiples = structuredClone(correcto); multiples.data.rpt.total = 2; multiples.data.rpt.offset = 25; multiples.data.rpt.items = [];
+  await assert.rejects(() => crearClienteHTTPRPTPublica({ fetchImpl: async () => respuesta(multiples) }).listar({ ...consulta, offset: 25 }), ErrorClienteRPTPublica);
+  for (const codigo_puesto of ["217a", " 217", "217/1", 217]) {
+    await assert.rejects(() => cliente.listar({ ...consulta, codigo_puesto }), TypeError);
+  }
+  await assert.rejects(() => cliente.listar({ ...consulta, vista: "categorias" }), TypeError);
+});
