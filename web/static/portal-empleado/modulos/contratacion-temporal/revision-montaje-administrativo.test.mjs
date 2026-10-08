@@ -64,7 +64,7 @@ test("montaje: los seis assets nuevos están declarados e importados sin perder 
   }
   const [cliente, vista] = await Promise.all(["cliente-http.js", "vista-expedientes.js"].map((asset) => readFile(new URL(asset, modulo), "utf8")));
   for (const asset of esperados.slice(2, 4)) assert.match(cliente, new RegExp(`from "\\./${asset}"`, "u"));
-  for (const asset of esperados.slice(4)) assert.match(vista, new RegExp(`from "\\./${asset}\\?v=20261008-w-ct-borradores-main-v2"`, "u"));
+  for (const asset of esperados.slice(4)) assert.match(vista, new RegExp(`from "\\./${asset}\\?v=20261008-documentos-ficha-v1"`, "u"));
 });
 
 test("montaje: el aviso de detalle obsoleto de incorporación usa el catálogo", async () => {

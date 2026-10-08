@@ -3,14 +3,14 @@
 import { validarReciboAlta } from "./contrato.js?v=20261008-alta-circular-v3";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-w-ct-borradores-main-v2";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-w-ct-borradores-main-v2";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-w-ct-borradores-main-v2";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261008-w-ct-borradores-main-v2";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-documentos-ficha-v1";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-documentos-ficha-v1";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-documentos-ficha-v1";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261008-documentos-ficha-v1";
 import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261008-alta-rpt-circular-v6";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261008-w-ct-borradores-main-v2";
+import { renderizarAbrirLlamamiento, renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261008-documentos-ficha-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { cerrarFase, instalarPantallasFase, mostrarFase } from "./fases-expediente.js?v=20261007-pantallas-textos-final-v1";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
@@ -18,18 +18,18 @@ import {
   contextoLlamamientoDesdeEstado,
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes-render.js?v=20261008-w-ct-borradores-main-v2";
-import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-w-ct-borradores-main-v2";
-import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-w-ct-borradores-main-v2";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-w-ct-borradores-main-v2";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-w-ct-borradores-main-v2";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-w-ct-borradores-main-v2";
+} from "./vista-expedientes-render.js?v=20261008-documentos-ficha-v1";
+import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-documentos-ficha-v1";
+import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-documentos-ficha-v1";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-documentos-ficha-v1";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-documentos-ficha-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-documentos-ficha-v1";
 
-import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261008-w-ct-borradores-main-v2";
+import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261008-documentos-ficha-v1";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261007-pantallas-textos-final-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20261007-pantallas-textos-final-v1";
-import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261008-alta-rpt-circular-v6";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261008-documentos-ficha-v1";
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 export function insertarConsultaCircuitoRRHH(raiz, expediente) {
@@ -43,9 +43,9 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   return true;
 }
 
-export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-w-ct-borradores-main-v2";
-export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-w-ct-borradores-main-v2";
-export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261008-w-ct-borradores-main-v2";
+export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-documentos-ficha-v1";
+export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-documentos-ficha-v1";
+export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261008-documentos-ficha-v1";
 
 // Exportaciones auxiliares conservadas para compatibilidad con tests e importadores
 export {
@@ -120,6 +120,11 @@ export function contextoPlantillasPublicadasDesdeEstado(estado) {
   return Object.freeze({ expediente_ref: expediente.expediente_ref, version_observada: expediente.version });
 }
 
+/** El modo antiguo sólo procede sin señal positiva de composición del publicador. */
+export function composicionPermiteLegado(disponibilidad, legadoDisponible) {
+  return legadoDisponible === true && (disponibilidad == null || disponibilidad.estado === "sin_montaje");
+}
+
 export async function montarModuloContratacionTemporal({
   raiz,
   presentador,
@@ -146,6 +151,7 @@ export async function montarModuloContratacionTemporal({
   zonaHoraria = "Europe/Madrid",
   // Datos de Bolsa que el perfil puede ver (bolsa_ref → { categoria } o null).
   resolverBolsa = null,
+  prepararFichaBolsa = null,
   // Filtros de pantalla de la lista (p. ej. desde un indicador de Inicio).
   filtroLista: filtroListaInicial = null,
 } = {}) {
@@ -202,6 +208,14 @@ export async function montarModuloContratacionTemporal({
     && typeof clienteLlamamiento?.confirmarIncorporacionEjercicio === "function";
 
   let montada = true;
+  function actualizarBolsaFicha() {
+    if (!montada || typeof resolverBolsa !== "function") return;
+    const estado = presentador.obtenerEstado();
+    if (estado.vista !== "expediente" || estado.carga !== "listo"
+      || estado.expediente?.expediente_ref !== estado.expediente_ref) return;
+    const destino = raiz.querySelector?.("[data-ct-bolsa-ficha]");
+    if (destino) destino.innerHTML = renderizarAbrirLlamamiento(estado.expediente, resolverBolsa, traducirExpedientes);
+  }
   let desmontarLlamamiento = null;
   let reciboPropuestaConfirmado = null;
   let desmontarEstadisticas = null;
@@ -276,22 +290,36 @@ export async function montarModuloContratacionTemporal({
   // Monta en la ficha real la lista común de documentos del expediente. La
   // referencia solo selecciona; el servidor autoriza cada consulta y descarga.
   function montarDocumentosComunSiProcede(estado) {
-    if (typeof documentosComun?.montar !== "function" || estado.vista !== "expediente"
-      || estado.carga !== "listo" || estado.expediente?.demostracion !== false
-      || estado.expediente.expediente_ref !== estado.expediente_ref) return;
     const zona = raiz.querySelector("[data-ct-exp-documentos-comun]");
     if (!zona) return;
+    if (typeof documentosComun?.montar !== "function" || !["expediente", "documentos"].includes(estado.vista)
+      || estado.carga !== "listo" || estado.expediente?.demostracion !== false
+      || estado.expediente.expediente_ref !== estado.expediente_ref) {
+      zona.textContent = traducirExpedientes("ficha_documentos_no_montados");
+      return;
+    }
     const contenedor = raiz.ownerDocument?.createElement?.("div");
     if (!contenedor) return;
     try {
       const montaje = documentosComun.montar({
         raiz: contenedor, anunciar, expedienteRef: estado.expediente_ref,
       });
-      if (typeof montaje?.desmontar !== "function") return;
+      if (typeof montaje?.desmontar !== "function") {
+        zona.textContent = traducirExpedientes("ficha_documentos_error");
+        return;
+      }
+      const tituloComun = contenedor.querySelector?.(".modulo-documentos > header h2");
+      if (tituloComun) {
+        const subtitulo = raiz.ownerDocument.createElement("h4");
+        subtitulo.textContent = tituloComun.textContent;
+        tituloComun.replaceWith(subtitulo);
+      }
+      contenedor.querySelector?.(".modulo-documentos > .panel")?.classList?.remove("panel", "documentos-panel");
       desmontarDocumentosComun = montaje.desmontar;
       zona.replaceChildren(contenedor);
     } catch {
       desmontarDocumentosComun = null;
+      zona.textContent = traducirExpedientes("ficha_documentos_error");
     }
   }
 
@@ -302,16 +330,39 @@ export async function montarModuloContratacionTemporal({
 
   function montarBorradoresPublicadosSiProcede(estado) {
     const contexto = contextoPlantillasPublicadasDesdeEstado(estado);
-    const zona = raiz.querySelector(".ct-exp-contenido");
-    if (!contexto || !zona || typeof raiz.ownerDocument?.createElement !== "function") return;
-    // Pista de composición del detalle auditado; nunca concede un permiso.
-    if (presentador.resolverDisponibilidadOpcional?.("borradores_publicados", contexto)?.estado === "sin_montaje") return;
+    const zona = raiz.querySelector("[data-ct-exp-borradores-publicados]");
+    const legado = raiz.querySelector("[data-ct-exp-borradores-legados]");
+    if (!zona) return;
+    zona.hidden = false;
+    if (!contexto || typeof raiz.ownerDocument?.createElement !== "function") {
+      if (legado) legado.hidden = true;
+      zona.textContent = traducirExpedientes("ficha_borradores_no_montados");
+      return;
+    }
+    // Sólo la señal positiva del detalle abre la consulta del publicador.
+    // Sin ella, la guarda independiente del borrador legado sigue vigente.
+    const disponibilidad = presentador.resolverDisponibilidadOpcional?.("borradores_publicados", contexto);
+    if (disponibilidad?.estado !== "montado") {
+      const usarLegado = composicionPermiteLegado(disponibilidad, Boolean(legado?.childElementCount));
+      if (legado) legado.hidden = !usarLegado;
+      if (usarLegado) zona.hidden = true;
+      else zona.textContent = traducirExpedientes("ficha_borradores_no_montados");
+      return;
+    }
+    if (legado) legado.hidden = true;
     const contenedor = raiz.ownerDocument.createElement("div");
     contenedor.dataset.ctExpBorradoresPublicados = "";
-    zona.append(contenedor);
-    desmontarBorradoresPublicados = montarBorradoresPublicados({ raiz: contenedor,
-      contexto, ...(clienteBorradoresPublicados === undefined ? {} : { cliente: clienteBorradoresPublicados }),
-      entornoDescarga, anunciar }).desmontar;
+    zona.replaceChildren(contenedor);
+    try {
+      desmontarBorradoresPublicados = montarBorradoresPublicados({ raiz: contenedor,
+        contexto, ...(clienteBorradoresPublicados === undefined ? {} : { cliente: clienteBorradoresPublicados }),
+        entornoDescarga, anunciar,
+      }).desmontar;
+    } catch {
+      desmontarBorradoresPublicados = null;
+      if (legado) legado.hidden = true;
+      zona.textContent = traducirExpedientes("ficha_borradores_error");
+    }
   }
 
   function montarAuditoriaComunSiProcede(estado) {
@@ -629,6 +680,7 @@ export async function montarModuloContratacionTemporal({
     retirarDocumentosComun();
     retirarBorradoresPublicados();
     const estado = presentador.obtenerEstado();
+    prepararFichaBolsa?.(estado, actualizarBolsaFicha);
     if (estado.carga === "denegado") gestorTramitacion.invalidarSubsanacionPorDenegacion();
     raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
       mensajes,
@@ -728,6 +780,13 @@ export async function montarModuloContratacionTemporal({
   }
 
   async function manejarClick(evento) {
+    const reintentarBolsa = evento.target?.closest?.("[data-ct-bolsa-reintentar]");
+    if (reintentarBolsa && raiz.contains(reintentarBolsa)) {
+      evento.preventDefault();
+      reintentarBolsa.disabled = true;
+      prepararFichaBolsa?.(presentador.obtenerEstado(), actualizarBolsaFicha, true);
+      return;
+    }
     const consultarAuditoria = evento.target?.closest?.("[data-ct-exp-auditoria-comun]");
     if (consultarAuditoria && raiz.contains(consultarAuditoria) && zonaAuditoriaComun) {
       evento.preventDefault();
