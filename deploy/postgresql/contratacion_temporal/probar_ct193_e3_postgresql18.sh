@@ -507,7 +507,8 @@ adaptador="$temporal/confirmacion-e3.test"
     "${sandbox[@]}" -- "$go_bin" test -buildvcs=false -p 6 -c -o "$adaptador" \
         ./internal/modules/contrataciontemporal/adapters/postgres
 ) >"$temporal/go-build.log" 2>&1 || {
-    printf 'CT193 E3: falló compilación Go; salida privada omitida\n' >&2
+    printf 'CT193 E3: falló compilación Go; primeras 20 líneas acotadas del compilador:\n' >&2
+    sed -n '1,20p' "$temporal/go-build.log" | cut -c 1-300 >&2
     exit 1
 }
 
