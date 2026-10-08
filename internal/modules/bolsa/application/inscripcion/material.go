@@ -9,6 +9,7 @@ import (
 
 const EsquemaMaterialPresentacion = "vec.bolsa.inscripcion.presentar.v1"
 const EsquemaMaterialDecision = "vec.bolsa.inscripcion.decidir.v1"
+const EsquemaMaterialIncorporacion = "vec.bolsa.inscripcion.incorporar.v1"
 
 // MaterialPresentacion construye una sola serialización canónica para la
 // decisión V3 y el efecto PostgreSQL. Su huella se liga al recurso y a la
@@ -112,6 +113,52 @@ func RecursoDecision(d Decision, materialSHA256 string) ([]byte, error) {
 		Ambitos: struct {
 			SolicitudRef string `json:"solicitud_ref"`
 		}{d.SolicitudRef},
+		Atributos: struct {
+			MaterialSHA256 string `json:"material_sha256"`
+		}{materialSHA256},
+	})
+	if err != nil {
+		return nil, ErrSolicitudInvalida
+	}
+	return contenido, nil
+}
+
+func MaterialIncorporacion(i Incorporacion) ([]byte, string, error) {
+	if i.Validar() != nil {
+		return nil, "", ErrSolicitudInvalida
+	}
+	contenido, err := json.Marshal(struct {
+		Esquema           string `json:"esquema"`
+		SolicitudRef      string `json:"solicitud_ref"`
+		EvidenciaRef      string `json:"evidencia_ref"`
+		VersionEsperada   uint64 `json:"version_esperada"`
+		ClaveIdempotencia string `json:"clave_idempotencia"`
+	}{EsquemaMaterialIncorporacion, i.SolicitudRef, i.EvidenciaRef, i.VersionEsperada, i.ClaveIdempotencia})
+	if err != nil {
+		return nil, "", ErrSolicitudInvalida
+	}
+	huella := sha256.Sum256(contenido)
+	return contenido, hex.EncodeToString(huella[:]), nil
+}
+
+func RecursoIncorporacion(i Incorporacion, materialSHA256 string) ([]byte, error) {
+	if i.Validar() != nil || len(materialSHA256) != 64 {
+		return nil, ErrSolicitudInvalida
+	}
+	if _, err := hex.DecodeString(materialSHA256); err != nil {
+		return nil, ErrSolicitudInvalida
+	}
+	contenido, err := json.Marshal(struct {
+		Ambitos struct {
+			SolicitudRef string `json:"solicitud_ref"`
+		} `json:"ambitos"`
+		Atributos struct {
+			MaterialSHA256 string `json:"material_sha256"`
+		} `json:"atributos"`
+	}{
+		Ambitos: struct {
+			SolicitudRef string `json:"solicitud_ref"`
+		}{i.SolicitudRef},
 		Atributos: struct {
 			MaterialSHA256 string `json:"material_sha256"`
 		}{materialSHA256},
