@@ -21,7 +21,7 @@ import (
 // de leerlo (MaximoBytesCargaConvoca más el margen del formulario) y el caso
 // de uso vuelve a comprobar tamaño y número de filas antes de validar.
 const (
-	MaximoBytesCargaConvoca = 16 * 1024 * 1024
+	MaximoBytesCargaConvoca = 1 * 1024 * 1024
 	MaximoFilasCargaConvoca = 20000
 )
 
@@ -148,21 +148,37 @@ func (p *PrevisualizadorCargaConvoca) Previsualizar(ctx context.Context, nombre 
 		return VistaPreviaCargaConvoca{}, errors.Join(ErrFicheroCargaConvocaInvalido, err)
 	}
 	suma := sha256.Sum256(contenido)
+	return vistaDesdeStaging(hex.EncodeToString(suma[:]), nombre, hoja.Esquema, staging)
+}
+
+// VistaPreviaDesdeLote evita volver a interpretar el fichero al confirmar. El
+// lote ha pasado la validación canónica del importador y solo se usa en memoria.
+func VistaPreviaDesdeLote(lote importacion.LoteValidado) (VistaPreviaCargaConvoca, error) {
+	if lote.Validar() != nil {
+		return VistaPreviaCargaConvoca{}, ErrFicheroCargaConvocaInvalido
+	}
+	return vistaDesdeStaging(lote.Acta.HuellaFicheroSHA256, lote.Acta.NombreFichero, lote.Acta.Esquema, importacion.ResultadoStaging{
+		FilasLeidas: lote.Acta.FilasLeidas, Aceptadas: lote.Aceptadas,
+		Rechazadas: lote.Acta.FilasRechazadas, Incidencias: lote.Acta.Incidencias,
+	})
+}
+
+func vistaDesdeStaging(huella, nombre string, esquema importacion.EsquemaExportacion, staging importacion.ResultadoStaging) (VistaPreviaCargaConvoca, error) {
 	vista := VistaPreviaCargaConvoca{
-		HuellaSHA256: hex.EncodeToString(suma[:]), NombreFichero: nombre, Esquema: string(hoja.Esquema),
+		HuellaSHA256: huella, NombreFichero: nombre, Esquema: string(esquema),
 		FilasLeidas: staging.FilasLeidas, Aceptadas: len(staging.Aceptadas), Rechazadas: staging.Rechazadas,
 	}
 	switch {
-	case hoja.Esquema != importacion.EsquemaResumenPersona:
+	case esquema != importacion.EsquemaResumenPersona:
 		vista.Bloqueo = BloqueoEsquemaDetalle
 	case len(staging.Aceptadas) == 0:
 		vista.Bloqueo = BloqueoSinFilasAceptadas
 	}
-	var derivable bool
-	vista.Filas, derivable, err = filasVistaPrevia(staging)
+	filas, derivable, err := filasVistaPrevia(staging)
 	if err != nil {
 		return VistaPreviaCargaConvoca{}, errors.Join(ErrFicheroCargaConvocaInvalido, err)
 	}
+	vista.Filas = filas
 	if vista.Bloqueo == "" && !derivable {
 		vista.Bloqueo = BloqueoIdentidadNoDerivable
 	}

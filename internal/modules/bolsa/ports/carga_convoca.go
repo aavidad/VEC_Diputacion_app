@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	importacion "vec-diputacion-granada/internal/modules/bolsa/domain/importacionconvoca"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -58,14 +59,31 @@ func (s SolicitudConfirmarCargaConvoca) Validar() error {
 // consumo de la decisión en la auditoría común.
 type ReciboCargaConvoca struct {
 	ReciboConstitucion
-	DecisionRef  string
-	AuditoriaRef string
-	ConsumidaEn  time.Time
+	DecisionRef        string
+	AuditoriaRef       string
+	ConsumidaEn        time.Time
+	ActaReutilizada    bool
+	DecisionAccesoRef  string
+	AuditoriaAccesoRef string
+}
+
+// OriginalProtegidoCargaConvoca transporta exclusivamente el sobre cifrado
+// en memoria. La referencia se materializa junto con el acta en PostgreSQL.
+type OriginalProtegidoCargaConvoca struct {
+	Referencia                   string
+	Formato                      string
+	BytesOriginales              int
+	EsquemaProteccion            string
+	ClaveRef                     string
+	ClaveVersion                 uint64
+	Nonce                        []byte
+	ContenidoCifrado             []byte
+	HuellaContenidoCifradoSHA256 string
 }
 
 // RepositorioConstitucionCargaConvoca constituye la bolsa consumiendo la
 // decisión de la carga en la misma transacción. Si la decisión no vale, no es
 // del actor o no es de esa acta, se revierte y no queda bolsa ni consumo.
 type RepositorioConstitucionCargaConvoca interface {
-	ConstituirCargaConvocaAutorizada(context.Context, Constitucion, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReciboCargaConvoca, error)
+	ConfirmarCargaConvocaAutorizada(context.Context, importacion.LoteValidado, Constitucion, []VinculoCandidato, OriginalProtegidoCargaConvoca, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReciboCargaConvoca, error)
 }
