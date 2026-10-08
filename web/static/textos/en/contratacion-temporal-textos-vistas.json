@@ -94,6 +94,7 @@
     "ct_txt_totales": "TOTALS",
     "ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum": "Showing the 50 most recent requests.",
     "ct_txt_ultimas_50_peticiones_visibles_para_su_identidad": "Showing your 50 most recent requests.",
-    "ct_txt_validacion_manual": "Manual validation"
+    "ct_txt_validacion_manual": "Manual validation",
+    "motivo_sustitucion": "Temporary replacement"
   }
 }

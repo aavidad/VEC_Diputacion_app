@@ -1,4 +1,4 @@
-import { crearClienteCategorias } from "./cliente.js?v=20261008-w-ct-borradores-montaje-v1";
+import { crearClienteCategorias } from "./cliente.js?v=20261008-w-ct-borradores-main-v2";
 import { TEXTOS_CATEGORIAS, t } from "./i18n.js?v=20261001-rpt-categorias-v1";
 import { montarVistaCategorias } from "./vista.js?v=20261008-alta-rpt-circular-v6";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
