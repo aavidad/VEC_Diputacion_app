@@ -64,8 +64,8 @@ test("la cohorte de CSS, entrada y helper coincide con las URL servidas", async 
   const [html, cache, interno, produccion] = await Promise.all([
     "index.html", "cache-publica-v1.json", "../../interno.manifest", "../../produccion.manifest",
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-bolsa-enlaces-root-v1");
-  assert.equal(versionDe(cache, "/portal-empleado/portal.js"), "20261008-bolsa-enlaces-root-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-ct-inicio-incidencia-v1");
+  assert.equal(versionDe(cache, "/portal-empleado/portal.js"), "20261008-ct-inicio-incidencia-v1");
   for (const css of ["portal-componentes.css", "portal-capacidades.css"])
     assert.equal(versionDe(html, `/portal-empleado/${css}`), "20261008-bolsa-enlaces-v1");
   assert.equal(versionDe(cache, "/portal-empleado/portal-componentes.css"), "20261008-bolsa-enlaces-v1");

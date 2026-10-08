@@ -117,6 +117,39 @@ test("un enlace de incidencia consulta el conjunto filtrado y uno de plazo no si
   otro.desmontar();
 });
 
+test("incidencia conserva el mismo total autorizado a través de 100 más 1 filas paginadas", async () => {
+  const raiz = raizFalsa(), solicitudes = [];
+  const filas = Array.from({ length: 101 }, (_, indice) => ({ ...fila,
+    expediente_ref: `expediente:ct:${String(indice + 1).padStart(3, "0")}`,
+    numero_visible: `2026/CT-${String(indice + 1).padStart(4, "0")}`,
+    estado_clave: "incidencia" }));
+  const totales = { total: 101, en_tramitacion: 0, con_incidencia: 101, en_llamamiento: 0 };
+  const resumen = { en_tramite: 101, con_incidencia: 101, vencidos: 0, vencen_hoy: 0,
+    vencen_semana: 0, sin_calcular: 0, por_fase: { analisis: 101 } };
+  const montaje = await montarCuadroContratacionLigero({ raiz, idioma: "es",
+    filtroLista: { mostrar: "incidencia" }, abrirDetalle: async () => {},
+    mostrarError: (_raiz, datos) => { throw datos.error; },
+    cliente: { consultarCuadroRRHH: async (solicitud) => {
+      solicitudes.push(solicitud);
+      assert.deepEqual(solicitud.filtros, { texto: "", estado_clave: "incidencia", fase_clave: "" });
+      return { generada_en: "2026-10-01T09:00:00Z", totales, resumen,
+        expedientes: solicitud.paginacion.cursor ? filas.slice(100) : filas.slice(0, 100),
+        hay_mas: !solicitud.paginacion.cursor,
+        ...(!solicitud.paginacion.cursor ? { cursor_siguiente: "cursor_de_incidentes" } : {}) };
+    } },
+  });
+  assert.equal(solicitudes.length, 1);
+  assert.equal(solicitudes[0].paginacion.limite, 100);
+  assert.equal((raiz.innerHTML.match(/data-ct-exp-abrir=/gu) ?? []).length, 100);
+  assert.match(raiz.innerHTML, /100 de 101 peticiones/u);
+  await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctPagina: "siguiente" } }) } });
+  assert.equal(solicitudes.length, 2);
+  assert.equal(solicitudes[1].paginacion.cursor, "cursor_de_incidentes");
+  assert.equal((raiz.innerHTML.match(/data-ct-exp-abrir=/gu) ?? []).length, 1);
+  assert.match(raiz.innerHTML, /1 de 101 peticiones/u);
+  montaje.desmontar();
+});
+
 test("una señal ya abortada no consulta, modifica DOM ni instala eventos", async () => {
   const controlador = new AbortController(), raiz = raizFalsa();
   controlador.abort();

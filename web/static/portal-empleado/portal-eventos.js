@@ -431,7 +431,7 @@ export function crearControladorPortal(dependencias) {
     window.addEventListener("hashchange", () => {
       const vista = vistaDesdeHash();
       if (vista !== estado.vista) {
-        navegar(vista, { enfocar: false });
+        navegar(vista, { enfocar: false, desdeRuta: true });
       }
     });
     window.addEventListener("keydown", (evento) => {

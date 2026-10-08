@@ -463,8 +463,9 @@ test("la navegación productiva rechaza vistas de presentación y Selección sin
   assert.doesNotMatch(javascript, /getAll\("presentacion"\)|getAll\("perfil"\)/);
   assert.match(javascript, /if \(vista\.startsWith\("seleccion-"\)\) return false/);
   assert.match(javascript, /function vistaPermitida\(vista\)/);
-  assert.match(javascript, /history\.replaceState\(null, "", hashSeguro\)/);
-  assert.match(eventos, /navegar\(vista, \{ enfocar: false \}\)/);
+  assert.match(javascript, /history\.replaceState\(null, "", rutaSegura\)/);
+  assert.match(javascript, /rutaPortalConFiltroCT\(window\.location, hashSeguro\)/);
+  assert.match(eventos, /navegar\(vista, \{ enfocar: false, desdeRuta: true \}\)/);
 });
 
 test("el portal interno no usa cookies ni almacenamiento del navegador", () => {

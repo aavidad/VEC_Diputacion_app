@@ -237,35 +237,37 @@ function portadaRRHH(opciones = {}) {
   })();
 }
 
-test("la portada de RRHH empieza por lo pendiente y cada cifra lleva a la lista filtrada", () => {
+test("la portada de RRHH enlaza solo el recuento cuyo filtro V1 conserva todo el conjunto", () => {
   const html = portadaRRHH();
   assert.match(html, /<h3 id="inicio-rrhh-pendientes-titulo">Lo pendiente<\/h3>/u);
-  assert.match(html, /data-metrica="vencidos" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-lista-mostrar="vencidos" aria-label="1 con el plazo vencido: ver la lista">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Con el plazo vencido/u);
-  assert.match(html, /data-metrica="vencen_hoy"[^>]*data-ct-exp-lista-mostrar="vence_hoy" aria-label="1 vencen hoy: ver la lista">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Vencen hoy/u);
+  assert.match(html, /<div class="tarjeta-kpi kpi--peligro" data-metrica="vencidos">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Con el plazo vencido/u);
+  assert.match(html, /<div class="tarjeta-kpi kpi--advertencia" data-metrica="vencen_hoy">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Vencen hoy/u);
   assert.match(html, /data-metrica="incidencias"[^>]*data-ct-exp-lista-mostrar="incidencia" aria-label="1 con una incidencia abierta: ver la lista">[\s\S]*?<strong class="valor-kpi">1<\/strong>[\s\S]*?Con una incidencia abierta/u);
+  assert.doesNotMatch(html, /data-ct-exp-lista-mostrar="(?:vencidos|vence_hoy|vencen_semana|en_tramite|sin_plazo)"|data-ct-exp-lista-fase=/u);
   // La portada no descarga ni muestra expedientes sueltos.
   assert.doesNotMatch(html, /tareas-pendientes|data-ct-exp-abrir-inicio|Recuento parcial/u);
   assert.doesNotMatch(html, /Todos los módulos|rejilla-modulos|data-accion="ayuda"/u);
 });
 
-test("los indicadores usan los recuentos del servidor y llevan a la lista filtrada", () => {
+test("los indicadores conservan los recuentos del servidor sin enlaces a predicados parciales", () => {
   const html = portadaRRHH();
-  assert.match(html, /data-metrica="en_tramite" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-lista-mostrar="en_tramite">[\s\S]*?<strong class="valor-kpi">3<\/strong>/u);
+  assert.match(html, /<div class="tarjeta-kpi" data-metrica="en_tramite">[\s\S]*?<strong class="valor-kpi">3<\/strong>/u);
   assert.match(html, /data-metrica="vencen_semana"[^>]*>[\s\S]*?<strong class="valor-kpi">2<\/strong>/u);
   assert.match(html, /data-metrica="disponibles" data-vista="resumen">[\s\S]*?<strong class="valor-kpi">42<\/strong>[\s\S]*?Personas disponibles en 2 bolsas/u);
   // Ofertas al SAE: sin cifra, explicado.
   assert.match(html, /data-metrica="sae" data-vista="ofertas-sae">[\s\S]*?Pendiente de definir con RRHH/u);
   // El reparto pasa de la fase del servidor a las ocho fases de RRHH.
-  assert.match(html, /data-ct-exp-lista-fase="analisis_rrhh"[^>]*>2\. Análisis RRHH<\/button><\/th>\s*<td class="numero">1<\/td>/u);
-  assert.match(html, /data-ct-exp-lista-fase="fiscalizacion"[^>]*>4\. [^<]*<\/button><\/th>\s*<td class="numero">1<\/td>/u);
-  assert.match(html, /data-ct-exp-lista-fase="seguimiento"[^>]*>8\. Seguimiento<\/button><\/th>\s*<td class="numero">0<\/td>/u);
+  assert.match(html, /<th scope="row">2\. Análisis RRHH<\/th>\s*<td class="numero">1<\/td>/u);
+  assert.match(html, /<th scope="row">4\. [^<]*<\/th>\s*<td class="numero">1<\/td>/u);
+  assert.match(html, /<th scope="row">8\. Seguimiento<\/th>\s*<td class="numero">0<\/td>/u);
   assert.match(html, /Auxiliar &lt;A&gt;[\s\S]*?Sin fecha de fin/u);
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-vista="alta">Nueva petición de personal/u);
 });
 
-test("si algún plazo no se pudo calcular la portada lo dice y lleva a cuáles", () => {
+test("si algún plazo no se pudo calcular la portada lo dice sin prometer un filtro ausente", () => {
   const html = portadaRRHH({ obtenerCuadroInicio: () => cuadroInicio({ ...resumenServidor, sin_calcular: 2 }) });
-  assert.match(html, /role="status">En 2 peticiones no se ha podido calcular el plazo\.[\s\S]*?data-ct-exp-lista-mostrar="sin_plazo">Ver cuáles/u);
+  assert.match(html, /role="status">En 2 peticiones no se ha podido calcular el plazo\.<\/p>/u);
+  assert.doesNotMatch(html, /data-ct-exp-lista-mostrar="sin_plazo"|Ver cuáles/u);
   assert.match(portadaRRHH({ obtenerCuadroInicio: () => cuadroInicio({ ...resumenServidor, sin_calcular: 1 }) }), /En 1 petición no se ha podido calcular el plazo\./u);
   assert.doesNotMatch(portadaRRHH(), /no se ha podido calcular el plazo/u);
   // Sin nada pendiente pero con plazos sin calcular, no se dice que no vence nada.
