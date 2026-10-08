@@ -1,0 +1,17 @@
+{
+  "idioma": "es",
+  "mensajes": {
+    "catalogo_no_disponible": "No se pudo cargar el catálogo de mensajes.",
+    "uso_invalido": "Revise las opciones y las rutas indicadas.",
+    "entrada_insegura": "Los archivos de entrada deben estar fuera de Git y tener permisos 0600.",
+    "entrada_invalida": "El plan, la conexión o la aprobación no cumplen el contrato.",
+    "aprobacion_divergente": "La huella del plan no coincide con la aprobación aportada.",
+    "acuse_inseguro": "No se pudo reservar un archivo privado para el recibo.",
+    "ratificacion_no_confirmada": "La ratificación no quedó confirmada.",
+	"ratificacion_rechazada": "La ratificación fue rechazada y el intento quedó registrado.",
+	"ratificacion_no_disponible": "La ratificación no está disponible; el intento quedó registrado.",
+    "commit_indeterminado": "No se pudo determinar si PostgreSQL confirmó la operación. Consulte la recuperación con la misma clave.",
+    "acuse_no_guardado": "PostgreSQL confirmó la operación, pero no se pudo guardar el recibo local.",
+    "ratificacion_confirmada": "La ratificación quedó confirmada y el recibo se guardó."
+  }
+}
