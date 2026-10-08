@@ -237,7 +237,15 @@ BEGIN
    ORDER BY vigente_desde DESC,version DESC LIMIT 1
  ) j ON true
  WHERE a.activa;
- IF NOT FOUND THEN RAISE EXCEPTION 'CT-190: base de reglas no publicada' USING ERRCODE='55000'; END IF;
+ IF NOT FOUND THEN
+  -- La instalación o desactivación de la base no detiene el circuito existente.
+  -- El legado conserva el cálculo anterior hasta que haya una base aprobada.
+  INSERT INTO vec_contratacion_temporal.fase_regla_instantanea_v1
+   (expediente_ref,version,fase_clave,fase_desde,estado)
+  VALUES (NEW.expediente_ref,NEW.version,NEW.fase_clave,NEW.fase_desde,
+    'legado_sin_instantanea');
+  RETURN NULL;
+ END IF;
  INSERT INTO vec_contratacion_temporal.fase_regla_instantanea_v1
   (expediente_ref,version,fase_clave,fase_desde,estado,base_catalogo_id,base_version,
    base_huella_sha256,ajustes_catalogo_id,ajustes_encontrados,ajustes_version,
@@ -448,10 +456,9 @@ BEGIN
            jsonb_build_object('estado',CASE WHEN s.estado='legado_sin_instantanea' AND t.unico THEN 'legado_base_transicion' ELSE s.estado END,'fase',s.fase_clave,
              'fase_desde',s.fase_desde,'base_id',coalesce(s.base_catalogo_id,t.base_catalogo_id),
              'base_version',coalesce(s.base_version,t.base_version),'base_huella',coalesce(s.base_huella_sha256,t.base_huella_sha256),
-             'base_canonico',b.canonico,'ajustes_id',coalesce(s.ajustes_catalogo_id,t.ajustes_catalogo_id),
+             'ajustes_id',coalesce(s.ajustes_catalogo_id,t.ajustes_catalogo_id),
              'ajustes_encontrados',coalesce(s.ajustes_encontrados,t.ajustes_encontrados),
              'ajustes_version',coalesce(s.ajustes_version,t.ajustes_version),'ajustes_huella',coalesce(s.ajustes_huella_sha256,t.ajustes_huella_sha256),
-             'ajustes_canonico',coalesce(s.ajustes_canonico,t.ajustes_canonico),
              'ajustes_vigente_desde',coalesce(s.ajustes_vigente_desde,t.ajustes_vigente_desde),'capturada_en',coalesce(s.capturada_en,t.capturada_en))
       FROM filtradas filtrada
       LEFT JOIN vec_contratacion_temporal.fase_entrada_publicacion_rrhh entrada
@@ -461,10 +468,6 @@ BEGIN
         ON s.expediente_ref=filtrada.expediente_ref AND s.version=filtrada.version
       LEFT JOIN vec_contratacion_temporal.regla_legado_transicion_v1 t
         ON s.estado='legado_sin_instantanea'
-      LEFT JOIN vec_contratacion_temporal.regla_base_publicada_v1 b
-        ON b.catalogo_id=coalesce(s.base_catalogo_id,t.base_catalogo_id)
-         AND b.version=coalesce(s.base_version,t.base_version)
-         AND b.huella_sha256=coalesce(s.base_huella_sha256,t.base_huella_sha256)
       LEFT JOIN (
           SELECT expediente_ref, pg_catalog.min(version) AS primera_version
             FROM vec_contratacion_temporal.urgencia_expediente_analisis
@@ -578,8 +581,33 @@ BEGIN
           )
     ), recuento AS (
         SELECT * FROM resumen WHERE clase = 'estado_fase'
-    ), plazo AS (
+    ), plazo AS MATERIALIZED (
         SELECT * FROM resumen WHERE clase = 'plazo'
+    ), huellas_bases AS MATERIALIZED (
+        SELECT DISTINCT captura->>'base_id' AS catalogo_id,
+               (captura->>'base_version')::bigint AS version,
+               captura->>'base_huella' AS huella_sha256
+          FROM plazo
+         WHERE captura->>'estado' IN ('capturada','legado_base_transicion')
+    ), huellas_ajustes AS MATERIALIZED (
+        SELECT DISTINCT captura->>'ajustes_id' AS catalogo_id,
+               (captura->>'ajustes_version')::bigint AS version,
+               captura->>'ajustes_huella' AS huella_sha256
+          FROM plazo
+         WHERE captura->>'estado' IN ('capturada','legado_base_transicion')
+    ), bases AS (
+        SELECT h.huella_sha256, b.canonico
+          FROM huellas_bases h
+          JOIN vec_contratacion_temporal.regla_base_publicada_v1 b
+            ON b.catalogo_id=h.catalogo_id AND b.version=h.version
+           AND b.huella_sha256=h.huella_sha256
+    ), ajustes AS (
+        SELECT h.huella_sha256,
+               CASE WHEN h.version=0 THEN '{}' ELSE a.ajustes_canonico END AS canonico
+          FROM huellas_ajustes h
+          LEFT JOIN vec_contratacion_temporal.regla_ajuste_version_v1 a
+            ON a.catalogo_id=h.catalogo_id AND a.version=h.version
+           AND a.huella_sha256=h.huella_sha256
     )
     SELECT (SELECT COALESCE(pg_catalog.array_agg(r.estado_clave ORDER BY r.estado_clave COLLATE "C", r.fase_clave COLLATE "C"), '{}') FROM recuento r),
            (SELECT COALESCE(pg_catalog.array_agg(r.fase_clave ORDER BY r.estado_clave COLLATE "C", r.fase_clave COLLATE "C"), '{}') FROM recuento r),
@@ -595,14 +623,15 @@ BEGIN
            (SELECT pg_catalog.count(*)::integer FROM plazo r WHERE r.fase_desde IS NULL),
            (SELECT jsonb_build_object(
       'grupos',coalesce(jsonb_agg(
-        (r.captura - 'base_canonico' - 'ajustes_canonico') ||
+        r.captura ||
         jsonb_build_object('numero',r.numero,'urgente',r.urgente)
         ORDER BY r.fase_clave COLLATE "C",r.fase_desde,r.urgente,
           r.captura->>'base_huella',r.captura->>'ajustes_huella',r.captura->>'capturada_en'),'[]'::jsonb),
-      'bases',coalesce(jsonb_object_agg(DISTINCT r.captura->>'base_huella',r.captura->>'base_canonico')
-        FILTER (WHERE r.captura->>'estado' IN ('capturada','legado_base_transicion')),'{}'::jsonb),
-      'ajustes',coalesce(jsonb_object_agg(DISTINCT r.captura->>'ajustes_huella',r.captura->>'ajustes_canonico')
-        FILTER (WHERE r.captura->>'estado' IN ('capturada','legado_base_transicion')),'{}'::jsonb)) FROM plazo r),
+      -- Las definiciones se leen una vez por huella; nunca se agrupan sus bytes.
+      'bases',coalesce((SELECT jsonb_object_agg(b.huella_sha256,b.canonico)
+        FROM bases b),'{}'::jsonb),
+      'ajustes',coalesce((SELECT jsonb_object_agg(a.huella_sha256,a.canonico)
+        FROM ajustes a),'{}'::jsonb)) FROM plazo r),
            (SELECT count(*)::integer FROM plazo r WHERE r.captura->>'estado' IS NULL)
       INTO v_estados, v_fases, v_numeros, v_total_recuento, v_en_tramite,
            v_plazo_fases, v_plazo_desde, v_plazo_urgentes, v_plazo_numeros,

@@ -7,6 +7,68 @@ SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
+-- Alta inicial y cambio de fase durante la ventana sin base activa.
+-- Las tres tablas de origen se clonan sólo en esta transacción sintética.
+DO $sin_base$
+DECLARE
+ origen vec_contratacion_temporal.expediente_version_integral%ROWTYPE;
+ nueva vec_contratacion_temporal.expediente_version_integral%ROWTYPE;
+ reserva vec_contratacion_temporal.identidad_reserva_alta%ROWTYPE;
+ alta vec_contratacion_temporal.expediente_alta%ROWTYPE;
+ captura vec_contratacion_temporal.fase_regla_instantanea_v1%ROWTYPE;
+ ref text:='expediente:ct190:sin-base:'||gen_random_uuid()::text;
+ numero text:='2026/CT190-SIN-BASE'; instante timestamptz(6); paso integer;
+BEGIN
+ IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.regla_base_activacion_v1) THEN
+  RAISE EXCEPTION 'CT190: clave=activaciones esperado=0 observado=%',
+   (SELECT count(*) FROM vec_contratacion_temporal.regla_base_activacion_v1);
+ END IF;
+ SELECT * INTO STRICT origen FROM vec_contratacion_temporal.expediente_version_integral
+  ORDER BY expediente_ref,version DESC LIMIT 1;
+ SELECT * INTO STRICT alta FROM vec_contratacion_temporal.expediente_alta
+  WHERE expediente_ref=origen.expediente_ref;
+ SELECT * INTO STRICT reserva FROM vec_contratacion_temporal.identidad_reserva_alta
+  WHERE reserva_ref=alta.reserva_ref;
+ reserva.ambito_hmac:='hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v1:'||
+  encode(sha256(convert_to(ref,'UTF8')),'hex');
+ reserva.reserva_ref:='reserva:'||gen_random_uuid()::text;
+ reserva.expediente_ref:=ref; reserva.numero_visible:=numero;
+ reserva.recibo_ref:='recibo:'||gen_random_uuid()::text;
+ INSERT INTO vec_contratacion_temporal.identidad_reserva_alta SELECT reserva.*;
+ alta.expediente_ref:=ref; alta.reserva_ref:=reserva.reserva_ref;
+ alta.numero_visible:=numero; alta.decision_ref:='decision:'||gen_random_uuid()::text;
+ alta.efecto_ref:='efecto:'||gen_random_uuid()::text;
+ INSERT INTO vec_contratacion_temporal.expediente_alta SELECT alta.*;
+ FOR paso IN 1..3 LOOP
+  instante:=date_trunc('microseconds',clock_timestamp());
+  nueva:=origen; nueva.expediente_ref:=ref; nueva.version:=paso;
+  nueva.fase_clave:=CASE WHEN paso=3 THEN 'asignacion_unidad' ELSE 'fiscalizacion' END;
+  nueva.estado:='en_curso'; nueva.registrada_en:=instante;
+  nueva.prueba_canonica:=origen.prueba_canonica||convert_to(':ct190:sin-base:'||paso::text,'UTF8');
+  nueva.prueba_huella_sha256:=encode(sha256(nueva.prueba_canonica),'hex');
+  nueva.agregado_json:=replace(replace(origen.agregado_json::text,
+   origen.expediente_ref,ref),origen.agregado_json->>'numero_visible',numero)::jsonb;
+  nueva.agregado_json:=jsonb_set(jsonb_set(jsonb_set(jsonb_set(
+   nueva.agregado_json,'{version}',to_jsonb(nueva.version)),
+   '{fase_actual}',to_jsonb(nueva.fase_clave)),'{estado_actual}',to_jsonb(nueva.estado)),
+   '{actualizado_en}',to_jsonb(to_char(instante AT TIME ZONE 'UTC',
+    'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')));
+  nueva.agregado_json_huella_sha256:=encode(sha256(convert_to(nueva.agregado_json::text,'UTF8')),'hex');
+  INSERT INTO vec_contratacion_temporal.expediente_version_integral SELECT nueva.*;
+  SELECT * INTO STRICT captura FROM vec_contratacion_temporal.fase_regla_instantanea_v1
+   WHERE expediente_ref=ref AND version=paso;
+  IF captura.estado<>'legado_sin_instantanea' OR captura.base_version IS NOT NULL THEN
+   RAISE EXCEPTION 'CT190: clave=sin_base.estado esperado=legado_sin_instantanea observado=%',captura.estado;
+  END IF;
+ END LOOP;
+ IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.contar_resumen_cuadro_rrhh_v1(
+  ROW('organizacion:desarrollo:dipgra','organizacion','organizacion:desarrollo:dipgra')::vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+  ROW('','','',100,'')::vec_contratacion_temporal.consulta_cuadro_rrhh_v1,'') r
+  WHERE r.clase='plazo' AND r.captura->>'estado' IS DISTINCT FROM 'legado_sin_instantanea') THEN
+  RAISE EXCEPTION 'CT190: clave=sin_base.resumen esperado=legado_sin_instantanea observado=distinto';
+ END IF;
+END $sin_base$;
+
 DO $prueba$
 DECLARE
  anterior vec_contratacion_temporal.expediente_version_integral%ROWTYPE;
@@ -171,6 +233,29 @@ BEGIN
  IF (SELECT t.base_version FROM vec_contratacion_temporal.regla_legado_transicion_v1 t)
     IS DISTINCT FROM base_version
  THEN RAISE EXCEPTION 'CT190: activación posterior movió baseline legado'; END IF;
+ -- Desactivar la base tampoco debe bloquear una fase nueva.
+ INSERT INTO vec_contratacion_temporal.regla_base_activacion_v1
+  (secuencia,secuencia_esperada,activa,aprobacion_ref)
+ VALUES (secuencia_previa+3,secuencia_previa+2,false,'aprobacion:sintetica:ct190');
+ SELECT e.* INTO STRICT anterior FROM vec_contratacion_temporal.expediente_version_integral e
+  WHERE e.expediente_ref<>nueva.expediente_ref ORDER BY e.expediente_ref,e.version DESC LIMIT 1;
+ instante:=date_trunc('microseconds',clock_timestamp());
+ nueva:=anterior; nueva.version:=anterior.version+1;
+ nueva.fase_clave:=CASE WHEN anterior.fase_clave='fiscalizacion'
+  THEN 'asignacion_unidad' ELSE 'fiscalizacion' END;
+ nueva.registrada_en:=instante;
+ nueva.prueba_canonica:=anterior.prueba_canonica||convert_to(':ct190:inactiva','UTF8');
+ nueva.prueba_huella_sha256:=encode(sha256(nueva.prueba_canonica),'hex');
+ nueva.agregado_json:=jsonb_set(jsonb_set(jsonb_set(anterior.agregado_json,
+  '{version}',to_jsonb(nueva.version)),'{fase_actual}',to_jsonb(nueva.fase_clave)),
+  '{actualizado_en}',to_jsonb(to_char(instante AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')));
+ nueva.agregado_json_huella_sha256:=encode(sha256(convert_to(nueva.agregado_json::text,'UTF8')),'hex');
+ INSERT INTO vec_contratacion_temporal.expediente_version_integral SELECT nueva.*;
+ SELECT * INTO STRICT instantanea FROM vec_contratacion_temporal.fase_regla_instantanea_v1
+  WHERE expediente_ref=nueva.expediente_ref AND version=nueva.version;
+ IF instantanea.estado<>'legado_sin_instantanea' OR instantanea.base_version IS NOT NULL THEN
+  RAISE EXCEPTION 'CT190: clave=inactiva.estado esperado=legado_sin_instantanea observado=%',instantanea.estado;
+ END IF;
 END $prueba$;
 
 SELECT 'CT190-PRUEBAS-OK' AS resultado;
@@ -241,6 +326,23 @@ BEGIN
  OR jsonb_array_length(v_resultado.capturas_grupos->'grupos')<>cardinality(v_resultado.plazo_fases)
  OR v_resultado.capturas_grupos->'bases'='{}'::jsonb THEN
   RAISE EXCEPTION 'CT190: v5 desalineada'; END IF;
+ IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.contar_resumen_cuadro_rrhh_v1(
+  ROW('organizacion:desarrollo:dipgra','organizacion','organizacion:desarrollo:dipgra')::vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+  ROW('','','',100,'')::vec_contratacion_temporal.consulta_cuadro_rrhh_v1,'') r
+  WHERE r.captura ? 'base_canonico' OR r.captura ? 'ajustes_canonico') THEN
+  RAISE EXCEPTION 'CT190: clave=resumen.canonicos esperado=ausentes observado=presentes';
+ END IF;
+ IF EXISTS (SELECT 1 FROM jsonb_each_text(v_resultado.capturas_grupos->'bases') b
+  WHERE b.key<>encode(sha256(convert_to(b.value,'UTF8')),'hex'))
+ OR EXISTS (SELECT 1 FROM jsonb_each_text(v_resultado.capturas_grupos->'ajustes') a
+  WHERE a.key<>encode(sha256(convert_to(a.value,'UTF8')),'hex'))
+ OR v_resultado.capturas_grupos->'ajustes'->>encode(sha256(convert_to('{}','UTF8')),'hex')
+    IS DISTINCT FROM '{}'
+ OR v_resultado.capturas_grupos->'ajustes'->>encode(sha256(convert_to(
+    '{"c03.plazo_fiscalizacion":{"cantidad":"7"}}','UTF8')),'hex')
+    IS DISTINCT FROM '{"c03.plazo_fiscalizacion":{"cantidad":"7"}}' THEN
+  RAISE EXCEPTION 'CT190: clave=v5.definiciones esperado=huellas_coherentes_y_ajuste_cero observado=distinto';
+ END IF;
 END $test$;
 
 ROLLBACK;

@@ -16,7 +16,7 @@ El paquete debe tener el sobre `version_esquema`, `fuente` y `catalogo` del cat�
 
 Para un ensayo sintético aislado se puede añadir `-permitir-ejemplo`. El manifiesto saldrá con `ejemplo=true`. El publicador CT190 solo acepta ese caso en desarrollo con autorización explícita; no sirve como catálogo real de la principal.
 
-Tras instalar CT190 y CT191, detenga las altas de fases y compruebe la última secuencia de activación. El publicador recibe los tres ficheros y esa secuencia. La conexión se configura con las variables habituales de libpq y una cuenta técnica que pueda asumir `vec_contratacion_temporal_propietario`.
+Tras instalar CT190 y CT191, compruebe la última secuencia de activación. Mientras no haya base activa, las altas y los cambios de fase continúan como legado, con el cálculo de plazos anterior. El publicador recibe los tres ficheros y esa secuencia. La conexión se configura con las variables habituales de libpq y una cuenta técnica que pueda asumir `vec_contratacion_temporal_propietario`.
 
 ```bash
 VEC_CT190_ENTORNO=produccion \
@@ -32,7 +32,7 @@ El script comprueba las huellas y publica la versión y su activación en una tr
 
 ## Habilitar la edición en «Reglas vigentes»
 
-Instale una vez CT190 y CT191, en el orden de `deploy/principal/lista_sql_codexy_ct_plazos_minimo_20261008.txt`. Mantenga detenida la admisión de operaciones durante la instalación y la primera publicación. Prepare la base a partir del mismo fichero que usa `VEC_CT_REGLAS_SOURCE_PATH`; la primera activación, con secuencia esperada `0`, conserva esa base para los tramos anteriores. Exige que todavía no haya ajustes CT148. Esa referencia de transición no atribuye reglas históricas a esos tramos. Los nuevos tramos conservan su propia captura.
+Instale una vez CT190 y CT191, en el orden de `deploy/principal/lista_sql_codexy_ct_plazos_minimo_20261008.txt`, antes de arrancar el nuevo binario. La primera publicación no necesita detener las altas: los tramos que se abran antes quedan como legado sin captura. La edición permanece deshabilitada hasta publicar una base activa y aprobar la provisión. Prepare la base a partir del mismo fichero que usa `VEC_CT_REGLAS_SOURCE_PATH`; la primera activación, con secuencia esperada `0`, conserva esa base para los tramos anteriores. Exige que todavía no haya ajustes CT148. Esa referencia de transición no atribuye reglas históricas a esos tramos. Los nuevos tramos conservan su propia captura.
 
 Copie `data/catalogos/contratacion_temporal/motivos_ajuste_v1.json` al directorio de configuración que ya se monta en cidonia, como `/vec-incorporacion/motivos_ajuste_ct_v1.json`. Configure:
 
