@@ -24,6 +24,7 @@
     "mostradas": "Showing {visibles} of {total} job pools",
     "plazo": "Application period",
     "categoria": "Category",
+    "categorias": { "one": "{cuenta} category", "other": "{cuenta} categories" },
     "convocatoria": "Call for applications",
     "elegirCategoria": "Choose a category",
     "requisitos": "Requirements",

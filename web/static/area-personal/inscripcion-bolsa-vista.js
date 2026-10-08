@@ -58,7 +58,8 @@ function tarjetaAbierta(bolsa, textos) {
   return `<article class="panel portal-mi-bolsa__bolsa"><div class="cabecera-panel"><h3>${esc(bolsa.titulo)}</h3>
     ${propia ? `<span class="estado-chip info">${t(`estado_${propia}`)}</span>` : ""}</div>
     <div class="cuerpo-panel"><dl class="lista-datos"><div><dt>${t("plazo")}</dt><dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd></div>
-    <div><dt>${t("categoria")}</dt><dd>${esc(bolsa.categorias_resumen)}</dd></div>
+    <div><dt>${t("categoria")}</dt><dd><button type="button" class="boton-secundario" data-inscripcion-accion="bolsa"
+      data-ref="${esc(bolsa.convocatoria_ref)}">${esc(textos.plural("vista.categorias", bolsa.numero_categorias))}</button></dd></div>
     <div><dt>${t("requisitos")}</dt><dd>${esc(bolsa.requisitos_resumen)}</dd></div></dl>
     <div class="acciones-vista">${enlace}</div></div></article>`;
 }

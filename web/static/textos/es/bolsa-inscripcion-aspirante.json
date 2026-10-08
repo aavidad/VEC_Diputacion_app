@@ -24,6 +24,7 @@
     "mostradas": "Mostradas {visibles} de {total} bolsas",
     "plazo": "Plazo de inscripción",
     "categoria": "Categoría",
+    "categorias": { "one": "{cuenta} categoría", "other": "{cuenta} categorías" },
     "convocatoria": "Convocatoria",
     "elegirCategoria": "Elija una categoría",
     "requisitos": "Requisitos",

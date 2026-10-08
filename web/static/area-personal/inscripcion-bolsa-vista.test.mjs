@@ -5,9 +5,10 @@ import { montarInscripcionBolsa } from "./inscripcion-bolsa-vista.js";
 const pausa = () => new Promise((resolver) => setTimeout(resolver, 20));
 const instante = "2026-10-09T09:00:00Z";
 const bolsa = { convocatoria_ref: "convocatoria:plaza-42", titulo: "Bolsa de auxiliares 2026",
-  categorias_resumen: "Auxiliar administrativo", categorias: [{ categoria_ref: "categoria:auxiliar", categoria: "Auxiliar administrativo" }],
+  numero_categorias: 1, categorias: [{ categoria_ref: "categoria:auxiliar", categoria: "Auxiliar administrativo" }],
   plazo_inicio: instante, plazo_fin: "2026-10-22T23:59:59Z", requisitos_resumen: "Titulación requerida",
   catalogo_version: 2, puede_iniciar: true, estado_solicitud_propia: null, solicitud_ref: null };
+const { categorias: _categoriasDetalle, ...resumen } = bolsa;
 function entorno(id = "") {
   const contenedor = { innerHTML: "", handlers: {}, addEventListener(tipo, fn) { this.handlers[tipo] = fn; },
     removeEventListener(tipo) { delete this.handlers[tipo]; }, replaceChildren() { this.innerHTML = ""; },
@@ -25,7 +26,7 @@ test("lista vacía, plazo, revisión, reintento con la misma clave y recibo recu
   let vacia = true;
   const claves = [];
   const cliente = {
-    abiertas: async () => ({ convocatorias: vacia ? [] : [bolsa], total: vacia ? 0 : 1, cursor_siguiente: null }),
+    abiertas: async () => ({ convocatorias: vacia ? [] : [resumen], total: vacia ? 0 : 1, cursor_siguiente: null }),
     convocatoria: async () => ({ convocatoria: { ...bolsa, puede_iniciar: true,
       requisitos: [{ codigo: "titulo", descripcion: "Título exigido", obligatorio: true,
         estado: "pendiente", motivo_codigo: "sin_evaluacion", motivo_etiqueta: "Pendiente de comprobar" }] } }),
@@ -44,8 +45,9 @@ test("lista vacía, plazo, revisión, reintento con la misma clave y recibo recu
   await pausa();
   assert.match(contenedor.innerHTML, /no hay bolsas/u);
   vacia = false; pulsar("reintentar"); await pausa();
-  assert.match(contenedor.innerHTML, /Auxiliar administrativo/u);
+  assert.match(contenedor.innerHTML, /1 categoría/u);
   pulsar("bolsa", bolsa.convocatoria_ref); await pausa();
+  assert.match(contenedor.innerHTML, /Auxiliar administrativo/u);
   assert.match(contenedor.innerHTML, /Título exigido/u);
   pulsar("revisar"); assert.match(contenedor.innerHTML, /Revise su solicitud/u);
   pulsar("confirmar"); await pausa();
@@ -82,7 +84,7 @@ test("un POST tardío no sustituye la misma ficha reabierta y 403 limpia solicit
   let resolverPost;
   let lecturaPropia = 0;
   const cliente = {
-    abiertas: async () => ({ convocatorias: [bolsa], total: 1, cursor_siguiente: null }),
+    abiertas: async () => ({ convocatorias: [resumen], total: 1, cursor_siguiente: null }),
     convocatoria: async () => ({ convocatoria: { ...bolsa, puede_iniciar: true, requisitos: [] } }),
     propias: async () => {
       lecturaPropia += 1;
@@ -115,11 +117,12 @@ test("un POST tardío no sustituye la misma ficha reabierta y 403 limpia solicit
 
 test("una convocatoria de dos categorías exige elección antes de presentar", async () => {
   const { contenedor, ventana, pulsar } = entorno();
-  const varias = { ...bolsa, categorias_resumen: "Auxiliar administrativo y subalterno",
+  const varias = { ...bolsa, numero_categorias: 2,
     categorias: [...bolsa.categorias, { categoria_ref: "categoria:subalterno", categoria: "Subalterno" }] };
+  const { categorias: _variasDetalle, ...resumenVarias } = varias;
   const enviados = [];
   const cliente = {
-    abiertas: async () => ({ convocatorias: [varias], total: 1, cursor_siguiente: null }),
+    abiertas: async () => ({ convocatorias: [resumenVarias], total: 1, cursor_siguiente: null }),
     convocatoria: async () => ({ convocatoria: { ...varias, requisitos: [] } }),
     propias: async () => ({ solicitudes: [], cursor_siguiente: null }),
     detallePropio: async () => { throw new Error("sin uso"); },
@@ -145,7 +148,8 @@ test("impedimento acreditado desactiva presentación y explica por qué", async 
   const cerrada = { ...bolsa, puede_iniciar: false, impedimento_etiqueta: "El plazo de inscripción ha terminado" };
   let envios = 0;
   const cliente = {
-    abiertas: async () => ({ convocatorias: [cerrada], total: 1, cursor_siguiente: null }),
+    abiertas: async () => ({ convocatorias: [{ ...resumen, puede_iniciar: false,
+      impedimento_etiqueta: cerrada.impedimento_etiqueta }], total: 1, cursor_siguiente: null }),
     convocatoria: async () => ({ convocatoria: { ...cerrada, requisitos: [] } }),
     propias: async () => ({ solicitudes: [], cursor_siguiente: null }),
     detallePropio: async () => { throw new Error("sin uso"); },
@@ -164,7 +168,7 @@ test("403 tardío del POST borra la lista personal abierta después de navegar",
   const { contenedor, ventana, pulsar } = entorno();
   let rechazarPost;
   const cliente = {
-    abiertas: async () => ({ convocatorias: [bolsa], total: 1, cursor_siguiente: null }),
+    abiertas: async () => ({ convocatorias: [resumen], total: 1, cursor_siguiente: null }),
     convocatoria: async () => ({ convocatoria: { ...bolsa, requisitos: [] } }),
     propias: async () => ({ solicitudes: [{ solicitud_ref: "solicitud:secreta", recibo_ref: "recibo:secreto",
       convocatoria_ref: bolsa.convocatoria_ref, categoria: bolsa.categorias[0].categoria,
@@ -188,7 +192,7 @@ test("422 concluyente bloquea un segundo POST hasta volver a consultar la ficha"
   const { contenedor, ventana, pulsar } = entorno();
   let envios = 0;
   const cliente = {
-    abiertas: async () => ({ convocatorias: [bolsa], total: 1, cursor_siguiente: null }),
+    abiertas: async () => ({ convocatorias: [resumen], total: 1, cursor_siguiente: null }),
     convocatoria: async () => ({ convocatoria: { ...bolsa, requisitos: [] } }),
     propias: async () => ({ solicitudes: [], cursor_siguiente: null }),
     detallePropio: async () => { throw new Error("sin uso"); },
@@ -212,7 +216,7 @@ test("400 muestra datos no aceptados y ofrece actualizar la ficha", async () => 
   const { contenedor, ventana, pulsar } = entorno();
   let consultas = 0;
   const cliente = {
-    abiertas: async () => ({ convocatorias: [bolsa], total: 1, cursor_siguiente: null }),
+    abiertas: async () => ({ convocatorias: [resumen], total: 1, cursor_siguiente: null }),
     convocatoria: async () => { consultas += 1; return { convocatoria: { ...bolsa, requisitos: [] } }; },
     propias: async () => ({ solicitudes: [], cursor_siguiente: null }),
     detallePropio: async () => { throw new Error("sin uso"); },
@@ -227,4 +231,44 @@ test("400 muestra datos no aceptados y ofrece actualizar la ficha", async () => 
   pulsar("actualizar-ficha"); await pausa();
   assert.equal(consultas, 2);
   montaje.destruir();
+});
+
+test("la categoría 33 y la 128 siguen visibles y se envían por su referencia exacta", async (t) => {
+  const categorias = Array.from({ length: 128 }, (_, indice) => ({
+    categoria_ref: `categoria:${indice + 1}`, categoria: `Categoría ${indice + 1}`,
+  }));
+  for (const numero of [33, 128]) {
+    await t.test(`categoría ${numero}`, async () => {
+      const { contenedor, ventana, pulsar } = entorno();
+      const convocatoria = { ...bolsa, categorias, numero_categorias: 128 };
+      const { categorias: _completas, ...resumenConvocatoria } = convocatoria;
+      const enviados = [];
+      const cliente = {
+        abiertas: async () => ({ convocatorias: [resumenConvocatoria], total: 1, cursor_siguiente: null }),
+        convocatoria: async () => ({ convocatoria: { ...convocatoria, requisitos: [] } }),
+        propias: async () => ({ solicitudes: [], cursor_siguiente: null }),
+        detallePropio: async () => { throw new Error("sin uso"); },
+        inscribir: async (datos) => { enviados.push(datos); return {
+          solicitud_ref: `solicitud:${numero}`, recibo_ref: `recibo:${numero}`,
+          convocatoria_ref: convocatoria.convocatoria_ref, estado: "pendiente", version: 1,
+          registrada_en: instante, repetida: false,
+        }; },
+      };
+      const montaje = montarInscripcionBolsa({ contenedor, ventana, cliente, idioma: "es", textoBase: () => "Cargando" });
+      await pausa();
+      assert.match(contenedor.innerHTML, /128 categorías/u);
+      assert.doesNotMatch(contenedor.innerHTML, /Categoría 128/u, "la lista no precarga el detalle");
+      pulsar("bolsa", convocatoria.convocatoria_ref); await pausa();
+      assert.equal((contenedor.innerHTML.match(/<option value="categoria:/gu) ?? []).length, 128);
+      assert.match(contenedor.innerHTML, /<option value="categoria:128"/u);
+      assert.doesNotMatch(contenedor.innerHTML, /<table/u);
+      contenedor.handlers.change({ target: { matches: () => true, value: `categoria:${numero}` } });
+      pulsar("revisar");
+      assert.match(contenedor.innerHTML, new RegExp(`Categoría ${numero}`, "u"));
+      pulsar("confirmar"); await pausa();
+      assert.equal(enviados.length, 1);
+      assert.equal(enviados[0].categoriaRef, `categoria:${numero}`);
+      montaje.destruir();
+    });
+  }
 });
