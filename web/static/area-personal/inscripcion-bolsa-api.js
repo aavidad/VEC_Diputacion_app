@@ -2,6 +2,8 @@
 const BASE = "/api/vec/bolsa";
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,199}$/u;
 const CLAVE = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,127}$/u;
+const CODIGOS_ERROR = new Set(["plazo_cerrado", "catalogo_cambiado", "requisito_invalido",
+  "declaracion_invalida", "solicitud_existente", "clave_en_conflicto"]);
 const INSTANCIAS = Object.freeze({
   abiertas: "vec.bolsa.inscripciones.abiertas.v1",
   bolsa: "vec.bolsa.inscripcion.bolsa.v1",
@@ -38,11 +40,13 @@ function bolsaResumen(valor) {
     && valor.catalogo_version > 0
     && (valor.estado_solicitud_propia === undefined || valor.estado_solicitud_propia === null
       || ESTADOS.has(valor.estado_solicitud_propia))
-    && (valor.solicitud_ref === undefined || valor.solicitud_ref === null || referencia(valor.solicitud_ref));
+    && (valor.solicitud_ref === undefined || valor.solicitud_ref === null || referencia(valor.solicitud_ref))
+    && Boolean(valor.estado_solicitud_propia) === Boolean(valor.solicitud_ref);
 }
 
-function solicitud(valor) {
+function solicitud(valor, { categoria = false } = {}) {
   return objeto(valor) && referencia(valor.solicitud_ref) && referencia(valor.bolsa_ref)
+    && (!categoria || cadena(valor.categoria, 200))
     && ESTADOS.has(valor.estado) && Number.isSafeInteger(valor.version) && valor.version > 0
     && fecha(valor.registrada_en) && referencia(valor.recibo_ref);
 }
@@ -61,20 +65,20 @@ function validar(tipo, entrada) {
         || !cadena(datos.bolsa.categoria, 200) || !fecha(datos.bolsa.plazo_inicio)
         || !fecha(datos.bolsa.plazo_fin) || !Number.isSafeInteger(datos.bolsa.catalogo_version)
         || datos.bolsa.catalogo_version < 1 || !Array.isArray(datos.bolsa.requisitos)
-        || datos.bolsa.requisitos.length > 100 || datos.bolsa.requisitos.some((r) =>
+        || datos.bolsa.requisitos.length > 32 || datos.bolsa.requisitos.some((r) =>
           !objeto(r) || !cadena(r.codigo, 100) || !cadena(r.descripcion, 2000)
           || typeof r.obligatorio !== "boolean")) throw new TypeError("Ficha de bolsa inválida");
       break;
     case "propias":
       if (!Array.isArray(datos.solicitudes) || datos.solicitudes.length > 100
-        || datos.solicitudes.some((s) => !solicitud(s)) || !cursor(datos.cursor_siguiente))
+        || datos.solicitudes.some((s) => !solicitud(s, { categoria: true })) || !cursor(datos.cursor_siguiente))
         throw new TypeError("Relación de solicitudes inválida");
       break;
     case "recibo":
       if (!solicitud(datos) || typeof datos.repetida !== "boolean") throw new TypeError("Recibo inválido");
       break;
     case "detallePropio":
-      if (!solicitud(datos.solicitud)
+      if (!solicitud(datos.solicitud, { categoria: true })
         || (datos.solicitud.decidida_en !== undefined && datos.solicitud.decidida_en !== null && !fecha(datos.solicitud.decidida_en))
         || (datos.solicitud.motivo_codigo !== undefined && datos.solicitud.motivo_codigo !== null
           && !cadena(datos.solicitud.motivo_codigo, 100))
@@ -102,6 +106,12 @@ async function peticion(ruta, { metodo = "GET", cuerpo, fetchImpl = globalThis.f
   if (!respuesta?.ok) {
     const error = new Error("Error de inscripción");
     error.status = Number.isInteger(respuesta?.status) ? respuesta.status : 0;
+    if ([409, 422].includes(error.status)) {
+      try {
+        const codigo = (await respuesta.json())?.error?.codigo;
+        if (CODIGOS_ERROR.has(codigo)) error.codigo = codigo;
+      } catch { /* La respuesta pública puede no traer cuerpo JSON. */ }
+    }
     throw error;
   }
   return respuesta.json();
@@ -139,12 +149,17 @@ export function crearClienteInscripcionBolsa({ fetchImpl = globalThis.fetch } = 
       if (validado.solicitud.solicitud_ref !== solicitudRef) throw new TypeError("Solicitud propia distinta");
       return validado;
     },
-    async inscribir({ bolsaRef, claveIdempotencia, catalogoVersion, signal } = {}) {
+    async inscribir({ bolsaRef, claveIdempotencia, catalogoVersion, declaraciones = [], signal } = {}) {
       if (!referencia(bolsaRef) || !CLAVE.test(claveIdempotencia ?? "")
-        || !Number.isSafeInteger(catalogoVersion) || catalogoVersion < 1) throw new TypeError("Solicitud inválida");
+        || !Number.isSafeInteger(catalogoVersion) || catalogoVersion < 1
+        || !Array.isArray(declaraciones) || declaraciones.length > 32
+        || new Set(declaraciones.map((d) => d?.requisito_codigo)).size !== declaraciones.length
+        || declaraciones.some((d) => !objeto(d) || !cadena(d.requisito_codigo, 100)
+          || (d.evidencia_ref !== undefined && !referencia(d.evidencia_ref)))) throw new TypeError("Solicitud inválida");
       const datos = await peticion(`${BASE}/mi-bolsa/inscripciones`, {
         metodo: "POST", fetchImpl, signal,
-        cuerpo: { bolsa_ref: bolsaRef, clave_idempotencia: claveIdempotencia, catalogo_version: catalogoVersion },
+        cuerpo: { bolsa_ref: bolsaRef, clave_idempotencia: claveIdempotencia,
+          catalogo_version: catalogoVersion, declaraciones },
       });
       const validado = validar("recibo", datos);
       if (validado.bolsa_ref !== bolsaRef) throw new TypeError("Recibo de otra bolsa");
