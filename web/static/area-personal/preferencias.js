@@ -98,11 +98,17 @@ export function sincronizarAtajosVisuales(valores, documento = globalThis.docume
 const MARCO_AREA_PERSONAL = Object.freeze({ panel: "panel preferencias-panel", cabecera: "header", claseCabecera: "", cuerpo: "panel-contenido" });
 
 function reflejarErrorImagen(documento, fallo) {
-  const reintentar = documento?.getElementById?.("reintentar-imagen");
-  if (!reintentar) return;
-  reintentar.hidden = !fallo;
-  if (fallo) reintentar.title = traducir("areaPersonal.imagen.reintentar");
-  else reintentar.removeAttribute?.("title");
+  const aviso = documento?.getElementById?.("aviso-imagen");
+  if (!aviso) return;
+  const estabaVisible = !aviso.hidden;
+  aviso.hidden = !fallo;
+  if (!fallo && estabaVisible) {
+    const anuncio = documento.getElementById("anuncios");
+    if (anuncio) anuncio.textContent = traducir("areaPersonal.imagen.cargada");
+    if (documento.activeElement === documento.getElementById("reintentar-imagen")) {
+      documento.getElementById("contenido-principal")?.focus?.({ preventScroll: true });
+    }
+  }
 }
 
 /** El fallo del avatar conserva iniciales y ofrece un reintento visible. */

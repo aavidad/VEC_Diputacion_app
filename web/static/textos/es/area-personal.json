@@ -825,8 +825,9 @@
     "solicitar_descarga": "Preparar descarga"
   },
   "imagen": {
-    "etiqueta": "Imagen ",
-    "reintentar": "No se ha podido cargar su imagen. Pulse para volver a intentarlo."
+    "error": "No se ha podido cargar su imagen.",
+    "reintentar": "Reintentar imagen",
+    "cargada": "Imagen cargada."
   },
   "preferencias": {
     "titulo": "Mis preferencias",

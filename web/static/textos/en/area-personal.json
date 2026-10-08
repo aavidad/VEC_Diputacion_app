@@ -825,8 +825,9 @@
     "solicitar_descarga": "Prepare download"
   },
   "imagen": {
-    "etiqueta": "Picture ",
-    "reintentar": "Your picture could not be loaded. Select to try again."
+    "error": "Your picture could not be loaded.",
+    "reintentar": "Retry picture",
+    "cargada": "Picture loaded."
   },
   "preferencias": {
     "titulo": "My preferences",

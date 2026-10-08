@@ -41,8 +41,8 @@ test("la identidad no facilitada usa las claves del catálogo real y el respaldo
 
 test("un fallo de imagen deja un reintento visible sin repetir GET automáticamente", async () => {
   let lecturas = 0;
-  const boton = { hidden: true, title: "", removeAttribute(nombre) { if (nombre === "title") this.title = ""; } };
-  const documento = { getElementById: (id) => id === "reintentar-imagen" ? boton : { textContent: "" } };
+  const aviso = { hidden: true };
+  const documento = { getElementById: (id) => id === "aviso-imagen" ? aviso : { textContent: "" } };
   const estado = {};
   montarAvatarAreaPersonal(estado, async () => {
     lecturas += 1;
@@ -51,8 +51,9 @@ test("un fallo de imagen deja un reintento visible sin repetir GET automáticame
   const primera = estado.lecturaImagenEnCurso;
   assert.equal(await primera, false);
   assert.equal(lecturas, 1);
-  assert.equal(boton.hidden, false);
-  assert.match(boton.title, /No se ha podido cargar su imagen/u);
+  assert.equal(aviso.hidden, false);
+  const html = await readFile(new URL("./index.html", import.meta.url), "utf8");
+  assert.match(html, /id="aviso-imagen"[\s\S]*No se ha podido cargar su imagen\.[\s\S]*Reintentar imagen/u);
   assert.equal(await reintentarImagenAreaPersonal(estado, documento), false);
   assert.equal(lecturas, 2);
 });
