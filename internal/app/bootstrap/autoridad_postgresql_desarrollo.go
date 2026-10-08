@@ -151,7 +151,7 @@ func (a autoridadPostgreSQLDesarrollo) prepararInstantaneaUnaVez(
 		SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1,0))`,
 		a.prefijoBloqueo+perfilRef,
 	); err != nil {
-		return vacia, falloPostgreSQLCTDesarrollo(nil)
+		return vacia, falloPostgreSQLCTDesarrollo(err)
 	}
 	actual, encontrada, err := leerAsignacionActualPostgreSQLDesarrollo(
 		ctx, tx, perfilRef,
@@ -454,7 +454,7 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagenUnaVez(
 		SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1,0))`,
 		a.prefijoBloqueo+datosVinculo.PerfilActivoRef,
 	); err != nil {
-		return falloPostgreSQLCTDesarrollo(nil)
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	actual, encontrada, err := leerAsignacionActualPostgreSQLDesarrollo(
 		ctx, tx, datosVinculo.PerfilActivoRef,
@@ -505,12 +505,62 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagenUnaVez(
 			actual.principalID == datosVinculo.PrincipalID &&
 			actual.version > 0 && actual.version < int64(1<<63-1) &&
 			instantanea.AsignacionPerfil.Version == int(actual.version+1)
-		if preimagen != nil && !yaPublicada {
+		if preimagen != nil {
 			huellaPreimagen, errHuella := preimagen.AsignacionPerfil.HuellaSHA256()
-			preimagenExacta := errHuella == nil && actual.referencia == preimagen.AsignacionPerfil.Referencia() &&
-				actual.identificador == preimagen.AsignacionPerfil.AsignacionID && actual.version == int64(preimagen.AsignacionPerfil.Version) &&
-				actual.perfilRef == preimagen.AsignacionPerfil.PerfilActivoRef && actual.principalID == preimagen.AsignacionPerfil.PrincipalID &&
-				actual.versionRolRef == preimagen.VersionRol.Referencia() && actual.huella == huellaPreimagen
+			if errHuella != nil {
+				return falloPostgreSQLCTDesarrollo(errHuella)
+			}
+			preimagenExacta := false
+			if yaPublicada {
+				// La reincorporación recupera la publicación vigente pasando
+				// esa misma instantánea como preimagen. La recuperación tras
+				// 40001 pasa la predecesora histórica inmediata.
+				documentoPreimagen, errDocumento := json.Marshal(preimagen.AsignacionPerfil)
+				if errDocumento != nil {
+					return falloPostgreSQLCTDesarrollo(errDocumento)
+				}
+				switch {
+				case preimagen.AsignacionPerfil.Version == instantanea.AsignacionPerfil.Version:
+					preimagenExacta = actual.referencia == preimagen.AsignacionPerfil.Referencia() &&
+						actual.identificador == preimagen.AsignacionPerfil.AsignacionID &&
+						actual.version == int64(preimagen.AsignacionPerfil.Version) &&
+						actual.perfilRef == preimagen.AsignacionPerfil.PerfilActivoRef &&
+						actual.principalID == preimagen.AsignacionPerfil.PrincipalID &&
+						actual.versionRolRef == preimagen.VersionRol.Referencia() &&
+						actual.huella == huellaPreimagen &&
+						string(documentoPreimagen) == string(documentoAsignacion) &&
+						preimagen.VersionRol.Referencia() == rolRef &&
+						huellaRolPreimagen == huellaRol &&
+						string(documentoRolPreimagen) == string(documentoRol) &&
+						huellaControlPreimagen == huellaControl &&
+						string(documentoControlPreimagen) == string(documentoControl) &&
+						preimagen.RevisionCatalogoPoliticas == instantanea.RevisionCatalogoPoliticas &&
+						preimagen.CatalogoPoliticasHuellaSHA256 == instantanea.CatalogoPoliticasHuellaSHA256
+				case preimagen.AsignacionPerfil.Version+1 == instantanea.AsignacionPerfil.Version:
+					errPredecesora := tx.QueryRow(ctx, `
+						SELECT EXISTS (
+						 SELECT 1 FROM vec_autorizacion.asignacion_perfil
+						  WHERE asignacion_ref=$1 AND asignacion_id=$2 AND version=$3
+						    AND perfil_activo_ref=$4 AND principal_id=$5
+						    AND version_rol_ref=$6 AND huella_sha256=$7
+						    AND emitida_en=$8 AND documento=$9::jsonb)`,
+						preimagen.AsignacionPerfil.Referencia(), preimagen.AsignacionPerfil.AsignacionID,
+						preimagen.AsignacionPerfil.Version, preimagen.AsignacionPerfil.PerfilActivoRef,
+						preimagen.AsignacionPerfil.PrincipalID, preimagen.VersionRol.Referencia(),
+						huellaPreimagen, preimagen.AsignacionPerfil.EmitidaEn, documentoPreimagen,
+					).Scan(&preimagenExacta)
+					if errPredecesora != nil {
+						return falloPostgreSQLCTDesarrollo(errPredecesora)
+					}
+				default:
+					return falloPostgreSQLCTDesarrollo(nil)
+				}
+			} else {
+				preimagenExacta = actual.referencia == preimagen.AsignacionPerfil.Referencia() &&
+					actual.identificador == preimagen.AsignacionPerfil.AsignacionID && actual.version == int64(preimagen.AsignacionPerfil.Version) &&
+					actual.perfilRef == preimagen.AsignacionPerfil.PerfilActivoRef && actual.principalID == preimagen.AsignacionPerfil.PrincipalID &&
+					actual.versionRolRef == preimagen.VersionRol.Referencia() && actual.huella == huellaPreimagen
+			}
 			var rolYControlPreimagenExactos bool
 			errPreimagen := tx.QueryRow(ctx, `
 				SELECT true
@@ -531,7 +581,10 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagenUnaVez(
 				huellaControlPreimagen, preimagen.ControlVigenciaVersionRol.ActualizadoEn, documentoControlPreimagen,
 				preimagen.ControlVigenciaVersionRol.ActualizadoPor, a.actoControlRol,
 			).Scan(&rolYControlPreimagenExactos)
-			if !preimagenExacta || !siguienteExacta || errPreimagen != nil || !rolYControlPreimagenExactos {
+			if errPreimagen != nil {
+				return falloPostgreSQLCTDesarrollo(errPreimagen)
+			}
+			if !preimagenExacta || (!yaPublicada && !siguienteExacta) || !rolYControlPreimagenExactos {
 				return falloPostgreSQLCTDesarrollo(nil)
 			}
 		} else if !yaPublicada && !siguienteExacta {
