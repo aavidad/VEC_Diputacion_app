@@ -40,8 +40,11 @@ type DocumentoRegistro struct {
 }
 
 func NuevoRegistro(ruta string) (*Registro, error) {
-	if !filepath.IsAbs(ruta) || filepath.Clean(ruta) != ruta || !directoriosReales(ruta) {
+	if !filepath.IsAbs(ruta) || filepath.Clean(ruta) != ruta {
 		return nil, ErrNoDisponible
+	}
+	if err := directoriosReales(ruta); err != nil {
+		return nil, err
 	}
 	directorio, err := os.Lstat(filepath.Dir(ruta))
 	if err != nil || !directorio.IsDir() || directorio.Mode().Perm() != 0700 {
@@ -60,8 +63,11 @@ func NuevoRegistro(ruta string) (*Registro, error) {
 // LeerArchivoPrivado exige un fichero regular 0600 sin enlace simbólico y
 // comprueba que la preimagen de Lstat sigue siendo el mismo fichero abierto.
 func LeerArchivoPrivado(ruta string, limite int64) ([]byte, error) {
-	if !filepath.IsAbs(ruta) || filepath.Clean(ruta) != ruta || !directoriosReales(ruta) {
+	if !filepath.IsAbs(ruta) || filepath.Clean(ruta) != ruta {
 		return nil, ErrNoDisponible
+	}
+	if err := directoriosReales(ruta); err != nil {
+		return nil, err
 	}
 	info, err := os.Lstat(ruta)
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 ||
@@ -86,14 +92,22 @@ func LeerArchivoPrivado(ruta string, limite int64) ([]byte, error) {
 	return contenido, nil
 }
 
-func directoriosReales(ruta string) bool {
+func directoriosReales(ruta string) error {
 	for directorio := filepath.Dir(ruta); directorio != "/"; directorio = filepath.Dir(directorio) {
 		info, err := os.Lstat(directorio)
-		if err != nil || !info.IsDir() {
-			return false
+		if err != nil {
+			// Se conserva la causa del sistema sin incluir la ruta privada.
+			var fallo *os.PathError
+			if errors.As(err, &fallo) {
+				return errors.Join(ErrNoDisponible, fallo.Err)
+			}
+			return errors.Join(ErrNoDisponible, err)
+		}
+		if !info.IsDir() {
+			return ErrNoDisponible
 		}
 	}
-	return true
+	return nil
 }
 
 // RechazarClavesDuplicadas comprueba todos los objetos JSON, incluidos los de
