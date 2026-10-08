@@ -1,5 +1,5 @@
 import { ESQUEMA_CATALOGOS_NECESIDADES, LIMITES_ALTA_CONTRATACION, numeroExpedienteMOADValido } from "./contrato.js?v=20261002-ct-fin-moad-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { cargarMensajesNecesidadesAlta, crearTraductorContratacionTemporal } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
 import { cabecera, escaparHTML, extraerBorrador, filaResumen, formulario, revision } from "./alta-renderer-puro.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { crearClienteHTTPRPTPublica } from "../personal/cliente-http-rpt-publica.js?v=20261008-rpt-enlaces-v1";
@@ -46,6 +46,10 @@ export function renderizarAltaContratacionTemporal(estado, {
   puestoRPT = null,
   busquedaPuesto = "",
 } = {}) {
+  if (estado.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES
+    && !Object.hasOwn(mensajes, "necesidad_leyenda")) {
+    throw new TypeError("textos del alta de necesidades no preparados");
+  }
   const t = crearTraductorContratacionTemporal(mensajes);
   const contenido = estado.fase === "edicion"
     ? formulario({ ...estado, puestoRPT, busquedaPuesto }, t)
@@ -86,24 +90,27 @@ export function montarAltaContratacionTemporal({
   locale = "es-ES",
   zonaHoraria = "Europe/Madrid",
   clienteRPT = crearClienteHTTPRPTPublica(),
+  cargarTextosNecesidades = cargarMensajesNecesidadesAlta,
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.querySelector !== "function"
     || typeof presentador?.obtenerEstado !== "function"
-    || typeof anunciar !== "function") {
+    || typeof anunciar !== "function" || typeof cargarTextosNecesidades !== "function") {
     throw new TypeError("dependencias DOM del alta no válidas");
   }
-  const t = crearTraductorContratacionTemporal(mensajes);
+  let mensajesMontaje = mensajes;
+  let t = crearTraductorContratacionTemporal(mensajesMontaje);
+  let datosListos = presentador.obtenerEstado().catalogos.esquema !== ESQUEMA_CATALOGOS_NECESIDADES;
   let montada = true;
   let consultaPuesto = null;
   let busquedaPuesto = "";
   let puestoRPT = null;
 
   function repintar(selectorFoco = "") {
-    if (!montada) return;
+    if (!montada || !datosListos) return;
     const estado = presentador.obtenerEstado();
     raiz.innerHTML = renderizarAltaContratacionTemporal(estado, {
-      mensajes,
+      mensajes: mensajesMontaje,
       locale,
       zonaHoraria,
       puestoRPT,
@@ -111,6 +118,27 @@ export function montarAltaContratacionTemporal({
     });
     if (selectorFoco) enfocarVisible(raiz.querySelector(selectorFoco));
     anunciar(t(estado.mensaje_clave), estado.tipo_mensaje);
+  }
+
+  function prepararTextosNecesidades() {
+    datosListos = false;
+    raiz.setAttribute?.("aria-busy", "true");
+    raiz.innerHTML = "";
+    void Promise.resolve().then(() => cargarTextosNecesidades()).then((cargados) => {
+      if (!montada) return;
+      mensajesMontaje = { ...cargados, ...mensajes };
+      t = crearTraductorContratacionTemporal(mensajesMontaje);
+      datosListos = true;
+      raiz.removeAttribute?.("aria-busy");
+      repintar();
+    }).catch(() => {
+      if (!montada) return;
+      datosListos = false;
+      raiz.removeAttribute?.("aria-busy");
+      raiz.innerHTML = `<section class="ct-estado ct-estado-error" role="alert"><p>${escaparHTML(t("estado_no_disponible"))}</p>
+        <button type="button" class="boton-secundario" data-ct-accion="reintentar-textos">${escaparHTML(t("pc_reintentar_consulta"))}</button></section>`;
+      anunciar(t("estado_no_disponible"), "error");
+    });
   }
 
   function enfocarTrasValidacion() {
@@ -136,6 +164,11 @@ export function montarAltaContratacionTemporal({
     const control = evento.target?.closest?.("[data-ct-accion]");
     if (!control || !raiz.contains(control)) return;
     evento.preventDefault();
+    if (control.dataset.ctAccion === "reintentar-textos") {
+      prepararTextosNecesidades();
+      return;
+    }
+    if (!datosListos) return;
     if (control.dataset.ctAccion === "ayuda") {
       const ayuda = raiz.querySelector("[data-ct-ayuda]");
       if (ayuda) {
@@ -303,7 +336,8 @@ export function montarAltaContratacionTemporal({
   if (presentador.obtenerEstado().catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
     raiz.addEventListener("keydown", alTeclado);
   }
-  repintar();
+  if (datosListos) repintar();
+  else prepararTextosNecesidades();
 
   return () => {
     montada = false;
