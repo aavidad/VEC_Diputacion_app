@@ -131,16 +131,20 @@ function rutaVersionBorrador(referencia) {
   return `${RUTAS_API_BORRADORES.detalle}/${encodeURIComponent(partes.id)}/versiones/${partes.secuencia}`;
 }
 
-function mensajeEstado(estado) {
+function mensajeEstado(estado, ruta, metodo) {
   if (estado === 401) return traducirPortal("txt_se_requiere_autenticacion_interna");
   if (estado === 403) return traducirPortal("txt_la_sesion_no_dispone_de_autorizacion_para_esta_o");
-  if (estado === 404) return traducirPortal("txt_el_borrador_solicitado_no_existe_o_no_es_visible");
+  if (estado === 404) return ruta.startsWith(`${RUTAS_API_BORRADORES.detalle}/`)
+    && /\/versiones\/[1-9][0-9]*$/u.test(ruta)
+    ? traducirPortal("txt_el_borrador_solicitado_no_existe_o_no_es_visible")
+    : traducirPortal("txt_borradores_consulta_no_disponible");
   if (estado === 409) return traducirPortal("txt_la_clave_de_idempotencia_ya_se_utilizo_para_otra");
   if (estado === 412) return traducirPortal("txt_el_borrador_cambio_en_el_servidor_se_han_conserv");
   if (estado === 413) return traducirPortal("txt_la_solicitud_o_la_respuesta_supera_el_limite_adm");
   if (estado === 422) return traducirPortal("txt_el_servidor_rechazo_el_contenido_del_borrador");
   if (estado >= 500) return traducirPortal("txt_el_servicio_de_borradores_no_esta_disponible_tem");
-  return traducirPortal("txt_la_api_de_borradores_rechazo_la_operacion_http", { estado: estado });
+  return traducirPortal(metodo === "GET" ? "txt_borradores_lectura_fallida"
+    : "txt_la_api_de_borradores_rechazo_la_operacion_http");
 }
 
 function longitudDeclarada(respuesta) {
@@ -347,7 +351,7 @@ function comprobarETagRespuesta(respuesta, resultado) {
   }
 }
 
-async function construirErrorRespuesta(respuesta, signal) {
+async function construirErrorRespuesta(respuesta, signal, ruta, metodo) {
   let detalle;
   try {
     detalle = extraerErrorEnvelopeBorradores(await leerJSONCerrado(
@@ -356,14 +360,15 @@ async function construirErrorRespuesta(respuesta, signal) {
   } catch (error) {
     if (error instanceof ErrorAPIBorradores && error.codigo === "operacion_abortada") throw error;
     throw new ErrorAPIBorradores(
-      traducirPortal("txt_la_respuesta_de_error_no_respeta_el_contrato_cer"),
+      respuesta.status === 404 ? mensajeEstado(404, ruta, metodo)
+        : traducirPortal("txt_la_respuesta_de_error_no_respeta_el_contrato_cer"),
       respuesta.status,
       error,
       { codigo: "respuesta_error_no_valida" },
     );
   }
   return new ErrorAPIBorradores(
-    mensajeEstado(respuesta.status),
+    mensajeEstado(respuesta.status, ruta, metodo),
     respuesta.status,
     undefined,
     {
@@ -464,8 +469,8 @@ export function crearClienteBorradores(configuracion = {}) {
         throw new ErrorAPIBorradores(traducirPortal("txt_fetch_devolvio_una_respuesta_no_valida"));
       }
       if (!estadosEsperados.includes(respuesta.status)) {
-        if (respuesta.status >= 400) throw await construirErrorRespuesta(respuesta, signal);
-        throw new ErrorAPIBorradores(mensajeEstado(respuesta.status), respuesta.status);
+        if (respuesta.status >= 400) throw await construirErrorRespuesta(respuesta, signal, ruta, opciones.method);
+        throw new ErrorAPIBorradores(mensajeEstado(respuesta.status, ruta, opciones.method), respuesta.status);
       }
       let validado;
       try {

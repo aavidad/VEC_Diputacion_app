@@ -72,15 +72,17 @@ function fila(expediente, t, { numeroVisible, centroVisible }, generadoEn) {
   </tr>`;
 }
 
-function etiquetasActivas(estado, filtro, t, ayudas) {
+function etiquetasActivas(estado, filtro, t, ayudas, opcionesFaseServidor = null) {
   const chips = [];
   const chip = (clave, texto) => chips.push(`<button type="button" class="chip-quitar" data-ct-exp-quitar-filtro="${escapar(clave)}"
     aria-label="${escapar(t("lista_quitar_filtro", { filtro: texto }))}">${escapar(texto)} <span aria-hidden="true">×</span></button>`);
   if (filtro.texto) chip("texto", t("lista_filtro_texto", { valor: filtro.texto }));
-  if (filtro.fase) chip("fase", t(`etiqueta_fase_${filtro.fase}`));
+  const claveFase = opcionesFaseServidor?.find(([clave]) => clave === filtro.fase)?.[1];
+  if (filtro.fase) chip("fase", t(claveFase ?? `etiqueta_fase_${filtro.fase}`));
   if (filtro.centro) chip("centro", ayudas.centroVisible(filtro.centro).etiqueta);
   if (filtro.categoria) chip("categoria", filtro.categoria);
-  if (filtro.mostrar !== "en_tramite") chip("mostrar", t(`lista_mostrar_${filtro.mostrar}`));
+  if (filtro.mostrar !== (opcionesFaseServidor ? "todas" : "en_tramite"))
+    chip("mostrar", t(`lista_mostrar_${filtro.mostrar}`));
   const servidor = estado.filtros ?? {};
   if (servidor.estado) chip("servidor", t("lista_filtro_servidor_estado", { valor: t(`fase_${servidor.estado}`) }));
   else if (servidor.fase || servidor.texto) chip("servidor", [servidor.fase, servidor.texto].filter(Boolean).join(" · "));
@@ -99,7 +101,7 @@ function busquedaParcial(cuadro, filtro) {
 
 /** Etiquetas, recuento y tabla: la parte que cambia al escribir o elegir un filtro. */
 export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filtroBusqueda = filtroEntrada,
-  totalConjunto = null, cuentaSoloPagina = false) {
+  totalConjunto = null, cuentaSoloPagina = false, opcionesFaseServidor = null) {
   const cuadro = estado.cuadro;
   const filtro = filtroEfectivo(estado, filtroEntrada);
   const filas = filtrarPeticiones(cuadro.expedientes, filtroEfectivo(estado, filtroBusqueda), cuadro.generado_en, (expediente) => [
@@ -107,13 +109,13 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filt
     ayudas.centroVisible(expediente.centro).etiqueta,
   ]);
   return `<div data-ct-exp-resultados>
-    ${etiquetasActivas(estado, filtroEntrada, t, ayudas)}
+    ${etiquetasActivas(estado, filtroEntrada, t, ayudas, opcionesFaseServidor)}
     <p class="solo-lectura" role="status" aria-live="polite">${escapar(cuentaSoloPagina
       ? t("lista_resultados_pagina", { total: filas.length })
       : t("lista_resultados", { total: filas.length, de: totalConjunto ?? cuadro.expedientes.length }))}</p>
     ${busquedaParcial(cuadro, filtroBusqueda) ? `<p class="ct-exp-lista-parcial" role="status" data-ct-exp-busqueda-parcial>${escapar(t("lista_busqueda_parcial"))}</p>` : ""}
     ${filas.length === 0
-    ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(cuadro.expedientes.length === 0
+    ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(cuadro.expedientes.length === 0 && !opcionesFaseServidor
       ? "lista_vacia_crear" : "lista_sin_resultados"))}</p>`
     : `<div class="ct-exp-tabla-lista"><table class="tabla-datos tabla-apilable ct-exp-tabla-peticiones">
       <caption class="solo-lectura">${escapar(t("tabla_expedientes"))}</caption>
@@ -132,17 +134,20 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas, filt
 /** Pantalla completa de la lista. `ayudas` aporta número y centro legibles. */
 export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion = "",
   { altaDisponible = true, actualizarDisponible = false, filtroResultados = filtro,
-    totalConjunto = null, enTramiteConjunto = null, paginaAnterior = false } = {}) {
+    totalConjunto = null, enTramiteConjunto = null, paginaAnterior = false,
+    opcionesFaseServidor = null, opcionesMostrarServidor = null,
+    buscadorServidor = false, tituloConjunto = false, ocultarFiltrosLocales = false } = {}) {
   const cuadro = estado.cuadro;
   const resumen = resumirPeticiones({ expedientes: cuadro.expedientes });
   const parcial = Boolean(cuadro.paginacion?.cursor_siguiente);
   const enTramite = enTramiteConjunto ?? (parcial || paginaAnterior ? null : resumen.enTramite);
-  const titulo = enTramite === null ? t("tabla_expedientes")
+  const titulo = tituloConjunto ? t("lista_titulo_conjunto") : enTramite === null ? t("tabla_expedientes")
     : enTramite === 0 ? t("lista_titulo_ninguna")
       : (enTramite === 1 ? t("lista_titulo_uno") : t("lista_titulo_varias", { total: enTramite }));
   // Sin ninguna petición ni filtro del servidor, sobran buscador y filtros.
   const sinPeticiones = cuadro.expedientes.length === 0 && !parcial
-    && !Object.values(estado.filtros ?? {}).some((valor) => valor !== "" && valor != null);
+    && !Object.values(estado.filtros ?? {}).some((valor) => valor !== "" && valor != null)
+    && (!tituloConjunto || !filtro.texto && !filtro.fase && filtro.mostrar === "todas");
   const centros = distintos(cuadro.expedientes, "centro");
   const categorias = distintos(cuadro.expedientes, "categoria");
   return `<header class="cabeza-pagina">
@@ -156,26 +161,29 @@ export function renderizarListaPeticiones(estado, t, filtro, ayudas, paginacion 
       ${sinPeticiones ? "" : `<form class="filtros-quitables" data-ct-exp-filtros-locales role="search" aria-label="${escapar(t("filtros"))}">
         <label><span>${escapar(t("lista_buscar"))}</span>
           <input type="search" name="texto" value="${escapar(filtro.texto)}" maxlength="80" autocomplete="off"
-            placeholder="${escapar(t("lista_buscar_pista"))}"></label>
+            placeholder="${escapar(t(buscadorServidor ? "lista_buscar_pista_servidor" : "lista_buscar_pista"))}"></label>
         <label><span>${escapar(t("lista_fase"))}</span>
-          <select name="fase">${opcion("", t("lista_fase_todas"), filtro.fase)}${FASES_RRHH.map((fase, indice) => (
-    opcion(fase, `${indice + 1}. ${t(`etiqueta_fase_${fase}`)}`, filtro.fase))).join("")}</select></label>
-        <details class="mas-filtros" open data-ct-exp-mas-filtros${filtro.centro || filtro.categoria || filtro.mostrar !== "en_tramite" ? " data-activos" : ""}>
+          <select name="fase">${opcion("", t("lista_fase_todas"), filtro.fase)}${(opcionesFaseServidor
+    ? opcionesFaseServidor.map(([fase, clave]) => opcion(fase, t(clave), filtro.fase))
+    : FASES_RRHH.map((fase, indice) => opcion(fase, `${indice + 1}. ${t(`etiqueta_fase_${fase}`)}`, filtro.fase))).join("")}</select></label>
+        <details class="mas-filtros" open data-ct-exp-mas-filtros${filtro.centro || filtro.categoria
+          || filtro.mostrar !== (opcionesMostrarServidor ? "todas" : "en_tramite") ? " data-activos" : ""}>
           <summary>${escapar(t("lista_mas_filtros"))}</summary>
           <div class="mas-filtros-cuerpo">
-            <label><span>${escapar(t("lista_centro"))}</span>
+            ${ocultarFiltrosLocales ? "" : `<label><span>${escapar(t("lista_centro"))}</span>
               <select name="centro">${opcion("", t("lista_centro_todos"), filtro.centro)}${centros.map((c) => opcion(c, ayudas.centroVisible(c).etiqueta, filtro.centro)).join("")}</select></label>
             <label><span>${escapar(t("lista_categoria"))}</span>
-              <select name="categoria">${opcion("", t("lista_categoria_todas"), filtro.categoria)}${categorias.map((c) => opcion(c, c, filtro.categoria)).join("")}</select></label>
+              <select name="categoria">${opcion("", t("lista_categoria_todas"), filtro.categoria)}${categorias.map((c) => opcion(c, c, filtro.categoria)).join("")}</select></label>`}
             <label><span>${escapar(t("lista_mostrar"))}</span>
-              <select name="mostrar">${OPCIONES_MOSTRAR.map((clave) => opcion(clave, t(`lista_mostrar_${clave}`), filtro.mostrar)).join("")}</select></label>
+              <select name="mostrar">${(opcionesMostrarServidor ?? OPCIONES_MOSTRAR.map((clave) => [clave, `lista_mostrar_${clave}`]))
+                .map(([clave, etiqueta]) => opcion(clave, t(etiqueta), filtro.mostrar)).join("")}</select></label>
           </div>
         </details>
       </form>`}
       ${sinPeticiones ? `<p class="cuerpo-panel vacio-controlado" role="status">${escapar(t(altaDisponible
     ? "lista_vacia_crear" : "lista_vacia_sin_alta"))}</p>`
     : renderizarResultadosLista(estado, t, filtro, ayudas, filtroResultados,
-      totalConjunto, totalConjunto === null && (parcial || paginaAnterior))}
+      totalConjunto, totalConjunto === null && (parcial || paginaAnterior), opcionesFaseServidor)}
       ${paginacion}
     </section>`;
 }
