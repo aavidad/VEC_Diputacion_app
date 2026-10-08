@@ -1,0 +1,15 @@
+{
+  "telefono": {
+    "fecha_automatica": "The date and time are recorded when you confirm the call.",
+    "anotacion_opcional": "Note (optional)",
+    "resultado_contactado": "Contacted",
+    "resultado_no_contesta": "No answer",
+    "resultado_comunica": "Busy",
+    "resultado_numero_erroneo": "Wrong number",
+    "resultado_acepta": "Says they accept",
+    "resultado_rechaza": "Says they decline",
+    "resultado_aplazado": "Asks for time",
+    "resultado_buzon": "Voicemail",
+    "confirmar_resultado": "Record result"
+  }
+}

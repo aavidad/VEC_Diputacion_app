@@ -127,3 +127,15 @@ func TestEstadoIntentosDesdeElHistorico(t *testing.T) {
 		t.Fatalf("sin catálogo: %+v %v", e, err)
 	}
 }
+
+func TestComunicaSoloConReglasQueLoCuentanSinContacto(t *testing.T) {
+	politica := politicaServicioPrueba(t, "")
+	sin := &intentoPreparado{politica: politica}
+	if resultadoAdmitidoPorReglas(sin, dominiobolsa.ResultadoContactoComunica) || !resultadoAdmitidoPorReglas(sin, dominiobolsa.ResultadoContactoNoContesta) || !resultadoAdmitidoPorReglas(nil, dominiobolsa.ResultadoContactoComunica) {
+		t.Fatal("comunica con reglas que no lo cuentan")
+	}
+	politica.ResultadosSinContacto = append(politica.ResultadosSinContacto, dominiobolsa.ResultadoContactoComunica)
+	if !resultadoAdmitidoPorReglas(&intentoPreparado{politica: politica}, dominiobolsa.ResultadoContactoComunica) {
+		t.Fatal("comunica rechazado con reglas que lo cuentan")
+	}
+}

@@ -2,7 +2,7 @@ import {
   construirEnvelopeAccionBolsa,
   validarPayloadCrearLlamamiento,
   validarPayloadResultadoLlamamiento,
-} from "./portal-bolsas-contrato.js?v=20261008-w-fichas-capacidades-v1";
+} from "./portal-bolsas-contrato.js?v=20261008-canal-telefono-v2";
 import { validarEmisionLlamamiento } from "./portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 

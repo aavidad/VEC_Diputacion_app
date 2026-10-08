@@ -2,9 +2,11 @@
 
 import "./atajos-incidencia.js";
 import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261008-w-fichas-capacidades-v1";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261008-w-fichas-capacidades-v2";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
+import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { origenLlamamientoValido } from "../../portal-llamamiento-origen.js";
 import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-expedientes-lista.js?v=20261008-ct-inicio-v1";
 import {
@@ -224,6 +226,26 @@ function valorCampoCabecera(campo, t, resolverBolsa) {
   return `<button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(campo.valor)}" data-pestana="historico" aria-label="${escaparHTML(t("enlace_bolsa_historico_aria", { bolsa: bolsa.categoria }))}">${escaparHTML(bolsa.categoria)}</button>`;
 }
 
+// «Abrir llamamiento en Bolsa»: la bolsa elegida para cubrir la petición o, si
+// no hay, la vigente de su categoría. Bolsa abre el asistente con la referencia,
+// el centro y la fecha de inicio de la petición ya puestos.
+function renderizarAbrirLlamamiento(expediente, resolverBolsa) {
+  if (typeof resolverBolsa !== "function") return "";
+  const valor = (clave) => expediente.cabecera?.find((campo) => campo.clave === clave)?.valor;
+  const cobertura = valor("bolsa_cobertura");
+  let bolsaRef = typeof cobertura === "string" && resolverBolsa(cobertura) ? cobertura : "";
+  if (!bolsaRef) {
+    const categoriaRef = expediente.analisis_previo?.categoria_ref ?? expediente.datos_peticion?.categoria_ref;
+    bolsaRef = typeof categoriaRef === "string" ? resolverBolsa("", { categoriaRef })?.bolsa_ref || "" : "";
+  }
+  const origen = bolsaRef ? origenLlamamientoValido({
+    expediente_ref: expediente.expediente_ref, referencia: expediente.numero_visible, centro: valor("centro"),
+    fecha_inicio: expediente.analisis_previo?.periodo?.inicio ?? expediente.datos_peticion?.periodo?.inicio,
+  }) : null;
+  if (!origen) return "";
+  const atributo = (nombre, dato) => (dato ? ` data-origen-${nombre}="${escaparHTML(dato)}"` : "");
+  return `<div class="acciones-vista"><button type="button" class="boton-primario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}"${atributo("expediente", origen.expediente_ref)}${atributo("referencia", origen.referencia)}${atributo("centro", origen.centro)}${atributo("inicio", origen.fecha_inicio)}>${escaparHTML(traducirPortal("panel_ct_abrir_llamamiento"))}</button></div>`;
+}
 
 function renderizarTareas(expediente, tareaRef, t) {
   return `<nav class="ct-exp-tareas" aria-label="${escaparHTML(t("tareas_expediente"))}">
@@ -483,6 +505,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
       </div>
       <div class="pila">
         ${renderizarDatosPeticion(expediente, t, { valorCampo: (campo) => valorCampoCabecera(campo, t, resolverBolsa), faseDeCampo })}
+        ${renderizarAbrirLlamamiento(expediente, resolverBolsa)}
         ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
       </div>
     </div>

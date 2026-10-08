@@ -1,0 +1,14 @@
+{
+  "version": "bolsa-canales-llamamiento-v1",
+  "canales": [
+    {"canal": "correo", "modo": "automatico", "al_emitir": true, "seguimiento": false, "acuse": false, "admite_respuesta": false,
+     "resultados": ["enviado", "no_enviado", "no_entregado"], "activo": true},
+    {"canal": "telefono", "modo": "manual", "al_emitir": false, "seguimiento": true, "acuse": false, "admite_respuesta": true,
+     "resultados": ["contactado", "no_contesta", "comunica", "numero_erroneo", "acepta", "rechaza", "aplazado", "buzon"],
+     "resultados_cierre": ["acepta", "rechaza", "numero_erroneo"], "activo": true},
+    {"canal": "sms", "modo": "automatico", "al_emitir": false, "seguimiento": true, "acuse": true, "admite_respuesta": false,
+     "resultados": ["enviado", "no_enviado", "no_entregado"], "limite_caracteres": 160, "activo": false},
+    {"canal": "telegram", "modo": "automatico", "al_emitir": false, "seguimiento": true, "acuse": true, "admite_respuesta": false,
+     "resultados": ["enviado", "no_enviado", "no_entregado"], "requiere_alta_voluntaria": true, "limite_caracteres": 1000, "activo": false}
+  ]
+}
