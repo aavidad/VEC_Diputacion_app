@@ -72,7 +72,7 @@ Use «Buscar» para localizar a una persona y «Situación» para cambiar el est
 
 ![Revisión del llamamiento antes de confirmar.](img/rrhh-bolsa-revision.webp)
 
-5. La pantalla muestra «Llamamiento emitido» y «pendiente de respuesta». Pulse «Copiar referencia» para conservar el justificante. Vuelva a la lista y consulte «Histórico de llamamientos» para ver la nueva actuación.
+5. La pantalla muestra «Llamamiento emitido» y «pendiente de respuesta». Vuelva a la lista y consulte «Histórico de llamamientos» para ver la nueva actuación.
 
 ![Confirmación del llamamiento registrado.](img/rrhh-bolsa-recibo.webp)
 
