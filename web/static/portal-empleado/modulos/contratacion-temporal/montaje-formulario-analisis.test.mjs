@@ -191,8 +191,15 @@ function crearPresentador(estadoInicial, fallarCarga = false, refresco = null) {
       if (fallarCarga) throw new Error("detalle temporalmente no disponible");
       if (!refresco || recibo.expediente_ref !== refresco.expediente.expediente_ref
         || refresco.expediente.version < recibo.version_resultante) return estado;
-      estado = { ...estado, expediente: refresco.expediente, carga: "listo" };
+      estado = { ...estado, expediente: refresco.expediente,
+        cuadro_desactualizado: true, carga: "listo" };
       refresco.resolver?.();
+      return estado;
+    },
+    async volverAlCuadro() {
+      lecturasCuadro += 1;
+      estado = { ...estado, vista: "cuadro", carga: "vacio",
+        cuadro: refresco.cuadroAlVolver, cuadro_desactualizado: false };
       return estado;
     },
     cambiarVista(vista) { estado = { ...estado, vista }; },
@@ -1013,6 +1020,7 @@ test("el recibo confirmado refresca cuadro y ficha a la versión resultante sin 
       expediente_ref: expediente.expediente_ref,
       fase_clave: "solicitud", estado_clave: "en_curso", version: actualizado.version,
     }] },
+    cuadroAlVolver: { demostracion: false, expedientes: [] },
     resolver,
   };
   let llamadas = 0;
@@ -1044,6 +1052,10 @@ test("el recibo confirmado refresca cuadro y ficha a la versión resultante sin 
     /recibo:opaco:analisis:001/u);
   assert.equal(confirmacion.enfoques, 1);
   assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
+  await escenario.raiz.cambiarVista("cuadro");
+  assert.equal(escenario.presentador.obtenerEstado().carga, "vacio");
+  assert.equal(escenario.presentador.obtenerEstado().cuadro.expedientes.length, 0);
+  assert.deepEqual(escenario.presentador.obtenerLecturas(), { cuadro: 1, detalle: 1 });
   escenario.modulo.desmontar();
 });
 

@@ -131,6 +131,7 @@ test("refresca la ficha confirmada fuera del filtro y conserva la página segund
   assert.equal(estado.vista, "expediente");
   assert.equal(estado.expediente.version, 8);
   assert.equal(estado.expediente.cabecera.at(-1).valor, "validada");
+  assert.equal(estado.cuadro_desactualizado, true);
   assert.equal(estado.cuadro.paginacion.pagina, 2);
   assert.deepEqual(estado.filtros, { texto: "", estado: "", fase: "solicitud" });
   assert.deepEqual({ listados, detalles }, { listados: 1, detalles: 2 });
@@ -146,11 +147,32 @@ test("refresca la ficha confirmada fuera del filtro y conserva la página segund
   const lecturaTardia = presentador.refrescarExpedienteConfirmado({
     expediente_ref: actual.expediente_ref, version_resultante: 9,
   });
-  presentador.cambiarVista("cuadro");
+  presentador.cambiarVista("documentos");
+  presentador.cambiarVista("expediente");
   resolverTardia(validarExpedienteContratacionTemporal({ ...posterior, version: 9 }));
   await lecturaTardia;
-  assert.equal(presentador.obtenerEstado().vista, "cuadro");
+  assert.equal(presentador.obtenerEstado().vista, "expediente");
   assert.equal(presentador.obtenerEstado().expediente.version, 8);
+
+  const vacia = validarCuadroContratacionTemporal({
+    ...pagina, expedientes: [],
+    paginacion: { pagina: 1, cursor_actual: "", cursor_siguiente: "" },
+  });
+  fuente.listar = async ({ filtros, cursor, numeroPagina }) => {
+    assert.deepEqual(filtros, { texto: "", estado: "", fase: "solicitud" });
+    assert.equal(cursor, "");
+    assert.equal(numeroPagina, 1);
+    listados += 1;
+    return vacia;
+  };
+  await presentador.volverAlCuadro();
+  assert.equal(listados, 2);
+  assert.equal(presentador.obtenerEstado().vista, "cuadro");
+  assert.equal(presentador.obtenerEstado().carga, "vacio");
+  assert.equal(presentador.obtenerEstado().cuadro.expedientes.length, 0);
+  assert.equal(presentador.obtenerEstado().cuadro.paginacion.pagina, 1);
+  assert.deepEqual(presentador.obtenerEstado().filtros, { texto: "", estado: "", fase: "solicitud" });
+  assert.equal(presentador.obtenerEstado().cuadro_desactualizado, false);
 });
 
 test("descarta la página retrasada tras cambiar filtros y no conserva selección oculta", async () => {
