@@ -58,7 +58,7 @@ fi
 readonly migracion=${migraciones[0]}
 readonly sha_ct48='f33cf450fb6189ab0b21712a90ff80f4df95f20fb3a142b13a54bc65c9b6c6cc'
 readonly sha_ct165='7a7ac82c0137d77339996022e234c416843a2525cf426f306430c0c66a05bf6e'
-readonly migracion_sha='cbef35ad78d8b7551d639b8769f020ac9fd4a56c92a15292d0356d89ec127a2a'
+readonly migracion_sha='c5bc06e8c717c11d38f3d6371e435d4fc3cd850bcf14d938988a4f7a5e45715c'
 if [[ -n $(git -C "$raiz" status --porcelain=v1) ]]; then
     printf 'CT193 E3: el worktree debe estar limpio para atribuir el ensayo\n' >&2
     exit 65

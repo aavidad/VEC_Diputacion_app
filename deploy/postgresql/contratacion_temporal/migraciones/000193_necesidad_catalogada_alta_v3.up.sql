@@ -144,6 +144,14 @@ BEGIN
      RETURN false;
    END IF;
  END LOOP;
+ -- El número viaja como texto canónico dentro de campos, igual que en Go.
+ -- Una instantánea anterior puede no declararlo; la obligatoriedad la fija
+ -- exclusivamente el catálogo sellado de esa alta.
+ IF n->'campos' ? 'numero_personas' THEN
+   v_clave:=n#>>'{campos,numero_personas}';
+   IF v_clave !~ '^[1-9][0-9]{0,9}$' THEN RETURN false; END IF;
+   IF v_clave::numeric > 4294967295::numeric THEN RETURN false; END IF;
+ END IF;
  FOR v_clave IN SELECT permitido.clave FROM pg_catalog.jsonb_array_elements_text(
        causa->'campos_obligatorios') AS permitido(clave) LOOP
    IF NOT (n->'campos' ? v_clave)

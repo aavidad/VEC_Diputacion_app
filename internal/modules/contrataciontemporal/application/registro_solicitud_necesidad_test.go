@@ -65,7 +65,7 @@ func escenarioNecesidadRegistroPrueba(t *testing.T) (escenarioRegistro, *fuenteN
 		Esquema: "vec.ct.necesidad_alta.v1", CatalogoRef: c.Referencia,
 		CatalogoVersion: c.Version, CatalogoHuellaSHA256: c.HuellaSHA256,
 		CausaClave: "vacante", Periodo: base.solicitud.Solicitud.Periodo, JornadaMinutos: 2250,
-		Campos: map[string]string{"plaza_codigo": "1201", "puesto_codigo": "3388", "organica_codigo": "100",
+		Campos: map[string]string{"numero_personas": "2", "plaza_codigo": "1201", "puesto_codigo": "3388", "organica_codigo": "100",
 			"rpt_catalogo_ref":           "rpt:dipgra:2026",
 			"rpt_catalogo_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			"funcional_codigo":           "200", "proyecto_gasto_codigo": "300", "porcentaje_financiacion": "100"},

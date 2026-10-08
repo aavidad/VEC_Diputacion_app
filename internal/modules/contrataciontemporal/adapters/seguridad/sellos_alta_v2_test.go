@@ -24,6 +24,7 @@ func materialHuellaNecesidadPrueba(t *testing.T) domain.DatosNecesidadAlta {
 		CausaClave: "acumulacion_tareas", Periodo: material.Solicitud.Periodo,
 		JornadaMinutos: 1125,
 		Campos: map[string]string{
+			"numero_personas":        "2",
 			"justificacion_temporal": "Refuerzo sintético para el servicio.",
 			"organica_codigo":        "100", "funcional_codigo": "200",
 			"proyecto_gasto_codigo": "300", "porcentaje_financiacion": "100",
@@ -131,7 +132,7 @@ func TestHuellaAltaV2LigaNecesidadYConservaV1(t *testing.T) {
 	inverso := material
 	n := necesidad
 	n.Campos = make(map[string]string, len(necesidad.Campos))
-	for _, k := range []string{"porcentaje_financiacion", "proyecto_gasto_codigo", "funcional_codigo", "organica_codigo", "justificacion_temporal"} {
+	for _, k := range []string{"porcentaje_financiacion", "proyecto_gasto_codigo", "numero_personas", "funcional_codigo", "organica_codigo", "justificacion_temporal"} {
 		n.Campos[k] = necesidad.Campos[k]
 	}
 	inverso.Solicitud.Necesidad = &n

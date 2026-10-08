@@ -1,17 +1,23 @@
 # CT193: ensayo firmado E3 en PostgreSQL 18 efímero
 
-Estado a 08/10/2026: el ensayo ordinario de la rama
+Estado de esta revisión: CT193 incorpora la validación de `numero_personas`
+con SHA256 `c5bc06e8c717c11d38f3d6371e435d4fc3cd850bcf14d938988a4f7a5e45715c`.
+Esta versión del UP requiere dos revisiones independientes y otro ensayo en
+PostgreSQL 18 nuevo; todavía no tiene GO dinámico.
+
+Evidencia anterior a esta revisión: el ensayo ordinario de la rama
 `966a479051c9ea7730bd44f6a86db43b132394e8` terminó con código **0** en una
-base PostgreSQL 18 nueva. Su resultado queda pendiente de revisión independiente
-del runner final. No acredita la activación del POST v3 ni la instalación en la
+base PostgreSQL 18 nueva usando CT193 SHA256
+`cbef35ad78d8b7551d639b8769f020ac9fd4a56c92a15292d0356d89ec127a2a`.
+No acredita la nueva versión del UP, la activación del POST v3 ni su instalación en la
 base principal.
 La corrección V3 `2de6dabbf6cbd4950fd70a75015b67dbee99309b` está
 incorporada en esta rama mediante cherry-pick; sus dos revisiones sensibles
 corresponden a esa fuente exacta.
 
 La fuente CT preparada es `2703bda17b3acc226fb4427e192c6c710c05597f`.
-El único UP de CT193 tiene SHA256
-`cbef35ad78d8b7551d639b8769f020ac9fd4a56c92a15292d0356d89ec127a2a`.
+El UP de CT193 de esta rama tiene SHA256
+`c5bc06e8c717c11d38f3d6371e435d4fc3cd850bcf14d938988a4f7a5e45715c`.
 El runner nuevo es `probar_ct193_e3_postgresql18.sh`, su fixture es
 `pruebas_sql/ct193_e3_preparar.sql` y el test Go es
 `internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_v3_postgresql18_test.go`.

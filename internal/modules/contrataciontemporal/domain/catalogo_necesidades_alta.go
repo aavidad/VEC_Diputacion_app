@@ -346,6 +346,7 @@ func finExclusivoTrasMeses(inicio time.Time, meses int) time.Time {
 func campoNecesidadConocido(campo string) bool {
 	switch campo {
 	case "plaza_codigo", "puesto_codigo", "titular_ref", "justificacion_temporal",
+		"numero_personas",
 		"programa_denominacion", "programa_fin", "proyecto_codigo",
 		"financiacion_ref", "rc_ref", "intervencion_ref", "vacancia_fuente_ref",
 		"rpt_catalogo_ref", "rpt_catalogo_huella_sha256",
@@ -365,6 +366,9 @@ func valorCampoNecesidadValido(campo, valor string) bool {
 		return referenciaValida(valor)
 	case "rpt_catalogo_huella_sha256":
 		return huellaValida(valor)
+	case "numero_personas":
+		n, err := strconv.ParseUint(valor, 10, 32)
+		return err == nil && n > 0 && strconv.FormatUint(n, 10) == valor
 	case "porcentaje_financiacion":
 		n, err := strconv.ParseUint(valor, 10, 8)
 		return err == nil && n >= 1 && n <= 100 && strconv.FormatUint(n, 10) == valor

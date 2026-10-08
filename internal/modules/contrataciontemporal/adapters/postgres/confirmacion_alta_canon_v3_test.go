@@ -26,6 +26,7 @@ func evidenciaAltaConNecesidad(t *testing.T) domain.DatosNecesidadAlta {
 		CausaClave: evidencia.Expediente.Solicitud.MotivoClave,
 		Periodo:    evidencia.Expediente.Solicitud.Periodo, JornadaMinutos: 1125,
 		Campos: map[string]string{
+			"numero_personas":        "2",
 			"justificacion_temporal": "Refuerzo sintético para el servicio.",
 			"organica_codigo":        "100", "funcional_codigo": "200",
 			"proyecto_gasto_codigo": "300", "porcentaje_financiacion": "100",
@@ -63,12 +64,12 @@ func TestCanonEfectoAltaV3ConservaOrdenV2YLigaNecesidad(t *testing.T) {
 	fragmento := `"observaciones":"","necesidad":{` +
 		`"esquema":"vec.ct.necesidad_alta.v1",` +
 		`"catalogo_ref":"` + n.CatalogoRef + `",` +
-		`"catalogo_version":1,` +
+		`"catalogo_version":2,` +
 		`"catalogo_huella_sha256":"` + n.CatalogoHuellaSHA256 + `",` +
 		`"causa_clave":"acumulacion_tareas",` +
 		`"periodo":{"inicio":"2026-09-01","fin":"2026-09-30"},` +
 		`"jornada_minutos":1125,` +
-		`"campos":{"funcional_codigo":"200","justificacion_temporal":"Refuerzo sintético para el servicio.","organica_codigo":"100","porcentaje_financiacion":"100","proyecto_gasto_codigo":"300"},` +
+		`"campos":{"funcional_codigo":"200","justificacion_temporal":"Refuerzo sintético para el servicio.","numero_personas":"2","organica_codigo":"100","porcentaje_financiacion":"100","proyecto_gasto_codigo":"300"},` +
 		`"catalogo_instantanea":"` + base64.StdEncoding.EncodeToString(n.CatalogoInstantanea) + `"}},"creado_en"`
 	esperado = strings.Replace(esperado, cola, fragmento, 1)
 	if string(actual) != esperado {
@@ -111,7 +112,7 @@ func TestCanonEfectoAltaV3ConservaOrdenV2YLigaNecesidad(t *testing.T) {
 	// El orden de inserción en map no altera el canon.
 	inverso := n
 	inverso.Campos = map[string]string{}
-	for _, k := range []string{"porcentaje_financiacion", "proyecto_gasto_codigo", "organica_codigo", "justificacion_temporal", "funcional_codigo"} {
+	for _, k := range []string{"porcentaje_financiacion", "proyecto_gasto_codigo", "numero_personas", "organica_codigo", "justificacion_temporal", "funcional_codigo"} {
 		inverso.Campos[k] = n.Campos[k]
 	}
 	evidencia.Expediente.Solicitud.Necesidad = &inverso

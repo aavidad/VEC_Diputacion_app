@@ -1,6 +1,7 @@
 package catalogoalta
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +16,7 @@ func TestNecesidadesEjemploSeparaCausasYReferencia(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !c.EsEjemplo || c.Version != 1 || c.JornadaReferenciaMinutos != 2250 ||
+	if !c.EsEjemplo || c.Version != 2 || c.JornadaReferenciaMinutos != 2250 ||
 		len(c.Causas) != 4 || len(c.HuellaSHA256) != 64 {
 		t.Fatalf("publicación inesperada: versión=%d causas=%d jornada=%d", c.Version, len(c.Causas), c.JornadaReferenciaMinutos)
 	}
@@ -54,7 +55,7 @@ func TestNecesidadRechazaDatosIncompatiblesYDuracion(t *testing.T) {
 		t.Fatal(err)
 	}
 	inicio := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
-	base := map[string]string{"organica_codigo": "100", "funcional_codigo": "200", "proyecto_gasto_codigo": "300", "porcentaje_financiacion": "100"}
+	base := map[string]string{"numero_personas": "2", "organica_codigo": "100", "funcional_codigo": "200", "proyecto_gasto_codigo": "300", "porcentaje_financiacion": "100"}
 	ligar := func(d *domain.DatosNecesidadAlta) {
 		d.Esquema = "vec.ct.necesidad_alta.v1"
 		d.CatalogoRef, d.CatalogoVersion, d.CatalogoHuellaSHA256 = c.Referencia, c.Version, c.HuellaSHA256
@@ -79,10 +80,21 @@ func TestNecesidadRechazaDatosIncompatiblesYDuracion(t *testing.T) {
 		t.Fatal(err)
 	}
 	delete(vacante.Campos, "plaza_codigo")
-	if err := c.ValidarDatos(vacante); err != nil {
-		t.Fatal("plaza aún no cargada debe ser opcional", err)
+	if c.ValidarDatos(vacante) == nil {
+		t.Fatal("vacante sin código de plaza admitida")
 	}
 	vacante.Campos["plaza_codigo"] = "1201"
+	for _, valor := range []string{"", "0", "01", "-1", "1.5", "4294967296", "99999999999999999999"} {
+		vacante.Campos["numero_personas"] = valor
+		if c.ValidarDatos(vacante) == nil {
+			t.Fatalf("número de personas incompatible admitido: %q", valor)
+		}
+	}
+	vacante.Campos["numero_personas"] = "4294967295"
+	if err := c.ValidarDatos(vacante); err != nil {
+		t.Fatal("límite técnico entero válido rechazado", err)
+	}
+	vacante.Campos["numero_personas"] = "2"
 	vacante.CatalogoVersion++
 	if c.ValidarDatos(vacante) == nil {
 		t.Fatal("otra versión de reglas admitida")
@@ -169,6 +181,57 @@ func TestNecesidadRechazaDatosIncompatiblesYDuracion(t *testing.T) {
 	}
 }
 
+func TestInstantaneaAnteriorConservaReglasSinNumeroDePersonas(t *testing.T) {
+	actual, err := CargarNecesidades("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	anterior := actual
+	anterior.Version = 1
+	anterior.Causas = append([]domain.CausaNecesidadAlta(nil), actual.Causas...)
+	for i := range anterior.Causas {
+		causa := &anterior.Causas[i]
+		permitidos := make([]string, 0, len(causa.CamposPermitidos))
+		for _, campo := range causa.CamposPermitidos {
+			if campo != "numero_personas" {
+				permitidos = append(permitidos, campo)
+			}
+		}
+		causa.CamposPermitidos = permitidos
+		obligatorios := make([]string, 0, len(causa.CamposObligatorios))
+		for _, campo := range causa.CamposObligatorios {
+			if campo != "numero_personas" && (causa.Clave != "vacante" || campo != "plaza_codigo") {
+				obligatorios = append(obligatorios, campo)
+			}
+		}
+		causa.CamposObligatorios = obligatorios
+	}
+	contenido, err := json.Marshal(anterior)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := domain.RestaurarCatalogoNecesidadesAlta(contenido)
+	if err != nil {
+		t.Fatal("instantánea anterior inválida", err)
+	}
+	inicio := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	dato := domain.DatosNecesidadAlta{
+		Esquema: "vec.ct.necesidad_alta.v1", CatalogoRef: catalogo.Referencia,
+		CatalogoVersion: catalogo.Version, CatalogoHuellaSHA256: catalogo.HuellaSHA256,
+		CausaClave: "vacante", Periodo: domain.PeriodoPrevisto{Inicio: inicio, Fin: inicio.AddDate(1, 0, -1)},
+		JornadaMinutos: 2250,
+		Campos: map[string]string{"puesto_codigo": "3388", "organica_codigo": "100", "funcional_codigo": "200",
+			"rpt_catalogo_ref": "rpt:dipgra:2026", "rpt_catalogo_huella_sha256": strings.Repeat("a", 64),
+			"proyecto_gasto_codigo": "300", "porcentaje_financiacion": "100"},
+	}
+	if catalogo.ValidarDatos(dato) != nil {
+		t.Fatal("datos anteriores reinterpretados con catálogo nuevo")
+	}
+	if _, err := catalogo.SellarDatos(dato); err != nil {
+		t.Fatal("instantánea anterior no conservada", err)
+	}
+}
+
 func TestCatalogoDeclaradoAusenteOAlteradoNoUsaEjemplo(t *testing.T) {
 	if _, err := CargarNecesidades(filepath.Join(t.TempDir(), "ausente.json")); err == nil {
 		t.Fatal("se recuperó el ejemplo")
@@ -199,7 +262,7 @@ func TestNecesidadSelladaConservaCatalogoYClonNoComparteDatos(t *testing.T) {
 		CatalogoVersion: c.Version, CatalogoHuellaSHA256: c.HuellaSHA256,
 		CausaClave: "vacante", Periodo: domain.PeriodoPrevisto{Inicio: inicio, Fin: inicio.AddDate(1, 0, -1)},
 		JornadaMinutos: 2250,
-		Campos: map[string]string{"plaza_codigo": "1201", "puesto_codigo": "3388", "organica_codigo": "100",
+		Campos: map[string]string{"numero_personas": "2", "plaza_codigo": "1201", "puesto_codigo": "3388", "organica_codigo": "100",
 			"rpt_catalogo_ref":           "rpt:dipgra:2026",
 			"rpt_catalogo_huella_sha256": strings.Repeat("a", 64),
 			"funcional_codigo":           "200", "proyecto_gasto_codigo": "300", "porcentaje_financiacion": "100"},

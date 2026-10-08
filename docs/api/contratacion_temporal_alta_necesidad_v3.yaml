@@ -190,9 +190,14 @@ components:
         causa_clave coincide con solicitud.motivo_clave. El catálogo v2 de
         consulta publica por causa los campos permitidos, obligatorios y uno_de,
         así como la jornada de referencia y el límite individual de periodo.
-        Vacante y sustitución exigen puesto_codigo, rpt_catalogo_ref y
-        rpt_catalogo_huella_sha256 de la publicación RPT; plaza_codigo y
-        titular_ref son opcionales. La versión del esquema RPT se valida por
+        La publicación de ejemplo de 19/02/2026 exige
+        campos.numero_personas en las cuatro causas: cadena decimal canónica
+        entre 1 y 4294967295, sin valor supuesto por el servidor. Vacante
+        exige plaza_codigo y puesto_codigo según la circular. Vacante y
+        sustitución exigen puesto_codigo, rpt_catalogo_ref y
+        rpt_catalogo_huella_sha256 de la publicación RPT; titular_ref es
+        opcional. Las instantáneas anteriores conservan los campos exigidos
+        por su propio catálogo. La versión del esquema RPT se valida por
         separado y no se envía como versión de publicación. El código
         del puesto se verifica en esa publicación, sin declarar que esté vacío.
         Para programa, financiación y RC o referencia de Intervención se

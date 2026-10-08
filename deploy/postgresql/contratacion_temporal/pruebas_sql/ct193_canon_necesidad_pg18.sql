@@ -14,6 +14,9 @@ DECLARE
  p_abierto jsonb;
  s_abierta jsonb;
  canon_abierto text;
+ raw_nuevo bytea;
+ n_nuevo jsonb;
+ s_nueva jsonb;
 BEGIN
  n:=pg_catalog.jsonb_build_object(
    'esquema','vec.ct.necesidad_alta.v1',
@@ -48,6 +51,34 @@ BEGIN
          pg_catalog.jsonb_set(s,'{necesidad,catalogo_instantanea}',
            '"abc="'::jsonb)) IS NOT FALSE THEN
    RAISE EXCEPTION 'CT193: validación de necesidad divergente';
+ END IF;
+ -- La publicación anterior conserva su admisión sin número de personas.
+ -- La nueva publicación lo exige y liga su texto canónico al efecto.
+ raw_nuevo:=pg_catalog.convert_to(
+   '{"esquema":"vec.ct.necesidades_alta.v1","referencia":"catalogo:ct:ejemplo","version":2,"jornada_referencia_minutos":2250,"causas":[{"clave":"sustitucion","regla_ref":"regla:ct:sustitucion:v1","fecha_fin":"opcional","causa_fin":"reincorporacion_titular","maximo_meses":36,"campos_permitidos":["numero_personas","puesto_codigo"],"campos_obligatorios":["numero_personas","puesto_codigo"]}]}',
+   'UTF8');
+ n_nuevo:=pg_catalog.jsonb_set(pg_catalog.jsonb_set(pg_catalog.jsonb_set(
+   pg_catalog.jsonb_set(n,'{catalogo_version}','2'::jsonb),
+   '{catalogo_huella_sha256}',pg_catalog.to_jsonb(pg_catalog.encode(pg_catalog.sha256(raw_nuevo),'hex'))),
+   '{catalogo_instantanea}',pg_catalog.to_jsonb(pg_catalog.replace(pg_catalog.encode(raw_nuevo,'base64'),E'\n',''))),
+   '{campos}',pg_catalog.jsonb_build_object('numero_personas','2','puesto_codigo','auxiliar'));
+ s_nueva:=pg_catalog.jsonb_set(s,'{necesidad}',n_nuevo);
+ IF vec_contratacion_temporal.necesidad_alta_valida_v3(s_nueva) IS NOT TRUE
+    OR vec_contratacion_temporal.necesidad_alta_valida_v3(
+         pg_catalog.jsonb_set(s_nueva,'{necesidad,campos}',
+           pg_catalog.jsonb_build_object('puesto_codigo','auxiliar'))) IS NOT FALSE
+    OR vec_contratacion_temporal.necesidad_alta_valida_v3(
+         pg_catalog.jsonb_set(s_nueva,'{necesidad,campos,numero_personas}',
+           '"0"'::jsonb)) IS NOT FALSE
+    OR vec_contratacion_temporal.necesidad_alta_valida_v3(
+         pg_catalog.jsonb_set(s_nueva,'{necesidad,campos,numero_personas}',
+           '"01"'::jsonb)) IS NOT FALSE
+    OR vec_contratacion_temporal.necesidad_alta_valida_v3(
+         pg_catalog.jsonb_set(s_nueva,'{necesidad,campos,numero_personas}',
+           '"4294967296"'::jsonb)) IS NOT FALSE
+    OR vec_contratacion_temporal.reconstruir_solicitud_efecto_v3(s_nueva)
+       NOT LIKE '%"campos":{"numero_personas":"2","puesto_codigo":"auxiliar"},"catalogo_instantanea":%' THEN
+   RAISE EXCEPTION 'CT193: número de personas no ligado al catálogo y canon';
  END IF;
  canon_v2:=vec_contratacion_temporal.reconstruir_solicitud_efecto_v2(s-'necesidad');
  canon_v3:=vec_contratacion_temporal.reconstruir_solicitud_efecto_v3(s);
