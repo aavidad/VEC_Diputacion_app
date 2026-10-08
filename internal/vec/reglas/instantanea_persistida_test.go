@@ -230,3 +230,38 @@ func TestCacheInstantaneasPersistidasValidaCadaTramoYSeparaPares(t *testing.T) {
 	}
 	grupo.Wait()
 }
+
+func TestCacheInstantaneasPersistidasConservaParSinReglaYNoConfiaEnMetadatos(t *testing.T) {
+	resolutor := resolutorCTConAjustes(t, &ajustesMemoria{}, nil)
+	valida := instantaneaPersistidaPrueba(t, resolutor)
+	cache := NuevaCacheInstantaneasPersistidas()
+	sinRegla := valida
+	sinRegla.Fase = "fase_inexistente"
+	for i := 0; i < 2; i++ {
+		if _, err := cache.Rehidratar(sinRegla); !errors.Is(err, ErrReglaNoEncontrada) {
+			t.Fatalf("fase sin regla %d: %v", i, err)
+		}
+		if len(cache.entradas) != 1 {
+			t.Fatalf("la fase sin regla no conservó el par validado: %d", len(cache.entradas))
+		}
+	}
+	// Un fallo de metadatos se resuelve por tramo. No invalida ni autoriza
+	// una captura posterior que traiga el mismo par íntegro.
+	invalida := valida
+	invalida.CatalogoBaseVersion++
+	if _, err := cache.Rehidratar(invalida); !errors.Is(err, ErrReglasNoDisponibles) {
+		t.Fatalf("versión ajena admitida: %v", err)
+	}
+	if _, err := cache.Rehidratar(valida); err != nil {
+		t.Fatalf("metadato ajeno contaminó la fase válida: %v", err)
+	}
+	// También al entrar por primera vez con metadatos erróneos se conserva
+	// únicamente el par íntegro; la decisión del tramo vuelve a comprobarse.
+	cache = NuevaCacheInstantaneasPersistidas()
+	if _, err := cache.Rehidratar(invalida); !errors.Is(err, ErrReglasNoDisponibles) || len(cache.entradas) != 1 {
+		t.Fatalf("primera captura errónea: %v, pares=%d", err, len(cache.entradas))
+	}
+	if _, err := cache.Rehidratar(valida); err != nil {
+		t.Fatalf("par íntegro rechazado tras metadato erróneo: %v", err)
+	}
+}

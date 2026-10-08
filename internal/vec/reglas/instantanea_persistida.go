@@ -130,18 +130,16 @@ func (c *CacheInstantaneasPersistidas) Rehidratar(p InstantaneaPersistidaRegla) 
 		if err != nil {
 			return vacia, err
 		}
-	}
-	instantanea, err := rehidratarConCatalogos(p, contenidos)
-	if err != nil {
-		return vacia, err
-	}
-	if !existe && len(c.entradas) < maximoParesInstantanea {
-		if c.entradas == nil {
-			c.entradas = make(map[parHuellasInstantanea]catalogosInstantanea)
+		// El par de definiciones ya está íntegro. Una fase sin regla o un
+		// metadato de tramo inválido no obligan a decodificarlo de nuevo.
+		if len(c.entradas) < maximoParesInstantanea {
+			if c.entradas == nil {
+				c.entradas = make(map[parHuellasInstantanea]catalogosInstantanea)
+			}
+			c.entradas[clave] = contenidos
 		}
-		c.entradas[clave] = contenidos
 	}
-	return instantanea, nil
+	return rehidratarConCatalogos(p, contenidos)
 }
 
 func decodificarCatalogosInstantanea(p InstantaneaPersistidaRegla) (catalogosInstantanea, error) {
