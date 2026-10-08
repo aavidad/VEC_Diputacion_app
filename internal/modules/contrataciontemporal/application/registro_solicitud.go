@@ -30,6 +30,7 @@ var (
 // SesionRef pueden proceder de web, escritorio, CLI o MCP, pero la autoridad
 // común VEC las revalida y resuelve la cuenta, persona, perfil y garantía.
 type SolicitudRegistrarExpediente struct {
+	EsquemaAlta          string
 	AutenticacionRef     string
 	SesionRef            string
 	PerfilRef            string
@@ -37,7 +38,10 @@ type SolicitudRegistrarExpediente struct {
 	ClaveIdempotencia    string
 	NumeroExpedienteMOAD string
 	Solicitud            domain.SolicitudCentro
+	NecesidadEntrada     *domain.DatosNecesidadAlta
 }
+
+const EsquemaAltaNecesidadV1 = ports.EsquemaAltaNecesidadV1
 
 // claveFinAltaConfirmada sólo existe dentro de aplicación: ni HTTP ni un
 // llamador de otro paquete pueden insertar una confirmación en el contexto.
@@ -84,6 +88,30 @@ type ServicioRegistroSolicitud struct {
 	transaccion           ports.TransaccionAltasCandidata
 	periodos              ports.PreparadorPeriodoModalidad
 	recuperacion          ports.RecuperadorPoliticaFinConfirmada
+	fuenteNecesidades     ports.FuenteNecesidadesAlta
+	verificadorPuestoRPT  ports.VerificadorPuestoRPTAlta
+}
+
+// ConfigurarFuenteNecesidadesAlta añade la publicación y recuperación histórica
+// al mismo servicio de alta, antes de compartirlo con los manejadores.
+func (s *ServicioRegistroSolicitud) ConfigurarFuenteNecesidadesAlta(
+	fuente ports.FuenteNecesidadesAlta,
+) error {
+	if s == nil || dependenciaNula(fuente) || s.fuenteNecesidades != nil {
+		return ErrServicioRegistroInvalido
+	}
+	s.fuenteNecesidades = fuente
+	return nil
+}
+
+func (s *ServicioRegistroSolicitud) ConfigurarVerificadorPuestoRPTAlta(
+	verificador ports.VerificadorPuestoRPTAlta,
+) error {
+	if s == nil || dependenciaNula(verificador) || s.verificadorPuestoRPT != nil {
+		return ErrServicioRegistroInvalido
+	}
+	s.verificadorPuestoRPT = verificador
+	return nil
 }
 
 func (s *ServicioRegistroSolicitud) ConfigurarPoliticaNumeroExpediente(
@@ -227,11 +255,26 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
 	}
+	if solicitud.EsquemaAlta == EsquemaAltaNecesidadV1 {
+		sellada, err := s.prepararNecesidadAlta(
+			ctx, *solicitud.NecesidadEntrada, ambitosHMAC,
+			solicitud.OrganizacionRef, vinculo.PrincipalID, vinculo.PerfilActivoRef,
+		)
+		if err != nil {
+			return ports.ReciboAlta{}, err
+		}
+		solicitudCentro.Periodo = sellada.Periodo
+		solicitudCentro.Necesidad = &sellada
+		if solicitudCentro.Validar() != nil {
+			return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+		}
+	}
 	sinNumeroMOAD := solicitud.NumeroExpedienteMOAD == ""
 	formatoRetirado := !sinNumeroMOAD && s.politicaNumero != nil &&
 		s.politicaNumero.ValidarNumero(solicitud.NumeroExpedienteMOAD) != nil
 	soloRecuperacion := sinNumeroMOAD || formatoRetirado
-	consultarConfirmacion := soloRecuperacion || solicitudCentro.Periodo.Fin.IsZero()
+	consultarConfirmacion := soloRecuperacion ||
+		(solicitud.EsquemaAlta == "" && solicitudCentro.Periodo.Fin.IsZero())
 	var politicaAnterior domain.PoliticaFin
 	var confirmada bool
 	if consultarConfirmacion {
@@ -255,7 +298,13 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		}
 	}
 	ctxFlujo := ctx
-	if solicitudCentro.Periodo.Fin.IsZero() {
+	if solicitud.EsquemaAlta == EsquemaAltaNecesidadV1 {
+		ctxFlujo, err = contextoNecesidadAltaValidada(ctx, solicitud.OrganizacionRef, solicitudCentro.Necesidad)
+		if err != nil {
+			return ports.ReciboAlta{}, err
+		}
+	}
+	if solicitudCentro.Periodo.Fin.IsZero() && solicitud.EsquemaAlta == "" {
 		if confirmada {
 			if politicaAnterior != (domain.PoliticaFin{}) && politicaAnterior.Validar() != nil {
 				return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
@@ -289,11 +338,17 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		}
 	}
 
+	necesidadFlujo, err := copiaNecesidadAltaParaPuerto(solicitudCentro.Necesidad)
+	if err != nil {
+		return ports.ReciboAlta{}, err
+	}
 	resolverFlujo := ports.SolicitudResolverFlujo{
+		EsquemaAlta:     solicitud.EsquemaAlta,
 		OrganizacionRef: solicitud.OrganizacionRef,
 		CentroRef:       solicitudCentro.CentroRef,
 		CategoriaRef:    solicitudCentro.CategoriaRef,
 		MotivoClave:     solicitudCentro.MotivoClave,
+		Necesidad:       necesidadFlujo,
 		Instante:        instanteContexto,
 	}
 	if resolverFlujo.Validar() != nil {
@@ -426,7 +481,8 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if soloRecuperacion && !datosCandidatura.Recuperada {
 		return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
 	}
-	if !datosCandidatura.Recuperada && !solicitudCentro.Periodo.Fin.IsZero() && s.periodos != nil {
+	if !datosCandidatura.Recuperada && !solicitudCentro.Periodo.Fin.IsZero() &&
+		solicitud.EsquemaAlta == "" && s.periodos != nil {
 		if _, err := s.periodos.PrepararPeriodoModalidad(ctx, solicitudCentro.MotivoClave, solicitudCentro.Periodo); err != nil {
 			return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
 		}
@@ -473,10 +529,16 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	}
 
 	instanteAutorizacion := instanteCanonico(s.reloj.Ahora())
+	necesidadMotivo, err := copiaNecesidadAltaParaPuerto(solicitudCentro.Necesidad)
+	if err != nil {
+		return ports.ReciboAlta{}, err
+	}
 	resolverMotivo := ports.SolicitudResolverMotivoAutorizacionAltaV3{
+		EsquemaAlta:     solicitud.EsquemaAlta,
 		OrganizacionRef: solicitud.OrganizacionRef,
 		Flujo:           configuracion.Flujo,
 		MotivoClave:     solicitudCentro.MotivoClave,
+		Necesidad:       necesidadMotivo,
 		Instante:        instanteAutorizacion,
 	}
 	if resolverMotivo.Validar() != nil {
@@ -620,7 +682,26 @@ func validarSolicitudRegistro(
 		resolverContexto.Validar() != nil ||
 		!domain.ReferenciaOpacaValida(solicitud.OrganizacionRef) ||
 		!ports.ClaveIdempotenciaValida(solicitud.ClaveIdempotencia) ||
-		solicitud.Solicitud.Validar() != nil {
+		solicitud.Solicitud.Validar() != nil || solicitud.Solicitud.Necesidad != nil {
+		return ErrSolicitudRegistroInvalida
+	}
+	switch solicitud.EsquemaAlta {
+	case "":
+		if solicitud.NecesidadEntrada != nil {
+			return ErrSolicitudRegistroInvalida
+		}
+	case EsquemaAltaNecesidadV1:
+		d := solicitud.NecesidadEntrada
+		if d == nil || !domain.NumeroExpedienteValido(solicitud.NumeroExpedienteMOAD) ||
+			d.Esquema != "vec.ct.necesidad_alta.v1" ||
+			!domain.ReferenciaOpacaValida(d.CatalogoRef) || d.CatalogoVersion == 0 ||
+			len(d.CatalogoHuellaSHA256) != 64 || len(d.CatalogoInstantanea) != 0 ||
+			!d.CausaClave.Valida() || d.Periodo != solicitud.Solicitud.Periodo ||
+			d.CausaClave != solicitud.Solicitud.MotivoClave || d.JornadaMinutos == 0 ||
+			len(d.Campos) == 0 || len(d.Campos) > 32 {
+			return ErrSolicitudRegistroInvalida
+		}
+	default:
 		return ErrSolicitudRegistroInvalida
 	}
 	return nil

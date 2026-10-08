@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/catalogoalta"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/numeracion"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -69,7 +70,8 @@ type catalogosAltaContratacionTemporalDesarrollo struct {
 	centrosOrganizacion []string
 	// analisis son las opciones del análisis RRHH resueltas del catálogo de
 	// reglas; nulo significa las de siempre. No se publica con el alta.
-	analisis *opcionesAnalisisCTDesarrollo
+	analisis        *opcionesAnalisisCTDesarrollo
+	rutaNecesidades string
 }
 
 type respuestaCatalogosAltaContratacionTemporalDesarrollo struct {
@@ -220,7 +222,17 @@ func categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo *catalogosAltaContratac
 	return grupoSubgrupoDeCatalogoValido(referencia, grupo)
 }
 
-func nuevoCatalogoDesarrollo(rutaFuente, rutaRPT string) (*catalogosAltaContratacionTemporalDesarrollo, error) {
+func nuevoCatalogoDesarrollo(rutaFuente, rutaRPT string, rutasNecesidades ...string) (*catalogosAltaContratacionTemporalDesarrollo, error) {
+	if len(rutasNecesidades) > 1 {
+		return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+	}
+	rutaNecesidades := ""
+	if len(rutasNecesidades) == 1 {
+		rutaNecesidades = strings.TrimSpace(rutasNecesidades[0])
+	}
+	if _, err := catalogoalta.CargarNecesidades(rutaNecesidades); err != nil {
+		return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+	}
 	politica, err := numeracion.Cargar("")
 	if err != nil {
 		return nil, err
@@ -229,6 +241,7 @@ func nuevoCatalogoDesarrollo(rutaFuente, rutaRPT string) (*catalogosAltaContrata
 		catalogo, err := construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT)
 		if err == nil {
 			catalogo.NumeroExpedienteMOAD = &politica
+			catalogo.rutaNecesidades = rutaNecesidades
 		}
 		return catalogo, err
 	}
@@ -246,7 +259,8 @@ func nuevoCatalogoDesarrollo(rutaFuente, rutaRPT string) (*catalogosAltaContrata
 		Motivos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{{
 			Clave: string(motivoAltaContratacionTemporalDesarrollo), Etiqueta: "Sustitución temporal",
 		}},
-		Documentos: make([]opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo, 0),
+		Documentos:      make([]opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo, 0),
+		rutaNecesidades: rutaNecesidades,
 	}, nil
 }
 
@@ -482,7 +496,8 @@ func (m *manejadorCatalogosAltaContratacionTemporalDesarrollo) ServeHTTP(
 		return
 	}
 	if r.URL.Path != rutaCatalogosAltaContratacionTemporalDesarrollo ||
-		r.URL.RawQuery != "" || r.ContentLength != 0 || len(r.TransferEncoding) != 0 ||
+		(r.URL.RawQuery != "" && r.URL.RawQuery != "version=2") ||
+		r.ContentLength != 0 || len(r.TransferEncoding) != 0 ||
 		cabeceraCatalogosAltaContratacionTemporalDesarrolloProhibida(r.Header) {
 		responderErrorCatalogosAltaContratacionTemporalDesarrollo(
 			w, r, http.StatusBadRequest, "solicitud_invalida",
@@ -503,12 +518,21 @@ func (m *manejadorCatalogosAltaContratacionTemporalDesarrollo) ServeHTTP(
 		)
 		return
 	}
-	contenido, err := json.Marshal(respuestaCatalogosAltaContratacionTemporalDesarrollo{
-		Data: datosCatalogosAltaContratacionTemporalDesarrollo{
-			catalogosAltaContratacionTemporalDesarrollo: catalogos,
-			PreparacionVias: preparacionViasCatalogosAlta(&catalogos),
-		},
-	})
+	var contenido []byte
+	if r.URL.RawQuery == "version=2" {
+		var datos datosCatalogosAltaV2
+		datos, err = datosCatalogosAltaV2Desde(catalogos)
+		if err == nil {
+			contenido, err = json.Marshal(respuestaCatalogosAltaV2{Data: datos})
+		}
+	} else {
+		contenido, err = json.Marshal(respuestaCatalogosAltaContratacionTemporalDesarrollo{
+			Data: datosCatalogosAltaContratacionTemporalDesarrollo{
+				catalogosAltaContratacionTemporalDesarrollo: catalogos,
+				PreparacionVias: preparacionViasCatalogosAlta(&catalogos),
+			},
+		})
+	}
 	if err != nil {
 		responderErrorCatalogosAltaContratacionTemporalDesarrollo(
 			w, r, http.StatusServiceUnavailable, "servicio_no_disponible",

@@ -1,0 +1,59 @@
+{
+  "esquema": "vec.ct.necesidades_alta.v1",
+  "referencia": "catalogo:ct:necesidades_alta:ejemplo",
+  "version": 1,
+  "es_ejemplo": true,
+  "fuente_ref": "circular:dipgra:solicitudes_temporales:20260508",
+  "fuente_url": "https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf",
+  "jornada_referencia_minutos": 2250,
+  "jornada_fuente_ref": "operador:20261008:referencia_provisional_pendiente_rrhh",
+  "causas": [
+    {
+      "clave": "vacante",
+      "etiqueta_clave": "ct.necesidad.vacante",
+      "fuente_ref": "circular:dipgra:20260508:apartado_3",
+      "fuente_url": "https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf",
+      "regla_ref": "regla:ct:necesidad_vacante:v1",
+      "fecha_fin": "obligatoria",
+      "maximo_meses": 36,
+      "campos_permitidos": ["plaza_codigo", "puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256", "vacancia_fuente_ref", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"],
+      "campos_obligatorios": ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"]
+    },
+    {
+      "clave": "sustitucion",
+      "etiqueta_clave": "ct.necesidad.sustitucion",
+      "fuente_ref": "circular:dipgra:20260508:apartado_3",
+      "fuente_url": "https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf",
+      "regla_ref": "regla:ct:necesidad_sustitucion:v1",
+      "fecha_fin": "opcional",
+      "causa_fin": "reincorporacion_titular",
+      "maximo_meses": 36,
+      "campos_permitidos": ["puesto_codigo", "plaza_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256", "titular_ref", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"],
+      "campos_obligatorios": ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"]
+    },
+    {
+      "clave": "acumulacion_tareas",
+      "etiqueta_clave": "ct.necesidad.acumulacion_tareas",
+      "fuente_ref": "circular:dipgra:20260508:apartados_3_5",
+      "fuente_url": "https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf",
+      "regla_ref": "regla:ct:necesidad_acumulacion:v1",
+      "fecha_fin": "obligatoria",
+      "maximo_meses": 9,
+      "ventana_meses": 18,
+      "campos_permitidos": ["justificacion_temporal", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"],
+      "campos_obligatorios": ["justificacion_temporal", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"]
+    },
+    {
+      "clave": "programa_temporal",
+      "etiqueta_clave": "ct.necesidad.programa_temporal",
+      "fuente_ref": "circular:dipgra:20260508:apartado_3",
+      "fuente_url": "https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf",
+      "regla_ref": "regla:ct:necesidad_programa:v1",
+      "fecha_fin": "obligatoria",
+      "maximo_meses": 36,
+      "campos_permitidos": ["programa_denominacion", "programa_fin", "proyecto_codigo", "financiacion_ref", "rc_ref", "intervencion_ref", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"],
+      "campos_obligatorios": ["programa_denominacion", "programa_fin", "proyecto_codigo", "financiacion_ref", "organica_codigo", "funcional_codigo", "proyecto_gasto_codigo", "porcentaje_financiacion"],
+      "uno_de": [["rc_ref", "intervencion_ref"]]
+    }
+  ]
+}

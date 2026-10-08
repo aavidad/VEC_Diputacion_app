@@ -16,6 +16,7 @@ import (
 
 const (
 	esquemaHuellaAltaV1 = "vec.contratacion-temporal.huella-alta.v1"
+	esquemaHuellaAltaV2 = "vec.contratacion-temporal.huella-alta.v2"
 	esquemaAmbitoAltaV1 = "vec.contratacion-temporal.ambito-idempotencia.v1"
 	dominioClaveHuella  = "vec.contratacion-temporal.huella-peticion"
 	dominioClaveAmbito  = "vec.contratacion-temporal.ambito-idempotencia"
@@ -239,6 +240,10 @@ func materialCanonicoHuellaAlta(
 	if solicitud.DocumentosAdjuntos == nil {
 		solicitud.DocumentosAdjuntos = []string{}
 	}
+	esquema := esquemaHuellaAltaV1
+	if solicitud.Necesidad != nil {
+		esquema = esquemaHuellaAltaV2
+	}
 	return json.Marshal(struct {
 		NumeroExpedienteMOAD string                 `json:"numero_expediente_moad,omitempty"`
 		Esquema              string                 `json:"esquema"`
@@ -249,7 +254,7 @@ func materialCanonicoHuellaAlta(
 		Solicitud            domain.SolicitudCentro `json:"solicitud"`
 	}{
 		NumeroExpedienteMOAD: material.NumeroExpedienteMOAD,
-		Esquema:              esquemaHuellaAltaV1,
+		Esquema:              esquema,
 		OrganizacionRef:      material.OrganizacionRef,
 		ActorRef:             material.ActorRef,
 		PerfilRef:            material.PerfilRef,
