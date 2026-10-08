@@ -28,13 +28,14 @@ export function componerCronosInterno(recursos, entorno) {
     remoto: clienteRemoto.crearClienteRemotoCronosHTTP(transporte),
     solicitudes: clienteSolicitudes.crearClienteSolicitudesCronosHTTP(transporte),
   });
-  const traducir = i18n.crearTraductorCronos();
+  const traducir = (...argumentos) => i18n.crearTraductorCronos()(...argumentos);
   const resolucion = typeof bandejaPermisos?.montarBandejaPermisosCronos === "function"
     && typeof avisosPropios?.montarAvisosPropiosCronos === "function"
     && typeof clienteResolucion?.crearClienteResolucionCronosHTTP === "function"
     && typeof i18nResolucion?.crearTraductorResolucionCronos === "function";
   const clienteResolucionHTTP = resolucion ? clienteResolucion.crearClienteResolucionCronosHTTP(transporte) : undefined;
-  const traducirResolucion = resolucion ? i18nResolucion.crearTraductorResolucionCronos() : undefined;
+  const traducirResolucion = resolucion
+    ? (...argumentos) => i18nResolucion.crearTraductorResolucionCronos()(...argumentos) : undefined;
   const subvistasResolucion = resolucion ? Object.freeze({
     montarBandeja({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
       return bandejaPermisos.montarBandejaPermisosCronos({ raiz, cliente: clienteResolucionHTTP, anunciar, registrarDesmontar });
@@ -49,7 +50,8 @@ export function componerCronosInterno(recursos, entorno) {
     && typeof clienteNotificaciones?.crearClienteNotificacionesCronosHTTP === "function"
     && typeof i18nNotificaciones?.crearTraductorNotificacionesCronos === "function";
   const clienteNotificacionesHTTP = notificaciones ? clienteNotificaciones.crearClienteNotificacionesCronosHTTP(transporte) : undefined;
-  const traducirNotificaciones = notificaciones ? i18nNotificaciones.crearTraductorNotificacionesCronos() : undefined;
+  const traducirNotificaciones = notificaciones
+    ? (...argumentos) => i18nNotificaciones.crearTraductorNotificacionesCronos()(...argumentos) : undefined;
   const subvistasNotificaciones = notificaciones ? Object.freeze({
     montarNotificaciones({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
       return notificacionesPropias.montarNotificacionesPropiasCronos({ raiz, cliente: clienteNotificacionesHTTP, anunciar, registrarDesmontar });
@@ -58,13 +60,20 @@ export function componerCronosInterno(recursos, entorno) {
       return bandejaNotificaciones.montarBandejaNotificacionesCronos({ raiz, cliente: clienteNotificacionesHTTP, anunciar, registrarDesmontar });
     },
   }) : {};
-  const etiquetas = Object.freeze({
-    ...(resolucion ? { bandeja: traducirResolucion("bandeja_titulo"), avisos: traducirResolucion("avisos_titulo") } : {}),
-    ...(notificaciones ? { notificaciones: traducirNotificaciones("notificaciones_titulo"),
-      bandejaNotificaciones: traducirNotificaciones("bandeja_notificaciones_titulo") } : {}),
+  const etiquetas = {};
+  if (resolucion) Object.defineProperties(etiquetas, {
+    bandeja: { enumerable: true, get: () => traducirResolucion("bandeja_titulo") },
+    avisos: { enumerable: true, get: () => traducirResolucion("avisos_titulo") },
   });
+  if (notificaciones) Object.defineProperties(etiquetas, {
+    notificaciones: { enumerable: true, get: () => traducirNotificaciones("notificaciones_titulo") },
+    bandejaNotificaciones: { enumerable: true, get: () => traducirNotificaciones("bandeja_notificaciones_titulo") },
+  });
+  Object.freeze(etiquetas);
   return Object.freeze({
     traducir,
+    prepararTextos: typeof recursos.preparadorTextos?.prepararTextosCronos === "function"
+      ? (opciones) => recursos.preparadorTextos.prepararTextosCronos(opciones) : null,
     ...(typeof cliente.solicitudes.consultarPermisos === "function"
       ? { consultarPermisos: cliente.solicitudes.consultarPermisos.bind(cliente.solicitudes) } : {}),
     ...(resolucion || notificaciones ? { etiquetas } : {}),

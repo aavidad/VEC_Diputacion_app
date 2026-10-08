@@ -74,7 +74,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const [saldo, remoto, movimientos, movimientosPropios, permisosPropios,
       clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
       bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion,
-      notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones] = await Promise.all([
+      notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones,
+      preparadorTextos] = await Promise.all([
       import("./modulos/cronos/vista-saldo-conectado.js?v=20261001-cronos-saldo-explicado-v1"),
       import("./modulos/cronos/vista-remoto.js?v=20261001-cronos-grafo-bandeja-v5"),
       import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-movimientos-consulta-v1"),
@@ -92,10 +93,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/cronos/vista-bandeja-notificaciones.js?v=20261001-cronos-c9-recuperacion-v3"),
       import("./modulos/cronos/cliente-notificaciones-http.js"),
       import("./modulos/cronos/i18n-notificaciones.js"),
+      import("./modulos/cronos/preparar-textos.js?v=20261008-cronos-grupos-v1"),
     ]);
     return Object.freeze({ saldo, remoto, movimientos, movimientosPropios, permisosPropios,
       clienteSaldo, clienteRemoto, clienteSolicitudes, i18n, bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion,
-      notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones });
+      notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones, preparadorTextos });
   },
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
@@ -203,6 +205,11 @@ export const VISTAS_AUTOSERVICIO_EMPLEADO = Object.freeze(new Set([
   "personal", "cronos", "cronos-permisos", "cronos-avisos", "cronos-notificaciones", "dietas", "mis-tramites",
 ]));
 const SUBVISTAS_CRONOS = Object.freeze(new Set(["cronos-permisos", "cronos-avisos", "cronos-bandeja", "cronos-notificaciones", "cronos-bandeja-notificaciones"]));
+const GRUPOS_TEXTOS_CRONOS = Object.freeze({
+  cronos: "jornada", "cronos-permisos": "permisos",
+  "cronos-avisos": "resolucion", "cronos-bandeja": "resolucion",
+  "cronos-notificaciones": "notificaciones", "cronos-bandeja-notificaciones": "notificaciones",
+});
 const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
   "contratacion-temporal", VISTA_PLANTILLAS_RRHH, VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES, "mis-tramites",
@@ -1231,6 +1238,11 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === "cronos" || SUBVISTAS_CRONOS.has(vista)) {
+      const pantalla = GRUPOS_TEXTOS_CRONOS[vista];
+      if (!pantalla || typeof composicion.cronos.prepararTextos !== "function")
+        throw new TypeError("textos de Cronos no disponibles");
+      await composicion.cronos.prepararTextos({ pantalla, reintentar: opciones?.reintentarTextosCronos === true });
+      if (montaje !== secuenciaMontaje) return false;
       if (typeof composicion.cronos.montar === "function") {
         raiz.replaceChildren();
         const t = composicion.cronos.traducir;
