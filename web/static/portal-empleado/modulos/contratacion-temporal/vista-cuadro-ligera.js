@@ -2,7 +2,7 @@
 import { localizacionDe } from "../../../comun/idioma.js";
 import { FASE_RRHH_DE_ORIGEN } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
 import { FILTRO_LISTA_INICIAL } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarListaPeticiones } from "./vista-expedientes-lista.js?v=20261007-carga-pantalla-v1";
+import { renderizarListaPeticiones } from "./vista-expedientes-lista.js?v=20261008-ct-inicio-v1";
 import { crearTraductorCuadroCT, prepararTextosContratacionVista } from "./i18n-vistas.js?v=20261007-pantallas-textos-final-v1";
 
 const SOLICITUD_INICIAL = Object.freeze({

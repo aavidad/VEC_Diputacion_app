@@ -102,6 +102,8 @@ test("un enlace de incidencia consulta el conjunto filtrado y uno de plazo no si
   assert.equal(solicitudes.length, 1);
   assert.equal(solicitudes[0].filtros.estado_clave, "incidencia");
   assert.equal(errores.length, 0);
+  assert.match(raiz.innerHTML, /Ninguna petición cumple estos filtros/u);
+  assert.match(raiz.innerHTML, /name="mostrar"/u);
   montaje.desmontar();
 
   const raizPlazo = raizFalsa();
