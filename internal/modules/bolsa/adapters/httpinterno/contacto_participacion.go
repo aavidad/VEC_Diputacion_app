@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -188,7 +189,7 @@ func (h *HandlerContactoParticipacion) listar(w http.ResponseWriter, r *http.Req
 		datos["intentos"] = intentos
 		if p.RegistroTelefonoDisponible {
 			if preparador, ok := h.preparador.(interface{ SoportaRegistroTelefonoServidor() bool }); ok && preparador.SoportaRegistroTelefonoServidor() {
-				intentos["registro_telefono"] = map[string]any{"esquema": "vec.bolsa.registro_telefono.v1", "resultados": []string{dominiobolsa.ResultadoContactoContactado, dominiobolsa.ResultadoContactoNoContesta, dominiobolsa.ResultadoContactoComunica, dominiobolsa.ResultadoContactoNumeroErroneo, dominiobolsa.ResultadoContactoAcepta, dominiobolsa.ResultadoContactoRechaza, dominiobolsa.ResultadoContactoAplazado, dominiobolsa.ResultadoContactoBuzon}, "instante_servidor": true, "anotacion_opcional": true}
+				intentos["registro_telefono"] = map[string]any{"esquema": "vec.bolsa.registro_telefono.v1", "resultados": resultadosRegistroTelefono(intentos), "instante_servidor": true, "anotacion_opcional": true}
 			}
 		}
 	}
@@ -306,4 +307,21 @@ func responderContacto(w http.ResponseWriter, estado int, v any) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(estado)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// resultadosRegistroTelefono lista los resultados que se pueden anotar en una
+// llamada. «Comunica» se ofrece solo si las reglas vigentes lo cuentan como
+// intento sin contacto (o no hay reglas de intentos): si no, contaría como
+// persona localizada y el registro lo rechaza.
+func resultadosRegistroTelefono(intentos map[string]any) []string {
+	comunica := true
+	if configurado, _ := intentos["configurado"].(bool); configurado {
+		sinContacto, _ := intentos["resultados_sin_contacto"].([]string)
+		comunica = slices.Contains(sinContacto, dominiobolsa.ResultadoContactoComunica)
+	}
+	resultados := []string{dominiobolsa.ResultadoContactoContactado, dominiobolsa.ResultadoContactoNoContesta}
+	if comunica {
+		resultados = append(resultados, dominiobolsa.ResultadoContactoComunica)
+	}
+	return append(resultados, dominiobolsa.ResultadoContactoNumeroErroneo, dominiobolsa.ResultadoContactoAcepta, dominiobolsa.ResultadoContactoRechaza, dominiobolsa.ResultadoContactoAplazado, dominiobolsa.ResultadoContactoBuzon)
 }

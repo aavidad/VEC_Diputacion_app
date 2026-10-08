@@ -60,6 +60,11 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 	if err != nil {
 		return puertosbolsa.RegistroContactoParticipacion{}, err
 	}
+	// «Comunica» solo se admite si las reglas vigentes lo cuentan como intento
+	// sin contacto: con otras reglas contaría como persona localizada.
+	if !resultadoAdmitidoPorReglas(intento, contacto.Resultado) {
+		return puertosbolsa.RegistroContactoParticipacion{}, dominiobolsa.ErrContactoParticipacionInvalido
+	}
 	recurso := dominiovec.RecursoAutorizable{Referencia: solicitud.ParticipacionRef, ModuloID: puertosbolsa.ModuloSituacionParticipacion, Tipo: puertosbolsa.TipoRecursoSituacionParticipacion, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
 	auth, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: solicitud.Vinculo, ReferenciaMotivo: solicitud.MotivoAutorizacion, Accion: puertosbolsa.AccionRegistrarContactoParticipacion, Recurso: recurso, Finalidad: puertosbolsa.FinalidadRegistrarContactoParticipacion, Correlacion: solicitud.Correlacion})
 	if err != nil {
@@ -84,9 +89,13 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 	if err != nil {
 		return puertosbolsa.RegistroContactoParticipacion{}, err
 	}
-	if solicitud.InstanteServidor && intento != nil && intento.politica.Franja.Zona != nil && intento.politica.Franja.SoloDiasHabiles {
-		if intento.diaHabil, err = s.intentos.calendario.EsDiaHabil(ctx, registro.Contacto.Instante.In(intento.politica.Franja.Zona)); err != nil {
-			return puertosbolsa.RegistroContactoParticipacion{}, puertosbolsa.ErrContactoParticipacionNoDisponible
+	// La llamada ya está confirmada: en un registro nuevo SQL comprobó que su
+	// fecha es la del calendario consultado antes. Solo en una repetición de un
+	// día anterior se vuelve a mirar el calendario, y si falla se conserva el
+	// valor previo: un aviso de franja nunca convierte en error lo ya guardado.
+	if solicitud.InstanteServidor && registro.Reutilizado && intento != nil && intento.politica.Franja.Zona != nil && intento.politica.Franja.SoloDiasHabiles {
+		if habil, errCalendario := s.intentos.calendario.EsDiaHabil(ctx, registro.Contacto.Instante.In(intento.politica.Franja.Zona)); errCalendario == nil {
+			intento.diaHabil = habil
 		}
 	}
 	if err = completarIntento(intento, registro.Contacto, &registro); err != nil {
@@ -153,4 +162,8 @@ func (s *ServicioContactoParticipacion) autorizarConsulta(ctx context.Context, q
 	}
 	q.SolicitudAutorizacion, q.Decision, q.Confirmacion, q.Material = auth, decision, confirmacion, material
 	return q, nil
+}
+
+func resultadoAdmitidoPorReglas(intento *intentoPreparado, resultado string) bool {
+	return intento == nil || resultado != dominiobolsa.ResultadoContactoComunica || intento.politica.SinContacto(resultado)
 }

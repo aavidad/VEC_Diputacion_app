@@ -115,10 +115,20 @@ BEGIN
    WHERE e.participacion_ref=p_participacion_ref AND c.bolsa_ref=p_bolsa_ref) THEN
    RAISE EXCEPTION 'B87: participación ajena' USING ERRCODE='23503';
  END IF;
+ -- La llamada sigue a un llamamiento de la propia bolsa en el que está la
+ -- persona: el de integración (persona seleccionada) o el emitido por el
+ -- asistente, siempre que su aviso por correo ya conste (canales
+ -- complementarios: el teléfono no sustituye ni adelanta la emisión).
  IF NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.llamamiento_integracion_desarrollo l
    JOIN vec_bolsa_llamamientos.integracion_desarrollo o USING(operacion_ref)
    WHERE l.llamamiento_ref=p_llamamiento_ref AND l.bolsa_ref=p_bolsa_ref
-     AND pg_catalog.convert_from(o.registro_canonico,'UTF8')::jsonb#>>'{propuesta,participacion_seleccionada_ref}'=p_participacion_ref) THEN
+     AND pg_catalog.convert_from(o.registro_canonico,'UTF8')::jsonb#>>'{propuesta,participacion_seleccionada_ref}'=p_participacion_ref)
+  AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.llamamiento_emitido l
+   CROSS JOIN LATERAL pg_catalog.jsonb_array_elements_text(l.participaciones) WITH ORDINALITY x(ref,ordinality)
+   JOIN vec_bolsa_llamamientos.contacto_participacion c
+     ON c.participacion_ref=x.ref AND c.llamamiento_ref=l.llamamiento_ref AND c.canal='correo'
+    AND c.clave_idempotencia=l.clave_idempotencia||':correo:'||x.ordinality
+   WHERE l.llamamiento_ref=p_llamamiento_ref AND l.bolsa_ref=p_bolsa_ref AND x.ref=p_participacion_ref) THEN
    RAISE EXCEPTION 'B87: llamamiento ajeno' USING ERRCODE='23503';
  END IF;
 
@@ -235,4 +245,63 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.verificar_replay_contacto_legado_v1(text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.verificar_replay_contacto_legado_v1(text,text)
  TO vec_bolsa_llamamientos_ejecutor;
+-- B86 (director, P2 de #879): una llamada sobre un llamamiento emitido ya no
+-- recalcula ni serializa la completitud del correo. Cuerpo instalado literal
+-- con una sola condición añadida; misma firma, propietario y ACL.
+DO $pre86$
+BEGIN
+ IF pg_catalog.md5((SELECT p.prosrc FROM pg_catalog.pg_proc p
+      WHERE p.oid=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.proyectar_completitud_correo_insert_v1()')))
+    IS DISTINCT FROM '7fec063d31b7cae5026c3fa28db3d402' THEN
+  RAISE EXCEPTION 'B87: preimagen B86 incompatible' USING ERRCODE='55000';
+ END IF;
+END $pre86$;
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.proyectar_completitud_correo_insert_v1()
+ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+ SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
+
+DECLARE v_ref text;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario'
+    OR TG_OP<>'INSERT' OR TG_LEVEL<>'STATEMENT'
+    OR TG_RELID NOT IN ('vec_bolsa_llamamientos.llamamiento_emitido'::pg_catalog.regclass,
+      'vec_bolsa_llamamientos.contacto_participacion'::pg_catalog.regclass)
+ THEN RAISE EXCEPTION 'B86: origen de proyeccion incompatible' USING ERRCODE='42501'; END IF;
+
+ FOR v_ref IN
+   SELECT DISTINCT n.llamamiento_ref FROM nuevas_completitud n
+   WHERE n.llamamiento_ref ~ '^llamamiento:[0-9a-f]{64}$'
+     -- B87: solo el correo completa la emisión; una llamada no serializa.
+     AND (TG_RELID='vec_bolsa_llamamientos.llamamiento_emitido'::pg_catalog.regclass
+          OR pg_catalog.to_jsonb(n)->>'canal'='correo')
+   ORDER BY n.llamamiento_ref
+ LOOP
+   -- Una escritura real serializa las carreras: RC relee tras esperar;
+   -- RR/SER aborta la transaccion fuente si su instantanea es obsoleta.
+   INSERT INTO vec_bolsa_llamamientos.coordinacion_completitud_correo(llamamiento_ref,revision)
+     VALUES(v_ref,1)
+   ON CONFLICT (llamamiento_ref) DO UPDATE
+     SET revision=vec_bolsa_llamamientos.coordinacion_completitud_correo.revision+1;
+
+   -- Sentencia VOLATILE separada del UPSERT: conserva exactamente B17.
+   INSERT INTO vec_bolsa_llamamientos.completitud_correo_llamamiento(llamamiento_ref,bolsa_ref)
+   SELECT l.llamamiento_ref,l.bolsa_ref
+   FROM vec_bolsa_llamamientos.llamamiento_emitido l
+   WHERE l.llamamiento_ref=v_ref
+     AND (SELECT pg_catalog.count(*)
+       FROM pg_catalog.jsonb_array_elements_text(l.participaciones) WITH ORDINALITY x(ref,ordinality)
+       JOIN vec_bolsa_llamamientos.contacto_participacion c
+         ON c.participacion_ref=x.ref AND c.llamamiento_ref=l.llamamiento_ref
+        AND c.canal='correo'
+        AND c.clave_idempotencia=l.clave_idempotencia||':correo:'||x.ordinality
+        AND c.recibo_ref='recibo:contacto:'||pg_catalog.encode(pg_catalog.sha256(
+          pg_catalog.convert_to(l.bolsa_ref||pg_catalog.chr(31)||l.clave_idempotencia||
+            pg_catalog.chr(31)||x.ref,'UTF8')),'hex'))
+       =pg_catalog.jsonb_array_length(l.participaciones)
+   ON CONFLICT (llamamiento_ref) DO NOTHING;
+ END LOOP;
+ RETURN NULL;
+END 
+$f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.proyectar_completitud_correo_insert_v1() FROM PUBLIC;
 COMMIT;

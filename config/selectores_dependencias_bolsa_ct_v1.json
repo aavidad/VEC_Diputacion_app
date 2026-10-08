@@ -64,6 +64,7 @@
     {"variable": "VEC_BOLSA_REGLAS_SOURCE_PATH", "tipo": "catalogo", "uso_real": true},
     {"variable": "VEC_BOLSA_ROLES_SEGREGACION_SOURCE_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Sin él rige la exclusión de siempre."},
     {"variable": "VEC_BOLSA_CORREO_LLAMAMIENTO_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Sin él rige el catálogo versionado del correo."},
+    {"variable": "VEC_BOLSA_CANALES_LLAMAMIENTO_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Sin él rige el catálogo versionado: correo y teléfono activos; SMS y Telegram apagados."},
     {"variable": "VEC_BOLSA_PUBLIC_SOURCE_PATH", "tipo": "catalogo", "uso_real": false},
     {"variable": "VEC_BOLSA_CATEGORIES_SOURCE_PATH", "tipo": "catalogo", "uso_real": false, "requiere": ["VEC_BOLSA_CATEGORIES_CATALOG_ID", "VEC_BOLSA_CATEGORIES_CATALOG_VERSION", "VEC_BOLSA_CATEGORIES_CATALOG_SHA256"]},
     {"variable": "VEC_BOLSA_CATEGORIES_CATALOG_ID", "tipo": "ajuste", "uso_real": false},

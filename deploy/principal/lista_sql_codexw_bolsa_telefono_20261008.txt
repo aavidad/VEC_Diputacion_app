@@ -1,1 +1,0 @@
-deploy/postgresql/bolsa_llamamientos/migraciones/000087_contacto_telefonico_actual.up.sql

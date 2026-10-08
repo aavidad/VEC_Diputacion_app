@@ -129,7 +129,7 @@ func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context,
 	filas.Close()
 	// La capacidad sólo se publica después de la lectura V3 autorizada y
 	// cuando B87 está realmente instalada para el ejecutor vigente.
-	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.registrar_contacto_telefonico_actual_v1(text,text,text,text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,integer,integer,boolean,text[],text,integer,integer,boolean,text,date,boolean)') AND pg_catalog.has_function_privilege(current_user,p.oid,'EXECUTE'))`).Scan(&p.RegistroTelefonoDisponible)
+	err = tx.QueryRow(ctx, consultaRegistroTelefonoInstalado).Scan(&p.RegistroTelefonoDisponible)
 	if err != nil {
 		return ports.PaginaContactosParticipacion{}, errorContactoParticipacion(err)
 	}
@@ -167,4 +167,21 @@ func errorContactoParticipacion(err error) error {
 		}
 	}
 	return ports.ErrContactoParticipacionNoDisponible
+}
+
+// consultaRegistroTelefonoInstalado dice si B87 está instalada y el ejecutor
+// vigente puede registrar llamadas con la hora del servidor.
+const consultaRegistroTelefonoInstalado = `SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.registrar_contacto_telefonico_actual_v1(text,text,text,text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,integer,integer,boolean,text[],text,integer,integer,boolean,text,date,boolean)') AND pg_catalog.has_function_privilege(current_user,p.oid,'EXECUTE'))`
+
+// RegistroTelefonoInstalado alimenta la disponibilidad del canal teléfono:
+// sin B87 el seguimiento por teléfono no se ofrece.
+func (r *RepositorioContactoParticipacionPostgreSQL) RegistroTelefonoInstalado(ctx context.Context) (bool, error) {
+	if r == nil || r.pool == nil || ctx == nil {
+		return false, ports.ErrContactoParticipacionNoDisponible
+	}
+	var instalado bool
+	if err := r.pool.QueryRow(ctx, consultaRegistroTelefonoInstalado).Scan(&instalado); err != nil {
+		return false, errorContactoParticipacion(err)
+	}
+	return instalado, nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -163,7 +164,23 @@ func TestRegistroTelefonoSoloSePublicaConB87YPreparador(t *testing.T) {
 	o.disponible = true
 	_, con := pedirContactos(t, h, http.MethodGet, destino, "")
 	registro := con["data"].(map[string]any)["intentos"].(map[string]any)["registro_telefono"].(map[string]any)
-	if registro["instante_servidor"] != true || registro["anotacion_opcional"] != true || len(registro["resultados"].([]any)) != 8 {
+	// Las reglas de la prueba no cuentan «comunica» como intento sin contacto.
+	if registro["instante_servidor"] != true || registro["anotacion_opcional"] != true || len(registro["resultados"].([]any)) != 7 || slices.Contains(registro["resultados"].([]any), any("comunica")) {
 		t.Fatalf("contrato de capacidad: %v", registro)
+	}
+}
+
+func TestComunicaSoloSiLasReglasLoCuentanSinContacto(t *testing.T) {
+	for _, caso := range []struct {
+		intentos map[string]any
+		comunica bool
+	}{
+		{map[string]any{"configurado": false}, true},
+		{map[string]any{"configurado": true, "resultados_sin_contacto": []string{"no_contesta", "comunica"}}, true},
+		{map[string]any{"configurado": true, "resultados_sin_contacto": []string{"no_contesta"}}, false},
+	} {
+		if got := slices.Contains(resultadosRegistroTelefono(caso.intentos), "comunica"); got != caso.comunica {
+			t.Errorf("%v: comunica=%v", caso.intentos, got)
+		}
 	}
 }
