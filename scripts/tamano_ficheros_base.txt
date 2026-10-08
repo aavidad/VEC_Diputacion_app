@@ -138,5 +138,6 @@
 1196 scripts/recorridos/propuesta_firma/recorrer.py
 2917 deploy/postgresql/autorizacion_atestada_v3/migraciones/000218_carga_convoca_bolsa.up.sql
 3115 deploy/postgresql/autorizacion_atestada_v3/migraciones/000220_gobierno_rol_nuevo.up.sql
+3028 deploy/postgresql/autorizacion_atestada_v3/migraciones/000227_version_rol_bolsa_v3.up.sql
 840 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
 860 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitacion.js

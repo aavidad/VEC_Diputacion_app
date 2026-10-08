@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/vec/domain"
 )
@@ -22,7 +23,8 @@ func TestFuenteB1ConservaDescriptorCanónicoAdmitible(t *testing.T) {
 	canon, huella, err := canonEntradasFuenteV2(fuente.Entradas)
 	if err != nil || string(canon) != fuente.EntradasCanon || huella != fuente.HuellaSHA256 ||
 		fuente.Entradas[0].FuenteHuellaSHA256 != huella ||
-		fuente.Entradas[0].ClaseControl != string(domain.ClaseControlPerfilOrdinario) {
+		fuente.Entradas[0].ClaseControl != string(domain.ClaseControlPerfilOrdinario) ||
+		!fuente.Entradas[0].VigenteHasta.After(time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)) {
 		t.Fatal("descriptor B1 no coincide con la fuente versionada")
 	}
 	concesion := fuente.Entradas[0].Concesion
