@@ -13,7 +13,7 @@ import {
   validarComandoAlta,
   validarReciboAlta,
 } from "./contrato.js?v=20261008-alta-circular-v3";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { cargarMensajesNecesidadesAlta, MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-circular-v3";
 import {
   montarAltaContratacionTemporal,
@@ -165,6 +165,87 @@ function eventoAccion(accion) {
     },
   };
 }
+
+test("un 422 con campo MOAD vuelve a edición y conserva el error corregible", async () => {
+  const presentador = crearPresentador({ ejecutor: async () => {
+    const error = new Error("rechazo sintético");
+    Object.assign(error, { codigo: "contenido_no_valido", estado: 422,
+      campo: "numero_expediente_moad", envelopeValido: true });
+    throw error;
+  } });
+  assert.equal(presentador.prepararRevision(borradorValido()), true);
+  assert.equal(await presentador.enviar(), null);
+  assert.equal(presentador.obtenerEstado().mensaje_clave, "estado_numero_moad_no_valido");
+  assert.equal(presentador.obtenerEstado().errores.numero_expediente_moad, "numero_moad_formato");
+  presentador.volverAEdicion();
+  assert.equal(presentador.obtenerEstado().errores.numero_expediente_moad, "numero_moad_formato");
+});
+
+test("el fallback v1 obtiene el mensaje de datos solo tras el rechazo MOAD", async () => {
+  const presentador = crearPresentador({ ejecutor: async () => {
+    const error = new Error("causa privada");
+    Object.assign(error, { codigo: "contenido_no_valido", estado: 422,
+      campo: "numero_expediente_moad", envelopeValido: true });
+    throw error;
+  } });
+  presentador.prepararRevision(borradorValido());
+  const textos = await cargarMensajesNecesidadesAlta("es");
+  const { escuchas, raiz } = crearRaizDOMFalsa();
+  let lecturas = 0;
+  const desmontar = montarAltaContratacionTemporal({ raiz, presentador,
+    cargarTextosNecesidades: async () => { lecturas++; return textos; } });
+  assert.equal(lecturas, 0);
+  await escuchas.get("click")(eventoAccion("confirmar"));
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(lecturas, 1);
+  assert.match(raiz.innerHTML, /El número de expediente MOAD no tiene el formato publicado/u);
+  assert.doesNotMatch(raiz.innerHTML, /estado_numero_moad_no_valido/u);
+  desmontar();
+});
+
+test("el rechazo MOAD no permite repetir la misma clave y exige catálogo actual tras corregir", async () => {
+  const nuevaClave = "12345678-1234-4abc-8def-1234567890ac";
+  const enviados = [];
+  const presentador = crearPresentador({ claves: [CLAVE_PRUEBA, nuevaClave],
+    ejecutor: async (comando) => {
+      enviados.push(comando);
+      if (enviados.length === 1) {
+        const error = new Error("causa privada");
+        Object.assign(error, { codigo: "contenido_no_valido", estado: 422,
+          campo: "numero_expediente_moad", envelopeValido: true });
+        throw error;
+      }
+      return reciboValido({ numero_visible: comando.numero_expediente_moad });
+    } });
+  const original = borradorValido();
+  assert.equal(presentador.prepararRevision(original), true);
+  assert.equal(await presentador.enviar(), null);
+  presentador.volverAEdicion();
+  presentador.actualizarBorrador(original);
+  assert.equal(presentador.prepararRevision(original), false);
+  await assert.rejects(presentador.enviar());
+  assert.equal(enviados.length, 1);
+  const corregido = borradorValido({ numero_expediente_moad: "2026/12346" });
+  presentador.actualizarBorrador(corregido);
+  assert.equal(presentador.prepararRevision(corregido), false);
+  assert.equal(presentador.necesitaRefrescoCatalogos(), true);
+  assert.equal(await presentador.refrescarCatalogos(async () => { throw new Error("fuente caída"); }), false);
+  assert.equal(presentador.obtenerEstado().borrador.numero_expediente_moad, "2026/12346");
+  assert.equal(presentador.obtenerEstado().errores.general, "catalogo_no_actualizado");
+  assert.equal(presentador.prepararRevision(corregido), false);
+  assert.equal(enviados.length, 1);
+  let lecturas = 0;
+  const catalogoNuevo = catalogosPrueba();
+  catalogoNuevo.numero_expediente_moad = { referencia: "catalogo:numero:moad", version: 2,
+    patron: "^2026/12346$", ejemplo: "2026/12346" };
+  assert.equal(await presentador.refrescarCatalogos(async () => { lecturas++; return catalogoNuevo; }), true);
+  assert.equal(lecturas, 1);
+  assert.equal(presentador.obtenerEstado().catalogos.numero_expediente_moad.version, 2);
+  assert.equal(presentador.prepararRevision(corregido), true);
+  await presentador.enviar();
+  assert.equal(enviados.length, 2);
+  assert.notEqual(enviados[1].clave_idempotencia, enviados[0].clave_idempotencia);
+});
 
 test("el contrato es cerrado, clona catálogos y conserva relaciones inyectadas", () => {
   const entrada = catalogosPrueba();
