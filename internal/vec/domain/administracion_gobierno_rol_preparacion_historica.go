@@ -38,6 +38,12 @@ func PrepararPlanGobiernoRolNuevoDesdeCatalogo(c CatalogoAccionesAdministracionV
 	if entrada == nil {
 		return vacio, time.Time{}, ErrPermisoPerfilAdministracionNoCoincide
 	}
+	// Crear un RolID ordinario exige una clase positiva de la fuente publicada.
+	// Ni una etiqueta ordinaria convierte una concesión ADMIN en ordinaria.
+	if entrada.ClaseControl != string(ClaseControlPerfilOrdinario) ||
+		entrada.Concesion.ModuloID == "administracion" {
+		return vacio, time.Time{}, ErrPermisoPerfilAdministracionNoCoincide
+	}
 	instante := ahora
 	if !vigenteAccionesAdministracionEn(c.VigenteDesde, c.VigenteHasta, ahora) ||
 		!vigenteAccionesAdministracionEn(entrada.VigenteDesde, entrada.VigenteHasta, ahora) {
