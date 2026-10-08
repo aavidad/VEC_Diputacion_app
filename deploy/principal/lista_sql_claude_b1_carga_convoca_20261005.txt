@@ -3,6 +3,9 @@
 # AD203 de esta rama se retiró: no es compatible con el núcleo posterior AD218.
 # B80 crea el grupo NOLOGIN de la orden CLI. Su LOGIN exclusivo se aprovisiona
 # fuera de Git, sin pertenencia al ejecutor web. Aplicar una sola vez y sin DOWN.
+# SHA256 c6995a03268b34105c466775673403f44465306deb7e9729c769fea1446d91cf BIC7
 deploy/postgresql/bolsa_importacion_convoca/migraciones/000007_acceso_wrapper_carga_bolsa.up.sql
+# SHA256 a82fa763044e39ebc1188915fd666b4a5adb2210e88e9f5984006f826f1ed033 B79
 deploy/postgresql/bolsa_llamamientos/migraciones/000079_constitucion_carga_convoca_autorizada.up.sql
+# SHA256 eaea77b8d0e6e3d9857e9cf1775e277541b0ed71a55c33ea3b5756f631aeddc2 B80
 deploy/postgresql/bolsa_llamamientos/migraciones/000080_separacion_constituidor_cli.up.sql
