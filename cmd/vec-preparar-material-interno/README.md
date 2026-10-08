@@ -2,8 +2,37 @@
 
 La opción alternativa `-incorporacion-config RUTA` prepara el `servidor.json`
 de incorporación B2 pura y sus 22 operaciones. Sustituye a `-motivos`, mantiene
-`-inventario-ct`, `-material-idempotencia`, `-dsn-archivo` y `-salida`, y conserva
+`-material-idempotencia`, `-dsn-archivo` y `-salida`, y conserva
 las referencias, los motivos y los ocho DSN nominales de la entrada aprobada.
+Para ese modo se elige exactamente una fuente CT: el inventario existente
+`-inventario-ct` o `-incorporacion-motivos-rrhh-dsn` con un fichero DSN 0600
+del resolutor de detalle RRHH. La segunda forma toma raíz y emisor de la
+misma generación de idempotencia que `vec-server`, coteja con el gobierno
+vigente la huella de la clave pública, la audiencia y las 22 capacidades, y
+acepta la versión de raíz realmente publicada. El resolutor RRHH vuelve a
+comprobar el motivo de detalle con su LOGIN nominal. No crea `ct_v3.json` ni
+las tres capacidades antiguas de incorporación de `vec-interno`.
+
+Para preparar **solo la ruta web CT→Personal B2** sin material legado de
+`vec-interno`, el comando es:
+
+```bash
+"$PRIVADO/vec-preparar-material-interno" \
+  -material-idempotencia "$MATERIAL_VEC_SERVER/idempotencia" \
+  -incorporacion-motivos-rrhh-dsn "$PRIVADO/motivos_rrhh.dsn" \
+  -incorporacion-config "$CONFIG_B2_APROBADA" \
+  -dsn-archivo "$PRIVADO/gobierno.dsn" \
+  -salida "$PRIVADO/b2-nuevo"
+```
+
+El DSN RRHH usa el LOGIN vigente que ya resuelve motivos de detalle, y el
+preparador acredita su función y membresía. La salida contiene `servidor.json`,
+ocho DSN y 22 archivos de capacidad para 15 audiencias. La ruta de salida debe
+ser nueva y privada. La configuración de arranque del `vec-server` usa
+`VEC_CT_INCORPORACION_V2_FILE=/vec-incorporacion/servidor.json` cuando ese
+material se haya montado. **CONFIG NUEVA de runtime: solo esa ruta**; la
+bandera nueva es una entrada puntual del preparador.
+
 Las claves usan los descriptores y la derivación del publicador de main; versión
 y revisión proceden del gobierno vigente. También se comprueba cada motivo en
 la autoridad histórica y se compara `ct_detalle` con el resolutor RRHH real.
@@ -45,14 +74,17 @@ comparando en el servidor con el secreto que dejó el publicador real.
 
 ## Qué comprueba antes de escribir nada
 
-1. `ct_v3.json` se abre con el cargador real (`internactproveedores.CargarMaterial`).
-   De él solo se toman el catálogo de motivos, el emisor (único en las cinco
-   capacidades) y las coordenadas de la raíz. `ct_v3.json` **no se regenera**:
-   su configuración es solo el punto de partida del lector renovable, que la
-   actualiza cada día sin tocar el fichero, y no contiene nada de B2.
+1. Con `-inventario-ct`, `ct_v3.json` se abre con el cargador real
+   (`internactproveedores.CargarMaterial`). De él se toman el catálogo de
+   motivos, el emisor y la raíz. Con
+   `-incorporacion-motivos-rrhh-dsn`, la raíz y el emisor se derivan del
+   material de idempotencia de `vec-server`; el DSN privado permite resolver
+   el motivo de detalle con la autoridad RRHH. Ninguna forma regenera
+   `ct_v3.json`.
 2. El material de idempotencia se valida como lo hace `vec-server` (formato,
    generaciones, ficheros regulares sin acceso de terceros ni enlaces) y el
-   emisor derivado de la generación activa debe ser el de `ct_v3.json`.
+   emisor derivado de la generación activa debe coincidir con el inventario
+   legado, si se aporta, o con la raíz pública vigente del gobierno.
 3. Cada una de las ocho claves B2 debe estar publicada con el mismo
    identificador, audiencia, huella de gobierno, huella del secreto, emisor y
    vigencia; vigente ahora, sin ninguna revocación (ni siquiera programada)
@@ -60,8 +92,9 @@ comparando en el servidor con el secreto que dejó el publicador real.
    `revision_gobierno` se toman de esa fila publicada.
 4. La raíz de la configuración vigente (puntero, no revocada, no caducada,
    secuencia de configuración y versión de raíz no inferiores a los mínimos
-   del checkpoint, una sola raíz) debe ser la de
-   `ct_v3.json`.
+   del checkpoint, una sola raíz) debe ser la del inventario legado o la
+   derivada de `vec-server`. En la segunda forma también se coteja la huella
+   SPKI; la versión válida es la que figura en la publicación vigente.
 5. La identidad de la sesión es la del LOGIN de gobierno de `vec-server`,
    con los mismos atributos que exige su pool (LOGIN, INHERIT, sin
    SUPERUSER, CREATEDB, CREATEROLE, REPLICATION ni BYPASSRLS) y además
@@ -113,6 +146,7 @@ comprobar la salida tras un reinicio.
 | Entrada | Forma | Requisitos |
 | --- | --- | --- |
 | `-inventario-ct` | ruta de `ct_v3.json` existente | ruta absoluta sin enlaces; el directorio lo valida el cargador real (0700, fuera de Git, fichero 0600) |
+| `-incorporacion-motivos-rrhh-dsn` | fichero DSN del resolutor RRHH | Solo junto con `-incorporacion-config`, alternativo a `-inventario-ct`; 0600, LOGIN nominal acreditado |
 | `-material-idempotencia` | subdirectorio `idempotencia` del material de desarrollo de `vec-server` | ruta absoluta canónica sin enlaces y fuera de Git; se llama exactamente `idempotencia`; 0700 y del usuario; su directorio padre, del usuario y sin acceso de grupo ni otros; ficheros según el cargador de `vec-server` |
 | `-motivos` | fichero JSON | 0600; formato abajo |
 | `-salida` | directorio **nuevo** | inexistente, o vacío con 0700 y del usuario; padre del usuario sin escritura de grupo/otros, sin enlaces y fuera de cualquier árbol Git |
