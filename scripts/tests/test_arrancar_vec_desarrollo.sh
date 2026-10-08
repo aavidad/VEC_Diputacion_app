@@ -85,7 +85,14 @@ BLOQUEADOR_PID=''
 FAKES="$TEMPORAL/fakes"
 ESTADO="$TEMPORAL/estado"
 MODCACHE="$TEMPORAL/modcache"
-mkdir -p "$FAKES" "$ESTADO" "$MODCACHE/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin"
+TOOLCHAIN_VERSION=$(awk '$1 == "toolchain" { print $2 }' "$RAIZ_REPOSITORIO/go.mod")
+[[ $TOOLCHAIN_VERSION =~ ^go[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+  printf 'go.mod no declara una toolchain exacta para el test\n' >&2
+  exit 1
+}
+export VEC_ARRANQUE_TEST_TOOLCHAIN_VERSION="$TOOLCHAIN_VERSION"
+FAKE_TOOLCHAIN="$MODCACHE/golang.org/toolchain@v0.0.1-$TOOLCHAIN_VERSION.linux-amd64/bin/go"
+mkdir -p "$FAKES" "$ESTADO" "$(dirname -- "$FAKE_TOOLCHAIN")"
 cat >"$FAKES/go" <<'FAKE_GO'
 #!/usr/bin/env bash
 set -Eeuo pipefail
@@ -96,11 +103,11 @@ fi
 printf 'Go base invocado fuera de env: %s\n' "$*" >&2
 exit 97
 FAKE_GO
-cat >"$MODCACHE/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go" <<'FAKE_GO_LOCAL'
+cat >"$FAKE_TOOLCHAIN" <<'FAKE_GO_LOCAL'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 if [[ "$1" == version ]]; then
-  printf '%s\n' 'go version go1.26.6 linux/amd64'
+  printf 'go version %s linux/amd64\n' "$VEC_ARRANQUE_TEST_TOOLCHAIN_VERSION"
   exit 0
 fi
 SALIDA=''
@@ -160,7 +167,7 @@ cat >"$FAKES/jq" <<'FAKE_JQ'
 #!/usr/bin/env bash
 exit 0
 FAKE_JQ
-chmod 700 "$FAKES/go" "$FAKES/curl" "$FAKES/jq" "$MODCACHE/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go"
+chmod 700 "$FAKES/go" "$FAKES/curl" "$FAKES/jq" "$FAKE_TOOLCHAIN"
 
 PUERTO_LIBRE=$(python3 - <<'PY'
 import socket
