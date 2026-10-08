@@ -161,13 +161,23 @@ function crearEstado(expediente, tareaRef, sobrescrituras = {}) {
   };
 }
 
-function crearPresentador(estadoInicial, fallarCarga = false) {
+function crearPresentador(estadoInicial, fallarCarga = false, refresco = null) {
   let estado = estadoInicial;
   let desmontajes = 0;
   return {
     obtenerEstado() { return estado; },
     async cargar() {
       if (fallarCarga) throw new Error("listado temporalmente no disponible");
+      if (refresco) estado = { ...estado, cuadro: refresco.cuadro };
+      return estado;
+    },
+    async seleccionarExpediente(referencia, vista) {
+      if (!refresco || referencia !== refresco.expediente.expediente_ref) {
+        throw new Error("expediente no disponible");
+      }
+      estado = { ...estado, vista, expediente: refresco.expediente,
+        expediente_ref: referencia, carga: "listo" };
+      refresco.resolver?.();
       return estado;
     },
     cambiarVista(vista) { estado = { ...estado, vista }; },
@@ -391,11 +401,13 @@ async function montarEscenario({
   analisis = null,
   alta = null,
   fallarCarga = false,
+  refresco = null,
 } = {}) {
   const raiz = crearRaizModulo();
   const presentador = crearPresentador(
     estado ?? crearEstado(expediente, tareaRef),
     fallarCarga,
+    refresco,
   );
   const modulo = await montarModuloContratacionTemporal({
     raiz: raiz.raiz,
@@ -919,7 +931,7 @@ test("una respuesta indeterminada conserva el bloqueo sin aborto, remontaje ni s
   assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
   escenario.modulo.desmontar();
 });
-test("el éxito conserva el recibo visible y no reenvía desde la versión obsoleta", async () => {
+test("el éxito libera la navegación y no reenvía desde la versión obsoleta", async () => {
   const { expediente, tareaRef } = crearExpediente();
   let llamadas = 0;
   const cliente = {
@@ -937,14 +949,84 @@ test("el éxito conserva el recibo visible y no reenvía desde la versión obsol
   await formulario.enviar();
   assert.match(formulario.innerHTML, /data-ct-analisis-recibo/u);
   assert.match(formulario.innerHTML, /recibo:opaco:analisis:001/u);
+  assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
   await escenario.raiz.cambiarVista("cuadro");
-  await formulario.enviar();
-  assert.strictEqual(escenario.raiz.obtenerAnalisis(), formulario);
-  assert.equal(escenario.raiz.obtenerMontajesAnalisis(), 1);
-  assert.equal(escenario.presentador.obtenerEstado().vista, "expediente");
+  assert.equal(escenario.presentador.obtenerEstado().vista, "cuadro");
+  assert.equal(formulario.eventos.has("submit"), false);
   assert.equal(llamadas, 1);
   assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
 
+  escenario.modulo.desmontar();
+});
+
+test("el recibo confirmado refresca cuadro y ficha a la versión resultante sin otro POST", async () => {
+  const { expediente: base, tareaRef } = crearExpediente();
+  const expediente = validarExpedienteContratacionTemporal({ ...base, demostracion: false });
+  const actualizado = validarExpedienteContratacionTemporal({
+    ...expediente,
+    version: expediente.version + 1,
+    cabecera: [...expediente.cabecera, {
+      clave: "resultado_rc", etiqueta: "Resultado RC", valor: "validada", tono: "neutro",
+      control: "solo_lectura", obligatorio: false, opciones: [],
+    }],
+  });
+  let resolver;
+  const completo = new Promise((resolve) => { resolver = resolve; });
+  const refresco = {
+    expediente: actualizado,
+    cuadro: { demostracion: false, expedientes: [{
+      expediente_ref: expediente.expediente_ref,
+      fase_clave: "solicitud", estado_clave: "en_curso", version: actualizado.version,
+    }] },
+    resolver,
+  };
+  let llamadas = 0;
+  const escenario = await montarEscenario({
+    expediente, tareaRef,
+    estado: crearEstado(expediente, tareaRef, { cuadro: {
+      ...refresco.cuadro,
+      expedientes: [{ ...refresco.cuadro.expedientes[0], version: expediente.version }],
+    } }),
+    refresco,
+    analisis: crearComposicion({
+      registrarAnalisis() {
+        llamadas += 1;
+        return Promise.resolve(crearRecibo(expediente));
+      },
+    }),
+  });
+  await escenario.raiz.obtenerAnalisis().enviar();
+  await completo;
+  await Promise.resolve();
+  assert.equal(llamadas, 1);
+  assert.equal(escenario.presentador.obtenerEstado().expediente.version, actualizado.version);
+  assert.match(escenario.raiz.raiz.innerHTML, /Resultado RC/u);
+  assert.match(escenario.raiz.obtenerRectificacion().anexos.at(-1).innerHTML,
+    /recibo:opaco:analisis:001/u);
+  assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
+  escenario.modulo.desmontar();
+});
+
+test("si falla la lectura posterior, el recibo y la navegación siguen disponibles sin repetir el registro", async () => {
+  const { expediente, tareaRef } = crearExpediente();
+  let registros = 0;
+  const escenario = await montarEscenario({
+    expediente, tareaRef, fallarCarga: true,
+    analisis: crearComposicion({
+      registrarAnalisis() {
+        registros += 1;
+        return Promise.resolve(crearRecibo(expediente));
+      },
+    }),
+  });
+  const formulario = escenario.raiz.obtenerAnalisis();
+  await formulario.enviar();
+  await Promise.resolve();
+  assert.match(formulario.innerHTML, /recibo:opaco:analisis:001/u);
+  assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
+  await escenario.raiz.cambiarVista("cuadro");
+  assert.equal(escenario.presentador.obtenerEstado().vista, "cuadro");
+  assert.equal(registros, 1);
   escenario.modulo.desmontar();
 });
 
