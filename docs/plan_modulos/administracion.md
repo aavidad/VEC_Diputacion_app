@@ -133,3 +133,35 @@ los planes hasta que se responda la pregunta 141 de `dudas.md`. Las exclusiones 
 una lista de nombres; la clasificación positiva es la aprobación del plan. El
 registro no da permisos a nadie: sólo hace que esos roles puedan asignarse
 cuando existan A2-A7. `vec-admin` no cambia en este corte.
+
+
+## Gobierno de roles: correctivo de #886 — 8 de octubre de 2026
+
+El correctivo `5e54c5ae7` evita que el cierre rechace el rol que acaba de
+insertar. La comprobación de RolID ocupado permanece en la operación, bajo
+bloqueo; siguen vigentes las exclusiones de roles reservados, el doble control,
+la autorización V3 y la revalidación final. Los conflictos `40001` se registran
+como intentos denegados. AUT58 y AUT60 conservan su historia; cambia únicamente
+la AUT61 prospectiva, todavía sin instalar en la principal.
+
+Dos revisiones independientes dieron GO estático al SQL y sus pruebas. AUT61
+se instaló una vez en un clon PostgreSQL 18 y el vector pasó con ROLLBACK,
+incluida la validación de la postimagen. La puerta completa local pasó con
+3.539 pruebas web; Semgrep no encontró incidencias en el delta SQL y gosec no
+encontró hallazgos en las líneas Go modificadas, sin errores de carga.
+
+El cierre positivo sigue pendiente. El ensayo aislado confirmó mediante las
+CLI reales los mantenimientos ADMIN v5→v6→v7→v8 y la admisión del catálogo v2.
+Las dos personas ADMIN conservan sus vínculos de certificado, pero tienen cero
+sesiones privilegiadas vigentes y los kits disponibles no corresponden a sus
+certificados. La base conserva cero propuestas y cierres de gobierno de roles.
+No se ha sustituido el consumo V3 ni la auditoría para completar el ensayo.
+
+Continuación: recuperar el kit de las dos identidades del arranque 2+1, abrir
+sesiones por la autoridad existente, emitir material V3 fresco y ejecutar
+`deploy/postgresql/autorizacion/pruebas_sql/aut61_cierre_real_v3.sql`. La prueba
+exige LOGIN mínimo, dos ADMIN distintos, acción firmada y efecto exacto,
+recibo, control, auditoría y outbox. La función interna de alta de vínculo sólo
+forma parte del bootstrap; añadir una renovación de certificados sería otra
+tarea de identidad. La PR permanece en borrador hasta completar el ensayo y
+la CI; Claude revisa y fusiona.
