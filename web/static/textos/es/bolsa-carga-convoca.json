@@ -118,7 +118,10 @@
     },
     "bolsasSustituidas": "Bolsas anteriores sustituidas:",
     "verBolsaAnterior": "Ver bolsa anterior {numero}",
-    "volverResultado": "Volver al resultado"
+    "volverResultado": "Volver al resultado",
+    "ficheroNoDisponible": "El fichero ya no está en esta página. Para revisar las filas descartadas, pulse «Cargar otra bolsa» y elija el mismo Excel. No confirme otra carga.",
+    "recuperarResultado": "Recuperar resultado",
+    "recuperarResultadoAyuda": "La carga puede estar ya registrada. Esta acción vuelve a enviar el mismo fichero y categoría para obtener el recibo de esa carga, sin crear otra bolsa."
   },
   "campos": {
     "dni_nie": "Documento",
@@ -169,6 +172,6 @@
     "peticion_no_valida": "No se ha podido enviar el fichero. Vuelva a elegirlo y repita.",
     "servicio_no_disponible": "No se ha podido completar ahora. Pulse el botón otra vez; si sigue igual, avise a Informática.",
     "paginacion_no_valida": "No se pudo abrir esa página. Vuelva a la primera o elija otro filtro.",
-    "recibo_incoherente": "No se puede verificar el resultado de la carga. Consulte las bolsas antes de repetirla."
+    "recibo_incoherente": "No se puede verificar el resultado. Consulte las bolsas o pulse «Recuperar resultado» para obtener el recibo de la misma carga."
   }
 }

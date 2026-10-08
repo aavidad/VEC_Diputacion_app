@@ -37,7 +37,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   const rutaInicial = leerEstadoRuta(doc.defaultView?.location?.search ?? "");
   const estado = { nombre: "", base64: "", categoria: null, vista: null, filtro: rutaInicial.filtro,
     pagina: rutaInicial.pagina, ocupado: false, cargandoPagina: false, generacion: 0, secuencia: 0,
-    peticionActual: null, recibo: null, soloLectura: false };
+    peticionActual: null, recibo: null, soloLectura: false, indeterminado: false };
   let controladorCategorias = null;
   let controladorVista = null;
   let controladorConfirmacion = null;
@@ -202,7 +202,8 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
           estado.cargandoPagina = false;
           estado.peticionActual = null;
           $("estado-revisar").textContent = "";
-          $("cargar").disabled = Boolean(estado.vista?.bloqueo) || estado.ocupado || estado.soloLectura;
+          $("cargar").disabled = Boolean(estado.vista?.bloqueo) || estado.ocupado
+            || estado.soloLectura || estado.indeterminado;
         }
       }
     })();
@@ -239,7 +240,8 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     } finally {
       estado.ocupado = false;
       $("revisar").disabled = false;
-      if (estado.vista) $("cargar").disabled = Boolean(estado.vista.bloqueo) || estado.cargandoPagina;
+      if (estado.vista) $("cargar").disabled = Boolean(estado.vista.bloqueo)
+        || estado.cargandoPagina || estado.indeterminado;
     }
   }
 
@@ -297,11 +299,14 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     $("excluir-marco").hidden = estado.soloLectura || v.rechazadas === 0 || Boolean(v.bloqueo);
     if (primera) $("excluir").checked = false;
     $("excluir-texto").textContent = t("excluir", { cuenta: v.rechazadas });
-    $("cargar").hidden = estado.soloLectura;
-    $("cargar").disabled = estado.soloLectura || Boolean(v.bloqueo) || estado.cargandoPagina;
+    $("cargar").hidden = estado.soloLectura || estado.indeterminado;
+    $("cargar").disabled = estado.soloLectura || estado.indeterminado || Boolean(v.bloqueo) || estado.cargandoPagina;
+    $("recuperar-resultado").hidden = !estado.indeterminado;
+    $("recuperar-ayuda").hidden = !estado.indeterminado;
+    $("ver-bolsas-tras-error").hidden = !estado.indeterminado;
     $("otro-fichero").hidden = estado.soloLectura;
     $("volver-resultado").hidden = !estado.soloLectura;
-    $("error-revisar").hidden = true;
+    $("error-revisar").hidden = !estado.indeterminado;
     $("estado-revisar").textContent = "";
     doc.querySelectorAll('input[name="filtro"]').forEach((r) => { r.checked = r.value === filtroControl(estado.filtro); });
     pintarFilas();
@@ -316,18 +321,20 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
 
   function pedirConfirmacion() {
     const v = estado.vista;
-    if (!v || v.bloqueo || estado.ocupado || estado.cargandoPagina || estado.soloLectura) return;
+    if (!v || v.bloqueo || estado.ocupado || estado.cargandoPagina || estado.soloLectura || estado.indeterminado) return;
     if (v.rechazadas > 0 && !$("excluir").checked) { mostrarErrorRevision(t("faltaExcluir")); return; }
     $("error-revisar").hidden = true;
     $("confirmar-texto").textContent = `${t("confirmarTexto", { cuenta: v.aceptadas, categoria: estado.categoria.etiqueta })} ${v.rechazadas ? t("confirmarDescartes", { cuenta: v.rechazadas }) : ""}`.trim();
     $("confirmar").showModal?.();
   }
 
-  async function cargar() {
-    $("confirmar").close?.();
-    if (estado.ocupado || estado.cargandoPagina || estado.soloLectura) return;
+  async function cargar({ recuperar = false } = {}) {
+    if ($("confirmar").open) $("confirmar").close?.();
+    if (estado.ocupado || estado.cargandoPagina || estado.soloLectura
+      || (estado.indeterminado && !recuperar) || (recuperar && !estado.indeterminado)) return;
     estado.ocupado = true;
     $("cargar").disabled = true;
+    $("recuperar-resultado").disabled = true;
     $("otro-fichero").disabled = true;
     $("estado-revisar").textContent = t("cargando");
     try {
@@ -340,17 +347,28 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
         || recibo.filas_excluidas !== estado.vista.rechazadas) {
         throw new ErrorCargaConvoca(0, "recibo_incoherente");
       }
+      estado.indeterminado = false;
       estado.recibo = recibo;
       pintarHecho(recibo);
       irAPaso(3);
     } catch (error) {
       if (error?.name === "AbortError") return;
       $("estado-revisar").textContent = "";
+      if (error?.codigo === "recibo_incoherente") {
+        estado.indeterminado = true;
+      }
+      if (estado.indeterminado) {
+        $("cargar").hidden = true;
+        $("recuperar-resultado").hidden = false;
+        $("recuperar-ayuda").hidden = false;
+        $("ver-bolsas-tras-error").hidden = false;
+      }
       mostrarErrorRevision(textoError(textos, error));
     } finally {
       controladorConfirmacion = null;
       estado.ocupado = false;
-      $("cargar").disabled = Boolean(estado.vista?.bloqueo) || estado.soloLectura;
+      $("cargar").disabled = Boolean(estado.vista?.bloqueo) || estado.soloLectura || estado.indeterminado;
+      $("recuperar-resultado").disabled = false;
       $("otro-fichero").disabled = false;
     }
   }
@@ -371,6 +389,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       const excluidas = doc.createElement("li");
       const boton = doc.createElement("button");
       boton.type = "button";
+      boton.id = "ver-excluidas";
       boton.className = "boton-secundario";
       boton.textContent = t("verExcluidas", { cuenta: recibo.filas_excluidas });
       boton.addEventListener("click", () => void abrirExcluidas());
@@ -408,8 +427,18 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     $("detalle-registro").textContent = t("detalleRegistro", { referencia: recibo.auditoria_ref });
   }
 
+  function avisarFicheroNoDisponible(enfocar = false) {
+    const boton = $("ver-excluidas");
+    if (boton) boton.disabled = true;
+    const aviso = $("error-hecho");
+    aviso.textContent = t("ficheroNoDisponible");
+    aviso.hidden = false;
+    if (enfocar) aviso.focus();
+  }
+
   async function abrirExcluidas() {
-    if (!estado.recibo || !estado.base64 || !estado.recibo.filas_excluidas || estado.ocupado) return;
+    if (!estado.recibo || !estado.recibo.filas_excluidas || estado.ocupado) return;
+    if (!estado.base64) { avisarFicheroNoDisponible(true); return; }
     $("error-hecho").hidden = true;
     try {
       const respuesta = await solicitarPagina({ filtro: "rechazadas", pagina: 1, ruta: "pushState",
@@ -428,7 +457,10 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     controladorVista?.abort();
     estado.secuencia += 1;
     Object.assign(estado, { nombre: "", base64: "", vista: null, ocupado: false,
-      cargandoPagina: false, peticionActual: null, recibo: null, soloLectura: false });
+      cargandoPagina: false, peticionActual: null, recibo: null, soloLectura: false, indeterminado: false });
+    $("ver-bolsas-tras-error").hidden = true;
+    $("recuperar-resultado").hidden = true;
+    $("recuperar-ayuda").hidden = true;
     $("fichero").value = "";
     $("resumen-errores").hidden = true;
     marcarCampo("fichero", "");
@@ -461,9 +493,12 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   }));
   $("anterior").addEventListener("click", () => navegarPagina(estado.filtro, Math.max(1, estado.pagina - 1)));
   $("siguiente").addEventListener("click", () => navegarPagina(estado.filtro, estado.pagina + 1));
-  $("excluir").addEventListener("change", () => { $("error-revisar").hidden = true; });
+  $("excluir").addEventListener("change", () => {
+    if (!estado.indeterminado) $("error-revisar").hidden = true;
+  });
   $("cargar").addEventListener("click", pedirConfirmacion);
   $("confirmar-si").addEventListener("click", () => void cargar());
+  $("recuperar-resultado").addEventListener("click", () => void cargar({ recuperar: true }));
   $("confirmar-no").addEventListener("click", () => $("confirmar").close?.());
   $("otro-fichero").addEventListener("click", reiniciar);
   $("volver-resultado").addEventListener("click", () => {
@@ -483,6 +518,10 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     controladorCategorias?.abort();
     controladorVista?.abort();
     estado.base64 = "";
+    $("fichero").value = "";
+  });
+  doc.defaultView?.addEventListener("pageshow", () => {
+    if (estado.recibo && !estado.base64 && !pasos[3].hidden) avisarFicheroNoDisponible();
   });
   return Object.freeze({ iniciar: cargarCategorias });
 }
