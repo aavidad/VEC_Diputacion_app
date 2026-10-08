@@ -164,7 +164,7 @@ func (r *RepositorioInscripcionesPostgreSQL) Propia(ctx context.Context, actor i
 		return inscripcion.Solicitud{}, err
 	}
 	return consultarInscripcion(ctx, r, actor, inscripcion.AccionDetallePropia, recurso, inscripcion.Filtro{},
-		selectorDetalleInscripcion{SolicitudRef: ref}, validarSolicitudInscripcion(ref))
+		selectorDetalleInscripcion{SolicitudRef: ref}, validarSolicitudInscripcion(ref, false))
 }
 
 func (r *RepositorioInscripcionesPostgreSQL) PendientesRRHH(ctx context.Context, actor inscripcion.Actor, filtro inscripcion.Filtro) (inscripcion.Pagina, error) {
@@ -186,7 +186,7 @@ func (r *RepositorioInscripcionesPostgreSQL) DetalleRRHH(ctx context.Context, ac
 		return inscripcion.Solicitud{}, err
 	}
 	return consultarInscripcion(ctx, r, actor, inscripcion.AccionDetalleRRHH, recurso, inscripcion.Filtro{},
-		selectorDetalleInscripcion{SolicitudRef: ref}, validarSolicitudInscripcion(ref))
+		selectorDetalleInscripcion{SolicitudRef: ref}, validarSolicitudInscripcion(ref, true))
 }
 
 func (r *RepositorioInscripcionesPostgreSQL) MotivosRRHH(ctx context.Context, actor inscripcion.Actor, decision string) (inscripcion.CatalogoMotivos, error) {
@@ -211,10 +211,23 @@ func (r *RepositorioInscripcionesPostgreSQL) MotivosRRHH(ctx context.Context, ac
 		})
 }
 
-func validarSolicitudInscripcion(ref string) func(inscripcion.Solicitud) error {
+func validarSolicitudInscripcion(ref string, detalleRRHH bool) func(inscripcion.Solicitud) error {
 	return func(s inscripcion.Solicitud) error {
-		if s.SolicitudRef != ref || s.Validar() != nil {
+		if s.SolicitudRef != ref || s.Validar() != nil || s.DeclaracionRef == "" {
 			return inscripcion.ErrNoDisponible
+		}
+		if detalleRRHH && (s.BasesRef == "" || s.CatalogoVersion == 0 || s.PlazoInicio == nil ||
+			s.PlazoFin == nil || !s.PlazoFin.After(*s.PlazoInicio) || s.Requisitos == nil) {
+			return inscripcion.ErrNoDisponible
+		}
+		if detalleRRHH {
+			for _, requisito := range s.Requisitos {
+				if requisito.Codigo == "" || requisito.Descripcion == "" || requisito.MotivoEtiqueta == "" ||
+					(requisito.Estado != "cumple" && requisito.Estado != "no_cumple" && requisito.Estado != "pendiente") ||
+					(requisito.HitoCumplimiento == nil) != (requisito.HitoEtiqueta == nil) {
+					return inscripcion.ErrNoDisponible
+				}
+			}
 		}
 		return nil
 	}
@@ -226,7 +239,7 @@ func validarPaginaInscripcion(limite int) func(inscripcion.Pagina) error {
 			return inscripcion.ErrNoDisponible
 		}
 		for _, s := range p.Solicitudes {
-			if s.Validar() != nil {
+			if s.Validar() != nil || s.DeclaracionRef == "" {
 				return inscripcion.ErrNoDisponible
 			}
 		}
