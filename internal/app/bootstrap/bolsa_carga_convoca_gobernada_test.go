@@ -133,3 +133,20 @@ func TestCargaConvocaNiegaConcesionAusenteAlteradaOAsignacionAjena(t *testing.T)
 		t.Fatal("asignación caducada admitida")
 	}
 }
+
+func TestCargaConvocaExigeActosDeGobiernoDistintosDeLaSemilla(t *testing.T) {
+	autoridad := &autoridadPostgreSQLDesarrollo{actoAsignacion: "acto:semilla:asignacion", actoControlRol: "acto:semilla:control"}
+	publicada := instantaneaPublicadaDesarrollo{actoAsignacion: autoridad.actoAsignacion,
+		actoControl: "acto:administracion:control", actualizadaPor: "identidad:administracion:rrhh"}
+	if procedenciaCargaConvocaGobernada(publicada, autoridad) {
+		t.Fatal("la asignación sintética no acredita publicación B1")
+	}
+	publicada.actoAsignacion = "acto:administracion:asignacion"
+	if !procedenciaCargaConvocaGobernada(publicada, autoridad) {
+		t.Fatal("los actos de asignación y control administrados fueron rechazados")
+	}
+	publicada.actoControl = autoridad.actoControlRol
+	if procedenciaCargaConvocaGobernada(publicada, autoridad) {
+		t.Fatal("el control sintético no acredita publicación B1")
+	}
+}

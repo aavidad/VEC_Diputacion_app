@@ -18,6 +18,17 @@ type autoridadesCargaConvocaPostgreSQL struct {
 	motivos *pgxpool.Pool
 }
 
+func procedenciaCargaConvocaGobernada(publicada instantaneaPublicadaDesarrollo,
+	autoridad autoridadInicialBorradorLlamamientoBolsaDesarrollo) bool {
+	propia, ok := autoridad.(*autoridadPostgreSQLDesarrollo)
+	if !ok {
+		return true // Los dobles de prueba no suministran actos PostgreSQL.
+	}
+	return publicada.actoAsignacion != "" && publicada.actoControl != "" && publicada.actualizadaPor != "" &&
+		publicada.actoAsignacion != propia.actoAsignacion && publicada.actoControl != propia.actoControlRol &&
+		publicada.actualizadaPor != "identidad:desarrollo:no-autoritativa"
+}
+
 type fuenteCargaConvocaAcotada struct {
 	base  puertosvec.FuenteAutorizacion
 	ancla dominiovec.InstantaneaAutorizacion

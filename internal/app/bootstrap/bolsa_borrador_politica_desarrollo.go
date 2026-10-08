@@ -131,7 +131,7 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) publicarInicial(ctx context
 		// arranque publique ni reconstruya la asignación. Se consume la copia
 		// central y se mantiene íntegra su identidad y su historia.
 		if encontrada && instantaneaBolsaCargaConvocaCompatible(publicada.instantanea, datos,
-			p.soporte, ahora, versionRol) {
+			p.soporte, ahora, versionRol) && procedenciaCargaConvocaGobernada(publicada, p.autoridad) {
 			p.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
 			p.publicada = true
 			return nil
