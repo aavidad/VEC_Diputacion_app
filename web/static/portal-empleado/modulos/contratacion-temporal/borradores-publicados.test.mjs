@@ -4,7 +4,7 @@ import test from "node:test";
 import { crearClienteBorradoresPublicados, RUTA_BORRADORES_DISPONIBLES,
   RUTA_BORRADORES_PUBLICADOS, validarBorradoresDisponibles } from "./cliente-http-borradores-publicados.js";
 import { montarBorradoresPublicados, renderizarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261008-alta-rpt-circular-v6";
-import { catalogoAusentePermiteLegado } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { composicionPermiteLegado } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
 
 const contexto = Object.freeze({ expediente_ref: "expediente:ct:1", version_observada: 8 });
 const catalogo = Object.freeze({ esquema: "vec.contratacion-temporal.borradores-disponibles.v1",
@@ -135,37 +135,33 @@ test("la ficha muestra los diez tipos disponibles como borradores con solo sus f
   }
 });
 
-test("sólo 404 libera el legado; 403, 503 y 409 mantienen el error sin otro PDF o Word", async () => {
-  const estados = [];
-  const legado = { hidden: true };
+test("sólo la composición sin publicador conserva el recorrido legado autorizado", () => {
+  assert.equal(composicionPermiteLegado({ estado: "sin_montaje" }, true), true);
+  assert.equal(composicionPermiteLegado(null, true), true, "sin señal de composición se usa el modo legado ya visible");
+  assert.equal(composicionPermiteLegado({ estado: "montado" }, true), false);
+  assert.equal(composicionPermiteLegado({ estado: "desconocido" }, true), false);
+  assert.equal(composicionPermiteLegado({ estado: "sin_montaje" }, false), false);
+});
+
+test("404 ambiguo, 403, 503 y 409 mantienen el estado del publicador sin ofrecer otro PDF o Word", async () => {
   const eventos = new Map();
   const raiz = { innerHTML: "", hidden: false, contains: () => true,
     addEventListener: (tipo, fn) => eventos.set(tipo, fn), removeEventListener: (tipo) => eventos.delete(tipo),
     replaceChildren() { this.innerHTML = ""; } };
   const montarCon = (consultarDisponibles) => montarBorradoresPublicados({ raiz, contexto,
-    cliente: { consultarDisponibles, descargar() { throw new Error("no se descarga"); } },
-    alEstado: (estado) => { estados.push(estado); legado.hidden = !catalogoAusentePermiteLegado(estado); } });
-  const ausente = montarCon(async () => { throw Object.assign(new Error("ausente"), { estado: 404 }); });
-  await new Promise((resolver) => setImmediate(resolver));
-  assert.deepEqual(estados, ["cargando", "cargando", "ausente"]);
-  assert.equal(raiz.hidden, true);
-  assert.equal(legado.hidden, false, "404 confirma ausencia del catálogo publicado");
-  ausente.desmontar();
-  for (const [codigo, esperado] of [[403, "denegado"], [503, "error"], [409, "conflicto"]]) {
-    estados.length = 0;
+    cliente: { consultarDisponibles, descargar() { throw new Error("no se descarga"); } } });
+  for (const [codigo, mensaje] of [[404, "No se pudieron consultar"], [403, "no dispone de permiso"],
+    [503, "No se pudieron consultar"], [409, "cambió"]]) {
     const fallido = montarCon(async () => { throw Object.assign(new Error("fallo"), { estado: codigo }); });
     await new Promise((resolver) => setImmediate(resolver));
-    assert.equal(estados.at(-1), esperado);
-    assert.equal(legado.hidden, true, `${codigo} no habilita las descargas legadas`);
+    assert.equal(raiz.hidden, false, `${codigo} conserva la incidencia visible`);
+    assert.match(raiz.innerHTML, new RegExp(mensaje, "u"));
     assert.doesNotMatch(raiz.innerHTML, /data-bp-descargar=/u);
     fallido.desmontar();
   }
-  estados.length = 0;
   const publicado = montarCon(async () => validarBorradoresDisponibles({ ...catalogo,
     tipos: [{ clave: "solo_pdf", etiqueta: "Sólo PDF", formatos: ["pdf"] }] }));
   await new Promise((resolver) => setImmediate(resolver));
-  assert.equal(estados.at(-1), "lista");
-  assert.equal(legado.hidden, true);
   assert.match(raiz.innerHTML, /data-bp-formato="pdf"/u);
   assert.doesNotMatch(raiz.innerHTML, /data-bp-formato="docx"/u);
   publicado.desmontar();

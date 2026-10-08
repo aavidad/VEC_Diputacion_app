@@ -67,7 +67,7 @@
   },
   "ui": { "vec": { "module": {
     "administracion": { "name": "System administration" },
-    "bolsa": { "name": "Employment pools" },
+    "bolsa": { "name": "Job pools" },
     "contrataciontemporal": { "name": "Temporary recruitment" },
     "contratacion_temporal": { "name": "Temporary recruitment" },
     "cronos": { "name": "Time management" },

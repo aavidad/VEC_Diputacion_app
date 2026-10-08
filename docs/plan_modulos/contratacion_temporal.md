@@ -101,6 +101,20 @@ Las etiquetas de plaza y puesto RPT siguen los campos obligatorios del catálogo
 
 Sin publicación de necesidades configurada, el catálogo v2 responde con una capacidad ausente específica; no usa las cuatro causas del ejemplo. La pantalla conserva el alta de sustitución que ofrece el catálogo v1 y explica qué se puede registrar. Sólo activa ese recorrido ante la respuesta validada del servidor y un catálogo v1 limitado a sustitución. Una avería, denegación o respuesta inválida mantiene el error y el reintento. La capacidad ausente no ofrece un reintento junto al formulario: conserva los datos y la operación activa. Después de configurar la fuente y volver a cargar el portal, el catálogo v2 ofrece las causas publicadas. No añade SQL ni configuración nueva; para las otras causas sigue siendo necesario configurar la fuente de #895 después de CT193.
 
+
+## Nombres de centros en la lista — 08/10
+
+La lista ligera muestra el nombre del centro y la categoría. Reutiliza el catálogo de Alta y consulta la estructura pública de Organización sólo si falta algún centro de la página. Comparte ambas consultas entre las filas y conserva la lista si no puede recuperar los nombres, con un aviso en el idioma activo. Un cuadro denegado no inicia consultas de etiquetas.
+
+La carga permite usar el idioma de respaldo del documento cuando falla el índice de idiomas. Pruebas focales y Chrome local comprueban los rótulos en escritorio y móvil; las APIs del navegador son de prueba, sin acreditar una lectura nominal de PostgreSQL. No requiere SQL ni configuración nueva.
+
+
+## Categoría sin bolsa en la ficha — 08/10
+
+La ficha avisa cuando la lista autorizada de Bolsa confirma que no hay bolsa vigente para la categoría, y señala que debe revisarse la vía de cobertura. Los fallos de carga, la falta de acceso y una bolsa fijada que no se puede consultar no se presentan como ausencia. Cuando hay bolsa vigente, conserva el botón que abre el llamamiento real de Bolsa con los datos del expediente. No añade consultas ni un llamamiento paralelo.
+
+Ocho casos de Chrome local comprobaron el componente con catálogos reales en castellano a1440px e inglés a390px, teclado y ausencia de desbordamiento. El mayor p95 de renderizado hasta el siguiente frame fue16,5ms; no mide HTTP, PostgreSQL ni navegación nominal. No requiere SQL ni configuración nueva.
+
 ## Ficha sin consulta de borradores ausentes — 8 de octubre de 2026
 
 El detalle leído y auditado informa del montaje de la consulta de borradores. La ficha evita pedir esa consulta cuando el servidor confirma que no está montada, conservando el expediente y sus operaciones. La pista corresponde al mismo expediente y versión; se retira antes de otra lectura. Con la consulta montada se conserva su recorrido y su autorización en el servidor. Esta información no concede permisos.

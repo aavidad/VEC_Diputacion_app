@@ -42,6 +42,10 @@
     "ficha_historial_fase": "Fase: {fase}",
     "ficha_datos_titulo": "Datos de la petición",
     "ficha_datos_todos": "Ver todos los datos",
+    "ficha_llamamiento_sin_bolsa": "No hay bolsa vigente para esta categoría. Revise la vía de cobertura del expediente.",
+    "ficha_llamamiento_bolsa_error": "No se pudo comprobar si hay una bolsa vigente para esta categoría.",
+    "ficha_llamamiento_bolsa_denegado": "No tiene permiso para consultar las bolsas de esta categoría.",
+    "ficha_llamamiento_bolsa_reintentar": "Reintentar comprobación de bolsa",
     "ficha_detalle_tecnico": "Ver detalle técnico",
     "ficha_detalle_flujo": "Flujo",
     "ficha_detalle_version": "Versión del expediente",
@@ -112,6 +116,8 @@
     "centro_visible": "Centro con código {numero}",
     "alta_solo_sustituciones": "Puede registrar sustituciones. Las demás necesidades todavía no están disponibles.",
     "necesidades_alta_no_disponibles_titulo": "No se han podido cargar las necesidades",
-    "necesidades_alta_no_disponibles_detalle": "Vuelva a intentarlo. Si el problema continúa, avise a Informática."
+    "necesidades_alta_no_disponibles_detalle": "Vuelva a intentarlo. Si el problema continúa, avise a Informática.",
+    "lista_centro_nombre_no_disponible": "Nombre del centro no disponible",
+    "lista_categoria_nombre_no_disponible": "Nombre de la categoría no disponible"
   }
 }

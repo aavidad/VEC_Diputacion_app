@@ -31,7 +31,7 @@ export function renderizarBorradoresPublicados({ estado = "cargando", catalogo =
 }
 
 export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClienteBorradoresPublicados(),
-  entornoDescarga = globalThis, anunciar = () => {}, alEstado = () => {} } = {}) {
+  entornoDescarga = globalThis, anunciar = () => {} } = {}) {
   if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
     || typeof cliente?.consultarDisponibles !== "function" || typeof cliente?.descargar !== "function"
     || typeof anunciar !== "function") throw new TypeError("montaje de borradores publicados no válido");
@@ -48,9 +48,8 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
   let urlDocumento = null;
   let revocacion = null;
   const pintar = () => { if (montado) {
-    raiz.hidden = estado === "ausente";
-    raiz.innerHTML = estado === "ausente" ? "" : renderizarBorradoresPublicados({ estado, catalogo, ayudaAbierta, mensaje, mensajeError, ocupado });
-    alEstado(estado);
+    raiz.hidden = false;
+    raiz.innerHTML = renderizarBorradoresPublicados({ estado, catalogo, ayudaAbierta, mensaje, mensajeError, ocupado });
   } };
   const liberarURL = () => { clearTimeout(revocacion); revocacion = null;
     if (urlDocumento) entornoDescarga.URL?.revokeObjectURL?.(urlDocumento); urlDocumento = null; };
@@ -68,7 +67,7 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
       catalogo = datos; estado = "lista";
     } catch (error) {
       if (!montado || signal.aborted || secuencia !== actual) return;
-      estado = error?.estado === 404 ? "ausente" : [401, 403].includes(error?.estado) ? "denegado"
+      estado = [401, 403].includes(error?.estado) ? "denegado"
         : error?.estado === 409 ? "conflicto" : "error";
     } finally { if (montado && secuencia === actual) { controlador = null; pintar(); } }
   }
