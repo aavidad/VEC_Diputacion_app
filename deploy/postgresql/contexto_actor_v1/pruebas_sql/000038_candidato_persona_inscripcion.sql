@@ -262,3 +262,69 @@ END
 $comprobar_cruce$;
 COMMIT;
 \echo CA38-PRUEBA-CRUCE-INTERNO-EXTERNO-OK
+
+-- Dos personas que reclaman un mismo can_* no reciben referencia alguna,
+-- tanto si ambas son internas como si una procede de CTX15.
+\connect postgres postgres
+BEGIN;
+SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+INSERT INTO vec_contexto_actor_v1.persona_versiones
+    (persona_ref, version, procedencia_ref, procedencia_version,
+     procedencia_huella_sha256, procedencia_autoridad, estado,
+     vigente_desde, vigente_hasta)
+SELECT nombre, 1, 'prc_ca38_sintetica_00000000000001', 1,
+       repeat('a', 64), 'autoridad_maestra_acreditada', 'activo',
+       clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour'
+  FROM (VALUES
+    ('per_ca38_dup_interno_a_0000000001'),
+    ('per_ca38_dup_interno_b_0000000001'),
+    ('per_ca38_dup_externo_i_0000000001')
+  ) AS personas(nombre);
+INSERT INTO vec_contexto_actor_v1.persona_actual(persona_ref, version)
+SELECT persona_ref, version FROM vec_contexto_actor_v1.persona_versiones
+ WHERE persona_ref LIKE 'per_ca38_dup_%';
+INSERT INTO vec_contexto_actor_v1.vinculo_referencia_versiones
+    (vinculo_ref, version, persona_ref, tipo, referencia,
+     procedencia_ref, procedencia_version, procedencia_huella_sha256,
+     procedencia_autoridad, estado, vigente_desde, vigente_hasta)
+SELECT vinculo_ref, 1, persona_ref, 'candidato', candidato_ref,
+       'prc_ca38_sintetica_00000000000001', 1, repeat('a', 64),
+       'autoridad_maestra_acreditada', 'activo',
+       clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour'
+  FROM (VALUES
+    ('vin_ca38_dup_interno_a_0000000001',
+     'per_ca38_dup_interno_a_0000000001',
+     'can_ca38_dup_interno_00000000001'),
+    ('vin_ca38_dup_interno_b_0000000001',
+     'per_ca38_dup_interno_b_0000000001',
+     'can_ca38_dup_interno_00000000001'),
+    ('vin_ca38_dup_externo_i_0000000001',
+     'per_ca38_dup_externo_i_0000000001',
+     'can_ca38_externo_0000000000000001')
+  ) AS vinculos(vinculo_ref, persona_ref, candidato_ref);
+INSERT INTO vec_contexto_actor_v1.vinculo_referencia_actual(vinculo_ref, version)
+SELECT vinculo_ref, version FROM vec_contexto_actor_v1.vinculo_referencia_versiones
+ WHERE vinculo_ref LIKE 'vin_ca38_dup_%';
+COMMIT;
+
+\connect postgres vec_bolsa_llamamientos_desarrollo
+BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
+DO $duplicados_globales$
+DECLARE persona text; r jsonb;
+BEGIN
+    FOREACH persona IN ARRAY ARRAY[
+        'per_ca38_dup_interno_a_0000000001',
+        'per_ca38_dup_interno_b_0000000001',
+        'per_ca38_dup_externo_i_0000000001',
+        'per_ca38_externa_0000000000000001'
+    ] LOOP
+        r := vec_bolsa_llamamientos.probar_ca38_v1(persona);
+        IF r IS DISTINCT FROM '{"estado":"ambiguo"}'::jsonb THEN
+            RAISE EXCEPTION 'CA38: can_* compartido divulgado para %: %',
+                persona, r;
+        END IF;
+    END LOOP;
+END
+$duplicados_globales$;
+COMMIT;
+\echo CA38-PRUEBA-CANDIDATO-GLOBAL-UNICO-OK
