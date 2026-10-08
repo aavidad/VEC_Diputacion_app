@@ -71,7 +71,8 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     let ficha = "";
     if (detalle) {
       const opciones = motivos?.motivos?.map((m) => `<option value="${esc(m.codigo)}" ${intento?.motivoCodigo === m.codigo ? "selected" : ""}>${esc(m.etiqueta)}</option>`).join("") || "";
-      const selector = decision && motivos?.motivos?.length ? `<label for="inscripcion-motivo">${et("motivo")}</label><select id="inscripcion-motivo" data-inscripcion-motivo ${decision === "rechazar" ? "required" : ""}><option value="">${et("sin_motivo")}</option>${opciones}</select>` : "";
+      const exigeMotivo = decision === "rechazar" || motivos?.motivos?.some((m) => m.obligatorio);
+      const selector = decision && motivos?.motivos?.length ? `<label for="inscripcion-motivo">${et("motivo")}</label><select id="inscripcion-motivo" data-inscripcion-motivo ${exigeMotivo ? "required" : ""}><option value="">${et("sin_motivo")}</option>${opciones}</select>` : "";
       const sinMotivos = decision === "rechazar" && !motivos?.motivos?.length;
       const requisitosNoResueltos = detalle.requisitos?.some((r) => r.obligatorio && r.estado !== "cumple") ?? true;
       const requisitos = `<section aria-labelledby="inscripcion-requisitos"><h4 id="inscripcion-requisitos">${et("requisitos")}</h4><ul>${(detalle.requisitos || []).map((r) => `<li>${esc(r.descripcion)} — ${et(`requisito_${r.estado}`)}${r.motivo_etiqueta ? ` · ${esc(r.motivo_etiqueta)}` : ""}${r.hito_etiqueta ? ` · ${esc(r.hito_etiqueta)}` : ""}</li>`).join("")}</ul></section>`;
