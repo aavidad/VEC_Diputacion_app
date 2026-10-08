@@ -133,7 +133,8 @@
 812 deploy/postgresql/autorizacion/migraciones/000024_actos_admin_centrales_v1.up.sql
 1226 deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027_pg18.sh
 810 deploy/postgresql/contratacion_temporal/migraciones/000172_firma_pdf_revision_v2.up.sql
-1880 deploy/postgresql/contratacion_temporal/migraciones/000193_necesidad_catalogada_alta_v3.up.sql
+1887 deploy/postgresql/contratacion_temporal/migraciones/000193_necesidad_catalogada_alta_v3.up.sql
+909 deploy/postgresql/contratacion_temporal/probar_ct193_e3_postgresql18.sh
 1196 scripts/recorridos/propuesta_firma/recorrer.py
 2917 deploy/postgresql/autorizacion_atestada_v3/migraciones/000218_carga_convoca_bolsa.up.sql
 840 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
