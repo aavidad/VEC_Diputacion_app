@@ -17,8 +17,7 @@ func ProyectarReglasConAjustes(
 		return nil, ErrReglasNoDisponibles
 	}
 	base, err := catalogo.ClonarCanonico()
-	if err != nil || !catalogoVigenteEn(base, instante.UTC()) ||
-		base.ID != CatalogoContratacionTemporal {
+	if err != nil || !catalogoVigenteEn(base, instante.UTC()) {
 		return nil, ErrReglasNoDisponibles
 	}
 	huella, err := base.HuellaSHA256()
