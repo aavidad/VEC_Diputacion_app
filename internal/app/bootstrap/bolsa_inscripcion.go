@@ -250,11 +250,6 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 			return vacio, inscripcion.ErrAccesoDenegado
 		}
 	} else if empleado {
-		for _, identidad := range c.RRHH {
-			if acreditacion.CertificadoHuellaSHA256 == identidad.identidad.principal.Attributes["certificate_sha256"] {
-				return vacio, inscripcion.ErrAccesoDenegado
-			}
-		}
 		if ctx.Resultado.Validar() != nil || ctx.Vinculo.ValidarPara(ctx.Resultado) != nil {
 			return vacio, inscripcion.ErrSesionAusente
 		}

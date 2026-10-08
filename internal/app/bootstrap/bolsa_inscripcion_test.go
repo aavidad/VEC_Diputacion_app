@@ -304,7 +304,7 @@ func TestInscripcionBolsaEmpleadoNominalSinParticipacion(t *testing.T) {
 		SelectorCanalAspirante: selectorCanalInscripcionPrueba{canal: "interna_corporativa"},
 		AcreditadorEmpleado:    acreditadorEmpleadoInscripcionPrueba{identidad: identidad},
 		RRHH: []identidadConsultaRRHHDesarrollo{{perfilRef: "prf_rrhh_nominal", identidad: identidadCertificadoDesarrollo{
-			principal: vecdomain.Principal{Attributes: map[string]string{"certificate_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}}}}},
+			principal: vecdomain.Principal{Attributes: map[string]string{"certificate_sha256": acreditacion.CertificadoHuellaSHA256}}}}},
 		Autoridad: autoridadInscripcionPrueba{}, Reloj: relojContratacionTemporalDesarrollo{}}
 	p, err := NuevoPreparadorInscripcionBolsa(c)
 	if err != nil {
@@ -316,15 +316,17 @@ func TestInscripcionBolsaEmpleadoNominalSinParticipacion(t *testing.T) {
 	if err != nil || a.PersonaRef != identidad.PersonaRef || a.Canal != "interna_corporativa" || a.Lectura == nil {
 		t.Fatalf("empleado sin participación: %v", err)
 	}
-	c.RRHH[0].identidad.principal.Attributes["certificate_sha256"] = acreditacion.CertificadoHuellaSHA256
+	// El mismo certificado RRHH actúa como empleado sólo con perfil activo
+	// ordinario distinto y concesión nominal de la acción propia.
+	c.RRHH[0].perfilRef = identidad.PerfilRef
 	p, err = NuevoPreparadorInscripcionBolsa(c)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := p.PrepararLecturaAspirante(r, inscripcion.AccionListarPropias, "", filtro, "es"); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
-		t.Fatalf("RRHH usó la rama empleado: %v", err)
+		t.Fatalf("perfil RRHH usó la rama empleado: %v", err)
 	}
-	c.RRHH[0].identidad.principal.Attributes["certificate_sha256"] = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+	c.RRHH[0].perfilRef = "prf_rrhh_nominal"
 	c.AcreditadorEmpleado = acreditadorEmpleadoInscripcionPrueba{identidad: AcreditacionEmpleadoInscripcionBolsa{
 		EmpleadoRef: "emp_ajeno", PersonaRef: identidad.PersonaRef, PerfilRef: identidad.PerfilRef,
 		CuentaRef: identidad.CuentaRef, ValidaHasta: ahora.Add(time.Minute)}}
