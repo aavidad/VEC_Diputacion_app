@@ -161,26 +161,26 @@ func montarServicioIdentidadCertificado(
 	cfg Configuracion, claveID string, firmante crypto.Signer,
 	rutaRegistro string, politicaRef, huellaPolitica string,
 	sesiones httpseguridad.RegistroSesiones,
-) (*httpseguridad.ServicioIdentidad, extractorAsercionInstitucional, error) {
+) (*httpseguridad.ServicioIdentidad, extractorAsercionInstitucional, *registroCertificadosPersonales, error) {
 	if interfazNulaIdentidadOffline(sesiones) {
-		return nil, nil, ErrCertificadoPersonalNoDisponible
+		return nil, nil, nil, ErrCertificadoPersonalNoDisponible
 	}
 	registro, err := identidadcertificado.NuevoRegistro(rutaRegistro)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	lista, err := registro.LeerCRLActual()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	caPEM, err := leerFicheroTLSSeguro(cfg.AutoridadClientesTLS, false)
 	if err != nil {
-		return nil, nil, ErrCertificadoPersonalNoDisponible
+		return nil, nil, nil, ErrCertificadoPersonalNoDisponible
 	}
 	autoridades, err := certificadosPEMEstrictos(caPEM)
 	limpiarBytesPropios(caPEM)
 	if err != nil || len(autoridades) == 0 {
-		return nil, nil, ErrCertificadoPersonalNoDisponible
+		return nil, nil, nil, ErrCertificadoPersonalNoDisponible
 	}
 	ahora := time.Now().UTC()
 	crlValida := false
@@ -192,21 +192,21 @@ func montarServicioIdentidadCertificado(
 		}
 	}
 	if !crlValida {
-		return nil, nil, ErrCertificadoPersonalNoDisponible
+		return nil, nil, nil, ErrCertificadoPersonalNoDisponible
 	}
 	extractor, verificador, evaluador, err := nuevaAsercionCertificadoPersonal(
 		cfg, claveID, firmante, registro, politicaRef, huellaPolitica,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	servicio, err := httpseguridad.NuevoServicioIdentidad(
 		cfg.configuracionSuperficie(), verificador, evaluador, sesiones, nil,
 	)
 	if err != nil {
-		return nil, nil, ErrCertificadoPersonalNoDisponible
+		return nil, nil, nil, ErrCertificadoPersonalNoDisponible
 	}
-	return servicio, extractor, nil
+	return servicio, extractor, registro, nil
 }
 
 func (e *extractorCertificadoPersonalDirecto) ExtraerAsercionProtegida(r *http.Request) ([]byte, error) {
