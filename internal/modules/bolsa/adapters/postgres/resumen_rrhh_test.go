@@ -16,7 +16,7 @@ import (
 )
 
 type contadorConsultasResumenRRHH struct {
-	situaciones, politicas, llamamientos atomic.Int64
+	situaciones, politicas, llamamientos, lista atomic.Int64
 }
 
 func (c *contadorConsultasResumenRRHH) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
@@ -28,6 +28,9 @@ func (c *contadorConsultasResumenRRHH) TraceQueryStart(ctx context.Context, _ *p
 	}
 	if strings.Contains(data.SQL, "leer_llamamientos_en_curso_bolsas_v1") {
 		c.llamamientos.Add(1)
+	}
+	if strings.Contains(data.SQL, "leer_llamamientos_completos_resumen_v1") {
+		c.lista.Add(1)
 	}
 	return ctx
 }
@@ -46,6 +49,9 @@ func TestLectorResumenBolsasFallaCerradoSinBase(t *testing.T) {
 	}
 	if _, err := NuevoLectorResumenBolsasPostgreSQL(nil); err == nil {
 		t.Fatal("pool nulo aceptado")
+	}
+	if _, err := NuevoLectorResumenBolsasConLlamamientosPostgreSQL(context.Background(), nil); err == nil {
+		t.Fatal("pool nulo aceptado en lector B94")
 	}
 }
 
@@ -77,6 +83,9 @@ func TestLectorResumenBolsasCoincideConLecturasIndividualesPostgreSQL(t *testing
 	filas, politicas := resumen.Situaciones, resumen.Politicas
 	if err != nil || len(filas) == 0 {
 		t.Fatalf("resumen: %d filas, %v", len(filas), err)
+	}
+	if resumen.Llamamientos != nil {
+		t.Fatal("lector legado debe distinguir la lista B94 no montada")
 	}
 	if consultas.situaciones.Load() != 1 || consultas.politicas.Load() != 1 || consultas.llamamientos.Load() != 1 {
 		t.Fatalf("consultas por petición: situaciones=%d políticas=%d recuentos=%d",
@@ -139,6 +148,51 @@ func TestLectorResumenBolsasCoincideConLecturasIndividualesPostgreSQL(t *testing
 		}
 	}
 	t.Logf("%d participaciones (%d con cese), %d políticas", len(filas), conCese, len(politicas))
+}
+
+// En un clon con B94 instalada y el rol ejecutor, la lista y B85 han de
+// corresponder a la misma instantánea y ocupar una cuarta consulta de conjunto.
+func TestLectorResumenBolsasConLlamamientosPostgreSQL(t *testing.T) {
+	dsn := os.Getenv("VEC_BOLSA_LOTES_PG_DSN")
+	if dsn == "" {
+		t.Skip("sin VEC_BOLSA_LOTES_PG_DSN")
+	}
+	ctx := context.Background()
+	config, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consultas := &contadorConsultasResumenRRHH{}
+	config.ConnConfig.Tracer = consultas
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	lector, err := NuevoLectorResumenBolsasConLlamamientosPostgreSQL(ctx, pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumen, err := lector.LeerResumen(ctx, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resumen.Llamamientos == nil {
+		t.Fatal("lista B94 montada devuelta como nil")
+	}
+	if consultas.situaciones.Load() != 1 || consultas.politicas.Load() != 1 || consultas.llamamientos.Load() != 1 || consultas.lista.Load() != 1 {
+		t.Fatalf("consultas por petición: situaciones=%d políticas=%d recuentos=%d lista=%d",
+			consultas.situaciones.Load(), consultas.politicas.Load(), consultas.llamamientos.Load(), consultas.lista.Load())
+	}
+	porBolsa := map[string]int{}
+	for _, fila := range resumen.Llamamientos {
+		porBolsa[fila.BolsaRef]++
+	}
+	for bolsa, total := range resumen.LlamamientosEnCurso {
+		if porBolsa[bolsa] != total {
+			t.Fatalf("lista y recuento distintos para %s", bolsa)
+		}
+	}
 }
 
 // La medición explícita usa el mismo lector de producción y exige un clon con
