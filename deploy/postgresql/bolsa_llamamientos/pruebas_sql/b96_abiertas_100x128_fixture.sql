@@ -99,28 +99,71 @@ BEGIN
   RAISE NOTICE 'B96 perf128 SQL limite=% bytes=% p95_ms=%',limite,bytes,round(p95,3);
  END LOOP;
 END $medir$;
--- Una categoría faltante en el catálogo versionado no desaparece del total,
--- pero tampoco permite presentar desde la tarjeta. El detalle falla cerrado.
-DELETE FROM vec_catalogos_configurables.entrada_publicada
- WHERE catalogo_id='bolsa.categorias.inscripcion' AND version=1
-  AND categoria_id='cat.128';
-DO $categoria_ausente$
-DECLARE raw jsonb;pagina jsonb;detalle jsonb;ref text;
+-- Publicación nueva e inmutable: la categoría 128 existe, pero su etiqueta ES
+-- (201 bytes, admitida por CC1) no cabe en el contrato visible de inscripción.
+-- Nunca se altera una entrada ya publicada para construir el adversarial.
+DO $catalogo_incompatible$
+DECLARE id text:='proceso:bolsa:perf128:incompatible';
+ catalogo text:='bolsa.categorias.inscripcion.incompatible';
+ documento text:='{"id":"bolsa.categorias.inscripcion.incompatible","version":1}';
+ huella text; canon jsonb; bytes bytea;
 BEGIN
- raw:=vec_bolsa_convocatorias.listar_abiertas_inscripcion_v1(NULL,100);
- pagina:=vec_bolsa_llamamientos.proyectar_abiertas_inscripcion_interna_v1(
-  raw,'per_'||repeat('a',22),'es','certificado','alto',true);
- IF pagina->>'total'<>'100' OR jsonb_array_length(pagina->'convocatorias')<>100
- OR pagina#>>'{convocatorias,0,puede_iniciar}'<>'false'
- OR pagina#>>'{convocatorias,0,impedimento_etiqueta}'<>'No disponible ES'
- THEN RAISE EXCEPTION 'B96: catálogo incompleto ofertado o fila omitida %',pagina; END IF;
- ref:=pagina#>>'{convocatorias,0,convocatoria_ref}';
+ huella:=encode(sha256(convert_to(documento,'UTF8')),'hex');
+ INSERT INTO vec_catalogos_configurables.publicacion(
+  catalogo_id,version,huella_sha256,documento_canonico,preimagenes_control,
+  preimagenes_huella_sha256,aprobacion_a_ref,aprobacion_b_ref,actor_ref,decision_ref,recibo_ref)
+ VALUES(catalogo,1,huella,documento,'{}',
+  encode(sha256(convert_to('{}','UTF8')),'hex'),'aprobacion:cat:incompatible:a',
+  'aprobacion:cat:incompatible:b','actor:b96','decision:cat:incompatible','recibo:cat:incompatible');
+ INSERT INTO vec_catalogos_configurables.entrada_publicada(
+  catalogo_id,version,huella_sha256,categoria_id,etiqueta,definicion)
+ SELECT catalogo,1,huella,categoria_id,
+  CASE WHEN categoria_id='cat.128' THEN repeat('x',201) ELSE etiqueta END,
+  CASE WHEN categoria_id='cat.128' THEN '{}'::jsonb ELSE definicion END
+ FROM vec_catalogos_configurables.entrada_publicada
+ WHERE catalogo_id='bolsa.categorias.inscripcion' AND version=1;
+ SELECT convert_from(version_canonica,'UTF8')::jsonb INTO STRICT canon
+ FROM vec_bolsa_convocatorias.version_convocatoria
+ WHERE convocatoria_id='proceso:bolsa:perf128:001' AND secuencia=1;
+ canon:=jsonb_set(canon,'{id}',to_jsonb(id));
+ canon:=jsonb_set(canon,'{contenido,identificador_publico}',to_jsonb('perf128-incompatible'::text));
+ canon:=jsonb_set(canon,'{contenido,catalogo_categorias,catalogo_id}',to_jsonb(catalogo));
+ canon:=jsonb_set(canon,'{contenido,catalogo_categorias,catalogo_huella_sha256}',to_jsonb(huella));
+ canon:=jsonb_set(canon,'{aprobacion_publicacion,convocatoria_ref}',to_jsonb(id||'#1'));
+ canon:=jsonb_set(canon,'{comprobacion_dependencias,convocatoria_ref}',to_jsonb(id||'#1'));
+ bytes:=convert_to(canon::text,'UTF8');
+ INSERT INTO vec_bolsa_convocatorias.version_convocatoria(
+  convocatoria_id,secuencia,referencia,estado,version_canonica,huella_version_sha256,registrada_en)
+ VALUES(id,1,id||'#1','publicada',bytes,encode(sha256(bytes),'hex'),clock_timestamp());
+END $catalogo_incompatible$;
+DO $categoria_incompatible$
+DECLARE raw jsonb;pagina jsonb;detalle jsonb;ref text;cursor text;tarjeta jsonb;
+ intento integer;
+BEGIN
+ ref:='cv1_'||encode(sha256(convert_to(
+  'proceso:bolsa:perf128:incompatible','UTF8')),'hex')||'_v1';
+ FOR intento IN 1..2 LOOP
+  raw:=vec_bolsa_convocatorias.listar_abiertas_inscripcion_v1(cursor,100);
+  pagina:=vec_bolsa_llamamientos.proyectar_abiertas_inscripcion_interna_v1(
+   raw,'per_'||repeat('a',22),'es','certificado','alto',true);
+  IF pagina->>'total'<>'101' THEN
+   RAISE EXCEPTION 'B96: total cambió al hallar categoría incompatible %',pagina->>'total';
+  END IF;
+  SELECT valor INTO tarjeta FROM jsonb_array_elements(pagina->'convocatorias') AS x(valor)
+   WHERE valor->>'convocatoria_ref'=ref;
+  EXIT WHEN FOUND;
+  cursor:=raw->>'siguiente_cursor';
+  EXIT WHEN cursor IS NULL;
+ END LOOP;
+ IF tarjeta IS NULL OR tarjeta->>'puede_iniciar' IS DISTINCT FROM 'false'
+ OR tarjeta->>'impedimento_etiqueta' IS DISTINCT FROM 'No disponible ES'
+ THEN RAISE EXCEPTION 'B96: categoría incompatible ofertada o fila omitida %',tarjeta; END IF;
  detalle:=vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(ref);
  BEGIN
   PERFORM vec_bolsa_llamamientos.proyectar_abiertas_inscripcion_interna_v1(
    detalle,'per_'||repeat('a',22),'es','certificado','alto',false);
-  RAISE EXCEPTION 'B96: detalle aceptó categoría sin catálogo';
+  RAISE EXCEPTION 'B96: detalle aceptó etiqueta incompatible';
  EXCEPTION WHEN SQLSTATE 'B9601' THEN NULL;
  END;
-END $categoria_ausente$;
+END $categoria_incompatible$;
 ROLLBACK;
