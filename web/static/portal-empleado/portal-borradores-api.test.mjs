@@ -114,19 +114,19 @@ test("POST rechaza cualquier éxito sin 201, ETag y Location canónica concordan
   const location = "/api/vec/bolsa/convocatorias/borradores/convocatoria%3Aexterna%3A2026/versiones/1";
   await assert.rejects(
     ejecutarCon({ estado: 200, etag: recibo("crear").etag, location }),
-    /HTTP 200/,
+    /operación del borrador \(200\)/,
   );
   await assert.rejects(
     ejecutarCon({ estado: 201, etag: recibo("crear").etag }),
-    /Location no corresponde/,
+    /No se ha podido abrir el borrador creado/,
   );
   await assert.rejects(
     ejecutarCon({ estado: 201, etag: recibo("crear").etag, location: `${location}/otra` }),
-    /Location no corresponde/,
+    /No se ha podido abrir el borrador creado/,
   );
   await assert.rejects(
     ejecutarCon({ estado: 201, location }),
-    /ETag obligatorio/,
+    /No se ha podido comprobar la versión de los datos/,
   );
 });
 
@@ -192,15 +192,15 @@ test("PUT distingue 409 idempotencia y 412 CAS sin alterar cambios locales", asy
 
 test("cliente falla cerrado ante JSON, ETag o selector no canónicos", async () => {
   const sinETag = crearClienteBorradores({ fetchImpl: async () => respuestaJSON(detalle()) });
-  await assert.rejects(sinETag.obtenerDetalle("convocatoria:externa:2026#1", limites()), /ETag obligatorio/);
+  await assert.rejects(sinETag.obtenerDetalle("convocatoria:externa:2026#1", limites()), /No se ha podido comprobar la versión de los datos/);
   const etagDistinto = crearClienteBorradores({
     fetchImpl: async () => respuestaJSON(detalle(), { etag: '"otro-etag"' }),
   });
-  await assert.rejects(etagDistinto.obtenerDetalle("convocatoria:externa:2026#1", limites()), /no es canónica/);
+  await assert.rejects(etagDistinto.obtenerDetalle("convocatoria:externa:2026#1", limites()), /No se ha podido comprobar la versión de los datos/);
   const noJSON = crearClienteBorradores({
     fetchImpl: async () => new Response("texto", { status: 200, headers: { "content-type": "text/plain" } }),
   });
-  await assert.rejects(noJSON.obtenerOpciones(), /no respondió con JSON/);
+  await assert.rejects(noJSON.obtenerOpciones(), /No se han podido leer los datos del borrador/);
   const cliente = crearClienteBorradores({ fetchImpl: async () => respuestaJSON(lista()) });
   await assert.rejects(cliente.listar({ limite: 51 }), /Selector de listado no válido/);
 
@@ -237,7 +237,7 @@ test("cliente falla cerrado ante JSON, ETag o selector no canónicos", async () 
   });
   await assert.rejects(
     cabecerasRotas.obtenerOpciones(),
-    (error) => error instanceof ErrorAPIBorradores && /cabeceras seguras/.test(error.message),
+    (error) => error instanceof ErrorAPIBorradores && /No se ha podido preparar la solicitud/.test(error.message),
   );
 
   const envelopeRaw = crearClienteBorradores({
@@ -327,7 +327,7 @@ test("streaming admite 4 MiB exactos y rechaza el byte siguiente", async () => {
     clienteExacto.obtenerOpciones(),
     (error) => error instanceof ErrorAPIBorradores
       && error.estado === 200
-      && /JSON no válido/.test(error.message),
+      && /No se han podido leer los datos del borrador/.test(error.message),
     "el límite exacto llega al parser; no se clasifica como exceso",
   );
   assert.equal(exacta.traza.cancelacionesCuerpo, 1);
@@ -395,7 +395,7 @@ test("UTF-8 inválido cancela lector y conserva la causa fatal", async () => {
   await assert.rejects(
     cliente.obtenerOpciones(),
     (error) => error instanceof ErrorAPIBorradores
-      && /UTF-8 válido/.test(error.message)
+      && /No se han podido leer los datos/.test(error.message)
       && error.cause instanceof TypeError,
   );
   assert.ok(controlada.traza.cancelacionesLector >= 1);

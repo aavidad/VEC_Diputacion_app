@@ -1,7 +1,7 @@
 {
   "general": {
     "demo_titulo": "VEC · Prueba de recuperación de firmas",
-    "demo_aviso": "Prueba de interfaz con datos sintéticos. No consulta una firma real.",
+    "demo_aviso": "Pantalla de ejemplo. Los datos mostrados no corresponden a una firma real.",
     "titulo": "Firmas registradas",
     "descripcion": "Consulte el registro histórico de firmas de este documento.",
     "limite": "Esta consulta no comprueba la vigencia actual del certificado ni acredita por sí sola efectos legales.",
@@ -19,11 +19,11 @@
     "recibo": "Recibo",
     "fecha": "Fecha del registro",
     "paso": "Paso",
-    "detalle_tecnico": "Ver referencias y huellas",
+    "detalle_tecnico": "Ver datos de comprobación",
     "firma_ref": "Referencia de firma",
-    "revision_sha256": "Huella de la revisión",
-    "material_root_sha256": "Huella del material original",
-    "canon_nominal_sha256": "Huella de la acreditación nominal histórica",
+    "revision_sha256": "Código de comprobación de la revisión",
+    "material_root_sha256": "Código de comprobación del documento original",
+    "canon_nominal_sha256": "Código de comprobación de la acreditación anterior",
     "canon_nominal_ref": "Referencia de la acreditación histórica"
   }
 }

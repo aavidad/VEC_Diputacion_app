@@ -39,7 +39,7 @@ test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () =>
   const configuracion = renderizar();
   assert.match(configuracion, /name="plazo" required minlength="2" maxlength="160" value=""/);
   assert.doesNotMatch(configuracion, /no presupone un plazo legal|no acreditan entrega/);
-  assert.match(traducirPortal("ayuda_b7_configurar_limite"), /no presupone un plazo legal.*no acreditan la entrega/);
+  assert.match(traducirPortal("ayuda_b7_configurar_limite"), /RRHH debe indicar el plazo aplicable.*compruebe.*aviso se ha enviado y entregado/);
   assert.doesNotMatch(configuracion, /48 horas|relay de desarrollo|Recorrido real B7/);
   flujo.configuracion = { plazo: "Pendiente de definición por RRHH" };
   assert.match(renderizar(), /name="plazo" required minlength="2" maxlength="160" value=""/);
