@@ -21,7 +21,7 @@ CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_aju
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,
  consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
-LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
  SELECT 'decision:prueba:'||gen_random_uuid()::text,'vec.contratacion_temporal.reglas',repeat('a',64),
   encode(sha256(convert_to(gen_random_uuid()::text,'UTF8')),'hex'),
   'auditoria:prueba:'||gen_random_uuid()::text,clock_timestamp(),true

@@ -196,12 +196,29 @@ CREATE TRIGGER fase_entrada_instantanea_regla AFTER INSERT
 ON vec_contratacion_temporal.fase_entrada_publicacion_rrhh FOR EACH ROW
 EXECUTE FUNCTION vec_contratacion_temporal.registrar_instantanea_fase_regla_v1();
 
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE
+ON vec_contratacion_temporal.regla_base_publicada_v1 FOR EACH ROW
+EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER historia_no_truncar BEFORE TRUNCATE
+ON vec_contratacion_temporal.regla_base_publicada_v1 FOR EACH STATEMENT
+EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE
+ON vec_contratacion_temporal.regla_base_activacion_v1 FOR EACH ROW
+EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER historia_no_truncar BEFORE TRUNCATE
+ON vec_contratacion_temporal.regla_base_activacion_v1 FOR EACH STATEMENT
+EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE
+ON vec_contratacion_temporal.fase_regla_instantanea_v1 FOR EACH ROW
+EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER historia_no_truncar BEFORE TRUNCATE
+ON vec_contratacion_temporal.fase_regla_instantanea_v1 FOR EACH STATEMENT
+EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+
 DO $proteccion$
 DECLARE tabla text; r record;
 BEGIN
  FOREACH tabla IN ARRAY ARRAY['regla_base_publicada_v1','regla_base_activacion_v1','fase_regla_instantanea_v1'] LOOP
-  EXECUTE format('CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_contratacion_temporal.%I FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1()',tabla);
-  EXECUTE format('CREATE TRIGGER historia_no_truncar BEFORE TRUNCATE ON vec_contratacion_temporal.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1()',tabla);
   EXECUTE format('ALTER TABLE vec_contratacion_temporal.%I ENABLE ROW LEVEL SECURITY',tabla);
   EXECUTE format('ALTER TABLE vec_contratacion_temporal.%I FORCE ROW LEVEL SECURITY',tabla);
   EXECUTE format('CREATE POLICY propietario_total ON vec_contratacion_temporal.%I TO vec_contratacion_temporal_propietario USING (true) WITH CHECK (true)',tabla);
