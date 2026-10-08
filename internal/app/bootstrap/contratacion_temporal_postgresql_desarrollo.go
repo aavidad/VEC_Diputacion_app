@@ -113,6 +113,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialDatosContacto                   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaDatosContacto           *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialEmision                         *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialCargaConvoca                    *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialPoliticaOfertas                 *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaPoliticaOfertas         *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialAuditoriaCT                     *proveedorMaterialAltaContratacionTemporalDesarrollo

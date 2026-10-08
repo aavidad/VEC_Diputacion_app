@@ -262,6 +262,25 @@ func TestManejadorAltaSinNumeroSoloSirveRecuperacionAcreditada(t *testing.T) {
 	}
 }
 
+func TestManejadorAltaNumeroMOADInvalidoIndicaCampoSinEjecutar(t *testing.T) {
+	cuerpo := bytes.Replace(cuerpoValidoPrueba(), []byte(`"numero_expediente_moad":"2026/5487"`),
+		[]byte(`"numero_expediente_moad":"R-20261008-1936"`), 1)
+	manejador, autoridad, ejecutor := nuevoEscenarioPrueba(t)
+	respuesta := ejecutarPeticionPrueba(t, manejador, nuevaPeticionPrueba(t, cuerpo))
+	var sobre envoltorioErrorAlta
+	if err := json.Unmarshal(respuesta.Body.Bytes(), &sobre); err != nil ||
+		respuesta.Code != http.StatusUnprocessableEntity ||
+		sobre.Error.Codigo != "contenido_no_valido" ||
+		sobre.Error.Campo != "numero_expediente_moad" ||
+		strings.Contains(respuesta.Body.String(), "R-20261008-1936") ||
+		autoridad.numeroLlamadas() != 0 {
+		t.Fatalf("rechazo MOAD inseguro: estado=%d cuerpo=%s", respuesta.Code, respuesta.Body.String())
+	}
+	if llamadas, _ := ejecutor.instantanea(); llamadas != 0 {
+		t.Fatalf("el alta inválida llegó al ejecutor: %d", llamadas)
+	}
+}
+
 func TestManejadorAltaConservaExitoConfirmadoTrasCancelacion(t *testing.T) {
 	manejador, _, ejecutor := nuevoEscenarioPrueba(t)
 	ejecutor.err = context.Canceled

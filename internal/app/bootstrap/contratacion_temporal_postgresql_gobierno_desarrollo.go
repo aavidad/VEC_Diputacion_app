@@ -279,6 +279,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaRecuperacionFirmasR5V2,
 		puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
+		puertosbolsa.AudienciaConfirmarCargaConvoca,
 		puertosbolsa.AudienciaCambiarSituacionParticipacion,
 		puertosbolsa.AudienciaConsultarReincorporacionTitular,
 		puertosbolsa.AudienciaRegistrarContactoParticipacion,

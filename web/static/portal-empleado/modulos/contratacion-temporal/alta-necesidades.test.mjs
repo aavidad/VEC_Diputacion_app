@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   crearBorradorAlta, crearComandoAlta, jornadaVisibleDesdeMinutos,
   minutosDesdeJornadaVisible, validarBorradorAlta, validarCatalogosAlta,
@@ -88,10 +89,168 @@ test("el número de personas lo aporta el usuario y viaja dentro de necesidad.ca
     const actual = borrador({ numero_personas: cuenta });
     const validacion = validarBorradorAlta(actual, catalogos());
     assert.equal(validacion.valido, false, cuenta);
-    assert.equal(validacion.errores.numero_personas,
-      cuenta === "" ? "texto_obligatorio" : "numero_personas", cuenta);
+    assert.equal(validacion.errores.numero_personas, "numero_personas", cuenta);
     assert.throws(() => crearComandoAlta(actual, catalogos(), CLAVE), undefined, cuenta);
   }
+});
+
+test("Alta explica los números y los códigos de la causa publicada sin alterar sus límites", async () => {
+  const actual = catalogos();
+  const obligatorios = ["organica_codigo", "funcional_codigo", "proyecto_gasto_codigo",
+    "porcentaje_financiacion", "justificacion_temporal"];
+  actual.necesidades.causas = actual.necesidades.causas.map((dato) => dato.clave === "acumulacion_tareas"
+    ? { ...dato, campos_permitidos: [...dato.campos_permitidos, ...obligatorios.filter(
+      (campo) => !dato.campos_permitidos.includes(campo))],
+    campos_obligatorios: [...dato.campos_obligatorios, ...obligatorios.filter(
+      (campo) => !dato.campos_obligatorios.includes(campo))] } : dato);
+  const completo = borrador({ motivo_clave: "acumulacion_tareas", organica_codigo: "151",
+    funcional_codigo: "920", proyecto_gasto_codigo: "P-1", porcentaje_financiacion: "100",
+    justificacion_temporal: "Tareas de refuerzo durante el periodo indicado." });
+  assert.equal(validarBorradorAlta(completo, actual).valido, true);
+  const vacio = { ...completo, numero_personas: "", organica_codigo: "", funcional_codigo: "",
+    proyecto_gasto_codigo: "", porcentaje_financiacion: "", justificacion_temporal: "" };
+  const errores = validarBorradorAlta(vacio, actual).errores;
+  assert.equal(errores.numero_personas, "numero_personas");
+  assert.equal(errores.porcentaje_financiacion, "porcentaje_financiacion");
+  assert.equal(errores.organica_codigo, "codigo_necesidad");
+  assert.equal(errores.funcional_codigo, "codigo_necesidad");
+  assert.equal(errores.proyecto_gasto_codigo, "codigo_necesidad");
+  assert.equal(errores.justificacion_temporal, "justificacion_temporal");
+  for (const porcentaje of ["0", "1.5", "100.0", "101", "-1", "abc"]) {
+    assert.equal(validarBorradorAlta({ ...completo, porcentaje_financiacion: porcentaje }, actual)
+      .errores.porcentaje_financiacion, "porcentaje_financiacion", porcentaje);
+  }
+  for (const porcentaje of ["1", "99", "100"]) {
+    assert.equal(validarBorradorAlta({ ...completo, porcentaje_financiacion: porcentaje }, actual).valido,
+      true, porcentaje);
+  }
+  for (const codigo of ["con espacios", "área", "x".repeat(81)]) {
+    assert.equal(validarBorradorAlta({ ...completo, organica_codigo: codigo }, actual)
+      .errores.organica_codigo, "codigo_necesidad", codigo);
+  }
+  for (const texto of ["", ` ${completo.justificacion_temporal}`, "x".repeat(4001)]) {
+    assert.equal(validarBorradorAlta({ ...completo, justificacion_temporal: texto }, actual)
+      .errores.justificacion_temporal, "justificacion_temporal");
+  }
+  const mensajes = await cargarMensajesNecesidadesAlta("es");
+  const presentador = crearPresentadorAltaContratacionTemporal({ catalogos: actual,
+    capacidad: "contratacion_temporal.solicitud.crear",
+    ejecutor: async () => { throw new Error("No se registra en esta prueba"); },
+    generarClaveIdempotencia: () => CLAVE });
+  assert.equal(presentador.prepararRevision(vacio), false);
+  const html = renderizarAltaContratacionTemporal(presentador.obtenerEstado(), { mensajes });
+  assert.match(html, /name="porcentaje_financiacion" type="number" min="1" max="100" step="1" inputmode="numeric" required/u);
+  assert.match(html, /id="ct-numero_personas-error">Indique un número entero de personas/u);
+  assert.match(html, /id="ct-porcentaje_financiacion-error">Indique un porcentaje entero entre 1 y 100/u);
+  assert.match(html, /id="ct-organica_codigo-error">Escriba un código de hasta 80 caracteres/u);
+  assert.match(html, /id="ct-justificacion_temporal-error">Explique las tareas temporales/u);
+  const ingles = renderizarAltaContratacionTemporal(presentador.obtenerEstado(),
+    { mensajes: await cargarMensajesNecesidadesAlta("en") });
+  assert.match(ingles, /id="ct-porcentaje_financiacion-error">Enter a whole percentage/u);
+});
+
+test("el número MOAD se comprueba con el patrón publicado y obliga a volver a editar", async () => {
+  const actual = catalogos();
+  const completo = borrador({ puesto_codigo: "217", rpt_catalogo_ref: "rpt-dipgra-2026",
+    rpt_catalogo_huella_sha256: HUELLA });
+  assert.equal(validarBorradorAlta(completo, actual).valido, true);
+  const incorrecto = { ...completo, numero_expediente_moad: "R-20261008-1936" };
+  assert.equal(validarBorradorAlta(incorrecto, actual).errores.numero_expediente_moad,
+    "numero_moad_formato");
+  assert.throws(() => crearComandoAlta(incorrecto, actual, CLAVE));
+  const mensajes = await cargarMensajesNecesidadesAlta("es");
+  const presentador = crearPresentadorAltaContratacionTemporal({ catalogos: actual,
+    capacidad: "contratacion_temporal.solicitud.crear",
+    ejecutor: async () => { throw new Error("No se registra en esta prueba"); },
+    generarClaveIdempotencia: () => CLAVE });
+  assert.equal(presentador.prepararRevision(completo), true);
+  const estado = { ...presentador.obtenerEstado(), errores: { numero_expediente_moad: "numero_moad_formato" },
+    mensaje_clave: "estado_numero_moad_no_valido", tipo_mensaje: "error" };
+  const html = renderizarAltaContratacionTemporal(estado, { mensajes });
+  assert.match(html, /El número de expediente MOAD no tiene el formato publicado/u);
+  assert.match(html, /data-ct-accion="volver"/u);
+  assert.doesNotMatch(html, /data-ct-accion="confirmar"/u);
+  assert.match(html, /Use el formato del ejemplo del número de expediente MOAD/u);
+});
+
+test("tras 422, salir y revisar sin cambiar MOAD conserva el error y no reenvía", async () => {
+  const inicial = catalogos();
+  const entrada = borrador({ puesto_codigo: "217", rpt_catalogo_ref: "rpt-dipgra-2026",
+    rpt_catalogo_huella_sha256: HUELLA });
+  let envios = 0;
+  const presentador = crearPresentadorAltaContratacionTemporal({ catalogos: inicial,
+    capacidad: "contratacion_temporal.solicitud.crear", generarClaveIdempotencia: () => CLAVE,
+    ejecutor: async () => {
+      envios++;
+      const error = new Error("causa privada");
+      Object.assign(error, { codigo: "contenido_no_valido", estado: 422,
+        campo: "numero_expediente_moad", envelopeValido: true });
+      throw error;
+    } });
+  assert.equal(presentador.prepararRevision(entrada), true);
+  assert.equal(await presentador.enviar(), null);
+  presentador.volverAEdicion();
+  const mensajes = await cargarMensajesNecesidadesAlta("es");
+  const escuchas = new Map();
+  const raiz = { innerHTML: "", addEventListener: (tipo, manejar) => escuchas.set(tipo, manejar),
+    removeEventListener: (tipo) => escuchas.delete(tipo), contains: () => true,
+    querySelector: () => null, setAttribute() {}, removeAttribute() {} };
+  const formularioDOM = { borrador: { ...entrada },
+    querySelector: (selector) => selector === '[name="jornada_horas"]' ? {} : null };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class {
+    constructor(formulario) { this.borrador = formulario.borrador; }
+    get(campo) {
+      if (campo === "jornada_horas") return "35:00";
+      if (campo === "rc_existe") return "no";
+      return this.borrador[campo] ?? null;
+    }
+    getAll(campo) { return campo === "documentos_adjuntos" ? this.borrador.documentos_adjuntos : []; }
+  };
+  let lecturas = 0;
+  const actualizados = catalogos();
+  actualizados.numero_expediente_moad = { ...actualizados.numero_expediente_moad,
+    version: 2, ejemplo: "2026/12346", patron: "^2026/12346$" };
+  const desmontar = montarAltaContratacionTemporal({ raiz, presentador,
+    cargarTextosNecesidades: async () => mensajes,
+    refrescarCatalogosAlta: async () => { lecturas++; return actualizados; } });
+  try {
+    await new Promise((resolver) => setImmediate(resolver));
+    const campo = { name: "numero_expediente_moad", value: entrada.numero_expediente_moad,
+      closest: () => formularioDOM };
+    escuchas.get("focusout")({ target: campo });
+    assert.equal(presentador.obtenerEstado().errores.numero_expediente_moad, "numero_moad_formato");
+    assert.match(raiz.innerHTML, /aria-invalid="true"/u);
+    await escuchas.get("submit")({ target: { closest: () => formularioDOM }, preventDefault() {} });
+    assert.equal(presentador.obtenerEstado().fase, "edicion");
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-accion="confirmar"/u);
+    assert.equal(envios, 1);
+    assert.equal(lecturas, 0);
+    formularioDOM.borrador.numero_expediente_moad = "2026/12346";
+    campo.value = "2026/12346";
+    escuchas.get("focusout")({ target: campo });
+    await escuchas.get("submit")({ target: { closest: () => formularioDOM }, preventDefault() {} });
+    assert.equal(lecturas, 1);
+    assert.equal(presentador.obtenerEstado().catalogos.numero_expediente_moad.version, 2);
+    assert.equal(presentador.obtenerEstado().fase, "revision");
+    assert.equal(envios, 1);
+  } finally {
+    desmontar();
+    globalThis.FormData = FormDataOriginal;
+  }
+});
+
+test("el patrón MOAD del catálogo nunca se ejecuta en el navegador", async () => {
+  const fuente = await readFile(new URL("./contrato.js", import.meta.url), "utf8");
+  assert.doesNotMatch(fuente, /new RegExp\s*\(/u);
+  const actual = catalogos();
+  actual.numero_expediente_moad.patron = "^([A-Za-z0-9._/-]+)+X$";
+  const entrada = borrador({ numero_expediente_moad: `2026/${"A".repeat(40)}`,
+    puesto_codigo: "217", rpt_catalogo_ref: "rpt-dipgra-2026",
+    rpt_catalogo_huella_sha256: HUELLA });
+  assert.equal(validarBorradorAlta(entrada, actual).valido, true);
+  assert.equal(validarBorradorAlta({ ...entrada, numero_expediente_moad: "R-20261008-1936" }, actual)
+    .errores.numero_expediente_moad, "numero_moad_formato");
 });
 
 test("la obligatoriedad de plaza procede del catálogo de la causa", () => {

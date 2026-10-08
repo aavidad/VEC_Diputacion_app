@@ -85,6 +85,7 @@ function estadoInicial(disponible, navegacion) {
     filtros: filtrosIniciales(),
     paginacion: null,
     paginacion_requiere_reinicio: false,
+    cuadro_desactualizado: false,
     ocupado: false,
     actualizacion_pendiente: false,
     resultado_indeterminado: false,
@@ -236,6 +237,7 @@ export function crearPresentadorExpedientesContratacionTemporal({
         cuadro,
         paginacion: cuadro.paginacion ?? null,
         paginacion_requiere_reinicio: false,
+        cuadro_desactualizado: false,
         expediente: conservarSeleccion ? estado.expediente : null,
         documentos: conservarSeleccion ? estado.documentos : null,
         auditoria: conservarSeleccion ? estado.auditoria : null,
@@ -378,6 +380,56 @@ export function crearPresentadorExpedientesContratacionTemporal({
     return estado;
   }
 
+  async function refrescarExpedienteConfirmado({ expediente_ref: expedienteRef,
+    version_resultante: versionResultante } = {}) {
+    exigirSinEfectoEnCurso();
+    const anterior = estado.expediente;
+    const consultaRealDelegada = estado.cuadro?.demostracion === false;
+    if (!disponible || desmontado || (!puedeConsultarExpediente && !consultaRealDelegada)
+      || estado.vista !== "expediente" || estado.carga !== "listo"
+      || anterior === null || expedienteRef !== anterior.expediente_ref
+      || !Number.isSafeInteger(versionResultante) || versionResultante < anterior.version) {
+      throw errorPublico("expediente_no_seleccionado");
+    }
+    cancelarEnCurso();
+    const operacion = secuencia;
+    controlador = new AbortController();
+    try {
+      const actualizado = proyectarAutorizacionVisual(
+        validarExpedienteContratacionTemporal(
+          await fuente.obtener(expedienteRef, { signal: controlador.signal }),
+        ),
+        concesionesVisuales,
+      );
+      if (desmontado || operacion !== secuencia) return estado;
+      if (actualizado.expediente_ref !== expedienteRef
+        || actualizado.numero_visible !== anterior.numero_visible
+        || actualizado.version < versionResultante
+        || actualizado.version < anterior.version) return estado;
+      const tareaActual = actualizado.tareas.find(
+        ({ tarea_ref: referencia }) => referencia === estado.tarea_ref,
+      );
+      const siguienteTarea = tareaActual ?? actualizado.tareas.find(
+        ({ estado_clave: clave }) => ["en_curso", "espera", "incidencia"].includes(clave),
+      ) ?? actualizado.tareas.at(-1);
+      reemplazar({
+        expediente: actualizado,
+        documentos: null,
+        auditoria: null,
+        tarea_ref: siguienteTarea?.tarea_ref ?? "",
+        paginacion_requiere_reinicio: Boolean(estado.cuadro?.paginacion),
+        cuadro_desactualizado: true,
+        mensaje_clave: "estado_expediente_listo",
+        tipo_mensaje: "informacion",
+      });
+    } catch (error) {
+      if (error?.name === "AbortError") return estado;
+    } finally {
+      if (operacion === secuencia) controlador = null;
+    }
+    return estado;
+  }
+
   function cambiarVista(vista) {
     exigirSinEfectoEnCurso();
     if (!VISTAS.has(vista)) throw new TypeError("vista de contratación temporal no válida");
@@ -406,12 +458,22 @@ export function crearPresentadorExpedientesContratacionTemporal({
     return estado;
   }
 
+  async function volverAlCuadro() {
+    if (!estado.cuadro_desactualizado) return cambiarVista("cuadro");
+    const lectura = cargar(estado.filtros);
+    const operacion = secuencia;
+    await lectura;
+    if (desmontado || operacion !== secuencia) return estado;
+    return cambiarVista("cuadro");
+  }
+
   function seleccionarTarea(tareaRef) {
     exigirSinEfectoEnCurso();
     if (typeof tareaRef !== "string"
       || !estado.expediente?.tareas.some(({ tarea_ref: referencia }) => referencia === tareaRef)) {
       throw new TypeError("tarea no válida");
     }
+    cancelarEnCurso();
     reemplazar({ vista: "expediente", tarea_ref: tareaRef, recibo: null });
     return estado;
   }
@@ -562,7 +624,9 @@ export function crearPresentadorExpedientesContratacionTemporal({
     cargar,
     navegarPagina,
     seleccionarExpediente,
+    refrescarExpedienteConfirmado,
     cambiarVista,
+    volverAlCuadro,
     seleccionarTarea,
     ejecutarActuacion,
     cancelar,
