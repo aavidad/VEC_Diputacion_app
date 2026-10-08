@@ -196,6 +196,7 @@ export function renderizarReincorporacionesTitular({ estado = {}, escaparHTML })
   if (carga === "omitida") return "";
   let contenido;
   if (carga === "cargando") contenido = `<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`;
+  else if (carga === "metadatos") contenido = `<p class="${estado.metadatosCargando ? "vacio-controlado" : "mensaje-error"}" role="${estado.metadatosCargando ? "status" : "alert"}">${estado.metadatosCargando ? textoPortal("txt_comprobando_acceso") : t("error_503")}</p><button type="button" class="boton-secundario" data-reincorporacion-accion="reintentar" ${estado.metadatosCargando ? "disabled" : ""}>${t("reintentar")}</button>`;
   else if (carga === "denegado") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || traducirPortal("reincorporacion_error_403"))}</p>`;
   else if (carga === "pendiente" || carga === "error") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || traducirPortal("reincorporacion_error_red"))}</p><button type="button" class="boton-secundario" data-reincorporacion-accion="reintentar">${t("reintentar")}</button>`;
   else if (!estado.items?.length) contenido = `<p class="vacio-controlado" role="status">${t("vacio")}</p>`;
@@ -216,13 +217,13 @@ export function renderizarReincorporacionesTitular({ estado = {}, escaparHTML })
   return `<section class="panel panel-separado" data-reincorporacion-raiz="true" aria-labelledby="reincorporacion-titulo"><div class="cabecera-panel"><h4 id="reincorporacion-titulo" tabindex="-1">${t("titulo")}</h4></div><div class="cuerpo-panel">${contenido}</div></section>`;
 }
 
-export function manejarClickReincorporacionesTitular(evento, { estado, renderizar, consultar } = {}) {
+export function manejarClickReincorporacionesTitular(evento, { estado, renderizar, consultar, reintentarMetadatos } = {}) {
   const control = evento.target?.closest?.("[data-reincorporacion-accion]");
   if (!control || !estado?.modalFicha) return false;
   evento.preventDefault();
   if (control.dataset.reincorporacionAccion === "reintentar") {
-    if (estado.modalFicha.reincorporacionesTitular?.carga === "metadatos" && reintentarMetadatos) {
-      void reintentarMetadatos();
+    if (estado.modalFicha.reincorporacionesTitular?.carga === "metadatos") {
+      if (typeof reintentarMetadatos === "function") void reintentarMetadatos();
       return true;
     }
     if (estado.modalFicha.reincorporacionesTitular?.carga === "denegado") return true;

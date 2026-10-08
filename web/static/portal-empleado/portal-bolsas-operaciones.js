@@ -345,6 +345,7 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
         disponibilidad: capacidades?.reincorporaciones_titular,
         ...(consultarReincorporaciones ? { consultar: consultarReincorporaciones } : {}),
         renderizarAlIniciar: false }) : Promise.resolve();
+    modalFicha.promesaReincorporaciones = reincorporaciones;
     const solicitudes = !leerDocumental
       ? { ok: false, status: null, omitida: documental.estado !== "indisponible",
         metadatos: documental.estado === "indisponible", mensaje: documental.estado === "indisponible"
@@ -352,7 +353,6 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       : !capacidades && !incluirSecciones && [401, 403, 404].includes(solicitudesPrevias?.solicitudesStatus)
         ? { ok: false, status: solicitudesPrevias.solicitudesStatus, mensaje: solicitudesPrevias.solicitudesError }
         : await consultarDocumentales(bolsa, participacion, { signal: controlador.signal });
-    await reincorporaciones;
     if (!vigente()) return;
     modalFicha.reglasSituacion = reglas.ok ? reglas.datos : null;
     if (res.ok) modalFicha.candidato = { ...modalFicha.candidato,
@@ -550,8 +550,11 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       if (manejarClickReincorporacionesTitular(evento, { estado, renderizar,
         reintentarMetadatos: async () => {
           const modal = estado.modalFicha;
-          if (!modal) return;
+          if (!modal || modal.reincorporacionesTitular?.metadatosCargando) return;
+          modal.reincorporacionesTitular.metadatosCargando = true;
+          renderizar();
           await cargar(modal, { incluirSecciones: false });
+          await modal.promesaReincorporaciones;
           if (estado.modalFicha === modal) (globalThis.document?.querySelector?.('[data-reincorporacion-accion="reintentar"]')
             ?? globalThis.document?.querySelector?.('#reincorporacion-titulo')
             ?? globalThis.document?.querySelector?.('[data-b8-raiz="true"]'))?.focus?.();
