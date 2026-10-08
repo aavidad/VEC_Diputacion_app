@@ -27,7 +27,7 @@ export function rutaInscripcionesRRHH(actual, filtro) {
 export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInscripcionesRRHH(),
   localizacion = globalThis.location, historial = globalThis.history,
   cargarCatalogo = cargarTextos, reintentarCatalogo = reintentarTextos,
-  alDenegacion = () => {} } = {}) {
+  alDenegacion = () => {}, signal } = {}) {
   if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
     || !cliente?.listar || !cliente?.detalle || !cliente?.motivos || !cliente?.decidir || !cliente?.incorporar) {
     throw new TypeError("superficie no disponible");
@@ -192,12 +192,22 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     navegar({ estado: form.get("estado"), convocatoria: filtro.convocatoria, cursor: "" });
   };
   const pop = () => { filtro = leerRutaInscripcionesRRHH(localizacion.search); void cargarLista(); };
+  const desmontar = () => {
+    if (!vivo) return;
+    vivo = false; ++secuencia; controlador?.abort();
+    raiz.removeEventListener("click", click); raiz.removeEventListener("submit", submit);
+    globalThis.removeEventListener?.("popstate", pop); signal?.removeEventListener?.("abort", desmontar);
+    raiz.replaceChildren();
+  };
+  const montaje = Object.freeze({ desmontar });
   raiz.addEventListener("click", click); raiz.addEventListener("submit", submit);
   globalThis.addEventListener?.("popstate", pop);
-  try { catalogo = await cargarCatalogo("bolsa-inscripcion-rrhh"); }
-  catch { catalogo = await reintentarCatalogo("bolsa-inscripcion-rrhh"); }
+  if (signal?.aborted) desmontar();
+  else signal?.addEventListener?.("abort", desmontar, { once: true });
+  try {
+    try { catalogo = await cargarCatalogo("bolsa-inscripcion-rrhh"); }
+    catch { catalogo = await reintentarCatalogo("bolsa-inscripcion-rrhh"); }
+  } catch (error) { if (!vivo) return montaje; throw error; }
   if (vivo) void cargarLista();
-  return Object.freeze({ desmontar() { vivo = false; ++secuencia; controlador?.abort();
-    raiz.removeEventListener("click", click); raiz.removeEventListener("submit", submit);
-    globalThis.removeEventListener?.("popstate", pop); raiz.replaceChildren(); } });
+  return montaje;
 }

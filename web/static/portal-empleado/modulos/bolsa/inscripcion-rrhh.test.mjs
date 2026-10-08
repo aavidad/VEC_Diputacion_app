@@ -155,3 +155,25 @@ test("RRHH no puede confirmar admisión con un requisito obligatorio pendiente",
   assert.match(raiz.innerHTML, /Auxiliar administrativo/u);
   vista.desmontar();
 });
+
+test("cambiar de pantalla durante la carga de textos no lanza una lectura tardía", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "anterior", addEventListener: (tipo, f) => eventos.set(tipo, f),
+    removeEventListener: (tipo) => eventos.delete(tipo), replaceChildren() { this.innerHTML = ""; } };
+  const controlador = new AbortController();
+  let continuar;
+  let lecturas = 0;
+  const textos = await cargarTextos("bolsa-inscripcion-rrhh", { idioma: "es", porDefecto: "es" });
+  const montaje = montarInscripcionesRRHH({ raiz, signal: controlador.signal,
+    localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
+    cargarCatalogo: () => new Promise((resolver) => { continuar = resolver; }),
+    cliente: { listar: async () => { lecturas++; return { solicitudes: [], total: 0, cursor_siguiente: null }; },
+      detalle: async () => solicitud, motivos: async () => ({ motivos: [] }),
+      decidir: async () => ({}), incorporar: async () => ({}) } });
+  controlador.abort(); continuar(textos);
+  const vista = await montaje;
+  assert.equal(lecturas, 0);
+  assert.equal(raiz.innerHTML, "");
+  assert.equal(eventos.size, 0);
+  vista.desmontar();
+});
