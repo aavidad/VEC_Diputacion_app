@@ -99,6 +99,7 @@
     "numero_expediente_sin_asignar": "Sin número asignado",
     "ficha_titulo_modulo_sin_numero": "Expediente sin número asignado",
     "borradores_aviso": "Son borradores: no están firmados, no se han enviado y no nombran ni dan de alta a nadie.",
-    "centro_visible": "Centro con código {numero}"
+    "centro_visible": "Centro con código {numero}",
+    "alta_solo_sustituciones": "Puede registrar sustituciones. Las demás necesidades todavía no están disponibles."
   }
 }
