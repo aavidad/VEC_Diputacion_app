@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -45,10 +46,9 @@ type ProveedorAutorizacionAjustesReglasCT interface {
 	AutorizarAjustesReglasCT(context.Context, vecdomain.ContextoActor, string, vecdomain.RecursoAutorizable) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
-// LectorAjustesReglasCT pertenece a la frontera de sesión certificada. Su
-// implementación debe comprobar sesión revocable y permiso nominal, leer la
-// cabeza e historia y registrar el acceso correcto en una sola transacción.
-// No acepta material V3 de consulta. Si falta, GET y prelectura POST cierran.
+// LectorAjustesReglasCT permite sustituir la consulta V3 de CT148 por una
+// lectura de sesión cuando exista una autoridad que conserve permiso y
+// auditoría atómicos. Mientras tanto CT148 ya aporta esa garantía al leer.
 type LectorAjustesReglasCT interface {
 	ConsultarAjustesReglasCT(context.Context, vecdomain.ContextoActor, int, *int64) (app.Lectura, error)
 }
@@ -96,15 +96,27 @@ func (r *RepositorioAjustesReglasCT) Consultar(ctx context.Context, actor vecdom
 	if limite < 1 || limite > 50 || (antes != nil && (*antes < 2 || *antes > 10000000)) {
 		return app.Lectura{}, app.ErrEntradaInvalida
 	}
-	if r == nil || dependenciaNula(r.lector) || ctx == nil || actor.Validar() != nil {
+	if r == nil || ctx == nil || actor.Validar() != nil {
 		return app.Lectura{}, app.ErrNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
 		return app.Lectura{}, err
 	}
-	lectura, err := r.lector.ConsultarAjustesReglasCT(ctx, actor, limite, antes)
+	var lectura app.Lectura
+	var err error
+	if !dependenciaNula(r.lector) {
+		lectura, err = r.lector.ConsultarAjustesReglasCT(ctx, actor, limite, antes)
+	} else {
+		lectura, err = r.consultarV3(ctx, actor, limite, antes)
+	}
 	if err != nil {
 		return app.Lectura{}, errorAjustesCTAplicacion(err)
+	}
+	if dependenciaNula(r.lector) {
+		lectura.Activacion, err = r.LeerActivacion(ctx)
+		if err != nil {
+			return app.Lectura{}, errorAjustesCTAplicacion(err)
+		}
 	}
 	if lectura.Historial == nil {
 		return app.Lectura{}, app.ErrNoDisponible
@@ -113,6 +125,48 @@ func (r *RepositorioAjustesReglasCT) Consultar(ctx context.Context, actor vecdom
 		if h.Version < 1 || h.Version > maximoVersionAjustesCT || h.VigenteDesde.IsZero() || h.ReciboRef == "" || len(h.Cambios) == 0 {
 			return app.Lectura{}, app.ErrNoDisponible
 		}
+	}
+	return lectura, nil
+}
+
+// consultarV3 reutiliza la lectura nominal, el registro y la auditoría que
+// CT148 ya ejecuta en una única transacción. No se añade una fachada SQL.
+func (r *RepositorioAjustesReglasCT) consultarV3(ctx context.Context, actor vecdomain.ContextoActor, limite int, antes *int64) (app.Lectura, error) {
+	material := map[string]any{"operacion": "consultar", "organizacion_ref": r.organizacionRef,
+		"catalogo_id": catalogoAjustesCT, "limite": limite}
+	if antes != nil {
+		material["antes_de_version"] = *antes
+	}
+	b, err := json.Marshal(material)
+	if err != nil {
+		return app.Lectura{}, ErrOperacionAjustesReglasNoDisponible
+	}
+	respuesta, err := r.operar(ctx, actor, "consultar", b)
+	if err != nil {
+		return app.Lectura{}, err
+	}
+	var sobre struct {
+		Vigente *struct {
+			Version     int                          `json:"version"`
+			Huella      string                       `json:"huella_sha256"`
+			Ajustes     map[string]map[string]string `json:"ajustes"`
+			Desde       time.Time                    `json:"vigente_desde"`
+			BaseVersion int                          `json:"base_version"`
+			BaseHuella  string                       `json:"base_huella_sha256"`
+		} `json:"vigente"`
+		Historial []app.CambioHistorico `json:"historial"`
+		HayMas    bool                  `json:"hay_mas"`
+	}
+	if json.Unmarshal(respuesta, &sobre) != nil || sobre.Historial == nil {
+		return app.Lectura{}, ErrOperacionAjustesReglasNoDisponible
+	}
+	lectura := app.Lectura{Historial: sobre.Historial, HayMas: sobre.HayMas, PuedeAjustar: true}
+	if sobre.Vigente != nil {
+		lectura.Vigente = &reglas.VersionAjustes{CatalogoID: catalogoAjustesCT,
+			Version: sobre.Vigente.Version, HuellaSHA256: sobre.Vigente.Huella,
+			VigenteDesde: sobre.Vigente.Desde, Ajustes: sobre.Vigente.Ajustes}
+		lectura.VigenteBaseVersion = sobre.Vigente.BaseVersion
+		lectura.VigenteBaseHuella = sobre.Vigente.BaseHuella
 	}
 	return lectura, nil
 }
@@ -192,7 +246,7 @@ func (r *RepositorioAjustesReglasCT) operar(ctx context.Context, actor vecdomain
 	if r == nil || dependenciaNula(r.pool) || dependenciaNula(r.proveedor) || ctx == nil || actor.Validar() != nil || len(material) == 0 || len(material) > maximoMaterialOperacionAjustesCT || !json.Valid(material) {
 		return nil, ErrOperacionAjustesReglasNoDisponible
 	}
-	if operacion != "ajustar" {
+	if operacion != "ajustar" && operacion != "consultar" {
 		return nil, ErrOperacionAjustesReglasInvalida
 	}
 	if err := ctx.Err(); err != nil {
@@ -219,6 +273,9 @@ func (r *RepositorioAjustesReglasCT) operar(ctx context.Context, actor vecdomain
 		return nil, ErrOperacionAjustesReglasNoDisponible
 	}
 	accion := "contratacion_temporal.reglas.ajustar"
+	if operacion == "consultar" {
+		accion = "contratacion_temporal.reglas.consultar_ajustes"
+	}
 	autorizacion, err := r.proveedor.AutorizarAjustesReglasCT(ctx, actor, accion, recurso)
 	if err != nil {
 		return nil, normalizarErrorOperacionAjustesCT(ctx, err)

@@ -224,6 +224,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaConsumoDescargaBorradorRRHHV3,
 		// CT131: sólo al activar el gobierno de plantillas sintéticas.
 		audienciaCatalogoPlantillasCT,
+		"vec_contratacion_temporal.ajustes_reglas.v1",
 		// CT133: sólo al activar lectura documental con perfil propio.
 		audienciaDocumentalPlantillasCT,
 		altapersonal.AudienciaAltaEjercicio,

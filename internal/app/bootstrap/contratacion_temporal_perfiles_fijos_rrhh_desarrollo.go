@@ -11,6 +11,7 @@ import (
 
 	"vec-diputacion-granada/config"
 
+	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -571,14 +572,23 @@ func configurarSesionesPerfilesFijosCTDesarrollo(
 func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	s *soporteAltaContratacionTemporalDesarrollo, principal dominiovec.Principal, ahora time.Time,
 	origen *origenConsultasContratacionTemporalDesarrollo,
+	ajustesReglas ...bool,
 ) error {
 	if s == nil {
 		return errAltaContratacionTemporalDesarrolloNoDisponible
 	}
+	rutasAlta := []string{httpinterno.RutaAltaSolicitudes}
+	if len(ajustesReglas) > 0 && ajustesReglas[0] {
+		rutasAlta = append(rutasAlta, ajusteshttp.Ruta)
+	}
 	alta, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoAltaCTDesarrollo,
-		[]string{httpinterno.RutaAltaSolicitudes},
+		rutasAlta,
 		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(principalID, perfilRef, ahora, origen)
+			plantilla, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(principalID, perfilRef, ahora, origen)
+			if err != nil || len(ajustesReglas) == 0 || !ajustesReglas[0] {
+				return plantilla, err
+			}
+			return ampliarInstantaneaAltaConAjustesCT(plantilla)
 		})
 	if err != nil {
 		return err

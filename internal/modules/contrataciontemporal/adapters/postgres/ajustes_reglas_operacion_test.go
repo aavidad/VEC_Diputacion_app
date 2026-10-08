@@ -167,7 +167,7 @@ func TestOperacionAjustesCTHuellaYConsultaSinRepositorio(t *testing.T) {
 	}
 }
 
-func TestConsultaAjustesCTSoloUsaLectorDeSesionYNoEmiteV3(t *testing.T) {
+func TestConsultaAjustesCTReutilizaCT148V3YAdmiteLectorDeSesion(t *testing.T) {
 	pool := &ejecutorAjustesCTPrueba{}
 	proveedor := &proveedorAjustesCTPrueba{}
 	r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesReglasCT)
@@ -175,9 +175,12 @@ func TestConsultaAjustesCTSoloUsaLectorDeSesionYNoEmiteV3(t *testing.T) {
 		t.Fatal(err)
 	}
 	actor := actorAjustesCTPrueba(t)
-	if _, err := r.Consultar(t.Context(), actor, 20, nil); !errors.Is(err, app.ErrNoDisponible) {
-		t.Fatalf("sin lector la consulta debe cerrar: %v", err)
+	if _, err := r.Consultar(t.Context(), actor, 20, nil); !errors.Is(err, vecdomain.ErrAutorizacionDenegada) ||
+		proveedor.consultas != 1 || proveedor.accion != "contratacion_temporal.reglas.consultar_ajustes" ||
+		pool.consultas != 1 || pool.transacciones != 0 {
+		t.Fatalf("sin lector se debe exigir V3 CT148 antes de leer: %v", err)
 	}
+	proveedor.consultas, pool.consultas = 0, 0
 	lector := &lectorAjustesCTPrueba{}
 	r.lector = lector
 	lectura, err := r.Consultar(t.Context(), actor, 20, nil)

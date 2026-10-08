@@ -72,8 +72,8 @@ func (s *Servicio) Consultar(ctx context.Context, actor vecdomain.ContextoActor,
 	if err := validarCabeza(lectura); err != nil {
 		return Lectura{}, err
 	}
-	// El lector entrega activación, cabeza, historia y auditoría en una sola
-	// transacción. Una segunda lectura aquí mezclaría instantáneas distintas.
+	// El repositorio entrega la activación y la cabeza comprobadas. CT191
+	// repite la guarda de activación dentro de cualquier escritura posterior.
 	activacion := lectura.Activacion
 	if activacion.Estado != "activa" && activacion.Estado != "inactiva" && activacion.Estado != "sin_publicar" {
 		return Lectura{}, ErrNoDisponible
@@ -106,8 +106,8 @@ func (s *Servicio) Publicar(ctx context.Context, actor vecdomain.ContextoActor, 
 	if err := ctx.Err(); err != nil {
 		return Resultado{}, err
 	}
-	// La lectura de cabeza exige sesión certificada, permiso y auditoría común.
-	// Operar pide una decisión V3 ligada al material y CT la consume al escribir.
+	// La lectura de cabeza reutiliza la consulta V3 existente de CT148; la
+	// escritura pide otra decisión ligada al material y CT la consume al guardar.
 	lectura, err := s.repo.Consultar(ctx, actor, 1, nil)
 	if err != nil {
 		return Resultado{}, err

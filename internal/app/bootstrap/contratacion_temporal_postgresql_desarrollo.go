@@ -118,6 +118,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialAuditoriaCT                     *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialAuditoriaBolsa                  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialPlantillasCatalogo              *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialAjustesReglasCT                 *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialPlantillasDocumental            *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialDespachoCorreo                  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialResultadoCorreo                 *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -535,6 +536,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		etapa = "material_plantillas_catalogo"
 		dependencias.proveedorMaterialPlantillasCatalogo, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
 			ctx, gobierno, material, reloj, catalogoMaterial, audienciaCatalogoPlantillasCT)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	if seleccion.ajustesReglasCT {
+		etapa = "material_ajustes_reglas_ct"
+		dependencias.proveedorMaterialAjustesReglasCT, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, "vec_contratacion_temporal.ajustes_reglas.v1")
 		if err != nil {
 			return vacias, err
 		}

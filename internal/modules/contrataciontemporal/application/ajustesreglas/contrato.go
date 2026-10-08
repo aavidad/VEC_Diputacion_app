@@ -17,9 +17,9 @@ var (
 	ErrConflicto       = errors.New("version o clave de ajustes en conflicto")
 )
 
-// Repositorio separa la lectura con sesión certificada y auditoría común del
-// ajuste V3. Operar consume la decisión nominal en la misma transacción
-// serializable que el cambio o su replay. El ámbito procede del servidor.
+// Repositorio separa la consulta autorizada de la escritura. CT148 ya ofrece
+// lectura nominal V3 con auditoría en transacción; Operar consume otra decisión
+// en la transacción serializable del cambio o replay. El ámbito es del servidor.
 type Repositorio interface {
 	Consultar(context.Context, vecdomain.ContextoActor, int, *int64) (Lectura, error)
 	LeerActivacion(context.Context) (ActivacionBase, error)

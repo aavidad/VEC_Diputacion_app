@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -68,6 +69,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadSubsanacionVigente(
 func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 	return ruta == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(ruta) || ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
 		rutaPlantillasCatalogoCTDesarrollo(ruta) ||
+		ruta == ajusteshttp.Ruta ||
 		rutaPlantillasDocumentalCTDesarrollo(ruta) ||
 		ruta == httpinterno.RutaAltaSolicitudes ||
 		ruta == httpinterno.RutaPropuestaCobertura ||
