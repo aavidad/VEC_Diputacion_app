@@ -270,8 +270,8 @@ func (a *AutoridadVersionarRolBolsa) ejecutar(ctx context.Context, actor domain.
 	var errorIntento error
 	if json.Unmarshal(b, &intento) == nil && (intento.Estado == "denegado" || intento.Estado == "error") {
 		if intento.AuditoriaIntento.AuditoriaRef == "" ||
-			(intento.Estado == "denegado" && intento.Codigo != "version_bolsa_rechazada") ||
-			(intento.Estado == "error" && intento.Codigo != "version_bolsa_no_disponible") {
+			(intento.Estado == "denegado" && intento.Codigo != "version_rol_bolsa_denegado") ||
+			(intento.Estado == "error" && intento.Codigo != "version_rol_bolsa_error") {
 			return errNoDisponible
 		}
 		if intento.Estado == "denegado" {

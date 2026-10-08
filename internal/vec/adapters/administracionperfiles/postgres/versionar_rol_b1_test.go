@@ -143,3 +143,42 @@ func TestVersionarRolBolsaResultadoIncompletoRevierteAntesDeCommit(t *testing.T)
 			resultado, err, tx.consultas, tx.commits, tx.rollbacks)
 	}
 }
+
+func TestVersionarRolBolsaDenegacionSQLConfirmaAuditoria(t *testing.T) {
+	ahora := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	base, _, _, _ := contratoV2Prueba(t)
+	_, asignacion := escenarioRecursoGobiernoRol(t)
+	base.InstantaneaAutorizacion.AsignacionPerfil.Ambitos = asignacion.Ambitos
+	s := domain.SolicitudCierreVersionarRolBolsa{
+		OperacionRef:          "cierre_admin:" + strings.Repeat("4", 32),
+		PropuestaRef:          "propuesta_admin:" + strings.Repeat("1", 32),
+		PropuestaHuellaSHA256: strings.Repeat("a", 64),
+		Aprobador:             base.Actor, Evidencia: base.Evidencia,
+		InstantaneaAutorizacion: base.InstantaneaAutorizacion,
+		Decision:                domain.DecisionAprobarPropuestaPerfil,
+		Motivo: domain.ReferenciaEntradaCatalogo{CatalogoID: "motivos_administracion",
+			CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("c", 64),
+			EntradaClave: "motivo_" + strings.Repeat("a", 32)},
+		CorrelacionRef: "correlacion_" + strings.Repeat("5", 32),
+	}
+	e, err := materialCierreVersionarRolBolsa(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(map[string]any{"estado": "denegado",
+		"codigo":            "version_rol_bolsa_denegado",
+		"auditoria_intento": map[string]any{"auditoria_ref": "aud_v3_" + strings.Repeat("a", 32)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx := &txGobiernoReferenciaPrueba{fila: filaFalsa{dato: b}}
+	a := &AutoridadVersionarRolBolsa{pool: &poolGobiernoReferenciaPrueba{tx: tx},
+		catalogo: fuenteCatalogoGobiernoReferenciaPrueba{},
+		emisor:   emisorVersionarRolBolsaPrueba{t: t, ahora: ahora}, reloj: relojFijo(ahora)}
+	err = a.ejecutar(context.Background(), s.Aprobador, s.Evidencia, s.InstantaneaAutorizacion,
+		e, cerrarVersionarRolBolsaSQL, func([]byte) error { t.Fatal("denegación validada como éxito"); return nil })
+	if !errors.Is(err, ports.ErrGobiernoRolIntentoAuditado) ||
+		!errors.Is(err, domain.ErrAutorizacionDenegada) || tx.consultas != 1 || tx.commits != 1 {
+		t.Fatalf("denegación perdió auditoría: err=%v consultas=%d commits=%d", err, tx.consultas, tx.commits)
+	}
+}
