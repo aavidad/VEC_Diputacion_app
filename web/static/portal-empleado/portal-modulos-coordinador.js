@@ -430,12 +430,12 @@ export function crearCoordinadorModulosPortal({
         return promesaOrganizacionNombres;
       };
       const prepararNombresLista = async (paginaPromesa) => {
+        // Las etiquetas sólo se consultan después de una página autorizada.
+        // Una denegación del cuadro no inicia consultas auxiliares.
+        const pagina = await paginaPromesa;
         const catalogoPromesa = nombresCatalogo();
         const textosPromesa = cargarTextos("contratacion-temporal-ficha-lista", { idioma: idiomaLista })
           .then((textos) => ({ textos }), (error) => ({ error }));
-        // El rechazo del cuadro, incluido 401/403, prevalece sobre cualquier
-        // incidencia opcional de etiquetas y nunca dispara Organización.
-        const pagina = await paginaPromesa;
         const [catalogo, textosResultado] = await Promise.all([catalogoPromesa, textosPromesa]);
         if (textosResultado.error) throw textosResultado.error;
         const faltaCentro = Array.isArray(pagina?.expedientes) && pagina.expedientes.some(

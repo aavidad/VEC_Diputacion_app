@@ -272,19 +272,20 @@ test("sin catálogo de Alta, Organización nombra el centro en la lista ligera u
   coordinador.desmontarVistaActual();
 });
 
-test("Alta nombra todos los centros equivalentes sin pedir Organización y un cuadro 403 no la consulta", async () => {
+test("Alta nombra los centros sin pedir Organización y un cuadro denegado no consulta etiquetas", async () => {
   const catalogoModulos = crearCatalogoModulosDesdeManifiestos(
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
   const fila = (numero, centro_ref) => ({ expediente_ref: `expediente:ct:${numero}`,
     numero_visible: `2026/CT-${numero}`, version: 1, fase_clave: "analisis", estado_clave: "en_curso",
     centro_ref, categoria_ref: "categoria:auxiliar", creado_en: "2026-10-01T08:00:00Z",
     actualizado_en: "2026-10-01T09:00:00Z" });
-  for (const denegarCuadro of [false, true]) {
+  for (const estadoCuadro of [200, 401, 403]) {
+    const denegarCuadro = estadoCuadro !== 200;
     let organizacion = 0, catalogos = 0, paginas = 0;
     const cliente = {
       async consultarCuadroRRHH() {
         paginas += 1;
-        if (denegarCuadro) throw Object.assign(new Error("sin acceso al cuadro"), { estado: 403 });
+        if (denegarCuadro) throw Object.assign(new Error("sin acceso al cuadro"), { estado: estadoCuadro });
         return { generada_en: "2026-10-01T09:00:00Z",
           expedientes: [fila("0001", "centro-600"), fila("0002", "centro:rpt:A1B")], hay_mas: false };
       },
@@ -315,7 +316,7 @@ test("Alta nombra todos los centros equivalentes sin pedir Organización y un cu
     const raiz = raizFalsa();
     assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
     assert.equal(paginas, 1);
-    assert.equal(catalogos, 1);
+    assert.equal(catalogos, denegarCuadro ? 0 : 1);
     assert.equal(organizacion, 0);
     if (denegarCuadro) {
       assert.doesNotMatch(raiz.innerHTML, /data-ct-exp-abrir=/u);
