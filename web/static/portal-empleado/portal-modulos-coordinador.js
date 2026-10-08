@@ -132,7 +132,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-w-ct-borradores-main-v2");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-documentos-ficha-v1");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),
@@ -434,8 +434,7 @@ export function crearCoordinadorModulosPortal({
         // Una denegación del cuadro no inicia consultas auxiliares.
         const pagina = await paginaPromesa;
         const [catalogo, textos] = await Promise.all([
-          nombresCatalogo(),
-          cargarTextos("contratacion-temporal-ficha-lista", { idioma: idiomaLista }),
+          nombresCatalogo(), cargarTextos("contratacion-temporal-ficha-lista", { idioma: idiomaLista }),
         ]);
         const faltaCentro = Array.isArray(pagina?.expedientes) && pagina.expedientes.some(
           ({ centro_ref: referencia }) => !nombreCentroEn(catalogo?.centros, referencia));
@@ -1304,9 +1303,43 @@ export function crearCoordinadorModulosPortal({
       if (montaje !== secuenciaMontaje) return false;
       const esFiscalizacion = temporal.fiscalizacion !== null;
       const presentadorCT = temporal.crearPresentador();
+      let controladorBolsaFicha = null;
+      let claveBolsaFicha = "";
+      let actualizarBolsaFicha = () => {};
+      const cancelarBolsaFicha = () => {
+        controladorBolsaFicha?.abort();
+        controladorBolsaFicha = null;
+        claveBolsaFicha = "";
+        montajeBolsa?.limpiarFicha?.();
+      };
+      const prepararFichaBolsa = (estadoFicha, alActualizar = () => {}, reintentar = false) => {
+        const expediente = estadoFicha?.expediente;
+        const resumen = estadoFicha?.cuadro?.expedientes?.find(
+          ({ expediente_ref: ref }) => ref === expediente?.expediente_ref,
+        );
+        const valida = estadoFicha?.vista === "expediente" && estadoFicha.carga === "listo"
+          && expediente?.expediente_ref === estadoFicha.expediente_ref
+          && Number.isSafeInteger(expediente?.version) && expediente.version > 0
+          && resumen?.version === expediente.version && expediente.demostracion === false
+          && estadoFicha.cuadro?.demostracion === false;
+        if (!valida || typeof montajeBolsa?.prepararFicha !== "function") {
+          if (controladorBolsaFicha) cancelarBolsaFicha();
+          return;
+        }
+        actualizarBolsaFicha = alActualizar;
+        const clave = `${expediente.expediente_ref}:${expediente.version}`;
+        if (!reintentar && claveBolsaFicha === clave) return;
+        cancelarBolsaFicha();
+        claveBolsaFicha = clave;
+        controladorBolsaFicha = new AbortController();
+        const signal = controladorBolsaFicha.signal;
+        void Promise.resolve().then(() => montajeBolsa.prepararFicha({ expedienteRef: expediente.expediente_ref, signal }))
+          .catch(() => { if (!signal.aborted) montajeBolsa.fallarFicha?.(expediente.expediente_ref); })
+          .then(() => { if (!signal.aborted && claveBolsaFicha === clave && montaje === secuenciaMontaje) actualizarBolsaFicha(); });
+      };
       // El montaje puede cambiar mientras se consulta el cuadro o el detalle.
       // Registrar la limpieza antes de esperar evita publicar una respuesta tardía.
-      desmontarVista = () => presentadorCT.desmontar?.();
+      desmontarVista = () => { cancelarBolsaFicha(); presentadorCT.desmontar?.(); };
       if (opciones?.subvista && typeof presentadorCT?.cambiarVista === "function"
         && ["alta", "cuadro"].includes(opciones.subvista)) {
         try { presentadorCT.cambiarVista(opciones.subvista); } catch {}
@@ -1326,6 +1359,7 @@ export function crearCoordinadorModulosPortal({
         await presentadorCT.seleccionarExpediente(expedienteRef);
         if (montaje !== secuenciaMontaje) return false;
       }
+      if (!esFiscalizacion) prepararFichaBolsa(presentadorCT.obtenerEstado?.());
       const moduloContratacion = esFiscalizacion
         ? await temporal.montarFiscalizacion({
           raiz,
@@ -1361,12 +1395,13 @@ export function crearCoordinadorModulosPortal({
           confirmarOperacion,
           anunciar,
           resolverBolsa: typeof montajeBolsa?.resolverBolsa === "function" ? montajeBolsa.resolverBolsa : null,
+          prepararFichaBolsa,
         });
       if (montaje !== secuenciaMontaje) {
         moduloContratacion.desmontar();
         return false;
       }
-      desmontarVista = moduloContratacion.desmontar;
+      desmontarVista = () => { cancelarBolsaFicha(); moduloContratacion.desmontar(); };
       return true;
     }
 
