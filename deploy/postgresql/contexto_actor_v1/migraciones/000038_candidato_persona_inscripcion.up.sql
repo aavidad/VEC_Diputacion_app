@@ -23,6 +23,8 @@ BEGIN
        OR pg_catalog.current_setting('server_version_num')::integer >= 190000
        OR dueno IS NULL OR bolsa IS NULL
        OR pg_catalog.to_regrole('vec_bolsa_llamamientos_ejecutor') IS NULL
+       OR pg_catalog.to_regprocedure(
+           'vec_contexto_actor_v1.acreditar_persona_candidato_incorporacion_v1(text)') IS NULL
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_roles
                    WHERE oid = bolsa AND (rolcanlogin OR rolbypassrls OR rolsuper))
        OR pg_catalog.to_regprocedure(
@@ -65,6 +67,16 @@ CREATE INDEX contexto_externo_identidad_candidato_persona_ca38
     ON vec_contexto_actor_v1.contexto_externo_identidad
        (persona_ref, provision_ref) WHERE familia = 'candidato';
 
+-- CA18 coteja la referencia en sentido inverso y cuenta ambas poblaciones.
+-- Estos indices acotan ese cotejo por can_* incluso con historia extensa.
+CREATE INDEX vinculo_referencia_candidato_ca38
+    ON vec_contexto_actor_v1.vinculo_referencia_versiones
+       (referencia, vinculo_ref, version) WHERE tipo = 'candidato';
+CREATE INDEX contexto_externo_candidato_ca38
+    ON vec_contexto_actor_v1.contexto_externo_versiones
+       ((snapshot #>> '{vinculo_candidato,candidato_ref}'), provision_ref, version)
+    WHERE familia = 'candidato';
+
 CREATE FUNCTION vec_contexto_actor_v1.resolver_candidato_persona_inscripcion_v1(
     p_persona_ref text
 ) RETURNS jsonb
@@ -79,6 +91,7 @@ DECLARE
     persona record;
     vinculo record;
     externo record;
+    inverso jsonb;
     parte jsonb;
     etiqueta text;
     max_int64 constant numeric := 9223372036854775807;
@@ -171,6 +184,19 @@ BEGIN
            OR vinculo.procedencia_version > max_int64 THEN
             RETURN pg_catalog.jsonb_build_object('estado', 'sin_vinculo');
         END IF;
+        inverso := vec_contexto_actor_v1.acreditar_persona_candidato_incorporacion_v1(
+            vinculo.referencia);
+        IF inverso ->> 'estado' IS DISTINCT FROM 'acreditado'
+           OR inverso #>> '{persona,ref}' IS DISTINCT FROM p_persona_ref
+           OR (inverso #>> '{persona,version}')::numeric IS DISTINCT FROM persona.version
+           OR inverso #>> '{vinculo,ref}' IS DISTINCT FROM vinculo.vinculo_ref
+           OR (inverso #>> '{vinculo,version}')::numeric IS DISTINCT FROM vinculo.version
+           OR inverso #>> '{vinculo,procedencia_ref}' IS DISTINCT FROM vinculo.procedencia_ref
+           OR (inverso #>> '{vinculo,procedencia_version}')::numeric IS DISTINCT FROM vinculo.procedencia_version
+           OR inverso #>> '{vinculo,procedencia_sha256}' IS DISTINCT FROM vinculo.procedencia_huella_sha256
+           OR inverso #>> '{vinculo,poblacion}' IS DISTINCT FROM 'interna' THEN
+            RETURN pg_catalog.jsonb_build_object('estado', 'ambiguo');
+        END IF;
         RETURN pg_catalog.jsonb_build_object(
             'estado', 'acreditado', 'persona_ref', p_persona_ref,
             'persona_version', persona.version,
@@ -219,6 +245,23 @@ BEGIN
         RETURN pg_catalog.jsonb_build_object('estado', 'sin_vinculo');
     END IF;
     parte := externo.snapshot -> 'vinculo_candidato';
+    inverso := vec_contexto_actor_v1.acreditar_persona_candidato_incorporacion_v1(
+        parte ->> 'candidato_ref');
+    IF inverso ->> 'estado' IS DISTINCT FROM 'acreditado'
+       OR inverso #>> '{persona,ref}' IS DISTINCT FROM p_persona_ref
+       OR (inverso #>> '{persona,version}')::numeric IS DISTINCT FROM
+          (externo.snapshot #>> '{persona,version}')::numeric
+       OR inverso #>> '{vinculo,ref}' IS DISTINCT FROM parte ->> 'referencia'
+       OR (inverso #>> '{vinculo,version}')::numeric IS DISTINCT FROM
+          (parte ->> 'version')::numeric
+       OR inverso #>> '{vinculo,procedencia_ref}' IS DISTINCT FROM parte ->> 'procedencia_ref'
+       OR (inverso #>> '{vinculo,procedencia_version}')::numeric IS DISTINCT FROM
+          (parte ->> 'procedencia_version')::numeric
+       OR inverso #>> '{vinculo,procedencia_sha256}' IS DISTINCT FROM
+          parte ->> 'procedencia_huella_sha256'
+       OR inverso #>> '{vinculo,poblacion}' IS DISTINCT FROM 'externa' THEN
+        RETURN pg_catalog.jsonb_build_object('estado', 'ambiguo');
+    END IF;
     RETURN pg_catalog.jsonb_build_object(
         'estado', 'acreditado', 'persona_ref', p_persona_ref,
         'persona_version', (externo.snapshot #>> '{persona,version}')::numeric,
