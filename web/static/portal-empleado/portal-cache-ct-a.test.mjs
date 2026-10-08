@@ -4,10 +4,11 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261008-r-fichas-idioma-nav-v1";
+const versionCoordinador = "20261008-r-traza-idioma-v1";
 const versionCircuito = "20261008-r-fichas-idioma-nav-v1";
 const versionVista = "20261008-r-fichas-idioma-nav-v1";
-const versionVistaPortal = "20261008-r-fichas-idioma-nav-v1";
+const versionVistaPortal = "20261008-r-traza-idioma-v1";
+const versionAdaptador = "20261008-r-fichas-idioma-nav-v1";
 const versionRender = "20261008-r-fichas-idioma-nav-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
@@ -80,7 +81,7 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   const cohorteCT = "20261008-alta-rechazo-v2";
   exigirVersiones(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", version);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteCT);
-  exigirVersiones(coordinador, "./modulos/contratacion-temporal/adaptador-http-expedientes.js", versionVistaPortal);
+  exigirVersiones(coordinador, "./modulos/contratacion-temporal/adaptador-http-expedientes.js", versionAdaptador);
   for (const hoja of ["./modulos/documentos/vista.js", "./modulos/documentos/cliente-http.js"])
     exigirVersiones(coordinador, hoja, version);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", versionVistaPortal);
@@ -108,13 +109,13 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     vista, presentadorAlta, rendererAlta, i18n, contrato, interno, produccion, cache] = await Promise.all(
     nombres.map((nombre) => readFile(new URL(nombre, raiz), "utf8")));
   const cohorte = "20261008-alta-rechazo-v2";
-  const cohorteNavegacion = "20261008-r-fichas-idioma-nav-v1";
+  const cohorteNavegacion = "20261008-r-traza-idioma-v1";
   const cohorteClienteHTTP = cohorte;
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = cohorte;
   const cohorteIdioma = cohorteNavegacion;
-  const cohorteEntrada = cohorteNavegacion;
-  const cohorteFicha = cohorteNavegacion;
+  const cohorteEntrada = "20261008-r-traza-idioma-v1";
+  const cohorteFicha = "20261008-r-fichas-idioma-nav-v1";
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
     ["/portal-empleado/portal-modulos-coordinador.js", "20261008-ct-inicio-v1"],
@@ -162,11 +163,12 @@ test("la ficha compartible y su aviso usan una única cohorte empaquetada", asyn
     "../../interno.manifest", "../../produccion.manifest", "cache-publica-v1.json",
   ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const cohorte = "20261008-r-fichas-idioma-nav-v1";
+  const entrada = "20261008-r-traza-idioma-v1";
   exigirVersiones(html, "/portal-empleado/portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(portal, "./portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(coordinador, "./portal-ct-ruta-ficha.js", cohorte);
-  exigirVersiones(html, "/portal-empleado/portal.js", cohorte);
-  exigirVersiones(cache, "/portal-empleado/portal.js", cohorte);
+  exigirVersiones(html, "/portal-empleado/portal.js", entrada);
+  exigirVersiones(cache, "/portal-empleado/portal.js", entrada);
   for (const manifiesto of [interno, produccion]) {
     assert.equal(manifiesto.split("static/portal-empleado/portal-ct-ruta-ficha.js").length - 1, 1);
   }

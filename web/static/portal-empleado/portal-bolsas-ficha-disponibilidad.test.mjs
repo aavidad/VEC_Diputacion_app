@@ -29,9 +29,12 @@ test("la ficha real omite solo las secciones declaradas ausentes o denegadas por
     await controlador.cargar(modal, { incluirSecciones: false });
     assert.equal(documentales, 0); assert.equal(reincorporaciones, 0);
     assert.equal(modal.operacionesB8.carga, "listo");
-    assert.equal(modal.operacionesB8.solicitudesError, "");
+    assert.match(modal.operacionesB8.solicitudesError,
+      estadoCap === "sin_montaje" ? /Informática debe habilitarla/u : /no está autorizada para esta bolsa/u);
     assert.equal(modal.reincorporacionesTitular.carga, "omitida");
-    assert.match(renderizarOperacionesSituacion({ candidato: modal.candidato, estado: modal.operacionesB8 }), /data-operacion="regularizar"/);
+    assert.doesNotMatch(renderizarOperacionesSituacion({ candidato: modal.candidato, estado: modal.operacionesB8 }), /data-operacion="regularizar"/);
+    assert.match(renderizarReincorporacionesTitular({ estado: modal.reincorporacionesTitular,
+      escaparHTML: String }), estadoCap === "sin_montaje" ? /Informática debe habilitarlo/u : /no está autorizado para esta bolsa/u);
   }
 });
 

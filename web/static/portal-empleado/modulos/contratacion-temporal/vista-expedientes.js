@@ -50,7 +50,8 @@ export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261008
 export function insertarAvisoEnlaceLegado(raiz, texto) {
   if (!texto || !raiz?.ownerDocument?.createElement || typeof raiz.prepend !== "function") return;
   const aviso = raiz.ownerDocument.createElement("section");
-  aviso.className = "panel panel-separado";
+  if (aviso.classList?.add) aviso.classList.add("panel", "panel-separado");
+  else aviso.setAttribute("class", ["panel", "panel-separado"].join(" "));
   aviso.setAttribute("role", "status");
   aviso.setAttribute("data-ct-enlace-legado", "");
   const cuerpo = raiz.ownerDocument.createElement("div");

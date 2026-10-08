@@ -2,7 +2,7 @@ import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposi
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 import { cargarReincorporacionesTitularFicha, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-r-fichas-idioma-nav-v1";
-import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261008-r-traza-idioma-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { actorTraducido, justificanteTraducido } from "./portal-justificante.js";
 import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261007-pantallas-textos-final-v1";

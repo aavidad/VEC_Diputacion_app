@@ -10,6 +10,7 @@ test("el aviso del enlace antiguo aparece sobre el cuadro como texto recuperable
     prepend(nodo) { this.hijos.unshift(nodo); } };
   const mensaje = "Este enlace ya no abre la ficha. Busque la petición en la lista y ábrala de nuevo.";
   insertarAvisoEnlaceLegado(raiz, mensaje);
+  assert.equal(raiz.hijos[0].atributos.class, "panel panel-separado");
   assert.equal(raiz.hijos[0].atributos.role, "status");
   assert.equal(raiz.hijos[0].hijos[0].hijos[0].textContent, mensaje);
   assert.equal(raiz.hijos[0].hijos[0].hijos[0].hijos.length, 0);
