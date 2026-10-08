@@ -751,6 +751,7 @@ export async function montarModuloContratacionTemporal({
 
   async function cambiarVista(vista) {
     secuenciaInterfaz += 1;
+    const secuenciaCambio = secuenciaInterfaz;
     if (gestorTramitacion.impedirCambioPorAnalisis()) return;
     const estado = presentador.obtenerEstado();
     if (estado.ocupado) {
@@ -772,6 +773,17 @@ export async function montarModuloContratacionTemporal({
           "error",
         );
         repintar("[data-ct-exp-mensaje]");
+      }
+      return;
+    }
+    if (vista === "cuadro" && estado.cuadro_desactualizado === true) {
+      try {
+        await presentador.volverAlCuadro();
+        if (montada && secuenciaCambio === secuenciaInterfaz) repintar("[data-ct-exp-filtros]");
+      } catch {
+        if (montada && secuenciaCambio === secuenciaInterfaz) {
+          anunciar(crearTraductorExpedientesContratacion(mensajes)("estado_error_carga"), "error");
+        }
       }
       return;
     }

@@ -85,6 +85,7 @@ function estadoInicial(disponible, navegacion) {
     filtros: filtrosIniciales(),
     paginacion: null,
     paginacion_requiere_reinicio: false,
+    cuadro_desactualizado: false,
     ocupado: false,
     actualizacion_pendiente: false,
     resultado_indeterminado: false,
@@ -236,6 +237,7 @@ export function crearPresentadorExpedientesContratacionTemporal({
         cuadro,
         paginacion: cuadro.paginacion ?? null,
         paginacion_requiere_reinicio: false,
+        cuadro_desactualizado: false,
         expediente: conservarSeleccion ? estado.expediente : null,
         documentos: conservarSeleccion ? estado.documentos : null,
         auditoria: conservarSeleccion ? estado.auditoria : null,
@@ -416,6 +418,7 @@ export function crearPresentadorExpedientesContratacionTemporal({
         auditoria: null,
         tarea_ref: siguienteTarea?.tarea_ref ?? "",
         paginacion_requiere_reinicio: Boolean(estado.cuadro?.paginacion),
+        cuadro_desactualizado: true,
         mensaje_clave: "estado_expediente_listo",
         tipo_mensaje: "informacion",
       });
@@ -453,6 +456,15 @@ export function crearPresentadorExpedientesContratacionTemporal({
         : "informacion",
     });
     return estado;
+  }
+
+  async function volverAlCuadro() {
+    if (!estado.cuadro_desactualizado) return cambiarVista("cuadro");
+    const lectura = cargar(estado.filtros);
+    const operacion = secuencia;
+    await lectura;
+    if (desmontado || operacion !== secuencia) return estado;
+    return cambiarVista("cuadro");
   }
 
   function seleccionarTarea(tareaRef) {
@@ -614,6 +626,7 @@ export function crearPresentadorExpedientesContratacionTemporal({
     seleccionarExpediente,
     refrescarExpedienteConfirmado,
     cambiarVista,
+    volverAlCuadro,
     seleccionarTarea,
     ejecutarActuacion,
     cancelar,
