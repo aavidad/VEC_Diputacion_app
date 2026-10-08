@@ -149,7 +149,7 @@ func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 		Hitos: make([]hitoExpedienteRRHHJSON, len(entrada.Hitos)),
 	}
 	if entrada.EstadoBorradoresPublicados == ports.BorradoresRRHHSinMontaje ||
-		entrada.EstadoBorradoresPublicados == ports.BorradoresRRHHIndisponible {
+		entrada.EstadoBorradoresPublicados == ports.BorradoresRRHHMontado {
 		salida.CapacidadesFicha = &capacidadesFichaRRHHJSON{BorradoresPublicados: disponibilidadBorradoresRRHHJSON{
 			Estado: string(entrada.EstadoBorradoresPublicados), ExpedienteRef: entrada.Resumen.ExpedienteRef,
 			VersionObservada: entrada.Resumen.Version,

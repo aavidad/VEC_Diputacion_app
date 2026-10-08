@@ -27,8 +27,8 @@ func (c consultorDetalleConDisponibilidadRRHH) Consultar(ctx context.Context, so
 	}
 	detalle.EstadoBorradoresPublicados = ports.BorradoresRRHHSinMontaje
 	if c.documentalMontado {
-		// Una ruta montada sin evaluación nominal F1 queda indeterminada.
-		detalle.EstadoBorradoresPublicados = ports.BorradoresRRHHIndisponible
+		// Montaje informa de la ruta; su consulta conserva la autorización nominal.
+		detalle.EstadoBorradoresPublicados = ports.BorradoresRRHHMontado
 	}
 	return detalle, nil
 }

@@ -15,9 +15,9 @@ import {
 } from "./portal-bolsas-contrato.js?v=20261008-canal-telefono-v2";
 import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20261007-pantallas-textos-final-v1";
 import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-w-fichas-capacidades-v2";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261007-pantallas-textos-final-v1";
 import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261008-canal-telefono-v2";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261008-w-fichas-capacidades-v2";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261007-pantallas-textos-final-v1";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261008-canal-telefono-v2";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261008-canal-telefono-v2";
@@ -343,9 +343,7 @@ export function propuestaPlazoRespuesta(datos) {
   return { texto: traducirPortal("panel_b7_plazo_regla_texto", { fecha, hora }), procedencia, ejemplo: regla.origen === "ejemplo" || regla.ejemplo === true, descripcion: regla.texto, referencia: regla.referencia };
 }
 
-export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null,
-  resolverDisponibilidadOpcional = () => null, reintentarDisponibilidadOpcional = async () => {},
-  documento = globalThis.document }) {
+export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null, documento = globalThis.document }) {
   const controladoresLectura = new Map();
   let controladorSeleccionMasiva = null;
   let revisionSeleccionMasiva = 0;
@@ -466,8 +464,6 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   const controladorOperacionesB8 = crearControladorOperacionesSituacion({
     estado,
     renderizar,
-    resolverDisponibilidadOpcional,
-    reintentarDisponibilidadOpcional,
     recargar: async (participacionRef) => {
       const bolsaRef = estado.bolsaSeleccionada;
       const modal = estado.modalFicha;

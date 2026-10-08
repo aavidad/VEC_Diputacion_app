@@ -704,7 +704,7 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
       if (!signal?.aborted && secuencia === secuenciaDetalle) {
         const registro = detalle.capacidades_ficha?.borradores_publicados;
         if (registro && Object.keys(registro).length === 3
-          && ["disponible", "no_autorizado", "sin_montaje", "indisponible"].includes(registro.estado)
+          && ["montado", "sin_montaje"].includes(registro.estado)
           && registro.expediente_ref === expedienteRef && registro.version_observada === version) {
           disponibilidadFicha = Object.freeze({ borradores_publicados: Object.freeze({ ...registro }) });
         }

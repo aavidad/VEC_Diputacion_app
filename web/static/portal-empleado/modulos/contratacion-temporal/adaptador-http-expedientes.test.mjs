@@ -840,7 +840,7 @@ test("la ficha recibe del detalle la disponibilidad del mismo expediente y versi
   assert.deepEqual(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), registro);
   assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", { ...contexto, version_observada: 99 }), null);
   assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", { ...contexto, expediente_ref: "expediente:otro" }), null);
-  registro = { ...registro, estado: "disponible", version_observada: 99 };
+  registro = { ...registro, estado: "montado", version_observada: 99 };
   await fuente.obtener(resumen.expediente_ref);
   assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), null);
   registro = { ...registro, estado: "otro", version_observada: resumen.version };
@@ -852,13 +852,13 @@ test("una relectura fallida retira los metadatos previos sin permitir consultas 
   const cliente = clienteFalso([]);
   const leer = cliente.consultarDetalleRRHH;
   cliente.consultarDetalleRRHH = async (...args) => ({ ...await leer(...args), capacidades_ficha: {
-    borradores_publicados: { estado: "disponible", expediente_ref: resumen.expediente_ref, version_observada: resumen.version },
+    borradores_publicados: { estado: "montado", expediente_ref: resumen.expediente_ref, version_observada: resumen.version },
   } });
   const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
   await fuente.listar();
   await fuente.obtener(resumen.expediente_ref);
   const contexto = { expediente_ref: resumen.expediente_ref, version_observada: resumen.version };
-  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto).estado, "disponible");
+  assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto).estado, "montado");
   cliente.consultarDetalleRRHH = async () => { throw new Error("fuente caída"); };
   await assert.rejects(fuente.obtener(resumen.expediente_ref));
   assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), null);

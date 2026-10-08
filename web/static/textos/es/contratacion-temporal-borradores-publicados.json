@@ -8,8 +8,6 @@
     "bp_vacio": "No hay tipos publicados disponibles para este expediente.",
     "bp_denegado": "La sesión no dispone de permiso para consultar estos borradores.",
     "bp_error": "No se pudieron consultar los borradores publicados.",
-    "bp_metadatos_no_disponibles": "No se pudo comprobar la disponibilidad de los documentos.",
-    "bp_metadatos_comprobando": "Comprobando la disponibilidad de los documentos…",
     "bp_conflicto": "El expediente o el catálogo cambió. Actualice el detalle antes de descargar.",
     "bp_reintentar": "Reintentar consulta",
     "bp_tipo": "Tipo de documento",

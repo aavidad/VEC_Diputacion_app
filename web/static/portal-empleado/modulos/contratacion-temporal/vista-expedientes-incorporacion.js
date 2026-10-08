@@ -1,16 +1,16 @@
 /** Montaje y refresco de resolución de formalización e incorporación al ejercicio. */
 
 import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js";
-import { escaparHTML } from "./componentes-expedientes.js?v=20261008-w-fichas-capacidades-v2";
-import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261008-w-fichas-capacidades-v2";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-w-fichas-capacidades-v2";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-w-fichas-capacidades-v2";
-import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261008-w-fichas-capacidades-v2";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-w-fichas-capacidades-v2";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261008-w-ct-borradores-montaje-v1";
+import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261008-w-ct-borradores-montaje-v1";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-w-ct-borradores-montaje-v1";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-w-ct-borradores-montaje-v1";
+import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261008-w-ct-borradores-montaje-v1";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-w-ct-borradores-montaje-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261008-w-fichas-capacidades-v2";
-import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261008-w-fichas-capacidades-v2";
+import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261008-w-ct-borradores-montaje-v1";
+import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261008-w-ct-borradores-montaje-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 
 export function crearResolverEtiquetasIncorporacionB2(textos, personal) {
@@ -31,8 +31,6 @@ export function crearGestorIncorporacion({
   resolucionFormalizacionDisponible,
   incorporacionEjercicioDisponible,
   incorporacionPersonalB2 = null,
-  resolverDisponibilidadOpcional = () => null,
-  reintentarDisponibilidadOpcional = async () => {},
   confirmarOperacion,
   mensajes = {},
   locale = "es-ES",
@@ -48,49 +46,20 @@ export function crearGestorIncorporacion({
   let consultaResolucionFormalizacion = null;
   let desmontarPersonalB2 = null;
   let consultaPersonalB2 = null;
-  let metadatosB2EnCurso = false;
 
-  function contextoPersonalB2(estado) {
+  function candidatoPersonalB2(estado) {
     if (!esMontada() || !incorporacionPersonalB2
       || !["consultar", "preparar", "confirmar"].every((metodo) => typeof incorporacionPersonalB2[metodo] === "function")
       || estado?.carga !== "listo" || estado?.vista !== "expediente"
       || estado.expediente?.demostracion !== false || !Number.isSafeInteger(estado.expediente.version)
-      || estado.expediente.version < 7) return null;
-    const contexto = { expediente_ref: estado.expediente.expediente_ref,
-      version_observada: estado.expediente.version };
+      || estado.expediente.version < 7) return false;
     const resumen = estado.cuadro?.expedientes?.find((fila) => fila.expediente_ref === estado.expediente.expediente_ref);
     return resumen?.version === estado.expediente.version
-      && ["nombramiento", "seguimiento"].includes(resumen.fase_clave) ? contexto : null;
-  }
-
-  function estadoPersonalB2(contexto) {
-    const disponibilidad = resolverDisponibilidadOpcional("incorporacion_personal_b2", contexto);
-    return disponibilidad?.expediente_ref === contexto.expediente_ref
-      && disponibilidad.version_observada === contexto.version_observada
-      && ["disponible", "no_autorizado", "sin_montaje", "indisponible"].includes(disponibilidad.estado)
-      ? disponibilidad.estado : null;
-  }
-
-  function candidatoPersonalB2(estado) {
-    const contexto = contextoPersonalB2(estado);
-    return contexto !== null && estadoPersonalB2(contexto) === "disponible";
+      && ["nombramiento", "seguimiento"].includes(resumen.fase_clave);
   }
 
   async function ofrecerPersonalB2() {
     const estado = presentador.obtenerEstado();
-    const contexto = contextoPersonalB2(estado);
-    if (contexto && estadoPersonalB2(contexto) !== "disponible") {
-      const contenedor = raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]");
-      if (contenedor) {
-        const t = crearTraductorExpedientesContratacion(mensajes);
-        const estadoCap = estadoPersonalB2(contexto);
-        const metadatos = estadoCap === "indisponible";
-        contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="${metadatos || estadoCap === "no_autorizado" ? "alert" : "status"}">${escaparHTML(t(estadoCap === "no_autorizado"
-          ? "incorporacion_preparacion_denegada" : "incorporacion_preparacion_no_disponible"))}</p>
-          ${metadatos ? `<button class="boton-secundario" type="button" data-ct-exp-accion="reintentar-metadatos-b2">${escaparHTML(t("incorporacion_preparacion_reintentar"))}</button>` : ""}`;
-      }
-      return;
-    }
     if (!candidatoPersonalB2(estado)) return ofrecerIncorporacionEjercicio();
     if (desmontarPersonalB2 || consultaPersonalB2 || desmontarIncorporacionEjercicio || consultaIncorporacionEjercicio) return;
     const contenedor = raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]");
@@ -104,8 +73,7 @@ export function crearGestorIncorporacion({
       return esMontada() && consultaPersonalB2 === controlador && !controlador.signal.aborted
         && raiz.contains?.(contenedor) && raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]") === contenedor
         && actual?.vista === "expediente" && actual.carga === "listo"
-        && actual.expediente?.expediente_ref === expedienteRef && actual.expediente?.version === version
-        && candidatoPersonalB2(actual);
+        && actual.expediente?.expediente_ref === expedienteRef && actual.expediente?.version === version;
     };
     const t = crearTraductorExpedientesContratacion(mensajes);
     contenedor.innerHTML = `<p class="ct-ayuda" role="status">${escaparHTML(t("incorporacion_preparacion_cargando"))}</p>`;
@@ -503,31 +471,10 @@ export function crearGestorIncorporacion({
     }
   }
 
-  async function reintentarMetadatosB2() {
-    const contexto = contextoPersonalB2(presentador.obtenerEstado());
-    if (!contexto || estadoPersonalB2(contexto) !== "indisponible" || metadatosB2EnCurso) return;
-    const contenedor = raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]");
-    if (!contenedor) return;
-    metadatosB2EnCurso = true;
-    const t = crearTraductorExpedientesContratacion(mensajes);
-    contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">${escaparHTML(t("incorporacion_preparacion_cargando"))}</p>`;
-    try {
-      await reintentarDisponibilidadOpcional("incorporacion_personal_b2", contexto);
-    } catch {
-      console.warn({ origen: "ct.incorporacion_b2.metadatos", codigo: "no_disponible" });
-    } finally { metadatosB2EnCurso = false; }
-    const actual = contextoPersonalB2(presentador.obtenerEstado());
-    if (!actual || actual.expediente_ref !== contexto.expediente_ref
-      || actual.version_observada !== contexto.version_observada || !esMontada()
-      || raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]") !== contenedor) return;
-    await ofrecerPersonalB2();
-  }
-
   return Object.freeze({
     montarResolucionFormalizacion,
     montarIncorporacionEjercicio,
     ofrecerIncorporacionEjercicio: ofrecerPersonalB2,
-    reintentarMetadatosB2,
     abortar() {
       consultaPersonalB2?.abort();
       consultaPersonalB2 = null;

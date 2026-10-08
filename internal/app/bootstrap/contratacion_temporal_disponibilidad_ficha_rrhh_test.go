@@ -25,7 +25,7 @@ func TestDisponibilidadFichaCTSoloTrasLecturaCorrecta(t *testing.T) {
 		esperado ports.EstadoDisponibilidadBorradoresRRHH
 	}{
 		{false, ports.BorradoresRRHHSinMontaje},
-		{true, ports.BorradoresRRHHIndisponible},
+		{true, ports.BorradoresRRHHMontado},
 	} {
 		lector := &lectorDisponibilidadFichaPrueba{}
 		resultado, err := (consultorDetalleConDisponibilidadRRHH{lector: lector, documentalMontado: tc.montado}).Consultar(context.Background(), ports.SolicitudDetalleRRHH{})

@@ -15,7 +15,7 @@ func TestDetalleRRHHDisponibilidadFichaVinculadaALaLectura(t *testing.T) {
 		t.Fatal("una lectura sin metadata no debe fabricar disponibilidad")
 	}
 	for _, estado := range []ports.EstadoDisponibilidadBorradoresRRHH{
-		ports.BorradoresRRHHSinMontaje, ports.BorradoresRRHHIndisponible,
+		ports.BorradoresRRHHSinMontaje, ports.BorradoresRRHHMontado,
 	} {
 		detalle := base
 		detalle.EstadoBorradoresPublicados = estado

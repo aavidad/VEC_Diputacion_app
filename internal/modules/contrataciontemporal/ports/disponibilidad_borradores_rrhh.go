@@ -5,6 +5,6 @@ package ports
 type EstadoDisponibilidadBorradoresRRHH string
 
 const (
-	BorradoresRRHHSinMontaje   EstadoDisponibilidadBorradoresRRHH = "sin_montaje"
-	BorradoresRRHHIndisponible EstadoDisponibilidadBorradoresRRHH = "indisponible"
+	BorradoresRRHHSinMontaje EstadoDisponibilidadBorradoresRRHH = "sin_montaje"
+	BorradoresRRHHMontado    EstadoDisponibilidadBorradoresRRHH = "montado"
 )
