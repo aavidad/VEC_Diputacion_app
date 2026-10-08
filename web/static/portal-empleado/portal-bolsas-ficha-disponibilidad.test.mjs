@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { renderizarReincorporacionesTitular, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js";
 import { consultarOperacionesSituacion, crearControladorOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js";
 
 const bolsa = "bolsa:uno", participacion = "participacion:uno", desde = "2026-10-08T08:00:00Z";
@@ -100,4 +101,29 @@ test("un fallo real de una sección disponible se muestra y conserva el candidat
   assert.equal(modal.operacionesB8.carga, "listo");
   assert.equal(modal.operacionesB8.solicitudesStatus, 503);
   assert.match(renderizarOperacionesSituacion({ candidato: modal.candidato, estado: modal.operacionesB8 }), /data-b8-accion="reintentar-solicitudes"/);
+});
+
+
+test("reincorporaciones indisponibles muestran el error y reintentan metadata, sin una lectura ciega", () => {
+  const modal = { candidato: { participacion_ref: participacion }, reincorporacionesTitular: { carga: "metadatos", items: [] } };
+  const vista = renderizarReincorporacionesTitular({ estado: modal.reincorporacionesTitular, escaparHTML: String });
+  assert.match(vista, /role="alert"/);
+  assert.match(vista, /data-reincorporacion-accion="reintentar"/);
+  let reintentos = 0;
+  const control = { dataset: { reincorporacionAccion: "reintentar" } };
+  assert.equal(manejarClickReincorporacionesTitular({ target: { closest: () => control }, preventDefault() {} },
+    { estado: { modalFicha: modal }, renderizar() {}, reintentarMetadatos: () => { reintentos++; } }), true);
+  assert.equal(reintentos, 1);
+});
+
+test("una reincorporación lenta no retrasa el historial principal ya leído", async () => {
+  let entregar;
+  const pendiente = new Promise((resolve) => { entregar = resolve; });
+  const { modal, controlador } = preparar({ consultarOperaciones: async () => leer(historial("sin_montaje", "disponible")),
+    consultarReincorporaciones: () => pendiente });
+  await controlador.cargar(modal, { incluirSecciones: false });
+  assert.equal(modal.operacionesB8.carga, "listo");
+  assert.equal(modal.reincorporacionesTitular.carga, "cargando");
+  entregar({ ok: true, datos: [] }); await modal.promesaReincorporaciones;
+  assert.equal(modal.reincorporacionesTitular.carga, "listo");
 });
