@@ -177,3 +177,28 @@ test("cambiar de pantalla durante la carga de textos no lanza una lectura tardí
   assert.equal(eventos.size, 0);
   vista.desmontar();
 });
+
+test("una ficha tardía no sustituye la selección RRHH más reciente", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "", addEventListener: (tipo, f) => eventos.set(tipo, f),
+    removeEventListener: (tipo) => eventos.delete(tipo), replaceChildren() { this.innerHTML = ""; },
+    contains: () => true };
+  let resolverPrimera;
+  const segunda = { ...detalle, solicitud_ref: "solicitud:2", persona_resumen: "Marina López" };
+  const vista = await montarInscripcionesRRHH({ raiz,
+    localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
+    historial: { pushState() {} },
+    cliente: { listar: async () => ({ solicitudes: [solicitud, segunda], total: 2, cursor_siguiente: null }),
+      detalle: (ref) => ref === "solicitud:1" ? new Promise((r) => { resolverPrimera = r; }) : Promise.resolve(segunda),
+      motivos: async () => ({ motivos: [] }), decidir: async () => ({}), incorporar: async () => ({}) } });
+  await new Promise((r) => setTimeout(r, 0));
+  const pulsar = (ref) => eventos.get("click")({ target: { closest: () => ({
+    dataset: { inscripcionAbrir: ref }, matches: () => false }) } });
+  pulsar("solicitud:1"); pulsar("solicitud:2");
+  await new Promise((r) => setTimeout(r, 0));
+  resolverPrimera(detalle);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.match(raiz.innerHTML, /<dd>Marina López<\/dd>/u);
+  assert.doesNotMatch(raiz.innerHTML, /<dd>Lucía Martín<\/dd>/u);
+  vista.desmontar();
+});
