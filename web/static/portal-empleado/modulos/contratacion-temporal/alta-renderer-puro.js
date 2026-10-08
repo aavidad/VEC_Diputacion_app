@@ -525,7 +525,13 @@ export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
   const minutosJornada = minutosDesdeJornadaVisible(jornadaEntrada);
   const adicionales = necesidad ? {
     jornada_minutos: minutosJornada === null ? jornadaEntrada : String(minutosJornada),
-    ...Object.fromEntries("numero_personas puesto_codigo plaza_codigo titular_ref vacancia_fuente_ref rpt_catalogo_ref rpt_catalogo_huella_sha256 organica_codigo funcional_codigo proyecto_gasto_codigo porcentaje_financiacion justificacion_temporal programa_denominacion programa_fin proyecto_codigo financiacion_ref rc_ref intervencion_ref".split(" ").map((campo) =>
+    ...Object.fromEntries([
+      "numero_personas", "puesto_codigo", "plaza_codigo", "titular_ref", "vacancia_fuente_ref",
+      "rpt_catalogo_ref", "rpt_catalogo_huella_sha256", "organica_codigo", "funcional_codigo",
+      "proyecto_gasto_codigo", "porcentaje_financiacion", "justificacion_temporal",
+      "programa_denominacion", "programa_fin", "proyecto_codigo", "financiacion_ref", "rc_ref",
+      "intervencion_ref",
+    ].map((campo) =>
       [campo, String(datos.get(campo) ?? "")])) } : {};
   return {
     ...(conNumeroMOAD ? { numero_expediente_moad: String(datos.get("numero_expediente_moad") ?? "") } : {}),

@@ -12,10 +12,9 @@ function aplanarMensajesNecesidades(seccion, prefijo = "", salida = {}) {
 }
 /** El catálogo de necesidades se pide al entrar en Alta, nunca al importar CT. */
 export async function cargarMensajesNecesidadesAlta(idioma) {
-  const modulo = "contratacion-temporal-necesidades-alta";
   const catalogo = idioma === undefined
-    ? await cargarCatalogosContratacion(modulo)
-    : await cargarCatalogosContratacionEnIdioma(modulo, idioma);
+    ? await cargarCatalogosContratacion("contratacion-temporal-necesidades-alta")
+    : await cargarCatalogosContratacionEnIdioma("contratacion-temporal-necesidades-alta", idioma);
   return Object.freeze(aplanarMensajesNecesidades(catalogo.actual));
 }
 /** Textos castellanos del módulo; las vistas solo consumen claves. */

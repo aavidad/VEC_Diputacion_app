@@ -435,6 +435,44 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-modulos-coordinador.js",
     "portal.js",
   ]) versionesEspeciales.set(ruta, "20261008-alta-rpt-circular-v4");
+  // Cohorte v5: las dos hojas corregidas y sus importadores hasta las entradas.
+  for (const ruta of [
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/alta-renderer-puro.js",
+    "modulos/contratacion-temporal/cliente-http-estadisticas.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/contrato-estadisticas.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-analisis.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-asignacion.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-cobertura.js",
+    "modulos/contratacion-temporal/formulario-fiscalizacion.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/i18n.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/presentador-expedientes.js",
+    "modulos/contratacion-temporal/rrhh-plantillas-cliente.js",
+    "modulos/contratacion-temporal/rrhh-plantillas-vista.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vista-borradores-publicados.js",
+    "modulos/contratacion-temporal/vista-estadisticas.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vista.js",
+    "peticiones-centro/arranque-peticiones-centro.js",
+    "peticiones-centro/peticiones-centro.js",
+    "portal-modulos-coordinador.js",
+    "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261008-alta-rpt-circular-v5");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -572,7 +610,7 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-alta-rpt-circular-v4");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-alta-rpt-circular-v5");
 
 });
 
@@ -582,8 +620,8 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   const [html, portal, coordinador, recorridos, borradores] = await Promise.all(
     rutas.map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const version = "20261007-u-dietas-catalogo-v1";
-  const versionRaiz = "20261008-alta-rpt-circular-v4";
-  const versionCoordinador = "20261008-alta-rpt-circular-v4";
+  const versionRaiz = "20261008-alta-rpt-circular-v5";
+  const versionCoordinador = "20261008-alta-rpt-circular-v5";
   const comun = "20261007-pantallas-textos-final-v1";
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionRaiz);
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionCoordinador);

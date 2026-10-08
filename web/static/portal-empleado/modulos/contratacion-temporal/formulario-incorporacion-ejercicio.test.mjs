@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261008-alta-circular-v3";
+import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261008-alta-rpt-circular-v5";
 
 // Dobles de cliente y DOM, contrato real; no acredita HTTP, PostgreSQL ni montaje.
 const expediente = "expediente:ejercicio:1", personal = "solicitud:personal:1";

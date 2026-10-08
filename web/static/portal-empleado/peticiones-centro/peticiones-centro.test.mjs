@@ -9,7 +9,7 @@ import {
   validarReciboPeticionCentro,
   registrarOperacionPeticionCentro,
   registrarAltaRRHH,
-} from "./peticiones-centro.js?v=20261008-alta-circular-v3";
+} from "./peticiones-centro.js?v=20261008-alta-rpt-circular-v5";
 
 const catalogos = {
   esquema: "vec.contratacion_temporal.catalogos_alta.v1",
@@ -145,7 +145,7 @@ test("alta RRHH envía el contrato exacto y conserva reintento ante resultado in
 
 test("la ayuda «?» explica que el certificado no firma y es accesible", async () => {
   const { readFile } = await import("node:fs/promises");
-  const { instalarAyudaPeticionCentro, MENSAJES_AYUDA_PETICIONES_CENTRO_ES: m } = await import("./peticiones-centro.js?v=20261008-alta-circular-v3");
+  const { instalarAyudaPeticionCentro, MENSAJES_AYUDA_PETICIONES_CENTRO_ES: m } = await import("./peticiones-centro.js?v=20261008-alta-rpt-circular-v5");
   const html = await readFile(new URL("./index.html", import.meta.url), "utf8");
   assert.match(html, /<button type="button" class="pc-boton-ayuda" id="pc-ayuda-abrir" aria-haspopup="dialog" aria-controls="pc-ayuda"[^>]*><span aria-hidden="true">\?<\/span><\/button>/u);
   assert.match(html, /<dialog id="pc-ayuda"[^>]*aria-labelledby="pc-ayuda-titulo"/u);

@@ -8,7 +8,7 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v4";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v5";
 
 const HUELLA = "a".repeat(64);
 const FORM_DATA_ORIGINAL = globalThis.FormData;
@@ -235,8 +235,16 @@ function crearContenedorAnalisis({ fallarAlPintar = false } = {}) {
 
 function crearContenedorAlta() {
   const eventos = new Map();
+  let html = "";
+  let avisarFormulario;
+  const formularioListo = new Promise((resolver) => { avisarFormulario = resolver; });
   return {
-    innerHTML: "",
+    get innerHTML() { return html; },
+    set innerHTML(valor) {
+      html = valor;
+      if (valor.includes("data-ct-form")) avisarFormulario();
+    },
+    esperarFormulario() { return formularioListo; },
     eventos,
     addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
     removeEventListener(tipo, manejador) {
@@ -247,6 +255,7 @@ function crearContenedorAlta() {
     enviar(valores) {
       const formulario = {
         valores,
+        querySelector(selector) { return selector === '[name="jornada_horas"]' ? {} : null; },
         closest(selector) {
           return selector === "[data-ct-form]" ? this : null;
         },
@@ -671,34 +680,38 @@ test("el recibo de alta monta el análisis real sin perderse si falla el listado
     confirmada_en: "2026-09-04T08:15:00Z",
   };
   const solicitudesAnalisis = [];
+  const causa = (clave, campos = []) => ({ clave, etiqueta_clave: `ct.necesidad.${clave}`,
+    fuente_ref: "circular:ct:20260219", fuente_url: "https://www.dipgra.es/circular.pdf",
+    regla_ref: `regla:ct:${clave}`, fecha_fin: "obligatoria", maximo_meses: 36,
+    campos_permitidos: ["numero_personas", ...campos],
+    campos_obligatorios: ["numero_personas", ...campos] });
+  const catalogosNecesidades = {
+    esquema: "vec.contratacion_temporal.catalogos_alta.v2",
+    numero_expediente_moad: { referencia: "catalogo:ct:moad", version: 1,
+      patron: "^[0-9]{4}/[1-9][0-9]{0,9}$", ejemplo: "2026/9001" },
+    centros: [{ referencia: "centro:sintetico:001", etiqueta: "Centro sintético",
+      contactos: [{ referencia: "contacto:sintetico:001", etiqueta: "Contacto sintético" }] }],
+    categorias: [{ referencia: "categoria:rrhh:001", etiqueta: "Técnica o técnico superior",
+      grupos_subgrupos: [{ clave: "A1", etiqueta: "A1" }] }],
+    documentos: [{ referencia: "documento:sintetico:001", etiqueta: "Retención sintética" }],
+    necesidades: { referencia: "catalogo:ct:necesidades:001", version: 2,
+      huella_sha256: HUELLA, es_ejemplo: true,
+      fuente_ref: "circular:ct:20260219", fuente_url: "https://www.dipgra.es/circular.pdf",
+      jornada_referencia_minutos: 2250, jornada_fuente_ref: "operador:ct:provisional",
+      causas: [causa("vacante", ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]),
+        causa("sustitucion", ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]),
+        causa("acumulacion_tareas", ["justificacion_temporal"]),
+        causa("programa_temporal", ["programa_denominacion", "programa_fin",
+          "proyecto_codigo", "financiacion_ref"])] },
+  };
   const escenario = await montarEscenario({
     expediente,
     tareaRef,
     estado: crearEstado(expediente, tareaRef, { vista: "alta" }),
     fallarCarga: true,
     alta: {
-      catalogos: {
-        esquema: "vec.contratacion_temporal.catalogos_alta.v1",
-        numero_expediente_moad: { referencia: "catalogo:ct:moad", version: 1, patron: "^[0-9]{4}/[1-9][0-9]{0,9}$", ejemplo: "2026/9001" },
-        centros: [{
-          referencia: "centro:sintetico:001",
-          etiqueta: "Centro sintético",
-          contactos: [{
-            referencia: "contacto:sintetico:001",
-            etiqueta: "Contacto sintético",
-          }],
-        }],
-        categorias: [{
-          referencia: "categoria:rrhh:001",
-          etiqueta: "Técnica o técnico superior",
-          grupos_subgrupos: [{ clave: "A1", etiqueta: "A1" }],
-        }],
-        motivos: [{ clave: "sustitucion", etiqueta: "Sustitución" }],
-        documentos: [{
-          referencia: "documento:sintetico:001",
-          etiqueta: "Retención sintética",
-        }],
-      },
+      catalogos: catalogosNecesidades,
+      obtenerCatalogosNecesidadesAlta: async () => catalogosNecesidades,
       capacidad: CAPACIDAD_CREAR_SOLICITUD,
       ejecutor: async () => reciboAlta,
       generarClaveIdempotencia: () => "12345678-1234-4abc-8def-1234567890ab",
@@ -718,13 +731,17 @@ test("el recibo de alta monta el análisis real sin perderse si falla el listado
     }, { analisisInicial: null }),
   });
   const alta = escenario.raiz.obtenerAlta();
+  await alta.esperarFormulario();
   alta.enviar({
     numero_expediente_moad: "2026/9001",
     centro_ref: "centro:sintetico:001",
     contacto_ref: "contacto:sintetico:001",
     categoria_ref: "categoria:rrhh:001",
     grupo_subgrupo: "A1",
-    motivo_clave: "sustitucion",
+    motivo_clave: "acumulacion_tareas",
+    numero_personas: "1",
+    jornada_horas: "37,5",
+    justificacion_temporal: "Acumulación de tareas del centro.",
     detalle: "Necesidad temporal sintética.",
     inicio: "2026-09-10",
     fin: "2027-03-10",
@@ -736,6 +753,7 @@ test("el recibo de alta monta el análisis real sin perderse si falla el listado
     documentos_adjuntos: ["documento:sintetico:001"],
     observaciones: "Datos exclusivamente sintéticos.",
   });
+  assert.match(alta.innerHTML, /data-ct-accion="confirmar"/u);
   await alta.confirmar();
 
   assert.match(alta.innerHTML, /data-ct-recibo/u);

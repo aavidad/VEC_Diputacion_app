@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { diezmilesimasDesdeHorasMinutos, montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-circular-v3";
+import { diezmilesimasDesdeHorasMinutos, montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v5";
 
 const CLAVE = "123e4567-e89b-42d3-a456-426614174000";
 const HUELLA = "a".repeat(64);

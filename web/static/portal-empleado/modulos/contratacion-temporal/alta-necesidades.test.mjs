@@ -7,8 +7,8 @@ import {
 import { crearAltaClienteHTTP } from "./cliente-http-alta.js?v=20261008-alta-circular-v3";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-circular-v3";
 import { montarAltaContratacionTemporal, renderizarAltaContratacionTemporal,
-  seleccionarPuestoPublicadoRPT } from "./vista.js?v=20261008-alta-rpt-circular-v4";
-import { cargarMensajesNecesidadesAlta } from "./i18n.js?v=20261008-alta-circular-v3";
+  seleccionarPuestoPublicadoRPT } from "./vista.js?v=20261008-alta-rpt-circular-v5";
+import { cargarMensajesNecesidadesAlta } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
 
 const CLAVE = "12345678-1234-4abc-8def-1234567890ab";
 const HUELLA = "a".repeat(64);

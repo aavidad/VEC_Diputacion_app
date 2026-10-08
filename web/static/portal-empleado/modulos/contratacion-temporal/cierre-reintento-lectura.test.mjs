@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-alta-circular-v3";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-alta-rpt-circular-v5";
 
 const preparacion = {
   expediente_ref: "expediente:1", seguimiento_ref: "seguimiento:1",

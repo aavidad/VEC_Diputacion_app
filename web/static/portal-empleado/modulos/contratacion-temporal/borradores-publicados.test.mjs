@@ -3,7 +3,7 @@ import { createHash, webcrypto } from "node:crypto";
 import test from "node:test";
 import { crearClienteBorradoresPublicados, RUTA_BORRADORES_DISPONIBLES,
   RUTA_BORRADORES_PUBLICADOS, validarBorradoresDisponibles } from "./cliente-http-borradores-publicados.js";
-import { montarBorradoresPublicados, renderizarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261008-alta-circular-v3";
+import { montarBorradoresPublicados, renderizarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261008-alta-rpt-circular-v5";
 
 const contexto = Object.freeze({ expediente_ref: "expediente:ct:1", version_observada: 8 });
 const catalogo = Object.freeze({ esquema: "vec.contratacion-temporal.borradores-disponibles.v1",

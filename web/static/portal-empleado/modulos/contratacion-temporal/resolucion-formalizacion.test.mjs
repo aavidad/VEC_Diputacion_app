@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js?v=20261008-alta-circular-v3";
 import { validarSolicitudResolucionFormalizacion, validarReciboResolucionFormalizacion, validarPreparacionResolucionFormalizacion } from "./contrato-resolucion-formalizacion.js";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-alta-circular-v3";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-alta-rpt-circular-v5";
 
 function errorHTTPResolucion(estado) {
   const codigo = { 400: "peticion_no_valida", 403: "acceso_denegado",

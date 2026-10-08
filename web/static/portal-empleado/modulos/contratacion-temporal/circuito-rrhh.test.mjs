@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { validarCircuitoRRHH, validarConsultaCircuitoRRHH } from "./contrato-circuito-rrhh.js";
 import { crearClienteCircuitoRRHH, RUTA_CONSULTA_CIRCUITO_RRHH } from "./cliente-http-circuito-rrhh.js";
 import { instalarConsultaCircuitoRRHH, marcarRailDesconocido, pasosRailCircuitoRRHH, renderizarCircuitoRRHH } from "./vista-circuito-rrhh.js";
-import { insertarConsultaCircuitoRRHH } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v4";
+import { insertarConsultaCircuitoRRHH } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v5";
 
 const consulta = { expediente_ref: "expediente:prueba:rrhh", version_observada: 1 };
 const flujo = { definicion_ref: "flujo:prueba:rrhh", version: 2, huella_sha256: "a".repeat(64) };

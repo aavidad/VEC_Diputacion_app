@@ -4,7 +4,7 @@
  * y nunca se muestra: un reintento de la misma operación reutiliza la petición
  * congelada (y su clave) para no duplicar el efecto.
  */
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-circular-v3";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
 import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261008-ct-inicio-v1";
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20261007-pantallas-textos-final-v1";
 import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";

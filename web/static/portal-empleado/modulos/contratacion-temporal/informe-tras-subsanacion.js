@@ -6,7 +6,7 @@
 
 import { validarSolicitudInformeJuridico } from "./contrato-informe-juridico.js";
 import { escaparHTML } from "./componentes-expedientes.js?v=20261008-ct-inicio-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-circular-v3";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
 import { MENSAJES_INFORME_TRAS_SUBSANACION_ACTUAL } from "./i18n-informe-tras-subsanacion.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 

@@ -8,7 +8,7 @@ test.before(async () => {
 });
 
 test("el módulo se importa sin cargar textos y exige preparación antes de traducir", async () => {
-  const aislado = await import("./i18n.js?v=20261008-alta-rpt-circular-v4");
+  const aislado = await import("./i18n.js?test=importacion-sin-textos");
   assert.equal(aislado.MENSAJES_PERSONAL, undefined);
   assert.throws(() => aislado.crearTraductorPersonal(), /pendientes de preparación/);
 });
@@ -87,7 +87,7 @@ test("Personal adopta el idioma efectivo y comunica la incidencia de respaldo", 
 });
 
 test("un catálogo inaccesible no rompe la importación y permite otra preparación", async () => {
-  const aislado = await import("./i18n.js?v=20261008-alta-rpt-circular-v4");
+  const aislado = await import("./i18n.js?test=recuperacion-tras-fallo");
   const datos = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
   await assert.rejects(aislado.prepararTextosPersonal({
     idioma: "es", porDefecto: "es", avisar: () => {}, leer: async () => { throw new Error("sin catálogo"); },

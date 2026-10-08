@@ -66,9 +66,9 @@ test("prepara el mismo i18n antes de importar Organización y HTML apunta a la e
   assert.equal(raiz.atributos.get("aria-busy"), "false");
   const entrada = await readFile(new URL("./arranque.js", import.meta.url), "utf8");
   const html = await readFile(new URL("./index.html", import.meta.url), "utf8");
-  assert.match(entrada, /personal\/i18n\.js\?v=20261007-pantallas-textos-final-v1/u);
+  assert.match(entrada, /personal\/i18n\.js\?v=20261008-alta-rpt-circular-v4/u);
   assert.match(entrada, /organizacion\.js\?v=20261007-pantallas-textos-final-v1/u);
-  assert.match(html, /arranque\.js\?v=20261007-t-organizacion-arranque-v1/u);
+  assert.match(html, /arranque\.js\?v=20261008-alta-rpt-circular-v4/u);
 });
 
 test("fallo de preparación no importa consumidor; el botón reintenta desde la misma entrada", async () => {

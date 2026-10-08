@@ -9,7 +9,7 @@ import {
   validarExpedienteContratacionTemporal,
   validarReciboActuacion,
 } from "./contrato-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-circular-v3";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
 
 const traducirCT = crearTraductorContratacionTemporal();
 

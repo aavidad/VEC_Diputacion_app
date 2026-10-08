@@ -1,5 +1,5 @@
 /** Panel de tipos publicados: el catálogo y cada documento se autorizan en servidor. */
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-circular-v3";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v5";
 import { crearClienteBorradoresPublicados } from "./cliente-http-borradores-publicados.js?v=20260928-ppt-503-v5";
 
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
