@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"strings"
 	"time"
 
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -19,6 +20,8 @@ var (
 	ErrConflicto           = errors.New("bolsa inscripcion: conflicto")
 	ErrPlazoCerrado        = errors.New("bolsa inscripcion: plazo cerrado")
 	ErrAccesoDenegado      = errors.New("bolsa inscripcion: acceso denegado")
+	ErrSesionAusente       = errors.New("bolsa inscripcion: sesion ausente")
+	ErrActaNoDisponible    = errors.New("bolsa inscripcion: acta no disponible")
 	ErrCatalogoCambiado    = errors.New("bolsa inscripcion: catalogo cambiado")
 	ErrRequisitoInvalido   = errors.New("bolsa inscripcion: requisito invalido")
 	ErrDeclaracionInvalida = errors.New("bolsa inscripcion: declaracion invalida")
@@ -47,7 +50,8 @@ const (
 )
 
 var referenciaOpaca = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9:._-]{2,255}$`)
-var claveIdempotencia = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$`)
+var claveIdempotencia = regexp.MustCompile(`^[A-Za-z0-9_-]{16,128}$`)
+var huellaCertificado = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 // Actor sólo se construye a partir de la sesión vinculada al certificado.
 // PersonaRef no forma parte de ningún DTO de petición.
@@ -95,12 +99,16 @@ type CapturaLectura struct {
 func (a Actor) LecturaValida(accion, recurso string, filtro Filtro) bool {
 	c := a.Lectura
 	ahora := time.Now().UTC()
+	if c == nil || strings.Contains(accion, ".rrhh.") != (c.Canal == "interno_rrhh") {
+		return false
+	}
 	return a.Valido() && c != nil && c.PersonaRef == a.PersonaRef &&
 		c.PerfilRef == a.PerfilRef && c.SesionRef == a.SesionRef &&
 		c.CuentaRef == a.ResultadoContexto.Contexto.Instantanea.CuentaRef &&
 		c.Accion == accion && c.RecursoRef == recurso && c.Filtro == filtro &&
-		c.Finalidad != "" && c.Canal != "" && c.CorrelacionRef != "" &&
-		c.AutenticacionRef != "" && len(c.CertificadoHuellaSHA256) == 64 &&
+		c.Finalidad != "" && (c.Canal == "externo_personal" || c.Canal == "interno_empleado" || c.Canal == "interno_rrhh") &&
+		referenciaOpaca.MatchString(c.CorrelacionRef) &&
+		referenciaOpaca.MatchString(c.AutenticacionRef) && huellaCertificado.MatchString(c.CertificadoHuellaSHA256) &&
 		c.RevisionPermisos > 0 && !c.EmitidaEn.IsZero() && !c.EmitidaEn.After(ahora) &&
 		c.ValidaHasta.After(ahora)
 }

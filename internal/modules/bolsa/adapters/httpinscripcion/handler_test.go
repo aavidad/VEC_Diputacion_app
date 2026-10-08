@@ -21,6 +21,15 @@ func (p *preparadorPrueba) RRHH(*http.Request) (inscripcion.Actor, error) {
 	p.rrhh++
 	return inscripcion.Actor{PersonaRef: "per_rrhh_0001", PerfilRef: "prf_rrhh_0001", SesionRef: "ses_rrhh_0001"}, nil
 }
+func (p *preparadorPrueba) PrepararPresentacion(r *http.Request, _ inscripcion.Presentacion) (inscripcion.Actor, error) {
+	return p.Aspirante(r)
+}
+func (p *preparadorPrueba) PrepararDecision(r *http.Request, _ inscripcion.Decision) (inscripcion.Actor, error) {
+	return p.RRHH(r)
+}
+func (p *preparadorPrueba) PrepararIncorporacion(r *http.Request, _ inscripcion.Incorporacion) (inscripcion.Actor, error) {
+	return p.RRHH(r)
+}
 
 type servicioPrueba struct {
 	presentaciones int
