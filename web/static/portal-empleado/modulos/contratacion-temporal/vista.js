@@ -1,6 +1,6 @@
 import { ESQUEMA_CATALOGOS_NECESIDADES, LIMITES_ALTA_CONTRATACION, numeroExpedienteMOADValido } from "./contrato.js?v=20261008-alta-circular-v3";
 import { cargarMensajesNecesidadesAlta, crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { cabecera, escaparHTML, extraerBorrador, filaResumen, formulario, revision } from "./alta-renderer-puro.js?v=20261008-alta-etiquetas-ayuda-v1";
+import { cabecera, escaparHTML, extraerBorrador, filaResumen, formulario, revision } from "./alta-renderer-puro.js?v=20261008-alta-capacidad-v2";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { crearClienteHTTPRPTPublica } from "../personal/cliente-http-rpt-publica.js?v=20261008-alta-rpt-circular-v4";
 
