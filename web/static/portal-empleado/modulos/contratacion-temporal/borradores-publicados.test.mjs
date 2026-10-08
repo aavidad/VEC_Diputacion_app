@@ -4,6 +4,7 @@ import test from "node:test";
 import { crearClienteBorradoresPublicados, RUTA_BORRADORES_DISPONIBLES,
   RUTA_BORRADORES_PUBLICADOS, validarBorradoresDisponibles } from "./cliente-http-borradores-publicados.js";
 import { montarBorradoresPublicados, renderizarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261008-alta-rpt-circular-v6";
+import { catalogoAusentePermiteLegado } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
 
 const contexto = Object.freeze({ expediente_ref: "expediente:ct:1", version_observada: 8 });
 const catalogo = Object.freeze({ esquema: "vec.contratacion-temporal.borradores-disponibles.v1",
@@ -134,25 +135,37 @@ test("la ficha muestra los diez tipos disponibles como borradores con solo sus f
   }
 });
 
-test("el catálogo ausente libera la botonera legada; la lista publicada la oculta", async () => {
+test("sólo 404 libera el legado; 403, 503 y 409 mantienen el error sin otro PDF o Word", async () => {
   const estados = [];
+  const legado = { hidden: true };
   const eventos = new Map();
   const raiz = { innerHTML: "", hidden: false, contains: () => true,
     addEventListener: (tipo, fn) => eventos.set(tipo, fn), removeEventListener: (tipo) => eventos.delete(tipo),
     replaceChildren() { this.innerHTML = ""; } };
   const montarCon = (consultarDisponibles) => montarBorradoresPublicados({ raiz, contexto,
     cliente: { consultarDisponibles, descargar() { throw new Error("no se descarga"); } },
-    alEstado: (estado) => estados.push(estado) });
+    alEstado: (estado) => { estados.push(estado); legado.hidden = !catalogoAusentePermiteLegado(estado); } });
   const ausente = montarCon(async () => { throw Object.assign(new Error("ausente"), { estado: 404 }); });
   await new Promise((resolver) => setImmediate(resolver));
   assert.deepEqual(estados, ["cargando", "cargando", "ausente"]);
   assert.equal(raiz.hidden, true);
+  assert.equal(legado.hidden, false, "404 confirma ausencia del catálogo publicado");
   ausente.desmontar();
+  for (const [codigo, esperado] of [[403, "denegado"], [503, "error"], [409, "conflicto"]]) {
+    estados.length = 0;
+    const fallido = montarCon(async () => { throw Object.assign(new Error("fallo"), { estado: codigo }); });
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(estados.at(-1), esperado);
+    assert.equal(legado.hidden, true, `${codigo} no habilita las descargas legadas`);
+    assert.doesNotMatch(raiz.innerHTML, /data-bp-descargar=/u);
+    fallido.desmontar();
+  }
   estados.length = 0;
   const publicado = montarCon(async () => validarBorradoresDisponibles({ ...catalogo,
     tipos: [{ clave: "solo_pdf", etiqueta: "Sólo PDF", formatos: ["pdf"] }] }));
   await new Promise((resolver) => setImmediate(resolver));
   assert.equal(estados.at(-1), "lista");
+  assert.equal(legado.hidden, true);
   assert.match(raiz.innerHTML, /data-bp-formato="pdf"/u);
   assert.doesNotMatch(raiz.innerHTML, /data-bp-formato="docx"/u);
   publicado.desmontar();

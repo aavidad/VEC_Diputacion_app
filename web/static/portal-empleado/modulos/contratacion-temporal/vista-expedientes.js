@@ -120,6 +120,11 @@ export function contextoPlantillasPublicadasDesdeEstado(estado) {
   return Object.freeze({ expediente_ref: expediente.expediente_ref, version_observada: expediente.version });
 }
 
+/** Un fallo o una denegación del publicador no prueban que falte su catálogo. */
+export function catalogoAusentePermiteLegado(estadoCatalogo) {
+  return estadoCatalogo === "ausente";
+}
+
 export async function montarModuloContratacionTemporal({
   raiz,
   presentador,
@@ -321,8 +326,8 @@ export async function montarModuloContratacionTemporal({
     if (!zona) return;
     zona.hidden = false;
     if (!contexto || typeof raiz.ownerDocument?.createElement !== "function") {
-      if (legado?.childElementCount) zona.hidden = true;
-      else zona.textContent = traducirExpedientes("ficha_borradores_no_montados");
+      if (legado) legado.hidden = true;
+      zona.textContent = traducirExpedientes("ficha_borradores_no_montados");
       return;
     }
     // Pista de composición del detalle auditado; nunca concede un permiso.
@@ -339,11 +344,11 @@ export async function montarModuloContratacionTemporal({
       desmontarBorradoresPublicados = montarBorradoresPublicados({ raiz: contenedor,
         contexto, ...(clienteBorradoresPublicados === undefined ? {} : { cliente: clienteBorradoresPublicados }),
         entornoDescarga, anunciar,
-        alEstado: (estadoCatalogo) => { if (legado) legado.hidden = !["ausente", "error", "denegado", "conflicto"].includes(estadoCatalogo); },
+        alEstado: (estadoCatalogo) => { if (legado) legado.hidden = !catalogoAusentePermiteLegado(estadoCatalogo); },
       }).desmontar;
     } catch {
       desmontarBorradoresPublicados = null;
-      if (legado) legado.hidden = false;
+      if (legado) legado.hidden = true;
       zona.textContent = traducirExpedientes("ficha_borradores_error");
     }
   }
