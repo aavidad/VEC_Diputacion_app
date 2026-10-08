@@ -14,10 +14,12 @@ const HUELLA = "a".repeat(64);
 const CAMPOS_RPT = ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"];
 
 function causa(clave, campos, fechaFin = "obligatoria", extras = {}) {
+  const { campos_obligatorios: obligatorios = campos, ...otros } = extras;
   return { clave, etiqueta_clave: `ct.necesidad.${clave}`,
-    fuente_ref: "circular:ct:20260508", fuente_url: "https://www.dipgra.es/circular.pdf",
+    fuente_ref: "circular:ct:20260219", fuente_url: "https://www.dipgra.es/circular.pdf",
     regla_ref: `regla:ct:${clave}`, fecha_fin: fechaFin, maximo_meses: 36,
-    campos_permitidos: campos, campos_obligatorios: campos, ...extras };
+    campos_permitidos: ["numero_personas", ...campos],
+    campos_obligatorios: ["numero_personas", ...obligatorios], ...otros };
 }
 
 function catalogos() {
@@ -32,7 +34,7 @@ function catalogos() {
     documentos: [{ referencia: "documento:peticion:001", etiqueta: "Petición" }],
     necesidades: { referencia: "catalogo:ct:necesidades:001", version: 2,
       huella_sha256: HUELLA, es_ejemplo: true,
-      fuente_ref: "circular:ct:20260508", fuente_url: "https://www.dipgra.es/circular.pdf",
+      fuente_ref: "circular:ct:20260219", fuente_url: "https://www.dipgra.es/circular.pdf",
       jornada_referencia_minutos: 2100, jornada_fuente_ref: "operador:ct:provisional",
       causas: [
         causa("vacante", CAMPOS_RPT),
@@ -53,6 +55,7 @@ function borrador(datos = {}) {
   numero_expediente_moad: "2026/12345", centro_ref: "centro:sintetico:001",
   contacto_ref: "contacto:sintetico:001", categoria_ref: "categoria:sintetica:001",
   grupo_subgrupo: "A2", motivo_clave: "vacante", detalle: "Refuerzo solicitado por el centro.",
+  numero_personas: "1",
   inicio: "2026-10-01", fin: "2026-11-01", rc_existe: false,
   documentos_adjuntos: ["documento:peticion:001"], ...datos };
 }
@@ -65,6 +68,40 @@ test("el catálogo v2 conserva cuatro causas, jornada publicada y contrato cerra
   assert.throws(() => validarCatalogosAlta({ ...catalogos(), motivos: [{ clave: "otra" }] }));
   assert.throws(() => validarCatalogosAlta({ ...catalogos(), necesidades: {
     ...catalogos().necesidades, jornada_referencia_minutos: 0 } }));
+});
+
+test("el número de personas lo aporta el usuario y viaja dentro de necesidad.campos", () => {
+  const vacio = crearBorradorAlta({ conNumeroMOAD: true, conNecesidad: true,
+    jornadaReferenciaMinutos: 2100 });
+  assert.equal(vacio.numero_personas, "");
+  for (const cuenta of ["1", "2", "4294967295"]) {
+    const actual = borrador({ numero_personas: cuenta, puesto_codigo: "217",
+      rpt_catalogo_ref: "rpt-dipgra-2026", rpt_catalogo_huella_sha256: HUELLA });
+    assert.equal(validarBorradorAlta(actual, catalogos()).valido, true);
+    const comando = crearComandoAlta(actual, catalogos(), CLAVE);
+    assert.equal(comando.necesidad.campos.numero_personas, cuenta);
+    assert.equal(Object.hasOwn(comando, "numero_personas"), false);
+    assert.equal(Object.hasOwn(comando.solicitud, "numero_personas"), false);
+  }
+  for (const cuenta of ["", "0", "1.5", "abc", "01", "4294967296"]) {
+    const actual = borrador({ numero_personas: cuenta });
+    const validacion = validarBorradorAlta(actual, catalogos());
+    assert.equal(validacion.valido, false, cuenta);
+    assert.equal(validacion.errores.numero_personas,
+      cuenta === "" ? "texto_obligatorio" : "numero_personas", cuenta);
+    assert.throws(() => crearComandoAlta(actual, catalogos(), CLAVE), undefined, cuenta);
+  }
+});
+
+test("la obligatoriedad de plaza procede del catálogo de la causa", () => {
+  const actual = catalogos();
+  actual.necesidades.causas = actual.necesidades.causas.map((dato) => dato.clave === "vacante"
+    ? { ...dato, campos_permitidos: [...dato.campos_permitidos, "plaza_codigo"],
+      campos_obligatorios: [...dato.campos_obligatorios, "plaza_codigo"] } : dato);
+  const sinPlaza = borrador({ puesto_codigo: "217", rpt_catalogo_ref: "rpt-dipgra-2026",
+    rpt_catalogo_huella_sha256: HUELLA });
+  assert.equal(validarBorradorAlta(sinPlaza, actual).errores.plaza_codigo, "texto_obligatorio");
+  assert.equal(validarBorradorAlta({ ...sinPlaza, plaza_codigo: "PL-217" }, actual).valido, true);
 });
 
 test("sin publicación RPT exacta no confirma vacante ni inventa versión", () => {
@@ -130,6 +167,8 @@ test("los textos de la necesidad se cargan del catálogo del idioma solicitado",
   const en = await cargarMensajesContratacionTemporalEnIdioma("en");
   assert.equal(es.jornada_minutos, "Jornada semanal (horas y minutos)");
   assert.equal(en.jornada_minutos, "Weekly working time (hours and minutes)");
+  assert.equal(es.numero_personas, "Número de personas solicitadas");
+  assert.equal(en.numero_personas, "Number of people requested");
   assert.match(es.necesidad_ayuda, /Selección Temporal decidirá/u);
   assert.match(en.necesidad_ayuda, /Temporary Staff Selection will decide/u);
 });
@@ -181,17 +220,23 @@ test("la pantalla v2 ofrece causas y campos publicados y conserva recibo real", 
     }, generarClaveIdempotencia: () => CLAVE });
   const inicial = presentador.obtenerEstado();
   assert.equal(inicial.borrador.jornada_minutos, "2100");
+  assert.equal(inicial.borrador.numero_personas, "");
   presentador.actualizarBorrador({ ...inicial.borrador, motivo_clave: "vacante" });
   const html = renderizarAltaContratacionTemporal(presentador.obtenerEstado());
   assert.match(html, /Cobertura de un puesto vacante/);
   assert.match(html, /Buscar puesto/);
   assert.match(html, /name="jornada_horas"[^>]*value="35:00"/u);
+  assert.match(html, /name="numero_personas" type="number" min="1" max="4294967295" step="1" inputmode="numeric" required/u);
+  assert.ok(html.indexOf('name="numero_personas"') < html.indexOf('name="puesto_busqueda"'),
+    "conserva el orden publicado de campos");
   assert.doesNotMatch(html, /modalidad jurídica/i);
   assert.equal(presentador.prepararRevision(borrador({ puesto_codigo: "217" })), false);
   assert.equal(presentador.obtenerEstado().errores.rpt_catalogo_ref, "texto_obligatorio");
   const listo = borrador({ puesto_codigo: "217", rpt_catalogo_ref: "rpt-dipgra-2026",
     rpt_catalogo_huella_sha256: HUELLA });
   assert.equal(presentador.prepararRevision(listo), true);
+  assert.match(renderizarAltaContratacionTemporal(presentador.obtenerEstado()),
+    /<dt>Número de personas solicitadas<\/dt><dd>1<\/dd>/u);
   await presentador.enviar();
   assert.equal(enviados.length, 1);
   assert.equal(presentador.obtenerEstado().recibo.recibo_ref, "recibo:ct:001");
