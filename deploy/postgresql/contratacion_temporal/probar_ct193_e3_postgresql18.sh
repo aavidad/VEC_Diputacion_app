@@ -499,11 +499,11 @@ emisor="$temporal/emisor-o205.test"
 adaptador="$temporal/confirmacion-e3.test"
 (
     timeout --signal=TERM --kill-after=10s 600s \
-    prlimit --as=8589934592 --cpu=600 --nproc=2048 --fsize=134217728 -- \
+    prlimit --as=8589934592 --cpu=600 --nproc=8192 --fsize=134217728 -- \
     "${sandbox[@]}" -- "$go_bin" test -buildvcs=false -p 6 -c -o "$emisor" \
         ./internal/vec/adapters/seguridad/confianzaatestacion
     timeout --signal=TERM --kill-after=10s 600s \
-    prlimit --as=8589934592 --cpu=600 --nproc=2048 --fsize=134217728 -- \
+    prlimit --as=8589934592 --cpu=600 --nproc=8192 --fsize=134217728 -- \
     "${sandbox[@]}" -- "$go_bin" test -buildvcs=false -p 6 -c -o "$adaptador" \
         ./internal/modules/contrataciontemporal/adapters/postgres
 ) >"$temporal/go-build.log" 2>&1 || {
@@ -522,7 +522,7 @@ probar_fase() {
     esac
     estado_antes="$(estado_caso "$caso")"
     if ! timeout --signal=TERM --kill-after=5s 45s \
-        prlimit --as=4294967296 --cpu=40 --nproc=2048 --fsize=67108864 -- \
+        prlimit --as=4294967296 --cpu=40 --nproc=8192 --fsize=67108864 -- \
         "${sandbox[@]}" \
         --setenv VEC_CT_E3_PG18 SI --setenv VEC_CT_E3_FASE "$fase" \
         --setenv VEC_CT_E3_VECTORES_DIR "$vectores" \
@@ -577,7 +577,7 @@ emitir_aplicar() {
     consultar "SELECT public.exportar_entrada_go_o2_05('$caso')" >"$entrada"
     chmod 600 "$entrada"
     if ! timeout --signal=TERM --kill-after=5s 30s \
-        prlimit --as=4294967296 --cpu=25 --nproc=2048 --fsize=67108864 -- \
+        prlimit --as=4294967296 --cpu=25 --nproc=8192 --fsize=67108864 -- \
         "${sandbox[@]}" \
         --setenv VEC_O205_VECTOR_ENTRADA "$entrada" \
         --setenv VEC_O205_VECTOR_SALIDA "$bundle" \
