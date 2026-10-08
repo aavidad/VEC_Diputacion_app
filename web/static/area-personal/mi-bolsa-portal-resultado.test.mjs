@@ -1,3 +1,4 @@
+import "./inicializar-i18n.test-helper.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";

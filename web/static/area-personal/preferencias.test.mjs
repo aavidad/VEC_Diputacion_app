@@ -1,3 +1,4 @@
+import "./inicializar-i18n.test-helper.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
@@ -144,7 +145,7 @@ test("el replay 200 conserva el recibo y exige el indicador de repetición", asy
 });
 
 test("la vista distingue error de lectura y confirmación con recibo; URL prevalece sobre servidor", async () => {
-  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(), ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
+  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(), pantalla: "preferencias", ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
   assert.match(renderizarPreferencias({ error: { codigo: "servicio" } }), /No se pudieron consultar sus preferencias/);
   assert.doesNotMatch(renderizarPreferencias({ error: { codigo: "servicio" } }), /<form/u);
   const html = renderizarPreferencias({ catalogo, estado, recibo: { recibo_ref: "recibo:propio" } });
@@ -156,7 +157,7 @@ test("la vista distingue error de lectura y confirmación con recibo; URL preval
 });
 
 test("la vista ofrece únicamente los nuevos temas incluidos en el catálogo v2", async () => {
-  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(), ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
+  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(), pantalla: "preferencias", ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
   const nuevos = ["diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"];
   const catalogoV2 = { ...catalogo, version_ref: "usuarios-preferencias-v2",
     temas: [...catalogo.temas, ...nuevos.map((codigo) => ({ codigo, nombre_key: `ui.usuarios.preferencias.tema.${codigo}` }))] };

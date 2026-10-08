@@ -1,7 +1,7 @@
 import { escaparHTML } from "./vistas/comunes.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
-import { traducir } from "./i18n.js";
-import { cargarTextosCorreos, crearClienteCorreos, crearSuperficieCorreos } from "../comun/correos-propios.js?v=20260929-correos-508b-v1";
+import { idiomaActivoAreaPersonal, textosPreferenciasAreaPersonal, traducir } from "./i18n.js";
+import { crearClienteCorreos, crearSuperficieCorreos } from "../comun/correos-propios.js?v=20260929-correos-508b-v1";
 import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20261007-p7-http-v1";
 
 // i18n.js ya carga el idioma activo y prepara el índice antes de este módulo.
@@ -97,27 +97,84 @@ export function sincronizarAtajosVisuales(valores, documento = globalThis.docume
 
 const MARCO_AREA_PERSONAL = Object.freeze({ panel: "panel preferencias-panel", cabecera: "header", claseCabecera: "", cuerpo: "panel-contenido" });
 
-/**
- * «Mi imagen» y «Mis correos» del Área personal. Comparten una cola de
- * peticiones (la identidad de desarrollo no admite dos altas de sesión
- * simultáneas de la misma cuenta). La imagen se consulta al arrancar para
- * pintar la cabecera; los correos, al abrir Mis preferencias. Si los textos
- * no cargan, la vista sigue sin ellos.
- */
-export async function montarUsuariosAreaPersonal(estado, fetchImpl = globalThis.fetch, contenedor = null, documento = globalThis.document) {
-  let textos;
-  try { textos = await cargarTextosCorreos(); } catch { return; }
+function reflejarErrorImagen(documento, fallo) {
+  const aviso = documento?.getElementById?.("aviso-imagen");
+  if (!aviso) return;
+  const estabaVisible = !aviso.hidden;
+  aviso.hidden = !fallo;
+  if (!fallo && estabaVisible) {
+    const anuncio = documento.getElementById("anuncios");
+    if (anuncio) anuncio.textContent = traducir("areaPersonal.imagen.cargada");
+    if (documento.activeElement === documento.getElementById("reintentar-imagen")) {
+      documento.getElementById("contenido-principal")?.focus?.({ preventScroll: true });
+    }
+  }
+}
+
+/** El fallo del avatar conserva iniciales y ofrece un reintento visible. */
+export function reintentarImagenAreaPersonal(estado, documento = globalThis.document) {
+  if (estado.lecturaImagenEnCurso) return estado.lecturaImagenEnCurso;
+  const lectura = estado.clienteImagen.consultar();
+  estado.lecturaImagenInicial = lectura;
+  const resultado = lectura.then((vista) => {
+    estado.avatar.fijarImagen(vista);
+    reflejarErrorImagen(documento, false);
+    return true;
+  }, () => {
+    reflejarErrorImagen(documento, true);
+    return false;
+  });
+  estado.lecturaImagenEnCurso = resultado;
+  void resultado.then(() => { if (estado.lecturaImagenEnCurso === resultado) estado.lecturaImagenEnCurso = null; });
+  return resultado;
+}
+
+/** El avatar conserva su lectura sin cargar el catálogo de Preferencias. */
+export function montarAvatarAreaPersonal(estado, fetchImpl = globalThis.fetch, documento = globalThis.document) {
+  if (estado.avatar) return;
   const enSerie = peticionesEnSerie(fetchImpl);
   const avatar = crearAvatarCabecera(documento?.getElementById?.("avatar-sesion"));
   estado.avatar = avatar;
+  estado.fetchUsuariosEnSerie = enSerie;
+  estado.clienteImagen = crearClienteImagen({ ruta: "/api/vec/usuarios/area-personal/mi-imagen", fetchImpl: enSerie });
+  void reintentarImagenAreaPersonal(estado, documento);
+}
+
+/** Imagen y Correos se montan cuando la persona abre Preferencias. */
+export function montarUsuariosAreaPersonal(estado, fetchImpl = globalThis.fetch, contenedor = null, documento = globalThis.document) {
+  if (estado.imagen && estado.correos && estado.idiomaUsuarios === idiomaActivoAreaPersonal()) return true;
+  const textos = textosPreferenciasAreaPersonal();
+  if (!textos) return false;
+  estado.desmontarImagenUsuarios?.();
+  estado.desmontarCorreosUsuarios?.();
+  estado.desmontarImagenUsuarios = null;
+  estado.desmontarCorreosUsuarios = null;
+  estado.imagen = null;
+  estado.correos = null;
+  montarAvatarAreaPersonal(estado, fetchImpl, documento);
   try {
-    estado.imagen = crearSuperficieImagen({ cliente: crearClienteImagen({ ruta: "/api/vec/usuarios/area-personal/mi-imagen", fetchImpl: enSerie }),
-      textos, marco: MARCO_AREA_PERSONAL, alCambiar: (vista) => avatar.fijarImagen(vista), iniciales: () => estado.datos?.sesion?.iniciales ?? "" });
-    estado.correos = crearSuperficieCorreos({ cliente: crearClienteCorreos({ ruta: "/api/vec/usuarios/area-personal/mis-correos", fetchImpl: enSerie }),
+    const clienteImagen = Object.freeze({ ...estado.clienteImagen,
+      consultar: (opciones) => {
+        const inicial = estado.lecturaImagenInicial;
+        estado.lecturaImagenInicial = null;
+        return inicial ?? estado.clienteImagen.consultar(opciones);
+      } });
+    estado.imagen = crearSuperficieImagen({ cliente: clienteImagen,
+      textos, marco: MARCO_AREA_PERSONAL, alCambiar: (vista) => estado.avatar.fijarImagen(vista), iniciales: () => estado.datos?.sesion?.iniciales ?? "" });
+    estado.correos = crearSuperficieCorreos({ cliente: crearClienteCorreos({ ruta: "/api/vec/usuarios/area-personal/mis-correos", fetchImpl: estado.fetchUsuariosEnSerie }),
       textos, marco: MARCO_AREA_PERSONAL, cargaAlMostrar: true });
-  } catch { return; }
-  if (contenedor) { estado.imagen.instalar(contenedor); estado.correos.instalar(contenedor); }
+  } catch {
+    estado.imagen = null;
+    estado.correos = null;
+    return false;
+  }
+  if (contenedor) {
+    estado.desmontarImagenUsuarios = estado.imagen.instalar(contenedor);
+    estado.desmontarCorreosUsuarios = estado.correos.instalar(contenedor);
+  }
+  estado.idiomaUsuarios = idiomaActivoAreaPersonal();
   void estado.imagen.cargar();
+  return true;
 }
 
 /** Pone las iniciales de la sesión en el avatar sin pisar la imagen elegida. */

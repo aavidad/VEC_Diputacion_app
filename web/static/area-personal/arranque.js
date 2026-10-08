@@ -1,5 +1,5 @@
-import { aplicarPreferenciasInicialesAplazadas, exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261008-preferencias-arranque-v1";
-import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
+import { aplicarPreferenciasInicialesAplazadas, exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261008-b4-v6";
+import { idiomaAreaPersonal, iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20261005-b4b-v1";
 import { cargarVistasDisponibles } from "./vistas-disponibles.js?v=20261005-b4b-v1";
 import * as temaComun from "../comun/tema-vec.js?v=20260930-codexf-temas-v2";
@@ -19,7 +19,10 @@ if (!idiomaExplicito) {
   try { preferencias = await cargarPreferenciasIniciales(clientePreferencias); }
   catch (error) { errorPreferencias = error; }
 }
-await iniciarI18nAreaPersonal(document, { idiomaPreferido: preferencias?.estado.valores.idioma });
+const idioma = await iniciarI18nAreaPersonal(document, { idiomaPreferido: preferencias?.estado.valores.idioma });
+if (idioma === idiomaAreaPersonal(undefined, window.location, preferencias?.estado.valores.idioma)) {
+  void import("../pwa/instalar.js?v=20261008-pwa-idioma-v1");
+}
 const controladorVisual = preferencias && typeof temaComun.aplicarPreferenciasVisuales === "function"
   ? temaComun.aplicarPreferenciasVisuales(preferencias.estado.valores, { documento: document, ventana: window })
   : typeof temaComun.crearControladorPreferenciasVisuales === "function"

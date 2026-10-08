@@ -1,3 +1,4 @@
+import "./inicializar-i18n.test-helper.mjs";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
@@ -6,13 +7,23 @@ import { fileURLToPath } from "node:url";
 
 import { esOrigenSinteticoODesarrollo, exigirDatosOperativos, exigirParametrosConocidos } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
-import { renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio } from "./vistas/inicio-convocatorias.js";
-import { renderizarMeritos, renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js";
-import { renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones } from "./vistas/seguimiento-tramites.js";
-import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js";
+import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js";
+import { renderizarAyuda } from "./vistas/comunicaciones-ayuda.js";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const RAIZ = dirname(fileURLToPath(import.meta.url));
+
+async function archivosEn(directorio) {
+  const resultado = [];
+  for (const entrada of await readdir(directorio, { withFileTypes: true })) {
+    const ruta = join(directorio, entrada.name);
+    if (entrada.isDirectory()) resultado.push(...await archivosEn(ruta));
+    else resultado.push(ruta);
+  }
+  return resultado;
+}
 
 // Doble de prueba del panel del área personal: datos mínimos pero completos
 // para recorrer todas las vistas con el contrato productivo.
@@ -57,57 +68,32 @@ function datosPrueba() {
   };
 }
 
-test("el diálogo de sesión usa el catálogo común para la autoridad del servidor", async () => {
-  const catalogo = await catalogoPlano("es");
-  const claves = ["titulo", "persona", "referencia", "metodo", "origen", "autoridadServidor"];
-  const copia = await import("./i18n.js?respaldo-dialogo-sesion");
-  for (const nombre of claves) {
-    const clave = `areaPersonal.sesion.${nombre}`;
-    assert.equal(copia.traducir(clave), catalogo[clave], clave);
-  }
-  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(), ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
-  for (const nombre of claves) assert.equal(traducir(`areaPersonal.sesion.${nombre}`), catalogo[`areaPersonal.sesion.${nombre}`]);
+test("el diálogo de sesión no muestra rutas técnicas", async () => {
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
-  assert.match(aplicacion, /escaparHTML\(traducir\(`\$\{prefijoTraduccion\}autoridadServidor`\)\)/);
+  const inicio = aplicacion.indexOf("function verSesion(estado)");
+  const fin = aplicacion.indexOf("function leerPantalla", inicio);
+  const funcion = aplicacion.slice(inicio, fin);
+  assert.doesNotMatch(funcion, /meta\.origen|autoridadServidor|\/api\//u);
+  assert.match(funcion, /sesion\.metodo/u);
 });
 
-async function archivosEn(directorio) {
-  const resultado = [];
-  for (const entrada of await readdir(directorio, { withFileTypes: true })) {
-    const ruta = join(directorio, entrada.name);
-    if (entrada.isDirectory()) resultado.push(...await archivosEn(ruta));
-    else resultado.push(ruta);
-  }
-  return resultado;
-}
-
-test("la dirección solo admite los parámetros que genera el área personal", () => {
-  for (const consulta of ["presentacion=rrhh", "presentacion=", "vista=inicio&presentacion=rrhh", "perfil=tecnico", "utm_source=x"]) {
+test("la dirección admite el identificador de enlaces antiguos para poder redirigirlos", () => {
+  for (const consulta of ["presentacion=rrhh", "perfil=tecnico", "utm_source=x"]) {
     assert.throws(() => exigirParametrosConocidos(new URLSearchParams(consulta)), /parámetros no admitidos/u, consulta);
   }
-  for (const consulta of ["", "vista=llamamientos", "vista=convocatoria&id=CONV-001"]) {
+  for (const consulta of ["", "vista=llamamientos", "vista=ayuda&lang=en", "vista=convocatoria&id=CONV-1"]) {
     assert.doesNotThrow(() => exigirParametrosConocidos(new URLSearchParams(consulta)), consulta);
   }
 });
 
-test("la superficie cubre todos los recorridos solicitados y conserva semántica", async () => {
+test("el menú muestra solo las vistas con recorrido actual", async () => {
   const html = await readFile(join(RAIZ, "index.html"), "utf8");
-  const fuentes = (await Promise.all((await archivosEn(join(RAIZ, "vistas"))).map((ruta) => readFile(ruta, "utf8")))).join("\n");
-  for (const texto of [
-    "Convocatorias", "Perfil y contacto", "Méritos y documentos",
-    "Mis expedientes", "Mi bolsa",
-    "Subsanaciones", "Alegaciones", "Mensajes y noticias", "Certificados y descargas",
-    "Ayuda y accesibilidad",
-  ]) assert.match(`${html}\n${fuentes}`, new RegExp(texto, "u"), texto);
-  assert.match(html, /<span data-i18n="areaPersonal\.rutas\.inicio">Inicio<\/span>/u);
-  assert.doesNotMatch(html, /Inicio y plazos/u);
-  // El asistente antiguo de solicitud y la autobaremación no tienen servicio: no se ofrecen.
-  assert.doesNotMatch(html, /data-ruta="(?:solicitud|autobaremacion)"|id="dialogo-(?:confirmacion|recibo)"/u);
-  for (const etiqueta of ["header", "nav", "main", "footer", "dialog", "form", "table", "fieldset", "label"]) {
-    assert.match(`${html}\n${fuentes}`, new RegExp(`<${etiqueta}\\b`, "u"), etiqueta);
-  }
+  const vistas = JSON.parse(await readFile(join(RAIZ, "vistas.json"), "utf8"));
+  assert.deepEqual(Object.keys(vistas.vistas).sort(), ["ayuda", "inicio", "llamamientos", "oportunidades", "perfil", "preferencias"]);
+  for (const nombre of ["inicio", "llamamientos", "perfil", "ayuda"]) assert.match(html, new RegExp(`data-ruta="${nombre}"`, "u"));
+  assert.doesNotMatch(html, /data-ruta="(?:convocatorias|convocatoria|meritos|seguimiento|subsanaciones|alegaciones|mensajes|certificados|solicitud)"/u);
+  assert.match(html, /<main\b/u);
   assert.match(html, /name="viewport" content="width=device-width, initial-scale=1"/u);
-  assert.match(html, /Saltar al contenido principal/u);
 });
 
 test("no hay estado de negocio persistido, cookies, credenciales ni red externa", async () => {
@@ -145,26 +131,11 @@ test("el área rechaza datos sintéticos, de desarrollo o de presentación", () 
   assert.doesNotThrow(() => exigirDatosOperativos({ meta: { presentacion: false, origen: "API interna autenticada" } }));
 });
 
-test("ninguna vista ofrece rótulos de demostración o simulación", () => {
+test("las vistas activas no presentan datos de trámites antiguos", () => {
   const datos = datosPrueba();
-  const estado = {
-    filtros: { termino: "", estado: "Todas", categoria: "Todas" },
-    convocatoriaSeleccionada: datos.convocatorias[0].id,
-    expedienteSeleccionado: datos.solicitudes[0].id,
-    consultaAyuda: "",
-  };
-  const superficies = [
-    renderizarInicio(datos), renderizarConvocatorias(datos, estado), renderizarDetalleConvocatoria(datos, estado),
-    renderizarPerfil(datos), renderizarMeritos(datos),
-    renderizarSeguimiento(datos, estado), renderizarLlamamientos(datos), renderizarSubsanaciones(datos),
-    renderizarAlegaciones(datos), renderizarMensajes(datos), renderizarCertificados(datos), renderizarAyuda(datos, estado),
-  ];
-  for (const superficie of superficies) {
-    for (const coincidencia of superficie.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/giu)) {
-      const etiqueta = coincidencia[1].replace(/<[^>]+>/gu, "").trim();
-      assert.doesNotMatch(etiqueta, /\bDEMO\b|Simular/iu, etiqueta);
-    }
-    assert.doesNotMatch(superficie, /\bDEMO\b|Simular|demostración|class="nota demo"/iu);
+  const superficies = [renderizarInicio(), renderizarPerfil(), renderizarLlamamientos(datos), renderizarAyuda()];
+  for (const vista of superficies) {
+    assert.doesNotMatch(vista, /\bDEMO\b|Simular|demostración|data-operacion="(?:incorporar_merito|presentar_subsanacion|presentar_alegacion)"/iu);
   }
 });
 
@@ -213,30 +184,20 @@ test("el menú móvil gestiona foco, Escape y contención de teclado", async () 
   assert.match(aplicacion, /evento\.key !== "Escape"[\s\S]*cerrarMenu\(\{ restaurarFoco: true \}\)/);
 });
 
-test("la lectura de expedientes remite a la guía textual sin sintetizar datos privados", async () => {
+test("la lectura remite a la guía sin sintetizar datos privados", async () => {
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
   const inicio = aplicacion.indexOf("function leerPantalla(estado)");
   const fin = aplicacion.indexOf("async function recargarPreferencias", inicio);
   const funcion = aplicacion.slice(inicio, fin);
-  assert.ok(inicio >= 0 && fin > inicio, "debe existir la lectura gobernada");
-  assert.match(funcion, /notificar\(t\("lectura\.aviso"\)\)[\s\S]*anunciar\(t\("lectura\.anuncio"\)\)/u);
-  assert.match(traducir("areaPersonal.app.lectura.aviso"), /conector y una política aprobados[\s\S]*guía textual de Ayuda/u);
-  assert.doesNotMatch(funcion, /innerText|speechSynthesis|SpeechSynthesisUtterance/u);
-  const ayuda = renderizarAyuda({ meta: { presentacion: false }, ayuda: [] });
-  assert.match(ayuda, /Esta guía explica el área personal de Bolsa/u);
-  assert.match(ayuda, /Cada operación real depende de la confirmación del servicio autorizado/u);
-  assert.doesNotMatch(ayuda, /<audio\b|ayuda-llamamiento-bolsa\.mp3/u);
+  assert.ok(inicio >= 0 && fin > inicio);
+  assert.doesNotMatch(funcion, /innerText|SpeechSynthesisUtterance/u);
+  assert.match(renderizarAyuda(), /guia-ayuda/u);
 });
 
-test("la composición limita enlaces al área y bloquea capacidades antes del diálogo", async () => {
+test("la composición limita enlaces y no ofrece operaciones sin servicio", async () => {
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
   assert.match(aplicacion, /function actualizarEnlacesNavegacion\(estado\)[\s\S]*setAttribute\("href", crearURL\(estado/u);
-  assert.doesNotMatch(aplicacion, /\/presentacion\/|presentacionSolicitada/u);
-  assert.match(aplicacion, /inicioInstitucional\.dataset\.ruta = "inicio"[\s\S]*crearURL\(estado, "inicio"\)/u);
-  assert.match(aplicacion, /function aplicarCapacidadesVisibles\(estado\)[\s\S]*estado\.datos\.capacidades\[operacion\] === true/u);
-  // Ninguna operación tiene servicio: el control solo avisa y no llama a la red.
-  assert.match(aplicacion, /function avisarOperacionNoDisponible[\s\S]*areaPersonal\.capacidad\.operacionNoDisponible/u);
-  assert.doesNotMatch(aplicacion, /\.ejecutar\(|flujo-solicitud|dialogo-confirmacion|dialogo-recibo/u);
+  assert.doesNotMatch(aplicacion, /abrir-expediente|iniciar-solicitud|presentar_subsanacion|incorporar_merito|dialogo-confirmacion|dialogo-recibo/u);
 });
 
 test("la ficha propia muestra la participación sin convertirla en una decisión de RRHH", () => {

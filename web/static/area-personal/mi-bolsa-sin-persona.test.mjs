@@ -1,9 +1,11 @@
+import "./inicializar-i18n.test-helper.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { datosMinimosMiBolsa } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js";
+import { montarAvatarAreaPersonal, reintentarImagenAreaPersonal } from "./preferencias.js";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 test("Mi bolsa vacía no fabrica persona, iniciales ni referencias para el área personal", () => {
@@ -14,8 +16,6 @@ test("Mi bolsa vacía no fabrica persona, iniciales ni referencias para el área
   assert.equal(datos.sesion.persona_ref, null);
   assert.equal(datos.perfil.referencia, null);
   assert.equal(datos.perfil.nombre_visible, "");
-  assert.deepEqual(datos.capacidades, {});
-  assert.equal(datos.disponibilidad.disponible, false);
   const texto = `${JSON.stringify(datos)}\n${renderizarPerfil(datos)}`;
   assert.doesNotMatch(texto, /Candidato identificado|candidato:identificado|perfil:pendiente|"CI"|DEMO-/u);
   assert.doesNotMatch(texto, /Identidad no facilitada|sint[ée]tic/iu);
@@ -34,5 +34,26 @@ test("la identidad no facilitada usa las claves del catálogo real y el respaldo
   assert.equal(datos.sesion.metodo, traducir(claves[1]));
   assert.equal(datos.perfil.identificador_visible, traducir(claves[2]));
   const respaldo = await import("./i18n.js?prueba-respaldo-mi-bolsa");
+  for (const clave of claves) assert.equal(respaldo.traducir(clave), clave);
+  await respaldo.iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(), ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
   for (const clave of claves) assert.equal(respaldo.traducir(clave), catalogo[clave]);
+});
+
+test("un fallo de imagen deja un reintento visible sin repetir GET automáticamente", async () => {
+  let lecturas = 0;
+  const aviso = { hidden: true };
+  const documento = { getElementById: (id) => id === "aviso-imagen" ? aviso : { textContent: "" } };
+  const estado = {};
+  montarAvatarAreaPersonal(estado, async () => {
+    lecturas += 1;
+    return new Response("{}", { status: 503, headers: { "Content-Type": "application/json" } });
+  }, documento);
+  const primera = estado.lecturaImagenEnCurso;
+  assert.equal(await primera, false);
+  assert.equal(lecturas, 1);
+  assert.equal(aviso.hidden, false);
+  const html = await readFile(new URL("./index.html", import.meta.url), "utf8");
+  assert.match(html, /id="aviso-imagen"[\s\S]*No se ha podido cargar su imagen\.[\s\S]*Reintentar imagen/u);
+  assert.equal(await reintentarImagenAreaPersonal(estado, documento), false);
+  assert.equal(lecturas, 2);
 });

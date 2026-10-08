@@ -1,6 +1,5 @@
 import {
-  botonOperacion, chip, encabezadoVista, enlaceRuta, escaparAtributo, escaparHTML,
-  formatoPuntos, listaDatos, panel, tabla,
+  chip, encabezadoVista, escaparAtributo, escaparHTML, listaDatos, panel,
 } from "./comunes.js";
 import { localizacionAreaPersonal, traducir } from "../i18n.js";
 import { campoVisibleMiBolsa, nombreCategoria } from "../mi-bolsa-campos.js";
@@ -9,10 +8,7 @@ import { renderizarOfertasMiBolsa, textoOfertas } from "../mi-bolsa-ofertas.js";
 import { renderizarContactoMiBolsa, textoContacto } from "../mi-bolsa-contacto.js";
 import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js";
 
-const e = (clave, variables) => traducir(`areaPersonal.vista.seguimiento.${clave}`, variables);
 const b = (clave, variables) => traducir(`areaPersonal.vista.miBolsa.${clave}`, variables);
-const u = (clave, variables) => traducir(`areaPersonal.vista.subsanaciones.${clave}`, variables);
-const g = (clave, variables) => traducir(`areaPersonal.vista.alegaciones.${clave}`, variables);
 const h = (texto) => escaparHTML(texto);
 
 const CLASES_SITUACION = Object.freeze({
@@ -38,36 +34,6 @@ function fichaSituacionActual(actual) {
   if (actual.fecha_disponible) filas.push([traducir("areaPersonal.miBolsa.situacion.fechaDisponible"), escaparHTML(fechaSituacion(actual.fecha_disponible))]);
   filas.push([traducir("areaPersonal.miBolsa.situacion.explicacion"), escaparHTML(traducir(`areaPersonal.miBolsa.situacion.explicacion.${actual.estado}`))]);
   return listaDatos(filas);
-}
-
-export function renderizarSeguimiento(datos, estado) {
-  const solicitud = datos.solicitudes.find((item) => item.id === estado.expedienteSeleccionado) || datos.solicitudes[0];
-  if (!solicitud) {
-    const cabecera = encabezadoVista(e("titulo"), e("descripcion"), enlaceRuta("certificados", e("certificados"), "boton-secundario"));
-    const vacio = panel(e("vacio.titulo"), e("vacio.subtitulo"), `<p>${h(e("vacio.detalle"))}</p>`);
-    const acciones = panel(e("acciones.titulo"), e("acciones.subtitulo"), `<p>${h(e("acciones.vacio"))}</p>`);
-    return `${cabecera}${vacio}${acciones}`;
-  }
-  const filas = datos.solicitudes.map((item) => [
-    `<strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.referencia)}</small>`,
-    chip(item.estado),
-    `<strong>${h(e("puntos", { puntos: formatoPuntos(item.puntuacion) }))}</strong><small>${escaparHTML(item.posicion)}</small>`,
-    escaparHTML(item.actualizado),
-    `<div class="acciones-tabla"><button type="button" class="boton-secundario" data-accion="abrir-expediente" data-id="${escaparAtributo(item.id)}">${h(e("seleccionar"))}</button></div>`,
-  ]);
-  const timeline = datos.actividad.map((item) => `<li><strong>${escaparHTML(item.titulo)}</strong><span>${escaparHTML(item.detalle)}</span><small>${escaparHTML(item.fecha)} · ${escaparHTML(item.actor)} · ${escaparHTML(item.recibo)}</small></li>`).join("");
-  const panelPosicion = datos.posicion
-    ? panel(e("posicion.titulo"), e("posicion.subtitulo"), `<div class="posicion-destacada"><output>#${escaparHTML(String(datos.posicion.orden))}</output><span><strong>${escaparHTML(datos.posicion.categoria)}</strong><small>${escaparHTML(datos.posicion.bolsa)}</small></span></div>${listaDatos([[e("posicion.bolsa"), escaparHTML(datos.posicion.bolsa)], [e("posicion.categoria"), escaparHTML(datos.posicion.categoria)], [e("posicion.orden"), h(e("posicion.ordenDe", { orden: String(datos.posicion.orden), total: String(datos.posicion.total) }))], [e("posicion.puntuacion"), h(e("puntos", { puntos: formatoPuntos(datos.posicion.puntuacion) }))], [e("posicion.vigenteDesde"), escaparHTML(datos.posicion.vigente_desde)]])}`, { estado: `#${datos.posicion.orden}` })
-    : panel(e("provisional.titulo"), e("provisional.subtitulo"), `<div class="posicion-destacada"><output>${escaparHTML((solicitud.posicion.match(/^\d+/) || ["—"])[0])}</output><span><strong>${escaparHTML(solicitud.posicion)}</strong><small>${h(e("provisional.detalle"))}</small></span></div>`, { estado: e("provisional.estado") });
-  return `${encabezadoVista(e("titulo"), e("descripcion"), enlaceRuta("certificados", e("certificados"), "boton-secundario"))}
-    ${panel(e("curso.titulo"), e("curso.subtitulo"), tabla({ descripcion: e("curso.tabla"), columnas: [e("columnas.proceso"), e("columnas.estado"), e("columnas.puntuacion"), e("columnas.actualizacion"), e("columnas.accion")], filas }))}
-    <div class="rejilla-principal"><div>
-      ${panel(solicitud.titulo, solicitud.referencia, `${listaDatos([[e("ficha.estado"), chip(solicitud.estado)], [e("ficha.puntuacion"), h(e("puntos", { puntos: formatoPuntos(solicitud.puntuacion) }))], [e("ficha.posicion"), escaparHTML(solicitud.posicion)], [e("ficha.tasa"), escaparHTML(solicitud.pago)], [e("ficha.firma"), escaparHTML(solicitud.firma)], [e("ficha.actualizacion"), escaparHTML(solicitud.actualizado)]])}<p class="nota aviso"><strong>${h(e("ficha.siguiente"))}</strong> ${escaparHTML(solicitud.siguiente)}</p>`, { estado: solicitud.estado })}
-      ${panel(e("historial.titulo"), e("historial.subtitulo"), `<ol class="linea-tiempo">${timeline}</ol>`)}
-    </div><aside>
-      ${panelPosicion}
-      ${panel(e("acciones.titulo"), e("acciones.subtitulo"), `<div class="fila-acciones">${enlaceRuta("subsanaciones", e("acciones.subsanar"), "enlace-boton")}${enlaceRuta("alegaciones", e("acciones.alegar"), "enlace-boton")}${botonOperacion("solicitar_descarga", e("acciones.descargar"), { id: solicitud.id, clase: "boton-secundario", descripcion: e("acciones.descargarDescripcion") })}</div>`)}
-    </aside></div>`;
 }
 
 export function renderizarLlamamientos(datos, estado = {}) {
@@ -110,14 +76,4 @@ export function renderizarLlamamientos(datos, estado = {}) {
     : panel(traducir("areaPersonal.miBolsa.disponibilidad.titulo"), traducir("areaPersonal.miBolsa.disponibilidad.subtitulo"), `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.disponibilidad.detalle"))}</p>`)}
       ${estado.contactosMiBolsa?.length ? panel(textoContacto("titulo"), textoContacto("subtitulo"), renderizarContactoMiBolsa(participaciones, estado.contactosMiBolsa)) : ""}
     </aside></div>`;
-}
-
-export function renderizarSubsanaciones(datos) {
-  const formularios = datos.subsanaciones.map((item) => `<article class="panel"><header><div><h3>${escaparHTML(item.motivo)}</h3><p>${escaparHTML(item.id)} · ${escaparHTML(item.solicitud_ref)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos([[u("documentoSolicitado"), escaparHTML(item.documento_solicitado)], [u("plazo"), escaparHTML(item.plazo)], [u("estado"), chip(item.estado)]])}${item.estado === "Pendiente" ? `<form data-operacion="presentar_subsanacion" data-id="${escaparAtributo(item.id)}"><div class="formulario-rejilla"><div class="campo ancho-completo"><label for="subsanacion-${escaparAtributo(item.id)}">${h(u("explicacion"))}</label><textarea id="subsanacion-${escaparAtributo(item.id)}" name="explicacion" required maxlength="1000">${h(u("explicacionInicial"))}</textarea></div><div class="campo ancho-completo"><label for="fichero-${escaparAtributo(item.id)}">${h(u("documento"))}</label><input id="fichero-${escaparAtributo(item.id)}" name="documento" type="file" accept=".pdf,.odt,.docx,.jpg,.png" required><small>${h(u("documentoAyuda"))}</small></div></div><label class="opcion-check"><input type="checkbox" name="declaracion" required><span><strong>${h(u("declaracion"))}</strong><small>${h(u("declaracionDetalle"))}</small></span></label><button type="submit" class="boton-primario">${h(u("presentar"))}</button></form>` : `<p class="nota">${h(u("sinActuacion"))}</p>`}</div></article>`).join("");
-  return `${encabezadoVista(u("titulo"), u("descripcion"))}${formularios || panel(u("vacio.titulo"), u("vacio.subtitulo"), `<p>${h(u("vacio.detalle"))}</p>`)}`;
-}
-
-export function renderizarAlegaciones(datos) {
-  const tarjetas = datos.alegaciones.map((item) => `<article class="panel"><header><div><h3>${escaparHTML(item.asunto)}</h3><p>${escaparHTML(item.id)} · ${escaparHTML(item.solicitud_ref)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos([[g("fecha"), escaparHTML(item.fecha)], [g("estado"), chip(item.estado)]])}${item.estado === "Borrador" ? `<form data-operacion="presentar_alegacion" data-id="${escaparAtributo(item.id)}"><div class="campo"><label for="alegacion-${escaparAtributo(item.id)}">${h(g("fundamento"))}</label><textarea id="alegacion-${escaparAtributo(item.id)}" name="fundamento" required maxlength="2000">${h(g("fundamentoInicial"))}</textarea><small>${h(g("fundamentoAyuda"))}</small></div><div class="campo"><label for="evidencia-${escaparAtributo(item.id)}">${h(g("evidencia"))}</label><input id="evidencia-${escaparAtributo(item.id)}" name="documento" type="file" accept=".pdf,.odt,.docx,.jpg,.png"></div><label class="opcion-check"><input type="checkbox" name="declaracion" required><span><strong>${h(g("declaracion"))}</strong><small>${h(g("declaracionDetalle"))}</small></span></label><button type="submit" class="boton-primario">${h(g("presentar"))}</button></form>` : `<p class="nota">${h(g("consta", { estado: item.estado }))}</p>`}</div></article>`).join("");
-  return `${encabezadoVista(g("titulo"), g("descripcion"))}${tarjetas || panel(g("vacio.titulo"), g("vacio.subtitulo"), `<p>${h(g("vacio.detalle"))}</p>`)}`;
 }

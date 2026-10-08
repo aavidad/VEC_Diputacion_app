@@ -1,3 +1,4 @@
+import "./inicializar-i18n.test-helper.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
@@ -43,7 +44,7 @@ test("solo pide número de página; denegación y respuesta incompatible no pres
 
 test("la vista distingue carga, vacío, campos ocultos, error y página; escapa contenido", () => {
   assert.match(renderizarHistorialMiBolsa(), /Cargando histórico autorizado/u);
-  assert.match(renderizarHistorialMiBolsa(pagina().data, { estado: "correcto" }), /No constan actuaciones en el histórico de VEC/u);
+  assert.match(renderizarHistorialMiBolsa(pagina().data, { estado: "correcto" }), /No constan actuaciones en el historial de su bolsa/u);
   assert.match(renderizarHistorialMiBolsa(pagina([], { campos_visibles: [] }).data, { estado: "correcto" }), /no ha habilitado datos/u);
   assert.match(renderizarHistorialMiBolsa(null, { estado: "denegado" }), /No tiene permiso/u);
   const datos = validarHistorialMiBolsa(pagina([contrato(), llamamiento(), renuncia()]), 1);
@@ -53,7 +54,7 @@ test("la vista distingue carga, vacío, campos ocultos, error y página; escapa 
   assert.match(html, /Propuesta pendiente de RRHH/u);
   assert.match(html, /Auxiliar &lt;sanitario&gt;/u);
   assert.doesNotMatch(html, /Auxiliar <sanitario>|bolsa:prueba:1|candidato_ref|Firmado/u);
-  assert.match(html, /pendiente de que RRHH la resuelva/u);
+  assert.match(html, /pendiente la revisión de una renuncia o incorporación/u);
 });
 
 test("al salir cancela la lectura y una respuesta tardía no cambia otra vista", async () => {
