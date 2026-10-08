@@ -1274,7 +1274,7 @@ export function crearCoordinadorModulosPortal({
           if (montaje !== secuenciaMontaje) { controladorMontaje.abort(); return false; }
           const mostrarError = (destino, { error, reintentar, mensaje }) => {
             if (montaje !== secuenciaMontaje) return;
-            const denegado = error?.estado === 403 || error?.codigo === "acceso_denegado";
+            const denegado = [401, 403].includes(error?.estado) || error?.codigo === "acceso_denegado";
             destino.innerHTML = `<section class="panel"><div class="cuerpo-panel vacio-controlado" role="alert">
               <p>${escaparHTML(mensaje ?? traducir(denegado ? "estado_modulo_sin_permiso" : "estado_modulo_no_disponible"))}</p>
               ${denegado ? "" : `<button type="button" data-ct-reintentar>${escaparHTML(traducir("accion_reintentar"))}</button>`}
