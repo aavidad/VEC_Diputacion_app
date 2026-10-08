@@ -26,6 +26,7 @@ export function rutaInscripcionesRRHH(actual, filtro) {
 
 export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInscripcionesRRHH(),
   localizacion = globalThis.location, historial = globalThis.history,
+  bolsas = [],
   cargarCatalogo = cargarTextos, reintentarCatalogo = reintentarTextos,
   alDenegacion = () => {} } = {}) {
   if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
@@ -44,6 +45,9 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
   let estadoVista = "cargando";
   let ayuda = false;
   let filtro = leerRutaInscripcionesRRHH(localizacion.search);
+  const opcionesBolsas = Array.isArray(bolsas) ? bolsas.filter((b) => typeof b?.bolsa_ref === "string"
+    && typeof b?.categoria === "string" && b.categoria.trim()) : [];
+  const nombreBolsa = (ref) => opcionesBolsas.find((b) => b.bolsa_ref === ref)?.categoria || t("bolsa_seleccionada");
   let intento = null;
   let enviando = false;
   const t = (clave, vars = {}) => catalogo.traducir(`rrhh.${clave}`, vars);
@@ -58,8 +62,10 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     if (!vivo || !catalogo) return;
     const lista = listado?.solicitudes || [];
     const filas = lista.map((s) => `<tr><th scope="row"><button type="button" class="enlace-tabla" data-inscripcion-abrir="${esc(s.solicitud_ref)}">${esc(s.persona_resumen || t("ver_solicitud"))}</button></th>
-      <td>${esc(s.bolsa_ref)}</td><td><span class="estado-chip ${s.estado === "pendiente" ? "aviso" : s.estado === "incorporada" ? "exito" : s.estado === "rechazada" ? "peligro" : "info"}">${et(`estado_${s.estado}`)}</span></td><td><time datetime="${esc(s.registrada_en)}">${fecha(s.registrada_en)}</time></td></tr>`).join("");
+      <td>${esc(nombreBolsa(s.bolsa_ref))}</td><td><span class="estado-chip ${s.estado === "pendiente" ? "aviso" : s.estado === "incorporada" ? "exito" : s.estado === "rechazada" ? "peligro" : "info"}">${et(`estado_${s.estado}`)}</span></td><td><time datetime="${esc(s.registrada_en)}">${fecha(s.registrada_en)}</time></td></tr>`).join("");
     const opcionesEstado = [...ESTADOS].map((e) => `<option value="${e}" ${filtro.estado === e ? "selected" : ""}>${et(`estado_${e}`)}</option>`).join("");
+    const bolsaConocida = opcionesBolsas.some((b) => b.bolsa_ref === filtro.bolsa);
+    const selectorBolsa = opcionesBolsas.length || filtro.bolsa ? `<label for="inscripcion-bolsa">${et("bolsa")}</label><select id="inscripcion-bolsa" name="bolsa"><option value="">${et("todas")}</option>${filtro.bolsa && !bolsaConocida ? `<option value="${esc(filtro.bolsa)}" selected>${et("bolsa_seleccionada")}</option>` : ""}${opcionesBolsas.map((b) => `<option value="${esc(b.bolsa_ref)}" ${b.bolsa_ref === filtro.bolsa ? "selected" : ""}>${esc(b.categoria)}</option>`).join("")}</select>` : "";
     const estado = estadoVista === "cargando" ? `<p role="status" aria-busy="true">${et("cargando")}</p>`
       : estadoVista === "denegada" ? `<p role="alert">${et("denegada")}</p>`
         : ["error", "conflicto", "falta_acta"].includes(estadoVista) ? `<p role="alert">${et(estadoVista === "error" && detalle && decision ? "error_decision" : estadoVista)}</p>${detalle && decision ? "" : `<button type="button" class="boton-secundario" data-inscripcion-reintentar>${et("reintentar")}</button>`}`
@@ -78,13 +84,13 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
         : detalle.estado === "pendiente" ? `<div class="acciones-vista">${requisitosNoResueltos ? `<p>${et("requisitos_pendientes")}</p>` : ""}<button type="button" class="boton-principal" data-inscripcion-decidir="admitir" ${requisitosNoResueltos ? "disabled" : ""}>${et("admitir")}</button><button type="button" class="boton-secundario" data-inscripcion-decidir="rechazar">${et("rechazar")}</button></div>`
           : detalle.estado === "admitida_a_convocatoria" ? `<div class="acciones-vista"><button type="button" class="boton-principal" data-inscripcion-decidir="incorporar">${et("incorporar")}</button></div>` : "";
       ficha = `<section class="panel" aria-labelledby="inscripcion-detalle-titulo"><header class="cabecera-panel"><h3 id="inscripcion-detalle-titulo" tabindex="-1">${et("detalle")}</h3><button type="button" class="boton-secundario" data-inscripcion-cerrar>${et("cerrar")}</button></header><div class="cuerpo-panel">
-        <dl>${detalle.persona_resumen ? `<dt>${et("persona")}</dt><dd>${esc(detalle.persona_resumen)}</dd>` : ""}<dt>${et("bolsa")}</dt><dd>${esc(detalle.bolsa_ref)}</dd><dt>${et("estado")}</dt><dd>${et(`estado_${detalle.estado}`)}</dd><dt>${et("fecha")}</dt><dd>${fecha(detalle.registrada_en)}</dd><dt>${et("plazo")}</dt><dd>${fecha(detalle.plazo_inicio)} – ${fecha(detalle.plazo_fin)}</dd></dl>
+        <dl>${detalle.persona_resumen ? `<dt>${et("persona")}</dt><dd>${esc(detalle.persona_resumen)}</dd>` : ""}<dt>${et("bolsa")}</dt><dd>${esc(nombreBolsa(detalle.bolsa_ref))}</dd><dt>${et("estado")}</dt><dd>${et(`estado_${detalle.estado}`)}</dd><dt>${et("fecha")}</dt><dd>${fecha(detalle.registrada_en)}</dd><dt>${et("plazo")}</dt><dd>${fecha(detalle.plazo_inicio)} – ${fecha(detalle.plazo_fin)}</dd></dl>
         ${requisitos}${decision ? `<h4>${et("revision")}</h4>${selector}${evidencia}` : ""}${confirmar}</div></section>`;
     }
     const confirmacion = recibo ? `<section class="panel" role="status"><div class="cuerpo-panel"><p>${et(recibo.estado === "rechazada" ? "rechazada" : recibo.estado === "incorporada" ? "incorporada" : "admitida_a_convocatoria")}</p><p>${et("recibo")}: ${esc(recibo.recibo_ref)}</p><button type="button" class="boton-secundario" data-inscripcion-cerrar-recibo>${et("volver_lista")}</button></div></section>` : "";
     raiz.innerHTML = `<section class="panel" aria-labelledby="inscripciones-titulo"><header class="cabecera-panel"><div><h2 id="inscripciones-titulo">${et("titulo")}</h2></div><button type="button" class="boton-secundario" data-inscripcion-ayuda aria-expanded="${ayuda}" aria-controls="inscripcion-ayuda" aria-label="${et("ayuda_boton")}">?</button></header>
       <div class="cuerpo-panel"><div id="inscripcion-ayuda" ${ayuda ? "" : "hidden"}>${et("ayuda")}</div><form data-inscripcion-filtros><label for="inscripcion-estado">${et("estado")}</label><select id="inscripcion-estado" name="estado">${opcionesEstado}</select>
-      <label for="inscripcion-bolsa">${et("bolsa")}</label><input id="inscripcion-bolsa" name="bolsa" value="${esc(filtro.bolsa)}" maxlength="512"><button class="boton-secundario" type="submit">${et("filtrar")}</button></form>
+      ${selectorBolsa}<button class="boton-secundario" type="submit">${et("filtrar")}</button></form>
       ${estado}${cuenta}${listado?.total ? `<div class="tabla-contenedor" role="region" tabindex="0" aria-label="${et("lista")}"><table class="tabla-datos"><thead><tr><th scope="col">${et("persona")}</th><th scope="col">${et("bolsa")}</th><th scope="col">${et("estado")}</th><th scope="col">${et("fecha")}</th></tr></thead><tbody>${filas}</tbody></table></div>` : ""}${paginacion}</div></section>${ficha}${confirmacion}`;
   }
   function navegar(nuevo) {

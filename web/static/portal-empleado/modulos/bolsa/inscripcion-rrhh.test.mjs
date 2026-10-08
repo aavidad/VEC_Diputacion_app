@@ -123,5 +123,6 @@ test("RRHH no puede confirmar admisión con un requisito obligatorio pendiente",
   await new Promise((r) => setTimeout(r, 0));
   assert.match(raiz.innerHTML, /data-inscripcion-decidir="admitir" disabled/u);
   assert.match(raiz.innerHTML, /Pendiente de comprobar/u);
+  assert.doesNotMatch(raiz.innerHTML, /<dd>bolsa:1<\/dd>/u);
   vista.desmontar();
 });

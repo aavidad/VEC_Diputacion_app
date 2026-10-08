@@ -20,6 +20,8 @@
     "estado_rechazada": "Rechazada",
     "estado": "Estado",
     "bolsa": "Bolsa",
+    "todas": "Todas las bolsas",
+    "bolsa_seleccionada": "Bolsa seleccionada",
     "filtrar": "Aplicar filtros",
     "lista": "Solicitudes de bolsa",
     "ver_solicitud": "Ver solicitud",

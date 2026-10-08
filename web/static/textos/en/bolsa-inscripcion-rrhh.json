@@ -20,6 +20,8 @@
     "estado_rechazada": "Rejected",
     "estado": "Status",
     "bolsa": "Pool",
+    "todas": "All pools",
+    "bolsa_seleccionada": "Selected pool",
     "filtrar": "Apply filters",
     "lista": "Pool applications",
     "ver_solicitud": "View application",
