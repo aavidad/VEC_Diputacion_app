@@ -213,7 +213,7 @@ test("enlace con centro inválido limpia el filtro y permite volver a buscar", a
 test("la vista importa sus contratos RPT con la versión propia vigente", () => {
   const fuente = readFileSync(new URL("./vista-rpt-publica.js", import.meta.url), "utf8");
   assert.match(fuente, /i18n-rpt-puestos\.js\?v=20261007-t-rpt-enlaces-v1/u);
-  assert.match(fuente, /cliente-http-rpt-publica\.js\?v=20261007-t-rpt-enlaces-v1/u);
+  assert.match(fuente, /cliente-http-rpt-publica\.js\?v=20261008-t-rpt-recuperacion-v1/u);
 });
 
 test("la región RPT declara el idioma efectivo de sus textos", async () => {

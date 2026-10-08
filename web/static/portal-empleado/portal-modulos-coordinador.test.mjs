@@ -486,7 +486,10 @@ function cargadorCatalogosPublicosFalso({ rpt = true, estructura = true } = {}) 
     const desmontar = () => nodo.remove(); registrarDesmontar?.(desmontar); return { desmontar };
   };
   return async () => ({
-    clienteRPT: { crearClienteHTTPRPTPublica: () => ({ listar: async () => { if (!rpt) throw new Error("503"); return {}; } }) },
+    clienteRPT: { crearClienteHTTPRPTPublica: () => ({ listar: async () => {
+      if (!rpt) throw Object.assign(new Error("catálogo ausente"), { codigo: "estado_no_valido", estado: 404 });
+      return {};
+    } }) },
     vistaRPT: { montarModuloRPTPublica: vista("personalRptPublica") },
     clienteEstructura: { crearClienteHTTPEstructuraOrganizativaPublica: () => ({ obtener: async () => { if (!estructura) throw new Error("404"); return {}; } }) },
     vistaEstructura: { montarModuloEstructuraOrganizativaPublica: vista("personalEstructuraOrganizativaPublica") },
@@ -501,13 +504,13 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
       llamadas.push(ruta);
       if (ruta === "/api/interna/personal/mi-ficha") return new Response(null, { status: 404 });
       return ruta.startsWith("/api/vec/personal/categories?") ? respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS)
-        : new Response(JSON.stringify({ error: "no_disponible" }), { status: 503, headers: { "Content-Type": "application/json; charset=utf-8" } });
+        : new Response(null, { status: 404 });
     } },
     cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
     cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
   });
   await cargarConDiferidos(coordinador); assert.equal(coordinador.resolverAcceso("personal").etiqueta, "Catálogo profesional de Personal");
-  // Con el cargador real se sondean RPT y estructura; sin fuente (503) no se ofrecen.
+  // Con el cargador real se sondean RPT y estructura; sin montaje (404) no se ofrecen.
   assert.deepEqual(llamadas, ["/api/vec/personal/rpt-publica?q=&limit=1&offset=0&enlaces=1", "/api/vec/personal/estructura-organizativa-publica"]);
   assert.equal(coordinador.vistaDisponible("personal-registro"), false);
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);

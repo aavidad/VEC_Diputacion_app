@@ -1,5 +1,5 @@
 import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos, formatearEnlaceAgrupacionRPT, IDIOMA_EFECTIVO_RPT_PUESTOS, LOCALIZACION_EFECTIVA_RPT_PUESTOS, RESPALDO_RPT_PUESTOS } from "./i18n-rpt-puestos.js?v=20261007-t-rpt-enlaces-v1";
-import { validarConsultaRPTPublica } from "./cliente-http-rpt-publica.js?v=20261007-t-rpt-enlaces-v1";
+import { validarConsultaRPTPublica } from "./cliente-http-rpt-publica.js?v=20261008-t-rpt-recuperacion-v1";
 import { cambiarIdioma } from "../../../comun/idioma.js";
 function nodo(documento, etiqueta, texto = "") { const salida = documento.createElement(etiqueta); if (texto !== "") salida.textContent = texto; return salida; }
 function sigueMontada(raiz, contenedor) { return raiz.querySelector?.("[data-personal-rpt-publica]") === contenedor; }
