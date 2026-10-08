@@ -6,8 +6,9 @@ import {
 } from "./contrato.js";
 import { crearAltaClienteHTTP } from "./cliente-http-alta.js";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js";
-import { renderizarAltaContratacionTemporal, seleccionarPuestoPublicadoRPT } from "./vista.js";
-import { cargarMensajesContratacionTemporalEnIdioma } from "./i18n.js";
+import { montarAltaContratacionTemporal, renderizarAltaContratacionTemporal,
+  seleccionarPuestoPublicadoRPT } from "./vista.js";
+import { cargarMensajesNecesidadesAlta } from "./i18n.js";
 
 const CLAVE = "12345678-1234-4abc-8def-1234567890ab";
 const HUELLA = "a".repeat(64);
@@ -163,14 +164,74 @@ test("la jornada visible conserva minutos enteros sin redondear una fracción", 
 });
 
 test("los textos de la necesidad se cargan del catálogo del idioma solicitado", async () => {
-  const es = await cargarMensajesContratacionTemporalEnIdioma("es");
-  const en = await cargarMensajesContratacionTemporalEnIdioma("en");
+  const es = await cargarMensajesNecesidadesAlta("es");
+  const en = await cargarMensajesNecesidadesAlta("en");
   assert.equal(es.jornada_minutos, "Jornada semanal (horas y minutos)");
   assert.equal(en.jornada_minutos, "Weekly working time (hours and minutes)");
   assert.equal(es.numero_personas, "Número de personas solicitadas");
   assert.equal(en.numero_personas, "Number of people requested");
   assert.match(es.necesidad_ayuda, /Selección Temporal decidirá/u);
   assert.match(en.necesidad_ayuda, /Temporary Staff Selection will decide/u);
+});
+
+test("los formularios CT existentes pintan sin leer necesidades y Alta v3 espera su catálogo", async () => {
+  const v2 = validarCatalogosAlta(catalogos());
+  const v1 = { esquema: "vec.contratacion_temporal.catalogos_alta.v1",
+    centros: v2.centros, categorias: v2.categorias, documentos: v2.documentos,
+    motivos: v2.motivos, numero_expediente_moad: v2.numero_expediente_moad };
+  const raiz = () => ({ innerHTML: "", addEventListener() {}, removeEventListener() {},
+    querySelector: () => null, setAttribute() {}, removeAttribute() {} });
+  const base = { capacidad: "contratacion_temporal.solicitud.crear",
+    ejecutor: async () => { throw new Error("el montaje no debe enviar"); } };
+  let lecturas = 0;
+  const raizAnterior = raiz();
+  const desmontarAnterior = montarAltaContratacionTemporal({ raiz: raizAnterior,
+    presentador: crearPresentadorAltaContratacionTemporal({ ...base, catalogos: v1 }),
+    cargarTextosNecesidades: () => { lecturas += 1; throw new Error("lectura ajena"); } });
+  assert.match(raizAnterior.innerHTML, /data-modulo="contratacion-temporal"/u);
+  assert.equal(lecturas, 0);
+  desmontarAnterior();
+
+  let resolver;
+  const textosPendientes = new Promise((confirmar) => { resolver = confirmar; });
+  const raizAlta = raiz();
+  const desmontarAlta = montarAltaContratacionTemporal({ raiz: raizAlta,
+    presentador: crearPresentadorAltaContratacionTemporal({ ...base, catalogos: v2 }),
+    cargarTextosNecesidades: () => { lecturas += 1; return textosPendientes; } });
+  assert.equal(raizAlta.innerHTML, "", "no pinta claves de necesidades antes de leerlas");
+  await Promise.resolve();
+  assert.equal(lecturas, 1);
+  resolver(await cargarMensajesNecesidadesAlta());
+  await new Promise((confirmar) => setImmediate(confirmar));
+  assert.match(raizAlta.innerHTML, /Jornada semanal \(horas y minutos\)/u);
+  desmontarAlta();
+});
+
+test("si fallan los textos del alta se ofrece reintento sin mostrar claves crudas", async () => {
+  const textos = await cargarMensajesNecesidadesAlta();
+  const escuchas = new Map();
+  const raiz = { innerHTML: "", addEventListener: (tipo, manejar) => escuchas.set(tipo, manejar),
+    removeEventListener: (tipo) => escuchas.delete(tipo), querySelector: () => null,
+    contains: () => true, setAttribute() {}, removeAttribute() {} };
+  let lecturas = 0;
+  const desmontar = montarAltaContratacionTemporal({ raiz,
+    presentador: crearPresentadorAltaContratacionTemporal({ catalogos: catalogos(),
+      capacidad: "contratacion_temporal.solicitud.crear", ejecutor: async () => null }),
+    cargarTextosNecesidades: async () => {
+      lecturas += 1;
+      if (lecturas === 1) throw new Error("lectura fallida");
+      return textos;
+    } });
+  await new Promise((confirmar) => setImmediate(confirmar));
+  assert.match(raiz.innerHTML, /data-ct-accion="reintentar-textos"/u);
+  assert.doesNotMatch(raiz.innerHTML, /necesidad_leyenda|ct\.necesidad\./u);
+  const boton = { dataset: { ctAccion: "reintentar-textos" } };
+  await escuchas.get("click")({ target: { closest: (selector) => selector === "[data-ct-accion]" ? boton : null },
+    preventDefault() {} });
+  await new Promise((confirmar) => setImmediate(confirmar));
+  assert.equal(lecturas, 2);
+  assert.match(raiz.innerHTML, /Jornada semanal \(horas y minutos\)/u);
+  desmontar();
 });
 
 test("el alta v3 envía necesidad estructurada y conserva la clave de reintento", () => {
@@ -210,6 +271,7 @@ test("el selector toma el par publicado de Personal sin fabricar versión", () =
 });
 
 test("la pantalla v2 ofrece causas y campos publicados y conserva recibo real", async () => {
+  const mensajes = await cargarMensajesNecesidadesAlta();
   const enviados = [];
   const presentador = crearPresentadorAltaContratacionTemporal({ catalogos: catalogos(),
     capacidad: "contratacion_temporal.solicitud.crear",
@@ -222,7 +284,9 @@ test("la pantalla v2 ofrece causas y campos publicados y conserva recibo real", 
   assert.equal(inicial.borrador.jornada_minutos, "2100");
   assert.equal(inicial.borrador.numero_personas, "");
   presentador.actualizarBorrador({ ...inicial.borrador, motivo_clave: "vacante" });
-  const html = renderizarAltaContratacionTemporal(presentador.obtenerEstado());
+  assert.throws(() => renderizarAltaContratacionTemporal(presentador.obtenerEstado()),
+    /textos del alta de necesidades no preparados/u);
+  const html = renderizarAltaContratacionTemporal(presentador.obtenerEstado(), { mensajes });
   assert.match(html, /Cobertura de un puesto vacante/);
   assert.match(html, /Buscar puesto/);
   assert.match(html, /name="jornada_horas"[^>]*value="35:00"/u);
@@ -235,7 +299,7 @@ test("la pantalla v2 ofrece causas y campos publicados y conserva recibo real", 
   const listo = borrador({ puesto_codigo: "217", rpt_catalogo_ref: "rpt-dipgra-2026",
     rpt_catalogo_huella_sha256: HUELLA });
   assert.equal(presentador.prepararRevision(listo), true);
-  assert.match(renderizarAltaContratacionTemporal(presentador.obtenerEstado()),
+  assert.match(renderizarAltaContratacionTemporal(presentador.obtenerEstado(), { mensajes }),
     /<dt>Número de personas solicitadas<\/dt><dd>1<\/dd>/u);
   await presentador.enviar();
   assert.equal(enviados.length, 1);
