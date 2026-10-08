@@ -107,7 +107,18 @@
       "one": "{cuenta} row with errors will be left out.",
       "other": "{cuenta} rows with errors will be left out."
     },
-    "cargandoPagina": "Loading rows…"
+    "cargandoPagina": "Loading rows…",
+    "verCargadas": {
+      "one": "See the person loaded into the pool",
+      "other": "See the {cuenta} people loaded into the pool"
+    },
+    "verExcluidas": {
+      "one": "See the row with errors that was left out",
+      "other": "See the {cuenta} rows with errors that were left out"
+    },
+    "bolsasSustituidas": "Earlier pools replaced:",
+    "verBolsaAnterior": "See earlier pool {numero}",
+    "volverResultado": "Back to the result"
   },
   "campos": {
     "dni_nie": "Document",
@@ -157,6 +168,7 @@
     "bolsa_en_conflicto": "This file was already loaded into another pool. Check the chosen category.",
     "peticion_no_valida": "The file could not be sent. Choose it again and repeat.",
     "servicio_no_disponible": "This could not be completed right now. Press the button again; if it keeps failing, contact IT.",
-    "paginacion_no_valida": "That page could not be opened. Go back to the first page or choose another filter."
+    "paginacion_no_valida": "That page could not be opened. Go back to the first page or choose another filter.",
+    "recibo_incoherente": "The result of this load could not be verified. Check the pools before trying again."
   }
 }

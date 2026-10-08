@@ -123,6 +123,21 @@ test("rechaza respuestas con otra forma", () => {
   assert.equal(validarVistaPrevia({ data: { ...vista().data, filtro: "rechazadas", total_filtrado: 1,
     filas: [vista().data.filas[2]] } }).filas.length, 1);
   assert.throws(() => validarRecibo({ data: { ...recibo().data, auditoria_ref: 7 } }));
+  for (const cambio of [
+    { bolsa_ref: "" }, { version_bolsa: 0 }, { acta_ref: "" }, { auditoria_ref: "" },
+    { filas_cargadas: 0 }, { confirmada_en: "ayer" },
+    { sustituye_a: ["bolsa:anterior"] },
+    { sustituye_a: [{ bolsa_ref: "bolsa:anterior", version_bolsa: 0 }] },
+    { pendientes_revision: [{ fila: 0, motivo: "identidad_ambigua" }] },
+  ]) assert.throws(() => validarRecibo({ data: { ...recibo().data, ...cambio } }));
+});
+
+test("un POST aceptado con recibo incompatible exige comprobar la bolsa antes de repetir", async () => {
+  const textos = await textosDe("es");
+  const cliente = crearClienteCargaConvoca({ fetchImpl: async () => respuestaJSON({ data: { ...recibo().data, bolsa_ref: "" } }, 201) });
+  await assert.rejects(cliente.confirmar({ nombre: "bolsa.xlsx", base64: "AAAA", categoria: "auxiliar" }),
+    (error) => error instanceof ErrorCargaConvoca && error.codigo === "recibo_incoherente");
+  assert.match(textoError(textos, new ErrorCargaConvoca(0, "recibo_incoherente")), /Consulte las bolsas/u);
 });
 
 test("la página del servidor y la URL conservan solo filtro, página y otros parámetros", async () => {

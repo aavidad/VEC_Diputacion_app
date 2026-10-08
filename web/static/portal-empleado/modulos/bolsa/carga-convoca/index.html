@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1" />
     <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1" />
     <link rel="stylesheet" href="./carga-convoca.css?v=20261008-b1-correctivo-v1" />
-    <script type="module" src="./arranque.js?v=20261008-u-b1-paginacion-v1"></script>
+    <script type="module" src="./arranque.js?v=20261008-u-b1-recibo-v2"></script>
   </head>
   <body class="portal-empleado-app carga-convoca-pagina">
     <a class="salto-contenido" href="#carga" data-i18n="saltarContenido"></a>
@@ -125,6 +125,7 @@
             <p id="estado-revisar" class="carga-estado" role="status" aria-live="polite"></p>
             <div class="carga-acciones">
               <button type="button" class="boton-secundario" id="otro-fichero" data-i18n="otroFichero"></button>
+              <button type="button" class="boton-secundario" id="volver-resultado" data-i18n="volverResultado" hidden></button>
               <button type="button" class="boton-primario" id="cargar" data-i18n="cargar"></button>
             </div>
           </div>
@@ -135,6 +136,7 @@
           <div class="cuerpo-panel">
             <p id="hecho-mensaje" class="carga-aviso carga-aviso--exito" role="status"></p>
             <ul id="hecho-datos" class="carga-datos"></ul>
+            <p id="error-hecho" class="carga-aviso carga-aviso--peligro" role="alert" tabindex="-1" hidden></p>
             <div id="hecho-pendientes" hidden>
               <h3 data-i18n="hechoPendientes"></h3>
               <ul id="hecho-pendientes-lista" class="carga-datos"></ul>

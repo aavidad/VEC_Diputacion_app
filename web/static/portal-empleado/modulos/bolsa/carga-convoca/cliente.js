@@ -13,6 +13,8 @@ const MAXIMO_RESPUESTA = 12 * 1024 * 1024;
 const ESQUEMA_VISTA = "vec.bolsa.rrhh.carga_convoca.vista_previa.v1";
 const ESQUEMA_RECIBO = "vec.bolsa.rrhh.carga_convoca.recibo.v1";
 const HUELLA = /^[a-f0-9]{64}$/u;
+const AUDITORIA = /^aud_v3_[a-f0-9]{32}$/u;
+const INSTANTE_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
 const CODIGO = /^[a-z][a-z0-9_]{1,63}$/u;
 const EXTENSION = /\.(xls|xlsx)$/iu;
 
@@ -44,6 +46,8 @@ export function bytesABase64(bytes) {
 
 const entero = (v) => Number.isSafeInteger(v) && v >= 0;
 const texto = (v, max = 1024) => typeof v === "string" && v.length <= max;
+const referencia = (v) => texto(v, 512) && v.length > 0 && v === v.trim()
+  && !v.includes("/") && !/[\u0000-\u001f\u007f-\u009f]/u.test(v);
 
 function validarFila(f) {
   return f && typeof f === "object" && entero(f.numero) && (f.estado === "aceptada" || f.estado === "rechazada")
@@ -77,10 +81,19 @@ export function validarVistaPrevia(sobre) {
 
 export function validarRecibo(sobre) {
   const d = sobre?.data;
-  if (d?.esquema !== ESQUEMA_RECIBO || !texto(d.bolsa_ref, 512) || !entero(d.version_bolsa) || !HUELLA.test(d.huella_sha256 ?? "")
-    || typeof d.reutilizada !== "boolean" || !entero(d.filas_cargadas) || !entero(d.filas_excluidas)
-    || !Array.isArray(d.pendientes_revision) || !d.pendientes_revision.every((p) => entero(p?.fila) && CODIGO.test(p?.motivo ?? ""))
-    || !Array.isArray(d.sustituye_a) || !texto(d.auditoria_ref, 128) || !Number.isFinite(Date.parse(d.confirmada_en))) {
+  if (d?.esquema !== ESQUEMA_RECIBO || !referencia(d.bolsa_ref) || !referencia(d.acta_ref)
+    || !entero(d.version_bolsa) || d.version_bolsa === 0 || !HUELLA.test(d.huella_sha256 ?? "")
+    || typeof d.reutilizada !== "boolean" || typeof d.acta_reutilizada !== "boolean"
+    || !entero(d.filas_cargadas) || d.filas_cargadas === 0 || !entero(d.filas_excluidas)
+    || !Number.isSafeInteger(d.filas_cargadas + d.filas_excluidas)
+    || !Array.isArray(d.pendientes_revision) || !d.pendientes_revision.every((p) =>
+      entero(p?.fila) && p.fila > 0 && CODIGO.test(p?.motivo ?? ""))
+    || new Set(d.pendientes_revision?.map((p) => p.fila)).size !== d.pendientes_revision?.length
+    || !Array.isArray(d.sustituye_a) || !d.sustituye_a.every((s) => referencia(s?.bolsa_ref)
+      && s.bolsa_ref !== d.bolsa_ref && entero(s?.version_bolsa) && s.version_bolsa > 0)
+    || new Set(d.sustituye_a?.map((s) => s.bolsa_ref)).size !== d.sustituye_a?.length
+    || !AUDITORIA.test(d.auditoria_ref ?? "") || !INSTANTE_UTC.test(d.confirmada_en ?? "")
+    || !Number.isFinite(Date.parse(d.confirmada_en))) {
     throw new TypeError("recibo de carga incompatible");
   }
   return Object.freeze({ ...d });
@@ -137,7 +150,9 @@ export function crearClienteCargaConvoca({ fetchImpl = globalThis.fetch, plazoMs
     async confirmar({ nombre, base64, categoria, excluir, signal }) {
       const cuerpo = { nombre_fichero: nombre, contenido_base64: base64, categoria };
       if (excluir) cuerpo.excluir_filas_con_errores = true;
-      return validarRecibo(await enviar(RUTA_CONFIRMAR, cuerpo, signal));
+      const respuesta = await enviar(RUTA_CONFIRMAR, cuerpo, signal);
+      try { return validarRecibo(respuesta); }
+      catch { throw new ErrorCargaConvoca(0, "recibo_incoherente"); }
     },
   });
 }

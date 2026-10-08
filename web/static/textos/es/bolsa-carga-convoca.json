@@ -107,7 +107,18 @@
       "one": "Se dejará fuera {cuenta} fila con errores.",
       "other": "Se dejarán fuera {cuenta} filas con errores."
     },
-    "cargandoPagina": "Cargando filas…"
+    "cargandoPagina": "Cargando filas…",
+    "verCargadas": {
+      "one": "Ver la persona cargada en la bolsa",
+      "other": "Ver las {cuenta} personas cargadas en la bolsa"
+    },
+    "verExcluidas": {
+      "one": "Ver la fila con errores que no ha entrado",
+      "other": "Ver las {cuenta} filas con errores que no han entrado"
+    },
+    "bolsasSustituidas": "Bolsas anteriores sustituidas:",
+    "verBolsaAnterior": "Ver bolsa anterior {numero}",
+    "volverResultado": "Volver al resultado"
   },
   "campos": {
     "dni_nie": "Documento",
@@ -157,6 +168,7 @@
     "bolsa_en_conflicto": "Ese fichero ya se cargó en otra bolsa. Revise la categoría elegida.",
     "peticion_no_valida": "No se ha podido enviar el fichero. Vuelva a elegirlo y repita.",
     "servicio_no_disponible": "No se ha podido completar ahora. Pulse el botón otra vez; si sigue igual, avise a Informática.",
-    "paginacion_no_valida": "No se pudo abrir esa página. Vuelva a la primera o elija otro filtro."
+    "paginacion_no_valida": "No se pudo abrir esa página. Vuelva a la primera o elija otro filtro.",
+    "recibo_incoherente": "No se puede verificar el resultado de la carga. Consulte las bolsas antes de repetirla."
   }
 }

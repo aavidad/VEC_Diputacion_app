@@ -1,4 +1,5 @@
-import { bytesABase64, comprobarFichero } from "./cliente.js?v=20261008-u-b1-paginacion-v1";
+import { bytesABase64, comprobarFichero, ErrorCargaConvoca } from "./cliente.js?v=20261008-u-b1-recibo-v2";
+import { rutaCandidatosBolsaCompartible } from "../../../portal-bolsas-ruta-filtros.js";
 import {
   claveCategoria, escribirEstadoRuta, filtroControl, filtroServidor, leerEstadoRuta, nombrePersona,
   paginaServidor, TAMANO_PAGINA, textoAviso, textoBloqueo, textoError, textoIncidencia,
@@ -36,7 +37,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   const rutaInicial = leerEstadoRuta(doc.defaultView?.location?.search ?? "");
   const estado = { nombre: "", base64: "", categoria: null, vista: null, filtro: rutaInicial.filtro,
     pagina: rutaInicial.pagina, ocupado: false, cargandoPagina: false, generacion: 0, secuencia: 0,
-    peticionActual: null };
+    peticionActual: null, recibo: null, soloLectura: false };
   let controladorCategorias = null;
   let controladorVista = null;
   let controladorConfirmacion = null;
@@ -152,12 +153,12 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       .every((campo) => antes[campo] === despues[campo]);
   }
 
-  function solicitarPagina({ filtro, pagina, ruta = null }) {
+  function solicitarPagina({ filtro, pagina, ruta = null, forzar = false, soloLectura = null }) {
     if (!estado.base64) return Promise.resolve(null);
     const paginaSolicitada = pagina;
     const clave = `${estado.generacion}:${filtro}:${pagina}`;
     if (estado.peticionActual?.clave === clave) return estado.peticionActual.promesa;
-    if (estado.vista?.filtro === filtro && estado.pagina === pagina && !estado.cargandoPagina) return Promise.resolve(estado.vista);
+    if (!forzar && estado.vista?.filtro === filtro && estado.pagina === pagina && !estado.cargandoPagina) return Promise.resolve(estado.vista);
     controladorVista?.abort();
     controladorVista = new AbortController();
     const signal = controladorVista.signal;
@@ -178,8 +179,14 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
             filtro, limite: TAMANO_PAGINA, desplazamiento: (pagina - 1) * TAMANO_PAGINA, signal });
         }
         if (secuencia !== estado.secuencia || signal.aborted) return null;
+        if (estado.recibo && (respuesta.huella_sha256 !== estado.recibo.huella_sha256
+          || respuesta.aceptadas !== estado.recibo.filas_cargadas
+          || respuesta.rechazadas !== estado.recibo.filas_excluidas)) {
+          throw new ErrorCargaConvoca(0, "recibo_incoherente");
+        }
         if (!mismaLectura(estado.vista, respuesta)) throw new TypeError("el fichero cambió durante la revisión");
         const primera = !estado.vista;
+        if (soloLectura !== null) estado.soloLectura = soloLectura;
         estado.vista = respuesta;
         estado.filtro = filtro;
         estado.pagina = pagina;
@@ -195,7 +202,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
           estado.cargandoPagina = false;
           estado.peticionActual = null;
           $("estado-revisar").textContent = "";
-          $("cargar").disabled = Boolean(estado.vista?.bloqueo) || estado.ocupado;
+          $("cargar").disabled = Boolean(estado.vista?.bloqueo) || estado.ocupado || estado.soloLectura;
         }
       }
     })();
@@ -287,10 +294,13 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     $("kpi-avisos").textContent = n(v.con_avisos);
     $("bloqueo").hidden = !v.bloqueo;
     $("bloqueo").textContent = v.bloqueo ? textoBloqueo(textos, v.bloqueo) : "";
-    $("excluir-marco").hidden = v.rechazadas === 0 || Boolean(v.bloqueo);
+    $("excluir-marco").hidden = estado.soloLectura || v.rechazadas === 0 || Boolean(v.bloqueo);
     if (primera) $("excluir").checked = false;
     $("excluir-texto").textContent = t("excluir", { cuenta: v.rechazadas });
-    $("cargar").disabled = Boolean(v.bloqueo) || estado.cargandoPagina;
+    $("cargar").hidden = estado.soloLectura;
+    $("cargar").disabled = estado.soloLectura || Boolean(v.bloqueo) || estado.cargandoPagina;
+    $("otro-fichero").hidden = estado.soloLectura;
+    $("volver-resultado").hidden = !estado.soloLectura;
     $("error-revisar").hidden = true;
     $("estado-revisar").textContent = "";
     doc.querySelectorAll('input[name="filtro"]').forEach((r) => { r.checked = r.value === filtroControl(estado.filtro); });
@@ -306,7 +316,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
 
   function pedirConfirmacion() {
     const v = estado.vista;
-    if (!v || v.bloqueo || estado.ocupado || estado.cargandoPagina) return;
+    if (!v || v.bloqueo || estado.ocupado || estado.cargandoPagina || estado.soloLectura) return;
     if (v.rechazadas > 0 && !$("excluir").checked) { mostrarErrorRevision(t("faltaExcluir")); return; }
     $("error-revisar").hidden = true;
     $("confirmar-texto").textContent = `${t("confirmarTexto", { cuenta: v.aceptadas, categoria: estado.categoria.etiqueta })} ${v.rechazadas ? t("confirmarDescartes", { cuenta: v.rechazadas }) : ""}`.trim();
@@ -315,7 +325,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
 
   async function cargar() {
     $("confirmar").close?.();
-    if (estado.ocupado || estado.cargandoPagina) return;
+    if (estado.ocupado || estado.cargandoPagina || estado.soloLectura) return;
     estado.ocupado = true;
     $("cargar").disabled = true;
     $("otro-fichero").disabled = true;
@@ -325,7 +335,12 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       const recibo = await cliente.confirmar({ nombre: estado.nombre, base64: estado.base64,
         categoria: claveCategoria(estado.categoria.referencia), excluir: $("excluir").checked,
         signal: controladorConfirmacion.signal });
-      estado.base64 = "";
+      if (recibo.huella_sha256 !== estado.vista.huella_sha256
+        || recibo.filas_cargadas !== estado.vista.aceptadas
+        || recibo.filas_excluidas !== estado.vista.rechazadas) {
+        throw new ErrorCargaConvoca(0, "recibo_incoherente");
+      }
+      estado.recibo = recibo;
       pintarHecho(recibo);
       irAPaso(3);
     } catch (error) {
@@ -335,7 +350,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     } finally {
       controladorConfirmacion = null;
       estado.ocupado = false;
-      $("cargar").disabled = Boolean(estado.vista?.bloqueo);
+      $("cargar").disabled = Boolean(estado.vista?.bloqueo) || estado.soloLectura;
       $("otro-fichero").disabled = false;
     }
   }
@@ -343,11 +358,47 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   // Paso 3: resultado.
   function pintarHecho(recibo) {
     $("hecho-mensaje").textContent = recibo.reutilizada ? t("hechoRepetida") : t("hechoNueva", { categoria: estado.categoria.etiqueta });
-    const datos = [t("hechoCargadas", { cuenta: recibo.filas_cargadas })];
-    if (recibo.filas_excluidas) datos.push(t("hechoExcluidas", { cuenta: recibo.filas_excluidas }));
-    if (recibo.sustituye_a.length) datos.push(t("hechoSustituye", { cuenta: recibo.sustituye_a.length }));
+    $("error-hecho").hidden = true;
+    const busqueda = escribirEstadoRuta(doc.defaultView?.location?.search ?? "", "todas", 1);
+    const rutaBolsa = (referencia) => `/portal-empleado/${rutaCandidatosBolsaCompartible(busqueda, referencia)}`;
+    const cargadas = doc.createElement("li");
+    const enlace = doc.createElement("a");
+    enlace.href = rutaBolsa(recibo.bolsa_ref);
+    enlace.textContent = t("verCargadas", { cuenta: recibo.filas_cargadas });
+    cargadas.append(enlace);
+    const datos = [];
+    if (recibo.filas_excluidas) {
+      const excluidas = doc.createElement("li");
+      const boton = doc.createElement("button");
+      boton.type = "button";
+      boton.className = "boton-secundario";
+      boton.textContent = t("verExcluidas", { cuenta: recibo.filas_excluidas });
+      boton.addEventListener("click", () => void abrirExcluidas());
+      excluidas.append(boton);
+      datos.push(excluidas);
+    }
+    if (recibo.sustituye_a.length) {
+      const grupo = doc.createElement("li");
+      grupo.append(doc.createTextNode(t("bolsasSustituidas")));
+      const lista = doc.createElement("ul");
+      recibo.sustituye_a.forEach((bolsa, indice) => {
+        const li = doc.createElement("li");
+        const a = doc.createElement("a");
+        a.href = rutaBolsa(bolsa.bolsa_ref);
+        a.textContent = t("verBolsaAnterior", { numero: n(indice + 1) });
+        li.append(a);
+        lista.append(li);
+      });
+      grupo.append(lista);
+      datos.push(grupo);
+    }
     datos.push(t("hechoFecha", { fecha: textos.fecha(recibo.confirmada_en, { dateStyle: "long", timeStyle: "short", timeZone: ZONA }) }));
-    $("hecho-datos").replaceChildren(...datos.map((texto) => { const li = doc.createElement("li"); li.textContent = texto; return li; }));
+    $("hecho-datos").replaceChildren(cargadas, ...datos.map((dato) => {
+      if (typeof dato !== "string") return dato;
+      const li = doc.createElement("li");
+      li.textContent = dato;
+      return li;
+    }));
     $("hecho-pendientes").hidden = recibo.pendientes_revision.length === 0;
     $("hecho-pendientes-lista").replaceChildren(...recibo.pendientes_revision.map((p) => {
       const li = doc.createElement("li");
@@ -357,11 +408,27 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     $("detalle-registro").textContent = t("detalleRegistro", { referencia: recibo.auditoria_ref });
   }
 
+  async function abrirExcluidas() {
+    if (!estado.recibo || !estado.base64 || !estado.recibo.filas_excluidas || estado.ocupado) return;
+    $("error-hecho").hidden = true;
+    try {
+      const respuesta = await solicitarPagina({ filtro: "rechazadas", pagina: 1, ruta: "pushState",
+        forzar: true, soloLectura: true });
+      if (!respuesta) return;
+      $("cargar").hidden = true;
+    } catch (error) {
+      const aviso = $("error-hecho");
+      aviso.textContent = textoError(textos, error);
+      aviso.hidden = false;
+      aviso.focus();
+    }
+  }
+
   function reiniciar() {
     controladorVista?.abort();
     estado.secuencia += 1;
     Object.assign(estado, { nombre: "", base64: "", vista: null, ocupado: false,
-      cargandoPagina: false, peticionActual: null });
+      cargandoPagina: false, peticionActual: null, recibo: null, soloLectura: false });
     $("fichero").value = "";
     $("resumen-errores").hidden = true;
     marcarCampo("fichero", "");
@@ -399,10 +466,15 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   $("confirmar-si").addEventListener("click", () => void cargar());
   $("confirmar-no").addEventListener("click", () => $("confirmar").close?.());
   $("otro-fichero").addEventListener("click", reiniciar);
+  $("volver-resultado").addEventListener("click", () => {
+    estado.soloLectura = false;
+    irAPaso(3);
+  });
   $("otra-carga").addEventListener("click", reiniciar);
   $("ayuda-abrir").addEventListener("click", () => $("ayuda").showModal?.());
   $("ayuda-cerrar").addEventListener("click", () => $("ayuda").close?.());
   doc.defaultView?.addEventListener("popstate", () => {
+    if (!pasos[3].hidden) return;
     const ruta = leerEstadoRuta(doc.defaultView.location.search);
     if (!estado.base64) { estado.filtro = ruta.filtro; estado.pagina = ruta.pagina; return; }
     navegarPagina(ruta.filtro, ruta.pagina, { ruta: null, enfocar: false });
@@ -410,6 +482,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   doc.defaultView?.addEventListener("pagehide", () => {
     controladorCategorias?.abort();
     controladorVista?.abort();
+    estado.base64 = "";
   });
   return Object.freeze({ iniciar: cargarCategorias });
 }
