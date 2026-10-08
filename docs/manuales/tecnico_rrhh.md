@@ -28,9 +28,9 @@ Para abrir la lista general, pulse «Ver todas las peticiones» **(6)** en la ca
 
 ![Lista general de peticiones con búsqueda, filtros, fase, estado y plazo.](img/rrhh-navegacion-peticiones.webp)
 
-## Consultar las categorías de la RPT · 2
+## Consultar las categorías de los puestos · 2
 
-Desde Inicio, pulse «Categorías de la RPT» **(2)**. Se abre el «Listado de categorías», con un campo «Buscar categoría o grupo», otro de «Grupo o subgrupo» y el número de categorías encontradas. El día de la comprobación se mostraban 151.
+Desde Inicio, pulse «Categorías de la RPT» **(2)**. RPT es la relación de puestos de trabajo. Se abre el «Listado de categorías», con un campo «Buscar categoría o grupo», otro de «Grupo o subgrupo» y el número de categorías encontradas. El día de la comprobación se mostraban 151.
 
 ![Listado de categorías de la RPT y controles de búsqueda.](img/rrhh-navegacion-categorias.webp)
 
@@ -47,3 +47,12 @@ Pulse «Bolsas de trabajo» **(5)** en el menú lateral de Inicio. Se abre «Bol
 ![Resumen de bolsas de trabajo activas y distribución por situación.](img/rrhh-navegacion-bolsas.webp)
 
 Para volver a Inicio, pulse «Inicio» en el menú lateral o use el botón Atrás del navegador.
+
+
+## Si algo sale mal
+
+Mientras aparece «Comprobando», espere a que termine la carga. Si el mensaje permanece y no aparecen los datos, recargue la página. Si sigue igual, indique a Informática qué pantalla abrió y el mensaje que ve.
+
+Cuando una petición muestra «Con incidencia», abra su ficha antes de seguir con el trámite. El estado avisa de que hay un asunto pendiente; por sí solo no indica qué debe corregir.
+
+Para consultar y descargar los borradores de una petición, siga la [guía de fichas y documentos](responsable_rrhh.md).
