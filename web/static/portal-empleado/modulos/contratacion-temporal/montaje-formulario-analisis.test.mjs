@@ -185,6 +185,16 @@ function crearPresentador(estadoInicial, fallarCarga = false, refresco = null) {
       refresco.resolver?.();
       return estado;
     },
+    async refrescarExpedienteConfirmado(recibo) {
+      lecturasDetalle += 1;
+      if (refresco?.esperarCarga) await refresco.esperarCarga;
+      if (fallarCarga) throw new Error("detalle temporalmente no disponible");
+      if (!refresco || recibo.expediente_ref !== refresco.expediente.expediente_ref
+        || refresco.expediente.version < recibo.version_resultante) return estado;
+      estado = { ...estado, expediente: refresco.expediente, carga: "listo" };
+      refresco.resolver?.();
+      return estado;
+    },
     cambiarVista(vista) { estado = { ...estado, vista }; },
     seleccionarTarea(tareaRef) { estado = { ...estado, vista: "expediente", tarea_ref: tareaRef }; },
     cancelar() {},
@@ -309,6 +319,7 @@ function crearRaizModulo() {
   let contenedorCobertura = null;
   let contenedorAsignacion = null;
   let contenedorInformeJuridico = null;
+  let contenedorContenido = null;
   let montajesAnalisis = 0;
   let controles = [];
   const raiz = {
@@ -326,6 +337,8 @@ function crearRaizModulo() {
       contenedorAsignacion = valor.includes("data-ct-exp-asignacion")
         ? crearContenedorAnalisis() : null;
       contenedorInformeJuridico = valor.includes("data-ct-exp-informe-juridico")
+        ? crearContenedorAnalisis() : null;
+      contenedorContenido = valor.includes("ct-exp-contenido")
         ? crearContenedorAnalisis() : null;
       if (contenedorAnalisis) montajesAnalisis += 1;
       controles = Array.from({ length: 3 }, () => {
@@ -358,6 +371,7 @@ function crearRaizModulo() {
       if (selector === "[data-ct-exp-cobertura]") return contenedorCobertura;
       if (selector === "[data-ct-exp-asignacion]") return contenedorAsignacion;
       if (selector === "[data-ct-exp-informe-juridico]") return contenedorInformeJuridico;
+      if (selector === ".ct-exp-contenido") return contenedorContenido;
       return { focus() {}, scrollIntoView() {} };
     },
   };
@@ -370,6 +384,7 @@ function crearRaizModulo() {
     obtenerCobertura() { return contenedorCobertura; },
     obtenerAsignacion() { return contenedorAsignacion; },
     obtenerInformeJuridico() { return contenedorInformeJuridico; },
+    obtenerContenido() { return contenedorContenido; },
     activarFalloCobertura() {
       raiz.fallarMontajeCobertura = true;
       contenedorCobertura = crearContenedorAnalisis({ fallarAlPintar: true });
@@ -1017,14 +1032,17 @@ test("el recibo confirmado refresca cuadro y ficha a la versión resultante sin 
   });
   await escenario.raiz.obtenerAnalisis().enviar();
   await completo;
-  await Promise.resolve();
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(llamadas, 1);
-  assert.deepEqual(escenario.presentador.obtenerLecturas(), { cuadro: 1, detalle: 1 });
+  assert.deepEqual(escenario.presentador.obtenerLecturas(), { cuadro: 0, detalle: 1 });
   assert.equal(escenario.presentador.obtenerEstado().expediente.version, actualizado.version);
   assert.match(escenario.raiz.raiz.innerHTML, /Resultado RC/u);
-  assert.match(escenario.raiz.obtenerRectificacion().anexos.at(-1).innerHTML,
+  const confirmacion = (escenario.raiz.obtenerRectificacion()
+    ?? escenario.raiz.obtenerAnalisis()
+    ?? escenario.raiz.obtenerContenido()).anexos.at(-1);
+  assert.match(confirmacion.innerHTML,
     /recibo:opaco:analisis:001/u);
-  assert.equal(escenario.raiz.obtenerRectificacion().anexos.at(-1).enfoques, 1);
+  assert.equal(confirmacion.enfoques, 1);
   assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
   escenario.modulo.desmontar();
 });
@@ -1054,7 +1072,7 @@ test("si falla la lectura posterior, el recibo y la navegación siguen disponibl
   await escenario.raiz.cambiarVista("cuadro");
   assert.equal(escenario.presentador.obtenerEstado().vista, "cuadro");
   assert.equal(registros, 1);
-  assert.deepEqual(escenario.presentador.obtenerLecturas(), { cuadro: 1, detalle: 0 });
+  assert.deepEqual(escenario.presentador.obtenerLecturas(), { cuadro: 0, detalle: 1 });
   escenario.modulo.desmontar();
 });
 
@@ -1091,7 +1109,9 @@ test("la lectura tardía conserva el foco que la persona movió fuera del análi
   formulario.ownerDocument.activeElement = focoAjeno;
   lectura.resolver();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(escenario.raiz.obtenerRectificacion().anexos.at(-1).enfoques, undefined);
+  assert.equal((escenario.raiz.obtenerRectificacion()
+    ?? escenario.raiz.obtenerAnalisis()
+    ?? escenario.raiz.obtenerContenido()).anexos.at(-1).enfoques, undefined);
   assert.equal(formulario.ownerDocument.activeElement, focoAjeno);
   escenario.modulo.desmontar();
 });
