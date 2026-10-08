@@ -27,13 +27,15 @@ func motivoAutorizacionAjustesCT() vecdomain.ReferenciaEntradaCatalogo {
 		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "gobernar-ajustes-reglas-ct")}
 }
 
-func ampliarInstantaneaAltaConAjustesCT(plantilla vecdomain.InstantaneaAutorizacion) (vecdomain.InstantaneaAutorizacion, error) {
+func ampliarInstantaneaLectorEntregaConAjustesCT(plantilla vecdomain.InstantaneaAutorizacion) (vecdomain.InstantaneaAutorizacion, error) {
 	concesion := func(accion string, campos []string) vecdomain.ConcesionRol {
 		return vecdomain.ConcesionRol{Accion: accion, ModuloID: "contratacion_temporal", TipoRecurso: "catalogo_reglas",
 			Finalidades: []string{finalidadAjustesCT}, CamposPermitidos: campos, GarantiaMinima: vecdomain.AuthAssuranceHigh}
 	}
 	if plantilla.Validar() != nil || len(plantilla.VersionRol.Concesiones) != 1 ||
-		plantilla.VersionRol.Concesiones[0].Accion != ctports.AccionCrearSolicitud {
+		plantilla.VersionRol.Concesiones[0].Accion != ctports.AccionConsultarPeticionesRRHH ||
+		len(plantilla.AsignacionPerfil.Ambitos) != 1 ||
+		plantilla.AsignacionPerfil.Ambitos[0].Clave != "organizacion_ref" {
 		return vecdomain.InstantaneaAutorizacion{}, errMontajeAjustesReglasCT
 	}
 	plantilla.VersionRol.Concesiones = append(plantilla.VersionRol.Concesiones,

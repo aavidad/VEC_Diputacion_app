@@ -64,7 +64,7 @@ func nuevaRutaAjustesReglasCT(ctx context.Context, cfg config.Config,
 	soporte := alta.soporte
 	fijo := soporte.perfilFijoParaRutaYMetodo(ajusteshttp.Ruta, http.MethodPost)
 	lector := soporte.perfilFijoParaRutaYMetodo(ajusteshttp.Ruta, http.MethodGet)
-	if fijo == nil || lector != fijo || fijo.clave != clavePerfilFijoAltaCTDesarrollo || fijo.plantilla.Validar() != nil {
+	if fijo == nil || lector != fijo || fijo.clave != clavePerfilFijoLectorEntregaCTDesarrollo || fijo.plantilla.Validar() != nil {
 		return vacia, errMontajeAjustesReglasCT
 	}
 	perfil := fijo.perfilRef()

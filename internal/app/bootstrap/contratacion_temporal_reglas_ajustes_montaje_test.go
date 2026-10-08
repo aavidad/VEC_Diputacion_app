@@ -7,6 +7,7 @@ import (
 
 	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 func TestAjustesReglasCTPerfilFijoSoloConSelectorYProvisionCAS(t *testing.T) {
@@ -17,13 +18,13 @@ func TestAjustesReglasCTPerfilFijoSoloConSelectorYProvisionCAS(t *testing.T) {
 	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(sin, principal, ahora, origen, false); err != nil {
 		t.Fatal(err)
 	}
-	base := sin.perfilFijoParaRuta(httpinterno.RutaAltaSolicitudes)
+	base := sin.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodGet)
 	if base == nil || base.plantilla.Validar() != nil || len(base.plantilla.VersionRol.Concesiones) != 1 ||
 		sin.perfilFijoParaRutaYMetodo(ajusteshttp.Ruta, http.MethodGet) != nil ||
 		sin.perfilFijoParaRutaYMetodo(ajusteshttp.Ruta, http.MethodPost) != nil {
-		t.Fatal("selector apagado alteró el permiso o las rutas de alta")
+		t.Fatal("selector apagado alteró el permiso o las rutas del lector de entrega")
 	}
-	objetivo, err := ampliarInstantaneaAltaConAjustesCT(base.plantilla)
+	objetivo, err := ampliarInstantaneaLectorEntregaConAjustesCT(base.plantilla)
 	if err != nil || objetivo.Validar() != nil || len(objetivo.VersionRol.Concesiones) != 3 {
 		t.Fatalf("plantilla ampliada inválida: %v", err)
 	}
@@ -36,10 +37,17 @@ func TestAjustesReglasCTPerfilFijoSoloConSelectorYProvisionCAS(t *testing.T) {
 	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(con, principalCon, ahora, origen, true); err != nil {
 		t.Fatal(err)
 	}
-	fijo := con.perfilFijoParaRuta(httpinterno.RutaAltaSolicitudes)
+	fijo := con.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodGet)
 	if fijo == nil || fijo.plantilla.Validar() != nil || len(fijo.plantilla.VersionRol.Concesiones) != 3 ||
 		con.perfilFijoParaRutaYMetodo(ajusteshttp.Ruta, http.MethodGet) != fijo ||
 		con.perfilFijoParaRutaYMetodo(ajusteshttp.Ruta, http.MethodPost) != fijo {
-		t.Fatal("GET y POST no comparten el perfil fijo de alta con concesiones exactas")
+		t.Fatal("GET y POST no comparten el perfil fijo lector con concesiones exactas")
+	}
+	recurso := vecdomain.RecursoAutorizable{Referencia: "vec.contratacion_temporal.reglas", ModuloID: "contratacion_temporal",
+		Tipo: "catalogo_reglas", Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo},
+		Atributos: map[string]string{"material_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}}
+	if !fijo.plantilla.AsignacionPerfil.Cubre(recurso) ||
+		con.perfilFijoParaRuta(httpinterno.RutaAltaSolicitudes).plantilla.AsignacionPerfil.Cubre(recurso) {
+		t.Fatal("AD114 exige exactamente el ámbito de organización del perfil lector")
 	}
 }
