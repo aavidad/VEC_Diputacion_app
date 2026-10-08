@@ -60,12 +60,43 @@ test("referencia, estado o cursor ajenos no inician GET de candidaturas", () => 
   }
 });
 
+test("popstate cambia la vista al volver y hashchange no duplica el montaje de candidaturas", () => {
+  const inicioInstalacion = portal.indexOf("function instalarEnlacesBolsa()");
+  const finInstalacion = portal.indexOf("function instalarEventosAuditoriaBolsa()", inicioInstalacion);
+  assert.ok(inicioInstalacion > 0 && finInstalacion > inicioInstalacion);
+  const oyentes = new Map(), navegaciones = [];
+  let aplicadas = 0;
+  const location = { hash: "#bolsa/bolsa-candidatos" };
+  const estado = { vista: "bolsa-candidatos" };
+  const vistaDesdeHash = () => location.hash === "#bolsa/resumen" ? "resumen"
+    : location.hash === "#bolsa/bolsa-candidatos" ? "bolsa-candidatos" : "portal";
+  const navegar = (vista) => { estado.vista = vista; navegaciones.push(vista); };
+  const contexto = { document: { addEventListener() {} }, window: { location,
+    addEventListener(tipo, escucha) { oyentes.set(tipo, escucha); } }, estado, vistaDesdeHash,
+  navegar, aplicarRutaCandidatosBolsa: () => { aplicadas += 1; }, rutaCandidatosAplicada: null };
+  runInNewContext(`${portal.slice(inicioInstalacion, finInstalacion)}; instalarEnlacesBolsa()`, contexto);
+  const hashchange = () => { const vista = vistaDesdeHash(); if (vista !== estado.vista) navegar(vista); };
+
+  location.hash = "#bolsa/resumen"; oyentes.get("popstate")(); hashchange();
+  assert.deepEqual(navegaciones, ["resumen"], "Atrás monta el cuadro, no deja Candidatos visible");
+  assert.equal(aplicadas, 0);
+  location.hash = "#bolsa/bolsa-candidatos"; oyentes.get("popstate")(); hashchange();
+  assert.deepEqual(navegaciones, ["resumen", "bolsa-candidatos"]);
+  assert.equal(aplicadas, 1, "Adelante aplica el filtro una vez");
+  oyentes.get("popstate")();
+  assert.equal(aplicadas, 2, "un cambio de query en Candidatos relee el filtro sin remontar la vista");
+  assert.equal(navegaciones.length, 2);
+  location.hash = "#portal"; oyentes.get("popstate")(); hashchange();
+  assert.equal(navegaciones.at(-1), "portal");
+  assert.equal(aplicadas, 2);
+});
+
 test("la cohorte de CSS, entrada y helper coincide con las URL servidas", async () => {
   const [html, cache, interno, produccion] = await Promise.all([
     "index.html", "cache-publica-v1.json", "../../interno.manifest", "../../produccion.manifest",
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-bolsa-enlaces-root-v1");
-  assert.equal(versionDe(cache, "/portal-empleado/portal.js"), "20261008-bolsa-enlaces-root-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261008-bolsa-atras-v1");
+  assert.equal(versionDe(cache, "/portal-empleado/portal.js"), "20261008-bolsa-atras-v1");
   for (const css of ["portal-componentes.css", "portal-capacidades.css"])
     assert.equal(versionDe(html, `/portal-empleado/${css}`), "20261008-bolsa-enlaces-v1");
   assert.equal(versionDe(cache, "/portal-empleado/portal-componentes.css"), "20261008-bolsa-enlaces-v1");

@@ -1581,8 +1581,9 @@ function instalarEnlacesBolsa() {
     aplicarRutaCandidatosBolsa();
   }, true);
   window.addEventListener("popstate", () => {
-    if (window.location.hash !== "#bolsa/bolsa-candidatos") return;
-    if (estado.vista !== "bolsa-candidatos") navegar("bolsa-candidatos", { enfocar: false });
+    const vista = vistaDesdeHash();
+    if (vista !== estado.vista) navegar(vista, { enfocar: false });
+    if (vista !== "bolsa-candidatos") return;
     rutaCandidatosAplicada = null;
     aplicarRutaCandidatosBolsa();
   });
