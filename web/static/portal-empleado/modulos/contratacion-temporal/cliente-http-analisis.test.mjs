@@ -333,6 +333,24 @@ test("registrar y rectificar usan rutas, cuerpos y opciones HTTP exactas", async
   assert.deepEqual(JSON.parse(llamadas[1].opciones.body), rectificacion);
 });
 
+test("el replay 200 conserva el recibo estricto del registro y la rectificación", async () => {
+  for (const [metodo, solicitud, operacion, version] of [
+    ["registrarAnalisis", solicitudRegistro(), "registrar", 2],
+    ["rectificarAnalisis", solicitudRectificacion(), "rectificar", 3],
+  ]) {
+    let llamadas = 0;
+    const confirmado = recibo(operacion, version);
+    const cliente = crearClienteHTTPContratacionTemporal({
+      fetchImpl: async () => {
+        llamadas += 1;
+        return respuestaJSON({ data: confirmado }, 200);
+      },
+    });
+    assert.deepEqual(await cliente[metodo](solicitud), confirmado);
+    assert.equal(llamadas, 1);
+  }
+});
+
 test("la validación local impide tocar la red con un DTO abierto", async () => {
   let llamadas = 0;
   const cliente = crearClienteHTTPContratacionTemporal({
