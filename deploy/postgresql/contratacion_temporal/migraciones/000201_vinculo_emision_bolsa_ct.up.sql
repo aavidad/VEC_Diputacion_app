@@ -272,7 +272,9 @@ RETURNS TABLE(contenido_canonico bytea,esquema text,acceso_ref text,secuencia nu
  generada_en timestamptz,expediente_ref text,version_expediente numeric,total smallint,
  recibo_sello_sha256 text,resultado_bolsa jsonb)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
+SET lock_timeout='1s' SET statement_timeout='4s'
+SET idle_in_transaction_session_timeout='6s' AS $f$
 DECLARE d record; actual record; vinculos jsonb; sugeridas jsonb; n integer;
  entradas jsonb; todos jsonb; lote jsonb; pagina_n integer; antes_en timestamptz; antes_ref text;
  ultimo_en timestamptz; ultimo_ref text; mas boolean:=false; siguiente text; bolsa_vigente text;
@@ -409,7 +411,9 @@ RETURNS TABLE(contenido_canonico bytea,esquema text,acceso_ref text,secuencia nu
  generada_en timestamptz,expediente_ref text,version_expediente numeric,total smallint,
  recibo_sello_sha256 text,resultado_bolsa jsonb)
 LANGUAGE sql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
+SET lock_timeout='1s' SET statement_timeout='4s'
+SET idle_in_transaction_session_timeout='6s' AS $f$
  SELECT * FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(
   p_alcance,p_consulta,p_capacidad,p_decision,p_motivo,p_contexto,
   p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz,NULL::text)
