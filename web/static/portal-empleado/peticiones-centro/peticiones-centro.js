@@ -186,34 +186,46 @@ function camposDetalle(filas) {
   }).join("")}</dl>`;
 }
 
-function detallePeticion(peticion, contexto) {
+// Nombre de una persona interviniente si el servidor lo da para el mismo
+// puesto que guarda la petición; si no, null.
+function nombreInterviniente(intervinientes, participante) {
+  const persona = intervinientes?.[participante?.actor_ref];
+  if (!persona || persona.puesto_ref !== participante?.puesto_ref || !persona.nombre) return null;
+  return [persona.nombre, persona.cargo].filter(Boolean).join(" · ");
+}
+
+// `contexto` es el del centro (catálogo y personas de su relación). RRHH no
+// tiene contexto: recibe con la bandeja las `etiquetas` de las referencias
+// listadas (centro, contacto, categoría, motivo, documentos y personas).
+function detallePeticion(peticion, contexto, etiquetas = null) {
   if (!peticion) return `<p>${esc(TEXTO.datosNoDisponibles)}</p>`;
   const s = peticion.solicitud || {};
   const c = peticion.configuracion?.solicitante;
   const actor = contexto?.actor;
-  const solicitante = contexto?.intervinientes?.[c?.actor_ref];
+  const intervinientes = contexto ? contexto.intervinientes : etiquetas?.intervinientes;
+  const solicitante = nombreInterviniente(intervinientes, c);
   const catalogos = contexto?.catalogos;
   const centro = catalogos?.centros?.find((v) => v.referencia === s.centro_ref);
   const etiqueta = (opciones, referencia) => opciones?.find((v) => v.referencia === referencia)?.etiqueta || referencia || "—";
-  const etiquetaMotivo = catalogos?.motivos?.find((v) => v.clave === s.motivo_clave)?.etiqueta || "—";
+  const nombre = (grupo, opciones, referencia) => (contexto ? etiqueta(opciones, referencia) : etiquetas?.[grupo]?.[referencia] || referencia || "—");
+  const etiquetaMotivo = (contexto ? catalogos?.motivos?.find((v) => v.clave === s.motivo_clave)?.etiqueta : etiquetas?.motivos?.[s.motivo_clave]) || "—";
   const rc = s.rc?.existe
     ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)} · ${s.rc.documento_ref}`
     : traducirCentro("ct_txt_sin_retencion_de_credito_aportada");
   const filas = [...(contexto ? [] : [[TEXTO.peticionRef, peticion.referencia], [TEXTO.version, peticion.version]]),
-    [TEXTO.estado, contexto ? estadoPeticion(peticion.estado) : peticion.estado],
-    [traducirCentro("ct_txt_centro"), nombreCentro(s.centro_ref, contexto)], [traducirCentro("ct_txt_contacto"), etiqueta(centro?.contactos, s.contacto_ref)],
-    [traducirCentro("ct_txt_categoria"), etiqueta(catalogos?.categorias, s.categoria_ref)], [traducirCentro("ct_txt_grupo_o_subgrupo"), s.grupo_subgrupo], [traducirCentro("ct_txt_motivo"), etiquetaMotivo],
+    [TEXTO.estado, estadoPeticion(peticion.estado)],
+    [traducirCentro("ct_txt_centro"), contexto ? nombreCentro(s.centro_ref, contexto) : nombre("centros", null, s.centro_ref)],
+    [traducirCentro("ct_txt_contacto"), nombre("contactos", centro?.contactos, s.contacto_ref)],
+    [traducirCentro("ct_txt_categoria"), nombre("categorias", catalogos?.categorias, s.categoria_ref)], [traducirCentro("ct_txt_grupo_o_subgrupo"), s.grupo_subgrupo], [traducirCentro("ct_txt_motivo"), etiquetaMotivo],
     [traducirCentro("ct_txt_detalle"), s.detalle], [traducirCentro("ct_txt_periodo"), periodoLegible(s.periodo)], [traducirCentro("ct_txt_observaciones"), s.observaciones || "—"],
-    [traducirCentro("ct_txt_retencion_de_credito"), rc], [traducirCentro("ct_txt_documentos_aportados"), (s.documentos_adjuntos || []).map((ref) => etiqueta(catalogos?.documentos, ref)).join(" · ") || traducirCentro("ct_txt_ninguno")],
-    [TEXTO.solicitanteDatos, solicitante?.puesto_ref === c?.puesto_ref
-      ? `${solicitante.nombre} · ${solicitante.cargo}`
-      : contexto ? (c?.actor_ref === actor?.referencia ? [actor?.nombre, actor?.cargo].filter(Boolean).join(" · ") || "—" : "—")
-        : `${c?.actor_ref || "—"} · ${c?.puesto_ref || traducirCentro("ct_txt_cargo_resuelto_por_identidad")}`],
+    [traducirCentro("ct_txt_retencion_de_credito"), rc], [traducirCentro("ct_txt_documentos_aportados"), (s.documentos_adjuntos || []).map((ref) => nombre("documentos", catalogos?.documentos, ref)).join(" · ") || traducirCentro("ct_txt_ninguno")],
+    [TEXTO.solicitanteDatos, solicitante
+      || (contexto ? (c?.actor_ref === actor?.referencia ? [actor?.nombre, actor?.cargo].filter(Boolean).join(" · ") || "—" : "—")
+        : `${c?.actor_ref || "—"} · ${c?.puesto_ref || traducirCentro("ct_txt_cargo_resuelto_por_identidad")}`)],
     [traducirCentro("ct_txt_creada_en"), fecha(peticion.creada_en, true)]];
   if (peticion.estado === "ratificada") {
     const rat = peticion.configuracion?.ratificador;
-    const etiquetaRat = contexto?.intervinientes?.[rat?.actor_ref];
-    filas.push([traducirCentro("ct_txt_ratificador_y_cargo"), etiquetaRat && rat && etiquetaRat.puesto_ref === rat.puesto_ref ? `${etiquetaRat.nombre} · ${etiquetaRat.cargo}` : contexto ? "—" : `${rat?.actor_ref || "—"} · ${rat?.puesto_ref || "—"}`],
+    filas.push([traducirCentro("ct_txt_ratificador_y_cargo"), nombreInterviniente(intervinientes, rat) || (contexto ? "—" : `${rat?.actor_ref || "—"} · ${rat?.puesto_ref || "—"}`)],
       [traducirCentro("ct_txt_motivo_de_ratificacion"), peticion.motivo_ratificacion], [traducirCentro("ct_txt_ratificada_en"), fecha(peticion.ratificada_en, true)]);
   }
   return camposDetalle(filas);
@@ -280,14 +292,14 @@ function tablaRRHH(peticiones, seleccionada) {
   return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${esc(TEXTO.rrhhTitulo)}</caption><thead><tr><th>${textoCT("ct_txt_referencia")}</th><th>${textoCT("ct_txt_estado_de_entrega")}</th><th>${textoCT("ct_txt_ratificacion")}</th><th>${textoCT("ct_txt_accion")}</th></tr></thead><tbody>${peticiones.map(({ peticion, estado_entrega: estadoEntrega, recibo_alta: reciboAlta }) => `<tr${peticion?.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(peticion?.referencia)}</td><td><span class="pc-estado pc-estado-${esc(estadoEntrega)}">${esc(textoEstadoEntrega(estadoEntrega))}</span>${estadoEntrega === "confirmada" ? enlaceExpedienteRRHH(peticion, reciboAlta) : ""}</td><td>${esc(peticion?.ratificada_en ? fecha(peticion.ratificada_en, true) : "—")}</td><td><button type="button" data-seleccionar-rrhh="${esc(peticion?.referencia)}">${esc(TEXTO.seleccionar)}</button></td></tr>`).join("")}</tbody></table></div>`;
 }
 
-export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null, modo = "bandeja", confirmado = false, recibo = null, mensaje = "", numeroMOAD = "", politicaNumero = null, errorNumero = false } = {}) {
+export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null, modo = "bandeja", confirmado = false, recibo = null, mensaje = "", numeroMOAD = "", politicaNumero = null, errorNumero = false, etiquetas = null } = {}) {
   const peticion = entrega?.peticion;
   const cabecera = `<section class="pc-cabecera"><p class="sobrelinea">${esc(TEXTO.rrhhSobrelinea)}</p><h1>${esc(TEXTO.rrhhTitulo)}</h1><p>${esc(TEXTO.rrhhDescripcion)}</p></section>`;
   const error = mensaje ? `<p class="pc-error" role="alert">${esc(mensaje)}</p>` : "";
   if (["denegado", "sin_verificar", "resultado_incierto"].includes(modo)) return vistaSinDatos(cabecera, modo, mensaje, "recargar-rrhh");
-  if (modo === "confirmar") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.rrhhConfirmar)}</h2>${detallePeticion(peticion, null)}<div class="ct-campo"><label for="pc-numero-moad">${textoCT("numero_moad_obligatorio")}</label><input id="pc-numero-moad" name="numero_expediente_moad" type="text" required maxlength="45" autocomplete="off" value="${esc(numeroMOAD)}" ${politicaNumero?.ejemplo ? `placeholder="${textoCT("numero_moad_ejemplo", { ejemplo: politicaNumero.ejemplo })}"` : ""}${errorNumero ? ' aria-invalid="true" aria-describedby="pc-numero-moad-error"' : ""}>${errorNumero ? `<span class="ct-error-campo" id="pc-numero-moad-error">${textoCT("error_numero_moad")}</span>` : ""}</div><p class="pc-aviso">${esc(TEXTO.rrhhAviso)}</p><label class="pc-confirmacion"><input type="checkbox" name="confirmacion-alta-rrhh"${confirmado ? " checked" : ""}> ${esc(TEXTO.rrhhConfirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-alta-rrhh">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-alta-rrhh">${esc(TEXTO.rrhhConfirmar)}</button></div></section>`;
+  if (modo === "confirmar") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.rrhhConfirmar)}</h2>${detallePeticion(peticion, null, etiquetas)}<div class="ct-campo"><label for="pc-numero-moad">${textoCT("numero_moad_obligatorio")}</label><input id="pc-numero-moad" name="numero_expediente_moad" type="text" required maxlength="45" autocomplete="off" value="${esc(numeroMOAD)}" ${politicaNumero?.ejemplo ? `placeholder="${textoCT("numero_moad_ejemplo", { ejemplo: politicaNumero.ejemplo })}"` : ""}${errorNumero ? ' aria-invalid="true" aria-describedby="pc-numero-moad-error"' : ""}>${errorNumero ? `<span class="ct-error-campo" id="pc-numero-moad-error">${textoCT("error_numero_moad")}</span>` : ""}</div><p class="pc-aviso">${esc(TEXTO.rrhhAviso)}</p><label class="pc-confirmacion"><input type="checkbox" name="confirmacion-alta-rrhh"${confirmado ? " checked" : ""}> ${esc(TEXTO.rrhhConfirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-alta-rrhh">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-alta-rrhh">${esc(TEXTO.rrhhConfirmar)}</button></div></section>`;
   if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.rrhhAviso)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar-alta-rrhh">${esc(traducirCentro("ct_txt_reintentar_la_misma_operacion"))}</button></div></section>`;
-  const detalle = `<aside class="pc-panel pc-detalle"><h2>${esc(TEXTO.detalle)}</h2>${detallePeticion(peticion, null)}${entrega?.recibo_alta && !recibo ? reciboAltaRRHHHTML(entrega.recibo_alta) : ""}${["pendiente", "preparada"].includes(entrega?.estado_entrega) ? `<div class="pc-acciones"><button type="button" class="boton-primario" data-accion="abrir-alta-rrhh">${esc(entrega.estado_entrega === "preparada" ? TEXTO.rrhhCompletar : TEXTO.rrhhConfirmar)}</button>${entrega.estado_entrega === "preparada" ? `<button type="button" class="boton-secundario" data-accion="recuperar-alta-anterior">${textoCT("numero_moad_recuperar_alta_anterior")}</button>` : ""}</div>` : ""}</aside>`;
+  const detalle = `<aside class="pc-panel pc-detalle"><h2>${esc(TEXTO.detalle)}</h2>${detallePeticion(peticion, null, etiquetas)}${entrega?.recibo_alta && !recibo ? reciboAltaRRHHHTML(entrega.recibo_alta) : ""}${["pendiente", "preparada"].includes(entrega?.estado_entrega) ? `<div class="pc-acciones"><button type="button" class="boton-primario" data-accion="abrir-alta-rrhh">${esc(entrega.estado_entrega === "preparada" ? TEXTO.rrhhCompletar : TEXTO.rrhhConfirmar)}</button>${entrega.estado_entrega === "preparada" ? `<button type="button" class="boton-secundario" data-accion="recuperar-alta-anterior">${textoCT("numero_moad_recuperar_alta_anterior")}</button>` : ""}</div>` : ""}</aside>`;
   return `${cabecera}${error}${recibo ? reciboAltaRRHHHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${esc(TEXTO.rrhhTitulo)}</h2>${tablaRRHH(peticiones, peticion?.referencia)}<p>${textoCT("ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum")}</p><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="recargar-rrhh">${esc(TEXTO.recargar)}</button><a class="boton-secundario" href="${esc(urlPortalContratacion())}">${esc(TEXTO.volver)}</a></div></section>${detalle}</div>`;
 }
 
@@ -361,18 +373,18 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
   raiz.setAttribute?.("lang", IDIOMA_EFECTIVO_PETICIONES_CENTRO);
   let peticiones = []; let entrega = null; let modo = "bandeja"; let recibo = null; let mensaje = "";
   let ocupado = false; let operacionPendiente = null; let resultadoIncierto = false; let confirmado = false;
-  let numeroMOAD = ""; let politicaNumero = null; let errorNumero = false;
+  let numeroMOAD = ""; let politicaNumero = null; let errorNumero = false; let etiquetas = null;
   const retirarDatos = (error) => {
     const confirmada = Boolean(recibo);
     resultadoIncierto = resultadoIncierto || Boolean(operacionPendiente);
     operacionPendiente = null;
-    peticiones = []; entrega = null; recibo = null; confirmado = false;
+    peticiones = []; entrega = null; recibo = null; confirmado = false; etiquetas = null;
     numeroMOAD = ""; politicaNumero = null; errorNumero = false;
     modo = esDenegacion(error) ? "denegado" : "sin_verificar";
     mensaje = `${modo === "denegado" ? TEXTO.accesoDenegado : TEXTO.lecturaFallida}${confirmada ? ` ${TEXTO.operacionConfirmadaOculta}` : ""}${resultadoIncierto ? ` ${TEXTO.operacionInciertaOculta}` : ""}`;
   };
   const dibujar = () => {
-    raiz.innerHTML = renderizarPeticionesCentroRRHH({ peticiones, entrega, modo, confirmado, recibo, mensaje, numeroMOAD, politicaNumero, errorNumero });
+    raiz.innerHTML = renderizarPeticionesCentroRRHH({ peticiones, entrega, modo, confirmado, recibo, mensaje, numeroMOAD, politicaNumero, errorNumero, etiquetas });
     raiz.setAttribute("aria-busy", String(ocupado));
     if (ocupado) raiz.querySelectorAll("button, input").forEach((control) => { control.disabled = true; });
   };
@@ -385,6 +397,8 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
         || bandeja.peticiones.some((item) => !item?.peticion?.referencia || item.peticion.version !== 2
           || !["pendiente", "preparada", "confirmada"].includes(item.estado_entrega))) throw new Error(TEXTO.rrhhError);
       peticiones = bandeja.peticiones;
+      // Nombres de presentación; si faltan, la vista enseña las referencias.
+      etiquetas = bandeja.etiquetas && typeof bandeja.etiquetas === "object" ? bandeja.etiquetas : null;
       if (peticiones.some((item) => item.peticion?.solicitud?.periodo?.causa_fin)) {
         await prepararAnalisisPeticionesCentro();
       }

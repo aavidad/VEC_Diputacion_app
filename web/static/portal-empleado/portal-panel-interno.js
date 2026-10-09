@@ -13,7 +13,7 @@ import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamient
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-r-traza-idioma-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261008-canal-telefono-v2";
-import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261008-bolsa-global-v2";
+import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261009-instantes-bolsa-v1";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-r-fichas-idioma-nav-v1";
 import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261008-r-traza-idioma-v1";
@@ -29,8 +29,8 @@ import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
-import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261008-bolsa-global-v2";
+import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261009-instantes-bolsa-v1";
+import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261009-instantes-bolsa-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);

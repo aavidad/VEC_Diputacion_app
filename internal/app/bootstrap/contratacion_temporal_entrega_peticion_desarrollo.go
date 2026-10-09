@@ -61,7 +61,7 @@ func nuevaRutaEntregaPeticionDesarrollo(alta *dependenciasAltaContratacionTempor
 	if err != nil {
 		return vacia, err
 	}
-	return vechttp.RutaExacta{Ruta: rutaEntregaPeticionCentro, Manejador: &manejadorEntregaPeticionDesarrollo{p, repo, s}}, nil
+	return vechttp.RutaExacta{Ruta: rutaEntregaPeticionCentro, Manejador: &manejadorEntregaPeticionDesarrollo{p, repo, s, alta.etiquetasPeticionesRRHH}}, nil
 }
 
 func nuevaInstantaneaAutorizacionLectorEntregaPeticionDesarrollo(

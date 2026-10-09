@@ -222,6 +222,11 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []vecdomain.ReferenciaEntradaCatalogo{motivoPeticionCentroDesarrollo()}, desde); err != nil {
 		return nil, err
 	}
+	etiquetador := &etiquetadorPeticionesRRHHDesarrollo{proveedor: p}
+	if len(catalogosAlta) > 0 {
+		etiquetador.catalogo = catalogosAlta[0]
+	}
+	alta.etiquetasPeticionesRRHH = etiquetador
 	repo, err := postgresct.NuevoRepositorioPeticionesCentroPostgreSQL(alta.postgresql.ejecucion, p)
 	if err != nil {
 		return nil, err

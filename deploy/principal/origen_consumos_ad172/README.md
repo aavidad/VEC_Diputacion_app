@@ -33,13 +33,25 @@ del núcleo.
 | --- | --- | --- | --- | --- |
 | `usuarios` | `vec_pref508a_i_ue` (interna) y `vec_pref508a_e_ue` (externa) | 21 | `vec-server` | por defecto |
 | `contratacion` | `vec_ct_o207_runtime` | 50 | `vec-server` | por defecto |
-| `bolsa` | `vec_bolsa_llamamientos_desarrollo` | 21 | `vec-server` | por defecto |
+| `bolsa` | `vec_bolsa_llamamientos_desarrollo` | 25 | `vec-server` | por defecto |
 | `documentos` | `vec_documentos_rrhh_ejecutor_desarrollo` | 8 | `vec-server` | por defecto |
 | `incorporacion` | `vec_inc_v2_registro_ct_20260910`, `vec_inc_v2_alta_personal_20260910`, `vec_inc_v2_lector_personal_20260910` | 3 | `vec-server` | por defecto |
+| `incorporacionb` | seis LOGIN nominales `vec_ct_personal_b2_*` de Bolsa, CT, RPT y Personal | 21 | `vec-server` | solo si se pide |
 | `cronos` | `vec_cronos_emp_ejecutor_desarrollo` | 8 | `vec-server` | solo si se pide |
 
-De dónde sale cada dato, cotejado en la principal el 6 de octubre, solo con
-lecturas:
+`incorporacionb` pertenece al recorrido CT→Personal B2 y utiliza los seis
+LOGIN que consumen el núcleo de mutación V3. Sus otros dos LOGIN leen la
+fuente de autorización y los motivos; no necesitan fila AD172. La operación
+`ct_detalle` pasa por el núcleo de consulta RRHH y también queda fuera. Este
+bloque es distinto de las tres filas históricas de `incorporacion`.
+
+En el GET B2 del clon HZ11 se observó `interna_corporativa` en el vínculo del
+actor consumido por el LOGIN CT; las demás acciones B2 toman el contexto del
+mismo montaje interno. El núcleo obtiene el canal de ese vínculo y el proceso
+`vec-server` de la fila AD172, no del nombre de aplicación del pool PostgreSQL.
+
+Los bloques anteriores a `incorporacionb` se cotejaron en la principal el 6
+de octubre, solo con lecturas:
 
 - **Perfil, audiencia y operación:** del texto vivo de
   `consumir_decision_mutacion_v3_interna`. Para cada perfil, la parte que fija
@@ -57,15 +69,16 @@ lecturas:
 - **Canal:** `interna_corporativa` para todo lo de RRHH, como en el historial de
   usos. Usuarios lleva además la superficie externa.
 
-El emparejamiento de perfil, audiencia y operación, y el grupo que el núcleo
-exige a cada perfil, se cotejaron a mano sobre el texto exacto del núcleo, y
-una segunda revisión independiente lo repitió. El guion no repite ese cotejo,
-pero sí se asegura de que el núcleo es el mismo: su huella SHA256 tiene que
-estar en `nucleos_cotejados.txt`. Ahí están la de la principal del 6 de
-octubre (postimagen de AD193) y la que deja AD208 (#809), que solo cambia el
-SQLSTATE del rechazo. Con cualquier otra huella el guion se para. Si el núcleo
-cambia, hay que volver a cotejar la lista y añadir la huella nueva en la misma
-revisión.
+El emparejamiento de los bloques anteriores a `incorporacionb` se cotejó a
+mano sobre el texto exacto del núcleo, y una segunda revisión independiente
+lo repitió. Para B2, las 21 filas se comparan con el núcleo instalado
+post-AD218, las operaciones del montaje CT→Personal y los seis LOGIN de los
+pools B2. Requieren revisión SQL independiente antes de su aplicación. El
+guion no repite ese cotejo. Sí comprueba que el núcleo es uno de los cotejados:
+su huella SHA256
+tiene que estar en `nucleos_cotejados.txt`. La lista incluye la definición
+post-AD218, cotejada para B2. Con otra huella el guion se para; hay que volver
+a cotejar las ternas y revisar la nueva huella antes de añadirla.
 
 Unas 24 de las ternas por defecto tienen hoy audiencias sin clave de capacidad
 publicada en la principal: los avisos de llamamiento de Usuarios; en
@@ -83,9 +96,6 @@ Fuera de la lista, a propósito:
 - **Dietas.** Sus LOGIN están en `NOLOGIN` desde la retirada P6, y F4b, que
   cambiaría esos LOGIN, no está aplicado. Una fila hoy no serviría. Cuando se
   reactive, va con sus LOGIN reales.
-- **Personal B2, categorías RPT, vínculo de categoría y plan de incorporación a
-  Personal.** Solo los usa la composición B2, que está apagada en la principal
-  y no tiene sus LOGIN. Cuando se componga, va en su propio corte.
 - **Portal del candidato, «Mi bolsa» y Aspirantes.** Son de la superficie
   externa, y sus grupos ejecutores no tienen miembros en la principal.
 - **Administración.** Es otro proceso. Ya tiene sus filas o las pone su propio
@@ -133,13 +143,20 @@ ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_PG_CONTENEDOR=vec-postgresq
 ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_AD172_APLICAR=SI-REVISADO VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906 bash /home/openclaw/.local/state/vec-desarrollo-20260906/origen_consumos_ad172/ejecutar.sh --aplicar"'
 ```
 
-Sin `VEC_ORIGEN_BLOQUES` se instalan los cinco bloques de RRHH, 103 ternas.
+Sin `VEC_ORIGEN_BLOQUES` se instalan los cinco bloques de RRHH, 107 ternas.
 Cronos se instala aparte cuando se quiera, añadiendo `VEC_ORIGEN_BLOQUES=cronos`.
+Las 21 ternas de B2 se seleccionan únicamente con
+`VEC_ORIGEN_BLOQUES=incorporacionb`. Antes de usar ese bloque se cotejan sus
+seis LOGIN, la composición B2 y la huella viva del núcleo; la fila técnica
+por sí sola no concede acciones ni acredita un alta en Personal.
 
 - **El inventario** imprime los bloques, el número de ternas y la ruta del
   inventario.
 - **El ensayo** ejecuta todo y termina en `ROLLBACK`. Debe imprimir
-  `ternas_nuevas=103` y `verificado: ROLLBACK`, con el inventario sin cambios.
+  `verificado: ROLLBACK`, con el inventario sin cambios. `ternas_nuevas` cuenta
+  solo las filas ausentes de la base, no las 107 seleccionadas por defecto:
+  en la preimagen HZ11 faltaban tres de esas 107. Para `incorporacionb` faltaban
+  las 21, por lo que su ensayo allí debe mostrar `ternas_nuevas=21`.
 - **Aplicar** termina en `COMMIT` y comprueba que estén todas las ternas, que
   no haya desaparecido ninguna fila previa y que no haya filas nuevas fuera de
   la lista.

@@ -24,7 +24,10 @@ const (
 	rutaCatalogosAltaContratacionTemporalDesarrollo = "/api/vec/contratacion-temporal/catalogos-alta"
 	esquemaCatalogosAltaContratacionTemporal        = "vec.contratacion_temporal.catalogos_alta.v1"
 	contactoAltaContratacionTemporalDesarrollo      = "contacto:desarrollo:001"
-	grupoSubgrupoAltaContratacionTemporalDesarrollo = "C2"
+	// etiquetaContactoAltaContratacionTemporalDesarrollo nombra el contacto
+	// sintético del centro; la usan el contexto del centro y la bandeja RRHH.
+	etiquetaContactoAltaContratacionTemporalDesarrollo = "Contacto sintético del centro"
+	grupoSubgrupoAltaContratacionTemporalDesarrollo    = "C2"
 )
 
 var errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles = errors.New(

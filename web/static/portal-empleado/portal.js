@@ -110,7 +110,7 @@ function cargarRecursosVista(grupo) {
   if (cargasRecursosVistas.has(grupo)) return;
   const carga = grupo === "inicio"
     ? Promise.all([
-      import("./portal-inicio.js?v=20261008-bolsa-global-v2"),
+      import("./portal-inicio.js?v=20261009-instantes-bolsa-v1"),
       import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2"),
     ]).then(([inicio, accesos]) => ({ ...inicio, accesos }))
     : grupo === "accesos"
@@ -122,7 +122,7 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261008-r-personas-v1"),
+        import("./portal-bolsas-ofertas.js?v=20261009-instantes-bolsa-v1"),
         import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
@@ -413,7 +413,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261008-r-personas-v1");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261009-instantes-bolsa-v1");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -1556,7 +1556,7 @@ let rutasBolsa = null;
 let promesaRutasBolsa = null;
 function prepararRutasBolsa() {
   if (rutasBolsa) return Promise.resolve(rutasBolsa);
-  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2")
+  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js?v=20261009-instantes-bolsa-v1")
     .then((rutas) => { rutasBolsa = rutas; return rutas; })
     .catch((error) => { promesaRutasBolsa = null; throw error; });
   return promesaRutasBolsa;
@@ -1572,9 +1572,9 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261008-r-personas-v1"),
-    import("./portal-bolsas-api.js?v=20261008-r-personas-v1"),
-    import("./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2"),
+    import("./portal-panel-interno.js?v=20261009-instantes-bolsa-v1"),
+    import("./portal-bolsas-api.js?v=20261009-instantes-bolsa-v1"),
+    import("./portal-bolsas-ruta-filtros.js?v=20261009-instantes-bolsa-v1"),
   ]).then(([panel, bolsas, rutas]) => {
     if (!vistaNecesitaBolsa()) {
       promesaBolsaBase = null;

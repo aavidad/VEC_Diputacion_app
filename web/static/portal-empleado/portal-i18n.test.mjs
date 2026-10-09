@@ -719,8 +719,22 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/presentador-expedientes.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
-    "portal-modulos-coordinador.js", "portal.js",
+    "portal-modulos-coordinador.js",
   ]) versionesEspeciales.set(ruta, "20261009-ficha-version-recibo-v1");
+  // Instantes de Bolsa validados por su forma ISO, no por los patrones de DNI.
+  for (const ruta of [
+    "portal-bolsas-api.js",
+    "portal-bolsas-contrato.js",
+    "portal-bolsas-global.js",
+    "portal-bolsas-historial-ofrecimientos.js",
+    "portal-bolsas-ofertas.js",
+    "portal-bolsas-ruta-filtros.js",
+    "portal-bolsas-seguimiento.js",
+    "portal-inicio.js",
+    "portal-llamamientos-operaciones-api.js",
+    "portal-panel-interno.js",
+  ]) versionesEspeciales.set(ruta, "20261009-instantes-bolsa-v1");
+  versionesEspeciales.set("portal.js", "20261009-ficha-instantes-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -858,7 +872,8 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionPortal);
+  // La entrada puede renovarse sola (sin el coordinador): basta con que no conserve la URL anterior a Cronos.
+  assert.notEqual(versionDe(html, "/portal-empleado/portal.js"), "20261001-cronos-grafo-bandeja-v5");
   assert.notEqual(versionPortal, "20261008-r-traza-idioma-v1");
   assert.notEqual(versionPortal, "20261008-r-personas-fichas-v3");
 
