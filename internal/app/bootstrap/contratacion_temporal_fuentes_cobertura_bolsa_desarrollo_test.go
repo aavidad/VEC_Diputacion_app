@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -112,5 +113,40 @@ func TestSituacionBolsaCoberturaFijableCaducaYNoSeReemplaza(t *testing.T) {
 	ahora = ahora.Add(validezSituacionBolsaCoberturaCT)
 	if _, ok := enlace.situacion(context.Background(), "categoria:x"); !ok || primera.lecturas.Load() != 2 {
 		t.Fatalf("la memoria debe caducar: %d lecturas", primera.lecturas.Load())
+	}
+}
+
+// Una propuesta pregunta a Bolsa por la vía de bolsa (dos comprobaciones) y
+// por los avisos de la vía: las tres preguntas se sirven con una sola lectura.
+func TestPropuestaCoberturaLeeBolsaUnaSolaVez(t *testing.T) {
+	ahora := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	compuestas, err := nuevasReglasEjemploDesarrollo(
+		configuracionDesarrolloReglasEjemplo(rutaReglasBolsaEjemploPrueba, ""), nil, relojReglasEjemploPrueba{ahora: ahora},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consulta := &consultaSituacionBolsaCoberturaPrueba{situacion: ports.SituacionBolsaCobertura{
+		Existe: true, BolsaRef: "bolsa:x", ConstituidaEn: time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC), Integrantes: 42, Disponibles: 27,
+	}}
+	enlace := &situacionBolsaCoberturaFijable{ahora: func() time.Time { return ahora }}
+	enlace.fijar(consulta)
+	evaluador, err := application.NuevoEvaluadorAvisosViaCobertura(enlace, compuestas.bolsa, relojFijoAvisosViaPrueba{ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fuente := &fuenteComprobacionCoberturaDesarrollo{bolsa: enlace}
+	periodo := domain.PeriodoPrevisto{Inicio: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), Fin: time.Date(2027, 3, 31, 0, 0, 0, 0, time.UTC)}
+	categoria := "categoria:desarrollo:a2"
+	for _, comprobacion := range []domain.ClaveCatalogo{"existe_bolsa_vigente", "hay_candidaturas_disponibles"} {
+		if r, ok := fuente.resultadoPara(context.Background(), categoria, periodo, "bolsa_vigente", comprobacion, "bolsa"); !ok || r != domain.ComprobacionAfirmativa {
+			t.Fatalf("%s=%q", comprobacion, r)
+		}
+	}
+	if resultado, evaluado := evaluador.Evaluar(t.Context(), categoria, periodo); !evaluado || resultado.Estado != application.EstadoAvisosEvaluados {
+		t.Fatalf("avisos inesperados: %+v", resultado)
+	}
+	if n := consulta.lecturas.Load(); n != 1 {
+		t.Fatalf("Bolsa leída %d veces en una propuesta; debe ser una", n)
 	}
 }

@@ -26,14 +26,21 @@ func configurarAvisosViaCoberturaDesarrollo(
 	reglasBolsa *reglas.Resolutor,
 	fuente *fuenteConstituidaRRHHDesarrollo,
 ) {
-	if autoridad != nil && fuente != nil {
-		autoridad.situacionBolsaCobertura.fijar(situacionBolsaCoberturaDesarrollo{fuente: fuente})
+	if autoridad == nil || fuente == nil {
+		return
 	}
-	if autoridad == nil || autoridad.presentadorCobertura == nil || reglasBolsa == nil || fuente == nil {
+	// Fuente de cobertura y avisos comparten la misma lectura memorizada:
+	// una sola carga de Bolsa por propuesta.
+	var situacion ports.ConsultaSituacionBolsaCobertura = situacionBolsaCoberturaDesarrollo{fuente: fuente}
+	if autoridad.situacionBolsaCobertura != nil {
+		autoridad.situacionBolsaCobertura.fijar(situacion)
+		situacion = autoridad.situacionBolsaCobertura
+	}
+	if autoridad.presentadorCobertura == nil || reglasBolsa == nil {
 		return
 	}
 	evaluador, err := application.NuevoEvaluadorAvisosViaCobertura(
-		situacionBolsaCoberturaDesarrollo{fuente: fuente}, reglasBolsa, relojSistemaAvisosViaDesarrollo{},
+		situacion, reglasBolsa, relojSistemaAvisosViaDesarrollo{},
 	)
 	if err == nil {
 		err = autoridad.presentadorCobertura.ConfigurarAvisosVia(evaluador)

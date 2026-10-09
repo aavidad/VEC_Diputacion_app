@@ -95,6 +95,21 @@ func (s *situacionBolsaCoberturaFijable) situacion(
 	return situacion, true
 }
 
+// SituacionBolsaCobertura sirve la misma lectura memorizada a los avisos de
+// la vía; sin enlace o si Bolsa no responde, no está disponible.
+func (s *situacionBolsaCoberturaFijable) SituacionBolsaCobertura(
+	ctx context.Context,
+	categoriaRef string,
+) (ports.SituacionBolsaCobertura, error) {
+	situacion, ok := s.situacion(ctx, categoriaRef)
+	if !ok {
+		return ports.SituacionBolsaCobertura{}, ports.ErrSituacionBolsaCoberturaNoDisponible
+	}
+	return situacion, nil
+}
+
+var _ ports.ConsultaSituacionBolsaCobertura = (*situacionBolsaCoberturaFijable)(nil)
+
 func (s *situacionBolsaCoberturaFijable) memorizada(categoriaRef string) (ports.SituacionBolsaCobertura, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
