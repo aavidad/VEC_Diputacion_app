@@ -90,7 +90,7 @@ espera "$(origen vec_documentos_rrhh_ejecutor_desarrollo vec_documentos.operacio
 espera "$(origen vec_inc_v2_alta_personal_20260910 vec_personal.alta_ejercicio.v1 personal.alta_ejercicio.registrar interna_corporativa)" vec-server 'alta en Personal acreditada'
 espera "$(origen vec_cronos_emp_ejecutor_desarrollo vec_cronos_v1.saldo_propio.consultar.v1 cronos.saldo.propio.consultar interna_corporativa)" NULO 'Cronos no se instala por defecto'
 espera "$(origen vec_bolsa_llamamientos_desarrollo vec.bolsa.mi-bolsa.v1 bolsa.participaciones_propias.consultar externa_personal)" NULO 'Mi Bolsa no se instala por defecto'
-espera "$(origen vec_externo_bolsa_desarrollo vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1 bolsa.participaciones_propias.responder_llamamiento externa_personal)" NULO 'respuesta del candidato no se instala por defecto'
+espera "$(origen vec_bolsa_llamamientos_desarrollo vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1 bolsa.participaciones_propias.responder_llamamiento externa_personal)" NULO 'respuesta del candidato no se instala por defecto'
 espera "$(origen vec_ct_o207_runtime vec_contratacion_temporal.confirmar_alta_atestada.v1 contratacion_temporal.peticion_centro.consultar externa_personal)" NULO 'canal cruzado sigue denegado'
 espera "$(origen vec_bolsa_llamamientos_desarrollo vec_contratacion_temporal.confirmar_alta_atestada.v1 contratacion_temporal.peticion_centro.consultar interna_corporativa)" NULO 'LOGIN cruzado sigue denegado'
 espera "$(origen vec_inc_v2_registro_ct_20260910 vec_contratacion_temporal.confirmar_alta_atestada.v1 contratacion_temporal.peticion_centro.consultar interna_corporativa)" NULO 'otro LOGIN del mismo grupo sigue denegado'
@@ -115,7 +115,7 @@ while IFS=$'\t' read -r bloque login grupo audiencia operacion canal proceso per
     consulta_participaciones_propias_bolsa)
       [[ $login == vec_bolsa_llamamientos_desarrollo && $grupo == vec_bolsa_llamamientos_ejecutor ]] || { echo 'FALLO: lector Mi Bolsa' >&2; exit 1; } ;;
     portal_candidato_bolsa)
-      [[ $login == vec_externo_bolsa_desarrollo && $grupo == vec_bolsa_llamamientos_portal_externo ]] || { echo 'FALLO: actor Mi Bolsa' >&2; exit 1; } ;;
+      [[ $login == vec_bolsa_llamamientos_desarrollo && $grupo == vec_bolsa_llamamientos_ejecutor ]] || { echo 'FALLO: actor Mi Bolsa' >&2; exit 1; } ;;
     *) echo 'FALLO: perfil Mi Bolsa inesperado' >&2; exit 1 ;;
   esac
   espera "$(origen "$login" "$audiencia" "$operacion" "$canal")" vec-server "Mi Bolsa: $operacion"
@@ -123,8 +123,9 @@ while IFS=$'\t' read -r bloque login grupo audiencia operacion canal proceso per
   verificadas=$((verificadas + 1))
 done < "$base_dir/ternas.tsv"
 espera "$verificadas" 8 'ocho ternas Mi Bolsa verificadas'
-espera "$(origen vec_externo_bolsa_desarrollo vec.bolsa.mi-bolsa.v1 bolsa.participaciones_propias.consultar externa_personal)" NULO 'LOGIN de acciones no lee con perfil de consulta'
-espera "$(origen vec_bolsa_llamamientos_desarrollo vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1 bolsa.participaciones_propias.responder_llamamiento externa_personal)" NULO 'LOGIN de consulta no responde'
+espera "$(origen vec_ct_o207_runtime vec.bolsa.mi-bolsa.v1 bolsa.participaciones_propias.consultar externa_personal)" NULO 'LOGIN CT no lee Mi Bolsa'
+espera "$(origen vec_ct_o207_runtime vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1 bolsa.participaciones_propias.responder_llamamiento externa_personal)" NULO 'LOGIN CT no responde por el candidato'
+espera "$(origen vec_bolsa_llamamientos_desarrollo vec.bolsa.mi-bolsa.v1 bolsa.participaciones_propias.responder_llamamiento externa_personal)" NULO 'audiencia y operación cruzadas se deniegan'
 salida=$(aplicar VEC_ORIGEN_BLOQUES=mibolsa)
 grep -q 'ternas_nuevas=0' <<< "$salida"
 
@@ -141,7 +142,7 @@ salida=$(aplicar VEC_ORIGEN_BLOQUES=incorporacionb,mibolsa)
 grep -q "ternas_nuevas=$((incorporacionb + mibolsa))" <<< "$salida"
 espera "$(filas)" "$((incorporacionb + mibolsa + 1))" 'B2 y Mi Bolsa juntas conservan fila previa'
 espera "$(origen vec_ct_personal_b2_bolsa_persona vec_bolsa_llamamientos.aceptacion_ct.persona.v1 bolsa.aceptacion_ct.persona.consultar interna_corporativa)" vec-server 'B2 conservada junto a Mi Bolsa'
-espera "$(origen vec_externo_bolsa_desarrollo vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1 bolsa.participaciones_propias.responder_llamamiento externa_personal)" vec-server 'respuesta del candidato junto a B2'
+espera "$(origen vec_bolsa_llamamientos_desarrollo vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1 bolsa.participaciones_propias.responder_llamamiento externa_personal)" vec-server 'respuesta del candidato junto a B2'
 salida=$(aplicar VEC_ORIGEN_BLOQUES=incorporacionb,mibolsa)
 grep -q 'ternas_nuevas=0' <<< "$salida"
 

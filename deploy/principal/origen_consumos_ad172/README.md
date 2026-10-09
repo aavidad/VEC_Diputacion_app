@@ -38,14 +38,16 @@ del núcleo.
 | `incorporacion` | `vec_inc_v2_registro_ct_20260910`, `vec_inc_v2_alta_personal_20260910`, `vec_inc_v2_lector_personal_20260910` | 3 | `vec-server` | por defecto |
 | `incorporacionb` | seis LOGIN nominales `vec_ct_personal_b2_*` de Bolsa, CT, RPT y Personal | 21 | `vec-server` | solo si se pide |
 | `cronos` | `vec_cronos_emp_ejecutor_desarrollo` | 8 | `vec-server` | solo si se pide |
-| `mibolsa` | `vec_bolsa_llamamientos_desarrollo` (lecturas) y `vec_externo_bolsa_desarrollo` (acciones) | 8 | `vec-server` | solo si se pide |
+| `mibolsa` | `vec_bolsa_llamamientos_desarrollo` | 8 | `vec-server` | solo si se pide |
 
 `mibolsa` cubre la consulta y el historial propios, más pausa,
 reactivación, respuesta al llamamiento, disposición, confirmación de contacto
 y solicitud documental. Aceptar y renunciar comparten la operación de
-respuesta. Las seis acciones usan el LOGIN del portal externo y el grupo
-`vec_bolsa_llamamientos_portal_externo`; las dos lecturas usan el LOGIN de
-Bolsa y su grupo ejecutor. En ambos casos el canal es `externa_personal`.
+respuesta. Las ocho operaciones usan el pool integrado de Bolsa, cuyo LOGIN
+`vec_bolsa_llamamientos_desarrollo` hereda solo
+`vec_bolsa_llamamientos_ejecutor`. El núcleo fc80 admite ese grupo para los
+perfiles de consulta propia y `portal_candidato_bolsa`. El canal de las ocho
+ternas es `externa_personal`, según la decisión firmada del candidato.
 El bloque no se aplica por defecto ni concede capacidad al candidato.
 
 `incorporacionb` pertenece al recorrido CT→Personal B2 y utiliza los seis
@@ -168,15 +170,15 @@ por sí sola no concede acciones ni acredita un alta en Personal.
 Las ocho ternas de «Mi Bolsa» se seleccionan con `VEC_ORIGEN_BLOQUES=mibolsa`.
 Para aplicar ambos bloques en una transacción se usa
 `VEC_ORIGEN_BLOQUES=incorporacionb,mibolsa`. En ambos casos se ejecuta primero
-`--ensayo`; dirección decide y ejecuta `--aplicar`. El bloque de «Mi Bolsa»
-exige comprobar el LOGIN de la DSN del portal externo y su única membresía.
+`--ensayo`; dirección decide y ejecuta `--aplicar`. Antes debe cotejar el
+LOGIN del pool integrado de Bolsa y su única membresía en el destino.
 
 En la copia física privada HZ12, el núcleo ya tiene esa huella. El ensayo de
 los cinco bloques por defecto pasó con `ROLLBACK` y conservó 107 filas.
-Allí aún faltan `vec_externo_bolsa_desarrollo` y los seis LOGIN B2: el ensayo
-de esos bloques se detiene por «LOGIN o grupo ejecutor incompatible» sin
-escribir. Dirección debe cotejar los LOGIN y el arranque vigentes antes de
-aplicar `mibolsa` o `incorporacionb`; este paquete no crea roles.
+Los grupos de portal externo existen sin miembros y no intervienen en este
+montaje integrado. Los seis LOGIN B2 aún faltan en esa copia: el ensayo de
+`incorporacionb` se detiene por «LOGIN o grupo ejecutor incompatible» sin
+escribir. Este paquete no crea roles ni añade membresías.
 
 - **El inventario** imprime los bloques, el número de ternas y la ruta del
   inventario.
@@ -261,7 +263,8 @@ guion, no la lista: los errores de la lista solo los detecta el cotejo con el
 núcleo real descrito arriba.
 
 El ensayo con el núcleo real en la copia física HZ12 acredita la huella,
-el catálogo y los bloques por defecto. Para los dos bloques opt-in, la prueba
-estructural usa LOGIN sintéticos con la membresía exacta; la aplicación
-final exige que esos LOGIN existan en la principal y mantiene la denegación
-si falta cualquiera de ellos.
+el catálogo y los bloques por defecto. `mibolsa` usa el LOGIN nominal de esa
+copia y se ensaya también contra el núcleo real. Para `incorporacionb`, la
+prueba estructural usa LOGIN sintéticos con la membresía exacta; la aplicación
+final exige que los seis existan en el destino y mantiene la denegación si
+falta cualquiera de ellos.
