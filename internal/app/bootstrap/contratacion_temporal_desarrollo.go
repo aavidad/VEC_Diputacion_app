@@ -80,6 +80,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialDietas                                   materialDietasDesdeCTDesarrollo
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialInscripcionBolsa                         materialInscripcionRRHHDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalExportacionServicios             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalHistoriaServicios                *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -1297,6 +1298,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialDietas:                                   alta.postgresql.materialDietas,
 		materialCronos:                                   alta.postgresql.materialCronos,
 		materialDocumentos:                               alta.postgresql.materialDocumentos,
+		materialInscripcionBolsa:                         alta.postgresql.materialInscripcionBolsa,
 		materialPersonalFichaPropia:                      alta.postgresql.materialPersonalFichaPropia,
 		materialPersonalExportacionServicios:             alta.postgresql.materialPersonalExportacionServicios,
 		materialPersonalHistoriaServicios:                alta.postgresql.materialPersonalHistoriaServicios,
