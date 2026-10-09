@@ -12,6 +12,11 @@ vigente la huella de la clave pública, la audiencia y las 22 capacidades, y
 acepta la versión de raíz realmente publicada. El resolutor RRHH vuelve a
 comprobar el motivo de detalle con su LOGIN nominal. No crea `ct_v3.json` ni
 las tres capacidades antiguas de incorporación de `vec-interno`.
+Si se indica `-incorporacion-motivos-rrhh-login`, el preparador coteja ese
+LOGIN esperado con el usuario del DSN antes de conectar; la fábrica RRHH
+mantiene sus comprobaciones de identidad. Esta bandera solo pertenece a la
+segunda forma. Los ficheros DSN RRHH y de gobierno deben estar fuera de Git,
+sin enlaces y con modo 0600.
 
 Para preparar **solo la ruta web CT→Personal B2** sin material legado de
 `vec-interno`, el comando es:
@@ -24,6 +29,10 @@ Para preparar **solo la ruta web CT→Personal B2** sin material legado de
   -dsn-archivo "$PRIVADO/gobierno.dsn" \
   -salida "$PRIVADO/b2-nuevo"
 ```
+
+Cuando la provisión nominal identifique el LOGIN RRHH esperado, añada
+`-incorporacion-motivos-rrhh-login "$LOGIN_RRHH_ESPERADO"` a ese comando.
+La bandera es opcional; un LOGIN distinto del DSN detiene la preparación.
 
 El DSN RRHH usa el LOGIN vigente que ya resuelve motivos de detalle, y el
 preparador acredita su función y membresía. La salida contiene `servidor.json`,
@@ -147,6 +156,7 @@ comprobar la salida tras un reinicio.
 | --- | --- | --- |
 | `-inventario-ct` | ruta de `ct_v3.json` existente | ruta absoluta sin enlaces; el directorio lo valida el cargador real (0700, fuera de Git, fichero 0600) |
 | `-incorporacion-motivos-rrhh-dsn` | fichero DSN del resolutor RRHH | Solo junto con `-incorporacion-config`, alternativo a `-inventario-ct`; 0600, LOGIN nominal acreditado |
+| `-incorporacion-motivos-rrhh-login` | LOGIN RRHH esperado | Opcional y solo con el DSN RRHH anterior; debe coincidir con el usuario del DSN |
 | `-material-idempotencia` | subdirectorio `idempotencia` del material de desarrollo de `vec-server` | ruta absoluta canónica sin enlaces y fuera de Git; se llama exactamente `idempotencia`; 0700 y del usuario; su directorio padre, del usuario y sin acceso de grupo ni otros; ficheros según el cargador de `vec-server` |
 | `-motivos` | fichero JSON | 0600; formato abajo |
 | `-salida` | directorio **nuevo** | inexistente, o vacío con 0700 y del usuario; padre del usuario sin escritura de grupo/otros, sin enlaces y fuera de cualquier árbol Git |

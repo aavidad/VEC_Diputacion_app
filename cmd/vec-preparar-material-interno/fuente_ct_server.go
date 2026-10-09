@@ -23,16 +23,18 @@ func leerDatosCTServidor(directorioIdempotencia string, ahora time.Time) (datosC
 	return datosCT{emisor: c.EmisorID, raizID: c.RaizID, audiencia: c.Audiencia}, c.HuellaSPKI, nil
 }
 
-// resolverMotivoDetalleCTServidor conserva la fábrica nominal existente de
-// RRHH y su transacción SERIALIZABLE. Ningún motivo se toma de la DSN.
-func resolverMotivoDetalleCTServidor(ctx context.Context, archivoDSN string, ahora time.Time) (core.ReferenciaEntradaCatalogo, error) {
+// El LOGIN esperado procede de la operación privada. Se coteja antes de abrir
+// el pool; la fábrica conserva después todas sus comprobaciones nominales y
+// la transacción SERIALIZABLE del resolutor RRHH.
+func resolverMotivoDetalleCTServidorConLogin(ctx context.Context, archivoDSN, loginEsperado string, ahora time.Time) (core.ReferenciaEntradaCatalogo, error) {
 	vacio := core.ReferenciaEntradaCatalogo{}
 	dsn, err := leerDSN(archivoDSN, "")
 	if err != nil {
 		return vacio, errMotivosRRHHDSN
 	}
 	c, err := pgxpool.ParseConfig(dsn)
-	if err != nil || c == nil || c.ConnConfig == nil || c.ConnConfig.User == "" {
+	if err != nil || c == nil || c.ConnConfig == nil || c.ConnConfig.User == "" ||
+		(loginEsperado != "" && c.ConnConfig.User != loginEsperado) {
 		return vacio, errMotivosRRHHDSN
 	}
 	p, err := pgct.NuevoPoolResolucionMotivosRRHHPostgreSQL(ctx, dsn, c.ConnConfig.User)
