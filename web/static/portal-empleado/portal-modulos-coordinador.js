@@ -28,6 +28,13 @@ import {
 } from "./portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
+// Identidad de una consulta del cuadro CT (campos cerrados del contrato).
+// Sin paginación sirve para comparar el resumen, que no depende de ella.
+function claveCuadroCT(solicitud, conPaginacion = true) {
+  const { texto, estado_clave: estado, fase_clave: fase } = solicitud?.filtros ?? {};
+  const { limite, cursor } = solicitud?.paginacion ?? {};
+  return JSON.stringify(conPaginacion ? [texto, estado, fase, limite, cursor] : [texto, estado, fase]);
+}
 export function localizacionAdmitida(locale, indice = INDICE_IDIOMAS) {
   if (typeof locale !== "string" || !indice?.idiomas?.some(({ localizacion }) => localizacion === locale)) return false;
   try { return Intl.DateTimeFormat.supportedLocalesOf([locale]).length === 1; }
@@ -395,6 +402,11 @@ export function crearCoordinadorModulosPortal({
       const idiomaLista = INDICE_IDIOMAS.idiomas.find(({ localizacion }) => localizacion === locale).codigo;
       let promesaCatalogoNombres = null;
       let promesaOrganizacionNombres = null;
+      // Respuestas autorizadas que la lista ya tiene en pantalla. Al pulsar una
+      // ficha, la carga completa las toma una sola vez en lugar de repetirlas.
+      let catalogosAltaLista = null;
+      let paginaLista = null;
+      let reutilizables = null;
       let etiquetasLista = { centrosCatalogo: new Map(), centrosOrganizacion: new Map(),
         categorias: new Map(), textos: null };
       const denegacionEstable = (error) => [401, 403, 404].includes(error?.estado ?? error?.status);
@@ -405,6 +417,7 @@ export function crearCoordinadorModulosPortal({
           catch (error) { return { error }; }
         }, "consultar catálogo CT").then(({ respuesta, error }) => {
           if (error) throw error;
+          catalogosAltaLista = respuesta;
           const catalogo = recursos.contrato.validarCatalogosAlta(respuesta);
           return {
             centros: new Map(catalogo.centros.map(({ referencia, etiqueta }) => [referencia, etiqueta])),
@@ -453,6 +466,29 @@ export function crearCoordinadorModulosPortal({
         ?? etiquetasLista.textos.traducir("general.lista_centro_nombre_no_disponible");
       const nombreCategoria = (referencia) => etiquetasLista.categorias.get(referencia)
         ?? etiquetasLista.textos.traducir("general.lista_categoria_nombre_no_disponible");
+      const consultarCuadroLista = async (solicitud, opciones) => {
+        const pagina = await cliente.consultarCuadroRRHH(solicitud, opciones);
+        if (!opciones?.signal?.aborted) paginaLista = Object.freeze({
+          clave: claveCuadroCT(solicitud), claveFiltros: claveCuadroCT(solicitud, false), pagina });
+        return prepararNombresLista(pagina);
+      };
+      // Cada uso (resumen de la portada y primera página de la ficha) se toma
+      // una sola vez; cualquier otra consulta del cuadro va al servidor.
+      const tomarCuadroLista = (solicitud) => {
+        const uso = solicitud?.resumen === true ? "resumen" : "pagina";
+        const previa = reutilizables?.[uso];
+        if (!previa) return null;
+        reutilizables[uso] = null;
+        const coincide = uso === "resumen"
+          ? previa.pagina.resumen && claveCuadroCT(solicitud, false) === previa.claveFiltros
+          : claveCuadroCT(solicitud) === previa.clave;
+        return coincide ? Promise.resolve(structuredClone(previa.pagina)) : null;
+      };
+      const tomarCatalogosAlta = () => {
+        const valor = reutilizables?.catalogosAlta ?? null;
+        if (reutilizables) reutilizables.catalogosAlta = null;
+        return valor === null ? null : Promise.resolve(structuredClone(valor));
+      };
       let perfilIntervencion = false;
       if (consultarSesion !== null) {
         const sesion = await consultar((opciones) => consultarSesion(opciones), "consultar sesión CT");
@@ -473,9 +509,14 @@ export function crearCoordinadorModulosPortal({
         return promesaCuadro;
       };
       const activarCompleto = () => {
+        // Resumen y catálogos solo sirven a la primera carga completa; la página,
+        // a la ficha que se abre ahora (el montaje la olvida tras consultarla).
+        const primera = promesaCompleto === null;
+        reutilizables = { pagina: paginaLista, resumen: primera ? paginaLista : null,
+          catalogosAlta: primera ? catalogosAltaLista : null };
         promesaCompleto ??= recursos.cargarCompleto().then((partes) => cargarContratacionTemporal({
           consultar, exigirVigente, notificar,
-          recursosRecibidos: { ...recursos, ...partes, cargarCuadroLigero: null },
+          recursosRecibidos: { ...recursos, ...partes, cargarCuadroLigero: null, tomarCuadroLista, tomarCatalogosAlta },
         })).then(({ contratacionTemporal }) => contratacionTemporal)
           .catch((error) => { promesaCompleto = null; throw error; });
         return promesaCompleto;
@@ -493,7 +534,8 @@ export function crearCoordinadorModulosPortal({
         return promesaResumen;
       };
       return { contratacionTemporal: Object.freeze({
-        modoLigero: true, cliente, esperarCuadroLigero, activarCompleto,
+        modoLigero: true, cliente, consultarCuadroLista, esperarCuadroLigero, activarCompleto,
+        olvidarReutilizables: () => { reutilizables = null; },
         prepararNombresLista, nombreCentro, nombreCategoria,
         alta: null, fiscalizacion: perfilIntervencion ? Object.freeze({ cliente }) : null,
         prepararResumenInicio, obtenerCuadroInicio: () => cuadroInicio,
@@ -537,10 +579,19 @@ export function crearCoordinadorModulosPortal({
       ...rotulosCircuito("etiqueta_fase_"),
     };
     exigirVigente();
-    const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
+    const clienteHTTP = recursos.cliente.crearClienteHTTPContratacionTemporal({
       fetchImpl: fetchDelEntorno(),
       HeadersImpl: entorno.Headers,
     });
+    // Desde la lista: el cuadro y los catálogos que ya están en pantalla se
+    // reutilizan una vez; el detalle sigue pidiéndose con su versión observada.
+    const cliente = typeof recursos.tomarCuadroLista === "function" ? Object.freeze({
+      ...clienteHTTP,
+      consultarCuadroRRHH: (solicitud, opciones) => recursos.tomarCuadroLista(solicitud)
+        ?? clienteHTTP.consultarCuadroRRHH(solicitud, opciones),
+      obtenerCatalogosAlta: (opciones) => recursos.tomarCatalogosAlta?.()
+        ?? clienteHTTP.obtenerCatalogosAlta(opciones),
+    }) : clienteHTTP;
     const clienteIncorporacionB2 = typeof recursos.incorporacionB2?.crearClienteIncorporacionPersonalB2HTTP === "function"
       ? recursos.incorporacionB2.crearClienteIncorporacionPersonalB2HTTP({
         fetchImpl: fetchDelEntorno(), HeadersImpl: entorno.Headers,
@@ -601,6 +652,10 @@ export function crearCoordinadorModulosPortal({
     const consultaCuadro = consultar((opciones) => fuente.resumenInicio(opciones));
     const promesaConfiguracion = consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones));
     promesaConfiguracion.then((valor) => entregarModalidades(valor?.modalidades ?? null), () => entregarModalidades(null));
+    // Desde la lista (ficha, alta o filtros), la vista se va a montar: se
+    // descarga ya, tras lanzar las consultas para no retrasarlas. Un fallo se
+    // ignora aquí; el montaje la vuelve a pedir y lo muestra.
+    if (typeof recursos.tomarCuadroLista === "function") void esperarVista().catch(() => {});
     const [cuadro, configuracion] = await Promise.allSettled([consultaCuadro, promesaConfiguracion]);
     exigirVigente();
     const cuadroDisponible = cuadro.status === "fulfilled";
@@ -1263,6 +1318,7 @@ export function crearCoordinadorModulosPortal({
 
     if (vista === "contratacion-temporal") {
       let temporal = composicion.contratacionTemporal;
+      let ligero = null;
       if (temporal.modoLigero === true) {
         const expedienteDirecto = typeof opciones?.expedienteRef === "string" && opciones.expedienteRef !== "";
         const requiereCompleto = expedienteDirecto || opciones?.subvista === "alta"
@@ -1282,9 +1338,7 @@ export function crearCoordinadorModulosPortal({
             destino.querySelector?.("[data-ct-reintentar]")?.addEventListener("click", () => { void reintentar(); }, { once: true });
           };
           const modulo = await moduloLigero.montarCuadroContratacionLigero({
-            raiz, cliente: { consultarCuadroRRHH: async (solicitud, opciones) => {
-              return temporal.prepararNombresLista(temporal.cliente.consultarCuadroRRHH(solicitud, opciones));
-            } }, idioma: INDICE_IDIOMAS.idiomas.find(({ localizacion }) => localizacion === locale).codigo,
+            raiz, cliente: { consultarCuadroRRHH: temporal.consultarCuadroLista }, idioma: INDICE_IDIOMAS.idiomas.find(({ localizacion }) => localizacion === locale).codigo,
             filtroLista: opciones?.filtroLista ?? null, signal: controladorMontaje.signal,
             filtroServidorRuta: opciones?.filtroServidorRuta ?? null,
             alCambiarFiltroLista: opciones?.alCambiarFiltroLista ?? null,
@@ -1297,11 +1351,15 @@ export function crearCoordinadorModulosPortal({
           desmontarVista = () => { controladorMontaje.abort(); modulo.desmontar(); };
           return true;
         }
+        ligero = temporal;
         temporal = await temporal.activarCompleto();
         if (montaje !== secuenciaMontaje) return false;
       }
-      // Los catálogos del alta ya están en camino; la vista se pide ahora.
-      await Promise.all([temporal.esperarAlta?.(), temporal.esperarVista?.()]);
+      // Los catálogos del alta ya están en camino. La vista sigue descargándose
+      // mientras se consultan el cuadro y la ficha; solo el montaje la espera.
+      const vistaLista = Promise.resolve(temporal.esperarVista?.());
+      vistaLista.catch(() => {});
+      await temporal.esperarAlta?.();
       if (montaje !== secuenciaMontaje) return false;
       const esFiscalizacion = temporal.fiscalizacion !== null;
       const presentadorCT = temporal.crearPresentador();
@@ -1354,6 +1412,8 @@ export function crearCoordinadorModulosPortal({
         await presentadorCT.cargar({ texto: "", estado: "", fase: "", ...(opciones.filtros || {}) });
         if (montaje !== secuenciaMontaje) return false;
       }
+      // Lo no usado de la lista no sirve a recargas posteriores de la vista.
+      ligero?.olvidarReutilizables?.();
       if (!esFiscalizacion && expedienteRef && Number.isSafeInteger(opciones?.expedienteVersion)
         && typeof presentadorCT?.seleccionarExpedienteDesdeEnlace === "function") {
         await presentadorCT.seleccionarExpedienteDesdeEnlace(expedienteRef, opciones.expedienteVersion);
@@ -1370,6 +1430,8 @@ export function crearCoordinadorModulosPortal({
         presentadorCT.obtenerEstado?.().cuadro,
       ) ? traducirPortal("ct_enlace_sin_version_no_recuperado") : "";
       if (!esFiscalizacion) prepararFichaBolsa(presentadorCT.obtenerEstado?.());
+      await vistaLista;
+      if (montaje !== secuenciaMontaje) return false;
       const moduloContratacion = esFiscalizacion
         ? await temporal.montarFiscalizacion({
           raiz,
