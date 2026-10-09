@@ -190,6 +190,7 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
 
   function situacion(e) {
     if (e.estado === "completado") return t("estado_completado");
+    if (e.estado === "cancelado") return t("estado_cancelado");
     return e.fase === "nombramiento" ? t("fase_nombramiento") : t("fase_otra");
   }
 
@@ -212,7 +213,7 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
         ? (datos.puede_confirmar
           ? `<button type="button" class="boton-secundario" data-ic-abrir="${escapar(e.expediente_ref)}" aria-expanded="${abierto === e.expediente_ref}">${escapar(t("confirmar"))}</button>`
           : `<span class="pc-estado pc-estado-pendiente">${escapar(t("pendiente"))}</span>`)
-        : `<span class="pc-estado">${escapar(t("no_procede"))}</span>`;
+        : `<span class="pc-estado">${escapar(t(e.estado === "cancelado" ? "no_procede_cancelado" : "no_procede"))}</span>`;
     const periodo = periodoVisible(e.periodo, t);
     return `<tr id="${escapar(idFilaExpediente(e))}" tabindex="-1"><td>${escapar(e.numero_visible)}</td><td>${escapar(periodo)}</td><td>${escapar(situacion(e))}</td><td>${estadoIncorporacion}</td></tr>`;
   }
