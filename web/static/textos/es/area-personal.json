@@ -351,7 +351,7 @@
         "subtitulo": "Seleccione los avisos que desea recibir"
       },
       "titulo": "Perfil, identidad y contacto",
-      "descripcion": "Una identidad común para solicitudes, bolsas, certificados y futuros módulos.",
+      "descripcion": "Sus datos de contacto para Bolsa.",
       "identidad": {
         "titulo": "Datos de identidad",
         "subtitulo": "La identidad principal procede del sistema de autenticación",
@@ -498,7 +498,7 @@
       "leerPagina": "Leer esta página",
       "buscar": {
         "titulo": "Buscar en la ayuda",
-        "subtitulo": "Respuestas sobre inscripción, méritos, baremo y llamamientos",
+        "subtitulo": "Respuestas sobre Mi bolsa y los llamamientos",
         "pregunta": "¿Qué necesita saber?",
         "ejemplo": "Ejemplo: responder a un llamamiento",
         "boton": "Buscar"
@@ -522,11 +522,6 @@
         "datos": "Protección de datos",
         "datosDetalle": "Información de derechos y tratamiento en el aviso aplicable.",
         "nota": "No incluya documentación personal en consultas generales de ayuda."
-      },
-      "rapida": {
-        "titulo": "Navegación rápida",
-        "subtitulo": "Recorridos habituales",
-        "llamamiento": "Responder llamamiento"
       }
     }
   },

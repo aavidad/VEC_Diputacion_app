@@ -56,8 +56,8 @@ async function arrancar(origen = null) {
       const peticiones = await import("./peticiones-centro.js?v=20261009-rrhh-etiquetas-v1");
       peticiones.instalarAyudaPeticionCentro(document);
       await Promise.all([
-        import("./incorporaciones-centro.js?v=20261009-pc-bandeja-unica-v1"),
-        import("./cancelaciones-centro.js?v=20261009-pc-bandeja-unica-v1"),
+        import("./incorporaciones-centro.js?v=20261009-retoques-textos-v1"),
+        import("./cancelaciones-centro.js?v=20261009-retoques-textos-v1"),
       ]);
       ayuda.disabled = false;
       await peticiones.iniciarPeticionCentro();
