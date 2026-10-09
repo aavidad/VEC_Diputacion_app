@@ -55,6 +55,50 @@
   padding: 16px;
 }
 
+[data-inscripciones-montaje] [data-inscripcion-elegir],
+[data-inscripciones-montaje] [data-inscripcion-elegir] > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Una categoría publicada puede ocupar 2.048 bytes sin espacios: en la lista
+   se corta a tres líneas; la ficha de la solicitud la muestra entera. */
+[data-inscripciones-montaje] [data-inscripcion-convocatoria],
+[data-inscripciones-montaje] [data-inscripcion-elegir] > span:first-of-type {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  min-inline-size: 9rem;
+  max-inline-size: clamp(9rem, 25vw, 28rem);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+[data-inscripciones-montaje] [data-inscripcion-elegir] {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--portal-tinta);
+  text-decoration: none;
+}
+
+[data-inscripciones-montaje] [data-inscripcion-elegir] .inscripcion-ver {
+  margin-block-start: auto;
+  color: var(--portal-azul-700);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+[data-inscripciones-montaje] [data-inscripcion-filtros] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-block-end: 12px;
+}
+
 .tarjeta-modulo-habilitada {
   border-color: var(--portal-azul-700);
   box-shadow: var(--portal-sombra-sm);
