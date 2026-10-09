@@ -61,7 +61,7 @@ test("solo ofrece cancelar en las fases que admite el catálogo y se oculta si e
   assert.match(c.innerHTML, /data-cc-abrir="expediente:ct:1"/u);
   assert.doesNotMatch(c.innerHTML, /2026\/CT-000125/u, "fase fuera del catálogo");
   assert.match(c.innerHTML, /2026\/CT-000126[\s\S]*Cancelado/u);
-  assert.match(c.innerHTML, /<td>2026\/CT-000124<\/td><td>[^<—]*2026 — [^<—]*2026<\/td>/u, "periodo con fechas, sin guiones");
+  assert.match(c.innerHTML, /<td>2026\/CT-000124<\/td><td>Del 1 de octubre de 2026 al 31 de diciembre de 2026<\/td>/u, "periodo con fechas, sin guiones");
   c.eventos.get("click")({ target: { closest: () => ({ matches: () => false, dataset: { ccAbrir: "expediente:ct:1" } }) } });
   assert.match(c.innerHTML, /data-cc-form="expediente:ct:1"/u);
   assert.match(c.innerHTML, /<option value="necesidad_desaparecida">Ha desaparecido la necesidad<\/option>/u);

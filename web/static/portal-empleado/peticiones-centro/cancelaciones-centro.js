@@ -7,7 +7,7 @@
  * un motivo del catálogo. Fases y motivos los decide el servidor; la vista
  * solo evita ofrecer la cancelación cuando no procede.
  */
-import { crearClienteIncorporacionesCentro, periodoVisible } from "./incorporaciones-centro.js?v=20261009-hz12-centro-v1";
+import { crearClienteIncorporacionesCentro, periodoVisible, prepararCausasFin } from "./incorporaciones-centro.js?v=20261009-hz12-inc403-v1";
 import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
 
@@ -107,7 +107,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
     const accion = e.estado === "cancelado"
       ? `<span class="pc-estado">${escapar(t("cancelado"))}</span>`
       : `<button type="button" class="boton-secundario" data-cc-abrir="${escapar(e.expediente_ref)}" aria-expanded="${abierto === e.expediente_ref}">${escapar(t("cancelar"))}</button>`;
-    const periodo = periodoVisible(e.periodo);
+    const periodo = periodoVisible(e.periodo, t);
     return `<tr><td>${escapar(e.numero_visible)}</td><td>${escapar(periodo)}</td><td>${escapar(e.estado === "cancelado" ? t("cancelado") : fase(e.fase))}</td><td>${accion}</td></tr>`;
   }
 
@@ -137,6 +137,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
     datos = null; pintar();
     try {
       const filas = (await bandeja.bandeja()).expedientes;
+      await prepararCausasFin(filas);
       const enCurso = filas.filter((e) => e.estado === "en_curso");
       if (enCurso.length === 0) {
         datos = { expedientes: filas.filter((e) => e.estado === "cancelado"), opciones: { motivos: [], fases_admitidas: [] } };
