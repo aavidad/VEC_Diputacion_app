@@ -198,6 +198,7 @@ BEGIN
   'convocatoria_ref',p_convocatoria_ref,
   'convocatoria_id',v.convocatoria_id,'secuencia',v_secuencia,
   'categoria_ref',p_categoria_ref,'categorias',categorias,
+  'numero_categorias',jsonb_array_length(categorias),
   'identificador_publico',c#>>'{contenido,identificador_publico}',
   'version_sha256',v.huella_version_sha256,
   'bases_ref',bases->>'publicacion_ref',

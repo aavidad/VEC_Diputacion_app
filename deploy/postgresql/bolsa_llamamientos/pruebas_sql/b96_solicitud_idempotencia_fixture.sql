@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP on
--- Fixture sintética B96: ejecutar sólo en PG18 desechable con BC9/CC11 y
--- fachadas V3 de prueba que devuelvan una decisión nueva. No acredita V3 real.
+-- Fixture sintética B96: ejecutar sólo en PG18 desechable con BC9/CC11.
+-- Crea dentro de la transacción (ROLLBACK final) los LOGIN de desarrollo y
+-- fachadas V3 que devuelven una decisión nueva. No acredita V3 real.
 \if :{?B96_DISPOSABLE_CLONE}
 \else
 \echo 'B96: prueba restringida a clon desechable (-v B96_DISPOSABLE_CLONE=1)'
@@ -9,6 +10,65 @@
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL TIME ZONE 'UTC';
 SET LOCAL statement_timeout='30s';
+-- LOGIN de desarrollo, sólo en este clon y revertidos con el ROLLBACK final.
+DO $logins$
+DECLARE l record;
+BEGIN
+ FOR l IN SELECT * FROM (VALUES
+  ('vec_externo_bolsa_desarrollo','vec_bolsa_llamamientos_portal_externo'),
+  ('vec_bolsa_inscripciones_lector','vec_bolsa_llamamientos_lector_inscripciones'),
+  ('vec_bolsa_inscripciones_rrhh_lector','vec_bolsa_llamamientos_lector_inscripciones_rrhh'))
+  AS x(login_nombre,grupo) LOOP
+  IF to_regrole(l.login_nombre) IS NULL THEN
+   EXECUTE format('CREATE ROLE %I LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',l.login_nombre);
+   EXECUTE format('GRANT %I TO %I WITH INHERIT TRUE, SET FALSE, ADMIN FALSE',l.grupo,l.login_nombre);
+  END IF;
+ END LOOP;
+ IF to_regrole('vec_bolsa_llamamientos_desarrollo') IS NULL
+ THEN RAISE EXCEPTION 'B96 fixture: falta LOGIN RRHH de desarrollo'; END IF;
+END $logins$;
+-- Fachadas V3: decisión nueva por llamada; «firma_invalida» se deniega.
+CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.consumir_presentacion_inscripcion_v3_atestada(
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,
+ p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,
+ consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
+DECLARE c jsonb:=convert_from(p_capacidad,'UTF8')::jsonb; d jsonb:=convert_from(p_decision,'UTF8')::jsonb;
+BEGIN
+ IF p_evidencia='firma_invalida'::bytea THEN RAISE EXCEPTION 'V3 fachada: firma' USING ERRCODE='42501'; END IF;
+ RETURN QUERY SELECT d->>'decision_ref',c->>'efecto_ref',c->>'huella_efecto_sha256',
+  encode(sha256(p_decision),'hex'),'aud_v3_'||substr(encode(sha256(p_decision),'hex'),1,32),
+  clock_timestamp(),true;
+END $f$;
+CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.consumir_revision_inscripcion_v3_atestada(
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,
+ p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,
+ consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
+DECLARE c jsonb:=convert_from(p_capacidad,'UTF8')::jsonb; d jsonb:=convert_from(p_decision,'UTF8')::jsonb;
+BEGIN
+ IF p_evidencia='firma_invalida'::bytea THEN RAISE EXCEPTION 'V3 fachada: firma' USING ERRCODE='42501'; END IF;
+ RETURN QUERY SELECT d->>'decision_ref',c->>'efecto_ref',c->>'huella_efecto_sha256',
+  encode(sha256(p_decision),'hex'),'aud_v3_'||substr(encode(sha256(p_decision),'hex'),1,32),
+  clock_timestamp(),true;
+END $f$;
+-- La lectura conserva la guarda real de LOGIN/canal de AD228.
+CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.registrar_lectura_inscripcion_v1(
+ p_contexto_canonico bytea,p_vinculo_canonico bytea,p_orden jsonb)
+RETURNS TABLE(auditoria_ref text,secuencia numeric,huella_sha256 text,correlacion_ref text,registrada_en timestamptz)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
+BEGIN
+ IF vec_autorizacion_atestada_v3.login_lector_inscripciones_valido_v1(p_orden->>'accion',p_orden->>'canal') IS NOT TRUE
+ OR vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1(p_orden->>'accion',
+   p_orden->>'finalidad_ref',p_orden->>'canal',p_orden->>'recurso_ref') IS NOT TRUE
+ THEN RAISE EXCEPTION 'V3 fachada: lectura denegada' USING ERRCODE='42501'; END IF;
+ RETURN QUERY SELECT 'aud_v3_li_'||substr(encode(sha256(convert_to(p_orden::text,'UTF8')),'hex'),1,32),
+  1::numeric,encode(sha256(convert_to(p_orden::text,'UTF8')),'hex'),p_orden->>'correlacion_ref',clock_timestamp();
+END $f$;
 DO $datos$
 DECLARE
  cat_doc text:='{"id":"bolsa.categorias.inscripcion","version":1}';
@@ -113,6 +173,18 @@ BEGIN
  IF NOT has_function_privilege(current_user,
   'vec_bolsa_llamamientos.solicitar_inscripcion_v1(text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'EXECUTE') THEN RAISE EXCEPTION 'B96 fixture: ACL externa ausente'; END IF;
+ -- Canal empleado (interna_corporativa) rechazado sin consumir V3.
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.solicitar_inscripcion_v1(
+   '{}',jsonb_build_object('persona_ref','per_'||repeat('a',22),'perfil_ref',perfil,
+    'cuenta_ref',cuenta,'canal','interna_corporativa','idioma','es'),
+   convert_to('{}','UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),
+   convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,
+   convert_to('x','UTF8'),convert_to('x','UTF8'),convert_to('x','UTF8'),
+   convert_to(repeat('a',44),'UTF8'));
+  RAISE EXCEPTION 'B96 fixture: presentación por canal empleado aceptada';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+ END;
  FOR caso IN 1..4 LOOP
   persona:=CASE WHEN caso=4 THEN 'per_'||repeat('b',22) ELSE 'per_'||repeat('a',22) END;
   candidato_ref:=CASE WHEN caso=4 THEN 'can_'||repeat('b',22) ELSE 'can_'||repeat('a',22) END;
@@ -127,7 +199,7 @@ BEGIN
    persona||chr(31)||ref_conv||chr(31)||'cat.alpha','UTF8')),'hex');
   recurso:='{"ambitos":{"candidato_ref":'||to_json(candidato_ref)::text||
    '},"atributos":{"convocatoria_ref":'||to_json(ref_conv)::text||
-   ',"categoria_ref":"cat.alpha","catalogo_version":1,'
+   ',"categoria_ref":"cat.alpha","catalogo_version":"1",'
    ||'"material_sha256":"'||contenido_sha||'"}}';
   recurso_sha:=encode(sha256(convert_to(recurso,'UTF8')),'hex');
   cap:=convert_to(jsonb_build_object(
@@ -211,11 +283,11 @@ BEGIN
   recurso:=jsonb_build_object('ambitos',jsonb_build_object(
    'unidad_ref','unidad:rrhh-b96','ambito_ref','ambito:gestion-b96'),
    'atributos',jsonb_build_object('solicitud_ref',solicitud_ref,
-    'decision','admitir','version_esperada',1,'material_sha256',contenido_sha,
+    'decision','admitir','version_esperada','1','material_sha256',contenido_sha,
     'conjunto_ref','conjunto:rrhh-b96',
     'conjunto_fuente_ref','inscripcion.gestion.rrhh.conjunto',
-    'conjunto_fuente_version',1,'conjunto_fuente_sha256',pol_sha,
-    'solicitud_fuente_ref',fuente_solicitud,'solicitud_fuente_version',1,
+    'conjunto_fuente_version','1','conjunto_fuente_sha256',pol_sha,
+    'solicitud_fuente_ref',fuente_solicitud,'solicitud_fuente_version','1',
     'solicitud_fuente_sha256',pol_sha))::text;
   recurso_sha:=encode(sha256(convert_to(recurso,'UTF8')),'hex');
   cap:=convert_to(jsonb_build_object('operacion','bolsa.inscripcion.rrhh.decidir',
@@ -296,11 +368,11 @@ BEGIN
   recurso:=jsonb_build_object('ambitos',jsonb_build_object(
    'unidad_ref','unidad:rrhh-b96','ambito_ref','ambito:gestion-b96'),
    'atributos',jsonb_build_object('solicitud_ref',ref_invalido,
-    'decision','admitir','version_esperada',1,'material_sha256',contenido_sha,
+    'decision','admitir','version_esperada','1','material_sha256',contenido_sha,
     'conjunto_ref','conjunto:rrhh-b96',
     'conjunto_fuente_ref','inscripcion.gestion.rrhh.conjunto',
-    'conjunto_fuente_version',1,'conjunto_fuente_sha256',pol_sha,
-    'solicitud_fuente_ref',fuente_solicitud,'solicitud_fuente_version',1,
+    'conjunto_fuente_version','1','conjunto_fuente_sha256',pol_sha,
+    'solicitud_fuente_ref',fuente_solicitud,'solicitud_fuente_version','1',
     'solicitud_fuente_sha256',pol_sha))::text;
   recurso_sha:=encode(sha256(convert_to(recurso,'UTF8')),'hex');
   cap:=convert_to(jsonb_build_object('operacion','bolsa.inscripcion.rrhh.decidir',
@@ -477,7 +549,9 @@ BEGIN
  END LOOP;
 END $lecturas$;
 RESET SESSION AUTHORIZATION;
-SET SESSION AUTHORIZATION vec_bolsa_inscripciones_empleado_lector;
+-- Primera versión sólo externa: el autoservicio desde el canal corporativo
+-- (antiguo canal empleado) se deniega aunque el LOGIN lector sea válido.
+SET SESSION AUTHORIZATION vec_bolsa_inscripciones_lector;
 DO $empleado$
 DECLARE ref_conv text:='cv1_'||encode(sha256(convert_to(
  'proceso:bolsa:inscripcion-b96','UTF8')),'hex')||'_v1';
@@ -507,16 +581,18 @@ BEGIN
   'revision_permisos',1,'huella_instantanea_sha256',repeat('d',64),
   'emitida_en',clock_timestamp()-interval '1 minute',
   'valida_hasta',clock_timestamp()+interval '1 hour','filtro',filtro);
- respuesta:=vec_bolsa_llamamientos.consultar_inscripcion_v1(
-  'bolsa.inscripcion.propia.consultar',selector,contexto,vinculo,captura);
- IF respuesta->>'resultado'<>'obtenida' OR respuesta#>>'{proyeccion,solicitud_ref}'<>ref_solicitud
- THEN RAISE EXCEPTION 'B96 fixture: lectura empleada no obtenida %',respuesta; END IF;
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.consultar_inscripcion_v1(
+   'bolsa.inscripcion.propia.consultar',selector,contexto,vinculo,captura);
+  RAISE EXCEPTION 'B96 fixture: canal empleado leyó solicitud propia';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+ END;
  BEGIN
   PERFORM vec_bolsa_llamamientos.consultar_inscripcion_v1(
    'bolsa.inscripcion.rrhh.consultar',selector,contexto,vinculo,
    captura||jsonb_build_object('accion','bolsa.inscripcion.rrhh.consultar',
     'finalidad','consulta_inscripcion_rrhh'));
-  RAISE EXCEPTION 'B96 fixture: LOGIN empleado leyó RRHH';
+  RAISE EXCEPTION 'B96 fixture: LOGIN externo leyó RRHH';
  EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
  END;
 END $empleado$;
@@ -560,7 +636,7 @@ BEGIN
   'revision_permisos',1,'huella_instantanea_sha256',repeat('d',64),
   'emitida_en',clock_timestamp()-interval '1 minute',
   'valida_hasta',clock_timestamp()+interval '1 hour','filtro',filtro,
-  'conjunto_gestion',conjunto_previo,'ambito_solicitud',ambito_previo);
+  'conjunto_gestion',conjunto_previo,'ambito_solicitud',ambito_previo-'solicitud_ref');  -- como el Go: sin solicitud_ref
  respuesta:=vec_bolsa_llamamientos.consultar_inscripcion_v1(
   'bolsa.inscripcion.rrhh.consultar',selector,contexto,vinculo,captura);
  IF respuesta->>'resultado'<>'obtenida' OR respuesta#>>'{proyeccion,solicitud_ref}'<>ref_solicitud

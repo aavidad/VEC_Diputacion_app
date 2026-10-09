@@ -109,9 +109,13 @@ BEGIN
  THEN RAISE EXCEPTION 'CC11: publicación CC1 real incompleta'; END IF;
  IF NOT vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(
   'bolsa.politica.real',1,h_pol,'externa_personal')
- OR NOT vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(
-  'bolsa.politica.real',1,h_pol,'interna_corporativa')
  THEN RAISE EXCEPTION 'CC11: política Go no legible'; END IF;
+ -- Primera versión sólo externa: la entrada «.empleado» publicada no habilita.
+ BEGIN
+  PERFORM vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(
+   'bolsa.politica.real',1,h_pol,'interna_corporativa');
+  RAISE EXCEPTION 'CC11: canal empleado admitido para presentar';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
  etiquetas:=vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(
   jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.real',
    'catalogo_version',1,'catalogo_sha256',h_cat,'categoria_ref','cat.alpha',
@@ -128,8 +132,8 @@ BEGIN
    'politica_catalogo_ref','bolsa.politica.real',
    'politica_catalogo_version',1,'politica_catalogo_sha256',h_pol)),
   'es','interna_corporativa');
- IF etiquetas#>>'{0,categoria}'<>'Alfa ES' OR etiquetas#>>'{0,politica_valida}'<>'true'
- THEN RAISE EXCEPTION 'CC11: canal empleado Go incompatible'; END IF;
+ IF etiquetas#>>'{0,categoria}'<>'Alfa ES' OR etiquetas#>>'{0,politica_valida}'<>'false'
+ THEN RAISE EXCEPTION 'CC11: canal interno habilitó presentación: %',etiquetas; END IF;
  categorias:=vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(
   jsonb_build_array(jsonb_build_object('catalogo_ref','bolsa.categorias.real',
    'catalogo_version',1,'catalogo_sha256',h_cat,

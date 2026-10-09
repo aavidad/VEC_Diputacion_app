@@ -2,6 +2,8 @@
 -- B97: escenario sintético sobre PostgreSQL 18 desechable con B96/BC9/CC11,
 -- CA38/CTX18 y AD229 instaladas. Los dobles transaccionales aíslan la lógica
 -- Bolsa; este fichero NO acredita criptografía V3 ni identidad real.
+-- El conjunto de gestión RRHH es real (CC11): se publica en la transacción y
+-- B97 lo coteja con el ámbito guardado de la solicitud. Siempre ROLLBACK.
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL TIME ZONE 'UTC';
 SET LOCAL statement_timeout='30s';
@@ -54,12 +56,20 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $f$
  SELECT jsonb_build_array(jsonb_build_object('categoria','Alfa B97'))
 $f$;
 CREATE OR REPLACE FUNCTION vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(
- p_solicitudes jsonb,p_idioma text) RETURNS jsonb
+ p_solicitudes jsonb,p_idioma text,p_canal text) RETURNS jsonb
 LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $f$
  SELECT coalesce(jsonb_agg(jsonb_build_object('categoria','Alfa B97',
   'motivo_etiqueta_pendiente','Pendiente B97',
   'motivo_etiqueta_cumple','Cumple B97') ORDER BY x.orden),'[]'::jsonb)
  FROM jsonb_array_elements(p_solicitudes) WITH ORDINALITY AS x(valor,orden)
+$f$;
+CREATE OR REPLACE FUNCTION vec_bolsa_convocatorias.resolver_resumen_convocatorias_inscripcion_lote_v1(
+ p_refs text[],p_idioma text) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $f$
+ SELECT coalesce(jsonb_agg(jsonb_build_object('convocatoria_ref',r.ref,
+  'titulo','Convocatoria B97','categorias_resumen','Alfa B97','numero_categorias',1,
+  'plazo_fin',NULL,'estado_publicacion','publicada') ORDER BY r.orden),'[]'::jsonb)
+ FROM unnest(p_refs) WITH ORDINALITY AS r(ref,orden)
 $f$;
 CREATE OR REPLACE FUNCTION vec_contexto_actor_v1.resolver_candidato_persona_inscripcion_v1(
  p_persona_ref text) RETURNS jsonb LANGUAGE sql VOLATILE SECURITY INVOKER
@@ -112,7 +122,25 @@ DECLARE
  bolsa_material bytea:=convert_to('{"bolsa":"b97"}','UTF8');
  instantanea_material bytea:=convert_to('{"instantanea":"b97"}','UTF8');
  ahora timestamptz(6):=date_trunc('microseconds',clock_timestamp());
+ gestion_doc text:='{"id":"bolsa.gestion.rrhh.b97","version":1}'; gestion_sha text;
 BEGIN
+ gestion_sha:=encode(sha256(convert_to(gestion_doc,'UTF8')),'hex');
+ INSERT INTO vec_catalogos_configurables.publicacion(
+  catalogo_id,version,huella_sha256,documento_canonico,preimagenes_control,
+  preimagenes_huella_sha256,aprobacion_a_ref,aprobacion_b_ref,actor_ref,decision_ref,recibo_ref)
+ VALUES('bolsa.gestion.rrhh.b97',1,gestion_sha,gestion_doc,'{}',
+  encode(sha256(convert_to('{}','UTF8')),'hex'),'aprobacion:b97:a','aprobacion:b97:b',
+  'actor:b97','decision:b97:gestion','recibo:b97:gestion');
+ INSERT INTO vec_catalogos_configurables.entrada_publicada(
+  catalogo_id,version,huella_sha256,categoria_id,etiqueta,definicion)
+ VALUES('bolsa.gestion.rrhh.b97',1,gestion_sha,'inscripcion.gestion.rrhh.conjunto','Conjunto RRHH',
+  jsonb_build_object('clave','inscripcion.gestion.rrhh.conjunto','etiqueta','Conjunto RRHH',
+   'orden',1,'vigente_desde',ahora-interval '1 day','atributos',jsonb_build_object(
+    'conjunto_ref','conjunto:rrhh-b97','unidad_ref','unidad:rrhh-b97',
+    'ambito_ref','ambito:gestion-b97','canal','interna_corporativa')));
+ INSERT INTO vec_catalogos_configurables.categoria_control(
+  categoria_id,catalogo_id,version,huella_sha256,revision,estado)
+ VALUES('inscripcion.gestion.rrhh.conjunto','bolsa.gestion.rrhh.b97',1,gestion_sha,1,'habilitada');
  convocatoria_ref:='cv1_'||encode(sha256(convert_to(convocatoria_id,'UTF8')),'hex')||'_v1';
  solicitud_ref:='solicitud_inscripcion_'||encode(sha256(convert_to(
   persona||chr(31)||convocatoria_ref||chr(31)||'cat.alpha','UTF8')),'hex');
@@ -155,13 +183,17 @@ BEGIN
   convocatoria_ref,convocatoria_id,secuencia,version_sha256,identificador_publico,
   categoria_ref,bases_ref,catalogo_ref,catalogo_version,catalogo_sha256,
   politica_catalogo_ref,politica_catalogo_version,politica_catalogo_sha256,
+  unidad_ref,ambito_ref,ambito_fuente_ref,ambito_fuente_version,ambito_fuente_sha256,
   formulario_ref,formulario_version,formulario_sha256,
   plazo_ref,plazo_abre_en,plazo_cierra_en,requisitos,requisitos_sha256,
   declaraciones,declaracion_ref,clave_sha256,material_sha256,canal,presentada_en)
  VALUES(solicitud_ref,persona,'vca_'||repeat('v',22),1,
   convocatoria_ref,convocatoria_id,1,repeat('f',64),'b97-fixture',
   'cat.alpha','bases.b97','categorias.b97',1,repeat('1',64),
-  'politica.b97',1,repeat('2',64),'formulario.b97',1,repeat('3',64),
+  'politica.b97',1,repeat('2',64),
+  'unidad:rrhh-b97','ambito:gestion-b97',
+  'ambito.gestion.'||substring(convocatoria_ref FROM 5 FOR 64)||'.v1',1,repeat('2',64),
+  'formulario.b97',1,repeat('3',64),
   'plazo.b97',ahora-interval '3 days',ahora-interval '1 day','[]'::jsonb,
   repeat('4',64),'[]'::jsonb,'declaracion_inscripcion_'||repeat('5',64),
   repeat('6',64),repeat('7',64),'externa_personal',ahora-interval '2 days');
@@ -182,9 +214,12 @@ DECLARE
  convocatoria_ref text:='cv1_'||encode(sha256(convert_to('proceso:bolsa:b97-fixture','UTF8')),'hex')||'_v1';
  solicitud_ref text;
  acta text:='acta:importacion-convoca:'||repeat('a',64);
+ acta_ajena text:='acta:importacion-convoca:'||repeat('f',64);
  actor text:='per_'||repeat('r',22);
  perfil text:='prf_'||repeat('r',22);
  cuenta text:='cta_'||repeat('r',22);
+ gestion_sha text:=encode(sha256(convert_to('{"id":"bolsa.gestion.rrhh.b97","version":1}','UTF8')),'hex');
+ base jsonb;
  material text; recurso text; recurso_sha text;
  capacidad bytea; decision bytea; contexto bytea; captura jsonb;
  material_mal text; recurso_mal text; huella_mal text; capacidad_mal bytea;
@@ -194,12 +229,21 @@ DECLARE
 BEGIN
  solicitud_ref:='solicitud_inscripcion_'||encode(sha256(convert_to(
   'per_'||repeat('p',22)||chr(31)||convocatoria_ref||chr(31)||'cat.alpha','UTF8')),'hex');
+ -- Recurso canónico de 13 argumentos: ámbitos RRHH y 11 atributos cadena.
+ base:=jsonb_build_object('ambitos',jsonb_build_object(
+   'unidad_ref','unidad:rrhh-b97','ambito_ref','ambito:gestion-b97'),
+  'atributos',jsonb_build_object('conjunto_ref','conjunto:rrhh-b97',
+   'conjunto_fuente_ref','inscripcion.gestion.rrhh.conjunto',
+   'conjunto_fuente_version','1','conjunto_fuente_sha256',gestion_sha,
+   'solicitud_fuente_ref','ambito.gestion.'||substring(convocatoria_ref FROM 5 FOR 64)||'.v1',
+   'solicitud_fuente_version','1','solicitud_fuente_sha256',repeat('2',64),
+   'solicitud_ref',solicitud_ref,'version_esperada','2'));
  material:='{"esquema":"vec.bolsa.inscripcion.incorporar.v1",'
   ||'"solicitud_ref":'||to_json(solicitud_ref)::text||','
   ||'"evidencia_ref":'||to_json(acta)::text||','
   ||'"version_esperada":2,"clave_idempotencia":"ClaveB97Fixture0001"}';
- recurso:='{"ambitos":{"solicitud_ref":'||to_json(solicitud_ref)::text
-  ||'},"atributos":{"material_sha256":"'||encode(sha256(convert_to(material,'UTF8')),'hex')||'"}}';
+ recurso:=jsonb_set(base,'{atributos}',(base->'atributos')||jsonb_build_object(
+  'evidencia_ref',acta,'material_sha256',encode(sha256(convert_to(material,'UTF8')),'hex')))::text;
  recurso_sha:=encode(sha256(convert_to(recurso,'UTF8')),'hex');
  capacidad:=convert_to(jsonb_build_object(
   'operacion','bolsa.inscripcion.rrhh.incorporar',
@@ -209,9 +253,55 @@ BEGIN
   'perfil_activo_ref',perfil,'cuenta_ref',cuenta)::text,'UTF8');
  captura:=jsonb_build_object('persona_ref',actor,'perfil_ref',perfil,
   'cuenta_ref',cuenta,'canal','interna_corporativa','idioma','es');
- material_mal:=replace(material,acta,'acta:importacion-convoca:'||repeat('f',64));
- recurso_mal:='{"ambitos":{"solicitud_ref":'||to_json(solicitud_ref)::text
-  ||'},"atributos":{"material_sha256":"'||encode(sha256(convert_to(material_mal,'UTF8')),'hex')||'"}}';
+
+ -- Atributo numérico (forma antigua): recurso rechazado antes de consumir V3.
+ recurso_mal:=jsonb_set(recurso::jsonb,'{atributos,version_esperada}','2'::jsonb)::text;
+ huella_mal:=encode(sha256(convert_to(recurso_mal,'UTF8')),'hex');
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.incorporar_inscripcion_v1(
+   material,captura,convert_to(recurso_mal,'UTF8'),
+   convert_to(jsonb_build_object('operacion','bolsa.inscripcion.rrhh.incorporar',
+    'audiencia_consumo','vec_bolsa_llamamientos.inscripcion.incorporar.v1',
+    'efecto_ref',solicitud_ref,'huella_efecto_sha256',huella_mal)::text,'UTF8'),
+   convert_to(jsonb_build_object('decision_ref','decision:b97:numerico',
+    'principal_id',actor,'perfil_activo_ref',perfil,'concedida',true,
+    'accion','bolsa.inscripcion.rrhh.incorporar','modulo_id','bolsa',
+    'tipo_recurso','solicitud_inscripcion','finalidad','incorporar_inscripcion',
+    'recurso_ref',solicitud_ref,'contexto_recurso_huella_sha256',huella_mal,
+    'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa'))::text,'UTF8'),
+   '{}'::bytea,contexto,1,1,'{}'::bytea,'{}'::bytea,'{}'::bytea,'{}'::bytea);
+  RAISE EXCEPTION 'B97 fixture: atributo numérico admitido';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+ END;
+
+ -- Ámbito de otra unidad o conjunto desfasado: denegado tras el cotejo CC11.
+ FOR caso IN 1..2 LOOP
+  recurso_mal:=CASE WHEN caso=1
+   THEN jsonb_set(recurso::jsonb,'{ambitos,unidad_ref}','"unidad:ajena-b97"'::jsonb)::text
+   ELSE jsonb_set(recurso::jsonb,'{atributos,conjunto_fuente_version}','"2"'::jsonb)::text END;
+  huella_mal:=encode(sha256(convert_to(recurso_mal,'UTF8')),'hex');
+  BEGIN
+   PERFORM vec_bolsa_llamamientos.incorporar_inscripcion_v1(
+    material,captura,convert_to(recurso_mal,'UTF8'),
+    convert_to(jsonb_build_object('operacion','bolsa.inscripcion.rrhh.incorporar',
+     'audiencia_consumo','vec_bolsa_llamamientos.inscripcion.incorporar.v1',
+     'efecto_ref',solicitud_ref,'huella_efecto_sha256',huella_mal)::text,'UTF8'),
+    convert_to(jsonb_build_object('decision_ref','decision:b97:ambito:'||caso,
+     'principal_id',actor,'perfil_activo_ref',perfil,'concedida',true,
+     'accion','bolsa.inscripcion.rrhh.incorporar','modulo_id','bolsa',
+     'tipo_recurso','solicitud_inscripcion','finalidad','incorporar_inscripcion',
+     'recurso_ref',solicitud_ref,'contexto_recurso_huella_sha256',huella_mal,
+     'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa'))::text,'UTF8'),
+    '{}'::bytea,contexto,1,1,'{}'::bytea,'{}'::bytea,'{}'::bytea,'{}'::bytea);
+   RAISE EXCEPTION 'B97 fixture: ámbito o conjunto ajeno admitido %',caso;
+  EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+  END;
+ END LOOP;
+
+ -- Acta ajena: material, recurso y decisión coherentes, pero sin acta B79.
+ material_mal:=replace(material,acta,acta_ajena);
+ recurso_mal:=jsonb_set(base,'{atributos}',(base->'atributos')||jsonb_build_object(
+  'evidencia_ref',acta_ajena,'material_sha256',encode(sha256(convert_to(material_mal,'UTF8')),'hex')))::text;
  huella_mal:=encode(sha256(convert_to(recurso_mal,'UTF8')),'hex');
  capacidad_mal:=convert_to(jsonb_build_object(
   'operacion','bolsa.inscripcion.rrhh.incorporar',
@@ -225,8 +315,8 @@ BEGIN
   'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa'))::text,'UTF8');
  BEGIN
   PERFORM vec_bolsa_llamamientos.incorporar_inscripcion_v1(
-   material_mal,captura,capacidad_mal,decision_mal,'{}'::bytea,contexto,1,1,
-   '{}'::bytea,'{}'::bytea,'{}'::bytea,'{}'::bytea);
+   material_mal,captura,convert_to(recurso_mal,'UTF8'),capacidad_mal,decision_mal,
+   '{}'::bytea,contexto,1,1,'{}'::bytea,'{}'::bytea,'{}'::bytea,'{}'::bytea);
   RAISE EXCEPTION 'B97 fixture: acta ajena admitida';
  EXCEPTION WHEN SQLSTATE 'B9702' THEN NULL;
  END;
@@ -239,7 +329,7 @@ BEGIN
   'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa'))::text,'UTF8');
  BEGIN
   PERFORM vec_bolsa_llamamientos.incorporar_inscripcion_v1(
-   material,captura,capacidad,decision_mal,'{}'::bytea,contexto,1,1,
+   material,captura,convert_to(recurso,'UTF8'),capacidad,decision_mal,'{}'::bytea,contexto,1,1,
    '{}'::bytea,'{}'::bytea,'{}'::bytea,'{}'::bytea);
   RAISE EXCEPTION 'B97 fixture: política ausente permitió asociación';
  EXCEPTION WHEN SQLSTATE 'B9703' THEN NULL;
@@ -254,7 +344,7 @@ BEGIN
   'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa'))::text,'UTF8');
  BEGIN
   PERFORM vec_bolsa_llamamientos.incorporar_inscripcion_v1(
-   material,captura,capacidad,decision_mal,'{}'::bytea,contexto,1,1,
+   material,captura,convert_to(recurso,'UTF8'),capacidad,decision_mal,'{}'::bytea,contexto,1,1,
    '{}'::bytea,'{}'::bytea,'{}'::bytea,'{}'::bytea);
   RAISE EXCEPTION 'B97 fixture: persona sin vínculo incorporada';
  EXCEPTION WHEN SQLSTATE 'B9701' THEN NULL;
@@ -269,7 +359,7 @@ BEGIN
    'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa'))::text,'UTF8');
   IF caso=1 THEN
    primer:=vec_bolsa_llamamientos.incorporar_inscripcion_v1(
-    material,captura,capacidad,decision,'{}'::bytea,contexto,1,1,
+    material,captura,convert_to(recurso,'UTF8'),capacidad,decision,'{}'::bytea,contexto,1,1,
     '{}'::bytea,'{}'::bytea,'{}'::bytea,'{}'::bytea);
    IF primer->>'estado'<>'incorporada' OR primer->>'version'<>'3'
     OR primer->>'repetida'<>'false' OR primer->>'participacion_ref'<>'participacion:b97:fixture'
@@ -277,7 +367,7 @@ BEGIN
    THEN RAISE EXCEPTION 'B97 fixture: primer recibo incompleto %',primer; END IF;
   ELSE
    repetido:=vec_bolsa_llamamientos.incorporar_inscripcion_v1(
-    material,captura,capacidad,decision,'{}'::bytea,contexto,1,1,
+    material,captura,convert_to(recurso,'UTF8'),capacidad,decision,'{}'::bytea,contexto,1,1,
     '{}'::bytea,'{}'::bytea,'{}'::bytea,'{}'::bytea);
    IF repetido->>'repetida'<>'true' OR repetido->>'recibo_ref'<>primer->>'recibo_ref'
     OR repetido->>'decidida_en'<>primer->>'decidida_en'
@@ -301,7 +391,7 @@ BEGIN
     material,jsonb_build_object('persona_ref',actor_otro,
      'perfil_ref',perfil_otro,'cuenta_ref',cuenta_otra,
      'canal','interna_corporativa','idioma','es'),
-    capacidad,decision_mal,'{}'::bytea,
+    convert_to(recurso,'UTF8'),capacidad,decision_mal,'{}'::bytea,
     convert_to(jsonb_build_object('principal_ref',actor_otro,
      'perfil_activo_ref',perfil_otro,'cuenta_ref',cuenta_otra)::text,'UTF8'),1,1,
     '{}'::bytea,'{}'::bytea,'{}'::bytea,'{}'::bytea);
@@ -311,8 +401,8 @@ BEGIN
  END LOOP;
  -- Otra clave con el mismo acta no recupera el recibo histórico.
  material_mal:=replace(material,'ClaveB97Fixture0001','ClaveB97Fixture9999');
- recurso_mal:='{"ambitos":{"solicitud_ref":'||to_json(solicitud_ref)::text
-  ||'},"atributos":{"material_sha256":"'||encode(sha256(convert_to(material_mal,'UTF8')),'hex')||'"}}';
+ recurso_mal:=jsonb_set(base,'{atributos}',(base->'atributos')||jsonb_build_object(
+  'evidencia_ref',acta,'material_sha256',encode(sha256(convert_to(material_mal,'UTF8')),'hex')))::text;
  huella_mal:=encode(sha256(convert_to(recurso_mal,'UTF8')),'hex');
  capacidad_mal:=convert_to(jsonb_build_object(
   'operacion','bolsa.inscripcion.rrhh.incorporar',
@@ -326,8 +416,8 @@ BEGIN
   'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa'))::text,'UTF8');
  BEGIN
   PERFORM vec_bolsa_llamamientos.incorporar_inscripcion_v1(
-   material_mal,captura,capacidad_mal,decision_mal,'{}'::bytea,contexto,1,1,
-   '{}'::bytea,'{}'::bytea,'{}'::bytea,'{}'::bytea);
+   material_mal,captura,convert_to(recurso_mal,'UTF8'),capacidad_mal,decision_mal,
+   '{}'::bytea,contexto,1,1,'{}'::bytea,'{}'::bytea,'{}'::bytea,'{}'::bytea);
   RAISE EXCEPTION 'B97 fixture: otra clave recuperó el recibo';
  EXCEPTION WHEN SQLSTATE 'B9603' THEN NULL;
  END;
@@ -352,7 +442,8 @@ BEGIN
  FROM vec_bolsa_llamamientos.solicitud_inscripcion_recibo r
  WHERE r.solicitud_ref=solicitud AND r.version=3;
  detalle:=vec_bolsa_llamamientos.leer_solicitud_inscripcion_interna_v1(
-  false,'per_'||repeat('r',22),solicitud,'es');
+  false,'per_'||repeat('r',22),solicitud,'es','interna_corporativa',
+  'unidad:rrhh-b97','ambito:gestion-b97');
  IF detalle->>'estado'<>'incorporada' OR detalle->>'version'<>'3'
  OR detalle->>'recibo_ref'<>recibo
  OR detalle->>'participacion_ref'<>'participacion:b97:fixture'
@@ -360,7 +451,8 @@ BEGIN
  THEN RAISE EXCEPTION 'B97 fixture: GET detalle divergente %',detalle; END IF;
  lista:=vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(
   false,'per_'||repeat('r',22),
-  jsonb_build_object('estado','incorporada','convocatoria_ref','','limite',10,'cursor',''),'es');
+  jsonb_build_object('estado','incorporada','convocatoria_ref',v_convocatoria_ref,
+   'limite',10,'cursor',''),'es','interna_corporativa','unidad:rrhh-b97','ambito:gestion-b97');
  IF jsonb_array_length(lista->'solicitudes')<>1
  OR lista#>>'{solicitudes,0,participacion_ref}'<>'participacion:b97:fixture'
  OR lista#>>'{solicitudes,0,bolsa_ref}'<>'bolsa:b97:fixture'

@@ -10,7 +10,8 @@ CREATE ROLE vec_bolsa_inscripciones_lector LOGIN INHERIT NOSUPERUSER NOCREATEDB 
 CREATE ROLE vec_bolsa_inscripciones_empleado_lector LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 CREATE ROLE vec_bolsa_inscripciones_rrhh_lector LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT vec_bolsa_llamamientos_lector_inscripciones TO vec_bolsa_inscripciones_lector WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
-GRANT vec_bolsa_llamamientos_lector_inscripciones_empleado TO vec_bolsa_inscripciones_empleado_lector WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
+-- Primera versión sólo externa: el LOGIN empleado heredado no tiene grupo lector
+-- y debe quedar denegado aunque tenga EXECUTE directo.
 GRANT vec_bolsa_llamamientos_lector_inscripciones_rrhh TO vec_bolsa_inscripciones_rrhh_lector WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
 GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_bolsa_inscripciones_lector,
  vec_bolsa_inscripciones_empleado_lector,vec_bolsa_inscripciones_rrhh_lector;
@@ -71,6 +72,8 @@ BEGIN
    'bolsa.inscripcion.propias.listar','interna_corporativa') IS NOT FALSE
  OR vec_autorizacion_atestada_v3.login_lector_inscripciones_valido_v1(
    'bolsa.inscripcion.rrhh.listar','interna_corporativa') IS NOT FALSE
+ OR vec_autorizacion_atestada_v3.login_lector_inscripciones_valido_v1(
+   'bolsa.inscripcion.rrhh.convocatorias.listar','interna_corporativa') IS NOT FALSE
  THEN RAISE EXCEPTION 'AD228: carril exterior divergente';END IF;
  BEGIN
   PERFORM * FROM ad228_fixture.material m CROSS JOIN LATERAL
@@ -86,12 +89,14 @@ SET LOCAL TIME ZONE 'UTC';
 DO $empleado$
 BEGIN
  IF vec_autorizacion_atestada_v3.login_lector_inscripciones_valido_v1(
-   'bolsa.inscripcion.propias.listar','interna_corporativa') IS NOT TRUE
+   'bolsa.inscripcion.propias.listar','interna_corporativa') IS NOT FALSE
  OR vec_autorizacion_atestada_v3.login_lector_inscripciones_valido_v1(
    'bolsa.inscripcion.propias.listar','externa_personal') IS NOT FALSE
  OR vec_autorizacion_atestada_v3.login_lector_inscripciones_valido_v1(
    'bolsa.inscripcion.rrhh.listar','interna_corporativa') IS NOT FALSE
- THEN RAISE EXCEPTION 'AD228: carril empleado divergente';END IF;
+ OR vec_autorizacion_atestada_v3.login_lector_inscripciones_valido_v1(
+   'bolsa.inscripcion.rrhh.convocatorias.listar','interna_corporativa') IS NOT FALSE
+ THEN RAISE EXCEPTION 'AD228: carril empleado admitido';END IF;
  BEGIN
   PERFORM * FROM ad228_fixture.material m CROSS JOIN LATERAL
    vec_autorizacion_atestada_v3.registrar_lectura_inscripcion_v1(m.contexto,m.vinculo,m.orden);
@@ -108,6 +113,10 @@ DECLARE x record;
 BEGIN
  IF vec_autorizacion_atestada_v3.login_lector_inscripciones_valido_v1(
    'bolsa.inscripcion.rrhh.listar','interna_corporativa') IS NOT TRUE
+ OR vec_autorizacion_atestada_v3.login_lector_inscripciones_valido_v1(
+   'bolsa.inscripcion.rrhh.convocatorias.listar','interna_corporativa') IS NOT TRUE
+ OR vec_autorizacion_atestada_v3.login_lector_inscripciones_valido_v1(
+   'bolsa.inscripcion.rrhh.convocatorias.listar','externa_personal') IS NOT FALSE
  OR vec_autorizacion_atestada_v3.login_lector_inscripciones_valido_v1(
    'bolsa.inscripcion.propias.listar','interna_corporativa') IS NOT FALSE
  THEN RAISE EXCEPTION 'AD228: carril RRHH divergente';END IF;

@@ -3,6 +3,8 @@
 # Preimagen V3: núcleo interno def 3538c97c…/prosrc d8aa8ecc…, externo def 1714236d…, CHECK de audiencias 8cc69647….
 # Las cuatro primeras rutas instalan solo lo imprescindible del módulo de convocatorias (roles, revalidación v1 y BC1),
 # que no está en cidonia. BC2–BC8, AD141 y AD153 NO hacen falta para BC9 y quedan fuera.
+# roles_up, revalidación y BC1 no fijan lock_timeout/statement_timeout: aplicarlos con PGOPTIONS="-c lock_timeout=5s -c statement_timeout=60s".
+# AD228 rehace dos CHECK de V3 con ACCESS EXCLUSIVE: aplicar con la app parada.
 # No crea LOGIN, configuración, catálogos, convocatorias ni concesiones. Cada UP una sola vez; nunca DOWN ni reaplicar:
 # repetir cualquiera se rechaza con su PARO de preimagen sin efecto.
 # Cada «# <huella>» fija la SHA256 de la ruta siguiente.
@@ -16,9 +18,9 @@ deploy/postgresql/bolsa_convocatorias/migraciones/000001_almacen_convocatorias.u
 deploy/postgresql/contexto_actor_v1/migraciones/000038_candidato_persona_inscripcion.up.sql
 # 71aab8097ecedc2ffaa0fefa8d59e5860fb0d76bcf82ac93ff71c369eb303426
 deploy/postgresql/catalogos_configurables/migraciones/000011_lectura_lote_categorias_inscripcion.up.sql
-# 1d19efb9521bff82c0090642fc97a1e6ea9d14d4d3b194b7185717b57b6a6746
+# 8cfe217b4144f250c8c144be4c5ed7ab84324d30f6c1d5447505d72196c8adf6
 deploy/postgresql/bolsa_convocatorias/migraciones/000009_comprobar_publicacion_inscripcion.up.sql
 # 6da55f925a6387c221f3022db54e1e727f569a16ffb2b951e1dc5e867995201a
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000228_inscripcion_v3_auditoria.up.sql
-# deffdf6e3636bc0a305b1e0ca73b269c909227fd8aa42bea55178708c6736d6e
+# ae24811de8efcd05682b6d83e101c1171f4d4286c1db3143094339bc1b2d191e
 deploy/postgresql/bolsa_llamamientos/migraciones/000096_inscripcion_convocatoria.up.sql

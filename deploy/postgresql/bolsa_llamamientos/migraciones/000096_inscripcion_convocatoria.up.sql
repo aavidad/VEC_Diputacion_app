@@ -518,9 +518,10 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.solicitar_inscripcion_v1(
  text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  FROM PUBLIC,vec_bolsa_llamamientos_portal_externo,vec_bolsa_llamamientos_ejecutor;
+-- Sólo el portal externo presenta; el ejecutor interno no recibe EXECUTE.
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.solicitar_inscripcion_v1(
  text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
- TO vec_bolsa_llamamientos_portal_externo,vec_bolsa_llamamientos_ejecutor;
+ TO vec_bolsa_llamamientos_portal_externo;
 
 CREATE FUNCTION vec_bolsa_llamamientos.revisar_inscripcion_v1(
  p_material text,p_captura_actor jsonb,p_recurso_canonico bytea,
@@ -671,6 +672,9 @@ BEGIN
  IF actual.version>v_esperada THEN
   SELECT * INTO previo FROM vec_bolsa_llamamientos.solicitud_inscripcion_recibo
    WHERE solicitud_ref=v_ref AND version=v_esperada+1;
+  IF FOUND AND previo.clave_sha256=v_clave_sha
+   AND previo.material_sha256 IS DISTINCT FROM v_material_sha
+  THEN RAISE EXCEPTION 'B96: clave de decisión reutilizada con otro material' USING ERRCODE='B9603'; END IF;
   IF NOT FOUND OR previo.clave_sha256 IS DISTINCT FROM v_clave_sha
    OR previo.material_sha256 IS DISTINCT FROM v_material_sha
    OR previo.canal IS DISTINCT FROM 'interna_corporativa'
@@ -728,6 +732,10 @@ BEGIN
   solicitud.catalogo_ref,solicitud.catalogo_version,solicitud.catalogo_sha256,
   ARRAY[solicitud.categoria_ref],p_captura_actor->>'idioma');
  v_categoria:=etiquetas#>>'{0,categoria}';
+ -- Dos decisiones simultáneas sobre la misma versión: la segunda choca con la
+ -- clave única tras la foto SERIALIZABLE; se devuelve 40001 para reintentar
+ -- y, al reintentar, responde la rama de repetición o «versión superada».
+ BEGIN
  INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion_version(
   solicitud_ref,version,estado,actor_ref,perfil_ref,cuenta_ref,
   motivo_ref,motivo_catalogo_ref,
@@ -756,6 +764,9 @@ BEGIN
   acceso_ref,solicitud_ref,persona_ref,accion,decision_ref,auditoria_ref,resultado,accedida_en)
  VALUES('acceso_inscripcion_'||encode(sha256(convert_to(consumo.decision_ref,'UTF8')),'hex'),
   v_ref,v_actor,'revisar',consumo.decision_ref,consumo.auditoria_ref,'confirmada',v_instante);
+ EXCEPTION WHEN unique_violation THEN
+  RAISE EXCEPTION 'B96: revisión concurrente, reintentar' USING ERRCODE='40001';
+ END;
  RETURN jsonb_build_object('solicitud_ref',v_ref,'recibo_ref',v_recibo_ref,
   'convocatoria_ref',solicitud.convocatoria_ref,'categoria_ref',solicitud.categoria_ref,
   'categoria',v_categoria,'bases_ref',solicitud.bases_ref,'estado',v_estado,
@@ -780,7 +791,7 @@ LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp SET "TimeZone"='UTC' 
 DECLARE v_requisitos jsonb;
 BEGIN
  IF jsonb_typeof(p_fila) IS DISTINCT FROM 'object'
- OR p_categoria IS NULL OR octet_length(p_categoria) NOT BETWEEN 1 AND 200
+ OR p_categoria IS NULL OR octet_length(p_categoria) NOT BETWEEN 1 AND 2048
  THEN RAISE EXCEPTION 'B96: proyección incompleta' USING ERRCODE='55000'; END IF;
  IF jsonb_typeof(p_fila->'evaluacion') IS DISTINCT FROM 'array'
  THEN RAISE EXCEPTION 'B96: evaluación ausente' USING ERRCODE='55000'; END IF;
@@ -1546,7 +1557,8 @@ BEGIN
    FROM vec_bolsa_llamamientos.solicitud_inscripcion s
    WHERE s.solicitud_ref=p_selector->>'solicitud_ref'
     AND s.unidad_ref=v_unidad_ref AND s.ambito_ref=v_ambito_ref;
-   IF p_captura->'ambito_solicitud' IS DISTINCT FROM v_ambito_solicitud
+   -- El Go envía el ámbito sin solicitud_ref: recurso_ref ya ata la solicitud.
+   IF p_captura->'ambito_solicitud' IS DISTINCT FROM (v_ambito_solicitud-'solicitud_ref')
    THEN RAISE EXCEPTION 'B96: ámbito histórico divergente' USING ERRCODE='42501'; END IF;
   END IF;
  ELSIF p_accion='bolsa.inscripcion.rrhh.motivos' THEN

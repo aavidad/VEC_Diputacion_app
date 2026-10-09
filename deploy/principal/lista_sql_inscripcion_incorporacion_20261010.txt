@@ -5,5 +5,5 @@
 # Cada UP una sola vez; nunca DOWN ni reaplicar. Cada «# <huella>» fija la SHA256 de la ruta siguiente.
 # 7507be3df1e77cffe438c273fa37e93264debcd7a189b2f1a4b9beae62889738
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000229_incorporacion_inscripcion_v3.up.sql
-# 28e798bc15be0dcdf87cfa3e998b7685d190b01a00e1fd92340e0ca1f826b048
+# c5e4307e400e2ae3d65f5c23fdc821a49dde14e141603c0eebd7121c58111720
 deploy/postgresql/bolsa_llamamientos/migraciones/000097_incorporacion_inscripcion.up.sql

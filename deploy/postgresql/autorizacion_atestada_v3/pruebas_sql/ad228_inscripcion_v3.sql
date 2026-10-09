@@ -39,7 +39,6 @@ BEGIN
    AND t.tgname='encolar_sellado_ad207' AND t.tgenabled='O')
  THEN RAISE EXCEPTION 'AD228: ACL, RLS o cola v5 divergente';END IF;
  FOREACH rol IN ARRAY ARRAY['vec_bolsa_llamamientos_lector_inscripciones',
-  'vec_bolsa_llamamientos_lector_inscripciones_empleado',
   'vec_bolsa_llamamientos_lector_inscripciones_rrhh'] LOOP
   IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=rol
      AND NOT(rolcanlogin OR rolinherit OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
@@ -47,6 +46,12 @@ BEGIN
   OR has_function_privilege(rol,f_lectura,'EXECUTE')
   THEN RAISE EXCEPTION 'AD228: rol lector divergente %',rol;END IF;
  END LOOP;
+ -- Primera versión sólo externa: el canal empleado no existe.
+ -- Un LOGIN «empleado» heredado del entorno no puede tener grupo lector.
+ IF to_regrole('vec_bolsa_llamamientos_lector_inscripciones_empleado') IS NOT NULL
+ OR EXISTS(SELECT 1 FROM pg_auth_members m JOIN pg_roles l ON l.oid=m.member
+   WHERE l.rolname='vec_bolsa_inscripciones_empleado_lector')
+ THEN RAISE EXCEPTION 'AD228: canal empleado presente';END IF;
 
  FOR r IN SELECT * FROM (VALUES
   ('bolsa.inscripcion.convocatorias.listar','consulta_convocatoria_abierta','externa_personal','inscripciones_abiertas_'||h),
@@ -55,7 +60,8 @@ BEGIN
   ('bolsa.inscripcion.propia.consultar','consulta_inscripcion_propia','externa_personal','solicitud_inscripcion_'||h),
   ('bolsa.inscripcion.rrhh.listar','consulta_inscripcion_rrhh','interna_corporativa','inscripciones_rrhh_'||h),
   ('bolsa.inscripcion.rrhh.consultar','consulta_inscripcion_rrhh','interna_corporativa','solicitud_inscripcion_'||h),
-  ('bolsa.inscripcion.rrhh.motivos','consulta_motivos_inscripcion_rrhh','interna_corporativa','motivos_inscripcion_'||h))
+  ('bolsa.inscripcion.rrhh.motivos','consulta_motivos_inscripcion_rrhh','interna_corporativa','motivos_inscripcion_'||h),
+  ('bolsa.inscripcion.rrhh.convocatorias.listar','consulta_convocatorias_gestion_rrhh','interna_corporativa','inscripciones_rrhh_convocatorias_'||h))
   x(accion,finalidad,canal,recurso) LOOP
   IF vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1(r.accion,r.finalidad,r.canal,r.recurso) IS NOT TRUE
   OR vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1(r.accion,r.finalidad,'administracion_privilegiada',r.recurso) IS NOT FALSE
@@ -64,15 +70,28 @@ BEGIN
   THEN RAISE EXCEPTION 'AD228: contrato de lectura divergente %',r.accion;END IF;
   IF r.accion IN ('bolsa.inscripcion.convocatorias.listar','bolsa.inscripcion.convocatoria.consultar',
                   'bolsa.inscripcion.propias.listar','bolsa.inscripcion.propia.consultar') THEN
+   -- Sin canal empleado: el autoservicio desde la red corporativa se deniega.
    IF vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1(
-        r.accion,r.finalidad,'interna_corporativa',r.recurso) IS NOT TRUE
-   THEN RAISE EXCEPTION 'AD228: autoservicio interno denegado %',r.accion;END IF;
+        r.accion,r.finalidad,'interna_corporativa',r.recurso) IS NOT FALSE
+   THEN RAISE EXCEPTION 'AD228: autoservicio interno admitido %',r.accion;END IF;
   ELSE
    IF vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1(
         r.accion,r.finalidad,'externa_personal',r.recurso) IS NOT FALSE
    THEN RAISE EXCEPTION 'AD228: RRHH exterior admitido %',r.accion;END IF;
   END IF;
  END LOOP;
+ -- Listado RRHH de convocatorias: no presta recurso ni finalidad de otras lecturas.
+ IF vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1('bolsa.inscripcion.rrhh.convocatorias.listar',
+     'consulta_inscripcion_rrhh','interna_corporativa','inscripciones_rrhh_convocatorias_'||h) IS NOT FALSE
+ OR vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1('bolsa.inscripcion.rrhh.convocatorias.listar',
+     'consulta_convocatorias_gestion_rrhh','interna_corporativa','inscripciones_rrhh_'||h) IS NOT FALSE
+ OR vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1('bolsa.inscripcion.rrhh.convocatorias.listar',
+     'consulta_convocatorias_gestion_rrhh','interna_corporativa','inscripciones_rrhh_convocatorias_'||upper(h)) IS NOT FALSE
+ OR vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1('bolsa.inscripcion.rrhh.listar',
+     'consulta_inscripcion_rrhh','interna_corporativa','inscripciones_rrhh_convocatorias_'||h) IS NOT FALSE
+ OR vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1('bolsa.inscripcion.convocatorias.listar',
+     'consulta_convocatorias_gestion_rrhh','interna_corporativa','inscripciones_abiertas_'||h) IS NOT FALSE
+ THEN RAISE EXCEPTION 'AD228: listado RRHH de convocatorias divergente';END IF;
 
  SELECT count(*) INTO n FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3;
  BEGIN

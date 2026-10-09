@@ -80,13 +80,18 @@ BEGIN
      'motivo_ref','motivo:asociacion.manual','alcance_ref',alcance)));
  IF NOT vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(
   'bolsa.politica.inscripcion',1,pol_sha,'externa_personal')
- OR NOT vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(
-  'bolsa.politica.inscripcion',1,pol_sha,'interna_corporativa')
- THEN RAISE EXCEPTION 'CC11: política separada por canal ausente'; END IF;
+ THEN RAISE EXCEPTION 'CC11: política externa ausente'; END IF;
+ -- Primera versión: sólo aspirantes externos. El canal empleado se rechaza
+ -- aunque el catálogo publique una entrada «.empleado».
  BEGIN
   PERFORM vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(
-   'bolsa.politica.sinpresentacion',1,pol_sha2,'interna_corporativa');
-  RAISE EXCEPTION 'CC11: política empleado prestada a otro catálogo';
+   'bolsa.politica.inscripcion',1,pol_sha,'interna_corporativa');
+  RAISE EXCEPTION 'CC11: canal empleado admitido para presentar';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+ BEGIN
+  PERFORM vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(
+   'bolsa.politica.sinpresentacion',1,pol_sha2,'externa_personal');
+  RAISE EXCEPTION 'CC11: política externa prestada a otro catálogo';
  EXCEPTION WHEN SQLSTATE 'B9601' THEN NULL; END;
  clave_gestion:='ambito.gestion.'||substring(alcance from '^cv1_([0-9a-f]{64})_v1$')||'.v1';
  otro_alcance:='cv1_'||repeat('b',64)||'_v1';
@@ -279,8 +284,9 @@ BEGIN
    'politica_catalogo_ref','bolsa.politica.inscripcion',
    'politica_catalogo_version',1,'politica_catalogo_sha256',pol_sha)),
   'es','interna_corporativa');
- IF r#>>'{0,politica_valida}'<>'true' OR r#>>'{0,categoria}'<>'Alfa ES'
- THEN RAISE EXCEPTION 'CC11: lote empleado tomó política externa'; END IF;
+ -- Canal RRHH/empleado: lee etiquetas, pero nunca habilita presentar.
+ IF r#>>'{0,politica_valida}'<>'false' OR r#>>'{0,categoria}'<>'Alfa ES'
+ THEN RAISE EXCEPTION 'CC11: canal interno habilitó presentación: %',r; END IF;
  SELECT jsonb_agg(jsonb_build_object('catalogo_ref','bolsa.categorias.inscripcion',
   'catalogo_version',1,'catalogo_sha256',cat_sha,'categoria_ref','cat.alpha',
   'politica_catalogo_ref','bolsa.politica.inscripcion',

@@ -510,6 +510,9 @@ BEGIN
  v_evento:='evento_inscripcion_'||encode(sha256(convert_to(v_historia,'UTF8')),'hex');
  v_recibo_ref:='recibo_inscripcion_'||encode(sha256(convert_to(
   v_ref||chr(31)||'3'||chr(31)||v_material_sha,'UTF8')),'hex');
+ -- Incorporaciones simultáneas: la segunda choca con una clave única tras la
+ -- foto SERIALIZABLE; 40001 para reintentar y responder por la rama de repetición.
+ BEGIN
  IF asociacion.convocatoria_ref IS NULL THEN
   INSERT INTO vec_bolsa_llamamientos.inscripcion_acta_asociada(
    convocatoria_ref,convocatoria_id,secuencia,version_sha256,categoria_ref,
@@ -558,6 +561,9 @@ BEGIN
   acceso_ref,solicitud_ref,persona_ref,accion,decision_ref,auditoria_ref,resultado,accedida_en)
  VALUES('acceso_inscripcion_'||encode(sha256(convert_to(consumo.decision_ref,'UTF8')),'hex'),
   v_ref,v_actor,'incorporar',consumo.decision_ref,consumo.auditoria_ref,'confirmada',v_instante);
+ EXCEPTION WHEN unique_violation THEN
+  RAISE EXCEPTION 'B97: incorporación concurrente, reintentar' USING ERRCODE='40001';
+ END;
  RETURN jsonb_build_object('solicitud_ref',v_ref,'recibo_ref',v_recibo_ref,
   'convocatoria_ref',s.convocatoria_ref,'categoria_ref',s.categoria_ref,'categoria',v_categoria,
   'bases_ref',s.bases_ref,'declaracion_ref',s.declaracion_ref,
