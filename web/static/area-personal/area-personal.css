@@ -458,3 +458,18 @@ body.area-personal-app :is(input:not([type="checkbox"]):not([type="radio"]):not(
   outline: 3px solid var(--portal-foco);
   outline-offset: -3px;
 }
+
+/* Inscripción en bolsas: solo ajusta el espaciado de su panel; usa panel, dato-lista y fila-acciones comunes. */
+.inscripcion-bolsa > header { flex-wrap: nowrap; }
+.inscripcion-bolsa .panel > header h4 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--ap-tinta); }
+.inscripcion-bolsa .panel-contenido > * + * { margin-top: 16px; }
+.inscripcion-bolsa .panel-contenido > h3 { margin-bottom: 0; font-size: 1.125rem; }
+.inscripcion-bolsa .marco-participaciones { margin-bottom: 0; }
+.inscripcion-bolsa .marco-participaciones .panel-contenido { padding: 16px 20px; }
+.lista-requisitos-inscripcion { margin: 0; padding: 0; list-style: none; }
+.lista-requisitos-inscripcion > li { padding: 12px 0; border-bottom: 1px solid var(--ap-borde); overflow-wrap: anywhere; }
+.lista-requisitos-inscripcion > li:first-child { padding-top: 0; }
+.lista-requisitos-inscripcion > li:last-child { padding-bottom: 0; border-bottom: 0; }
+.lista-requisitos-inscripcion p { margin: 6px 0 0; color: var(--ap-muted); font-size: .875rem; }
+.lista-requisitos-inscripcion .opcion-check { margin-top: 10px; }
+.inscripcion-bolsa .campo select option { overflow-wrap: anywhere; }

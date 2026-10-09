@@ -1,4 +1,4 @@
-import { validarRespuestaMiBolsa } from "./contrato.js?v=20261009-nombre-propio-v2";
+import { validarRespuestaMiBolsa } from "./contrato.js?v=20261009-inscripcion-v1";
 import { traducir } from "./i18n.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 

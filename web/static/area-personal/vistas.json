@@ -10,6 +10,7 @@
     "alegaciones": false,
     "mensajes": false,
     "certificados": false,
-    "ayuda": true
+    "ayuda": true,
+    "inscripcion": false
   }
 }
