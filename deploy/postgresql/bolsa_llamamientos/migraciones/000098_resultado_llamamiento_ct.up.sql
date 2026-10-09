@@ -13,7 +13,8 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.contacto_participacion') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.situacion_participacion') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.bolsa_constituida') IS NULL
-    OR to_regprocedure('vec_bolsa_llamamientos.listar_constituciones_v1()') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.constitucion') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.sustitucion_bolsa') IS NULL
     OR to_regrole('vec_contratacion_temporal_propietario') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text,text)') IS NOT NULL
     OR to_regprocedure('vec_bolsa_llamamientos.resolver_bolsa_vigente_ct_v1(text)') IS NOT NULL
@@ -51,21 +52,36 @@ END $f$;
 
 -- La asociación vigente por categoría pertenece a Bolsa y procede de la
 -- constitución efectiva; CT no interpreta ni consulta sus tablas.
+CREATE INDEX constitucion_ct_categoria_ultima
+ ON vec_bolsa_llamamientos.constitucion
+ (categoria_ref,confirmada_en DESC,registrada_en DESC);
 CREATE FUNCTION vec_bolsa_llamamientos.resolver_bolsa_vigente_ct_v1(p_categoria text)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET statement_timeout='3s' AS $f$
-DECLARE bolsa text;
+DECLARE actual record;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
     OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
     OR p_categoria IS NULL OR p_categoria='' THEN
   RAISE EXCEPTION 'B98: bolsa por categoría no autorizada' USING ERRCODE='42501';
  END IF;
- SELECT c.bolsa_ref INTO bolsa FROM vec_bolsa_llamamientos.listar_constituciones_v1() c
- WHERE c.categoria_ref=p_categoria AND c.estado='vigente'
-   AND c.vigente_desde<=transaction_timestamp()
-   AND (c.vigente_hasta IS NULL OR c.vigente_hasta>transaction_timestamp());
- RETURN bolsa;
+ SELECT c.bolsa_ref,b.estado,b.vigente_desde,b.vigente_hasta,s.bolsa_ref_sustituida
+  INTO actual
+ FROM vec_bolsa_llamamientos.constitucion c
+ JOIN vec_bolsa_llamamientos.bolsa_constituida b
+   ON b.bolsa_ref=c.bolsa_ref AND b.version=c.version_bolsa
+  AND b.huella_bolsa_sha256=c.huella_bolsa_sha256
+ LEFT JOIN vec_bolsa_llamamientos.sustitucion_bolsa s
+   ON s.bolsa_ref_sustituida=b.bolsa_ref AND s.version_sustituida=b.version
+  AND s.huella_sustituida_sha256=b.huella_bolsa_sha256
+ WHERE c.categoria_ref=p_categoria
+ ORDER BY c.confirmada_en DESC,c.registrada_en DESC LIMIT 1;
+ IF NOT FOUND OR actual.estado<>'vigente' OR actual.bolsa_ref_sustituida IS NOT NULL
+    OR actual.vigente_desde>transaction_timestamp()
+    OR (actual.vigente_hasta IS NOT NULL AND actual.vigente_hasta<=transaction_timestamp()) THEN
+  RETURN NULL;
+ END IF;
+ RETURN actual.bolsa_ref;
 END $f$;
 
 CREATE INDEX llamamiento_emitido_ct_necesidad_pagina
