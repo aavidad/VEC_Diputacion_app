@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -82,6 +83,8 @@ func (s *situacionBolsaCoberturaFijable) situacion(
 	}
 	situacion, err := consulta.SituacionBolsaCobertura(ctx, categoriaRef)
 	if err != nil || situacion.Validar() != nil {
+		// Texto fijo, sin causa ni categoría: la comprobación queda «no consta».
+		slog.WarnContext(ctx, "contratacion_temporal.cobertura.situacion_bolsa_no_disponible")
 		return ports.SituacionBolsaCobertura{}, false
 	}
 	s.mu.Lock()
