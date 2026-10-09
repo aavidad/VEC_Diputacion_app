@@ -4,7 +4,7 @@ import {
   validarComandoAltaNecesidad,
   ESQUEMA_ALTA_NECESIDAD,
   validarReciboAlta,
-} from "./contrato.js?v=20261008-alta-rechazo-v2";
+} from "./contrato.js?v=20261008-alta-analisis-bolsa-v4";
 
 const MAXIMO_SOLICITUD_ALTA_BYTES = 256 * 1024;
 const MAXIMO_RESPUESTA_ALTA_BYTES = 16 * 1024;

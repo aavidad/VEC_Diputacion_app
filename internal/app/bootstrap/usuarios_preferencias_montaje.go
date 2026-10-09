@@ -217,6 +217,46 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) ResolverOrdenPreferencias(ctx 
 	return usuariosports.NuevaOrdenPreferencias(c.resultado.Contexto, c.vinculo, a.superficie, a.proveedor)
 }
 
+// identificarCuentaCertificada conserva el único cotejo de certificado,
+// principal y cuenta que usa la superficie externa. Resolver la identidad no
+// concede ninguna acción: cada consumidor exige después su permiso propio.
+func (a *autoridadPreferenciasUsuariosDesarrollo) identificarCuentaCertificada(r *http.Request) (*http.Request, cuentaUsuariosPreferenciasDesarrollo, *x509.Certificate, time.Time, error) {
+	var vacia cuentaUsuariosPreferenciasDesarrollo
+	if a == nil || a.base == nil || r == nil {
+		return nil, vacia, nil, time.Time{}, errComposicionUsuariosPreferencias
+	}
+	if r.TLS == nil || len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) == 0 || r.TLS.VerifiedChains[0][0] == nil {
+		return nil, vacia, nil, time.Time{}, ErrMaterialDesarrolloInvalido
+	}
+	r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
+	if cabeceraLibreComisionesDietas(r.Header) {
+		return nil, vacia, nil, time.Time{}, ErrMaterialDesarrolloInvalido
+	}
+	if a.base.resolvedor == nil {
+		return nil, vacia, nil, time.Time{}, errComposicionUsuariosPreferencias
+	}
+	inicioIdentidad := time.Now()
+	principal, err := a.base.resolvedor.ResolveDemoIdentity(r.Context(), r)
+	if a.ruta == usuarioshttp.RutaMisPreferencias || a.ruta == usuarioshttp.RutaMisPreferenciasAreaPersonal {
+		telemetria.RegistrarFase(r.Context(), telemetria.FaseIdentidad, time.Since(inicioIdentidad), err)
+	}
+	if err != nil {
+		return nil, vacia, nil, time.Time{}, err
+	}
+	cert := r.TLS.VerifiedChains[0][0]
+	ahora := a.reloj.Ahora()
+	if principal.AuthMethod != core.AuthMethodCertificate || principal.AuthAssurance != core.AuthAssuranceHigh ||
+		ahora.Before(cert.NotBefore) || !ahora.Before(cert.NotAfter) {
+		return nil, vacia, nil, time.Time{}, ErrMaterialDesarrolloInvalido
+	}
+	cuenta, ok := a.cuentas[principal.Attributes["certificate_sha256"]]
+	if !ok || cuenta.Sujeto != principal.ID ||
+		!principalParaSuperficieUsuariosPreferenciasValido(a.base.resolvedor, principal, string(a.superficie)) {
+		return nil, vacia, nil, time.Time{}, ErrMaterialDesarrolloInvalido
+	}
+	return r, cuenta, cert, ahora, nil
+}
+
 func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r == nil || r.URL == nil || r.URL.Path != a.ruta {
@@ -257,22 +297,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 			fallo(405, "metodo_no_permitido")
 			return
 		}
-		if r.TLS == nil || len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) == 0 || r.TLS.VerifiedChains[0][0] == nil {
-			denegarTemprano()
-			return
-		}
-		r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
-		if cabeceraLibreComisionesDietas(r.Header) {
-			denegarTemprano()
-			return
-		}
-		inicioIdentidad := time.Now()
-		principal, err := a.base.resolvedor.ResolveDemoIdentity(r.Context(), r)
-		if a.ruta == usuarioshttp.RutaMisPreferencias || a.ruta == usuarioshttp.RutaMisPreferenciasAreaPersonal {
-			telemetria.RegistrarFase(r.Context(), telemetria.FaseIdentidad, time.Since(inicioIdentidad), err)
-		}
-		cert := r.TLS.VerifiedChains[0][0]
-		ahora := a.reloj.Ahora()
+		peticionSegura, cuenta, cert, ahora, err := a.identificarCuentaCertificada(r)
 		if err != nil {
 			if errors.Is(err, ErrMaterialDesarrolloInvalido) {
 				denegarTemprano()
@@ -282,21 +307,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 			}
 			return
 		}
-		if principal.AuthMethod != core.AuthMethodCertificate || principal.AuthAssurance != core.AuthAssuranceHigh || ahora.Before(cert.NotBefore) || !ahora.Before(cert.NotAfter) {
-			denegarTemprano()
-			return
-		}
-		cuenta, ok := a.cuentas[principal.Attributes["certificate_sha256"]]
-		if !ok || cuenta.Sujeto != principal.ID {
-			// Sin cuenta canónica todavía no existe una persona verificable para
-			// la auditoría de una denegación 403. Mantener 401 con actor vacío.
-			denegarTemprano()
-			return
-		}
-		if !principalParaSuperficieUsuariosPreferenciasValido(a.base.resolvedor, principal, string(a.superficie)) {
-			denegarTemprano()
-			return
-		}
+		r = peticionSegura
 		vinculo, resultado, err := a.resolverSesion(r, cuenta, ahora)
 		if err != nil {
 			a.registrarFallo(r.Context(), err)

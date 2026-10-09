@@ -187,6 +187,26 @@ test("el cuadro enlaza bolsas y situaciones exactas; el recuento de curso no abr
     "los totales globales de personas esperan una lista global autorizada");
 });
 
+test("Personas en bolsa enlaza la lista completa y quita estado, texto y cursor anteriores", () => {
+  const anterior = globalThis.location;
+  globalThis.location = { search: "?lang=en&bolsa_ref=bolsa%3Aanterior&estado=renuncia&cursor=obsoleto&texto=Sara" };
+  try {
+    const html = presentador({ estado: "renuncia", texto: "Sara", pestana: "historico", pagina_historico: 2 })
+      .renderizarVista("bolsa-candidatos");
+    const enlace = html.match(/<dt>(<a[^>]+>Personas en bolsa<\/a>)<\/dt><dd>2<\/dd>/u)?.[1];
+    assert.ok(enlace, "la etiqueta del total del servidor se ofrece como enlace accesible");
+    assert.match(enlace, /data-accion="ver-bolsa" data-bolsa-ref="bolsa:sintetica:1" data-pestana="candidatos"/u);
+    const ruta = enlace.match(/href="([^"]+)"/u)?.[1]?.replaceAll("&amp;", "&");
+    const url = new URL(ruta, "https://vec.example/portal-empleado/");
+    assert.equal(url.hash, "#bolsa/bolsa-candidatos");
+    assert.equal(url.searchParams.get("lang"), "en");
+    assert.equal(url.searchParams.get("bolsa_ref"), BOLSA.bolsa_ref);
+    for (const clave of ["estado", "texto", "cursor"]) assert.equal(url.searchParams.has(clave), false);
+    assert.match(rutaCandidatosBolsaCompartible("?lang=en&texto=busqueda-deliberada", BOLSA.bolsa_ref),
+      /texto=busqueda-deliberada/u, "otros enlaces conservan sus búsquedas");
+  } finally { globalThis.location = anterior; }
+});
+
 test("el estado de una bolsa pagina 101 personas con el mismo predicado del contador", async () => {
   const bolsa = { ...BOLSA, total: 101,
     por_estado: { ...BOLSA.por_estado, disponible: 101 },
@@ -252,6 +272,119 @@ test("abrir la ficha desde el histórico vuelve a candidatos y abre la ficha; el
   pulsar({ accion: "ver-bolsa", bolsaRef: BOLSA.bolsa_ref, pestana: "historico" }, '[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]');
   assert.equal(estado.filtrosBolsa.pestana, "historico");
   assert.deepEqual(navegaciones, ["bolsa-candidatos"]);
+});
+
+test("el controlador de reserva abre Personas en Candidatos con filtros limpios", async () => {
+  const escuchas = {};
+  const consultas = [];
+  const estado = { vista: "bolsa-candidatos", bolsaSeleccionada: BOLSA.bolsa_ref,
+    filtrosBolsa: { estado: "renuncia", texto: "Sara", pestana: "historico", pagina_historico: 2 },
+    datosCandidatos: { carga: "listo", datos: { bolsa: BOLSA, candidatos: [] } } };
+  const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector: () => null, querySelectorAll: () => [] };
+  const controlador = crearControladorBolsas({ estado, documento, navegar() {}, renderizar() {},
+    obtenerFuenteLectura: () => ({ async consultarCandidatosBolsa(ref, filtros) {
+      consultas.push({ ref, filtros });
+      return { ok: true, datos: { bolsa: BOLSA, candidatos: [], contactos: [], hay_mas: false } };
+    } }) });
+  controlador.instalar();
+  const boton = { dataset: { accion: "ver-bolsa", bolsaRef: BOLSA.bolsa_ref, pestana: "candidatos" } };
+  escuchas.click({ preventDefault() {}, target: { closest(selector) {
+    return selector === '[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]' ? boton : null;
+  } } });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(estado.filtrosBolsa, { estado: "", texto: "", pestana: "candidatos" });
+  assert.deepEqual(consultas, [{ ref: BOLSA.bolsa_ref, filtros: { estado: "", texto: "", cursor: "" } }]);
+});
+
+test("desde Histórico, el enlace Personas fija URL y pestaña Candidatos con una sola lectura", async () => {
+  const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
+  const inicioRuta = portal.indexOf("function aplicarRutaCandidatosBolsa()");
+  const finRuta = portal.indexOf("function actualizarVistaBolsa(", inicioRuta);
+  const inicioEnlace = portal.indexOf("function instalarEnlacesBolsa()");
+  const finEnlace = portal.indexOf("function instalarEventosAuditoriaBolsa()", inicioEnlace);
+  const location = { origin: "https://vec.example", pathname: "/portal-empleado/",
+    search: "?lang=en&bolsa_ref=bolsa%3Asintetica%3A1&estado=renuncia&cursor=viejo&texto=Sara",
+    hash: "#bolsa/bolsa-candidatos" };
+  Object.defineProperty(location, "href", { get() { return `${location.origin}${location.pathname}${location.search}${location.hash}`; } });
+  const history = { pushState(_a, _b, ruta) { const url = new URL(ruta, location.href);
+    location.search = url.search; location.hash = url.hash; }, replaceState() { assert.fail("ruta válida"); } };
+  const estado = { vista: "bolsa-candidatos", bolsaSeleccionada: BOLSA.bolsa_ref,
+    datosBolsas: { carga: "listo", datos: { bolsas: [BOLSA] } },
+    filtrosBolsa: { estado: "renuncia", texto: "Sara", pestana: "historico", pagina_historico: 2 },
+    datosCandidatos: { carga: "listo", datos: { bolsa: BOLSA, candidatos: [] } } };
+  const escuchas = {};
+  const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; } };
+  const enlace = { tagName: "A", dataset: { bolsaRef: BOLSA.bolsa_ref, pestana: "candidatos" },
+    classList: { contains: () => false }, closest: () => null, hasAttribute: () => true,
+    getAttribute: () => { const parametros = new URLSearchParams(location.search); parametros.delete("texto");
+      return rutaCandidatosBolsaCompartible(parametros.toString(), BOLSA.bolsa_ref); } };
+  const consultas = [];
+  const contexto = { document: documento, window: { location, addEventListener() {} }, history, estado,
+    porId: () => ({ contains: (control) => control === enlace, querySelector: () => null }),
+    rutasBolsa: rutasGlobales, prepararRutasBolsa: async () => rutasGlobales,
+    controladorBolsas: { cargarCandidatosBolsa(ref, opciones) { consultas.push({ ref, opciones }); return Promise.resolve(); } },
+    rutaCandidatosAplicada: null, navegar() {}, anunciar(mensaje) { assert.fail(mensaje); },
+    traducirPortal: (clave) => clave, moduloDeVistaPortal: () => "bolsa", URL };
+  const funciones = runInNewContext(`${portal.slice(inicioRuta, finRuta)}\n${portal.slice(inicioEnlace, finEnlace)};
+    ({ aplicarRutaCandidatosBolsa, instalarEnlacesBolsa })`, contexto);
+  funciones.instalarEnlacesBolsa();
+  await escuchas.click({ target: { closest: (selector) => selector === '[data-accion="ver-bolsa"][data-bolsa-ref]' ? enlace : null },
+    stopImmediatePropagation() {}, preventDefault() {}, button: 0 });
+  funciones.aplicarRutaCandidatosBolsa();
+  assert.deepEqual(JSON.parse(JSON.stringify(consultas)), [{ ref: BOLSA.bolsa_ref, opciones: { enfocarDestino: true } }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(estado.filtrosBolsa)), { estado: "", texto: "" });
+  assert.equal(location.search, "?lang=en&bolsa_ref=bolsa%3Asintetica%3A1");
+  assert.equal(location.hash, "#bolsa/bolsa-candidatos");
+});
+
+test("Personas en bolsa limpia datos previos al recibir 401 o 403", async () => {
+  for (const status of [401, 403]) {
+    const escuchas = {};
+    const estado = { bolsaSeleccionada: BOLSA.bolsa_ref,
+      filtrosBolsa: { estado: "renuncia", texto: "Sara", pestana: "historico" },
+      datosCandidatos: { carga: "listo", datos: { bolsa: BOLSA, candidatos: [CANDIDATO] } } };
+    const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector: () => null, querySelectorAll: () => [] };
+    const controlador = crearControladorBolsas({ estado, documento, navegar() {}, renderizar() {},
+      obtenerFuenteLectura: () => ({ async consultarCandidatosBolsa() {
+        return { ok: false, status, mensaje: "Acceso denegado" };
+      } }) });
+    controlador.instalar();
+    const boton = { dataset: { accion: "ver-bolsa", bolsaRef: BOLSA.bolsa_ref, pestana: "candidatos" } };
+    escuchas.click({ preventDefault() {}, target: { closest(selector) {
+      return selector === '[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]' ? boton : null;
+    } } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(estado.datosCandidatos.carga, "denegado");
+    assert.equal(estado.datosCandidatos.datos, null);
+  }
+});
+
+test("una lectura tardía de Personas no sustituye la bolsa abierta después", async () => {
+  const escuchas = {};
+  const segundaRef = "bolsa:sintetica:2";
+  const segundaBolsa = { ...BOLSA, bolsa_ref: segundaRef };
+  let resolverPrimera;
+  const estado = { bolsaSeleccionada: BOLSA.bolsa_ref,
+    filtrosBolsa: { estado: "renuncia", texto: "Sara", pestana: "historico" },
+    datosCandidatos: { carga: "listo", datos: { bolsa: BOLSA, candidatos: [CANDIDATO] } } };
+  const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector: () => null, querySelectorAll: () => [] };
+  const controlador = crearControladorBolsas({ estado, documento, navegar() {}, renderizar() {},
+    obtenerFuenteLectura: () => ({ consultarCandidatosBolsa(ref) {
+      if (ref === BOLSA.bolsa_ref) return new Promise((resolver) => { resolverPrimera = resolver; });
+      return Promise.resolve({ ok: true, datos: { bolsa: segundaBolsa, candidatos: [], contactos: [], hay_mas: false } });
+    } }) });
+  controlador.instalar();
+  const pulsar = (ref) => { const boton = { dataset: { accion: "ver-bolsa", bolsaRef: ref, pestana: "candidatos" } };
+    escuchas.click({ preventDefault() {}, target: { closest(selector) {
+      return selector === '[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]' ? boton : null;
+    } } }); };
+  pulsar(BOLSA.bolsa_ref);
+  pulsar(segundaRef);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  resolverPrimera({ ok: true, datos: { bolsa: BOLSA, candidatos: [CANDIDATO], contactos: [], hay_mas: false } });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(estado.bolsaSeleccionada, segundaRef);
+  assert.equal(estado.datosCandidatos.datos.bolsa.bolsa_ref, segundaRef);
 });
 
 

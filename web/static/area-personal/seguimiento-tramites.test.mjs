@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
+  renderizarAlegaciones, renderizarLlamamientos, renderizarSubsanaciones,
 } from "./vistas/seguimiento-tramites.js";
 
 // Doble mínimo de los datos del área personal que leen estas vistas.
@@ -15,7 +15,7 @@ function datosPrueba() {
   };
 }
 
-test("seguimiento y trámites informan de ámbitos vacíos sin datos aparentes", () => {
+test("Mi bolsa y los trámites informan de ámbitos vacíos sin datos aparentes", () => {
   const datos = datosPrueba();
   datos.solicitudes = [];
   datos.actividad = [];
@@ -24,10 +24,6 @@ test("seguimiento y trámites informan de ámbitos vacíos sin datos aparentes",
   datos.alegaciones = [];
   delete datos.posicion;
 
-  const seguimiento = renderizarSeguimiento(datos, { expedienteSeleccionado: "SOL-INEXISTENTE" });
-  assert.match(seguimiento, /Sin expedientes en el ámbito autorizado/u);
-  assert.match(seguimiento, /No hay acciones disponibles hasta que el servicio facilite un expediente autorizado/u);
-  assert.doesNotMatch(seguimiento, /undefined|\[object Object\]|Descargar expediente/u);
   assert.match(renderizarLlamamientos(datos), /Cargando histórico autorizado/u);
   assert.doesNotMatch(renderizarLlamamientos(datos), /Sin información de contratos\./u);
   assert.match(renderizarSubsanaciones(datos), /Sin subsanaciones/u);
@@ -79,8 +75,9 @@ test("mi bolsa muestra el último resultado B7 propio sin respuesta ni plazo", (
     { bolsa: "bolsa:2", categoria: "Administrativo", version: 1, orden_inicial: 1, total_instantanea: 3, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null, ultimo_llamamiento: { emitido_en: "2026-09-21T10:00:00Z", canal: "correo", resultado: "no_enviado" } },
   ];
   const vista = renderizarLlamamientos(datos, { participaciones, fuenteBolsa: "real" });
+  assert.match(vista, /<details class="mi-bolsa-ayuda"><summary[^>]+>\?<\/summary><p>[^<]*plazo para responder/u);
   assert.match(vista, /Último resultado de correo[\s\S]*bolsa:2[\s\S]*Administrativo[\s\S]*No enviado/u);
-  assert.match(vista, /Que el correo se enviara no significa que haya llegado ni que ya tenga respuesta\./u);
+  assert.doesNotMatch(vista, /Que el correo se enviara no significa que haya llegado ni que ya tenga respuesta\./u);
   assert.doesNotMatch(vista, /Aceptar llamamiento|Rechazar llamamiento|nota privada/u);
 });
 

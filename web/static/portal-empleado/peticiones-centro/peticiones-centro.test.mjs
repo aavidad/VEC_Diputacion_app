@@ -118,7 +118,7 @@ test("la vista RRHH no usa el contexto de centros y conserva datos, ratificació
   assert.match(html, /Revisión sintética/);
   assert.match(html, /Referencia del expediente/);
   assert.match(html, /expediente:ct:001/);
-  assert.match(html, /\/portal-empleado\/#contratacion-temporal/);
+  assert.match(html, /\/portal-empleado\/\?lang=es#contratacion-temporal/);
   assert.doesNotMatch(html, /Persona de prueba/);
   const preparada = renderizarPeticionesCentroRRHH({ peticiones: [{ peticion: ratificada, estado_entrega: "preparada" }], entrega: { peticion: ratificada, estado_entrega: "preparada" } });
   assert.match(preparada, /Completar registro/);
@@ -220,4 +220,29 @@ test("entrega RRHH conserva MOAD en el comando y exige el mismo número en el re
   assert.match(html, /value="2026\/12345"/);
   assert.match(html, /placeholder="Ejemplo: 2026\/98765"/);
   assert.match(html, /aria-invalid="true" aria-describedby="pc-numero-moad-error"/);
+});
+
+test("la vista RRHH nombra centro, contacto, categoría, motivo y personas con las etiquetas de la bandeja", () => {
+  const ratificada = { ...structuredClone(peticion), version: 2, estado: "ratificada", motivo_ratificacion: "Revisión sintética", ratificada_en: "2026-09-06T08:01:00Z",
+    configuracion: { solicitante: { actor_ref: "per_sol", puesto_ref: "rpt-520-735" }, ratificador: { actor_ref: "per_rat", puesto_ref: "rpt-520-001" } },
+    solicitud: { ...peticion.solicitud, contacto_ref: "con_sintetico_001" } };
+  const entrega = { peticion: ratificada, estado_entrega: "pendiente" };
+  const etiquetas = {
+    centros: { cen_sintetico_001: "TRANSFORMACIÓN DIGITAL" }, contactos: { con_sintetico_001: "Contacto del centro" },
+    categorias: { cat_sintetica_001: "ANALISTA-PROGRAMADOR" }, motivos: { sustitucion: "Sustitución de personal" }, documentos: {},
+    intervinientes: { per_sol: { nombre: "Lucía Fernández Castillo", cargo: "Jefatura de Servicio", puesto_ref: "rpt-520-735" },
+      per_rat: { nombre: "Manuel García Robles", cargo: "Subdirección de Informática", puesto_ref: "otro-puesto" } },
+  };
+  const html = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega, etiquetas });
+  for (const texto of ["TRANSFORMACIÓN DIGITAL", "Contacto del centro", "ANALISTA-PROGRAMADOR", "Sustitución de personal", "Lucía Fernández Castillo · Jefatura de Servicio", "Ratificada"]) {
+    assert.ok(html.includes(texto), texto);
+  }
+  assert.doesNotMatch(html, /<dd[^>]*>(cen_sintetico_001|con_sintetico_001|cat_sintetica_001|per_sol)/u);
+  // El nombre solo vale para el mismo puesto que guarda la petición.
+  assert.doesNotMatch(html, /Manuel García Robles/u);
+  assert.match(html, /per_rat · rpt-520-001/u);
+  // Sin etiquetas, la vista sigue mostrando las referencias y el motivo vacío.
+  const sin = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega });
+  assert.match(sin, /cen_sintetico_001/u);
+  assert.match(sin, /<dt>Motivo<\/dt><dd>—<\/dd>/u);
 });

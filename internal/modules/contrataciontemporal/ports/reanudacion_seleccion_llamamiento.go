@@ -10,6 +10,7 @@ import (
 
 const (
 	AccionReanudacionSeleccionLlamamiento      = "contratacion_temporal.llamamiento.reanudar_orden"
+	AccionReanudacionSolicitudLlamamiento      = "contratacion_temporal.llamamiento.reanudar_solicitud"
 	TipoRecursoReanudacionSeleccionLlamamiento = "reanudacion_seleccion_contratacion_temporal"
 	FinalidadReanudacionSeleccionLlamamiento   = "gestionar_contratacion_temporal"
 	AudienciaReanudacionSeleccionLlamamiento   = "vec_contratacion_temporal.confirmar_alta_atestada.v1"

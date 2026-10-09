@@ -46,7 +46,7 @@ func TestHTTPEntregaNumeroMOADInvalidoYConflictoNoSonTemporales(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		m := &manejadorEntregaPeticionDesarrollo{p, repo, servicio}
+		m := &manejadorEntregaPeticionDesarrollo{p, repo, servicio, nil}
 		body := `{"peticion_ref":"peticion:centro:sintetica","version_esperada":2,"numero_expediente_moad":"2026/5487"}`
 		r := httptest.NewRequest(http.MethodPost, rutaEntregaPeticionCentro, strings.NewReader(body)).WithContext(ctx)
 		r.Header.Set("Content-Type", "application/json")
@@ -104,7 +104,7 @@ func TestHTTPEntregaGuardaDistingueSesionCaidaCancelacionYRevocacion(t *testing.
 				if err != nil {
 					t.Fatal(err)
 				}
-				m := &manejadorEntregaPeticionDesarrollo{p, repo, servicio}
+				m := &manejadorEntregaPeticionDesarrollo{p, repo, servicio, nil}
 				var registro bytes.Buffer
 				previo := slog.Default()
 				slog.SetDefault(slog.New(slog.NewJSONHandler(&registro, nil)))

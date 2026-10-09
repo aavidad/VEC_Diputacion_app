@@ -62,3 +62,31 @@ func (l ReglasLeidas) Vencimiento(ctx context.Context, clave string, inicio time
 	}
 	return Regla{}, Vencimiento{}, ErrReglaNoEncontrada
 }
+
+// CalculadoraPlazosPorConsulta la implementa una calculadora que puede dar
+// una copia para una sola consulta, que lee cada dato externo (por ejemplo, el
+// calendario de un año) una sola vez para todos sus vencimientos.
+type CalculadoraPlazosPorConsulta interface {
+	CalculadoraParaConsulta() CalculadoraPlazos
+}
+
+// ParaConsulta devuelve un resolutor para una sola consulta con la
+// calculadora de esa consulta. Sin calculadora que lo admita devuelve el
+// mismo resolutor. Los vencimientos son los mismos; no se guarda entre
+// consultas.
+func (r *Resolutor) ParaConsulta() *Resolutor {
+	if r == nil {
+		return nil
+	}
+	porConsulta, admite := r.cfg.Calculadora.(CalculadoraPlazosPorConsulta)
+	if !admite {
+		return r
+	}
+	calculadora := porConsulta.CalculadoraParaConsulta()
+	if nulo(calculadora) {
+		return r
+	}
+	copia := *r
+	copia.cfg.Calculadora = calculadora
+	return &copia
+}

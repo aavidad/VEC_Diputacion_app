@@ -346,6 +346,8 @@ type ReciboSolicitudLlamamientoBolsa struct {
 	EventoRef          string                               `json:"evento_ref"`
 	ConfirmadaEn       time.Time                            `json:"confirmada_en"`
 	Procedencia        ProcedenciaIntegracionBolsa          `json:"procedencia"`
+	// La marca autentica una apertura persistida recuperada con autorización nueva.
+	LlamamientoRecuperado bool `json:"llamamiento_recuperado,omitempty"`
 }
 
 func (r ReciboSolicitudLlamamientoBolsa) ValidarParaEn(
@@ -376,12 +378,12 @@ func (r ReciboSolicitudLlamamientoBolsa) validarDurableParaDatos(
 		!domain.ReferenciaOpacaValida(r.AuditoriaRef) ||
 		!domain.ReferenciaOpacaValida(r.EventoRef) ||
 		!instanteBolsaCanonico(r.ConfirmadaEn) ||
-		r.ConfirmadaEn.Before(contexto.SolicitadaEn) ||
+		(r.LlamamientoRecuperado != r.ConfirmadaEn.Before(contexto.SolicitadaEn)) ||
 		r.ConfirmadaEn.After(r.Procedencia.Evidencia.EmitidaEn) {
 		return ErrRespuestaBolsaNoConfiable
 	}
 	if !r.PropuestaGenerada {
-		if r.Propuesta != (ReferenciaVersionadaIntegracionBolsa{}) ||
+		if r.LlamamientoRecuperado || r.Propuesta != (ReferenciaVersionadaIntegracionBolsa{}) ||
 			r.AccionEvento != (ReferenciaVersionadaIntegracionBolsa{}) ||
 			r.LlamamientoRef != "" ||
 			r.SeleccionRef != (SeudonimoSeleccionBolsa{}) ||

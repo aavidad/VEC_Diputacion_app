@@ -165,11 +165,19 @@ function exigirEnteroNoNegativo(valor, nombre, maximo = 1_000_000) {
   return valor;
 }
 
+// Forma ISO 8601 de un instante: solo cifras, separadores, «T» y «Z» u
+// desplazamiento. Al no admitir otras letras no puede llevar un documento,
+// correo ni teléfono escrito por una persona, así que no se le pasan los
+// patrones de datos personales: las fracciones de segundo que emite Go
+// (hasta nueve cifras, sin ceros finales) casaban por azar con el de DNI
+// («…T01:26:31.07014732Z») y hacían fallar al azar el cuadro de bolsas.
+const PATRON_INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})?$/;
+
 function exigirInstanteUTC(valor, nombre) {
   if (typeof valor !== "string" || valor.trim() === "") throw new Error(`${nombre} debe ser un instante válido`);
   const parseado = Date.parse(valor);
   if (!Number.isFinite(parseado)) throw new Error(`${nombre} no es una fecha válida`);
-  if (contieneDatosPersonalesSensibles(valor)) throw new Error(`${nombre} contiene datos personales no permitidos`);
+  if (!PATRON_INSTANTE.test(valor)) throw new Error(`${nombre} no tiene formato de instante válido`);
   return valor;
 }
 
