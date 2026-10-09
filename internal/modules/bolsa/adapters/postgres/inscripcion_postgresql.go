@@ -36,6 +36,38 @@ func NuevoRepositorioInscripcionesPostgreSQL(
 	return nuevoRepositorioInscripcionesPostgreSQL(externo, interno, lectorExterno, lectorEmpleado, lectorRRHH)
 }
 
+// La superficie externa sólo recibe el ejecutor propio y su lector. Los
+// métodos internos permanecen cerrados porque no existe pool interno.
+func NuevoRepositorioInscripcionesExternoPostgreSQL(
+	externo, lectorExterno *pgxpool.Pool,
+) (*RepositorioInscripcionesPostgreSQL, error) {
+	return nuevoRepositorioInscripcionesExternoPostgreSQL(externo, lectorExterno)
+}
+
+// La superficie interna consume su ejecutor y lectores de empleado/RRHH.
+// Nunca abre el ejecutor externo ni su lector en ese proceso.
+func NuevoRepositorioInscripcionesInternoPostgreSQL(
+	interno, lectorEmpleado, lectorRRHH *pgxpool.Pool,
+) (*RepositorioInscripcionesPostgreSQL, error) {
+	return nuevoRepositorioInscripcionesInternoPostgreSQL(interno, lectorEmpleado, lectorRRHH)
+}
+
+func nuevoRepositorioInscripcionesExternoPostgreSQL(externo, lectorExterno iniciadorTransacciones) (*RepositorioInscripcionesPostgreSQL, error) {
+	if valorNulo(externo) || valorNulo(lectorExterno) || mismaFuenteInscripcion(externo, lectorExterno) {
+		return nil, inscripcion.ErrNoDisponible
+	}
+	return &RepositorioInscripcionesPostgreSQL{externo: externo, lectorExterno: lectorExterno}, nil
+}
+
+func nuevoRepositorioInscripcionesInternoPostgreSQL(interno, lectorEmpleado, lectorRRHH iniciadorTransacciones) (*RepositorioInscripcionesPostgreSQL, error) {
+	if valorNulo(interno) || valorNulo(lectorEmpleado) || valorNulo(lectorRRHH) ||
+		mismaFuenteInscripcion(interno, lectorEmpleado) || mismaFuenteInscripcion(interno, lectorRRHH) ||
+		mismaFuenteInscripcion(lectorEmpleado, lectorRRHH) {
+		return nil, inscripcion.ErrNoDisponible
+	}
+	return &RepositorioInscripcionesPostgreSQL{interno: interno, lectorEmpleado: lectorEmpleado, lectorRRHH: lectorRRHH}, nil
+}
+
 func nuevoRepositorioInscripcionesPostgreSQL(
 	externo, interno, lectorExterno, lectorEmpleado, lectorRRHH iniciadorTransacciones,
 ) (*RepositorioInscripcionesPostgreSQL, error) {

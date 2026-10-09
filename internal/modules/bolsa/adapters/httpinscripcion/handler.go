@@ -46,8 +46,9 @@ type Aplicacion interface {
 }
 
 type Handler struct {
-	preparador Preparador
-	servicio   Aplicacion
+	preparador  Preparador
+	servicio    Aplicacion
+	soloExterno bool
 }
 
 func Nuevo(preparador Preparador, servicio Aplicacion) (*Handler, error) {
@@ -57,12 +58,31 @@ func Nuevo(preparador Preparador, servicio Aplicacion) (*Handler, error) {
 	return &Handler{preparador: preparador, servicio: servicio}, nil
 }
 
+// NuevoExterno deja alcanzables únicamente las rutas propias de aspirante.
+// El proceso del portal externo no incorpora credenciales ni rutas de RRHH.
+func NuevoExterno(preparador Preparador, servicio Aplicacion) (*Handler, error) {
+	h, err := Nuevo(preparador, servicio)
+	if err != nil {
+		return nil, err
+	}
+	h.soloExterno = true
+	return h, nil
+}
+
+func NuevoInterno(preparador Preparador, servicio Aplicacion) (*Handler, error) {
+	return Nuevo(preparador, servicio)
+}
+
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.preparador == nil || h.servicio == nil || r == nil || r.URL == nil {
 		responderError(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
+	if h.soloExterno && (r.URL.Path == RutaRRHH || strings.HasPrefix(r.URL.Path, RutaRRHH+"/")) {
+		responderError(w, http.StatusNotFound, "recurso_no_encontrado")
+		return
+	}
 	if r.URL.RawPath != "" || r.URL.EscapedPath() != r.URL.Path ||
 		strings.Contains(r.URL.Path, "//") || cabeceraProhibida(r.Header) ||
 		(r.Header.Get("Accept") != "" && r.Header.Get("Accept") != "application/json") ||

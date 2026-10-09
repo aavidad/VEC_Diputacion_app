@@ -214,6 +214,37 @@ func TestInscripcionBolsaConstructorSinAutoridadCierra(t *testing.T) {
 	}
 }
 
+func TestInscripcionBolsaPreparadoresSeparanSuperficies(t *testing.T) {
+	sesion := sesionInscripcionPrueba{}
+	base := ConfiguracionPreparadorInscripcionBolsa{Autoridad: autoridadInscripcionPrueba{}, Reloj: relojContratacionTemporalDesarrollo{}}
+	externo := base
+	externo.SesionAspirante = sesion
+	pExterno, err := NuevoPreparadorInscripcionBolsaExterno(externo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/rrhh/inscripciones", nil)
+	if _, err := pExterno.PrepararLecturaRRHH(r, inscripcion.AccionListarRRHH, "", inscripcion.Filtro{Limite: 20}, "es"); !errors.Is(err, inscripcion.ErrNoDisponible) && !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+		t.Fatalf("RRHH en portal externo: %v", err)
+	}
+	externo.SesionRRHH = sesion
+	if _, err := NuevoPreparadorInscripcionBolsaExterno(externo); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("portal externo acepta sesión interna: %v", err)
+	}
+	interno := base
+	interno.SesionEmpleado, interno.SesionRRHH = sesion, sesion
+	interno.SelectorCanalAspirante = selectorCanalInscripcionPrueba{canal: "interna_corporativa"}
+	interno.AcreditadorEmpleado = acreditadorEmpleadoInscripcionPrueba{}
+	interno.RRHH = []identidadConsultaRRHHDesarrollo{{}}
+	if _, err := NuevoPreparadorInscripcionBolsaInterno(interno); err != nil {
+		t.Fatalf("preparador interno sin sesión externa: %v", err)
+	}
+	interno.SesionAspirante = sesion
+	if _, err := NuevoPreparadorInscripcionBolsaInterno(interno); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("proceso interno acepta sesión externa: %v", err)
+	}
+}
+
 func TestInscripcionBolsaLecturaNominalSinParticipacionYSuplantacion(t *testing.T) {
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
 	huella := "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
