@@ -106,6 +106,18 @@ func TestPlanVersionInscripcionExigeFuenteYAmbitoEmpleadoExactos(t *testing.T) {
 	}
 }
 
+func TestPlanVersionInscripcionPermiteResolverFuenteHistoricaSoloParaReplay(t *testing.T) {
+	plan, catalogo, ahora := planEmpleadoInscripcionPrueba(t)
+	plan.Asignaciones[0].VigenteHasta = ahora.Add(2 * time.Hour)
+	masTarde := ahora.Add(90 * time.Minute)
+	if err := plan.ValidarContraCatalogo(catalogo, masTarde); err == nil {
+		t.Fatal("primera propuesta admitió un catálogo caducado")
+	}
+	if err := plan.ValidarFuenteHistorica(catalogo, masTarde); err != nil {
+		t.Fatalf("el replay perdió su fuente inmutable: %v", err)
+	}
+}
+
 func TestPlanVersionInscripcionConservaRolYAsignacionRRHH(t *testing.T) {
 	baseEmpleado, _, ahora := planEmpleadoInscripcionPrueba(t)
 	desde, hasta := ahora.Add(-time.Hour), ahora.Add(time.Hour)
@@ -183,7 +195,8 @@ func TestPlanVersionInscripcionConservaRolYAsignacionRRHH(t *testing.T) {
 			FuenteUnidad: &FuenteUnidadInscripcion{Referencia: "fuente:unidad:sintetica", Version: 1,
 				HuellaSHA256: strings.Repeat("6", 64)},
 			Anterior: &PreimagenAsignacionInscripcion{AsignacionRef: old.Referencia(), HuellaSHA256: hold,
-				Documento: old}}}, Motivo: baseEmpleado.Motivo}
+				Documento: old}}}, Motivo: baseEmpleado.Motivo,
+		ReferenciaActo: "Resolución RRHH 123"}
 	if err := plan.ValidarContraCatalogo(catalogo, ahora); err != nil {
 		t.Fatalf("versión RRHH válida: %v", err)
 	}
