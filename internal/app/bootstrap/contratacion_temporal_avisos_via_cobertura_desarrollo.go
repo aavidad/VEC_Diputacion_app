@@ -26,6 +26,9 @@ func configurarAvisosViaCoberturaDesarrollo(
 	reglasBolsa *reglas.Resolutor,
 	fuente *fuenteConstituidaRRHHDesarrollo,
 ) {
+	if autoridad != nil && fuente != nil {
+		autoridad.situacionBolsaCobertura.fijar(situacionBolsaCoberturaDesarrollo{fuente: fuente})
+	}
 	if autoridad == nil || autoridad.presentadorCobertura == nil || reglasBolsa == nil || fuente == nil {
 		return
 	}

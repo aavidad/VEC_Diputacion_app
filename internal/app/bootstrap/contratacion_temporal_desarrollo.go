@@ -95,7 +95,8 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	plazosOfertasBolsa                               *calculadoraPlazoOfertaDesarrollo
 	// presentadorCobertura permite activar después los avisos de la vía de
 	// cobertura, cuando Bolsa y las reglas de ejemplo ya están compuestas.
-	presentadorCobertura avisosViaCoberturaConfigurable
+	presentadorCobertura    avisosViaCoberturaConfigurable
+	situacionBolsaCobertura *situacionBolsaCoberturaFijable // se fija con las bolsas constituidas
 	// personalizacionB7 se enlaza con la fuente de bolsas constituidas cuando
 	// la composición raíz la crea; el correo B7 la usa para los marcadores.
 	personalizacionB7 *fuentePersonalizacionB7
@@ -1291,6 +1292,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialUsuariosImagen:                           alta.postgresql.materialUsuariosImagen,
 		materialAspirantes:                               alta.postgresql.materialAspirantes,
 		presentadorCobertura:                             coberturaReal.presentador,
+		situacionBolsaCobertura:                          coberturaReal.situacionBolsa,
 		firmaDocumento:                                   firmaDocumento,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {

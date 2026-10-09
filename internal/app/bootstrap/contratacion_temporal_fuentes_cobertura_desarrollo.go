@@ -91,6 +91,9 @@ type fuenteComprobacionCoberturaDesarrollo struct {
 	reloj          ports.Reloj
 	registros      []registroCoberturaSinteticaDesarrollo
 	catalogo       *catalogosAltaContratacionTemporalDesarrollo
+	// bolsa responde las comprobaciones de la vía de bolsa con la situación
+	// real de Bolsa; sin enlace quedan «no consta».
+	bolsa *situacionBolsaCoberturaFijable
 }
 
 func (f *fuenteComprobacionCoberturaDesarrollo) ConsultarCobertura(
@@ -112,7 +115,7 @@ func (f *fuenteComprobacionCoberturaDesarrollo) ConsultarCobertura(
 		return ports.ResultadoConsultaCobertura{}, err
 	}
 	resultado, existe := f.resultadoPara(
-		solicitud.CategoriaRef, solicitud.Periodo, solicitud.ViaClave,
+		ctx, solicitud.CategoriaRef, solicitud.Periodo, solicitud.ViaClave,
 		solicitud.Comprobacion.Clave, solicitud.Comprobacion.Procedencia.Clave,
 	)
 	if !existe {
@@ -226,6 +229,7 @@ func comprobacionFuenteCoberturaDesarrolloValida(
 }
 
 func (f *fuenteComprobacionCoberturaDesarrollo) resultadoPara(
+	ctx context.Context,
 	categoriaRef string,
 	periodo domain.PeriodoPrevisto,
 	viaClave domain.ClaveCatalogo,
@@ -244,7 +248,16 @@ func (f *fuenteComprobacionCoberturaDesarrollo) resultadoPara(
 			return registro.resultado, true
 		}
 	}
-	return resultadoGenericoCoberturaDesarrolloConCatalogo(f.catalogo, categoriaRef, viaClave, comprobacion, procedencia)
+	resultado, existe := resultadoGenericoCoberturaDesarrolloConCatalogo(f.catalogo, categoriaRef, viaClave, comprobacion, procedencia)
+	if !existe || procedencia != procedenciaBolsaCoberturaCT {
+		return resultado, existe
+	}
+	if situacion, leida := f.bolsa.situacion(ctx, categoriaRef); leida {
+		if desdeBolsa, respondida := resultadoBolsaCobertura(situacion, comprobacion); respondida {
+			return desdeBolsa, true
+		}
+	}
+	return resultado, existe
 }
 
 // resultadoGenericoCoberturaDesarrolloConCatalogo responde por cualquier categoría del
@@ -448,6 +461,7 @@ func nuevasDependenciasFuentesCoberturaDesarrollo(
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
 	gobierno cobertura.ResolutorGobiernoOperacionCobertura,
+	bolsa *situacionBolsaCoberturaFijable,
 	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
 ) (dependenciasFuentesCoberturaDesarrollo, error) {
 	catalogo, errCatalogo := catalogoAnalisisDesarrollo(catalogos...)
@@ -588,6 +602,7 @@ func nuevasDependenciasFuentesCoberturaDesarrollo(
 			reloj:          reloj,
 			registros:      registrosCoberturaSinteticosDesarrollo(catalogo.opcionesAnalisis().viasCoberturaVigentes()),
 			catalogo:       catalogo,
+			bolsa:          bolsa,
 		},
 		verificador: &verificadorRespuestaCoberturaDesarrollo{
 			presentadorAutoridadFuenteAnalisisDesarrollo: presentadorVerificador,
