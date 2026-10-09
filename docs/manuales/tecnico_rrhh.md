@@ -38,6 +38,14 @@ Pulse «Bolsas de trabajo» **(4)** en el menú lateral de Inicio. Se abre «Bol
 
 Para volver a Inicio, pulse «Inicio» en el menú lateral o use el botón Atrás del navegador.
 
+## Ver los integrantes de una bolsa
+
+En «Bolsas de trabajo activas», pulse la cifra de la columna «Disponibles» de la bolsa que necesita. Se abre «Candidatos de la bolsa» con la situación «Disponible» ya elegida y la relación ordenada de esas personas. En el ejemplo, ENCARGADO muestra 16 personas disponibles.
+
+![Personas disponibles de la bolsa ENCARGADO, con el recuento por situación y la relación ordenada.](img/rrhh-bolsa-disponibles.webp)
+
+Use «Buscar» para localizar a una persona por nombre o documento y «Situación» para consultar otro estado. Pulse «Filtrar» para aplicar los cambios y «Limpiar» para quitarlos.
+
 ## Abrir la lista general de peticiones · 5
 
 En Inicio, pulse «Ver todas las peticiones» **(5)** en la cabecera de «Lo pendiente». Se abre la lista con búsqueda y los filtros «Fase» y «Mostrar». Cada fila muestra el centro y la categoría por su nombre, además de la fase, el estado y el plazo. El día de la comprobación había 72 peticiones, 46 de ellas en «Solicitud».
@@ -46,14 +54,14 @@ En Inicio, pulse «Ver todas las peticiones» **(5)** en la cabecera de «Lo pen
 
 ## Recibir una petición ratificada del centro
 
-1. Abra [Peticiones de los centros](https://vec.cidonia.cloud/portal-empleado/peticiones-centro/?lang=es&vista=rrhh) con el acceso de RRHH. Busque la petición con estado **Ratificada** y pulse **Revisar**.
+1. Abra [Peticiones de los centros](https://vec.cidonia.cloud/portal-empleado/peticiones-centro/?lang=es&vista=rrhh) con el acceso de RRHH. Las peticiones ratificadas que aún no tienen expediente aparecen con el estado de entrega **Pendiente de preparación**. Localice la suya por la fecha y hora de la columna **Ratificación** y pulse **Revisar**. Las que ya tienen expediente muestran **Expediente creado** y su número.
 2. Compruebe centro, categoría, grupo, motivo, período, número de personas y jornada. Compruebe también si el centro aportó una retención de crédito o documentos. En el ejemplo, el centro pidió una persona de la categoría Administrativo, a jornada completa, y no aportó retención.
 3. Pulse **Crear expediente en RRHH**. En la revisión escriba el número de expediente asignado por el circuito de gestión, marque la confirmación expresa y pulse **Crear expediente en RRHH** una sola vez. Si no dispone de ese número, deténgase.
-4. Guarde el número visible y el recibo. Use **Abrir el expediente** para seguir con el mismo caso. En el ejemplo se creó `2026/93001`.
+4. La pantalla muestra el recibo del alta. Anote dos datos: el **Número visible**, que es el número del expediente, y la **Referencia del recibo**, que sirve para comprobar el alta si algo falla. Use **Abrir el expediente** para seguir con el mismo caso. En el ejemplo se creó `2026/93001`.
 
-![Bandeja de peticiones de los centros. La primera fila espera la revisión de RRHH.](img/rrhh-20261009-centros.webp)
+![Bandeja de peticiones de los centros. La primera fila está Pendiente de preparación; las demás ya tienen expediente.](img/rrhh-20261009-centros.webp)
 
-![Recibo del alta, con número de expediente y fecha de confirmación.](img/rrhh-20261009-recibo-alta.webp)
+![Parte del recibo del alta con el Número visible y la Referencia del recibo.](img/rrhh-20261009-recibo-alta.webp)
 
 ## Registrar el análisis de RRHH
 

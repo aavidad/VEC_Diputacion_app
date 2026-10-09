@@ -21,7 +21,9 @@ En el recorrido mostrado, la pantalla decía **Sin retención de crédito aporta
 
 Si los datos coinciden, pulse **Bandeja de ratificación**. Escriba en **Motivo de la ratificación** qué ha revisado. Marque **Confirmo expresamente esta operación** y pulse **Confirmar ratificación de esta petición** una sola vez.
 
-![Revisión final, motivo, casilla y botón de confirmación](img/ratificador-03-confirmar.webp)
+![Datos que se revisan antes de ratificar y campo Motivo de la ratificación](img/ratificador-03-confirmar.webp)
+
+![Casilla de confirmación expresa y botón Confirmar ratificación de esta petición](img/ratificador-03b-confirmar.webp)
 
 La pantalla muestra **Operación registrada** y el estado **Ratificada**. Recursos Humanos continúa desde su bandeja; el centro no tiene que enviar la petición otra vez.
 

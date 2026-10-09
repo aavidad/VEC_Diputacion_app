@@ -8,8 +8,8 @@ Guías basadas en las acciones comprobadas en la web los días 8 y 9 de octubre 
 | Centro que pide personal | [Petición de personal](centro.md) | Preparar, revisar y presentar una petición; consultar su estado. |
 | Persona que ratifica | [Ratificación](ratificador.md) | Revisar la petición de otra persona y ratificarla. |
 | Técnico de Recursos Humanos | [Tramitación](tecnico_rrhh.md) | Recibir la petición, tramitar el expediente y gestionar el llamamiento. |
-| Responsable de Recursos Humanos | [Consulta del expediente](responsable_rrhh.md) | Revisar los datos y el historial disponibles. |
-| Intervención | [Alcance pendiente](intervencion.md) | Sin un trámite propio completado en este recorrido. |
+| Responsable de Recursos Humanos | [Consulta del expediente](responsable_rrhh.md) | Revisar los datos y el historial; descargar los documentos en PDF y Word en la fase de nombramiento. |
+| Intervención | [Alcance pendiente](intervencion.md) | Sin trámite propio en este recorrido. |
 | Administración del portal y sistemas | [Alcance pendiente](sistemas.md) | Sin un recorrido propio comprobado. |
 
-Las guías con recorrido incluyen solo acciones que funcionaron desde sus pantallas. Las de Intervención y sistemas indican que su recorrido propio está pendiente. La firma, la resolución y los pasos posteriores quedan fuera de las instrucciones actuales. Las incidencias y los recorridos que faltan se recogen en [PENDIENTES.md](PENDIENTES.md).
+Las guías con recorrido incluyen solo acciones que funcionaron desde sus pantallas. Las de Intervención y sistemas indican que su recorrido propio está pendiente. La firma, la resolución y los pasos posteriores quedan fuera de las instrucciones actuales. Los documentos que se descargan son borradores sin firmar. Las incidencias y los recorridos que faltan se recogen en [PENDIENTES.md](PENDIENTES.md).

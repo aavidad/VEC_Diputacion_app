@@ -12,11 +12,11 @@ En «Peticiones de su centro» pulse «Nueva petición».
 
 ## 2. Completar la petición
 
-En «Centro y necesidad», elija su centro, el contacto, la categoría, el grupo o subgrupo y el motivo. El ejemplo usa **ADMINISTRATIVO**, **Grupo C1** y **Acumulación de tareas**. Escriba en «Detalle de la necesidad» qué apoyo necesita y para qué. El ejemplo pidió apoyo administrativo para tramitar expedientes durante el periodo indicado.
+En «Centro y necesidad», elija su centro, el contacto, la categoría, el grupo o subgrupo y el motivo. El ejemplo usa **ADMINISTRATIVO**, **Grupo C1** y **Acumulación de tareas**. Escriba en «Detalle de la necesidad» qué apoyo necesita y para qué. En el ejemplo: apoyo administrativo para tramitar los expedientes de subvenciones a municipios del último trimestre, una persona a jornada completa.
 
-Indique las fechas previstas de inicio y fin. Complete «¿Existe retención de crédito?» de acuerdo con los datos de su centro; en el recorrido no se aportó una retención. Revise las observaciones y el apartado de documentación. Pulse «Revisar petición».
+Indique las fechas previstas de inicio y fin. Se escriben como día, mes y año (por ejemplo, 02/11/2026) o se eligen en el calendario. En «Retención de crédito», responda **Sí** o **No** a «¿Existe retención de crédito?». Si marca **Sí**, la pantalla pide el número o referencia, la fecha, el importe exacto y el documento de la retención ya incorporado. En el ejemplo se marcó **No**. Revise las observaciones y el apartado de documentación. Pulse «Revisar petición».
 
-![Formulario cumplimentado. Encuadre de los campos y el botón Revisar petición.](img/centro-formulario.webp)
+![Formulario cumplimentado: centro, categoría, motivo, detalle, fechas, retención de crédito y botón Revisar petición.](img/centro-formulario.webp)
 
 En una pantalla estrecha, los campos se colocan uno debajo de otro:
 
