@@ -18,6 +18,7 @@ No conecta al servidor principal ni publica nada. --keep conserva el scratch.
 """
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import hashlib
 import json
@@ -159,9 +160,20 @@ class Clone:
             self.seller = None
 
 
-def build_plan(clone, phase):
+def build_plan(clone, phase, ruta=None):
     src, dst, additions, prefn, config, group, facade = PHASES[phase]
-    login = f"vec_aut67_ensayo_v{dst}"
+    if phase == 6:
+        if ruta == "inscripcion_primero":
+            src, dst, plan_version = 8, 9, 6
+        elif ruta == "bolsa_primero":
+            src, dst, plan_version = 9, 10, 7
+        else:
+            raise ValueError("ruta AUT67 ausente o inválida")
+        ruta_field = f"'ruta','{ruta}',"
+    else:
+        plan_version = phase
+        ruta_field = ""
+    login = f"vec_aut67_ensayo_p{phase}_v{dst}"
     query = r'''
 WITH tm AS (
  SELECT to_char((clock_timestamp()-interval '5 seconds') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') prep,
@@ -210,19 +222,20 @@ WITH tm AS (
    '{publicada_en}',to_jsonb(tm.prep)) destination
  FROM r,tm
 )
-SELECT jsonb_build_object('version',@PHASE@,'operacion_ref','pmf_'||replace(gen_random_uuid()::text,'-',''),
+SELECT jsonb_build_object('version',@PHASE@,@RUTA_FIELD@'operacion_ref','pmf_'||replace(gen_random_uuid()::text,'-',''),
  'preparado_en',tm.prep,'caduca_en',tm.cad,'rol_origen_sha256',r.huella_sha256,
  'control_revision_esperada',ctl.revision,'control_huella_sha256',ctl.huella_sha256,
  'catalogo_sha256',cat.sha,'rol_destino_doc',doc.destination,
  'asignaciones',targets.asig)::text
 FROM tm,r,ctl,cat,targets,doc;
 '''
-    for token, value in {"@SRC@": src, "@DST@": dst, "@PHASE@": phase,
-                         "@ADDITIONS@": additions, "@LOGIN@": login}.items():
+    for token, value in {"@SRC@": src, "@DST@": dst, "@PHASE@": plan_version,
+                         "@RUTA_FIELD@": ruta_field, "@ADDITIONS@": additions,
+                         "@LOGIN@": login}.items():
         query = query.replace(token, str(value))
     plan = clone.psql(query)
     doc = json.loads(plan)
-    if doc["version"] != phase or len(doc["asignaciones"]) != 2:
+    if doc["version"] != plan_version or len(doc["asignaciones"]) != 2:
         raise AssertionError("plan sintético incompleto")
     plan_sha = sha256(plan.encode())
     pre_sha = clone.psql("BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;"
@@ -257,15 +270,16 @@ def invoke(clone, login, facade, plan, plan_sha):
     return json.loads(next(line for line in result.splitlines() if line.startswith("{")))
 
 
-def snapshot(clone):
-    return json.loads(clone.psql("""
+def snapshot(clone, ruta):
+    src, dst = (8, 9) if ruta == "inscripcion_primero" else (9, 10)
+    return json.loads(clone.psql(f"""
       SELECT jsonb_build_object(
-       'rol_v10',(SELECT count(*) FROM vec_autorizacion.version_rol WHERE version_rol_ref='rol:administracion_perfiles:v10'),
+       'rol_destino',(SELECT count(*) FROM vec_autorizacion.version_rol WHERE version_rol_ref='rol:administracion_perfiles:v{dst}'),
        'historia_rol',(SELECT count(*) FROM vec_autorizacion.version_rol WHERE rol_id='administracion_perfiles'),
-       'catalogo_v9',(SELECT count(*) FROM vec_autorizacion.catalogo_accion_nominal_v1 WHERE version_rol_ref='rol:administracion_perfiles:v9'),
-       'catalogo_v10',(SELECT count(*) FROM vec_autorizacion.catalogo_accion_nominal_v1 WHERE version_rol_ref='rol:administracion_perfiles:v10'),
-       'acciones_inscripcion',(SELECT count(*) FROM vec_autorizacion.catalogo_accion_nominal_v1 WHERE version_rol_ref='rol:administracion_perfiles:v10' AND accion_ref LIKE 'accion:administracion.perfiles.version_inscripcion.%'),
-       'asignaciones',(SELECT jsonb_agg(jsonb_build_object('id',a.asignacion_id,'version',a.version) ORDER BY a.asignacion_id) FROM vec_autorizacion.asignacion_perfil_actual q JOIN vec_autorizacion.asignacion_perfil a USING(perfil_activo_ref,asignacion_ref) WHERE a.version_rol_ref='rol:administracion_perfiles:v10'),
+       'catalogo_origen',(SELECT count(*) FROM vec_autorizacion.catalogo_accion_nominal_v1 WHERE version_rol_ref='rol:administracion_perfiles:v{src}'),
+       'catalogo_destino',(SELECT count(*) FROM vec_autorizacion.catalogo_accion_nominal_v1 WHERE version_rol_ref='rol:administracion_perfiles:v{dst}'),
+       'acciones_inscripcion',(SELECT count(*) FROM vec_autorizacion.catalogo_accion_nominal_v1 WHERE version_rol_ref='rol:administracion_perfiles:v{dst}' AND accion_ref LIKE 'accion:administracion.perfiles.version_inscripcion.%'),
+       'asignaciones',(SELECT jsonb_agg(jsonb_build_object('id',a.asignacion_id,'version',a.version) ORDER BY a.asignacion_id) FROM vec_autorizacion.asignacion_perfil_actual q JOIN vec_autorizacion.asignacion_perfil a USING(perfil_activo_ref,asignacion_ref) WHERE a.version_rol_ref='rol:administracion_perfiles:v{dst}'),
        'historia_asignaciones',(SELECT count(*) FROM vec_autorizacion.asignacion_perfil a
          WHERE a.asignacion_id IN ('bootstrap_05065c85da8dc4d75e5bc16016238e1a',
                                     'bootstrap_ce19aba884538a2d376e3686df75e218')),
@@ -281,11 +295,76 @@ def snapshot(clone):
     """))
 
 
+def race_v8(clone):
+    # Dos LOGIN distintos, cada uno con su aprobación sintética exacta. Ambos
+    # compiten por v8 bajo SERIALIZABLE y el candado de continuidad ADMIN.
+    b_plan, b_sha, b_login, b_facade, _ = build_plan(clone, 5)
+    i_plan, i_sha, i_login, i_facade, _ = build_plan(clone, 6, "inscripcion_primero")
+    barrier = threading.Barrier(2)
+
+    def attempt(login, facade, plan, digest):
+        barrier.wait(timeout=10)
+        try:
+            return invoke(clone, login, facade, plan, digest)
+        except RuntimeError as error:
+            return {"estado": "error_sql", "detalle": str(error).splitlines()[0][:240]}
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        b_future = pool.submit(attempt, b_login, b_facade, b_plan, b_sha)
+        i_future = pool.submit(attempt, i_login, i_facade, i_plan, i_sha)
+        outcomes = {"bolsa_primero": b_future.result(),
+                    "inscripcion_primero": i_future.result()}
+    winners = [name for name, result in outcomes.items() if result.get("estado") == "permitido"]
+    if len(winners) != 1:
+        raise AssertionError(f"carrera v8 sin ganador único: {outcomes}")
+    winner = winners[0]
+    loser = next(name for name in outcomes if name != winner)
+    loser_result = outcomes[loser]
+    if loser_result.get("estado") == "error_sql":
+        if "could not serialize access" not in loser_result.get("detalle", ""):
+            raise AssertionError(f"perdedor con error ajeno a concurrencia: {loser_result}")
+    elif loser_result.get("estado") != "denegado":
+        raise AssertionError(f"perdedor sin denegación nominal: {loser_result}")
+    state = json.loads(clone.psql("""
+      SELECT jsonb_build_object(
+       'rol_v9',(SELECT count(*) FROM vec_autorizacion.version_rol
+         WHERE version_rol_ref='rol:administracion_perfiles:v9'),
+       'catalogo_v9',(SELECT count(*) FROM vec_autorizacion.catalogo_accion_nominal_v1
+         WHERE version_rol_ref='rol:administracion_perfiles:v9'),
+       'acciones_bolsa',(SELECT count(*) FROM vec_autorizacion.catalogo_accion_nominal_v1
+         WHERE version_rol_ref='rol:administracion_perfiles:v9'
+          AND accion_ref LIKE 'accion:administracion.perfiles.version_bolsa.%'),
+       'acciones_inscripcion',(SELECT count(*) FROM vec_autorizacion.catalogo_accion_nominal_v1
+         WHERE version_rol_ref='rol:administracion_perfiles:v9'
+          AND accion_ref LIKE 'accion:administracion.perfiles.version_inscripcion.%'),
+       'aid_v6',(SELECT count(*) FROM vec_autorizacion.asignacion_perfil_actual q
+         JOIN vec_autorizacion.asignacion_perfil a USING(perfil_activo_ref,asignacion_ref)
+         WHERE a.version_rol_ref='rol:administracion_perfiles:v9' AND a.version=6),
+       'aut64_registros',(SELECT count(*) FROM vec_autorizacion.registro_mantenimiento_version_bolsa_admin_v1),
+       'aut67_registros',(SELECT count(*) FROM vec_autorizacion.registro_mantenimiento_version_inscripcion_admin_v1)
+      )::text;
+    """))
+    expected_b = 2 if winner == "bolsa_primero" else 0
+    expected_i = 2 if winner == "inscripcion_primero" else 0
+    if (state["rol_v9"] != 1 or state["catalogo_v9"] != 24 or state["aid_v6"] != 2
+            or state["acciones_bolsa"] != expected_b
+            or state["acciones_inscripcion"] != expected_i
+            or state["aut64_registros"] != expected_b // 2
+            or state["aut67_registros"] != expected_i // 2):
+        raise AssertionError(f"carrera v8 dejó mezcla o duplicado: {state}")
+    return {"resultado": "AUT67-CARRERA-V8-OK", "ganador": winner,
+            "perdedor": loser, "estado_perdedor": loser_result.get("estado"),
+            "detalle_perdedor": loser_result.get("detalle"),
+            "preimagen_final": state}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tar", type=Path, required=True)
     parser.add_argument("--scratch", type=Path, required=True)
     parser.add_argument("--source-root", type=Path, default=SOURCE_ROOT)
+    parser.add_argument("--ruta", choices=("inscripcion_primero", "bolsa_primero"), required=True)
+    parser.add_argument("--carrera-v8", action="store_true")
     for name in MIGRATIONS:
         parser.add_argument(f"--{name}", type=Path)
     parser.add_argument("--keep", action="store_true")
@@ -327,17 +406,22 @@ def main():
             clone.apply(frozen[name])
             mark_applied(name)
         clone.start_seller()
-        for phase in (4, 5):
+        for phase in ((4,) if args.carrera_v8 or args.ruta == "inscripcion_primero" else (4, 5)):
             plan, plan_sha, login, facade, _ = build_plan(clone, phase)
             result = invoke(clone, login, facade, plan, plan_sha)
             if result.get("estado") != "permitido" or result.get("replay") is not False:
                 raise AssertionError(f"fase {phase} falló: {result.get('codigo')}")
         clone.apply(frozen["aut67"])
         mark_applied("aut67")
-        # La instalación estructural conserva v9 y no concede CONNECT.
+        # La instalación estructural conserva v8 o v9 y no concede CONNECT.
         clone.apply(structure)
         mark_applied("estructura")
-        plan, plan_sha, login, facade, doc = build_plan(clone, 6)
+        if args.carrera_v8:
+            race = race_v8(clone)
+            race["sql_ejecutado"] = manifest
+            print(json.dumps(race, sort_keys=True))
+            return
+        plan, plan_sha, login, facade, doc = build_plan(clone, 6, args.ruta)
         before_ids = sorted(x["asignacion_origen_ref"].split(":")[1] for x in doc["asignaciones"])
         first = invoke(clone, login, facade, plan, plan_sha)
         replay = invoke(clone, login, facade, plan, plan_sha)
@@ -349,31 +433,39 @@ def main():
                                   f"WHERE auditoria_ref='{denied_ref}' "
                                   "AND tipo_registro='intento_mantenimiento_perfil_fijo_admin' "
                                   "AND resultado='denegado'")
-        state = snapshot(clone)
-        expected_ids = [{"id": x, "version": 7} for x in before_ids]
+        state = snapshot(clone, args.ruta)
+        dest_version = 9 if args.ruta == "inscripcion_primero" else 10
+        aid_version = 6 if args.ruta == "inscripcion_primero" else 7
+        catalogo_origen = 22 if args.ruta == "inscripcion_primero" else 24
+        expected_ids = [{"id": x, "version": aid_version} for x in before_ids]
         if (first.get("estado") != "permitido" or first.get("replay") is not False
                 or replay.get("estado") != "permitido" or replay.get("replay") is not True
                 or first.get("recibo") != replay.get("recibo")
                 or denied.get("estado") != "denegado" or denied.get("recibo") is not None
                 or denied_audit != "1"
-                or state["rol_v10"] != 1 or state["historia_rol"] != 10
-                or state["catalogo_v9"] != 24 or state["catalogo_v10"] != 26
+                or (first.get("recibo") or {}).get("ruta") != args.ruta
+                or (first.get("recibo") or {}).get("esquema") != f"vec.admin.mantenimiento-fijo.v{doc['version']}"
+                or state["rol_destino"] != 1 or state["historia_rol"] != dest_version
+                or state["catalogo_origen"] != catalogo_origen
+                or state["catalogo_destino"] != catalogo_origen + 2
                 or state["acciones_inscripcion"] != 2 or state["asignaciones"] != expected_ids
-                or state["historia_asignaciones"] != 14
+                or state["historia_asignaciones"] != 2 * aid_version
                 or state["registros"] != 1 or state["efectos"] != 1
                 or state["sellos_asignacion"] != 2):
             raise AssertionError("efecto, replay, denegación o CAS divergente")
         clone.stop()
         clone.start()
         clone.start_seller()
-        recovered = snapshot(clone)
+        recovered = snapshot(clone, args.ruta)
         after_restart = invoke(clone, login, facade, plan, plan_sha)
         if (recovered != state or after_restart.get("estado") != "permitido"
                 or after_restart.get("replay") is not True
                 or after_restart.get("recibo") != first.get("recibo")):
             raise AssertionError("recuperación tras reinicio divergente")
-        print(json.dumps({"resultado": "AUT67-ENSAYO-OK", "sql_ejecutado": manifest,
-                          "rol_v10": state["rol_v10"], "catalogo_v10": state["catalogo_v10"],
+        print(json.dumps({"resultado": "AUT67-ENSAYO-OK", "ruta": args.ruta,
+                          "sql_ejecutado": manifest,
+                          "rol_destino": state["rol_destino"],
+                          "catalogo_destino": state["catalogo_destino"],
                           "dos_aid_cas_v7": state["asignaciones"], "registros": state["registros"],
                           "efectos_auditados": state["efectos"], "sellos_asignacion": state["sellos_asignacion"],
                           "recibo_sha256": sha256(json.dumps(first["recibo"], sort_keys=True, separators=(",", ":")).encode()),

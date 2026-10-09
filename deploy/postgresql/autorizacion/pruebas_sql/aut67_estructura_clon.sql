@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Sobre clon v9, después de AUT66, AD231 y AUT67. No publica v10.
+-- Sobre clon v8(I primero) o v9(B primero), después de instalar AUT67.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
 DO $prueba$
@@ -8,20 +8,30 @@ DECLARE
   concesiones jsonb;
   grupo oid;
   fachada oid;
+  catalogo_esperado integer;
+  asignacion_esperada integer;
+  destino_ref text;
 BEGIN
   SELECT * INTO STRICT origen FROM vec_autorizacion.version_rol
-   WHERE version_rol_ref = 'rol:administracion_perfiles:v9';
-  IF origen.rol_id <> 'administracion_perfiles' OR origen.version <> 9
+   WHERE rol_id = 'administracion_perfiles' ORDER BY version DESC LIMIT 1;
+  IF origen.version = 8 THEN
+    catalogo_esperado := 22; asignacion_esperada := 5;
+    destino_ref := 'rol:administracion_perfiles:v9';
+  ELSIF origen.version = 9 THEN
+    catalogo_esperado := 24; asignacion_esperada := 6;
+    destino_ref := 'rol:administracion_perfiles:v10';
+  ELSE RAISE EXCEPTION 'AUT67: versión origen inesperada'; END IF;
+  IF origen.rol_id <> 'administracion_perfiles'
    OR origen.huella_sha256 IS DISTINCT FROM
       encode(sha256(convert_to(vec_autorizacion.canon_version_rol_admin_v1(origen.documento), 'UTF8')), 'hex')
    OR EXISTS (SELECT 1 FROM vec_autorizacion.version_rol
-               WHERE version_rol_ref = 'rol:administracion_perfiles:v10')
+               WHERE version_rol_ref = destino_ref)
    OR (SELECT count(*) FROM vec_autorizacion.catalogo_accion_nominal_v1
-        WHERE version_rol_ref = origen.version_rol_ref) <> 24
+        WHERE version_rol_ref = origen.version_rol_ref) <> catalogo_esperado
    OR (SELECT count(*) FROM vec_autorizacion.asignacion_perfil_actual q
         JOIN vec_autorizacion.asignacion_perfil a USING (perfil_activo_ref, asignacion_ref)
-        WHERE a.version_rol_ref = origen.version_rol_ref AND a.version = 6) <> 2
-  THEN RAISE EXCEPTION 'AUT67: la instalación alteró la preimagen ADMIN v9'; END IF;
+        WHERE a.version_rol_ref = origen.version_rol_ref AND a.version = asignacion_esperada) <> 2
+  THEN RAISE EXCEPTION 'AUT67: la instalación alteró la preimagen ADMIN'; END IF;
 
   concesiones := vec_autorizacion.concesiones_version_inscripcion_admin_v1();
   IF jsonb_array_length(concesiones) <> 2
