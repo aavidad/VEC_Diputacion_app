@@ -2,9 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/binary"
-	"encoding/json"
 	"maps"
 	"slices"
 	"time"
@@ -207,8 +204,7 @@ func (d *decisorLecturaActualInscripcion) DecidirLecturaActual(ctx context.Conte
 	if !hasta.After(ahoraFinal) {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
-	revision := revisionLecturaInscripcion(evaluacion)
-	if revision == 0 {
+	if !revisionHuellaLecturaInscripcionCoincide(evaluacion.RevisionPermisos, evaluacion.HuellaInstantaneaSHA256) {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
 	return DecisionLecturaActualInscripcionBolsa{
@@ -216,7 +212,8 @@ func (d *decisorLecturaActualInscripcion) DecidirLecturaActual(ctx context.Conte
 		SesionRef: a.SesionRef, AutenticacionRef: a.AutenticacionRef,
 		CertificadoHuellaSHA256: a.CertificadoHuellaSHA256, Canal: a.Canal,
 		Accion: accion, RecursoRef: referencia, Finalidad: descriptor.Finalidad, CorrelacionRef: correlacionRef,
-		RevisionPermisos: revision, Campos: slices.Clone(descriptor.Campos), Filtro: filtro,
+		RevisionPermisos: evaluacion.RevisionPermisos, HuellaInstantaneaSHA256: evaluacion.HuellaInstantaneaSHA256,
+		Campos: slices.Clone(descriptor.Campos), Filtro: filtro,
 		EmitidaEn: evaluacion.EvaluadaEn, ValidaHasta: hasta,
 	}, nil
 }
@@ -241,23 +238,4 @@ func concesionLecturaInscripcionExacta(i vecdomain.InstantaneaAutorizacion, d De
 		coincidencias++
 	}
 	return coincidencias == 1
-}
-
-func revisionLecturaInscripcion(r vecdomain.ResultadoLecturaActualAutorizacionV3) uint64 {
-	canon, err := json.Marshal(struct {
-		AsignacionRef     string `json:"asignacion_ref"`
-		AsignacionVersion int    `json:"asignacion_version"`
-		VersionRolRef     string `json:"version_rol_ref"`
-		Control           uint64 `json:"control"`
-		Politicas         uint64 `json:"politicas"`
-	}{r.AsignacionRef, r.AsignacionVersion, r.VersionRolRef, r.RevisionControlVersionRol, r.RevisionCatalogoPoliticas})
-	if err != nil {
-		return 0
-	}
-	h := sha256.Sum256(canon)
-	revision := binary.BigEndian.Uint64(h[:8])
-	if revision == 0 {
-		return binary.BigEndian.Uint64(h[8:16])
-	}
-	return revision
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"slices"
@@ -32,6 +33,7 @@ type DecisionLecturaActualInscripcionBolsa struct {
 	CertificadoHuellaSHA256, Canal, Accion, RecursoRef, Finalidad string
 	CorrelacionRef                                                string
 	RevisionPermisos                                              uint64
+	HuellaInstantaneaSHA256                                       string
 	Campos                                                        []string
 	Filtro                                                        inscripcion.Filtro
 	EmitidaEn, ValidaHasta                                        time.Time
@@ -130,7 +132,8 @@ func (a *autoridadNominalInscripcionBolsa) CapturarLectura(ctx context.Context, 
 		decision.CuentaRef != v.CuentaRef || decision.SesionRef != v.SesionRef || decision.AutenticacionRef != v.AutenticacionRef ||
 		decision.CertificadoHuellaSHA256 != acreditacion.CertificadoHuellaSHA256 ||
 		decision.Accion != accion || decision.RecursoRef != recurso || decision.Filtro != filtro ||
-		decision.RevisionPermisos == 0 || decision.Finalidad != descriptor.Finalidad ||
+		decision.RevisionPermisos == 0 || !revisionHuellaLecturaInscripcionCoincide(decision.RevisionPermisos, decision.HuellaInstantaneaSHA256) ||
+		decision.Finalidad != descriptor.Finalidad ||
 		!vecdomain.ReferenciaCorrelacionAutorizacionV2Valida(decision.CorrelacionRef) ||
 		!slices.Equal(decision.Campos, descriptor.Campos) || decision.EmitidaEn.IsZero() || decision.EmitidaEn.After(ahora) ||
 		!decision.ValidaHasta.After(ahora) || decision.ValidaHasta.After(ahora.Add(30*time.Second)) ||
@@ -144,8 +147,17 @@ func (a *autoridadNominalInscripcionBolsa) CapturarLectura(ctx context.Context, 
 		CertificadoHuellaSHA256: decision.CertificadoHuellaSHA256, Canal: decision.Canal,
 		Accion: accion, RecursoRef: recurso, Finalidad: decision.Finalidad,
 		CorrelacionRef: decision.CorrelacionRef, RevisionPermisos: decision.RevisionPermisos,
-		Filtro: filtro, EmitidaEn: decision.EmitidaEn, ValidaHasta: decision.ValidaHasta,
+		HuellaInstantaneaSHA256: decision.HuellaInstantaneaSHA256,
+		Filtro:                  filtro, EmitidaEn: decision.EmitidaEn, ValidaHasta: decision.ValidaHasta,
 	}, nil
+}
+
+func revisionHuellaLecturaInscripcionCoincide(revision uint64, huella string) bool {
+	if revision == 0 || !huellaCertificadoInscripcionValida(huella) {
+		return false
+	}
+	b, err := hex.DecodeString(huella)
+	return err == nil && binary.BigEndian.Uint64(b[:8]) == revision
 }
 
 func accionLecturaInscripcion(a string) bool {

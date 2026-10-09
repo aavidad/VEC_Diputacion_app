@@ -82,13 +82,26 @@ func TestDecisorLecturaActualInscripcionPermisoVigenteAntesDeBolsa(t *testing.T)
 	}
 	decision, err := d.DecidirLecturaActual(context.Background(), s, a, inscripcion.AccionListarPropias, referencia, filtro)
 	if err != nil || !decision.Concedida || decision.CertificadoHuellaSHA256 != a.CertificadoHuellaSHA256 ||
-		decision.RevisionPermisos == 0 || decision.CorrelacionRef == "" || decision.RecursoRef != referencia ||
+		decision.RevisionPermisos == 0 || !revisionHuellaLecturaInscripcionCoincide(decision.RevisionPermisos, decision.HuellaInstantaneaSHA256) ||
+		decision.CorrelacionRef == "" || decision.RecursoRef != referencia ||
 		decision.Filtro != filtro || !decision.ValidaHasta.After(ahora) || decision.ValidaHasta.After(ahora.Add(30*time.Second)) {
 		t.Fatalf("lectura actual: %+v %v", decision, err)
 	}
 	if fuente.llamadas != 1 || otraFuente.llamadas != 0 || fuente.principal != v.PrincipalID || fuente.perfil != v.PerfilActivoRef {
 		t.Fatalf("fuente seleccionada: externa=%d interna=%d", fuente.llamadas, otraFuente.llamadas)
 	}
+	contenidoCambiado := i
+	contenidoCambiado.VersionRol.Nombre = "Publicacion de prueba con contenido distinto"
+	if contenidoCambiado.Validar() != nil {
+		t.Fatal("fixture de rol cambiado invalida")
+	}
+	fuente.i = contenidoCambiado
+	otraDecision, err := d.DecidirLecturaActual(context.Background(), s, a, inscripcion.AccionListarPropias, referencia, filtro)
+	if err != nil || otraDecision.HuellaInstantaneaSHA256 == decision.HuellaInstantaneaSHA256 ||
+		otraDecision.RevisionPermisos == decision.RevisionPermisos {
+		t.Fatalf("contenido cambiado con mismas refs/revisiones no cambio huella: %v", err)
+	}
+	fuente.i = i
 	// La identidad inválida corta antes incluso de obtener la instantánea.
 	for nombre, cambiar := range map[string]func(*AcreditacionSesionInscripcionBolsa){
 		"certificado":     func(x *AcreditacionSesionInscripcionBolsa) { x.CertificadoHuellaSHA256 = "no_canonica" },

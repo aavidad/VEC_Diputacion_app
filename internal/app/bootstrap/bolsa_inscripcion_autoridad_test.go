@@ -53,14 +53,16 @@ func TestAutoridadInscripcionLecturaLigaDecisionYSesion(t *testing.T) {
 		CertificadoHuellaSHA256: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
 		Canal:                   "externa_personal", Accion: inscripcion.AccionListarPropias, RecursoRef: recurso,
 		Finalidad: "consulta_inscripcion_propia", CorrelacionRef: "correlacion_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		RevisionPermisos: 1, Campos: []string{"solicitud_ref"}, Filtro: filtro, EmitidaEn: ahora, ValidaHasta: ahora.Add(time.Second),
+		RevisionPermisos: 1, HuellaInstantaneaSHA256: "0000000000000001000000000000000000000000000000000000000000000000",
+		Campos: []string{"solicitud_ref"}, Filtro: filtro, EmitidaEn: ahora, ValidaHasta: ahora.Add(time.Second),
 	}
 	decisor := &decisorLecturaInscripcionPrueba{decision: d}
 	a := &autoridadNominalInscripcionBolsa{c: ConfiguracionAutoridadInscripcionBolsa{Lectura: decisor, Reloj: relojFijoAltaContratacionTemporalDesarrollo{ahora: ahora}, Lecturas: map[string]DescriptorLecturaInscripcionBolsa{
 		inscripcion.AccionListarPropias: {Accion: inscripcion.AccionListarPropias, Finalidad: d.Finalidad, Campos: []string{"solicitud_ref"}},
 	}}}
 	captura, err := a.CapturarLectura(context.Background(), s, acreditacion, d.Accion, recurso, filtro)
-	if err != nil || captura.RecursoRef != recurso || captura.RevisionPermisos != 1 || captura.CorrelacionRef != d.CorrelacionRef {
+	if err != nil || captura.RecursoRef != recurso || captura.RevisionPermisos != 1 ||
+		captura.HuellaInstantaneaSHA256 != d.HuellaInstantaneaSHA256 || captura.CorrelacionRef != d.CorrelacionRef {
 		t.Fatalf("captura exacta: %+v, %v", captura, err)
 	}
 	casos := []struct {
@@ -75,6 +77,9 @@ func TestAutoridadInscripcionLecturaLigaDecisionYSesion(t *testing.T) {
 		{"recurso ajeno", func(x *DecisionLecturaActualInscripcionBolsa) { x.RecursoRef = "inscripciones_propias_otras" }},
 		{"filtro cambiado", func(x *DecisionLecturaActualInscripcionBolsa) { x.Filtro.Limite = 10 }},
 		{"campos adicionales", func(x *DecisionLecturaActualInscripcionBolsa) { x.Campos = []string{"solicitud_ref", "dni"} }},
+		{"huella ajena", func(x *DecisionLecturaActualInscripcionBolsa) {
+			x.HuellaInstantaneaSHA256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		}},
 		{"sesion vencida", func(x *DecisionLecturaActualInscripcionBolsa) { x.ValidaHasta = ahora }},
 	}
 	for _, caso := range casos {
