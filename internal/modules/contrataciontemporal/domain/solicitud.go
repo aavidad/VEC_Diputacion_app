@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+	"unicode"
+)
 
 // DeclaracionRC refleja lo aportado por el centro. La validación autoritativa
 // corresponde al análisis de RRHH y se conserva como un hecho distinto.
@@ -59,7 +63,8 @@ func (s SolicitudCentro) Validar() error {
 	}
 	conDatosPuesto := s.JornadaMinutos != 0 || s.NumeroPersonas != 0 || s.PuestoSolicitado != ""
 	if conDatosPuesto && (s.JornadaMinutos == 0 || s.JornadaMinutos > 7*24*60 ||
-		s.NumeroPersonas == 0 || !textoValido(s.PuestoSolicitado, 160, false)) {
+		s.NumeroPersonas == 0 || !textoValido(s.PuestoSolicitado, 160, false) ||
+		strings.IndexFunc(s.PuestoSolicitado, unicode.IsControl) >= 0) {
 		return ErrDatoInvalido
 	}
 	if s.Necesidad != nil && (s.Necesidad.ValidarInstantanea() != nil ||

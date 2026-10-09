@@ -605,7 +605,7 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
       || Number(borrador.jornada_minutos) > 10080) agregarError(errores, "jornada_minutos", "jornada");
     if (!/^(?:[1-9][0-9]{0,9})$/u.test(borrador.numero_personas)
       || Number(borrador.numero_personas) > 4294967295) agregarError(errores, "numero_personas", "numero_personas");
-    if (!textoValido(borrador.puesto_solicitado, 160, false)) agregarError(errores, "puesto_solicitado", "texto_obligatorio");
+    if (!textoValido(borrador.puesto_solicitado, 160, false) || /\p{Cc}/u.test(borrador.puesto_solicitado)) agregarError(errores, "puesto_solicitado", "texto_obligatorio");
   }
   if (!fechaCivilValida(borrador.inicio)) agregarError(errores, "inicio", "fecha");
   if (motivo?.fecha_fin === "no_aplica" && borrador.fin !== "") agregarError(errores, "fin", "fecha_no_aplica");
@@ -743,7 +743,7 @@ function validarComandoPeticionCentro(comando) {
     || (conDatosCentro && (!Number.isInteger(solicitud.jornada_minutos) || solicitud.jornada_minutos < 1
       || solicitud.jornada_minutos > 10080 || !Number.isInteger(solicitud.numero_personas)
       || solicitud.numero_personas < 1 || solicitud.numero_personas > 4294967295
-      || !textoValido(solicitud.puesto_solicitado, 160, false)))) {
+      || !textoValido(solicitud.puesto_solicitado, 160, false) || /\p{Cc}/u.test(solicitud.puesto_solicitado)))) {
     throw new TypeError("solicitud de centro no válida");
   }
   return clonarYCongelarAlta(comando);

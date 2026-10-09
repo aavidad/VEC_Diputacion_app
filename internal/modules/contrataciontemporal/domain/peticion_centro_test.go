@@ -47,12 +47,20 @@ func TestSolicitudCentroConservaLegadoYValidaDatosDePuesto(t *testing.T) {
 		func(s *SolicitudCentro) { s.NumeroPersonas = 0 },
 		func(s *SolicitudCentro) { s.PuestoSolicitado = "" },
 		func(s *SolicitudCentro) { s.JornadaMinutos = 10081 },
+		func(s *SolicitudCentro) { s.PuestoSolicitado = "Auxiliar\tadministrativo" },
+		func(s *SolicitudCentro) { s.PuestoSolicitado = "Auxiliar\nadministrativo" },
+		func(s *SolicitudCentro) { s.PuestoSolicitado = "Auxiliar\aadministrativo" },
 	} {
 		invalida := solicitud
 		cambio(&invalida)
 		if invalida.Validar() == nil {
 			t.Fatal("dato de puesto incompleto o fuera de rango admitido")
 		}
+	}
+	conDetalleMultilinea := solicitud
+	conDetalleMultilinea.Detalle += "\nDurante el periodo previsto."
+	if conDetalleMultilinea.Validar() != nil {
+		t.Fatal("el detalle multilínea válido ha cambiado con la guarda del puesto")
 	}
 }
 

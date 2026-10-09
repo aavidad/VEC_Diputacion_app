@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearBorradorAlta, crearComandoPeticionCentro, validarBorradorAlta } from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
+import { crearBorradorAlta, crearComandoPeticionCentro, validarBorradorAlta, validarComandoAlta } from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
 import { extraerBorrador } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261009-centro-campos-v1";
 import {
   pedir,
@@ -50,6 +50,22 @@ test("la petición exige datos estructurados y los muestra a ratificador y RRHH"
   assert.match(html, /Administrativo C2/);
   assert.match(html, /37:30/);
   assert.match(renderizarPeticionesCentroRRHH({ entrega: { peticion: { ...nueva, version: 2, estado: "ratificada" }, estado_entrega: "pendiente" } }), /Administrativo C2/);
+});
+
+test("borrador y comando rechazan controles dentro del puesto sin cambiar el detalle", () => {
+  const borrador = { ...crearBorradorAlta({ conPeticionCentro: true, jornadaReferenciaMinutos: 2250 }),
+    centro_ref: "cen_sintetico_001", contacto_ref: "con_sintetico_001", categoria_ref: "cat_sintetica_001",
+    grupo_subgrupo: "C2", motivo_clave: "sustitucion", detalle: "Sustitución\ndurante el periodo",
+    inicio: "2026-11-02", fin: "2026-12-31", numero_personas: "2", puesto_solicitado: "Administrativo C2" };
+  assert.equal(validarBorradorAlta(borrador, catalogos).valido, true);
+  const comando = crearComandoPeticionCentro(borrador, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6");
+  for (const puesto of ["Auxiliar\tadministrativo", "Auxiliar\nadministrativo", "Auxiliar\u0007administrativo"]) {
+    assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: puesto }, catalogos).errores.puesto_solicitado, "texto_obligatorio");
+    assert.throws(() => validarComandoAlta({ clave_idempotencia: comando.clave_idempotencia,
+      numero_expediente_moad: "2026/94009", solicitud: { ...comando.solicitud, puesto_solicitado: puesto } }));
+  }
+  assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: "Auxiliar e\u0301" }, catalogos).valido, false);
+  assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: "A".repeat(161) }, catalogos).valido, false);
 });
 
 test("la jornada escrita en horas no se convierte en minutos si excede el máximo", () => {
