@@ -28,6 +28,24 @@ func expedienteAltaCivilSQLPrueba(t *testing.T) ([]byte, domain.Expediente) {
 	}
 	civil := bytes.ReplaceAll(legado, []byte(`"inicio":"2026-09-01T00:00:00Z"`), []byte(`"inicio":"2026-09-01"`))
 	civil = bytes.ReplaceAll(civil, []byte(`"fin":"2026-09-30T00:00:00Z"`), []byte(`"fin":"2026-09-30"`))
+	var raiz map[string]json.RawMessage
+	if err := json.Unmarshal(civil, &raiz); err != nil {
+		t.Fatal(err)
+	}
+	var solicitud map[string]json.RawMessage
+	if err := json.Unmarshal(raiz["solicitud"], &solicitud); err != nil {
+		t.Fatal(err)
+	}
+	// Forma exacta del RC ausente en el efecto canónico del alta v3.
+	solicitud["rc"] = json.RawMessage(`{"existe":false,"numero":"","fecha":"","importe":{"centimos":0,"moneda":"EUR"},"documento_ref":""}`)
+	raiz["solicitud"], err = json.Marshal(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	civil, err = json.Marshal(raiz)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if bytes.Equal(civil, legado) || bytes.Count(civil, []byte(`"inicio":"2026-09-01"`)) != 2 ||
 		bytes.Count(civil, []byte(`"fin":"2026-09-30"`)) != 2 {
 		t.Fatal("la muestra no contiene los dos periodos civiles del alta v3")
@@ -73,7 +91,8 @@ func TestRehidratarExpedienteSQLConservaHistoriaYDosPeriodos(t *testing.T) {
 		!recuperado.Solicitud.Periodo.Fin.Equal(esperado.Solicitud.Periodo.Fin) ||
 		!recuperado.Solicitud.Necesidad.Periodo.Inicio.Equal(esperado.Solicitud.Necesidad.Periodo.Inicio) ||
 		!recuperado.Solicitud.Necesidad.Periodo.Fin.Equal(esperado.Solicitud.Necesidad.Periodo.Fin) ||
-		recuperado.Solicitud.Periodo.Inicio.Location() != time.UTC {
+		recuperado.Solicitud.Periodo.Inicio.Location() != time.UTC ||
+		!recuperado.Solicitud.RC.Fecha.IsZero() || recuperado.Solicitud.RC.Importe != (domain.Importe{}) {
 		t.Fatal("periodos civiles no restaurados a medianoche UTC")
 	}
 	if !bytes.Equal(civil, original) || sha256.Sum256(civil) != huella {
@@ -131,6 +150,51 @@ func TestRehidratarExpedienteSQLLegadoYFechasInvalidas(t *testing.T) {
 	conDuplicado := bytes.Replace(civil, []byte(`"solicitud":{`), []byte(`"solicitud":{"campo_ajeno":1,"campo_ajeno":2,`), 1)
 	if err := decodificarExpedienteSQL(conDuplicado, &domain.Expediente{}); err == nil {
 		t.Fatal("la adaptación ha ocultado claves duplicadas")
+	}
+	for _, campo := range []string{"importe", "importe_desconocido", "importe_nulo", "existe", "existe_nulo", "fecha"} {
+		var raiz map[string]json.RawMessage
+		if err := json.Unmarshal(civil, &raiz); err != nil {
+			t.Fatal(err)
+		}
+		var solicitud map[string]json.RawMessage
+		if err := json.Unmarshal(raiz["solicitud"], &solicitud); err != nil {
+			t.Fatal(err)
+		}
+		var rc map[string]json.RawMessage
+		if err := json.Unmarshal(solicitud["rc"], &rc); err != nil {
+			t.Fatal(err)
+		}
+		switch campo {
+		case "importe":
+			rc[campo] = json.RawMessage(`{"centimos":1,"moneda":"EUR"}`)
+		case "importe_desconocido":
+			rc["importe"] = json.RawMessage(`{"otro":0,"moneda":"EUR"}`)
+		case "importe_nulo":
+			rc["importe"] = json.RawMessage(`{"centimos":null,"moneda":"EUR"}`)
+		case "existe":
+			rc[campo] = json.RawMessage(`true`)
+		case "existe_nulo":
+			rc["existe"] = json.RawMessage(`null`)
+		case "fecha":
+			rc[campo] = json.RawMessage(`"no-es-fecha"`)
+		}
+		var err error
+		solicitud["rc"], err = json.Marshal(rc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raiz["solicitud"], err = json.Marshal(solicitud)
+		if err != nil {
+			t.Fatal(err)
+		}
+		adulterado, err := json.Marshal(raiz)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var recuperado domain.Expediente
+		if err := decodificarExpedienteSQL(adulterado, &recuperado); err == nil && recuperado.Validar() == nil {
+			t.Fatalf("RC inconsistente aceptado: %s", campo)
+		}
 	}
 	if strings.Contains(string(civil), "campo_ajeno") {
 		t.Fatal("la prueba modificó el original")

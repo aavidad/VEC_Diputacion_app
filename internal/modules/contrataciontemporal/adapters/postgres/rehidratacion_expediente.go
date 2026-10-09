@@ -75,11 +75,51 @@ func rehidratarObjetoExpedienteSQL(objeto map[string]json.RawMessage, ruta []str
 			cambiado = true
 		}
 	}
+	cambioRC, err := rehidratarRCAusenteExpedienteSQL(solicitud)
+	if err != nil {
+		return nil, false, err
+	}
+	cambiado = cambiado || cambioRC
 	if !cambiado {
 		return objeto, false, nil
 	}
 	objeto["solicitud"], err = json.Marshal(solicitud)
 	return objeto, err == nil, err
+}
+
+// El canon de alta escribe un RC ausente como fecha vacía e importe 0 EUR.
+// En el dominio, la ausencia es Fecha e Importe cero. Sólo se adapta esa
+// representación exacta; los datos de un RC existente permanecen intactos.
+func rehidratarRCAusenteExpedienteSQL(solicitud map[string]json.RawMessage) (bool, error) {
+	var rc map[string]json.RawMessage
+	if json.Unmarshal(solicitud["rc"], &rc) != nil || rc == nil {
+		return false, errFechaCivilExpedienteSQL
+	}
+	if !bytes.Equal(bytes.TrimSpace(rc["existe"]), []byte("false")) {
+		return false, nil
+	}
+	cambiado := false
+	if string(rc["fecha"]) == `""` {
+		delete(rc, "fecha")
+		cambiado = true
+	}
+	if bruto, tiene := rc["importe"]; tiene {
+		var campos map[string]json.RawMessage
+		if json.Unmarshal(bruto, &campos) == nil && len(campos) == 2 &&
+			bytes.Equal(bytes.TrimSpace(campos["centimos"]), []byte("0")) &&
+			bytes.Equal(bytes.TrimSpace(campos["moneda"]), []byte(`"EUR"`)) {
+			delete(rc, "importe")
+			cambiado = true
+		}
+	}
+	if cambiado {
+		var err error
+		solicitud["rc"], err = json.Marshal(rc)
+		if err != nil {
+			return false, err
+		}
+	}
+	return cambiado, nil
 }
 
 func rehidratarPeriodoExpedienteSQL(objeto map[string]json.RawMessage) (bool, error) {
