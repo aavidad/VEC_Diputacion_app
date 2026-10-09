@@ -66,6 +66,7 @@ var (
 	ErrPortalRespuestaFueraDePlazo  = errors.New("bolsa: respuesta fuera de plazo")
 	ErrPortalCausaNoAdmitida        = errors.New("bolsa: causa de renuncia no admitida")
 	ErrPortalPausaFueraDeLimite     = errors.New("bolsa: fin de la pausa fuera del límite")
+	ErrPausaPortalNoConfigurada     = errors.New("bolsa: pausa del portal no configurada")
 	ErrReglasPortalCandidatoAusente = errors.New("bolsa: sin reglas del portal del candidato")
 )
 

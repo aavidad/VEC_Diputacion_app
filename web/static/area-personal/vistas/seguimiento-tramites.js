@@ -1,15 +1,11 @@
-import {
-  botonOperacion, chip, encabezadoVista, enlaceRuta, escaparAtributo, escaparHTML,
-  formatoPuntos, listaDatos, panel, tabla,
-} from "./comunes.js";
+import { chip, encabezadoVista, escaparAtributo, escaparHTML, listaDatos, panel } from "./comunes.js";
 import { localizacionAreaPersonal, traducir } from "../i18n.js";
 import { campoVisibleMiBolsa, nombreCategoria } from "../mi-bolsa-campos.js";
-import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js?v=20261002-rrhh17-v1";
+import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js?v=20261009-ayuda-retoques-v4";
 import { renderizarOfertasMiBolsa, textoOfertas } from "../mi-bolsa-ofertas.js";
 import { renderizarContactoMiBolsa, textoContacto } from "../mi-bolsa-contacto.js";
-import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js";
+import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js?v=20261009-ayuda-retoques-v4";
 
-const e = (clave, variables) => traducir(`areaPersonal.vista.seguimiento.${clave}`, variables);
 const b = (clave, variables) => traducir(`areaPersonal.vista.miBolsa.${clave}`, variables);
 const u = (clave, variables) => traducir(`areaPersonal.vista.subsanaciones.${clave}`, variables);
 const g = (clave, variables) => traducir(`areaPersonal.vista.alegaciones.${clave}`, variables);
@@ -40,36 +36,6 @@ function fichaSituacionActual(actual) {
   return listaDatos(filas);
 }
 
-export function renderizarSeguimiento(datos, estado) {
-  const solicitud = datos.solicitudes.find((item) => item.id === estado.expedienteSeleccionado) || datos.solicitudes[0];
-  if (!solicitud) {
-    const cabecera = encabezadoVista(e("titulo"), e("descripcion"), enlaceRuta("certificados", e("certificados"), "boton-secundario"));
-    const vacio = panel(e("vacio.titulo"), e("vacio.subtitulo"), `<p>${h(e("vacio.detalle"))}</p>`);
-    const acciones = panel(e("acciones.titulo"), e("acciones.subtitulo"), `<p>${h(e("acciones.vacio"))}</p>`);
-    return `${cabecera}${vacio}${acciones}`;
-  }
-  const filas = datos.solicitudes.map((item) => [
-    `<strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.referencia)}</small>`,
-    chip(item.estado),
-    `<strong>${h(e("puntos", { puntos: formatoPuntos(item.puntuacion) }))}</strong><small>${escaparHTML(item.posicion)}</small>`,
-    escaparHTML(item.actualizado),
-    `<div class="acciones-tabla"><button type="button" class="boton-secundario" data-accion="abrir-expediente" data-id="${escaparAtributo(item.id)}">${h(e("seleccionar"))}</button></div>`,
-  ]);
-  const timeline = datos.actividad.map((item) => `<li><strong>${escaparHTML(item.titulo)}</strong><span>${escaparHTML(item.detalle)}</span><small>${escaparHTML(item.fecha)} · ${escaparHTML(item.actor)} · ${escaparHTML(item.recibo)}</small></li>`).join("");
-  const panelPosicion = datos.posicion
-    ? panel(e("posicion.titulo"), e("posicion.subtitulo"), `<div class="posicion-destacada"><output>#${escaparHTML(String(datos.posicion.orden))}</output><span><strong>${escaparHTML(datos.posicion.categoria)}</strong><small>${escaparHTML(datos.posicion.bolsa)}</small></span></div>${listaDatos([[e("posicion.bolsa"), escaparHTML(datos.posicion.bolsa)], [e("posicion.categoria"), escaparHTML(datos.posicion.categoria)], [e("posicion.orden"), h(e("posicion.ordenDe", { orden: String(datos.posicion.orden), total: String(datos.posicion.total) }))], [e("posicion.puntuacion"), h(e("puntos", { puntos: formatoPuntos(datos.posicion.puntuacion) }))], [e("posicion.vigenteDesde"), escaparHTML(datos.posicion.vigente_desde)]])}`, { estado: `#${datos.posicion.orden}` })
-    : panel(e("provisional.titulo"), e("provisional.subtitulo"), `<div class="posicion-destacada"><output>${escaparHTML((solicitud.posicion.match(/^\d+/) || ["—"])[0])}</output><span><strong>${escaparHTML(solicitud.posicion)}</strong><small>${h(e("provisional.detalle"))}</small></span></div>`, { estado: e("provisional.estado") });
-  return `${encabezadoVista(e("titulo"), e("descripcion"), enlaceRuta("certificados", e("certificados"), "boton-secundario"))}
-    ${panel(e("curso.titulo"), e("curso.subtitulo"), tabla({ descripcion: e("curso.tabla"), columnas: [e("columnas.proceso"), e("columnas.estado"), e("columnas.puntuacion"), e("columnas.actualizacion"), e("columnas.accion")], filas }))}
-    <div class="rejilla-principal"><div>
-      ${panel(solicitud.titulo, solicitud.referencia, `${listaDatos([[e("ficha.estado"), chip(solicitud.estado)], [e("ficha.puntuacion"), h(e("puntos", { puntos: formatoPuntos(solicitud.puntuacion) }))], [e("ficha.posicion"), escaparHTML(solicitud.posicion)], [e("ficha.tasa"), escaparHTML(solicitud.pago)], [e("ficha.firma"), escaparHTML(solicitud.firma)], [e("ficha.actualizacion"), escaparHTML(solicitud.actualizado)]])}<p class="nota aviso"><strong>${h(e("ficha.siguiente"))}</strong> ${escaparHTML(solicitud.siguiente)}</p>`, { estado: solicitud.estado })}
-      ${panel(e("historial.titulo"), e("historial.subtitulo"), `<ol class="linea-tiempo">${timeline}</ol>`)}
-    </div><aside>
-      ${panelPosicion}
-      ${panel(e("acciones.titulo"), e("acciones.subtitulo"), `<div class="fila-acciones">${enlaceRuta("subsanaciones", e("acciones.subsanar"), "enlace-boton")}${enlaceRuta("alegaciones", e("acciones.alegar"), "enlace-boton")}${botonOperacion("solicitar_descarga", e("acciones.descargar"), { id: solicitud.id, clase: "boton-secundario", descripcion: e("acciones.descargarDescripcion") })}</div>`)}
-    </aside></div>`;
-}
-
 export function renderizarLlamamientos(datos, estado = {}) {
   const participaciones = Array.isArray(estado.participaciones) && estado.participaciones.length
     ? estado.participaciones : datos.posicion ? [{ bolsa: datos.posicion.bolsa, categoria: datos.posicion.categoria, orden_inicial: datos.posicion.orden, total_instantanea: datos.posicion.total, version: "—", estado_bolsa: b("sinDatos"), vigente_desde: datos.posicion.vigente_desde, vigente_hasta: null }] : [];
@@ -97,11 +63,12 @@ export function renderizarLlamamientos(datos, estado = {}) {
     [traducir("areaPersonal.miBolsa.llamamiento.fecha"), escaparHTML(fechaSituacion(ultimo.ultimo_llamamiento.emitido_en))],
     [traducir("areaPersonal.miBolsa.llamamiento.canal"), escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.correo"))],
     [traducir("areaPersonal.miBolsa.llamamiento.resultado"), `<span class="estado-chip ${resultado === "enviado" ? "info" : "aviso"}">${escaparHTML(traducir(`areaPersonal.miBolsa.llamamiento.${resultado}`))}</span>`],
-  ])}<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.limite"))}</p>`
+  ])}`
     : `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.sinDato"))}</p>`;
   const llamamientos = panel(traducir("areaPersonal.miBolsa.llamamiento.titulo"), traducir("areaPersonal.miBolsa.llamamiento.subtitulo"), detalle);
 
-  return `${encabezadoVista(b("titulo"), "")}
+  const ayudaLlamamiento = `<details class="mi-bolsa-ayuda"><summary aria-label="${escaparAtributo(b("ayudaLlamamientoAbrir"))}">?</summary><p>${h(b("ayudaLlamamiento"))}</p></details>`;
+  return `${encabezadoVista(b("titulo"), "", ayudaLlamamiento)}
     ${fichaParticipaciones}
     <div id="historial-mi-bolsa" aria-live="polite">${renderizarHistorialMiBolsa()}</div>
     <div class="rejilla-principal"><div>${ver("ultimo_llamamiento") ? llamamientos : ""}${estado.ofertasMiBolsa?.length ? panel(textoOfertas("titulo"), textoOfertas("subtitulo"), renderizarOfertasMiBolsa(estado.ofertasMiBolsa)) : ""}</div><aside>

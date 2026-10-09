@@ -117,11 +117,11 @@ func TestProveedorCatalogoPlantillasCTPreflightCompruebaLOGINYFunciones(t *testi
 		}
 	}
 	if len(c.funciones) != 3 || !strings.Contains(strings.Join(c.funciones, " "), "obtener_catalogo_plantillas_publicado_documental_ambitos_v1") ||
-		len(c.args) != 2 || c.args[1] != true {
+		len(c.args) != 3 || c.args[1] != true {
 		t.Fatalf("preflight CT131/137 no exige ambas fachadas: %v %v", c.funciones, c.args)
 	}
-	// El LOGIN CT no tiene USAGE en AD3: resolver allí un regprocedure lanza
-	// 42501 antes de que pueda comprobarse el EXECUTE del propietario CT.
+	// El LOGIN CT puede no tener USAGE en AD3: resolver allí un regprocedure
+	// lanza 42501 antes de que pueda comprobarse el EXECUTE del propietario CT.
 	if strings.Contains(c.sql, "to_regprocedure('vec_autorizacion_atestada_v3.") ||
 		!strings.Contains(c.sql, "FROM pg_catalog.pg_proc p") ||
 		!strings.Contains(c.sql, "p.pronargs=11") ||
@@ -135,7 +135,7 @@ func TestProveedorCatalogoPlantillasCTPreflightCompruebaLOGINYFunciones(t *testi
 	}
 	if err := comprobarPreflightCatalogoPlantillasCT(context.Background(), c, false); err != nil || len(c.funciones) != 2 ||
 		strings.Contains(strings.Join(c.funciones, " "), "obtener_catalogo_plantillas_publicado_documental_ambitos_v1") ||
-		len(c.args) != 2 || c.args[1] != false {
+		len(c.args) != 3 || c.args[1] != false {
 		t.Fatalf("preflight CT131 independiente de CT133: %v %v", err, c.funciones)
 	}
 	catalogo, err := CargarCatalogoPlantillasCT("../../../" + rutaPlantillasCTEjemplo)

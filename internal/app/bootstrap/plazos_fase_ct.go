@@ -66,19 +66,30 @@ func (c calculadoraPlazoFaseCT) PrepararPlazosFase(ctx context.Context) (ports.C
 	if ctx == nil {
 		return nil, reglas.ErrCalculoNoDisponible
 	}
-	lectura, err := c.reglas.LeerReglas(ctx)
+	// Un resolutor propio de la consulta lee cada año de calendario una vez
+	// para todas las filas y grupos, no una vez por grupo.
+	return prepararPlazosFaseCT(ctx, c.reglas.ParaConsulta())
+}
+
+func prepararPlazosFaseCT(ctx context.Context, resolutor *reglas.Resolutor) (ports.CalculadoraPlazoFaseRRHH, error) {
+	lectura, err := resolutor.LeerReglas(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return calculadoraPlazoFaseCTLeida{reglas: c.reglas, lectura: lectura, vigentes: lectura.Reglas()}, nil
+	return calculadoraPlazoFaseCTLeida{reglas: resolutor, lectura: lectura, vigentes: lectura.Reglas()}, nil
 }
 
 // PrepararPlazosFaseConsulta conserva una caché limitada al cuadro. Si falla
 // la lectura actual, las capturas históricas siguen siendo independientes.
 func (c calculadoraPlazoFaseCT) PrepararPlazosFaseConsulta(ctx context.Context, necesitaActual bool) ports.CalculadoraPlazoFaseRRHH {
-	preparada := calculadoraPlazoFaseCTConsulta{reglas: c.reglas, capturas: reglas.NuevaCacheInstantaneasPersistidas()}
+	resolutor := c.reglas.ParaConsulta()
+	preparada := calculadoraPlazoFaseCTConsulta{reglas: resolutor, capturas: reglas.NuevaCacheInstantaneasPersistidas()}
 	if necesitaActual {
-		preparada.actual, preparada.errActual = c.PrepararPlazosFase(ctx)
+		if ctx == nil {
+			preparada.errActual = reglas.ErrCalculoNoDisponible
+		} else {
+			preparada.actual, preparada.errActual = prepararPlazosFaseCT(ctx, resolutor)
+		}
 	}
 	return preparada
 }

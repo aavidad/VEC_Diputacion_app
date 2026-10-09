@@ -184,6 +184,9 @@ type dependenciasAltaContratacionTemporalDesarrollo struct {
 	// cancelacion guarda las piezas de la cancelación de RRHH que reutiliza
 	// el canal del centro; nula mientras la capacidad no esté compuesta.
 	cancelacion *piezasCancelacionCTDesarrollo
+	// etiquetasPeticionesRRHH nombra las referencias de las peticiones del
+	// centro en la bandeja RRHH; nula si el circuito del centro no se compone.
+	etiquetasPeticionesRRHH *etiquetadorPeticionesRRHHDesarrollo
 }
 
 func (d *dependenciasAltaContratacionTemporalDesarrollo) cerrar() {

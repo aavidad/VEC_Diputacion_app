@@ -43,7 +43,6 @@ func componerParametrosAvisosBolsaDesarrollo(ctx context.Context, resolutor *reg
 	if intentos := reglasbolsa.NuevosIntentosContacto(resolutor); intentos.Configurada() {
 		fuente.intentos = intentos
 	}
-	fuente.invalidar()
 	log.Printf("bolsa: parametros de avisos del catalogo publicados; version=%d", version)
 	return nil
 }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   RUTAS_INCORPORACIONES_CENTRO, crearClienteIncorporacionesCentro, montarIncorporacionesCentro, validarBandejaIncorporaciones,
-  validarSolicitudConfirmacionCentro,
+  crearTraductorIncorporacionesCentro, periodoVisible, prepararCausasFin, validarSolicitudConfirmacionCentro,
 } from "./incorporaciones-centro.js";
 
 const fila = (extra = {}) => ({ peticion_ref: "peticion:centro:1", expediente_ref: "expediente:ct:1", numero_visible: "2026/B-124", version: 7,
@@ -59,6 +59,12 @@ test("la sección se oculta si el servidor no la compone y lista con su document
   await esperar();
   assert.equal(oculto.hidden, true);
   assert.equal(oculto.innerHTML, "");
+  // RRHH recibe 403 en esta bandeja: tampoco ve la sección ni un aviso de error.
+  const denegado = contenedorFalso();
+  montarIncorporacionesCentro({ contenedor: denegado, cliente: { bandeja: async () => { throw Object.assign(new Error("x"), { estado: 403 }); } } });
+  await esperar();
+  assert.equal(denegado.hidden, true);
+  assert.equal(denegado.innerHTML, "");
   const c = contenedorFalso();
   const desmontar = montarIncorporacionesCentro({ contenedor: c, cliente: { bandeja: async () => validarBandejaIncorporaciones(bandeja({ expedientes: [fila(),
     fila({ expediente_ref: "expediente:ct:2", numero_visible: "2026/B-125", confirmacion: { fecha_incorporacion: "2026-09-02", documento_tipo: "contrato_firmado",
@@ -84,4 +90,33 @@ test("sin permiso de confirmar solo se ve el estado pendiente", async () => {
   await esperar();
   assert.doesNotMatch(c.innerHTML, /data-ic-abrir/u);
   assert.match(c.innerHTML, /Pendiente de confirmar/u);
+});
+
+test("el periodo se lee tal como lo envía el servidor (instante a medianoche UTC) y nunca parece un solo día", () => {
+  const t = crearTraductorIncorporacionesCentro();
+  const conFin = periodoVisible({ inicio: "2026-11-02T00:00:00Z", fin: "2026-12-31T00:00:00Z" }, t);
+  assert.equal(conFin, periodoVisible({ inicio: "2026-11-02", fin: "2026-12-31" }, t));
+  assert.match(conFin, /^Del 2 de noviembre de 2026 al 31 de diciembre de 2026$/u);
+  assert.equal(periodoVisible({ inicio: "2026-11-02T00:00:00Z" }, t), "Desde el 2 de noviembre de 2026");
+  assert.equal(periodoVisible({ inicio: "2026-11-02T00:00:00Z", causa_fin: "reincorporacion_titular" }, t,
+    (clave) => (clave === "reincorporacion_titular" ? "Hasta la reincorporación de la persona titular." : "")),
+  "Desde el 2 de noviembre de 2026. Hasta la reincorporación de la persona titular.");
+  assert.equal(periodoVisible({ inicio: "2026-11-02T00:00:00Z", causa_fin: "desconocida" }, t, () => ""), "Desde el 2 de noviembre de 2026");
+  assert.equal(periodoVisible(null, t), "—");
+  assert.equal(periodoVisible({ inicio: "2026-11-02T10:00:00+02:00" }, t), "—");
+});
+
+test("sin fecha de fin, la causa sale del catálogo `causa_fin_*` del idioma", async () => {
+  await prepararCausasFin([{ periodo: { inicio: "2026-11-02T00:00:00Z", causa_fin: "reincorporacion_titular" } }]);
+  assert.equal(periodoVisible({ inicio: "2026-11-02T00:00:00Z", causa_fin: "reincorporacion_titular" }, crearTraductorIncorporacionesCentro()),
+    "Desde el 2 de noviembre de 2026. Hasta la reincorporación de la persona titular.");
+});
+
+test("un expediente cancelado no sale «En tramitación en RRHH» y su incorporación no procede", async () => {
+  const c = contenedorFalso();
+  montarIncorporacionesCentro({ contenedor: c, cliente: { bandeja: async () => validarBandejaIncorporaciones(bandeja({ expedientes: [
+    fila({ fase: "solicitud", estado: "cancelado", documento_exigido: "" })] })) } });
+  await esperar();
+  assert.match(c.innerHTML, /<td>Expediente cancelado<\/td><td><span class="pc-estado">No procede<\/span><\/td>/u);
+  assert.doesNotMatch(c.innerHTML, /En tramitación en RRHH|Aún no procede|data-ic-abrir/u);
 });

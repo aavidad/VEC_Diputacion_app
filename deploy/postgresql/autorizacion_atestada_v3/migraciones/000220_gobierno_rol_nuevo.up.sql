@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- AD220: consumidor V3 nominal de la creación gobernada de un RolID nuevo.
--- Requiere AUT59 y AD219; la puerta AUT60 se invoca sólo en ejecución, pues
+-- Requiere AUT59, AD219 y AD225 (núcleo POST225 03f15128…); la puerta AUT60 se invoca sólo en ejecución, pues
 -- AUT60 depende a su vez de esta fachada. No instala concesiones ni LOGIN.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
@@ -61,9 +61,9 @@ DECLARE f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_m
 BEGIN
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  h:=encode(sha256(convert_to(original,'UTF8')),'hex');
- IF h IS DISTINCT FROM 'c74551eab17bea78bb564d14d96b77f33bd24a5874b7bdb6e100a59d8f2fe714'
- OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5'
- THEN RAISE EXCEPTION 'AD220: núcleo POST218 divergente; def=%',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM '03f151286ed21039cfe2f96840f474062a8aecb61c546601ef71cf20cc716212'
+ OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM 'fc80e4851d7a63a147cce6a40ca924d24d0b5e671686134be90e98e0f53c906c'
+ THEN RAISE EXCEPTION 'AD220: núcleo POST225 divergente; def=%',h USING ERRCODE='55000'; END IF;
  IF (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>1
  OR NOT EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL
     aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f
@@ -85,7 +85,7 @@ BEGIN
  PERFORM set_config('vec.ad220.nucleo_shared',compartidas::text,true);
 END $nucleo_pre$;
 
--- Definición POST218 íntegra; las tres adiciones nominales de Gobierno de Rol
+-- Definición POST225 íntegra (POST218 más la ampliación de AD225); las tres adiciones nominales de Gobierno de Rol
 -- son explícitas. CREATE OR REPLACE conserva OID, ACL y dependencias existentes.
 CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(p_perfil_mutacion text, p_capacidad_canonica bytea, p_decision_canonica bytea, p_motivo_canonico bytea, p_contexto_actor_canonico bytea, p_persona_version numeric, p_perfil_version numeric, p_payload_vec_ad_3 bytea, p_sobre_cose_sign1 bytea, p_evidencia_verificacion bytea, p_raiz_publica_spki bytea)
  RETURNS TABLE(decision_ref text, efecto_ref text, huella_efecto_sha256 text, consumo_huella_sha256 text, auditoria_ref text, consumida_en timestamp with time zone, consumo_nuevo boolean)
@@ -758,6 +758,20 @@ BEGIN
                    'contratacion_temporal.llamamiento.reanudar_orden'
                AND d ->> 'accion' IS NOT DISTINCT FROM
                    'contratacion_temporal.llamamiento.reanudar_orden'
+               AND d ->> 'modulo_id' IS NOT DISTINCT FROM 'contratacion_temporal'
+               AND d ->> 'tipo_recurso' IS NOT DISTINCT FROM
+                   'reanudacion_seleccion_contratacion_temporal'
+               AND d ->> 'finalidad' IS NOT DISTINCT FROM
+                   'gestionar_contratacion_temporal'
+           )
+           OR (
+               p_perfil_mutacion IS NOT DISTINCT FROM 'reanudacion_solicitud_llamamiento'
+               AND c ->> 'audiencia_consumo' IS NOT DISTINCT FROM
+                   'vec_contratacion_temporal.confirmar_alta_atestada.v1'
+               AND c ->> 'operacion' IS NOT DISTINCT FROM
+                   'contratacion_temporal.llamamiento.reanudar_solicitud'
+               AND d ->> 'accion' IS NOT DISTINCT FROM
+                   'contratacion_temporal.llamamiento.reanudar_solicitud'
                AND d ->> 'modulo_id' IS NOT DISTINCT FROM 'contratacion_temporal'
                AND d ->> 'tipo_recurso' IS NOT DISTINCT FROM
                    'reanudacion_seleccion_contratacion_temporal'
@@ -2839,8 +2853,8 @@ BEGIN
  IF length(actual)-length(replace(actual,runtime_nueva||runtime_marca,''))<>length(runtime_nueva||runtime_marca)
  OR length(actual)-length(replace(actual,excl_nueva,''))<>length(excl_nueva)
  OR length(actual)-length(replace(actual,tupla_nueva||tupla_marca,''))<>length(tupla_nueva||tupla_marca)
- OR encode(sha256(convert_to(revertida,'UTF8')),'hex') IS DISTINCT FROM 'c74551eab17bea78bb564d14d96b77f33bd24a5874b7bdb6e100a59d8f2fe714'
- OR encode(sha256(convert_to(fuente_revertida,'UTF8')),'hex') IS DISTINCT FROM '79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5'
+ OR encode(sha256(convert_to(revertida,'UTF8')),'hex') IS DISTINCT FROM '03f151286ed21039cfe2f96840f474062a8aecb61c546601ef71cf20cc716212'
+ OR encode(sha256(convert_to(fuente_revertida,'UTF8')),'hex') IS DISTINCT FROM 'fc80e4851d7a63a147cce6a40ca924d24d0b5e671686134be90e98e0f53c906c'
  OR meta IS DISTINCT FROM current_setting('vec.ad220.nucleo_meta',true)::jsonb
  OR deps IS DISTINCT FROM current_setting('vec.ad220.nucleo_deps',true)::jsonb
  OR compartidas IS DISTINCT FROM current_setting('vec.ad220.nucleo_shared',true)::jsonb

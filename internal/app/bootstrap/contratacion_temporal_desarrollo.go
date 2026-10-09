@@ -95,7 +95,8 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	plazosOfertasBolsa                               *calculadoraPlazoOfertaDesarrollo
 	// presentadorCobertura permite activar después los avisos de la vía de
 	// cobertura, cuando Bolsa y las reglas de ejemplo ya están compuestas.
-	presentadorCobertura avisosViaCoberturaConfigurable
+	presentadorCobertura    avisosViaCoberturaConfigurable
+	situacionBolsaCobertura *situacionBolsaCoberturaFijable // se fija con las bolsas constituidas
 	// personalizacionB7 se enlaza con la fuente de bolsas constituidas cuando
 	// la composición raíz la crea; el correo B7 la usa para los marcadores.
 	personalizacionB7 *fuentePersonalizacionB7
@@ -668,7 +669,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var detalleReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	var originalPropuestaReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	consultasRRHH := dependenciasConsultasRRHHDesarrollo{cerrar: func() {}}
-	var borradorRRHH ports.RenderizadorBorradorRRHH
+	var borradorRRHH, borradorFormalizacion ports.RenderizadorBorradorRRHH
 	var borradorRRHHDOCX httpinterno.RenderizadorBorradorRRHHDOCX
 	alta.soporte.mu.Lock()
 	perfilCTCatalogo := alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef
@@ -846,8 +847,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		cuadroReal, detalleReal, originalPropuestaReal = consultasRRHH.cuadroHTTP, consultasRRHH.detalleHTTP, consultasRRHH.originalPropuestaHTTP
 		etiquetas := origen.etiquetasReferenciasCatalogosAlta()
-		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
-		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
+		// Descargas con logotipo; la formalización guarda la huella de su PDF y sigue sin él.
+		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas}
+		borradorFormalizacion = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
+		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas}
 	}
 	defer func() {
 		if cerrarAlta {
@@ -1009,8 +1012,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		rutas = append(rutas, continuidad...)
 	}
-	if comunicacionReal != nil && consultasRRHH.detalle != nil && borradorRRHH != nil {
-		resolucion, err := nuevasDependenciasResolucionFormalizacionDesarrollo(&alta, reloj, consultasRRHH.detalle, borradorRRHH, consultasRRHH.preparacionResolucion, catalogoFronteras)
+	if comunicacionReal != nil && consultasRRHH.detalle != nil && borradorFormalizacion != nil {
+		resolucion, err := nuevasDependenciasResolucionFormalizacionDesarrollo(&alta, reloj, consultasRRHH.detalle, borradorFormalizacion, consultasRRHH.preparacionResolucion, catalogoFronteras)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -1291,6 +1294,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialUsuariosImagen:                           alta.postgresql.materialUsuariosImagen,
 		materialAspirantes:                               alta.postgresql.materialAspirantes,
 		presentadorCobertura:                             coberturaReal.presentador,
+		situacionBolsaCobertura:                          coberturaReal.situacionBolsa,
 		firmaDocumento:                                   firmaDocumento,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {

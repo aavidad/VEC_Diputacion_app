@@ -87,6 +87,7 @@ const CLAVES_DOCUMENTOS_FICHA = Object.freeze([
 ]);
 const CLAVES_BORRADORES_FICHA = Object.freeze([
   "bp_ficha_titulo", "bp_estado_borrador", "bp_ficha_docx",
+  "bp_estado_pendiente", "bp_no_disponible",
 ]);
 const CLAVES_CUADRO_LIGERO = Object.freeze([
   "lista_centro_nombre_no_disponible", "lista_categoria_nombre_no_disponible",

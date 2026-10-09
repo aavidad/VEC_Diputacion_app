@@ -60,7 +60,7 @@ test('la clave se persiste antes de enviar el POST B2; si falla la escritura se 
   const eventos = [], origenApp = 'https://127.0.0.1:8443';
   const body = { expediente_ref: 'expediente:b2:1', plan_ref: 'plan:b2:1', version_plan: 1,
     clave_idempotencia: '00000000-0000-4000-8000-000000000001' };
-  const request = { url: () => `${origenApp}/api/interno/contratacion-temporal/incorporacion-personal-b2/confirmar/v1`,
+  const request = { url: () => `${origenApp}/api/vec/contratacion-temporal/incorporacion-personal-b2/confirmar/v1`,
     method: () => 'POST', postDataJSON: () => body };
   const route = { request: () => request, fetch: async () => { eventos.push('red'); return {
     status: () => 200, url: () => request.url(), headersArray: async () => [] }; },
