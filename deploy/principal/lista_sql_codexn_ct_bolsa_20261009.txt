@@ -7,7 +7,7 @@
 # de preimagen AD233 contra la principal exacta antes de instalar: falla cerrado.
 # SHA256 24d31f58a2af3b50bab5e55d92982aa2cd9a94308125caf9c7c392f7acc81eb0
 deploy/postgresql/bolsa_llamamientos/migraciones/000098_resultado_llamamiento_ct.up.sql
-# SHA256 a79abfdfb071f1d06de530be646a2a315979f0064194b5ddfd9a9702d72242f5
+# SHA256 784c8a7aeaad2e65cb99f11ead2cf6313ed60933daabaab662d8140d9859eabe
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000233_vinculo_emision_bolsa_ct.up.sql
 # SHA256 13fbe4c89251832f8a0f5a528dee153b51dce78582ee912486bd8e316503f45a
 deploy/postgresql/contratacion_temporal/migraciones/000201_vinculo_emision_bolsa_ct.up.sql
