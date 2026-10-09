@@ -2,7 +2,7 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL,
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
-} from "./contrato-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+} from "./contrato-expedientes.js?v=20261009-ct-bolsa-cohorte-v8";
 import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { validarCatalogosAlta } from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
@@ -544,6 +544,7 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
     tareas: [],
     // Sólo selección documental histórica; cada descarga exige autorización vigente.
     ...(versionPropuesta !== null ? { version_propuesta_documental: versionPropuesta } : {}),
+    ...(detalle.resultado_bolsa ? { resultado_bolsa: detalle.resultado_bolsa } : {}),
   });
 }
 

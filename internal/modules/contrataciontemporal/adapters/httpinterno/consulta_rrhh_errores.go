@@ -102,12 +102,16 @@ func responderErrorConsultaRRHH(
 }
 
 func responderJSONConsultaRRHH(w http.ResponseWriter, r *http.Request, estado int, valor any, causas ...error) {
+	responderJSONConsultaRRHHConLimite(w, r, estado, valor, MaximoRespuestaConsultaRRHHBytes, causas...)
+}
+
+func responderJSONConsultaRRHHConLimite(w http.ResponseWriter, r *http.Request, estado int, valor any, maximo int, causas ...error) {
 	var causa error
 	if len(causas) > 0 {
 		causa = causas[0]
 	}
 	contenido, err := json.Marshal(valor)
-	if err != nil || len(contenido) > MaximoRespuestaConsultaRRHHBytes {
+	if err != nil || len(contenido) > maximo {
 		estado = http.StatusInternalServerError
 		causa = &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaSerializacion, Causa: err}
 		valor = envoltorioErrorConsultaRRHH{

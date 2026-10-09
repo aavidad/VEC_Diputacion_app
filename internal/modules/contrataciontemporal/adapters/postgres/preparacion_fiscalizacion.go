@@ -310,7 +310,7 @@ func (f filaPreparacionFiscalizacion) restaurar(
 		return ports.PreparacionFiscalizacion{}, ports.ErrPersistenciaFiscalizacionNoDisponible
 	}
 	var expediente domain.Expediente
-	if decodificarJSONEstricto([]byte(f.expedienteJSON), &expediente) != nil ||
+	if decodificarExpedienteSQL([]byte(f.expedienteJSON), &expediente) != nil ||
 		expediente.Validar() != nil ||
 		origenFiscalizacionPostgreSQL(expediente) != nil {
 		return ports.PreparacionFiscalizacion{}, ports.ErrPersistenciaFiscalizacionNoDisponible
