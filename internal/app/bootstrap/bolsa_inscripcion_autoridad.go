@@ -126,11 +126,13 @@ type FuenteAmbitoRecursoInscripcionBolsa interface {
 }
 
 type AmbitoRecursoRRHHInscripcionBolsa struct {
-	SolicitudRef, UnidadRef, AmbitoRef string
-	FuenteRef                          string
-	FuenteVersion                      uint64
-	FuenteHuellaSHA256                 string
-	AuditoriaRef                       string
+	SolicitudRef       string `json:"solicitud_ref"`
+	UnidadRef          string `json:"unidad_ref"`
+	AmbitoRef          string `json:"ambito_ref"`
+	FuenteRef          string `json:"fuente_ref"`
+	FuenteVersion      uint64 `json:"fuente_version"`
+	FuenteHuellaSHA256 string `json:"fuente_sha256"`
+	AuditoriaRef       string `json:"-"`
 }
 
 type contextoRecursoEscrituraInscripcionBolsa struct {
