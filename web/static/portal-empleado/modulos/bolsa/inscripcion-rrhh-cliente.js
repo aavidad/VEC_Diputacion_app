@@ -5,6 +5,7 @@ const REF = /^[^/\u0000-\u001f\u007f-\u009f]{1,512}$/u;
 const CLAVE = /^[a-zA-Z0-9._:-]{8,128}$/u;
 const IDIOMA = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/u;
 const ESQUEMAS = Object.freeze({ lista: "vec.bolsa.inscripciones.rrhh.v1",
+  convocatorias: "vec.bolsa.inscripciones.rrhh.convocatorias.v1",
   detalle: "vec.bolsa.inscripcion.rrhh.v1", motivos: "vec.bolsa.inscripcion.motivos.v1",
   recibo: "vec.bolsa.inscripcion.decision.recibo.v1" });
 const MAXIMO_RESPUESTA = 256 * 1024;
@@ -107,8 +108,29 @@ async function pedir(fetchImpl, ruta, opciones = {}) {
 export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== "function") throw new TypeError("transporte no disponible");
   return Object.freeze({
+    async convocatorias({ cursor = "", limite = 20, idioma = "", signal } = {}) {
+      if ((cursor && !referencia(cursor)) || !Number.isSafeInteger(limite) || limite < 1 || limite > 100
+        || (idioma && !IDIOMA.test(idioma))) throw new TypeError("filtro de convocatorias incompatible");
+      const parametros = new URLSearchParams({ limite: String(limite) });
+      if (cursor) parametros.set("cursor", cursor);
+      if (idioma) parametros.set("idioma", idioma);
+      const { estado, data } = await pedir(fetchImpl, `${BASE}/convocatorias?${parametros}`, { signal });
+      if (estado !== 200 || data?.esquema !== ESQUEMAS.convocatorias || !Array.isArray(data.convocatorias)
+        || data.convocatorias.length > limite || !Number.isSafeInteger(data.total)
+        || data.total < data.convocatorias.length
+        || (data.cursor_siguiente !== null && !referencia(data.cursor_siguiente))
+        || !data.convocatorias.every((item) => item && referencia(item.convocatoria_ref)
+          && typeof item.titulo === "string" && item.titulo.trim().length > 0 && item.titulo.length <= 180
+          && typeof item.categorias_resumen === "string" && item.categorias_resumen.trim().length > 0
+          && item.categorias_resumen.length <= 2048
+          && typeof item.plazo_fin === "string" && Number.isFinite(Date.parse(item.plazo_fin))
+          && ["publicada", "sustituida", "retirada"].includes(item.estado_publicacion))) {
+        throw new TypeError("convocatorias incompatibles");
+      }
+      return data;
+    },
     async listar({ estado = "pendiente", convocatoria = "", cursor = "", limite = 50, idioma = "", signal } = {}) {
-      if (!ESTADOS.has(estado) || (convocatoria && !referencia(convocatoria)) || (cursor && !referencia(cursor))
+      if (!ESTADOS.has(estado) || !referencia(convocatoria) || (cursor && !referencia(cursor))
         || !Number.isSafeInteger(limite) || limite < 20 || limite > 100
         || (idioma && !IDIOMA.test(idioma))) throw new TypeError("filtro incompatible");
       const parametros = new URLSearchParams({ estado, limite: String(limite) });
