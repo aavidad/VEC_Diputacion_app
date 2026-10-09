@@ -544,6 +544,7 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
     tareas: [],
     // Sólo selección documental histórica; cada descarga exige autorización vigente.
     ...(versionPropuesta !== null ? { version_propuesta_documental: versionPropuesta } : {}),
+    ...(detalle.resultado_bolsa ? { resultado_bolsa: detalle.resultado_bolsa } : {}),
   });
 }
 

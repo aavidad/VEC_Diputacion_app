@@ -1,0 +1,11 @@
+# Aplicar sobre la base causal postHZ15, una vez cada UP, antes del binario.
+# B98 expone sólo puertos propietarios de Bolsa; AD233 consume el acto V3;
+# CT201 conserva el vínculo confirmado y la lectura en la transacción auditada.
+# Si CT200 se integra antes, instalar CT200 antes de CT201. Revisar la huella
+# de preimagen AD233 contra la principal exacta antes de instalar: falla cerrado.
+# SHA256 9affe05512b6b444f569e68597922657226c6a64fcfd1a1a05e3e30fec8edbc3
+deploy/postgresql/bolsa_llamamientos/migraciones/000098_resultado_llamamiento_ct.up.sql
+# SHA256 381f57a5cb9c3f378079a03fdb8108cc2bcfe358406acb0a9ccc6f27f3181981
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000233_vinculo_emision_bolsa_ct.up.sql
+# SHA256 0dd745b369a2d27c8aa949e38b102f65f965dfc9383c0e15b4c51c7a6bd78853
+deploy/postgresql/contratacion_temporal/migraciones/000201_vinculo_emision_bolsa_ct.up.sql

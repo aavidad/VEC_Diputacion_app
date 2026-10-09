@@ -1,9 +1,12 @@
+import { validarResultadoBolsaCT } from "./contrato-resultado-bolsa.js";
+
 const RUTA_CUADRO = "/api/vec/contratacion-temporal/cuadro/consultas";
 const RUTA_DETALLE = "/api/vec/contratacion-temporal/expedientes/consultas";
 const ESQUEMA_CUADRO = "vec.contratacion-temporal.cuadro-rrhh.v1";
 const ESQUEMA_DETALLE = "vec.contratacion-temporal.detalle-rrhh.v1";
 const MAXIMO_SOLICITUD = 4 * 1024;
 const MAXIMO_RESPUESTA = 256 * 1024;
+const MAXIMO_RESPUESTA_DETALLE = 768 * 1024;
 const MAXIMO_EXPEDIENTES = 100;
 const MAXIMO_HITOS = 2_000;
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
@@ -285,7 +288,7 @@ function validarDetalle(entrada) {
   if (!camposCerrados(
     entrada,
     ["esquema", "resumen", "solicitud", "hitos"],
-    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion", "capacidades_ficha"],
+    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion", "capacidades_ficha", "resultado_bolsa"],
   ) || entrada.esquema !== ESQUEMA_DETALLE || !Array.isArray(entrada.hitos)
     || entrada.hitos.length > MAXIMO_HITOS) {
     throw new TypeError("detalle RRHH no válido");
@@ -301,6 +304,7 @@ function validarDetalle(entrada) {
   if (Object.hasOwn(entrada, "asignacion")) salida.asignacion = validarAsignacion(entrada.asignacion);
   if (Object.hasOwn(entrada, "presentacion_flujo")) salida.presentacion_flujo = validarPresentacionFlujo(entrada.presentacion_flujo);
   if (Object.hasOwn(entrada, "fiscalizacion")) salida.fiscalizacion = validarFiscalizacionDetalle(entrada.fiscalizacion);
+  if (Object.hasOwn(entrada, "resultado_bolsa")) salida.resultado_bolsa = validarResultadoBolsaCT(entrada.resultado_bolsa);
   return Object.freeze(salida);
 }
 
@@ -353,7 +357,7 @@ export function crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones } = {}
         signal,
         estadoEsperado: 200,
         maximoSolicitud: MAXIMO_SOLICITUD,
-        maximoRespuesta: MAXIMO_RESPUESTA,
+        maximoRespuesta: MAXIMO_RESPUESTA_DETALLE,
         validarRespuesta: validarDetalle,
         efecto: false,
         tipoContenido: "application/json",

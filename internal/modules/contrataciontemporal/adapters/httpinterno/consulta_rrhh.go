@@ -284,7 +284,11 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		}
 		responderErrorConsultaRRHH(w, r, causa, problema)
 	}
-	detalle, err := h.consultor.Consultar(r.Context(), solicitud)
+	contextoConsulta := r.Context()
+	if !esDescarga {
+		contextoConsulta = ports.ConResultadoBolsaRRHH(contextoConsulta)
+	}
+	detalle, err := h.consultor.Consultar(contextoConsulta, solicitud)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderFallo(errContexto, clasificarErrorConsultaRRHH(errContexto))
 		return

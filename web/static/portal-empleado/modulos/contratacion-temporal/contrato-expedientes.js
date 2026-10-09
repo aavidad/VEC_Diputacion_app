@@ -1,4 +1,5 @@
 import { validarDatosPeticionAnalisis, validarDatosPreviosAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
+import { validarResultadoBolsaCT } from "./contrato-resultado-bolsa.js";
 
 /**
  * Proyecciones cerradas del cuadro y el expediente de contratación temporal.
@@ -24,6 +25,7 @@ export const CAPACIDADES_CONTRATACION_TEMPORAL = Object.freeze({
   prepararLlamamiento: "contratacion_temporal.llamamiento.preparar",
   seleccionarCandidatura: "contratacion_temporal.llamamiento.seleccionar",
   registrarResultadoLlamamiento: "contratacion_temporal.llamamiento.registrar_resultado",
+  vincularEmisionBolsa: "contratacion_temporal.bolsa.vincular",
   prepararFormalizacion: "contratacion_temporal.formalizacion.preparar",
   firmarFormalizacion: "contratacion_temporal.formalizacion.firmar",
   confirmarIncorporacion: "contratacion_temporal.incorporacion.confirmar",
@@ -517,6 +519,7 @@ export function versionPropuestaDocumentalValida(entrada) {
 }
 
 export function validarExpedienteContratacionTemporal(entrada) {
+  const tieneResultadoBolsa = esRegistro(entrada) && Object.hasOwn(entrada, "resultado_bolsa");
   const propuestaHistorica = esRegistro(entrada) && Object.hasOwn(entrada, "version_propuesta_documental");
   const tieneAnalisisPrevio = esRegistro(entrada) && Object.hasOwn(entrada, "analisis_previo");
   const tieneDatosPeticion = esRegistro(entrada) && Object.hasOwn(entrada, "datos_peticion");
@@ -530,6 +533,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     ...(tieneAnalisisPrevio ? ["analisis_previo"] : []),
     ...(tieneDatosPeticion ? ["datos_peticion"] : []),
     ...(propuestaHistorica ? ["version_propuesta_documental"] : []),
+    ...(tieneResultadoBolsa ? ["resultado_bolsa"] : []),
   ], "expediente de contratación temporal");
   if (entrada.esquema !== ESQUEMA_EXPEDIENTE || typeof entrada.demostracion !== "boolean"
     || !PATRON_NUMERO.test(entrada.numero_visible)
@@ -592,6 +596,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     ...(tieneFiscalizacion ? { fiscalizacion: validarFiscalizacionExpediente(entrada.fiscalizacion) } : {}),
     tareas,
     ...(propuestaHistorica ? { version_propuesta_documental: entrada.version_propuesta_documental } : {}),
+    ...(tieneResultadoBolsa ? { resultado_bolsa: validarResultadoBolsaCT(entrada.resultado_bolsa) } : {}),
   });
 }
 
