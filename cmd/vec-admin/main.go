@@ -112,10 +112,19 @@ func main() {
 			}
 			gobierno = &c
 		}
-		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConGobierno(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno, fuenteCatalogoGobiernoOficial)
+		var inscripcion *configuracionGobiernoInscripcionPrivada
+		if rutaInscripcion := os.Getenv("VEC_ADMIN_INSCRIPCION_GOBIERNO_CONFIG_FILE"); rutaInscripcion != "" {
+			c, errorInscripcion := cargarConfiguracionGobiernoInscripcionPrivada(rutaInscripcion, privada, usuarios, runtime, lote, plan, efectos, gobierno)
+			if errorInscripcion != nil {
+				fallarConfiguracion("inscripcion_gobierno_config", errorInscripcion)
+			}
+			inscripcion = &c
+		}
+		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConGobierno(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno, inscripcion, fuenteCatalogoGobiernoOficial)
 	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE") != "" ||
 		os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_CERTIFICADOS_CONFIG_FILE") != "" ||
-		os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE") != "" {
+		os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE") != "" ||
+		os.Getenv("VEC_ADMIN_INSCRIPCION_GOBIERNO_CONFIG_FILE") != "" {
 		fallarConfiguracion("lote_sin_usuarios", nil)
 	} else {
 		servidor, cerrar, err = componerProcesoADMINConRuntime(configServidor, privada, runtime)
@@ -179,6 +188,8 @@ func etapaComposicionADMINPermitida(etapa string) bool {
 	switch etapa {
 	case "emisor_identidad", "configuracion", "lote_configuracion", "plan_firma_configuracion", "gobierno_roles_config", "gobierno_roles_configuracion", "gobierno_roles_fuente",
 		"gobierno_roles_pool", "gobierno_roles_confianza_metadatos", "gobierno_roles_confianza_material", "gobierno_roles_servicio",
+		"inscripcion_gobierno_config", "inscripcion_gobierno_configuracion", "inscripcion_gobierno_fuente",
+		"inscripcion_gobierno_pool", "inscripcion_gobierno_confianza_metadatos", "inscripcion_gobierno_confianza_material", "inscripcion_gobierno_servicio",
 		"firmante_publica", "firmante", "confianza_metadatos", "confianza_material", "confianza_cadena",
 		"emisor_usuarios", "auditoria_intentos", "auditoria_nominal", "frontera_tecnica", "auditor_compuesto",
 		"lector_usuarios", "lecturas_usuarios", "selector", "seudonimos", "identificadores", "servidor",

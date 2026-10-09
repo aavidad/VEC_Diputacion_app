@@ -2,9 +2,12 @@ package ports
 
 import (
 	"context"
+	"errors"
 
 	"vec-diputacion-granada/internal/vec/domain"
 )
+
+var ErrGobiernoInscripcionIntentoAuditado = errors.New("gobierno_inscripcion_intento_auditado")
 
 // AutoridadVersionInscripcion pertenece al gobierno central de autorización.
 // Resolver consulta la fuente publicada completa; proponer y cerrar usan dos

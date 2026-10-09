@@ -52,7 +52,7 @@ func (s *ServicioAdministracionPerfiles) ProponerVersionInscripcion(
 	if err != nil {
 		return vacia, false, err
 	}
-	if propuesta.ValidarPara(orden) != nil || !propuesta.CaducaEn.After(s.reloj.Ahora()) {
+	if propuesta.ValidarPara(orden) != nil || (!replay && !propuesta.CaducaEn.After(s.reloj.Ahora())) {
 		return vacia, false, domain.ErrPlanVersionInscripcionInvalido
 	}
 	return propuesta, replay, nil

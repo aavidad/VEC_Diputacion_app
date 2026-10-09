@@ -31,6 +31,14 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 		h.postGobiernoRolCerrar(w, r, s)
 		return
 	}
+	if p == RutaGobiernoInscripcionProponer {
+		h.postGobiernoInscripcionProponer(w, r, s)
+		return
+	}
+	if p == RutaGobiernoInscripcionCerrar {
+		h.postGobiernoInscripcionCerrar(w, r, s)
+		return
+	}
 	if e, ok := h.efectos[p]; ok {
 		h.postEfectoNominal(w, r, s, e)
 		return

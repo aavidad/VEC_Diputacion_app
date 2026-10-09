@@ -41,12 +41,12 @@ func componerProcesoUsuariosMetadatosADMINConRuntime(cfg administracion.Configur
 // autoridad PostgreSQL y el servicio de aplicación del lote. Sin overlay, el
 // proceso es exactamente el de las lecturas de usuarios.
 func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, efectos []efectoConfigurado) (*http.Server, func(), error) {
-	return componerProcesoUsuariosMetadatosADMINConGobierno(cfg, base, u, runtime, lote, plan, efectos, nil, nil)
+	return componerProcesoUsuariosMetadatosADMINConGobierno(cfg, base, u, runtime, lote, plan, efectos, nil, nil, nil)
 }
 
 // Sólo el archivo privado explícito habilita esta composición. Sin él, las
 // rutas Gov no se registran y el arranque conserva el montaje anterior.
-func componerProcesoUsuariosMetadatosADMINConGobierno(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, efectos []efectoConfigurado, gobierno *configuracionGobiernoRolesPrivada, nuevaFuente construirFuenteCatalogoGobiernoRoles) (*http.Server, func(), error) {
+func componerProcesoUsuariosMetadatosADMINConGobierno(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, efectos []efectoConfigurado, gobierno *configuracionGobiernoRolesPrivada, inscripcion *configuracionGobiernoInscripcionPrivada, nuevaFuente construirFuenteCatalogoGobiernoRoles) (*http.Server, func(), error) {
 	fallo := func(etapa string) (*http.Server, func(), error) { return nil, nil, errorArranque(etapa) }
 	// El emisor de la aserción es el espacio de identidad de la sesión y el
 	// registro lo compara con éste: si difieren, toda petición acabaría en 403.
@@ -69,6 +69,10 @@ func componerProcesoUsuariosMetadatosADMINConGobierno(cfg administracion.Configu
 		// Una configuración presente sin lector AUT58 no puede arrancar
 		// ignorada ni montar una ruta incompleta.
 		return fallo("gobierno_roles_fuente")
+	}
+	if inscripcion != nil && (nuevaFuente == nil ||
+		validarConfiguracionGobiernoInscripcionPrivada(*inscripcion, base, u, runtime, lote, plan, efectos, gobierno) != nil) {
+		return fallo("inscripcion_gobierno_configuracion")
 	}
 	for i, e := range efectos {
 		otros := make([]configuracionEfectoPrivada, 0, len(efectos)-1)
@@ -103,6 +107,10 @@ func componerProcesoUsuariosMetadatosADMINConGobierno(cfg administracion.Configu
 	if gobierno != nil {
 		rutas = append(rutas, gobierno.PoolGobierno, gobierno.PoolCatalogo)
 	}
+	indiceInscripcion := len(rutas)
+	if inscripcion != nil {
+		rutas = append(rutas, inscripcion.PoolGobierno, inscripcion.PoolCatalogo)
+	}
 	pools := make([]*pgxpool.Pool, 0, len(rutas))
 	cierres := []func(){}
 	cerrar := func() {
@@ -120,10 +128,16 @@ func componerProcesoUsuariosMetadatosADMINConGobierno(cfg administracion.Configu
 		}
 	}()
 	logins := map[string]bool{}
+	falloPool := func(i int, sufijo string) (*http.Server, func(), error) {
+		if inscripcion != nil && i >= indiceInscripcion {
+			return fallo("inscripcion_gobierno_pool")
+		}
+		return fallo("pool_" + strconv.Itoa(i) + sufijo)
+	}
 	for i, ruta := range rutas {
 		dsn, err := cargarDSNPrivado(ruta)
 		if err != nil {
-			return fallo("pool_" + strconv.Itoa(i) + "_dsn")
+			return falloPool(i, "_dsn")
 		}
 		configurar := configurarPoolADMIN
 		if utc[i] {
@@ -131,18 +145,18 @@ func componerProcesoUsuariosMetadatosADMINConGobierno(cfg administracion.Configu
 		}
 		pc, err := configurar(dsn)
 		if err != nil {
-			return fallo("pool_" + strconv.Itoa(i) + "_config")
+			return falloPool(i, "_config")
 		}
 		telemetria.Instrumentar(pc) // consultas por petición en el registro de acceso
 		pool, err := pgxpool.NewWithConfig(ctx, pc)
 		if err != nil {
-			return fallo("pool_" + strconv.Itoa(i) + "_abrir")
+			return falloPool(i, "_abrir")
 		}
 		pools = append(pools, pool)
 		var login string
 		var nominal bool
 		if pool.QueryRow(ctx, `SELECT session_user,current_user=session_user AND r.rolcanlogin AND NOT(r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls) FROM pg_catalog.pg_roles r WHERE r.rolname=session_user`).Scan(&login, &nominal) != nil || !nominal || logins[login] {
-			return fallo("pool_" + strconv.Itoa(i) + "_login")
+			return falloPool(i, "_login")
 		}
 		logins[login] = true
 	}
@@ -279,11 +293,25 @@ func componerProcesoUsuariosMetadatosADMINConGobierno(cfg administracion.Configu
 			return nil, nil, err
 		}
 	}
+	var montajeInscripcion *administracion.MontajeGobiernoInscripcionADMIN
+	if inscripcion != nil {
+		fuenteCatalogo, err := nuevaFuente(ctx, pools[indiceInscripcion+1])
+		if err != nil || fuenteCatalogo == nil {
+			return fallo("inscripcion_gobierno_fuente")
+		}
+		montajeInscripcion, err = componerGobiernoInscripcionADMIN(ctx, base, *inscripcion,
+			pools[0], pools[1], pools[2], pools[indiceInscripcion], pools[indiceInscripcion+1],
+			fuenteCatalogo, firmante, reloj)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
 	servidor, err := administracion.ComponerServidorPerfiles(ctx, cfg, administracion.DependenciasComposicionPerfiles{
 		Confianza: cadena, PoolCuentas: pools[5], PoolContextoADMIN: pools[10],
 		FuenteIdentificadoresADMIN: fuenteIdentificadores, ConfiguracionContextoADMIN: selector.ConfiguracionContextoADMIN{Proceso: runtime.ProcesoContexto}, PoolRegistroSesion: pools[3], PoolRevalidacionSesion: pools[4],
 		Seudonimizador: seudonimos, EspacioIdentidad: base.Identidad.EspacioIdentidad, DominioHMACRef: base.Identidad.DominioRef,
-		Lecturas: lecturas, FuenteSeleccion: seleccion, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(base.ActivosDirectorio), SoloUsuariosMetadatos: true, Lote: autoridadLote, GobiernoPlan: servicioPlan, GobiernoRolNuevo: montajeGobierno, Efectos: montados})
+		Lecturas: lecturas, FuenteSeleccion: seleccion, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(base.ActivosDirectorio), SoloUsuariosMetadatos: true, Lote: autoridadLote, GobiernoPlan: servicioPlan,
+		GobiernoRolNuevo: montajeGobierno, GobiernoInscripcion: montajeInscripcion, Efectos: montados})
 	if err != nil {
 		return fallo("servidor")
 	}

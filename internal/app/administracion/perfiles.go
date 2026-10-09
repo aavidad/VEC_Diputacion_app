@@ -37,6 +37,7 @@ type DependenciasPerfiles struct {
 	Lote                  *LoteADMIN
 	GobiernoPlan          api.ServicioGobiernoPlanFirmaADMIN
 	GobiernoRolNuevo      *MontajeGobiernoRolNuevoADMIN
+	GobiernoInscripcion   *MontajeGobiernoInscripcionADMIN
 	Efectos               []EfectoNominalMontado
 }
 
@@ -44,6 +45,11 @@ type DependenciasPerfiles struct {
 // nominal. Su ausencia deja cerradas las dos rutas de definición.
 type MontajeGobiernoRolNuevoADMIN struct {
 	Servicio api.ServicioGobiernoRolNuevoADMIN
+	Fuente   ports.FuenteCatalogoAccionesAdministracionV1
+}
+
+type MontajeGobiernoInscripcionADMIN struct {
+	Servicio api.ServicioGobiernoInscripcionADMIN
 	Fuente   ports.FuenteCatalogoAccionesAdministracionV1
 }
 
@@ -76,7 +82,7 @@ func NuevoServidorConPerfiles(cfg Configuracion, deps DependenciasPerfiles) (*ht
 }
 
 func nuevoHandlerPerfiles(host hostAdmin, deps DependenciasPerfiles) (*handlerPerfilesADMIN, error) {
-	if deps.GobiernoRolNuevo != nil {
+	if deps.GobiernoRolNuevo != nil || deps.GobiernoInscripcion != nil {
 		return nil, ErrConfiguracion
 	}
 	servicio, err := application.NuevoServicioAdministracionPerfiles(deps.Catalogo, deps.Actos, deps.Reloj)
@@ -132,6 +138,13 @@ func NuevoServidorConLecturas(cfg Configuracion, deps DependenciasPerfiles) (*ht
 		if !deps.SoloUsuariosMetadatos || dependenciaComposicionNula(g.Servicio) ||
 			dependenciaComposicionNula(g.Fuente) || dependenciaComposicionNula(deps.Reloj) ||
 			handler.ConGobiernoRolNuevo(g.Servicio, g.Fuente, deps.Reloj) != nil {
+			return nil, ErrConfiguracion
+		}
+	}
+	if deps.GobiernoInscripcion != nil {
+		g := deps.GobiernoInscripcion
+		if !deps.SoloUsuariosMetadatos || dependenciaComposicionNula(g.Servicio) ||
+			dependenciaComposicionNula(g.Fuente) || handler.ConGobiernoInscripcion(g.Servicio) != nil {
 			return nil, ErrConfiguracion
 		}
 	}
