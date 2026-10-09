@@ -351,7 +351,7 @@
         "subtitulo": "Choose the alerts you want to receive"
       },
       "titulo": "Profile, identity and contact details",
-      "descripcion": "A single identity for applications, job pools, certificates and future modules.",
+      "descripcion": "Your contact details for the job pool.",
       "identidad": {
         "titulo": "Identity details",
         "subtitulo": "Your main identity comes from the authentication system",
@@ -500,7 +500,7 @@
       "leerPagina": "Read this page aloud",
       "buscar": {
         "titulo": "Search help",
-        "subtitulo": "Answers about registration, merits, scoring and call-ups",
+        "subtitulo": "Answers about My job pool and call-ups",
         "pregunta": "What do you need to know?",
         "ejemplo": "Example: respond to a call-up",
         "boton": "Search"
@@ -524,11 +524,6 @@
         "datos": "Data protection",
         "datosDetalle": "Information on your rights and on data processing in the applicable notice.",
         "nota": "Do not include personal documents in general help questions."
-      },
-      "rapida": {
-        "titulo": "Quick links",
-        "subtitulo": "Common tasks",
-        "llamamiento": "Respond to a call-up"
       }
     }
   },

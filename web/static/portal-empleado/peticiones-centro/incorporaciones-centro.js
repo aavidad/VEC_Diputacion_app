@@ -167,16 +167,21 @@ export function crearClienteIncorporacionesCentro(fetchImpl = globalThis.fetch) 
 /**
  * Lectura de la bandeja compartida por las secciones de la página
  * (incorporaciones y cancelaciones): la primera carga de cada una reutiliza
- * la misma petición; `recargar` pide datos nuevos.
+ * la misma petición; `recargar` pide datos nuevos. Cuando una sección cambia
+ * un expediente (p. ej. lo cancela) y ya ha leído de nuevo, `avisarCambio`
+ * hace que las secciones suscritas con `alCambiar` repinten esa lectura.
  */
 export function crearBandejaCompartida(cliente = crearClienteIncorporacionesCentro()) {
   let lectura = null;
+  const oyentes = new Set();
   return Object.freeze({
     bandeja: ({ recargar = false } = {}) => {
       if (recargar || !lectura) lectura = cliente.bandeja();
       return lectura;
     },
     confirmar: (solicitud, hoy) => cliente.confirmar(solicitud, hoy),
+    alCambiar: (oyente) => { oyentes.add(oyente); return () => oyentes.delete(oyente); },
+    avisarCambio: () => { for (const oyente of [...oyentes]) oyente(); },
   });
 }
 
@@ -325,12 +330,15 @@ export function montarIncorporacionesCentro({ contenedor, cliente = bandejaCompa
     enviar(form);
   };
   const retirarHuella = instalarHuellaArchivo(contenedor);
+  // Otra sección ya leyó la bandeja tras cambiarla: se repinta esa lectura sin pedir otra.
+  const retirarCambio = cliente.alCambiar?.(() => { if (!ocupado) cargar(false); }) ?? (() => {});
   instalarCopiaJustificantes(contenedor.ownerDocument ?? globalThis.document);
   contenedor.addEventListener("click", alPulsar);
   contenedor.addEventListener("submit", alEnviar);
   cargar(false);
   return () => {
     retirarHuella();
+    retirarCambio();
     contenedor.removeEventListener("click", alPulsar);
     contenedor.removeEventListener("submit", alEnviar);
   };

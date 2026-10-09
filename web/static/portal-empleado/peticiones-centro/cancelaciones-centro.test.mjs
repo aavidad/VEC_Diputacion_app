@@ -94,3 +94,34 @@ test("incorporaciones y cancelaciones hacen una sola petición a la bandeja; rei
   assert.equal(rutas.length, 2, "reintentar no reutiliza el fallo anterior");
   assert.match(c.innerHTML, /data-cc-abrir="expediente:ct:1"/u);
 });
+
+test("tras cancelar, incorporaciones repinta la lectura nueva sin pedir otra a la bandeja", async () => {
+  const lecturas = [[fila()], [fila({ estado: "cancelado", version: 4 })]];
+  const rutas = [];
+  const fetchFalso = async (ruta) => {
+    rutas.push(ruta);
+    const expedientes = lecturas[Math.min(rutas.length - 1, lecturas.length - 1)];
+    return { ok: true, status: 200, text: async () => JSON.stringify({ data: {
+      esquema: "vec.contratacion-temporal.incorporaciones-centro.v1", expedientes, puede_confirmar: true, limite: 50 } }) };
+  };
+  const bandeja = crearBandejaCompartida(crearClienteIncorporacionesCentro(fetchFalso));
+  const i = contenedorFalso();
+  const c = contenedorFalso();
+  const desmontarI = montarIncorporacionesCentro({ contenedor: i, cliente: bandeja });
+  montarCancelacionesCentro({ contenedor: c, bandeja, cliente: { consultar: async (ref) => opciones(ref), cancelar: async () => recibo },
+    generarClave: () => "7c9e6679-7425-40de-944b-e07fc1f90ae7" });
+  await esperar(); await esperar();
+  assert.match(i.innerHTML, /En tramitación en RRHH/u);
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { entries() { return Object.entries({ motivo_clave: "necesidad_desaparecida", observaciones: "", confirmacion: "on" }); } };
+  try {
+    c.eventos.get("submit")({ preventDefault() {}, target: { closest: () => ({ dataset: { ccForm: "expediente:ct:1" } }) } });
+    for (let n = 0; n < 6; n += 1) await esperar();
+  } finally { globalThis.FormData = FormDataOriginal; }
+  assert.equal(rutas.length, 2, "la cancelación relee la bandeja una vez y la comparte");
+  assert.match(c.innerHTML, /data-cc-aviso/u);
+  assert.match(i.innerHTML, /<td>Expediente cancelado<\/td>/u);
+  assert.doesNotMatch(i.innerHTML, /En tramitación en RRHH/u, "incorporaciones ya no muestra la petición en tramitación");
+  desmontarI();
+  assert.equal(i.eventos.size, 0);
+});

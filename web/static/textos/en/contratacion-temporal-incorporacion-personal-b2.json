@@ -43,7 +43,7 @@
   "seleccion_obsoleta": "The selection has changed. Check this operation before continuing again.",
   "error_periodo": "The end date must be later than the start date.",
   "denegada": "You do not have permission to view or record this commencement of service. The screen data has been cleared.",
-  "preparacion_pendiente": "Commencement of service is not ready yet. Review the outstanding checks for this case before refreshing the options.",
+  "preparacion_pendiente": "Commencement of service cannot be prepared yet because earlier steps in this case are missing (acceptance, formalisation or period). Complete them in the case record, then select Refresh options.",
   "conflicto": "The case or selection has changed. Refresh the options before proceeding.",
   "no_disponible": "Commencement of service cannot be checked right now. Select Refresh options. If the problem persists, contact IT.",
   "rechazada": "The operation was not accepted. Review the details before proceeding.",

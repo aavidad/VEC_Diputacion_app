@@ -7,7 +7,7 @@
  * un motivo del catálogo. Fases y motivos los decide el servidor; la vista
  * solo evita ofrecer la cancelación cuando no procede.
  */
-import { bandejaCompartidaPagina, periodoVisible, prepararCausasFin } from "./incorporaciones-centro.js?v=20261009-pc-bandeja-unica-v1";
+import { bandejaCompartidaPagina, periodoVisible, prepararCausasFin } from "./incorporaciones-centro.js?v=20261009-retoques-textos-v1";
 import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
 
@@ -171,6 +171,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = bandejaCompart
       claves.delete(e.expediente_ref);
       ocupado = false; abierto = null;
       await cargar();
+      bandeja.avisarCambio?.();
       aviso = { tono: "exito", texto: t("exito"), recibo: recibo.recibo_ref };
       pintar();
     } catch (error) {
@@ -181,7 +182,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = bandejaCompart
         const conocido = ["fase_no_admitida", "tras_fiscalizacion", "cancelacion_existente", "version_en_conflicto", "clave_reutilizada", "acceso_denegado"].includes(error?.codigo);
         aviso = { tono: "peligro", texto: t(conocido ? `error_${error.codigo}` : error?.codigo === "contenido_no_valido" ? "error_datos" : "error_general") };
         if (["fase_no_admitida", "cancelacion_existente", "version_en_conflicto", "tras_fiscalizacion"].includes(error?.codigo)) {
-          abierto = null; const guardado = aviso; await cargar(); aviso = guardado;
+          abierto = null; const guardado = aviso; await cargar(); bandeja.avisarCambio?.(); aviso = guardado;
         }
       }
       pintar();
