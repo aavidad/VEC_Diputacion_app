@@ -69,6 +69,11 @@ func TestEntregaPeticionCentroConservaFuenteRatificadaYReservaActorPerfil(t *tes
 	if err != nil {
 		t.Fatalf("entrega: %v", err)
 	}
+	if registro.recibido.Peticion.Solicitud.JornadaMinutos != 2250 ||
+		registro.recibido.Peticion.Solicitud.NumeroPersonas != 2 ||
+		registro.recibido.Peticion.Solicitud.PuestoSolicitado != "Administrativo C2" {
+		t.Fatal("el alta perdió los datos estructurados de la petición")
+	}
 	registro.recibido.Peticion.Solicitud.DocumentosAdjuntos[0] = "documento:alterado"
 	if !reflect.DeepEqual(repo.preparada.Peticion, original) {
 		t.Fatal("el alta pudo mutar la petición ratificada original")
@@ -250,7 +255,7 @@ func peticionCentroRatificadaPrueba(t *testing.T) domain.DatosPeticionCentro {
 		Solicitante: domain.ActorPeticionCentro{ActorRef: "actor:solicitante", PerfilRef: "perfil:responsable", CentroRef: "centro:sintetico:001", PuestoRef: "puesto:jefatura"},
 		Ratificador: domain.ActorPeticionCentro{ActorRef: "actor:ratificador", PerfilRef: "perfil:responsable", CentroRef: "centro:sintetico:001", PuestoRef: "puesto:direccion"}}
 	inicio := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
-	peticion, err := domain.NuevaPeticionCentro("peticion:centro:001", config, domain.SolicitudCentro{CentroRef: "centro:sintetico:001", ContactoRef: "contacto:sintetico:001", CategoriaRef: "categoria:tecnica", GrupoSubgrupo: "A1", MotivoClave: "necesidad.temporal", Detalle: "Necesidad sintética", Periodo: domain.PeriodoPrevisto{Inicio: inicio, Fin: inicio.Add(24 * time.Hour)}, DocumentosAdjuntos: []string{"documento:001"}}, inicio)
+	peticion, err := domain.NuevaPeticionCentro("peticion:centro:001", config, domain.SolicitudCentro{CentroRef: "centro:sintetico:001", ContactoRef: "contacto:sintetico:001", CategoriaRef: "categoria:tecnica", GrupoSubgrupo: "A1", MotivoClave: "necesidad.temporal", Detalle: "Necesidad sintética", Periodo: domain.PeriodoPrevisto{Inicio: inicio, Fin: inicio.Add(24 * time.Hour)}, DocumentosAdjuntos: []string{"documento:001"}, JornadaMinutos: 2250, NumeroPersonas: 2, PuestoSolicitado: "Administrativo C2"}, inicio)
 	if err != nil {
 		t.Fatal(err)
 	}

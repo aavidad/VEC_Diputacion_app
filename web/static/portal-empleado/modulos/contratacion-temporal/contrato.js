@@ -503,7 +503,7 @@ function errorValorNecesidad(campo) {
   return "campo_necesidad";
 }
 
-export function crearBorradorAlta({ conNumeroMOAD = false, conNecesidad = false,
+export function crearBorradorAlta({ conNumeroMOAD = false, conNecesidad = false, conPeticionCentro = false,
   jornadaReferenciaMinutos = 0 } = {}) {
   return clonarYCongelarAlta({
     ...(conNumeroMOAD ? { numero_expediente_moad: "" } : {}),
@@ -522,6 +522,8 @@ export function crearBorradorAlta({ conNumeroMOAD = false, conNecesidad = false,
     rc_documento_ref: "",
     documentos_adjuntos: [],
     observaciones: "",
+    ...(conPeticionCentro ? { jornada_minutos: String(jornadaReferenciaMinutos || ""),
+      numero_personas: "", puesto_solicitado: "" } : {}),
     ...(conNecesidad ? { jornada_minutos: String(jornadaReferenciaMinutos),
       ...Object.fromEntries(CAMPOS_NECESIDAD.map((campo) => [campo, ""])) } : {}),
   });
@@ -566,8 +568,10 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
   const errores = {};
   const conNumero = esRegistro(borrador) && Object.hasOwn(borrador, "numero_expediente_moad");
   const conNecesidad = catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES;
+  const conPeticionCentro = Object.hasOwn(borrador ?? {}, "puesto_solicitado");
   if (!tieneCamposExactos(borrador, [...CAMPOS_BORRADOR, ...(conNumero ? ["numero_expediente_moad"] : []),
-    ...(conNecesidad ? ["jornada_minutos", ...CAMPOS_NECESIDAD] : [])])) {
+    ...(conNecesidad ? ["jornada_minutos", ...CAMPOS_NECESIDAD] : []),
+    ...(conPeticionCentro ? ["jornada_minutos", "numero_personas", "puesto_solicitado"] : [])])) {
     return congelar({ valido: false, errores: { general: "contrato_cerrado" } });
   }
 
@@ -595,6 +599,14 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
   }
   if (!textoValido(borrador.observaciones, LIMITES_ALTA_CONTRATACION.texto, true)) {
     agregarError(errores, "observaciones", "texto_opcional");
+  }
+  if (conPeticionCentro) {
+    if (!/^(?:[1-9][0-9]{0,4})$/u.test(borrador.jornada_minutos)
+      || Number(borrador.jornada_minutos) > 10080) agregarError(errores, "jornada_minutos", "jornada");
+    if (!/^(?:[1-9][0-9]{0,9})$/u.test(borrador.numero_personas)
+      || Number(borrador.numero_personas) > 4294967295) agregarError(errores, "numero_personas", "numero_personas");
+    if (borrador.puesto_solicitado === "") agregarError(errores, "puesto_solicitado", "puesto_solicitado_vacio");
+    else if (!textoValido(borrador.puesto_solicitado, 160, false) || /\p{Cc}/u.test(borrador.puesto_solicitado)) agregarError(errores, "puesto_solicitado", "puesto_solicitado");
   }
   if (!fechaCivilValida(borrador.inicio)) agregarError(errores, "inicio", "fecha");
   if (motivo?.fecha_fin === "no_aplica" && borrador.fin !== "") agregarError(errores, "fin", "fecha_no_aplica");
@@ -703,7 +715,9 @@ function validarComandoPeticionCentro(comando) {
     throw new TypeError("clave de operación no válida");
   }
   const solicitud = comando.solicitud;
-  exigirCamposExactos(solicitud, CAMPOS_SOLICITUD, "solicitud de centro");
+  const conDatosCentro = Object.hasOwn(solicitud ?? {}, "puesto_solicitado");
+  exigirCamposExactos(solicitud, [...CAMPOS_SOLICITUD,
+    ...(conDatosCentro ? ["jornada_minutos", "numero_personas", "puesto_solicitado"] : [])], "solicitud de centro");
   const tieneFin = esRegistro(solicitud.periodo) && Object.hasOwn(solicitud.periodo, "fin");
   const tieneCausa = esRegistro(solicitud.periodo) && Object.hasOwn(solicitud.periodo, "causa_fin");
   exigirCamposExactos(solicitud.periodo, ["inicio", ...(tieneFin ? ["fin"] : []),
@@ -726,7 +740,11 @@ function validarComandoPeticionCentro(comando) {
       ) : !tieneCausa || typeof solicitud.periodo.causa_fin !== "string"
         || !PATRON_CLAVE_CATALOGO.test(solicitud.periodo.causa_fin))
     || !validarRC(solicitud.rc)
-    || !referenciasAdjuntasValidas(solicitud.documentos_adjuntos)) {
+    || !referenciasAdjuntasValidas(solicitud.documentos_adjuntos)
+    || (conDatosCentro && (!Number.isInteger(solicitud.jornada_minutos) || solicitud.jornada_minutos < 1
+      || solicitud.jornada_minutos > 10080 || !Number.isInteger(solicitud.numero_personas)
+      || solicitud.numero_personas < 1 || solicitud.numero_personas > 4294967295
+      || !textoValido(solicitud.puesto_solicitado, 160, false) || /\p{Cc}/u.test(solicitud.puesto_solicitado)))) {
     throw new TypeError("solicitud de centro no válida");
   }
   return clonarYCongelarAlta(comando);
@@ -760,6 +778,11 @@ export function crearComandoPeticionCentro(borrador, catalogos, claveIdempotenci
       rc,
       documentos_adjuntos: [...borrador.documentos_adjuntos],
       observaciones: borrador.observaciones,
+      ...(Object.hasOwn(borrador, "puesto_solicitado") ? {
+        jornada_minutos: Number(borrador.jornada_minutos),
+        numero_personas: Number(borrador.numero_personas),
+        puesto_solicitado: borrador.puesto_solicitado,
+      } : {}),
     },
   });
 }
