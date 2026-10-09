@@ -353,7 +353,7 @@ func cambioAsignacionInscripcionValido(c CambioAsignacionInscripcion, perfil Per
 			c.ProyeccionEmpleado == nil ||
 			!referenciaOpacaAdministracionPerfiles(c.ProyeccionEmpleado.ProyeccionRef, "pep_") ||
 			c.ProyeccionEmpleado.Version == 0 ||
-			!textoAutorizacionSinComodinSeguro(c.ProyeccionEmpleado.ProcedenciaRef, 512, false) ||
+			!referenciaOpacaAdministracionPerfiles(c.ProyeccionEmpleado.ProcedenciaRef, "prc_") ||
 			c.ProyeccionEmpleado.ProcedenciaVersion == 0 ||
 			!huellaSHA256AutorizacionV3NoNula(c.ProyeccionEmpleado.ProcedenciaHuellaSHA256) ||
 			len(c.Ambitos) != 1 || c.Ambitos[0].Clave != "empleado_ref" ||
