@@ -10,20 +10,22 @@ La fuente P1 contiene AUT59/AUT64 instaladas, ADMIN v7 y solo datos sintéticos.
 El guion exige su SHA, restaura un PGDATA nuevo, ejecuta AD228→AD229→AUT66→
 AD231, prepara v8/v9 con aprobaciones sintéticas, instala AUT67 y comprueba
 v10, dos AsignacionID, CAS, denegación, replay y recuperación tras reinicio.
-El LOGIN técnico tiene CONNECTION LIMIT 1: los intentos simultáneos de esa
-misma operación quedan excluidos por la propia precondición de AUT67.
-La fuente AUT58 de Bolsa con 15 entradas se aprueba/publica en otro circuito;
-este ensayo y AUT67 solo conceden las dos acciones ADMIN de inscripción.
+El LOGIN sintético del ensayo se crea con CONNECTION LIMIT 1. Por ello esta
+sonda no acredita concurrencia; solo replay secuencial y recuperación.
+El catálogo de Bolsa se publica en otro circuito: AUT67 solo concede las dos
+acciones ADMIN de inscripción.
 No conecta al servidor principal ni publica nada. --keep conserva el scratch.
 """
 
 import argparse
+from dataclasses import dataclass
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import threading
 import time
@@ -48,6 +50,34 @@ PHASES = {
 
 def sha256(data):
     return hashlib.sha256(data).hexdigest()
+
+
+@dataclass(frozen=True)
+class FrozenSQL:
+    path: Path
+    data: bytes
+    digest: str
+
+
+def freeze_sql(path):
+    # Nunca reabrir la ruta WIP para ejecutar ni para atribuir el hash. La
+    # preimagen se coteja antes/después de leer el descriptor y esos mismos
+    # bytes inmutables alimentan psql.
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        before = os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode):
+            raise ValueError(f"SQL no regular: {path}")
+        with os.fdopen(fd, "rb", closefd=False) as stream:
+            data = stream.read()
+        after = os.fstat(fd)
+    finally:
+        os.close(fd)
+    identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns)
+    if identity(before) != identity(after) or len(data) != before.st_size:
+        raise RuntimeError(f"SQL cambió durante lectura: {path}")
+    data.decode("utf-8")
+    return FrozenSQL(path, data, sha256(data))
 
 
 def run(argv, *, input_data=None):
@@ -104,8 +134,8 @@ class Clone:
                     "-v", "ON_ERROR_STOP=1", "-h", "/socket", "-p", "5432",
                     "-U", user, "-d", "postgres"], input_data=sql).strip()
 
-    def apply(self, path):
-        self.psql(path.read_text())
+    def apply(self, frozen):
+        self.psql(frozen.data.decode("utf-8"))
 
     def start_seller(self):
         self.seller_stop.clear()
@@ -269,10 +299,24 @@ def main():
     for name, path in paths.items():
         if not path.is_file():
             parser.error(f"falta {name}: {path}")
+    frozen = {name: freeze_sql(path) for name, path in paths.items()}
+    structure = freeze_sql(Path(__file__).with_name("aut67_estructura_clon.sql"))
     args.scratch.mkdir(mode=0o700, parents=True)
     clone = Clone(args.scratch)
     clone.data.mkdir(mode=0o700)
     clone.socket.mkdir(mode=0o700)
+    manifest = {name: {"ruta": str(item.path), "sha256": item.digest,
+                       "bytes": len(item.data)} for name, item in frozen.items()}
+    manifest["estructura"] = {"ruta": str(structure.path), "sha256": structure.digest,
+                                "bytes": len(structure.data)}
+    manifest_file = args.scratch / "manifest_sql.json"
+    manifest_state = {"tar_sha256": P1_SHA, "fuentes_congeladas": manifest, "aplicados": []}
+    manifest_file.write_text(json.dumps(manifest_state, sort_keys=True))
+    manifest_file.chmod(0o600)
+
+    def mark_applied(name):
+        manifest_state["aplicados"].append(name)
+        manifest_file.write_text(json.dumps(manifest_state, sort_keys=True))
     try:
         run(["tar", "-xf", str(args.tar), "-C", str(clone.data)])
         clone.start()
@@ -280,28 +324,38 @@ def main():
         if baseline != "1,2,3,4,5,6,7":
             raise AssertionError(f"P1 no inicia en ADMIN v7: {baseline}")
         for name in ("ad228", "ad229", "aut66", "ad231"):
-            clone.apply(paths[name])
+            clone.apply(frozen[name])
+            mark_applied(name)
         clone.start_seller()
         for phase in (4, 5):
             plan, plan_sha, login, facade, _ = build_plan(clone, phase)
             result = invoke(clone, login, facade, plan, plan_sha)
             if result.get("estado") != "permitido" or result.get("replay") is not False:
                 raise AssertionError(f"fase {phase} falló: {result.get('codigo')}")
-        clone.apply(paths["aut67"])
+        clone.apply(frozen["aut67"])
+        mark_applied("aut67")
         # La instalación estructural conserva v9 y no concede CONNECT.
-        structure = Path(__file__).with_name("aut67_estructura_clon.sql")
         clone.apply(structure)
+        mark_applied("estructura")
         plan, plan_sha, login, facade, doc = build_plan(clone, 6)
         before_ids = sorted(x["asignacion_origen_ref"].split(":")[1] for x in doc["asignaciones"])
         first = invoke(clone, login, facade, plan, plan_sha)
         replay = invoke(clone, login, facade, plan, plan_sha)
         denied = invoke(clone, login, facade, plan, "0" * 64)
+        denied_ref = (denied.get("auditoria_intento") or {}).get("auditoria_ref", "")
+        if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,200}", denied_ref):
+            raise AssertionError("intento denegado sin referencia auditora")
+        denied_audit = clone.psql("SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 "
+                                  f"WHERE auditoria_ref='{denied_ref}' "
+                                  "AND tipo_registro='intento_mantenimiento_perfil_fijo_admin' "
+                                  "AND resultado='denegado'")
         state = snapshot(clone)
         expected_ids = [{"id": x, "version": 7} for x in before_ids]
         if (first.get("estado") != "permitido" or first.get("replay") is not False
                 or replay.get("estado") != "permitido" or replay.get("replay") is not True
                 or first.get("recibo") != replay.get("recibo")
                 or denied.get("estado") != "denegado" or denied.get("recibo") is not None
+                or denied_audit != "1"
                 or state["rol_v10"] != 1 or state["historia_rol"] != 10
                 or state["catalogo_v9"] != 24 or state["catalogo_v10"] != 26
                 or state["acciones_inscripcion"] != 2 or state["asignaciones"] != expected_ids
@@ -318,13 +372,14 @@ def main():
                 or after_restart.get("replay") is not True
                 or after_restart.get("recibo") != first.get("recibo")):
             raise AssertionError("recuperación tras reinicio divergente")
-        print(json.dumps({"resultado": "AUT67-ENSAYO-OK", "migraciones_sha256":
-                          {name: sha256(path.read_bytes()) for name, path in paths.items()},
+        print(json.dumps({"resultado": "AUT67-ENSAYO-OK", "sql_ejecutado": manifest,
                           "rol_v10": state["rol_v10"], "catalogo_v10": state["catalogo_v10"],
                           "dos_aid_cas_v7": state["asignaciones"], "registros": state["registros"],
                           "efectos_auditados": state["efectos"], "sellos_asignacion": state["sellos_asignacion"],
                           "recibo_sha256": sha256(json.dumps(first["recibo"], sort_keys=True, separators=(",", ":")).encode()),
                           "replay": replay["replay"], "denegacion": denied["estado"],
+                          "intento_denegado_auditado": denied_audit == "1",
+                          "concurrencia": "no_probada_login_sintetico_limite_1",
                           "replay_tras_reinicio": after_restart["replay"]}, sort_keys=True))
     finally:
         clone.stop()
