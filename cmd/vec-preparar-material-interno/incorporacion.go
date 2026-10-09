@@ -27,7 +27,16 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	defer destino.cerrar()
-	ct, err := leerDatosCT(p.inventarioCT)
+	if err := comprobarIdempotencia(p.idempotencia); err != nil {
+		return false, err
+	}
+	var ct datosCT
+	var huellaSPKI string
+	if p.incorporacionMotivosRRHHDSN != "" {
+		ct, huellaSPKI, err = leerDatosCTServidor(p.idempotencia, p.dep.reloj())
+	} else {
+		ct, err = leerDatosCT(p.inventarioCT)
+	}
 	if err != nil {
 		return false, err
 	}
@@ -45,9 +54,6 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 		return false, errConfiguracionIncorporacion
 	}
 	defer raiz.Close()
-	if err := comprobarIdempotencia(p.idempotencia); err != nil {
-		return false, err
-	}
 	claves, err := bootstrap.DerivarClavesIncorporacionB2DesdeMaterialDesarrollo(p.idempotencia, p.dep.reloj())
 	defer func() {
 		for i := range claves {
@@ -90,7 +96,9 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 		c.PersonalB2.Operaciones[x.Capacidad] = op
 	}
 	r, err := g.raizVigente(ctx)
-	if err != nil || !r.Vigente || r.ClaveID != ct.raizID || r.Version != ct.raizVersion || r.Audiencia != ct.audiencia {
+	if err != nil || !r.Vigente || r.ClaveID != ct.raizID || r.Audiencia != ct.audiencia ||
+		(huellaSPKI == "" && r.Version != ct.raizVersion) ||
+		(huellaSPKI != "" && (r.Version == 0 || r.HuellaSPKI != huellaSPKI)) {
 		return false, errRaiz
 	}
 	validarMotivos := p.dep.validarMotivosIncorporacion
@@ -106,9 +114,17 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 	}
 	resolverDetalle := p.dep.resolverMotivoDetalle
 	if resolverDetalle == nil {
-		resolverDetalle = resolverMotivoDetalleCT
+		if p.incorporacionMotivosRRHHDSN != "" {
+			resolverDetalle = resolverMotivoDetalleCTServidor
+		} else {
+			resolverDetalle = resolverMotivoDetalleCT
+		}
 	}
-	motivoDetalle, err := resolverDetalle(ctx, p.inventarioCT, p.dep.reloj())
+	rutaResolutor := p.inventarioCT
+	if p.incorporacionMotivosRRHHDSN != "" {
+		rutaResolutor = p.incorporacionMotivosRRHHDSN
+	}
+	motivoDetalle, err := resolverDetalle(ctx, rutaResolutor, p.dep.reloj())
 	if err != nil || c.PersonalB2.Operaciones["ct_detalle"].Motivo != motivoDetalle {
 		return false, errorPropio("motivo B2 ct_detalle: esperado=resolutor RRHH vigente observado=distinto o no disponible")
 	}

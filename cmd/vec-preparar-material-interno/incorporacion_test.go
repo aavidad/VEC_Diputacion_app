@@ -88,6 +88,63 @@ func TestPrepararIncorporacionGobiernoExactoYPublicacionAtomica(t *testing.T) {
 	}
 }
 
+func TestPrepararIncorporacionDesdeServidorConRaizPublicadaRotada(t *testing.T) {
+	e, ruta, d := escenarioIncorporacion(t)
+	coordenadas, err := bootstrap.DerivarCoordenadasCTPreparacion(e.idempotencia, ahoraPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.gobierno.raiz = filaRaiz{ClaveID: coordenadas.RaizID, Version: 7, Audiencia: coordenadas.Audiencia,
+		HuellaSPKI: coordenadas.HuellaSPKI, Vigente: true}
+	motivosRRHH := filepath.Join(e.dir, "motivos_rrhh.dsn")
+	escribir(t, motivosRRHH, []byte("postgres://lector:SECRETO_DSN_PRUEBA@127.0.0.1:1/vec\n"), 0600)
+	args := []string{"-incorporacion-motivos-rrhh-dsn", motivosRRHH, "-material-idempotencia", e.idempotencia,
+		"-incorporacion-config", ruta, "-dsn-archivo", e.dsnArchivo, "-salida", e.salida}
+	var out, errOut bytes.Buffer
+	if rc := ejecutar(context.Background(), args, "", false, &out, &errOut, d); rc != 0 {
+		t.Fatalf("rc=%d: %s", rc, errOut.String())
+	}
+	if bootstrap.ValidarMaterialPreparadoIncorporacionB2(filepath.Join(e.salida, "servidor.json"), ahoraPrueba) != nil {
+		t.Fatal("salida B2 rechazada")
+	}
+}
+
+func TestPrepararIncorporacionDesdeServidorRechazaRaizSPKIYModoAmbiguo(t *testing.T) {
+	e, ruta, d := escenarioIncorporacion(t)
+	coordenadas, err := bootstrap.DerivarCoordenadasCTPreparacion(e.idempotencia, ahoraPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.gobierno.raiz = filaRaiz{ClaveID: coordenadas.RaizID, Version: 7, Audiencia: coordenadas.Audiencia,
+		HuellaSPKI: strings.Repeat("f", 64), Vigente: true}
+	motivosRRHH := filepath.Join(e.dir, "motivos_rrhh.dsn")
+	escribir(t, motivosRRHH, []byte("postgres://lector:SECRETO_DSN_PRUEBA@127.0.0.1:1/vec\n"), 0600)
+	args := []string{"-incorporacion-motivos-rrhh-dsn", motivosRRHH, "-material-idempotencia", e.idempotencia,
+		"-incorporacion-config", ruta, "-dsn-archivo", e.dsnArchivo, "-salida", e.salida}
+	var out, errOut bytes.Buffer
+	if rc := ejecutar(context.Background(), args, "", false, &out, &errOut, d); rc != 1 || !strings.Contains(errOut.String(), "raíz vigente") {
+		t.Fatalf("raíz distinta aceptada rc=%d: %s", rc, errOut.String())
+	}
+	e.sinResiduos(t)
+	e.gobierno.raiz.HuellaSPKI = coordenadas.HuellaSPKI
+	d.resolverMotivoDetalle = func(context.Context, string, time.Time) (core.ReferenciaEntradaCatalogo, error) {
+		return core.ReferenciaEntradaCatalogo{}, nil
+	}
+	out.Reset()
+	errOut.Reset()
+	if rc := ejecutar(context.Background(), args, "", false, &out, &errOut, d); rc != 1 || !strings.Contains(errOut.String(), "ct_detalle") {
+		t.Fatalf("motivo de detalle distinto aceptado rc=%d: %s", rc, errOut.String())
+	}
+	e.sinResiduos(t)
+	args = append(args, "-inventario-ct", e.inventarioCT)
+	out.Reset()
+	errOut.Reset()
+	if rc := ejecutar(context.Background(), args, "", false, &out, &errOut, d); rc != 2 {
+		t.Fatalf("fuentes CT ambiguas aceptadas rc=%d", rc)
+	}
+	e.sinResiduos(t)
+}
+
 func TestPrepararIncorporacionGobiernoAusenteNoEscribe(t *testing.T) {
 	e, ruta, d := escenarioIncorporacion(t)
 	e.gobierno.claves = map[string]filaClave{}

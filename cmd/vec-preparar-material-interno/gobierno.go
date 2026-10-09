@@ -40,9 +40,9 @@ type filaClave struct {
 }
 
 type filaRaiz struct {
-	ClaveID, Audiencia string
-	Version            uint64
-	Vigente            bool
+	ClaveID, Audiencia, HuellaSPKI string
+	Version                        uint64
+	Vigente                        bool
 }
 
 // fuenteGobierno es una instantánea de solo lectura del gobierno V3.
@@ -254,7 +254,7 @@ WITH a AS (SELECT pg_catalog.clock_timestamp() AS ahora),
         CROSS JOIN a
         WHERE p.establecida_en <= a.ahora
         ORDER BY p.orden DESC LIMIT 1)
-SELECT r.clave_id, r.version::bigint, r.audiencia_despliegue,
+SELECT r.clave_id, r.version::bigint, r.audiencia_despliegue, r.huella_spki_sha256,
        cfg.publicada_en <= a.ahora AND a.ahora < cfg.expira_en
        AND cfg.secuencia >= ck.configuracion_secuencia_minima
        AND NOT EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_configuracion x
@@ -298,7 +298,7 @@ func (g *gobiernoPostgreSQL) raizVigente(ctx context.Context) (filaRaiz, error) 
 	for filas.Next() {
 		var version int64
 		var vigente *bool
-		if err := filas.Scan(&r.ClaveID, &version, &r.Audiencia, &vigente); err != nil || version < 1 {
+		if err := filas.Scan(&r.ClaveID, &version, &r.Audiencia, &r.HuellaSPKI, &vigente); err != nil || version < 1 {
 			return filaRaiz{}, errGobiernoConexion
 		}
 		r.Version, r.Vigente = uint64(version), vigente != nil && *vigente
