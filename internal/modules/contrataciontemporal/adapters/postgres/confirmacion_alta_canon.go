@@ -53,6 +53,9 @@ type solicitudAltaCanonica struct {
 	RC                 rcAltaCanonica      `json:"rc"`
 	DocumentosAdjuntos []string            `json:"documentos_adjuntos"`
 	Observaciones      string              `json:"observaciones"`
+	JornadaMinutos     uint16              `json:"jornada_minutos,omitempty"`
+	NumeroPersonas     uint32              `json:"numero_personas,omitempty"`
+	PuestoSolicitado   string              `json:"puesto_solicitado,omitempty"`
 }
 
 type periodoAltaCanonico struct {
@@ -219,6 +222,8 @@ func construirEfectoAltaCanonico(
 				Importe: importeAltaCanonico{Centimos: centimosRC,
 					Moneda: monedaRC}, DocumentoRef: rc.DocumentoRef},
 			DocumentosAdjuntos: documentosSolicitud, Observaciones: solicitud.Observaciones,
+			JornadaMinutos: solicitud.JornadaMinutos, NumeroPersonas: solicitud.NumeroPersonas,
+			PuestoSolicitado: solicitud.PuestoSolicitado,
 		},
 		CreadoEn:      formatoInstanteMicro(expediente.CreadoEn),
 		ActualizadoEn: formatoInstanteMicro(expediente.ActualizadoEn),

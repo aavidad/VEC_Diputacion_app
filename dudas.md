@@ -265,6 +265,8 @@ Las preguntas 77 a 94 salen del estudio `docs/estudio_requisitos/datos_personale
 
 153. **Inicio de los dos días de la oferta (pregunta a RRHH).** El art. 8.1.b del [Reglamento][rgl] cuenta dos días desde la publicación en el portal. Nos indicasteis que la oferta se envíe solo por correo y que el plazo empiece con ese envío. Su disposición transitoria única prevé el llamamiento directo mientras no exista el programa de publicación. ¿Consideráis que el correo equivale a la publicación a estos efectos o debe tramitarse como llamamiento directo hasta que exista el portal? Necesitamos la regla y su fuente para configurar el inicio del plazo sin atribuir al correo un efecto que no esté aprobado.
 
+154. **Jornada en la petición del centro (pregunta a RRHH).** La [circular de peticiones][circ] pide número de personas y, en vacantes, el código de plaza y puesto, pero no fija cómo expresar la jornada. El formulario propone horas y minutos por semana y precarga la referencia del catálogo vigente. ¿Debe el centro indicar esa jornada semanal, un porcentaje u otra unidad según el puesto o convenio? ¿Qué fuente versionada determina los valores de referencia por ámbito?
+
 [rgl]: https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1768521622300-final-680c0e98.pdf
 [bop-correccion]: https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1769472066115-final-42c9b1bc.pdf
 [circ]: https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf

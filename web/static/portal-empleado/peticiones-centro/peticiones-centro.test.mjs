@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearBorradorAlta } from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
+import { crearBorradorAlta, crearComandoPeticionCentro, validarBorradorAlta } from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
 import {
   pedir,
   renderizarPeticionCentro,
@@ -23,11 +23,32 @@ const contexto = { actor: { referencia: "actor:sintetico:001", nombre: "Persona 
 const peticion = { referencia: "peticion:centro:001", version: 1, estado: "pendiente_ratificacion", configuracion: { solicitante: { actor_ref: "actor:sintetico:001", puesto_ref: "puesto:sintetico:001" } }, solicitud: { centro_ref: "cen_sintetico_001", categoria_ref: "cat_sintetica_001", grupo_subgrupo: "C2", motivo_clave: "sustitucion", detalle: "Necesidad sintética", periodo: { inicio: "2026-09-01T00:00:00Z", fin: "2026-09-30T00:00:00Z" } }, creada_en: "2026-09-06T08:00:00Z" };
 
 test("renderer comparte el formulario de alta y deja claro el circuito previo", () => {
-  const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado: { fase: "edicion", disponible: true, ocupado: false, borrador: crearBorradorAlta(), catalogos, errores: {}, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" } });
+  const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado: { fase: "edicion", disponible: true, ocupado: false, borrador: crearBorradorAlta({ conPeticionCentro: true, jornadaReferenciaMinutos: 2250 }), catalogos, errores: {}, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" } });
   assert.match(html, /data-ct-form/);
+  assert.match(html, /name="numero_personas"/);
+  assert.match(html, /name="puesto_solicitado"/);
+  assert.match(html, /37:30/);
   assert.doesNotMatch(html, /Identidades de prueba|Datos ficticios/u);
   assert.match(html, /RRHH tramita las peticiones ratificadas/);
   assert.match(html, /C2/);
+});
+
+test("la petición exige datos estructurados y los muestra a ratificador y RRHH", () => {
+  const borrador = { ...crearBorradorAlta({ conPeticionCentro: true, jornadaReferenciaMinutos: 2250 }),
+    centro_ref: "cen_sintetico_001", contacto_ref: "con_sintetico_001", categoria_ref: "cat_sintetica_001",
+    grupo_subgrupo: "C2", motivo_clave: "sustitucion", detalle: "Sustitución de personal",
+    inicio: "2026-11-02", fin: "2026-12-31", numero_personas: "2", puesto_solicitado: "Administrativo C2" };
+  assert.equal(validarBorradorAlta(borrador, catalogos).valido, true);
+  const comando = crearComandoPeticionCentro(borrador, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6");
+  assert.equal(comando.solicitud.numero_personas, 2);
+  assert.equal(comando.solicitud.jornada_minutos, 2250);
+  assert.equal(comando.solicitud.puesto_solicitado, "Administrativo C2");
+  assert.equal(validarBorradorAlta({ ...borrador, numero_personas: "0" }, catalogos).valido, false);
+  const nueva = { ...peticion, solicitud: { ...peticion.solicitud, ...comando.solicitud } };
+  const html = renderizarPeticionCentro({ contexto: { ...contexto, actor: { ...contexto.actor, puede_presentar: false, puede_ratificar: true } }, modo: "ratificacion", peticion: nueva });
+  assert.match(html, /Administrativo C2/);
+  assert.match(html, /37:30/);
+  assert.match(renderizarPeticionesCentroRRHH({ entrega: { peticion: { ...nueva, version: 2, estado: "ratificada" }, estado_entrega: "pendiente" } }), /Administrativo C2/);
 });
 
 test("renderer de ratificación muestra todos los datos revisables", () => {

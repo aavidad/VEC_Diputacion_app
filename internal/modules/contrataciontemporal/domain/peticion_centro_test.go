@@ -33,6 +33,29 @@ func TestPeticionCentroJSONPendienteSinFechaDeRatificacion(t *testing.T) {
 	}
 }
 
+func TestSolicitudCentroConservaLegadoYValidaDatosDePuesto(t *testing.T) {
+	_, solicitud, _ := datosPeticionCentroPrueba()
+	if solicitud.Validar() != nil {
+		t.Fatal("solicitud histórica rechazada")
+	}
+	solicitud.JornadaMinutos, solicitud.NumeroPersonas, solicitud.PuestoSolicitado = 2250, 2, "Administrativo C2"
+	if solicitud.Validar() != nil {
+		t.Fatal("datos estructurados válidos rechazados")
+	}
+	for _, cambio := range []func(*SolicitudCentro){
+		func(s *SolicitudCentro) { s.JornadaMinutos = 0 },
+		func(s *SolicitudCentro) { s.NumeroPersonas = 0 },
+		func(s *SolicitudCentro) { s.PuestoSolicitado = "" },
+		func(s *SolicitudCentro) { s.JornadaMinutos = 10081 },
+	} {
+		invalida := solicitud
+		cambio(&invalida)
+		if invalida.Validar() == nil {
+			t.Fatal("dato de puesto incompleto o fuera de rango admitido")
+		}
+	}
+}
+
 func TestPeticionCentroCicloYCopiasDefensivas(t *testing.T) {
 	config, solicitud, creada := datosPeticionCentroPrueba()
 	peticion, err := NuevaPeticionCentro("peticion:centro:001", config, solicitud, creada)
