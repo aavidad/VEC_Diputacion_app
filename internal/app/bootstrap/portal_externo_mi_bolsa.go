@@ -281,7 +281,7 @@ func comprobarACLMiBolsaPortalExterno(ctx context.Context, consultador consultad
  FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
  WHERE n.nspname='vec_bolsa_llamamientos' AND p.proname='solicitar_inscripcion_v1'
 )
-SELECT COALESCE((SELECT array_agg(proname ORDER BY proname) FROM funciones),ARRAY[]::text[]),
+SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM funciones),ARRAY[]::text[]),
  session_user='vec_externo_bolsa_desarrollo'
  AND (SELECT coalesce(bool_and(prosecdef),false) FROM funciones)
  AND NOT EXISTS (SELECT 1 FROM tablas t WHERE

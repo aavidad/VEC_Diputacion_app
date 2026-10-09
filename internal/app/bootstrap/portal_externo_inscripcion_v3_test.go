@@ -138,6 +138,7 @@ func TestACLPortalExternoDualExactaAntesYDespuesB96(t *testing.T) {
 				t.Fatalf("preflight = %v", got)
 			}
 			if q.firma != firmaSolicitarInscripcionPortalExterno ||
+				!strings.Contains(q.consulta, "array_agg(proname::text") ||
 				!strings.Contains(q.consulta, "aclexplode(p.proacl)") ||
 				!strings.Contains(q.consulta, "has_table_privilege") {
 				t.Fatal("faltó firma exacta o guarda ACL en la consulta")
