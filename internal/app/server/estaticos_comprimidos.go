@@ -86,7 +86,7 @@ func aceptaGzip(cabecera string) bool {
 			}
 			numero, err := strconv.ParseFloat(strings.TrimSpace(valor), 64)
 			if err != nil || math.IsNaN(numero) || math.IsInf(numero, 0) || numero < 0 || numero > 1 {
-				slog.Warn("estatico comprimido: q de Accept-Encoding no admisible", "codificacion", "gzip", "q", strings.TrimSpace(valor), "error", err)
+				slog.Warn("estatico comprimido: q de Accept-Encoding no admisible", "codificacion", "gzip", "longitud_q", len(valor))
 				return false
 			}
 			q = numero
