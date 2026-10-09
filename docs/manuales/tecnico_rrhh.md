@@ -100,6 +100,6 @@ Compruebe la franja que muestra la ficha. En el recorrido era de **09:00 a 14:00
 
 ## Si algo sale mal
 
-Si tras confirmar la cobertura aparece «La cobertura está confirmada, pero la asignación no está disponible. Conserve el recibo y solicite revisión», no confirme la cobertura de nuevo. Vuelva a la lista y abra el mismo expediente. En el recorrido, la ficha recuperada mostró el formulario de asignación. Si no aparece, conserve el recibo y comunique el mensaje a Informática.
+Si tras confirmar la cobertura aparece «La cobertura está confirmada, pero la asignación no está disponible. Conserve el recibo y solicite revisión», no confirme la cobertura de nuevo. Vuelva a la lista y abra el mismo expediente. En el recorrido, la ficha recuperada mostró el formulario de asignación. Si no aparece, conserve el número del expediente y el mensaje visible, y comuníquelos a Informática.
 
 Si la ficha telefónica dice «Fuera de la franja», espere al horario indicado. No registre una llamada con otra hora ni abra otro llamamiento. Si una respuesta queda incierta, recupere el expediente o el justificante antes de repetir cualquier acción.
