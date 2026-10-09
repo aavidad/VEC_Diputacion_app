@@ -12,13 +12,16 @@ INSERT INTO vec_contexto_actor_v1.persona_versiones
      procedencia_huella_sha256, procedencia_autoridad, estado,
      vigente_desde, vigente_hasta)
 SELECT persona_ref, 1, 'prc_ca39_sintetica_00000000000001', 1,
-       repeat('a', 64), 'autoridad_maestra_acreditada', 'activo',
-       clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour'
+       repeat('a', 64), 'autoridad_maestra_acreditada', estado,
+       clock_timestamp() + inicio, clock_timestamp() + fin
   FROM (VALUES
-    ('per_ca39_activa_00000000000000001'),
-    ('per_ca39_sin_empleado_00000000001'),
-    ('per_ca39_perfil_revocado_0000001')
-  ) AS personas(persona_ref);
+    ('per_ca39_activa_00000000000000001', 'activo', interval '-1 hour', interval '1 hour'),
+    ('per_ca39_sin_empleado_00000000001', 'activo', interval '-1 hour', interval '1 hour'),
+    ('per_ca39_perfil_revocado_0000001', 'activo', interval '-1 hour', interval '1 hour'),
+    ('per_ca39_perfil_caducado_0000001', 'activo', interval '-1 hour', interval '1 hour'),
+    ('per_ca39_persona_caducada_0000001', 'activo', interval '-2 hours', interval '-1 hour'),
+    ('per_ca39_persona_revocada_0000001', 'revocado', interval '-1 hour', interval '1 hour')
+  ) AS personas(persona_ref, estado, inicio, fin);
 INSERT INTO vec_contexto_actor_v1.persona_actual(persona_ref, version)
 SELECT persona_ref, version FROM vec_contexto_actor_v1.persona_versiones
  WHERE persona_ref LIKE 'per_ca39_%';
@@ -29,15 +32,21 @@ INSERT INTO vec_contexto_actor_v1.perfil_versiones
 SELECT perfil_ref, 1, persona_ref,
        'prc_ca39_sintetica_00000000000001', 1, repeat('a', 64),
        'autoridad_maestra_acreditada', estado,
-       clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour'
+       clock_timestamp() + inicio, clock_timestamp() + fin
   FROM (VALUES
     ('prf_ca39_activo_0000000000000001',
-     'per_ca39_activa_00000000000000001', 'activo'),
+     'per_ca39_activa_00000000000000001', 'activo', interval '-1 hour', interval '1 hour'),
     ('prf_ca39_sin_empleado_00000001',
-     'per_ca39_sin_empleado_00000000001', 'activo'),
+     'per_ca39_sin_empleado_00000000001', 'activo', interval '-1 hour', interval '1 hour'),
     ('prf_ca39_revocado_0000000000001',
-     'per_ca39_perfil_revocado_0000001', 'revocado')
-  ) AS perfiles(perfil_ref, persona_ref, estado);
+     'per_ca39_perfil_revocado_0000001', 'revocado', interval '-1 hour', interval '1 hour'),
+    ('prf_ca39_perfil_caducado_0000001',
+     'per_ca39_perfil_caducado_0000001', 'activo', interval '-2 hours', interval '-1 hour'),
+    ('prf_ca39_persona_caducada_0000001',
+     'per_ca39_persona_caducada_0000001', 'activo', interval '-1 hour', interval '1 hour'),
+    ('prf_ca39_persona_revocada_0000001',
+     'per_ca39_persona_revocada_0000001', 'activo', interval '-1 hour', interval '1 hour')
+  ) AS perfiles(perfil_ref, persona_ref, estado, inicio, fin);
 INSERT INTO vec_contexto_actor_v1.perfil_actual(perfil_ref, version)
 SELECT perfil_ref, version FROM vec_contexto_actor_v1.perfil_versiones
  WHERE perfil_ref LIKE 'prf_ca39_%';
@@ -59,6 +68,20 @@ SELECT * FROM vec_personal.publicar_proyeccion_empleado_persona_v1(
     clock_timestamp() - interval '1 hour',
     clock_timestamp() + interval '1 hour', NULL,
     'prc_ca39_sintetica_00000000000001', 1, repeat('a', 64));
+SELECT fuente.persona_ref, fuente.empleado_ref, p.proyeccion_ref
+  FROM (VALUES
+    ('per_ca39_perfil_caducado_0000001', 'emp_ca39_perfil_caducado_000001',
+     'pep_ca39_perfil_caducado_000001'),
+    ('per_ca39_persona_caducada_0000001', 'emp_ca39_persona_caducada_00001',
+     'pep_ca39_persona_caducada_00001'),
+    ('per_ca39_persona_revocada_0000001', 'emp_ca39_persona_revocada_00001',
+     'pep_ca39_persona_revocada_00001')
+  ) AS fuente(persona_ref, empleado_ref, proyeccion_ref)
+  CROSS JOIN LATERAL vec_personal.publicar_proyeccion_empleado_persona_v1(
+    fuente.proyeccion_ref, 1, fuente.persona_ref, fuente.empleado_ref, 'activa',
+    clock_timestamp() - interval '1 hour',
+    clock_timestamp() + interval '1 hour', NULL,
+    'prc_ca39_sintetica_00000000000001', 1, repeat('a', 64)) AS p;
 COMMIT;
 
 -- El perfil externo existe en CTX15, separado del perfil interno.
@@ -126,7 +149,74 @@ END
 $externo$;
 COMMIT;
 
+-- Colisión sintética: ambas fuentes afirman el mismo perfil_ref. Hay perfil
+-- interno y empleado positivo; CA39 debe ejecutar su exclusión CTX15.
+BEGIN;
+SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+INSERT INTO vec_contexto_actor_v1.persona_versiones
+    (persona_ref, version, procedencia_ref, procedencia_version,
+     procedencia_huella_sha256, procedencia_autoridad, estado,
+     vigente_desde, vigente_hasta)
+VALUES ('per_ca39_externa_0000000000000001', 1,
+        'prc_ca39_sintetica_00000000000001', 1, repeat('a', 64),
+        'autoridad_maestra_acreditada', 'activo',
+        clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour');
+INSERT INTO vec_contexto_actor_v1.persona_actual(persona_ref, version)
+VALUES ('per_ca39_externa_0000000000000001', 1);
+INSERT INTO vec_contexto_actor_v1.perfil_versiones
+    (perfil_ref, version, persona_ref, procedencia_ref,
+     procedencia_version, procedencia_huella_sha256, procedencia_autoridad,
+     estado, vigente_desde, vigente_hasta)
+VALUES ('prf_ca39_externa_0000000000000001', 1,
+        'per_ca39_externa_0000000000000001',
+        'prc_ca39_sintetica_00000000000001', 1, repeat('a', 64),
+        'autoridad_maestra_acreditada', 'activo',
+        clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour');
+INSERT INTO vec_contexto_actor_v1.perfil_actual(perfil_ref, version)
+VALUES ('prf_ca39_externa_0000000000000001', 1);
+COMMIT;
+BEGIN;
+SET LOCAL ROLE vec_personal_propietario;
+SELECT * FROM vec_personal.publicar_proyeccion_empleado_persona_v1(
+    'pep_ca39_externo_0000000000000001', 1,
+    'per_ca39_externa_0000000000000001',
+    'emp_ca39_externo_0000000000000001', 'activa',
+    clock_timestamp() - interval '1 hour',
+    clock_timestamp() + interval '1 hour', NULL,
+    'prc_ca39_sintetica_00000000000001', 1, repeat('a', 64));
+COMMIT;
+
 \connect postgres postgres
+DO $fuentes_negativas$
+DECLARE p text;
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM vec_contexto_actor_v1.perfil_actual a
+        JOIN vec_contexto_actor_v1.perfil_versiones v USING (perfil_ref, version)
+        WHERE a.perfil_ref = 'prf_ca39_externa_0000000000000001'
+          AND v.persona_ref = 'per_ca39_externa_0000000000000001'
+          AND v.estado = 'activo'
+    ) OR NOT EXISTS (
+        SELECT 1 FROM vec_contexto_actor_v1.contexto_externo_identidad e
+        WHERE e.perfil_ref = 'prf_ca39_externa_0000000000000001'
+          AND e.persona_ref = 'per_ca39_externa_0000000000000001'
+    ) THEN
+        RAISE EXCEPTION 'CA39: fixture no alcanza rama externa';
+    END IF;
+    FOREACH p IN ARRAY ARRAY[
+        'per_ca39_perfil_caducado_0000001',
+        'per_ca39_persona_caducada_0000001',
+        'per_ca39_persona_revocada_0000001',
+        'per_ca39_externa_0000000000000001'
+    ] LOOP
+        IF (SELECT resultado
+              FROM vec_personal.resolver_empleado_canonico_persona_v1(
+                  p, clock_timestamp())) IS DISTINCT FROM 'empleado' THEN
+            RAISE EXCEPTION 'CA39: fuente Personal no positiva para %', p;
+        END IF;
+    END LOOP;
+END
+$fuentes_negativas$;
 DO $acl$
 BEGIN
     IF pg_catalog.has_function_privilege(
@@ -185,6 +275,18 @@ BEGIN
        OR vec_contexto_actor_v1.acreditar_empleado_perfil_interno_inscripcion_v1(
            'per_ca39_perfil_revocado_0000001',
            'prf_ca39_revocado_0000000000001')
+       IS DISTINCT FROM '{"estado":"perfil_no_vigente"}'::jsonb
+       OR vec_contexto_actor_v1.acreditar_empleado_perfil_interno_inscripcion_v1(
+           'per_ca39_perfil_caducado_0000001',
+           'prf_ca39_perfil_caducado_0000001')
+       IS DISTINCT FROM '{"estado":"perfil_no_vigente"}'::jsonb
+       OR vec_contexto_actor_v1.acreditar_empleado_perfil_interno_inscripcion_v1(
+           'per_ca39_persona_caducada_0000001',
+           'prf_ca39_persona_caducada_0000001')
+       IS DISTINCT FROM '{"estado":"perfil_no_vigente"}'::jsonb
+       OR vec_contexto_actor_v1.acreditar_empleado_perfil_interno_inscripcion_v1(
+           'per_ca39_persona_revocada_0000001',
+           'prf_ca39_persona_revocada_0000001')
        IS DISTINCT FROM '{"estado":"perfil_no_vigente"}'::jsonb
        OR vec_contexto_actor_v1.acreditar_empleado_perfil_interno_inscripcion_v1(
            'per_ca39_externa_0000000000000001',
