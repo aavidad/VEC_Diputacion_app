@@ -10,12 +10,12 @@ import {
 import { renderizarMeritos, renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js";
 import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261009-mi-bolsa-historial-campos-v1";
+} from "./vistas/seguimiento-tramites.js?v=20261009-ayuda-contacto-v1";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261009-mi-bolsa-historial-campos-v1";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261009-ayuda-contacto-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
-import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261009-mi-bolsa-historial-campos-v1";
-import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261009-mi-bolsa-historial-campos-v1";
+import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261009-ayuda-contacto-v1";
+import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261009-ayuda-contacto-v1";
 
 
 const RUTAS = Object.freeze({

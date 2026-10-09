@@ -483,6 +483,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-llamamientos-operaciones-api.js", "portal-panel-interno.js",
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261008-canal-telefono-v2");
+  versionesEspeciales.set("portal-bolsas-intentos.js", "20261009-ayuda-contacto-v1");
   for (const ruta of [
     "ayuda-contenido.js",
     "ayudante-tramites.js",
@@ -727,18 +728,16 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   ]) versionesEspeciales.set(ruta, "20261009-asignacion-cobertura-v1");
   // Instantes de Bolsa validados por su forma ISO, no por los patrones de DNI.
   for (const ruta of [
-    "portal-bolsas-api.js",
     "portal-bolsas-contrato.js",
     "portal-bolsas-global.js",
-    "portal-bolsas-historial-ofrecimientos.js",
-    "portal-bolsas-ofertas.js",
     "portal-bolsas-ruta-filtros.js",
-    "portal-bolsas-seguimiento.js",
     "portal-inicio.js",
     "portal-llamamientos-operaciones-api.js",
-    "portal-panel-interno.js",
   ]) versionesEspeciales.set(ruta, "20261009-instantes-bolsa-v1");
-  versionesEspeciales.set("portal.js", "20261009-asignacion-cobertura-v1");
+  for (const ruta of ["portal-bolsas-api.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js",
+    "portal-bolsas-seguimiento.js", "portal-panel-interno.js", "portal.js"]) {
+    versionesEspeciales.set(ruta, "20261009-ayuda-contacto-v1");
+  }
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

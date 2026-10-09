@@ -6,7 +6,7 @@ import {
   registrarContactoIntento,
   renderizarIntentosContacto,
   rutaContactosCandidato,
-} from "./portal-bolsas-intentos.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
 import { MENSAJES_INTENTOS, crearTraductorIntentos } from "./portal-i18n-intentos.js";
 
 const candidato = { participacion_ref: "participacion:1", estado_clave: "disponible", ultimo_llamamiento: { llamamiento_ref: "llamamiento:1" } };
@@ -31,6 +31,7 @@ test("el catálogo i18n de intentos está completo y rechaza claves ajenas", () 
 
 test("la ficha muestra proceso, avisos y reglas sin rotular su procedencia, escapando textos", () => {
   const salida = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: intentos } });
+  assert.match(salida, /<details class="intentos-ayuda"><summary[^>]+>\?<\/summary><p>[^<]*plazo de respuesta/u);
   assert.match(salida, /Proceso 1 de 2 · intento 2 de 2/);
   assert.match(salida, /Antes de la separación mínima/);
   assert.match(salida, /1 de 4/);

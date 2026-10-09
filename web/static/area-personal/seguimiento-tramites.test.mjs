@@ -79,8 +79,9 @@ test("mi bolsa muestra el último resultado B7 propio sin respuesta ni plazo", (
     { bolsa: "bolsa:2", categoria: "Administrativo", version: 1, orden_inicial: 1, total_instantanea: 3, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null, ultimo_llamamiento: { emitido_en: "2026-09-21T10:00:00Z", canal: "correo", resultado: "no_enviado" } },
   ];
   const vista = renderizarLlamamientos(datos, { participaciones, fuenteBolsa: "real" });
+  assert.match(vista, /<details class="mi-bolsa-ayuda"><summary[^>]+>\?<\/summary><p>[^<]*plazo para responder/u);
   assert.match(vista, /Último resultado de correo[\s\S]*bolsa:2[\s\S]*Administrativo[\s\S]*No enviado/u);
-  assert.match(vista, /Que el correo se enviara no significa que haya llegado ni que ya tenga respuesta\./u);
+  assert.doesNotMatch(vista, /Que el correo se enviara no significa que haya llegado ni que ya tenga respuesta\./u);
   assert.doesNotMatch(vista, /Aceptar llamamiento|Rechazar llamamiento|nota privada/u);
 });
 

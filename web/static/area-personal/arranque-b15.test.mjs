@@ -45,7 +45,7 @@ test("Mi Bolsa con pausa nula cierra una sola cohorte hasta el HTML y la caché"
     "contrato.js", "cliente-http.js", "contacto-propio.js", "vistas/seguimiento-tramites.js",
     "aplicacion.js", "arranque.js", "index.html", "cache-publica-v1.json", "../../produccion.manifest",
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
-  const cohorte = "20261009-mi-bolsa-historial-campos-v1";
+  const cohorte = "20261009-ayuda-contacto-v1";
   for (const [fuente, ruta] of [[contrato, "./mi-bolsa-portal.js"],
     [seguimiento, "../mi-bolsa-portal.js"], [aplicacion, "./mi-bolsa-portal.js"],
     [cliente, "./contrato.js"], [contacto, "./cliente-http.js"],

@@ -240,6 +240,8 @@
   },
   "intentos": {
     "titulo": "Intentos de contacto del llamamiento",
+    "ayuda_abrir": "Ayuda sobre el contacto y el plazo de respuesta",
+    "ayuda_contenido": "El correo avisa del llamamiento, pero no abre el plazo de respuesta. Contacte con la persona y registre el resultado de la llamada. Cuando el contacto efectivo conste en el seguimiento, la persona podrá responder en Mi bolsa y empezará el plazo. Si aún no puede responder, compruebe que el contacto quedó registrado.",
     "sin_llamamiento": "Sin llamamiento en curso para esta participación.",
     "cargando": "Cargando intentos de contacto…",
     "error_carga": "No se pudo consultar el control de intentos.",

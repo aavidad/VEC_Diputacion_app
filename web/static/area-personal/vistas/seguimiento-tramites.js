@@ -4,10 +4,10 @@ import {
 } from "./comunes.js";
 import { localizacionAreaPersonal, traducir } from "../i18n.js";
 import { campoVisibleMiBolsa, nombreCategoria } from "../mi-bolsa-campos.js";
-import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js?v=20261009-mi-bolsa-historial-campos-v1";
+import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js?v=20261009-ayuda-contacto-v1";
 import { renderizarOfertasMiBolsa, textoOfertas } from "../mi-bolsa-ofertas.js";
 import { renderizarContactoMiBolsa, textoContacto } from "../mi-bolsa-contacto.js";
-import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js?v=20261009-mi-bolsa-historial-campos-v1";
+import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js?v=20261009-ayuda-contacto-v1";
 
 const e = (clave, variables) => traducir(`areaPersonal.vista.seguimiento.${clave}`, variables);
 const b = (clave, variables) => traducir(`areaPersonal.vista.miBolsa.${clave}`, variables);
@@ -97,11 +97,12 @@ export function renderizarLlamamientos(datos, estado = {}) {
     [traducir("areaPersonal.miBolsa.llamamiento.fecha"), escaparHTML(fechaSituacion(ultimo.ultimo_llamamiento.emitido_en))],
     [traducir("areaPersonal.miBolsa.llamamiento.canal"), escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.correo"))],
     [traducir("areaPersonal.miBolsa.llamamiento.resultado"), `<span class="estado-chip ${resultado === "enviado" ? "info" : "aviso"}">${escaparHTML(traducir(`areaPersonal.miBolsa.llamamiento.${resultado}`))}</span>`],
-  ])}<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.limite"))}</p>`
+  ])}`
     : `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.sinDato"))}</p>`;
   const llamamientos = panel(traducir("areaPersonal.miBolsa.llamamiento.titulo"), traducir("areaPersonal.miBolsa.llamamiento.subtitulo"), detalle);
 
-  return `${encabezadoVista(b("titulo"), "")}
+  const ayudaLlamamiento = `<details class="mi-bolsa-ayuda"><summary aria-label="${escaparAtributo(b("ayudaLlamamientoAbrir"))}">?</summary><p>${h(b("ayudaLlamamiento"))}</p></details>`;
+  return `${encabezadoVista(b("titulo"), "", ayudaLlamamiento)}
     ${fichaParticipaciones}
     <div id="historial-mi-bolsa" aria-live="polite">${renderizarHistorialMiBolsa()}</div>
     <div class="rejilla-principal"><div>${ver("ultimo_llamamiento") ? llamamientos : ""}${estado.ofertasMiBolsa?.length ? panel(textoOfertas("titulo"), textoOfertas("subtitulo"), renderizarOfertasMiBolsa(estado.ofertasMiBolsa)) : ""}</div><aside>
