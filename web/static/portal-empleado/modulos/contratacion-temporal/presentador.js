@@ -11,7 +11,7 @@ import {
   validarBorradorAlta,
   validarCatalogosAlta,
   validarReciboAlta,
-} from "./contrato.js?v=20261008-alta-analisis-bolsa-v4";
+} from "./contrato.js?v=20261009-centro-campos-cohorte-v2";
 
 const FASE_EDICION = "edicion";
 const FASE_REVISION = "revision";

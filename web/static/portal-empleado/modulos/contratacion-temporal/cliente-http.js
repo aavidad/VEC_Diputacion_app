@@ -1,4 +1,4 @@
-import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261008-alta-analisis-bolsa-v4";
+import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261009-centro-campos-cohorte-v2";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,

@@ -110,7 +110,7 @@
 1323 web/static/portal-empleado/portal-bolsas-api.js
 925 web/static/portal-empleado/portal-bolsas.test.mjs
 1130 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-937 web/static/portal-empleado/portal-i18n.test.mjs
+961 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 916 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
@@ -136,9 +136,10 @@
 909 deploy/postgresql/contratacion_temporal/probar_ct193_e3_postgresql18.sh
 1196 scripts/recorridos/propuesta_firma/recorrer.py
 2917 deploy/postgresql/autorizacion_atestada_v3/migraciones/000218_carga_convoca_bolsa.up.sql
-851 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
+873 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
 963 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitacion.js
 470 deploy/postgresql/contratacion_temporal/migraciones/000194_validacion_necesidad_alta_v3.up.sql
+1009 deploy/postgresql/contratacion_temporal/migraciones/000200_peticion_centro_datos_puesto.up.sql
 639 internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_test.go
 405 internal/modules/contrataciontemporal/adapters/httpinterno/alta_seguridad_test.go
 817 internal/modules/contrataciontemporal/adapters/postgres/ejecuciones_seleccion_llamamiento_test.go

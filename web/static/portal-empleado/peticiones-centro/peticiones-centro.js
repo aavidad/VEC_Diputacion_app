@@ -5,9 +5,9 @@ import {
   validarCatalogosAlta,
   numeroExpedienteMOADValido,
   jornadaVisibleDesdeMinutos,
-} from "../modulos/contratacion-temporal/contrato.js?v=20261009-centro-campos-v1";
+} from "../modulos/contratacion-temporal/contrato.js?v=20261009-centro-campos-cohorte-v2";
 import { extraerBorrador, formulario as renderizarFormularioPuro,
-  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261009-centro-campos-v1";
+  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261009-centro-campos-cohorte-v2";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO, MENSAJES_AYUDA_PETICIONES_CENTRO,
   TEXTOS_LOCALES_PETICIONES_CENTRO, prepararAnalisisPeticionesCentro,
@@ -333,8 +333,8 @@ function tabla(peticiones, seleccionada, expedientes = new Map(), contexto = nul
 }
 
 function formularioHTML(contexto, estado, revision) {
-  const contenido = revision ? renderizarRevisionPura(estado, traducirCentro, LOCALIZACION)
-    : renderizarFormularioPuro(estado, traducirCentro);
+  const contenido = revision ? renderizarRevisionPura(estado, traducirCentro, LOCALIZACION, traducirCentro)
+    : renderizarFormularioPuro(estado, traducirCentro, traducirCentro);
   return `<section class="pc-panel ct-alta"><h2>${esc(TEXTO.solicitante)}</h2><p class="pc-aviso">${esc(TEXTO.confirmarPregunta)}</p>${contenido}<button type="button" class="boton-secundario" data-accion="cancelar-ratificacion">${esc(TEXTO.cancelar)}</button></section>`;
 }
 

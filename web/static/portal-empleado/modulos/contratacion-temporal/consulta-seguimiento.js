@@ -1,4 +1,4 @@
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-analisis-bolsa-v4";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261009-centro-campos-cohorte-v2";
 import { RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 import { validarReferenciaExpedienteSeguimiento } from "./contrato-seguimiento-incorporacion.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";

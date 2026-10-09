@@ -1,6 +1,6 @@
 /** Presentación pura del alta CT, compartida con la petición previa del centro. */
-import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261009-centro-campos-v1";
-import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261009-centro-campos-v1";
+import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261009-centro-campos-cohorte-v2";
+import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261009-centro-campos-cohorte-v2";
 
 const CAMPOS_RPT_PUBLICACION = new Set(["rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]);
 const CAMPOS_RPT_INTERNOS = new Set(["puesto_codigo", ...CAMPOS_RPT_PUBLICACION]);
@@ -272,31 +272,31 @@ function camposNecesidad(estado, t, deshabilitado) {
   </fieldset>`;
 }
 
-function camposPeticionCentro(estado, t, deshabilitado) {
+function camposPeticionCentro(estado, tCentro, deshabilitado) {
   if (!Object.hasOwn(estado.borrador, "puesto_solicitado")) return "";
   return `<fieldset class="ct-bloque">
-    <legend>${escaparHTML(t("peticion_puesto_leyenda"))}</legend>
+    <legend>${escaparHTML(tCentro("peticion_puesto_leyenda"))}</legend>
     <div class="ct-campos">
       <div class="ct-campo">
-        <label for="ct-numero_personas">${escaparHTML(t("numero_personas"))} <b aria-hidden="true">*</b></label>
+        <label for="ct-numero_personas">${escaparHTML(tCentro("numero_personas"))} <b aria-hidden="true">*</b></label>
         <input id="ct-numero_personas" name="numero_personas" type="number" min="1" max="4294967295" step="1" required
           value="${escaparHTML(estado.borrador.numero_personas)}"
           ${atributosAccesibles(estado, "numero_personas")}${deshabilitado ? " disabled" : ""}>
-        ${errorCampo(estado, "numero_personas", t)}
+        ${errorCampo(estado, "numero_personas", tCentro)}
       </div>
       <div class="ct-campo">
-        <label for="ct-jornada_minutos">${escaparHTML(t("jornada_minutos"))} <b aria-hidden="true">*</b></label>
+        <label for="ct-jornada_minutos">${escaparHTML(tCentro("jornada_minutos"))} <b aria-hidden="true">*</b></label>
         <input id="ct-jornada_minutos" name="jornada_horas" type="text" inputmode="decimal" maxlength="8" required
           value="${escaparHTML(jornadaVisibleDesdeMinutos(estado.borrador.jornada_minutos) || estado.borrador.jornada_minutos)}"
           ${atributosAccesibles(estado, "jornada_minutos")}${deshabilitado ? " disabled" : ""}>
-        ${errorCampo(estado, "jornada_minutos", t)}
+        ${errorCampo(estado, "jornada_minutos", tCentro)}
       </div>
       <div class="ct-campo ct-campo-ancho">
-        <label for="ct-puesto_solicitado">${escaparHTML(t("puesto_solicitado"))} <b aria-hidden="true">*</b></label>
+        <label for="ct-puesto_solicitado">${escaparHTML(tCentro("puesto_solicitado"))} <b aria-hidden="true">*</b></label>
         <input id="ct-puesto_solicitado" name="puesto_solicitado" type="text" maxlength="160" required
           value="${escaparHTML(estado.borrador.puesto_solicitado)}"
           ${atributosAccesibles(estado, "puesto_solicitado")}${deshabilitado ? " disabled" : ""}>
-        ${errorCampo(estado, "puesto_solicitado", t)}
+        ${errorCampo(estado, "puesto_solicitado", tCentro)}
       </div>
     </div>
   </fieldset>`;
@@ -435,12 +435,12 @@ function camposDocumentos(estado, t, deshabilitado) {
   </fieldset>`;
 }
 
-export function formulario(estado, t) {
+export function formulario(estado, t, tCentro) {
   const deshabilitado = !estado.disponible || estado.ocupado;
   return `${resumenErrores(estado, t)}
   <form class="ct-formulario" data-ct-form novalidate>
     ${camposCentro(estado, t, deshabilitado)}
-    ${camposPeticionCentro(estado, t, deshabilitado)}
+    ${camposPeticionCentro(estado, tCentro, deshabilitado)}
     ${camposDetalle(estado, t, deshabilitado)}
     ${camposNecesidad(estado, t, deshabilitado)}
     ${camposRC(estado, t, deshabilitado)}
@@ -479,7 +479,7 @@ function formatearImporteEUR(valor, locale) {
   }).format(valor.replace(",", "."));
 }
 
-export function revision(estado, t, locale) {
+export function revision(estado, t, locale, tCentro) {
   const borrador = estado.borrador;
   const centro = obtenerCentro(estado);
   const categoria = obtenerCategoria(estado);
@@ -514,9 +514,9 @@ export function revision(estado, t, locale) {
       ${filaResumen(t("resumen_categoria"), categoria?.etiqueta ?? borrador.categoria_ref)}
       ${filaResumen(t("resumen_grupo"), grupo)}
       ${filaResumen(t("resumen_motivo"), motivo)}
-      ${Object.hasOwn(borrador, "puesto_solicitado") ? filaResumen(t("numero_personas"), borrador.numero_personas)
-    + filaResumen(t("jornada_minutos"), jornadaVisibleDesdeMinutos(borrador.jornada_minutos))
-    + filaResumen(t("puesto_solicitado"), borrador.puesto_solicitado) : ""}
+      ${Object.hasOwn(borrador, "puesto_solicitado") ? filaResumen(tCentro("numero_personas"), borrador.numero_personas)
+    + filaResumen(tCentro("jornada_minutos"), jornadaVisibleDesdeMinutos(borrador.jornada_minutos))
+    + filaResumen(tCentro("puesto_solicitado"), borrador.puesto_solicitado) : ""}
       ${esNecesidad(estado) ? filaResumen(t("jornada_minutos"), jornadaVisibleDesdeMinutos(borrador.jornada_minutos)) : ""}
       ${esNecesidad(estado) ? estado.catalogos.necesidades.causas.find(
     (dato) => dato.clave === borrador.motivo_clave)?.campos_permitidos
