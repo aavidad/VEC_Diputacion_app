@@ -592,15 +592,18 @@ func responder(w http.ResponseWriter, estado int, esquema string, datos any) {
 		responderError(w, 503, "servicio_no_disponible")
 		return
 	}
-	contenido, err := json.Marshal(map[string]any{"data": campos})
-	if err != nil {
+	var contenido bytes.Buffer
+	codificador := json.NewEncoder(&contenido)
+	codificador.SetEscapeHTML(false)
+	if err := codificador.Encode(map[string]any{"data": campos}); err != nil {
 		responderError(w, 503, "servicio_no_disponible")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(estado)
-	if _, err := w.Write(append(contenido, '\n')); err != nil {
+	if _, err := w.Write(contenido.Bytes()); err != nil {
 		slog.Warn("respuesta de inscripcion interrumpida", "codigo", "escritura_respuesta")
 	}
 }

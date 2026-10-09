@@ -3,6 +3,7 @@ package httpinscripcion
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -30,6 +31,40 @@ func TestFalloTecnicoNoRegistraDatosPersonales(t *testing.T) {
 	if !strings.Contains(texto, "sqlstate=42501") || !strings.Contains(texto, "etapa=ejecutar") ||
 		strings.Contains(texto, "12345678Z") || strings.Contains(texto, "solicitud_inscripcion_") {
 		t.Fatalf("diagnostico no minimizado: %s", texto)
+	}
+}
+
+func TestDetalleConvocatoriaConEtiquetasLargasSeEntregaCompletoComoJSON(t *testing.T) {
+	for _, etiqueta := range []string{strings.Repeat("<", 2048), strings.Repeat("\"", 2048), strings.Repeat("á", 1024)} {
+		categorias := make([]map[string]string, 128)
+		for i := range categorias {
+			categorias[i] = map[string]string{"categoria_ref": "categoria:rpt:auxiliar", "categoria": etiqueta}
+		}
+		requisitos := make([]map[string]string, 32)
+		for i := range requisitos {
+			requisitos[i] = map[string]string{"codigo": "requisito", "descripcion": strings.Repeat("A", 2000)}
+		}
+		w := httptest.NewRecorder()
+		responder(w, http.StatusOK, "vec.bolsa.inscripcion.convocatoria.v1", map[string]any{
+			"convocatoria": map[string]any{"categorias": categorias, "requisitos": requisitos},
+		})
+		if w.Code != http.StatusOK || w.Body.Len() > 1<<20 || w.Header().Get("X-Content-Type-Options") != "nosniff" ||
+			strings.Contains(w.Body.String(), `\u003c`) {
+			t.Fatalf("detalle legítimo truncado o HTML escapado: estado=%d bytes=%d", w.Code, w.Body.Len())
+		}
+		var salida struct {
+			Data struct {
+				Convocatoria struct {
+					Categorias []struct {
+						Categoria string `json:"categoria"`
+					} `json:"categorias"`
+				} `json:"convocatoria"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &salida); err != nil || len(salida.Data.Convocatoria.Categorias) != 128 ||
+			salida.Data.Convocatoria.Categorias[127].Categoria != etiqueta {
+			t.Fatalf("categoría final ausente: %v", err)
+		}
 	}
 }
 
