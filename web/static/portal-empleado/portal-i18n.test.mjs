@@ -707,18 +707,20 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "peticiones-centro/arranque-peticiones-centro.js", "peticiones-centro/peticiones-centro.js",
   ]) versionesEspeciales.set(ruta, "20261008-alta-analisis-bolsa-v4");
   for (const ruta of [
-    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
     "modulos/contratacion-temporal/circuito-firma-acciones.js",
     "modulos/contratacion-temporal/circuito-firma.js",
     "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+  ]) versionesEspeciales.set(ruta, "20261008-alta-analisis-bolsa-fichas-v5");
+  for (const ruta of [
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
     "modulos/contratacion-temporal/formulario-informe-juridico.js",
     "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
     "modulos/contratacion-temporal/presentador-expedientes.js",
-    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261008-alta-analisis-bolsa-fichas-v5");
+  ]) versionesEspeciales.set(ruta, "20261009-ficha-version-recibo-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

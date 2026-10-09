@@ -940,3 +940,41 @@ test("una relectura fallida retira los metadatos previos sin permitir consultas 
   await assert.rejects(fuente.obtener(resumen.expediente_ref));
   assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), null);
 });
+
+test("la ficha abierta desde el cuadro se refresca con la versión del recibo, no con la del cuadro", async () => {
+  // Reproduce cidonia 09/10: tras registrar el análisis (v2 → v3) el refresco
+  // pedía version_observada 2, el servidor ya no la publica y respondía 404.
+  const llamadas = [];
+  const cliente = clienteFalso(llamadas);
+  const detalleBase = cliente.consultarDetalleRRHH;
+  let versionServidor = resumen.version;
+  cliente.consultarDetalleRRHH = async (solicitud, opciones) => {
+    const detalle = await detalleBase(solicitud, opciones);
+    if (solicitud.version_observada !== versionServidor) {
+      const error = new Error("recurso_no_encontrado");
+      error.estado = 404;
+      throw error;
+    }
+    return { ...detalle, resumen: { ...resumen, version: versionServidor } };
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente: adaptador,
+    capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"] });
+  await presentador.cargar({ texto: "", estado: "", fase: "" });
+  await presentador.seleccionarExpediente(resumen.expediente_ref);
+  assert.equal(presentador.obtenerEstado().expediente.version, resumen.version);
+
+  versionServidor = resumen.version + 1;
+  await presentador.refrescarExpedienteConfirmado({
+    expediente_ref: resumen.expediente_ref, version_resultante: versionServidor,
+  });
+  const detalles = llamadas.filter(({ operacion }) => operacion === "detalle");
+  assert.equal(detalles.at(-1).solicitud.version_observada, versionServidor);
+  assert.equal(presentador.obtenerEstado().expediente.version, versionServidor);
+
+  // Cambiar a Documentos o reabrir desde el cuadro ya no pide la versión vieja.
+  await presentador.seleccionarExpediente(resumen.expediente_ref);
+  assert.equal(llamadas.filter(({ operacion }) => operacion === "detalle").at(-1).solicitud.version_observada,
+    versionServidor);
+  assert.equal(presentador.obtenerEstado().expediente.version, versionServidor);
+});

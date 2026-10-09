@@ -4,11 +4,11 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261008-alta-analisis-bolsa-fichas-v5";
+const versionCoordinador = "20261009-ficha-version-recibo-v1";
 const versionCircuito = "20261008-alta-analisis-bolsa-fichas-v5";
-const versionVista = "20261008-alta-analisis-bolsa-fichas-v5";
-const versionVistaPortal = "20261008-alta-analisis-bolsa-fichas-v5";
-const versionAdaptador = "20261008-alta-analisis-bolsa-fichas-v5";
+const versionVista = "20261009-ficha-version-recibo-v1";
+const versionVistaPortal = "20261009-ficha-version-recibo-v1";
+const versionAdaptador = "20261009-ficha-version-recibo-v1";
 const versionRender = "20261008-r-fichas-idioma-nav-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
@@ -109,7 +109,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     vista, presentadorAlta, rendererAlta, i18n, contrato, interno, produccion, cache] = await Promise.all(
     nombres.map((nombre) => readFile(new URL(nombre, raiz), "utf8")));
   const cohorte = "20261008-alta-analisis-bolsa-v4";
-  const cohorteNavegacion = "20261008-alta-analisis-bolsa-fichas-v5";
+  const cohorteNavegacion = "20261009-ficha-version-recibo-v1";
   const cohorteClienteHTTP = cohorte;
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = cohorte;
@@ -163,7 +163,7 @@ test("la ficha compartible y su aviso usan una única cohorte empaquetada", asyn
     "../../interno.manifest", "../../produccion.manifest", "cache-publica-v1.json",
   ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const cohorte = "20261008-r-fichas-idioma-nav-v1";
-  const entrada = "20261008-alta-analisis-bolsa-fichas-v5";
+  const entrada = "20261009-ficha-version-recibo-v1";
   exigirVersiones(html, "/portal-empleado/portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(portal, "./portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(coordinador, "./portal-ct-ruta-ficha.js", cohorte);
