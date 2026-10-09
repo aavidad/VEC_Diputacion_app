@@ -55,6 +55,6 @@ export function renderizarAyuda(datos, estado = {}) {
     </div><aside aria-label="${escaparAtributo(y("lateral"))}">
       ${panel(y("visualizacion.titulo"), y("visualizacion.subtitulo"), `<div class="fila-acciones"><button type="button" class="boton-secundario" data-accion="alternar-texto">${h(y("visualizacion.texto"))}</button><button type="button" class="boton-secundario" data-accion="alternar-contraste">${h(y("visualizacion.contraste"))}</button><button type="button" class="boton-secundario" data-accion="leer-pantalla">${h(y("visualizacion.voz"))}</button></div><p>${h(y("visualizacion.detalle"))}</p>`)}
       ${panel(y("soporte.titulo"), y("soporte.subtitulo"), `<dl class="dato-lista"><dt>${h(y("soporte.asistente"))}</dt><dd>${h(y("soporte.asistenteDetalle"))}</dd><dt>${h(y("soporte.tecnico"))}</dt><dd>${h(y("soporte.tecnicoDetalle"))}</dd><dt>${h(y("soporte.datos"))}</dt><dd>${h(y("soporte.datosDetalle"))}</dd></dl><p class="nota">${h(y("soporte.nota"))}</p>`)}
-      ${panel(y("rapida.titulo"), y("rapida.subtitulo"), `<div class="fila-acciones">${enlaceRuta("convocatorias", y("rapida.inscribirme"), "enlace-boton")}${enlaceRuta("meritos", y("rapida.meritos"), "enlace-boton")}${enlaceRuta("llamamientos", y("rapida.llamamiento"), "enlace-boton")}</div>`)}
+      ${panel(y("rapida.titulo"), y("rapida.subtitulo"), `<div class="fila-acciones">${enlaceRuta("llamamientos", y("rapida.llamamiento"), "enlace-boton")}</div>`)}
     </aside></div>`;
 }

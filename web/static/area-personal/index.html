@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="/comun/correos-propios.css?v=20260929-correos-508b-v1">
     <link rel="stylesheet" href="/comun/imagen-propia.css?v=20260929-imagen-508c-v2">
     <link rel="stylesheet" href="/comun/oportunidades/oportunidades.css?v=20260924-f2-b15-area-v1">
-    <script type="module" src="/area-personal/arranque.js?v=20261009-mi-bolsa-historial-campos-v1"></script>
+    <script type="module" src="/area-personal/arranque.js?v=20261009-retirar-tramites-v1"></script>
   </head>
   <body class="area-personal-app">
     <a class="salto-contenido" href="#contenido-principal" data-i18n="areaPersonal.html.saltar">Saltar al contenido principal</a>
@@ -32,15 +32,12 @@
         <nav class="ap-navegacion" data-i18n-aria-label="areaPersonal.html.opciones" aria-label="Opciones del área personal">
           <p data-i18n="areaPersonal.html.grupoResumen">Resumen</p>
           <a href="?vista=inicio" data-ruta="inicio"><svg aria-hidden="true"><use href="#icono-inicio"></use></svg><span data-i18n="areaPersonal.rutas.inicio">Inicio</span></a>
-          <a href="?vista=convocatorias" data-ruta="convocatorias"><svg aria-hidden="true"><use href="#icono-convocatoria"></use></svg><span data-i18n="areaPersonal.rutas.convocatorias">Convocatorias</span></a>
           <a href="?vista=oportunidades" data-ruta="oportunidades"><svg aria-hidden="true"><use href="#icono-convocatoria"></use></svg><span data-i18n="areaPersonal.rutas.oportunidades">Oportunidades para ti</span></a>
 
           <p data-i18n="areaPersonal.html.grupoInformacion">Mi información</p>
           <a href="?vista=perfil" data-ruta="perfil"><svg aria-hidden="true"><use href="#icono-persona"></use></svg><span data-i18n="areaPersonal.rutas.perfil">Perfil y contacto</span></a>
-          <a href="?vista=meritos" data-ruta="meritos"><svg aria-hidden="true"><use href="#icono-merito"></use></svg><span data-i18n="areaPersonal.rutas.meritos">Méritos y documentos</span></a>
 
           <p data-i18n="areaPersonal.html.grupoTramitacion">Tramitación</p>
-          <a href="?vista=seguimiento" data-ruta="seguimiento"><svg aria-hidden="true"><use href="#icono-seguimiento"></use></svg><span data-i18n="areaPersonal.rutas.seguimiento">Mis expedientes</span></a>
           <a href="?vista=llamamientos" data-ruta="llamamientos"><svg aria-hidden="true"><use href="#icono-llamamiento"></use></svg><span data-i18n="areaPersonal.html.miBolsa">Mi bolsa</span><span class="contador-menu" id="contador-llamamientos" hidden>0</span></a>
           <a href="?vista=subsanaciones" data-ruta="subsanaciones" hidden><svg aria-hidden="true"><use href="#icono-subsanacion"></use></svg><span data-i18n="areaPersonal.rutas.subsanaciones">Subsanaciones</span></a>
           <a href="?vista=alegaciones" data-ruta="alegaciones" hidden><svg aria-hidden="true"><use href="#icono-alegacion"></use></svg><span data-i18n="areaPersonal.rutas.alegaciones">Alegaciones</span></a>
@@ -63,11 +60,6 @@
             <nav class="migas" id="migas-pan" data-i18n="areaPersonal.app.migas" data-i18n-aria-label="areaPersonal.html.migas" aria-label="Migas de pan">Mi área personal</nav>
             <h1 id="titulo-vista" data-i18n="areaPersonal.html.cargando">Cargando área personal…</h1>
           </div>
-          <form class="busqueda-global" id="busqueda-global" role="search" hidden>
-            <label class="solo-lectura" for="consulta-global" data-i18n="areaPersonal.html.buscarEtiqueta">Buscar en convocatorias y ayuda</label>
-            <input id="consulta-global" name="consulta" type="search" data-i18n-placeholder="areaPersonal.html.buscarEjemplo" placeholder="Buscar convocatoria o ayuda" autocomplete="off">
-            <button type="submit" class="boton-icono" data-i18n-aria-label="areaPersonal.html.buscar" aria-label="Buscar"><svg aria-hidden="true"><use href="#icono-buscar"></use></svg></button>
-          </form>
           <div class="acciones-cabecera">
             <button type="button" class="boton-utilidad" data-accion="leer-pantalla" data-i18n="areaPersonal.html.escuchar">Escuchar</button>
             <button type="button" class="boton-utilidad" data-accion="alternar-texto" data-i18n-aria-label="areaPersonal.preferencias.atajoTexto" aria-label="Aumentar o restablecer el tamaño del texto en esta sesión" aria-pressed="false"><span class="etiqueta-amplia" data-i18n="areaPersonal.preferencias.textoCorto">Texto </span>A+</button>
@@ -115,8 +107,6 @@
       <symbol id="icono-inicio" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5M5.5 10v10h13V10M9 20v-6h6v6"/></symbol>
       <symbol id="icono-convocatoria" viewBox="0 0 24 24"><path d="M4 5h12v14H4zM8 9h5M8 13h5M18 8l3-2v12l-3-2z"/></symbol>
       <symbol id="icono-persona" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-5 3.4-7 8-7s7.2 2 8 7"/></symbol>
-      <symbol id="icono-merito" viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.4l6.1-.9z"/></symbol>
-      <symbol id="icono-seguimiento" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></symbol>
       <symbol id="icono-llamamiento" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9M10 21h4"/></symbol>
       <symbol id="icono-subsanacion" viewBox="0 0 24 24"><path d="M5 3h14v18H5zM8 8h8M8 12h5M15 17l2 2 4-5"/></symbol>
       <symbol id="icono-alegacion" viewBox="0 0 24 24"><path d="M4 4h16v12H8l-4 4zM8 8h8M8 12h5"/></symbol>
@@ -124,7 +114,6 @@
       <symbol id="icono-certificado" viewBox="0 0 24 24"><path d="M5 3h14v18H5zM8 8h8M8 12h8M9 17h6"/></symbol>
       <symbol id="icono-ayuda" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.5 2.5 0 1 1 3.2 2.4c-.9.4-.9 1.1-.9 2.1M12 17h.01"/></symbol>
       <symbol id="icono-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
-      <symbol id="icono-buscar" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></symbol>
     </svg>
 
     <noscript><p class="sin-javascript">Esta aplicación necesita JavaScript para conectarse de forma segura al servicio. No se ha realizado ninguna operación.</p></noscript>

@@ -3,12 +3,8 @@
   "vistas": {
     "inicio": true,
     "preferencias": true,
-    "convocatorias": true,
     "oportunidades": true,
-    "convocatoria": true,
     "perfil": true,
-    "meritos": true,
-    "seguimiento": true,
     "llamamientos": true,
     "subsanaciones": false,
     "alegaciones": false,
