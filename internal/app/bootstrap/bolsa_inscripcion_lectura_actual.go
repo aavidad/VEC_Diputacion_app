@@ -135,7 +135,7 @@ func NuevoDecisorLecturaActualInscripcionPostgreSQL(poolExterno, poolInterno *pg
 // Este seam privado permite probar denegaciones sin abrir conexiones. La
 // composición real sólo expone el constructor PostgreSQL anterior.
 func nuevoDecisorLecturaActualInscripcionFuentes(externa, interna vecports.FuenteAutorizacion, c ConfiguracionDecisorLecturaActualInscripcion) (*decisorLecturaActualInscripcion, error) {
-	if nuloInscripcionBolsa(externa) || nuloInscripcionBolsa(interna) || nuloInscripcionBolsa(c.Reloj) ||
+	if nuloInscripcionBolsa(externa) || nuloInscripcionBolsa(interna) || nuloInscripcionBolsa(c.AmbitoRRHH) || nuloInscripcionBolsa(c.Reloj) ||
 		len(c.Descriptores) != 12 || !identidadesRRHHInscripcionValidas(c.RRHHNominal) {
 		return nil, inscripcion.ErrNoDisponible
 	}

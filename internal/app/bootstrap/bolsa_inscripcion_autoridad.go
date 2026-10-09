@@ -177,7 +177,8 @@ func copiarIdentidadesRRHHInscripcion(lista []identidadConsultaRRHHDesarrollo) [
 var _ AutoridadInscripcionBolsa = (*autoridadNominalInscripcionBolsa)(nil)
 
 func NuevaAutoridadInscripcionBolsa(c ConfiguracionAutoridadInscripcionBolsa) (AutoridadInscripcionBolsa, error) {
-	if nuloInscripcionBolsa(c.Lectura) || nuloInscripcionBolsa(c.FuenteActual) || c.PDP == nil || len(c.Material) != 4 ||
+	if nuloInscripcionBolsa(c.Lectura) || nuloInscripcionBolsa(c.FuenteActual) || nuloInscripcionBolsa(c.AmbitoRRHH) ||
+		c.PDP == nil || len(c.Material) != 4 ||
 		nuloInscripcionBolsa(c.Motivos) || nuloInscripcionBolsa(c.Reloj) ||
 		len(c.Descriptores) != 4 || len(c.Lecturas) != 12 || !identidadesRRHHInscripcionValidas(c.RRHHNominal) {
 		return nil, inscripcion.ErrNoDisponible

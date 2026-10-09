@@ -181,6 +181,14 @@ func TestDecisorLecturaActualInscripcionPostgreSQLExigePoolsYDescriptores(t *tes
 	if _, err := nuevoDecisorLecturaActualInscripcionFuentes(f, f, ConfiguracionDecisorLecturaActualInscripcion{}); !errors.Is(err, inscripcion.ErrNoDisponible) {
 		t.Fatalf("descriptores ausentes: %v", err)
 	}
+	if _, err := nuevoDecisorLecturaActualInscripcionFuentes(f, f, ConfiguracionDecisorLecturaActualInscripcion{
+		Reloj:        relojFijoAltaContratacionTemporalDesarrollo{ahora: time.Now().UTC().Truncate(time.Microsecond)},
+		Descriptores: descriptorLecturasInscripcionPrueba(), RRHHNominal: []identidadConsultaRRHHDesarrollo{{
+			perfilRef: "prf_rrhh_prueba", identidad: identidadCertificadoDesarrollo{principal: vecdomain.Principal{Attributes: map[string]string{
+				"certificate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}}},
+	}); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("sin fuente de ámbito RRHH: %v", err)
+	}
 }
 
 func TestDecisorLecturaActualInscripcionPermisoVigenteAntesDeBolsa(t *testing.T) {
@@ -215,7 +223,8 @@ func TestDecisorLecturaActualInscripcionPermisoVigenteAntesDeBolsa(t *testing.T)
 	otraFuente := &fuenteLecturaActualInscripcionPrueba{err: errors.New("fuente equivocada")}
 	d, err := nuevoDecisorLecturaActualInscripcionFuentes(otraFuente, fuente,
 		ConfiguracionDecisorLecturaActualInscripcion{Reloj: relojFijoAltaContratacionTemporalDesarrollo{ahora: ahora},
-			Descriptores: descriptorLecturasInscripcionPrueba(), RRHHNominal: []identidadConsultaRRHHDesarrollo{{perfilRef: "prf_rrhh_prueba",
+			Descriptores: descriptorLecturasInscripcionPrueba(), AmbitoRRHH: &ambitoLecturaRRHHInscripcionPrueba{},
+			RRHHNominal: []identidadConsultaRRHHDesarrollo{{perfilRef: "prf_rrhh_prueba",
 				identidad: identidadCertificadoDesarrollo{principal: vecdomain.Principal{Attributes: map[string]string{
 					"certificate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}}}})
 	if err != nil {
