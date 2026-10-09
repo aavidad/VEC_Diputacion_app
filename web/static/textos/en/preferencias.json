@@ -154,6 +154,7 @@
       "atajoTexto": "Enlarge or reset the text size for this session",
       "atajoContraste": "Turn high contrast on or off for this session",
       "menuIdentidad": "Open identity menu",
+      "menuIdentidadNombre": "Open identity menu for {nombre}",
       "textoCorto": "Text ",
       "contrasteCorto": "Contrast",
       "identidadServicio": "Identity verified",

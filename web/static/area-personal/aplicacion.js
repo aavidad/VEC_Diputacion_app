@@ -4,16 +4,16 @@ import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from 
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
   sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261007-p7-imagen-v1";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
-import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261009-nombre-propio-v1";
-import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261009-nombre-propio-v1";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261009-nombre-propio-v2";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261009-nombre-propio-v2";
 import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261009-nombre-propio-v1";
-import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261009-nombre-propio-v1";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261009-nombre-propio-v1";
+} from "./vistas/seguimiento-tramites.js?v=20261009-nombre-propio-v2";
+import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261009-nombre-propio-v2";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261009-nombre-propio-v2";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
-import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261009-nombre-propio-v1";
-import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261009-nombre-propio-v1";
+import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261009-nombre-propio-v2";
+import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261009-nombre-propio-v2";
 
 
 const RUTAS = Object.freeze({
@@ -226,7 +226,10 @@ function actualizarShell(estado) {
   porId("titulo-vista").textContent = titulo;
   porId("migas-pan").textContent = vista === "inicio" ? t("migas") : t("migasVista", { titulo });
   pintarInicialesSesion(estado, porId("avatar-sesion"), datos.sesion.iniciales);
-  const nombreSesion = porId("nombre-sesion"); nombreSesion.textContent = nombreSesion.title = datos.sesion.nombre_visible;
+  const nombre = datos.sesion.nombre_visible; const nombreSesion = porId("nombre-sesion"); nombreSesion.textContent = nombre;
+  // La etiqueta del botón tapa su contenido: el nombre va también en ella y en el title del botón.
+  const botonSesion = nombreSesion.closest?.(".sesion-usuario");
+  if (botonSesion) { botonSesion.title = nombre; botonSesion.setAttribute("aria-label", nombre ? traducir("areaPersonal.preferencias.menuIdentidadNombre", { nombre }) : traducir("areaPersonal.preferencias.menuIdentidad")); }
   porId("perfil-sesion").textContent = datos.sesion.metodo;
   document.querySelectorAll("[data-ruta]").forEach((enlace) => {
     const activa = enlace.dataset.ruta === vista;

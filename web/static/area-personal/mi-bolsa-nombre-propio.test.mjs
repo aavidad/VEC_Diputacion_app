@@ -30,3 +30,15 @@ test("el contrato rechaza un nombre vacío, demasiado largo o sin iniciales", ()
     assert.throws(() => validarRespuestaMiBolsa(respuestaPrueba(extra)), /mi-bolsa\.(nombre_visible|iniciales)/u);
   }
 });
+
+test("la etiqueta del menú de identidad nombra a la titular en ambos idiomas", async () => {
+  const { readFile } = await import("node:fs/promises");
+  for (const idioma of ["es", "en"]) {
+    const catalogo = JSON.parse(await readFile(new URL(`../textos/${idioma}/preferencias.json`, import.meta.url), "utf8"));
+    const textos = catalogo.areaPersonal.preferencias;
+    assert.equal(typeof textos.menuIdentidad, "string");
+    assert.match(textos.menuIdentidadNombre, /\{nombre\}/u);
+  }
+  const codigo = await readFile(new URL("./aplicacion.js", import.meta.url), "utf8");
+  assert.match(codigo, /botonSesion\.setAttribute\("aria-label", nombre \? traducir\("areaPersonal\.preferencias\.menuIdentidadNombre", \{ nombre \}\)/u);
+});

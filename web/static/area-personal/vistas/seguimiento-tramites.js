@@ -1,10 +1,10 @@
 import { chip, encabezadoVista, escaparAtributo, escaparHTML, listaDatos, panel } from "./comunes.js";
 import { localizacionAreaPersonal, traducir } from "../i18n.js";
 import { campoVisibleMiBolsa, nombreCategoria } from "../mi-bolsa-campos.js";
-import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js?v=20261009-nombre-propio-v1";
+import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js?v=20261009-nombre-propio-v2";
 import { renderizarOfertasMiBolsa, textoOfertas } from "../mi-bolsa-ofertas.js";
 import { renderizarContactoMiBolsa, textoContacto } from "../mi-bolsa-contacto.js";
-import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js?v=20261009-nombre-propio-v1";
+import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js?v=20261009-nombre-propio-v2";
 
 const b = (clave, variables) => traducir(`areaPersonal.vista.miBolsa.${clave}`, variables);
 const u = (clave, variables) => traducir(`areaPersonal.vista.subsanaciones.${clave}`, variables);
