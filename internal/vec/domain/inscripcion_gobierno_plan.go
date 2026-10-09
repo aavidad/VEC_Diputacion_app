@@ -38,6 +38,14 @@ type ProyeccionEmpleadoInscripcion struct {
 	ProcedenciaHuellaSHA256 string `json:"procedencia_huella_sha256"`
 }
 
+// FuenteUnidadInscripcion identifica la revisión de Personal que prueba la
+// relación entre la organización del ADMIN y la unidad del AID RRHH.
+type FuenteUnidadInscripcion struct {
+	Referencia   string `json:"referencia"`
+	Version      int    `json:"version"`
+	HuellaSHA256 string `json:"huella_sha256"`
+}
+
 // El almacén externo tiene puntero e historia propios. Una fila de la tabla
 // normal no acredita por sí sola el perfil externo de AUT16.
 type CambioAsignacionInscripcion struct {
@@ -52,6 +60,7 @@ type CambioAsignacionInscripcion struct {
 	CandidatoRef       string                          `json:"candidato_ref,omitempty"`
 	EmpleadoRef        string                          `json:"empleado_ref,omitempty"`
 	ProyeccionEmpleado *ProyeccionEmpleadoInscripcion  `json:"proyeccion_empleado,omitempty"`
+	FuenteUnidad       *FuenteUnidadInscripcion        `json:"fuente_unidad,omitempty"`
 	Anterior           *PreimagenAsignacionInscripcion `json:"anterior,omitempty"`
 }
 
@@ -262,6 +271,7 @@ func contratoPerfilInscripcion(perfil PerfilObjetivoVersionInscripcion) (string,
 		return RolInscripcionEmpleado, propias, true
 	case PerfilVersionInscripcionRRHH:
 		return RolInscripcionRRHH, []string{
+			"bolsa.inscripcion.rrhh.convocatorias.listar",
 			"bolsa.inscripcion.rrhh.listar", "bolsa.inscripcion.rrhh.consultar",
 			"bolsa.inscripcion.rrhh.motivos", "bolsa.inscripcion.rrhh.decidir",
 			"bolsa.inscripcion.rrhh.incorporar",
@@ -273,6 +283,8 @@ func contratoPerfilInscripcion(perfil PerfilObjetivoVersionInscripcion) (string,
 func concesionInscripcionExacta(c ConcesionRol, perfil PerfilObjetivoVersionInscripcion) bool {
 	var finalidad, tipo string
 	switch c.Accion {
+	case "bolsa.inscripcion.rrhh.convocatorias.listar":
+		finalidad, tipo = "consulta_convocatorias_gestion_rrhh", "conjunto_gestion_inscripcion"
 	case "bolsa.inscripcion.convocatorias.listar", "bolsa.inscripcion.convocatoria.consultar":
 		finalidad, tipo = "consulta_convocatoria_abierta", "convocatoria_inscripcion"
 	case "bolsa.inscripcion.propias.listar", "bolsa.inscripcion.propia.consultar":
@@ -342,13 +354,14 @@ func cambioAsignacionInscripcionValido(c CambioAsignacionInscripcion, perfil Per
 	case PerfilVersionInscripcionExterno:
 		if c.Almacen != "externo" || c.Modo != "alta" || c.Anterior != nil ||
 			!referenciaOpacaAdministracionPerfiles(c.CandidatoRef, "can_") ||
-			c.EmpleadoRef != "" || c.ProyeccionEmpleado != nil || len(c.Ambitos) != 1 ||
+			c.EmpleadoRef != "" || c.ProyeccionEmpleado != nil || c.FuenteUnidad != nil || len(c.Ambitos) != 1 ||
 			c.Ambitos[0].Clave != "candidato_ref" || len(c.Ambitos[0].Valores) != 1 ||
 			c.Ambitos[0].Valores[0] != c.CandidatoRef {
 			return false
 		}
 	case PerfilVersionInscripcionEmpleado:
 		if c.Almacen != "normal" || c.Modo != "alta" || c.Anterior != nil || c.CandidatoRef != "" ||
+			c.FuenteUnidad != nil ||
 			!referenciaOpacaAdministracionPerfiles(c.EmpleadoRef, "emp_") ||
 			c.ProyeccionEmpleado == nil ||
 			!referenciaOpacaAdministracionPerfiles(c.ProyeccionEmpleado.ProyeccionRef, "pep_") ||
@@ -367,6 +380,7 @@ func cambioAsignacionInscripcionValido(c CambioAsignacionInscripcion, perfil Per
 		}
 		if c.Almacen != "normal" || c.Modo != "avance" || c.Anterior == nil ||
 			c.CandidatoRef != "" || c.EmpleadoRef != "" || c.ProyeccionEmpleado != nil ||
+			c.FuenteUnidad == nil || !fuenteUnidadInscripcionValida(*c.FuenteUnidad) ||
 			c.Anterior.Documento.Validar() != nil || c.Anterior.Documento.Estado != EstadoAsignacionPerfilActiva ||
 			c.Anterior.AsignacionRef != c.Anterior.Documento.Referencia() ||
 			c.Anterior.Documento.AsignacionID != c.AsignacionID ||
@@ -381,6 +395,19 @@ func cambioAsignacionInscripcionValido(c CambioAsignacionInscripcion, perfil Per
 		}
 	default:
 		return false
+	}
+	return true
+}
+
+func fuenteUnidadInscripcionValida(f FuenteUnidadInscripcion) bool {
+	if len(f.Referencia) < 3 || len(f.Referencia) > 160 || f.Referencia[0] < 'a' || f.Referencia[0] > 'z' ||
+		f.Version < 1 || f.Version > 2147483647 || !huellaSHA256AutorizacionV3NoNula(f.HuellaSHA256) {
+		return false
+	}
+	for _, c := range f.Referencia[1:] {
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_' && c != ':' && c != '-' {
+			return false
+		}
 	}
 	return true
 }
