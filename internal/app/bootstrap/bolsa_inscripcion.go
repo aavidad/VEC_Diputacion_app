@@ -27,14 +27,15 @@ import (
 // y atestar V3 para la operación y el recurso recibidos.
 type AutoridadInscripcionBolsa interface {
 	CapturarLectura(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, inscripcion.Filtro) (inscripcion.CapturaLectura, error)
-	AutorizarEscritura(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, []byte, []byte) (AutorizacionEscrituraInscripcionBolsa, error)
+	AutorizarEscritura(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, []byte) (AutorizacionEscrituraInscripcionBolsa, error)
 }
 
 type AutorizacionEscrituraInscripcionBolsa struct {
-	Accion         string
-	Recurso        string
-	MaterialSHA256 string
-	Material       vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	Accion          string
+	Recurso         string
+	MaterialSHA256  string
+	Material        vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	RecursoCanonico []byte
 }
 
 // La implementación común revalida certificado y sesión revocable por petición
@@ -169,45 +170,32 @@ func (p *preparadorInscripcionBolsa) PrepararLecturaRRHH(r *http.Request, accion
 type operacionEscrituraInscripcion struct {
 	ref          string
 	material     []byte
-	recurso      []byte
 	presentacion *inscripcion.Presentacion
 }
 
 func (p *preparadorInscripcionBolsa) PrepararPresentacion(r *http.Request, comando inscripcion.Presentacion) (inscripcion.Actor, error) {
-	material, huella, err := inscripcion.MaterialPresentacion(comando)
-	if err != nil {
-		return inscripcion.Actor{}, err
-	}
-	recurso, err := inscripcion.RecursoPresentacion(comando, huella)
+	material, _, err := inscripcion.MaterialPresentacion(comando)
 	if err != nil {
 		return inscripcion.Actor{}, err
 	}
 	// La solicitud propia queda ligada a la persona después de resolver sesión.
-	return p.preparar(r, false, nil, &operacionEscrituraInscripcion{material: material, recurso: recurso, presentacion: &comando})
+	return p.preparar(r, false, nil, &operacionEscrituraInscripcion{material: material, presentacion: &comando})
 }
 
 func (p *preparadorInscripcionBolsa) PrepararDecision(r *http.Request, d inscripcion.Decision) (inscripcion.Actor, error) {
-	material, huella, err := inscripcion.MaterialDecision(d)
+	material, _, err := inscripcion.MaterialDecision(d)
 	if err != nil {
 		return inscripcion.Actor{}, err
 	}
-	recurso, err := inscripcion.RecursoDecision(d, huella)
-	if err != nil {
-		return inscripcion.Actor{}, err
-	}
-	return p.preparar(r, true, nil, &operacionEscrituraInscripcion{ref: d.SolicitudRef, material: material, recurso: recurso})
+	return p.preparar(r, true, nil, &operacionEscrituraInscripcion{ref: d.SolicitudRef, material: material})
 }
 
 func (p *preparadorInscripcionBolsa) PrepararIncorporacion(r *http.Request, i inscripcion.Incorporacion) (inscripcion.Actor, error) {
-	material, huella, err := inscripcion.MaterialIncorporacion(i)
+	material, _, err := inscripcion.MaterialIncorporacion(i)
 	if err != nil {
 		return inscripcion.Actor{}, err
 	}
-	recurso, err := inscripcion.RecursoIncorporacion(i, huella)
-	if err != nil {
-		return inscripcion.Actor{}, err
-	}
-	return p.preparar(r, true, nil, &operacionEscrituraInscripcion{ref: i.SolicitudRef, material: material, recurso: recurso})
+	return p.preparar(r, true, nil, &operacionEscrituraInscripcion{ref: i.SolicitudRef, material: material})
 }
 
 func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectura *lecturaInscripcion, escritura *operacionEscrituraInscripcion) (inscripcion.Actor, error) {
@@ -371,29 +359,33 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 		actor.Lectura = &captura
 		return actor, nil
 	}
-	if escritura == nil || len(escritura.material) == 0 || len(escritura.recurso) == 0 {
+	if escritura == nil || len(escritura.material) == 0 {
 		return vacio, inscripcion.ErrNoDisponible
 	}
 	if escritura.ref != "" && escritura.ref != recurso {
 		return vacio, inscripcion.ErrSolicitudInvalida
 	}
 	hash := sha256.Sum256(escritura.material)
-	concesion, err := c.Autoridad.AutorizarEscritura(r.Context(), ctx, acreditacion, accion, recurso, escritura.material, escritura.recurso)
+	concesion, err := c.Autoridad.AutorizarEscritura(r.Context(), ctx, acreditacion, accion, recurso, escritura.material)
 	ahoraEscritura := c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 	resumen := concesion.Material.ResumenCapacidad()
+	huellaRecurso := sha256.Sum256(concesion.RecursoCanonico)
 	if err != nil || !ahoraEscritura.Before(acreditacion.ValidaHasta) ||
 		(empleado && !ahoraEscritura.Before(empleadoValidoHasta)) ||
 		!ctx.Vinculo.VigenteEn(ahoraEscritura, ctx.Resultado) ||
 		concesion.Accion != accion || concesion.Recurso != recurso || concesion.MaterialSHA256 != hex.EncodeToString(hash[:]) ||
+		len(concesion.RecursoCanonico) == 0 || len(concesion.RecursoCanonico) > 8192 ||
 		concesion.Material.ValidarEstructura() != nil || resumen.ContextoRef() != ctx.Resultado.RegistroContextoRef ||
 		resumen.ContextoHuellaSHA256() != ctx.Resultado.HuellaSHA256 || resumen.Operacion() != accion ||
-		resumen.EfectoRef() != recurso || ahoraEscritura.Before(resumen.EmitidaEn()) || !ahoraEscritura.Before(resumen.ExpiraEn()) ||
+		resumen.EfectoRef() != recurso || resumen.EfectoHuellaSHA256() != hex.EncodeToString(huellaRecurso[:]) ||
+		ahoraEscritura.Before(resumen.EmitidaEn()) || !ahoraEscritura.Before(resumen.ExpiraEn()) ||
 		!bytes.Equal(concesion.Material.ContextoActorCanonico(), ctx.Resultado.RepresentacionCanonica) ||
 		concesion.Material.PersonaVersion() != ctx.Resultado.Contexto.Instantanea.PersonaVersion ||
 		concesion.Material.PerfilVersion() != ctx.Resultado.Contexto.Instantanea.PerfilVersion {
 		return vacio, inscripcion.ErrAccesoDenegado
 	}
 	actor.MaterialEscritura = &concesion.Material
+	actor.RecursoEscrituraCanonico = bytes.Clone(concesion.RecursoCanonico)
 	return actor, nil
 }
 

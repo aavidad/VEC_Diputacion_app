@@ -24,9 +24,12 @@ func TestMaterialPresentacionUnicoParaDecisionYEfecto(t *testing.T) {
 	if !bytes.Contains(primero, []byte(`"declaraciones":[{"requisito_codigo":"identidad_certificada"},{"requisito_codigo":"titulacion"}]`)) {
 		t.Fatal("orden canonico de declaraciones")
 	}
-	recurso, err := RecursoPresentacion(p, huella)
-	if err != nil || string(recurso) != `{"ambitos":{"categoria_ref":"categoria:rpt:auxiliar","convocatoria_ref":"cv1_YXV4aWxpYXI_v1"},"atributos":{"material_sha256":"`+huella+`"}}` {
+	recurso, err := RecursoPresentacion(p, huella, map[string]string{"candidato_ref": "can_candidata_0000000001"})
+	if err != nil || string(recurso) != `{"ambitos":{"candidato_ref":"can_candidata_0000000001"},"atributos":{"catalogo_version":"1","categoria_ref":"categoria:rpt:auxiliar","convocatoria_ref":"cv1_YXV4aWxpYXI_v1","material_sha256":"`+huella+`"}}` {
 		t.Fatalf("recurso canonico: %s error=%v", recurso, err)
+	}
+	if _, err := RecursoPresentacion(p, huella, map[string]string{"categoria_ref": p.CategoriaRef}); err == nil {
+		t.Fatal("la categoría del navegador no puede convertirse en ámbito")
 	}
 	ref, err := ReferenciaSolicitud("per_sintetica_001", p)
 	if err != nil || !strings.HasPrefix(ref, "solicitud_inscripcion_") || len(ref) != len("solicitud_inscripcion_")+64 {
@@ -40,9 +43,12 @@ func TestMaterialDecisionLigaVersionMotivoYClave(t *testing.T) {
 	if err != nil || !bytes.Contains(material, []byte(`"version_esperada":2`)) || !bytes.Contains(material, []byte(`"motivo_codigo":"requisito.no.acreditado"`)) {
 		t.Fatalf("material=%s err=%v", material, err)
 	}
-	recurso, err := RecursoDecision(d, huella)
+	recurso, err := RecursoDecision(d, huella, map[string]string{"unidad_ref": "unidad:rrhh", "ambito_ref": "ambito:bolsa"})
 	if err != nil || !bytes.Contains(recurso, []byte(d.SolicitudRef)) || !bytes.Contains(recurso, []byte(huella)) {
 		t.Fatalf("recurso=%s err=%v", recurso, err)
+	}
+	if _, err := RecursoDecision(d, huella, map[string]string{"solicitud_ref": d.SolicitudRef}); err == nil {
+		t.Fatal("la solicitud del navegador no puede convertirse en ámbito RRHH")
 	}
 	d.VersionEsperada = 3
 	_, otra, err := MaterialDecision(d)
@@ -57,7 +63,7 @@ func TestMaterialIncorporacionLigaEvidenciaSinAceptarParticipacion(t *testing.T)
 	if err != nil || !bytes.Contains(material, []byte(`"evidencia_ref":"acta:resolucion:001"`)) || bytes.Contains(material, []byte("participacion_ref")) {
 		t.Fatalf("material=%s err=%v", material, err)
 	}
-	recurso, err := RecursoIncorporacion(i, huella)
+	recurso, err := RecursoIncorporacion(i, huella, map[string]string{"unidad_ref": "unidad:rrhh", "ambito_ref": "ambito:bolsa"})
 	if err != nil || !bytes.Contains(recurso, []byte(i.SolicitudRef)) || !bytes.Contains(recurso, []byte(huella)) {
 		t.Fatalf("recurso=%s err=%v", recurso, err)
 	}

@@ -135,7 +135,7 @@ func acreditacionSesionInscripcionPrueba(t *testing.T, ctx contextoSeguridadComu
 		VerificadaEn: ahora.Add(-time.Second), ValidaHasta: ahora.Add(time.Minute)}
 }
 
-func (autoridadInscripcionPrueba) AutorizarEscritura(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, []byte, []byte) (AutorizacionEscrituraInscripcionBolsa, error) {
+func (autoridadInscripcionPrueba) AutorizarEscritura(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, []byte) (AutorizacionEscrituraInscripcionBolsa, error) {
 	return AutorizacionEscrituraInscripcionBolsa{Material: vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}}, inscripcion.ErrAccesoDenegado
 }
 
