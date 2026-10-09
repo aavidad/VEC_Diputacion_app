@@ -339,9 +339,10 @@ func (f Filtro) Validar() error {
 }
 
 type Pagina struct {
-	Solicitudes     []Solicitud `json:"solicitudes"`
-	Total           uint64      `json:"total"`
-	CursorSiguiente *string     `json:"cursor_siguiente"`
+	Solicitudes        []Solicitud `json:"solicitudes"`
+	Total              uint64      `json:"total"`
+	CursorSiguiente    *string     `json:"cursor_siguiente"`
+	ConvocatoriaTitulo string      `json:"convocatoria_titulo,omitempty"`
 }
 
 type ConvocatoriaGestion struct {
