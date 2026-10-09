@@ -748,6 +748,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
     "modulos/contratacion-temporal/vista-borradores-publicados.js", "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js"]) versionesEspeciales.set(ruta, "20261009-borradores-fase-v3");
+  for (const ruta of ["portal-bolsas-intentos.js", "portal-bolsas-api.js", "portal-bolsas-historial-ofrecimientos.js",
+    "portal-bolsas-ofertas.js", "portal-bolsas-seguimiento.js", "portal-panel-interno.js"])
+    versionesEspeciales.set(ruta, "20261009-ayuda-contacto-v1");
   // La solicitud del centro y el alta CT comparten contrato y renderer.
   // Cada consumidor modificado tiene una única URL de la cohorte nueva.
   for (const ruta of [
@@ -771,7 +774,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "peticiones-centro/arranque-peticiones-centro.js",
     "peticiones-centro/peticiones-centro.js",
     "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261009-centro-campos-cohorte-v4");
+  ]) versionesEspeciales.set(ruta, "20261009-centro-campos-cohorte-v5");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

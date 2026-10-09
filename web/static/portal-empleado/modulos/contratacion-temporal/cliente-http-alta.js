@@ -4,7 +4,7 @@ import {
   validarComandoAltaNecesidad,
   ESQUEMA_ALTA_NECESIDAD,
   validarReciboAlta,
-} from "./contrato.js?v=20261009-centro-campos-cohorte-v4";
+} from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
 
 const MAXIMO_SOLICITUD_ALTA_BYTES = 256 * 1024;
 const MAXIMO_RESPUESTA_ALTA_BYTES = 16 * 1024;

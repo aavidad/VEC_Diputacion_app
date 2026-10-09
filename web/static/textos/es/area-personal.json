@@ -384,6 +384,8 @@
       "participaciones": "Mis participaciones",
       "sinParticipaciones": "Sin participaciones activas",
       "sinParticipacionesDetalle": "No constan participaciones en bolsa para la identidad actual.",
+      "ayudaLlamamientoAbrir": "Ayuda sobre la respuesta a un llamamiento",
+      "ayudaLlamamiento": "Si recibió un correo de llamamiento y aún no puede responder, espere a que RRHH contacte con usted y anote ese contacto. El plazo para responder empieza con ese contacto, no con el envío del correo. Si RRHH ya le ha contactado y sigue sin poder responder, comuníqueselo para que revise el registro.",
       "titulo": "Mi bolsa"
     },
     "subsanaciones": {

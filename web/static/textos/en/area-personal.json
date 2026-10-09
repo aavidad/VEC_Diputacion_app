@@ -384,6 +384,8 @@
       "participaciones": "My participations",
       "sinParticipaciones": "No active participations",
       "sinParticipacionesDetalle": "There are no job pool participations recorded for the current identity.",
+      "ayudaLlamamientoAbrir": "Help with replying to a call-up",
+      "ayudaLlamamiento": "If you received a call-up email but cannot reply yet, wait for HR to contact you and record that contact. The reply period starts when they contact you, not when the email is sent. If HR has already contacted you and you still cannot reply, tell them so they can check the record.",
       "titulo": "My job pool"
     },
     "subsanaciones": {
