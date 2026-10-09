@@ -7,7 +7,7 @@ base_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 repo_dir=$(cd "$base_dir/../../.." && pwd -P)
 ad172="$repo_dir/deploy/postgresql/autorizacion_atestada_v3/migraciones/000172_origen_consumos_confirmados.up.sql"
 contenedor=vec-origen-ad172-prueba-$$
-TMPDIR=$(mktemp -d)
+TMPDIR=$(mktemp -d /var/tmp/vec-origen-ad172-pg18.XXXXXX)
 export TMPDIR
 trap 'docker rm -f "$contenedor" >/dev/null 2>&1 || true; rm -rf "$TMPDIR"' EXIT
 lista=$(grep -v '^#' "$base_dir/ternas.tsv")
@@ -19,6 +19,9 @@ cp "$base_dir"/{ejecutar.sh,operacion.sql,inventario.sql,ternas.tsv} "$paquete/"
 cuenta() { awk -F'\t' -v b="$1" '$1 ~ "^(" b ")$"' <<< "$lista" | wc -l | tr -d ' '; }
 por_defecto=$(cuenta 'usuarios|contratacion|bolsa|documentos|incorporacion')
 cronos=$(cuenta cronos)
+mibolsa=$(cuenta mibolsa)
+incorporacionb=$(cuenta incorporacionb)
+[[ $mibolsa == 8 && $incorporacionb == 21 ]] || { echo 'FALLO: bloques opt-in incompletos' >&2; exit 1; }
 
 # Tabla, disparadores, política y resolutor de AD172, copiados literalmente.
 ad172_objetos() {
@@ -42,7 +45,7 @@ SQL
 
 nuevo_pg() {
   docker rm -f "$contenedor" >/dev/null 2>&1 || true
-  docker run -d --rm --name "$contenedor" --network none --memory 2g \
+  docker run -d --rm --restart=no --name "$contenedor" --network none --memory 2g \
     -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18.4 >/dev/null
   for _ in $(seq 60); do
     docker exec "$contenedor" pg_isready -U postgres -h /var/run/postgresql >/dev/null 2>&1 && break; sleep 1
@@ -56,7 +59,7 @@ huella_nucleo() { sql -c "SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex')
 sql() { docker exec -i "$contenedor" psql -XAtq -v ON_ERROR_STOP=1 -U postgres -d postgres "$@"; }
 guion() { VEC_ORIGEN_MOTOR=docker VEC_ORIGEN_PG_CONTENEDOR=$contenedor bash "$paquete/ejecutar.sh" "$@"; }
 aplicar() { env "$@" VEC_ORIGEN_AD172_APLICAR=SI-REVISADO VEC_ORIGEN_MOTOR=docker VEC_ORIGEN_PG_CONTENEDOR="$contenedor" bash "$paquete/ejecutar.sh" --aplicar; }
-origen() { sql -U "$1" -c "SELECT coalesce(vec_autorizacion_atestada_v3.probar_origen('$2','$3','$4'),'NULO')"; }
+origen() { sql -U "$1" -c "SELECT coalesce(vec_autorizacion_atestada_v3.probar_origen('$2','$3','$4'),'NULO')" </dev/null; }
 espera() { [[ "$1" == "$2" ]] || { echo "FALLO: $3 (obtenido «$1», esperado «$2»)" >&2; exit 1; }; echo "OK $3"; }
 rechaza() { # rechaza <motivo esperado> <descripción> [VAR=valor...]
   local motivo=$1 desc=$2; shift 2
@@ -86,6 +89,8 @@ espera "$(origen vec_bolsa_llamamientos_desarrollo vec_bolsa_llamamientos.contac
 espera "$(origen vec_documentos_rrhh_ejecutor_desarrollo vec_documentos.operacion.v1 documentos.expediente.listar interna_corporativa)" vec-server 'documentos acreditados'
 espera "$(origen vec_inc_v2_alta_personal_20260910 vec_personal.alta_ejercicio.v1 personal.alta_ejercicio.registrar interna_corporativa)" vec-server 'alta en Personal acreditada'
 espera "$(origen vec_cronos_emp_ejecutor_desarrollo vec_cronos_v1.saldo_propio.consultar.v1 cronos.saldo.propio.consultar interna_corporativa)" NULO 'Cronos no se instala por defecto'
+espera "$(origen vec_bolsa_llamamientos_desarrollo vec.bolsa.mi-bolsa.v1 bolsa.participaciones_propias.consultar externa_personal)" NULO 'Mi Bolsa no se instala por defecto'
+espera "$(origen vec_bolsa_llamamientos_desarrollo vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1 bolsa.participaciones_propias.responder_llamamiento externa_personal)" NULO 'respuesta del candidato no se instala por defecto'
 espera "$(origen vec_ct_o207_runtime vec_contratacion_temporal.confirmar_alta_atestada.v1 contratacion_temporal.peticion_centro.consultar externa_personal)" NULO 'canal cruzado sigue denegado'
 espera "$(origen vec_bolsa_llamamientos_desarrollo vec_contratacion_temporal.confirmar_alta_atestada.v1 contratacion_temporal.peticion_centro.consultar interna_corporativa)" NULO 'LOGIN cruzado sigue denegado'
 espera "$(origen vec_inc_v2_registro_ct_20260910 vec_contratacion_temporal.confirmar_alta_atestada.v1 contratacion_temporal.peticion_centro.consultar interna_corporativa)" NULO 'otro LOGIN del mismo grupo sigue denegado'
@@ -95,6 +100,51 @@ espera "$(filas)" "$((por_defecto + 1))" 'repetir es idempotente'
 salida=$(aplicar VEC_ORIGEN_BLOQUES=cronos)
 grep -q "ternas_nuevas=$cronos" <<< "$salida"
 espera "$(origen vec_cronos_emp_ejecutor_desarrollo vec_cronos_v1.saldo_propio.consultar.v1 cronos.saldo.propio.consultar interna_corporativa)" vec-server 'Cronos se instala solo si se pide'
+
+echo '== A2: Mi Bolsa sola, ocho ternas exactas y aislamiento de canal/LOGIN'
+salida=$(VEC_ORIGEN_BLOQUES=mibolsa guion --ensayo)
+grep -q 'verificado: ROLLBACK' <<< "$salida"
+salida=$(aplicar VEC_ORIGEN_BLOQUES=mibolsa)
+grep -q "ternas_nuevas=$mibolsa" <<< "$salida"
+espera "$(filas)" "$((por_defecto + cronos + mibolsa + 1))" 'Mi Bolsa añade ocho y preserva filas previas'
+verificadas=0
+while IFS=$'\t' read -r bloque login grupo audiencia operacion canal proceso perfil; do
+  [[ $bloque == mibolsa ]] || continue
+  [[ $canal == externa_personal && $proceso == vec-server ]] || { echo 'FALLO: canal o proceso Mi Bolsa' >&2; exit 1; }
+  case "$perfil" in
+    consulta_participaciones_propias_bolsa)
+      [[ $login == vec_bolsa_llamamientos_desarrollo && $grupo == vec_bolsa_llamamientos_ejecutor ]] || { echo 'FALLO: lector Mi Bolsa' >&2; exit 1; } ;;
+    portal_candidato_bolsa)
+      [[ $login == vec_bolsa_llamamientos_desarrollo && $grupo == vec_bolsa_llamamientos_ejecutor ]] || { echo 'FALLO: actor Mi Bolsa' >&2; exit 1; } ;;
+    *) echo 'FALLO: perfil Mi Bolsa inesperado' >&2; exit 1 ;;
+  esac
+  espera "$(origen "$login" "$audiencia" "$operacion" "$canal")" vec-server "Mi Bolsa: $operacion"
+  espera "$(origen "$login" "$audiencia" "$operacion" interna_corporativa)" NULO "canal interno denegado: $operacion"
+  verificadas=$((verificadas + 1))
+done < "$base_dir/ternas.tsv"
+espera "$verificadas" 8 'ocho ternas Mi Bolsa verificadas'
+espera "$(origen vec_ct_o207_runtime vec.bolsa.mi-bolsa.v1 bolsa.participaciones_propias.consultar externa_personal)" NULO 'LOGIN CT no lee Mi Bolsa'
+espera "$(origen vec_ct_o207_runtime vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1 bolsa.participaciones_propias.responder_llamamiento externa_personal)" NULO 'LOGIN CT no responde por el candidato'
+espera "$(origen vec_bolsa_llamamientos_desarrollo vec.bolsa.mi-bolsa.v1 bolsa.participaciones_propias.responder_llamamiento externa_personal)" NULO 'audiencia y operación cruzadas se deniegan'
+salida=$(aplicar VEC_ORIGEN_BLOQUES=mibolsa)
+grep -q 'ternas_nuevas=0' <<< "$salida"
+
+echo '== A3: B2 sola; después B2 y Mi Bolsa juntas'
+nuevo_pg
+huella_nucleo > "$paquete/nucleos_cotejados.txt"
+salida=$(aplicar VEC_ORIGEN_BLOQUES=incorporacionb)
+grep -q "ternas_nuevas=$incorporacionb" <<< "$salida"
+espera "$(origen vec_bolsa_llamamientos_desarrollo vec.bolsa.mi-bolsa.v1 bolsa.participaciones_propias.consultar externa_personal)" NULO 'B2 sola no abre Mi Bolsa'
+espera "$(filas)" "$((incorporacionb + 1))" 'B2 sola conserva fila previa'
+nuevo_pg
+huella_nucleo > "$paquete/nucleos_cotejados.txt"
+salida=$(aplicar VEC_ORIGEN_BLOQUES=incorporacionb,mibolsa)
+grep -q "ternas_nuevas=$((incorporacionb + mibolsa))" <<< "$salida"
+espera "$(filas)" "$((incorporacionb + mibolsa + 1))" 'B2 y Mi Bolsa juntas conservan fila previa'
+espera "$(origen vec_ct_personal_b2_bolsa_persona vec_bolsa_llamamientos.aceptacion_ct.persona.v1 bolsa.aceptacion_ct.persona.consultar interna_corporativa)" vec-server 'B2 conservada junto a Mi Bolsa'
+espera "$(origen vec_bolsa_llamamientos_desarrollo vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1 bolsa.participaciones_propias.responder_llamamiento externa_personal)" vec-server 'respuesta del candidato junto a B2'
+salida=$(aplicar VEC_ORIGEN_BLOQUES=incorporacionb,mibolsa)
+grep -q 'ternas_nuevas=0' <<< "$salida"
 
 echo '== B: terna previa con otro proceso'
 nuevo_pg

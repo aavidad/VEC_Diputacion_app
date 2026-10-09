@@ -10,7 +10,7 @@ import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261008-r-fichas-idioma-nav-v1";
-import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261008-r-fichas-idioma-nav-v1";
+import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261009-retoques-textos-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 
 export function crearResolverEtiquetasIncorporacionB2(textos, personal) {

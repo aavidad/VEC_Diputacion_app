@@ -1,0 +1,382 @@
+{
+ "data": {
+  "bolsas": [
+   {
+    "bolsa_ref": "bolsa:administrativo:2026-09-17",
+    "categoria": "ADMINISTRATIVO",
+    "categoria_clave": "administrativo",
+    "llamamientos_en_curso": 0,
+    "politica_orden": {
+     "actor": "sistema:migracion:000018",
+     "criterio": "puntuacion_desc_acta",
+     "politica_ref": "politica:orden:provisional:73398c747d5f3ee9f4c8959f19839e6434f24e1c0b7765bde3418f02ca46b7c1",
+     "provisional": true,
+     "reposicion": "misma_posicion",
+     "rotulo": "Provisional, pendiente de RRHH (dudas 13\u201314)",
+     "tipo_lista": "rotatoria",
+     "version": 1,
+     "vigente_desde": "2026-09-18T00:43:15Z"
+    },
+    "por_estado": {
+     "disponible": 26,
+     "disponible_desde": 2,
+     "en_revision": 0,
+     "excluido": 0,
+     "no_disponible": 3,
+     "pendiente_incorporacion": 3,
+     "renuncia": 3,
+     "trabajando": 4
+    },
+    "tipo_lista": "rotatoria",
+    "total": 41,
+    "vigente_desde": "2026-09-18T00:43:15Z",
+    "vigente_hasta": null
+   },
+   {
+    "bolsa_ref": "bolsa:auxiliar-administrativo:2026-09-17",
+    "categoria": "AUXILIAR ADMINISTRATIVO",
+    "categoria_clave": "auxiliar-administrativo",
+    "llamamientos_en_curso": 0,
+    "politica_orden": {
+     "actor": "sistema:migracion:000018",
+     "criterio": "puntuacion_desc_acta",
+     "politica_ref": "politica:orden:provisional:ca7470266a477ac99853f4d1655603f578bebe306f23fa5ddfb4c1375b0a14bf",
+     "provisional": true,
+     "reposicion": "misma_posicion",
+     "rotulo": "Provisional, pendiente de RRHH (dudas 13\u201314)",
+     "tipo_lista": "rotatoria",
+     "version": 1,
+     "vigente_desde": "2026-09-18T00:49:29Z"
+    },
+    "por_estado": {
+     "disponible": 19,
+     "disponible_desde": 2,
+     "en_revision": 0,
+     "excluido": 0,
+     "no_disponible": 3,
+     "pendiente_incorporacion": 2,
+     "renuncia": 2,
+     "trabajando": 3
+    },
+    "tipo_lista": "rotatoria",
+    "total": 31,
+    "vigente_desde": "2026-09-18T00:49:29Z",
+    "vigente_hasta": null
+   },
+   {
+    "bolsa_ref": "bolsa:auxiliar-servicios-generales:2026-09-17",
+    "categoria": "AUXILIAR SERVICIOS GENERALES",
+    "categoria_clave": "auxiliar-servicios-generales",
+    "llamamientos_en_curso": 0,
+    "politica_orden": {
+     "actor": "sistema:migracion:000018",
+     "criterio": "puntuacion_desc_acta",
+     "politica_ref": "politica:orden:provisional:06155c0e0a91ed05d41763e04028cbc8d7ce6068d3ff91e2e40976c450f035e9",
+     "provisional": true,
+     "reposicion": "misma_posicion",
+     "rotulo": "Provisional, pendiente de RRHH (dudas 13\u201314)",
+     "tipo_lista": "rotatoria",
+     "version": 1,
+     "vigente_desde": "2026-09-18T00:43:27Z"
+    },
+    "por_estado": {
+     "disponible": 27,
+     "disponible_desde": 2,
+     "en_revision": 0,
+     "excluido": 0,
+     "no_disponible": 3,
+     "pendiente_incorporacion": 3,
+     "renuncia": 3,
+     "trabajando": 4
+    },
+    "tipo_lista": "rotatoria",
+    "total": 42,
+    "vigente_desde": "2026-09-18T00:43:27Z",
+    "vigente_hasta": null
+   },
+   {
+    "bolsa_ref": "bolsa:ctpd-auxilar-de-enfermaria:2026-09-17",
+    "categoria": "CTPD/AUXILAR DE ENFERMAR\u00cdA",
+    "categoria_clave": "ctpd-auxilar-de-enfermaria",
+    "llamamientos_en_curso": 0,
+    "politica_orden": {
+     "actor": "sistema:migracion:000018",
+     "criterio": "puntuacion_desc_acta",
+     "politica_ref": "politica:orden:provisional:39952dcdbbf8aecd1b8ab0dfd34da87253647650dd9c971311b40fb8f7afcc52",
+     "provisional": true,
+     "reposicion": "misma_posicion",
+     "rotulo": "Provisional, pendiente de RRHH (dudas 13\u201314)",
+     "tipo_lista": "rotatoria",
+     "version": 1,
+     "vigente_desde": "2026-09-18T00:49:30Z"
+    },
+    "por_estado": {
+     "disponible": 23,
+     "disponible_desde": 2,
+     "en_revision": 0,
+     "excluido": 0,
+     "no_disponible": 3,
+     "pendiente_incorporacion": 3,
+     "renuncia": 2,
+     "trabajando": 4
+    },
+    "tipo_lista": "rotatoria",
+    "total": 37,
+    "vigente_desde": "2026-09-18T00:49:30Z",
+    "vigente_hasta": null
+   },
+   {
+    "bolsa_ref": "bolsa:educador:2026-09-17",
+    "categoria": "EDUCADOR",
+    "categoria_clave": "educador",
+    "llamamientos_en_curso": 0,
+    "politica_orden": {
+     "actor": "sistema:migracion:000018",
+     "criterio": "puntuacion_desc_acta",
+     "politica_ref": "politica:orden:provisional:eea7e2eed7e786edf70ce9fc72df2b4feff311e6c874f36d05251e87bf7d8b5b",
+     "provisional": true,
+     "reposicion": "misma_posicion",
+     "rotulo": "Provisional, pendiente de RRHH (dudas 13\u201314)",
+     "tipo_lista": "rotatoria",
+     "version": 1,
+     "vigente_desde": "2026-09-18T00:43:28Z"
+    },
+    "por_estado": {
+     "disponible": 26,
+     "disponible_desde": 2,
+     "en_revision": 0,
+     "excluido": 0,
+     "no_disponible": 3,
+     "pendiente_incorporacion": 3,
+     "renuncia": 2,
+     "trabajando": 4
+    },
+    "tipo_lista": "rotatoria",
+    "total": 40,
+    "vigente_desde": "2026-09-18T00:43:28Z",
+    "vigente_hasta": null
+   },
+   {
+    "bolsa_ref": "bolsa:encargado:2026-09-17",
+    "categoria": "ENCARGADO",
+    "categoria_clave": "encargado",
+    "llamamientos_en_curso": 2,
+    "politica_orden": {
+     "actor": "sistema:migracion:000018",
+     "criterio": "puntuacion_desc_acta",
+     "politica_ref": "politica:orden:provisional:8894446608e54a81991bec147fdf489147dc025713161932cbed8e15a9a282de",
+     "provisional": true,
+     "reposicion": "misma_posicion",
+     "rotulo": "Provisional, pendiente de RRHH (dudas 13\u201314)",
+     "tipo_lista": "rotatoria",
+     "version": 1,
+     "vigente_desde": "2026-09-18T00:49:31Z"
+    },
+    "por_estado": {
+     "disponible": 16,
+     "disponible_desde": 1,
+     "en_revision": 0,
+     "excluido": 1,
+     "no_disponible": 2,
+     "pendiente_incorporacion": 1,
+     "renuncia": 2,
+     "trabajando": 2
+    },
+    "tipo_lista": "rotatoria",
+    "total": 25,
+    "vigente_desde": "2026-09-18T00:49:31Z",
+    "vigente_hasta": null
+   },
+   {
+    "bolsa_ref": "bolsa:enfermera-o:2026-09-17",
+    "categoria": "ENFERMERA/O",
+    "categoria_clave": "enfermera-o",
+    "llamamientos_en_curso": 0,
+    "politica_orden": {
+     "actor": "sistema:migracion:000018",
+     "criterio": "puntuacion_desc_acta",
+     "politica_ref": "politica:orden:provisional:000706a91d7410890e0801a2f753f7d009974085c43d34ec1b3a7f26530b11bd",
+     "provisional": true,
+     "reposicion": "misma_posicion",
+     "rotulo": "Provisional, pendiente de RRHH (dudas 13\u201314)",
+     "tipo_lista": "rotatoria",
+     "version": 1,
+     "vigente_desde": "2026-09-18T00:43:28Z"
+    },
+    "por_estado": {
+     "disponible": 19,
+     "disponible_desde": 2,
+     "en_revision": 0,
+     "excluido": 0,
+     "no_disponible": 2,
+     "pendiente_incorporacion": 2,
+     "renuncia": 2,
+     "trabajando": 3
+    },
+    "tipo_lista": "rotatoria",
+    "total": 30,
+    "vigente_desde": "2026-09-18T00:43:28Z",
+    "vigente_hasta": null
+   },
+   {
+    "bolsa_ref": "bolsa:oficial-de-servicios-multiples:2026-09-17",
+    "categoria": "OFICIAL DE SERVICIOS MULTIPLES",
+    "categoria_clave": "oficial-de-servicios-multiples",
+    "llamamientos_en_curso": 0,
+    "politica_orden": {
+     "actor": "sistema:migracion:000018",
+     "criterio": "puntuacion_desc_acta",
+     "politica_ref": "politica:orden:provisional:4385322a202bb537ccce7f73185eea4bbb04690658a7e9bb440c10d70db3a000",
+     "provisional": true,
+     "reposicion": "misma_posicion",
+     "rotulo": "Provisional, pendiente de RRHH (dudas 13\u201314)",
+     "tipo_lista": "rotatoria",
+     "version": 1,
+     "vigente_desde": "2026-09-18T00:49:31Z"
+    },
+    "por_estado": {
+     "disponible": 16,
+     "disponible_desde": 1,
+     "en_revision": 0,
+     "excluido": 0,
+     "no_disponible": 2,
+     "pendiente_incorporacion": 2,
+     "renuncia": 2,
+     "trabajando": 2
+    },
+    "tipo_lista": "rotatoria",
+    "total": 25,
+    "vigente_desde": "2026-09-18T00:49:31Z",
+    "vigente_hasta": null
+   },
+   {
+    "bolsa_ref": "bolsa:operario:2026-09-17",
+    "categoria": "OPERARIO",
+    "categoria_clave": "operario",
+    "llamamientos_en_curso": 0,
+    "politica_orden": {
+     "actor": "sistema:migracion:000018",
+     "criterio": "puntuacion_desc_acta",
+     "politica_ref": "politica:orden:provisional:3ed8d6687f99e4d033e7ad231ce5ab6a2b9080926e586d6436daf37eaad8b950",
+     "provisional": true,
+     "reposicion": "misma_posicion",
+     "rotulo": "Provisional, pendiente de RRHH (dudas 13\u201314)",
+     "tipo_lista": "rotatoria",
+     "version": 1,
+     "vigente_desde": "2026-09-18T00:48:33Z"
+    },
+    "por_estado": {
+     "disponible": 22,
+     "disponible_desde": 2,
+     "en_revision": 0,
+     "excluido": 0,
+     "no_disponible": 3,
+     "pendiente_incorporacion": 2,
+     "renuncia": 2,
+     "trabajando": 3
+    },
+    "tipo_lista": "rotatoria",
+    "total": 34,
+    "vigente_desde": "2026-09-18T00:48:33Z",
+    "vigente_hasta": null
+   },
+   {
+    "bolsa_ref": "bolsa:psicologo:2026-09-17",
+    "categoria": "PSICOLOGO",
+    "categoria_clave": "psicologo",
+    "llamamientos_en_curso": 0,
+    "politica_orden": {
+     "actor": "sistema:migracion:000018",
+     "criterio": "puntuacion_desc_acta",
+     "politica_ref": "politica:orden:provisional:4468963d1d22031917d96a9c4d242ca07c9db0eac96a9e8a13ba3e94cb250377",
+     "provisional": true,
+     "reposicion": "misma_posicion",
+     "rotulo": "Provisional, pendiente de RRHH (dudas 13\u201314)",
+     "tipo_lista": "rotatoria",
+     "version": 1,
+     "vigente_desde": "2026-09-18T00:43:29Z"
+    },
+    "por_estado": {
+     "disponible": 26,
+     "disponible_desde": 2,
+     "en_revision": 0,
+     "excluido": 0,
+     "no_disponible": 3,
+     "pendiente_incorporacion": 3,
+     "renuncia": 2,
+     "trabajando": 4
+    },
+    "tipo_lista": "rotatoria",
+    "total": 40,
+    "vigente_desde": "2026-09-18T00:43:29Z",
+    "vigente_hasta": null
+   },
+   {
+    "bolsa_ref": "bolsa:tecnico-de-gestion:2026-09-17",
+    "categoria": "TECNICO DE GESTION",
+    "categoria_clave": "tecnico-de-gestion",
+    "llamamientos_en_curso": 0,
+    "politica_orden": {
+     "actor": "sistema:migracion:000018",
+     "criterio": "puntuacion_desc_acta",
+     "politica_ref": "politica:orden:provisional:82da0b65db3638eb7d37cd73b6e325a7a1bee51f9ce8309ce67c3fa04940f29d",
+     "provisional": true,
+     "reposicion": "misma_posicion",
+     "rotulo": "Provisional, pendiente de RRHH (dudas 13\u201314)",
+     "tipo_lista": "rotatoria",
+     "version": 1,
+     "vigente_desde": "2026-09-18T00:43:30Z"
+    },
+    "por_estado": {
+     "disponible": 16,
+     "disponible_desde": 1,
+     "en_revision": 0,
+     "excluido": 0,
+     "no_disponible": 2,
+     "pendiente_incorporacion": 1,
+     "renuncia": 1,
+     "trabajando": 2
+    },
+    "tipo_lista": "rotatoria",
+    "total": 23,
+    "vigente_desde": "2026-09-18T00:43:30Z",
+    "vigente_hasta": null
+   },
+   {
+    "bolsa_ref": "bolsa:trabajador-social:2026-09-17",
+    "categoria": "TRABAJADOR SOCIAL",
+    "categoria_clave": "trabajador-social",
+    "llamamientos_en_curso": 0,
+    "politica_orden": {
+     "actor": "sistema:migracion:000018",
+     "criterio": "puntuacion_desc_acta",
+     "politica_ref": "politica:orden:provisional:13bf659823734f90a70a0b7cece6e52120607af7a1ac7633052edb5f1e59e670",
+     "provisional": true,
+     "reposicion": "misma_posicion",
+     "rotulo": "Provisional, pendiente de RRHH (dudas 13\u201314)",
+     "tipo_lista": "rotatoria",
+     "version": 1,
+     "vigente_desde": "2026-09-18T00:43:30Z"
+    },
+    "por_estado": {
+     "disponible": 16,
+     "disponible_desde": 1,
+     "en_revision": 0,
+     "excluido": 0,
+     "no_disponible": 2,
+     "pendiente_incorporacion": 1,
+     "renuncia": 1,
+     "trabajando": 1
+    },
+    "tipo_lista": "rotatoria",
+    "total": 22,
+    "vigente_desde": "2026-09-18T00:43:30Z",
+    "vigente_hasta": null
+   }
+  ],
+  "corte_ref": "ef4750b945549adac377e18dfd9781cf21f42f2c968a77b8f76c373b01495a2c",
+  "esquema": "vec.bolsa.rrhh.bolsas.v1",
+  "generado_en": "2026-10-09T01:26:31.070147323Z",
+  "lista_llamamientos_disponible": true
+ }
+}

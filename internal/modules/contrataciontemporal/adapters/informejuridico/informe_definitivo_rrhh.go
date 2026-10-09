@@ -63,6 +63,19 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 	return contenido, ctx.Err()
 }
 
+// BorradorPreparable aplica a un tipo las mismas condiciones que su
+// generación (fase, propuesta, datos y plantilla) sin renderizar nada. Sirve
+// para que la lista de documentos diga cuáles se pueden preparar ya.
+func BorradorPreparable(
+	plantillas *PlantillasBorrador, tipo ports.TipoBorradorRRHH, detalle ports.DetalleExpedienteRRHH,
+) bool {
+	if plantillas == nil {
+		return false
+	}
+	_, err := contenidoBorradorDesarrollo(tipo, detalle, nil, plantillas)
+	return err == nil
+}
+
 // contenidoBorradorDesarrollo mantiene una única fuente para todos los
 // textos preparatorios: la plantilla del catálogo. PDF y DOCX sólo difieren en
 // la representación final.

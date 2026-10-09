@@ -73,8 +73,9 @@ type InstantaneaMiBolsa struct {
 
 type ReglasPortalVisibles struct {
 	CausasRenuncia []string
-	PausaMaxima    time.Time
-	ModoRespuesta  string
+	// Ausente cuando el catálogo vigente no contempla suspensión temporal.
+	PausaMaxima   *time.Time
+	ModoRespuesta string
 }
 
 // SolicitudConsultaMiBolsa transporta el selector y material nominal emitido

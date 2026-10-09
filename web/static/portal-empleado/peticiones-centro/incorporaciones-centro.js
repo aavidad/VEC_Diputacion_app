@@ -12,7 +12,8 @@ import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-ju
 
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO,
-  MENSAJES_INCORPORACIONES_CENTRO } from "./i18n-peticiones-centro.js?v=20261007-pc-recuperacion-v1";
+  MENSAJES_INCORPORACIONES_CENTRO, prepararAnalisisPeticionesCentro,
+  traducirPeticionesCentro } from "./i18n-peticiones-centro.js?v=20261007-pc-recuperacion-v1";
 
 export const RUTAS_INCORPORACIONES_CENTRO = Object.freeze({
   bandeja: "/api/vec/contratacion-temporal/peticiones-centro/incorporaciones",
@@ -41,6 +42,41 @@ function fechaVisible(valor) {
   if (typeof valor !== "string" || !FECHA.test(valor)) return "—";
   const f = new Date(`${valor}T00:00:00Z`);
   return Number.isFinite(f.getTime()) ? new Intl.DateTimeFormat(LOCALIZACION_PETICIONES_CENTRO, { dateStyle: "long", timeZone: "UTC" }).format(f) : valor;
+}
+
+// El periodo de la petición llega tal como lo guarda el servidor: un instante
+// RFC 3339 a medianoche UTC («2026-11-02T00:00:00Z»). Su fecha civil son los
+// diez primeros caracteres; también se admite ya en forma «AAAA-MM-DD».
+const INSTANTE_PERIODO = /^\d{4}-\d{2}-\d{2}(T00:00:00(\.0+)?Z)?$/u;
+function fechaCivilDePeriodo(valor) {
+  if (typeof valor !== "string" || !INSTANTE_PERIODO.test(valor)) return "";
+  const civil = valor.slice(0, 10);
+  return fechaCivilValida(civil) ? civil : "";
+}
+
+/** Texto de la causa de fin de la petición (catálogo `causa_fin_*`); "" si no está cargado o no existe. */
+export function causaFinPeticion(clave) {
+  try { return traducirPeticionesCentro(`causa_fin_${clave}`); } catch { return ""; }
+}
+
+/** Las causas de fin viven en el catálogo del análisis: se cargan solo si alguna fila las usa. */
+export async function prepararCausasFin(expedientes) {
+  if (!Array.isArray(expedientes) || !expedientes.some((e) => e?.periodo?.causa_fin)) return;
+  try { await prepararAnalisisPeticionesCentro(); } catch { /* sin causa: se muestra solo el inicio */ }
+}
+
+/**
+ * Periodo solicitado legible con las plantillas `periodo_*` de la sección que
+ * pinta (`t`): rango con dos fechas; sin fin, el inicio con su causa de fin
+ * si la hay. Nunca una fecha suelta que parezca un único día.
+ */
+export function periodoVisible(periodo, t, traducirCausa = causaFinPeticion) {
+  const inicio = fechaCivilDePeriodo(periodo?.inicio);
+  const fin = fechaCivilDePeriodo(periodo?.fin);
+  if (!inicio) return "—";
+  if (fin) return t("periodo_rango", { inicio: fechaVisible(inicio), fin: fechaVisible(fin) });
+  const causa = periodo?.causa_fin ? traducirCausa(periodo.causa_fin) : "";
+  return causa ? t("periodo_desde_causa", { inicio: fechaVisible(inicio), causa }) : t("periodo_desde", { inicio: fechaVisible(inicio) });
 }
 
 export function fechaCivilValida(valor) {
@@ -128,6 +164,34 @@ export function crearClienteIncorporacionesCentro(fetchImpl = globalThis.fetch) 
   });
 }
 
+/**
+ * Lectura de la bandeja compartida por las secciones de la página
+ * (incorporaciones y cancelaciones): la primera carga de cada una reutiliza
+ * la misma petición; `recargar` pide datos nuevos. Cuando una sección cambia
+ * un expediente (p. ej. lo cancela) y ya ha leído de nuevo, `avisarCambio`
+ * hace que las secciones suscritas con `alCambiar` repinten esa lectura.
+ */
+export function crearBandejaCompartida(cliente = crearClienteIncorporacionesCentro()) {
+  let lectura = null;
+  const oyentes = new Set();
+  return Object.freeze({
+    bandeja: ({ recargar = false } = {}) => {
+      if (recargar || !lectura) lectura = cliente.bandeja();
+      return lectura;
+    },
+    confirmar: (solicitud, hoy) => cliente.confirmar(solicitud, hoy),
+    alCambiar: (oyente) => { oyentes.add(oyente); return () => oyentes.delete(oyente); },
+    avisarCambio: () => { for (const oyente of [...oyentes]) oyente(); },
+  });
+}
+
+let bandejaPagina = null;
+/** Bandeja única de la página; se crea al primer uso. */
+export function bandejaCompartidaPagina() {
+  bandejaPagina ??= crearBandejaCompartida();
+  return bandejaPagina;
+}
+
 function hoyMadrid(ahora = new Date()) {
   const partes = new Intl.DateTimeFormat(LOCALIZACION_PETICIONES_CENTRO, { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(ahora);
   const v = Object.fromEntries(partes.map((p) => [p.type, p.value]));
@@ -140,7 +204,7 @@ function hoyMadrid(ahora = new Date()) {
 export const EVENTO_EXPEDIENTES_CENTRO = "vec:expedientes-centro";
 export const idFilaExpediente = (e) => `ic-exp-${String(e.expediente_ref).replace(/[^A-Za-z0-9_-]/gu, "-")}`;
 
-export function montarIncorporacionesCentro({ contenedor, cliente = crearClienteIncorporacionesCentro(), mensajes, generarClave = () => globalThis.crypto?.randomUUID?.(), ahora = () => new Date() } = {}) {
+export function montarIncorporacionesCentro({ contenedor, cliente = bandejaCompartidaPagina(), mensajes, generarClave = () => globalThis.crypto?.randomUUID?.(), ahora = () => new Date() } = {}) {
   if (!contenedor || typeof contenedor.addEventListener !== "function") throw new TypeError("contenedor no válido");
   contenedor.setAttribute?.("lang", IDIOMA_EFECTIVO_PETICIONES_CENTRO);
   const t = crearTraductorIncorporacionesCentro(mensajes);
@@ -154,6 +218,7 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
 
   function situacion(e) {
     if (e.estado === "completado") return t("estado_completado");
+    if (e.estado === "cancelado") return t("estado_cancelado");
     return e.fase === "nombramiento" ? t("fase_nombramiento") : t("fase_otra");
   }
 
@@ -176,8 +241,8 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
         ? (datos.puede_confirmar
           ? `<button type="button" class="boton-secundario" data-ic-abrir="${escapar(e.expediente_ref)}" aria-expanded="${abierto === e.expediente_ref}">${escapar(t("confirmar"))}</button>`
           : `<span class="pc-estado pc-estado-pendiente">${escapar(t("pendiente"))}</span>`)
-        : `<span class="pc-estado">${escapar(t("no_procede"))}</span>`;
-    const periodo = e.periodo ? `${fechaVisible(e.periodo.inicio)} — ${fechaVisible(e.periodo.fin)}` : "—";
+        : `<span class="pc-estado">${escapar(t(e.estado === "cancelado" ? "no_procede_cancelado" : "no_procede"))}</span>`;
+    const periodo = periodoVisible(e.periodo, t);
     return `<tr id="${escapar(idFilaExpediente(e))}" tabindex="-1"><td>${escapar(e.numero_visible)}</td><td>${escapar(periodo)}</td><td>${escapar(situacion(e))}</td><td>${estadoIncorporacion}</td></tr>`;
   }
 
@@ -207,9 +272,12 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
     contenedor.dispatchEvent(new CustomEvent(EVENTO_EXPEDIENTES_CENTRO, { bubbles: true, detail: Object.freeze(lista) }));
   }
 
-  async function cargar() {
+  // La primera carga comparte la lectura de la página; las demás piden datos nuevos.
+  async function cargar(recargar = true) {
     datos = null; pintar();
-    try { datos = await cliente.bandeja(); } catch (error) { datos = error?.estado === 404 ? { ausente: true } : { error: true }; }
+    // 404: el servidor no compone la bandeja; 403: el perfil no la ve (RRHH).
+    try { datos = await cliente.bandeja({ recargar }); await prepararCausasFin(datos.expedientes); }
+    catch (error) { datos = error?.estado === 404 || error?.estado === 403 ? { ausente: true } : { error: true }; }
     pintar();
     publicarExpedientes();
   }
@@ -262,12 +330,15 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
     enviar(form);
   };
   const retirarHuella = instalarHuellaArchivo(contenedor);
+  // Otra sección ya leyó la bandeja tras cambiarla: se repinta esa lectura sin pedir otra.
+  const retirarCambio = cliente.alCambiar?.(() => { if (!ocupado) cargar(false); }) ?? (() => {});
   instalarCopiaJustificantes(contenedor.ownerDocument ?? globalThis.document);
   contenedor.addEventListener("click", alPulsar);
   contenedor.addEventListener("submit", alEnviar);
-  cargar();
+  cargar(false);
   return () => {
     retirarHuella();
+    retirarCambio();
     contenedor.removeEventListener("click", alPulsar);
     contenedor.removeEventListener("submit", alEnviar);
   };

@@ -11,7 +11,7 @@ const contrato = () => ({ ...comunes, clase: "contrato_bolsa", tipo: "incorporac
 const llamamiento = () => ({ ...comunes, clase: "llamamiento", canal: "correo", resultado: "enviado" });
 const renuncia = () => ({ ...comunes, clase: "renuncia", respuesta: "renuncia_justificada", modo: "propuesta_rrhh", estado: "propuesta_pendiente_rrhh" });
 const pagina = (items = [], extra = {}) => ({ data: { esquema: "vec.bolsa.mi-bolsa.historial.v1", consultada_en: ahora,
-  campos_visibles: ["contratos", "llamamientos", "renuncias"], historial: { pagina: 1, tamano: 20, hay_mas: false, items }, ...extra } });
+  campos_visibles: ["contratos_propios", "llamamientos_propios", "renuncias_propias"], historial: { pagina: 1, tamano: 20, hay_mas: false, items }, ...extra } });
 
 test("el contrato admite solo los tres tipos y campos expresamente visibles", () => {
   const original = pagina([contrato(), llamamiento(), renuncia()]);
@@ -19,8 +19,8 @@ test("el contrato admite solo los tres tipos y campos expresamente visibles", ()
   assert.equal(datos.historial.items.length, 3);
   assert.notEqual(datos, original.data);
   assert.throws(() => validarHistorialMiBolsa(pagina([{ ...contrato(), candidato_ref: "ajeno" }]), 1), /no autorizados/u);
-  assert.throws(() => validarHistorialMiBolsa(pagina([renuncia()], { campos_visibles: ["contratos"] }), 1), /no autorizada/u);
-  assert.throws(() => validarHistorialMiBolsa(pagina([contrato()], { campos_visibles: ["renuncias", "contratos"] }), 1), /Campos visibles/u);
+  assert.throws(() => validarHistorialMiBolsa(pagina([renuncia()], { campos_visibles: ["contratos_propios"] }), 1), /no autorizada/u);
+  assert.throws(() => validarHistorialMiBolsa(pagina([contrato()], { campos_visibles: ["renuncias_propias", "contratos_propios"] }), 1), /Campos visibles/u);
   assert.throws(() => validarHistorialMiBolsa(pagina([contrato()], { historial: { pagina: 2, tamano: 20, hay_mas: false, items: [contrato()] } }), 1), /Paginación/u);
   assert.throws(() => validarHistorialMiBolsa(pagina([contrato()], { historial: { pagina: 1, tamano: 20, hay_mas: true, items: [contrato()] } }), 1), /Paginación/u);
 });
@@ -100,4 +100,13 @@ test("los textos nuevos están en el catálogo común", async () => {
   for (const clave of ["titulo", "cargando", "vacio", "sinCampos", "denegado", "limite", "contrato", "llamamiento", "renuncia"]) {
     assert.equal(typeof catalogo[`areaPersonal.miBolsa.historial.${clave}`], "string");
   }
+});
+
+test("acepta la respuesta vacía que devuelve el servidor con sus nombres de campo", () => {
+  // Cuerpo literal de GET /api/vec/bolsa/mi-bolsa/historial en cidonia (09/10/2026).
+  const real = JSON.parse('{"data":{"campos_visibles":["contratos_propios","llamamientos_propios","renuncias_propias"],"consultada_en":"2026-10-09T03:52:16.452772Z","esquema":"vec.bolsa.mi-bolsa.historial.v1","historial":{"hay_mas":false,"items":[],"pagina":1,"tamano":20}}}');
+  const datos = validarHistorialMiBolsa(real, 1);
+  assert.deepEqual(datos.campos_visibles, ["contratos_propios", "llamamientos_propios", "renuncias_propias"]);
+  assert.doesNotMatch(renderizarHistorialMiBolsa(datos, { estado: "correcto" }), /todavía no está disponible/u);
+  assert.throws(() => validarHistorialMiBolsa({ data: { ...real.data, campos_visibles: ["contratos", "llamamientos", "renuncias"] } }, 1), /Campos visibles/u);
 });

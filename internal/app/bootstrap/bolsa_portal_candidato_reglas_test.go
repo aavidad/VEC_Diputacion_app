@@ -3,6 +3,8 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -10,9 +12,43 @@ import (
 	"testing"
 	"time"
 
+	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	mibolsa "vec-diputacion-granada/internal/modules/bolsa/application/mibolsa"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
+
+type preparadorRetiradaRRHH18 struct{}
+
+func (preparadorRetiradaRRHH18) PrepararMiBolsa(*http.Request) (mibolsa.Orden, error) {
+	return mibolsa.Orden{}, nil
+}
+
+type registroRetiradaRRHH18 struct {
+	puertosbolsa.RegistroPortalCandidato
+	llamadas int
+}
+
+func (r *registroRetiradaRRHH18) SolicitarPortal(context.Context, puertosbolsa.SolicitudPortalCandidato) (puertosbolsa.ReciboSolicitudPortal, error) {
+	r.llamadas++
+	return puertosbolsa.ReciboSolicitudPortal{}, errors.New("efecto inesperado")
+}
+
+type autorizadorRetiradaRRHH18 struct {
+	puertosvec.AutorizadorSolicitudLigadaV3
+	llamadas int
+}
+
+func (a *autorizadorRetiradaRRHH18) ExigirSolicitudLigadaV3(context.Context, dominiovec.SolicitudAutorizacionLigadaV3, dominiovec.ResultadoContextoActorRegistradoV2) (dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, error) {
+	a.llamadas++
+	return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, dominiovec.ErrAutorizacionDenegada
+}
+
+type proveedorRetiradaRRHH18 struct {
+	puertosbolsa.ProveedorMaterialPortalCandidato
+}
 
 type calculadoraPortalPrueba struct{ solicitudes []reglas.SolicitudVencimiento }
 
@@ -86,6 +122,107 @@ func TestReglasPortalCandidatoCambianSinTocarCodigo(t *testing.T) {
 	sinRegla, _ := reglasPortalPrueba(t, escribir(`"clave": "b29.portal_candidato"`, `"clave": "b99.otra_regla"`))
 	if _, err := sinRegla.ResultadosContactoEfectivo(context.Background()); !errors.Is(err, puertosbolsa.ErrReglasPortalCandidatoAusente) {
 		t.Fatalf("sin b29 el portal debe quedar sin acciones: %v", err)
+	}
+	for _, tipo := range []string{puertosbolsa.SolicitudPortalPausa, puertosbolsa.SolicitudPortalReactivacion} {
+		if _, _, err := sinRegla.SituacionesAdmitidas(t.Context(), tipo); err != puertosbolsa.ErrPausaPortalNoConfigurada {
+			t.Fatalf("sin b29 no hay acción %s: %v", tipo, err)
+		}
+	}
+	if _, err := listaAtributoRegla(reglas.Regla{Atributos: map[string]string{"pausa_desde": " disponible"}}, "pausa_desde"); !errors.Is(err, puertosbolsa.ErrPortalCandidatoNoDisponible) || errors.Is(err, puertosbolsa.ErrPausaPortalNoConfigurada) {
+		t.Fatalf("atributo malformado convertido en ausencia: %v", err)
+	}
+}
+
+func TestReglasRRHH18SinPausaConservanConsultaYDenieganPlazo(t *testing.T) {
+	for _, ruta := range []string{
+		"../../../data/demo/reglas/bolsa_reglas.rrhh-20261002.v4.json",
+		"../../../data/demo/reglas/bolsa_reglas.rrhh-20261008.v5.json",
+	} {
+		t.Run(filepath.Base(ruta), func(t *testing.T) {
+			resolutor, err := nuevoResolutorReglasEjemplo(ruta, reglas.CatalogoBolsa, reglas.ModuloBolsa,
+				new(calculadoraPortalPrueba), relojReglasEjemploPrueba{ahora: time.Date(2026, 10, 9, 8, 0, 0, 0, time.UTC)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := reglasPortalCandidatoDesarrollo{resolutor: resolutor}
+			efectivos, err := r.ResultadosContactoEfectivo(t.Context())
+			if err != nil || !slices.Equal(efectivos, []string{"contactado"}) {
+				t.Fatalf("contacto efectivo vigente: %v %v", efectivos, err)
+			}
+			if modo, _, err := r.ModoRespuesta(t.Context()); err != nil || modo == "" {
+				t.Fatalf("modo vigente: %q %v", modo, err)
+			}
+			if _, _, err := r.PausaMaxima(t.Context(), time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)); err != puertosbolsa.ErrPausaPortalNoConfigurada {
+				t.Fatalf("la pausa retirada no debe tener plazo: %v", err)
+			}
+			for _, tipo := range []string{puertosbolsa.SolicitudPortalPausa, puertosbolsa.SolicitudPortalReactivacion} {
+				if _, _, err := r.SituacionesAdmitidas(t.Context(), tipo); err != puertosbolsa.ErrPausaPortalNoConfigurada {
+					t.Fatalf("la acción %s retirada no debe admitir situaciones: %v", tipo, err)
+				}
+			}
+		})
+	}
+}
+
+func TestPortalRRHH18RetiradaPausaYReactivacionDa409SinEfecto(t *testing.T) {
+	for _, ruta := range []string{
+		"../../../data/demo/reglas/bolsa_reglas.rrhh-20261002.v4.json",
+		"../../../data/demo/reglas/bolsa_reglas.rrhh-20261008.v5.json",
+	} {
+		for _, caso := range []struct{ nombre, cuerpo string }{
+			{"pausa", `{"tipo":"pausa","bolsa":"bolsa:auxiliar","pausa_hasta":"2026-10-10T00:00:00Z","clave":"clave-pausa-retirada"}`},
+			{"reactivacion", `{"tipo":"reactivacion","bolsa":"bolsa:auxiliar","clave":"clave-reactiva-retirada"}`},
+		} {
+			t.Run(filepath.Base(ruta)+"/"+caso.nombre, func(t *testing.T) {
+				reloj := relojReglasEjemploPrueba{ahora: time.Date(2026, 10, 9, 8, 0, 0, 0, time.UTC)}
+				resolutor, err := nuevoResolutorReglasEjemplo(ruta, reglas.CatalogoBolsa, reglas.ModuloBolsa,
+					new(calculadoraPortalPrueba), reloj)
+				if err != nil {
+					t.Fatal(err)
+				}
+				registro, autorizador := new(registroRetiradaRRHH18), new(autorizadorRetiradaRRHH18)
+				portal, err := mibolsa.NuevoPortal(registro, autorizador, new(proveedorRetiradaRRHH18),
+					reglasPortalCandidatoDesarrollo{resolutor: resolutor}, reloj)
+				if err != nil {
+					t.Fatal(err)
+				}
+				h, err := bolsapersonal.NuevoPortal(bolsapersonal.RutaMiBolsaSolicitudes, preparadorRetiradaRRHH18{}, portal)
+				if err != nil {
+					t.Fatal(err)
+				}
+				peticion := httptest.NewRequest(http.MethodPost, bolsapersonal.RutaMiBolsaSolicitudes, strings.NewReader(caso.cuerpo))
+				peticion.Header.Set("Content-Type", "application/json")
+				peticion.Header.Set("Accept", "application/json")
+				respuesta := httptest.NewRecorder()
+				h.ServeHTTP(respuesta, peticion)
+				if respuesta.Code != http.StatusConflict ||
+					respuesta.Body.String() != `{"error":{"codigo":"pausa_no_disponible"}}` ||
+					autorizador.llamadas != 0 || registro.llamadas != 0 {
+					t.Fatalf("acción retirada: estado=%d permiso=%d efecto=%d", respuesta.Code,
+						autorizador.llamadas, registro.llamadas)
+				}
+			})
+		}
+	}
+}
+
+func TestReglasRRHHVersion3ConservanPausaConfigurada(t *testing.T) {
+	reloj := relojReglasEjemploPrueba{ahora: time.Date(2026, 10, 9, 8, 0, 0, 0, time.UTC)}
+	resolutor, err := nuevoResolutorReglasEjemplo("../../../data/demo/reglas/bolsa_reglas.rrhh-20261002.v3.json",
+		reglas.CatalogoBolsa, reglas.ModuloBolsa, new(calculadoraPortalPrueba), reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := reglasPortalCandidatoDesarrollo{resolutor: resolutor}
+	for _, tipo := range []string{puertosbolsa.SolicitudPortalPausa, puertosbolsa.SolicitudPortalReactivacion} {
+		situaciones, _, err := r.SituacionesAdmitidas(t.Context(), tipo)
+		if err != nil || len(situaciones) == 0 {
+			t.Fatalf("la regla anterior de %s no quedó disponible: %v", tipo, err)
+		}
+	}
+	if fin, ref, err := r.PausaMaxima(t.Context(), reloj.Ahora()); err != nil ||
+		!fin.After(reloj.Ahora()) || !strings.Contains(ref, reglas.BolsaPausaVoluntaria) {
+		t.Fatalf("la pausa anterior perdió su fecha catalogada: %v", err)
 	}
 }
 

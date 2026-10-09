@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"strings"
-	"sync"
 	"time"
 
 	"vec-diputacion-granada/config"
@@ -40,11 +39,6 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	categorias      map[string]string
 	grupos          map[string][]string
 	ahora           func() time.Time
-
-	mu       sync.Mutex
-	cache    datasetBolsasRRHHDesarrollo
-	cacheada bool
-	hasta    time.Time
 }
 
 // contadorLlamamientosEnCursoBolsa se usa sólo en el camino legado, una vez
@@ -53,22 +47,12 @@ type contadorLlamamientosEnCursoBolsa interface {
 	ContarEnCurso(context.Context, string) (int, error)
 }
 
-const validezCacheBolsasConstituidas = 30 * time.Second
 const envBolsaCeseCTEnabled = "VEC_BOLSA_CESE_CT_ENABLED"
 
 // El texto original del error puede incluir datos de conexión. La etapa y la
 // clasificación bastan para diagnosticar por qué esta fuente queda desactivada.
 func registrarFalloFuenteConstituidaRRHHDesarrollo(etapa string, err error) {
 	log.Printf("bolsa rrhh: bolsas constituidas no disponibles; etapa=%s causa=%s", etapa, causaFalloPostgreSQLCTDesarrollo(err))
-}
-
-func (f *fuenteConstituidaRRHHDesarrollo) invalidar() {
-	if f == nil {
-		return
-	}
-	f.mu.Lock()
-	f.cacheada = false
-	f.mu.Unlock()
 }
 
 func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config) *fuenteConstituidaRRHHDesarrollo {
@@ -192,29 +176,6 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 	}
 	resumenConjunto := lectorResumenBolsasInstalado(ctx, poolBolsa)
 	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, resumenConjunto: resumenConjunto, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
-}
-
-func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	ahora := f.ahora()
-	if f.cacheada && !f.ceseActivo && ahora.Before(f.hasta) {
-		return f.cache, true
-	}
-	datos, err := f.cargar(ctx)
-	if err != nil {
-		if f.ceseActivo {
-			log.Printf("bolsa rrhh: estado de cese no legible; causa=%s", causaFalloPostgreSQLCTDesarrollo(err))
-		} else {
-			log.Printf("bolsa rrhh: bolsas constituidas no legibles; causa=%s", causaFalloPostgreSQLCTDesarrollo(err))
-		}
-		if f.cacheada && !f.ceseActivo {
-			return f.cache, true
-		}
-		return datasetBolsasRRHHDesarrollo{}, false
-	}
-	f.cache, f.cacheada, f.hasta = datos, true, ahora.Add(validezCacheBolsasConstituidas)
-	return datos, true
 }
 
 // alcanceCargaBolsasRRHH decide cuánto lee una petición. El cuadro y las

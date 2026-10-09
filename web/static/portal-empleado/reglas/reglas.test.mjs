@@ -47,7 +47,8 @@ test("el catálogo renovado usa una URL única en la pantalla y en sus consumido
   assert.equal(version, "20261007-pantallas-textos-final-v1");
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
   const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
-  assert.equal(exigirRenovado([html, bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v3"), version);
+  assert.equal(versionDe(html, "reglas.js"), "20261008-ct-ajustes-v1");
+  assert.equal(exigirRenovado([bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v3"), version);
   // La pantalla de plazos lee las reglas a través de rrhh-plazos-api.js (una sola lectura compartida).
   assert.doesNotMatch(leer("../modulos/bolsa/rrhh-plazos-ui.js"), /reglas\/reglas\.js/u);
   const formulario = leer("../modulos/contratacion-temporal/formulario-cobertura.js");
@@ -62,7 +63,8 @@ test("las versiones en caché se renuevan juntas y la pantalla está en el manif
   const js = leer("./reglas.js");
   assert.equal(versionDe(html, "reglas.js"), versionDe(html, "reglas.css"));
   assert.equal(versionDe(js, "i18n.js"), versionDe(html, "i18n.js"));
-  assert.equal(versionDe(js, "i18n.js"), versionDe(html, "reglas.js"));
+  assert.equal(versionDe(html, "reglas.js"), "20261008-ct-ajustes-v1");
+  assert.equal(versionDe(js, "ajustes.js"), versionDe(html, "reglas.js"));
   for (const nombre of ["interno.manifest", "produccion.manifest"]) {
     const manifiesto = readFileSync(new URL(`../../../${nombre}`, import.meta.url), "utf8");
     for (const f of ["index.html", "reglas.js", "reglas.css", "i18n.js"]) assert.match(manifiesto, new RegExp(`static/portal-empleado/reglas/${f.replace(".", "\\.")}`, "u"), `${nombre}: ${f}`);

@@ -111,6 +111,10 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 					concesion.CamposPermitidos = []string{"analisis", "vinculo"}
 				}
 				switch d.clave {
+				case "ct_plan_consultar":
+					concesion.CamposPermitidos = []string{"plan"}
+				case "ct_plan_preparar", "ct_origen_confirmar":
+					concesion.CamposPermitidos = []string{"recibo"}
 				case "rpt_publicacion":
 					concesion.CamposPermitidos = []string{"control_actual", "entrada", "publicacion"}
 				case "rpt_uso_consultar":

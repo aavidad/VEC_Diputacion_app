@@ -7,7 +7,7 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261008-r-traza-idioma-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261009-borradores-fase-v3";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
@@ -110,7 +110,7 @@ function cargarRecursosVista(grupo) {
   if (cargasRecursosVistas.has(grupo)) return;
   const carga = grupo === "inicio"
     ? Promise.all([
-      import("./portal-inicio.js?v=20261008-bolsa-global-v2"),
+      import("./portal-inicio.js?v=20261009-instantes-bolsa-v1"),
       import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2"),
     ]).then(([inicio, accesos]) => ({ ...inicio, accesos }))
     : grupo === "accesos"
@@ -122,7 +122,7 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261008-r-traza-idioma-v1"),
+        import("./portal-bolsas-ofertas.js?v=20261009-ayuda-contacto-v1"),
         import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
@@ -413,7 +413,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261008-r-traza-idioma-v1");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261009-ayuda-contacto-v1");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -1556,7 +1556,7 @@ let rutasBolsa = null;
 let promesaRutasBolsa = null;
 function prepararRutasBolsa() {
   if (rutasBolsa) return Promise.resolve(rutasBolsa);
-  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2")
+  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js?v=20261009-instantes-bolsa-v1")
     .then((rutas) => { rutasBolsa = rutas; return rutas; })
     .catch((error) => { promesaRutasBolsa = null; throw error; });
   return promesaRutasBolsa;
@@ -1572,9 +1572,9 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261008-b1-traza-v1"),
-    import("./portal-bolsas-api.js?v=20261008-r-traza-idioma-v1"),
-    import("./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2"),
+    import("./portal-panel-interno.js?v=20261009-hzb1-carga-v1"),
+    import("./portal-bolsas-api.js?v=20261009-ayuda-contacto-v1"),
+    import("./portal-bolsas-ruta-filtros.js?v=20261009-instantes-bolsa-v1"),
   ]).then(([panel, bolsas, rutas]) => {
     if (!vistaNecesitaBolsa()) {
       promesaBolsaBase = null;
@@ -1722,7 +1722,8 @@ function instalarEnlacesBolsa() {
     if (filtro.seguimiento) controladorBolsas?.olvidarEmisionConfirmada?.();
     estado.bolsaSeleccionada = filtro.bolsaRef;
     estado.filtrosBolsa = { estado: filtro.estado, texto: "",
-      ...(esHistoricoCT ? { pestana: "historico" } : {}) };
+      ...(control.dataset.pestana === "candidatos" ? { pestana: "candidatos" }
+        : esHistoricoCT ? { pestana: "historico" } : {}) };
     estado.datosCandidatos = null;
     estado.origenLlamamientoB7 = null;
     rutaCandidatosAplicada = null;

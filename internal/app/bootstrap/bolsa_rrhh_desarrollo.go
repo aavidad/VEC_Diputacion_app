@@ -83,7 +83,6 @@ type bolsasRRHHDesarrollo struct {
 	resumen     func(context.Context) (datasetBolsasRRHHDesarrollo, error)
 	cargarBolsa func(context.Context, string) (datasetBolsasRRHHDesarrollo, error)
 	mutar       http.Handler
-	invalidar   func()
 	contactos   lectorContactosBolsaDesarrollo
 	avisos      *bolsaapplication.ServicioAvisosRRHH
 	// canales publica los canales de aviso activos para el asistente del
@@ -105,10 +104,8 @@ func nuevasRutasBolsasRRHHDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, [
 
 func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteConstituidaRRHHDesarrollo, mutadores ...http.Handler) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
 	var cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
-	var invalidar func()
 	if fuente != nil {
 		cargar = fuente.cargar
-		invalidar = fuente.invalidar
 	}
 	manejador := nuevoManejadorBolsasRRHHDesarrollo(cargar)
 	if fuente != nil {
@@ -118,7 +115,6 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 	}
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]
-		manejador.invalidar = invalidar
 		manejador.contactos, _ = mutadores[0].(lectorContactosBolsaDesarrollo)
 		manejador.canales, _ = mutadores[0].(proveedorCanalesLlamamientoDesarrollo)
 	}
@@ -183,9 +179,6 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
 		h.mutar.ServeHTTP(w, r)
-		if h.invalidar != nil {
-			h.invalidar()
-		}
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {

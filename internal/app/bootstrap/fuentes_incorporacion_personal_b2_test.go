@@ -40,7 +40,7 @@ func TestIncorporacionB2ClaseProcedeDelCatalogoPersonal(t *testing.T) {
 		p.sesionOperativa = &sesionNominalIncorporacionPrueba{contexto: p.contexto}
 		publicador.publicadas[p.perfilRef()] = instantaneaPublicadaDesarrollo{instantanea: p.plantilla, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}
 	}
-	ctx = context.WithValue(ctx, claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "POST", ruta: "/api/interno/contratacion-temporal/incorporacion-personal-b2/plan/v1"})
+	ctx = context.WithValue(ctx, claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "POST", ruta: "/api/vec/contratacion-temporal/incorporacion-personal-b2/plan/v1"})
 	clases := &clasesIncorporacionB2Prueba{resultado: pp.ResultadoClasesOcupacionCT{Catalogo: personal.CatalogoClasesOcupacionCT{Ref: "catalogo:clases", Version: 4, HuellaSHA256: strings.Repeat("a", 64), Opciones: []personal.OpcionClaseOcupacionCT{{Valor: "temporal", TextoClave: "personal.clases.temporal"}}}}}
 	f := &fuentesIncorporacionPersonalB2{organismoRef: "organismo:prueba", clases: clases, autoridad: &autoridadIncorporacionPersonalB2{perfiles: base.nominales, reloj: base.reloj}}
 	if e := f.validarClaseOcupacion(ctx, "temporal"); e != nil {

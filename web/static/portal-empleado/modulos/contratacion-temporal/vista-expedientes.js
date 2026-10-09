@@ -1,8 +1,8 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
-import { validarReciboAlta } from "./contrato.js?v=20261008-alta-rechazo-v2";
+import { validarReciboAlta } from "./contrato.js?v=20261008-alta-analisis-bolsa-v4";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-corte-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261009-asignacion-cobertura-v1";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-r-fichas-idioma-nav-v1";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-r-fichas-idioma-nav-v1";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-r-fichas-idioma-nav-v1";
@@ -20,16 +20,16 @@ import {
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes-render.js?v=20261008-r-fichas-idioma-nav-v1";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-r-fichas-idioma-nav-v1";
-import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-r-fichas-idioma-nav-v1";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-r-fichas-idioma-nav-v1";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-r-fichas-idioma-nav-v1";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-r-fichas-idioma-nav-v1";
+import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-alta-analisis-bolsa-fichas-v5";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-alta-analisis-bolsa-fichas-v5";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261009-retoques-textos-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261009-asignacion-cobertura-v1";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261008-r-fichas-idioma-nav-v1";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261007-pantallas-textos-final-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20261007-pantallas-textos-final-v1";
-import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261008-documentos-ficha-v1";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261009-borradores-fase-v3";
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 export function insertarConsultaCircuitoRRHH(raiz, expediente) {
@@ -596,6 +596,7 @@ export async function montarModuloContratacionTemporal({
     anunciar,
     repintar: (foco) => repintar(foco),
     esMontada,
+    alCambiarFicha,
   });
 
   const gestorInformeTrasSubsanacion = crearGestorInformeTrasSubsanacion({
@@ -800,8 +801,11 @@ export async function montarModuloContratacionTemporal({
     }
     if (vista === "cuadro" && estado.cuadro_desactualizado === true) {
       try {
-        await presentador.volverAlCuadro();
-        if (montada && secuenciaCambio === secuenciaInterfaz) repintar("[data-ct-exp-filtros]");
+        const vuelto = await presentador.volverAlCuadro();
+        if (montada && secuenciaCambio === secuenciaInterfaz && vuelto?.vista === "cuadro") {
+          alCambiarFicha(null);
+          repintar("[data-ct-exp-filtros]");
+        }
       } catch {
         if (montada && secuenciaCambio === secuenciaInterfaz) {
           anunciar(crearTraductorExpedientesContratacion(mensajes)("estado_error_carga"), "error");

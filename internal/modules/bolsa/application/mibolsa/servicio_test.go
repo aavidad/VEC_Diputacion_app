@@ -3,6 +3,7 @@ package mibolsa
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 	bolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -27,6 +28,53 @@ func TestConsultaPropiaConPDPYMaterialNominalV3(t *testing.T) {
 	exigir(t, err)
 	if nominal.Accion != bolsa.AccionConsultarMiBolsa || nominal.Recurso.Referencia != "mi-bolsa:"+s.CandidatoRef || nominal.Recurso.Ambitos["candidato_ref"] != s.CandidatoRef || nominal.Finalidad != bolsa.FinalidadMiBolsa {
 		t.Fatal("solicitud inexacta")
+	}
+}
+
+func TestConsultaPropiaSinReglaPausaConservaLecturaYAccionesRestantes(t *testing.T) {
+	for _, caso := range []struct {
+		nombre      string
+		errPausa    error
+		fechaValida bool
+		falla       bool
+	}{
+		{"RRHH18 sin suspensión", bolsa.ErrPausaPortalNoConfigurada, false, false},
+		{"regla antigua vigente", nil, true, false},
+		{"fallo de reglas distinto", bolsa.ErrPortalCandidatoNoDisponible, false, true},
+		{"sentinela mezclado con fallo", errors.Join(bolsa.ErrPausaPortalNoConfigurada, bolsa.ErrPortalCandidatoNoDisponible), false, true},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			e := nuevoEntorno(t)
+			reglas := reglasPortalPrueba{modo: bolsa.ModoRespuestaPortalFirme, maximaErr: caso.errPausa}
+			if caso.fechaValida {
+				reglas.maxima = e.ahora.Add(30 * 24 * time.Hour)
+			}
+			var err error
+			e.servicio, err = e.servicio.ConReglasPortal(reglas)
+			exigir(t, err)
+			r, err := e.servicio.Consultar(t.Context(), e.orden)
+			if caso.falla {
+				if !errors.Is(err, bolsa.ErrMaterialMiBolsaNoDisponible) || e.repositorio.llamadas != 0 {
+					t.Fatalf("fallo de reglas llegó a consulta: %v, %d", err, e.repositorio.llamadas)
+				}
+				return
+			}
+			if err != nil || e.repositorio.llamadas != 1 || e.concesiones.invocaciones != 1 ||
+				len(r.Participaciones) != 1 || r.ReglasPortal == nil ||
+				!slices.Equal(r.ReglasPortal.CausasRenuncia, []string{"enfermedad", "matrimonio_union_hecho"}) ||
+				r.ReglasPortal.ModoRespuesta != bolsa.ModoRespuestaPortalFirme ||
+				!slices.Equal(e.repositorio.solicitud.ResultadosEfectivos, []string{"contactado"}) {
+				t.Fatalf("lectura propia alterada: %v, repositorio=%d, autorizaciones=%d", err,
+					e.repositorio.llamadas, e.concesiones.invocaciones)
+			}
+			if caso.fechaValida {
+				if r.ReglasPortal.PausaMaxima == nil || !r.ReglasPortal.PausaMaxima.Equal(reglas.maxima) {
+					t.Fatal("la regla vigente perdió su fecha")
+				}
+			} else if r.ReglasPortal.PausaMaxima != nil {
+				t.Fatal("la consulta inventó un plazo de pausa")
+			}
+		})
 	}
 }
 

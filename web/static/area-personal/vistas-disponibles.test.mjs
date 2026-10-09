@@ -17,6 +17,13 @@ test("las vistas sin servicio en el servidor no se ofrecen", () => {
   }
 });
 
+test("convocatorias, méritos y expedientes se retiran del catálogo", () => {
+  for (const vista of ["convocatorias", "convocatoria", "meritos", "seguimiento"]) {
+    assert.equal(Object.hasOwn(catalogo.vistas, vista), false, vista);
+    assert.equal(VISTAS_DISPONIBLES.has(vista), false, vista);
+  }
+});
+
 test("el catálogo cubre cada vista que registra la aplicación", async () => {
   const aplicacion = await readFile(new URL("./aplicacion.js", import.meta.url), "utf8");
   const bloque = aplicacion.slice(aplicacion.indexOf("const RUTAS = Object.freeze({"), aplicacion.indexOf("});", aplicacion.indexOf("const RUTAS")));

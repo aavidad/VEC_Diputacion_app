@@ -76,6 +76,9 @@ func (p *Portal) solicitar(ctx context.Context, orden Orden, tipo, bolsa string,
 		accion, audiencia = puertosbolsa.AccionSolicitarPausaPropia, puertosbolsa.AudienciaSolicitarPausaPropia
 	}
 	situaciones, reglaRef, err := p.reglas.SituacionesAdmitidas(ctx, tipo)
+	if err == puertosbolsa.ErrPausaPortalNoConfigurada {
+		return vacio, err
+	}
 	if err != nil || len(situaciones) == 0 || reglaRef == "" {
 		return vacio, errors.Join(puertosbolsa.ErrPortalCandidatoNoDisponible, err)
 	}
@@ -83,6 +86,9 @@ func (p *Portal) solicitar(ctx context.Context, orden Orden, tipo, bolsa string,
 	if hasta != nil {
 		ahora := p.reloj.Ahora().UTC()
 		maxima, reglaPausa, err := p.reglas.PausaMaxima(ctx, ahora)
+		if err == puertosbolsa.ErrPausaPortalNoConfigurada {
+			return vacio, err
+		}
 		if err != nil || reglaPausa == "" {
 			return vacio, errors.Join(puertosbolsa.ErrPortalCandidatoNoDisponible, err)
 		}

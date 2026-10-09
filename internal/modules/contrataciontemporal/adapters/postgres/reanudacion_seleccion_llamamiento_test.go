@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgx/v5/pgconn"
 	"strings"
 	"testing"
 	"time"
@@ -50,6 +51,22 @@ func solicitudReanudacionSeleccionPGPrueba(t *testing.T) ports.SolicitudReservaE
 	return s
 }
 
+func TestReanudacionSeleccionClasificaDenegacionSinDetallesSQL(t *testing.T) {
+	for _, caso := range []struct {
+		errorSQL error
+		esperado error
+	}{
+		{&pgconn.PgError{Code: "42501", Message: "detalle privado"}, ports.ErrAutorizacionDenegada},
+		{&pgconn.PgError{Code: "55000", Message: "detalle privado"}, errEjecucionesSeleccionLlamamientoPostgreSQL},
+		{errors.New("detalle privado"), errEjecucionesSeleccionLlamamientoPostgreSQL},
+	} {
+		err := errorReanudacionSeleccionO6(context.Background(), caso.errorSQL)
+		if !errors.Is(err, caso.esperado) || strings.Contains(err.Error(), "detalle privado") {
+			t.Fatalf("se filtró error de reanudación: %v", err)
+		}
+	}
+}
+
 func TestReanudacionSeleccionPGEstadoExactoYFalloSinAutoridad(t *testing.T) {
 	s := solicitudReanudacionSeleccionPGPrueba(t)
 	b, err := codificarSolicitudSeleccionO6(s)
@@ -64,6 +81,14 @@ func TestReanudacionSeleccionPGEstadoExactoYFalloSinAutoridad(t *testing.T) {
 		r.Situacion != ports.EjecucionSeleccionLlamamientoPropietaria {
 		t.Fatal("estado reanudado divergente")
 	}
+	f.Efecto = string(ports.EfectoSolicitarSeleccionLlamamiento)
+	r, err = estadoReanudacionSeleccionDesdeFilaParaEfecto(f, s, ports.EfectoSolicitarSeleccionLlamamiento)
+	if err != nil || r.Solicitud != s || r.ReservaRef != f.ReservaRef ||
+		r.EfectoPosible != ports.EfectoSolicitarSeleccionLlamamiento ||
+		r.Situacion != ports.EjecucionSeleccionLlamamientoPropietaria {
+		t.Fatal("segunda ventana reanudada divergente")
+	}
+	f.Efecto = string(ports.EfectoPrepararOrdenSeleccionLlamamiento)
 	for _, cambiar := range []func(*filaEjecucionSeleccionO6){
 		func(x *filaEjecucionSeleccionO6) { x.Situacion = "ocupada" },
 		func(x *filaEjecucionSeleccionO6) { x.ReservaRef = "" },
@@ -88,5 +113,8 @@ func TestReanudacionSeleccionPGEstadoExactoYFalloSinAutoridad(t *testing.T) {
 	cancelar()
 	if _, err := a.ReanudarPreparacionOrden(ctx, s, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}); !errors.Is(err, context.Canceled) || pool.inicios != 0 {
 		t.Fatal("cancelación alcanzó transacción")
+	}
+	if r, err := a.ReanudarSolicitudLlamamiento(context.Background(), s, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}); err == nil || r != (ports.EstadoEjecucionSeleccionLlamamiento{}) || pool.inicios != 0 {
+		t.Fatal("material vacío de segunda ventana alcanzó transacción")
 	}
 }
