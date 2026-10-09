@@ -58,6 +58,21 @@ type servicioPrueba struct {
 	ultimoFiltro   inscripcion.Filtro
 }
 
+func TestInscripcionHandlerExternoNoDespachaRRHH(t *testing.T) {
+	preparador := &preparadorPrueba{}
+	h, err := NuevoExterno(preparador, &servicioPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ruta := range []string{RutaRRHH, RutaRRHH + "/motivos", RutaRRHH + "/solicitud_inscripcion_" + strings.Repeat("a", 64)} {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta, nil))
+		if w.Code != http.StatusNotFound || preparador.rrhh != 0 {
+			t.Fatalf("RRHH despachado desde portal externo: %s / %d", ruta, w.Code)
+		}
+	}
+}
+
 func (*servicioPrueba) Abiertas(context.Context, inscripcion.Actor, int, string) (inscripcion.PaginaAbiertas, error) {
 	return inscripcion.PaginaAbiertas{}, nil
 }

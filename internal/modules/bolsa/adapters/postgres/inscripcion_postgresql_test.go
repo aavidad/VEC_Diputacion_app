@@ -98,6 +98,34 @@ func TestInscripcionPoolsLectoresSegregados(t *testing.T) {
 	}
 }
 
+func TestInscripcionProcesosNoCompartenPoolsNiRutasDeLectura(t *testing.T) {
+	externo := &iniciadorInscripcionPrueba{tx: &transaccionInscripcionPrueba{}}
+	lectorExterno := &iniciadorInscripcionPrueba{tx: &transaccionInscripcionPrueba{}}
+	interno := &iniciadorInscripcionPrueba{tx: &transaccionInscripcionPrueba{}}
+	lectorEmpleado := &iniciadorInscripcionPrueba{tx: &transaccionInscripcionPrueba{}}
+	lectorRRHH := &iniciadorInscripcionPrueba{tx: &transaccionInscripcionPrueba{}}
+	portal, err := nuevoRepositorioInscripcionesExternoPostgreSQL(externo, lectorExterno)
+	if err != nil || portal.interno != nil || portal.lectorEmpleado != nil || portal.lectorRRHH != nil {
+		t.Fatalf("el portal externo conserva fuentes internas: %v", err)
+	}
+	if _, err := portal.seleccionarLectorInscripcion("interna_corporativa", inscripcion.AccionListarRRHH); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("portal externo alcanza lector RRHH: %v", err)
+	}
+	administracion, err := nuevoRepositorioInscripcionesInternoPostgreSQL(interno, lectorEmpleado, lectorRRHH)
+	if err != nil || administracion.externo != nil || administracion.lectorExterno != nil {
+		t.Fatalf("la superficie interna conserva fuentes externas: %v", err)
+	}
+	if _, err := administracion.seleccionarLectorInscripcion("externa_personal", inscripcion.AccionListarPropias); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("superficie interna alcanza lector externo: %v", err)
+	}
+	if _, err := nuevoRepositorioInscripcionesExternoPostgreSQL(externo, externo); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("lector/ejector externo comparten fuente: %v", err)
+	}
+	if _, err := nuevoRepositorioInscripcionesInternoPostgreSQL(interno, lectorEmpleado, lectorEmpleado); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("lectores internos comparten fuente: %v", err)
+	}
+}
+
 func TestInscripcionProyeccionAbiertaListaYDetalle(t *testing.T) {
 	base := inscripcion.BolsaAbierta{
 		ConvocatoriaRef: "cv1_abc_v1", Titulo: "Convocatoria de prueba",

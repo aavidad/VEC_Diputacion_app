@@ -32,3 +32,24 @@ func TestInscripcionesRequiereSelectorYDSNLector(t *testing.T) {
 		t.Fatalf("tres lectores: %v %v", activo, err)
 	}
 }
+
+func TestInscripcionesActivanCadaSuperficieSinCredencialesAjenas(t *testing.T) {
+	c := Config{ExecutionProfile: ExecutionProfileDevelopment, AuthMode: AuthModeDevelopment,
+		DevelopmentGuard: DevelopmentGuardAcknowledgement, BolsaInscripcionesEnabled: "true"}
+	c.BolsaInscripcionesLectorPostgreSQL = ConfiguracionPostgreSQLExterna{dsn: "postgres://externo@localhost/vec"}
+	if activo, err := c.BolsaInscripcionesExternoActivo(); !activo || err != nil {
+		t.Fatalf("externo sin DSN internos: %v %v", activo, err)
+	}
+	if activo, err := c.BolsaInscripcionesInternoActivo(); activo || !errors.Is(err, ErrBolsaInscripcionesActivacion) {
+		t.Fatalf("interno sin sus DSN: %v %v", activo, err)
+	}
+	c.BolsaInscripcionesLectorPostgreSQL = ConfiguracionPostgreSQLExterna{}
+	c.BolsaInscripcionesEmpleadoLectorPostgreSQL = ConfiguracionPostgreSQLExterna{dsn: "postgres://empleado@localhost/vec"}
+	c.BolsaInscripcionesRRHHLectorPostgreSQL = ConfiguracionPostgreSQLExterna{dsn: "postgres://rrhh@localhost/vec"}
+	if activo, err := c.BolsaInscripcionesInternoActivo(); !activo || err != nil {
+		t.Fatalf("interno sin DSN externo: %v %v", activo, err)
+	}
+	if activo, err := c.BolsaInscripcionesExternoActivo(); activo || !errors.Is(err, ErrBolsaInscripcionesActivacion) {
+		t.Fatalf("externo sin su DSN: %v %v", activo, err)
+	}
+}

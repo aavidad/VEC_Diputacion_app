@@ -104,6 +104,7 @@ type ConfiguracionPreparadorInscripcionBolsa struct {
 
 type preparadorInscripcionBolsa struct {
 	configuracion ConfiguracionPreparadorInscripcionBolsa
+	superficie    string
 }
 
 var _ httpinscripcion.Preparador = (*preparadorInscripcionBolsa)(nil)
@@ -117,6 +118,26 @@ func NuevoPreparadorInscripcionBolsa(c ConfiguracionPreparadorInscripcionBolsa) 
 		return nil, inscripcion.ErrNoDisponible
 	}
 	return &preparadorInscripcionBolsa{configuracion: c}, nil
+}
+
+func NuevoPreparadorInscripcionBolsaExterno(c ConfiguracionPreparadorInscripcionBolsa) (httpinscripcion.Preparador, error) {
+	if nuloInscripcionBolsa(c.SesionAspirante) || nuloInscripcionBolsa(c.Autoridad) ||
+		nuloInscripcionBolsa(c.Reloj) || !nuloInscripcionBolsa(c.SesionEmpleado) ||
+		!nuloInscripcionBolsa(c.SesionRRHH) || !nuloInscripcionBolsa(c.SelectorCanalAspirante) ||
+		!nuloInscripcionBolsa(c.AcreditadorEmpleado) || len(c.RRHH) != 0 {
+		return nil, inscripcion.ErrNoDisponible
+	}
+	return &preparadorInscripcionBolsa{configuracion: c, superficie: "externa_personal"}, nil
+}
+
+func NuevoPreparadorInscripcionBolsaInterno(c ConfiguracionPreparadorInscripcionBolsa) (httpinscripcion.Preparador, error) {
+	if !nuloInscripcionBolsa(c.SesionAspirante) || nuloInscripcionBolsa(c.SesionEmpleado) ||
+		nuloInscripcionBolsa(c.SesionRRHH) || nuloInscripcionBolsa(c.SelectorCanalAspirante) ||
+		nuloInscripcionBolsa(c.AcreditadorEmpleado) || nuloInscripcionBolsa(c.Autoridad) ||
+		nuloInscripcionBolsa(c.Reloj) || len(c.RRHH) == 0 {
+		return nil, inscripcion.ErrNoDisponible
+	}
+	return &preparadorInscripcionBolsa{configuracion: c, superficie: "interna_corporativa"}, nil
 }
 
 func nuloInscripcionBolsa(v any) bool {
@@ -192,11 +213,16 @@ func (p *preparadorInscripcionBolsa) PrepararIncorporacion(r *http.Request, i in
 func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectura *lecturaInscripcion, escritura *operacionEscrituraInscripcion) (inscripcion.Actor, error) {
 	var vacio inscripcion.Actor
 	if p == nil || r == nil || r.URL == nil || r.Context().Err() != nil ||
-		nuloInscripcionBolsa(p.configuracion.SesionAspirante) || nuloInscripcionBolsa(p.configuracion.SesionRRHH) ||
-		nuloInscripcionBolsa(p.configuracion.Autoridad) || nuloInscripcionBolsa(p.configuracion.Reloj) {
+		nuloInscripcionBolsa(p.configuracion.Autoridad) || nuloInscripcionBolsa(p.configuracion.Reloj) ||
+		(p.superficie == "externa_personal" && (rrhh || nuloInscripcionBolsa(p.configuracion.SesionAspirante))) ||
+		(p.superficie == "interna_corporativa" && (nuloInscripcionBolsa(p.configuracion.SesionRRHH) || nuloInscripcionBolsa(p.configuracion.SesionEmpleado))) ||
+		(p.superficie == "" && (nuloInscripcionBolsa(p.configuracion.SesionAspirante) || nuloInscripcionBolsa(p.configuracion.SesionRRHH))) {
 		return vacio, inscripcion.ErrNoDisponible
 	}
 	c := p.configuracion
+	if p.superficie == "externa_personal" && rrhh {
+		return vacio, inscripcion.ErrAccesoDenegado
+	}
 	accion, recurso, filtro, valido := operacionInscripcionBolsa(r, rrhh)
 	if (r.Method == http.MethodGet && (lectura == nil || escritura != nil)) ||
 		(r.Method == http.MethodPost && (escritura == nil || lectura != nil)) {
@@ -245,6 +271,9 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 		default:
 			return vacio, inscripcion.ErrSesionAusente
 		}
+	}
+	if p.superficie != "" && canalEsperado != p.superficie {
+		return vacio, inscripcion.ErrAccesoDenegado
 	}
 	ctx, acreditacion, err := sesion.ResolverInscripcion(r)
 	if err != nil || !huellaCertificadoInscripcionValida(acreditacion.CertificadoHuellaSHA256) ||

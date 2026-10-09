@@ -38,3 +38,16 @@ func TestInscripcionesLectorExigeLoginSeparadoYRedactaDSN(t *testing.T) {
 		t.Fatalf("lector RRHH comparte LOGIN: %v", err)
 	}
 }
+
+func TestInscripcionesLectoresInternosNoRequierenDSNExterno(t *testing.T) {
+	c := Config{}
+	c.BolsaInscripcionesEmpleadoLectorPostgreSQL = ConfiguracionPostgreSQLExterna{dsn: "postgres://empleado@localhost/vec"}
+	c.BolsaInscripcionesRRHHLectorPostgreSQL = ConfiguracionPostgreSQLExterna{dsn: "postgres://rrhh@localhost/vec"}
+	if _, _, err := c.DSNBolsaInscripcionesLectoresInternosSeparados(); err != nil {
+		t.Fatalf("lectores internos aislados: %v", err)
+	}
+	c.BolsaInscripcionesRRHHLectorPostgreSQL = ConfiguracionPostgreSQLExterna{dsn: "postgres://empleado@localhost/vec"}
+	if _, _, err := c.DSNBolsaInscripcionesLectoresInternosSeparados(); !errors.Is(err, ErrBolsaInscripcionesLectorNoSeparado) {
+		t.Fatalf("LOGIN interno compartido: %v", err)
+	}
+}

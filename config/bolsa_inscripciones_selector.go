@@ -19,3 +19,20 @@ func (c Config) BolsaInscripcionesActivo() (bool, error) {
 		catalogoRequerido{EnvBolsaInscripcionesEmpleadoLectorDatabaseURL, c.BolsaInscripcionesEmpleadoLectorPostgreSQL.dsn},
 		catalogoRequerido{EnvBolsaInscripcionesRRHHLectorDatabaseURL, c.BolsaInscripcionesRRHHLectorPostgreSQL.dsn})
 }
+
+// Cada proceso comprueba sólo las credenciales que necesita su superficie.
+// El portal externo nunca requiere ni recibe los DSN de empleado y RRHH.
+func (c Config) BolsaInscripcionesExternoActivo() (bool, error) {
+	c = c.Normalize()
+	return selectorDesarrolloActivo(c, c.BolsaInscripcionesEnabled,
+		ErrBolsaInscripcionesSelector, ErrBolsaInscripcionesActivacion,
+		catalogoRequerido{EnvBolsaInscripcionesLectorDatabaseURL, c.BolsaInscripcionesLectorPostgreSQL.dsn})
+}
+
+func (c Config) BolsaInscripcionesInternoActivo() (bool, error) {
+	c = c.Normalize()
+	return selectorDesarrolloActivo(c, c.BolsaInscripcionesEnabled,
+		ErrBolsaInscripcionesSelector, ErrBolsaInscripcionesActivacion,
+		catalogoRequerido{EnvBolsaInscripcionesEmpleadoLectorDatabaseURL, c.BolsaInscripcionesEmpleadoLectorPostgreSQL.dsn},
+		catalogoRequerido{EnvBolsaInscripcionesRRHHLectorDatabaseURL, c.BolsaInscripcionesRRHHLectorPostgreSQL.dsn})
+}
