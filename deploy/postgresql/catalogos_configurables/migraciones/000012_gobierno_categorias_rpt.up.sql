@@ -152,6 +152,8 @@ CREATE TABLE vec_catalogos_configurables.rpt_gobierno_historia (
  motivo_ref text NOT NULL CHECK(pg_catalog.octet_length(motivo_ref) BETWEEN 3 AND 320),
  contenido_sha256 text NOT NULL CHECK(contenido_sha256 ~ '^[0-9a-f]{64}$'),
  fuente_sha256 text NOT NULL CHECK(fuente_sha256 ~ '^[0-9a-f]{64}$'),
+ revision_categoria bigint NOT NULL CHECK((accion='confirmar' AND revision_categoria>0)
+    OR (accion<>'confirmar' AND revision_categoria=0)),
  registrada_en timestamptz(6) NOT NULL DEFAULT pg_catalog.clock_timestamp(),
  PRIMARY KEY(propuesta_ref,revision),
  UNIQUE(propuesta_ref,accion)
@@ -327,26 +329,30 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET lock_timeout='5s' SET statement_timeout='30s' AS $f$
 DECLARE c jsonb; d jsonb; entrada jsonb; pre jsonb; doc text; h_doc text; h_pre text; h_fuente text;
 BEGIN
- IF p_contenido IS NULL OR pg_catalog.jsonb_typeof(p_contenido) <> 'object'
+ IF p_contenido IS NULL OR pg_catalog.jsonb_typeof(p_contenido) IS DISTINCT FROM 'object'
     OR pg_catalog.octet_length(p_contenido::text) > 17825792
     OR p_fuente_bytes IS NULL OR pg_catalog.octet_length(p_fuente_bytes) NOT BETWEEN 1 AND 16777216
-    OR p_fuente_meta IS NULL OR pg_catalog.jsonb_typeof(p_fuente_meta) <> 'object'
+    OR p_fuente_meta IS NULL OR pg_catalog.jsonb_typeof(p_fuente_meta) IS DISTINCT FROM 'object'
     OR pg_catalog.octet_length(p_fuente_meta::text) > 4096 THEN
   RAISE EXCEPTION 'CC12: material invalido' USING ERRCODE='22023'; END IF;
  -- Un retiro/deshabilitacion exige otro acto y otra migracion.
  IF p_contenido->>'accion' IS DISTINCT FROM 'publicar'
-    OR p_contenido->>'catalogo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
-    OR p_contenido->>'modulo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
+    OR (p_contenido->>'catalogo_id' ~ '^[a-z][a-z0-9_.:-]{2,127}$') IS NOT TRUE
+    OR (p_contenido->>'modulo_id' ~ '^[a-z][a-z0-9_.:-]{2,127}$') IS NOT TRUE
+    OR (p_contenido->>'version' ~ '^[1-9][0-9]{0,9}$') IS NOT TRUE
     OR p_contenido->>'fuente_ref' IS DISTINCT FROM p_fuente_meta->>'fuente_ref'
-    OR p_fuente_meta->>'clase' !~ '^[a-z][a-z0-9_]{2,63}$'
-    OR p_fuente_meta->>'clase' NOT IN ('ejercicio','tecnica')
-    OR pg_catalog.octet_length(p_fuente_meta->>'procedencia_ref') NOT BETWEEN 3 AND 320
-    OR pg_catalog.octet_length(p_fuente_meta->>'custodia_ref') NOT BETWEEN 3 AND 320
-    OR pg_catalog.octet_length(p_fuente_meta->>'organizacion_ref') NOT BETWEEN 3 AND 320
-    OR pg_catalog.octet_length(p_fuente_meta->>'fuente_ref') NOT BETWEEN 3 AND 320
+    OR (p_fuente_meta->>'clase' ~ '^[a-z][a-z0-9_]{2,63}$') IS NOT TRUE
+    OR p_fuente_meta->>'clase' IS DISTINCT FROM ALL (ARRAY['ejercicio','tecnica'])
+    OR (pg_catalog.octet_length(p_fuente_meta->>'procedencia_ref') BETWEEN 3 AND 320) IS NOT TRUE
+    OR (pg_catalog.octet_length(p_fuente_meta->>'custodia_ref') BETWEEN 3 AND 320) IS NOT TRUE
+    OR (pg_catalog.octet_length(p_fuente_meta->>'organizacion_ref') BETWEEN 3 AND 320) IS NOT TRUE
+    OR (pg_catalog.octet_length(p_fuente_meta->>'fuente_ref') BETWEEN 3 AND 320) IS NOT TRUE
+    OR p_fuente_meta->>'vigente_desde' IS NULL OR p_fuente_meta->>'vigente_hasta' IS NULL
     OR (p_fuente_meta->>'vigente_desde')::timestamptz >= (p_fuente_meta->>'vigente_hasta')::timestamptz
     THEN
   RAISE EXCEPTION 'CC12: fuente no admitida' USING ERRCODE='22023'; END IF;
+ IF (p_contenido->>'version')::bigint > 2147483647 THEN
+  RAISE EXCEPTION 'CC12: version incompatible' USING ERRCODE='22023'; END IF;
  h_fuente:=pg_catalog.encode(pg_catalog.sha256(p_fuente_bytes),'hex');
  IF p_fuente_meta->>'sha256' IS DISTINCT FROM h_fuente THEN
   RAISE EXCEPTION 'CC12: huella de fuente distinta' USING ERRCODE='22023'; END IF;
@@ -357,28 +363,36 @@ BEGIN
  IF p_contenido->>'documento_huella_sha256' IS DISTINCT FROM h_doc THEN
   RAISE EXCEPTION 'CC12: huella documental distinta' USING ERRCODE='22023'; END IF;
  d:=doc::jsonb;
- IF pg_catalog.jsonb_typeof(d) <> 'object'
+ IF pg_catalog.jsonb_typeof(d) IS DISTINCT FROM 'object'
     OR d->>'id' IS DISTINCT FROM p_contenido->>'catalogo_id'
     OR d->>'modulo_id' IS DISTINCT FROM p_contenido->>'modulo_id'
     OR d->>'version' IS DISTINCT FROM p_contenido->>'version'
     OR d->>'fuente_ref' IS DISTINCT FROM p_fuente_meta->>'fuente_ref'
-    OR d->>'estado' <> 'publicado'
-    OR pg_catalog.jsonb_typeof(d->'entradas') <> 'array'
-    OR pg_catalog.jsonb_array_length(d->'entradas') <> 1 THEN
+    OR d->>'estado' IS DISTINCT FROM 'publicado'
+    OR pg_catalog.jsonb_typeof(d->'entradas') IS DISTINCT FROM 'array'
+    OR (pg_catalog.octet_length(d->>'creado_por') BETWEEN 3 AND 160) IS NOT TRUE
+    OR (pg_catalog.octet_length(d->>'publicado_por') BETWEEN 3 AND 160) IS NOT TRUE
+    OR d->>'creado_por'=d->>'publicado_por' THEN
   RAISE EXCEPTION 'CC12: documento de categoria incompatible' USING ERRCODE='22023'; END IF;
+ IF pg_catalog.jsonb_array_length(d->'entradas') <> 1 THEN
+  RAISE EXCEPTION 'CC12: numero de entradas incompatible' USING ERRCODE='22023'; END IF;
  entrada:=d->'entradas'->0;
- IF entrada->>'clave' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
+ IF pg_catalog.jsonb_typeof(entrada) IS DISTINCT FROM 'object'
+    OR (entrada->>'clave' ~ '^[a-z][a-z0-9_.:-]{2,127}$') IS NOT TRUE
+    OR (pg_catalog.octet_length(entrada->>'etiqueta') BETWEEN 1 AND 2048) IS NOT TRUE
+    OR pg_catalog.jsonb_typeof(entrada->'atributos') IS DISTINCT FROM 'object'
     OR entrada->'atributos'->>'organizacion_ref' IS DISTINCT FROM p_fuente_meta->>'organizacion_ref'
     OR entrada->'atributos'->>'estado' IS DISTINCT FROM 'habilitada' THEN
   RAISE EXCEPTION 'CC12: categoria u organizacion incompatible' USING ERRCODE='22023'; END IF;
  pre:=p_contenido->'preimagenes_control';
- IF pg_catalog.jsonb_typeof(pre)<>'object' OR pg_catalog.octet_length(pre::text)>1048576
+ IF pg_catalog.jsonb_typeof(pre) IS DISTINCT FROM 'object' OR pg_catalog.octet_length(pre::text)>1048576
     OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(pre))>1
     OR ((SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(pre))=1 AND NOT pre ? (entrada->>'clave'))
     OR p_contenido->>'categoria_id' IS NOT NULL OR p_contenido->>'revision_esperada' IS NOT NULL THEN
   RAISE EXCEPTION 'CC12: preimagen incompatible' USING ERRCODE='22023'; END IF;
  h_pre:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pre::text,'UTF8')),'hex');
- IF p_contenido->>'preimagenes_huella_sha256' NOT IN ('',h_pre) THEN
+ IF p_contenido->>'preimagenes_huella_sha256' IS NULL
+    OR p_contenido->>'preimagenes_huella_sha256' NOT IN ('',h_pre) THEN
   RAISE EXCEPTION 'CC12: huella de preimagen distinta' USING ERRCODE='22023'; END IF;
  c:=pg_catalog.jsonb_set(p_contenido,'{preimagenes_huella_sha256}',pg_catalog.to_jsonb(h_pre),true);
  RETURN pg_catalog.jsonb_build_object('contenido',c,'huella_sha256',
@@ -422,7 +436,7 @@ SET search_path=pg_catalog,pg_temp SET lock_timeout='5s' SET statement_timeout='
 DECLARE p vec_catalogos_configurables.rpt_propuesta%ROWTYPE; perfiles vec_catalogos_configurables.rpt_perfiles_competencia%ROWTYPE;
  previo vec_catalogos_configurables.rpt_gobierno_historia%ROWTYPE; prep jsonb; c jsonb; meta jsonb;
  control vec_catalogos_configurables.categoria_control%ROWTYPE;
- v_revision bigint; v_estado text; v_evento jsonb; v_recibo text;
+ v_revision bigint; v_revision_categoria bigint:=0; v_estado text; v_evento jsonb; v_recibo text;
 BEGIN
  IF p_accion NOT IN ('proponer','aprobar','confirmar') OR p_propuesta_ref IS NULL OR pg_catalog.octet_length(p_propuesta_ref) NOT BETWEEN 3 AND 160
     OR p_huella !~ '^[0-9a-f]{64}$'
@@ -503,8 +517,7 @@ BEGIN
    RAISE EXCEPTION 'CC12: replay incompatible' USING ERRCODE='23505'; END IF;
   RETURN pg_catalog.jsonb_build_object('propuesta_ref',p_propuesta_ref,'huella_sha256',p_huella,
      'revision',previo.revision,'estado',previo.estado,'recibo_ref',previo.recibo_ref,
-     'accion',previo.accion,'version',p.version,'revision_categoria',
-     CASE WHEN previo.accion='confirmar' THEN (SELECT revision FROM vec_catalogos_configurables.categoria_control WHERE categoria_id=p.categoria_id) ELSE 0 END,
+     'accion',previo.accion,'version',p.version,'revision_categoria',previo.revision_categoria,
      'registrada_en',previo.registrada_en,'decision_ref',previo.decision_ref,'decision_sha256',previo.decision_sha256);
  END IF;
  IF pg_catalog.clock_timestamp() NOT BETWEEN p.fuente_vigente_desde AND p.fuente_vigente_hasta THEN
@@ -531,6 +544,14 @@ BEGIN
     p.documento_canonico,p.preimagenes,p.preimagenes_sha256,p.propuesta_decision_ref,
     p.aprobacion_decision_ref,p_actor,p_decision_ref,p_recibo_ref,p_motivo_ref);
   IF v_recibo<>p_recibo_ref THEN RAISE EXCEPTION 'CC12: recibo de publicacion incompatible' USING ERRCODE='55000'; END IF;
+  SELECT h.revision INTO v_revision_categoria
+    FROM vec_catalogos_configurables.historia h
+    JOIN vec_catalogos_configurables.publicacion pub
+      ON pub.recibo_ref=p_recibo_ref AND pub.catalogo_id=p.catalogo_id AND pub.version=p.version
+   WHERE h.recibo_ref=p_recibo_ref||':'||p.categoria_id AND h.categoria_id=p.categoria_id
+     AND h.accion='publicar' AND h.decision_ref=p_decision_ref AND h.actor_ref=p_actor;
+  IF NOT FOUND OR v_revision_categoria IS NULL OR v_revision_categoria<1 THEN
+   RAISE EXCEPTION 'CC12: historia de publicacion ausente' USING ERRCODE='55000'; END IF;
   UPDATE vec_catalogos_configurables.rpt_propuesta SET revision=3,estado='confirmada',publicado_por=p_actor,
     confirmacion_decision_ref=p_decision_ref,confirmacion_decision_sha256=p_decision_sha256,
     publicacion_recibo_ref=p_recibo_ref,confirmada_en=pg_catalog.clock_timestamp()
@@ -538,9 +559,9 @@ BEGIN
  END IF;
  INSERT INTO vec_catalogos_configurables.rpt_gobierno_historia
   (propuesta_ref,revision,accion,estado,actor_ref,perfil_ref,decision_ref,decision_sha256,
-   recibo_ref,motivo_ref,contenido_sha256,fuente_sha256)
+   recibo_ref,motivo_ref,contenido_sha256,fuente_sha256,revision_categoria)
  VALUES(p_propuesta_ref,v_revision,p_accion,v_estado,p_actor,p_perfil,p_decision_ref,p_decision_sha256,
-   p_recibo_ref,p_motivo_ref,p_huella,p.fuente_sha256);
+   p_recibo_ref,p_motivo_ref,p_huella,p.fuente_sha256,v_revision_categoria);
  v_evento:=pg_catalog.jsonb_build_object('propuesta_ref',p_propuesta_ref,'revision',v_revision,
     'accion',p_accion,'estado',v_estado,'catalogo_id',p.catalogo_id,'categoria_id',p.categoria_id,
     'organizacion_ref',p.organizacion_ref,'contenido_sha256',p_huella,'fuente_sha256',p.fuente_sha256,
@@ -550,8 +571,7 @@ BEGIN
    pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(v_evento::text,'UTF8')),'hex'));
  RETURN pg_catalog.jsonb_build_object('propuesta_ref',p_propuesta_ref,'huella_sha256',p_huella,
    'revision',v_revision,'estado',v_estado,'recibo_ref',p_recibo_ref,'accion',p_accion,
-   'version',p.version,'revision_categoria',
-   CASE WHEN p_accion='confirmar' THEN (SELECT revision FROM vec_catalogos_configurables.categoria_control WHERE categoria_id=p.categoria_id) ELSE 0 END,
+   'version',p.version,'revision_categoria',v_revision_categoria,
    'decision_ref',p_decision_ref,'decision_sha256',p_decision_sha256,
    'registrada_en',(SELECT registrada_en FROM vec_catalogos_configurables.rpt_gobierno_historia
       WHERE propuesta_ref=p_propuesta_ref AND accion=p_accion));

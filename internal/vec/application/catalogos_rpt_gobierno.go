@@ -58,11 +58,39 @@ func (*OrdenAvanzarGobiernoCategoriaRPT) UnmarshalJSON([]byte) error {
 }
 
 type ServicioGobiernoCategoriaRPT struct {
-	preparador    ports.PreparadorGobiernoCategoriaRPT
-	autorizador   ports.AutorizadorGobiernoCategoriaRPT
-	gestor        ports.GestorGobiernoCategoriaRPT
-	reloj         ports.Reloj
-	versionRolRef string
+	preparador            ports.PreparadorGobiernoCategoriaRPT
+	autorizador           ports.AutorizadorGobiernoCategoriaRPT
+	gestor                ports.GestorGobiernoCategoriaRPT
+	reloj                 ports.Reloj
+	versionRolRef         string
+	versionRolRevisionRef string
+}
+
+// VersionesRolGobiernoCategoriaRPT fija la autoridad de cada etapa desde la
+// composición confiable. La revisión comprende aprobar y confirmar.
+type VersionesRolGobiernoCategoriaRPT struct {
+	Preparacion string
+	Revision    string
+}
+
+func NuevoServicioGobiernoCategoriaRPTConRoles(
+	preparador ports.PreparadorGobiernoCategoriaRPT,
+	autorizador ports.AutorizadorGobiernoCategoriaRPT,
+	gestor ports.GestorGobiernoCategoriaRPT,
+	reloj ports.Reloj,
+	versiones VersionesRolGobiernoCategoriaRPT,
+) (*ServicioGobiernoCategoriaRPT, error) {
+	if !referenciaGobiernoCategoriaRPTValida(versiones.Preparacion) ||
+		!referenciaGobiernoCategoriaRPTValida(versiones.Revision) ||
+		versiones.Preparacion == versiones.Revision {
+		return nil, ports.ErrGobiernoCategoriaRPTNoDisponible
+	}
+	s, err := NuevoServicioGobiernoCategoriaRPT(preparador, autorizador, gestor, reloj, versiones.Preparacion)
+	if err != nil {
+		return nil, err
+	}
+	s.versionRolRevisionRef = versiones.Revision
+	return s, nil
 }
 
 func NuevoServicioGobiernoCategoriaRPT(
@@ -77,7 +105,10 @@ func NuevoServicioGobiernoCategoriaRPT(
 		!referenciaGobiernoCategoriaRPTValida(versionRolRef) {
 		return nil, ports.ErrGobiernoCategoriaRPTNoDisponible
 	}
-	return &ServicioGobiernoCategoriaRPT{preparador, autorizador, gestor, reloj, versionRolRef}, nil
+	return &ServicioGobiernoCategoriaRPT{
+		preparador: preparador, autorizador: autorizador, gestor: gestor,
+		reloj: reloj, versionRolRef: versionRolRef,
+	}, nil
 }
 
 func (s *ServicioGobiernoCategoriaRPT) Proponer(ctx context.Context, o OrdenProponerGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
@@ -194,6 +225,14 @@ func (s *ServicioGobiernoCategoriaRPT) autorizar(ctx context.Context, c Credenci
 ) (domain.SolicitudAutorizacionLigadaV3, ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	var solicitud domain.SolicitudAutorizacionLigadaV3
 	var cero ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	if s == nil {
+		return solicitud, cero, ports.ErrGobiernoCategoriaRPTNoDisponible
+	}
+	versionRolRef := s.versionRolRef
+	if (accion == ports.AccionAprobarGobiernoCategoriaRPT || accion == ports.AccionConfirmarGobiernoCategoriaRPT) &&
+		s.versionRolRevisionRef != "" {
+		versionRolRef = s.versionRolRevisionRef
+	}
 	instanteInicial := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	v, err := c.Vinculo.Datos()
 	h, errActor := c.Actor.HuellaSHA256VinculadaV2()
@@ -203,7 +242,7 @@ func (s *ServicioGobiernoCategoriaRPT) autorizar(ctx context.Context, c Credenci
 		c.Actor.Principal.ID != c.Actor.PersonaRef || c.Actor.Principal.ID != v.PrincipalID || c.Actor.PerfilActivoRef != v.PerfilActivoRef ||
 		v.CuentaPrivilegiada || v.Superficie != domain.SuperficieAutenticacionInternaCorporativaV1 ||
 		!v.GarantiaObservada.Cumple(domain.AuthAssuranceHigh) ||
-		!referenciaGobiernoCategoriaRPTValida(s.versionRolRef) ||
+		!referenciaGobiernoCategoriaRPTValida(versionRolRef) ||
 		!c.Actor.Principal.AuthAssurance.Cumple(domain.AuthAssuranceHigh) ||
 		!domain.ReferenciaMotivoAutorizacionV2Valida(c.Motivo) || c.Correlacion.Validar() != nil ||
 		p.Accion != accion || p.Finalidad != ports.FinalidadGobiernoCategoriaRPT ||
@@ -240,7 +279,7 @@ func (s *ServicioGobiernoCategoriaRPT) autorizar(ctx context.Context, c Credenci
 		return domain.SolicitudAutorizacionLigadaV3{}, cero, denegacionValidacionGobiernoCategoriaRPT(err)
 	}
 	if err := concesionGobiernoCategoriaRPTValida(material, solicitud, decision,
-		confirmacion, c.ResultadoContexto, c.Actor, accion, p.Recurso, instanteConsumo, s.versionRolRef); err != nil {
+		confirmacion, c.ResultadoContexto, c.Actor, accion, p.Recurso, instanteConsumo, versionRolRef); err != nil {
 		return domain.SolicitudAutorizacionLigadaV3{}, cero, ports.ErrGobiernoCategoriaRPTDenegado
 	}
 	return solicitud, material, nil

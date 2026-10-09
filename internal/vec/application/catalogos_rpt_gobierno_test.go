@@ -648,3 +648,37 @@ func TestServicioGobiernoRPTUnaAprobacionYConfirmacionDesdeRevisionDos(t *testin
 		}
 	}
 }
+
+func TestServicioGobiernoRPTRolDeRevisionNoSePrestaAPropuesta(t *testing.T) {
+	e, emisor, cred, preparacion := entornoEmisionGobiernoRPT(t)
+	rolRevision := e.fuente.instantanea.VersionRol.Referencia()
+	rolPreparacion := "rol:preparacion:rpt:v1"
+	preparador := &preparadorGobiernoRPTPrueba{avance: preparacion}
+	gestor := &gestorGobiernoRPTPrueba{}
+	s, err := NuevoServicioGobiernoCategoriaRPTConRoles(preparador, emisor, gestor,
+		&relojAutorizacionServicioPrueba{ahora: e.ahora},
+		VersionesRolGobiernoCategoriaRPT{Preparacion: rolPreparacion, Revision: rolRevision})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.Aprobar(t.Context(), OrdenAvanzarGobiernoCategoriaRPT{
+		Credenciales: cred, Material: materialAvanceGobiernoRPTPrueba(),
+	})
+	if err != nil || gestor.llamadas != 1 {
+		t.Fatalf("rol de revisión válido rechazado: %v, efectos=%d", err, gestor.llamadas)
+	}
+
+	gestor.llamadas = 0
+	s.versionRolRevisionRef = rolPreparacion
+	_, err = s.Aprobar(t.Context(), OrdenAvanzarGobiernoCategoriaRPT{
+		Credenciales: cred, Material: materialAvanceGobiernoRPTPrueba(),
+	})
+	if !errors.Is(err, ports.ErrGobiernoCategoriaRPTDenegado) || gestor.llamadas != 0 {
+		t.Fatalf("rol de preparación llegó a aprobación: %v, efectos=%d", err, gestor.llamadas)
+	}
+	if _, err := NuevoServicioGobiernoCategoriaRPTConRoles(preparador, emisor, gestor,
+		&relojAutorizacionServicioPrueba{ahora: e.ahora},
+		VersionesRolGobiernoCategoriaRPT{Preparacion: rolRevision, Revision: rolRevision}); !errors.Is(err, ports.ErrGobiernoCategoriaRPTNoDisponible) {
+		t.Fatalf("mismo rol para ambas fases aceptado: %v", err)
+	}
+}
