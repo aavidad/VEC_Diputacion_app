@@ -13,6 +13,9 @@ const detalle = { ...solicitud, bases_ref: "bases:1", catalogo_version: 1,
   plazo_inicio: "2026-10-01T00:00:00Z", plazo_fin: "2026-10-31T23:59:59Z",
   requisitos: [{ codigo: "titulo", descripcion: "Titulación requerida", obligatorio: true,
     estado: "cumple", fuente_ref: "fuente:1", evidencia_ref: "evidencia:1" }] };
+const convocatoriaHistorica = { convocatoria_ref: "convocatoria:historica", titulo: "Bolsa de personal de apoyo",
+  categorias_resumen: "Auxiliar administrativo", plazo_fin: "2025-10-08T23:59:59Z",
+  estado_publicacion: "sustituida" };
 const respuesta = (status, data) => ({ ok: status >= 200 && status < 300, status, redirected: false,
   headers: { get: (nombre) => nombre.toLowerCase() === "content-type" ? "application/json" : null },
   text: async () => JSON.stringify({ data }) });
@@ -36,6 +39,20 @@ test("cliente RRHH conserva filtros, identidad fuera del cuerpo y valida recibo"
   assert.equal(llamadas[1].opciones.credentials, "same-origin");
   assert.deepEqual(JSON.parse(llamadas[1].opciones.body), { decision: "admitir", version_esperada: 1,
     clave_idempotencia: "inscripcion-12345678" });
+});
+
+test("selector consulta convocatoria histórica paginada y la bandeja exige convocatoria", async () => {
+  const llamadas = [];
+  const cliente = crearClienteInscripcionesRRHH({ fetchImpl: async (ruta) => {
+    llamadas.push(ruta);
+    return respuesta(200, { esquema: "vec.bolsa.inscripciones.rrhh.convocatorias.v1",
+      convocatorias: [convocatoriaHistorica], total: 2, cursor_siguiente: "cv1_siguiente_v1" });
+  } });
+  await assert.rejects(cliente.listar({ idioma: "es" }), /referencia incompatible/u);
+  assert.equal(llamadas.length, 0);
+  const pagina = await cliente.convocatorias({ limite: 20, cursor: "cv1_inicio_v1", idioma: "en" });
+  assert.equal(pagina.convocatorias[0].estado_publicacion, "sustituida");
+  assert.equal(llamadas[0], "/api/vec/bolsa/rrhh/inscripciones/convocatorias?limite=20&cursor=cv1_inicio_v1&idioma=en");
 });
 
 test("una respuesta de otra solicitud o sin recibo no confirma la decisión", async () => {
@@ -88,7 +105,7 @@ test("una respuesta excesiva se corta antes de convertirla en JSON", async () =>
     redirected: false, headers: { get: (nombre) => nombre === "content-type" ? "application/json" : null },
     body: new ReadableStream({ start(controlador) { controlador.enqueue(new Uint8Array(256 * 1024 + 1)); } }),
     text: async () => { throw new Error("no debe leerse completa"); } }) });
-  await assert.rejects(cliente.listar(), /respuesta excesiva/u);
+  await assert.rejects(cliente.listar({ convocatoria: "convocatoria:1" }), /respuesta excesiva/u);
 });
 
 test("el cliente conserva el código de error gobernado sin mostrarlo directamente", async () => {
@@ -101,7 +118,9 @@ test("el cliente conserva el código de error gobernado sin mostrarlo directamen
 
 test("filtro compartible conserva la URL y normaliza estado desconocido", () => {
   assert.deepEqual(leerRutaInscripcionesRRHH("?inscripcion_estado=otro&inscripcion_convocatoria=convocatoria%3A1"),
-    { estado: "pendiente", convocatoria: "convocatoria:1", cursor: "" });
+    { estado: "pendiente", convocatoria: "convocatoria:1", cursor: "", selectorCursor: "" });
+  assert.equal(leerRutaInscripcionesRRHH("?inscripcion_convocatorias_cursor=cv1_inicio_v1").selectorCursor,
+    "cv1_inicio_v1");
   assert.equal(rutaInscripcionesRRHH("https://vec.example/portal-empleado/?lang=en#solicitudes",
     { estado: "rechazada", convocatoria: "convocatoria:1", cursor: "c:2" }),
   "/portal-empleado/?lang=en&inscripcion_estado=rechazada&inscripcion_convocatoria=convocatoria%3A1&inscripcion_cursor=c%3A2#solicitudes");
@@ -114,16 +133,97 @@ test("catálogos propios de la pantalla tienen las mismas claves y no necesitan 
   assert.equal(en.traducir("rrhh.estado_pendiente"), "Pending");
 });
 
+test("selector histórico se abre antes de la bandeja y enlaza filtro exacto", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "", addEventListener: (tipo, f) => eventos.set(tipo, f),
+    removeEventListener: (tipo) => eventos.delete(tipo), replaceChildren() { this.innerHTML = ""; },
+    contains: () => true };
+  let lecturasLista = 0;
+  let ruta;
+  const vista = await montarInscripcionesRRHH({ raiz,
+    localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
+    historial: { pushState: (_estado, _titulo, destino) => { ruta = destino; } },
+    cliente: { convocatorias: async () => ({ convocatorias: [convocatoriaHistorica], total: 1,
+      cursor_siguiente: null }),
+      listar: async ({ convocatoria }) => { lecturasLista++; assert.equal(convocatoria, "convocatoria:historica");
+        return { solicitudes: [], total: 0, cursor_siguiente: null }; },
+      detalle: async () => detalle, motivos: async () => ({ motivos: [] }),
+      decidir: async () => ({}), incorporar: async () => ({}) } });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(lecturasLista, 0);
+  assert.match(raiz.innerHTML, /Primera categoría: Auxiliar administrativo/u);
+  assert.match(raiz.innerHTML, /Sustituida/u);
+  assert.match(raiz.innerHTML, /Plazo finalizado/u);
+  eventos.get("click")({ target: { closest: () => ({ dataset: { inscripcionElegir: "convocatoria:historica" },
+    matches: () => true, hasAttribute: () => false }) }, preventDefault() {} });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(lecturasLista, 1);
+  assert.match(ruta, /inscripcion_convocatoria=convocatoria%3Ahistorica/u);
+  vista.desmontar();
+});
+
+test("selector vacío, caído o denegado ofrece una salida sin pedir la bandeja", async () => {
+  for (const estado of [0, 503, 403]) {
+    const raiz = { innerHTML: "", addEventListener() {}, removeEventListener() {},
+      replaceChildren() { this.innerHTML = ""; } };
+    const vista = await montarInscripcionesRRHH({ raiz,
+      localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
+      historial: { pushState() {} },
+      cliente: { convocatorias: async () => { if (estado) throw Object.assign(new Error("no disponible"), { estado });
+        return { convocatorias: [], total: 0, cursor_siguiente: null }; },
+        listar: async () => { throw new Error("no debe consultar solicitudes"); },
+        detalle: async () => detalle, motivos: async () => ({ motivos: [] }),
+        decidir: async () => ({}), incorporar: async () => ({}) } });
+    await new Promise((r) => setTimeout(r, 0));
+    assert.match(raiz.innerHTML, estado === 503 ? /No se pudieron consultar las convocatorias/u
+      : estado === 403 ? /No puede consultar estas solicitudes/u : /No hay convocatorias con solicitudes/u);
+    assert.doesNotMatch(raiz.innerHTML, /tabla-datos/u);
+    vista.desmontar();
+  }
+});
+
+test("una página histórica tardía no sustituye el selector elegido después", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "", addEventListener: (tipo, f) => eventos.set(tipo, f),
+    removeEventListener: (tipo) => eventos.delete(tipo), replaceChildren() { this.innerHTML = ""; },
+    contains: () => true };
+  let resolverTardia;
+  let consultas = 0;
+  const pagina = (titulo, cursor_siguiente = null) => ({ convocatorias: [{ ...convocatoriaHistorica, titulo }],
+    total: 2, cursor_siguiente });
+  const vista = await montarInscripcionesRRHH({ raiz,
+    localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
+    historial: { pushState() {} },
+    cliente: { convocatorias: async () => { consultas++;
+      if (consultas === 2) return new Promise((resolver) => { resolverTardia = resolver; });
+      return consultas === 1 ? pagina("Primera lista", "cv1_siguiente_v1") : pagina("Lista actual"); },
+      listar: async () => { throw new Error("no debe consultar solicitudes"); },
+      detalle: async () => detalle, motivos: async () => ({ motivos: [] }),
+      decidir: async () => ({}), incorporar: async () => ({}) } });
+  await new Promise((r) => setTimeout(r, 0));
+  const pulsar = (atributo) => eventos.get("click")({ target: { closest: () => ({ dataset: {},
+    matches: () => true, hasAttribute: (nombre) => nombre === atributo }) }, preventDefault() {} });
+  pulsar("data-inscripcion-selector-siguiente");
+  pulsar("data-inscripcion-selector-total");
+  await new Promise((r) => setTimeout(r, 0));
+  resolverTardia(pagina("Lista antigua"));
+  await new Promise((r) => setTimeout(r, 0));
+  assert.match(raiz.innerHTML, /Lista actual/u);
+  assert.doesNotMatch(raiz.innerHTML, /Lista antigua/u);
+  vista.desmontar();
+});
+
 test("denegación borra lista y la respuesta tardía no vuelve a mostrarla", async () => {
   const eventos = new Map();
   const raiz = { innerHTML: "", addEventListener: (tipo, f) => eventos.set(tipo, f),
     removeEventListener: (tipo) => eventos.delete(tipo), replaceChildren() { this.innerHTML = ""; },
     contains: () => true };
-  const localizacion = new URL("https://vec.example/portal-empleado/#solicitudes");
+  const localizacion = new URL("https://vec.example/portal-empleado/?inscripcion_convocatoria=convocatoria%3A1#solicitudes");
   let denegaciones = 0;
   const vista = await montarInscripcionesRRHH({ raiz, localizacion, historial: { pushState() {} },
     alDenegacion: () => { denegaciones++; },
-    cliente: { listar: async () => { throw Object.assign(new Error("denegado"), { estado: 403 }); },
+    cliente: { convocatorias: async () => ({ convocatorias: [], total: 0, cursor_siguiente: null }),
+      listar: async () => { throw Object.assign(new Error("denegado"), { estado: 403 }); },
       detalle: async () => solicitud, motivos: async () => ({ motivos: [] }),
       decidir: async () => ({}), incorporar: async () => ({}) } });
   await new Promise((r) => setTimeout(r, 0));
@@ -140,9 +240,10 @@ test("RRHH no puede confirmar admisión con un requisito obligatorio pendiente",
     removeEventListener: (tipo) => eventos.delete(tipo), replaceChildren() { this.innerHTML = ""; },
     contains: () => true };
   const vista = await montarInscripcionesRRHH({ raiz,
-    localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
+    localizacion: new URL("https://vec.example/portal-empleado/?inscripcion_convocatoria=convocatoria%3A1#solicitudes"),
     historial: { pushState() {} },
-    cliente: { listar: async () => ({ solicitudes: [solicitud], total: 1, cursor_siguiente: null }),
+    cliente: { convocatorias: async () => ({ convocatorias: [], total: 0, cursor_siguiente: null }),
+      listar: async () => ({ solicitudes: [solicitud], total: 1, cursor_siguiente: null }),
       detalle: async () => ({ ...detalle, requisitos: [{ ...detalle.requisitos[0], estado: "pendiente" }] }),
       motivos: async () => ({ motivos: [] }), decidir: async () => { throw new Error("no debe decidir"); },
       incorporar: async () => { throw new Error("no debe incorporar"); } } });
@@ -167,7 +268,8 @@ test("cambiar de pantalla durante la carga de textos no lanza una lectura tardí
   const montaje = montarInscripcionesRRHH({ raiz, signal: controlador.signal,
     localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
     cargarCatalogo: () => new Promise((resolver) => { continuar = resolver; }),
-    cliente: { listar: async () => { lecturas++; return { solicitudes: [], total: 0, cursor_siguiente: null }; },
+    cliente: { convocatorias: async () => ({ convocatorias: [], total: 0, cursor_siguiente: null }),
+      listar: async () => { lecturas++; return { solicitudes: [], total: 0, cursor_siguiente: null }; },
       detalle: async () => solicitud, motivos: async () => ({ motivos: [] }),
       decidir: async () => ({}), incorporar: async () => ({}) } });
   controlador.abort(); continuar(textos);
@@ -186,9 +288,10 @@ test("una ficha tardía no sustituye la selección RRHH más reciente", async ()
   let resolverPrimera;
   const segunda = { ...detalle, solicitud_ref: "solicitud:2", persona_resumen: "Marina López" };
   const vista = await montarInscripcionesRRHH({ raiz,
-    localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
+    localizacion: new URL("https://vec.example/portal-empleado/?inscripcion_convocatoria=convocatoria%3A1#solicitudes"),
     historial: { pushState() {} },
-    cliente: { listar: async () => ({ solicitudes: [solicitud, segunda], total: 2, cursor_siguiente: null }),
+    cliente: { convocatorias: async () => ({ convocatorias: [], total: 0, cursor_siguiente: null }),
+      listar: async () => ({ solicitudes: [solicitud, segunda], total: 2, cursor_siguiente: null }),
       detalle: (ref) => ref === "solicitud:1" ? new Promise((r) => { resolverPrimera = r; }) : Promise.resolve(segunda),
       motivos: async () => ({ motivos: [] }), decidir: async () => ({}), incorporar: async () => ({}) } });
   await new Promise((r) => setTimeout(r, 0));
@@ -212,9 +315,10 @@ test("identidad pendiente conserva solicitud y clave al reintentar incorporació
   const admitida = { ...detalle, estado: "admitida_a_convocatoria", version: 2 };
   const intentos = [];
   const vista = await montarInscripcionesRRHH({ raiz,
-    localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
+    localizacion: new URL("https://vec.example/portal-empleado/?inscripcion_convocatoria=convocatoria%3A1#solicitudes"),
     historial: { pushState() {} },
-    cliente: { listar: async () => ({ solicitudes: [admitida], total: 1, cursor_siguiente: null }),
+    cliente: { convocatorias: async () => ({ convocatorias: [], total: 0, cursor_siguiente: null }),
+      listar: async () => ({ solicitudes: [admitida], total: 1, cursor_siguiente: null }),
       detalle: async () => admitida, motivos: async () => ({ motivos: [] }), decidir: async () => ({}),
       incorporar: async (argumento) => { intentos.push(argumento); throw Object.assign(new Error("pendiente"),
         { estado: 409, codigo: "vinculo_identidad_pendiente" }); } } });

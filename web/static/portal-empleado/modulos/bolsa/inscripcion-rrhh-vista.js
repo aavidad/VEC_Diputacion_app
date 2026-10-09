@@ -1,5 +1,5 @@
 import { cargarTextos, reintentarTextos } from "../../../comun/textos.js";
-import { crearClienteInscripcionesRRHH } from "./inscripcion-rrhh-cliente.js";
+import { crearClienteInscripcionesRRHH } from "./inscripcion-rrhh-cliente.js?v=20261009-inscripciones-v1";
 
 const ESTADOS = new Set(["pendiente", "admitida_a_convocatoria", "incorporada", "rechazada"]);
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -11,16 +11,20 @@ export function leerRutaInscripcionesRRHH(busqueda = "") {
   const estado = q.get("inscripcion_estado") || "pendiente";
   const convocatoria = q.get("inscripcion_convocatoria") || "";
   const cursor = q.get("inscripcion_cursor") || "";
+  const selectorCursor = q.get("inscripcion_convocatorias_cursor") || "";
   return Object.freeze({ estado: ESTADOS.has(estado) ? estado : "pendiente",
-    convocatoria: convocatoria.length <= 512 ? convocatoria : "", cursor: cursor.length <= 512 ? cursor : "" });
+    convocatoria: convocatoria.length <= 512 ? convocatoria : "", cursor: cursor.length <= 512 ? cursor : "",
+    selectorCursor: selectorCursor.length <= 512 ? selectorCursor : "" });
 }
 
 export function rutaInscripcionesRRHH(actual, filtro) {
   const url = new URL(actual);
-  for (const nombre of ["inscripcion_estado", "inscripcion_convocatoria", "inscripcion_cursor"]) url.searchParams.delete(nombre);
+  for (const nombre of ["inscripcion_estado", "inscripcion_convocatoria", "inscripcion_cursor",
+    "inscripcion_convocatorias_cursor"]) url.searchParams.delete(nombre);
   if (filtro.estado && filtro.estado !== "pendiente") url.searchParams.set("inscripcion_estado", filtro.estado);
   if (filtro.convocatoria) url.searchParams.set("inscripcion_convocatoria", filtro.convocatoria);
   if (filtro.cursor) url.searchParams.set("inscripcion_cursor", filtro.cursor);
+  if (filtro.selectorCursor) url.searchParams.set("inscripcion_convocatorias_cursor", filtro.selectorCursor);
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
@@ -29,7 +33,8 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
   cargarCatalogo = cargarTextos, reintentarCatalogo = reintentarTextos,
   alDenegacion = () => {}, signal } = {}) {
   if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
-    || !cliente?.listar || !cliente?.detalle || !cliente?.motivos || !cliente?.decidir || !cliente?.incorporar) {
+    || !cliente?.convocatorias || !cliente?.listar || !cliente?.detalle || !cliente?.motivos
+    || !cliente?.decidir || !cliente?.incorporar) {
     throw new TypeError("superficie no disponible");
   }
   let vivo = true;
@@ -37,6 +42,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
   let controlador = null;
   let catalogo = null;
   let listado = null;
+  let convocatorias = null;
   let detalle = null;
   let motivos = null;
   let decision = "";
@@ -53,17 +59,29 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
   const fecha = (valor) => esc(catalogo.fecha(valor, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" }));
 
   function limpiarDenegacion() {
-    ++secuencia; controlador?.abort(); listado = null; detalle = null; motivos = null; recibo = null;
+    ++secuencia; controlador?.abort(); listado = null; convocatorias = null; detalle = null; motivos = null; recibo = null;
     intento = null; estadoVista = "denegada"; alDenegacion(); pintar();
   }
   function pintar() {
     if (!vivo || !catalogo) return;
+    if (!filtro.convocatoria) {
+      const items = convocatorias?.convocatorias || [];
+      const tarjetas = items.map((c) => `<a class="tarjeta-modulo tarjeta-modulo-habilitada" href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, convocatoria: c.convocatoria_ref, cursor: "" }))}" data-inscripcion-elegir="${esc(c.convocatoria_ref)}"><strong>${esc(c.titulo)}</strong><span>${et("primera_categoria")}: ${esc(c.categorias_resumen)}</span><span class="estado-chip ${c.estado_publicacion === "publicada" ? "exito" : c.estado_publicacion === "sustituida" ? "violeta" : "peligro"}">${et(`publicacion_${c.estado_publicacion}`)}</span><time datetime="${esc(c.plazo_fin)}">${et("fin_plazo")}: ${fecha(c.plazo_fin)}</time>${Date.parse(c.plazo_fin) <= Date.now() ? `<span class="estado-chip aviso">${et("plazo_finalizado")}</span>` : ""}<span>${et("ver_solicitudes")}</span></a>`).join("");
+      const aviso = estadoVista === "cargando" ? `<p role="status" aria-busy="true">${et("cargando_convocatorias")}</p>`
+        : estadoVista === "denegada" ? `<p role="alert">${et("denegada")}</p>`
+          : estadoVista === "error" ? `<p role="alert">${et("error_convocatorias")}</p><button type="button" class="boton-secundario" data-inscripcion-reintentar>${et("reintentar")}</button>`
+            : convocatorias?.total === 0 ? `<p>${et("vacio_convocatorias")}</p>` : "";
+      const total = convocatorias ? `<a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, selectorCursor: "" }))}" data-inscripcion-selector-total>${et("total_convocatorias", { cuenta: catalogo.numero(convocatorias.total) })}</a>` : "";
+      const siguiente = convocatorias?.cursor_siguiente ? `<nav aria-label="${et("paginacion_convocatorias")}"><a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, selectorCursor: convocatorias.cursor_siguiente }))}" data-inscripcion-selector-siguiente>${et("siguiente_convocatorias")}</a></nav>` : "";
+      raiz.innerHTML = `<section class="panel" aria-labelledby="inscripciones-titulo"><header class="cabecera-panel"><div><h2 id="inscripciones-titulo" tabindex="-1">${et("titulo")}</h2></div><button type="button" class="boton-secundario" data-inscripcion-ayuda aria-expanded="${ayuda}" aria-controls="inscripcion-ayuda" aria-label="${et("ayuda_boton")}">?</button></header><div class="cuerpo-panel"><div id="inscripcion-ayuda" ${ayuda ? "" : "hidden"}>${et("ayuda")}</div><h3>${et("elegir_convocatoria")}</h3>${aviso}${total}${tarjetas ? `<div class="rejilla-modulos">${tarjetas}</div>` : ""}${siguiente}</div></section>`;
+      return;
+    }
     const lista = listado?.solicitudes || [];
     const filas = lista.map((s) => `<tr><th scope="row"><button type="button" class="enlace-tabla" data-inscripcion-abrir="${esc(s.solicitud_ref)}">${esc(s.persona_resumen || t("ver_solicitud"))}</button></th>
       <td><a class="enlace-tabla" href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, convocatoria: s.convocatoria_ref, cursor: "" }))}" data-inscripcion-convocatoria="${esc(s.convocatoria_ref)}">${esc(s.categoria)}</a></td><td><span class="estado-chip ${s.estado === "pendiente" ? "aviso" : s.estado === "incorporada" ? "exito" : s.estado === "rechazada" ? "peligro" : "info"}">${et(`estado_${s.estado}`)}</span></td><td><time datetime="${esc(s.registrada_en)}">${fecha(s.registrada_en)}</time></td></tr>`).join("");
     const opcionesEstado = [...ESTADOS].map((e) => `<option value="${e}" ${filtro.estado === e ? "selected" : ""}>${et(`estado_${e}`)}</option>`).join("");
     const nombreConvocatoria = lista.find((s) => s.convocatoria_ref === filtro.convocatoria)?.categoria || t("convocatoria_seleccionada");
-    const filtroActivo = filtro.convocatoria ? `<p>${et("filtro_activo")}: ${esc(nombreConvocatoria)}. <a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, convocatoria: "", cursor: "" }))}" data-inscripcion-quitar-filtro>${et("quitar_filtro")}</a></p>` : "";
+    const filtroActivo = filtro.convocatoria ? `<p>${et("filtro_activo")}: ${esc(nombreConvocatoria)}. <a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, convocatoria: "", cursor: "" }))}" data-inscripcion-quitar-filtro>${et("cambiar_convocatoria")}</a></p>` : "";
     const estado = estadoVista === "cargando" ? `<p role="status" aria-busy="true">${et("cargando")}</p>`
       : estadoVista === "denegada" ? `<p role="alert">${et("denegada")}</p>`
         : ["error", "conflicto", "falta_acta", "identidad_pendiente", "regla_incompatible", "evidencia_invalida", "plazo_cerrado", "requisitos_pendientes"].includes(estadoVista) ? `<p role="alert">${et(estadoVista === "error" && detalle && decision ? "error_decision" : estadoVista)}</p>${detalle && decision ? "" : `<button type="button" class="boton-secundario" data-inscripcion-reintentar>${et("reintentar")}</button>`}`
@@ -97,9 +115,28 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     filtro = nuevo; detalle = null; motivos = null; decision = ""; recibo = null; intento = null;
     enfocarLista = true; enfocarRecibo = false;
     historial.pushState(null, "", rutaInscripcionesRRHH(localizacion.href, filtro));
-    void cargarLista();
+    void cargarVista();
+  }
+  function cargarVista() {
+    return filtro.convocatoria ? cargarLista() : cargarConvocatorias();
+  }
+  async function cargarConvocatorias() {
+    controlador?.abort(); const orden = ++secuencia; controlador = new AbortController();
+    convocatorias = null; listado = null; detalle = null; estadoVista = "cargando"; pintar();
+    try {
+      const data = await cliente.convocatorias({ cursor: filtro.selectorCursor,
+        idioma: catalogo.idioma, signal: controlador.signal });
+      if (!vivo || orden !== secuencia || controlador.signal.aborted) return;
+      convocatorias = data; estadoVista = "lista"; pintar();
+      if (enfocarLista) { enfocarLista = false; raiz.querySelector?.("#inscripciones-titulo")?.focus?.({ preventScroll: true }); }
+    } catch (error) {
+      if (!vivo || orden !== secuencia || controlador.signal.aborted) return;
+      if ([401, 403].includes(error?.estado)) limpiarDenegacion();
+      else { estadoVista = "error"; pintar(); }
+    }
   }
   async function cargarLista() {
+    if (!filtro.convocatoria) return cargarConvocatorias();
     controlador?.abort(); const orden = ++secuencia; controlador = new AbortController();
     listado = null; detalle = null; estadoVista = "cargando"; pintar();
     try {
@@ -181,7 +218,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     } finally { enviando = false; if (vivo && orden === secuencia && !recibo) pintar(); }
   }
   const click = (evento) => {
-    const accion = evento.target?.closest?.("[data-inscripcion-abrir], [data-inscripcion-decidir], [data-inscripcion-confirmar], [data-inscripcion-cancelar], [data-inscripcion-cerrar], [data-inscripcion-reintentar], [data-inscripcion-ayuda], [data-inscripcion-siguiente], [data-inscripcion-total], [data-inscripcion-cerrar-recibo], [data-inscripcion-convocatoria], [data-inscripcion-quitar-filtro]");
+    const accion = evento.target?.closest?.("[data-inscripcion-abrir], [data-inscripcion-decidir], [data-inscripcion-confirmar], [data-inscripcion-cancelar], [data-inscripcion-cerrar], [data-inscripcion-reintentar], [data-inscripcion-ayuda], [data-inscripcion-siguiente], [data-inscripcion-total], [data-inscripcion-cerrar-recibo], [data-inscripcion-convocatoria], [data-inscripcion-quitar-filtro], [data-inscripcion-elegir], [data-inscripcion-selector-siguiente], [data-inscripcion-selector-total]");
     if (!accion || !raiz.contains(accion)) return;
     if (accion.matches("a")) evento.preventDefault();
     if (accion.dataset.inscripcionAbrir) void abrir(accion.dataset.inscripcionAbrir);
@@ -192,10 +229,13 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
       ++secuencia; controlador?.abort(); detalle = null; decision = ""; motivos = null; pintar();
       [...(raiz.querySelectorAll?.("[data-inscripcion-abrir]") || [])]
         .find((control) => control.dataset.inscripcionAbrir === ref)?.focus?.({ preventScroll: true }); }
-    else if (accion.hasAttribute("data-inscripcion-reintentar")) void cargarLista();
+    else if (accion.hasAttribute("data-inscripcion-reintentar")) void cargarVista();
     else if (accion.hasAttribute("data-inscripcion-ayuda")) { ayuda = !ayuda; pintar(); raiz.querySelector?.("[data-inscripcion-ayuda]")?.focus?.(); }
     else if (accion.hasAttribute("data-inscripcion-siguiente")) navegar({ ...filtro, cursor: listado.cursor_siguiente });
     else if (accion.hasAttribute("data-inscripcion-total")) navegar({ ...filtro, cursor: "" });
+    else if (accion.dataset.inscripcionElegir) navegar({ ...filtro, convocatoria: accion.dataset.inscripcionElegir, cursor: "" });
+    else if (accion.hasAttribute("data-inscripcion-selector-siguiente")) navegar({ ...filtro, selectorCursor: convocatorias.cursor_siguiente });
+    else if (accion.hasAttribute("data-inscripcion-selector-total")) navegar({ ...filtro, selectorCursor: "" });
     else if (accion.dataset.inscripcionConvocatoria) navegar({ ...filtro, convocatoria: accion.dataset.inscripcionConvocatoria, cursor: "" });
     else if (accion.hasAttribute("data-inscripcion-quitar-filtro")) navegar({ ...filtro, convocatoria: "", cursor: "" });
     else if (accion.hasAttribute("data-inscripcion-cerrar-recibo")) { recibo = null; enfocarRecibo = false; pintar();
@@ -206,7 +246,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     evento.preventDefault(); const form = new FormData(evento.target);
     navegar({ estado: form.get("estado"), convocatoria: filtro.convocatoria, cursor: "" });
   };
-  const pop = () => { filtro = leerRutaInscripcionesRRHH(localizacion.search); enfocarLista = true; void cargarLista(); };
+  const pop = () => { filtro = leerRutaInscripcionesRRHH(localizacion.search); enfocarLista = true; void cargarVista(); };
   const desmontar = () => {
     if (!vivo) return;
     vivo = false; ++secuencia; controlador?.abort();
@@ -223,6 +263,6 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     try { catalogo = await cargarCatalogo("bolsa-inscripcion-rrhh"); }
     catch { catalogo = await reintentarCatalogo("bolsa-inscripcion-rrhh"); }
   } catch (error) { if (!vivo) return montaje; throw error; }
-  if (vivo) void cargarLista();
+  if (vivo) void cargarVista();
   return montaje;
 }
