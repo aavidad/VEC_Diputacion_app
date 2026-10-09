@@ -125,7 +125,7 @@ func abrirEjecutorExternoInscripcionBolsa(ctx context.Context, dsn string) (*pgx
  SELECT c.oid FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='vec_bolsa_llamamientos' AND c.relkind='S'
 )
-SELECT session_user='vec_bolsa_llamamientos_portal_externo'
+SELECT session_user='vec_externo_bolsa_desarrollo'
  AND (SELECT count(*)=12 AND count(DISTINCT proname)=12 AND bool_and(prosecdef)
   AND bool_and(proname=ANY(ARRAY[
    'consultar_mi_bolsa_v1','consultar_mi_bolsa_portal_v1','consultar_historial_mi_bolsa_v1',
