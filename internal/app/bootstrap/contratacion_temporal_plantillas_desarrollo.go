@@ -730,7 +730,7 @@ func nuevasRutasPlantillasDocumentalCTDesarrollo(
 		return nil, plantillasapp.ErrNoDisponible
 	}
 	manejador, err := plantillashttp.NuevoManejadorBorradores(consultorDetalle, proveedorDocumental,
-		plantillashttp.GeneradorBorradoresCatalogo{PDF: pdfvec.Renderizador{}, DOCX: docxvec.Renderizador{}, Etiquetas: etiquetas},
+		plantillashttp.GeneradorBorradoresCatalogo{PDF: pdfvec.Renderizador{Membrete: true}, DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas},
 		reloj.Ahora)
 	if err != nil {
 		return nil, plantillasapp.ErrNoDisponible
