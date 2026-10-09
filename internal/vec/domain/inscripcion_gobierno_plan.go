@@ -168,6 +168,11 @@ func (p PlanVersionInscripcion) ValidarContraCatalogo(c CatalogoAccionesAdminist
 		p.CatalogoHuellaSHA256 != huella {
 		return ErrPlanVersionInscripcionInvalido
 	}
+	for _, cambio := range p.Asignaciones {
+		if ahora.Before(cambio.VigenteDesde) || !ahora.Before(cambio.VigenteHasta) {
+			return ErrPlanVersionInscripcionInvalido
+		}
+	}
 	if p.Base != nil {
 		baseEncontrada := false
 		for _, publicado := range c.Perfiles {
@@ -338,6 +343,8 @@ func cambioAsignacionInscripcionValido(c CambioAsignacionInscripcion, perfil Per
 			c.Anterior.Documento.AsignacionID != c.AsignacionID ||
 			c.Anterior.Documento.PrincipalID != c.PrincipalID ||
 			c.Anterior.Documento.PerfilActivoRef != c.PerfilActivoRef ||
+			!c.VigenteDesde.Equal(c.Anterior.Documento.VigenteDesde) ||
+			!c.VigenteHasta.Equal(c.Anterior.Documento.VigenteHasta) ||
 			!huellaSHA256AutorizacionV3NoNula(c.Anterior.HuellaSHA256) ||
 			c.Anterior.HuellaSHA256 != huellaAnterior ||
 			!ambitosInscripcionIguales(c.Ambitos, c.Anterior.Documento.Ambitos) {
