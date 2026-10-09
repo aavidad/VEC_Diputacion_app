@@ -18,6 +18,7 @@ BEGIN
   'vec_autorizacion.acreditar_cambios_empleado_inscripcion_v1(jsonb)',
   'vec_autorizacion.acreditar_cambios_externos_inscripcion_v1(jsonb)',
   'vec_autorizacion.acreditar_cambios_rrhh_inscripcion_v1(jsonb,text)',
+  'vec_autorizacion.revalidar_catalogo_cierre_inscripcion_v1(jsonb)',
   'vec_autorizacion.solicitud_replay_version_inscripcion_v1(bytea,text)',
   'vec_autorizacion.comprobar_postimagen_version_inscripcion_v1(text)',
   'vec_autorizacion.aplicar_version_inscripcion_v1(boolean,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
@@ -67,6 +68,13 @@ BEGIN
  EXCEPTION WHEN SQLSTATE '42501' THEN rechazo:=true;
  END;
  IF NOT rechazo THEN RAISE EXCEPTION 'AUT68: unidad sin Personal31 admitida';END IF;
+ rechazo:=false;
+ BEGIN
+  PERFORM vec_autorizacion.revalidar_catalogo_cierre_inscripcion_v1(
+   '{"catalogo_ref":"catalogo:aut68:inexistente","catalogo_version":1,"catalogo_huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","selecciones":[]}'::jsonb);
+ EXCEPTION WHEN SQLSTATE '40001' THEN rechazo:=true;
+ END;
+ IF NOT rechazo THEN RAISE EXCEPTION 'AUT68: cabeza inexistente admitida';END IF;
  SELECT pg_catalog.count(*) INTO n FROM vec_autorizacion.propuesta_version_inscripcion_v1;
  IF n<>0 THEN RAISE EXCEPTION 'AUT68: propuesta sembrada';END IF;
  SELECT pg_catalog.count(*) INTO n FROM vec_autorizacion.cierre_version_inscripcion_v1;

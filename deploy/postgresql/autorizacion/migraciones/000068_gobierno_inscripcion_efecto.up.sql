@@ -165,6 +165,40 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.acreditar_cambios_rrhh_inscripcion_v1(jsonb,text) FROM PUBLIC;
 
+-- La primera aprobación revalida la vigencia temporal justo antes de
+-- devolver. La cabeza sigue bloqueada desde validar_plan(...,true).
+CREATE FUNCTION vec_autorizacion.revalidar_catalogo_cierre_inscripcion_v1(p jsonb)
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET timezone='UTC' SET row_security=on AS $f$
+DECLARE h record;catalogo jsonb;seleccion jsonb;entrada jsonb;ahora timestamptz;
+BEGIN
+ SELECT * INTO h FROM vec_autorizacion.cabeza_catalogo_acciones_admin_v1
+  WHERE catalogo_ref=p->>'catalogo_ref' FOR SHARE;
+ IF NOT FOUND OR h.version::text IS DISTINCT FROM p->>'catalogo_version'
+  OR h.huella_sha256 IS DISTINCT FROM p->>'catalogo_huella_sha256'
+ THEN RAISE EXCEPTION 'AUT68: cabeza de catálogo cambió' USING ERRCODE='40001';END IF;
+ catalogo:=pg_catalog.convert_from(vec_autorizacion.resolver_catalogo_acciones_administracion_v1(
+  p->>'catalogo_ref',(p->>'catalogo_version')::integer,p->>'catalogo_huella_sha256'),'UTF8')::jsonb;
+ ahora:=pg_catalog.clock_timestamp();
+ IF ahora<(catalogo->>'vigente_desde')::timestamptz
+  OR (catalogo->>'vigente_hasta'<>'0001-01-01T00:00:00Z'
+   AND ahora>=(catalogo->>'vigente_hasta')::timestamptz)
+ THEN RAISE EXCEPTION 'AUT68: catálogo vencido' USING ERRCODE='42501';END IF;
+ FOR seleccion IN SELECT value FROM pg_catalog.jsonb_array_elements(p->'selecciones') LOOP
+  SELECT value INTO entrada FROM pg_catalog.jsonb_array_elements(catalogo->'entradas')
+   WHERE value->>'referencia'=seleccion->>'entrada_ref';
+  IF NOT FOUND OR entrada->>'version' IS DISTINCT FROM seleccion->>'entrada_version'
+   OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+    vec_autorizacion.canon_gobierno_rol_nuevo_v1(entrada,'entrada'),'UTF8')),'hex')
+    IS DISTINCT FROM seleccion->>'entrada_huella_sha256'
+   OR ahora<(entrada->>'vigente_desde')::timestamptz
+   OR (entrada->>'vigente_hasta'<>'0001-01-01T00:00:00Z'
+    AND ahora>=(entrada->>'vigente_hasta')::timestamptz)
+  THEN RAISE EXCEPTION 'AUT68: descriptor vencido o divergente' USING ERRCODE='42501';END IF;
+ END LOOP;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.revalidar_catalogo_cierre_inscripcion_v1(jsonb) FROM PUBLIC;
+
 CREATE FUNCTION vec_autorizacion.solicitud_replay_version_inscripcion_v1(original bytea,actual text)
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $f$
  SELECT (pg_catalog.convert_from(original,'UTF8')::jsonb-'correlacion_ref')
@@ -590,6 +624,9 @@ BEGIN
    AND z->>'asignacion_ref'=prop.asignacion_ref))
  OR (p_cierre AND NOT replay AND pg_catalog.clock_timestamp()>=prop.caduca_en)
  THEN RAISE EXCEPTION 'AUT68: doble control final no vigente' USING ERRCODE='42501';END IF;
+ IF p_cierre AND NOT replay THEN
+  PERFORM vec_autorizacion.revalidar_catalogo_cierre_inscripcion_v1(plan);
+ END IF;
  RETURN resultado||pg_catalog.jsonb_build_object('estado','permitido','replay',replay);
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.aplicar_version_inscripcion_v1(boolean,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
