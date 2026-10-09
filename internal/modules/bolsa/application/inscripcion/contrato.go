@@ -289,7 +289,7 @@ type Solicitud struct {
 func (s Solicitud) Validar() error {
 	if !solicitudRefValida(s.SolicitudRef) || !referenciaOpaca.MatchString(s.ReciboRef) ||
 		!convocatoriaRefValida(s.ConvocatoriaRef) || !referenciaOpaca.MatchString(s.CategoriaRef) || len(s.CategoriaRef) > 200 ||
-		s.Categoria == "" || len(s.Categoria) > 200 ||
+		s.Categoria == "" || len(s.Categoria) > 2048 ||
 		s.Version == 0 || s.RegistradaEn.IsZero() {
 		return ErrSolicitudInvalida
 	}

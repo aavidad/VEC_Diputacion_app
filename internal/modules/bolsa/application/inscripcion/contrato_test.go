@@ -2,6 +2,7 @@ package inscripcion
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -35,6 +36,20 @@ func TestPresentacionRechazaCategoriaAjenaYDeclaracionesDuplicadas(t *testing.T)
 				t.Fatal("entrada insegura aceptada")
 			}
 		})
+	}
+}
+
+func TestSolicitudConEtiquetaPublicadaLargaPermaneceVisible(t *testing.T) {
+	s := Solicitud{SolicitudRef: "solicitud_inscripcion_" + strings.Repeat("a", 64),
+		ReciboRef: "recibo:inscripcion:001", ConvocatoriaRef: "cv1_" + strings.Repeat("b", 64) + "_v1",
+		CategoriaRef: "categoria:rpt:auxiliar", Categoria: strings.Repeat("á", 1024),
+		Estado: EstadoPendiente, Version: 1, RegistradaEn: time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)}
+	if len(s.Categoria) != 2048 || s.Validar() != nil {
+		t.Fatal("una etiqueta publicada de 2048 bytes desaparece")
+	}
+	s.Categoria += "a"
+	if s.Validar() == nil {
+		t.Fatal("etiqueta superior al contrato publicada como válida")
 	}
 }
 

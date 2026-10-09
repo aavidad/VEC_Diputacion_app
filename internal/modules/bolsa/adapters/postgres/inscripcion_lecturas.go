@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 
@@ -269,7 +270,7 @@ func validarBolsaAbiertaInscripcion(b inscripcion.BolsaAbierta, detalle bool) er
 		vistas := make(map[string]struct{}, len(b.Categorias))
 		for _, categoria := range b.Categorias {
 			if categoria.CategoriaRef == "" || len(categoria.CategoriaRef) > 200 ||
-				categoria.Categoria == "" || len(categoria.Categoria) > 200 {
+				categoria.Categoria == "" || len(categoria.Categoria) > 2048 {
 				return inscripcion.ErrNoDisponible
 			}
 			if _, repetida := vistas[categoria.CategoriaRef]; repetida {
@@ -316,7 +317,7 @@ func (r *RepositorioInscripcionesPostgreSQL) PendientesRRHH(ctx context.Context,
 	return consultarInscripcion(ctx, r, actor, inscripcion.AccionListarRRHH, recurso, filtro,
 		selectorListaInscripcion{Limite: filtro.Limite, Cursor: filtro.Cursor, Estado: filtro.Estado,
 			ConvocatoriaRef: filtro.ConvocatoriaRef}, func(p inscripcion.Pagina) error {
-			if p.ConvocatoriaTitulo == "" || len(p.ConvocatoriaTitulo) > 180 {
+			if p.ConvocatoriaTitulo == "" || utf8.RuneCountInString(p.ConvocatoriaTitulo) > 180 {
 				return inscripcion.ErrNoDisponible
 			}
 			return validarPaginaInscripcion(filtro.Limite)(p)
@@ -340,7 +341,8 @@ func (r *RepositorioInscripcionesPostgreSQL) ConvocatoriasRRHH(ctx context.Conte
 			}
 			for _, convocatoria := range p.Convocatorias {
 				if !inscripcion.ConvocatoriaRefValida(convocatoria.ConvocatoriaRef) ||
-					convocatoria.Titulo == "" || convocatoria.CategoriasResumen == "" ||
+					convocatoria.Titulo == "" || utf8.RuneCountInString(convocatoria.Titulo) > 180 ||
+					convocatoria.CategoriasResumen == "" || len(convocatoria.CategoriasResumen) > 2048 ||
 					convocatoria.PlazoFin.IsZero() || convocatoria.EstadoPublicacion == "" {
 					return inscripcion.ErrNoDisponible
 				}

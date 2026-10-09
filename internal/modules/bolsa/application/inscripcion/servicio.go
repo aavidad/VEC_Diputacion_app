@@ -3,6 +3,7 @@ package inscripcion
 import (
 	"context"
 	"reflect"
+	"unicode/utf8"
 )
 
 type Servicio struct{ repositorio Repositorio }
@@ -103,7 +104,8 @@ func (s *Servicio) ConvocatoriasRRHH(ctx context.Context, actor Actor, limite in
 	}
 	for _, convocatoria := range p.Convocatorias {
 		if !convocatoriaRefValida(convocatoria.ConvocatoriaRef) || convocatoria.Titulo == "" ||
-			convocatoria.CategoriasResumen == "" || convocatoria.PlazoFin.IsZero() ||
+			utf8.RuneCountInString(convocatoria.Titulo) > 180 ||
+			convocatoria.CategoriasResumen == "" || len(convocatoria.CategoriasResumen) > 2048 || convocatoria.PlazoFin.IsZero() ||
 			convocatoria.EstadoPublicacion == "" {
 			return PaginaConvocatoriasGestion{}, ErrNoDisponible
 		}
@@ -141,7 +143,7 @@ func bolsaAbiertaValida(b BolsaAbierta, detalle bool) bool {
 		}
 	}
 	for _, c := range b.Categorias {
-		if !referenciaOpaca.MatchString(c.CategoriaRef) || len(c.CategoriaRef) > 200 || c.Categoria == "" || len(c.Categoria) > 200 {
+		if !referenciaOpaca.MatchString(c.CategoriaRef) || len(c.CategoriaRef) > 200 || c.Categoria == "" || len(c.Categoria) > 2048 {
 			return false
 		}
 	}
@@ -216,7 +218,7 @@ func (s *Servicio) PendientesRRHH(ctx context.Context, actor Actor, filtro Filtr
 	if err != nil {
 		return Pagina{}, err
 	}
-	if !paginaValida(p, filtro.Limite) || p.ConvocatoriaTitulo == "" || len(p.ConvocatoriaTitulo) > 180 {
+	if !paginaValida(p, filtro.Limite) || p.ConvocatoriaTitulo == "" || utf8.RuneCountInString(p.ConvocatoriaTitulo) > 180 {
 		return Pagina{}, ErrNoDisponible
 	}
 	return p, nil
