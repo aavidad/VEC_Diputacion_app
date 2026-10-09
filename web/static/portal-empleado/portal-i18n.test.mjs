@@ -743,7 +743,11 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["modulos/contratacion-temporal/incorporacion-personal-b2.js",
     "modulos/contratacion-temporal/vista-expedientes-incorporacion.js", "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
     "modulos/contratacion-temporal/vista-expedientes.js", "portal-modulos-coordinador.js", "portal.js"])
-    versionesEspeciales.set(ruta, "20261009-b2-preparacion-v2");
+    versionesEspeciales.set(ruta, "20261009-retoques-textos-v1");
+  // La lista de documentos marca los que el expediente aún no permite preparar.
+  for (const ruta of ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/vista-borradores-publicados.js", "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-modulos-coordinador.js", "portal.js"]) versionesEspeciales.set(ruta, "20261009-borradores-fase-v3");
   // La solicitud del centro y el alta CT comparten contrato y renderer.
   // Cada consumidor modificado tiene una única URL de la cohorte nueva.
   for (const ruta of [

@@ -101,6 +101,9 @@ type tipoDisponible struct {
 	Clave    string   `json:"clave"`
 	Etiqueta string   `json:"etiqueta"`
 	Formatos []string `json:"formatos"`
+	// Disponible dice si el expediente ya permite preparar el documento; si
+	// no, la pantalla lo muestra deshabilitado en lugar de dejar que falle.
+	Disponible bool `json:"disponible"`
 }
 type listaDisponibles struct {
 	Esquema              string           `json:"esquema"`
@@ -219,7 +222,8 @@ func (h *ManejadorBorradores) listar(w http.ResponseWriter, p *informejuridico.P
 		if !ok || !plantilla.AdmiteModalidad(d.Resumen.ModalidadClave) || !accionPlantillaCumplida(plantilla, d) {
 			continue
 		}
-		tipos = append(tipos, tipoDisponible{Clave: string(tipo), Etiqueta: plantilla.Nombre, Formatos: []string{"pdf", "docx"}})
+		tipos = append(tipos, tipoDisponible{Clave: string(tipo), Etiqueta: plantilla.Nombre, Formatos: []string{"pdf", "docx"},
+			Disponible: informejuridico.BorradorPreparable(p, tipo, d)})
 	}
 	responder(w, 200, listaDisponibles{Esquema: EsquemaBorradoresDisponibles, CatalogoRef: p.Referencia(), CatalogoHuellaSHA256: p.Huella(), ProcedenciaRef: procedencia, Tipos: tipos})
 }

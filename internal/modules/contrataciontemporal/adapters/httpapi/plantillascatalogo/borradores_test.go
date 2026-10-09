@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -145,5 +146,39 @@ func TestBorradorGenericoNoUsaTipoFueraCatalogo(t *testing.T) {
 	h.ServeHTTP(w, peticionBorradorPrueba(RutaBorradores, "application/pdf", `{"expediente_ref":"expediente:ct:0001","version_observada":3,"tipo":"documento_inexistente","formato":"pdf"}`))
 	if w.Code != 409 || c.llamadas != 1 || fuente.llamadas != 1 {
 		t.Fatalf("tipo no publicado: %d", w.Code)
+	}
+}
+
+// La lista marca qué documentos se pueden preparar ya: antes del nombramiento
+// ninguno; con la propuesta de formalización registrada, los de esa fase.
+func TestListaBorradoresIndicaDisponibilidadSegunFase(t *testing.T) {
+	p := plantillasBorradorPrueba(t)
+	listar := func(detalle ports.DetalleExpedienteRRHH) map[string]bool {
+		t.Helper()
+		g := GeneradorConInstantaneaFunc(func(context.Context, *informejuridico.PlantillasBorrador, string, ports.TipoBorradorRRHH, ports.DetalleExpedienteRRHH) (DocumentoCatalogado, error) {
+			t.Fatal("la lista no debe generar")
+			return DocumentoCatalogado{}, nil
+		})
+		h, _ := NuevoManejadorBorradores(&consultaDetalleBorradorPrueba{detalle: detalle}, &proveedorBorradorPrueba{plantillas: p}, g, func() time.Time { return instanteBorradorPrueba })
+		w := httptest.NewRecorder()
+		cuerpo := `{"expediente_ref":"` + detalle.Resumen.ExpedienteRef + `","version_observada":` + strconv.FormatUint(detalle.Resumen.Version, 10) + `}`
+		h.ServeHTTP(w, peticionBorradorPrueba(RutaBorradoresDisponibles, "application/json", cuerpo))
+		var z listaDisponibles
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &z) != nil || len(z.Tipos) == 0 {
+			t.Fatalf("lista: %d %q", w.Code, w.Body.String())
+		}
+		disponibles := map[string]bool{}
+		for _, tipo := range z.Tipos {
+			disponibles[tipo.Clave] = tipo.Disponible
+		}
+		return disponibles
+	}
+	for clave, disponible := range listar(detalleBorradorPrueba()) {
+		if disponible {
+			t.Fatalf("%s disponible en fase de análisis", clave)
+		}
+	}
+	if enNombramiento := listar(detalleGeneradorPrueba()); !enNombramiento["informe_definitivo"] || !enNombramiento["resolucion"] {
+		t.Fatalf("documentos de nombramiento no disponibles: %v", enNombramiento)
 	}
 }

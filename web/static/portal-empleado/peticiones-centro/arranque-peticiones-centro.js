@@ -61,8 +61,8 @@ async function arrancar(origen = null) {
       // RRHH no tiene su permiso de lectura y no debe pedirlos al abrir.
       if (new URLSearchParams(location.search).get("vista") !== "rrhh") {
         await Promise.all([
-          import("./incorporaciones-centro.js?v=20261009-pc-bandeja-unica-v1"),
-          import("./cancelaciones-centro.js?v=20261009-pc-bandeja-unica-v1"),
+          import("./incorporaciones-centro.js?v=20261009-retoques-textos-v1"),
+          import("./cancelaciones-centro.js?v=20261009-retoques-textos-v1"),
         ]);
       }
       montado = true;
