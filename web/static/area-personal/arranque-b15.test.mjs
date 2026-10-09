@@ -5,7 +5,7 @@ import { renderizarErrorCargaAreaPersonal } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { textoContactoPropio } from "./i18n-contacto-propio.js";
 import { tabla } from "./vistas/comunes.js";
-import { exigirRenovado } from "../portal-empleado/versiones-cache.test-helper.mjs";
+import { exigirRenovado, versionDe, versionesDe } from "../portal-empleado/versiones-cache.test-helper.mjs";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", async () => {
@@ -38,6 +38,29 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   assert.ok(aplicacion.includes(`../comun/oportunidades/vista.js?v=${versionCSSOportunidades}`));
   assert.match(vista, /\.\/i18n\.js\?v=20260924-f2-web2/);
   exigirRenovado(arranque, "./cliente-http.js", ["20260924-f2-b11-v1", "20260924-f2-b11-v2"]);
+});
+
+test("Mi Bolsa con pausa nula cierra una sola cohorte hasta el HTML y la caché", async () => {
+  const [contrato, cliente, contacto, seguimiento, aplicacion, arranque, html, cache, manifiesto] = await Promise.all([
+    "contrato.js", "cliente-http.js", "contacto-propio.js", "vistas/seguimiento-tramites.js",
+    "aplicacion.js", "arranque.js", "index.html", "cache-publica-v1.json", "../../produccion.manifest",
+  ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
+  const cohorte = "20261009-mi-bolsa-pausa-null-v1";
+  for (const [fuente, ruta] of [[contrato, "./mi-bolsa-portal.js"],
+    [seguimiento, "../mi-bolsa-portal.js"], [aplicacion, "./mi-bolsa-portal.js"],
+    [cliente, "./contrato.js"], [contacto, "./cliente-http.js"],
+    [aplicacion, "./contacto-propio.js"], [aplicacion, "./vistas/seguimiento-tramites.js"],
+    [arranque, "./aplicacion.js"], [arranque, "./cliente-http.js"],
+    [html, "/area-personal/arranque.js"], [cache, "/area-personal/arranque.js"]]) {
+    assert.equal(versionDe(fuente, ruta), cohorte, ruta);
+  }
+  assert.equal(versionesDe(arranque, "./cliente-http.js").length, 2,
+    "la carga inicial y la diferida usan el mismo cliente HTTP");
+  assert.equal(JSON.parse(cache).version, "20261003-pwa-ci-v5");
+  for (const ruta of ["mi-bolsa-portal.js", "contrato.js", "cliente-http.js", "contacto-propio.js",
+    "vistas/seguimiento-tramites.js", "aplicacion.js", "arranque.js"]) {
+    assert.equal(manifiesto.split(`static/area-personal/${ruta}`).length - 1, 1, ruta);
+  }
 });
 
 test("una caché antigua v1-v5 no puede sustituir los padres v6 del montaje", async () => {
