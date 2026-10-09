@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"reflect"
 	"slices"
 	"strings"
@@ -222,7 +223,14 @@ func (s *Servicio) nombrePropio(ctx context.Context, candidato string, participa
 		bolsas = append(bolsas, p.Bolsa)
 	}
 	nombre, apellidos, encontrado, err := s.nombre.NombrePropio(ctx, candidato, bolsas)
-	if err != nil || !encontrado {
+	if err != nil {
+		// Registro técnico con códigos cerrados: ni candidato ni nombre. La
+		// consulta sigue y la cabecera queda sin nombre.
+		slog.Warn("nombre propio de Mi Bolsa no disponible", "operacion", "consultar_mi_bolsa",
+			"etapa", "nombre_propio", "causa", causaNombrePropio(err))
+		return nil
+	}
+	if !encontrado {
 		return nil
 	}
 	nombre, apellidos = strings.Join(strings.Fields(nombre), " "), strings.Join(strings.Fields(apellidos), " ")
@@ -231,6 +239,17 @@ func (s *Servicio) nombrePropio(ctx context.Context, candidato string, participa
 		return nil
 	}
 	return &puertosbolsa.NombrePropioMiBolsa{Visible: visible, Iniciales: inicial(nombre) + inicial(apellidos)}
+}
+
+func causaNombrePropio(err error) string {
+	switch {
+	case errors.Is(err, context.Canceled):
+		return "cancelado"
+	case errors.Is(err, context.DeadlineExceeded):
+		return "tiempo_agotado"
+	default:
+		return "fuente_no_disponible"
+	}
 }
 
 func inicial(texto string) string {
