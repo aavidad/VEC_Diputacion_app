@@ -9,7 +9,8 @@ import { validarCanalesLlamamiento } from "./portal-bolsas-contrato.js?v=2026100
 import { crearControladorIntentosContacto, llamamientoDeFicha, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
 import { canalesAviso, filasSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261008-bolsa-global-v2";
-import { leerCandidatosBolsaCompartible, rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
+import { leerCandidatosBolsaCompartible, leerLlamamientoBolsaCompartible,
+  rutaCandidatosBolsaCompartible, rutaLlamamientoBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
 import { renderizarExpediente } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261008-canal-telefono-v2";
 import { crearTraductorExpedientesContratacion } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
@@ -210,6 +211,16 @@ test("iniciar el llamamiento copia el origen de la petición de esa bolsa", asyn
     globalThis.fetch = fetchOriginal;
   }
   assert.deepEqual(estado.filtrosBolsa.nuevo_llamamiento.origen, { referencia: "2026/CT-00042", centro: "Residencia La Milagrosa" });
+  estado.vista = "llamamientos";
+  estado.llamamientoDesdeCT = true;
+  estado.filtrosBolsa = {};
+  escuchas.click({ preventDefault() {}, target: { closest: (s) => (s === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: "iniciar-b7" } } : null) } });
+  assert.deepEqual(estado.filtrosBolsa.nuevo_llamamiento.origen,
+    { referencia: "2026/CT-00042", centro: "Residencia La Milagrosa" });
+  estado.llamamientoDesdeCT = false;
+  estado.filtrosBolsa = {};
+  escuchas.click({ preventDefault() {}, target: { closest: (s) => (s === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: "iniciar-b7" } } : null) } });
+  assert.equal(estado.filtrosBolsa.nuevo_llamamiento.origen, null, "el menú ordinario no hereda el origen CT");
   estado.bolsaSeleccionada = "bolsa:otra";
   estado.filtrosBolsa = {};
   escuchas.click({ preventDefault() {}, target: { closest: (s) => (s === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: "iniciar-b7" } } : null) } });
@@ -235,6 +246,18 @@ test("la URL lleva seguimiento u origen validados y nunca ambos", () => {
     candidatos: [persona(1, "Antonio Reyes Álvarez", { ultimo_llamamiento: { llamamiento_ref: "a/b", comunicado_en: "2026-10-08T07:00:00Z", canal: "correo", resultado: "pendiente" } })] }),
   filtros: { estado: "", texto: "" } }).renderizarVista("bolsa-candidatos");
   assert.doesNotMatch(raro, /data-seguimiento=/u, "una referencia no enlazable no rompe la lista");
+});
+
+test("la ruta directa de CT llega al asistente y exige bolsa autorizada y origen íntegro", () => {
+  const origen = { expediente_ref: "expediente:sintetico:42", referencia: "2026/CT-00042",
+    centro: "Residencia La Milagrosa", fecha_inicio: "2026-10-20" };
+  const ruta = rutaLlamamientoBolsaCompartible("?lang=es&ct_estado=incidencia", "bolsa:1", origen);
+  assert.match(ruta, /bolsa_ref=bolsa%3A1.*origen_centro=Residencia\+La\+Milagrosa.*origen_inicio=2026-10-20#bolsa\/llamamientos/u);
+  assert.deepEqual(leerLlamamientoBolsaCompartible(ruta.split("#")[0], [{ bolsa_ref: "bolsa:1" }]),
+    { bolsaRef: "bolsa:1", origen });
+  assert.throws(() => leerLlamamientoBolsaCompartible(ruta.split("#")[0], []), RangeError);
+  assert.throws(() => rutaLlamamientoBolsaCompartible("", "bolsa:1", { ...origen, fecha_inicio: "2026-02-30", expediente_ref: "" }), TypeError);
+  assert.throws(() => leerLlamamientoBolsaCompartible("?bolsa_ref=bolsa%3A1&origen_expediente=otro", [{ bolsa_ref: "bolsa:1" }]), TypeError);
 });
 
 const t = crearTraductorExpedientesContratacion({});

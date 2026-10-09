@@ -1,11 +1,11 @@
 /** Montaje y gestión de estados de las fases de tramitación (alta, análisis, cobertura, asignación, informe, fiscalización y subsanación). */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261008-r-fichas-idioma-nav-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261009-ct-bolsa-cohorte-v8";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v6";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261009-asignacion-cobertura-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261009-ct-bolsa-cohorte-v8";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261009-centro-campos-cohorte-v5";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261009-ct-bolsa-cohorte-v8";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
@@ -17,7 +17,7 @@ import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261008-r-fichas-idioma-nav-v1";
+} from "./vista-expedientes-render.js?v=20261009-ct-bolsa-cohorte-v8";
 import { montarAltaContratacionTemporal } from "./vista.js?v=20261009-centro-campos-cohorte-v5";
 import { justificanteTraducido } from "../../portal-justificante.js";
 

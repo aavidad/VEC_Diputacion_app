@@ -11,28 +11,30 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/resultadobolsa"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
 const (
-	MaximoCuerpoConsultaCuadroRRHHBytes  = 4 * 1024
-	MaximoCuerpoConsultaDetalleRRHHBytes = 4 * 1024
-	MaximoRespuestaConsultaRRHHBytes     = 256 * 1024
-	MaximoPDFBorradorRRHHBytes           = 2 * 1024 * 1024
-	AcceptInformeDefinitivoRRHH          = "application/pdf; documento=informe-definitivo-desarrollo"
-	AcceptResolucionRRHH                 = "application/pdf; documento=resolucion-desarrollo"
-	AcceptDiligenciaRRHH                 = "application/pdf; documento=diligencia-desarrollo"
-	AcceptTomaPosesionRRHH               = "application/pdf; documento=toma-posesion-desarrollo"
-	AcceptNotificacionRRHH               = "application/pdf; documento=notificacion-desarrollo"
-	AcceptComunicacionCentroRRHH         = "application/pdf; documento=comunicacion-centro-desarrollo"
-	MIMEDOCXBorradorRRHH                 = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-	AcceptInformeDefinitivoDOCXRRHH      = MIMEDOCXBorradorRRHH + "; documento=informe-definitivo-desarrollo"
-	AcceptResolucionDOCXRRHH             = MIMEDOCXBorradorRRHH + "; documento=resolucion-desarrollo"
-	AcceptDiligenciaDOCXRRHH             = MIMEDOCXBorradorRRHH + "; documento=diligencia-desarrollo"
-	AcceptTomaPosesionDOCXRRHH           = MIMEDOCXBorradorRRHH + "; documento=toma-posesion-desarrollo"
-	AcceptNotificacionDOCXRRHH           = MIMEDOCXBorradorRRHH + "; documento=notificacion-desarrollo"
-	AcceptComunicacionCentroDOCXRRHH     = MIMEDOCXBorradorRRHH + "; documento=comunicacion-centro-desarrollo"
+	MaximoCuerpoConsultaCuadroRRHHBytes   = 4 * 1024
+	MaximoCuerpoConsultaDetalleRRHHBytes  = 4 * 1024
+	MaximoRespuestaConsultaRRHHBytes      = 256 * 1024
+	MaximoRespuestaConsultaBolsaRRHHBytes = 9 * 1024 * 1024
+	MaximoPDFBorradorRRHHBytes            = 2 * 1024 * 1024
+	AcceptInformeDefinitivoRRHH           = "application/pdf; documento=informe-definitivo-desarrollo"
+	AcceptResolucionRRHH                  = "application/pdf; documento=resolucion-desarrollo"
+	AcceptDiligenciaRRHH                  = "application/pdf; documento=diligencia-desarrollo"
+	AcceptTomaPosesionRRHH                = "application/pdf; documento=toma-posesion-desarrollo"
+	AcceptNotificacionRRHH                = "application/pdf; documento=notificacion-desarrollo"
+	AcceptComunicacionCentroRRHH          = "application/pdf; documento=comunicacion-centro-desarrollo"
+	MIMEDOCXBorradorRRHH                  = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	AcceptInformeDefinitivoDOCXRRHH       = MIMEDOCXBorradorRRHH + "; documento=informe-definitivo-desarrollo"
+	AcceptResolucionDOCXRRHH              = MIMEDOCXBorradorRRHH + "; documento=resolucion-desarrollo"
+	AcceptDiligenciaDOCXRRHH              = MIMEDOCXBorradorRRHH + "; documento=diligencia-desarrollo"
+	AcceptTomaPosesionDOCXRRHH            = MIMEDOCXBorradorRRHH + "; documento=toma-posesion-desarrollo"
+	AcceptNotificacionDOCXRRHH            = MIMEDOCXBorradorRRHH + "; documento=notificacion-desarrollo"
+	AcceptComunicacionCentroDOCXRRHH      = MIMEDOCXBorradorRRHH + "; documento=comunicacion-centro-desarrollo"
 	// Documentos cuyo texto aporta sólo el catálogo de plantillas de ejemplo.
 	AcceptContratoLaboralRRHH              = "application/pdf; documento=contrato-laboral-desarrollo"
 	AcceptNombramientoRRHH                 = "application/pdf; documento=nombramiento-desarrollo"
@@ -76,8 +78,9 @@ type consultaCuadroRRHHJSON struct {
 }
 
 type consultaDetalleRRHHJSON struct {
-	ExpedienteRef    string  `json:"expediente_ref"`
-	VersionObservada *uint64 `json:"version_observada"`
+	ExpedienteRef        string  `json:"expediente_ref"`
+	VersionObservada     *uint64 `json:"version_observada"`
+	ResultadoBolsaCursor *string `json:"resultado_bolsa_cursor,omitempty"`
 }
 
 func validarMetadatosConsultaRRHH(
@@ -223,23 +226,44 @@ func solicitudDetalleRRHHDesdePeticion(
 	w http.ResponseWriter,
 	r *http.Request,
 ) (ports.SolicitudDetalleRRHH, error) {
+	solicitud, cursor, err := solicitudDetalleRRHHConCursorDesdePeticion(w, r)
+	if err != nil {
+		return ports.SolicitudDetalleRRHH{}, err
+	}
+	if cursor != "" {
+		return ports.SolicitudDetalleRRHH{}, errContenidoConsultaRRHHNoValido
+	}
+	return solicitud, nil
+}
+
+func solicitudDetalleRRHHConCursorDesdePeticion(
+	w http.ResponseWriter,
+	r *http.Request,
+) (ports.SolicitudDetalleRRHH, string, error) {
 	var entrada consultaDetalleRRHHJSON
 	if err := decodificarConsultaRRHH(
 		w, r, MaximoCuerpoConsultaDetalleRRHHBytes, &entrada,
 	); err != nil {
-		return ports.SolicitudDetalleRRHH{}, err
+		return ports.SolicitudDetalleRRHH{}, "", err
 	}
 	if entrada.VersionObservada == nil {
-		return ports.SolicitudDetalleRRHH{}, errContenidoConsultaRRHHNoValido
+		return ports.SolicitudDetalleRRHH{}, "", errContenidoConsultaRRHHNoValido
+	}
+	cursor := ""
+	if entrada.ResultadoBolsaCursor != nil {
+		cursor = *entrada.ResultadoBolsaCursor
+		if !resultadobolsa.CursorResultadoBolsaRRHHValido(cursor) {
+			return ports.SolicitudDetalleRRHH{}, "", errContenidoConsultaRRHHNoValido
+		}
 	}
 	solicitud, err := ports.NuevaSolicitudDetalleRRHH(
 		entrada.ExpedienteRef,
 		*entrada.VersionObservada,
 	)
 	if err != nil {
-		return ports.SolicitudDetalleRRHH{}, errContenidoConsultaRRHHNoValido
+		return ports.SolicitudDetalleRRHH{}, "", errContenidoConsultaRRHHNoValido
 	}
-	return solicitud, nil
+	return solicitud, cursor, nil
 }
 
 func decodificarConsultaRRHH(

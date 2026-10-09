@@ -1,5 +1,5 @@
 import { validarContextoRecuperacionCierreAdministrativo, validarDatosRecuperacionCierreAdministrativo, validarPreparacionCierreAdministrativo, validarSolicitudCierreAdministrativo, validarReciboCierreAdministrativo } from "./contrato-cierre-administrativo.js";
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261008-r-fichas-idioma-nav-v1";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261009-ct-bolsa-cohorte-v8";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
 const TRANSICION = "cerrar_administrativamente_sin_cese", MAXIMO_ARCHIVO = 8 * 1024;

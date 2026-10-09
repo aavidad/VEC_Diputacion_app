@@ -20,6 +20,8 @@ trap 'unlink "${dependencias}" 2>/dev/null || true' EXIT
 # grafo no registra sus rutas; la composicion y sus pruebas mantienen esa guarda.
 # El verificador común de auditoría aporta el cotejo de los paquetes de
 # exportación; compilarlo no monta una captura, ruta o fuente nominal.
+# resultadobolsa contiene la proyección y el cursor del detalle CT ya auditado;
+# no monta rutas ni añade accesos. Revisado como paquete concreto en este corte.
 # No admitir nuevas importaciones por prefijo ni normalizar la lista con go list.
 LC_ALL=C go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' "${objetivo}" |
 	LC_ALL=C sed '/^$/d' | LC_ALL=C sort -u >"${dependencias}"
@@ -88,6 +90,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/modules/contrataciontemporal/application/consultafirmasv2" | \
 			"${modulo}/internal/modules/contrataciontemporal/application/diagnostico" | \
 			"${modulo}/internal/modules/contrataciontemporal/application/firmaautorizacionv2" | \
+			"${modulo}/internal/modules/contrataciontemporal/application/resultadobolsa" | \
 			"${modulo}/internal/modules/contrataciontemporal/cobertura" | \
 			"${modulo}/internal/modules/contrataciontemporal/domain" | \
 			"${modulo}/internal/modules/contrataciontemporal/ports" | \
