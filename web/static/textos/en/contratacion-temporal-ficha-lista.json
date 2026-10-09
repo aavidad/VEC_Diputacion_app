@@ -1,5 +1,6 @@
 {
   "general": {
+    "alta_solo_sustituciones": "You can record replacements. Other staffing needs are not available yet.",
     "filtros": "Dashboard filters",
     "tabla_expedientes": "Temporary staff requests case files",
     "marca_urgente": "Urgent",

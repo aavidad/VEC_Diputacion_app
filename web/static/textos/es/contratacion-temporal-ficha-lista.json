@@ -1,5 +1,6 @@
 {
   "general": {
+    "alta_solo_sustituciones": "Puede registrar sustituciones. Las demás necesidades todavía no están disponibles.",
     "filtros": "Filtros del cuadro",
     "tabla_expedientes": "Expedientes de peticiones de personal temporal",
     "marca_urgente": "Urgente",
