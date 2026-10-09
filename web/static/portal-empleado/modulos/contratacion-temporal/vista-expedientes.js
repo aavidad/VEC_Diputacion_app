@@ -22,7 +22,7 @@ import {
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-r-fichas-idioma-nav-v1";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-alta-analisis-bolsa-fichas-v5";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-alta-analisis-bolsa-fichas-v5";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-r-fichas-idioma-nav-v1";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261009-b2-preparacion-v2";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261009-asignacion-cobertura-v1";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261008-r-fichas-idioma-nav-v1";

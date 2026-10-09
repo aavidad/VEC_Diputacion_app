@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1";
 import { tabla as tablaPersonal } from "../area-personal/vistas/comunes.js";
@@ -23,26 +24,29 @@ test("las tablas de candidato conservan semántica y cabeceras al convertirse en
   assert.match(html, /data-etiqueta="Estado"/);
 });
 
-test("el formulario de mérito indica campos obligatorios y opcionales con catálogos reales ES/EN", async () => {
-  const { renderizarMeritos } = await import("../area-personal/vistas/perfil-meritos-solicitud.js");
+test("el área personal conserva Perfil y Mi bolsa sin el formulario de méritos retirado", async () => {
+  const { renderizarPerfil } = await import("../area-personal/vistas/perfil-meritos-solicitud.js");
+  const { renderizarLlamamientos } = await import("../area-personal/vistas/seguimiento-tramites.js");
+  const { datosMinimosMiBolsa } = await import("../area-personal/aplicacion.js");
   const { iniciarI18nAreaPersonal } = await import("../area-personal/i18n.js");
   const { lectorCatalogos } = await import("../area-personal/textos-prueba.test-helper.mjs");
-  for (const [idioma, obligatorio, opcional] of [["es", "(obligatorio)", "(opcional)"], ["en", "(required)", "(optional)"]]) {
+  const [html, rutas, fuentePerfil] = await Promise.all([
+    readFile(new URL("../area-personal/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../area-personal/vistas.json", import.meta.url), "utf8"),
+    readFile(new URL("../area-personal/vistas/perfil-meritos-solicitud.js", import.meta.url), "utf8"),
+  ]);
+  assert.equal(JSON.parse(rutas).vistas.meritos, undefined);
+  assert.doesNotMatch(html, /data-ruta="meritos"/u);
+  assert.doesNotMatch(fuentePerfil, /renderizarMeritos|formulario-merito|data-operacion="incorporar_merito"/u);
+  const datos = datosMinimosMiBolsa({ consultada_en: "2026-10-08T10:00:00Z" });
+  for (const [idioma, tituloBolsa] of [["es", "Mi bolsa"], ["en", "My job pool"]]) {
     await iniciarI18nAreaPersonal({ querySelectorAll: () => [], documentElement: {} }, {
       leer: lectorCatalogos(), ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` },
     });
-    const html = renderizarMeritos({ meritos: [], documentos: [] });
-    for (const campo of ["tipo", "titulo"]) {
-      const etiqueta = html.match(new RegExp(`<label for="merito-${campo}">(.*?)</label>`))[1];
-      assert.ok(etiqueta.includes(obligatorio));
-      assert.ok(!etiqueta.includes(opcional));
-    }
-    for (const campo of ["jornada", "documento"]) {
-      const etiqueta = html.match(new RegExp(`<label for="merito-${campo}">(.*?)</label>`))[1];
-      assert.ok(etiqueta.includes(opcional));
-    }
-    assert.match(html, /aria-describedby="merito-documento-ayuda"/);
-    assert.match(html, /<small id="merito-documento-ayuda">[^<]+<\/small>/);
-    assert.doesNotMatch(html, /areaPersonal\.vista\.comun\.campo/);
+    const perfil = renderizarPerfil(datos);
+    const bolsa = renderizarLlamamientos(datos, { participaciones: [] });
+    assert.match(perfil, /id="ficha-aspirante"[\s\S]*id="contacto-propio"/u);
+    assert.ok(bolsa.includes(tituloBolsa));
+    assert.doesNotMatch(`${perfil}${bolsa}`, /formulario-merito|data-operacion="incorporar_merito"/u);
   }
 });
