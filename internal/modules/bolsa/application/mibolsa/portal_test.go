@@ -44,9 +44,10 @@ func (r *registroPortalPrueba) ResponderPortal(_ context.Context, s bolsa.Respue
 }
 
 type reglasPortalPrueba struct {
-	modo      string
-	maxima    time.Time
-	maximaErr error
+	modo           string
+	maxima         time.Time
+	maximaErr      error
+	situacionesErr error
 }
 
 func (r reglasPortalPrueba) ModoRespuesta(context.Context) (string, string, error) {
@@ -55,7 +56,10 @@ func (r reglasPortalPrueba) ModoRespuesta(context.Context) (string, string, erro
 func (reglasPortalPrueba) ResultadosContactoEfectivo(context.Context) ([]string, error) {
 	return []string{"contactado"}, nil
 }
-func (reglasPortalPrueba) SituacionesAdmitidas(_ context.Context, tipo string) ([]string, string, error) {
+func (r reglasPortalPrueba) SituacionesAdmitidas(_ context.Context, tipo string) ([]string, string, error) {
+	if r.situacionesErr != nil {
+		return nil, "", r.situacionesErr
+	}
 	if tipo == bolsa.SolicitudPortalPausa {
 		return []string{"disponible"}, "vec.bolsa.reglas:1:b29.portal_candidato", nil
 	}
@@ -192,9 +196,32 @@ func TestPortalSinReglaPausaNoAutorizaNiEscribe(t *testing.T) {
 		reglasPortalPrueba{modo: bolsa.ModoRespuestaPortalFirme, maximaErr: bolsa.ErrPausaPortalNoConfigurada})
 	_, err := p.portal.SolicitarPausa(t.Context(), p.orden, "bolsa:auxiliar",
 		p.ahora.Add(24*time.Hour), "clave-pausa-retirada")
-	if !errors.Is(err, bolsa.ErrPortalCandidatoNoDisponible) ||
+	if err != bolsa.ErrPausaPortalNoConfigurada || p.concesiones.invocaciones != 0 ||
 		p.firmas != 0 || len(p.proveedor.acciones) != 0 || len(p.registro.solicitudes) != 0 {
 		t.Fatalf("pausa sin regla produjo efecto o permiso: %v", err)
+	}
+}
+
+func TestPortalSinSituacionesNoAutorizaPausaNiReactivacion(t *testing.T) {
+	for _, tipo := range []string{bolsa.SolicitudPortalPausa, bolsa.SolicitudPortalReactivacion} {
+		t.Run(tipo, func(t *testing.T) {
+			accion, audiencia := bolsa.AccionSolicitarPausaPropia, bolsa.AudienciaSolicitarPausaPropia
+			if tipo == bolsa.SolicitudPortalReactivacion {
+				accion, audiencia = bolsa.AccionSolicitarReactivacionPropia, bolsa.AudienciaSolicitarReactivacionPropia
+			}
+			p := nuevoEntornoPortal(t, accion, audiencia,
+				reglasPortalPrueba{modo: bolsa.ModoRespuestaPortalFirme, situacionesErr: bolsa.ErrPausaPortalNoConfigurada})
+			var err error
+			if tipo == bolsa.SolicitudPortalPausa {
+				_, err = p.portal.SolicitarPausa(t.Context(), p.orden, "bolsa:auxiliar", p.ahora.Add(24*time.Hour), "clave-pausa-retirada")
+			} else {
+				_, err = p.portal.SolicitarReactivacion(t.Context(), p.orden, "bolsa:auxiliar", "clave-reactiva-retirada")
+			}
+			if err != bolsa.ErrPausaPortalNoConfigurada || p.concesiones.invocaciones != 0 ||
+				p.firmas != 0 || len(p.proveedor.acciones) != 0 || len(p.registro.solicitudes) != 0 {
+				t.Fatalf("%s sin regla produjo efecto o permiso: %v", tipo, err)
+			}
+		})
 	}
 }
 

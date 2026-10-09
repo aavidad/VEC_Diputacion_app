@@ -149,6 +149,7 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 		maxima, _, errMaxima := s.portal.PausaMaxima(ctx, ahora)
 		modo, _, errModo := s.portal.ModoRespuesta(ctx)
 		pausaConfigurada := errMaxima == nil
+		// Solo el centinela exacto es opcional: una mezcla con fallo técnico sigue cerrando el GET.
 		if errMaxima == puertosbolsa.ErrPausaPortalNoConfigurada {
 			errMaxima = nil
 		}

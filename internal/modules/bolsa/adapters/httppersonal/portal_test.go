@@ -3,6 +3,7 @@ package httppersonal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/bolsa/application/mibolsa"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 func TestAccionesPortalPausaAusenteEsNullExplicito(t *testing.T) {
@@ -174,5 +176,27 @@ func TestPortalTraduceConflictosDeNegocio(t *testing.T) {
 	}
 	if AccionPortalEn(http.MethodPost, RutaMiBolsaRespuestas)[0] != puertosbolsa.AccionResponderLlamamientoPropio || AccionPortalEn(http.MethodGet, RutaMiBolsaRespuestas) != nil || !EsRutaPortal(RutaMiBolsa) {
 		t.Fatal("rutas y acciones del portal")
+	}
+}
+
+func TestPortalPausaRetiradaNoConvierteFallosTecnicosNiAutorizacion(t *testing.T) {
+	for _, caso := range []struct {
+		nombre string
+		err    error
+		estado int
+		codigo string
+	}{
+		{"pausa retirada", puertosbolsa.ErrPausaPortalNoConfigurada, 409, "pausa_no_disponible"},
+		{"mezcla técnica", errors.Join(puertosbolsa.ErrPausaPortalNoConfigurada, puertosbolsa.ErrPortalCandidatoNoDisponible), 503, "servicio_no_disponible"},
+		{"sin autenticación", ErrAutenticacionAusente, 401, "autenticacion_requerida"},
+		{"sin autorización", dominiovec.ErrAutorizacionDenegada, 403, "acceso_denegado"},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			responderErrorPortal(w, caso.err)
+			if w.Code != caso.estado || w.Body.String() != `{"error":{"codigo":"`+caso.codigo+`"}}` {
+				t.Fatalf("estado/código de pausa: %d %s", w.Code, w.Body.String())
+			}
+		})
 	}
 }

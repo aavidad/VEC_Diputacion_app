@@ -285,6 +285,10 @@ func estadoRecibo(repetida bool) int {
 }
 
 func responderErrorPortal(w http.ResponseWriter, e error) {
+	if e == puertosbolsa.ErrPausaPortalNoConfigurada {
+		responder(w, http.StatusConflict, errorRespuesta{"pausa_no_disponible"})
+		return
+	}
 	for _, conflicto := range []struct {
 		err    error
 		codigo string

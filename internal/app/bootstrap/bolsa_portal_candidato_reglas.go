@@ -22,7 +22,7 @@ var _ puertosbolsa.ReglasPortalCandidato = reglasPortalCandidatoDesarrollo{}
 
 func (r reglasPortalCandidatoDesarrollo) portal(ctx context.Context) (reglas.Regla, error) {
 	regla, err := r.resolutor.Regla(ctx, reglas.BolsaPortalCandidato)
-	if errors.Is(err, reglas.ErrReglaNoEncontrada) || errors.Is(err, reglas.ErrReglasNoConfiguradas) {
+	if err == reglas.ErrReglaNoEncontrada || err == reglas.ErrReglasNoConfiguradas {
 		return reglas.Regla{}, puertosbolsa.ErrReglasPortalCandidatoAusente
 	}
 	if err != nil {
@@ -53,6 +53,10 @@ func (r reglasPortalCandidatoDesarrollo) ResultadosContactoEfectivo(ctx context.
 
 func (r reglasPortalCandidatoDesarrollo) SituacionesAdmitidas(ctx context.Context, tipo string) ([]string, string, error) {
 	regla, err := r.portal(ctx)
+	if err == puertosbolsa.ErrReglasPortalCandidatoAusente &&
+		(tipo == puertosbolsa.SolicitudPortalPausa || tipo == puertosbolsa.SolicitudPortalReactivacion) {
+		return nil, "", puertosbolsa.ErrPausaPortalNoConfigurada
+	}
 	if err != nil {
 		return nil, "", err
 	}
@@ -60,13 +64,16 @@ func (r reglasPortalCandidatoDesarrollo) SituacionesAdmitidas(ctx context.Contex
 	if atributo == "" {
 		return nil, "", puertosbolsa.ErrPortalCandidatoInvalido
 	}
+	if regla.Atributos[atributo] == "" {
+		return nil, "", puertosbolsa.ErrPausaPortalNoConfigurada
+	}
 	lista, err := listaAtributoRegla(regla, atributo)
 	return lista, regla.Referencia, err
 }
 
 func (r reglasPortalCandidatoDesarrollo) PausaMaxima(ctx context.Context, desde time.Time) (time.Time, string, error) {
 	regla, vencimiento, err := r.resolutor.Vencimiento(ctx, reglas.BolsaPausaVoluntaria, desde, "")
-	if errors.Is(err, reglas.ErrReglaNoEncontrada) {
+	if err == reglas.ErrReglaNoEncontrada {
 		return time.Time{}, "", puertosbolsa.ErrPausaPortalNoConfigurada
 	}
 	if err != nil {
