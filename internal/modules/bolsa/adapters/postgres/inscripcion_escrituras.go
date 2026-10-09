@@ -12,16 +12,16 @@ import (
 )
 
 const consultaPresentarInscripcion = `SELECT vec_bolsa_llamamientos.solicitar_inscripcion_v1(
-	$1::text,$2::jsonb,$3::bytea,$4::bytea,$5::bytea,$6::bytea,
-	$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`
+	$1::text,$2::jsonb,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::bytea,
+	$8::numeric,$9::numeric,$10::bytea,$11::bytea,$12::bytea,$13::bytea)`
 
 const consultaDecidirInscripcion = `SELECT vec_bolsa_llamamientos.revisar_inscripcion_v1(
-	$1::text,$2::jsonb,$3::bytea,$4::bytea,$5::bytea,$6::bytea,
-	$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`
+	$1::text,$2::jsonb,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::bytea,
+	$8::numeric,$9::numeric,$10::bytea,$11::bytea,$12::bytea,$13::bytea)`
 
 const consultaIncorporarInscripcion = `SELECT vec_bolsa_llamamientos.incorporar_inscripcion_v1(
-	$1::text,$2::jsonb,$3::bytea,$4::bytea,$5::bytea,$6::bytea,
-	$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`
+	$1::text,$2::jsonb,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::bytea,
+	$8::numeric,$9::numeric,$10::bytea,$11::bytea,$12::bytea,$13::bytea)`
 
 type salidaPresentacionInscripcion struct {
 	SolicitudRef     string     `json:"solicitud_ref"`
@@ -63,7 +63,7 @@ func (r *RepositorioInscripcionesPostgreSQL) Incorporar(ctx context.Context, act
 	if resumen.EfectoRef() != i.SolicitudRef || resumen.EfectoHuellaSHA256() != hex.EncodeToString(huellaRecurso[:]) {
 		return inscripcion.Recibo{}, inscripcion.ErrAccesoDenegado
 	}
-	argumentos := append([]any{string(material), captura}, argumentosV3Inscripcion(actor)...)
+	argumentos := append([]any{string(material), captura, recurso}, argumentosV3Inscripcion(actor)...)
 	var salida salidaPresentacionInscripcion
 	_, err = transaccionInscripcion(ctx, r.interno, func(tx pgx.Tx) ([]byte, error) {
 		var respuesta []byte
@@ -118,7 +118,7 @@ func (r *RepositorioInscripcionesPostgreSQL) Decidir(ctx context.Context, actor 
 	if resumen.EfectoRef() != d.SolicitudRef || resumen.EfectoHuellaSHA256() != hex.EncodeToString(huellaRecurso[:]) {
 		return inscripcion.Recibo{}, inscripcion.ErrAccesoDenegado
 	}
-	argumentos := append([]any{string(material), captura}, argumentosV3Inscripcion(actor)...)
+	argumentos := append([]any{string(material), captura, recurso}, argumentosV3Inscripcion(actor)...)
 	var salida salidaPresentacionInscripcion
 	_, err = transaccionInscripcion(ctx, r.interno, func(tx pgx.Tx) ([]byte, error) {
 		var respuesta []byte
@@ -198,7 +198,7 @@ func (r *RepositorioInscripcionesPostgreSQL) Presentar(ctx context.Context, acto
 	if resumen.EfectoRef() != referencia || resumen.EfectoHuellaSHA256() != hex.EncodeToString(huellaRecurso[:]) {
 		return inscripcion.Recibo{}, inscripcion.ErrAccesoDenegado
 	}
-	argumentos := append([]any{string(material), captura}, argumentosV3Inscripcion(actor)...)
+	argumentos := append([]any{string(material), captura, recurso}, argumentosV3Inscripcion(actor)...)
 	var salida salidaPresentacionInscripcion
 	_, err = transaccionInscripcion(ctx, ejecutor, func(tx pgx.Tx) ([]byte, error) {
 		var respuesta []byte
