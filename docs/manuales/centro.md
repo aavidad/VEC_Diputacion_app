@@ -1,47 +1,47 @@
 # Centro: presentar una petición de personal temporal
 
-**Recorrido comprobado el 8 de octubre de 2026.** Esta guía cubre la petición previa que presenta un centro y su consulta posterior. La ratificación corresponde a otra persona. La petición llega a Recursos Humanos después de ratificarse.
+**Recorrido comprobado el 9 de octubre de 2026.** Esta guía explica cómo presentar una petición previa y consultarla después. Las imágenes son encuadres de capturas reales; dejan fuera otras peticiones que aparecían en la misma pantalla. Los datos y las fechas del ejemplo pueden cambiar.
 
 ## 1. Entrar en las peticiones del centro
 
-Abra [Peticiones de personal de su centro](https://vec.cidonia.cloud/portal-empleado/peticiones-centro/?lang=es) con su acceso de Centro. Compruebe el nombre y el centro que aparecen arriba. En el recorrido de la imagen figura Lucía Fernández Castillo, de TRANSFORMACIÓN DIGITAL. Si no reconoce sus datos, deténgase y comuníquelo a Informática.
+Abra [Peticiones de personal de su centro](https://vec.cidonia.cloud/portal-empleado/peticiones-centro/?lang=es) con su acceso de Centro. Compruebe su nombre, cargo y centro en la parte superior. En el recorrido figura Lucía Fernández Castillo, de TRANSFORMACIÓN DIGITAL. Si esos datos no le corresponden, deténgase y avise a Informática.
 
-En «Peticiones de su centro» se muestran las peticiones recientes. Pulse **«Nueva petición» (1)**.
+En «Peticiones de su centro» pulse «Nueva petición».
 
-![Bandeja de peticiones del centro con Nueva petición y Ver señalados.](img/centro-bandeja.webp)
+![Bandeja del centro con Nueva petición y la petición del ejemplo. Encuadre de la parte superior de la pantalla.](img/centro-bandeja.webp)
 
-## 2. Completar la necesidad
+## 2. Completar la petición
 
-En «Centro y necesidad», seleccione el centro que le corresponde y el contacto del centro. Elija la categoría, su grupo o subgrupo y el motivo entre las opciones de la pantalla. En el ejemplo se eligió ANALISTA-PROGRAMADOR, Grupo A2 y «Acumulación de tareas».
+En «Centro y necesidad», elija su centro, el contacto, la categoría, el grupo o subgrupo y el motivo. El ejemplo usa **ADMINISTRATIVO**, **Grupo C1** y **Acumulación de tareas**. Escriba en «Detalle de la necesidad» qué apoyo necesita y para qué. El ejemplo pidió apoyo administrativo para tramitar expedientes durante el periodo indicado.
 
-Escriba en «Detalle de la necesidad» qué personal necesita el centro y para qué. Indique las fechas previstas de inicio y fin. En «¿Existe retención de crédito?», responda según la documentación disponible; en el recorrido se marcó «No». Revise las observaciones y los documentos que muestra la pantalla. Pulse **«Revisar petición» (2)**.
+Indique las fechas previstas de inicio y fin. Complete «¿Existe retención de crédito?» de acuerdo con los datos de su centro; en el recorrido no se aportó una retención. Revise las observaciones y el apartado de documentación. Pulse «Revisar petición».
 
-![Formulario del centro con los datos de ejemplo y Revisar petición señalado.](img/centro-formulario.webp)
+![Formulario cumplimentado. Encuadre de los campos y el botón Revisar petición.](img/centro-formulario.webp)
 
-En móvil, los campos se colocan uno debajo de otro:
+En una pantalla estrecha, los campos se colocan uno debajo de otro:
 
-![Formulario de la petición del centro en una pantalla estrecha.](img/centro-formulario-movil.webp)
+![Formulario del centro en móvil. Encuadre de los campos.](img/centro-formulario-movil.webp)
 
 ## 3. Revisar y presentar
 
-Compruebe centro, contacto, categoría, motivo, detalle, fechas, retención y documentos. La pantalla avisa de que la confirmación registra una **petición previa** y todavía no crea un expediente. Cuando todo sea correcto, pulse **«Confirmar presentación» (3)** una sola vez.
+Compruebe centro, contacto, categoría, motivo, detalle, fechas, retención y documentos. La pantalla avisa: **«La confirmación registrará una petición previa; no crea un expediente»**. Cuando los datos sean correctos, pulse **«Confirmar presentación» una sola vez**.
 
-![Revisión de la petición antes de confirmar la presentación.](img/centro-revision.webp)
+![Revisión de la petición y control Confirmar presentación. Encuadre de la comprobación previa.](img/centro-revision.webp)
 
-La confirmación muestra «Operación registrada» y el estado **«Pendiente de ratificar»**. También indica cuándo se registró y que no hace falta enviarla otra vez. Esta captura se tomó en una pantalla de 390 píxeles:
+La pantalla muestra **«Operación registrada»**, **«Pendiente de ratificar»** y la fecha de registro. También dice que no hace falta enviarla otra vez. La imagen siguiente corresponde a la confirmación vista en móvil:
 
-![Confirmación móvil de la petición registrada y pendiente de ratificación.](img/centro-confirmacion-movil.webp)
+![Confirmación de la petición pendiente de ratificación en una pantalla de 390 píxeles. Encuadre del aviso.](img/centro-confirmacion-movil.webp)
 
-## 4. Consultar la petición
+## 4. Consultar la misma petición
 
-En la bandeja, localice la fila por fecha, centro, periodo y estado. Pulse **«Ver» (4)** para consultar los datos. Puede actualizar la página y volver a abrir la misma petición; en el recorrido se conservó el estado «Pendiente de ratificar» y la fecha de registro.
+Vuelva a «Peticiones de su centro» y localice la fila por fecha, centro, periodo y estado. Pulse **«Ver»** para consultar el detalle. En el recorrido, la misma petición seguía visible después de actualizar la página y al entrar de nuevo; conservaba sus datos y el estado «Pendiente de ratificar».
 
-![Detalle de la petición recuperada desde Ver.](img/centro-detalle.webp)
+![Detalle recuperado de la petición. Encuadre de sus datos y estado.](img/centro-detalle.webp)
 
-**«Pendiente de ratificar»** significa que la petición espera la revisión de la persona encargada de ratificarla. Recursos Humanos la recibe cuando esa ratificación se completa.
+**«Pendiente de ratificar»** significa que otra persona debe revisar la petición. Recursos Humanos la recibe cuando queda ratificada. La petición previa todavía no es un expediente.
 
 ## Si algo sale mal
 
-Si la bandeja dice «Todavía no hay peticiones de su centro», compruebe que ha entrado con su nombre y centro. Si esperaba ver una petición ya presentada, consulte con Informática antes de crear otra.
+Si la bandeja muestra **«Todavía no hay peticiones de su centro»** y esperaba encontrar una petición ya presentada, compruebe que aparece su nombre y centro. Si sigue sin verla, avise a Informática antes de presentar otra.
 
-Si ve «Operación registrada» y «No hace falta enviarla otra vez», vuelva a la bandeja y pulse «Ver» o actualice la página para consultar la petición. No pulse de nuevo «Confirmar presentación».
+Si ve **«Operación registrada»** y **«No hace falta enviarla otra vez»**, consulte la petición desde «Ver» o vuelva a cargar la bandeja. No pulse de nuevo «Confirmar presentación».
