@@ -181,7 +181,7 @@ func (s *Servicio) Propias(ctx context.Context, actor Actor, filtro Filtro) (Pag
 	if err != nil {
 		return Pagina{}, err
 	}
-	if !paginaValida(p, filtro.Limite) {
+	if !paginaValida(p, filtro.Limite) || p.ConvocatoriaTitulo != "" {
 		return Pagina{}, ErrNoDisponible
 	}
 	return p, nil
@@ -208,7 +208,7 @@ func (s *Servicio) PendientesRRHH(ctx context.Context, actor Actor, filtro Filtr
 	if s == nil || s.repositorio == nil {
 		return Pagina{}, ErrNoDisponible
 	}
-	if filtro.Validar() != nil || (filtro.Cursor != "" && !solicitudRefValida(filtro.Cursor)) ||
+	if filtro.ConvocatoriaRef == "" || filtro.Validar() != nil || (filtro.Cursor != "" && !solicitudRefValida(filtro.Cursor)) ||
 		!lecturaAutorizada(actor, AccionListarRRHH, filtro, "") {
 		return Pagina{}, ErrSolicitudInvalida
 	}
@@ -216,7 +216,7 @@ func (s *Servicio) PendientesRRHH(ctx context.Context, actor Actor, filtro Filtr
 	if err != nil {
 		return Pagina{}, err
 	}
-	if !paginaValida(p, filtro.Limite) {
+	if !paginaValida(p, filtro.Limite) || p.ConvocatoriaTitulo == "" || len(p.ConvocatoriaTitulo) > 180 {
 		return Pagina{}, ErrNoDisponible
 	}
 	return p, nil

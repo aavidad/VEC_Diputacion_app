@@ -315,7 +315,12 @@ func (r *RepositorioInscripcionesPostgreSQL) PendientesRRHH(ctx context.Context,
 	}
 	return consultarInscripcion(ctx, r, actor, inscripcion.AccionListarRRHH, recurso, filtro,
 		selectorListaInscripcion{Limite: filtro.Limite, Cursor: filtro.Cursor, Estado: filtro.Estado,
-			ConvocatoriaRef: filtro.ConvocatoriaRef}, validarPaginaInscripcion(filtro.Limite))
+			ConvocatoriaRef: filtro.ConvocatoriaRef}, func(p inscripcion.Pagina) error {
+			if p.ConvocatoriaTitulo == "" || len(p.ConvocatoriaTitulo) > 180 {
+				return inscripcion.ErrNoDisponible
+			}
+			return validarPaginaInscripcion(filtro.Limite)(p)
+		})
 }
 
 func (r *RepositorioInscripcionesPostgreSQL) ConvocatoriasRRHH(ctx context.Context, actor inscripcion.Actor, limite int, cursor string) (inscripcion.PaginaConvocatoriasGestion, error) {
