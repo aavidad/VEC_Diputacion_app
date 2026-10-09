@@ -52,7 +52,7 @@ test("lista vacía, plazo, revisión, reintento con la misma clave y recibo recu
   assert.match(contenedor.innerHTML, /Auxiliar administrativo/u);
   assert.match(contenedor.innerHTML, /Título exigido/u);
   pulsar("revisar"); assert.match(contenedor.innerHTML, /Revise su solicitud/u);
-  assert.match(contenedor.innerHTML, /data-inscripcion-requisito="titulo"[^>]*disabled/u);
+  assert.doesNotMatch(contenedor.innerHTML, /data-inscripcion-requisito=/u, "la revisión sólo muestra el resumen");
   contenedor.handlers.change({ target: { matches: () => false, closest: () => ({
     dataset: { inscripcionRequisito: "titulo" }, checked: true,
   }) } });
@@ -139,8 +139,9 @@ test("una convocatoria de dos categorías exige elección antes de presentar", a
   const montaje = montarInscripcionBolsa({ contenedor, ventana, cliente, idioma: "es", textoBase: () => "Cargando" });
   await pausa(); pulsar("bolsa", varias.convocatoria_ref); await pausa();
   assert.match(contenedor.innerHTML, /Elija una categoría/u);
-  assert.match(contenedor.innerHTML, /data-inscripcion-accion="revisar" disabled/u);
   pulsar("revisar"); assert.doesNotMatch(contenedor.innerHTML, /Revise su solicitud/u);
+  assert.match(contenedor.innerHTML, /aria-invalid="true" aria-describedby="falta-categoria-inscripcion"/u);
+  assert.match(contenedor.innerHTML, /Elija la categoría en la que quiere inscribirse/u);
   contenedor.handlers.change({ target: { matches: () => true, value: "categoria:subalterno" } });
   pulsar("revisar"); assert.match(contenedor.innerHTML, /Revise su solicitud/u);
   pulsar("confirmar"); await pausa();
@@ -234,7 +235,7 @@ test("400 muestra datos no aceptados y ofrece actualizar la ficha", async () => 
   pulsar("revisar"); pulsar("confirmar"); await pausa();
   assert.match(contenedor.innerHTML, /No se han aceptado los datos/u);
   assert.doesNotMatch(contenedor.innerHTML, /Compruebe la conexión/u);
-  assert.match(contenedor.innerHTML, /Actualizar convocatoria/u);
+  assert.match(contenedor.innerHTML, /Actualizar bolsa/u);
   pulsar("actualizar-ficha"); await pausa();
   assert.equal(consultas, 2);
   montaje.destruir();
@@ -272,15 +273,15 @@ test("la categoría 33 y la 128 siguen visibles y se envían por su referencia e
       assert.match(contenedor.innerHTML, /Buscar categoría/u);
       contenedor.handlers.input({ target: { matches: () => true, value: "Sin coincidencia", selectionStart: 15 } });
       assert.match(contenedor.innerHTML, /No hay categorías que coincidan/u);
-      assert.match(contenedor.innerHTML, /data-inscripcion-categoria disabled/u);
+      assert.match(contenedor.innerHTML, /data-inscripcion-categoria[^>]*disabled/u);
       contenedor.handlers.input({ target: { matches: () => true, value: `Categoria ${numero}`, selectionStart: 12 } });
       assert.equal((contenedor.innerHTML.match(/<option value="categoria:/gu) ?? []).length, 1);
       assert.match(contenedor.innerHTML, new RegExp(`<option value="categoria:${numero}"`, "u"));
       contenedor.handlers.change({ target: { matches: () => true, value: `categoria:${numero}` } });
       pulsar("revisar");
       assert.match(contenedor.innerHTML, new RegExp(`Categoría ${numero}`, "u"));
-      assert.match(contenedor.innerHTML, /data-inscripcion-buscar-categoria[^>]*disabled/u);
-      assert.match(contenedor.innerHTML, /data-inscripcion-categoria disabled/u);
+      assert.doesNotMatch(contenedor.innerHTML, /data-inscripcion-buscar-categoria/u, "la revisión oculta el buscador");
+      assert.doesNotMatch(contenedor.innerHTML, /data-inscripcion-categoria/u, "la revisión oculta el selector");
       contenedor.handlers.input({ target: { matches: () => true, value: "Sin coincidencia", selectionStart: 15 } });
       assert.match(contenedor.innerHTML, new RegExp(`Categoría ${numero}`, "u"));
       pulsar("confirmar"); await pausa();
@@ -347,5 +348,27 @@ test("sin la ruta publicada (404) avisa de que no está abierta y no ofrece rein
   assert.equal(consultas, 1);
   assert.match(contenedor.innerHTML, /no está abierta en este momento/u);
   assert.doesNotMatch(contenedor.innerHTML, /data-inscripcion-accion="reintentar"/u);
+  montaje.destruir();
+});
+
+test("al pasar a Mis solicitudes el foco va al título y la ficha vuelve a Mis solicitudes", async () => {
+  const { contenedor, ventana, pulsar } = entorno();
+  const enfocados = [];
+  contenedor.querySelector = (selector) => ({ focus() { enfocados.push(selector); } });
+  contenedor.querySelectorAll = () => [];
+  const solicitudPropia = { solicitud_ref: "solicitud:42", recibo_ref: "recibo:42", categoria: "Auxiliar administrativo",
+    convocatoria_ref: bolsa.convocatoria_ref, estado: "pendiente", version: 1, registrada_en: instante };
+  const cliente = { abiertas: async () => ({ convocatorias: [resumen], total: 1, cursor_siguiente: null }),
+    convocatoria: async () => assert.fail(), inscribir: async () => assert.fail(),
+    propias: async () => ({ solicitudes: [solicitudPropia], cursor_siguiente: null }),
+    detallePropio: async () => ({ solicitud: solicitudPropia }) };
+  const montaje = montarInscripcionBolsa({ contenedor, ventana, cliente, idioma: "es", textoBase: () => "Cargando" });
+  await pausa();
+  assert.deepEqual(enfocados, [], "la primera carga no mueve el foco");
+  pulsar("propias"); await pausa();
+  assert.deepEqual(enfocados, ["#titulo-inscripcion-bolsa"]);
+  assert.match(contenedor.innerHTML, /Presentada el/u);
+  pulsar("solicitud", "solicitud:42"); await pausa();
+  assert.match(contenedor.innerHTML, /Volver a mis solicitudes/u);
   montaje.destruir();
 });
