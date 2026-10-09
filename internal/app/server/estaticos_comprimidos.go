@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -148,23 +149,29 @@ func cacheCatalogoTextos(r *http.Request) string {
 }
 
 // huellaCatalogosTextos se calcula una vez por proceso: cambiar un catálogo
-// exige desplegar y reiniciar, como el resto de estáticos.
+// exige desplegar y reiniciar, como el resto de estáticos. Sin huella ("") no
+// se acepta ninguna y los catálogos se sirven con no-cache.
 var huellaCatalogosTextos = sync.OnceValue(func() string {
 	directorio := directorioEstaticos()
 	if directorio == "" {
+		slog.Warn("huella de catálogos de textos no disponible", "etapa", "localizar", "causa", "sin directorio de estáticos")
 		return ""
 	}
-	return calcularHuellaCatalogosTextos(os.DirFS(filepath.Join(directorio, "textos")))
+	huella, err := calcularHuellaCatalogosTextos(os.DirFS(filepath.Join(directorio, "textos")))
+	if err != nil {
+		slog.Warn("huella de catálogos de textos no disponible", "etapa", "calcular", "error", err)
+		return ""
+	}
+	return huella
 })
 
 // calcularHuellaCatalogosTextos replica comun/textos-version.test.mjs: SHA-256
 // de "<idioma>/<fichero>\0<bytes>\0" de cada <idioma>/*.json en orden, 16 hex.
-// Ante cualquier error devuelve "" y ninguna huella se acepta.
-func calcularHuellaCatalogosTextos(raiz fs.FS) string {
+func calcularHuellaCatalogosTextos(raiz fs.FS) (string, error) {
 	huella := sha256.New()
 	idiomas, err := fs.ReadDir(raiz, ".")
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("leer idiomas: %w", err)
 	}
 	for _, idioma := range idiomas {
 		if !idioma.IsDir() {
@@ -172,7 +179,7 @@ func calcularHuellaCatalogosTextos(raiz fs.FS) string {
 		}
 		ficheros, err := fs.ReadDir(raiz, idioma.Name())
 		if err != nil {
-			return ""
+			return "", fmt.Errorf("leer catálogos de %s: %w", idioma.Name(), err)
 		}
 		for _, fichero := range ficheros {
 			if fichero.IsDir() || !strings.HasSuffix(fichero.Name(), ".json") {
@@ -181,14 +188,14 @@ func calcularHuellaCatalogosTextos(raiz fs.FS) string {
 			ruta := idioma.Name() + "/" + fichero.Name()
 			contenido, err := fs.ReadFile(raiz, ruta)
 			if err != nil {
-				return ""
+				return "", fmt.Errorf("leer %s: %w", ruta, err)
 			}
 			huella.Write([]byte(ruta + "\x00"))
 			huella.Write(contenido)
 			huella.Write([]byte("\x00"))
 		}
 	}
-	return hex.EncodeToString(huella.Sum(nil))[:16]
+	return hex.EncodeToString(huella.Sum(nil))[:16], nil
 }
 
 // fijarCacheEstatico sustituye la política no-store que securityHeaders pone
