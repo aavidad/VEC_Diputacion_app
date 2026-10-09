@@ -16,10 +16,16 @@ import (
 // gobierno). Son las lecturas y usos de categorías RPT que AD3-117 y AD3-126
 // conceden a vec_contratacion_temporal_ejecutor; AD3-117 y AD3-177 le dan por
 // eso USAGE del esquema. Cada entrada es la firma regprocedure sin esquema
-// (nombre y tipos de entrada), cotejada en pg_proc sin resolver nombres, para
-// que funcione igual con USAGE o sin él. Cualquier otra función V3
-// ejecutable por el LOGIN, incluidos los consumidores de plantillas, hace
-// fallar el arranque: añadir una exige cambiar esta lista y revisarlo.
+// (nombre y tipos de entrada de pg_catalog). El SQL la coteja en pg_proc con
+// prokind='f' y con proargtypes frente a los regtype fijados en pg_catalog,
+// sin resolver nombres de V3 ni depender del search_path, para que funcione
+// igual con USAGE o sin él. Cualquier otra función V3 ejecutable por el
+// LOGIN, incluidos los consumidores de plantillas, la opción de concesión
+// sobre cualquiera de ellas o un privilegio por defecto que se la diera hacen
+// fallar el arranque: añadir una exige cambiar esta lista y revisarlo. Se exige
+// además la fila global de privilegios por defecto de funciones del
+// propietario de V3 (AD3-000001): sin ella, PostgreSQL vuelve al valor de
+// fábrica y toda función nueva nacería con EXECUTE a PUBLIC.
 var funcionesV3PermitidasLoginCT = []string{
 	"listar_categorias_habilitadas_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
 	"leer_publicacion_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
@@ -112,9 +118,29 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
     AND NOT EXISTS (
       SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
       WHERE n.nspname='vec_autorizacion_atestada_v3'
-        AND pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
-        AND NOT coalesce(p.proname||'('||pg_catalog.replace(pg_catalog.oidvectortypes(p.proargtypes),', ',',')||')'
-          = ANY($3::text[]),false))
+        AND (pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE WITH GRANT OPTION')
+          OR (pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+            AND NOT EXISTS (
+              SELECT 1 FROM pg_catalog.unnest($3::text[]) AS l(firma)
+              WHERE p.prokind='f'
+                AND p.proname=pg_catalog.split_part(l.firma,'(',1)
+                AND p.proargtypes=(
+                  SELECT pg_catalog.array_to_string(x.tipos,' ')::pg_catalog.oidvector
+                  FROM (SELECT pg_catalog.array_agg(pg_catalog.to_regtype('pg_catalog.'||t.tipo)::pg_catalog.oid ORDER BY t.orden) AS tipos
+                    FROM pg_catalog.unnest(pg_catalog.string_to_array(
+                      pg_catalog.rtrim(pg_catalog.split_part(l.firma,'(',2),')'),',')) WITH ORDINALITY AS t(tipo,orden)) x
+                  WHERE pg_catalog.array_position(x.tipos,NULL) IS NULL)))))
+    AND NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_default_acl d
+      JOIN pg_catalog.pg_namespace n ON n.nspname='vec_autorizacion_atestada_v3'
+      CROSS JOIN LATERAL pg_catalog.aclexplode(d.defaclacl) a
+      WHERE (d.defaclnamespace=n.oid
+          OR (d.defaclnamespace=0 AND pg_catalog.has_schema_privilege(d.defaclrole,n.oid,'CREATE')))
+        AND (a.grantee=0 OR pg_catalog.pg_has_role(session_user,a.grantee,'USAGE')))
+    AND EXISTS (
+      SELECT 1 FROM pg_catalog.pg_default_acl d
+      JOIN pg_catalog.pg_namespace n ON n.nspname='vec_autorizacion_atestada_v3'
+      WHERE d.defaclrole=n.nspowner AND d.defaclnamespace=0 AND d.defaclobjtype='f')
     AND NOT EXISTS (
       SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
       WHERE n.nspname='vec_autorizacion_atestada_v3'
