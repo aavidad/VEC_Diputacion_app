@@ -797,13 +797,13 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v8");
-  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261009-ct-bolsa-cohorte-v8");
+  ]) versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v9");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261009-ct-bolsa-cohorte-v9");
   for (const ruta of ["portal-bolsas-ruta-filtros.js", "portal-ct-ruta-filtro.js",
     "portal-llamamientos-selector.js", "portal-bolsas-global.js", "portal-bolsas-seguimiento.js",
     "portal-inicio.js", "portal-bolsas-api.js", "portal-panel-interno.js",
-    "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js"])
-    versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v8");
+    "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js", "portal-menu-bolsa.js"])
+    versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v9");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
