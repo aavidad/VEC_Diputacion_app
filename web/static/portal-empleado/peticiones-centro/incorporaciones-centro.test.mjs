@@ -59,6 +59,11 @@ test("la sección se oculta si el servidor no la compone y lista con su document
   await esperar();
   assert.equal(oculto.hidden, true);
   assert.equal(oculto.innerHTML, "");
+  const ajeno = contenedorFalso();
+  montarIncorporacionesCentro({ contenedor: ajeno, cliente: { bandeja: async () => { throw Object.assign(new Error("x"), { estado: 403 }); } } });
+  await esperar();
+  assert.equal(ajeno.hidden, true);
+  assert.equal(ajeno.innerHTML, "");
   const c = contenedorFalso();
   const desmontar = montarIncorporacionesCentro({ contenedor: c, cliente: { bandeja: async () => validarBandejaIncorporaciones(bandeja({ expedientes: [fila(),
     fila({ expediente_ref: "expediente:ct:2", numero_visible: "2026/B-125", confirmacion: { fecha_incorporacion: "2026-09-02", documento_tipo: "contrato_firmado",

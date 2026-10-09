@@ -209,7 +209,7 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
 
   async function cargar() {
     datos = null; pintar();
-    try { datos = await cliente.bandeja(); } catch (error) { datos = error?.estado === 404 ? { ausente: true } : { error: true }; }
+    try { datos = await cliente.bandeja(); } catch (error) { datos = error?.estado === 404 || error?.estado === 403 ? { ausente: true } : { error: true }; }
     pintar();
     publicarExpedientes();
   }

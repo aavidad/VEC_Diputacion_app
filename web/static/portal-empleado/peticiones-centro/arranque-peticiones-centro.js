@@ -54,8 +54,8 @@ async function arrancar(origen = null) {
       const peticiones = await import("./peticiones-centro.js?v=20261008-alta-analisis-bolsa-v4");
       peticiones.instalarAyudaPeticionCentro(document);
       await Promise.all([
-        import("./incorporaciones-centro.js?v=20261007-pc-recuperacion-v1"),
-        import("./cancelaciones-centro.js?v=20261007-pc-recuperacion-v1"),
+        import("./incorporaciones-centro.js?v=20261009-pc-inc403-v1"),
+        import("./cancelaciones-centro.js?v=20261009-pc-inc403-v1"),
       ]);
       ayuda.disabled = false;
       await peticiones.iniciarPeticionCentro();
