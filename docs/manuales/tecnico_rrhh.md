@@ -10,7 +10,7 @@ Abra [el portal de Recursos Humanos](https://vec.cidonia.cloud/portal-empleado/?
 
 En una pantalla estrecha, los mismos apartados se colocan uno debajo de otro:
 
-![Inicio de RRHH en una pantalla de 390 píxeles.](img/rrhh-navegacion-inicio-movil.webp)
+![Inicio de RRHH en el móvil.](img/rrhh-navegacion-inicio-movil.webp)
 
 ## Cambiar el idioma · 1
 
@@ -56,7 +56,7 @@ En Inicio, pulse «Ver todas las peticiones» **(5)** en la cabecera de «Lo pen
 
 1. Abra [Peticiones de los centros](https://vec.cidonia.cloud/portal-empleado/peticiones-centro/?lang=es&vista=rrhh) con el acceso de RRHH. Las peticiones ratificadas que aún no tienen expediente aparecen con el estado de entrega **Pendiente de preparación**. Localice la suya por la fecha y hora de la columna **Ratificación** y pulse **Revisar**. Las que ya tienen expediente muestran **Expediente creado** y su número.
 2. Compruebe centro, categoría, grupo, motivo, período, número de personas y jornada. Compruebe también si el centro aportó una retención de crédito o documentos. En el ejemplo, el centro pidió una persona de la categoría Administrativo, a jornada completa, y no aportó retención.
-3. Pulse **Crear expediente en RRHH**. En la revisión escriba el número de expediente asignado por el circuito de gestión, marque la confirmación expresa y pulse **Crear expediente en RRHH** una sola vez. Si no dispone de ese número, deténgase.
+3. Pulse **Crear expediente en RRHH**. En la revisión escriba el número que RRHH haya dado a este expediente en su registro habitual, marque la confirmación expresa y pulse **Crear expediente en RRHH** una sola vez. Si no dispone de ese número, deténgase.
 4. La pantalla muestra el recibo del alta. Anote dos datos: el **Número visible**, que es el número del expediente, y la **Referencia del recibo**, que sirve para comprobar el alta si algo falla. Use **Abrir el expediente** para seguir con el mismo caso. En el ejemplo se creó `2026/93001`.
 
 ![Bandeja de peticiones de los centros. La primera fila está Pendiente de preparación; las demás ya tienen expediente.](img/rrhh-20261009-centros.webp)
@@ -65,7 +65,7 @@ En Inicio, pulse «Ver todas las peticiones» **(5)** en la cabecera de «Lo pen
 
 ## Registrar el análisis de RRHH
 
-Abra la ficha desde la lista y revise sus datos. En **Registrar análisis de RRHH**, elija la modalidad, la categoría, el grupo y la causa que correspondan a la petición. Compruebe fechas y jornada. La retención de crédito se elige de la fuente disponible para RRHH: que el centro no la aportara no significa que esté validada. Si no cuenta con una retención respaldada, detenga el análisis.
+Abra la ficha desde la lista y revise sus datos. En **Registrar análisis de RRHH**, elija la modalidad, la categoría, el grupo y la causa que correspondan a la petición. Compruebe fechas y jornada. La retención de crédito se elige en la lista que ofrece la pantalla. Que el centro no la aportara no significa que esté validada. Si no cuenta con una retención respaldada, detenga el análisis.
 
 En el recorrido, RRHH seleccionó **Acumulación de tareas**, **Administrativo**, **C1**, **Necesidad temporal**, el período solicitado y jornada completa. Eligió una retención disponible para ese ejercicio y dejó la urgencia sin marcar. Pulse **Registrar análisis** una sola vez. La pantalla confirma **Análisis guardado** y **Justificante registrado**. Al reabrir la ficha, **Análisis RRHH** aparece como **Hecho**.
 

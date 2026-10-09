@@ -4,7 +4,7 @@
 
 ## Ver su situación
 
-Entre en [Mi área personal](https://vec.cidonia.cloud/area-personal/?lang=es) con su acceso y pulse **Mi bolsa**. En **Mi participación** verá la bolsa, su número de orden inicial y la última situación registrada. **Disponible** significa que consta como disponible en esa bolsa. Recibir un llamamiento depende del orden y de las reglas que se apliquen.
+Entre en [Mi área personal](https://vec.cidonia.cloud/area-personal/?lang=es) con su acceso y pulse **Mi bolsa** en el menú. La pantalla se titula «Disponibilidad y llamamientos». En **Mi participación** verá la bolsa, su número de orden inicial y la última situación registrada. **Disponible** significa que consta como disponible en esa bolsa. Recibir un llamamiento depende del orden y de las reglas que se apliquen.
 
 ![Recorte de Mi bolsa: participación, número de orden y situación Disponible.](img/aspirante-mi-bolsa.webp)
 

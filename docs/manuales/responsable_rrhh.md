@@ -14,7 +14,7 @@ En **Datos de la petición**, compruebe centro, categoría, grupo, motivo, perí
 
 ## Leer las actuaciones registradas
 
-Baje a **Historial**. Cada entrada muestra la actuación y cuándo se registró. Pulse **Ver detalle técnico** si necesita comprobar la versión y la secuencia completa. En el ejemplo se leen el alta, el análisis, la decisión de cobertura, la asignación y el informe jurídico generado. La ficha se recuperó después de abrirla de nuevo desde la lista.
+Baje a **Historial**. Cada entrada muestra la actuación y cuándo se registró. Abra **Ver detalle técnico** solo si se lo pide Informática. En el ejemplo se leen el alta, el análisis, la decisión de cobertura, la asignación y el informe jurídico generado. La ficha se recuperó después de abrirla de nuevo desde la lista.
 
 ![Historial del expediente 2026/93001 con sus cinco actuaciones, de la más reciente a la más antigua.](img/rrhh-20261009-historial.webp)
 
@@ -44,7 +44,7 @@ La descarga solo funciona cuando el expediente está en la fase **Nombramiento**
 
 En el ejemplo aparecen ocho documentos: informe definitivo, resolución, diligencia, toma de posesión, notificación, comunicación al centro, contrato laboral de duración determinada y nombramiento de personal funcionario interino.
 
-En un expediente que todavía no ha llegado a **Nombramiento** también se ve la lista, pero la descarga no se completa: la ficha avisa de que no se ha guardado ningún documento. Los documentos de **cese** y de **modificación del nombramiento** solo se pueden descargar después de registrar esa actuación en el expediente.
+En un expediente que todavía no ha llegado a **Nombramiento** también se ve la lista, pero la descarga no se completa. La ficha muestra primero «El expediente o el catálogo cambió. Actualice el detalle antes de descargar.» y después «No se pudo comprobar la descarga. No se ha guardado ningún documento.». Si el expediente no está en **Nombramiento**, no repita la descarga: el documento aún no se puede preparar. Los documentos de **cese** y de **modificación del nombramiento** solo se pueden descargar después de registrar esa actuación en el expediente.
 
 ## Alcance de este acceso
 

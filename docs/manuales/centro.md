@@ -1,6 +1,6 @@
 # Centro: presentar una petición de personal temporal
 
-**Recorrido comprobado el 9 de octubre de 2026.** Esta guía explica cómo presentar una petición previa y consultarla después. Las imágenes son encuadres de capturas reales; dejan fuera otras peticiones que aparecían en la misma pantalla. Los datos y las fechas del ejemplo pueden cambiar.
+**Recorrido comprobado el 9 de octubre de 2026.** Esta guía explica cómo presentar una petición previa y consultarla después. Las imágenes son encuadres de capturas reales; dejan fuera otras peticiones que aparecían en la misma pantalla. Las del formulario y de la revisión se tomaron rellenando una petición de ejemplo que no llegó a presentarse. La confirmación, el detalle y la ratificación corresponden a la petición que sí se presentó ese día; su texto empieza por una marca que se usó para identificar la prueba. Los datos y las fechas del ejemplo pueden cambiar.
 
 ## 1. Entrar en las peticiones del centro
 
@@ -12,7 +12,7 @@ En «Peticiones de su centro» pulse «Nueva petición».
 
 ## 2. Completar la petición
 
-En «Centro y necesidad», elija su centro, el contacto, la categoría, el grupo o subgrupo y el motivo. El ejemplo usa **ADMINISTRATIVO**, **Grupo C1** y **Acumulación de tareas**. Escriba en «Detalle de la necesidad» qué apoyo necesita y para qué. En el ejemplo: apoyo administrativo para tramitar los expedientes de subvenciones a municipios del último trimestre, una persona a jornada completa.
+En «Centro y necesidad», elija su centro, el contacto, la categoría, el grupo o subgrupo y el motivo. El ejemplo usa **ADMINISTRATIVO**, **Grupo C1** y **Acumulación de tareas**. Escriba en «Detalle de la necesidad» qué apoyo necesita y para qué. En la imagen de ejemplo se escribió «Apoyo administrativo para tramitar los expedientes de subvenciones a municipios del último trimestre. Una persona, jornada completa.». La petición presentada ese día pedía también apoyo administrativo para tramitar expedientes.
 
 Indique las fechas previstas de inicio y fin. Se escriben como día, mes y año (por ejemplo, 02/11/2026) o se eligen en el calendario. En «Retención de crédito», responda **Sí** o **No** a «¿Existe retención de crédito?». Si marca **Sí**, la pantalla pide el número o referencia, la fecha, el importe exacto y el documento de la retención ya incorporado. En el ejemplo se marcó **No**. Revise las observaciones y el apartado de documentación. Pulse «Revisar petición».
 
@@ -30,7 +30,7 @@ Compruebe centro, contacto, categoría, motivo, detalle, fechas, retención y do
 
 La pantalla muestra **«Operación registrada»**, **«Pendiente de ratificar»** y la fecha de registro. También dice que no hace falta enviarla otra vez. La imagen siguiente corresponde a la confirmación vista en móvil:
 
-![Confirmación de la petición pendiente de ratificación en una pantalla de 390 píxeles. Encuadre del aviso.](img/centro-confirmacion-movil.webp)
+![Confirmación de la petición pendiente de ratificación en el móvil. Encuadre del aviso.](img/centro-confirmacion-movil.webp)
 
 ## 4. Consultar la misma petición
 

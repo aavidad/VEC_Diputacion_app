@@ -2,7 +2,7 @@
 
 ## Comprobación del 9 de octubre de 2026
 
-La petición del centro, la ratificación, el expediente, el llamamiento, el contacto telefónico y la aceptación desde Mi bolsa se recorrieron con la misma persona y el mismo expediente.
+Se recorrieron en orden la petición del centro, su ratificación, el expediente 2026/93001 que salió de ella, el llamamiento, el contacto telefónico y la aceptación desde Mi bolsa, siempre con la misma persona de la bolsa. Las imágenes del formulario del centro se tomaron aparte, con una petición de ejemplo que no se presentó.
 
 Quedan pendientes:
 
@@ -11,7 +11,7 @@ Quedan pendientes:
 - Firma del informe por el técnico y la jefatura; fiscalización con reparo y conformidad, subsanación y resolución.
 - Incorporación, paso a Personal, cese y regreso a la bolsa de esa persona.
 - Recorrido propio de administración del portal: perfiles, módulos, copias y configuración.
-- Recuperación de los últimos recibos después del reinicio final que se pidió al cerrar el acta.
+- Comprobar que los últimos justificantes siguen visibles después de reiniciar el servidor.
 
 El informe preparado se mostró como texto provisional al registrarlo. Al volver a abrir la ficha se conservó su registro. Ese informe no es un documento firmado.
 
