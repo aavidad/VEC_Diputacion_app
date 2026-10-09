@@ -80,7 +80,7 @@ Desde la ficha asignada, pulse **Abrir llamamiento en Bolsa**. El asistente cons
 2. En **Configurar llamamiento**, compruebe la referencia, el centro y la fecha que ya trae la pantalla. Elija la modalidad y describa la necesidad con los datos de la petición. Mantenga el contacto ya registrado; no escriba un correo o teléfono nuevo para completar la pantalla.
 3. Indique el plazo de respuesta que RRHH haya fijado para esa oferta. En el ejemplo se usó **«Un día hábil desde el contacto efectivo»**. Era la regla disponible para ese ejercicio; este manual no la presenta como plazo legal aprobado para otros casos.
 4. En **Revisar y enviar**, compruebe que queda **una persona**, que el aviso nombra a la persona correcta y que los canales son los previstos. En el recorrido aparecieron correo al emitir y seguimiento por teléfono. Abra **Ver vista previa**, marque la confirmación para una persona y pulse **Emitir llamamiento** una sola vez.
-5. Guarde el justificante. **Emitido, pendiente de respuesta** acredita el registro del llamamiento; compruebe por separado la entrega del correo y la respuesta de la persona.
+5. Guarde el justificante. **Emitido, pendiente de respuesta** indica que el llamamiento quedó registrado. Consulte después la entrega del correo y la respuesta de la persona.
 
 ![Selección de una única persona en el orden de la bolsa.](img/rrhh-20261009-yago.webp)
 

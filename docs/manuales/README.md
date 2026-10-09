@@ -1,6 +1,6 @@
 # Manuales del portal
 
-Guías basadas en las acciones comprobadas en la web el 9 de octubre de 2026. Las imágenes muestran datos de ejemplo; las cifras y las fechas pueden cambiar.
+Guías basadas en las acciones comprobadas en la web los días 8 y 9 de octubre de 2026. La petición del centro, la tramitación y la respuesta del aspirante corresponden al recorrido del día 9. Las imágenes muestran datos de ejemplo; las cifras y las fechas pueden cambiar.
 
 | Persona que usa el portal | Guía | Acciones comprobadas |
 | --- | --- | --- |

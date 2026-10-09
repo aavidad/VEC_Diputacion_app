@@ -10,7 +10,7 @@ Esta guía recoge consultas comprobadas en el Portal del Empleado el 9 de octubr
 
 ![Cabecera de la ficha con fase, estado y siguiente paso visibles.](img/rrhh-20261009-ficha.webp)
 
-En **Datos de la petición**, compruebe centro, categoría, grupo, motivo, período y jornada. Pulse **Ver todos los datos** cuando necesite el análisis y la vía de cobertura. El coste mostrado procede de la fuente registrada; leerlo no autoriza un gasto.
+En **Datos de la petición**, compruebe centro, categoría, grupo, motivo, período y jornada. Pulse **Ver todos los datos** cuando necesite el análisis y la vía de cobertura. El coste mostrado es la estimación registrada en el análisis.
 
 ## Leer las actuaciones registradas
 
@@ -22,6 +22,6 @@ Para regresar, pulse **Volver a la lista**. Si actualiza la página y aparece la
 
 ## Alcance de este acceso
 
-Este recorrido comprobó la **consulta** de la ficha y del historial. No comprobó una acción propia para **resolver** ni para **firmar** con este acceso. El informe que figuraba en el expediente seguía pendiente de revisión y firma; verlo en la ficha no acredita una firma.
+Este recorrido comprobó la **consulta** de la ficha y del historial. No comprobó una acción propia para **resolver** ni para **firmar** con este acceso. El informe que figuraba en el expediente seguía pendiente de revisión y firma.
 
 Si aparece «La consulta de documentos generados no está disponible», conserve el número del expediente y comunique el mensaje a Informática. Esta guía no indica descargas PDF o Word: no se ofrecieron en la ficha comprobada.
