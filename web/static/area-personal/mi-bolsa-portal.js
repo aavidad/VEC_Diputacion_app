@@ -38,7 +38,10 @@ function referenciaDocumentalValida(referencia) {
 }
 
 function instante(valor, nombre) {
-  if (typeof valor !== "string" || !INSTANTE.test(valor) || Number.isNaN(Date.parse(valor))) throw new TypeError(`${nombre} no es un instante válido.`);
+  if (typeof valor !== "string" || !INSTANTE.test(valor) || Number.isNaN(Date.parse(valor))
+    || new Date(valor).toISOString().slice(0, 19) !== valor.slice(0, 19)) {
+    throw new TypeError(`${nombre} no es un instante válido.`);
+  }
 }
 
 // validarPortalMiBolsa comprueba las dos partes opcionales de la respuesta de
@@ -53,7 +56,7 @@ export function validarPortalMiBolsa(datos) {
       !["firme", "propuesta_rrhh"].includes(acciones.modo_respuesta)) {
     throw new TypeError("Las acciones de mi bolsa no son válidas.");
   }
-  instante(acciones.pausa_maxima, "pausa_maxima");
+  if (acciones.pausa_maxima !== null) instante(acciones.pausa_maxima, "pausa_maxima");
   const bolsas = new Set((datos.participaciones || []).map((p) => p.bolsa));
   for (const estado of datos.portal) {
     if (!estado || !bolsas.has(estado.bolsa)) throw new TypeError("El portal cita una bolsa ajena.");

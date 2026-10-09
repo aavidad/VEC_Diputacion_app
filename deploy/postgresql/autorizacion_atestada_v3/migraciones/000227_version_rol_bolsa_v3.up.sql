@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- AD227: consumidor V3 nominal para versión B1 y CAS de asignaciones.
--- Requiere AUT62 y AD220. No crea identidades ni concede a ADMIN.
+-- Requiere AUT62 y AD220 (sobre el núcleo POST225 de AD225). No crea identidades ni concede a ADMIN.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC';
@@ -45,15 +45,15 @@ BEGIN
  INTO STRICT actual,fuente,meta FROM pg_proc p WHERE p.oid=f;
  sha_fuente:=encode(sha256(convert_to(fuente,'UTF8')),'hex');
  sha_def:=encode(sha256(convert_to(actual,'UTF8')),'hex');
- IF sha_fuente IS DISTINCT FROM '82b60212316f48390ce493b7069c484118848fd30936ed221f4acff3205f5f5b'
- OR sha_def IS DISTINCT FROM '3ccd335479dd8991b41cf683759df665fcec33428768cb3151e42443646c42ad'
+ IF sha_fuente IS DISTINCT FROM '74cf39e23124b9ebd85d702337250be22ba451e29e7ec3a740515efc12408a85'
+ OR sha_def IS DISTINCT FROM '15616d436642f56c9e725e030718ce00ade2698f19124b508971e6d4e1c8e24e'
  OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f
   AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
   AND p.prosecdef AND p.provolatile='v'
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
  THEN RAISE EXCEPTION 'AD227: PARO clave=nucleo_pre actual_src=% actual_def=% esperado_src=% esperado_def=%',
-  sha_fuente,sha_def,'82b60212316f48390ce493b7069c484118848fd30936ed221f4acff3205f5f5b',
-  '3ccd335479dd8991b41cf683759df665fcec33428768cb3151e42443646c42ad'
+  sha_fuente,sha_def,'74cf39e23124b9ebd85d702337250be22ba451e29e7ec3a740515efc12408a85',
+  '15616d436642f56c9e725e030718ce00ade2698f19124b508971e6d4e1c8e24e'
   USING ERRCODE='55000';END IF;
  PERFORM set_config('vec.ad227.nucleo_oid',f::text,true);
  PERFORM set_config('vec.ad227.nucleo_meta',meta::text,true);
@@ -732,6 +732,20 @@ BEGIN
                    'contratacion_temporal.llamamiento.reanudar_orden'
                AND d ->> 'accion' IS NOT DISTINCT FROM
                    'contratacion_temporal.llamamiento.reanudar_orden'
+               AND d ->> 'modulo_id' IS NOT DISTINCT FROM 'contratacion_temporal'
+               AND d ->> 'tipo_recurso' IS NOT DISTINCT FROM
+                   'reanudacion_seleccion_contratacion_temporal'
+               AND d ->> 'finalidad' IS NOT DISTINCT FROM
+                   'gestionar_contratacion_temporal'
+           )
+           OR (
+               p_perfil_mutacion IS NOT DISTINCT FROM 'reanudacion_solicitud_llamamiento'
+               AND c ->> 'audiencia_consumo' IS NOT DISTINCT FROM
+                   'vec_contratacion_temporal.confirmar_alta_atestada.v1'
+               AND c ->> 'operacion' IS NOT DISTINCT FROM
+                   'contratacion_temporal.llamamiento.reanudar_solicitud'
+               AND d ->> 'accion' IS NOT DISTINCT FROM
+                   'contratacion_temporal.llamamiento.reanudar_solicitud'
                AND d ->> 'modulo_id' IS NOT DISTINCT FROM 'contratacion_temporal'
                AND d ->> 'tipo_recurso' IS NOT DISTINCT FROM
                    'reanudacion_seleccion_contratacion_temporal'
@@ -2796,11 +2810,11 @@ BEGIN
  sha_def:=encode(sha256(convert_to(actual,'UTF8')),'hex');
  IF f::text IS DISTINCT FROM current_setting('vec.ad227.nucleo_oid',true)
  OR meta IS DISTINCT FROM current_setting('vec.ad227.nucleo_meta',true)::jsonb
- OR sha_fuente IS DISTINCT FROM '6ef6b37f7edca6306744d32895918f6b65f7f133ad6edd573eee1345a3d3399c'
- OR sha_def IS DISTINCT FROM 'e33b3f06110ac5fb8711c4ac33ef80f140d1c9ac60e576a2e82f3c98170861e6'
+ OR sha_fuente IS DISTINCT FROM '26173685009e2a05b7ced5d1a0d082cf6e010a65715bddb1ba4b127e1416cc00'
+ OR sha_def IS DISTINCT FROM '30bab608e4fb9ef6a728e871eab8ebef3454b2d5f8a4554a42c50b49aeae3191'
  THEN RAISE EXCEPTION 'AD227: PARO clave=nucleo_post actual_src=% actual_def=% esperado_src=% esperado_def=%',
-  sha_fuente,sha_def,'6ef6b37f7edca6306744d32895918f6b65f7f133ad6edd573eee1345a3d3399c',
-  'e33b3f06110ac5fb8711c4ac33ef80f140d1c9ac60e576a2e82f3c98170861e6'
+  sha_fuente,sha_def,'26173685009e2a05b7ced5d1a0d082cf6e010a65715bddb1ba4b127e1416cc00',
+  '30bab608e4fb9ef6a728e871eab8ebef3454b2d5f8a4554a42c50b49aeae3191'
   USING ERRCODE='55000';END IF;
 END $nucleo_post$;
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;

@@ -26,11 +26,21 @@ func configurarAvisosViaCoberturaDesarrollo(
 	reglasBolsa *reglas.Resolutor,
 	fuente *fuenteConstituidaRRHHDesarrollo,
 ) {
-	if autoridad == nil || autoridad.presentadorCobertura == nil || reglasBolsa == nil || fuente == nil {
+	if autoridad == nil || fuente == nil {
+		return
+	}
+	// Fuente de cobertura y avisos comparten la misma lectura memorizada:
+	// una sola carga de Bolsa por propuesta.
+	var situacion ports.ConsultaSituacionBolsaCobertura = situacionBolsaCoberturaDesarrollo{fuente: fuente}
+	if autoridad.situacionBolsaCobertura != nil {
+		autoridad.situacionBolsaCobertura.fijar(situacion)
+		situacion = autoridad.situacionBolsaCobertura
+	}
+	if autoridad.presentadorCobertura == nil || reglasBolsa == nil {
 		return
 	}
 	evaluador, err := application.NuevoEvaluadorAvisosViaCobertura(
-		situacionBolsaCoberturaDesarrollo{fuente: fuente}, reglasBolsa, relojSistemaAvisosViaDesarrollo{},
+		situacion, reglasBolsa, relojSistemaAvisosViaDesarrollo{},
 	)
 	if err == nil {
 		err = autoridad.presentadorCobertura.ConfigurarAvisosVia(evaluador)
@@ -59,8 +69,12 @@ func (s situacionBolsaCoberturaDesarrollo) SituacionBolsaCobertura(
 	if s.fuente == nil || ctx == nil || categoriaRef == "" {
 		return ports.SituacionBolsaCobertura{}, ports.ErrSituacionBolsaCoberturaNoDisponible
 	}
-	datos, ok := s.fuente.constituidas(ctx)
-	if !ok {
+	// Solo hacen falta recuentos por estado: el resumen del cuadro de Bolsa
+	// (una lectura de conjunto con B82/B85) basta y no descifra el acta.
+	// Un fallo queda «no disponible»; nunca se sirve una lectura anterior.
+	datos, err := s.fuente.cargarResumen(ctx)
+	if err != nil {
+		log.Printf("contratacion temporal: situacion de bolsa no legible; causa=%s", causaFalloPostgreSQLCTDesarrollo(err))
 		return ports.SituacionBolsaCobertura{}, ports.ErrSituacionBolsaCoberturaNoDisponible
 	}
 	ahora := time.Now()

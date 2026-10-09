@@ -3,9 +3,9 @@
 import { escaparHTML } from "./componentes-expedientes.js?v=20261008-r-fichas-idioma-nav-v1";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v6";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-corte-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261009-asignacion-cobertura-v1";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261008-alta-analisis-bolsa-fichas-v5";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261009-ficha-version-recibo-v1";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
@@ -543,10 +543,24 @@ export function crearGestorTramitacion({
     });
   }
 
+  // La ficha pinta el panel de asignación solo cuando el cuadro ya dice
+  // «asignación de unidad». Justo tras confirmar la cobertura el cuadro en
+  // memoria sigue en «solicitud», así que el panel se abre junto al recibo.
+  function crearContenedorAsignacionTrasCobertura() {
+    const cobertura = raiz.querySelector("[data-ct-exp-cobertura]");
+    const documento = cobertura?.ownerDocument;
+    if (!documento?.createElement || typeof cobertura.after !== "function") return null;
+    const contenedor = documento.createElement("div");
+    contenedor.setAttribute("data-ct-exp-asignacion", "");
+    cobertura.after(contenedor);
+    return contenedor;
+  }
+
   function montarAsignacionDesdeCobertura(expedienteRef, recibo) {
     if (!esMontada() || !asignacionDisponible) return false;
     if (desmontarAsignacion !== null) return true;
-    const contenedor = raiz.querySelector("[data-ct-exp-asignacion]");
+    const contenedor = raiz.querySelector("[data-ct-exp-asignacion]")
+      ?? crearContenedorAsignacionTrasCobertura();
     if (!contenedor) return false;
     try {
       desmontarAsignacion = montarFormularioAsignacion({

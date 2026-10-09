@@ -27,8 +27,6 @@ test("el catálogo inglés del área personal no conserva textos en castellano",
   const [es, en] = await Promise.all([catalogoPlano("es"), catalogoPlano("en")]);
   // Iguales en ambos idiomas por ser nombres propios, siglas o números.
   const invariantes = new Set(["areaPersonal.ficha.tipo.dni", "areaPersonal.ficha.tipo.nie", "areaPersonal.html.logo", "areaPersonal.vista.perfil.avisos.telegram",
-    "areaPersonal.vista.seguimiento.provisional.estado",
-    "areaPersonal.vista.seguimiento.posicion.ordenDe",
     "areaPersonal.preferencias.opcion.tamano_texto.normal"]);
   const iguales = Object.keys(es).filter((clave) => es[clave] === en[clave] && !invariantes.has(clave)
     && /\p{L}{3,}/u.test(es[clave]));

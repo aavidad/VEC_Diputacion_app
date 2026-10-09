@@ -3,6 +3,8 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -15,11 +17,56 @@ import (
 type revalidadorPreferenciasMedido struct {
 	core.RevalidadorAutenticacionActorV1
 	medir bool
+	etapa *etapaFalloSesionPreferencias
 }
+
+type etapaFalloSesionPreferencias string
+
+const (
+	etapaSesionPreferenciasRegistro     etapaFalloSesionPreferencias = "registro"
+	etapaSesionPreferenciasRevalidacion etapaFalloSesionPreferencias = "revalidacion"
+	etapaSesionPreferenciasContexto     etapaFalloSesionPreferencias = "contexto"
+)
+
+// Solo los centinelas y la etapa fija forman el texto. La causa conserva
+// errors.Is/As para el diagnóstico interno, sin pasar al HTTP ni al registro.
+type falloSesionPreferencias struct {
+	etapa etapaFalloSesionPreferencias
+	causa error
+}
+
+func (falloSesionPreferencias) Error() string {
+	return "bootstrap: sesion de preferencias no disponible"
+}
+func (falloSesionPreferencias) String() string {
+	return "bootstrap: sesion de preferencias no disponible"
+}
+func (falloSesionPreferencias) GoString() string {
+	return "bootstrap: sesion de preferencias no disponible"
+}
+func (falloSesionPreferencias) Format(estado fmt.State, _ rune) {
+	_, _ = estado.Write([]byte("bootstrap: sesion de preferencias no disponible"))
+}
+func (falloSesionPreferencias) MarshalJSON() ([]byte, error) {
+	return []byte(`{"error":"sesion_no_disponible"}`), nil
+}
+func (falloSesionPreferencias) LogValue() slog.Value {
+	return slog.StringValue("bootstrap: sesion de preferencias no disponible")
+}
+func (e falloSesionPreferencias) Unwrap() []error {
+	if e.causa == nil {
+		return []error{errComposicionUsuariosPreferencias}
+	}
+	return []error{errComposicionUsuariosPreferencias, e.causa}
+}
+func (e falloSesionPreferencias) EtapaSegura() string { return string(e.etapa) }
 
 func (m revalidadorPreferenciasMedido) RevalidarAutenticacionActorV1(ctx context.Context, s core.SolicitudRevalidacionAutenticacionActorV1) (core.AutenticacionRevalidadaV1, error) {
 	inicio := time.Now()
 	r, err := m.RevalidadorAutenticacionActorV1.RevalidarAutenticacionActorV1(ctx, s)
+	if err != nil && m.etapa != nil {
+		*m.etapa = etapaSesionPreferenciasRevalidacion
+	}
 	if m.medir {
 		telemetria.RegistrarFase(ctx, telemetria.FaseSesion, time.Since(inicio), err)
 	}
@@ -29,11 +76,15 @@ func (m revalidadorPreferenciasMedido) RevalidarAutenticacionActorV1(ctx context
 type resolutorPreferenciasMedido struct {
 	core.ResolutorContextoActorRegistradoV2
 	medir bool
+	etapa *etapaFalloSesionPreferencias
 }
 
 func (m resolutorPreferenciasMedido) ResolverContextoActorRegistradoV2(ctx context.Context, s core.SolicitudContextoActor) (core.ResultadoContextoActorRegistradoV2, error) {
 	inicio := time.Now()
 	r, err := m.ResolutorContextoActorRegistradoV2.ResolverContextoActorRegistradoV2(ctx, s)
+	if m.etapa != nil {
+		*m.etapa = etapaSesionPreferenciasContexto
+	}
 	if m.medir {
 		telemetria.RegistrarFase(ctx, telemetria.FaseContexto, time.Since(inicio), err)
 	}
@@ -50,11 +101,11 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) resolverSesion(r *http.Request
 	medir := a.ruta == usuarioshttp.RutaMisPreferencias || a.ruta == usuarioshttp.RutaMisPreferenciasAreaPersonal
 	asercion, err := nonceRutasDietas()
 	if err != nil {
-		return vacio, resultadoVacio, errComposicionUsuariosPreferencias
+		return vacio, resultadoVacio, falloSesionPreferencias{etapaSesionPreferenciasRegistro, err}
 	}
 	sesion, err := nonceRutasDietas()
 	if err != nil {
-		return vacio, resultadoVacio, errComposicionUsuariosPreferencias
+		return vacio, resultadoVacio, falloSesionPreferencias{etapaSesionPreferenciasRegistro, err}
 	}
 	hasta := ahora.Add(2 * time.Minute)
 	if limite := r.TLS.VerifiedChains[0][0].NotAfter.UTC().Truncate(time.Microsecond); limite.Before(hasta) {
@@ -77,23 +128,24 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) resolverSesion(r *http.Request
 		telemetria.RegistrarFase(r.Context(), telemetria.FaseSesion, time.Since(inicioSesion), err)
 	}
 	if err != nil || confirmacion.ValidarPara(alta) != nil || confirmacion.CuentaRef != cuenta.CuentaRef {
-		return vacio, resultadoVacio, errComposicionUsuariosPreferencias
+		return vacio, resultadoVacio, falloSesionPreferencias{etapaSesionPreferenciasRegistro, err}
 	}
 	revalidador := revalidadorSesionConsultaRRHHDesarrollo{delegado: a.base.revalidador, alta: alta, confirmacion: confirmacion, reloj: a.reloj, superficie: superficie}
-	vinculo, resultado, err := core.CrearVinculoAutenticacionActorV2ConResultado(r.Context(), revalidadorPreferenciasMedido{revalidador, medir},
+	etapa := etapaSesionPreferenciasRevalidacion
+	vinculo, resultado, err := core.CrearVinculoAutenticacionActorV2ConResultado(r.Context(), revalidadorPreferenciasMedido{revalidador, medir, &etapa},
 		core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: confirmacion.AutenticacionRef, SesionRef: confirmacion.SesionRef},
-		resolutorPreferenciasMedido{a.base.contextos, medir}, core.SolicitudContextoActor{Cuenta: core.CuentaAutenticadaContextoActor{CuentaRef: cuenta.CuentaRef, Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh}, PerfilActivoRef: cuenta.PerfilRef}, a.reloj)
+		resolutorPreferenciasMedido{a.base.contextos, medir, &etapa}, core.SolicitudContextoActor{Cuenta: core.CuentaAutenticadaContextoActor{CuentaRef: cuenta.CuentaRef, Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh}, PerfilActivoRef: cuenta.PerfilRef}, a.reloj)
 	if err != nil {
-		return vacio, resultadoVacio, errComposicionUsuariosPreferencias
+		return vacio, resultadoVacio, falloSesionPreferencias{etapa, err}
 	}
 	datos, err := vinculo.Datos()
 	if err != nil || datos.CuentaRef != cuenta.CuentaRef || datos.PerfilActivoRef != cuenta.PerfilRef || datos.CuentaPrivilegiada ||
 		datos.Superficie != a.superficie || !vinculo.VigenteEn(a.reloj.Ahora(), resultado) ||
 		resultado.Contexto.PersonaRef == "" || resultado.Contexto.PersonaRef != resultado.Contexto.Instantanea.PersonaRef {
-		return vacio, resultadoVacio, errComposicionUsuariosPreferencias
+		return vacio, resultadoVacio, falloSesionPreferencias{etapaSesionPreferenciasContexto, err}
 	}
 	if errors.Is(r.Context().Err(), context.Canceled) {
-		return vacio, resultadoVacio, errComposicionUsuariosPreferencias
+		return vacio, resultadoVacio, falloSesionPreferencias{etapaSesionPreferenciasContexto, r.Context().Err()}
 	}
 	return vinculo, resultado, nil
 }

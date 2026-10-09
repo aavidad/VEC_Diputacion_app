@@ -275,3 +275,58 @@ func TestResolverActorDistingueCaidaNominalDeDenegacion(t *testing.T) {
 		})
 	}
 }
+
+// Detrás del proxy de cidonia el Host llega reescrito a "localhost" y el
+// navegador envía el Origin público: el guardado del propio portal no puede
+// rechazarse por eso (HZ13, 400 solicitud_invalida).
+func TestRutaAjustesAdmiteMismoOrigenTrasProxyYRechazaAjeno(t *testing.T) {
+	ahora := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	actor, _, err := vecpruebas.NuevoContextoYVinculo(ahora, "per_0123456789abcdef0123456789abcdef",
+		"prf_0123456789abcdef0123456789abcdef", vecdomain.AuthMethodCertificate, vecdomain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	casos := []struct {
+		origen, sitio  string
+		estado, llegan int
+	}{
+		{"https://vec.example.org", "same-origin", http.StatusUnprocessableEntity, 1},
+		{"https://ajeno.example", "cross-site", http.StatusBadRequest, 0},
+		{"https://ajeno.example", "same-site", http.StatusBadRequest, 0},
+		{"https://ajeno.example", "", http.StatusBadRequest, 0},
+		{"https://localhost", "", http.StatusUnprocessableEntity, 1},
+	}
+	for _, c := range casos {
+		s := &servicioPrueba{}
+		h, err := NuevoManejador(&actorPrueba{actor: actor}, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := httptest.NewRequest(http.MethodPost, Ruta, strings.NewReader(`{}`))
+		r.Host = "localhost"
+		r.Header.Set("Accept", "application/json")
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Origin", c.origen)
+		if c.sitio != "" {
+			r.Header.Set("Sec-Fetch-Site", c.sitio)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != c.estado || s.publicaciones != c.llegan {
+			t.Fatalf("%s %q: estado %d, publicaciones %d", c.origen, c.sitio, w.Code, s.publicaciones)
+		}
+	}
+	s := &servicioPrueba{}
+	h, _ := NuevoManejador(&actorPrueba{actor: actor}, s)
+	r := httptest.NewRequest(http.MethodPost, Ruta, strings.NewReader(`{}`))
+	r.Host = "localhost"
+	r.Header.Set("Accept", "application/json")
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Add("Sec-Fetch-Site", "same-origin")
+	r.Header.Add("Sec-Fetch-Site", "cross-site")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusBadRequest || s.publicaciones != 0 {
+		t.Fatalf("Sec-Fetch-Site duplicada: %d", w.Code)
+	}
+}

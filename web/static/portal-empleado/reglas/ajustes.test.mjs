@@ -1,14 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { readFile, mkdtemp, rm } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createServer } from "node:http";
-import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { abrirNavegador, cargarPantalla } from "../../../../scripts/tests/chrome_cdp.mjs";
 import { API_AJUSTES, ErrorAjustes, crearClienteAjustes, renderizarAjustes, validarLecturaAjustes, validarReciboAjustes } from "./ajustes.js";
 import { cargarTextosAjustes } from "./ajustes-i18n.js";
 
@@ -183,7 +181,7 @@ test("los cuatro plazos editables y su historial usan el idioma elegido", async 
   } finally { await cargarTextosAjustes({ idioma: "es", porDefecto: "es" }); }
 });
 
-test("un fallo del catálogo común no oculta los plazos CT cuya API responde", { skip: !existsSync("/usr/bin/google-chrome") }, async () => {
+test("un fallo del catálogo común no oculta los plazos CT cuya API responde", { skip: !existsSync("/usr/bin/google-chrome"), timeout: 240000 }, async () => {
   const raiz = resolve(fileURLToPath(new URL("../../", import.meta.url)));
   let lecturasCT = 0;
   let fallosCatalogo = 0;
@@ -226,26 +224,19 @@ test("un fallo del catálogo común no oculta los plazos CT cuya API responde", 
       responder(200, tipo, contenido);
     } catch { responder(404, "text/plain", ""); }
   });
+  let navegador;
   const cargarPagina = async (puerto, listo, zoom = false, idioma = "es") => {
-    let salida = "";
-    for (let intento = 0; intento < 3; intento++) {
-      lecturasCT = 0;
-      const perfil = await mkdtemp(join(tmpdir(), "vec-reglas-ct-"));
-      try {
-        const { stdout } = await promisify(execFile)("/usr/bin/google-chrome", ["--headless=new", "--no-sandbox",
-          "--disable-gpu", "--disable-background-networking", "--no-proxy-server", "--no-first-run", `--user-data-dir=${perfil}`,
-          "--window-size=390,844", "--virtual-time-budget=15000", "--dump-dom",
-          `http://127.0.0.1:${puerto}/portal-empleado/reglas/?lang=${idioma}${zoom ? "&zoom=200" : ""}`],
-        { timeout: 20000, maxBuffer: 4 * 1024 * 1024 });
-        salida = stdout;
-        if (listo.test(stdout)) return stdout;
-      } finally { await rm(perfil, { recursive: true, force: true }); }
-    }
-    return salida;
+    lecturasCT = 0;
+    const patron = JSON.stringify(listo.source);
+    const opciones = JSON.stringify(listo.flags);
+    return cargarPantalla(navegador,
+      `http://127.0.0.1:${puerto}/portal-empleado/reglas/?lang=${idioma}${zoom ? "&zoom=200" : ""}`,
+      `new RegExp(${patron}, ${opciones}).test(document.documentElement.outerHTML)`);
   };
   try {
     await new Promise((listo) => servidor.listen(0, "127.0.0.1", listo));
     const puerto = servidor.address().port;
+    navegador = await abrirNavegador();
     const stdout = await cargarPagina(puerto, /data-ajustes-editar/u);
     assert.ok(fallosCatalogo > 0, `el catálogo común realmente falló: ${JSON.stringify(rutasPedidas)} ${stdout.match(/ERR_[A-Z_]+/u)?.[0] ?? ""}`);
     assert.equal(lecturasCT, 1, "el panel CT hizo una sola lectura");
@@ -275,6 +266,7 @@ test("un fallo del catálogo común no oculta los plazos CT cuya API responde", 
     assert.match(ingles, /<h3[^>]*>Financial review deadline<\/h3>/u);
     assert.doesNotMatch(ingles, /<h3[^>]*>Plazo de fiscalización<\/h3>/u);
   } finally {
+    if (navegador) await navegador.cerrar();
     await new Promise((listo) => servidor.close(listo));
   }
 });

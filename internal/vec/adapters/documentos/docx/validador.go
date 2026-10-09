@@ -8,6 +8,8 @@ import (
 	"errors"
 	"io"
 	"strings"
+
+	"vec-diputacion-granada/internal/vec/adapters/documentos/membrete"
 )
 
 var ErrSalidaDOCXInvalida = errors.New("docx: salida generada invalida")
@@ -27,6 +29,16 @@ var partesDOCXPermitidas = map[string]bool{
 	"word/_rels/document.xml.rels": true,
 }
 
+// partesDOCXMembrete son opcionales, pero van las tres juntas: cabecera, sus
+// relaciones internas y el logotipo, que debe ser exactamente el embebido.
+var partesDOCXMembrete = map[string]bool{
+	"word/header1.xml":            true,
+	"word/_rels/header1.xml.rels": true,
+	parteLogoDOCX:                 true,
+}
+
+const parteLogoDOCX = "word/media/logo.png"
+
 // ValidarSalida rechaza partes inesperadas, macros, relaciones externas,
 // cifrado y expansiones ZIP desproporcionadas.
 func (Renderizador) ValidarSalida(ctx context.Context, contenido []byte) error {
@@ -43,7 +55,7 @@ func (Renderizador) ValidarSalida(ctx context.Context, contenido []byte) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if archivo == nil || !partesDOCXPermitidas[archivo.Name] || vistas[archivo.Name] ||
+		if archivo == nil || !(partesDOCXPermitidas[archivo.Name] || partesDOCXMembrete[archivo.Name]) || vistas[archivo.Name] ||
 			archivo.Flags&0x1 != 0 || archivo.UncompressedSize64 > maximoBytesParteDOCX ||
 			total > maximoBytesTotalesDOCX-archivo.UncompressedSize64 {
 			return ErrSalidaDOCXInvalida
@@ -56,7 +68,16 @@ func (Renderizador) ValidarSalida(ctx context.Context, contenido []byte) error {
 		}
 		datos, err := io.ReadAll(io.LimitReader(lectorParte, maximoBytesParteDOCX+1))
 		errorCierre := lectorParte.Close()
-		if err != nil || errorCierre != nil || len(datos) > maximoBytesParteDOCX || !xmlValido(datos) {
+		if err != nil || errorCierre != nil || len(datos) > maximoBytesParteDOCX {
+			return ErrSalidaDOCXInvalida
+		}
+		if archivo.Name == parteLogoDOCX {
+			if !membrete.EsLogo(datos) {
+				return ErrSalidaDOCXInvalida
+			}
+			continue
+		}
+		if !xmlValido(datos) {
 			return ErrSalidaDOCXInvalida
 		}
 		if strings.HasSuffix(archivo.Name, ".rels") && relacionExterna(datos) {
@@ -71,6 +92,15 @@ func (Renderizador) ValidarSalida(ctx context.Context, contenido []byte) error {
 		if !vistas[parte] {
 			return ErrSalidaDOCXInvalida
 		}
+	}
+	membretes := 0
+	for parte := range partesDOCXMembrete {
+		if vistas[parte] {
+			membretes++
+		}
+	}
+	if membretes != 0 && membretes != len(partesDOCXMembrete) {
+		return ErrSalidaDOCXInvalida
 	}
 	return nil
 }

@@ -17,3 +17,14 @@ c0d805eefe3b01304dc49ecd4a8414d2dd325af45e823a7e2c0b445afbe43e48
 # Post AD218: acto B1 de carga desde CONVOCA; definición del núcleo
 # c74551eab17bea78bb564d14d96b77f33bd24a5874b7bdb6e100a59d8f2fe714.
 79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5
+# Post AD225/AD226 (cidonia 09/10)
+# 144 ternas cotejadas con el prosrc vivo.
+fc80e4851d7a63a147cce6a40ca924d24d0b5e671686134be90e98e0f53c906c
+# Post AD219/AUT59/AD220 sobre POST225 (copia HZ12, 09/10): AD220 solo añade el perfil
+# gobierno_rol_nuevo; su guarda de reversión exige volver byte a byte a fc80e485.
+# Las ternas existentes no cambian. Definición 15616d436642f56c9e725e030718ce00ade2698f19124b508971e6d4e1c8e24e.
+74cf39e23124b9ebd85d702337250be22ba451e29e7ec3a740515efc12408a85
+# Post AUT62/AD227 sobre el anterior: AD227 solo añade el perfil de versión de rol de Bolsa;
+# quitando la ampliación de AD225 su definición es byte a byte la revisada (e33b3f06…).
+# Definición 30bab608e4fb9ef6a728e871eab8ebef3454b2d5f8a4554a42c50b49aeae3191.
+26173685009e2a05b7ced5d1a0d082cf6e010a65715bddb1ba4b127e1416cc00
