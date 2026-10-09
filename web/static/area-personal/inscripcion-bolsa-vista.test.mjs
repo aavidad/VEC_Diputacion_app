@@ -57,7 +57,7 @@ test("lista vacía, plazo, revisión, reintento con la misma clave y recibo recu
     dataset: { inscripcionRequisito: "titulo" }, checked: true,
   }) } });
   pulsar("confirmar"); await pausa();
-  assert.match(contenedor.innerHTML, /No se ha podido completar/u);
+  assert.match(contenedor.innerHTML, /No se ha podido comprobar el envío/u);
   pulsar("confirmar"); await pausa();
   assert.equal(claves.length, 2);
   assert.equal(claves[0], claves[1]);
@@ -289,4 +289,49 @@ test("la categoría 33 y la 128 siguen visibles y se envían por su referencia e
       montaje.destruir();
     });
   }
+});
+
+test("403 deniega sin ofrecer otro GET idéntico", async () => {
+  const { contenedor, ventana, pulsar } = entorno();
+  let consultas = 0;
+  const cliente = {
+    abiertas: async () => { consultas += 1; throw Object.assign(new Error("denegado"), { status: 403 }); },
+    convocatoria: async () => { throw new Error("sin uso"); },
+    propias: async () => { throw new Error("sin uso"); },
+    detallePropio: async () => { throw new Error("sin uso"); },
+    inscribir: async () => { throw new Error("sin uso"); },
+  };
+  const montaje = montarInscripcionBolsa({ contenedor, ventana, cliente, idioma: "es", textoBase: () => "Cargando" });
+  await pausa();
+  assert.match(contenedor.innerHTML, /Su acceso no permite hacer esta consulta/u);
+  assert.doesNotMatch(contenedor.innerHTML, /data-inscripcion-accion="reintentar"/u);
+  pulsar("reintentar"); await pausa();
+  assert.equal(consultas, 1, "la denegación no repite la lectura");
+  montaje.destruir();
+});
+
+test("503 permite reintentar la misma página de convocatorias", async () => {
+  const { contenedor, ventana, pulsar } = entorno();
+  const cursores = [];
+  const cliente = {
+    abiertas: async ({ cursor }) => {
+      cursores.push(cursor);
+      if (cursores.length === 2) throw Object.assign(new Error("temporal"), { status: 503 });
+      if (cursor) return { convocatorias: [{ ...resumen, convocatoria_ref: "convocatoria:segunda",
+        titulo: "Segunda convocatoria" }], total: 2, cursor_siguiente: null };
+      return { convocatorias: [resumen], total: 2, cursor_siguiente: "cursor:2" };
+    },
+    convocatoria: async () => { throw new Error("sin uso"); },
+    propias: async () => { throw new Error("sin uso"); },
+    detallePropio: async () => { throw new Error("sin uso"); },
+    inscribir: async () => { throw new Error("sin uso"); },
+  };
+  const montaje = montarInscripcionBolsa({ contenedor, ventana, cliente, idioma: "es", textoBase: () => "Cargando" });
+  await pausa(); pulsar("mas"); await pausa();
+  assert.match(contenedor.innerHTML, /La consulta no está disponible ahora/u);
+  assert.match(contenedor.innerHTML, /data-inscripcion-accion="reintentar"/u);
+  pulsar("reintentar"); await pausa();
+  assert.deepEqual(cursores, ["", "cursor:2", "cursor:2"]);
+  assert.equal((contenedor.innerHTML.match(/<article/gu) ?? []).length, 2);
+  montaje.destruir();
 });

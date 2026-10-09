@@ -22,7 +22,7 @@ function urlId(url, id) {
   return `${destino.pathname}${destino.search}`;
 }
 
-function descripcionError(error, textos) {
+function descripcionError(error, textos, envio = false) {
   if (error?.status === 401 || error?.status === 403) CLAVES_PENDIENTES.clear();
   if (error?.status === 401) return textos.traducir("vista.sinSesion");
   if (error?.status === 403) return textos.traducir("vista.denegada");
@@ -31,6 +31,7 @@ function descripcionError(error, textos) {
   if (error?.status === 409) return textos.traducir("vista.conflicto");
   if (error?.status === 422 && error?.codigo === "plazo_cerrado") return textos.traducir("vista.plazoCerrado");
   if (error?.status === 422) return textos.traducir("vista.requisitosCambiados");
+  if (error?.status === 503) return textos.traducir(envio ? "vista.envioTemporal" : "vista.temporal");
   return textos.traducir("vista.error");
 }
 
@@ -72,7 +73,7 @@ function vistaAbiertas(estado, textos) {
   const t = (clave, variables) => esc(textos.traducir(`vista.${clave}`, variables));
   if (estado.carga) return `<div class="cuerpo-panel" role="status" aria-live="polite">${t("cargando")}</div>`;
   if (estado.error) return `<div class="cuerpo-panel" role="alert"><p>${esc(estado.error)}</p>
-    <button type="button" class="boton-secundario" data-inscripcion-accion="reintentar">${t("reintentar")}</button></div>`;
+    ${[401, 403].includes(estado.errorStatus) ? "" : `<button type="button" class="boton-secundario" data-inscripcion-accion="reintentar">${t("reintentar")}</button>`}</div>`;
   if (!estado.abiertas.length) return `<div class="cuerpo-panel vacio-controlado" role="status"><p>${t("vacio")}</p>
     <button type="button" class="boton-secundario" data-inscripcion-accion="propias">${t("misSolicitudes")}</button>
     <button type="button" class="boton-secundario" data-inscripcion-accion="reintentar">${t("actualizar")}</button></div>`;
@@ -162,7 +163,8 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
       || !cliente?.propias || !cliente?.detallePropio || !cliente?.inscribir)))
     throw new TypeError("Montaje de inscripción inválido");
   const estado = { tipo: "abiertas", carga: true, abiertas: [], propias: [], total: 0,
-    cursor: null, cursorPropias: null, bolsa: null, solicitud: null, error: "", revision: false,
+    cursor: null, cursorPropias: null, bolsa: null, solicitud: null, error: "", errorStatus: 0,
+    ultimaAbiertasMas: false, ultimaPropiasMas: false, revision: false,
     enviando: false, comprobarEnvio: false, bloqueoActo: false,
     ayuda: false, declaraciones: new Set(), categoriaRef: "", filtroCategoria: "" };
   let textos = null;
@@ -185,6 +187,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     limpiarDatosPrivados();
     estado.carga = false;
     estado.enviando = false;
+    estado.errorStatus = error.status;
     estado.error = descripcionError(error, textos);
     pintar(); anunciar(estado.error);
     return true;
@@ -201,7 +204,8 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
         : estado.tipo === "bolsa" ? vistaBolsa(estado, textos)
           : estado.tipo === "solicitud" ? vistaSolicitud(estado, textos) : vistaPropias(estado, textos);
     const error = estado.tipo !== "abiertas" && estado.error && (estado.tipo !== "bolsa" || !estado.bolsa)
-      ? `<div class="cuerpo-panel" role="alert"><p>${esc(estado.error)}</p><button type="button" class="boton-secundario" data-inscripcion-accion="reintentar">${esc(t("reintentar"))}</button></div>` : "";
+      ? `<div class="cuerpo-panel" role="alert"><p>${esc(estado.error)}</p>${[401, 403].includes(estado.errorStatus)
+        ? "" : `<button type="button" class="boton-secundario" data-inscripcion-accion="reintentar">${esc(t("reintentar"))}</button>`}</div>` : "";
     contenedor.innerHTML = `<section class="panel" aria-labelledby="titulo-inscripcion-bolsa" aria-busy="${estado.carga}">
       ${cabecera(textos, estado.ayuda)}${contenido}${error}</section>`;
   }
@@ -219,7 +223,8 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
 
   async function abiertas({ mas = false } = {}) {
     const { version, signal } = iniciarConsulta();
-    estado.tipo = "abiertas"; estado.carga = true; estado.error = ""; pintar();
+    estado.tipo = "abiertas"; estado.carga = true; estado.error = ""; estado.errorStatus = 0;
+    estado.ultimaAbiertasMas = mas; pintar();
     try {
       const datos = await clienteEfectivo.abiertas({ cursor: mas ? estado.cursor : "", signal });
       if (!montado || signal.aborted || version !== secuencia) return;
@@ -228,6 +233,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     } catch (error) {
       if (cerrarPorDenegacion(error)) return;
       if (!montado || signal.aborted || version !== secuencia) return;
+      estado.errorStatus = error?.status ?? 0;
       estado.error = descripcionError(error, textos);
       anunciar(estado.error);
     } finally {
@@ -240,7 +246,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
 
   async function cargarBolsa(ref) {
     const { version, signal } = iniciarConsulta();
-    estado.tipo = "bolsa"; estado.carga = true; estado.error = ""; estado.bolsa = null;
+    estado.tipo = "bolsa"; estado.carga = true; estado.error = ""; estado.errorStatus = 0; estado.bolsa = null;
     estado.revision = false; estado.comprobarEnvio = false; estado.bloqueoActo = false;
     estado.filtroCategoria = "";
     estado.declaraciones = new Set(); pintar();
@@ -255,6 +261,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     } catch (error) {
       if (cerrarPorDenegacion(error)) return;
       if (!montado || signal.aborted || version !== secuencia) return;
+      estado.errorStatus = error?.status ?? 0;
       estado.error = descripcionError(error, textos); anunciar(estado.error);
     } finally {
       if (montado && version === secuencia) {
@@ -266,7 +273,8 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
 
   async function cargarSolicitud(ref) {
     const { version, signal } = iniciarConsulta();
-    estado.tipo = "solicitud"; estado.carga = true; estado.error = ""; estado.solicitud = null; pintar();
+    estado.tipo = "solicitud"; estado.carga = true; estado.error = ""; estado.errorStatus = 0;
+    estado.solicitud = null; pintar();
     try {
       const datos = await clienteEfectivo.detallePropio(ref, { signal });
       if (!montado || signal.aborted || version !== secuencia) return;
@@ -274,6 +282,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     } catch (error) {
       if (cerrarPorDenegacion(error)) return;
       if (!montado || signal.aborted || version !== secuencia) return;
+      estado.errorStatus = error?.status ?? 0;
       estado.error = descripcionError(error, textos); anunciar(estado.error);
     } finally {
       if (montado && version === secuencia) {
@@ -285,7 +294,8 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
 
   async function propias({ mas = false } = {}) {
     const { version, signal } = iniciarConsulta();
-    estado.tipo = "propias"; estado.carga = true; estado.error = "";
+    estado.tipo = "propias"; estado.carga = true; estado.error = ""; estado.errorStatus = 0;
+    estado.ultimaPropiasMas = mas;
     estado.bolsa = null; estado.solicitud = null; pintar();
     try {
       const datos = await clienteEfectivo.propias({ cursor: mas ? estado.cursorPropias : "", signal });
@@ -295,6 +305,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     } catch (error) {
       if (cerrarPorDenegacion(error)) return;
       if (!montado || signal.aborted || version !== secuencia) return;
+      estado.errorStatus = error?.status ?? 0;
       estado.error = descripcionError(error, textos); anunciar(estado.error);
     } finally {
       if (montado && version === secuencia) { estado.carga = false; pintar(); }
@@ -317,7 +328,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
       CLAVES_PENDIENTES.set(bolsa.convocatoria_ref, peticion);
     }
     ENVIOS_ACTIVOS.add(bolsa.convocatoria_ref);
-    estado.enviando = true; estado.error = ""; pintar();
+    estado.enviando = true; estado.error = ""; estado.errorStatus = 0; pintar();
     try {
       const recibo = await clienteEfectivo.inscribir({ convocatoriaRef: bolsa.convocatoria_ref,
         categoriaRef: peticion.categoriaRef,
@@ -339,7 +350,8 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
       if (error?.status === 400 || error?.status === 409 || error?.status === 422) CLAVES_PENDIENTES.delete(bolsa.convocatoria_ref);
       if (!montado || version !== secuencia || estado.tipo !== "bolsa" || estado.bolsa?.convocatoria_ref !== bolsa.convocatoria_ref) return;
       if (error?.status === 400 || error?.status === 409 || error?.status === 422) estado.bloqueoActo = true;
-      estado.error = descripcionError(error, textos); anunciar(estado.error);
+      estado.errorStatus = error?.status ?? 0;
+      estado.error = descripcionError(error, textos, true); anunciar(estado.error);
     } finally {
       ENVIOS_ACTIVOS.delete(bolsa.convocatoria_ref);
       if (montado && (version === secuencia || (estado.tipo === "bolsa" && estado.bolsa?.convocatoria_ref === bolsa.convocatoria_ref))) {
@@ -356,11 +368,12 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     if (accion === "ayuda") { estado.ayuda = !estado.ayuda; pintar(); contenedor.querySelector('[data-inscripcion-accion="ayuda"]')?.focus(); }
     else if (accion === "volver") { cambiarURL(""); void abiertas(); }
     else if (accion === "reintentar") {
+      if ([401, 403].includes(estado.errorStatus)) return;
       const id = leerId(ventana.location.href);
       if (id?.tipo === "bolsa") void cargarBolsa(id.ref);
       else if (id?.tipo === "solicitud") void cargarSolicitud(id.ref);
-      else if (id?.tipo === "propias") void propias();
-      else void abiertas();
+      else if (id?.tipo === "propias") void propias({ mas: estado.ultimaPropiasMas && Boolean(estado.cursorPropias) });
+      else void abiertas({ mas: estado.ultimaAbiertasMas && Boolean(estado.cursor) });
     } else if (accion === "bolsa" && REFERENCIA.test(ref ?? "")) { cambiarURL(`convocatoria:${ref}`); void cargarBolsa(ref); }
     else if (accion === "solicitud" && REFERENCIA.test(ref ?? "")) { cambiarURL(`solicitud:${ref}`); void cargarSolicitud(ref); }
     else if (accion === "propias") { cambiarURL("mis-solicitudes"); void propias(); }

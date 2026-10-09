@@ -5,6 +5,8 @@
     "ayuda": "Consulte las bolsas con plazo abierto y sus requisitos. Revise la bolsa antes de solicitar la inscripción. Después podrá consultar el estado en Mis solicitudes.",
     "cargando": "Cargando bolsas de trabajo…",
     "error": "No se ha podido completar la consulta. Compruebe la conexión y pulse Reintentar. Si continúa, avise a Informática.",
+    "temporal": "La consulta no está disponible ahora. Espere unos minutos y pulse Reintentar. Si continúa, avise a la oficina de atención.",
+    "envioTemporal": "No se ha podido comprobar el envío. Pulse Presentar solicitud de nuevo para comprobarlo o consulte Mis solicitudes más tarde.",
     "datosNoAceptados": "No se han aceptado los datos de esta solicitud. Actualice la ficha antes de volver a presentarla. Si continúa, contacte con la oficina de atención.",
     "sinSesion": "Debe identificarse de nuevo para consultar o presentar su solicitud.",
     "denegada": "Su acceso no permite hacer esta consulta. Pida ayuda a la oficina de atención.",

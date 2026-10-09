@@ -5,6 +5,8 @@
     "ayuda": "Check job pools with open application periods and their requirements. Review the pool before applying. You can then check the status under My applications.",
     "cargando": "Loading job pools…",
     "error": "We could not complete the request. Check your connection and select Try again. If the problem continues, contact support.",
+    "temporal": "This information is temporarily unavailable. Wait a few minutes and select Try again. If the problem continues, contact the support office.",
+    "envioTemporal": "We could not confirm the submission. Select Submit application again to check it, or check My applications later.",
     "datosNoAceptados": "The application details were not accepted. Refresh the call before submitting again. If the problem continues, contact the support office.",
     "sinSesion": "Sign in again to view or submit your application.",
     "denegada": "Your access does not allow this request. Contact the support office for help.",
