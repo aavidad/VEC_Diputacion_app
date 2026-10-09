@@ -123,7 +123,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       completos ??= Promise.all([
         import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261009-ct-resultado-bolsa-v2"),
         import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261009-ct-resultado-bolsa-v2"),
-        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261009-b2-ruta-vec-v2"),
+        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261009-ct-resultado-bolsa-v2"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
       return completos;

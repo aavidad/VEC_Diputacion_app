@@ -1,6 +1,6 @@
 /** Montaje y refresco de resolución de formalización e incorporación al ejercicio. */
 
-import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js?v=20261008-alta-corte-v1";
+import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js?v=20261009-ct-resultado-bolsa-v2";
 import { escaparHTML } from "./componentes-expedientes.js?v=20261009-ct-resultado-bolsa-v2";
 import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261009-ct-resultado-bolsa-v2";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261009-ct-resultado-bolsa-v2";

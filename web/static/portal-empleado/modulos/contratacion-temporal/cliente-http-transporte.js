@@ -14,7 +14,7 @@ import { RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { CONFLICTOS_SEGUIMIENTO_CESE, RUTAS_SEGUIMIENTO_CESE } from "./cliente-http-seguimiento-cese.js";
 import { CONFLICTOS_CANCELACION_EXPEDIENTE, RUTAS_CANCELACION_EXPEDIENTE } from "./cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 
-import { RUTA_VINCULO_BOLSA } from "./cliente-http-vinculo-bolsa.js";
+import { RUTA_VINCULO_BOLSA } from "./cliente-http-vinculo-bolsa.js?v=20261009-ct-resultado-bolsa-v2";
 
 export const MAXIMO_ERROR_BYTES = 16 * 1024;
 export const MAXIMO_FRAGMENTOS = 4096;

@@ -1,6 +1,6 @@
 import { cargarTextos } from "../comun/textos.js";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261009-instantes-bolsa-v1";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261009-ct-resultado-bolsa-v2";
 
 let mensajes;
 export async function prepararTextosGlobalBolsa() {

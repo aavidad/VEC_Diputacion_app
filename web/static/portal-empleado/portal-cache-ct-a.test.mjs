@@ -129,7 +129,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     [portal, "./portal-modulos-coordinador.js", cohorteIdioma],
     [coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteClienteHTTP],
     [cliente, "./cliente-http-alta.js", cohorte],
-    [cliente, "./cliente-http-transporte.js", "20261008-alta-corte-v1"],
+    [cliente, "./cliente-http-transporte.js", "20261009-ct-resultado-bolsa-v2"],
     [coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", versionVistaPortal],
     [expedientes, "./vista-expedientes-tramitacion.js", cohorteFicha],
     [tramitacion, "./vista.js", cohorteCapacidad],

@@ -2,7 +2,7 @@
 
 import { validarReciboAlta } from "./contrato.js?v=20261008-alta-analisis-bolsa-v4";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261009-asignacion-cobertura-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261009-ct-resultado-bolsa-v2";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261009-ct-resultado-bolsa-v2";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261009-ct-resultado-bolsa-v2";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261009-ct-resultado-bolsa-v2";

@@ -1,5 +1,5 @@
 import { registroB2, referenciaB2, validarConsultaB2, validarSolicitudPlanB2, validarSolicitudConfirmacionB2, validarReciboB2 } from "./contrato-incorporacion-personal-b2.js";
-import { validarSignal, ejecutarAbortable, cancelarRespuesta, validarTipoJSON, longitudDeclarada, serializarAcotado, construirCabeceras } from "./cliente-http-transporte.js?v=20261008-alta-corte-v1";
+import { validarSignal, ejecutarAbortable, cancelarRespuesta, validarTipoJSON, longitudDeclarada, serializarAcotado, construirCabeceras } from "./cliente-http-transporte.js?v=20261009-ct-resultado-bolsa-v2";
 
 export const RUTA_PLAN_B2 = "/api/vec/contratacion-temporal/incorporacion-personal-b2/plan/v1";
 export const RUTA_CONFIRMAR_B2 = "/api/vec/contratacion-temporal/incorporacion-personal-b2/confirmar/v1";

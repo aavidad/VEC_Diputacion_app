@@ -47,7 +47,7 @@ import {
   extraerDatos,
   construirErrorRespuesta,
   construirCabeceras,
-} from "./cliente-http-transporte.js?v=20261008-alta-corte-v1";
+} from "./cliente-http-transporte.js?v=20261009-ct-resultado-bolsa-v2";
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
