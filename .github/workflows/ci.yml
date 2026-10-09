@@ -1,12 +1,15 @@
 # Integracion continua: ejecuta la puerta de calidad canonica del proyecto
-# (scripts/verificar_calidad.sh) en cada push y pull request. Las acciones se
+# (scripts/verificar_calidad.sh) en cada pull request y en cada push a main. Las acciones se
 # fijan por SHA de commit, igual que las imagenes del Dockerfile se fijan por
 # digest.
 name: ci
 
 on:
+  # Las ramas de trabajo se comprueban por su pull request; un push a la rama
+  # no lanza otra ejecucion igual (antes cada commit de una PR corria dos veces
+  # y las canceladas llenaban el correo de avisos).
   push:
-    branches-ignore: ['respaldo/**']
+    branches: ['main']
     # Conservar la cobertura de tags al definir un filtro para ramas.
     tags: ['**']
     paths-ignore:
