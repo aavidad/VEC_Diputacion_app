@@ -10,10 +10,12 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"math"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -51,7 +53,7 @@ func (c *cacheEstaticosComprimidos) servir(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	w.Header().Add("Vary", "Accept-Encoding")
-	if directorio == "" || !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") ||
+	if directorio == "" || !aceptaGzip(r.Header.Get("Accept-Encoding")) ||
 		r.Header.Get("Range") != "" || strings.HasSuffix(r.URL.Path, "/index.html") {
 		siguiente.ServeHTTP(w, r)
 		return
@@ -63,6 +65,35 @@ func (c *cacheEstaticosComprimidos) servir(w http.ResponseWriter, r *http.Reques
 	}
 	w.Header().Set("Content-Encoding", "gzip")
 	http.ServeContent(w, r, path.Base(nombre), entrada.modificado, bytes.NewReader(entrada.gzip))
+}
+
+// aceptaGzip decide si el cliente admite gzip leyendo Accept-Encoding conforme
+// a la RFC 9110 (§12.4.2 y §12.5.3): cada codificación puede llevar un q con
+// valor por defecto 1; q=0 la excluye de forma explícita. Un q malformado o
+// fuera de 0..1 se registra y deniega por defecto. Sin cabecera o sin entrada
+// gzip se sirve sin comprimir, como se venía haciendo.
+func aceptaGzip(cabecera string) bool {
+	for _, elemento := range strings.Split(cabecera, ",") {
+		codificacion, parametros, _ := strings.Cut(strings.TrimSpace(elemento), ";")
+		if !strings.EqualFold(strings.TrimSpace(codificacion), "gzip") {
+			continue
+		}
+		q := 1.0
+		for _, parametro := range strings.Split(parametros, ";") {
+			nombre, valor, presente := strings.Cut(strings.TrimSpace(parametro), "=")
+			if !presente || !strings.EqualFold(strings.TrimSpace(nombre), "q") {
+				continue
+			}
+			numero, err := strconv.ParseFloat(strings.TrimSpace(valor), 64)
+			if err != nil || math.IsNaN(numero) || math.IsInf(numero, 0) || numero < 0 || numero > 1 {
+				slog.Warn("estatico comprimido: q de Accept-Encoding no admisible", "codificacion", "gzip", "q", strings.TrimSpace(valor), "error", err)
+				return false
+			}
+			q = numero
+		}
+		return q > 0
+	}
+	return false
 }
 
 func (c *cacheEstaticosComprimidos) obtener(directorio, nombre string) *estaticoComprimido {
