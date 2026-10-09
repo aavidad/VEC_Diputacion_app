@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/resultadobolsa"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -191,7 +192,7 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 		return ports.DetalleExpedienteRRHH{}, err
 	}
 	consulta := consultaDetalleRRHHPostgreSQL
-	if ports.ResultadoBolsaRRHHSolicitado(ctx) {
+	if resultadobolsa.ResultadoBolsaRRHHSolicitado(ctx) {
 		consulta = consultaDetalleConBolsaRRHHPostgreSQL
 	}
 	if s.modo == modoConsultaDetalleRRHHOriginalPropuesta {
@@ -226,7 +227,7 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 	destinos := destinosDetalleConsultaRRHH(&salida)
 	if consulta == consultaDetalleConBolsaRRHHPostgreSQL {
 		var cursor any
-		if siguiente := ports.CursorResultadoBolsaRRHH(ctx); siguiente != "" {
+		if siguiente := resultadobolsa.CursorResultadoBolsaRRHH(ctx); siguiente != "" {
 			cursor = siguiente
 		}
 		argumentosSQL = append(argumentosSQL, cursor)
@@ -269,7 +270,7 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 					ports.ErrResultadoConsultaRRHHNoConfiable
 			}
 			if consulta == consultaDetalleConBolsaRRHHPostgreSQL {
-				resultado, err := ports.ResultadoBolsaRRHHDesdeSQL(resultadoBolsaRaw)
+				resultado, err := ResultadoBolsaRRHHDesdeSQL(resultadoBolsaRaw)
 				if err != nil {
 					return ports.DetalleExpedienteRRHH{}, ports.ErrResultadoConsultaRRHHNoConfiable
 				}

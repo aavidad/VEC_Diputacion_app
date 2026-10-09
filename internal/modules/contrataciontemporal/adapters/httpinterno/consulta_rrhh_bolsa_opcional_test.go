@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/resultadobolsa"
 )
 
 func TestConsultaDetalleBolsaSoloConSQLActivado(t *testing.T) {
@@ -16,7 +16,7 @@ func TestConsultaDetalleBolsaSoloConSQLActivado(t *testing.T) {
 			consultor := &consultorDetalleRRHHPrueba{detalle: detalleRRHHPrueba()}
 			var pidioResultado bool
 			consultor.alConsultar = func(ctx context.Context) {
-				pidioResultado = ports.ResultadoBolsaRRHHSolicitado(ctx)
+				pidioResultado = resultadobolsa.ResultadoBolsaRRHHSolicitado(ctx)
 			}
 			h, err := NuevoManejadorConsultaDetalleRRHH(consultor)
 			if err != nil {
@@ -42,7 +42,7 @@ func TestConsultaDetalleBolsaPaginaExigeMontajeYPropagaCursor(t *testing.T) {
 	cuerpo := strings.TrimSuffix(string(cuerpoDetalleRRHHPrueba()), "}") + `,"resultado_bolsa_cursor":"` + cursor + `"}`
 	consultor := &consultorDetalleRRHHPrueba{detalle: detalleRRHHPrueba()}
 	var recibido string
-	consultor.alConsultar = func(ctx context.Context) { recibido = ports.CursorResultadoBolsaRRHH(ctx) }
+	consultor.alConsultar = func(ctx context.Context) { recibido = resultadobolsa.CursorResultadoBolsaRRHH(ctx) }
 	h, err := NuevoManejadorConsultaDetalleRRHH(consultor)
 	if err != nil {
 		t.Fatal(err)

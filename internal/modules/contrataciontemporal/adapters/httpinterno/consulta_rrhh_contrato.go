@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/resultadobolsa"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -251,7 +252,7 @@ func solicitudDetalleRRHHConCursorDesdePeticion(
 	cursor := ""
 	if entrada.ResultadoBolsaCursor != nil {
 		cursor = *entrada.ResultadoBolsaCursor
-		if !ports.CursorResultadoBolsaRRHHValido(cursor) {
+		if !resultadobolsa.CursorResultadoBolsaRRHHValido(cursor) {
 			return ports.SolicitudDetalleRRHH{}, "", errContenidoConsultaRRHHNoValido
 		}
 	}

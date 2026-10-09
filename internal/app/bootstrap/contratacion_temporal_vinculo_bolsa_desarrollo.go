@@ -210,7 +210,7 @@ func (a *autoridadVinculoEmisionBolsaCTDesarrollo) ResolverContextoCanalSeguimie
 func (a *autoridadVinculoEmisionBolsaCTDesarrollo) AutorizarVinculoEmisionBolsa(ctx context.Context,
 	s ports.SolicitudVinculoEmisionBolsa, huella string) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	var vacio vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
-	if a == nil || a.proveedor == nil || a.lector == nil || a.alta == nil || a.alta.autorizador == nil || s.Validar() != nil ||
+	if a == nil || a.proveedor == nil || a.lector == nil || a.alta == nil || a.alta.autorizador == nil || application.ValidarSolicitudVinculoEmisionBolsa(s) != nil ||
 		s.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo || !huellaSHA256ValidaContratacionTemporalDesarrollo(huella) {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
@@ -222,7 +222,7 @@ func (a *autoridadVinculoEmisionBolsaCTDesarrollo) AutorizarVinculoEmisionBolsa(
 	if err != nil {
 		return vacio, err
 	}
-	recurso, err := ports.NuevoRecursoVinculoEmisionBolsa(s, huella, centro, categoria)
+	recurso, err := application.NuevoRecursoVinculoEmisionBolsa(s, huella, centro, categoria)
 	if err != nil ||
 		!solicitudVinculoEmisionBolsaCTValida(core.DatosSolicitudAutorizacionLigadaV3{
 			Accion: ports.AccionVincularEmisionBolsa, Finalidad: ports.FinalidadVinculoEmisionBolsa,

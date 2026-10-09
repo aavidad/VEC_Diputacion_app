@@ -11,6 +11,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/resultadobolsa"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -305,9 +306,9 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 	contextoConsulta := r.Context()
 	if !esDescarga && h.resultadoBolsaActivo {
 		if cursorBolsa == "" {
-			contextoConsulta = ports.ConResultadoBolsaRRHH(contextoConsulta)
+			contextoConsulta = resultadobolsa.ConResultadoBolsaRRHH(contextoConsulta)
 		} else {
-			contextoConsulta = ports.ConResultadoBolsaRRHHPagina(contextoConsulta, cursorBolsa)
+			contextoConsulta = resultadobolsa.ConResultadoBolsaRRHHPagina(contextoConsulta, cursorBolsa)
 		}
 	}
 	detalle, err := h.consultor.Consultar(contextoConsulta, solicitud)

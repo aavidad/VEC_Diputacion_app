@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 
@@ -9,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -28,7 +31,7 @@ func NuevoRepositorioVinculoEmisionBolsaPostgreSQL(pool *pgxpool.Pool) (*Reposit
 func (r *RepositorioVinculoEmisionBolsaPostgreSQL) LeerAmbitosVinculoEmisionBolsa(
 	ctx context.Context, s ports.SolicitudVinculoEmisionBolsa,
 ) (string, string, error) {
-	if ctx == nil || r == nil || r.pool == nil || s.Validar() != nil {
+	if ctx == nil || r == nil || r.pool == nil || !solicitudVinculoEmisionBolsaValida(s) {
 		return "", "", ports.ErrVinculoEmisionBolsaInvalido
 	}
 	var centro, categoria string
@@ -44,6 +47,30 @@ func (r *RepositorioVinculoEmisionBolsaPostgreSQL) LeerAmbitosVinculoEmisionBols
 		return "", "", ports.ErrVinculoEmisionBolsaNoDisponible
 	}
 	return centro, categoria, nil
+}
+
+func (r *RepositorioVinculoEmisionBolsaPostgreSQL) CodificarMaterialVinculoEmisionBolsa(s ports.SolicitudVinculoEmisionBolsa) ([]byte, string, error) {
+	if r == nil || r.pool == nil || !solicitudVinculoEmisionBolsaValida(s) {
+		return nil, "", ports.ErrVinculoEmisionBolsaInvalido
+	}
+	m := ports.MaterialVinculoEmisionBolsa{Esquema: ports.EsquemaVinculoEmisionBolsa,
+		OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef, VersionEsperada: s.VersionEsperada,
+		BolsaRef: s.BolsaRef, LlamamientoRef: s.LlamamientoRef, ReciboEmisionRef: s.ReciboEmisionRef,
+		ClaveIdempotencia: s.ClaveIdempotencia}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return nil, "", ports.ErrVinculoEmisionBolsaInvalido
+	}
+	h := sha256.Sum256(b)
+	return b, hex.EncodeToString(h[:]), nil
+}
+
+func solicitudVinculoEmisionBolsaValida(s ports.SolicitudVinculoEmisionBolsa) bool {
+	return (domain.DatosVinculoEmisionBolsa{OrganizacionRef: s.OrganizacionRef,
+		ExpedienteRef: s.ExpedienteRef, VersionEsperada: s.VersionEsperada,
+		BolsaRef: s.BolsaRef, LlamamientoRef: s.LlamamientoRef,
+		ReciboEmisionRef:  s.ReciboEmisionRef,
+		ClaveIdempotencia: s.ClaveIdempotencia}).Validar() == nil
 }
 
 func (r *RepositorioVinculoEmisionBolsaPostgreSQL) RegistrarVinculoEmisionBolsa(
@@ -95,6 +122,8 @@ func normalizarErrorVinculoBolsa(ctx context.Context, err error) error {
 	var pg *pgconn.PgError
 	if errors.As(err, &pg) {
 		switch pg.Code {
+		case "22023":
+			return ports.ErrVinculoEmisionBolsaInvalido
 		case "23505", "40001":
 			return ports.ErrVinculoEmisionBolsaConflicto
 		case "42501":

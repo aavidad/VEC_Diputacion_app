@@ -1,9 +1,12 @@
-package ports
+package ports_test
 
 import (
 	"strings"
 	"testing"
 	"time"
+
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/resultadobolsa"
 )
 
 func TestResultadoBolsaRRHHConservaCausalidadYUTC(t *testing.T) {
@@ -19,7 +22,7 @@ func TestResultadoBolsaRRHHConservaCausalidadYUTC(t *testing.T) {
 		`"recibo_situacion_ref":"recibo:situacion:prueba","situacion_desde":"2026-10-09T10:45:00+00:00"}]}],` +
 		`"total_vinculos":1,"personas_solicitadas":null,"aceptaciones_firmes":0,` +
 		`"emisiones_vinculables":[],"siguiente_cursor":null}`
-	r, err := ResultadoBolsaRRHHDesdeSQL([]byte(raw))
+	r, err := postgres.ResultadoBolsaRRHHDesdeSQL([]byte(raw))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,14 +33,14 @@ func TestResultadoBolsaRRHHConservaCausalidadYUTC(t *testing.T) {
 	}
 	cruzada := strings.Replace(raw, `"recibo_emision_ref":"`+recibo+`"`,
 		`"recibo_emision_ref":"recibo:ajeno"`, 1)
-	if _, err := ResultadoBolsaRRHHDesdeSQL([]byte(cruzada)); err == nil {
+	if _, err := postgres.ResultadoBolsaRRHHDesdeSQL([]byte(cruzada)); err == nil {
 		t.Fatal("se aceptó una emisión con recibo ajeno")
 	}
 }
 
 func TestCursorResultadoBolsaRRHHRechazaFechaYReferenciaInvalidas(t *testing.T) {
 	valido := "2026-10-09T11:00:00.123456Z#llamamiento:" + strings.Repeat("a", 64)
-	if !CursorResultadoBolsaRRHHValido(valido) || !ResultadoBolsaRRHHSolicitado(ConResultadoBolsaRRHHPagina(t.Context(), valido)) {
+	if !resultadobolsa.CursorResultadoBolsaRRHHValido(valido) || !resultadobolsa.ResultadoBolsaRRHHSolicitado(resultadobolsa.ConResultadoBolsaRRHHPagina(t.Context(), valido)) {
 		t.Fatal("el cursor de la página no llegó a la lectura")
 	}
 	for _, cursor := range []string{
@@ -45,7 +48,7 @@ func TestCursorResultadoBolsaRRHHRechazaFechaYReferenciaInvalidas(t *testing.T) 
 		"2026-10-09T11:00:00.123456Z#llamamiento:" + strings.Repeat("g", 64),
 		"2026-10-09T11:00:00.123456Z#llamamiento:" + strings.Repeat("a", 63),
 	} {
-		if CursorResultadoBolsaRRHHValido(cursor) {
+		if resultadobolsa.CursorResultadoBolsaRRHHValido(cursor) {
 			t.Fatal("cursor inválido admitido")
 		}
 	}

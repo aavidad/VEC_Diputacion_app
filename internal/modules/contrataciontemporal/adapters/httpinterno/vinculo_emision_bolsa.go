@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -66,7 +67,7 @@ func (h *manejadorVinculoEmisionBolsa) ServeHTTP(w http.ResponseWriter, r *http.
 		ExpedienteRef: entrada.ExpedienteRef, VersionEsperada: entrada.VersionEsperada,
 		BolsaRef: entrada.BolsaRef, LlamamientoRef: entrada.LlamamientoRef,
 		ReciboEmisionRef: entrada.ReciboEmisionRef, ClaveIdempotencia: entrada.ClaveIdempotencia}
-	if s.Validar() != nil {
+	if application.ValidarSolicitudVinculoEmisionBolsa(s) != nil {
 		responderErrorVinculoEmisionBolsa(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
@@ -76,7 +77,7 @@ func (h *manejadorVinculoEmisionBolsa) ServeHTTP(w http.ResponseWriter, r *http.
 		responderErrorVinculoEmisionBolsa(w, r, estado, codigo, err)
 		return
 	}
-	if recibo.ValidarPara(s) != nil {
+	if application.ValidarReciboVinculoEmisionBolsa(recibo, s) != nil {
 		responderErrorVinculoEmisionBolsa(w, r, http.StatusBadGateway, "resultado_no_confiable")
 		return
 	}

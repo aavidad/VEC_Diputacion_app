@@ -53,6 +53,17 @@ func TestVinculoEmisionBolsaNoAceptaOrganizacionDelCliente(t *testing.T) {
 	if e.recibida.ExpedienteRef != "" {
 		t.Fatal("se ejecutó con organización aportada")
 	}
+	for _, invalida := range []string{
+		strings.Replace(base, "llamamiento:"+strings.Repeat("a", 64), "llamamiento:foo", 1),
+		strings.Replace(base, "recibo:llamamiento:"+strings.Repeat("a", 64), "recibo:llamamiento:"+strings.Repeat("b", 64), 1),
+	} {
+		if w := peticion(invalida); w.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("vínculo incoherente: %d", w.Code)
+		}
+		if e.recibida.ExpedienteRef != "" {
+			t.Fatal("se ejecutó antes de rechazar el vínculo")
+		}
+	}
 	if w := peticion(base); w.Code != http.StatusCreated {
 		t.Fatalf("vínculo nominal: %d %s", w.Code, w.Body.String())
 	}
