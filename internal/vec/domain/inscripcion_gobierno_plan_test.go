@@ -22,13 +22,20 @@ func planEmpleadoInscripcionPrueba(t *testing.T) (PlanVersionInscripcion, Catalo
 		case 4:
 			finalidad, tipo = "presentar_inscripcion", "inscripcion_convocatoria"
 		}
-		concesion := ConcesionRol{Accion: accion, ModuloID: "bolsa", TipoRecurso: tipo,
+		concesionExterna := ConcesionRol{Accion: accion, ModuloID: "bolsa", TipoRecurso: tipo,
 			Finalidades: []string{finalidad}, GarantiaMinima: AuthAssuranceHigh}
 		if i < 4 {
-			concesion.CamposPermitidos = []string{"resumen_inscripcion"}
+			concesionExterna.CamposPermitidos = []string{"resumen_inscripcion"}
 		}
+		externa := EntradaAccionAdministracionV1{Referencia: "accion:externa:" + string(rune('a'+i)), Version: 1,
+			FuenteRef: "fuente:bolsa:inscripcion", FuenteVersion: 1, FuenteHuellaSHA256: strings.Repeat("b", 64),
+			Concesion: concesionExterna, DimensionesAmbito: []string{"candidato_ref"}, ClaseControl: "ordinario",
+			VigenteDesde: desde, VigenteHasta: hasta}
+		entradas = append(entradas, externa)
+		concesion := concesionExterna
+		concesion.TipoRecurso += "_empleado"
 		concesiones = append(concesiones, concesion)
-		entrada := EntradaAccionAdministracionV1{Referencia: "accion:inscripcion:" + string(rune('a'+i)), Version: 1,
+		entrada := EntradaAccionAdministracionV1{Referencia: "accion:empleado:" + string(rune('a'+i)), Version: 1,
 			FuenteRef: "fuente:bolsa:inscripcion", FuenteVersion: 1, FuenteHuellaSHA256: strings.Repeat("b", 64),
 			Concesion: concesion, DimensionesAmbito: []string{"empleado_ref"}, ClaseControl: "ordinario",
 			VigenteDesde: desde, VigenteHasta: hasta}
