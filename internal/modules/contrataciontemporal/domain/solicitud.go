@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+	"unicode"
+)
 
 // DeclaracionRC refleja lo aportado por el centro. La validación autoritativa
 // corresponde al análisis de RRHH y se conserva como un hecho distinto.
@@ -38,6 +42,11 @@ type SolicitudCentro struct {
 	RC                 DeclaracionRC   `json:"rc"`
 	DocumentosAdjuntos []string        `json:"documentos_adjuntos"`
 	Observaciones      string          `json:"observaciones,omitempty"`
+	// Estos datos proceden de la petición del centro. Su ausencia permite
+	// recuperar las solicitudes anteriores sin inventar una jornada o puesto.
+	JornadaMinutos   uint16 `json:"jornada_minutos,omitempty"`
+	NumeroPersonas   uint32 `json:"numero_personas,omitempty"`
+	PuestoSolicitado string `json:"puesto_solicitado,omitempty"`
 	// Necesidad se fija por el servidor para el alta versionada. Su ausencia
 	// conserva el contrato y los bytes históricos de SolicitudCentro.
 	Necesidad *DatosNecesidadAlta `json:"necesidad,omitempty"`
@@ -50,6 +59,12 @@ func (s SolicitudCentro) Validar() error {
 		s.Periodo.Validar() != nil || s.RC.Validar() != nil ||
 		!referenciasUnicasValidas(s.DocumentosAdjuntos, 64) ||
 		!textoValido(s.Observaciones, 4000, true) {
+		return ErrDatoInvalido
+	}
+	conDatosPuesto := s.JornadaMinutos != 0 || s.NumeroPersonas != 0 || s.PuestoSolicitado != ""
+	if conDatosPuesto && (s.JornadaMinutos == 0 || s.JornadaMinutos > 7*24*60 ||
+		s.NumeroPersonas == 0 || !textoValido(s.PuestoSolicitado, 160, false) ||
+		strings.IndexFunc(s.PuestoSolicitado, unicode.IsControl) >= 0) {
 		return ErrDatoInvalido
 	}
 	if s.Necesidad != nil && (s.Necesidad.ValidarInstantanea() != nil ||

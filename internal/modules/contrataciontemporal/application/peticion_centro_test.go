@@ -66,6 +66,30 @@ type relojPeticionCentroPrueba struct{ ahora time.Time }
 
 func (r relojPeticionCentroPrueba) Ahora() time.Time { return r.ahora }
 
+func TestPeticionCentroExigeJornadaPersonasYPuestoAntesDeEscribir(t *testing.T) {
+	servicio, _, repo, solicitud, _ := servicioPeticionCentroPrueba(t)
+	for _, caso := range []struct {
+		nombre string
+		mudar  func(*domain.SolicitudCentro)
+	}{
+		{"sin jornada", func(s *domain.SolicitudCentro) { s.JornadaMinutos = 0 }},
+		{"sin personas", func(s *domain.SolicitudCentro) { s.NumeroPersonas = 0 }},
+		{"sin puesto", func(s *domain.SolicitudCentro) { s.PuestoSolicitado = "" }},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			entrada := *solicitud
+			caso.mudar(&entrada)
+			_, err := servicio.Ejecutar(context.Background(), ports.ComandoPeticionCentro{
+				Operacion:         ports.OperacionPresentarPeticionCentro,
+				ClaveIdempotencia: "f3134ee2-61af-467d-aa58-dc71f07553b6", Solicitud: &entrada,
+			})
+			if !errors.Is(err, domain.ErrPeticionCentroInvalida) || repo.confirmadas != 0 {
+				t.Fatalf("petición incompleta escrita: err=%v confirmadas=%d", err, repo.confirmadas)
+			}
+		})
+	}
+}
+
 type preparadorPeriodoCentroPrueba struct {
 	llamadas int
 	fallar   bool
@@ -186,7 +210,8 @@ func servicioPeticionCentroPrueba(t *testing.T) (*ServicioPeticionCentro, *autor
 	inicio := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	solicitud := &domain.SolicitudCentro{CentroRef: centro, ContactoRef: "contacto:sintetico:001", CategoriaRef: "categoria:tecnica",
 		GrupoSubgrupo: "A1", MotivoClave: "necesidad.temporal", Detalle: "Necesidad sintética",
-		Periodo: domain.PeriodoPrevisto{Inicio: inicio, Fin: inicio.Add(24 * time.Hour)}, DocumentosAdjuntos: []string{"documento:001"}}
+		Periodo: domain.PeriodoPrevisto{Inicio: inicio, Fin: inicio.Add(24 * time.Hour)}, DocumentosAdjuntos: []string{"documento:001"},
+		JornadaMinutos: 2250, NumeroPersonas: 1, PuestoSolicitado: "Técnico de administración"}
 	servicio, err := NuevoServicioPeticionCentro(autoridad, repo, relojPeticionCentroPrueba{ahora})
 	if err != nil {
 		t.Fatal(err)
