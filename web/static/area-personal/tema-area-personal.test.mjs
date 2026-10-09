@@ -41,8 +41,8 @@ test("el área personal carga el tema permitido antes de sus alias y sin activos
   assert.match(html, /<html lang="es" data-tema="institucional">/);
   comprobarRecursosComunes(html, css, aplicacion);
   const versionArea = html.match(/\/area-personal\/arranque\.js\?v=([A-Za-z0-9-]+)/u)?.[1];
-  assert.ok(versionArea, "falta versión del Área personal");
-  assert.match(html, new RegExp(`/comun/tema-vec\\.css\\?v=${versionArea}`));
+  assert.equal(versionArea, "20261009-mi-bolsa-pausa-null-v1");
+  assert.match(html, /\/comun\/tema-vec\.css\?v=20261008-preferencias-arranque-v1/u);
   assert.match(portal, /\/comun\/tema-vec\.css\?v=/u);
   const enlaces = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/gu)].map(([, href]) => href);
   assert.equal(enlaces.findIndex((href) => href.startsWith("/comun/tema-vec.css?")) + 1,
