@@ -4,11 +4,14 @@ import { justificanteTraducido } from "../../portal-justificante.js";
 const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 
+const normalizarInstante = (instante) => instante.replace(/(?:\.(\d+))?Z$/u,
+  (_final, fraccion = "") => `.${fraccion.padEnd(9, "0")}Z`);
+
 export function requiereRevisionBolsa(expediente) {
   return expediente?.resultado_bolsa?.vinculos?.some((vinculo) => vinculo.participaciones?.some(
     (persona) => persona.respuesta === "acepta" && persona.modo === "firme"
       && persona.situacion_actual === "renuncia"
-      && Date.parse(persona.situacion_desde) > Date.parse(persona.respondida_en),
+      && normalizarInstante(persona.situacion_desde) > normalizarInstante(persona.respondida_en),
   )) === true;
 }
 
@@ -27,9 +30,7 @@ function enlaceSeguimiento(vinculo, t) {
 export function continuidadBolsaDisponible(expediente) {
   const vinculos = expediente?.resultado_bolsa?.vinculos;
   if (!Array.isArray(vinculos) || !vinculos.length) return false;
-  const normalizar = (instante) => instante.replace(/(?:\.(\d+))?Z$/u,
-    (_final, fraccion = "") => `.${fraccion.padEnd(9, "0")}Z`);
-  const ultimo = [...vinculos].sort((a, b) => normalizar(a.emitido_en).localeCompare(normalizar(b.emitido_en))).at(-1);
+  const ultimo = [...vinculos].sort((a, b) => normalizarInstante(a.emitido_en).localeCompare(normalizarInstante(b.emitido_en))).at(-1);
   return ultimo.participaciones?.length > 0 && ultimo.participaciones.every((persona) =>
     (persona.modo === "firme" && ["renuncia", "renuncia_justificada"].includes(persona.respuesta))
       || (persona.respuesta === null && persona.situacion_actual === "renuncia"));

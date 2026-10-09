@@ -90,6 +90,9 @@ test("una retirada posterior conserva la aceptación y ofrece revisión sin pres
   assert.match(html, /recibo:situacion:prueba/u);
   assert.equal(requiereRevisionBolsa(ficha), true);
   assert.equal(continuidadBolsaDisponible(ficha), false);
+  v.participaciones[0].respondida_en = "2026-10-09T12:00:00.000001Z";
+  v.participaciones[0].situacion_desde = "2026-10-09T12:00:00.000002Z";
+  assert.equal(requiereRevisionBolsa(ficha), true);
   v.participaciones[0].situacion_desde = "2026-10-09T11:59:00Z";
   assert.equal(requiereRevisionBolsa(ficha), false);
 });
