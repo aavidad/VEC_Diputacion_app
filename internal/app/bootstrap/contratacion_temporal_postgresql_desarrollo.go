@@ -129,6 +129,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialDietas                                   materialDietasDesdeCTDesarrollo
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialInscripcionBolsa                         materialInscripcionRRHHDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalExportacionServicios             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalHistoriaServicios                *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -616,6 +617,15 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		if err != nil {
 			return vacias, err
 		}
+	}
+	if etapa = "material_inscripcion_bolsa"; seleccion.inscripcionBolsa {
+		var proveedores [2]*proveedorMaterialAltaContratacionTemporalDesarrollo
+		for i, descriptor := range descriptoresMaterialInscripcionRRHHDesarrollo() {
+			if proveedores[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia); err != nil {
+				return vacias, err
+			}
+		}
+		dependencias.materialInscripcionBolsa = materialInscripcionRRHHDesarrollo{revisar: proveedores[0], incorporar: proveedores[1]}
 	}
 	etapa = "material_personal_ficha_propia"
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {

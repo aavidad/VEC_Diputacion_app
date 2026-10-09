@@ -398,6 +398,17 @@ func nuevoServidorDesarrollo(
 			}
 		}()
 	}
+	inscripcionRRHH, err := nuevaInscripcionRRHHDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialInscripcionBolsa)
+	if err != nil {
+		return nil, nil, marcarFalloComponenteArranque("inscripcion_bolsa_rrhh", err)
+	}
+	if inscripcionRRHH != nil {
+		defer func() {
+			if !completa {
+				inscripcionRRHH.cerrar()
+			}
+		}()
+	}
 	documentos, err := nuevosDocumentosDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialDocumentos, registro, composicion.seudonimosAlmacen)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("documentos", err)
@@ -504,7 +515,7 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("bolsas_publicas", err)
 	}
-	servidor, err := server.NewHTTPServer(cfg, componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado), personalEmpleado), consultasPersonal))
+	servidor, err := server.NewHTTPServer(cfg, componerRaizConInscripcionRRHH(componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado), personalEmpleado), consultasPersonal), inscripcionRRHH))
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("servidor_http", err)
 	}
@@ -523,6 +534,9 @@ func nuevoServidorDesarrollo(
 	}
 	if documentos != nil {
 		servidor.RegisterOnShutdown(documentos.cerrar)
+	}
+	if inscripcionRRHH != nil {
+		servidor.RegisterOnShutdown(inscripcionRRHH.cerrar)
 	}
 	if personalEmpleado != nil {
 		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
