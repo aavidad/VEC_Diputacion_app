@@ -64,8 +64,9 @@ type CambioAsignacionInscripcion struct {
 	Anterior           *PreimagenAsignacionInscripcion `json:"anterior,omitempty"`
 }
 
-// PlanVersionInscripcion selecciona cinco entradas nuevas del catálogo
-// central. El material no concede permisos: AUT68 coteja fuente, dos ADMIN,
+// PlanVersionInscripcion selecciona las entradas exactas del perfil: cinco
+// para aspirante/empleado y seis para RRHH. El material no concede permisos:
+// AUT68 coteja fuente, dos ADMIN,
 // versión, asignación y procedencia en la misma transacción que el efecto.
 type PlanVersionInscripcion struct {
 	Operacion             OperacionGobiernoPerfil           `json:"operacion"`
@@ -168,8 +169,19 @@ func (p PlanVersionInscripcion) ValidarEstructura() error {
 // autoridad de lectura; publicar exige que AUT68 vuelva a resolverla y que
 // consuma las dos decisiones ADMIN V3 dentro de la transacción del efecto.
 func (p PlanVersionInscripcion) ValidarContraCatalogo(c CatalogoAccionesAdministracionV1, ahora time.Time) error {
+	return p.validarContraCatalogo(c, ahora, true)
+}
+
+// ValidarFuenteHistorica admite preparar un replay sobre la publicación
+// original ya caducada. La primera propuesta sigue exigiendo catálogo actual
+// en AUT66/AUT68; esta comprobación no convierte una fuente vieja en permiso.
+func (p PlanVersionInscripcion) ValidarFuenteHistorica(c CatalogoAccionesAdministracionV1, ahora time.Time) error {
+	return p.validarContraCatalogo(c, ahora, false)
+}
+
+func (p PlanVersionInscripcion) validarContraCatalogo(c CatalogoAccionesAdministracionV1, ahora time.Time, exigirVigente bool) error {
 	if p.ValidarEstructura() != nil || c.Validar() != nil || !instanteAutorizacionCanonico(ahora) ||
-		!vigenteAccionesAdministracionEn(c.VigenteDesde, c.VigenteHasta, ahora) {
+		(exigirVigente && !vigenteAccionesAdministracionEn(c.VigenteDesde, c.VigenteHasta, ahora)) {
 		return ErrPlanVersionInscripcionInvalido
 	}
 	huella, err := c.HuellaSHA256()
@@ -219,7 +231,7 @@ func (p PlanVersionInscripcion) ValidarContraCatalogo(c CatalogoAccionesAdminist
 			he, er := entrada.HuellaSHA256()
 			if er != nil || entrada.Version != seleccion.EntradaVersion || he != seleccion.EntradaHuellaSHA256 ||
 				entrada.ClaseControl != "ordinario" ||
-				!vigenteAccionesAdministracionEn(entrada.VigenteDesde, entrada.VigenteHasta, ahora) ||
+				(exigirVigente && !vigenteAccionesAdministracionEn(entrada.VigenteDesde, entrada.VigenteHasta, ahora)) ||
 				!concesionesPerfilAdministracionIguales(entrada.Concesion, p.DefinicionNueva.Concesiones[indice+i]) {
 				return ErrPlanVersionInscripcionInvalido
 			}
