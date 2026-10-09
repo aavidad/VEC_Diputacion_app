@@ -39,7 +39,23 @@ const (
 // Consumidores cerrados del portal externo, en el mismo orden que AD3-112.
 // El proceso externo solo recibe claves derivadas para estas audiencias.
 var consumidoresPortalExternoV3 = []string{
-	"usuarios_preferencias", "usuarios_correos", "usuarios_imagen", "mi_bolsa", "portal_candidato",
+	"usuarios_preferencias", "usuarios_correos", "usuarios_imagen", "mi_bolsa", "portal_candidato", consumidorInscripcionPortalExternoV3,
+}
+
+const (
+	consumidorInscripcionPortalExternoV3     = "inscripcion_bolsa"
+	audienciaPresentarInscripcionExternaV3   = "vec_bolsa_llamamientos.inscripcion.presentar.v1"
+	accionPresentarInscripcionExternaV3      = "bolsa.inscripcion.presentar"
+	tipoRecursoPresentarInscripcionExternaV3 = "inscripcion_convocatoria"
+)
+
+func descriptorMaterialPresentarInscripcionExternaV3() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia:        audienciaPresentarInscripcionExternaV3,
+		Dominio:          "vec.bolsa.inscripcion.presentar.desarrollo.capacidad-v3",
+		Prefijo:          "clave:capacidad:bolsa-inscripcion-presentar:",
+		ProveedorNominal: "proveedor-material-bolsa-inscripcion-presentar",
+	}
 }
 
 func audienciasConsumidorPortalExternoV3(consumidor string) []string {
@@ -63,6 +79,8 @@ func audienciasConsumidorPortalExternoV3(consumidor string) []string {
 			puertosbolsa.AudienciaPresentarSolicitudDocumentalPropia,
 			puertosbolsa.AudienciaConfirmarContactoPropio,
 		}
+	case consumidorInscripcionPortalExternoV3:
+		return []string{audienciaPresentarInscripcionExternaV3}
 	default:
 		return nil
 	}
@@ -79,6 +97,7 @@ func descriptoresMaterialPortalExternoV3() []descriptorMaterialConsumidorV3Desar
 	todos = append(todos, descriptorMaterialMiBolsaDesarrollo(), descriptorMaterialHistorialMiBolsaDesarrollo())
 	todos = append(todos, descriptoresMaterialPortalCandidatoDesarrollo()...)
 	todos = append(todos, descriptoresMaterialContactoPropioDesarrollo()...)
+	todos = append(todos, descriptorMaterialPresentarInscripcionExternaV3())
 	externas := map[string]bool{}
 	for _, consumidor := range consumidoresPortalExternoV3 {
 		for _, audiencia := range audienciasConsumidorPortalExternoV3(consumidor) {

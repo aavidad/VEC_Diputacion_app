@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -197,7 +198,29 @@ func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpo
 	return pool, login, nil
 }
 
-// abrirBolsaMiBolsaPortalExterno exige además la ACL efectiva de B59. Un
+func funcionesMiBolsaPortalExternoConInscripcion() []string {
+	return []string{
+		"consultar_mi_bolsa_v1", "consultar_mi_bolsa_portal_v1", "consultar_historial_mi_bolsa_v1",
+		"manifestar_disposicion_oferta_v1", "listar_ofertas_candidato_v1", "solicitar_portal_candidato_v1",
+		"responder_llamamiento_portal_v1", "preparar_respuesta_portal_v1", "leer_portal_candidato_v1",
+		"confirmar_contacto_propio_v1", "leer_contacto_candidato_v1", "solicitar_inscripcion_v1",
+	}
+}
+
+const firmaSolicitarInscripcionPortalExterno = "vec_bolsa_llamamientos.solicitar_inscripcion_v1(text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"
+
+func funcionesMiBolsaPortalExternoExactas(obtenidas []string) bool {
+	esperadas := funcionesMiBolsaPortalExternoConInscripcion()
+	if len(obtenidas) != len(esperadas) {
+		return false
+	}
+	observadas := slices.Clone(obtenidas)
+	slices.Sort(observadas)
+	slices.Sort(esperadas)
+	return slices.Equal(observadas, esperadas)
+}
+
+// abrirBolsaMiBolsaPortalExterno exige además la ACL efectiva de B59 y B96. Un
 // GRANT posterior sobre otra función o una tabla detiene el arranque.
 func abrirBolsaMiBolsaPortalExterno(ctx context.Context, dsn string) (*pgxpool.Pool, string, error) {
 	pool, login, err := abrirPoolMiBolsaPortalExterno(ctx, dsn, "vec_bolsa_llamamientos_portal_externo")
@@ -215,12 +238,12 @@ func abrirBolsaMiBolsaPortalExterno(ctx context.Context, dsn string) (*pgxpool.P
  SELECT c.oid FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='vec_bolsa_llamamientos' AND c.relkind='S'
 )
-SELECT (SELECT count(*)=11 AND count(DISTINCT proname)=11 AND bool_and(prosecdef)
- AND bool_and(proname=ANY(ARRAY[
- 'consultar_mi_bolsa_v1','consultar_mi_bolsa_portal_v1','consultar_historial_mi_bolsa_v1',
- 'manifestar_disposicion_oferta_v1','listar_ofertas_candidato_v1','solicitar_portal_candidato_v1',
- 'responder_llamamiento_portal_v1','preparar_respuesta_portal_v1','leer_portal_candidato_v1',
- 'confirmar_contacto_propio_v1','leer_contacto_candidato_v1'])) FROM funciones)
+SELECT COALESCE((SELECT array_agg(proname ORDER BY proname) FROM funciones),ARRAY[]::text[]),
+ session_user='vec_externo_bolsa_desarrollo'
+ AND (SELECT coalesce(bool_and(prosecdef),false) FROM funciones)
+ AND pg_catalog.to_regprocedure($1::text) IS NOT NULL
+ AND pg_catalog.has_function_privilege(session_user,
+  pg_catalog.to_regprocedure($1::text), 'EXECUTE')
  AND NOT EXISTS (SELECT 1 FROM tablas t WHERE
    pg_catalog.has_table_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
    OR pg_catalog.has_any_column_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
@@ -231,8 +254,9 @@ SELECT (SELECT count(*)=11 AND count(DISTINCT proname)=11 AND bool_and(prosecdef
    WHERE left(n.nspname,4)='vec_' AND n.nspname<>'vec_bolsa_llamamientos'
      AND (pg_catalog.has_schema_privilege(session_user,n.oid,'USAGE')
           OR pg_catalog.has_schema_privilege(session_user,n.oid,'CREATE')))`
+	var funciones []string
 	var permitido bool
-	if err := pool.QueryRow(ctx, acl).Scan(&permitido); err != nil || !permitido {
+	if err := pool.QueryRow(ctx, acl, firmaSolicitarInscripcionPortalExterno).Scan(&funciones, &permitido); err != nil || !permitido || !funcionesMiBolsaPortalExternoExactas(funciones) {
 		pool.Close()
 		return nil, "", errMiBolsaNoDisponible
 	}
