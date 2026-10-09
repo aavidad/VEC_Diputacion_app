@@ -78,10 +78,21 @@ type FuenteAmbitoLecturaRRHHInscripcionBolsa interface {
 }
 
 type AmbitoLecturaRRHHInscripcionBolsa struct {
-	RecursoRef, UnidadRef, AmbitoRef, FuenteRef string
-	FuenteVersion                               uint64
-	FuenteHuellaSHA256                          string
-	ConjuntoRef, ConvocatoriaRef                string
+	RecursoRef, ConvocatoriaRef string
+	ConjuntoGestion             ConjuntoGestionRRHHInscripcionBolsa
+	AmbitoSolicitud             *AmbitoSolicitudRRHHInscripcionBolsa
+}
+
+type ConjuntoGestionRRHHInscripcionBolsa struct {
+	ConjuntoRef, UnidadRef, AmbitoRef, FuenteRef string
+	FuenteVersion                                uint64
+	FuenteHuellaSHA256                           string
+}
+
+type AmbitoSolicitudRRHHInscripcionBolsa struct {
+	SolicitudRef, UnidadRef, AmbitoRef, FuenteRef string
+	FuenteVersion                                 uint64
+	FuenteHuellaSHA256                            string
 }
 
 type ConfiguracionDecisorLecturaActualInscripcion struct {
@@ -131,7 +142,7 @@ func nuevoDecisorLecturaActualInscripcionFuentes(externa, interna vecports.Fuent
 		d, ok := c.Descriptores[clave]
 		tipo, finalidad, esperado := tipoFinalidadInscripcionBolsa(clave)
 		if !ok || !esperado || d.Accion != clave.Accion || d.ModuloID != "bolsa" ||
-			d.TipoRecurso != tipo || d.Finalidad != finalidad || len(d.Campos) == 0 {
+			d.TipoRecurso != tipo || d.Finalidad != finalidad || len(d.Campos) == 0 || !slices.IsSorted(d.Campos) {
 			return nil, inscripcion.ErrNoDisponible
 		}
 		if clave.Canal == "externa_personal" && (d.AmbitoVinculoClave != "candidato_ref" || d.AmbitoVinculoTipo != vecdomain.TipoReferenciaContextoActorCandidato) ||
@@ -211,27 +222,44 @@ func (d *decisorLecturaActualInscripcion) DecidirLecturaActual(ctx context.Conte
 	}
 	ambitos := map[string]string{}
 	atributos := map[string]string{}
+	var conjuntoCaptura *ConjuntoGestionRRHHInscripcionBolsa
+	var ambitoSolicitudCaptura *AmbitoSolicitudRRHHInscripcionBolsa
 	if accionRRHHInscripcion(accion) {
 		if !rrhhNominalInscripcionEnLista(s, a, d.rrhhNominal) || nuloInscripcionBolsa(d.ambitoRRHH) {
 			return vacia, inscripcion.ErrAccesoDenegado
 		}
 		resuelto, err := d.ambitoRRHH.ResolverAmbitoLecturaRRHH(ctx, s, a, accion, referencia, filtro)
-		if err != nil || resuelto.RecursoRef != referencia || resuelto.UnidadRef == "" || resuelto.AmbitoRef == "" ||
-			resuelto.FuenteRef == "" || resuelto.FuenteVersion == 0 || !huellaCertificadoInscripcionValida(resuelto.FuenteHuellaSHA256) {
+		conjunto := resuelto.ConjuntoGestion
+		if err != nil || resuelto.RecursoRef != referencia || conjunto.ConjuntoRef == "" ||
+			conjunto.UnidadRef == "" || conjunto.AmbitoRef == "" || conjunto.FuenteRef == "" ||
+			conjunto.FuenteVersion == 0 || !huellaCertificadoInscripcionValida(conjunto.FuenteHuellaSHA256) {
 			return vacia, inscripcion.ErrAccesoDenegado
 		}
-		ambitos["unidad_ref"], ambitos["ambito_ref"] = resuelto.UnidadRef, resuelto.AmbitoRef
+		ambitos["unidad_ref"], ambitos["ambito_ref"] = conjunto.UnidadRef, conjunto.AmbitoRef
+		conjuntoCaptura = &ConjuntoGestionRRHHInscripcionBolsa{ConjuntoRef: conjunto.ConjuntoRef,
+			UnidadRef: conjunto.UnidadRef, AmbitoRef: conjunto.AmbitoRef, FuenteRef: conjunto.FuenteRef,
+			FuenteVersion: conjunto.FuenteVersion, FuenteHuellaSHA256: conjunto.FuenteHuellaSHA256}
 		if accion == accionListarConvocatoriasGestionRRHHInscripcion {
-			if resuelto.ConjuntoRef == "" {
-				return vacia, inscripcion.ErrAccesoDenegado
-			}
-			atributos["conjunto_ref"] = resuelto.ConjuntoRef
+			atributos["conjunto_ref"] = conjunto.ConjuntoRef
 		}
 		if accion == inscripcion.AccionListarRRHH {
 			if resuelto.ConvocatoriaRef != filtro.ConvocatoriaRef {
 				return vacia, inscripcion.ErrAccesoDenegado
 			}
 			atributos["convocatoria_ref"] = resuelto.ConvocatoriaRef
+		}
+		if accion == inscripcion.AccionDetalleRRHH {
+			historico := resuelto.AmbitoSolicitud
+			if historico == nil || historico.SolicitudRef != referencia || historico.UnidadRef != conjunto.UnidadRef ||
+				historico.AmbitoRef != conjunto.AmbitoRef || historico.FuenteRef == "" || historico.FuenteVersion == 0 ||
+				!huellaCertificadoInscripcionValida(historico.FuenteHuellaSHA256) {
+				return vacia, inscripcion.ErrAccesoDenegado
+			}
+			ambitoSolicitudCaptura = &AmbitoSolicitudRRHHInscripcionBolsa{SolicitudRef: historico.SolicitudRef,
+				UnidadRef: historico.UnidadRef, AmbitoRef: historico.AmbitoRef, FuenteRef: historico.FuenteRef,
+				FuenteVersion: historico.FuenteVersion, FuenteHuellaSHA256: historico.FuenteHuellaSHA256}
+		} else if resuelto.AmbitoSolicitud != nil {
+			return vacia, inscripcion.ErrAccesoDenegado
 		}
 	} else {
 		ref, ok := vinculoUnicoInscripcion(s, descriptor.AmbitoVinculoTipo, ahora)
@@ -306,6 +334,7 @@ func (d *decisorLecturaActualInscripcion) DecidirLecturaActual(ctx context.Conte
 		RevisionPermisos: evaluacion.RevisionPermisos, HuellaInstantaneaSHA256: evaluacion.HuellaInstantaneaSHA256,
 		Campos: slices.Clone(descriptor.Campos), Filtro: filtro,
 		EmitidaEn: evaluacion.EvaluadaEn, ValidaHasta: hasta,
+		ConjuntoGestion: conjuntoCaptura, AmbitoSolicitud: ambitoSolicitudCaptura,
 	}, nil
 }
 

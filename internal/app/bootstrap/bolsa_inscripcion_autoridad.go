@@ -39,6 +39,8 @@ type DecisionLecturaActualInscripcionBolsa struct {
 	Campos                                                        []string
 	Filtro                                                        inscripcion.Filtro
 	EmitidaEn, ValidaHasta                                        time.Time
+	ConjuntoGestion                                               *ConjuntoGestionRRHHInscripcionBolsa
+	AmbitoSolicitud                                               *AmbitoSolicitudRRHHInscripcionBolsa
 }
 
 // DescriptorInscripcionBolsa se aporta desde el catálogo publicado. Su motivo
@@ -186,7 +188,7 @@ func NuevaAutoridadInscripcionBolsa(c ConfiguracionAutoridadInscripcionBolsa) (A
 	for _, clave := range clavesLecturaInscripcionBolsa() {
 		d, ok := c.Lecturas[clave]
 		_, finalidad, esperado := tipoFinalidadInscripcionBolsa(clave)
-		if !ok || !esperado || d.Accion != clave.Accion || d.Finalidad != finalidad || len(d.Campos) == 0 {
+		if !ok || !esperado || d.Accion != clave.Accion || d.Finalidad != finalidad || len(d.Campos) == 0 || !slices.IsSorted(d.Campos) {
 			return nil, inscripcion.ErrNoDisponible
 		}
 		vistos := make(map[string]struct{}, len(d.Campos))
@@ -255,7 +257,8 @@ func (a *autoridadNominalInscripcionBolsa) CapturarLectura(ctx context.Context, 
 		!slices.Equal(decision.Campos, descriptor.Campos) || decision.EmitidaEn.IsZero() || decision.EmitidaEn.After(ahora) ||
 		!decision.ValidaHasta.After(ahora) || decision.ValidaHasta.After(ahora.Add(30*time.Second)) ||
 		decision.ValidaHasta.After(v.SesionValidaHasta) ||
-		!canalLecturaInscripcion(accion, decision.Canal, v.Superficie) {
+		!canalLecturaInscripcion(accion, decision.Canal, v.Superficie) ||
+		!ambitoDecisionLecturaInscripcionValido(accion, recurso, decision) {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
 	return inscripcion.CapturaLectura{
@@ -267,6 +270,23 @@ func (a *autoridadNominalInscripcionBolsa) CapturarLectura(ctx context.Context, 
 		HuellaInstantaneaSHA256: decision.HuellaInstantaneaSHA256,
 		Filtro:                  filtro, EmitidaEn: decision.EmitidaEn, ValidaHasta: decision.ValidaHasta,
 	}, nil
+}
+
+func ambitoDecisionLecturaInscripcionValido(accion, recurso string, d DecisionLecturaActualInscripcionBolsa) bool {
+	if !accionRRHHInscripcion(accion) {
+		return d.ConjuntoGestion == nil && d.AmbitoSolicitud == nil
+	}
+	c := d.ConjuntoGestion
+	if c == nil || c.ConjuntoRef == "" || c.UnidadRef == "" || c.AmbitoRef == "" || c.FuenteRef == "" ||
+		c.FuenteVersion == 0 || !huellaCertificadoInscripcionValida(c.FuenteHuellaSHA256) {
+		return false
+	}
+	if accion != inscripcion.AccionDetalleRRHH {
+		return d.AmbitoSolicitud == nil
+	}
+	h := d.AmbitoSolicitud
+	return h != nil && h.SolicitudRef == recurso && h.UnidadRef == c.UnidadRef && h.AmbitoRef == c.AmbitoRef &&
+		h.FuenteRef != "" && h.FuenteVersion > 0 && huellaCertificadoInscripcionValida(h.FuenteHuellaSHA256)
 }
 
 func revisionHuellaLecturaInscripcionCoincide(revision uint64, huella string) bool {

@@ -23,11 +23,15 @@ type fuenteLecturaActualInscripcionPrueba struct {
 	principal, perfil string
 }
 
-type ambitoLecturaRRHHInscripcionPrueba struct{ llamadas int }
+type ambitoLecturaRRHHInscripcionPrueba struct {
+	llamadas  int
+	resultado AmbitoLecturaRRHHInscripcionBolsa
+	err       error
+}
 
 func (f *ambitoLecturaRRHHInscripcionPrueba) ResolverAmbitoLecturaRRHH(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, inscripcion.Filtro) (AmbitoLecturaRRHHInscripcionBolsa, error) {
 	f.llamadas++
-	return AmbitoLecturaRRHHInscripcionBolsa{}, errors.New("no disponible")
+	return f.resultado, f.err
 }
 
 func (f *fuenteLecturaActualInscripcionPrueba) ObtenerInstantaneaAutorizacion(_ context.Context, principal, perfil string) (vecdomain.InstantaneaAutorizacion, error) {
@@ -275,5 +279,57 @@ func TestDecisorLecturaActualInscripcionPermisoVigenteAntesDeBolsa(t *testing.T)
 				t.Fatalf("concesión inválida llegó a Bolsa: fuente=%d err=%v", fuente.llamadas, err)
 			}
 		})
+	}
+}
+
+func TestDecisorLecturaRRHHComparaConjuntoActualEHistoria(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	s, _ := contextoInscripcionCanalPrueba(t, ahora, false, false)
+	a := acreditacionSesionInscripcionPrueba(t, s, "interna_corporativa", ahora)
+	v, err := s.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := "solicitud_inscripcion_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	unidad, ambito := "unidad_prueba", "ambito_prueba"
+	identidad := &identidadCandidatoBolsaDesarrollo{personaRef: v.PrincipalID, perfilRef: v.PerfilActivoRef, candidatoRef: "candidato_prueba_inscripcion"}
+	i, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i.VersionRol.PublicadaPor = "seguridad:prueba-publicada"
+	i.ControlVigenciaVersionRol.ActualizadoPor = "seguridad:prueba-publicada"
+	i.AsignacionPerfil.EmitidaPor = "identidad:prueba-publicada"
+	i.VersionRol.Concesiones = []vecdomain.ConcesionRol{{Accion: inscripcion.AccionDetalleRRHH,
+		ModuloID: "bolsa", TipoRecurso: "solicitud_inscripcion", Finalidades: []string{"consulta_inscripcion_rrhh"},
+		CamposPermitidos: camposLecturaInscripcionBolsa(inscripcion.AccionDetalleRRHH, true), GarantiaMinima: vecdomain.AuthAssuranceHigh}}
+	i.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{{Clave: "ambito_ref", Valores: []string{ambito}}, {Clave: "unidad_ref", Valores: []string{unidad}}}
+	if err := i.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	getter := &ambitoLecturaRRHHInscripcionPrueba{resultado: AmbitoLecturaRRHHInscripcionBolsa{RecursoRef: ref,
+		ConjuntoGestion: ConjuntoGestionRRHHInscripcionBolsa{ConjuntoRef: "conjunto_prueba", UnidadRef: unidad, AmbitoRef: ambito,
+			FuenteRef: "fuente_actual", FuenteVersion: 2, FuenteHuellaSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+		AmbitoSolicitud: &AmbitoSolicitudRRHHInscripcionBolsa{SolicitudRef: ref, UnidadRef: unidad, AmbitoRef: ambito,
+			FuenteRef: "fuente_historica", FuenteVersion: 1, FuenteHuellaSHA256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}}
+	fuente := &fuenteLecturaActualInscripcionPrueba{i: i}
+	d, err := nuevoDecisorLecturaActualInscripcionFuentes(&fuenteLecturaActualInscripcionPrueba{}, fuente,
+		ConfiguracionDecisorLecturaActualInscripcion{Reloj: relojFijoAltaContratacionTemporalDesarrollo{ahora: ahora},
+			Descriptores: descriptorLecturasInscripcionPrueba(), AmbitoRRHH: getter,
+			RRHHNominal: []identidadConsultaRRHHDesarrollo{{perfilRef: v.PerfilActivoRef,
+				identidad: identidadCertificadoDesarrollo{principal: vecdomain.Principal{Attributes: map[string]string{"certificate_sha256": a.CertificadoHuellaSHA256}}}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err := d.DecidirLecturaActual(context.Background(), s, a, inscripcion.AccionDetalleRRHH, ref, inscripcion.Filtro{})
+	if err != nil || !decision.Concedida || decision.ConjuntoGestion == nil || decision.AmbitoSolicitud == nil ||
+		decision.ConjuntoGestion.FuenteVersion != 2 || decision.AmbitoSolicitud.FuenteVersion != 1 ||
+		getter.llamadas != 1 || fuente.llamadas != 1 {
+		t.Fatalf("conjunto actual/historia: %+v getter=%d fuente=%d err=%v", decision, getter.llamadas, fuente.llamadas, err)
+	}
+	getter.resultado.AmbitoSolicitud.AmbitoRef = "otro_ambito"
+	fuente.llamadas = 0
+	if _, err := d.DecidirLecturaActual(context.Background(), s, a, inscripcion.AccionDetalleRRHH, ref, inscripcion.Filtro{}); !errors.Is(err, inscripcion.ErrAccesoDenegado) || fuente.llamadas != 0 {
+		t.Fatalf("historia de otro ámbito llegó a AID: fuente=%d err=%v", fuente.llamadas, err)
 	}
 }
