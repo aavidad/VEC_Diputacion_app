@@ -242,9 +242,7 @@ export async function montarCuadroContratacionLigero({
       const expediente = cuadro?.expedientes.find(({ expediente_ref: ref }) => ref === boton.dataset.ctExpAbrir);
       if (!expediente) return;
       try {
-        const textos = await prepararTextosContratacionVista("expediente", { idioma: preparado.idioma });
-        if (vigente && !signal?.aborted) await abrirDetalle({ expedienteRef: expediente.expediente_ref,
-          version: expediente.version, textos, idioma: textos.idioma });
+        if (vigente && !signal?.aborted) await abrirDetalle({ expedienteRef: expediente.expediente_ref });
       } catch (error) { if (vigente) mostrarError(raiz, { error, reintentar: () => alPulsar(evento) }); }
     } else if (boton.dataset.ctExpVista === "alta" && typeof abrirAlta === "function") {
       try {

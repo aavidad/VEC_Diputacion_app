@@ -1,4 +1,5 @@
 import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261009-centro-campos-cohorte-v5";
+import { crearVinculoBolsaClienteHTTP } from "./cliente-http-vinculo-bolsa.js?v=20261009-ct-bolsa-cohorte-v8";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -15,7 +16,7 @@ import {
   validarSolicitudRegistroAnalisis,
 } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
-import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261008-w-ct-borradores-main-v2";
+import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261009-ct-bolsa-cohorte-v8";
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
@@ -46,7 +47,7 @@ import {
   extraerDatos,
   construirErrorRespuesta,
   construirCabeceras,
-} from "./cliente-http-transporte.js?v=20261008-alta-corte-v1";
+} from "./cliente-http-transporte.js?v=20261009-ct-bolsa-cohorte-v8";
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
@@ -585,6 +586,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
 
   return Object.freeze({
     modo: "http",
+    ...crearVinculoBolsaClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearAltaClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearAsignacionClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),

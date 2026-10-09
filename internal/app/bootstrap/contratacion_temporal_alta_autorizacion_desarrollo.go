@@ -88,6 +88,7 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 		ruta == httpinterno.RutaConsultaCircuitoRRHH ||
 		rutaFirmasR5V2CTDesarrollo(ruta) || rutaOriginalFirmableCTDesarrollo(ruta) ||
 		rutaFirmaExternaV2CTDesarrollo(ruta) ||
+		ruta == httpinterno.RutaVinculosEmisionBolsa ||
 		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta)
 
 }
@@ -616,6 +617,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return motivoSeguimientoCeseDesarrollo(ruta), s.seguimientoCese != nil
 	case httpinterno.RutaCancelacionesExpediente, httpinterno.RutaCancelacionExpediente:
 		return motivoCancelacionCTDesarrollo(ruta), s.cancelacion != nil
+	case httpinterno.RutaVinculosEmisionBolsa:
+		return motivoVinculoEmisionBolsaDesarrollo(), true
 	default:
 		return dominiovec.ReferenciaEntradaCatalogo{}, false
 	}

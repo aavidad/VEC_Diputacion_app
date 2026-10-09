@@ -56,7 +56,7 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerExpedienteParaSelec
 	if err != nil || actual < int64(version) ||
 		actual > int64(ports.MaximoEnteroSeguroIntegracionBolsa) ||
 		len(contenido) > 3*1024*1024 ||
-		decodificarJSONEstricto(contenido, &expediente) != nil ||
+		decodificarExpedienteSQL(contenido, &expediente) != nil ||
 		expediente.Validar() != nil || expediente.Referencia != referencia ||
 		expediente.OrganizacionRef != organizacion || expediente.Version != version ||
 		expediente.FaseActual != domain.FaseFiscalizacion ||
@@ -96,7 +96,7 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerExpedienteParaAviso
 	defer borrarBytes(contenido)
 	var expediente domain.Expediente
 	if err != nil || actual < 6 || actual > int64(ports.MaximoEnteroSeguroIntegracionBolsa) ||
-		len(contenido) > 3*1024*1024 || decodificarJSONEstricto(contenido, &expediente) != nil ||
+		len(contenido) > 3*1024*1024 || decodificarExpedienteSQL(contenido, &expediente) != nil ||
 		expediente.Validar() != nil || expediente.Referencia != referencia || expediente.OrganizacionRef != organizacion ||
 		expediente.Version < 6 || expediente.Version > uint64(actual) ||
 		expediente.FaseActual != domain.FaseFiscalizacion || expediente.EstadoActual != domain.EstadoEnCurso ||

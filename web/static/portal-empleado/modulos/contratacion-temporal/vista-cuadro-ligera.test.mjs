@@ -65,10 +65,9 @@ test("la bandeja ligera usa una consulta autorizada y abre detalle solo tras pul
   assert.doesNotMatch(raiz.innerHTML, /title="centro:rpt:600"/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-exp-vista="alta"/u);
   assert.equal(abiertos.length, 0);
-  await raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctExpAbrir: fila.expediente_ref } }) } });
-  assert.equal(abiertos.length, 1);
-  assert.equal(abiertos[0].expedienteRef, fila.expediente_ref);
-  assert.equal(abiertos[0].textos.vista, "expediente");
+  const apertura = raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctExpAbrir: fila.expediente_ref } }) } });
+  assert.deepEqual(abiertos, [{ expedienteRef: fila.expediente_ref }], "el clic no espera textos de otras pantallas");
+  await apertura;
   montaje.desmontar();
   assert.equal(raiz.eventos.size, 0);
 });

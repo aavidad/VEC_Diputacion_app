@@ -99,7 +99,7 @@ func leerPreparacionAnotacion(ctx context.Context, tx pgx.Tx, b []byte) (prepara
 }
 func (w preparacionAnotacionWire) restaurar(m ct.MaterialAnotacionAdministrativa) (ct.PreparacionAnotacionAdministrativa, error) {
 	var p ct.PreparacionAnotacionAdministrativa
-	if w.Material != materialAnotacion(m) || decodificarJSONEstricto(w.Expediente, &p.Expediente) != nil {
+	if w.Material != materialAnotacion(m) || decodificarExpedienteSQL(w.Expediente, &p.Expediente) != nil {
 		return p, ct.ErrResultadoAnotacionAdministrativaNoConfiable
 	}
 	p.Material = m
@@ -236,7 +236,7 @@ func validarOrdenAnotacion(o ct.OrdenConfirmarAnotacionAdministrativa, t time.Ti
 // de transportar solamente los tres campos que cambian.
 func postimagenAnotacion(original json.RawMessage, o ct.OrdenConfirmarAnotacionAdministrativa) (json.RawMessage, error) {
 	var originalDom dom.Expediente
-	if decodificarJSONEstricto(original, &originalDom) != nil || !reflect.DeepEqual(originalDom, o.Preparacion.Expediente) {
+	if decodificarExpedienteSQL(original, &originalDom) != nil || !reflect.DeepEqual(originalDom, o.Preparacion.Expediente) {
 		return nil, ct.ErrResultadoAnotacionAdministrativaNoConfiable
 	}
 	if o.Preparacion.Estado == ct.PreparacionAnotacionAdministrativaConfirmada {

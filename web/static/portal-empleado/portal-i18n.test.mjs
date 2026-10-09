@@ -748,33 +748,62 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
     "modulos/contratacion-temporal/vista-borradores-publicados.js", "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js"]) versionesEspeciales.set(ruta, "20261009-borradores-fase-v3");
-  for (const ruta of ["portal-bolsas-intentos.js", "portal-bolsas-api.js", "portal-bolsas-historial-ofrecimientos.js",
-    "portal-bolsas-ofertas.js", "portal-bolsas-seguimiento.js", "portal-panel-interno.js"])
-    versionesEspeciales.set(ruta, "20261009-ayuda-contacto-v1");
+  versionesEspeciales.set("portal-bolsas-intentos.js", "20261009-ayuda-contacto-v1");
   // La solicitud del centro y el alta CT comparten contrato y renderer.
-  // Cada consumidor modificado tiene una única URL de la cohorte nueva.
+  for (const ruta of ["modulos/contratacion-temporal/alta-renderer-puro.js",
+    "modulos/contratacion-temporal/cliente-http-alta.js", "modulos/contratacion-temporal/contrato.js",
+    "modulos/contratacion-temporal/presentador.js", "modulos/contratacion-temporal/vista.js",
+    "peticiones-centro/arranque-peticiones-centro.js", "peticiones-centro/peticiones-centro.js",
+  ]) versionesEspeciales.set(ruta, "20261009-centro-campos-cohorte-v5");
+  // El resultado de Bolsa y la petición del centro renuevan juntas la cadena CT.
   for (const ruta of [
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
     "categorias-rpt/cliente.js", "categorias-rpt/montaje.js",
     "modulos/contratacion-temporal/adaptador-http-expedientes.js",
-    "modulos/contratacion-temporal/alta-renderer-puro.js",
     "modulos/contratacion-temporal/circuito-firma-acciones.js",
     "modulos/contratacion-temporal/circuito-firma.js",
-    "modulos/contratacion-temporal/cliente-http-alta.js",
+    "modulos/contratacion-temporal/cliente-http-cambios-expediente.js",
+    "modulos/contratacion-temporal/cliente-http-consultas-rrhh.js",
     "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http-vinculo-bolsa.js",
     "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/componentes-expedientes.js",
     "modulos/contratacion-temporal/consulta-seguimiento.js",
-    "modulos/contratacion-temporal/contrato.js",
+    "modulos/contratacion-temporal/contrato-expedientes.js",
+    "modulos/contratacion-temporal/documentacion-formalizacion.js",
+    "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
     "modulos/contratacion-temporal/formulario-informe-juridico.js",
-    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
-    "modulos/contratacion-temporal/presentador.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/gestor-resultado-bolsa.js",
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/presentador-expedientes.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
+    "modulos/contratacion-temporal/resultado-bolsa.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
     "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-cambios.js",
+    "modulos/contratacion-temporal/vista-expedientes-ficha.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
-    "modulos/contratacion-temporal/vista.js",
-    "peticiones-centro/arranque-peticiones-centro.js",
-    "peticiones-centro/peticiones-centro.js",
-  ]) versionesEspeciales.set(ruta, "20261009-centro-campos-cohorte-v5");
-  for (const ruta of ["portal-modulos-coordinador.js", "portal.js"]) versionesEspeciales.set(ruta, "20261009-ct-ficha-rapida-v2");
+    "portal-modulos-coordinador.js", "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v8");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261009-ct-bolsa-cohorte-v8");
+  for (const ruta of ["portal-bolsas-ruta-filtros.js", "portal-ct-ruta-filtro.js",
+    "portal-llamamientos-selector.js", "portal-bolsas-global.js", "portal-bolsas-seguimiento.js",
+    "portal-inicio.js", "portal-bolsas-api.js", "portal-panel-interno.js",
+    "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v8");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
