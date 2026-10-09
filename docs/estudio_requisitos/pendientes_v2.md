@@ -68,3 +68,13 @@ Desde CT186, la consulta y la recuperación R5 V2 llevan la unidad de la asignac
 La vía externa (RRHH registra una firma hecha en el portafirmas) sigue sólo con organización: AD206, AD209 y AD210 deniegan una unidad en esa vía, así que un operador de RRHH con unidad no puede registrar (decisión de dirección del 06/10, opción C). Las dos cosas dependen de cómo asigna RRHH unidades a su personal; está preguntado en `dudas.md` (148).
 
 La recuperación R5 V2 con unidad se comprueba contra el plan publicado en ese momento, no contra el que había cuando se firmó. Si el plan se republica sin ese paso o se retira, quien tiene unidad deja de poder recuperar el recibo de una firma anterior (falla cerrado). Si hace falta recuperar recibos históricos así, la recuperación debe ligarse a la versión del plan que consta en la firma original.
+
+## Bolsa: inscripción desde el puesto de una persona empleada
+
+La primera versión de la inscripción en bolsa sólo atiende a aspirantes externos: piden entrar desde el portal externo y RRHH decide e incorpora desde vec-server (decisión de Alberto del 09/10). Queda para después que una persona empleada de la Diputación lo pida desde su sesión interna. Para eso hará falta:
+
+- que Personal acredite su unidad y su vínculo de empleo vigente (cortes de Codex-X) y que AUT68 y CA39 lo comprueben;
+- una sesión interna de empleado y un acreditador del vínculo en el preparador de inscripción, con su propio lector PostgreSQL (`VEC_BOLSA_INSCRIPCIONES_EMPLEADO_LECTOR_DATABASE_URL`, LOGIN `vec_bolsa_inscripciones_empleado_lector`);
+- las operaciones de lectura y presentación en la superficie interna (`presentar_empleado`, ámbito `empleado_ref`) en la autoridad, el decisor de lectura y la SQL, que en esta versión sólo existen para el candidato externo.
+
+La rama `trabajo/codexq-inscripcion-backend-20261009` conserva ese código tal como lo dejó Codex-Q, con CA39 y la sesión interna de empleado.
