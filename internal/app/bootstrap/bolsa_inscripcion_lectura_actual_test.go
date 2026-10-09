@@ -2,7 +2,13 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"reflect"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,22 +23,133 @@ type fuenteLecturaActualInscripcionPrueba struct {
 	principal, perfil string
 }
 
+type ambitoLecturaRRHHInscripcionPrueba struct{ llamadas int }
+
+func (f *ambitoLecturaRRHHInscripcionPrueba) ResolverAmbitoLecturaRRHH(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, inscripcion.Filtro) (AmbitoLecturaRRHHInscripcionBolsa, error) {
+	f.llamadas++
+	return AmbitoLecturaRRHHInscripcionBolsa{}, errors.New("no disponible")
+}
+
 func (f *fuenteLecturaActualInscripcionPrueba) ObtenerInstantaneaAutorizacion(_ context.Context, principal, perfil string) (vecdomain.InstantaneaAutorizacion, error) {
 	f.llamadas++
 	f.principal, f.perfil = principal, perfil
 	return f.i, f.err
 }
 
-func descriptorLecturasInscripcionPrueba() map[string]DescriptorLecturaActualInscripcion {
-	resultado := make(map[string]DescriptorLecturaActualInscripcion, 7)
-	for _, accion := range []string{inscripcion.AccionListarAbiertas, inscripcion.AccionDetalleAbierta,
-		inscripcion.AccionListarPropias, inscripcion.AccionDetallePropia, inscripcion.AccionListarRRHH,
-		inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH} {
-		resultado[accion] = DescriptorLecturaActualInscripcion{Accion: accion, ModuloID: "bolsa",
-			TipoRecurso: "inscripcion", Finalidad: "consulta_inscripcion_propia",
-			Campos: []string{"solicitud_ref"}, AmbitoPersonaClave: "persona_ref"}
+func descriptorLecturasInscripcionPrueba() map[ClaveOperacionInscripcionBolsa]DescriptorLecturaActualInscripcion {
+	resultado := make(map[ClaveOperacionInscripcionBolsa]DescriptorLecturaActualInscripcion, 12)
+	for _, clave := range clavesLecturaInscripcionBolsa() {
+		tipo, finalidad, ok := tipoFinalidadInscripcionBolsa(clave)
+		if !ok {
+			panic("clave de prueba desconocida")
+		}
+		d := DescriptorLecturaActualInscripcion{Accion: clave.Accion, ModuloID: "bolsa",
+			TipoRecurso: tipo, Finalidad: finalidad,
+			Campos: camposLecturaInscripcionBolsa(clave.Accion, accionRRHHInscripcion(clave.Accion))}
+		if clave.Canal == "externa_personal" {
+			d.AmbitoVinculoClave, d.AmbitoVinculoTipo = "candidato_ref", vecdomain.TipoReferenciaContextoActorCandidato
+		} else if !accionRRHHInscripcion(clave.Accion) {
+			d.AmbitoVinculoClave, d.AmbitoVinculoTipo = "empleado_ref", vecdomain.TipoReferenciaContextoActorEmpleado
+		}
+		resultado[clave] = d
 	}
 	return resultado
+}
+
+func hojasJSONInscripcion(t reflect.Type, prefijo string) []string {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == reflect.TypeOf(time.Time{}) {
+		return []string{strings.TrimSuffix(prefijo, ".")}
+	}
+	if t.Kind() == reflect.Slice || t.Kind() == reflect.Array {
+		return hojasJSONInscripcion(t.Elem(), strings.TrimSuffix(prefijo, ".")+"[].")
+	}
+	if t.Kind() != reflect.Struct {
+		return []string{strings.TrimSuffix(prefijo, ".")}
+	}
+	var hojas []string
+	for i := 0; i < t.NumField(); i++ {
+		campo := t.Field(i)
+		if !campo.IsExported() {
+			continue
+		}
+		nombre := strings.Split(campo.Tag.Get("json"), ",")[0]
+		if nombre == "-" {
+			continue
+		}
+		if nombre == "" {
+			nombre = campo.Name
+		}
+		hojas = append(hojas, hojasJSONInscripcion(campo.Type, prefijo+nombre+".")...)
+	}
+	return hojas
+}
+
+func TestCamposLecturaInscripcionCubrenHojasDTOExactas(t *testing.T) {
+	for _, caso := range []struct {
+		accion string
+		rrhh   bool
+		tipo   reflect.Type
+	}{
+		{inscripcion.AccionListarAbiertas, false, reflect.TypeOf(inscripcion.PaginaAbiertas{})},
+		{inscripcion.AccionDetalleAbierta, false, reflect.TypeOf(inscripcion.BolsaAbierta{})},
+		{inscripcion.AccionListarPropias, false, reflect.TypeOf(inscripcion.Pagina{})},
+		{inscripcion.AccionDetallePropia, false, reflect.TypeOf(inscripcion.Solicitud{})},
+		{inscripcion.AccionListarRRHH, true, reflect.TypeOf(inscripcion.Pagina{})},
+		{inscripcion.AccionDetalleRRHH, true, reflect.TypeOf(inscripcion.Solicitud{})},
+		{inscripcion.AccionMotivosRRHH, true, reflect.TypeOf(inscripcion.CatalogoMotivos{})},
+	} {
+		t.Run(caso.accion, func(t *testing.T) {
+			actual := hojasJSONInscripcion(caso.tipo, "")
+			if caso.accion == inscripcion.AccionListarPropias || caso.accion == inscripcion.AccionDetallePropia {
+				actual = slices.DeleteFunc(actual, func(campo string) bool { return strings.HasSuffix(campo, "persona_resumen") })
+			}
+			slices.Sort(actual)
+			esperados := camposLecturaInscripcionBolsa(caso.accion, caso.rrhh)
+			if !slices.Equal(actual, esperados) {
+				t.Fatalf("DTO/catálogo divergentes: DTO=%q catálogo=%q", actual, esperados)
+			}
+		})
+	}
+}
+
+func TestHuellaCamposLecturaInscripcionPorCanal(t *testing.T) {
+	type entrada struct {
+		Accion string   `json:"accion"`
+		Canal  string   `json:"canal"`
+		Campos []string `json:"campos"`
+	}
+	var entradas []entrada
+	for _, clave := range clavesLecturaInscripcionBolsa() {
+		entradas = append(entradas, entrada{
+			Accion: clave.Accion, Canal: clave.Canal, Campos: camposLecturaInscripcionBolsa(clave.Accion, accionRRHHInscripcion(clave.Accion))})
+	}
+	slices.SortFunc(entradas, func(a, b entrada) int {
+		if a.Accion < b.Accion {
+			return -1
+		}
+		if a.Accion > b.Accion {
+			return 1
+		}
+		if a.Canal < b.Canal {
+			return -1
+		}
+		if a.Canal > b.Canal {
+			return 1
+		}
+		return 0
+	})
+	canon, err := json.Marshal(entradas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huella := sha256.Sum256(canon)
+	const esperada = "6ac470412ee7d9a7b446ea9831d02833f4e1acb6c64a9ca12c2055f57f41adc3"
+	if hex.EncodeToString(huella[:]) != esperada {
+		t.Fatalf("catálogo de campos cambió: %x", huella)
+	}
 }
 
 func TestDecisorLecturaActualInscripcionPostgreSQLExigePoolsYDescriptores(t *testing.T) {
@@ -47,8 +164,8 @@ func TestDecisorLecturaActualInscripcionPostgreSQLExigePoolsYDescriptores(t *tes
 
 func TestDecisorLecturaActualInscripcionPermisoVigenteAntesDeBolsa(t *testing.T) {
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
-	s, _ := contextoInscripcionCanalPrueba(t, ahora, true, false)
-	a := acreditacionSesionInscripcionPrueba(t, s, "externa_personal", ahora)
+	s, empleadoRef := contextoInscripcionCanalPrueba(t, ahora, false, true)
+	a := acreditacionSesionInscripcionPrueba(t, s, "interna_corporativa", ahora)
 	v, err := s.Vinculo.Datos()
 	if err != nil {
 		t.Fatal(err)
@@ -67,16 +184,19 @@ func TestDecisorLecturaActualInscripcionPermisoVigenteAntesDeBolsa(t *testing.T)
 	i.ControlVigenciaVersionRol.ActualizadoPor = "seguridad:prueba-publicada"
 	i.AsignacionPerfil.EmitidaPor = "identidad:prueba-publicada"
 	i.VersionRol.Concesiones = []vecdomain.ConcesionRol{{Accion: inscripcion.AccionListarPropias,
-		ModuloID: "bolsa", TipoRecurso: "inscripcion", Finalidades: []string{"consulta_inscripcion_propia"},
-		CamposPermitidos: []string{"solicitud_ref"}, GarantiaMinima: vecdomain.AuthAssuranceHigh}}
-	i.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{{Clave: "persona_ref", Valores: []string{v.PrincipalID}}}
+		ModuloID: "bolsa", TipoRecurso: "solicitud_inscripcion_empleado", Finalidades: []string{"consulta_inscripcion_propia"},
+		CamposPermitidos: camposLecturaInscripcionBolsa(inscripcion.AccionListarPropias, false), GarantiaMinima: vecdomain.AuthAssuranceHigh}}
+	i.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{{Clave: "empleado_ref", Valores: []string{empleadoRef}}}
 	if err := i.Validar(); err != nil {
 		t.Fatal(err)
 	}
 	fuente := &fuenteLecturaActualInscripcionPrueba{i: i}
 	otraFuente := &fuenteLecturaActualInscripcionPrueba{err: errors.New("fuente equivocada")}
-	d, err := nuevoDecisorLecturaActualInscripcionFuentes(fuente, otraFuente,
-		ConfiguracionDecisorLecturaActualInscripcion{Reloj: relojFijoAltaContratacionTemporalDesarrollo{ahora: ahora}, Descriptores: descriptorLecturasInscripcionPrueba()})
+	d, err := nuevoDecisorLecturaActualInscripcionFuentes(otraFuente, fuente,
+		ConfiguracionDecisorLecturaActualInscripcion{Reloj: relojFijoAltaContratacionTemporalDesarrollo{ahora: ahora},
+			Descriptores: descriptorLecturasInscripcionPrueba(), RRHHNominal: []identidadConsultaRRHHDesarrollo{{perfilRef: "prf_rrhh_prueba",
+				identidad: identidadCertificadoDesarrollo{principal: vecdomain.Principal{Attributes: map[string]string{
+					"certificate_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +208,16 @@ func TestDecisorLecturaActualInscripcionPermisoVigenteAntesDeBolsa(t *testing.T)
 		t.Fatalf("lectura actual: %+v %v", decision, err)
 	}
 	if fuente.llamadas != 1 || otraFuente.llamadas != 0 || fuente.principal != v.PrincipalID || fuente.perfil != v.PerfilActivoRef {
-		t.Fatalf("fuente seleccionada: externa=%d interna=%d", fuente.llamadas, otraFuente.llamadas)
+		t.Fatalf("fuente seleccionada: interna=%d externa=%d", fuente.llamadas, otraFuente.llamadas)
+	}
+	getterRRHH := &ambitoLecturaRRHHInscripcionPrueba{}
+	d.ambitoRRHH = getterRRHH
+	refRRHH := "solicitud_inscripcion_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	if _, err := d.DecidirLecturaActual(context.Background(), s, a, inscripcion.AccionDetalleRRHH, refRRHH, inscripcion.Filtro{}); !errors.Is(err, inscripcion.ErrAccesoDenegado) || getterRRHH.llamadas != 0 {
+		t.Fatalf("empleado accedió a getter RRHH: llamadas=%d err=%v", getterRRHH.llamadas, err)
+	}
+	if _, err := d.DecidirLecturaActual(context.Background(), s, a, inscripcion.AccionListarRRHH, "inscripciones_rrhh_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", inscripcion.Filtro{Limite: 20}); !errors.Is(err, inscripcion.ErrSolicitudInvalida) || getterRRHH.llamadas != 0 {
+		t.Fatalf("bandeja RRHH sin convocatoria consultó getter: llamadas=%d err=%v", getterRRHH.llamadas, err)
 	}
 	contenidoCambiado := i
 	contenidoCambiado.VersionRol.Nombre = "Publicacion de prueba con contenido distinto"
@@ -107,7 +236,7 @@ func TestDecisorLecturaActualInscripcionPermisoVigenteAntesDeBolsa(t *testing.T)
 		"certificado":     func(x *AcreditacionSesionInscripcionBolsa) { x.CertificadoHuellaSHA256 = "no_canonica" },
 		"sesion revocada": func(x *AcreditacionSesionInscripcionBolsa) { x.ValidaHasta = ahora },
 		"perfil":          func(x *AcreditacionSesionInscripcionBolsa) { x.PerfilRef = "prf_ajeno" },
-		"canal":           func(x *AcreditacionSesionInscripcionBolsa) { x.Canal = "interna_corporativa" },
+		"canal":           func(x *AcreditacionSesionInscripcionBolsa) { x.Canal = "externa_personal" },
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			mutada := a
@@ -120,13 +249,13 @@ func TestDecisorLecturaActualInscripcionPermisoVigenteAntesDeBolsa(t *testing.T)
 	}
 	for nombre, cambiar := range map[string]func(*vecdomain.InstantaneaAutorizacion){
 		"permiso ausente": func(x *vecdomain.InstantaneaAutorizacion) {
-			x.VersionRol.Concesiones = []vecdomain.ConcesionRol{{Accion: "otra.accion", ModuloID: "bolsa", TipoRecurso: "inscripcion", Finalidades: []string{"consulta_inscripcion_propia"}, CamposPermitidos: []string{"solicitud_ref"}, GarantiaMinima: vecdomain.AuthAssuranceHigh}}
+			x.VersionRol.Concesiones = []vecdomain.ConcesionRol{{Accion: "otra.accion", ModuloID: "bolsa", TipoRecurso: "solicitud_inscripcion_empleado", Finalidades: []string{"consulta_inscripcion_propia"}, CamposPermitidos: camposLecturaInscripcionBolsa(inscripcion.AccionListarPropias, false), GarantiaMinima: vecdomain.AuthAssuranceHigh}}
 		},
 		"ambito ajeno": func(x *vecdomain.InstantaneaAutorizacion) {
-			x.AsignacionPerfil.Ambitos[0].Valores = []string{"persona_ajena"}
+			x.AsignacionPerfil.Ambitos[0].Valores = []string{referenciaAltaContratacionTemporalDesarrollo("emp_", "otro-empleado")}
 		},
 		"campos extra": func(x *vecdomain.InstantaneaAutorizacion) {
-			x.VersionRol.Concesiones[0].CamposPermitidos = []string{"solicitud_ref", "dni"}
+			x.VersionRol.Concesiones[0].CamposPermitidos = append(camposLecturaInscripcionBolsa(inscripcion.AccionListarPropias, false), "dni")
 		},
 		"perfil revocado": func(x *vecdomain.InstantaneaAutorizacion) {
 			x.AsignacionPerfil.Estado = vecdomain.EstadoAsignacionPerfilRevocada
