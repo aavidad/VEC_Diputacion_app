@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js";
 
-function escenario(cliente) {
+function escenario(cliente, confirmarOperacion = async () => true) {
   const eventos = new Map();
   const resultado = { vinculos: [], emisiones_vinculables: [{ bolsa_ref: "bolsa:prueba",
     llamamiento_ref: "llamamiento:prueba", recibo_emision_ref: "recibo:emision:prueba",
@@ -18,7 +18,7 @@ function escenario(cliente) {
     removeEventListener: (nombre, funcion) => eventos.set(nombre, (eventos.get(nombre) ?? []).filter((f) => f !== funcion)) };
   const presentador = { obtenerEstado: () => estado, seleccionarExpediente: async () => {} };
   const gestor = crearGestorResultadoBolsa({ raiz, presentador, cliente, t: (clave) => clave,
-    locale: "es-ES", zonaHoraria: "Europe/Madrid", confirmarOperacion: async () => true,
+    locale: "es-ES", zonaHoraria: "Europe/Madrid", confirmarOperacion,
     repintar() {}, generarClave: () => "clave-original-vinculo" });
   gestor.actualizar();
   const formulario = { querySelector: () => ({ value: "0" }) };
@@ -65,5 +65,21 @@ test("la segunda página se solicita al pulsar y se cancela al cambiar de expedi
   completar({ resumen: { expediente_ref: "expediente:prueba", version: 4 }, resultado_bolsa: {} });
   await vuelo;
   assert.doesNotMatch(e.zona.innerHTML, /pagina_bolsa_ajena/u);
+  e.gestor.desmontar();
+});
+
+test("confirma mediante el descriptor que consume el portal y cancela sin escribir", async () => {
+  let descriptor;
+  let escrituras = 0;
+  const e = escenario({ vincularLlamamientoBolsa: async () => { escrituras += 1; } }, async (entrada) => {
+    descriptor = entrada;
+    return false;
+  });
+  await e.enviar();
+  assert.deepEqual(Object.keys(descriptor).sort(), ["advertencia", "referencia", "titulo"]);
+  assert.equal(descriptor.titulo, "resultado_bolsa_vincular");
+  assert.equal(descriptor.advertencia, "resultado_bolsa_confirmar");
+  assert.equal(descriptor.referencia, "2026/001");
+  assert.equal(escrituras, 0);
   e.gestor.desmontar();
 });

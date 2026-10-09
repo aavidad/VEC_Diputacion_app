@@ -14,6 +14,8 @@ import { RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { CONFLICTOS_SEGUIMIENTO_CESE, RUTAS_SEGUIMIENTO_CESE } from "./cliente-http-seguimiento-cese.js";
 import { CONFLICTOS_CANCELACION_EXPEDIENTE, RUTAS_CANCELACION_EXPEDIENTE } from "./cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 
+import { RUTA_VINCULO_BOLSA } from "./cliente-http-vinculo-bolsa.js";
+
 export const MAXIMO_ERROR_BYTES = 16 * 1024;
 export const MAXIMO_FRAGMENTOS = 4096;
 export const MAXIMO_FRAGMENTOS_ERROR = 256;
@@ -309,7 +311,9 @@ export function claveI18nValida(ruta, codigo, clave, rutas) {
     ].includes(codigo);
   }
   const rutaBase = ruta.split("?")[0];
-  const prefijo = [
+  const prefijo = rutaBase === RUTA_VINCULO_BOLSA
+    ? "api.contratacion_temporal.vinculo_bolsa.error."
+    : [
     rutas.preparacionCierreSinCese,
     RUTA_CIERRE_ADMINISTRATIVO,
   ].includes(rutaBase)
@@ -354,6 +358,9 @@ export const CONFLICTOS_SIN_CREDITO_COBERTURA = Object.freeze([
 ]);
 
 export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
+  if (ruta.split("?")[0] === RUTA_VINCULO_BOLSA && estado === 409) {
+    return codigo === "vinculo_en_conflicto";
+  }
   if (ruta === `${rutas.catalogosAlta}?version=2` && estado === 503
     && codigo === "capacidad_no_configurada") return true;
   if (ruta === rutas.propuestaCobertura && estado === 409

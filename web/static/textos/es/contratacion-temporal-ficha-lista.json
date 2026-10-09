@@ -151,6 +151,22 @@
     "resultado_bolsa_actualizacion": "El vínculo se guardó. Actualice la ficha para consultar la respuesta.",
     "resultado_bolsa_continuar": "Continuar con la siguiente persona en Bolsa",
     "resultado_bolsa_anterior": "Ver llamamientos más recientes",
-    "resultado_bolsa_error_lectura": "No se pudieron cargar los llamamientos. Reintente la consulta."
+    "resultado_bolsa_error_lectura": "No se pudieron cargar los llamamientos. Reintente la consulta.",
+    "resultado_bolsa_contacto": "Contacto registrado",
+    "resultado_bolsa_fecha_contacto": "Fecha del contacto",
+    "resultado_bolsa_justificante_contacto": "Justificante del contacto",
+    "resultado_bolsa_contacto_contactado": "Contacto efectivo",
+    "resultado_bolsa_contacto_comunica": "Línea ocupada",
+    "resultado_bolsa_contacto_no_contesta": "Sin respuesta al contacto",
+    "resultado_bolsa_contacto_buzon": "Buzón de voz",
+    "resultado_bolsa_contacto_acepta": "Acepta durante el contacto",
+    "resultado_bolsa_contacto_rechaza": "Rechaza durante el contacto",
+    "resultado_bolsa_contacto_aplazado": "Contacto aplazado",
+    "resultado_bolsa_contacto_otro": "Otro resultado de contacto",
+    "resultado_bolsa_contacto_enviado": "Correo enviado",
+    "resultado_bolsa_contacto_no_enviado": "Correo no enviado",
+    "resultado_bolsa_contacto_numero_erroneo": "Número incorrecto",
+    "resultado_bolsa_contacto_no_entregado": "Correo no entregado",
+    "resultado_bolsa_contacto_entrega_declarada": "Entrega registrada por RRHH"
   }
 }

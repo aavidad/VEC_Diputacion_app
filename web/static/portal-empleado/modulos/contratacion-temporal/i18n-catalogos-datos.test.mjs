@@ -133,6 +133,7 @@ const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
   "resultado_bolsa_error", "resultado_bolsa_denegado", "resultado_bolsa_conflicto",
   "resultado_bolsa_reintentar", "resultado_bolsa_actualizacion", "resultado_bolsa_continuar",
   "resultado_bolsa_anterior", "resultado_bolsa_error_lectura",
+  "resultado_bolsa_contacto", "resultado_bolsa_fecha_contacto", "resultado_bolsa_justificante_contacto", "resultado_bolsa_contacto_contactado", "resultado_bolsa_contacto_comunica", "resultado_bolsa_contacto_no_contesta", "resultado_bolsa_contacto_buzon", "resultado_bolsa_contacto_acepta", "resultado_bolsa_contacto_rechaza", "resultado_bolsa_contacto_aplazado", "resultado_bolsa_contacto_otro", "resultado_bolsa_contacto_enviado", "resultado_bolsa_contacto_no_enviado", "resultado_bolsa_contacto_numero_erroneo", "resultado_bolsa_contacto_no_entregado", "resultado_bolsa_contacto_entrega_declarada",
 ]);
 // Nuevas claves de Alta: se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_CAPACIDAD_ALTA = Object.freeze({

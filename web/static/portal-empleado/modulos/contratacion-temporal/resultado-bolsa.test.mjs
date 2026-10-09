@@ -61,3 +61,20 @@ test("un recibo de otro llamamiento no confirma el vínculo solicitado", () => {
   assert.equal(validarReciboVinculoBolsa(recibo, s).reutilizado, false);
   assert.throws(() => validarReciboVinculoBolsa({ ...recibo, llamamiento_ref: "llamamiento:ajeno" }, s));
 });
+
+// El contacto telefónico todavía no es una respuesta formal del llamamiento.
+test("muestra el contacto con fecha y justificante separado de la respuesta", async () => {
+  const v = vinculo("2026-10-09T10:00:00Z");
+  Object.assign(v.participaciones[0], { contacto_resultado: "acepta",
+    contacto_en: "2026-10-09T11:00:00Z", recibo_contacto_ref: "recibo:contacto:prueba" });
+  const ficha = expediente({ vinculos: [v] });
+  const html = renderizarResultadoBolsa(ficha, t, "es-ES", "Europe/Madrid");
+  assert.match(html, /Contacto registrado/u);
+  assert.match(html, /Acepta durante el contacto/u);
+  assert.match(html, /Justificante del contacto/u);
+  assert.match(html, /recibo:contacto:prueba/u);
+  assert.match(html, /Sin respuesta registrada/u);
+  assert.doesNotMatch(html, /Aceptación confirmada/u);
+  const en = crearTraductorExpedientesContratacion(await cargarMensajesExpedientesContratacionEnIdioma("en"));
+  assert.match(renderizarResultadoBolsa(ficha, en, "en-GB", "Europe/Madrid"), /Accepts during contact/u);
+});

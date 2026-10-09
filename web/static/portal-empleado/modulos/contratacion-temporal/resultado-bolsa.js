@@ -42,6 +42,9 @@ function resultadoPersona(persona, t, locale, zonaHoraria) {
     ? "resultado_bolsa_propuesta" : "resultado_bolsa_sin_respuesta";
   return `<dl class="ct-exp-datos">
     <div><dt>${escapar(t("resultado_bolsa_respuesta"))}</dt><dd>${escapar(t(clave))}</dd></div>
+    ${persona.contacto_resultado ? `<div><dt>${escapar(t("resultado_bolsa_contacto"))}</dt><dd>${escapar(t(`resultado_bolsa_contacto_${persona.contacto_resultado}`))}</dd></div>
+      <div><dt>${escapar(t("resultado_bolsa_fecha_contacto"))}</dt><dd>${fecha(persona.contacto_en, locale, zonaHoraria)}</dd></div>
+      <div><dt>${escapar(t("resultado_bolsa_justificante_contacto"))}</dt><dd>${justificanteTraducido(persona.recibo_contacto_ref, escapar, t)}</dd></div>` : ""}
     ${persona.respuesta ? `<div><dt>${escapar(t("resultado_bolsa_fecha"))}</dt><dd>${fecha(persona.respondida_en, locale, zonaHoraria)}</dd></div>
       <div><dt>${escapar(t("resultado_bolsa_justificante"))}</dt><dd>${justificanteTraducido(persona.recibo_respuesta_ref, escapar, t)}</dd></div>` : ""}
     ${!respuesta && renunciaSituacion ? `<div><dt>${escapar(t("resultado_bolsa_situacion"))}</dt><dd>${escapar(t("resultado_bolsa_situacion_renuncia"))}</dd></div>
