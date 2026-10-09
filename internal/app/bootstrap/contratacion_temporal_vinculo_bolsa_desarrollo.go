@@ -147,7 +147,12 @@ func (s *soporteAltaContratacionTemporalDesarrollo) consumirPerfilAltaConVinculo
 		return core.InstantaneaAutorizacion{}, false
 	}
 	publicada, encontrada, err := lector.leerAsignacionPublicada(ctx, p.perfilRef())
-	if err != nil || !encontrada || publicada.actoAsignacion != actoAsignacionPerfilFijoCTDesarrollo {
+	if err != nil {
+		slog.WarnContext(ctx, "ct_vinculo_perfil_no_disponible",
+			"causa", causaFalloPostgreSQLCTDesarrollo(err))
+		return core.InstantaneaAutorizacion{}, false
+	}
+	if !encontrada || publicada.actoAsignacion != actoAsignacionPerfilFijoCTDesarrollo {
 		return core.InstantaneaAutorizacion{}, false
 	}
 	if actual, valida := instantaneaConsumible(publicada, *p.plantillaVinculoBolsa, s.reloj.Ahora()); valida {
