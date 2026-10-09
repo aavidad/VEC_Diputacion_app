@@ -15,6 +15,13 @@ const INSTANCIAS = Object.freeze({
   detallePropio: "vec.bolsa.inscripcion.propias.detalle.v1",
 });
 const ESTADOS = new Set(["pendiente", "admitida_a_convocatoria", "incorporada", "rechazada"]);
+const LIMITE_LISTA = 256 * 1024;
+const LIMITE_DETALLE_CONVOCATORIA = 1024 * 1024;
+const LIMITE_RECIBO = 64 * 1024;
+const LIMITE_ERROR = 8 * 1024;
+const PLAZO_PETICION_MS = 15_000;
+const PLAZO_CANCELACION_MS = 100;
+const CODIFICADOR = new TextEncoder();
 
 function objeto(valor) {
   return valor !== null && typeof valor === "object" && !Array.isArray(valor);
@@ -22,6 +29,14 @@ function objeto(valor) {
 
 function cadena(valor, maximo = 500) {
   return typeof valor === "string" && valor.length > 0 && valor.length <= maximo;
+}
+
+function titulo(valor) {
+  return typeof valor === "string" && valor.length > 0 && Array.from(valor).length <= 180;
+}
+
+function etiquetaCategoria(valor) {
+  return typeof valor === "string" && valor.length > 0 && CODIFICADOR.encode(valor).byteLength <= 2048;
 }
 
 function referencia(valor) {
@@ -37,7 +52,7 @@ function cursor(valor) {
 }
 
 function bolsaResumen(valor) {
-  return objeto(valor) && referencia(valor.convocatoria_ref) && cadena(valor.titulo, 200)
+  return objeto(valor) && referencia(valor.convocatoria_ref) && titulo(valor.titulo)
     && Number.isSafeInteger(valor.numero_categorias) && valor.numero_categorias >= 1
     && valor.numero_categorias <= 128
     && fecha(valor.plazo_inicio) && fecha(valor.plazo_fin)
@@ -59,14 +74,14 @@ function bolsaListado(valor) {
 function bolsaDetalle(valor) {
   return bolsaResumen(valor) && valor.categorias_resumen === undefined
     && Array.isArray(valor.categorias) && valor.categorias.length === valor.numero_categorias
-    && valor.categorias.every((c) => objeto(c) && referencia(c.categoria_ref) && cadena(c.categoria, 200))
+    && valor.categorias.every((c) => objeto(c) && referencia(c.categoria_ref) && etiquetaCategoria(c.categoria))
     && new Set(valor.categorias.map((c) => c.categoria_ref)).size === valor.categorias.length;
 }
 
 function solicitud(valor, { categoria = false } = {}) {
   return objeto(valor) && referencia(valor.solicitud_ref) && referencia(valor.convocatoria_ref)
     && (valor.bolsa_ref === undefined || valor.bolsa_ref === null || referencia(valor.bolsa_ref))
-    && (!categoria || cadena(valor.categoria, 200))
+    && (!categoria || etiquetaCategoria(valor.categoria))
     && ESTADOS.has(valor.estado) && Number.isSafeInteger(valor.version) && valor.version > 0
     && fecha(valor.registrada_en) && referencia(valor.recibo_ref);
 }
@@ -123,25 +138,98 @@ function segmento(valor) {
   return encodeURIComponent(valor).replace(/%3A/giu, ":");
 }
 
-async function peticion(ruta, { metodo = "GET", cuerpo, fetchImpl = globalThis.fetch, signal } = {}) {
-  const respuesta = await fetchImpl(ruta, {
-    method: metodo, credentials: "same-origin", mode: "same-origin", cache: "no-store",
-    redirect: "error", referrerPolicy: "no-referrer", signal,
-    headers: { Accept: "application/json", ...(cuerpo ? { "Content-Type": "application/json" } : {}) },
-    ...(cuerpo ? { body: JSON.stringify(cuerpo) } : {}),
-  });
-  if (!respuesta?.ok) {
-    const error = new Error("Error de inscripción");
-    error.status = Number.isInteger(respuesta?.status) ? respuesta.status : 0;
-    if ([409, 422].includes(error.status)) {
-      try {
-        const codigo = (await respuesta.json())?.error?.codigo;
-        if (CODIGOS_ERROR.has(codigo)) error.codigo = codigo;
-      } catch { /* La respuesta pública puede no traer cuerpo JSON. */ }
-    }
+async function cancelarAcotado(fuente) {
+  if (typeof fuente?.cancel !== "function") return null;
+  let temporizador;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(() => fuente.cancel()).then(() => null, () => "cancelacion_fallida"),
+      new Promise((resolver) => { temporizador = setTimeout(() => resolver("cancelacion_sin_acuse"), PLAZO_CANCELACION_MS); }),
+    ]);
+  } finally { clearTimeout(temporizador); }
+}
+
+async function leerJSONAcotado(respuesta, limite, signal, abortada) {
+  const tipo = respuesta.headers?.get?.("Content-Type") ?? "";
+  if (tipo.split(";")[0].trim().toLowerCase() !== "application/json") {
+    const error = new TypeError("Respuesta de inscripción no JSON");
+    error.causa_limpieza = await cancelarAcotado(respuesta.body);
     throw error;
   }
-  return respuesta.json();
+  const declarada = respuesta.headers?.get?.("Content-Length");
+  if (declarada !== null && declarada !== undefined
+    && (!/^(?:0|[1-9][0-9]*)$/u.test(declarada) || Number(declarada) > limite)) {
+    const error = new TypeError("Respuesta de inscripción demasiado grande");
+    error.causa_limpieza = await cancelarAcotado(respuesta.body);
+    throw error;
+  }
+  const lector = respuesta.body?.getReader?.();
+  if (!lector) throw new TypeError("Respuesta de inscripción sin flujo");
+  const decodificador = new TextDecoder("utf-8", { fatal: true });
+  let bytes = 0;
+  let texto = "";
+  try {
+    for (;;) {
+      if (signal.aborted) throw signal.reason;
+      const { done, value } = await Promise.race([lector.read(), abortada]);
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > limite) throw new TypeError("Respuesta de inscripción demasiado grande");
+      texto += decodificador.decode(value, { stream: true });
+    }
+    texto += decodificador.decode();
+    return JSON.parse(texto);
+  } catch (error) {
+    error.causa_limpieza = await cancelarAcotado(lector);
+    throw error;
+  } finally { lector.releaseLock(); }
+}
+
+async function peticion(ruta, { metodo = "GET", cuerpo, fetchImpl = globalThis.fetch,
+  signal, limite = LIMITE_LISTA } = {}) {
+  const controlador = new AbortController();
+  const abortarExterior = () => controlador.abort(signal.reason instanceof Error
+    ? signal.reason : new DOMException("Petición cancelada", "AbortError"));
+  if (signal?.aborted) abortarExterior();
+  else signal?.addEventListener?.("abort", abortarExterior, { once: true });
+  let rechazarAbortada;
+  const abortada = new Promise((_resolver, rechazar) => { rechazarAbortada = rechazar; });
+  const alAbortar = () => rechazarAbortada(controlador.signal.reason ?? new DOMException("Petición cancelada", "AbortError"));
+  controlador.signal.addEventListener("abort", alAbortar, { once: true });
+  if (controlador.signal.aborted) alAbortar();
+  const temporizador = setTimeout(() => controlador.abort(new DOMException("Tiempo agotado", "TimeoutError")), PLAZO_PETICION_MS);
+  try {
+    const respuesta = await Promise.race([
+      Promise.resolve().then(() => {
+        if (controlador.signal.aborted) throw controlador.signal.reason;
+        return fetchImpl(ruta, {
+          method: metodo, credentials: "same-origin", mode: "same-origin", cache: "no-store",
+          redirect: "error", referrerPolicy: "no-referrer", signal: controlador.signal,
+          headers: { Accept: "application/json", ...(cuerpo ? { "Content-Type": "application/json" } : {}) },
+          ...(cuerpo ? { body: JSON.stringify(cuerpo) } : {}),
+        });
+      }), abortada,
+    ]);
+    if (!respuesta?.ok) {
+      const error = new Error("Error de inscripción");
+      error.status = Number.isInteger(respuesta?.status) ? respuesta.status : 0;
+      if ([409, 422].includes(error.status)) {
+        try {
+          const codigo = (await leerJSONAcotado(respuesta, LIMITE_ERROR, controlador.signal, abortada))?.error?.codigo;
+          if (CODIGOS_ERROR.has(codigo)) error.codigo = codigo;
+        } catch (causa) {
+          if (signal?.aborted) throw causa;
+          error.causa_lectura = causa?.name ?? "Error";
+        }
+      } else error.causa_limpieza = await cancelarAcotado(respuesta.body);
+      throw error;
+    }
+    return await leerJSONAcotado(respuesta, limite, controlador.signal, abortada);
+  } finally {
+    clearTimeout(temporizador);
+    signal?.removeEventListener?.("abort", abortarExterior);
+    controlador.signal.removeEventListener("abort", alAbortar);
+  }
 }
 
 function parametrosPagina({ limite = 20, cursor: siguiente = "" } = {}) {
@@ -164,7 +252,8 @@ export function crearClienteInscripcionBolsa({ fetchImpl = globalThis.fetch, idi
       return validar("abiertas", datos);
     },
     async convocatoria(convocatoriaRef, { signal } = {}) {
-      const datos = await peticion(`${BASE}/inscripciones/convocatorias-abiertas/${segmento(convocatoriaRef)}?${idiomaConsulta}`, { fetchImpl, signal });
+      const datos = await peticion(`${BASE}/inscripciones/convocatorias-abiertas/${segmento(convocatoriaRef)}?${idiomaConsulta}`,
+        { fetchImpl, signal, limite: LIMITE_DETALLE_CONVOCATORIA });
       const validada = validar("convocatoria", datos);
       if (validada.convocatoria.convocatoria_ref !== convocatoriaRef) throw new TypeError("Ficha de otra convocatoria");
       return validada;
@@ -190,7 +279,7 @@ export function crearClienteInscripcionBolsa({ fetchImpl = globalThis.fetch, idi
         || declaraciones.some((d) => !objeto(d) || !cadena(d.requisito_codigo, 100)
           || (d.evidencia_ref !== undefined && !referencia(d.evidencia_ref)))) throw new TypeError("Solicitud inválida");
       const datos = await peticion(`${BASE}/mi-bolsa/inscripciones`, {
-        metodo: "POST", fetchImpl, signal,
+        metodo: "POST", fetchImpl, signal, limite: LIMITE_RECIBO,
         cuerpo: { convocatoria_ref: convocatoriaRef, categoria_ref: categoriaRef, clave_idempotencia: claveIdempotencia,
           catalogo_version: catalogoVersion, declaraciones },
       });

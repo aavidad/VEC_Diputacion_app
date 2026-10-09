@@ -5,6 +5,10 @@ import { prepararIdiomas } from "../comun/idioma.js";
 
 await prepararIdiomas();
 
+const respuesta = (json, status = 200, headers = {}) => new Response(JSON.stringify(json), {
+  status, headers: { "Content-Type": "application/json; charset=utf-8", ...headers },
+});
+
 const instante = "2026-10-09T09:00:00Z";
 const bolsa = { convocatoria_ref: "convocatoria:plaza-42", titulo: "Bolsa de auxiliares 2026",
   numero_categorias: 1, categorias: [{ categoria_ref: "categoria:auxiliar", categoria: "Auxiliar administrativo" }],
@@ -24,7 +28,7 @@ test("la persona consulta páginas y presenta sin datos de identidad del navegad
   ];
   const cliente = crearClienteInscripcionBolsa({ idioma: "es", fetchImpl: async (ruta, opciones) => {
     llamadas.push({ ruta, opciones });
-    return { ok: true, status: 200, json: async () => respuestas.shift() };
+    return respuesta(respuestas.shift());
   } });
   assert.equal((await cliente.abiertas()).total, 1);
   assert.equal((await cliente.convocatoria(bolsa.convocatoria_ref)).convocatoria.catalogo_version, 2);
@@ -47,16 +51,17 @@ test("rechaza respuesta de otra persona o bolsa y conserva el código de error",
   const solicitud = { solicitud_ref: "solicitud:ajena", recibo_ref: "recibo:1", convocatoria_ref: bolsa.convocatoria_ref,
     categoria: bolsa.categorias[0].categoria,
     estado: "pendiente", version: 1, registrada_en: instante };
-  const cliente = crearClienteInscripcionBolsa({ fetchImpl: async () => ({ ok: true,
-    json: async () => ({ data: { esquema: "vec.bolsa.inscripcion.propias.detalle.v1", solicitud } }) }) });
+  const cliente = crearClienteInscripcionBolsa({ fetchImpl: async () => respuesta({
+    data: { esquema: "vec.bolsa.inscripcion.propias.detalle.v1", solicitud },
+  }) });
   await assert.rejects(cliente.detallePropio("solicitud:propia"), /distinta/u);
-  const denegado = crearClienteInscripcionBolsa({ fetchImpl: async () => ({ ok: false, status: 403 }) });
+  const denegado = crearClienteInscripcionBolsa({ fetchImpl: async () => new Response(null, { status: 403 }) });
   await assert.rejects(denegado.propias(), (error) => error.status === 403);
 });
 
 test("422 diferencia plazo cerrado de requisito cambiado mediante código público", async () => {
-  const cliente = crearClienteInscripcionBolsa({ fetchImpl: async () => ({ ok: false, status: 422,
-    json: async () => ({ error: { codigo: "requisito_invalido", mensaje: "no mostrar" } }) }) });
+  const cliente = crearClienteInscripcionBolsa({ fetchImpl: async () => respuesta(
+    { error: { codigo: "requisito_invalido", mensaje: "no mostrar" } }, 422) });
   await assert.rejects(cliente.inscribir({ convocatoriaRef: bolsa.convocatoria_ref,
     categoriaRef: bolsa.categorias[0].categoria_ref, catalogoVersion: 2,
     claveIdempotencia: "clave-42", declaraciones: [{ requisito_codigo: "titulo" }] }),
@@ -67,8 +72,9 @@ test("una denegación propia requiere motivo visible y no muestra el código", a
   const solicitud = { solicitud_ref: "solicitud:42", recibo_ref: "recibo:42", convocatoria_ref: bolsa.convocatoria_ref,
     categoria: bolsa.categorias[0].categoria, estado: "rechazada", version: 2, registrada_en: instante,
     motivo_codigo: "titulo_no_acreditado", decision_ref: "decision:42" };
-  const cliente = crearClienteInscripcionBolsa({ fetchImpl: async () => ({ ok: true,
-    json: async () => ({ data: { esquema: "vec.bolsa.inscripcion.propias.detalle.v1", solicitud } }) }) });
+  const cliente = crearClienteInscripcionBolsa({ fetchImpl: async () => respuesta({
+    data: { esquema: "vec.bolsa.inscripcion.propias.detalle.v1", solicitud },
+  }) });
   await assert.rejects(cliente.detallePropio("solicitud:42"), /inválida/u);
   solicitud.motivo_etiqueta = "No consta la titulación exigida";
   assert.equal((await cliente.detallePropio("solicitud:42")).solicitud.motivo_etiqueta,
@@ -81,7 +87,7 @@ test("la lectura propia pide sólo el idioma activo", async () => {
     categoria: bolsa.categorias[0].categoria, estado: "pendiente", version: 1, registrada_en: instante };
   const cliente = crearClienteInscripcionBolsa({ idioma: "en", fetchImpl: async (ruta) => {
     rutas.push(ruta);
-    return { ok: true, json: async () => ({ data: { esquema: "vec.bolsa.inscripcion.propias.detalle.v1", solicitud } }) };
+    return respuesta({ data: { esquema: "vec.bolsa.inscripcion.propias.detalle.v1", solicitud } });
   } });
   await cliente.detallePropio("solicitud:42");
   assert.deepEqual(rutas, ["/api/vec/bolsa/mi-bolsa/inscripciones/solicitud:42?idioma=en"]);
@@ -99,16 +105,14 @@ test("el contrato acepta 128 categorías sin truncar y rechaza una página de 12
     { data: { esquema: "vec.bolsa.inscripcion.convocatoria.v1",
       convocatoria: { ...publicada, requisitos: [] } } },
   ];
-  const cliente = crearClienteInscripcionBolsa({ idioma: "es", fetchImpl: async () => ({ ok: true,
-    json: async () => respuestas.shift(),
-  }) });
+  const cliente = crearClienteInscripcionBolsa({ idioma: "es", fetchImpl: async () => respuesta(respuestas.shift()) });
   assert.equal((await cliente.abiertas()).convocatorias[0].numero_categorias, 128);
   assert.equal((await cliente.convocatoria(publicada.convocatoria_ref)).convocatoria.categorias[127].categoria_ref,
     "categoria:128");
-  const invalido = crearClienteInscripcionBolsa({ idioma: "es", fetchImpl: async () => ({ ok: true,
-    json: async () => ({ data: { esquema: "vec.bolsa.inscripciones.convocatorias_abiertas.v1",
+  const invalido = crearClienteInscripcionBolsa({ idioma: "es", fetchImpl: async () => respuesta({
+    data: { esquema: "vec.bolsa.inscripciones.convocatorias_abiertas.v1",
       convocatorias: [{ ...resumenPublicada, numero_categorias: 129 }],
-      total: 1, cursor_siguiente: null } }),
+      total: 1, cursor_siguiente: null },
   }) });
   await assert.rejects(invalido.abiertas(), /inválida/u);
 });
@@ -121,9 +125,8 @@ test("20 tarjetas con 128 categorías quedan bajo 256 KiB y la lista no arrastra
   const respuesta = { data: { esquema: "vec.bolsa.inscripciones.convocatorias_abiertas.v1",
     convocatorias, total: 20, cursor_siguiente: null } };
   assert.ok(Buffer.byteLength(JSON.stringify(respuesta)) < 256 * 1024);
-  const cliente = crearClienteInscripcionBolsa({ idioma: "es", fetchImpl: async () => ({ ok: true,
-    json: async () => respuesta,
-  }) });
+  const cliente = crearClienteInscripcionBolsa({ idioma: "es", fetchImpl: async () =>
+    new Response(JSON.stringify(respuesta), { headers: { "Content-Type": "application/json" } }) });
   const pagina = await cliente.abiertas();
   assert.equal(pagina.convocatorias.length, 20);
   assert.ok(pagina.convocatorias.every((convocatoria) => convocatoria.categorias === undefined));
