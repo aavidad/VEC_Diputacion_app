@@ -29,7 +29,7 @@ import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261007-pantallas-textos-final-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20261007-pantallas-textos-final-v1";
-import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261009-borradores-fase-v1";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261009-borradores-fase-v2";
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 export function insertarConsultaCircuitoRRHH(raiz, expediente) {

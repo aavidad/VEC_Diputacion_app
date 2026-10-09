@@ -744,6 +744,13 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-incorporacion.js", "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
     "modulos/contratacion-temporal/vista-expedientes.js", "portal-modulos-coordinador.js", "portal.js"])
     versionesEspeciales.set(ruta, "20261009-b2-preparacion-v2");
+  // La lista de documentos marca los que el expediente aún no permite preparar.
+  for (const ruta of [
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/vista-borradores-publicados.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-modulos-coordinador.js", "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261009-borradores-fase-v2");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

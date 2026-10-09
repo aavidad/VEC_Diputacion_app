@@ -24,7 +24,7 @@
     "bp_listo": "Draft downloaded and checked: {nombre}",
     "bp_huella": "Check code: {huella}",
     "bp_descarga_error": "The download could not be verified. No document has been saved.",
-    "bp_no_disponible": "This document cannot be prepared yet. It will be available once the case reaches the stage it belongs to.",
+    "bp_no_disponible": "This document can be prepared once the appointment or contract proposal for this case has been recorded.",
     "bp_catalogo": "Published catalogue",
     "bp_publicacion": "Publication verified:",
     "bp_publicacion_recibo": "Publication receipt: {recibo}"

@@ -24,7 +24,7 @@
     "bp_listo": "Borrador descargado y comprobado: {nombre}",
     "bp_huella": "Código de comprobación: {huella}",
     "bp_descarga_error": "No se pudo comprobar la descarga. No se ha guardado ningún documento.",
-    "bp_no_disponible": "Este documento todavía no se puede preparar. Estará disponible cuando el expediente llegue a la fase que le corresponde.",
+    "bp_no_disponible": "Este documento se podrá preparar cuando el expediente tenga registrada la propuesta de nombramiento o de contrato.",
     "bp_catalogo": "Catálogo publicado",
     "bp_publicacion": "Publicación comprobada:",
     "bp_publicacion_recibo": "Recibo de publicación: {recibo}"

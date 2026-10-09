@@ -12,6 +12,7 @@
 .ct-bp-mensaje { padding: 10px 12px; border-left: 4px solid var(--portal-exito); background: var(--portal-exito-suave); overflow-wrap: anywhere; }
 .ct-bp-mensaje--error { border-left-color: var(--portal-peligro); background: var(--portal-peligro-suave); }
 .ct-bp-mensaje--aviso { border-left-color: var(--portal-aviso); background: var(--portal-aviso-suave); }
+.ct-exp-documento > .ct-bp-mensaje { margin-top: 10px; }
 /* Documento que el expediente todavía no permite preparar: visible y apagado,
    sin bajar el contraste del texto. */
 .ct-bp-pendiente .ct-exp-chip { color: var(--portal-muted); background: var(--portal-superficie-alterna); border-color: var(--portal-borde); }

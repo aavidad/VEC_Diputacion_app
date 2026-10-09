@@ -231,7 +231,9 @@ test("los documentos que aún no se pueden preparar se ven inactivos y avisan al
   const html = renderizarBorradoresPublicados({ estado: "lista", catalogo: validarBorradoresDisponibles(catalogoConFase) });
   assert.match(html, /<li class="ct-exp-documento ct-bp-pendiente">/u);
   assert.match(html, /id="ct-bp-estado-resolucion">Todavía no disponible/u);
-  assert.match(html, /data-bp-descargar="resolucion" data-bp-formato="pdf" aria-disabled="true" aria-describedby="ct-bp-estado-resolucion"/u);
+  assert.match(html, /<strong id="ct-bp-documento-resolucion">Resolución<\/strong>/u);
+  assert.match(html, /data-bp-descargar="resolucion" data-bp-formato="pdf" aria-disabled="true" aria-describedby="ct-bp-documento-resolucion ct-bp-estado-resolucion"/u);
+  assert.match(html, /data-bp-descargar="acta_ampliada" data-bp-formato="docx" aria-describedby="ct-bp-documento-acta_ampliada"/u);
   assert.doesNotMatch(html, /data-bp-descargar="acta_ampliada"[^>]*aria-disabled/u);
 
   const eventos = new Map(), solicitudes = [], avisos = [], enfocados = [];
@@ -251,7 +253,9 @@ test("los documentos que aún no se pueden preparar se ven inactivos y avisan al
   pulsar("resolucion");
   await new Promise((resolver) => setImmediate(resolver));
   assert.deepEqual(solicitudes, [], "no se pide al servidor un documento que aún no se puede preparar");
-  assert.match(raiz.innerHTML, /ct-bp-mensaje--aviso" role="status">Este documento todavía no se puede preparar/u);
+  // El aviso queda dentro del documento pulsado, debajo de sus botones.
+  assert.match(raiz.innerHTML, /data-bp-descargar="resolucion" data-bp-formato="docx"[^<]*<\/button><\/div><p class="ct-bp-mensaje ct-bp-mensaje--aviso" role="status">Este documento se podrá preparar cuando el expediente tenga registrada la propuesta/u);
+  assert.equal((raiz.innerHTML.match(/class="ct-bp-mensaje/gu) ?? []).length, 1);
   assert.deepEqual(enfocados, ["resolucion"]);
 
   // Si el servidor responde 409 «documento_no_disponible», la lista sigue y el tipo queda inactivo.
@@ -259,7 +263,7 @@ test("los documentos que aún no se pueden preparar se ven inactivos y avisan al
   await new Promise((resolver) => setImmediate(resolver));
   assert.deepEqual(solicitudes, ["acta_ampliada"]);
   assert.doesNotMatch(raiz.innerHTML, /cambió|No se pudo comprobar/u);
-  assert.match(raiz.innerHTML, /Este documento todavía no se puede preparar/u);
+  assert.match(raiz.innerHTML, /data-bp-descargar="acta_ampliada" data-bp-formato="docx"[^<]*<\/button><\/div><p class="ct-bp-mensaje ct-bp-mensaje--aviso"/u);
   assert.match(raiz.innerHTML, /data-bp-descargar="acta_ampliada" data-bp-formato="pdf" aria-disabled="true"/u);
   assert.deepEqual(enfocados, ["resolucion", "acta_ampliada"]);
   assert.equal(avisos.length, 2);
