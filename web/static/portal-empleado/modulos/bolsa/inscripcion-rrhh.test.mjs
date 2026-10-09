@@ -16,9 +16,9 @@ const detalle = { ...solicitud, bases_ref: "bases:1", catalogo_version: 1,
 const convocatoriaHistorica = { convocatoria_ref: "convocatoria:historica", titulo: "Bolsa de personal de apoyo",
   categorias_resumen: "Auxiliar administrativo", plazo_fin: "2025-10-08T23:59:59Z",
   estado_publicacion: "sustituida" };
-const respuesta = (status, data) => ({ ok: status >= 200 && status < 300, status, redirected: false,
-  headers: { get: (nombre) => nombre.toLowerCase() === "content-type" ? "application/json" : null },
-  text: async () => JSON.stringify({ data }) });
+// Respuesta real con flujo de bytes, como la que lee el transporte común.
+const respuesta = (status, data, cuerpo = { data }) => new Response(JSON.stringify(cuerpo),
+  { status, headers: { "Content-Type": "application/json" } });
 
 test("cliente RRHH conserva filtros, identidad fuera del cuerpo y valida recibo", async () => {
   const llamadas = [];
@@ -126,12 +126,12 @@ test("una respuesta excesiva se corta antes de convertirla en JSON", async () =>
     redirected: false, headers: { get: (nombre) => nombre === "content-type" ? "application/json" : null },
     body: new ReadableStream({ start(controlador) { controlador.enqueue(new Uint8Array(256 * 1024 + 1)); } }),
     text: async () => { throw new Error("no debe leerse completa"); } }) });
-  await assert.rejects(cliente.listar({ convocatoria: "convocatoria:1" }), /respuesta excesiva/u);
+  await assert.rejects(cliente.listar({ convocatoria: "convocatoria:1" }), (error) => error.estado === 200);
 });
 
 test("el cliente conserva el código de error gobernado sin mostrarlo directamente", async () => {
-  const cliente = crearClienteInscripcionesRRHH({ fetchImpl: async () => ({ ...respuesta(422, null),
-    text: async () => JSON.stringify({ error: { codigo: "catalogo_cambiado" } }) }) });
+  const cliente = crearClienteInscripcionesRRHH({ fetchImpl: async () => respuesta(422, null,
+    { error: { codigo: "catalogo_cambiado" } }) });
   await assert.rejects(cliente.decidir({ solicitudRef: "solicitud:1", decision: "rechazar",
     motivoCodigo: "falta_requisito", versionEsperada: 1, claveIdempotencia: "inscripcion-12345678" }),
   (error) => error.estado === 422 && error.codigo === "catalogo_cambiado");

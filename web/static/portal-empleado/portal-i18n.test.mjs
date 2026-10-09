@@ -628,7 +628,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261008-documentos-ficha-v1");
-  versionesEspeciales.set("portal-preferencias-integracion.js", "20261008-inicio-idioma-v1");
+  for (const ruta of ["portal-preferencias-integracion.js", "portal-preferencias.js", "portal-preferencias-api.js"]) versionesEspeciales.set(ruta, "20261010-http-codigo-v1"); // http.js con código 409/422
   for (const ruta of ["portal-modulos-coordinador.js", "portal.js"])
     versionesEspeciales.set(ruta, "20261008-documentos-ficha-v2");
   for (const ruta of [

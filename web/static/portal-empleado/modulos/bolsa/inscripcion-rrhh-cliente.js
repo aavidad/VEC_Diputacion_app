@@ -1,4 +1,7 @@
+import { consultarJSON, ErrorConsultaJSON } from "../../../comun/http.js?v=20261010-http-codigo-v1";
+
 const BASE = "/api/vec/bolsa/rrhh/inscripciones";
+const SEGMENTO = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,511}$/u;
 const ESTADOS = new Set(["pendiente", "admitida_a_convocatoria", "incorporada", "rechazada"]);
 const DECISIONES = new Set(["admitir", "rechazar"]);
 const REF = /^[^/\u0000-\u001f\u007f-\u009f]{1,512}$/u;
@@ -45,65 +48,22 @@ function detalleValido(item) {
       && (r.evidencia_ref == null || referencia(r.evidencia_ref)));
 }
 
-async function leerSobre(respuesta) {
-  if (!/^application\/json(?:;|$)/iu.test(respuesta.headers?.get?.("content-type") || "")) throw new TypeError("respuesta incompatible");
-  const longitud = respuesta.headers?.get?.("content-length");
-  if (longitud && (!/^\d+$/u.test(longitud) || Number(longitud) > MAXIMO_RESPUESTA)) throw new TypeError("respuesta excesiva");
-  const lector = respuesta.body?.getReader?.();
-  let texto;
-  if (lector) {
-    let total = 0;
-    const partes = [];
-    try {
-      for (;;) {
-        const { done, value } = await lector.read();
-        if (done) break;
-        if (!(value instanceof Uint8Array) || (total += value.byteLength) > MAXIMO_RESPUESTA) {
-          await lector.cancel(); throw new TypeError("respuesta excesiva");
-        }
-        partes.push(value);
-      }
-    } finally { lector.releaseLock(); }
-    const bytes = new Uint8Array(total);
-    let posicion = 0;
-    for (const parte of partes) { bytes.set(parte, posicion); posicion += parte.byteLength; }
-    texto = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } else {
-    texto = await respuesta.text();
-    if (new TextEncoder().encode(texto).byteLength > MAXIMO_RESPUESTA) throw new TypeError("respuesta excesiva");
-  }
-  return JSON.parse(texto);
+// Ruta interna sin codificar: la comprobación común no admite «%» en el camino.
+function segmento(valor) {
+  referencia(valor);
+  if (!SEGMENTO.test(valor)) throw new TypeError("referencia incompatible");
+  return valor;
 }
 
-async function pedirSinTiempo(fetchImpl, ruta, { method = "GET", body, signal } = {}) {
-  const respuesta = await fetchImpl(ruta, { method, credentials: "same-origin", mode: "same-origin",
-    cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal,
-    headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
-    ...(body ? { body: JSON.stringify(body) } : {}) });
-  if (!respuesta || respuesta.redirected || !Number.isInteger(respuesta.status)) throw new TypeError("respuesta incompatible");
-  if (!respuesta.ok) {
-    const error = Object.assign(new Error("operación no completada"), { estado: respuesta.status });
-    if (/^application\/json(?:;|$)/iu.test(respuesta.headers?.get?.("content-type") || "")) {
-      try {
-        const codigo = (await leerSobre(respuesta))?.error?.codigo;
-        if (typeof codigo === "string" && /^[a-z_]{1,64}$/u.test(codigo)) error.codigo = codigo;
-      } catch (causa) { error.causa = causa; }
-    }
-    throw error;
-  }
-  return { estado: respuesta.status, data: (await leerSobre(respuesta))?.data };
-}
-
-async function pedir(fetchImpl, ruta, opciones = {}) {
-  const controlador = new AbortController();
-  const cancelar = () => controlador.abort();
-  if (opciones.signal?.aborted) cancelar();
-  else opciones.signal?.addEventListener?.("abort", cancelar, { once: true });
-  const temporizador = setTimeout(cancelar, 15_000);
-  try { return await pedirSinTiempo(fetchImpl, ruta, { ...opciones, signal: controlador.signal }); }
-  finally {
-    clearTimeout(temporizador);
-    opciones.signal?.removeEventListener?.("abort", cancelar);
+// Transporte común (mTLS del mismo origen, límites, plazo y reintento de GET).
+// Los errores conservan el estado HTTP y el código de negocio de 409/422.
+async function pedir(fetchImpl, ruta, { method = "GET", body, signal } = {}) {
+  try {
+    return { data: (await consultarJSON(ruta, { metodo: method, cuerpo: body, signal, fetchImpl, limiteBytes: MAXIMO_RESPUESTA }))?.data };
+  } catch (fallo) {
+    if (!(fallo instanceof ErrorConsultaJSON)) throw fallo;
+    throw Object.assign(new Error("operación no completada"), { estado: fallo.estado,
+      ...(fallo.codigoServidor ? { codigo: fallo.codigoServidor } : {}) });
   }
 }
 
@@ -116,8 +76,8 @@ export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } =
       const parametros = new URLSearchParams({ limite: String(limite) });
       if (cursor) parametros.set("cursor", cursor);
       if (idioma) parametros.set("idioma", idioma);
-      const { estado, data } = await pedir(fetchImpl, `${BASE}/convocatorias?${parametros}`, { signal });
-      if (estado !== 200 || data?.esquema !== ESQUEMAS.convocatorias || !Array.isArray(data.convocatorias)
+      const { data } = await pedir(fetchImpl, `${BASE}/convocatorias?${parametros}`, { signal });
+      if (data?.esquema !== ESQUEMAS.convocatorias || !Array.isArray(data.convocatorias)
         || data.convocatorias.length > limite || !Number.isSafeInteger(data.total)
         || data.total < data.convocatorias.length
         || (data.cursor_siguiente !== null && !referencia(data.cursor_siguiente))
@@ -139,8 +99,8 @@ export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } =
       if (convocatoria) parametros.set("convocatoria_ref", convocatoria);
       if (cursor) parametros.set("cursor", cursor);
       if (idioma) parametros.set("idioma", idioma);
-      const { estado: http, data } = await pedir(fetchImpl, `${BASE}?${parametros}`, { signal });
-      if (http !== 200 || data?.esquema !== ESQUEMAS.lista
+      const { data } = await pedir(fetchImpl, `${BASE}?${parametros}`, { signal });
+      if (data?.esquema !== ESQUEMAS.lista
         || typeof data.convocatoria_titulo !== "string" || !data.convocatoria_titulo.trim()
         || data.convocatoria_titulo.length > 180 || !Array.isArray(data.solicitudes)
         || data.solicitudes.length > limite || !data.solicitudes.every(solicitudValida)
@@ -150,9 +110,9 @@ export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } =
     },
     async detalle(solicitudRef, { signal, idioma = "" } = {}) {
       if (idioma && !IDIOMA.test(idioma)) throw new TypeError("idioma incompatible");
-      const ruta = `${BASE}/${encodeURIComponent(referencia(solicitudRef))}${idioma ? `?idioma=${encodeURIComponent(idioma)}` : ""}`;
-      const { estado, data } = await pedir(fetchImpl, ruta, { signal });
-      if (estado !== 200 || data?.esquema !== ESQUEMAS.detalle || !detalleValido(data.solicitud)
+      const ruta = `${BASE}/${segmento(solicitudRef)}${idioma ? `?idioma=${encodeURIComponent(idioma)}` : ""}`;
+      const { data } = await pedir(fetchImpl, ruta, { signal });
+      if (data?.esquema !== ESQUEMAS.detalle || !detalleValido(data.solicitud)
         || data.solicitud.solicitud_ref !== solicitudRef) throw new TypeError("detalle incompatible");
       return data.solicitud;
     },
@@ -160,8 +120,8 @@ export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } =
       if (!DECISIONES.has(decision) || (idioma && !IDIOMA.test(idioma))) throw new TypeError("decisión incompatible");
       const parametros = new URLSearchParams({ decision });
       if (idioma) parametros.set("idioma", idioma);
-      const { estado, data } = await pedir(fetchImpl, `${BASE}/motivos?${parametros}`, { signal });
-      if (estado !== 200 || data?.esquema !== ESQUEMAS.motivos
+      const { data } = await pedir(fetchImpl, `${BASE}/motivos?${parametros}`, { signal });
+      if (data?.esquema !== ESQUEMAS.motivos
         || !Number.isSafeInteger(data.catalogo_version) || data.catalogo_version < 1
         || !Array.isArray(data.motivos) || data.motivos.length > 100
         || !data.motivos.every((m) => m && referencia(m.codigo) && typeof m.etiqueta === "string"
@@ -176,9 +136,9 @@ export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } =
         || typeof claveIdempotencia !== "string" || !CLAVE.test(claveIdempotencia)) throw new TypeError("decisión incompatible");
       const body = { decision, version_esperada: versionEsperada, clave_idempotencia: claveIdempotencia };
       if (motivoCodigo) body.motivo_codigo = motivoCodigo;
-      const { estado, data } = await pedir(fetchImpl, `${BASE}/${encodeURIComponent(referencia(solicitudRef))}/decisiones`,
+      const { data } = await pedir(fetchImpl, `${BASE}/${segmento(solicitudRef)}/decisiones`,
         { method: "POST", body, signal });
-      if (![200, 201].includes(estado) || data?.esquema !== ESQUEMAS.recibo
+      if (data?.esquema !== ESQUEMAS.recibo
         || data.solicitud_ref !== solicitudRef || !referencia(data.recibo_ref)
         || !(decision === "admitir" ? ["admitida_a_convocatoria", "incorporada"].includes(data.estado) : data.estado === "rechazada")
         || !Number.isSafeInteger(data.version) || data.version <= versionEsperada
@@ -194,10 +154,10 @@ export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } =
       referencia(evidenciaRef);
       if (!Number.isSafeInteger(versionEsperada) || versionEsperada < 1
         || typeof claveIdempotencia !== "string" || !CLAVE.test(claveIdempotencia)) throw new TypeError("incorporación incompatible");
-      const { estado, data } = await pedir(fetchImpl, `${BASE}/${encodeURIComponent(referencia(solicitudRef))}/incorporaciones`,
+      const { data } = await pedir(fetchImpl, `${BASE}/${segmento(solicitudRef)}/incorporaciones`,
         { method: "POST", body: { evidencia_ref: evidenciaRef, version_esperada: versionEsperada,
           clave_idempotencia: claveIdempotencia }, signal });
-      if (![200, 201].includes(estado) || data?.esquema !== "vec.bolsa.inscripcion.incorporacion.recibo.v1"
+      if (data?.esquema !== "vec.bolsa.inscripcion.incorporacion.recibo.v1"
         || data.solicitud_ref !== solicitudRef || !referencia(data.recibo_ref)
         || data.estado !== "incorporada" || !Number.isSafeInteger(data.version) || data.version <= versionEsperada
         || !referencia(data.participacion_ref) || typeof data.incorporada_en !== "string"
