@@ -103,7 +103,20 @@ func (h *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.publicar(w, r, actor)
 }
 
+// origenPermitido admite solo peticiones del propio portal. Detrás del proxy
+// de entrada el servidor recibe el Host interno (por ejemplo "localhost") y no
+// el público, de modo que el Origin del navegador nunca coincide con Host. Si
+// el navegador declara Sec-Fetch-Site, decide esa cabecera: solo pasa
+// "same-origin". Sin ella se conserva la comparación con Host. Además, el tipo
+// application/json obliga a una comprobación previa que ningún origen ajeno
+// supera.
 func origenPermitido(r *http.Request) bool {
+	if len(r.Header.Values("Origin")) > 1 || len(r.Header.Values("Sec-Fetch-Site")) > 1 {
+		return false
+	}
+	if sitio := r.Header.Get("Sec-Fetch-Site"); sitio != "" {
+		return sitio == "same-origin"
+	}
 	origen := r.Header.Get("Origin")
 	if origen == "" || origen == "https://"+r.Host {
 		return true
