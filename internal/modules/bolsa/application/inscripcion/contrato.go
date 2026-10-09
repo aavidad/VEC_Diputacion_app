@@ -16,19 +16,20 @@ import (
 )
 
 var (
-	ErrSolicitudInvalida   = errors.New("bolsa inscripcion: solicitud invalida")
-	ErrNoDisponible        = errors.New("bolsa inscripcion: servicio no disponible")
-	ErrNoEncontrada        = errors.New("bolsa inscripcion: solicitud no encontrada")
-	ErrConflicto           = errors.New("bolsa inscripcion: conflicto")
-	ErrPlazoCerrado        = errors.New("bolsa inscripcion: plazo cerrado")
-	ErrAccesoDenegado      = errors.New("bolsa inscripcion: acceso denegado")
-	ErrSesionAusente       = errors.New("bolsa inscripcion: sesion ausente")
-	ErrActaNoDisponible    = errors.New("bolsa inscripcion: acta no disponible")
-	ErrCatalogoCambiado    = errors.New("bolsa inscripcion: catalogo cambiado")
-	ErrRequisitoInvalido   = errors.New("bolsa inscripcion: requisito invalido")
-	ErrDeclaracionInvalida = errors.New("bolsa inscripcion: declaracion invalida")
-	ErrSolicitudExistente  = errors.New("bolsa inscripcion: solicitud existente")
-	ErrClaveConflicto      = errors.New("bolsa inscripcion: clave en conflicto")
+	ErrSolicitudInvalida         = errors.New("bolsa inscripcion: solicitud invalida")
+	ErrNoDisponible              = errors.New("bolsa inscripcion: servicio no disponible")
+	ErrNoEncontrada              = errors.New("bolsa inscripcion: solicitud no encontrada")
+	ErrConflicto                 = errors.New("bolsa inscripcion: conflicto")
+	ErrPlazoCerrado              = errors.New("bolsa inscripcion: plazo cerrado")
+	ErrAccesoDenegado            = errors.New("bolsa inscripcion: acceso denegado")
+	ErrSesionAusente             = errors.New("bolsa inscripcion: sesion ausente")
+	ErrActaNoDisponible          = errors.New("bolsa inscripcion: acta no disponible")
+	ErrVinculoIdentidadPendiente = errors.New("bolsa inscripcion: vinculo de identidad pendiente")
+	ErrCatalogoCambiado          = errors.New("bolsa inscripcion: catalogo cambiado")
+	ErrRequisitoInvalido         = errors.New("bolsa inscripcion: requisito invalido")
+	ErrDeclaracionInvalida       = errors.New("bolsa inscripcion: declaracion invalida")
+	ErrSolicitudExistente        = errors.New("bolsa inscripcion: solicitud existente")
+	ErrClaveConflicto            = errors.New("bolsa inscripcion: clave en conflicto")
 )
 
 const (
@@ -39,16 +40,17 @@ const (
 )
 
 const (
-	AccionListarAbiertas = "bolsa.inscripcion.convocatorias.listar"
-	AccionDetalleAbierta = "bolsa.inscripcion.convocatoria.consultar"
-	AccionPresentar      = "bolsa.inscripcion.presentar"
-	AccionListarPropias  = "bolsa.inscripcion.propias.listar"
-	AccionDetallePropia  = "bolsa.inscripcion.propia.consultar"
-	AccionListarRRHH     = "bolsa.inscripcion.rrhh.listar"
-	AccionDetalleRRHH    = "bolsa.inscripcion.rrhh.consultar"
-	AccionMotivosRRHH    = "bolsa.inscripcion.rrhh.motivos"
-	AccionDecidir        = "bolsa.inscripcion.rrhh.decidir"
-	AccionIncorporar     = "bolsa.inscripcion.rrhh.incorporar"
+	AccionListarAbiertas    = "bolsa.inscripcion.convocatorias.listar"
+	AccionDetalleAbierta    = "bolsa.inscripcion.convocatoria.consultar"
+	AccionPresentar         = "bolsa.inscripcion.presentar"
+	AccionListarPropias     = "bolsa.inscripcion.propias.listar"
+	AccionDetallePropia     = "bolsa.inscripcion.propia.consultar"
+	AccionListarRRHH        = "bolsa.inscripcion.rrhh.listar"
+	AccionConvocatoriasRRHH = "bolsa.inscripcion.rrhh.convocatorias.listar"
+	AccionDetalleRRHH       = "bolsa.inscripcion.rrhh.consultar"
+	AccionMotivosRRHH       = "bolsa.inscripcion.rrhh.motivos"
+	AccionDecidir           = "bolsa.inscripcion.rrhh.decidir"
+	AccionIncorporar        = "bolsa.inscripcion.rrhh.incorporar"
 )
 
 var referenciaOpaca = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9:._-]{2,255}$`)
@@ -56,11 +58,14 @@ var referenciaConvocatoria = regexp.MustCompile(`^cv1_[A-Za-z0-9_-]+_v[1-9][0-9]
 var referenciaSolicitud = regexp.MustCompile(`^solicitud_inscripcion_[0-9a-f]{64}$`)
 var claveIdempotencia = regexp.MustCompile(`^[A-Za-z0-9_-]{16,128}$`)
 var huellaCertificado = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var campoHojaInscripcion = regexp.MustCompile(`^[a-z][a-z0-9_]*(\[\])?(\.[a-z][a-z0-9_]*(\[\])?)*$`)
+var referenciaFuenteAmbito = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9:._/#-]{2,255}$`)
 
 func convocatoriaRefValida(ref string) bool {
 	return len(ref) <= 200 && referenciaConvocatoria.MatchString(ref)
 }
-func solicitudRefValida(ref string) bool { return referenciaSolicitud.MatchString(ref) }
+func ConvocatoriaRefValida(ref string) bool { return convocatoriaRefValida(ref) }
+func solicitudRefValida(ref string) bool    { return referenciaSolicitud.MatchString(ref) }
 
 // Actor sólo se construye a partir de la sesión vinculada al certificado.
 // PersonaRef no forma parte de ningún DTO de petición.
@@ -104,9 +109,32 @@ type CapturaLectura struct {
 	CorrelacionRef          string
 	RevisionPermisos        uint64
 	HuellaInstantaneaSHA256 string
+	Campos                  []string
+	ConjuntoGestion         *AmbitoGestionInscripcion
+	AmbitoSolicitud         *AmbitoGestionInscripcion
 	Filtro                  Filtro
 	EmitidaEn               time.Time
 	ValidaHasta             time.Time
+}
+
+// Fuente del conjunto actual o de la solicitud histórica. Ninguna de ellas
+// concede acceso por sí sola: la decisión central coteja el ámbito del recurso.
+type AmbitoGestionInscripcion struct {
+	ConjuntoRef   string `json:"conjunto_ref,omitempty"`
+	UnidadRef     string `json:"unidad_ref"`
+	AmbitoRef     string `json:"ambito_ref"`
+	FuenteRef     string `json:"fuente_ref"`
+	FuenteVersion uint64 `json:"fuente_version"`
+	FuenteSHA256  string `json:"fuente_sha256"`
+}
+
+func (a AmbitoGestionInscripcion) Valido(conjunto bool) bool {
+	return (!conjunto || referenciaFuenteAmbito.MatchString(a.ConjuntoRef)) &&
+		(conjunto || a.ConjuntoRef == "") &&
+		referenciaFuenteAmbito.MatchString(a.UnidadRef) &&
+		referenciaFuenteAmbito.MatchString(a.AmbitoRef) &&
+		referenciaFuenteAmbito.MatchString(a.FuenteRef) &&
+		a.FuenteVersion > 0 && huellaCertificado.MatchString(a.FuenteSHA256)
 }
 
 func (a Actor) LecturaValida(accion, recurso string, filtro Filtro) bool {
@@ -114,6 +142,30 @@ func (a Actor) LecturaValida(accion, recurso string, filtro Filtro) bool {
 	ahora := time.Now().UTC()
 	if c == nil || (strings.Contains(accion, ".rrhh.") && c.Canal != "interna_corporativa") {
 		return false
+	}
+	if len(c.Campos) == 0 || len(c.Campos) > 128 {
+		return false
+	}
+	rrhh := strings.Contains(accion, ".rrhh.")
+	if rrhh {
+		if c.ConjuntoGestion == nil || !c.ConjuntoGestion.Valido(true) ||
+			(accion == AccionDetalleRRHH && (c.AmbitoSolicitud == nil || !c.AmbitoSolicitud.Valido(false) ||
+				c.AmbitoSolicitud.UnidadRef != c.ConjuntoGestion.UnidadRef || c.AmbitoSolicitud.AmbitoRef != c.ConjuntoGestion.AmbitoRef)) ||
+			(accion != AccionDetalleRRHH && c.AmbitoSolicitud != nil) {
+			return false
+		}
+	} else if c.ConjuntoGestion != nil || c.AmbitoSolicitud != nil {
+		return false
+	}
+	vistos := make(map[string]struct{}, len(c.Campos))
+	for _, campo := range c.Campos {
+		if len(campo) > 200 || !campoHojaInscripcion.MatchString(campo) {
+			return false
+		}
+		if _, duplicado := vistos[campo]; duplicado {
+			return false
+		}
+		vistos[campo] = struct{}{}
 	}
 	return a.Valido() && c.PersonaRef == a.PersonaRef &&
 		c.PerfilRef == a.PerfilRef && c.SesionRef == a.SesionRef && c.Canal == a.Canal &&
@@ -292,6 +344,20 @@ type Pagina struct {
 	CursorSiguiente *string     `json:"cursor_siguiente"`
 }
 
+type ConvocatoriaGestion struct {
+	ConvocatoriaRef   string    `json:"convocatoria_ref"`
+	Titulo            string    `json:"titulo"`
+	CategoriasResumen string    `json:"categorias_resumen"`
+	PlazoFin          time.Time `json:"plazo_fin"`
+	EstadoPublicacion string    `json:"estado_publicacion"`
+}
+
+type PaginaConvocatoriasGestion struct {
+	Convocatorias   []ConvocatoriaGestion `json:"convocatorias"`
+	Total           uint64                `json:"total"`
+	CursorSiguiente *string               `json:"cursor_siguiente"`
+}
+
 type Requisito struct {
 	Codigo           string     `json:"codigo"`
 	Descripcion      string     `json:"descripcion"`
@@ -313,8 +379,8 @@ type Categoria struct {
 type BolsaAbierta struct {
 	ConvocatoriaRef     string      `json:"convocatoria_ref"`
 	Titulo              string      `json:"titulo"`
-	CategoriasResumen   string      `json:"categorias_resumen"`
-	Categorias          []Categoria `json:"categorias"`
+	NumeroCategorias    uint64      `json:"numero_categorias"`
+	Categorias          []Categoria `json:"categorias,omitempty"`
 	PlazoInicio         time.Time   `json:"plazo_inicio"`
 	PlazoFin            time.Time   `json:"plazo_fin"`
 	CatalogoVersion     uint64      `json:"catalogo_version"`
@@ -353,6 +419,7 @@ type Repositorio interface {
 	Propias(context.Context, Actor, Filtro) (Pagina, error)
 	Propia(context.Context, Actor, string) (Solicitud, error)
 	PendientesRRHH(context.Context, Actor, Filtro) (Pagina, error)
+	ConvocatoriasRRHH(context.Context, Actor, int, string) (PaginaConvocatoriasGestion, error)
 	DetalleRRHH(context.Context, Actor, string) (Solicitud, error)
 	MotivosRRHH(context.Context, Actor, string) (CatalogoMotivos, error)
 	Decidir(context.Context, Actor, Decision) (Recibo, error)

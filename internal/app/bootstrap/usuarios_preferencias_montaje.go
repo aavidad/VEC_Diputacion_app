@@ -222,7 +222,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) ResolverOrdenPreferencias(ctx 
 // concede ninguna acción: cada consumidor exige después su permiso propio.
 func (a *autoridadPreferenciasUsuariosDesarrollo) identificarCuentaCertificada(r *http.Request) (*http.Request, cuentaUsuariosPreferenciasDesarrollo, *x509.Certificate, time.Time, error) {
 	var vacia cuentaUsuariosPreferenciasDesarrollo
-	if a == nil || a.base == nil || a.base.resolvedor == nil || r == nil {
+	if a == nil || a.base == nil || r == nil {
 		return nil, vacia, nil, time.Time{}, errComposicionUsuariosPreferencias
 	}
 	if r.TLS == nil || len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) == 0 || r.TLS.VerifiedChains[0][0] == nil {
@@ -231,6 +231,9 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) identificarCuentaCertificada(r
 	r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
 	if cabeceraLibreComisionesDietas(r.Header) {
 		return nil, vacia, nil, time.Time{}, ErrMaterialDesarrolloInvalido
+	}
+	if a.base.resolvedor == nil {
+		return nil, vacia, nil, time.Time{}, errComposicionUsuariosPreferencias
 	}
 	inicioIdentidad := time.Now()
 	principal, err := a.base.resolvedor.ResolveDemoIdentity(r.Context(), r)

@@ -2,9 +2,12 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +16,14 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+func TestAcreditacionInscripcionRedactada(t *testing.T) {
+	a := AcreditacionSesionInscripcionBolsa{CertificadoHuellaSHA256: strings.Repeat("a", 64), PersonaRef: "per_privada", SesionRef: "ses_privada"}
+	contenido, err := json.Marshal(a)
+	if err != nil || strings.Contains(string(contenido), "per_privada") || strings.Contains(fmt.Sprintf("%+v %#v", a, a), "ses_privada") || strings.Contains(a.LogValue().String(), "aaaa") {
+		t.Fatalf("acreditacion expuesta: %s %v", contenido, err)
+	}
+}
 
 type sesionInscripcionPrueba struct {
 	ctx          contextoSeguridadComunDesarrollo
@@ -42,12 +53,20 @@ func (a autoridadInscripcionPrueba) CapturarLectura(_ context.Context, ctx conte
 	if canal == "" {
 		canal = "interna_corporativa"
 	}
+	var conjunto *inscripcion.AmbitoGestionInscripcion
+	if strings.Contains(accion, ".rrhh.") {
+		conjunto = &inscripcion.AmbitoGestionInscripcion{ConjuntoRef: "conjunto:gestion:prueba", UnidadRef: "unidad:rrhh",
+			AmbitoRef: "ambito:bolsa", FuenteRef: "catalogo:gestion:1", FuenteVersion: 1,
+			FuenteSHA256: strings.Repeat("b", 64)}
+	}
 	return inscripcion.CapturaLectura{PersonaRef: ctx.Resultado.Contexto.PersonaRef, PerfilRef: ctx.Resultado.Contexto.PerfilActivoRef,
 		CuentaRef: v.CuentaRef, SesionRef: v.SesionRef, AutenticacionRef: v.AutenticacionRef,
 		CertificadoHuellaSHA256: huella,
 		Canal:                   canal, Accion: accion, RecursoRef: recurso, Filtro: filtro,
 		Finalidad: "revision_inscripciones", CorrelacionRef: "cor_prueba_001", RevisionPermisos: 1,
 		HuellaInstantaneaSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Campos:                  []string{"solicitudes[].solicitud_ref"},
+		ConjuntoGestion:         conjunto,
 		EmitidaEn:               ahora, ValidaHasta: ahora.Add(20 * time.Second)}, nil
 }
 
@@ -174,6 +193,8 @@ func TestInscripcionBolsaFiltroYRutaExactos(t *testing.T) {
 		{"abiertas", "GET", "/api/vec/bolsa/inscripciones/convocatorias-abiertas?limite=7&cursor=abc", inscripcion.AccionListarAbiertas, "convocatorias-abiertas", false, true, inscripcion.Filtro{Limite: 7, Cursor: "abc"}},
 		{"propias", "GET", "/api/vec/bolsa/mi-bolsa/inscripciones?limite=8", inscripcion.AccionListarPropias, "inscripciones:propias:", false, true, inscripcion.Filtro{Limite: 8}},
 		{"rrhh pendiente", "GET", "/api/vec/bolsa/rrhh/inscripciones?convocatoria_ref=cv1_001_v1", inscripcion.AccionListarRRHH, "inscripciones:rrhh", true, true, inscripcion.Filtro{Limite: 20, Estado: inscripcion.EstadoPendiente, ConvocatoriaRef: "cv1_001_v1"}},
+		{"rrhh selector", "GET", "/api/vec/bolsa/rrhh/inscripciones/convocatorias?limite=7&idioma=en", inscripcion.AccionConvocatoriasRRHH, "inscripciones:rrhh:convocatorias", true, true, inscripcion.Filtro{Limite: 7}},
+		{"rrhh sin convocatoria", "GET", "/api/vec/bolsa/rrhh/inscripciones", "", "", true, false, inscripcion.Filtro{}},
 		{"rrhh ajeno exterior", "GET", "/api/vec/bolsa/rrhh/inscripciones", "", "", false, false, inscripcion.Filtro{}},
 		{"filtro duplicado", "GET", "/api/vec/bolsa/mi-bolsa/inscripciones?limite=8&limite=9", "", "", false, false, inscripcion.Filtro{}},
 		{"query oculta", "GET", "/api/vec/bolsa/mi-bolsa/inscripciones?persona_ref=otra", "", "", false, false, inscripcion.Filtro{}},
@@ -200,6 +221,37 @@ func TestInscripcionBolsaConstructorSinAutoridadCierra(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/mi-bolsa/inscripciones", nil)
 	if _, err := (&preparadorInscripcionBolsa{}).PrepararLecturaAspirante(r, inscripcion.AccionListarPropias, "", inscripcion.Filtro{Limite: 20}, "es"); !errors.Is(err, inscripcion.ErrNoDisponible) {
 		t.Fatalf("preparador sin sesión = %v", err)
+	}
+}
+
+func TestInscripcionBolsaPreparadoresSeparanSuperficies(t *testing.T) {
+	sesion := sesionInscripcionPrueba{}
+	base := ConfiguracionPreparadorInscripcionBolsa{Autoridad: autoridadInscripcionPrueba{}, Reloj: relojContratacionTemporalDesarrollo{}}
+	externo := base
+	externo.SesionAspirante = sesion
+	pExterno, err := NuevoPreparadorInscripcionBolsaExterno(externo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/rrhh/inscripciones", nil)
+	if _, err := pExterno.PrepararLecturaRRHH(r, inscripcion.AccionListarRRHH, "", inscripcion.Filtro{Limite: 20}, "es"); !errors.Is(err, inscripcion.ErrNoDisponible) && !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+		t.Fatalf("RRHH en portal externo: %v", err)
+	}
+	externo.SesionRRHH = sesion
+	if _, err := NuevoPreparadorInscripcionBolsaExterno(externo); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("portal externo acepta sesión interna: %v", err)
+	}
+	interno := base
+	interno.SesionEmpleado, interno.SesionRRHH = sesion, sesion
+	interno.SelectorCanalAspirante = selectorCanalInscripcionPrueba{canal: "interna_corporativa"}
+	interno.AcreditadorEmpleado = acreditadorEmpleadoInscripcionPrueba{}
+	interno.RRHH = []identidadConsultaRRHHDesarrollo{{}}
+	if _, err := NuevoPreparadorInscripcionBolsaInterno(interno); err != nil {
+		t.Fatalf("preparador interno sin sesión externa: %v", err)
+	}
+	interno.SesionAspirante = sesion
+	if _, err := NuevoPreparadorInscripcionBolsaInterno(interno); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("proceso interno acepta sesión externa: %v", err)
 	}
 }
 
@@ -239,8 +291,8 @@ func TestInscripcionBolsaLecturaNominalSinParticipacionYSuplantacion(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	filtro := inscripcion.Filtro{Limite: 20, Estado: inscripcion.EstadoPendiente}
-	r := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/rrhh/inscripciones", nil)
+	filtro := inscripcion.Filtro{Limite: 20, Estado: inscripcion.EstadoPendiente, ConvocatoriaRef: "cv1_001_v1"}
+	r := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/rrhh/inscripciones?convocatoria_ref=cv1_001_v1", nil)
 	a, err := p.PrepararLecturaRRHH(r, inscripcion.AccionListarRRHH, "", filtro, "es")
 	if err != nil || a.PersonaRef != acreditacion.PersonaRef || a.Lectura == nil || !a.LecturaValida(inscripcion.AccionListarRRHH, a.Lectura.RecursoRef, filtro) {
 		t.Fatalf("lectura nominal sin participación: %v", err)
@@ -317,9 +369,9 @@ func TestInscripcionBolsaEmpleadoNominalSinParticipacion(t *testing.T) {
 	if err != nil || a.PersonaRef != identidad.PersonaRef || a.Canal != "interna_corporativa" || a.Lectura == nil {
 		t.Fatalf("empleado sin participación: %v", err)
 	}
-	rRRHH := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/rrhh/inscripciones", nil)
+	rRRHH := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/rrhh/inscripciones?convocatoria_ref=cv1_001_v1", nil)
 	if _, err := p.PrepararLecturaRRHH(rRRHH, inscripcion.AccionListarRRHH, "",
-		inscripcion.Filtro{Limite: 20, Estado: inscripcion.EstadoPendiente}, "es"); !errors.Is(err, inscripcion.ErrSesionAusente) {
+		inscripcion.Filtro{Limite: 20, Estado: inscripcion.EstadoPendiente, ConvocatoriaRef: "cv1_001_v1"}, "es"); !errors.Is(err, inscripcion.ErrSesionAusente) {
 		t.Fatalf("perfil empleado usó la vía RRHH: %v", err)
 	}
 	// El mismo certificado RRHH actúa como empleado sólo con perfil activo

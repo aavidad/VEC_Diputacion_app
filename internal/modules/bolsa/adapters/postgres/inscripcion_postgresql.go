@@ -36,6 +36,38 @@ func NuevoRepositorioInscripcionesPostgreSQL(
 	return nuevoRepositorioInscripcionesPostgreSQL(externo, interno, lectorExterno, lectorEmpleado, lectorRRHH)
 }
 
+// La superficie externa sólo recibe el ejecutor propio y su lector. Los
+// métodos internos permanecen cerrados porque no existe pool interno.
+func NuevoRepositorioInscripcionesExternoPostgreSQL(
+	externo, lectorExterno *pgxpool.Pool,
+) (*RepositorioInscripcionesPostgreSQL, error) {
+	return nuevoRepositorioInscripcionesExternoPostgreSQL(externo, lectorExterno)
+}
+
+// La superficie interna consume su ejecutor y lectores de empleado/RRHH.
+// Nunca abre el ejecutor externo ni su lector en ese proceso.
+func NuevoRepositorioInscripcionesInternoPostgreSQL(
+	interno, lectorEmpleado, lectorRRHH *pgxpool.Pool,
+) (*RepositorioInscripcionesPostgreSQL, error) {
+	return nuevoRepositorioInscripcionesInternoPostgreSQL(interno, lectorEmpleado, lectorRRHH)
+}
+
+func nuevoRepositorioInscripcionesExternoPostgreSQL(externo, lectorExterno iniciadorTransacciones) (*RepositorioInscripcionesPostgreSQL, error) {
+	if valorNulo(externo) || valorNulo(lectorExterno) || mismaFuenteInscripcion(externo, lectorExterno) {
+		return nil, inscripcion.ErrNoDisponible
+	}
+	return &RepositorioInscripcionesPostgreSQL{externo: externo, lectorExterno: lectorExterno}, nil
+}
+
+func nuevoRepositorioInscripcionesInternoPostgreSQL(interno, lectorEmpleado, lectorRRHH iniciadorTransacciones) (*RepositorioInscripcionesPostgreSQL, error) {
+	if valorNulo(interno) || valorNulo(lectorEmpleado) || valorNulo(lectorRRHH) ||
+		mismaFuenteInscripcion(interno, lectorEmpleado) || mismaFuenteInscripcion(interno, lectorRRHH) ||
+		mismaFuenteInscripcion(lectorEmpleado, lectorRRHH) {
+		return nil, inscripcion.ErrNoDisponible
+	}
+	return &RepositorioInscripcionesPostgreSQL{interno: interno, lectorEmpleado: lectorEmpleado, lectorRRHH: lectorRRHH}, nil
+}
+
 func nuevoRepositorioInscripcionesPostgreSQL(
 	externo, interno, lectorExterno, lectorEmpleado, lectorRRHH iniciadorTransacciones,
 ) (*RepositorioInscripcionesPostgreSQL, error) {
@@ -214,6 +246,15 @@ func errorInscripcionPostgreSQL(ctx context.Context, err error, etapa string) er
 			nominal = inscripcion.ErrDeclaracionInvalida
 		case "B9606":
 			nominal = inscripcion.ErrRequisitoInvalido
+		case "B9607":
+			// La publicación supera el contrato de la pantalla de inscripción.
+			nominal = inscripcion.ErrNoDisponible
+		case "B9701":
+			nominal = inscripcion.ErrVinculoIdentidadPendiente
+		case "B9702":
+			nominal = inscripcion.ErrActaNoDisponible
+		case "B9703":
+			nominal = inscripcion.ErrConflicto
 		case "22023":
 			nominal = inscripcion.ErrSolicitudInvalida
 		case "23505":

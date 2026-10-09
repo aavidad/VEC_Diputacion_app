@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -63,6 +64,7 @@ func consultarInscripcion[T any](ctx context.Context, r *RepositorioInscripcione
 			return nil
 		case "obtenida":
 			if len(salida.Proyeccion) == 0 || bytes.Equal(bytes.TrimSpace(salida.Proyeccion), []byte("null")) ||
+				validarCamposProyeccionInscripcion(salida.Proyeccion, actor.Lectura.Campos) != nil ||
 				decodificarInscripcionEstricta(salida.Proyeccion, &proyeccion) != nil || validar(proyeccion) != nil {
 				return inscripcion.ErrNoDisponible
 			}
@@ -78,6 +80,80 @@ func consultarInscripcion[T any](ctx context.Context, r *RepositorioInscripcione
 		return cero, inscripcion.ErrNoEncontrada
 	}
 	return proyeccion, nil
+}
+
+// La decisión central concede hojas concretas. Cualquier hoja nueva en la
+// proyección revierte también el asiento de auditoría de esta transacción.
+func validarCamposProyeccionInscripcion(raw []byte, campos []string) error {
+	if len(raw) == 0 || len(raw) > 2*1024*1024 || len(campos) == 0 {
+		return inscripcion.ErrNoDisponible
+	}
+	permitidos := make(map[string]struct{}, len(campos))
+	for _, campo := range campos {
+		if campo == "" {
+			return inscripcion.ErrNoDisponible
+		}
+		permitidos[campo] = struct{}{}
+	}
+	var documento any
+	if json.Unmarshal(raw, &documento) != nil {
+		return inscripcion.ErrNoDisponible
+	}
+	if _, ok := documento.(map[string]any); !ok {
+		return inscripcion.ErrNoDisponible
+	}
+	prefijoPermitido := func(ruta string) bool {
+		if ruta == "" {
+			return true
+		}
+		for campo := range permitidos {
+			if strings.HasPrefix(campo, ruta+".") || strings.HasPrefix(campo, ruta+"[]") || campo == ruta {
+				return true
+			}
+		}
+		return false
+	}
+	nodos := 0
+	var visitar func(any, string, int) bool
+	visitar = func(valor any, ruta string, profundidad int) bool {
+		nodos++
+		if nodos > 100000 || profundidad > 16 {
+			return false
+		}
+		switch v := valor.(type) {
+		case map[string]any:
+			if len(v) == 0 && !prefijoPermitido(ruta) {
+				return false
+			}
+			for clave, hijo := range v {
+				siguiente := clave
+				if ruta != "" {
+					siguiente = ruta + "." + clave
+				}
+				if !visitar(hijo, siguiente, profundidad+1) {
+					return false
+				}
+			}
+			return true
+		case []any:
+			if len(v) == 0 && !prefijoPermitido(ruta) {
+				return false
+			}
+			for _, hijo := range v {
+				if !visitar(hijo, ruta+"[]", profundidad+1) {
+					return false
+				}
+			}
+			return true
+		default:
+			_, autorizado := permitidos[ruta]
+			return autorizado
+		}
+	}
+	if !visitar(documento, "", 0) {
+		return inscripcion.ErrNoDisponible
+	}
+	return nil
 }
 
 func (r *RepositorioInscripcionesPostgreSQL) seleccionarLectorInscripcion(canal, accion string) (iniciadorTransacciones, error) {
@@ -96,7 +172,7 @@ func (r *RepositorioInscripcionesPostgreSQL) seleccionarLectorInscripcion(canal,
 		default:
 			return nil, inscripcion.ErrAccesoDenegado
 		}
-	case inscripcion.AccionListarRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH:
+	case inscripcion.AccionListarRRHH, inscripcion.AccionConvocatoriasRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH:
 		if canal != "interna_corporativa" {
 			return nil, inscripcion.ErrAccesoDenegado
 		}
@@ -157,7 +233,7 @@ func (r *RepositorioInscripcionesPostgreSQL) Abiertas(ctx context.Context, actor
 				return inscripcion.ErrNoDisponible
 			}
 			for _, bolsa := range p.Bolsas {
-				if bolsa.ConvocatoriaRef == "" || bolsa.Titulo == "" || bolsa.CatalogoVersion == 0 {
+				if validarBolsaAbiertaInscripcion(bolsa, false) != nil {
 					return inscripcion.ErrNoDisponible
 				}
 			}
@@ -172,11 +248,39 @@ func (r *RepositorioInscripcionesPostgreSQL) DetalleAbierta(ctx context.Context,
 	}
 	return consultarInscripcion(ctx, r, actor, inscripcion.AccionDetalleAbierta, recurso, inscripcion.Filtro{},
 		selectorConvocatoriaInscripcion{ConvocatoriaRef: ref}, func(b inscripcion.BolsaAbierta) error {
-			if b.ConvocatoriaRef != ref || b.Titulo == "" || b.CatalogoVersion == 0 || len(b.Categorias) == 0 {
+			if b.ConvocatoriaRef != ref || validarBolsaAbiertaInscripcion(b, true) != nil {
 				return inscripcion.ErrNoDisponible
 			}
 			return nil
 		})
+}
+
+func validarBolsaAbiertaInscripcion(b inscripcion.BolsaAbierta, detalle bool) error {
+	if b.ConvocatoriaRef == "" || b.Titulo == "" || b.NumeroCategorias < 1 || b.NumeroCategorias > 128 ||
+		b.CatalogoVersion == 0 || b.PlazoInicio.IsZero() || !b.PlazoFin.After(b.PlazoInicio) ||
+		b.RequisitosResumen == "" || (b.EstadoPropio == nil) != (b.SolicitudRef == nil) ||
+		!b.PuedeIniciar && b.ImpedimentoEtiqueta == "" {
+		return inscripcion.ErrNoDisponible
+	}
+	if detalle {
+		if uint64(len(b.Categorias)) != b.NumeroCategorias {
+			return inscripcion.ErrNoDisponible
+		}
+		vistas := make(map[string]struct{}, len(b.Categorias))
+		for _, categoria := range b.Categorias {
+			if categoria.CategoriaRef == "" || len(categoria.CategoriaRef) > 200 ||
+				categoria.Categoria == "" || len(categoria.Categoria) > 200 {
+				return inscripcion.ErrNoDisponible
+			}
+			if _, repetida := vistas[categoria.CategoriaRef]; repetida {
+				return inscripcion.ErrNoDisponible
+			}
+			vistas[categoria.CategoriaRef] = struct{}{}
+		}
+	} else if len(b.Categorias) != 0 {
+		return inscripcion.ErrNoDisponible
+	}
+	return nil
 }
 
 func (r *RepositorioInscripcionesPostgreSQL) Propias(ctx context.Context, actor inscripcion.Actor, filtro inscripcion.Filtro) (inscripcion.Pagina, error) {
@@ -202,7 +306,7 @@ func (r *RepositorioInscripcionesPostgreSQL) Propia(ctx context.Context, actor i
 }
 
 func (r *RepositorioInscripcionesPostgreSQL) PendientesRRHH(ctx context.Context, actor inscripcion.Actor, filtro inscripcion.Filtro) (inscripcion.Pagina, error) {
-	if filtro.Validar() != nil {
+	if filtro.ConvocatoriaRef == "" || filtro.Validar() != nil {
 		return inscripcion.Pagina{}, inscripcion.ErrSolicitudInvalida
 	}
 	recurso, err := recursoInscripcionLectura(actor, inscripcion.AccionListarRRHH, filtro, "")
@@ -212,6 +316,32 @@ func (r *RepositorioInscripcionesPostgreSQL) PendientesRRHH(ctx context.Context,
 	return consultarInscripcion(ctx, r, actor, inscripcion.AccionListarRRHH, recurso, filtro,
 		selectorListaInscripcion{Limite: filtro.Limite, Cursor: filtro.Cursor, Estado: filtro.Estado,
 			ConvocatoriaRef: filtro.ConvocatoriaRef}, validarPaginaInscripcion(filtro.Limite))
+}
+
+func (r *RepositorioInscripcionesPostgreSQL) ConvocatoriasRRHH(ctx context.Context, actor inscripcion.Actor, limite int, cursor string) (inscripcion.PaginaConvocatoriasGestion, error) {
+	filtro := inscripcion.Filtro{Limite: limite, Cursor: cursor}
+	if limite < 1 || limite > 100 || cursor != "" && !inscripcion.ConvocatoriaRefValida(cursor) {
+		return inscripcion.PaginaConvocatoriasGestion{}, inscripcion.ErrSolicitudInvalida
+	}
+	recurso, err := recursoInscripcionLectura(actor, inscripcion.AccionConvocatoriasRRHH, filtro, "")
+	if err != nil {
+		return inscripcion.PaginaConvocatoriasGestion{}, err
+	}
+	return consultarInscripcion(ctx, r, actor, inscripcion.AccionConvocatoriasRRHH, recurso, filtro,
+		selectorAbiertasInscripcion{Limite: limite, Cursor: cursor}, func(p inscripcion.PaginaConvocatoriasGestion) error {
+			if len(p.Convocatorias) > limite || uint64(len(p.Convocatorias)) > p.Total ||
+				p.CursorSiguiente != nil && !inscripcion.ConvocatoriaRefValida(*p.CursorSiguiente) {
+				return inscripcion.ErrNoDisponible
+			}
+			for _, convocatoria := range p.Convocatorias {
+				if !inscripcion.ConvocatoriaRefValida(convocatoria.ConvocatoriaRef) ||
+					convocatoria.Titulo == "" || convocatoria.CategoriasResumen == "" ||
+					convocatoria.PlazoFin.IsZero() || convocatoria.EstadoPublicacion == "" {
+					return inscripcion.ErrNoDisponible
+				}
+			}
+			return nil
+		})
 }
 
 func (r *RepositorioInscripcionesPostgreSQL) DetalleRRHH(ctx context.Context, actor inscripcion.Actor, ref string) (inscripcion.Solicitud, error) {

@@ -1,6 +1,10 @@
 package inscripcion
 
-import "testing"
+import (
+	"strconv"
+	"testing"
+	"time"
+)
 
 func TestPresentacionRechazaCategoriaAjenaYDeclaracionesDuplicadas(t *testing.T) {
 	base := Presentacion{
@@ -31,5 +35,26 @@ func TestPresentacionRechazaCategoriaAjenaYDeclaracionesDuplicadas(t *testing.T)
 				t.Fatal("entrada insegura aceptada")
 			}
 		})
+	}
+}
+
+func TestConvocatoriaConTodasLasCategoriasPublicadasNoDesaparece(t *testing.T) {
+	b := BolsaAbierta{ConvocatoriaRef: "cv1_" + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + "_v1",
+		Titulo: "Convocatoria de prueba", NumeroCategorias: 128, CatalogoVersion: 1,
+		PlazoInicio: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), PlazoFin: time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC),
+		RequisitosResumen: "Consulte los requisitos", PuedeIniciar: true}
+	for i := 1; i <= 128; i++ {
+		b.Categorias = append(b.Categorias, Categoria{CategoriaRef: "categoria:rpt:" + strconv.Itoa(i), Categoria: "Categoría"})
+	}
+	if !bolsaAbiertaValida(b, true) {
+		t.Fatal("convocatoria valida con 128 categorias desaparecio")
+	}
+	b.Categorias = append(b.Categorias, Categoria{CategoriaRef: "categoria:rpt:129", Categoria: "Categoría"})
+	if bolsaAbiertaValida(b, true) {
+		t.Fatal("limite de fuente superado")
+	}
+	b.Categorias = nil
+	if !bolsaAbiertaValida(b, false) {
+		t.Fatal("resumen sin array debia ser valido")
 	}
 }

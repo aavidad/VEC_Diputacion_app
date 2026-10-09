@@ -64,3 +64,30 @@ func (c Config) DSNBolsaInscripcionesLectoresSeparados() (externo, empleado, rrh
 	}
 	return externo, empleado, rrhh, nil
 }
+
+func (c Config) DSNBolsaInscripcionesLectoresInternosSeparados() (empleado, rrhh string, err error) {
+	c = c.Normalize()
+	empleado, err = c.BolsaInscripcionesEmpleadoLectorPostgreSQL.DSN()
+	if err != nil {
+		return "", "", ErrBolsaInscripcionesLectorIncompleto
+	}
+	rrhh, err = c.BolsaInscripcionesRRHHLectorPostgreSQL.DSN()
+	if err != nil {
+		return "", "", ErrBolsaInscripcionesLectorIncompleto
+	}
+	previas := append(c.dsnsPostgreSQLConfigurados(), c.ExternoBolsaPostgreSQL.dsn,
+		c.ExternoBolsaFronteraPostgreSQL.dsn, c.ExternoBolsaPublicaPostgreSQL.dsn,
+		c.BolsaInscripcionesLectorPostgreSQL.dsn,
+		c.BolsaAuditoriaFronteraPostgreSQL.normalizar().dsn)
+	for _, lector := range []string{empleado, rrhh} {
+		for _, previa := range previas {
+			if conexionPostgreSQLComparteLogin(lector, previa) {
+				return "", "", ErrBolsaInscripcionesLectorNoSeparado
+			}
+		}
+	}
+	if conexionPostgreSQLComparteLogin(empleado, rrhh) {
+		return "", "", ErrBolsaInscripcionesLectorNoSeparado
+	}
+	return empleado, rrhh, nil
+}

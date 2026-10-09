@@ -39,7 +39,7 @@ func (s *Servicio) Abiertas(ctx context.Context, actor Actor, limite int, cursor
 		return PaginaAbiertas{}, ErrNoDisponible
 	}
 	for _, b := range p.Bolsas {
-		if !bolsaAbiertaValida(b) {
+		if !bolsaAbiertaValida(b, false) {
 			return PaginaAbiertas{}, ErrNoDisponible
 		}
 	}
@@ -57,7 +57,7 @@ func (s *Servicio) DetalleAbierta(ctx context.Context, actor Actor, ref string) 
 	if err != nil {
 		return BolsaAbierta{}, err
 	}
-	if !bolsaAbiertaValida(b) || b.ConvocatoriaRef != ref {
+	if !bolsaAbiertaValida(b, true) || b.ConvocatoriaRef != ref {
 		return BolsaAbierta{}, ErrNoDisponible
 	}
 	return b, nil
@@ -85,14 +85,46 @@ func (s *Servicio) MotivosRRHH(ctx context.Context, actor Actor, decision string
 	return c, nil
 }
 
-func bolsaAbiertaValida(b BolsaAbierta) bool {
+func (s *Servicio) ConvocatoriasRRHH(ctx context.Context, actor Actor, limite int, cursor string) (PaginaConvocatoriasGestion, error) {
+	if s == nil || s.repositorio == nil {
+		return PaginaConvocatoriasGestion{}, ErrNoDisponible
+	}
+	filtro := Filtro{Limite: limite, Cursor: cursor}
+	if limite < 1 || limite > 100 || cursor != "" && !convocatoriaRefValida(cursor) ||
+		!lecturaAutorizada(actor, AccionConvocatoriasRRHH, filtro, "") {
+		return PaginaConvocatoriasGestion{}, ErrSolicitudInvalida
+	}
+	p, err := s.repositorio.ConvocatoriasRRHH(ctx, actor, limite, cursor)
+	if err != nil {
+		return PaginaConvocatoriasGestion{}, err
+	}
+	if len(p.Convocatorias) > limite || uint64(len(p.Convocatorias)) > p.Total {
+		return PaginaConvocatoriasGestion{}, ErrNoDisponible
+	}
+	for _, convocatoria := range p.Convocatorias {
+		if !convocatoriaRefValida(convocatoria.ConvocatoriaRef) || convocatoria.Titulo == "" ||
+			convocatoria.CategoriasResumen == "" || convocatoria.PlazoFin.IsZero() ||
+			convocatoria.EstadoPublicacion == "" {
+			return PaginaConvocatoriasGestion{}, ErrNoDisponible
+		}
+	}
+	if p.CursorSiguiente != nil && !convocatoriaRefValida(*p.CursorSiguiente) {
+		return PaginaConvocatoriasGestion{}, ErrNoDisponible
+	}
+	return p, nil
+}
+
+func bolsaAbiertaValida(b BolsaAbierta, detalle bool) bool {
 	if !convocatoriaRefValida(b.ConvocatoriaRef) || b.Titulo == "" ||
-		b.CategoriasResumen == "" || len(b.Categorias) == 0 || len(b.Categorias) > 32 ||
+		b.NumeroCategorias == 0 || b.NumeroCategorias > 128 ||
 		b.CatalogoVersion == 0 ||
 		b.PlazoInicio.IsZero() || !b.PlazoFin.After(b.PlazoInicio) ||
 		b.RequisitosResumen == "" ||
 		(b.EstadoPropio == nil && b.SolicitudRef != nil) ||
 		(b.EstadoPropio != nil && b.SolicitudRef == nil) {
+		return false
+	}
+	if detalle && uint64(len(b.Categorias)) != b.NumeroCategorias || !detalle && len(b.Categorias) != 0 {
 		return false
 	}
 	if b.EstadoPropio != nil && b.SolicitudRef != nil &&

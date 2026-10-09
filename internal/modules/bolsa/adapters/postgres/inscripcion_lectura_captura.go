@@ -39,20 +39,22 @@ func prepararCapturaLecturaInscripcion(actor inscripcion.Actor, accion, recurso 
 	}
 	c := actor.Lectura
 	capturaJSON, err := json.Marshal(struct {
-		IntentoRef              string `json:"intento_ref"`
-		PersonaRef              string `json:"persona_ref"`
-		PerfilRef               string `json:"perfil_ref"`
-		CuentaRef               string `json:"cuenta_ref"`
-		SesionRef               string `json:"sesion_ref"`
-		AutenticacionRef        string `json:"autenticacion_ref"`
-		CertificadoHuellaSHA256 string `json:"certificado_huella_sha256"`
-		Canal                   string `json:"canal"`
-		Accion                  string `json:"accion"`
-		RecursoRef              string `json:"recurso_ref"`
-		Finalidad               string `json:"finalidad"`
-		CorrelacionRef          string `json:"correlacion_ref"`
-		RevisionPermisos        uint64 `json:"revision_permisos"`
-		HuellaInstantaneaSHA256 string `json:"huella_instantanea_sha256"`
+		IntentoRef              string                                `json:"intento_ref"`
+		PersonaRef              string                                `json:"persona_ref"`
+		PerfilRef               string                                `json:"perfil_ref"`
+		CuentaRef               string                                `json:"cuenta_ref"`
+		SesionRef               string                                `json:"sesion_ref"`
+		AutenticacionRef        string                                `json:"autenticacion_ref"`
+		CertificadoHuellaSHA256 string                                `json:"certificado_huella_sha256"`
+		Canal                   string                                `json:"canal"`
+		Accion                  string                                `json:"accion"`
+		RecursoRef              string                                `json:"recurso_ref"`
+		Finalidad               string                                `json:"finalidad"`
+		CorrelacionRef          string                                `json:"correlacion_ref"`
+		RevisionPermisos        uint64                                `json:"revision_permisos"`
+		HuellaInstantaneaSHA256 string                                `json:"huella_instantanea_sha256"`
+		ConjuntoGestion         *inscripcion.AmbitoGestionInscripcion `json:"conjunto_gestion,omitempty"`
+		AmbitoSolicitud         *inscripcion.AmbitoGestionInscripcion `json:"ambito_solicitud,omitempty"`
 		Filtro                  struct {
 			Estado          string `json:"estado"`
 			ConvocatoriaRef string `json:"convocatoria_ref"`
@@ -70,6 +72,7 @@ func prepararCapturaLecturaInscripcion(actor inscripcion.Actor, accion, recurso 
 		Accion: c.Accion, RecursoRef: c.RecursoRef, Finalidad: c.Finalidad,
 		CorrelacionRef: c.CorrelacionRef, RevisionPermisos: c.RevisionPermisos,
 		HuellaInstantaneaSHA256: c.HuellaInstantaneaSHA256,
+		ConjuntoGestion:         c.ConjuntoGestion, AmbitoSolicitud: c.AmbitoSolicitud,
 		Filtro: struct {
 			Estado          string `json:"estado"`
 			ConvocatoriaRef string `json:"convocatoria_ref"`
@@ -92,6 +95,8 @@ func finalidadLecturaInscripcion(accion string) string {
 		return "consulta_inscripcion_propia"
 	case inscripcion.AccionListarRRHH, inscripcion.AccionDetalleRRHH:
 		return "consulta_inscripcion_rrhh"
+	case inscripcion.AccionConvocatoriasRRHH:
+		return "consulta_convocatorias_gestion_rrhh"
 	case inscripcion.AccionMotivosRRHH:
 		return "consulta_motivos_inscripcion_rrhh"
 	default:
@@ -104,7 +109,7 @@ func canalLecturaInscripcion(accion, canal string) bool {
 	case inscripcion.AccionListarAbiertas, inscripcion.AccionDetalleAbierta,
 		inscripcion.AccionListarPropias, inscripcion.AccionDetallePropia:
 		return canal == "externa_personal" || canal == "interna_corporativa"
-	case inscripcion.AccionListarRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH:
+	case inscripcion.AccionListarRRHH, inscripcion.AccionConvocatoriasRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH:
 		return canal == "interna_corporativa"
 	default:
 		return false

@@ -5,6 +5,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -74,6 +76,20 @@ type AcreditacionSesionInscripcionBolsa struct {
 	ValidaHasta             time.Time
 }
 
+const acreditacionInscripcionRedactada = "[ACREDITACION INSCRIPCION OCULTA]"
+
+func (AcreditacionSesionInscripcionBolsa) String() string   { return acreditacionInscripcionRedactada }
+func (AcreditacionSesionInscripcionBolsa) GoString() string { return acreditacionInscripcionRedactada }
+func (AcreditacionSesionInscripcionBolsa) Format(s fmt.State, _ rune) {
+	_, _ = s.Write([]byte(acreditacionInscripcionRedactada))
+}
+func (AcreditacionSesionInscripcionBolsa) MarshalJSON() ([]byte, error) {
+	return []byte(`{"acreditacion_inscripcion":"[OCULTA]"}`), nil
+}
+func (AcreditacionSesionInscripcionBolsa) LogValue() slog.Value {
+	return slog.StringValue(acreditacionInscripcionRedactada)
+}
+
 // ConfiguracionPreparadorInscripcionBolsa sólo admite identidades instaladas
 // de forma explícita. La raíz conecta la autoridad común de sesión y PDP.
 type ConfiguracionPreparadorInscripcionBolsa struct {
@@ -89,6 +105,7 @@ type ConfiguracionPreparadorInscripcionBolsa struct {
 
 type preparadorInscripcionBolsa struct {
 	configuracion ConfiguracionPreparadorInscripcionBolsa
+	superficie    string
 }
 
 var _ httpinscripcion.Preparador = (*preparadorInscripcionBolsa)(nil)
@@ -102,6 +119,26 @@ func NuevoPreparadorInscripcionBolsa(c ConfiguracionPreparadorInscripcionBolsa) 
 		return nil, inscripcion.ErrNoDisponible
 	}
 	return &preparadorInscripcionBolsa{configuracion: c}, nil
+}
+
+func NuevoPreparadorInscripcionBolsaExterno(c ConfiguracionPreparadorInscripcionBolsa) (httpinscripcion.Preparador, error) {
+	if nuloInscripcionBolsa(c.SesionAspirante) || nuloInscripcionBolsa(c.Autoridad) ||
+		nuloInscripcionBolsa(c.Reloj) || !nuloInscripcionBolsa(c.SesionEmpleado) ||
+		!nuloInscripcionBolsa(c.SesionRRHH) || !nuloInscripcionBolsa(c.SelectorCanalAspirante) ||
+		!nuloInscripcionBolsa(c.AcreditadorEmpleado) || len(c.RRHH) != 0 {
+		return nil, inscripcion.ErrNoDisponible
+	}
+	return &preparadorInscripcionBolsa{configuracion: c, superficie: "externa_personal"}, nil
+}
+
+func NuevoPreparadorInscripcionBolsaInterno(c ConfiguracionPreparadorInscripcionBolsa) (httpinscripcion.Preparador, error) {
+	if !nuloInscripcionBolsa(c.SesionAspirante) || nuloInscripcionBolsa(c.SesionEmpleado) ||
+		nuloInscripcionBolsa(c.SesionRRHH) || nuloInscripcionBolsa(c.SelectorCanalAspirante) ||
+		nuloInscripcionBolsa(c.AcreditadorEmpleado) || nuloInscripcionBolsa(c.Autoridad) ||
+		nuloInscripcionBolsa(c.Reloj) || len(c.RRHH) == 0 {
+		return nil, inscripcion.ErrNoDisponible
+	}
+	return &preparadorInscripcionBolsa{configuracion: c, superficie: "interna_corporativa"}, nil
 }
 
 func nuloInscripcionBolsa(v any) bool {
@@ -164,11 +201,16 @@ func (p *preparadorInscripcionBolsa) PrepararIncorporacion(r *http.Request, i in
 func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectura *lecturaInscripcion, escritura *operacionEscrituraInscripcion) (inscripcion.Actor, error) {
 	var vacio inscripcion.Actor
 	if p == nil || r == nil || r.URL == nil || r.Context().Err() != nil ||
-		nuloInscripcionBolsa(p.configuracion.SesionAspirante) || nuloInscripcionBolsa(p.configuracion.SesionRRHH) ||
-		nuloInscripcionBolsa(p.configuracion.Autoridad) || nuloInscripcionBolsa(p.configuracion.Reloj) {
+		nuloInscripcionBolsa(p.configuracion.Autoridad) || nuloInscripcionBolsa(p.configuracion.Reloj) ||
+		(p.superficie == "externa_personal" && (rrhh || nuloInscripcionBolsa(p.configuracion.SesionAspirante))) ||
+		(p.superficie == "interna_corporativa" && (nuloInscripcionBolsa(p.configuracion.SesionRRHH) || nuloInscripcionBolsa(p.configuracion.SesionEmpleado))) ||
+		(p.superficie == "" && (nuloInscripcionBolsa(p.configuracion.SesionAspirante) || nuloInscripcionBolsa(p.configuracion.SesionRRHH))) {
 		return vacio, inscripcion.ErrNoDisponible
 	}
 	c := p.configuracion
+	if p.superficie == "externa_personal" && rrhh {
+		return vacio, inscripcion.ErrAccesoDenegado
+	}
 	accion, recurso, filtro, valido := operacionInscripcionBolsa(r, rrhh)
 	if (r.Method == http.MethodGet && (lectura == nil || escritura != nil)) ||
 		(r.Method == http.MethodPost && (escritura == nil || lectura != nil)) {
@@ -180,7 +222,7 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 	if lectura != nil {
 		refEsperada := recurso
 		switch accion {
-		case inscripcion.AccionListarAbiertas, inscripcion.AccionListarPropias, inscripcion.AccionListarRRHH:
+		case inscripcion.AccionListarAbiertas, inscripcion.AccionListarPropias, inscripcion.AccionListarRRHH, inscripcion.AccionConvocatoriasRRHH:
 			refEsperada = ""
 		case inscripcion.AccionMotivosRRHH:
 			refEsperada = strings.TrimPrefix(recurso, "motivos:")
@@ -217,6 +259,9 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 		default:
 			return vacio, inscripcion.ErrSesionAusente
 		}
+	}
+	if p.superficie != "" && canalEsperado != p.superficie {
+		return vacio, inscripcion.ErrAccesoDenegado
 	}
 	ctx, acreditacion, err := sesion.ResolverInscripcion(r)
 	if err != nil || !huellaCertificadoInscripcionValida(acreditacion.CertificadoHuellaSHA256) ||
@@ -398,13 +443,17 @@ func operacionInscripcionBolsa(r *http.Request, rrhh bool) (string, string, insc
 	}
 	path := r.URL.Path
 	if rrhh {
+		if path == httpinscripcion.RutaRRHH+"/convocatorias" && r.Method == http.MethodGet && soloQueryInscripcion(q, "limite", "cursor", "idioma") {
+			f, ok := filtroListaInscripcion(q)
+			return inscripcion.AccionConvocatoriasRRHH, "inscripciones:rrhh:convocatorias", f, ok && f.Validar() == nil
+		}
 		if path == httpinscripcion.RutaRRHH && r.Method == http.MethodGet && soloQueryInscripcion(q, "estado", "convocatoria_ref", "limite", "cursor", "idioma") {
 			f, ok := filtroListaInscripcion(q)
 			if f.Estado = q.Get("estado"); f.Estado == "" {
 				f.Estado = inscripcion.EstadoPendiente
 			}
 			f.ConvocatoriaRef = q.Get("convocatoria_ref")
-			return inscripcion.AccionListarRRHH, "inscripciones:rrhh", f, ok && f.Validar() == nil
+			return inscripcion.AccionListarRRHH, "inscripciones:rrhh", f, ok && f.ConvocatoriaRef != "" && f.Validar() == nil
 		}
 		if path == httpinscripcion.RutaRRHH+"/motivos" && r.Method == http.MethodGet && soloQueryInscripcion(q, "decision", "idioma") && len(q["decision"]) == 1 && (q.Get("decision") == "admitir" || q.Get("decision") == "rechazar") {
 			return inscripcion.AccionMotivosRRHH, "motivos:" + q.Get("decision"), cero, true

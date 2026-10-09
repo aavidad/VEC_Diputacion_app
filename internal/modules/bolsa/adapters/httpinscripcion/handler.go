@@ -39,6 +39,7 @@ type Aplicacion interface {
 	Propias(context.Context, inscripcion.Actor, inscripcion.Filtro) (inscripcion.Pagina, error)
 	Propia(context.Context, inscripcion.Actor, string) (inscripcion.Solicitud, error)
 	PendientesRRHH(context.Context, inscripcion.Actor, inscripcion.Filtro) (inscripcion.Pagina, error)
+	ConvocatoriasRRHH(context.Context, inscripcion.Actor, int, string) (inscripcion.PaginaConvocatoriasGestion, error)
 	DetalleRRHH(context.Context, inscripcion.Actor, string) (inscripcion.Solicitud, error)
 	MotivosRRHH(context.Context, inscripcion.Actor, string) (inscripcion.CatalogoMotivos, error)
 	Decidir(context.Context, inscripcion.Actor, inscripcion.Decision) (inscripcion.Recibo, error)
@@ -46,8 +47,9 @@ type Aplicacion interface {
 }
 
 type Handler struct {
-	preparador Preparador
-	servicio   Aplicacion
+	preparador  Preparador
+	servicio    Aplicacion
+	soloExterno bool
 }
 
 func Nuevo(preparador Preparador, servicio Aplicacion) (*Handler, error) {
@@ -57,12 +59,31 @@ func Nuevo(preparador Preparador, servicio Aplicacion) (*Handler, error) {
 	return &Handler{preparador: preparador, servicio: servicio}, nil
 }
 
+// NuevoExterno deja alcanzables únicamente las rutas propias de aspirante.
+// El proceso del portal externo no incorpora credenciales ni rutas de RRHH.
+func NuevoExterno(preparador Preparador, servicio Aplicacion) (*Handler, error) {
+	h, err := Nuevo(preparador, servicio)
+	if err != nil {
+		return nil, err
+	}
+	h.soloExterno = true
+	return h, nil
+}
+
+func NuevoInterno(preparador Preparador, servicio Aplicacion) (*Handler, error) {
+	return Nuevo(preparador, servicio)
+}
+
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.preparador == nil || h.servicio == nil || r == nil || r.URL == nil {
 		responderError(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
+	if h.soloExterno && (r.URL.Path == RutaRRHH || strings.HasPrefix(r.URL.Path, RutaRRHH+"/")) {
+		responderError(w, http.StatusNotFound, "recurso_no_encontrado")
+		return
+	}
 	if r.URL.RawPath != "" || r.URL.EscapedPath() != r.URL.Path ||
 		strings.Contains(r.URL.Path, "//") || cabeceraProhibida(r.Header) ||
 		(r.Header.Get("Accept") != "" && r.Header.Get("Accept") != "application/json") ||
@@ -81,6 +102,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.propia(w, r)
 	case r.URL.Path == RutaRRHH:
 		h.rrhh(w, r)
+	case r.URL.Path == RutaRRHH+"/convocatorias":
+		h.convocatoriasRRHH(w, r)
 	case r.URL.Path == RutaRRHH+"/motivos":
 		h.motivos(w, r)
 	case strings.HasPrefix(r.URL.Path, RutaRRHH+"/"):
@@ -258,6 +281,10 @@ func (h *Handler) rrhh(w http.ResponseWriter, r *http.Request) {
 		responderError(w, 400, "datos_no_validos")
 		return
 	}
+	if r.URL.Query().Get("convocatoria_ref") == "" {
+		responderError(w, 400, "datos_no_validos")
+		return
+	}
 	estado := r.URL.Query().Get("estado")
 	if estado == "" {
 		estado = inscripcion.EstadoPendiente
@@ -279,6 +306,33 @@ func (h *Handler) rrhh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responder(w, 200, "vec.bolsa.inscripciones.rrhh.v1", p)
+}
+
+func (h *Handler) convocatoriasRRHH(w http.ResponseWriter, r *http.Request) {
+	if !soloGET(w, r) {
+		return
+	}
+	limite, cursor, err := paginarCon(r.URL.Query(), "idioma")
+	if err != nil {
+		responderError(w, 400, "datos_no_validos")
+		return
+	}
+	idiomaActivo, err := idioma(r.URL.Query())
+	if err != nil {
+		responderError(w, 400, "datos_no_validos")
+		return
+	}
+	actor, err := h.preparador.PrepararLecturaRRHH(r, inscripcion.AccionConvocatoriasRRHH, "", inscripcion.Filtro{Limite: limite, Cursor: cursor}, idiomaActivo)
+	if err != nil {
+		responderFallo(w, r, err)
+		return
+	}
+	p, err := h.servicio.ConvocatoriasRRHH(r.Context(), actor, limite, cursor)
+	if err != nil {
+		responderFallo(w, r, err)
+		return
+	}
+	responder(w, 200, "vec.bolsa.inscripciones.rrhh.convocatorias.v1", p)
 }
 
 func (h *Handler) motivos(w http.ResponseWriter, r *http.Request) {
@@ -602,6 +656,8 @@ func responderFallo(w http.ResponseWriter, r *http.Request, err error) {
 		responderError(w, 409, "clave_en_conflicto")
 	case errors.Is(err, inscripcion.ErrActaNoDisponible):
 		responderError(w, 409, "acta_pendiente")
+	case errors.Is(err, inscripcion.ErrVinculoIdentidadPendiente):
+		responderError(w, 409, "vinculo_identidad_pendiente")
 	default:
 		registrarFalloInscripcion(r, err)
 		responderError(w, 503, "servicio_no_disponible")

@@ -14,6 +14,24 @@ func RecursoLectura(accion, personaRef, idioma string, filtro Filtro, ref string
 		return "", ErrSolicitudInvalida
 	}
 	switch accion {
+	case AccionConvocatoriasRRHH:
+		if ref != "" || filtro.Estado != "" || filtro.ConvocatoriaRef != "" ||
+			filtro.Limite < 1 || filtro.Limite > 100 ||
+			(filtro.Cursor != "" && !convocatoriaRefValida(filtro.Cursor)) {
+			return "", ErrSolicitudInvalida
+		}
+		contenido, err := json.Marshal(struct {
+			Accion     string `json:"accion"`
+			PersonaRef string `json:"persona_ref"`
+			Idioma     string `json:"idioma"`
+			Limite     int    `json:"limite"`
+			Cursor     string `json:"cursor"`
+		}{accion, personaRef, idioma, filtro.Limite, filtro.Cursor})
+		if err != nil {
+			return "", ErrSolicitudInvalida
+		}
+		huella := sha256.Sum256(contenido)
+		return "inscripciones_rrhh_convocatorias_" + hex.EncodeToString(huella[:]), nil
 	case AccionDetalleAbierta:
 		if !convocatoriaRefValida(ref) || filtro != (Filtro{}) {
 			return "", ErrSolicitudInvalida
@@ -25,6 +43,9 @@ func RecursoLectura(accion, personaRef, idioma string, filtro Filtro, ref string
 		}
 		return ref, nil
 	case AccionListarAbiertas, AccionListarPropias, AccionListarRRHH, AccionMotivosRRHH:
+		if accion == AccionListarRRHH && filtro.ConvocatoriaRef == "" {
+			return "", ErrSolicitudInvalida
+		}
 		if accion == AccionMotivosRRHH {
 			if ref != "admitir" && ref != "rechazar" {
 				return "", ErrSolicitudInvalida

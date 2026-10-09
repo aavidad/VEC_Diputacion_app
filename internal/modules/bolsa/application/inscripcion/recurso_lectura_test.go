@@ -30,3 +30,21 @@ func TestRecursoLecturaLigaFiltroEIdiomaSinReferenciaPersonalEnClaro(t *testing.
 		t.Fatal("cursor de convocatorias aceptado en solicitudes")
 	}
 }
+
+func TestRecursoSelectorRRHHYBandejaExigenAmbitoDeConvocatoria(t *testing.T) {
+	persona := "per_sintetica_001"
+	selector, err := RecursoLectura(AccionConvocatoriasRRHH, persona, "es", Filtro{Limite: 20}, "")
+	if err != nil || !strings.HasPrefix(selector, "inscripciones_rrhh_convocatorias_") || strings.Contains(selector, persona) {
+		t.Fatalf("selector sin recurso opaco: %q %v", selector, err)
+	}
+	otro, err := RecursoLectura(AccionConvocatoriasRRHH, persona, "es", Filtro{Limite: 20, Cursor: "cv1_YXV4aWxpYXI_v1"}, "")
+	if err != nil || selector == otro {
+		t.Fatal("cursor del selector no queda ligado al permiso")
+	}
+	if _, err := RecursoLectura(AccionConvocatoriasRRHH, persona, "es", Filtro{Limite: 20, Cursor: "solicitud_inscripcion_" + strings.Repeat("a", 64)}, ""); err == nil {
+		t.Fatal("cursor de solicitud aceptado como convocatoria")
+	}
+	if _, err := RecursoLectura(AccionListarRRHH, persona, "es", Filtro{Estado: EstadoPendiente, Limite: 20}, ""); err == nil {
+		t.Fatal("bandeja sin convocatoria daría permiso global")
+	}
+}
