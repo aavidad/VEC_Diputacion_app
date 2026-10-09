@@ -1,6 +1,6 @@
-# RRHH: consultar y localizar información
+# RRHH: de la petición del centro al primer contacto
 
-**Comprobado el 8 de octubre de 2026.** Este manual explica cómo entrar en el portal, cambiar el idioma y localizar peticiones, categorías y bolsas. También recoge la emisión de un llamamiento comprobada ese día. Las cifras de las imágenes corresponden a esa fecha y pueden cambiar.
+La navegación se comprobó el 8 de octubre de 2026. El recorrido desde una petición ratificada hasta el primer contacto se comprobó el 9 de octubre. Las cifras y personas de las imágenes pertenecen a esos ejemplos y pueden cambiar.
 
 ## Entrar en Inicio
 
@@ -44,39 +44,62 @@ En Inicio, pulse «Ver todas las peticiones» **(5)** en la cabecera de «Lo pen
 
 ![Lista general de peticiones con búsqueda, filtros, fase, estado y plazo.](img/rrhh-navegacion-peticiones.webp)
 
-## Ver los integrantes de una bolsa
+## Recibir una petición ratificada del centro
 
-En el resumen de bolsas, pulse la cifra de la columna «Disponibles» de la bolsa que necesita. Se abre «Candidatos de la bolsa» con esa situación seleccionada. En el ejemplo, ENCARGADO muestra 16 personas disponibles.
+1. Abra [Peticiones de los centros](https://vec.cidonia.cloud/portal-empleado/peticiones-centro/?lang=es&vista=rrhh) con el acceso de RRHH. Busque la petición con estado **Ratificada** y pulse **Revisar**.
+2. Compruebe centro, categoría, grupo, motivo, período, número de personas y jornada. Compruebe también si el centro aportó una retención de crédito o documentos. En el ejemplo, el centro pidió una persona de la categoría Administrativo, a jornada completa, y no aportó retención.
+3. Pulse **Crear expediente en RRHH**. En la revisión escriba el número de expediente asignado por el circuito de gestión, marque la confirmación expresa y pulse **Crear expediente en RRHH** una sola vez. Si no dispone de ese número, deténgase.
+4. Guarde el número visible y el recibo. Use **Abrir el expediente** para seguir con el mismo caso. En el ejemplo se creó `2026/93001`.
 
-![Lista de personas disponibles de la bolsa ENCARGADO.](img/rrhh-bolsa-disponibles.webp)
+![Bandeja de peticiones de los centros. La primera fila espera la revisión de RRHH.](img/rrhh-20261009-centros.webp)
 
-Use «Buscar» para localizar a una persona y «Situación» para cambiar el estado que consulta. Pulse «Filtrar» para aplicar los cambios. «Limpiar» los retira. Cuando hay varias páginas, «Siguiente» muestra las siguientes personas.
+![Recibo del alta, con número de expediente y fecha de confirmación.](img/rrhh-20261009-recibo-alta.webp)
 
-## Emitir un llamamiento
+## Registrar el análisis de RRHH
 
-1. En la lista de candidatos, pulse «Nuevo llamamiento» y seleccione la bolsa.
-2. Marque las personas siguiendo el orden que muestra la lista. Revise quiénes ha seleccionado antes de avanzar.
+Abra la ficha desde la lista y revise sus datos. En **Registrar análisis de RRHH**, elija la modalidad, la categoría, el grupo y la causa que correspondan a la petición. Compruebe fechas y jornada. La retención de crédito se elige de la fuente disponible para RRHH: que el centro no la aportara no significa que esté validada. Si no cuenta con una retención respaldada, detenga el análisis.
 
-![Selección de la primera persona de la bolsa.](img/rrhh-bolsa-seleccion.webp)
+En el recorrido, RRHH seleccionó **Acumulación de tareas**, **Administrativo**, **C1**, **Necesidad temporal**, el período solicitado y jornada completa. Eligió una retención disponible para ese ejercicio y dejó la urgencia sin marcar. Pulse **Registrar análisis** una sola vez y conserve el justificante. Al reabrir la ficha, **Análisis RRHH** aparece como **Hecho**.
 
-3. En «Configurar llamamiento», indique la necesidad, el centro y los canales de aviso. Complete el asunto y el texto del correo.
+![Jornada y retención de crédito en el análisis del ejemplo.](img/rrhh-20261009-analisis-rc.webp)
 
-![Configuración del llamamiento y canales de aviso.](img/rrhh-bolsa-configuracion.webp)
+## Decidir la cobertura y asignar la unidad
 
-4. En «Revisar y enviar», compruebe las personas, los canales y el contenido del aviso. Marque la confirmación expresa y pulse «Emitir llamamiento» una sola vez.
+1. En **Decidir la vía de cobertura**, lea las comprobaciones de la bolsa. Si la pantalla propone **Bolsa vigente** como vía viable para la categoría, selecciónela y pulse **Confirmar vía de cobertura**. Revise el aviso de confirmación antes de aceptarlo. Guarde el justificante.
+2. Vuelva a la ficha del mismo expediente. En el ejemplo apareció **Asignar expediente a la unidad responsable**, con **Recursos Humanos** y **Responsable de peticiones de personal temporal**. Compruebe ambos datos, marque la casilla de revisión y pulse **Confirmar asignación** una sola vez. Conserve su recibo.
 
-![Revisión del llamamiento antes de confirmar.](img/rrhh-bolsa-revision.webp)
+![Propuesta de Bolsa vigente y comprobaciones que la acompañan.](img/rrhh-20261009-cobertura.webp)
 
-5. La pantalla muestra «Llamamiento emitido» y «pendiente de respuesta». Vuelva a la lista y consulte «Histórico de llamamientos» para ver la nueva actuación.
+![Unidad y responsable que se revisan antes de confirmar la asignación.](img/rrhh-20261009-asignacion.webp)
 
-![Confirmación del llamamiento registrado.](img/rrhh-bolsa-recibo.webp)
+## Emitir un llamamiento para la persona elegida
 
-«Pendiente de respuesta» significa que todavía debe comprobarse la respuesta de la persona. La emisión del llamamiento y la llegada del correo son comprobaciones distintas.
+Desde la ficha asignada, pulse **Abrir llamamiento en Bolsa**. El asistente conserva la petición de origen; compruebe que muestra la bolsa de la categoría correspondiente. En el ejemplo fue **ADMINISTRATIVO**, con 41 personas.
+
+1. Pulse **Seleccionar esta bolsa**. En **Seleccionar candidatos**, marque solo a la persona que corresponda tras revisar el orden y las condiciones del llamamiento. En el ejemplo se marcó únicamente a **Yago Lozano Hidalgo**, puesto 1. Estar en la primera fila no sustituye esas comprobaciones.
+2. En **Configurar llamamiento**, compruebe la referencia, el centro y la fecha que ya trae la pantalla. Elija la modalidad y describa la necesidad con los datos de la petición. Mantenga el contacto ya registrado; no escriba un correo o teléfono nuevo para completar la pantalla.
+3. Indique el plazo de respuesta que RRHH haya fijado para esa oferta. En el ejemplo se usó **«Un día hábil desde el contacto efectivo»**. Era la regla disponible para ese ejercicio; este manual no la presenta como plazo legal aprobado para otros casos.
+4. En **Revisar y enviar**, compruebe que queda **una persona**, que el aviso nombra a la persona correcta y que los canales son los previstos. En el recorrido aparecieron correo al emitir y seguimiento por teléfono. Abra **Ver vista previa**, marque la confirmación para una persona y pulse **Emitir llamamiento** una sola vez.
+5. Guarde el justificante. **Emitido, pendiente de respuesta** acredita el registro del llamamiento; compruebe por separado la entrega del correo y la respuesta de la persona.
+
+![Selección de una única persona en el orden de la bolsa.](img/rrhh-20261009-yago.webp)
+
+![Vista previa del aviso y confirmación para una persona.](img/rrhh-20261009-revision.webp)
+
+![Justificante de un llamamiento emitido y pendiente de respuesta.](img/rrhh-20261009-recibo-llamamiento.webp)
+
+## Anotar el contacto telefónico
+
+Pulse **Empezar las llamadas** desde el justificante del llamamiento. La lista muestra las personas de ese llamamiento por orden. Abra **Ver ficha y llamar** de la persona correspondiente.
+
+Compruebe la franja que muestra la ficha. En el recorrido era de **09:00 a 14:00, en días hábiles**. Dentro de esa franja, seleccione el resultado que realmente ocurrió y pulse **Registrar resultado** una sola vez. La aplicación registra la fecha y la hora; no las cambie para simular un contacto. En el ejemplo se registró **Contactado**, sin anotación añadida. Al volver a consultar, la ficha conservó una llamada y el justificante.
+
+![Resultado Contactado y hora del intento registrada por la aplicación.](img/rrhh-20261009-contacto.webp)
+
+**Contactado** no significa que la persona haya aceptado o renunciado. Su respuesta se consulta por el cauce que le corresponde.
 
 ## Si algo sale mal
 
-Mientras aparece «Comprobando», espere a que termine la carga. Si el mensaje permanece y no aparecen los datos, recargue la página. Si sigue igual, indique a Informática qué pantalla abrió y el mensaje que ve.
+Si tras confirmar la cobertura aparece «La cobertura está confirmada, pero la asignación no está disponible. Conserve el recibo y solicite revisión», no confirme la cobertura de nuevo. Vuelva a la lista y abra el mismo expediente. En el recorrido, la ficha recuperada mostró el formulario de asignación. Si no aparece, conserve el recibo y comunique el mensaje a Informática.
 
-Cuando una petición muestra «Con incidencia», abra su ficha antes de seguir con el trámite. El estado avisa de que hay un asunto pendiente; por sí solo no indica qué debe corregir.
-
-Para consultar y descargar los borradores de una petición, siga la [guía de fichas y documentos](responsable_rrhh.md).
+Si la ficha telefónica dice «Fuera de la franja», espere al horario indicado. No registre una llamada con otra hora ni abra otro llamamiento. Si una respuesta queda incierta, recupere el expediente o el justificante antes de repetir cualquier acción.
