@@ -1,0 +1,29 @@
+# Estructura SQL de #886, #931 y #932 para la principal (cidonia) en HZ12…HZ17, SIN ENCENDER NADA.
+# Preimagen: núcleo V3 POST225 (def 03f15128…, prosrc fc80e485…) y sin AD219/AUT58 (#885).
+# Postimagen del núcleo: def 30bab608…, prosrc 26173685…. Cada UP una sola vez; nunca DOWN ni reaplicar.
+# No crea LOGIN, configuración DBA, aprobaciones, catálogos ni concesiones; no ejecuta mantenimientos ADMIN.
+# AUT65 (000065_ratificacion_catalogo_admin_v7) NO va en esta lista: su guarda exige ADMIN v7 con 13 de 20
+# descriptores y la copia HZ12 tiene ADMIN v5. Se instala después de publicar v6 (AUT45) y v7 (AUT51).
+# Cada «# <huella>» fija la SHA256 de la ruta siguiente.
+# e29124ea9416a4d0c15f024f9698ec69224e697a22b71fa4bc5916b0444cf84c
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000219_catalogo_acciones_admin.up.sql
+# 7c265db1562f47ccc6bdb56d310d813adf11ebdb6b3aa8d977c21fa06d0f1c02
+deploy/postgresql/autorizacion/migraciones/000058_catalogo_acciones_admin.up.sql
+# c83465eaf2364000048bc3c0f10f24077374a1803164e13ce8881a7621090ac2
+deploy/postgresql/autorizacion/migraciones/000059_mantenimiento_gobierno_definiciones_admin.up.sql
+# 4fc3c1d4f9cff289a86413f5b4ea5fbb093edf04fb1037db32de0a427f698fd4
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000220_gobierno_rol_nuevo.up.sql
+# a751eb623965196139321ca00049b58df6b1a1d4c2e602f3da3156694cde9321
+deploy/postgresql/autorizacion/migraciones/000060_gobierno_rol_nuevo.up.sql
+# 68f7ddfed89fb3c0ced46961539b35c7a239795f702df5d415fad6ab8a5537ff
+deploy/postgresql/autorizacion/migraciones/000061_catalogo_rol_seguro.up.sql
+# 9ebbc7c5f06bfd7b3eb147276889c2c5aa5e705b8e21aea7fd4e386d6cc7ecad
+deploy/postgresql/autorizacion/migraciones/000062_version_rol_bolsa_base.up.sql
+# 11b14d220736078eb02546b6a5f60b1b901443ab91d516d955678c264a65c67a
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000227_version_rol_bolsa_v3.up.sql
+# 68de345b3c91466fd98da1a2136f4f704dfe07af3d8de5a0159b69bdb0253b11
+deploy/postgresql/autorizacion/migraciones/000063_version_rol_bolsa_cas.up.sql
+# d6c80fef014e5de7d0b9bf0416fc713b205cda1e83dc4379f9f1813bf4b21e35
+deploy/postgresql/autorizacion/migraciones/000064_mantenimiento_version_bolsa_admin_v9.up.sql
+# d4822682a6e1409f5027c1e3b54da62c8f40a0510534045446f9d5dd881b057e
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000230_ratificacion_catalogo_admin_v7.up.sql
