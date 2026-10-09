@@ -719,3 +719,7 @@ static/portal-empleado/reglas/ajustes.js
 static/portal-empleado/reglas/ajustes-i18n.js
 static/textos/es/reglas-plazos.json
 static/textos/en/reglas-plazos.json
+static/portal-empleado/modulos/bolsa/inscripcion-rrhh-cliente.js
+static/portal-empleado/modulos/bolsa/inscripcion-rrhh-vista.js
+static/textos/es/bolsa-inscripcion-rrhh.json
+static/textos/en/bolsa-inscripcion-rrhh.json
