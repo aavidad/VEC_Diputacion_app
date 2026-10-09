@@ -150,8 +150,8 @@ func TestDescriptoresContratacionTemporalAutorizacionRechazanCruces(t *testing.T
 	// borradores (que comparte la frontera de detalle) y las acciones
 	// adicionales del llamamiento.
 	adicionales := len(descriptoresAutorizacionAdicionalesLlamamientoDesarrollo(politicaDescriptoresCTPrueba(t)))
-	if adicionales != 11 || len(descriptores) != len(fronteras)+2+adicionales {
-		t.Fatalf("autorizaciones=%d (adicionales=%d), want %d", len(descriptores), adicionales, len(fronteras)+13)
+	if adicionales != 12 || len(descriptores) != len(fronteras)+2+adicionales {
+		t.Fatalf("autorizaciones=%d (adicionales=%d), want %d", len(descriptores), adicionales, len(fronteras)+14)
 	}
 	catalogo, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptores)
 	if err != nil {

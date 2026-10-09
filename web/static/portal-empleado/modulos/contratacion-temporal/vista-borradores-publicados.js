@@ -1,19 +1,31 @@
 /** Panel de tipos publicados: el catálogo y cada documento se autorizan en servidor. */
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { crearClienteBorradoresPublicados } from "./cliente-http-borradores-publicados.js?v=20260928-ppt-503-v5";
+import { crearClienteBorradoresPublicados } from "./cliente-http-borradores-publicados.js?v=20261009-borradores-fase-v1";
 
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 
 export function renderizarBorradoresPublicados({ estado = "cargando", catalogo = null,
-  ayudaAbierta = false, mensaje = "", mensajeError = false, ocupado = false } = {}) {
+  ayudaAbierta = false, mensaje = "", mensajeError = false, tipoAvisado = "", ocupado = false } = {}) {
   const traducir = crearTraductorContratacionTemporal();
   const t = (clave, variables) => esc(traducir(`bp_${clave}`, variables));
-  const filas = catalogo?.tipos?.map((tipo) => `<li class="ct-exp-documento">
-    <div class="ct-exp-documento-principal"><strong>${esc(tipo.etiqueta)}</strong>
-      <span class="ct-exp-chip">${t("estado_borrador")}</span></div>
-    <div class="ct-exp-borradores-acciones">${tipo.formatos.map((formato) => `<button type="button" class="boton-secundario" data-bp-descargar="${esc(tipo.clave)}" data-bp-formato="${formato}" ${ocupado ? "disabled" : ""}>${t(formato === "docx" ? "ficha_docx" : formato)}</button>`).join("")}</div>
-  </li>`).join("") ?? "";
+  // Un tipo que el expediente todavía no permite preparar se ve, pero sus
+  // botones quedan inactivos (siguen enfocables para que se lea el motivo).
+  // Cada botón nombra su documento y, si toca, por qué no está disponible.
+  // El aviso de un documento se pinta junto a sus botones.
+  const filas = catalogo?.tipos?.map((tipo) => {
+    const listo = tipo.disponible !== false;
+    const idTitulo = `ct-bp-documento-${esc(tipo.clave)}`;
+    const idEstado = `ct-bp-estado-${esc(tipo.clave)}`;
+    const descrito = listo ? idTitulo : `${idTitulo} ${idEstado}`;
+    const aviso = mensaje && !mensajeError && tipoAvisado === tipo.clave
+      ? `<p class="ct-bp-mensaje ct-bp-mensaje--aviso" role="status">${esc(mensaje)}</p>` : "";
+    return `<li class="ct-exp-documento${listo ? "" : " ct-bp-pendiente"}">
+    <div class="ct-exp-documento-principal"><strong id="${idTitulo}">${esc(tipo.etiqueta)}</strong>
+      <span class="ct-exp-chip" id="${idEstado}">${t(listo ? "estado_borrador" : "estado_pendiente")}</span></div>
+    <div class="ct-exp-borradores-acciones">${tipo.formatos.map((formato) => `<button type="button" class="boton-secundario" data-bp-descargar="${esc(tipo.clave)}" data-bp-formato="${formato}"${listo ? "" : ' aria-disabled="true"'} aria-describedby="${descrito}" ${ocupado ? "disabled" : ""}>${t(formato === "docx" ? "ficha_docx" : formato)}</button>`).join("")}</div>${aviso}
+  </li>`;
+  }).join("") ?? "";
   const estadoTexto = estado === "cargando" ? t("cargando") : estado === "denegado" ? t("denegado")
     : estado === "conflicto" ? t("conflicto") : estado === "error" ? t("error") : "";
   return `<section class="ct-bp" data-ct-borradores-publicados aria-labelledby="ct-bp-titulo">
@@ -25,7 +37,7 @@ export function renderizarBorradoresPublicados({ estado = "cargando", catalogo =
       ${estado === "lista" && filas ? `<ul class="ct-exp-documentos-lista" aria-label="${t("tipo")}">${filas}</ul>` : ""}
       ${catalogo && estado === "lista" ? `<p class="ct-bp-catalogo">${t("publicacion_recibo", { recibo: catalogo.procedencia_ref })}</p>` : ""}
       ${ocupado ? `<p role="status">${t("descargando")}</p><button type="button" class="boton-secundario" data-bp-cancelar>${t("cancelar")}</button>` : ""}
-      ${mensaje ? `<p class="ct-bp-mensaje${mensajeError ? " ct-bp-mensaje--error" : ""}" role="${mensajeError ? "alert" : "status"}">${esc(mensaje)}</p>` : ""}
+      ${mensaje && (mensajeError || !tipoAvisado) ? `<p class="ct-bp-mensaje${mensajeError ? " ct-bp-mensaje--error" : ""}" role="${mensajeError ? "alert" : "status"}">${esc(mensaje)}</p>` : ""}
       ${["error", "conflicto"].includes(estado) ? `<button type="button" class="boton-secundario" data-bp-reintentar>${t("reintentar")}</button>` : ""}
     </div></section>`;
 }
@@ -42,6 +54,7 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
   let ayudaAbierta = false;
   let mensaje = "";
   let mensajeError = false;
+  let tipoAvisado = "";
   let ocupado = false;
   let controlador = null;
   let secuencia = 0;
@@ -49,7 +62,7 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
   let revocacion = null;
   const pintar = () => { if (montado) {
     raiz.hidden = false;
-    raiz.innerHTML = renderizarBorradoresPublicados({ estado, catalogo, ayudaAbierta, mensaje, mensajeError, ocupado });
+    raiz.innerHTML = renderizarBorradoresPublicados({ estado, catalogo, ayudaAbierta, mensaje, mensajeError, tipoAvisado, ocupado });
   } };
   const liberarURL = () => { clearTimeout(revocacion); revocacion = null;
     if (urlDocumento) entornoDescarga.URL?.revokeObjectURL?.(urlDocumento); urlDocumento = null; };
@@ -60,7 +73,7 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
     const actual = secuencia;
     controlador = new AbortController();
     const signal = controlador.signal;
-    estado = "cargando"; catalogo = null; mensaje = ""; mensajeError = false; pintar();
+    estado = "cargando"; catalogo = null; mensaje = ""; mensajeError = false; tipoAvisado = ""; pintar();
     try {
       const datos = await cliente.consultarDisponibles(contexto, { signal });
       if (!montado || signal.aborted || secuencia !== actual) return;
@@ -74,12 +87,14 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
 
   async function descargar(tipo, formato) {
     if (!catalogo || estado !== "lista" || ocupado) return;
-    const autorizado = catalogo.tipos.some((item) => item.clave === tipo && item.formatos.includes(formato));
-    if (!autorizado) return;
+    const elegido = catalogo.tipos.find((item) => item.clave === tipo && item.formatos.includes(formato));
+    if (!elegido) return;
+    if (elegido.disponible === false) { avisarNoDisponible(tipo); pintar(); enfocar(tipo, formato); return; }
     const actual = ++secuencia;
     controlador?.abort(); controlador = new AbortController();
     const signal = controlador.signal;
-    ocupado = true; mensaje = ""; mensajeError = false; pintar();
+    ocupado = true; mensaje = ""; mensajeError = false; tipoAvisado = ""; pintar();
+    let reenfocar = false;
     try {
       const resultado = await cliente.descargar(contexto, catalogo, tipo, formato, { signal });
       if (!montado || signal.aborted || secuencia !== actual) return;
@@ -97,14 +112,34 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
         documento.body.append(enlace); enlace.click(); }
       finally { enlace.remove(); revocacion = setTimeout(liberarURL, 0); }
       mensaje = `${t("bp_listo", { nombre: resultado.nombre })}. ${t("bp_publicacion_recibo", { recibo: resultado.procedencia_ref })}. ${t("bp_huella", { huella: resultado.huella_sha256 })}`;
-      mensajeError = false;
+      mensajeError = false; tipoAvisado = "";
       anunciar(mensaje, "informacion");
     } catch (error) {
       if (!montado || signal.aborted || secuencia !== actual) return;
+      if (error?.codigo === "documento_no_disponible") {
+        // No es un cambio del expediente: la lista sigue valiendo y ese tipo
+        // queda marcado como todavía no disponible.
+        catalogo = Object.freeze({ ...catalogo, tipos: Object.freeze(catalogo.tipos.map((item) => item.clave === tipo
+          ? Object.freeze({ ...item, disponible: false }) : item)) });
+        avisarNoDisponible(tipo); reenfocar = true;
+        return;
+      }
       if (error?.estado === 409) { estado = "conflicto"; catalogo = null; }
       else if ([401, 403].includes(error?.estado)) { estado = "denegado"; catalogo = null; }
-      mensaje = t("bp_descarga_error"); mensajeError = true; anunciar(mensaje, "error");
-    } finally { if (montado && secuencia === actual) { controlador = null; ocupado = false; pintar(); } }
+      mensaje = t("bp_descarga_error"); mensajeError = true; tipoAvisado = ""; anunciar(mensaje, "error");
+    } finally {
+      if (montado && secuencia === actual) { controlador = null; ocupado = false; pintar(); if (reenfocar) enfocar(tipo, formato); }
+    }
+  }
+
+  // Repintar sustituye los botones: se devuelve el foco al pulsado.
+  const enfocar = (tipo, formato) => [...(raiz.querySelectorAll?.("[data-bp-descargar]") ?? [])]
+    .find((boton) => boton.dataset?.bpDescargar === tipo && boton.dataset?.bpFormato === formato)
+    ?.focus?.({ preventScroll: true });
+
+  function avisarNoDisponible(tipo) {
+    mensaje = t("bp_no_disponible"); mensajeError = false; tipoAvisado = tipo;
+    anunciar(mensaje, "informacion");
   }
 
   const pulsar = (evento) => {
@@ -113,7 +148,7 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
     if (accion.hasAttribute("data-bp-ayuda")) { ayudaAbierta = !ayudaAbierta; pintar();
       raiz.querySelector?.("[data-bp-ayuda]")?.focus?.({ preventScroll: true }); }
     else if (accion.hasAttribute("data-bp-reintentar")) void cargar();
-    else if (accion.hasAttribute("data-bp-cancelar")) { cancelar(); mensaje = t("bp_cancelada"); mensajeError = false; pintar(); }
+    else if (accion.hasAttribute("data-bp-cancelar")) { cancelar(); mensaje = t("bp_cancelada"); mensajeError = false; tipoAvisado = ""; pintar(); }
     else void descargar(accion.dataset.bpDescargar, accion.dataset.bpFormato);
   };
   raiz.addEventListener("click", pulsar); pintar(); void cargar();

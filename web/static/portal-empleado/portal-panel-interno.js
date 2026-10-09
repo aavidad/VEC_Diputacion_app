@@ -12,8 +12,8 @@ import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261007-pan
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-r-traza-idioma-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
-import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261008-canal-telefono-v2";
-import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261008-bolsa-global-v2";
+import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
+import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261009-ayuda-contacto-v1";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-r-fichas-idioma-nav-v1";
 import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261008-r-traza-idioma-v1";
@@ -31,8 +31,8 @@ const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_dispo
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
 const RUTA_PANTALLA_CARGA_CONVOCA = `/portal-empleado/modulos/bolsa/carga-convoca/?lang=${encodeURIComponent(IDIOMA_ACTUAL)}`;
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
-import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261008-bolsa-global-v2";
+import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261009-instantes-bolsa-v1";
+import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261009-instantes-bolsa-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
@@ -600,6 +600,8 @@ export function crearPresentadorPanelInterno(dependencias) {
         ? `${fechaVisible(bolsa.vigente_desde)} — ${fechaVisible(bolsa.vigente_hasta)}`
         : traducirPortal("txt_vigencia_abierta", { desde: fechaVisible(bolsa.vigente_desde) }))
       : traducirPortal("txt_no_disponible");
+    const busquedaPersonas = new URLSearchParams(globalThis.location?.search ?? "");
+    busquedaPersonas.delete("texto");
     const accionesBolsa = `<div class="cuerpo-panel acciones-vista">
             <button type="button" class="boton-secundario boton-ancho" data-bolsa-accion="cambiar-pestana" data-pestana="historico">${textoPortal("txt_consultar_historial_de_contactos")}</button>
             <button type="button" class="boton-primario boton-ancho" data-bolsa-accion="iniciar-b7">${textoPortal("txt_nuevo_llamamiento")}</button>
@@ -626,7 +628,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               <div class="fila-resumen"><dt>${textoPortal("txt_categoria")}</dt><dd>${escaparHTML(bolsa.categoria)}</dd></div>
               <div class="fila-resumen"><dt>${textoPortal("txt_tipo_de_lista")}</dt><dd>${escaparHTML(etiquetaTipoLista(bolsa.tipo_lista))}</dd></div>
               <div class="fila-resumen"><dt>${textoPortal("txt_vigencia")}</dt><dd>${escaparHTML(vigenciaBolsa)}</dd></div>
-              <div class="fila-resumen"><dt>${textoPortal("txt_personas_en_bolsa")}</dt><dd>${numero(bolsa.total)}</dd></div>
+              <div class="fila-resumen"><dt><a class="enlace-tabla" href="${escaparHTML(rutaCandidatosBolsaCompartible(busquedaPersonas.toString(), bolsa.bolsa_ref))}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-pestana="candidatos" aria-label="${textoPortal("txt_aria_abrir_personas_bolsa", { total: numero(bolsa.total), categoria: bolsa.categoria })}">${textoPortal("txt_personas_en_bolsa")}</a></dt><dd>${numero(bolsa.total)}</dd></div>
             </dl>
           </div>
         </section>

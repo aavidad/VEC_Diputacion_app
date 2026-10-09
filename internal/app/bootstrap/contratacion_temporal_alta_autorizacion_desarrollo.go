@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -39,8 +40,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
 	if s.peticionesCentro {
 		principalValido = rutaPeticionCentroDesarrollo(capacidad.ruta) && principalPeticionCentroDesarrolloValido(capacidad.principal)
 	}
+	// El candidato alcanza todas las rutas de Mi Bolsa: las dos consultas y
+	// las acciones propias del portal (responder, solicitar, disposición y
+	// contacto). La frontera común ya limita método y perfil de cada una.
 	if s.candidatoBolsa {
-		principalValido = (capacidad.ruta == bolsapersonal.RutaMiBolsa || capacidad.ruta == bolsapersonal.RutaMiBolsaHistorial) &&
+		principalValido = bolsapersonal.EsRutaPortal(capacidad.ruta) &&
 			principalSinteticoContratacionTemporalDesarrolloValido(capacidad.principal) &&
 			len(capacidad.principal.Roles) == 1 && capacidad.principal.Roles[0] == "candidato_bolsa"
 	}
@@ -68,6 +72,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadSubsanacionVigente(
 func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 	return ruta == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(ruta) || ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
 		rutaPlantillasCatalogoCTDesarrollo(ruta) ||
+		ruta == ajusteshttp.Ruta ||
 		rutaPlantillasDocumentalCTDesarrollo(ruta) ||
 		ruta == httpinterno.RutaAltaSolicitudes ||
 		ruta == httpinterno.RutaPropuestaCobertura ||

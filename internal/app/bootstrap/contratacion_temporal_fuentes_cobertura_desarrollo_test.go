@@ -112,7 +112,7 @@ func TestFuenteCoberturaDesarrolloDelimitaComprobacionesSinteticasV2(t *testing.
 			t.Fatalf("tupla v2 rechazada: %#v", caso)
 		}
 		resultado, existe := fuente.resultadoPara(
-			categoriaAltaContratacionTemporalDesarrollo, periodo, caso.via,
+			context.Background(), categoriaAltaContratacionTemporalDesarrollo, periodo, caso.via,
 			caso.comprobacion, caso.procedencia,
 		)
 		if !existe || resultado != domain.ComprobacionNoConsta {
@@ -129,7 +129,7 @@ func TestFuenteCoberturaDesarrolloDelimitaComprobacionesSinteticasV2(t *testing.
 		t.Fatal("se aceptó el cruce de procedencia SAE/Bolsa")
 	}
 	if _, existe := fuente.resultadoPara(
-		categoriaAltaContratacionTemporalDesarrollo, periodo, "oferta_sae",
+		context.Background(), categoriaAltaContratacionTemporalDesarrollo, periodo, "oferta_sae",
 		"oferta_sae_disponible", "bolsa",
 	); existe {
 		t.Fatal("se filtró un resultado por cruce de tupla")
@@ -217,6 +217,7 @@ func nuevasDependenciasFuentesCoberturaPrueba(
 		derivador,
 		relojContratacionTemporalDesarrollo{},
 		resolutorGobiernoCoberturaDesarrolloNoUsado{},
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("componer fuentes de cobertura: %v", err)
@@ -373,16 +374,16 @@ func TestFuenteCoberturaDesarrolloNoAcreditaBolsaSinLecturaNominal(t *testing.T)
 		Inicio: time.Date(2027, 2, 4, 0, 0, 0, 0, time.UTC),
 		Fin:    time.Date(2027, 5, 5, 0, 0, 0, 0, time.UTC),
 	}
-	if resultado, existe := fuente.resultadoPara("categoria:desarrollo:a2", periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); !existe || resultado != domain.ComprobacionNoConsta {
+	if resultado, existe := fuente.resultadoPara(context.Background(), "categoria:desarrollo:a2", periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); !existe || resultado != domain.ComprobacionNoConsta {
 		t.Fatalf("una categoría sin lectura de Bolsa no debe acreditarse: %q %t", resultado, existe)
 	}
-	if resultado, existe := fuente.resultadoPara(categoriaSinCoberturaDesarrollo, periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); !existe || resultado != domain.ComprobacionNoConsta {
+	if resultado, existe := fuente.resultadoPara(context.Background(), categoriaSinCoberturaDesarrollo, periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); !existe || resultado != domain.ComprobacionNoConsta {
 		t.Fatalf("la categoría sin lectura tampoco acredita ausencia de Bolsa: %q %t", resultado, existe)
 	}
-	if _, existe := fuente.resultadoPara("categoria:desarrollo:a2", periodo, "oferta_sae", "existe_bolsa_vigente", "bolsa"); existe {
+	if _, existe := fuente.resultadoPara(context.Background(), "categoria:desarrollo:a2", periodo, "oferta_sae", "existe_bolsa_vigente", "bolsa"); existe {
 		t.Fatal("un cruce de vía y comprobación no debe existir")
 	}
-	if _, existe := fuente.resultadoPara("categoria:ajena:x", periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); existe {
+	if _, existe := fuente.resultadoPara(context.Background(), "categoria:ajena:x", periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); existe {
 		t.Fatal("una categoría ajena al catálogo no debe tener respuesta")
 	}
 }
@@ -407,7 +408,7 @@ func TestFuenteCoberturaDesarrolloNoConfundeCausasDeFin(t *testing.T) {
 		resultado: domain.ComprobacionNegativa,
 	}}
 	consulta := func(p domain.PeriodoPrevisto) domain.ResultadoComprobacion {
-		r, ok := fuente.resultadoPara(categoriaAltaContratacionTemporalDesarrollo,
+		r, ok := fuente.resultadoPara(context.Background(), categoriaAltaContratacionTemporalDesarrollo,
 			p, "bolsa_vigente", "existe_bolsa_vigente", "bolsa")
 		if !ok {
 			t.Fatal("no se encontró respuesta de la fuente sintética")

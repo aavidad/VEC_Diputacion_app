@@ -55,6 +55,33 @@ type SolicitudPlazoFaseRRHH struct {
 	Urgente bool
 }
 
+// CapturaPlazoFaseRRHH contiene la definición fijada al abrir el tramo.
+// El adaptador SQL reconstruye sus dos canónicos desde diccionarios por huella.
+// El legado sin instantánea usa la regla actual preparada y no recibe una
+// atribución histórica de la regla que pudo gobernarlo.
+type CapturaPlazoFaseRRHH struct {
+	Estado              string
+	Fase                domain.ClaveFase
+	FaseDesde           time.Time
+	BaseID              string
+	BaseVersion         int
+	BaseHuella          string
+	BaseCanonico        []byte
+	AjustesID           string
+	AjustesEncontrados  bool
+	AjustesVersion      int
+	AjustesHuella       string
+	AjustesCanonico     []byte
+	AjustesVigenteDesde time.Time
+	CapturadaEn         time.Time
+}
+
+// CalculadoraConCapturaPlazoFaseRRHH no consulta cabezas editables al
+// recuperar un tramo que ya tiene instantánea.
+type CalculadoraConCapturaPlazoFaseRRHH interface {
+	CalcularPlazoConCaptura(context.Context, SolicitudPlazoFaseRRHH, CapturaPlazoFaseRRHH) (PlazoFaseRRHH, bool, error)
+}
+
 // CalculadoraPlazoFaseRRHH resuelve el plazo de una fase con el catálogo de
 // reglas. Devuelve aplicable=false si ninguna regla vigente cubre la fase. Un
 // error significa que no se pudo calcular: nunca se sustituye por un plazo.
@@ -69,6 +96,12 @@ type CalculadoraPlazoFaseRRHH interface {
 // como no_calculado sin volver a leer el catálogo por fila o grupo.
 type PreparadorPlazosFaseRRHH interface {
 	PrepararPlazosFase(context.Context) (CalculadoraPlazoFaseRRHH, error)
+}
+
+// PreparadorPlazosFaseConsultaRRHH comparte las capturas de una consulta y
+// prepara la cabeza sólo cuando existen tramos sin instantánea.
+type PreparadorPlazosFaseConsultaRRHH interface {
+	PrepararPlazosFaseConsulta(context.Context, bool) CalculadoraPlazoFaseRRHH
 }
 
 // fasesDesdeValidas exige que la fecha de entrada en fase (CT-000110), si

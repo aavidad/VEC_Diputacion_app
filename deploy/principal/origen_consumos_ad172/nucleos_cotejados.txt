@@ -17,3 +17,6 @@ c0d805eefe3b01304dc49ecd4a8414d2dd325af45e823a7e2c0b445afbe43e48
 # Post AD218: acto B1 de carga desde CONVOCA; definición del núcleo
 # c74551eab17bea78bb564d14d96b77f33bd24a5874b7bdb6e100a59d8f2fe714.
 79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5
+# Post AD225/AD226 (cidonia 09/10)
+# 144 ternas cotejadas con el prosrc vivo.
+fc80e4851d7a63a147cce6a40ca924d24d0b5e671686134be90e98e0f53c906c

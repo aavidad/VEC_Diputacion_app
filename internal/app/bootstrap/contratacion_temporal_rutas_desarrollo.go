@@ -8,6 +8,7 @@ import (
 
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
 	plantillashttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -64,6 +65,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		httpinterno.RutaReincorporacionesTitular:        {pdpCT(http.MethodPost)},
 		httpinterno.RutaCapacidadReincorporacionTitular: {pdpCT(http.MethodPost)},
 		plantillashttp.RutaCatalogo:                     {pdpCT(http.MethodGet)},
+		ajusteshttp.Ruta:                                {pdpCT(http.MethodGet), pdpCT(http.MethodPost)},
 		plantillashttp.RutaEntradas:                     {pdpCT(http.MethodPost)},
 		plantillashttp.RutaPublicar:                     {pdpCT(http.MethodPost)},
 		plantillashttp.RutaBorradoresDisponibles:        {pdpCT(http.MethodPost)},
@@ -213,6 +215,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	}
 	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaPlanB2 || r.URL.Path == httpinterno.RutaConfirmacionB2 || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || rutaAnalisisContratacionTemporalDesarrollo(r.URL.Path) ||
 		rutaPlantillasCatalogoCTDesarrollo(r.URL.Path) ||
+		r.URL.Path == ajusteshttp.Ruta ||
 		rutaPlantillasDocumentalCTDesarrollo(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||

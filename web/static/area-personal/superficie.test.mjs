@@ -6,9 +6,9 @@ import { fileURLToPath } from "node:url";
 
 import { esOrigenSinteticoODesarrollo, exigirDatosOperativos, exigirParametrosConocidos } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
-import { renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio } from "./vistas/inicio-convocatorias.js";
-import { renderizarMeritos, renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js";
-import { renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones } from "./vistas/seguimiento-tramites.js";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js";
+import { renderizarAlegaciones, renderizarLlamamientos, renderizarSubsanaciones } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
@@ -85,7 +85,9 @@ test("la dirección solo admite los parámetros que genera el área personal", (
   for (const consulta of ["presentacion=rrhh", "presentacion=", "vista=inicio&presentacion=rrhh", "perfil=tecnico", "utm_source=x"]) {
     assert.throws(() => exigirParametrosConocidos(new URLSearchParams(consulta)), /parámetros no admitidos/u, consulta);
   }
-  for (const consulta of ["", "vista=llamamientos", "vista=convocatoria&id=CONV-001"]) {
+  // Los enlaces antiguos a una convocatoria o un expediente llevaban `id`: se
+  // admiten para redirigirlos a Mi bolsa en lugar de detener el arranque.
+  for (const consulta of ["", "vista=llamamientos", "vista=convocatoria&id=CONV-001", "vista=seguimiento&id=SOL-0001"]) {
     assert.doesNotThrow(() => exigirParametrosConocidos(new URLSearchParams(consulta)), consulta);
   }
 });
@@ -94,8 +96,7 @@ test("la superficie cubre todos los recorridos solicitados y conserva semántica
   const html = await readFile(join(RAIZ, "index.html"), "utf8");
   const fuentes = (await Promise.all((await archivosEn(join(RAIZ, "vistas"))).map((ruta) => readFile(ruta, "utf8")))).join("\n");
   for (const texto of [
-    "Convocatorias", "Perfil y contacto", "Méritos y documentos",
-    "Mis expedientes", "Mi bolsa",
+    "Perfil y contacto", "Mi bolsa",
     "Subsanaciones", "Alegaciones", "Mensajes y noticias", "Certificados y descargas",
     "Ayuda y accesibilidad",
   ]) assert.match(`${html}\n${fuentes}`, new RegExp(texto, "u"), texto);
@@ -103,6 +104,11 @@ test("la superficie cubre todos los recorridos solicitados y conserva semántica
   assert.doesNotMatch(html, /Inicio y plazos/u);
   // El asistente antiguo de solicitud y la autobaremación no tienen servicio: no se ofrecen.
   assert.doesNotMatch(html, /data-ruta="(?:solicitud|autobaremacion)"|id="dialogo-(?:confirmacion|recibo)"/u);
+  // Convocatorias, méritos y expedientes tampoco tienen servicio: se retiran del menú.
+  assert.doesNotMatch(html, /data-ruta="(?:convocatorias|convocatoria|meritos|seguimiento)"|id="busqueda-global"/u);
+  const vistasProducto = (await Promise.all((await archivosEn(join(RAIZ, "vistas"))).filter((ruta) => ruta.endsWith(".js"))
+    .map((ruta) => readFile(ruta, "utf8")))).join("\n");
+  assert.doesNotMatch(vistasProducto, /enlaceRuta\("(?:convocatorias|convocatoria|meritos|seguimiento)"|data-accion="(?:abrir-convocatoria|abrir-expediente|enfocar-nuevo-merito)"/u);
   for (const etiqueta of ["header", "nav", "main", "footer", "dialog", "form", "table", "fieldset", "label"]) {
     assert.match(`${html}\n${fuentes}`, new RegExp(`<${etiqueta}\\b`, "u"), etiqueta);
   }
@@ -148,15 +154,11 @@ test("el área rechaza datos sintéticos, de desarrollo o de presentación", () 
 test("ninguna vista ofrece rótulos de demostración o simulación", () => {
   const datos = datosPrueba();
   const estado = {
-    filtros: { termino: "", estado: "Todas", categoria: "Todas" },
-    convocatoriaSeleccionada: datos.convocatorias[0].id,
-    expedienteSeleccionado: datos.solicitudes[0].id,
     consultaAyuda: "",
   };
   const superficies = [
-    renderizarInicio(datos), renderizarConvocatorias(datos, estado), renderizarDetalleConvocatoria(datos, estado),
-    renderizarPerfil(datos), renderizarMeritos(datos),
-    renderizarSeguimiento(datos, estado), renderizarLlamamientos(datos), renderizarSubsanaciones(datos),
+    renderizarInicio(datos), renderizarPerfil(datos),
+    renderizarLlamamientos(datos), renderizarSubsanaciones(datos),
     renderizarAlegaciones(datos), renderizarMensajes(datos), renderizarCertificados(datos), renderizarAyuda(datos, estado),
   ];
   for (const superficie of superficies) {

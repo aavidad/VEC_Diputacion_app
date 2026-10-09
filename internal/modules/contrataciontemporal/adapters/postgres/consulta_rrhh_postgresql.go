@@ -160,8 +160,16 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 				return ports.PaginaCuadroRRHH{},
 					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 			}
+			if pagina.CapturasPlazo, err = salida.capturasPagina(pagina.Expedientes, pagina.FasesDesde); err != nil {
+				return ports.PaginaCuadroRRHH{},
+					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
+			}
 			if solicitud.Resumen() {
 				if pagina.Agregados, err = salida.agregados(); err != nil {
+					return ports.PaginaCuadroRRHH{},
+						&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
+				}
+				if err = salida.capturasResumen(pagina.Agregados); err != nil {
 					return ports.PaginaCuadroRRHH{},
 						&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 				}
@@ -510,14 +518,14 @@ func destinosCuadroConsultaRRHH(s *salidaCuadroConsultaRRHH) []any {
 		append(destinosCierreConsultaRRHH(&s.cierre),
 			&s.totalFiltrado, &s.enTramitacion,
 			&s.conIncidencia, &s.enLlamamiento,
-			&s.faseDesdeExpedientes, &s.faseDesdeInstantes, &s.urgentes)...,
+			&s.faseDesdeExpedientes, &s.faseDesdeInstantes, &s.urgentes, &s.capturasPlazo)...,
 	)
 }
 
 func destinosCuadroResumenConsultaRRHH(s *salidaCuadroConsultaRRHH) []any {
 	return append(destinosCuadroConsultaRRHH(s),
 		&s.recuentoEstados, &s.recuentoFases, &s.recuentoNumeros,
-		&s.plazoFases, &s.plazoDesde, &s.plazoUrgentes, &s.plazoNumeros)
+		&s.plazoFases, &s.plazoDesde, &s.plazoUrgentes, &s.plazoNumeros, &s.capturasGrupos)
 }
 
 func destinosDetalleConsultaRRHH(s *salidaDetalleConsultaRRHH) []any {

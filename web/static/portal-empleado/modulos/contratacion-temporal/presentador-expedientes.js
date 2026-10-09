@@ -412,10 +412,16 @@ export function crearPresentadorExpedientesContratacionTemporal({
     cancelarEnCurso();
     const operacion = secuencia;
     controlador = new AbortController();
+    // El recibo ya confirmó la versión resultante: se lee esa versión exacta.
+    // La versión guardada del cuadro es la anterior a la actuación y el
+    // servidor ya no la publica (404), venga la ficha del cuadro o de un enlace.
+    const lecturaExacta = typeof fuente.obtenerDesdeEnlace === "function";
     try {
       const actualizado = proyectarAutorizacionVisual(
         validarExpedienteContratacionTemporal(
-          await fuente.obtener(expedienteRef, { signal: controlador.signal }),
+          await (lecturaExacta
+            ? fuente.obtenerDesdeEnlace(expedienteRef, versionResultante, { signal: controlador.signal })
+            : fuente.obtener(expedienteRef, { signal: controlador.signal })),
         ),
         concesionesVisuales,
       );
@@ -423,7 +429,8 @@ export function crearPresentadorExpedientesContratacionTemporal({
       if (actualizado.expediente_ref !== expedienteRef
         || actualizado.numero_visible !== anterior.numero_visible
         || actualizado.version < versionResultante
-        || actualizado.version < anterior.version) return estado;
+        || actualizado.version < anterior.version
+        || (lecturaExacta && actualizado.version !== versionResultante)) return estado;
       const tareaActual = actualizado.tareas.find(
         ({ tarea_ref: referencia }) => referencia === estado.tarea_ref,
       );

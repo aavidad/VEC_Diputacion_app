@@ -10,20 +10,19 @@ import (
 	"time"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-func TestCeseB45NoSirveCacheRRHHNiB10TrasFallarFuente(t *testing.T) {
+// Si Bolsa no se puede leer, la cobertura queda «no disponible», con o sin
+// cese: no hay lectura anterior que servir.
+func TestCeseB45CoberturaNoSirveDatosPreviosTrasFallarFuente(t *testing.T) {
 	ahora := time.Now().UTC()
-	cache := datasetBolsasRRHHDesarrollo{GeneradoEn: ahora.Add(-time.Second).Format(time.RFC3339)}
-	f := &fuenteConstituidaRRHHDesarrollo{
-		ceseActivo: true, cacheada: true, cache: cache, hasta: ahora.Add(time.Hour), ahora: func() time.Time { return ahora },
-	}
-	if _, ok := f.constituidas(context.Background()); ok {
-		t.Fatal("B45 activo devolvió datos previos cuando la lectura sensible falló")
-	}
-	f.ceseActivo = false
-	if datos, ok := f.constituidas(context.Background()); !ok || datos.GeneradoEn != cache.GeneradoEn {
-		t.Fatal("sin B45 se alteró el comportamiento histórico de cache")
+	for _, cese := range []bool{true, false} {
+		f := &fuenteConstituidaRRHHDesarrollo{ceseActivo: cese, ahora: func() time.Time { return ahora }}
+		_, err := situacionBolsaCoberturaDesarrollo{fuente: f}.SituacionBolsaCobertura(context.Background(), "categoria:rpt:prueba-01")
+		if !errors.Is(err, ctports.ErrSituacionBolsaCoberturaNoDisponible) {
+			t.Fatalf("cese=%v: una fuente que falla dio situación: %v", cese, err)
+		}
 	}
 }
 

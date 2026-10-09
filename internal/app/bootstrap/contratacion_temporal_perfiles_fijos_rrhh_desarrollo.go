@@ -11,6 +11,7 @@ import (
 
 	"vec-diputacion-granada/config"
 
+	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -80,6 +81,9 @@ func (p *perfilFijoCTDesarrollo) atiende(ruta string) bool {
 }
 
 func (p *perfilFijoCTDesarrollo) atiendeMetodo(ruta, metodo string) bool {
+	if ruta == ajusteshttp.Ruta && p != nil && p.clave == clavePerfilFijoLectorEntregaCTDesarrollo {
+		return p.atiende(ruta) && (metodo == http.MethodGet || metodo == http.MethodPost)
+	}
 	return p.atiende(ruta) && (p.metodo == "" || p.metodo == metodo)
 }
 
@@ -571,6 +575,7 @@ func configurarSesionesPerfilesFijosCTDesarrollo(
 func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	s *soporteAltaContratacionTemporalDesarrollo, principal dominiovec.Principal, ahora time.Time,
 	origen *origenConsultasContratacionTemporalDesarrollo,
+	ajustesReglas ...bool,
 ) error {
 	if s == nil {
 		return errAltaContratacionTemporalDesarrolloNoDisponible
@@ -603,15 +608,26 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 			return err
 		}
 		entrega.metodo = http.MethodPost
+		rutasLectura := []string{rutaEntregaPeticionCentro}
+		if len(ajustesReglas) > 0 && ajustesReglas[0] {
+			rutasLectura = append(rutasLectura, ajusteshttp.Ruta)
+		}
 		lectorEntrega, err = nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoLectorEntregaCTDesarrollo,
-			[]string{rutaEntregaPeticionCentro},
+			rutasLectura,
 			func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-				return nuevaInstantaneaAutorizacionLectorEntregaPeticionDesarrollo(principalID, perfilRef, ahora)
+				plantilla, err := nuevaInstantaneaAutorizacionLectorEntregaPeticionDesarrollo(principalID, perfilRef, ahora)
+				if err != nil || len(ajustesReglas) == 0 || !ajustesReglas[0] {
+					return plantilla, err
+				}
+				return ampliarInstantaneaLectorEntregaConAjustesCT(plantilla)
 			})
 		if err != nil {
 			return err
 		}
 		lectorEntrega.metodo = http.MethodGet
+	}
+	if len(ajustesReglas) > 0 && ajustesReglas[0] && lectorEntrega == nil {
+		return errMontajeAjustesReglasCT
 	}
 	cobertura, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoCoberturaCTDesarrollo,
 		[]string{httpinterno.RutaPropuestaCobertura, httpinterno.RutaDecisionCobertura,
