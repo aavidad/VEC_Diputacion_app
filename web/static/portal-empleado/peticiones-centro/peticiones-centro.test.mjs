@@ -59,13 +59,19 @@ test("borrador y comando rechazan controles dentro del puesto sin cambiar el det
     inicio: "2026-11-02", fin: "2026-12-31", numero_personas: "2", puesto_solicitado: "Administrativo C2" };
   assert.equal(validarBorradorAlta(borrador, catalogos).valido, true);
   const comando = crearComandoPeticionCentro(borrador, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6");
-  for (const puesto of ["Auxiliar\tadministrativo", "Auxiliar\nadministrativo", "Auxiliar\u0007administrativo"]) {
-    assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: puesto }, catalogos).errores.puesto_solicitado, "texto_obligatorio");
+  for (const puesto of ["", "A".repeat(161), "Auxiliar\tadministrativo", "Auxiliar\nadministrativo", "Auxiliar\u0007administrativo"]) {
+    assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: puesto }, catalogos).errores.puesto_solicitado, "puesto_solicitado");
     assert.throws(() => validarComandoAlta({ clave_idempotencia: comando.clave_idempotencia,
       numero_expediente_moad: "2026/94009", solicitud: { ...comando.solicitud, puesto_solicitado: puesto } }));
   }
   assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: "Auxiliar e\u0301" }, catalogos).valido, false);
-  assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: "A".repeat(161) }, catalogos).valido, false);
+  const estado = { fase: "edicion", disponible: true, ocupado: false, borrador,
+    catalogos, errores: { puesto_solicitado: "puesto_solicitado", jornada_minutos: "jornada" },
+    mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" };
+  const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado });
+  assert.equal((html.match(/máximo 160 caracteres/gu) || []).length, 2);
+  assert.equal((html.match(/Máximo: 168 horas/gu) || []).length, 2);
+  assert.doesNotMatch(html, /máximo de 4\.000 caracteres/iu);
 });
 
 test("la jornada escrita en horas no se convierte en minutos si excede el máximo", () => {
@@ -88,7 +94,7 @@ test("la jornada escrita en horas no se convierte en minutos si excede el máxim
       valores.jornada_horas = horas;
       const borrador = extraerBorrador(formulario, false);
       assert.equal(borrador.jornada_minutos, "", `${horas} horas no son minutos válidos`);
-      assert.equal(validarBorradorAlta(borrador, catalogos).valido, false);
+      assert.equal(validarBorradorAlta(borrador, catalogos).errores.jornada_minutos, "jornada");
       assert.throws(() => crearComandoPeticionCentro(borrador, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6"));
     }
     valores.jornada_horas = "37:30";
