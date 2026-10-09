@@ -131,7 +131,7 @@ func (p PlanVersionInscripcion) ValidarEstructura() error {
 		concesion := p.DefinicionNueva.Concesiones[indice+i]
 		seleccion := p.Selecciones[i]
 		if concesion.Validar() != nil || concesion.ModuloID != "bolsa" ||
-			concesion.Accion != esperado || !concesionInscripcionExacta(concesion) ||
+			concesion.Accion != esperado || !concesionInscripcionExacta(concesion, p.PerfilObjetivo) ||
 			!textoAutorizacionSinComodinSeguro(seleccion.EntradaRef, 512, false) ||
 			seleccion.EntradaVersion < 1 ||
 			!huellaSHA256AutorizacionV3NoNula(seleccion.EntradaHuellaSHA256) {
@@ -214,6 +214,10 @@ func (p PlanVersionInscripcion) ValidarContraCatalogo(c CatalogoAccionesAdminist
 				!concesionesPerfilAdministracionIguales(entrada.Concesion, p.DefinicionNueva.Concesiones[indice+i]) {
 				return ErrPlanVersionInscripcionInvalido
 			}
+			if p.PerfilObjetivo == PerfilVersionInscripcionEmpleado &&
+				!existeParExternoInscripcion(c.Entradas, entrada.Concesion) {
+				return ErrPlanVersionInscripcionInvalido
+			}
 			for _, cambio := range p.Asignaciones {
 				if !dimensionesInscripcionIguales(entrada.DimensionesAmbito, cambio.Ambitos) {
 					return ErrPlanVersionInscripcionInvalido
@@ -266,17 +270,17 @@ func contratoPerfilInscripcion(perfil PerfilObjetivoVersionInscripcion) (string,
 	return "", nil, false
 }
 
-func concesionInscripcionExacta(c ConcesionRol) bool {
+func concesionInscripcionExacta(c ConcesionRol, perfil PerfilObjetivoVersionInscripcion) bool {
 	var finalidad, tipo string
 	switch c.Accion {
 	case "bolsa.inscripcion.convocatorias.listar", "bolsa.inscripcion.convocatoria.consultar":
-		finalidad = "consulta_convocatoria_abierta"
+		finalidad, tipo = "consulta_convocatoria_abierta", "convocatoria_inscripcion"
 	case "bolsa.inscripcion.propias.listar", "bolsa.inscripcion.propia.consultar":
-		finalidad = "consulta_inscripcion_propia"
+		finalidad, tipo = "consulta_inscripcion_propia", "solicitud_inscripcion"
 	case "bolsa.inscripcion.rrhh.listar", "bolsa.inscripcion.rrhh.consultar":
-		finalidad = "consulta_inscripcion_rrhh"
+		finalidad, tipo = "consulta_inscripcion_rrhh", "solicitud_inscripcion"
 	case "bolsa.inscripcion.rrhh.motivos":
-		finalidad = "consulta_motivos_inscripcion_rrhh"
+		finalidad, tipo = "consulta_motivos_inscripcion_rrhh", "motivos_inscripcion"
 	case "bolsa.inscripcion.presentar":
 		finalidad, tipo = "presentar_inscripcion", "inscripcion_convocatoria"
 	case "bolsa.inscripcion.rrhh.decidir":
@@ -286,9 +290,34 @@ func concesionInscripcionExacta(c ConcesionRol) bool {
 	default:
 		return false
 	}
-	return c.GarantiaMinima == AuthAssuranceHigh && len(c.Finalidades) == 1 &&
-		c.Finalidades[0] == finalidad && (tipo == "" || c.TipoRecurso == tipo) &&
-		!strings.Contains(c.TipoRecurso, "*")
+	if perfil == PerfilVersionInscripcionEmpleado {
+		tipo += "_empleado"
+	}
+	if c.GarantiaMinima != AuthAssuranceHigh || len(c.Finalidades) != 1 ||
+		c.Finalidades[0] != finalidad || strings.Contains(c.TipoRecurso, "*") {
+		return false
+	}
+	return c.TipoRecurso == tipo
+}
+
+func existeParExternoInscripcion(entradas []EntradaAccionAdministracionV1, empleado ConcesionRol) bool {
+	base, ok := strings.CutSuffix(empleado.TipoRecurso, "_empleado")
+	if !ok || base == "" {
+		return false
+	}
+	for _, entrada := range entradas {
+		externo := entrada.Concesion
+		if externo.Accion != empleado.Accion || externo.ModuloID != "bolsa" || externo.TipoRecurso != base ||
+			!concesionInscripcionExacta(externo, PerfilVersionInscripcionExterno) ||
+			len(entrada.DimensionesAmbito) != 1 || entrada.DimensionesAmbito[0] != "candidato_ref" {
+			continue
+		}
+		return listasPerfilAdministracionIguales(externo.Finalidades, empleado.Finalidades) &&
+			listasPerfilAdministracionIguales(externo.CamposPermitidos, empleado.CamposPermitidos) &&
+			listasPerfilAdministracionIguales(externo.Obligaciones, empleado.Obligaciones) &&
+			externo.GarantiaMinima == empleado.GarantiaMinima
+	}
+	return false
 }
 
 func cambioAsignacionInscripcionValido(c CambioAsignacionInscripcion, perfil PerfilObjetivoVersionInscripcion) bool {
