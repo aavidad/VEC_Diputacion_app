@@ -400,13 +400,18 @@ test("el panel antiguo no anuncia recorridos sin API compuesta", async () => {
 test("la navegación directa a una vista de Bolsa sin servicio no se permite", async () => {
   const { vistaBolsaNavegable, vistaBolsaOfrecida } = await import("./portal-menu-bolsa.js");
   const sinServicio = { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false };
-  for (const vista of ["convocatorias", "solicitudes", "meritos", "alegaciones", "importacion", "contratos",
+  for (const vista of ["convocatorias", "meritos", "alegaciones", "importacion", "contratos",
     "reglas", "baremacion", "consulta", "documentos", "comunicaciones", "auditoria", "configuracion", "elaboracion"]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), false, vista);
   }
-  for (const vista of ["resumen", "estadisticas", "llamamientos", VISTA_CANDIDATOS_BOLSA]) {
+  for (const vista of ["resumen", "estadisticas", "llamamientos", "solicitudes", VISTA_CANDIDATOS_BOLSA]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), true, vista);
   }
+  // Inscripciones: con el servicio apagado (o sin comprobar) no aparece en el
+  // menú; su enlace directo abre y explica que no está disponible.
+  assert.equal(vistaBolsaOfrecida("solicitudes", { panelInterno: true, bolsasConsultables: true }), false);
+  assert.equal(vistaBolsaOfrecida("solicitudes", { inscripciones: false }), false);
+  assert.equal(vistaBolsaOfrecida("solicitudes", { inscripciones: true }), true);
   // Elaboración sin comprobar: no se ofrece en el menú, pero su enlace directo
   // se deja abrir (abrirla es lo que comprueba su API); si consta que falta, no.
   assert.equal(vistaBolsaNavegable("elaboracion", { borradores: null }), true);

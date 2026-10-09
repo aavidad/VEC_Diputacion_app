@@ -55,6 +55,19 @@
   padding: 16px;
 }
 
+[data-inscripciones-montaje] [data-inscripcion-elegir],
+[data-inscripciones-montaje] [data-inscripcion-elegir] > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-inscripciones-montaje] [data-inscripcion-convocatoria] {
+  display: inline-block;
+  max-inline-size: clamp(12rem, 25vw, 28rem);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .tarjeta-modulo-habilitada {
   border-color: var(--portal-azul-700);
   box-shadow: var(--portal-sombra-sm);
