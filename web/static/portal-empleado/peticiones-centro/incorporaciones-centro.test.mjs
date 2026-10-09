@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import {
   RUTAS_INCORPORACIONES_CENTRO, crearClienteIncorporacionesCentro, montarIncorporacionesCentro, validarBandejaIncorporaciones,
   validarSolicitudConfirmacionCentro,
+  periodoSolicitadoVisible,
 } from "./incorporaciones-centro.js";
 
 const fila = (extra = {}) => ({ peticion_ref: "peticion:centro:1", expediente_ref: "expediente:ct:1", numero_visible: "2026/B-124", version: 7,
@@ -17,11 +19,32 @@ test("la solicitud y la bandeja se validan: nada ajeno, fechas reales y no futur
   assert.equal(validarSolicitudConfirmacionCentro({ ...solicitud }, "2026-09-26").fecha_incorporacion, "2026-09-01");
   assert.throws(() => validarSolicitudConfirmacionCentro({ ...solicitud, fecha_incorporacion: "2026-09-27" }, "2026-09-26"), TypeError, "futura");
   assert.throws(() => validarSolicitudConfirmacionCentro({ ...solicitud, fecha_incorporacion: "2026-02-30" }), TypeError);
+  assert.throws(() => validarSolicitudConfirmacionCentro({ ...solicitud, fecha_incorporacion: "2026-09-01T00:00:00Z" }), TypeError);
   assert.throws(() => validarSolicitudConfirmacionCentro({ ...solicitud, documento_sha256: "0".repeat(64) }), TypeError);
   assert.throws(() => validarSolicitudConfirmacionCentro({ ...solicitud, actor_ref: "x" }), TypeError);
   assert.equal(validarBandejaIncorporaciones(bandeja()).expedientes.length, 1);
   assert.throws(() => validarBandejaIncorporaciones(bandeja({ esquema: "otro" })), TypeError);
   assert.throws(() => validarBandejaIncorporaciones(bandeja({ expedientes: [fila({ expediente_ref: "x" })] })), TypeError);
+});
+
+test("el periodo solicitado histórico conserva días civiles sin inferir incorporación ni fin", () => {
+  const inicio = "2 de noviembre de 2026";
+  const fin = "31 de diciembre de 2026";
+  assert.equal(periodoSolicitadoVisible({ inicio: "2026-11-02T00:00:00Z", fin: "2026-12-31T00:00:00Z" }), `${inicio} — ${fin}`);
+  assert.equal(periodoSolicitadoVisible({ inicio: "2026-11-02", fin: "2026-12-31" }), `${inicio} — ${fin}`);
+  assert.equal(periodoSolicitadoVisible({ inicio: "2028-02-29T00:00:00.000+00:00", causa_fin: "reincorporacion_titular" }), "29 de febrero de 2028 — —");
+  for (const valor of ["2026-02-30", "2027-02-29T00:00:00Z", "2026-11-02T00:00:00+01:00", "2026-11-02T01:00:00Z", "2026-11-02T00:00:00Zextra"]) {
+    assert.equal(periodoSolicitadoVisible({ inicio: valor, fin: "2026-12-31" }), `— — ${fin}`, valor);
+  }
+});
+
+test("el periodo solicitado histórico respeta el idioma inglés elegido", () => {
+  const modulo = new URL("./incorporaciones-centro.js", import.meta.url).href;
+  const script = `globalThis.location={href:"http://local/peticiones-centro/?lang=en",search:"?lang=en"};
+    const {periodoSolicitadoVisible}=await import(${JSON.stringify(modulo)});
+    process.stdout.write(periodoSolicitadoVisible({inicio:"2026-11-02T00:00:00Z",fin:"2026-12-31T00:00:00Z"}));`;
+  const salida = execFileSync(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8" });
+  assert.equal(salida, "2 November 2026 — 31 December 2026");
 });
 
 test("el cliente pide solo rutas fijas del mismo origen, sin caché, redirecciones ni referente", async () => {
@@ -84,4 +107,16 @@ test("sin permiso de confirmar solo se ve el estado pendiente", async () => {
   await esperar();
   assert.doesNotMatch(c.innerHTML, /data-ic-abrir/u);
   assert.match(c.innerHTML, /Pendiente de confirmar/u);
+});
+
+test("la bandeja en tramitación muestra el periodo solicitado y conserva «Aún no procede»", async () => {
+  const c = contenedorFalso();
+  montarIncorporacionesCentro({ contenedor: c, cliente: { bandeja: async () => validarBandejaIncorporaciones(bandeja({ expedientes: [fila({
+    fase: "solicitud", documento_exigido: "", periodo: { inicio: "2026-11-02T00:00:00Z", fin: "2026-12-31T00:00:00Z" },
+  })] })) } });
+  await esperar();
+  assert.match(c.innerHTML, /2 de noviembre de 2026 — 31 de diciembre de 2026/u);
+  assert.match(c.innerHTML, /En tramitación en RRHH/u);
+  assert.match(c.innerHTML, /Aún no procede/u);
+  assert.doesNotMatch(c.innerHTML, /data-ic-abrir/u);
 });

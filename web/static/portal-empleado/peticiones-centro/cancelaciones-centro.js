@@ -7,13 +7,12 @@
  * un motivo del catálogo. Fases y motivos los decide el servidor; la vista
  * solo evita ofrecer la cancelación cuando no procede.
  */
-import { crearClienteIncorporacionesCentro } from "./incorporaciones-centro.js?v=20261007-pc-recuperacion-v1";
+import { crearClienteIncorporacionesCentro, periodoSolicitadoVisible } from "./incorporaciones-centro.js?v=20261007-pc-recuperacion-v1";
 import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
 
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
-import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO,
-  MENSAJES_CANCELACIONES_CENTRO } from "./i18n-peticiones-centro.js?v=20261007-pc-recuperacion-v1";
+import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, MENSAJES_CANCELACIONES_CENTRO } from "./i18n-peticiones-centro.js?v=20261007-pc-recuperacion-v1";
 
 export const RUTAS_CANCELACIONES_CENTRO = Object.freeze({
   consulta: "/api/vec/contratacion-temporal/peticiones-centro/cancelacion",
@@ -33,12 +32,6 @@ export function crearTraductorCancelacionesCentro(mensajes = MENSAJES_CANCELACIO
 }
 
 const escapar = (v) => String(v ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-
-function fechaVisible(valor) {
-  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(valor)) return "—";
-  const f = new Date(`${valor}T00:00:00Z`);
-  return Number.isFinite(f.getTime()) ? new Intl.DateTimeFormat(LOCALIZACION_PETICIONES_CENTRO, { dateStyle: "long", timeZone: "UTC" }).format(f) : valor;
-}
 
 /** Cliente de las dos rutas del centro: mismo origen, sin caché, redirecciones ni referente. */
 export function crearClienteCancelacionesCentro(fetchImpl = globalThis.fetch) {
@@ -113,7 +106,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
     const accion = e.estado === "cancelado"
       ? `<span class="pc-estado">${escapar(t("cancelado"))}</span>`
       : `<button type="button" class="boton-secundario" data-cc-abrir="${escapar(e.expediente_ref)}" aria-expanded="${abierto === e.expediente_ref}">${escapar(t("cancelar"))}</button>`;
-    const periodo = e.periodo ? `${fechaVisible(e.periodo.inicio)} — ${fechaVisible(e.periodo.fin)}` : "—";
+    const periodo = periodoSolicitadoVisible(e.periodo);
     return `<tr><td>${escapar(e.numero_visible)}</td><td>${escapar(periodo)}</td><td>${escapar(e.estado === "cancelado" ? t("cancelado") : fase(e.fase))}</td><td>${accion}</td></tr>`;
   }
 

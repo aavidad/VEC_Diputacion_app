@@ -68,3 +68,15 @@ test("solo ofrece cancelar en las fases que admite el catálogo y se oculta si e
   desmontar();
   assert.equal(c.eventos.size, 0);
 });
+
+test("cancelación reutiliza el periodo solicitado histórico, también sin fecha de fin", async () => {
+  const c = contenedorFalso();
+  montarCancelacionesCentro({ contenedor: c, bandeja: { bandeja: async () => ({ expedientes: [fila({ periodo: {
+    inicio: "2026-11-02T00:00:00Z", fin: "2026-12-31T00:00:00Z",
+  } }), fila({ expediente_ref: "expediente:ct:2", numero_visible: "2026/CT-000125", periodo: {
+    inicio: "2028-02-29T00:00:00Z", causa_fin: "reincorporacion_titular",
+  } })] }) }, cliente: { consultar: async (ref) => opciones(ref) } });
+  await esperar(); await esperar();
+  assert.match(c.innerHTML, /2 de noviembre de 2026 — 31 de diciembre de 2026/u);
+  assert.match(c.innerHTML, /29 de febrero de 2028 — —/u);
+});

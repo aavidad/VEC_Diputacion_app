@@ -43,6 +43,21 @@ function fechaVisible(valor) {
   return Number.isFinite(f.getTime()) ? new Intl.DateTimeFormat(LOCALIZACION_PETICIONES_CENTRO, { dateStyle: "long", timeZone: "UTC" }).format(f) : valor;
 }
 
+// La petición histórica conserva fechas civiles como time.Time (medianoche
+// UTC). Solo se acepta esa representación o la fecha civil ya normalizada;
+// convertir una zona horaria del navegador podría cambiar el día solicitado.
+export function periodoSolicitadoVisible(periodo) {
+  if (!periodo || typeof periodo !== "object") return "—";
+  const civil = (valor) => {
+    if (typeof valor !== "string") return null;
+    const partes = /^(\d{4}-\d{2}-\d{2})(?:T00:00:00(?:\.0+)?(?:Z|\+00:00))?$/u.exec(valor);
+    return partes && fechaCivilValida(partes[1]) ? partes[1] : null;
+  };
+  const inicio = civil(periodo.inicio);
+  const fin = civil(periodo.fin);
+  return `${inicio ? fechaVisible(inicio) : "—"} — ${fin ? fechaVisible(fin) : "—"}`;
+}
+
 export function fechaCivilValida(valor) {
   if (typeof valor !== "string" || !FECHA.test(valor)) return false;
   const f = new Date(`${valor}T00:00:00Z`);
@@ -177,7 +192,7 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
           ? `<button type="button" class="boton-secundario" data-ic-abrir="${escapar(e.expediente_ref)}" aria-expanded="${abierto === e.expediente_ref}">${escapar(t("confirmar"))}</button>`
           : `<span class="pc-estado pc-estado-pendiente">${escapar(t("pendiente"))}</span>`)
         : `<span class="pc-estado">${escapar(t("no_procede"))}</span>`;
-    const periodo = e.periodo ? `${fechaVisible(e.periodo.inicio)} — ${fechaVisible(e.periodo.fin)}` : "—";
+    const periodo = periodoSolicitadoVisible(e.periodo);
     return `<tr id="${escapar(idFilaExpediente(e))}" tabindex="-1"><td>${escapar(e.numero_visible)}</td><td>${escapar(periodo)}</td><td>${escapar(situacion(e))}</td><td>${estadoIncorporacion}</td></tr>`;
   }
 
