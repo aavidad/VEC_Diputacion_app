@@ -5,10 +5,35 @@ SET LOCAL statement_timeout='15s';
 SET LOCAL lock_timeout='2s';
 DO $test$
 DECLARE id text; material jsonb; bytes bytea; referencia text; ref33 text; ref128 text; ref4 text; ref_largo text;
+ pol_doc text; pol_sha text; pol_entradas jsonb;
  pagina jsonb; segunda jsonb; tercera jsonb; todos jsonb; item jsonb; detalle jsonb; posterior jsonb;
  f_lista regprocedure; f_detalle regprocedure; f_post regprocedure;
  i integer;
 BEGIN
+ SELECT jsonb_agg(jsonb_build_object(
+  'clave','ambito.gestion.'||encode(sha256(convert_to(q.id,'UTF8')),'hex')||'.v1',
+  'etiqueta','Ámbito RRHH','orden',q.orden,'vigente_desde','2026-10-09T00:00:00Z',
+  'atributos',jsonb_build_object(
+   'convocatoria_ref','cv1_'||encode(sha256(convert_to(q.id,'UTF8')),'hex')||'_v1',
+   'unidad_ref','unidad:rrhh-1','ambito_ref','ambito:gestion-1',
+   'canal','interna_corporativa')) ORDER BY q.orden)
+ INTO pol_entradas FROM (
+  SELECT 'proceso:bolsa:inscripcion-'||gs.valor AS id,gs.valor AS orden
+  FROM generate_series(1,6) AS gs(valor)
+  UNION ALL SELECT repeat('a',480),7
+ ) AS q;
+ pol_doc:=jsonb_build_object('id','bolsa.politica.inscripcion','version',1,
+  'revision',1,'modulo_id','bolsa','nombre','Política sintética',
+  'fuente_ref','fuente:sintetica','motivo_creacion','Prueba BC9',
+  'entradas',pol_entradas,'estado','publicado','creado_por','persona:sintetica-1',
+  'creado_en','2026-10-09T00:00:00Z','publicado_por','persona:sintetica-2',
+  'publicado_en','2026-10-09T00:00:00Z',
+  'aprobacion_ref','aprobacion:sintetica','motivo_publicacion','Prueba')::text;
+ pol_sha:=encode(sha256(convert_to(pol_doc,'UTF8')),'hex');
+ PERFORM vec_catalogos_configurables.publicar('bolsa.politica.inscripcion',1,
+  pol_sha,pol_doc,'{}'::jsonb,encode(sha256(convert_to('{}','UTF8')),'hex'),
+  'aprobacion:bc9:a','aprobacion:bc9:b','actor:bc9','decision:bc9',
+  'recibo:bc9','motivos_bolsa:1:motivo_demo');
  f_lista:='vec_bolsa_convocatorias.listar_abiertas_inscripcion_v1(text,integer)'::regprocedure;
  f_detalle:='vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(text)'::regprocedure;
  f_post:='vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(text,text)'::regprocedure;
@@ -46,7 +71,7 @@ BEGIN
      'orden',1,'descripcion','Identidad con certificado','obligatorio',true))),
    'configuracion',jsonb_build_object(
     'catalogos',jsonb_build_object('id','bolsa.politica.inscripcion','version',1,
-      'huella_contenido_sha256',repeat('b',64)),
+      'huella_contenido_sha256',pol_sha),
     'flujo_solicitud',jsonb_build_object('id','flujo:inscripcion','version',1,
       'huella_contenido_sha256',repeat('c',64)),
     'documentos',jsonb_build_array(jsonb_build_object('rol','bases',
@@ -63,9 +88,6 @@ BEGIN
  SELECT id,2,id||'#2','borrador',version_canonica,huella_version_sha256,statement_timestamp()
  FROM vec_bolsa_convocatorias.version_convocatoria WHERE convocatoria_id=id AND secuencia=1;
  ref4:='cv1_'||encode(sha256(convert_to(id,'UTF8')),'hex')||'_v1';
- IF vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(ref4) IS NULL
- OR vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(ref4,'cat.alpha') IS NULL
- THEN RAISE EXCEPTION 'BC9: borrador posterior retiró la publicación original'; END IF;
 
  -- Una publicación de 33 categorías se ofrece y conserva todas.
  id:='proceso:bolsa:inscripcion-5';
@@ -108,6 +130,10 @@ BEGIN
   (convocatoria_id,secuencia,referencia,estado,version_canonica,huella_version_sha256,registrada_en)
  VALUES(id,1,id||'#1','publicada',bytes,encode(sha256(bytes),'hex'),statement_timestamp());
 
+ IF vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(ref4) IS NULL
+ OR vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(ref4,'cat.alpha') IS NULL
+ THEN RAISE EXCEPTION 'BC9: borrador posterior retiró la publicación original'; END IF;
+
  pagina:=vec_bolsa_convocatorias.listar_abiertas_inscripcion_v1(NULL,2);
  IF pagina->>'total'<>'6' OR pagina->>'hay_mas'<>'true'
  OR jsonb_array_length(pagina->'items')<>2
@@ -132,6 +158,7 @@ BEGIN
   IF item ? 'categorias' OR item ? 'requisitos'
    OR item ? 'convocatoria_id' OR item ? 'identificador_publico'
    OR item ? 'bases_ref' OR item ? 'version_sha256'
+   OR item ? 'unidad_ref' OR item ? 'ambito_ref' OR item ? 'fuente_ref'
    OR coalesce(item->>'categoria_ref_comprobacion','')=''
    OR (item->>'numero_categorias')::integer NOT BETWEEN 1 AND 128
    OR jsonb_typeof(item->'categorias_refs_comprobacion') IS DISTINCT FROM 'array'
@@ -170,6 +197,7 @@ BEGIN
  referencia:=ref4;
  detalle:=vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(referencia);
  IF detalle->>'convocatoria_ref'<>referencia
+ OR detalle ? 'unidad_ref' OR detalle ? 'ambito_ref' OR detalle ? 'fuente_ref'
  OR jsonb_array_length(detalle->'categorias')<>2
  OR detalle#>>'{categorias,0,categoria_ref}'<>'cat.alpha'
  OR detalle#>>'{requisitos,0,estado}'<>'pendiente'
@@ -180,6 +208,12 @@ BEGIN
  posterior:=vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(referencia,'cat.beta');
  IF posterior->>'categoria_ref'<>'cat.beta'
  OR posterior#>>'{requisitos,0,estado}'<>'pendiente'
+ OR posterior->>'unidad_ref'<>'unidad:rrhh-1'
+ OR posterior->>'ambito_ref'<>'ambito:gestion-1'
+ OR posterior->>'fuente_ref' IS DISTINCT FROM
+    'ambito.gestion.'||encode(sha256(convert_to('proceso:bolsa:inscripcion-4','UTF8')),'hex')||'.v1'
+ OR posterior->>'fuente_version'<>'1'
+ OR posterior->>'fuente_sha256'<>pol_sha
  THEN RAISE EXCEPTION 'BC9: POST usa otra versión: %',posterior; END IF;
  BEGIN
   PERFORM vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(referencia,'cat.ajena');
@@ -193,5 +227,18 @@ BEGIN
  IF vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(
    'cv1_'||encode(sha256(convert_to('proceso:bolsa:inscripcion-3','UTF8')),'hex')||'_v1') IS NOT NULL
  THEN RAISE EXCEPTION 'BC9: detalle cerrado visible'; END IF;
+ id:='proceso:bolsa:sin-ambito-2026';
+ referencia:='cv1_'||encode(sha256(convert_to(id,'UTF8')),'hex')||'_v1';
+ material:=jsonb_set(material,'{id}',to_jsonb(id));
+ material:=jsonb_set(material,'{aprobacion_publicacion,convocatoria_ref}',to_jsonb(id||'#1'));
+ material:=jsonb_set(material,'{comprobacion_dependencias,convocatoria_ref}',to_jsonb(id||'#1'));
+ bytes:=convert_to(material::text,'UTF8');
+ INSERT INTO vec_bolsa_convocatorias.version_convocatoria
+  (convocatoria_id,secuencia,referencia,estado,version_canonica,huella_version_sha256,registrada_en)
+ VALUES(id,1,id||'#1','publicada',bytes,encode(sha256(bytes),'hex'),statement_timestamp());
+ BEGIN
+  PERFORM vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(referencia,'cat.alpha');
+  RAISE EXCEPTION 'BC9: POST sin ámbito gobernado aceptado';
+ EXCEPTION WHEN SQLSTATE 'B9601' THEN NULL; END;
 END $test$;
 ROLLBACK;

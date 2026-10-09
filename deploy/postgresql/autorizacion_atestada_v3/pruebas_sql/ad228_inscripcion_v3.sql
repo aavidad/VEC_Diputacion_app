@@ -17,6 +17,11 @@ BEGIN
    WHERE a.attrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
    AND a.attname='ratificacion_catalogo_detalle' AND a.atttypid='jsonb'::regtype
    AND NOT a.attisdropped)
+ OR (SELECT count(*) FROM pg_attribute a
+   WHERE a.attrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
+   AND NOT a.attisdropped AND (
+     (a.attname='lectura_revision_permisos' AND format_type(a.atttypid,a.atttypmod)='numeric(20,0)')
+     OR (a.attname='lectura_instantanea_sha256' AND a.atttypid='text'::regtype)))<>2
  OR NOT EXISTS(SELECT 1 FROM pg_constraint c
    WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
    AND c.conname='auditoria_tipo_disjunto_v4' AND c.convalidated

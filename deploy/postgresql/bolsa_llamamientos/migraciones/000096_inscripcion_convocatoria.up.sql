@@ -15,14 +15,29 @@ BEGIN
  OR to_regprocedure('vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(text,text)') IS NULL
  OR NOT has_function_privilege(current_user,
    'vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(text,text)','EXECUTE')
+ OR to_regprocedure('vec_bolsa_convocatorias.resolver_resumen_convocatorias_inscripcion_lote_v1(text[],text)') IS NULL
+ OR NOT has_function_privilege(current_user,
+   'vec_bolsa_convocatorias.resolver_resumen_convocatorias_inscripcion_lote_v1(text[],text)','EXECUTE')
  OR to_regprocedure('vec_catalogos_configurables.leer_etiquetas_inscripcion_v1(text,integer,text,text[],text)') IS NULL
  OR NOT has_function_privilege(current_user,
    'vec_catalogos_configurables.leer_etiquetas_inscripcion_v1(text,integer,text,text[],text)','EXECUTE')
+ OR to_regprocedure('vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(jsonb,text,text)') IS NULL
+ OR NOT has_function_privilege(current_user,
+   'vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(jsonb,text,text)','EXECUTE')
  OR to_regprocedure('vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb,text)') IS NULL
  OR NOT has_function_privilege(current_user,
    'vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(jsonb,text)','EXECUTE')
  OR to_regprocedure('vec_catalogos_configurables.comprobar_motivo_inscripcion_v1(text,integer,text,text)') IS NULL
- OR to_regprocedure('vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(text,integer,text)') IS NULL
+ OR to_regprocedure('vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(text,integer,text,text)') IS NULL
+ OR to_regprocedure('vec_catalogos_configurables.comprobar_ambitos_gestion_inscripcion_lote_v1(jsonb)') IS NULL
+ OR NOT has_function_privilege(current_user,
+   'vec_catalogos_configurables.comprobar_ambitos_gestion_inscripcion_lote_v1(jsonb)','EXECUTE')
+ OR to_regprocedure('vec_catalogos_configurables.comprobar_conjunto_gestion_rrhh_inscripcion_v1()') IS NULL
+ OR NOT has_function_privilege(current_user,
+   'vec_catalogos_configurables.comprobar_conjunto_gestion_rrhh_inscripcion_v1()','EXECUTE')
+ OR to_regprocedure('vec_catalogos_configurables.cotejar_conjunto_gestion_rrhh_inscripcion_actual_v1()') IS NULL
+ OR NOT has_function_privilege(current_user,
+   'vec_catalogos_configurables.cotejar_conjunto_gestion_rrhh_inscripcion_actual_v1()','EXECUTE')
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_presentacion_inscripcion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_revision_inscripcion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_lectura_inscripcion_v1(bytea,bytea,jsonb)') IS NULL
@@ -51,6 +66,11 @@ CREATE TABLE vec_bolsa_llamamientos.solicitud_inscripcion (
  politica_catalogo_ref text COLLATE "C" NOT NULL CHECK(octet_length(politica_catalogo_ref) BETWEEN 1 AND 512),
  politica_catalogo_version integer NOT NULL CHECK(politica_catalogo_version>0),
  politica_catalogo_sha256 text NOT NULL CHECK(politica_catalogo_sha256~'^[0-9a-f]{64}$'),
+ unidad_ref text COLLATE "C" NOT NULL CHECK(unidad_ref~'^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'),
+ ambito_ref text COLLATE "C" NOT NULL CHECK(ambito_ref~'^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'),
+ ambito_fuente_ref text COLLATE "C" NOT NULL CHECK(ambito_fuente_ref~'^ambito[.]gestion[.][0-9a-f]{64}[.]v[1-9][0-9]{0,15}$'),
+ ambito_fuente_version integer NOT NULL CHECK(ambito_fuente_version>0),
+ ambito_fuente_sha256 text NOT NULL CHECK(ambito_fuente_sha256~'^[0-9a-f]{64}$'),
  formulario_ref text COLLATE "C" NOT NULL CHECK(octet_length(formulario_ref) BETWEEN 1 AND 512),
  formulario_version integer NOT NULL CHECK(formulario_version>0),
  formulario_sha256 text NOT NULL CHECK(formulario_sha256~'^[0-9a-f]{64}$'),
@@ -63,7 +83,7 @@ CREATE TABLE vec_bolsa_llamamientos.solicitud_inscripcion (
  declaracion_ref text NOT NULL UNIQUE CHECK(declaracion_ref~'^declaracion_inscripcion_[0-9a-f]{64}$'),
  clave_sha256 text NOT NULL CHECK(clave_sha256~'^[0-9a-f]{64}$'),
  material_sha256 text NOT NULL CHECK(material_sha256~'^[0-9a-f]{64}$'),
- canal text NOT NULL CHECK(canal='externa_personal'),
+ canal text NOT NULL CHECK(canal IN('externa_personal','interna_corporativa')),
  presentada_en timestamptz(6) NOT NULL CHECK(isfinite(presentada_en)),
  UNIQUE(persona_ref,convocatoria_ref),
  UNIQUE(persona_ref,convocatoria_ref,categoria_ref,canal,clave_sha256),
@@ -71,6 +91,11 @@ CREATE TABLE vec_bolsa_llamamientos.solicitud_inscripcion (
 );
 CREATE INDEX solicitud_inscripcion_por_convocatoria
  ON vec_bolsa_llamamientos.solicitud_inscripcion(convocatoria_ref,categoria_ref,presentada_en,solicitud_ref);
+CREATE INDEX solicitud_inscripcion_por_gestion_convocatoria
+ ON vec_bolsa_llamamientos.solicitud_inscripcion(
+  convocatoria_ref,unidad_ref,ambito_ref,presentada_en DESC,solicitud_ref DESC);
+CREATE INDEX solicitud_inscripcion_por_conjunto_gestion
+ ON vec_bolsa_llamamientos.solicitud_inscripcion(unidad_ref,ambito_ref,convocatoria_ref);
 CREATE INDEX solicitud_inscripcion_por_persona
  ON vec_bolsa_llamamientos.solicitud_inscripcion(persona_ref,presentada_en,solicitud_ref);
 
@@ -110,7 +135,20 @@ CREATE TABLE vec_bolsa_llamamientos.solicitud_inscripcion_historia (
  accion text NOT NULL CHECK(accion IN('presentar','revisar')),
  actor_ref text NOT NULL,
  estado text NOT NULL,
+ unidad_ref text COLLATE "C",
+ ambito_ref text COLLATE "C",
+ ambito_fuente_ref text COLLATE "C",
+ ambito_fuente_version integer,
+ ambito_fuente_sha256 text,
  registrada_en timestamptz(6) NOT NULL,
+ CHECK(((accion='presentar'
+   AND unidad_ref~'^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'
+   AND ambito_ref~'^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'
+   AND ambito_fuente_ref~'^ambito[.]gestion[.][0-9a-f]{64}[.]v[1-9][0-9]{0,15}$'
+   AND ambito_fuente_version>0 AND ambito_fuente_sha256~'^[0-9a-f]{64}$')
+  OR (accion<>'presentar' AND unidad_ref IS NULL AND ambito_ref IS NULL
+   AND ambito_fuente_ref IS NULL AND ambito_fuente_version IS NULL
+   AND ambito_fuente_sha256 IS NULL)) IS TRUE),
  UNIQUE(solicitud_ref,version),
  UNIQUE(historia_ref,solicitud_ref,version),
  FOREIGN KEY(solicitud_ref,version) REFERENCES vec_bolsa_llamamientos.solicitud_inscripcion_version(solicitud_ref,version)
@@ -176,7 +214,7 @@ BEGIN
 END $cerrar$;
 
 CREATE FUNCTION vec_bolsa_llamamientos.solicitar_inscripcion_v1(
- p_material text,p_captura_actor jsonb,
+ p_material text,p_captura_actor jsonb,p_recurso_canonico bytea,
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,
  p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
@@ -186,10 +224,11 @@ SET search_path=pg_catalog,pg_temp SET row_security=on SET "TimeZone"='UTC'
 SET lock_timeout='2s' SET statement_timeout='15s'
 AS $f$
 DECLARE
- m jsonb; d jsonb; c jsonb; contexto jsonb; publicacion jsonb; etiquetas jsonb;
- v_evaluacion jsonb; consumo record;
- v_solicitud_ref text; v_clave_sha text; v_material_sha text; v_recurso text; v_recurso_sha text;
- v_persona text; v_categoria text; v_categoria_etiqueta text; v_convocatoria text; v_correlacion text;
+ m jsonb; d jsonb; c jsonb; contexto jsonb; recurso jsonb; publicacion jsonb; etiquetas jsonb;
+ v_evaluacion jsonb; v_categorias_validas jsonb; consumo record;
+ v_solicitud_ref text; v_clave_sha text; v_material_sha text; v_recurso_sha text;
+ v_persona text; v_categoria text; v_categoria_etiqueta text; v_convocatoria text;
+ v_canal text; v_tipo_recurso text; v_audiencia text; v_ambito_clave text; v_vinculo_tipo text;
  v_existente vec_bolsa_llamamientos.solicitud_inscripcion%ROWTYPE;
  v_recibo vec_bolsa_llamamientos.solicitud_inscripcion_recibo%ROWTYPE;
  v_historia text; v_evento text; v_recibo_ref text; v_declaracion_ref text;
@@ -197,11 +236,15 @@ DECLARE
  v_recibo_json jsonb; v_instante timestamptz(6);
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
- OR session_user<>'vec_externo_bolsa_desarrollo'
+ OR ((session_user='vec_externo_bolsa_desarrollo'
+   AND p_captura_actor->>'canal'='externa_personal')
+  OR (session_user='vec_bolsa_llamamientos_desarrollo'
+   AND p_captura_actor->>'canal'='interna_corporativa')) IS NOT TRUE
  OR current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off'
  OR current_setting('TimeZone')<>'UTC'
  OR p_material IS NULL OR octet_length(p_material) NOT BETWEEN 2 AND 16384
+ OR p_recurso_canonico IS NULL OR octet_length(p_recurso_canonico) NOT BETWEEN 2 AND 4096
  OR jsonb_typeof(p_captura_actor) IS DISTINCT FROM 'object'
  OR p_capacidad IS NULL OR p_decision IS NULL OR p_contexto IS NULL
  THEN RAISE EXCEPTION 'B96: presentación no disponible' USING ERRCODE='42501'; END IF;
@@ -210,6 +253,7 @@ BEGIN
   d:=convert_from(p_decision,'UTF8')::jsonb;
   c:=convert_from(p_capacidad,'UTF8')::jsonb;
   contexto:=convert_from(p_contexto,'UTF8')::jsonb;
+  recurso:=convert_from(p_recurso_canonico,'UTF8')::jsonb;
  EXCEPTION WHEN data_exception THEN
   RAISE EXCEPTION 'B96: material de solicitud inválido' USING ERRCODE='22023';
  END;
@@ -239,11 +283,20 @@ BEGIN
  v_convocatoria:=m->>'convocatoria_ref';
  v_categoria:=m->>'categoria_ref';
  v_persona:=d->>'principal_id';
- v_correlacion:=d->>'correlacion_ref';
+ v_canal:=p_captura_actor->>'canal';
+ v_tipo_recurso:=CASE v_canal WHEN 'externa_personal' THEN 'inscripcion_convocatoria'
+  ELSE 'inscripcion_convocatoria_empleado' END;
+ v_audiencia:=CASE v_canal WHEN 'externa_personal'
+  THEN 'vec_bolsa_llamamientos.inscripcion.presentar.v1'
+  ELSE 'vec_bolsa_llamamientos.inscripcion.presentar_empleado.v1' END;
+ v_ambito_clave:=CASE v_canal WHEN 'externa_personal' THEN 'candidato_ref'
+  ELSE 'empleado_ref' END;
+ v_vinculo_tipo:=CASE v_canal WHEN 'externa_personal' THEN 'candidato' ELSE 'empleado' END;
  IF coalesce(v_persona,'') !~ '^per_[A-Za-z0-9_-]{22,128}$'
+ OR v_canal IS NULL OR v_canal NOT IN('externa_personal','interna_corporativa')
  OR p_captura_actor->>'persona_ref' IS DISTINCT FROM v_persona
  OR p_captura_actor->>'perfil_ref' IS DISTINCT FROM d->>'perfil_activo_ref'
- OR p_captura_actor->>'canal' IS DISTINCT FROM 'externa_personal'
+ OR p_captura_actor->>'canal' IS DISTINCT FROM v_canal
  OR p_captura_actor->>'idioma' IS NULL
  OR p_captura_actor->>'idioma' NOT IN ('es','en')
  OR p_captura_actor->>'cuenta_ref' IS DISTINCT FROM contexto->>'cuenta_ref'
@@ -254,20 +307,34 @@ BEGIN
  OR d->>'concedida' IS DISTINCT FROM 'true'
  OR d->>'accion' IS DISTINCT FROM 'bolsa.inscripcion.presentar'
  OR d->>'modulo_id' IS DISTINCT FROM 'bolsa'
- OR d->>'tipo_recurso' IS DISTINCT FROM 'inscripcion_convocatoria'
+ OR d->>'tipo_recurso' IS DISTINCT FROM v_tipo_recurso
  OR d->>'finalidad' IS DISTINCT FROM 'presentar_inscripcion'
- OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'externa_personal'
+ OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM v_canal
  OR c->>'operacion' IS DISTINCT FROM 'bolsa.inscripcion.presentar'
- OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_bolsa_llamamientos.inscripcion.presentar.v1'
+ OR c->>'audiencia_consumo' IS DISTINCT FROM v_audiencia
  THEN RAISE EXCEPTION 'B96: actor o concesión divergente' USING ERRCODE='42501'; END IF;
  v_solicitud_ref:='solicitud_inscripcion_'||encode(sha256(convert_to(
    v_persona||chr(31)||v_convocatoria||chr(31)||v_categoria,'UTF8')),'hex');
  v_material_sha:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
  v_clave_sha:=encode(sha256(convert_to(m->>'clave_idempotencia','UTF8')),'hex');
- v_recurso:='{"ambitos":{"categoria_ref":'||to_json(v_categoria)::text||
-  ',"convocatoria_ref":'||to_json(v_convocatoria)::text||
-  '},"atributos":{"material_sha256":"'||v_material_sha||'"}}';
- v_recurso_sha:=encode(sha256(convert_to(v_recurso,'UTF8')),'hex');
+ v_recurso_sha:=encode(sha256(p_recurso_canonico),'hex');
+ IF jsonb_typeof(recurso) IS DISTINCT FROM 'object'
+ OR ARRAY(SELECT jsonb_object_keys(recurso) ORDER BY 1) IS DISTINCT FROM ARRAY['ambitos','atributos']
+ OR jsonb_typeof(recurso->'ambitos') IS DISTINCT FROM 'object'
+ OR ARRAY(SELECT jsonb_object_keys(recurso->'ambitos') ORDER BY 1) IS DISTINCT FROM ARRAY[v_ambito_clave]
+ OR (v_canal='externa_personal'
+   AND coalesce(recurso#>>'{ambitos,candidato_ref}','') !~ '^can_[A-Za-z0-9_-]{22,128}$')
+ OR (v_canal='interna_corporativa'
+   AND coalesce(recurso#>>'{ambitos,empleado_ref}','') !~ '^emp_[A-Za-z0-9_-]{22,128}$')
+ OR jsonb_typeof(recurso->'atributos') IS DISTINCT FROM 'object'
+ OR ARRAY(SELECT jsonb_object_keys(recurso->'atributos') ORDER BY 1) IS DISTINCT FROM
+   ARRAY['catalogo_version','categoria_ref','convocatoria_ref','material_sha256']
+ OR recurso#>>'{atributos,convocatoria_ref}' IS DISTINCT FROM v_convocatoria
+ OR recurso#>>'{atributos,categoria_ref}' IS DISTINCT FROM v_categoria
+ OR jsonb_typeof(recurso#>'{atributos,catalogo_version}') IS DISTINCT FROM 'number'
+ OR recurso#>>'{atributos,catalogo_version}' IS DISTINCT FROM m->>'catalogo_version'
+ OR recurso#>>'{atributos,material_sha256}' IS DISTINCT FROM v_material_sha
+ THEN RAISE EXCEPTION 'B96: recurso de presentación incompatible' USING ERRCODE='42501'; END IF;
  IF d->>'recurso_ref' IS DISTINCT FROM v_solicitud_ref
  OR c->>'efecto_ref' IS DISTINCT FROM v_solicitud_ref
  OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM v_recurso_sha
@@ -283,6 +350,14 @@ BEGIN
  IF consumo.consumo_nuevo IS NOT TRUE OR consumo.efecto_ref IS DISTINCT FROM v_solicitud_ref
  OR consumo.huella_efecto_sha256 IS DISTINCT FROM v_recurso_sha
  THEN RAISE EXCEPTION 'B96: consumo de presentación incompatible' USING ERRCODE='42501'; END IF;
+ IF jsonb_typeof(contexto->'vinculos') IS DISTINCT FROM 'array'
+ THEN RAISE EXCEPTION 'B96: candidato de recurso no vinculado' USING ERRCODE='42501'; END IF;
+ IF (SELECT count(*) FROM jsonb_array_elements(contexto->'vinculos') AS x(valor)
+     WHERE x.valor->>'tipo'=v_vinculo_tipo)<>1
+ OR (SELECT count(*) FROM jsonb_array_elements(contexto->'vinculos') AS x(valor)
+     WHERE x.valor->>'tipo'=v_vinculo_tipo
+      AND x.valor->>'referencia'=recurso->'ambitos'->>v_ambito_clave)<>1
+ THEN RAISE EXCEPTION 'B96: identidad de recurso no vinculada' USING ERRCODE='42501'; END IF;
 
  SELECT * INTO v_existente FROM vec_bolsa_llamamientos.solicitud_inscripcion
  WHERE solicitud_ref=v_solicitud_ref;
@@ -292,7 +367,7 @@ BEGIN
   OR v_existente.categoria_ref IS DISTINCT FROM v_categoria
   OR v_existente.clave_sha256 IS DISTINCT FROM v_clave_sha
   OR v_existente.material_sha256 IS DISTINCT FROM v_material_sha
-  OR v_existente.canal IS DISTINCT FROM 'externa_personal'
+  OR v_existente.canal IS DISTINCT FROM v_canal
   THEN
    IF v_existente.clave_sha256 IS DISTINCT FROM v_clave_sha THEN
     RAISE EXCEPTION 'B96: ya existe solicitud para esta persona y convocatoria' USING ERRCODE='B9604';
@@ -329,7 +404,29 @@ BEGIN
  OR publicacion->>'categoria_ref' IS DISTINCT FROM v_categoria
  OR publicacion->>'convocatoria_ref' IS DISTINCT FROM v_convocatoria
  OR jsonb_typeof(publicacion->'requisitos') IS DISTINCT FROM 'array'
+ OR jsonb_typeof(publicacion->'categorias') IS DISTINCT FROM 'array'
+ OR jsonb_array_length(publicacion->'categorias') NOT BETWEEN 1 AND 128
+ OR publicacion->>'numero_categorias' IS DISTINCT FROM
+    jsonb_array_length(publicacion->'categorias')::text
+ OR coalesce(publicacion->>'unidad_ref','') !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'
+ OR coalesce(publicacion->>'ambito_ref','') !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'
+ OR publicacion->>'fuente_ref' IS DISTINCT FROM
+   'ambito.gestion.'||substring(v_convocatoria FROM 5 FOR 64)||'.v'||split_part(v_convocatoria,'_v',2)
+ OR publicacion->>'fuente_version' IS DISTINCT FROM publicacion->>'politica_catalogo_version'
+ OR publicacion->>'fuente_sha256' IS DISTINCT FROM publicacion->>'politica_catalogo_sha256'
  THEN RAISE EXCEPTION 'B96: catálogo o publicación divergente' USING ERRCODE='B9601'; END IF;
+ v_categorias_validas:=vec_catalogos_configurables.comprobar_categorias_inscripcion_lote_v1(
+  jsonb_build_array(jsonb_build_object(
+   'catalogo_ref',publicacion->>'catalogo_ref',
+   'catalogo_version',(publicacion->>'catalogo_version')::integer,
+   'catalogo_sha256',publicacion->>'catalogo_sha256',
+   'categorias_refs',(SELECT jsonb_agg(x.valor->>'categoria_ref' ORDER BY x.orden)
+    FROM jsonb_array_elements(publicacion->'categorias') WITH ORDINALITY AS x(valor,orden)))),
+  p_captura_actor->>'idioma');
+ IF jsonb_typeof(v_categorias_validas) IS DISTINCT FROM 'array'
+ OR jsonb_array_length(v_categorias_validas)<>1
+ OR v_categorias_validas#>>'{0,catalogo_completo}' IS DISTINCT FROM 'true'
+ THEN RAISE EXCEPTION 'B96: formulario de categoría no disponible' USING ERRCODE='B9601'; END IF;
  etiquetas:=vec_catalogos_configurables.leer_etiquetas_inscripcion_v1(
   publicacion->>'catalogo_ref',(publicacion->>'catalogo_version')::integer,
   publicacion->>'catalogo_sha256',ARRAY[v_categoria],p_captura_actor->>'idioma');
@@ -340,7 +437,7 @@ BEGIN
  IF vec_catalogos_configurables.comprobar_politica_presentacion_inscripcion_v1(
   publicacion->>'politica_catalogo_ref',
   (publicacion->>'politica_catalogo_version')::integer,
-  publicacion->>'politica_catalogo_sha256') IS NOT TRUE
+  publicacion->>'politica_catalogo_sha256',p_captura_actor->>'canal') IS NOT TRUE
  THEN RAISE EXCEPTION 'B96: política de presentación no vigente' USING ERRCODE='B9601'; END IF;
  FOR v_declaracion IN SELECT valor FROM jsonb_array_elements(m->'declaraciones') AS x(valor) LOOP
   IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(publicacion->'requisitos') AS r(valor)
@@ -373,6 +470,7 @@ BEGIN
   convocatoria_ref,convocatoria_id,secuencia,version_sha256,
   identificador_publico,categoria_ref,bases_ref,catalogo_ref,catalogo_version,catalogo_sha256,
   politica_catalogo_ref,politica_catalogo_version,politica_catalogo_sha256,
+  unidad_ref,ambito_ref,ambito_fuente_ref,ambito_fuente_version,ambito_fuente_sha256,
   formulario_ref,formulario_version,formulario_sha256,plazo_ref,plazo_abre_en,plazo_cierra_en,
   requisitos,requisitos_sha256,declaraciones,declaracion_ref,
   clave_sha256,material_sha256,canal,presentada_en)
@@ -383,13 +481,15 @@ BEGIN
   publicacion->>'catalogo_ref',(publicacion->>'catalogo_version')::integer,
   publicacion->>'catalogo_sha256',publicacion->>'politica_catalogo_ref',
   (publicacion->>'politica_catalogo_version')::integer,publicacion->>'politica_catalogo_sha256',
+  publicacion->>'unidad_ref',publicacion->>'ambito_ref',publicacion->>'fuente_ref',
+  (publicacion->>'fuente_version')::integer,publicacion->>'fuente_sha256',
   publicacion->>'formulario_ref',
   (publicacion->>'formulario_version')::integer,publicacion->>'formulario_sha256',
   publicacion->>'plazo_ref',(publicacion->>'plazo_abre_en')::timestamptz,
   (publicacion->>'plazo_cierra_en')::timestamptz,v_evaluacion,
   publicacion->>'requisitos_sha256',m->'declaraciones',v_declaracion_ref,
   v_clave_sha,v_material_sha,
-  'externa_personal',v_instante);
+  v_canal,v_instante);
  INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion_version(
   solicitud_ref,version,estado,actor_ref,perfil_ref,cuenta_ref,evaluacion,decision_ref,
   consumo_huella_sha256,auditoria_ref,aplicada_en)
@@ -397,8 +497,12 @@ BEGIN
   v_evaluacion,
   consumo.decision_ref,consumo.consumo_huella_sha256,consumo.auditoria_ref,v_instante);
  INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion_historia(
-  historia_ref,solicitud_ref,version,accion,actor_ref,estado,registrada_en)
- VALUES(v_historia,v_solicitud_ref,1,'presentar',v_persona,'pendiente',v_instante);
+  historia_ref,solicitud_ref,version,accion,actor_ref,estado,
+  unidad_ref,ambito_ref,ambito_fuente_ref,ambito_fuente_version,ambito_fuente_sha256,
+  registrada_en)
+ VALUES(v_historia,v_solicitud_ref,1,'presentar',v_persona,'pendiente',
+  publicacion->>'unidad_ref',publicacion->>'ambito_ref',publicacion->>'fuente_ref',
+  (publicacion->>'fuente_version')::integer,publicacion->>'fuente_sha256',v_instante);
  INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion_outbox(
   evento_ref,historia_ref,solicitud_ref,version,esquema,evento,creada_en)
  VALUES(v_evento,v_historia,v_solicitud_ref,1,'vec.bolsa.inscripcion.presentada.v1',
@@ -407,7 +511,7 @@ BEGIN
  INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion_recibo(
   recibo_ref,solicitud_ref,version,persona_ref,canal,clave_sha256,material_sha256,
   historia_ref,evento_ref,auditoria_ref,emitida_en)
- VALUES(v_recibo_ref,v_solicitud_ref,1,v_persona,'externa_personal',v_clave_sha,v_material_sha,
+ VALUES(v_recibo_ref,v_solicitud_ref,1,v_persona,v_canal,v_clave_sha,v_material_sha,
   v_historia,v_evento,consumo.auditoria_ref,v_instante);
  INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion_acceso(
   acceso_ref,solicitud_ref,persona_ref,accion,decision_ref,auditoria_ref,resultado,accedida_en)
@@ -421,14 +525,14 @@ BEGIN
   'declaracion_ref',v_declaracion_ref);
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.solicitar_inscripcion_v1(
- text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
- FROM PUBLIC,vec_bolsa_llamamientos_portal_externo;
+ text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ FROM PUBLIC,vec_bolsa_llamamientos_portal_externo,vec_bolsa_llamamientos_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.solicitar_inscripcion_v1(
- text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
- TO vec_bolsa_llamamientos_portal_externo;
+ text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ TO vec_bolsa_llamamientos_portal_externo,vec_bolsa_llamamientos_ejecutor;
 
 CREATE FUNCTION vec_bolsa_llamamientos.revisar_inscripcion_v1(
- p_material text,p_captura_actor jsonb,
+ p_material text,p_captura_actor jsonb,p_recurso_canonico bytea,
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,
  p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
@@ -438,13 +542,14 @@ SET search_path=pg_catalog,pg_temp SET row_security=on SET "TimeZone"='UTC'
 SET lock_timeout='2s' SET statement_timeout='15s'
 AS $f$
 DECLARE
- m jsonb; d jsonb; c jsonb; contexto jsonb; motivos jsonb; motivo jsonb;
+ m jsonb; d jsonb; c jsonb; contexto jsonb; recurso jsonb;
+ v_conjunto jsonb; motivos jsonb; motivo jsonb;
  etiquetas jsonb; consumo record; solicitud vec_bolsa_llamamientos.solicitud_inscripcion%ROWTYPE;
  actual vec_bolsa_llamamientos.solicitud_inscripcion_version%ROWTYPE;
  v_revision_version vec_bolsa_llamamientos.solicitud_inscripcion_version%ROWTYPE;
  previo vec_bolsa_llamamientos.solicitud_inscripcion_recibo%ROWTYPE;
  v_ref text; v_actor text; v_material_sha text; v_clave_sha text;
- v_recurso text; v_recurso_sha text; v_estado text; v_categoria text;
+ v_recurso_sha text; v_estado text; v_categoria text;
  v_historia text; v_evento text; v_recibo_ref text; v_instante timestamptz(6);
  v_esperada bigint; v_nueva bigint;
 BEGIN
@@ -454,12 +559,14 @@ BEGIN
  OR current_setting('transaction_read_only')<>'off'
  OR current_setting('TimeZone')<>'UTC'
  OR p_material IS NULL OR octet_length(p_material) NOT BETWEEN 2 AND 8192
+ OR p_recurso_canonico IS NULL OR octet_length(p_recurso_canonico) NOT BETWEEN 2 AND 4096
  OR jsonb_typeof(p_captura_actor) IS DISTINCT FROM 'object'
  THEN RAISE EXCEPTION 'B96: revisión no disponible' USING ERRCODE='42501'; END IF;
  BEGIN
   m:=p_material::jsonb;d:=convert_from(p_decision,'UTF8')::jsonb;
   c:=convert_from(p_capacidad,'UTF8')::jsonb;
   contexto:=convert_from(p_contexto,'UTF8')::jsonb;
+  recurso:=convert_from(p_recurso_canonico,'UTF8')::jsonb;
  EXCEPTION WHEN data_exception THEN
   RAISE EXCEPTION 'B96: material de revisión inválido' USING ERRCODE='B9605';
  END;
@@ -482,9 +589,40 @@ BEGIN
  v_material_sha:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
  v_clave_sha:=encode(sha256(convert_to(m->>'clave_idempotencia','UTF8')),'hex');
  v_esperada:=(m->>'version_esperada')::bigint;
- v_recurso:='{"ambitos":{"solicitud_ref":'||to_json(v_ref)::text||
-  '},"atributos":{"material_sha256":"'||v_material_sha||'"}}';
- v_recurso_sha:=encode(sha256(convert_to(v_recurso,'UTF8')),'hex');
+ v_recurso_sha:=encode(sha256(p_recurso_canonico),'hex');
+ IF jsonb_typeof(recurso) IS DISTINCT FROM 'object'
+ OR ARRAY(SELECT jsonb_object_keys(recurso) ORDER BY 1) IS DISTINCT FROM ARRAY['ambitos','atributos']
+ OR jsonb_typeof(recurso->'ambitos') IS DISTINCT FROM 'object'
+ OR ARRAY(SELECT jsonb_object_keys(recurso->'ambitos') ORDER BY 1) IS DISTINCT FROM
+   ARRAY['ambito_ref','unidad_ref']
+ OR coalesce(recurso#>>'{ambitos,unidad_ref}','') !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'
+ OR coalesce(recurso#>>'{ambitos,ambito_ref}','') !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'
+ OR jsonb_typeof(recurso->'atributos') IS DISTINCT FROM 'object'
+ OR (SELECT count(*) FROM jsonb_object_keys(recurso->'atributos'))<>
+    CASE WHEN m->>'motivo_codigo'='' THEN 11 ELSE 12 END
+ OR (recurso->'atributos' ?& ARRAY[
+  'conjunto_ref','conjunto_fuente_ref','conjunto_fuente_version','conjunto_fuente_sha256',
+  'solicitud_fuente_ref','solicitud_fuente_version','solicitud_fuente_sha256',
+  'solicitud_ref','decision','version_esperada','material_sha256']) IS NOT TRUE
+ OR (m->>'motivo_codigo'='' AND recurso->'atributos' ? 'motivo_codigo')
+ OR (m->>'motivo_codigo'<>'' AND NOT (recurso->'atributos' ? 'motivo_codigo'))
+ OR recurso#>>'{atributos,solicitud_ref}' IS DISTINCT FROM v_ref
+ OR recurso#>>'{atributos,decision}' IS DISTINCT FROM m->>'decision'
+ OR jsonb_typeof(recurso#>'{atributos,version_esperada}') IS DISTINCT FROM 'number'
+ OR recurso#>>'{atributos,version_esperada}' IS DISTINCT FROM m->>'version_esperada'
+ OR recurso#>>'{atributos,material_sha256}' IS DISTINCT FROM v_material_sha
+ OR coalesce(recurso#>>'{atributos,conjunto_ref}','')=''
+ OR coalesce(recurso#>>'{atributos,conjunto_fuente_ref}','')=''
+ OR jsonb_typeof(recurso#>'{atributos,conjunto_fuente_version}') IS DISTINCT FROM 'number'
+ OR coalesce(recurso#>>'{atributos,conjunto_fuente_version}','') !~ '^[1-9][0-9]{0,9}$'
+ OR coalesce(recurso#>>'{atributos,conjunto_fuente_sha256}','') !~ '^[0-9a-f]{64}$'
+ OR coalesce(recurso#>>'{atributos,solicitud_fuente_ref}','')=''
+ OR jsonb_typeof(recurso#>'{atributos,solicitud_fuente_version}') IS DISTINCT FROM 'number'
+ OR coalesce(recurso#>>'{atributos,solicitud_fuente_version}','') !~ '^[1-9][0-9]{0,9}$'
+ OR coalesce(recurso#>>'{atributos,solicitud_fuente_sha256}','') !~ '^[0-9a-f]{64}$'
+ OR (m->>'motivo_codigo'<>''
+    AND recurso#>>'{atributos,motivo_codigo}' IS DISTINCT FROM m->>'motivo_codigo')
+ THEN RAISE EXCEPTION 'B96: recurso de revisión incompatible' USING ERRCODE='42501'; END IF;
  IF coalesce(v_actor,'') !~ '^per_[A-Za-z0-9_-]{22,128}$'
  OR p_captura_actor->>'persona_ref' IS DISTINCT FROM v_actor
  OR p_captura_actor->>'perfil_ref' IS DISTINCT FROM d->>'perfil_activo_ref'
@@ -520,6 +658,20 @@ BEGIN
  SELECT * INTO solicitud FROM vec_bolsa_llamamientos.solicitud_inscripcion
   WHERE solicitud_ref=v_ref FOR SHARE;
  IF NOT FOUND THEN RAISE EXCEPTION 'B96: solicitud no encontrada' USING ERRCODE='B9604'; END IF;
+ IF recurso#>>'{ambitos,unidad_ref}' IS DISTINCT FROM solicitud.unidad_ref
+ OR recurso#>>'{ambitos,ambito_ref}' IS DISTINCT FROM solicitud.ambito_ref
+ THEN RAISE EXCEPTION 'B96: ámbito de revisión divergente' USING ERRCODE='42501'; END IF;
+ v_conjunto:=vec_catalogos_configurables.cotejar_conjunto_gestion_rrhh_inscripcion_actual_v1();
+ IF v_conjunto->>'unidad_ref' IS DISTINCT FROM solicitud.unidad_ref
+ OR v_conjunto->>'ambito_ref' IS DISTINCT FROM solicitud.ambito_ref
+ OR recurso#>>'{atributos,conjunto_ref}' IS DISTINCT FROM v_conjunto->>'conjunto_ref'
+ OR recurso#>>'{atributos,conjunto_fuente_ref}' IS DISTINCT FROM v_conjunto->>'fuente_ref'
+ OR recurso#>>'{atributos,conjunto_fuente_version}' IS DISTINCT FROM v_conjunto->>'fuente_version'
+ OR recurso#>>'{atributos,conjunto_fuente_sha256}' IS DISTINCT FROM v_conjunto->>'fuente_sha256'
+ OR recurso#>>'{atributos,solicitud_fuente_ref}' IS DISTINCT FROM solicitud.ambito_fuente_ref
+ OR recurso#>>'{atributos,solicitud_fuente_version}' IS DISTINCT FROM solicitud.ambito_fuente_version::text
+ OR recurso#>>'{atributos,solicitud_fuente_sha256}' IS DISTINCT FROM solicitud.ambito_fuente_sha256
+ THEN RAISE EXCEPTION 'B96: gestión RRHH no vigente para solicitud' USING ERRCODE='42501'; END IF;
  IF v_actor IS NOT DISTINCT FROM solicitud.persona_ref THEN
   RAISE EXCEPTION 'B96: el solicitante no puede revisar su solicitud' USING ERRCODE='42501';
  END IF;
@@ -623,10 +775,10 @@ BEGIN
   'motivo_etiqueta',CASE WHEN v_estado='rechazada' THEN motivo->>'motivo_etiqueta' END);
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.revisar_inscripcion_v1(
- text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.revisar_inscripcion_v1(
- text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  TO vec_bolsa_llamamientos_ejecutor;
 
 CREATE FUNCTION vec_bolsa_llamamientos.proyectar_solicitud_inscripcion_v1(
@@ -694,7 +846,8 @@ REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.proyectar_solicitud_inscripcion_v1
  FROM PUBLIC;
 
 CREATE FUNCTION vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(
- p_propia boolean,p_persona_ref text,p_filtro jsonb,p_idioma text
+ p_propia boolean,p_persona_ref text,p_filtro jsonb,p_idioma text,p_canal text,
+ p_unidad_ref text,p_ambito_ref text
 ) RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET "TimeZone"='UTC'
@@ -704,11 +857,16 @@ DECLARE
  v_estado text; v_convocatoria text; v_cursor text; v_limite integer;
  v_cursor_en timestamptz(6); v_total bigint; v_raw jsonb; v_labels jsonb;
  v_peticiones jsonb; v_solicitudes jsonb; v_mas boolean; v_siguiente text;
+ v_meta_convocatoria jsonb; v_convocatoria_titulo text;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
  OR p_propia IS NULL OR p_persona_ref IS NULL
  OR p_persona_ref !~ '^per_[A-Za-z0-9_-]{22,128}$'
- OR p_idioma NOT IN('es','en')
+ OR p_idioma NOT IN('es','en') OR p_canal NOT IN('externa_personal','interna_corporativa')
+ OR (p_propia AND (p_unidad_ref IS NOT NULL OR p_ambito_ref IS NOT NULL))
+ OR (NOT p_propia AND (
+  coalesce(p_unidad_ref,'') !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'
+  OR coalesce(p_ambito_ref,'') !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'))
  OR jsonb_typeof(p_filtro) IS DISTINCT FROM 'object'
  OR ARRAY(SELECT jsonb_object_keys(p_filtro) ORDER BY 1) IS DISTINCT FROM
     ARRAY['convocatoria_ref','cursor','estado','limite']
@@ -724,14 +882,28 @@ BEGIN
  v_cursor:=p_filtro->>'cursor';
  v_limite:=(p_filtro->>'limite')::integer;
  IF v_estado NOT IN('','pendiente','admitida_a_convocatoria','rechazada','incorporada')
+ OR (NOT p_propia AND v_convocatoria='')
  OR (v_convocatoria<>'' AND (v_convocatoria !~ '^cv1_[0-9a-f]{64}_v[1-9][0-9]{0,15}$'
    OR octet_length(v_convocatoria)>200))
  OR (v_cursor<>'' AND v_cursor !~ '^solicitud_inscripcion_[0-9a-f]{64}$')
  THEN RAISE EXCEPTION 'B96: filtro de solicitudes inválido' USING ERRCODE='B9605'; END IF;
+ IF NOT p_propia THEN
+  v_meta_convocatoria:=vec_bolsa_convocatorias.resolver_resumen_convocatorias_inscripcion_lote_v1(
+   ARRAY[v_convocatoria],p_idioma);
+  IF jsonb_typeof(v_meta_convocatoria) IS DISTINCT FROM 'array'
+   OR jsonb_array_length(v_meta_convocatoria)<>1
+   OR v_meta_convocatoria#>>'{0,convocatoria_ref}' IS DISTINCT FROM v_convocatoria
+   OR coalesce(v_meta_convocatoria#>>'{0,titulo}','')=''
+   OR char_length(v_meta_convocatoria#>>'{0,titulo}')>180
+  THEN RAISE EXCEPTION 'B96: título de convocatoria no disponible' USING ERRCODE='B9601'; END IF;
+  v_convocatoria_titulo:=v_meta_convocatoria#>>'{0,titulo}';
+ END IF;
  IF v_cursor<>'' THEN
   SELECT presentada_en INTO v_cursor_en
   FROM vec_bolsa_llamamientos.solicitud_inscripcion
-  WHERE solicitud_ref=v_cursor AND (NOT p_propia OR persona_ref=p_persona_ref);
+  WHERE solicitud_ref=v_cursor AND (NOT p_propia OR persona_ref=p_persona_ref)
+   AND (v_convocatoria='' OR convocatoria_ref=v_convocatoria)
+   AND (p_propia OR (unidad_ref=p_unidad_ref AND ambito_ref=p_ambito_ref));
   IF NOT FOUND THEN RAISE EXCEPTION 'B96: cursor no disponible' USING ERRCODE='B9605'; END IF;
  END IF;
  WITH filtradas AS MATERIALIZED (
@@ -748,6 +920,7 @@ BEGIN
   JOIN vec_bolsa_llamamientos.solicitud_inscripcion_recibo r
     ON r.solicitud_ref=s.solicitud_ref AND r.version=v.version
   WHERE (NOT p_propia OR s.persona_ref=p_persona_ref)
+   AND (p_propia OR (s.unidad_ref=p_unidad_ref AND s.ambito_ref=p_ambito_ref))
    AND (v_estado='' OR v.estado=v_estado)
    AND (v_convocatoria='' OR s.convocatoria_ref=v_convocatoria)
  )
@@ -774,7 +947,7 @@ BEGIN
    'politica_catalogo_sha256',r.valor->>'politica_catalogo_sha256') ORDER BY r.orden),'[]'::jsonb)
  INTO v_peticiones FROM jsonb_array_elements(v_raw) WITH ORDINALITY AS r(valor,orden);
  v_labels:=vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(
-  v_peticiones,p_idioma);
+  v_peticiones,p_idioma,p_canal);
  IF jsonb_array_length(v_labels)<>jsonb_array_length(v_raw) THEN
   RAISE EXCEPTION 'B96: proyección de catálogo incompleta' USING ERRCODE='55000'; END IF;
   SELECT coalesce(jsonb_agg(vec_bolsa_llamamientos.proyectar_solicitud_inscripcion_v1(
@@ -784,13 +957,15 @@ BEGIN
  FROM jsonb_array_elements(v_raw) WITH ORDINALITY AS r(valor,orden)
  JOIN jsonb_array_elements(v_labels) WITH ORDINALITY AS l(valor,orden) USING(orden);
  RETURN jsonb_build_object('solicitudes',v_solicitudes,'total',v_total,
-  'cursor_siguiente',v_siguiente);
+  'cursor_siguiente',v_siguiente)||CASE WHEN p_propia THEN '{}'::jsonb
+  ELSE jsonb_build_object('convocatoria_titulo',v_convocatoria_titulo) END;
 END $f$;
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(boolean,text,jsonb,text)
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(boolean,text,jsonb,text,text,text,text)
  FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_lector_inscripciones;
 
 CREATE FUNCTION vec_bolsa_llamamientos.leer_solicitud_inscripcion_interna_v1(
- p_propia boolean,p_persona_ref text,p_solicitud_ref text,p_idioma text
+ p_propia boolean,p_persona_ref text,p_solicitud_ref text,p_idioma text,p_canal text,
+ p_unidad_ref text,p_ambito_ref text
 ) RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET "TimeZone"='UTC'
@@ -803,6 +978,11 @@ BEGIN
  OR p_persona_ref !~ '^per_[A-Za-z0-9_-]{22,128}$'
  OR p_solicitud_ref IS NULL OR p_solicitud_ref !~ '^solicitud_inscripcion_[0-9a-f]{64}$'
  OR p_idioma IS NULL OR p_idioma NOT IN('es','en')
+ OR p_canal IS NULL OR p_canal NOT IN('externa_personal','interna_corporativa')
+ OR (p_propia AND (p_unidad_ref IS NOT NULL OR p_ambito_ref IS NOT NULL))
+ OR (NOT p_propia AND (
+  coalesce(p_unidad_ref,'') !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'
+  OR coalesce(p_ambito_ref,'') !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'))
  THEN RAISE EXCEPTION 'B96: selector de solicitud inválido' USING ERRCODE='B9605'; END IF;
  SELECT to_jsonb(q) INTO fila FROM (
   SELECT s.solicitud_ref,s.persona_ref,s.convocatoria_ref,s.categoria_ref,
@@ -819,6 +999,7 @@ BEGIN
    ON r.solicitud_ref=s.solicitud_ref AND r.version=v.version
   WHERE s.solicitud_ref=p_solicitud_ref
    AND (NOT p_propia OR s.persona_ref=p_persona_ref)
+   AND (p_propia OR (s.unidad_ref=p_unidad_ref AND s.ambito_ref=p_ambito_ref))
  ) q;
  IF NOT FOUND THEN RETURN NULL; END IF;
  etiquetas:=vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(
@@ -829,7 +1010,7 @@ BEGIN
    'categoria_ref',fila->>'categoria_ref',
    'politica_catalogo_ref',fila->>'politica_catalogo_ref',
    'politica_catalogo_version',(fila->>'politica_catalogo_version')::integer,
-   'politica_catalogo_sha256',fila->>'politica_catalogo_sha256')),p_idioma);
+   'politica_catalogo_sha256',fila->>'politica_catalogo_sha256')),p_idioma,p_canal);
  IF jsonb_array_length(etiquetas)<>1 OR etiquetas#>>'{0,categoria}' IS NULL
  THEN RAISE EXCEPTION 'B96: etiqueta de categoría incompleta' USING ERRCODE='55000'; END IF;
  v_estado:=fila->>'estado';
@@ -843,11 +1024,92 @@ BEGIN
   etiquetas#>>'{0,motivo_etiqueta_pendiente}',
   etiquetas#>>'{0,motivo_etiqueta_cumple}');
 END $f$;
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.leer_solicitud_inscripcion_interna_v1(boolean,text,text,text)
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.leer_solicitud_inscripcion_interna_v1(boolean,text,text,text,text,text,text)
  FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_lector_inscripciones;
 
+-- Selector RRHH: sólo convocatorias con solicitudes del conjunto vigente.
+-- Total y página comparten el mismo ámbito congelado; BC9 resuelve metadatos
+-- de las referencias de la página en una sola llamada, sin PII ni N+1.
+CREATE FUNCTION vec_bolsa_llamamientos.listar_convocatorias_rrhh_inscripcion_interna_v1(
+ p_unidad_ref text,p_ambito_ref text,p_cursor text,p_limite integer,p_idioma text
+) RETURNS jsonb
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET "TimeZone"='UTC'
+SET lock_timeout='2s' SET statement_timeout='15s'
+AS $f$
+DECLARE v_total bigint;v_refs text[];v_mas boolean;v_cursor text;
+ v_metadatos jsonb;v_cartas jsonb;v_resultado jsonb;v_salida jsonb;
+ v_caben integer;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario'
+ OR coalesce(p_unidad_ref,'') !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'
+ OR coalesce(p_ambito_ref,'') !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,127}$'
+ OR p_cursor IS NULL OR (p_cursor<>'' AND p_cursor !~ '^cv1_[0-9a-f]{64}_v[1-9][0-9]{0,15}$')
+ OR p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 100
+ OR p_idioma IS NULL OR p_idioma NOT IN('es','en')
+ THEN RAISE EXCEPTION 'B96: selector RRHH inválido' USING ERRCODE='B9605'; END IF;
+ SELECT count(DISTINCT convocatoria_ref) INTO v_total
+ FROM vec_bolsa_llamamientos.solicitud_inscripcion
+ WHERE unidad_ref=p_unidad_ref AND ambito_ref=p_ambito_ref;
+ SELECT array_agg(q.convocatoria_ref ORDER BY q.convocatoria_ref COLLATE "C") INTO v_refs
+ FROM (SELECT DISTINCT convocatoria_ref COLLATE "C" AS convocatoria_ref
+  FROM vec_bolsa_llamamientos.solicitud_inscripcion
+  WHERE unidad_ref=p_unidad_ref AND ambito_ref=p_ambito_ref
+   AND (p_cursor='' OR convocatoria_ref COLLATE "C">p_cursor COLLATE "C")
+  ORDER BY convocatoria_ref LIMIT p_limite+1) AS q;
+ v_refs:=coalesce(v_refs,ARRAY[]::text[]);
+ v_mas:=cardinality(v_refs)>p_limite;
+ IF v_mas THEN v_refs:=v_refs[1:p_limite];v_cursor:=v_refs[p_limite]; END IF;
+ IF cardinality(v_refs)=0 THEN
+  v_metadatos:='[]'::jsonb;
+ ELSE
+  v_metadatos:=vec_bolsa_convocatorias.resolver_resumen_convocatorias_inscripcion_lote_v1(
+   v_refs,p_idioma);
+ END IF;
+ IF jsonb_typeof(v_metadatos) IS DISTINCT FROM 'array'
+ OR jsonb_array_length(v_metadatos)<>cardinality(v_refs)
+ THEN RAISE EXCEPTION 'B96: metadatos de convocatoria incompletos' USING ERRCODE='55000'; END IF;
+ IF EXISTS(SELECT 1 FROM jsonb_array_elements(v_metadatos) WITH ORDINALITY AS x(valor,orden)
+   WHERE x.valor->>'convocatoria_ref' IS DISTINCT FROM v_refs[x.orden]
+    OR coalesce(x.valor->>'titulo','')=''
+    OR coalesce(x.valor->>'categorias_resumen','')=''
+    OR coalesce(x.valor->>'estado_publicacion','') NOT IN('publicada','sustituida','retirada')
+    OR x.valor->>'plazo_fin' IS NULL)
+ THEN RAISE EXCEPTION 'B96: resumen histórico divergente' USING ERRCODE='55000'; END IF;
+ SELECT coalesce(jsonb_agg(jsonb_build_object(
+  'convocatoria_ref',x.valor->>'convocatoria_ref',
+  'titulo',x.valor->>'titulo',
+  'categorias_resumen',x.valor->>'categorias_resumen',
+  'plazo_fin',x.valor->'plazo_fin',
+  'estado_publicacion',x.valor->>'estado_publicacion') ORDER BY x.orden),'[]'::jsonb)
+ INTO v_cartas FROM jsonb_array_elements(v_metadatos) WITH ORDINALITY AS x(valor,orden);
+ -- 240 KiB para la proyección, con 512 B reservados para total/cursor/claves.
+ -- Una ventana sobre tamaños UTF-8 elige el mayor prefijo sin recomponer el
+ -- JSON en cada fila; las restantes aparecen desde el nuevo cursor.
+ SELECT count(*) INTO v_caben FROM (
+  SELECT sum(octet_length(x.valor::text)+1) OVER (ORDER BY x.orden) AS acumulado
+  FROM jsonb_array_elements(v_cartas) WITH ORDINALITY AS x(valor,orden)
+ ) q WHERE q.acumulado<=245248;
+ IF cardinality(v_refs)>0 AND v_caben=0 THEN
+  RAISE EXCEPTION 'B96: resumen histórico excede página' USING ERRCODE='B9601'; END IF;
+ SELECT coalesce(jsonb_agg(x.valor ORDER BY x.orden),'[]'::jsonb)
+ INTO v_resultado FROM jsonb_array_elements(v_cartas) WITH ORDINALITY AS x(valor,orden)
+ WHERE x.orden<=v_caben;
+ v_mas:=v_mas OR v_caben<cardinality(v_refs);
+ v_cursor:=CASE WHEN v_mas AND v_caben>0 THEN v_refs[v_caben] ELSE NULL END;
+ v_salida:=jsonb_build_object('convocatorias',v_resultado,'total',v_total,
+  'cursor_siguiente',v_cursor);
+ IF octet_length(v_salida::text)>245760 THEN
+  RAISE EXCEPTION 'B96: presupuesto de página incompatible' USING ERRCODE='55000'; END IF;
+ RETURN v_salida;
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_convocatorias_rrhh_inscripcion_interna_v1(text,text,text,integer,text)
+ FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,
+ vec_bolsa_llamamientos_lector_inscripciones,vec_bolsa_llamamientos_lector_inscripciones_empleado,
+ vec_bolsa_llamamientos_lector_inscripciones_rrhh;
+
 CREATE FUNCTION vec_bolsa_llamamientos.proyectar_abiertas_inscripcion_interna_v1(
- p_fuente jsonb,p_persona_ref text,p_idioma text,p_metodo text,p_garantia text,p_lista boolean
+ p_fuente jsonb,p_persona_ref text,p_idioma text,p_metodo text,p_garantia text,p_lista boolean,p_canal text
 ) RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET "TimeZone"='UTC'
@@ -857,14 +1119,17 @@ DECLARE
  v_items jsonb; v_item jsonb; v_categoria jsonb; v_requisito jsonb;
  v_selectores jsonb:='[]'::jsonb; v_etiquetas jsonb;
  v_categorias_pedidos jsonb; v_categorias_validas jsonb;
+ v_gestion_pedidos jsonb; v_gestion_validos jsonb;
  v_propias jsonb; v_categorias jsonb; v_requisitos jsonb; v_bolsas jsonb:='[]'::jsonb;
  v_etiqueta jsonb; v_requisitos_resumen text; v_num_categorias integer; v_carta jsonb;
  v_estado text; v_puede boolean; v_catalogo_completo boolean; v_impedimento text;
- v_pos integer:=0; v_conv text; v_propia jsonb; v_salida jsonb;
+ v_pos integer:=0; v_gestion_pos integer:=0;
+ v_conv text; v_propia jsonb; v_salida jsonb;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
  OR p_persona_ref IS NULL OR p_persona_ref !~ '^per_[A-Za-z0-9_-]{22,128}$'
  OR p_idioma NOT IN('es','en') OR p_lista IS NULL
+ OR p_canal NOT IN('externa_personal','interna_corporativa')
  OR jsonb_typeof(p_fuente) IS DISTINCT FROM 'object'
  THEN RAISE EXCEPTION 'B96: fuente abierta inválida' USING ERRCODE='55000'; END IF;
  v_items:=CASE WHEN p_lista THEN p_fuente->'items' ELSE jsonb_build_array(p_fuente) END;
@@ -900,10 +1165,22 @@ BEGIN
    ELSE item.valor->'categorias' END
  ) WITH ORDINALITY AS categoria(valor,orden);
  v_etiquetas:=vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(
-  v_selectores,p_idioma);
+  v_selectores,p_idioma,p_canal);
  IF jsonb_typeof(v_etiquetas) IS DISTINCT FROM 'array'
  OR jsonb_array_length(v_etiquetas)<>jsonb_array_length(v_selectores)
  THEN RAISE EXCEPTION 'B96: lote de etiquetas incompleto' USING ERRCODE='55000'; END IF;
+ SELECT coalesce(jsonb_agg(jsonb_build_object(
+  'politica_catalogo_ref',item.valor->>'politica_catalogo_ref',
+  'politica_catalogo_version',(item.valor->>'politica_catalogo_version')::integer,
+  'politica_catalogo_sha256',item.valor->>'politica_catalogo_sha256',
+  'convocatoria_ref',item.valor->>'convocatoria_ref') ORDER BY item.orden),'[]'::jsonb)
+ INTO v_gestion_pedidos
+ FROM jsonb_array_elements(v_items) WITH ORDINALITY AS item(valor,orden);
+ v_gestion_validos:=vec_catalogos_configurables.comprobar_ambitos_gestion_inscripcion_lote_v1(
+  v_gestion_pedidos);
+ IF jsonb_typeof(v_gestion_validos) IS DISTINCT FROM 'array'
+ OR jsonb_array_length(v_gestion_validos)<>jsonb_array_length(v_items)
+ THEN RAISE EXCEPTION 'B96: cotejo de gestión incompleto' USING ERRCODE='55000'; END IF;
  IF p_lista THEN
   SELECT coalesce(jsonb_agg(jsonb_build_object(
    'catalogo_ref',item.valor->>'catalogo_ref',
@@ -992,8 +1269,13 @@ BEGIN
     'motivo_etiqueta',CASE WHEN v_estado='pendiente'
       THEN v_etiqueta->>'motivo_etiqueta_pendiente' ELSE v_etiqueta->>'motivo_etiqueta_cumple' END,
     'hito_cumplimiento',NULL,'hito_etiqueta',NULL));
-   END LOOP;
+  END LOOP;
   END IF;
+  IF jsonb_typeof(v_gestion_validos->v_gestion_pos->'ambito_gestion_disponible')
+     IS DISTINCT FROM 'boolean'
+  THEN RAISE EXCEPTION 'B96: gestión de convocatoria divergente' USING ERRCODE='55000'; END IF;
+  v_puede:=v_puede AND (v_gestion_validos->v_gestion_pos->>'ambito_gestion_disponible')::boolean;
+  v_gestion_pos:=v_gestion_pos+1;
   v_propia:=v_propias->v_conv;
   v_puede:=v_puede AND v_propia IS NULL;
   v_impedimento:=CASE WHEN v_propia IS NOT NULL
@@ -1025,7 +1307,7 @@ BEGIN
  ELSE v_salida:=v_bolsas->0; END IF;
  RETURN v_salida;
 END $f$;
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.proyectar_abiertas_inscripcion_interna_v1(jsonb,text,text,text,text,boolean)
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.proyectar_abiertas_inscripcion_interna_v1(jsonb,text,text,text,text,boolean,text)
  FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_lector_inscripciones;
 
 CREATE FUNCTION vec_bolsa_llamamientos.consultar_inscripcion_v1(
@@ -1042,6 +1324,8 @@ DECLARE
  v_recurso text; v_recurso_esperado text; v_recurso_canonico text;
  v_filtro jsonb; v_f_estado text; v_f_convocatoria text; v_f_cursor text;
  v_f_limite integer; v_ref_selector text; v_prefijo text;
+ v_revision_permisos numeric(20,0); v_huella_instantanea text;
+ v_conjunto jsonb; v_ambito_solicitud jsonb; v_unidad_ref text; v_ambito_ref text;
  v_motivos jsonb; v_motivos_proyeccion jsonb;
  v_ahora timestamptz(6); v_emitida_en timestamptz; v_valida_hasta timestamptz;
  v_auditoria record;
@@ -1069,6 +1353,14 @@ BEGIN
  v_canal:=p_captura->>'canal';
  v_idioma:=p_captura->>'idioma';
  v_recurso:=p_captura->>'recurso_ref';
+ v_huella_instantanea:=p_captura->>'huella_instantanea_sha256';
+ IF jsonb_typeof(p_captura->'revision_permisos') IS DISTINCT FROM 'number'
+ OR coalesce(p_captura->>'revision_permisos','') !~ '^[1-9][0-9]{0,19}$'
+ OR coalesce(v_huella_instantanea,'') !~ '^[0-9a-f]{64}$'
+ THEN RAISE EXCEPTION 'B96: revisión de permisos inválida' USING ERRCODE='42501'; END IF;
+ v_revision_permisos:=(p_captura->>'revision_permisos')::numeric(20,0);
+ IF v_revision_permisos>18446744073709551615::numeric
+ THEN RAISE EXCEPTION 'B96: revisión de permisos fuera de rango' USING ERRCODE='42501'; END IF;
  IF jsonb_typeof(p_captura->'emitida_en') IS DISTINCT FROM 'string'
  OR jsonb_typeof(p_captura->'valida_hasta') IS DISTINCT FROM 'string'
  THEN RAISE EXCEPTION 'B96: ventana de captura ausente' USING ERRCODE='42501'; END IF;
@@ -1091,7 +1383,6 @@ BEGIN
  OR p_captura->>'canal' IS DISTINCT FROM v_vinculo->>'superficie'
  OR v_idioma IS NULL OR v_idioma NOT IN('es','en')
  OR v_canal IS NULL OR v_canal NOT IN('externa_personal','interna_corporativa')
- OR coalesce(p_captura->>'revision_permisos','') !~ '^[1-9][0-9]{0,15}$'
  OR (v_emitida_en<=v_ahora AND v_valida_hasta>v_ahora) IS NOT TRUE
  OR NOT isfinite(v_emitida_en) OR NOT isfinite(v_valida_hasta)
  OR coalesce(p_captura->>'intento_ref','') !~ '^lectura_[0-9a-f]{32}$'
@@ -1113,8 +1404,20 @@ BEGIN
   OR (session_user='vec_bolsa_inscripciones_rrhh_lector'
    AND v_canal='interna_corporativa'
    AND p_accion IN('bolsa.inscripcion.rrhh.listar',
-    'bolsa.inscripcion.rrhh.consultar','bolsa.inscripcion.rrhh.motivos'))
+    'bolsa.inscripcion.rrhh.consultar','bolsa.inscripcion.rrhh.motivos',
+    'bolsa.inscripcion.rrhh.convocatorias.listar'))
  ) IS NOT TRUE THEN RAISE EXCEPTION 'B96: LOGIN lector fuera de competencia' USING ERRCODE='42501'; END IF;
+ IF p_accion IN('bolsa.inscripcion.rrhh.listar','bolsa.inscripcion.rrhh.consultar',
+  'bolsa.inscripcion.rrhh.motivos','bolsa.inscripcion.rrhh.convocatorias.listar') THEN
+  v_conjunto:=vec_catalogos_configurables.cotejar_conjunto_gestion_rrhh_inscripcion_actual_v1();
+  IF jsonb_typeof(p_captura->'conjunto_gestion') IS DISTINCT FROM 'object'
+   OR p_captura->'conjunto_gestion' IS DISTINCT FROM v_conjunto
+  THEN RAISE EXCEPTION 'B96: conjunto de gestión divergente' USING ERRCODE='42501'; END IF;
+  v_unidad_ref:=v_conjunto->>'unidad_ref';
+  v_ambito_ref:=v_conjunto->>'ambito_ref';
+ ELSIF p_captura ? 'conjunto_gestion' THEN
+  RAISE EXCEPTION 'B96: conjunto fuera de canal RRHH' USING ERRCODE='42501';
+ END IF;
 
  -- Mismo canon que application/inscripcion.RecursoLectura: el recurso del
  -- permiso y de la auditoría se ata al selector, idioma y persona exactos.
@@ -1160,18 +1463,32 @@ BEGIN
   IF v_filtro IS DISTINCT FROM p_selector THEN
    RAISE EXCEPTION 'B96: lista RRHH no ligada' USING ERRCODE='42501'; END IF;
   v_ref_selector:='';v_prefijo:='inscripciones_rrhh_';
+ ELSIF p_accion='bolsa.inscripcion.rrhh.convocatorias.listar' THEN
+  IF v_f_estado<>'' OR v_f_convocatoria<>''
+   OR v_f_limite::text IS DISTINCT FROM p_selector->>'limite'
+   OR v_f_cursor IS DISTINCT FROM p_selector->>'cursor'
+  THEN RAISE EXCEPTION 'B96: selector de gestión no ligado' USING ERRCODE='42501'; END IF;
+  v_ref_selector:='';v_prefijo:='inscripciones_rrhh_convocatorias_';
  ELSIF p_accion='bolsa.inscripcion.rrhh.motivos' THEN
   v_ref_selector:=p_selector->>'decision';v_prefijo:='motivos_inscripcion_';
  ELSE RAISE EXCEPTION 'B96: acción lectora desconocida' USING ERRCODE='42501'; END IF;
  IF v_prefijo IS NOT NULL THEN
-  v_recurso_canonico:='{"accion":'||to_json(p_accion)::text||
-   ',"persona_ref":'||to_json(v_persona)::text||
-   ',"idioma":'||to_json(v_idioma)::text||
-   ',"estado":'||to_json(v_f_estado)::text||
-   ',"convocatoria_ref":'||to_json(v_f_convocatoria)::text||
-   ',"limite":'||v_f_limite::text||
-   ',"cursor":'||to_json(v_f_cursor)::text||
-   ',"ref":'||to_json(v_ref_selector)::text||'}';
+  IF p_accion='bolsa.inscripcion.rrhh.convocatorias.listar' THEN
+   v_recurso_canonico:='{"accion":'||to_json(p_accion)::text||
+    ',"persona_ref":'||to_json(v_persona)::text||
+    ',"idioma":'||to_json(v_idioma)::text||
+    ',"limite":'||v_f_limite::text||
+    ',"cursor":'||to_json(v_f_cursor)::text||'}';
+  ELSE
+   v_recurso_canonico:='{"accion":'||to_json(p_accion)::text||
+    ',"persona_ref":'||to_json(v_persona)::text||
+    ',"idioma":'||to_json(v_idioma)::text||
+    ',"estado":'||to_json(v_f_estado)::text||
+    ',"convocatoria_ref":'||to_json(v_f_convocatoria)::text||
+    ',"limite":'||v_f_limite::text||
+    ',"cursor":'||to_json(v_f_cursor)::text||
+    ',"ref":'||to_json(v_ref_selector)::text||'}';
+  END IF;
   v_recurso_esperado:=v_prefijo||encode(sha256(convert_to(v_recurso_canonico,'UTF8')),'hex');
  END IF;
  IF v_recurso IS DISTINCT FROM v_recurso_esperado THEN
@@ -1189,7 +1506,7 @@ BEGIN
   v_proyeccion:=vec_bolsa_convocatorias.listar_abiertas_inscripcion_v1(
    NULLIF(p_selector->>'cursor',''),(p_selector->>'limite')::integer);
   v_proyeccion:=vec_bolsa_llamamientos.proyectar_abiertas_inscripcion_interna_v1(
-   v_proyeccion,v_persona,v_idioma,v_contexto->>'metodo',v_contexto->>'garantia',true);
+   v_proyeccion,v_persona,v_idioma,v_contexto->>'metodo',v_contexto->>'garantia',true,v_canal);
  ELSIF p_accion='bolsa.inscripcion.convocatoria.consultar' THEN
   IF v_canal NOT IN('externa_personal','interna_corporativa')
    OR ARRAY(SELECT jsonb_object_keys(p_selector) ORDER BY 1) IS DISTINCT FROM ARRAY['convocatoria_ref']
@@ -1199,8 +1516,20 @@ BEGIN
    p_selector->>'convocatoria_ref');
   IF v_proyeccion IS NULL THEN v_resultado:='no_encontrada';
   ELSE v_proyeccion:=vec_bolsa_llamamientos.proyectar_abiertas_inscripcion_interna_v1(
-   v_proyeccion,v_persona,v_idioma,v_contexto->>'metodo',v_contexto->>'garantia',false);
+   v_proyeccion,v_persona,v_idioma,v_contexto->>'metodo',v_contexto->>'garantia',false,v_canal);
   END IF;
+ ELSIF p_accion='bolsa.inscripcion.rrhh.convocatorias.listar' THEN
+  IF v_canal<>'interna_corporativa'
+   OR ARRAY(SELECT jsonb_object_keys(p_selector) ORDER BY 1) IS DISTINCT FROM ARRAY['cursor','limite']
+   OR jsonb_typeof(p_selector->'limite') IS DISTINCT FROM 'number'
+   OR coalesce(p_selector->>'limite','') !~ '^[1-9][0-9]{0,2}$'
+   OR (p_selector->>'limite')::integer NOT BETWEEN 1 AND 100
+   OR jsonb_typeof(p_selector->'cursor') IS DISTINCT FROM 'string'
+   OR (p_selector->>'cursor'<>'' AND
+      p_selector->>'cursor' !~ '^cv1_[0-9a-f]{64}_v[1-9][0-9]{0,15}$')
+  THEN RAISE EXCEPTION 'B96: lista de gestión inválida' USING ERRCODE='B9605'; END IF;
+  v_proyeccion:=vec_bolsa_llamamientos.listar_convocatorias_rrhh_inscripcion_interna_v1(
+   v_unidad_ref,v_ambito_ref,p_selector->>'cursor',(p_selector->>'limite')::integer,v_idioma);
  ELSIF p_accion IN('bolsa.inscripcion.propias.listar','bolsa.inscripcion.rrhh.listar') THEN
   IF (p_accion='bolsa.inscripcion.propias.listar'
       AND v_canal NOT IN('externa_personal','interna_corporativa'))
@@ -1208,7 +1537,8 @@ BEGIN
    OR p_captura->'filtro' IS DISTINCT FROM p_selector
   THEN RAISE EXCEPTION 'B96: filtro no ligado' USING ERRCODE='42501'; END IF;
   v_proyeccion:=vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(
-   p_accion='bolsa.inscripcion.propias.listar',v_persona,p_selector,v_idioma);
+   p_accion='bolsa.inscripcion.propias.listar',v_persona,p_selector,v_idioma,v_canal,
+   v_unidad_ref,v_ambito_ref);
  ELSIF p_accion IN('bolsa.inscripcion.propia.consultar','bolsa.inscripcion.rrhh.consultar') THEN
   IF (p_accion='bolsa.inscripcion.propia.consultar'
       AND v_canal NOT IN('externa_personal','interna_corporativa'))
@@ -1218,8 +1548,19 @@ BEGIN
   THEN RAISE EXCEPTION 'B96: detalle no ligado' USING ERRCODE='42501'; END IF;
   v_proyeccion:=vec_bolsa_llamamientos.leer_solicitud_inscripcion_interna_v1(
    p_accion='bolsa.inscripcion.propia.consultar',v_persona,
-   p_selector->>'solicitud_ref',v_idioma);
-  IF v_proyeccion IS NULL THEN v_resultado:='no_encontrada'; END IF;
+   p_selector->>'solicitud_ref',v_idioma,v_canal,v_unidad_ref,v_ambito_ref);
+  IF v_proyeccion IS NULL THEN v_resultado:='no_encontrada';
+  ELSIF p_accion='bolsa.inscripcion.rrhh.consultar' THEN
+   SELECT jsonb_build_object('solicitud_ref',s.solicitud_ref,
+    'unidad_ref',s.unidad_ref,'ambito_ref',s.ambito_ref,
+    'fuente_ref',s.ambito_fuente_ref,'fuente_version',s.ambito_fuente_version,
+    'fuente_sha256',s.ambito_fuente_sha256) INTO STRICT v_ambito_solicitud
+   FROM vec_bolsa_llamamientos.solicitud_inscripcion s
+   WHERE s.solicitud_ref=p_selector->>'solicitud_ref'
+    AND s.unidad_ref=v_unidad_ref AND s.ambito_ref=v_ambito_ref;
+   IF p_captura->'ambito_solicitud' IS DISTINCT FROM v_ambito_solicitud
+   THEN RAISE EXCEPTION 'B96: ámbito histórico divergente' USING ERRCODE='42501'; END IF;
+  END IF;
  ELSIF p_accion='bolsa.inscripcion.rrhh.motivos' THEN
   IF v_canal<>'interna_corporativa'
    OR ARRAY(SELECT jsonb_object_keys(p_selector) ORDER BY 1) IS DISTINCT FROM ARRAY['decision']
@@ -1243,6 +1584,8 @@ BEGIN
   'autenticacion_ref',v_vinculo->>'autenticacion_ref',
   'sesion_ref',v_vinculo->>'sesion_ref',
   'autenticacion_sha256',v_vinculo->>'autenticacion_huella_sha256',
+  'lectura_revision_permisos',v_revision_permisos::text,
+  'lectura_instantanea_sha256',v_huella_instantanea,
   'accion',p_accion,'modulo_id','bolsa','recurso_ref',v_recurso,
   'finalidad_ref',p_captura->>'finalidad',
   'resultado',v_resultado,
@@ -1270,5 +1613,105 @@ GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_inscripcion_v1(text,j
  TO vec_bolsa_llamamientos_lector_inscripciones,
     vec_bolsa_llamamientos_lector_inscripciones_empleado,
     vec_bolsa_llamamientos_lector_inscripciones_rrhh;
+
+-- Pre-PDP: sólo describe el ámbito opaco del recurso solicitado. El LOGIN
+-- RRHH no recibe acceso a la tabla ni obtiene aquí permiso de lectura o acto.
+CREATE FUNCTION vec_bolsa_llamamientos.resolver_ambito_rrhh_inscripcion_previa_v1(
+ p_solicitud_ref text
+) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER PARALLEL RESTRICTED
+SET search_path=pg_catalog,pg_temp SET row_security=on SET "TimeZone"='UTC'
+SET lock_timeout='2s' SET statement_timeout='5s'
+AS $f$
+DECLARE v_unidad text;v_ambito text;v_fuente text;v_version integer;v_sha text;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario'
+ OR session_user<>'vec_bolsa_inscripciones_rrhh_lector'
+ OR current_setting('role')<>'none'
+ OR current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off'
+ OR p_solicitud_ref IS NULL OR p_solicitud_ref !~ '^solicitud_inscripcion_[0-9a-f]{64}$'
+ THEN RAISE EXCEPTION 'B96: ámbito previo no disponible' USING ERRCODE='42501'; END IF;
+ SELECT unidad_ref,ambito_ref,ambito_fuente_ref,ambito_fuente_version,ambito_fuente_sha256
+ INTO v_unidad,v_ambito,v_fuente,v_version,v_sha
+ FROM vec_bolsa_llamamientos.solicitud_inscripcion WHERE solicitud_ref=p_solicitud_ref;
+ IF NOT FOUND THEN RETURN NULL; END IF;
+ RETURN jsonb_build_object('solicitud_ref',p_solicitud_ref,
+  'unidad_ref',v_unidad,'ambito_ref',v_ambito,'fuente_ref',v_fuente,
+  'fuente_version',v_version,'fuente_sha256',v_sha);
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.resolver_ambito_rrhh_inscripcion_previa_v1(text)
+ FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,
+ vec_bolsa_llamamientos_lector_inscripciones,vec_bolsa_llamamientos_lector_inscripciones_empleado;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.resolver_ambito_rrhh_inscripcion_previa_v1(text)
+ TO vec_bolsa_llamamientos_lector_inscripciones_rrhh;
+
+-- El conjunto vigente se descubre antes de PDP sin copiar ámbitos de AID.
+-- Sólo devuelve la política opaca; el permiso y el asiento siguen pendientes.
+CREATE FUNCTION vec_bolsa_llamamientos.resolver_conjunto_rrhh_inscripcion_previa_v1()
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER PARALLEL RESTRICTED
+SET search_path=pg_catalog,pg_temp SET row_security=on SET "TimeZone"='UTC'
+SET lock_timeout='2s' SET statement_timeout='5s'
+AS $f$
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario'
+ OR session_user<>'vec_bolsa_inscripciones_rrhh_lector'
+ OR current_setting('role')<>'none'
+ OR current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off'
+ THEN RAISE EXCEPTION 'B96: conjunto previo no disponible' USING ERRCODE='42501'; END IF;
+ RETURN vec_catalogos_configurables.comprobar_conjunto_gestion_rrhh_inscripcion_v1();
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.resolver_conjunto_rrhh_inscripcion_previa_v1()
+ FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,
+ vec_bolsa_llamamientos_lector_inscripciones,vec_bolsa_llamamientos_lector_inscripciones_empleado;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.resolver_conjunto_rrhh_inscripcion_previa_v1()
+ TO vec_bolsa_llamamientos_lector_inscripciones_rrhh;
+
+-- Metadato opaco para formar el recurso RRHH. Reutiliza el permiso nominal y
+-- el único asiento de consultar detalle; nunca devuelve datos de la persona.
+CREATE FUNCTION vec_bolsa_llamamientos.resolver_ambito_rrhh_inscripcion_v1(
+ p_solicitud_ref text,p_contexto_canonico bytea,p_vinculo_canonico bytea,p_captura jsonb
+) RETURNS jsonb
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET "TimeZone"='UTC'
+SET lock_timeout='2s' SET statement_timeout='15s'
+AS $f$
+DECLARE v_lectura jsonb;v_unidad text;v_ambito text;v_fuente text;
+ v_version integer;v_sha text;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario'
+ OR session_user<>'vec_bolsa_inscripciones_rrhh_lector'
+ OR current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off'
+ OR p_solicitud_ref IS NULL OR p_solicitud_ref !~ '^solicitud_inscripcion_[0-9a-f]{64}$'
+ OR jsonb_typeof(p_captura) IS DISTINCT FROM 'object'
+ OR p_captura->>'accion' IS DISTINCT FROM 'bolsa.inscripcion.rrhh.consultar'
+ OR p_captura->>'recurso_ref' IS DISTINCT FROM p_solicitud_ref
+ THEN RAISE EXCEPTION 'B96: ámbito RRHH no disponible' USING ERRCODE='42501'; END IF;
+ v_lectura:=vec_bolsa_llamamientos.consultar_inscripcion_v1(
+  'bolsa.inscripcion.rrhh.consultar',jsonb_build_object('solicitud_ref',p_solicitud_ref),
+  p_contexto_canonico,p_vinculo_canonico,p_captura);
+ IF v_lectura->>'resultado'='no_encontrada' THEN
+  RETURN jsonb_build_object('resultado','no_encontrada','ambito',NULL,
+   'auditoria_ref',v_lectura->>'auditoria_ref');
+ END IF;
+ IF v_lectura->>'resultado' IS DISTINCT FROM 'obtenida'
+ OR coalesce(v_lectura->>'auditoria_ref','')=''
+ THEN RAISE EXCEPTION 'B96: lectura RRHH no acreditada' USING ERRCODE='55000'; END IF;
+ SELECT unidad_ref,ambito_ref,ambito_fuente_ref,ambito_fuente_version,ambito_fuente_sha256
+ INTO STRICT v_unidad,v_ambito,v_fuente,v_version,v_sha
+ FROM vec_bolsa_llamamientos.solicitud_inscripcion WHERE solicitud_ref=p_solicitud_ref;
+ RETURN jsonb_build_object('resultado','obtenida','ambito',jsonb_build_object(
+  'solicitud_ref',p_solicitud_ref,'unidad_ref',v_unidad,'ambito_ref',v_ambito,
+  'fuente_ref',v_fuente,'fuente_version',v_version,'fuente_sha256',v_sha),
+  'auditoria_ref',v_lectura->>'auditoria_ref');
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.resolver_ambito_rrhh_inscripcion_v1(text,bytea,bytea,jsonb)
+ FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,
+ vec_bolsa_llamamientos_lector_inscripciones,vec_bolsa_llamamientos_lector_inscripciones_empleado;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.resolver_ambito_rrhh_inscripcion_v1(text,bytea,bytea,jsonb)
+ TO vec_bolsa_llamamientos_lector_inscripciones_rrhh;
 
 COMMIT;

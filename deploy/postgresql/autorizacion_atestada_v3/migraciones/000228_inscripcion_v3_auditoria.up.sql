@@ -20,6 +20,10 @@ BEGIN
    WHERE a.attrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
    AND a.attname='ratificacion_catalogo_detalle' AND a.atttypid='jsonb'::regtype
    AND NOT a.attisdropped)
+ OR EXISTS(SELECT 1 FROM pg_attribute a
+   WHERE a.attrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
+   AND a.attname IN('lectura_revision_permisos','lectura_instantanea_sha256')
+   AND NOT a.attisdropped)
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_presentacion_inscripcion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_revision_inscripcion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_lectura_inscripcion_v1(bytea,bytea,jsonb)') IS NOT NULL
@@ -326,6 +330,9 @@ RETURNS boolean LANGUAGE sql IMMUTABLE PARALLEL SAFE SET search_path=pg_catalog,
   AND p_recurso ~ '^motivos_inscripcion_[0-9a-f]{64}$'))
 $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1(text,text,text,text) FROM PUBLIC;
+ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3
+ ADD COLUMN lectura_revision_permisos numeric(20,0),
+ ADD COLUMN lectura_instantanea_sha256 text;
 LOCK TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 IN ACCESS EXCLUSIVE MODE;
 DO $familia$
 DECLARE anterior text;nueva text;
@@ -336,7 +343,8 @@ BEGIN
  IF encode(sha256(convert_to(anterior,'UTF8')),'hex') IS DISTINCT FROM '734f6fe84ba26fdc8ed02a54ffe7432c503a86d3437c97e32c7d5de4ea79a655'
  OR left(anterior,7)<>'CHECK (' OR right(anterior,1)<>')'
  THEN RAISE EXCEPTION 'AD228: familia auditora POSTAD230 incompatible' USING ERRCODE='55000';END IF;
- nueva:='CHECK (('||substr(anterior,8,length(anterior)-8)||') OR ('||$rama$tipo_registro='lectura_inscripcion'
+ nueva:='CHECK ((lectura_revision_permisos IS NULL AND lectura_instantanea_sha256 IS NULL AND ('||
+  substr(anterior,8,length(anterior)-8)||')) OR ('||$rama$tipo_registro='lectura_inscripcion'
  AND decision_ref IS NULL AND efecto_ref IS NULL AND huella_efecto_sha256 IS NULL
  AND intento_ref IS NOT NULL AND intento_material_sha256 IS NOT NULL
  AND actor_ref IS NOT NULL AND perfil_activo_ref IS NOT NULL
@@ -347,6 +355,7 @@ BEGIN
  AND finalidad_ref IS NOT NULL AND resultado IS NOT NULL AND motivo_ref IS NOT NULL
  AND proceso IS NOT NULL AND canal IS NOT NULL AND correlacion_ref IS NOT NULL
  AND vinculo_sha256 IS NOT NULL AND transaccion_origen IS NOT NULL
+ AND lectura_revision_permisos IS NOT NULL AND lectura_instantanea_sha256 IS NOT NULL
  AND evento_ref IS NULL AND evento_material_sha256 IS NULL
  AND fuente_ref IS NULL AND fuente_sha256 IS NULL AND operador_login IS NULL
  AND plan_sha256 IS NULL AND aprobacion_ref IS NULL AND version_consumo IS NULL
@@ -374,6 +383,8 @@ ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3
  intento_ref ~ '^lectura_[0-9a-f]{32}$' AND intento_material_sha256 ~ '^[0-9a-f]{64}$'
  AND contexto_sha256 ~ '^[0-9a-f]{64}$' AND procedencia_sha256 ~ '^[0-9a-f]{64}$'
  AND autenticacion_sha256 ~ '^[0-9a-f]{64}$' AND vinculo_sha256 ~ '^[0-9a-f]{64}$'
+ AND lectura_revision_permisos BETWEEN 1 AND 18446744073709551615::numeric
+ AND lectura_instantanea_sha256 ~ '^[0-9a-f]{64}$'
  AND modulo_id='bolsa' AND proceso='vec-server'
  AND vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1(
       accion,finalidad_ref,canal,recurso_ref)
@@ -395,7 +406,8 @@ DECLARE
  v_contexto jsonb;v_vinculo jsonb;
  v_claves constant text[]:=ARRAY['intento_ref','registro_contexto_ref','contexto_sha256','procedencia_sha256',
   'autenticacion_ref','sesion_ref','autenticacion_sha256','accion','modulo_id','recurso_ref',
-  'finalidad_ref','resultado','motivo_ref','proceso','canal','correlacion_ref'];
+  'finalidad_ref','resultado','motivo_ref','proceso','canal','correlacion_ref',
+  'lectura_revision_permisos','lectura_instantanea_sha256'];
  v_clave text;v_material bytea;v_material_sha text;v_anterior text;v_secuencia numeric;
  v_instante timestamptz(6);v_huella text;v_ref text;
 BEGIN
@@ -406,7 +418,7 @@ BEGIN
  OR p_contexto_canonico IS NULL OR octet_length(p_contexto_canonico) NOT BETWEEN 1 AND 65536
  OR p_vinculo_canonico IS NULL OR octet_length(p_vinculo_canonico) NOT BETWEEN 1 AND 16384
  OR jsonb_typeof(p_orden) IS DISTINCT FROM 'object'
- OR (SELECT count(*) FROM jsonb_object_keys(p_orden))<>16
+ OR (SELECT count(*) FROM jsonb_object_keys(p_orden))<>18
  OR (p_orden ?& v_claves) IS NOT TRUE
  THEN RAISE EXCEPTION 'AD228: lectura sin emisor acreditado' USING ERRCODE='42501';END IF;
  FOREACH v_clave IN ARRAY v_claves LOOP
@@ -418,6 +430,8 @@ BEGIN
  OR p_orden->>'contexto_sha256' !~ '^[0-9a-f]{64}$'
  OR p_orden->>'procedencia_sha256' !~ '^[0-9a-f]{64}$'
  OR p_orden->>'autenticacion_sha256' !~ '^[0-9a-f]{64}$'
+ OR p_orden->>'lectura_revision_permisos' !~ '^[1-9][0-9]{0,19}$'
+ OR p_orden->>'lectura_instantanea_sha256' !~ '^[0-9a-f]{64}$'
  OR p_orden->>'modulo_id'<>'bolsa' OR p_orden->>'proceso'<>'vec-server'
  OR vec_autorizacion_atestada_v3.contrato_lectura_inscripcion_v1(
       p_orden->>'accion',p_orden->>'finalidad_ref',p_orden->>'canal',p_orden->>'recurso_ref') IS NOT TRUE
@@ -425,6 +439,8 @@ BEGIN
    OR (p_orden->>'resultado'='no_encontrada' AND p_orden->>'motivo_ref'='inscripcion_no_encontrada'))
  OR p_orden->>'correlacion_ref' !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'
  THEN RAISE EXCEPTION 'AD228: contrato de lectura inválido' USING ERRCODE='22023';END IF;
+ IF (p_orden->>'lectura_revision_permisos')::numeric > 18446744073709551615::numeric
+ THEN RAISE EXCEPTION 'AD228: revisión de permisos fuera de rango' USING ERRCODE='22023';END IF;
  BEGIN v_contexto:=convert_from(p_contexto_canonico,'UTF8')::jsonb;
        v_vinculo:=convert_from(p_vinculo_canonico,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD228: material de lectura inválido' USING ERRCODE='22023';END;
@@ -488,14 +504,16 @@ BEGIN
   intento_ref,intento_material_sha256,actor_ref,perfil_activo_ref,registro_contexto_ref,
   contexto_sha256,procedencia_sha256,autenticacion_ref,sesion_ref,autenticacion_sha256,
   accion,modulo_id,recurso_ref,finalidad_ref,resultado,motivo_ref,proceso,canal,
-  correlacion_ref,vinculo_sha256,transaccion_origen)
+  correlacion_ref,vinculo_sha256,transaccion_origen,
+  lectura_revision_permisos,lectura_instantanea_sha256)
  VALUES(v_ref,v_secuencia,v_anterior,v_huella,v_instante,'lectura_inscripcion',
   p_orden->>'intento_ref',v_material_sha,v_contexto->>'principal_ref',v_contexto->>'perfil_activo_ref',
   p_orden->>'registro_contexto_ref',p_orden->>'contexto_sha256',p_orden->>'procedencia_sha256',
   p_orden->>'autenticacion_ref',p_orden->>'sesion_ref',p_orden->>'autenticacion_sha256',
   p_orden->>'accion',p_orden->>'modulo_id',p_orden->>'recurso_ref',p_orden->>'finalidad_ref',
   p_orden->>'resultado',p_orden->>'motivo_ref',p_orden->>'proceso',p_orden->>'canal',
-  p_orden->>'correlacion_ref',encode(sha256(p_vinculo_canonico),'hex'),pg_current_xact_id());
+  p_orden->>'correlacion_ref',encode(sha256(p_vinculo_canonico),'hex'),pg_current_xact_id(),
+  (p_orden->>'lectura_revision_permisos')::numeric,p_orden->>'lectura_instantanea_sha256');
  RETURN QUERY SELECT v_ref,v_secuencia,v_huella,p_orden->>'correlacion_ref',v_instante;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_lectura_inscripcion_v1(bytea,bytea,jsonb) FROM PUBLIC;
