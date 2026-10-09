@@ -662,6 +662,11 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
       }
     }
     capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
+    // Una lectura posterior a una actuación deja en el cuadro la versión nueva;
+    // si no, reabrir la ficha o cambiar de pestaña pediría la vieja (404).
+    if (!signal?.aborted && (versiones.get(expedienteRef) ?? Infinity) < version) {
+      versiones.set(expedienteRef, version);
+    }
     return expediente;
   }
 

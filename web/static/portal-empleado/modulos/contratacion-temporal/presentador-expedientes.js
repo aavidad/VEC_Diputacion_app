@@ -168,7 +168,6 @@ export function crearPresentadorExpedientesContratacionTemporal({
   let controlador = null;
   let secuencia = 0;
   let desmontado = false;
-  let enlaceSeleccionadoRef = "";
 
   function reemplazar(cambios) {
     if (desmontado) return;
@@ -358,7 +357,6 @@ export function crearPresentadorExpedientesContratacionTemporal({
         }
       }
       if (desmontado || operacion !== secuencia) return estado;
-      enlaceSeleccionadoRef = desdeEnlace ? expedienteRef : "";
       const actual = expediente.tareas.find(
         ({ estado_clave: clave }) => ["en_curso", "espera", "incidencia"].includes(clave),
       ) ?? expediente.tareas.at(-1);
@@ -414,12 +412,14 @@ export function crearPresentadorExpedientesContratacionTemporal({
     cancelarEnCurso();
     const operacion = secuencia;
     controlador = new AbortController();
-    const usarEnlace = enlaceSeleccionadoRef === expedienteRef
-      && typeof fuente.obtenerDesdeEnlace === "function";
+    // El recibo ya confirmó la versión resultante: se lee esa versión exacta.
+    // La versión guardada del cuadro es la anterior a la actuación y el
+    // servidor ya no la publica (404), venga la ficha del cuadro o de un enlace.
+    const lecturaExacta = typeof fuente.obtenerDesdeEnlace === "function";
     try {
       const actualizado = proyectarAutorizacionVisual(
         validarExpedienteContratacionTemporal(
-          await (usarEnlace
+          await (lecturaExacta
             ? fuente.obtenerDesdeEnlace(expedienteRef, versionResultante, { signal: controlador.signal })
             : fuente.obtener(expedienteRef, { signal: controlador.signal })),
         ),
@@ -430,7 +430,7 @@ export function crearPresentadorExpedientesContratacionTemporal({
         || actualizado.numero_visible !== anterior.numero_visible
         || actualizado.version < versionResultante
         || actualizado.version < anterior.version
-        || (usarEnlace && actualizado.version !== versionResultante)) return estado;
+        || (lecturaExacta && actualizado.version !== versionResultante)) return estado;
       const tareaActual = actualizado.tareas.find(
         ({ tarea_ref: referencia }) => referencia === estado.tarea_ref,
       );
