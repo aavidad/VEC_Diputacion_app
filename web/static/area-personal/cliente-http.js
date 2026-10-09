@@ -1,4 +1,4 @@
-import { validarRespuestaMiBolsa } from "./contrato.js?v=20261009-ayuda-contacto-v1";
+import { validarRespuestaMiBolsa } from "./contrato.js?v=20261009-ayuda-contacto-retirar-v2";
 import { traducir } from "./i18n.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 

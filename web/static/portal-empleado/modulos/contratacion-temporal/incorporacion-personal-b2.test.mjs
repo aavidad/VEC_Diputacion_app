@@ -83,6 +83,8 @@ test("la consulta vincula las clases al catálogo de Personal y admite ausencia 
 });
 
 test("transportes fijos GET, plan y confirmar: mismos datos, sin credenciales externas ni almacenamiento", async () => {
+  assert.equal(RUTA_PLAN_B2, "/api/vec/contratacion-temporal/incorporacion-personal-b2/plan/v1");
+  assert.equal(RUTA_CONFIRMAR_B2, "/api/vec/contratacion-temporal/incorporacion-personal-b2/confirmar/v1");
   const calls = [];
   const cliente = crearClienteIncorporacionPersonalB2HTTP({ fetchImpl: async (ruta, o) => {
     calls.push({ ruta, ...o }); return response(calls.length === 1 ? inicial() : calls.length === 2 ? preparado() : recibo);
@@ -297,6 +299,26 @@ test("UI: denegación retira datos; expediente obsoleto impide preparar", async 
   for (const resultado of [Object.assign(new Error("datosprivados"), { estado: 403, envelopeValido: true }), { ...inicial(), version_expediente_actual: 8 }]) {
     const x = await montar(clienteBase({ consultar: async () => { if (resultado instanceof Error) throw resultado; return resultado; }, preparar: () => assert.fail() }));
     assert.doesNotMatch(x.r.innerHTML, /Puesto uno|Personal laboral|datosprivados|data-b2-form/u); x.desmontar();
+  }
+});
+
+test("UI: el GET pendiente no atribuye un cambio al expediente; otros errores conservan su aviso", async () => {
+  for (const idioma of ["es", "en"]) {
+    const traduccion = await cargarTextos("contratacion-temporal-incorporacion-personal-b2", { idioma, porDefecto: "es" });
+    for (const [estado, codigo, aviso] of [[409, "preparacion_pendiente", "preparacion_pendiente"],
+      [409, "conflicto", "conflicto"], [503, "servicio_no_disponible", "no_disponible"]]) {
+      const cliente = crearClienteIncorporacionPersonalB2HTTP({ fetchImpl: async () => new Response(JSON.stringify({ error: {
+        codigo, clave_i18n: `api.contratacion_temporal.incorporacion_personal_b2.error.${codigo}`,
+        correlacion_ref: "correlacion:1",
+      } }), { status: estado, headers: { "Content-Type": "application/json; charset=utf-8" } }) });
+      const x = await montar(cliente, { textos: traduccion });
+      assert.ok(x.r.innerHTML.includes(traduccion.traducir(aviso)), `${idioma} ${codigo}`);
+      if (codigo === "preparacion_pendiente") assert.ok(!x.r.innerHTML.includes(traduccion.traducir("conflicto")));
+      assert.match(x.r.innerHTML, /role="status"[^>]*data-b2-mensaje/u);
+      assert.match(x.r.innerHTML, /data-b2-accion="consultar"/u);
+      assert.doesNotMatch(x.r.innerHTML, /data-b2-form|data-b2-accion="registrar"/u);
+      x.desmontar();
+    }
   }
 });
 

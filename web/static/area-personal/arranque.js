@@ -1,6 +1,6 @@
-import { aplicarPreferenciasInicialesAplazadas, exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261009-ayuda-contacto-v1";
+import { aplicarPreferenciasInicialesAplazadas, exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261009-ayuda-contacto-retirar-v2";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
-import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20261009-ayuda-contacto-v1";
+import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20261009-ayuda-contacto-retirar-v2";
 import { cargarVistasDisponibles } from "./vistas-disponibles.js?v=20261005-b4b-v1";
 import * as temaComun from "../comun/tema-vec.js?v=20260930-codexf-temas-v2";
 import { INDICE_IDIOMAS, prepararIdiomas } from "../comun/idioma.js";
@@ -27,7 +27,7 @@ const controladorVisual = preferencias && typeof temaComun.aplicarPreferenciasVi
 
 async function resolverCliente() {
   exigirParametrosConocidos(new URLSearchParams(window.location.search));
-  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20261009-ayuda-contacto-v1");
+  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20261009-ayuda-contacto-retirar-v2");
   return { cliente: crearClienteHTTPAreaPersonal(), vistasDisponibles: await cargarVistasDisponibles() };
 }
 

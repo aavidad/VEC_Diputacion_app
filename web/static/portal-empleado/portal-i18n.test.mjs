@@ -483,7 +483,6 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-llamamientos-operaciones-api.js", "portal-panel-interno.js",
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261008-canal-telefono-v2");
-  versionesEspeciales.set("portal-bolsas-intentos.js", "20261009-ayuda-contacto-v1");
   for (const ruta of [
     "ayuda-contenido.js",
     "ayudante-tramites.js",
@@ -728,16 +727,27 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   ]) versionesEspeciales.set(ruta, "20261009-asignacion-cobertura-v1");
   // Instantes de Bolsa validados por su forma ISO, no por los patrones de DNI.
   for (const ruta of [
+    "portal-bolsas-api.js",
     "portal-bolsas-contrato.js",
     "portal-bolsas-global.js",
+    "portal-bolsas-historial-ofrecimientos.js",
+    "portal-bolsas-ofertas.js",
     "portal-bolsas-ruta-filtros.js",
+    "portal-bolsas-seguimiento.js",
     "portal-inicio.js",
     "portal-llamamientos-operaciones-api.js",
+    "portal-panel-interno.js",
   ]) versionesEspeciales.set(ruta, "20261009-instantes-bolsa-v1");
-  for (const ruta of ["portal-bolsas-api.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js",
-    "portal-bolsas-seguimiento.js", "portal-panel-interno.js", "portal.js"]) {
+  // Paso a Personal (B2): ruta /api/vec y aviso de preparación pendiente.
+  versionesEspeciales.set("modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js", "20261009-b2-ruta-vec-v2");
+  for (const ruta of ["modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js", "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/vista-expedientes.js", "portal-modulos-coordinador.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261009-b2-preparacion-v2");
+  for (const ruta of ["portal-bolsas-intentos.js", "portal-bolsas-api.js", "portal-bolsas-historial-ofrecimientos.js",
+    "portal-bolsas-ofertas.js", "portal-bolsas-seguimiento.js", "portal-panel-interno.js"])
     versionesEspeciales.set(ruta, "20261009-ayuda-contacto-v1");
-  }
+  versionesEspeciales.set("portal.js", "20261009-ayuda-contacto-b2-v3");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
+  renderizarAlegaciones, renderizarLlamamientos, renderizarSubsanaciones,
 } from "./vistas/seguimiento-tramites.js";
 
 // Doble mínimo de los datos del área personal que leen estas vistas.
@@ -15,7 +15,7 @@ function datosPrueba() {
   };
 }
 
-test("seguimiento y trámites informan de ámbitos vacíos sin datos aparentes", () => {
+test("Mi bolsa y los trámites informan de ámbitos vacíos sin datos aparentes", () => {
   const datos = datosPrueba();
   datos.solicitudes = [];
   datos.actividad = [];
@@ -24,10 +24,6 @@ test("seguimiento y trámites informan de ámbitos vacíos sin datos aparentes",
   datos.alegaciones = [];
   delete datos.posicion;
 
-  const seguimiento = renderizarSeguimiento(datos, { expedienteSeleccionado: "SOL-INEXISTENTE" });
-  assert.match(seguimiento, /Sin expedientes en el ámbito autorizado/u);
-  assert.match(seguimiento, /No hay acciones disponibles hasta que el servicio facilite un expediente autorizado/u);
-  assert.doesNotMatch(seguimiento, /undefined|\[object Object\]|Descargar expediente/u);
   assert.match(renderizarLlamamientos(datos), /Cargando histórico autorizado/u);
   assert.doesNotMatch(renderizarLlamamientos(datos), /Sin información de contratos\./u);
   assert.match(renderizarSubsanaciones(datos), /Sin subsanaciones/u);

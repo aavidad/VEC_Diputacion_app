@@ -1,11 +1,7 @@
 {
   "rutas": {
     "inicio": "Home",
-    "convocatorias": "Calls for applications",
-    "convocatoria": "Call for applications details",
     "perfil": "Profile and contact details",
-    "meritos": "Merits and documents",
-    "seguimiento": "My case files",
     "llamamientos": "Availability and call-ups",
     "subsanaciones": "Corrections",
     "alegaciones": "Representations",
@@ -52,9 +48,6 @@
     "noHabilitada": "{operacion}: this action is not yet available in the personal area.",
     "accionNoReconocida": "This action is not recognised here.",
     "operacionNoDisponible": "This action is unavailable."
-  },
-  "documento": {
-    "noDisponible": "The requested document is unavailable within the current scope."
   },
   "miBolsa": {
     "situacion": {
@@ -339,113 +332,6 @@
         "subtitulo": "Information available in this enquiry",
         "detalle": "You can view your job pool participation here. Recruitment deadlines and applications are not yet available in this area.",
         "abrir": "View my job pool"
-      },
-      "cifras": {
-        "pendientes": "Pending actions",
-        "pendientesAyuda": "Check deadlines and messages",
-        "convocatorias": "Open calls for applications",
-        "convocatoriasAyuda": "Processes available now",
-        "solicitudes": "Active applications",
-        "solicitudesAyuda": "Being processed or reviewed",
-        "puntos": "Provisional points",
-        "puntosAyuda": "Subject to technical review"
-      },
-      "abrir": "Open",
-      "atender": "Take action",
-      "puntos": "{puntos} points",
-      "verSeguimiento": "View progress",
-      "titulo": "What needs your attention",
-      "descripcion": "Deadlines, actions and the status of your processes in one place.",
-      "verConvocatorias": "View calls for applications",
-      "resumen": "Personal summary",
-      "plazos": {
-        "titulo": "Upcoming deadlines",
-        "subtitulo": "Dates calculated for your processes",
-        "vacioTitulo": "No deadlines reported",
-        "vacioDetalle": "This enquiry contains no deadlines. Check the terms of each call for applications when available.",
-        "cuenta": {
-          "one": "{cuenta} deadline",
-          "other": "{cuenta} deadlines"
-        }
-      },
-      "solicitudes": {
-        "titulo": "My applications",
-        "subtitulo": "Legal status and next step",
-        "tabla": "Applications linked to the authenticated identity"
-      },
-      "columnas": {
-        "proceso": "Process",
-        "estado": "Status",
-        "puntuacion": "Score and position",
-        "accion": "Action"
-      },
-      "atencion": {
-        "titulo": "Needs attention",
-        "subtitulo": "Tasks that may have a deadline",
-        "vacio": "There are no pending actions.",
-        "cuenta": {
-          "one": "{cuenta} pending",
-          "other": "{cuenta} pending"
-        }
-      },
-      "actividad": {
-        "titulo": "Recent activity",
-        "subtitulo": "Audit trail visible to the person concerned",
-        "vacioTitulo": "No recorded activity",
-        "vacioDetalle": "There are no actions to show in this enquiry yet."
-      }
-    },
-    "convocatorias": {
-      "consultaBolsa": {
-        "titulo": "Calls for applications unavailable here",
-        "descripcion": "The list of calls for applications is not yet available in this area.",
-        "subtitulo": "This enquiry shows your job pool participation",
-        "detalle": "Calls for applications are not connected to this area. You can view the available information about your job pool.",
-        "abrir": "View my job pool"
-      },
-      "todas": "All",
-      "publicada": "Published on {fecha}",
-      "verDetalle": "View details and requirements",
-      "titulo": "Calls for applications and selection processes",
-      "descripcion": "Check the terms, requirements, deadlines and status of each call.",
-      "filtros": {
-        "buscar": "Search",
-        "buscarEjemplo": "Title, reference or category",
-        "estado": "Status",
-        "categoria": "Category",
-        "aplicar": "Apply filters"
-      },
-      "sinResultados": "No results",
-      "sinResultadosDetalle": "Change the filters to see other calls for applications.",
-      "sinConvocatorias": "No calls for applications in this enquiry",
-      "sinConvocatoriasDetalle": "No calls for applications were received to display. Please check again later.",
-      "detalle": {
-        "noEncontradaTitulo": "Call for applications unavailable",
-        "noEncontradaDetalle": "The requested details cannot be opened.",
-        "noEncontradaEstado": "No call for applications is shown",
-        "noEncontradaAyuda": "Return to the list and choose an available call for applications.",
-        "noEncontradaAyudaBolsa": "Calls for applications are not yet available here. View your job pool participation.",
-        "documentoPublico": "Public document of the call for applications",
-        "abrir": "Open {formato}",
-        "documento": "document",
-        "descargar": "Download",
-        "prepararDescarga": "Prepare download of {titulo}",
-        "volver": "Back to the list",
-        "resumen": "Call for applications summary",
-        "estado": "Status",
-        "categoria": "Category",
-        "publicacion": "Publication",
-        "noDisponible": "Not available",
-        "cve": "CVE / Official Gazette (BOP) reference",
-        "plazo": "Deadline",
-        "presentacionHasta": "Applications until",
-        "plazas": "Posts or job pool",
-        "tasa": "Fee",
-        "requisitos": "Eligibility requirements",
-        "requisitosSubtitulo": "The final check will be carried out according to the terms",
-        "requisitosNota": "Read the full terms. This list is for convenience and does not replace the approved text.",
-        "documentacion": "Public documents",
-        "documentacionSubtitulo": "Terms, annexes and scoring scale"
       }
     },
     "perfil": {
@@ -481,135 +367,6 @@
         "subtitulo": "Control over how your data is used",
         "texto": "Access and significant changes are recorded in the audit log. From this area you can see where your data comes from, correct it where appropriate and find out which documents are reused.",
         "enlace": "Read about data protection"
-      }
-    },
-    "meritos": {
-      "puntosEstimados": "{puntos} estimated points",
-      "verEvidencia": "View evidence",
-      "descargar": "Download",
-      "prepararDescarga": "Prepare download of {nombre}",
-      "formulario": {
-        "tipo": "Type of merit",
-        "seleccione": "Select",
-        "denominacion": "Name",
-        "jornada": "Working hours, if applicable",
-        "documento": "Supporting document",
-        "documentoAyuda": "The document will only be added once the secure service confirms it is held safely.",
-        "nota": "Acceptance and scoring depend on the terms of each recruitment notice. Adding a merit to the inventory does not mean it has been validated.",
-        "revisar": "Review addition"
-      },
-      "tipos": {
-        "titulacion": "Qualification",
-        "experiencia": "Experience",
-        "formacion": "Training",
-        "ejercicio": "Exam passed",
-        "otro": "Other merit provided for in the terms"
-      },
-      "jornadas": {
-        "no_corresponde": "Not applicable",
-        "completa": "Full time",
-        "parcial_50": "Part time 50%",
-        "parcial_33": "Part time 33%",
-        "otra": "Other percentage"
-      },
-      "titulo": "Merits, qualifications and documents",
-      "descripcion": "Reusable inventory with status, evidence and contribution to each process.",
-      "anadir": "Add merit",
-      "cifras": {
-        "inventariados": "Merits in inventory",
-        "inventariadosAyuda": "All categories",
-        "validados": "Validated",
-        "validadosAyuda": "Confirmed by technical staff",
-        "pendientes": "Pending or correctable",
-        "pendientesAyuda": "Need review",
-        "documentos": "Documents",
-        "documentosAyuda": "With version and audit trail"
-      },
-      "inventario": {
-        "titulo": "Merits inventory",
-        "subtitulo": "The score is recalculated for the terms of each process",
-        "tabla": "Merits linked to the personal file"
-      },
-      "columnas": {
-        "merito": "Merit",
-        "tipo": "Type",
-        "detalle": "Details and estimate",
-        "estado": "Status",
-        "evidencia": "Evidence",
-        "documento": "Document",
-        "fecha": "Date",
-        "accion": "Action"
-      },
-      "incorporar": {
-        "titulo": "Add a merit",
-        "subtitulo": "Provide the details and any available evidence"
-      },
-      "documentos": {
-        "titulo": "File documents",
-        "subtitulo": "Download and validation status",
-        "tabla": "Documents provided or obtained ex officio"
-      }
-    },
-    "seguimiento": {
-      "titulo": "My files and progress",
-      "descripcion": "Status, score, position, documents and next steps.",
-      "certificados": "Certificates and downloads",
-      "vacio": {
-        "titulo": "No files within the authorised scope",
-        "subtitulo": "No file has been selected",
-        "detalle": "There is no file data to view or download."
-      },
-      "acciones": {
-        "titulo": "Available actions",
-        "subtitulo": "Only for the selected file",
-        "vacio": "No actions are available until the service provides an authorised file.",
-        "subsanar": "Correct",
-        "alegar": "Make a representation",
-        "descargar": "Download file",
-        "descargarDescripcion": "Prepare a downloadable copy of the file"
-      },
-      "puntos": "{puntos} points",
-      "seleccionar": "Select",
-      "posicion": {
-        "titulo": "My position",
-        "subtitulo": "Status and ranking in the assigned job pool",
-        "bolsa": "Job pool",
-        "categoria": "Category",
-        "orden": "Position",
-        "ordenDe": "#{orden} of {total}",
-        "puntuacion": "Score",
-        "vigenteDesde": "Valid from"
-      },
-      "provisional": {
-        "titulo": "Provisional position",
-        "subtitulo": "The position may change after review and representations",
-        "detalle": "Provisional ranking, subject to the terms.",
-        "estado": "Provisional"
-      },
-      "curso": {
-        "titulo": "Applications in progress",
-        "subtitulo": "Select a file to see the details",
-        "tabla": "Applications of the authenticated person"
-      },
-      "columnas": {
-        "proceso": "Process",
-        "estado": "Status",
-        "puntuacion": "Score and position",
-        "actualizacion": "Last update",
-        "accion": "Action"
-      },
-      "ficha": {
-        "estado": "Status",
-        "puntuacion": "Provisional score",
-        "posicion": "Position",
-        "tasa": "Fee",
-        "firma": "Signature",
-        "actualizacion": "Last updated",
-        "siguiente": "Next step:"
-      },
-      "historial": {
-        "titulo": "File history",
-        "subtitulo": "Each change shows the date, who made it and a reference"
       }
     },
     "miBolsa": {
@@ -771,8 +528,6 @@
       "rapida": {
         "titulo": "Quick links",
         "subtitulo": "Common tasks",
-        "inscribirme": "Register",
-        "meritos": "Submit merits",
         "llamamiento": "Respond to a call-up"
       }
     }
@@ -801,14 +556,6 @@
     "tituloDocumento": "{titulo} · My personal area",
     "migas": "My personal area",
     "migasVista": "My personal area → {titulo}",
-    "documento": {
-      "referencia": "Reference",
-      "tipo": "Type",
-      "fecha": "Date",
-      "estado": "Status",
-      "huella": "Fingerprint",
-      "huellaPendiente": "Pending from the document service"
-    },
     "lectura": {
       "aviso": "Reading private files aloud requires an approved connector and policy. See the text guide in Help.",
       "anuncio": "Read-aloud not started. Opening the text guide in Help."
@@ -817,7 +564,6 @@
     "clienteNoValido": "The injected client does not meet the personal area contract."
   },
   "operacion": {
-    "incorporar_merito": "Add merit and evidence",
     "cambiar_disponibilidad": "Change availability",
     "presentar_subsanacion": "Submit correction",
     "presentar_alegacion": "Submit representation",
@@ -846,9 +592,6 @@
     "abrirNavegacion": "Open navigation",
     "migas": "Breadcrumbs",
     "cargando": "Loading personal area…",
-    "buscarEtiqueta": "Search calls for applications and help",
-    "buscarEjemplo": "Search calls for applications or help",
-    "buscar": "Search",
     "escuchar": "Listen",
     "sesionSinResolver": "Session not resolved",
     "identificacionRequerida": "Identification required",
