@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { crearBorradorAlta, crearComandoPeticionCentro, validarBorradorAlta } from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
+import { extraerBorrador } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261009-centro-campos-v1";
 import {
   pedir,
   renderizarPeticionCentro,
@@ -49,6 +50,35 @@ test("la petición exige datos estructurados y los muestra a ratificador y RRHH"
   assert.match(html, /Administrativo C2/);
   assert.match(html, /37:30/);
   assert.match(renderizarPeticionesCentroRRHH({ entrega: { peticion: { ...nueva, version: 2, estado: "ratificada" }, estado_entrega: "pendiente" } }), /Administrativo C2/);
+});
+
+test("la jornada escrita en horas no se convierte en minutos si excede el máximo", () => {
+  const anterior = globalThis.FormData;
+  globalThis.FormData = class {
+    constructor(formulario) { this.valores = formulario.valores; }
+    get(nombre) { return this.valores[nombre] ?? null; }
+    getAll(nombre) { return this.valores[nombre] ?? []; }
+  };
+  const valores = {
+    centro_ref: "cen_sintetico_001", contacto_ref: "con_sintetico_001",
+    categoria_ref: "cat_sintetica_001", grupo_subgrupo: "C2", motivo_clave: "sustitucion",
+    detalle: "Sustitución de personal", inicio: "2026-11-02", fin: "2026-12-31",
+    rc_existe: "no", numero_personas: "2", puesto_solicitado: "Administrativo C2",
+    documentos_adjuntos: [],
+  };
+  const formulario = { valores, querySelector: (selector) => selector === '[name="puesto_solicitado"]' ? {} : null };
+  try {
+    for (const horas of ["169", "2250"]) {
+      valores.jornada_horas = horas;
+      const borrador = extraerBorrador(formulario, false);
+      assert.equal(borrador.jornada_minutos, "", `${horas} horas no son minutos válidos`);
+      assert.equal(validarBorradorAlta(borrador, catalogos).valido, false);
+      assert.throws(() => crearComandoPeticionCentro(borrador, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6"));
+    }
+    valores.jornada_horas = "37:30";
+    const correcto = extraerBorrador(formulario, false);
+    assert.equal(crearComandoPeticionCentro(correcto, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6").solicitud.jornada_minutos, 2250);
+  } finally { globalThis.FormData = anterior; }
 });
 
 test("renderer de ratificación muestra todos los datos revisables", () => {

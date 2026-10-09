@@ -278,22 +278,22 @@ function camposPeticionCentro(estado, t, deshabilitado) {
     <legend>${escaparHTML(t("peticion_puesto_leyenda"))}</legend>
     <div class="ct-campos">
       <div class="ct-campo">
-        <label for="ct-pc-numero-personas">${escaparHTML(t("numero_personas"))} <b aria-hidden="true">*</b></label>
-        <input id="ct-pc-numero-personas" name="numero_personas" type="number" min="1" max="4294967295" step="1" required
+        <label for="ct-numero_personas">${escaparHTML(t("numero_personas"))} <b aria-hidden="true">*</b></label>
+        <input id="ct-numero_personas" name="numero_personas" type="number" min="1" max="4294967295" step="1" required
           value="${escaparHTML(estado.borrador.numero_personas)}"
           ${atributosAccesibles(estado, "numero_personas")}${deshabilitado ? " disabled" : ""}>
         ${errorCampo(estado, "numero_personas", t)}
       </div>
       <div class="ct-campo">
-        <label for="ct-pc-jornada">${escaparHTML(t("jornada_minutos"))} <b aria-hidden="true">*</b></label>
-        <input id="ct-pc-jornada" name="jornada_horas" type="text" inputmode="decimal" maxlength="8" required
+        <label for="ct-jornada_minutos">${escaparHTML(t("jornada_minutos"))} <b aria-hidden="true">*</b></label>
+        <input id="ct-jornada_minutos" name="jornada_horas" type="text" inputmode="decimal" maxlength="8" required
           value="${escaparHTML(jornadaVisibleDesdeMinutos(estado.borrador.jornada_minutos) || estado.borrador.jornada_minutos)}"
           ${atributosAccesibles(estado, "jornada_minutos")}${deshabilitado ? " disabled" : ""}>
         ${errorCampo(estado, "jornada_minutos", t)}
       </div>
       <div class="ct-campo ct-campo-ancho">
-        <label for="ct-pc-puesto">${escaparHTML(t("puesto_solicitado"))} <b aria-hidden="true">*</b></label>
-        <input id="ct-pc-puesto" name="puesto_solicitado" type="text" maxlength="160" required
+        <label for="ct-puesto_solicitado">${escaparHTML(t("puesto_solicitado"))} <b aria-hidden="true">*</b></label>
+        <input id="ct-puesto_solicitado" name="puesto_solicitado" type="text" maxlength="160" required
           value="${escaparHTML(estado.borrador.puesto_solicitado)}"
           ${atributosAccesibles(estado, "puesto_solicitado")}${deshabilitado ? " disabled" : ""}>
         ${errorCampo(estado, "puesto_solicitado", t)}
@@ -562,7 +562,7 @@ export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
   const jornadaEntrada = String(datos.get("jornada_horas") ?? "");
   const minutosJornada = minutosDesdeJornadaVisible(jornadaEntrada);
   const adicionales = necesidad ? {
-    jornada_minutos: minutosJornada === null ? jornadaEntrada : String(minutosJornada),
+    jornada_minutos: minutosJornada === null ? "" : String(minutosJornada),
     ...Object.fromEntries([
       "numero_personas", "puesto_codigo", "plaza_codigo", "titular_ref", "vacancia_fuente_ref",
       "rpt_catalogo_ref", "rpt_catalogo_huella_sha256", "organica_codigo", "funcional_codigo",
@@ -572,7 +572,7 @@ export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
     ].map((campo) =>
       [campo, String(datos.get(campo) ?? "")])) } : {};
   const adicionalesCentro = peticionCentro ? {
-    jornada_minutos: minutosJornada === null ? jornadaEntrada : String(minutosJornada),
+    jornada_minutos: minutosJornada === null ? "" : String(minutosJornada),
     numero_personas: String(datos.get("numero_personas") ?? ""),
     puesto_solicitado: String(datos.get("puesto_solicitado") ?? ""),
   } : {};
