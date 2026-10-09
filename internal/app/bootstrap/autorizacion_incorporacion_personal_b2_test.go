@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -175,6 +176,25 @@ func TestIncorporacionB2PuraDetalleYTresFronterasNominales(t *testing.T) {
 	nominales := &perfilesNominalesIncorporacion{soporte: soporte, consultas: consultas, detalle: detalle}
 	if err := extenderPerfilesNominalesB2(nominales, refs, configuracionB2PuraPrueba().PersonalB2, soporte.reloj.Ahora()); err != nil {
 		t.Fatal(err)
+	}
+	ct155 := nominales.b2[ct.AccionLeerPlanNominalB2]
+	esperadosCT155 := map[string][]string{
+		ct.AccionLeerPlanNominalB2:      {"plan"},
+		ct.AccionRegistrarPlanNominalB2: {"recibo"},
+		ct.AccionConfirmarOrigenB2:      {"recibo"},
+	}
+	if ct155 == nil || ct155 != nominales.b2[ct.AccionRegistrarPlanNominalB2] || ct155 != nominales.b2[ct.AccionConfirmarOrigenB2] || len(ct155.plantilla.VersionRol.Concesiones) != len(esperadosCT155) {
+		t.Fatal("CT155 debe conservar un único perfil con tres acciones exactas")
+	}
+	for _, concesion := range ct155.plantilla.VersionRol.Concesiones {
+		campos, existe := esperadosCT155[concesion.Accion]
+		if !existe || !slices.Equal(concesion.CamposPermitidos, campos) || len(concesion.Obligaciones) != 0 {
+			t.Fatalf("concesión CT155 divergente del contrato AD3-130: %s campos=%v", concesion.Accion, concesion.CamposPermitidos)
+		}
+		delete(esperadosCT155, concesion.Accion)
+	}
+	if len(esperadosCT155) != 0 {
+		t.Fatalf("faltan concesiones CT155: %v", esperadosCT155)
 	}
 	if nominales.legadoCompuesto || nominales.alta != nil || nominales.ct != nil || len(nominales.todos()) != 1+len(gruposPerfilesIncorporacionB2()) {
 		t.Fatal("B2 puro compuso perfiles del protocolo anterior o perdió uno propio")
