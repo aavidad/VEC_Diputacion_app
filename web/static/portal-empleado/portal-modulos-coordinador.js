@@ -31,6 +31,11 @@ const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 // Lo que la lista CT tiene en pantalla solo sirve a un clic reciente en ella.
 const VIGENCIA_REUTILIZACION_LISTA_MS = 30_000;
 const instante = () => globalThis.performance?.now?.() ?? Date.now();
+// Con la lista abierta, el código y los textos de la ficha se descargan en
+// reposo (como mucho a los 2 s), salvo con ahorro de datos o red 2G.
+const ESPERA_REPOSO_FICHA_MS = 2_000;
+const conexionLimitada = (navegador) => navegador?.connection?.saveData === true
+  || ["slow-2g", "2g"].includes(navegador?.connection?.effectiveType);
 // Identidad de una consulta del cuadro CT (campos cerrados del contrato).
 // Sin paginación sirve para comparar el resumen, que no depende de ella.
 function claveCuadroCT(solicitud, conPaginacion = true) {
@@ -125,25 +130,25 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js?v=20261009-centro-campos-cohorte-v5"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261009-ct-bolsa-cohorte-v7"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261009-ct-bolsa-cohorte-v8"),
 
     ]);
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
-        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261009-ct-bolsa-cohorte-v7"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261009-ct-bolsa-cohorte-v7"),
-        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261009-ct-bolsa-cohorte-v7"),
+        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261009-ct-bolsa-cohorte-v8"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261009-ct-bolsa-cohorte-v8"),
+        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261009-ct-bolsa-cohorte-v8"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
       return completos;
     };
-    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261009-ct-bolsa-cohorte-v7");
+    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261009-ct-bolsa-cohorte-v8");
     // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261009-ct-bolsa-cohorte-v7");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261009-ct-bolsa-cohorte-v8");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),
@@ -511,6 +516,26 @@ export function crearCoordinadorModulosPortal({
           .catch((error) => { promesaCuadro = null; throw error; });
         return promesaCuadro;
       };
+      // Solo módulos y catálogos de textos: ninguna consulta de datos ni API,
+      // nada que se lea o se audite. Es una optimización: un error al programarla
+      // no afecta a la lista, y uno al descargar se ve igual que tras un clic.
+      let fichaPrecargada = false;
+      const precargarFichaEnReposo = (signal) => {
+        try { if (fichaPrecargada || conexionLimitada(entorno.navigator)) return; } catch { return; }
+        const precargar = () => {
+          if (signal?.aborted || fichaPrecargada) return;
+          fichaPrecargada = true;
+          void Promise.all([recursos.cargarCompleto(), recursos.cargarVista?.()])
+            .catch(() => { fichaPrecargada = false; });
+        };
+        try {
+          const idle = typeof entorno.requestIdleCallback === "function";
+          const id = idle ? entorno.requestIdleCallback(precargar, { timeout: ESPERA_REPOSO_FICHA_MS })
+            : temporizadores.setTimeout(precargar, ESPERA_REPOSO_FICHA_MS);
+          signal?.addEventListener?.("abort", () => (idle ? entorno.cancelIdleCallback?.(id)
+            : temporizadores.clearTimeout(id)), { once: true });
+        } catch { /* sin precarga */ }
+      };
       const activarCompleto = ({ desdeLista = false } = {}) => {
         // Resumen y catálogos solo sirven a la primera carga completa; la página,
         // a la ficha que se abre ahora (el montaje la olvida tras consultarla).
@@ -541,7 +566,7 @@ export function crearCoordinadorModulosPortal({
         return promesaResumen;
       };
       return { contratacionTemporal: Object.freeze({
-        modoLigero: true, cliente, consultarCuadroLista, esperarCuadroLigero, activarCompleto,
+        modoLigero: true, cliente, consultarCuadroLista, esperarCuadroLigero, activarCompleto, precargarFichaEnReposo,
         olvidarReutilizables: () => { reutilizables = null; },
         prepararNombresLista, nombreCentro, nombreCategoria,
         alta: null, fiscalizacion: perfilIntervencion ? Object.freeze({ cliente }) : null,
@@ -1306,7 +1331,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261009-ct-bolsa-cohorte-v7");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261009-ct-bolsa-cohorte-v8");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
@@ -1356,6 +1381,7 @@ export function crearCoordinadorModulosPortal({
           });
           if (montaje !== secuenciaMontaje) { controladorMontaje.abort(); modulo.desmontar(); return false; }
           desmontarVista = () => { controladorMontaje.abort(); modulo.desmontar(); };
+          temporal.precargarFichaEnReposo?.(controladorMontaje.signal);
           return true;
         }
         ligero = temporal;

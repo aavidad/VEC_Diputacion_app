@@ -1,6 +1,6 @@
 /** Descarga binaria de la consulta RRHH; no registra actuaciones ni genera documentos. */
-import { ErrorClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261009-ct-bolsa-cohorte-v7";
-import { RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261009-ct-bolsa-cohorte-v7";
+import { ErrorClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261009-ct-bolsa-cohorte-v8";
+import { RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261009-ct-bolsa-cohorte-v8";
 
 // Perfiles de representación, no de identidad ni autorización.
 export const PERFILES_BORRADOR_RRHH = Object.freeze({
