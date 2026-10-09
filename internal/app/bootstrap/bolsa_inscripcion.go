@@ -440,11 +440,12 @@ func soloQueryInscripcion(q url.Values, claves ...string) bool {
 func filtroListaInscripcion(q url.Values) (inscripcion.Filtro, bool) {
 	limite := 20
 	if valor := q.Get("limite"); valor != "" {
-		var err error
-		limite, err = strconv.Atoi(valor)
-		if err != nil || limite < 1 || limite > 100 {
+		// Un límite no numérico o fuera de rango no es un filtro admitido.
+		n, err := strconv.Atoi(valor)
+		if admitido := err == nil && n >= 1 && n <= 100; !admitido {
 			return inscripcion.Filtro{}, false
 		}
+		limite = n
 	}
 	f := inscripcion.Filtro{Limite: limite, Cursor: q.Get("cursor")}
 	return f, len(f.Cursor) <= 512

@@ -482,8 +482,9 @@ func entradaPermitida(r *http.Request) bool {
 	if r.URL.ForceQuery {
 		return false
 	}
+	// Una consulta mal formada se rechaza igual que una clave no admitida.
 	consulta, err := url.ParseQuery(r.URL.RawQuery)
-	if err != nil {
+	if bienFormada := err == nil; !bienFormada {
 		return false
 	}
 	if r.Method == http.MethodGet && !sinCuerpo(r) {

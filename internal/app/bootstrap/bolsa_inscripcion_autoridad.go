@@ -713,7 +713,8 @@ func atributosMaterialEscrituraInscripcion(accion, persona, recurso string, mate
 	default:
 		return nil, false
 	}
-	if err != nil || ref != recurso || !bytes.Equal(esperado, material) {
+	// Un material que no se puede reconstruir no corresponde a la operación.
+	if coincide := err == nil && ref == recurso && bytes.Equal(esperado, material); !coincide {
 		return nil, false
 	}
 	atributos["material_sha256"] = huella
