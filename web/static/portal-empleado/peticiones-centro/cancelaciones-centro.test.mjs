@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { RUTAS_CANCELACIONES_CENTRO, crearClienteCancelacionesCentro, montarCancelacionesCentro } from "./cancelaciones-centro.js";
+import { crearBandejaCompartida, crearClienteIncorporacionesCentro, montarIncorporacionesCentro } from "./incorporaciones-centro.js";
 
 const fila = (extra = {}) => ({ peticion_ref: "peticion:centro:1", expediente_ref: "expediente:ct:1", numero_visible: "2026/CT-000124", version: 3,
   fase: "solicitud", estado: "en_curso", modalidad_clave: "", categoria_ref: "cat:1", periodo: { inicio: "2026-10-01T00:00:00Z", fin: "2026-12-31T00:00:00Z" },
@@ -68,4 +69,28 @@ test("solo ofrece cancelar en las fases que admite el catálogo y se oculta si e
   assert.doesNotMatch(c.innerHTML, /peticion:centro|expediente:ct:1<|recibo:/u, "sin referencias internas visibles");
   desmontar();
   assert.equal(c.eventos.size, 0);
+});
+
+test("incorporaciones y cancelaciones hacen una sola petición a la bandeja; reintentar pide otra", async () => {
+  const respuestas = [{ ok: false, status: 503, cuerpo: {} },
+    { ok: true, status: 200, cuerpo: { data: { esquema: "vec.contratacion-temporal.incorporaciones-centro.v1", expedientes: [fila()], puede_confirmar: true, limite: 50 } } }];
+  const rutas = [];
+  const fetchFalso = async (ruta) => {
+    rutas.push(ruta);
+    const r = respuestas[Math.min(rutas.length - 1, respuestas.length - 1)];
+    return { ok: r.ok, status: r.status, text: async () => JSON.stringify(r.cuerpo) };
+  };
+  const bandeja = crearBandejaCompartida(crearClienteIncorporacionesCentro(fetchFalso));
+  const i = contenedorFalso();
+  const c = contenedorFalso();
+  montarIncorporacionesCentro({ contenedor: i, cliente: bandeja });
+  montarCancelacionesCentro({ contenedor: c, bandeja, cliente: { consultar: async (ref) => opciones(ref) } });
+  await esperar(); await esperar();
+  assert.equal(rutas.length, 1, "una sola lectura compartida al cargar la página");
+  assert.match(i.innerHTML, /data-ic-recargar/u);
+  assert.match(c.innerHTML, /data-cc-recargar/u);
+  c.eventos.get("click")({ target: { closest: () => ({ matches: (selector) => selector === "[data-cc-recargar]", dataset: {} }) } });
+  await esperar(); await esperar();
+  assert.equal(rutas.length, 2, "reintentar no reutiliza el fallo anterior");
+  assert.match(c.innerHTML, /data-cc-abrir="expediente:ct:1"/u);
 });

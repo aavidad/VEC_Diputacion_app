@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,7 +11,16 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
+	vecmemory "vec-diputacion-granada/internal/vec/adapters/memory"
+	vecapp "vec-diputacion-granada/internal/vec/application"
 )
+
+type autoridadRutaB2DispatcherPrueba struct{ rutas []string }
+
+func (a *autoridadRutaB2DispatcherPrueba) AutorizarRutaExacta(_ context.Context, ruta string) error {
+	a.rutas = append(a.rutas, ruta)
+	return nil
+}
 
 func TestCoberturaRutasCTFirmaRequiereFronterasPDPActivadas(t *testing.T) {
 	const perfil = "prf_cobertura_ct"
@@ -132,6 +142,33 @@ func TestCoberturaRutasIncorporacionB2ExigeCadaFrontera(t *testing.T) {
 	}
 	if err := validarCoberturaRutasCTDesarrollo(rutas, catalogo); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRutasIncorporacionB2MontanEnDispatcherVEC(t *testing.T) {
+	store := vecmemory.NewStore()
+	service, _, err := vecapp.NewServiceWithInternalOperations(store, store, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	autoridad := &autoridadRutaB2DispatcherPrueba{}
+	rutas := []vechttp.RutaExacta{
+		{Ruta: httpinterno.RutaPlanB2, Manejador: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })},
+		{Ruta: httpinterno.RutaConfirmacionB2, Manejador: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })},
+	}
+	handler, err := vechttp.NewHandlerWithOptions(service, vechttp.HandlerOptions{RutasExactas: rutas, AutoridadRutasExactas: autoridad})
+	if err != nil {
+		t.Fatalf("las rutas B2 no montan en el dispatcher de VEC: %v", err)
+	}
+	for _, caso := range []struct{ metodo, ruta string }{{http.MethodGet, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaConfirmacionB2}} {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, httptest.NewRequest(caso.metodo, caso.ruta, nil))
+		if w.Code != http.StatusNoContent {
+			t.Fatalf("%s %s: HTTP %d", caso.metodo, caso.ruta, w.Code)
+		}
+	}
+	if len(autoridad.rutas) != 2 || autoridad.rutas[0] != httpinterno.RutaPlanB2 || autoridad.rutas[1] != httpinterno.RutaConfirmacionB2 {
+		t.Fatalf("las rutas B2 eludieron la autoridad exacta: %v", autoridad.rutas)
 	}
 }
 

@@ -253,7 +253,7 @@ func TestIncorporacionB2PerfilPersonalConservaActorYRevocaLectura(t *testing.T) 
 		publicador.publicadas[p.perfilRef()] = instantaneaPublicadaDesarrollo{instantanea: p.plantilla, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}
 	}
 	autoridad := &autoridadIncorporacionPersonalB2{perfiles: base.nominales, reloj: base.reloj}
-	ctx = context.WithValue(ctx, claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "POST", ruta: "/api/interno/contratacion-temporal/incorporacion-personal-b2/confirmar/v1"})
+	ctx = context.WithValue(ctx, claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "POST", ruta: "/api/vec/contratacion-temporal/incorporacion-personal-b2/confirmar/v1"})
 	primero, e := autoridad.ActorPreparacionPlanB2(ctx)
 	if e != nil {
 		t.Fatal(e)
@@ -274,7 +274,7 @@ func TestIncorporacionB2PerfilPersonalConservaActorYRevocaLectura(t *testing.T) 
 }
 func TestIncorporacionB2GETYPrepararNoAutorizanEfectoPersonal(t *testing.T) {
 	for _, metodo := range []string{"GET", "POST"} {
-		ctx := context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: metodo, ruta: "/api/interno/contratacion-temporal/incorporacion-personal-b2/plan/v1"})
+		ctx := context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: metodo, ruta: "/api/vec/contratacion-temporal/incorporacion-personal-b2/plan/v1"})
 		for _, accion := range []string{"personal.plan_incorporacion_ct.preparar", "personal.plan_incorporacion_ct.ejecutar", personal.AccionAltaEmpleadoB2, personal.AccionHechoEmpleadoB2, "vec.catalogos.categorias.reservar_uso", "vec.catalogos.categorias.confirmar_uso", ct.AccionConfirmarOrigenB2} {
 			if operacionPermitidaEnRutaIncorporacionB2(ctx, accion) {
 				t.Fatalf("%s permitió efecto %s", metodo, accion)
@@ -290,7 +290,7 @@ func TestIncorporacionB2GETYPrepararNoAutorizanEfectoPersonal(t *testing.T) {
 	if operacionPermitidaEnRutaIncorporacionB2(nil, ct.AccionLeerPlanNominalB2) {
 		t.Fatal("contexto ausente concedió lectura")
 	}
-	ctx, cancelar := context.WithCancel(context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "POST", ruta: "/api/interno/contratacion-temporal/incorporacion-personal-b2/confirmar/v1"}))
+	ctx, cancelar := context.WithCancel(context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "POST", ruta: "/api/vec/contratacion-temporal/incorporacion-personal-b2/confirmar/v1"}))
 	cancelar()
 	if operacionPermitidaEnRutaIncorporacionB2(ctx, ct.AccionConfirmarOrigenB2) {
 		t.Fatal("petición cancelada conservó autorización de efecto")
