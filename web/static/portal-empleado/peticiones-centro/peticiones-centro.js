@@ -5,9 +5,9 @@ import {
   validarCatalogosAlta,
   numeroExpedienteMOADValido,
   jornadaVisibleDesdeMinutos,
-} from "../modulos/contratacion-temporal/contrato.js?v=20261009-centro-campos-cohorte-v3";
+} from "../modulos/contratacion-temporal/contrato.js?v=20261009-centro-campos-cohorte-v4";
 import { extraerBorrador, formulario as renderizarFormularioPuro,
-  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261009-centro-campos-cohorte-v3";
+  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261009-centro-campos-cohorte-v4";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO, MENSAJES_AYUDA_PETICIONES_CENTRO,
   TEXTOS_LOCALES_PETICIONES_CENTRO, prepararAnalisisPeticionesCentro,
@@ -219,9 +219,9 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
     [traducirCentro("ct_txt_contacto"), nombre("contactos", centro?.contactos, s.contacto_ref)],
     [traducirCentro("ct_txt_categoria"), nombre("categorias", catalogos?.categorias, s.categoria_ref)], [traducirCentro("ct_txt_grupo_o_subgrupo"), s.grupo_subgrupo], [traducirCentro("ct_txt_motivo"), etiquetaMotivo],
     ...(s.puesto_solicitado ? [
-      [traducirCentro("puesto_solicitado"), s.puesto_solicitado],
       [traducirCentro("numero_personas"), s.numero_personas],
-      [traducirCentro("jornada_minutos"), jornadaVisibleDesdeMinutos(s.jornada_minutos)],
+      [traducirCentro("jornada_semanal"), jornadaVisibleDesdeMinutos(s.jornada_minutos)],
+      [traducirCentro("puesto_solicitado"), s.puesto_solicitado],
     ] : []),
     [traducirCentro("ct_txt_detalle"), s.detalle], [traducirCentro("ct_txt_periodo"), periodoLegible(s.periodo)], [traducirCentro("ct_txt_observaciones"), s.observaciones || "—"],
     [traducirCentro("ct_txt_retencion_de_credito"), rc], [traducirCentro("ct_txt_documentos_aportados"), (s.documentos_adjuntos || []).map((ref) => nombre("documentos", catalogos?.documentos, ref)).join(" · ") || traducirCentro("ct_txt_ninguno")],

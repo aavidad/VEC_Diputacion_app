@@ -771,7 +771,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "peticiones-centro/arranque-peticiones-centro.js",
     "peticiones-centro/peticiones-centro.js",
     "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261009-centro-campos-cohorte-v3");
+  ]) versionesEspeciales.set(ruta, "20261009-centro-campos-cohorte-v4");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

@@ -605,7 +605,8 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
       || Number(borrador.jornada_minutos) > 10080) agregarError(errores, "jornada_minutos", "jornada");
     if (!/^(?:[1-9][0-9]{0,9})$/u.test(borrador.numero_personas)
       || Number(borrador.numero_personas) > 4294967295) agregarError(errores, "numero_personas", "numero_personas");
-    if (!textoValido(borrador.puesto_solicitado, 160, false) || /\p{Cc}/u.test(borrador.puesto_solicitado)) agregarError(errores, "puesto_solicitado", "puesto_solicitado");
+    if (borrador.puesto_solicitado === "") agregarError(errores, "puesto_solicitado", "puesto_solicitado_vacio");
+    else if (!textoValido(borrador.puesto_solicitado, 160, false) || /\p{Cc}/u.test(borrador.puesto_solicitado)) agregarError(errores, "puesto_solicitado", "puesto_solicitado");
   }
   if (!fechaCivilValida(borrador.inicio)) agregarError(errores, "inicio", "fecha");
   if (motivo?.fecha_fin === "no_aplica" && borrador.fin !== "") agregarError(errores, "fin", "fecha_no_aplica");

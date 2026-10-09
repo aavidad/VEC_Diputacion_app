@@ -63,7 +63,7 @@ test("los campos exclusivos del Centro usan su catálogo en el renderer comparti
     readFile(new URL("../../../textos/es/peticiones-centro.json", directorio), "utf8").then(JSON.parse),
     readFile(new URL("../../peticiones-centro/peticiones-centro.js", directorio), "utf8"),
   ]);
-  for (const clave of ["peticion_puesto_leyenda", "puesto_solicitado", "numero_personas", "jornada_minutos"]) {
+  for (const clave of ["peticion_puesto_leyenda", "puesto_solicitado", "numero_personas", "jornada_minutos", "jornada_semanal"]) {
     assert.equal(typeof catalogo.general[clave], "string", clave);
     assert.match(rendererPuroFuente, new RegExp(`tCentro\\("${clave}"\\)`));
   }
@@ -122,7 +122,7 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos, Die
   assert.match(coordinadorFuente, /componerCronosInterno/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-saldo-conectado\.js\?v=/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-permisos-propios\.js\?v=/);
-  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261009-centro-campos-cohorte-v3"\)/);
+  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261009-centro-campos-cohorte-v4"\)/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);
   assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/vista-expedientes\.js\?v=/);

@@ -1,6 +1,6 @@
 /** Presentación pura del alta CT, compartida con la petición previa del centro. */
-import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261009-centro-campos-cohorte-v3";
-import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261009-centro-campos-cohorte-v3";
+import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261009-centro-campos-cohorte-v4";
+import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261009-centro-campos-cohorte-v4";
 
 const CAMPOS_RPT_PUBLICACION = new Set(["rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]);
 const CAMPOS_RPT_INTERNOS = new Set(["puesto_codigo", ...CAMPOS_RPT_PUBLICACION]);
@@ -279,7 +279,7 @@ function camposPeticionCentro(estado, tCentro, deshabilitado) {
     <div class="ct-campos">
       <div class="ct-campo">
         <label for="ct-numero_personas">${escaparHTML(tCentro("numero_personas"))} <b aria-hidden="true">*</b></label>
-        <input id="ct-numero_personas" name="numero_personas" type="number" min="1" max="4294967295" step="1" required
+        <input id="ct-numero_personas" name="numero_personas" type="number" min="1" step="1" inputmode="numeric" required
           value="${escaparHTML(estado.borrador.numero_personas)}"
           ${atributosAccesibles(estado, "numero_personas")}${deshabilitado ? " disabled" : ""}>
         ${errorCampo(estado, "numero_personas", tCentro)}
@@ -515,7 +515,7 @@ export function revision(estado, t, locale, tCentro) {
       ${filaResumen(t("resumen_grupo"), grupo)}
       ${filaResumen(t("resumen_motivo"), motivo)}
       ${Object.hasOwn(borrador, "puesto_solicitado") ? filaResumen(tCentro("numero_personas"), borrador.numero_personas)
-    + filaResumen(tCentro("jornada_minutos"), jornadaVisibleDesdeMinutos(borrador.jornada_minutos))
+    + filaResumen(tCentro("jornada_semanal"), jornadaVisibleDesdeMinutos(borrador.jornada_minutos))
     + filaResumen(tCentro("puesto_solicitado"), borrador.puesto_solicitado) : ""}
       ${esNecesidad(estado) ? filaResumen(t("jornada_minutos"), jornadaVisibleDesdeMinutos(borrador.jornada_minutos)) : ""}
       ${esNecesidad(estado) ? estado.catalogos.necesidades.causas.find(
@@ -561,8 +561,13 @@ export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
   const necesidad = !peticionCentro && Boolean(formularioDOM.querySelector?.('[name="jornada_horas"]'));
   const jornadaEntrada = String(datos.get("jornada_horas") ?? "");
   const minutosJornada = minutosDesdeJornadaVisible(jornadaEntrada);
+  // Si la jornada no se entiende se conserva lo tecleado para repintarlo y que
+  // la validación lo marque. Unas cifras sueltas («1000») pasarían por minutos
+  // válidos; el espacio final, invisible en el campo, impide esa confusión.
+  const jornadaBorrador = minutosJornada !== null ? String(minutosJornada)
+    : /^\d+$/u.test(jornadaEntrada) ? `${jornadaEntrada} ` : jornadaEntrada;
   const adicionales = necesidad ? {
-    jornada_minutos: minutosJornada === null ? "" : String(minutosJornada),
+    jornada_minutos: jornadaBorrador,
     ...Object.fromEntries([
       "numero_personas", "puesto_codigo", "plaza_codigo", "titular_ref", "vacancia_fuente_ref",
       "rpt_catalogo_ref", "rpt_catalogo_huella_sha256", "organica_codigo", "funcional_codigo",
@@ -572,9 +577,9 @@ export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
     ].map((campo) =>
       [campo, String(datos.get(campo) ?? "")])) } : {};
   const adicionalesCentro = peticionCentro ? {
-    jornada_minutos: minutosJornada === null ? "" : String(minutosJornada),
+    jornada_minutos: jornadaBorrador,
     numero_personas: String(datos.get("numero_personas") ?? ""),
-    puesto_solicitado: String(datos.get("puesto_solicitado") ?? ""),
+    puesto_solicitado: String(datos.get("puesto_solicitado") ?? "").trim(),
   } : {};
   return {
     ...(conNumeroMOAD ? { numero_expediente_moad: String(datos.get("numero_expediente_moad") ?? "") } : {}),

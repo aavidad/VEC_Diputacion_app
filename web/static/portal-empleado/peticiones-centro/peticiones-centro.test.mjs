@@ -59,8 +59,9 @@ test("borrador y comando rechazan controles dentro del puesto sin cambiar el det
     inicio: "2026-11-02", fin: "2026-12-31", numero_personas: "2", puesto_solicitado: "Administrativo C2" };
   assert.equal(validarBorradorAlta(borrador, catalogos).valido, true);
   const comando = crearComandoPeticionCentro(borrador, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6");
+  assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: "" }, catalogos).errores.puesto_solicitado, "puesto_solicitado_vacio");
   for (const puesto of ["", "A".repeat(161), "Auxiliar\tadministrativo", "Auxiliar\nadministrativo", "Auxiliar\u0007administrativo"]) {
-    assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: puesto }, catalogos).errores.puesto_solicitado, "puesto_solicitado");
+    if (puesto !== "") assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: puesto }, catalogos).errores.puesto_solicitado, "puesto_solicitado");
     assert.throws(() => validarComandoAlta({ clave_idempotencia: comando.clave_idempotencia,
       numero_expediente_moad: "2026/94009", solicitud: { ...comando.solicitud, puesto_solicitado: puesto } }));
   }
@@ -69,7 +70,11 @@ test("borrador y comando rechazan controles dentro del puesto sin cambiar el det
     catalogos, errores: { puesto_solicitado: "puesto_solicitado", jornada_minutos: "jornada" },
     mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" };
   const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado });
-  assert.equal((html.match(/máximo 160 caracteres/gu) || []).length, 2);
+  assert.equal((html.match(/160 caracteres como máximo/gu) || []).length, 2);
+  assert.doesNotMatch(html, /tabulaciones|max="4294967295"/u);
+  const vacio = renderizarPeticionCentro({ contexto, modo: "formulario",
+    estado: { ...estado, errores: { puesto_solicitado: "puesto_solicitado_vacio" } } });
+  assert.equal((vacio.match(/Indique el puesto que necesita\./gu) || []).length, 2);
   assert.equal((html.match(/Máximo: 168 horas/gu) || []).length, 2);
   assert.doesNotMatch(html, /máximo de 4\.000 caracteres/iu);
 });
@@ -93,10 +98,28 @@ test("la jornada escrita en horas no se convierte en minutos si excede el máxim
     for (const horas of ["169", "2250"]) {
       valores.jornada_horas = horas;
       const borrador = extraerBorrador(formulario, false);
-      assert.equal(borrador.jornada_minutos, "", `${horas} horas no son minutos válidos`);
-      assert.equal(validarBorradorAlta(borrador, catalogos).errores.jornada_minutos, "jornada");
+      assert.equal(validarBorradorAlta(borrador, catalogos).errores.jornada_minutos, "jornada", `${horas} horas no son minutos válidos`);
       assert.throws(() => crearComandoPeticionCentro(borrador, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6"));
     }
+    for (const tecleado of ["169", "37:3x", "0"]) {
+      valores.jornada_horas = tecleado;
+      const borrador = extraerBorrador(formulario, false);
+      assert.equal(validarBorradorAlta(borrador, catalogos).errores.jornada_minutos, "jornada");
+      const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado: { fase: "edicion", disponible: true,
+        ocupado: false, borrador, catalogos, errores: { jornada_minutos: "jornada" }, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" } });
+      assert.match(html, new RegExp(`name="jornada_horas"[^>]*value="${tecleado}\\s?"`, "u"), `se conserva ${tecleado}`);
+    }
+    valores.jornada_horas = "37:30";
+    valores.puesto_solicitado = "  Administrativo C2  ";
+    assert.equal(extraerBorrador(formulario, false).puesto_solicitado, "Administrativo C2");
+    valores.puesto_solicitado = "Administrativo C2";
+    // El alta de necesidad de RRHH comparte la extracción y tampoco pierde lo tecleado.
+    const necesidad = { valores, querySelector: (selector) => selector === '[name="jornada_horas"]' ? {} : null };
+    valores.jornada_horas = "37:3x";
+    assert.equal(extraerBorrador(necesidad, false).jornada_minutos, "37:3x");
+    valores.jornada_horas = "1000";
+    assert.doesNotMatch(extraerBorrador(necesidad, false).jornada_minutos, /^[1-9]\d*$/u);
+    valores.jornada_horas = "37:30";
     valores.jornada_horas = "37:30";
     const correcto = extraerBorrador(formulario, false);
     assert.equal(crearComandoPeticionCentro(correcto, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6").solicitud.jornada_minutos, 2250);
