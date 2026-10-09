@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/shared/telemetria"
 )
@@ -92,6 +93,69 @@ SELECT session_user=$1
   OR pg_catalog.has_any_column_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
  AND NOT EXISTS(SELECT 1 FROM secuencias s WHERE pg_catalog.has_sequence_privilege(session_user,s.oid,'USAGE,SELECT,UPDATE'))
  AND NOT pg_catalog.has_schema_privilege(session_user,'vec_bolsa_llamamientos','CREATE')`, login, rol).Scan(&permitido)
+	if err != nil || !permitido {
+		pool.Close()
+		return nil, errMontajeInscripcionBolsa
+	}
+	return pool, nil
+}
+
+// El portal externo conserva su ejecutor ya provisionado y sólo añade B96.
+// Esta comprobación impide que el nuevo montaje acepte una concesión lateral
+// sobre otra función o una tabla. Mi Bolsa necesita alinear su propio preflight
+// de once a doce funciones antes de arrancar sobre B96.
+func abrirEjecutorExternoInscripcionBolsa(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+	pool, login, err := abrirPoolMiBolsaPortalExterno(ctx, dsn, "vec_bolsa_llamamientos_portal_externo")
+	if err != nil || login == "" {
+		return nil, errMontajeInscripcionBolsa
+	}
+	var permitido bool
+	err = pool.QueryRow(ctx, `WITH funciones AS (
+ SELECT p.oid,p.proname,p.prosecdef FROM pg_catalog.pg_proc p
+ JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='vec_bolsa_llamamientos' AND pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+), tablas AS (
+ SELECT c.oid FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='vec_bolsa_llamamientos' AND c.relkind IN ('r','p','v','m','f')
+), secuencias AS (
+ SELECT c.oid FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='vec_bolsa_llamamientos' AND c.relkind='S'
+)
+SELECT session_user='vec_bolsa_llamamientos_portal_externo'
+ AND (SELECT count(*)=12 AND count(DISTINCT proname)=12 AND bool_and(prosecdef)
+  AND bool_and(proname=ANY(ARRAY[
+   'consultar_mi_bolsa_v1','consultar_mi_bolsa_portal_v1','consultar_historial_mi_bolsa_v1',
+   'manifestar_disposicion_oferta_v1','listar_ofertas_candidato_v1','solicitar_portal_candidato_v1',
+   'responder_llamamiento_portal_v1','preparar_respuesta_portal_v1','leer_portal_candidato_v1',
+   'confirmar_contacto_propio_v1','leer_contacto_candidato_v1','solicitar_inscripcion_v1'
+  ])) FROM funciones)
+ AND NOT EXISTS(SELECT 1 FROM tablas t WHERE
+  pg_catalog.has_table_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+  OR pg_catalog.has_any_column_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
+ AND NOT EXISTS(SELECT 1 FROM secuencias s WHERE pg_catalog.has_sequence_privilege(session_user,s.oid,'USAGE,SELECT,UPDATE'))
+ AND NOT pg_catalog.has_schema_privilege(session_user,'vec_bolsa_llamamientos','CREATE')`).Scan(&permitido)
+	if err != nil || !permitido {
+		pool.Close()
+		return nil, errMontajeInscripcionBolsa
+	}
+	return pool, nil
+}
+
+func abrirEjecutorInternoInscripcionBolsa(ctx context.Context, c config.ConfiguracionPostgreSQLContratacionTemporal) (*pgxpool.Pool, error) {
+	if ctx == nil || ctx.Err() != nil {
+		return nil, errMontajeInscripcionBolsa
+	}
+	pool, err := abrirBolsaLlamamientosPostgreSQLDesarrollo(ctx, c)
+	if err != nil {
+		return nil, errMontajeInscripcionBolsa
+	}
+	var permitido bool
+	err = pool.QueryRow(ctx, `SELECT session_user='vec_bolsa_llamamientos_ejecutor'
+ AND pg_catalog.has_function_privilege(session_user,
+  'vec_bolsa_llamamientos.revisar_inscripcion_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,'EXECUTE')
+ AND pg_catalog.has_function_privilege(session_user,
+  'vec_bolsa_llamamientos.incorporar_inscripcion_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,'EXECUTE')
+ AND NOT pg_catalog.has_schema_privilege(session_user,'vec_bolsa_llamamientos','CREATE')`).Scan(&permitido)
 	if err != nil || !permitido {
 		pool.Close()
 		return nil, errMontajeInscripcionBolsa
