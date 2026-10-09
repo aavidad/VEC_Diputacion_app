@@ -153,7 +153,7 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
         `<li${etapa === i ? ' aria-current="step"' : ""}${i < etapa ? ' data-completado="true"' : ""}><span aria-hidden="true">${i + 1}</span>${e(t(`paso_${k}`))}</li>`).join("")}</ol>
       ${Object.keys(errores).length ? `<section class="ct-resumen-errores" role="alert" tabindex="-1" data-b2-errores><h4>${e(t("errores"))}</h4><ul>
         ${Object.keys(errores).map((c) => `<li><a href="#ct-b2-${c}">${e(t(c === "vacante" ? "puesto" : c))}: ${e(t(errores[c]))}</a></li>`).join("")}</ul></section>` : ""}
-      <p class="ct-estado ${recibo ? "ct-estado-exito" : "ct-estado-informacion"}" role="status" aria-live="polite" tabindex="-1" data-b2-mensaje>${e(t(mensaje || (recibo ? "confirmada" : plan ? "plan_preparado" : fase === "revision" ? "revision_lista" : "paso_datos")))}</p>
+      <p class="ct-estado ${recibo ? "ct-estado-exito" : mensaje === "preparacion_pendiente" ? "ct-estado-aviso" : "ct-estado-informacion"}" role="status" aria-live="polite" tabindex="-1" data-b2-mensaje>${e(t(mensaje || (recibo ? "confirmada" : plan ? "plan_preparado" : fase === "revision" ? "revision_lista" : "paso_datos")))}</p>
       ${cuerpo}${!recibo && !controlador ? `<div class="ct-acciones"><button type="button" class="boton-secundario" data-b2-accion="consultar">${e(t(incierto ? "comprobar" : "actualizar"))}</button>
         ${incierto && consulta && !reintentoBloqueado ? `<button type="button" class="boton-primario" data-b2-accion="retomar">${e(t("continuar"))}</button>` : ""}</div>` : ""}</div></section>`;
     if (foco) raiz.querySelector?.(foco)?.focus?.();

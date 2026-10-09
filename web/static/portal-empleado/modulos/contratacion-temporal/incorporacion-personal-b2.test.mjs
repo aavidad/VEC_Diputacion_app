@@ -314,6 +314,8 @@ test("UI: el GET pendiente no atribuye un cambio al expediente; otros errores co
       const x = await montar(cliente, { textos: traduccion });
       assert.ok(x.r.innerHTML.includes(traduccion.traducir(aviso)), `${idioma} ${codigo}`);
       if (codigo === "preparacion_pendiente") assert.ok(!x.r.innerHTML.includes(traduccion.traducir("conflicto")));
+      // El estado bloqueante va en tono de aviso (ámbar), no informativo.
+      assert.equal(/class="ct-estado ct-estado-aviso"[^>]*data-b2-mensaje/u.test(x.r.innerHTML), codigo === "preparacion_pendiente", `${idioma} ${codigo} tono`);
       assert.match(x.r.innerHTML, /role="status"[^>]*data-b2-mensaje/u);
       assert.match(x.r.innerHTML, /data-b2-accion="consultar"/u);
       assert.doesNotMatch(x.r.innerHTML, /data-b2-form|data-b2-accion="registrar"/u);
