@@ -3,10 +3,14 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
+	httpinscripcion "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinscripcion"
+	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
+	"vec-diputacion-granada/internal/modules/bolsa/application/inscripcion"
 	"vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/shared/telemetria"
 )
@@ -161,4 +165,71 @@ func abrirEjecutorInternoInscripcionBolsa(ctx context.Context, c config.Configur
 		return nil, errMontajeInscripcionBolsa
 	}
 	return pool, nil
+}
+
+// nuevoMontajeInscripcionBolsaExterno prepara exactamente dos pools del
+// proceso exterior. El llamador conserva la misma SesionExternaInscripcion del
+// Área personal y una AutoridadInscripcionBolsa ya compuesta con PDP nominal,
+// material V3 de inscripción y permisos publicados. Gate apagado no registra
+// rutas ni abre conexiones.
+func nuevoMontajeInscripcionBolsaExterno(ctx context.Context, cfg config.Config,
+	sesion *SesionExternaInscripcion, autoridad AutoridadInscripcionBolsa,
+) (http.Handler, func(), error) {
+	nada := func() {}
+	activo, err := cfg.BolsaInscripcionesExternoActivo()
+	if err != nil {
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	if !activo {
+		return nil, nada, nil
+	}
+	if ctx == nil || ctx.Err() != nil || sesion == nil || nuloInscripcionBolsa(autoridad) {
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	dsnLector, err := cfg.DSNBolsaInscripcionesLectorSeparado()
+	if err != nil {
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	dsnEjecutor, err := cfg.ExternoBolsaPostgreSQL.DSN()
+	if err != nil {
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	ejecutor, err := abrirEjecutorExternoInscripcionBolsa(ctx, dsnEjecutor)
+	if err != nil {
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	lector, err := abrirLectorInscripcionBolsa(ctx, dsnLector, lectorInscripcionExterno)
+	if err != nil {
+		ejecutor.Close()
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	cerrar := func() { lector.Close(); ejecutor.Close() }
+	repositorio, err := postgresbolsa.NuevoRepositorioInscripcionesExternoPostgreSQL(ejecutor, lector)
+	if err != nil {
+		cerrar()
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	servicio, err := inscripcion.NuevoServicio(repositorio)
+	if err != nil {
+		cerrar()
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	sesionAspirante, err := NuevaSesionAspiranteInscripcionExterna(sesion)
+	if err != nil {
+		cerrar()
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	preparador, err := NuevoPreparadorInscripcionBolsaExterno(ConfiguracionPreparadorInscripcionBolsa{
+		SesionAspirante: sesionAspirante, Autoridad: autoridad, Reloj: relojContratacionTemporalDesarrollo{},
+	})
+	if err != nil {
+		cerrar()
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	manejador, err := httpinscripcion.NuevoExterno(preparador, servicio)
+	if err != nil {
+		cerrar()
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	return manejador, cerrar, nil
 }
