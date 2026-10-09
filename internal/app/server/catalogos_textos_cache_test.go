@@ -47,6 +47,11 @@ func TestCatalogosTextosSeRevalidanYLocalesSeComprimen(t *testing.T) {
 			t.Fatalf("%s revalidación = %d (Last-Modified %q)", ruta, rec304.Code, ultima)
 		}
 	}
+	versionado := httptest.NewRecorder()
+	handler.ServeHTTP(versionado, peticionServidorPrueba(http.MethodGet, "/textos/es/portal.json?huella=a37f71229b49d228", nil))
+	if versionado.Code != http.StatusOK || versionado.Header().Get("Cache-Control") != "public, max-age=31536000, immutable" {
+		t.Fatalf("catálogo versionado = %d %q", versionado.Code, versionado.Header().Get("Cache-Control"))
+	}
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, "/api/vec/session", nil))
 	if rec.Header().Get("Cache-Control") != "no-store" || rec.Header().Get("Pragma") != "no-cache" {

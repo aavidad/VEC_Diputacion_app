@@ -31,6 +31,11 @@ const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 // Lo que la lista CT tiene en pantalla solo sirve a un clic reciente en ella.
 const VIGENCIA_REUTILIZACION_LISTA_MS = 30_000;
 const instante = () => globalThis.performance?.now?.() ?? Date.now();
+// Con la lista abierta, el código y los textos de la ficha se descargan en
+// reposo (como mucho a los 2 s), salvo con ahorro de datos o red 2G.
+const ESPERA_REPOSO_FICHA_MS = 2_000;
+const conexionLimitada = (navegador) => navegador?.connection?.saveData === true
+  || ["slow-2g", "2g"].includes(navegador?.connection?.effectiveType);
 // Identidad de una consulta del cuadro CT (campos cerrados del contrato).
 // Sin paginación sirve para comparar el resumen, que no depende de ella.
 function claveCuadroCT(solicitud, conPaginacion = true) {
@@ -511,6 +516,23 @@ export function crearCoordinadorModulosPortal({
           .catch((error) => { promesaCuadro = null; throw error; });
         return promesaCuadro;
       };
+      // Solo módulos y catálogos de textos: ninguna consulta de datos ni API,
+      // nada que se lea o se audite. Un fallo se olvida; el clic lo reintenta.
+      let fichaPrecargada = false;
+      const precargarFichaEnReposo = (signal) => {
+        if (fichaPrecargada || conexionLimitada(entorno.navigator)) return;
+        const precargar = () => {
+          if (signal?.aborted || fichaPrecargada) return;
+          fichaPrecargada = true;
+          void Promise.all([recursos.cargarCompleto(), recursos.cargarVista?.()])
+            .catch(() => { fichaPrecargada = false; });
+        };
+        const idle = typeof entorno.requestIdleCallback === "function";
+        const id = idle ? entorno.requestIdleCallback(precargar, { timeout: ESPERA_REPOSO_FICHA_MS })
+          : temporizadores.setTimeout(precargar, ESPERA_REPOSO_FICHA_MS);
+        signal?.addEventListener?.("abort", () => (idle ? entorno.cancelIdleCallback?.(id)
+          : temporizadores.clearTimeout(id)), { once: true });
+      };
       const activarCompleto = ({ desdeLista = false } = {}) => {
         // Resumen y catálogos solo sirven a la primera carga completa; la página,
         // a la ficha que se abre ahora (el montaje la olvida tras consultarla).
@@ -541,7 +563,7 @@ export function crearCoordinadorModulosPortal({
         return promesaResumen;
       };
       return { contratacionTemporal: Object.freeze({
-        modoLigero: true, cliente, consultarCuadroLista, esperarCuadroLigero, activarCompleto,
+        modoLigero: true, cliente, consultarCuadroLista, esperarCuadroLigero, activarCompleto, precargarFichaEnReposo,
         olvidarReutilizables: () => { reutilizables = null; },
         prepararNombresLista, nombreCentro, nombreCategoria,
         alta: null, fiscalizacion: perfilIntervencion ? Object.freeze({ cliente }) : null,
@@ -1356,6 +1378,7 @@ export function crearCoordinadorModulosPortal({
           });
           if (montaje !== secuenciaMontaje) { controladorMontaje.abort(); modulo.desmontar(); return false; }
           desmontarVista = () => { controladorMontaje.abort(); modulo.desmontar(); };
+          temporal.precargarFichaEnReposo?.(controladorMontaje.signal);
           return true;
         }
         ligero = temporal;

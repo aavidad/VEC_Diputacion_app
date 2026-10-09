@@ -134,6 +134,16 @@ func cacheSegunVersion(r *http.Request) string {
 	return "no-cache"
 }
 
+// cacheCatalogoTextos: con ?huella= (la de todos los catálogos de textos, que
+// cambia con cualquiera de ellos) se guardan un año; el resto, incluidos los
+// ?v= de los manifiestos PWA, se guarda pero se revalida siempre (304).
+func cacheCatalogoTextos(r *http.Request) string {
+	if r.URL.Query().Get("huella") != "" {
+		return "public, max-age=31536000, immutable"
+	}
+	return "no-cache"
+}
+
 // fijarCacheEstatico sustituye la política no-store que securityHeaders pone
 // a toda respuesta y retira su Pragma: no-cache. Ese Pragma, heredado de
 // HTTP/1.0, junto a una política almacenable hacía que el navegador volviera

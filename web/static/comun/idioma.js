@@ -74,7 +74,8 @@ export async function leerPorRed(url, fetchImpl, signal) {
   if (url.protocol !== origen.protocol || url.host !== origen.host) throw new Error("recurso JSON fuera del propio origen");
   const opciones = {
     method: "GET",
-    cache: "no-store",
+    // Un catálogo con `?huella=` no cambia nunca: se guarda. El resto, no.
+    cache: url.searchParams.has("huella") ? "default" : "no-store",
     credentials: "same-origin",
     redirect: "error",
     referrerPolicy: "no-referrer",

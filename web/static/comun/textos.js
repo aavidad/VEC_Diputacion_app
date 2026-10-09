@@ -21,6 +21,12 @@ import { ERROR_INDICE_IDIOMAS, IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, INDICE_IDIOMAS
   leerRecursoJSON, localizacionDe, prepararIdiomas, reintentarIdiomas } from "./idioma.js";
 
 export const URL_RAIZ_TEXTOS = new URL("../textos/", import.meta.url);
+/**
+ * Huella de todos los catálogos de `textos/<idioma>/` (la comprueba
+ * `textos-version.test.mjs`). Va como `?huella=` en cada lectura para que el
+ * navegador los guarde sin volver a pedirlos; cambia con cualquier catálogo.
+ */
+export const VERSION_TEXTOS = "a37f71229b49d228";
 
 const PATRON_MODULO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const PATRON_IDIOMA = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/u;
@@ -63,6 +69,13 @@ export function urlCatalogo(idioma, modulo, raiz = URL_RAIZ_TEXTOS) {
     throw new TypeError("idioma o módulo de textos no válido");
   }
   return new URL(`${idioma}/${modulo}.json`, raiz);
+}
+
+/** URL de lectura: los catálogos propios llevan la huella común. */
+function urlLectura(idioma, modulo, raiz) {
+  const url = urlCatalogo(idioma, modulo, raiz);
+  if (raiz.href === URL_RAIZ_TEXTOS.href) url.searchParams.set("huella", VERSION_TEXTOS);
+  return url;
 }
 
 /**
@@ -150,7 +163,7 @@ function avisoEnPruebas(mensaje) {
 
 async function leerYCrear(modulo, idioma, porDefecto, leer, raiz, avisar, incidenciaIndice = null) {
   async function leerValido(codigo) {
-    const url = urlCatalogo(codigo, modulo, raiz);
+    const url = urlLectura(codigo, modulo, raiz);
     for (let intento = 0; intento < 2; intento++) {
       const datos = await leer(url);
       if (esCatalogoValido(datos)) return datos;
@@ -245,7 +258,7 @@ export async function reintentarTextos(modulo, { idioma, porDefecto, raiz = URL_
   const elegido = idioma ?? IDIOMA_ACTUAL;
   const respaldo = porDefecto ?? IDIOMA_POR_DEFECTO;
   CARGAS.delete(`${raiz.href}|${respaldo}|${elegido}|${modulo}`);
-  LECTURAS.delete(urlCatalogo(elegido, modulo, raiz).href);
-  LECTURAS.delete(urlCatalogo(respaldo, modulo, raiz).href);
+  LECTURAS.delete(urlLectura(elegido, modulo, raiz).href);
+  LECTURAS.delete(urlLectura(respaldo, modulo, raiz).href);
   return cargarTextos(modulo, { idioma: elegido, porDefecto: respaldo, raiz, incidenciaIndice });
 }
