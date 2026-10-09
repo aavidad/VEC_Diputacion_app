@@ -1,0 +1,24 @@
+# Inscripción en bolsa de aspirantes externos (PR-C), para la principal (cidonia), SIN ENCENDER NADA.
+# Va DESPUÉS de: HZ12 → lista de #962 (AD233) → lista_sql_hzb1_estructura_b1_20261009.txt → lista_sql_hzb1_g1_conjunto5_20261009.txt (AD234).
+# Preimagen V3: núcleo interno def 3538c97c…/prosrc d8aa8ecc…, externo def 1714236d…, CHECK de audiencias 8cc69647….
+# Las cuatro primeras rutas instalan solo lo imprescindible del módulo de convocatorias (roles, revalidación v1 y BC1),
+# que no está en cidonia. BC2–BC8, AD141 y AD153 NO hacen falta para BC9 y quedan fuera.
+# No crea LOGIN, configuración, catálogos, convocatorias ni concesiones. Cada UP una sola vez; nunca DOWN ni reaplicar:
+# repetir cualquiera se rechaza con su PARO de preimagen sin efecto.
+# Cada «# <huella>» fija la SHA256 de la ruta siguiente.
+# 3f49a405fd798bea91a66c00bb3135b4f250c02c19f441771d1abc1c66b5533f
+deploy/postgresql/bolsa_convocatorias/roles_up.sql
+# fc63053318b5f2d4b5b53d5265ec98f5b6bcaec5f086b1c04fbf4732685a1209
+deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000001_revalidacion_convocatorias.up.sql
+# 818916065270d42bf263fbe679196fdac3ecb6cb4a43dc9b4856b1993451ce1e
+deploy/postgresql/bolsa_convocatorias/migraciones/000001_almacen_convocatorias.up.sql
+# e5cffe00f4487b74f36c02c1fdc057ce326427fcf59666c11c1fc3cdd9915f73
+deploy/postgresql/contexto_actor_v1/migraciones/000038_candidato_persona_inscripcion.up.sql
+# 71aab8097ecedc2ffaa0fefa8d59e5860fb0d76bcf82ac93ff71c369eb303426
+deploy/postgresql/catalogos_configurables/migraciones/000011_lectura_lote_categorias_inscripcion.up.sql
+# 1d19efb9521bff82c0090642fc97a1e6ea9d14d4d3b194b7185717b57b6a6746
+deploy/postgresql/bolsa_convocatorias/migraciones/000009_comprobar_publicacion_inscripcion.up.sql
+# 6da55f925a6387c221f3022db54e1e727f569a16ffb2b951e1dc5e867995201a
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000228_inscripcion_v3_auditoria.up.sql
+# deffdf6e3636bc0a305b1e0ca73b269c909227fd8aa42bea55178708c6736d6e
+deploy/postgresql/bolsa_llamamientos/migraciones/000096_inscripcion_convocatoria.up.sql
