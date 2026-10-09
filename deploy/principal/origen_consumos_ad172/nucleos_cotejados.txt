@@ -20,7 +20,10 @@ c0d805eefe3b01304dc49ecd4a8414d2dd325af45e823a7e2c0b445afbe43e48
 # Post AD225/AD226 (cidonia 09/10)
 # 144 ternas cotejadas con el prosrc vivo.
 fc80e4851d7a63a147cce6a40ca924d24d0b5e671686134be90e98e0f53c906c
-# Post AD219/AUT59/AD220 sobre POST225 (copia HZ12, 09/10): AD220 solo añade el perfil
-# gobierno_rol_nuevo; su guarda de reversión exige volver byte a byte a fc80e485.
-# Las ternas existentes no cambian. Definición 15616d436642f56c9e725e030718ce00ade2698f19124b508971e6d4e1c8e24e.
-74cf39e23124b9ebd85d702337250be22ba451e29e7ec3a740515efc12408a85
+# Post AD233 (#962): solo añade el perfil vinculo_emision_bolsa_ct (CT↔Bolsa).
+# Definición 124674b93f72c8fb32f3476b9075cb2690ca365cdeb87581f0b7ccec796945e4.
+fabbbfde585ab2a9112c2dbe12b705a7b9ceaa4d9b069c3f7a48e66845700fb0
+# Post AD219/AUT59/AD220 sobre POST233 (copia HZ12+CT200+#962, 09/10): AD220 solo añade el perfil
+# gobierno_rol_nuevo; su guarda de reversión exige volver byte a byte a fabbbfde.
+# Las ternas existentes no cambian. Definición 0d39bd8725b884c555c32df8e9b48775d3eb7964325f9c0c7d35d713f0ec3967.
+545643f36bec8c872a82c2bedf9a1b8c603ba0ce318640fa1d4d84b71a61332c
