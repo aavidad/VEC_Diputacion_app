@@ -22,6 +22,8 @@ type manejadorEntregaPeticionDesarrollo struct {
 	proveedor   *proveedorEntregaPeticionDesarrollo
 	repositorio ports.RepositorioEntregasPeticionCentro
 	servicio    *application.ServicioEntregaPeticionCentro
+	// etiquetas es opcional: sin ella la bandeja sale solo con referencias.
+	etiquetas *etiquetadorPeticionesRRHHDesarrollo
 }
 
 func (m *manejadorEntregaPeticionDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +60,17 @@ func (m *manejadorEntregaPeticionDesarrollo) ServeHTTP(w http.ResponseWriter, r 
 			fallo(falloEntregaPeticionDesarrollo(r.Method, errors.Join(err, r.Context().Err())))
 			return
 		}
-		responder(map[string]any{"peticiones": filas, "limite": 50})
+		data := map[string]any{"peticiones": filas, "limite": 50}
+		// Los nombres son de presentación: si su catálogo falla, la bandeja
+		// sigue respondiendo con las referencias y se anota el fallo.
+		if m.etiquetas != nil {
+			if etiquetas, err := m.etiquetas.etiquetas(r.Context(), filas); err == nil {
+				data["etiquetas"] = etiquetas
+			} else {
+				slog.WarnContext(r.Context(), "contratacion_temporal.peticiones_centro.rrhh.etiquetas_no_disponibles")
+			}
+		}
+		responder(data)
 		return
 	}
 	tipo, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))

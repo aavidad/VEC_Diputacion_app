@@ -177,7 +177,7 @@ func (m *manejadorPeticionCentroDesarrollo) contexto(r *http.Request, a *identid
 		return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
 	}
 	catalogos := *m.catalogo
-	catalogos.Centros = []centroCatalogosAltaContratacionTemporalDesarrollo{{Referencia: a.actor.CentroRef, Etiqueta: etiquetas[a.actor.CentroRef], Contactos: []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo{{Referencia: contactoAltaContratacionTemporalDesarrollo, Etiqueta: "Contacto sintético del centro"}}}}
+	catalogos.Centros = []centroCatalogosAltaContratacionTemporalDesarrollo{{Referencia: a.actor.CentroRef, Etiqueta: etiquetas[a.actor.CentroRef], Contactos: []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo{{Referencia: contactoAltaContratacionTemporalDesarrollo, Etiqueta: etiquetaContactoAltaContratacionTemporalDesarrollo}}}}
 	actor := map[string]any{"referencia": a.actor.ActorRef, "nombre": a.principal.DisplayName, "cargo": etiquetas[a.actor.PuestoRef], "centro": etiquetas[a.actor.CentroRef], "puede_presentar": a.principal.Roles[0] == "solicitante_centro", "puede_ratificar": a.principal.Roles[0] == "ratificador_centro"}
 	if rat, ok := m.proveedor.actores[a.adscripcion.RatificadorSubject]; ok && actorPeticionCentroPerteneceCatalogo(c, rat.actor) {
 		actor["ratificador_nombre"] = rat.principal.DisplayName
