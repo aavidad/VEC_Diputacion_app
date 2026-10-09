@@ -91,6 +91,9 @@
   text-decoration: underline;
 }
 
+[data-inscripciones-montaje] .error-campo { display: block; margin-block-start: 4px; color: var(--portal-peligro); font-weight: 600; }
+[data-inscripciones-montaje] [aria-invalid="true"] { border-color: var(--portal-peligro); }
+
 [data-inscripciones-montaje] [data-inscripcion-filtros] {
   display: flex;
   flex-wrap: wrap;

@@ -172,7 +172,7 @@ test("selector histórico se abre antes de la bandeja y enlaza filtro exacto", a
       decidir: async () => ({}), incorporar: async () => ({}) } });
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(lecturasLista, 0);
-  assert.match(raiz.innerHTML, /Primera categoría: Auxiliar administrativo/u);
+  assert.match(raiz.innerHTML, /Categoría: Auxiliar administrativo/u);
   assert.match(raiz.innerHTML, /Sustituida/u);
   assert.match(raiz.innerHTML, /Plazo finalizado/u);
   let impedido = false;
@@ -410,5 +410,38 @@ test("sin rutas publicadas (404) la bandeja dice que no está activada, sin rein
   assert.match(raiz.innerHTML, /no está activada todavía/u);
   assert.doesNotMatch(raiz.innerHTML, /data-inscripcion-reintentar|role="alert"/u);
   assert.deepEqual(avisos, [false]);
+  vista.desmontar();
+});
+
+test("incorporar sin número de acta avisa junto al campo, lleva el foco y no envía", async () => {
+  const eventos = new Map();
+  const enfocados = [];
+  const raiz = { innerHTML: "", addEventListener: (tipo, f) => eventos.set(tipo, f),
+    removeEventListener: (tipo) => eventos.delete(tipo), replaceChildren() { this.innerHTML = ""; },
+    contains: () => true,
+    querySelector: (selector) => ({ value: "", focus() { enfocados.push(selector); } }) };
+  const admitida = { ...detalle, estado: "admitida_a_convocatoria", version: 2 };
+  let envios = 0;
+  const vista = await montarInscripcionesRRHH({ raiz,
+    localizacion: new URL("https://vec.example/portal-empleado/?inscripcion_convocatoria=convocatoria%3A1#solicitudes"),
+    historial: { pushState() {} },
+    cliente: { convocatorias: async () => ({ convocatorias: [], total: 0, cursor_siguiente: null }),
+      listar: async () => ({ convocatoria_titulo: "Bolsa de personal de apoyo", solicitudes: [admitida], total: 1, cursor_siguiente: null }),
+      detalle: async () => admitida, motivos: async () => ({ motivos: [] }), decidir: async () => ({}),
+      incorporar: async () => { envios += 1; return {}; } } });
+  const pulsar = (atributo, valor) => eventos.get("click")({ target: { closest: () => ({
+    dataset: { [atributo]: valor }, matches: () => false, hasAttribute: (nombre) => nombre === atributo }) } });
+  await new Promise((r) => setTimeout(r, 0));
+  pulsar("inscripcionAbrir", "solicitud:1"); await new Promise((r) => setTimeout(r, 0));
+  assert.match(raiz.innerHTML, /Siguiente paso/u);
+  pulsar("inscripcionDecidir", "incorporar"); await new Promise((r) => setTimeout(r, 0));
+  assert.match(raiz.innerHTML, /Va a incorporar a la bolsa la solicitud de Lucía Martín/u);
+  eventos.get("click")({ target: { closest: () => ({ dataset: {}, matches: () => false,
+    hasAttribute: (nombre) => nombre === "data-inscripcion-confirmar" }) } });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(envios, 0);
+  assert.match(raiz.innerHTML, /aria-invalid="true"/u);
+  assert.match(raiz.innerHTML, /Escriba el número del acta/u);
+  assert.equal(enfocados.at(-1), "[data-inscripcion-evidencia]");
   vista.desmontar();
 });
