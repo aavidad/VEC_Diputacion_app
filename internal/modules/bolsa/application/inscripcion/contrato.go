@@ -4,6 +4,8 @@ package inscripcion
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"regexp"
 	"strings"
@@ -63,15 +65,16 @@ func solicitudRefValida(ref string) bool { return referenciaSolicitud.MatchStrin
 // Actor sólo se construye a partir de la sesión vinculada al certificado.
 // PersonaRef no forma parte de ningún DTO de petición.
 type Actor struct {
-	PersonaRef        string
-	PerfilRef         string
-	SesionRef         string
-	Idioma            string
-	Canal             string
-	ResultadoContexto dominiovec.ResultadoContextoActorRegistradoV2
-	Vinculo           dominiovec.VinculoAutenticacionActorV2
-	Lectura           *CapturaLectura
-	MaterialEscritura *puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	PersonaRef               string
+	PerfilRef                string
+	SesionRef                string
+	Idioma                   string
+	Canal                    string
+	ResultadoContexto        dominiovec.ResultadoContextoActorRegistradoV2
+	Vinculo                  dominiovec.VinculoAutenticacionActorV2
+	Lectura                  *CapturaLectura
+	MaterialEscritura        *puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	RecursoEscrituraCanonico []byte
 }
 
 func (a Actor) Valido() bool {
@@ -125,7 +128,12 @@ func (a Actor) LecturaValida(accion, recurso string, filtro Filtro) bool {
 }
 
 func (a Actor) EscrituraValida() bool {
-	return a.Valido() && a.MaterialEscritura != nil && a.MaterialEscritura.ValidarEstructura() == nil
+	if !a.Valido() || a.MaterialEscritura == nil || a.MaterialEscritura.ValidarEstructura() != nil ||
+		len(a.RecursoEscrituraCanonico) == 0 || len(a.RecursoEscrituraCanonico) > 8192 {
+		return false
+	}
+	huella := sha256.Sum256(a.RecursoEscrituraCanonico)
+	return a.MaterialEscritura.ResumenCapacidad().EfectoHuellaSHA256() == hex.EncodeToString(huella[:])
 }
 
 type Presentacion struct {

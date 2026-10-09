@@ -53,14 +53,11 @@ func (r *RepositorioInscripcionesPostgreSQL) Incorporar(ctx context.Context, act
 	if err != nil {
 		return inscripcion.Recibo{}, err
 	}
-	material, huellaMaterial, err := inscripcion.MaterialIncorporacion(i)
+	material, _, err := inscripcion.MaterialIncorporacion(i)
 	if err != nil {
 		return inscripcion.Recibo{}, err
 	}
-	recurso, err := inscripcion.RecursoIncorporacion(i, huellaMaterial)
-	if err != nil {
-		return inscripcion.Recibo{}, err
-	}
+	recurso := actor.RecursoEscrituraCanonico
 	huellaRecurso := sha256.Sum256(recurso)
 	resumen := actor.MaterialEscritura.ResumenCapacidad()
 	if resumen.EfectoRef() != i.SolicitudRef || resumen.EfectoHuellaSHA256() != hex.EncodeToString(huellaRecurso[:]) {
@@ -111,14 +108,11 @@ func (r *RepositorioInscripcionesPostgreSQL) Decidir(ctx context.Context, actor 
 	if err != nil {
 		return inscripcion.Recibo{}, err
 	}
-	material, huellaMaterial, err := inscripcion.MaterialDecision(d)
+	material, _, err := inscripcion.MaterialDecision(d)
 	if err != nil {
 		return inscripcion.Recibo{}, err
 	}
-	recurso, err := inscripcion.RecursoDecision(d, huellaMaterial)
-	if err != nil {
-		return inscripcion.Recibo{}, err
-	}
+	recurso := actor.RecursoEscrituraCanonico
 	huellaRecurso := sha256.Sum256(recurso)
 	resumen := actor.MaterialEscritura.ResumenCapacidad()
 	if resumen.EfectoRef() != d.SolicitudRef || resumen.EfectoHuellaSHA256() != hex.EncodeToString(huellaRecurso[:]) {
@@ -166,15 +160,31 @@ func (r *RepositorioInscripcionesPostgreSQL) Decidir(ctx context.Context, actor 
 }
 
 func (r *RepositorioInscripcionesPostgreSQL) Presentar(ctx context.Context, actor inscripcion.Actor, p inscripcion.Presentacion) (inscripcion.Recibo, error) {
-	if r == nil || valorNulo(r.externo) || p.Validar() != nil || !actor.EscrituraValida() {
+	if r == nil || p.Validar() != nil || !actor.EscrituraValida() {
 		return inscripcion.Recibo{}, inscripcion.ErrSolicitudInvalida
 	}
+	var ejecutor iniciadorTransacciones
+	switch actor.Canal {
+	case "externa_personal":
+		ejecutor = r.externo
+	case "interna_corporativa":
+		ejecutor = r.interno
+	default:
+		return inscripcion.Recibo{}, inscripcion.ErrAccesoDenegado
+	}
+	if valorNulo(ejecutor) {
+		return inscripcion.Recibo{}, inscripcion.ErrNoDisponible
+	}
+	audiencia := "vec_bolsa_llamamientos.inscripcion.presentar.v1"
+	if actor.Canal == "interna_corporativa" {
+		audiencia = "vec_bolsa_llamamientos.inscripcion.presentar_empleado.v1"
+	}
 	captura, err := capturaEscrituraInscripcion(actor, inscripcion.AccionPresentar,
-		"vec_bolsa_llamamientos.inscripcion.presentar.v1", "externa_personal")
+		audiencia, actor.Canal)
 	if err != nil {
 		return inscripcion.Recibo{}, err
 	}
-	material, huellaMaterial, err := inscripcion.MaterialPresentacion(p)
+	material, _, err := inscripcion.MaterialPresentacion(p)
 	if err != nil {
 		return inscripcion.Recibo{}, err
 	}
@@ -182,10 +192,7 @@ func (r *RepositorioInscripcionesPostgreSQL) Presentar(ctx context.Context, acto
 	if err != nil {
 		return inscripcion.Recibo{}, err
 	}
-	recurso, err := inscripcion.RecursoPresentacion(p, huellaMaterial)
-	if err != nil {
-		return inscripcion.Recibo{}, err
-	}
+	recurso := actor.RecursoEscrituraCanonico
 	huellaRecurso := sha256.Sum256(recurso)
 	resumen := actor.MaterialEscritura.ResumenCapacidad()
 	if resumen.EfectoRef() != referencia || resumen.EfectoHuellaSHA256() != hex.EncodeToString(huellaRecurso[:]) {
@@ -193,7 +200,7 @@ func (r *RepositorioInscripcionesPostgreSQL) Presentar(ctx context.Context, acto
 	}
 	argumentos := append([]any{string(material), captura}, argumentosV3Inscripcion(actor)...)
 	var salida salidaPresentacionInscripcion
-	_, err = transaccionInscripcion(ctx, r.externo, func(tx pgx.Tx) ([]byte, error) {
+	_, err = transaccionInscripcion(ctx, ejecutor, func(tx pgx.Tx) ([]byte, error) {
 		var respuesta []byte
 		err := tx.QueryRow(ctx, consultaPresentarInscripcion, argumentos...).Scan(&respuesta)
 		return respuesta, err

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"sort"
+	"strconv"
 )
 
 const EsquemaMaterialPresentacion = "vec.bolsa.inscripcion.presentar.v1"
@@ -44,36 +45,46 @@ func ReferenciaSolicitud(personaRef string, p Presentacion) (string, error) {
 	return "solicitud_inscripcion_" + hex.EncodeToString(huella[:]), nil
 }
 
-// RecursoPresentacion entrega los bytes exactos que deben comprometer la
-// decisión y la capacidad V3. SQL reconstruye este objeto y coteja su SHA.
-func RecursoPresentacion(p Presentacion, materialSHA256 string) ([]byte, error) {
+// Los ámbitos llegan de ContextoActor o de la fuente histórica del recurso
+// después de resolver la sesión. Los selectores del formulario son atributos.
+func recursoEscrituraInscripcion(ambitos, atributos map[string]string) ([]byte, error) {
+	if len(ambitos) == 0 || len(atributos) == 0 {
+		return nil, ErrAccesoDenegado
+	}
+	for clave, valor := range ambitos {
+		if !referenciaOpaca.MatchString(clave) || !referenciaOpaca.MatchString(valor) {
+			return nil, ErrAccesoDenegado
+		}
+	}
+	for clave, valor := range atributos {
+		if !referenciaOpaca.MatchString(clave) || valor == "" {
+			return nil, ErrSolicitudInvalida
+		}
+	}
+	return json.Marshal(struct {
+		Ambitos   map[string]string `json:"ambitos"`
+		Atributos map[string]string `json:"atributos"`
+	}{ambitos, atributos})
+}
+
+// RecursoPresentacion liga los selectores exactos a un único ámbito personal
+// acreditado. Candidato y empleado tienen dimensiones distintas.
+func RecursoPresentacion(p Presentacion, materialSHA256 string, ambitos map[string]string) ([]byte, error) {
 	if p.Validar() != nil || len(materialSHA256) != 64 {
 		return nil, ErrSolicitudInvalida
 	}
 	if _, err := hex.DecodeString(materialSHA256); err != nil {
 		return nil, ErrSolicitudInvalida
 	}
-	contenido, err := json.Marshal(struct {
-		Ambitos struct {
-			CategoriaRef    string `json:"categoria_ref"`
-			ConvocatoriaRef string `json:"convocatoria_ref"`
-		} `json:"ambitos"`
-		Atributos struct {
-			MaterialSHA256 string `json:"material_sha256"`
-		} `json:"atributos"`
-	}{
-		Ambitos: struct {
-			CategoriaRef    string `json:"categoria_ref"`
-			ConvocatoriaRef string `json:"convocatoria_ref"`
-		}{p.CategoriaRef, p.ConvocatoriaRef},
-		Atributos: struct {
-			MaterialSHA256 string `json:"material_sha256"`
-		}{materialSHA256},
-	})
-	if err != nil {
-		return nil, ErrSolicitudInvalida
+	if len(ambitos) != 1 || (ambitos["candidato_ref"] == "" && ambitos["empleado_ref"] == "") ||
+		(ambitos["candidato_ref"] != "" && ambitos["empleado_ref"] != "") {
+		return nil, ErrAccesoDenegado
 	}
-	return contenido, nil
+	return recursoEscrituraInscripcion(ambitos, map[string]string{
+		"convocatoria_ref": p.ConvocatoriaRef, "categoria_ref": p.CategoriaRef,
+		"catalogo_version": strconv.FormatUint(p.CatalogoVersion, 10),
+		"material_sha256":  materialSHA256,
+	})
 }
 
 func MaterialDecision(d Decision) ([]byte, string, error) {
@@ -95,32 +106,25 @@ func MaterialDecision(d Decision) ([]byte, string, error) {
 	return contenido, hex.EncodeToString(huella[:]), nil
 }
 
-func RecursoDecision(d Decision, materialSHA256 string) ([]byte, error) {
+func RecursoDecision(d Decision, materialSHA256 string, ambitos map[string]string) ([]byte, error) {
 	if d.Validar() != nil || len(materialSHA256) != 64 {
 		return nil, ErrSolicitudInvalida
 	}
 	if _, err := hex.DecodeString(materialSHA256); err != nil {
 		return nil, ErrSolicitudInvalida
 	}
-	contenido, err := json.Marshal(struct {
-		Ambitos struct {
-			SolicitudRef string `json:"solicitud_ref"`
-		} `json:"ambitos"`
-		Atributos struct {
-			MaterialSHA256 string `json:"material_sha256"`
-		} `json:"atributos"`
-	}{
-		Ambitos: struct {
-			SolicitudRef string `json:"solicitud_ref"`
-		}{d.SolicitudRef},
-		Atributos: struct {
-			MaterialSHA256 string `json:"material_sha256"`
-		}{materialSHA256},
-	})
-	if err != nil {
-		return nil, ErrSolicitudInvalida
+	if len(ambitos) != 2 || ambitos["unidad_ref"] == "" || ambitos["ambito_ref"] == "" {
+		return nil, ErrAccesoDenegado
 	}
-	return contenido, nil
+	atributos := map[string]string{
+		"solicitud_ref": d.SolicitudRef, "decision": d.Tipo,
+		"version_esperada": strconv.FormatUint(d.VersionEsperada, 10),
+		"material_sha256":  materialSHA256,
+	}
+	if d.MotivoCodigo != "" {
+		atributos["motivo_codigo"] = d.MotivoCodigo
+	}
+	return recursoEscrituraInscripcion(ambitos, atributos)
 }
 
 func MaterialIncorporacion(i Incorporacion) ([]byte, string, error) {
@@ -141,30 +145,19 @@ func MaterialIncorporacion(i Incorporacion) ([]byte, string, error) {
 	return contenido, hex.EncodeToString(huella[:]), nil
 }
 
-func RecursoIncorporacion(i Incorporacion, materialSHA256 string) ([]byte, error) {
+func RecursoIncorporacion(i Incorporacion, materialSHA256 string, ambitos map[string]string) ([]byte, error) {
 	if i.Validar() != nil || len(materialSHA256) != 64 {
 		return nil, ErrSolicitudInvalida
 	}
 	if _, err := hex.DecodeString(materialSHA256); err != nil {
 		return nil, ErrSolicitudInvalida
 	}
-	contenido, err := json.Marshal(struct {
-		Ambitos struct {
-			SolicitudRef string `json:"solicitud_ref"`
-		} `json:"ambitos"`
-		Atributos struct {
-			MaterialSHA256 string `json:"material_sha256"`
-		} `json:"atributos"`
-	}{
-		Ambitos: struct {
-			SolicitudRef string `json:"solicitud_ref"`
-		}{i.SolicitudRef},
-		Atributos: struct {
-			MaterialSHA256 string `json:"material_sha256"`
-		}{materialSHA256},
-	})
-	if err != nil {
-		return nil, ErrSolicitudInvalida
+	if len(ambitos) != 2 || ambitos["unidad_ref"] == "" || ambitos["ambito_ref"] == "" {
+		return nil, ErrAccesoDenegado
 	}
-	return contenido, nil
+	return recursoEscrituraInscripcion(ambitos, map[string]string{
+		"solicitud_ref": i.SolicitudRef, "evidencia_ref": i.EvidenciaRef,
+		"version_esperada": strconv.FormatUint(i.VersionEsperada, 10),
+		"material_sha256":  materialSHA256,
+	})
 }
