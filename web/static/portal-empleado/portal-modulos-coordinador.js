@@ -694,7 +694,7 @@ export function crearCoordinadorModulosPortal({
         // Portada: recuentos de todo el cuadro calculados por el servidor con
         // la misma autorización que la lista.
         obtenerCuadroInicio: () => listadoCuadro,
-        montar: async (opciones) => (await esperarVista()).vista.montarModuloContratacionTemporal(opciones),
+        montar: async (opciones) => (await esperarVista()).vista.montarModuloContratacionTemporal({ ...opciones, clienteResultadoBolsa: cliente }),
         montarFiscalizacion: async (opciones) => (await esperarVista()).vista
           .montarModuloFiscalizacionContratacionTemporal(opciones),
       }),

@@ -6,7 +6,7 @@ const ESQUEMA_CUADRO = "vec.contratacion-temporal.cuadro-rrhh.v1";
 const ESQUEMA_DETALLE = "vec.contratacion-temporal.detalle-rrhh.v1";
 const MAXIMO_SOLICITUD = 4 * 1024;
 const MAXIMO_RESPUESTA = 256 * 1024;
-const MAXIMO_RESPUESTA_DETALLE = 768 * 1024;
+const MAXIMO_RESPUESTA_DETALLE = 9 * 1024 * 1024;
 const MAXIMO_EXPEDIENTES = 100;
 const MAXIMO_HITOS = 2_000;
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
@@ -103,9 +103,11 @@ function validarSolicitudCuadro(entrada) {
 }
 
 function validarSolicitudDetalle(entrada) {
-  if (!camposCerrados(entrada, ["expediente_ref", "version_observada"])
+  if (!camposCerrados(entrada, ["expediente_ref", "version_observada"], ["resultado_bolsa_cursor"])
     || !referencia(entrada.expediente_ref)
-    || !entero(entrada.version_observada, 0)) {
+    || !entero(entrada.version_observada, 0)
+    || (Object.hasOwn(entrada, "resultado_bolsa_cursor")
+      && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z#llamamiento:[0-9a-f]{64}$/u.test(entrada.resultado_bolsa_cursor))) {
     throw new TypeError("solicitud de detalle RRHH no válida");
   }
   return structuredClone(entrada);

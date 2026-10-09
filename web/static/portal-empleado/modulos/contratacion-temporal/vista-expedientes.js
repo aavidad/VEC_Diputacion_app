@@ -24,6 +24,7 @@ import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-alta-analisis-bolsa-fichas-v5";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-r-fichas-idioma-nav-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261009-asignacion-cobertura-v1";
+import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261009-ct-resultado-bolsa-v1";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261008-r-fichas-idioma-nav-v1";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
@@ -168,6 +169,7 @@ export async function montarModuloContratacionTemporal({
   // Datos de Bolsa que el perfil puede ver (bolsa_ref → { categoria } o null).
   resolverBolsa = null,
   prepararFichaBolsa = null,
+  clienteResultadoBolsa = null,
   // Filtros de pantalla de la lista (p. ej. desde un indicador de Inicio).
   filtroLista: filtroListaInicial = null,
   alCambiarFicha = () => {},
@@ -613,6 +615,10 @@ export async function montarModuloContratacionTemporal({
     esMontada,
   });
 
+  const gestorResultadoBolsa = crearGestorResultadoBolsa({ raiz, presentador,
+    cliente: clienteResultadoBolsa ?? composicionAnalisis?.cliente, t: traducirExpedientes, locale, zonaHoraria,
+    confirmarOperacion, repintar });
+
   async function refrescarDetalleTrasPropuesta(recibo, solicitud) {
     if (!montada || recibo?.propuesta_ref === undefined
       || reciboPropuestaConfirmado?.recibo !== recibo
@@ -763,6 +769,7 @@ export async function montarModuloContratacionTemporal({
     montarAuditoriaComunSiProcede(estado);
     montarDocumentosComunSiProcede(estado);
     montarBorradoresPublicadosSiProcede(estado);
+    gestorResultadoBolsa.actualizar();
     if (selectorFoco) enfocar(raiz, selectorFoco);
     if (mensajeEstadoVisible(estado)) {
       anunciar(
@@ -1107,6 +1114,7 @@ export async function montarModuloContratacionTemporal({
     desmontar() {
       if (!montada) return;
       montada = false;
+      gestorResultadoBolsa.desmontar();
       gestorCircuitoFirma.retirar();
       gestorBorrador.cancelarDescargaInforme();
       retirarEstadisticas();

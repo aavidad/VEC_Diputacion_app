@@ -8,6 +8,7 @@
  * deduce responsables o plazos que el servidor no haya dado.
  */
 import { faseRRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
+import { aceptacionBolsaCompleta } from "./resultado-bolsa.js?v=20261009-ct-resultado-bolsa-v1";
 
 function escapar(valor) {
   return String(valor ?? "")
@@ -114,7 +115,10 @@ const PASO_LINEA = Object.freeze({
 /** Línea de las ocho fases: símbolo y palabra (Hecho / Ahora / Falta). */
 export function renderizarLineaFases(expediente, t) {
   if (expediente.fases.length === 0) return "";
-  const pasos = expediente.fases.map((fase) => ({ fase, paso: PASO_LINEA[fase.estado_clave] ?? "falta" }));
+  const aceptada = aceptacionBolsaCompleta(expediente);
+  const pasos = expediente.fases.map((fase) => ({ fase, paso: aceptada
+    && String(fase.fase_ref ?? "").split(":").at(-1) === "obtencion_candidato"
+    ? "hecho" : PASO_LINEA[fase.estado_clave] ?? "falta" }));
   const cuenta = (paso) => pasos.filter((item) => item.paso === paso).length;
   const texto = { hecho: "linea_fase_hecho", ahora: "linea_fase_ahora", "con-incidencia": "linea_fase_incidencia", falta: "linea_fase_falta" };
   return `<nav class="panel ct-exp-fases" aria-labelledby="ct-exp-fases-titulo">

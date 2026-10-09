@@ -87,10 +87,14 @@ function emision(valor) {
 }
 
 export function validarResultadoBolsaCT(valor) {
-  objeto(valor, ["vinculos", "emisiones_vinculables", "siguiente_cursor"]);
-  if (!Array.isArray(valor.vinculos) || valor.vinculos.length > 100
+  objeto(valor, ["vinculos", "emisiones_vinculables", "siguiente_cursor", "total_vinculos", "personas_solicitadas", "aceptaciones_firmes"]);
+  if (!Array.isArray(valor.vinculos) || valor.vinculos.length > 20
     || !Array.isArray(valor.emisiones_vinculables) || valor.emisiones_vinculables.length > 20
-    || valor.siguiente_cursor !== null) throw new TypeError("resultado Bolsa no válido");
+    || !Number.isSafeInteger(valor.total_vinculos) || valor.total_vinculos < valor.vinculos.length
+    || !Number.isSafeInteger(valor.aceptaciones_firmes) || valor.aceptaciones_firmes < 0
+    || (valor.personas_solicitadas !== null && (!Number.isSafeInteger(valor.personas_solicitadas)
+      || valor.personas_solicitadas < 1 || valor.personas_solicitadas > 4_294_967_295))
+    || (valor.siguiente_cursor !== null && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z#llamamiento:[0-9a-f]{64}$/u.test(valor.siguiente_cursor))) throw new TypeError("resultado Bolsa no válido");
   const vinculos = valor.vinculos.map(vinculo);
   const emisiones = valor.emisiones_vinculables.map(emision);
   if (new Set(vinculos.map((v) => v.llamamiento_ref)).size !== vinculos.length
@@ -98,5 +102,6 @@ export function validarResultadoBolsaCT(valor) {
     throw new TypeError("llamamientos Bolsa repetidos");
   }
   return Object.freeze({ vinculos: Object.freeze(vinculos), emisiones_vinculables: Object.freeze(emisiones),
-    siguiente_cursor: null });
+    siguiente_cursor: valor.siguiente_cursor, total_vinculos: valor.total_vinculos,
+    personas_solicitadas: valor.personas_solicitadas, aceptaciones_firmes: valor.aceptaciones_firmes });
 }

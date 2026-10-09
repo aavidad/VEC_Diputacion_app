@@ -1,4 +1,5 @@
 import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261008-alta-analisis-bolsa-v4";
+import { crearVinculoBolsaClienteHTTP } from "./cliente-http-vinculo-bolsa.js?v=20261009-ct-resultado-bolsa-v1";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -585,6 +586,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
 
   return Object.freeze({
     modo: "http",
+    ...crearVinculoBolsaClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearAltaClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearAsignacionClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),

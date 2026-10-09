@@ -13,7 +13,8 @@ test("una renuncia de situación no se convierte en respuesta del llamamiento", 
         contacto_resultado: "rechaza", recibo_contacto_ref: "recibo:contacto:prueba",
         contacto_en: "2026-10-09T10:30:00Z", situacion_actual: "renuncia",
         recibo_situacion_ref: "recibo:situacion:prueba", situacion_desde: "2026-10-09T10:45:00Z" }] }],
-    emisiones_vinculables: [], siguiente_cursor: null,
+    emisiones_vinculables: [], siguiente_cursor: null, total_vinculos: 1,
+    personas_solicitadas: 1, aceptaciones_firmes: 0,
   });
   assert.equal(resultado.vinculos[0].participaciones[0].respuesta, null);
   assert.equal(resultado.vinculos[0].participaciones[0].situacion_actual, "renuncia");
