@@ -1,16 +1,16 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
-import { validarReciboAlta } from "./contrato.js?v=20261008-alta-rechazo-v2";
+import { validarReciboAlta } from "./contrato.js?v=20261008-alta-analisis-bolsa-v4";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-corte-v1";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-documentos-ficha-v1";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-documentos-ficha-v1";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-documentos-ficha-v1";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261008-documentos-ficha-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261009-asignacion-cobertura-v1";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261008-r-fichas-idioma-nav-v1";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261008-r-fichas-idioma-nav-v1";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261008-r-fichas-idioma-nav-v1";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261008-r-fichas-idioma-nav-v1";
 import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261008-alta-rpt-circular-v6";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarAbrirLlamamiento, renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261008-documentos-ficha-v1";
+import { renderizarAbrirLlamamiento, renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261008-r-fichas-idioma-nav-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { cerrarFase, instalarPantallasFase, mostrarFase } from "./fases-expediente.js?v=20261007-pantallas-textos-final-v1";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
@@ -18,14 +18,14 @@ import {
   contextoLlamamientoDesdeEstado,
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes-render.js?v=20261008-documentos-ficha-v1";
-import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-documentos-ficha-v1";
-import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-alta-rechazo-v2";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-alta-rechazo-v2";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-alta-corte-v1";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-alta-rechazo-v2";
+} from "./vista-expedientes-render.js?v=20261008-r-fichas-idioma-nav-v1";
+import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-r-fichas-idioma-nav-v1";
+import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-alta-analisis-bolsa-fichas-v5";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-alta-analisis-bolsa-fichas-v5";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-r-fichas-idioma-nav-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261009-asignacion-cobertura-v1";
 
-import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261008-documentos-ficha-v1";
+import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261008-r-fichas-idioma-nav-v1";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261007-pantallas-textos-final-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20261007-pantallas-textos-final-v1";
@@ -43,9 +43,25 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   return true;
 }
 
-export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-documentos-ficha-v1";
-export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-documentos-ficha-v1";
-export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261008-documentos-ficha-v1";
+export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-r-fichas-idioma-nav-v1";
+export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-r-fichas-idioma-nav-v1";
+export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261008-r-fichas-idioma-nav-v1";
+
+export function insertarAvisoEnlaceLegado(raiz, texto) {
+  if (!texto || !raiz?.ownerDocument?.createElement || typeof raiz.prepend !== "function") return;
+  const aviso = raiz.ownerDocument.createElement("section");
+  if (aviso.classList?.add) aviso.classList.add("panel", "panel-separado");
+  else aviso.setAttribute("class", ["panel", "panel-separado"].join(" "));
+  aviso.setAttribute("role", "status");
+  aviso.setAttribute("data-ct-enlace-legado", "");
+  const cuerpo = raiz.ownerDocument.createElement("div");
+  cuerpo.className = "cuerpo-panel";
+  const parrafo = raiz.ownerDocument.createElement("p");
+  parrafo.textContent = texto;
+  cuerpo.append(parrafo);
+  aviso.append(cuerpo);
+  raiz.prepend(aviso);
+}
 
 // Exportaciones auxiliares conservadas para compatibilidad con tests e importadores
 export {
@@ -154,18 +170,23 @@ export async function montarModuloContratacionTemporal({
   prepararFichaBolsa = null,
   // Filtros de pantalla de la lista (p. ej. desde un indicador de Inicio).
   filtroLista: filtroListaInicial = null,
+  alCambiarFicha = () => {},
+  avisoEnlaceLegado = "",
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.querySelector !== "function"
     || typeof presentador?.obtenerEstado !== "function"
     || typeof presentador?.cargar !== "function"
-    || typeof anunciar !== "function" || typeof confirmarOperacion !== "function") {
+    || typeof anunciar !== "function" || typeof confirmarOperacion !== "function"
+    || typeof alCambiarFicha !== "function" || typeof avisoEnlaceLegado !== "string"
+    || avisoEnlaceLegado.length > 240) {
     throw new TypeError("dependencias del módulo de contratación temporal no válidas");
   }
   const traducirExpedientes = crearTraductorExpedientesContratacion(mensajes);
   instalarPantallasFase(raiz.ownerDocument ?? globalThis.document, traducirExpedientes);
   // Filtros de la lista aplicados en pantalla sobre la consulta ya cargada.
   let filtroLista = filtroListaValido(filtroListaInicial ?? {});
+  let avisoEnlaceLegadoPendiente = avisoEnlaceLegado;
 
   const altaDisponible = alta !== null && typeof alta === "object"
     && typeof alta.ejecutor === "function" && alta.catalogos !== undefined;
@@ -575,6 +596,7 @@ export async function montarModuloContratacionTemporal({
     anunciar,
     repintar: (foco) => repintar(foco),
     esMontada,
+    alCambiarFicha,
   });
 
   const gestorInformeTrasSubsanacion = crearGestorInformeTrasSubsanacion({
@@ -736,6 +758,7 @@ export async function montarModuloContratacionTemporal({
       montarSeguimientoCeseSiProcede(estado);
       gestorCancelacion.montar(estado);
     }
+    if (estado.vista === "cuadro") insertarAvisoEnlaceLegado(raiz, avisoEnlaceLegadoPendiente);
     insertarConsultaCircuitoRRHH(raiz, estado.expediente);
     montarAuditoriaComunSiProcede(estado);
     montarDocumentosComunSiProcede(estado);
@@ -778,8 +801,11 @@ export async function montarModuloContratacionTemporal({
     }
     if (vista === "cuadro" && estado.cuadro_desactualizado === true) {
       try {
-        await presentador.volverAlCuadro();
-        if (montada && secuenciaCambio === secuenciaInterfaz) repintar("[data-ct-exp-filtros]");
+        const vuelto = await presentador.volverAlCuadro();
+        if (montada && secuenciaCambio === secuenciaInterfaz && vuelto?.vista === "cuadro") {
+          alCambiarFicha(null);
+          repintar("[data-ct-exp-filtros]");
+        }
       } catch {
         if (montada && secuenciaCambio === secuenciaInterfaz) {
           anunciar(crearTraductorExpedientesContratacion(mensajes)("estado_error_carga"), "error");
@@ -788,6 +814,7 @@ export async function montarModuloContratacionTemporal({
       return;
     }
     presentador.cambiarVista(vista);
+    if (vista === "cuadro") alCambiarFicha(null);
     repintar(vista === "cuadro" ? "[data-ct-exp-filtros]" : (vista === "alta" ? "#ct-alta-titulo" : (vista === "estadisticas" ? '[data-ct-form="filtros-estadisticas"]' : ".ct-exp-contenido")));
   }
 
@@ -887,6 +914,8 @@ export async function montarModuloContratacionTemporal({
         if (estado.carga === "listo" && estado.vista === "expediente"
           && estado.expediente_ref === abrir.dataset.ctExpAbrir
           && estado.expediente?.expediente_ref === abrir.dataset.ctExpAbrir) {
+          avisoEnlaceLegadoPendiente = "";
+          alCambiarFicha({ expedienteRef: estado.expediente_ref, version: estado.expediente.version });
           repintar();
           enfocarCabeceraExpediente(raiz);
         } else {

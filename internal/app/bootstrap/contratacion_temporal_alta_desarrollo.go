@@ -164,6 +164,8 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	autoridadAsignaciones              autoridadAsignacionesContratacionTemporalDesarrollo
 	registroDecisionesAnalisis         registroDecisionesAnalisisContratacionTemporalDesarrollo
 	instantaneasPorSolicitud           map[string]dominiovec.InstantaneaAutorizacion
+
+	instantaneaReanudacionSolicitudLlamamiento dominiovec.InstantaneaAutorizacion
 }
 
 var _ httpinterno.AutoridadContextoCanalAnalisisRRHH = (*soporteAltaContratacionTemporalDesarrollo)(nil)
@@ -182,6 +184,9 @@ type dependenciasAltaContratacionTemporalDesarrollo struct {
 	// cancelacion guarda las piezas de la cancelación de RRHH que reutiliza
 	// el canal del centro; nula mientras la capacidad no esté compuesta.
 	cancelacion *piezasCancelacionCTDesarrollo
+	// etiquetasPeticionesRRHH nombra las referencias de las peticiones del
+	// centro en la bandeja RRHH; nula si el circuito del centro no se compone.
+	etiquetasPeticionesRRHH *etiquetadorPeticionesRRHHDesarrollo
 }
 
 func (d *dependenciasAltaContratacionTemporalDesarrollo) cerrar() {
@@ -343,7 +348,11 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		concesiones:              make(map[string]struct{}),
 		instantaneasPorSolicitud: make(map[string]dominiovec.InstantaneaAutorizacion),
 	}
-	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(soporte, principal, ahora, origen); err != nil {
+	ajustesReglasActivos, err := ajustesReglasCTSolicitados(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(soporte, principal, ahora, origen, ajustesReglasActivos); err != nil {
 		return vacias, err
 	}
 	firmaActiva, err := cfg.CTFirmaRegistroDesarrolloActivo()

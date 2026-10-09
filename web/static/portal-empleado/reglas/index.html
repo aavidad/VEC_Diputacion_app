@@ -7,16 +7,16 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title data-i18n="documentTitle"></title>
     <link rel="stylesheet" href="/comun/tema-vec.css?v=20261001-codexf-accesibilidad-v1" />
-    <link rel="stylesheet" href="./reglas.css?v=20261007-pantallas-textos-final-v1" />
+    <link rel="stylesheet" href="./reglas.css?v=20261008-ct-ajustes-v1" />
     <link rel="modulepreload" href="./i18n.js?v=20261007-pantallas-textos-final-v1" />
-    <script type="module" src="./reglas.js?v=20261007-pantallas-textos-final-v1"></script>
+    <script type="module" src="./reglas.js?v=20261008-ct-ajustes-v1"></script>
   </head>
   <body class="rg-app">
     <main class="rg-shell" id="reglas" tabindex="-1">
       <header class="rg-cabecera">
         <div>
           <p class="rg-miga" data-i18n="miga"></p>
-          <h1 data-i18n="titulo"></h1>
+          <h1 id="rg-titulo" data-i18n="titulo"></h1>
         </div>
         <div class="rg-cabecera-acciones">
           <button type="button" class="rg-boton-ayuda" id="rg-ayuda-abrir" data-i18n-label="ayudaAbrir">?</button>
@@ -24,7 +24,10 @@
         </div>
       </header>
 
+      <div class="rg-contenido" tabindex="0" role="region" aria-labelledby="rg-titulo">
       <p id="rg-estado" class="rg-aviso" tabindex="-1" role="status" aria-live="polite" hidden></p>
+
+      <div id="rg-ajustes" aria-live="polite"></div>
 
       <div id="rg-resultado" hidden>
         <section class="rg-kpis" id="rg-kpis" aria-live="polite"></section>
@@ -36,6 +39,8 @@
         </form>
 
         <div id="rg-catalogos"></div>
+      </div>
+
       </div>
 
       <dialog id="rg-ayuda" aria-labelledby="rg-ayuda-titulo">

@@ -95,7 +95,8 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	plazosOfertasBolsa                               *calculadoraPlazoOfertaDesarrollo
 	// presentadorCobertura permite activar después los avisos de la vía de
 	// cobertura, cuando Bolsa y las reglas de ejemplo ya están compuestas.
-	presentadorCobertura avisosViaCoberturaConfigurable
+	presentadorCobertura    avisosViaCoberturaConfigurable
+	situacionBolsaCobertura *situacionBolsaCoberturaFijable // se fija con las bolsas constituidas
 	// personalizacionB7 se enlaza con la fuente de bolsas constituidas cuando
 	// la composición raíz la crea; el correo B7 la usa para los marcadores.
 	personalizacionB7 *fuentePersonalizacionB7
@@ -310,6 +311,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	cfg, resolvedorDesarrollo, derivador, registro := dependencias.cfg, dependencias.resolvedor, dependencias.derivador, dependencias.registro
 	plantillasActivas, err := plantillasCatalogoCTDesarrolloSolicitado(cfg)
+	ajustesCTActivos, errAjustes := ajustesReglasCTSolicitados(cfg)
+	if errAjustes != nil || ajustesCTActivos && !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
+		return nil, nil, nil, errMontajeAjustesReglasCT
+	}
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -340,7 +345,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	autoridadesBolsaConfiguradas := debeComponerBorradorLlamamientoDesarrollo(cfg) &&
 		(strings.TrimSpace(os.Getenv(config.EnvAutorizacionFuenteDatabaseURL)) != "" ||
 			strings.TrimSpace(os.Getenv(config.EnvAutorizacionMotivosEvaluadorDatabaseURL)) != "")
-	if plantillasActivas || documentalActiva || preparacionBasesActiva || autoridadesBolsaConfiguradas {
+	if plantillasActivas || documentalActiva || preparacionBasesActiva || ajustesCTActivos || autoridadesBolsaConfiguradas {
 		if !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
 		}
@@ -401,6 +406,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			alta.cerrar()
 		}
 	}()
+	if ajustesCTActivos {
+		if err := conectarAjustesReglasCTAlResolutor(cfg, reglasEjemplo.contratacionTemporal,
+			alta.postgresql.ejecucion, reglasEjemplo.calendarios, reloj); err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	// El alta de necesidad queda cerrada hasta declarar una publicación propia
 	// y disponer del confirmador CT193 y de la lectura pública exacta de RPT.
 	// La relectura de la instantánea usa la conexión del ejecutor: es el único
@@ -694,6 +705,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		perfilCTCatalogo, perfilesConsulta, firmaDocumento != nil, plantillasActivas, perfilPlantillas)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if ajustesCTActivos {
+		declaracionesFrontera = append(declaracionesFrontera, descriptoresFronteraAjustesReglasCT(perfilCTCatalogo)...)
 	}
 	if consultaCircuitoRRHH != nil {
 		declaracionesFrontera = append(declaracionesFrontera,
@@ -1139,6 +1153,18 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		rutas = append(rutas, rutasPlantillas...)
 	}
+	if ajustesCTActivos {
+		sondaAjustes, cancelarAjustes := sondaAjustesReglasCT()
+		rutaAjustes, err := nuevaRutaAjustesReglasCT(sondaAjustes, cfg, &alta,
+			seguridadBorrador, fuenteAutorizacionPlantillas,
+			motivosEvaluadorPlantillas, alta.postgresql.proveedorMaterialAjustesReglasCT,
+			reglasEjemplo.contratacionTemporal, reloj)
+		cancelarAjustes()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, rutaAjustes)
+	}
 	if documentalActiva {
 		if consultasRRHH.identidad == nil || alta.postgresql.proveedorMaterialPlantillasDocumental == nil {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
@@ -1266,6 +1292,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialUsuariosImagen:                           alta.postgresql.materialUsuariosImagen,
 		materialAspirantes:                               alta.postgresql.materialAspirantes,
 		presentadorCobertura:                             coberturaReal.presentador,
+		situacionBolsaCobertura:                          coberturaReal.situacionBolsa,
 		firmaDocumento:                                   firmaDocumento,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {

@@ -279,16 +279,17 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 	}
 	cerrar := func() { preflight.Close(); derivador.borrar() }
 	var personal http.Handler
+	var autoridadPreferencias *autoridadPreferenciasUsuariosDesarrollo
 	cerrarPreferencias := nada
 	if preferencias {
-		autoridad, err := nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
+		autoridadPreferencias, err = nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
 		if err != nil {
 			cerrar()
 			return nil, nada, err
 		}
-		cerrarPreferencias = autoridad.cerrar
+		cerrarPreferencias = autoridadPreferencias.cerrar
 		cerrarTodo := func() { cerrarPreferencias(); cerrar() }
-		manejador, err := nuevaAPIPersonalPortalExterno(identidad, emisor, autoridad)
+		manejador, err := nuevaAPIPersonalPortalExterno(identidad, emisor, autoridadPreferencias)
 		if err != nil {
 			cerrarTodo()
 			return nil, nada, err

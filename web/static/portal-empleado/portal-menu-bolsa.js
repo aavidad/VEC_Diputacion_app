@@ -72,8 +72,8 @@ export function resumenAccesosModulos(accesos, comprobandoBolsas, traducir = tra
  * Decide si una entrada del menú de Bolsa se ofrece según la capacidad real
  * que la sirve: el cuadro, los candidatos, las estadísticas y el llamamiento
  * desde cada bolsa exigen una lectura positiva de la API del cuadro;
- * Elaboración, su API de borradores; «Documentos y firma», la vista de
- * Contratación temporal. Las rutas antiguas sin consumidor quedan ocultas.
+ * Elaboración, su API de borradores. Documentos de Bolsa no tiene consumidor:
+ * su entrada explica la dependencia y no abre el módulo de Contratación.
  *
  * La API de borradores no se sondea al cargar el portal (un servidor que no la
  * sirve respondería 404 en cada carga): Elaboración solo se ofrece en el menú
@@ -111,8 +111,7 @@ export function vistaBolsaNavegable(vista, capacidades = {}) {
 }
 
 // Vista que ofrece una entrada de primer nivel. «Correo y mensajería» abre hoy
-// el llamamiento, pero su capacidad propia es la de su categoría; «Documentos y
-// firma» lleva a Contratación temporal.
+// el llamamiento, pero su capacidad propia es la de su categoría.
 function vistaDeControl(control) {
   const vista = control?.getAttribute?.("data-vista") || "";
   const categoria = control?.dataset?.categoriaBolsa || "";
@@ -133,7 +132,8 @@ export function aplicarDisponibilidadMenuBolsa(raiz, capacidades = {}) {
   // Estas rutas carecen de consumidor: se retiran del DOM, no dependen de
   // un sondeo fallido ni de una capacidad pendiente de resolver.
   raiz.querySelectorAll("[data-vista]").forEach((control) => {
-    if (vistaBolsaPendienteNoCompuesta(vistaDeControl(control))) control.remove?.();
+    if (vistaBolsaPendienteNoCompuesta(vistaDeControl(control))
+      && control.dataset?.categoriaBolsa !== "documentos") control.remove?.();
   });
   raiz.querySelectorAll(".submenu-bolsa [data-vista]").forEach((control) => {
     control.hidden = !vistaBolsaOfrecida(control.getAttribute?.("data-vista"), capacidades);
@@ -145,7 +145,8 @@ export function aplicarDisponibilidadMenuBolsa(raiz, capacidades = {}) {
   const indicadores = [];
   raiz.querySelectorAll(".categoria-menu-bolsa").forEach((control) => {
     const grupo = control.dataset.grupoBolsa ? control.closest?.(".grupo-menu-bolsa") : null;
-    const visible = grupo ? !grupo.hidden : vistaBolsaOfrecida(vistaDeControl(control), capacidades);
+    const visible = grupo ? !grupo.hidden : control.dataset.categoriaBolsa === "documentos"
+      ? true : vistaBolsaOfrecida(vistaDeControl(control), capacidades);
     if (!grupo) control.hidden = !visible;
     const indicador = control.querySelector?.(".numero-menu");
     if (visible && indicador) indicadores.push(indicador);

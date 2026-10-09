@@ -191,7 +191,7 @@ sincroniza por `rsync` **solo las rutas** de `web/produccion.manifest` dentro
 de una carpeta temporal nueva y pasa `scripts/verificar_web_produccion.sh` al
 árbol extraído. Copia también los 27 `UP` y los dos deltas DBA de rol exactos,
 con sus rutas relativas, y conserva los demás manifiestos en `evidencia/`.
-Escribe `SHA256SUMS` y hash del commit. Exige Go 1.26.6 linux/amd64,
+Escribe `SHA256SUMS` y hash del commit. Exige Go 1.26.9 linux/amd64,
 igual que el Dockerfile, y usa una caché Go temporal dentro
 de la carpeta del paquete, que se retira antes de calcular las huellas. Usa
 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`, `-trimpath` y `-ldflags='-s -w'`

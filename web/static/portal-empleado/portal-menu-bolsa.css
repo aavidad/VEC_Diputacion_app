@@ -25,6 +25,13 @@
   cursor: not-allowed;
 }
 
+#bolsa-documentos-pendientes {
+  color: var(--portal-lateral-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  margin: 0 12px 12px 48px;
+}
+
 .marca-expansion {
   display: inline-grid;
   width: 22px;

@@ -10,13 +10,14 @@ import {
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { enlaceCTSinVersionFueraDePagina } from "./portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261007-pantallas-textos-final-v1";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261008-r-fichas-idioma-nav-v1";
 import { cargarTextos } from "../comun/textos.js";
 import { INDICE_IDIOMAS } from "../comun/idioma.js";
 import {
@@ -113,15 +114,15 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
-      import("./modulos/contratacion-temporal/contrato.js?v=20261008-alta-rechazo-v2"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261008-alta-rechazo-v2"),
+      import("./modulos/contratacion-temporal/contrato.js?v=20261008-alta-analisis-bolsa-v4"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261008-alta-analisis-bolsa-v4"),
 
     ]);
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
-        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-alta-rechazo-v2"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261008-alta-rechazo-v2"),
+        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261009-ficha-version-recibo-v1"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261009-ficha-version-recibo-v1"),
         import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261008-alta-corte-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
@@ -132,7 +133,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261008-alta-rechazo-v2");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261009-asignacion-cobertura-v1");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),
@@ -1243,7 +1244,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261008-alta-rechazo-v2");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261008-alta-analisis-bolsa-v4");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
@@ -1353,13 +1354,21 @@ export function crearCoordinadorModulosPortal({
         await presentadorCT.cargar({ texto: "", estado: "", fase: "", ...(opciones.filtros || {}) });
         if (montaje !== secuenciaMontaje) return false;
       }
-      if (!esFiscalizacion && expedienteRef
+      if (!esFiscalizacion && expedienteRef && Number.isSafeInteger(opciones?.expedienteVersion)
+        && typeof presentadorCT?.seleccionarExpedienteDesdeEnlace === "function") {
+        await presentadorCT.seleccionarExpedienteDesdeEnlace(expedienteRef, opciones.expedienteVersion);
+        if (montaje !== secuenciaMontaje) return false;
+      } else if (!esFiscalizacion && expedienteRef
         && presentadorCT?.obtenerEstado?.().cuadro?.expedientes?.some(
           (expediente) => expediente.expediente_ref === expedienteRef,
         ) && typeof presentadorCT?.seleccionarExpediente === "function") {
         await presentadorCT.seleccionarExpediente(expedienteRef);
         if (montaje !== secuenciaMontaje) return false;
       }
+      const avisoEnlaceLegado = enlaceCTSinVersionFueraDePagina(
+        { expedienteRef, version: opciones?.expedienteVersion ?? null },
+        presentadorCT.obtenerEstado?.().cuadro,
+      ) ? traducirPortal("ct_enlace_sin_version_no_recuperado") : "";
       if (!esFiscalizacion) prepararFichaBolsa(presentadorCT.obtenerEstado?.());
       const moduloContratacion = esFiscalizacion
         ? await temporal.montarFiscalizacion({
@@ -1374,6 +1383,8 @@ export function crearCoordinadorModulosPortal({
           raiz,
           presentador: presentadorCT,
           filtroLista: opciones?.filtroLista ?? null,
+          alCambiarFicha: opciones?.alCambiarFicha,
+          avisoEnlaceLegado,
           locale,
           zonaHoraria: ZONA_HORARIA_PORTAL,
           mensajes: temporal.mensajesExpedientes,

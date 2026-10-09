@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261002-r-rrhh18-v2";
+import { spawnSync } from "node:child_process";
+import { cargarMensajesPortal } from "./portal-i18n.js";
+import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261008-r-traza-idioma-v1";
 import { consultarOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261001-ct-a-i18n-v1";
 
 const escapar = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
@@ -35,6 +37,32 @@ test("petición RRHH p.4: la ficha pinta valor anterior y nuevo en una tabla acc
   const segunda = renderizarTrazaValores({ escaparHTML: escapar, cambios: muchos, pagina: 1 });
   assert.match(segunda, /Mostrando 7 a 8 de 8/);
   assert.match(segunda, /data-b8-accion="pagina-traza" data-pagina="0"/);
+});
+
+test("la traza vacía y con filas usa el catálogo inglés activo y conserva el escape HTML", async () => {
+  for (const idioma of ["es", "en"]) {
+    const mensajes = await cargarMensajesPortal(idioma);
+    for (const clave of ["traza_titulo", "traza_leyenda", "traza_vacio", "traza_col_anterior",
+      "traza_col_nuevo", "traza_col_actor", "traza_version", "traza_campo_datos_contacto",
+      "traza_campo_telefono_1", "traza_situacion_disponible_desde", "traza_paginacion"]) {
+      assert.ok(mensajes[clave], `${idioma}: ${clave}`);
+    }
+  }
+  const modulo = new URL("./portal-bolsas-traza-valores.js", import.meta.url).href;
+  const programa = `globalThis.location={href:"https://vec.example/portal-empleado/?lang=en",search:"?lang=en"};
+    const {renderizarTrazaValores}=await import(${JSON.stringify(modulo)});
+    const escaparHTML=(valor)=>String(valor??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+    const cambio={instante:"2026-09-25T08:00:00.123456Z",recibo_ref:"recibo:1",campo:"telefono_1",
+      valor_anterior:"version:1",valor_nuevo:"version:2",actor:"per_<script>"};
+    process.stdout.write(JSON.stringify([renderizarTrazaValores({escaparHTML,cambios:[]}),
+      renderizarTrazaValores({escaparHTML,cambios:[cambio]})]));`;
+  const salida = spawnSync(process.execPath, ["--input-type=module", "-e", programa], { encoding: "utf8" });
+  assert.equal(salida.status, 0, salida.stderr);
+  const [vacio, filas] = JSON.parse(salida.stdout);
+  assert.match(vacio, /Recorded changes[\s\S]*No changes have been recorded\./u);
+  assert.match(filas, /Previous value<\/th><th scope="col">New value/u);
+  assert.match(filas, /<th scope="row">Phone 1<\/th><td>Version 1<\/td><td>Version 2<\/td>/u);
+  assert.doesNotMatch(filas, /<script>|Cambios registrados|Teléfono 1/u);
 });
 
 test("petición RRHH p.4: el historial de la ficha incluye los cambios y rechaza un claro", async () => {

@@ -20,39 +20,25 @@ const SITUACIONES = Object.freeze(["disponible", "no_disponible", "trabajando", 
 const VERSION = /^version:([1-9][0-9]{0,18})$/;
 const FECHA = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z$/;
 
-const TEXTOS = Object.freeze({
-  titulo: "Cambios registrados",
-  leyenda: "Cambios registrados con valor anterior y nuevo",
-  vacio: "No hay cambios registrados.",
-  col_fecha: "Fecha",
-  col_campo: "Campo",
-  col_anterior: "Valor anterior",
-  col_nuevo: "Valor nuevo",
-  col_actor: "Registrado por",
-  sin_valor: "—",
-  version: "Versión {n}",
-  campo_situacion: "Situación",
-  campo_fecha_disponible: "Disponible desde",
-  campo_datos_contacto: "Datos de contacto",
-  campo_correo: "Correo",
-  campo_telefono_1: "Teléfono 1",
-  campo_telefono_2: "Teléfono 2",
-  situacion_disponible: "Disponible",
-  situacion_no_disponible: "No disponible",
-  situacion_trabajando: "Trabajando",
-  situacion_pendiente_incorporacion: "Pendiente de incorporación",
-  situacion_renuncia: "Renuncia",
-  situacion_excluido: "Excluido",
-  situacion_disponible_desde: "Disponible desde una fecha",
-  situacion_en_revision: traducirPortal("txt_b8_en_revision"),
-  paginacion: "Paginación de cambios registrados",
-  mostrando: "Mostrando {desde} a {hasta} de {total}",
-  anterior: "Anterior",
-  siguiente: "Siguiente",
+const CLAVES_COMUNES = Object.freeze({
+  col_fecha: "txt_fecha",
+  campo_situacion: "txt_situacion",
+  campo_fecha_disponible: "txt_disponible_desde",
+  campo_correo: "txt_correo",
+  situacion_disponible: "txt_disponible",
+  situacion_no_disponible: "txt_no_disponible",
+  situacion_trabajando: "txt_trabajando",
+  situacion_pendiente_incorporacion: "txt_pendiente_de_incorporacion",
+  situacion_renuncia: "txt_renuncia",
+  situacion_excluido: "txt_excluido",
+  situacion_en_revision: "txt_b8_en_revision",
+  mostrando: "txt_mostrando_desde_hasta_total",
+  anterior: "txt_anterior",
+  siguiente: "txt_siguiente",
 });
 
 export function textoTraza(clave, valores = {}) {
-  return String(TEXTOS[clave] ?? clave).replace(/\{(\w+)\}/g, (_, nombre) => String(valores[nombre] ?? ""));
+  return traducirPortal(CLAVES_COMUNES[clave] ?? `traza_${clave}`, valores);
 }
 
 function valorValido(campo, valor) {

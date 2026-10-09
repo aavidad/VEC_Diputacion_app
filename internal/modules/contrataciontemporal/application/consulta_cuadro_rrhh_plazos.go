@@ -46,7 +46,29 @@ func (s *ServicioConsultaCuadroRRHH) completarPlazos(
 	if !domain.InstanteUTCCanonico(ahora) {
 		return nil, nil, nil
 	}
-	calculadora := s.prepararPlazos(ctx)
+	calculadora := s.plazos
+	_, calculaCapturas := calculadora.(ports.CalculadoraConCapturaPlazoFaseRRHH)
+	necesitaActual := conPlazos && len(pagina.CapturasPlazo) != len(pagina.Expedientes)
+	if conPlazos && !necesitaActual {
+		for _, captura := range pagina.CapturasPlazo {
+			if captura.Estado == "legado_sin_instantanea" {
+				necesitaActual = true
+				break
+			}
+		}
+	}
+	if pagina.Agregados != nil {
+		for _, grupo := range pagina.Agregados.GruposPlazo {
+			necesitaActual = necesitaActual || grupo.Captura == nil || grupo.Captura.Estado == "legado_sin_instantanea"
+		}
+	}
+	// La consulta ya contiene las reglas fijadas. No leer una cabeza editable
+	// cuya disponibilidad o contenido no gobiernan estos tramos.
+	if preparador, admite := calculadora.(ports.PreparadorPlazosFaseConsultaRRHH); admite {
+		calculadora = preparador.PrepararPlazosFaseConsulta(ctx, necesitaActual)
+	} else if !calculaCapturas || necesitaActual {
+		calculadora = s.prepararPlazos(ctx)
+	}
 	var plazos []*ports.PlazoFaseRRHH
 	if conPlazos {
 		plazos = calcularPlazosPagina(ctx, calculadora, pagina, ahora)
@@ -106,14 +128,27 @@ func calcularPlazosPagina(
 		if ctx.Err() != nil {
 			return nil
 		}
+		var captura *ports.CapturaPlazoFaseRRHH
+		if len(pagina.CapturasPlazo) == len(pagina.Expedientes) {
+			captura = &pagina.CapturasPlazo[indice]
+		}
 		clave := clavePlazoFaseCuadro{
 			fase: resumen.FaseClave, desde: pagina.FasesDesde[indice],
 			urgente: len(pagina.Urgentes) == len(pagina.Expedientes) && pagina.Urgentes[indice],
 		}
-		plazo, visto := calculados[clave]
+		// Cada captura pasa por la validación propia de metadatos y bytes.
+		// Sólo los tramos sin instantánea comparten el resultado actual.
+		compartible := captura == nil || captura.Estado == "legado_sin_instantanea"
+		var plazo *ports.PlazoFaseRRHH
+		var visto bool
+		if compartible {
+			plazo, visto = calculados[clave]
+		}
 		if !visto {
-			plazo = calcularPlazoFase(ctx, calculadora, clave, ahora)
-			calculados[clave] = plazo
+			plazo = calcularPlazoFase(ctx, calculadora, clave, ahora, captura)
+			if compartible {
+				calculados[clave] = plazo
+			}
 		}
 		if plazo != nil {
 			copia := *plazo
@@ -132,10 +167,29 @@ func calcularPlazoFase(
 	calculadora ports.CalculadoraPlazoFaseRRHH,
 	clave clavePlazoFaseCuadro,
 	ahora time.Time,
+	captura *ports.CapturaPlazoFaseRRHH,
 ) *ports.PlazoFaseRRHH {
-	plazo, aplicable, err := calculadora.CalcularPlazoFase(ctx, ports.SolicitudPlazoFaseRRHH{
+	if captura != nil && captura.Estado == "legado_sin_instantanea" {
+		captura = nil
+	}
+	if calculadora == nil {
+		return &ports.PlazoFaseRRHH{Estado: ports.PlazoFaseNoCalculado}
+	}
+	solicitud := ports.SolicitudPlazoFaseRRHH{
 		Fase: clave.fase, Desde: clave.desde, Ahora: ahora, Urgente: clave.urgente,
-	})
+	}
+	var plazo ports.PlazoFaseRRHH
+	var aplicable bool
+	var err error
+	if captura != nil {
+		conCaptura, ok := calculadora.(ports.CalculadoraConCapturaPlazoFaseRRHH)
+		if !ok || (captura.Estado != "capturada" && captura.Estado != "legado_base_transicion") {
+			return &ports.PlazoFaseRRHH{Estado: ports.PlazoFaseNoCalculado}
+		}
+		plazo, aplicable, err = conCaptura.CalcularPlazoConCaptura(ctx, solicitud, *captura)
+	} else {
+		plazo, aplicable, err = calculadora.CalcularPlazoFase(ctx, solicitud)
+	}
 	switch {
 	case err != nil:
 		// El fallo se publica en la fila como «no calculado»: no es un

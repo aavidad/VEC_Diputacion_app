@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -270,7 +271,23 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) consultarFila(
 		&fila.Situacion, &fila.SolicitudJSON, &fila.ReservaRef,
 		&fila.Efecto, &fila.ReciboJSON, &fila.ArtefactoJSON,
 	)
-	if err != nil || tx.Commit(ctx) != nil {
+	if err != nil {
+		// Sólo el terminal O6 revela si aún hay propietario o si la
+		// consulta nominal fue denegada. Nunca sale el mensaje PostgreSQL.
+		if strings.Contains(consulta, funcionResolverTerminalSeleccionO6+"(") {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				switch pgErr.Code {
+				case "55000":
+					return filaEjecucionSeleccionO6{}, ports.ErrEjecucionSeleccionLlamamientoPendiente
+				case "42501":
+					return filaEjecucionSeleccionO6{}, ports.ErrAutorizacionDenegada
+				}
+			}
+		}
+		return filaEjecucionSeleccionO6{}, errorEjecucionesSeleccionO6(ctx)
+	}
+	if tx.Commit(ctx) != nil {
 		return filaEjecucionSeleccionO6{}, errorEjecucionesSeleccionO6(ctx)
 	}
 	return fila, nil

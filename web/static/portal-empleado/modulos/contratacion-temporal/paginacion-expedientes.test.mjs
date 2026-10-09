@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
 import { renderizarCuadro } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { validarCuadroContratacionTemporal, validarExpedienteContratacionTemporal } from "./contrato-expedientes.js";
+import { CAPACIDADES_CONTRATACION_TEMPORAL as CAP, validarCuadroContratacionTemporal, validarExpedienteContratacionTemporal } from "./contrato-expedientes.js";
 import { crearExpedienteContratacionTemporalPresentacion } from "./datos-presentacion.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
@@ -173,6 +173,138 @@ test("refresca la ficha confirmada fuera del filtro y conserva la página segund
   assert.equal(presentador.obtenerEstado().cuadro.paginacion.pagina, 1);
   assert.deepEqual(presentador.obtenerEstado().filtros, { texto: "", estado: "", fase: "solicitud" });
   assert.equal(presentador.obtenerEstado().cuadro_desactualizado, false);
+});
+
+test("un fallo del detalle confirmado exige releer la lista al volver", async () => {
+  const pagina = cuadro({ pagina: 2, cursor: CURSOR_B, sufijo: "2" });
+  const base = crearExpedienteContratacionTemporalPresentacion();
+  const expediente = validarExpedienteContratacionTemporal({
+    ...base, demostracion: false, expediente_ref: pagina.expedientes[0].expediente_ref,
+    numero_visible: pagina.expedientes[0].numero_visible, version: 7,
+  });
+  const vacia = validarCuadroContratacionTemporal({
+    ...pagina, expedientes: [],
+    paginacion: { pagina: 1, cursor_actual: "", cursor_siguiente: "" },
+  });
+  let listados = 0;
+  let detalles = 0;
+  const fuente = {
+    async listar({ filtros, cursor, numeroPagina }) {
+      listados += 1;
+      if (listados === 1) return pagina;
+      assert.deepEqual(filtros, { texto: "", estado: "", fase: "solicitud" });
+      assert.equal(cursor, "");
+      assert.equal(numeroPagina, 1);
+      return vacia;
+    },
+    async obtener() {
+      detalles += 1;
+      if (detalles === 1) return expediente;
+      throw new Error("lectura temporalmente no disponible");
+    },
+    async ejecutar() { assert.fail("el refresco no registra otra vez"); },
+  };
+  const presentador = crearPresentadorExpedientesContratacionTemporal({
+    fuente,
+    capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"],
+  });
+  await presentador.cargar({ texto: "", estado: "", fase: "solicitud" }, {
+    cursor: CURSOR_B, numero: 2,
+  });
+  await presentador.seleccionarExpediente(expediente.expediente_ref);
+  await assert.rejects(presentador.refrescarExpedienteConfirmado({
+    expediente_ref: "expediente:ct:ajeno", version_resultante: 8,
+  }));
+  assert.equal(presentador.obtenerEstado().cuadro_desactualizado, false);
+  await presentador.refrescarExpedienteConfirmado({
+    expediente_ref: expediente.expediente_ref, version_resultante: 8,
+  });
+  assert.equal(presentador.obtenerEstado().expediente.version, 7);
+  assert.equal(presentador.obtenerEstado().cuadro_desactualizado, true);
+  await presentador.volverAlCuadro();
+  assert.deepEqual({ listados, detalles }, { listados: 2, detalles: 2 });
+  assert.equal(presentador.obtenerEstado().cuadro.expedientes.length, 0);
+  assert.equal(presentador.obtenerEstado().carga, "vacio");
+});
+
+test("el análisis confirmado desde enlace lee la versión exacta sin caché de cuadro", async () => {
+  const base = structuredClone(crearExpedienteContratacionTemporalPresentacion());
+  const accionAnalizar = base.tareas.flatMap(({ acciones }) => acciones).find(
+    ({ capacidad }) => capacidad === CAP.analizar,
+  );
+  assert.ok(accionAnalizar);
+  accionAnalizar.disponible = true;
+  accionAnalizar.motivo_no_disponible = "";
+  const actual = validarExpedienteContratacionTemporal({ ...base, demostracion: false, version: 7 });
+  const posterior = validarExpedienteContratacionTemporal({
+    ...actual, version: 8,
+    cabecera: [...actual.cabecera, {
+      clave: "resultado_rc", etiqueta: "Resultado RC", valor: "validada", tono: "neutro",
+      control: "solo_lectura", obligatorio: false, opciones: [],
+    }],
+  });
+  const lecturas = [];
+  let devolver = (_ref, version) => version === 7 ? actual : posterior;
+  const fuente = {
+    async listar() { assert.fail("el enlace no recarga el cuadro"); },
+    async obtener() { assert.fail("el getter sin caché no debe consultarse"); },
+    async obtenerDesdeEnlace(ref, version, { signal }) {
+      lecturas.push({ ref, version, signal });
+      return devolver(ref, version);
+    },
+    async ejecutar() { assert.fail("el recibo ya confirmó el POST"); },
+  };
+  const presentador = crearPresentadorExpedientesContratacionTemporal({
+    fuente, capacidades: [CAP.consultarCuadro, CAP.consultarExpediente, CAP.analizar],
+  });
+  await presentador.seleccionarExpedienteDesdeEnlace(actual.expediente_ref, 7);
+  assert.equal(presentador.obtenerEstado().cuadro, null);
+  assert.ok(presentador.obtenerEstado().expediente.tareas.some((tarea) => tarea.acciones.some(
+    (accion) => accion.capacidad === CAP.analizar && accion.disponible === true,
+  )));
+  await presentador.refrescarExpedienteConfirmado({
+    expediente_ref: actual.expediente_ref, version_resultante: 8,
+  });
+  assert.equal(presentador.obtenerEstado().expediente.version, 8);
+  assert.equal(presentador.obtenerEstado().expediente.cabecera.at(-1).valor, "validada");
+  assert.deepEqual(lecturas.map(({ ref, version }) => [ref, version]), [
+    [actual.expediente_ref, 7], [actual.expediente_ref, 8],
+  ]);
+  assert.ok(lecturas.every(({ signal }) => signal instanceof AbortSignal));
+  await assert.rejects(presentador.refrescarExpedienteConfirmado({
+    expediente_ref: "expediente:ct:ajeno", version_resultante: 9,
+  }));
+  await assert.rejects(presentador.refrescarExpedienteConfirmado({
+    expediente_ref: actual.expediente_ref, version_resultante: 7,
+  }));
+  assert.equal(lecturas.length, 2);
+
+  devolver = () => validarExpedienteContratacionTemporal({ ...posterior, version: 10 });
+  await presentador.refrescarExpedienteConfirmado({
+    expediente_ref: actual.expediente_ref, version_resultante: 9,
+  });
+  assert.equal(presentador.obtenerEstado().expediente.version, 8);
+  devolver = () => ({ ...posterior, version: 9, actor_ref: "actor:fabricado" });
+  await presentador.refrescarExpedienteConfirmado({
+    expediente_ref: actual.expediente_ref, version_resultante: 9,
+  });
+  assert.equal(presentador.obtenerEstado().expediente.version, 8);
+  devolver = () => { throw new Error("detalle temporalmente no disponible"); };
+  await presentador.refrescarExpedienteConfirmado({
+    expediente_ref: actual.expediente_ref, version_resultante: 9,
+  });
+  assert.equal(presentador.obtenerEstado().expediente.version, 8);
+
+  let resolverTardia;
+  devolver = () => new Promise((resolve) => { resolverTardia = resolve; });
+  const lecturaTardia = presentador.refrescarExpedienteConfirmado({
+    expediente_ref: actual.expediente_ref, version_resultante: 9,
+  });
+  presentador.cambiarVista("cuadro");
+  resolverTardia(validarExpedienteContratacionTemporal({ ...posterior, version: 9 }));
+  await lecturaTardia;
+  assert.equal(presentador.obtenerEstado().vista, "cuadro");
+  assert.equal(presentador.obtenerEstado().expediente.version, 8);
 });
 
 test("descarta la página retrasada tras cambiar filtros y no conserva selección oculta", async () => {

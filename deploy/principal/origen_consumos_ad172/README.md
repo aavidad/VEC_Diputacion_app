@@ -6,8 +6,10 @@ Desde que se instaló AD172 en la principal, el núcleo de autorización solo
 acepta un uso nuevo de una autorización si encuentra su fila en
 `vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1`. La fila es la
 terna LOGIN, audiencia y operación, más el canal y el nombre del proceso. Si no
-la encuentra, PostgreSQL responde `42501 origen de consumo no acreditado` y la
-API lo devuelve como `403`, sin más pista.
+la encuentra, el núcleo actual responde `VA172 origen de consumo no acreditado`.
+La respuesta HTTP depende del consumidor; la lectura de Mi Bolsa devolvió
+`503` en el ensayo del 9 de octubre. El núcleo anterior usaba `42501`, por eso
+los rechazos históricos descritos a continuación aparecían como `403`.
 
 El 6 de octubre de 2026 la tabla de la principal solo tenía las dos filas de la
 administración. Por eso casi todo lo que hace RRHH en vec-server daba 403 aunque
@@ -33,13 +35,36 @@ del núcleo.
 | --- | --- | --- | --- | --- |
 | `usuarios` | `vec_pref508a_i_ue` (interna) y `vec_pref508a_e_ue` (externa) | 21 | `vec-server` | por defecto |
 | `contratacion` | `vec_ct_o207_runtime` | 50 | `vec-server` | por defecto |
-| `bolsa` | `vec_bolsa_llamamientos_desarrollo` | 21 | `vec-server` | por defecto |
+| `bolsa` | `vec_bolsa_llamamientos_desarrollo` | 25 | `vec-server` | por defecto |
 | `documentos` | `vec_documentos_rrhh_ejecutor_desarrollo` | 8 | `vec-server` | por defecto |
 | `incorporacion` | `vec_inc_v2_registro_ct_20260910`, `vec_inc_v2_alta_personal_20260910`, `vec_inc_v2_lector_personal_20260910` | 3 | `vec-server` | por defecto |
+| `incorporacionb` | seis LOGIN nominales `vec_ct_personal_b2_*` de Bolsa, CT, RPT y Personal | 21 | `vec-server` | solo si se pide |
 | `cronos` | `vec_cronos_emp_ejecutor_desarrollo` | 8 | `vec-server` | solo si se pide |
+| `mibolsa` | `vec_bolsa_llamamientos_desarrollo` | 8 | `vec-server` | solo si se pide |
 
-De dónde sale cada dato, cotejado en la principal el 6 de octubre, solo con
-lecturas:
+`mibolsa` cubre la consulta y el historial propios, más pausa,
+reactivación, respuesta al llamamiento, disposición, confirmación de contacto
+y solicitud documental. Aceptar y renunciar comparten la operación de
+respuesta. Las ocho operaciones usan el pool integrado de Bolsa, cuyo LOGIN
+`vec_bolsa_llamamientos_desarrollo` hereda solo
+`vec_bolsa_llamamientos_ejecutor`. El núcleo fc80 admite ese grupo para los
+perfiles de consulta propia y `portal_candidato_bolsa`. El canal de las ocho
+ternas es `externa_personal`, según la decisión firmada del candidato.
+El bloque no se aplica por defecto ni concede capacidad al candidato.
+
+`incorporacionb` pertenece al recorrido CT→Personal B2 y utiliza los seis
+LOGIN que consumen el núcleo de mutación V3. Sus otros dos LOGIN leen la
+fuente de autorización y los motivos; no necesitan fila AD172. La operación
+`ct_detalle` pasa por el núcleo de consulta RRHH y también queda fuera. Este
+bloque es distinto de las tres filas históricas de `incorporacion`.
+
+En el GET B2 del clon HZ11 se observó `interna_corporativa` en el vínculo del
+actor consumido por el LOGIN CT; las demás acciones B2 toman el contexto del
+mismo montaje interno. El núcleo obtiene el canal de ese vínculo y el proceso
+`vec-server` de la fila AD172, no del nombre de aplicación del pool PostgreSQL.
+
+Los bloques anteriores a `incorporacionb` se cotejaron en la principal el 6
+de octubre, solo con lecturas:
 
 - **Perfil, audiencia y operación:** del texto vivo de
   `consumir_decision_mutacion_v3_interna`. Para cada perfil, la parte que fija
@@ -57,15 +82,24 @@ lecturas:
 - **Canal:** `interna_corporativa` para todo lo de RRHH, como en el historial de
   usos. Usuarios lleva además la superficie externa.
 
-El emparejamiento de perfil, audiencia y operación, y el grupo que el núcleo
-exige a cada perfil, se cotejaron a mano sobre el texto exacto del núcleo, y
-una segunda revisión independiente lo repitió. El guion no repite ese cotejo,
-pero sí se asegura de que el núcleo es el mismo: su huella SHA256 tiene que
-estar en `nucleos_cotejados.txt`. Ahí están la de la principal del 6 de
-octubre (postimagen de AD193) y la que deja AD208 (#809), que solo cambia el
-SQLSTATE del rechazo. Con cualquier otra huella el guion se para. Si el núcleo
-cambia, hay que volver a cotejar la lista y añadir la huella nueva en la misma
-revisión.
+El emparejamiento de los bloques anteriores a `incorporacionb` se cotejó a
+mano sobre el texto exacto del núcleo, y una segunda revisión independiente
+lo repitió. Para B2, las 21 filas se comparan con el núcleo instalado
+post-AD225/AD226, las operaciones del montaje CT→Personal y los seis LOGIN
+de los pools B2. Requieren revisión SQL independiente antes de su aplicación. El
+guion no repite ese cotejo. Sí comprueba que el núcleo es uno de los cotejados:
+su huella SHA256
+tiene que estar en `nucleos_cotejados.txt`. La lista incluye la definición
+post-AD225/AD226, cotejada para todos los bloques. Con otra huella el guion
+se para; hay que volver a cotejar las ternas antes de añadirla.
+
+El 9 de octubre se compararon las 144 filas de los ocho bloques con el
+`pg_proc.prosrc` vivo post-AD225/AD226, de huella
+`fc80e4851d7a63a147cce6a40ca924d24d0b5e671686134be90e98e0f53c906c`.
+Cada perfil, audiencia y operación aparece en una misma rama de autorización;
+se cotejaron además las guardas de grupo. La huella no prueba que los LOGIN
+opcionales estén provisionados: el guion verifica su existencia y membresía
+al ejecutar cada bloque.
 
 Unas 24 de las ternas por defecto tienen hoy audiencias sin clave de capacidad
 publicada en la principal: los avisos de llamamiento de Usuarios; en
@@ -83,11 +117,7 @@ Fuera de la lista, a propósito:
 - **Dietas.** Sus LOGIN están en `NOLOGIN` desde la retirada P6, y F4b, que
   cambiaría esos LOGIN, no está aplicado. Una fila hoy no serviría. Cuando se
   reactive, va con sus LOGIN reales.
-- **Personal B2, categorías RPT, vínculo de categoría y plan de incorporación a
-  Personal.** Solo los usa la composición B2, que está apagada en la principal
-  y no tiene sus LOGIN. Cuando se componga, va en su propio corte.
-- **Portal del candidato, «Mi bolsa» y Aspirantes.** Son de la superficie
-  externa, y sus grupos ejecutores no tienen miembros en la principal.
+- **Aspirantes.** Necesita su propio LOGIN y cotejo cuando se encienda.
 - **Administración.** Es otro proceso. Ya tiene sus filas o las pone su propio
   paquete.
 - **Organización histórica de Personal.** Ningún LOGIN de vec-server la usa.
@@ -133,13 +163,32 @@ ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_PG_CONTENEDOR=vec-postgresq
 ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_AD172_APLICAR=SI-REVISADO VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906 bash /home/openclaw/.local/state/vec-desarrollo-20260906/origen_consumos_ad172/ejecutar.sh --aplicar"'
 ```
 
-Sin `VEC_ORIGEN_BLOQUES` se instalan los cinco bloques de RRHH, 103 ternas.
+Sin `VEC_ORIGEN_BLOQUES` se instalan los cinco bloques de RRHH, 107 ternas.
 Cronos se instala aparte cuando se quiera, añadiendo `VEC_ORIGEN_BLOQUES=cronos`.
+Las 21 ternas de B2 se seleccionan únicamente con
+`VEC_ORIGEN_BLOQUES=incorporacionb`. Antes de usar ese bloque se cotejan sus
+seis LOGIN, la composición B2 y la huella viva del núcleo; la fila técnica
+por sí sola no concede acciones ni acredita un alta en Personal.
+Las ocho ternas de «Mi Bolsa» se seleccionan con `VEC_ORIGEN_BLOQUES=mibolsa`.
+Para aplicar ambos bloques en una transacción se usa
+`VEC_ORIGEN_BLOQUES=incorporacionb,mibolsa`. En ambos casos se ejecuta primero
+`--ensayo`; dirección decide y ejecuta `--aplicar`. Antes debe cotejar el
+LOGIN del pool integrado de Bolsa y su única membresía en el destino.
+
+En la copia física privada HZ12, el núcleo ya tiene esa huella. El ensayo de
+los cinco bloques por defecto pasó con `ROLLBACK` y conservó 107 filas.
+Los grupos de portal externo existen sin miembros y no intervienen en este
+montaje integrado. Los seis LOGIN B2 aún faltan en esa copia: el ensayo de
+`incorporacionb` se detiene por «LOGIN o grupo ejecutor incompatible» sin
+escribir. Este paquete no crea roles ni añade membresías.
 
 - **El inventario** imprime los bloques, el número de ternas y la ruta del
   inventario.
 - **El ensayo** ejecuta todo y termina en `ROLLBACK`. Debe imprimir
-  `ternas_nuevas=103` y `verificado: ROLLBACK`, con el inventario sin cambios.
+  `verificado: ROLLBACK`, con el inventario sin cambios. `ternas_nuevas` cuenta
+  solo las filas ausentes de la base, no las 107 seleccionadas por defecto:
+  en la preimagen HZ11 faltaban tres de esas 107. Para `incorporacionb` faltaban
+  las 21, por lo que su ensayo allí debe mostrar `ternas_nuevas=21`.
 - **Aplicar** termina en `COMMIT` y comprueba que estén todas las ternas, que
   no haya desaparecido ninguna fila previa y que no haya filas nuevas fuera de
   la lista.
@@ -204,6 +253,9 @@ de su migración, y los roles y el texto del núcleo se generan desde la misma
 - El resolutor con el LOGIN real de cada bloque. Acepta su terna y rechaza el
   canal cruzado, el LOGIN cruzado y otro LOGIN del mismo grupo.
 - Que Cronos solo se instala si se pide.
+- Que «Mi Bolsa» tampoco se instala por defecto: sus ocho ternas resuelven con
+  los LOGIN y canal exactos; se deniegan cruces de LOGIN y canal. B2 y «Mi
+  Bolsa» se ensayan solos y juntos sin perder la fila previa.
 - Los rechazos por terna en conflicto, membresía extra, grupo equivocado,
   permisos de más en la tabla, núcleo sin AD172, núcleo distinto del cotejado,
   bloque desconocido y LOGIN sin permiso de conexión.
@@ -212,7 +264,9 @@ El núcleo de la prueba es un sustituto generado desde la misma lista. Prueba el
 guion, no la lista: los errores de la lista solo los detecta el cotejo con el
 núcleo real descrito arriba.
 
-En la principal se cotejó además, en una transacción de solo lectura, que las
-111 ternas las reconoce el núcleo vivo y el catálogo de audiencias, que cada
-LOGIN tiene la única membresía que exige su perfil y que no hay ninguna en
-conflicto.
+El ensayo con el núcleo real en la copia física HZ12 acredita la huella,
+el catálogo y los bloques por defecto. `mibolsa` usa el LOGIN nominal de esa
+copia y se ensaya también contra el núcleo real. Para `incorporacionb`, la
+prueba estructural usa LOGIN sintéticos con la membresía exacta; la aplicación
+final exige que los seis existan en el destino y mantiene la denegación si
+falta cualquiera de ellos.

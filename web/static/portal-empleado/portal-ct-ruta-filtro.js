@@ -41,6 +41,10 @@ export function rutaPortalConFiltroCT(ubicacion, hash, filtro = null) {
     || typeof ubicacion.search !== "string" || typeof hash !== "string" || !/^#[a-z][a-z0-9/-]*$/u.test(hash)
     || (filtro !== null && !filtroServidorCTValido(filtro))) throw new TypeError("ruta CT no válida");
   const parametros = new URLSearchParams(limpiarFiltroCTDeBusqueda(ubicacion.search));
+  if (hash !== "#contratacion-temporal") {
+    parametros.delete("expediente");
+    parametros.delete("expediente_version");
+  }
   if (hash !== "#bolsa/bolsa-candidatos" && parametros.has("bolsa_ref")) {
     for (const clave of ["bolsa_ref", "estado", "cursor"]) parametros.delete(clave);
   }
