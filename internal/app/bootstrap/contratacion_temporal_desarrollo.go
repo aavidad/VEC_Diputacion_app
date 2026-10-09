@@ -951,6 +951,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			EjecutorAnalisis:                servicioAnalisis,
 			ConsultorCuadroRRHH:             cuadroReal,
 			ConsultorDetalleRRHH:            detalleReal,
+			ResultadoBolsaActivo:            alta.postgresql.vinculoEmisionBolsa,
 			ConsultorOriginalPropuestaRRHH:  originalPropuestaReal,
 			BorradorRRHH:                    borradorRRHH,
 			BorradorRRHHDOCX:                borradorRRHHDOCX,

@@ -16,6 +16,13 @@ func TestVinculoBolsaEsperaProvisionSinRomperAlta(t *testing.T) {
 		t.Fatal("perfil de alta ausente")
 	}
 	anterior := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(p.plantilla)
+	fuente.asignaciones = map[string]instantaneaPublicadaDesarrollo{
+		p.perfilRef(): {instantanea: anterior, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo},
+	}
+	if actual, ok := s.instantaneaPerfilFijoParaContexto(context.Background(), httpinterno.RutaAltaSolicitudes, p); !ok ||
+		actual.VersionRol.Version != 1 {
+		t.Fatal("sin CT201 el alta antigua perdió su rol v1")
+	}
 	nueva, err := plantillaAltaConVinculoBolsaCT(anterior)
 	if err != nil || anterior.VersionRol.Version != 1 || len(anterior.VersionRol.Concesiones) != 1 ||
 		nueva.VersionRol.Version != 2 || len(nueva.VersionRol.Concesiones) != 2 ||
@@ -24,9 +31,6 @@ func TestVinculoBolsaEsperaProvisionSinRomperAlta(t *testing.T) {
 	}
 	p.plantillaVinculoBolsa = &nueva
 	p.rutas[httpinterno.RutaVinculosEmisionBolsa] = struct{}{}
-	fuente.asignaciones = map[string]instantaneaPublicadaDesarrollo{
-		p.perfilRef(): {instantanea: anterior, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo},
-	}
 	if actual, ok := s.consumirPerfilAltaConVinculoBolsa(context.Background(), p, httpinterno.RutaAltaSolicitudes); !ok ||
 		actual.VersionRol.Version != 1 {
 		t.Fatal("el alta dejó de consumir su rol v1 mientras vínculo espera CAS")

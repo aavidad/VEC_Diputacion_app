@@ -54,9 +54,23 @@ type manejadorConsultaDetalleRRHH struct {
 	renderizador               ports.RenderizadorBorradorRRHH
 	renderizadorDOCX           RenderizadorBorradorRRHHDOCX
 	presentacion               ResolutorPresentacionFlujoRRHH
+	resultadoBolsaActivo       bool
 	// descargas, si está configurado, autoriza y registra cada descarga de
 	// borrador y deja en la auditoría común sus intentos fallidos.
 	descargas ports.RegistradorDescargaBorradorRRHH
+}
+
+// ConfigurarResultadoBolsaConsultaDetalleRRHH sólo activa la lectura nueva
+// cuando la composición ha comprobado CT201. Los constructores históricos
+// conservan la consulta anterior en bases sin esa migración.
+func ConfigurarResultadoBolsaConsultaDetalleRRHH(handler http.Handler) (http.Handler, error) {
+	h, ok := handler.(*manejadorConsultaDetalleRRHH)
+	if !ok || h == nil {
+		return nil, ErrManejadorConsultaRRHHInvalido
+	}
+	copia := *h
+	copia.resultadoBolsaActivo = true
+	return &copia, nil
 }
 
 func NuevoManejadorConsultaDetalleRRHHConPresentacion(consultor ConsultorDetalleRRHH, presentacion ResolutorPresentacionFlujoRRHH, renderizadores ...ports.RenderizadorBorradorRRHH) (http.Handler, error) {
@@ -285,7 +299,7 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		responderErrorConsultaRRHH(w, r, causa, problema)
 	}
 	contextoConsulta := r.Context()
-	if !esDescarga {
+	if !esDescarga && h.resultadoBolsaActivo {
 		contextoConsulta = ports.ConResultadoBolsaRRHH(contextoConsulta)
 	}
 	detalle, err := h.consultor.Consultar(contextoConsulta, solicitud)

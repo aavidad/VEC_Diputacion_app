@@ -514,7 +514,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 		ruta != httpinterno.RutaResultadoCobertura {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
-	if p.clave == clavePerfilFijoAltaCTDesarrollo &&
+	if p.clave == clavePerfilFijoAltaCTDesarrollo && p.plantillaVinculoBolsa != nil &&
 		(ruta == httpinterno.RutaAltaSolicitudes || ruta == httpinterno.RutaVinculosEmisionBolsa) {
 		return s.consumirPerfilAltaConVinculoBolsa(ctx, p, ruta)
 	}

@@ -34,6 +34,7 @@ type DependenciasRutas struct {
 	ConsultorResultado              httpinterno.ConsultorResultadoCobertura
 	ConsultorCuadroRRHH             httpinterno.ConsultorCuadroRRHH
 	ConsultorDetalleRRHH            httpinterno.ConsultorDetalleRRHH
+	ResultadoBolsaActivo            bool
 	ConsultorOriginalPropuestaRRHH  httpinterno.ConsultorDetalleRRHH
 	BorradorRRHH                    ports.RenderizadorBorradorRRHH
 	BorradorRRHHDOCX                httpinterno.RenderizadorBorradorRRHHDOCX
@@ -137,6 +138,12 @@ func NuevasRutas(
 	}
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
+	}
+	if dependencias.ResultadoBolsaActivo {
+		detalleRRHH, err = httpinterno.ConfigurarResultadoBolsaConsultaDetalleRRHH(detalleRRHH)
+		if err != nil {
+			return nil, ErrRutasContratacionTemporalInvalidas
+		}
 	}
 	if dependencias.PresentacionFlujoRRHH != nil {
 		detalleRRHH, err = httpinterno.ConfigurarPresentacionConsultaDetalleRRHH(
