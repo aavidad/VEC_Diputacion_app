@@ -10,6 +10,25 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
+// funcionesV3PermitidasLoginCT es la única lista de fachadas de
+// vec_autorizacion_atestada_v3 que el LOGIN CT puede ejecutar, directa o
+// heredadamente, sin que fallen los preflights de plantillas (documental y
+// gobierno). Son las lecturas y usos de categorías RPT que AD3-117 y AD3-126
+// conceden a vec_contratacion_temporal_ejecutor; AD3-117 y AD3-177 le dan por
+// eso USAGE del esquema. Cada entrada es la firma regprocedure sin esquema
+// (nombre y tipos de entrada), cotejada en pg_proc sin resolver nombres, para
+// que funcione igual con USAGE o sin él. Cualquier otra función V3
+// ejecutable por el LOGIN, incluidos los consumidores de plantillas, hace
+// fallar el arranque: añadir una exige cambiar esta lista y revisarlo.
+var funcionesV3PermitidasLoginCT = []string{
+	"listar_categorias_habilitadas_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
+	"leer_publicacion_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
+	"consultar_uso_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
+	"reservar_uso_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
+	"confirmar_uso_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
+	"cancelar_uso_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
+}
+
 // preflightCatalogoPlantillasCT comprueba CT131, CT135, CT137 y AD3-100
 // antes de publicar las rutas documentales al LOGIN CT nominal. No
 // provisiona la preimagen ni toca datos: eso pertenece al migrador separado.
@@ -89,7 +108,21 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
         AND (pg_catalog.has_table_privilege(session_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
           OR pg_catalog.has_any_column_privilege(session_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))
     AND NOT coalesce(pg_catalog.has_schema_privilege(session_user,pg_catalog.to_regnamespace('vec_bolsa_llamamientos'),'USAGE'),false)
-    AND NOT coalesce(pg_catalog.has_schema_privilege(session_user,pg_catalog.to_regnamespace('vec_autorizacion_atestada_v3'),'USAGE'),false)
+    AND NOT coalesce(pg_catalog.has_schema_privilege(session_user,pg_catalog.to_regnamespace('vec_autorizacion_atestada_v3'),'CREATE'),false)
+    AND NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='vec_autorizacion_atestada_v3'
+        AND pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+        AND NOT coalesce(p.proname||'('||pg_catalog.replace(pg_catalog.oidvectortypes(p.proargtypes),', ',',')||')'
+          = ANY($3::text[]),false))
+    AND NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='vec_autorizacion_atestada_v3'
+        AND CASE WHEN c.relkind='S' THEN pg_catalog.has_sequence_privilege(session_user,c.oid,'USAGE,SELECT,UPDATE')
+          WHEN c.relkind IN ('r','p','v','m','f') THEN
+            pg_catalog.has_table_privilege(session_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+            OR pg_catalog.has_any_column_privilege(session_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+          ELSE false END)
     AND NOT coalesce(pg_catalog.has_function_privilege(session_user,
       pg_catalog.to_regprocedure('vec_contratacion_temporal.consultar_auditoria_ct_atestada_v1(text,text,text,timestamptz,timestamptz,integer,timestamptz,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE'),false)
     AND NOT coalesce(pg_catalog.has_function_privilege(session_user,
@@ -191,7 +224,8 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
     ))
  )`
 	var valido bool
-	if err := consulta.QueryRow(ctx, sql, funciones, exigirDocumental).Scan(&valido); err != nil || !valido {
+	permitidasV3 := append([]string(nil), funcionesV3PermitidasLoginCT...)
+	if err := consulta.QueryRow(ctx, sql, funciones, exigirDocumental, permitidasV3).Scan(&valido); err != nil || !valido {
 		return plantillasapp.ErrNoDisponible
 	}
 	return nil
