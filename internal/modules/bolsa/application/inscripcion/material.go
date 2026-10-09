@@ -106,20 +106,30 @@ func MaterialDecision(d Decision) ([]byte, string, error) {
 	return contenido, hex.EncodeToString(huella[:]), nil
 }
 
-func RecursoDecision(d Decision, materialSHA256 string, ambitos map[string]string) ([]byte, error) {
+func RecursoDecision(d Decision, materialSHA256 string, ambitos map[string]string,
+	conjunto, solicitud AmbitoGestionInscripcion) ([]byte, error) {
 	if d.Validar() != nil || len(materialSHA256) != 64 {
 		return nil, ErrSolicitudInvalida
 	}
 	if _, err := hex.DecodeString(materialSHA256); err != nil {
 		return nil, ErrSolicitudInvalida
 	}
-	if len(ambitos) != 2 || ambitos["unidad_ref"] == "" || ambitos["ambito_ref"] == "" {
+	if len(ambitos) != 2 || !conjunto.Valido(true) || !solicitud.Valido(false) ||
+		ambitos["unidad_ref"] != conjunto.UnidadRef || ambitos["ambito_ref"] != conjunto.AmbitoRef ||
+		solicitud.UnidadRef != conjunto.UnidadRef || solicitud.AmbitoRef != conjunto.AmbitoRef {
 		return nil, ErrAccesoDenegado
 	}
 	atributos := map[string]string{
 		"solicitud_ref": d.SolicitudRef, "decision": d.Tipo,
-		"version_esperada": strconv.FormatUint(d.VersionEsperada, 10),
-		"material_sha256":  materialSHA256,
+		"version_esperada":         strconv.FormatUint(d.VersionEsperada, 10),
+		"material_sha256":          materialSHA256,
+		"conjunto_ref":             conjunto.ConjuntoRef,
+		"conjunto_fuente_ref":      conjunto.FuenteRef,
+		"conjunto_fuente_version":  strconv.FormatUint(conjunto.FuenteVersion, 10),
+		"conjunto_fuente_sha256":   conjunto.FuenteSHA256,
+		"solicitud_fuente_ref":     solicitud.FuenteRef,
+		"solicitud_fuente_version": strconv.FormatUint(solicitud.FuenteVersion, 10),
+		"solicitud_fuente_sha256":  solicitud.FuenteSHA256,
 	}
 	if d.MotivoCodigo != "" {
 		atributos["motivo_codigo"] = d.MotivoCodigo
@@ -145,19 +155,29 @@ func MaterialIncorporacion(i Incorporacion) ([]byte, string, error) {
 	return contenido, hex.EncodeToString(huella[:]), nil
 }
 
-func RecursoIncorporacion(i Incorporacion, materialSHA256 string, ambitos map[string]string) ([]byte, error) {
+func RecursoIncorporacion(i Incorporacion, materialSHA256 string, ambitos map[string]string,
+	conjunto, solicitud AmbitoGestionInscripcion) ([]byte, error) {
 	if i.Validar() != nil || len(materialSHA256) != 64 {
 		return nil, ErrSolicitudInvalida
 	}
 	if _, err := hex.DecodeString(materialSHA256); err != nil {
 		return nil, ErrSolicitudInvalida
 	}
-	if len(ambitos) != 2 || ambitos["unidad_ref"] == "" || ambitos["ambito_ref"] == "" {
+	if len(ambitos) != 2 || !conjunto.Valido(true) || !solicitud.Valido(false) ||
+		ambitos["unidad_ref"] != conjunto.UnidadRef || ambitos["ambito_ref"] != conjunto.AmbitoRef ||
+		solicitud.UnidadRef != conjunto.UnidadRef || solicitud.AmbitoRef != conjunto.AmbitoRef {
 		return nil, ErrAccesoDenegado
 	}
 	return recursoEscrituraInscripcion(ambitos, map[string]string{
 		"solicitud_ref": i.SolicitudRef, "evidencia_ref": i.EvidenciaRef,
-		"version_esperada": strconv.FormatUint(i.VersionEsperada, 10),
-		"material_sha256":  materialSHA256,
+		"version_esperada":         strconv.FormatUint(i.VersionEsperada, 10),
+		"material_sha256":          materialSHA256,
+		"conjunto_ref":             conjunto.ConjuntoRef,
+		"conjunto_fuente_ref":      conjunto.FuenteRef,
+		"conjunto_fuente_version":  strconv.FormatUint(conjunto.FuenteVersion, 10),
+		"conjunto_fuente_sha256":   conjunto.FuenteSHA256,
+		"solicitud_fuente_ref":     solicitud.FuenteRef,
+		"solicitud_fuente_version": strconv.FormatUint(solicitud.FuenteVersion, 10),
+		"solicitud_fuente_sha256":  solicitud.FuenteSHA256,
 	})
 }

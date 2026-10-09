@@ -6,6 +6,14 @@ import (
 	"testing"
 )
 
+func fuentesGestionPrueba() (AmbitoGestionInscripcion, AmbitoGestionInscripcion) {
+	conjunto := AmbitoGestionInscripcion{ConjuntoRef: "conjunto:gestion:rrhh", UnidadRef: "unidad:rrhh", AmbitoRef: "ambito:bolsa",
+		FuenteRef: "catalogo:conjunto:2", FuenteVersion: 2, FuenteSHA256: strings.Repeat("b", 64)}
+	solicitud := AmbitoGestionInscripcion{UnidadRef: "unidad:rrhh", AmbitoRef: "ambito:bolsa",
+		FuenteRef: "catalogo:convocatoria:1", FuenteVersion: 1, FuenteSHA256: strings.Repeat("a", 64)}
+	return conjunto, solicitud
+}
+
 func TestMaterialPresentacionUnicoParaDecisionYEfecto(t *testing.T) {
 	p := Presentacion{
 		ConvocatoriaRef: "cv1_YXV4aWxpYXI_v1", CategoriaRef: "categoria:rpt:auxiliar",
@@ -43,12 +51,22 @@ func TestMaterialDecisionLigaVersionMotivoYClave(t *testing.T) {
 	if err != nil || !bytes.Contains(material, []byte(`"version_esperada":2`)) || !bytes.Contains(material, []byte(`"motivo_codigo":"requisito.no.acreditado"`)) {
 		t.Fatalf("material=%s err=%v", material, err)
 	}
-	recurso, err := RecursoDecision(d, huella, map[string]string{"unidad_ref": "unidad:rrhh", "ambito_ref": "ambito:bolsa"})
+	conjunto, solicitud := fuentesGestionPrueba()
+	recurso, err := RecursoDecision(d, huella, map[string]string{"unidad_ref": "unidad:rrhh", "ambito_ref": "ambito:bolsa"}, conjunto, solicitud)
 	if err != nil || !bytes.Contains(recurso, []byte(d.SolicitudRef)) || !bytes.Contains(recurso, []byte(huella)) {
 		t.Fatalf("recurso=%s err=%v", recurso, err)
 	}
-	if _, err := RecursoDecision(d, huella, map[string]string{"solicitud_ref": d.SolicitudRef}); err == nil {
+	if _, err := RecursoDecision(d, huella, map[string]string{"solicitud_ref": d.SolicitudRef}, conjunto, solicitud); err == nil {
 		t.Fatal("la solicitud del navegador no puede convertirse en ámbito RRHH")
+	}
+	conjunto.FuenteVersion = 3
+	recursoActual, err := RecursoDecision(d, huella, map[string]string{"unidad_ref": "unidad:rrhh", "ambito_ref": "ambito:bolsa"}, conjunto, solicitud)
+	if err != nil || bytes.Equal(recursoActual, recurso) {
+		t.Fatal("la fuente actual no queda ligada a la nueva decisión V3")
+	}
+	materialRepetido, mismaHuella, err := MaterialDecision(d)
+	if err != nil || !bytes.Equal(materialRepetido, material) || mismaHuella != huella {
+		t.Fatal("la fuente de autorización alteró la clave del comando idempotente")
 	}
 	d.VersionEsperada = 3
 	_, otra, err := MaterialDecision(d)
@@ -63,7 +81,8 @@ func TestMaterialIncorporacionLigaEvidenciaSinAceptarParticipacion(t *testing.T)
 	if err != nil || !bytes.Contains(material, []byte(`"evidencia_ref":"acta:resolucion:001"`)) || bytes.Contains(material, []byte("participacion_ref")) {
 		t.Fatalf("material=%s err=%v", material, err)
 	}
-	recurso, err := RecursoIncorporacion(i, huella, map[string]string{"unidad_ref": "unidad:rrhh", "ambito_ref": "ambito:bolsa"})
+	conjunto, solicitud := fuentesGestionPrueba()
+	recurso, err := RecursoIncorporacion(i, huella, map[string]string{"unidad_ref": "unidad:rrhh", "ambito_ref": "ambito:bolsa"}, conjunto, solicitud)
 	if err != nil || !bytes.Contains(recurso, []byte(i.SolicitudRef)) || !bytes.Contains(recurso, []byte(huella)) {
 		t.Fatalf("recurso=%s err=%v", recurso, err)
 	}
