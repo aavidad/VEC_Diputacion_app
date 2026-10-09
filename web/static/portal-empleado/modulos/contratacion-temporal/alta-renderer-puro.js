@@ -559,7 +559,7 @@ export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
   const datos = new FormData(formularioDOM);
   const peticionCentro = Boolean(formularioDOM.querySelector?.('[name="puesto_solicitado"]'));
   const necesidad = !peticionCentro && Boolean(formularioDOM.querySelector?.('[name="jornada_horas"]'));
-  const jornadaEntrada = String(datos.get("jornada_horas") ?? "");
+  const jornadaEntrada = String(datos.get("jornada_horas") ?? "").trim();
   const minutosJornada = minutosDesdeJornadaVisible(jornadaEntrada);
   // Si la jornada no se entiende se conserva lo tecleado para repintarlo y que
   // la validación lo marque. Unas cifras sueltas («1000») pasarían por minutos
