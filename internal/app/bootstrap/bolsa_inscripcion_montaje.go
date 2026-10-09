@@ -154,11 +154,13 @@ func abrirEjecutorInternoInscripcionBolsa(ctx context.Context, c config.Configur
 		return nil, errMontajeInscripcionBolsa
 	}
 	var permitido bool
-	err = pool.QueryRow(ctx, `SELECT session_user='vec_bolsa_llamamientos_ejecutor'
+	err = pool.QueryRow(ctx, `SELECT session_user='vec_bolsa_llamamientos_desarrollo'
  AND pg_catalog.has_function_privilege(session_user,
-  'vec_bolsa_llamamientos.revisar_inscripcion_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,'EXECUTE')
+  'vec_bolsa_llamamientos.revisar_inscripcion_v1(text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,'EXECUTE')
  AND pg_catalog.has_function_privilege(session_user,
   'vec_bolsa_llamamientos.incorporar_inscripcion_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,'EXECUTE')
+ AND pg_catalog.has_function_privilege(session_user,
+  'vec_bolsa_llamamientos.solicitar_inscripcion_v1(text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,'EXECUTE')
  AND NOT pg_catalog.has_schema_privilege(session_user,'vec_bolsa_llamamientos','CREATE')`).Scan(&permitido)
 	if err != nil || !permitido {
 		pool.Close()
