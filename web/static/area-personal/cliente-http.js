@@ -1,4 +1,4 @@
-import { validarRespuestaMiBolsa } from "./contrato.js?v=20261009-mi-bolsa-pausa-null-v1";
+import { validarRespuestaMiBolsa } from "./contrato.js?v=20261009-mi-bolsa-historial-campos-v1";
 import { traducir } from "./i18n.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 
