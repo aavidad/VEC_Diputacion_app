@@ -53,10 +53,24 @@ Rendimiento del navegador antes del ajuste de carga: desde la lista ya abierta,1
 
 Persisten incidencias anteriores del clon: tres503 de preferencias, aviso de certificado al cargar un script y consulta de documentos no disponible. Las capturas de los paneles no sustituyen el registro del recorrido completo; este límite se conserva aquí.
 
-## Límite pendiente de rendimiento
+## Rendimiento tras la ficha rápida (#964)
 
-El parche `fe3a9f483e3b1bf2b57400b9857d584b0f3ff49a` elimina una espera de textos cuyo resultado se descartaba. La medición posterior sigue fuera del objetivo:1075ms hasta iniciar la petición,137ms de HTTP y1283ms hasta el panel. Antes del detalle aparecen97JS y20catálogos de fases distintas, además de otra consulta de cuadro. La revisión de arquitectura confirma que esa cadena ya está enmain; el cambio T1 no añade un catálogo ni una llamada de carga de textos.
+Al fusionar main con #964, la ficha ya no espera a descargar su vista para pedir el detalle. Se midió con Playwright y el Chrome del sistema contra un servidor local HTTP/1.1 con dobles sintéticos: 25 ms por estático, 140 ms por API, 25 expedientes, 1440 px y mediana de 7 vueltas, pulsando con la lista abierta y en reposo. El detalle de esta rama incluye una respuesta de Bolsa vinculada (renuncia con contacto y cambio de situación) y la ficha la muestra.
 
-P1 pendiente: la ficha no cumple300ms ni carga únicamente los textos de la pantalla abierta. No se entrega como lista para fusionar por rendimiento. El corte corrector debe reutilizar la página autorizada de la misma sesión, iniciar el detalle sin esperar vistas de otras fases y separar los formularios/textos de actuaciones para pedirlos al abrirlos. Debe conservar versión, filtros, cancelación, permisos y auditoría; una precarga general no resuelve el requisito.
+| Clic en la ficha → | esta rama antes de #964 | main con #964 | esta rama con #964 | esta rama con #964 y la precarga en reposo (#966, ensayo local) |
+|---|---|---|---|---|
+| POST de detalle, en frío | 1118 ms | 433 ms | 401 ms | 169 ms |
+| ficha pintada, en frío | 1267 ms | 942 ms | 897 ms | 320 ms |
+| panel sin cargas, en frío | 1410 ms | 1086 ms | 1040 ms | 462 ms |
+| POST de detalle, con caché | 561 ms | 308 ms | 295 ms | 159 ms |
+| ficha pintada, con caché | 706 ms | 451 ms | 439 ms | 305 ms |
+| API tras el clic | 7 | 5 | 5 | 5 |
+| JS / catálogos tras el clic, en frío | 118 / 21 | 116 / 22 | 118 / 22 | 21 / 2 |
+
+La lectura de Bolsa viaja dentro de la respuesta del detalle, así que no añade peticiones. Añade dos módulos a la vista. La lista tarda lo mismo con y sin esta rama (1743 ms frente a 1749 ms de mediana). Sin errores JS en ninguna vuelta. Bajar de 300 ms en frío depende de la precarga en reposo de #966.
+
+## Ensayo SQL con los límites de espera
+
+B98 y CT201 fijan `lock_timeout` de 5 s y `statement_timeout` de 30 s tras `BEGIN`. `contar_aceptaciones_firmes_ct_v1` rechaza listas de más de 1000 vínculos. La lista completa se ensayó en PostgreSQL 18.4 desechable (`--rm --restart=no --network none`, 2 GB): copia de la base sintética simulada, las 19 SQL de `base_hz9.list` (de `9d835f99a`), las de HZ10 a HZ12, CT200 y después B98, AD233, CT201 y CT202, una vez cada una. Una segunda pasada de las cuatro para en su comprobación previa (`PARO clave=preimagen`) y deja intactas funciones, permisos y relaciones.
 
 Se contrastó el patrón de carga por vista en documentación pública de [React](https://react.dev/reference/react/lazy), [Vue Router](https://router.vuejs.org/guide/advanced/lazy-loading) y [Next.js](https://nextjs.org/docs/app/guides/lazy-loading). No se incorporó ninguno de esos marcos ni se envió código o datos a ellos. La revisión independiente de arquitectura recomienda ese corte acotado aparte, en vez de introducir controles asíncronos incompletos en esta entrega.
