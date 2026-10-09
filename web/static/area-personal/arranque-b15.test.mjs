@@ -31,7 +31,7 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   assert.ok(!html.includes(`/area-personal/area-personal.css?v=${versionCSSOportunidades}`), "no reutilizar CSS anterior con caché inmutable");
   assert.ok(html.includes(`/area-personal/arranque.js?v=${versionPadre}`));
   assert.ok(arranque.includes(`./aplicacion.js?v=${versionPadre}`));
-  assert.match(aplicacion, /from "\.\/mi-bolsa-historial\.js"/u);
+  assert.ok(aplicacion.includes(`from "./mi-bolsa-historial.js?v=${versionPadre}"`), "el histórico entra en la misma cohorte que la aplicación");
   assert.ok(arranque.includes('from "./i18n.js"'));
   assert.ok(aplicacion.includes('from "./i18n.js"'));
   assert.doesNotMatch(`${arranque}\n${aplicacion}`, /\.\/i18n\.js\?v=/);
@@ -45,11 +45,12 @@ test("Mi Bolsa con pausa nula cierra una sola cohorte hasta el HTML y la caché"
     "contrato.js", "cliente-http.js", "contacto-propio.js", "vistas/seguimiento-tramites.js",
     "aplicacion.js", "arranque.js", "index.html", "cache-publica-v1.json", "../../produccion.manifest",
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
-  const cohorte = "20261009-mi-bolsa-pausa-null-v1";
+  const cohorte = "20261009-mi-bolsa-historial-campos-v1";
   for (const [fuente, ruta] of [[contrato, "./mi-bolsa-portal.js"],
     [seguimiento, "../mi-bolsa-portal.js"], [aplicacion, "./mi-bolsa-portal.js"],
     [cliente, "./contrato.js"], [contacto, "./cliente-http.js"],
     [aplicacion, "./contacto-propio.js"], [aplicacion, "./vistas/seguimiento-tramites.js"],
+    [aplicacion, "./mi-bolsa-historial.js"], [seguimiento, "../mi-bolsa-historial.js"],
     [arranque, "./aplicacion.js"], [arranque, "./cliente-http.js"],
     [html, "/area-personal/arranque.js"], [cache, "/area-personal/arranque.js"]]) {
     assert.equal(versionDe(fuente, ruta), cohorte, ruta);
@@ -57,7 +58,7 @@ test("Mi Bolsa con pausa nula cierra una sola cohorte hasta el HTML y la caché"
   assert.equal(versionesDe(arranque, "./cliente-http.js").length, 2,
     "la carga inicial y la diferida usan el mismo cliente HTTP");
   assert.equal(JSON.parse(cache).version, "20261003-pwa-ci-v5");
-  for (const ruta of ["mi-bolsa-portal.js", "contrato.js", "cliente-http.js", "contacto-propio.js",
+  for (const ruta of ["mi-bolsa-portal.js", "mi-bolsa-historial.js", "contrato.js", "cliente-http.js", "contacto-propio.js",
     "vistas/seguimiento-tramites.js", "aplicacion.js", "arranque.js"]) {
     assert.equal(manifiesto.split(`static/area-personal/${ruta}`).length - 1, 1, ruta);
   }
