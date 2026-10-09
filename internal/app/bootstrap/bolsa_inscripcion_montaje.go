@@ -26,19 +26,24 @@ const (
 	lectorInscripcionRRHH
 )
 
-func (c claseLectorInscripcionBolsa) identidad() (login, rol, aplicacion string, valida bool) {
+// funciones son las únicas que el LOGIN puede ejecutar en el esquema: la
+// lectura nominal y, para RRHH, la resolución de su ámbito de gestión.
+func (c claseLectorInscripcionBolsa) identidad() (login, rol, aplicacion string, funciones []string, valida bool) {
 	switch c {
 	case lectorInscripcionExterno:
-		return "vec_bolsa_inscripciones_lector", "vec_bolsa_llamamientos_lector_inscripciones", "vec-bolsa-inscripcion-lector-externo", true
+		return "vec_bolsa_inscripciones_lector", "vec_bolsa_llamamientos_lector_inscripciones", "vec-bolsa-inscripcion-lector-externo",
+			[]string{"consultar_inscripcion_v1"}, true
 	case lectorInscripcionRRHH:
-		return "vec_bolsa_inscripciones_rrhh_lector", "vec_bolsa_llamamientos_lector_inscripciones_rrhh", "vec-bolsa-inscripcion-lector-rrhh", true
+		return "vec_bolsa_inscripciones_rrhh_lector", "vec_bolsa_llamamientos_lector_inscripciones_rrhh", "vec-bolsa-inscripcion-lector-rrhh",
+			[]string{"consultar_inscripcion_v1", "resolver_ambito_rrhh_inscripcion_previa_v1",
+				"resolver_ambito_rrhh_inscripcion_v1", "resolver_conjunto_rrhh_inscripcion_previa_v1"}, true
 	default:
-		return "", "", "", false
+		return "", "", "", nil, false
 	}
 }
 
 func abrirLectorInscripcionBolsa(ctx context.Context, dsn string, clase claseLectorInscripcionBolsa) (*pgxpool.Pool, error) {
-	login, rol, aplicacion, valida := clase.identidad()
+	login, rol, aplicacion, funciones, valida := clase.identidad()
 	if ctx == nil || ctx.Err() != nil || dsn == "" || !valida {
 		return nil, errMontajeInscripcionBolsa
 	}
@@ -89,11 +94,12 @@ SELECT session_user=$1
  AND (SELECT count(*)=1 AND bool_and(nombre=$2 AND inherit_option AND NOT set_option AND NOT admin_option
      AND NOT(rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)
      AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members superior WHERE superior.member=grupo_oid)) FROM membresia)
- AND (SELECT count(*)=1 AND bool_and(proname='consultar_inscripcion_v1' AND prosecdef) FROM funciones)
+ AND (SELECT count(*)=pg_catalog.cardinality($3::text[]) AND count(DISTINCT proname)=count(*)
+      AND bool_and(prosecdef AND proname=ANY($3::text[])) FROM funciones)
  AND NOT EXISTS(SELECT 1 FROM tablas t WHERE pg_catalog.has_table_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
   OR pg_catalog.has_any_column_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
  AND NOT EXISTS(SELECT 1 FROM secuencias s WHERE pg_catalog.has_sequence_privilege(session_user,s.oid,'USAGE,SELECT,UPDATE'))
- AND NOT pg_catalog.has_schema_privilege(session_user,'vec_bolsa_llamamientos','CREATE')`, login, rol).Scan(&permitido)
+ AND NOT pg_catalog.has_schema_privilege(session_user,'vec_bolsa_llamamientos','CREATE')`, login, rol, funciones).Scan(&permitido)
 	if err != nil || !permitido {
 		pool.Close()
 		return nil, errMontajeInscripcionBolsa

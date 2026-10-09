@@ -298,6 +298,12 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaSolicitarPausaPropia,
 		puertosbolsa.AudienciaSolicitarReactivacionPropia,
 		puertosbolsa.AudienciaResponderLlamamientoPropio,
+		// Inscripción en Bolsa (AD228/AD229): presentar desde el portal
+		// externo; revisar e incorporar en vec-server. Sólo con
+		// VEC_BOLSA_INSCRIPCIONES_ENABLED.
+		audienciaPresentarInscripcionExternaV3,
+		descriptoresMaterialInscripcionRRHHDesarrollo()[0].Audiencia,
+		descriptoresMaterialInscripcionRRHHDesarrollo()[1].Audiencia,
 		puertosbolsa.AudienciaManifestarDisposicionPropia,
 		puertosbolsa.AudienciaPresentarSolicitudDocumentalPropia,
 		puertosbolsa.AudienciaConsultarSolicitudesDocumentalesRRHH,
