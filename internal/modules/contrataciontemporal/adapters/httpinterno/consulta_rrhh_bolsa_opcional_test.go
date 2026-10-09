@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -33,5 +34,31 @@ func TestConsultaDetalleBolsaSoloConSQLActivado(t *testing.T) {
 				t.Fatalf("estado=%d llamadas=%d resultado_bolsa=%t activo=%t", w.Code, consultor.llamadas, pidioResultado, activo)
 			}
 		})
+	}
+}
+
+func TestConsultaDetalleBolsaPaginaExigeMontajeYPropagaCursor(t *testing.T) {
+	cursor := "2026-10-09T11:00:00.123456Z#llamamiento:" + strings.Repeat("a", 64)
+	cuerpo := strings.TrimSuffix(string(cuerpoDetalleRRHHPrueba()), "}") + `,"resultado_bolsa_cursor":"` + cursor + `"}`
+	consultor := &consultorDetalleRRHHPrueba{detalle: detalleRRHHPrueba()}
+	var recibido string
+	consultor.alConsultar = func(ctx context.Context) { recibido = ports.CursorResultadoBolsaRRHH(ctx) }
+	h, err := NuevoManejadorConsultaDetalleRRHH(consultor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sinMontaje := httptest.NewRecorder()
+	h.ServeHTTP(sinMontaje, nuevaPeticionConsultaRRHHPrueba(RutaConsultaDetalleRRHH, cuerpo))
+	if sinMontaje.Code != http.StatusUnprocessableEntity || consultor.llamadas != 0 {
+		t.Fatalf("cursor sin montaje: estado=%d consultas=%d", sinMontaje.Code, consultor.llamadas)
+	}
+	h, err = ConfigurarResultadoBolsaConsultaDetalleRRHH(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conMontaje := httptest.NewRecorder()
+	h.ServeHTTP(conMontaje, nuevaPeticionConsultaRRHHPrueba(RutaConsultaDetalleRRHH, cuerpo))
+	if conMontaje.Code != http.StatusOK || consultor.llamadas != 1 || recibido != cursor {
+		t.Fatalf("cursor no propagado: estado=%d consultas=%d", conMontaje.Code, consultor.llamadas)
 	}
 }

@@ -225,6 +225,11 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 	)
 	destinos := destinosDetalleConsultaRRHH(&salida)
 	if consulta == consultaDetalleConBolsaRRHHPostgreSQL {
+		var cursor any
+		if siguiente := ports.CursorResultadoBolsaRRHH(ctx); siguiente != "" {
+			cursor = siguiente
+		}
+		argumentosSQL = append(argumentosSQL, cursor)
 		destinos = append(destinos, &resultadoBolsaRaw)
 	}
 	return ejecutarConsultaRRHHEnTransaccion(

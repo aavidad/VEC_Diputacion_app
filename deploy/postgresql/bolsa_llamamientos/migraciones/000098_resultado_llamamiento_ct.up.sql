@@ -53,7 +53,8 @@ CREATE INDEX contacto_participacion_ct_resultado_exacta
 -- Sugerencias acotadas: la coincidencia de referencia nunca asocia por sí
 -- sola una emisión. Un llamamiento se selecciona y confirma expresamente.
 CREATE FUNCTION vec_bolsa_llamamientos.listar_emisiones_ct_v1(
- p_bolsa text,p_referencia text,p_antes timestamptz,p_antes_ref text,p_limite integer)
+ p_bolsa text,p_referencia text,p_antes timestamptz,p_antes_ref text,p_limite integer,
+ p_excluir text[])
 RETURNS TABLE(bolsa_ref text,llamamiento_ref text,recibo_emision_ref text,
  referencia_visible text,emitido_en timestamptz)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -63,7 +64,9 @@ BEGIN
     OR session_user=current_user
     OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
     OR p_bolsa IS NULL OR p_bolsa='' OR p_referencia IS NULL OR p_referencia=''
-    OR p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 21
+    OR p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 20
+    OR p_excluir IS NULL
+    OR array_position(p_excluir,NULL) IS NOT NULL
     OR (p_antes IS NULL) IS DISTINCT FROM (p_antes_ref IS NULL) THEN
    RAISE EXCEPTION 'B98: lista de emisiones no autorizada' USING ERRCODE='42501';
  END IF;
@@ -71,6 +74,7 @@ BEGIN
    e.configuracion->>'referencia',e.emitido_en
  FROM vec_bolsa_llamamientos.llamamiento_emitido e
  WHERE e.bolsa_ref=p_bolsa AND e.configuracion->>'referencia'=p_referencia
+   AND e.llamamiento_ref<>ALL(p_excluir)
    AND (p_antes IS NULL OR (e.emitido_en,e.llamamiento_ref)<(p_antes,p_antes_ref))
  ORDER BY e.emitido_en DESC,e.llamamiento_ref DESC LIMIT p_limite;
 END $f$;
@@ -200,14 +204,63 @@ BEGIN
  RETURN v_resultado;
 END $f$;
 
+-- Una sola lectura del conjunto vinculado. El candidato opaco identifica a
+-- la persona entre participaciones; sólo su emisión más reciente decide el
+-- recuento. Contacto y situación global no son respuestas firmes.
+CREATE FUNCTION vec_bolsa_llamamientos.contar_aceptaciones_firmes_ct_v1(p_vinculos jsonb)
+RETURNS integer LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET row_security=on SET statement_timeout='5s' AS $f$
+DECLARE esperados integer; encontrados integer; aceptaciones integer;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
+    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
+    OR p_vinculos IS NULL OR jsonb_typeof(p_vinculos)<>'array' THEN
+  RAISE EXCEPTION 'B98: resumen de respuestas no autorizado' USING ERRCODE='42501';
+ END IF;
+ esperados:=jsonb_array_length(p_vinculos);
+ WITH referencias AS MATERIALIZED (
+   SELECT x.bolsa_ref,x.llamamiento_ref,x.recibo_emision_ref
+   FROM jsonb_to_recordset(p_vinculos) AS x(bolsa_ref text,llamamiento_ref text,recibo_emision_ref text)
+ ), emisiones AS MATERIALIZED (
+   SELECT e.llamamiento_ref
+   FROM referencias r JOIN vec_bolsa_llamamientos.llamamiento_emitido e
+     ON e.bolsa_ref=r.bolsa_ref AND e.llamamiento_ref=r.llamamiento_ref
+    AND e.recibo_ref=r.recibo_emision_ref
+ ) SELECT count(DISTINCT llamamiento_ref) INTO encontrados FROM emisiones;
+ IF encontrados<>esperados THEN
+  RAISE EXCEPTION 'B98: conjunto de emisiones divergente' USING ERRCODE='55000';
+ END IF;
+ WITH referencias AS MATERIALIZED (
+   SELECT x.bolsa_ref,x.llamamiento_ref,x.recibo_emision_ref
+   FROM jsonb_to_recordset(p_vinculos) AS x(bolsa_ref text,llamamiento_ref text,recibo_emision_ref text)
+ ), emisiones AS MATERIALIZED (
+   SELECT e.llamamiento_ref,e.emitido_en,e.participaciones
+   FROM referencias v JOIN vec_bolsa_llamamientos.llamamiento_emitido e
+     ON e.bolsa_ref=v.bolsa_ref AND e.llamamiento_ref=v.llamamiento_ref
+    AND e.recibo_ref=v.recibo_emision_ref
+ ), ultimas AS (
+   SELECT DISTINCT ON (vc.candidato_ref) vc.candidato_ref,r.respuesta,r.modo
+   FROM emisiones e
+   CROSS JOIN LATERAL jsonb_array_elements_text(e.participaciones) WITH ORDINALITY AS p(ref,orden)
+   JOIN vec_bolsa_llamamientos.vinculo_candidato vc ON vc.participacion_ref=p.ref
+   LEFT JOIN vec_bolsa_llamamientos.respuesta_portal_llamamiento r
+     ON r.llamamiento_ref=e.llamamiento_ref AND r.participacion_ref=p.ref
+    AND r.candidato_ref=vc.candidato_ref
+   ORDER BY vc.candidato_ref,e.emitido_en DESC,e.llamamiento_ref DESC,p.orden DESC
+ ) SELECT count(*) FILTER (WHERE respuesta='acepta' AND modo='firme') INTO aceptaciones FROM ultimas;
+ RETURN aceptaciones;
+END $f$;
+
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text),
  vec_bolsa_llamamientos.leer_resultado_emision_ct_v1(text,text,text),
  vec_bolsa_llamamientos.leer_resultados_emisiones_ct_v1(jsonb),
- vec_bolsa_llamamientos.listar_emisiones_ct_v1(text,text,timestamptz,text,integer) FROM PUBLIC;
+ vec_bolsa_llamamientos.contar_aceptaciones_firmes_ct_v1(jsonb),
+ vec_bolsa_llamamientos.listar_emisiones_ct_v1(text,text,timestamptz,text,integer,text[]) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text),
  vec_bolsa_llamamientos.leer_resultado_emision_ct_v1(text,text,text),
  vec_bolsa_llamamientos.leer_resultados_emisiones_ct_v1(jsonb),
- vec_bolsa_llamamientos.listar_emisiones_ct_v1(text,text,timestamptz,text,integer)
+ vec_bolsa_llamamientos.contar_aceptaciones_firmes_ct_v1(jsonb),
+ vec_bolsa_llamamientos.listar_emisiones_ct_v1(text,text,timestamptz,text,integer,text[])
  TO vec_contratacion_temporal_propietario;
 GRANT USAGE ON SCHEMA vec_bolsa_llamamientos TO vec_contratacion_temporal_propietario;
 COMMIT;

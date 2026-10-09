@@ -3,9 +3,9 @@
 # CT201 conserva el vínculo confirmado y la lectura en la transacción auditada.
 # Si CT200 se integra antes, instalar CT200 antes de CT201. Revisar la huella
 # de preimagen AD233 contra la principal exacta antes de instalar: falla cerrado.
-# SHA256 9affe05512b6b444f569e68597922657226c6a64fcfd1a1a05e3e30fec8edbc3
+# SHA256 69c348d98671b997b18cadca6bc359346849995db139095aef919e7722582bee
 deploy/postgresql/bolsa_llamamientos/migraciones/000098_resultado_llamamiento_ct.up.sql
-# SHA256 381f57a5cb9c3f378079a03fdb8108cc2bcfe358406acb0a9ccc6f27f3181981
+# SHA256 a79abfdfb071f1d06de530be646a2a315979f0064194b5ddfd9a9702d72242f5
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000233_vinculo_emision_bolsa_ct.up.sql
-# SHA256 0dd745b369a2d27c8aa949e38b102f65f965dfc9383c0e15b4c51c7a6bd78853
+# SHA256 7b32959abb64fd958b235bacb653dbebbb23b3e584f0c099fad359f795d829d6
 deploy/postgresql/contratacion_temporal/migraciones/000201_vinculo_emision_bolsa_ct.up.sql

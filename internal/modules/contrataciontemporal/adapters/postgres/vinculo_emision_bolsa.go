@@ -33,8 +33,10 @@ func (r *RepositorioVinculoEmisionBolsaPostgreSQL) LeerAmbitosVinculoEmisionBols
 	}
 	var centro, categoria string
 	err := r.pool.QueryRow(ctx, `SELECT centro_ref,categoria_ref FROM
-		vec_contratacion_temporal.leer_ambitos_vinculo_emision_bolsa_ct_v1($1::text,$2::text,$3::numeric,$4::text)`,
-		s.OrganizacionRef, s.ExpedienteRef, s.VersionEsperada, s.BolsaRef).Scan(&centro, &categoria)
+		vec_contratacion_temporal.leer_ambitos_vinculo_emision_bolsa_ct_v1(
+		$1::text,$2::text,$3::numeric,$4::text,$5::text,$6::text,$7::text)`,
+		s.OrganizacionRef, s.ExpedienteRef, s.VersionEsperada, s.BolsaRef,
+		s.LlamamientoRef, s.ReciboEmisionRef, s.ClaveIdempotencia).Scan(&centro, &categoria)
 	if err != nil {
 		return "", "", normalizarErrorVinculoBolsa(ctx, err)
 	}

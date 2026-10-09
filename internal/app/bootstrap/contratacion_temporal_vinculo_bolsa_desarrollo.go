@@ -41,7 +41,7 @@ func detectarVinculoEmisionBolsaCTDesarrollo(ctx context.Context, ejecucion *pgx
 	err := ejecucion.QueryRow(ctx, sql,
 		"vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
 		"vec_autorizacion_atestada_v3.registrar_y_consumir_vinculo_emision_bolsa_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
-		"vec_contratacion_temporal.leer_ambitos_vinculo_emision_bolsa_ct_v1(text,text,numeric,text)",
+		"vec_contratacion_temporal.leer_ambitos_vinculo_emision_bolsa_ct_v1(text,text,numeric,text,text,text,text)",
 	).Scan(&disponible)
 	if err != nil {
 		return false, errVinculoEmisionBolsaCTNoDisponible

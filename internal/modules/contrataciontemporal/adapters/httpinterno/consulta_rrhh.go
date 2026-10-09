@@ -280,7 +280,7 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		responderErrorConsultaRRHH(w, r, nil, *problema)
 		return
 	}
-	solicitud, err := solicitudDetalleRRHHDesdePeticion(w, r)
+	solicitud, cursorBolsa, err := solicitudDetalleRRHHConCursorDesdePeticion(w, r)
 	if err != nil {
 		responderErrorConsultaRRHH(w, r, nil, errorEntradaConsultaRRHH(err))
 		return
@@ -290,6 +290,10 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		return
 	}
 	borrador, esDescarga := borradorRRHHSolicitado(r.Header)
+	if cursorBolsa != "" && (esDescarga || !h.resultadoBolsaActivo) {
+		responderErrorConsultaRRHH(w, r, nil, errorEntradaConsultaRRHH(errContenidoConsultaRRHHNoValido))
+		return
+	}
 	// En una descarga, un fallo de la consulta es una descarga fallida.
 	responderFallo := func(causa error, problema errorPublicoConsultaRRHH) {
 		if esDescarga {
@@ -300,7 +304,11 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 	}
 	contextoConsulta := r.Context()
 	if !esDescarga && h.resultadoBolsaActivo {
-		contextoConsulta = ports.ConResultadoBolsaRRHH(contextoConsulta)
+		if cursorBolsa == "" {
+			contextoConsulta = ports.ConResultadoBolsaRRHH(contextoConsulta)
+		} else {
+			contextoConsulta = ports.ConResultadoBolsaRRHHPagina(contextoConsulta, cursorBolsa)
+		}
 	}
 	detalle, err := h.consultor.Consultar(contextoConsulta, solicitud)
 	if errContexto := r.Context().Err(); errContexto != nil {
@@ -326,11 +334,12 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 			proyeccion.PresentacionFlujo = proyectarPresentacionFlujoRRHH(presentacion)
 		}
 	}
-	responderJSONConsultaRRHH(
-		w, r,
-		http.StatusOK,
-		envoltorioDetalleRRHH{Data: proyeccion},
-	)
+	limiteRespuesta := MaximoRespuestaConsultaRRHHBytes
+	if detalle.ResultadoBolsa != nil {
+		limiteRespuesta = MaximoRespuestaConsultaBolsaRRHHBytes
+	}
+	responderJSONConsultaRRHHConLimite(w, r, http.StatusOK,
+		envoltorioDetalleRRHH{Data: proyeccion}, limiteRespuesta)
 }
 
 func (h *manejadorConsultaDetalleRRHH) responderBorrador(

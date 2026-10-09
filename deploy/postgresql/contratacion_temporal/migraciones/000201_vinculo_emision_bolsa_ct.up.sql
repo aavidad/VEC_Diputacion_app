@@ -12,6 +12,7 @@ BEGIN
     OR to_regprocedure('vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.leer_resultado_emision_ct_v1(text,text,text)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.leer_resultados_emisiones_ct_v1(jsonb)') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.contar_aceptaciones_firmes_ct_v1(jsonb)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_vinculo_emision_bolsa_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
   RAISE EXCEPTION 'CT201: PARO clave=preimagen esperado=B98_AD233_CT_actual actual=incompatible' USING ERRCODE='55000';
  END IF;
@@ -84,7 +85,8 @@ REVOKE ALL ON TYPE vec_contratacion_temporal.outbox_vinculo_emision_bolsa_ct_v1 
 -- Prelectura interna de ámbitos del perfil RRHH. No entrega datos personales
 -- ni crea una concesión; el acto posterior vuelve a cotejar el agregado.
 CREATE FUNCTION vec_contratacion_temporal.leer_ambitos_vinculo_emision_bolsa_ct_v1(
- p_organizacion text,p_expediente text,p_version numeric,p_bolsa text)
+ p_organizacion text,p_expediente text,p_version numeric,p_bolsa text,
+ p_llamamiento text,p_recibo text,p_clave text)
 RETURNS TABLE(centro_ref text,categoria_ref text)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET statement_timeout='3s' AS $f$
@@ -92,6 +94,7 @@ BEGIN
  IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
     OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
     OR p_organizacion IS NULL OR p_expediente IS NULL OR p_bolsa IS NULL
+    OR p_llamamiento IS NULL OR p_recibo IS NULL OR p_clave IS NULL
     OR p_version IS NULL OR p_version<1 OR p_version>9007199254740991::numeric
     OR p_version<>trunc(p_version) THEN
   RAISE EXCEPTION 'CT201: ámbitos no disponibles' USING ERRCODE='42501';
@@ -103,22 +106,27 @@ BEGIN
  JOIN vec_contratacion_temporal.expediente_version_integral v
    ON v.expediente_ref=a.expediente_ref AND v.version=a.version
  WHERE e.organizacion_ref=p_organizacion AND e.expediente_ref=p_expediente
-   AND a.version=p_version
+   AND (a.version=p_version OR EXISTS(
+      SELECT 1 FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 previo
+      WHERE previo.organizacion_ref=p_organizacion AND previo.expediente_ref=p_expediente
+        AND previo.version_expediente_esperada=p_version
+        AND previo.bolsa_ref=p_bolsa AND previo.llamamiento_ref=p_llamamiento
+        AND previo.recibo_emision_ref=p_recibo AND previo.clave_idempotencia::text=p_clave))
    AND v.agregado_json#>>'{via_cobertura,bolsa_ref}'=p_bolsa
    AND v.agregado_json#>>'{solicitud,centro_ref}' IS NOT NULL
    AND v.agregado_json#>>'{analisis,categoria_ref}' IS NOT NULL;
 END $f$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.leer_ambitos_vinculo_emision_bolsa_ct_v1(
- text,text,numeric,text) FROM PUBLIC;
+ text,text,numeric,text,text,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.leer_ambitos_vinculo_emision_bolsa_ct_v1(
- text,text,numeric,text) TO vec_contratacion_temporal_ejecutor;
+ text,text,numeric,text,text,text,text) TO vec_contratacion_temporal_ejecutor;
 
 CREATE FUNCTION vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
-DECLARE s jsonb; d jsonb; c record; a record; amb record; anterior record;
+DECLARE s jsonb; d jsonb; c record; actual_ct record; amb record; anterior record;
  clave uuid; version_esperada numeric; material_h text; contexto_h text;
  numero text; recibo text; evento text; instante timestamptz(6); salida jsonb;
 BEGIN
@@ -158,7 +166,8 @@ BEGIN
  END IF;
 	material_h:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
 	SELECT * INTO amb FROM vec_contratacion_temporal.leer_ambitos_vinculo_emision_bolsa_ct_v1(
-	 s->>'organizacion_ref',s->>'expediente_ref',version_esperada,s->>'bolsa_ref');
+	 s->>'organizacion_ref',s->>'expediente_ref',version_esperada,s->>'bolsa_ref',
+	 s->>'llamamiento_ref',s->>'recibo_emision_ref',s->>'clave_idempotencia');
 	IF NOT FOUND THEN
 	 RAISE EXCEPTION 'CT201: ámbitos del expediente divergentes' USING ERRCODE='23505';
 	END IF;
@@ -194,20 +203,20 @@ BEGIN
   END IF;
   RETURN anterior.recibo_json||jsonb_build_object('reutilizado',true);
  END IF;
- SELECT e.organizacion_ref,e.numero_visible,a.version,v.agregado_json
-  INTO a FROM vec_contratacion_temporal.expediente_alta e
-  JOIN vec_contratacion_temporal.expediente_integral_actual a ON a.expediente_ref=e.expediente_ref
+ SELECT e.organizacion_ref,e.numero_visible,actual.version,v.agregado_json
+  INTO actual_ct FROM vec_contratacion_temporal.expediente_alta e
+  JOIN vec_contratacion_temporal.expediente_integral_actual actual ON actual.expediente_ref=e.expediente_ref
   JOIN vec_contratacion_temporal.expediente_version_integral v
-    ON v.expediente_ref=a.expediente_ref AND v.version=a.version
+    ON v.expediente_ref=actual.expediente_ref AND v.version=actual.version
   WHERE e.expediente_ref=s->>'expediente_ref' AND e.organizacion_ref=s->>'organizacion_ref'
-  FOR SHARE OF a;
- IF NOT FOUND OR a.version IS DISTINCT FROM version_esperada
-    OR a.agregado_json#>>'{via_cobertura,bolsa_ref}' IS DISTINCT FROM s->>'bolsa_ref'
-    OR a.agregado_json#>>'{solicitud,centro_ref}' IS DISTINCT FROM amb.centro_ref
-    OR a.agregado_json#>>'{analisis,categoria_ref}' IS DISTINCT FROM amb.categoria_ref THEN
+  FOR SHARE OF actual;
+ IF NOT FOUND OR actual_ct.version IS DISTINCT FROM version_esperada
+    OR actual_ct.agregado_json#>>'{via_cobertura,bolsa_ref}' IS DISTINCT FROM s->>'bolsa_ref'
+    OR actual_ct.agregado_json#>>'{solicitud,centro_ref}' IS DISTINCT FROM amb.centro_ref
+    OR actual_ct.agregado_json#>>'{analisis,categoria_ref}' IS DISTINCT FROM amb.categoria_ref THEN
   RAISE EXCEPTION 'CT201: versión o bolsa de cobertura divergente' USING ERRCODE='23505';
  END IF;
- numero:=vec_contratacion_temporal.numero_visible_vigente_v1(s->>'expediente_ref',a.numero_visible);
+ numero:=vec_contratacion_temporal.numero_visible_vigente_v1(s->>'expediente_ref',actual_ct.numero_visible);
  IF vec_bolsa_llamamientos.verificar_emision_ct_v1(
     s->>'bolsa_ref',s->>'llamamiento_ref',s->>'recibo_emision_ref',numero) IS NOT TRUE THEN
   RAISE EXCEPTION 'CT201: emisión real ajena al expediente' USING ERRCODE='42501';
@@ -247,7 +256,7 @@ CREATE FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(
  p_consulta vec_contratacion_temporal.consulta_detalle_rrhh_v1,
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,
- p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+ p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea,p_cursor text)
 RETURNS TABLE(contenido_canonico bytea,esquema text,acceso_ref text,secuencia numeric,
  anterior_sha256 text,huella_sha256 text,vinculo_identidad_huella_sha256 text,
  alcance_huella_sha256 text,registrada_en timestamptz,auditoria_vec_ref text,
@@ -258,27 +267,53 @@ RETURNS TABLE(contenido_canonico bytea,esquema text,acceso_ref text,secuencia nu
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
 DECLARE d record; actual record; vinculos jsonb; sugeridas jsonb; n integer;
- entradas jsonb; lote jsonb;
+ entradas jsonb; todos jsonb; lote jsonb; pagina_n integer; antes_en timestamptz; antes_ref text;
+ ultimo_en timestamptz; ultimo_ref text; mas boolean:=false; siguiente text;
+ personas_text text; personas numeric; aceptaciones integer;
 BEGIN
  IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
     OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
     OR current_setting('transaction_isolation')<>'serializable'
-    OR current_setting('transaction_read_only')<>'off' THEN
+    OR current_setting('transaction_read_only')<>'off'
+    OR (p_cursor IS NOT NULL AND p_cursor !~
+       '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z#llamamiento:[0-9a-f]{64}$') THEN
   RAISE EXCEPTION 'CT201: lectura de resultado denegada' USING ERRCODE='42501';
+ END IF;
+ IF p_cursor IS NOT NULL THEN
+  antes_en:=split_part(p_cursor,'#',1)::timestamptz;
+  antes_ref:=split_part(p_cursor,'#',2);
  END IF;
  SELECT * INTO STRICT d FROM vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1(
   p_alcance,p_consulta,p_capacidad,p_decision,p_motivo,p_contexto,
   p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
- SELECT count(*) INTO n FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
+ SELECT coalesce(jsonb_agg(jsonb_build_object('bolsa_ref',x.bolsa_ref,
+  'llamamiento_ref',x.llamamiento_ref,'recibo_emision_ref',x.recibo_emision_ref)),
+  '[]'::jsonb) INTO todos FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
   WHERE x.expediente_ref=d.expediente_ref;
- IF n>100 THEN
-  RAISE EXCEPTION 'CT201: vínculos exceden máximo de lectura' USING ERRCODE='54000';
- END IF;
+ n:=jsonb_array_length(todos);
+ aceptaciones:=vec_bolsa_llamamientos.contar_aceptaciones_firmes_ct_v1(todos);
  SELECT coalesce(jsonb_agg(jsonb_build_object('bolsa_ref',x.bolsa_ref,
    'llamamiento_ref',x.llamamiento_ref,'recibo_emision_ref',x.recibo_emision_ref)
-   ORDER BY x.vinculado_en,x.llamamiento_ref),'[]'::jsonb) INTO entradas
- FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
- WHERE x.expediente_ref=d.expediente_ref;
+   ORDER BY x.vinculado_en DESC,x.llamamiento_ref DESC),'[]'::jsonb) INTO entradas
+ FROM (SELECT v.bolsa_ref,v.llamamiento_ref,v.recibo_emision_ref,v.vinculado_en
+   FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 v
+   WHERE v.expediente_ref=d.expediente_ref
+     AND (p_cursor IS NULL OR (v.vinculado_en,v.llamamiento_ref)<(antes_en,antes_ref))
+   ORDER BY v.vinculado_en DESC,v.llamamiento_ref DESC LIMIT 20) x;
+ pagina_n:=jsonb_array_length(entradas);
+ IF pagina_n=20 THEN
+  SELECT v.vinculado_en,v.llamamiento_ref INTO ultimo_en,ultimo_ref
+   FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 v
+   WHERE v.expediente_ref=d.expediente_ref
+     AND (p_cursor IS NULL OR (v.vinculado_en,v.llamamiento_ref)<(antes_en,antes_ref))
+   ORDER BY v.vinculado_en DESC,v.llamamiento_ref DESC OFFSET 19 LIMIT 1;
+  SELECT EXISTS(SELECT 1 FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 v
+    WHERE v.expediente_ref=d.expediente_ref
+      AND (v.vinculado_en,v.llamamiento_ref)<(ultimo_en,ultimo_ref)) INTO mas;
+  IF mas THEN
+   siguiente:=to_char(ultimo_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')||'#'||ultimo_ref;
+  END IF;
+ END IF;
  lote:=vec_bolsa_llamamientos.leer_resultados_emisiones_ct_v1(entradas);
  SELECT coalesce(jsonb_agg(jsonb_build_object(
    'bolsa_ref',x.bolsa_ref,'llamamiento_ref',x.llamamiento_ref,
@@ -286,14 +321,14 @@ BEGIN
    'recibo_vinculo_ref',x.recibo_ref,'vinculado_en',x.vinculado_en,
    'emitido_en',b.valor->'emitido_en',
    'participaciones',b.valor->'participaciones')
-   ORDER BY x.vinculado_en,x.llamamiento_ref),'[]'::jsonb) INTO vinculos
+   ORDER BY x.vinculado_en DESC,x.llamamiento_ref DESC),'[]'::jsonb) INTO vinculos
  FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
  JOIN LATERAL jsonb_array_elements(lote) b(valor)
    ON b.valor->>'llamamiento_ref'=x.llamamiento_ref
   AND b.valor->>'bolsa_ref'=x.bolsa_ref
   AND b.valor->>'recibo_emision_ref'=x.recibo_emision_ref
  WHERE x.expediente_ref=d.expediente_ref;
- IF jsonb_array_length(vinculos)<>n THEN
+ IF jsonb_array_length(vinculos)<>pagina_n THEN
   RAISE EXCEPTION 'CT201: resultado Bolsa no recuperable' USING ERRCODE='55000';
  END IF;
  SELECT e.numero_visible,a.version,v.agregado_json INTO actual
@@ -302,16 +337,31 @@ BEGIN
  JOIN vec_contratacion_temporal.expediente_version_integral v
    ON v.expediente_ref=a.expediente_ref AND v.version=a.version
  WHERE e.expediente_ref=d.expediente_ref;
+ IF NOT FOUND OR actual.version IS DISTINCT FROM d.version_expediente THEN
+  RAISE EXCEPTION 'CT201: agregado de lectura divergente' USING ERRCODE='55000';
+ END IF;
+ personas_text:=actual.agregado_json#>>'{solicitud,numero_personas}';
+ IF personas_text IS NULL THEN
+  personas_text:=actual.agregado_json#>>'{solicitud,necesidad,campos,numero_personas}';
+ END IF;
+ IF personas_text IS NOT NULL THEN
+  IF personas_text !~ '^[1-9][0-9]{0,9}$' THEN
+   RAISE EXCEPTION 'CT201: número de personas inválido' USING ERRCODE='55000';
+  END IF;
+  IF personas_text::numeric>4294967295 THEN
+   RAISE EXCEPTION 'CT201: número de personas inválido' USING ERRCODE='55000';
+  END IF;
+  personas:=personas_text::numeric;
+ END IF;
  sugeridas:='[]'::jsonb;
- IF FOUND AND actual.version=d.version_expediente
-    AND actual.agregado_json#>>'{via_cobertura,bolsa_ref}' IS NOT NULL THEN
+ IF actual.agregado_json#>>'{via_cobertura,bolsa_ref}' IS NOT NULL THEN
   SELECT coalesce(jsonb_agg(to_jsonb(b) ORDER BY b.emitido_en DESC,b.llamamiento_ref DESC),'[]'::jsonb)
    INTO sugeridas FROM vec_bolsa_llamamientos.listar_emisiones_ct_v1(
     actual.agregado_json#>>'{via_cobertura,bolsa_ref}',
     vec_contratacion_temporal.numero_visible_vigente_v1(d.expediente_ref,actual.numero_visible),
-    NULL,NULL,20) b
-   WHERE NOT EXISTS(SELECT 1 FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
-     WHERE x.llamamiento_ref=b.llamamiento_ref);
+    NULL,NULL,20,ARRAY(SELECT x.llamamiento_ref
+     FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
+     WHERE x.expediente_ref=d.expediente_ref)) b;
  END IF;
  RETURN QUERY SELECT d.contenido_canonico,d.esquema,d.acceso_ref,d.secuencia,
   d.anterior_sha256,d.huella_sha256,d.vinculo_identidad_huella_sha256,
@@ -319,9 +369,37 @@ BEGIN
   d.auditoria_vec_huella_sha256,d.consumo_vec_huella_sha256,
   d.contenido_huella_sha256,d.resultado_huella_sha256,d.cursor_huella_sha256,
   d.generada_en,d.expediente_ref,d.version_expediente,d.total,d.recibo_sello_sha256,
-  jsonb_build_object('vinculos',vinculos,'emisiones_vinculables',sugeridas,
-   'siguiente_cursor',NULL);
+  jsonb_build_object('vinculos',vinculos,'total_vinculos',n,
+   'personas_solicitadas',personas,'aceptaciones_firmes',aceptaciones,
+   'emisiones_vinculables',sugeridas,'siguiente_cursor',siguiente);
 END $f$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(
+ vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,
+ bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(
+ vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,
+ bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text) TO vec_contratacion_temporal_ejecutor;
+
+-- La primera página conserva la firma que consume la ficha actual.
+CREATE FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(
+ p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+ p_consulta vec_contratacion_temporal.consulta_detalle_rrhh_v1,
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,
+ p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS TABLE(contenido_canonico bytea,esquema text,acceso_ref text,secuencia numeric,
+ anterior_sha256 text,huella_sha256 text,vinculo_identidad_huella_sha256 text,
+ alcance_huella_sha256 text,registrada_en timestamptz,auditoria_vec_ref text,
+ auditoria_vec_huella_sha256 text,consumo_vec_huella_sha256 text,
+ contenido_huella_sha256 text,resultado_huella_sha256 text,cursor_huella_sha256 text,
+ generada_en timestamptz,expediente_ref text,version_expediente numeric,total smallint,
+ recibo_sello_sha256 text,resultado_bolsa jsonb)
+LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
+ SELECT * FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(
+  p_alcance,p_consulta,p_capacidad,p_decision,p_motivo,p_contexto,
+  p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz,NULL::text)
+$f$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(
  vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,
  bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;

@@ -49,12 +49,15 @@ type EmisionVinculableBolsaRRHH struct {
 
 type ResultadoBolsaRRHH struct {
 	Vinculos             []VinculoResultadoBolsaRRHH  `json:"vinculos"`
+	TotalVinculos        uint64                       `json:"total_vinculos"`
+	PersonasSolicitadas  *uint32                      `json:"personas_solicitadas"`
+	AceptacionesFirmes   uint32                       `json:"aceptaciones_firmes"`
 	EmisionesVinculables []EmisionVinculableBolsaRRHH `json:"emisiones_vinculables"`
 	SiguienteCursor      *string                      `json:"siguiente_cursor"`
 }
 
 func ResultadoBolsaRRHHDesdeSQL(raw []byte) (*ResultadoBolsaRRHH, error) {
-	if len(raw) == 0 || len(raw) > 512*1024 {
+	if len(raw) == 0 || len(raw) > 8*1024*1024 {
 		return nil, ErrResultadoBolsaRRHHNoConfiable
 	}
 	var salida ResultadoBolsaRRHH
@@ -84,8 +87,18 @@ func ResultadoBolsaRRHHDesdeSQL(raw []byte) (*ResultadoBolsaRRHH, error) {
 
 func (r ResultadoBolsaRRHH) Validar() error {
 	if r.Vinculos == nil || r.EmisionesVinculables == nil ||
-		len(r.Vinculos) > 100 || len(r.EmisionesVinculables) > 20 || r.SiguienteCursor != nil {
+		len(r.Vinculos) > 20 || uint64(len(r.Vinculos)) > r.TotalVinculos ||
+		len(r.EmisionesVinculables) > 20 ||
+		(r.SiguienteCursor != nil && (len(r.Vinculos) != 20 || !CursorResultadoBolsaRRHHValido(*r.SiguienteCursor))) ||
+		(r.PersonasSolicitadas != nil && *r.PersonasSolicitadas == 0) {
 		return ErrResultadoBolsaRRHHNoConfiable
+	}
+	if r.SiguienteCursor != nil {
+		ultimo := r.Vinculos[len(r.Vinculos)-1]
+		esperado := ultimo.VinculadoEn.UTC().Format("2006-01-02T15:04:05.000000Z") + "#" + ultimo.LlamamientoRef
+		if *r.SiguienteCursor != esperado {
+			return ErrResultadoBolsaRRHHNoConfiable
+		}
 	}
 	vistos := make(map[string]struct{}, len(r.Vinculos))
 	for _, v := range r.Vinculos {

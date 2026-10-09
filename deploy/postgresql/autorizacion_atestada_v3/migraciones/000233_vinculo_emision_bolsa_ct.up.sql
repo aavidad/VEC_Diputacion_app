@@ -1,5 +1,14 @@
 \set ON_ERROR_STOP on
 BEGIN;
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='30s';
+DO $migrador$
+BEGIN
+ IF current_setting('server_version_num')::int NOT BETWEEN 180000 AND 189999
+    OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper) THEN
+  RAISE EXCEPTION 'AD233: PARO clave=migrador actual=no_acreditado esperado=superusuario_PG18' USING ERRCODE='42501';
+ END IF;
+END $migrador$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -77,4 +86,67 @@ REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_vinculo
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_vinculo_emision_bolsa_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  TO vec_contratacion_temporal_propietario;
 GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_contratacion_temporal_propietario;
+
+-- La nueva terna usa exclusivamente el LOGIN CT ya acreditado por AD226.
+-- Sólo registra procedencia técnica; permisos y perfiles siguen en su autoridad.
+DO $origen$
+DECLARE anterior vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1%ROWTYPE;
+ login_o oid; anteriores integer; nuevos integer;
+BEGIN
+ IF to_regclass('vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1') IS NULL THEN
+  RAISE EXCEPTION 'AD233: PARO clave=origen_tabla actual=ausente esperado=AD172' USING ERRCODE='55000';
+ END IF;
+ LOCK TABLE vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1 IN SHARE ROW EXCLUSIVE MODE;
+ SELECT count(*) INTO anteriores FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+ WHERE audiencia_consumo='vec_contratacion_temporal.confirmar_alta_atestada.v1'
+   AND operacion='contratacion_temporal.llamamiento.reanudar_solicitud'
+   AND canal_permitido='interna_corporativa';
+ IF anteriores IS DISTINCT FROM 1 THEN
+  RAISE EXCEPTION 'AD233: PARO clave=origen_previo actual=% esperado=1',anteriores USING ERRCODE='55000';
+ END IF;
+ SELECT * INTO STRICT anterior FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+ WHERE audiencia_consumo='vec_contratacion_temporal.confirmar_alta_atestada.v1'
+   AND operacion='contratacion_temporal.llamamiento.reanudar_solicitud'
+   AND canal_permitido='interna_corporativa';
+ SELECT oid INTO login_o FROM pg_roles WHERE rolname=anterior.login_nombre
+   AND rolcanlogin AND rolinherit AND NOT rolsuper AND NOT rolcreaterole
+   AND NOT rolcreatedb AND NOT rolreplication AND NOT rolbypassrls;
+ IF login_o IS NULL OR NOT pg_has_role(login_o,'vec_contratacion_temporal_ejecutor','MEMBER') THEN
+  RAISE EXCEPTION 'AD233: PARO clave=login_origen actual=no_acreditado esperado=LOGIN_CT_ejecutor' USING ERRCODE='42501';
+ END IF;
+ SELECT count(*) INTO nuevos FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+ WHERE audiencia_consumo='vec_contratacion_temporal.vinculo_emision_bolsa.v1'
+   OR operacion='contratacion_temporal.bolsa.vincular';
+ IF nuevos IS DISTINCT FROM 0 THEN
+  RAISE EXCEPTION 'AD233: PARO clave=origen_nuevo actual=% esperado=0',nuevos USING ERRCODE='55000';
+ END IF;
+ INSERT INTO vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+  (login_nombre,audiencia_consumo,operacion,proceso,canal_permitido,configurada_en)
+ VALUES (anterior.login_nombre,'vec_contratacion_temporal.vinculo_emision_bolsa.v1',
+  'contratacion_temporal.bolsa.vincular',anterior.proceso,anterior.canal_permitido,clock_timestamp());
+END $origen$;
+
+-- El catálogo de audiencias permite la capacidad nominal sin tocar las
+-- filas existentes ni abrir otras audiencias de consumo.
+DO $audiencia$
+DECLARE anterior text; interior text; posterior text;
+BEGIN
+ SELECT pg_get_constraintdef(c.oid,false) INTO STRICT anterior FROM pg_constraint c
+ WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
+   AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
+ IF left(anterior,7)<>'CHECK (' OR right(anterior,1)<>')'
+    OR strpos(anterior,'vec_contratacion_temporal.vinculo_emision_bolsa.v1')<>0 THEN
+  RAISE EXCEPTION 'AD233: PARO clave=audiencia_preimagen actual=incompatible esperado=CHECK_sin_vinculo' USING ERRCODE='55000';
+ END IF;
+ interior:=substr(anterior,8,length(anterior)-8);
+ posterior:='CHECK (('||interior||') OR audiencia_consumo = ''vec_contratacion_temporal.vinculo_emision_bolsa.v1'')';
+ ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
+   DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
+ EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||posterior;
+ IF (SELECT pg_get_constraintdef(c.oid,false) FROM pg_constraint c
+     WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
+       AND c.conname='clave_capacidad_version_audiencia_consumo_check') IS NULL THEN
+  RAISE EXCEPTION 'AD233: PARO clave=audiencia_postimagen actual=ausente esperado=vinculo_permitido' USING ERRCODE='55000';
+ END IF;
+END $audiencia$;
 COMMIT;

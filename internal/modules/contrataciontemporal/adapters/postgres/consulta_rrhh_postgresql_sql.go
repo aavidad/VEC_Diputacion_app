@@ -178,7 +178,8 @@ SELECT contenido_canonico,
        $12::bytea,
        $13::bytea,
        $14::bytea,
-       $15::bytea
+       $15::bytea,
+       $16::text
   )`
 
 	consultaResumenSeguimientoRRHHPostgreSQL = `
