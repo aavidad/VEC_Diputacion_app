@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	RutaPlanB2                               = "/api/interno/contratacion-temporal/incorporacion-personal-b2/plan/v1"
-	RutaConfirmacionB2                       = "/api/interno/contratacion-temporal/incorporacion-personal-b2/confirmar/v1"
+	RutaPlanB2                               = "/api/vec/contratacion-temporal/incorporacion-personal-b2/plan/v1"
+	RutaConfirmacionB2                       = "/api/vec/contratacion-temporal/incorporacion-personal-b2/confirmar/v1"
 	EsquemaConsultaIncorporacionPersonalB2   = "vec.contratacion-temporal.incorporacion-personal-b2.consulta.v1"
 	EsquemaReciboIncorporacionPersonalB2     = "vec.contratacion-temporal.incorporacion-personal-b2.recibo.v1"
 	MaximoCuerpoIncorporacionPersonalB2Bytes = 8192

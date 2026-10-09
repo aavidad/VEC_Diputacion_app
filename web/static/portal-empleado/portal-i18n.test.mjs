@@ -738,7 +738,12 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-llamamientos-operaciones-api.js",
     "portal-panel-interno.js",
   ]) versionesEspeciales.set(ruta, "20261009-instantes-bolsa-v1");
-  versionesEspeciales.set("portal.js", "20261009-asignacion-cobertura-v1");
+  // Paso a Personal (B2): ruta /api/vec y aviso de preparación pendiente.
+  versionesEspeciales.set("modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js", "20261009-b2-ruta-vec-v2");
+  for (const ruta of ["modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js", "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/vista-expedientes.js", "portal-modulos-coordinador.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261009-b2-preparacion-v2");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
