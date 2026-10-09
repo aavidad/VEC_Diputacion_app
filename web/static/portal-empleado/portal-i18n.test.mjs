@@ -774,7 +774,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "peticiones-centro/arranque-peticiones-centro.js",
     "peticiones-centro/peticiones-centro.js",
   ]) versionesEspeciales.set(ruta, "20261009-centro-campos-cohorte-v5");
-  for (const ruta of ["portal-modulos-coordinador.js", "portal.js"]) versionesEspeciales.set(ruta, "20261009-ct-ficha-rapida-v2");
+  for (const ruta of ["portal-modulos-coordinador.js", "portal.js"]) versionesEspeciales.set(ruta, "20261009-ct-precarga-reposo-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

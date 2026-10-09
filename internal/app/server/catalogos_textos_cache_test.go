@@ -5,6 +5,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"regexp"
 	"testing"
 )
 
@@ -45,6 +48,22 @@ func TestCatalogosTextosSeRevalidanYLocalesSeComprimen(t *testing.T) {
 		handler.ServeHTTP(rec304, revalidacion)
 		if ultima == "" || rec304.Code != http.StatusNotModified {
 			t.Fatalf("%s revalidación = %d (Last-Modified %q)", ruta, rec304.Code, ultima)
+		}
+	}
+	// Solo la huella real de los catálogos (la de comun/textos.js) fija un año.
+	fuente, err := os.ReadFile(filepath.Join(directorioEstaticos(), "comun", "textos.js"))
+	coincidencia := regexp.MustCompile(`VERSION_TEXTOS = "([0-9a-f]{16})"`).FindSubmatch(fuente)
+	if err != nil || coincidencia == nil || string(coincidencia[1]) != huellaCatalogosTextos() {
+		t.Fatalf("VERSION_TEXTOS de textos.js no coincide con la huella del servidor %q", huellaCatalogosTextos())
+	}
+	for huella, esperada := range map[string]string{
+		string(coincidencia[1]): "public, max-age=31536000, immutable",
+		"0000000000000000":      "no-cache",
+	} {
+		versionado := httptest.NewRecorder()
+		handler.ServeHTTP(versionado, peticionServidorPrueba(http.MethodGet, "/textos/es/portal.json?huella="+huella, nil))
+		if versionado.Code != http.StatusOK || versionado.Header().Get("Cache-Control") != esperada {
+			t.Fatalf("huella %s = %d %q", huella, versionado.Code, versionado.Header().Get("Cache-Control"))
 		}
 	}
 	rec := httptest.NewRecorder()
