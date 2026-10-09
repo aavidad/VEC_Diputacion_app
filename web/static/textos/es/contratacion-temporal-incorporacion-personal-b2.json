@@ -43,6 +43,7 @@
   "seleccion_obsoleta": "La selección ha cambiado. Compruebe esta operación antes de volver a continuar.",
   "error_periodo": "La fecha de fin debe ser posterior a la fecha de inicio.",
   "denegada": "No tiene permiso para consultar o registrar esta incorporación. Se han retirado los datos de la pantalla.",
+  "preparacion_pendiente": "La incorporación aún no está preparada. Revise las comprobaciones pendientes del expediente antes de actualizar las opciones.",
   "conflicto": "El expediente o la selección han cambiado. Actualice las opciones antes de continuar.",
   "no_disponible": "Ahora no se puede consultar la incorporación. Pulse Actualizar las opciones. Si continúa el problema, avise a Informática.",
   "rechazada": "No se ha aceptado la operación. Revise los datos antes de continuar.",

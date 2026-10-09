@@ -205,7 +205,9 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
       mensaje = "denegada"; return;
     }
     if (efecto) { incierto = true; mensaje = "registro_pendiente"; return; }
-    mensaje = error?.envelopeValido && error.estado === 409 ? "conflicto" : "no_disponible";
+    mensaje = error?.envelopeValido && error.estado === 409
+      ? error.codigo === "preparacion_pendiente" ? "preparacion_pendiente" : "conflicto"
+      : "no_disponible";
     // Una consulta independiente fallida invalida opciones y versión previas.
     // Se conserva la intención y su clave para recuperarla con otro GET.
     if (lecturaIndependiente || !intencion) consulta = null;
