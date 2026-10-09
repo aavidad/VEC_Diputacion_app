@@ -195,6 +195,18 @@ BEGIN
    OR (entrada->>'vigente_hasta'<>'0001-01-01T00:00:00Z'
     AND ahora>=(entrada->>'vigente_hasta')::timestamptz)
   THEN RAISE EXCEPTION 'AUT68: descriptor vencido o divergente' USING ERRCODE='42501';END IF;
+  IF p->>'perfil_objetivo'='empleado' AND NOT EXISTS(
+   SELECT 1 FROM pg_catalog.jsonb_array_elements(catalogo->'entradas') par(e)
+   WHERE par.e->>'clase_control'='ordinario'
+    AND par.e->'dimensiones_ambito'='["candidato_ref"]'::jsonb
+    AND par.e->'concesion'=pg_catalog.jsonb_set(entrada->'concesion','{tipo_recurso}',
+     pg_catalog.to_jsonb(pg_catalog.left(entrada#>>'{concesion,tipo_recurso}',
+      pg_catalog.length(entrada#>>'{concesion,tipo_recurso}')-9)))
+    AND vec_autorizacion.concesion_inscripcion_exacta_v1(par.e->'concesion','externo') IS TRUE
+    AND ahora>=(par.e->>'vigente_desde')::timestamptz
+    AND (par.e->>'vigente_hasta'='0001-01-01T00:00:00Z'
+     OR ahora<(par.e->>'vigente_hasta')::timestamptz))
+  THEN RAISE EXCEPTION 'AUT68: descriptor externo par vencido' USING ERRCODE='42501';END IF;
  END LOOP;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.revalidar_catalogo_cierre_inscripcion_v1(jsonb) FROM PUBLIC;
