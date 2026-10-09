@@ -263,6 +263,8 @@
     "fase_nombramiento": "Appointment or contract in progress",
     "fase_otra": "Being processed by HR",
     "estado_completado": "Case closed",
+    "estado_cancelado": "Case cancelled",
+    "no_procede_cancelado": "Not applicable",
     "ayuda_titulo": "How is incorporation confirmed?",
     "ayuda": "After HR appoints or contracts the person, the centre confirms the day they joined with the required document: the assumption-of-duty document for appointments or the signed contract for employment contracts, as specified by the catalogue. Enter the document reference (from Documents or the centre’s register) and choose the file. Its fingerprint is calculated on this device and only that fingerprint is recorded; the document is neither sent nor stored in VEC. If HR has not yet made the appointment, the case shows “Not yet applicable”."
   },

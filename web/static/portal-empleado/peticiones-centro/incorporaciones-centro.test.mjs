@@ -111,3 +111,12 @@ test("sin fecha de fin, la causa sale del catálogo `causa_fin_*` del idioma", a
   assert.equal(periodoVisible({ inicio: "2026-11-02T00:00:00Z", causa_fin: "reincorporacion_titular" }, crearTraductorIncorporacionesCentro()),
     "Desde el 2 de noviembre de 2026. Hasta la reincorporación de la persona titular.");
 });
+
+test("un expediente cancelado no sale «En tramitación en RRHH» y su incorporación no procede", async () => {
+  const c = contenedorFalso();
+  montarIncorporacionesCentro({ contenedor: c, cliente: { bandeja: async () => validarBandejaIncorporaciones(bandeja({ expedientes: [
+    fila({ fase: "solicitud", estado: "cancelado", documento_exigido: "" })] })) } });
+  await esperar();
+  assert.match(c.innerHTML, /<td>Expediente cancelado<\/td><td><span class="pc-estado">No procede<\/span><\/td>/u);
+  assert.doesNotMatch(c.innerHTML, /En tramitación en RRHH|Aún no procede|data-ic-abrir/u);
+});
