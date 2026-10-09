@@ -173,7 +173,7 @@ a { color: var(--ap-azul-700); }
   top: 0;
   display: grid;
   min-height: 72px;
-  grid-template-columns: auto minmax(200px, 1fr) minmax(210px, 340px) auto;
+  grid-template-columns: minmax(200px, 1fr) auto;
   align-items: center;
   gap: 16px;
   padding: 8px 24px;
@@ -205,12 +205,12 @@ a { color: var(--ap-azul-700); }
   cursor: pointer;
 }
 .boton-icono { display: inline-grid; min-width: 44px; place-items: center; padding: 7px; }
-.boton-utilidad { padding: 7px 10px; font-size: .875rem; font-weight: 600; }
+.boton-utilidad { padding: 7px 10px; font-size: .875rem; font-weight: 600; white-space: nowrap; }
 .boton-icono:hover, .boton-utilidad:hover { border-color: var(--ap-azul-700); background: var(--ap-azul-100); }
-.sesion-usuario { display: flex; min-width: 0; max-width: 188px; align-items: center; gap: 8px; overflow: hidden; padding: 5px 9px; text-align: left; }
+.sesion-usuario { display: flex; min-width: 0; max-width: 248px; align-items: center; gap: 8px; overflow: hidden; padding: 5px 9px; text-align: left; }
 .sesion-usuario > span:last-child { min-width: 0; }
 .sesion-usuario > span:last-child, .sesion-usuario strong, .sesion-usuario small { display: block; }
-.sesion-usuario strong { max-width: 150px; overflow: hidden; font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
+.sesion-usuario strong { max-width: 200px; overflow: hidden; font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
 .sesion-usuario small { color: var(--ap-muted); font-size: .75rem; }
 .avatar { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border-radius: 50%; background: var(--ap-azul-100); color: var(--ap-azul-800); font-size: .75rem; font-weight: 600; }
 .contenido-principal { min-height: calc(100dvh - 120px); padding: 24px; }
@@ -368,7 +368,7 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
 .etiqueta-corta { display: none; }
 .sin-javascript { margin: 20px; padding: 15px; border: 2px solid var(--ap-rojo); background: var(--ap-rojo-suave); }
 
-@media (max-width: 1480px) {
+@media (max-width: 1280px) {
   .sesion-usuario { width: 46px; flex: 0 0 46px; }
   .sesion-usuario > span:last-child { display: none; }
 }
