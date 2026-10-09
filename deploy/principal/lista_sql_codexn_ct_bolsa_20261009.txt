@@ -5,11 +5,11 @@
 # en la proyección Go, sin tocar los bytes del expediente guardado.
 # Si CT200 se integra antes, instalar CT200 antes de CT201. Revisar la huella
 # de preimagen AD233 contra la principal exacta antes de instalar: falla cerrado.
-# SHA256 24d31f58a2af3b50bab5e55d92982aa2cd9a94308125caf9c7c392f7acc81eb0
+# SHA256 7242c041ae3619426a4505a8eb620be837f05efd1b578af08c6c5fb03802bd28
 deploy/postgresql/bolsa_llamamientos/migraciones/000098_resultado_llamamiento_ct.up.sql
 # SHA256 784c8a7aeaad2e65cb99f11ead2cf6313ed60933daabaab662d8140d9859eabe
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000233_vinculo_emision_bolsa_ct.up.sql
-# SHA256 13fbe4c89251832f8a0f5a528dee153b51dce78582ee912486bd8e316503f45a
+# SHA256 b5594853473b1530c53d6810c3f7c926f14fa831ca80c82d94f9ae03ba778e93
 deploy/postgresql/contratacion_temporal/migraciones/000201_vinculo_emision_bolsa_ct.up.sql
 # SHA256 f0bed9ce9be2af7ad42f44d7509521501f0edb496f9d404e3a657507406dbdb7
 deploy/postgresql/contratacion_temporal/migraciones/000202_analisis_necesidad_alta_v3.up.sql

@@ -1,5 +1,7 @@
 \set ON_ERROR_STOP on
 BEGIN;
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='30s';
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -257,7 +259,8 @@ DECLARE esperados integer; encontrados integer; aceptaciones integer;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
     OR pg_has_role(session_user,'vec_contratacion_temporal_consultor_rrhh','MEMBER') IS NOT TRUE
-    OR p_vinculos IS NULL OR jsonb_typeof(p_vinculos)<>'array' THEN
+    OR p_vinculos IS NULL OR jsonb_typeof(p_vinculos)<>'array'
+    OR jsonb_array_length(p_vinculos)>1000 THEN
   RAISE EXCEPTION 'B98: resumen de respuestas no autorizado' USING ERRCODE='42501';
  END IF;
  esperados:=jsonb_array_length(p_vinculos);
