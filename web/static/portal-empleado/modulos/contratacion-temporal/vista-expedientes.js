@@ -22,7 +22,7 @@ import {
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261008-r-fichas-idioma-nav-v1";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261008-alta-analisis-bolsa-fichas-v5";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261008-alta-analisis-bolsa-fichas-v5";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261008-r-fichas-idioma-nav-v1";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261009-retoques-textos-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261009-asignacion-cobertura-v1";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261009-ct-resultado-bolsa-v1";
 
@@ -30,7 +30,7 @@ import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261007-pantallas-textos-final-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20261007-pantallas-textos-final-v1";
-import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261008-documentos-ficha-v1";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261009-borradores-fase-v3";
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 export function insertarConsultaCircuitoRRHH(raiz, expediente) {

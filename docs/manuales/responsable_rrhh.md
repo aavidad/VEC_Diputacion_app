@@ -1,37 +1,53 @@
-# Consultar una petición y sus borradores desde RRHH
+# RRHH: consultar una petición, su historial y sus documentos
 
-Esta guía recoge las consultas comprobadas el 8 de octubre de 2026 en el Portal del Empleado, con acceso de RRHH y un expediente de ensayo. Sirve para encontrar la ficha, revisar el análisis y descargar borradores. Los archivos descargados indican que son preparatorios y que no están firmados.
+Esta guía recoge consultas comprobadas en el Portal del Empleado el 9 de octubre de 2026. Con el acceso de RRHH se puede localizar un expediente, leer su fase, sus datos y las actuaciones registradas, y descargar sus documentos en PDF y Word cuando el expediente está en la fase de nombramiento. Las imágenes muestran un ejemplo; su número y sus datos pueden cambiar.
 
-Con el acceso de RRHH comprobado, la consulta de documentos se hace en la misma ficha. No se ha comprobado una pantalla separada para quien resuelve y firma.
+## Abrir la ficha
 
-## Encontrar el expediente
+1. Entre en **Peticiones de personal temporal** desde Inicio.
+2. Escriba el número en **Buscar** y pulse la referencia de la fila. En el ejemplo se abrió `2026/93001`.
+3. Revise la fase, el estado y **Siguiente paso**. La línea de fases indica lo hecho, la fase actual y lo que falta.
 
-1. Entre en **Peticiones de personal temporal**.
-2. Escriba la referencia en **Buscar**. La lista mostrará la petición y su fase. En el ejemplo aparece `2026/CT-000127`, en **Nombramiento**.
-3. Pulse la referencia para abrir la ficha. Compruebe la fase y el estado antes de consultar los datos.
+![Cabecera de la ficha con fase, estado y siguiente paso visibles.](img/rrhh-20261009-ficha.webp)
 
-![Búsqueda de una petición de ensayo y su fase](img/rrhh-documentos-01-buscar.webp)
+En **Datos de la petición**, compruebe centro, categoría, grupo, motivo, período y jornada. Pulse **Ver todos los datos** cuando necesite el análisis y la vía de cobertura. El coste mostrado es la estimación registrada en el análisis.
 
-La cabecera de la ficha indica qué fases están hechas, cuál está en curso y cuáles faltan. En el ejemplo se muestran cinco fases hechas y **Nombramiento** como fase actual.
+## Leer las actuaciones registradas
 
-![Fase y estado de la petición de ensayo](img/rrhh-documentos-02-ficha.webp)
+Baje a **Historial**. Cada entrada muestra la actuación y cuándo se registró. Abra **Ver detalle técnico** solo si se lo pide Informática. En el ejemplo se leen el alta, el análisis, la decisión de cobertura, la asignación y el informe jurídico generado. La ficha se recuperó después de abrirla de nuevo desde la lista.
 
-## Revisar el análisis y la retención de crédito
+![Historial del expediente 2026/93001 con sus cinco actuaciones, de la más reciente a la más antigua.](img/rrhh-20261009-historial.webp)
 
-En **Datos de la petición**, pulse **Ver todos los datos**. Revise la modalidad, el período y la causa analizados por RRHH, la retención de crédito y la vía de cobertura. En el ejemplo, la retención figura como **Validada**. La ficha también muestra el coste estimado según la fuente registrada; la consulta no autoriza un gasto nuevo.
+Para regresar, pulse **Volver a la lista**. Si actualiza la página y aparece la lista, busque de nuevo el mismo número antes de seguir.
 
-![Datos ampliados del análisis y resultado de la retención de crédito](img/rrhh-documentos-03-analisis-rc.webp)
+## Descargar los documentos del expediente
 
-## Descargar un borrador
+Baje hasta el panel **Documentos generados**, dentro de la misma ficha. Cada documento aparece en su tarjeta con la marca **Borrador sin firmar** y dos botones: **Descargar PDF** y **Descargar Word**. Los archivos llevan el logotipo de la Diputación. El PDF del informe del ejemplo indica en su primera página que es un borrador no firmado ni validado.
 
-Baje hasta el panel **Documentos**, dentro de la misma ficha. En **Documentos preparatorios disponibles**, busque la tarjeta **Informe** y pulse **Descargar PDF** o **Descargar Word**. La tarjeta **Resolución** ofrece los mismos dos botones. En el recorrido comprobado se descargaron los cuatro archivos.
+La descarga solo funciona cuando el expediente está en la fase **Nombramiento**. En el ejemplo se usó `2026/CT-000127`, que está en esa fase:
 
-![Tarjetas de informe y resolución con los botones de descarga y el mensaje de confirmación](img/rrhh-documentos-04-descarga.webp)
+1. En **Peticiones de personal temporal**, escriba la referencia en **Buscar** y abra la ficha.
 
-El navegador guardará el archivo según su configuración. La ficha muestra «Descarga del documento preparatorio iniciada. Sin firma ni nombramiento eficaz». Compruebe el archivo descargado antes de usarlo como borrador. El PDF de resolución del ejemplo dice que es un borrador de desarrollo, sin firma ni validación. El Word se descargó como archivo; no se comprobó un visor Word dentro del portal.
+   ![Búsqueda del expediente 2026/CT-000127, en la fase Nombramiento.](img/rrhh-documentos-01-buscar.webp)
 
-## Si algo sale mal
+2. Compruebe en la cabecera que la fase actual es **Nombramiento**.
 
-Si al pulsar **Descargar PDF** en **Resolución** aparece «No dispone de acceso para descargar el documento preparatorio. El detalle se conserva», la descarga no se ha completado. Conserve la referencia del expediente y comunique el mensaje a Informática por el cauce habitual. Ese mensaje apareció en una visita anterior; en otra visita se descargaron el PDF y el Word de la misma resolución. No se ha determinado la causa de la diferencia.
+   ![Cabecera de la ficha con cinco fases hechas y Nombramiento como fase actual.](img/rrhh-documentos-02-ficha.webp)
 
-Use **Volver a la lista** para regresar a las peticiones. Si necesita recuperar la ficha tras actualizar la página, busque de nuevo su referencia; en el recorrido comprobado, la actualización volvió a la lista.
+3. Si quiere revisar antes el análisis, pulse **Ver todos los datos** en **Datos de la petición**. En el ejemplo, la retención de crédito figura como **Validada**.
+
+   ![Datos ampliados del análisis, con la retención de crédito Validada.](img/rrhh-documentos-03-analisis-rc.webp)
+
+4. En **Documentos generados**, pulse **Descargar PDF** o **Descargar Word** en la tarjeta que necesite. El navegador guarda el archivo según su configuración.
+
+   ![Panel Documentos generados con ocho tarjetas, cada una con Descargar PDF y Descargar Word.](img/rrhh-documentos-04-descarga.webp)
+
+En el ejemplo aparecen ocho documentos: informe definitivo, resolución, diligencia, toma de posesión, notificación, comunicación al centro, contrato laboral de duración determinada y nombramiento de personal funcionario interino.
+
+En un expediente que todavía no ha llegado a **Nombramiento** también se ve la lista, pero la descarga no se completa. La ficha muestra primero «El expediente o el catálogo cambió. Actualice el detalle antes de descargar.» y después «No se pudo comprobar la descarga. No se ha guardado ningún documento.». Si el expediente no está en **Nombramiento**, no repita la descarga: el documento aún no se puede preparar. Los documentos de **cese** y de **modificación del nombramiento** solo se pueden descargar después de registrar esa actuación en el expediente.
+
+## Alcance de este acceso
+
+Este recorrido comprobó la **consulta** de la ficha, del historial y de los documentos. No comprobó una acción propia para **resolver** ni para **firmar** con este acceso. Un documento descargado sigue siendo un borrador: no está firmado ni produce efectos.
+
+Si el panel de documentos muestra «No se pudieron consultar los borradores publicados», pulse **Reintentar consulta**. Si el mensaje continúa, conserve el número del expediente y comunique el mensaje a Informática.

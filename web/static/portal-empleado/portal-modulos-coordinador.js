@@ -123,7 +123,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       completos ??= Promise.all([
         import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261009-ficha-version-recibo-v1"),
         import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261009-ficha-version-recibo-v1"),
-        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261008-alta-corte-v1"),
+        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261009-b2-ruta-vec-v2"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
       return completos;
@@ -133,7 +133,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261009-asignacion-cobertura-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261009-borradores-fase-v3");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),

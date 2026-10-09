@@ -10,6 +10,7 @@ const MIME = Object.freeze({ pdf: "application/pdf",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
 const MAXIMO_CATALOGO = 64 * 1024;
 const MAXIMO_DOCUMENTO = 2 * 1024 * 1024;
+const MAXIMO_ERROR = 4 * 1024;
 
 const fallo = (codigo, estado = 0) => Object.assign(new Error(codigo), { codigo, estado });
 function contextoValido(contexto) {
@@ -32,8 +33,12 @@ export function validarBorradoresDisponibles(respuesta) {
     || respuesta.tipos.length > 64) throw fallo("catalogo_incompatible");
   const claves = new Set();
   const tipos = respuesta.tipos.map((tipo) => {
-    if (!tipo || typeof tipo !== "object" || Array.isArray(tipo) || Object.keys(tipo).length !== 3
+    // `disponible` es opcional: un servidor anterior no lo envía y entonces
+    // todos los tipos listados se consideran preparables.
+    const conDisponible = Object.hasOwn(tipo ?? {}, "disponible");
+    if (!tipo || typeof tipo !== "object" || Array.isArray(tipo) || Object.keys(tipo).length !== (conDisponible ? 4 : 3)
       || !["clave", "etiqueta", "formatos"].every((clave) => Object.hasOwn(tipo, clave))
+      || (conDisponible && typeof tipo.disponible !== "boolean")
       || typeof tipo.clave !== "string" || !CLAVE.test(tipo.clave) || tipo.clave === "etiquetas" || claves.has(tipo.clave)
       || typeof tipo.etiqueta !== "string" || tipo.etiqueta !== tipo.etiqueta.trim()
       || !tipo.etiqueta || tipo.etiqueta.length > 256 || /[\u0000-\u001f\u007f]/u.test(tipo.etiqueta)
@@ -41,7 +46,8 @@ export function validarBorradoresDisponibles(respuesta) {
       || tipo.formatos.some((formato) => !Object.hasOwn(MIME, formato))
       || new Set(tipo.formatos).size !== tipo.formatos.length) throw fallo("catalogo_incompatible");
     claves.add(tipo.clave);
-    return Object.freeze({ clave: tipo.clave, etiqueta: tipo.etiqueta, formatos: Object.freeze([...tipo.formatos]) });
+    return Object.freeze({ clave: tipo.clave, etiqueta: tipo.etiqueta, formatos: Object.freeze([...tipo.formatos]),
+      disponible: conDisponible ? tipo.disponible : true });
   });
   return Object.freeze({ catalogo_ref: respuesta.catalogo_ref,
     catalogo_huella_sha256: respuesta.catalogo_huella_sha256,
@@ -72,6 +78,22 @@ async function leerAcotado(respuesta, maximo) {
   return bytes;
 }
 
+// Un 409 puede ser «el expediente cambió» o «este documento aún no se puede
+// preparar»; solo el código del sobre de error los distingue.
+async function codigoConflicto(respuesta) {
+  try {
+    if (!/^application\/json(?:;|$)/iu.test(respuesta.headers?.get?.("content-type") || "")) {
+      void respuesta.body?.cancel?.().catch(() => {});
+      return "";
+    }
+    const sobre = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await leerAcotado(respuesta, MAXIMO_ERROR)));
+    return typeof sobre?.error?.codigo === "string" ? sobre.error.codigo : "";
+  } catch {
+    void respuesta.body?.cancel?.()?.catch?.(() => {});
+    return "";
+  }
+}
+
 async function ejecutar(fetchImpl, ruta, entrada, accept, maximo, signal, limiteMs) {
   const controlador = new AbortController();
   const abortar = () => controlador.abort();
@@ -85,8 +107,11 @@ async function ejecutar(fetchImpl, ruta, entrada, accept, maximo, signal, limite
       credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer" });
     if (!respuesta || respuesta.redirected || !Number.isInteger(respuesta.status)) throw fallo("respuesta_incompatible");
     if (!respuesta.ok) {
-      void respuesta.body?.cancel?.().catch(() => {});
-      throw fallo([401, 403].includes(respuesta.status) ? "denegado" : respuesta.status === 409 ? "conflicto" : "servicio_no_disponible", respuesta.status);
+      const codigo = respuesta.status === 409 ? await codigoConflicto(respuesta) : "";
+      if (respuesta.status !== 409) void respuesta.body?.cancel?.().catch(() => {});
+      throw fallo([401, 403].includes(respuesta.status) ? "denegado"
+        : codigo === "documento_no_disponible" ? codigo
+          : respuesta.status === 409 ? "conflicto" : "servicio_no_disponible", respuesta.status);
     }
     if (respuesta.status !== 200) throw fallo("respuesta_incompatible", respuesta.status);
     const bytes = await leerAcotado(respuesta, maximo);
@@ -114,6 +139,7 @@ export function crearClienteBorradoresPublicados({ fetchImpl = globalThis.fetch,
       const valido = validarBorradoresDisponibles({ esquema: ESQUEMA, ...catalogo });
       if (typeof tipo !== "string" || !CLAVE.test(tipo) || !Object.hasOwn(MIME, formato)
         || !valido.tipos.some((item) => item.clave === tipo && item.formatos.includes(formato))) throw fallo("tipo_no_publicado");
+      if (!valido.tipos.some((item) => item.clave === tipo && item.disponible)) throw fallo("documento_no_disponible");
       const { respuesta, bytes } = await ejecutar(fetchImpl, RUTA_BORRADORES_PUBLICADOS,
         { ...entrada, tipo, formato }, MIME[formato], MAXIMO_DOCUMENTO, signal, 30_000);
       const nombre = `${tipo}-borrador.${formato}`;

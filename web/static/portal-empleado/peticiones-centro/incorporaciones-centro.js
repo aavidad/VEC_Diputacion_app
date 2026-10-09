@@ -164,6 +164,34 @@ export function crearClienteIncorporacionesCentro(fetchImpl = globalThis.fetch) 
   });
 }
 
+/**
+ * Lectura de la bandeja compartida por las secciones de la página
+ * (incorporaciones y cancelaciones): la primera carga de cada una reutiliza
+ * la misma petición; `recargar` pide datos nuevos. Cuando una sección cambia
+ * un expediente (p. ej. lo cancela) y ya ha leído de nuevo, `avisarCambio`
+ * hace que las secciones suscritas con `alCambiar` repinten esa lectura.
+ */
+export function crearBandejaCompartida(cliente = crearClienteIncorporacionesCentro()) {
+  let lectura = null;
+  const oyentes = new Set();
+  return Object.freeze({
+    bandeja: ({ recargar = false } = {}) => {
+      if (recargar || !lectura) lectura = cliente.bandeja();
+      return lectura;
+    },
+    confirmar: (solicitud, hoy) => cliente.confirmar(solicitud, hoy),
+    alCambiar: (oyente) => { oyentes.add(oyente); return () => oyentes.delete(oyente); },
+    avisarCambio: () => { for (const oyente of [...oyentes]) oyente(); },
+  });
+}
+
+let bandejaPagina = null;
+/** Bandeja única de la página; se crea al primer uso. */
+export function bandejaCompartidaPagina() {
+  bandejaPagina ??= crearBandejaCompartida();
+  return bandejaPagina;
+}
+
 function hoyMadrid(ahora = new Date()) {
   const partes = new Intl.DateTimeFormat(LOCALIZACION_PETICIONES_CENTRO, { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(ahora);
   const v = Object.fromEntries(partes.map((p) => [p.type, p.value]));
@@ -176,7 +204,7 @@ function hoyMadrid(ahora = new Date()) {
 export const EVENTO_EXPEDIENTES_CENTRO = "vec:expedientes-centro";
 export const idFilaExpediente = (e) => `ic-exp-${String(e.expediente_ref).replace(/[^A-Za-z0-9_-]/gu, "-")}`;
 
-export function montarIncorporacionesCentro({ contenedor, cliente = crearClienteIncorporacionesCentro(), mensajes, generarClave = () => globalThis.crypto?.randomUUID?.(), ahora = () => new Date() } = {}) {
+export function montarIncorporacionesCentro({ contenedor, cliente = bandejaCompartidaPagina(), mensajes, generarClave = () => globalThis.crypto?.randomUUID?.(), ahora = () => new Date() } = {}) {
   if (!contenedor || typeof contenedor.addEventListener !== "function") throw new TypeError("contenedor no válido");
   contenedor.setAttribute?.("lang", IDIOMA_EFECTIVO_PETICIONES_CENTRO);
   const t = crearTraductorIncorporacionesCentro(mensajes);
@@ -244,10 +272,11 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
     contenedor.dispatchEvent(new CustomEvent(EVENTO_EXPEDIENTES_CENTRO, { bubbles: true, detail: Object.freeze(lista) }));
   }
 
-  async function cargar() {
+  // La primera carga comparte la lectura de la página; las demás piden datos nuevos.
+  async function cargar(recargar = true) {
     datos = null; pintar();
     // 404: el servidor no compone la bandeja; 403: el perfil no la ve (RRHH).
-    try { datos = await cliente.bandeja(); await prepararCausasFin(datos.expedientes); }
+    try { datos = await cliente.bandeja({ recargar }); await prepararCausasFin(datos.expedientes); }
     catch (error) { datos = error?.estado === 404 || error?.estado === 403 ? { ausente: true } : { error: true }; }
     pintar();
     publicarExpedientes();
@@ -301,12 +330,15 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
     enviar(form);
   };
   const retirarHuella = instalarHuellaArchivo(contenedor);
+  // Otra sección ya leyó la bandeja tras cambiarla: se repinta esa lectura sin pedir otra.
+  const retirarCambio = cliente.alCambiar?.(() => { if (!ocupado) cargar(false); }) ?? (() => {});
   instalarCopiaJustificantes(contenedor.ownerDocument ?? globalThis.document);
   contenedor.addEventListener("click", alPulsar);
   contenedor.addEventListener("submit", alEnviar);
-  cargar();
+  cargar(false);
   return () => {
     retirarHuella();
+    retirarCambio();
     contenedor.removeEventListener("click", alPulsar);
     contenedor.removeEventListener("submit", alEnviar);
   };

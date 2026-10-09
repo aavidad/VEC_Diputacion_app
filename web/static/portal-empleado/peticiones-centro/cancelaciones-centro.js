@@ -7,7 +7,7 @@
  * un motivo del catálogo. Fases y motivos los decide el servidor; la vista
  * solo evita ofrecer la cancelación cuando no procede.
  */
-import { crearClienteIncorporacionesCentro, periodoVisible, prepararCausasFin } from "./incorporaciones-centro.js?v=20261009-inc-cancelada-v1";
+import { bandejaCompartidaPagina, periodoVisible, prepararCausasFin } from "./incorporaciones-centro.js?v=20261009-retoques-textos-v1";
 import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
 
@@ -78,7 +78,7 @@ export function crearClienteCancelacionesCentro(fetchImpl = globalThis.fetch) {
 }
 
 /** Monta la sección en `contenedor`. Si el servidor no la compone o el perfil no cancela, no se muestra. */
-export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIncorporacionesCentro(), cliente = crearClienteCancelacionesCentro(), mensajes,
+export function montarCancelacionesCentro({ contenedor, bandeja = bandejaCompartidaPagina(), cliente = crearClienteCancelacionesCentro(), mensajes,
   generarClave = () => globalThis.crypto?.randomUUID?.() } = {}) {
   if (!contenedor || typeof contenedor.addEventListener !== "function") throw new TypeError("contenedor no válido");
   contenedor.setAttribute?.("lang", IDIOMA_EFECTIVO_PETICIONES_CENTRO);
@@ -133,10 +133,11 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
   // Las fases y los motivos son los mismos para todos los expedientes del
   // canal: se consultan con el primero en curso. Un 404 (sin componer) o un
   // 403 (perfil que no cancela) ocultan la sección.
-  async function cargar() {
+  // La primera carga comparte la lectura de incorporaciones; las demás piden datos nuevos.
+  async function cargar(recargar = true) {
     datos = null; pintar();
     try {
-      const filas = (await bandeja.bandeja()).expedientes;
+      const filas = (await bandeja.bandeja({ recargar })).expedientes;
       await prepararCausasFin(filas);
       const enCurso = filas.filter((e) => e.estado === "en_curso");
       if (enCurso.length === 0) {
@@ -170,6 +171,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
       claves.delete(e.expediente_ref);
       ocupado = false; abierto = null;
       await cargar();
+      bandeja.avisarCambio?.();
       aviso = { tono: "exito", texto: t("exito"), recibo: recibo.recibo_ref };
       pintar();
     } catch (error) {
@@ -180,7 +182,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
         const conocido = ["fase_no_admitida", "tras_fiscalizacion", "cancelacion_existente", "version_en_conflicto", "clave_reutilizada", "acceso_denegado"].includes(error?.codigo);
         aviso = { tono: "peligro", texto: t(conocido ? `error_${error.codigo}` : error?.codigo === "contenido_no_valido" ? "error_datos" : "error_general") };
         if (["fase_no_admitida", "cancelacion_existente", "version_en_conflicto", "tras_fiscalizacion"].includes(error?.codigo)) {
-          abierto = null; const guardado = aviso; await cargar(); aviso = guardado;
+          abierto = null; const guardado = aviso; await cargar(); bandeja.avisarCambio?.(); aviso = guardado;
         }
       }
       pintar();
@@ -204,7 +206,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
   instalarCopiaJustificantes(contenedor.ownerDocument ?? globalThis.document);
   contenedor.addEventListener("click", alPulsar);
   contenedor.addEventListener("submit", alEnviar);
-  cargar();
+  cargar(false);
   return () => {
     contenedor.removeEventListener("click", alPulsar);
     contenedor.removeEventListener("submit", alEnviar);

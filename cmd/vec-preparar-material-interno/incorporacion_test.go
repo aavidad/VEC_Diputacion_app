@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -106,6 +107,93 @@ func TestPrepararIncorporacionDesdeServidorConRaizPublicadaRotada(t *testing.T) 
 	}
 	if bootstrap.ValidarMaterialPreparadoIncorporacionB2(filepath.Join(e.salida, "servidor.json"), ahoraPrueba) != nil {
 		t.Fatal("salida B2 rechazada")
+	}
+}
+
+func TestPrepararIncorporacionLoginRRHHYErroresNoRevelanDSN(t *testing.T) {
+	e, ruta, d := escenarioIncorporacion(t)
+	coordenadas, err := bootstrap.DerivarCoordenadasCTPreparacion(e.idempotencia, ahoraPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.gobierno.raiz = filaRaiz{ClaveID: coordenadas.RaizID, Version: 72, Audiencia: coordenadas.Audiencia,
+		HuellaSPKI: coordenadas.HuellaSPKI, Vigente: true}
+	motivosRRHH := filepath.Join(e.dir, "motivos_rrhh.dsn")
+	escribir(t, motivosRRHH, []byte("postgres://lector:SECRETO_DSN_PRUEBA@127.0.0.1:1/vec\n"), 0600)
+	args := []string{"-incorporacion-motivos-rrhh-dsn", motivosRRHH, "-incorporacion-motivos-rrhh-login", "otro_login",
+		"-material-idempotencia", e.idempotencia, "-incorporacion-config", ruta,
+		"-dsn-archivo", e.dsnArchivo, "-salida", e.salida}
+	d.resolverMotivoDetalle = nil
+	var out, errOut bytes.Buffer
+	if rc := ejecutar(context.Background(), args, "", false, &out, &errOut, d); rc != 1 ||
+		strings.Contains(out.String()+errOut.String(), "SECRETO_DSN_PRUEBA") || !strings.Contains(errOut.String(), "ct_detalle") {
+		t.Fatal("LOGIN RRHH distinto admitido o secreto expuesto")
+	}
+	e.sinResiduos(t)
+	args[3] = "lector"
+	d.abrirGobierno = func(context.Context, string) (fuenteGobierno, error) {
+		return nil, errors.New("SECRETO_DSN_PRUEBA: fallo de conexión sintético")
+	}
+	out.Reset()
+	errOut.Reset()
+	if rc := ejecutar(context.Background(), args, "", false, &out, &errOut, d); rc != 1 ||
+		strings.Contains(out.String()+errOut.String(), "SECRETO_DSN_PRUEBA") {
+		t.Fatal("error de gobierno reveló el DSN")
+	}
+	e.sinResiduos(t)
+	args = append(args, "-inventario-ct", e.inventarioCT)
+	out.Reset()
+	errOut.Reset()
+	if rc := ejecutar(context.Background(), args, "", false, &out, &errOut, d); rc != 2 {
+		t.Fatal("LOGIN RRHH con inventario CT ambiguo admitido")
+	}
+	args = []string{"-inventario-ct", e.inventarioCT, "-incorporacion-motivos-rrhh-login", "lector",
+		"-material-idempotencia", e.idempotencia, "-incorporacion-config", ruta,
+		"-dsn-archivo", e.dsnArchivo, "-salida", e.salida}
+	out.Reset()
+	errOut.Reset()
+	if rc := ejecutar(context.Background(), args, "", false, &out, &errOut, d); rc != 2 {
+		t.Fatal("LOGIN RRHH aplicado al modo legado")
+	}
+	args = []string{"-incorporacion-motivos-rrhh-dsn", motivosRRHH, "-incorporacion-motivos-rrhh-login", "",
+		"-material-idempotencia", e.idempotencia, "-incorporacion-config", ruta,
+		"-dsn-archivo", e.dsnArchivo, "-salida", e.salida}
+	out.Reset()
+	errOut.Reset()
+	if rc := ejecutar(context.Background(), args, "", false, &out, &errOut, d); rc != 2 {
+		t.Fatal("LOGIN RRHH explícito vacío admitido")
+	}
+}
+
+func TestPrepararIncorporacionRechazaAmbosDSNBajoGitAntesDeConectar(t *testing.T) {
+	e, ruta, d := escenarioIncorporacion(t)
+	git := filepath.Join(e.dir, "arbol-git")
+	if err := os.Mkdir(git, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(git, ".git"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	privado := filepath.Join(git, "privado")
+	if err := os.Mkdir(privado, 0700); err != nil {
+		t.Fatal(err)
+	}
+	rutaGit := filepath.Join(privado, "dsn")
+	escribir(t, rutaGit, []byte("postgres://lector:SECRETO_DSN_PRUEBA@127.0.0.1:1/vec\n"), 0600)
+	abiertas := 0
+	d.abrirGobierno = func(context.Context, string) (fuenteGobierno, error) {
+		abiertas++
+		return e.gobierno, nil
+	}
+	for _, opciones := range []opciones{
+		{incorporacionMotivosRRHHDSN: rutaGit, idempotencia: e.idempotencia, incorporacionConfig: ruta, dsnArchivo: e.dsnArchivo, salida: e.salida},
+		{incorporacionMotivosRRHHDSN: e.dsnArchivo, idempotencia: e.idempotencia, incorporacionConfig: ruta, dsnArchivo: rutaGit, salida: e.salida},
+	} {
+		p := preparacion{opciones: opciones, dep: d}
+		if _, err := p.prepararIncorporacion(context.Background()); err == nil || abiertas != 0 {
+			t.Fatal("DSN bajo Git admitido o gobierno conectado")
+		}
+		e.sinResiduos(t)
 	}
 }
 
