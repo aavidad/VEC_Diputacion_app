@@ -17,7 +17,7 @@
     "plazo_cerrado": "The application period for this recruitment process has ended. Refresh the list and check the application status.",
     "reintentar": "Retry",
     "vacio": "There are no applications with this status. Change the status or choose another recruitment process.",
-    "vacio_convocatorias": "There are no recruitment processes with applications you can manage. If you expected one, contact the person responsible.",
+    "vacio_convocatorias": "There are no published recruitment processes you can manage with this access. If you expected one, contact the person responsible.",
     "elegir_convocatoria": "Choose a recruitment process",
     "ver_solicitudes": "View applications",
     "fin_plazo": "Application deadline",
