@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { createHash, webcrypto } from "node:crypto";
 import { File } from "node:buffer";
 import { readFile } from "node:fs/promises";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261008-r-fichas-idioma-nav-v1";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261009-borradores-fase-v3";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261009-ct-resultado-bolsa-v2";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261009-ct-resultado-bolsa-v2";
 
 
 export const CLAVE = "123e4567-e89b-42d3-a456-426614174000";

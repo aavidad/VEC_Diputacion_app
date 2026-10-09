@@ -8,7 +8,7 @@
  * deduce responsables o plazos que el servidor no haya dado.
  */
 import { faseRRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
-import { aceptacionBolsaCompleta } from "./resultado-bolsa.js?v=20261009-ct-resultado-bolsa-v1";
+import { aceptacionBolsaCompleta } from "./resultado-bolsa.js?v=20261009-ct-resultado-bolsa-v2";
 
 function escapar(valor) {
   return String(valor ?? "")

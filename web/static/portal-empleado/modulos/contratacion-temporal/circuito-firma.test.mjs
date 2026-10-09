@@ -569,8 +569,8 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261008-alta-analisis-bolsa-fichas-v5"],
-    ["vista-expedientes.js", "20261009-borradores-fase-v3"],
+    ["circuito-firma.js", "20261009-ct-resultado-bolsa-v2"],
+    ["vista-expedientes.js", "20261009-ct-resultado-bolsa-v2"],
 
   ]);
   const anterior = "20260929-custodia-506-v1";

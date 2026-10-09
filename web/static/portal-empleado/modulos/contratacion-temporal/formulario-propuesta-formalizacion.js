@@ -1,5 +1,5 @@
 /** Orientación de la pantalla RRHH 13 hacia la única acción real CT65. */
-import { escaparHTML } from "./componentes-expedientes.js?v=20261008-r-fichas-idioma-nav-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261009-ct-resultado-bolsa-v2";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 // La pantalla original pide generación automática posterior a la selección.
