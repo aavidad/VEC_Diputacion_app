@@ -73,6 +73,24 @@ func TestInscripcionHandlerExternoNoDespachaRRHH(t *testing.T) {
 	}
 }
 
+func TestInscripcionRRHHSeleccionaConvocatoriaAntesDeBandeja(t *testing.T) {
+	p := &preparadorPrueba{}
+	h, err := NuevoInterno(p, &servicioPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaRRHH, nil))
+	if w.Code != http.StatusBadRequest || p.rrhh != 0 {
+		t.Fatalf("bandeja sin convocatoria: %d, preparaciones %d", w.Code, p.rrhh)
+	}
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaRRHH+"/convocatorias?limite=20&idioma=es", nil))
+	if w.Code != http.StatusOK || p.rrhh != 1 || !strings.Contains(w.Body.String(), "vec.bolsa.inscripciones.rrhh.convocatorias.v1") {
+		t.Fatalf("selector histórico inaccesible: %d, preparaciones %d", w.Code, p.rrhh)
+	}
+}
+
 func (*servicioPrueba) Abiertas(context.Context, inscripcion.Actor, int, string) (inscripcion.PaginaAbiertas, error) {
 	return inscripcion.PaginaAbiertas{}, nil
 }
@@ -95,6 +113,9 @@ func (*servicioPrueba) Propia(context.Context, inscripcion.Actor, string) (inscr
 func (s *servicioPrueba) PendientesRRHH(_ context.Context, _ inscripcion.Actor, f inscripcion.Filtro) (inscripcion.Pagina, error) {
 	s.ultimoFiltro = f
 	return inscripcion.Pagina{Solicitudes: []inscripcion.Solicitud{}, Total: 0}, nil
+}
+func (*servicioPrueba) ConvocatoriasRRHH(context.Context, inscripcion.Actor, int, string) (inscripcion.PaginaConvocatoriasGestion, error) {
+	return inscripcion.PaginaConvocatoriasGestion{}, nil
 }
 func (*servicioPrueba) DetalleRRHH(context.Context, inscripcion.Actor, string) (inscripcion.Solicitud, error) {
 	return inscripcion.Solicitud{}, nil

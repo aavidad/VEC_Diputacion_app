@@ -222,7 +222,7 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 	if lectura != nil {
 		refEsperada := recurso
 		switch accion {
-		case inscripcion.AccionListarAbiertas, inscripcion.AccionListarPropias, inscripcion.AccionListarRRHH:
+		case inscripcion.AccionListarAbiertas, inscripcion.AccionListarPropias, inscripcion.AccionListarRRHH, inscripcion.AccionConvocatoriasRRHH:
 			refEsperada = ""
 		case inscripcion.AccionMotivosRRHH:
 			refEsperada = strings.TrimPrefix(recurso, "motivos:")
@@ -443,13 +443,17 @@ func operacionInscripcionBolsa(r *http.Request, rrhh bool) (string, string, insc
 	}
 	path := r.URL.Path
 	if rrhh {
+		if path == httpinscripcion.RutaRRHH+"/convocatorias" && r.Method == http.MethodGet && soloQueryInscripcion(q, "limite", "cursor", "idioma") {
+			f, ok := filtroListaInscripcion(q)
+			return inscripcion.AccionConvocatoriasRRHH, "inscripciones:rrhh:convocatorias", f, ok && f.Validar() == nil
+		}
 		if path == httpinscripcion.RutaRRHH && r.Method == http.MethodGet && soloQueryInscripcion(q, "estado", "convocatoria_ref", "limite", "cursor", "idioma") {
 			f, ok := filtroListaInscripcion(q)
 			if f.Estado = q.Get("estado"); f.Estado == "" {
 				f.Estado = inscripcion.EstadoPendiente
 			}
 			f.ConvocatoriaRef = q.Get("convocatoria_ref")
-			return inscripcion.AccionListarRRHH, "inscripciones:rrhh", f, ok && f.Validar() == nil
+			return inscripcion.AccionListarRRHH, "inscripciones:rrhh", f, ok && f.ConvocatoriaRef != "" && f.Validar() == nil
 		}
 		if path == httpinscripcion.RutaRRHH+"/motivos" && r.Method == http.MethodGet && soloQueryInscripcion(q, "decision", "idioma") && len(q["decision"]) == 1 && (q.Get("decision") == "admitir" || q.Get("decision") == "rechazar") {
 			return inscripcion.AccionMotivosRRHH, "motivos:" + q.Get("decision"), cero, true

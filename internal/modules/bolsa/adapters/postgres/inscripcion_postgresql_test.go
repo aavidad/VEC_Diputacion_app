@@ -126,6 +126,29 @@ func TestInscripcionProcesosNoCompartenPoolsNiRutasDeLectura(t *testing.T) {
 	}
 }
 
+func TestInscripcionLecturaRechazaHojaPersonalFueraDeConcesion(t *testing.T) {
+	permitidos := []string{"solicitudes[].solicitud_ref", "solicitudes[].categoria", "total", "cursor_siguiente"}
+	casos := []struct {
+		nombre string
+		json   string
+		valido bool
+	}{
+		{"pagina autorizada", `{"solicitudes":[{"solicitud_ref":"sol_1","categoria":"Auxiliar administrativo"}],"total":1,"cursor_siguiente":null}`, true},
+		{"pagina vacía autorizada", `{"solicitudes":[],"total":0,"cursor_siguiente":null}`, true},
+		{"dato personal nuevo", `{"solicitudes":[{"solicitud_ref":"sol_1","categoria":"Auxiliar administrativo","documento_identidad":"12345678Z"}],"total":1,"cursor_siguiente":null}`, false},
+		{"objeto vacío no concedido", `{"solicitudes":[],"total":0,"cursor_siguiente":null,"datos_personales":{}}`, false},
+		{"array vacío no concedido", `{"solicitudes":[],"total":0,"cursor_siguiente":null,"datos_personales":[]}`, false},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			err := validarCamposProyeccionInscripcion([]byte(caso.json), permitidos)
+			if (err == nil) != caso.valido {
+				t.Fatalf("validación de hojas: %v", err)
+			}
+		})
+	}
+}
+
 func TestInscripcionProyeccionAbiertaListaYDetalle(t *testing.T) {
 	base := inscripcion.BolsaAbierta{
 		ConvocatoriaRef: "cv1_abc_v1", Titulo: "Convocatoria de prueba",

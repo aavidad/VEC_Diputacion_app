@@ -39,6 +39,7 @@ type Aplicacion interface {
 	Propias(context.Context, inscripcion.Actor, inscripcion.Filtro) (inscripcion.Pagina, error)
 	Propia(context.Context, inscripcion.Actor, string) (inscripcion.Solicitud, error)
 	PendientesRRHH(context.Context, inscripcion.Actor, inscripcion.Filtro) (inscripcion.Pagina, error)
+	ConvocatoriasRRHH(context.Context, inscripcion.Actor, int, string) (inscripcion.PaginaConvocatoriasGestion, error)
 	DetalleRRHH(context.Context, inscripcion.Actor, string) (inscripcion.Solicitud, error)
 	MotivosRRHH(context.Context, inscripcion.Actor, string) (inscripcion.CatalogoMotivos, error)
 	Decidir(context.Context, inscripcion.Actor, inscripcion.Decision) (inscripcion.Recibo, error)
@@ -101,6 +102,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.propia(w, r)
 	case r.URL.Path == RutaRRHH:
 		h.rrhh(w, r)
+	case r.URL.Path == RutaRRHH+"/convocatorias":
+		h.convocatoriasRRHH(w, r)
 	case r.URL.Path == RutaRRHH+"/motivos":
 		h.motivos(w, r)
 	case strings.HasPrefix(r.URL.Path, RutaRRHH+"/"):
@@ -278,6 +281,10 @@ func (h *Handler) rrhh(w http.ResponseWriter, r *http.Request) {
 		responderError(w, 400, "datos_no_validos")
 		return
 	}
+	if r.URL.Query().Get("convocatoria_ref") == "" {
+		responderError(w, 400, "datos_no_validos")
+		return
+	}
 	estado := r.URL.Query().Get("estado")
 	if estado == "" {
 		estado = inscripcion.EstadoPendiente
@@ -299,6 +306,33 @@ func (h *Handler) rrhh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responder(w, 200, "vec.bolsa.inscripciones.rrhh.v1", p)
+}
+
+func (h *Handler) convocatoriasRRHH(w http.ResponseWriter, r *http.Request) {
+	if !soloGET(w, r) {
+		return
+	}
+	limite, cursor, err := paginarCon(r.URL.Query(), "idioma")
+	if err != nil {
+		responderError(w, 400, "datos_no_validos")
+		return
+	}
+	idiomaActivo, err := idioma(r.URL.Query())
+	if err != nil {
+		responderError(w, 400, "datos_no_validos")
+		return
+	}
+	actor, err := h.preparador.PrepararLecturaRRHH(r, inscripcion.AccionConvocatoriasRRHH, "", inscripcion.Filtro{Limite: limite, Cursor: cursor}, idiomaActivo)
+	if err != nil {
+		responderFallo(w, r, err)
+		return
+	}
+	p, err := h.servicio.ConvocatoriasRRHH(r.Context(), actor, limite, cursor)
+	if err != nil {
+		responderFallo(w, r, err)
+		return
+	}
+	responder(w, 200, "vec.bolsa.inscripciones.rrhh.convocatorias.v1", p)
 }
 
 func (h *Handler) motivos(w http.ResponseWriter, r *http.Request) {
