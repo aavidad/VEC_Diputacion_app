@@ -5,10 +5,10 @@
  * congelada (y su clave) para no duplicar el efecto.
  */
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261009-ct-bolsa-cohorte-v6";
+import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261009-ct-bolsa-cohorte-v7";
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20261007-pantallas-textos-final-v1";
 import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";
-import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261009-ct-bolsa-cohorte-v6";
+import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261009-ct-bolsa-cohorte-v7";
 import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20261007-pantallas-textos-final-v1";
 import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
@@ -25,7 +25,7 @@ import {
   CAMPOS_EVENTO_PLAZO, CAMPOS_EVENTO_PLAZO_EDITABLES, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
   RESPUESTA_EXPIRACION,
 } from "./contrato-llamamiento.js";
-import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261009-ct-bolsa-cohorte-v6";
+import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261009-ct-bolsa-cohorte-v7";
 import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js";
 import { LIMITE_TOTAL_COMUNICACIONES, instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js";
 
