@@ -669,7 +669,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var detalleReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	var originalPropuestaReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	consultasRRHH := dependenciasConsultasRRHHDesarrollo{cerrar: func() {}}
-	var borradorRRHH ports.RenderizadorBorradorRRHH
+	var borradorRRHH, borradorFormalizacion ports.RenderizadorBorradorRRHH
 	var borradorRRHHDOCX httpinterno.RenderizadorBorradorRRHHDOCX
 	alta.soporte.mu.Lock()
 	perfilCTCatalogo := alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef
@@ -847,8 +847,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		cuadroReal, detalleReal, originalPropuestaReal = consultasRRHH.cuadroHTTP, consultasRRHH.detalleHTTP, consultasRRHH.originalPropuestaHTTP
 		etiquetas := origen.etiquetasReferenciasCatalogosAlta()
-		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
-		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
+		// Descargas con logotipo; la formalización guarda la huella de su PDF y sigue sin él.
+		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas}
+		borradorFormalizacion = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
+		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas}
 	}
 	defer func() {
 		if cerrarAlta {
@@ -1010,8 +1012,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		rutas = append(rutas, continuidad...)
 	}
-	if comunicacionReal != nil && consultasRRHH.detalle != nil && borradorRRHH != nil {
-		resolucion, err := nuevasDependenciasResolucionFormalizacionDesarrollo(&alta, reloj, consultasRRHH.detalle, borradorRRHH, consultasRRHH.preparacionResolucion, catalogoFronteras)
+	if comunicacionReal != nil && consultasRRHH.detalle != nil && borradorFormalizacion != nil {
+		resolucion, err := nuevasDependenciasResolucionFormalizacionDesarrollo(&alta, reloj, consultasRRHH.detalle, borradorFormalizacion, consultasRRHH.preparacionResolucion, catalogoFronteras)
 		if err != nil {
 			return nil, nil, nil, err
 		}
