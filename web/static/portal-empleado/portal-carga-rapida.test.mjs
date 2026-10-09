@@ -618,8 +618,8 @@ test("ningún módulo del portal se pide con dos URL distintas (una sola descarg
   const versionIncorporacion = versionDe(codigoCoordinador,
     "./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js");
   for (const url of [
-    "/portal-empleado/portal-bolsas-api.js?v=20261008-r-personas-v1",
-    "/portal-empleado/portal-bolsas-contrato.js?v=20261008-canal-telefono-v2",
+    "/portal-empleado/portal-bolsas-api.js?v=20261009-instantes-bolsa-v1",
+    "/portal-empleado/portal-bolsas-contrato.js?v=20261009-instantes-bolsa-v1",
     `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
     `/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=${versionIncorporacion}`,
   ]) assert.ok(urls.has(url), `${url}: el portal debe alcanzar ambas ramas integradas`);
