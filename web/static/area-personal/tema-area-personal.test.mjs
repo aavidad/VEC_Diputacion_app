@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [html, css, aplicacion, temaComun, portal] = await Promise.all([
+const [html, css, aplicacion, temaComun, portal, cache] = await Promise.all([
   readFile(new URL("./index.html", import.meta.url), "utf8"),
   readFile(new URL("./area-personal.css", import.meta.url), "utf8"),
   readFile(new URL("./aplicacion.js", import.meta.url), "utf8"),
   readFile(new URL("../comun/tema-vec.css", import.meta.url), "utf8"),
   readFile(new URL("../portal-empleado/index.html", import.meta.url), "utf8"),
+  readFile(new URL("./cache-publica-v1.json", import.meta.url), "utf8"),
 ]);
 
 function bloque(selector) {
@@ -40,8 +41,9 @@ function comprobarRecursosComunes(htmlActual, cssActual, aplicacionActual) {
 test("el área personal carga el tema permitido antes de sus alias y sin activos ajenos", () => {
   assert.match(html, /<html lang="es" data-tema="institucional">/);
   comprobarRecursosComunes(html, css, aplicacion);
-  const versionArea = html.match(/\/area-personal\/arranque\.js\?v=([A-Za-z0-9-]+)/u)?.[1];
-  assert.equal(versionArea, "20261009-mi-bolsa-pausa-null-v1");
+  const arranque = html.match(/<script type="module" src="(\/area-personal\/arranque\.js\?v=[A-Za-z0-9-]+)"><\/script>/u)?.[1];
+  assert.ok(arranque, "falta la entrada versionada del Área personal");
+  assert.deepEqual(JSON.parse(cache).propios.filter((ruta) => ruta.startsWith("/area-personal/arranque.js?")), [arranque]);
   assert.match(html, /\/comun\/tema-vec\.css\?v=20261008-preferencias-arranque-v1/u);
   assert.match(portal, /\/comun\/tema-vec\.css\?v=/u);
   const enlaces = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/gu)].map(([, href]) => href);
