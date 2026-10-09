@@ -1,9 +1,9 @@
 /** Componentes HTML puros de la superficie de expedientes. */
 
 import "./atajos-incidencia.js";
-import { renderizarResultadoBolsa, continuidadBolsaDisponible, requiereRevisionBolsa } from "./resultado-bolsa.js?v=20261009-ct-resultado-bolsa-v2";
-import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261009-ct-resultado-bolsa-v2";
-import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261009-ct-resultado-bolsa-v2";
+import { renderizarResultadoBolsa, continuidadBolsaDisponible, requiereRevisionBolsa } from "./resultado-bolsa.js?v=20261009-ct-bolsa-cohorte-v6";
+import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261009-ct-bolsa-cohorte-v6";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261009-ct-bolsa-cohorte-v6";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
@@ -13,7 +13,7 @@ import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-ex
 import {
   renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
   renderizarLineaFases, renderizarSiguientePasoFicha,
-} from "./vista-expedientes-ficha.js?v=20261009-ct-resultado-bolsa-v2";
+} from "./vista-expedientes-ficha.js?v=20261009-ct-bolsa-cohorte-v6";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 

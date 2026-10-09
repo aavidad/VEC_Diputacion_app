@@ -748,8 +748,16 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
     "modulos/contratacion-temporal/vista-borradores-publicados.js", "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js"]) versionesEspeciales.set(ruta, "20261009-borradores-fase-v3");
-  // El resultado de Bolsa renueva una sola URL por destino en toda la cadena CT.
+  versionesEspeciales.set("portal-bolsas-intentos.js", "20261009-ayuda-contacto-v1");
+  // La solicitud del centro y el alta CT comparten contrato y renderer.
+  for (const ruta of ["modulos/contratacion-temporal/alta-renderer-puro.js",
+    "modulos/contratacion-temporal/cliente-http-alta.js", "modulos/contratacion-temporal/contrato.js",
+    "modulos/contratacion-temporal/presentador.js", "modulos/contratacion-temporal/vista.js",
+    "peticiones-centro/arranque-peticiones-centro.js", "peticiones-centro/peticiones-centro.js",
+  ]) versionesEspeciales.set(ruta, "20261009-centro-campos-cohorte-v5");
+  // El resultado de Bolsa y la petición del centro renuevan juntas la cadena CT.
   for (const ruta of [
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
     "categorias-rpt/cliente.js", "categorias-rpt/montaje.js",
     "modulos/contratacion-temporal/adaptador-http-expedientes.js",
     "modulos/contratacion-temporal/circuito-firma-acciones.js",
@@ -789,13 +797,13 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261009-ct-resultado-bolsa-v2");
-  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261009-ct-resultado-bolsa-v2");
+  ]) versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v6");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261009-ct-bolsa-cohorte-v6");
   for (const ruta of ["portal-bolsas-ruta-filtros.js", "portal-ct-ruta-filtro.js",
     "portal-llamamientos-selector.js", "portal-bolsas-global.js", "portal-bolsas-seguimiento.js",
     "portal-inicio.js", "portal-bolsas-api.js", "portal-panel-interno.js",
     "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js"])
-    versionesEspeciales.set(ruta, "20261009-ct-resultado-bolsa-v2");
+    versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v6");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

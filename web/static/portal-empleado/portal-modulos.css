@@ -1,4 +1,12 @@
 /** Identidad semántica de módulos: cada módulo toma una tinta fuerte y su suave del tema. */
+[data-intentos-raiz] > .cabecera-panel { flex-wrap: wrap; }
+.intentos-cabecera-acciones { display: flex; align-items: flex-start; justify-content: flex-end; flex-wrap: wrap; gap: 12px; max-width: 100%; margin-left: auto; }
+.intentos-cabecera-acciones:has(.intentos-ayuda[open]) { flex-basis: 100%; }
+.intentos-ayuda { max-width: 100%; }
+.intentos-ayuda[open] { flex-basis: 100%; width: 100%; }
+.intentos-ayuda summary { display: grid; width: 34px; min-height: 34px; place-items: center; margin-left: auto; border: 1px solid var(--portal-borde); border-radius: 50%; background: var(--portal-superficie); color: var(--portal-azul-800); font-weight: 700; cursor: pointer; list-style: none; }
+.intentos-ayuda summary::-webkit-details-marker { display: none; }
+.intentos-ayuda p { width: 100%; max-width: 62ch; margin: 8px 0 0; padding: 12px 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); color: var(--portal-tinta); font-size: .875rem; }
 .tarjeta-modulo[data-modulo-catalogo="bolsa"] {
   --modulo-acento: var(--portal-azul-700);
   --modulo-suave: var(--portal-azul-100);
