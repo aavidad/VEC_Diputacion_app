@@ -107,7 +107,7 @@
 1785 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1034 web/static/portal-empleado/portal-componentes.css
 1841 web/static/portal-empleado/portal.js
-1323 web/static/portal-empleado/portal-bolsas-api.js
+1324 web/static/portal-empleado/portal-bolsas-api.js
 925 web/static/portal-empleado/portal-bolsas.test.mjs
 1138 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 988 web/static/portal-empleado/portal-i18n.test.mjs
@@ -142,3 +142,4 @@
 639 internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_test.go
 405 internal/modules/contrataciontemporal/adapters/httpinterno/alta_seguridad_test.go
 817 internal/modules/contrataciontemporal/adapters/postgres/ejecuciones_seleccion_llamamiento_test.go
+2851 deploy/postgresql/autorizacion_atestada_v3/migraciones/000233_vinculo_emision_bolsa_ct.up.sql
