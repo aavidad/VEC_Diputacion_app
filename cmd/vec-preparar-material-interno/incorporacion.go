@@ -22,6 +22,10 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 	if ctx == nil || p.dep.abrirGobierno == nil || p.dep.reloj == nil {
 		return false, errCancelada
 	}
+	if p.incorporacionMotivosRRHHDSN != "" &&
+		(!rutaCanonica(p.incorporacionMotivosRRHHDSN) || dentroDeGit(p.incorporacionMotivosRRHHDSN)) {
+		return false, errMotivosRRHHDSN
+	}
 	destino, err := abrirDestino(p.salida)
 	if err != nil {
 		return false, err
@@ -115,7 +119,9 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 	resolverDetalle := p.dep.resolverMotivoDetalle
 	if resolverDetalle == nil {
 		if p.incorporacionMotivosRRHHDSN != "" {
-			resolverDetalle = resolverMotivoDetalleCTServidor
+			resolverDetalle = func(ctx context.Context, archivo string, ahora time.Time) (core.ReferenciaEntradaCatalogo, error) {
+				return resolverMotivoDetalleCTServidorConLogin(ctx, archivo, p.incorporacionMotivosRRHHLogin, ahora)
+			}
 		} else {
 			resolverDetalle = resolverMotivoDetalleCT
 		}

@@ -32,6 +32,7 @@ type opciones struct {
 	inventarioCT, idempotencia, motivos, salida, dsnArchivo string
 	incorporacionConfig                                     string
 	incorporacionMotivosRRHHDSN                             string
+	incorporacionMotivosRRHHLogin                           string
 }
 
 // motivosB2 es el formato del fichero de motivos: exactamente las ocho
@@ -150,6 +151,9 @@ func leerDSN(archivo, entorno string) (string, error) {
 			return "", errDSN
 		}
 		return entorno, nil
+	}
+	if !rutaCanonica(archivo) || dentroDeGit(archivo) {
+		return "", errDSNFichero
 	}
 	b, ok := leerFicheroPrivado(archivo, maximoDSNFichero)
 	if !ok {
