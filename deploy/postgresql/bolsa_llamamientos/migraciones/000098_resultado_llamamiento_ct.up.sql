@@ -12,8 +12,11 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.respuesta_portal_llamamiento') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.contacto_participacion') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.situacion_participacion') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.bolsa_constituida') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.listar_constituciones_v1()') IS NULL
     OR to_regrole('vec_contratacion_temporal_propietario') IS NULL
-    OR to_regprocedure('vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text)') IS NOT NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text,text)') IS NOT NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.resolver_bolsa_vigente_ct_v1(text)') IS NOT NULL
     OR to_regprocedure('vec_bolsa_llamamientos.leer_resultado_emision_ct_v1(text,text,text)') IS NOT NULL THEN
    RAISE EXCEPTION 'B98: PARO clave=preimagen_emision_ct esperado=tablas_y_rol_sin_funciones actual=incompatible'
      USING ERRCODE='55000';
@@ -23,7 +26,7 @@ END $pre$;
 -- La referencia de negocio sólo ayuda a localizar. El vínculo lo confirma
 -- RRHH y se valida con las tres claves inmutables de la emisión real.
 CREATE FUNCTION vec_bolsa_llamamientos.verificar_emision_ct_v1(
- p_bolsa text,p_llamamiento text,p_recibo text,p_referencia text)
+ p_bolsa text,p_llamamiento text,p_recibo text,p_referencia text,p_categoria text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET statement_timeout='3s' AS $f$
 BEGIN
@@ -32,14 +35,37 @@ BEGIN
     OR (pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
         AND pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER') IS NOT TRUE)
     OR p_bolsa IS NULL OR p_llamamiento IS NULL OR p_recibo IS NULL
-    OR p_referencia IS NULL OR p_referencia='' THEN
+    OR p_referencia IS NULL OR p_referencia='' OR p_categoria IS NULL OR p_categoria='' THEN
    RAISE EXCEPTION 'B98: consulta de emisión no autorizada' USING ERRCODE='42501';
  END IF;
  RETURN EXISTS (
   SELECT 1 FROM vec_bolsa_llamamientos.llamamiento_emitido e
   WHERE e.llamamiento_ref=p_llamamiento AND e.bolsa_ref=p_bolsa
     AND e.recibo_ref=p_recibo AND e.configuracion->>'referencia'=p_referencia
+    AND EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.bolsa_constituida b
+      WHERE b.bolsa_ref=e.bolsa_ref AND b.categoria_ref=p_categoria)
+    AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.bolsa_constituida b
+      WHERE b.bolsa_ref=e.bolsa_ref AND b.categoria_ref<>p_categoria)
  );
+END $f$;
+
+-- La asociación vigente por categoría pertenece a Bolsa y procede de la
+-- constitución efectiva; CT no interpreta ni consulta sus tablas.
+CREATE FUNCTION vec_bolsa_llamamientos.resolver_bolsa_vigente_ct_v1(p_categoria text)
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET row_security=on SET statement_timeout='3s' AS $f$
+DECLARE bolsa text;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
+    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
+    OR p_categoria IS NULL OR p_categoria='' THEN
+  RAISE EXCEPTION 'B98: bolsa por categoría no autorizada' USING ERRCODE='42501';
+ END IF;
+ SELECT c.bolsa_ref INTO bolsa FROM vec_bolsa_llamamientos.listar_constituciones_v1() c
+ WHERE c.categoria_ref=p_categoria AND c.estado='vigente'
+   AND c.vigente_desde<=transaction_timestamp()
+   AND (c.vigente_hasta IS NULL OR c.vigente_hasta>transaction_timestamp());
+ RETURN bolsa;
 END $f$;
 
 CREATE INDEX llamamiento_emitido_ct_necesidad_pagina
@@ -251,12 +277,14 @@ BEGIN
  RETURN aceptaciones;
 END $f$;
 
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text),
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text,text),
+ vec_bolsa_llamamientos.resolver_bolsa_vigente_ct_v1(text),
  vec_bolsa_llamamientos.leer_resultado_emision_ct_v1(text,text,text),
  vec_bolsa_llamamientos.leer_resultados_emisiones_ct_v1(jsonb),
  vec_bolsa_llamamientos.contar_aceptaciones_firmes_ct_v1(jsonb),
  vec_bolsa_llamamientos.listar_emisiones_ct_v1(text,text,timestamptz,text,integer,text[]) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text),
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text,text),
+ vec_bolsa_llamamientos.resolver_bolsa_vigente_ct_v1(text),
  vec_bolsa_llamamientos.leer_resultado_emision_ct_v1(text,text,text),
  vec_bolsa_llamamientos.leer_resultados_emisiones_ct_v1(jsonb),
  vec_bolsa_llamamientos.contar_aceptaciones_firmes_ct_v1(jsonb),

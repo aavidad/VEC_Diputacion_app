@@ -9,7 +9,8 @@ BEGIN
  IF current_user<>'vec_contratacion_temporal_propietario'
     OR to_regclass('vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1') IS NOT NULL
     OR to_regclass('vec_contratacion_temporal.expediente_integral_actual') IS NULL
-    OR to_regprocedure('vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text)') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text,text)') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.resolver_bolsa_vigente_ct_v1(text)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.leer_resultado_emision_ct_v1(text,text,text)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.leer_resultados_emisiones_ct_v1(jsonb)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.contar_aceptaciones_firmes_ct_v1(jsonb)') IS NULL
@@ -112,7 +113,9 @@ BEGIN
         AND previo.version_expediente_esperada=p_version
         AND previo.bolsa_ref=p_bolsa AND previo.llamamiento_ref=p_llamamiento
         AND previo.recibo_emision_ref=p_recibo AND previo.clave_idempotencia::text=p_clave))
-   AND v.agregado_json#>>'{via_cobertura,bolsa_ref}'=p_bolsa
+   AND v.agregado_json#>>'{via_cobertura,via_clave}'='bolsa_vigente'
+   AND v.agregado_json#>>'{via_cobertura,decision_gobernada,via_elegida}'='bolsa_vigente'
+   AND v.agregado_json#>'{via_cobertura,bolsa_ref}' IS NULL
    AND v.agregado_json#>>'{solicitud,centro_ref}' IS NOT NULL
    AND v.agregado_json#>>'{analisis,categoria_ref}' IS NOT NULL;
 END $f$;
@@ -211,14 +214,17 @@ BEGIN
   WHERE e.expediente_ref=s->>'expediente_ref' AND e.organizacion_ref=s->>'organizacion_ref'
   FOR SHARE OF actual;
  IF NOT FOUND OR actual_ct.version IS DISTINCT FROM version_esperada
-    OR actual_ct.agregado_json#>>'{via_cobertura,bolsa_ref}' IS DISTINCT FROM s->>'bolsa_ref'
+    OR actual_ct.agregado_json#>>'{via_cobertura,via_clave}' IS DISTINCT FROM 'bolsa_vigente'
+    OR actual_ct.agregado_json#>>'{via_cobertura,decision_gobernada,via_elegida}' IS DISTINCT FROM 'bolsa_vigente'
+    OR actual_ct.agregado_json#>'{via_cobertura,bolsa_ref}' IS NOT NULL
     OR actual_ct.agregado_json#>>'{solicitud,centro_ref}' IS DISTINCT FROM amb.centro_ref
     OR actual_ct.agregado_json#>>'{analisis,categoria_ref}' IS DISTINCT FROM amb.categoria_ref THEN
   RAISE EXCEPTION 'CT201: versión o bolsa de cobertura divergente' USING ERRCODE='23505';
  END IF;
  numero:=vec_contratacion_temporal.numero_visible_vigente_v1(s->>'expediente_ref',actual_ct.numero_visible);
  IF vec_bolsa_llamamientos.verificar_emision_ct_v1(
-    s->>'bolsa_ref',s->>'llamamiento_ref',s->>'recibo_emision_ref',numero) IS NOT TRUE THEN
+    s->>'bolsa_ref',s->>'llamamiento_ref',s->>'recibo_emision_ref',numero,
+    actual_ct.agregado_json#>>'{analisis,categoria_ref}') IS NOT TRUE THEN
   RAISE EXCEPTION 'CT201: emisión real ajena al expediente' USING ERRCODE='42501';
  END IF;
  instante:=date_trunc('microseconds',clock_timestamp());
@@ -268,7 +274,7 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
 DECLARE d record; actual record; vinculos jsonb; sugeridas jsonb; n integer;
  entradas jsonb; todos jsonb; lote jsonb; pagina_n integer; antes_en timestamptz; antes_ref text;
- ultimo_en timestamptz; ultimo_ref text; mas boolean:=false; siguiente text;
+ ultimo_en timestamptz; ultimo_ref text; mas boolean:=false; siguiente text; bolsa_vigente text;
  personas_text text; personas numeric; aceptaciones integer;
 BEGIN
  IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
@@ -354,10 +360,17 @@ BEGIN
   personas:=personas_text::numeric;
  END IF;
  sugeridas:='[]'::jsonb;
- IF actual.agregado_json#>>'{via_cobertura,bolsa_ref}' IS NOT NULL THEN
+ IF actual.agregado_json#>>'{via_cobertura,via_clave}'='bolsa_vigente'
+    AND actual.agregado_json#>>'{via_cobertura,decision_gobernada,via_elegida}'='bolsa_vigente'
+    AND actual.agregado_json#>'{via_cobertura,bolsa_ref}' IS NULL
+    AND actual.agregado_json#>>'{analisis,categoria_ref}' IS NOT NULL THEN
+  bolsa_vigente:=vec_bolsa_llamamientos.resolver_bolsa_vigente_ct_v1(
+   actual.agregado_json#>>'{analisis,categoria_ref}');
+ END IF;
+ IF bolsa_vigente IS NOT NULL THEN
   SELECT coalesce(jsonb_agg(to_jsonb(b) ORDER BY b.emitido_en DESC,b.llamamiento_ref DESC),'[]'::jsonb)
    INTO sugeridas FROM vec_bolsa_llamamientos.listar_emisiones_ct_v1(
-    actual.agregado_json#>>'{via_cobertura,bolsa_ref}',
+    bolsa_vigente,
     vec_contratacion_temporal.numero_visible_vigente_v1(d.expediente_ref,actual.numero_visible),
     NULL,NULL,20,ARRAY(SELECT x.llamamiento_ref
      FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
