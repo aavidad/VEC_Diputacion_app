@@ -8,13 +8,14 @@ import (
 	"testing"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/app/separacionportales"
 	httpinscripcion "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinscripcion"
 	"vec-diputacion-granada/internal/modules/bolsa/application/inscripcion"
 )
 
 func configInscripcionEncendidaPrueba(t *testing.T) config.Config {
 	t.Helper()
-	t.Setenv(config.EnvBolsaInscripcionesLectorDatabaseURL, "postgres://externo@localhost/vec")
+	t.Setenv(config.EnvExternoBolsaInscripcionesLectorDatabaseURL, "postgres://externo@localhost/vec")
 	t.Setenv(config.EnvBolsaInscripcionesRRHHLectorDatabaseURL, "postgres://rrhh@localhost/vec")
 	c := config.Load()
 	c.ExecutionProfile, c.AuthMode, c.DevelopmentGuard = config.ExecutionProfileDevelopment, config.AuthModeDevelopment, config.DevelopmentGuardAcknowledgement
@@ -127,3 +128,22 @@ func (p *preparadorConteoPrueba) PrepararIncorporacion(*http.Request, inscripcio
 
 // servicioInscripcionNuloPrueba no debe alcanzarse: el preparador deniega antes.
 type servicioInscripcionNuloPrueba struct{ httpinscripcion.Aplicacion }
+
+// Cada lector viaja sólo al proceso de su portal: el de la persona aspirante
+// lleva el prefijo del portal externo y el de RRHH no puede llegar a él.
+func TestInscripcionLectoresRespetanSeparacionDePortales(t *testing.T) {
+	externo := config.EnvExternoBolsaInscripcionesLectorDatabaseURL + "=postgres://vec_bolsa_inscripciones_lector@localhost/vec"
+	rrhh := config.EnvBolsaInscripcionesRRHHLectorDatabaseURL + "=postgres://vec_bolsa_inscripciones_rrhh_lector@localhost/vec"
+	if err := separacionportales.ComprobarEntorno(separacionportales.PortalExterno, separacionportales.Entorno{Variables: []string{externo}}); err != nil {
+		t.Fatalf("el portal externo rechaza su lector: %v", err)
+	}
+	if err := separacionportales.ComprobarEntorno(separacionportales.PortalExterno, separacionportales.Entorno{Variables: []string{rrhh}}); err == nil {
+		t.Fatal("el portal externo aceptó el lector de RRHH")
+	}
+	if err := separacionportales.ComprobarEntorno(separacionportales.PortalInterno, separacionportales.Entorno{Variables: []string{externo}}); err == nil {
+		t.Fatal("vec-server aceptó el lector del portal externo")
+	}
+	if err := separacionportales.ComprobarEntorno(separacionportales.PortalInterno, separacionportales.Entorno{Variables: []string{rrhh}}); err != nil {
+		t.Fatalf("vec-server rechaza su lector: %v", err)
+	}
+}

@@ -51,9 +51,9 @@
     {"variable": "VEC_CT_PROVISION_PERFILES_RRHH_PREIMAGENES", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_CT_PROVISION_PERFILES_RRHH_APROBACION"]},
 
     {"variable": "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL", "tipo": "conexion", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL"], "nota": "Bolsa de llamamientos; sin ella CT conserva los pasos anteriores al llamamiento."},
-    {"variable": "VEC_BOLSA_INSCRIPCIONES_LECTOR_DATABASE_URL", "tipo": "conexion", "uso_real": false, "nota": "LOGIN segregado de lecturas de inscripción; se configura al activar este circuito."},
+    {"variable": "VEC_EXTERNO_BOLSA_INSCRIPCIONES_LECTOR_DATABASE_URL", "tipo": "conexion", "uso_real": false, "nota": "LOGIN segregado de lecturas de la persona aspirante en el portal externo; se configura al activar este circuito."},
     {"variable": "VEC_BOLSA_INSCRIPCIONES_RRHH_LECTOR_DATABASE_URL", "tipo": "conexion", "uso_real": false, "nota": "LOGIN segregado de lectura de RRHH."},
-    {"variable": "VEC_BOLSA_INSCRIPCIONES_ENABLED", "tipo": "selector", "uso_real": false, "requiere": ["VEC_BOLSA_INSCRIPCIONES_LECTOR_DATABASE_URL", "VEC_BOLSA_INSCRIPCIONES_RRHH_LECTOR_DATABASE_URL"], "nota": "Solicitudes de inscripción y revisión nominal; necesita SQL y perfiles gobernados antes de activar."},
+    {"variable": "VEC_BOLSA_INSCRIPCIONES_ENABLED", "tipo": "selector", "uso_real": false, "nota": "Solicitudes de inscripción (portal externo, con VEC_EXTERNO_BOLSA_INSCRIPCIONES_LECTOR_DATABASE_URL) y bandeja de RRHH (vec-server, con VEC_BOLSA_INSCRIPCIONES_RRHH_LECTOR_DATABASE_URL); necesita SQL y permisos gobernados antes de activar."},
     {"variable": "VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL", "tipo": "conexion", "uso_real": true},
     {"variable": "VEC_BOLSA_CESE_CT_DATABASE_URL", "tipo": "conexion", "uso_real": true},
     {"variable": "VEC_BOLSA_RELEVO_NO_INCORPORACION_DATABASE_URL", "tipo": "conexion", "uso_real": true},

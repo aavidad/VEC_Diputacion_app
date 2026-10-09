@@ -7,13 +7,13 @@ import (
 )
 
 func TestInscripcionesLectorExigeLoginSeparadoYRedactaDSN(t *testing.T) {
-	t.Setenv(EnvBolsaInscripcionesLectorDatabaseURL, "")
+	t.Setenv(EnvExternoBolsaInscripcionesLectorDatabaseURL, "")
 	if _, err := Load().DSNBolsaInscripcionesLectorSeparado(); !errors.Is(err, ErrBolsaInscripcionesLectorIncompleto) {
 		t.Fatalf("ausente: %v", err)
 	}
 	secreto := "clave-de-prueba-lector"
 	lector := "postgres://vec_bolsa_inscripciones_lector:" + secreto + "@localhost/vec?sslmode=require"
-	t.Setenv(EnvBolsaInscripcionesLectorDatabaseURL, lector)
+	t.Setenv(EnvExternoBolsaInscripcionesLectorDatabaseURL, lector)
 	t.Setenv(EnvExternoBolsaDatabaseURL, "postgres://vec_externo_bolsa_desarrollo:otra@localhost/vec?sslmode=require")
 	c := Load()
 	dsn, err := c.DSNBolsaInscripcionesLectorSeparado()

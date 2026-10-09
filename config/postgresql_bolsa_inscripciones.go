@@ -5,8 +5,8 @@ import "errors"
 // Las lecturas de la persona aspirante y de RRHH usan LOGIN distintos.
 // Los actos conservan sus ejecutores nominales.
 const (
-	EnvBolsaInscripcionesLectorDatabaseURL     = "VEC_BOLSA_INSCRIPCIONES_LECTOR_DATABASE_URL"
-	EnvBolsaInscripcionesRRHHLectorDatabaseURL = "VEC_BOLSA_INSCRIPCIONES_RRHH_LECTOR_DATABASE_URL"
+	EnvExternoBolsaInscripcionesLectorDatabaseURL = "VEC_EXTERNO_BOLSA_INSCRIPCIONES_LECTOR_DATABASE_URL"
+	EnvBolsaInscripcionesRRHHLectorDatabaseURL    = "VEC_BOLSA_INSCRIPCIONES_RRHH_LECTOR_DATABASE_URL"
 )
 
 var (

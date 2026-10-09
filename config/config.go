@@ -251,7 +251,7 @@ func Load() Config {
 			dsn: os.Getenv(EnvExternoBolsaPublicaDatabaseURL),
 		},
 		ExternoBolsaPostgreSQL:                 ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaDatabaseURL)},
-		BolsaInscripcionesLectorPostgreSQL:     ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvBolsaInscripcionesLectorDatabaseURL)},
+		BolsaInscripcionesLectorPostgreSQL:     ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaInscripcionesLectorDatabaseURL)},
 		BolsaInscripcionesRRHHLectorPostgreSQL: ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvBolsaInscripcionesRRHHLectorDatabaseURL)},
 		ExternoBolsaFronteraPostgreSQL:         ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaFronteraDatabaseURL)},
 		ExternoCalendariosPostgreSQL:           ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoCalendariosDatabaseURL)},
