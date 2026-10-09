@@ -43,6 +43,25 @@ function fechaVisible(valor) {
   return Number.isFinite(f.getTime()) ? new Intl.DateTimeFormat(LOCALIZACION_PETICIONES_CENTRO, { dateStyle: "long", timeZone: "UTC" }).format(f) : valor;
 }
 
+// El periodo de la petición llega tal como lo guarda el servidor: un instante
+// RFC 3339 a medianoche UTC («2026-11-02T00:00:00Z»). Su fecha civil son los
+// diez primeros caracteres; también se admite ya en forma «AAAA-MM-DD».
+const INSTANTE_PERIODO = /^\d{4}-\d{2}-\d{2}(T00:00:00(\.0+)?Z)?$/u;
+function fechaCivilDePeriodo(valor) {
+  if (typeof valor !== "string" || !INSTANTE_PERIODO.test(valor)) return "";
+  const civil = valor.slice(0, 10);
+  return fechaCivilValida(civil) ? civil : "";
+}
+
+/** Periodo solicitado legible: «inicio — fin», solo el inicio si no tiene fin, o «—». */
+export function periodoVisible(periodo) {
+  const inicio = fechaCivilDePeriodo(periodo?.inicio);
+  const fin = fechaCivilDePeriodo(periodo?.fin);
+  if (!inicio && !fin) return "—";
+  if (!fin) return fechaVisible(inicio);
+  return `${fechaVisible(inicio)} — ${fechaVisible(fin)}`;
+}
+
 export function fechaCivilValida(valor) {
   if (typeof valor !== "string" || !FECHA.test(valor)) return false;
   const f = new Date(`${valor}T00:00:00Z`);
@@ -177,7 +196,7 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
           ? `<button type="button" class="boton-secundario" data-ic-abrir="${escapar(e.expediente_ref)}" aria-expanded="${abierto === e.expediente_ref}">${escapar(t("confirmar"))}</button>`
           : `<span class="pc-estado pc-estado-pendiente">${escapar(t("pendiente"))}</span>`)
         : `<span class="pc-estado">${escapar(t("no_procede"))}</span>`;
-    const periodo = e.periodo ? `${fechaVisible(e.periodo.inicio)} — ${fechaVisible(e.periodo.fin)}` : "—";
+    const periodo = periodoVisible(e.periodo);
     return `<tr id="${escapar(idFilaExpediente(e))}" tabindex="-1"><td>${escapar(e.numero_visible)}</td><td>${escapar(periodo)}</td><td>${escapar(situacion(e))}</td><td>${estadoIncorporacion}</td></tr>`;
   }
 

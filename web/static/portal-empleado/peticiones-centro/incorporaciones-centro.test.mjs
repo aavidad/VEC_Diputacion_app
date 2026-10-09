@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   RUTAS_INCORPORACIONES_CENTRO, crearClienteIncorporacionesCentro, montarIncorporacionesCentro, validarBandejaIncorporaciones,
-  validarSolicitudConfirmacionCentro,
+  periodoVisible, validarSolicitudConfirmacionCentro,
 } from "./incorporaciones-centro.js";
 
 const fila = (extra = {}) => ({ peticion_ref: "peticion:centro:1", expediente_ref: "expediente:ct:1", numero_visible: "2026/B-124", version: 7,
@@ -84,4 +84,14 @@ test("sin permiso de confirmar solo se ve el estado pendiente", async () => {
   await esperar();
   assert.doesNotMatch(c.innerHTML, /data-ic-abrir/u);
   assert.match(c.innerHTML, /Pendiente de confirmar/u);
+});
+
+test("el periodo se lee tal como lo envía el servidor (instante a medianoche UTC)", () => {
+  const conFin = periodoVisible({ inicio: "2026-11-02T00:00:00Z", fin: "2026-12-31T00:00:00Z" });
+  assert.equal(conFin, periodoVisible({ inicio: "2026-11-02", fin: "2026-12-31" }));
+  assert.doesNotMatch(conFin, /—.*—/u);
+  assert.match(conFin, /2026/u);
+  assert.doesNotMatch(periodoVisible({ inicio: "2026-11-02T00:00:00Z", causa_fin: "reincorporacion_titular" }), /—/u);
+  assert.equal(periodoVisible(null), "—");
+  assert.equal(periodoVisible({ inicio: "2026-11-02T10:00:00+02:00" }), "—");
 });

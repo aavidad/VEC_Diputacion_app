@@ -238,10 +238,20 @@ function textoEstadoEntrega(estado) {
   return ({ pendiente: TEXTO.rrhhPendiente, preparada: TEXTO.rrhhPreparada, confirmada: TEXTO.rrhhConfirmada })[estado] || "—";
 }
 
+// Enlace al portal en el idioma de esta página: sin `lang` el portal abriría
+// en su idioma por defecto y la persona perdería el que eligió.
+export function urlPortalContratacion(expedienteRef = "") {
+  const parametros = new URLSearchParams();
+  if (IDIOMA_EFECTIVO_PETICIONES_CENTRO) parametros.set("lang", IDIOMA_EFECTIVO_PETICIONES_CENTRO);
+  if (expedienteRef) parametros.set("expediente", expedienteRef);
+  const consulta = parametros.toString();
+  return `/portal-empleado/${consulta ? `?${consulta}` : ""}#contratacion-temporal`;
+}
+
 // Enlace de una petición entregada a su expediente en Contratación temporal
 // (RRHH). La referencia solo navega: el servidor decide si el perfil lo ve.
 function urlExpedienteRRHH(expedienteRef) {
-  return `/portal-empleado/?expediente=${encodeURIComponent(expedienteRef)}#contratacion-temporal`;
+  return urlPortalContratacion(expedienteRef);
 }
 
 function enlaceExpedienteRRHH(peticion, recibo) {
@@ -262,7 +272,7 @@ function reciboAltaRRHHHTML(recibo) {
   const filas = [[TEXTO.rrhhExpediente, recibo.expediente_ref], [traducirCentro("ct_txt_numero_visible"), recibo.numero_visible], [TEXTO.version, recibo.version],
     [TEXTO.reciboRef, recibo.recibo_ref], [traducirCentro("ct_txt_referencia_de_auditoria"), recibo.auditoria_ref], [traducirCentro("ct_txt_referencia_de_evento"), recibo.evento_ref],
     [traducirCentro("ct_txt_confirmada_en"), fecha(recibo.confirmada_en, true)]];
-  return `<section class="pc-panel pc-recibo" role="status"><h2>${esc(TEXTO.rrhhRecibo)}</h2>${camposDetalle(filas.map(([k, v]) => [k, v || "—"]))}${recibo.expediente_ref ? `<p class="pc-acciones"><a class="boton-primario" href="${esc(urlExpedienteRRHH(recibo.expediente_ref))}">${textoCT("pc_abrir_expediente")}</a><a class="boton-secundario" href="/portal-empleado/#contratacion-temporal">${esc(TEXTO.rrhhBandeja)}</a></p>` : ""}</section>`;
+  return `<section class="pc-panel pc-recibo" role="status"><h2>${esc(TEXTO.rrhhRecibo)}</h2>${camposDetalle(filas.map(([k, v]) => [k, v || "—"]))}${recibo.expediente_ref ? `<p class="pc-acciones"><a class="boton-primario" href="${esc(urlExpedienteRRHH(recibo.expediente_ref))}">${textoCT("pc_abrir_expediente")}</a><a class="boton-secundario" href="${esc(urlPortalContratacion())}">${esc(TEXTO.rrhhBandeja)}</a></p>` : ""}</section>`;
 }
 
 function tablaRRHH(peticiones, seleccionada) {
@@ -278,7 +288,7 @@ export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null
   if (modo === "confirmar") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.rrhhConfirmar)}</h2>${detallePeticion(peticion, null)}<div class="ct-campo"><label for="pc-numero-moad">${textoCT("numero_moad_obligatorio")}</label><input id="pc-numero-moad" name="numero_expediente_moad" type="text" required maxlength="45" autocomplete="off" value="${esc(numeroMOAD)}" ${politicaNumero?.ejemplo ? `placeholder="${textoCT("numero_moad_ejemplo", { ejemplo: politicaNumero.ejemplo })}"` : ""}${errorNumero ? ' aria-invalid="true" aria-describedby="pc-numero-moad-error"' : ""}>${errorNumero ? `<span class="ct-error-campo" id="pc-numero-moad-error">${textoCT("error_numero_moad")}</span>` : ""}</div><p class="pc-aviso">${esc(TEXTO.rrhhAviso)}</p><label class="pc-confirmacion"><input type="checkbox" name="confirmacion-alta-rrhh"${confirmado ? " checked" : ""}> ${esc(TEXTO.rrhhConfirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-alta-rrhh">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-alta-rrhh">${esc(TEXTO.rrhhConfirmar)}</button></div></section>`;
   if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.rrhhAviso)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar-alta-rrhh">${esc(traducirCentro("ct_txt_reintentar_la_misma_operacion"))}</button></div></section>`;
   const detalle = `<aside class="pc-panel pc-detalle"><h2>${esc(TEXTO.detalle)}</h2>${detallePeticion(peticion, null)}${entrega?.recibo_alta && !recibo ? reciboAltaRRHHHTML(entrega.recibo_alta) : ""}${["pendiente", "preparada"].includes(entrega?.estado_entrega) ? `<div class="pc-acciones"><button type="button" class="boton-primario" data-accion="abrir-alta-rrhh">${esc(entrega.estado_entrega === "preparada" ? TEXTO.rrhhCompletar : TEXTO.rrhhConfirmar)}</button>${entrega.estado_entrega === "preparada" ? `<button type="button" class="boton-secundario" data-accion="recuperar-alta-anterior">${textoCT("numero_moad_recuperar_alta_anterior")}</button>` : ""}</div>` : ""}</aside>`;
-  return `${cabecera}${error}${recibo ? reciboAltaRRHHHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${esc(TEXTO.rrhhTitulo)}</h2>${tablaRRHH(peticiones, peticion?.referencia)}<p>${textoCT("ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum")}</p><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="recargar-rrhh">${esc(TEXTO.recargar)}</button><a class="boton-secundario" href="/portal-empleado/#contratacion-temporal">${esc(TEXTO.volver)}</a></div></section>${detalle}</div>`;
+  return `${cabecera}${error}${recibo ? reciboAltaRRHHHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${esc(TEXTO.rrhhTitulo)}</h2>${tablaRRHH(peticiones, peticion?.referencia)}<p>${textoCT("ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum")}</p><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="recargar-rrhh">${esc(TEXTO.recargar)}</button><a class="boton-secundario" href="${esc(urlPortalContratacion())}">${esc(TEXTO.volver)}</a></div></section>${detalle}</div>`;
 }
 
 export async function registrarAltaRRHH(cliente, comando) {
@@ -620,7 +630,7 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
       mensaje = ""; dibujar(); return;
     }
     if (accion === "recargar") { await cargar(); return; }
-    if (accion === "volver-contratacion") { globalThis.location.href = "/portal-empleado/#contratacion-temporal"; return; }
+    if (accion === "volver-contratacion") { globalThis.location.href = urlPortalContratacion(); return; }
     if (accion === "editar") { modo = "formulario"; dibujar(); return; }
     if (accion === "abrir-ratificacion" && contexto?.actor.puede_ratificar && peticion?.version === 1) { modo = "ratificacion"; recibo = null; motivo = ""; confirmado = false; dibujar(); return; }
     if (accion === "cancelar-ratificacion") { modo = "bandeja"; dibujar(); return; }

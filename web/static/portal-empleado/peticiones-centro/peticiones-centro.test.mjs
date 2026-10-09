@@ -118,7 +118,7 @@ test("la vista RRHH no usa el contexto de centros y conserva datos, ratificació
   assert.match(html, /Revisión sintética/);
   assert.match(html, /Referencia del expediente/);
   assert.match(html, /expediente:ct:001/);
-  assert.match(html, /\/portal-empleado\/#contratacion-temporal/);
+  assert.match(html, /\/portal-empleado\/\?lang=es#contratacion-temporal/);
   assert.doesNotMatch(html, /Persona de prueba/);
   const preparada = renderizarPeticionesCentroRRHH({ peticiones: [{ peticion: ratificada, estado_entrega: "preparada" }], entrega: { peticion: ratificada, estado_entrega: "preparada" } });
   assert.match(preparada, /Completar registro/);

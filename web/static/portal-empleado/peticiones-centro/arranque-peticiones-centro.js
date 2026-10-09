@@ -51,11 +51,11 @@ async function arrancar(origen = null) {
       aplicarTextosPortal(document, traducir);
       document.documentElement.lang = pc.idioma;
       instalarValidacionI18n(document, traducir);
-      const peticiones = await import("./peticiones-centro.js?v=20261008-alta-analisis-bolsa-v4");
+      const peticiones = await import("./peticiones-centro.js?v=20261009-hz12-centro-v1");
       peticiones.instalarAyudaPeticionCentro(document);
       await Promise.all([
-        import("./incorporaciones-centro.js?v=20261007-pc-recuperacion-v1"),
-        import("./cancelaciones-centro.js?v=20261007-pc-recuperacion-v1"),
+        import("./incorporaciones-centro.js?v=20261009-hz12-centro-v1"),
+        import("./cancelaciones-centro.js?v=20261009-hz12-centro-v1"),
       ]);
       ayuda.disabled = false;
       await peticiones.iniciarPeticionCentro();
