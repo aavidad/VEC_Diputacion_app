@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/app/bootstrap"
+	gobiernoperfiles "vec-diputacion-granada/internal/vec/adapters/administracionperfiles/postgres"
 	"vec-diputacion-granada/internal/vec/auditoria"
+	"vec-diputacion-granada/internal/vec/domain"
 )
 
 type escenario struct {
@@ -53,6 +55,10 @@ func nuevoEscenario(t *testing.T) *escenario {
 		verificar: func(context.Context, string, time.Duration, *os.Root, string) (auditoria.InformeVerificacion, error) {
 			e.llamadas++
 			return auditoria.InformeVerificacion{Estado: "verificada"}, nil
+		},
+		versionBolsa: func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error {
+			e.llamadas++
+			return nil
 		},
 	}
 	return e
@@ -381,5 +387,54 @@ func TestVerificarRechazoYNombreNuevo(t *testing.T) {
 	}
 	if code, d, _, _ := e.ejecutar(e.args("verificar")); code != 1 || d.Codigo != "cadena_rechazada" || filepath.Base(nombre) != nombre || !strings.HasPrefix(nombre, "verificacion-cadena-20261005T090000Z") {
 		t.Fatal("verificación", d.Codigo, nombre)
+	}
+}
+
+// La fase version-bolsa no conecta: exige el conjunto 5, su bloque privado y
+// el nombre del acuse de aplicar, y nunca muestra rutas ni motivos.
+func TestVersionBolsaExigeConjuntoCincoYAcuse(t *testing.T) {
+	e := nuevoEscenario(t)
+	motivo := domain.ReferenciaEntradaCatalogo{CatalogoID: "motivos_autorizacion", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_" + strings.Repeat("1", 32)}
+	vb := &configuracionVersionBolsa{PoolGobierno: "/srv/privado/pools/version-bolsa.json", PoolCatalogo: "/srv/privado/pools/catalogo.json",
+		Motivos: map[string]domain.ReferenciaEntradaCatalogo{gobiernoperfiles.AudienciaVersionarRolBolsaProponer: motivo, gobiernoperfiles.AudienciaVersionarRolBolsaAprobar: motivo}}
+	var destino bootstrap.DestinoOverlayVersionBolsaAdmin
+	var acuseUsado string
+	e.ops.versionBolsa = func(_ *os.Root, d bootstrap.DestinoOverlayVersionBolsaAdmin, acuse string) error {
+		e.llamadas++
+		destino, acuseUsado = d, acuse
+		return nil
+	}
+	e.config = e.escribirConfig(t, configuracionPrivada{Salida: e.salida, ConjuntoCapacidades: 5, VersionBolsa: vb})
+	if code, d, _, _ := e.ejecutar(e.args("version-bolsa")); code != 1 || d.Codigo != "uso_invalido" || e.llamadas != 0 {
+		t.Fatal("version-bolsa sin acuse aceptada", d.Codigo)
+	}
+	if code, d, _, _ := e.ejecutar(e.args("version-bolsa", "-acuse", "../acuse.json")); code != 1 || d.Codigo != "acuse_inseguro" || e.llamadas != 0 {
+		t.Fatal("acuse con ruta aceptado", d.Codigo)
+	}
+	code, d, salida, errores := e.ejecutar(e.args("version-bolsa", "-acuse", "acuse-aplicar.json"))
+	if code != 0 || d.Codigo != "version_bolsa_escrita" || e.llamadas != 1 || acuseUsado != "acuse-aplicar.json" ||
+		destino.DirectorioSalida != e.salida || destino.PoolGobierno != vb.PoolGobierno || destino.PoolCatalogo != vb.PoolCatalogo || len(destino.Motivos) != 2 {
+		t.Fatal("version-bolsa", code, d.Codigo)
+	}
+	if strings.Contains(salida+errores, "/srv/") || strings.Contains(salida+errores, e.salida) || strings.Contains(salida+errores, "motivo_") {
+		t.Fatal("expone rutas o motivos")
+	}
+	e.ops.versionBolsa = func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error {
+		return bootstrap.ErrGobiernoUsuariosAdmin
+	}
+	if code, d, _, _ := e.ejecutar(e.args("version-bolsa", "-acuse", "acuse-aplicar.json")); code != 1 || d.Codigo != "version_bolsa_fallida" {
+		t.Fatal("fallo de version-bolsa", d.Codigo)
+	}
+	for nombre, c := range map[string]configuracionPrivada{
+		"conjunto_4":    {Salida: e.salida, ConjuntoCapacidades: 4, VersionBolsa: vb},
+		"sin_bloque":    {Salida: e.salida, ConjuntoCapacidades: 5},
+		"pool_relativo": {Salida: e.salida, ConjuntoCapacidades: 5, VersionBolsa: &configuracionVersionBolsa{PoolGobierno: "pools/x.json", PoolCatalogo: vb.PoolCatalogo, Motivos: vb.Motivos}},
+		"un_motivo":     {Salida: e.salida, ConjuntoCapacidades: 5, VersionBolsa: &configuracionVersionBolsa{PoolGobierno: vb.PoolGobierno, PoolCatalogo: vb.PoolCatalogo, Motivos: map[string]domain.ReferenciaEntradaCatalogo{gobiernoperfiles.AudienciaVersionarRolBolsaProponer: motivo}}},
+	} {
+		e.llamadas = 0
+		e.config = e.escribirConfig(t, c)
+		if code, d, _, _ := e.ejecutar(e.args("version-bolsa", "-acuse", "acuse-aplicar.json")); code != 1 || d.Codigo != "configuracion_invalida" || e.llamadas != 0 {
+			t.Fatal("configuración aceptada", nombre, d.Codigo)
+		}
 	}
 }

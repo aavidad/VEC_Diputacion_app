@@ -17,7 +17,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/app/bootstrap"
+	gobiernoperfiles "vec-diputacion-granada/internal/vec/adapters/administracionperfiles/postgres"
 	"vec-diputacion-granada/internal/vec/auditoria"
+	"vec-diputacion-granada/internal/vec/domain"
 )
 
 const noSeguirEnlaces = syscall.O_NOFOLLOW | syscall.O_CLOEXEC | syscall.O_NONBLOCK
@@ -36,8 +38,19 @@ type configuracionPrivada struct {
 	// AD188; 1 publica el conjunto 1 de AD198 (usuarios y lote ordinario); 2, el
 	// conjunto 2 de AD202 (además, el gobierno del plan nominal de firma); 3, el
 	// conjunto 3 de AD204 (además, la publicación de cargos competenciales); 4,
-	// el conjunto 4 de AD205 (además, los certificados nominales de firmante).
+	// el conjunto 4 de AD205 (además, los certificados nominales de firmante);
+	// 5, el conjunto 5 de AD234 (además, la propuesta y el cierre de la versión
+	// de rol de Bolsa, B1).
 	ConjuntoCapacidades uint64 `json:"conjunto_capacidades,omitempty"`
+	// VersionBolsa sólo lo usa la fase version-bolsa: los ficheros DSN de los
+	// dos LOGIN B1 de vec-admin y los motivos de sus dos audiencias.
+	VersionBolsa *configuracionVersionBolsa `json:"version_bolsa,omitempty"`
+}
+
+type configuracionVersionBolsa struct {
+	PoolGobierno string                                      `json:"pool_gobierno"`
+	PoolCatalogo string                                      `json:"pool_catalogo"`
+	Motivos      map[string]domain.ReferenciaEntradaCatalogo `json:"motivos"`
 }
 
 var errConfiguracion = errors.New("configuracion")
@@ -64,10 +77,28 @@ func (c configuracionPrivada) validar(fase string) error {
 		if dsnValido(c.DSNLectura) != nil {
 			return errConfiguracion
 		}
+	case "version-bolsa":
+		// Sin conexión: sólo lee la carpeta del día. El conjunto debe incluir
+		// las dos audiencias B1; el resto lo comprueba la propia generación.
+		if !conjuntoConVersionBolsa(c.ConjuntoCapacidades) || c.VersionBolsa == nil ||
+			!rutaAbsoluta(c.VersionBolsa.PoolGobierno) || !rutaAbsoluta(c.VersionBolsa.PoolCatalogo) || len(c.VersionBolsa.Motivos) != 2 {
+			return errConfiguracion
+		}
 	default:
 		return errConfiguracion
 	}
 	return nil
+}
+
+func conjuntoConVersionBolsa(version uint64) bool {
+	conjunto, _ := bootstrap.AudienciasConjuntoCapacidadesAdmin(version)
+	vistas := 0
+	for _, a := range conjunto {
+		if a.Audiencia == gobiernoperfiles.AudienciaVersionarRolBolsaProponer || a.Audiencia == gobiernoperfiles.AudienciaVersionarRolBolsaAprobar {
+			vistas++
+		}
+	}
+	return vistas == 2
 }
 
 func rutaAbsoluta(r string) bool { return r != "" && filepath.IsAbs(r) && filepath.Clean(r) == r }
@@ -137,10 +168,12 @@ type operaciones struct {
 	preparar  func(context.Context, string, time.Duration, bootstrap.MaterialOrigenGobiernoUsuariosAdmin, *os.Root) (bootstrap.PreparacionGobiernoUsuariosAdmin, error)
 	aplicar   func(context.Context, string, time.Duration, *os.Root, string) (bootstrap.ConfirmacionGobiernoUsuariosAdmin, error)
 	verificar func(context.Context, string, time.Duration, *os.Root, string) (auditoria.InformeVerificacion, error)
+	// versionBolsa escribe el overlay B1 del día; no conecta con la base.
+	versionBolsa func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error
 }
 
 func (o operaciones) incompletas() bool {
-	return o.preparar == nil || o.aplicar == nil || o.verificar == nil
+	return o.preparar == nil || o.aplicar == nil || o.verificar == nil || o.versionBolsa == nil
 }
 
 type relojSistema struct{}
@@ -172,6 +205,9 @@ func operacionesPG() operaciones {
 			}
 			defer pool.Close()
 			return bootstrap.VerificarCadenaGobiernoUsuariosAdmin(ctx, pool, r, nombre)
+		},
+		versionBolsa: func(r *os.Root, d bootstrap.DestinoOverlayVersionBolsaAdmin, acuse string) error {
+			return bootstrap.EscribirOverlayVersionBolsaAdmin(r, d, acuse, relojSistema{})
 		},
 	}
 }

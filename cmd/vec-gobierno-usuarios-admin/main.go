@@ -1,6 +1,8 @@
 // Command vec-gobierno-usuarios-admin envuelve las tres fases del gobierno
 // técnico de usuarios ADMIN V3 (AD188): preparar el material y el plan,
 // aplicarlos con el LOGIN técnico del DBA y verificar la cadena de auditoría.
+// Con el conjunto 5 (AD234), una cuarta fase sin conexión, version-bolsa,
+// escribe el overlay privado B1 de vec-admin del mismo día.
 // No crea LOGIN, GRANT ni configuración aprobada: eso pertenece al DBA.
 package main
 
@@ -48,6 +50,7 @@ var clavesTextos = []string{
 	"operacion_no_confirmada", "commit_no_confirmado", "acuse_no_guardado",
 	"gobierno_confirmado", "gobierno_rechazado", "gobierno_no_disponible",
 	"cadena_verificada", "cadena_rechazada", "verificacion_no_disponible",
+	"version_bolsa_escrita", "version_bolsa_fallida",
 }
 
 func main() {
@@ -79,12 +82,13 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 	fallo := func(codigo string) int { return emitir(errores, diagnostico{Codigo: codigo}, 1) }
 
 	duracion, err := time.ParseDuration(timeout)
-	faseValida := fase == "preparar" || fase == "aplicar" || fase == "verificar"
-	acuseCoherente := (fase == "aplicar") == (acuse != "")
+	faseValida := fase == "preparar" || fase == "aplicar" || fase == "verificar" || fase == "version-bolsa"
+	// aplicar crea un acuse nuevo; version-bolsa lee el acuse de aplicar.
+	acuseCoherente := (fase == "aplicar" || fase == "version-bolsa") == (acuse != "")
 	if parseErr != nil || err != nil || duracion <= 0 || duracion > limiteTimeout || f.NArg() != 0 || !faseValida || !acuseCoherente || rutaConfig == "" || ops.incompletas() || ahora == nil {
 		return fallo("uso_invalido")
 	}
-	if fase == "aplicar" && !nombreAcuseValido(acuse) {
+	if acuse != "" && !nombreAcuseValido(acuse) {
 		return fallo("acuse_inseguro")
 	}
 	b, err := bootstrap.LeerArchivoPrivadoDenominacionPersona(rutaConfig, limiteDocumento)
@@ -120,6 +124,12 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 			return fallo("preparacion_fallida")
 		}
 		return emitir(salida, diagnostico{Codigo: "preparacion_lista", Preparacion: &r}, 0)
+	case "version-bolsa":
+		d := bootstrap.DestinoOverlayVersionBolsaAdmin{DirectorioSalida: cfg.Salida, PoolGobierno: cfg.VersionBolsa.PoolGobierno, PoolCatalogo: cfg.VersionBolsa.PoolCatalogo, Motivos: cfg.VersionBolsa.Motivos}
+		if ops.versionBolsa(raiz, d, acuse) != nil {
+			return fallo("version_bolsa_fallida")
+		}
+		return emitir(salida, diagnostico{Codigo: "version_bolsa_escrita"}, 0)
 	case "aplicar":
 		a, err := ops.aplicar(ctx, cfg.DSNOperador, duracion, raiz, acuse)
 		switch {

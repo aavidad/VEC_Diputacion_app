@@ -332,13 +332,14 @@ func publicaRaizGobiernoUsuarios(spki string) (ed25519.PublicKey, error) {
 }
 
 // nombreAcuseGobiernoUsuariosValido admite sólo un nombre base nuevo que no
-// coincida con los ficheros que deja preparar.
+// coincida con los ficheros que deja preparar ni con los del overlay B1.
 func nombreAcuseGobiernoUsuariosValido(nombre string) bool {
 	if nombre == "" || len(nombre) > 128 || nombre == "." || nombre == ".." || filepath.Base(nombre) != nombre || filepath.Clean(nombre) != nombre {
 		return false
 	}
 	switch nombre {
-	case ArchivoConfiguracionGobiernoUsuarios, ArchivoMaterialGobiernoUsuarios, ArchivoPlanGobiernoUsuarios, ArchivoAprobacionGobiernoUsuarios:
+	case ArchivoConfiguracionGobiernoUsuarios, ArchivoMaterialGobiernoUsuarios, ArchivoPlanGobiernoUsuarios, ArchivoAprobacionGobiernoUsuarios,
+		ArchivoOverlayVersionBolsa, ArchivoMaterialVersionBolsaPropuesta, ArchivoMaterialVersionBolsaCierre:
 		return false
 	}
 	return true
