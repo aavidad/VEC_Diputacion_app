@@ -4,16 +4,16 @@ import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from 
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
   sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261007-p7-imagen-v1";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
-import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261009-retoques-textos-v1";
-import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261009-retoques-textos-v1";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261009-ayuda-retoques-v4";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261009-ayuda-retoques-v4";
 import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261009-retoques-textos-v1";
-import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261009-retoques-textos-v1";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261009-retoques-textos-v1";
+} from "./vistas/seguimiento-tramites.js?v=20261009-ayuda-retoques-v4";
+import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261009-ayuda-retoques-v4";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261009-ayuda-retoques-v4";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
-import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261009-retoques-textos-v1";
-import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261009-retoques-textos-v1";
+import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261009-ayuda-retoques-v4";
+import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261009-ayuda-retoques-v4";
 
 
 const RUTAS = Object.freeze({

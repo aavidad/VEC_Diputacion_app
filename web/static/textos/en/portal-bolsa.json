@@ -240,6 +240,8 @@
   },
   "intentos": {
     "titulo": "Call-up contact attempts",
+    "ayuda_abrir": "Help with contact and the reply period",
+    "ayuda_contenido": "The email announces the call-up but does not start the reply period. Contact the person and record the outcome of the call. Once actual contact is recorded in this view, they can reply in My job pool and the reply period begins. If they still cannot reply, check that the contact was recorded.",
     "sin_llamamiento": "No call-up in progress for this application.",
     "cargando": "Loading contact attempts…",
     "error_carga": "The attempt tracking could not be loaded.",

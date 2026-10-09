@@ -173,7 +173,8 @@ function formularios(e, i, candidato, flujo) {
 
 export function renderizarIntentosContacto({ candidato, estado = {}, escaparHTML = html, llamamientoRef = "" }) {
   const e = escaparHTML;
-  const cabecera = (extra = "") => `<div class="cabecera-panel"><h4 id="titulo-intentos-contacto">${t("titulo")}</h4>${extra}</div>`;
+  const ayuda = `<details class="intentos-ayuda"><summary aria-label="${e(t("ayuda_abrir"))}">?</summary><p>${e(t("ayuda_contenido"))}</p></details>`;
+  const cabecera = (extra = "") => `<div class="cabecera-panel"><h4 id="titulo-intentos-contacto">${t("titulo")}</h4><div class="intentos-cabecera-acciones">${extra}${ayuda}</div></div>`;
   const envolver = (extra, cuerpo) => `<section class="panel panel-separado" data-intentos-raiz="true" aria-labelledby="titulo-intentos-contacto">${cabecera(extra)}<div class="cuerpo-panel">${cuerpo}</div></section>`;
   if (!llamamientoRef && !candidato?.ultimo_llamamiento?.llamamiento_ref) return envolver("", `<p class="vacio-controlado" role="status">${t("sin_llamamiento")}</p>`);
   const actual = estado.carga || "cargando";
