@@ -52,7 +52,7 @@ type DescriptorInscripcionBolsa struct {
 
 type ClaveOperacionInscripcionBolsa struct{ Accion, Canal string }
 
-const accionListarConvocatoriasGestionRRHHInscripcion = "bolsa.inscripcion.rrhh.convocatorias.listar"
+const accionListarConvocatoriasGestionRRHHInscripcion = inscripcion.AccionConvocatoriasRRHH
 
 func clavesLecturaInscripcionBolsa() []ClaveOperacionInscripcionBolsa {
 	accionesAspirante := []string{inscripcion.AccionListarAbiertas, inscripcion.AccionDetalleAbierta,
@@ -131,6 +131,12 @@ type AmbitoRecursoRRHHInscripcionBolsa struct {
 	FuenteVersion                      uint64
 	FuenteHuellaSHA256                 string
 	AuditoriaRef                       string
+}
+
+type contextoRecursoEscrituraInscripcionBolsa struct {
+	Ambitos         map[string]string
+	ConjuntoGestion *inscripcion.AmbitoGestionInscripcion
+	AmbitoSolicitud *inscripcion.AmbitoGestionInscripcion
 }
 
 // Sólo sirve para cotejar un recurso ya derivado de contexto/propietario.
@@ -254,22 +260,47 @@ func (a *autoridadNominalInscripcionBolsa) CapturarLectura(ctx context.Context, 
 		decision.RevisionPermisos == 0 || !revisionHuellaLecturaInscripcionCoincide(decision.RevisionPermisos, decision.HuellaInstantaneaSHA256) ||
 		decision.Finalidad != descriptor.Finalidad ||
 		!vecdomain.ReferenciaCorrelacionAutorizacionV2Valida(decision.CorrelacionRef) ||
-		!slices.Equal(decision.Campos, descriptor.Campos) || decision.EmitidaEn.IsZero() || decision.EmitidaEn.After(ahora) ||
+		!slices.IsSorted(decision.Campos) || !slices.Equal(decision.Campos, descriptor.Campos) ||
+		decision.EmitidaEn.IsZero() || decision.EmitidaEn.After(ahora) ||
 		!decision.ValidaHasta.After(ahora) || decision.ValidaHasta.After(ahora.Add(30*time.Second)) ||
 		decision.ValidaHasta.After(v.SesionValidaHasta) ||
 		!canalLecturaInscripcion(accion, decision.Canal, v.Superficie) ||
 		!ambitoDecisionLecturaInscripcionValido(accion, recurso, decision) {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
-	return inscripcion.CapturaLectura{
+	var conjunto *inscripcion.AmbitoGestionInscripcion
+	if c := decision.ConjuntoGestion; c != nil {
+		conjunto = &inscripcion.AmbitoGestionInscripcion{ConjuntoRef: c.ConjuntoRef, UnidadRef: c.UnidadRef,
+			AmbitoRef: c.AmbitoRef, FuenteRef: c.FuenteRef, FuenteVersion: c.FuenteVersion,
+			FuenteSHA256: c.FuenteHuellaSHA256}
+		if !conjunto.Valido(true) {
+			return vacia, inscripcion.ErrAccesoDenegado
+		}
+	}
+	var historico *inscripcion.AmbitoGestionInscripcion
+	if h := decision.AmbitoSolicitud; h != nil {
+		historico = &inscripcion.AmbitoGestionInscripcion{UnidadRef: h.UnidadRef, AmbitoRef: h.AmbitoRef,
+			FuenteRef: h.FuenteRef, FuenteVersion: h.FuenteVersion, FuenteSHA256: h.FuenteHuellaSHA256}
+		if !historico.Valido(false) {
+			return vacia, inscripcion.ErrAccesoDenegado
+		}
+	}
+	captura := inscripcion.CapturaLectura{
 		PersonaRef: decision.PersonaRef, PerfilRef: decision.PerfilRef, CuentaRef: decision.CuentaRef,
 		SesionRef: decision.SesionRef, AutenticacionRef: decision.AutenticacionRef,
 		CertificadoHuellaSHA256: decision.CertificadoHuellaSHA256, Canal: decision.Canal,
 		Accion: accion, RecursoRef: recurso, Finalidad: decision.Finalidad,
 		CorrelacionRef: decision.CorrelacionRef, RevisionPermisos: decision.RevisionPermisos,
 		HuellaInstantaneaSHA256: decision.HuellaInstantaneaSHA256,
-		Filtro:                  filtro, EmitidaEn: decision.EmitidaEn, ValidaHasta: decision.ValidaHasta,
-	}, nil
+		Campos:                  slices.Clone(decision.Campos), ConjuntoGestion: conjunto, AmbitoSolicitud: historico,
+		Filtro: filtro, EmitidaEn: decision.EmitidaEn, ValidaHasta: decision.ValidaHasta,
+	}
+	actor := inscripcion.Actor{PersonaRef: decision.PersonaRef, PerfilRef: decision.PerfilRef, SesionRef: decision.SesionRef,
+		Canal: decision.Canal, ResultadoContexto: s.Resultado, Vinculo: s.Vinculo, Lectura: &captura}
+	if !actor.LecturaValida(accion, recurso, filtro) {
+		return vacia, inscripcion.ErrAccesoDenegado
+	}
+	return captura, nil
 }
 
 func ambitoDecisionLecturaInscripcionValido(accion, recurso string, d DecisionLecturaActualInscripcionBolsa) bool {
@@ -380,46 +411,63 @@ func identidadesRRHHInscripcionValidas(lista []identidadConsultaRRHHDesarrollo) 
 	return true
 }
 
-func (a *autoridadNominalInscripcionBolsa) ambitosEscrituraInscripcion(ctx context.Context, s contextoSeguridadComunDesarrollo, acreditacion AcreditacionSesionInscripcionBolsa, accion, recurso string, ahora time.Time) (map[string]string, error) {
+func (a *autoridadNominalInscripcionBolsa) ambitosEscrituraInscripcion(ctx context.Context, s contextoSeguridadComunDesarrollo, acreditacion AcreditacionSesionInscripcionBolsa, accion, recurso string, ahora time.Time) (contextoRecursoEscrituraInscripcionBolsa, error) {
+	vacio := contextoRecursoEscrituraInscripcionBolsa{}
 	if accion == inscripcion.AccionPresentar {
 		v, err := s.Vinculo.Datos()
 		if err != nil {
-			return nil, inscripcion.ErrAccesoDenegado
+			return vacio, inscripcion.ErrAccesoDenegado
 		}
 		switch v.Superficie {
 		case vecdomain.SuperficieAutenticacionExternaPersonalV1:
 			ref, ok := vinculoUnicoInscripcion(s, vecdomain.TipoReferenciaContextoActorCandidato, ahora)
 			if ok {
-				return map[string]string{"candidato_ref": ref}, nil
+				return contextoRecursoEscrituraInscripcionBolsa{Ambitos: map[string]string{"candidato_ref": ref}}, nil
 			}
 		case vecdomain.SuperficieAutenticacionInternaCorporativaV1:
 			ref, ok := vinculoUnicoInscripcion(s, vecdomain.TipoReferenciaContextoActorEmpleado, ahora)
 			if ok && !a.rrhhNominalInscripcion(s, acreditacion) {
-				return map[string]string{"empleado_ref": ref}, nil
+				return contextoRecursoEscrituraInscripcionBolsa{Ambitos: map[string]string{"empleado_ref": ref}}, nil
 			}
 		}
-		return nil, inscripcion.ErrAccesoDenegado
+		return vacio, inscripcion.ErrAccesoDenegado
 	}
 	if (accion != inscripcion.AccionDecidir && accion != inscripcion.AccionIncorporar) ||
 		!a.rrhhNominalInscripcion(s, acreditacion) || nuloInscripcionBolsa(a.c.AmbitoRRHH) {
-		return nil, inscripcion.ErrAccesoDenegado
+		return vacio, inscripcion.ErrAccesoDenegado
 	}
 	captura, err := a.CapturarLectura(ctx, s, acreditacion, inscripcion.AccionDetalleRRHH, recurso, inscripcion.Filtro{})
 	if err != nil {
-		return nil, inscripcion.ErrAccesoDenegado
+		return vacio, inscripcion.ErrAccesoDenegado
+	}
+	if captura.ConjuntoGestion == nil || !captura.ConjuntoGestion.Valido(true) ||
+		captura.AmbitoSolicitud == nil || !captura.AmbitoSolicitud.Valido(false) ||
+		captura.ConjuntoGestion.UnidadRef != captura.AmbitoSolicitud.UnidadRef ||
+		captura.ConjuntoGestion.AmbitoRef != captura.AmbitoSolicitud.AmbitoRef {
+		return vacio, inscripcion.ErrAccesoDenegado
 	}
 	ambito, err := a.c.AmbitoRRHH.ResolverAmbitoRRHH(ctx, s, acreditacion, recurso, captura)
 	if err != nil || ambito.SolicitudRef != recurso || ambito.UnidadRef == "" || ambito.AmbitoRef == "" ||
 		ambito.FuenteRef == "" || ambito.FuenteVersion == 0 ||
 		!huellaCertificadoInscripcionValida(ambito.FuenteHuellaSHA256) || ambito.AuditoriaRef == "" {
-		return nil, inscripcion.ErrAccesoDenegado
+		return vacio, inscripcion.ErrAccesoDenegado
 	}
-	return map[string]string{"unidad_ref": ambito.UnidadRef, "ambito_ref": ambito.AmbitoRef}, nil
+	if ambito.UnidadRef != captura.AmbitoSolicitud.UnidadRef || ambito.AmbitoRef != captura.AmbitoSolicitud.AmbitoRef ||
+		ambito.FuenteRef != captura.AmbitoSolicitud.FuenteRef || ambito.FuenteVersion != captura.AmbitoSolicitud.FuenteVersion ||
+		ambito.FuenteHuellaSHA256 != captura.AmbitoSolicitud.FuenteSHA256 {
+		return vacio, inscripcion.ErrAccesoDenegado
+	}
+	conjunto, historico := *captura.ConjuntoGestion, *captura.AmbitoSolicitud
+	return contextoRecursoEscrituraInscripcionBolsa{Ambitos: map[string]string{"unidad_ref": ambito.UnidadRef, "ambito_ref": ambito.AmbitoRef},
+		ConjuntoGestion: &conjunto, AmbitoSolicitud: &historico}, nil
 }
 
-func recursoCanonicoDesdeMaterialInscripcion(accion string, material []byte, huella string, ambitos map[string]string) ([]byte, error) {
+func recursoCanonicoDesdeMaterialInscripcion(accion string, material []byte, huella string, contexto contextoRecursoEscrituraInscripcionBolsa) ([]byte, error) {
 	switch accion {
 	case inscripcion.AccionPresentar:
+		if contexto.ConjuntoGestion != nil || contexto.AmbitoSolicitud != nil {
+			return nil, inscripcion.ErrAccesoDenegado
+		}
 		var v struct {
 			ConvocatoriaRef   string                    `json:"convocatoria_ref"`
 			CategoriaRef      string                    `json:"categoria_ref"`
@@ -431,8 +479,11 @@ func recursoCanonicoDesdeMaterialInscripcion(accion string, material []byte, hue
 			return nil, inscripcion.ErrSolicitudInvalida
 		}
 		return inscripcion.RecursoPresentacion(inscripcion.Presentacion{ConvocatoriaRef: v.ConvocatoriaRef, CategoriaRef: v.CategoriaRef,
-			CatalogoVersion: v.CatalogoVersion, ClaveIdempotencia: v.ClaveIdempotencia, Declaraciones: v.Declaraciones}, huella, ambitos)
+			CatalogoVersion: v.CatalogoVersion, ClaveIdempotencia: v.ClaveIdempotencia, Declaraciones: v.Declaraciones}, huella, contexto.Ambitos)
 	case inscripcion.AccionDecidir:
+		if contexto.ConjuntoGestion == nil || contexto.AmbitoSolicitud == nil {
+			return nil, inscripcion.ErrAccesoDenegado
+		}
 		var v struct {
 			SolicitudRef      string `json:"solicitud_ref"`
 			Decision          string `json:"decision"`
@@ -444,8 +495,12 @@ func recursoCanonicoDesdeMaterialInscripcion(accion string, material []byte, hue
 			return nil, inscripcion.ErrSolicitudInvalida
 		}
 		return inscripcion.RecursoDecision(inscripcion.Decision{SolicitudRef: v.SolicitudRef, Tipo: v.Decision,
-			MotivoCodigo: v.MotivoCodigo, VersionEsperada: v.VersionEsperada, ClaveIdempotencia: v.ClaveIdempotencia}, huella, ambitos)
+			MotivoCodigo: v.MotivoCodigo, VersionEsperada: v.VersionEsperada, ClaveIdempotencia: v.ClaveIdempotencia}, huella,
+			contexto.Ambitos, *contexto.ConjuntoGestion, *contexto.AmbitoSolicitud)
 	case inscripcion.AccionIncorporar:
+		if contexto.ConjuntoGestion == nil || contexto.AmbitoSolicitud == nil {
+			return nil, inscripcion.ErrAccesoDenegado
+		}
 		var v struct {
 			SolicitudRef      string `json:"solicitud_ref"`
 			EvidenciaRef      string `json:"evidencia_ref"`
@@ -456,7 +511,8 @@ func recursoCanonicoDesdeMaterialInscripcion(accion string, material []byte, hue
 			return nil, inscripcion.ErrSolicitudInvalida
 		}
 		return inscripcion.RecursoIncorporacion(inscripcion.Incorporacion{SolicitudRef: v.SolicitudRef,
-			EvidenciaRef: v.EvidenciaRef, VersionEsperada: v.VersionEsperada, ClaveIdempotencia: v.ClaveIdempotencia}, huella, ambitos)
+			EvidenciaRef: v.EvidenciaRef, VersionEsperada: v.VersionEsperada, ClaveIdempotencia: v.ClaveIdempotencia}, huella,
+			contexto.Ambitos, *contexto.ConjuntoGestion, *contexto.AmbitoSolicitud)
 	default:
 		return nil, inscripcion.ErrAccesoDenegado
 	}
@@ -490,17 +546,30 @@ func (a *autoridadNominalInscripcionBolsa) AutorizarEscritura(ctx context.Contex
 	if err := a.c.Motivos.ValidarReferenciaMotivoAutorizacionV2(ctx, d.Motivo, ahora); err != nil {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
-	ambitos, err := a.ambitosEscrituraInscripcion(ctx, s, acreditacion, accion, recurso, ahora)
+	contextoRecurso, err := a.ambitosEscrituraInscripcion(ctx, s, acreditacion, accion, recurso, ahora)
 	if err != nil || !acreditacionInscripcionBolsaActual(s, acreditacion, a.c.Reloj.Ahora().UTC().Truncate(time.Microsecond)) {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
-	canon, err := recursoCanonicoDesdeMaterialInscripcion(accion, material, atributos["material_sha256"], ambitos)
+	canon, err := recursoCanonicoDesdeMaterialInscripcion(accion, material, atributos["material_sha256"], contextoRecurso)
+	if accion == inscripcion.AccionDecidir || accion == inscripcion.AccionIncorporar {
+		if contextoRecurso.ConjuntoGestion == nil || contextoRecurso.AmbitoSolicitud == nil {
+			return vacia, inscripcion.ErrAccesoDenegado
+		}
+		conjunto, historico := contextoRecurso.ConjuntoGestion, contextoRecurso.AmbitoSolicitud
+		atributos["conjunto_ref"] = conjunto.ConjuntoRef
+		atributos["conjunto_fuente_ref"] = conjunto.FuenteRef
+		atributos["conjunto_fuente_version"] = strconv.FormatUint(conjunto.FuenteVersion, 10)
+		atributos["conjunto_fuente_sha256"] = conjunto.FuenteSHA256
+		atributos["solicitud_fuente_ref"] = historico.FuenteRef
+		atributos["solicitud_fuente_version"] = strconv.FormatUint(historico.FuenteVersion, 10)
+		atributos["solicitud_fuente_sha256"] = historico.FuenteSHA256
+	}
 	var rc struct {
 		Ambitos   map[string]string `json:"ambitos"`
 		Atributos map[string]string `json:"atributos"`
 	}
 	if err != nil || len(canon) == 0 || len(canon) > 8*1024 || json.Unmarshal(canon, &rc) != nil ||
-		!maps.Equal(rc.Ambitos, ambitos) || !maps.Equal(rc.Atributos, atributos) {
+		!maps.Equal(rc.Ambitos, contextoRecurso.Ambitos) || !maps.Equal(rc.Atributos, atributos) {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
 	recursoV3 := vecdomain.RecursoAutorizable{Referencia: recurso, ModuloID: d.ModuloID, Tipo: d.TipoRecurso,

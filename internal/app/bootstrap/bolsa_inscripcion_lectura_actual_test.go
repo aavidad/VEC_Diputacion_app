@@ -29,6 +29,19 @@ type ambitoLecturaRRHHInscripcionPrueba struct {
 	err       error
 }
 
+type ambitoRecursoRRHHInscripcionPrueba struct {
+	resultado AmbitoRecursoRRHHInscripcionBolsa
+	llamadas  int
+}
+
+func (f *ambitoRecursoRRHHInscripcionPrueba) ResolverAmbitoRRHH(_ context.Context, _ contextoSeguridadComunDesarrollo, _ AcreditacionSesionInscripcionBolsa, ref string, captura inscripcion.CapturaLectura) (AmbitoRecursoRRHHInscripcionBolsa, error) {
+	f.llamadas++
+	if captura.Accion != inscripcion.AccionDetalleRRHH || captura.RecursoRef != ref || captura.AmbitoSolicitud == nil || captura.ConjuntoGestion == nil {
+		return AmbitoRecursoRRHHInscripcionBolsa{}, errors.New("captura no ligada")
+	}
+	return f.resultado, nil
+}
+
 func (f *ambitoLecturaRRHHInscripcionPrueba) ResolverAmbitoLecturaRRHH(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, inscripcion.Filtro) (AmbitoLecturaRRHHInscripcionBolsa, error) {
 	f.llamadas++
 	return f.resultado, f.err
@@ -103,12 +116,16 @@ func TestCamposLecturaInscripcionCubrenHojasDTOExactas(t *testing.T) {
 		{inscripcion.AccionDetallePropia, false, reflect.TypeOf(inscripcion.Solicitud{})},
 		{inscripcion.AccionListarRRHH, true, reflect.TypeOf(inscripcion.Pagina{})},
 		{inscripcion.AccionDetalleRRHH, true, reflect.TypeOf(inscripcion.Solicitud{})},
+		{inscripcion.AccionConvocatoriasRRHH, true, reflect.TypeOf(inscripcion.PaginaConvocatoriasGestion{})},
 		{inscripcion.AccionMotivosRRHH, true, reflect.TypeOf(inscripcion.CatalogoMotivos{})},
 	} {
 		t.Run(caso.accion, func(t *testing.T) {
 			actual := hojasJSONInscripcion(caso.tipo, "")
 			if caso.accion == inscripcion.AccionListarPropias || caso.accion == inscripcion.AccionDetallePropia {
 				actual = slices.DeleteFunc(actual, func(campo string) bool { return strings.HasSuffix(campo, "persona_resumen") })
+			}
+			if caso.accion == inscripcion.AccionListarPropias {
+				actual = slices.DeleteFunc(actual, func(campo string) bool { return campo == "convocatoria_titulo" })
 			}
 			slices.Sort(actual)
 			esperados := camposLecturaInscripcionBolsa(caso.accion, caso.rrhh)
@@ -150,7 +167,7 @@ func TestHuellaCamposLecturaInscripcionPorCanal(t *testing.T) {
 		t.Fatal(err)
 	}
 	huella := sha256.Sum256(canon)
-	const esperada = "6ac470412ee7d9a7b446ea9831d02833f4e1acb6c64a9ca12c2055f57f41adc3"
+	const esperada = "1d11d463fd7d111dea31bc1bfa98ce2be89e15c9a1b52eb6e9255f6e95bff60c"
 	if hex.EncodeToString(huella[:]) != esperada {
 		t.Fatalf("catálogo de campos cambió: %x", huella)
 	}
@@ -326,6 +343,33 @@ func TestDecisorLecturaRRHHComparaConjuntoActualEHistoria(t *testing.T) {
 		decision.ConjuntoGestion.FuenteVersion != 2 || decision.AmbitoSolicitud.FuenteVersion != 1 ||
 		getter.llamadas != 1 || fuente.llamadas != 1 {
 		t.Fatalf("conjunto actual/historia: %+v getter=%d fuente=%d err=%v", decision, getter.llamadas, fuente.llamadas, err)
+	}
+	autoridad := &autoridadNominalInscripcionBolsa{c: ConfiguracionAutoridadInscripcionBolsa{
+		Lectura: d, Reloj: relojFijoAltaContratacionTemporalDesarrollo{ahora: ahora},
+		Lecturas: map[ClaveOperacionInscripcionBolsa]DescriptorLecturaInscripcionBolsa{
+			{inscripcion.AccionDetalleRRHH, "interna_corporativa"}: {Accion: inscripcion.AccionDetalleRRHH,
+				Finalidad: "consulta_inscripcion_rrhh", Campos: camposLecturaInscripcionBolsa(inscripcion.AccionDetalleRRHH, true)},
+		}}}
+	captura, err := autoridad.CapturarLectura(context.Background(), s, a, inscripcion.AccionDetalleRRHH, ref, inscripcion.Filtro{})
+	if err != nil || captura.ConjuntoGestion == nil || captura.AmbitoSolicitud == nil ||
+		captura.ConjuntoGestion.FuenteVersion != 2 || captura.AmbitoSolicitud.FuenteVersion != 1 ||
+		!slices.Equal(captura.Campos, camposLecturaInscripcionBolsa(inscripcion.AccionDetalleRRHH, true)) {
+		t.Fatalf("captura perdió conjunto/historia/campos: %+v err=%v", captura, err)
+	}
+	getterEscritura := &ambitoRecursoRRHHInscripcionPrueba{resultado: AmbitoRecursoRRHHInscripcionBolsa{
+		SolicitudRef: ref, UnidadRef: unidad, AmbitoRef: ambito, FuenteRef: "fuente_historica", FuenteVersion: 1,
+		FuenteHuellaSHA256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", AuditoriaRef: "auditoria_prueba"}}
+	autoridad.c.AmbitoRRHH = getterEscritura
+	autoridad.rrhhNominal = []identidadRRHHInscripcionBolsa{{perfilRef: v.PerfilActivoRef, certificadoSHA256: a.CertificadoHuellaSHA256}}
+	ctxRecurso, err := autoridad.ambitosEscrituraInscripcion(context.Background(), s, a, inscripcion.AccionDecidir, ref, ahora)
+	if err != nil || getterEscritura.llamadas != 1 || ctxRecurso.ConjuntoGestion == nil || ctxRecurso.AmbitoSolicitud == nil ||
+		ctxRecurso.ConjuntoGestion.FuenteVersion != 2 || ctxRecurso.AmbitoSolicitud.FuenteVersion != 1 ||
+		ctxRecurso.Ambitos["unidad_ref"] != unidad || ctxRecurso.Ambitos["ambito_ref"] != ambito {
+		t.Fatalf("fuentes de recurso V3: %+v llamadas=%d err=%v", ctxRecurso, getterEscritura.llamadas, err)
+	}
+	getterEscritura.resultado.FuenteHuellaSHA256 = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	if _, err := autoridad.ambitosEscrituraInscripcion(context.Background(), s, a, inscripcion.AccionDecidir, ref, ahora); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+		t.Fatalf("fuente histórica cambiada aceptada: %v", err)
 	}
 	getter.resultado.AmbitoSolicitud.AmbitoRef = "otro_ambito"
 	fuente.llamadas = 0

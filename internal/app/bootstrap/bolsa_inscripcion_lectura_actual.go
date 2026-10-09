@@ -36,7 +36,7 @@ func camposLecturaInscripcionBolsa(accion string, rrhh bool) []string {
 		}
 		return resultado
 	}
-	bolsa := []string{"convocatoria_ref", "titulo", "categorias_resumen", "categorias[].categoria_ref",
+	bolsa := []string{"convocatoria_ref", "titulo", "numero_categorias", "categorias[].categoria_ref",
 		"categorias[].categoria", "plazo_inicio", "plazo_fin", "catalogo_version", "requisitos_resumen",
 		"puede_iniciar", "impedimento_etiqueta", "estado_solicitud_propia", "solicitud_ref"}
 	bolsa = append(bolsa, prefijar("requisitos[].", requisitos)...)
@@ -54,8 +54,10 @@ func camposLecturaInscripcionBolsa(accion string, rrhh bool) []string {
 		campos = append([]string{"total", "cursor_siguiente"}, prefijar("convocatorias[].", bolsa)...)
 	case inscripcion.AccionDetalleAbierta:
 		campos = bolsa
-	case inscripcion.AccionListarPropias, inscripcion.AccionListarRRHH:
+	case inscripcion.AccionListarPropias:
 		campos = append([]string{"total", "cursor_siguiente"}, prefijar("solicitudes[].", solicitud)...)
+	case inscripcion.AccionListarRRHH:
+		campos = append([]string{"total", "cursor_siguiente", "convocatoria_titulo"}, prefijar("solicitudes[].", solicitud)...)
 	case inscripcion.AccionDetallePropia, inscripcion.AccionDetalleRRHH:
 		campos = solicitud
 	case inscripcion.AccionMotivosRRHH:
@@ -201,7 +203,8 @@ func (d *decisorLecturaActualInscripcion) DecidirLecturaActual(ctx context.Conte
 		return vacia, inscripcion.ErrSolicitudInvalida
 	}
 	if accion == accionListarConvocatoriasGestionRRHHInscripcion &&
-		(filtro.Validar() != nil || filtro.Estado != "" || filtro.ConvocatoriaRef != "") {
+		(filtro.Validar() != nil || filtro.Estado != "" || filtro.ConvocatoriaRef != "" ||
+			(filtro.Cursor != "" && !inscripcion.ConvocatoriaRefValida(filtro.Cursor))) {
 		return vacia, inscripcion.ErrSolicitudInvalida
 	}
 	ahora := d.reloj.Ahora().UTC().Truncate(time.Microsecond)

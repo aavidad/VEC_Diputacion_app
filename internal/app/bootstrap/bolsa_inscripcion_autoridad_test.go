@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -132,7 +133,7 @@ func TestAutoridadInscripcionRechazaMaterialEscrituraAjenoAntesDeV3(t *testing.T
 		t.Fatal("canon válido rechazado")
 	}
 	canon, err := recursoCanonicoDesdeMaterialInscripcion(inscripcion.AccionPresentar, material, huella,
-		map[string]string{"empleado_ref": "emp_persona_prueba"})
+		contextoRecursoEscrituraInscripcionBolsa{Ambitos: map[string]string{"empleado_ref": "emp_persona_prueba"}})
 	var v struct {
 		Ambitos   map[string]string `json:"ambitos"`
 		Atributos map[string]string `json:"atributos"`
@@ -164,7 +165,8 @@ func TestAutoridadInscripcionAmbitoEmpleadoDelContextoYExternoSinCandidato(t *te
 	acreditacion := acreditacionSesionInscripcionPrueba(t, s, "interna_corporativa", ahora)
 	a := &autoridadNominalInscripcionBolsa{}
 	ambitos, err := a.ambitosEscrituraInscripcion(context.Background(), s, acreditacion, inscripcion.AccionPresentar, "solicitud_inscripcion_prueba", ahora)
-	if err != nil || len(ambitos) != 1 || ambitos["empleado_ref"] != empleado {
+	if err != nil || len(ambitos.Ambitos) != 1 || ambitos.Ambitos["empleado_ref"] != empleado ||
+		ambitos.ConjuntoGestion != nil || ambitos.AmbitoSolicitud != nil {
 		t.Fatalf("ámbito empleado: %+v %v", ambitos, err)
 	}
 	sExterna, _ := contextoInscripcionCanalPrueba(t, ahora, true, false)
@@ -227,5 +229,36 @@ func TestAutoridadInscripcionDieciseisDescriptoresPorCanal(t *testing.T) {
 		if clave.Canal == "externa_personal" && strings.HasSuffix(tipo, "_empleado") {
 			t.Fatalf("externo recibió tipo empleado: %+v %s", clave, tipo)
 		}
+	}
+}
+
+func TestAutoridadInscripcionFuenteVigenteCambiaRecursoSinCambiarComando(t *testing.T) {
+	ref := "solicitud_inscripcion_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	d := inscripcion.Decision{SolicitudRef: ref, Tipo: "admitir", VersionEsperada: 1, ClaveIdempotencia: "clave_inscripcion_prueba_01"}
+	material, huella, err := inscripcion.MaterialDecision(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conjunto := &inscripcion.AmbitoGestionInscripcion{ConjuntoRef: "conjunto_prueba", UnidadRef: "unidad_prueba",
+		AmbitoRef: "ambito_prueba", FuenteRef: "fuente_actual", FuenteVersion: 2,
+		FuenteSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+	historico := &inscripcion.AmbitoGestionInscripcion{UnidadRef: conjunto.UnidadRef, AmbitoRef: conjunto.AmbitoRef,
+		FuenteRef: "fuente_historica", FuenteVersion: 1,
+		FuenteSHA256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+	ctxRecurso := contextoRecursoEscrituraInscripcionBolsa{Ambitos: map[string]string{"unidad_ref": conjunto.UnidadRef,
+		"ambito_ref": conjunto.AmbitoRef}, ConjuntoGestion: conjunto, AmbitoSolicitud: historico}
+	primero, err := recursoCanonicoDesdeMaterialInscripcion(inscripcion.AccionDecidir, material, huella, ctxRecurso)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conjunto.FuenteVersion = 3
+	conjunto.FuenteSHA256 = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	segundo, err := recursoCanonicoDesdeMaterialInscripcion(inscripcion.AccionDecidir, material, huella, ctxRecurso)
+	if err != nil || bytes.Equal(primero, segundo) {
+		t.Fatalf("fuente CC1 nueva no cambió recurso: %v", err)
+	}
+	materialRepetido, huellaRepetida, err := inscripcion.MaterialDecision(d)
+	if err != nil || !bytes.Equal(material, materialRepetido) || huella != huellaRepetida {
+		t.Fatalf("fuente actual reescribió comando idempotente: %v", err)
 	}
 }
