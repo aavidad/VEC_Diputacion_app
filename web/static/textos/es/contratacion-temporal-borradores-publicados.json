@@ -3,6 +3,7 @@
     "bp_titulo": "Borradores del catálogo publicado",
     "bp_ficha_titulo": "Documentos generados",
     "bp_estado_borrador": "Borrador sin firmar",
+    "bp_estado_pendiente": "Todavía no disponible",
     "bp_subtitulo": "Tipos disponibles para este expediente y su versión actual",
     "bp_ayuda_boton": "Ayuda sobre los borradores publicados",
     "bp_ayuda": "Se ofrecen únicamente los tipos y formatos que devolvió el catálogo publicado para este expediente. Cada descarga consulta de nuevo los permisos y conserva los bytes originales. Un borrador descargado no es un documento firmado ni enviado.",
@@ -23,6 +24,7 @@
     "bp_listo": "Borrador descargado y comprobado: {nombre}",
     "bp_huella": "Código de comprobación: {huella}",
     "bp_descarga_error": "No se pudo comprobar la descarga. No se ha guardado ningún documento.",
+    "bp_no_disponible": "Este documento todavía no se puede preparar. Estará disponible cuando el expediente llegue a la fase que le corresponde.",
     "bp_catalogo": "Catálogo publicado",
     "bp_publicacion": "Publicación comprobada:",
     "bp_publicacion_recibo": "Recibo de publicación: {recibo}"
