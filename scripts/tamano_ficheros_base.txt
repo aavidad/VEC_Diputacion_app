@@ -139,7 +139,7 @@
 874 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
 963 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitacion.js
 470 deploy/postgresql/contratacion_temporal/migraciones/000194_validacion_necesidad_alta_v3.up.sql
-1009 deploy/postgresql/contratacion_temporal/migraciones/000200_peticion_centro_datos_puesto.up.sql
+1026 deploy/postgresql/contratacion_temporal/migraciones/000200_peticion_centro_datos_puesto.up.sql
 639 internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_test.go
 405 internal/modules/contrataciontemporal/adapters/httpinterno/alta_seguridad_test.go
 817 internal/modules/contrataciontemporal/adapters/postgres/ejecuciones_seleccion_llamamiento_test.go

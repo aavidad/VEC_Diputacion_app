@@ -221,6 +221,13 @@ BEGIN
        OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM v_contexto_huella THEN
         RAISE EXCEPTION 'autorización de petición divergente' USING ERRCODE='P0673';
     END IF;
+    -- Una presentación nueva debe traer los tres datos antes de consumir la
+    -- autorización V3. Si la clave ya existe es un replay de una revisión
+    -- antigua, que conserva su respuesta exacta.
+    IF v_operacion='presentar' AND NOT (sol ?& ARRAY['jornada_minutos','numero_personas','puesto_solicitado'])
+       AND NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.peticion_centro_revision WHERE clave_idempotencia=v_clave) THEN
+        RAISE EXCEPTION 'datos de puesto de la petición ausentes' USING ERRCODE='P0670';
+    END IF;
     SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_peticion_centro_v3_atestada(
         p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
     IF v_consumo.consumo_nuevo IS NOT TRUE OR v_consumo.efecto_ref IS DISTINCT FROM v_ref
@@ -241,8 +248,8 @@ BEGIN
         END IF;
         RETURN v_previa.recibo_json||jsonb_build_object('estado_local','replay_confirmado');
     END IF;
-    -- Las revisiones antiguas conservan su replay exacto. Una presentación
-    -- nueva ya debe llevar los tres datos, también si entra por SQL.
+    -- Segunda barrera, ya con la clave bloqueada: las revisiones antiguas
+    -- conservan su replay exacto y una presentación nueva lleva los tres datos.
     IF v_operacion='presentar' AND NOT (sol ?& ARRAY['jornada_minutos','numero_personas','puesto_solicitado']) THEN
         RAISE EXCEPTION 'datos de puesto de la petición ausentes' USING ERRCODE='P0670';
     END IF;
@@ -1004,6 +1011,16 @@ END
 $function$;
 
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.datos_puesto_peticion_validos_ct200(jsonb) FROM PUBLIC, vec_contratacion_temporal_migrador;
-REVOKE ALL ON FUNCTION vec_contratacion_temporal.registrar_peticion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea), vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea) FROM PUBLIC, vec_contratacion_temporal_migrador;
-GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.registrar_peticion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea), vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea) TO vec_contratacion_temporal_ejecutor;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.registrar_peticion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC, vec_contratacion_temporal_migrador;
+GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.registrar_peticion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_contratacion_temporal_ejecutor;
+-- CT47/CT48 dejaron v1 solo al propietario: el runtime entra por confirmar_alta_atestada_v3.
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea) FROM PUBLIC, vec_contratacion_temporal_ejecutor, vec_contratacion_temporal_migrador;
+DO $acl_ct200$
+BEGIN
+ IF pg_catalog.has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR NOT pg_catalog.has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.registrar_peticion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR pg_catalog.has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.datos_puesto_peticion_validos_ct200(jsonb)','EXECUTE') THEN
+   RAISE EXCEPTION 'CT200: PARO clave=acl esperado=ejecutor_solo_registrar actual=divergente' USING ERRCODE='55000';
+ END IF;
+END $acl_ct200$;
 COMMIT;
