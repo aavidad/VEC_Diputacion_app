@@ -167,6 +167,7 @@
     "resultado_bolsa_contacto_no_enviado": "Correo no enviado",
     "resultado_bolsa_contacto_numero_erroneo": "Número incorrecto",
     "resultado_bolsa_contacto_no_entregado": "Correo no entregado",
-    "resultado_bolsa_contacto_entrega_declarada": "Entrega registrada por RRHH"
+    "resultado_bolsa_contacto_entrega_declarada": "Entrega registrada por RRHH",
+    "resultado_bolsa_revisar": "Revisar el llamamiento en Bolsa"
   }
 }

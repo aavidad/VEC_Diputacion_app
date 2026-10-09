@@ -1,7 +1,7 @@
 /** Componentes HTML puros de la superficie de expedientes. */
 
 import "./atajos-incidencia.js";
-import { renderizarResultadoBolsa, continuidadBolsaDisponible } from "./resultado-bolsa.js?v=20261009-ct-resultado-bolsa-v2";
+import { renderizarResultadoBolsa, continuidadBolsaDisponible, requiereRevisionBolsa } from "./resultado-bolsa.js?v=20261009-ct-resultado-bolsa-v2";
 import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261009-ct-resultado-bolsa-v2";
 import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261009-ct-resultado-bolsa-v2";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
@@ -258,7 +258,7 @@ export function renderizarAbrirLlamamiento(expediente, resolverBolsa, t) {
     return "";
   }
   const atributo = (nombre, dato) => (dato ? ` data-origen-${nombre}="${escaparHTML(dato)}"` : "");
-  const etiqueta = continuidadBolsaDisponible(expediente) ? t("resultado_bolsa_continuar") : traducirPortal("panel_ct_abrir_llamamiento");
+  const etiqueta = requiereRevisionBolsa(expediente) ? t("resultado_bolsa_revisar") : continuidadBolsaDisponible(expediente) ? t("resultado_bolsa_continuar") : traducirPortal("panel_ct_abrir_llamamiento");
   return `<div class="acciones-vista"><button type="button" class="boton-primario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}"${atributo("expediente", origen.expediente_ref)}${atributo("referencia", origen.referencia)}${atributo("centro", origen.centro)}${atributo("inicio", origen.fecha_inicio)}>${escaparHTML(etiqueta)}</button></div>`;
 }
 

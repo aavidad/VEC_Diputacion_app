@@ -167,6 +167,7 @@
     "resultado_bolsa_contacto_no_enviado": "Email not sent",
     "resultado_bolsa_contacto_numero_erroneo": "Wrong number",
     "resultado_bolsa_contacto_no_entregado": "Email not delivered",
-    "resultado_bolsa_contacto_entrega_declarada": "Delivery recorded by HR"
+    "resultado_bolsa_contacto_entrega_declarada": "Delivery recorded by HR",
+    "resultado_bolsa_revisar": "Review the call-up in Job pools"
   }
 }

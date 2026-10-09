@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { aceptacionBolsaCompleta, continuidadBolsaDisponible, renderizarResultadoBolsa } from "./resultado-bolsa.js";
+import { requiereRevisionBolsa, continuidadBolsaDisponible, renderizarResultadoBolsa } from "./resultado-bolsa.js";
 import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js";
+import { renderizarLineaFases } from "./vista-expedientes-ficha.js";
 import { validarReciboVinculoBolsa, validarSolicitudVinculoBolsa } from "./cliente-http-vinculo-bolsa.js";
 
 const t = crearTraductorExpedientesContratacion();
@@ -20,16 +21,16 @@ function vinculo(emitido, respuesta = null, modo = null, situacion = "disponible
       recibo_situacion_ref: "recibo:situacion:prueba", situacion_desde: "2026-10-09T12:01:00Z" }] };
 }
 
-test("la aceptación completa usa el recuento autorizado de todo el filtro y las plazas solicitadas", () => {
-  assert.equal(aceptacionBolsaCompleta(expediente({ aceptaciones_firmes: 1 })), false);
-  assert.equal(aceptacionBolsaCompleta(expediente({ aceptaciones_firmes: 2 })), true);
-  assert.equal(aceptacionBolsaCompleta(expediente({ personas_solicitadas: null, aceptaciones_firmes: 10 })), false);
-  assert.equal(aceptacionBolsaCompleta({}), false);
+test("el recuento histórico de aceptaciones no cambia la fase confirmada por el servidor", () => {
+  const ficha = expediente({ aceptaciones_firmes: 2 });
+  ficha.fases = [{ fase_ref: "fase:obtencion_candidato", estado_clave: "pendiente", orden: 4, etiqueta: "Candidato" }];
+  assert.match(renderizarLineaFases(ficha, t), /class="falta"/u);
+  ficha.fases[0].estado_clave = "completado";
+  assert.match(renderizarLineaFases(ficha, t), /class="hecho"/u);
 });
 
 test("contacto y renuncia de situación no se presentan como aceptación ni respuesta formal", () => {
   const ficha = expediente({ vinculos: [vinculo("2026-10-09T10:00:00Z", null, null, "renuncia")] });
-  assert.equal(aceptacionBolsaCompleta(ficha), false);
   const html = renderizarResultadoBolsa(ficha, t, "es-ES", "Europe/Madrid");
   assert.match(html, /Sin respuesta registrada/u);
   assert.match(html, /Renuncia registrada en Bolsa/u);
@@ -77,4 +78,18 @@ test("muestra el contacto con fecha y justificante separado de la respuesta", as
   assert.doesNotMatch(html, /Aceptación confirmada/u);
   const en = crearTraductorExpedientesContratacion(await cargarMensajesExpedientesContratacionEnIdioma("en"));
   assert.match(renderizarResultadoBolsa(ficha, en, "en-GB", "Europe/Madrid"), /Accepts during contact/u);
+});
+
+test("una retirada posterior conserva la aceptación y ofrece revisión sin presumir renuncia formal", () => {
+  const v = vinculo("2026-10-09T10:00:00Z", "acepta", "firme", "renuncia");
+  const ficha = expediente({ vinculos: [v], personas_solicitadas: 1, aceptaciones_firmes: 1 });
+  const html = renderizarResultadoBolsa(ficha, t, "es-ES", "Europe/Madrid");
+  assert.match(html, /Aceptación confirmada/u);
+  assert.match(html, /Renuncia registrada en Bolsa/u);
+  assert.match(html, /recibo:respuesta:prueba/u);
+  assert.match(html, /recibo:situacion:prueba/u);
+  assert.equal(requiereRevisionBolsa(ficha), true);
+  assert.equal(continuidadBolsaDisponible(ficha), false);
+  v.participaciones[0].situacion_desde = "2026-10-09T11:59:00Z";
+  assert.equal(requiereRevisionBolsa(ficha), false);
 });

@@ -4,11 +4,12 @@ import { justificanteTraducido } from "../../portal-justificante.js";
 const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 
-export function aceptacionBolsaCompleta(expediente) {
-  const resultado = expediente?.resultado_bolsa;
-  return Number.isSafeInteger(resultado?.personas_solicitadas) && resultado.personas_solicitadas > 0
-    && Number.isSafeInteger(resultado.aceptaciones_firmes)
-    && resultado.aceptaciones_firmes >= resultado.personas_solicitadas;
+export function requiereRevisionBolsa(expediente) {
+  return expediente?.resultado_bolsa?.vinculos?.some((vinculo) => vinculo.participaciones?.some(
+    (persona) => persona.respuesta === "acepta" && persona.modo === "firme"
+      && persona.situacion_actual === "renuncia"
+      && Date.parse(persona.situacion_desde) > Date.parse(persona.respondida_en),
+  )) === true;
 }
 
 function fecha(valor, locale, zonaHoraria) {
@@ -25,7 +26,7 @@ function enlaceSeguimiento(vinculo, t) {
 
 export function continuidadBolsaDisponible(expediente) {
   const vinculos = expediente?.resultado_bolsa?.vinculos;
-  if (!Array.isArray(vinculos) || !vinculos.length || aceptacionBolsaCompleta(expediente)) return false;
+  if (!Array.isArray(vinculos) || !vinculos.length) return false;
   const normalizar = (instante) => instante.replace(/(?:\.(\d+))?Z$/u,
     (_final, fraccion = "") => `.${fraccion.padEnd(9, "0")}Z`);
   const ultimo = [...vinculos].sort((a, b) => normalizar(a.emitido_en).localeCompare(normalizar(b.emitido_en))).at(-1);
@@ -47,7 +48,7 @@ function resultadoPersona(persona, t, locale, zonaHoraria) {
       <div><dt>${escapar(t("resultado_bolsa_justificante_contacto"))}</dt><dd>${justificanteTraducido(persona.recibo_contacto_ref, escapar, t)}</dd></div>` : ""}
     ${persona.respuesta ? `<div><dt>${escapar(t("resultado_bolsa_fecha"))}</dt><dd>${fecha(persona.respondida_en, locale, zonaHoraria)}</dd></div>
       <div><dt>${escapar(t("resultado_bolsa_justificante"))}</dt><dd>${justificanteTraducido(persona.recibo_respuesta_ref, escapar, t)}</dd></div>` : ""}
-    ${!respuesta && renunciaSituacion ? `<div><dt>${escapar(t("resultado_bolsa_situacion"))}</dt><dd>${escapar(t("resultado_bolsa_situacion_renuncia"))}</dd></div>
+    ${renunciaSituacion ? `<div><dt>${escapar(t("resultado_bolsa_situacion"))}</dt><dd>${escapar(t("resultado_bolsa_situacion_renuncia"))}</dd></div>
       <div><dt>${escapar(t("resultado_bolsa_fecha_situacion"))}</dt><dd>${fecha(persona.situacion_desde, locale, zonaHoraria)}</dd></div>
       <div><dt>${escapar(t("resultado_bolsa_justificante_situacion"))}</dt><dd>${justificanteTraducido(persona.recibo_situacion_ref, escapar, t)}</dd></div>` : ""}
   </dl>`;
