@@ -4,7 +4,7 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261009-centro-campos-cohorte-v5";
+const versionCoordinador = "20261009-ct-ficha-rapida-v2";
 const versionCircuito = "20261009-centro-campos-cohorte-v5";
 const versionVista = "20261009-centro-campos-cohorte-v5";
 const versionVistaPortal = "20261009-centro-campos-cohorte-v5";
@@ -114,7 +114,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = cohorte;
   const cohorteIdioma = "20261009-centro-campos-cohorte-v5";
-  const cohorteEntrada = "20261009-centro-campos-cohorte-v5";
+  const cohorteEntrada = "20261009-ct-ficha-rapida-v2";
   const cohorteFicha = cohorteNavegacion;
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
@@ -125,8 +125,8 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   ]);
   const aristas = [
     [html, "/portal-empleado/portal.js", cohorteEntrada],
-    [html, "/portal-empleado/portal-modulos-coordinador.js", cohorteIdioma],
-    [portal, "./portal-modulos-coordinador.js", cohorteIdioma],
+    [html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinador],
+    [portal, "./portal-modulos-coordinador.js", versionCoordinador],
     [coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteClienteHTTP],
     [cliente, "./cliente-http-alta.js", cohorte],
     [cliente, "./cliente-http-transporte.js", "20261008-alta-corte-v1"],
@@ -163,7 +163,7 @@ test("la ficha compartible y su aviso usan una única cohorte empaquetada", asyn
     "../../interno.manifest", "../../produccion.manifest", "cache-publica-v1.json",
   ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const cohorte = "20261008-r-fichas-idioma-nav-v1";
-  const entrada = "20261009-centro-campos-cohorte-v5";
+  const entrada = "20261009-ct-ficha-rapida-v2";
   exigirVersiones(html, "/portal-empleado/portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(portal, "./portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(coordinador, "./portal-ct-ruta-ficha.js", cohorte);

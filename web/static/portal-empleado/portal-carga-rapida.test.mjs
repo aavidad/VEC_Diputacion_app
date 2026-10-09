@@ -670,3 +670,84 @@ test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras
     assert.doesNotMatch(inicial, new RegExp(`/modulos/${grupo}/[^" ]+\\.css`), `${grupo} no bloquea Inicio ni CT`);
   }
 });
+
+// 09/10/2026 (PR #962): de la lista a la ficha pasaban ~1,1 s antes de pedir el
+// detalle. La lista ya tiene el cuadro, su resumen y los catálogos del alta
+// autorizados; la ficha los toma una vez y descarga su vista mientras consulta.
+test("abrir una ficha desde la lista no repite consultas y pide el detalle sin esperar a la vista", async (t) => {
+  const llamadas = [];
+  const vista = diferido();
+  const fila = Object.freeze({ expediente_ref: "expediente:ct:0001", numero_visible: "2026/CT-0001", version: 2,
+    fase_clave: "solicitud", estado_clave: "pendiente", centro_ref: "centro:001", categoria_ref: "categoria:auxiliar",
+    creado_en: "2026-10-01T08:00:00Z", actualizado_en: "2026-10-01T09:00:00Z" });
+  const resumen = Object.freeze({ en_tramite: 1, con_incidencia: 0, vencidos: 0, vencen_hoy: 0,
+    vencen_semana: 0, sin_calcular: 1, por_fase: Object.freeze({ solicitud: 1 }) });
+  const cliente = Object.freeze({
+    consultarCuadroRRHH: async (solicitud) => {
+      llamadas.push(solicitud.resumen ? `cuadro+resumen:${solicitud.paginacion.limite}` : `cuadro:${solicitud.paginacion.limite}`);
+      return { generada_en: "2026-10-01T09:00:00Z", expedientes: [fila], hay_mas: false,
+        ...(solicitud.resumen ? { resumen } : {}) };
+    },
+    obtenerCatalogosAlta: async () => { llamadas.push("alta"); return { centros: [], categorias: [] }; },
+    obtenerConfiguracionAnalisis: async () => { llamadas.push("analisis"); throw new Error("503"); },
+    registrarSolicitud: async () => ({}),
+  });
+  const consultaCuadro = (c, limite, conResumen = false) => c.consultarCuadroRRHH({
+    filtros: { texto: "", estado_clave: "", fase_clave: "" }, paginacion: { limite, cursor: "" },
+    ...(conResumen ? { resumen: true } : {}) });
+  let fuenteCompleta = null;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
+    cargarFasesCircuito: async () => ({ solicitud: "Solicitud" }),
+    cargadoresInternos: { contratacion_temporal: async () => ({
+      cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+      contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
+      cargarCuadroLigero: () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js"),
+      cargarCompleto: async () => ({
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: ({ cliente: c }) => (fuenteCompleta = {
+          capacidades: [],
+          resumenInicio: async () => ({ resumen: (await consultaCuadro(c, 1, true)).resumen }),
+          listar: () => consultaCuadro(c, 100),
+        }) },
+        presentador: { crearPresentadorExpedientesContratacionTemporal: ({ fuente }) => {
+          let cuadro = null;
+          return { cargar: async () => { cuadro = await fuente.listar(); }, obtenerEstado: () => ({ cuadro }),
+            seleccionarExpediente: async (referencia) => { llamadas.push(`detalle:${referencia}`); } };
+        } },
+      }),
+      cargarVista: () => { llamadas.push("vista"); return vista.promesa; },
+    }) },
+  });
+  await coordinador.cargarInterno();
+  const eventos = new Map();
+  const raiz = { eventos, innerHTML: "", replaceChildren() { this.innerHTML = ""; },
+    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); }, removeEventListener(tipo) { eventos.delete(tipo); },
+    contains: () => true, querySelector: () => null, querySelectorAll: () => [], setAttribute() {}, removeAttribute() {} };
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+  await esperarTurnos(20);
+  assert.deepEqual(llamadas, ["cuadro+resumen:100", "alta"], "la lista: una página con resumen y sus nombres");
+  const clic = eventos.get("click")({ target: { closest: () => ({ dataset: { ctExpAbrir: fila.expediente_ref } }) } });
+  await esperarTurnos(40);
+  assert.deepEqual(llamadas.slice(2), ["analisis", "vista", `detalle:${fila.expediente_ref}`],
+    "ni cuadro, ni resumen, ni catálogos repetidos; el detalle sale antes de que llegue la vista");
+  const montajes = [];
+  vista.resolver({ vista: { montarModuloContratacionTemporal: async () => { montajes.push("ficha"); return { desmontar() {} }; } } });
+  await clic;
+  assert.deepEqual(montajes, ["ficha"]);
+  await consultaCuadro({ consultarCuadroRRHH: (...args) => fuenteCompleta.listar(...args) }, 100);
+  assert.equal(llamadas.at(-1), "cuadro:100", "una recarga posterior vuelve a consultar el servidor");
+  // Un enlace directo a la ficha no viene de la lista: consulta el cuadro.
+  vista.resolver({ vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) } });
+  const antes = llamadas.length;
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz, { expedienteRef: fila.expediente_ref }), true);
+  assert.deepEqual(llamadas.slice(antes), ["cuadro:100", `detalle:${fila.expediente_ref}`]);
+  // Un clic en una lista abierta hace más de 30 s también consulta el cuadro.
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+  await esperarTurnos(20);
+  t.mock.method(performance, "now", () => Number.MAX_SAFE_INTEGER);
+  const tardio = llamadas.length;
+  await eventos.get("click")({ target: { closest: () => ({ dataset: { ctExpAbrir: fila.expediente_ref } }) } });
+  assert.deepEqual(llamadas.slice(tardio), ["cuadro:100", `detalle:${fila.expediente_ref}`]);
+  coordinador.desmontarVistaActual();
+});
