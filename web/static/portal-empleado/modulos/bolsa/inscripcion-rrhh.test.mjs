@@ -27,7 +27,7 @@ test("cliente RRHH conserva filtros, identidad fuera del cuerpo y valida recibo"
     if (ruta.includes("/decisiones")) return respuesta(201, { esquema: "vec.bolsa.inscripcion.decision.recibo.v1",
       solicitud_ref: "solicitud:1", recibo_ref: "recibo:1", estado: "admitida_a_convocatoria", version: 2,
       decidida_en: "2026-10-08T11:00:00Z", participacion_ref: null, repetida: false });
-    return respuesta(200, { esquema: "vec.bolsa.inscripciones.rrhh.v1", solicitudes: [solicitud],
+    return respuesta(200, { esquema: "vec.bolsa.inscripciones.rrhh.v1", convocatoria_titulo: "Bolsa de personal de apoyo", solicitudes: [solicitud],
       total: 1, cursor_siguiente: null });
   } });
   assert.equal((await cliente.listar({ convocatoria: "convocatoria:1", idioma: "en" })).total, 1);
@@ -53,6 +53,27 @@ test("selector consulta convocatoria histórica paginada y la bandeja exige conv
   const pagina = await cliente.convocatorias({ limite: 20, cursor: "cv1_inicio_v1", idioma: "en" });
   assert.equal(pagina.convocatorias[0].estado_publicacion, "sustituida");
   assert.equal(llamadas[0], "/api/vec/bolsa/rrhh/inscripciones/convocatorias?limite=20&cursor=cv1_inicio_v1&idioma=en");
+});
+
+test("las etiquetas históricas de hasta 2048 bytes caben en selector y página de 50", async () => {
+  for (const etiqueta of ["á".repeat(205), "á".repeat(1024)]) {
+    const cliente = crearClienteInscripcionesRRHH({ fetchImpl: async (ruta) => ruta.includes("/convocatorias?")
+      ? respuesta(200, { esquema: "vec.bolsa.inscripciones.rrhh.convocatorias.v1",
+        convocatorias: [{ ...convocatoriaHistorica, categorias_resumen: etiqueta }],
+        total: 1, cursor_siguiente: null })
+      : respuesta(200, { esquema: "vec.bolsa.inscripciones.rrhh.v1",
+        convocatoria_titulo: "Bolsa de personal de apoyo",
+        solicitudes: Array.from({ length: 50 }, (_, i) => ({ ...solicitud,
+          solicitud_ref: `solicitud:${i + 1}`, categoria: etiqueta })), total: 50, cursor_siguiente: null }) });
+    assert.equal((await cliente.convocatorias()).convocatorias[0].categorias_resumen, etiqueta);
+    assert.equal((await cliente.listar({ convocatoria: "convocatoria:1" })).solicitudes.length, 50);
+  }
+  const excesiva = "á".repeat(1025);
+  const cliente = crearClienteInscripcionesRRHH({ fetchImpl: async () => respuesta(200,
+    { esquema: "vec.bolsa.inscripciones.rrhh.convocatorias.v1",
+      convocatorias: [{ ...convocatoriaHistorica, categorias_resumen: excesiva }],
+      total: 1, cursor_siguiente: null }) });
+  await assert.rejects(cliente.convocatorias(), /convocatorias incompatibles/u);
 });
 
 test("una respuesta de otra solicitud o sin recibo no confirma la decisión", async () => {
@@ -146,7 +167,7 @@ test("selector histórico se abre antes de la bandeja y enlaza filtro exacto", a
     cliente: { convocatorias: async () => ({ convocatorias: [convocatoriaHistorica], total: 1,
       cursor_siguiente: null }),
       listar: async ({ convocatoria }) => { lecturasLista++; assert.equal(convocatoria, "convocatoria:historica");
-        return { solicitudes: [], total: 0, cursor_siguiente: null }; },
+        return { convocatoria_titulo: "Bolsa de personal de apoyo", solicitudes: [], total: 0, cursor_siguiente: null }; },
       detalle: async () => detalle, motivos: async () => ({ motivos: [] }),
       decidir: async () => ({}), incorporar: async () => ({}) } });
   await new Promise((r) => setTimeout(r, 0));
@@ -154,11 +175,43 @@ test("selector histórico se abre antes de la bandeja y enlaza filtro exacto", a
   assert.match(raiz.innerHTML, /Primera categoría: Auxiliar administrativo/u);
   assert.match(raiz.innerHTML, /Sustituida/u);
   assert.match(raiz.innerHTML, /Plazo finalizado/u);
+  let impedido = false;
+  eventos.get("click")({ target: { closest: () => ({ dataset: { inscripcionElegir: "convocatoria:historica" },
+    matches: () => true, hasAttribute: () => false }) }, ctrlKey: true,
+  preventDefault() { impedido = true; } });
+  assert.equal(impedido, false);
+  assert.equal(lecturasLista, 0);
   eventos.get("click")({ target: { closest: () => ({ dataset: { inscripcionElegir: "convocatoria:historica" },
     matches: () => true, hasAttribute: () => false }) }, preventDefault() {} });
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(lecturasLista, 1);
   assert.match(ruta, /inscripcion_convocatoria=convocatoria%3Ahistorica/u);
+  vista.desmontar();
+});
+
+test("URL directa identifica la convocatoria vacía y conserva página histórica al filtrar", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "", addEventListener: (tipo, f) => eventos.set(tipo, f),
+    removeEventListener: (tipo) => eventos.delete(tipo), replaceChildren() { this.innerHTML = ""; } };
+  let destino;
+  const vista = await montarInscripcionesRRHH({ raiz,
+    localizacion: new URL("https://vec.example/portal-empleado/?inscripcion_convocatoria=convocatoria%3Ahistorica&inscripcion_convocatorias_cursor=cv1_hist_v1#solicitudes"),
+    historial: { pushState: (_estado, _titulo, ruta) => { destino = ruta; } },
+    cliente: { convocatorias: async () => { throw new Error("no debe cargar selector"); },
+      listar: async () => ({ convocatoria_titulo: "Bolsa histórica de apoyo", solicitudes: [],
+        total: 0, cursor_siguiente: null }),
+      detalle: async () => detalle, motivos: async () => ({ motivos: [] }),
+      decidir: async () => ({}), incorporar: async () => ({}) } });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.match(raiz.innerHTML, /Filtro activo: Bolsa histórica de apoyo/u);
+  assert.doesNotMatch(raiz.innerHTML, /convocatoria:historica/u);
+  const FormDataAnterior = globalThis.FormData;
+  try {
+    globalThis.FormData = class { get() { return "rechazada"; } };
+    eventos.get("submit")({ target: { matches: () => true }, preventDefault() {} });
+  } finally { globalThis.FormData = FormDataAnterior; }
+  assert.match(destino, /inscripcion_estado=rechazada/u);
+  assert.match(destino, /inscripcion_convocatorias_cursor=cv1_hist_v1/u);
   vista.desmontar();
 });
 
@@ -176,7 +229,7 @@ test("selector vacío, caído o denegado ofrece una salida sin pedir la bandeja"
         decidir: async () => ({}), incorporar: async () => ({}) } });
     await new Promise((r) => setTimeout(r, 0));
     assert.match(raiz.innerHTML, estado === 503 ? /No se pudieron consultar las convocatorias/u
-      : estado === 403 ? /No puede consultar estas solicitudes/u : /No hay convocatorias con solicitudes/u);
+      : estado === 403 ? /No puede consultar estas solicitudes/u : /No hay convocatorias publicadas/u);
     assert.doesNotMatch(raiz.innerHTML, /tabla-datos/u);
     vista.desmontar();
   }
@@ -243,7 +296,7 @@ test("RRHH no puede confirmar admisión con un requisito obligatorio pendiente",
     localizacion: new URL("https://vec.example/portal-empleado/?inscripcion_convocatoria=convocatoria%3A1#solicitudes"),
     historial: { pushState() {} },
     cliente: { convocatorias: async () => ({ convocatorias: [], total: 0, cursor_siguiente: null }),
-      listar: async () => ({ solicitudes: [solicitud], total: 1, cursor_siguiente: null }),
+      listar: async () => ({ convocatoria_titulo: "Bolsa de personal de apoyo", solicitudes: [solicitud], total: 1, cursor_siguiente: null }),
       detalle: async () => ({ ...detalle, requisitos: [{ ...detalle.requisitos[0], estado: "pendiente" }] }),
       motivos: async () => ({ motivos: [] }), decidir: async () => { throw new Error("no debe decidir"); },
       incorporar: async () => { throw new Error("no debe incorporar"); } } });
@@ -269,7 +322,7 @@ test("cambiar de pantalla durante la carga de textos no lanza una lectura tardí
     localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
     cargarCatalogo: () => new Promise((resolver) => { continuar = resolver; }),
     cliente: { convocatorias: async () => ({ convocatorias: [], total: 0, cursor_siguiente: null }),
-      listar: async () => { lecturas++; return { solicitudes: [], total: 0, cursor_siguiente: null }; },
+      listar: async () => { lecturas++; return { convocatoria_titulo: "Bolsa de personal de apoyo", solicitudes: [], total: 0, cursor_siguiente: null }; },
       detalle: async () => solicitud, motivos: async () => ({ motivos: [] }),
       decidir: async () => ({}), incorporar: async () => ({}) } });
   controlador.abort(); continuar(textos);
@@ -291,7 +344,7 @@ test("una ficha tardía no sustituye la selección RRHH más reciente", async ()
     localizacion: new URL("https://vec.example/portal-empleado/?inscripcion_convocatoria=convocatoria%3A1#solicitudes"),
     historial: { pushState() {} },
     cliente: { convocatorias: async () => ({ convocatorias: [], total: 0, cursor_siguiente: null }),
-      listar: async () => ({ solicitudes: [solicitud, segunda], total: 2, cursor_siguiente: null }),
+      listar: async () => ({ convocatoria_titulo: "Bolsa de personal de apoyo", solicitudes: [solicitud, segunda], total: 2, cursor_siguiente: null }),
       detalle: (ref) => ref === "solicitud:1" ? new Promise((r) => { resolverPrimera = r; }) : Promise.resolve(segunda),
       motivos: async () => ({ motivos: [] }), decidir: async () => ({}), incorporar: async () => ({}) } });
   await new Promise((r) => setTimeout(r, 0));
@@ -318,7 +371,7 @@ test("identidad pendiente conserva solicitud y clave al reintentar incorporació
     localizacion: new URL("https://vec.example/portal-empleado/?inscripcion_convocatoria=convocatoria%3A1#solicitudes"),
     historial: { pushState() {} },
     cliente: { convocatorias: async () => ({ convocatorias: [], total: 0, cursor_siguiente: null }),
-      listar: async () => ({ solicitudes: [admitida], total: 1, cursor_siguiente: null }),
+      listar: async () => ({ convocatoria_titulo: "Bolsa de personal de apoyo", solicitudes: [admitida], total: 1, cursor_siguiente: null }),
       detalle: async () => admitida, motivos: async () => ({ motivos: [] }), decidir: async () => ({}),
       incorporar: async (argumento) => { intentos.push(argumento); throw Object.assign(new Error("pendiente"),
         { estado: 409, codigo: "vinculo_identidad_pendiente" }); } } });

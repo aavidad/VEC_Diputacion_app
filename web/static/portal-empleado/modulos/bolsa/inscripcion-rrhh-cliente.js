@@ -9,6 +9,7 @@ const ESQUEMAS = Object.freeze({ lista: "vec.bolsa.inscripciones.rrhh.v1",
   detalle: "vec.bolsa.inscripcion.rrhh.v1", motivos: "vec.bolsa.inscripcion.motivos.v1",
   recibo: "vec.bolsa.inscripcion.decision.recibo.v1" });
 const MAXIMO_RESPUESTA = 256 * 1024;
+const bytesUTF8 = (valor) => new TextEncoder().encode(valor).byteLength;
 
 function referencia(valor) {
   if (typeof valor !== "string" || !REF.test(valor) || valor.trim() !== valor) throw new TypeError("referencia incompatible");
@@ -19,7 +20,8 @@ function solicitudValida(item) {
   return item && typeof item === "object" && referencia(item.solicitud_ref) && referencia(item.recibo_ref)
     && referencia(item.convocatoria_ref) && referencia(item.categoria_ref) && referencia(item.declaracion_ref)
     && (item.bolsa_ref == null || referencia(item.bolsa_ref))
-    && typeof item.categoria === "string" && item.categoria.trim().length > 0 && item.categoria.length <= 240
+    && typeof item.categoria === "string" && item.categoria.trim().length > 0
+    && bytesUTF8(item.categoria) <= 2048
     && (item.persona_resumen == null
       || typeof item.persona_resumen === "string" && item.persona_resumen.length <= 240)
     && ESTADOS.has(item.estado)
@@ -122,7 +124,7 @@ export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } =
         || !data.convocatorias.every((item) => item && referencia(item.convocatoria_ref)
           && typeof item.titulo === "string" && item.titulo.trim().length > 0 && item.titulo.length <= 180
           && typeof item.categorias_resumen === "string" && item.categorias_resumen.trim().length > 0
-          && item.categorias_resumen.length <= 2048
+          && bytesUTF8(item.categorias_resumen) <= 2048
           && typeof item.plazo_fin === "string" && Number.isFinite(Date.parse(item.plazo_fin))
           && ["publicada", "sustituida", "retirada"].includes(item.estado_publicacion))) {
         throw new TypeError("convocatorias incompatibles");
@@ -138,7 +140,9 @@ export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } =
       if (cursor) parametros.set("cursor", cursor);
       if (idioma) parametros.set("idioma", idioma);
       const { estado: http, data } = await pedir(fetchImpl, `${BASE}?${parametros}`, { signal });
-      if (http !== 200 || data?.esquema !== ESQUEMAS.lista || !Array.isArray(data.solicitudes)
+      if (http !== 200 || data?.esquema !== ESQUEMAS.lista
+        || typeof data.convocatoria_titulo !== "string" || !data.convocatoria_titulo.trim()
+        || data.convocatoria_titulo.length > 180 || !Array.isArray(data.solicitudes)
         || data.solicitudes.length > limite || !data.solicitudes.every(solicitudValida)
         || !Number.isSafeInteger(data.total) || data.total < data.solicitudes.length
         || (data.cursor_siguiente !== null && !referencia(data.cursor_siguiente))) throw new TypeError("lista incompatible");

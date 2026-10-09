@@ -55,6 +55,12 @@
   padding: 16px;
 }
 
+[data-inscripciones-montaje] [data-inscripcion-elegir],
+[data-inscripciones-montaje] [data-inscripcion-elegir] > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .tarjeta-modulo-habilitada {
   border-color: var(--portal-azul-700);
   box-shadow: var(--portal-sombra-sm);

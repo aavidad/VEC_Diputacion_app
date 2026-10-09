@@ -17,7 +17,7 @@
     "plazo_cerrado": "El plazo de esta convocatoria ha terminado. Actualice la lista y compruebe el estado de la solicitud.",
     "reintentar": "Reintentar",
     "vacio": "No hay solicitudes con este estado. Cambie el estado o elija otra convocatoria.",
-    "vacio_convocatorias": "No hay convocatorias con solicitudes que pueda gestionar. Si esperaba alguna, consulte con la persona responsable.",
+    "vacio_convocatorias": "No hay convocatorias publicadas que pueda gestionar con este acceso. Si esperaba alguna, consulte con la persona responsable.",
     "elegir_convocatoria": "Elija una convocatoria",
     "ver_solicitudes": "Ver solicitudes",
     "fin_plazo": "Fin del plazo",
