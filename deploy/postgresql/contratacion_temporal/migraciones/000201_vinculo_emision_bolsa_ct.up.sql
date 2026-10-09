@@ -14,6 +14,7 @@ BEGIN
     OR to_regprocedure('vec_bolsa_llamamientos.leer_resultado_emision_ct_v1(text,text,text)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.leer_resultados_emisiones_ct_v1(jsonb)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.contar_aceptaciones_firmes_ct_v1(jsonb)') IS NULL
+    OR to_regrole('vec_contratacion_temporal_consultor_rrhh') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_vinculo_emision_bolsa_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
   RAISE EXCEPTION 'CT201: PARO clave=preimagen esperado=B98_AD233_CT_actual actual=incompatible' USING ERRCODE='55000';
  END IF;
@@ -278,7 +279,7 @@ DECLARE d record; actual record; vinculos jsonb; sugeridas jsonb; n integer;
  personas_text text; personas numeric; aceptaciones integer;
 BEGIN
  IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
-    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_contratacion_temporal_consultor_rrhh','MEMBER') IS NOT TRUE
     OR current_setting('transaction_isolation')<>'serializable'
     OR current_setting('transaction_read_only')<>'off'
     OR (p_cursor IS NOT NULL AND p_cursor !~
@@ -391,7 +392,7 @@ REVOKE ALL ON FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_bols
  bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(
  vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,
- bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text) TO vec_contratacion_temporal_ejecutor;
+ bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text) TO vec_contratacion_temporal_consultor_rrhh;
 
 -- La primera página conserva la firma que consume la ficha actual.
 CREATE FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(
@@ -418,5 +419,5 @@ REVOKE ALL ON FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_bols
  bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(
  vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,
- bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_contratacion_temporal_ejecutor;
+ bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_contratacion_temporal_consultor_rrhh;
 COMMIT;

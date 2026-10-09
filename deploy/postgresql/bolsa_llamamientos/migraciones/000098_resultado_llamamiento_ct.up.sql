@@ -16,6 +16,7 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.constitucion') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.sustitucion_bolsa') IS NULL
     OR to_regrole('vec_contratacion_temporal_propietario') IS NULL
+    OR to_regrole('vec_contratacion_temporal_consultor_rrhh') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text,text)') IS NOT NULL
     OR to_regprocedure('vec_bolsa_llamamientos.resolver_bolsa_vigente_ct_v1(text)') IS NOT NULL
     OR to_regprocedure('vec_bolsa_llamamientos.leer_resultado_emision_ct_v1(text,text,text)') IS NOT NULL THEN
@@ -61,7 +62,7 @@ SET search_path=pg_catalog,pg_temp SET row_security=on SET statement_timeout='3s
 DECLARE actual record;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
-    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_contratacion_temporal_consultor_rrhh','MEMBER') IS NOT TRUE
     OR p_categoria IS NULL OR p_categoria='' THEN
   RAISE EXCEPTION 'B98: bolsa por categoría no autorizada' USING ERRCODE='42501';
  END IF;
@@ -104,7 +105,7 @@ SET search_path=pg_catalog,pg_temp SET row_security=on SET statement_timeout='3s
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
     OR session_user=current_user
-    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_contratacion_temporal_consultor_rrhh','MEMBER') IS NOT TRUE
     OR p_bolsa IS NULL OR p_bolsa='' OR p_referencia IS NULL OR p_referencia=''
     OR p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 20
     OR p_excluir IS NULL
@@ -132,7 +133,7 @@ DECLARE v_resultado jsonb;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
     OR session_user=current_user
-    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_contratacion_temporal_consultor_rrhh','MEMBER') IS NOT TRUE
     OR p_bolsa IS NULL OR p_llamamiento IS NULL OR p_recibo IS NULL THEN
    RAISE EXCEPTION 'B98: lectura de resultado no autorizada' USING ERRCODE='42501';
  END IF;
@@ -185,7 +186,7 @@ DECLARE v_resultado jsonb; v_esperados integer;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
     OR session_user=current_user
-    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_contratacion_temporal_consultor_rrhh','MEMBER') IS NOT TRUE
     OR p_vinculos IS NULL OR jsonb_typeof(p_vinculos)<>'array'
     OR jsonb_array_length(p_vinculos)>100 THEN
   RAISE EXCEPTION 'B98: lectura por lote no autorizada' USING ERRCODE='42501';
@@ -255,7 +256,7 @@ SET search_path=pg_catalog,pg_temp SET row_security=on SET statement_timeout='5s
 DECLARE esperados integer; encontrados integer; aceptaciones integer;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
-    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_contratacion_temporal_consultor_rrhh','MEMBER') IS NOT TRUE
     OR p_vinculos IS NULL OR jsonb_typeof(p_vinculos)<>'array' THEN
   RAISE EXCEPTION 'B98: resumen de respuestas no autorizado' USING ERRCODE='42501';
  END IF;
