@@ -6,8 +6,10 @@ Desde que se instaló AD172 en la principal, el núcleo de autorización solo
 acepta un uso nuevo de una autorización si encuentra su fila en
 `vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1`. La fila es la
 terna LOGIN, audiencia y operación, más el canal y el nombre del proceso. Si no
-la encuentra, PostgreSQL responde `42501 origen de consumo no acreditado` y la
-API lo devuelve como `403`, sin más pista.
+la encuentra, el núcleo actual responde `VA172 origen de consumo no acreditado`.
+La respuesta HTTP depende del consumidor; la lectura de Mi Bolsa devolvió
+`503` en el ensayo del 9 de octubre. El núcleo anterior usaba `42501`, por eso
+los rechazos históricos descritos a continuación aparecían como `403`.
 
 El 6 de octubre de 2026 la tabla de la principal solo tenía las dos filas de la
 administración. Por eso casi todo lo que hace RRHH en vec-server daba 403 aunque
