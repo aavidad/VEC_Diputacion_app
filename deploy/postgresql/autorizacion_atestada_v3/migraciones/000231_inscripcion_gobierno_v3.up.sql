@@ -46,6 +46,10 @@ BEGIN
  OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_incorporacion_inscripcion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR pg_catalog.to_regprocedure('vec_autorizacion.acreditar_version_inscripcion_v1(jsonb)') IS NULL
  OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_version_inscripcion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+ OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_version_inscripcion_v1(jsonb)') IS NOT NULL
+ OR EXISTS(SELECT 1 FROM pg_catalog.pg_attribute a
+   WHERE a.attrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::pg_catalog.regclass
+   AND a.attname='version_inscripcion_solicitud_sha256' AND NOT a.attisdropped)
  OR pg_catalog.to_regrole('vec_admin_version_inscripcion_ejecutor') IS NOT NULL
  THEN RAISE EXCEPTION 'AD231: preimagen causal divergente' USING ERRCODE='55000'; END IF;
 END $pre$;
@@ -2967,10 +2971,96 @@ GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.consumir_version_inscripc
  bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_autorizacion_propietario;
 REVOKE GRANT OPTION FOR EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.consumir_version_inscripcion_v3_atestada(
  bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM vec_autorizacion_propietario;
+CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_intento_version_inscripcion_v1(p_evento jsonb)
+RETURNS TABLE(auditoria_ref text,secuencia numeric,huella_sha256 text,correlacion_ref text,registrada_en timestamptz)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s'
+AS $funcion$
+DECLARE
+ v_orden constant text[]:=ARRAY['tipo_registro','evento_ref','operador_login','solicitud_sha256',
+  'accion','recurso_ref','resultado','motivo_ref','proceso','canal','finalidad_ref','correlacion_ref'];
+ v_claves text[];v_clave text;v_material bytea;v_material_sha text;v_anterior text;
+ v_secuencia numeric;v_instante timestamptz(6);v_ref text;v_huella text;v_existente record;
+BEGIN
+ IF current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off'
+ OR current_setting('TimeZone')<>'UTC'
+ OR current_setting('role')<>'none'
+ OR vec_autorizacion_atestada_v3.login_version_inscripcion_valido_v1() IS NOT TRUE
+ THEN RAISE EXCEPTION 'AD231: transacción de intento incompatible' USING ERRCODE='25000'; END IF;
+ IF jsonb_typeof(p_evento) IS DISTINCT FROM 'object'
+ OR octet_length(p_evento::text)>8192
+ THEN RAISE EXCEPTION 'AD231: intento inválido' USING ERRCODE='22023'; END IF;
+ SELECT array_agg(k ORDER BY k COLLATE "C") INTO v_claves FROM jsonb_object_keys(p_evento) k;
+ IF v_claves IS DISTINCT FROM (SELECT array_agg(k ORDER BY k COLLATE "C") FROM unnest(v_orden) k)
+ THEN RAISE EXCEPTION 'AD231: ABI de intento incompatible' USING ERRCODE='22023'; END IF;
+ FOREACH v_clave IN ARRAY v_orden LOOP
+  IF jsonb_typeof(p_evento->v_clave) IS DISTINCT FROM 'string'
+  OR octet_length(p_evento->>v_clave) NOT BETWEEN 1 AND 200
+  THEN RAISE EXCEPTION 'AD231: campo de intento inválido' USING ERRCODE='22023'; END IF;
+ END LOOP;
+ IF p_evento->>'tipo_registro' IS DISTINCT FROM 'intento_version_inscripcion'
+ OR p_evento->>'operador_login' IS DISTINCT FROM session_user::text
+ OR octet_length(p_evento->>'operador_login')>63
+ OR p_evento->>'evento_ref' !~ '^evento_[0-9a-f]{32}$'
+ OR p_evento->>'solicitud_sha256' !~ '^[0-9a-f]{64}$'
+ OR p_evento->>'accion' NOT IN ('administracion.perfiles.version_inscripcion.proponer','administracion.perfiles.version_inscripcion.aprobar')
+ OR p_evento->>'recurso_ref' !~ '^solicitud_version_inscripcion:[0-9a-f]{32}$'
+ OR NOT ((p_evento->>'resultado'='denegado' AND p_evento->>'motivo_ref'='version_inscripcion_denegado')
+  OR (p_evento->>'resultado'='error' AND p_evento->>'motivo_ref'='version_inscripcion_error'))
+ OR p_evento->>'proceso' IS DISTINCT FROM 'postgresql'
+ OR p_evento->>'canal' IS DISTINCT FROM 'operacion_tecnica_privada'
+ OR p_evento->>'finalidad_ref' IS DISTINCT FROM 'gobierno_definiciones_perfiles'
+ OR p_evento->>'correlacion_ref' !~ '^correlacion_[0-9a-f]{32}$'
+ THEN RAISE EXCEPTION 'AD231: semántica de intento inválida' USING ERRCODE='22023'; END IF;
+ v_material:=vec_autorizacion_atestada_v3.encuadrar_mac('vec.auditoria.intento-version-inscripcion.v1');
+ FOREACH v_clave IN ARRAY v_orden LOOP
+  v_material:=v_material||vec_autorizacion_atestada_v3.encuadrar_mac(p_evento->>v_clave);
+ END LOOP;
+ v_material_sha:=encode(sha256(v_material),'hex');
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:evento-admin:'||(p_evento->>'evento_ref'),0));
+ SELECT a.tipo_registro,a.auditoria_ref,a.secuencia,a.huella_sha256,a.correlacion_ref,a.registrada_en,
+  a.evento_material_sha256 INTO v_existente FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a
+ WHERE a.evento_ref=p_evento->>'evento_ref';
+ IF FOUND THEN
+  IF v_existente.tipo_registro IS DISTINCT FROM 'intento_version_inscripcion'
+  OR v_existente.evento_material_sha256 IS DISTINCT FROM v_material_sha
+  THEN RAISE EXCEPTION 'AD231: replay de intento con material distinto' USING ERRCODE='23505'; END IF;
+  RETURN QUERY SELECT v_existente.auditoria_ref,v_existente.secuencia,v_existente.huella_sha256,
+   v_existente.correlacion_ref,v_existente.registrada_en;
+  RETURN;
+ END IF;
+ SELECT r.secuencia_previa,r.anterior_sha256 INTO STRICT v_secuencia,v_anterior
+ FROM vec_autorizacion_atestada_v3.reservar_asiento_auditoria_v5() r;
+ IF v_secuencia>=9007199254740991::numeric
+ THEN RAISE EXCEPTION 'AD231: secuencia agotada' USING ERRCODE='22003'; END IF;
+ v_secuencia:=v_secuencia+1;v_instante:=clock_timestamp();
+ v_ref:='aud_v3_vini_'||substr(p_evento->>'evento_ref',8,32);
+ v_huella:=encode(sha256(
+  vec_autorizacion_atestada_v3.encuadrar_mac('vec.auditoria.eslabon.intento-version-inscripcion.v1')||
+  vec_autorizacion_atestada_v3.encuadrar_mac(v_secuencia::text)||
+  vec_autorizacion_atestada_v3.encuadrar_mac(v_anterior)||
+  vec_autorizacion_atestada_v3.encuadrar_mac(v_ref)||
+  vec_autorizacion_atestada_v3.encuadrar_mac(v_material_sha)||
+  vec_autorizacion_atestada_v3.encuadrar_mac(to_char(v_instante AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))),'hex');
+ INSERT INTO vec_autorizacion_atestada_v3.auditoria_consumo_v3(
+  auditoria_ref,secuencia,anterior_sha256,huella_sha256,registrada_en,tipo_registro,
+  evento_ref,evento_material_sha256,operador_login,version_inscripcion_solicitud_sha256,
+  accion,modulo_id,recurso_ref,finalidad_ref,resultado,motivo_ref,proceso,canal,correlacion_ref)
+ VALUES(v_ref,v_secuencia,v_anterior,v_huella,v_instante,'intento_version_inscripcion',
+  p_evento->>'evento_ref',v_material_sha,(p_evento->>'operador_login')::name,p_evento->>'solicitud_sha256',
+  p_evento->>'accion','administracion',p_evento->>'recurso_ref',p_evento->>'finalidad_ref',
+  p_evento->>'resultado',p_evento->>'motivo_ref',p_evento->>'proceso',p_evento->>'canal',p_evento->>'correlacion_ref');
+ RETURN QUERY SELECT v_ref,v_secuencia,v_huella,p_evento->>'correlacion_ref',v_instante;
+END $funcion$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_version_inscripcion_v1(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_version_inscripcion_v1(jsonb) TO vec_autorizacion_propietario;
+
 DO $post$
 DECLARE nucleo pg_catalog.oid;
 DECLARE wrapper pg_catalog.oid;
 DECLARE helper pg_catalog.oid;
+DECLARE intento pg_catalog.oid;
 DECLARE huella_def text;
 DECLARE huella_fuente text;
 DECLARE huella_audiencia text;
@@ -2978,6 +3068,7 @@ BEGIN
  nucleo:=pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  wrapper:=pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_version_inscripcion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  helper:=pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.login_version_inscripcion_valido_v1()');
+ intento:=pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_version_inscripcion_v1(jsonb)');
  SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(nucleo),'UTF8')),'hex'),
         pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')
  INTO huella_def,huella_fuente FROM pg_catalog.pg_proc p WHERE p.oid=nucleo;
@@ -2988,6 +3079,10 @@ BEGIN
  IF huella_def IS DISTINCT FROM '76a664ed9b19c717cad91833f46e20078391878d6b595f9d6126b00fc7d6025f'
  OR huella_fuente IS DISTINCT FROM 'f9c4fc413cc5461e204d34f3df660c0cf0b6cce15fa39035aaf3e854df4d6756'
  OR huella_audiencia IS DISTINCT FROM '8a97fdd0e88019bf63afaf87cc8d47fdf63165572da1a2f3db7fea89db5b3b32'
+ OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_attribute a
+   WHERE a.attrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::pg_catalog.regclass
+   AND a.attname='version_inscripcion_solicitud_sha256' AND a.atttypid='text'::pg_catalog.regtype
+   AND NOT a.attisdropped)
  OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=nucleo
    AND p.proowner='vec_autorizacion_atestada_v3_propietario'::pg_catalog.regrole
    AND p.prosecdef AND p.provolatile='v'
@@ -3020,6 +3115,17 @@ BEGIN
  OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc p
    CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
    WHERE p.oid=wrapper AND a.grantee='vec_autorizacion_propietario'::pg_catalog.regrole
+   AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)<>1
+ OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=intento
+   AND p.proowner='vec_autorizacion_atestada_v3_propietario'::pg_catalog.regrole
+   AND p.prosecdef AND p.provolatile='v'
+   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','lock_timeout=2s','statement_timeout=10s'])
+ OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p
+   CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+   WHERE p.oid=intento AND a.grantee NOT IN(p.proowner,'vec_autorizacion_propietario'::pg_catalog.regrole))
+ OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc p
+   CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+   WHERE p.oid=intento AND a.grantee='vec_autorizacion_propietario'::pg_catalog.regrole
    AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)<>1
  OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles r
    WHERE r.oid='vec_admin_version_inscripcion_ejecutor'::pg_catalog.regrole
