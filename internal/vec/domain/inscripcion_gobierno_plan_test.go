@@ -120,22 +120,24 @@ func TestPlanVersionInscripcionConservaRolYAsignacionRRHH(t *testing.T) {
 	base := PerfilPublicadoAdministracionV1{Rol: rol, ControlVigencia: control,
 		TipoPerfil: TipoPerfilAdministracionAdministrableV1}
 	_, acciones, _ := contratoPerfilInscripcion(PerfilVersionInscripcionRRHH)
-	entradas := make([]EntradaAccionAdministracionV1, 0, 5)
-	selecciones := make([]SeleccionAccionAdministracionV1, 0, 5)
+	entradas := make([]EntradaAccionAdministracionV1, 0, len(acciones))
+	selecciones := make([]SeleccionAccionAdministracionV1, 0, len(acciones))
 	concesiones := []ConcesionRol{concesionAnterior}
 	for i, accion := range acciones {
 		finalidad, tipo := "consulta_inscripcion_rrhh", "solicitud_inscripcion"
 		switch i {
-		case 2:
-			finalidad, tipo = "consulta_motivos_inscripcion_rrhh", "motivos_inscripcion"
+		case 0:
+			finalidad, tipo = "consulta_convocatorias_gestion_rrhh", "conjunto_gestion_inscripcion"
 		case 3:
-			finalidad = "revisar_inscripcion"
+			finalidad, tipo = "consulta_motivos_inscripcion_rrhh", "motivos_inscripcion"
 		case 4:
+			finalidad = "revisar_inscripcion"
+		case 5:
 			finalidad = "incorporar_inscripcion"
 		}
 		grant := ConcesionRol{Accion: accion, ModuloID: "bolsa", TipoRecurso: tipo,
 			Finalidades: []string{finalidad}, GarantiaMinima: AuthAssuranceHigh}
-		if i < 3 {
+		if i < 4 {
 			grant.CamposPermitidos = []string{"resumen_rrhh_inscripcion"}
 		}
 		entrada := EntradaAccionAdministracionV1{Referencia: "accion:rrhh:" + string(rune('a'+i)), Version: 1,
@@ -178,6 +180,8 @@ func TestPlanVersionInscripcionConservaRolYAsignacionRRHH(t *testing.T) {
 		Asignaciones: []CambioAsignacionInscripcion{{Almacen: "normal", Modo: "avance",
 			AsignacionID: old.AsignacionID, PrincipalID: old.PrincipalID, PerfilActivoRef: old.PerfilActivoRef,
 			Ambitos: old.Ambitos, VigenteDesde: old.VigenteDesde, VigenteHasta: old.VigenteHasta,
+			FuenteUnidad: &FuenteUnidadInscripcion{Referencia: "fuente:unidad:sintetica", Version: 1,
+				HuellaSHA256: strings.Repeat("6", 64)},
 			Anterior: &PreimagenAsignacionInscripcion{AsignacionRef: old.Referencia(), HuellaSHA256: hold,
 				Documento: old}}}, Motivo: baseEmpleado.Motivo}
 	if err := plan.ValidarContraCatalogo(catalogo, ahora); err != nil {
