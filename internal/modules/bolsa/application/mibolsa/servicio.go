@@ -9,7 +9,9 @@ import (
 	"errors"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -40,6 +42,19 @@ type Servicio struct {
 	ofertas bool
 	// contacto añade el estado del contacto de cada bolsa (Bolsa 000040).
 	contacto bool
+	// nombre es opcional: sin fuente la cabecera no muestra nombre.
+	nombre puertosbolsa.FuenteNombrePropioMiBolsa
+}
+
+// ConNombrePropio devuelve una copia que añade a la consulta autorizada el
+// nombre de la titular. El candidato sale del contexto autenticado.
+func (s *Servicio) ConNombrePropio(fuente puertosbolsa.FuenteNombrePropioMiBolsa) (*Servicio, error) {
+	if s == nil || nula(fuente) {
+		return nil, ErrServicioMiBolsaInvalido
+	}
+	copia := *s
+	copia.nombre = fuente
+	return &copia, nil
 }
 
 // ConContacto devuelve una copia que añade a la consulta el estado del
@@ -186,7 +201,43 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 		}
 	}
 	resultado.ReglasPortal = visibles
+	resultado.NombrePropio = s.nombrePropio(ctx, candidato, resultado.Participaciones)
 	return resultado, nil
+}
+
+// maximoRunasNombrePropio acota lo que llega a la cabecera. Cien runas caben
+// siempre en las 200 unidades UTF-16 que admite el contrato web.
+const maximoRunasNombrePropio = 100
+
+// nombrePropio se pide solo después de que la consulta propia quedó
+// autorizada y auditada, y solo para el candidato del contexto autenticado.
+// Un fallo no tumba la consulta: la cabecera queda sin nombre. La fuente
+// registra la causa técnica sin datos personales.
+func (s *Servicio) nombrePropio(ctx context.Context, candidato string, participaciones []puertosbolsa.ParticipacionMiBolsa) *puertosbolsa.NombrePropioMiBolsa {
+	if nula(s.nombre) || len(participaciones) == 0 || ctx.Err() != nil {
+		return nil
+	}
+	bolsas := make([]string, 0, len(participaciones))
+	for _, p := range participaciones {
+		bolsas = append(bolsas, p.Bolsa)
+	}
+	nombre, apellidos, encontrado, err := s.nombre.NombrePropio(ctx, candidato, bolsas)
+	if err != nil || !encontrado {
+		return nil
+	}
+	nombre, apellidos = strings.Join(strings.Fields(nombre), " "), strings.Join(strings.Fields(apellidos), " ")
+	visible := strings.TrimSpace(nombre + " " + apellidos)
+	if nombre == "" || utf8.RuneCountInString(visible) > maximoRunasNombrePropio {
+		return nil
+	}
+	return &puertosbolsa.NombrePropioMiBolsa{Visible: visible, Iniciales: inicial(nombre) + inicial(apellidos)}
+}
+
+func inicial(texto string) string {
+	for _, r := range texto {
+		return strings.ToUpper(string(r))
+	}
+	return ""
 }
 
 func validarOrden(o Orden, ahora time.Time) (dominiovec.ResultadoContextoActorRegistradoV2, string, error) {

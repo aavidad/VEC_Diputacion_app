@@ -1,5 +1,5 @@
 import { campoVisibleMiBolsa, validarCamposMiBolsa } from "./mi-bolsa-campos.js";
-import { validarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261009-ayuda-retoques-v4";
+import { validarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261009-nombre-propio-v1";
 
 const ESQUEMA_PANEL = "vec.bolsa.area-personal.v1";
 export const ESQUEMA_MI_BOLSA = "vec.bolsa.mi-bolsa.v1";
@@ -158,6 +158,11 @@ export function validarRespuestaMiBolsa(entrada) {
       }
     }
   });
+  // El servidor solo envía el nombre a su titular; nunca va sin iniciales.
+  if (datos.nombre_visible !== undefined || datos.iniciales !== undefined) {
+    exigirCadena(datos.nombre_visible, "mi-bolsa.nombre_visible", 200);
+    exigirCadena(datos.iniciales, "mi-bolsa.iniciales", 4);
+  }
   validarPortalMiBolsa(datos);
   return congelarProfundo(datos);
 }
