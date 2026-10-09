@@ -16,8 +16,9 @@
  * Son datos públicos de la interfaz, sin datos personales. En la superficie
  * interna el certificado de cliente TLS exige credenciales del mismo origen;
  * no se envían a otro origen, no se sigue ninguna redirección y no se manda
- * `Referer`. El servidor responde estos JSON con `no-store`, de modo que un
- * cambio de traducción no requiere renovar versiones de caché.
+ * `Referer`. El índice se lee sin guardar; los catálogos llevan `?huella=`
+ * (`VERSION_TEXTOS` de `textos.js`) y se guardan: cambiar una traducción exige
+ * actualizar esa huella, y la prueba `textos-version.test.mjs` lo recuerda.
  *
  * En Node (pruebas y herramientas) el módulo se carga desde `file:` y lee el
  * fichero del repositorio; el navegador nunca usa esa rama.
@@ -74,7 +75,8 @@ export async function leerPorRed(url, fetchImpl, signal) {
   if (url.protocol !== origen.protocol || url.host !== origen.host) throw new Error("recurso JSON fuera del propio origen");
   const opciones = {
     method: "GET",
-    cache: "no-store",
+    // Un catálogo con `?huella=` no cambia nunca: se guarda. El resto, no.
+    cache: url.searchParams.has("huella") ? "default" : "no-store",
     credentials: "same-origin",
     redirect: "error",
     referrerPolicy: "no-referrer",
