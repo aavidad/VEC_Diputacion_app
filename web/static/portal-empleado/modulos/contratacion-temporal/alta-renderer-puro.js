@@ -1,6 +1,6 @@
 /** Presentación pura del alta CT, compartida con la petición previa del centro. */
-import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261008-alta-analisis-bolsa-v4";
-import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261008-alta-analisis-bolsa-v4";
+import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
+import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
 
 const CAMPOS_RPT_PUBLICACION = new Set(["rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]);
 const CAMPOS_RPT_INTERNOS = new Set(["puesto_codigo", ...CAMPOS_RPT_PUBLICACION]);
@@ -272,6 +272,36 @@ function camposNecesidad(estado, t, deshabilitado) {
   </fieldset>`;
 }
 
+function camposPeticionCentro(estado, tCentro, deshabilitado) {
+  if (!Object.hasOwn(estado.borrador, "puesto_solicitado")) return "";
+  return `<fieldset class="ct-bloque">
+    <legend>${escaparHTML(tCentro("peticion_puesto_leyenda"))}</legend>
+    <div class="ct-campos">
+      <div class="ct-campo">
+        <label for="ct-numero_personas">${escaparHTML(tCentro("numero_personas"))} <b aria-hidden="true">*</b></label>
+        <input id="ct-numero_personas" name="numero_personas" type="number" min="1" step="1" inputmode="numeric" required
+          value="${escaparHTML(estado.borrador.numero_personas)}"
+          ${atributosAccesibles(estado, "numero_personas")}${deshabilitado ? " disabled" : ""}>
+        ${errorCampo(estado, "numero_personas", tCentro)}
+      </div>
+      <div class="ct-campo">
+        <label for="ct-jornada_minutos">${escaparHTML(tCentro("jornada_minutos"))} <b aria-hidden="true">*</b></label>
+        <input id="ct-jornada_minutos" name="jornada_horas" type="text" inputmode="decimal" maxlength="8" required
+          value="${escaparHTML(jornadaVisibleDesdeMinutos(estado.borrador.jornada_minutos) || estado.borrador.jornada_minutos)}"
+          ${atributosAccesibles(estado, "jornada_minutos")}${deshabilitado ? " disabled" : ""}>
+        ${errorCampo(estado, "jornada_minutos", tCentro)}
+      </div>
+      <div class="ct-campo ct-campo-ancho">
+        <label for="ct-puesto_solicitado">${escaparHTML(tCentro("puesto_solicitado"))} <b aria-hidden="true">*</b></label>
+        <input id="ct-puesto_solicitado" name="puesto_solicitado" type="text" maxlength="160" required
+          value="${escaparHTML(estado.borrador.puesto_solicitado)}"
+          ${atributosAccesibles(estado, "puesto_solicitado")}${deshabilitado ? " disabled" : ""}>
+        ${errorCampo(estado, "puesto_solicitado", tCentro)}
+      </div>
+    </div>
+  </fieldset>`;
+}
+
 function camposDetalle(estado, t, deshabilitado) {
   const maximo = LIMITES_ALTA_CONTRATACION.texto;
   const motivo = estado.catalogos.motivos.find(({ clave }) => clave === estado.borrador.motivo_clave);
@@ -405,11 +435,12 @@ function camposDocumentos(estado, t, deshabilitado) {
   </fieldset>`;
 }
 
-export function formulario(estado, t) {
+export function formulario(estado, t, tCentro) {
   const deshabilitado = !estado.disponible || estado.ocupado;
   return `${resumenErrores(estado, t)}
   <form class="ct-formulario" data-ct-form novalidate>
     ${camposCentro(estado, t, deshabilitado)}
+    ${camposPeticionCentro(estado, tCentro, deshabilitado)}
     ${camposDetalle(estado, t, deshabilitado)}
     ${camposNecesidad(estado, t, deshabilitado)}
     ${camposRC(estado, t, deshabilitado)}
@@ -448,7 +479,7 @@ function formatearImporteEUR(valor, locale) {
   }).format(valor.replace(",", "."));
 }
 
-export function revision(estado, t, locale) {
+export function revision(estado, t, locale, tCentro) {
   const borrador = estado.borrador;
   const centro = obtenerCentro(estado);
   const categoria = obtenerCategoria(estado);
@@ -483,6 +514,9 @@ export function revision(estado, t, locale) {
       ${filaResumen(t("resumen_categoria"), categoria?.etiqueta ?? borrador.categoria_ref)}
       ${filaResumen(t("resumen_grupo"), grupo)}
       ${filaResumen(t("resumen_motivo"), motivo)}
+      ${Object.hasOwn(borrador, "puesto_solicitado") ? filaResumen(tCentro("numero_personas"), borrador.numero_personas)
+    + filaResumen(tCentro("jornada_semanal"), jornadaVisibleDesdeMinutos(borrador.jornada_minutos))
+    + filaResumen(tCentro("puesto_solicitado"), borrador.puesto_solicitado) : ""}
       ${esNecesidad(estado) ? filaResumen(t("jornada_minutos"), jornadaVisibleDesdeMinutos(borrador.jornada_minutos)) : ""}
       ${esNecesidad(estado) ? estado.catalogos.necesidades.causas.find(
     (dato) => dato.clave === borrador.motivo_clave)?.campos_permitidos
@@ -523,11 +557,17 @@ export function revision(estado, t, locale) {
 
 export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
   const datos = new FormData(formularioDOM);
-  const necesidad = Boolean(formularioDOM.querySelector?.('[name="jornada_horas"]'));
-  const jornadaEntrada = String(datos.get("jornada_horas") ?? "");
+  const peticionCentro = Boolean(formularioDOM.querySelector?.('[name="puesto_solicitado"]'));
+  const necesidad = !peticionCentro && Boolean(formularioDOM.querySelector?.('[name="jornada_horas"]'));
+  const jornadaEntrada = String(datos.get("jornada_horas") ?? "").trim();
   const minutosJornada = minutosDesdeJornadaVisible(jornadaEntrada);
+  // Si la jornada no se entiende se conserva lo tecleado para repintarlo y que
+  // la validación lo marque. Unas cifras sueltas («1000») pasarían por minutos
+  // válidos; el espacio final, invisible en el campo, impide esa confusión.
+  const jornadaBorrador = minutosJornada !== null ? String(minutosJornada)
+    : /^\d+$/u.test(jornadaEntrada) ? `${jornadaEntrada} ` : jornadaEntrada;
   const adicionales = necesidad ? {
-    jornada_minutos: minutosJornada === null ? jornadaEntrada : String(minutosJornada),
+    jornada_minutos: jornadaBorrador,
     ...Object.fromEntries([
       "numero_personas", "puesto_codigo", "plaza_codigo", "titular_ref", "vacancia_fuente_ref",
       "rpt_catalogo_ref", "rpt_catalogo_huella_sha256", "organica_codigo", "funcional_codigo",
@@ -536,6 +576,11 @@ export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
       "intervencion_ref",
     ].map((campo) =>
       [campo, String(datos.get(campo) ?? "")])) } : {};
+  const adicionalesCentro = peticionCentro ? {
+    jornada_minutos: jornadaBorrador,
+    numero_personas: String(datos.get("numero_personas") ?? ""),
+    puesto_solicitado: String(datos.get("puesto_solicitado") ?? "").trim(),
+  } : {};
   return {
     ...(conNumeroMOAD ? { numero_expediente_moad: String(datos.get("numero_expediente_moad") ?? "") } : {}),
     centro_ref: String(datos.get("centro_ref") ?? ""),
@@ -553,6 +598,7 @@ export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
     rc_documento_ref: String(datos.get("rc_documento_ref") ?? ""),
     documentos_adjuntos: datos.getAll("documentos_adjuntos").map(String),
     observaciones: String(datos.get("observaciones") ?? ""),
+    ...adicionalesCentro,
     ...adicionales,
   };
 }

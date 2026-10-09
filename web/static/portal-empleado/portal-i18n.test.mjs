@@ -751,7 +751,30 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["portal-bolsas-intentos.js", "portal-bolsas-api.js", "portal-bolsas-historial-ofrecimientos.js",
     "portal-bolsas-ofertas.js", "portal-bolsas-seguimiento.js", "portal-panel-interno.js"])
     versionesEspeciales.set(ruta, "20261009-ayuda-contacto-v1");
-  for (const ruta of ["portal-modulos-coordinador.js", "portal.js"]) versionesEspeciales.set(ruta, "20261009-ct-ficha-rapida-v1");
+  // La solicitud del centro y el alta CT comparten contrato y renderer.
+  // Cada consumidor modificado tiene una única URL de la cohorte nueva.
+  for (const ruta of [
+    "categorias-rpt/cliente.js", "categorias-rpt/montaje.js",
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/alta-renderer-puro.js",
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/cliente-http-alta.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/contrato.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/presentador.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vista.js",
+    "peticiones-centro/arranque-peticiones-centro.js",
+    "peticiones-centro/peticiones-centro.js",
+  ]) versionesEspeciales.set(ruta, "20261009-centro-campos-cohorte-v5");
+  for (const ruta of ["portal-modulos-coordinador.js", "portal.js"]) versionesEspeciales.set(ruta, "20261009-ct-ficha-rapida-v2");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

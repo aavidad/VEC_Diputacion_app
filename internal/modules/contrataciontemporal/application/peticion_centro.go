@@ -60,6 +60,10 @@ func (s *ServicioPeticionCentro) Ejecutar(ctx context.Context, entrada ports.Com
 	} else {
 		var peticion domain.PeticionCentro
 		if comando.Operacion == ports.OperacionPresentarPeticionCentro {
+			if comando.Solicitud.JornadaMinutos == 0 || comando.Solicitud.NumeroPersonas == 0 ||
+				comando.Solicitud.PuestoSolicitado == "" {
+				return vacio, domain.ErrPeticionCentroInvalida
+			}
 			if s.periodos != nil {
 				periodo, err := s.periodos.PrepararPeriodoModalidad(ctx, comando.Solicitud.MotivoClave, comando.Solicitud.Periodo)
 				if err != nil {
