@@ -1,4 +1,23 @@
-# Recorridos pendientes de manual
+# Recorridos pendientes
+
+## Comprobación del 9 de octubre de 2026
+
+La petición del centro, la ratificación, el expediente, el llamamiento, el contacto telefónico y la aceptación desde Mi bolsa se recorrieron con la misma persona y expediente.
+
+Quedan pendientes:
+
+- Alta propia del aspirante y gestiones de su ficha y preferencias que no se completaron en esta vuelta.
+- Descarga del informe de ese expediente en PDF y Word. La ficha no ofreció esos controles.
+- Firma del informe por el técnico y la jefatura; fiscalización con reparo y conformidad, subsanación y resolución.
+- Incorporación, paso a Personal, cese y regreso a la bolsa de esa persona.
+- Recorrido propio de administración del portal: perfiles, módulos, copias y configuración.
+- Recuperación de los últimos recibos después del reinicio final solicitado al cerrar el acta.
+
+El informe preparado se mostró como texto provisional al registrarlo. Al volver a abrir la ficha se conservó el registro del informe, pero no se ofrecieron sus descargas. Ese resultado no se presenta como un documento firmado.
+
+## Observaciones conservadas del 8 de octubre
+
+Lo siguiente pertenece a la comprobación anterior. No describe por sí solo el estado actual ni sustituye las guías del 9 de octubre.
 
 ## Clon H6: resultados observados — 30/09/2026
 
