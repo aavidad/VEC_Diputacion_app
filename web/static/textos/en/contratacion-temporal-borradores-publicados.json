@@ -1,6 +1,9 @@
 {
   "general": {
     "bp_titulo": "Drafts from the published catalogue",
+    "bp_ficha_titulo": "Generated documents",
+    "bp_estado_borrador": "Unsigned draft",
+    "bp_estado_pendiente": "Not available yet",
     "bp_subtitulo": "Types available for this case and its current version",
     "bp_ayuda_boton": "Help with published drafts",
     "bp_ayuda": "Only the types and formats returned by the catalogue published for this case are available. Each download checks permissions again and preserves the original bytes. A downloaded draft has not been signed or sent.",
@@ -14,12 +17,14 @@
     "bp_formatos": "Formats",
     "bp_pdf": "Download PDF",
     "bp_docx": "Download DOCX",
+    "bp_ficha_docx": "Download Word",
     "bp_descargando": "Downloading and verifying the document…",
     "bp_cancelar": "Cancel wait",
     "bp_cancelada": "The download has been cancelled.",
     "bp_listo": "Draft downloaded and checked: {nombre}",
     "bp_huella": "Check code: {huella}",
     "bp_descarga_error": "The download could not be verified. No document has been saved.",
+    "bp_no_disponible": "This document can be prepared once the appointment or contract proposal for this case has been recorded.",
     "bp_catalogo": "Published catalogue",
     "bp_publicacion": "Publication verified:",
     "bp_publicacion_recibo": "Publication receipt: {recibo}"

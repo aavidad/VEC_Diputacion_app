@@ -43,12 +43,12 @@ func resumirCuadroRRHH(
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if calculadora == nil {
+		if calculadora == nil && grupo.Captura == nil {
 			continue
 		}
 		plazo := calcularPlazoFase(ctx, calculadora, clavePlazoFaseCuadro{
 			fase: grupo.FaseClave, desde: grupo.Desde, urgente: grupo.Urgente,
-		}, ahora)
+		}, ahora, grupo.Captura)
 		if plazo == nil {
 			// La fase no tiene plazo: no cuenta en ningún recuento de plazos.
 			continue

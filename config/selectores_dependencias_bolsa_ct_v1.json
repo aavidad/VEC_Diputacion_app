@@ -23,6 +23,7 @@
     {"variable": "VEC_CT_CONTEXTO_ACTOR_DATABASE_URL", "tipo": "conexion", "uso_real": true, "requiere": ["VEC_CT_REGISTRO_IDENTIDAD_DATABASE_URL", "VEC_CT_REVALIDACION_IDENTIDAD_DATABASE_URL"]},
 
     {"variable": "VEC_CT_REGLAS_SOURCE_PATH", "tipo": "catalogo", "uso_real": true, "nota": "Reglas de CT; lo exigen cese, cancelación e incorporación acreditada."},
+    {"variable": "VEC_CT_REGLAS_AJUSTES_MOTIVOS_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Motivos que RRHH puede elegir al cambiar un plazo de CT."},
     {"variable": "VEC_CT_CAUSAS_CESE_SOURCE_PATH", "tipo": "catalogo", "uso_real": true},
     {"variable": "VEC_CT_ANALISIS_RECTIFICACION_MOTIVOS_SOURCE_PATH", "tipo": "catalogo", "uso_real": true},
     {"variable": "VEC_CT_MOTIVOS_CANCELACION_SOURCE_PATH", "tipo": "catalogo", "uso_real": true},
@@ -35,6 +36,7 @@
     {"variable": "VEC_CT_INCORPORACION_V2_FILE", "tipo": "catalogo", "uso_real": false},
     {"variable": "VEC_CT_SUBSANACION_POLITICA_FILE", "tipo": "catalogo", "uso_real": false},
 
+    {"variable": "VEC_CT_REGLAS_AJUSTES_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_CT_CONSULTAS_RRHH_DATABASE_URL", "VEC_CT_REGLAS_SOURCE_PATH", "VEC_CT_REGLAS_AJUSTES_MOTIVOS_PATH"], "nota": "Cambio de plazos CT en Reglas vigentes, con base activa y permisos previamente aprobados."},
     {"variable": "VEC_CT_SEGUIMIENTO_CESE_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_CT_REGLAS_SOURCE_PATH", "VEC_CT_CAUSAS_CESE_SOURCE_PATH", "VEC_CT_ANALISIS_RECTIFICACION_MOTIVOS_SOURCE_PATH"], "nota": "Cese, cierre y modificación tras el nombramiento."},
     {"variable": "VEC_CT_CANCELACION_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_CT_REGLAS_SOURCE_PATH", "VEC_CT_MOTIVOS_CANCELACION_SOURCE_PATH"]},
     {"variable": "VEC_CT_INCORPORACION_ACREDITADA_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_SEGUIMIENTO_CESE_ENABLED", "VEC_CT_REGLAS_SOURCE_PATH", "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL", "VEC_BOLSA_RELEVO_NO_INCORPORACION_DATABASE_URL"], "nota": "Confirmación de GINPIX e incorporación; la baja por no incorporación usa su propio relevo."},
@@ -57,6 +59,7 @@
     {"variable": "VEC_BOLSA_PUBLICA_MANIFIESTO_SHA256", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_BOLSA_PUBLICA_DATABASE_URL"]},
     {"variable": "VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL", "tipo": "conexion", "uso_real": false, "nota": "Importación de bolsas desde CONVOCA (operación aparte)."},
     {"variable": "VEC_BOLSA_IMPORTACION_CONVOCA_CUSTODIA_DIR", "tipo": "ajuste", "uso_real": false},
+    {"variable": "VEC_BOLSA_CONSTITUCION_DATABASE_URL", "tipo": "conexion", "uso_real": false, "nota": "Constitución CLI segregada de la web; requiere el rol vec_bolsa_llamamientos_constituidor."},
     {"variable": "VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL", "tipo": "conexion", "uso_real": false, "requiere": ["VEC_BOLSA_BORRADORES_PROYECTOR_GOBIERNO_DATABASE_URL", "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL"], "nota": "Las tres van juntas; hoy solo las usa la auditoría de RRHH."},
     {"variable": "VEC_BOLSA_BORRADORES_PROYECTOR_GOBIERNO_DATABASE_URL", "tipo": "conexion", "uso_real": false, "requiere": ["VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL", "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL"]},
     {"variable": "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL", "tipo": "conexion", "uso_real": false, "requiere": ["VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL", "VEC_BOLSA_BORRADORES_PROYECTOR_GOBIERNO_DATABASE_URL"]},
@@ -81,6 +84,9 @@
     {"variable": "VEC_BOLSA_DOCUMENTAL_PROVISION_APROBACION_REF", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_BOLSA_DOCUMENTAL_PROVISION_PREIMAGEN_SHA256", "VEC_BOLSA_DOCUMENTAL_PROVISION_OBJETIVO_SHA256"]},
     {"variable": "VEC_BOLSA_DOCUMENTAL_PROVISION_PREIMAGEN_SHA256", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_BOLSA_DOCUMENTAL_PROVISION_APROBACION_REF"]},
     {"variable": "VEC_BOLSA_DOCUMENTAL_PROVISION_OBJETIVO_SHA256", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_BOLSA_DOCUMENTAL_PROVISION_APROBACION_REF"]},
+    {"variable": "VEC_BOLSA_CARGA_CONVOCA_PROVISION_APROBACION_REF", "tipo": "ajuste", "uso_real": false, "nota": "Retirada: la aplicación rechaza su presencia; la carga exige una plantilla publicada por administración."},
+    {"variable": "VEC_BOLSA_CARGA_CONVOCA_PROVISION_PREIMAGEN_SHA256", "tipo": "ajuste", "uso_real": false, "nota": "Retirada: la aplicación rechaza su presencia; la carga exige una plantilla publicada por administración."},
+    {"variable": "VEC_BOLSA_CARGA_CONVOCA_PROVISION_OBJETIVO_SHA256", "tipo": "ajuste", "uso_real": false, "nota": "Retirada: la aplicación rechaza su presencia; la carga exige una plantilla publicada por administración."},
 
     {"variable": "VEC_BOLSA_BORRADORES_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL", "VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL", "VEC_DEVELOPMENT_MATERIAL_DIR"], "nota": "Pantallas internas de RRHH de Bolsa (borrador de llamamiento, B-BACK)."},
     {"variable": "VEC_BOLSA_PORTAL_CANDIDATO_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_BOLSA_REGLAS_SOURCE_PATH", "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL", "VEC_DEVELOPMENT_MATERIAL_DIR"], "nota": "Acciones propias del candidato en «Mi bolsa»."},

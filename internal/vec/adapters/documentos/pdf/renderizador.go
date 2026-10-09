@@ -15,6 +15,7 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/text/language"
 
+	"vec-diputacion-granada/internal/vec/adapters/documentos/membrete"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -27,7 +28,16 @@ var ErrIdiomaInvalido = errors.New("pdf: idioma invalido")
 type Renderizador struct {
 	// Idioma procede del catálogo. Vacío conserva el español de los consumidores anteriores.
 	Idioma string
+	// Membrete pone el logotipo institucional arriba a la izquierda de la
+	// primera página. Falso conserva byte a byte la salida anterior, de la que
+	// dependen huellas ya guardadas (originales, resoluciones, certificados).
+	Membrete bool
 }
+
+const (
+	anchoLogoMM      = 45.0
+	separacionLogoMM = 5.0
+)
 
 func (Renderizador) Formato() domain.FormatoDocumento {
 	return domain.FormatoDocumentoPDF
@@ -71,6 +81,9 @@ func (r Renderizador) Renderizar(ctx context.Context, contenido domain.Contenido
 	documento.AddUTF8FontFromBytes("vec", "", goregular.TTF)
 	documento.AddUTF8FontFromBytes("vec", "B", gobold.TTF)
 	documento.AddPage()
+	if r.Membrete {
+		ponerMembrete(documento)
+	}
 	documento.SetFont("vec", "B", 16)
 	documento.MultiCell(0, 8, contenido.Titulo, "", "L", false)
 	documento.Ln(4)
@@ -90,6 +103,17 @@ func (r Renderizador) Renderizar(ctx context.Context, contenido domain.Contenido
 		return nil, fmt.Errorf("pdf: escribir: %w", err)
 	}
 	return salida.Bytes(), nil
+}
+
+// ponerMembrete dibuja el logotipo en la esquina superior izquierda, dentro de
+// los márgenes, y deja el cursor debajo para el título.
+func ponerMembrete(documento *fpdf.Fpdf) {
+	opciones := fpdf.ImageOptions{ImageType: "PNG"}
+	documento.RegisterImageOptionsReader("membrete", opciones, bytes.NewReader(membrete.LogoPNG()))
+	izquierda, arriba, _, _ := documento.GetMargins()
+	documento.ImageOptions("membrete", izquierda, arriba, anchoLogoMM, 0, false, opciones, 0, "")
+	altoLogo := anchoLogoMM * float64(membrete.AltoPx) / float64(membrete.AnchoPx)
+	documento.SetY(arriba + altoLogo + separacionLogoMM)
 }
 
 func textoValido(texto string) bool {

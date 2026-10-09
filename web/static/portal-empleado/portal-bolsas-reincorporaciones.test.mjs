@@ -271,7 +271,7 @@ test("cancela el resultado antiguo al cambiar de ficha y deja la situación sin 
 test("la ficha muestra recibo y fecha sin inventar actor ni mutar disponibilidad", () => {
   const html = renderizarReincorporacionesTitular({ estado: { carga: "listo", items: [{ ...item, recibo_ct_ref: "recibo:<script>" }] }, escaparHTML });
   assert.match(html, /<section[^>]+aria-labelledby="reincorporacion-titulo"/);
-  assert.match(html, /<h4 id="reincorporacion-titulo">Reincorporación de la persona titular<\/h4>/);
+  assert.match(html, /<h4 id="reincorporacion-titulo" tabindex="-1">Reincorporación de la persona titular<\/h4>/);
   assert.doesNotMatch(html, /Reflejo recibido desde Contratación temporal|La disponibilidad se consulta en su situación actual/);
   assert.match(html, /Cese aplicado en Bolsa/);
   assert.match(html, /recibo:&lt;script&gt;/);
@@ -296,12 +296,25 @@ test("401 y 403 opcionales muestran su denegación sin reintento ni ocultar al c
     assert.equal(modalFicha.candidato.nombre_visible, "Persona autorizada");
     const html = renderizarReincorporacionesTitular({ estado: modalFicha.reincorporacionesTitular, escaparHTML });
     assert.match(html, /role="alert"/);
+    if (status === 401) assert.doesNotMatch(html, /Inicie sesión en el portal interno/u);
     assert.doesNotMatch(html, /<table|recibo:ct:1|data-reincorporacion-accion="reintentar"|Reflejo recibido desde Contratación temporal/);
     const accion = { dataset: { reincorporacionAccion: "reintentar" } };
     assert.equal(manejarClickReincorporacionesTitular({ target: { closest: () => accion }, preventDefault() {} }, {
       estado, renderizar() {}, consultar() { assert.fail("una denegación no se reintenta"); },
     }), true);
   }
+});
+
+test("un historial sin montaje queda visible con la dependencia y no emite GET", async () => {
+  const modalFicha = { candidato: { participacion_ref: "participacion:1" } };
+  const estado = { bolsaSeleccionada: "bolsa:1", modalFicha };
+  await cargarReincorporacionesTitularFicha(modalFicha, { estado, renderizar() {},
+    disponibilidad: { estado: "sin_montaje", bolsa_ref: "bolsa:1", participacion_ref: "participacion:1" },
+    consultar: async () => assert.fail("no debe consultar la ruta ausente"),
+  });
+  const vista = renderizarReincorporacionesTitular({ estado: modalFicha.reincorporacionesTitular, escaparHTML });
+  assert.match(vista, /Informática debe habilitarlo/u);
+  assert.doesNotMatch(vista, /Inicie sesión|<table|data-reincorporacion-accion="reintentar"/u);
 });
 
 test("catálogo común cubre todos los textos y el control pagina sin llamada de red", () => {

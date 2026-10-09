@@ -41,7 +41,7 @@ import {
   rutaCandidatosBolsa,
   seleccionarParticipacionesPorEstado,
   crearControladorBolsas,
-} from "./portal-bolsas-api.js?v=20261007-pantallas-textos-final-v1";
+} from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
 function comprobarTransporteInterno(opciones) {
   assert.equal(opciones.credentials, "same-origin");
   assert.equal(opciones.mode, "same-origin");
@@ -115,7 +115,7 @@ test("cambiar situación B2 envía idempotencia y conserva el recibo", async () 
   comprobarTransporteInterno(observada.opciones);
   assert.match(observada.url, /\/bolsa:01\/candidatos\/participacion:01\/situacion$/);
 });
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261007-pantallas-textos-final-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
 const rutaDemoJson = new URL("../../../data/demo/bolsa/v1.bolsas-demo.json", import.meta.url);
 const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));
 /**
@@ -633,6 +633,7 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   filtrosBolsa = { ...filtrosBolsa, pestana: "historico" };
   const htmlHistorico = presentador.renderizarVista("bolsa-candidatos");
   assert.match(htmlHistorico, /Histórico de contactos y llamamientos/);
+  assert.match(htmlHistorico, /Registros: [0-9]+/u);
   assert.match(htmlHistorico, /<th scope="col">Contacto<\/th>/);
   assert.match(htmlHistorico, /Sin llamamientos registrados|Llamamiento/);
   assert.match(htmlHistorico, /<section class="panel" hidden>/);
@@ -798,7 +799,7 @@ test("P-WEB-08 presenta estadísticas y enlaza cada cifra por bolsa con B5", () 
   assert.match(html, /data-accion="ver-bolsa" data-bolsa-ref="bolsa:01" data-estado="disponible"/);
   assert.match(html, /Personas y llamamientos/);
   assert.match(html, /<strong class="valor-kpi">2<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
-  assert.match(html, /Histórico de llamamientos<\/h4><p[^>]*>No disponible<\/p>/);
+  assert.match(html, /Histórico de llamamientos<\/h4><p[^>]*>Consulte el histórico de llamamientos de cada bolsa\.<\/p>/u);
   assert.doesNotMatch(html, /Por canal|Por resultado|Sin desglose por canal|Sin desglose por resultado/);
 });
 
@@ -812,7 +813,7 @@ test("estadísticas no convierten un histórico sin carga en cero ni una lectura
     obtenerDatosEstadisticas: () => ({ carga: "listo", datos }), obtenerDatosBolsas: () => lectura });
   let html = presentador.renderizarEstadisticasBolsa();
   assert.match(html, /<strong class="valor-kpi">1<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
-  assert.match(html, /Histórico de llamamientos<\/h4><p[^>]*>No disponible<\/p>/);
+  assert.match(html, /Histórico de llamamientos<\/h4><p[^>]*>Consulte el histórico de llamamientos de cada bolsa\.<\/p>/u);
   assert.doesNotMatch(html, /<strong class="valor-kpi">0<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
   lectura = { carga: "error", datos: null };
   html = presentador.renderizarEstadisticasBolsa();

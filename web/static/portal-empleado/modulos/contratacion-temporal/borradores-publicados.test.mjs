@@ -4,6 +4,7 @@ import test from "node:test";
 import { crearClienteBorradoresPublicados, RUTA_BORRADORES_DISPONIBLES,
   RUTA_BORRADORES_PUBLICADOS, validarBorradoresDisponibles } from "./cliente-http-borradores-publicados.js";
 import { montarBorradoresPublicados, renderizarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261008-alta-rpt-circular-v6";
+import { composicionPermiteLegado } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
 
 const contexto = Object.freeze({ expediente_ref: "expediente:ct:1", version_observada: 8 });
 const catalogo = Object.freeze({ esquema: "vec.contratacion-temporal.borradores-disponibles.v1",
@@ -115,6 +116,57 @@ test("el panel solo ofrece tipos recibidos y ayuda tras ?", () => {
   assert.doesNotMatch(renderizarBorradoresPublicados({ estado: "denegado" }), /data-bp-descargar/u);
 });
 
+test("la ficha muestra los diez tipos disponibles como borradores con solo sus formatos publicados", () => {
+  const claves = ["informe_definitivo", "resolucion", "diligencia", "toma_posesion", "notificacion",
+    "comunicacion_centro", "contrato_laboral", "nombramiento", "cese", "modificacion_nombramiento"];
+  const tipos = claves.map((clave, indice) => ({ clave, etiqueta: `Documento ${indice + 1}`,
+    formatos: indice === 9 ? ["pdf"] : ["pdf", "docx"] }));
+  const html = renderizarBorradoresPublicados({ estado: "lista",
+    catalogo: validarBorradoresDisponibles({ ...catalogo, tipos }) });
+  assert.equal((html.match(/class="ct-exp-documento"/gu) ?? []).length, 10);
+  assert.equal((html.match(/data-bp-formato="pdf"/gu) ?? []).length, 10);
+  assert.equal((html.match(/data-bp-formato="docx"/gu) ?? []).length, 9);
+  assert.match(html, /Borrador sin firmar/u);
+  assert.match(html, /Descargar Word/u);
+  assert.doesNotMatch(html, /data-bp-descargar="modificacion_nombramiento" data-bp-formato="docx"/u);
+  assert.doesNotMatch(html, />Firmado</u);
+  for (const estado of ["cargando", "denegado", "error"]) {
+    assert.doesNotMatch(renderizarBorradoresPublicados({ estado }), /data-bp-descargar=/u);
+  }
+});
+
+test("sólo la composición sin publicador conserva el recorrido legado autorizado", () => {
+  assert.equal(composicionPermiteLegado({ estado: "sin_montaje" }, true), true);
+  assert.equal(composicionPermiteLegado(null, true), true, "sin señal de composición se usa el modo legado ya visible");
+  assert.equal(composicionPermiteLegado({ estado: "montado" }, true), false);
+  assert.equal(composicionPermiteLegado({ estado: "desconocido" }, true), false);
+  assert.equal(composicionPermiteLegado({ estado: "sin_montaje" }, false), false);
+});
+
+test("404 ambiguo, 403, 503 y 409 mantienen el estado del publicador sin ofrecer otro PDF o Word", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "", hidden: false, contains: () => true,
+    addEventListener: (tipo, fn) => eventos.set(tipo, fn), removeEventListener: (tipo) => eventos.delete(tipo),
+    replaceChildren() { this.innerHTML = ""; } };
+  const montarCon = (consultarDisponibles) => montarBorradoresPublicados({ raiz, contexto,
+    cliente: { consultarDisponibles, descargar() { throw new Error("no se descarga"); } } });
+  for (const [codigo, mensaje] of [[404, "No se pudieron consultar"], [403, "no dispone de permiso"],
+    [503, "No se pudieron consultar"], [409, "cambió"]]) {
+    const fallido = montarCon(async () => { throw Object.assign(new Error("fallo"), { estado: codigo }); });
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(raiz.hidden, false, `${codigo} conserva la incidencia visible`);
+    assert.match(raiz.innerHTML, new RegExp(mensaje, "u"));
+    assert.doesNotMatch(raiz.innerHTML, /data-bp-descargar=/u);
+    fallido.desmontar();
+  }
+  const publicado = montarCon(async () => validarBorradoresDisponibles({ ...catalogo,
+    tipos: [{ clave: "solo_pdf", etiqueta: "Sólo PDF", formatos: ["pdf"] }] }));
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.match(raiz.innerHTML, /data-bp-formato="pdf"/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-bp-formato="docx"/u);
+  publicado.desmontar();
+});
+
 test("el panel descarga solo la opción del catálogo y muestra huella sin recibo inventado", async () => {
   const eventos = new Map(), clics = [], revocadas = [], solicitudes = [];
   const raiz = { innerHTML: "", hidden: false, contains: () => true,
@@ -142,4 +194,78 @@ test("el panel descarga solo la opción del catálogo y muestra huella sin recib
   panel.desmontar();
   assert.equal(eventos.size, 0);
   assert.deepEqual(revocadas, ["blob:prueba"]);
+});
+
+const catalogoConFase = Object.freeze({ ...catalogo, tipos: [
+  { clave: "acta_ampliada", etiqueta: "Acta ampliada", formatos: ["pdf", "docx"], disponible: true },
+  { clave: "resolucion", etiqueta: "Resolución", formatos: ["pdf", "docx"], disponible: false },
+] });
+
+test("la lista acepta «disponible» opcional y lo da por cierto en servidores anteriores", () => {
+  assert.equal(validarBorradoresDisponibles(catalogo).tipos[0].disponible, true);
+  const conFase = validarBorradoresDisponibles(catalogoConFase);
+  assert.deepEqual(conFase.tipos.map((tipo) => tipo.disponible), [true, false]);
+  assert.throws(() => validarBorradoresDisponibles({ ...catalogo, tipos: [{ ...catalogo.tipos[0], disponible: "no" }] }));
+  assert.throws(() => validarBorradoresDisponibles({ ...catalogo, tipos: [{ ...catalogo.tipos[0], disponible: true, otro: 1 }] }));
+  // La lista ya validada vuelve a pasar por el validador al descargar.
+  assert.deepEqual(validarBorradoresDisponibles({ esquema: catalogo.esquema, ...conFase }).tipos, conFase.tipos);
+});
+
+test("un 409 «documento_no_disponible» se distingue del conflicto de versión", async () => {
+  const sobre = (codigo) => new Response(JSON.stringify({ error: { codigo, clave_i18n: `api.x.${codigo}` } }),
+    { status: 409, headers: { "content-type": "application/json; charset=utf-8" } });
+  const conCodigo = (codigo) => crearClienteBorradoresPublicados({ cryptoImpl: webcrypto, fetchImpl: async () => sobre(codigo) });
+  const lista = validarBorradoresDisponibles(catalogo);
+  await assert.rejects(conCodigo("documento_no_disponible").descargar(contexto, lista, "acta_ampliada", "pdf"),
+    (error) => error.codigo === "documento_no_disponible" && error.estado === 409);
+  await assert.rejects(conCodigo("conflicto").descargar(contexto, lista, "acta_ampliada", "pdf"),
+    (error) => error.codigo === "conflicto" && error.estado === 409);
+  const sinSobre = crearClienteBorradoresPublicados({ fetchImpl: async () => new Response("x", { status: 409 }) });
+  await assert.rejects(sinSobre.consultarDisponibles(contexto), (error) => error.codigo === "conflicto");
+  const sinRed = crearClienteBorradoresPublicados({ fetchImpl: async () => assert.fail("red inesperada") });
+  await assert.rejects(sinRed.descargar(contexto, validarBorradoresDisponibles(catalogoConFase), "resolucion", "pdf"),
+    /documento_no_disponible/u);
+});
+
+test("los documentos que aún no se pueden preparar se ven inactivos y avisan al pulsarlos", async () => {
+  const html = renderizarBorradoresPublicados({ estado: "lista", catalogo: validarBorradoresDisponibles(catalogoConFase) });
+  assert.match(html, /<li class="ct-exp-documento ct-bp-pendiente">/u);
+  assert.match(html, /id="ct-bp-estado-resolucion">Todavía no disponible/u);
+  assert.match(html, /<strong id="ct-bp-documento-resolucion">Resolución<\/strong>/u);
+  assert.match(html, /data-bp-descargar="resolucion" data-bp-formato="pdf" aria-disabled="true" aria-describedby="ct-bp-documento-resolucion ct-bp-estado-resolucion"/u);
+  assert.match(html, /data-bp-descargar="acta_ampliada" data-bp-formato="docx" aria-describedby="ct-bp-documento-acta_ampliada"/u);
+  assert.doesNotMatch(html, /data-bp-descargar="acta_ampliada"[^>]*aria-disabled/u);
+
+  const eventos = new Map(), solicitudes = [], avisos = [], enfocados = [];
+  const raiz = { innerHTML: "", hidden: false, contains: () => true,
+    addEventListener: (tipo, fn) => eventos.set(tipo, fn), removeEventListener: (tipo) => eventos.delete(tipo),
+    replaceChildren() { this.innerHTML = ""; },
+    querySelectorAll: () => [{ dataset: { bpDescargar: "resolucion", bpFormato: "pdf" }, focus: () => enfocados.push("resolucion") },
+      { dataset: { bpDescargar: "acta_ampliada", bpFormato: "pdf" }, focus: () => enfocados.push("acta_ampliada") }] };
+  const cliente = { consultarDisponibles: async () => validarBorradoresDisponibles(catalogoConFase),
+    descargar: async (_c, _l, tipo) => { solicitudes.push(tipo);
+      throw Object.assign(new Error("documento_no_disponible"), { codigo: "documento_no_disponible", estado: 409 }); } };
+  const panel = montarBorradoresPublicados({ raiz, contexto, cliente, anunciar: (texto) => avisos.push(texto) });
+  await new Promise((resolver) => setImmediate(resolver));
+  const pulsar = (tipo) => eventos.get("click")({ target: { closest: () => ({ dataset: { bpDescargar: tipo, bpFormato: "pdf" },
+    hasAttribute: (clave) => clave === "data-bp-descargar" }) } });
+
+  pulsar("resolucion");
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.deepEqual(solicitudes, [], "no se pide al servidor un documento que aún no se puede preparar");
+  // El aviso queda dentro del documento pulsado, debajo de sus botones.
+  assert.match(raiz.innerHTML, /data-bp-descargar="resolucion" data-bp-formato="docx"[^<]*<\/button><\/div><p class="ct-bp-mensaje ct-bp-mensaje--aviso" role="status">Este documento se podrá preparar cuando el expediente tenga registrada la propuesta/u);
+  assert.equal((raiz.innerHTML.match(/class="ct-bp-mensaje/gu) ?? []).length, 1);
+  assert.deepEqual(enfocados, ["resolucion"]);
+
+  // Si el servidor responde 409 «documento_no_disponible», la lista sigue y el tipo queda inactivo.
+  pulsar("acta_ampliada");
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.deepEqual(solicitudes, ["acta_ampliada"]);
+  assert.doesNotMatch(raiz.innerHTML, /cambió|No se pudo comprobar/u);
+  assert.match(raiz.innerHTML, /data-bp-descargar="acta_ampliada" data-bp-formato="docx"[^<]*<\/button><\/div><p class="ct-bp-mensaje ct-bp-mensaje--aviso"/u);
+  assert.match(raiz.innerHTML, /data-bp-descargar="acta_ampliada" data-bp-formato="pdf" aria-disabled="true"/u);
+  assert.deepEqual(enfocados, ["resolucion", "acta_ampliada"]);
+  assert.equal(avisos.length, 2);
+  panel.desmontar();
 });

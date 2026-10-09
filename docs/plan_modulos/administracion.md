@@ -165,3 +165,31 @@ recibo, control, auditoría y outbox. La función interna de alta de vínculo s�
 forma parte del bootstrap; añadir una renovación de certificados sería otra
 tarea de identidad. La PR permanece en borrador hasta completar el ensayo y
 la CI; Claude revisa y fusiona.
+
+## Preferencias sin espera inicial con idioma elegido — 8 de octubre de 2026
+
+En Área personal, una URL con idioma elegido carga primero el idioma y Mi
+Bolsa; las preferencias se consultan después. Sin idioma en la URL se conserva
+la lectura previa, necesaria para mostrar desde el principio el idioma guardado.
+Las preferencias sólo cambian la presentación; las capacidades y los datos
+operativos siguen procediendo de sus consultas autorizadas.
+
+La lectura inicial se comparte con «Recargar» y las peticiones de preferencias,
+imagen y correos se serializan. Las demás lecturas de Bolsa conservan su
+transporte y límite propios. Una respuesta tardía actualiza sólo el panel de
+preferencias y conserva los datos, la navegación elegida, el foco y los
+borradores de los paneles hermanos. Tras un fallo se puede volver a cargar.
+
+La revisión independiente encontró y corrigió el límite de 64 KiB heredado por
+el historial, la petición inicial duplicada y el foco perdido al reconstruir
+los paneles. Chrome comprobó ES a 1440 px y EN a 390 px con una API local de
+prueba: Mi Bolsa apareció en 126 ms aunque preferencias tardara 1 segundo.
+También se comprobaron 401/403, fallo y reintento 503, idioma guardado sin URL,
+una respuesta válida de historial superior a 64 KiB y los cambios de foco.
+Esto acredita el arranque del navegador con esa fixture; no mide PostgreSQL,
+la autenticación nominal ni un GET de preferencias inferior a 50 ms.
+
+La reducción de ese GET sigue pendiente de la sesión en memoria ligada al
+certificado y el apunte común transaccional. El recorrido actual encadena ocho
+llamadas SQL nominales y al menos seis transacciones. S conserva la captura de
+sesión y W el consumidor común; este corte no crea otra autoridad ni SQL nuevo.

@@ -14,10 +14,11 @@ import (
 // lectorResumenBolsasInstalado compone el lector de conjunto solo si B82 y
 // B85 están instaladas; si falta una, el cuadro sigue con la lectura previa.
 func lectorResumenBolsasInstalado(ctx context.Context, pool *pgxpool.Pool) ports.LectorResumenBolsas {
-	var instalada bool
+	var instalada, listaInstalada bool
 	if err := pool.QueryRow(ctx, `SELECT to_regprocedure('vec_bolsa_llamamientos.leer_resumen_situaciones_bolsas_v1(timestamptz)') IS NOT NULL
 		AND to_regprocedure('vec_bolsa_llamamientos.leer_politicas_orden_vigentes_v1(timestamptz)') IS NOT NULL
-		AND to_regprocedure('vec_bolsa_llamamientos.leer_llamamientos_en_curso_bolsas_v1()') IS NOT NULL`).Scan(&instalada); err != nil {
+		AND to_regprocedure('vec_bolsa_llamamientos.leer_llamamientos_en_curso_bolsas_v1()') IS NOT NULL,
+        to_regprocedure('vec_bolsa_llamamientos.leer_llamamientos_completos_resumen_v1()') IS NOT NULL`).Scan(&instalada, &listaInstalada); err != nil {
 		log.Printf("bolsa rrhh: no se pudo comprobar el resumen de conjunto (B82/B85); el cuadro lee bolsa a bolsa: %v", err)
 		return nil
 	}
@@ -26,6 +27,9 @@ func lectorResumenBolsasInstalado(ctx context.Context, pool *pgxpool.Pool) ports
 		return nil
 	}
 	lector, err := postgresbolsa.NuevoLectorResumenBolsasPostgreSQL(pool)
+	if listaInstalada {
+		lector, err = postgresbolsa.NuevoLectorResumenBolsasConLlamamientosPostgreSQL(ctx, pool)
+	}
 	if err != nil {
 		log.Printf("bolsa rrhh: lector de resumen de conjunto no disponible; el cuadro lee bolsa a bolsa: %v", err)
 		return nil
@@ -64,7 +68,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarResumenConjunto(ctx context.Cont
 	if len(resumen.LlamamientosEnCurso) != len(orden) {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
-	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: corte.UTC().Format(time.RFC3339)}
+	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: corte.UTC().Format(time.RFC3339Nano), ResumenConjunto: true}
 	for _, bolsaRef := range orden {
 		participaciones := porBolsa[bolsaRef]
 		primera := participaciones[0]
@@ -127,6 +131,12 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarResumenConjunto(ctx context.Cont
 				Referencia: fila.ParticipacionRef, BolsaRef: bolsaRef, OrdenActa: int(fila.Orden),
 				Estado: situacion.Situacion, EstadoDesde: situacion.Desde.UTC().Format(time.RFC3339), Disponible: disponible,
 			})
+		}
+	}
+	if resumen.Llamamientos != nil {
+		datos.LlamamientosGlobales = make([]bolsaapplication.LlamamientoGlobalRRHH, 0, len(resumen.Llamamientos))
+		for _, l := range resumen.Llamamientos {
+			datos.LlamamientosGlobales = append(datos.LlamamientosGlobales, bolsaapplication.LlamamientoGlobalRRHH{BolsaRef: l.BolsaRef, LlamamientoRef: l.LlamamientoRef, Referencia: l.Referencia, EmitidoEn: l.EmitidoEn.UTC().Format(time.RFC3339Nano), Participaciones: l.Participaciones})
 		}
 	}
 	return datos, nil

@@ -1,7 +1,7 @@
 {
   "editor": {
     "titulo": "Call scoring rules",
-    "bolsas": "Employment pools",
+    "bolsas": "Job pools",
     "estado": "Draft",
     "limite": "Test draft. Nothing is saved and no call is changed.",
     "activacion_pendiente": "Activation requires the version register and its permissions to be connected.",
@@ -88,7 +88,7 @@
     "bloqueo_dato_pendiente": "A merit date or quantity is missing. Complete the case before scoring.",
     "archivo_borrador": "scoring-draft.json",
     "fecha_invalida": "Enter a valid reference date.",
-    "bolsa": "Employment pools",
+    "bolsa": "Job pools",
     "concursos": "Post allocation competitions",
     "tipo_proceso": "Process type",
     "concursos_pendiente": "Awaiting configuration",

@@ -32,7 +32,7 @@ import (
 // shell que la exportó. Se recomienda -dsn-archivo.
 const variableDSN = "VEC_PREPARAR_MATERIAL_GOBIERNO_DSN"
 
-var errUso = errors.New("uso: vec-preparar-material-interno -inventario-ct RUTA/ct_v3.json -material-idempotencia RUTA/idempotencia -motivos RUTA -salida DIRECTORIO_NUEVO [-dsn-archivo RUTA]")
+var errUso = errors.New("uso: vec-preparar-material-interno (-inventario-ct RUTA/ct_v3.json | -incorporacion-motivos-rrhh-dsn RUTA.dsn con -incorporacion-config [-incorporacion-motivos-rrhh-login LOGIN]) -material-idempotencia RUTA/idempotencia (-motivos RUTA | -incorporacion-config RUTA | -organizacion-historica-config RUTA) -salida DIRECTORIO_NUEVO [-dsn-archivo RUTA]")
 
 type dependencias struct {
 	abrirGobierno  func(context.Context, string) (fuenteGobierno, error)
@@ -71,15 +71,26 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 	banderas.StringVar(&o.salida, "salida", "", "directorio nuevo (inexistente o vacío, 0700)")
 	banderas.StringVar(&o.dsnArchivo, "dsn-archivo", "", "fichero 0600 con el DSN del LOGIN de gobierno de vec-server")
 	banderas.StringVar(&o.incorporacionConfig, "incorporacion-config", "", "configuración B2 pura con referencias, motivos y DSN aprobados")
+	banderas.StringVar(&o.incorporacionMotivosRRHHDSN, "incorporacion-motivos-rrhh-dsn", "", "DSN privado 0600 del resolutor RRHH al derivar CT desde idempotencia")
+	banderas.StringVar(&o.incorporacionMotivosRRHHLogin, "incorporacion-motivos-rrhh-login", "", "LOGIN nominal esperado del DSN RRHH; opcional solo en incorporación desde vec-server")
 	banderas.StringVar(&configuracionOH, "organizacion-historica-config", "", "inventario OH privado con motivo y ámbitos admitidos")
 	errParse := banderas.Parse(args)
+	loginRRHHIndicado := false
+	banderas.Visit(func(f *flag.Flag) {
+		loginRRHHIndicado = loginRRHHIndicado || f.Name == "incorporacion-motivos-rrhh-login"
+	})
 	modos := 0
 	for _, v := range []string{o.motivos, o.incorporacionConfig, configuracionOH} {
 		if v != "" {
 			modos++
 		}
 	}
-	if errParse != nil || banderas.NArg() != 0 || o.inventarioCT == "" || o.idempotencia == "" || modos != 1 || o.salida == "" {
+	ctLegado := o.inventarioCT != ""
+	ctServidor := o.incorporacionMotivosRRHHDSN != ""
+	if errParse != nil || banderas.NArg() != 0 || o.idempotencia == "" || modos != 1 || o.salida == "" ||
+		(o.incorporacionConfig != "" && ctLegado == ctServidor) ||
+		(o.incorporacionConfig == "" && (!ctLegado || ctServidor)) ||
+		(loginRRHHIndicado && (!ctServidor || o.incorporacionMotivosRRHHLogin == "")) {
 		fmt.Fprintln(errores, errUso)
 		return 2
 	}

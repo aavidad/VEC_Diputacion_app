@@ -14,7 +14,7 @@ import {
   renderizarViasPreparacion, selectorPestanaPreparacion, textoPreparacion, viaPreparacionDeEvento,
 } from "./vias-preparacion-cobertura.js";
 import { cargarTextos } from "../../../comun/textos.js";
-import { CONFLICTOS_SIN_CREDITO_COBERTURA } from "./cliente-http-transporte.js";
+import { CONFLICTOS_SIN_CREDITO_COBERTURA } from "./cliente-http-transporte.js?v=20261008-alta-corte-v1";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
@@ -76,14 +76,19 @@ function resultadoIndeterminado(error) {
   }
 }
 
-function renderizarRecibo(recibo, contexto, t, formateador) {
+function renderizarRecibo(recibo, estado, t, formateador) {
+  // El recibo del servidor no repite la vía: se muestra la que esta misma
+  // decisión envió y el servidor aplicó (estado "aplicada" con su clave).
+  const via = typeof estado.via_aplicada === "string" && estado.via_aplicada !== ""
+    ? `<div><dt>${escaparHTML(t("cobertura_via_elegida"))}</dt><dd data-ct-cobertura-via-aplicada>${
+      escaparHTML(etiquetaVia(t, estado.via_aplicada, estado.etiquetas_vias))}</dd></div>` : "";
   return `<section class="ct-recibo" data-ct-cobertura-recibo role="status"
     aria-live="polite" aria-atomic="true" tabindex="-1"
     aria-labelledby="ct-cobertura-recibo-titulo">
     <p class="sobrelinea">${escaparHTML(t("cobertura_recibo_sobrelinea"))}</p>
     <h3 id="ct-cobertura-recibo-titulo">${escaparHTML(t("cobertura_recibo_titulo"))}</h3>
     <p>${escaparHTML(t("cobertura_recibo_descripcion"))}</p>
-    <dl>
+    <dl>${via}
       <div><dt>${escaparHTML(t("cobertura_recibo_version"))}</dt><dd>${recibo.version_resultante}</dd></div>
       <div><dt>${escaparHTML(t("cobertura_recibo_referencia"))}</dt><dd>${justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
       <div><dt>${escaparHTML(t("cobertura_recibo_fecha"))}</dt><dd>${escaparHTML(formateador.format(new Date(recibo.confirmada_en)))}</dd></div>
@@ -148,7 +153,7 @@ function renderizarPropuesta(propuesta, estado, t) {
 }
 
 function renderizarContenido(estado, contexto, t, formateador, formateadorFechas) {
-  if (estado.recibo) return renderizarRecibo(estado.recibo, contexto, t, formateador);
+  if (estado.recibo) return renderizarRecibo(estado.recibo, estado, t, formateador);
   const preparacion = estado.propuesta?.catalogo
     ? renderizarViasPreparacion(estado.propuesta.catalogo, {
       prefijo: "ct-preparacion-ficha",
@@ -449,6 +454,7 @@ export function montarFormularioCobertura(configuracion = {}) {
         estado = {
           ...estado,
           recibo,
+          via_aplicada: solicitud.via_elegida,
           ocupado: false,
           indeterminado: false,
           mensaje_clave: "cobertura_estado_confirmada",
@@ -516,6 +522,7 @@ export function montarFormularioCobertura(configuracion = {}) {
           estado = {
             ...estado,
             recibo,
+            via_aplicada: estado.via_elegida,
             ocupado: false,
             indeterminado: false,
             mensaje_clave: "cobertura_estado_confirmada",

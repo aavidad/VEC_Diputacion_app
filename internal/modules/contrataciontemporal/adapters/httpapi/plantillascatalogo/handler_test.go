@@ -151,3 +151,40 @@ func TestHTTPEstadoYVinculoDelRecibo(t *testing.T) {
 		t.Fatalf("conflicto respondió con recibo: %d %s", w.Code, w.Body.String())
 	}
 }
+
+// Detrás del proxy de cidonia el Host llega reescrito a "localhost" y el
+// navegador envía el Origin público: el propio portal no puede quedar fuera.
+// Lo admitido llega al servicio (que en la prueba responde entrada inválida);
+// lo ajeno se corta en 403 sin tocarlo.
+func TestHTTPAdmiteMismoOrigenTrasProxyYRechazaAjeno(t *testing.T) {
+	casos := []struct {
+		origenes, sitios []string
+		codigo, llegan   int
+	}{
+		{[]string{"https://vec.example.org"}, []string{"same-origin"}, http.StatusBadRequest, 1},
+		{[]string{"https://ajeno.example"}, []string{"cross-site"}, http.StatusForbidden, 0},
+		{[]string{"https://ajeno.example"}, []string{"same-site"}, http.StatusForbidden, 0},
+		{[]string{"https://ajeno.example"}, nil, http.StatusForbidden, 0},
+		{[]string{"https://localhost"}, nil, http.StatusBadRequest, 1},
+		{nil, []string{"same-origin", "cross-site"}, http.StatusForbidden, 0},
+		{[]string{"https://localhost", "https://ajeno.example"}, []string{"same-origin"}, http.StatusForbidden, 0},
+	}
+	for _, c := range casos {
+		s := &servicioPrueba{}
+		h, _ := NuevoManejador(&resolverPrueba{actor: actorPrueba(t)}, s)
+		r := httptest.NewRequest(http.MethodPost, RutaEntradas, strings.NewReader(`{"clave_idempotencia":"11111111-1111-4111-8111-111111111111"}`))
+		r.Host = "localhost"
+		r.Header.Set("Content-Type", "application/json")
+		for _, o := range c.origenes {
+			r.Header.Add("Origin", o)
+		}
+		for _, v := range c.sitios {
+			r.Header.Add("Sec-Fetch-Site", v)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != c.codigo || s.ediciones != c.llegan {
+			t.Fatalf("%v %v: HTTP %d, ediciones %d", c.origenes, c.sitios, w.Code, s.ediciones)
+		}
+	}
+}

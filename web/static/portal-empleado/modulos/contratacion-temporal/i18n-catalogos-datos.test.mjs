@@ -79,12 +79,24 @@ const CLAVES_CONTEXTO_ANA002 = Object.freeze([
   "ct_txt_contexto_corte_publicado",
   "ct_txt_contexto_no_comunicado",
 ]);
+const CLAVES_DOCUMENTOS_FICHA = Object.freeze([
+  "ficha_borrador_sin_firmar", "ficha_descargar_pdf", "ficha_descargar_word",
+  "ficha_documentos_cargando", "ficha_documentos_error", "ficha_documentos_no_montados",
+  "ficha_borradores_no_montados", "ficha_borradores_cargando", "ficha_borradores_error",
+  "ficha_documentos_recuento_indice",
+]);
+const CLAVES_BORRADORES_FICHA = Object.freeze([
+  "bp_ficha_titulo", "bp_estado_borrador", "bp_ficha_docx",
+  "bp_estado_pendiente", "bp_no_disponible",
+]);
 const CLAVES_CUADRO_LIGERO = Object.freeze([
+  "lista_centro_nombre_no_disponible", "lista_categoria_nombre_no_disponible",
   "filtros", "tabla_expedientes", "marca_urgente", "lista_actualizar", "lista_vacia_sin_alta",
   "lista_textos_respaldo",
   "lista_filtro_no_disponible", "lista_resultados_pagina",
   "lista_titulo_conjunto", "lista_buscar_pista_servidor",
   "lista_fase_servidor_preparacion", "lista_fase_servidor_llamamiento", "lista_fase_servidor_cierre",
+  "lista_centro_nombre_no_disponible", "lista_categoria_nombre_no_disponible",
   "plazo_fase_en_plazo", "plazo_fase_vence_hoy",
   "plazo_fase_vencido", "plazo_fase_sin_calcular",
 ]);
@@ -100,6 +112,13 @@ const CLAVES_REINCORPORACION_CAPACIDAD = Object.freeze([
   "reincorporacion_capacidad_denegada", "reincorporacion_capacidad_no_disponible",
   "reincorporacion_capacidad_reintentar", "reincorporacion_capacidad_comprobando",
   "reincorporacion_capacidad_no_habilitada",
+]);
+const CLAVES_FICHA_SIN_BOLSA = Object.freeze([
+  "ficha_llamamiento_sin_bolsa", "ficha_llamamiento_bolsa_error",
+  "ficha_llamamiento_bolsa_denegado", "ficha_llamamiento_bolsa_reintentar",
+]);
+const CLAVES_GUIA_COBERTURA = Object.freeze([
+  "ficha_siguiente_paso_cobertura_titulo", "ficha_siguiente_paso_cobertura_que",
 ]);
 // Nuevas claves de Alta: se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_CAPACIDAD_ALTA = Object.freeze({
@@ -151,12 +170,22 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
           .filter(([clave]) => !CLAVES_CONTEXTO_ANA002.includes(clave)));
       }
       if (archivo === "i18n-ficha-lista.js") {
-        for (const clave of [...CLAVES_CUADRO_LIGERO, ...CLAVES_REINCORPORACION_CAPACIDAD]) {
+        for (const clave of [...CLAVES_CUADRO_LIGERO, ...CLAVES_REINCORPORACION_CAPACIDAD,
+          ...CLAVES_DOCUMENTOS_FICHA, ...CLAVES_FICHA_SIN_BOLSA, ...CLAVES_GUIA_COBERTURA]) {
           assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
         }
         preimagen = Object.fromEntries(Object.entries(valor)
-          .filter(([clave]) => !CLAVES_CUADRO_LIGERO.includes(clave) && !CLAVES_REINCORPORACION_CAPACIDAD.includes(clave)));
+          .filter(([clave]) => !CLAVES_CUADRO_LIGERO.includes(clave) && !CLAVES_REINCORPORACION_CAPACIDAD.includes(clave)
+            && !CLAVES_DOCUMENTOS_FICHA.includes(clave) && !CLAVES_FICHA_SIN_BOLSA.includes(clave)
+            && !CLAVES_GUIA_COBERTURA.includes(clave)));
 
+      }
+      if (archivo === "i18n-borradores-publicados.js") {
+        for (const clave of CLAVES_BORRADORES_FICHA) {
+          assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
+        }
+        preimagen = Object.fromEntries(Object.entries(valor)
+          .filter(([clave]) => !CLAVES_BORRADORES_FICHA.includes(clave)));
       }
       if (CLAVES_CAPACIDAD_ALTA[archivo]) {
         for (const clave of CLAVES_CAPACIDAD_ALTA[archivo]) {

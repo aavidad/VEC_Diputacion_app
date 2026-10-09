@@ -161,20 +161,65 @@ function crearEstado(expediente, tareaRef, sobrescrituras = {}) {
   };
 }
 
-function crearPresentador(estadoInicial, fallarCarga = false) {
+function crearPresentador(estadoInicial, fallarCarga = false, refresco = null) {
   let estado = estadoInicial;
   let desmontajes = 0;
+  let lecturasCuadro = 0;
+  let lecturasDetalle = 0;
+  let secuenciaLecturas = 0;
   return {
     obtenerEstado() { return estado; },
     async cargar() {
+      lecturasCuadro += 1;
+      if (refresco?.esperarCarga) await refresco.esperarCarga;
       if (fallarCarga) throw new Error("listado temporalmente no disponible");
+      if (refresco) estado = { ...estado, cuadro: refresco.cuadro };
       return estado;
     },
-    cambiarVista(vista) { estado = { ...estado, vista }; },
+    async seleccionarExpediente(referencia, vista = "expediente") {
+      lecturasDetalle += 1;
+      secuenciaLecturas += 1;
+      const elegido = [refresco?.expediente, refresco?.otraFicha].find(
+        (candidato) => candidato?.expediente_ref === referencia,
+      );
+      if (!elegido) {
+        throw new Error("expediente no disponible");
+      }
+      estado = { ...estado, vista, expediente: elegido,
+        expediente_ref: referencia, carga: "listo" };
+      refresco.resolver?.();
+      return estado;
+    },
+    async refrescarExpedienteConfirmado(recibo) {
+      lecturasDetalle += 1;
+      const secuencia = ++secuenciaLecturas;
+      estado = { ...estado, cuadro_desactualizado: true };
+      if (refresco?.esperarCarga) await refresco.esperarCarga;
+      if (secuencia !== secuenciaLecturas) return estado;
+      if (fallarCarga) throw new Error("detalle temporalmente no disponible");
+      if (!refresco || recibo.expediente_ref !== refresco.expediente.expediente_ref
+        || refresco.expediente.version < recibo.version_resultante) return estado;
+      estado = { ...estado, expediente: refresco.expediente,
+        cuadro_desactualizado: true, carga: "listo" };
+      refresco.resolver?.();
+      return estado;
+    },
+    async volverAlCuadro() {
+      lecturasCuadro += 1;
+      const secuencia = ++secuenciaLecturas;
+      if (refresco?.esperarVolver) await refresco.esperarVolver;
+      if (secuencia !== secuenciaLecturas) return estado;
+      estado = { ...estado, vista: "cuadro", carga: "vacio",
+        cuadro: refresco?.cuadroAlVolver ?? { demostracion: false, expedientes: [] },
+        cuadro_desactualizado: false };
+      return estado;
+    },
+    cambiarVista(vista) { secuenciaLecturas += 1; estado = { ...estado, vista }; },
     seleccionarTarea(tareaRef) { estado = { ...estado, vista: "expediente", tarea_ref: tareaRef }; },
     cancelar() {},
     desmontar() { desmontajes += 1; },
     obtenerDesmontajes() { return desmontajes; },
+    obtenerLecturas() { return { cuadro: lecturasCuadro, detalle: lecturasDetalle }; },
   };
 }
 
@@ -184,6 +229,7 @@ function crearContenedorAnalisis({ fallarAlPintar = false } = {}) {
   const anexos = [];
   let contenido = "";
   let limpiezas = 0;
+  const documento = { body: {}, activeElement: null };
   const crearNodo = () => {
     const atributos = new Map();
     const eventosNodo = new Map();
@@ -196,26 +242,33 @@ function crearContenedorAnalisis({ fallarAlPintar = false } = {}) {
       removeEventListener(tipo, manejador) { eventosNodo.delete(tipo); },
       append(...hijos) { this.hijos.push(...hijos); },
       remove() { this.retirado = true; },
+      focus() { this.enfoques = (this.enfoques ?? 0) + 1; documento.activeElement = this; },
     };
   };
+  documento.createElement = crearNodo;
   return {
     get innerHTML() { return contenido; },
     set innerHTML(valor) {
       if (fallarAlPintar) throw new Error("montaje sintético no disponible");
       contenido = valor;
+      this.reciboNodo = valor.includes("data-ct-analisis-recibo")
+        ? Object.assign(crearNodo(), { _contenedor: this, ownerDocument: documento }) : null;
     },
     eventos,
     retirados,
     anexos,
-    ownerDocument: { createElement: crearNodo },
+    ownerDocument: documento,
     append(...nodos) { anexos.push(...nodos); },
     addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
     removeEventListener(tipo, manejador) {
       if (eventos.get(tipo) === manejador) eventos.delete(tipo);
       retirados.push(tipo);
     },
-    contains() { return true; },
-    querySelector() { return { focus() {}, scrollIntoView() {} }; },
+    contains(nodo) { return nodo?._contenedor === this || !Object.hasOwn(nodo ?? {}, "_contenedor"); },
+    querySelector(selector) {
+      if (selector === "[data-ct-analisis-recibo]") return this.reciboNodo;
+      return { _contenedor: this, focus() { documento.activeElement = this; }, scrollIntoView() {} };
+    },
     replaceChildren() {
       limpiezas += 1;
       this.innerHTML = "";
@@ -285,6 +338,7 @@ function crearRaizModulo() {
   let contenedorCobertura = null;
   let contenedorAsignacion = null;
   let contenedorInformeJuridico = null;
+  let contenedorContenido = null;
   let montajesAnalisis = 0;
   let controles = [];
   const raiz = {
@@ -302,6 +356,8 @@ function crearRaizModulo() {
       contenedorAsignacion = valor.includes("data-ct-exp-asignacion")
         ? crearContenedorAnalisis() : null;
       contenedorInformeJuridico = valor.includes("data-ct-exp-informe-juridico")
+        ? crearContenedorAnalisis() : null;
+      contenedorContenido = valor.includes("ct-exp-contenido")
         ? crearContenedorAnalisis() : null;
       if (contenedorAnalisis) montajesAnalisis += 1;
       controles = Array.from({ length: 3 }, () => {
@@ -324,12 +380,17 @@ function crearRaizModulo() {
     removeAttribute(nombre) { atributos.delete(nombre); },
     querySelectorAll() { return controles; },
     querySelector(selector) {
+      if (selector === "[data-ct-analisis-recibo]") {
+        return contenedorAnalisis?.querySelector(selector)
+          ?? contenedorRectificacion?.querySelector(selector) ?? null;
+      }
       if (selector === "[data-ct-exp-alta]") return contenedorAlta;
       if (selector === "[data-ct-exp-analisis]") return contenedorAnalisis;
       if (selector === "[data-ct-exp-rectificacion]") return contenedorRectificacion;
       if (selector === "[data-ct-exp-cobertura]") return contenedorCobertura;
       if (selector === "[data-ct-exp-asignacion]") return contenedorAsignacion;
       if (selector === "[data-ct-exp-informe-juridico]") return contenedorInformeJuridico;
+      if (selector === ".ct-exp-contenido") return contenedorContenido;
       return { focus() {}, scrollIntoView() {} };
     },
   };
@@ -342,6 +403,7 @@ function crearRaizModulo() {
     obtenerCobertura() { return contenedorCobertura; },
     obtenerAsignacion() { return contenedorAsignacion; },
     obtenerInformeJuridico() { return contenedorInformeJuridico; },
+    obtenerContenido() { return contenedorContenido; },
     activarFalloCobertura() {
       raiz.fallarMontajeCobertura = true;
       contenedorCobertura = crearContenedorAnalisis({ fallarAlPintar: true });
@@ -359,6 +421,13 @@ function crearRaizModulo() {
         closest(selector) {
           return selector === "[data-ct-exp-vista]" ? this : null;
         },
+      };
+      await eventos.get("click")({ target: control, preventDefault() {} });
+    },
+    async abrirExpediente(referencia) {
+      const control = {
+        dataset: { ctExpAbrir: referencia },
+        closest(selector) { return selector === "[data-ct-exp-abrir]" ? this : null; },
       };
       await eventos.get("click")({ target: control, preventDefault() {} });
     },
@@ -391,17 +460,23 @@ async function montarEscenario({
   analisis = null,
   alta = null,
   fallarCarga = false,
+  refresco = null,
+  anunciar = () => {},
+  alCambiarFicha = () => {},
 } = {}) {
   const raiz = crearRaizModulo();
   const presentador = crearPresentador(
     estado ?? crearEstado(expediente, tareaRef),
     fallarCarga,
+    refresco,
   );
   const modulo = await montarModuloContratacionTemporal({
     raiz: raiz.raiz,
     presentador,
     alta,
     analisis,
+    anunciar,
+    alCambiarFicha,
   });
   return { raiz, presentador, modulo };
 }
@@ -919,7 +994,7 @@ test("una respuesta indeterminada conserva el bloqueo sin aborto, remontaje ni s
   assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
   escenario.modulo.desmontar();
 });
-test("el éxito conserva el recibo visible y no reenvía desde la versión obsoleta", async () => {
+test("el éxito libera la navegación y no reenvía desde la versión obsoleta", async () => {
   const { expediente, tareaRef } = crearExpediente();
   let llamadas = 0;
   const cliente = {
@@ -937,14 +1012,243 @@ test("el éxito conserva el recibo visible y no reenvía desde la versión obsol
   await formulario.enviar();
   assert.match(formulario.innerHTML, /data-ct-analisis-recibo/u);
   assert.match(formulario.innerHTML, /recibo:opaco:analisis:001/u);
+  assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
   await escenario.raiz.cambiarVista("cuadro");
-  await formulario.enviar();
-  assert.strictEqual(escenario.raiz.obtenerAnalisis(), formulario);
-  assert.equal(escenario.raiz.obtenerMontajesAnalisis(), 1);
-  assert.equal(escenario.presentador.obtenerEstado().vista, "expediente");
+  assert.equal(escenario.presentador.obtenerEstado().vista, "cuadro");
+  assert.equal(formulario.eventos.has("submit"), false);
   assert.equal(llamadas, 1);
   assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
 
+  escenario.modulo.desmontar();
+});
+
+test("el recibo confirmado refresca cuadro y ficha a la versión resultante sin otro POST", async () => {
+  const { expediente: base, tareaRef } = crearExpediente();
+  const expediente = validarExpedienteContratacionTemporal({ ...base, demostracion: false });
+  const actualizado = validarExpedienteContratacionTemporal({
+    ...expediente,
+    version: expediente.version + 1,
+    cabecera: [...expediente.cabecera, {
+      clave: "resultado_rc", etiqueta: "Resultado RC", valor: "validada", tono: "neutro",
+      control: "solo_lectura", obligatorio: false, opciones: [],
+    }],
+  });
+  let resolver;
+  const completo = new Promise((resolve) => { resolver = resolve; });
+  const refresco = {
+    expediente: actualizado,
+    cuadro: { demostracion: false, expedientes: [{
+      expediente_ref: expediente.expediente_ref,
+      fase_clave: "solicitud", estado_clave: "en_curso", version: actualizado.version,
+    }] },
+    cuadroAlVolver: { demostracion: false, expedientes: [] },
+    resolver,
+  };
+  let llamadas = 0;
+  let urlFicha = `/portal-empleado/?ficha=${expediente.expediente_ref}`;
+  const cambiosFicha = [];
+  const escenario = await montarEscenario({
+    expediente, tareaRef,
+    estado: crearEstado(expediente, tareaRef, { cuadro: {
+      ...refresco.cuadro,
+      expedientes: [{ ...refresco.cuadro.expedientes[0], version: expediente.version }],
+    } }),
+    refresco,
+    alCambiarFicha: (seleccion) => {
+      cambiosFicha.push(seleccion);
+      urlFicha = seleccion
+        ? `/portal-empleado/?ficha=${seleccion.expedienteRef}&expediente_version=${seleccion.version}`
+        : "/portal-empleado/";
+    },
+    analisis: crearComposicion({
+      registrarAnalisis() {
+        llamadas += 1;
+        return Promise.resolve(crearRecibo(expediente));
+      },
+    }),
+  });
+  await escenario.raiz.obtenerAnalisis().enviar();
+  await completo;
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(llamadas, 1);
+  assert.deepEqual(escenario.presentador.obtenerLecturas(), { cuadro: 0, detalle: 1 });
+  assert.equal(escenario.presentador.obtenerEstado().expediente.version, actualizado.version);
+  assert.equal(urlFicha, `/portal-empleado/?ficha=${expediente.expediente_ref}&expediente_version=${actualizado.version}`);
+  assert.deepEqual(cambiosFicha, [{ expedienteRef: expediente.expediente_ref, version: actualizado.version }]);
+  assert.match(escenario.raiz.raiz.innerHTML, /Resultado RC/u);
+  const confirmacion = (escenario.raiz.obtenerRectificacion()
+    ?? escenario.raiz.obtenerAnalisis()
+    ?? escenario.raiz.obtenerContenido()).anexos.at(-1);
+  assert.match(confirmacion.innerHTML,
+    /recibo:opaco:analisis:001/u);
+  assert.equal(confirmacion.enfoques, 1);
+  assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
+  await escenario.raiz.cambiarVista("cuadro");
+  assert.equal(urlFicha, "/portal-empleado/");
+  assert.deepEqual(cambiosFicha, [
+    { expedienteRef: expediente.expediente_ref, version: actualizado.version }, null,
+  ]);
+  assert.equal(escenario.presentador.obtenerEstado().carga, "vacio");
+  assert.equal(escenario.presentador.obtenerEstado().cuadro.expedientes.length, 0);
+  assert.deepEqual(escenario.presentador.obtenerLecturas(), { cuadro: 1, detalle: 1 });
+  escenario.modulo.desmontar();
+});
+
+test("una vuelta tardía no borra la URL de otra ficha abierta", async () => {
+  const { expediente: base, tareaRef } = crearExpediente();
+  const expediente = validarExpedienteContratacionTemporal({ ...base, demostracion: false });
+  const actualizado = validarExpedienteContratacionTemporal({
+    ...expediente, version: expediente.version + 1,
+    cabecera: [...expediente.cabecera, {
+      clave: "resultado_rc", etiqueta: "Resultado RC", valor: "validada", tono: "neutro",
+      control: "solo_lectura", obligatorio: false, opciones: [],
+    }],
+  });
+  const otraFicha = validarExpedienteContratacionTemporal({
+    ...actualizado, expediente_ref: "expediente:ct:otra:001", numero_visible: "2026/CT-999",
+  });
+  const listaPendiente = crearDiferida();
+  const detalleListo = crearDiferida();
+  const refresco = {
+    expediente: actualizado, otraFicha,
+    esperarVolver: listaPendiente.promesa,
+    resolver: detalleListo.resolver,
+    cuadro: { demostracion: false, expedientes: [] },
+    cuadroAlVolver: { demostracion: false, expedientes: [] },
+  };
+  let urlFicha = `/portal-empleado/?ficha=${expediente.expediente_ref}`;
+  const cambiosFicha = [];
+  const escenario = await montarEscenario({
+    expediente, tareaRef, refresco,
+    analisis: crearComposicion({ registrarAnalisis: async () => crearRecibo(expediente) }),
+    alCambiarFicha: (seleccion) => {
+      cambiosFicha.push(seleccion);
+      urlFicha = seleccion
+        ? `/portal-empleado/?ficha=${seleccion.expedienteRef}&expediente_version=${seleccion.version}`
+        : "/portal-empleado/";
+    },
+  });
+  await escenario.raiz.obtenerAnalisis().enviar();
+  await detalleListo.promesa;
+  const volver = escenario.raiz.cambiarVista("cuadro");
+  await escenario.raiz.abrirExpediente(otraFicha.expediente_ref);
+  assert.equal(escenario.presentador.obtenerEstado().expediente_ref, otraFicha.expediente_ref);
+  listaPendiente.resolver();
+  await volver;
+  assert.equal(urlFicha, `/portal-empleado/?ficha=${otraFicha.expediente_ref}&expediente_version=${otraFicha.version}`);
+  assert.deepEqual(cambiosFicha, [
+    { expedienteRef: expediente.expediente_ref, version: actualizado.version },
+    { expedienteRef: otraFicha.expediente_ref, version: otraFicha.version },
+  ]);
+  assert.equal(escenario.presentador.obtenerEstado().expediente_ref, otraFicha.expediente_ref);
+  escenario.modulo.desmontar();
+});
+
+test("un detalle de análisis tardío no cambia la URL ni la selección nueva", async () => {
+  const { expediente: base, tareaRef } = crearExpediente();
+  const expediente = validarExpedienteContratacionTemporal({ ...base, demostracion: false });
+  const actualizado = validarExpedienteContratacionTemporal({ ...expediente, version: 8 });
+  const otraFicha = validarExpedienteContratacionTemporal({
+    ...expediente, expediente_ref: "expediente:ct:otra:002", numero_visible: "2026/CT-998",
+  });
+  const lecturaPendiente = crearDiferida();
+  const refresco = {
+    expediente: actualizado, otraFicha, esperarCarga: lecturaPendiente.promesa,
+  };
+  let urlFicha = `/portal-empleado/?ficha=${expediente.expediente_ref}&expediente_version=${expediente.version}`;
+  const cambiosFicha = [];
+  const escenario = await montarEscenario({
+    expediente, tareaRef, refresco,
+    analisis: crearComposicion({ registrarAnalisis: async () => crearRecibo(expediente) }),
+    alCambiarFicha: (seleccion) => {
+      cambiosFicha.push(seleccion);
+      urlFicha = seleccion
+        ? `/portal-empleado/?ficha=${seleccion.expedienteRef}&expediente_version=${seleccion.version}`
+        : "/portal-empleado/";
+    },
+  });
+  const formulario = escenario.raiz.obtenerAnalisis();
+  await formulario.enviar();
+  await escenario.raiz.abrirExpediente(otraFicha.expediente_ref);
+  lecturaPendiente.resolver();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(urlFicha, `/portal-empleado/?ficha=${otraFicha.expediente_ref}&expediente_version=${otraFicha.version}`);
+  assert.deepEqual(cambiosFicha, [{ expedienteRef: otraFicha.expediente_ref, version: otraFicha.version }]);
+  assert.equal(escenario.presentador.obtenerEstado().expediente_ref, otraFicha.expediente_ref);
+  escenario.modulo.desmontar();
+});
+
+test("si falla la lectura posterior, el recibo y la navegación siguen disponibles sin repetir el registro", async () => {
+  const { expediente, tareaRef } = crearExpediente();
+  let registros = 0;
+  const anuncios = [];
+  const cambiosFicha = [];
+  const escenario = await montarEscenario({
+    expediente, tareaRef, fallarCarga: true,
+    refresco: { cuadroAlVolver: { demostracion: false, expedientes: [] } },
+    anunciar: (mensaje, tono) => anuncios.push({ mensaje, tono }),
+    alCambiarFicha: (seleccion) => cambiosFicha.push(seleccion),
+    analisis: crearComposicion({
+      registrarAnalisis() {
+        registros += 1;
+        return Promise.resolve(crearRecibo(expediente));
+      },
+    }),
+  });
+  const formulario = escenario.raiz.obtenerAnalisis();
+  await formulario.enviar();
+  await Promise.resolve();
+  assert.match(formulario.innerHTML, /recibo:opaco:analisis:001/u);
+  assert.equal(anuncios.at(-1)?.tono, "aviso");
+  assert.match(anuncios.at(-1)?.mensaje ?? "", /actualiz|abrir/u);
+  assert.match(formulario.reciboNodo?.hijos.at(-1)?.textContent ?? "", /actualiz|abrir/u);
+  assert.deepEqual(cambiosFicha, []);
+  assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
+  await escenario.raiz.cambiarVista("cuadro");
+  assert.equal(escenario.presentador.obtenerEstado().vista, "cuadro");
+  assert.equal(escenario.presentador.obtenerEstado().cuadro.expedientes.length, 0);
+  assert.equal(registros, 1);
+  assert.deepEqual(escenario.presentador.obtenerLecturas(), { cuadro: 1, detalle: 1 });
+  escenario.modulo.desmontar();
+});
+
+test("la lectura tardía conserva el foco que la persona movió fuera del análisis", async () => {
+  const { expediente: base, tareaRef } = crearExpediente();
+  const expediente = validarExpedienteContratacionTemporal({ ...base, demostracion: false });
+  const actualizado = validarExpedienteContratacionTemporal({
+    ...expediente, version: expediente.version + 1,
+    cabecera: [...expediente.cabecera, {
+      clave: "resultado_rc", etiqueta: "Resultado RC", valor: "validada", tono: "neutro",
+      control: "solo_lectura", obligatorio: false, opciones: [],
+    }],
+  });
+  const lectura = crearDiferida();
+  const refresco = {
+    esperarCarga: lectura.promesa,
+    expediente: actualizado,
+    cuadro: { demostracion: false, expedientes: [{
+      expediente_ref: expediente.expediente_ref,
+      fase_clave: "solicitud", estado_clave: "en_curso", version: actualizado.version,
+    }] },
+  };
+  const escenario = await montarEscenario({
+    expediente, tareaRef, refresco,
+    estado: crearEstado(expediente, tareaRef, { cuadro: {
+      ...refresco.cuadro,
+      expedientes: [{ ...refresco.cuadro.expedientes[0], version: expediente.version }],
+    } }),
+    analisis: crearComposicion({ registrarAnalisis: async () => crearRecibo(expediente) }),
+  });
+  const formulario = escenario.raiz.obtenerAnalisis();
+  await formulario.enviar();
+  const focoAjeno = { _contenedor: {} };
+  formulario.ownerDocument.activeElement = focoAjeno;
+  lectura.resolver();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal((escenario.raiz.obtenerRectificacion()
+    ?? escenario.raiz.obtenerAnalisis()
+    ?? escenario.raiz.obtenerContenido()).anexos.at(-1).enfoques, undefined);
+  assert.equal(formulario.ownerDocument.activeElement, focoAjeno);
   escenario.modulo.desmontar();
 });
 

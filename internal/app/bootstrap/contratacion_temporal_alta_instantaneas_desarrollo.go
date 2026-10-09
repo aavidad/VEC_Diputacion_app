@@ -148,6 +148,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 				return dominiovec.InstantaneaAutorizacion{}, false
 			}
 		}
+		if datos.Accion == ports.AccionReanudacionSolicitudLlamamiento {
+			s.mu.Lock()
+			instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaReanudacionSolicitudLlamamiento)
+			s.mu.Unlock()
+			if instantanea.Validar() != nil {
+				return dominiovec.InstantaneaAutorizacion{}, false
+			}
+		}
 		// Correo conserva la asignación publicada. El recurso no amplía sus ámbitos.
 		if !accionCorreoLlamamientoDesarrollo(datos.Accion) {
 			instantanea.AsignacionPerfil.Ambitos = ambitosLlamamientoDesarrollo(datos.Recurso)

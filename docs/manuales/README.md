@@ -1,7 +1,15 @@
-# Manuales de usuario
+# Manuales del portal
 
-Todavía no hay un manual de proceso publicado en esta carpeta. La lista de recorridos que se cortan y el paso pendiente de cada uno están en [PENDIENTES.md](PENDIENTES.md).
+Guías basadas en las acciones comprobadas en la web los días 8 y 9 de octubre de 2026. La petición del centro, la tramitación y la respuesta del aspirante corresponden al recorrido del día 9. Las imágenes muestran datos de ejemplo; las cifras y las fechas pueden cambiar.
 
-Un manual se incorpora aquí cuando una persona puede recorrer el proceso entero en el clon local, desde la entrada al portal hasta la firma y el cierre que correspondan. Cada paso llevará una captura del Chrome del sistema con un número junto al control que hay que pulsar; el texto usará ese mismo número. Se comprobarán el escritorio de 1440 píxeles y las pantallas de 390 píxeles donde el móvil cambie la forma de actuar.
+| Persona que usa el portal | Guía | Acciones comprobadas |
+| --- | --- | --- |
+| Aspirante que ya participa en una bolsa | [Mi bolsa](aspirante.md) | Consultar su situación y responder a un llamamiento tras el contacto de Recursos Humanos. |
+| Centro que pide personal | [Petición de personal](centro.md) | Preparar, revisar y presentar una petición; consultar su estado. |
+| Persona que ratifica | [Ratificación](ratificador.md) | Revisar la petición de otra persona y ratificarla. |
+| Técnico de Recursos Humanos | [Tramitación](tecnico_rrhh.md) | Recibir la petición, tramitar el expediente y gestionar el llamamiento. |
+| Responsable de Recursos Humanos | [Consulta del expediente](responsable_rrhh.md) | Revisar los datos y el historial; descargar los documentos en PDF y Word en la fase de nombramiento. |
+| Intervención | [Alcance pendiente](intervencion.md) | Sin trámite propio en este recorrido. |
+| Administración del portal y sistemas | [Alcance pendiente](sistemas.md) | Sin un recorrido propio comprobado. |
 
-Las capturas deben proceder de datos sintéticos y del programa y las migraciones que se indiquen en el propio manual. Antes de publicar, otra persona recorrerá las instrucciones y comprobará que los botones, los recibos y el final descritos siguen existiendo.
+Las guías con recorrido incluyen solo acciones que funcionaron desde sus pantallas. Las de Intervención y sistemas indican que su recorrido propio está pendiente. La firma, la resolución y los pasos posteriores quedan fuera de las instrucciones actuales. Los documentos que se descargan son borradores sin firmar. Las incidencias y los recorridos que faltan se recogen en [PENDIENTES.md](PENDIENTES.md).

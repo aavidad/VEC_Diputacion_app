@@ -15,7 +15,10 @@ const maximoFilasResumenBolsas = 200000
 
 // LectorResumenBolsasPostgreSQL lee las funciones de conjunto B82 y el
 // recuento agrupado B85. Todas comprueban en la base el rol de quien llama.
-type LectorResumenBolsasPostgreSQL struct{ pool *pgxpool.Pool }
+type LectorResumenBolsasPostgreSQL struct {
+	pool                 *pgxpool.Pool
+	conListaLlamamientos bool
+}
 
 var _ ports.LectorResumenBolsas = (*LectorResumenBolsasPostgreSQL)(nil)
 
@@ -24,6 +27,20 @@ func NuevoLectorResumenBolsasPostgreSQL(pool *pgxpool.Pool) (*LectorResumenBolsa
 		return nil, ports.ErrResumenBolsasNoDisponible
 	}
 	return &LectorResumenBolsasPostgreSQL{pool: pool}, nil
+}
+
+// NuevoLectorResumenBolsasConLlamamientosPostgreSQL exige B94 una vez al
+// montar el lector. La falta de instalación no degrada la lectura en silencio.
+func NuevoLectorResumenBolsasConLlamamientosPostgreSQL(ctx context.Context, pool *pgxpool.Pool) (*LectorResumenBolsasPostgreSQL, error) {
+	if ctx == nil || pool == nil {
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	var instalada bool
+	err := pool.QueryRow(ctx, `SELECT pg_catalog.to_regprocedure('vec_bolsa_llamamientos.leer_llamamientos_completos_resumen_v1()') IS NOT NULL`).Scan(&instalada)
+	if err != nil || !instalada {
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	return &LectorResumenBolsasPostgreSQL{pool: pool, conListaLlamamientos: true}, nil
 }
 
 // consultaResumenBolsas es lo que necesitan las lecturas de una transacción.
@@ -68,10 +85,59 @@ func (l *LectorResumenBolsasPostgreSQL) LeerResumen(ctx context.Context, corte t
 			return vacio, ports.ErrResumenBolsasNoDisponible
 		}
 	}
+	var llamamientos []ports.LlamamientoResumenRRHH
+	if l.conListaLlamamientos {
+		llamamientos, err = leerLlamamientosCompletosResumen(ctx, tx)
+		if err != nil {
+			return vacio, err
+		}
+		porBolsa := make(map[string]int, len(conteos))
+		for _, llamamiento := range llamamientos {
+			porBolsa[llamamiento.BolsaRef]++
+		}
+		if len(porBolsa) > len(conteos) {
+			return vacio, ports.ErrResumenBolsasNoDisponible
+		}
+		for bolsaRef, conteo := range conteos {
+			if porBolsa[bolsaRef] != conteo {
+				return vacio, ports.ErrResumenBolsasNoDisponible
+			}
+		}
+	}
 	if tx.Commit(ctx) != nil {
 		return vacio, ports.ErrResumenBolsasNoDisponible
 	}
-	return ports.ResumenBolsasRRHH{Situaciones: filas, Politicas: politicas, LlamamientosEnCurso: conteos}, nil
+	return ports.ResumenBolsasRRHH{Situaciones: filas, Politicas: politicas, LlamamientosEnCurso: conteos, Llamamientos: llamamientos}, nil
+}
+
+func leerLlamamientosCompletosResumen(ctx context.Context, consulta consultaResumenBolsas) ([]ports.LlamamientoResumenRRHH, error) {
+	filas, err := consulta.Query(ctx, `SELECT llamamiento_ref,bolsa_ref,referencia,emitido_en,participaciones
+		FROM vec_bolsa_llamamientos.leer_llamamientos_completos_resumen_v1()`)
+	if err != nil {
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	defer filas.Close()
+	salida := make([]ports.LlamamientoResumenRRHH, 0)
+	vistas := map[string]struct{}{}
+	for filas.Next() {
+		if len(salida) >= maximoFilasResumenBolsas {
+			return nil, ports.ErrResumenBolsasNoDisponible
+		}
+		var fila ports.LlamamientoResumenRRHH
+		if err := filas.Scan(&fila.LlamamientoRef, &fila.BolsaRef, &fila.Referencia, &fila.EmitidoEn, &fila.Participaciones); err != nil ||
+			fila.LlamamientoRef == "" || fila.BolsaRef == "" || fila.Referencia == "" || fila.EmitidoEn.IsZero() || fila.Participaciones < 1 {
+			return nil, ports.ErrResumenBolsasNoDisponible
+		}
+		if _, repetida := vistas[fila.LlamamientoRef]; repetida {
+			return nil, ports.ErrResumenBolsasNoDisponible
+		}
+		vistas[fila.LlamamientoRef] = struct{}{}
+		salida = append(salida, fila)
+	}
+	if filas.Err() != nil {
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	return salida, nil
 }
 
 func leerLlamamientosEnCursoResumen(ctx context.Context, consulta consultaResumenBolsas) (map[string]int, error) {
@@ -132,22 +198,53 @@ func leerSituacionesResumen(ctx context.Context, consulta consultaResumenBolsas,
 			}
 			fila.Situacion = &ports.SituacionParticipacion{ParticipacionRef: fila.ParticipacionRef, Situacion: *situacion, Desde: *desde, FechaDisponible: disponible}
 		}
-		if efecto != nil {
-			if disponibleCese == nil || restringida == nil || cesado == nil {
-				return nil, ports.ErrResumenBolsasNoDisponible
-			}
-			estado, presente, err := validarEstadoCese(*efecto, *disponibleCese, *restringida, *cesado, corte)
-			if err != nil || !presente {
-				return nil, ports.ErrResumenBolsasNoDisponible
-			}
-			fila.Cese = &estado
+		cese, err := interpretarCeseResumen(efecto, disponibleCese, restringida, cesado, fila.Situacion, corte)
+		if err != nil {
+			return nil, err
 		}
+		fila.Cese = cese
 		salida = append(salida, fila)
 	}
 	if filas.Err() != nil {
 		return nil, ports.ErrResumenBolsasNoDisponible
 	}
 	return salida, nil
+}
+
+// B90 conserva las columnas de B82: NULL/NULL/TRUE/FALSE identifica una
+// proyección pendiente. Cuatro NULL significan que no existe cese; las fechas
+// completas siguen el contrato B45. Para los estados elegibles, B82 devuelve
+// en base.Desde el instante real de recepción B13. En otros estados conserva
+// su fecha propia, que nunca se atribuye al cese.
+func interpretarCeseResumen(efecto, disponible *time.Time, restringida, cesado *bool, base *ports.SituacionParticipacion, corte time.Time) (*ports.EstadoCese, error) {
+	if efecto == nil && disponible == nil {
+		if restringida == nil && cesado == nil {
+			return nil, nil
+		}
+		if restringida != nil && cesado != nil && *restringida && !*cesado {
+			if base == nil {
+				return nil, ports.ErrResumenBolsasNoDisponible
+			}
+			estado := &ports.EstadoCese{CesePendiente: true}
+			switch base.Situacion {
+			case "disponible", "trabajando", "disponible_desde":
+				if base.Desde.IsZero() || base.Desde.After(corte) {
+					return nil, ports.ErrResumenBolsasNoDisponible
+				}
+				estado.PendienteDesde = base.Desde.UTC()
+			}
+			return estado, nil
+		}
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	if efecto == nil || disponible == nil || restringida == nil || cesado == nil {
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	estado, presente, err := validarEstadoCese(*efecto, *disponible, *restringida, *cesado, corte)
+	if err != nil || !presente {
+		return nil, ports.ErrResumenBolsasNoDisponible
+	}
+	return &estado, nil
 }
 
 func leerPoliticasResumen(ctx context.Context, consulta consultaResumenBolsas, en time.Time) (map[string]dominiobolsa.PoliticaOrdenBolsa, error) {

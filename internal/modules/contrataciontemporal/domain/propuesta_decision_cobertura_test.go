@@ -42,6 +42,47 @@ func TestPropuestaDecisionCoberturaClasificaResultadosSinConfundirAusencia(
 			via:    "via_futura_configurable",
 		},
 		{
+			// La vía de más prioridad es viable: que falte un dato en una
+			// vía posterior no impide proponerla.
+			nombre: "viable_aunque_falte_dato_en_via_posterior",
+			resultados: func() []ComprobacionCobertura {
+				return []ComprobacionCobertura{
+					resultadoDecisionCoberturaPrueba(
+						"hecho_compartido",
+						ComprobacionAfirmativa,
+						"01c",
+					),
+					resultadoDecisionCoberturaPrueba(
+						"hecho_futuro",
+						ComprobacionAfirmativa,
+						"02c",
+					),
+				}
+			},
+			estado: PropuestaCoberturaViable,
+			via:    "via_futura_configurable",
+		},
+		{
+			// Si falta un dato de la vía de más prioridad no se salta a la
+			// siguiente aunque esta sea viable.
+			nombre: "incompleta_si_falta_dato_en_via_prioritaria",
+			resultados: func() []ComprobacionCobertura {
+				return []ComprobacionCobertura{
+					resultadoDecisionCoberturaPrueba(
+						"hecho_compartido",
+						ComprobacionAfirmativa,
+						"01d",
+					),
+					resultadoDecisionCoberturaPrueba(
+						"hecho_alternativo",
+						ComprobacionAfirmativa,
+						"02d",
+					),
+				}
+			},
+			estado: PropuestaCoberturaIncompleta,
+		},
+		{
 			nombre: "incompleta_por_ausencia_bloqueante",
 			resultados: func() []ComprobacionCobertura {
 				return []ComprobacionCobertura{

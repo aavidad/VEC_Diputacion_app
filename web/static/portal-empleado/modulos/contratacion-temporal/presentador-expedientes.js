@@ -85,6 +85,7 @@ function estadoInicial(disponible, navegacion) {
     filtros: filtrosIniciales(),
     paginacion: null,
     paginacion_requiere_reinicio: false,
+    cuadro_desactualizado: false,
     ocupado: false,
     actualizacion_pendiente: false,
     resultado_indeterminado: false,
@@ -236,6 +237,7 @@ export function crearPresentadorExpedientesContratacionTemporal({
         cuadro,
         paginacion: cuadro.paginacion ?? null,
         paginacion_requiere_reinicio: false,
+        cuadro_desactualizado: false,
         expediente: conservarSeleccion ? estado.expediente : null,
         documentos: conservarSeleccion ? estado.documentos : null,
         auditoria: conservarSeleccion ? estado.auditoria : null,
@@ -275,7 +277,7 @@ export function crearPresentadorExpedientesContratacionTemporal({
     return cargar(estado.filtros, { cursor: actual.cursor_siguiente, numero: actual.pagina + 1 });
   }
 
-  async function seleccionarExpediente(expedienteRef, vista = "expediente") {
+  async function seleccionarExpediente(expedienteRef, vista = "expediente", enlace = null) {
     exigirSinEfectoEnCurso();
     const vistaDenegada = vista === "documentos" && (
       !puedeConsultarDocumentos || typeof fuente?.obtenerDocumentos !== "function"
@@ -296,10 +298,17 @@ export function crearPresentadorExpedientesContratacionTemporal({
       || typeof expedienteRef !== "string") {
       throw new TypeError("selección de expediente no válida");
     }
+    const desdeEnlace = enlace !== null;
+    if (desdeEnlace && (vista !== "expediente" || !Number.isSafeInteger(enlace.version)
+      || enlace.version < 1 || enlace.version > 1_000_000_000
+      || !/^[A-Za-z0-9:_.-]{1,200}$/u.test(expedienteRef)
+      || typeof fuente.obtenerDesdeEnlace !== "function")) {
+      throw new TypeError("enlace de expediente no válido");
+    }
     const existe = estado.cuadro?.expedientes.some(
       ({ expediente_ref: referencia }) => referencia === expedienteRef,
     );
-    if (!existe) throw new TypeError("expediente fuera del cuadro actual");
+    if (!existe && !desdeEnlace) throw new TypeError("expediente fuera del cuadro actual");
     cancelarEnCurso();
     const operacion = secuencia;
     controlador = new AbortController();
@@ -318,7 +327,9 @@ export function crearPresentadorExpedientesContratacionTemporal({
     try {
       const expediente = proyectarAutorizacionVisual(
         validarExpedienteContratacionTemporal(
-          await fuente.obtener(expedienteRef, { signal: controlador.signal }),
+          await (desdeEnlace
+            ? fuente.obtenerDesdeEnlace(expedienteRef, enlace.version, { signal: controlador.signal })
+            : fuente.obtener(expedienteRef, { signal: controlador.signal })),
         ),
         concesionesVisuales,
       );
@@ -367,11 +378,75 @@ export function crearPresentadorExpedientesContratacionTemporal({
     } catch (error) {
       if (desmontado || operacion !== secuencia || error?.name === "AbortError") return estado;
       reemplazar({
-        carga: "error",
+        carga: desdeEnlace && [401, 403].includes(error?.estado) ? "denegado" : "error",
         expediente: null,
-        mensaje_clave: "estado_error_expediente",
+        mensaje_clave: desdeEnlace && [401, 403].includes(error?.estado)
+          ? "estado_denegado_expediente" : "estado_error_expediente",
         tipo_mensaje: "error",
       });
+    } finally {
+      if (operacion === secuencia) controlador = null;
+    }
+    return estado;
+  }
+
+  function seleccionarExpedienteDesdeEnlace(expedienteRef, version) {
+    return seleccionarExpediente(expedienteRef, "expediente", { version });
+  }
+
+  async function refrescarExpedienteConfirmado({ expediente_ref: expedienteRef,
+    version_resultante: versionResultante } = {}) {
+    exigirSinEfectoEnCurso();
+    const anterior = estado.expediente;
+    const consultaRealDelegada = estado.cuadro?.demostracion === false;
+    if (!disponible || desmontado || (!puedeConsultarExpediente && !consultaRealDelegada)
+      || estado.vista !== "expediente" || estado.carga !== "listo"
+      || anterior === null || expedienteRef !== anterior.expediente_ref
+      || !Number.isSafeInteger(versionResultante) || versionResultante < anterior.version) {
+      throw errorPublico("expediente_no_seleccionado");
+    }
+    reemplazar({
+      cuadro_desactualizado: true,
+      paginacion_requiere_reinicio: Boolean(estado.cuadro?.paginacion),
+    });
+    cancelarEnCurso();
+    const operacion = secuencia;
+    controlador = new AbortController();
+    // El recibo ya confirmó la versión resultante: se lee esa versión exacta.
+    // La versión guardada del cuadro es la anterior a la actuación y el
+    // servidor ya no la publica (404), venga la ficha del cuadro o de un enlace.
+    const lecturaExacta = typeof fuente.obtenerDesdeEnlace === "function";
+    try {
+      const actualizado = proyectarAutorizacionVisual(
+        validarExpedienteContratacionTemporal(
+          await (lecturaExacta
+            ? fuente.obtenerDesdeEnlace(expedienteRef, versionResultante, { signal: controlador.signal })
+            : fuente.obtener(expedienteRef, { signal: controlador.signal })),
+        ),
+        concesionesVisuales,
+      );
+      if (desmontado || operacion !== secuencia) return estado;
+      if (actualizado.expediente_ref !== expedienteRef
+        || actualizado.numero_visible !== anterior.numero_visible
+        || actualizado.version < versionResultante
+        || actualizado.version < anterior.version
+        || (lecturaExacta && actualizado.version !== versionResultante)) return estado;
+      const tareaActual = actualizado.tareas.find(
+        ({ tarea_ref: referencia }) => referencia === estado.tarea_ref,
+      );
+      const siguienteTarea = tareaActual ?? actualizado.tareas.find(
+        ({ estado_clave: clave }) => ["en_curso", "espera", "incidencia"].includes(clave),
+      ) ?? actualizado.tareas.at(-1);
+      reemplazar({
+        expediente: actualizado,
+        documentos: null,
+        auditoria: null,
+        tarea_ref: siguienteTarea?.tarea_ref ?? "",
+        mensaje_clave: "estado_expediente_listo",
+        tipo_mensaje: "informacion",
+      });
+    } catch (error) {
+      if (error?.name === "AbortError") return estado;
     } finally {
       if (operacion === secuencia) controlador = null;
     }
@@ -406,12 +481,22 @@ export function crearPresentadorExpedientesContratacionTemporal({
     return estado;
   }
 
+  async function volverAlCuadro() {
+    if (!estado.cuadro_desactualizado) return cambiarVista("cuadro");
+    const lectura = cargar(estado.filtros);
+    const operacion = secuencia;
+    await lectura;
+    if (desmontado || operacion !== secuencia) return estado;
+    return cambiarVista("cuadro");
+  }
+
   function seleccionarTarea(tareaRef) {
     exigirSinEfectoEnCurso();
     if (typeof tareaRef !== "string"
       || !estado.expediente?.tareas.some(({ tarea_ref: referencia }) => referencia === tareaRef)) {
       throw new TypeError("tarea no válida");
     }
+    cancelarEnCurso();
     reemplazar({ vista: "expediente", tarea_ref: tareaRef, recibo: null });
     return estado;
   }
@@ -562,11 +647,20 @@ export function crearPresentadorExpedientesContratacionTemporal({
     cargar,
     navegarPagina,
     seleccionarExpediente,
+    seleccionarExpedienteDesdeEnlace,
+    refrescarExpedienteConfirmado,
     cambiarVista,
+    volverAlCuadro,
     seleccionarTarea,
     ejecutarActuacion,
     cancelar,
     desmontar,
+    resolverDisponibilidadOpcional(clave, contexto) {
+      if (desmontado || estado.carga !== "listo"
+        || estado.expediente?.expediente_ref !== contexto?.expediente_ref
+        || estado.expediente?.version !== contexto?.version_observada) return null;
+      return fuente.resolverDisponibilidadOpcional?.(clave, contexto) ?? null;
+    },
     obtenerEstado() {
       return estado;
     },

@@ -1,24 +1,25 @@
 /** Montaje y gestión de estados de las fases de tramitación (alta, análisis, cobertura, asignación, informe, fiscalización y subsanación). */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261008-canal-telefono-v2";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261008-r-fichas-idioma-nav-v1";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v6";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261009-asignacion-cobertura-v1";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261009-ficha-version-recibo-v1";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-circular-v3";
-import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261008-alta-circular-v3";
+import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-analisis-bolsa-v4";
+import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261008-alta-analisis-bolsa-v4";
 import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261008-canal-telefono-v2";
-import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-alta-capacidad-v3";
+} from "./vista-expedientes-render.js?v=20261008-r-fichas-idioma-nav-v1";
+import { montarAltaContratacionTemporal } from "./vista.js?v=20261008-alta-analisis-bolsa-v4";
+import { justificanteTraducido } from "../../portal-justificante.js";
 
 function enfocarElemento(raiz, selector) {
   const elemento = raiz.querySelector(selector);
@@ -49,6 +50,7 @@ export function crearGestorTramitacion({
   anunciar = () => {},
   repintar = () => {},
   esMontada = () => true,
+  alCambiarFicha = () => {},
 } = {}) {
   const tExpedientes = crearTraductorExpedientesContratacion(mensajes);
   let desmontarAlta = null;
@@ -175,11 +177,12 @@ export function crearGestorTramitacion({
       return;
     }
     sesion.etapa = etapa;
-    if (etapa !== "transmitiendo") restaurarOcupacionAnalisis(sesion);
+    if (etapa === "confirmado") restaurarControlesAnalisis(sesion);
+    else if (etapa !== "transmitiendo") restaurarOcupacionAnalisis(sesion);
   }
 
   function analisisEstableActivo() {
-    return sesionAnalisis?.intentoIniciado === true;
+    return sesionAnalisis?.intentoIniciado === true && sesionAnalisis.etapa !== "confirmado";
   }
 
   function anunciarBloqueoAnalisis() {
@@ -540,10 +543,24 @@ export function crearGestorTramitacion({
     });
   }
 
+  // La ficha pinta el panel de asignación solo cuando el cuadro ya dice
+  // «asignación de unidad». Justo tras confirmar la cobertura el cuadro en
+  // memoria sigue en «solicitud», así que el panel se abre junto al recibo.
+  function crearContenedorAsignacionTrasCobertura() {
+    const cobertura = raiz.querySelector("[data-ct-exp-cobertura]");
+    const documento = cobertura?.ownerDocument;
+    if (!documento?.createElement || typeof cobertura.after !== "function") return null;
+    const contenedor = documento.createElement("div");
+    contenedor.setAttribute("data-ct-exp-asignacion", "");
+    cobertura.after(contenedor);
+    return contenedor;
+  }
+
   function montarAsignacionDesdeCobertura(expedienteRef, recibo) {
     if (!esMontada() || !asignacionDisponible) return false;
     if (desmontarAsignacion !== null) return true;
-    const contenedor = raiz.querySelector("[data-ct-exp-asignacion]");
+    const contenedor = raiz.querySelector("[data-ct-exp-asignacion]")
+      ?? crearContenedorAsignacionTrasCobertura();
     if (!contenedor) return false;
     try {
       desmontarAsignacion = montarFormularioAsignacion({
@@ -621,6 +638,78 @@ export function crearGestorTramitacion({
       );
       return false;
     }
+  }
+
+  async function refrescarDetalleTrasAnalisis(recibo, sesion) {
+    const seleccionado = presentador.obtenerEstado();
+    if (!esMontada() || sesionAnalisis !== sesion || seleccionado.vista !== "expediente"
+      || seleccionado.expediente?.expediente_ref !== recibo.expediente_ref) return;
+    const vigente = () => esMontada() && sesionAnalisis === sesion;
+    const avisarPendiente = () => {
+      if (!vigente()) return;
+      sesion.lecturaPendiente = true;
+      if (sesion.reciboPintado) mostrarAvisoLecturaPendiente(sesion);
+    };
+    try {
+      await presentador.refrescarExpedienteConfirmado(recibo);
+      if (!vigente()) return;
+      const estadoActual = presentador.obtenerEstado();
+      const actualizado = estadoActual.expediente;
+      if (estadoActual.vista !== "expediente" || estadoActual.carga !== "listo"
+        || estadoActual.expediente_ref !== recibo.expediente_ref) return;
+      if (actualizado?.expediente_ref !== recibo.expediente_ref
+        || actualizado.version < recibo.version_resultante) {
+        avisarPendiente();
+        return;
+      }
+      const contenedorAnterior = raiz.querySelector("[data-ct-exp-rectificacion]")
+        ?? raiz.querySelector("[data-ct-exp-analisis]");
+      const documentoAnterior = contenedorAnterior?.ownerDocument;
+      const focoAnterior = documentoAnterior?.activeElement;
+      const enfocarConfirmacion = focoAnterior && focoAnterior !== documentoAnterior.body
+        && contenedorAnterior?.contains?.(focoAnterior);
+      repintar();
+      const destino = raiz.querySelector("[data-ct-exp-rectificacion]")
+        ?? raiz.querySelector("[data-ct-exp-analisis]")
+        ?? raiz.querySelector(".ct-exp-contenido");
+      const documento = destino?.ownerDocument;
+      if (documento?.createElement && typeof destino?.append === "function") {
+        const t = crearTraductorContratacionTemporal(mensajes);
+        const confirmacion = documento.createElement("section");
+        confirmacion.className = "ct-recibo";
+        confirmacion.setAttribute("data-ct-analisis-recibo", "");
+        confirmacion.setAttribute("role", "status");
+        confirmacion.setAttribute("tabindex", "-1");
+        confirmacion.innerHTML = `<h3>${escaparHTML(t(recibo.operacion === "rectificar"
+          ? "analisis_recibo_rectificacion_titulo" : "analisis_recibo_titulo"))}</h3>
+          <dl><div><dt>${escaparHTML(t("analisis_recibo_referencia"))}</dt>
+          <dd>${justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
+          <div><dt>${escaparHTML(t("analisis_recibo_fecha"))}</dt>
+          <dd>${escaparHTML(new Intl.DateTimeFormat(locale, {
+            dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
+          }).format(new Date(recibo.confirmada_en)))}</dd></div></dl>`;
+        destino.append(confirmacion);
+        if (enfocarConfirmacion) confirmacion.focus?.();
+      }
+      alCambiarFicha({ expedienteRef: actualizado.expediente_ref, version: actualizado.version });
+    } catch {
+      avisarPendiente();
+    }
+  }
+
+  function mostrarAvisoLecturaPendiente(sesion) {
+    if (!esMontada() || sesionAnalisis !== sesion || sesion.avisoLecturaMostrado) return;
+    const texto = tExpedientes("estado_confirmada_actualizacion_pendiente");
+    const recibo = raiz.querySelector("[data-ct-analisis-recibo]");
+    const aviso = recibo?.ownerDocument?.createElement?.("p");
+    if (aviso && typeof recibo.append === "function") {
+      aviso.setAttribute("data-ct-analisis-lectura-pendiente", "");
+      aviso.setAttribute("role", "alert");
+      aviso.textContent = texto;
+      recibo.append(aviso);
+    }
+    sesion.avisoLecturaMostrado = true;
+    anunciar(texto, "aviso");
   }
 
   function montarAltaSiProcede() {
@@ -701,6 +790,8 @@ export function crearGestorTramitacion({
         anunciar,
         locale,
         zonaHoraria,
+        refrescarCatalogosAlta: soloSustituciones && typeof alta.obtenerCatalogosAlta === "function"
+          ? alta.obtenerCatalogosAlta : alta.obtenerCatalogosNecesidadesAlta,
       });
       if (soloSustituciones) {
         const aviso = contenedor.ownerDocument?.createElement?.("section");
@@ -731,12 +822,18 @@ export function crearGestorTramitacion({
       vuelo: null,
       controles: null,
       ariaBusy: null,
+      reciboPintado: false,
+      lecturaPendiente: false,
+      avisoLecturaMostrado: false,
     };
     const clienteCercado = crearClienteAnalisisCercado(
       composicionAnalisis,
       contexto,
       (etapa, vuelo) => cambiarEtapaAnalisis(sesion, etapa, vuelo),
-      montarCoberturaDesdeAnalisis,
+      (recibo) => {
+        montarCoberturaDesdeAnalisis(recibo);
+        void refrescarDetalleTrasAnalisis(recibo, sesion);
+      },
       (recibo) => mostrarErrorMontaje(
         contenedor,
         "cobertura",
@@ -756,7 +853,13 @@ export function crearGestorTramitacion({
         mensajes,
         locale,
         zonaHoraria,
-        anunciar,
+        anunciar: (mensaje, tipo) => {
+          anunciar(mensaje, tipo);
+          if (tipo === "exito" && sesion.etapa === "confirmado") {
+            sesion.reciboPintado = true;
+            if (sesion.lecturaPendiente) mostrarAvisoLecturaPendiente(sesion);
+          }
+        },
       });
       return true;
     } catch {

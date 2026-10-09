@@ -1,7 +1,10 @@
 package httpinterno
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +14,78 @@ import (
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
+
+type proyectorFichaOperacionesHTTPPrueba struct {
+	llamadas  int
+	err       error
+	resultado DisponibilidadFichaOperaciones
+}
+
+func (p *proyectorFichaOperacionesHTTPPrueba) ProyectarDisponibilidadFichaOperaciones(_ context.Context, _ ports.SolicitudCambiarSituacionParticipacion) (DisponibilidadFichaOperaciones, error) {
+	p.llamadas++
+	return p.resultado, p.err
+}
+
+func TestOperacionesSituaFichaSoloTrasLecturaYConservaHistorial(t *testing.T) {
+	var registro bytes.Buffer
+	anterior := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&registro, nil)))
+	t.Cleanup(func() { slog.SetDefault(anterior) })
+	ruta := RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/operaciones"
+	get := func(h http.Handler) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(http.MethodGet, ruta, nil)
+		r.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	base := EstadoDisponibilidadFichaOperaciones{Estado: "disponible", BolsaRef: "bolsa:01", ParticipacionRef: "participacion:01"}
+	p := &proyectorFichaOperacionesHTTPPrueba{resultado: DisponibilidadFichaOperaciones{
+		SolicitudesDocumentales:  base,
+		ReincorporacionesTitular: EstadoDisponibilidadFichaOperaciones{Estado: "sin_montaje", BolsaRef: base.BolsaRef, ParticipacionRef: base.ParticipacionRef},
+	}}
+	h, err := NuevoHandlerOperacionesSituacion(preparadorSituacionHTTPPrueba{}, operadorOperacionesHTTPPrueba{items: []ports.RegistroOperacionSituacion{}}, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := get(h)
+	if w.Code != 200 || p.llamadas != 1 || !strings.Contains(w.Body.String(), `"items":[]`) ||
+		!strings.Contains(w.Body.String(), `"solicitudes_documentales":{"estado":"disponible","bolsa_ref":"bolsa:01","participacion_ref":"participacion:01"}`) ||
+		!strings.Contains(w.Body.String(), `"reincorporaciones_titular":{"estado":"sin_montaje"`) {
+		t.Fatalf("ficha tras GET: %d %s llamadas=%d", w.Code, w.Body.String(), p.llamadas)
+	}
+	p.err = errors.New("fuente caída con dato-privado-y-dsn")
+	w = get(h)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"items":[]`) || !strings.Contains(w.Body.String(), `"estado":"indisponible"`) ||
+		!strings.Contains(registro.String(), `"codigo":"dependencia_indisponible"`) || strings.Contains(registro.String(), "dato-privado-y-dsn") {
+		t.Fatalf("fallo opcional destruyó historial: %d %s", w.Code, w.Body.String())
+	}
+	p.err = nil
+	p.resultado.SolicitudesDocumentales.ParticipacionRef = "participacion:otra"
+	w = get(h)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"items":[]`) || !strings.Contains(w.Body.String(), `"estado":"indisponible"`) ||
+		!strings.Contains(registro.String(), `"codigo":"forma_incompatible"`) {
+		t.Fatalf("forma incompatible sin registro técnico: %d %s log=%s", w.Code, w.Body.String(), registro.String())
+	}
+	p.resultado = DisponibilidadFichaOperaciones{
+		SolicitudesDocumentales:  EstadoDisponibilidadFichaOperaciones{Estado: "indisponible", BolsaRef: "bolsa:01", ParticipacionRef: "participacion:01"},
+		ReincorporacionesTitular: EstadoDisponibilidadFichaOperaciones{Estado: "sin_montaje", BolsaRef: "bolsa:01", ParticipacionRef: "participacion:01"},
+	}
+	w = get(h)
+	if w.Code != 200 || !strings.Contains(registro.String(), `"codigo":"fuente_o_montaje_indisponible"`) {
+		t.Fatalf("indisponibilidad sin registro técnico: %d %s log=%s", w.Code, w.Body.String(), registro.String())
+	}
+	h, _ = NuevoHandlerOperacionesSituacion(preparadorSituacionHTTPPrueba{}, operadorOperacionesHTTPPrueba{err: dominiovec.ErrAutorizacionDenegada}, p)
+	w = get(h)
+	if w.Code != 403 || p.llamadas != 4 || strings.Contains(w.Body.String(), "capacidades_ficha") {
+		t.Fatalf("denegación emitió metadata: %d %s llamadas=%d", w.Code, w.Body.String(), p.llamadas)
+	}
+	h, _ = NuevoHandlerOperacionesSituacion(preparadorSituacionHTTPPrueba{}, operadorOperacionesHTTPPrueba{items: []ports.RegistroOperacionSituacion{}})
+	w = get(h)
+	if w.Code != 200 || strings.Contains(w.Body.String(), "capacidades_ficha") {
+		t.Fatalf("constructor legado añadió metadata: %d %s", w.Code, w.Body.String())
+	}
+}
 
 type operadorOperacionesHTTPPrueba struct {
 	resultado ports.RegistroSituacionParticipacion

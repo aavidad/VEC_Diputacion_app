@@ -2,14 +2,17 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const funcionReanudarPreparacionOrdenSeleccion = "vec_contratacion_temporal.reanudar_preparacion_orden_seleccion_v1"
+const funcionReanudarSolicitudLlamamiento = "vec_contratacion_temporal.reanudar_solicitud_llamamiento_v1"
 
 // ReanudarPreparacionOrden conserva la intención y las ventanas. La función
 // nominal consume autorización fresca, cambia el propietario y añade historia
@@ -18,6 +21,33 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ReanudarPreparacionOrden(
 	ctx context.Context,
 	solicitud ports.SolicitudReservaEjecucionSeleccionLlamamiento,
 	material puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3,
+) (ports.EstadoEjecucionSeleccionLlamamiento, error) {
+	funcion := funcionReanudarPreparacionOrdenSeleccion
+	if solicitud.VersionExpediente != 6 {
+		funcion = "vec_contratacion_temporal.reanudar_preparacion_orden_seleccion_v2"
+	}
+	return e.reanudarEfecto(ctx, solicitud, material, ports.AccionReanudacionSeleccionLlamamiento,
+		ports.EfectoPrepararOrdenSeleccionLlamamiento, funcion)
+}
+
+// ReanudarSolicitudLlamamiento renueva únicamente la ventana ya abierta de
+// solicitud. La decisión nominal es distinta de la usada para la orden.
+func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ReanudarSolicitudLlamamiento(
+	ctx context.Context,
+	solicitud ports.SolicitudReservaEjecucionSeleccionLlamamiento,
+	material puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3,
+) (ports.EstadoEjecucionSeleccionLlamamiento, error) {
+	return e.reanudarEfecto(ctx, solicitud, material, ports.AccionReanudacionSolicitudLlamamiento,
+		ports.EfectoSolicitarSeleccionLlamamiento, funcionReanudarSolicitudLlamamiento)
+}
+
+func (e *EjecucionesSeleccionLlamamientoPostgreSQL) reanudarEfecto(
+	ctx context.Context,
+	solicitud ports.SolicitudReservaEjecucionSeleccionLlamamiento,
+	material puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3,
+	accion string,
+	efecto ports.EfectoSeleccionLlamamiento,
+	funcion string,
 ) (ports.EstadoEjecucionSeleccionLlamamiento, error) {
 	vacio := ports.EstadoEjecucionSeleccionLlamamiento{}
 	if !e.valido(ctx) {
@@ -33,7 +63,7 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ReanudarPreparacionOrden(
 	}
 	h, err := recurso.HuellaContextoAutorizacionSHA256()
 	c := material.ResumenCapacidad()
-	if err != nil || c.Operacion() != ports.AccionReanudacionSeleccionLlamamiento ||
+	if err != nil || c.Operacion() != accion ||
 		c.AudienciaConsumo() != ports.AudienciaReanudacionSeleccionLlamamiento ||
 		c.EfectoRef() != solicitud.ExpedienteRef || c.EfectoHuellaSHA256() != h {
 		return vacio, errEjecucionesSeleccionLlamamientoPostgreSQL
@@ -44,10 +74,6 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ReanudarPreparacionOrden(
 	}
 	defer revertirTransaccion(tx)
 	var fila filaEjecucionSeleccionO6
-	funcion := funcionReanudarPreparacionOrdenSeleccion
-	if solicitud.VersionExpediente != 6 {
-		funcion = "vec_contratacion_temporal.reanudar_preparacion_orden_seleccion_v2"
-	}
 	err = tx.QueryRow(ctx, `SELECT situacion, solicitud_json, reserva_ref,
 		efecto, recibo_json, artefacto_json FROM `+funcion+`(
 		$1::text,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`,
@@ -58,9 +84,9 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ReanudarPreparacionOrden(
 	).Scan(&fila.Situacion, &fila.SolicitudJSON, &fila.ReservaRef,
 		&fila.Efecto, &fila.ReciboJSON, &fila.ArtefactoJSON)
 	if err != nil {
-		return vacio, errorEjecucionesSeleccionO6(ctx)
+		return vacio, errorReanudacionSeleccionO6(ctx, err)
 	}
-	estado, err := estadoReanudacionSeleccionDesdeFila(fila, solicitud)
+	estado, err := estadoReanudacionSeleccionDesdeFilaParaEfecto(fila, solicitud, efecto)
 	if err != nil {
 		return vacio, err
 	}
@@ -71,11 +97,26 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ReanudarPreparacionOrden(
 	return estado, nil
 }
 
+func errorReanudacionSeleccionO6(ctx context.Context, err error) error {
+	if ctx != nil && ctx.Err() != nil {
+		return ctx.Err()
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "42501" {
+		return ports.ErrAutorizacionDenegada
+	}
+	return errEjecucionesSeleccionLlamamientoPostgreSQL
+}
+
 func estadoReanudacionSeleccionDesdeFila(f filaEjecucionSeleccionO6, s ports.SolicitudReservaEjecucionSeleccionLlamamiento) (ports.EstadoEjecucionSeleccionLlamamiento, error) {
+	return estadoReanudacionSeleccionDesdeFilaParaEfecto(f, s, ports.EfectoPrepararOrdenSeleccionLlamamiento)
+}
+
+func estadoReanudacionSeleccionDesdeFilaParaEfecto(f filaEjecucionSeleccionO6, s ports.SolicitudReservaEjecucionSeleccionLlamamiento, efecto ports.EfectoSeleccionLlamamiento) (ports.EstadoEjecucionSeleccionLlamamiento, error) {
 	var dto solicitudEjecucionSeleccionO6
 	if s.Validar() != nil || s.VersionExpediente < 6 ||
 		f.Situacion != string(ports.EjecucionSeleccionLlamamientoPropietaria) ||
-		f.Efecto != string(ports.EfectoPrepararOrdenSeleccionLlamamiento) ||
+		f.Efecto != string(efecto) ||
 		!referenciaReservaSeleccionO6Valida(f.ReservaRef) ||
 		f.ReciboJSON != "" || f.ArtefactoJSON != "" || len(f.SolicitudJSON) > maximoCargaSeleccionO6 ||
 		decodificarJSONEstricto([]byte(f.SolicitudJSON), &dto) != nil ||
@@ -84,6 +125,6 @@ func estadoReanudacionSeleccionDesdeFila(f filaEjecucionSeleccionO6, s ports.Sol
 	}
 	return ports.EstadoEjecucionSeleccionLlamamiento{
 		Solicitud: s, Situacion: ports.EjecucionSeleccionLlamamientoPropietaria,
-		ReservaRef: f.ReservaRef, EfectoPosible: ports.EfectoPrepararOrdenSeleccionLlamamiento,
+		ReservaRef: f.ReservaRef, EfectoPosible: efecto,
 	}, nil
 }

@@ -1,6 +1,6 @@
-import { crearClienteCategorias } from "./cliente.js?v=20261008-alta-circular-v3";
+import { crearClienteCategorias } from "./cliente.js?v=20261008-alta-analisis-bolsa-v4";
 import { TEXTOS_CATEGORIAS, t } from "./i18n.js?v=20261001-rpt-categorias-v1";
-import { montarVistaCategorias } from "./vista.js?v=20261008-alta-rpt-circular-v6";
+import { montarVistaCategorias } from "./vista.js?v=20261008-hz8-idioma-v1";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 
 /** Monta la consulta de categorías dentro de la raíz del portal. */

@@ -23,6 +23,7 @@ func (*EnlaceEventoLlamamientoBolsa) UnmarshalJSON([]byte) error {
 }
 
 type datosEnlaceEventoLlamamientoBolsa struct {
+	llamamientoRecuperado                          bool
 	organizacionRef, expedienteRef, correlacionRef string
 	versionExpediente                              uint64
 	finalidad, accion, recurso                     ReferenciaVersionadaIntegracionBolsa
@@ -73,6 +74,7 @@ func NuevoEnlaceEventoLlamamientoBolsa(
 	}
 	return EnlaceEventoLlamamientoBolsa{
 		datos: &datosEnlaceEventoLlamamientoBolsa{
+			llamamientoRecuperado:      preparacion.Recibo.LlamamientoRecuperado,
 			organizacionRef:            contexto.OrganizacionRef,
 			expedienteRef:              contexto.ExpedienteRef,
 			correlacionRef:             contexto.CorrelacionRef,
@@ -126,8 +128,9 @@ func (e EnlaceEventoLlamamientoBolsa) valido() bool {
 		instanteBolsaCanonico(d.reciboEvidenciaValidaHasta) &&
 		instanteBolsaCanonico(d.reciboRetenerHasta) &&
 		d.peticionValidaHasta.After(d.peticionSolicitadaEn) &&
-		!d.reciboConfirmadaEn.Before(d.peticionSolicitadaEn) &&
+		(d.llamamientoRecuperado || !d.reciboConfirmadaEn.Before(d.peticionSolicitadaEn)) &&
 		!d.reciboEvidenciaEmitidaEn.Before(d.reciboConfirmadaEn) &&
+		!d.reciboEvidenciaEmitidaEn.Before(d.peticionSolicitadaEn) &&
 		d.reciboEvidenciaEmitidaEn.Before(d.peticionValidaHasta) &&
 		d.reciboEvidenciaValidaHasta.After(d.reciboEvidenciaEmitidaEn) &&
 		!d.reciboEvidenciaValidaHasta.After(d.peticionValidaHasta) &&
@@ -214,7 +217,8 @@ func (e EventoLlamamientoBolsa) validarVinculo(
 		return ErrEventoBolsaInvalido
 	}
 	d := enlace.datos
-	if e.OrganizacionRef != d.organizacionRef ||
+	if (!d.llamamientoRecuperado && e.ReciboConfirmadaEn.Before(e.PeticionSolicitadaEn)) ||
+		e.OrganizacionRef != d.organizacionRef ||
 		e.ExpedienteRef != d.expedienteRef ||
 		e.VersionExpedienteEsperada != d.versionExpediente ||
 		e.CorrelacionRef != d.correlacionRef ||
@@ -261,9 +265,9 @@ func (e EventoLlamamientoBolsa) validarEstructuraDurable() error {
 		!instanteBolsaCanonico(e.ReciboEvidenciaValidaHasta) ||
 		!instanteBolsaCanonico(e.ReciboRetenerHasta) ||
 		!e.PeticionValidaHasta.After(e.PeticionSolicitadaEn) ||
-		e.ReciboConfirmadaEn.Before(e.PeticionSolicitadaEn) ||
 		e.ReciboConfirmadaEn.After(e.PeticionValidaHasta) ||
 		e.ReciboEvidenciaEmitidaEn.Before(e.ReciboConfirmadaEn) ||
+		e.ReciboEvidenciaEmitidaEn.Before(e.PeticionSolicitadaEn) ||
 		!e.ReciboEvidenciaValidaHasta.After(e.ReciboEvidenciaEmitidaEn) ||
 		e.ReciboEvidenciaValidaHasta.After(e.PeticionValidaHasta) ||
 		!e.ReciboRetenerHasta.After(e.ReciboEvidenciaValidaHasta) ||

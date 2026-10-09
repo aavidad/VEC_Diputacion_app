@@ -52,7 +52,7 @@
   "ui.permission.dietas.bandeja_autorizacion": "View the authorisation queue",
   "ui.permission.dietas.bandeja_liquidacion": "View the settlement queue",
   "ui.permission.dietas.bandeja_fiscalizacion": "View the financial review queue",
-  "ui.vec.module.bolsa.name": "Employment pools",
+  "ui.vec.module.bolsa.name": "Job pools",
   "ui.vec.module.bolsa.description": "Recruitment rounds, applications, scoring, call-ups, contracts and audit trails",
   "ui.vec.module.administracion.name": "VEC administration",
   "ui.vec.module.administracion.description": "Configuration, catalogues, roles, integrations and oversight of the VEC portal",

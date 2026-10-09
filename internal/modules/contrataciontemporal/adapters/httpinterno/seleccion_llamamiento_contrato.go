@@ -130,6 +130,10 @@ var (
 		http.StatusConflict,
 		"conflicto_no_reintentable",
 	)
+	errorAccesoReanudacionSeleccionDenegado = nuevoErrorSeleccionLlamamiento(
+		http.StatusForbidden,
+		"acceso_denegado",
+	)
 	errorConflictoEstadoSeleccionLlamamiento = nuevoErrorSeleccionLlamamiento(
 		http.StatusConflict,
 		"conflicto_estado",
@@ -191,12 +195,14 @@ func errorEntradaSeleccionLlamamiento(err error) errorPublicoCobertura {
 
 func clasificarErrorSeleccionLlamamiento(err error) errorPublicoCobertura {
 	switch {
-	case errors.Is(err, application.ErrClaveSeleccionLlamamientoEnColision),
-		errors.Is(err, application.ErrEjecucionSeleccionLlamamientoConcurrente),
-		errors.Is(err, application.ErrEjecucionSeleccionLlamamientoIndeterminada):
-		// La indeterminación puede venir unida a cancelación o plazo; nunca se
-		// degrada a un fallo que sugiera repetir el efecto.
+	case errors.Is(err, application.ErrClaveSeleccionLlamamientoEnColision):
 		return errorConflictoSeleccionLlamamientoNoReintentable
+	case errors.Is(err, application.ErrEjecucionSeleccionLlamamientoIndeterminada),
+		errors.Is(err, application.ErrEjecucionSeleccionLlamamientoConcurrente):
+		// La misma solicitud se puede recuperar con autorización nueva.
+		return errorServicioSeleccionLlamamientoNoDisponible
+	case errors.Is(err, ports.ErrAutorizacionDenegada):
+		return errorAccesoReanudacionSeleccionDenegado
 	case errors.Is(err, context.Canceled):
 		return errorCancelacionSeleccionLlamamiento
 	case errors.Is(err, context.DeadlineExceeded):

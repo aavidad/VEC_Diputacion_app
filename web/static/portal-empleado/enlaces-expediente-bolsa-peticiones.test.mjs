@@ -50,5 +50,14 @@ test("RRHH enlaza cada petición entregada con su expediente en Contratación te
     { peticion: { ...peticion, referencia: "peticion:centro:sintetica-2" }, estado_entrega: "preparada", recibo_alta: null },
   ] });
   assert.equal(html.match(/class="pc-enlace-expediente"/gu)?.length, 1);
-  assert.match(html, /href="\/portal-empleado\/\?expediente=expediente%3Asintetico%3A1#contratacion-temporal" aria-label="Petición peticion:centro:sintetica-1: abrir su expediente 2026\/CT-00001 en Peticiones de personal temporal">Expediente 2026\/CT-00001<\/a>/u);
+  assert.match(html, /href="\/portal-empleado\/\?lang=es&amp;expediente=expediente%3Asintetico%3A1#contratacion-temporal" aria-label="Petición peticion:centro:sintetica-1: abrir su expediente 2026\/CT-00001 en Peticiones de personal temporal">Expediente 2026\/CT-00001<\/a>/u);
+});
+
+test("los enlaces de Peticiones del centro hacia el portal conservan el idioma de la página", async () => {
+  const { urlPortalContratacion } = await import("./peticiones-centro/peticiones-centro.js?v=20261008-alta-rpt-circular-v6");
+  assert.equal(urlPortalContratacion(), "/portal-empleado/?lang=es#contratacion-temporal");
+  assert.equal(urlPortalContratacion("expediente:ct:1"), "/portal-empleado/?lang=es&expediente=expediente%3Act%3A1#contratacion-temporal");
+  const html = renderizarPeticionesCentroRRHH({ peticiones: [{ peticion, estado_entrega: "confirmada",
+    recibo_alta: { expediente_ref: "expediente:sintetico:1", numero_visible: "2026/CT-00001", recibo_ref: "recibo:1", confirmada_en: "2026-09-20T08:00:00Z" } }] });
+  assert.doesNotMatch(html, /href="\/portal-empleado\/(#|\?expediente)/u);
 });

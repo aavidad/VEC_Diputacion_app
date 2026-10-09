@@ -1,6 +1,6 @@
 /** Presentación pura del alta CT, compartida con la petición previa del centro. */
-import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261008-alta-circular-v3";
-import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261008-alta-circular-v3";
+import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261008-alta-analisis-bolsa-v4";
+import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261008-alta-analisis-bolsa-v4";
 
 const CAMPOS_RPT_PUBLICACION = new Set(["rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]);
 const CAMPOS_RPT_INTERNOS = new Set(["puesto_codigo", ...CAMPOS_RPT_PUBLICACION]);
@@ -262,7 +262,7 @@ function camposNecesidad(estado, t, deshabilitado) {
       <label for="ct-${campo}">${escaparHTML(t(campo === "plaza_codigo" && !obligatorio ? "plaza_codigo_opcional" : campo))}${obligatorio ? ' <b aria-hidden="true">*</b>' : ""}</label>
       ${largo ? `<textarea id="ct-${campo}" name="${campo}" maxlength="4000" rows="3"${obligatorio ? " required" : ""}
         ${atributosAccesibles(estado, campo)}${deshabilitado ? " disabled" : ""}>${escaparHTML(estado.borrador[campo])}</textarea>`
-    : `<input id="ct-${campo}" name="${campo}" type="${campo === "programa_fin" ? "date" : ["numero_personas", "porcentaje_financiacion"].includes(campo) ? "number" : "text"}"${campo === "numero_personas" ? ' min="1" max="4294967295" step="1" inputmode="numeric"' : ' maxlength="160"'}${obligatorio ? " required" : ""}
+    : `<input id="ct-${campo}" name="${campo}" type="${campo === "programa_fin" ? "date" : ["numero_personas", "porcentaje_financiacion"].includes(campo) ? "number" : "text"}"${campo === "numero_personas" ? ' min="1" max="4294967295" step="1" inputmode="numeric"' : campo === "porcentaje_financiacion" ? ' min="1" max="100" step="1" inputmode="numeric"' : ' maxlength="160"'}${obligatorio ? " required" : ""}
         value="${escaparHTML(estado.borrador[campo])}"
         ${atributosAccesibles(estado, campo)}${deshabilitado ? " disabled" : ""}>`}
       ${errorCampo(estado, campo, t)}
@@ -469,6 +469,7 @@ export function revision(estado, t, locale) {
       + `${escaparHTML(etiquetaReferencia(estado.catalogos.documentos, referencia))}</li>`).join("")}</ul>`;
   const ocupado = estado.ocupado;
   const pendiente = estado.fase === "pendiente";
+  const corregirNumeroMOAD = Boolean(estado.errores.numero_expediente_moad);
   return `${resumenErrores(estado, t)}
   <section class="ct-revision" aria-labelledby="ct-revision-titulo"
     ${ocupado ? 'aria-busy="true"' : ""}>
@@ -512,10 +513,10 @@ export function revision(estado, t, locale) {
     ? `<button class="boton-secundario" type="button" data-ct-accion="cancelar">
           ${escaparHTML(t("cancelar_envio"))}</button>`
     : `<button class="boton-secundario" type="button" data-ct-accion="volver">
-          ${escaparHTML(t("volver_editar"))}</button>
+          ${escaparHTML(t("volver_editar"))}</button>${corregirNumeroMOAD ? "" : `
         <button class="boton-primario" type="button" data-ct-accion="confirmar">
           ${escaparHTML(estado.tipo_mensaje === "error" ? t("reintentar") : t("confirmar"))}
-        </button>`}
+        </button>`}`}
     </div>
   </section>`;
 }

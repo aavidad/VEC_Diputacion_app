@@ -29,8 +29,10 @@ const (
 )
 
 type datasetBolsasRRHHDesarrollo struct {
-	GeneradoEn string `json:"generado_en"`
-	Bolsas     []struct {
+	ResumenConjunto      bool                                     `json:"-"`
+	LlamamientosGlobales []bolsaapplication.LlamamientoGlobalRRHH `json:"-"`
+	GeneradoEn           string                                   `json:"generado_en"`
+	Bolsas               []struct {
 		Referencia          string                      `json:"bolsa_ref"`
 		CategoriaRef        string                      `json:"categoria_ref"`
 		Categoria           string                      `json:"categoria"`
@@ -74,13 +76,13 @@ type politicaOrdenRRHHDesarrollo struct {
 }
 
 type bolsasRRHHDesarrollo struct {
+	global cacheGlobalBolsasRRHH
 	cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
 	// resumen y cargarBolsa acotan la lectura (ver alcanceCargaBolsasRRHH);
 	// si faltan, se usa cargar con todo el detalle.
 	resumen     func(context.Context) (datasetBolsasRRHHDesarrollo, error)
 	cargarBolsa func(context.Context, string) (datasetBolsasRRHHDesarrollo, error)
 	mutar       http.Handler
-	invalidar   func()
 	contactos   lectorContactosBolsaDesarrollo
 	avisos      *bolsaapplication.ServicioAvisosRRHH
 	// canales publica los canales de aviso activos para el asistente del
@@ -102,10 +104,8 @@ func nuevasRutasBolsasRRHHDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, [
 
 func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteConstituidaRRHHDesarrollo, mutadores ...http.Handler) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
 	var cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
-	var invalidar func()
 	if fuente != nil {
 		cargar = fuente.cargar
-		invalidar = fuente.invalidar
 	}
 	manejador := nuevoManejadorBolsasRRHHDesarrollo(cargar)
 	if fuente != nil {
@@ -115,7 +115,6 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 	}
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]
-		manejador.invalidar = invalidar
 		manejador.contactos, _ = mutadores[0].(lectorContactosBolsaDesarrollo)
 		manejador.canales, _ = mutadores[0].(proveedorCanalesLlamamientoDesarrollo)
 	}
@@ -180,9 +179,6 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
 		h.mutar.ServeHTTP(w, r)
-		if h.invalidar != nil {
-			h.invalidar()
-		}
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -199,7 +195,11 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		if !ok {
 			return
 		}
-		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": vista.respuestaEstadisticas()}, r.Method == http.MethodHead)
+		respuesta := vista.respuestaEstadisticas()
+		if !h.adjuntarCorteGlobal(w, r, vista.datos, respuesta) {
+			return
+		}
+		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
 		return
 	}
 	if r.URL.Path == rutaAvisosBolsaRRHHDesarrollo {
@@ -207,6 +207,10 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if r.URL.Path == rutaBolsasRRHHDesarrollo {
+		if r.URL.RawQuery != "" && r.ContentLength == 0 {
+			h.responderGlobal(w, r)
+			return
+		}
 		if r.URL.RawQuery != "" || r.ContentLength != 0 {
 			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
@@ -215,7 +219,11 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		if !ok {
 			return
 		}
-		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": vista.respuestaBolsas()}, r.Method == http.MethodHead)
+		respuesta := vista.respuestaBolsas()
+		if !h.adjuntarCorteGlobal(w, r, vista.datos, respuesta) {
+			return
+		}
+		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
 		return
 	}
 	bolsaRef, ok := referenciaBolsaCandidatos(r.URL.Path)

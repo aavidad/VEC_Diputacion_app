@@ -136,6 +136,18 @@ func (c calculadoraPlazosCalendarios) CalcularVencimiento(
 	}
 }
 
+// CalculadoraParaConsulta da una copia que lee cada año de calendario una
+// sola vez durante una consulta (los plazos de todas las filas de un cuadro).
+// Sin Calendarios que lo admita, devuelve la misma calculadora.
+func (c calculadoraPlazosCalendarios) CalculadoraParaConsulta() reglas.CalculadoraPlazos {
+	if porConsulta, admite := c.consulta.(interface {
+		ParaConsulta() calendariosports.ConsultaCalendarios
+	}); admite && !consultaCalendariosNula(c.consulta) {
+		return calculadoraPlazosCalendarios{consulta: porConsulta.ParaConsulta()}
+	}
+	return c
+}
+
 func (c calculadoraPlazosCalendarios) administrativo(
 	ctx context.Context,
 	solicitud reglas.SolicitudVencimiento,
