@@ -24,6 +24,15 @@ BEGIN
  OR to_regprocedure('vec_bolsa_convocatorias.listar_abiertas_inscripcion_v1(text,integer)') IS NOT NULL
  OR to_regprocedure('vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(text)') IS NOT NULL
  OR to_regprocedure('vec_bolsa_convocatorias.comprobar_version_publicada_inscripcion_v1(text,text,text)') IS NOT NULL
+ OR to_regprocedure('vec_bolsa_convocatorias.resolver_resumen_convocatorias_inscripcion_lote_v1(text[],text)') IS NOT NULL
+ OR to_regprocedure('vec_catalogos_configurables.comprobar_ambito_gestion_inscripcion_v1(text,integer,text,text)') IS NULL
+ OR to_regprocedure('vec_catalogos_configurables.leer_etiquetas_resumen_inscripcion_lote_v1(jsonb,text)') IS NULL
+ OR NOT coalesce(has_function_privilege('vec_bolsa_convocatorias_propietario',
+   to_regprocedure('vec_catalogos_configurables.comprobar_ambito_gestion_inscripcion_v1(text,integer,text,text)'),
+   'EXECUTE'),false)
+ OR NOT coalesce(has_function_privilege('vec_bolsa_convocatorias_propietario',
+   to_regprocedure('vec_catalogos_configurables.leer_etiquetas_resumen_inscripcion_lote_v1(jsonb,text)'),
+   'EXECUTE'),false)
  OR to_regrole('vec_bolsa_llamamientos_propietario') IS NULL
  THEN RAISE EXCEPTION 'BC9: preimagen causal incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
@@ -53,7 +62,7 @@ AS $f$
 DECLARE
  v vec_bolsa_convocatorias.version_convocatoria%ROWTYPE;
  c jsonb; plazo jsonb; candidato jsonb; catalogo jsonb; politica jsonb;
- formulario jsonb; bases jsonb;
+ formulario jsonb; bases jsonb; v_ambito jsonb;
  requisitos jsonb; pendientes jsonb; categorias jsonb; instante timestamptz(6);
  abre timestamptz; cierra timestamptz; v_secuencia bigint;
  partes text[]; v_id_sha256 text; publicada timestamptz; activos integer:=0;
@@ -180,6 +189,9 @@ BEGIN
  SELECT coalesce(jsonb_agg(jsonb_build_object('categoria_ref',categoria.valor)
    ORDER BY categoria.valor),'[]'::jsonb)
  INTO categorias FROM jsonb_array_elements_text(c#>'{contenido,categorias}') AS categoria(valor);
+ v_ambito:=vec_catalogos_configurables.comprobar_ambito_gestion_inscripcion_v1(
+  politica->>'id',(politica->>'version')::integer,
+  politica->>'huella_contenido_sha256',p_convocatoria_ref);
 
  RETURN jsonb_build_object(
   'convocatoria_ref',p_convocatoria_ref,
@@ -199,6 +211,10 @@ BEGIN
   'plazo_ref',plazo->>'referencia','plazo_abre_en',abre,'plazo_cierra_en',cierra,
   'requisitos',pendientes,
   'requisitos_sha256',encode(sha256(convert_to(requisitos::text,'UTF8')),'hex'),
+  'unidad_ref',v_ambito->>'unidad_ref','ambito_ref',v_ambito->>'ambito_ref',
+  'fuente_ref',v_ambito->>'fuente_ref',
+  'fuente_version',v_ambito->'fuente_version',
+  'fuente_sha256',v_ambito->>'fuente_sha256',
   'comprobada_en',instante);
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(text,text)
@@ -602,5 +618,154 @@ REVOKE ALL ON FUNCTION vec_bolsa_convocatorias.comprobar_version_publicada_inscr
  FROM PUBLIC,vec_bolsa_convocatorias_ejecutor_consulta,vec_bolsa_convocatorias_ejecutor_preparacion_bases,
  vec_bolsa_convocatorias_lector_preparacion_bases;
 GRANT EXECUTE ON FUNCTION vec_bolsa_convocatorias.comprobar_version_publicada_inscripcion_v1(text,text,text)
+ TO vec_bolsa_llamamientos_propietario;
+
+-- Resuelve únicamente las referencias de la página que B96 seleccionó por
+-- su índice propio. No consulta solicitudes ni materializa toda la historia.
+CREATE FUNCTION vec_bolsa_convocatorias.resolver_resumen_convocatorias_inscripcion_lote_v1(
+ p_refs text[],p_idioma text
+) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER PARALLEL RESTRICTED
+SET search_path=pg_catalog,pg_temp SET row_security=on SET "TimeZone"='UTC'
+SET lock_timeout='2s' SET statement_timeout='10s'
+AS $f$
+DECLARE v_material jsonb; v_selectores jsonb; v_etiquetas jsonb; v_resultado jsonb;
+ v_total integer;
+BEGIN
+ IF current_user<>'vec_bolsa_convocatorias_propietario'
+ OR p_idioma IS NULL OR p_idioma NOT IN('es','en')
+ OR p_refs IS NULL OR cardinality(p_refs)>100
+ OR EXISTS(SELECT 1 FROM unnest(p_refs) AS r(ref)
+  WHERE r.ref IS NULL OR r.ref !~ '^cv1_[0-9a-f]{64}_v[1-9][0-9]{0,15}$'
+   OR CASE WHEN r.ref ~ '^cv1_[0-9a-f]{64}_v[1-9][0-9]{0,15}$'
+    THEN (split_part(r.ref,'_v',2))::bigint>9007199254740991 ELSE true END)
+ OR (SELECT count(DISTINCT r.ref COLLATE "C") FROM unnest(p_refs) AS r(ref))<>cardinality(p_refs)
+ THEN RAISE EXCEPTION 'BC9: página histórica inválida' USING ERRCODE='22023'; END IF;
+ IF cardinality(p_refs)=0 THEN RETURN '[]'::jsonb; END IF;
+ BEGIN
+ WITH pedidos AS MATERIALIZED (
+  SELECT r.orden,r.ref,
+   substring(r.ref from '^cv1_([0-9a-f]{64})_v[1-9][0-9]{0,15}$') AS id_sha256,
+   (split_part(r.ref,'_v',2))::bigint AS secuencia
+  FROM unnest(p_refs) WITH ORDINALITY AS r(ref,orden)
+ ), versiones AS MATERIALIZED (
+  SELECT pedido.orden,pedido.ref,v.convocatoria_id,v.secuencia,v.referencia,
+   v.estado,v.huella_version_sha256,v.version_canonica,
+   convert_from(v.version_canonica,'UTF8')::jsonb AS canonica
+  FROM pedidos pedido
+  JOIN vec_bolsa_convocatorias.version_convocatoria v
+   ON vec_bolsa_convocatorias.huella_id_inscripcion_v1(v.convocatoria_id)
+      COLLATE "C"=pedido.id_sha256 COLLATE "C"
+   AND v.secuencia=pedido.secuencia
+ ), proyectadas AS (
+  SELECT v.orden,v.ref,v.canonica#>>'{contenido,titulo}' AS titulo,
+   v.canonica#>>'{contenido,categorias,0}' AS categoria_ref,
+   jsonb_array_length(v.canonica#>'{contenido,categorias}') AS numero_categorias,
+   v.canonica#>>'{contenido,catalogo_categorias,catalogo_id}' AS catalogo_ref,
+   (v.canonica#>>'{contenido,catalogo_categorias,catalogo_version}')::integer AS catalogo_version,
+   v.canonica#>>'{contenido,catalogo_categorias,catalogo_huella_sha256}' AS catalogo_sha256,
+   plazo.fin AS plazo_fin,
+   CASE WHEN posterior.estado='retirada' THEN 'retirada'
+    WHEN posterior.estado IN('publicada','sustituida') THEN 'sustituida'
+    ELSE 'publicada' END AS estado_publicacion
+  FROM versiones v
+  LEFT JOIN LATERAL (
+   SELECT p.convocatoria_id,p.secuencia,p.referencia,p.estado,
+    p.version_canonica,p.huella_version_sha256
+   FROM vec_bolsa_convocatorias.version_convocatoria p
+   WHERE p.convocatoria_id=v.convocatoria_id AND p.secuencia>v.secuencia
+    AND p.estado IN('publicada','sustituida','retirada')
+   ORDER BY p.secuencia LIMIT 1
+  ) posterior ON true
+  CROSS JOIN LATERAL (
+   SELECT count(*) AS total,max((p.valor->>'cierra_en')::timestamptz) AS fin,
+    bool_and(p.valor->>'referencia' IS NOT NULL
+     AND isfinite((p.valor->>'abre_en')::timestamptz)
+     AND isfinite((p.valor->>'cierra_en')::timestamptz)
+     AND (p.valor->>'abre_en')::timestamptz<(p.valor->>'cierra_en')::timestamptz)
+     AS validos
+   FROM jsonb_array_elements(v.canonica#>'{contenido,plazos}') AS p(valor)
+   WHERE p.valor->>'tipo'='inscripcion'
+  ) plazo
+  WHERE v.estado='publicada'
+   AND v.referencia=v.convocatoria_id||'#'||v.secuencia::text
+   AND encode(sha256(v.version_canonica),'hex')=v.huella_version_sha256
+   AND jsonb_typeof(v.canonica)='object'
+   AND v.canonica->>'id'=v.convocatoria_id
+   AND v.canonica->>'secuencia'=v.secuencia::text
+   AND v.canonica->>'estado_gobierno'='publicada'
+   AND isfinite((v.canonica->>'publicada_en')::timestamptz)
+   AND jsonb_typeof(v.canonica->'aprobacion_publicacion')='object'
+   AND jsonb_typeof(v.canonica->'comprobacion_dependencias')='object'
+   AND v.canonica#>>'{aprobacion_publicacion,convocatoria_ref}'=v.referencia
+   AND v.canonica#>>'{comprobacion_dependencias,convocatoria_ref}'=v.referencia
+   AND jsonb_typeof(v.canonica#>'{contenido,categorias}')='array'
+   AND jsonb_array_length(v.canonica#>'{contenido,categorias}') BETWEEN 1 AND 128
+   AND v.canonica#>>'{contenido,categorias,0}' ~ '^[a-z][a-z0-9_.:-]{2,127}$'
+   AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text(
+    v.canonica#>'{contenido,categorias}') AS c(ref)
+    WHERE c.ref !~ '^[a-z][a-z0-9_.:-]{2,127}$')
+   AND (SELECT count(DISTINCT c.ref COLLATE "C") FROM jsonb_array_elements_text(
+    v.canonica#>'{contenido,categorias}') AS c(ref))
+     =jsonb_array_length(v.canonica#>'{contenido,categorias}')
+   AND coalesce(v.canonica#>>'{contenido,titulo}','')<>''
+   AND coalesce(v.canonica#>>'{contenido,catalogo_categorias,catalogo_id}','')
+      ~ '^[a-z][a-z0-9_.:-]{2,127}$'
+   AND coalesce(v.canonica#>>'{contenido,catalogo_categorias,catalogo_version}','')
+      ~ '^[1-9][0-9]{0,8}$'
+   AND coalesce(v.canonica#>>'{contenido,catalogo_categorias,catalogo_huella_sha256}','')
+      ~ '^[0-9a-f]{64}$'
+   AND plazo.total BETWEEN 1 AND 64 AND plazo.validos
+   AND (posterior.secuencia IS NULL OR
+    (posterior.referencia=posterior.convocatoria_id||'#'||posterior.secuencia::text
+     AND encode(sha256(posterior.version_canonica),'hex')=posterior.huella_version_sha256
+     AND convert_from(posterior.version_canonica,'UTF8')::jsonb->>'id'=v.convocatoria_id
+     AND convert_from(posterior.version_canonica,'UTF8')::jsonb->>'secuencia'=posterior.secuencia::text
+     AND convert_from(posterior.version_canonica,'UTF8')::jsonb->>'estado_gobierno'=posterior.estado))
+ )
+ SELECT count(*),coalesce(jsonb_agg(jsonb_build_object(
+  'convocatoria_ref',ref,'titulo',titulo,'categoria_ref',categoria_ref,
+  'numero_categorias',numero_categorias,'catalogo_ref',catalogo_ref,
+  'catalogo_version',catalogo_version,'catalogo_sha256',catalogo_sha256,
+  'plazo_fin',plazo_fin,'estado_publicacion',estado_publicacion)
+  ORDER BY orden),'[]'::jsonb)
+ INTO v_total,v_material FROM proyectadas;
+ EXCEPTION WHEN data_exception THEN
+  RAISE EXCEPTION 'BC9: versión histórica ilegible' USING ERRCODE='B9601';
+ END;
+ IF v_total<>cardinality(p_refs) THEN
+  RAISE EXCEPTION 'BC9: resumen histórico incompleto' USING ERRCODE='B9601'; END IF;
+ SELECT jsonb_agg(jsonb_build_object('catalogo_ref',x.valor->>'catalogo_ref',
+  'catalogo_version',(x.valor->>'catalogo_version')::integer,
+  'catalogo_sha256',x.valor->>'catalogo_sha256',
+  'categoria_ref',x.valor->>'categoria_ref') ORDER BY x.orden)
+ INTO v_selectores FROM jsonb_array_elements(v_material) WITH ORDINALITY AS x(valor,orden);
+ v_etiquetas:=vec_catalogos_configurables.leer_etiquetas_resumen_inscripcion_lote_v1(
+  v_selectores,p_idioma);
+ IF jsonb_typeof(v_etiquetas) IS DISTINCT FROM 'array'
+ OR jsonb_array_length(v_etiquetas)<>v_total
+ THEN RAISE EXCEPTION 'BC9: etiquetas históricas incompletas' USING ERRCODE='B9601'; END IF;
+ SELECT coalesce(jsonb_agg(jsonb_build_object(
+  'convocatoria_ref',m.valor->>'convocatoria_ref',
+  'titulo',m.valor->>'titulo',
+  'categorias_resumen',e.valor->>'categoria',
+  'numero_categorias',m.valor->'numero_categorias',
+  'plazo_fin',m.valor->'plazo_fin',
+  'estado_publicacion',m.valor->>'estado_publicacion') ORDER BY m.orden),'[]'::jsonb)
+ INTO v_resultado
+ FROM jsonb_array_elements(v_material) WITH ORDINALITY AS m(valor,orden)
+ JOIN jsonb_array_elements(v_etiquetas) WITH ORDINALITY AS e(valor,orden)
+  ON e.orden=m.orden
+ WHERE e.valor->>'categoria_ref'=m.valor->>'categoria_ref'
+  AND coalesce(e.valor->>'categoria','')<>'';
+ IF jsonb_array_length(v_resultado)<>v_total
+ THEN RAISE EXCEPTION 'BC9: resumen histórico divergente' USING ERRCODE='B9601'; END IF;
+ RETURN v_resultado;
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_convocatorias.resolver_resumen_convocatorias_inscripcion_lote_v1(text[],text)
+ FROM PUBLIC,vec_bolsa_convocatorias_ejecutor_consulta,
+ vec_bolsa_convocatorias_ejecutor_preparacion_bases,
+ vec_bolsa_convocatorias_lector_preparacion_bases;
+GRANT EXECUTE ON FUNCTION vec_bolsa_convocatorias.resolver_resumen_convocatorias_inscripcion_lote_v1(text[],text)
  TO vec_bolsa_llamamientos_propietario;
 COMMIT;

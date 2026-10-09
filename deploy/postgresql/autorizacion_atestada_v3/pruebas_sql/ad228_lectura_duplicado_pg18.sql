@@ -49,7 +49,8 @@ BEGIN
      'accion','bolsa.inscripcion.rrhh.listar','modulo_id','bolsa',
      'recurso_ref','inscripciones_rrhh_'||repeat('a',64),'finalidad_ref','consulta_inscripcion_rrhh',
      'resultado','obtenida','motivo_ref','inscripcion_lectura_correcta','proceso','vec-server',
-     'canal','interna_corporativa','correlacion_ref','correlacion_ad228_p1'));
+     'canal','interna_corporativa','correlacion_ref','correlacion_ad228_p1',
+     'lectura_revision_permisos','1','lectura_instantanea_sha256',repeat('b',64)));
     encontrado:=true;EXIT;
    END IF;
   EXCEPTION WHEN others THEN CONTINUE;
@@ -117,6 +118,24 @@ END $aborted$;
 ROLLBACK;
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL TIME ZONE 'UTC';
+DO $invalid_revision$
+BEGIN
+ BEGIN
+  PERFORM * FROM ad228_fixture.material m CROSS JOIN LATERAL
+   vec_autorizacion_atestada_v3.registrar_lectura_inscripcion_v1(
+    m.contexto,m.vinculo,m.orden||jsonb_build_object('lectura_revision_permisos','0'));
+  RAISE EXCEPTION 'AD228: revisión cero aceptada';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL;END;
+ BEGIN
+  PERFORM * FROM ad228_fixture.material m CROSS JOIN LATERAL
+   vec_autorizacion_atestada_v3.registrar_lectura_inscripcion_v1(
+    m.contexto,m.vinculo,m.orden||jsonb_build_object('lectura_revision_permisos','18446744073709551616'));
+  RAISE EXCEPTION 'AD228: revisión desbordada aceptada';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL;END;
+END $invalid_revision$;
+ROLLBACK;
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL TIME ZONE 'UTC';
 DO $first$
 DECLARE x record;
 BEGIN
@@ -145,4 +164,14 @@ BEGIN
 END $duplicate$;
 ROLLBACK;
 RESET SESSION AUTHORIZATION;
+DO $asiento$
+BEGIN
+ IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3
+     WHERE tipo_registro='lectura_inscripcion' AND lectura_revision_permisos=1
+       AND lectura_instantanea_sha256=repeat('b',64))<>1
+ OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3
+     WHERE tipo_registro<>'lectura_inscripcion'
+       AND (lectura_revision_permisos IS NOT NULL OR lectura_instantanea_sha256 IS NOT NULL))
+ THEN RAISE EXCEPTION 'AD228: revisión/huella no durables o familias mezcladas';END IF;
+END $asiento$;
 SELECT count(*) AS lecturas_confirmadas FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='lectura_inscripcion';

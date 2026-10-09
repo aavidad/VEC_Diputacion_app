@@ -50,6 +50,7 @@ INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion(
  convocatoria_ref,convocatoria_id,secuencia,version_sha256,identificador_publico,
  categoria_ref,bases_ref,catalogo_ref,catalogo_version,catalogo_sha256,
  politica_catalogo_ref,politica_catalogo_version,politica_catalogo_sha256,
+ unidad_ref,ambito_ref,ambito_fuente_ref,ambito_fuente_version,ambito_fuente_sha256,
  formulario_ref,formulario_version,formulario_sha256,plazo_ref,plazo_abre_en,plazo_cierra_en,
  requisitos,requisitos_sha256,declaraciones,declaracion_ref,clave_sha256,material_sha256,canal,presentada_en)
 SELECT f.solicitud_ref,f.persona_ref,'vca_'||repeat('v',22),1,
@@ -59,6 +60,9 @@ SELECT f.solicitud_ref,f.persona_ref,'vca_'||repeat('v',22),1,
  encode(sha256(convert_to('{"id":"categorias"}','UTF8')),'hex'),
  'bolsa.politica.inscripcion',1,
  encode(sha256(convert_to('{"id":"politica"}','UTF8')),'hex'),
+ 'unidad:perf','ambito:perf',
+ 'ambito.gestion.'||encode(sha256(convert_to('proceso:perf:'||((f.i-1)%1000)::text,'UTF8')),'hex')||'.v1',
+ 1,encode(sha256(convert_to('{"id":"politica"}','UTF8')),'hex'),
  'flujo.perf',1,repeat('b',64),'plazo.perf',clock_timestamp()-interval '21 days',
  CASE WHEN f.i%3=0 THEN clock_timestamp()-interval '15 days'
       WHEN f.i%3=1 THEN clock_timestamp()+interval '1 hour'
@@ -79,9 +83,14 @@ SELECT f.solicitud_ref,1,'pendiente',f.persona_ref,'prf_'||repeat('p',22),
  'decision:perf:'||f.i::text,f.huella,'auditoria:perf:'||f.i::text,f.presentada_en
 FROM b96_perf_filas f;
 INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion_historia(
- historia_ref,solicitud_ref,version,accion,actor_ref,estado,registrada_en)
+ historia_ref,solicitud_ref,version,accion,actor_ref,estado,
+ unidad_ref,ambito_ref,ambito_fuente_ref,ambito_fuente_version,ambito_fuente_sha256,
+ registrada_en)
 SELECT 'historia_inscripcion_'||f.huella,f.solicitud_ref,1,'presentar',
- f.persona_ref,'pendiente',f.presentada_en FROM b96_perf_filas f;
+ f.persona_ref,'pendiente','unidad:perf','ambito:perf',
+ 'ambito.gestion.'||encode(sha256(convert_to('proceso:perf:'||((f.i-1)%1000)::text,'UTF8')),'hex')||'.v1',
+ 1,encode(sha256(convert_to('{"id":"politica"}','UTF8')),'hex'),
+ f.presentada_en FROM b96_perf_filas f;
 INSERT INTO vec_bolsa_llamamientos.solicitud_inscripcion_outbox(
  evento_ref,historia_ref,solicitud_ref,version,esquema,evento,creada_en)
 SELECT 'evento_inscripcion_'||encode(sha256(convert_to('evento:'||f.i::text,'UTF8')),'hex'),
@@ -108,17 +117,18 @@ BEGIN
    FOR repeticion IN 1..40 LOOP
     t:=clock_timestamp();
     pagina:=vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(
-     modo=1,'per_'||repeat('a',22),f,'es');
+     true,CASE WHEN modo=1 THEN 'per_'||repeat('a',22) ELSE 'per_'||repeat('b',22) END,
+     f,'es','externa_personal',NULL,NULL);
     muestras:=array_append(muestras,extract(epoch FROM clock_timestamp()-t)*1000);
    END LOOP;
    SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY x.valor),max(x.valor)
     INTO p95,maximo FROM unnest(muestras) AS x(valor);
    total:=(pagina->>'total')::bigint;
-   IF (modo=1 AND total<>1000) OR (modo=2 AND total<>2000)
+   IF total<>1000
     OR jsonb_array_length(pagina->'solicitudes')<>tam OR p95>=100
-   THEN RAISE EXCEPTION 'B96 perf: propia=% limite=% total=% p95_ms=% max_ms=%',
+   THEN RAISE EXCEPTION 'B96 perf: persona_a=% limite=% total=% p95_ms=% max_ms=%',
     modo=1,tam,total,p95,maximo; END IF;
-   RAISE NOTICE 'B96 perf SQL propia=% limite=% total=% p95_ms=% max_ms=%',
+   RAISE NOTICE 'B96 perf SQL persona_a=% limite=% total=% p95_ms=% max_ms=%',
     modo=1,tam,total,round(p95,3),round(maximo,3);
   END LOOP;
  END LOOP;
@@ -132,5 +142,7 @@ ORDER BY s.presentada_en DESC,s.solicitud_ref DESC LIMIT 100;
 EXPLAIN (ANALYZE,BUFFERS,TIMING OFF)
 SELECT s.solicitud_ref,s.presentada_en
 FROM vec_bolsa_llamamientos.solicitud_inscripcion s
+WHERE s.convocatoria_ref='cv1_'||encode(sha256(convert_to('proceso:perf:0','UTF8')),'hex')||'_v1'
+ AND s.unidad_ref='unidad:perf' AND s.ambito_ref='ambito:perf'
 ORDER BY s.presentada_en DESC,s.solicitud_ref DESC LIMIT 100;
 ROLLBACK;
