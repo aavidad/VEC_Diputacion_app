@@ -86,15 +86,21 @@ type AmbitoLecturaRRHHInscripcionBolsa struct {
 }
 
 type ConjuntoGestionRRHHInscripcionBolsa struct {
-	ConjuntoRef, UnidadRef, AmbitoRef, FuenteRef string
-	FuenteVersion                                uint64
-	FuenteHuellaSHA256                           string
+	ConjuntoRef        string `json:"conjunto_ref"`
+	UnidadRef          string `json:"unidad_ref"`
+	AmbitoRef          string `json:"ambito_ref"`
+	FuenteRef          string `json:"fuente_ref"`
+	FuenteVersion      uint64 `json:"fuente_version"`
+	FuenteHuellaSHA256 string `json:"fuente_sha256"`
 }
 
 type AmbitoSolicitudRRHHInscripcionBolsa struct {
-	SolicitudRef, UnidadRef, AmbitoRef, FuenteRef string
-	FuenteVersion                                 uint64
-	FuenteHuellaSHA256                            string
+	SolicitudRef       string `json:"solicitud_ref"`
+	UnidadRef          string `json:"unidad_ref"`
+	AmbitoRef          string `json:"ambito_ref"`
+	FuenteRef          string `json:"fuente_ref"`
+	FuenteVersion      uint64 `json:"fuente_version"`
+	FuenteHuellaSHA256 string `json:"fuente_sha256"`
 }
 
 type ConfiguracionDecisorLecturaActualInscripcion struct {
