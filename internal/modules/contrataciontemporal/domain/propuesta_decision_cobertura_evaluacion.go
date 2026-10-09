@@ -104,6 +104,12 @@ func evaluarPropuestaCobertura(
 		hayConflicto = hayConflicto || resultado.conflictivo()
 	}
 	evaluaciones := make([]EvaluacionViaPropuestaCobertura, 0, len(vias))
+	// Las vías llegan ordenadas por prioridad. Decide la primera que no sea
+	// «no viable»: si es viable se propone; si le falta un dato, la propuesta
+	// queda incompleta. Lo que falte en una vía de menor prioridad no impide
+	// proponer la primera viable (sin bolsa acreditada no se salta a otra vía,
+	// y con bolsa viable no hace falta saber si hay oferta SAE).
+	decidida := false
 	hayAusenciaBloqueante := false
 	var primeraViable ClaveCatalogo
 	for _, via := range vias {
@@ -119,7 +125,6 @@ func evaluarPropuestaCobertura(
 					evaluacion.ResultadosOmitidos,
 					regla.Clave,
 				)
-				hayAusenciaBloqueante = true
 				continue
 			}
 			if resultado.conflictivo() {
@@ -136,7 +141,6 @@ func evaluarPropuestaCobertura(
 						evaluacion.AusenciasBloqueantes,
 						regla.Clave,
 					)
-					hayAusenciaBloqueante = true
 				} else {
 					evaluacion.AusenciasAdmitidas = append(
 						evaluacion.AusenciasAdmitidas,
@@ -158,11 +162,14 @@ func evaluarPropuestaCobertura(
 		case len(evaluacion.ResultadosOmitidos) > 0 ||
 			len(evaluacion.AusenciasBloqueantes) > 0:
 			evaluacion.Estado = EvaluacionViaCoberturaIncompleta
+			if !decidida {
+				decidida, hayAusenciaBloqueante = true, true
+			}
 		case len(evaluacion.NoHabilitantes) > 0:
 			evaluacion.Estado = EvaluacionViaCoberturaNoViable
 		default:
-			if primeraViable == "" {
-				primeraViable = via.ViaClave
+			if !decidida {
+				decidida, primeraViable = true, via.ViaClave
 			}
 		}
 		evaluaciones = append(evaluaciones, evaluacion)

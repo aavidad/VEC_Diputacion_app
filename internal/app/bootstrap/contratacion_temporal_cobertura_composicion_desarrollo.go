@@ -21,7 +21,9 @@ type dependenciasCoberturaContratacionTemporalDesarrollo struct {
 	presentador *application.ServicioPresentacionPropuestaCobertura
 	decisor     *application.ServicioConfirmacionDecisionCobertura
 	consultor   *application.ServicioConsultaResultadoCobertura
-	cerrar      func()
+	// situacionBolsa se fija después, cuando hay bolsas constituidas legibles.
+	situacionBolsa *situacionBolsaCoberturaFijable
+	cerrar         func()
 }
 
 func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
@@ -131,10 +133,12 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 
+	situacionBolsa := &situacionBolsaCoberturaFijable{}
 	fuentes, err := nuevasDependenciasFuentesCoberturaDesarrollo(
 		derivador,
 		reloj,
 		gobierno,
+		situacionBolsa,
 		catalogos...,
 	)
 	if err != nil {
@@ -228,9 +232,10 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 	}
 	cerrarFuentes = false
 	return dependenciasCoberturaContratacionTemporalDesarrollo{
-		presentador: presentador,
-		decisor:     decisor,
-		consultor:   consultor,
-		cerrar:      fuentes.cerrar,
+		presentador:    presentador,
+		decisor:        decisor,
+		consultor:      consultor,
+		situacionBolsa: situacionBolsa,
+		cerrar:         fuentes.cerrar,
 	}, nil
 }
