@@ -53,7 +53,7 @@ async function arrancar(origen = null) {
       // La marca vuelve al portal en el mismo idioma que esta página.
       document.querySelector(".pc-marca")?.setAttribute("href", `/portal-empleado/?lang=${encodeURIComponent(pc.idioma)}`);
       instalarValidacionI18n(document, traducir);
-      const peticiones = await import("./peticiones-centro.js?v=20261009-hz12-centro-v1");
+      const peticiones = await import("./peticiones-centro.js?v=20261009-rrhh-etiquetas-v1");
       peticiones.instalarAyudaPeticionCentro(document);
       await Promise.all([
         import("./incorporaciones-centro.js?v=20261009-hz12-inc403-v1"),
