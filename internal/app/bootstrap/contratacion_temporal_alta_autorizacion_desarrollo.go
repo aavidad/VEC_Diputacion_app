@@ -40,8 +40,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
 	if s.peticionesCentro {
 		principalValido = rutaPeticionCentroDesarrollo(capacidad.ruta) && principalPeticionCentroDesarrolloValido(capacidad.principal)
 	}
+	// El candidato alcanza todas las rutas de Mi Bolsa: las dos consultas y
+	// las acciones propias del portal (responder, solicitar, disposición y
+	// contacto). La frontera común ya limita método y perfil de cada una.
 	if s.candidatoBolsa {
-		principalValido = (capacidad.ruta == bolsapersonal.RutaMiBolsa || capacidad.ruta == bolsapersonal.RutaMiBolsaHistorial) &&
+		principalValido = bolsapersonal.EsRutaPortal(capacidad.ruta) &&
 			principalSinteticoContratacionTemporalDesarrolloValido(capacidad.principal) &&
 			len(capacidad.principal.Roles) == 1 && capacidad.principal.Roles[0] == "candidato_bolsa"
 	}
