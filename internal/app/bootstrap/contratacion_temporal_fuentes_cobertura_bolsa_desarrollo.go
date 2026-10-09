@@ -18,6 +18,9 @@ const (
 	comprobacionExisteBolsaVigenteCT     domain.ClaveCatalogo = "existe_bolsa_vigente"
 	comprobacionCandidaturasDisponibleCT domain.ClaveCatalogo = "hay_candidaturas_disponibles"
 	validezSituacionBolsaCoberturaCT                          = 15 * time.Second
+	// maximoCategoriasCoberturaMemorizadas acota la memoria: pasado el tope
+	// se descartan las caducadas y, si sigue llena, no se memoriza.
+	maximoCategoriasCoberturaMemorizadas = 256
 )
 
 // situacionBolsaCoberturaFijable enlaza la fuente de cobertura con las
@@ -30,7 +33,7 @@ type situacionBolsaCoberturaFijable struct {
 	consulta  ports.ConsultaSituacionBolsaCobertura
 	ahora     func() time.Time
 	memoria   map[string]situacionBolsaCoberturaMemorizada
-	enCurso   map[string]*sync.Mutex
+	enCurso   map[string]chan struct{}
 	validezDe time.Duration
 }
 
@@ -67,17 +70,23 @@ func (s *situacionBolsaCoberturaFijable) situacion(
 		return ports.SituacionBolsaCobertura{}, false
 	}
 	if s.enCurso == nil {
-		s.enCurso = make(map[string]*sync.Mutex)
+		s.enCurso = make(map[string]chan struct{})
 	}
-	cerrojo := s.enCurso[categoriaRef]
-	if cerrojo == nil {
-		cerrojo = &sync.Mutex{}
-		s.enCurso[categoriaRef] = cerrojo
+	turno := s.enCurso[categoriaRef]
+	if turno == nil {
+		turno = make(chan struct{}, 1)
+		s.enCurso[categoriaRef] = turno
 	}
 	s.mu.Unlock()
 
-	cerrojo.Lock()
-	defer cerrojo.Unlock()
+	// Quien espera a otra lectura de la misma categoría deja de esperar si su
+	// petición se cancela.
+	select {
+	case turno <- struct{}{}:
+	case <-ctx.Done():
+		return ports.SituacionBolsaCobertura{}, false
+	}
+	defer func() { <-turno }()
 	if memorizada, ok := s.memorizada(categoriaRef); ok {
 		return memorizada, true
 	}
@@ -88,12 +97,7 @@ func (s *situacionBolsaCoberturaFijable) situacion(
 		return ports.SituacionBolsaCobertura{}, false
 	}
 	s.mu.Lock()
-	if s.memoria == nil {
-		s.memoria = make(map[string]situacionBolsaCoberturaMemorizada)
-	}
-	s.memoria[categoriaRef] = situacionBolsaCoberturaMemorizada{
-		situacion: situacion, hasta: s.instante().Add(s.validez()),
-	}
+	s.memorizar(categoriaRef, situacion)
 	s.mu.Unlock()
 	return situacion, true
 }
@@ -112,6 +116,25 @@ func (s *situacionBolsaCoberturaFijable) SituacionBolsaCobertura(
 }
 
 var _ ports.ConsultaSituacionBolsaCobertura = (*situacionBolsaCoberturaFijable)(nil)
+
+// memorizar guarda la situación con el cerrojo tomado, sin pasar del tope.
+func (s *situacionBolsaCoberturaFijable) memorizar(categoriaRef string, situacion ports.SituacionBolsaCobertura) {
+	if s.memoria == nil {
+		s.memoria = make(map[string]situacionBolsaCoberturaMemorizada)
+	}
+	ahora := s.instante()
+	if _, existe := s.memoria[categoriaRef]; !existe && len(s.memoria) >= maximoCategoriasCoberturaMemorizadas {
+		for categoria, memorizada := range s.memoria {
+			if !ahora.Before(memorizada.hasta) {
+				delete(s.memoria, categoria)
+			}
+		}
+		if len(s.memoria) >= maximoCategoriasCoberturaMemorizadas {
+			return
+		}
+	}
+	s.memoria[categoriaRef] = situacionBolsaCoberturaMemorizada{situacion: situacion, hasta: ahora.Add(s.validez())}
+}
 
 func (s *situacionBolsaCoberturaFijable) memorizada(categoriaRef string) (ports.SituacionBolsaCobertura, bool) {
 	s.mu.Lock()

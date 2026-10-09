@@ -69,8 +69,12 @@ func (s situacionBolsaCoberturaDesarrollo) SituacionBolsaCobertura(
 	if s.fuente == nil || ctx == nil || categoriaRef == "" {
 		return ports.SituacionBolsaCobertura{}, ports.ErrSituacionBolsaCoberturaNoDisponible
 	}
-	datos, ok := s.fuente.constituidas(ctx)
-	if !ok {
+	// Solo hacen falta recuentos por estado: el resumen del cuadro de Bolsa
+	// (una lectura de conjunto con B82/B85) basta y no descifra el acta.
+	// Un fallo queda «no disponible»; nunca se sirve una lectura anterior.
+	datos, err := s.fuente.cargarResumen(ctx)
+	if err != nil {
+		log.Printf("contratacion temporal: situacion de bolsa no legible; causa=%s", causaFalloPostgreSQLCTDesarrollo(err))
 		return ports.SituacionBolsaCobertura{}, ports.ErrSituacionBolsaCoberturaNoDisponible
 	}
 	ahora := time.Now()
