@@ -196,21 +196,68 @@ CREATE TABLE vec_bolsa_llamamientos.solicitud_inscripcion_acceso (
  accedida_en timestamptz(6) NOT NULL
 );
 
-DO $cerrar$
-DECLARE tabla text;
-BEGIN
- FOREACH tabla IN ARRAY ARRAY['solicitud_inscripcion','solicitud_inscripcion_version',
-   'solicitud_inscripcion_historia','solicitud_inscripcion_outbox',
-   'solicitud_inscripcion_recibo','solicitud_inscripcion_acceso'] LOOP
-  EXECUTE format('REVOKE ALL ON TABLE vec_bolsa_llamamientos.%I FROM PUBLIC,vec_bolsa_llamamientos_ejecutor',tabla);
-  EXECUTE format('REVOKE ALL ON TYPE vec_bolsa_llamamientos.%I FROM PUBLIC',tabla);
-  EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.%I ENABLE ROW LEVEL SECURITY',tabla);
-  EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.%I FORCE ROW LEVEL SECURITY',tabla);
-  EXECUTE format('CREATE POLICY propietario_inscripcion ON vec_bolsa_llamamientos.%I FOR ALL TO vec_bolsa_llamamientos_propietario USING(current_user=''vec_bolsa_llamamientos_propietario'') WITH CHECK(current_user=''vec_bolsa_llamamientos_propietario'')',tabla);
-  EXECUTE format('CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.%I FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion()',tabla);
-  EXECUTE format('CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_bolsa_llamamientos.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion()',tabla);
- END LOOP;
-END $cerrar$;
+-- Cierre literal de cada tabla nueva: sin permisos ajenos, RLS forzada sólo
+-- para el propietario e historia inmutable (UPDATE, DELETE y TRUNCATE rechazados).
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.solicitud_inscripcion FROM PUBLIC,vec_bolsa_llamamientos_ejecutor;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.solicitud_inscripcion FROM PUBLIC;
+ALTER TABLE vec_bolsa_llamamientos.solicitud_inscripcion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.solicitud_inscripcion FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_inscripcion ON vec_bolsa_llamamientos.solicitud_inscripcion FOR ALL TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario') WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.solicitud_inscripcion
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_bolsa_llamamientos.solicitud_inscripcion
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.solicitud_inscripcion_version FROM PUBLIC,vec_bolsa_llamamientos_ejecutor;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.solicitud_inscripcion_version FROM PUBLIC;
+ALTER TABLE vec_bolsa_llamamientos.solicitud_inscripcion_version ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.solicitud_inscripcion_version FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_inscripcion ON vec_bolsa_llamamientos.solicitud_inscripcion_version FOR ALL TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario') WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.solicitud_inscripcion_version
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_bolsa_llamamientos.solicitud_inscripcion_version
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.solicitud_inscripcion_historia FROM PUBLIC,vec_bolsa_llamamientos_ejecutor;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.solicitud_inscripcion_historia FROM PUBLIC;
+ALTER TABLE vec_bolsa_llamamientos.solicitud_inscripcion_historia ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.solicitud_inscripcion_historia FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_inscripcion ON vec_bolsa_llamamientos.solicitud_inscripcion_historia FOR ALL TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario') WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.solicitud_inscripcion_historia
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_bolsa_llamamientos.solicitud_inscripcion_historia
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.solicitud_inscripcion_outbox FROM PUBLIC,vec_bolsa_llamamientos_ejecutor;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.solicitud_inscripcion_outbox FROM PUBLIC;
+ALTER TABLE vec_bolsa_llamamientos.solicitud_inscripcion_outbox ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.solicitud_inscripcion_outbox FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_inscripcion ON vec_bolsa_llamamientos.solicitud_inscripcion_outbox FOR ALL TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario') WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.solicitud_inscripcion_outbox
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_bolsa_llamamientos.solicitud_inscripcion_outbox
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.solicitud_inscripcion_recibo FROM PUBLIC,vec_bolsa_llamamientos_ejecutor;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.solicitud_inscripcion_recibo FROM PUBLIC;
+ALTER TABLE vec_bolsa_llamamientos.solicitud_inscripcion_recibo ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.solicitud_inscripcion_recibo FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_inscripcion ON vec_bolsa_llamamientos.solicitud_inscripcion_recibo FOR ALL TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario') WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.solicitud_inscripcion_recibo
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_bolsa_llamamientos.solicitud_inscripcion_recibo
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.solicitud_inscripcion_acceso FROM PUBLIC,vec_bolsa_llamamientos_ejecutor;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.solicitud_inscripcion_acceso FROM PUBLIC;
+ALTER TABLE vec_bolsa_llamamientos.solicitud_inscripcion_acceso ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.solicitud_inscripcion_acceso FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_inscripcion ON vec_bolsa_llamamientos.solicitud_inscripcion_acceso FOR ALL TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario') WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.solicitud_inscripcion_acceso
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_bolsa_llamamientos.solicitud_inscripcion_acceso
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
 
 CREATE FUNCTION vec_bolsa_llamamientos.solicitar_inscripcion_v1(
  p_material text,p_captura_actor jsonb,p_recurso_canonico bytea,
