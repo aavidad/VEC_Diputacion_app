@@ -59,13 +59,13 @@ En Inicio, pulse «Ver todas las peticiones» **(5)** en la cabecera de «Lo pen
 
 Abra la ficha desde la lista y revise sus datos. En **Registrar análisis de RRHH**, elija la modalidad, la categoría, el grupo y la causa que correspondan a la petición. Compruebe fechas y jornada. La retención de crédito se elige de la fuente disponible para RRHH: que el centro no la aportara no significa que esté validada. Si no cuenta con una retención respaldada, detenga el análisis.
 
-En el recorrido, RRHH seleccionó **Acumulación de tareas**, **Administrativo**, **C1**, **Necesidad temporal**, el período solicitado y jornada completa. Eligió una retención disponible para ese ejercicio y dejó la urgencia sin marcar. Pulse **Registrar análisis** una sola vez y conserve el justificante. Al reabrir la ficha, **Análisis RRHH** aparece como **Hecho**.
+En el recorrido, RRHH seleccionó **Acumulación de tareas**, **Administrativo**, **C1**, **Necesidad temporal**, el período solicitado y jornada completa. Eligió una retención disponible para ese ejercicio y dejó la urgencia sin marcar. Pulse **Registrar análisis** una sola vez. La pantalla confirma **Análisis guardado** y **Justificante registrado**. Al reabrir la ficha, **Análisis RRHH** aparece como **Hecho**.
 
 ![Jornada y retención de crédito en el análisis del ejemplo.](img/rrhh-20261009-analisis-rc.webp)
 
 ## Decidir la cobertura y asignar la unidad
 
-1. En **Decidir la vía de cobertura**, lea las comprobaciones de la bolsa. Si la pantalla propone **Bolsa vigente** como vía viable para la categoría, selecciónela y pulse **Confirmar vía de cobertura**. Revise el aviso de confirmación antes de aceptarlo. Guarde el justificante.
+1. En **Decidir la vía de cobertura**, lea las comprobaciones de la bolsa. Si la pantalla propone **Bolsa vigente** como vía viable para la categoría, selecciónela y pulse **Confirmar vía de cobertura**. Revise el aviso de confirmación antes de aceptarlo. La pantalla muestra **Decisión confirmada**.
 2. Vuelva a la ficha del mismo expediente. En el ejemplo apareció **Asignar expediente a la unidad responsable**, con **Recursos Humanos** y **Responsable de peticiones de personal temporal**. Compruebe ambos datos, marque la casilla de revisión y pulse **Confirmar asignación** una sola vez. Conserve su recibo.
 
 ![Propuesta de Bolsa vigente y comprobaciones que la acompañan.](img/rrhh-20261009-cobertura.webp)
@@ -80,7 +80,7 @@ Desde la ficha asignada, pulse **Abrir llamamiento en Bolsa**. El asistente cons
 2. En **Configurar llamamiento**, compruebe la referencia, el centro y la fecha que ya trae la pantalla. Elija la modalidad y describa la necesidad con los datos de la petición. Mantenga el contacto ya registrado; no escriba un correo o teléfono nuevo para completar la pantalla.
 3. Indique el plazo de respuesta que RRHH haya fijado para esa oferta. En el ejemplo se usó **«Un día hábil desde el contacto efectivo»**. Era la regla disponible para ese ejercicio; este manual no la presenta como plazo legal aprobado para otros casos.
 4. En **Revisar y enviar**, compruebe que queda **una persona**, que el aviso nombra a la persona correcta y que los canales son los previstos. En el recorrido aparecieron correo al emitir y seguimiento por teléfono. Abra **Ver vista previa**, marque la confirmación para una persona y pulse **Emitir llamamiento** una sola vez.
-5. Guarde el justificante. **Emitido, pendiente de respuesta** indica que el llamamiento quedó registrado. Consulte después la entrega del correo y la respuesta de la persona.
+5. Compruebe la confirmación **Llamamiento emitido** y **Justificante registrado**. Pulse **Empezar las llamadas** para consultar el seguimiento del mismo llamamiento. **Emitido, pendiente de respuesta** indica que está esperando contestación; consulte después la entrega del correo y la respuesta de la persona.
 
 ![Selección de una única persona en el orden de la bolsa.](img/rrhh-20261009-yago.webp)
 

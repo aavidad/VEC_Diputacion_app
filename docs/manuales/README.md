@@ -12,4 +12,4 @@ Guías basadas en las acciones comprobadas en la web los días 8 y 9 de octubre 
 | Intervención | [Alcance pendiente](intervencion.md) | Sin un trámite propio completado en este recorrido. |
 | Administración del portal y sistemas | [Alcance pendiente](sistemas.md) | Sin un recorrido propio comprobado. |
 
-Cada guía incluye solo acciones que funcionaron desde sus pantallas. La firma, la resolución y los pasos posteriores quedan fuera de las instrucciones actuales. Las incidencias y los recorridos que faltan se recogen en [PENDIENTES.md](PENDIENTES.md).
+Las guías con recorrido incluyen solo acciones que funcionaron desde sus pantallas. Las de Intervención y sistemas indican que su recorrido propio está pendiente. La firma, la resolución y los pasos posteriores quedan fuera de las instrucciones actuales. Las incidencias y los recorridos que faltan se recogen en [PENDIENTES.md](PENDIENTES.md).
