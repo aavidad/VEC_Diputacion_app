@@ -105,8 +105,8 @@
 2017 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
 1752 web/static/portal-empleado/portal-modulos-coordinador.js
 1785 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
-1034 web/static/portal-empleado/portal-componentes.css
-1841 web/static/portal-empleado/portal.js
+1081 web/static/portal-empleado/portal-componentes.css
+1880 web/static/portal-empleado/portal.js
 1324 web/static/portal-empleado/portal-bolsas-api.js
 925 web/static/portal-empleado/portal-bolsas.test.mjs
 1138 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js

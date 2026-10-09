@@ -1,4 +1,4 @@
-import { crearClientePreferencias, ErrorPreferencias } from "./portal-preferencias-api.js?v=20261007-pantallas-textos-final-v1";
+import { crearClientePreferencias, ErrorPreferencias } from "./portal-preferencias-api.js?v=20261010-http-codigo-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 const CAMPOS_SELECT = Object.freeze({ idioma: "idiomas", tamano_texto: "tamanos_texto", tema: "temas", inicio: "inicios", filas: "filas" });
