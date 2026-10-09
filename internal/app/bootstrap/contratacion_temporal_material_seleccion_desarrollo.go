@@ -19,6 +19,7 @@ type seleccionMaterialCTDesarrollo struct {
 	dietas, cronos, documentos, cronosResolucion, cronosAvisos       bool
 	fichaPropiaPersonal, firmaDocumento, seguimientoCese, personalB2 bool
 	cancelacion                                                      bool
+	vinculoEmisionBolsa                                              bool
 	exportacionServiciosPersonal                                     bool
 	historiaServiciosPersonal                                        bool
 	historiaRelacionesPersonal                                       bool
@@ -230,6 +231,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.cancelacion {
 		d = append(d, descriptoresMaterialCancelacionCTDesarrollo()...)
+	}
+	if s.vinculoEmisionBolsa {
+		d = append(d, descriptorMaterialVinculoEmisionBolsaDesarrollo())
 	}
 	if s.plantillasCatalogo {
 		d = append(d, descriptoresMaterialPlantillasCTDesarrollo()...)

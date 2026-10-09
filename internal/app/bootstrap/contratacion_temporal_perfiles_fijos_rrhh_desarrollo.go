@@ -60,6 +60,9 @@ type perfilFijoCTDesarrollo struct {
 	metodo    string
 	contexto  ports.ContextoAutorizacionAltaV3
 	plantilla dominiovec.InstantaneaAutorizacion
+	// Sólo el perfil de alta puede consumir además una versión posterior
+	// aprobada por CAS para vincular emisiones reales de Bolsa.
+	plantillaVinculoBolsa *dominiovec.InstantaneaAutorizacion
 	// actoSesion es el de las filas de sesión del perfil (propio en los
 	// perfiles nuevos, el histórico en un perfil que ya existía).
 	actoSesion                 string
@@ -495,6 +498,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 			valida = s.lectorConsultasRRHH && s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos)
 		case ruta == httpinterno.RutaConsultaCircuitoRRHH:
 			valida = solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos)
+		case ruta == httpinterno.RutaVinculosEmisionBolsa:
+			valida = solicitudVinculoEmisionBolsaCTValida(datos)
 		case rutaFirmasR5V2CTDesarrollo(ruta):
 			valida = solicitudAutorizacionFirmasR5V2CTDesarrolloValida(ruta, datos)
 		case rutaFirmaExternaV2CTDesarrollo(ruta):
@@ -508,6 +513,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 	} else if ruta != httpinterno.RutaAltaSolicitudes && ruta != httpinterno.RutaPropuestaCobertura &&
 		ruta != httpinterno.RutaResultadoCobertura {
 		return dominiovec.InstantaneaAutorizacion{}, false
+	}
+	if p.clave == clavePerfilFijoAltaCTDesarrollo &&
+		(ruta == httpinterno.RutaAltaSolicitudes || ruta == httpinterno.RutaVinculosEmisionBolsa) {
+		return s.consumirPerfilAltaConVinculoBolsa(ctx, p, ruta)
 	}
 	return s.consumirPerfilFijoCTDesarrollo(ctx, p)
 }

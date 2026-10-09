@@ -92,6 +92,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	registroAutorizacion              *pgxpool.Pool
 	confirmador                       *pgxpool.Pool
 	lectorResultado                   *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
+	vinculoEmisionBolsa               bool
 	registradorAuditoriaFrontera      *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
 	auditoriaFrontera                 *pgxpool.Pool
 	candidaturas                      ports.ResolutorCandidaturaAlta
@@ -420,6 +421,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	seleccion.vinculoEmisionBolsa, err = detectarVinculoEmisionBolsaCTDesarrollo(ctx, ejecucion)
+	if err != nil {
+		return vacias, err
+	}
+	dependencias.vinculoEmisionBolsa = seleccion.vinculoEmisionBolsa
 	// CT137/AD3-100 deben existir y conservar sus ACL antes de publicar la
 	// audiencia documental. Se reutiliza el pool ejecutor ya acreditado.
 	if seleccion.plantillasDocumental {
