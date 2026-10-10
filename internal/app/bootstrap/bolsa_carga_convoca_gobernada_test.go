@@ -150,3 +150,49 @@ func TestCargaConvocaExigeActosDeGobiernoDistintosDeLaSemilla(t *testing.T) {
 		t.Fatal("el control sintético no acredita publicación B1")
 	}
 }
+
+// Las rutas B1 sólo se montan con las cuatro piezas: sin el material V3 de su
+// audiencia (lo que faltaba desde 4eefae2f3) o sin la concesión gobernada,
+// la carga queda cerrada.
+func TestCargaConvocaSeMontaSoloConMaterialYConcesionGobernada(t *testing.T) {
+	p, autoridad, i := instantaneaCargaConvocaPublicadaPrueba(t)
+	autoridad.leida.instantanea = i
+	if err := p.PublicarInicial(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	autoridades := &autoridadesCargaConvocaPostgreSQL{}
+	proveedor := &proveedorMaterialAltaContratacionTemporalDesarrollo{}
+	if !cargaConvocaMontable(true, autoridades, proveedor, p) {
+		t.Fatal("con frontera, autoridades, material y concesión B1 la carga no se monta")
+	}
+	if cargaConvocaMontable(true, autoridades, nil, p) {
+		t.Fatal("sin material V3 de la carga se montó")
+	}
+	if cargaConvocaMontable(false, autoridades, proveedor, p) || cargaConvocaMontable(true, nil, proveedor, p) {
+		t.Fatal("sin frontera o sin autoridades se montó")
+	}
+	sin, autoridadSin, j := instantaneaCargaConvocaPublicadaPrueba(t)
+	j.VersionRol.Concesiones = j.VersionRol.Concesiones[:len(j.VersionRol.Concesiones)-1]
+	autoridadSin.leida.instantanea = j
+	_ = sin.PublicarInicial(context.Background())
+	if cargaConvocaMontable(true, autoridades, proveedor, sin) {
+		t.Fatal("sin la concesión B1 publicada se montó")
+	}
+	if cargaConvocaMontable(true, autoridades, proveedor, nil) {
+		t.Fatal("sin política Bolsa se montó")
+	}
+}
+
+func TestProveedorCargaConvocaOpcionalNoParaElArranque(t *testing.T) {
+	esperado := &proveedorMaterialAltaContratacionTemporalDesarrollo{}
+	if p := proveedorCargaConvocaOpcionalDesarrollo(func() (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
+		return esperado, nil
+	}); p != esperado {
+		t.Fatal("no devuelve el proveedor preparado")
+	}
+	if p := proveedorCargaConvocaOpcionalDesarrollo(func() (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
+		return nil, errors.New("material ausente")
+	}); p != nil {
+		t.Fatal("un fallo del material dejó proveedor")
+	}
+}
