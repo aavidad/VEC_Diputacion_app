@@ -1,9 +1,9 @@
 /** Componentes HTML puros de la superficie de expedientes. */
 
 import "./atajos-incidencia.js";
-import { renderizarResultadoBolsa, continuidadBolsaDisponible, requiereRevisionBolsa } from "./resultado-bolsa.js?v=20261009-ct-bolsa-cohorte-v9";
-import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261009-ct-bolsa-cohorte-v9";
-import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261009-ct-bolsa-cohorte-v9";
+import { renderizarResultadoBolsa, continuidadBolsaDisponible, requiereRevisionBolsa } from "./resultado-bolsa.js?v=20261010-ct-ficha-cohorte-v1";
+import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261010-ct-ficha-cohorte-v1";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261010-ct-ficha-cohorte-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
@@ -13,7 +13,7 @@ import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-ex
 import {
   renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
   renderizarLineaFases, renderizarSiguientePasoFicha,
-} from "./vista-expedientes-ficha.js?v=20261009-ct-bolsa-cohorte-v9";
+} from "./vista-expedientes-ficha.js?v=20261010-ct-ficha-cohorte-v1";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 
@@ -236,12 +236,18 @@ export function renderizarAbrirLlamamiento(expediente, resolverBolsa, t) {
   let bolsaRef = typeof cobertura === "string" && resolverBolsa(cobertura)?.categoria ? cobertura : "";
   let sinBolsaConfirmada = false;
   let incidenciaBolsa = "";
+  // Con la cobertura decidida, si hay o no bolsa vigente lo dice la comprobación
+  // que quedó en el expediente (la misma que recogen sus documentos), no la
+  // lista de bolsas de este momento.
+  const comprobada = expediente.cabecera?.find((campo) => campo.clave === "comprobacion_existe_bolsa_vigente");
   if (!bolsaRef) {
     const categoriaRef = expediente.analisis_previo?.categoria_ref ?? expediente.datos_peticion?.categoria_ref;
     const bolsaCategoria = typeof categoriaRef === "string" ? resolverBolsa("", { categoriaRef }) : null;
     bolsaRef = bolsaCategoria?.bolsa_ref || "";
-    sinBolsaConfirmada = !cobertura && bolsaCategoria?.estado === "sin_bolsa";
-    incidenciaBolsa = ["error", "denegado"].includes(bolsaCategoria?.estado) ? bolsaCategoria.estado : "";
+    sinBolsaConfirmada = !cobertura && (comprobada ? comprobada.tono === "aviso"
+      : bolsaCategoria?.estado === "sin_bolsa");
+    if (!cobertura && comprobada?.tono === "exito" && bolsaCategoria?.estado === "sin_bolsa") incidenciaBolsa = "no_localizada";
+    if (["error", "denegado"].includes(bolsaCategoria?.estado)) incidenciaBolsa = bolsaCategoria.estado;
   }
   // El detalle CT conserva fechas civiles a medianoche UTC; el origen de Bolsa
   // transporta solo el día y valida de nuevo su calendario.

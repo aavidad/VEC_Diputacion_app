@@ -1,8 +1,8 @@
 /** Montaje aislado de la superficie de fiscalización de contratación temporal. */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261009-ct-bolsa-cohorte-v9";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261010-ct-ficha-cohorte-v1";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261009-ct-bolsa-cohorte-v9";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261010-ct-ficha-cohorte-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 

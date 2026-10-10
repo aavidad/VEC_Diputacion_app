@@ -978,3 +978,23 @@ test("la ficha abierta desde el cuadro se refresca con la versión del recibo, n
     versionServidor);
   assert.equal(presentador.obtenerEstado().expediente.version, versionServidor);
 });
+
+test("las comprobaciones de cobertura llevan su resultado en el tono (sí, no, no consta)", async () => {
+  const cliente = clienteFalso([]);
+  const leer = cliente.consultarDetalleRRHH;
+  cliente.consultarDetalleRRHH = async (...args) => {
+    const detalle = await leer(...args);
+    return { ...detalle, cobertura: { ...detalle.cobertura, comprobaciones: [
+      { clave: "existe_bolsa_vigente", resultado: "afirmativa" },
+      { clave: "hay_candidaturas_disponibles", resultado: "negativa" },
+      { clave: "sae_consultado", resultado: "no_consta" },
+    ] } };
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar();
+  const { cabecera } = await adaptador.obtener(resumen.expediente_ref);
+  const tono = (clave) => cabecera.find((c) => c.clave === `comprobacion_${clave}`)?.tono;
+  assert.equal(tono("existe_bolsa_vigente"), "exito");
+  assert.equal(tono("hay_candidaturas_disponibles"), "aviso");
+  assert.equal(tono("sae_consultado"), "neutro");
+});

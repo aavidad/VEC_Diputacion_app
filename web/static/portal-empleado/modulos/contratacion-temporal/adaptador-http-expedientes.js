@@ -2,7 +2,7 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL,
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
-} from "./contrato-expedientes.js?v=20261009-ct-bolsa-cohorte-v9";
+} from "./contrato-expedientes.js?v=20261010-ct-ficha-cohorte-v1";
 import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { validarCatalogosAlta } from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
@@ -116,6 +116,8 @@ function estadoServidor(clave) {
   if (servidor === undefined) throw new TypeError("filtro de estado visual no válido");
   return servidor;
 }
+
+const TONO_COMPROBACION = Object.freeze({ afirmativa: "exito", negativa: "aviso" });
 
 function campo(clave, titulo, valor) {
   return {
@@ -370,12 +372,15 @@ function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta) {
     if (detalle.cobertura.bolsa_ref) {
       campos.push(campo("bolsa_cobertura", t("cabecera_bolsa_cobertura"), detalle.cobertura.bolsa_ref));
     }
+    // Lo que se comprobó al decidir la cobertura es lo mismo que recogen los
+    // documentos; el tono distingue «sí» de «no» y la ficha lo reutiliza para
+    // no afirmar lo contrario con otra consulta.
     for (const comprobacion of detalle.cobertura.comprobaciones || []) {
-      campos.push(campo(
+      campos.push({ ...campo(
         `comprobacion_${comprobacion.clave}`,
         t("cabecera_comprobacion_bolsa"),
         `${etiqueta(comprobacion.clave, t)}: ${etiqueta(comprobacion.resultado, t)}`,
-      ));
+      ), tono: TONO_COMPROBACION[comprobacion.resultado] ?? "neutro" });
     }
   }
   if (detalle.asignacion) {
