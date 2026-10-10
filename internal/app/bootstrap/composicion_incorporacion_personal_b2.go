@@ -189,11 +189,11 @@ func errorHTTPNominalB2(ctx context.Context, e error) error {
 		return errors.Join(httpct.ErrManejadorIncorporacionPersonalB2, e)
 	case errors.Is(e, ct.ErrPlanNominalB2Denegado), errors.Is(e, ct.ErrAutorizacionDenegada), errors.Is(e, ct.ErrDenegadaIncorporacionAplicacion), errors.Is(e, personal.ErrRegistroEmpleadoB2Denegado), errors.Is(e, vp.ErrUsoCategoriaRPTDenegado), errors.Is(e, vp.ErrLecturaRPTDenegada), errors.Is(e, bp.ErrConsultaPersonaAceptacionCTDenegada), errors.Is(e, ct.ErrVinculoCategoriaRPTDenegado), errors.Is(e, core.ErrAutorizacionDenegada), errors.Is(e, core.ErrPermissionDenied), errors.Is(e, vp.ErrDenegacionExplicitaAutorizacionLigadaV3):
 		return errors.Join(httpct.ErrDenegadaIncorporacionPersonalB2, e)
-	case errors.Is(e, ct.ErrPlanNominalB2Conflicto), errors.Is(e, ct.ErrConflictoIncorporacionAplicacion), errors.Is(e, personal.ErrRegistroEmpleadoB2Conflicto), errors.Is(e, vp.ErrUsoCategoriaRPTConflicto):
+	case errors.Is(e, ct.ErrPlanNominalB2Conflicto), errors.Is(e, ct.ErrConflictoIncorporacionAplicacion), errors.Is(e, ct.ErrVinculoCategoriaRPTConflicto), errors.Is(e, personal.ErrRegistroEmpleadoB2Conflicto), errors.Is(e, vp.ErrUsoCategoriaRPTConflicto):
 		return errors.Join(httpct.ErrConflictoIncorporacionPersonalB2, e)
-	case errors.Is(e, ct.ErrPreparacionIncorporacionPendiente), errors.Is(e, ct.ErrPlanNominalB2NoEncontrado), errors.Is(e, personal.ErrRegistroEmpleadoB2NoEncontrado):
+	case errors.Is(e, ct.ErrPreparacionIncorporacionPendiente), errors.Is(e, ct.ErrPlanNominalB2NoEncontrado), errors.Is(e, ct.ErrVinculoCategoriaRPTNoEncontrado), errors.Is(e, personal.ErrRegistroEmpleadoB2NoEncontrado):
 		return errors.Join(httpct.ErrPreparacionPendienteIncorporacionPersonalB2, e)
-	case errors.Is(e, ct.ErrPlanNominalB2Invalido), errors.Is(e, personal.ErrRegistroEmpleadoB2Invalido):
+	case errors.Is(e, ct.ErrPlanNominalB2Invalido), errors.Is(e, personal.ErrRegistroEmpleadoB2Invalido), errors.Is(e, ct.ErrVinculoCategoriaRPTInvalido):
 		return errors.Join(httpct.ErrPeticionIncorporacionPersonalB2, e)
 	default:
 		return errors.Join(httpct.ErrManejadorIncorporacionPersonalB2, e)
@@ -206,7 +206,7 @@ type claveRutaPeticionIncorporacionB2 struct{}
 func ligarContextoIncorporacionPersonalB2(h http.Handler, soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		previo := rutaPeticionIncorporacionB2{r.Method, r.URL.Path}
-		if (previo.ruta == httpct.RutaPlanB2 && (previo.metodo == http.MethodGet || previo.metodo == http.MethodPost)) || (previo.ruta == httpct.RutaConfirmacionB2 && previo.metodo == http.MethodPost) {
+		if ((previo.ruta == httpct.RutaPlanB2 || previo.ruta == httpct.RutaVinculoCategoriaRPTB2) && (previo.metodo == http.MethodGet || previo.metodo == http.MethodPost)) || (previo.ruta == httpct.RutaConfirmacionB2 && previo.metodo == http.MethodPost) || (previo.ruta == httpct.RutaCategoriasRPTB2 && previo.metodo == http.MethodGet) {
 			if ctx, ok := contextoNominalIncorporacionPersonalB2(r.Context(), soporte, fronteras, previo); ok {
 				r = r.WithContext(ctx)
 			}
@@ -243,8 +243,54 @@ type montajeIncorporacionPersonalB2 struct {
 	fachada   *fachadaIncorporacionPersonalB2
 	autoridad *autoridadIncorporacionPersonalB2
 	// cese es nil si la configuración no fija cese_fecha_efecto.
-	cese   *inc.CesePersonalB2
-	cerrar func()
+	cese       *inc.CesePersonalB2
+	vinculo    *fachadaVinculoCategoriaRPTB2
+	categorias *fachadaCategoriasRPTB2
+	cerrar     func()
+}
+
+// fachadaVinculoCategoriaRPTB2 reutiliza el ServicioVinculoCategoriaRPT que el
+// montaje B2 ya compone con su autoridad nominal; sólo completa la intención
+// con la organización y el catálogo RPT de la configuración del servidor.
+type fachadaVinculoCategoriaRPTB2 struct {
+	organizacionRef, catalogoID, moduloID string
+	servicio                              *appct.ServicioVinculoCategoriaRPT
+}
+
+func (f *fachadaVinculoCategoriaRPTB2) ConsultarVinculo(ctx context.Context, exp string) (ct.LecturaVinculoCategoriaRPT, error) {
+	if f == nil || f.servicio == nil || ctx == nil {
+		return ct.LecturaVinculoCategoriaRPT{}, httpct.ErrManejadorIncorporacionPersonalB2
+	}
+	c, e := ct.NuevaConsultaVinculoCategoriaRPT(f.organizacionRef, exp)
+	if e != nil {
+		return ct.LecturaVinculoCategoriaRPT{}, errorHTTPNominalB2(ctx, e)
+	}
+	l, e := f.servicio.Consultar(ctx, c)
+	if e != nil {
+		return ct.LecturaVinculoCategoriaRPT{}, errorHTTPNominalB2(ctx, e)
+	}
+	return l, nil
+}
+func (f *fachadaVinculoCategoriaRPTB2) RegistrarVinculo(ctx context.Context, e httpct.EntradaVinculoCategoriaRPTB2) (ct.ReciboVinculoCategoriaRPT, error) {
+	if f == nil || f.servicio == nil || ctx == nil {
+		return ct.ReciboVinculoCategoriaRPT{}, httpct.ErrManejadorIncorporacionPersonalB2
+	}
+	var anterior *string
+	if e.AnteriorReciboRef != "" {
+		a := e.AnteriorReciboRef
+		anterior = &a
+	}
+	m := ct.RegistroVinculoCategoriaRPT{Esquema: ct.EsquemaRegistroVinculoCategoriaRPT, OrganizacionRef: f.organizacionRef,
+		ExpedienteRef: e.ExpedienteRef, VersionExpedienteEsperada: e.VersionExpedienteEsperada, AnalisisVersion: e.AnalisisVersion,
+		AnalisisReciboRef: e.AnalisisReciboRef, AnalisisHuellaSHA256: e.AnalisisHuellaSHA256, CategoriaRef: e.CategoriaRef,
+		CatalogoID: f.catalogoID, ModuloID: f.moduloID, CatalogoVersion: e.CatalogoVersion, CatalogoHuellaSHA256: e.CatalogoHuellaSHA256,
+		CategoriaID: e.CategoriaID, FuenteRef: e.FuenteRef, MotivoRef: e.MotivoRef, AprobacionRef: e.AprobacionRef,
+		RevisionEsperada: e.RevisionEsperada, AnteriorReciboRef: anterior, ClaveIdempotencia: e.ClaveIdempotencia}
+	r, err := f.servicio.Registrar(ctx, m)
+	if err != nil {
+		return ct.ReciboVinculoCategoriaRPT{}, errorHTTPNominalB2(ctx, err)
+	}
+	return r, nil
 }
 
 func (m *montajeIncorporacionPersonalB2) rutas(soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) ([]httpapi.RutaExacta, error) {
@@ -256,7 +302,17 @@ func (m *montajeIncorporacionPersonalB2) rutas(soporte *soporteAltaContratacionT
 		return nil, e
 	}
 	h = ligarContextoIncorporacionPersonalB2(h, soporte, fronteras)
-	return []httpapi.RutaExacta{{Ruta: httpct.RutaPlanB2, Manejador: h}, {Ruta: httpct.RutaConfirmacionB2, Manejador: h}}, nil
+	v, e := httpct.NuevoManejadorVinculoCategoriaRPTB2(m.vinculo)
+	if e != nil {
+		return nil, e
+	}
+	v = ligarContextoIncorporacionPersonalB2(v, soporte, fronteras)
+	l, e := httpct.NuevoManejadorCategoriasRPTB2(m.categorias)
+	if e != nil {
+		return nil, e
+	}
+	l = ligarContextoIncorporacionPersonalB2(l, soporte, fronteras)
+	return []httpapi.RutaExacta{{Ruta: httpct.RutaPlanB2, Manejador: h}, {Ruta: httpct.RutaConfirmacionB2, Manejador: h}, {Ruta: httpct.RutaVinculoCategoriaRPTB2, Manejador: v}, {Ruta: httpct.RutaCategoriasRPTB2, Manejador: l}}, nil
 }
 
 // Se invoca al cargar el archivo privado, antes de montar los handlers. Cada
@@ -415,5 +471,7 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 		return nil, e
 	}
 	completo = true
-	return &montajeIncorporacionPersonalB2{fachada: fachada, autoridad: autoridad, cese: cese, cerrar: cerrar}, nil
+	vinculo := &fachadaVinculoCategoriaRPTB2{organizacionRef: org, catalogoID: c.CatalogoRPTID, moduloID: c.ModuloRPTID, servicio: vinculos}
+	categorias := &fachadaCategoriasRPTB2{catalogoID: c.CatalogoRPTID, autoridad: autoridad, lector: lectorRPT}
+	return &montajeIncorporacionPersonalB2{fachada: fachada, autoridad: autoridad, cese: cese, vinculo: vinculo, categorias: categorias, cerrar: cerrar}, nil
 }

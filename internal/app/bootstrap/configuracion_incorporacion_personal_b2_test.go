@@ -74,7 +74,7 @@ func TestIncorporacionB2ConfiguracionPuraSinFuentesDelEjercicio(t *testing.T) {
 }
 func TestIncorporacionB2AudienciasNuevasSinColisiones(t *testing.T) {
 	nuevos := descriptoresMaterialIncorporacionB2()
-	claves := []string{"bolsa_anclaje", "personal_clases", "ct_plan_preparar", "ct_plan_consultar", "ct_origen_confirmar", "bolsa_persona", "ct_vinculo_consultar", "rpt_publicacion", "rpt_reservar"}
+	claves := []string{"bolsa_anclaje", "personal_clases", "ct_plan_preparar", "ct_plan_consultar", "ct_origen_confirmar", "bolsa_persona", "ct_vinculo_consultar", "rpt_publicacion", "rpt_reservar", "ct_vinculo_registrar"}
 	if len(nuevos) != len(claves) {
 		t.Fatalf("audiencias nuevas: %d", len(nuevos))
 	}

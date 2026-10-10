@@ -796,16 +796,19 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-render.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vinculo-categoria-rpt.js",
     "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v9");
-  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261009-ct-bolsa-cohorte-v9");
+  ]) versionesEspeciales.set(ruta, "20261010-ct-vinculo-rpt-cohorte-v10");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261010-ct-vinculo-rpt-cohorte-v10");
   for (const ruta of ["portal-bolsas-ruta-filtros.js", "portal-ct-ruta-filtro.js",
     "portal-llamamientos-selector.js", "portal-bolsas-global.js", "portal-bolsas-seguimiento.js",
     "portal-inicio.js", "portal-bolsas-api.js", "portal-panel-interno.js",
     "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js", "portal-menu-bolsa.js"])
-    versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v9");
+    versionesEspeciales.set(ruta, "20261010-ct-vinculo-rpt-cohorte-v10");
   // Botón de carga CONVOCA en la cabecera de Bolsa: panel y entrada en su propia cohorte.
   for (const ruta of ["portal-panel-interno.js", "portal.js"]) versionesEspeciales.set(ruta, "20261010-b1-carga-v1");
+  // El vínculo de categoría RPT renueva la entrada después de la carga CONVOCA.
+  versionesEspeciales.set("portal.js", "20261010-ct-vinculo-rpt-cohorte-v10");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

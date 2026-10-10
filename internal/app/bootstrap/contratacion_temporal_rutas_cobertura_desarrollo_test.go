@@ -179,6 +179,9 @@ func TestFronterasIncorporacionB2SoloPerfilesNominalesYAccionesExactas(t *testin
 		{http.MethodGet, httpinterno.RutaPlanB2, "contratacion_temporal.incorporacion_personal.plan.consultar"},
 		{http.MethodPost, httpinterno.RutaPlanB2, "contratacion_temporal.incorporacion_personal.plan.registrar"},
 		{http.MethodPost, httpinterno.RutaConfirmacionB2, "contratacion_temporal.incorporacion_personal.origen.confirmar"},
+		{http.MethodGet, httpinterno.RutaVinculoCategoriaRPTB2, "contratacion_temporal.categoria_rpt.vinculo.consultar"},
+		{http.MethodPost, httpinterno.RutaVinculoCategoriaRPTB2, "contratacion_temporal.categoria_rpt.vinculo.registrar"},
+		{http.MethodGet, httpinterno.RutaCategoriasRPTB2, "vec.catalogos.categorias.listar_habilitadas"},
 	}
 	if len(descriptores) != len(esperadas) {
 		t.Fatalf("fronteras B2: %d", len(descriptores))
@@ -204,7 +207,7 @@ func TestFronterasIncorporacionB2AsignanPerfilesAntesDelCatalogo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, par := range []struct{ metodo, ruta string }{{http.MethodGet, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaConfirmacionB2}} {
+	for _, par := range []struct{ metodo, ruta string }{{http.MethodGet, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaConfirmacionB2}, {http.MethodGet, httpinterno.RutaCategoriasRPTB2}} {
 		d, ok := catalogo.resolver(par.metodo, par.ruta)
 		if !ok || d.admitePerfil(base) || len(d.PerfilesActivosRef) != len(gruposPerfilesIncorporacionB2()) {
 			t.Fatalf("frontera B2 sin perfiles nominales cerrados: %s %s", par.metodo, par.ruta)

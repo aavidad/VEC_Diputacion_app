@@ -27,7 +27,7 @@ func TestPublicacionIncorporacionB2NueveAudienciasIdempotentes(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if gobierno.llamadas != 18 || len(gobierno.versiones) != 9 || gobierno.siguiente != 49 {
+	if gobierno.llamadas != 20 || len(gobierno.versiones) != 10 || gobierno.siguiente != 50 {
 		t.Fatalf("publicación B2 repetida alteró versiones o cardinalidad: llamadas=%d claves=%d siguiente=%d", gobierno.llamadas, len(gobierno.versiones), gobierno.siguiente)
 	}
 	for _, secreto := range gobierno.secretos {

@@ -266,10 +266,17 @@ func protocolosIncorporacionConfiguradosDesarrollo(cfg config.Config) (b2, legad
 func descriptoresFronterasIncorporacionB2Desarrollo() []descriptorFronteraComunDesarrollo {
 	planGET := fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-plan-consultar", ports.AccionLeerPlanNominalB2, httpinterno.RutaPlanB2, nil)
 	planGET.Metodo = http.MethodGet
+	vinculoGET := fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-vinculo-rpt-consultar", ports.AccionConsultarVinculoCategoriaRPT, httpinterno.RutaVinculoCategoriaRPTB2, nil)
+	vinculoGET.Metodo = http.MethodGet
+	categoriasGET := fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-categorias-rpt-listar", accionListarCategoriasRPTB2, httpinterno.RutaCategoriasRPTB2, nil)
+	categoriasGET.Metodo = http.MethodGet
 	return []descriptorFronteraComunDesarrollo{
 		planGET,
 		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-plan-registrar", ports.AccionRegistrarPlanNominalB2, httpinterno.RutaPlanB2, nil),
 		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-origen-confirmar", ports.AccionConfirmarOrigenB2, httpinterno.RutaConfirmacionB2, nil),
+		vinculoGET,
+		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-vinculo-rpt-registrar", ports.AccionRegistrarVinculoCategoriaRPT, httpinterno.RutaVinculoCategoriaRPTB2, nil),
+		categoriasGET,
 	}
 }
 
