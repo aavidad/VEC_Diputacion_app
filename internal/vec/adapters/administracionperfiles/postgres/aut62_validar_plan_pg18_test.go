@@ -43,7 +43,7 @@ func TestValidarPlanVersionRolBolsaRealConAsignacionesPostgreSQL18(t *testing.T)
 		t.Fatalf("conexión: %v", err)
 	}
 	defer pool.Close()
-	plan := planB1RealConAsignaciones(ctx, t, pool)
+	plan, _ := planB1RealConAsignaciones(ctx, t, pool)
 	planJSON, err := json.Marshal(plan)
 	if err != nil {
 		t.Fatal(err)
@@ -99,8 +99,10 @@ func validarPlanB1EnTx(ctx context.Context, pool *pgxpool.Pool, plan []byte, pri
 }
 
 // planB1RealConAsignaciones prepara con el dominio Go un plan sobre la cabeza
-// del catálogo y las asignaciones actuales del rol base, como lo haría el DTO.
-func planB1RealConAsignaciones(ctx context.Context, t *testing.T, pool *pgxpool.Pool) domain.PlanVersionarRolBolsa {
+// del catálogo y las asignaciones actuales del rol base, como lo haría el DTO,
+// y devuelve también la intención de la que sale.
+func planB1RealConAsignaciones(ctx context.Context, t *testing.T,
+	pool *pgxpool.Pool) (domain.PlanVersionarRolBolsa, domain.IntencionVersionarRolBolsa) {
 	t.Helper()
 	fuente, err := nuevaFuenteCatalogoAcciones(ctx, pool)
 	if err != nil {
@@ -185,5 +187,5 @@ func planB1RealConAsignaciones(ctx context.Context, t *testing.T, pool *pgxpool.
 	if err != nil {
 		t.Fatal("plan:", err)
 	}
-	return plan
+	return plan, intencion
 }
