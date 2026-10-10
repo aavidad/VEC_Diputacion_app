@@ -51,7 +51,9 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       marca.querySelector(".carga-pasos__numero").textContent = i < numero ? "✓" : String(i);
       marca.querySelector(".carga-pasos__estado").textContent = i < numero ? ` (${t("pasoHecho")})` : i === numero ? ` (${t("pasoActual")})` : "";
     }
-    pasos[numero].focus();
+    // Se desplaza al inicio del paso (respetando la cabecera fija) y luego se enfoca.
+    pasos[numero].focus({ preventScroll: true });
+    pasos[numero].scrollIntoView?.({ block: "start" });
   }
 
   // Paso 1: categorías y validación del formulario.
@@ -310,6 +312,9 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     $("error-revisar").hidden = !estado.indeterminado;
     $("estado-revisar").textContent = "";
     doc.querySelectorAll('input[name="filtro"]').forEach((r) => { r.checked = r.value === filtroControl(estado.filtro); });
+    doc.querySelectorAll(".carga-kpi-boton").forEach((b) => {
+      b.setAttribute("aria-pressed", String(b.dataset.filtro === filtroControl(estado.filtro)));
+    });
     pintarFilas();
   }
 
@@ -408,7 +413,8 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       excluidas.append(boton);
       datos.push(excluidas);
     }
-    if (recibo.sustituye_a.length) {
+    // Una carga repetida no cambia nada: no se listan otra vez las bolsas que sustituyó.
+    if (recibo.sustituye_a.length && !recibo.reutilizada) {
       const grupo = doc.createElement("li");
       grupo.append(doc.createTextNode(t("bolsasSustituidas")));
       const lista = doc.createElement("ul");
@@ -476,6 +482,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     doc.querySelectorAll('input[name="filtro"], .carga-kpi-boton, #anterior, #siguiente')
       .forEach((control) => { control.disabled = false; });
     $("fichero").value = "";
+    $("fichero-nombre").textContent = t("ficheroNinguno");
     $("resumen-errores").hidden = true;
     marcarCampo("fichero", "");
     marcarCampo("categoria", "");
@@ -485,6 +492,9 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   }
 
   $("form-elegir").addEventListener("submit", revisar);
+  $("fichero").addEventListener("change", () => {
+    $("fichero-nombre").textContent = $("fichero").files?.[0]?.name || t("ficheroNinguno");
+  });
   $("categorias-reintentar").addEventListener("click", () => void cargarCategorias());
   function navegarPagina(filtro, pagina, { ruta = "pushState", enfocar = true } = {}) {
     if (!estado.vista || estado.ocupado) return;

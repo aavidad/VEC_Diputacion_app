@@ -6,7 +6,7 @@
     "portal": "Portal del Empleado",
     "bolsas": "Bolsas de trabajo",
     "titulo": "Cargar bolsa desde CONVOCA",
-    "volver": "Volver a las bolsas",
+    "volver": "Volver a bolsas",
     "ayudaAbrir": "Ayuda de esta pantalla",
     "ayudaTitulo": "Cómo cargar una bolsa desde CONVOCA",
     "ayudaPaso1": "Exporte desde CONVOCA el resumen por persona de la lista definitiva (fichero .xls o .xlsx de 1 MB como máximo).",
@@ -21,7 +21,7 @@
     "paso3": "Resultado",
     "pasoActual": "paso actual",
     "pasoHecho": "hecho",
-    "elegirTitulo": "1. Elegir el fichero",
+    "elegirTitulo": "Elegir el fichero",
     "fichero": "Fichero de CONVOCA (.xls o .xlsx)",
     "categoria": "Categoría de la bolsa",
     "categoriaElegir": "Elija una categoría",
@@ -36,7 +36,7 @@
     "categoriasCargando": "Cargando categorías…",
     "categoriasError": "No se han podido cargar las categorías. Pulse «Reintentar».",
     "reintentar": "Reintentar",
-    "revisionTitulo": "2. Revisar la lista",
+    "revisionTitulo": "Revisar la lista",
     "resumenFichero": "{fichero} · {categoria}",
     "kpiLeidas": "Filas leídas",
     "kpiCargaran": "Entrarán en la bolsa",
@@ -80,9 +80,9 @@
     },
     "confirmarSi": "Sí, cargar la bolsa",
     "confirmarNo": "No, volver a la lista",
-    "hechoTitulo": "3. Bolsa cargada",
+    "hechoTitulo": "Bolsa cargada",
     "hechoNueva": "La bolsa de {categoria} ya está en VEC.",
-    "hechoRepetida": "Esta bolsa ya estaba cargada con este mismo fichero. No se ha cambiado nada.",
+    "hechoRepetida": "Este fichero ya se cargó antes. Estos son los datos de aquella carga.",
     "hechoCargadas": {
       "one": "{cuenta} persona en la bolsa",
       "other": "{cuenta} personas en la bolsa"
@@ -119,9 +119,12 @@
     "bolsasSustituidas": "Bolsas anteriores sustituidas:",
     "verBolsaAnterior": "Ver bolsa anterior {numero}",
     "volverResultado": "Volver al resultado",
-    "ficheroNoDisponible": "El fichero ya no está en esta página. Para revisar las filas descartadas, pulse «Cargar otra bolsa» y elija el mismo Excel. No confirme otra carga.",
+    "ficheroNoDisponible": "Para ver las filas que no entraron, pulse «Cargar otra bolsa» y elija el mismo Excel. Solo revise la lista: no hace falta cargarla otra vez.",
     "recuperarResultado": "Recuperar resultado",
-    "recuperacionSinFichero": "El fichero ya no está disponible en esta página. Pulse «Elegir otro fichero» y seleccione el mismo Excel y categoría. Revise la vista antes de confirmar; la carga anterior puede estar registrada."
+    "recuperacionSinFichero": "El fichero ya no está en esta página. Pulse «Elegir otro fichero», elija el mismo Excel y la misma categoría y revise la lista. No la cargue otra vez sin comprobar antes si la bolsa ya se cargó.",
+    "ficheroElegir": "Elegir fichero",
+    "ficheroNinguno": "Ningún fichero elegido",
+    "detalleTecnico": "Ver detalle técnico"
   },
   "campos": {
     "dni_nie": "Documento",
@@ -142,7 +145,7 @@
     "formula_prohibida": "{campo}: tiene una fórmula; debe llevar el valor.",
     "texto_invalido": "{campo}: contiene caracteres no permitidos.",
     "texto_demasiado_largo": "{campo}: el texto es demasiado largo.",
-    "documento_enmascarado_invalido": "{campo}: debe venir enmascarado como en CONVOCA (***1234**).",
+    "documento_enmascarado_invalido": "{campo}: debe llevar asteriscos, como lo exporta CONVOCA (***1234**).",
     "decimal_invalido": "{campo}: no es un número válido.",
     "orden_grupo_invalido": "{campo}: el orden no es válido.",
     "total_incoherente": "{campo}: no es la suma de experiencia y formación.",
@@ -150,7 +153,7 @@
     "otro": "{campo}: el dato no es válido."
   },
   "avisos": {
-    "identidad_ambigua": "Mismo documento y nombre que otra fila. Entra en la bolsa, pero no se une a la persona hasta comprobar en CONVOCA si es la misma.",
+    "identidad_ambigua": "Mismo documento y nombre que otra fila. Entra en la bolsa, pero la persona no la verá en su área personal hasta que se compruebe en CONVOCA si es la misma.",
     "otro": "Revise esta fila."
   },
   "bloqueos": {
@@ -172,7 +175,7 @@
     "peticion_no_valida": "No se ha podido enviar el fichero. Vuelva a elegirlo y repita.",
     "servicio_no_disponible": "No se ha podido completar ahora. Pulse el botón otra vez; si sigue igual, avise a Informática.",
     "paginacion_no_valida": "No se pudo abrir esa página. Vuelva a la primera o elija otro filtro.",
-    "recibo_incoherente": "No se puede verificar el resultado. Consulte las bolsas o pulse «Recuperar resultado» para obtener el recibo de la misma carga.",
-    "resultado_indeterminado": "No se recibió una respuesta definitiva. La carga puede estar registrada. Pulse «Recuperar resultado» para obtener el recibo de esa misma carga."
+    "recibo_incoherente": "No se puede comprobar el resultado. Consulte las bolsas o pulse «Recuperar resultado» para ver el resultado de esa carga.",
+    "resultado_indeterminado": "No sabemos si la bolsa se ha cargado. Pulse «Recuperar resultado» para comprobarlo. No la cargue otra vez."
   }
 }

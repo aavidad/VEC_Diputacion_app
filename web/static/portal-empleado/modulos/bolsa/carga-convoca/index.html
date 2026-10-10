@@ -50,7 +50,11 @@
             <form id="form-elegir" class="carga-formulario" novalidate>
               <div class="carga-campo">
                 <label for="fichero"><span data-i18n="fichero"></span> <span class="carga-obligatorio">(<span data-i18n="obligatorio"></span>)</span></label>
-                <input id="fichero" name="fichero" type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-describedby="fichero-error" required />
+                <div class="carga-fichero">
+                  <input id="fichero" name="fichero" type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-describedby="fichero-nombre fichero-error" required />
+                  <label for="fichero" class="boton-secundario" data-i18n="ficheroElegir" aria-hidden="true"></label>
+                  <span class="carga-fichero-nombre" id="fichero-nombre" data-i18n="ficheroNinguno"></span>
+                </div>
                 <p class="carga-error-campo" id="fichero-error" hidden></p>
               </div>
               <div class="carga-campo">
@@ -81,10 +85,10 @@
           <div class="cuerpo-panel">
             <p id="bloqueo" class="carga-aviso carga-aviso--peligro" role="alert" hidden></p>
             <div class="rejilla-kpi rejilla-kpi--compacta carga-kpi">
-              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="todas"><strong class="valor-kpi" id="kpi-leidas"></strong><span class="etiqueta-kpi" data-i18n="kpiLeidas"></span></button>
-              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="aceptadas"><strong class="valor-kpi" id="kpi-cargaran"></strong><span class="etiqueta-kpi" data-i18n="kpiCargaran"></span></button>
-              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="errores"><strong class="valor-kpi" id="kpi-errores"></strong><span class="etiqueta-kpi" data-i18n="kpiErrores"></span></button>
-              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="avisos"><strong class="valor-kpi" id="kpi-avisos"></strong><span class="etiqueta-kpi" data-i18n="kpiAvisos"></span></button>
+              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="todas" aria-pressed="true"><strong class="valor-kpi" id="kpi-leidas"></strong><span class="etiqueta-kpi" data-i18n="kpiLeidas"></span></button>
+              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="aceptadas" aria-pressed="false"><strong class="valor-kpi" id="kpi-cargaran"></strong><span class="etiqueta-kpi" data-i18n="kpiCargaran"></span></button>
+              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="errores" aria-pressed="false"><strong class="valor-kpi" id="kpi-errores"></strong><span class="etiqueta-kpi" data-i18n="kpiErrores"></span></button>
+              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="avisos" aria-pressed="false"><strong class="valor-kpi" id="kpi-avisos"></strong><span class="etiqueta-kpi" data-i18n="kpiAvisos"></span></button>
             </div>
             <fieldset class="carga-filtro">
               <legend data-i18n="filtro"></legend>
@@ -142,7 +146,7 @@
               <h3 data-i18n="hechoPendientes"></h3>
               <ul id="hecho-pendientes-lista" class="carga-datos"></ul>
             </div>
-            <p id="detalle-registro" class="carga-detalle"></p>
+            <details class="carga-tecnico"><summary data-i18n="detalleTecnico"></summary><p id="detalle-registro" class="carga-detalle"></p></details>
             <div class="carga-acciones">
               <button type="button" class="boton-secundario" id="otra-carga" data-i18n="otraCarga"></button>
               <a class="boton-primario" href="/portal-empleado/#resumen" data-i18n="verBolsas"></a>

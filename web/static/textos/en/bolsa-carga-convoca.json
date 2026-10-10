@@ -6,7 +6,7 @@
     "portal": "Employee Portal",
     "bolsas": "Job pools",
     "titulo": "Load a pool from CONVOCA",
-    "volver": "Back to job pools",
+    "volver": "Back to pools",
     "ayudaAbrir": "Help for this page",
     "ayudaTitulo": "How to load a pool from CONVOCA",
     "ayudaPaso1": "Export the per-person summary of the final list from CONVOCA (.xls or .xlsx file, 1 MB at most).",
@@ -21,7 +21,7 @@
     "paso3": "Result",
     "pasoActual": "current step",
     "pasoHecho": "done",
-    "elegirTitulo": "1. Choose the file",
+    "elegirTitulo": "Choose the file",
     "fichero": "CONVOCA file (.xls or .xlsx)",
     "categoria": "Pool category",
     "categoriaElegir": "Choose a category",
@@ -36,7 +36,7 @@
     "categoriasCargando": "Loading categories…",
     "categoriasError": "The categories could not be loaded. Press “Try again”.",
     "reintentar": "Try again",
-    "revisionTitulo": "2. Check the list",
+    "revisionTitulo": "Check the list",
     "resumenFichero": "{fichero} · {categoria}",
     "kpiLeidas": "Rows read",
     "kpiCargaran": "Will enter the pool",
@@ -80,9 +80,9 @@
     },
     "confirmarSi": "Yes, load the pool",
     "confirmarNo": "No, back to the list",
-    "hechoTitulo": "3. Pool loaded",
+    "hechoTitulo": "Pool loaded",
     "hechoNueva": "The {categoria} pool is now in VEC.",
-    "hechoRepetida": "This pool was already loaded from this same file. Nothing has changed.",
+    "hechoRepetida": "This file was already loaded. These are the details of that load.",
     "hechoCargadas": {
       "one": "{cuenta} person in the pool",
       "other": "{cuenta} people in the pool"
@@ -119,9 +119,12 @@
     "bolsasSustituidas": "Earlier pools replaced:",
     "verBolsaAnterior": "See earlier pool {numero}",
     "volverResultado": "Back to the result",
-    "ficheroNoDisponible": "The file is no longer on this page. To review the excluded rows, select “Load another pool” and choose the same spreadsheet. Do not confirm another load.",
+    "ficheroNoDisponible": "To see the rows that were left out, select “Load another pool” and choose the same spreadsheet. Just review the list: you do not need to load it again.",
     "recuperarResultado": "Recover result",
-    "recuperacionSinFichero": "The file is no longer available on this page. Select “Choose another file” and choose the same spreadsheet and category. Review the preview before confirming; the earlier load may already be recorded."
+    "recuperacionSinFichero": "The file is no longer on this page. Select “Choose another file”, pick the same spreadsheet and category and review the list. Do not load it again without first checking whether the pool was already loaded.",
+    "ficheroElegir": "Choose file",
+    "ficheroNinguno": "No file chosen",
+    "detalleTecnico": "Show technical details"
   },
   "campos": {
     "dni_nie": "Document",
@@ -142,7 +145,7 @@
     "formula_prohibida": "{campo}: contains a formula; it must hold the value.",
     "texto_invalido": "{campo}: contains characters that are not allowed.",
     "texto_demasiado_largo": "{campo}: the text is too long.",
-    "documento_enmascarado_invalido": "{campo}: must be masked as in CONVOCA (***1234**).",
+    "documento_enmascarado_invalido": "{campo}: must have asterisks, as CONVOCA exports it (***1234**).",
     "decimal_invalido": "{campo}: not a valid number.",
     "orden_grupo_invalido": "{campo}: the order is not valid.",
     "total_incoherente": "{campo}: is not the sum of experience and training.",
@@ -150,7 +153,7 @@
     "otro": "{campo}: the value is not valid."
   },
   "avisos": {
-    "identidad_ambigua": "Same document and name as another row. It enters the pool, but it is not linked to the person until you check in CONVOCA whether they are the same.",
+    "identidad_ambigua": "Same document and name as another row. It enters the pool, but the person will not see it in their personal area until someone checks in CONVOCA whether they are the same person.",
     "otro": "Check this row."
   },
   "bloqueos": {
@@ -172,7 +175,7 @@
     "peticion_no_valida": "The file could not be sent. Choose it again and repeat.",
     "servicio_no_disponible": "This could not be completed right now. Press the button again; if it keeps failing, contact IT.",
     "paginacion_no_valida": "That page could not be opened. Go back to the first page or choose another filter.",
-    "recibo_incoherente": "The result could not be verified. Check the pools or select “Recover result” to retrieve the receipt for the same load.",
-    "resultado_indeterminado": "No final response was received. The load may already be recorded. Select “Recover result” to retrieve the receipt for that same load."
+    "recibo_incoherente": "The result cannot be checked. Look at the pools or select “Recover result” to see the result of that load.",
+    "resultado_indeterminado": "We don't know whether the pool was loaded. Select “Recover result” to check. Do not load it again."
   }
 }
