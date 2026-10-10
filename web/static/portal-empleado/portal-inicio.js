@@ -17,7 +17,7 @@ import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/fases-rrhh
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 import { renderizarAccesosEmpleado } from "./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2";
-import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261009-ct-bolsa-cohorte-v9";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261010-ct-ficha-cohorte-v1";
 
 const DESTINO_LISTA = 'data-vista="contratacion-temporal" data-ct-exp-vista="cuadro"';
 

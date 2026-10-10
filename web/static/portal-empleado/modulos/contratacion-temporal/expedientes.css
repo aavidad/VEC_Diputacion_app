@@ -150,6 +150,14 @@
   --ct-tono-suave: var(--portal-peligro-suave);
 }
 
+/* Datos de la ficha con resultado (p. ej. comprobaciones de la cobertura):
+   «Sí» en verde y «No» en aviso; el texto ya dice el resultado sin el color. */
+.ct-exp-ficha-datos dd.ct-tono-exito,
+.ct-exp-ficha-datos dd.ct-tono-aviso {
+  color: var(--ct-tono);
+  font-weight: 600;
+}
+
 .ct-tono-neutro {
   --ct-tono: var(--portal-muted);
   --ct-tono-suave: var(--portal-neutro-suave);
