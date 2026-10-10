@@ -82,6 +82,12 @@ func TestGobiernoLectorAD235PostgreSQLPrivado(t *testing.T) {
 	if lector.QueryRow(ctx, `SELECT rolsuper FROM pg_catalog.pg_roles WHERE rolname=session_user`).Scan(&super) != nil || super {
 		t.Fatal("lector_superusuario")
 	}
+	// Solo es miembro del grupo lector, con INHERIT y sin SET ni ADMIN.
+	var soloLector bool
+	if lector.QueryRow(ctx, `SELECT count(*)=1 AND bool_and(roleid='vec_autorizacion_atestada_v3_lector_gobierno'::regrole AND inherit_option AND NOT set_option AND NOT admin_option)
+		FROM pg_catalog.pg_auth_members WHERE member=(SELECT oid FROM pg_catalog.pg_roles WHERE rolname=session_user)`).Scan(&soloLector) != nil || !soloLector {
+		t.Fatal("lector_con_otras_pertenencias")
+	}
 	if err := postgresqlcompartido.ComprobarTEMPArranque(ctx, lector); err != nil {
 		t.Fatal("preflight_temp_rechaza_lector")
 	}
@@ -139,7 +145,14 @@ func TestGobiernoLectorAD235PostgreSQLPrivado(t *testing.T) {
 		`CREATE TEMP TABLE lector_temp(x integer)`,
 		`CREATE TABLE vec_autorizacion_atestada_v3.lector_tabla(x integer)`,
 	} {
-		_, err := lector.Exec(ctx, q)
+		// Cada intento va en su transacción y se revierte: si una regresión de
+		// ACL lo dejara pasar, no quedaría escrito en la base de ensayo.
+		tx, err := lector.Begin(ctx)
+		if err != nil {
+			t.Fatal("ensayo_pg_no_disponible")
+		}
+		_, err = tx.Exec(ctx, q)
+		_ = tx.Rollback(ctx)
 		var pgErr *pgconn.PgError
 		if !errors.As(err, &pgErr) || pgErr.Code != "42501" {
 			t.Fatalf("lector_alcanza %q", q)

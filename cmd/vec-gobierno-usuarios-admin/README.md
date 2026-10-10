@@ -56,8 +56,8 @@ GRANT vec_autorizacion_atestada_v3_lector_gobierno TO vec_adm_lectura_gob_AAAAMM
 ```
 
 No debe ser miembro de ningún otro grupo; en particular, nunca del grupo
-operador de aplicar. Sin la 000235, preparar y verificar fallan con un LOGIN
-que no sea superusuario.
+operador de aplicar. Esta versión de la CLI exige la 000235 instalada: sin
+ella, preparar y verificar fallan siempre, también con superusuario.
 
 Las conexiones van por socket local, por la dirección de bucle o por TLS con
 verificación del servidor. La carpeta del socket debe existir y no puede tener
