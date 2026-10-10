@@ -5,5 +5,5 @@
 # claves y no toca las preimágenes de AD188/AD198 (exige sus huellas exactas).
 # Una sola vez; nunca DOWN ni reaplicar: repetirla se rechaza sin efecto.
 # Cada «# <huella>» fija la SHA256 de la ruta siguiente.
-# e0983969c785c985b76e7a22b4babd62d13478a52b3bdb623ca5798d8aa4802b
+# 2c1fd1529a40f13bfe894e01099b786ad1fc6d359dbbd3676720c18ba41e6efc
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000235_lector_gobierno_admin.up.sql

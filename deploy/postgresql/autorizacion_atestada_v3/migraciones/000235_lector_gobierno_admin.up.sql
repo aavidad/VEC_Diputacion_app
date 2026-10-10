@@ -17,13 +17,16 @@
 -- EXECUTE. Las preimágenes y las tablas siguen solo para su propietario (las
 -- guardas de AD198 no cambian). El grupo no tiene TEMP ni CREATE. El LOGIN de
 -- cada entorno lo crea el DBA, miembro solo de este grupo. Requiere AD188,
--- AD191, AD198 y AD207. Una sola vez; sin DOWN.
+-- AD198 y AD207. Una sola vez; sin DOWN.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
 SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion_atestada_v3:migracion:000235',0));
+-- Mismo cerrojo del núcleo que AD198/AD207: nadie rehace una preimagen mientras
+-- se cotejan sus huellas.
+SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
 DO $pre$
 DECLARE f record;
 BEGIN
@@ -76,8 +79,9 @@ SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 -- Instantánea de preparar. Conjunto 0: gobierno de usuarios (AD188); 1 o más:
 -- conjunto de capacidades de AD198. Mismo documento que la consulta que la CLI
 -- lanzaba antes de AD235; un conjunto inexistente da pre_sha nulo.
+-- quote_all_identifiers fijo: pg_get_functiondef no depende de la sesión.
 CREATE FUNCTION vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(p_conjunto integer)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET quote_all_identifiers=off AS $f$
 DECLARE envuelta regprocedure;huella text;pre text;doc jsonb;
 BEGIN
  IF p_conjunto IS NULL OR p_conjunto NOT BETWEEN 0 AND 1000000
@@ -172,10 +176,11 @@ BEGIN
    AND p.oid<>ALL(fachadas) AND pg_catalog.has_function_privilege(g,p.oid,'EXECUTE'))
  OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) a WHERE a.grantee=g AND p.oid<>ALL(fachadas))
  THEN RAISE EXCEPTION 'AD235: PARO clave=funciones actual=ampliadas esperado=solo_fachadas' USING ERRCODE='55000'; END IF;
- -- Fachadas: propietario, SECURITY DEFINER, STABLE, search_path fijo y EXECUTE
+ -- Fachadas: propietario, SECURITY DEFINER, STABLE, configuración fija y EXECUTE
  -- solo para el propietario y el grupo, sin opción de concesión.
  IF (SELECT count(*) FROM pg_catalog.pg_proc p WHERE p.oid=ANY(fachadas) AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
-   AND p.prosecdef AND p.provolatile='s' AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'])<>2
+   AND p.prosecdef AND p.provolatile='s'
+   AND p.proconfig=CASE WHEN p.oid=fachadas[1] THEN ARRAY['search_path=pg_catalog, pg_temp','quote_all_identifiers=off'] ELSE ARRAY['search_path=pg_catalog, pg_temp'] END)<>2
  OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
    WHERE p.oid=ANY(fachadas) AND (a.grantee NOT IN(p.proowner,g) OR a.is_grantable OR a.privilege_type<>'EXECUTE'))
  OR NOT pg_catalog.has_function_privilege(g,fachadas[1],'EXECUTE') OR NOT pg_catalog.has_function_privilege(g,fachadas[2],'EXECUTE')

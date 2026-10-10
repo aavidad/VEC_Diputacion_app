@@ -37,11 +37,15 @@ SELECT pg_temp.comprobar('acl',
   AND (a.grantee=0 OR a.is_grantable)));
 
 -- 3. Un LOGIN lector como el del kit: lee por las fachadas y nada más.
+SELECT max(version) AS ultimo FROM vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1 \gset
 CREATE ROLE prueba_ad235_lector LOGIN INHERIT NOSUPERUSER;
 GRANT vec_autorizacion_atestada_v3_lector_gobierno TO prueba_ad235_lector WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
 SET LOCAL ROLE prueba_ad235_lector;
-SELECT pg_temp.comprobar('instantanea_5',(SELECT x->>'pre_sha' ~ '^[0-9a-f]{64}$' AND NOT x ? 'secreto_hmac' AND (SELECT count(*) FROM jsonb_object_keys(x))=12
- FROM (SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(5) x) s));
+SELECT pg_temp.comprobar('instantanea_ultimo_conjunto',(SELECT x->>'pre_sha' ~ '^[0-9a-f]{64}$' AND NOT x ? 'secreto_hmac' AND (SELECT count(*) FROM jsonb_object_keys(x))=12
+ FROM (SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(:ultimo) x) s));
+SET LOCAL quote_all_identifiers=on;
+SELECT pg_temp.comprobar('huella_independiente_de_sesion',pg_temp.sqlstate('SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(0)')='ejecutada');
+SET LOCAL quote_all_identifiers=off;
 SELECT pg_temp.comprobar('instantanea_0',(SELECT x->>'pre_sha' ~ '^[0-9a-f]{64}$' FROM (SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(0) x) s));
 SELECT pg_temp.comprobar('instantanea_conjunto_inexistente',(SELECT x->'pre_sha'='null'::jsonb FROM (SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(999) x) s));
 SELECT pg_temp.comprobar('cadena',(SELECT x->>'esquema'='vec.auditoria.verificacion.gobierno-usuarios-admin.v1' AND x->'manifiesto'->>'cadena_id'='cadena:comun:interna'
@@ -61,21 +65,31 @@ SELECT pg_temp.comprobar('login_sin_temp',NOT has_database_privilege('prueba_ad2
 DO $rehacer$ BEGIN
  EXECUTE replace(pg_get_functiondef('vec_autorizacion_atestada_v3.preimagen_gobierno_capacidades_admin_v1(integer)'::regprocedure),'SELECT jsonb_build_object(','SELECT /* cambio */ jsonb_build_object(');
 END $rehacer$;
-SELECT pg_temp.comprobar('huella_envuelta',pg_temp.sqlstate('SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(5)')='55000');
+SELECT pg_temp.comprobar('huella_envuelta',pg_temp.sqlstate('SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1('||:ultimo||')')='55000');
 SELECT pg_temp.comprobar('huella_otra_intacta',pg_temp.sqlstate('SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(0)')='ejecutada');
 
--- 5. Guarda de pg_auth_members de AD198 (exigir_operador): la misma
--- expresión rechaza un LOGIN del operador que además sea lector, y admite el
--- que solo es operador. El lector nunca sirve de LOGIN técnico de aplicar.
+-- 5. Guarda de pg_auth_members de AD198: se llama a la función instalada,
+-- exigir_operador_gobierno_capacidades_admin_v1, con cada LOGIN como
+-- session_user (EXECUTE a PUBLIC solo dentro de este ROLLBACK). Un LOGIN del
+-- operador que además sea lector para en clave=LOGIN; el que solo es operador
+-- pasa esa guarda y para después, por falta de configuración aprobada.
 CREATE ROLE prueba_ad235_mixto LOGIN INHERIT NOSUPERUSER;
 GRANT vec_gobierno_capacidades_admin_operador TO prueba_ad235_mixto WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
 GRANT vec_autorizacion_atestada_v3_lector_gobierno TO prueba_ad235_mixto WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
 CREATE ROLE prueba_ad235_operador LOGIN INHERIT NOSUPERUSER;
 GRANT vec_gobierno_capacidades_admin_operador TO prueba_ad235_operador WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
-CREATE FUNCTION pg_temp.otras_pertenencias(login text) RETURNS boolean LANGUAGE sql AS $f$
- WITH RECURSIVE m(oid) AS(SELECT roleid FROM pg_auth_members WHERE member=login::regrole UNION SELECT a.roleid FROM pg_auth_members a JOIN m ON a.member=m.oid)
- SELECT EXISTS(SELECT 1 FROM m WHERE oid<>'vec_gobierno_capacidades_admin_operador'::regrole) $f$;
-SELECT pg_temp.comprobar('ad198_rechaza_mixto',pg_temp.otras_pertenencias('prueba_ad235_mixto'));
-SELECT pg_temp.comprobar('ad198_admite_operador',NOT pg_temp.otras_pertenencias('prueba_ad235_operador'));
+-- A PUBLIC: una concesión nominal dejaría un pg_shdepend que la propia guarda rechaza.
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.exigir_operador_gobierno_capacidades_admin_v1() TO PUBLIC;
+CREATE FUNCTION pg_temp.guarda_operador() RETURNS text LANGUAGE plpgsql AS $f$
+BEGIN PERFORM vec_autorizacion_atestada_v3.exigir_operador_gobierno_capacidades_admin_v1(); RETURN 'admitido';
+EXCEPTION WHEN OTHERS THEN RETURN SQLSTATE||' '||SQLERRM; END $f$;
+SET SESSION AUTHORIZATION prueba_ad235_mixto;
+SELECT pg_temp.guarda_operador() AS mixto \gset
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION prueba_ad235_operador;
+SELECT pg_temp.guarda_operador() AS operador \gset
+RESET SESSION AUTHORIZATION;
+SELECT pg_temp.comprobar('ad198_rechaza_mixto',:'mixto' LIKE '42501 %clave=LOGIN%');
+SELECT pg_temp.comprobar('ad198_admite_operador',:'operador' LIKE '42501 %clave=configuracion%');
 SELECT pg_temp.comprobar('lector_sin_aplicar',NOT has_function_privilege('prueba_ad235_lector','vec_autorizacion_atestada_v3.aprovisionar_gobierno_capacidades_admin_v1(text,text,text)','EXECUTE'));
 ROLLBACK;

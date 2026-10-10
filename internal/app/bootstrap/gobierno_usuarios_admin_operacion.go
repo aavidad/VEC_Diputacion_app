@@ -93,9 +93,11 @@ const (
 )
 
 // leerDocumentoGobiernoLectura lanza una de las dos fachadas en una transacción
-// READ ONLY: aunque el LOGIN tuviera más permisos, la lectura no escribe.
+// READ ONLY: aunque el LOGIN tuviera más permisos, la lectura no escribe. En
+// REPEATABLE READ la huella de la preimagen y el resto del documento salen de
+// la misma instantánea aunque otra sesión publique a la vez.
 func leerDocumentoGobiernoLectura(ctx context.Context, lectura *pgxpool.Pool, consulta string, argumento any) ([]byte, error) {
-	tx, err := lectura.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	tx, err := lectura.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return nil, ErrGobiernoUsuariosAdmin
 	}
