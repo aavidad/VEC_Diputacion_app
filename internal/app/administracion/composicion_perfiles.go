@@ -108,6 +108,7 @@ func componerServidorPerfiles(ctx context.Context, cfg Configuracion, deps Depen
 	}
 	contextoConexion, err := NuevoContextoConexionPerfiles(deps.Reloj)
 	if err != nil {
+		// Defensa: hoy no se alcanza porque el reloj ya se comprobó arriba.
 		return nil, falloConfiguracion{clase: "contexto_conexion", causa: err}
 	}
 	servidor, err := NuevoServidorConLecturas(cfg, DependenciasPerfiles{ContextoConexion: contextoConexion, Sesiones: sesiones, Lecturas: deps.Lecturas, Auditor: deps.Auditor, Reloj: deps.Reloj, Activos: deps.Activos,
