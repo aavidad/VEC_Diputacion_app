@@ -2139,6 +2139,64 @@ function renderDietasPanel(view) {
   target.replaceChildren(routeList);
 }
 
+// Catálogo local del autoservicio. Las claves son el texto canónico mostrado por
+// esta pantalla; así los datos del servidor nunca se interpretan como HTML.
+const AUTOSERVICIO_I18N = {
+  es: {},
+  en: {
+    "Sin solicitudes de dietas cargadas.": "No expense claims loaded.",
+    "Nueva solicitud diaria": "New daily claim",
+    "Dia de viaje, rutas, manutencion, alojamiento y validacion": "Travel day, route, meals, accommodation and validation",
+    "Borrador": "Draft", "Acceso no concedido": "Access not granted",
+    "La sesion no tiene ningun perfil funcional autorizado. Cierre la sesion o contacte con el administrador de identidades.": "The session has no authorised functional profile. Sign out or contact the identity administrator.",
+    "Identidad": "Identity", "Puesto": "Post", "Situacion administrativa": "Employment status", "Antiguedad": "Length of service", "Cuenta bancaria": "Bank account", "Afiliacion": "Membership",
+    "Mis expedientes": "My cases", "Expediente": "Case", "Objeto": "Subject", "Estado": "Status", "Accion": "Action", "Consultar": "View", "Disponible": "Available", "Verificada": "Verified", "Calculado": "Calculated", "Ver detalle": "View details", "Solicitar certificado": "Request certificate",
+    "Jornada de hoy": "Today’s working day", "Saldo del periodo": "Period balance", "Asuntos propios": "Personal leave", "Vacaciones": "Annual leave", "Conciliacion": "Work life balance", "Mi horario": "My timetable", "Mis solicitudes": "My requests", "Tipo": "Type", "Periodo": "Period",
+    "Borradores": "Drafts", "Pendientes": "Pending", "Aprobadas": "Approved", "Liquidacion": "Settlement", "Solo tus importes y justificantes": "Only your amounts and supporting documents", "Mis comisiones de servicio": "My business trips", "Fecha": "Date", "Ruta / motivo": "Route / reason", "Importe": "Amount",
+    "Certificados": "Certificates", "Justificantes": "Supporting documents", "Firmas": "Signatures", "Mis documentos": "My documents", "Documento": "Document", "Firmado": "Signed", "Descargar": "Download", "Ver recibo": "View receipt", "Validado": "Validated", "Ver justificante": "View supporting document",
+    "Pendientes de lectura": "Unread", "Firmas pendientes": "Pending signatures", "Requerimientos": "Requests", "Ultima actualizacion": "Last updated", "Mis avisos": "My notices", "Asunto": "Subject", "No leida": "Unread", "Leida": "Read", "Ver certificado": "View certificate",
+    "Solicitar permiso, asuntos propios o vacaciones": "Request leave, personal leave or annual leave", "La solicitud queda pendiente de responsable y continua hacia RRHH si procede.": "The request remains pending with the manager and continues to HR where applicable.", "Tipo de solicitud": "Request type", "Desde": "From", "Hasta": "To", "Cantidad": "Amount", "Motivo": "Reason", "Justificante": "Supporting document", "Enviar solicitud": "Send request", "Solicitud de permiso": "Leave request", "Justificante obligatorio": "Supporting document required", "CSV, factura o referencia si procede": "CSV, invoice or reference if applicable",
+    "Dieta completa": "Full allowance", "Media dieta": "Half allowance", "Pernocta": "Overnight stay", "Desglose automatico de dietas": "Automatic allowance breakdown", "Dia": "Day", "Manutencion": "Meals", "Alojamiento": "Accommodation", "Total manutencion": "Total meals", "noche(s)": "night(s)", "Resumen de mis dietas": "My expense-claim summary", "Total del mes y estadistica anual de tus comisiones liquidadas.": "Monthly total and annual statistics for your settled business trips.", "Imagen": "Image", "Ver": "View", "Quitar": "Remove",
+    "Nueva dieta o comision de servicio": "New expense claim or business trip", "Registra el dia, la ruta, kilometraje, manutencion, alojamiento y gastos para validacion.": "Record the day, route, mileage, meals, accommodation and expenses for validation.", "Ruta del dia": "Route for the day", "Anadir parada": "Add stop", "Calcular ruta": "Calculate route", "Seleccionar municipio": "Select municipality", "Salida": "Departure", "Destino final": "Final destination", "Km liquidables": "Claimable km", "Kilometraje": "Mileage", "Dietas/gastos": "Allowances/expenses", "Total": "Total", "Enviar a validacion": "Send for validation",
+    "Ofertas compatibles con tu perfil": "Offers matching your profile", "Acceso directo a solicitudes de empleo publico que puedes tramitar desde VEC.": "Direct access to public-employment applications you can submit from VEC.", "Ver todas": "View all", "Plazo": "Deadline", "Tasa": "Fee", "Continuar solicitud": "Continue application", "Apuntarme": "Apply", "Desapuntarme": "Withdraw", "Categoria profesional": "Professional category", "Disponible": "Available",
+    "Ofertas abiertas": "Open offers", "Mis solicitudes": "My applications", "Tasas pendientes": "Pending fees", "Formulario": "Form", "Ofertas disponibles para apuntarme": "Offers available to apply for", "Solo se muestran ofertas abiertas o en plazo. La inscripcion queda registrada como solicitud propia.": "Only open or in-deadline offers are shown. The application is recorded as your own request.", "Oferta": "Offer", "Categoria": "Category", "Unidad": "Unit", "No hay ofertas abiertas en este momento.": "There are no open offers at the moment.", "No": "No",
+    "Formulario de solicitud": "Application form", "Nombre y apellidos": "Full name", "Telefono": "Telephone", "Titulacion alegada": "Qualification claimed", "Meritos que se incorporan": "Merits included", "Justificante titulo": "Qualification evidence", "Servicios prestados": "Service history", "Declaro que los datos son ciertos y solicito la firma electronica de esta solicitud.": "I declare that the information is accurate and request the electronic signature for this application.", "Firma": "Signature", "Guardar borrador": "Save draft", "Pagar tasa": "Pay fee", "Solicitar firma electronica": "Request electronic signature", "Descargar recibo": "Download receipt", "Presentar solicitud": "Submit application", "Borrador no guardado": "Unsaved draft", "No exige tasa": "No fee required", "Pendiente pago": "Payment pending", "Pendiente firma": "Signature pending",
+    "Nueva oferta de Bolsa": "New pool offer", "Alta operativa para RRHH. Al publicar, los empleados la ven en su autoservicio y pueden apuntarse.": "Operational HR entry. Once published, employees can see it in self-service and apply.", "Titulo de la oferta": "Offer title", "Unidad / area": "Unit / area", "Plazo fin": "Closing date", "Exige tasa": "Fee required", "Importe tasa": "Fee amount", "Codigo tasa": "Fee code", "Requisitos": "Requirements", "Referencia bases": "Rules reference", "Guardar oferta": "Save offer", "Seleccione un estado": "Select a status", "Seleccione una categoría": "Select a category", "No hay categorías disponibles": "No categories available",
+    "Abierta": "Open", "Publicada": "Published", "Cerrada": "Closed", "Presentada": "Submitted", "Desistida": "Withdrawn", "Pagada": "Paid", "Admitida provisional": "Provisionally admitted", "Pendiente responsable": "Manager pending", "Pendiente jefe de servicio": "Head of service pending", "Registrada": "Registered", "Justificada": "Justified", "Aprobada": "Approved", "Completar": "Complete", "Ver liquidacion": "View settlement", "Ver solicitud": "View request", "Ver resolucion": "View decision",
+  },
+};
+
+function autoservicioIdioma() {
+  return String(IDIOMA_ACTUAL || "es").toLowerCase().startsWith("en") ? "en" : "es";
+}
+
+function traducirAutoservicio(texto) {
+  const original = String(texto ?? "");
+  return AUTOSERVICIO_I18N[autoservicioIdioma()][original] || original;
+}
+
+function formatearFechaAutoservicio(valor, options) {
+  return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, options).format(new Date(valor));
+}
+
+function localizarAutoservicioArbol(root) {
+  if (autoservicioIdioma() === "es" || !root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach((node) => {
+    const leading = node.nodeValue.match(/^\s*/)?.[0] || "";
+    const trailing = node.nodeValue.match(/\s*$/)?.[0] || "";
+    const translated = traducirAutoservicio(node.nodeValue.trim());
+    if (translated !== node.nodeValue.trim()) node.nodeValue = `${leading}${translated}${trailing}`;
+  });
+  root.querySelectorAll("[placeholder], [title], [aria-label]").forEach((element) => {
+    ["placeholder", "title", "aria-label"].forEach((attribute) => {
+      if (element.hasAttribute(attribute)) element.setAttribute(attribute, traducirAutoservicio(element.getAttribute(attribute)));
+    });
+  });
+}
+
 function screenDefinitions(view) {
   const catalog = Array.isArray(view?.workspace?.screen_catalog) ? view.workspace.screen_catalog : [];
   const source = catalog.length ? catalog : FALLBACK_SCREEN_BLUEPRINTS;
@@ -4163,9 +4221,99 @@ function renderScreenNavigation(target, screens) {
   if (activeButton) {
     window.requestAnimationFrame(() => activeButton.scrollIntoView({ block: "nearest", inline: "center" }));
   }
+  localizeOperationContent(nav);
+}
+
+// Este catálogo es deliberadamente local al área operativa. Conserva las claves
+// castellanas que ya usan las plantillas y evita crear otra autoridad de idioma.
+const OPERACION_TEXTOS_EN = Object.freeze({
+  "Pantallas del modulo": "Module screens",
+  "Filtrar por estado": "Filter by status",
+  "Registros de trabajo": "Work records",
+  "Exportar": "Export",
+  "Ordenar por {column}. {help}": "Sort by {column}. {help}",
+  "Sin registros para este estado. Ajusta el filtro de arriba.": "There are no records for this status. Adjust the filter above.",
+  "Servicios prestados y antiguedad": "Service and length of service",
+  "Periodos acumulados desde el primer nombramiento/contrato en Diputacion, con dias naturales y computables por jornada.": "Periods accumulated since the first appointment or contract with the Provincial Council, with calendar and working days.",
+  "dias computables": "working days",
+  "dias naturales": "calendar days",
+  "Desde": "From", "Hasta": "To", "Unidad": "Unit", "Categoria": "Category", "Puesto": "Post", "Regimen": "Employment type", "Jornada": "Working pattern", "Dias": "Days", "Computables": "Countable",
+  "Certificado de servicios prestados": "Certificate of service",
+  "Solicitud directa del empleado con todos los periodos trabajados y computo de antiguedad.": "Direct employee request with all periods worked and length of service.",
+  "Crear certificado": "Create certificate",
+  "periodos": "periods",
+  "Ubicacion: Portal empleado > Personal. Tambien se puede solicitar desde la fila CERT-SERV-2026 de Mis expedientes.": "Location: Employee portal > Personnel. It can also be requested from the CERT-SERV-2026 row in My records.",
+  "Directorio de empleados": "Employee directory",
+  "Listado operativo para consultar y modificar datos personales, puesto, RPT, situacion, horario y contacto.": "Working list to view and amend personal data, post, RPT, status, working hours and contact details.",
+  "Exportar CSV": "Export CSV", "Buscar empleado, DNI, RPT, unidad o situacion": "Search employee, ID, RPT, unit or status", "Limpiar": "Clear", "Pagina {page}/{maxPage}": "Page {page}/{maxPage}",
+  "Empleado": "Employee", "DNI": "ID", "Grupo": "Group", "Situacion": "Status", "Trienios": "Three-year periods", "Horario": "Working hours", "Accion": "Action",
+  "Editando": "Editing", "Editar": "Edit", "Mostrando {from}-{to} de {total}": "Showing {from}-{to} of {total}", "Anterior": "Previous", "Siguiente": "Next",
+  "Editar ficha {id}": "Edit record {id}", "Los cambios quedan guardados en la demo y generan recibo de auditoria.": "Changes are saved in the demo and create an audit receipt.", "Cerrar": "Close",
+  "Nombre y apellidos": "Full name", "DNI/NIE": "National ID", "Codigo RPT": "RPT code", "Telefono": "Telephone", "Guardar cambios": "Save changes", "Crear certificado servicios prestados": "Create service certificate",
+  "Abrir empleados": "Open employees", "El colectivo de {count} empleados se consulta y modifica desde Personal.": "The group of {count} employees can be viewed and amended from Personnel.",
+  "Solicitud diaria de dietas y kilometraje": "Daily expenses and mileage request", "Selecciona el dia, registra las rutas del desplazamiento, anade manutencion/alojamiento y envia a validacion.": "Select the day, record travel routes, add subsistence or accommodation and send for validation.",
+  "Rutas del dia": "Day routes", "Anadir parada": "Add stop", "Calcular itinerario": "Calculate itinerary", "Politica demo": "Demo policy", "Kilometraje": "Mileage", "Dietas/gastos": "Expenses", "Total": "Total", "Jefe servicio": "Service manager", "Tecnico RRHH": "HR officer", "Enviar a validar": "Send for validation",
+  "Importes editables pendientes de validacion.": "Editable amounts pending validation.", "Politica pendiente de validacion.": "Policy pending validation.", "Solicitante": "Applicant", "Enviado": "Sent", "Seleccionar localidad": "Select locality", "Quitar": "Remove",
+  "Mapa del recorrido": "Route map", "Abrir OSM completo": "Open full OSM", "No hay coordenadas suficientes para pintar el croquis local.": "There are not enough coordinates to draw the local sketch.", "Todos": "All", "Croquis local del recorrido": "Local route sketch", "Ruta OSRM interna": "Internal OSRM route", "Croquis local no liquidable": "Non-payable local sketch", "Punto {number}": "Point {number}",
+  "Color por tramo": "Colour by leg", "Rutas disponibles": "Available routes", "Resultado del itinerario": "Itinerary result", "Tramo": "Leg", "Origen": "Origin", "Destino": "Destination", "Ruta": "Route", "Km base": "Base km", "Km comp.": "Comp. km", "Km liquid.": "Payable km", "Min.": "Min.", "Validacion": "Validation", "Recomendada": "Recommended", "Por {point}": "Via {point}",
+  "Fuente, version y criterio de auditoria de la matriz": "Matrix source, version and audit criterion", "Catalogo": "Catalogue", "Motor": "Engine", "Grafo": "Graph", "Version": "Version", "Criterio": "Criterion", "Pendiente": "Pending", "Guardar version y tramos del expediente.": "Save the record version and legs.",
+  "Actualizar puesto RPT": "Update RPT post", "Alta o correccion auditada en el maestro Personal/RPT": "Audited creation or correction in the Personnel/RPT master data", "Seleccione un estado": "Select a status", "Vigente": "Current", "Importado demo": "Demo imported", "Pendiente leyenda RPT": "RPT legend pending", "Guardar puesto": "Save post", "Borrar puesto": "Delete post",
+  "Solicitar permiso": "Request leave", "Registra asuntos propios, medico, vacaciones y permisos horarios contra saldo": "Record personal business, medical, holiday and hourly leave against the balance", "Dias para permisos diarios; minutos para permisos horarios.": "Days for daily leave; minutes for hourly leave.", "Solicitar": "Request",
+  "Ficha de la pantalla (datos, validaciones e integraciones)": "Screen record (data, validations and integrations)", "Portal de modulo": "Module portal", "Detalle": "Details", "Consulta de autoservicio": "Self-service enquiry", "Sin datos": "No data", "No hay registros para esta vista.": "There are no records for this view.",
+});
+
+const OPERACION_I18N = Object.freeze({
+  es: Object.freeze(Object.fromEntries(Object.keys(OPERACION_TEXTOS_EN).map((key) => [key, key]))),
+  en: OPERACION_TEXTOS_EN,
+});
+
+function operationLanguage() {
+  return String(IDIOMA_ACTUAL || "es").toLowerCase().startsWith("en") ? "en" : "es";
+}
+
+function operationText(key, params = {}) {
+  const text = OPERACION_I18N[operationLanguage()][key] || OPERACION_I18N.es[key] || key;
+  return String(text).replace(/\{(\w+)\}/g, (_whole, name) => String(params[name] ?? `{${name}}`));
+}
+
+function localizeOperationValue(value) {
+  const source = String(value ?? "");
+  let localized = operationText(source);
+  localized = localized.replace(/^Pagina (\d+)\/(\d+)$/, (_whole, page, maxPage) => operationText("Pagina {page}/{maxPage}", { page, maxPage }));
+  localized = localized.replace(/^Mostrando (.+) de (.+)$/, (_whole, from, total) => operationText("Mostrando {from}-{to} de {total}", { from, to: "", total }).replace("- of", " of"));
+  localized = localized.replace(/^Punto (\d+)$/, (_whole, number) => operationText("Punto {number}", { number }));
+  return localized;
+}
+
+function localizeOperationContent(root) {
+  if (operationLanguage() !== "en" || !root) return;
+  const translateNode = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) node.nodeValue = localizeOperationValue(node.nodeValue);
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    ["aria-label", "title", "placeholder"].forEach((attribute) => {
+      if (node.hasAttribute(attribute)) node.setAttribute(attribute, localizeOperationValue(node.getAttribute(attribute)));
+    });
+  };
+  translateNode(root);
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) translateNode(walker.currentNode);
+}
+
+function observeOperationContent(root) {
+  if (operationLanguage() !== "en" || !root || root.dataset.operationI18nObserved === "true") return;
+  root.dataset.operationI18nObserved = "true";
+  const observer = new MutationObserver((changes) => {
+    changes.forEach((change) => {
+      if (change.type === "characterData") localizeOperationContent(change.target.parentElement);
+      change.addedNodes.forEach((node) => localizeOperationContent(node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement));
+    });
+  });
+  observer.observe(root, { childList: true, subtree: true, characterData: true });
+  localizeOperationContent(root);
 }
 
 function renderScreenWorkspace(target, screen, view) {
+  observeOperationContent(target);
   if (screen.id === "admin.catalogos") {
     renderCatalogoCategoriasGobernado(target, screen, view);
     return;
@@ -8106,6 +8254,75 @@ function ensureFlowPanel() {
   return panel;
 }
 
+const FLUJOS_I18N = {
+  es: {
+    portal: "Portal empleado VEC", operationalFlow: "Flujo operativo", noReceipt: "Sin recibo",
+    processing: "Procesando...", running: "Ejecutando flujo", unableToComplete: "No se pudo completar el flujo",
+    moduleFlow: "{module}: flujo", registeredTransport: "{transport} con módulo Bolsa registrado en VEC.",
+    receipt: "Recibo {count}: {action}", quickStart: "Alta rápida: {title}. Se registra con recibo auditable.",
+    register: "Registrar {title}", receiptPending: "Pendiente de recibo", internalStaff: "Personal interno",
+    pendingAction: "Pendiente de acción", underReview: "En revisión", expiredDeadline: "Plazo vencido",
+    ordinaryFollowUp: "Seguimiento ordinario", noCriticalDeadline: "Sin vencimiento crítico", receiptLabel: "Recibo",
+    support: "Soporte", masterData: "Dato maestro", policyApplied: "Política aplicada", integration: "Integración",
+    module: "Módulo", recordCreated: "Registro creado desde el flujo del módulo",
+    actionAudited: "Acción registrada en auditoría VEC", pendingAdapter: "Pendiente de adaptador productivo",
+    withoutBackendReceipt: "sin recibo de backend", localFlow: "flujo local", noEndpoint: "No existe acción {module}",
+    dashboardNextModule: "Siguiente módulo", dashboardReceipts: "Recibos", dashboardIntegration: "Integración VEC",
+    actionsTraced: "{count} acciones trazadas", independentModules: "{count} módulos independientes registrados",
+    moduleVEC: "Módulo VEC", record: "Registro", state: "Estado", policy: "Política", registerAction: "Registrar acción",
+    currentCall: "Convocatoria vigente", call: "Convocatoria", provisionalVersion: "Versión provisional", definitiveVersion: "Versión definitiva",
+    reloadedCalls: "Convocatoria/listados recargados", demoRefreshed: "Publicación demo actualizada desde API /api/demo",
+    candidateID: "ID de candidatura", candidate: "Candidato", nationalID: "DNI", name: "Nombre", email: "Correo electrónico",
+    meritsLoaded: "Méritos cargados en sesión", noMerits: "Sin méritos", meritHint: "Guarde un título, curso o experiencia para calcular",
+    currentSelfAssessment: "Autobaremación actual", total: "Total", rules: "Reglas", details: "Detalles", breakdown: "Desglose", capApplied: " (tope aplicado)",
+    localReceipt: "Recibo local", evidencePortal: "Evidencias del portal", claims: "Alegaciones", subject: "Asunto", detail: "Detalle",
+    inbox: "Buzón VEC", title: "Título", deadline: "Plazo", statusChangeRequiresBackend: "Cambiar el estado requiere un aviso creado por el backend.",
+    noBackendAction: "No hay acción de backend disponible", listings: "Listados publicables", provisional: "Provisional", definitive: "Definitivo",
+    export: "Exportación", activeTableCSV: "CSV operativo desde la tabla actual", all: "Todos", listedOpened: "Listado abierto: {id}",
+    activeModule: "Módulo activo: {module}", activeScreen: "Pantalla activa: {screen}", loadingShell: "Cargando shell VEC", connected: "VEC conectado",
+    verifiedDocument: "Documento verificado por CSV", unknownCSV: "CSV no reconocido", documentDetails: "{title} · {issuer} · Estado: {state} · CSV: {csv}",
+    unregisteredDocument: "No existe un documento firmado registrado para el CSV {csv}.", close: "Cerrar",
+  },
+  en: {
+    portal: "VEC employee portal", operationalFlow: "Operational flow", noReceipt: "No receipt",
+    processing: "Processing...", running: "Running flow", unableToComplete: "The flow could not be completed",
+    moduleFlow: "{module}: flow", registeredTransport: "{transport} with the Bolsa module registered in VEC.",
+    receipt: "Receipt {count}: {action}", quickStart: "Quick entry: {title}. It is recorded with an auditable receipt.",
+    register: "Register {title}", receiptPending: "Receipt pending", internalStaff: "Internal staff",
+    pendingAction: "Action pending", underReview: "Under review", expiredDeadline: "Deadline expired",
+    ordinaryFollowUp: "Routine follow-up", noCriticalDeadline: "No critical deadline", receiptLabel: "Receipt",
+    support: "Supporting evidence", masterData: "Master data", policyApplied: "Applied policy", integration: "Integration",
+    module: "Module", recordCreated: "Record created from the module flow",
+    actionAudited: "Action recorded in the VEC audit trail", pendingAdapter: "Production adapter pending",
+    withoutBackendReceipt: "no backend receipt", localFlow: "local flow", noEndpoint: "No action exists for {module}",
+    dashboardNextModule: "Next module", dashboardReceipts: "Receipts", dashboardIntegration: "VEC integration",
+    actionsTraced: "{count} traced actions", independentModules: "{count} registered independent modules",
+    moduleVEC: "VEC module", record: "Record", state: "Status", policy: "Policy", registerAction: "Register action",
+    currentCall: "Current call", call: "Call", provisionalVersion: "Provisional version", definitiveVersion: "Final version",
+    reloadedCalls: "Call/listings reloaded", demoRefreshed: "Demo publication refreshed from API /api/demo",
+    candidateID: "Candidate ID", candidate: "Candidate", nationalID: "National ID", name: "Name", email: "Email",
+    meritsLoaded: "Merits loaded in this session", noMerits: "No merits", meritHint: "Save a qualification, course or experience to calculate",
+    currentSelfAssessment: "Current self-assessment", total: "Total", rules: "Rules", details: "Details", breakdown: "Breakdown", capApplied: " (cap applied)",
+    localReceipt: "Local receipt", evidencePortal: "Portal evidence", claims: "Representations", subject: "Subject", detail: "Details",
+    inbox: "VEC inbox", title: "Title", deadline: "Deadline", statusChangeRequiresBackend: "Changing status requires a notice created by the backend.",
+    noBackendAction: "No backend action is available", listings: "Publishable listings", provisional: "Provisional", definitive: "Final",
+    export: "Export", activeTableCSV: "Operational CSV from the current table", all: "All", listedOpened: "Listing opened: {id}",
+    activeModule: "Active module: {module}", activeScreen: "Active screen: {screen}", loadingShell: "Loading VEC shell", connected: "VEC connected",
+    verifiedDocument: "Document verified by CSV", unknownCSV: "CSV not recognised", documentDetails: "{title} · {issuer} · Status: {state} · CSV: {csv}",
+    unregisteredDocument: "No signed document is registered for CSV {csv}.", close: "Close",
+  },
+};
+
+function flujoTexto(key, values = {}) {
+  const language = IDIOMA_ACTUAL === "en" ? "en" : "es";
+  const template = FLUJOS_I18N[language][key] || FLUJOS_I18N.es[key] || key;
+  return template.replace(/\{(\w+)\}/g, (_, name) => String(values[name] ?? ""));
+}
+
+function flujoFecha(value = new Date()) {
+  return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "short", timeStyle: "medium" }).format(value);
+}
+
 function flowRow(labelText, control) {
   const labelNode = document.createElement("label");
   labelNode.append(document.createTextNode(labelText));
@@ -9714,6 +9931,162 @@ async function loadPortal() {
   } finally {
     reloadButton.disabled = false;
   }
+}
+
+const NOMINAS_I18N = Object.freeze({
+  es: Object.freeze({ locale: "es-ES", text: Object.freeze({}) }),
+  "en-GB": Object.freeze({
+    locale: "en-GB",
+    text: Object.freeze({
+      "DIPUTACIÓN DE GRANADA • AREA DE RECURSOS HUMANOS": "GRANADA PROVINCIAL COUNCIL • HUMAN RESOURCES DEPARTMENT",
+      "Control integral de Nominas": "Full payroll control",
+      "Gestion operativa de Personal y Nominas": "Operational management of People and Payroll",
+      "Portal del Empleado - Consulta de Nominas": "Employee portal - Payroll enquiries",
+      "Volver": "Back",
+      "Portal del empleado": "Employee portal",
+      "Nomina mensual": "Monthly payslip",
+      "Historico y evolucion": "History and trends",
+      "Certificado retenciones 10T": "10T withholding certificate",
+      "Expediente empleado publico": "Public employee record",
+      "Capitulo I, RPT y plazas": "Chapter I, job catalogue and posts",
+      "Resumen y estadisticas": "Summary and statistics",
+      "Checklist y avisos": "Checklist and alerts",
+      "Contratos y vencimientos": "Contracts and expiry dates",
+      "Incapacidades y ausencias": "Incapacity and absences",
+      "Bajas por areas": "Absences by area",
+      "Cierre mensual y calculo": "Monthly close and calculation",
+      "Inspector de nomina": "Payroll inspector",
+      "Cotizacion RED/SLD": "RED/SLD contributions",
+      "Tablas, valores y conceptos": "Tables, values and concepts",
+      "Retroactividad y revision": "Backdating and review",
+      "Informes y certificados": "Reports and certificates",
+      "Prestamos y fondo social": "Loans and social fund",
+      "Centro de servicio y usuarios": "Service centre and users",
+      "Pagos y contabilidad": "Payments and accounting",
+      "Seleccione el mes a consultar:": "Select the month to view:",
+      "Ver recibo": "View payslip",
+      "Descargar PDF": "Download PDF",
+      "Exportar Excel": "Export to Excel",
+      "RECIBO DE SALARIOS": "PAYSLIP",
+      "DATOS DEL PERCEPTOR": "RECIPIENT DETAILS",
+      "DEVENGOS Y DEDUCCIONES": "EARNINGS AND DEDUCTIONS",
+      "CODIGO": "CODE",
+      "CONCEPTO": "CONCEPT",
+      "DEVENGOS": "EARNINGS",
+      "DEDUCCIONES": "DEDUCTIONS",
+      "Total devengos": "Total earnings",
+      "Total deducciones": "Total deductions",
+      "Liquido a percibir": "Net pay",
+      "Documento firmado electronicamente por la Diputacion Provincial de Granada": "Document electronically signed by Granada Provincial Council",
+      "Verificar documento": "Verify document",
+      "Certificado de Retenciones e Ingresos a Cuenta (I.R.P.F.)": "Withholding and payment-on-account certificate (income tax)",
+      "DIPUTACIÓN PROVINCIAL DE GRANADA": "GRANADA PROVINCIAL COUNCIL",
+      "Área de Recursos Humanos y Régimen Interior": "Human Resources and Internal Affairs Department",
+      "EJERCICIO FISCAL 2025": "TAX YEAR 2025",
+      "DATOS DEL PERCEPTOR": "RECIPIENT DETAILS",
+      "RENDIMIENTOS DEL TRABAJO": "EMPLOYMENT INCOME",
+      "CONCEPTO VALORABLE": "ASSESSABLE ITEM",
+      "IMPORTE ANUAL (€)": "ANNUAL AMOUNT (€)",
+      "Descargar certificado firmado": "Download signed certificate",
+      "Documento firmado para pruebas": "Document signed for testing",
+      "Cerrar": "Close",
+      "PDF": "PDF",
+      "Evolucion salarial de los ultimos 12 meses": "Pay trends over the last 12 months",
+      "Devengos 12 meses": "12-month earnings",
+      "Liquido percibido": "Net pay received",
+      "Deducciones": "Deductions",
+      "Promedio mensual neto": "Average monthly net pay",
+      "Variacion periodo": "Period change",
+      "Bruto acumulado": "Cumulative gross pay",
+      "Neto acumulado": "Cumulative net pay",
+      "IRPF y Seguridad Social": "Income tax and National Insurance",
+      "Comparativa mensual": "Monthly comparison",
+      "Bruto": "Gross",
+      "Neto": "Net",
+      "Historico de recibos de nomina": "Payslip history",
+      "PERIODO": "PERIOD",
+      "VAR. NETO": "NET CHANGE",
+      "INCIDENCIA": "ITEM",
+      "ACCIONES": "ACTIONS",
+      "Sueldo Base (Grupo A2)": "Basic pay (Group A2)",
+      "Complemento de Destino (Nivel 22)": "Post allowance (Level 22)",
+      "Complemento Específico": "Specific allowance",
+      "Productividad e Incentivos": "Performance pay and incentives",
+      "Dietas y Locomoción (Cruce VEC)": "Subsistence and travel (VEC cross-check)",
+      "Cotización General Seguridad Social (4.7%)": "National Insurance general contribution (4.7%)",
+      "Sin productividad variable": "No variable performance pay",
+      "Nomina ordinaria": "Standard payslip",
+      "Resumen operativo de nominas": "Payroll operations summary",
+      "Crear informe": "Create report",
+      "Exportar": "Export",
+      "Estado": "Status",
+      "Accion": "Action",
+      "Empleado": "Employee",
+      "Puesto": "Post",
+      "Centro": "Centre",
+      "Trienios": "Three-year service increments",
+      "Situacion": "Situation",
+      "Antiguedad": "Length of service",
+      "Jornada": "Working pattern",
+      "Tipo": "Type",
+      "Importe": "Amount",
+      "Pendiente": "Pending",
+      "Disponible": "Available",
+      "Activo": "Active",
+      "Vigente": "Current",
+      "Borrador": "Draft",
+      "Correcto": "Correct",
+      "Revisar": "Review",
+      "Resuelto": "Resolved",
+      "Enviar": "Send",
+      "Gestionar": "Manage",
+      "Actualizar": "Refresh",
+      "Abrir": "Open",
+      "Validar": "Validate",
+      "Generar": "Generate",
+      "Aplicar": "Apply",
+      "Recalcular": "Recalculate",
+      "Firmado": "Signed",
+      "Referencia": "Reference",
+      "Detalle": "Details",
+      "Fecha": "Date",
+      "Periodo": "Period",
+      "Todos los periodos": "All periods",
+    }),
+  }),
+});
+
+function idiomaNominasActual() {
+  return IDIOMA_ACTUAL === "en-GB" ? "en-GB" : "es";
+}
+
+function textoNominas(value) {
+  const text = String(value ?? "");
+  const dictionary = NOMINAS_I18N[idiomaNominasActual()].text;
+  if (!Object.keys(dictionary).length) return text;
+  return Object.entries(dictionary)
+    .sort(([left], [right]) => right.length - left.length)
+    .reduce((translated, [source, target]) => translated.replaceAll(source, target), text);
+}
+
+function localizacionNominasActual() {
+  return NOMINAS_I18N[idiomaNominasActual()].locale || LOCALIZACION_ACTUAL;
+}
+
+function localizarNominasDOM(root) {
+  if (idiomaNominasActual() === "es" || !root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach((node) => {
+    if (!node.parentElement || /^(SCRIPT|STYLE)$/i.test(node.parentElement.tagName)) return;
+    node.nodeValue = textoNominas(node.nodeValue);
+  });
+  root.querySelectorAll("[title], [aria-label], [placeholder]").forEach((element) => {
+    ["title", "aria-label", "placeholder"].forEach((attribute) => {
+      if (element.hasAttribute(attribute)) element.setAttribute(attribute, textoNominas(element.getAttribute(attribute)));
+    });
+  });
 }
 
 const PAYROLL_HISTORY_MONTHS = [
