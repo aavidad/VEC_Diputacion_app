@@ -154,6 +154,7 @@
       "atajoTexto": "Aumentar o restablecer el tamaño del texto en esta sesión",
       "atajoContraste": "Activar o desactivar el alto contraste en esta sesión",
       "menuIdentidad": "Abrir menú de identidad",
+      "menuIdentidadNombre": "Abrir menú de identidad de {nombre}",
       "textoCorto": "Texto ",
       "contrasteCorto": "Contraste",
       "identidadServicio": "Identificación comprobada",

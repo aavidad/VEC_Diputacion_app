@@ -36,9 +36,12 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	// consultas en una instantánea. Sin B85 se usa todo el camino legado.
 	resumenConjunto ports.LectorResumenBolsas
 	recuperador     constitucion.Recuperador
-	categorias      map[string]string
-	grupos          map[string][]string
-	ahora           func() time.Time
+	// derivador recalcula la referencia `can_*` de cada fila del acta para
+	// que Mi Bolsa muestre a la titular su propio nombre (y a nadie más).
+	derivador  constitucion.DerivadorCandidato
+	categorias map[string]string
+	grupos     map[string][]string
+	ahora      func() time.Time
 }
 
 // contadorLlamamientosEnCursoBolsa se usa sólo en el camino legado, una vez
@@ -143,6 +146,13 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		poolBolsa.Close()
 		return nil
 	}
+	// Sin derivador RRHH sigue funcionando; Mi Bolsa queda sin nombre.
+	var derivador constitucion.DerivadorCandidato
+	if d, errDerivador := protector.NuevoDerivadorCandidato(material.claveKMS); errDerivador == nil {
+		derivador = d
+	} else {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("derivador_candidato", errDerivador)
+	}
 	poolImportacion, err := abrirPoolImportacionConvoca(ctx, cfg)
 	if err != nil {
 		registrarFalloFuenteConstituidaRRHHDesarrollo("pool_importacion", err)
@@ -175,7 +185,7 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		return nil
 	}
 	resumenConjunto := lectorResumenBolsasInstalado(ctx, poolBolsa)
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, resumenConjunto: resumenConjunto, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, resumenConjunto: resumenConjunto, recuperador: recuperador, derivador: derivador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 // alcanceCargaBolsasRRHH decide cuánto lee una petición. El cuadro y las

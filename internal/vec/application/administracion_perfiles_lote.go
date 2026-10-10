@@ -13,17 +13,17 @@ func (s *ServicioAdministracionPerfiles) validarAdministrador(ctx context.Contex
 		instantanea.VersionRol.RolID != "administracion_perfiles" ||
 		!instantanea.AsignacionPerfil.VigenteEn(s.reloj.Ahora()) ||
 		instantanea.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada {
-		return domain.ErrControlAdministracionPerfilesInvalido
+		return ports.ConClaseVersionBolsa("administrador_instantanea", domain.ErrControlAdministracionPerfilesInvalido)
 	}
 	rol, err := s.catalogo.ResolverRolAdministrable(ctx, instantanea.VersionRol.Referencia())
 	if err != nil {
-		return err
+		return ports.ConClaseVersionBolsa("administrador_rol", err)
 	}
 	huella, err := instantanea.VersionRol.HuellaSHA256()
 	if err != nil || rol.ValidarEn(s.reloj.Ahora()) != nil ||
 		rol.VersionRef != instantanea.VersionRol.Referencia() || rol.HuellaSHA256 != huella ||
 		rol.Clase != domain.ClaseControlPerfilAdministrador || rol.CategoriaAdmin != "aplicacion" {
-		return domain.ErrControlAdministracionPerfilesInvalido
+		return ports.ConClaseVersionBolsa("administrador_rol", domain.ErrControlAdministracionPerfilesInvalido)
 	}
 	return nil
 }

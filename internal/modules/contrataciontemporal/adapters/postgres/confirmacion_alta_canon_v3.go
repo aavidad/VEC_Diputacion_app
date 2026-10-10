@@ -39,6 +39,9 @@ type solicitudAltaCanonicaV3 struct {
 	RC                 rcAltaCanonica        `json:"rc"`
 	DocumentosAdjuntos []string              `json:"documentos_adjuntos"`
 	Observaciones      string                `json:"observaciones"`
+	JornadaMinutos     uint16                `json:"jornada_minutos,omitempty"`
+	NumeroPersonas     uint32                `json:"numero_personas,omitempty"`
+	PuestoSolicitado   string                `json:"puesto_solicitado,omitempty"`
 	Necesidad          necesidadAltaCanonica `json:"necesidad"`
 }
 
@@ -78,6 +81,8 @@ func construirEfectoAltaCanonicoV3(
 			Periodo: v2.Solicitud.Periodo, RC: v2.Solicitud.RC,
 			DocumentosAdjuntos: v2.Solicitud.DocumentosAdjuntos,
 			Observaciones:      v2.Solicitud.Observaciones,
+			JornadaMinutos:     v2.Solicitud.JornadaMinutos, NumeroPersonas: v2.Solicitud.NumeroPersonas,
+			PuestoSolicitado: v2.Solicitud.PuestoSolicitado,
 			Necesidad: necesidadAltaCanonica{
 				Esquema: n.Esquema, CatalogoRef: n.CatalogoRef,
 				CatalogoVersion:      n.CatalogoVersion,

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/resultadobolsa"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -191,6 +192,9 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 		return ports.DetalleExpedienteRRHH{}, err
 	}
 	consulta := consultaDetalleRRHHPostgreSQL
+	if resultadobolsa.ResultadoBolsaRRHHSolicitado(ctx) {
+		consulta = consultaDetalleConBolsaRRHHPostgreSQL
+	}
 	if s.modo == modoConsultaDetalleRRHHOriginalPropuesta {
 		if orden.Solicitud().VersionObservada() != 7 {
 			return ports.DetalleExpedienteRRHH{}, ports.ErrConsultaRRHHNoDisponible
@@ -211,6 +215,8 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 		orden.Contexto(), orden.Capacidad(), orden.Solicitud()
 	var salida salidaDetalleConsultaRRHH
 	defer clear(salida.contenidoCanonico)
+	var resultadoBolsaRaw []byte
+	defer clear(resultadoBolsaRaw)
 	argumentosSQL := argumentosSQLDetalleConsultaRRHH(
 		contexto.OrganizacionRef(),
 		string(capacidad.ClaseAmbito()),
@@ -218,12 +224,21 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 		solicitud,
 		argumentos,
 	)
+	destinos := destinosDetalleConsultaRRHH(&salida)
+	if consulta == consultaDetalleConBolsaRRHHPostgreSQL {
+		var cursor any
+		if siguiente := resultadobolsa.CursorResultadoBolsaRRHH(ctx); siguiente != "" {
+			cursor = siguiente
+		}
+		argumentosSQL = append(argumentosSQL, cursor)
+		destinos = append(destinos, &resultadoBolsaRaw)
+	}
 	return ejecutarConsultaRRHHEnTransaccion(
 		ctx,
 		s.pool,
 		consulta,
 		argumentosSQL,
-		destinosDetalleConsultaRRHH(&salida),
+		destinos,
 		func() (ports.DetalleExpedienteRRHH, error) {
 			salida.cierre.normalizarInstantesSQL()
 			recibo, err := salida.cierre.construirRecibo(contexto, capacidad)
@@ -253,6 +268,13 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 			if err != nil || detalle.ValidarParaEjecucionInterna(orden) != nil {
 				return ports.DetalleExpedienteRRHH{},
 					ports.ErrResultadoConsultaRRHHNoConfiable
+			}
+			if consulta == consultaDetalleConBolsaRRHHPostgreSQL {
+				resultado, err := ResultadoBolsaRRHHDesdeSQL(resultadoBolsaRaw)
+				if err != nil {
+					return ports.DetalleExpedienteRRHH{}, ports.ErrResultadoConsultaRRHHNoConfiable
+				}
+				detalle.ResultadoBolsa = resultado
 			}
 			return detalle, nil
 		},

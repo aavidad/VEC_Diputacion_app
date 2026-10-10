@@ -176,6 +176,10 @@ func (m *manejadorPeticionCentroDesarrollo) contexto(r *http.Request, a *identid
 	if m.catalogo == nil {
 		return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
 	}
+	necesidades, err := catalogoNecesidadesAltaDesarrollo(m.catalogo.rutaNecesidades)
+	if err != nil {
+		return nil, err
+	}
 	catalogos := *m.catalogo
 	catalogos.Centros = []centroCatalogosAltaContratacionTemporalDesarrollo{{Referencia: a.actor.CentroRef, Etiqueta: etiquetas[a.actor.CentroRef], Contactos: []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo{{Referencia: contactoAltaContratacionTemporalDesarrollo, Etiqueta: etiquetaContactoAltaContratacionTemporalDesarrollo}}}}
 	actor := map[string]any{"referencia": a.actor.ActorRef, "nombre": a.principal.DisplayName, "cargo": etiquetas[a.actor.PuestoRef], "centro": etiquetas[a.actor.CentroRef], "puede_presentar": a.principal.Roles[0] == "solicitante_centro", "puede_ratificar": a.principal.Roles[0] == "ratificador_centro"}
@@ -193,5 +197,7 @@ func (m *manejadorPeticionCentroDesarrollo) contexto(r *http.Request, a *identid
 			intervinientes[otro.actor.ActorRef] = map[string]string{"nombre": otro.principal.DisplayName, "cargo": etiquetas[otro.actor.PuestoRef], "puesto_ref": otro.actor.PuestoRef}
 		}
 	}
-	return map[string]any{"actor": actor, "intervinientes": intervinientes, "catalogos": catalogos, "entorno": "desarrollo_sintetico", "catalogo_revision": c.Revision}, nil
+	return map[string]any{"actor": actor, "intervinientes": intervinientes, "catalogos": catalogos,
+		"jornada_referencia_minutos": necesidades.JornadaReferenciaMinutos,
+		"entorno":                    "desarrollo_sintetico", "catalogo_revision": c.Revision}, nil
 }

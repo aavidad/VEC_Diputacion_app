@@ -58,6 +58,19 @@ test("i18n cubre los textos estáticos y CSS hereda tema, zoom y contraste", asy
   assert.doesNotMatch(`${vistaFuente}\n${rendererPuroFuente}`, /style="/);
 });
 
+test("los campos exclusivos del Centro usan su catálogo en el renderer compartido", async () => {
+  const [catalogo, consumidor] = await Promise.all([
+    readFile(new URL("../../../textos/es/peticiones-centro.json", directorio), "utf8").then(JSON.parse),
+    readFile(new URL("../../peticiones-centro/peticiones-centro.js", directorio), "utf8"),
+  ]);
+  for (const clave of ["peticion_puesto_leyenda", "puesto_solicitado", "numero_personas", "jornada_minutos", "jornada_semanal"]) {
+    assert.equal(typeof catalogo.general[clave], "string", clave);
+    assert.match(rendererPuroFuente, new RegExp(`tCentro\\("${clave}"\\)`));
+  }
+  assert.match(consumidor, /renderizarFormularioPuro\(estado, traducirCentro, traducirCentro\)/u);
+  assert.match(consumidor, /renderizarRevisionPura\(estado, traducirCentro, LOCALIZACION, traducirCentro\)/u);
+});
+
 test("el módulo no usa red, cookies, almacenamiento web ni registra claves", () => {
   const fuentes = `${contratoFuente}\n${presentadorFuente}\n${vistaFuente}\n${rendererPuroFuente}\n${coberturaFuente}`;
   assert.doesNotMatch(
@@ -109,7 +122,7 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos, Die
   assert.match(coordinadorFuente, /componerCronosInterno/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-saldo-conectado\.js\?v=/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-permisos-propios\.js\?v=/);
-  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261009-ficha-version-recibo-v1"\)/);
+  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261009-ct-bolsa-cohorte-v9"\)/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);
   assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/vista-expedientes\.js\?v=/);

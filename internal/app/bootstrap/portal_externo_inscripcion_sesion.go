@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	httpinscripcion "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinscripcion"
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
@@ -162,9 +163,8 @@ func (s *SesionExternaInscripcion) ResolverSesionExterna(r *http.Request) (conte
 	}, nil
 }
 
+// Las rutas de la persona aspirante tienen prefijo propio, fuera de Mi Bolsa.
 func rutaInscripcionExterna(ruta string) bool {
-	return ruta == "/api/vec/bolsa/inscripciones/convocatorias-abiertas" ||
-		strings.HasPrefix(ruta, "/api/vec/bolsa/inscripciones/convocatorias-abiertas/") ||
-		ruta == "/api/vec/bolsa/mi-bolsa/inscripciones" ||
-		strings.HasPrefix(ruta, "/api/vec/bolsa/mi-bolsa/inscripciones/")
+	return ruta == httpinscripcion.RutaAbiertas || strings.HasPrefix(ruta, httpinscripcion.RutaAbiertas+"/") ||
+		ruta == httpinscripcion.RutaPropias || strings.HasPrefix(ruta, httpinscripcion.RutaPropias+"/")
 }

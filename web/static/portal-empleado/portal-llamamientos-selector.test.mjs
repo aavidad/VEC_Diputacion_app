@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { bolsasVigentesParaLlamamiento, instalarSelectorLlamamientos, renderizarPantallaLlamamientos, renderizarSelectorLlamamientos } from "./portal-llamamientos-selector.js";
+import * as rutasBolsa from "./portal-bolsas-ruta-filtros.js";
 
 const opciones = (estadoBolsas) => ({
   estadoBolsas,
@@ -90,4 +91,54 @@ test("elegir una bolsa inicia el B7 existente en la misma vista y cancelar devue
   assert.equal(estado.bolsaSeleccionada, "");
   assert.equal(estado.llamamientoDesdeMenu, false);
   assert.equal(repintados, 1);
+});
+
+test("la ruta CT preselecciona una bolsa autorizada una sola vez y conserva su origen", async () => {
+  const origen = { expediente_ref: "expediente:sintetico:42", referencia: "2026/CT-00042",
+    centro: "Residencia La Milagrosa", fecha_inicio: "2026-10-20" };
+  const bolsa = { bolsa_ref: "bolsa:vigente", vigente_hasta: null };
+  let ubicacion = new URL(rutasBolsa.rutaLlamamientoBolsaCompartible("?lang=es", bolsa.bolsa_ref, origen),
+    "https://vec.example/portal-empleado/");
+  const estado = { vista: "llamamientos", bolsaSeleccionada: "", llamamientoDesdeMenu: false,
+    datosBolsas: { carga: "listo", datos: { bolsas: [bolsa] } } };
+  let escuchar, cargas = 0, inicios = 0, limpiezas = 0;
+  const selector = instalarSelectorLlamamientos({
+    documento: { addEventListener(_tipo, accion) { escuchar = accion; } }, estado,
+    controladorBolsas: { async cargarCandidatosBolsa(ref) {
+      cargas++; estado.bolsaSeleccionada = ref; estado.datosCandidatos = { carga: "listo" };
+    } },
+    actualizarVistaBolsa: () => {},
+    porId: () => ({ querySelector: () => ({ click: () => { inicios++; }, focus() {} }) }),
+    rutasBolsa, obtenerUbicacion: () => ubicacion,
+    limpiarRuta: () => { limpiezas++; ubicacion = new URL("https://vec.example/portal-empleado/?lang=es#bolsa/llamamientos"); },
+  });
+  assert.equal(selector.consumirRuta(), true);
+  assert.equal(selector.consumirRuta(), true);
+  await new Promise(setImmediate);
+  assert.equal(cargas, 1);
+  assert.equal(inicios, 1);
+  assert.equal(estado.llamamientoDesdeCT, true);
+  assert.deepEqual(estado.origenLlamamientoB7, { ...origen, bolsa_ref: bolsa.bolsa_ref });
+  escuchar({ target: { closest: (selector) => selector.includes("cancelar-b7") ? {} : null } });
+  assert.equal(limpiezas, 1);
+  assert.equal(estado.llamamientoDesdeCT, false);
+  assert.equal(estado.origenLlamamientoB7, null);
+  assert.equal(selector.consumirRuta(), false);
+});
+
+test("la ruta CT con bolsa caducada queda en el selector sin abrir B7", () => {
+  const origen = { expediente_ref: "expediente:sintetico:42", referencia: "2026/CT-00042" };
+  const bolsa = { bolsa_ref: "bolsa:caducada", vigente_hasta: "2026-09-01" };
+  const ubicacion = new URL(rutasBolsa.rutaLlamamientoBolsaCompartible("", bolsa.bolsa_ref, origen),
+    "https://vec.example/portal-empleado/");
+  let cargas = 0, limpiezas = 0;
+  const selector = instalarSelectorLlamamientos({
+    documento: { addEventListener() {} },
+    estado: { vista: "llamamientos", datosBolsas: { carga: "listo", datos: { bolsas: [bolsa] } } },
+    controladorBolsas: { cargarCandidatosBolsa() { cargas++; } }, actualizarVistaBolsa() {}, porId() {},
+    rutasBolsa, obtenerUbicacion: () => ubicacion, limpiarRuta: () => { limpiezas++; },
+  });
+  assert.equal(selector.consumirRuta(), false);
+  assert.equal(cargas, 0);
+  assert.equal(limpiezas, 1);
 });

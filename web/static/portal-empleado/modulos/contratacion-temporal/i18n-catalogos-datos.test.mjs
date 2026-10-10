@@ -120,6 +120,21 @@ const CLAVES_FICHA_SIN_BOLSA = Object.freeze([
 const CLAVES_GUIA_COBERTURA = Object.freeze([
   "ficha_siguiente_paso_cobertura_titulo", "ficha_siguiente_paso_cobertura_que",
 ]);
+// La respuesta real de Bolsa amplía la ficha; la huella de las claves anteriores sigue fija.
+const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
+  "resultado_bolsa_titulo", "resultado_bolsa_llamamiento", "resultado_bolsa_seguimiento",
+  "resultado_bolsa_respuesta", "resultado_bolsa_acepta", "resultado_bolsa_renuncia",
+  "resultado_bolsa_renuncia_justificada", "resultado_bolsa_propuesta", "resultado_bolsa_sin_respuesta",
+  "resultado_bolsa_fecha", "resultado_bolsa_justificante", "resultado_bolsa_situacion",
+  "resultado_bolsa_situacion_renuncia", "resultado_bolsa_fecha_situacion",
+  "resultado_bolsa_justificante_situacion", "resultado_bolsa_elegir", "resultado_bolsa_seleccionar",
+  "resultado_bolsa_vincular", "resultado_bolsa_mas", "resultado_bolsa_sin_llamamientos",
+  "resultado_bolsa_confirmar", "resultado_bolsa_guardando", "resultado_bolsa_guardado",
+  "resultado_bolsa_error", "resultado_bolsa_denegado", "resultado_bolsa_conflicto",
+  "resultado_bolsa_reintentar", "resultado_bolsa_actualizacion", "resultado_bolsa_continuar",
+  "resultado_bolsa_anterior", "resultado_bolsa_error_lectura", "resultado_bolsa_revisar",
+  "resultado_bolsa_contacto", "resultado_bolsa_fecha_contacto", "resultado_bolsa_justificante_contacto", "resultado_bolsa_contacto_contactado", "resultado_bolsa_contacto_comunica", "resultado_bolsa_contacto_no_contesta", "resultado_bolsa_contacto_buzon", "resultado_bolsa_contacto_acepta", "resultado_bolsa_contacto_rechaza", "resultado_bolsa_contacto_aplazado", "resultado_bolsa_contacto_otro", "resultado_bolsa_contacto_enviado", "resultado_bolsa_contacto_no_enviado", "resultado_bolsa_contacto_numero_erroneo", "resultado_bolsa_contacto_no_entregado", "resultado_bolsa_contacto_entrega_declarada",
+]);
 // Nuevas claves de Alta: se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_CAPACIDAD_ALTA = Object.freeze({
   "i18n-textos-vistas.js": ["motivo_sustitucion"],
@@ -171,13 +186,14 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
       }
       if (archivo === "i18n-ficha-lista.js") {
         for (const clave of [...CLAVES_CUADRO_LIGERO, ...CLAVES_REINCORPORACION_CAPACIDAD,
-          ...CLAVES_DOCUMENTOS_FICHA, ...CLAVES_FICHA_SIN_BOLSA, ...CLAVES_GUIA_COBERTURA]) {
+          ...CLAVES_DOCUMENTOS_FICHA, ...CLAVES_FICHA_SIN_BOLSA, ...CLAVES_GUIA_COBERTURA,
+          ...CLAVES_RESULTADO_BOLSA_FICHA]) {
           assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
         }
         preimagen = Object.fromEntries(Object.entries(valor)
           .filter(([clave]) => !CLAVES_CUADRO_LIGERO.includes(clave) && !CLAVES_REINCORPORACION_CAPACIDAD.includes(clave)
             && !CLAVES_DOCUMENTOS_FICHA.includes(clave) && !CLAVES_FICHA_SIN_BOLSA.includes(clave)
-            && !CLAVES_GUIA_COBERTURA.includes(clave)));
+            && !CLAVES_GUIA_COBERTURA.includes(clave) && !CLAVES_RESULTADO_BOLSA_FICHA.includes(clave)));
 
       }
       if (archivo === "i18n-borradores-publicados.js") {

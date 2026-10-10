@@ -189,6 +189,15 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 			Fronteras:      []string{"ct-circuito-rrhh-consultar"}, Politica: politica,
 		})
 	}
+	if len(reincorporacion) > 3 && reincorporacion[3] {
+		frontera := fronteraVinculoEmisionBolsaDesarrollo("prf_catalogo_ct")
+		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
+			Accion:         ctports.AccionVincularEmisionBolsa,
+			ClavePolitica:  clavePoliticaContratacionTemporalDesarrollo,
+			ClaveCapacidad: ctports.AccionVincularEmisionBolsa,
+			Fronteras:      []string{frontera.Clave}, Politica: politica,
+		})
+	}
 	if len(reincorporacion) > 1 && reincorporacion[1] {
 		// La firma consulta su antecedente con otra decisión nominal del mismo
 		// perfil activo, sin sumar perfiles ni reutilizar el permiso de escritura.

@@ -14,6 +14,7 @@ const CLAVES_ORIGEN = Object.freeze({
   fecha_inicio: "origen_inicio",
 });
 const HASH_CANDIDATOS = "#bolsa/bolsa-candidatos";
+const HASH_LLAMAMIENTOS = "#bolsa/llamamientos";
 const HASH_RESUMEN = "#bolsa/resumen";
 const FILTROS_GLOBALES = new Set(["todos", "disponible", "renuncia", "llamamientos"]);
 const CLAVES_GLOBALES = ["bolsa_global", "corte_bolsa", "bolsa_curso"];
@@ -89,6 +90,20 @@ export function rutaCandidatosBolsaCompartible(search, bolsaRef, estado = "", { 
     }
   }
   return `?${parametros}${HASH_CANDIDATOS}`;
+}
+
+/** Abre el asistente ordinario de Bolsa con el origen CT validado en la URL. */
+export function rutaLlamamientoBolsaCompartible(search, bolsaRef, origen) {
+  if (!origenLlamamientoValido(origen)) throw new TypeError("origen del llamamiento no válido");
+  const ruta = rutaCandidatosBolsaCompartible(search, bolsaRef, "", { origen });
+  return `${ruta.slice(0, -HASH_CANDIDATOS.length)}${HASH_LLAMAMIENTOS}`;
+}
+
+/** La URL propone una selección; la lectura autorizada decide si la bolsa existe. */
+export function leerLlamamientoBolsaCompartible(search, bolsasAutorizadas) {
+  const filtro = leerCandidatosBolsaCompartible(search, bolsasAutorizadas);
+  if (!filtro?.origen || filtro.estado || filtro.seguimiento) throw new TypeError("llamamiento de Bolsa no válido");
+  return Object.freeze({ bolsaRef: filtro.bolsaRef, origen: filtro.origen });
 }
 
 export function rutaResumenBolsasCompartible(search) {

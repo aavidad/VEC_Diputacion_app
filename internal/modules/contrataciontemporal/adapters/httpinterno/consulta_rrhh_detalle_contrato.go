@@ -28,6 +28,7 @@ type detalleRRHHJSON struct {
 	Hitos             []hitoExpedienteRRHHJSON   `json:"hitos"`
 	PresentacionFlujo *presentacionFlujoRRHHJSON `json:"presentacion_flujo,omitempty"`
 	CapacidadesFicha  *capacidadesFichaRRHHJSON  `json:"capacidades_ficha,omitempty"`
+	ResultadoBolsa    *ports.ResultadoBolsaRRHH  `json:"resultado_bolsa,omitempty"`
 }
 
 type capacidadesFichaRRHHJSON struct {
@@ -146,7 +147,8 @@ func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 			PeriodoFin:      fechaFinOperativaRRHH(entrada.Solicitud.PeriodoFin),
 			PeriodoCausaFin: string(entrada.Solicitud.PeriodoCausaFin),
 		},
-		Hitos: make([]hitoExpedienteRRHHJSON, len(entrada.Hitos)),
+		Hitos:          make([]hitoExpedienteRRHHJSON, len(entrada.Hitos)),
+		ResultadoBolsa: entrada.ResultadoBolsa,
 	}
 	if entrada.EstadoBorradoresPublicados == ports.BorradoresRRHHSinMontaje ||
 		entrada.EstadoBorradoresPublicados == ports.BorradoresRRHHMontado {

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearBorradorAlta } from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
+import { crearBorradorAlta, crearComandoPeticionCentro, validarBorradorAlta, validarComandoAlta } from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
+import { extraerBorrador } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261009-centro-campos-v1";
 import {
   pedir,
   renderizarPeticionCentro,
@@ -23,11 +24,106 @@ const contexto = { actor: { referencia: "actor:sintetico:001", nombre: "Persona 
 const peticion = { referencia: "peticion:centro:001", version: 1, estado: "pendiente_ratificacion", configuracion: { solicitante: { actor_ref: "actor:sintetico:001", puesto_ref: "puesto:sintetico:001" } }, solicitud: { centro_ref: "cen_sintetico_001", categoria_ref: "cat_sintetica_001", grupo_subgrupo: "C2", motivo_clave: "sustitucion", detalle: "Necesidad sintética", periodo: { inicio: "2026-09-01T00:00:00Z", fin: "2026-09-30T00:00:00Z" } }, creada_en: "2026-09-06T08:00:00Z" };
 
 test("renderer comparte el formulario de alta y deja claro el circuito previo", () => {
-  const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado: { fase: "edicion", disponible: true, ocupado: false, borrador: crearBorradorAlta(), catalogos, errores: {}, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" } });
+  const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado: { fase: "edicion", disponible: true, ocupado: false, borrador: crearBorradorAlta({ conPeticionCentro: true, jornadaReferenciaMinutos: 2250 }), catalogos, errores: {}, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" } });
   assert.match(html, /data-ct-form/);
+  assert.match(html, /name="numero_personas"/);
+  assert.match(html, /name="puesto_solicitado"/);
+  assert.match(html, /37:30/);
   assert.doesNotMatch(html, /Identidades de prueba|Datos ficticios/u);
   assert.match(html, /RRHH tramita las peticiones ratificadas/);
   assert.match(html, /C2/);
+});
+
+test("la petición exige datos estructurados y los muestra a ratificador y RRHH", () => {
+  const borrador = { ...crearBorradorAlta({ conPeticionCentro: true, jornadaReferenciaMinutos: 2250 }),
+    centro_ref: "cen_sintetico_001", contacto_ref: "con_sintetico_001", categoria_ref: "cat_sintetica_001",
+    grupo_subgrupo: "C2", motivo_clave: "sustitucion", detalle: "Sustitución de personal",
+    inicio: "2026-11-02", fin: "2026-12-31", numero_personas: "2", puesto_solicitado: "Administrativo C2" };
+  assert.equal(validarBorradorAlta(borrador, catalogos).valido, true);
+  const comando = crearComandoPeticionCentro(borrador, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6");
+  assert.equal(comando.solicitud.numero_personas, 2);
+  assert.equal(comando.solicitud.jornada_minutos, 2250);
+  assert.equal(comando.solicitud.puesto_solicitado, "Administrativo C2");
+  assert.equal(validarBorradorAlta({ ...borrador, numero_personas: "0" }, catalogos).valido, false);
+  const nueva = { ...peticion, solicitud: { ...peticion.solicitud, ...comando.solicitud } };
+  const html = renderizarPeticionCentro({ contexto: { ...contexto, actor: { ...contexto.actor, puede_presentar: false, puede_ratificar: true } }, modo: "ratificacion", peticion: nueva });
+  assert.match(html, /Administrativo C2/);
+  assert.match(html, /37:30/);
+  assert.match(renderizarPeticionesCentroRRHH({ entrega: { peticion: { ...nueva, version: 2, estado: "ratificada" }, estado_entrega: "pendiente" } }), /Administrativo C2/);
+});
+
+test("borrador y comando rechazan controles dentro del puesto sin cambiar el detalle", () => {
+  const borrador = { ...crearBorradorAlta({ conPeticionCentro: true, jornadaReferenciaMinutos: 2250 }),
+    centro_ref: "cen_sintetico_001", contacto_ref: "con_sintetico_001", categoria_ref: "cat_sintetica_001",
+    grupo_subgrupo: "C2", motivo_clave: "sustitucion", detalle: "Sustitución\ndurante el periodo",
+    inicio: "2026-11-02", fin: "2026-12-31", numero_personas: "2", puesto_solicitado: "Administrativo C2" };
+  assert.equal(validarBorradorAlta(borrador, catalogos).valido, true);
+  const comando = crearComandoPeticionCentro(borrador, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6");
+  assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: "" }, catalogos).errores.puesto_solicitado, "puesto_solicitado_vacio");
+  for (const puesto of ["", "A".repeat(161), "Auxiliar\tadministrativo", "Auxiliar\nadministrativo", "Auxiliar\u0007administrativo"]) {
+    if (puesto !== "") assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: puesto }, catalogos).errores.puesto_solicitado, "puesto_solicitado");
+    assert.throws(() => validarComandoAlta({ clave_idempotencia: comando.clave_idempotencia,
+      numero_expediente_moad: "2026/94009", solicitud: { ...comando.solicitud, puesto_solicitado: puesto } }));
+  }
+  assert.equal(validarBorradorAlta({ ...borrador, puesto_solicitado: "Auxiliar e\u0301" }, catalogos).valido, false);
+  const estado = { fase: "edicion", disponible: true, ocupado: false, borrador,
+    catalogos, errores: { puesto_solicitado: "puesto_solicitado", jornada_minutos: "jornada" },
+    mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" };
+  const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado });
+  assert.equal((html.match(/160 caracteres como máximo/gu) || []).length, 2);
+  assert.doesNotMatch(html, /tabulaciones|max="4294967295"/u);
+  const vacio = renderizarPeticionCentro({ contexto, modo: "formulario",
+    estado: { ...estado, errores: { puesto_solicitado: "puesto_solicitado_vacio" } } });
+  assert.equal((vacio.match(/Indique el puesto que necesita\./gu) || []).length, 2);
+  assert.equal((html.match(/Máximo: 168 horas/gu) || []).length, 2);
+  assert.doesNotMatch(html, /máximo de 4\.000 caracteres/iu);
+});
+
+test("la jornada escrita en horas no se convierte en minutos si excede el máximo", () => {
+  const anterior = globalThis.FormData;
+  globalThis.FormData = class {
+    constructor(formulario) { this.valores = formulario.valores; }
+    get(nombre) { return this.valores[nombre] ?? null; }
+    getAll(nombre) { return this.valores[nombre] ?? []; }
+  };
+  const valores = {
+    centro_ref: "cen_sintetico_001", contacto_ref: "con_sintetico_001",
+    categoria_ref: "cat_sintetica_001", grupo_subgrupo: "C2", motivo_clave: "sustitucion",
+    detalle: "Sustitución de personal", inicio: "2026-11-02", fin: "2026-12-31",
+    rc_existe: "no", numero_personas: "2", puesto_solicitado: "Administrativo C2",
+    documentos_adjuntos: [],
+  };
+  const formulario = { valores, querySelector: (selector) => selector === '[name="puesto_solicitado"]' ? {} : null };
+  try {
+    for (const horas of ["169", "2250"]) {
+      valores.jornada_horas = horas;
+      const borrador = extraerBorrador(formulario, false);
+      assert.equal(validarBorradorAlta(borrador, catalogos).errores.jornada_minutos, "jornada", `${horas} horas no son minutos válidos`);
+      assert.throws(() => crearComandoPeticionCentro(borrador, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6"));
+    }
+    for (const tecleado of ["169", "37:3x", "0"]) {
+      valores.jornada_horas = tecleado;
+      const borrador = extraerBorrador(formulario, false);
+      assert.equal(validarBorradorAlta(borrador, catalogos).errores.jornada_minutos, "jornada");
+      const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado: { fase: "edicion", disponible: true,
+        ocupado: false, borrador, catalogos, errores: { jornada_minutos: "jornada" }, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" } });
+      assert.match(html, new RegExp(`name="jornada_horas"[^>]*value="${tecleado}\\s?"`, "u"), `se conserva ${tecleado}`);
+    }
+    valores.jornada_horas = "37:30";
+    valores.puesto_solicitado = "  Administrativo C2  ";
+    assert.equal(extraerBorrador(formulario, false).puesto_solicitado, "Administrativo C2");
+    valores.puesto_solicitado = "Administrativo C2";
+    // El alta de necesidad de RRHH comparte la extracción y tampoco pierde lo tecleado.
+    const necesidad = { valores, querySelector: (selector) => selector === '[name="jornada_horas"]' ? {} : null };
+    valores.jornada_horas = "37:3x";
+    assert.equal(extraerBorrador(necesidad, false).jornada_minutos, "37:3x");
+    valores.jornada_horas = "1000";
+    assert.doesNotMatch(extraerBorrador(necesidad, false).jornada_minutos, /^[1-9]\d*$/u);
+    valores.jornada_horas = "37:30";
+    valores.jornada_horas = "37:30";
+    const correcto = extraerBorrador(formulario, false);
+    assert.equal(crearComandoPeticionCentro(correcto, catalogos, "f3134ee2-61af-467d-aa58-dc71f07553b6").solicitud.jornada_minutos, 2250);
+  } finally { globalThis.FormData = anterior; }
 });
 
 test("renderer de ratificación muestra todos los datos revisables", () => {
