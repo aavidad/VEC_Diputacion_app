@@ -89,7 +89,7 @@ REVOKE ALL ON TYPE vec_autorizacion.outbox_version_rol_bolsa_v1 FROM PUBLIC;
 -- que PostgreSQL da a las claves de un objeto.
 CREATE FUNCTION vec_autorizacion.canon_version_rol_bolsa_v1(p jsonb,t text)
 RETURNS text LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $f$
-DECLARE s text:='';salida text:='';e jsonb;i integer;partes text[]:=ARRAY[]::text[];claves text[];
+DECLARE s text:='';salida text:='';e jsonb;partes text[]:=ARRAY[]::text[];claves text[];
 BEGIN
  IF jsonb_typeof(p) IS DISTINCT FROM 'object' OR octet_length(p::text)>131072
  THEN RAISE EXCEPTION 'AUT62: canon invalido' USING ERRCODE='22023';END IF;
