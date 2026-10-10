@@ -75,8 +75,11 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
   const actor = actorLegible(tarea?.responsable) ? tarea.responsable
     : (actorLegible(tarea?.unidad) ? tarea.unidad : "");
   const resumen = resumenDelCuadro(estado, expediente);
+  // La fase se nombra como en el raíl de la ficha (misma fuente que la
+  // cabecera); el cuadro en memoria puede ir una versión por detrás.
+  const faseRail = expediente.fases?.find(({ estado_clave: e }) => e !== "pendiente" && e !== "completado");
   const faseActual = faseRRHH(resumen?.fase_clave);
-  const nombreFase = faseActual ? t(`etiqueta_fase_${faseActual.clave}`) : "";
+  const nombreFase = faseRail?.etiqueta ?? (faseActual ? t(`etiqueta_fase_${faseActual.clave}`) : "");
   const terminado = ["completado", "cancelado"].includes(resumen?.estado_clave);
   const espera = resumen?.estado_clave === "espera";
   const incidencia = resumen?.estado_clave === "incidencia";
