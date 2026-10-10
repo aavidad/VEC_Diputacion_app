@@ -20,11 +20,11 @@
 DO $falta$ BEGIN RAISE EXCEPTION 'organización RPT 2026: falta -v organismo=<organismo_ref>' USING ERRCODE='22023'; END $falta$;
 \endif
 BEGIN ISOLATION LEVEL SERIALIZABLE;
--- El bloqueo va primero: la instantánea SERIALIZABLE se toma ya con él.
-SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_personal:datos:organizacion-rpt-2026:v1',0));
 SET LOCAL statement_timeout='60s';
 SET LOCAL lock_timeout='5s';
 SET LOCAL timezone='UTC';
+-- El bloqueo es la primera consulta: la instantánea SERIALIZABLE se toma con él.
+SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_personal:datos:organizacion-rpt-2026:v1',0));
 SELECT pg_catalog.set_config('vec.organismo', :'organismo', true);
 
 CREATE TEMP TABLE rpt_2026_fila(
@@ -127,7 +127,7 @@ BEGIN
    fuente_rpt,'Relación de Puestos de Trabajo de la Diputación de Granada 2026, revisión 2026-05-07',acto_rpt,huella_rpt);
  INSERT INTO vec_personal.version_plantilla_historia(version_ref,revision,organismo_ref,ejercicio,codigo_version_fuente,estado,
    aprobada_en,publicada_en,vigente_desde,vigente_hasta,conocido_desde,fuente_ref,documento_ref,acto_ref,huella_fuente_sha256)
- VALUES(v_pla,1,org,2026,'Plantilla VEC 2026 desde RPT 2026','publicada',NULL,'2026-01-01','2026-01-01','2027-01-01',ahora,
+ VALUES(v_pla,1,org,2026,'Plantilla VEC 2026 desde RPT 2026','publicada',NULL,NULL,'2026-01-01','2027-01-01',ahora,
    fuente_pla,'Plantilla 2026 de VEC elaborada a partir de la RPT 2026, revisión 2026-05-07',acto_pla,huella_pla);
  INSERT INTO vec_personal.puesto_tipo_historia(tipo_ref,revision,organismo_ref,unidad_ref,rpt_version_ref,rpt_revision,
    codigo_fila_fuente,denominacion,clasificacion_ref,forma_provision_ref,nivel_destino,vigente_desde,conocido_desde,
