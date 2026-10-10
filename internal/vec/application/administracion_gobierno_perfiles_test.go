@@ -44,7 +44,7 @@ func gobiernoPerfilAplicacionPrueba(t *testing.T) (*ServicioAdministracionPerfil
 	c := domain.CatalogoAccionesAdministracionV1{Referencia: "catalogo:sintetico", Version: 1, FuenteRef: "fuente:sintetica", FuenteVersion: 1, FuenteHuellaSHA256: strings.Repeat("a", 64),
 		VigenteDesde: fecha.Add(-time.Hour), VigenteHasta: fecha.Add(4 * time.Hour),
 		Entradas: []domain.EntradaAccionAdministracionV1{{Referencia: "entrada:sintetica", Version: 1, FuenteRef: "fuente:modulo", FuenteVersion: 1, FuenteHuellaSHA256: strings.Repeat("b", 64),
-			Concesion: concesion, DimensionesAmbito: []string{"unidad"}, ClaseControl: "consulta_auditada", VigenteDesde: fecha.Add(-time.Hour), VigenteHasta: fecha.Add(4 * time.Hour)}},
+			Concesion: concesion, DimensionesAmbito: []string{"unidad"}, ClaseControl: "ordinario", VigenteDesde: fecha.Add(-time.Hour), VigenteHasta: fecha.Add(4 * time.Hour)}},
 		Perfiles: []domain.PerfilPublicadoAdministracionV1{{Rol: lote.InstantaneaAutorizacion.VersionRol,
 			ControlVigencia: lote.InstantaneaAutorizacion.ControlVigenciaVersionRol, TipoPerfil: domain.TipoPerfilAdministracionFijoSistemaV1}}}
 	hc, err := c.HuellaSHA256()

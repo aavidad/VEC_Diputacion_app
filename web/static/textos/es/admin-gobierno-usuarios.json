@@ -1,8 +1,8 @@
 {
   "idioma": "es",
   "mensajes": {
-    "limite": "Este comando prepara, aplica y verifica las claves de Administración: las dos de gestión de usuarios; con el conjunto 1, 2, 3 o 4, también la del cambio de perfiles por lote; con el 2, 3 o 4, además, la del gobierno del plan de firma, con el 3 o el 4, también la de publicación de cargos de Personal, y con el 4, la de certificados de firmante. El LOGIN técnico y la configuración aprobada los crea el DBA. El recibo solo vale después de COMMIT.",
-    "uso_invalido": "Indique la fase (preparar, aplicar o verificar), la configuración privada, el catálogo de textos y un tiempo máximo positivo. El acuse solo se indica al aplicar.",
+    "limite": "Este comando prepara, aplica y verifica las claves de Administración: las dos de gestión de usuarios; con el conjunto 1 o superior, también la del cambio de perfiles por lote; con el 2 o superior, además, la del gobierno del plan de firma; con el 3 o superior, la de publicación de cargos de Personal; con el 4 o el 5, la de certificados de firmante, y con el 5, las dos de nuevas versiones del rol de Bolsa. El LOGIN técnico y la configuración aprobada los crea el DBA. El recibo solo vale después de COMMIT.",
+    "uso_invalido": "Indique la fase (preparar, aplicar, verificar o version-bolsa), la configuración privada, el catálogo de textos y un tiempo máximo positivo. El acuse solo se indica al aplicar y en version-bolsa, donde es el acuse ya guardado al aplicar.",
     "configuracion_insegura": "No se puede leer la configuración privada. Debe ser un archivo propio con permisos 0600, en una carpeta propia 0700 fuera del repositorio.",
     "configuracion_invalida": "La configuración privada no cumple el formato o le faltan datos para esta fase. Revise los campos, las rutas absolutas, las conexiones y las horas de validez (de 1 a 24).",
     "salida_insegura": "La carpeta de salida no es segura. Use una carpeta propia con permisos 0700 fuera del repositorio.",
@@ -17,6 +17,8 @@
     "gobierno_no_disponible": "La operación ha terminado con error y la base ha registrado el intento. Consulte el acuse privado.",
     "cadena_verificada": "La cadena de auditoría del gobierno de usuarios se ha recalculado sin diferencias. El informe está en la carpeta de salida.",
     "cadena_rechazada": "La cadena de auditoría no coincide al recalcularla. Consulte el informe en la carpeta de salida.",
-    "verificacion_no_disponible": "No se ha podido leer la cadena de auditoría o guardar el informe."
+    "verificacion_no_disponible": "No se ha podido leer la cadena de auditoría o guardar el informe.",
+    "version_bolsa_escrita": "Se ha escrito version-bolsa.json en la carpeta de salida, con sus dos claves en ficheros propios. Reinicie vec-admin con ese fichero para usar las claves del día.",
+    "version_bolsa_fallida": "No se ha podido escribir version-bolsa.json. Compruebe que el conjunto es el 5, que el acuse indicado es el de aplicar con estado permitido y que la carpeta no tiene ya esos ficheros. Si quedaron ficheros de clave sin version-bolsa.json, no use esa carpeta para vec-admin."
   }
 }

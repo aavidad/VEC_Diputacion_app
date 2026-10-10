@@ -36,6 +36,12 @@ type DependenciasComposicionPerfiles struct {
 	// GobiernoPlan abre el gobierno del plan nominal de firma de Contratación
 	// temporal junto a las lecturas de usuarios. Sólo con SoloUsuariosMetadatos.
 	GobiernoPlan api.ServicioGobiernoPlanFirmaADMIN
+	// GobiernoRolNuevo añade sólo la publicación nominal de definición v1
+	// cuando la composición privada acredita catálogo, dos ADMIN y V3.
+	GobiernoRolNuevo *MontajeGobiernoRolNuevoADMIN
+	// GobiernoVersionBolsa publica la versión y avanza sólo las asignaciones
+	// aprobadas mediante el consumidor B1 nominal.
+	GobiernoVersionBolsa *MontajeVersionBolsaADMIN
 	// Efectos abre los efectos nominales (cargos competenciales,
 	// certificados nominales) junto a las lecturas de usuarios. Sólo con
 	// SoloUsuariosMetadatos.
@@ -113,7 +119,7 @@ func componerServidorPerfiles(ctx context.Context, cfg Configuracion, deps Depen
 	}
 	servidor, err := NuevoServidorConLecturas(cfg, DependenciasPerfiles{ContextoConexion: contextoConexion, Sesiones: sesiones, Lecturas: deps.Lecturas, Auditor: deps.Auditor, Reloj: deps.Reloj, Activos: deps.Activos,
 		ObservadorSelector: sesiones, FuenteSeleccion: deps.FuenteSeleccion, AudienciaSelector: cfg.Audiencia, SoloUsuariosMetadatos: deps.SoloUsuariosMetadatos,
-		Lote: deps.Lote, GobiernoPlan: deps.GobiernoPlan, Efectos: deps.Efectos})
+		Lote: deps.Lote, GobiernoPlan: deps.GobiernoPlan, GobiernoRolNuevo: deps.GobiernoRolNuevo, GobiernoVersionBolsa: deps.GobiernoVersionBolsa, Efectos: deps.Efectos})
 	if err != nil {
 		return nil, conClase("montaje_lecturas", err)
 	}

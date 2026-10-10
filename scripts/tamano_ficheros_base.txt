@@ -121,7 +121,7 @@
 1640 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
 1026 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
-1078 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
+1080 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 983 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 623 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
@@ -136,6 +136,8 @@
 909 deploy/postgresql/contratacion_temporal/probar_ct193_e3_postgresql18.sh
 1196 scripts/recorridos/propuesta_firma/recorrer.py
 2917 deploy/postgresql/autorizacion_atestada_v3/migraciones/000218_carga_convoca_bolsa.up.sql
+3144 deploy/postgresql/autorizacion_atestada_v3/migraciones/000220_gobierno_rol_nuevo.up.sql
+3057 deploy/postgresql/autorizacion_atestada_v3/migraciones/000227_version_rol_bolsa_v3.up.sql
 874 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
 963 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitacion.js
 470 deploy/postgresql/contratacion_temporal/migraciones/000194_validacion_necesidad_alta_v3.up.sql

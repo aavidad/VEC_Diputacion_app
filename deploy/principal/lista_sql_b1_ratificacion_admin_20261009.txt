@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000230_ratificacion_catalogo_admin_v7.up.sql
+deploy/postgresql/autorizacion/migraciones/000065_ratificacion_catalogo_admin_v7.up.sql

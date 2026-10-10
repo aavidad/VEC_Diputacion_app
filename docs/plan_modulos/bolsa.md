@@ -57,6 +57,10 @@ hash. La mejora de consultas RRHH va aparte en #917.
 | 7 | **Cifras globales de Bolsa pulsables.** Las cifras por bolsa ya llevan a su lista (#883). Los tres totales globales y «llamamientos en curso» necesitan una lectura global paginada con auditoría en la misma transacción. Hoy cuentan participaciones, no personas. | Equipo V. No hay rama. | Cada total abre su lista filtrada con el mismo número. |
 | 8 | **Correo de la Diputación configurable desde Administración (B5).** No existe: el servidor de correo solo se configura con variables de entorno. Para la presentación vale el buzón de pruebas actual. | Decidir antes qué se rescata de #179, #204, #206 y #209. Datos del servidor: Informática (duda 88). | Prueba de envío desde Administración, con auditoría. |
 
+**DEPENDENCIA para encender la carga CONVOCA (09/10).** #931 prepara la versión del rol RRHH existente y conserva sus asignaciones; #932 prepara la ratificación de siete descriptores ADMIN que faltan en la copia de ensayo. Ambas PR siguen en borrador. El ensayo ya publicó ADMIN v8/v9 y admitió el catálogo B1 con las CLI reales, pero aún no hizo la propuesta y el cierre con dos personas ADMIN distintas.
+
+La copia conserva sus dos vínculos de certificado, pero los kits disponibles no corresponden a ellos y no hay sesiones ADMIN vigentes. Dirección debe recuperar los dos certificados y claves originales del arranque 2+1, con las fuentes privadas de identidad que exige IS16, para abrir las sesiones y emitir dos decisiones V3 nuevas. Si ese material no se recupera, hace falta un corte separado de renovación gobernada en Identidad; no se sustituyen vínculos mediante SQL manual. Hasta completar ese ensayo y las aprobaciones reales, la carga B1 no está habilitada en cidonia. El orden y las comprobaciones de encendido están en [`habilitacion_b1_convoca_20261009.md`](../../deploy/principal/habilitacion_b1_convoca_20261009.md).
+
 ## Esperan a RRHH o al DPD
 
 No se programan hasta tener respuesta. Las propuestas con fuente pública están en el informe de dudas del 08/10 y en la PR #908.

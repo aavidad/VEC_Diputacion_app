@@ -3,7 +3,9 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
+	"log/slog"
 	"reflect"
 	"time"
 
@@ -214,4 +216,50 @@ func permiteMontarCargaConvocaPostgreSQL(ctx context.Context, fuentePool *pgxpoo
 		return false, err
 	}
 	return instantaneaBolsaCargaConvocaCompatible(i, vinculo, soporte, ahora, versionBase), nil
+}
+
+// materialCargaConvocaDesarrollo añade el material V3 de la audiencia de la
+// carga CONVOCA (B1) siempre que haya borradores de Bolsa. Preparar el
+// material no abre nada: las rutas sólo se montan con cargaConvocaMontable.
+func materialCargaConvocaDesarrollo(descriptores []descriptorMaterialConsumidorV3Desarrollo,
+	borradoresBolsa bool) []descriptorMaterialConsumidorV3Desarrollo {
+	if !borradoresBolsa {
+		return descriptores
+	}
+	return append(descriptores, descriptorMaterialCargaConvocaBolsaDesarrollo())
+}
+
+// proveedorCargaConvocaOpcionalDesarrollo recibe el resultado de preparar el
+// proveedor de esa audiencia. Sin proveedor la carga queda sin montar y el
+// resto de Bolsa arranca igual: un fallo aquí nunca abre la carga ni para la
+// aplicación.
+func proveedorCargaConvocaOpcionalDesarrollo(proveedor *proveedorMaterialAltaContratacionTemporalDesarrollo,
+	err error) *proveedorMaterialAltaContratacionTemporalDesarrollo {
+	if err != nil || proveedor == nil {
+		cargaConvocaNoMontada("material", err)
+		return nil
+	}
+	return proveedor
+}
+
+// cargaConvocaMontable reúne las cuatro condiciones para montar las rutas B1:
+// frontera declarada (la concesión gobernada se vio al componer el catálogo),
+// autoridades centrales configuradas, material V3 de su audiencia preparado y
+// una política Bolsa cuya versión de rol publicada (por AUT62/AUT63, nunca por
+// el arranque) trae exactamente la concesión B1. Si falta cualquiera, no se
+// monta.
+func cargaConvocaMontable(fronteraDeclarada bool, autoridades *autoridadesCargaConvocaPostgreSQL,
+	proveedor *proveedorMaterialAltaContratacionTemporalDesarrollo, politica *politicaBorradorLlamamientoBolsaDesarrollo) bool {
+	return fronteraDeclarada && autoridades != nil && proveedor != nil && politica.permiteCargaConvoca()
+}
+
+// cargaConvocaNoMontada deja la carga B1 cerrada sin parar el arranque y anota
+// la etapa y el tipo de la causa (nunca su texto). Devuelve siempre false.
+func cargaConvocaNoMontada(etapa string, causa error) bool {
+	tipo := "sin_error"
+	if causa != nil {
+		tipo = fmt.Sprintf("%T", causa)
+	}
+	slog.Warn("bolsa CONVOCA: la carga no se monta", "etapa", etapa, "tipo_causa", tipo)
+	return false
 }
