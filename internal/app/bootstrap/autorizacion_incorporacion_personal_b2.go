@@ -302,7 +302,8 @@ func (a *autoridadIncorporacionPersonalB2) AutorizarConsultaRegistroEmpleadoB2(c
 	return a.autorizarRecurso(ctx, accion, m.Recurso())
 }
 
-// AutorizarCatalogoRegistroEmpleadoB2 consulta con el perfil de Personal y
+// AutorizarCatalogoRegistroEmpleadoB2 consulta con el perfil propio de lectura
+// del catálogo (régimen y modalidad) y
 // publica o retira con el perfil nominal propio del gobierno del catálogo.
 // Sin esas operaciones en la configuración privada no hay perfil y se deniega.
 func (a *autoridadIncorporacionPersonalB2) AutorizarCatalogoRegistroEmpleadoB2(ctx context.Context, m personal.MaterialCatalogoEmpleadoB2) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -601,6 +602,7 @@ func gruposPerfilesIncorporacionB2() []string {
 const (
 	grupoCatalogoConsultaB2 = "personal_catalogo_consulta"
 	grupoClasesOcupacionB2  = "personal_clases"
+	accionClasesOcupacionB2 = "personal.plan_incorporacion_ct.clases_ocupacion"
 )
 
 // objetivosLecturaPersonalB2 da los objetivo_ref que admite cada grupo de
@@ -619,7 +621,7 @@ func grupoOperacionIncorporacionB2(d descriptorOperacionIncorporacionB2) string 
 	if d.accion == personal.AccionConsultarCatalogoEmpleadoB2 {
 		return grupoCatalogoConsultaB2
 	}
-	if d.accion == "personal.plan_incorporacion_ct.clases_ocupacion" {
+	if d.accion == accionClasesOcupacionB2 {
 		return grupoClasesOcupacionB2
 	}
 	if d.accion == ct.AccionRegistrarVinculoCategoriaRPT {
