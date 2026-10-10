@@ -182,8 +182,8 @@ export function renderizarIntentosContacto({ candidato, estado = {}, escaparHTML
   // «advertir») solo llegan en su respuesta: tras «Contactado» la consulta ya
   // no los repite, así que se muestran junto al justificante.
   const avisosRegistro = (Array.isArray(estado.avisosRegistro) ? estado.avisosRegistro : []).filter((a) => AVISOS.includes(a));
-  const avisosVisibles = avisosRegistro.length ? `<p role="status">${e(t("registrado_con_avisos"))} ${avisosRegistro.map((a) => `<span class="estado-chip aviso">${t(`aviso_${a}`)}</span>`).join(" ")}</p>` : "";
-  const reciboVisible = estado.recibo ? `<p class="mensaje-exito" role="status">${e(t("registrado"))} ${justificanteTraducido(estado.recibo, e, (clave) => traducirPortal(`panel_${clave}`))}${estado.registradoEn ? ` <time datetime="${e(estado.registradoEn)}">${e(instante(estado.registradoEn))}</time>` : ""}</p>${avisosVisibles}` : "";
+  const avisosVisibles = avisosRegistro.length ? ` ${e(t("registrado_con_avisos"))} ${avisosRegistro.map((a) => `<span class="estado-chip aviso">${t(`aviso_${a}`)}</span>`).join(" ")}` : "";
+  const reciboVisible = estado.recibo ? `<p class="mensaje-exito" role="status">${e(t("registrado"))} ${justificanteTraducido(estado.recibo, e, (clave) => traducirPortal(`panel_${clave}`))}${estado.registradoEn ? ` <time datetime="${e(estado.registradoEn)}">${e(instante(estado.registradoEn))}</time>` : ""}${avisosVisibles}</p>` : "";
   if (actual === "cargando") return envolver("", `${reciboVisible}<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`);
   if (actual === "error") return envolver("", `${reciboVisible}<p class="mensaje-error" role="alert">${e(estado.error || t("error_carga"))}</p><button type="button" class="boton-secundario" data-intentos-accion="reintentar">${t("reintentar")}</button>`);
   const i = estado.datos;

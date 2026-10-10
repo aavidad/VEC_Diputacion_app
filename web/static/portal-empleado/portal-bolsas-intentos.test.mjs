@@ -81,17 +81,18 @@ test("cada rechazo del registro tiene su propio mensaje: nota con dato personal,
   const mensaje = async (estado, codigo) => (await registrarContactoIntento("b", "p", {}, "k", { fetchImpl: async () => respuesta(estado, { error: { codigo } }) })).mensaje;
   assert.match(await mensaje(400, "anotacion_con_dato_personal"), /^La nota no puede llevar datos personales/u);
   assert.match(await mensaje(409, "contacto_en_conflicto"), /ya se envió antes con otros datos/u);
-  assert.equal(await mensaje(409, "contacto_no_valido"), "No se puede anotar este resultado en este llamamiento. Revise el resultado elegido.");
+  assert.match(await mensaje(409, "contacto_no_valido"), /anótelo con «Cambiar situación» en su ficha/u);
   assert.doesNotMatch(await mensaje(409, "contacto_no_valido"), /clave/u);
 });
 
 test("el justificante muestra el aviso de día no hábil que devolvió el propio registro", () => {
   const contactado = { ...intentos, contactado: true, avisos: [] };
   const salida = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: contactado, recibo: "recibo:contacto:1", avisosRegistro: ["dia_no_habil", "<inventado>"] } });
-  assert.match(salida, /Queda registrado con este aviso: <span class="estado-chip aviso">Día no hábil<\/span><\/p>/u);
+  assert.match(salida, /<p class="mensaje-exito" role="status">Contacto registrado\.[^]*Avisos: <span class="estado-chip aviso">Día no hábil<\/span><\/p>/u);
+  assert.equal(salida.match(/role="status"/gu).length, 1);
   assert.doesNotMatch(salida, /inventado/u);
   const sinAviso = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: contactado, recibo: "recibo:contacto:1", avisosRegistro: [] } });
-  assert.doesNotMatch(sinAviso, /Queda registrado con este aviso/u);
+  assert.doesNotMatch(sinAviso, /Avisos:/u);
 });
 
 test("el controlador registra un rebote de correo ligado al llamamiento y recarga el estado", async () => {
