@@ -138,6 +138,8 @@ func (a *AutoridadVersionarRolBolsa) ProponerVersionarRolBolsa(ctx context.Conte
 			if decodificarGobiernoRol([]byte(r.MaterialCanon), &m) != nil {
 				return ports.ConClaseVersionBolsa("sql_respuesta_invalida", ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 			}
+			// jsonb serializa timestamptz como «…+00:00»; el dominio exige UTC canónico.
+			r.CaducaEn = r.CaducaEn.UTC()
 			r.Propuesta = domain.PropuestaVersionarRolBolsa{Material: m, HuellaSHA256: r.HuellaSHA256,
 				CaducaEn: r.CaducaEn}
 			if (ports.ResultadoPropuestaVersionarRolBolsa{Propuesta: r.Propuesta,
@@ -175,6 +177,8 @@ func (a *AutoridadVersionarRolBolsa) CerrarVersionarRolBolsa(ctx context.Context
 			if decodificarGobiernoRol([]byte(r.MaterialCanon), &m) != nil {
 				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 			}
+			// jsonb serializa timestamptz como «…+00:00»; el dominio exige UTC canónico.
+			r.ConfirmadoEn = r.ConfirmadoEn.UTC()
 			r.Cierre = domain.CierreVersionarRolBolsa{OperacionRef: r.OperacionRef, Material: m,
 				PropuestaHuellaSHA256: r.PropuestaHuellaSHA256, Decision: r.Decision,
 				ConfirmadoEn: r.ConfirmadoEn, AuditoriaAccesoRef: r.AuditoriaAccesoRef, Recibo: &r.Recibo}
