@@ -37,6 +37,7 @@ type DependenciasPerfiles struct {
 	Lote                  *LoteADMIN
 	GobiernoPlan          api.ServicioGobiernoPlanFirmaADMIN
 	GobiernoRolNuevo      *MontajeGobiernoRolNuevoADMIN
+	GobiernoVersionBolsa  *MontajeVersionBolsaADMIN
 	Efectos               []EfectoNominalMontado
 }
 
@@ -44,6 +45,13 @@ type DependenciasPerfiles struct {
 // nominal. Su ausencia deja cerradas las dos rutas de definición.
 type MontajeGobiernoRolNuevoADMIN struct {
 	Servicio api.ServicioGobiernoRolNuevoADMIN
+	Fuente   ports.FuenteCatalogoAccionesAdministracionV1
+}
+
+// El consumidor B1 usa el mismo resolver de sesión ADMIN y un LOGIN de
+// gobierno distinto del de definiciones nuevas.
+type MontajeVersionBolsaADMIN struct {
+	Servicio api.ServicioVersionarRolBolsaADMIN
 	Fuente   ports.FuenteCatalogoAccionesAdministracionV1
 }
 
@@ -76,7 +84,7 @@ func NuevoServidorConPerfiles(cfg Configuracion, deps DependenciasPerfiles) (*ht
 }
 
 func nuevoHandlerPerfiles(host hostAdmin, deps DependenciasPerfiles) (*handlerPerfilesADMIN, error) {
-	if deps.GobiernoRolNuevo != nil {
+	if deps.GobiernoRolNuevo != nil || deps.GobiernoVersionBolsa != nil {
 		return nil, ErrConfiguracion
 	}
 	servicio, err := application.NuevoServicioAdministracionPerfiles(deps.Catalogo, deps.Actos, deps.Reloj)
@@ -132,6 +140,14 @@ func NuevoServidorConLecturas(cfg Configuracion, deps DependenciasPerfiles) (*ht
 		if !deps.SoloUsuariosMetadatos || dependenciaComposicionNula(g.Servicio) ||
 			dependenciaComposicionNula(g.Fuente) || dependenciaComposicionNula(deps.Reloj) ||
 			handler.ConGobiernoRolNuevo(g.Servicio, g.Fuente, deps.Reloj) != nil {
+			return nil, ErrConfiguracion
+		}
+	}
+	if deps.GobiernoVersionBolsa != nil {
+		v := deps.GobiernoVersionBolsa
+		if !deps.SoloUsuariosMetadatos || dependenciaComposicionNula(v.Servicio) ||
+			dependenciaComposicionNula(v.Fuente) || dependenciaComposicionNula(deps.Reloj) ||
+			handler.ConVersionarRolBolsa(v.Servicio, v.Fuente, deps.Reloj) != nil {
 			return nil, ErrConfiguracion
 		}
 	}

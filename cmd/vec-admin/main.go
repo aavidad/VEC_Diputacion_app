@@ -112,10 +112,18 @@ func main() {
 			}
 			gobierno = &c
 		}
-		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConGobierno(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno, fuenteCatalogoGobiernoOficial)
+		var versionBolsa *configuracionVersionBolsaPrivada
+		if rutaVersion := os.Getenv("VEC_ADMIN_VERSION_BOLSA_CONFIG_FILE"); rutaVersion != "" {
+			c, errorVersion := cargarConfiguracionVersionBolsaPrivada(rutaVersion, privada, usuarios, runtime, lote, plan, efectos, gobierno)
+			if errorVersion != nil {
+				fallarConfiguracion("version_bolsa_config", errorVersion)
+			}
+			versionBolsa = &c
+		}
+		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConVersionBolsa(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno, versionBolsa, fuenteCatalogoGobiernoOficial)
 	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE") != "" ||
 		os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_CERTIFICADOS_CONFIG_FILE") != "" ||
-		os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE") != "" {
+		os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_VERSION_BOLSA_CONFIG_FILE") != "" {
 		fallarConfiguracion("lote_sin_usuarios", nil)
 	} else {
 		servidor, cerrar, err = componerProcesoADMINConRuntime(configServidor, privada, runtime)
@@ -174,11 +182,12 @@ func etapaComposicionADMIN(err error) string {
 
 // Lista positiva de las etapas emitidas por los dos compositores ADMIN y sus
 // piezas de lote, plan de firma y efectos nominales. Los índices de pool van
-// de 0 a 14 porque esa es la capacidad máxima del montaje actual.
+// de 0 a 18 con ambos gobiernos opcionales montados.
 func etapaComposicionADMINPermitida(etapa string) bool {
 	switch etapa {
 	case "emisor_identidad", "configuracion", "lote_configuracion", "plan_firma_configuracion", "gobierno_roles_config", "gobierno_roles_configuracion", "gobierno_roles_fuente",
 		"gobierno_roles_pool", "gobierno_roles_confianza_metadatos", "gobierno_roles_confianza_material", "gobierno_roles_servicio",
+		"version_bolsa_config", "version_bolsa_configuracion", "version_bolsa_fuente", "version_bolsa_pool", "version_bolsa_confianza_metadatos", "version_bolsa_confianza_material", "version_bolsa_servicio",
 		"firmante_publica", "firmante", "confianza_metadatos", "confianza_material", "confianza_cadena",
 		"emisor_usuarios", "auditoria_intentos", "auditoria_nominal", "frontera_tecnica", "auditor_compuesto",
 		"lector_usuarios", "lecturas_usuarios", "selector", "seudonimos", "identificadores", "servidor",
@@ -196,7 +205,7 @@ func etapaComposicionADMINPermitida(etapa string) bool {
 			}
 		}
 	}
-	for i := 0; i < 17; i++ {
+	for i := 0; i < 19; i++ {
 		prefijo := "pool_" + strconv.Itoa(i)
 		for _, sufijo := range []string{"_dsn", "_config", "_abrir", "_login"} {
 			if etapa == prefijo+sufijo {

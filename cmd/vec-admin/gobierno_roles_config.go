@@ -38,15 +38,26 @@ func validarConfiguracionGobiernoRolesPrivada(c configuracionGobiernoRolesPrivad
 	base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada,
 	runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada,
 	plan *configuracionPlanFirmaPrivada, efectos []efectoConfigurado) error {
+	return validarConfiguracionGobiernoPrivada(c, base, u, runtime, lote, plan, efectos,
+		[2]string{pg.AudienciaGobiernoRolProponer, pg.AudienciaGobiernoRolAprobar}, nil, nil)
+}
+
+// La misma guarda verifica cada overlay Gov con audiencias y materiales
+// disjuntos. Compartir un LOGIN o un material entre gobiernos falla cerrado.
+func validarConfiguracionGobiernoPrivada(c configuracionGobiernoRolesPrivada,
+	base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada,
+	runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada,
+	plan *configuracionPlanFirmaPrivada, efectos []efectoConfigurado,
+	audiencias [2]string, otrasRutas []string, otrasConfianzas []json.RawMessage) error {
 	if !rutaPrivadaPerfilesValida(c.PoolGobierno) || !rutaPrivadaPerfilesValida(c.PoolCatalogo) ||
 		c.PoolGobierno == c.PoolCatalogo || contieneClavePrivadaInline(c.ConfianzaJSON) ||
 		len(c.Motivos) != 2 ||
-		!motivoGobiernoRolesValido(c.Motivos[pg.AudienciaGobiernoRolProponer], base.CatalogoMotivosID) ||
-		!motivoGobiernoRolesValido(c.Motivos[pg.AudienciaGobiernoRolAprobar], base.CatalogoMotivosID) {
+		!motivoGobiernoRolesValido(c.Motivos[audiencias[0]], base.CatalogoMotivosID) ||
+		!motivoGobiernoRolesValido(c.Motivos[audiencias[1]], base.CatalogoMotivosID) {
 		return errConfiguracionPrivadaPerfiles
 	}
 	for clave := range c.Motivos {
-		if clave != pg.AudienciaGobiernoRolProponer && clave != pg.AudienciaGobiernoRolAprobar {
+		if clave != audiencias[0] && clave != audiencias[1] {
 			return errConfiguracionPrivadaPerfiles
 		}
 	}
@@ -68,6 +79,8 @@ func validarConfiguracionGobiernoRolesPrivada(c configuracionGobiernoRolesPrivad
 		rutas = append(rutas, e.cfg.Pool)
 		confianzas = append(confianzas, e.cfg.ConfianzaJSON)
 	}
+	rutas = append(rutas, otrasRutas...)
+	confianzas = append(confianzas, otrasConfianzas...)
 	for _, ruta := range rutas {
 		if ruta != "" && (ruta == c.PoolGobierno || ruta == c.PoolCatalogo) {
 			return errConfiguracionPrivadaPerfiles
@@ -91,7 +104,7 @@ func validarConfiguracionGobiernoRolesPrivada(c configuracionGobiernoRolesPrivad
 	}
 	vistas := map[string]bool{}
 	for _, e := range meta.EntradasCapacidad {
-		if (e.Audiencia != pg.AudienciaGobiernoRolProponer && e.Audiencia != pg.AudienciaGobiernoRolAprobar) ||
+		if (e.Audiencia != audiencias[0] && e.Audiencia != audiencias[1]) ||
 			vistas[e.Audiencia] || e.MaterialArchivo == c.PoolGobierno || e.MaterialArchivo == c.PoolCatalogo ||
 			materiales[e.MaterialArchivo] {
 			return errConfiguracionPrivadaPerfiles
@@ -104,7 +117,7 @@ func validarConfiguracionGobiernoRolesPrivada(c configuracionGobiernoRolesPrivad
 		vistas[e.Audiencia] = true
 		materiales[e.MaterialArchivo] = true
 	}
-	if !vistas[pg.AudienciaGobiernoRolProponer] || !vistas[pg.AudienciaGobiernoRolAprobar] {
+	if !vistas[audiencias[0]] || !vistas[audiencias[1]] {
 		return errConfiguracionPrivadaPerfiles
 	}
 	return nil

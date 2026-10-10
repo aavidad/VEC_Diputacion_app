@@ -57,7 +57,7 @@ func TestMantenimientoRol6ConservaCadaEstadoYCommitIncierto(t *testing.T) {
 			}
 		})
 	}
-	for _, v := range []uint64{0, 5, 7, 999} {
+	for _, v := range []uint64{0, 6, 7, 999} {
 		if versionMantenimientoAdmitida(v) {
 			t.Fatal("version_abierta")
 		}

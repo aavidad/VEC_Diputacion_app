@@ -27,3 +27,7 @@ fabbbfde585ab2a9112c2dbe12b705a7b9ceaa4d9b069c3f7a48e66845700fb0
 # gobierno_rol_nuevo; su guarda de reversión exige volver byte a byte a fabbbfde.
 # Las ternas existentes no cambian. Definición 0d39bd8725b884c555c32df8e9b48775d3eb7964325f9c0c7d35d713f0ec3967.
 545643f36bec8c872a82c2bedf9a1b8c603ba0ce318640fa1d4d84b71a61332c
+# Post AUT62/AD227 sobre el anterior: AD227 solo añade el perfil de versión de rol de Bolsa;
+# quitando el bloque de AD233 su definición es la ensayada sobre POST225 (30bab608…).
+# Definición 3538c97c205e0cc40b78ea280e7e458cca9694759a83d157c8049b9d9499d335.
+d8aa8eccd5cccff8c0fa36fecc70affc31450a7e0c2cf23cb6e7223240d3067c

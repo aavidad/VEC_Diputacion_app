@@ -1,0 +1,32 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:carga_convoca",
+  "version": 1,
+  "huella_sha256": "a81a99cd4be193f720222ef8d659ce199727790db793bcb7365f8a7b47bae089",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.carga_convoca.confirmar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:carga_convoca\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.carga_convoca.confirmar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"carga_convoca\",\"finalidades\":[\"carga_bolsa_convoca\"],\"garantia_minima\":\"alto\"},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.carga_convoca.confirmar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:carga_convoca",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "a81a99cd4be193f720222ef8d659ce199727790db793bcb7365f8a7b47bae089",
+      "concesion": {
+        "accion": "bolsa.carga_convoca.confirmar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "carga_convoca",
+        "finalidades": [
+          "carga_bolsa_convoca"
+        ],
+        "garantia_minima": "alto"
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z"
+    }
+  ]
+}
