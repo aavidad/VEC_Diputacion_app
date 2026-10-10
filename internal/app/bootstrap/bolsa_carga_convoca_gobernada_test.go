@@ -171,11 +171,12 @@ func TestCargaConvocaSeMontaSoloConMaterialYConcesionGobernada(t *testing.T) {
 	if cargaConvocaMontable(false, autoridades, proveedor, p) || cargaConvocaMontable(true, nil, proveedor, p) {
 		t.Fatal("sin frontera o sin autoridades se montó")
 	}
-	sin, autoridadSin, j := instantaneaCargaConvocaPublicadaPrueba(t)
-	j.VersionRol.Concesiones = j.VersionRol.Concesiones[:len(j.VersionRol.Concesiones)-1]
-	autoridadSin.leida.instantanea = j
-	_ = sin.PublicarInicial(context.Background())
-	if cargaConvocaMontable(true, autoridades, proveedor, sin) {
+	// La misma política con la versión publicada de siempre (sin concesión B1).
+	sin, _, _ := politicaProvisionBolsaPrueba(t, 13)
+	if err := sin.PublicarInicial(context.Background()); err != nil {
+		t.Fatalf("la versión sin concesión debe publicarse sin B1: %v", err)
+	}
+	if !sin.publicada || cargaConvocaMontable(true, autoridades, proveedor, sin) {
 		t.Fatal("sin la concesión B1 publicada se montó")
 	}
 	if cargaConvocaMontable(true, autoridades, proveedor, nil) {
@@ -185,14 +186,28 @@ func TestCargaConvocaSeMontaSoloConMaterialYConcesionGobernada(t *testing.T) {
 
 func TestProveedorCargaConvocaOpcionalNoParaElArranque(t *testing.T) {
 	esperado := &proveedorMaterialAltaContratacionTemporalDesarrollo{}
-	if p := proveedorCargaConvocaOpcionalDesarrollo(func() (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
-		return esperado, nil
-	}); p != esperado {
+	if p := proveedorCargaConvocaOpcionalDesarrollo(esperado, nil); p != esperado {
 		t.Fatal("no devuelve el proveedor preparado")
 	}
-	if p := proveedorCargaConvocaOpcionalDesarrollo(func() (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
-		return nil, errors.New("material ausente")
-	}); p != nil {
+	if p := proveedorCargaConvocaOpcionalDesarrollo(esperado, errors.New("material ausente")); p != nil {
 		t.Fatal("un fallo del material dejó proveedor")
+	}
+	if cargaConvocaNoMontada("prueba", errors.New("x")) {
+		t.Fatal("cargaConvocaNoMontada debe dejar la carga cerrada")
+	}
+}
+
+// Con borradores de Bolsa el catálogo de material incluye la audiencia de la
+// carga (lo que quitó 4eefae2f3); sin ellos, no.
+func TestMaterialCargaConvocaSoloConBorradoresDeBolsa(t *testing.T) {
+	con := materialCargaConvocaDesarrollo(nil, true)
+	if len(con) != 1 || con[0].Audiencia != puertosbolsa.AudienciaConfirmarCargaConvoca {
+		t.Fatalf("sin material de la carga con borradores: %+v", con)
+	}
+	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(con); err != nil {
+		t.Fatalf("el catálogo de material no admite la audiencia de la carga: %v", err)
+	}
+	if sin := materialCargaConvocaDesarrollo(nil, false); len(sin) != 0 {
+		t.Fatal("material de la carga sin borradores de Bolsa")
 	}
 }
