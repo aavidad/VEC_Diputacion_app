@@ -47,6 +47,21 @@ test("rotula en revisión, servicios y encadenamiento sin referencias internas",
   assert.throws(() => traducirMarcasBolsa("inexistente"));
 });
 
+test("una respuesta de Mi bolsa sin reflejar se rotula y deja a la persona sin turno", () => {
+  for (const motivo of ["aceptacion_pendiente", "renuncia_pendiente"]) {
+    assert.equal(validarMarcasCandidato({ presta_servicios: null, en_revision: motivo, encadenamiento: null }).en_revision, motivo);
+  }
+  const ficha = renderizarMarcasFicha({ marcas: { presta_servicios: null, en_revision: "aceptacion_pendiente", encadenamiento: null } }, escapar);
+  assert.match(ficha, /Revisión pendiente[\s\S]*Ha aceptado en «Mi bolsa»\. Cambie su situación para confirmarlo/);
+  const chips = renderizarChipsMarcas({ marcas: { presta_servicios: null, en_revision: "renuncia_pendiente", encadenamiento: null } }, escapar);
+  assert.match(chips, /En revisión/);
+  assert.match(chips, /Ha renunciado en «Mi bolsa»/);
+  const fueraDeTurno = { ...candidatoBase, orden: null, razon_orden: "respuesta_portal_pendiente" };
+  assert.equal(validarCandidato(fueraDeTurno).razon_orden, "respuesta_portal_pendiente");
+  assert.throws(() => validarCandidato({ ...fueraDeTurno, orden: 1 }), /respuesta del portal pendiente con turno/);
+  assert.equal(validarCandidato({ ...candidatoBase, orden: null, razon_orden: "cese_pendiente", estado_clave: "no_disponible" }).razon_orden, "cese_pendiente");
+});
+
 test("quien ya presta servicios en modo excluir no entra en la selección del llamamiento", async () => {
   assert.equal(seleccionableEnLlamamiento({ marcas: { presta_servicios: "aviso" } }), true);
   assert.equal(seleccionableEnLlamamiento({ marcas: { presta_servicios: "excluir" } }), false);

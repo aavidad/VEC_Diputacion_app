@@ -14,11 +14,14 @@ const (
 )
 
 // Motivos por los que una participación está «en revisión» (duda 18): hay
-// una exclusión o una renuncia propuesta que RRHH aún no ha confirmado.
+// una exclusión, una renuncia o una aceptación comunicada que RRHH aún no ha
+// confirmado. Con una respuesta de Mi Bolsa sin reflejar la persona además
+// queda fuera de turno (Bolsa 000100).
 const (
-	RevisionRenunciaPendiente  = "renuncia_pendiente"
-	RevisionSolicitudPendiente = "solicitud_pendiente"
-	RevisionBajaPropuesta      = "baja_propuesta"
+	RevisionAceptacionPendiente = "aceptacion_pendiente"
+	RevisionRenunciaPendiente   = "renuncia_pendiente"
+	RevisionSolicitudPendiente  = "solicitud_pendiente"
+	RevisionBajaPropuesta       = "baja_propuesta"
 )
 
 // PoliticaAvisosBolsa son los parámetros de los avisos y marcas de Bolsa que

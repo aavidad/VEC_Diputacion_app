@@ -36,6 +36,12 @@ func TestMarcaLeidaSoloAdmiteValoresConocidos(t *testing.T) {
 	if !marcaLeidaValida(buena, 10) {
 		t.Fatal("marca válida rechazada")
 	}
+	// Bolsa 000100: la aceptación de Mi Bolsa sin reflejar también es revisión.
+	for _, motivo := range []string{"aceptacion_pendiente", "renuncia_pendiente"} {
+		if !marcaLeidaValida(dominiobolsa.MarcasParticipacion{ParticipacionRef: "p", EnRevision: motivo}, 0) {
+			t.Fatalf("revisión %s rechazada", motivo)
+		}
+	}
 	for _, mala := range []dominiobolsa.MarcasParticipacion{
 		{ParticipacionRef: "p", PrestaServicios: "bloquear"},
 		{ParticipacionRef: "p", EnRevision: "baja_propuesta"},
