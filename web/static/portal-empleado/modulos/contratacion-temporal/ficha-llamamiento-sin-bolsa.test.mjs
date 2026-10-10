@@ -70,7 +70,7 @@ test("con la cobertura decidida, la ficha dice lo mismo que la comprobación que
   // El expediente registró «sí hay bolsa»: la lista actual sin bolsa no lo desmiente.
   const afirmativa = renderizar(estado({ cabecera: [comprobacion("exito")] }), () => ({ estado: "sin_bolsa" }));
   assert.doesNotMatch(afirmativa, /No hay bolsa vigente/u);
-  assert.match(afirmativa, /Al decidir la cobertura había bolsa vigente para esta categoría/u);
+  assert.match(afirmativa, /Al decidir la cobertura había una bolsa vigente para esta categoría/u);
   // El expediente registró «no hay bolsa»: se dice aunque la lista no se haya podido leer.
   const negativa = renderizar(estado({ cabecera: [comprobacion("aviso")] }), () => null);
   assert.match(negativa, /No hay bolsa vigente para esta categoría/u);

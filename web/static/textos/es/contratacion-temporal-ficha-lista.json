@@ -47,7 +47,7 @@
     "ficha_llamamiento_sin_bolsa": "No hay bolsa vigente para esta categoría. Revise la vía de cobertura del expediente.",
     "ficha_llamamiento_bolsa_error": "No se pudo comprobar si hay una bolsa vigente para esta categoría.",
     "ficha_llamamiento_bolsa_denegado": "No tiene permiso para consultar las bolsas de esta categoría.",
-    "ficha_llamamiento_bolsa_no_localizada": "Al decidir la cobertura había bolsa vigente para esta categoría, pero ahora no figura entre las bolsas activas. Revise la vía de cobertura del expediente.",
+    "ficha_llamamiento_bolsa_no_localizada": "Al decidir la cobertura había una bolsa vigente para esta categoría, pero ahora no se encuentra. Compruébelo en «Bolsas de trabajo». Si la bolsa sigue vigente, avise a Informática.",
     "ficha_llamamiento_bolsa_reintentar": "Reintentar comprobación de bolsa",
     "ficha_detalle_tecnico": "Ver detalle técnico",
     "ficha_detalle_flujo": "Flujo",

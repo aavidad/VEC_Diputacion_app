@@ -79,7 +79,7 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
     await Promise.all(rutas.map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const version = "20261007-pantallas-textos-final-v1";
   const cohorteCT = "20261010-ct-ficha-cohorte-v1";
-  exigirVersiones(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", version);
+  exigirVersiones(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", cohorteCT);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteCT);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/adaptador-http-expedientes.js", versionAdaptador);
   for (const hoja of ["./modulos/documentos/vista.js", "./modulos/documentos/cliente-http.js"])
