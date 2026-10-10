@@ -120,7 +120,7 @@
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
 1640 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
-1026 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
+1033 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
 1080 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 983 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 623 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
