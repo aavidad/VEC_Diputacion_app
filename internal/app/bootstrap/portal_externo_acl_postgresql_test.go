@@ -43,7 +43,6 @@ GRANT USAGE ON SCHEMA vec_bolsa_llamamientos TO vec_bolsa_llamamientos_portal_ex
 		"manifestar_disposicion_oferta_v1", "listar_ofertas_candidato_v1", "solicitar_portal_candidato_v1",
 		"responder_llamamiento_portal_v1", "preparar_respuesta_portal_v1", "leer_portal_candidato_v1",
 		"confirmar_contacto_propio_v1", "leer_contacto_candidato_v1",
-		"solicitar_documental_portal_v1",
 	} {
 		// Nombres internos fijos: nunca proceden de una entrada del usuario.
 		ejecutar(`CREATE FUNCTION vec_bolsa_llamamientos.` + nombre + `() RETURNS integer
@@ -51,6 +50,12 @@ LANGUAGE SQL SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT 1';
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.` + nombre + `() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.` + nombre + `() TO vec_bolsa_llamamientos_portal_externo;`)
 	}
+	// Firma B77 de veinte argumentos: independiente de la constante de producción.
+	const b77 = "vec_bolsa_llamamientos.solicitar_documental_portal_v1(text,text,text,text,text,text,text,date,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"
+	ejecutar(`CREATE FUNCTION ` + b77 + ` RETURNS integer LANGUAGE SQL SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT 1';
+REVOKE ALL ON FUNCTION ` + b77 + ` FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ` + b77 + ` TO vec_bolsa_llamamientos_portal_externo;`)
+
 	dsn := os.Getenv("VEC_PORTAL_ACL_PG18_EXTERNO_DSN")
 	comprobar := func(miBolsa, inscripcion bool) {
 		t.Helper()
@@ -86,7 +91,10 @@ GRANT EXECUTE ON FUNCTION ` + firmaSolicitarInscripcionPortalExterno + ` TO vec_
 		{"secuencia", `CREATE SEQUENCE vec_bolsa_llamamientos.privada; GRANT USAGE ON SEQUENCE vec_bolsa_llamamientos.privada TO vec_bolsa_llamamientos_portal_externo`, `DROP SEQUENCE vec_bolsa_llamamientos.privada`},
 		{"crear_en_esquema", `GRANT CREATE ON SCHEMA vec_bolsa_llamamientos TO vec_bolsa_llamamientos_portal_externo`, `REVOKE CREATE ON SCHEMA vec_bolsa_llamamientos FROM vec_bolsa_llamamientos_portal_externo`},
 		{"otro_esquema", `CREATE SCHEMA vec_ajeno; GRANT USAGE ON SCHEMA vec_ajeno TO vec_bolsa_llamamientos_portal_externo`, `DROP SCHEMA vec_ajeno`},
-		{"B77_ausente", `REVOKE EXECUTE ON FUNCTION vec_bolsa_llamamientos.solicitar_documental_portal_v1() FROM vec_bolsa_llamamientos_portal_externo`, `GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.solicitar_documental_portal_v1() TO vec_bolsa_llamamientos_portal_externo`},
+		{"B77_ausente", `REVOKE EXECUTE ON FUNCTION ` + b77 + ` FROM vec_bolsa_llamamientos_portal_externo`, `GRANT EXECUTE ON FUNCTION ` + b77 + ` TO vec_bolsa_llamamientos_portal_externo`},
+		{"B77_firma_incorrecta", `ALTER FUNCTION ` + b77 + ` RENAME TO documental_guardada; CREATE FUNCTION vec_bolsa_llamamientos.solicitar_documental_portal_v1() RETURNS integer LANGUAGE SQL SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT 1'; REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.solicitar_documental_portal_v1() FROM PUBLIC; GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.solicitar_documental_portal_v1() TO vec_bolsa_llamamientos_portal_externo`, `DROP FUNCTION vec_bolsa_llamamientos.solicitar_documental_portal_v1(); ALTER FUNCTION vec_bolsa_llamamientos.documental_guardada(text,text,text,text,text,text,text,date,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) RENAME TO solicitar_documental_portal_v1`},
+		{"B77_publica", `REVOKE EXECUTE ON FUNCTION ` + b77 + ` FROM vec_bolsa_llamamientos_portal_externo; GRANT EXECUTE ON FUNCTION ` + b77 + ` TO PUBLIC`, `REVOKE EXECUTE ON FUNCTION ` + b77 + ` FROM PUBLIC; GRANT EXECUTE ON FUNCTION ` + b77 + ` TO vec_bolsa_llamamientos_portal_externo`},
+
 		{"B96_publica", `GRANT EXECUTE ON FUNCTION ` + firmaSolicitarInscripcionPortalExterno + ` TO PUBLIC`, `REVOKE EXECUTE ON FUNCTION ` + firmaSolicitarInscripcionPortalExterno + ` FROM PUBLIC`},
 		{"B96_sin_grant", `REVOKE EXECUTE ON FUNCTION ` + firmaSolicitarInscripcionPortalExterno + ` FROM vec_bolsa_llamamientos_portal_externo`, `GRANT EXECUTE ON FUNCTION ` + firmaSolicitarInscripcionPortalExterno + ` TO vec_bolsa_llamamientos_portal_externo`},
 	} {

@@ -212,6 +212,8 @@ func funcionesMiBolsaPortalExternoSinInscripcion() []string {
 	}
 }
 
+const firmaSolicitarDocumentalPortalExterno = "vec_bolsa_llamamientos.solicitar_documental_portal_v1(text,text,text,text,text,text,text,date,text,timestamp with time zone,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"
+
 const firmaSolicitarInscripcionPortalExterno = "vec_bolsa_llamamientos.solicitar_inscripcion_v1(text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"
 
 // El estado SQL se decide por todas las sobrecargas B96 existentes, no por
@@ -283,6 +285,16 @@ func comprobarACLMiBolsaPortalExterno(ctx context.Context, consultador consultad
 )
 SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM funciones),ARRAY[]::text[]),
  (SELECT coalesce(bool_and(prosecdef),false) FROM funciones)
+ AND (SELECT count(*)=1 AND coalesce(bool_and(
+   p.oid=pg_catalog.to_regprocedure($2::text)::oid AND p.prosecdef
+   AND pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+   AND EXISTS(SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+    WHERE a.grantee=(SELECT r.oid FROM pg_catalog.pg_roles r WHERE r.rolname='vec_bolsa_llamamientos_portal_externo')
+      AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+    WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+  ),false) FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='vec_bolsa_llamamientos' AND p.proname='solicitar_documental_portal_v1')
  AND NOT EXISTS (SELECT 1 FROM tablas t WHERE
    pg_catalog.has_table_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
    OR pg_catalog.has_any_column_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
@@ -298,7 +310,7 @@ SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM fun
 	var permitido bool
 	var funcionesB96 int
 	var b96Exacta bool
-	return consultador.QueryRow(ctx, acl, firmaSolicitarInscripcionPortalExterno).Scan(&funciones, &permitido, &funcionesB96, &b96Exacta) == nil &&
+	return consultador.QueryRow(ctx, acl, firmaSolicitarInscripcionPortalExterno, firmaSolicitarDocumentalPortalExterno).Scan(&funciones, &permitido, &funcionesB96, &b96Exacta) == nil &&
 		permitido && (!requiereInscripcion || funcionesB96 == 1 && b96Exacta) &&
 		funcionesMiBolsaPortalExternoExactas(funciones, funcionesB96, b96Exacta)
 }

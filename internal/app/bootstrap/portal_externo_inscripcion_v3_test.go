@@ -22,7 +22,7 @@ type consultadorACLMiBolsaInscripcionPrueba struct {
 
 func (q *consultadorACLMiBolsaInscripcionPrueba) QueryRow(_ context.Context, consulta string, args ...any) pgx.Row {
 	q.consulta = consulta
-	if len(args) == 1 {
+	if len(args) == 2 {
 		q.firma = args[0]
 	}
 	return filaACLMiBolsaInscripcionPrueba{q}
