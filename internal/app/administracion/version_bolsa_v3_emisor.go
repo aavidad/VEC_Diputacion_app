@@ -58,15 +58,24 @@ func concesionVersionarRolBolsa(s domain.InstantaneaAutorizacion, accion, tipo s
 	return false
 }
 
-func snapshotVersionarRolBolsa(s domain.InstantaneaAutorizacion, actor domain.ContextoActor,
-	recurso domain.RecursoAutorizable, accion string, ahora time.Time) bool {
-	return s.Validar() == nil && domain.VersionRolAplicacionAdmitida(s.VersionRol.Referencia()) &&
-		s.VersionRol.Estado == domain.EstadoVersionRolPublicada &&
-		s.ControlVigenciaVersionRol.Estado == domain.EstadoControlVigenciaVersionRolHabilitada &&
-		!ahora.Before(s.VersionRol.PublicadaEn) && !ahora.Before(s.ControlVigenciaVersionRol.ActualizadoEn) &&
-		s.AsignacionPerfil.PrincipalID == actor.PersonaRef && s.AsignacionPerfil.PerfilActivoRef == actor.PerfilActivoRef &&
-		s.AsignacionPerfil.VigenteEn(ahora) && s.AsignacionPerfil.Cubre(recurso) &&
-		concesionVersionarRolBolsa(s, accion, recurso.Tipo)
+// claseSnapshotVersionarRolBolsa devuelve "" si la instantánea admite el
+// efecto o la clase cerrada de la primera comprobación que falla.
+func claseSnapshotVersionarRolBolsa(s domain.InstantaneaAutorizacion, actor domain.ContextoActor,
+	recurso domain.RecursoAutorizable, accion string, ahora time.Time) string {
+	switch {
+	case s.Validar() != nil || !domain.VersionRolAplicacionAdmitida(s.VersionRol.Referencia()) ||
+		s.VersionRol.Estado != domain.EstadoVersionRolPublicada ||
+		s.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada ||
+		ahora.Before(s.VersionRol.PublicadaEn) || ahora.Before(s.ControlVigenciaVersionRol.ActualizadoEn) ||
+		s.AsignacionPerfil.PrincipalID != actor.PersonaRef || s.AsignacionPerfil.PerfilActivoRef != actor.PerfilActivoRef ||
+		!s.AsignacionPerfil.VigenteEn(ahora):
+		return "v3_instantanea"
+	case !s.AsignacionPerfil.Cubre(recurso):
+		return "v3_ambito"
+	case !concesionVersionarRolBolsa(s, accion, recurso.Tipo):
+		return "v3_sin_concesion"
+	}
+	return ""
 }
 
 func (e *EmisorVersionarRolBolsaV3) EmitirVersionarRolBolsa(ctx context.Context, actor domain.ContextoActor,
@@ -76,36 +85,38 @@ func (e *EmisorVersionarRolBolsaV3) EmitirVersionarRolBolsa(ctx context.Context,
 	errNoDisponible := ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	if e == nil || ctx == nil || ctx.Err() != nil || dependenciaConfianzaPerfilesNula(e.reloj) ||
 		e.emisores[efecto.Audiencia] == nil {
-		return vacia, errNoDisponible
+		return vacia, ports.ConClaseVersionBolsa("v3_dependencia", errNoDisponible)
 	}
 	ahora := e.reloj.Ahora()
 	if actor.Validar() != nil || evidencia.ValidarEn(actor, ahora) != nil || !actor.Instantanea.VigenteEn(ahora) {
-		return vacia, errNoDisponible
+		return vacia, ports.ConClaseVersionBolsa("v3_actor_evidencia", errNoDisponible)
 	}
 	recurso, err := gobierno.RecursoVersionarRolBolsa(efecto, snapshot.AsignacionPerfil)
 	if err != nil {
-		return vacia, domain.ErrActoAdministracionPerfilesInvalido
+		return vacia, ports.ConClaseVersionBolsa("v3_recurso", domain.ErrActoAdministracionPerfilesInvalido)
 	}
 	vinculo, err := evidencia.Vinculo.Datos()
 	if err != nil {
-		return vacia, errNoDisponible
+		return vacia, ports.ConClaseVersionBolsa("v3_vinculo", errNoDisponible)
 	}
 	if !vinculo.CuentaPrivilegiada || vinculo.Superficie != domain.SuperficieAutenticacionAdministracionPrivilegiadaV1 ||
-		vinculo.GarantiaObservada != domain.AuthAssuranceHigh ||
-		!snapshotVersionarRolBolsa(snapshot, actor, recurso, efecto.Accion, ahora) {
-		return vacia, errNoDisponible
+		vinculo.GarantiaObservada != domain.AuthAssuranceHigh {
+		return vacia, ports.ConClaseVersionBolsa("v3_vinculo_privilegiado", errNoDisponible)
+	}
+	if clase := claseSnapshotVersionarRolBolsa(snapshot, actor, recurso, efecto.Accion, ahora); clase != "" {
+		return vacia, ports.ConClaseVersionBolsa(clase, errNoDisponible)
 	}
 	correlacion, err := ports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
-		return vacia, errNoDisponible
+		return vacia, ports.ConClaseVersionBolsa("v3_correlacion", errNoDisponible)
 	}
 	valor, err := correlacion.ValorCanonico()
 	if err != nil || valor != efecto.CorrelacionAccesoRef {
-		return vacia, errNoDisponible
+		return vacia, ports.ConClaseVersionBolsa("v3_correlacion", errNoDisponible)
 	}
 	resultado, err := evidencia.ResultadoContexto.Clonar()
 	if err != nil {
-		return vacia, errNoDisponible
+		return vacia, ports.ConClaseVersionBolsa("v3_solicitud", errNoDisponible)
 	}
 	motivo := e.motivos[efecto.Audiencia]
 	solicitud, err := domain.NuevaSolicitudAutorizacionLigadaV3(domain.DatosSolicitudAutorizacionLigadaV3{
@@ -113,28 +124,28 @@ func (e *EmisorVersionarRolBolsaV3) EmitirVersionarRolBolsa(ctx context.Context,
 		Recurso: recurso, Finalidad: gobierno.FinalidadVersionarRolBolsa, Correlacion: correlacion,
 	})
 	if err != nil {
-		return vacia, errNoDisponible
+		return vacia, ports.ConClaseVersionBolsa("v3_solicitud", errNoDisponible)
 	}
 	decision, confirmacion, exportador, err := e.emisores[efecto.Audiencia].EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
 	if err != nil {
 		if ctx.Err() == nil && errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
 			return vacia, domain.ErrAutorizacionDenegada
 		}
-		return vacia, errNoDisponible
+		return vacia, ports.ConClaseVersionBolsa("v3_emision", errNoDisponible)
 	}
 	ahora = e.reloj.Ahora()
 	if ctx.Err() != nil || dependenciaConfianzaPerfilesNula(exportador) || confirmacion.Validar() != nil ||
 		validarDecisionVersionarRolBolsa(decision, confirmacion, solicitud, motivo, resultado, ahora) != nil ||
 		!evidencia.Vinculo.VigenteEn(ahora, resultado) {
-		return vacia, errNoDisponible
+		return vacia, ports.ConClaseVersionBolsa("v3_decision", errNoDisponible)
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
 	if err != nil {
-		return vacia, errNoDisponible
+		return vacia, ports.ConClaseVersionBolsa("v3_exportacion", errNoDisponible)
 	}
 	h, err := recurso.HuellaContextoAutorizacionSHA256()
 	if err != nil {
-		return vacia, errNoDisponible
+		return vacia, ports.ConClaseVersionBolsa("v3_material", errNoDisponible)
 	}
 	r := material.ResumenCapacidad()
 	if material.ValidarEstructura() != nil || ctx.Err() != nil || r.Operacion() != efecto.Accion ||
@@ -143,7 +154,7 @@ func (e *EmisorVersionarRolBolsaV3) EmitirVersionarRolBolsa(ctx context.Context,
 		!bytes.Equal(material.ContextoActorCanonico(), resultado.RepresentacionCanonica) ||
 		material.PersonaVersion() != resultado.Contexto.Instantanea.PersonaVersion ||
 		material.PerfilVersion() != resultado.Contexto.Instantanea.PerfilVersion {
-		return vacia, errNoDisponible
+		return vacia, ports.ConClaseVersionBolsa("v3_material", errNoDisponible)
 	}
 	return material, nil
 }

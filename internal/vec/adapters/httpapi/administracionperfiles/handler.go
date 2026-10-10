@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -106,10 +107,13 @@ type Handler struct {
 	versionBolsa       ServicioVersionarRolBolsaADMIN
 	fuenteVersionBolsa ports.FuenteCatalogoAccionesAdministracionV1
 	relojVersionBolsa  ports.Reloj
-	efectos            map[string]efectoNominal
-	soloLectura        bool
-	soloMetadatos      bool
-	auditor            AuditorFrontera
+	// registroVersionBolsa recibe sólo la clase cerrada de cada 503 B1; nil
+	// usa slog.Default. Las pruebas lo sustituyen por un registro en memoria.
+	registroVersionBolsa *slog.Logger
+	efectos              map[string]efectoNominal
+	soloLectura          bool
+	soloMetadatos        bool
+	auditor              AuditorFrontera
 }
 
 func NuevoHandler(origen string, sesiones ResolvedorSesion, lecturas FuenteLecturas,
@@ -441,29 +445,36 @@ func (h *Handler) denegarSesionIncompatible(w http.ResponseWriter, r *http.Reque
 
 func (h *Handler) denegarActor(w http.ResponseWriter, r *http.Request, s SesionConfiable,
 	estado int, codigo, accion, recurso string) {
-	actor, err := s.Actor.Clonar()
-	if err != nil {
+	if h.registrarDenegacionActor(r, s, codigo, accion, recurso) != "" {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
+	}
+	fallo(w, estado, codigo)
+}
+
+// registrarDenegacionActor audita la denegación con la sesión nominal. Devuelve
+// "" si quedó registrada o la clase cerrada de lo que impidió registrarla.
+func (h *Handler) registrarDenegacionActor(r *http.Request, s SesionConfiable,
+	codigo, accion, recurso string) string {
+	actor, err := s.Actor.Clonar()
+	if err != nil {
+		return "denegacion_actor"
 	}
 	resultado, err := s.Evidencia.ResultadoContexto.Clonar()
 	if err != nil {
-		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
-		return
+		return "denegacion_evidencia"
 	}
 	evidencia := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: s.Evidencia.Vinculo}
 	if evidencia.ValidarPara(actor) != nil {
-		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
-		return
+		return "denegacion_evidencia"
 	}
 	registro := DenegacionADMIN{SesionResuelta: true, Codigo: codigo, Accion: accion, RecursoRef: recurso,
 		ActorPersonaRef: actor.PersonaRef, PerfilActivoRef: actor.PerfilActivoRef,
 		CorrelacionRef: s.CorrelacionRef, Actor: actor, Evidencia: evidencia}
 	if h.auditor.RegistrarDenegacionADMIN(r.Context(), registro) != nil {
-		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
-		return
+		return "denegacion_auditoria"
 	}
-	fallo(w, estado, codigo)
+	return ""
 }
 
 func fallo(w http.ResponseWriter, estado int, codigo string) {
