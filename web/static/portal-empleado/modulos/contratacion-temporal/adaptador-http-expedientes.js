@@ -2,7 +2,7 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL,
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
-} from "./contrato-expedientes.js?v=20261009-ct-bolsa-cohorte-v9";
+} from "./contrato-expedientes.js?v=20261010-ct-ficha-cohorte-v1";
 import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { validarCatalogosAlta } from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
@@ -334,13 +334,13 @@ function costeEstimadoVisible(analisis, locale, t) {
   return analisis.fuente_coste_ref ? t("coste_con_fuente", { importe }) : importe;
 }
 
-function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta) {
+function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta, faseActual = "") {
   const { resumen, solicitud } = detalle;
   const campos = [
     campo("centro", t("cabecera_centro"), referenciaVisible(catalogos, "centros", resumen.centro_ref)),
     campo("categoria", t("cabecera_categoria"), referenciaVisible(catalogos, "categorias", resumen.categoria_ref)),
     campo("modalidad", t("cabecera_modalidad"), etiquetaModalidad(resumen.modalidad_clave, catalogos, t)),
-    campo("fase", t("cabecera_fase_actual"), faseConOrden(resumen.fase_clave, t)),
+    campo("fase", t("cabecera_fase_actual"), faseConOrden(faseActual || resumen.fase_clave, t)),
     campo("estado", t("cabecera_estado"), etiqueta(resumen.estado_clave, t)),
     campo("grupo_subgrupo", t("cabecera_grupo_subgrupo"), solicitud.grupo_subgrupo),
     campo("motivo", t("cabecera_motivo"), etiqueta(solicitud.motivo_clave, t)),
@@ -449,9 +449,11 @@ const ACCIONES_FASES_VISUALES_COMPLETADAS = Object.freeze({
   "registrar_propuesta_formalizacion": ["obtencion_candidato"],
 });
 
-function fasesDesdeHitos(detalle, traducir) {
+// Raíl de fases y clave de la fase en curso: la única fuente de la fase que
+// muestran la cabecera, el siguiente paso y el raíl de la ficha.
+function railFasesDesdeHitos(detalle, traducir) {
   const presentacion = detalle.presentacion_flujo;
-  if (!presentacion) return [];
+  if (!presentacion) return { fases: [], actual: "" };
   const fases = presentacion.fases.map((fase) => ({
     fase_ref: `presentacion:${presentacion.referencia}:${fase.clave}`,
     orden: fase.orden, etiqueta: traducir(fase.clave_i18n), estado_clave: ESTADO_FASE_PENDIENTE,
@@ -477,13 +479,18 @@ function fasesDesdeHitos(detalle, traducir) {
       if (cumplida >= 0) fases[cumplida].estado_clave = ESTADO_FASE_COMPLETADO;
     }
   }
-  const actual = indice(presentacion.fase_actual || FASE_VISUAL[detalle.resumen.fase_clave]);
-  // La fase actual del manifiesto es autoritativa para la posición del rail.
-  // Un hito puede completar una tarea de esa fase sin avanzar el expediente.
-  if (actual >= 0 && (presentacion.fase_actual || fases[actual].estado_clave !== ESTADO_FASE_COMPLETADO)) {
-    fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
+  let actual = indice(presentacion.fase_actual || FASE_VISUAL[detalle.resumen.fase_clave]);
+  // La fase administrativa marca la posición del raíl. Si un hito ya cumplió
+  // esa fase sin cambiarla (el análisis se registra dentro de la solicitud),
+  // la fase en curso es la siguiente pendiente: nunca «Solicitud: ahora» con
+  // el análisis hecho.
+  if (actual >= 0 && fases[actual].estado_clave === ESTADO_FASE_COMPLETADO) {
+    const siguiente = fases.findIndex((fase, posicion) => posicion > actual
+      && fase.estado_clave === ESTADO_FASE_PENDIENTE);
+    if (siguiente >= 0) actual = siguiente;
   }
-  return fases;
+  if (actual >= 0) fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
+  return { fases, actual: actual >= 0 ? presentacion.fases[actual].clave : "" };
 }
 
 // Datos de la petición para prerrellenar el análisis; si no encajan en el
@@ -507,6 +514,7 @@ function datosPeticionParaAnalisis(detalle) {
 function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCompleta) {
   const traducir = crearTraductorContratacionTemporal(mensajes);
   const versionPropuesta = versionPropuestaDocumental(detalle);
+  const rail = railFasesDesdeHitos(detalle, traducir);
   return validarExpedienteContratacionTemporal({
     esquema: "vec.contratacion_temporal.expediente.v1",
     demostracion: false,
@@ -516,7 +524,7 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
     flujo_ref: detalle.resumen.flujo_ref,
     flujo_version: detalle.resumen.flujo_version,
     flujo_huella: detalle.resumen.flujo_huella_sha256,
-    cabecera: cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta),
+    cabecera: cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta, rail.actual),
     ...(detalle.analisis ? { analisis_previo: {
       modalidad_clave: detalle.analisis.modalidad_clave,
       categoria_ref: detalle.analisis.categoria_ref,
@@ -529,7 +537,7 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
     } } : {}),
     // Sin análisis todavía, los datos de la petición prerrellenan el formulario.
     ...datosPeticionParaAnalisis(detalle),
-    fases: fasesDesdeHitos(detalle, traducir),
+    fases: rail.fases,
     historial: historialDesdeHitos(detalle.hitos, locale, t),
     ...(detalle.fiscalizacion ? { fiscalizacion: {
       resultado_clave: detalle.fiscalizacion.resultado_clave,

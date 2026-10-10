@@ -511,7 +511,7 @@ test("no marca la obtención de candidato sin mapeo acreditado del servidor", as
   assert.ok(expediente.fases.every(({ estado_clave }) => estado_clave === "pendiente"));
 });
 
-test("la rectificación conserva una fase actual visible si el servidor sigue en solicitud", async () => {
+test("con el análisis hecho y el servidor aún en solicitud, la fase en curso es la siguiente pendiente", async () => {
   const cliente = clienteFalso([]);
   cliente.consultarDetalleRRHH = async () => ({
     esquema: "vec.contratacion-temporal.detalle-rrhh.v1",
@@ -532,9 +532,9 @@ test("la rectificación conserva una fase actual visible si el servidor sigue en
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
   await adaptador.listar();
   const expediente = await adaptador.obtener(resumen.expediente_ref);
-  assert.equal(expediente.fases[0].estado_clave, "en_curso");
-  assert.equal(expediente.fases[1].estado_clave, "completado");
-  assert.equal(expediente.fases.filter(({ estado_clave }) => estado_clave === "en_curso").length, 1);
+  assert.deepEqual(expediente.fases.map(({ estado_clave }) => estado_clave), ["completado", "completado", "en_curso"]);
+  // La cabecera nombra la misma fase que el raíl.
+  assert.match(expediente.cabecera.find(({ clave }) => clave === "fase").valor, /Gestión de bolsa/u);
 });
 
 test("completa sólo la obtención de candidato desde la propuesta formalizada", async () => {
@@ -812,7 +812,7 @@ test("raíl deriva los cinco estados y reabre fases tras un retorno real", async
     {accion_clave:"contratacion_temporal.cobertura.decidir",fase_origen:"solicitud",fase_destino:"asignacion_unidad",estado_destino:"en_curso"},
   ];
   assert.deepEqual((await proyectar("asignacion_unidad","en_curso",analisisEnSolicitud)).slice(0,4),["completado","completado","en_curso","pendiente"]);
-  assert.deepEqual((await proyectar("solicitud","en_curso",analisisEnSolicitud.slice(0,2))).slice(0,3),["completado","completado","pendiente"]);
+  assert.deepEqual((await proyectar("solicitud","en_curso",analisisEnSolicitud.slice(0,2))).slice(0,3),["completado","completado","en_curso"]);
 });
 
 test("adaptador obtiene catálogo por cliente.catalogosAlta si obtenerCatalogos devuelve null, una sola vez por montaje", async () => {

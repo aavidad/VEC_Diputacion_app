@@ -79,12 +79,10 @@ function renderizarContexto(contexto, t) {
   </dl>`;
   const esNuevaFiscalizacion = contexto.fase_clave === "subsanacion_unidad";
   const informe = t("fiscalizacion_informe_registrado", { version: contexto.version_esperada });
+  // La fase no se repite aquí con otro nombre: la nombra solo la cabecera de la ficha.
   return `<dl class="ct-resumen" data-ct-fiscalizacion-contexto>
     <div><dt>${escaparHTML(t("fiscalizacion_contexto_version"))}</dt><dd>${
   contexto.version_esperada}</dd></div>
-    <div><dt>${escaparHTML(t("fiscalizacion_contexto_fase"))}</dt><dd>${
-  escaparHTML(t(esNuevaFiscalizacion
-    ? "fiscalizacion_fase_subsanacion_unidad" : "fiscalizacion_fase_informe_juridico"))}</dd></div>
     <div><dt>${escaparHTML(t(esNuevaFiscalizacion
       ? "fiscalizacion_contexto_subsanacion" : "fiscalizacion_contexto_informe"))}</dt><dd>${
   escaparHTML(esNuevaFiscalizacion ? t("fiscalizacion_subsanacion_registrada", {

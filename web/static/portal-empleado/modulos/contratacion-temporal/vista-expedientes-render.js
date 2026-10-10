@@ -3,13 +3,13 @@
 import {
   escaparHTML, numeroExpedienteVisible, renderizarAuditoria, renderizarCuadro, renderizarDocumentos,
   renderizarEstadoCarga, renderizarExpediente,
-} from "./componentes-expedientes.js?v=20261009-ct-bolsa-cohorte-v9";
+} from "./componentes-expedientes.js?v=20261010-ct-ficha-cohorte-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20261009-ct-bolsa-cohorte-v9";
+import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20261010-ct-ficha-cohorte-v1";
 
 // Mensajes que describen la carga del cuadro de mando. Pertenecen a la pestaña
 // del cuadro: en «Nueva petición» el formulario no depende de esa carga y no
@@ -291,12 +291,26 @@ export function contextoCoberturaDesdeEstado(estado) {
     clave === "via_cobertura" || clave === "decision_gobernada" || clave === "unidad"
   ));
   if (resumen?.fase_clave !== "solicitud" || resumen.estado_clave !== "en_curso"
-    || resumen.version !== estado.expediente.version || resumen.version < 2
+    || !versionCuadroCoherente(resumen, estado.expediente) || estado.expediente.version < 2
     || !analisisConfirmado || coberturaOAsignacionExistente) return null;
   return Object.freeze({
     expediente_ref: estado.expediente.expediente_ref,
     version_esperada: estado.expediente.version,
   });
+}
+
+// Justo tras registrar o rectificar el análisis la ficha ya se releyó, pero el
+// cuadro en memoria sigue en la versión anterior. El análisis no cambia la
+// fase ni el estado del expediente, así que ese resumen sigue valiendo y la
+// cobertura se ofrece sin esperar a recargar la página.
+const ACCIONES_ANALISIS = new Set([
+  "contratacion_temporal.analisis.registrar", "contratacion_temporal.analisis.rectificar",
+]);
+function versionCuadroCoherente(resumen, expediente) {
+  if (resumen.version === expediente.version) return true;
+  const ultimo = expediente.historial?.at(-1);
+  return resumen.version === expediente.version - 1 && ACCIONES_ANALISIS.has(ultimo?.accion_clave)
+    && ultimo.version_expediente === expediente.version;
 }
 
 export function contextoRectificacionAnalisisDesdeEstado(estado) {
