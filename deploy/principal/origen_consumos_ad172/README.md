@@ -52,18 +52,21 @@ perfiles de consulta propia y `portal_candidato_bolsa`. El canal de las ocho
 ternas es `externa_personal`, según la decisión firmada del candidato.
 El bloque no se aplica por defecto ni concede capacidad al candidato.
 
-Las dos últimas filas de `incorporacionb` (10 de octubre de 2026) sirven al
+Las dos filas de `vec_ct_personal_b2_registro_ct` añadidas el 10 de octubre de 2026 (registrar y `consultar_historica`) sirven al
 registro del vínculo entre expediente y categoría RPT (CT154). Las usa el LOGIN
 de registro CT: la primera para el acto de registro y la segunda para la
-lectura de la publicación RPT que hace la misma transacción CT154. Esas dos
-no están cotejadas aún con el núcleo vivo; necesitan la misma revisión SQL
-independiente antes de aplicarlas.
+lectura de la publicación RPT que hace la misma transacción CT154.
 
 La fila de `listar_habilitadas` del LOGIN RPT (10 de octubre de 2026) sirve a
 la pantalla del vínculo: lista las categorías publicadas para elegir la que se
 vincula. Usa la misma función de lectura de AD3-117 que ya consume ese LOGIN
-para `consultar_historica` y `consultar_uso`. Tampoco está cotejada con el
-núcleo vivo y necesita la misma revisión SQL independiente.
+para `consultar_historica` y `consultar_uso`.
+
+Las tres filas tienen revisión SQL independiente (GO, 10 de octubre de 2026) y
+están cotejadas en solo lectura con el núcleo vivo de la principal (huella
+`d8aa8ecc…`), donde cada LOGIN pertenece a un solo grupo `vec_`. Como la
+principal ya tiene las 21 filas anteriores de `incorporacionb`, el `--ensayo`
+allí debe dar `ternas_nuevas=3`; el total de 24 vale solo para una base vacía.
 
 `incorporacionb` pertenece al recorrido CT→Personal B2 y utiliza los seis
 LOGIN que consumen el núcleo de mutación V3. Sus otros dos LOGIN leen la
