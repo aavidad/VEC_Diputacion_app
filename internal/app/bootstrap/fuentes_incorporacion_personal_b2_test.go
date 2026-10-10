@@ -93,6 +93,82 @@ func TestIncorporacionB2PrevioPersonaConservaDenegacionYCaida(t *testing.T) {
 	}
 }
 
+// lectorDetalleIncorporacionB2Prueba cuenta las lecturas autorizadas del
+// detalle para comprobar que una misma petición no lo lee dos veces.
+type lectorDetalleIncorporacionB2Prueba struct {
+	detalle  ct.DetalleExpedienteRRHH
+	err      error
+	llamadas int
+}
+
+func (l *lectorDetalleIncorporacionB2Prueba) Consultar(context.Context, ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error) {
+	l.llamadas++
+	return l.detalle, l.err
+}
+
+// escenarioFuentesIncorporacionB2Detalle monta las fuentes con la autoridad
+// nominal de prueba y un doble del lector de detalle cuya asignación coincide
+// con la unidad del expediente. La autoridad del escenario no tiene material
+// emisor: la lectura de antecedentes falla por dependencia, nunca por permiso.
+func escenarioFuentesIncorporacionB2Detalle(t *testing.T, metodo string) (*fuentesIncorporacionPersonalB2, *lectorDetalleIncorporacionB2Prueba, context.Context, ReferenciasCTIncorporacionDesarrollo) {
+	t.Helper()
+	base, ctx, _, publicador := escenarioNominalIncorporacion(t)
+	refs := base.referencias
+	refs.PerfilV3Ref = base.soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	if e := extenderPerfilesNominalesB2(base.nominales, refs, &archivoIncorporacionPersonalB2{Protocolo: "personal_b2_v1", OrganismoRef: "organismo:prueba", CatalogoRPTID: "categorias_rpt", ModuloRPTID: "personal"}, base.reloj.Ahora()); e != nil {
+		t.Fatal(e)
+	}
+	for _, p := range base.nominales.todos() {
+		p.contextoEsperadoRegistrado = p.contexto.Resultado
+		p.sesionOperativa = &sesionNominalIncorporacionPrueba{contexto: p.contexto}
+		publicador.publicadas[p.perfilRef()] = instantaneaPublicadaDesarrollo{instantanea: p.plantilla, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}
+	}
+	ctx = context.WithValue(ctx, claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: metodo, ruta: httpct.RutaPlanB2})
+	detalle := &lectorDetalleIncorporacionB2Prueba{detalle: ct.DetalleExpedienteRRHH{
+		Resumen:    ct.ResumenExpedienteRRHH{ExpedienteRef: "expediente:ejercicio:ct:0001", OrganizacionRef: refs.OrganizacionRef, Version: 8, UnidadRef: refs.UnidadRef},
+		Solicitud:  ct.SolicitudOperativaRRHH{MotivoClave: "sustitucion"},
+		Asignacion: &ct.AsignacionOperativaRRHH{UnidadRef: refs.UnidadRef},
+	}}
+	f := &fuentesIncorporacionPersonalB2{organizacionRef: refs.OrganizacionRef, organismoRef: "organismo:prueba", autoridad: &autoridadIncorporacionPersonalB2{perfiles: base.nominales, reloj: base.reloj}, detalle: detalle}
+	return f, detalle, ctx, refs
+}
+
+func TestIncorporacionB2OpcionesLeenDetalleExpedienteUnaSolaVez(t *testing.T) {
+	f, detalle, ctx, _ := escenarioFuentesIncorporacionB2Detalle(t, "GET")
+	if _, e := f.ConsultarOpcionesIncorporacionB2(ctx, "expediente:ejercicio:ct:0001"); !errors.Is(e, ct.ErrConsultaRRHHNoDisponible) {
+		t.Fatalf("la consulta de opciones no llegó a autorizar sus antecedentes: %v", e)
+	}
+	if detalle.llamadas != 1 {
+		t.Fatalf("el detalle del expediente se leyó %d veces en la misma petición", detalle.llamadas)
+	}
+}
+
+func TestIncorporacionB2OpcionesComparanUnidadSinReleerDetalle(t *testing.T) {
+	f, detalle, ctx, _ := escenarioFuentesIncorporacionB2Detalle(t, "GET")
+	detalle.detalle.Asignacion.UnidadRef = "unidad:ajena"
+	if _, e := f.ConsultarOpcionesIncorporacionB2(ctx, "expediente:ejercicio:ct:0001"); !errors.Is(e, ct.ErrPreparacionIncorporacionPendiente) {
+		t.Fatalf("la unidad desigual del expediente pasó sin su comprobación: %v", e)
+	}
+	if detalle.llamadas != 1 {
+		t.Fatalf("la comprobación de unidad volvió a leer el detalle: %d lecturas", detalle.llamadas)
+	}
+}
+
+func TestIncorporacionB2PlanNominalNoRepiteDetalleExpediente(t *testing.T) {
+	f, detalle, ctx, refs := escenarioFuentesIncorporacionB2Detalle(t, "POST")
+	actor, e := f.autoridad.actor(ctx, ct.AccionRegistrarPlanNominalB2)
+	if e != nil {
+		t.Fatal(e)
+	}
+	s := ct.SolicitudPlanNominalB2{OrganizacionRef: refs.OrganizacionRef, ExpedienteRef: "expediente:ejercicio:ct:0001", VersionExpediente: 8}
+	if _, e := f.ResolverPlanNominalB2(ctx, s, actor); !errors.Is(e, ct.ErrConsultaRRHHNoDisponible) {
+		t.Fatalf("el plan nominal no llegó a autorizar sus antecedentes: %v", e)
+	}
+	if detalle.llamadas != 1 {
+		t.Fatalf("el detalle del expediente se leyó %d veces en la misma petición", detalle.llamadas)
+	}
+}
+
 func TestIncorporacionB2SeleccionNoSustituyeFuentesCT(t *testing.T) {
 	a := ct.AntecedentesPlanNominalB2{DocumentoRef: "documento:formalizacion", DocumentoSHA256: strings.Repeat("a", 64)}
 	d := ct.DetalleExpedienteRRHH{Solicitud: ct.SolicitudOperativaRRHH{MotivoClave: "sustitucion"}, Analisis: &ct.AnalisisOperativoRRHH{PeriodoInicio: time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC), PeriodoFin: time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)}}
