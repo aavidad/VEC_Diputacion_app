@@ -61,10 +61,9 @@ RESET ROLE;
 SELECT pg_temp.comprobar('login_sin_temp',NOT has_database_privilege('prueba_ad235_lector',current_database(),'TEMP') AND NOT has_database_privilege('prueba_ad235_lector',current_database(),'CREATE'));
 
 -- 4. Guarda de huella: si la preimagen envuelta cambia, la fachada para (55000).
--- Se reescribe la preimagen dentro de este ROLLBACK con un comentario extra.
-DO $rehacer$ BEGIN
- EXECUTE replace(pg_get_functiondef('vec_autorizacion_atestada_v3.preimagen_gobierno_capacidades_admin_v1(integer)'::regprocedure),'SELECT jsonb_build_object(','SELECT /* cambio */ jsonb_build_object(');
-END $rehacer$;
+-- Se cambia la definición de la preimagen dentro de este ROLLBACK con un ajuste
+-- de configuración (sale en pg_get_functiondef), sin reconstruirla.
+ALTER FUNCTION vec_autorizacion_atestada_v3.preimagen_gobierno_capacidades_admin_v1(integer) SET work_mem='64kB';
 SELECT pg_temp.comprobar('huella_envuelta',pg_temp.sqlstate('SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1('||:ultimo||')')='55000');
 SELECT pg_temp.comprobar('huella_otra_intacta',pg_temp.sqlstate('SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(0)')='ejecutada');
 
