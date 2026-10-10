@@ -65,7 +65,8 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 		return e
 	}
 	for _, modulo := range gruposPerfilesIncorporacionB2() {
-		if modulo == grupoRegistroVinculoRPTB2 && !operacionConfiguradaB2(c, claveRegistroVinculoRPTB2) {
+		if modulo == grupoRegistroVinculoRPTB2 && !operacionConfiguradaB2(c, claveRegistroVinculoRPTB2) ||
+			modulo == grupoListadoCategoriasRPTB2 && !operacionConfiguradaB2(c, claveListadoCategoriasRPTB2) {
 			continue
 		}
 		clave := "incorporacion_b2_" + modulo
@@ -87,7 +88,7 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 		if modulo == "bolsa" {
 			ambitos = []core.AmbitoPerfil{{Clave: "unidad_ref", Valores: []string{refs.UnidadRef}}}
 		}
-		if modulo == "rpt_catalogo" || modulo == "rpt_uso" {
+		if modulo == "rpt_catalogo" || modulo == "rpt_uso" || modulo == grupoListadoCategoriasRPTB2 {
 			ambitos = []core.AmbitoPerfil{{Clave: "catalogo_id", Valores: []string{c.CatalogoRPTID}}, {Clave: "modulo_id", Valores: []string{c.ModuloRPTID}}}
 		}
 		if modulo == "rpt_uso" {
@@ -97,7 +98,7 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 		for _, d := range operacionesIncorporacionB2() {
 			if d.accion != ct.AccionConsultarDetalleRRHH && grupoOperacionIncorporacionB2(d) == modulo {
 				moduloRol := d.modulo
-				if modulo == "rpt_catalogo" || modulo == "rpt_uso" {
+				if modulo == "rpt_catalogo" || modulo == "rpt_uso" || modulo == grupoListadoCategoriasRPTB2 {
 					moduloRol = c.ModuloRPTID
 				}
 				concesion := core.ConcesionRol{Accion: d.accion, ModuloID: moduloRol, TipoRecurso: d.tipo, Finalidades: []string{d.finalidad}, GarantiaMinima: core.AuthAssuranceHigh}
@@ -120,6 +121,9 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 					concesion.CamposPermitidos = []string{"recibo"}
 				case "rpt_publicacion":
 					concesion.CamposPermitidos = []string{"control_actual", "entrada", "publicacion"}
+				case claveListadoCategoriasRPTB2:
+					// Campos que AD3-117 admite para listar_habilitadas.
+					concesion.CamposPermitidos = []string{"categorias", "paginacion", "publicaciones"}
 				case "rpt_uso_consultar":
 					concesion.CamposPermitidos = []string{"uso"}
 				case "rpt_reservar", "rpt_confirmar":
@@ -348,7 +352,8 @@ func asignarPerfilesNominalesB2EnFronteras(s *soporteAltaContratacionTemporalDes
 		if r[i].Ruta == httpct.RutaConsultaDetalleRRHH && r[i].Metodo == http.MethodPost ||
 			r[i].Ruta == httpct.RutaPlanB2 && (r[i].Metodo == http.MethodGet || r[i].Metodo == http.MethodPost) ||
 			r[i].Ruta == httpct.RutaConfirmacionB2 && r[i].Metodo == http.MethodPost ||
-			r[i].Ruta == httpct.RutaVinculoCategoriaRPTB2 && (r[i].Metodo == http.MethodGet || r[i].Metodo == http.MethodPost) {
+			r[i].Ruta == httpct.RutaVinculoCategoriaRPTB2 && (r[i].Metodo == http.MethodGet || r[i].Metodo == http.MethodPost) ||
+			r[i].Ruta == httpct.RutaCategoriasRPTB2 && r[i].Metodo == http.MethodGet {
 			r[i].PerfilesActivosRef = append(append([]string(nil), r[i].PerfilesActivosRef...), ids...)
 		}
 	}
@@ -544,14 +549,22 @@ func materialReservaCorrespondePlanB2(p pp.PlanIncorporacionCT, m vp.MaterialRes
 
 // grupoRegistroVinculoRPTB2 tiene un perfil propio: el registro CT154 no
 // amplía la asignación ya publicada del perfil que sólo consulta el vínculo.
-const grupoRegistroVinculoRPTB2 = "ct_vinculo_registro"
+// El listado de categorías RPT tampoco amplía el perfil que lee una
+// publicación concreta; tiene el suyo.
+const (
+	grupoRegistroVinculoRPTB2   = "ct_vinculo_registro"
+	grupoListadoCategoriasRPTB2 = "rpt_listado"
+)
 
 func gruposPerfilesIncorporacionB2() []string {
-	return []string{"ct155", ct.ModuloContratacion, "personal", "bolsa", "rpt_catalogo", "rpt_uso", grupoRegistroVinculoRPTB2}
+	return []string{"ct155", ct.ModuloContratacion, "personal", "bolsa", "rpt_catalogo", "rpt_uso", grupoRegistroVinculoRPTB2, grupoListadoCategoriasRPTB2}
 }
 func grupoOperacionIncorporacionB2(d descriptorOperacionIncorporacionB2) string {
 	if d.accion == ct.AccionRegistrarVinculoCategoriaRPT {
 		return grupoRegistroVinculoRPTB2
+	}
+	if d.accion == accionListarCategoriasRPTB2 {
+		return grupoListadoCategoriasRPTB2
 	}
 	if d.modulo == ct.ModuloContratacion && d.accion != ct.AccionConsultarVinculoCategoriaRPT {
 		return "ct155"
@@ -574,7 +587,11 @@ func operacionPermitidaEnRutaIncorporacionB2(ctx context.Context, accion string)
 	}
 	if ruta.ruta == httpct.RutaConfirmacionB2 && ruta.metodo == "POST" {
 		_, ok := descriptorIncorporacionB2(accion)
-		return ok && accion != ct.AccionRegistrarVinculoCategoriaRPT
+		return ok && accion != ct.AccionRegistrarVinculoCategoriaRPT && accion != accionListarCategoriasRPTB2
+	}
+	if ruta.ruta == httpct.RutaCategoriasRPTB2 {
+		// La pantalla del vínculo sólo lista las categorías publicadas.
+		return ruta.metodo == "GET" && accion == accionListarCategoriasRPTB2
 	}
 	if ruta.ruta == httpct.RutaVinculoCategoriaRPTB2 {
 		// GET sólo consulta el vínculo; POST lee la publicación RPT y registra.

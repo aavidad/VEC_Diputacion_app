@@ -38,7 +38,7 @@ del núcleo.
 | `bolsa` | `vec_bolsa_llamamientos_desarrollo` | 25 | `vec-server` | por defecto |
 | `documentos` | `vec_documentos_rrhh_ejecutor_desarrollo` | 8 | `vec-server` | por defecto |
 | `incorporacion` | `vec_inc_v2_registro_ct_20260910`, `vec_inc_v2_alta_personal_20260910`, `vec_inc_v2_lector_personal_20260910` | 3 | `vec-server` | por defecto |
-| `incorporacionb` | seis LOGIN nominales `vec_ct_personal_b2_*` de Bolsa, CT, RPT y Personal | 23 | `vec-server` | solo si se pide |
+| `incorporacionb` | seis LOGIN nominales `vec_ct_personal_b2_*` de Bolsa, CT, RPT y Personal | 24 | `vec-server` | solo si se pide |
 | `cronos` | `vec_cronos_emp_ejecutor_desarrollo` | 8 | `vec-server` | solo si se pide |
 | `mibolsa` | `vec_bolsa_llamamientos_desarrollo` | 8 | `vec-server` | solo si se pide |
 
@@ -58,6 +58,12 @@ de registro CT: la primera para el acto de registro y la segunda para la
 lectura de la publicación RPT que hace la misma transacción CT154. Esas dos
 no están cotejadas aún con el núcleo vivo; necesitan la misma revisión SQL
 independiente antes de aplicarlas.
+
+La fila de `listar_habilitadas` del LOGIN RPT (10 de octubre de 2026) sirve a
+la pantalla del vínculo: lista las categorías publicadas para elegir la que se
+vincula. Usa la misma función de lectura de AD3-117 que ya consume ese LOGIN
+para `consultar_historica` y `consultar_uso`. Tampoco está cotejada con el
+núcleo vivo y necesita la misma revisión SQL independiente.
 
 `incorporacionb` pertenece al recorrido CT→Personal B2 y utiliza los seis
 LOGIN que consumen el núcleo de mutación V3. Sus otros dos LOGIN leen la
@@ -172,7 +178,7 @@ ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_AD172_APLICAR=SI-REVISADO V
 
 Sin `VEC_ORIGEN_BLOQUES` se instalan los cinco bloques de RRHH, 107 ternas.
 Cronos se instala aparte cuando se quiera, añadiendo `VEC_ORIGEN_BLOQUES=cronos`.
-Las 23 ternas de B2 se seleccionan únicamente con
+Las 24 ternas de B2 se seleccionan únicamente con
 `VEC_ORIGEN_BLOQUES=incorporacionb`. Antes de usar ese bloque se cotejan sus
 seis LOGIN, la composición B2 y la huella viva del núcleo; la fila técnica
 por sí sola no concede acciones ni acredita un alta en Personal.
@@ -195,8 +201,9 @@ escribir. Este paquete no crea roles ni añade membresías.
   `verificado: ROLLBACK`, con el inventario sin cambios. `ternas_nuevas` cuenta
   solo las filas ausentes de la base, no las 107 seleccionadas por defecto:
   en la preimagen HZ11 faltaban tres de esas 107. Para `incorporacionb` faltaban
-  entonces las 21 de aquella lista; con las dos del registro del vínculo, en
-  una base sin ninguna el ensayo debe mostrar `ternas_nuevas=23`.
+  entonces las 21 de aquella lista; con las dos del registro del vínculo y la
+  del listado de categorías, en una base sin ninguna el ensayo debe mostrar
+  `ternas_nuevas=24`.
 - **Aplicar** termina en `COMMIT` y comprueba que estén todas las ternas, que
   no haya desaparecido ninguna fila previa y que no haya filas nuevas fuera de
   la lista.

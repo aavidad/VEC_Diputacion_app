@@ -67,7 +67,7 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errIdempotencia
 	}
-	if len(claves) != 23 {
+	if len(claves) != 24 {
 		return false, errDerivacion
 	}
 	dsn, err := leerDSN(p.dsnArchivo, p.dsnEntorno)
@@ -82,11 +82,12 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 		return false, errGobiernoConexion
 	}
 	defer g.cerrar()
-	// El registro del vínculo CT154 es opcional: sin su entrada en la
-	// configuración no se coteja ni se escribe su clave.
+	// El registro del vínculo CT154 y el listado de categorías RPT son
+	// opcionales: sin su entrada en la configuración no se coteja ni se
+	// escribe su clave.
 	presentes := claves[:0:0]
 	for i := range claves {
-		if _, ok := c.PersonalB2.Operaciones[claves[i].Capacidad]; ok || claves[i].Capacidad != bootstrap.ClaveRegistroVinculoRPTB2 {
+		if _, ok := c.PersonalB2.Operaciones[claves[i].Capacidad]; ok || !bootstrap.OperacionOpcionalIncorporacionB2(claves[i].Capacidad) {
 			presentes = append(presentes, claves[i])
 		}
 	}

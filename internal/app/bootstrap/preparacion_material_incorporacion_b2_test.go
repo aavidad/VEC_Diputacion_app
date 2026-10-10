@@ -39,7 +39,7 @@ func TestPreparacionIncorporacionB2CoincideConPublicadorYComparteAudiencias(t *t
 			claves[i].Borrar()
 		}
 	}()
-	if len(claves) != 23 {
+	if len(claves) != 24 {
 		t.Fatal("faltan operaciones")
 	}
 	audiencias := map[string][]byte{}

@@ -75,19 +75,32 @@ func operacionesIncorporacionB2() []descriptorOperacionIncorporacionB2 {
 		{"personal_hecho", personal.AccionHechoEmpleadoB2, personal.AudienciaHechoEmpleadoB2, "personal", "hecho_empleado_rrhh", "registrar_hecho_empleado"},
 		{"personal_ficha", personal.AccionFichaEmpleadoB2, personal.AudienciaFichaEmpleadoB2, "personal", "registro_empleado_rrhh", "consultar_ficha_empleado"},
 		{claveRegistroVinculoRPTB2, ct.AccionRegistrarVinculoCategoriaRPT, ct.AudienciaRegistrarVinculoCategoriaRPT, ct.ModuloContratacion, "vinculo_categoria_rpt_ct", finalidadVinculoCategoriaRPTCT},
+		{claveListadoCategoriasRPTB2, accionListarCategoriasRPTB2, ct.AudienciaConsultarPublicacionCategoriaRPT, "rpt", "catalogo_configurable", finalidadLecturaCategoriaRPT},
 	}
 }
 
-// claveRegistroVinculoRPTB2 es la única operación B2 opcional: sin su entrada
-// en la configuración privada no se crea su perfil nominal ni se monta su ruta.
-const claveRegistroVinculoRPTB2 = "ct_vinculo_registrar"
+// Las dos operaciones B2 opcionales: el registro del vínculo CT154 y el
+// listado de categorías RPT publicadas que necesita la pantalla para elegirla.
+// Sin su entrada en la configuración privada no se crea su perfil nominal y
+// su ruta deniega; un servidor ya desplegado sigue arrancando igual.
+const (
+	claveRegistroVinculoRPTB2   = "ct_vinculo_registrar"
+	claveListadoCategoriasRPTB2 = "rpt_listar"
+	accionListarCategoriasRPTB2 = "vec.catalogos.categorias.listar_habilitadas"
+)
 
 // ClaveRegistroVinculoRPTB2 la usa la herramienta de preparación del material.
 const ClaveRegistroVinculoRPTB2 = claveRegistroVinculoRPTB2
 
+// OperacionOpcionalIncorporacionB2 dice a la herramienta de preparación del
+// material qué capacidades sólo se escriben si la configuración las pide.
+func OperacionOpcionalIncorporacionB2(clave string) bool {
+	return clave == claveRegistroVinculoRPTB2 || clave == claveListadoCategoriasRPTB2
+}
+
 // operacionConfiguradaB2 dice si la configuración privada habilita la operación.
 func operacionConfiguradaB2(c *archivoIncorporacionPersonalB2, clave string) bool {
-	if clave != claveRegistroVinculoRPTB2 {
+	if !OperacionOpcionalIncorporacionB2(clave) {
 		return true
 	}
 	if c == nil {

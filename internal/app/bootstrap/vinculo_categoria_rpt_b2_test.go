@@ -208,3 +208,69 @@ func TestVinculoRPTB2FachadaCompletaIntencionYTraduceErrores(t *testing.T) {
 type relojFijoVinculoPrueba struct{}
 
 func (relojFijoVinculoPrueba) Ahora() time.Time { return time.Date(2026, 10, 10, 9, 0, 0, 0, time.UTC) }
+
+// El listado de categorías RPT tiene un perfil nominal propio con los campos
+// que AD3-117 admite para listar_habilitadas, en el ámbito del catálogo de la
+// configuración, y no amplía el perfil que lee una publicación concreta.
+func TestCategoriasRPTB2ListadoConPerfilPropioYCamposExactos(t *testing.T) {
+	config := configuracionB2PuraPrueba().PersonalB2
+	p := perfilesB2VinculoPrueba(t, config)
+	listado := p.b2[accionListarCategoriasRPTB2]
+	lectura := p.b2[ct.AccionConsultarPublicacionCategoriaRPT]
+	if listado == nil || listado == lectura || listado.clave != "incorporacion_b2_"+grupoListadoCategoriasRPTB2 {
+		t.Fatal("el listado no tiene perfil nominal propio")
+	}
+	c := listado.plantilla.VersionRol.Concesiones
+	if len(c) != 1 || c[0].Accion != accionListarCategoriasRPTB2 || !slices.Equal(c[0].CamposPermitidos, []string{"categorias", "paginacion", "publicaciones"}) ||
+		c[0].ModuloID != config.ModuloRPTID || c[0].TipoRecurso != "catalogo_configurable" ||
+		!slices.Equal(c[0].Finalidades, []string{finalidadLecturaCategoriaRPT}) || c[0].GarantiaMinima != core.AuthAssuranceHigh {
+		t.Fatalf("concesión del listado: %+v", c)
+	}
+	a := listado.plantilla.AsignacionPerfil.Ambitos
+	if len(a) != 2 || a[0].Clave != "catalogo_id" || !slices.Equal(a[0].Valores, []string{config.CatalogoRPTID}) ||
+		a[1].Clave != "modulo_id" || !slices.Equal(a[1].Valores, []string{config.ModuloRPTID}) {
+		t.Fatalf("ámbitos del listado: %+v", a)
+	}
+	for _, concesion := range lectura.plantilla.VersionRol.Concesiones {
+		if concesion.Accion == accionListarCategoriasRPTB2 {
+			t.Fatal("el perfil de lectura de una publicación ganó el listado")
+		}
+	}
+
+	sin := configuracionB2PuraPrueba().PersonalB2
+	delete(sin.Operaciones, claveListadoCategoriasRPTB2)
+	if err := validarConfiguracionIncorporacionB2(sin); err != nil {
+		t.Fatalf("configuración previa sin listado rechazada: %v", err)
+	}
+	q := perfilesB2VinculoPrueba(t, sin)
+	if q.b2[accionListarCategoriasRPTB2] != nil || len(q.b2) != len(operacionesIncorporacionB2())-1 {
+		t.Fatal("perfil de listado creado sin configuración")
+	}
+}
+
+// La ruta del listado sólo admite listar con GET; el listado no se cuela en
+// las demás rutas B2.
+func TestCategoriasRPTB2AccionesPermitidasPorRuta(t *testing.T) {
+	en := func(metodo, ruta string) context.Context {
+		return context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: metodo, ruta: ruta})
+	}
+	casos := []struct {
+		ctx    context.Context
+		accion string
+		ok     bool
+	}{
+		{en("GET", httpct.RutaCategoriasRPTB2), accionListarCategoriasRPTB2, true},
+		{en("POST", httpct.RutaCategoriasRPTB2), accionListarCategoriasRPTB2, false},
+		{en("GET", httpct.RutaCategoriasRPTB2), ct.AccionConsultarPublicacionCategoriaRPT, false},
+		{en("GET", httpct.RutaCategoriasRPTB2), ct.AccionConsultarVinculoCategoriaRPT, false},
+		{en("GET", httpct.RutaVinculoCategoriaRPTB2), accionListarCategoriasRPTB2, false},
+		{en("POST", httpct.RutaVinculoCategoriaRPTB2), accionListarCategoriasRPTB2, false},
+		{en("POST", httpct.RutaConfirmacionB2), accionListarCategoriasRPTB2, false},
+		{en("POST", httpct.RutaPlanB2), accionListarCategoriasRPTB2, false},
+	}
+	for _, c := range casos {
+		if operacionPermitidaEnRutaIncorporacionB2(c.ctx, c.accion) != c.ok {
+			t.Errorf("%v %s: se esperaba %v", c.ctx.Value(claveRutaPeticionIncorporacionB2{}), c.accion, c.ok)
+		}
+	}
+}
