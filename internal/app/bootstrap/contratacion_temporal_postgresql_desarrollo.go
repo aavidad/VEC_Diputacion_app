@@ -500,6 +500,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		}
 		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialAuditoriaConsultaDesarrollo())
 	}
+	descriptoresMaterial = materialCargaConvocaDesarrollo(descriptoresMaterial, seleccion.borradoresBolsa) // B1: ver bolsa_carga_convoca_gobernada.go
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -772,6 +773,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 		if cfg.BolsaBorradoresEnabled {
+			dependencias.proveedorMaterialCargaConvoca = proveedorCargaConvocaOpcionalDesarrollo(nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConfirmarCargaConvoca))
 			if seleccion.reincorporacionTitular {
 				etapa = "material_consulta_reincorporacion_titular_bolsa"
 				dependencias.proveedorMaterialConsultaReincorporacionTitular, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
