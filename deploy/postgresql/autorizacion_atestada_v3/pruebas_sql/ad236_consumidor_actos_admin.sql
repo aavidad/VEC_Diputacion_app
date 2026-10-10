@@ -29,9 +29,9 @@ BEGIN
    WHERE audiencia_consumo IN ('vec_autorizacion.administracion_perfiles.ordinario.v1','vec_autorizacion.administracion_perfiles.propuesta.v1','vec_autorizacion.administracion_perfiles.cierre.v1'))
  THEN RAISE EXCEPTION 'AD236: creó claves sin gobierno'; END IF;
 END $estructura$;
-CREATE FUNCTION pg_temp.login_admin() RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $f$
+CREATE FUNCTION pg_temp.login_admin() RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
  SELECT vec_autorizacion_atestada_v3.login_actos_admin_perfiles_valido_v1() $f$;
-CREATE FUNCTION pg_temp.consumir_basura() RETURNS text LANGUAGE plpgsql SECURITY DEFINER AS $f$
+CREATE FUNCTION pg_temp.consumir_basura() RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
 BEGIN
  PERFORM * FROM vec_autorizacion_atestada_v3.registrar_consumir_admin_perfiles_v3(
   convert_to('{}','UTF8'),convert_to('{}','UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
