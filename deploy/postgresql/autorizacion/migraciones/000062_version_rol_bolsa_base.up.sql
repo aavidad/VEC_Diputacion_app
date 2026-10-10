@@ -345,8 +345,8 @@ BEGIN
    WHERE q.perfil_activo_ref=a.perfil_activo_ref AND q.asignacion_ref=a.asignacion_ref)
    OR clock_timestamp()<(a.documento->>'vigente_desde')::timestamptz
    OR clock_timestamp()>=(a.documento->>'vigente_hasta')::timestamptz
-   OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil h
-     WHERE h.asignacion_id=a.asignacion_id AND h.documento->>'estado'='revocada'))
+   OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil rev
+     WHERE rev.asignacion_id=a.asignacion_id AND rev.documento->>'estado'='revocada'))
   THEN RAISE EXCEPTION 'AUT62: asignación ya no actual o vigente' USING ERRCODE='40001';END IF;
  END LOOP;
  RETURN e;
