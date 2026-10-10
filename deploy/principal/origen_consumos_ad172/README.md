@@ -64,9 +64,9 @@ para `consultar_historica` y `consultar_uso`.
 
 Las tres filas tienen revisión SQL independiente (GO, 10 de octubre de 2026) y
 están cotejadas en solo lectura con el núcleo vivo de la principal (huella
-`d8aa8ecc…`), donde cada LOGIN pertenece a un solo grupo `vec_`. Como la
-principal ya tiene las 21 filas anteriores de `incorporacionb`, el `--ensayo`
-allí debe dar `ternas_nuevas=3`; el total de 24 vale solo para una base vacía.
+`d8aa8ecc…`), donde cada LOGIN pertenece a un solo grupo `vec_`. Con las 21
+filas anteriores ya instaladas, estas tres daban `ternas_nuevas=3`; el recuento
+con la lista actual está en el párrafo siguiente.
 
 Las dos filas de `vec_ct_personal_b2_actos` para publicar y retirar entradas
 del catálogo de registro de empleado (10 de octubre de 2026) sirven para que
