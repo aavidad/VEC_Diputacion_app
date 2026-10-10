@@ -8,7 +8,8 @@
  */
 import { textoPortal, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
-import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261009-ct-bolsa-cohorte-v9";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261010-seguimiento-siguiente-v1";
+import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
 
 /** Canales activos: el correo siempre (se envía al emitir); el teléfono si el servidor lo publica. */
 export function canalesAviso(datos) {
@@ -28,9 +29,25 @@ function masReciente(actual, contacto) {
   return !actual || String(contacto.instante) > String(actual.instante) ? contacto : actual;
 }
 
+// Respuestas al llamamiento (portal de la persona o registro de RRHH) que lo resuelven.
+const RESPUESTAS_RESUELTAS = new Set(["aceptado", "renuncia"]);
+
+/**
+ * Una persona ya no está pendiente de llamar si alguna llamada tuvo un
+ * resultado de cierre, si respondió a este llamamiento (aceptó o renunció) o
+ * si su situación en la bolsa ya no es «disponible» (p. ej. RRHH confirmó la
+ * renuncia o está pendiente de incorporarse).
+ */
+function resuelta(candidato, llamadas, cierre, llamamientoRef) {
+  if (llamadas.some((contacto) => cierre.has(contacto.resultado))) return true;
+  if (candidato.estado_clave !== "disponible") return true;
+  const ultimo = candidato.ultimo_llamamiento;
+  return ultimo?.llamamiento_ref === llamamientoRef && RESPUESTAS_RESUELTAS.has(ultimo.resultado);
+}
+
 /**
  * Filas del seguimiento en el orden de la bolsa. «Siguiente» es la primera
- * persona cuya última llamada no tiene un resultado de cierre.
+ * persona que sigue pendiente de llamar.
  */
 export function filasSeguimiento({ candidatos = [], contactos = [], llamamientoRef = "", telefono = null }) {
   const cierre = new Set(telefono?.resultados_cierre || []);
@@ -41,7 +58,7 @@ export function filasSeguimiento({ candidatos = [], contactos = [], llamamientoR
     const llamadas = propios.filter((contacto) => contacto.canal === "telefono");
     const correo = propios.filter((contacto) => contacto.canal === "correo").reduce(masReciente, null);
     const ultimaLlamada = llamadas.reduce(masReciente, null);
-    const cerrada = llamadas.some((contacto) => cierre.has(contacto.resultado));
+    const cerrada = resuelta(candidato, llamadas, cierre, llamamientoRef);
     const siguiente = !cerrada && !siguienteMarcado;
     if (siguiente) siguienteMarcado = true;
     return Object.freeze({ candidato, correo, llamadas: llamadas.length, ultimaLlamada, cerrada, siguiente });
@@ -75,10 +92,15 @@ function enlaceBolsa(bolsaRef, escaparHTML, clase, contenido, extra = "") {
 }
 
 /** Enlace a la vista de seguimiento de un llamamiento concreto. */
-export function enlaceSeguimiento({ bolsaRef, llamamientoRef, escaparHTML, clase, contenido, extra = "" }) {
-  const href = rutaSegura(bolsaRef, "", { seguimiento: llamamientoRef });
+// Con origen (petición de personal), el seguimiento lo conserva para que
+// «Llamar al siguiente» abra el asistente con los mismos datos.
+export function enlaceSeguimiento({ bolsaRef, llamamientoRef, escaparHTML, clase, contenido, extra = "", origen = null }) {
+  const valido = origen ? origenLlamamientoValido(origen) : null;
+  const href = rutaSegura(bolsaRef, "", { seguimiento: llamamientoRef, origen: valido });
   if (!href) return "";
-  return `<a class="${clase}" href="${escaparHTML(href)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}" data-seguimiento="${escaparHTML(llamamientoRef)}"${extra}>${contenido}</a>`;
+  const atributo = (nombre, dato) => (dato ? ` data-origen-${nombre}="${escaparHTML(dato)}"` : "");
+  const datosOrigen = valido ? `${atributo("expediente", valido.expediente_ref)}${atributo("referencia", valido.referencia)}${atributo("centro", valido.centro)}${atributo("inicio", valido.fecha_inicio)}` : "";
+  return `<a class="${clase}" href="${escaparHTML(href)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}" data-seguimiento="${escaparHTML(llamamientoRef)}"${datosOrigen}${extra}>${contenido}</a>`;
 }
 
 export function renderizarSeguimientoLlamamiento({
@@ -107,6 +129,12 @@ export function renderizarSeguimientoLlamamiento({
     llamamientoRef: seguimiento.llamamiento_ref, telefono,
   });
   if (filas.length === 0) return estadoPanel("status", `<p>${textoPortal("panel_seg_vacio")}</p>`);
+  // Sin nadie pendiente, el siguiente paso es otro llamamiento de esta bolsa:
+  // el asistente existente («iniciar-b7») con el origen de la petición si se conoce.
+  const sinPendientes = !filas.some((fila) => fila.siguiente);
+  const chipPendientes = sinPendientes ? `<span class="estado-chip exito">${textoPortal("panel_seg_sin_pendientes")}</span>` : "";
+  const siguiente = sinPendientes
+    ? `<button type="button" class="boton-primario" data-bolsa-accion="iniciar-b7">${textoPortal("panel_seg_llamar_siguiente")}</button>` : "";
   const momento = (contacto) => `<br><small><time datetime="${escaparHTML(contacto.instante)}">${escaparHTML(instanteVisible(contacto.instante))}</time></small>`;
   const cuerpo = filas.map((fila) => {
     const c = fila.candidato;
@@ -126,9 +154,9 @@ export function renderizarSeguimientoLlamamiento({
         <td><button type="button" class="${fila.siguiente ? "boton-primario" : "boton-secundario"}" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${ref}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="${textoPortal("panel_seg_llamar_aria", { persona: c.nombre_visible })}">${textoPortal("panel_seg_llamar")}</button></td>
       </tr>${fichaAbierta ? renderizarFicha(modalFicha, fichaId, 5) : ""}`;
   }).join("");
-  return `${cabecera}
+  return `${siguiente ? encabezadoVista("", titulo, "", `${volver}${siguiente}`) : cabecera}
     <section class="panel" data-bolsa-b5-destino="true" tabindex="-1" aria-labelledby="bolsa-seguimiento-titulo">
-      <div class="cabecera-panel"><h3 id="bolsa-seguimiento-titulo">${textoPortal("panel_seg_tabla")}</h3></div>
+      <div class="cabecera-panel"><h3 id="bolsa-seguimiento-titulo">${textoPortal("panel_seg_tabla")}</h3>${chipPendientes}</div>
       <div class="tabla-contenedor" tabindex="0" role="region" aria-labelledby="bolsa-seguimiento-titulo">
         <table class="tabla-datos tabla-datos--candidatos">
           <thead><tr><th scope="col">${textoPortal("panel_seg_col_orden")}</th><th scope="col">${textoPortal("panel_seg_col_persona")}</th><th scope="col">${textoPortal("panel_seg_col_correo")}</th><th scope="col">${textoPortal("panel_seg_col_llamadas")}</th><th scope="col">${textoPortal("panel_seg_col_accion")}</th></tr></thead>

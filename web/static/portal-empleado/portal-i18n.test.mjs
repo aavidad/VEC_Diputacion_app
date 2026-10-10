@@ -804,6 +804,11 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-inicio.js", "portal-bolsas-api.js", "portal-panel-interno.js",
     "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js", "portal-menu-bolsa.js"])
     versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v9");
+  // «Llamar al siguiente» en el seguimiento por teléfono renueva este grafo.
+  for (const ruta of ["portal-bolsas-ruta-filtros.js", "portal-bolsas-global.js", "portal-bolsas-seguimiento.js",
+    "portal-inicio.js", "portal-bolsas-api.js", "portal-panel-interno.js",
+    "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261010-seguimiento-siguiente-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
