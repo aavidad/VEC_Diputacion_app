@@ -19,14 +19,15 @@ import (
 // TestValidarPlanVersionRolBolsaRealConAsignacionesPostgreSQL18 valida con la
 // función SQL real de AUT62 un plan B1 construido por el dominio Go con las
 // asignaciones vigentes del rol base, en sus dos modos (primera aplicación y
-// replay). Antes de corregir el alias de la comprobación de revocación,
-// PL/pgSQL tomaba «h.asignacion_id» como campo de la variable «h» y cualquier
-// plan con asignaciones fallaba con 42703 (503 sql_intento_error en vec-admin).
+// replay), y comprueba que una asignación revocada se rechaza con 40001.
+// Antes de corregir el alias de la comprobación de revocación, PL/pgSQL tomaba
+// «h.asignacion_id» como campo de la variable «h» y cualquier plan con
+// asignaciones fallaba con 42703 (503 sql_intento_error en vec-admin).
 //
 // Sólo corre contra una base desechable con AUT62 y el catálogo B1 cargado
 // (por ejemplo, una copia tras los actos ADMIN). El DSN debe ser de un
 // superusuario de esa copia: la función sólo tiene EXECUTE para su
-// propietario. Todo va en una transacción que se revierte.
+// propietario. Cada caso va en una transacción que se revierte.
 func TestValidarPlanVersionRolBolsaRealConAsignacionesPostgreSQL18(t *testing.T) {
 	if os.Getenv("VEC_AUT62_PG_DESECHABLE") != "si" {
 		t.Skip("requiere PostgreSQL 18 desechable con AUT62 y el catálogo B1")
@@ -48,22 +49,53 @@ func TestValidarPlanVersionRolBolsaRealConAsignacionesPostgreSQL18(t *testing.T)
 		t.Fatal(err)
 	}
 	for _, primera := range []bool{true, false} {
-		tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+		r, err := validarPlanB1EnTx(ctx, pool, planJSON, primera, "")
 		if err != nil {
-			t.Fatal(err)
+			t.Errorf("primera=%v: %v", primera, err)
+			continue
 		}
-		var r []byte
-		err = tx.QueryRow(ctx, `SELECT vec_autorizacion.validar_plan_version_rol_bolsa_v1($1::jsonb,$2)`,
-			string(planJSON), primera).Scan(&r)
-		_ = tx.Rollback(context.Background())
-		var pg *pgconn.PgError
-		if errors.As(err, &pg) {
-			t.Fatalf("primera=%v: SQLSTATE %s %q", primera, pg.Code, pg.Message)
+		var entrada struct {
+			Referencia string `json:"referencia"`
 		}
-		if err != nil || len(r) == 0 {
-			t.Fatalf("primera=%v: %v (respuesta %d bytes)", primera, err, len(r))
+		if json.Unmarshal(r, &entrada) != nil || entrada.Referencia != plan.Seleccion.EntradaRef {
+			t.Errorf("primera=%v: entrada devuelta %q, esperada %q", primera, entrada.Referencia, plan.Seleccion.EntradaRef)
 		}
 	}
+	// Una versión posterior «revocada» de la primera asignación del plan.
+	revocar := `INSERT INTO vec_autorizacion.asignacion_perfil(asignacion_ref,asignacion_id,version,perfil_activo_ref,
+	 principal_id,version_rol_ref,huella_sha256,emitida_en,documento)
+	 SELECT 'asignacion:'||asignacion_id||':v'||(version+1),asignacion_id,version+1,perfil_activo_ref,principal_id,
+	  version_rol_ref,repeat('0',64),emitida_en,
+	  jsonb_set(jsonb_set(documento,'{version}',to_jsonb(version+1)),'{estado}','"revocada"')
+	 FROM vec_autorizacion.asignacion_perfil WHERE asignacion_ref=$1`
+	_, err = validarPlanB1EnTx(ctx, pool, planJSON, true, revocar, plan.Asignaciones[0].AsignacionRef)
+	var pg *pgconn.PgError
+	if !errors.As(err, &pg) || pg.Code != "40001" {
+		t.Errorf("asignación revocada: se esperaba 40001 y llegó %v", err)
+	}
+}
+
+// validarPlanB1EnTx llama a la función real dentro de una transacción que se
+// revierte; si previo no está vacío, lo ejecuta antes en la misma transacción.
+func validarPlanB1EnTx(ctx context.Context, pool *pgxpool.Pool, plan []byte, primera bool,
+	previo string, args ...any) ([]byte, error) {
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	if previo != "" {
+		if tag, err := tx.Exec(ctx, previo, args...); err != nil || tag.RowsAffected() != 1 {
+			return nil, errors.Join(errors.New("preparación del caso"), err)
+		}
+	}
+	var r []byte
+	err = tx.QueryRow(ctx, `SELECT vec_autorizacion.validar_plan_version_rol_bolsa_v1($1::jsonb,$2)`,
+		string(plan), primera).Scan(&r)
+	if err == nil && len(r) == 0 {
+		err = errors.New("respuesta vacía")
+	}
+	return r, err
 }
 
 // planB1RealConAsignaciones prepara con el dominio Go un plan sobre la cabeza
