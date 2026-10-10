@@ -1,0 +1,4 @@
+# Personal40: la cobertura de ocupaciones de una plantilla publicada puede constar «completa» si la declara la
+# misma fuente que publicó la plantilla. Requiere Personal17. Una sola vez; sin DOWN.
+# Después, como dato (no migración): deploy/postgresql/personal/datos/organizacion_rpt_2026_v1.sql con -v organismo=…
+deploy/postgresql/personal/migraciones/000040_cobertura_declarada_por_fuente_plantilla.up.sql
