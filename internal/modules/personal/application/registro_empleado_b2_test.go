@@ -15,7 +15,7 @@ func TestRegistroB2ObjetivoRRHHIndependienteDelActor(t *testing.T) {
 	fecha, _ := domain.NuevaFechaCivil("2026-09-20")
 	s := domain.SolicitudFichaEmpleadoB2{EmpleadoRef: "emp_" + strings.Repeat("z", 24), OrganismoRef: "organismo:dipgra", Corte: domain.CorteEmpleadoB2{VigenteEn: fecha, ConocidoEn: time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)}, Actor: actor}
 	m, err := domain.NuevoMaterialFichaEmpleadoB2(s)
-	if err != nil || m.Recurso().Referencia != s.EmpleadoRef || m.Recurso().Ambitos["empleado_ref"] != s.EmpleadoRef || bytes.Contains(m.Canonico(), []byte(`"empleado_ref":"emp_`+strings.Repeat("a", 24)+`"`)) {
+	if err != nil || m.Recurso().Referencia != s.EmpleadoRef || m.Recurso().Atributos["empleado_ref"] != s.EmpleadoRef || len(m.Recurso().Ambitos) != 1 || bytes.Contains(m.Canonico(), []byte(`"empleado_ref":"emp_`+strings.Repeat("a", 24)+`"`)) {
 		t.Fatalf("objetivo RRHH o material: %v", err)
 	}
 	if m.Recurso().Ambitos["organismo_ref"] != s.OrganismoRef {

@@ -65,6 +65,11 @@ DELETE FROM vec_personal.relacion_servicio_historia;
 COMMIT;
 SQL
 admin < "$sql"
+# Personal43: la entrada publicada o retirada pasa a los atributos del recurso.
+up43="$repo_dir/deploy/postgresql/personal/migraciones/000043_catalogo_b2_entrada_en_atributos.up.sql"
+sed '$s/^COMMIT;/ROLLBACK;/' "$up43" | admin
+admin < "$up43"
+if admin < "$up43" >/dev/null 2>&1; then fallo 'segunda aplicación de Personal43 aceptada'; fi
 [[ $(valor "SELECT has_function_privilege('vec_cat_runtime','vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') AND NOT has_table_privilege('vec_cat_runtime','vec_personal.entrada_catalogo_registro_empleado_historia','SELECT') AND NOT has_function_privilege('vec_cat_runtime','vec_personal.validar_entrada_registro_empleado_v1(text,text,text,integer,date)','EXECUTE') AND NOT has_function_privilege('vec_cat_ajeno','vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')") == t ]] || fallo 'ACL divergente'
 "$motor" exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U vec_cat_runtime -d postgres -o /dev/null < "$repo_dir/deploy/postgresql/personal/pruebas_sql/catalogos_registro_empleado_000020.sql"
 [[ $(valor "SELECT bool_and(acto_ref='personal:catalogo:v3:'||encode(sha256(convert_to(decision_ref,'UTF8')),'hex') AND NOT eficacia_administrativa) AND count(*)=2 FROM vec_personal.entrada_catalogo_registro_empleado_historia") == t ]] || fallo 'procedencia interna o eficacia divergente'
@@ -105,4 +110,4 @@ SQL
 for _ in {1..80}; do if valor 'SELECT 1' >/dev/null 2>&1; then break; fi; sleep 0.25; done
 [[ $(valor "SELECT count(*) FROM vec_personal.entrada_catalogo_registro_empleado_historia") == 2 ]] || fallo 'historia cambió tras reinicio'
 [[ $(valor "SELECT estado FROM vec_personal.entrada_catalogo_registro_empleado_actual WHERE organismo_ref='org:sintetico' AND tipo='regimen' AND ref='reg:sintetico' AND version=1") == retirada ]] || fallo 'retirada perdida'
-printf 'Personal-20 PG18: ROLLBACK/COMMIT, ACL, preimagen poblada denegada, publicación/replay/retirada/consulta, caducidad tras locks de clave y entrada, reinicio correctos (AD3 simulado).\n'
+printf 'Personal-20 PG18 con Personal43: ROLLBACK/COMMIT, ACL, preimagen poblada denegada, publicación/replay/retirada/consulta, caducidad tras locks de clave y entrada, reinicio correctos (AD3 simulado).\n'

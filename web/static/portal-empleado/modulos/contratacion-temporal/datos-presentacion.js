@@ -5,7 +5,7 @@
  * no se importa desde la composición interna o productiva.
  */
 
-import { CAPACIDADES_CONTRATACION_TEMPORAL as CAP } from "./contrato-expedientes.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { CAPACIDADES_CONTRATACION_TEMPORAL as CAP } from "./contrato-expedientes.js?v=20261010-ct-b2-catalogo-registro-cohorte-v11";
 import { enriquecerTareasPresentacion } from "./datos-presentacion-ampliacion.js";
 
 const VACIAS = Object.freeze([]);

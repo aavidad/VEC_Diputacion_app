@@ -32,8 +32,9 @@ func LeerConfiguracionPreparacionIncorporacionB2(ruta string) (ConfiguracionPrep
 }
 
 // DerivarClavesIncorporacionB2DesdeMaterialDesarrollo reutiliza los descriptores
-// y la derivación del publicador. Devuelve material para las 24 operaciones, también
-// las opcionales del registro del vínculo CT154 y del listado de categorías RPT;
+// y la derivación del publicador. Devuelve material para las 26 operaciones, también
+// las opcionales del registro del vínculo CT154, del listado de categorías RPT
+// y de publicar y retirar entradas del catálogo de registro de empleado;
 // las operaciones de una misma audiencia usan exactamente la misma clave.
 // Versiones y revisiones de esta derivación no acreditan gobierno publicado:
 // el preparador debe sustituirlas por la fila vigente cotejada antes de escribir.

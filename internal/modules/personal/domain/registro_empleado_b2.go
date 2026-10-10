@@ -132,16 +132,19 @@ func nuevoMaterialConsultaB2(operacion, empleado, organismo string, corte CorteE
 		referencia, tipo = organismo, "empleados_rrhh"
 	}
 	ambitos := map[string]string{}
-	if empleado != "" {
-		ambitos["empleado_ref"] = empleado
-	}
 	if organismo != "" {
 		ambitos["organismo_ref"] = organismo
+	}
+	atributos := map[string]string{"operacion": operacion, "vigente_en": corte.VigenteEn.Texto(), "conocido_en": material.ConocidoEn, "material_sha256": hex.EncodeToString(suma[:])}
+	if empleado != "" {
+		// La ficha la consulta RRHH con competencia sobre el organismo; el
+		// empleado va en los atributos firmados y Personal41 lo coteja.
+		atributos["empleado_ref"] = empleado
 	}
 	recurso := core.RecursoAutorizable{
 		Referencia: referencia, ModuloID: "personal", Tipo: tipo,
 		Ambitos:   ambitos,
-		Atributos: map[string]string{"operacion": operacion, "vigente_en": corte.VigenteEn.Texto(), "conocido_en": material.ConocidoEn, "material_sha256": hex.EncodeToString(suma[:])},
+		Atributos: atributos,
 	}
 	if _, err = recurso.HuellaContextoAutorizacionSHA256(); err != nil {
 		return MaterialConsultaRegistroEmpleadoB2{}, ErrRegistroEmpleadoB2Invalido

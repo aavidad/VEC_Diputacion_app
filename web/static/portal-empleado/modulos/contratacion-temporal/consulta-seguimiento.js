@@ -1,8 +1,8 @@
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261010-ct-b2-catalogo-registro-cohorte-v11";
 import { RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 import { validarReferenciaExpedienteSeguimiento } from "./contrato-seguimiento-incorporacion.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarConsultaSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { renderizarConsultaSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261010-ct-b2-catalogo-registro-cohorte-v11";
 
 // Este listener usa certificado TLS personal. La petición va con credenciales
 // de mismo origen para que el proxy de pruebas con usuario y contraseña la deje

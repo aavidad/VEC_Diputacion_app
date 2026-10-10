@@ -25,7 +25,7 @@ BEGIN
   'perfil_activo_ref','perfil:sintetico:rrhh','persona_version',1,'perfil_version',1);
  efecto:='org:sintetico:regimen:reg:sintetico:1';
  mh:=encode(sha256(convert_to(m::text,'UTF8')),'hex');
- recurso:='{"ambitos":{"objetivo_ref":"'||efecto||'","organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||mh||'","operacion":"publicar"}}';
+ recurso:='{"ambitos":{"organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"'||efecto||'","operacion":"publicar"}}';
  rh:=encode(sha256(convert_to(recurso,'UTF8')),'hex');
  c:=jsonb_build_object('operacion','personal.registro_empleado.catalogo.publicar',
   'audiencia_consumo','vec_personal.registro_empleado.catalogo.publicar.v1',
@@ -39,7 +39,7 @@ BEGIN
   'valida_hasta',cap_hasta);
  m_error:=m||jsonb_build_object('huella_sha256',repeat('0',64));
  error_mh:=encode(sha256(convert_to(m_error::text,'UTF8')),'hex');
- recurso:='{"ambitos":{"objetivo_ref":"'||efecto||'","organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||error_mh||'","operacion":"publicar"}}';
+ recurso:='{"ambitos":{"organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||error_mh||'","objetivo_ref":"'||efecto||'","operacion":"publicar"}}';
  error_rh:=encode(sha256(convert_to(recurso,'UTF8')),'hex');
  c_error:=c||jsonb_build_object('huella_efecto_sha256',error_rh);
  d_error:=d||jsonb_build_object('contexto_recurso_huella_sha256',error_rh);
@@ -51,7 +51,7 @@ BEGIN
  EXCEPTION WHEN SQLSTATE '23514' THEN NULL; END;
  m_error:=m||jsonb_build_object('acto_ref','acto:cliente:forzado');
  error_mh:=encode(sha256(convert_to(m_error::text,'UTF8')),'hex');
- recurso:='{"ambitos":{"objetivo_ref":"'||efecto||'","organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||error_mh||'","operacion":"publicar"}}';
+ recurso:='{"ambitos":{"organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||error_mh||'","objetivo_ref":"'||efecto||'","operacion":"publicar"}}';
  error_rh:=encode(sha256(convert_to(recurso,'UTF8')),'hex');
  c_error:=c||jsonb_build_object('huella_efecto_sha256',error_rh);
  d_error:=d||jsonb_build_object('contexto_recurso_huella_sha256',error_rh);
@@ -61,6 +61,19 @@ BEGIN
    convert_to(x::text,'UTF8'),1,1,'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
   RAISE EXCEPTION 'acto externo aceptado';
  EXCEPTION WHEN SQLSTATE '23514' THEN NULL; END;
+ -- Personal43: la decisión firmada con el canon anterior (entrada en ámbitos)
+ -- o con otra entrada en los atributos no vale para esta publicación.
+ FOREACH error_rh IN ARRAY ARRAY[
+   encode(sha256(convert_to('{"ambitos":{"objetivo_ref":"'||efecto||'","organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||mh||'","operacion":"publicar"}}','UTF8')),'hex'),
+   encode(sha256(convert_to('{"ambitos":{"organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"org:sintetico:regimen:reg:otro:1","operacion":"publicar"}}','UTF8')),'hex')] LOOP
+  BEGIN
+   PERFORM vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(m::text,
+    convert_to((c||jsonb_build_object('huella_efecto_sha256',error_rh))::text,'UTF8'),
+    convert_to((d||jsonb_build_object('contexto_recurso_huella_sha256',error_rh))::text,'UTF8'),'x'::bytea,
+    convert_to(x::text,'UTF8'),1,1,'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
+   RAISE EXCEPTION 'publicación con canon anterior o entrada sustituida aceptada';
+  EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ END LOOP;
  r:=vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(m::text,
   convert_to(c::text,'UTF8'),convert_to(d::text,'UTF8'),'x'::bytea,
   convert_to(x::text,'UTF8'),1,1,'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
@@ -97,7 +110,7 @@ BEGIN
    'idempotencia_ref','22222222-2222-4222-8222-222222222222');
  efecto:='org:sintetico:regimen:reg:sintetico:1';
  mh:=encode(sha256(convert_to(m::text,'UTF8')),'hex');
- recurso:='{"ambitos":{"objetivo_ref":"'||efecto||'","organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||mh||'","operacion":"retirar"}}';
+ recurso:='{"ambitos":{"organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"'||efecto||'","operacion":"retirar"}}';
  rh:=encode(sha256(convert_to(recurso,'UTF8')),'hex');
  c:=c||jsonb_build_object('operacion','personal.registro_empleado.catalogo.retirar',
   'audiencia_consumo','vec_personal.registro_empleado.catalogo.retirar.v1',

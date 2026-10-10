@@ -1,5 +1,5 @@
 import { validarConsultaB2, validarSolicitudPlanB2, validarSolicitudConfirmacionB2, validarReciboB2, fechaCivilB2 } from "./contrato-incorporacion-personal-b2.js";
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261010-ct-b2-catalogo-registro-cohorte-v11";
 import { cargarTextos } from "../../../comun/textos.js";
 
 export const cargarTextosIncorporacionPersonalB2 = (opciones) => cargarTextos("contratacion-temporal-incorporacion-personal-b2", opciones);
@@ -18,6 +18,16 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
     try { valor = t(clave); } catch { valor = resolverEtiqueta?.(clave); }
     if (typeof valor !== "string" || !valor || valor === clave) throw new TypeError("etiqueta_b2_no_disponible");
     return valor;
+  };
+  // Régimen y modalidad se rotulan por su referencia en el catálogo de textos
+  // del idioma («regimen:laboral-temporal» → catalogo_registro.regimen.laboral_temporal);
+  // una entrada que RRHH publique sin traducción muestra la denominación publicada.
+  const rotuloCatalogo = (opcion) => {
+    try {
+      const valor = t(`catalogo_registro.${String(opcion.ref).replaceAll(":", ".").replaceAll("-", "_")}`);
+      if (typeof valor === "string" && valor) return valor;
+    } catch { /* referencia sin texto en el catálogo del idioma */ }
+    return opcion.denominacion;
   };
   let activo = true, controlador = null, consulta = null, opcionesGuardadas = null, recibo = null, fase = "datos", mensaje = "cargando";
   let intencion = null, plan = null, incierto = false, denegado = false, errores = {}, valores = {}, modificado = false;
@@ -89,7 +99,7 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
     if (!vacante || !regimen || !modalidad || !clase || !documento) throw new TypeError("seleccion_b2_no_disponible");
     return `<dl class="ct-resumen">${fila("persona", t("persona_aceptada"))}
       ${fila("puesto", `${vacante.puesto_etiqueta} · ${vacante.plaza_etiqueta}`)}
-      ${fila("regimen", regimen.denominacion)}${fila("modalidad", modalidad.denominacion)}${fila("clase_ocupacion", traducirDato(clase.texto_clave))}
+      ${fila("regimen", rotuloCatalogo(regimen))}${fila("modalidad", rotuloCatalogo(modalidad))}${fila("clase_ocupacion", traducirDato(clase.texto_clave))}
       ${fila("desde", fecha(s.desde))}${fila("hasta", s.hasta ? fecha(s.hasta) : t("sin_fin"))}
       ${fila("motivo", traducirDato(`motivo.${s.motivo_clave}`))}${fila("documento", traducirDato(documento.etiqueta_clave_i18n))}</dl>`;
   }
@@ -112,8 +122,8 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
     return `<form class="ct-formulario" data-b2-form novalidate><fieldset class="ct-bloque"${controlador ? " disabled" : ""}>
       <legend>${e(t("contexto"))}</legend><p>${e(t("persona_aceptada"))}</p>
       <div class="ct-campos">${select("vacante", "puesto", o.vacantes, (x) => `${x.puesto_etiqueta} · ${x.plaza_etiqueta}`)}
-        ${select("regimen", "regimen", o.regimenes, (x) => x.denominacion)}
-        ${select("modalidad", "modalidad", o.modalidades, (x) => x.denominacion)}
+        ${select("regimen", "regimen", o.regimenes, rotuloCatalogo)}
+        ${select("modalidad", "modalidad", o.modalidades, rotuloCatalogo)}
         ${select("clase_ocupacion", "clase_ocupacion", o.clases_ocupacion, (x) => traducirDato(x.texto_clave), true)}${datoFecha("desde")}${datoFecha("hasta")}
         ${select("motivo", "motivo", o.motivos, (x) => traducirDato(`motivo.${x}`))}
         ${select("documento", "documento", o.documentos, (x) => traducirDato(x.etiqueta_clave_i18n))}</div>
