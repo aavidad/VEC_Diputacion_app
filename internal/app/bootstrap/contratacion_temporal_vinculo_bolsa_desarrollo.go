@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -75,7 +76,8 @@ func motivoVinculoEmisionBolsaDesarrollo() core.ReferenciaEntradaCatalogo {
 }
 
 func prepararPerfilVinculoEmisionBolsaCTDesarrollo(ctx context.Context, cfg config.Config,
-	alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo) error {
+	alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo,
+	origen *origenConsultasContratacionTemporalDesarrollo) error {
 	if alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil ||
 		!alta.postgresql.vinculoEmisionBolsa || ctx == nil {
 		return errVinculoEmisionBolsaCTNoDisponible
@@ -88,13 +90,23 @@ func prepararPerfilVinculoEmisionBolsaCTDesarrollo(ctx context.Context, cfg conf
 	if perfil == nil || perfil.clave != clavePerfilFijoAltaCTDesarrollo {
 		return errVinculoEmisionBolsaCTNoDisponible
 	}
+	centrosPeticion, err := origen.centrosOrganizacionPeticion()
+	if err != nil {
+		return err
+	}
 	s.mu.Lock()
-	plantilla, err := plantillaAltaConVinculoBolsaCT(perfil.plantilla)
+	previa, err := plantillaAltaConVinculoBolsaCT(perfil.plantilla, nil)
+	if err != nil {
+		s.mu.Unlock()
+		return err
+	}
+	plantilla, err := plantillaAltaConVinculoBolsaCT(perfil.plantilla, centrosPeticion)
 	if err != nil {
 		s.mu.Unlock()
 		return err
 	}
 	perfil.plantillaVinculoBolsa = &plantilla
+	perfil.plantillaVinculoBolsaPrevia = &previa
 	perfil.rutas[httpinterno.RutaVinculosEmisionBolsa] = struct{}{}
 	s.mu.Unlock()
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
@@ -111,11 +123,36 @@ func prepararPerfilVinculoEmisionBolsaCTDesarrollo(ctx context.Context, cfg conf
 		aprobacionProvisionPerfilesRRHHDesdeConfig(cfg), &perfilActualizado)
 }
 
-func plantillaAltaConVinculoBolsaCT(anterior core.InstantaneaAutorizacion) (core.InstantaneaAutorizacion, error) {
+// plantillaAltaConVinculoBolsaCT amplía el rol de alta con la concesión de
+// vínculo. centrosPeticion añade al ámbito de centro las claves originales de
+// la organización (centro-520): un expediente que nace de una petición del
+// centro conserva esa clave, no la adaptada del alta (centro:rpt:520), y el
+// vínculo autoriza sobre el centro guardado en el expediente.
+func plantillaAltaConVinculoBolsaCT(anterior core.InstantaneaAutorizacion, centrosPeticion []string) (core.InstantaneaAutorizacion, error) {
 	plantilla := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(anterior)
 	if plantilla.Validar() != nil || plantilla.VersionRol.Version != 1 || len(plantilla.VersionRol.Concesiones) != 1 ||
 		plantilla.VersionRol.Concesiones[0].Accion != ports.AccionCrearSolicitud {
 		return core.InstantaneaAutorizacion{}, errVinculoEmisionBolsaCTNoDisponible
+	}
+	if len(centrosPeticion) > 0 {
+		ampliado := false
+		ambitos := make([]core.AmbitoPerfil, len(plantilla.AsignacionPerfil.Ambitos))
+		for i, ambito := range plantilla.AsignacionPerfil.Ambitos {
+			ambito.Valores = append([]string(nil), ambito.Valores...)
+			if ambito.Clave == "centro_ref" {
+				ampliado = true
+				for _, centro := range centrosPeticion {
+					if !slices.Contains(ambito.Valores, centro) {
+						ambito.Valores = append(ambito.Valores, centro)
+					}
+				}
+			}
+			ambitos[i] = ambito
+		}
+		if !ampliado {
+			return core.InstantaneaAutorizacion{}, errVinculoEmisionBolsaCTNoDisponible
+		}
+		plantilla.AsignacionPerfil.Ambitos = ambitos
 	}
 	plantilla.VersionRol.Version = 2
 	plantilla.VersionRol.Concesiones = append(plantilla.VersionRol.Concesiones, core.ConcesionRol{
@@ -157,6 +194,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) consumirPerfilAltaConVinculo
 	}
 	if actual, valida := instantaneaConsumible(publicada, *p.plantillaVinculoBolsa, s.reloj.Ahora()); valida {
 		return actual, true
+	}
+	// La versión aprobada antes de ampliar los centros de petición sigue
+	// sirviendo, con sus mismos permisos, hasta que la administración apruebe
+	// la nueva por CAS: ni el alta ni el vínculo de un centro del alta se caen.
+	if p.plantillaVinculoBolsaPrevia != nil {
+		if actual, valida := instantaneaConsumible(publicada, *p.plantillaVinculoBolsaPrevia, s.reloj.Ahora()); valida {
+			return actual, true
+		}
 	}
 	if ruta == httpinterno.RutaAltaSolicitudes {
 		return instantaneaConsumible(publicada, p.plantilla, s.reloj.Ahora())
@@ -249,10 +294,26 @@ func (a *autoridadVinculoEmisionBolsaCTDesarrollo) AutorizarVinculoEmisionBolsa(
 	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
 	decision, confirmacion, err := a.alta.autorizador.ExigirSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
 	if err != nil {
-		return vacio, err
+		return vacio, errorAutorizacionVinculoEmisionBolsa(ctx, err)
 	}
 	return a.proveedor.proveerMaterialConfirmacion(ctx, solicitud, decision, confirmacion,
 		motivoVinculoEmisionBolsaDesarrollo(), operativo.Resultado)
+}
+
+// errorAutorizacionVinculoEmisionBolsa separa la denegación del PDP (403) de
+// la indisponibilidad de sus fuentes y registros (503). Antes toda denegación
+// V3 salía como 503 y ocultaba, por ejemplo, un centro fuera del ámbito.
+func errorAutorizacionVinculoEmisionBolsa(ctx context.Context, err error) error {
+	switch {
+	case ctx != nil && ctx.Err() != nil:
+		return ctx.Err()
+	case errors.Is(err, vecports.ErrFuenteAutorizacionNoDisponible),
+		errors.Is(err, vecports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible),
+		errors.Is(err, vecports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible):
+		return ports.ErrVinculoEmisionBolsaNoDisponible
+	default:
+		return ports.ErrAutorizacionDenegada
+	}
 }
 
 func nuevaRutaVinculoEmisionBolsaCTDesarrollo(ctx context.Context,

@@ -75,6 +75,8 @@ func TestCategoriasRPTB2RechazaPeticionesNoPrevistasSinLeer(t *testing.T) {
 		{peticionHTTPB2Prueba(http.MethodGet, RutaCategoriasRPTB2+"?cursor=A", ""), 400},
 		{peticionHTTPB2Prueba(http.MethodGet, RutaCategoriasRPTB2+"?cursor=ab", ""), 400},
 		{peticionHTTPB2Prueba(http.MethodGet, RutaCategoriasRPTB2+"?cursor=categoria&cursor=otra", ""), 400},
+		{peticionHTTPB2Prueba(http.MethodGet, RutaCategoriasRPTB2+"?cursor=categoria:rpt:a&%zz", ""), 400},
+		{peticionHTTPB2Prueba(http.MethodGet, RutaCategoriasRPTB2+"?otro=1&cursor=categoria:rpt:a", ""), 400},
 		{peticionHTTPB2Prueba(http.MethodGet, RutaCategoriasRPTB2+"?limite=5", ""), 400},
 		{peticionHTTPB2Prueba(http.MethodGet, RutaCategoriasRPTB2+"?expediente_ref=expediente:x", ""), 400},
 		{peticionHTTPB2Prueba(http.MethodGet, RutaCategoriasRPTB2+"/", ""), 400},

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
@@ -109,11 +110,14 @@ func leerCursorCategoriasRPTB2(r *http.Request) (string, bool) {
 	if r.URL.RawQuery == "" {
 		return "", true
 	}
-	q, err := url.ParseQuery(r.URL.RawQuery)
-	if err != nil || len(q) != 1 || len(q["cursor"]) != 1 || !patronCursorCategoriasRPTB2.MatchString(q.Get("cursor")) {
+	// La consulta debe ser exactamente «cursor=<valor>», tal cual o escapado:
+	// así se rechaza cualquier par malformado que Query() descartaría.
+	crudo, ok := strings.CutPrefix(r.URL.RawQuery, "cursor=")
+	cursor := r.URL.Query().Get("cursor")
+	if !ok || !patronCursorCategoriasRPTB2.MatchString(cursor) || (crudo != cursor && crudo != url.QueryEscape(cursor)) {
 		return "", false
 	}
-	return q.Get("cursor"), true
+	return cursor, true
 }
 
 // Defensa del canal: la página viene del lector común, que ya verificó cada

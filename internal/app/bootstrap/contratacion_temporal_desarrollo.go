@@ -684,7 +684,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	perfilCTCatalogo := alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef
 	alta.soporte.mu.Unlock()
 	if alta.postgresql.vinculoEmisionBolsa {
-		if err := prepararPerfilVinculoEmisionBolsaCTDesarrollo(context.Background(), cfg, &alta, reloj); err != nil {
+		if err := prepararPerfilVinculoEmisionBolsaCTDesarrollo(context.Background(), cfg, &alta, reloj, origen); err != nil {
 			return nil, nil, nil, err
 		}
 	}

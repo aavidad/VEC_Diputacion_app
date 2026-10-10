@@ -5,11 +5,20 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// claveEntradaCatalogo admite «:» como la autoridad de catálogos en
+// PostgreSQL (vec_catalogos_configurables.publicar, ^[a-z][a-z0-9_.:-]{2,127}$),
+// para claves con espacio de nombres como «categoria:rpt:administrativo». Si
+// el dominio fuera más estricto, una publicación válida en la base se leería
+// como no confiable. La longitud mínima sigue siendo la de las claves
+// documentales: hay catálogos de Personal con claves de una o dos letras.
+var claveEntradaCatalogo = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{0,127}$`)
 
 var (
 	ErrCatalogoConfigurableInvalido = errors.New("vec: catalogo configurable invalido")
@@ -64,7 +73,7 @@ type EntradaCatalogoConfigurable struct {
 }
 
 func (e EntradaCatalogoConfigurable) Validar() error {
-	if !esClaveDocumentalCanonica(e.Clave) || !textoAcotadoCatalogo(e.Etiqueta, maximoCaracteresEtiqueta, true) ||
+	if !claveEntradaCatalogo.MatchString(e.Clave) || !textoAcotadoCatalogo(e.Etiqueta, maximoCaracteresEtiqueta, true) ||
 		!textoAcotadoCatalogo(e.Descripcion, maximoCaracteresDescripcion, false) || e.Orden < 0 ||
 		e.VigenteDesde.IsZero() || (!e.VigenteHasta.IsZero() && !e.VigenteHasta.After(e.VigenteDesde)) ||
 		len(e.Atributos) > maximoAtributosEntradaCatalogo {

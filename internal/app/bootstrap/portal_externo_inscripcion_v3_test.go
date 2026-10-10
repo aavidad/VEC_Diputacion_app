@@ -22,7 +22,7 @@ type consultadorACLMiBolsaInscripcionPrueba struct {
 
 func (q *consultadorACLMiBolsaInscripcionPrueba) QueryRow(_ context.Context, consulta string, args ...any) pgx.Row {
 	q.consulta = consulta
-	if len(args) == 1 {
+	if len(args) == 2 {
 		q.firma = args[0]
 	}
 	return filaACLMiBolsaInscripcionPrueba{q}
@@ -97,10 +97,10 @@ func TestACLPortalExternoDualExactaAntesYDespuesB96(t *testing.T) {
 	}
 	antes := funcionesMiBolsaPortalExternoSinInscripcion()
 	despues := funcionesMiBolsaPortalExternoConInscripcion()
-	if len(antes) != 11 || len(despues) != 12 ||
+	if len(antes) != 12 || len(despues) != 13 ||
 		!funcionesMiBolsaPortalExternoExactas(antes, 0, false) ||
 		!funcionesMiBolsaPortalExternoExactas(despues, 1, true) {
-		t.Fatal("se rompió el arranque B59 anterior o B96 final")
+		t.Fatal("se rompió el arranque B59+B77 anterior o B96 final")
 	}
 	if funcionesMiBolsaPortalExternoExactas(antes, 1, false) ||
 		funcionesMiBolsaPortalExternoExactas(despues, 1, false) ||
@@ -134,7 +134,7 @@ func TestACLPortalExternoDualExactaAntesYDespuesB96(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			q := &consultadorACLMiBolsaInscripcionPrueba{funciones: caso.funciones,
 				permitido: caso.permitido, funcionesB96: caso.n, b96Exacta: caso.exacta == 1}
-			if got := comprobarACLMiBolsaPortalExterno(context.Background(), q); got != caso.espera {
+			if got := comprobarACLMiBolsaPortalExterno(context.Background(), q, false); got != caso.espera {
 				t.Fatalf("preflight = %v", got)
 			}
 			if q.firma != firmaSolicitarInscripcionPortalExterno ||
@@ -145,4 +145,23 @@ func TestACLPortalExternoDualExactaAntesYDespuesB96(t *testing.T) {
 			}
 		})
 	}
+	for _, caso := range []struct {
+		nombre            string
+		funciones         []string
+		funcionesB96      int
+		b96Exacta, espera bool
+	}{
+		{"sin B96", antes, 0, false, false},
+		{"B96 exacta", despues, 1, true, true},
+		{"B96 sobrecargada", despues, 2, true, false},
+	} {
+		t.Run("inscripcion/"+caso.nombre, func(t *testing.T) {
+			q := &consultadorACLMiBolsaInscripcionPrueba{funciones: caso.funciones,
+				permitido: true, funcionesB96: caso.funcionesB96, b96Exacta: caso.b96Exacta}
+			if got := comprobarACLMiBolsaPortalExterno(context.Background(), q, true); got != caso.espera {
+				t.Fatalf("inscripcion requiere B96: obtenido=%v esperado=%v", got, caso.espera)
+			}
+		})
+	}
+
 }

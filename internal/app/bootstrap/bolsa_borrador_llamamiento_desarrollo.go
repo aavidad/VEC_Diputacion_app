@@ -37,6 +37,9 @@ type preparadorBorradorLlamamientoDesarrollo struct {
 	sesion  *seguridadComunDesarrollo
 	soporte *soporteSesionBorradorBolsaDesarrollo
 	generar seguridadvec.GeneradorReferenciasCriptograficas
+	// vigentes admite las bolsas constituidas después de arrancar (carga
+	// CONVOCA). Sin él solo valen las del manifiesto bolsas_ref.
+	vigentes consultaBolsaVigenteDesarrollo
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoBorradorLlamamiento(
@@ -49,22 +52,22 @@ func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoBorradorLlamam
 	return puertosbolsa.ContextoBorradorLlamamientoResuelto{UnidadRef: p.soporte.unidadRef, AmbitoRef: p.soporte.ambitoRef}, nil
 }
 
-func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoSituacionParticipacion(_ context.Context, actor dominiovec.ContextoActor, bolsaRef, participacionRef string) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
+func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoSituacionParticipacion(ctx context.Context, actor dominiovec.ContextoActor, bolsaRef, participacionRef string) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
 	if p == nil || p.soporte == nil || actor.PersonaRef == "" || bolsaRef == "" || participacionRef == "" || p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" {
 		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, errBorradorNoDisponibleEn()
 	}
-	if _, admitida := p.soporte.bolsasRef[bolsaRef]; !admitida {
-		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, dominiovec.ErrAutorizacionDenegada
+	if err := p.admitirBolsa(ctx, bolsaRef); err != nil {
+		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, err
 	}
 	return puertosbolsa.ContextoSituacionParticipacionResuelto{UnidadRef: p.soporte.unidadRef, AmbitoRef: p.soporte.ambitoRef}, nil
 }
 
-func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoContactosBolsa(_ context.Context, actor dominiovec.ContextoActor, bolsaRef string) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
+func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoContactosBolsa(ctx context.Context, actor dominiovec.ContextoActor, bolsaRef string) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
 	if p == nil || p.soporte == nil || actor.PersonaRef == "" || bolsaRef == "" || p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" {
 		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, errBorradorNoDisponibleEn()
 	}
-	if _, admitida := p.soporte.bolsasRef[bolsaRef]; !admitida {
-		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, dominiovec.ErrAutorizacionDenegada
+	if err := p.admitirBolsa(ctx, bolsaRef); err != nil {
+		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, err
 	}
 	return puertosbolsa.ContextoSituacionParticipacionResuelto{UnidadRef: p.soporte.unidadRef, AmbitoRef: p.soporte.ambitoRef}, nil
 }
@@ -669,7 +672,11 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	preparador := &preparadorBorradorLlamamientoDesarrollo{sesion: seguridad, soporte: soporteBolsa, generar: seguridadvec.GeneradorReferenciasCriptograficas{}}
+	vigentes, err := postgresbolsa.NuevoRepositorioConstitucionPostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	preparador := &preparadorBorradorLlamamientoDesarrollo{sesion: seguridad, soporte: soporteBolsa, generar: seguridadvec.GeneradorReferenciasCriptograficas{}, vigentes: vigentes}
 	emisor := &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta, situacion: emisorSituacion, consultaSolicitudesDocumentales: emisorDocumentales, contacto: emisorContacto, consultaContacto: emisorConsultaContacto, datosContacto: emisorDatosContacto, emision: emisorEmision, politicaOfertas: emisorPoliticaOfertas, consultaPoliticaOfertas: emisorConsultaPoliticaOfertas}
 	emisor.cargaConvoca = emisorCargaConvoca
 	if emisor.consultaDatosContacto, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialConsultaDatosContacto); err != nil {
