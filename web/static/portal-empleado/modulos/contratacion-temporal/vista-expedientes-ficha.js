@@ -114,7 +114,8 @@ const PASO_LINEA = Object.freeze({
 /** Línea de las ocho fases: símbolo y palabra (Hecho / Ahora / Falta). */
 export function renderizarLineaFases(expediente, t) {
   if (expediente.fases.length === 0) return "";
-  const pasos = expediente.fases.map((fase) => ({ fase, paso: PASO_LINEA[fase.estado_clave] ?? "falta" }));
+  const pasos = expediente.fases.map((fase) => ({ fase,
+    paso: PASO_LINEA[fase.estado_clave] ?? "falta" }));
   const cuenta = (paso) => pasos.filter((item) => item.paso === paso).length;
   const texto = { hecho: "linea_fase_hecho", ahora: "linea_fase_ahora", "con-incidencia": "linea_fase_incidencia", falta: "linea_fase_falta" };
   return `<nav class="panel ct-exp-fases" aria-labelledby="ct-exp-fases-titulo">

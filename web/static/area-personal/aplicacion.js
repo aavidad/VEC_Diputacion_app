@@ -1,19 +1,19 @@
 import { escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
-import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
+import { idiomaActivoAreaPersonal, iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
   sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261007-p7-imagen-v1";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
-import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261009-ayuda-retoques-v4";
-import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261009-ayuda-retoques-v4";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261009-inscripcion-v1";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261009-inscripcion-v1";
 import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261009-ayuda-retoques-v4";
-import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261009-ayuda-retoques-v4";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261009-ayuda-retoques-v4";
+} from "./vistas/seguimiento-tramites.js?v=20261009-inscripcion-v1";
+import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261009-inscripcion-v1";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261009-inscripcion-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
-import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261009-ayuda-retoques-v4";
-import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261009-ayuda-retoques-v4";
+import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261009-inscripcion-v1";
+import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261009-inscripcion-v1";
 
 
 const RUTAS = Object.freeze({
@@ -29,6 +29,7 @@ const RUTAS = Object.freeze({
   alegaciones: ["areaPersonal.rutas.alegaciones", renderizarAlegaciones],
   mensajes: ["areaPersonal.rutas.mensajes", renderizarMensajes],
   certificados: ["areaPersonal.rutas.certificados", renderizarCertificados],
+  inscripcion: ["areaPersonal.rutas.inscripcion", () => '<div id="inscripcion-bolsa-montaje"></div>'],
   ayuda: ["areaPersonal.rutas.ayuda", renderizarAyuda],
 });
 
@@ -179,14 +180,15 @@ function mostrarError(estado, error) {
   estado.error = error;
 }
 
-// Mi bolsa no recibe el nombre: Bolsa solo lo conserva cifrado en la importación.
-// Sin nombre no se muestra ninguno, ni un rótulo que lo sustituya.
+// Bolsa guarda el nombre cifrado y solo lo envía a su titular, en su propia
+// consulta. Sin nombre no se muestra ninguno, ni un rótulo que lo sustituya.
 export function datosMinimosMiBolsa(consulta) {
+  const nombre = consulta.nombre_visible || "";
   return Object.freeze({
     meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en, busqueda_convocatorias_disponible: false },
-    sesion: { nombre_visible: "", iniciales: "—", metodo: traducir("areaPersonal.miBolsa.identidad.metodoNoFacilitado"), persona_ref: null },
+    sesion: { nombre_visible: nombre, iniciales: (nombre && consulta.iniciales) || "—", metodo: traducir("areaPersonal.miBolsa.identidad.metodoNoFacilitado"), persona_ref: null },
     resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
-    perfil: { referencia: null, nombre_visible: "", identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), telefono: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), domicilio: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), estado_verificacion: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado") },
+    perfil: { referencia: null, nombre_visible: nombre, identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), telefono: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), domicilio: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), estado_verificacion: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado") },
     plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
     disponibilidad: { disponible: false, estado: t("noDisponible") }, capacidades: {},
   });
@@ -225,7 +227,10 @@ function actualizarShell(estado) {
   porId("titulo-vista").textContent = titulo;
   porId("migas-pan").textContent = vista === "inicio" ? t("migas") : t("migasVista", { titulo });
   pintarInicialesSesion(estado, porId("avatar-sesion"), datos.sesion.iniciales);
-  porId("nombre-sesion").textContent = datos.sesion.nombre_visible;
+  const nombre = datos.sesion.nombre_visible; const nombreSesion = porId("nombre-sesion"); nombreSesion.textContent = nombre;
+  // La etiqueta del botón tapa su contenido: el nombre va también en ella y en el title del botón.
+  const botonSesion = nombreSesion.closest?.(".sesion-usuario");
+  if (botonSesion) { botonSesion.title = nombre; botonSesion.setAttribute("aria-label", nombre ? traducir("areaPersonal.preferencias.menuIdentidadNombre", { nombre }) : traducir("areaPersonal.preferencias.menuIdentidad")); }
   porId("perfil-sesion").textContent = datos.sesion.metodo;
   document.querySelectorAll("[data-ruta]").forEach((enlace) => {
     const activa = enlace.dataset.ruta === vista;
@@ -242,6 +247,9 @@ function actualizarShell(estado) {
 
 function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {}) {
   if (!estado.datos) return;
+  const generacion = ++estado.generacionVista;
+  estado.destruirInscripcionBolsa?.();
+  estado.destruirInscripcionBolsa = null;
   estado.destruirHistorialMiBolsa?.();
   estado.destruirHistorialMiBolsa = null;
   estado.desmontarOportunidades?.();
@@ -255,6 +263,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
+  if (estado.vista === "inscripcion") montarVistaInscripcion(estado, generacion);
   if (estado.avisoInicio && estado.vista !== "preferencias") {
     const aviso = document.createElement("p");
     aviso.className = "preferencias-estado preferencias-aviso";
@@ -306,6 +315,36 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   }
 }
 
+// La vista de inscripción se carga aparte y no depende de Mi Bolsa: la API
+// resuelve la identidad y autoriza cada petición, aunque no haya participación.
+function montarVistaInscripcion(estado, generacion) {
+  const contenedor = porId("inscripcion-bolsa-montaje");
+  const vigente = () => estado.generacionVista === generacion && estado.vista === "inscripcion";
+  contenedor.innerHTML = `<p role="status">${escaparHTML(traducir("areaPersonal.html.cargandoInformacion"))}</p>`;
+  estado.cargarVistaInscripcion().then(({ montarInscripcionBolsa }) => {
+    if (!vigente()) return;
+    const montaje = montarInscripcionBolsa({ contenedor, fetchImpl: estado.fetchImpl,
+      idioma: idiomaActivoAreaPersonal(), ventana: window, anunciar,
+      textoBase: (clave) => traducir(clave === "cargando"
+        ? "areaPersonal.html.cargandoInformacion" : clave === "reintentar"
+          ? "areaPersonal.estado.error.reintentar" : "areaPersonal.estado.error.detalle") });
+    estado.destruirInscripcionBolsa = montaje.destruir;
+  }).catch((error) => {
+    if (!vigente()) return;
+    console.error("inscripcion_vista_carga", { tipo: error?.name ?? "Error" });
+    contenedor.innerHTML = renderizarErrorCargaAreaPersonal(error);
+  });
+}
+
+// Entrar o salir de inscripción rehace los datos: su contenedor no usa los de Mi Bolsa.
+function recargarPorInscripcion(estado) {
+  if (estado.vista !== "inscripcion" && !estado.soloInscripcion) return false;
+  estado.datos = null;
+  estado.soloInscripcion = false;
+  void cargar(estado);
+  return true;
+}
+
 function navegar(estado, vista) {
   estado.navegacionVersion += 1;
   if (!rutaDisponible(estado, vista)) vista = "inicio";
@@ -314,6 +353,7 @@ function navegar(estado, vista) {
   window.history.pushState({ vista }, "", crearURL(estado, vista));
   cerrarMenu();
   cerrarMenuIdentidad();
+  if (recargarPorInscripcion(estado)) return;
   if (vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
     estado.datos = null;
     estado.soloPreferencias = false;
@@ -561,6 +601,7 @@ function conectarEventos(estado) {
     const inicioAjeno = inicioAjenoElegido(estado.preferencias.estado);
     estado.vista = parametros.has("vista") ? rutaDesdeURL(estado) : inicioAjeno ? "inicio" : "llamamientos";
     estado.avisoInicio = !parametros.has("vista") && inicioAjeno;
+    if (recargarPorInscripcion(estado)) return;
     if (estado.vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
       estado.datos = null;
       estado.soloPreferencias = false;
@@ -588,6 +629,15 @@ function conectarEventos(estado) {
 
 const inicioAjenoElegido = (e) => Boolean(e && e.version > 0 && e.valores?.inicio !== "bolsas"); // solo elección guardada (versión > 0)
 async function cargar(estado) {
+  const carga = ++estado.cargaDatosVersion;
+  if (estado.vista === "inscripcion" && rutaDisponible(estado, "inscripcion")) {
+    const base = datosMinimosMiBolsa({ consultada_en: "" });
+    estado.datos = { ...base, meta: { origen: "shell_inscripcion" }, sesion: { ...base.sesion, metodo: "" } };
+    estado.soloInscripcion = true;
+    estado.error = null;
+    renderizar(estado);
+    return;
+  }
   if (asegurarShellPreferencias(estado)) {
     renderizar(estado);
     return;
@@ -600,6 +650,7 @@ async function cargar(estado) {
   porId("espacio-trabajo").replaceChildren();
   try {
     const respuesta = await estado.cliente.cargar();
+    if (carga !== estado.cargaDatosVersion) return;
     estado.miBolsaIntentada = true;
     const datos = datosDeRespuesta(respuesta);
     estado.datos = exigirDatosOperativos(datos);
@@ -615,6 +666,7 @@ async function cargar(estado) {
     estado.error = null;
     renderizar(estado);
   } catch (error) {
+    if (carga !== estado.cargaDatosVersion) return;
     estado.miBolsaIntentada = true;
     if (asegurarShellPreferencias(estado)) renderizar(estado);
     else {
@@ -626,7 +678,8 @@ async function cargar(estado) {
 
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
-  errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false } = {}) {
+  errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false,
+  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261009-inscripcion-v1") } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }
@@ -637,6 +690,11 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     cliente,
     vistasDisponibles,
     datos: null,
+    cargarVistaInscripcion,
+    destruirInscripcionBolsa: null,
+    generacionVista: 0,
+    cargaDatosVersion: 0,
+    soloInscripcion: false,
     miBolsaIntentada: false,
     vista: parametros.has("vista") ? rutaDesdeURL({ vistasDisponibles }) : inicioAjeno ? "inicio" : "llamamientos",
     clientePreferencias,

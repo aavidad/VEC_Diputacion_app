@@ -939,3 +939,18 @@ test("una implementación de cabeceras que inyecta autoridad falla antes de red"
   );
   assert.equal(llamadas, 0);
 });
+
+test("el vínculo reconoce rechazos nominales sin conservar una escritura incierta", async () => {
+  const solicitud = { expediente_ref: "expediente:prueba", version_esperada: 4,
+    bolsa_ref: "bolsa:prueba", llamamiento_ref: `llamamiento:${"a".repeat(64)}`,
+    recibo_emision_ref: `recibo:llamamiento:${"a".repeat(64)}`, clave_idempotencia: "clave-vinculo-01" };
+  for (const [estado, codigo] of [[403, "acceso_denegado"], [409, "vinculo_en_conflicto"], [422, "contenido_no_valido"]]) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuestaJSON({ error: {
+      codigo, clave_i18n: `api.contratacion_temporal.vinculo_bolsa.error.${codigo}`,
+      correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+    } }, estado) });
+    await assert.rejects(cliente.vincularLlamamientoBolsa(solicitud), (error) =>
+      error.estado === estado && error.codigo === codigo && error.envelopeValido === true
+        && error.resultadoIndeterminado === false);
+  }
+});

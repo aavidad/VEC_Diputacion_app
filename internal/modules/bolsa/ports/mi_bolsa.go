@@ -69,6 +69,24 @@ type InstantaneaMiBolsa struct {
 	Ofertas []OfertaPortalCandidato
 	// Contactos solo existe si la consulta pidió el estado de su contacto.
 	Contactos []ContactoPortalCandidato
+	// NombrePropio solo existe si la composición sabe resolverlo y la
+	// consulta propia ya quedó autorizada y auditada para esta titular.
+	NombrePropio *NombrePropioMiBolsa
+}
+
+// NombrePropioMiBolsa es el nombre de la titular tal como figura en el acta
+// de su bolsa. Solo se entrega a ella, en su propia consulta.
+type NombrePropioMiBolsa struct {
+	Visible   string
+	Iniciales string
+}
+
+// FuenteNombrePropioMiBolsa descifra el nombre de la persona cuya referencia
+// opaca es candidatoRef, buscándolo solo en las bolsas de su consulta. El
+// candidato procede siempre del contexto autenticado, nunca de HTTP.
+// encontrado=false sin error significa que el acta no permite atribuirlo.
+type FuenteNombrePropioMiBolsa interface {
+	NombrePropio(ctx context.Context, candidatoRef string, bolsas []string) (nombre, apellidos string, encontrado bool, err error)
 }
 
 type ReglasPortalVisibles struct {

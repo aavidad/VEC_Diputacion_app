@@ -44,6 +44,15 @@ test("salir de Candidatos retira su filtro y conserva los parámetros del portal
     "/portal-empleado/?lang=en&estado=pendiente#portal", "un estado sin bolsa no pertenece a su filtro");
 });
 
+test("solo la entrada validada desde CT conserva bolsa y origen al abrir el asistente", () => {
+  const ubicacion = { pathname: "/portal-empleado/", search: "?lang=es&bolsa_ref=bolsa%3A1&origen_expediente=expediente%3Act%3A1&origen_referencia=CT-1&origen_centro=Centro&origen_inicio=2026-10-20" };
+  assert.equal(rutaPortalConFiltroCT(ubicacion, "#bolsa/llamamientos", null, { conservarLlamamiento: true }),
+    `/portal-empleado/${ubicacion.search}#bolsa/llamamientos`);
+  assert.equal(rutaPortalConFiltroCT(ubicacion, "#bolsa/llamamientos"),
+    "/portal-empleado/?lang=es#bolsa/llamamientos", "el menú ordinario no hereda el origen CT");
+  assert.equal(rutaPortalConFiltroCT(ubicacion, "#portal"), "/portal-empleado/?lang=es#portal");
+});
+
 test("Inicio abierto por un enlace anterior limpia la query sin añadir historia", async () => {
   const portal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
   const inicio = portal.indexOf("function vistaDesdeHash()");

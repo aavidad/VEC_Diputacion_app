@@ -222,6 +222,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
 		// Descarga de borradores de la consulta de detalle (AD199/CT177).
 		ports.AudienciaConsumoDescargaBorradorRRHHV3,
+		ports.AudienciaVincularEmisionBolsa,
 		// CT131: sólo al activar el gobierno de plantillas sintéticas.
 		audienciaCatalogoPlantillasCT,
 		"vec_contratacion_temporal.ajustes_reglas.v1",
@@ -298,6 +299,12 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaSolicitarPausaPropia,
 		puertosbolsa.AudienciaSolicitarReactivacionPropia,
 		puertosbolsa.AudienciaResponderLlamamientoPropio,
+		// Inscripción en Bolsa (AD228/AD229): presentar desde el portal
+		// externo; revisar e incorporar en vec-server. Sólo con
+		// VEC_BOLSA_INSCRIPCIONES_ENABLED.
+		audienciaPresentarInscripcionExternaV3,
+		descriptoresMaterialInscripcionRRHHDesarrollo()[0].Audiencia,
+		descriptoresMaterialInscripcionRRHHDesarrollo()[1].Audiencia,
 		puertosbolsa.AudienciaManifestarDisposicionPropia,
 		puertosbolsa.AudienciaPresentarSolicitudDocumentalPropia,
 		puertosbolsa.AudienciaConsultarSolicitudesDocumentalesRRHH,

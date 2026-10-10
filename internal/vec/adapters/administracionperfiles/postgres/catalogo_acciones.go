@@ -67,12 +67,17 @@ func (f *FuenteCatalogoAcciones) ObtenerCatalogoAccionesAdministracionV1(ctx con
 		if ctx.Err() != nil {
 			return vacio, ctx.Err()
 		}
-		return vacio, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		return vacio, ports.ConClaseVersionBolsa("catalogo_consulta", ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 	}
+	// La clase sólo distingue la comprobación para el registro técnico; el
+	// error sigue siendo el mismo para todos los consumidores.
 	catalogo, err := decodificarCatalogoAccionesPublicado(canon, ref, version, huella)
-	if err != nil || ValidarPaqueteCatalogoAccionesV2(paquete, catalogo,
+	if err != nil {
+		return vacio, ports.ConClaseVersionBolsa("catalogo_canon", ports.ErrAutoridadAdministracionPerfilesNoDisponible)
+	}
+	if ValidarPaqueteCatalogoAccionesV2(paquete, catalogo,
 		catalogo.FuenteRef, catalogo.FuenteVersion, catalogo.FuenteHuellaSHA256) != nil {
-		return vacio, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		return vacio, ports.ConClaseVersionBolsa("catalogo_paquete", ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 	}
 	return catalogo, nil
 }

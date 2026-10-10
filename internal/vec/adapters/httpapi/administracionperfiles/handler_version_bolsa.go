@@ -3,6 +3,7 @@ package administracionperfiles
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -79,7 +80,8 @@ func (h *Handler) postVersionarRolBolsaProponer(w http.ResponseWriter, r *http.R
 	catalogo, err := h.fuenteVersionBolsa.ObtenerCatalogoAccionesAdministracionV1(r.Context(),
 		dto.CatalogoRef, dto.CatalogoVersion, dto.CatalogoHuellaSHA256)
 	if err != nil {
-		h.responderErrorGobiernoRol(w, r, sesion, err, dto.OperacionRef)
+		h.responderErrorVersionBolsa(w, r, sesion, ports.ConClaseVersionBolsa("catalogo_consulta", err),
+			dto.OperacionRef, "propuesta_catalogo")
 		return
 	}
 	intencion := domain.IntencionVersionarRolBolsa{CatalogoRef: dto.CatalogoRef,
@@ -96,7 +98,7 @@ func (h *Handler) postVersionarRolBolsaProponer(w http.ResponseWriter, r *http.R
 	}
 	huella, err := plan.HuellaSHA256()
 	if err != nil {
-		h.denegarActor(w, r, sesion, http.StatusServiceUnavailable, "servicio_no_disponible", accion, dto.OperacionRef)
+		h.responderErrorVersionBolsa(w, r, sesion, err, dto.OperacionRef, "propuesta_huella_plan")
 		return
 	}
 	solicitud := domain.SolicitudPropuestaVersionarRolBolsa{OperacionRef: dto.OperacionRef,
@@ -104,11 +106,12 @@ func (h *Handler) postVersionarRolBolsaProponer(w http.ResponseWriter, r *http.R
 		Intencion: intencion, HuellaPlanEsperada: huella, CorrelacionRef: sesion.CorrelacionRef}
 	resultado, err := h.versionBolsa.ProponerVersionarRolBolsa(r.Context(), solicitud)
 	if err != nil {
-		h.responderErrorGobiernoRol(w, r, sesion, err, dto.OperacionRef)
+		h.responderErrorVersionBolsa(w, r, sesion, err, dto.OperacionRef, "propuesta_servicio")
 		return
 	}
 	propuesta := resultado.Propuesta
 	if propuesta.Material.OperacionRef != dto.OperacionRef || propuesta.Material.Plan.VersionRolObjetivoRef != plan.VersionRolObjetivoRef {
+		h.registrarClaseVersionBolsa(r, "propuesta_respuesta_incoherente")
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
@@ -153,10 +156,11 @@ func (h *Handler) postVersionarRolBolsaCerrar(w http.ResponseWriter, r *http.Req
 	}
 	cierre, err := h.versionBolsa.CerrarVersionarRolBolsaPorReferencia(r.Context(), solicitud)
 	if err != nil {
-		h.responderErrorGobiernoRol(w, r, sesion, err, dto.PropuestaRef)
+		h.responderErrorVersionBolsa(w, r, sesion, err, dto.PropuestaRef, "cierre_servicio")
 		return
 	}
 	if cierre.ValidarPara(solicitud) != nil || cierre.Recibo == nil {
+		h.registrarClaseVersionBolsa(r, "cierre_respuesta_incoherente")
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
@@ -173,4 +177,68 @@ func (h *Handler) postVersionarRolBolsaCerrar(w http.ResponseWriter, r *http.Req
 		cierre.Material.Plan.VersionRolObjetivoRef, cierre.Recibo.ReciboRef,
 		cierre.Recibo.AuditoriaRef, cierre.AuditoriaAccesoRef, cierre.ConfirmadoEn,
 		len(cierre.Recibo.Asignaciones)})
+}
+
+// responderErrorVersionBolsa responde como responderErrorGobiernoRol y, si la
+// respuesta es 503, deja en el registro técnico la clase cerrada del fallo:
+// la del servicio si la trae, si no la etapa del manejador. Nunca la causa.
+func (h *Handler) responderErrorVersionBolsa(w http.ResponseWriter, r *http.Request,
+	sesion SesionConfiable, err error, recurso, etapa string) {
+	clase := ports.ClaseFalloVersionBolsa(err)
+	if clase == "" {
+		clase = etapa
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		clase = "contexto"
+	}
+	if errors.Is(err, ports.ErrGobiernoRolIntentoAuditado) {
+		if !errors.Is(err, domain.ErrAutorizacionDenegada) {
+			h.registrarClaseVersionBolsa(r, clase)
+		}
+		falloError(w, err)
+		return
+	}
+	estado, codigo := http.StatusServiceUnavailable, "servicio_no_disponible"
+	if errors.Is(err, domain.ErrAutorizacionDenegada) {
+		estado, codigo = http.StatusForbidden, "acceso_denegado"
+	}
+	if fallido := h.registrarDenegacionActor(r, sesion, codigo, "escribir", recurso); fallido != "" {
+		h.registrarClaseVersionBolsa(r, fallido)
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	if estado == http.StatusServiceUnavailable {
+		h.registrarClaseVersionBolsa(r, clase)
+	}
+	fallo(w, estado, codigo)
+}
+
+// clasesEtapaVersionBolsa completa la lista cerrada de ports con las etapas
+// del manejador y los fallos de la auditoría de denegación.
+var clasesEtapaVersionBolsa = map[string]struct{}{
+	"propuesta_catalogo": {}, "propuesta_huella_plan": {}, "propuesta_servicio": {},
+	"propuesta_respuesta_incoherente": {}, "cierre_servicio": {}, "cierre_respuesta_incoherente": {},
+	"denegacion_actor": {}, "denegacion_evidencia": {}, "denegacion_auditoria": {}, "contexto": {},
+}
+
+// registrarClaseVersionBolsa escribe una línea con la correlación técnica de
+// la petición (la misma de la línea de acceso), la ruta fija y la clase.
+func (h *Handler) registrarClaseVersionBolsa(r *http.Request, clase string) {
+	if _, ok := clasesEtapaVersionBolsa[clase]; !ok && !ports.ClaseVersionBolsaAdmitida(clase) {
+		clase = "sin_clase"
+	}
+	ruta := "propuestas"
+	if r != nil && r.URL != nil && r.URL.Path == RutaVersionarRolBolsaCerrar {
+		ruta = "cierres"
+	}
+	correlacion := ""
+	if r != nil {
+		correlacion, _ = ports.CorrelacionIncidenciasPeticion(r.Context())
+	}
+	registro := h.registroVersionBolsa
+	if registro == nil {
+		registro = slog.Default()
+	}
+	registro.Error("vec_admin_version_bolsa_no_disponible", "vec.correlacion", correlacion,
+		"ruta", ruta, "clase", clase)
 }

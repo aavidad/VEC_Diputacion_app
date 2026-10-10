@@ -70,6 +70,8 @@ func TestEstaticosSeSirvenComprimidosSiElNavegadorLoAcepta(t *testing.T) {
 	for _, cabeceras := range []map[string]string{
 		{},
 		{"Accept-Encoding": "identity"},
+		{"Accept-Encoding": "gzip;q=0"},
+		{"Accept-Encoding": "br;q=1.0, gzip;q=0"},
 		{"Accept-Encoding": "gzip", "Range": "bytes=0-99"},
 	} {
 		plana := pedirPublico(t, handler, ruta, cabeceras)
@@ -87,6 +89,34 @@ func TestEstaticosSeSirvenComprimidosSiElNavegadorLoAcepta(t *testing.T) {
 	})
 	if condicional.Code != http.StatusNotModified || condicional.Body.Len() != 0 {
 		t.Fatalf("la revalidación debe responder 304 sin cuerpo: %d", condicional.Code)
+	}
+}
+
+func TestAceptaGzipRespetaElValorQ(t *testing.T) {
+	casos := []struct {
+		cabecera string
+		admite   bool
+	}{
+		{"", false},
+		{"identity", false},
+		{"gzip", true},
+		{"GZIP", true},
+		{"br, gzip;q=0.8", true},
+		{"gzip;q=1", true},
+		{"gzip;q=0.5", true},
+		{"gzip ; q = 0.5", true},
+		{"gzip;q=0", false},
+		{"gzip;q=0.0", false},
+		{"br;q=1.0, gzip;q=0", false},
+		{"gzip;q=0, gzip;q=1", false},  // la entrada explícita vale por su orden
+		{"deflate, gzip;q=abc", false}, // q malformado: denegación por defecto
+		{"gzip;q=2", false},            // q fuera de 0..1: denegación por defecto
+		{"xgzip", false},               // no es la codificación gzip
+	}
+	for _, caso := range casos {
+		if got := aceptaGzip(caso.cabecera); got != caso.admite {
+			t.Errorf("Accept-Encoding %q: aceptaGzip devolvió %v, se esperaba %v", caso.cabecera, got, caso.admite)
+		}
 	}
 }
 
