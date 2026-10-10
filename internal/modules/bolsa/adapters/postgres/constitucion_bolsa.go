@@ -330,3 +330,22 @@ func (r *RepositorioConstitucionPostgreSQL) ParticipacionesCandidato(ctx context
 	}
 	return resultado, nil
 }
+
+// BolsaConstituidaVigente dice si la bolsa es la constitución vigente de su
+// categoría (estado «vigente», sin sustituir y sin fecha de fin vencida). Usa
+// la misma función de lectura que el cuadro de RRHH y no devuelve el canónico
+// de la instantánea al proceso.
+func (r *RepositorioConstitucionPostgreSQL) BolsaConstituidaVigente(ctx context.Context, bolsaRef string) (bool, error) {
+	if ctx == nil || r == nil || r.pool == nil || bolsaRef == "" {
+		return false, ports.ErrConstitucionBolsaNoDisponible
+	}
+	var vigente bool
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS (
+		SELECT 1 FROM vec_bolsa_llamamientos.listar_constituciones_v1()
+		 WHERE bolsa_ref = $1 AND estado = 'vigente'
+		   AND (vigente_hasta IS NULL OR vigente_hasta > statement_timestamp()))`, bolsaRef).Scan(&vigente)
+	if err != nil {
+		return false, errorConstitucion(ctx, err)
+	}
+	return vigente, nil
+}
