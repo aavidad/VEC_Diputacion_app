@@ -32,7 +32,8 @@ func LeerConfiguracionPreparacionIncorporacionB2(ruta string) (ConfiguracionPrep
 }
 
 // DerivarClavesIncorporacionB2DesdeMaterialDesarrollo reutiliza los descriptores
-// y la derivación del publicador. Devuelve material para las 22 operaciones;
+// y la derivación del publicador. Devuelve material para las 23 operaciones, también
+// la opcional del registro del vínculo CT154;
 // las operaciones de una misma audiencia usan exactamente la misma clave.
 // Versiones y revisiones de esta derivación no acreditan gobierno publicado:
 // el preparador debe sustituirlas por la fila vigente cotejada antes de escribir.
@@ -97,7 +98,7 @@ func ValidarMaterialPreparadoIncorporacionB2(ruta string, ahora time.Time) error
 		return err
 	}
 	defer r.Close()
-	for _, op := range operacionesIncorporacionB2() {
+	for _, op := range operacionesConfiguradasB2(c.PersonalB2) {
 		if _, err := cargarEmisorOperacionIncorporacionB2(r, c.PersonalB2.Operaciones[op.clave].Capacidad, op.audiencia, relojPreparacionB2(ahora)); err != nil {
 			return err
 		}
@@ -134,7 +135,7 @@ func ValidarMotivosPreparacionIncorporacionB2(ctx context.Context, c Configuraci
 	}
 	defer p.Close()
 	ahora = ahora.UTC().Truncate(time.Microsecond)
-	for _, op := range operacionesIncorporacionB2() {
+	for _, op := range operacionesConfiguradasB2(c.PersonalB2) {
 		m := c.PersonalB2.Operaciones[op.clave].Motivo
 		v, e := pgvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(p, m.CatalogoID)
 		if e != nil || v.ValidarReferenciaMotivoAutorizacionV2(ctx, m, ahora) != nil {

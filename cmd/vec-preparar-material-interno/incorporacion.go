@@ -67,7 +67,7 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errIdempotencia
 	}
-	if len(claves) != 22 {
+	if len(claves) != 23 {
 		return false, errDerivacion
 	}
 	dsn, err := leerDSN(p.dsnArchivo, p.dsnEntorno)
@@ -82,8 +82,16 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 		return false, errGobiernoConexion
 	}
 	defer g.cerrar()
+	// El registro del vínculo CT154 es opcional: sin su entrada en la
+	// configuración no se coteja ni se escribe su clave.
+	presentes := claves[:0:0]
 	for i := range claves {
-		x := &claves[i]
+		if _, ok := c.PersonalB2.Operaciones[claves[i].Capacidad]; ok || claves[i].Capacidad != bootstrap.ClaveRegistroVinculoRPTB2 {
+			presentes = append(presentes, claves[i])
+		}
+	}
+	for i := range presentes {
+		x := &presentes[i]
 		op, ok := c.PersonalB2.Operaciones[x.Capacidad]
 		if !ok || x.EmisorID != ct.emisor {
 			return false, errEmisorDistinto
@@ -165,9 +173,9 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 			grupo.rutas[nombre] = archivo
 		}
 	}
-	for i := range claves {
-		secreto := claves[i].CopiarSecreto()
-		err := escribirPrivado(rt, claves[i].Capacidad+".cap", secreto)
+	for i := range presentes {
+		secreto := presentes[i].CopiarSecreto()
+		err := escribirPrivado(rt, presentes[i].Capacidad+".cap", secreto)
 		clear(secreto)
 		if err != nil {
 			return false, err

@@ -65,6 +65,9 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 		return e
 	}
 	for _, modulo := range gruposPerfilesIncorporacionB2() {
+		if modulo == grupoRegistroVinculoRPTB2 && !operacionConfiguradaB2(c, claveRegistroVinculoRPTB2) {
+			continue
+		}
 		clave := "incorporacion_b2_" + modulo
 		ctx, e := nuevoContextoSinteticoContratacionTemporalDesarrolloConDiscriminador(principalCanalNominalIncorporacion(s), ahora, discriminadorPerfilFijoCTDesarrollo(clave))
 		if e != nil {
@@ -113,7 +116,7 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 				switch d.clave {
 				case "ct_plan_consultar":
 					concesion.CamposPermitidos = []string{"plan"}
-				case "ct_plan_preparar", "ct_origen_confirmar":
+				case "ct_plan_preparar", "ct_origen_confirmar", claveRegistroVinculoRPTB2:
 					concesion.CamposPermitidos = []string{"recibo"}
 				case "rpt_publicacion":
 					concesion.CamposPermitidos = []string{"control_actual", "entrada", "publicacion"}
@@ -344,7 +347,8 @@ func asignarPerfilesNominalesB2EnFronteras(s *soporteAltaContratacionTemporalDes
 		}
 		if r[i].Ruta == httpct.RutaConsultaDetalleRRHH && r[i].Metodo == http.MethodPost ||
 			r[i].Ruta == httpct.RutaPlanB2 && (r[i].Metodo == http.MethodGet || r[i].Metodo == http.MethodPost) ||
-			r[i].Ruta == httpct.RutaConfirmacionB2 && r[i].Metodo == http.MethodPost {
+			r[i].Ruta == httpct.RutaConfirmacionB2 && r[i].Metodo == http.MethodPost ||
+			r[i].Ruta == httpct.RutaVinculoCategoriaRPTB2 && (r[i].Metodo == http.MethodGet || r[i].Metodo == http.MethodPost) {
 			r[i].PerfilesActivosRef = append(append([]string(nil), r[i].PerfilesActivosRef...), ids...)
 		}
 	}
@@ -408,8 +412,21 @@ func (a *autoridadIncorporacionPersonalB2) ConsultaCT(ctx context.Context, c ct.
 	}
 	return a.autorizarRecurso(ctx, ct.AccionConsultarVinculoCategoriaRPT, recursoVinculoCategoriaRPT(c.ExpedienteRef, ct.ModuloContratacion, "vinculo_categoria_rpt_ct", map[string]string{"organizacion_ref": c.OrganizacionRef}, b))
 }
-func (a *autoridadIncorporacionPersonalB2) RegistroCT(context.Context, ct.RegistroVinculoCategoriaRPT) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
-	return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ct.ErrAutorizacionDenegada
+
+// RegistroCT autoriza el acto CT154 con el perfil nominal propio del registro,
+// distinto del que lee la publicación RPT, como exige registrar_vinculo_categoria_rpt_v1.
+// Sin la operación en la configuración privada no hay perfil y se deniega.
+func (a *autoridadIncorporacionPersonalB2) RegistroCT(ctx context.Context, m ct.RegistroVinculoCategoriaRPT) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	if a == nil || a.perfiles == nil || a.perfiles.b2[ct.AccionRegistrarVinculoCategoriaRPT] == nil ||
+		m.CatalogoID != a.catalogoRPTID || m.ModuloID != a.moduloRPTID {
+		return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ct.ErrAutorizacionDenegada
+	}
+	b, e := m.Canonico()
+	if e != nil {
+		return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, e
+	}
+	defer clear(b)
+	return a.autorizarRecurso(ctx, ct.AccionRegistrarVinculoCategoriaRPT, recursoVinculoCategoriaRPT(m.ExpedienteRef, ct.ModuloContratacion, "vinculo_categoria_rpt_ct", map[string]string{"organizacion_ref": m.OrganizacionRef}, b))
 }
 func (a *autoridadIncorporacionPersonalB2) LecturaRPT(ctx context.Context, p domct.PublicacionCategoriaRPT) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	if a == nil || p.Validar() != nil || p.CatalogoID != a.catalogoRPTID || p.ModuloID != a.moduloRPTID {
@@ -525,10 +542,17 @@ func materialReservaCorrespondePlanB2(p pp.PlanIncorporacionCT, m vp.MaterialRes
 	return p.Validar() == nil && m.Consumidor == "personal" && m.UsoRef == p.UsoRPTRef && m.CategoriaID == p.Datos.CatalogoRPTCategoria && m.ReservaReciboRef == p.ReservaRPTRef && m.Publicacion == (vp.ReferenciaPublicacionRPT{CatalogoID: p.Datos.CatalogoRPTID, Version: int(p.Datos.CatalogoRPTVersion), HuellaSHA256: p.Datos.CatalogoRPTHuellaSHA256})
 }
 
+// grupoRegistroVinculoRPTB2 tiene un perfil propio: el registro CT154 no
+// amplía la asignación ya publicada del perfil que sólo consulta el vínculo.
+const grupoRegistroVinculoRPTB2 = "ct_vinculo_registro"
+
 func gruposPerfilesIncorporacionB2() []string {
-	return []string{"ct155", ct.ModuloContratacion, "personal", "bolsa", "rpt_catalogo", "rpt_uso"}
+	return []string{"ct155", ct.ModuloContratacion, "personal", "bolsa", "rpt_catalogo", "rpt_uso", grupoRegistroVinculoRPTB2}
 }
 func grupoOperacionIncorporacionB2(d descriptorOperacionIncorporacionB2) string {
+	if d.accion == ct.AccionRegistrarVinculoCategoriaRPT {
+		return grupoRegistroVinculoRPTB2
+	}
 	if d.modulo == ct.ModuloContratacion && d.accion != ct.AccionConsultarVinculoCategoriaRPT {
 		return "ct155"
 	}
@@ -550,7 +574,14 @@ func operacionPermitidaEnRutaIncorporacionB2(ctx context.Context, accion string)
 	}
 	if ruta.ruta == httpct.RutaConfirmacionB2 && ruta.metodo == "POST" {
 		_, ok := descriptorIncorporacionB2(accion)
-		return ok
+		return ok && accion != ct.AccionRegistrarVinculoCategoriaRPT
+	}
+	if ruta.ruta == httpct.RutaVinculoCategoriaRPTB2 {
+		// GET sólo consulta el vínculo; POST lee la publicación RPT y registra.
+		if ruta.metodo == "GET" {
+			return accion == ct.AccionConsultarVinculoCategoriaRPT
+		}
+		return ruta.metodo == "POST" && (accion == ct.AccionRegistrarVinculoCategoriaRPT || accion == ct.AccionConsultarPublicacionCategoriaRPT)
 	}
 	if ruta.ruta == httpct.RutaCesesNombramiento {
 		// Tras un cese CT ya confirmado sólo se lee el origen B2 y la ficha y

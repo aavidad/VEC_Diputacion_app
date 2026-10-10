@@ -39,7 +39,7 @@ func TestPreparacionIncorporacionB2CoincideConPublicadorYComparteAudiencias(t *t
 			claves[i].Borrar()
 		}
 	}()
-	if len(claves) != 22 {
+	if len(claves) != 23 {
 		t.Fatal("faltan operaciones")
 	}
 	audiencias := map[string][]byte{}
@@ -57,7 +57,7 @@ func TestPreparacionIncorporacionB2CoincideConPublicadorYComparteAudiencias(t *t
 			t.Fatal("clave distinta del publicador real")
 		}
 	}
-	if len(audiencias) != 15 {
+	if len(audiencias) != 16 {
 		t.Fatalf("audiencias distintas: %d", len(audiencias))
 	}
 	for _, secreto := range publicadas {

@@ -179,6 +179,8 @@ func TestFronterasIncorporacionB2SoloPerfilesNominalesYAccionesExactas(t *testin
 		{http.MethodGet, httpinterno.RutaPlanB2, "contratacion_temporal.incorporacion_personal.plan.consultar"},
 		{http.MethodPost, httpinterno.RutaPlanB2, "contratacion_temporal.incorporacion_personal.plan.registrar"},
 		{http.MethodPost, httpinterno.RutaConfirmacionB2, "contratacion_temporal.incorporacion_personal.origen.confirmar"},
+		{http.MethodGet, httpinterno.RutaVinculoCategoriaRPTB2, "contratacion_temporal.categoria_rpt.vinculo.consultar"},
+		{http.MethodPost, httpinterno.RutaVinculoCategoriaRPTB2, "contratacion_temporal.categoria_rpt.vinculo.registrar"},
 	}
 	if len(descriptores) != len(esperadas) {
 		t.Fatalf("fronteras B2: %d", len(descriptores))

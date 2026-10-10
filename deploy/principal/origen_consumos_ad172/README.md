@@ -38,7 +38,7 @@ del núcleo.
 | `bolsa` | `vec_bolsa_llamamientos_desarrollo` | 25 | `vec-server` | por defecto |
 | `documentos` | `vec_documentos_rrhh_ejecutor_desarrollo` | 8 | `vec-server` | por defecto |
 | `incorporacion` | `vec_inc_v2_registro_ct_20260910`, `vec_inc_v2_alta_personal_20260910`, `vec_inc_v2_lector_personal_20260910` | 3 | `vec-server` | por defecto |
-| `incorporacionb` | seis LOGIN nominales `vec_ct_personal_b2_*` de Bolsa, CT, RPT y Personal | 21 | `vec-server` | solo si se pide |
+| `incorporacionb` | seis LOGIN nominales `vec_ct_personal_b2_*` de Bolsa, CT, RPT y Personal | 23 | `vec-server` | solo si se pide |
 | `cronos` | `vec_cronos_emp_ejecutor_desarrollo` | 8 | `vec-server` | solo si se pide |
 | `mibolsa` | `vec_bolsa_llamamientos_desarrollo` | 8 | `vec-server` | solo si se pide |
 
@@ -51,6 +51,13 @@ respuesta. Las ocho operaciones usan el pool integrado de Bolsa, cuyo LOGIN
 perfiles de consulta propia y `portal_candidato_bolsa`. El canal de las ocho
 ternas es `externa_personal`, según la decisión firmada del candidato.
 El bloque no se aplica por defecto ni concede capacidad al candidato.
+
+Las dos últimas filas de `incorporacionb` (10 de octubre de 2026) sirven al
+registro del vínculo entre expediente y categoría RPT (CT154). Las usa el LOGIN
+de registro CT: la primera para el acto de registro y la segunda para la
+lectura de la publicación RPT que hace la misma transacción CT154. Esas dos
+no están cotejadas aún con el núcleo vivo; necesitan la misma revisión SQL
+independiente antes de aplicarlas.
 
 `incorporacionb` pertenece al recorrido CT→Personal B2 y utiliza los seis
 LOGIN que consumen el núcleo de mutación V3. Sus otros dos LOGIN leen la
@@ -84,7 +91,7 @@ de octubre, solo con lecturas:
 
 El emparejamiento de los bloques anteriores a `incorporacionb` se cotejó a
 mano sobre el texto exacto del núcleo, y una segunda revisión independiente
-lo repitió. Para B2, las 21 filas se comparan con el núcleo instalado
+lo repitió. Para B2, las 21 primeras filas se comparan con el núcleo instalado
 post-AD225/AD226, las operaciones del montaje CT→Personal y los seis LOGIN
 de los pools B2. Requieren revisión SQL independiente antes de su aplicación. El
 guion no repite ese cotejo. Sí comprueba que el núcleo es uno de los cotejados:
@@ -165,7 +172,7 @@ ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_AD172_APLICAR=SI-REVISADO V
 
 Sin `VEC_ORIGEN_BLOQUES` se instalan los cinco bloques de RRHH, 107 ternas.
 Cronos se instala aparte cuando se quiera, añadiendo `VEC_ORIGEN_BLOQUES=cronos`.
-Las 21 ternas de B2 se seleccionan únicamente con
+Las 23 ternas de B2 se seleccionan únicamente con
 `VEC_ORIGEN_BLOQUES=incorporacionb`. Antes de usar ese bloque se cotejan sus
 seis LOGIN, la composición B2 y la huella viva del núcleo; la fila técnica
 por sí sola no concede acciones ni acredita un alta en Personal.
@@ -188,7 +195,8 @@ escribir. Este paquete no crea roles ni añade membresías.
   `verificado: ROLLBACK`, con el inventario sin cambios. `ternas_nuevas` cuenta
   solo las filas ausentes de la base, no las 107 seleccionadas por defecto:
   en la preimagen HZ11 faltaban tres de esas 107. Para `incorporacionb` faltaban
-  las 21, por lo que su ensayo allí debe mostrar `ternas_nuevas=21`.
+  entonces las 21 de aquella lista; con las dos del registro del vínculo, en
+  una base sin ninguna el ensayo debe mostrar `ternas_nuevas=23`.
 - **Aplicar** termina en `COMMIT` y comprueba que estén todas las ternas, que
   no haya desaparecido ninguna fila previa y que no haya filas nuevas fuera de
   la lista.

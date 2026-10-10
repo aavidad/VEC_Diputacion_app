@@ -74,7 +74,36 @@ func operacionesIncorporacionB2() []descriptorOperacionIncorporacionB2 {
 		{"personal_alta", personal.AccionAltaEmpleadoB2, personal.AudienciaAltaEmpleadoB2, "personal", "alta_empleado_rrhh", "registrar_empleado"},
 		{"personal_hecho", personal.AccionHechoEmpleadoB2, personal.AudienciaHechoEmpleadoB2, "personal", "hecho_empleado_rrhh", "registrar_hecho_empleado"},
 		{"personal_ficha", personal.AccionFichaEmpleadoB2, personal.AudienciaFichaEmpleadoB2, "personal", "registro_empleado_rrhh", "consultar_ficha_empleado"},
+		{claveRegistroVinculoRPTB2, ct.AccionRegistrarVinculoCategoriaRPT, ct.AudienciaRegistrarVinculoCategoriaRPT, ct.ModuloContratacion, "vinculo_categoria_rpt_ct", finalidadVinculoCategoriaRPTCT},
 	}
+}
+
+// claveRegistroVinculoRPTB2 es la única operación B2 opcional: sin su entrada
+// en la configuración privada no se crea su perfil nominal ni se monta su ruta.
+const claveRegistroVinculoRPTB2 = "ct_vinculo_registrar"
+
+// ClaveRegistroVinculoRPTB2 la usa la herramienta de preparación del material.
+const ClaveRegistroVinculoRPTB2 = claveRegistroVinculoRPTB2
+
+// operacionConfiguradaB2 dice si la configuración privada habilita la operación.
+func operacionConfiguradaB2(c *archivoIncorporacionPersonalB2, clave string) bool {
+	if clave != claveRegistroVinculoRPTB2 {
+		return true
+	}
+	if c == nil {
+		return false
+	}
+	_, ok := c.Operaciones[clave]
+	return ok
+}
+func operacionesConfiguradasB2(c *archivoIncorporacionPersonalB2) []descriptorOperacionIncorporacionB2 {
+	r := []descriptorOperacionIncorporacionB2{}
+	for _, d := range operacionesIncorporacionB2() {
+		if operacionConfiguradaB2(c, d.clave) {
+			r = append(r, d)
+		}
+	}
+	return r
 }
 func descriptorIncorporacionB2(accion string) (descriptorOperacionIncorporacionB2, bool) {
 	for _, d := range operacionesIncorporacionB2() {
@@ -88,7 +117,7 @@ func descriptoresMaterialIncorporacionB2() []descriptorMaterialConsumidorV3Desar
 	resultado := []descriptorMaterialConsumidorV3Desarrollo{}
 	operaciones := operacionesIncorporacionB2()
 	for _, d := range operaciones {
-		if (d.modulo == "personal" && d.audiencia != personal.AudienciaPlanIncorporacionCT) || (d.modulo == "bolsa" && d.accion != bolsa.AccionConsultaAnclajeAceptacionCT) || d.modulo == "rpt" || d.accion == ct.AccionConsultarVinculoCategoriaRPT || d.accion == ct.AccionConsultarDetalleRRHH {
+		if (d.modulo == "personal" && d.audiencia != personal.AudienciaPlanIncorporacionCT) || (d.modulo == "bolsa" && d.accion != bolsa.AccionConsultaAnclajeAceptacionCT) || d.modulo == "rpt" || d.accion == ct.AccionConsultarVinculoCategoriaRPT || d.accion == ct.AccionRegistrarVinculoCategoriaRPT || d.accion == ct.AccionConsultarDetalleRRHH {
 			continue
 		}
 		existe := false
@@ -100,9 +129,10 @@ func descriptoresMaterialIncorporacionB2() []descriptorMaterialConsumidorV3Desar
 		}
 		resultado = append(resultado, descriptorMaterialConsumidorV3Desarrollo{Audiencia: d.audiencia, Dominio: "vec.incorporacion-b2." + d.clave + ".capacidad-v3", Prefijo: "clave:capacidad:incorporacion-b2-" + d.clave + ":", ProveedorNominal: "proveedor-material-incorporacion-b2-" + d.clave})
 	}
-	// Las cuatro audiencias adicionales comparten el mismo publicador V3.
-	// Mantener primero las cinco existentes conserva sus dominios y orden.
-	for _, clave := range [...]string{"bolsa_persona", "ct_vinculo_consultar", "rpt_publicacion", "rpt_reservar"} {
+	// Las cinco audiencias adicionales comparten el mismo publicador V3.
+	// Mantener primero las cinco existentes conserva sus dominios y orden;
+	// el registro del vínculo CT154 va el último por el mismo motivo.
+	for _, clave := range [...]string{"bolsa_persona", "ct_vinculo_consultar", "rpt_publicacion", "rpt_reservar", claveRegistroVinculoRPTB2} {
 		for _, d := range operaciones {
 			if d.clave == clave {
 				resultado = append(resultado, descriptorMaterialConsumidorV3Desarrollo{Audiencia: d.audiencia, Dominio: "vec.incorporacion-b2." + d.clave + ".capacidad-v3", Prefijo: "clave:capacidad:incorporacion-b2-" + d.clave + ":", ProveedorNominal: "proveedor-material-incorporacion-b2-" + d.clave})
@@ -139,7 +169,7 @@ var rolesPoolsIncorporacionB2 = map[string]string{
 
 func validarConfiguracionIncorporacionB2(c *archivoIncorporacionPersonalB2) error {
 	f := ct.ErrComposicionIncorporacionAplicacion
-	if c == nil || c.Protocolo != "personal_b2_v1" || c.OrganismoRef == "" || c.CatalogoRPTID == "" || c.ModuloRPTID == "" || len(c.Pools) != len(rolesPoolsIncorporacionB2) || len(c.Operaciones) != len(operacionesIncorporacionB2()) ||
+	if c == nil || c.Protocolo != "personal_b2_v1" || c.OrganismoRef == "" || c.CatalogoRPTID == "" || c.ModuloRPTID == "" || len(c.Pools) != len(rolesPoolsIncorporacionB2) || len(c.Operaciones) != len(operacionesConfiguradasB2(c)) ||
 		(c.CeseFechaEfecto != "" && !inc.ReglaFechaCesePersonalB2(c.CeseFechaEfecto).Valida()) {
 		return f
 	}
@@ -148,7 +178,7 @@ func validarConfiguracionIncorporacionB2(c *archivoIncorporacionPersonalB2) erro
 			return f
 		}
 	}
-	for _, d := range operacionesIncorporacionB2() {
+	for _, d := range operacionesConfiguradasB2(c) {
 		op, ok := c.Operaciones[d.clave]
 		if !ok || !core.ReferenciaMotivoAutorizacionV2Valida(op.Motivo) || op.Capacidad.File == "" {
 			return f
@@ -199,7 +229,7 @@ func cargarPoolsIncorporacionB2(ctx context.Context, raiz *os.Root, c *archivoIn
 	return pools, cerrar, nil
 }
 func cargarAutoridadIncorporacionB2(raiz *os.Root, c *archivoIncorporacionPersonalB2, p *perfilesNominalesIncorporacion, pools map[string]*pgxpool.Pool, registroPool *pgxpool.Pool, material *proveedorMaterialAltaContratacionTemporalDesarrollo, reloj ct.Reloj) (*autoridadIncorporacionPersonalB2, error) {
-	if validarConfiguracionIncorporacionB2(c) != nil || p == nil || len(p.b2) != len(operacionesIncorporacionB2()) || material == nil || registroPool == nil {
+	if validarConfiguracionIncorporacionB2(c) != nil || p == nil || len(p.b2) != len(operacionesConfiguradasB2(c)) || material == nil || registroPool == nil {
 		return nil, ct.ErrComposicionIncorporacionAplicacion
 	}
 	fuente, e := pgvec.NuevoAlmacenAutorizacion(pools["fuente_autorizacion"])
@@ -211,7 +241,7 @@ func cargarAutoridadIncorporacionB2(raiz *os.Root, c *archivoIncorporacionPerson
 		return nil, e
 	}
 	a := &autoridadIncorporacionPersonalB2{perfiles: p, operaciones: map[string]operacionAutorizadaIncorporacionB2{}, material: material, organismoRef: c.OrganismoRef, reloj: reloj}
-	for _, d := range operacionesIncorporacionB2() {
+	for _, d := range operacionesConfiguradasB2(c) {
 		op := c.Operaciones[d.clave]
 		if d.modulo == "rpt" {
 			d.modulo = c.ModuloRPTID
