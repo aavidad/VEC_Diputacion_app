@@ -90,9 +90,13 @@ func TestVersionarRolBolsaClaseEjecutarSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	intento := func(estado, codigo, auditoria string) []byte {
-		b, err := json.Marshal(map[string]any{"estado": estado, "codigo": codigo,
-			"auditoria_intento": map[string]any{"auditoria_ref": auditoria}})
+	intento := func(estado, codigo, auditoria string, sqlstate ...any) []byte {
+		m := map[string]any{"estado": estado, "codigo": codigo,
+			"auditoria_intento": map[string]any{"auditoria_ref": auditoria}}
+		if len(sqlstate) == 1 {
+			m["sqlstate"] = sqlstate[0]
+		}
+		b, err := json.Marshal(m)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -103,11 +107,33 @@ func TestVersionarRolBolsaClaseEjecutarSQL(t *testing.T) {
 		nombre, clase string
 		fila          filaFalsa
 		invalida      bool
+		denegado      bool
 	}{
-		{"intento_error", "sql_intento_error", filaFalsa{dato: intento("error", "version_rol_bolsa_error", aud)}, false},
-		{"intento_sin_auditoria", "sql_intento_incoherente", filaFalsa{dato: intento("error", "version_rol_bolsa_error", "")}, false},
-		{"respuesta_invalida", "sql_respuesta_invalida", filaFalsa{dato: []byte(`{"estado":"permitido"}`)}, true},
-		{"consulta", "sql_consulta", filaFalsa{err: errors.New("caida")}, false},
+		{"intento_error", "sql_intento_error", filaFalsa{dato: intento("error", "version_rol_bolsa_error", aud)}, false, false},
+		// AUT72: el código SQLSTATE con formato válido pasa a la clase.
+		{"intento_error_sqlstate", "sql_intento_error_42703",
+			filaFalsa{dato: intento("error", "version_rol_bolsa_error", aud, "42703")}, false, false},
+		{"intento_error_sqlstate_letras", "sql_intento_error_22P02",
+			filaFalsa{dato: intento("error", "version_rol_bolsa_error", aud, "22P02")}, false, false},
+		// Sin formato válido no se añade nada: ni minúsculas, ni otra longitud,
+		// ni texto que pudiera llevar una causa.
+		{"intento_error_sqlstate_minusculas", "sql_intento_error",
+			filaFalsa{dato: intento("error", "version_rol_bolsa_error", aud, "4270a")}, false, false},
+		{"intento_error_sqlstate_largo", "sql_intento_error",
+			filaFalsa{dato: intento("error", "version_rol_bolsa_error", aud, "42703 record h")}, false, false},
+		// AUT72 devuelve null cuando el código no tiene formato; un tipo JSON
+		// inesperado tampoco impide confirmar el intento.
+		{"intento_error_sqlstate_nulo", "sql_intento_error",
+			filaFalsa{dato: intento("error", "version_rol_bolsa_error", aud, nil)}, false, false},
+		{"intento_error_sqlstate_numero", "sql_intento_error",
+			filaFalsa{dato: intento("error", "version_rol_bolsa_error", aud, 42703)}, false, false},
+		{"intento_denegado_sqlstate", "sql_intento_denegado_42501",
+			filaFalsa{dato: intento("denegado", "version_rol_bolsa_denegado", aud, "42501")}, false, true},
+		{"intento_denegado", "sql_intento_denegado",
+			filaFalsa{dato: intento("denegado", "version_rol_bolsa_denegado", aud)}, false, true},
+		{"intento_sin_auditoria", "sql_intento_incoherente", filaFalsa{dato: intento("error", "version_rol_bolsa_error", "")}, false, false},
+		{"respuesta_invalida", "sql_respuesta_invalida", filaFalsa{dato: []byte(`{"estado":"permitido"}`)}, true, false},
+		{"consulta", "sql_consulta", filaFalsa{err: errors.New("caida")}, false, false},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			tx := &txGobiernoReferenciaPrueba{fila: caso.fila}
@@ -121,9 +147,15 @@ func TestVersionarRolBolsaClaseEjecutarSQL(t *testing.T) {
 					}
 					return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 				})
-			if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) ||
-				ports.ClaseFalloVersionBolsa(err) != caso.clase || errors.Is(err, domain.ErrAutorizacionDenegada) {
+			if ports.ClaseFalloVersionBolsa(err) != caso.clase ||
+				errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) == caso.denegado ||
+				errors.Is(err, domain.ErrAutorizacionDenegada) != caso.denegado {
 				t.Fatalf("clase=%q err=%v", ports.ClaseFalloVersionBolsa(err), err)
+			}
+			// El intento se confirma también cuando lleva SQLSTATE.
+			if strings.HasPrefix(caso.nombre, "intento_") && caso.nombre != "intento_sin_auditoria" &&
+				!errors.Is(err, ports.ErrGobiernoRolIntentoAuditado) {
+				t.Fatalf("intento sin marca de auditado: %v", err)
 			}
 		})
 	}

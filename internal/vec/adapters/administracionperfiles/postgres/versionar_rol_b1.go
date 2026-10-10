@@ -266,8 +266,12 @@ func (a *AutoridadVersionarRolBolsa) ejecutar(ctx context.Context, actor domain.
 		return ports.ConClaseVersionBolsa("sql_consulta", traducirGobiernoRol(ctx, err))
 	}
 	var intento struct {
-		Estado           string `json:"estado"`
-		Codigo           string `json:"codigo"`
+		Estado string `json:"estado"`
+		Codigo string `json:"codigo"`
+		// SQLSTATE lo devuelve AUT72 (sólo el código). Sin AUT72 falta y la
+		// clase queda sin sufijo; un valor sin formato válido también. Va en
+		// bruto para que un tipo JSON inesperado no impida confirmar el intento.
+		SQLSTATE         json.RawMessage `json:"sqlstate"`
 		AuditoriaIntento struct {
 			AuditoriaRef string `json:"auditoria_ref"`
 		} `json:"auditoria_intento"`
@@ -279,10 +283,13 @@ func (a *AutoridadVersionarRolBolsa) ejecutar(ctx context.Context, actor domain.
 			(intento.Estado == "error" && intento.Codigo != "version_rol_bolsa_error") {
 			return ports.ConClaseVersionBolsa("sql_intento_incoherente", errNoDisponible)
 		}
+		var sqlstate string
+		_ = json.Unmarshal(intento.SQLSTATE, &sqlstate)
+		clase := ports.ClaseIntentoSQLVersionBolsa(intento.Estado, sqlstate)
 		if intento.Estado == "denegado" {
-			errorIntento = domain.ErrAutorizacionDenegada
+			errorIntento = ports.ConClaseVersionBolsa(clase, domain.ErrAutorizacionDenegada)
 		} else {
-			errorIntento = ports.ConClaseVersionBolsa("sql_intento_error", errNoDisponible)
+			errorIntento = ports.ConClaseVersionBolsa(clase, errNoDisponible)
 		}
 	} else if err := validar(b); err != nil {
 		return ports.ConClaseVersionBolsa("sql_respuesta_invalida", err)
