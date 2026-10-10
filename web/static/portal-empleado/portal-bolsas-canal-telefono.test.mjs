@@ -8,7 +8,7 @@ import { crearControladorBolsas, rutaCandidatosBolsa } from "./portal-bolsas-api
 import { validarCanalesLlamamiento } from "./portal-bolsas-contrato.js?v=20261008-canal-telefono-v2";
 import { crearControladorIntentosContacto, llamamientoDeFicha, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
-import { canalesAviso, filasSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261008-bolsa-global-v2";
+import { canalesAviso, enlaceSeguimiento, filasSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261008-bolsa-global-v2";
 import { leerCandidatosBolsaCompartible, leerLlamamientoBolsaCompartible,
   rutaCandidatosBolsaCompartible, rutaLlamamientoBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
@@ -210,13 +210,14 @@ test("iniciar el llamamiento copia el origen de la petición de esa bolsa", asyn
   } finally {
     globalThis.fetch = fetchOriginal;
   }
-  assert.deepEqual(estado.filtrosBolsa.nuevo_llamamiento.origen, { referencia: "2026/CT-00042", centro: "Residencia La Milagrosa" });
+  assert.deepEqual(estado.filtrosBolsa.nuevo_llamamiento.origen,
+    { expediente_ref: "expediente:sintetico:42", referencia: "2026/CT-00042", centro: "Residencia La Milagrosa" });
   estado.vista = "llamamientos";
   estado.llamamientoDesdeCT = true;
   estado.filtrosBolsa = {};
   escuchas.click({ preventDefault() {}, target: { closest: (s) => (s === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: "iniciar-b7" } } : null) } });
   assert.deepEqual(estado.filtrosBolsa.nuevo_llamamiento.origen,
-    { referencia: "2026/CT-00042", centro: "Residencia La Milagrosa" });
+    { expediente_ref: "expediente:sintetico:42", referencia: "2026/CT-00042", centro: "Residencia La Milagrosa" });
   estado.llamamientoDesdeCT = false;
   estado.filtrosBolsa = {};
   escuchas.click({ preventDefault() {}, target: { closest: (s) => (s === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: "iniciar-b7" } } : null) } });
@@ -227,7 +228,7 @@ test("iniciar el llamamiento copia el origen de la petición de esa bolsa", asyn
   assert.equal(estado.filtrosBolsa.nuevo_llamamiento.origen, null, "otra bolsa no hereda el origen");
 });
 
-test("la URL lleva seguimiento u origen validados y nunca ambos", () => {
+test("la URL lleva seguimiento y origen validados; el origen se puede conservar en el seguimiento", () => {
   const ruta = rutaCandidatosBolsaCompartible("?lang=es", "bolsa:1", "", { seguimiento: LLAMAMIENTO });
   assert.equal(ruta, "?lang=es&bolsa_ref=bolsa%3A1&seguimiento=llamamiento%3Asintetico%3A7#bolsa/bolsa-candidatos");
   const autorizadas = [{ bolsa_ref: "bolsa:1" }];
@@ -236,7 +237,9 @@ test("la URL lleva seguimiento u origen validados y nunca ambos", () => {
   const conOrigen = rutaCandidatosBolsaCompartible(ruta.split("#")[0], "bolsa:1", "", { origen });
   assert.doesNotMatch(conOrigen, /seguimiento=/u, "el origen sustituye al seguimiento anterior");
   assert.deepEqual(leerCandidatosBolsaCompartible(conOrigen.split("#")[0], autorizadas).origen, origen);
-  assert.throws(() => leerCandidatosBolsaCompartible("?bolsa_ref=bolsa%3A1&seguimiento=x&origen_expediente=e&origen_referencia=ab", autorizadas), TypeError);
+  assert.deepEqual(leerCandidatosBolsaCompartible("?bolsa_ref=bolsa%3A1&seguimiento=x&origen_expediente=e&origen_referencia=ab", autorizadas),
+    { bolsaRef: "bolsa:1", estado: "", seguimiento: "x", origen: { expediente_ref: "e", referencia: "ab" } });
+  assert.throws(() => rutaCandidatosBolsaCompartible("", "bolsa:1", "disponible", { seguimiento: LLAMAMIENTO }), TypeError);
   assert.throws(() => leerCandidatosBolsaCompartible("?bolsa_ref=bolsa%3A1&seguimiento=x&estado=disponible", autorizadas), TypeError);
   const malCentro = leerCandidatosBolsaCompartible("?bolsa_ref=bolsa%3A1&origen_expediente=e1&origen_referencia=CT-1&origen_centro=%3Cscript%3E&origen_inicio=2026-02-30", autorizadas);
   assert.deepEqual(malCentro.origen, { expediente_ref: "e1", referencia: "CT-1" }, "centro y fecha inválidos se descartan");
@@ -285,4 +288,43 @@ test("sin bolsa para la categoría la ficha CT no ofrece el llamamiento", () => 
   for (const resolver of [null, () => null]) {
     assert.doesNotMatch(renderizarExpediente(estado, t, "es-ES", "Europe/Madrid", false, resolver), /Abrir llamamiento en Bolsa|data-origen-/u);
   }
+});
+
+test("quien ya respondió o dejó de estar disponible no es «Siguiente a llamar»", () => {
+  const propio = (resultado) => ({ llamamiento_ref: LLAMAMIENTO, comunicado_en: "2026-10-08T07:00:00Z", canal: "correo", resultado });
+  const candidatos = [
+    persona(1, "Yago Lozano Hidalgo", { estado_clave: "renuncia" }),
+    persona(2, "Lucía Martín Serrano", { ultimo_llamamiento: propio("renuncia") }),
+    persona(3, "Carmen Molina Ortega", { ultimo_llamamiento: propio("aceptado") }),
+    persona(4, "Manuel Uceda Ruiz", { estado_clave: "pendiente_incorporacion" }),
+    persona(5, "Antonio Reyes Álvarez", { ultimo_llamamiento: { ...propio("renuncia"), llamamiento_ref: "llamamiento:otro" } }),
+  ];
+  // Contactado no cierra la llamada; la renuncia confirmada por RRHH, sí.
+  const contactos = [contacto(1, "telefono", "contactado", "2026-10-08T08:00:00Z")];
+  const filas = filasSeguimiento({ candidatos, contactos, llamamientoRef: LLAMAMIENTO, telefono: TELEFONO });
+  assert.deepEqual(filas.map((f) => [f.cerrada, f.siguiente]),
+    [[true, false], [true, false], [true, false], [true, false], [false, true]], "una respuesta a otro llamamiento no cuenta");
+});
+
+test("sin nadie pendiente, el seguimiento ofrece «Llamar al siguiente» con el asistente de la bolsa", () => {
+  const filtros = { estado: "", texto: "", seguimiento: { llamamiento_ref: LLAMAMIENTO, bolsa_ref: BOLSA.bolsa_ref } };
+  const canales = validarCanalesLlamamiento([CORREO, TELEFONO]);
+  const resuelto = presentador({ datos: listo({ canales_llamamiento: canales, candidatos: [persona(1, "Yago Lozano Hidalgo", { estado_clave: "renuncia", orden: null })],
+    contactos: [contacto(1, "telefono", "contactado", "2026-10-08T08:00:00Z")] }), filtros }).renderizarVista("bolsa-candidatos");
+  assert.doesNotMatch(resuelto, /Siguiente a llamar/u);
+  assert.match(resuelto, /data-bolsa-ref="bolsa:sintetica:1">Volver a la bolsa<\/a><button type="button" class="boton-primario" data-bolsa-accion="iniciar-b7">Llamar al siguiente<\/button><\/header>/u);
+  assert.match(resuelto, /<h3 id="bolsa-seguimiento-titulo">Personas del llamamiento, por orden de la bolsa<\/h3><span class="estado-chip exito">Nadie pendiente de llamar<\/span><\/div>/u);
+  const pendiente = presentador({ datos: listo({ canales_llamamiento: canales }), filtros }).renderizarVista("bolsa-candidatos");
+  assert.doesNotMatch(pendiente, /data-bolsa-accion="iniciar-b7"/u, "con alguien pendiente se llama desde su fila");
+});
+
+test("el enlace al seguimiento conserva el origen de la petición para el siguiente llamamiento", () => {
+  const origen = { expediente_ref: "expediente:sintetico:42", referencia: "2026/CT-00042", centro: "Residencia La Milagrosa", fecha_inicio: "2026-10-20" };
+  const enlace = enlaceSeguimiento({ bolsaRef: "bolsa:1", llamamientoRef: LLAMAMIENTO, escaparHTML: html, clase: "boton-primario", contenido: "Empezar las llamadas", origen });
+  assert.match(enlace, /seguimiento=llamamiento%3Asintetico%3A7&amp;origen_expediente=expediente%3Asintetico%3A42&amp;origen_referencia=2026%2FCT-00042/u);
+  assert.match(enlace, /data-seguimiento="llamamiento:sintetico:7" data-origen-expediente="expediente:sintetico:42" data-origen-referencia="2026\/CT-00042" data-origen-centro="Residencia La Milagrosa" data-origen-inicio="2026-10-20">/u);
+  const href = enlace.match(/href="([^"]+)"/u)[1].replaceAll("&amp;", "&").split("#")[0];
+  assert.deepEqual(leerCandidatosBolsaCompartible(href, [{ bolsa_ref: "bolsa:1" }]), { bolsaRef: "bolsa:1", estado: "", seguimiento: LLAMAMIENTO, origen });
+  const sinOrigen = enlaceSeguimiento({ bolsaRef: "bolsa:1", llamamientoRef: LLAMAMIENTO, escaparHTML: html, clase: "x", contenido: "y", origen: { referencia: "sin expediente" } });
+  assert.doesNotMatch(sinOrigen, /origen/u, "un origen sin expediente no viaja");
 });
