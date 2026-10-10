@@ -18,7 +18,7 @@ JOIN vec_autorizacion.control_vigencia_version_rol c ON c.version_rol_ref=ca.ver
 WHERE v.rol_id='administracion_perfiles' AND a.clase='administrador' AND v.documento->>'estado'='publicada'
 AND c.estado='habilitada' AND clock_timestamp()>=a.vigente_desde AND clock_timestamp()<a.vigente_hasta
 ORDER BY v.version DESC LIMIT 1;
-GRANT SELECT ON aut71_admin TO vec_autorizacion_propietario,vec_admin_gobierno_roles_ejecutor,vec_admin_version_rol_bolsa_ejecutor;
+GRANT SELECT ON aut71_admin TO vec_autorizacion_propietario,vec_admin_perfiles_lote_ejecutor,vec_admin_gobierno_roles_ejecutor,vec_admin_version_rol_bolsa_ejecutor;
 
 -- RolID RRHH ordinario: última versión publicada y habilitada. Si el catálogo
 -- aún no la tiene, se registra aquí como fila ordinaria (fixture, ROLLBACK).
@@ -32,7 +32,7 @@ JOIN vec_autorizacion.control_vigencia_version_rol_actual ca ON ca.version_rol_r
 JOIN vec_autorizacion.control_vigencia_version_rol c ON c.version_rol_ref=ca.version_rol_ref AND c.revision=ca.revision
 WHERE v.rol_id='tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo' AND v.documento->>'estado'='publicada' AND c.estado='habilitada'
 ORDER BY v.version DESC LIMIT 1;
-GRANT SELECT ON aut71_rrhh TO vec_autorizacion_propietario,vec_admin_gobierno_roles_ejecutor,vec_admin_version_rol_bolsa_ejecutor;
+GRANT SELECT ON aut71_rrhh TO vec_autorizacion_propietario,vec_admin_perfiles_lote_ejecutor,vec_admin_gobierno_roles_ejecutor,vec_admin_version_rol_bolsa_ejecutor;
 
 DO $previo$
 BEGIN
@@ -73,8 +73,11 @@ BEGIN
   RAISE EXCEPTION 'AUT71 prueba [%]: administrador sin categoria nominal no falla cerrado (%)',grupo,coalesce(rechazo,'resuelto'); END IF;
  RAISE NOTICE 'AUT71 prueba [%]: OK ADMIN=% RRHH=%',grupo,admin->>'categoria_admin',rrhh->'categoria_admin';
 END $f$;
-GRANT EXECUTE ON FUNCTION pg_temp.aut71_comprobar(text) TO vec_admin_gobierno_roles_ejecutor,vec_admin_version_rol_bolsa_ejecutor;
+GRANT EXECUTE ON FUNCTION pg_temp.aut71_comprobar(text) TO vec_admin_perfiles_lote_ejecutor,vec_admin_gobierno_roles_ejecutor,vec_admin_version_rol_bolsa_ejecutor;
 
+SET LOCAL ROLE vec_admin_perfiles_lote_ejecutor;
+SELECT pg_temp.aut71_comprobar('vec_admin_perfiles_lote_ejecutor');
+RESET ROLE;
 SET LOCAL ROLE vec_admin_gobierno_roles_ejecutor;
 SELECT pg_temp.aut71_comprobar('vec_admin_gobierno_roles_ejecutor');
 RESET ROLE;
@@ -104,4 +107,22 @@ BEGIN
  END LOOP;
  RAISE NOTICE 'AUT71 prueba: % roles del catálogo con categoria_admin conforme',n;
 END $catalogo$;
+
+-- Una fila nominal en un rol que no es administrador también falla cerrado.
+SET LOCAL ROLE vec_autorizacion_propietario;
+INSERT INTO vec_autorizacion.perfil_fijo_categoria_nominal_v1
+SELECT r.version_rol_ref,r.huella_sha256,'aplicacion','fijo_sistema',r.version_rol_ref,r.version,r.huella_sha256,clock_timestamp()
+FROM aut71_rrhh r;
+RESET ROLE;
+DO $nominal_ordinario$
+DECLARE rechazo text:=null;
+BEGIN
+ BEGIN
+  PERFORM vec_autorizacion.resolver_rol_administrable_v1((SELECT version_rol_ref FROM aut71_rrhh));
+ EXCEPTION WHEN insufficient_privilege THEN rechazo:=SQLERRM;
+ END;
+ IF rechazo IS DISTINCT FROM 'AUT71: categoria nominal en rol no administrador' THEN
+  RAISE EXCEPTION 'AUT71 prueba: fila nominal en rol ordinario no falla cerrado (%)',coalesce(rechazo,'resuelto'); END IF;
+ RAISE NOTICE 'AUT71 prueba: fila nominal en rol ordinario rechazada';
+END $nominal_ordinario$;
 ROLLBACK;
