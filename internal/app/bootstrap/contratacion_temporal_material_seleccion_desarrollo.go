@@ -19,6 +19,7 @@ type seleccionMaterialCTDesarrollo struct {
 	dietas, cronos, documentos, cronosResolucion, cronosAvisos       bool
 	fichaPropiaPersonal, firmaDocumento, seguimientoCese, personalB2 bool
 	cancelacion                                                      bool
+	vinculoEmisionBolsa                                              bool
 	exportacionServiciosPersonal                                     bool
 	historiaServiciosPersonal                                        bool
 	historiaRelacionesPersonal                                       bool
@@ -28,6 +29,7 @@ type seleccionMaterialCTDesarrollo struct {
 	plantillasCatalogo                                               bool
 	plantillasDocumental                                             bool
 	ajustesReglasCT                                                  bool
+	inscripcionBolsa                                                 bool
 }
 
 // seleccionMaterialCTDesarrolloDesdeConfig valida los selectores (un valor
@@ -88,6 +90,10 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 	if err != nil {
 		return s, err
 	}
+	inscripcionBolsa, err := cfg.BolsaInscripcionesInternoActivo()
+	if err != nil {
+		return s, err
+	}
 	s = seleccionMaterialCTDesarrollo{
 		borradoresBolsa:              cfg.BolsaBorradoresEnabled,
 		miBolsa:                      debeComponerMiBolsaDesarrollo(cfg),
@@ -112,6 +118,7 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		plantillasCatalogo:           plantillasCatalogo,
 		plantillasDocumental:         plantillasDocumental,
 		ajustesReglasCT:              ajustesReglasCT,
+		inscripcionBolsa:             inscripcionBolsa,
 	}
 	return s, nil
 }
@@ -192,6 +199,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	if s.documentos {
 		d = append(d, descriptoresMaterialDocumentosDesarrollo()...)
 	}
+	if s.inscripcionBolsa {
+		d = append(d, descriptoresMaterialInscripcionRRHHDesarrollo()...)
+	}
 	if s.cronosResolucion {
 		d = append(d, descriptoresMaterialCronosResolucionDesarrollo()...)
 	}
@@ -230,6 +240,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.cancelacion {
 		d = append(d, descriptoresMaterialCancelacionCTDesarrollo()...)
+	}
+	if s.vinculoEmisionBolsa {
+		d = append(d, descriptorMaterialVinculoEmisionBolsaDesarrollo())
 	}
 	if s.plantillasCatalogo {
 		d = append(d, descriptoresMaterialPlantillasCTDesarrollo()...)

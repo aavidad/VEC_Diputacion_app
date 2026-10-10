@@ -526,6 +526,7 @@ func nuevaRutaMiBolsaDesarrollo(
 	campos puertosbolsa.CamposPortalMiBolsa,
 	portal puertosbolsa.ReglasPortalCandidato,
 	aprobacion aprobacionProvisionMiBolsaDesarrollo,
+	nombrePropio puertosbolsa.FuenteNombrePropioMiBolsa,
 ) ([]vechttp.RutaExacta, error) {
 	if ctx == nil || identidad == nil || sello == nil || alta == nil || alta.soporte == nil ||
 		alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil ||
@@ -638,6 +639,11 @@ func nuevaRutaMiBolsaDesarrollo(
 			return nil, errMiBolsaNoDisponible
 		}
 		if servicio, err = servicio.ConContacto(); err != nil {
+			return nil, errMiBolsaNoDisponible
+		}
+	}
+	if nombrePropio != nil {
+		if servicio, err = servicio.ConNombrePropio(nombrePropio); err != nil {
 			return nil, errMiBolsaNoDisponible
 		}
 	}

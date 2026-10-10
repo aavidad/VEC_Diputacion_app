@@ -182,8 +182,13 @@ func decodificarExpedienteAnalisisDurableO3(
 		return domain.Expediente{},
 			cobertura.ErrInstantaneaAnalisisDurableNoConfiable
 	}
+	adaptado, err := rehidratarFechasExpedienteSQL(contenido)
+	if err != nil {
+		return domain.Expediente{}, cobertura.ErrInstantaneaAnalisisDurableNoConfiable
+	}
 	var expediente domain.Expediente
-	decodificador := json.NewDecoder(bytes.NewReader(contenido))
+	decodificador := json.NewDecoder(bytes.NewReader(adaptado))
+	decodificador.UseNumber()
 	decodificador.DisallowUnknownFields()
 	if err := decodificador.Decode(&expediente); err != nil {
 		return domain.Expediente{},

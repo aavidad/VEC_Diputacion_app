@@ -1,4 +1,4 @@
-import { consultarJSON, ErrorConsultaJSON } from "../comun/http.js?v=20261007-p7-http-v1";
+import { consultarJSON, ErrorConsultaJSON } from "../comun/http.js?v=20261010-http-codigo-v1";
 import { iniciarRegistroErrores } from "../comun/registro-errores.js?v=20261007-p7-http-v1";
 
 const RUTA = "/api/vec/usuarios/mis-preferencias";

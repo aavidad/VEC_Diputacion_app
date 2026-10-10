@@ -173,7 +173,7 @@ a { color: var(--ap-azul-700); }
   top: 0;
   display: grid;
   min-height: 72px;
-  grid-template-columns: auto minmax(200px, 1fr) minmax(210px, 340px) auto;
+  grid-template-columns: minmax(200px, 1fr) auto;
   align-items: center;
   gap: 16px;
   padding: 8px 24px;
@@ -184,17 +184,6 @@ a { color: var(--ap-azul-700); }
 .contexto-cabecera { min-width: 0; }
 .migas { overflow: hidden; color: var(--ap-muted); font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
 .contexto-cabecera h1 { margin: 2px 0 0; color: var(--ap-tinta); font-size: clamp(1.25rem, 2vw, 1.625rem); font-weight: 600; line-height: 1.2; }
-.busqueda-global { position: relative; display: flex; align-items: center; }
-.busqueda-global input {
-  width: 100%;
-  min-height: 40px;
-  padding: 8px 44px 8px 12px;
-  border: 1px solid var(--ap-borde);
-  border-radius: var(--portal-radio);
-  background: var(--ap-superficie-alterna);
-  color: var(--ap-tinta);
-}
-.busqueda-global button { position: absolute; right: 1px; border: 0; background: transparent; color: var(--ap-azul-800); }
 .acciones-cabecera { display: flex; min-width: 0; align-items: center; gap: 7px; }
 .boton-icono, .boton-utilidad, .sesion-usuario {
   min-height: 44px;
@@ -205,12 +194,12 @@ a { color: var(--ap-azul-700); }
   cursor: pointer;
 }
 .boton-icono { display: inline-grid; min-width: 44px; place-items: center; padding: 7px; }
-.boton-utilidad { padding: 7px 10px; font-size: .875rem; font-weight: 600; }
+.boton-utilidad { padding: 7px 10px; font-size: .875rem; font-weight: 600; white-space: nowrap; }
 .boton-icono:hover, .boton-utilidad:hover { border-color: var(--ap-azul-700); background: var(--ap-azul-100); }
-.sesion-usuario { display: flex; min-width: 0; max-width: 188px; align-items: center; gap: 8px; overflow: hidden; padding: 5px 9px; text-align: left; }
+.sesion-usuario { display: flex; min-width: 0; max-width: 248px; align-items: center; gap: 8px; overflow: hidden; padding: 5px 9px; text-align: left; }
 .sesion-usuario > span:last-child { min-width: 0; }
 .sesion-usuario > span:last-child, .sesion-usuario strong, .sesion-usuario small { display: block; }
-.sesion-usuario strong { max-width: 150px; overflow: hidden; font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
+.sesion-usuario strong { max-width: 200px; overflow: hidden; font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
 .sesion-usuario small { color: var(--ap-muted); font-size: .75rem; }
 .avatar { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border-radius: 50%; background: var(--ap-azul-100); color: var(--ap-azul-800); font-size: .75rem; font-weight: 600; }
 .contenido-principal { min-height: calc(100dvh - 120px); padding: 24px; }
@@ -368,14 +357,14 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
 .etiqueta-corta { display: none; }
 .sin-javascript { margin: 20px; padding: 15px; border: 2px solid var(--ap-rojo); background: var(--ap-rojo-suave); }
 
-@media (max-width: 1480px) {
+@media (max-width: 1280px) {
   .sesion-usuario { width: 46px; flex: 0 0 46px; }
   .sesion-usuario > span:last-child { display: none; }
 }
 
 @media (max-width: 1180px) {
   body.area-personal-app { --ap-lateral: 252px; }
-  .cabecera-portal { grid-template-columns: auto minmax(180px, 1fr) minmax(180px, 260px) auto; padding-inline: 16px; }
+  .cabecera-portal { grid-template-columns: minmax(180px, 1fr) auto; padding-inline: 16px; }
   .boton-utilidad { width: 44px; overflow: hidden; padding-inline: 6px; white-space: nowrap; } .acciones-cabecera .boton-utilidad:first-child { width: auto; padding-inline: 8px; }
   .etiqueta-amplia { display: none; }
   .etiqueta-corta { display: inline; }
@@ -389,7 +378,6 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
   body[data-menu-abierto="true"] .ap-lateral { visibility: visible; transform: translateX(0); }
   .boton-menu { display: inline-grid !important; }
   .cabecera-portal { grid-template-columns: auto minmax(0, 1fr) auto; }
-  .busqueda-global { grid-column: 1 / -1; grid-row: 2; }
   .contenido-principal { padding: 16px; }
   .rejilla-principal { grid-template-columns: 1fr; }
   .pie-portal { align-items: flex-start; flex-direction: column; }
@@ -440,13 +428,12 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
   html { min-width: 0; }
   .cabecera-portal {
     grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas: "menu acciones" "contexto contexto" "busqueda busqueda";
+    grid-template-areas: "menu acciones" "contexto contexto";
     gap: 6px;
     padding-inline: 6px;
   }
   .cabecera-portal .boton-menu { grid-area: menu; }
   .cabecera-portal .contexto-cabecera { grid-area: contexto; }
-  .cabecera-portal .busqueda-global { grid-area: busqueda; }
   .cabecera-portal .acciones-cabecera { grid-area: acciones; flex-wrap: wrap; justify-content: flex-end; }
   .cabecera-portal .contexto-cabecera h1 { overflow-wrap: anywhere; }
 }
@@ -471,3 +458,18 @@ body.area-personal-app :is(input:not([type="checkbox"]):not([type="radio"]):not(
   outline: 3px solid var(--portal-foco);
   outline-offset: -3px;
 }
+
+/* Inscripción en bolsas: solo ajusta el espaciado de su panel; usa panel, dato-lista y fila-acciones comunes. */
+.inscripcion-bolsa > header { flex-wrap: nowrap; }
+.inscripcion-bolsa .panel > header h4 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--ap-tinta); }
+.inscripcion-bolsa .panel-contenido > * + * { margin-top: 16px; }
+.inscripcion-bolsa .panel-contenido > h3 { margin-bottom: 0; font-size: 1.125rem; }
+.inscripcion-bolsa .marco-participaciones { margin-bottom: 0; }
+.inscripcion-bolsa .marco-participaciones .panel-contenido { padding: 16px 20px; }
+.lista-requisitos-inscripcion { margin: 0; padding: 0; list-style: none; }
+.lista-requisitos-inscripcion > li { padding: 12px 0; border-bottom: 1px solid var(--ap-borde); overflow-wrap: anywhere; }
+.lista-requisitos-inscripcion > li:first-child { padding-top: 0; }
+.lista-requisitos-inscripcion > li:last-child { padding-bottom: 0; border-bottom: 0; }
+.lista-requisitos-inscripcion p { margin: 6px 0 0; color: var(--ap-muted); font-size: .875rem; }
+.lista-requisitos-inscripcion .opcion-check { margin-top: 10px; }
+.inscripcion-bolsa .campo select option { overflow-wrap: anywhere; }

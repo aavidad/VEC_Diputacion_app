@@ -80,6 +80,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialDietas                                   materialDietasDesdeCTDesarrollo
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialInscripcionBolsa                         materialInscripcionRRHHDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalExportacionServicios             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalHistoriaServicios                *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -674,6 +675,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	alta.soporte.mu.Lock()
 	perfilCTCatalogo := alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef
 	alta.soporte.mu.Unlock()
+	if alta.postgresql.vinculoEmisionBolsa {
+		if err := prepararPerfilVinculoEmisionBolsaCTDesarrollo(context.Background(), cfg, &alta, reloj); err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
 	if err != nil || (auditoriaActiva && (!cfg.BolsaBorradoresEnabled || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas())) {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
@@ -705,6 +711,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		perfilCTCatalogo, perfilesConsulta, firmaDocumento != nil, plantillasActivas, perfilPlantillas)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if alta.postgresql.vinculoEmisionBolsa {
+		declaracionesFrontera = append(declaracionesFrontera, fronteraVinculoEmisionBolsaDesarrollo(perfilCTCatalogo))
 	}
 	if ajustesCTActivos {
 		declaracionesFrontera = append(declaracionesFrontera, descriptoresFronteraAjustesReglasCT(perfilCTCatalogo)...)
@@ -943,6 +952,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			EjecutorAnalisis:                servicioAnalisis,
 			ConsultorCuadroRRHH:             cuadroReal,
 			ConsultorDetalleRRHH:            detalleReal,
+			ResultadoBolsaActivo:            alta.postgresql.vinculoEmisionBolsa,
 			ConsultorOriginalPropuestaRRHH:  originalPropuestaReal,
 			BorradorRRHH:                    borradorRRHH,
 			BorradorRRHHDOCX:                borradorRRHHDOCX,
@@ -1034,6 +1044,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	rutas = append(rutas, rutasCancelacion...)
+	if alta.postgresql.vinculoEmisionBolsa {
+		h, err := nuevaRutaVinculoEmisionBolsaCTDesarrollo(context.Background(), &alta, derivador, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaVinculosEmisionBolsa, Manejador: h})
+	}
 	if consultasRRHH.estadisticas != nil {
 		h, err := httpinterno.NuevoManejadorEstadisticasRRHH(consultasRRHH.estadisticas,
 			&resolutorAlcanceEstadisticasRRHHDesarrollo{sello: sello, resolvedor: resolvedorDesarrollo}, reloj.Ahora)
@@ -1234,7 +1251,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		rutasMiBolsa, err := nuevaRutaMiBolsaDesarrollo(
 			context.Background(), resolvedorDesarrollo.candidatoBolsa, sello, &alta,
 			consultasRRHH.identidad, catalogoFronteras, derivador, reloj, camposMiBolsa, portal,
-			aprobacionProvisionMiBolsaDesdeConfig(cfg),
+			aprobacionProvisionMiBolsaDesdeConfig(cfg), personalizacionB7,
 		)
 		if err != nil {
 			return nil, nil, nil, err
@@ -1281,6 +1298,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialDietas:                                   alta.postgresql.materialDietas,
 		materialCronos:                                   alta.postgresql.materialCronos,
 		materialDocumentos:                               alta.postgresql.materialDocumentos,
+		materialInscripcionBolsa:                         alta.postgresql.materialInscripcionBolsa,
 		materialPersonalFichaPropia:                      alta.postgresql.materialPersonalFichaPropia,
 		materialPersonalExportacionServicios:             alta.postgresql.materialPersonalExportacionServicios,
 		materialPersonalHistoriaServicios:                alta.postgresql.materialPersonalHistoriaServicios,

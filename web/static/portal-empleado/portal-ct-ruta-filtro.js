@@ -35,7 +35,7 @@ export function limpiarFiltroCTDeBusqueda(busqueda) {
   return resultado ? `?${resultado}` : "";
 }
 
-export function rutaPortalConFiltroCT(ubicacion, hash, filtro = null) {
+export function rutaPortalConFiltroCT(ubicacion, hash, filtro = null, { conservarLlamamiento = false } = {}) {
   if (!ubicacion || typeof ubicacion.pathname !== "string" || !ubicacion.pathname.startsWith("/")
     || ubicacion.pathname.startsWith("//") || /[\\?#]/u.test(ubicacion.pathname)
     || typeof ubicacion.search !== "string" || typeof hash !== "string" || !/^#[a-z][a-z0-9/-]*$/u.test(hash)
@@ -45,8 +45,9 @@ export function rutaPortalConFiltroCT(ubicacion, hash, filtro = null) {
     parametros.delete("expediente");
     parametros.delete("expediente_version");
   }
-  if (hash !== "#bolsa/bolsa-candidatos" && parametros.has("bolsa_ref")) {
-    for (const clave of ["bolsa_ref", "estado", "cursor"]) parametros.delete(clave);
+  if (hash !== "#bolsa/bolsa-candidatos" && !(hash === "#bolsa/llamamientos" && conservarLlamamiento)) {
+    if (parametros.has("bolsa_ref")) for (const clave of ["bolsa_ref", "estado", "cursor"]) parametros.delete(clave);
+    for (const clave of ["origen_expediente", "origen_referencia", "origen_centro", "origen_inicio"]) parametros.delete(clave);
   }
   if (filtro) for (const [campo, parametro] of Object.entries(PARAMETROS)) {
     if (filtro[campo]) parametros.set(parametro, filtro[campo]);

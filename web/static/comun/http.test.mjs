@@ -138,3 +138,15 @@ test("plazo máximo cancela incluso si fetch ignora AbortSignal", async () => {
   await assert.rejects(consultarJSON("/api/vec/session", { plazoMs: 5, reintentos: 0, fetchImpl: () => new Promise(() => {}) }),
     (fallo) => fallo.codigo === "red");
 });
+
+test("un 409 o 422 conserva el código de negocio acotado y un 500 no lee el cuerpo", async () => {
+  const { consultarJSON: consultar } = await import("./http.js?prueba-codigo-servidor");
+  const conCodigo = (status, codigo) => async () => new Response(JSON.stringify({ error: { codigo } }),
+    { status, headers: { "Content-Type": "application/json" } });
+  await assert.rejects(consultar("/api/vec/x", { metodo: "POST", cuerpo: {}, fetchImpl: conCodigo(422, "plazo_cerrado") }),
+    (error) => error.estado === 422 && error.codigoServidor === "plazo_cerrado");
+  await assert.rejects(consultar("/api/vec/x", { metodo: "POST", cuerpo: {}, fetchImpl: conCodigo(409, "<script>") }),
+    (error) => error.estado === 409 && error.codigo === "conflicto" && error.codigoServidor === "");
+  await assert.rejects(consultar("/api/vec/x", { metodo: "POST", cuerpo: {}, fetchImpl: conCodigo(500, "interno") }),
+    (error) => error.estado === 500 && error.codigoServidor === undefined);
+});
