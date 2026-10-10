@@ -22,7 +22,8 @@ type seleccionAuditadaADMIN struct{ fuente FuenteSeleccionAuditadaADMIN }
 
 func (s seleccionAuditadaADMIN) ListarPropiosADMIN(ctx context.Context, o adminperfiles.ObservacionADMIN) (adminperfiles.PerfilesPropios, error) {
 	if s.fuente == nil {
-		return adminperfiles.PerfilesPropios{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		return adminperfiles.PerfilesPropios{}, adminperfiles.ConClaseSelector("selector_sin_dependencias",
+			ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 	}
 	r, err := s.fuente.ListarPropiosAuditadosADMIN(ctx, o)
 	if err != nil {
@@ -36,7 +37,8 @@ func (s seleccionAuditadaADMIN) ListarPropiosADMIN(ctx context.Context, o adminp
 }
 func (s seleccionAuditadaADMIN) SeleccionarPerfilADMIN(ctx context.Context, o adminperfiles.ObservacionADMIN, ref string, version uint64) (adminperfiles.SeleccionPerfil, error) {
 	if s.fuente == nil {
-		return adminperfiles.SeleccionPerfil{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		return adminperfiles.SeleccionPerfil{}, adminperfiles.ConClaseSelector("selector_sin_dependencias",
+			ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 	}
 	r, err := s.fuente.SeleccionarPerfilAuditadoADMIN(ctx, o, ref, version)
 	if err != nil {
