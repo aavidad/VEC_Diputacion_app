@@ -1,0 +1,3 @@
+deploy/postgresql/autorizacion/migraciones/000059_mantenimiento_gobierno_definiciones_admin.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000220_gobierno_rol_nuevo.up.sql
+deploy/postgresql/autorizacion/migraciones/000060_gobierno_rol_nuevo.up.sql

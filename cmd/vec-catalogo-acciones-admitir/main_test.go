@@ -14,6 +14,23 @@ import (
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
+type fuentePaquetePrueba struct {
+	ModuloID      string                                 `json:"modulo_id"`
+	Referencia    string                                 `json:"referencia"`
+	Version       int                                    `json:"version"`
+	HuellaSHA256  string                                 `json:"huella_sha256"`
+	EntradasCanon string                                 `json:"entradas_canon"`
+	Entradas      []domain.EntradaAccionAdministracionV1 `json:"entradas"`
+}
+
+type paqueteAdmisionPrueba struct {
+	Esquema    string                                   `json:"esquema"`
+	Referencia string                                   `json:"referencia"`
+	Version    int                                      `json:"version"`
+	Fuentes    []fuentePaquetePrueba                    `json:"fuentes"`
+	Perfiles   []domain.PerfilPublicadoAdministracionV1 `json:"perfiles"`
+}
+
 func TestPlanRequiereCatalogoCanonicoYHuellaAprobada(t *testing.T) {
 	desde := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)
 	concesion := domain.ConcesionRol{Accion: "sintetico.consultar", ModuloID: "sintetico", TipoRecurso: "expediente",
@@ -32,6 +49,19 @@ func TestPlanRequiereCatalogoCanonicoYHuellaAprobada(t *testing.T) {
 			TipoPerfil: domain.TipoPerfilAdministracionFijoSistemaV1,
 			ControlVigencia: domain.ControlVigenciaVersionRol{VersionRolRef: rol.Referencia(), Revision: 1,
 				Estado: domain.EstadoControlVigenciaVersionRolHabilitada, ActualizadoPor: "actor:fuente", ActualizadoEn: desde}}}}
+	const preimagen = `[{"referencia":"accion:sintetica","version":1,"fuente_ref":"fuente:sintetica","fuente_version":1,"concesion":{"accion":"sintetico.consultar","modulo_id":"sintetico","tipo_recurso":"expediente","finalidades":["revision"],"garantia_minima":"alto"},"dimensiones_ambito":["unidad"],"clase_control":"consulta_auditada","vigente_desde":"2026-10-08T00:00:00Z","vigente_hasta":"2026-10-10T00:00:00Z"}]`
+	hs := sha256.Sum256([]byte(preimagen))
+	c.Entradas[0].FuenteHuellaSHA256 = hex.EncodeToString(hs[:])
+	paquete, err := json.Marshal(paqueteAdmisionPrueba{Esquema: "vec.admin.catalogo-acciones.paquete.v2", Referencia: c.FuenteRef,
+		Version: c.FuenteVersion,
+		Fuentes: []fuentePaquetePrueba{{ModuloID: "sintetico", Referencia: c.Entradas[0].FuenteRef, Version: 1,
+			HuellaSHA256: c.Entradas[0].FuenteHuellaSHA256, EntradasCanon: preimagen, Entradas: c.Entradas}},
+		Perfiles: c.Perfiles})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sPaquete := sha256.Sum256(paquete)
+	c.FuenteHuellaSHA256 = hex.EncodeToString(sPaquete[:])
 	canon, err := json.Marshal(c)
 	if err != nil {
 		t.Fatal(err)
@@ -41,9 +71,9 @@ func TestPlanRequiereCatalogoCanonicoYHuellaAprobada(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan := func(huella string, contenido []byte) ([]byte, string) {
-		b, err := json.Marshal(planAdmision{Esquema: "vec.admin.catalogo-acciones.plan.v1",
+		b, err := json.Marshal(planAdmision{Esquema: "vec.admin.catalogo-acciones.plan.v2",
 			OperacionRef:  "caa_" + strings.Repeat("a", 22),
-			PaqueteCanon:  `{}`,
+			PaqueteCanon:  string(paquete),
 			CatalogoCanon: string(contenido), CatalogoRef: c.Referencia, CatalogoVersion: "1",
 			CatalogoSHA256: huella, PaqueteRef: c.FuenteRef, PaqueteVersion: "1",
 			PaqueteSHA256: c.FuenteHuellaSHA256, AprobacionRef: "aprobacion:sintetica",
@@ -60,6 +90,7 @@ func TestPlanRequiereCatalogoCanonicoYHuellaAprobada(t *testing.T) {
 	if _, err := validarPlanAntesDeEnviar(p, hp); err != nil {
 		t.Fatal(err)
 	}
+	catalogoBase := c
 	if _, err := validarPlanAntesDeEnviar(p, strings.Repeat("f", 64)); err == nil {
 		t.Fatal("plan sin la huella aprobada")
 	}
@@ -105,6 +136,50 @@ func TestPlanRequiereCatalogoCanonicoYHuellaAprobada(t *testing.T) {
 	s := sha256.Sum256(catalogoIncompleto)
 	mutado, _ := plan(hex.EncodeToString(s[:]), catalogoIncompleto)
 	rechazarAunqueRehuellado("catalogo incompleto", mutado)
+	var planBase planAdmision
+	if err := json.Unmarshal(p, &planBase); err != nil {
+		t.Fatal(err)
+	}
+	for nombre, paqueteAlterado := range map[string][]byte{
+		"paquete v1":         bytes.Replace(paquete, []byte(`paquete.v2`), []byte(`paquete.v1`), 1),
+		"fuente sin huella":  bytes.Replace(paquete, []byte(catalogoBase.Entradas[0].FuenteHuellaSHA256), []byte(strings.Repeat("f", 64)), 1),
+		"fuente extra":       bytes.Replace(paquete, []byte(`"modulo_id":"sintetico"`), []byte(`"modulo_id":"sintetico","extra":true`), 1),
+		"fuente duplicada":   bytes.Replace(paquete, []byte(`"modulo_id":"sintetico"`), []byte(`"modulo_id":"ajeno","modulo_id":"sintetico"`), 1),
+		"unicode descriptor": bytes.Replace(paquete, []byte(`"referencia":"fuente:sintetica"`), []byte(`"referencia":"fuente:ñ"`), 1),
+		"HTML escapado":      bytes.Replace(paquete, []byte(`"referencia":"fuente:sintetica"`), []byte(`"referencia":"fuente:\u003csintetica"`), 1),
+		"número no canónico": bytes.Replace(paquete, []byte(`"version":1`), []byte(`"version":1.0`), 1),
+		"fecha alterada":     bytes.Replace(paquete, []byte(`"vigente_hasta":"2026-10-10T00:00:00Z"`), []byte(`"vigente_hasta":"2026-10-09T00:00:00Z"`), 1),
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			if bytes.Equal(paqueteAlterado, paquete) {
+				t.Fatal("mutación de prueba no aplicada")
+			}
+			paqueteSHA := sha256.Sum256(paqueteAlterado)
+			otroCatalogo := catalogoBase
+			otroCatalogo.FuenteHuellaSHA256 = hex.EncodeToString(paqueteSHA[:])
+			catalogoCanon, err := json.Marshal(otroCatalogo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			catalogoSHA, err := otroCatalogo.HuellaSHA256()
+			if err != nil {
+				t.Fatal(err)
+			}
+			otroPlan := planBase
+			otroPlan.PaqueteCanon = string(paqueteAlterado)
+			otroPlan.PaqueteSHA256 = otroCatalogo.FuenteHuellaSHA256
+			otroPlan.CatalogoCanon = string(catalogoCanon)
+			otroPlan.CatalogoSHA256 = catalogoSHA
+			b, err := json.Marshal(otroPlan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			h := sha256.Sum256(b)
+			if _, err := validarPlanAntesDeEnviar(b, hex.EncodeToString(h[:])); err == nil {
+				t.Fatal("preflight admitió paquete alterado antes de transacción")
+			}
+		})
+	}
 }
 
 func TestArchivoPrivadoNiegaPermisosAmpliosYEnlaces(t *testing.T) {

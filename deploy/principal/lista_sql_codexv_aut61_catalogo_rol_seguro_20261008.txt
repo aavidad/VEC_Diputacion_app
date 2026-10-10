@@ -1,0 +1,7 @@
+# Orden causal para un destino que recibió AD219 y AUT58 de #885 y aún no
+# instaló AUT59/AD220/AUT60. Comprobar ledger/huellas antes de cada UP.
+# En un clon que ya tenga AUT59/AD220/AUT60, aplicar sólo AUT61 una vez.
+deploy/postgresql/autorizacion/migraciones/000059_mantenimiento_gobierno_definiciones_admin.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000220_gobierno_rol_nuevo.up.sql
+deploy/postgresql/autorizacion/migraciones/000060_gobierno_rol_nuevo.up.sql
+deploy/postgresql/autorizacion/migraciones/000061_catalogo_rol_seguro.up.sql
