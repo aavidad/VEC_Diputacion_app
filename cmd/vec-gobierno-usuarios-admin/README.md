@@ -35,6 +35,30 @@ cualquier repositorio. No admite campos desconocidos ni claves repetidas:
   ser el mismo que el de `dsn_lectura`.
 - Verificar usa `dsn_lectura` y `salida`.
 
+### LOGIN de `dsn_lectura` (migración 000235)
+
+Preparar y verificar leen solo por dos funciones de solo lectura,
+`instantanea_gobierno_admin_lectura_v1` y `cadena_gobierno_admin_lectura_v1`,
+dentro de una transacción READ ONLY. Con la 000235 instalada, el usuario de
+`dsn_lectura` no tiene que ser superusuario: basta un LOGIN miembro solo del
+grupo `vec_autorizacion_atestada_v3_lector_gobierno`. Ese grupo solo puede
+conectarse y ejecutar esas dos funciones; no lee tablas, no escribe y no tiene
+TEMP ni CREATE, así que vec-server arranca aunque el LOGIN empiece por `vec_`.
+El DBA lo crea así (contraseña como verificador SCRAM, nunca en claro en el
+registro de PostgreSQL):
+
+```sql
+CREATE ROLE vec_adm_lectura_gob_AAAAMMDD LOGIN INHERIT NOSUPERUSER NOCREATEDB
+  NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'SCRAM-SHA-256$…'
+  VALID UNTIL 'AAAA-MM-DD 00:00:00+00';
+GRANT vec_autorizacion_atestada_v3_lector_gobierno TO vec_adm_lectura_gob_AAAAMMDD
+  WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
+```
+
+No debe ser miembro de ningún otro grupo; en particular, nunca del grupo
+operador de aplicar. Sin la 000235, preparar y verificar fallan con un LOGIN
+que no sea superusuario.
+
 Las conexiones van por socket local, por la dirección de bucle o por TLS con
 verificación del servidor. La carpeta del socket debe existir y no puede tener
 escritura para cualquiera (por ejemplo, `/tmp` no vale). El único parámetro de
