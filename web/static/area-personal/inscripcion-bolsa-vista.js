@@ -1,5 +1,5 @@
 import { cargarTextos, reintentarTextos } from "../comun/textos.js";
-import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=20261009-inscripcion-v1";
+import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=20261010-inscripcion-lecturas-b99";
 
 const CLAVES_PENDIENTES = new Map(); // Sólo memoria de esta pestaña, para repetir el mismo acto incierto.
 const ENVIOS_ACTIVOS = new Set();
@@ -166,7 +166,7 @@ function vistaSolicitud(estado, textos) {
     : `<button type="button" class="boton-secundario" data-inscripcion-accion="volver">${t("volver")}</button>`;
   return `<div class="panel-contenido">${volver}
     ${estado.recienRegistrada ? `<p class="nota exito" tabindex="-1" data-inscripcion-aviso>${t("registrada")}</p>` : ""}
-    <dl class="dato-lista">${solicitud.tituloBolsa ? `<dt>${t("convocatoria")}</dt><dd>${esc(solicitud.tituloBolsa)}</dd>` : ""}
+    <dl class="dato-lista">${solicitud.convocatoria_titulo || solicitud.tituloBolsa ? `<dt>${t("convocatoria")}</dt><dd>${esc(solicitud.convocatoria_titulo || solicitud.tituloBolsa)}</dd>` : ""}
     <dt>${t("categoria")}</dt><dd>${esc(solicitud.categoria)}</dd>
     <dt>${t("estado")}</dt><dd>${chipEstado(solicitud.estado, t)}</dd>
     <dt>${t("fechaRegistro")}</dt><dd>${fecha(textos, solicitud.registrada_en)}</dd>
@@ -182,8 +182,8 @@ function vistaPropias(estado, textos) {
   if (!estado.propias.length) return `<div class="panel-contenido">${volver}<p role="status">${t("sinSolicitudes")}</p></div>`;
   return `<div class="panel-contenido"><div class="fila-acciones">${volver}<button type="button" class="boton-secundario" data-inscripcion-accion="actualizar-propias">${t("actualizarSolicitudes")}</button></div>
     <div class="marco-participaciones">${estado.propias.map((solicitud) =>
-    `<article class="panel" tabindex="-1"><header><h3>${esc(solicitud.categoria)}</h3>${chipEstado(solicitud.estado, t)}</header><div class="panel-contenido">
-      <dl class="dato-lista"><dt>${t("fechaRegistro")}</dt><dd>${fecha(textos, solicitud.registrada_en)}</dd></dl>
+    `<article class="panel" tabindex="-1"><header><h3>${esc(solicitud.convocatoria_titulo)}</h3>${chipEstado(solicitud.estado, t)}</header><div class="panel-contenido">
+      <dl class="dato-lista"><dt>${t("categoria")}</dt><dd>${esc(solicitud.categoria)}</dd><dt>${t("fechaRegistro")}</dt><dd>${fecha(textos, solicitud.registrada_en)}</dd></dl>
       <div class="fila-acciones"><button type="button" class="boton-secundario" data-inscripcion-accion="solicitud" data-ref="${esc(solicitud.solicitud_ref)}">${t("verSolicitud")}</button></div>
       </div></article>`).join("")}</div>${estado.cursorPropias ? `<div class="fila-acciones"><button type="button" class="boton-secundario" data-inscripcion-accion="mas-propias">${t("mostrarMas")}</button></div>` : ""}</div>`;
 }

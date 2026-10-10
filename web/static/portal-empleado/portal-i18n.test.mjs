@@ -804,8 +804,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-inicio.js", "portal-bolsas-api.js", "portal-panel-interno.js",
     "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js", "portal-menu-bolsa.js"])
     versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v9");
-  // Botón de carga CONVOCA en la cabecera de Bolsa: panel y entrada en su propia cohorte.
-  for (const ruta of ["portal-panel-interno.js", "portal.js"]) versionesEspeciales.set(ruta, "20261010-b1-carga-v1");
+  // B1 renovó el panel; B99 y B1 comparten una nueva entrada del shell.
+  versionesEspeciales.set("portal-panel-interno.js", "20261010-b1-carga-v1");
+  versionesEspeciales.set("portal.js", "20261010-b1-inscripcion-b99-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

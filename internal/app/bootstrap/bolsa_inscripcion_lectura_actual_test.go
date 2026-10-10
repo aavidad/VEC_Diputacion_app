@@ -148,7 +148,7 @@ func TestHuellaCamposLecturaInscripcionPorCanal(t *testing.T) {
 		t.Fatal(err)
 	}
 	huella := sha256.Sum256(canon)
-	const esperada = "31c2ff79342f063fb145c33f31dbb057f9723d71c65c8b842084d451a7e8e114"
+	const esperada = "221de60993fd3b6d7836726ce2dd7d1423b60c8deb24860dbc16703208eaa5bc"
 	if hex.EncodeToString(huella[:]) != esperada {
 		t.Fatalf("catálogo de campos cambió: %x", huella)
 	}

@@ -7,16 +7,17 @@ import { iniciarI18nAreaPersonal } from "../i18n.js";
 import { lectorCatalogos } from "../textos-prueba.test-helper.mjs";
 import * as vista from "./inicio-convocatorias.js";
 
-test("la vista y sus importadores comparten una URL renovada", async () => {
+test("la entrada se renueva y la vista de inicio conserva su URL vigente", async () => {
   const [html, arranque, aplicacion] = await Promise.all([
     readFile(new URL("../index.html", import.meta.url), "utf8"),
     readFile(new URL("../arranque.js", import.meta.url), "utf8"),
     readFile(new URL("../aplicacion.js", import.meta.url), "utf8"),
   ]);
-  const version = "20261009-inscripcion-v1";
-  assert.match(html, new RegExp(`/area-personal/arranque\\.js\\?v=${version}`));
-  assert.match(arranque, new RegExp(`\\./aplicacion\\.js\\?v=${version}`));
-  assert.match(aplicacion, new RegExp(`\\./vistas/inicio-convocatorias\\.js\\?v=${version}`));
+  const versionEntrada = "20261010-inscripcion-lecturas-b99";
+  const versionVista = "20261009-inscripcion-v1";
+  assert.match(html, new RegExp(`/area-personal/arranque\\.js\\?v=${versionEntrada}`));
+  assert.match(arranque, new RegExp(`\\./aplicacion\\.js\\?v=${versionEntrada}`));
+  assert.match(aplicacion, new RegExp(`\\./vistas/inicio-convocatorias\\.js\\?v=${versionVista}`));
 });
 
 test("el inicio remite a Mi bolsa y ya no ofrece convocatorias ni expedientes", async () => {

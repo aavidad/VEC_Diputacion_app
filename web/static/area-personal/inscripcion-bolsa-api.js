@@ -86,6 +86,10 @@ function solicitud(valor, { categoria = false } = {}) {
     && fecha(valor.registrada_en) && referencia(valor.recibo_ref);
 }
 
+function solicitudLeida(valor) {
+  return solicitud(valor, { categoria: true }) && titulo(valor.convocatoria_titulo);
+}
+
 function validar(tipo, entrada) {
   const datos = entrada?.data;
   if (!objeto(datos) || datos.esquema !== INSTANCIAS[tipo]) throw new TypeError("Respuesta de inscripción inválida");
@@ -113,14 +117,14 @@ function validar(tipo, entrada) {
       break;
     case "propias":
       if (!Array.isArray(datos.solicitudes) || datos.solicitudes.length > 100
-        || datos.solicitudes.some((s) => !solicitud(s, { categoria: true })) || !cursor(datos.cursor_siguiente))
+        || datos.solicitudes.some((s) => !solicitudLeida(s)) || !cursor(datos.cursor_siguiente))
         throw new TypeError("Relación de solicitudes inválida");
       break;
     case "recibo":
       if (!solicitud(datos) || typeof datos.repetida !== "boolean") throw new TypeError("Recibo inválido");
       break;
     case "detallePropio":
-      if (!solicitud(datos.solicitud, { categoria: true })
+      if (!solicitudLeida(datos.solicitud)
         || (datos.solicitud.decidida_en !== undefined && datos.solicitud.decidida_en !== null && !fecha(datos.solicitud.decidida_en))
         || (datos.solicitud.motivo_codigo !== undefined && datos.solicitud.motivo_codigo !== null
           && !cadena(datos.solicitud.motivo_codigo, 100))

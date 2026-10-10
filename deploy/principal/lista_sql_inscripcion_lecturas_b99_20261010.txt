@@ -1,0 +1,5 @@
+# B99 amplía las lecturas de inscripción después de B96.
+# Orden: lista_sql_inscripcion_nucleo_20261010.txt; después esta ruta.
+# No instalar en principal/cidonia desde este worktree. Sólo ensayo PG18 desechable.
+# SHA256 12954ee7ad22cc5afa5af1ef2b468f59a08788b70cb3fc0dd88e773b30bde38b
+deploy/postgresql/bolsa_llamamientos/migraciones/000099_inscripcion_lecturas.up.sql

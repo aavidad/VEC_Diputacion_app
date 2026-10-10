@@ -338,6 +338,7 @@ func (r *RepositorioInscripcionesPostgreSQL) ConvocatoriasRRHH(ctx context.Conte
 			for _, convocatoria := range p.Convocatorias {
 				if !inscripcion.ConvocatoriaRefValida(convocatoria.ConvocatoriaRef) ||
 					convocatoria.Titulo == "" || utf8.RuneCountInString(convocatoria.Titulo) > 180 ||
+					convocatoria.Pendientes > uint64(1<<53)-1 ||
 					convocatoria.CategoriasResumen == "" || len(convocatoria.CategoriasResumen) > 2048 ||
 					convocatoria.PlazoFin.IsZero() || convocatoria.EstadoPublicacion == "" {
 					return inscripcion.ErrNoDisponible
@@ -380,7 +381,8 @@ func (r *RepositorioInscripcionesPostgreSQL) MotivosRRHH(ctx context.Context, ac
 
 func validarSolicitudInscripcion(ref string, detalleRRHH bool) func(inscripcion.Solicitud) error {
 	return func(s inscripcion.Solicitud) error {
-		if s.SolicitudRef != ref || s.Validar() != nil || s.DeclaracionRef == "" {
+		if s.SolicitudRef != ref || s.Validar() != nil || s.DeclaracionRef == "" ||
+			s.ConvocatoriaTitulo == "" {
 			return inscripcion.ErrNoDisponible
 		}
 		if detalleRRHH && (s.BasesRef == "" || s.CatalogoVersion == 0 || s.PlazoInicio == nil ||
@@ -406,7 +408,7 @@ func validarPaginaInscripcion(limite int) func(inscripcion.Pagina) error {
 			return inscripcion.ErrNoDisponible
 		}
 		for _, s := range p.Solicitudes {
-			if s.Validar() != nil || s.DeclaracionRef == "" {
+			if s.Validar() != nil || s.DeclaracionRef == "" || s.ConvocatoriaTitulo == "" {
 				return inscripcion.ErrNoDisponible
 			}
 		}
