@@ -5,10 +5,12 @@
 Qué carga:
 
 - la versión de la RPT, publicada, con la huella SHA-256 de ese fichero;
-- la plantilla 2026, publicada;
+- la plantilla 2026 de VEC, elaborada a partir de esa RPT y vigente hasta el 1 de enero de 2027, sin fecha de aprobación porque no sale de un acuerdo;
 - 32 puestos tipo, dos por cada categoría del catálogo `categorias_rpt` v1 (administrativo, auxiliar administrativo, analista programador, etc.), con su denominación, centro, nivel y dotación tal como figuran en la RPT;
 - un puesto y una plaza por puesto tipo, unidos por un vínculo confirmado;
-- la cobertura de ocupaciones de la plantilla, que consta completa porque al cargarla no hay ninguna plaza ocupada.
+- la cobertura de ocupaciones de la plantilla hasta el 1 de enero de 2027. Consta completa porque al cargarla no hay ninguna plaza ocupada, y la migración 000040 lo comprueba.
+
+La dotación queda como «parcial», porque solo se carga una plaza por puesto tipo.
 
 Con esto, la incorporación a Personal de Contratación temporal (B2) encuentra vacantes y puede resolver la plaza y el puesto elegidos.
 

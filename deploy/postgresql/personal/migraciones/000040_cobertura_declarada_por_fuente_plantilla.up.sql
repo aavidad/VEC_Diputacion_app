@@ -6,9 +6,9 @@
 --
 -- Regla nueva, cerrada: una revisión «completa» solo se admite si la declara
 -- la misma fuente que publicó la plantilla (misma revisión, organismo,
--- fuente_ref, huella y acto). Quien carga la plantilla es quien responde de
--- que conoce todas sus ocupaciones; las ocupaciones posteriores entran por el
--- alta B2 y la consulta las descuenta. Los demás estados y la continuidad de
+-- fuente_ref, huella y acto) y ninguna plaza de esa plantilla tiene todavía
+-- ocupación registrada. Las ocupaciones posteriores entran por el alta B2 y la
+-- consulta de vacantes las descuenta. Los demás estados y la continuidad de
 -- revisiones no cambian. Solo el propietario de Personal escribe en la tabla
 -- (RLS y sin permisos para la aplicación); no se concede nada nuevo.
 --
@@ -50,6 +50,13 @@ BEGIN
      AND p.organismo_ref=NEW.organismo_ref AND p.estado='publicada' AND NOT p.retirado
      AND p.fuente_ref=NEW.fuente_ref AND p.huella_fuente_sha256=NEW.fuente_huella_sha256
      AND p.acto_ref=NEW.acto_ref
+ ) OR NEW.estado='completa' AND EXISTS (
+  -- Ninguna ocupación anterior sobre esa plantilla: lo que se declara
+  -- completo es una plantilla sin ocupar; las altas posteriores las descuenta
+  -- la consulta de vacantes.
+  SELECT 1 FROM vec_personal.ocupacion_empleado_historia o
+   JOIN vec_personal.plaza_plantilla_historia pl ON pl.plaza_ref=o.plaza_ref
+   WHERE pl.plantilla_version_ref=NEW.plantilla_version_ref
  ) THEN
   RAISE EXCEPTION 'cobertura de ocupaciones no acreditada' USING ERRCODE='P7401';
  END IF;
