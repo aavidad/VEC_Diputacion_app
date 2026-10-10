@@ -208,9 +208,11 @@ func funcionesMiBolsaPortalExternoSinInscripcion() []string {
 		"consultar_mi_bolsa_v1", "consultar_mi_bolsa_portal_v1", "consultar_historial_mi_bolsa_v1",
 		"manifestar_disposicion_oferta_v1", "listar_ofertas_candidato_v1", "solicitar_portal_candidato_v1",
 		"responder_llamamiento_portal_v1", "preparar_respuesta_portal_v1", "leer_portal_candidato_v1",
-		"confirmar_contacto_propio_v1", "leer_contacto_candidato_v1",
+		"confirmar_contacto_propio_v1", "leer_contacto_candidato_v1", "solicitar_documental_portal_v1",
 	}
 }
+
+const firmaSolicitarDocumentalPortalExterno = "vec_bolsa_llamamientos.solicitar_documental_portal_v1(text,text,text,text,text,text,text,date,text,timestamp with time zone,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"
 
 const firmaSolicitarInscripcionPortalExterno = "vec_bolsa_llamamientos.solicitar_inscripcion_v1(text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"
 
@@ -235,14 +237,14 @@ func funcionesMiBolsaPortalExternoExactas(obtenidas []string, funcionesB96 int, 
 	return slices.Equal(observadas, esperadas)
 }
 
-// abrirBolsaMiBolsaPortalExterno acepta B59 exacto antes de B96 y B59+B96
-// exactos después. Un GRANT lateral o una firma B96 distinta impide arrancar.
+// abrirBolsaMiBolsaPortalExterno acepta las concesiones B59+B77 antes de B96
+// y añade exclusivamente la inscripción después. Un GRANT lateral o una firma B96 distinta impide arrancar.
 func abrirBolsaMiBolsaPortalExterno(ctx context.Context, dsn string) (*pgxpool.Pool, string, error) {
 	pool, login, err := abrirPoolMiBolsaPortalExterno(ctx, dsn, "vec_bolsa_llamamientos_portal_externo")
 	if err != nil {
 		return nil, "", errMiBolsaNoDisponible
 	}
-	if !comprobarACLMiBolsaPortalExterno(ctx, pool) {
+	if !comprobarACLMiBolsaPortalExterno(ctx, pool, false) {
 		pool.Close()
 		return nil, "", errMiBolsaNoDisponible
 	}
@@ -253,7 +255,7 @@ type consultadorACLMiBolsaPortalExterno interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func comprobarACLMiBolsaPortalExterno(ctx context.Context, consultador consultadorACLMiBolsaPortalExterno) bool {
+func comprobarACLMiBolsaPortalExterno(ctx context.Context, consultador consultadorACLMiBolsaPortalExterno, requiereInscripcion bool) bool {
 	if ctx == nil || ctx.Err() != nil || consultador == nil {
 		return false
 	}
@@ -283,6 +285,16 @@ func comprobarACLMiBolsaPortalExterno(ctx context.Context, consultador consultad
 )
 SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM funciones),ARRAY[]::text[]),
  (SELECT coalesce(bool_and(prosecdef),false) FROM funciones)
+ AND (SELECT count(*)=1 AND coalesce(bool_and(
+   p.oid=pg_catalog.to_regprocedure($2::text)::oid AND p.prosecdef
+   AND pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+   AND EXISTS(SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+    WHERE a.grantee=(SELECT r.oid FROM pg_catalog.pg_roles r WHERE r.rolname='vec_bolsa_llamamientos_portal_externo')
+      AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+    WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+  ),false) FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='vec_bolsa_llamamientos' AND p.proname='solicitar_documental_portal_v1')
  AND NOT EXISTS (SELECT 1 FROM tablas t WHERE
    pg_catalog.has_table_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
    OR pg_catalog.has_any_column_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
@@ -298,8 +310,9 @@ SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM fun
 	var permitido bool
 	var funcionesB96 int
 	var b96Exacta bool
-	return consultador.QueryRow(ctx, acl, firmaSolicitarInscripcionPortalExterno).Scan(&funciones, &permitido, &funcionesB96, &b96Exacta) == nil &&
-		permitido && funcionesMiBolsaPortalExternoExactas(funciones, funcionesB96, b96Exacta)
+	return consultador.QueryRow(ctx, acl, firmaSolicitarInscripcionPortalExterno, firmaSolicitarDocumentalPortalExterno).Scan(&funciones, &permitido, &funcionesB96, &b96Exacta) == nil &&
+		permitido && (!requiereInscripcion || funcionesB96 == 1 && b96Exacta) &&
+		funcionesMiBolsaPortalExternoExactas(funciones, funcionesB96, b96Exacta)
 }
 
 // nuevaSesionMiBolsaPortalExterno recibe los puertos nominales exteriores de
