@@ -377,6 +377,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       analisisDisponible,
       resolverBolsa,
       contextoCobertura !== null,
+      { fiscalizacionAjena: !fiscalizacionDisponible },
     );
     const contextoInforme = informeJuridicoDisponible
       ? contextoInformeJuridicoDesdeEstado(estado)

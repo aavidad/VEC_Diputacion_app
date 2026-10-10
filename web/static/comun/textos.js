@@ -26,7 +26,7 @@ export const URL_RAIZ_TEXTOS = new URL("../textos/", import.meta.url);
  * `textos-version.test.mjs`). Va como `?huella=` en cada lectura para que el
  * navegador los guarde sin volver a pedirlos; cambia con cualquier catálogo.
  */
-export const VERSION_TEXTOS = "047b237c54cca804";
+export const VERSION_TEXTOS = "48d37c91cd872f9d";
 
 const PATRON_MODULO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const PATRON_IDIOMA = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/u;
