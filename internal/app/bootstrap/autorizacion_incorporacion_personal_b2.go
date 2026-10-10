@@ -83,6 +83,13 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 		if modulo == "ct155" {
 			ambitos = append(ambitos, core.AmbitoPerfil{Clave: "unidad_ref", Valores: []string{refs.UnidadRef}})
 		}
+		// Competencia sobre todo el organismo (consenso B2 del 10/10): plan
+		// (preparar, consultar, ejecutar, confirmar, seleccionar), vacantes,
+		// alta, hecho, ficha y publicar/retirar del catálogo. El objetivo
+		// concreto va en los atributos firmados del recurso y Personal41-44
+		// lo cotejan; la unidad, versión y estado del expediente los sigue
+		// comprobando la SQL de cada acto. Las lecturas de régimen/modalidad
+		// y clases conservan sus perfiles con objetivo_ref cerrado.
 		if modulo == "personal" || modulo == grupoCatalogoEmpleadoB2 {
 			ambitos = []core.AmbitoPerfil{{Clave: "organismo_ref", Valores: []string{c.OrganismoRef}}}
 		}
