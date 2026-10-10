@@ -679,7 +679,7 @@ async function cargar(estado) {
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
   errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false,
-  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261009-inscripcion-v1") } = {}) {
+  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261010-inscripcion-lecturas-b99") } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }

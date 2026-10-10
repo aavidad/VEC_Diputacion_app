@@ -49,7 +49,7 @@ test("la persona consulta páginas y presenta sin datos de identidad del navegad
 
 test("rechaza respuesta de otra persona o bolsa y conserva el código de error", async () => {
   const solicitud = { solicitud_ref: "solicitud:ajena", recibo_ref: "recibo:1", convocatoria_ref: bolsa.convocatoria_ref,
-    categoria: bolsa.categorias[0].categoria,
+    convocatoria_titulo: bolsa.titulo, categoria: bolsa.categorias[0].categoria,
     estado: "pendiente", version: 1, registrada_en: instante };
   const cliente = crearClienteInscripcionBolsa({ fetchImpl: async () => respuesta({
     data: { esquema: "vec.bolsa.inscripcion.propias.detalle.v1", solicitud },
@@ -70,7 +70,7 @@ test("422 diferencia plazo cerrado de requisito cambiado mediante código públi
 
 test("una denegación propia requiere motivo visible y no muestra el código", async () => {
   const solicitud = { solicitud_ref: "solicitud:42", recibo_ref: "recibo:42", convocatoria_ref: bolsa.convocatoria_ref,
-    categoria: bolsa.categorias[0].categoria, estado: "rechazada", version: 2, registrada_en: instante,
+    convocatoria_titulo: bolsa.titulo, categoria: bolsa.categorias[0].categoria, estado: "rechazada", version: 2, registrada_en: instante,
     motivo_codigo: "titulo_no_acreditado", decision_ref: "decision:42" };
   const cliente = crearClienteInscripcionBolsa({ fetchImpl: async () => respuesta({
     data: { esquema: "vec.bolsa.inscripcion.propias.detalle.v1", solicitud },
@@ -84,7 +84,7 @@ test("una denegación propia requiere motivo visible y no muestra el código", a
 test("la lectura propia pide sólo el idioma activo", async () => {
   const rutas = [];
   const solicitud = { solicitud_ref: "solicitud:42", recibo_ref: "recibo:42", convocatoria_ref: bolsa.convocatoria_ref,
-    categoria: bolsa.categorias[0].categoria, estado: "pendiente", version: 1, registrada_en: instante };
+    convocatoria_titulo: bolsa.titulo, categoria: bolsa.categorias[0].categoria, estado: "pendiente", version: 1, registrada_en: instante };
   const cliente = crearClienteInscripcionBolsa({ idioma: "en", fetchImpl: async (ruta) => {
     rutas.push(ruta);
     return respuesta({ data: { esquema: "vec.bolsa.inscripcion.propias.detalle.v1", solicitud } });

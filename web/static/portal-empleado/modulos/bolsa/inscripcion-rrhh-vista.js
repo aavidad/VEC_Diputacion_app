@@ -1,5 +1,5 @@
 import { cargarTextos, reintentarTextos } from "../../../comun/textos.js";
-import { crearClienteInscripcionesRRHH } from "./inscripcion-rrhh-cliente.js?v=20261009-inscripciones-rrhh-v1";
+import { crearClienteInscripcionesRRHH } from "./inscripcion-rrhh-cliente.js?v=20261010-inscripcion-lecturas-b99";
 
 const ESTADOS = new Set(["pendiente", "admitida_a_convocatoria", "incorporada", "rechazada"]);
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -72,7 +72,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     if (!vivo || !catalogo) return;
     if (!filtro.convocatoria) {
       const items = convocatorias?.convocatorias || [];
-      const tarjetas = items.map((c) => `<a class="tarjeta-modulo tarjeta-modulo-habilitada" href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, convocatoria: c.convocatoria_ref, cursor: "" }))}" data-inscripcion-elegir="${esc(c.convocatoria_ref)}"><strong>${esc(c.titulo)}</strong><span>${et("categoria")}: ${esc(c.categorias_resumen)}</span><span class="estado-chip ${c.estado_publicacion === "publicada" ? "exito" : c.estado_publicacion === "sustituida" ? "violeta" : "peligro"}">${et(`publicacion_${c.estado_publicacion}`)}</span><time datetime="${esc(c.plazo_fin)}">${et("fin_plazo")}: ${fecha(c.plazo_fin)}</time>${Date.parse(c.plazo_fin) <= Date.now() ? `<span class="estado-chip aviso">${et("plazo_finalizado")}</span>` : ""}<span class="inscripcion-ver">${et("ver_solicitudes")}</span></a>`).join("");
+      const tarjetas = items.map((c) => `<a class="tarjeta-modulo tarjeta-modulo-habilitada" href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, estado: "pendiente", convocatoria: c.convocatoria_ref, cursor: "" }))}" data-inscripcion-elegir="${esc(c.convocatoria_ref)}"><strong>${esc(c.titulo)}</strong><span>${et("categoria")}: ${esc(c.categorias_resumen)}</span><span class="estado-chip ${c.estado_publicacion === "publicada" ? "exito" : c.estado_publicacion === "sustituida" ? "violeta" : "peligro"}">${et(`publicacion_${c.estado_publicacion}`)}</span><time datetime="${esc(c.plazo_fin)}">${et("fin_plazo")}: ${fecha(c.plazo_fin)}</time>${Date.parse(c.plazo_fin) <= Date.now() ? `<span class="estado-chip aviso">${et("plazo_finalizado")}</span>` : ""}<span class="inscripcion-ver">${esc(catalogo.plural("rrhh.pendientes", c.pendientes))}</span></a>`).join("");
       const aviso = estadoVista === "cargando" ? `<p role="status" aria-busy="true">${et("cargando_convocatorias")}</p>`
         : estadoVista === "denegada" ? `<p role="alert">${et("denegada")}</p>`
           : estadoVista === "no_disponible" ? `<p role="status">${et("no_disponible")}</p>`
@@ -118,7 +118,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
       const accion = decision === "admitir" ? "accion_admitir" : decision === "incorporar" ? "accion_incorporar" : "accion_rechazar";
       const resumen = decision ? `<p>${et("resumen_decision", { accion: t(accion), persona: detalle.persona_resumen || t("persona_aspirante"), categoria: detalle.categoria })}</p>` : "";
       ficha = `<section class="panel" aria-labelledby="inscripcion-detalle-titulo"><header class="cabecera-panel"><h3 id="inscripcion-detalle-titulo" tabindex="-1">${et("detalle")}</h3><button type="button" class="boton-secundario" data-inscripcion-cerrar>${et("cerrar")}</button></header><div class="cuerpo-panel">
-        <dl class="datos-clave">${detalle.persona_resumen ? `<div><dt>${et("persona")}</dt><dd>${esc(detalle.persona_resumen)}</dd></div>` : ""}<div><dt>${et("categoria")}</dt><dd>${esc(detalle.categoria)}</dd></div><div><dt>${et("estado")}</dt><dd>${et(`estado_${detalle.estado}`)}</dd></div>${detalle.motivo_etiqueta ? `<div><dt>${et("motivo")}</dt><dd>${esc(detalle.motivo_etiqueta)}</dd></div>` : ""}<div><dt>${et("fecha")}</dt><dd>${fecha(detalle.registrada_en)}</dd></div><div><dt>${et("plazo")}</dt><dd>${fecha(detalle.plazo_inicio)} – ${fecha(detalle.plazo_fin)}</dd></div></dl>
+        <dl class="datos-clave">${detalle.persona_resumen ? `<div><dt>${et("persona")}</dt><dd>${esc(detalle.persona_resumen)}</dd></div>` : ""}<div><dt>${et("convocatoria")}</dt><dd>${esc(detalle.convocatoria_titulo)}</dd></div><div><dt>${et("categoria")}</dt><dd>${esc(detalle.categoria)}</dd></div><div><dt>${et("estado")}</dt><dd>${et(`estado_${detalle.estado}`)}</dd></div>${detalle.motivo_etiqueta ? `<div><dt>${et("motivo")}</dt><dd>${esc(detalle.motivo_etiqueta)}</dd></div>` : ""}<div><dt>${et("fecha")}</dt><dd>${fecha(detalle.registrada_en)}</dd></div><div><dt>${et("plazo")}</dt><dd>${fecha(detalle.plazo_inicio)} – ${fecha(detalle.plazo_fin)}</dd></div></dl>
         ${requisitos}${siguientePaso}${decision ? `<h4>${et("revision")}</h4>${resumen}${selector}${evidencia}` : ""}${confirmar}</div></section>`;
     }
     const confirmacion = recibo ? `<section class="panel" id="inscripcion-recibo" tabindex="-1" role="status"><div class="cuerpo-panel"><p>${et(recibo.estado === "rechazada" ? "rechazada" : recibo.estado === "incorporada" ? "incorporada" : "admitida_a_convocatoria")}</p><p>${et("registrado_el", { fecha: catalogo.fecha(recibo.incorporada_en || recibo.decidida_en, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" }) })}</p><button type="button" class="boton-secundario" data-inscripcion-cerrar-recibo>${et("volver_lista")}</button></div></section>` : "";
@@ -266,7 +266,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     else if (accion.hasAttribute("data-inscripcion-total")) navegar({ ...filtro, cursor: "" });
     else if (accion.dataset.inscripcionElegir) {
       seleccion = convocatorias?.convocatorias.find((c) => c.convocatoria_ref === accion.dataset.inscripcionElegir) || null;
-      navegar({ ...filtro, convocatoria: accion.dataset.inscripcionElegir, cursor: "" });
+      navegar({ ...filtro, estado: "pendiente", convocatoria: accion.dataset.inscripcionElegir, cursor: "" });
     }
     else if (accion.hasAttribute("data-inscripcion-selector-siguiente")) navegar({ ...filtro, selectorCursor: convocatorias.cursor_siguiente });
     else if (accion.hasAttribute("data-inscripcion-selector-total")) navegar({ ...filtro, selectorCursor: "" });

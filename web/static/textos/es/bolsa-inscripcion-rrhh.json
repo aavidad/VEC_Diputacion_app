@@ -96,6 +96,10 @@
     "accion_rechazar": "rechazar",
     "accion_incorporar": "incorporar a la bolsa",
     "persona_aspirante": "la persona aspirante",
-    "registrado_el": "Registrado el {fecha}."
+    "registrado_el": "Registrado el {fecha}.",
+    "pendientes": {
+      "one": "{cuenta} solicitud pendiente",
+      "other": "{cuenta} solicitudes pendientes"
+    }
   }
 }
