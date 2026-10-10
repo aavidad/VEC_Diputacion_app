@@ -12,12 +12,13 @@ import (
 	"time"
 )
 
-// claveEntradaCatalogo es la misma regla que aplica la autoridad de catálogos
-// en PostgreSQL al publicar (vec_catalogos_configurables.publicar): admite «:»
-// para claves con espacio de nombres, como «categoria:rpt:administrativo».
-// Si el dominio fuera más estricto, una publicación válida en la base se
-// leería como no confiable.
-var claveEntradaCatalogo = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{2,127}$`)
+// claveEntradaCatalogo admite «:» como la autoridad de catálogos en
+// PostgreSQL (vec_catalogos_configurables.publicar, ^[a-z][a-z0-9_.:-]{2,127}$),
+// para claves con espacio de nombres como «categoria:rpt:administrativo». Si
+// el dominio fuera más estricto, una publicación válida en la base se leería
+// como no confiable. La longitud mínima sigue siendo la de las claves
+// documentales: hay catálogos de Personal con claves de una o dos letras.
+var claveEntradaCatalogo = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{0,127}$`)
 
 var (
 	ErrCatalogoConfigurableInvalido = errors.New("vec: catalogo configurable invalido")

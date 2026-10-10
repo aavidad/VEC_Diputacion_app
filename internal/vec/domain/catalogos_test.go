@@ -277,9 +277,9 @@ func TestHuellaContenidoCatalogoPermaneceDuranteGobiernoYCambiaConSemantica(t *t
 	}
 }
 
-// La clave de una entrada sigue la misma regla que vec_catalogos_configurables.publicar
-// (^[a-z][a-z0-9_.:-]{2,127}$): las categorías RPT publicadas usan claves como
-// «categoria:rpt:administrativo» y el lector no puede tenerlas por no confiables.
+// La clave de una entrada admite «:» como vec_catalogos_configurables.publicar:
+// las categorías RPT publicadas usan claves como «categoria:rpt:administrativo»
+// y el lector no puede tenerlas por no confiables. Las claves cortas siguen valiendo.
 func TestEntradaCatalogoClaveSigueLaReglaDeLaBase(t *testing.T) {
 	base := catalogoConfigurablePrueba().Entradas[0]
 	for _, c := range []struct {
@@ -292,7 +292,8 @@ func TestEntradaCatalogoClaveSigueLaReglaDeLaBase(t *testing.T) {
 		{"a.b", true},
 		{"a" + strings.Repeat("b", 127), true},
 		{"a" + strings.Repeat("b", 128), false},
-		{"ab", false},
+		{"ab", true},
+		{"a", true},
 		{"Categoria:rpt", false},
 		{"1categoria", false},
 		{":categoria", false},
