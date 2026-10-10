@@ -151,3 +151,4 @@
 1762 deploy/postgresql/bolsa_llamamientos/migraciones/000096_inscripcion_convocatoria.up.sql
 960 deploy/postgresql/bolsa_llamamientos/migraciones/000097_incorporacion_inscripcion.up.sql
 907 deploy/postgresql/catalogos_configurables/migraciones/000011_lectura_lote_categorias_inscripcion.up.sql
+2905 deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql

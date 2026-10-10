@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql
+deploy/postgresql/autorizacion/migraciones/000074_consumo_nominal_actos_admin_v2.up.sql
