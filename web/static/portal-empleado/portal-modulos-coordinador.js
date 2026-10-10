@@ -17,7 +17,7 @@ import {
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261009-ct-bolsa-cohorte-v9";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261010-ct-ficha-cohorte-v1";
 import { cargarTextos } from "../comun/textos.js";
 import { INDICE_IDIOMAS } from "../comun/idioma.js";
 import {
@@ -130,25 +130,25 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js?v=20261009-centro-campos-cohorte-v5"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261009-ct-bolsa-cohorte-v9"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261010-ct-ficha-cohorte-v1"),
 
     ]);
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
-        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261009-ct-bolsa-cohorte-v9"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261009-ct-bolsa-cohorte-v9"),
-        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261009-ct-bolsa-cohorte-v9"),
+        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261010-ct-ficha-cohorte-v1"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261010-ct-ficha-cohorte-v1"),
+        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261010-ct-ficha-cohorte-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
       return completos;
     };
-    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261009-ct-bolsa-cohorte-v9");
+    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261010-ct-ficha-cohorte-v1");
     // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261009-ct-bolsa-cohorte-v9");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261010-ct-ficha-cohorte-v1");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),
@@ -688,7 +688,12 @@ export function crearCoordinadorModulosPortal({
     // descarga ya, tras lanzar las consultas para no retrasarlas. Un fallo se
     // ignora aquí; el montaje la vuelve a pedir y lo muestra.
     if (typeof recursos.tomarCuadroLista === "function") void esperarVista().catch(() => {});
+    // El perfil de la sesión decide qué actos se ofrecen: la fiscalización solo
+    // la registra Intervención. Se pide a la vez que el cuadro (nunca falla:
+    // sin sesión legible, el acto no se ofrece).
+    const promesaIntervencion = sesionDeIntervencion(consultar);
     const [cuadro, configuracion] = await Promise.allSettled([consultaCuadro, promesaConfiguracion]);
+    const perfilIntervencion = await promesaIntervencion;
     exigirVigente();
     const cuadroDisponible = cuadro.status === "fulfilled";
     const listadoCuadro = cuadroDisponible ? cuadro.value : null;
@@ -749,7 +754,7 @@ export function crearCoordinadorModulosPortal({
     const fiscalizacion = alta === null && analisis === null
       && typeof cliente.registrarResultadoFiscalizacion === "function"
       && await esperarVista().then((partes) => typeof partes.vista.montarModuloFiscalizacionContratacionTemporal === "function", () => false)
-      && await sesionDeIntervencion(consultar)
+      && perfilIntervencion
       ? Object.freeze({ cliente }) : null;
     exigirVigente();
     if (!cuadroDisponible && alta === null && fiscalizacion === null) {
@@ -768,6 +773,8 @@ export function crearCoordinadorModulosPortal({
         esperarAlta: () => promesaAlta,
         analisis,
         fiscalizacion,
+        // Actos de Intervención dentro de la ficha: solo con ese perfil.
+        fiscalizacionEnFicha: perfilIntervencion,
         subsanacion,
         continuidad: fiscalizacion === null ? Object.freeze({ cliente }) : null,
         // Con la vista ya cargada (el montaje la espera antes de leer esto).
@@ -1331,7 +1338,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261009-ct-bolsa-cohorte-v9");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261010-ct-ficha-cohorte-v1");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
@@ -1485,7 +1492,7 @@ export function crearCoordinadorModulosPortal({
           mensajes: temporal.mensajesExpedientes,
           alta: temporal.alta,
           analisis: temporal.analisis,
-          fiscalizacion: typeof temporal.analisis?.cliente
+          fiscalizacion: temporal.fiscalizacionEnFicha === true && typeof temporal.analisis?.cliente
             ?.registrarResultadoFiscalizacion === "function"
             ? { cliente: temporal.analisis.cliente }
             : null,

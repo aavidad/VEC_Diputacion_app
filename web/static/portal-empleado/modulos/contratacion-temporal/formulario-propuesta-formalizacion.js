@@ -1,5 +1,5 @@
 /** Orientación de la pantalla RRHH 13 hacia la única acción real CT65. */
-import { escaparHTML } from "./componentes-expedientes.js?v=20261009-ct-bolsa-cohorte-v9";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261010-ct-ficha-cohorte-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 // La pantalla original pide generación automática posterior a la selección.
