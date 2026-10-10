@@ -32,6 +32,25 @@ type reciboJSON struct {
 	ReferenciaActo      string                            `json:"referencia_acto"`
 }
 
+// utcDesplazamientoCero devuelve en time.UTC un instante con desplazamiento
+// cero. jsonb serializa timestamptz con TimeZone=UTC como «…+00:00» y
+// encoding/json lo deja en una zona fija, no en time.UTC; el dominio exige UTC
+// canónico. Un desplazamiento distinto de cero no se toca: sigue siendo una
+// proyección ajena y se rechaza más adelante.
+func utcDesplazamientoCero(t time.Time) time.Time {
+	if _, desplazamiento := t.Zone(); desplazamiento == 0 && !t.IsZero() {
+		return t.UTC()
+	}
+	return t
+}
+
+// normalizarUTC aplica utcDesplazamientoCero a los instantes del recibo.
+func (x *reciboJSON) normalizarUTC() {
+	x.VigenteDesde = utcDesplazamientoCero(x.VigenteDesde)
+	x.VigenteHasta = utcDesplazamientoCero(x.VigenteHasta)
+	x.ConfirmadoEn = utcDesplazamientoCero(x.ConfirmadoEn)
+}
+
 // La vigencia de una revocación procede de la asignación histórica conservada;
 // la preimagen de revocación no la contiene y nunca puede rellenarla.
 func (x reciboJSON) vigenciaHistoricaCompleta() bool {
