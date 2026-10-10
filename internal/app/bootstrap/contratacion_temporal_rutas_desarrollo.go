@@ -61,6 +61,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		httpinterno.RutaNoIncorporaciones:               {pdpCT(http.MethodPost)},
 		httpinterno.RutaCancelacionesExpediente:         {pdpCT(http.MethodPost)},
 		httpinterno.RutaCancelacionExpediente:           {pdpCT(http.MethodPost)},
+		httpinterno.RutaVinculosEmisionBolsa:            {pdpCT(http.MethodPost)},
 		rutaEntregaPeticionCentro:                       {pdpCT(http.MethodGet), pdpCT(http.MethodPost)},
 		httpinterno.RutaReincorporacionesTitular:        {pdpCT(http.MethodPost)},
 		httpinterno.RutaCapacidadReincorporacionTitular: {pdpCT(http.MethodPost)},
@@ -223,6 +224,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == httpinterno.RutaConsultaReciboRespuesta ||
 		r.URL.Path == httpinterno.RutaConsultaComunicacionesExpediente ||
 		r.URL.Path == httpinterno.RutaConsultaCircuitoRRHH ||
+		r.URL.Path == httpinterno.RutaVinculosEmisionBolsa ||
 		rutaFirmasR5V2CTDesarrollo(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaEventoPlazoLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroComunicacionLlamamiento ||

@@ -1,0 +1,363 @@
+package bootstrap
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/modules/bolsa/application/inscripcion"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
+)
+
+func TestAcreditacionInscripcionRedactada(t *testing.T) {
+	a := AcreditacionSesionInscripcionBolsa{CertificadoHuellaSHA256: strings.Repeat("a", 64), PersonaRef: "per_privada", SesionRef: "ses_privada"}
+	contenido, err := json.Marshal(a)
+	if err != nil || strings.Contains(string(contenido), "per_privada") || strings.Contains(fmt.Sprintf("%+v %#v", a, a), "ses_privada") || strings.Contains(a.LogValue().String(), "aaaa") {
+		t.Fatalf("acreditacion expuesta: %s %v", contenido, err)
+	}
+}
+
+type sesionInscripcionPrueba struct {
+	ctx          contextoSeguridadComunDesarrollo
+	acreditacion AcreditacionSesionInscripcionBolsa
+	err          error
+}
+
+func (s sesionInscripcionPrueba) ResolverInscripcion(*http.Request) (contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, error) {
+	return s.ctx, s.acreditacion, s.err
+}
+
+type autoridadInscripcionPrueba struct {
+	alterarRecurso bool
+	huella, canal  string
+}
+
+func (a autoridadInscripcionPrueba) CapturarLectura(_ context.Context, ctx contextoSeguridadComunDesarrollo, _ AcreditacionSesionInscripcionBolsa, accion, recurso string, filtro inscripcion.Filtro) (inscripcion.CapturaLectura, error) {
+	v, _ := ctx.Vinculo.Datos()
+	if a.alterarRecurso {
+		recurso = "otro_recurso"
+	}
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	huella := a.huella
+	if huella == "" {
+		huella = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	}
+	canal := a.canal
+	if canal == "" {
+		canal = "interna_corporativa"
+	}
+	var conjunto *inscripcion.AmbitoGestionInscripcion
+	if strings.Contains(accion, ".rrhh.") {
+		conjunto = &inscripcion.AmbitoGestionInscripcion{ConjuntoRef: "conjunto:gestion:prueba", UnidadRef: "unidad:rrhh",
+			AmbitoRef: "ambito:bolsa", FuenteRef: "catalogo:gestion:1", FuenteVersion: 1,
+			FuenteSHA256: strings.Repeat("b", 64)}
+	}
+	return inscripcion.CapturaLectura{PersonaRef: ctx.Resultado.Contexto.PersonaRef, PerfilRef: ctx.Resultado.Contexto.PerfilActivoRef,
+		CuentaRef: v.CuentaRef, SesionRef: v.SesionRef, AutenticacionRef: v.AutenticacionRef,
+		CertificadoHuellaSHA256: huella,
+		Canal:                   canal, Accion: accion, RecursoRef: recurso, Filtro: filtro,
+		Finalidad: "revision_inscripciones", CorrelacionRef: "cor_prueba_001", RevisionPermisos: 1,
+		HuellaInstantaneaSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Campos:                  []string{"solicitudes[].solicitud_ref"},
+		ConjuntoGestion:         conjunto,
+		EmitidaEn:               ahora, ValidaHasta: ahora.Add(20 * time.Second)}, nil
+}
+
+func contextoInscripcionCanalPrueba(t *testing.T, ahora time.Time, exterior bool) contextoSeguridadComunDesarrollo {
+	t.Helper()
+	return contextoInscripcionPrueba(t, ahora, exterior, false)
+}
+
+// contextoInscripcionCandidatoPrueba es una persona aspirante del portal
+// externo con su único vínculo de candidato vigente.
+func contextoInscripcionCandidatoPrueba(t *testing.T, ahora time.Time) (contextoSeguridadComunDesarrollo, string) {
+	t.Helper()
+	ctx := contextoInscripcionPrueba(t, ahora, true, true)
+	return ctx, ctx.Resultado.Contexto.Instantanea.Vinculos[0].Referencia
+}
+
+func contextoInscripcionPrueba(t *testing.T, ahora time.Time, exterior, candidato bool) contextoSeguridadComunDesarrollo {
+	t.Helper()
+	principal := vecdomain.Principal{ID: "certificado_sintetico_inscripcion", Roles: []string{"empleado"},
+		AuthMethod: vecdomain.AuthMethodCertificate, AuthAssurance: vecdomain.AuthAssuranceHigh,
+		Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa, "perfil_ejecucion": config.ExecutionProfileDevelopment,
+			"certificate_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}}
+	base, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(principal, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultado := base.Resultado
+	if candidato {
+		resultado = resultadoConVinculoContextoPrueba(t, resultado, 1, vecdomain.TipoReferenciaContextoActorCandidato, "can_", "inscripcion-candidata")
+	}
+	v, err := base.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	superficie := vecdomain.SuperficieAutenticacionInternaCorporativaV1
+	if exterior {
+		superficie = vecdomain.SuperficieAutenticacionExternaPersonalV1
+	}
+	autenticacion := vecdomain.AutenticacionRevalidadaV1{
+		AutenticacionRef: v.AutenticacionRef, AutenticacionHuellaSHA256: v.AutenticacionHuellaSHA256,
+		AsercionRef: v.AsercionRef, SesionRef: v.SesionRef, ControlSesionRef: v.ControlSesionRef,
+		ControlSesionRevision: v.ControlSesionRevision, ControlSesionHuellaSHA256: v.ControlSesionHuellaSHA256,
+		CuentaRef: v.CuentaRef, CuentaOrdinariaRef: v.CuentaOrdinariaRef, CuentaPrivilegiada: v.CuentaPrivilegiada,
+		Superficie: superficie, MetodoObservado: v.MetodoObservado, GarantiaObservada: v.GarantiaObservada,
+		PoliticaGarantiaRef: v.PoliticaGarantiaRef, PoliticaGarantiaHuellaSHA256: v.PoliticaGarantiaHuellaSHA256,
+		AutenticacionVerificadaEn: v.AutenticacionVerificadaEn, SesionEmitidaEn: v.SesionEmitidaEn,
+		SesionValidaHasta: v.SesionValidaHasta, SesionRevalidadaEn: v.SesionRevalidadaEn,
+	}
+	ligadura, resuelto, err := vecdomain.CrearVinculoAutenticacionActorV2ConResultado(context.Background(),
+		revalidadorAutenticacionAltaContratacionTemporalDesarrollo{valor: autenticacion},
+		vecdomain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef},
+		resolutorContextoAltaContratacionTemporalDesarrollo{valor: resultado},
+		vecdomain.SolicitudContextoActor{Cuenta: vecdomain.CuentaAutenticadaContextoActor{
+			CuentaRef: v.CuentaRef, Metodo: vecdomain.AuthMethodCertificate, Garantia: vecdomain.AuthAssuranceHigh},
+			PerfilActivoRef: v.PerfilActivoRef}, relojFijoAltaContratacionTemporalDesarrollo{ahora: ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return contextoSeguridadComunDesarrollo{Vinculo: ligadura, Resultado: resuelto}
+}
+
+func acreditacionSesionInscripcionPrueba(t *testing.T, ctx contextoSeguridadComunDesarrollo, canal string, ahora time.Time) AcreditacionSesionInscripcionBolsa {
+	t.Helper()
+	v, err := ctx.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return AcreditacionSesionInscripcionBolsa{CertificadoHuellaSHA256: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+		Canal: canal, PersonaRef: ctx.Resultado.Contexto.PersonaRef, PerfilRef: ctx.Resultado.Contexto.PerfilActivoRef,
+		CuentaRef: v.CuentaRef, SesionRef: v.SesionRef, AutenticacionRef: v.AutenticacionRef,
+		VerificadaEn: ahora.Add(-time.Second), ValidaHasta: ahora.Add(time.Minute)}
+}
+
+func (autoridadInscripcionPrueba) AutorizarEscritura(context.Context, contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, string, string, []byte) (AutorizacionEscrituraInscripcionBolsa, error) {
+	return AutorizacionEscrituraInscripcionBolsa{Material: vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}}, inscripcion.ErrAccesoDenegado
+}
+
+func TestInscripcionBolsaContextoSinParticipacionPrevia(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	principal := vecdomain.Principal{ID: "persona_sintetica_sin_participacion", Roles: []string{"tecnico_rrhh"},
+		AuthMethod: vecdomain.AuthMethodCertificate, AuthAssurance: vecdomain.AuthAssuranceHigh,
+		Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa,
+			"perfil_ejecucion":   config.ExecutionProfileDevelopment,
+			"certificate_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}}
+	base, err := nuevoContextoAltaContratacionTemporalDesarrollo(principal, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := contextoSeguridadComunDesarrollo{Vinculo: base.Vinculo, Resultado: base.Resultado}
+	if len(ctx.Resultado.Contexto.Instantanea.Vinculos) != 0 {
+		t.Fatal("la prueba requiere persona sin participación")
+	}
+	persona := ctx.Resultado.Contexto.PersonaRef
+	perfil := ctx.Resultado.Contexto.PerfilActivoRef
+	cuenta := ctx.Resultado.Contexto.Instantanea.CuentaRef
+	if !contextoInscripcionBolsaValido(ctx, persona, perfil, cuenta, true, ahora) {
+		t.Fatal("la sesión válida sin participación quedó bloqueada")
+	}
+	for nombre, datos := range map[string][3]string{
+		"persona ajena": {"otra_persona", perfil, cuenta},
+		"perfil ajeno":  {persona, "otro_perfil", cuenta},
+		"cuenta ajena":  {persona, perfil, "otra_cuenta"},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			if contextoInscripcionBolsaValido(ctx, datos[0], datos[1], datos[2], true, ahora) {
+				t.Fatal("se aceptó suplantación de sesión")
+			}
+		})
+	}
+	if contextoInscripcionBolsaValido(ctx, persona, perfil, cuenta, false, ahora) {
+		t.Fatal("sesión interna aceptada en superficie exterior")
+	}
+}
+
+func TestInscripcionBolsaFiltroYRutaExactos(t *testing.T) {
+	casos := []struct {
+		nombre, metodo, ruta, accion, recurso string
+		rrhh, valido                          bool
+		filtro                                inscripcion.Filtro
+	}{
+		{"abiertas", "GET", "/api/vec/bolsa/inscripciones/convocatorias-abiertas?limite=7&cursor=abc", inscripcion.AccionListarAbiertas, "convocatorias-abiertas", false, true, inscripcion.Filtro{Limite: 7, Cursor: "abc"}},
+		{"propias", "GET", "/api/vec/bolsa/inscripciones/propias?limite=8", inscripcion.AccionListarPropias, "inscripciones:propias:", false, true, inscripcion.Filtro{Limite: 8}},
+		{"rrhh pendiente", "GET", "/api/vec/bolsa/rrhh/inscripciones?convocatoria_ref=cv1_001_v1", inscripcion.AccionListarRRHH, "inscripciones:rrhh", true, true, inscripcion.Filtro{Limite: 20, Estado: inscripcion.EstadoPendiente, ConvocatoriaRef: "cv1_001_v1"}},
+		{"rrhh selector", "GET", "/api/vec/bolsa/rrhh/inscripciones/convocatorias?limite=7&idioma=en", inscripcion.AccionConvocatoriasRRHH, "inscripciones:rrhh:convocatorias", true, true, inscripcion.Filtro{Limite: 7}},
+		{"rrhh sin convocatoria", "GET", "/api/vec/bolsa/rrhh/inscripciones", "", "", true, false, inscripcion.Filtro{}},
+		{"rrhh ajeno exterior", "GET", "/api/vec/bolsa/rrhh/inscripciones", "", "", false, false, inscripcion.Filtro{}},
+		{"filtro duplicado", "GET", "/api/vec/bolsa/inscripciones/propias?limite=8&limite=9", "", "", false, false, inscripcion.Filtro{}},
+		{"query oculta", "GET", "/api/vec/bolsa/inscripciones/propias?persona_ref=otra", "", "", false, false, inscripcion.Filtro{}},
+		{"post con query", "POST", "/api/vec/bolsa/inscripciones/propias?persona_ref=otra", "", "", false, false, inscripcion.Filtro{}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			r := httptest.NewRequest(caso.metodo, caso.ruta, nil)
+			accion, recurso, filtro, ok := operacionInscripcionBolsa(r, caso.rrhh)
+			if ok != caso.valido {
+				t.Fatalf("admisión = %v", ok)
+			}
+			if ok && (accion != caso.accion || recurso != caso.recurso || filtro != caso.filtro) {
+				t.Fatalf("acción/recurso/filtro alterados: %q %q %+v", accion, recurso, filtro)
+			}
+		})
+	}
+}
+
+func TestInscripcionBolsaConstructorSinAutoridadCierra(t *testing.T) {
+	if _, err := NuevoPreparadorInscripcionBolsa(ConfiguracionPreparadorInscripcionBolsa{}); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("constructor sin autoridad = %v", err)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/inscripciones/propias", nil)
+	if _, err := (&preparadorInscripcionBolsa{}).PrepararLecturaAspirante(r, inscripcion.AccionListarPropias, "", inscripcion.Filtro{Limite: 20}, "es"); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("preparador sin sesión = %v", err)
+	}
+}
+
+func TestInscripcionBolsaPreparadoresSeparanSuperficies(t *testing.T) {
+	sesion := sesionInscripcionPrueba{}
+	base := ConfiguracionPreparadorInscripcionBolsa{Autoridad: autoridadInscripcionPrueba{}, Reloj: relojContratacionTemporalDesarrollo{}}
+	externo := base
+	externo.SesionAspirante = sesion
+	pExterno, err := NuevoPreparadorInscripcionBolsaExterno(externo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/rrhh/inscripciones", nil)
+	if _, err := pExterno.PrepararLecturaRRHH(r, inscripcion.AccionListarRRHH, "", inscripcion.Filtro{Limite: 20}, "es"); !errors.Is(err, inscripcion.ErrNoDisponible) && !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+		t.Fatalf("RRHH en portal externo: %v", err)
+	}
+	externo.SesionRRHH = sesion
+	if _, err := NuevoPreparadorInscripcionBolsaExterno(externo); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("portal externo acepta sesión interna: %v", err)
+	}
+	interno := base
+	interno.SesionRRHH = sesion
+	interno.RRHH = []identidadConsultaRRHHDesarrollo{{}}
+	pInterno, err := NuevoPreparadorInscripcionBolsaInterno(interno)
+	if err != nil {
+		t.Fatalf("preparador interno sin sesión externa: %v", err)
+	}
+	rPropias := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/inscripciones/propias", nil)
+	if _, err := pInterno.PrepararLecturaAspirante(rPropias, inscripcion.AccionListarPropias, "", inscripcion.Filtro{Limite: 20}, "es"); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+		t.Fatalf("vec-server atendió a una persona aspirante: %v", err)
+	}
+	interno.SesionAspirante = sesion
+	if _, err := NuevoPreparadorInscripcionBolsaInterno(interno); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("proceso interno acepta sesión externa: %v", err)
+	}
+}
+
+func TestInscripcionBolsaLecturaNominalSinParticipacionYSuplantacion(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	huella := "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	principal := vecdomain.Principal{ID: "certificado_rrhh_sintetico_inscripcion", Roles: []string{"tecnico_rrhh"},
+		AuthMethod: vecdomain.AuthMethodCertificate, AuthAssurance: vecdomain.AuthAssuranceHigh,
+		Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa, "perfil_ejecucion": config.ExecutionProfileDevelopment,
+			"certificate_sha256": huella}}
+	base, err := nuevoContextoAltaContratacionTemporalDesarrollo(principal, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := contextoSeguridadComunDesarrollo{Vinculo: base.Vinculo, Resultado: base.Resultado}
+	if len(ctx.Resultado.Contexto.Instantanea.Vinculos) != 0 {
+		t.Fatal("el contexto tiene participación")
+	}
+	v, err := ctx.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	perfil := ctx.Resultado.Contexto.PerfilActivoRef
+	acreditacion := AcreditacionSesionInscripcionBolsa{
+		CertificadoHuellaSHA256: huella, Canal: "interna_corporativa",
+		PersonaRef: ctx.Resultado.Contexto.PersonaRef, PerfilRef: perfil, CuentaRef: v.CuentaRef,
+		SesionRef: v.SesionRef, AutenticacionRef: v.AutenticacionRef,
+		VerificadaEn: ahora.Add(-time.Second), ValidaHasta: ahora.Add(time.Minute),
+	}
+	prueba := sesionInscripcionPrueba{ctx: ctx, acreditacion: acreditacion}
+	c := ConfiguracionPreparadorInscripcionBolsa{
+		RRHH:            []identidadConsultaRRHHDesarrollo{{identidad: identidadCertificadoDesarrollo{principal: principal}, perfilRef: perfil}},
+		SesionAspirante: prueba, SesionRRHH: prueba, Autoridad: autoridadInscripcionPrueba{},
+		Reloj: relojContratacionTemporalDesarrollo{},
+	}
+	p, err := NuevoPreparadorInscripcionBolsa(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	filtro := inscripcion.Filtro{Limite: 20, Estado: inscripcion.EstadoPendiente, ConvocatoriaRef: "cv1_001_v1"}
+	r := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/rrhh/inscripciones?convocatoria_ref=cv1_001_v1", nil)
+	a, err := p.PrepararLecturaRRHH(r, inscripcion.AccionListarRRHH, "", filtro, "es")
+	if err != nil || a.PersonaRef != acreditacion.PersonaRef || a.Lectura == nil || !a.LecturaValida(inscripcion.AccionListarRRHH, a.Lectura.RecursoRef, filtro) {
+		t.Fatalf("lectura nominal sin participación: %v", err)
+	}
+	acreditacion.PersonaRef = "per_suplantada"
+	c.SesionRRHH = sesionInscripcionPrueba{ctx: ctx, acreditacion: acreditacion}
+	p, err = NuevoPreparadorInscripcionBolsa(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.PrepararLecturaRRHH(r, inscripcion.AccionListarRRHH, "", filtro, "es"); !errors.Is(err, inscripcion.ErrSesionAusente) {
+		t.Fatalf("acreditación de otra persona: %v", err)
+	}
+	acreditacion.PersonaRef = ctx.Resultado.Contexto.PersonaRef
+	c.SesionRRHH = sesionInscripcionPrueba{ctx: ctx, acreditacion: acreditacion}
+	c.Autoridad = autoridadInscripcionPrueba{alterarRecurso: true}
+	p, err = NuevoPreparadorInscripcionBolsa(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.PrepararLecturaRRHH(r, inscripcion.AccionListarRRHH, "", filtro, "es"); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
+		t.Fatalf("concesión para otro recurso: %v", err)
+	}
+}
+
+func TestInscripcionBolsaAspiranteExternoSinCandidatura(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	ctx := contextoInscripcionCanalPrueba(t, ahora, true)
+	if len(ctx.Resultado.Contexto.Instantanea.Vinculos) != 0 {
+		t.Fatal("el externo ya tiene vínculo")
+	}
+	acreditacion := acreditacionSesionInscripcionPrueba(t, ctx, "externa_personal", ahora)
+	sesion := sesionInscripcionPrueba{ctx: ctx, acreditacion: acreditacion}
+	c := ConfiguracionPreparadorInscripcionBolsa{SesionAspirante: sesion, SesionRRHH: sesion,
+		RRHH:      []identidadConsultaRRHHDesarrollo{{perfilRef: "prf_rrhh_nominal"}},
+		Autoridad: autoridadInscripcionPrueba{canal: "externa_personal"}, Reloj: relojContratacionTemporalDesarrollo{}}
+	p, err := NuevoPreparadorInscripcionBolsa(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/inscripciones/convocatorias-abiertas", nil)
+	filtro := inscripcion.Filtro{Limite: 20}
+	a, err := p.PrepararLecturaAspirante(r, inscripcion.AccionListarAbiertas, "", filtro, "es")
+	if err != nil || a.PersonaRef != acreditacion.PersonaRef || a.Canal != "externa_personal" || a.Lectura == nil {
+		t.Fatalf("aspirante externo sin candidatura: %v", err)
+	}
+}
+
+func TestInscripcionBolsaSesionCaidaNoPideIdentificarseOtraVez(t *testing.T) {
+	externo := ConfiguracionPreparadorInscripcionBolsa{Autoridad: autoridadInscripcionPrueba{canal: "externa_personal"},
+		Reloj: relojContratacionTemporalDesarrollo{}}
+	r := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/inscripciones/convocatorias-abiertas", nil)
+	for _, caso := range []struct{ fuente, esperado error }{
+		{inscripcion.ErrNoDisponible, inscripcion.ErrNoDisponible},
+		{inscripcion.ErrSesionAusente, inscripcion.ErrSesionAusente},
+		{errors.New("causa no clasificada"), inscripcion.ErrSesionAusente},
+	} {
+		externo.SesionAspirante = sesionInscripcionPrueba{err: caso.fuente}
+		p, err := NuevoPreparadorInscripcionBolsaExterno(externo)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := p.PrepararLecturaAspirante(r, inscripcion.AccionListarAbiertas, "", inscripcion.Filtro{Limite: 20}, "es"); !errors.Is(err, caso.esperado) {
+			t.Fatalf("sesión %v → %v, se esperaba %v", caso.fuente, err, caso.esperado)
+		}
+	}
+}

@@ -94,7 +94,7 @@ func (f filaPreparacionAnalisis) restaurar(
 				ports.ErrPersistenciaOperacionAnalisisNoDisponible
 		}
 		var expediente domain.Expediente
-		if decodificarJSONEstricto(
+		if decodificarExpedienteSQL(
 			[]byte(f.expedienteJSON),
 			&expediente,
 		) != nil || expediente.Validar() != nil {

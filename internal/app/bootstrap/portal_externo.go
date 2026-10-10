@@ -252,6 +252,12 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 	if portalCandidato && !miBolsa {
 		return nil, nada, errMiBolsaNoDisponible
 	}
+	// La inscripción reutiliza la sesión del Área personal: encendida sin
+	// Preferencias no se compone a medias, se detiene el arranque.
+	inscripcionActiva, err := cfg.BolsaInscripcionesExternoActivo()
+	if err != nil || (inscripcionActiva && !preferencias) {
+		return nil, nada, errMontajeInscripcionBolsa
+	}
 	if !preferencias && !miBolsa {
 		return nil, nada, nil
 	}
@@ -302,20 +308,28 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 		cerrar()
 		return nil, nada, err
 	}
-	cerrarTodo := func() { cerrarBolsa(); cerrarPreferencias(); cerrar() }
-	if bolsa == nil {
+	inscripcionBolsa, cerrarInscripcion, err := nuevaInscripcionPortalExterno(ctx, cfg, autoridadPreferencias, preflight)
+	if err != nil {
+		cerrarBolsa()
+		cerrarPreferencias()
+		cerrar()
+		return nil, nada, err
+	}
+	cerrarTodo := func() { cerrarInscripcion(); cerrarBolsa(); cerrarPreferencias(); cerrar() }
+	if bolsa == nil && inscripcionBolsa == nil {
 		return personal, cerrarTodo, nil
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r != nil && r.URL != nil && bolsahttp.EsRutaPortal(r.URL.Path) {
+		switch {
+		case inscripcionBolsa != nil && r != nil && r.URL != nil && rutaInscripcionExterna(r.URL.Path):
+			inscripcionBolsa.ServeHTTP(w, r)
+		case bolsa != nil && r != nil && r.URL != nil && bolsahttp.EsRutaPortal(r.URL.Path):
 			bolsa.ServeHTTP(w, r)
-			return
-		}
-		if personal != nil {
+		case personal != nil:
 			personal.ServeHTTP(w, r)
-			return
+		default:
+			http.NotFound(w, r)
 		}
-		http.NotFound(w, r)
 	}), cerrarTodo, nil
 }
 

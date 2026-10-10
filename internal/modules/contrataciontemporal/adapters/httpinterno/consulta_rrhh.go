@@ -11,6 +11,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/resultadobolsa"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -54,9 +55,23 @@ type manejadorConsultaDetalleRRHH struct {
 	renderizador               ports.RenderizadorBorradorRRHH
 	renderizadorDOCX           RenderizadorBorradorRRHHDOCX
 	presentacion               ResolutorPresentacionFlujoRRHH
+	resultadoBolsaActivo       bool
 	// descargas, si está configurado, autoriza y registra cada descarga de
 	// borrador y deja en la auditoría común sus intentos fallidos.
 	descargas ports.RegistradorDescargaBorradorRRHH
+}
+
+// ConfigurarResultadoBolsaConsultaDetalleRRHH sólo activa la lectura nueva
+// cuando la composición ha comprobado CT201. Los constructores históricos
+// conservan la consulta anterior en bases sin esa migración.
+func ConfigurarResultadoBolsaConsultaDetalleRRHH(handler http.Handler) (http.Handler, error) {
+	h, ok := handler.(*manejadorConsultaDetalleRRHH)
+	if !ok || h == nil {
+		return nil, ErrManejadorConsultaRRHHInvalido
+	}
+	copia := *h
+	copia.resultadoBolsaActivo = true
+	return &copia, nil
 }
 
 func NuevoManejadorConsultaDetalleRRHHConPresentacion(consultor ConsultorDetalleRRHH, presentacion ResolutorPresentacionFlujoRRHH, renderizadores ...ports.RenderizadorBorradorRRHH) (http.Handler, error) {
@@ -266,7 +281,7 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		responderErrorConsultaRRHH(w, r, nil, *problema)
 		return
 	}
-	solicitud, err := solicitudDetalleRRHHDesdePeticion(w, r)
+	solicitud, cursorBolsa, err := solicitudDetalleRRHHConCursorDesdePeticion(w, r)
 	if err != nil {
 		responderErrorConsultaRRHH(w, r, nil, errorEntradaConsultaRRHH(err))
 		return
@@ -276,6 +291,10 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		return
 	}
 	borrador, esDescarga := borradorRRHHSolicitado(r.Header)
+	if cursorBolsa != "" && (esDescarga || !h.resultadoBolsaActivo) {
+		responderErrorConsultaRRHH(w, r, nil, errorEntradaConsultaRRHH(errContenidoConsultaRRHHNoValido))
+		return
+	}
 	// En una descarga, un fallo de la consulta es una descarga fallida.
 	responderFallo := func(causa error, problema errorPublicoConsultaRRHH) {
 		if esDescarga {
@@ -284,7 +303,15 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		}
 		responderErrorConsultaRRHH(w, r, causa, problema)
 	}
-	detalle, err := h.consultor.Consultar(r.Context(), solicitud)
+	contextoConsulta := r.Context()
+	if !esDescarga && h.resultadoBolsaActivo {
+		if cursorBolsa == "" {
+			contextoConsulta = resultadobolsa.ConResultadoBolsaRRHH(contextoConsulta)
+		} else {
+			contextoConsulta = resultadobolsa.ConResultadoBolsaRRHHPagina(contextoConsulta, cursorBolsa)
+		}
+	}
+	detalle, err := h.consultor.Consultar(contextoConsulta, solicitud)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderFallo(errContexto, clasificarErrorConsultaRRHH(errContexto))
 		return
@@ -308,11 +335,12 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 			proyeccion.PresentacionFlujo = proyectarPresentacionFlujoRRHH(presentacion)
 		}
 	}
-	responderJSONConsultaRRHH(
-		w, r,
-		http.StatusOK,
-		envoltorioDetalleRRHH{Data: proyeccion},
-	)
+	limiteRespuesta := MaximoRespuestaConsultaRRHHBytes
+	if detalle.ResultadoBolsa != nil {
+		limiteRespuesta = MaximoRespuestaConsultaBolsaRRHHBytes
+	}
+	responderJSONConsultaRRHHConLimite(w, r, http.StatusOK,
+		envoltorioDetalleRRHH{Data: proyeccion}, limiteRespuesta)
 }
 
 func (h *manejadorConsultaDetalleRRHH) responderBorrador(

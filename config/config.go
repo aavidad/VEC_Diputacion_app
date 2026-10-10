@@ -128,6 +128,8 @@ type Config struct {
 	ExternoPreflightV3DatabaseURL               string
 	ExternoBolsaPublicaPostgreSQL               ConfiguracionPostgreSQLPublica
 	ExternoBolsaPostgreSQL                      ConfiguracionPostgreSQLExterna
+	BolsaInscripcionesLectorPostgreSQL          ConfiguracionPostgreSQLExterna
+	BolsaInscripcionesRRHHLectorPostgreSQL      ConfiguracionPostgreSQLExterna
 	ExternoCalendariosPostgreSQL                ConfiguracionPostgreSQLExterna
 	ExternoBolsaFronteraPostgreSQL              ConfiguracionPostgreSQLExterna
 	ExternoAutorizacionFuentePostgreSQL         ConfiguracionPostgreSQLExterna
@@ -189,6 +191,7 @@ type Config struct {
 	CronosResolucionEnabled                     string
 	CTFirmaRegistroEnabled                      string
 	BolsaPortalCandidatoEnabled                 string
+	BolsaInscripcionesEnabled                   string
 	CTSeguimientoCeseEnabled                    string
 	CTCancelacionEnabled                        string
 	CTIncorporacionAcreditadaEnabled            string
@@ -248,6 +251,8 @@ func Load() Config {
 			dsn: os.Getenv(EnvExternoBolsaPublicaDatabaseURL),
 		},
 		ExternoBolsaPostgreSQL:                 ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaDatabaseURL)},
+		BolsaInscripcionesLectorPostgreSQL:     ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaInscripcionesLectorDatabaseURL)},
+		BolsaInscripcionesRRHHLectorPostgreSQL: ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvBolsaInscripcionesRRHHLectorDatabaseURL)},
 		ExternoBolsaFronteraPostgreSQL:         ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaFronteraDatabaseURL)},
 		ExternoCalendariosPostgreSQL:           ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoCalendariosDatabaseURL)},
 		ExternoAutorizacionFuentePostgreSQL:    ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoAutorizacionFuenteDatabaseURL)},
@@ -312,6 +317,7 @@ func Load() Config {
 		CronosResolucionEnabled:            envFirst(EnvCronosResolucionEnabled),
 		CTFirmaRegistroEnabled:             envFirst(EnvCTFirmaRegistroEnabled),
 		BolsaPortalCandidatoEnabled:        envFirst(EnvBolsaPortalCandidatoEnabled),
+		BolsaInscripcionesEnabled:          envFirst(EnvBolsaInscripcionesEnabled),
 		CTSeguimientoCeseEnabled:           envFirst(EnvCTSeguimientoCeseEnabled),
 		CTCancelacionEnabled:               envFirst(EnvCTCancelacionEnabled),
 		CTIncorporacionAcreditadaEnabled:   envFirst(EnvCTIncorporacionAcreditadaEnabled),
@@ -467,6 +473,7 @@ func (c Config) Normalize() Config {
 	c.CronosResolucionEnabled = strings.TrimSpace(c.CronosResolucionEnabled)
 	c.CTFirmaRegistroEnabled = strings.TrimSpace(c.CTFirmaRegistroEnabled)
 	c.BolsaPortalCandidatoEnabled = strings.TrimSpace(c.BolsaPortalCandidatoEnabled)
+	c.BolsaInscripcionesEnabled = strings.TrimSpace(c.BolsaInscripcionesEnabled)
 	c.CTSeguimientoCeseEnabled = strings.TrimSpace(c.CTSeguimientoCeseEnabled)
 	c.CTCancelacionEnabled = strings.TrimSpace(c.CTCancelacionEnabled)
 	c.CTIncorporacionAcreditadaEnabled = strings.TrimSpace(c.CTIncorporacionAcreditadaEnabled)
@@ -498,6 +505,8 @@ func (c Config) Normalize() Config {
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
 	c.ExternoBolsaPublicaPostgreSQL = c.ExternoBolsaPublicaPostgreSQL.normalizar()
 	c.ExternoBolsaPostgreSQL = c.ExternoBolsaPostgreSQL.normalizar()
+	c.BolsaInscripcionesLectorPostgreSQL = c.BolsaInscripcionesLectorPostgreSQL.normalizar()
+	c.BolsaInscripcionesRRHHLectorPostgreSQL = c.BolsaInscripcionesRRHHLectorPostgreSQL.normalizar()
 	c.ExternoBolsaFronteraPostgreSQL = c.ExternoBolsaFronteraPostgreSQL.normalizar()
 	c.ExternoCalendariosPostgreSQL = c.ExternoCalendariosPostgreSQL.normalizar()
 	c.ExternoAutorizacionFuentePostgreSQL = c.ExternoAutorizacionFuentePostgreSQL.normalizar()

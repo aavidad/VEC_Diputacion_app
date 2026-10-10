@@ -89,7 +89,7 @@ func nuevaAutoridadVersionarRolBolsa(ctx context.Context, pool conexion,
 func (a *AutoridadVersionarRolBolsa) disponible(ctx context.Context) error {
 	if ctx == nil || a == nil || ausente(a.pool) || ausente(a.catalogo) ||
 		ausente(a.emisor) || ausente(a.reloj) {
-		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		return ports.ConClaseVersionBolsa("autoridad_no_disponible", ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 	}
 	return ctx.Err()
 }
@@ -108,12 +108,12 @@ func (a *AutoridadVersionarRolBolsa) ResolverCatalogoVersionarRolBolsa(ctx conte
 	c, err := a.catalogo.ObtenerCatalogoAccionesAdministracionV1(ctx, s.Intencion.CatalogoRef,
 		s.Intencion.CatalogoVersion, s.Intencion.CatalogoHuellaSHA256)
 	if err != nil {
-		return vacio, err
+		return vacio, ports.ConClaseVersionBolsa("catalogo_consulta", err)
 	}
 	plan, err := domain.PrepararPlanVersionarRolBolsa(c, s.Intencion, a.reloj.Ahora())
 	h, e := plan.HuellaSHA256()
 	if err != nil || e != nil || h != s.HuellaPlanEsperada {
-		return vacio, domain.ErrVersionarRolBolsaInvalido
+		return vacio, ports.ConClaseVersionBolsa("catalogo_plan_huella", domain.ErrVersionarRolBolsaInvalido)
 	}
 	return c, nil
 }
@@ -126,17 +126,17 @@ func (a *AutoridadVersionarRolBolsa) ProponerVersionarRolBolsa(ctx context.Conte
 	}
 	e, err := materialPropuestaVersionarRolBolsa(o)
 	if err != nil {
-		return vacio, err
+		return vacio, ports.ConClaseVersionBolsa("material_propuesta", err)
 	}
 	var r respuestaPropuestaVersionarRolBolsa
 	err = a.ejecutar(ctx, o.Solicitud.Actor, o.Solicitud.Evidencia,
 		o.Solicitud.InstantaneaAutorizacion, e, proponerVersionarRolBolsaSQL, func(b []byte) error {
 			if decodificarGobiernoRol(b, &r) != nil || r.Estado != "permitido" || r.HuellaSHA256 == "" {
-				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+				return ports.ConClaseVersionBolsa("sql_respuesta_invalida", ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 			}
 			var m domain.MaterialPropuestaVersionarRolBolsa
 			if decodificarGobiernoRol([]byte(r.MaterialCanon), &m) != nil {
-				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+				return ports.ConClaseVersionBolsa("sql_respuesta_invalida", ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 			}
 			// jsonb serializa timestamptz como «…+00:00»; el dominio exige UTC canónico.
 			r.CaducaEn = r.CaducaEn.UTC()
@@ -144,7 +144,7 @@ func (a *AutoridadVersionarRolBolsa) ProponerVersionarRolBolsa(ctx context.Conte
 				CaducaEn: r.CaducaEn}
 			if (ports.ResultadoPropuestaVersionarRolBolsa{Propuesta: r.Propuesta,
 				Replay: r.Replay, AuditoriaAccesoRef: r.AuditoriaAccesoRef}).ValidarPara(o, a.reloj.Ahora()) != nil {
-				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+				return ports.ConClaseVersionBolsa("sql_respuesta_invalida", ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 			}
 			return nil
 		})
@@ -202,11 +202,11 @@ func (a *AutoridadVersionarRolBolsa) ejecutar(ctx context.Context, actor domain.
 	}
 	if validar == nil || evidencia.ValidarEn(actor, a.reloj.Ahora()) != nil ||
 		!domain.ReferenciaCorrelacionAutorizacionV2Valida(e.CorrelacionAccesoRef) {
-		return errNoDisponible
+		return ports.ConClaseVersionBolsa("evidencia_o_correlacion", errNoDisponible)
 	}
 	recurso, err := RecursoVersionarRolBolsa(e, instantanea.AsignacionPerfil)
 	if err != nil {
-		return err
+		return ports.ConClaseVersionBolsa("recurso_asignacion", err)
 	}
 	entrega := e
 	entrega.Material = append([]byte(nil), e.Material...)
@@ -216,11 +216,16 @@ func (a *AutoridadVersionarRolBolsa) ejecutar(ctx context.Context, actor domain.
 		if errors.Is(err, domain.ErrAutorizacionDenegada) {
 			return err
 		}
-		return errNoDisponible
+		// Sólo viaja la clase del emisor, nunca su causa.
+		clase := ports.ClaseFalloVersionBolsa(err)
+		if clase == "" {
+			clase = "v3_emision"
+		}
+		return ports.ConClaseVersionBolsa(clase, errNoDisponible)
 	}
 	h, err := recurso.HuellaContextoAutorizacionSHA256()
 	if err != nil {
-		return errNoDisponible
+		return ports.ConClaseVersionBolsa("v3_material_incoherente", errNoDisponible)
 	}
 	r := m.ResumenCapacidad()
 	ahora := a.reloj.Ahora()
@@ -230,7 +235,7 @@ func (a *AutoridadVersionarRolBolsa) ejecutar(ctx context.Context, actor domain.
 		r.ContextoHuellaSHA256() != evidencia.ResultadoContexto.HuellaSHA256 ||
 		m.PersonaVersion() != actor.Instantanea.PersonaVersion || m.PerfilVersion() != actor.Instantanea.PerfilVersion ||
 		ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) {
-		return errNoDisponible
+		return ports.ConClaseVersionBolsa("v3_material_incoherente", errNoDisponible)
 	}
 	args := []any{string(e.Material), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(),
 		m.ContextoActorCanonico(), strconv.FormatUint(m.PersonaVersion(), 10), strconv.FormatUint(m.PerfilVersion(), 10),
@@ -244,7 +249,7 @@ func (a *AutoridadVersionarRolBolsa) ejecutar(ctx context.Context, actor domain.
 	}()
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil || ausente(tx) {
-		return errNoDisponible
+		return ports.ConClaseVersionBolsa("sql_transaccion", errNoDisponible)
 	}
 	defer func() {
 		c, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
@@ -257,16 +262,20 @@ func (a *AutoridadVersionarRolBolsa) ejecutar(ctx context.Context, actor domain.
 		"SET LOCAL TimeZone = 'UTC'",
 	} {
 		if _, err := tx.Exec(ctx, configuracion); err != nil {
-			return errNoDisponible
+			return ports.ConClaseVersionBolsa("sql_configuracion", errNoDisponible)
 		}
 	}
 	var b []byte
 	if err := tx.QueryRow(ctx, consulta, args...).Scan(&b); err != nil {
-		return traducirGobiernoRol(ctx, err)
+		return ports.ConClaseVersionBolsa("sql_consulta", traducirGobiernoRol(ctx, err))
 	}
 	var intento struct {
-		Estado           string `json:"estado"`
-		Codigo           string `json:"codigo"`
+		Estado string `json:"estado"`
+		Codigo string `json:"codigo"`
+		// SQLSTATE lo devuelve AUT72 (sólo el código). Sin AUT72 falta y la
+		// clase queda sin sufijo; un valor sin formato válido también. Va en
+		// bruto para que un tipo JSON inesperado no impida confirmar el intento.
+		SQLSTATE         json.RawMessage `json:"sqlstate"`
 		AuditoriaIntento struct {
 			AuditoriaRef string `json:"auditoria_ref"`
 		} `json:"auditoria_intento"`
@@ -276,21 +285,24 @@ func (a *AutoridadVersionarRolBolsa) ejecutar(ctx context.Context, actor domain.
 		if intento.AuditoriaIntento.AuditoriaRef == "" ||
 			(intento.Estado == "denegado" && intento.Codigo != "version_rol_bolsa_denegado") ||
 			(intento.Estado == "error" && intento.Codigo != "version_rol_bolsa_error") {
-			return errNoDisponible
+			return ports.ConClaseVersionBolsa("sql_intento_incoherente", errNoDisponible)
 		}
+		var sqlstate string
+		_ = json.Unmarshal(intento.SQLSTATE, &sqlstate)
+		clase := ports.ClaseIntentoSQLVersionBolsa(intento.Estado, sqlstate)
 		if intento.Estado == "denegado" {
-			errorIntento = domain.ErrAutorizacionDenegada
+			errorIntento = ports.ConClaseVersionBolsa(clase, domain.ErrAutorizacionDenegada)
 		} else {
-			errorIntento = errNoDisponible
+			errorIntento = ports.ConClaseVersionBolsa(clase, errNoDisponible)
 		}
 	} else if err := validar(b); err != nil {
-		return err
+		return ports.ConClaseVersionBolsa("sql_respuesta_invalida", err)
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return errNoDisponible
+		return ports.ConClaseVersionBolsa("sql_commit", errNoDisponible)
 	}
 	if errorIntento != nil {
 		return errors.Join(ports.ErrGobiernoRolIntentoAuditado, errorIntento)

@@ -195,7 +195,7 @@ test("los archivos se mantienen acotados y la UI cubre 390, 1024 y 1440", async 
   const css = await readFile(join(RAIZ, "area-personal.css"), "utf8");
   assert.ok(css.split("\n").length < 500, "la hoja principal debe permanecer por debajo de 500 líneas");
   assert.match(css, /@media \(max-width: 1180px\)/u);
-  assert.match(css, /@media \(max-width: 1480px\)[\s\S]*\.sesion-usuario > span:last-child \{ display: none; \}/u);
+  assert.match(css, /@media \(max-width: 1280px\)[\s\S]*\.sesion-usuario > span:last-child \{ display: none; \}/u);
   assert.match(css, /@media \(max-width: 920px\)/u);
   assert.match(css, /@media \(max-width: 680px\)/u);
   assert.match(css, /\.acciones-tabla button, \.acciones-tabla a \{ min-height: 44px; \}/u);

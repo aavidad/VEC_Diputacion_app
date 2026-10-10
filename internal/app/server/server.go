@@ -679,9 +679,8 @@ func rutaMaterialExclusivoPresentacion(ruta string) bool {
 func setNoStoreForStatic(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	if strings.HasPrefix(path, "/textos/") && strings.HasSuffix(path, ".json") {
-		// Catálogos públicos de textos por idioma, pedidos sin versión: se
-		// guardan pero se revalidan siempre (304 por Last-Modified).
-		fijarCacheEstatico(w, "no-cache")
+		// Catálogos públicos de textos por idioma: ver cacheCatalogoTextos.
+		fijarCacheEstatico(w, cacheCatalogoTextos(r))
 		return
 	}
 	if path == "/" || strings.HasSuffix(path, ".html") || strings.HasSuffix(path, ".json") {

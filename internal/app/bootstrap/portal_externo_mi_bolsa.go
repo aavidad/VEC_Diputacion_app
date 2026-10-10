@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
@@ -197,12 +199,63 @@ func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpo
 	return pool, login, nil
 }
 
-// abrirBolsaMiBolsaPortalExterno exige además la ACL efectiva de B59. Un
-// GRANT posterior sobre otra función o una tabla detiene el arranque.
+func funcionesMiBolsaPortalExternoConInscripcion() []string {
+	return append(funcionesMiBolsaPortalExternoSinInscripcion(), "solicitar_inscripcion_v1")
+}
+
+func funcionesMiBolsaPortalExternoSinInscripcion() []string {
+	return []string{
+		"consultar_mi_bolsa_v1", "consultar_mi_bolsa_portal_v1", "consultar_historial_mi_bolsa_v1",
+		"manifestar_disposicion_oferta_v1", "listar_ofertas_candidato_v1", "solicitar_portal_candidato_v1",
+		"responder_llamamiento_portal_v1", "preparar_respuesta_portal_v1", "leer_portal_candidato_v1",
+		"confirmar_contacto_propio_v1", "leer_contacto_candidato_v1",
+	}
+}
+
+const firmaSolicitarInscripcionPortalExterno = "vec_bolsa_llamamientos.solicitar_inscripcion_v1(text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"
+
+// El estado SQL se decide por todas las sobrecargas B96 existentes, no por
+// el selector HTTP ni por la sola lista de GRANT del LOGIN.
+func funcionesMiBolsaPortalExternoExactas(obtenidas []string, funcionesB96 int, b96Exacta bool) bool {
+	var esperadas []string
+	switch {
+	case funcionesB96 == 0 && !b96Exacta:
+		esperadas = funcionesMiBolsaPortalExternoSinInscripcion()
+	case funcionesB96 == 1 && b96Exacta:
+		esperadas = funcionesMiBolsaPortalExternoConInscripcion()
+	default:
+		return false
+	}
+	if len(obtenidas) != len(esperadas) {
+		return false
+	}
+	observadas := slices.Clone(obtenidas)
+	slices.Sort(observadas)
+	slices.Sort(esperadas)
+	return slices.Equal(observadas, esperadas)
+}
+
+// abrirBolsaMiBolsaPortalExterno acepta B59 exacto antes de B96 y B59+B96
+// exactos después. Un GRANT lateral o una firma B96 distinta impide arrancar.
 func abrirBolsaMiBolsaPortalExterno(ctx context.Context, dsn string) (*pgxpool.Pool, string, error) {
 	pool, login, err := abrirPoolMiBolsaPortalExterno(ctx, dsn, "vec_bolsa_llamamientos_portal_externo")
 	if err != nil {
 		return nil, "", errMiBolsaNoDisponible
+	}
+	if !comprobarACLMiBolsaPortalExterno(ctx, pool) {
+		pool.Close()
+		return nil, "", errMiBolsaNoDisponible
+	}
+	return pool, login, nil
+}
+
+type consultadorACLMiBolsaPortalExterno interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func comprobarACLMiBolsaPortalExterno(ctx context.Context, consultador consultadorACLMiBolsaPortalExterno) bool {
+	if ctx == nil || ctx.Err() != nil || consultador == nil {
+		return false
 	}
 	const acl = `WITH funciones AS (
  SELECT p.oid,p.proname,p.prosecdef FROM pg_catalog.pg_proc p
@@ -214,13 +267,22 @@ func abrirBolsaMiBolsaPortalExterno(ctx context.Context, dsn string) (*pgxpool.P
 ), secuencias AS (
  SELECT c.oid FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='vec_bolsa_llamamientos' AND c.relkind='S'
+), b96 AS (
+ SELECT count(*)::integer AS total,
+  coalesce(bool_and(
+   p.oid=pg_catalog.to_regprocedure($1::text)::oid AND p.prosecdef
+   AND pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+   AND EXISTS(SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+    WHERE a.grantee=(SELECT r.oid FROM pg_catalog.pg_roles r WHERE r.rolname='vec_bolsa_llamamientos_portal_externo')
+      AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+    WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+  ),false) AS exacta
+ FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='vec_bolsa_llamamientos' AND p.proname='solicitar_inscripcion_v1'
 )
-SELECT (SELECT count(*)=11 AND count(DISTINCT proname)=11 AND bool_and(prosecdef)
- AND bool_and(proname=ANY(ARRAY[
- 'consultar_mi_bolsa_v1','consultar_mi_bolsa_portal_v1','consultar_historial_mi_bolsa_v1',
- 'manifestar_disposicion_oferta_v1','listar_ofertas_candidato_v1','solicitar_portal_candidato_v1',
- 'responder_llamamiento_portal_v1','preparar_respuesta_portal_v1','leer_portal_candidato_v1',
- 'confirmar_contacto_propio_v1','leer_contacto_candidato_v1'])) FROM funciones)
+SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM funciones),ARRAY[]::text[]),
+ (SELECT coalesce(bool_and(prosecdef),false) FROM funciones)
  AND NOT EXISTS (SELECT 1 FROM tablas t WHERE
    pg_catalog.has_table_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
    OR pg_catalog.has_any_column_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
@@ -230,13 +292,14 @@ SELECT (SELECT count(*)=11 AND count(DISTINCT proname)=11 AND bool_and(prosecdef
  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n
    WHERE left(n.nspname,4)='vec_' AND n.nspname<>'vec_bolsa_llamamientos'
      AND (pg_catalog.has_schema_privilege(session_user,n.oid,'USAGE')
-          OR pg_catalog.has_schema_privilege(session_user,n.oid,'CREATE')))`
+          OR pg_catalog.has_schema_privilege(session_user,n.oid,'CREATE'))),
+ (SELECT total FROM b96),(SELECT exacta FROM b96)`
+	var funciones []string
 	var permitido bool
-	if err := pool.QueryRow(ctx, acl).Scan(&permitido); err != nil || !permitido {
-		pool.Close()
-		return nil, "", errMiBolsaNoDisponible
-	}
-	return pool, login, nil
+	var funcionesB96 int
+	var b96Exacta bool
+	return consultador.QueryRow(ctx, acl, firmaSolicitarInscripcionPortalExterno).Scan(&funciones, &permitido, &funcionesB96, &b96Exacta) == nil &&
+		permitido && funcionesMiBolsaPortalExternoExactas(funciones, funcionesB96, b96Exacta)
 }
 
 // nuevaSesionMiBolsaPortalExterno recibe los puertos nominales exteriores de
