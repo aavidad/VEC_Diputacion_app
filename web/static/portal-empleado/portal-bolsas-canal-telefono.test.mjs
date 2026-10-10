@@ -4,11 +4,11 @@ import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-text
 import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
-import { crearControladorBolsas, rutaCandidatosBolsa } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
+import { crearControladorBolsas, rutaCandidatosBolsa } from "./portal-bolsas-api.js?v=20261010-ct-bolsa-cohorte-v10";
 import { validarCanalesLlamamiento } from "./portal-bolsas-contrato.js?v=20261008-canal-telefono-v2";
-import { crearControladorIntentosContacto, llamamientoDeFicha, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
-import { canalesAviso, filasSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261008-bolsa-global-v2";
+import { crearControladorIntentosContacto, llamamientoDeFicha, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261010-ct-bolsa-cohorte-v10";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261010-ct-bolsa-cohorte-v10";
+import { canalesAviso, filasSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261010-ct-bolsa-cohorte-v10";
 import { leerCandidatosBolsaCompartible, leerLlamamientoBolsaCompartible,
   rutaCandidatosBolsaCompartible, rutaLlamamientoBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";

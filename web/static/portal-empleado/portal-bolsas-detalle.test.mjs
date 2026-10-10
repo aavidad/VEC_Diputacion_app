@@ -32,9 +32,9 @@ import {
   registrarResultadoLlamamiento,
   rutaCandidatosBolsa,
   crearControladorBolsas,
-} from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
+} from "./portal-bolsas-api.js?v=20261010-ct-bolsa-cohorte-v10";
 
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261010-ct-bolsa-cohorte-v10";
 
 const rutaDemoJson = new URL("../../../data/demo/bolsa/v1.bolsas-demo.json", import.meta.url);
 const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));

@@ -8,8 +8,8 @@ import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import * as rutasGlobales from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
 
-import { consultarBolsas, consultarCandidatosBolsa, consultarEstadisticasBolsa, consultarGlobalBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
+import { consultarBolsas, consultarCandidatosBolsa, consultarEstadisticasBolsa, consultarGlobalBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=20261010-ct-bolsa-cohorte-v10";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261010-ct-bolsa-cohorte-v10";
 import { renderizarGlobalBolsa, prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261008-bolsa-global-v2";
 import {
   leerCandidatosBolsaCompartible, leerGlobalBolsaCompartible, rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible,

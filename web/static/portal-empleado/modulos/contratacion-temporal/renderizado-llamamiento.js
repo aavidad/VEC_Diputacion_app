@@ -1,7 +1,7 @@
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261009-ct-bolsa-cohorte-v9";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261010-ct-bolsa-cohorte-v10";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261009-ct-bolsa-cohorte-v9";
-import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261009-ct-bolsa-cohorte-v9";
+import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261010-ct-bolsa-cohorte-v10";
+import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261010-ct-bolsa-cohorte-v10";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,

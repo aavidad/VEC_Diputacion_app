@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +18,22 @@ func TestContactoParticipacionCatalogoYPrivacidad(t *testing.T) {
 		if c.Validar() == nil {
 			t.Fatal("contacto inválido admitido")
 		}
+	}
+}
+
+func TestNotaConPalabraDePrivacidadTieneErrorPropio(t *testing.T) {
+	base := ContactoParticipacion{ContactoRef: "contacto:01234567", BolsaRef: "bolsa:01234567", ParticipacionRef: "participacion:01234567", LlamamientoRef: "llamamiento:01234567", Canal: "telefono", Actor: "per_0123456789abcdefghijkl", Resultado: "acepta", Anotacion: "Acepta por teléfono el llamamiento", InstanteServidor: true}
+	if err := base.Validar(); !errors.Is(err, ErrAnotacionContactoDatoPersonal) || !errors.Is(err, ErrContactoParticipacionInvalido) {
+		t.Fatalf("nota con «teléfono»: %v", err)
+	}
+	base.Anotacion = "Acepta el llamamiento"
+	if err := base.Validar(); err != nil {
+		t.Fatalf("nota limpia: %v", err)
+	}
+	base.Resultado = "inventado"
+	base.Anotacion = "Llamó por teléfono"
+	if err := base.Validar(); !errors.Is(err, ErrContactoParticipacionInvalido) || errors.Is(err, ErrAnotacionContactoDatoPersonal) {
+		t.Fatalf("otro defecto no debe culpar a la nota: %v", err)
 	}
 }
 

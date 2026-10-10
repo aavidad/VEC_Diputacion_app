@@ -2,12 +2,23 @@ package domain
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
 )
 
 var ErrContactoParticipacionInvalido = errors.New("bolsa: contacto de participacion invalido")
+
+// ErrAnotacionContactoDatoPersonal distingue, dentro de un contacto inválido,
+// la nota que nombra un documento o un medio de contacto (DNI, teléfono, @…):
+// la persona puede corregirla, a diferencia del resto de casos. Sigue siendo
+// un ErrContactoParticipacionInvalido para quien compruebe solo ese error.
+var ErrAnotacionContactoDatoPersonal = fmt.Errorf("%w: la anotacion nombra un dato personal", ErrContactoParticipacionInvalido)
+
+// ErrContactoClaveDivergente: la clave de idempotencia ya registró un
+// contacto con otros datos (SQL VBC01).
+var ErrContactoClaveDivergente = fmt.Errorf("%w: clave idempotente con otros datos", ErrContactoParticipacionInvalido)
 
 const (
 	CanalContactoTelefono       = "telefono"
@@ -61,8 +72,11 @@ func (c ContactoParticipacion) Validar() error {
 		(c.Resultado == ResultadoContactoEntregaDeclarada && (c.EvidenciaRef == "" || len(c.EvidenciaRef) > 256 || c.EvidenciaRef != strings.TrimSpace(c.EvidenciaRef) || !patronEvidenciaOferta.MatchString(c.EvidenciaRef) || !referenciaLlamamientoOpacaValida(c.EvidenciaRef) || len(c.EvidenciaHuellaSHA256) != 64 || !huellaHexMinuscula(c.EvidenciaHuellaSHA256))) ||
 		(c.Resultado != ResultadoContactoEntregaDeclarada && (c.EvidenciaRef != "" || c.EvidenciaHuellaSHA256 != "")) ||
 		!patronPersonaBorradorLlamamiento.MatchString(c.Actor) || !(instanteLlamamientoCanonico(c.Instante) || (c.InstanteServidor && c.Instante.IsZero() && c.Canal == CanalContactoTelefono && c.LlamamientoRef != "" && c.OfertaRef == "")) ||
-		c.Anotacion != strings.TrimSpace(c.Anotacion) || (len(c.Anotacion) == 0 && (c.Canal != CanalContactoTelefono || c.LlamamientoRef == "")) || len(c.Anotacion) > 1000 || strings.ContainsAny(c.Anotacion, "\x00\u2028\u2029") || contieneDatoPersonalEvidente(c.Anotacion) {
+		c.Anotacion != strings.TrimSpace(c.Anotacion) || (len(c.Anotacion) == 0 && (c.Canal != CanalContactoTelefono || c.LlamamientoRef == "")) || len(c.Anotacion) > 1000 || strings.ContainsAny(c.Anotacion, "\x00\u2028\u2029") {
 		return ErrContactoParticipacionInvalido
+	}
+	if contieneDatoPersonalEvidente(c.Anotacion) {
+		return ErrAnotacionContactoDatoPersonal
 	}
 	return nil
 }

@@ -129,6 +129,30 @@ func TestRegistroDeIntentoDevuelveEstadoYRechazosDeLasReglas(t *testing.T) {
 	}
 }
 
+// Fallo 4 del recorrido del 10/10: una nota con «teléfono» respondía 409
+// «contacto_en_conflicto» y la pantalla hablaba de una clave reutilizada.
+// Cada causa tiene ahora su código.
+func TestRegistroDistingueNotaConDatoPersonalClaveRepetidaYContactoNoValido(t *testing.T) {
+	cuerpo := `{"canal":"telefono","resultado":"acepta","anotacion":"Acepta por teléfono","llamamiento_ref":"llamamiento:1"}`
+	operador := &operadorIntentosPrueba{}
+	h, _ := NuevoHandlerContactoParticipacion(preparadorIntentosPrueba{}, operador)
+	for _, caso := range []struct {
+		err      error
+		estado   int
+		esperado string
+	}{
+		{dominiobolsa.ErrAnotacionContactoDatoPersonal, 400, "anotacion_con_dato_personal"},
+		{dominiobolsa.ErrContactoClaveDivergente, 409, "contacto_en_conflicto"},
+		{dominiobolsa.ErrContactoParticipacionInvalido, 409, "contacto_no_valido"},
+	} {
+		operador.errRegistro = caso.err
+		codigo, salida := pedirContactos(t, h, http.MethodPost, rutaContactosPrueba, cuerpo)
+		if codigo != caso.estado || salida["error"].(map[string]any)["codigo"] != caso.esperado {
+			t.Errorf("%v: codigo=%d salida=%v", caso.err, codigo, salida)
+		}
+	}
+}
+
 func TestRegistroTelefonoActualNoAceptaInstanteDelCliente(t *testing.T) {
 	o := &operadorIntentosPrueba{}
 	h, err := NuevoHandlerContactoParticipacion(preparadorIntentosPrueba{}, o)

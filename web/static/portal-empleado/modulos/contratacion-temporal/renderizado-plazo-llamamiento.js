@@ -4,7 +4,7 @@
  * expiración proceden del recibo del servidor. La situación «en plazo» o
  * «vencido» es solo lectura: el servidor decide con su propio reloj.
  */
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261009-ct-bolsa-cohorte-v9";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261010-ct-bolsa-cohorte-v10";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { CAMPOS_REVISION_RESOLUCION, respuestaFueraDePlazo, situacionPlazoRespuesta } from "./contrato-llamamiento.js";
 

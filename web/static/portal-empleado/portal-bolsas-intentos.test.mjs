@@ -6,7 +6,7 @@ import {
   registrarContactoIntento,
   renderizarIntentosContacto,
   rutaContactosCandidato,
-} from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
+} from "./portal-bolsas-intentos.js?v=20261010-ct-bolsa-cohorte-v10";
 import { MENSAJES_INTENTOS, crearTraductorIntentos } from "./portal-i18n-intentos.js";
 
 const candidato = { participacion_ref: "participacion:1", estado_clave: "disponible", ultimo_llamamiento: { llamamiento_ref: "llamamiento:1" } };
@@ -75,6 +75,23 @@ test("traduce los rechazos de las reglas al registrar", async () => {
   const res = await registrarContactoIntento("b", "p", {}, "k", { fetchImpl: async () => respuesta(409, { error: { codigo: "intento_antes_de_separacion" } }) });
   assert.equal(res.ok, false);
   assert.equal(res.mensaje, "No ha pasado la separación mínima desde el último intento.");
+});
+
+test("cada rechazo del registro tiene su propio mensaje: nota con dato personal, clave repetida o resultado no admitido", async () => {
+  const mensaje = async (estado, codigo) => (await registrarContactoIntento("b", "p", {}, "k", { fetchImpl: async () => respuesta(estado, { error: { codigo } }) })).mensaje;
+  assert.match(await mensaje(400, "anotacion_con_dato_personal"), /^La nota no puede llevar datos personales/u);
+  assert.match(await mensaje(409, "contacto_en_conflicto"), /ya se envió antes con otros datos/u);
+  assert.equal(await mensaje(409, "contacto_no_valido"), "No se puede anotar este resultado en este llamamiento. Revise el resultado elegido.");
+  assert.doesNotMatch(await mensaje(409, "contacto_no_valido"), /clave/u);
+});
+
+test("el justificante muestra el aviso de día no hábil que devolvió el propio registro", () => {
+  const contactado = { ...intentos, contactado: true, avisos: [] };
+  const salida = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: contactado, recibo: "recibo:contacto:1", avisosRegistro: ["dia_no_habil", "<inventado>"] } });
+  assert.match(salida, /Queda registrado con este aviso: <span class="estado-chip aviso">Día no hábil<\/span><\/p>/u);
+  assert.doesNotMatch(salida, /inventado/u);
+  const sinAviso = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: contactado, recibo: "recibo:contacto:1", avisosRegistro: [] } });
+  assert.doesNotMatch(sinAviso, /Queda registrado con este aviso/u);
 });
 
 test("el controlador registra un rebote de correo ligado al llamamiento y recarga el estado", async () => {

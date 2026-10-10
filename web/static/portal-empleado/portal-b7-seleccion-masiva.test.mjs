@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { consultarSeleccionMasivaBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
+import { consultarSeleccionMasivaBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=20261010-ct-bolsa-cohorte-v10";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261010-ct-bolsa-cohorte-v10";
 
 function candidata(orden, estado_clave = "disponible") {
   return { participacion_ref: `participacion:${String(orden).padStart(3, "0")}`, estado_clave, orden };
