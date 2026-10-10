@@ -74,3 +74,18 @@ test("la falta de confirmación prevalece sobre el registro y los mensajes se es
   assert.match(html, /Revise &lt;el recibo&gt; &amp; confirme/u);
   assert.doesNotMatch(html, /<el recibo>|Registrando la actuación/u);
 });
+
+test("en fiscalización, a quien no es Intervención se le dice quién actúa y no se le ofrece trámite", async () => {
+  const mensajes = { ficha_siguiente_paso_fiscalizacion_intervencion: "Intervención tiene que registrar el resultado de la fiscalización.",
+    ficha_siguiente_paso_espera: "Esperando a otra unidad" };
+  const t = crearTraductorExpedientesContratacion(mensajes);
+  const enFiscalizacion = { ...listo, cuadro: { expedientes: [{ ...listo.cuadro.expedientes[0],
+    fase_clave: "fiscalizacion", estado_clave: "espera_externa" }] } };
+  const sinTareas = { ...expediente, tareas: [] };
+  const ajeno = renderizarSiguientePasoFicha(sinTareas, enFiscalizacion, t, false, { fiscalizacionAjena: true });
+  assert.match(ajeno, /Esperando a otra unidad/u);
+  assert.match(ajeno, /Intervención tiene que registrar el resultado/u);
+  assert.equal(boton(ajeno), undefined);
+  const propio = renderizarSiguientePasoFicha(sinTareas, enFiscalizacion, t, false, { fiscalizacionAjena: false });
+  assert.doesNotMatch(propio, /Intervención tiene que registrar/u);
+});

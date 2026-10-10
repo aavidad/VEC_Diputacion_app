@@ -1,9 +1,9 @@
 /** Componentes HTML puros de la superficie de expedientes. */
 
 import "./atajos-incidencia.js";
-import { renderizarResultadoBolsa, continuidadBolsaDisponible, requiereRevisionBolsa } from "./resultado-bolsa.js?v=20261009-ct-bolsa-cohorte-v9";
-import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261009-ct-bolsa-cohorte-v9";
-import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261009-ct-bolsa-cohorte-v9";
+import { renderizarResultadoBolsa, continuidadBolsaDisponible, requiereRevisionBolsa } from "./resultado-bolsa.js?v=20261010-ct-ficha-cohorte-v1";
+import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261010-ct-ficha-cohorte-v1";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261010-ct-ficha-cohorte-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
@@ -13,7 +13,7 @@ import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-ex
 import {
   renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
   renderizarLineaFases, renderizarSiguientePasoFicha,
-} from "./vista-expedientes-ficha.js?v=20261009-ct-bolsa-cohorte-v9";
+} from "./vista-expedientes-ficha.js?v=20261010-ct-ficha-cohorte-v1";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 
@@ -477,7 +477,7 @@ function renderizarTarea(
   </article>`;
 }
 
-export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDisponible = false, resolverBolsa = null, coberturaPendiente = false) {
+export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDisponible = false, resolverBolsa = null, coberturaPendiente = false, opcionesPaso = {}) {
   const expediente = estado.expediente;
   if (!expediente) {
     const esError = estado.carga === "error";
@@ -508,7 +508,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
   // Orden de la ficha: qué toca, en qué fase está y qué hay; los trámites de
   // la fase se montan después, a partir de la marca «ct-exp-tramite».
   return `${renderizarCabeceraFicha(expediente, estado, t)}
-    ${renderizarSiguientePasoFicha(expediente, estado, t, coberturaPendiente)}
+    ${renderizarSiguientePasoFicha(expediente, estado, t, coberturaPendiente, opcionesPaso)}
     ${renderizarIncidencia(expediente, t, estado.navegacion)}
     ${renderizarLineaFases(expediente, t)}
     <div class="rejilla-principal ct-exp-ficha-rejilla">

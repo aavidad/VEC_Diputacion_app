@@ -7,6 +7,7 @@
     "ficha_volver_lista": "Back to the list",
     "ficha_expediente_numero": "Case {numero}",
     "ficha_siguiente_paso_fase": "Next step: {fase}",
+    "ficha_siguiente_paso_fiscalizacion_intervencion": "Intervention must record the audit result. Once it does, the next step will appear here.",
     "ficha_siguiente_paso_espera": "Waiting for another unit",
     "ficha_siguiente_paso_terminado": "Case finished",
     "ficha_siguiente_paso_cobertura_titulo": "Next step: choose the recruitment route",

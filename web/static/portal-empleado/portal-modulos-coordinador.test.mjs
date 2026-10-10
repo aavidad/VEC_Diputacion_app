@@ -1783,3 +1783,54 @@ test("la sesión del núcleo se lee del mismo origen y la cabecera muestra nombr
   const html = await readFile(new URL("index.html", import.meta.url), "utf8");
   assert.doesNotMatch(html, /Identidad personal no mostrada|Portal interno<\/strong>|Fase inicial/u);
 });
+
+test("la ficha CT solo ofrece registrar la fiscalización al perfil de Intervención", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  const configuracionAnalisis = Object.freeze({
+    esquema: "vec.contratacion_temporal.configuracion_analisis.v1",
+    artefacto_ref: "artefacto:analisis:vigente:001",
+    modalidades: Object.freeze([{ clave: "sustitucion", etiqueta: "Sustitución" }]),
+    categorias: Object.freeze([]), causas: Object.freeze([]), entradas_rc: Object.freeze([]),
+    motivos_rectificacion: Object.freeze([]), jornada_completa_minutos_semanales: 2250,
+  });
+  const cliente = Object.freeze({
+    async obtenerCatalogosAlta() { return { centros: [], categorias: [], documentos: [] }; },
+    async registrarSolicitud() {},
+    async obtenerConfiguracionAnalisis() { return configuracionAnalisis; },
+    async registrarAnalisis() {},
+    async registrarResultadoFiscalizacion() {},
+  });
+  const fuente = Object.freeze({
+    capacidades: Object.freeze(["contratacion_temporal.cuadro.consultar"]),
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { return { expedientes: [] }; },
+    async obtener() { return {}; },
+    async ejecutar() { throw new Error("solo lectura"); },
+  });
+  for (const [roles, esperado] of [[["tecnico_rrhh"], false], [["intervencion"], true]]) {
+    let montaje;
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      consultarSesion: async () => ({ roles }),
+      cargarCatalogoInterno: async () => catalogo,
+      cargadoresInternos: {
+        contratacion_temporal: async () => ({
+          cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+          adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => fuente },
+          contrato: { validarCatalogosAlta: (valor) => valor },
+          presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
+          vista: { montarModuloFiscalizacionContratacionTemporal: async () => ({ desmontar() {} }),
+            montarModuloContratacionTemporal: async (dependencias) => {
+              montaje = dependencias;
+              return { desmontar() {} };
+            } },
+        }),
+      },
+    });
+    await cargarConDiferidos(coordinador);
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
+    assert.ok(montaje.analisis, roles.join());
+    assert.equal(montaje.fiscalizacion !== null, esperado, roles.join());
+  }
+});
