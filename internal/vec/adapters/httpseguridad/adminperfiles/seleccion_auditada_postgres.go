@@ -207,8 +207,13 @@ func (s *seleccionAuditadaPostgreSQL) consultar(ctx context.Context, o Observaci
 	if err != nil {
 		if resultadoValidado {
 			// El COMMIT puede ser incierto. No atribuimos una denegación
-			// funcional al error de cerrar una respuesta ya validada.
-			return resultadoSelectorAuditado{}, "", ConClaseSelector("selector_commit_incierto",
+			// funcional al error de cerrar una respuesta ya validada. Si fue una
+			// carrera de serialización (no aplicó nada), la clase lo dice.
+			clase := "selector_commit_incierto"
+			if postgresqlcomun.EsCarreraSerializable(err) {
+				clase = "selector_carrera_agotada"
+			}
+			return resultadoSelectorAuditado{}, "", ConClaseSelector(clase,
 				conservarClaseSelector(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible))
 		}
 		if postgresqlcomun.EsCarreraSerializable(err) {
