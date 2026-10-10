@@ -152,6 +152,8 @@ func (a *AutoridadGobiernoRolNuevo) ProponerGobiernoRolNuevoRecuperable(ctx cont
 			if decodificarGobiernoRol([]byte(r.MaterialCanon), &m) != nil {
 				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 			}
+			// jsonb serializa timestamptz como «…+00:00»; el dominio exige UTC canónico.
+			r.CaducaEn = r.CaducaEn.UTC()
 			r.Propuesta = domain.PropuestaGobiernoPerfil{Material: m, HuellaSHA256: r.HuellaSHA256, CaducaEn: r.CaducaEn}
 			if (ports.ResultadoPropuestaGobiernoRolNuevo{Propuesta: r.Propuesta,
 				Replay: r.Replay, AuditoriaAccesoRef: r.AuditoriaAccesoRef}).ValidarPara(o, a.reloj.Ahora()) != nil {
@@ -188,6 +190,8 @@ func (a *AutoridadGobiernoRolNuevo) CerrarGobiernoPerfil(ctx context.Context,
 			if decodificarGobiernoRol([]byte(r.MaterialCanon), &m) != nil {
 				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 			}
+			// jsonb serializa timestamptz como «…+00:00»; el dominio exige UTC canónico.
+			r.ConfirmadoEn = r.ConfirmadoEn.UTC()
 			r.Cierre = domain.CierreGobiernoPerfil{OperacionRef: r.OperacionRef, Material: m,
 				PropuestaHuellaSHA256: r.PropuestaHuellaSHA256, Decision: r.Decision,
 				ConfirmadoEn: r.ConfirmadoEn, AuditoriaAccesoRef: r.AuditoriaAccesoRef,
