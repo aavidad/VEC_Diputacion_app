@@ -493,6 +493,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		}
 		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialAuditoriaConsultaDesarrollo())
 	}
+	// Carga CONVOCA (B1): el material de su audiencia se prepara siempre que
+	// haya borradores de Bolsa. Las rutas sólo se montan si además la versión
+	// de rol RRHH publicada por la autoridad gobernada (AUT62/AUT63, fuera del
+	// arranque) trae exactamente la concesión B1; ver cargaConvocaActiva y
+	// permiteMontarCargaConvocaPostgreSQL.
+	if seleccion.borradoresBolsa {
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialCargaConvocaBolsaDesarrollo())
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -756,6 +764,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 		if cfg.BolsaBorradoresEnabled {
+			dependencias.proveedorMaterialCargaConvoca = proveedorCargaConvocaOpcionalDesarrollo(func() (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
+				return nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+					ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConfirmarCargaConvoca)
+			})
 			if seleccion.reincorporacionTitular {
 				etapa = "material_consulta_reincorporacion_titular_bolsa"
 				dependencias.proveedorMaterialConsultaReincorporacionTitular, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
@@ -1059,4 +1071,19 @@ func comprobarLecturaReincorporacionTitularB55Desarrollo(ctx context.Context, co
 		return puertosbolsa.ErrReincorporacionTitularNoDisponible
 	}
 	return nil
+}
+
+// proveedorCargaConvocaOpcionalDesarrollo prepara el material V3 de la carga
+// CONVOCA (B1). Sin proveedor la carga queda sin montar y el resto de Bolsa
+// arranca igual: un fallo aquí nunca abre la carga ni para la aplicación.
+func proveedorCargaConvocaOpcionalDesarrollo(
+	crear func() (*proveedorMaterialAltaContratacionTemporalDesarrollo, error),
+) *proveedorMaterialAltaContratacionTemporalDesarrollo {
+	proveedor, err := crear()
+	if err != nil || proveedor == nil {
+		slog.Warn("bolsa CONVOCA: material de la carga no disponible; la carga no se monta",
+			"etapa", "material_carga_convoca_bolsa")
+		return nil
+	}
+	return proveedor
 }
