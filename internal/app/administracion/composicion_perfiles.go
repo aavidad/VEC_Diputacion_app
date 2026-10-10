@@ -8,8 +8,10 @@ import (
 	"io/fs"
 	"net/http"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
+	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad/adminperfiles"
 	identidad "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
+	"vec-diputacion-granada/internal/vec/application"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -56,12 +58,31 @@ type LoteADMIN struct {
 	Servicio api.ServicioLotesADMIN
 }
 
+// constructoresPerfiles reúne los cuatro adaptadores PostgreSQL de la
+// composición. ComponerServidorPerfiles pasa siempre los reales; sólo las
+// pruebas pasan otros para alcanzar cada clase de fallo sin base de datos.
+type constructoresPerfiles struct {
+	registro    func(context.Context, *pgxpool.Pool, *pgxpool.Pool, identidad.SeudonimizadorAlta, string, string) (*identidad.RegistroSesionesPostgreSQL, error)
+	revalidador func(context.Context, *pgxpool.Pool) (*identidad.RevalidadorAutenticacionActorPostgreSQL, error)
+	cuentas     func(context.Context, *pgxpool.Pool, httpseguridad.Reloj, adminperfiles.FuenteIdentificadoresADMIN, adminperfiles.SeudonimizadorFuenteADMIN) (*adminperfiles.PostgreSQL, error)
+	contextos   func(context.Context, *pgxpool.Pool, httpseguridad.Reloj, adminperfiles.ConfiguracionContextoADMIN) (*application.AutoridadContextoActorRegistradoV2, error)
+}
+
 func ComponerServidorPerfiles(ctx context.Context, cfg Configuracion, deps DependenciasComposicionPerfiles) (*http.Server, error) {
+	return componerServidorPerfiles(ctx, cfg, deps, constructoresPerfiles{
+		registro: identidad.NuevoRegistroSesionesPostgreSQL, revalidador: identidad.NuevoRevalidadorAutenticacionActorPostgreSQL,
+		cuentas: adminperfiles.NuevoPostgreSQLConFuenteADMIN, contextos: adminperfiles.NuevoContextoRegistradoADMINPostgreSQL,
+	})
+}
+
+// componerServidorPerfiles devuelve cada fallo con una clase de la lista
+// cerrada documentada en ClaseFallo; la causa queda dentro, nunca en el texto.
+func componerServidorPerfiles(ctx context.Context, cfg Configuracion, deps DependenciasComposicionPerfiles, c constructoresPerfiles) (*http.Server, error) {
 	if ctx == nil || ctx.Err() != nil || dependenciaComposicionNula(deps.Reloj) ||
 		deps.PoolCuentas == nil || deps.PoolRegistroSesion == nil || deps.PoolRevalidacionSesion == nil ||
 		dependenciaComposicionNula(deps.Auditor) || dependenciaComposicionNula(deps.Activos) ||
 		dependenciaComposicionNula(deps.Confianza.Fuente) {
-		return nil, ErrConfiguracion
+		return nil, falloConfiguracion{clase: "dependencias"}
 	}
 	if deps.PoolContextoADMIN == nil || deps.PoolContextoADMIN == deps.PoolCuentas ||
 		deps.PoolContextoADMIN == deps.PoolRegistroSesion || deps.PoolContextoADMIN == deps.PoolRevalidacionSesion ||
@@ -69,37 +90,40 @@ func ComponerServidorPerfiles(ctx context.Context, cfg Configuracion, deps Depen
 		deps.PoolRegistroSesion == deps.PoolRevalidacionSesion ||
 		dependenciaComposicionNula(deps.FuenteIdentificadoresADMIN) || dependenciaComposicionNula(deps.Seudonimizador) ||
 		deps.ConfiguracionContextoADMIN.Proceso == "" {
-		return nil, ErrConfiguracion
+		return nil, falloConfiguracion{clase: "dependencias_runtime"}
 	}
-	registro, err := identidad.NuevoRegistroSesionesPostgreSQL(ctx, deps.PoolRegistroSesion, deps.PoolRevalidacionSesion, deps.Seudonimizador, deps.EspacioIdentidad, deps.DominioHMACRef)
+	registro, err := c.registro(ctx, deps.PoolRegistroSesion, deps.PoolRevalidacionSesion, deps.Seudonimizador, deps.EspacioIdentidad, deps.DominioHMACRef)
 	if err != nil {
-		return nil, ErrConfiguracion
+		return nil, falloConfiguracion{clase: "registro_sesiones", causa: err}
 	}
-	revalidador, err := identidad.NuevoRevalidadorAutenticacionActorPostgreSQL(ctx, deps.PoolRevalidacionSesion)
+	revalidador, err := c.revalidador(ctx, deps.PoolRevalidacionSesion)
 	if err != nil {
-		return nil, ErrConfiguracion
+		return nil, falloConfiguracion{clase: "revalidador", causa: err}
 	}
-	cuentas, err := adminperfiles.NuevoPostgreSQLConFuenteADMIN(ctx, deps.PoolCuentas, deps.Reloj,
-		deps.FuenteIdentificadoresADMIN, deps.Seudonimizador)
+	cuentas, err := c.cuentas(ctx, deps.PoolCuentas, deps.Reloj, deps.FuenteIdentificadoresADMIN, deps.Seudonimizador)
 	if err != nil {
-		return nil, ErrConfiguracion
+		return nil, falloConfiguracion{clase: "cuentas_is16", causa: err}
 	}
-	contextos, err := adminperfiles.NuevoContextoRegistradoADMINPostgreSQL(ctx, deps.PoolContextoADMIN,
-		deps.Reloj, deps.ConfiguracionContextoADMIN)
+	contextos, err := c.contextos(ctx, deps.PoolContextoADMIN, deps.Reloj, deps.ConfiguracionContextoADMIN)
 	if err != nil {
-		return nil, ErrConfiguracion
+		return nil, falloConfiguracion{clase: "contexto_ca36", causa: err}
 	}
 	sesiones, err := NuevoResolverSesionPerfiles(cfg, adminperfiles.Dependencias{Cuentas: cuentas, Registro: registro, Revalidador: revalidador, Contextos: contextos, Autorizacion: deps.Confianza.Fuente, Reloj: deps.Reloj})
 	if err != nil {
-		return nil, ErrConfiguracion
+		return nil, conClase("resolver_sesion", err)
 	}
 	contextoConexion, err := NuevoContextoConexionPerfiles(deps.Reloj)
 	if err != nil {
-		return nil, ErrConfiguracion
+		// Defensa: hoy no se alcanza porque el reloj ya se comprobó arriba.
+		return nil, falloConfiguracion{clase: "contexto_conexion", causa: err}
 	}
-	return NuevoServidorConLecturas(cfg, DependenciasPerfiles{ContextoConexion: contextoConexion, Sesiones: sesiones, Lecturas: deps.Lecturas, Auditor: deps.Auditor, Reloj: deps.Reloj, Activos: deps.Activos,
+	servidor, err := NuevoServidorConLecturas(cfg, DependenciasPerfiles{ContextoConexion: contextoConexion, Sesiones: sesiones, Lecturas: deps.Lecturas, Auditor: deps.Auditor, Reloj: deps.Reloj, Activos: deps.Activos,
 		ObservadorSelector: sesiones, FuenteSeleccion: deps.FuenteSeleccion, AudienciaSelector: cfg.Audiencia, SoloUsuariosMetadatos: deps.SoloUsuariosMetadatos,
 		Lote: deps.Lote, GobiernoPlan: deps.GobiernoPlan, GobiernoRolNuevo: deps.GobiernoRolNuevo, GobiernoVersionBolsa: deps.GobiernoVersionBolsa, Efectos: deps.Efectos})
+	if err != nil {
+		return nil, conClase("montaje_lecturas", err)
+	}
+	return servidor, nil
 }
 
 func dependenciaComposicionNula(v any) bool {

@@ -28,21 +28,27 @@ type resolvedorSesionPerfiles struct {
 // cuenta y el perfil se resuelven después en las autoridades centrales.
 func NuevoResolverSesionPerfiles(cfg Configuracion, deps adminperfiles.Dependencias) (*resolvedorSesionPerfiles, error) {
 	host, hostValido := analizarHostAdmin(cfg.Host)
-	if (cfg.Entorno != "desarrollo" && cfg.Entorno != "cidonia") || deps.Reloj == nil || !hostValido {
-		return nil, ErrConfiguracion
+	if cfg.Entorno != "desarrollo" && cfg.Entorno != "cidonia" {
+		return nil, falloConfiguracion{clase: "entorno"}
+	}
+	if deps.Reloj == nil {
+		return nil, falloConfiguracion{clase: "dependencias"}
+	}
+	if !hostValido {
+		return nil, falloConfiguracion{clase: "host"}
 	}
 	ca, err := cargarCA(cfg.CAAdministracion)
 	if err != nil {
-		return nil, ErrConfiguracion
+		return nil, falloConfiguracion{clase: "ca", causa: err}
 	}
 	config := superficieSesionPerfiles(cfg)
 	red, err := httpseguridad.NuevaPoliticaRed(config)
 	if err != nil {
-		return nil, ErrConfiguracion
+		return nil, falloConfiguracion{clase: "red", causa: err}
 	}
 	proveedor, err := adminperfiles.Nuevo(config, deps)
 	if err != nil {
-		return nil, ErrConfiguracion
+		return nil, falloConfiguracion{clase: "resolver_sesion", causa: err}
 	}
 	return &resolvedorSesionPerfiles{cfg: cfg, host: host, ca: ca.Raw, red: red, proveedor: proveedor, reloj: deps.Reloj}, nil
 }

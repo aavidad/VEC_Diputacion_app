@@ -31,6 +31,10 @@ func componerProcesoADMIN(cfg administracion.Configuracion, priv configuracionPe
 
 func componerProcesoADMINConRuntime(cfg administracion.Configuracion, priv configuracionPerfilesPrivada, runtime configuracionRuntimeADMIN) (*http.Server, func(), error) {
 	fallo := func(etapa string) (*http.Server, func(), error) { return nil, nil, errorArranque(etapa) }
+	falloConClase := func(etapa string, err error) (*http.Server, func(), error) {
+		registrarClaseFallo(etapa, err)
+		return fallo(etapa)
+	}
 	// El emisor de la aserción es el espacio de identidad de la sesión y el
 	// registro lo compara con éste: si difieren, toda petición acabaría en 403.
 	if cfg.EmisorIdentidad != priv.Identidad.EspacioIdentidad {
@@ -142,7 +146,7 @@ func componerProcesoADMINConRuntime(cfg administracion.Configuracion, priv confi
 		Seudonimizador: seudonimos, EspacioIdentidad: priv.Identidad.EspacioIdentidad, DominioHMACRef: priv.Identidad.DominioRef,
 		Auditor: auditor, Reloj: reloj, Activos: os.DirFS(priv.ActivosDirectorio)})
 	if err != nil {
-		return fallo("servidor")
+		return falloConClase("servidor", err)
 	}
 	exito = true
 	return servidor, cerrar, nil
