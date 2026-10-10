@@ -8,8 +8,8 @@
 -- consta en fuente_ref, aprobación y motivo del documento.
 --
 -- Usa la función de publicar existente (CC1), sin SQL nuevo. Solo la puede
--- ejecutar su propietario: lo lanza una persona con rol DBA de la base que
--- pueda hacer SET ROLE vec_autorizacion_atestada_v3_propietario.
+-- ejecutar su propietario: lo lanza el superusuario de la base (postgres),
+-- que lee las tablas del esquema y hace SET ROLE al propietario de AD3 V3.
 --
 -- Repetirlo no duplica nada: publicar devuelve el mismo recibo si la versión 1
 -- ya existe con el mismo documento. Si existe con otro contenido, se para.
@@ -25,6 +25,9 @@ SET LOCAL lock_timeout = '5s';
 DO $previo$
 DECLARE previa text;
 BEGIN
+ IF NOT (SELECT rolsuper FROM pg_catalog.pg_roles WHERE rolname = current_user) THEN
+  RAISE EXCEPTION 'categorias_rpt ejemplo: ejecútalo como superusuario' USING ERRCODE = '42501';
+ END IF;
  IF to_regprocedure('vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text,text)') IS NULL THEN
   RAISE EXCEPTION 'categorias_rpt ejemplo: falta la autoridad de catálogos (CC1)' USING ERRCODE = '55000';
  END IF;
