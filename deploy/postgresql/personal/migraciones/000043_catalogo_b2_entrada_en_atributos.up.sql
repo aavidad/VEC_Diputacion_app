@@ -32,7 +32,7 @@ BEGIN
  OR (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM true
  THEN RAISE EXCEPTION 'Personal43: PARO clave=preimagen actual=incompatible esperado=Personal20' USING ERRCODE='55000'; END IF;
  actual:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(f),'UTF8')),'hex');
- IF actual='44d500a6f8b75014aab7819b7cbd721ff1942ebb127d511ebf36c2a0bea9c30e'
+ IF actual='67c1721c5e122d97d086d46447026612c6dffe821dd580a329fa10f7a55466f0'
  THEN RAISE EXCEPTION 'Personal43: PARO clave=ya-aplicada actual=postimagen esperado=Personal20' USING ERRCODE='55000'; END IF;
  IF actual IS DISTINCT FROM 'f97187e919d3c148685e2638915208af05d72adfb00cf9ac1ce05902c19fba89'
  THEN RAISE EXCEPTION 'Personal43: PARO clave=registrar_entrada_catalogo_empleado_rrhh_v1 actual=distinta esperado=Personal20' USING ERRCODE='55000'; END IF;
@@ -43,7 +43,7 @@ CREATE OR REPLACE FUNCTION vec_personal.registrar_entrada_catalogo_empleado_rrhh
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'pg_catalog'
+ SET search_path TO 'pg_catalog', 'pg_temp'
  SET row_security TO 'on'
  SET lock_timeout TO '2s'
 AS $function$
@@ -204,8 +204,10 @@ BEGIN
  IF (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=f)<>'vec_personal_propietario'::regrole
  OR (SELECT proacl::text FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM '{vec_personal_propietario=X/vec_personal_propietario,vec_personal_ejecutor=X/vec_personal_propietario}'
  OR (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM true
+ OR (SELECT proconfig::text FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM
+    '{"search_path=pg_catalog, pg_temp",row_security=on,lock_timeout=2s}'
  OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(f),'UTF8')),'hex')
-   IS DISTINCT FROM '44d500a6f8b75014aab7819b7cbd721ff1942ebb127d511ebf36c2a0bea9c30e'
+   IS DISTINCT FROM '67c1721c5e122d97d086d46447026612c6dffe821dd580a329fa10f7a55466f0'
  THEN RAISE EXCEPTION 'Personal43: PARO clave=postimagen actual=divergente esperado=registrar_entrada_catalogo_empleado_rrhh_v1' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;

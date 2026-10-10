@@ -30,7 +30,7 @@ BEGIN
  OR (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM true
  THEN RAISE EXCEPTION 'Personal42: PARO clave=preimagen actual=incompatible esperado=Personal19' USING ERRCODE='55000'; END IF;
  actual:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(f),'UTF8')),'hex');
- IF actual='4a1654ea528010d4753e371105e5f46ccdc5b04a7d51e691f24ec4a8b1b3fd7d'
+ IF actual='0b0efafebb10439c61a4b5401238ae4efec028923be3f97e313265514bf2c1a6'
  THEN RAISE EXCEPTION 'Personal42: PARO clave=ya-aplicada actual=postimagen esperado=Personal19' USING ERRCODE='55000'; END IF;
  IF actual IS DISTINCT FROM '65b56ecb8a45fc2e1b597b9a0aa44e4535c3719af172c22c6a1dfc70de162bea'
  THEN RAISE EXCEPTION 'Personal42: PARO clave=registrar_acto_empleado_b2_interna actual=distinta esperado=Personal19' USING ERRCODE='55000'; END IF;
@@ -41,7 +41,7 @@ CREATE OR REPLACE FUNCTION vec_personal.registrar_acto_empleado_b2_interna(p_ope
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'pg_catalog'
+ SET search_path TO 'pg_catalog', 'pg_temp'
  SET row_security TO 'on'
  SET lock_timeout TO '2s'
 AS $function$
@@ -455,8 +455,10 @@ BEGIN
  IF (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=f)<>'vec_personal_propietario'::regrole
  OR (SELECT proacl::text FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM '{vec_personal_propietario=X/vec_personal_propietario}'
  OR (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM true
+ OR (SELECT proconfig::text FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM
+    '{"search_path=pg_catalog, pg_temp",row_security=on,lock_timeout=2s}'
  OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(f),'UTF8')),'hex')
-   IS DISTINCT FROM '4a1654ea528010d4753e371105e5f46ccdc5b04a7d51e691f24ec4a8b1b3fd7d'
+   IS DISTINCT FROM '0b0efafebb10439c61a4b5401238ae4efec028923be3f97e313265514bf2c1a6'
  THEN RAISE EXCEPTION 'Personal42: PARO clave=postimagen actual=divergente esperado=registrar_acto_empleado_b2_interna' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;
