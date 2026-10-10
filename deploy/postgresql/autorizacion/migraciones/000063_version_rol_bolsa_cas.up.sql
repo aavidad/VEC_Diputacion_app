@@ -224,7 +224,7 @@ BEGIN
     VALUES(prop.version_rol_ref,1,'habilitada',control_sha,ahora,control);
    INSERT INTO vec_autorizacion.control_vigencia_version_rol_actual(version_rol_ref,revision,actualizada_en,actualizada_por,acto_ref)
     VALUES(prop.version_rol_ref,1,ahora,persona,acto);
-   FOR t IN SELECT value FROM jsonb_array_elements(plan->'asignaciones') WITH ORDINALITY x(value,n) ORDER BY n LOOP
+   FOR t IN SELECT value FROM jsonb_array_elements(plan->'asignaciones') WITH ORDINALITY o(value,n) ORDER BY n LOOP
     SELECT * INTO STRICT puntero FROM vec_autorizacion.asignacion_perfil_actual
      WHERE perfil_activo_ref=t#>>'{documento,perfil_activo_ref}' FOR UPDATE;
     IF puntero.asignacion_ref IS DISTINCT FROM t->>'asignacion_ref'
