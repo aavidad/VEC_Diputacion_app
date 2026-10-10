@@ -804,6 +804,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-inicio.js", "portal-bolsas-api.js", "portal-panel-interno.js",
     "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js", "portal-menu-bolsa.js"])
     versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v9");
+  // B99 sólo renovó la entrada del shell; los hijos CT/Bolsa conservan su URL.
+  versionesEspeciales.set("portal.js", "20261010-inscripcion-lecturas-b99");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
