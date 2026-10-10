@@ -29,7 +29,8 @@ func (s seleccionAuditadaADMIN) ListarPropiosADMIN(ctx context.Context, o adminp
 		return adminperfiles.PerfilesPropios{}, err
 	}
 	if !r.Propios.Validos() || !referenciaAuditoriaComun(r.AuditoriaComunRef) {
-		return adminperfiles.PerfilesPropios{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		return adminperfiles.PerfilesPropios{}, adminperfiles.ConClaseSelector("selector_resultado_invalido",
+			ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 	}
 	return r.Propios, nil
 }
@@ -42,7 +43,8 @@ func (s seleccionAuditadaADMIN) SeleccionarPerfilADMIN(ctx context.Context, o ad
 		return adminperfiles.SeleccionPerfil{}, err
 	}
 	if !r.Seleccion.Valida() || r.Seleccion.PerfilActivoRef != ref || !referenciaAuditoriaComun(r.AuditoriaComunRef) {
-		return adminperfiles.SeleccionPerfil{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		return adminperfiles.SeleccionPerfil{}, adminperfiles.ConClaseSelector("selector_resultado_invalido",
+			ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 	}
 	return r.Seleccion, nil
 }
