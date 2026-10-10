@@ -5,6 +5,8 @@
 # No crea LOGIN, configuración DBA, aprobaciones, catálogos ni concesiones; no ejecuta mantenimientos ADMIN.
 # AUT65 (000065_ratificacion_catalogo_admin_v7) NO va en esta lista: su guarda exige ADMIN v7 con 13 de 20
 # descriptores y la copia HZ12 tiene ADMIN v5. Se instala después de publicar v6 (AUT45) y v7 (AUT51).
+# AUT71 sustituye el cuerpo de resolver_rol_administrable_v1 para que devuelva categoria_admin; exige
+# la ACL que dejan AUT44, AUT60 y AUT63, por eso va justo después de AUT64.
 # Cada «# <huella>» fija la SHA256 de la ruta siguiente.
 # e29124ea9416a4d0c15f024f9698ec69224e697a22b71fa4bc5916b0444cf84c
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000219_catalogo_acciones_admin.up.sql
@@ -26,5 +28,7 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000227_version_rol_bolsa_
 deploy/postgresql/autorizacion/migraciones/000063_version_rol_bolsa_cas.up.sql
 # d6c80fef014e5de7d0b9bf0416fc713b205cda1e83dc4379f9f1813bf4b21e35
 deploy/postgresql/autorizacion/migraciones/000064_mantenimiento_version_bolsa_admin_v9.up.sql
+# 4728f0c542e0c2b1862c5f355ec6b766a42142ca04b0553e0a83f7a3ba022e1b
+deploy/postgresql/autorizacion/migraciones/000071_categoria_rol_administrable.up.sql
 # d4822682a6e1409f5027c1e3b54da62c8f40a0510534045446f9d5dd881b057e
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000230_ratificacion_catalogo_admin_v7.up.sql
