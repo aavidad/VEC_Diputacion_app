@@ -208,7 +208,7 @@ func funcionesMiBolsaPortalExternoSinInscripcion() []string {
 		"consultar_mi_bolsa_v1", "consultar_mi_bolsa_portal_v1", "consultar_historial_mi_bolsa_v1",
 		"manifestar_disposicion_oferta_v1", "listar_ofertas_candidato_v1", "solicitar_portal_candidato_v1",
 		"responder_llamamiento_portal_v1", "preparar_respuesta_portal_v1", "leer_portal_candidato_v1",
-		"confirmar_contacto_propio_v1", "leer_contacto_candidato_v1",
+		"confirmar_contacto_propio_v1", "leer_contacto_candidato_v1", "solicitar_documental_portal_v1",
 	}
 }
 
@@ -235,14 +235,14 @@ func funcionesMiBolsaPortalExternoExactas(obtenidas []string, funcionesB96 int, 
 	return slices.Equal(observadas, esperadas)
 }
 
-// abrirBolsaMiBolsaPortalExterno acepta B59 exacto antes de B96 y B59+B96
-// exactos después. Un GRANT lateral o una firma B96 distinta impide arrancar.
+// abrirBolsaMiBolsaPortalExterno acepta las concesiones B59+B77 antes de B96
+// y añade exclusivamente la inscripción después. Un GRANT lateral o una firma B96 distinta impide arrancar.
 func abrirBolsaMiBolsaPortalExterno(ctx context.Context, dsn string) (*pgxpool.Pool, string, error) {
 	pool, login, err := abrirPoolMiBolsaPortalExterno(ctx, dsn, "vec_bolsa_llamamientos_portal_externo")
 	if err != nil {
 		return nil, "", errMiBolsaNoDisponible
 	}
-	if !comprobarACLMiBolsaPortalExterno(ctx, pool) {
+	if !comprobarACLMiBolsaPortalExterno(ctx, pool, false) {
 		pool.Close()
 		return nil, "", errMiBolsaNoDisponible
 	}
@@ -253,7 +253,7 @@ type consultadorACLMiBolsaPortalExterno interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func comprobarACLMiBolsaPortalExterno(ctx context.Context, consultador consultadorACLMiBolsaPortalExterno) bool {
+func comprobarACLMiBolsaPortalExterno(ctx context.Context, consultador consultadorACLMiBolsaPortalExterno, requiereInscripcion bool) bool {
 	if ctx == nil || ctx.Err() != nil || consultador == nil {
 		return false
 	}
@@ -299,7 +299,8 @@ SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM fun
 	var funcionesB96 int
 	var b96Exacta bool
 	return consultador.QueryRow(ctx, acl, firmaSolicitarInscripcionPortalExterno).Scan(&funciones, &permitido, &funcionesB96, &b96Exacta) == nil &&
-		permitido && funcionesMiBolsaPortalExternoExactas(funciones, funcionesB96, b96Exacta)
+		permitido && (!requiereInscripcion || funcionesB96 == 1 && b96Exacta) &&
+		funcionesMiBolsaPortalExternoExactas(funciones, funcionesB96, b96Exacta)
 }
 
 // nuevaSesionMiBolsaPortalExterno recibe los puertos nominales exteriores de
