@@ -9,7 +9,7 @@ test('Los catálogos del gobierno de usuarios cubren los mismos códigos en cast
   const en = await leer('en');
   assert.deepEqual(Object.keys(es.mensajes).sort(), Object.keys(en.mensajes).sort());
   for (const catalogo of [es, en]) {
-    assert.equal(Object.keys(catalogo.mensajes).length, 17);
+    assert.equal(Object.keys(catalogo.mensajes).length, 19);
     assert.ok(Object.values(catalogo.mensajes).every(texto => typeof texto === 'string' && texto.trim()));
   }
 });

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -90,20 +91,29 @@ type ServicioLotes interface {
 
 // Handler queda inyectable; ningún proceso lo monta en este corte.
 type Handler struct {
-	origen           string
-	host             string
-	organizacionLote string
-	sesiones         ResolvedorSesion
-	lecturas         FuenteLecturas
-	catalogo         ports.CatalogoRolesAdministrables
-	actos            ServicioActos
-	lotes            ServicioLotesADMIN
-	motivosLote      []MotivoLote
-	gobiernoPlan     ServicioGobiernoPlanFirmaADMIN
-	efectos          map[string]efectoNominal
-	soloLectura      bool
-	soloMetadatos    bool
-	auditor          AuditorFrontera
+	origen             string
+	host               string
+	organizacionLote   string
+	sesiones           ResolvedorSesion
+	lecturas           FuenteLecturas
+	catalogo           ports.CatalogoRolesAdministrables
+	actos              ServicioActos
+	lotes              ServicioLotesADMIN
+	motivosLote        []MotivoLote
+	gobiernoPlan       ServicioGobiernoPlanFirmaADMIN
+	gobiernoRol        ServicioGobiernoRolNuevoADMIN
+	fuenteGobiernoRol  ports.FuenteCatalogoAccionesAdministracionV1
+	relojGobiernoRol   ports.Reloj
+	versionBolsa       ServicioVersionarRolBolsaADMIN
+	fuenteVersionBolsa ports.FuenteCatalogoAccionesAdministracionV1
+	relojVersionBolsa  ports.Reloj
+	// registroVersionBolsa recibe sólo la clase cerrada de cada 503 B1; nil
+	// usa slog.Default. Las pruebas lo sustituyen por un registro en memoria.
+	registroVersionBolsa *slog.Logger
+	efectos              map[string]efectoNominal
+	soloLectura          bool
+	soloMetadatos        bool
+	auditor              AuditorFrontera
 }
 
 func NuevoHandler(origen string, sesiones ResolvedorSesion, lecturas FuenteLecturas,
@@ -155,7 +165,7 @@ func dependenciaNula(v any) bool {
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.sesiones == nil || h.lecturas == nil || h.auditor == nil ||
-		(!h.soloLectura && h.gobiernoPlan == nil && len(h.efectos) == 0 && (h.catalogo == nil || (h.actos == nil && h.lotes == nil))) {
+		(!h.soloLectura && h.gobiernoPlan == nil && h.gobiernoRol == nil && h.versionBolsa == nil && len(h.efectos) == 0 && (h.catalogo == nil || (h.actos == nil && h.lotes == nil))) {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
@@ -207,6 +217,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == http.MethodGet {
 		h.get(w, r, sesion)
+		return
+	}
+	if (r.URL.Path == RutaGobiernoRolProponer || r.URL.Path == RutaGobiernoRolCerrar) && h.gobiernoRol == nil {
+		h.denegarActor(w, r, sesion, http.StatusNotFound, "recurso_no_encontrado", "escribir", "")
+		return
+	}
+	if (r.URL.Path == RutaVersionarRolBolsaProponer || r.URL.Path == RutaVersionarRolBolsaCerrar) && h.versionBolsa == nil {
+		h.denegarActor(w, r, sesion, http.StatusNotFound, "recurso_no_encontrado", "escribir", "")
 		return
 	}
 	if h.soloLectura {
@@ -427,29 +445,36 @@ func (h *Handler) denegarSesionIncompatible(w http.ResponseWriter, r *http.Reque
 
 func (h *Handler) denegarActor(w http.ResponseWriter, r *http.Request, s SesionConfiable,
 	estado int, codigo, accion, recurso string) {
-	actor, err := s.Actor.Clonar()
-	if err != nil {
+	if h.registrarDenegacionActor(r, s, codigo, accion, recurso) != "" {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
+	}
+	fallo(w, estado, codigo)
+}
+
+// registrarDenegacionActor audita la denegación con la sesión nominal. Devuelve
+// "" si quedó registrada o la clase cerrada de lo que impidió registrarla.
+func (h *Handler) registrarDenegacionActor(r *http.Request, s SesionConfiable,
+	codigo, accion, recurso string) string {
+	actor, err := s.Actor.Clonar()
+	if err != nil {
+		return "denegacion_actor"
 	}
 	resultado, err := s.Evidencia.ResultadoContexto.Clonar()
 	if err != nil {
-		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
-		return
+		return "denegacion_evidencia"
 	}
 	evidencia := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: s.Evidencia.Vinculo}
 	if evidencia.ValidarPara(actor) != nil {
-		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
-		return
+		return "denegacion_evidencia"
 	}
 	registro := DenegacionADMIN{SesionResuelta: true, Codigo: codigo, Accion: accion, RecursoRef: recurso,
 		ActorPersonaRef: actor.PersonaRef, PerfilActivoRef: actor.PerfilActivoRef,
 		CorrelacionRef: s.CorrelacionRef, Actor: actor, Evidencia: evidencia}
 	if h.auditor.RegistrarDenegacionADMIN(r.Context(), registro) != nil {
-		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
-		return
+		return "denegacion_auditoria"
 	}
-	fallo(w, estado, codigo)
+	return ""
 }
 
 func fallo(w http.ResponseWriter, estado int, codigo string) {

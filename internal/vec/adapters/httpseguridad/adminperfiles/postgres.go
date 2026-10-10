@@ -111,7 +111,7 @@ func (p *PostgreSQL) transaccionConAislamiento(ctx context.Context, aislamiento 
 	// Una carrera en esta lectura/binder obliga a obtener evidencia F nueva.
 	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: aislamiento, AccessMode: pgx.ReadWrite})
 	if err != nil {
-		return api.ErrConfiguracionIncompleta
+		return ConClaseSelector("selector_sql_transaccion", api.ErrConfiguracionIncompleta)
 	}
 	defer func() {
 		c, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(2*time.Second))
@@ -119,7 +119,7 @@ func (p *PostgreSQL) transaccionConAislamiento(ctx context.Context, aislamiento 
 		_ = tx.Rollback(c)
 	}()
 	if _, err = tx.Exec(ctx, `SELECT set_config('search_path','pg_catalog',true),set_config('row_security','on',true),set_config('timezone','UTC',true),set_config('lock_timeout','4s',true),set_config('statement_timeout','8s',true)`); err != nil {
-		return api.ErrConfiguracionIncompleta
+		return ConClaseSelector("selector_sql_configuracion", api.ErrConfiguracionIncompleta)
 	}
 	if err = fn(tx); err != nil {
 		return err
@@ -131,7 +131,7 @@ func (p *PostgreSQL) transaccionConAislamiento(ctx context.Context, aislamiento 
 			// consumidor que lo admita repita la transacción entera.
 			return errors.Join(api.ErrConfiguracionIncompleta, errCommitCarreraSerializable{})
 		}
-		return api.ErrConfiguracionIncompleta
+		return ConClaseSelector("selector_sql_commit", api.ErrConfiguracionIncompleta)
 	}
 	return nil
 }

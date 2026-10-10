@@ -2,18 +2,21 @@
 
 Esta herramienta consulta una instantánea publicada o presenta un plan ya
 aprobado a la fachada `registrar_catalogo_acciones_admin_v1`. No crea el LOGIN,
-la aprobación ni los descriptores de los módulos. La instalación de AD219 y
-AUT58 deja el registro vacío.
+la aprobación ni los descriptores de los módulos. AD219 y AUT58 dejaron el
+registro inicialmente vacío; AUT61 endurece prospectivamente la fachada sin
+reescribir sus recibos históricos.
 
 La base necesita AD215 instalada antes de AD219; después se instala AUT58. La
 lista del corte está en `deploy/principal/lista_sql_codexv_catalogo_acciones_admin_20261008.txt`.
 El DBA configura fuera de Git un LOGIN exclusivo del grupo
 `vec_admin_catalogo_acciones_ejecutor` y una fila vigente en
 `config_catalogo_acciones_admin_v1`. Esa fila liga el LOGIN, la huella exacta
-del plan, la referencia y huella de aprobación, la persona aprobadora, el
-paquete, el destino, el entorno y la ventana. La fuente de cada descriptor
-procede del módulo propietario y forma parte del paquete aprobado. Sin esa
-configuración, la admisión se deniega y queda auditada.
+del plan, la referencia y huella de aprobación, el identificador de aprobador,
+el paquete, el destino, el entorno y la ventana. Cada descriptor declara su
+módulo propietario y forma parte del paquete aprobado. Sin esa
+configuración, la admisión se deniega y queda auditada. Esa configuración es
+una aprobación técnica protegida; el campo `aprobador_ref` por sí solo no
+acredita una firma personal o legal.
 
 El archivo privado del CLI tiene modo `0600`, pertenece al usuario que ejecuta
 la herramienta y contiene `dsn` y `tiempo_segundos` (1–60). El plan también
@@ -30,18 +33,27 @@ El plan es un objeto JSON de 17 cadenas: `esquema`, `operacion_ref`,
 `catalogo_version`, `catalogo_sha256`, `esperado_version`,
 `esperado_sha256`, `preparado_en`, `caduca_en` y `entorno`. Los campos
 `paquete_canon` y `catalogo_canon` contienen JSON canónico como cadena; sus
-huellas son SHA-256 de los bytes UTF-8 exactos. El paquete declara fuentes
-versionadas por módulo y el censo completo de perfiles; el catálogo conserva
-las entradas y perfiles exactos del paquete. Un solicitante de perfil selecciona
-después referencias publicadas: este CLI no acepta concesiones de una petición
-como autoridad.
+huellas son SHA-256 de los bytes UTF-8 exactos. Para nuevas admisiones el
+`esquema` del plan es `vec.admin.catalogo-acciones.plan.v2`. El paquete declara
+fuentes versionadas por módulo y el censo completo de perfiles; el catálogo
+conserva sus entradas y perfiles en el mismo orden. Un solicitante de perfil
+selecciona después referencias publicadas: este CLI no acepta concesiones de
+una petición como autoridad.
 
-El JSON de `paquete_canon` tiene `esquema`, `referencia`, `version`, `fuentes`
-y `perfiles`. Cada fuente tiene `modulo_id`, `referencia`, `version`,
-`huella_sha256` y sus `entradas` completas. Cada perfil lleva el documento
+El JSON de `paquete_canon` usa el esquema
+`vec.admin.catalogo-acciones.paquete.v2` y tiene `esquema`, `referencia`,
+`version`, `fuentes` y `perfiles`. Cada fuente tiene `modulo_id`, `referencia`,
+`version`, `huella_sha256`, `entradas_canon` y sus `entradas` completas.
+`entradas_canon` es la serialización Go canónica del array de entradas que
+excluye únicamente `fuente_huella_sha256`; su SHA-256 debe coincidir con
+`huella_sha256`. Cada entrada completa conserva esa huella y coincide con
+el descriptor en módulo, referencia y versión. Fuentes con la misma identidad
+se rechazan. Cada perfil lleva el documento
 vigente del rol, su control de vigencia y el tipo explícito `fijo_sistema` o
 `administrable`. AUT58 coteja todos los RolID actuales y sus huellas con la
 autoridad central, y rechaza la omisión o reclasificación de un fijo histórico.
+Las publicaciones nuevas requieren AUT61 instalada y un paquete v2 aprobado
+en la configuración protegida; los planes v1 no abren nuevos efectos.
 
 Para recuperar la instantánea exacta por la función de lectura:
 

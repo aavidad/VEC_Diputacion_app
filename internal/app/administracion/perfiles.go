@@ -36,7 +36,23 @@ type DependenciasPerfiles struct {
 	SoloUsuariosMetadatos bool
 	Lote                  *LoteADMIN
 	GobiernoPlan          api.ServicioGobiernoPlanFirmaADMIN
+	GobiernoRolNuevo      *MontajeGobiernoRolNuevoADMIN
+	GobiernoVersionBolsa  *MontajeVersionBolsaADMIN
 	Efectos               []EfectoNominalMontado
+}
+
+// MontajeGobiernoRolNuevoADMIN exige la fuente publicada y el servicio
+// nominal. Su ausencia deja cerradas las dos rutas de definición.
+type MontajeGobiernoRolNuevoADMIN struct {
+	Servicio api.ServicioGobiernoRolNuevoADMIN
+	Fuente   ports.FuenteCatalogoAccionesAdministracionV1
+}
+
+// El consumidor B1 usa el mismo resolver de sesión ADMIN y un LOGIN de
+// gobierno distinto del de definiciones nuevas.
+type MontajeVersionBolsaADMIN struct {
+	Servicio api.ServicioVersionarRolBolsaADMIN
+	Fuente   ports.FuenteCatalogoAccionesAdministracionV1
 }
 
 type handlerPerfilesADMIN struct {
@@ -68,6 +84,9 @@ func NuevoServidorConPerfiles(cfg Configuracion, deps DependenciasPerfiles) (*ht
 }
 
 func nuevoHandlerPerfiles(host hostAdmin, deps DependenciasPerfiles) (*handlerPerfilesADMIN, error) {
+	if deps.GobiernoRolNuevo != nil || deps.GobiernoVersionBolsa != nil {
+		return nil, ErrConfiguracion
+	}
 	servicio, err := application.NuevoServicioAdministracionPerfiles(deps.Catalogo, deps.Actos, deps.Reloj)
 	if err != nil || deps.Activos == nil {
 		return nil, ErrConfiguracion
@@ -113,6 +132,22 @@ func NuevoServidorConLecturas(cfg Configuracion, deps DependenciasPerfiles) (*ht
 	if !dependenciaComposicionNula(deps.GobiernoPlan) {
 		// El gobierno del plan sólo se monta junto a las lecturas de usuarios.
 		if !deps.SoloUsuariosMetadatos || handler.ConGobiernoPlanFirma(deps.GobiernoPlan) != nil {
+			return nil, ErrConfiguracion
+		}
+	}
+	if deps.GobiernoRolNuevo != nil {
+		g := deps.GobiernoRolNuevo
+		if !deps.SoloUsuariosMetadatos || dependenciaComposicionNula(g.Servicio) ||
+			dependenciaComposicionNula(g.Fuente) || dependenciaComposicionNula(deps.Reloj) ||
+			handler.ConGobiernoRolNuevo(g.Servicio, g.Fuente, deps.Reloj) != nil {
+			return nil, ErrConfiguracion
+		}
+	}
+	if deps.GobiernoVersionBolsa != nil {
+		v := deps.GobiernoVersionBolsa
+		if !deps.SoloUsuariosMetadatos || dependenciaComposicionNula(v.Servicio) ||
+			dependenciaComposicionNula(v.Fuente) || dependenciaComposicionNula(deps.Reloj) ||
+			handler.ConVersionarRolBolsa(v.Servicio, v.Fuente, deps.Reloj) != nil {
 			return nil, ErrConfiguracion
 		}
 	}

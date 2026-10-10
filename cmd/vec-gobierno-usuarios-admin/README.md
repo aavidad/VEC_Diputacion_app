@@ -106,6 +106,50 @@ solo las dos de usuarios. El LOGIN técnico de un conjunto es miembro de
 procedimiento está en
 `deploy/postgresql/autorizacion_atestada_v3/GOBIERNO_CAPACIDADES_AD198.md`.
 
+## Conjunto 5 y overlay de versión de Bolsa (AD234)
+
+Con `"conjunto_capacidades": 5` la publicación diaria incluye, además de las
+seis claves del conjunto 4, las dos que usa vec-admin para proponer y cerrar
+una versión nueva del rol de Bolsa (`vec_autorizacion.versionar_rol_bolsa.propuesta.v1`
+y `.cierre.v1`). Requiere la migración 000234 instalada. El LOGIN técnico del
+día es miembro de `vec_gobierno_capacidades_admin_operador` y su fila en
+`config_gobierno_capacidades_admin_v1` lleva `conjunto_version = 5`.
+
+Después de aplicar (y de la repetición), la fase `version-bolsa` escribe en la
+misma carpeta de salida el fichero que lee vec-admin en
+`VEC_ADMIN_VERSION_BOLSA_CONFIG_FILE`. No conecta con la base. Necesita en la
+configuración privada un bloque más:
+
+```json
+"version_bolsa": {
+  "pool_gobierno": "/ruta/privada/pools/version-bolsa-ejecutor.json",
+  "pool_catalogo": "/ruta/privada/pools/catalogo-acciones-lector.json",
+  "motivos": {
+    "vec_autorizacion.versionar_rol_bolsa.propuesta.v1": { "catalogo_id": "…", "catalogo_version": 1, "catalogo_huella_sha256": "…", "entrada_clave": "motivo_…" },
+    "vec_autorizacion.versionar_rol_bolsa.cierre.v1": { "catalogo_id": "…", "catalogo_version": 1, "catalogo_huella_sha256": "…", "entrada_clave": "motivo_…" }
+  }
+}
+```
+
+Los dos pools son los ficheros de conexión de los LOGIN B1 de vec-admin
+(ejecutor `vec_admin_version_rol_bolsa_ejecutor` y lector del catálogo
+`vec_admin_catalogo_acciones_lector`), distintos de los de cualquier otro
+overlay y fuera de la carpeta del día. Los motivos son las entradas publicadas
+del catálogo de motivos que usa vec-admin.
+
+```sh
+vec-gobierno-usuarios-admin -fase version-bolsa -config /ruta/privada/config.json \
+  -textos ... -timeout 30s -acuse acuse-aplicar.json
+```
+
+El acuse es el que guardó aplicar: la fase comprueba que la base confirmó
+COMMIT de ese mismo plan y material, y que el conjunto incluye las dos
+audiencias. Escribe `version-bolsa-propuesta.bin` y `version-bolsa-cierre.bin`
+(cada clave en su propio fichero 0600, que ningún otro overlay usa) y por
+último `version-bolsa.json` (0600), con la raíz y la configuración del día y
+exactamente esas dos entradas. No sobrescribe nada: cada día va en su carpeta.
+Después se reinicia vec-admin apuntando a ese `version-bolsa.json`.
+
 ## Salida
 
 Por consola solo sale un JSON con `codigo`, `mensaje` y `limite`, tomados del

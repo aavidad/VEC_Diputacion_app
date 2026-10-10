@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"net/url"
@@ -12,7 +13,9 @@ import (
 
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
+	"vec-diputacion-granada/internal/vec/adapters/httpseguridad/adminperfiles"
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 const maxCuerpo = 1024
@@ -27,6 +30,9 @@ type Handler struct {
 	seleccionador                   Seleccionador
 	auditor                         api.AuditorFrontera
 	reloj                           httpseguridad.Reloj
+	// registro recibe una línea técnica por cada 503 (sólo correlación, ruta y
+	// clase cerrada); nil usa slog.Default().
+	registro *slog.Logger
 }
 
 func NuevoHandler(origen, audiencia string, observador FuenteObservacion, seleccionador Seleccionador,
@@ -55,6 +61,7 @@ func nulo(v any) bool {
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h == nil || nulo(h.observador) || nulo(h.seleccionador) || nulo(h.auditor) || nulo(h.reloj) {
+		h.registrarClase(r, "selector_sin_dependencias")
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
@@ -107,6 +114,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				ClaveI18N: p.ClaveI18N, CategoriaADMIN: p.CategoriaADMIN})
 		}
 		if !lista.valida() {
+			h.registrarClase(r, "selector_lista_respuesta")
 			fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 			return
 		}
@@ -136,6 +144,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if seleccion.PerfilActivoRef != perfil || seleccion.Revision == 0 || seleccion.Revision > maxRevisionJSON ||
 		seleccion.Revision < revision || seleccion.Revision > revision+1 ||
 		!auditoriaValida(seleccion.AuditoriaRef) || seleccion.SeleccionadaEn.IsZero() || seleccion.SeleccionadaEn.After(h.reloj.Ahora()) {
+		h.registrarClase(r, "selector_respuesta_incoherente")
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
@@ -315,6 +324,7 @@ func (h *Handler) denegar(w http.ResponseWriter, r *http.Request, estado int, co
 	if h.auditor.RegistrarDenegacionADMIN(r.Context(), api.DenegacionADMIN{
 		Codigo: codigo, Accion: accion, RecursoRef: recurso,
 	}) != nil {
+		h.registrarClase(r, "selector_auditor_denegacion")
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
@@ -327,6 +337,7 @@ func (h *Handler) errorObservacion(w http.ResponseWriter, r *http.Request, err e
 	} else if errors.Is(err, api.ErrAccesoDenegado) || errors.Is(err, domain.ErrAutorizacionDenegada) {
 		h.denegar(w, r, http.StatusForbidden, "acceso_denegado")
 	} else {
+		h.registrarClase(r, claseDe(err, "selector_observacion"))
 		h.denegar(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 	}
 }
@@ -340,8 +351,40 @@ func (h *Handler) falloSeleccionador(w http.ResponseWriter, r *http.Request, err
 	case errors.Is(err, api.ErrConflictoEstado):
 		h.denegar(w, r, http.StatusConflict, "conflicto_estado")
 	default:
+		h.registrarClase(r, claseDe(err, "sin_clase"))
 		h.denegar(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 	}
+}
+
+// claseDe devuelve la clase cerrada que traiga err o, si no trae ninguna, la
+// dada. Nunca devuelve la causa.
+func claseDe(err error, otra string) string {
+	if clase := adminperfiles.ClaseFalloSelector(err); clase != "" {
+		return clase
+	}
+	return otra
+}
+
+// registrarClase deja una línea técnica por cada 503 del selector: la
+// correlación de la petición (la misma de la línea de acceso), la ruta fija y
+// la clase cerrada. Sin referencias, huellas ni causas.
+func (h *Handler) registrarClase(r *http.Request, clase string) {
+	if clase != "sin_clase" && !adminperfiles.ClaseSelectorAdmitida(clase) {
+		clase = "sin_clase"
+	}
+	ruta := "seleccion"
+	if r != nil && r.Method == http.MethodGet {
+		ruta = "propios"
+	}
+	correlacion := ""
+	if r != nil {
+		correlacion, _ = ports.CorrelacionIncidenciasPeticion(r.Context())
+	}
+	registro := slog.Default()
+	if h != nil && h.registro != nil {
+		registro = h.registro
+	}
+	registro.Error("vec_admin_seleccion_no_disponible", "vec.correlacion", correlacion, "ruta", ruta, "clase", clase)
 }
 
 func fallo(w http.ResponseWriter, estado int, codigo string) {

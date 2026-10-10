@@ -26,7 +26,7 @@ func TestConjuntoCeroConservaDescriptoresAD188(t *testing.T) {
 		d[1].PrefijoClave != "clave:capacidad:admin:usuarios:consultar:s7:" || d[1].Version != 6 || d[1].RevisionGobierno != 11 {
 		t.Fatalf("descriptores del conjunto 0 distintos de AD188: %+v", d)
 	}
-	if _, ok := AudienciasConjuntoCapacidadesAdmin(5); ok {
+	if _, ok := AudienciasConjuntoCapacidadesAdmin(6); ok {
 		t.Fatal("conjunto desconocido aceptado")
 	}
 }
