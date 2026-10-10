@@ -302,8 +302,11 @@ test("quien ya respondió o dejó de estar disponible no es «Siguiente a llamar
   // Contactado no cierra la llamada; la renuncia confirmada por RRHH, sí.
   const contactos = [contacto(1, "telefono", "contactado", "2026-10-08T08:00:00Z")];
   const filas = filasSeguimiento({ candidatos, contactos, llamamientoRef: LLAMAMIENTO, telefono: TELEFONO });
-  assert.deepEqual(filas.map((f) => [f.cerrada, f.siguiente]),
-    [[true, false], [true, false], [true, false], [true, false], [false, true]], "una respuesta a otro llamamiento no cuenta");
+  assert.deepEqual(filas.map((f) => [f.motivo, f.siguiente]),
+    [["renuncia", false], ["renuncia", false], ["aceptado", false], ["aceptado", false], [null, true]], "una respuesta a otro llamamiento no cuenta");
+  const otros = filasSeguimiento({ candidatos: [persona(1, "A", { estado_clave: "excluido" }), persona(2, "B")],
+    contactos: [contacto(2, "telefono", "numero_erroneo", "2026-10-08T08:00:00Z")], llamamientoRef: LLAMAMIENTO, telefono: TELEFONO });
+  assert.deepEqual(otros.map((f) => f.motivo), ["no_disponible", "no_localizado"]);
 });
 
 test("sin nadie pendiente, el seguimiento ofrece «Llamar al siguiente» con el asistente de la bolsa", () => {
@@ -312,8 +315,9 @@ test("sin nadie pendiente, el seguimiento ofrece «Llamar al siguiente» con el 
   const resuelto = presentador({ datos: listo({ canales_llamamiento: canales, candidatos: [persona(1, "Yago Lozano Hidalgo", { estado_clave: "renuncia", orden: null })],
     contactos: [contacto(1, "telefono", "contactado", "2026-10-08T08:00:00Z")] }), filtros }).renderizarVista("bolsa-candidatos");
   assert.doesNotMatch(resuelto, /Siguiente a llamar/u);
-  assert.match(resuelto, /data-bolsa-ref="bolsa:sintetica:1">Volver a la bolsa<\/a><button type="button" class="boton-primario" data-bolsa-accion="iniciar-b7">Llamar al siguiente<\/button><\/header>/u);
-  assert.match(resuelto, /<h3 id="bolsa-seguimiento-titulo">Personas del llamamiento, por orden de la bolsa<\/h3><span class="estado-chip exito">Nadie pendiente de llamar<\/span><\/div>/u);
+  assert.match(resuelto, /data-bolsa-ref="bolsa:sintetica:1">Volver a la bolsa<\/a><button type="button" class="boton-primario" data-bolsa-accion="iniciar-b7">Nuevo llamamiento al siguiente<\/button><\/header>/u);
+  assert.match(resuelto, /<h3 id="bolsa-seguimiento-titulo">Personas del llamamiento, por orden de la bolsa<\/h3><span class="estado-chip info">Nadie pendiente de llamar<\/span><\/div>/u);
+  assert.match(resuelto, /Yago Lozano Hidalgo<\/strong><\/button> <span class="estado-chip advertencia">Ha renunciado<\/span><\/td>/u);
   const pendiente = presentador({ datos: listo({ canales_llamamiento: canales }), filtros }).renderizarVista("bolsa-candidatos");
   assert.doesNotMatch(pendiente, /data-bolsa-accion="iniciar-b7"/u, "con alguien pendiente se llama desde su fila");
 });
@@ -327,4 +331,49 @@ test("el enlace al seguimiento conserva el origen de la petición para el siguie
   assert.deepEqual(leerCandidatosBolsaCompartible(href, [{ bolsa_ref: "bolsa:1" }]), { bolsaRef: "bolsa:1", estado: "", seguimiento: LLAMAMIENTO, origen });
   const sinOrigen = enlaceSeguimiento({ bolsaRef: "bolsa:1", llamamientoRef: LLAMAMIENTO, escaparHTML: html, clase: "x", contenido: "y", origen: { referencia: "sin expediente" } });
   assert.doesNotMatch(sinOrigen, /origen/u, "un origen sin expediente no viaja");
+});
+
+test("si alguien aceptó (por teléfono o en Mi bolsa) no se ofrece otro llamamiento", () => {
+  const filtros = { estado: "", texto: "", seguimiento: { llamamiento_ref: LLAMAMIENTO, bolsa_ref: BOLSA.bolsa_ref } };
+  const canales = validarCanalesLlamamiento([CORREO, TELEFONO]);
+  const ver = (candidatos, contactos = []) => presentador({ datos: listo({ canales_llamamiento: canales, candidatos, contactos }), filtros }).renderizarVista("bolsa-candidatos");
+  const yago = persona(1, "Yago Lozano Hidalgo", { estado_clave: "renuncia" });
+  // Aceptación registrada por teléfono.
+  const telefono = ver([yago, persona(2, "Lucía Martín Serrano")], [contacto(2, "telefono", "acepta", "2026-10-08T09:00:00Z")]);
+  assert.doesNotMatch(telefono, /data-bolsa-accion="iniciar-b7"/u);
+  assert.doesNotMatch(telefono, /Nadie pendiente de llamar|Siguiente a llamar/u);
+  assert.match(telefono, /<span class="estado-chip exito">Aceptado por Lucía Martín Serrano<\/span><\/div>/u);
+  assert.match(telefono, /Lucía Martín Serrano<\/strong><\/button> <span class="estado-chip exito">Ha aceptado<\/span>/u);
+  // Aceptación desde Mi bolsa: la respuesta llega en el último llamamiento de la persona.
+  const portal = ver([yago, persona(2, "Lucía Martín Serrano", { ultimo_llamamiento: { ...CANDIDATOS[1].ultimo_llamamiento, resultado: "aceptado" } })]);
+  assert.doesNotMatch(portal, /data-bolsa-accion="iniciar-b7"/u);
+  assert.match(portal, /Aceptado por Lucía Martín Serrano/u);
+  // Ya incorporándose por este llamamiento, aunque la respuesta no conste.
+  const incorporada = ver([persona(2, "Lucía Martín Serrano", { estado_clave: "pendiente_incorporacion" })]);
+  assert.doesNotMatch(incorporada, /data-bolsa-accion="iniciar-b7"/u);
+  assert.match(incorporada, /Aceptado por Lucía Martín Serrano/u);
+  // Una persona no disponible por otra razón no bloquea el siguiente llamamiento.
+  const otra = ver([persona(3, "Carmen Molina Ortega", { estado_clave: "trabajando", ultimo_llamamiento: null })]);
+  assert.match(otra, /data-bolsa-accion="iniciar-b7"/u);
+  assert.match(otra, /<span class="estado-chip neutro">Ya no está disponible<\/span>/u);
+});
+
+test("«Nuevo llamamiento al siguiente» abre el asistente y pone el foco en su paso activo", () => {
+  const escuchas = {};
+  let enfocado = null;
+  const paso = { focus() { enfocado = "paso"; } };
+  const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector: (s) => (s === '[aria-current="step"]' ? paso : null) };
+  const estado = { vista: "bolsa-candidatos", bolsaSeleccionada: BOLSA.bolsa_ref, origenLlamamientoB7: null,
+    filtrosBolsa: { estado: "", texto: "", seguimiento: { llamamiento_ref: LLAMAMIENTO, bolsa_ref: BOLSA.bolsa_ref } }, datosCandidatos: listo() };
+  const fetchOriginal = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, status: 404 });
+  try {
+    crearControladorBolsas({ estado, renderizar: () => {}, navegar: () => {}, documento }).instalar();
+    escuchas.click({ preventDefault() {}, target: { closest: (s) => (s === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: "iniciar-b7" } } : null) } });
+  } finally {
+    globalThis.fetch = fetchOriginal;
+  }
+  assert.equal(estado.filtrosBolsa.seguimiento, undefined, "deja el seguimiento");
+  assert.equal(estado.filtrosBolsa.nuevo_llamamiento.paso, 1);
+  assert.equal(enfocado, "paso");
 });
