@@ -202,8 +202,8 @@ func (h *Handler) responderErrorVersionBolsa(w http.ResponseWriter, r *http.Requ
 	if errors.Is(err, domain.ErrAutorizacionDenegada) {
 		estado, codigo = http.StatusForbidden, "acceso_denegado"
 	}
-	if fallido := h.registrarDenegacionActor(r, sesion, codigo, "escribir", recurso); fallido != "" {
-		h.registrarClaseVersionBolsa(r, fallido)
+	if err := h.registrarDenegacionActor(r, sesion, codigo, "escribir", recurso); err != nil {
+		h.registrarClaseVersionBolsa(r, claseDenegacionActor(err))
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
