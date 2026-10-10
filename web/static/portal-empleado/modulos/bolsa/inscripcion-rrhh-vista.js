@@ -1,5 +1,5 @@
 import { cargarTextos, reintentarTextos } from "../../../comun/textos.js";
-import { crearClienteInscripcionesRRHH } from "./inscripcion-rrhh-cliente.js?v=20261009-inscripciones-rrhh-v1";
+import { crearClienteInscripcionesRRHH } from "./inscripcion-rrhh-cliente.js?v=20261010-http-carga-v1";
 
 const ESTADOS = new Set(["pendiente", "admitida_a_convocatoria", "incorporada", "rechazada"]);
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")

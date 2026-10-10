@@ -22,7 +22,7 @@ import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-aviso
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
 import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20261007-pantallas-textos-final-v1";
-import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20261010-http-codigo-v1";
+import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20261010-http-carga-v1";
 let tamanoPaginaMarco = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = tamanoPaginaMarco) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : tamanoPaginaMarco; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
     .filter((pagina) => pagina >= 1 && pagina <= calculo.paginas)
@@ -233,6 +233,7 @@ const estado = {
   politicaCese: null,
   politicaCeseComprobada: false,
   inscripcionesDisponibles: null, // null sin comprobar; false si el servidor no publica la bandeja
+  cargaConvocaDisponible: null, // null sin comprobar; true solo si el servidor monta la carga CONVOCA
   politicaCeseAusente: false, // 404: la instalación no compone la política de cese
   modalResultado: null,
 };
@@ -1091,7 +1092,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     controladorInscripcionesBolsa = controlador;
     contenedor.innerHTML = `<div data-inscripciones-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_comprobando")}</p></div></section></div>`;
     const raiz = contenedor.querySelector("[data-inscripciones-montaje]");
-    import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=20261009-inscripciones-rrhh-v1").then(async ({ montarInscripcionesRRHH }) => {
+    import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=20261010-http-carga-v1").then(async ({ montarInscripcionesRRHH }) => {
       if (controlador.signal.aborted || estado.vista !== vista) return;
       const montaje = await montarInscripcionesRRHH({ raiz, signal: controlador.signal,
         alDenegacion: () => { estado.solicitudes = []; },
@@ -1613,11 +1614,26 @@ function vistaNecesitaBolsa(vista = estado.vista) {
   return vista === "portal" || (vista !== "solicitudes" && moduloDeVistaPortal(vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(vista));
 }
+// La carga desde CONVOCA solo se ofrece si el servidor monta sus rutas; se
+// comprueba una vez, al pintar por primera vez la cabecera de Bolsa.
+function cargaConvocaDisponible() {
+  if (estado.cargaConvocaDisponible === null) {
+    estado.cargaConvocaDisponible = false;
+    import("../comun/http.js?v=20261010-http-carga-v1")
+      .then(({ rutaEnvioPublicada }) => rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca"))
+      .then((disponible) => {
+        if (disponible !== true) return;
+        estado.cargaConvocaDisponible = true;
+        if (moduloDeVistaPortal(estado.vista) === "bolsa") renderizarConservandoFoco();
+      }).catch(() => {});
+  }
+  return estado.cargaConvocaDisponible === true;
+}
 function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261010-ct-vinculo-rpt-cohorte-v10"),
+    import("./portal-panel-interno.js?v=20261010-b1-carga-v1"),
     import("./portal-bolsas-api.js?v=20261010-ct-vinculo-rpt-cohorte-v10"),
     import("./portal-bolsas-ruta-filtros.js?v=20261010-ct-vinculo-rpt-cohorte-v10"),
   ]).then(([panel, bolsas, rutas]) => {
@@ -1637,6 +1653,7 @@ function prepararBolsaBase() {
   obtenerModalContactos: () => estado.modalContactos,
   obtenerModalFicha: () => estado.modalFicha,
   obtenerModalResultado: () => estado.modalResultado,
+  cargaConvocaDisponible,
     });
 
     const controlador = bolsas.crearControladorBolsas({

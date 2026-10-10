@@ -464,6 +464,16 @@ static/portal-empleado/categorias-rpt/cliente.js
 static/portal-empleado/categorias-rpt/i18n.js
 static/textos/es/rpt-categorias-rrhh.json
 static/textos/en/rpt-categorias-rrhh.json
+static/portal-empleado/modulos/bolsa/carga-convoca/index.html
+static/portal-empleado/modulos/bolsa/carga-convoca/arranque.js
+static/portal-empleado/modulos/bolsa/carga-convoca/vista.js
+static/portal-empleado/modulos/bolsa/carga-convoca/modelo.js
+static/portal-empleado/modulos/bolsa/carga-convoca/cliente.js
+static/portal-empleado/modulos/bolsa/carga-convoca/carga-convoca.css
+static/textos/es/bolsa-carga-convoca.json
+static/textos/en/bolsa-carga-convoca.json
+static/textos/es/bolsa-carga-convoca-recuperacion.json
+static/textos/en/bolsa-carga-convoca-recuperacion.json
 static/textos/es/cronos-permisos.json
 static/textos/en/cronos-permisos.json
 static/textos/es/cronos-resolucion.json

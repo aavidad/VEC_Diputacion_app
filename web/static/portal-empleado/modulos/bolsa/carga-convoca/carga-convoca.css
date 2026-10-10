@@ -1,0 +1,113 @@
+/* Carga de bolsas desde CONVOCA: solo lo propio de esta pantalla. La
+   estructura (panel, KPI, tabla, botones, estados) viene del tema común. */
+.carga-convoca { display: grid; align-content: start; gap: var(--portal-espacio-4); min-width: 0; }
+
+@media (min-width: 721px) {
+  .carga-convoca-pagina .portal-superficie {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  .carga-convoca-pagina .contenido-portal { overflow: visible; flex: 0 0 auto; }
+}
+.carga-arranque-error { margin: var(--portal-espacio-4); }
+
+.carga-pasos {
+  display: flex; flex-wrap: wrap; gap: var(--portal-espacio-3);
+  margin: 0; padding: 0; list-style: none; counter-reset: none;
+}
+.carga-pasos li {
+  display: inline-flex; align-items: center; gap: var(--portal-espacio-2);
+  color: var(--portal-muted); font-size: 0.875rem;
+}
+.carga-pasos li + li::before {
+  width: 32px; height: 1px; background: var(--portal-borde); content: "";
+}
+.carga-pasos__numero {
+  display: inline-grid; width: 28px; height: 28px; place-items: center;
+  border: 1px solid var(--portal-borde-control); border-radius: 50%;
+  background: var(--portal-superficie); font-weight: 600;
+}
+.carga-pasos li[aria-current="step"] { color: var(--portal-tinta); font-weight: 600; }
+.carga-pasos li[aria-current="step"] .carga-pasos__numero {
+  border-color: var(--portal-azul-700); background: var(--portal-azul-700); color: var(--portal-texto-inverso);
+}
+.carga-pasos li.carga-pasos--hecho .carga-pasos__numero {
+  border-color: var(--portal-exito); color: var(--portal-exito);
+}
+
+.carga-formulario { display: grid; min-width: 0; gap: var(--portal-espacio-4); max-width: 640px; }
+.carga-campo { display: grid; min-width: 0; gap: var(--portal-espacio-1); }
+.carga-campo label { font-weight: 600; }
+.carga-campo select, .carga-campo input[type="file"] { width: 100%; min-width: 0; min-height: 40px; max-width: 100%; }
+.carga-obligatorio, .carga-pista, .carga-subtitulo { color: var(--portal-muted); font-weight: 400; margin: 0; }
+.carga-error-campo { margin: 0; color: var(--portal-peligro); font-weight: 600; }
+[aria-invalid="true"] { border-color: var(--portal-peligro); }
+
+.carga-resumen-errores {
+  margin-bottom: var(--portal-espacio-4); padding: var(--portal-espacio-3) var(--portal-espacio-4);
+  border: 2px solid var(--portal-peligro); border-radius: var(--portal-radio-md);
+}
+.carga-resumen-errores p { margin: 0 0 var(--portal-espacio-2); font-weight: 600; }
+
+.carga-aviso { margin: 0 0 var(--portal-espacio-3); padding: var(--portal-espacio-3) var(--portal-espacio-4); border-radius: var(--portal-radio-md); }
+.carga-aviso--peligro { background: var(--portal-peligro-suave); color: var(--portal-peligro); font-weight: 600; }
+.carga-aviso--exito { background: var(--portal-exito-suave); color: var(--portal-exito); font-weight: 600; }
+.carga-estado:empty { display: none; }
+
+.carga-kpi .tarjeta-kpi { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+.carga-kpi-boton { display: grid; justify-items: start; width: 100%; text-align: left; cursor: pointer; font: inherit; }
+.carga-kpi-boton:hover { border-color: var(--portal-azul-700); }
+.carga-filtro { display: flex; flex-wrap: wrap; gap: var(--portal-espacio-3); margin: var(--portal-espacio-3) 0 0; padding: 0; border: 0; }
+.carga-filtro legend { float: left; margin-right: var(--portal-espacio-2); font-weight: 600; }
+.carga-filtro label { display: inline-flex; min-height: 24px; align-items: center; gap: var(--portal-espacio-1); }
+.carga-filtro input { width: 20px; height: 20px; margin: 0; }
+
+.carga-tabla .carga-numero { text-align: right; font-variant-numeric: tabular-nums; }
+.carga-tabla td:last-child { min-width: 240px; }
+.carga-oculto {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+.carga-pie { border-top: 1px solid var(--portal-borde); }
+.carga-casilla { display: flex; align-items: flex-start; gap: var(--portal-espacio-2); margin-bottom: var(--portal-espacio-3); }
+.carga-casilla input { width: 20px; height: 20px; margin: 2px 0 0; }
+.carga-acciones { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--portal-espacio-3); }
+.carga-datos { margin: 0 0 var(--portal-espacio-3); padding-left: 1.25rem; }
+.carga-detalle { margin-bottom: var(--portal-espacio-4); color: var(--portal-muted); overflow-wrap: anywhere; }
+.carga-ayuda {
+  display: inline-grid; width: 40px; height: 40px; place-items: center; padding: 0;
+  border: 1px solid var(--portal-borde-control); border-radius: 50%;
+  background: var(--portal-superficie); color: var(--portal-azul-700); font-weight: 600; font-size: 1.1rem;
+}
+
+.carga-dialogo {
+  width: min(560px, calc(100vw - 32px)); padding: var(--portal-espacio-5);
+  border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); box-shadow: var(--portal-sombra);
+}
+.carga-dialogo::backdrop { background: color-mix(in srgb, var(--portal-azul-950) 55%, transparent); }
+.carga-dialogo h2 { margin-top: 0; }
+
+/* Selector de fichero propio: el del navegador sale en su idioma, no en el de la página. */
+.carga-fichero { display: flex; flex-wrap: wrap; align-items: center; gap: var(--portal-espacio-3); min-width: 0; }
+.carga-fichero input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.carga-fichero .boton-secundario { cursor: pointer; }
+.carga-fichero input[type="file"]:focus-visible + .boton-secundario { outline: 3px solid var(--portal-azul-700); outline-offset: 2px; }
+.carga-fichero-nombre { min-width: 0; overflow-wrap: anywhere; color: var(--portal-muted); }
+/* Lo que recibe el foco no queda bajo la cabecera fija (WCAG 2.4.11). */
+.carga-convoca [tabindex="-1"], .carga-convoca [role="alert"], #tabla-contenedor { scroll-margin-top: 140px; }
+.carga-kpi-boton[aria-pressed="true"] { border-color: var(--portal-azul-700); box-shadow: inset 0 0 0 1px var(--portal-azul-700); }
+.carga-tecnico summary { cursor: pointer; color: var(--portal-muted); }
+
+@media (max-width: 640px) {
+  .rejilla-kpi.rejilla-kpi--compacta.carga-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .carga-pasos li + li::before { display: none; }
+  .carga-acciones { flex-direction: column-reverse; align-items: stretch; }
+  /* En móvil se quitan documento y puntuación para que estado y detalle se lean sin desplazar. */
+  .carga-tabla th:nth-child(4), .carga-tabla td:nth-child(4),
+  .carga-tabla th:nth-child(5), .carga-tabla td:nth-child(5) { display: none; }
+  .carga-tabla th, .carga-tabla td { padding: 10px 4px; }
+  .carga-tabla th:first-child, .carga-tabla td:first-child { padding-left: 12px; }
+  .carga-tabla th:nth-child(2), .carga-tabla td:last-child { white-space: normal; }
+  .carga-tabla td:last-child { min-width: 0; }
+}
