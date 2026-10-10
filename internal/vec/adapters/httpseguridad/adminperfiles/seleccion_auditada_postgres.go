@@ -78,14 +78,14 @@ func (s *seleccionAuditadaPostgreSQL) ListarPropiosAuditadosADMIN(ctx context.Co
 	var propios PerfilesPropios
 	_, ref, err := s.consultar(ctx, o, listarPropiosAuditadoSQL, nil, func(x resultadoSelectorAuditado) error {
 		if x.Perfiles == nil || len(x.Perfiles) == 0 || len(x.Perfiles) > 16 || x.Revision > 1<<53-1 || x.PerfilRef != "" || x.SeleccionRevision != 0 || !x.SeleccionadaEn.IsZero() {
-			return api.ErrConfiguracionIncompleta
+			return ConClaseSelector("selector_lista_invalida", api.ErrConfiguracionIncompleta)
 		}
 		propios = PerfilesPropios{Revision: x.Revision, PerfilActivoRef: x.PerfilActivoRef}
 		for _, p := range x.Perfiles {
 			propios.Perfiles = append(propios.Perfiles, PerfilPropio{p.PerfilRef, p.RolVersionRef, p.ClaveI18N, p.CategoriaADMIN})
 		}
 		if !propios.Validos() {
-			return api.ErrConfiguracionIncompleta
+			return ConClaseSelector("selector_lista_invalida", api.ErrConfiguracionIncompleta)
 		}
 		return nil
 	})
@@ -102,8 +102,17 @@ func (s *seleccionAuditadaPostgreSQL) SeleccionarPerfilAuditadoADMIN(ctx context
 	var seleccion SeleccionPerfil
 	_, ref, err := s.consultar(ctx, o, seleccionarPerfilAuditadoSQL, []any{perfil, strconv.FormatUint(revision, 10)}, func(x resultadoSelectorAuditado) error {
 		x.SeleccionadaEn = x.SeleccionadaEn.UTC()
-		if x.PerfilRef != perfil || x.SeleccionRevision == 0 || x.SeleccionRevision < revision || x.SeleccionRevision > revision+1 || !instante(x.SeleccionadaEn) || x.Perfiles != nil || x.PerfilActivoRef != "" || x.Revision != 0 || x.SeleccionadaEn.After(s.base.reloj.Ahora()) {
-			return api.ErrConfiguracionIncompleta
+		switch {
+		case x.PerfilRef != perfil:
+			return ConClaseSelector("selector_perfil_distinto", api.ErrConfiguracionIncompleta)
+		case x.SeleccionRevision == 0 || x.SeleccionRevision < revision || x.SeleccionRevision > revision+1:
+			return ConClaseSelector("selector_revision_fuera_de_rango", api.ErrConfiguracionIncompleta)
+		case !instante(x.SeleccionadaEn):
+			return ConClaseSelector("selector_instante", api.ErrConfiguracionIncompleta)
+		case x.Perfiles != nil || x.PerfilActivoRef != "" || x.Revision != 0:
+			return ConClaseSelector("selector_campos_extra", api.ErrConfiguracionIncompleta)
+		case x.SeleccionadaEn.After(s.base.reloj.Ahora()):
+			return ConClaseSelector("selector_seleccion_futura", api.ErrConfiguracionIncompleta)
 		}
 		seleccion = SeleccionPerfil{PerfilActivoRef: perfil, Revision: x.SeleccionRevision, SeleccionadaEn: x.SeleccionadaEn}
 		return nil
@@ -122,11 +131,11 @@ func (s *seleccionAuditadaPostgreSQL) consultar(ctx context.Context, o Observaci
 	}
 	correlacion, ok := ports.CorrelacionIncidenciasPeticion(ctx)
 	if !ok {
-		return salida, "", api.ErrConfiguracionIncompleta
+		return salida, "", ConClaseSelector("selector_correlacion", api.ErrConfiguracionIncompleta)
 	}
 	var nonce [16]byte
 	if _, err := rand.Read(nonce[:]); err != nil {
-		return salida, "", api.ErrConfiguracionIncompleta
+		return salida, "", ConClaseSelector("selector_aleatorio", api.ErrConfiguracionIncompleta)
 	}
 	hexEvento := hex.EncodeToString(nonce[:])
 	args := append(argumentos(o), extra...)
@@ -152,14 +161,17 @@ func (s *seleccionAuditadaPostgreSQL) consultar(ctx context.Context, o Observaci
 		err := s.base.transaccion(ctx, func(tx pgx.Tx) error {
 			var bruto []byte
 			if err := tx.QueryRow(ctx, consulta, args...).Scan(&bruto, &ref); err != nil {
-				return err
+				return ConClaseSelector(claseSQLSelector(err), err)
 			}
-			if ref != "aud_v3_p_"+hexEvento || decodificarSelectorAuditado(bruto, &salida) != nil {
-				return api.ErrConfiguracionIncompleta
+			if ref != "aud_v3_p_"+hexEvento {
+				return ConClaseSelector("selector_auditoria_ref", api.ErrConfiguracionIncompleta)
+			}
+			if decodificarSelectorAuditado(bruto, &salida) != nil {
+				return ConClaseSelector("selector_decodificacion", api.ErrConfiguracionIncompleta)
 			}
 			if salida.Estado == "denegado" {
 				if salida.Perfiles != nil || salida.PerfilActivoRef != "" || salida.PerfilRef != "" || salida.Revision != 0 || salida.SeleccionRevision != 0 || !salida.SeleccionadaEn.IsZero() {
-					return api.ErrConfiguracionIncompleta
+					return ConClaseSelector("selector_denegacion_incoherente", api.ErrConfiguracionIncompleta)
 				}
 				switch salida.MotivoRef {
 				case "seleccion_revision_obsoleta":
@@ -169,7 +181,7 @@ func (s *seleccionAuditadaPostgreSQL) consultar(ctx context.Context, o Observaci
 				case "perfil_propio_no_acreditado":
 					denegada = api.ErrAccesoDenegado
 				default:
-					return api.ErrConfiguracionIncompleta
+					return ConClaseSelector("selector_motivo_desconocido", api.ErrConfiguracionIncompleta)
 				}
 				// La denegación acreditada ya tiene registro común. Confirmamos
 				// primero ese asiento; después devolvemos el error al transporte.
@@ -177,7 +189,7 @@ func (s *seleccionAuditadaPostgreSQL) consultar(ctx context.Context, o Observaci
 				return nil
 			}
 			if salida.Estado != "" || salida.MotivoRef != "" {
-				return api.ErrConfiguracionIncompleta
+				return ConClaseSelector("selector_estado_inesperado", api.ErrConfiguracionIncompleta)
 			}
 			if err := validar(salida); err != nil {
 				return err
@@ -188,22 +200,29 @@ func (s *seleccionAuditadaPostgreSQL) consultar(ctx context.Context, o Observaci
 		// Un COMMIT abortado por serialización no aplicó nada y se repite;
 		// cualquier otro fallo tras validar es incierto y no se repite.
 		if err != nil && resultadoValidado && !postgresqlcomun.EsCarreraSerializable(err) {
-			return api.ErrConfiguracionIncompleta
+			return ConClaseSelector("selector_commit_incierto", conservarClaseSelector(err, api.ErrConfiguracionIncompleta))
 		}
 		return err
 	})
 	if err != nil {
 		if resultadoValidado {
 			// El COMMIT puede ser incierto. No atribuimos una denegación
-			// funcional al error de cerrar una respuesta ya validada.
-			return resultadoSelectorAuditado{}, "", ports.ErrAutoridadAdministracionPerfilesNoDisponible
+			// funcional al error de cerrar una respuesta ya validada. Si fue una
+			// carrera de serialización (no aplicó nada), la clase lo dice.
+			clase := "selector_commit_incierto"
+			if postgresqlcomun.EsCarreraSerializable(err) {
+				clase = "selector_carrera_agotada"
+			}
+			return resultadoSelectorAuditado{}, "", ConClaseSelector(clase,
+				conservarClaseSelector(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible))
 		}
 		if postgresqlcomun.EsCarreraSerializable(err) {
 			// Agotados los reintentos, la colisión técnica no acredita que la
 			// revisión seleccionada por la persona esté obsoleta.
-			return resultadoSelectorAuditado{}, "", ports.ErrAutoridadAdministracionPerfilesNoDisponible
+			return resultadoSelectorAuditado{}, "", ConClaseSelector("selector_carrera_agotada",
+				ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 		}
-		return resultadoSelectorAuditado{}, "", errorAutoridad(err)
+		return resultadoSelectorAuditado{}, "", conservarClaseSelector(err, errorAutoridad(err))
 	}
 	if denegada != nil {
 		return resultadoSelectorAuditado{}, "", denegada

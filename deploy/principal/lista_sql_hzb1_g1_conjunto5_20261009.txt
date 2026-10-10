@@ -1,0 +1,8 @@
+# Conjunto 5 de capacidades ADMIN (AD234) para la principal (cidonia), SIN ENCENDER NADA.
+# Va DESPUÉS de la lista lista_sql_hzb1_estructura_b1_20261009.txt (exige AD227) y de AD205.
+# Solo añade la fila 5 a conjunto_audiencias_capacidad_admin_v1. No toca el núcleo V3
+# (sigue en def 3538c97c…, prosrc d8aa8ecc…), ni el CHECK de audiencias, ni las funciones de AD198.
+# No crea LOGIN, configuración DBA ni claves. Una sola vez; nunca DOWN ni reaplicar: repetirla se rechaza sin efecto.
+# Cada «# <huella>» fija la SHA256 de la ruta siguiente.
+# 1dc8d5ede58f04ed93bf468e8649ac2d4b2b3d376292ac46a292bc414101f4ac
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000234_conjunto_capacidades_version_bolsa.up.sql
