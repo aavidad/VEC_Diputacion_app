@@ -2255,7 +2255,7 @@ BEGIN
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
  AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
  AND d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
- AND d->'obligaciones' IS NOT DISTINCT FROM '["auditar"]'::jsonb
+ AND d->'obligaciones' IN ('[]'::jsonb,'["auditar"]'::jsonb)
  AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'administracion_privilegiada'
  AND d#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS NOT DISTINCT FROM 'true'
  AND (
@@ -2890,8 +2890,8 @@ DO $post$
 DECLARE h text; f oid:=to_regprocedure('vec_autorizacion_atestada_v3.registrar_consumir_admin_perfiles_v3(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
 BEGIN
  SELECT encode(sha256(convert_to(pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'UTF8')),'hex') INTO h;
- IF h IS DISTINCT FROM 'a421a10e2c13a5f097c51d96ed7f67a50bbbaa0b75a3e984cb0e17499ea8e30e'
- THEN RAISE EXCEPTION 'AD236: núcleo postimagen actual=% esperado=a421a10e2c13a5f097c51d96ed7f67a50bbbaa0b75a3e984cb0e17499ea8e30e',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM '514d7594b664a1b59b6f72c41ec0528b091c1f5a6b6c4049a9006324a428dac1'
+ THEN RAISE EXCEPTION 'AD236: núcleo postimagen actual=% esperado=514d7594b664a1b59b6f72c41ec0528b091c1f5a6b6c4049a9006324a428dac1',h USING ERRCODE='55000'; END IF;
  SELECT encode(sha256(convert_to(pg_get_constraintdef(c.oid,false),'UTF8')),'hex') INTO h
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
