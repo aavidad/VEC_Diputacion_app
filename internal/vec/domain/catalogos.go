@@ -5,11 +5,19 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// claveEntradaCatalogo es la misma regla que aplica la autoridad de catálogos
+// en PostgreSQL al publicar (vec_catalogos_configurables.publicar): admite «:»
+// para claves con espacio de nombres, como «categoria:rpt:administrativo».
+// Si el dominio fuera más estricto, una publicación válida en la base se
+// leería como no confiable.
+var claveEntradaCatalogo = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{2,127}$`)
 
 var (
 	ErrCatalogoConfigurableInvalido = errors.New("vec: catalogo configurable invalido")
@@ -64,7 +72,7 @@ type EntradaCatalogoConfigurable struct {
 }
 
 func (e EntradaCatalogoConfigurable) Validar() error {
-	if !esClaveDocumentalCanonica(e.Clave) || !textoAcotadoCatalogo(e.Etiqueta, maximoCaracteresEtiqueta, true) ||
+	if !claveEntradaCatalogo.MatchString(e.Clave) || !textoAcotadoCatalogo(e.Etiqueta, maximoCaracteresEtiqueta, true) ||
 		!textoAcotadoCatalogo(e.Descripcion, maximoCaracteresDescripcion, false) || e.Orden < 0 ||
 		e.VigenteDesde.IsZero() || (!e.VigenteHasta.IsZero() && !e.VigenteHasta.After(e.VigenteDesde)) ||
 		len(e.Atributos) > maximoAtributosEntradaCatalogo {

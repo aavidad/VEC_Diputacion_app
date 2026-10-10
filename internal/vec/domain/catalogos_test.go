@@ -276,3 +276,39 @@ func TestHuellaContenidoCatalogoPermaneceDuranteGobiernoYCambiaConSemantica(t *t
 		t.Fatalf("el cambio semantico no altero la huella: %q, %v", huellaContenidoActualizado, err)
 	}
 }
+
+// La clave de una entrada sigue la misma regla que vec_catalogos_configurables.publicar
+// (^[a-z][a-z0-9_.:-]{2,127}$): las categorías RPT publicadas usan claves como
+// «categoria:rpt:administrativo» y el lector no puede tenerlas por no confiables.
+func TestEntradaCatalogoClaveSigueLaReglaDeLaBase(t *testing.T) {
+	base := catalogoConfigurablePrueba().Entradas[0]
+	for _, c := range []struct {
+		clave  string
+		valida bool
+	}{
+		{"categoria:rpt:administrativo", true},
+		{"categoria:rpt:enfermera-o", true},
+		{"disponible", true},
+		{"a.b", true},
+		{"a" + strings.Repeat("b", 127), true},
+		{"a" + strings.Repeat("b", 128), false},
+		{"ab", false},
+		{"Categoria:rpt", false},
+		{"1categoria", false},
+		{":categoria", false},
+		{"categoria rpt", false},
+		{"categoria/rpt", false},
+		{" categoria:rpt", false},
+	} {
+		e := base
+		e.Clave = c.clave
+		if err := e.Validar(); (err == nil) != c.valida {
+			t.Fatalf("clave %q: error=%v, se esperaba válida=%v", c.clave, err, c.valida)
+		}
+	}
+	catalogo := catalogoConfigurablePrueba()
+	catalogo.Entradas[0].Clave = "categoria:rpt:administrativo"
+	if err := catalogo.Validar(); err != nil {
+		t.Fatalf("catálogo con clave de espacio de nombres rechazado: %v", err)
+	}
+}
