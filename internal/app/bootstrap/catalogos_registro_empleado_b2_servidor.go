@@ -19,8 +19,8 @@ import (
 // Personal. Cada acto es una decisión V3 nominal del perfil propio de este
 // grupo, que no amplía la asignación ya publicada del perfil de Personal.
 // Las dos operaciones son opcionales y van juntas: sin ellas en la
-// configuración privada no hay perfil, la ruta deniega y el servidor arranca
-// como antes.
+// configuración privada no hay perfil ni ruta montada (404) y el servidor
+// arranca como antes.
 const (
 	claveCatalogoPublicarB2             = "personal_catalogo_publicar"
 	claveCatalogoRetirarB2              = "personal_catalogo_retirar"
@@ -49,6 +49,17 @@ func accionCatalogoEmpleadoB2(operacion string) (string, bool) {
 		return personal.AccionRetirarCatalogoEmpleadoB2, true
 	}
 	return "", false
+}
+
+// negativaGobiernoCatalogoEmpleadoB2 marca como denegada para Personal la
+// negativa del punto de decisión al publicar o retirar, para que el manejador
+// responda 403 auditado y no 503. La consulta conserva su traducción previa.
+func negativaGobiernoCatalogoEmpleadoB2(accion string, e error) error {
+	if e != nil && accionGobiernoCatalogoEmpleadoB2(accion) && (errors.Is(e, ct.ErrAutorizacionDenegada) ||
+		errors.Is(e, core.ErrAutorizacionDenegada) || errors.Is(e, vp.ErrDenegacionExplicitaAutorizacionLigadaV3)) {
+		return errors.Join(personal.ErrRegistroEmpleadoB2Denegado, e)
+	}
+	return e
 }
 
 // gobiernoCatalogoEmpleadoB2Coherente rechaza una configuración que habilite

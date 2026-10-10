@@ -287,12 +287,13 @@ func (a *autoridadIncorporacionPersonalB2) AutorizarConsultaRegistroEmpleadoB2(c
 func (a *autoridadIncorporacionPersonalB2) AutorizarCatalogoRegistroEmpleadoB2(ctx context.Context, m personal.MaterialCatalogoEmpleadoB2) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	accion, ok := accionCatalogoEmpleadoB2(m.Operacion())
 	if !ok || a == nil || a.perfiles == nil || a.perfiles.b2[accion] == nil || m.OrganismoRef() != a.organismoRef {
-		return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ct.ErrAutorizacionDenegada
+		return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, negativaGobiernoCatalogoEmpleadoB2(accion, ct.ErrAutorizacionDenegada)
 	}
 	if e := a.actorCoincide(ctx, accion, m.Actor()); e != nil {
-		return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, e
+		return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, negativaGobiernoCatalogoEmpleadoB2(accion, e)
 	}
-	return a.autorizarRecurso(ctx, accion, m.Recurso())
+	x, e := a.autorizarRecurso(ctx, accion, m.Recurso())
+	return x, negativaGobiernoCatalogoEmpleadoB2(accion, e)
 }
 func (a *autoridadIncorporacionPersonalB2) AutorizarActoRegistroEmpleadoB2(ctx context.Context, m personal.MaterialActoRegistroEmpleadoB2) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	accion := personal.AccionAltaEmpleadoB2

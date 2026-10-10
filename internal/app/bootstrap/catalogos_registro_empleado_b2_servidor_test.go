@@ -212,3 +212,38 @@ func TestCatalogoEmpleadoB2RutaHTTPDeniegaYAuditaSinEscribir(t *testing.T) {
 		t.Fatal("ruta montada sin auditoría de frontera")
 	}
 }
+
+// Una negativa del punto de decisión al publicar o retirar llega a Personal
+// como denegación (403 auditado); la consulta conserva su traducción previa.
+func TestCatalogoEmpleadoB2NegativaTardiaEsDenegacion(t *testing.T) {
+	for _, e := range []error{ct.ErrAutorizacionDenegada, core.ErrAutorizacionDenegada, vp.ErrDenegacionExplicitaAutorizacionLigadaV3} {
+		for _, accion := range []string{personal.AccionPublicarCatalogoEmpleadoB2, personal.AccionRetirarCatalogoEmpleadoB2} {
+			if !errors.Is(negativaGobiernoCatalogoEmpleadoB2(accion, e), personal.ErrRegistroEmpleadoB2Denegado) {
+				t.Fatalf("%s %v no es denegación", accion, e)
+			}
+		}
+		if errors.Is(negativaGobiernoCatalogoEmpleadoB2(personal.AccionConsultarCatalogoEmpleadoB2, e), personal.ErrRegistroEmpleadoB2Denegado) {
+			t.Fatal("la consulta cambió su traducción")
+		}
+	}
+	if negativaGobiernoCatalogoEmpleadoB2(personal.AccionPublicarCatalogoEmpleadoB2, nil) != nil ||
+		errors.Is(negativaGobiernoCatalogoEmpleadoB2(personal.AccionPublicarCatalogoEmpleadoB2, ct.ErrConsultaRRHHNoDisponible), personal.ErrRegistroEmpleadoB2Denegado) {
+		t.Fatal("una indisponibilidad se convirtió en denegación")
+	}
+	// Por el servicio real: sin perfil configurado, publicar responde denegado.
+	sin := configuracionB2PuraPrueba().PersonalB2
+	delete(sin.Operaciones, claveCatalogoPublicarB2)
+	delete(sin.Operaciones, claveCatalogoRetirarB2)
+	a := &autoridadIncorporacionPersonalB2{perfiles: perfilesB2VinculoPrueba(t, sin), organismoRef: sin.OrganismoRef}
+	servicio, err := apppersonal.NuevoServicioCatalogosRegistroEmpleadoB2(a, &repositorioCatalogoNoUsadoPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	alta, _, _ := escenarioConsultasRRHHDesarrolloPrueba(t)
+	s := personal.SolicitudCambioCatalogoEmpleadoB2{Operacion: "retirar", OrganismoRef: sin.OrganismoRef, Tipo: "modalidad",
+		Ref: "modalidad:laboral-sustitucion", Version: 1, Revision: 2, Denominacion: "Contrato de sustitución", HuellaSHA256: strings.Repeat("b", 64),
+		VigenteDesde: personal.FechaCivil("2026-01-01"), IdempotenciaRef: "11111111-2222-4333-8444-555555555556", Actor: alta.soporte.contexto.Resultado.Contexto}
+	if _, err := servicio.Cambiar(context.Background(), s); !errors.Is(err, personal.ErrRegistroEmpleadoB2Denegado) {
+		t.Fatalf("retirada sin perfil: %v", err)
+	}
+}
