@@ -144,6 +144,12 @@ SQL
 sed '$s/^COMMIT;/ROLLBACK;/' "$repo_dir/deploy/postgresql/personal/migraciones/000019_escritura_registro_empleado_b2.up.sql" | admin -o /dev/null
 [[ $(admin_valor "SELECT to_regclass('vec_personal.registro_empleado_b2_recibo') IS NULL") == t ]] || fallo 'ROLLBACK 000019 dejó tabla'
 archivo "$repo_dir/deploy/postgresql/personal/migraciones/000019_escritura_registro_empleado_b2.up.sql"
+# Personal42: el objetivo del alta y del hecho pasa a los atributos del recurso.
+up42="$repo_dir/deploy/postgresql/personal/migraciones/000042_actos_b2_objetivo_en_atributos.up.sql"
+sed '$s/^COMMIT;/ROLLBACK;/' "$up42" | admin -o /dev/null
+archivo "$up42"
+if archivo "$up42" 2>/dev/null; then fallo 'segunda aplicación de Personal42 aceptada'; fi
+ok 'Personal42 preimagen exacta de 000019, ROLLBACK, COMMIT y segunda aplicación rechazada'
 archivo "$base_dir/escritura_registro_empleado_b2_000019.sql"
 admin -o /dev/null <<'SQL'
 DO $f$ BEGIN
@@ -218,24 +224,34 @@ cat > "$casos_tmp" <<'SQL'
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 SET LOCAL TimeZone='UTC';
 DO $t$
-DECLARE material text; actor jsonb; contexto jsonb; cap jsonb; decision jsonb; clave text; mh text; rh text; res jsonb; replay jsonb; hecho jsonb; hecho2 jsonb; relacion text; emp text; material_error text; cap_error jsonb; decision_error jsonb;
+DECLARE material text; actor jsonb; contexto jsonb; cap jsonb; decision jsonb; clave text; mh text; rh text; res jsonb; replay jsonb; hecho jsonb; hecho2 jsonb; relacion text; emp text; material_error text; cap_error jsonb; decision_error jsonb; rh_viejo text;
 BEGIN
  actor:=jsonb_build_object('actor_ref','actor:synthetic:b2','contexto_actor_ref','ctx:synthetic:b2','contexto_version',1,'cuenta_ref','cuenta:synthetic:b2','cuenta_version',1,'perfil_ref','perfil:synthetic:b2','perfil_version',1,'persona_ref','per_sintetica_alcance_p_00000000000001','persona_version',1);
  contexto:=jsonb_build_object('esquema','vec.contexto-actor.vinculado.v2','principal_ref','actor:synthetic:b2','contexto_actor_ref','ctx:synthetic:b2','contexto_version',1,'cuenta_ref','cuenta:synthetic:b2','cuenta_version',1,'perfil_activo_ref','perfil:synthetic:b2','persona_ref','per_sintetica_alcance_p_00000000000001','persona_version',1,'perfil_version',1);
  material:=jsonb_build_object('esquema','vec.personal.registro-empleado-b2.alta.v1','operacion','alta','persona_ref','per_sintetica_alcance_p_00000000000001','organismo_ref','org:synthetic','unidad_ref','uni:synthetic','regimen',jsonb_build_object('ref','reg:synthetic','version',1),'modalidad',jsonb_build_object('ref','mod:synthetic','version',1),'vigente_desde','2026-09-25','vigente_hasta','','version_esperada',0,'procedencia',jsonb_build_object('acto_ref','acto:synthetic:b2','fuente_ref','fuente:synthetic:b2','fuente_version',1,'fuente_huella_sha256',repeat('b',64),'idempotencia_ref','11111111-1111-4111-8111-111111111111'),'actor',actor)::text;
  mh:=encode(sha256(convert_to(material,'UTF8')),'hex');
- rh:=encode(sha256(convert_to('{"ambitos":{"objetivo_ref":"per_sintetica_alcance_p_00000000000001","organismo_ref":"org:synthetic"},"atributos":{"material_sha256":"'||mh||'","operacion":"alta"}}','UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"organismo_ref":"org:synthetic"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"per_sintetica_alcance_p_00000000000001","operacion":"alta"}}','UTF8')),'hex');
  cap:=jsonb_build_object('operacion','personal.registro_empleado.alta.registrar','audiencia_consumo','vec_personal.registro_empleado.alta.v1','efecto_ref','per_sintetica_alcance_p_00000000000001','huella_efecto_sha256',rh,'emitida_en','2020-01-01T00:00:00Z','expira_en','2100-01-01T00:00:00Z','decision_valida_hasta','2100-01-01T00:00:00Z');
  decision:=jsonb_build_object('principal_id','actor:synthetic:b2','perfil_activo_ref','perfil:synthetic:b2','concedida',true,'modulo_id','personal','obligaciones',jsonb_build_array(),'tipo_recurso','alta_empleado_rrhh','finalidad','registrar_empleado','campos_permitidos','["eficacia_administrativa","empleado_ref","evidencia","firma_oficial","persona_ref","proyeccion_ref","recibo","relacion_ref","version"]'::jsonb,'accion','personal.registro_empleado.alta.registrar','recurso_ref','per_sintetica_alcance_p_00000000000001','contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2','valida_hasta','2100-01-01T00:00:00Z');
  res:=vec_personal.registrar_empleado_rrhh_v1(material,convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to(contexto::text,'UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
  IF res->'recibo'->>'empleado_ref' !~ '^emp_' OR res->'acceso_actual'->>'estado_replay'<>'registrado' THEN RAISE EXCEPTION 'alta no registrada %',res; END IF;
  replay:=vec_personal.registrar_empleado_rrhh_v1(material,convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to(contexto::text,'UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
  IF replay->'recibo' IS DISTINCT FROM res->'recibo' OR replay->'acceso_actual'->>'estado_replay'<>'replay' OR replay->'acceso_actual'->>'consumo_huella_sha256'=res->'acceso_actual'->>'consumo_huella_sha256' THEN RAISE EXCEPTION 'replay mutable o sin V3 nuevo'; END IF;
+ -- Personal42: la decisión firmada con el canon anterior (objetivo en ámbitos)
+ -- o con otro objetivo en los atributos no vale para este material.
+ FOREACH rh_viejo IN ARRAY ARRAY[
+   encode(sha256(convert_to('{"ambitos":{"objetivo_ref":"per_sintetica_alcance_p_00000000000001","organismo_ref":"org:synthetic"},"atributos":{"material_sha256":"'||mh||'","operacion":"alta"}}','UTF8')),'hex'),
+   encode(sha256(convert_to('{"ambitos":{"organismo_ref":"org:synthetic"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"per_sintetica_alcance_p_00000000000002","operacion":"alta"}}','UTF8')),'hex')] LOOP
+  BEGIN
+   PERFORM vec_personal.registrar_empleado_rrhh_v1(material,convert_to((cap||jsonb_build_object('huella_efecto_sha256',rh_viejo))::text,'UTF8'),convert_to((decision||jsonb_build_object('contexto_recurso_huella_sha256',rh_viejo,'decision_ref','decision:synthetic:b2:canon-viejo'))::text,'UTF8'),convert_to('{}','UTF8'),convert_to(contexto::text,'UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+   RAISE EXCEPTION 'alta con canon anterior u objetivo sustituido admitida';
+  EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ END LOOP;
  -- Otra clave para la misma persona (aprovisionamiento repetido con plan
  -- distinto): conflicto sin segundo empleado ni segunda proyección.
  material_error:=replace(material,'11111111-1111-4111-8111-111111111111','77777777-7777-4777-8777-777777777777');
  mh:=encode(sha256(convert_to(material_error,'UTF8')),'hex');
- rh:=encode(sha256(convert_to('{"ambitos":{"objetivo_ref":"per_sintetica_alcance_p_00000000000001","organismo_ref":"org:synthetic"},"atributos":{"material_sha256":"'||mh||'","operacion":"alta"}}','UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"organismo_ref":"org:synthetic"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"per_sintetica_alcance_p_00000000000001","operacion":"alta"}}','UTF8')),'hex');
  BEGIN
   PERFORM vec_personal.registrar_empleado_rrhh_v1(material_error,convert_to((cap||jsonb_build_object('huella_efecto_sha256',rh))::text,'UTF8'),convert_to((decision||jsonb_build_object('contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2:segunda'))::text,'UTF8'),convert_to('{}','UTF8'),convert_to(contexto::text,'UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
   RAISE EXCEPTION 'segunda alta de la misma persona admitida';
@@ -243,7 +259,7 @@ BEGIN
  emp:=res->'recibo'->>'empleado_ref';
  material:=jsonb_build_object('esquema','vec.personal.registro-empleado-b2.hecho.v1','operacion','hecho','tipo','relacion','empleado_ref',emp,'organismo_ref','org:synthetic:other','relacion_ref','','revision_esperada',1,'relacion_version_esperada',0,'unidad_ref','uni:synthetic','regimen',jsonb_build_object('ref','reg:synthetic','version',1),'modalidad',jsonb_build_object('ref','mod:synthetic','version',1),'situacion',jsonb_build_object('ref','','version',0),'clase_servicio',jsonb_build_object('ref','','version',0),'clase_ocupacion','','estado','vigente','plaza_ref','','puesto_ref','','version_plaza_ref','','version_puesto_ref','','periodo_desde','','periodo_hasta','','dias_reconocidos',0,'vigente_desde','2026-09-26','vigente_hasta','','procedencia',jsonb_build_object('acto_ref','acto:synthetic:b2','fuente_ref','fuente:synthetic:b2','fuente_version',1,'fuente_huella_sha256',repeat('b',64),'idempotencia_ref','22222222-2222-4222-8222-222222222222'),'actor',actor)::text;
  mh:=encode(sha256(convert_to(material,'UTF8')),'hex');
- rh:=encode(sha256(convert_to('{"ambitos":{"objetivo_ref":"'||emp||'","organismo_ref":"'||(material::jsonb->>'organismo_ref')||'"},"atributos":{"material_sha256":"'||mh||'","operacion":"hecho"}}','UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"organismo_ref":"'||(material::jsonb->>'organismo_ref')||'"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"'||emp||'","operacion":"hecho"}}','UTF8')),'hex');
  cap:=jsonb_build_object('operacion','personal.registro_empleado.hecho.registrar','audiencia_consumo','vec_personal.registro_empleado.hecho.v1','efecto_ref',emp,'huella_efecto_sha256',rh,'emitida_en','2020-01-01T00:00:00Z','expira_en','2100-01-01T00:00:00Z','decision_valida_hasta','2100-01-01T00:00:00Z');
  decision:=decision||jsonb_build_object('tipo_recurso','hecho_empleado_rrhh','finalidad','registrar_hecho_empleado','campos_permitidos','["eficacia_administrativa","empleado_ref","evidencia","firma_oficial","hecho_ref","recibo","relacion_ref","tipo","version"]'::jsonb,'accion','personal.registro_empleado.hecho.registrar','recurso_ref',emp,'contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2:relation');
  hecho:=vec_personal.registrar_hecho_empleado_rrhh_v1(material,convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to(contexto::text,'UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
@@ -251,7 +267,7 @@ BEGIN
  relacion:=hecho->'recibo'->>'relacion_ref';
  material:=(material::jsonb || jsonb_build_object('relacion_ref',relacion,'revision_esperada',2,'relacion_version_esperada',1,'estado','suspendida','procedencia',jsonb_build_object('acto_ref','acto:synthetic:b2','fuente_ref','fuente:synthetic:b2','fuente_version',2,'fuente_huella_sha256',repeat('b',64),'idempotencia_ref','33333333-3333-4333-8333-333333333333')))::text;
  mh:=encode(sha256(convert_to(material,'UTF8')),'hex');
- rh:=encode(sha256(convert_to('{"ambitos":{"objetivo_ref":"'||emp||'","organismo_ref":"'||(material::jsonb->>'organismo_ref')||'"},"atributos":{"material_sha256":"'||mh||'","operacion":"hecho"}}','UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"organismo_ref":"'||(material::jsonb->>'organismo_ref')||'"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"'||emp||'","operacion":"hecho"}}','UTF8')),'hex');
  cap:=cap||jsonb_build_object('huella_efecto_sha256',rh);
  decision:=decision||jsonb_build_object('contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2:revision');
  hecho2:=vec_personal.registrar_hecho_empleado_rrhh_v1(material,convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to(contexto::text,'UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
@@ -259,14 +275,14 @@ BEGIN
  relacion:=res->'recibo'->>'relacion_ref';
  material:=(material::jsonb || jsonb_build_object('organismo_ref','org:synthetic','tipo','servicio','regimen',jsonb_build_object('ref','','version',0),'modalidad',jsonb_build_object('ref','','version',0),'clase_servicio',jsonb_build_object('ref','antiguedad','version',1),'relacion_ref',relacion,'revision_esperada',1,'relacion_version_esperada',1,'estado','reconocido','periodo_desde','2026-01-01','periodo_hasta','2026-02-01','dias_reconocidos',31,'procedencia',jsonb_build_object('acto_ref','acto:synthetic:b2','fuente_ref','fuente:synthetic:b2','fuente_version',3,'fuente_huella_sha256',repeat('b',64),'idempotencia_ref','44444444-4444-4444-8444-444444444444')))::text;
  mh:=encode(sha256(convert_to(material,'UTF8')),'hex');
- rh:=encode(sha256(convert_to('{"ambitos":{"objetivo_ref":"'||emp||'","organismo_ref":"'||(material::jsonb->>'organismo_ref')||'"},"atributos":{"material_sha256":"'||mh||'","operacion":"hecho"}}','UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"organismo_ref":"'||(material::jsonb->>'organismo_ref')||'"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"'||emp||'","operacion":"hecho"}}','UTF8')),'hex');
  cap:=cap||jsonb_build_object('huella_efecto_sha256',rh);
  decision:=decision||jsonb_build_object('contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2:service');
  hecho:=vec_personal.registrar_hecho_empleado_rrhh_v1(material,convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to(contexto::text,'UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
  IF hecho->'recibo'->>'tipo'<>'servicio' THEN RAISE EXCEPTION 'servicio falló'; END IF;
  material_error:=(material::jsonb || jsonb_build_object('organismo_ref','org:synthetic:other','procedencia',jsonb_build_object('acto_ref','acto:synthetic:b2','fuente_ref','fuente:synthetic:b2','fuente_version',9,'fuente_huella_sha256',repeat('b',64),'idempotencia_ref','99999999-9999-4999-8999-999999999999')))::text;
  mh:=encode(sha256(convert_to(material_error,'UTF8')),'hex');
- rh:=encode(sha256(convert_to('{"ambitos":{"objetivo_ref":"'||emp||'","organismo_ref":"org:synthetic:other"},"atributos":{"material_sha256":"'||mh||'","operacion":"hecho"}}','UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"organismo_ref":"org:synthetic:other"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"'||emp||'","operacion":"hecho"}}','UTF8')),'hex');
  cap_error:=cap||jsonb_build_object('huella_efecto_sha256',rh);
  decision_error:=decision||jsonb_build_object('contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2:cross-org');
  BEGIN
@@ -276,7 +292,7 @@ BEGIN
 
  material:=(material::jsonb || jsonb_build_object('tipo','situacion','estado','vigente','clase_servicio',jsonb_build_object('ref','','version',0),'situacion',jsonb_build_object('ref','servicio_activo','version',1),'procedencia',jsonb_build_object('acto_ref','acto:synthetic:b2','fuente_ref','fuente:synthetic:b2','fuente_version',4,'fuente_huella_sha256',repeat('b',64),'idempotencia_ref','55555555-5555-4555-8555-555555555555')))::text;
  mh:=encode(sha256(convert_to(material,'UTF8')),'hex');
- rh:=encode(sha256(convert_to('{"ambitos":{"objetivo_ref":"'||emp||'","organismo_ref":"'||(material::jsonb->>'organismo_ref')||'"},"atributos":{"material_sha256":"'||mh||'","operacion":"hecho"}}','UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"organismo_ref":"'||(material::jsonb->>'organismo_ref')||'"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"'||emp||'","operacion":"hecho"}}','UTF8')),'hex');
  cap:=cap||jsonb_build_object('huella_efecto_sha256',rh);
  decision:=decision||jsonb_build_object('contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2:situation');
  hecho:=vec_personal.registrar_hecho_empleado_rrhh_v1(material,convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to(contexto::text,'UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
@@ -304,7 +320,7 @@ BEGIN
  contexto:=jsonb_build_object('esquema','vec.contexto-actor.vinculado.v2','principal_ref','actor:synthetic:b2','contexto_actor_ref','ctx:synthetic:b2','contexto_version',1,'cuenta_ref','cuenta:synthetic:b2','cuenta_version',1,'perfil_activo_ref','perfil:synthetic:b2','persona_ref','per_sintetica_alcance_p_00000000000001','persona_version',1,'perfil_version',1);
  material:=jsonb_build_object('esquema','vec.personal.registro-empleado-b2.alta.v1','operacion','alta','persona_ref','per_sintetica_alcance_p_00000000000001','organismo_ref','org:synthetic','unidad_ref','uni:synthetic','regimen',jsonb_build_object('ref','reg:synthetic','version',1),'modalidad',jsonb_build_object('ref','mod:synthetic','version',1),'vigente_desde','2026-09-25','vigente_hasta','','version_esperada',0,'procedencia',jsonb_build_object('acto_ref','acto:synthetic:b2','fuente_ref','fuente:synthetic:b2','fuente_version',1,'fuente_huella_sha256',repeat('b',64),'idempotencia_ref','66666666-6666-4666-8666-666666666666'),'actor',actor)::text;
  mh:=encode(sha256(convert_to(material,'UTF8')),'hex');
- rh:=encode(sha256(convert_to('{"ambitos":{"objetivo_ref":"per_sintetica_alcance_p_00000000000001","organismo_ref":"org:synthetic"},"atributos":{"material_sha256":"'||mh||'","operacion":"alta"}}','UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"organismo_ref":"org:synthetic"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"per_sintetica_alcance_p_00000000000001","operacion":"alta"}}','UTF8')),'hex');
  vence:=to_char((clock_timestamp()+interval '0.75 seconds') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
  cap:=jsonb_build_object('operacion','personal.registro_empleado.alta.registrar','audiencia_consumo','vec_personal.registro_empleado.alta.v1','efecto_ref','per_sintetica_alcance_p_00000000000001','huella_efecto_sha256',rh,'emitida_en','2020-01-01T00:00:00Z','expira_en',vence,'decision_valida_hasta',vence);
  decision:=jsonb_build_object('principal_id','actor:synthetic:b2','perfil_activo_ref','perfil:synthetic:b2','concedida',true,'modulo_id','personal','obligaciones',jsonb_build_array(),'tipo_recurso','alta_empleado_rrhh','finalidad','registrar_empleado','campos_permitidos','["eficacia_administrativa","empleado_ref","evidencia","firma_oficial","persona_ref","proyeccion_ref","recibo","relacion_ref","version"]'::jsonb,'accion','personal.registro_empleado.alta.registrar','recurso_ref','per_sintetica_alcance_p_00000000000001','contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2:expired','valida_hasta',vence);
@@ -335,6 +351,12 @@ esperar
 # confirmada. AD3-56 se simula igual que AD3-54; se prueba en su propio ensayo.
 # ---------------------------------------------------------------------------
 archivo "$repo_dir/deploy/postgresql/personal/migraciones/000018_lectura_registro_empleado_b2.up.sql"
+# Personal41: el empleado de la ficha pasa a los atributos del recurso.
+up41="$repo_dir/deploy/postgresql/personal/migraciones/000041_ficha_b2_empleado_en_atributos.up.sql"
+sed '$s/^COMMIT;/ROLLBACK;/' "$up41" | admin -o /dev/null
+archivo "$up41"
+if archivo "$up41" 2>/dev/null; then fallo 'segunda aplicación de Personal41 aceptada'; fi
+ok 'Personal41 preimagen exacta de 000018, ROLLBACK, COMMIT y segunda aplicación rechazada'
 admin -o /dev/null <<'SQL'
 CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_empleados_registro_b2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
@@ -355,7 +377,7 @@ BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 SET LOCAL TimeZone='UTC';
 DO $l$
 DECLARE conocido text; material text; mh text; rh text; cap jsonb; decision jsonb; res jsonb; fila jsonb;
- llamar_material text; err text;
+ llamar_material text; err text; rh_viejo text;
 BEGIN
  conocido:=to_char(transaction_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
  material:='{"esquema":"vec.personal.registro-empleado-b2.consulta.v1","operacion":"empleados","empleado_ref":"","organismo_ref":"org:synthetic","vigente_en":"2026-09-26","conocido_en":"'||conocido||'","limite":1,"cursor":"","actor_ref":"per_sintetica_alcance_p_00000000000001","contexto_actor_ref":"ctx:synthetic:b2","contexto_version":1,"cuenta_ref":"cta_sintetica_alcance_p_0000000000001","cuenta_version":1,"perfil_ref":"prf_sintetico_alcance_p_0000000000001","perfil_version":1,"persona_ref":"per_sintetica_alcance_p_00000000000001","persona_version":1}';
@@ -376,7 +398,16 @@ BEGIN
  -- La referencia elegida en la lista abre la ficha (Personal 000018).
  llamar_material:='{"esquema":"vec.personal.registro-empleado-b2.consulta.v1","operacion":"ficha","empleado_ref":"'||(fila->>'empleado_ref')||'","organismo_ref":"org:synthetic","vigente_en":"2026-09-26","conocido_en":"'||conocido||'","limite":0,"cursor":"","actor_ref":"per_sintetica_alcance_p_00000000000001","contexto_actor_ref":"ctx:synthetic:b2","contexto_version":1,"cuenta_ref":"cta_sintetica_alcance_p_0000000000001","cuenta_version":1,"perfil_ref":"prf_sintetico_alcance_p_0000000000001","perfil_version":1,"persona_ref":"per_sintetica_alcance_p_00000000000001","persona_version":1}';
  mh:=encode(sha256(convert_to(llamar_material,'UTF8')),'hex');
- rh:=encode(sha256(convert_to('{"ambitos":{"empleado_ref":"'||(fila->>'empleado_ref')||'","organismo_ref":"org:synthetic"},"atributos":{"conocido_en":"'||conocido||'","material_sha256":"'||mh||'","operacion":"ficha","vigente_en":"2026-09-26"}}','UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"organismo_ref":"org:synthetic"},"atributos":{"conocido_en":"'||conocido||'","empleado_ref":"'||(fila->>'empleado_ref')||'","material_sha256":"'||mh||'","operacion":"ficha","vigente_en":"2026-09-26"}}','UTF8')),'hex');
+ rh_viejo:=encode(sha256(convert_to('{"ambitos":{"empleado_ref":"'||(fila->>'empleado_ref')||'","organismo_ref":"org:synthetic"},"atributos":{"conocido_en":"'||conocido||'","material_sha256":"'||mh||'","operacion":"ficha","vigente_en":"2026-09-26"}}','UTF8')),'hex');
+ -- Personal41: una decisión con el canon anterior (empleado en ámbitos) no vale.
+ BEGIN
+  PERFORM vec_personal.consultar_registro_empleado_rrhh_v1(llamar_material,
+  convert_to(jsonb_build_object('operacion','personal.registro_empleado.ficha.consultar','audiencia_consumo','vec_personal.registro_empleado.ficha.v1','efecto_ref',fila->>'empleado_ref','huella_efecto_sha256',rh_viejo)::text,'UTF8'),
+  convert_to((decision||jsonb_build_object('tipo_recurso','registro_empleado_rrhh','finalidad','consultar_ficha_empleado','accion','personal.registro_empleado.ficha.consultar','recurso_ref',fila->>'empleado_ref','contexto_recurso_huella_sha256',rh_viejo,'decision_ref','decision:synthetic:b2:ficha:viejo','campos_permitidos','["corte","eficacia_administrativa","empleado_ref","evidencia","firma_oficial","ocupaciones","organismo_ref","persona_ref","relaciones","servicios","situaciones","version"]'::jsonb))::text,'UTF8'),
+  convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'ficha con canon anterior admitida';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
  res:=vec_personal.consultar_registro_empleado_rrhh_v1(llamar_material,
   convert_to(jsonb_build_object('operacion','personal.registro_empleado.ficha.consultar','audiencia_consumo','vec_personal.registro_empleado.ficha.v1','efecto_ref',fila->>'empleado_ref','huella_efecto_sha256',rh)::text,'UTF8'),
   convert_to((decision||jsonb_build_object('tipo_recurso','registro_empleado_rrhh','finalidad','consultar_ficha_empleado','accion','personal.registro_empleado.ficha.consultar','recurso_ref',fila->>'empleado_ref','contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2:ficha','campos_permitidos','["corte","eficacia_administrativa","empleado_ref","evidencia","firma_oficial","ocupaciones","organismo_ref","persona_ref","relaciones","servicios","situaciones","version"]'::jsonb))::text,'UTF8'),
@@ -700,4 +731,4 @@ ok '000022 carrera: revocación confirmada tras la instantánea da 40001 sin rec
 esperar
 [[ $(admin_valor "SELECT count(*) FROM vec_personal.recibo_ficha_propia_empleado") == 3 && $(admin_valor "SELECT count(*) FROM vec_personal.denegacion_frontera_ficha_propia") == 2 ]] || fallo 'recibos o denegaciones de ficha propia perdidos tras reinicio'
 ok '000022 recibos y denegación conservados tras reinicio'
-printf 'PG18 000019: B1 real; ROLLBACK/COMMIT, ACL, alta/replay/hechos, rechazo multi-org ajeno, caducidad con lock, reinicio y proyección consumida por ContextoActor 000007, lista 000021 y ficha propia 000022 (unidad/puesto, aislamiento, principal ajeno, relación de otra persona, ambigüedad y carrera 40001) correctas (AD3 simulado).\n'
+printf 'PG18 000019 con Personal41 y Personal42: B1 real; ROLLBACK/COMMIT, ACL, alta/replay/hechos, rechazo multi-org ajeno, caducidad con lock, reinicio y proyección consumida por ContextoActor 000007, lista 000021 y ficha propia 000022 (unidad/puesto, aislamiento, principal ajeno, relación de otra persona, ambigüedad y carrera 40001) correctas (AD3 simulado).\n'
