@@ -453,6 +453,19 @@ func (o *origenConsultasContratacionTemporalDesarrollo) referenciasCentros() []s
 	return res
 }
 
+// centrosOrganizacionPeticion devuelve una copia de las claves originales de
+// centro que usan las peticiones del centro; nil si no hay catálogo.
+func (o *origenConsultasContratacionTemporalDesarrollo) centrosOrganizacionPeticion() []string {
+	if o == nil {
+		return nil
+	}
+	catalogos, err := o.catalogosAlta()
+	if err != nil {
+		return nil
+	}
+	return append([]string(nil), catalogos.centrosOrganizacion...)
+}
+
 func (o *origenConsultasContratacionTemporalDesarrollo) referenciasCategorias() []string {
 	res := []string{categoriaAltaContratacionTemporalDesarrollo}
 	if o == nil {
