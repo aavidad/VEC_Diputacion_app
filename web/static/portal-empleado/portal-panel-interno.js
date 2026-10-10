@@ -576,6 +576,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               ? traducirPortal("bolsa_razon_restriccion_cese", { fecha: instanteVisible(c.disponible_desde) })
               : c.razon_orden === "retorno_tras_cese" ? traducirPortal("bolsa_razon_retorno_tras_cese")
               : c.razon_orden === "respuesta_portal_pendiente" ? traducirPortal("bolsa_razon_respuesta_portal_pendiente")
+              : c.razon_orden === "cese_pendiente" ? traducirPortal("bolsa_razon_cese_pendiente")
                 : c.razon_orden === "reposicion_tras_contrato" ? traducirPortal("txt_reposicion_tras_contrato")
                   : c.razon_orden === "pausa" ? traducirPortal("txt_pausa")
                     : c.razon_orden === "sin_turno" ? traducirPortal("bolsa_turno_sin_puesto") : etiquetaClave(c.razon_orden))}</small>` : ""}</td>
