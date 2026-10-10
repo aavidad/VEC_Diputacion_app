@@ -4,7 +4,7 @@
 
 Trae 16 categorías de la RPT de la Diputación de Granada publicada en el portal de Transparencia (revisión del 7 de mayo de 2026, copiada en `data/catalogos/rpt/v1.rpt-2026.json`). Cada categoría lleva la etiqueta en castellano, `etiqueta_en` en inglés, la denominación original de la RPT, los grupos y las escalas.
 
-La publicación la hace el superusuario de la base con la función `publicar`. Las dos referencias de aprobación (`catalogos:categorias_rpt:v1:aprobacion-a` y `-b`) identifican esta carga inicial; detrás no hay una resolución de RRHH.
+La publicación la hace el superusuario de la base con la función `publicar`. Las dos referencias de aprobación que pide la función (`catalogos:categorias_rpt:v1:carga-inicial-fuente-rpt` y `catalogos:categorias_rpt:v1:carga-inicial-superusuario`) solo identifican esta carga inicial; detrás no hay una resolución de RRHH.
 
 ## Quién lo ejecuta y cómo
 
@@ -25,5 +25,5 @@ El documento está en los bytes que produce `json.Marshal` del tipo Go `Catalogo
 ## Límites conocidos
 
 - El motivo `motivos_catalogos:1:carga_inicial` solo cumple el formato que pide la función. No apunta a ningún catálogo de motivos, igual que en `pruebas_sql/cc11_publicacion_admin_real.sql`.
-- Las claves son `categoria:rpt:<clave>` porque el vínculo de Contratación temporal exige que coincidan letra por letra con la categoría del análisis y de Bolsa. El vínculo y la incorporación B2 aceptan los dos puntos. El lector estricto de catálogos de Go (`ListarCategoriasHabilitadasRPT`) no los acepta, y hoy nadie lo usa fuera de las pruebas. Antes de montar una pantalla que liste con ese lector hay que alinear la regla de claves del dominio con la de la base.
+- Las claves son `categoria:rpt:<clave>` porque el vínculo de Contratación temporal exige que coincidan letra por letra con la categoría del análisis y de Bolsa. El vínculo, la incorporación B2 y el lector de catálogos de Go aceptan los dos puntos.
 - La clave `ctpd-auxilar-de-enfermaria` conserva la errata de la RPT original porque Bolsa usa esa misma referencia.

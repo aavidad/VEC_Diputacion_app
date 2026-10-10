@@ -19,6 +19,8 @@
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL statement_timeout = '30s';
 SET LOCAL lock_timeout = '5s';
+SET LOCAL idle_in_transaction_session_timeout = '60s';
+SET LOCAL search_path = pg_catalog;
 
 DO $previo$
 DECLARE previa text;
@@ -26,8 +28,9 @@ BEGIN
  IF NOT (SELECT rolsuper FROM pg_catalog.pg_roles WHERE rolname = current_user) THEN
   RAISE EXCEPTION 'categorias_rpt: ejecútalo como superusuario' USING ERRCODE = '42501';
  END IF;
- IF to_regprocedure('vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text,text)') IS NULL THEN
-  RAISE EXCEPTION 'categorias_rpt: falta la autoridad de catálogos (CC1)' USING ERRCODE = '55000';
+ IF to_regprocedure('vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text,text)') IS NULL
+    OR to_regprocedure('vec_catalogos_configurables.listar_habilitadas(text,text,integer)') IS NULL THEN
+  RAISE EXCEPTION 'categorias_rpt: falta la autoridad de catálogos (CC1 y CC2)' USING ERRCODE = '55000';
  END IF;
  SELECT huella_sha256 INTO previa FROM vec_catalogos_configurables.publicacion
   WHERE catalogo_id = 'categorias_rpt' AND version = 1;
@@ -53,7 +56,7 @@ BEGIN
  END IF;
  recibo := vec_catalogos_configurables.publicar(
   'categorias_rpt', 1, huella, doc, '{}'::jsonb, vacia,
-  'catalogos:categorias_rpt:v1:aprobacion-a', 'catalogos:categorias_rpt:v1:aprobacion-b',
+  'catalogos:categorias_rpt:v1:carga-inicial-fuente-rpt', 'catalogos:categorias_rpt:v1:carga-inicial-superusuario',
   'sistema:publicador-categorias-rpt', 'decision:catalogos:categorias_rpt:v1',
   'recibo:catalogos:categorias_rpt:v1', 'motivos_catalogos:1:carga_inicial');
  IF recibo IS DISTINCT FROM 'recibo:catalogos:categorias_rpt:v1' THEN
