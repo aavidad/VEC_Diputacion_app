@@ -410,3 +410,20 @@ test("catálogo propio resuelve las clases ES/EN sin depender de traducciones an
     assert.match(x.r.innerHTML, new RegExp(titular, "u")); x.desmontar();
   }
 });
+
+test("régimen y modalidad se rotulan por referencia en cada idioma; sin traducción, la denominación publicada", async () => {
+  const esperado = { es: ["Funcionario interino", "Interinidad por sustitución del titular"],
+    en: ["Interim civil servant", "Interim appointment to replace the post holder"] };
+  for (const idioma of ["es", "en"]) {
+    const traduccion = await cargarTextos("contratacion-temporal-incorporacion-personal-b2", { idioma, porDefecto: "es" });
+    const c = inicial();
+    c.opciones.regimenes = [{ ref: "regimen:funcionario-interino", version: 1, denominacion: "Funcionario interino" },
+      { ref: "regimen:otro-propio", version: 1, denominacion: "Régimen <propio>" }];
+    c.opciones.modalidades = [{ ref: "modalidad:interino-sustitucion-titular", version: 1, denominacion: "Interinidad por sustitución del titular" }];
+    const x = await montar(clienteBase({ consultar: async () => c }), { textos: traduccion });
+    for (const rotulo of esperado[idioma]) assert.ok(x.r.innerHTML.includes(rotulo), `${idioma}: falta ${rotulo}`);
+    assert.match(x.r.innerHTML, /Régimen &lt;propio&gt;/u);
+    if (idioma === "en") assert.doesNotMatch(x.r.innerHTML, /Funcionario interino/u);
+    x.desmontar();
+  }
+});

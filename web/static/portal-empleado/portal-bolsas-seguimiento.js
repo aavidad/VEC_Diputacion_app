@@ -8,7 +8,7 @@
  */
 import { textoPortal, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
-import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261010-ct-b2-catalogo-registro-cohorte-v11";
 
 /** Canales activos: el correo siempre (se envía al emitir); el teléfono si el servidor lo publica. */
 export function canalesAviso(datos) {

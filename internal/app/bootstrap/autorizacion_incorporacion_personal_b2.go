@@ -66,7 +66,8 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 	}
 	for _, modulo := range gruposPerfilesIncorporacionB2() {
 		if modulo == grupoRegistroVinculoRPTB2 && !operacionConfiguradaB2(c, claveRegistroVinculoRPTB2) ||
-			modulo == grupoListadoCategoriasRPTB2 && !operacionConfiguradaB2(c, claveListadoCategoriasRPTB2) {
+			modulo == grupoListadoCategoriasRPTB2 && !operacionConfiguradaB2(c, claveListadoCategoriasRPTB2) ||
+			modulo == grupoCatalogoEmpleadoB2 && !operacionConfiguradaB2(c, claveCatalogoPublicarB2) {
 			continue
 		}
 		clave := "incorporacion_b2_" + modulo
@@ -82,7 +83,7 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 		if modulo == "ct155" {
 			ambitos = append(ambitos, core.AmbitoPerfil{Clave: "unidad_ref", Valores: []string{refs.UnidadRef}})
 		}
-		if modulo == "personal" {
+		if modulo == "personal" || modulo == grupoCatalogoEmpleadoB2 {
 			ambitos = []core.AmbitoPerfil{{Clave: "organismo_ref", Valores: []string{c.OrganismoRef}}}
 		}
 		if modulo == "bolsa" {
@@ -121,6 +122,9 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 					concesion.CamposPermitidos = []string{"recibo"}
 				case "rpt_publicacion":
 					concesion.CamposPermitidos = []string{"control_actual", "entrada", "publicacion"}
+				case claveCatalogoPublicarB2, claveCatalogoRetirarB2:
+					// Campos que el núcleo AD3-55 exige a publicar y retirar.
+					concesion.CamposPermitidos = []string{"entrada", "recibo"}
 				case claveListadoCategoriasRPTB2:
 					// Campos que AD3-117 admite para listar_habilitadas.
 					concesion.CamposPermitidos = []string{"categorias", "paginacion", "publicaciones"}
@@ -199,7 +203,7 @@ func (a *autoridadIncorporacionPersonalB2) emitirRecurso(ctx context.Context, ac
 	if !ok || op.descriptor.accion != accion || r.ModuloID != op.descriptor.modulo || r.Tipo != op.descriptor.tipo {
 		return core.SolicitudAutorizacionLigadaV3{}, cero, ct.ErrAutorizacionDenegada
 	}
-	if a.perfiles.b2[accion] != nil && a.perfiles.b2[accion].clave == "incorporacion_b2_personal" && r.Ambitos["organismo_ref"] != a.organismoRef {
+	if p := a.perfiles.b2[accion]; p != nil && (p.clave == "incorporacion_b2_personal" || p.clave == "incorporacion_b2_"+grupoCatalogoEmpleadoB2) && r.Ambitos["organismo_ref"] != a.organismoRef {
 		return core.SolicitudAutorizacionLigadaV3{}, cero, ct.ErrAutorizacionDenegada
 	}
 	c, e := a.contexto(ctx, accion)
@@ -276,14 +280,19 @@ func (a *autoridadIncorporacionPersonalB2) AutorizarConsultaRegistroEmpleadoB2(c
 	}
 	return a.autorizarRecurso(ctx, accion, m.Recurso())
 }
+
+// AutorizarCatalogoRegistroEmpleadoB2 consulta con el perfil de Personal y
+// publica o retira con el perfil nominal propio del gobierno del catálogo.
+// Sin esas operaciones en la configuración privada no hay perfil y se deniega.
 func (a *autoridadIncorporacionPersonalB2) AutorizarCatalogoRegistroEmpleadoB2(ctx context.Context, m personal.MaterialCatalogoEmpleadoB2) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
-	if m.Operacion() != "consultar" {
+	accion, ok := accionCatalogoEmpleadoB2(m.Operacion())
+	if !ok || a == nil || a.perfiles == nil || a.perfiles.b2[accion] == nil || m.OrganismoRef() != a.organismoRef {
 		return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ct.ErrAutorizacionDenegada
 	}
-	if e := a.actorCoincide(ctx, personal.AccionConsultarCatalogoEmpleadoB2, m.Actor()); e != nil {
+	if e := a.actorCoincide(ctx, accion, m.Actor()); e != nil {
 		return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, e
 	}
-	return a.autorizarRecurso(ctx, personal.AccionConsultarCatalogoEmpleadoB2, m.Recurso())
+	return a.autorizarRecurso(ctx, accion, m.Recurso())
 }
 func (a *autoridadIncorporacionPersonalB2) AutorizarActoRegistroEmpleadoB2(ctx context.Context, m personal.MaterialActoRegistroEmpleadoB2) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	accion := personal.AccionAltaEmpleadoB2
@@ -353,7 +362,8 @@ func asignarPerfilesNominalesB2EnFronteras(s *soporteAltaContratacionTemporalDes
 			r[i].Ruta == httpct.RutaPlanB2 && (r[i].Metodo == http.MethodGet || r[i].Metodo == http.MethodPost) ||
 			r[i].Ruta == httpct.RutaConfirmacionB2 && r[i].Metodo == http.MethodPost ||
 			r[i].Ruta == httpct.RutaVinculoCategoriaRPTB2 && (r[i].Metodo == http.MethodGet || r[i].Metodo == http.MethodPost) ||
-			r[i].Ruta == httpct.RutaCategoriasRPTB2 && r[i].Metodo == http.MethodGet {
+			r[i].Ruta == httpct.RutaCategoriasRPTB2 && r[i].Metodo == http.MethodGet ||
+			r[i].Ruta == rutaCatalogosRegistroEmpleadoB2 && r[i].Metodo == http.MethodPost {
 			r[i].PerfilesActivosRef = append(append([]string(nil), r[i].PerfilesActivosRef...), ids...)
 		}
 	}
@@ -557,7 +567,7 @@ const (
 )
 
 func gruposPerfilesIncorporacionB2() []string {
-	return []string{"ct155", ct.ModuloContratacion, "personal", "bolsa", "rpt_catalogo", "rpt_uso", grupoRegistroVinculoRPTB2, grupoListadoCategoriasRPTB2}
+	return []string{"ct155", ct.ModuloContratacion, "personal", "bolsa", "rpt_catalogo", "rpt_uso", grupoRegistroVinculoRPTB2, grupoListadoCategoriasRPTB2, grupoCatalogoEmpleadoB2}
 }
 func grupoOperacionIncorporacionB2(d descriptorOperacionIncorporacionB2) string {
 	if d.accion == ct.AccionRegistrarVinculoCategoriaRPT {
@@ -565,6 +575,9 @@ func grupoOperacionIncorporacionB2(d descriptorOperacionIncorporacionB2) string 
 	}
 	if d.accion == accionListarCategoriasRPTB2 {
 		return grupoListadoCategoriasRPTB2
+	}
+	if d.accion == personal.AccionPublicarCatalogoEmpleadoB2 || d.accion == personal.AccionRetirarCatalogoEmpleadoB2 {
+		return grupoCatalogoEmpleadoB2
 	}
 	if d.modulo == ct.ModuloContratacion && d.accion != ct.AccionConsultarVinculoCategoriaRPT {
 		return "ct155"
@@ -587,7 +600,11 @@ func operacionPermitidaEnRutaIncorporacionB2(ctx context.Context, accion string)
 	}
 	if ruta.ruta == httpct.RutaConfirmacionB2 && ruta.metodo == "POST" {
 		_, ok := descriptorIncorporacionB2(accion)
-		return ok && accion != ct.AccionRegistrarVinculoCategoriaRPT && accion != accionListarCategoriasRPTB2
+		return ok && accion != ct.AccionRegistrarVinculoCategoriaRPT && accion != accionListarCategoriasRPTB2 && !accionGobiernoCatalogoEmpleadoB2(accion)
+	}
+	if ruta.ruta == rutaCatalogosRegistroEmpleadoB2 {
+		// Sólo publicar o retirar una entrada; la consulta va por el plan.
+		return ruta.metodo == "POST" && accionGobiernoCatalogoEmpleadoB2(accion)
 	}
 	if ruta.ruta == httpct.RutaCategoriasRPTB2 {
 		// La pantalla del vínculo sólo lista las categorías publicadas.

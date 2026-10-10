@@ -1,5 +1,5 @@
 import { bytesABase64, comprobarFichero, ErrorCargaConvoca } from "./cliente.js?v=20261010-b1-carga-v1";
-import { rutaCandidatosBolsaCompartible } from "../../../portal-bolsas-ruta-filtros.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { rutaCandidatosBolsaCompartible } from "../../../portal-bolsas-ruta-filtros.js?v=20261010-ct-b2-catalogo-registro-cohorte-v11";
 import {
   claveCategoria, escribirEstadoRuta, filtroControl, filtroServidor, leerEstadoRuta, nombrePersona,
   paginaServidor, TAMANO_PAGINA, textoAviso, textoBloqueo, textoError, textoIncidencia,

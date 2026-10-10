@@ -38,7 +38,7 @@ del núcleo.
 | `bolsa` | `vec_bolsa_llamamientos_desarrollo` | 25 | `vec-server` | por defecto |
 | `documentos` | `vec_documentos_rrhh_ejecutor_desarrollo` | 8 | `vec-server` | por defecto |
 | `incorporacion` | `vec_inc_v2_registro_ct_20260910`, `vec_inc_v2_alta_personal_20260910`, `vec_inc_v2_lector_personal_20260910` | 3 | `vec-server` | por defecto |
-| `incorporacionb` | seis LOGIN nominales `vec_ct_personal_b2_*` de Bolsa, CT, RPT y Personal | 24 | `vec-server` | solo si se pide |
+| `incorporacionb` | seis LOGIN nominales `vec_ct_personal_b2_*` de Bolsa, CT, RPT y Personal | 26 | `vec-server` | solo si se pide |
 | `cronos` | `vec_cronos_emp_ejecutor_desarrollo` | 8 | `vec-server` | solo si se pide |
 | `mibolsa` | `vec_bolsa_llamamientos_desarrollo` | 8 | `vec-server` | solo si se pide |
 
@@ -67,6 +67,15 @@ están cotejadas en solo lectura con el núcleo vivo de la principal (huella
 `d8aa8ecc…`), donde cada LOGIN pertenece a un solo grupo `vec_`. Como la
 principal ya tiene las 21 filas anteriores de `incorporacionb`, el `--ensayo`
 allí debe dar `ternas_nuevas=3`; el total de 24 vale solo para una base vacía.
+
+Las dos filas de `vec_ct_personal_b2_actos` para publicar y retirar entradas
+del catálogo de registro de empleado (10 de octubre de 2026) sirven para que
+RRHH publique desde vec-server el régimen y la modalidad que lee el plan B2.
+Usan el LOGIN de actos de Personal, el mismo que registra altas y hechos, y el
+perfil `registro_empleado_b2` del núcleo, que ya admite los dos pares de
+audiencia y operación desde AD3-55. Si la principal ya tiene las 24 filas
+anteriores, el `--ensayo` debe dar `ternas_nuevas=2`; con solo las 21
+primeras, `ternas_nuevas=5`.
 
 `incorporacionb` pertenece al recorrido CT→Personal B2 y utiliza los seis
 LOGIN que consumen el núcleo de mutación V3. Sus otros dos LOGIN leen la
@@ -181,7 +190,7 @@ ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_AD172_APLICAR=SI-REVISADO V
 
 Sin `VEC_ORIGEN_BLOQUES` se instalan los cinco bloques de RRHH, 107 ternas.
 Cronos se instala aparte cuando se quiera, añadiendo `VEC_ORIGEN_BLOQUES=cronos`.
-Las 24 ternas de B2 se seleccionan únicamente con
+Las 26 ternas de B2 se seleccionan únicamente con
 `VEC_ORIGEN_BLOQUES=incorporacionb`. Antes de usar ese bloque se cotejan sus
 seis LOGIN, la composición B2 y la huella viva del núcleo; la fila técnica
 por sí sola no concede acciones ni acredita un alta en Personal.
@@ -204,9 +213,9 @@ escribir. Este paquete no crea roles ni añade membresías.
   `verificado: ROLLBACK`, con el inventario sin cambios. `ternas_nuevas` cuenta
   solo las filas ausentes de la base, no las 107 seleccionadas por defecto:
   en la preimagen HZ11 faltaban tres de esas 107. Para `incorporacionb` faltaban
-  entonces las 21 de aquella lista; con las dos del registro del vínculo y la
-  del listado de categorías, en una base sin ninguna el ensayo debe mostrar
-  `ternas_nuevas=24`.
+  entonces las 21 de aquella lista; con las dos del registro del vínculo, la
+  del listado de categorías y las dos del catálogo de registro de empleado, en
+  una base sin ninguna el ensayo debe mostrar `ternas_nuevas=26`.
 - **Aplicar** termina en `COMMIT` y comprueba que estén todas las ternas, que
   no haya desaparecido ninguna fila previa y que no haya filas nuevas fuera de
   la lista.
