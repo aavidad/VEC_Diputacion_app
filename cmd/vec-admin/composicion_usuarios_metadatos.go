@@ -39,6 +39,10 @@ func componerProcesoUsuariosMetadatosADMINConRuntime(cfg administracion.Configur
 // proceso es exactamente el de las lecturas de usuarios.
 func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, efectos []efectoConfigurado) (*http.Server, func(), error) {
 	fallo := func(etapa string) (*http.Server, func(), error) { return nil, nil, errorArranque(etapa) }
+	falloConClase := func(etapa string, err error) (*http.Server, func(), error) {
+		registrarClaseFallo(etapa, err)
+		return fallo(etapa)
+	}
 	// El emisor de la aserción es el espacio de identidad de la sesión y el
 	// registro lo compara con éste: si difieren, toda petición acabaría en 403.
 	if cfg.EmisorIdentidad != base.Identidad.EspacioIdentidad {
@@ -251,7 +255,7 @@ func componerProcesoUsuariosMetadatosADMINConLote(cfg administracion.Configuraci
 		Seudonimizador: seudonimos, EspacioIdentidad: base.Identidad.EspacioIdentidad, DominioHMACRef: base.Identidad.DominioRef,
 		Lecturas: lecturas, FuenteSeleccion: seleccion, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(base.ActivosDirectorio), SoloUsuariosMetadatos: true, Lote: autoridadLote, GobiernoPlan: servicioPlan, Efectos: montados})
 	if err != nil {
-		return fallo("servidor")
+		return falloConClase("servidor", err)
 	}
 	exito = true
 	return servidor, cerrar, nil

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -142,6 +143,15 @@ func main() {
 // mensajes de PostgreSQL ni secretos, sólo dice al operador dónde mirar.
 func errorArranque(etapa string) error {
 	return fmt.Errorf("%w: etapa=%s", administracion.ErrConfiguracion, etapa)
+}
+
+// registrarClaseFallo añade al registro la clase cerrada del fallo
+// (administracion.ClaseFallo) junto a la etapa fija; nunca la causa, que puede
+// llevar rutas o datos. Sin clase no registra nada más.
+func registrarClaseFallo(etapa string, err error) {
+	if clase := administracion.ClaseFallo(err); clase != "" {
+		slog.Error("vec_admin_composicion_fallida", "etapa", etapa, "clase", clase)
+	}
 }
 
 // etapaComposicionADMIN conserva la etapa fija de los compositores antiguos.
