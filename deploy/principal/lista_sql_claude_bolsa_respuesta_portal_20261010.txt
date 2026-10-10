@@ -1,0 +1,10 @@
+# Aplicar sobre la principal HZ19 o posterior (con B30, B41 y B90), una vez, DESPUÉS de
+# subir el binario y la web de esta rama: la web anterior no conoce la razón
+# respuesta_portal_pendiente ni la marca aceptacion_pendiente y fallaría al pintar la lista.
+# B100 saca del turno B6 a quien respondió en «Mi bolsa» sin reflejo de RRHH y
+# marca «en revisión» también la aceptación. Falla cerrado si la definición
+# instalada de leer_orden_vigente_bolsa_v1 o consultar_marcas_participaciones_v1
+# no es la de B90/B41. Prueba de solo lectura (ROLLBACK):
+# deploy/postgresql/bolsa_llamamientos/pruebas_sql/b100_respuesta_portal_fuera_de_turno.sql
+# SHA256 544e1d1057a99fefc3d45d6fdc188888407c0062f02022c6f6b8f65e424db2d5
+deploy/postgresql/bolsa_llamamientos/migraciones/000100_respuesta_portal_fuera_de_turno.up.sql

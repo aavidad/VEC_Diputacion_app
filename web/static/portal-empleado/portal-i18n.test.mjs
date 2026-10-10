@@ -804,6 +804,12 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-inicio.js", "portal-bolsas-api.js", "portal-panel-interno.js",
     "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js", "portal-menu-bolsa.js"])
     versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v9");
+  // Bolsa 000100: marcas y razón de orden de la respuesta de «Mi bolsa» sin reflejar.
+  for (const ruta of ["portal-bolsas-marcas.js", "portal-bolsas-contrato.js", "portal-bolsas-ruta-filtros.js",
+    "portal-bolsas-global.js", "portal-bolsas-seguimiento.js", "portal-inicio.js", "portal-bolsas-api.js",
+    "portal-panel-interno.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js",
+    "portal-llamamientos-operaciones-api.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261010-bolsa-respuesta-portal-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

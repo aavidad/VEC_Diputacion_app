@@ -16,7 +16,7 @@
  * - Contratos estrictos y cerrados: cualquier propiedad no declarada invalida la respuesta.
  */
 
-import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261007-pantallas-textos-final-v1";
+import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261010-bolsa-respuesta-portal-v1";
 
 export const ESQUEMA_BOLSAS = "vec.bolsa.rrhh.bolsas.v1";
 export const ESQUEMA_CANDIDATOS = "vec.bolsa.rrhh.candidatos.v1";
@@ -277,7 +277,7 @@ export function validarCandidato(candidato) {
   const participacionRef = exigirCadenaSegura(candidato.participacion_ref, "participacion_ref");
   if (candidato.orden !== null && (!Number.isSafeInteger(candidato.orden) || candidato.orden < 1)) throw new Error("orden de candidato debe ser nulo o entero positivo");
   if (!Number.isSafeInteger(candidato.orden_acta) || candidato.orden_acta < 1) throw new Error("orden_acta debe ser entero positivo");
-  if (!["orden_acta","reposicion_tras_contrato","pausa","trabajando","sin_turno","sancion_al_final","adelanta_por_sancion","restriccion_cese","retorno_tras_cese"].includes(candidato.razon_orden)) throw new Error("razon_orden no reconocida");
+  if (!["orden_acta","reposicion_tras_contrato","pausa","trabajando","sin_turno","sancion_al_final","adelanta_por_sancion","restriccion_cese","retorno_tras_cese","cese_pendiente","respuesta_portal_pendiente"].includes(candidato.razon_orden)) throw new Error("razon_orden no reconocida");
   const nombreVisible = exigirCadenaSegura(candidato.nombre_visible, "nombre_visible");
   const documentoEnmascarado = validarDocumentoEnmascarado(candidato.documento_enmascarado);
 
@@ -295,6 +295,10 @@ export function validarCandidato(candidato) {
   }
   if (candidato.razon_orden === "retorno_tras_cese" && (candidato.orden === null || estadoClave !== "disponible")) {
     throw new Error("retorno tras cese sin turno disponible");
+  }
+  // Bolsa 000100: respondió en «Mi bolsa» y RRHH aún no lo ha reflejado; nunca tiene turno.
+  if (candidato.razon_orden === "respuesta_portal_pendiente" && candidato.orden !== null) {
+    throw new Error("respuesta del portal pendiente con turno");
   }
 
   let ultimoLlamamiento = null;

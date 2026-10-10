@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { LOCALIZACION_PORTAL, traducirBolsaInterna } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 /**
  * Marcas de una participación en el cuadro, la ficha y la selección de un
  * llamamiento (Bolsa 000041): ya presta servicios (b16), en revisión (duda 18)
@@ -7,29 +7,23 @@ import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-texto
  * ayuda «?».
  */
 
-export const MENSAJES_MARCAS_BOLSA_ES = Object.freeze({
-  presta_servicios_aviso: "Ya presta servicios",
-  presta_servicios_excluir: "Ya presta servicios: no se puede llamar",
-  en_revision: "En revisión",
-  revision_renuncia_pendiente: "Renuncia comunicada pendiente de confirmar",
-  revision_solicitud_pendiente: "Solicitud del portal pendiente de validar",
-  revision_baja_propuesta: "Baja propuesta por intentos sin contacto",
-  encadenamiento: "Encadenamiento",
-  encadenamiento_detalle: "{dias} días con contrato en los últimos {ventana} meses (umbral: {umbral} meses)",
-  ficha_presta_servicios: "Otras participaciones",
-  ficha_revision: "Revisión pendiente",
-  ficha_encadenamiento: "Encadenamiento de contratos",
-  no_seleccionable_aria: "No seleccionable: ya presta servicios",
-});
-
-const CLAVES = Object.freeze(Object.keys(MENSAJES_MARCAS_BOLSA_ES));
+// Textos en la sección `bolsa_interna` de `textos/<idioma>/portal.json`, con
+// el prefijo `marcas_`.
+const CLAVES = Object.freeze([
+  "presta_servicios_aviso", "presta_servicios_excluir", "en_revision",
+  "revision_aceptacion_pendiente", "revision_renuncia_pendiente", "revision_solicitud_pendiente", "revision_baja_propuesta",
+  "encadenamiento", "encadenamiento_detalle", "ficha_presta_servicios", "ficha_revision", "ficha_encadenamiento",
+  "no_seleccionable_aria",
+]);
 const MODOS = Object.freeze(["aviso", "excluir"]);
-const REVISIONES = Object.freeze(["renuncia_pendiente", "solicitud_pendiente", "baja_propuesta"]);
+// aceptacion_pendiente y renuncia_pendiente: respuesta de «Mi bolsa» que RRHH
+// aún no ha reflejado en la situación; la persona queda fuera de turno (Bolsa 000100).
+const REVISIONES = Object.freeze(["aceptacion_pendiente", "renuncia_pendiente", "solicitud_pendiente", "baja_propuesta"]);
 const FORMATO_NUMERO = new Intl.NumberFormat(LOCALIZACION_PORTAL);
 
 export function traducirMarcasBolsa(clave, variables = {}) {
   if (!CLAVES.includes(clave)) throw new Error(`clave i18n de marcas de Bolsa desconocida: ${clave}`);
-  return MENSAJES_MARCAS_BOLSA_ES[clave].replace(/\{([a-z_]+)\}/g, (_coincidencia, variable) => String(variables[variable] ?? ""));
+  return traducirBolsaInterna(`marcas_${clave}`, variables);
 }
 
 function enteroPositivo(valor) {
