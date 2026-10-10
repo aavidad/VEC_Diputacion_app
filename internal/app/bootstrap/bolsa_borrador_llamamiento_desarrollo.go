@@ -571,7 +571,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 			autoridadesCargaConvoca.fuente, autoridadesCargaConvoca.motivos, alta.postgresql.registroAutorizacion,
 			politicaBolsa.instantanea, dependenciasCT.reloj.Ahora())
 		if err != nil || !cargaConvocaActiva {
-			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+			cargaConvocaActiva = cargaConvocaNoMontada("politica_gobernada", err)
 		}
 	}
 	if cargaConvocaActiva && publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
@@ -1022,14 +1022,4 @@ func registrarRechazoBorradorLlamamientoDesarrollo(fase string, err error) {
 		causa = err.Error()
 	}
 	slog.Warn("bback: operacion denegada", "fase", fase, "causa", causa)
-}
-
-// cargaConvocaMontable reúne las cuatro condiciones para montar las rutas B1:
-// frontera declarada (la concesión gobernada se vio al componer el catálogo),
-// autoridades centrales configuradas, material V3 de su audiencia preparado y
-// una política Bolsa cuya versión de rol publicada trae exactamente la
-// concesión B1. Si falta cualquiera, la carga no se monta.
-func cargaConvocaMontable(fronteraDeclarada bool, autoridades *autoridadesCargaConvocaPostgreSQL,
-	proveedor *proveedorMaterialAltaContratacionTemporalDesarrollo, politica *politicaBorradorLlamamientoBolsaDesarrollo) bool {
-	return fronteraDeclarada && autoridades != nil && proveedor != nil && politica.permiteCargaConvoca()
 }
