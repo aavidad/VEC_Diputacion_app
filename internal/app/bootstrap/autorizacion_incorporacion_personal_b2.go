@@ -86,6 +86,9 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 		if modulo == "personal" || modulo == grupoCatalogoEmpleadoB2 {
 			ambitos = []core.AmbitoPerfil{{Clave: "organismo_ref", Valores: []string{c.OrganismoRef}}}
 		}
+		if objetivos := objetivosLecturaPersonalB2(modulo, c.OrganismoRef); objetivos != nil {
+			ambitos = []core.AmbitoPerfil{{Clave: "organismo_ref", Valores: []string{c.OrganismoRef}}, {Clave: "objetivo_ref", Valores: objetivos}}
+		}
 		if modulo == "bolsa" {
 			ambitos = []core.AmbitoPerfil{{Clave: "unidad_ref", Valores: []string{refs.UnidadRef}}}
 		}
@@ -103,36 +106,7 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 					moduloRol = c.ModuloRPTID
 				}
 				concesion := core.ConcesionRol{Accion: d.accion, ModuloID: moduloRol, TipoRecurso: d.tipo, Finalidades: []string{d.finalidad}, GarantiaMinima: core.AuthAssuranceHigh}
-				if modulo == "bolsa" {
-					concesion.CamposPermitidos = []string{"aceptacion", "persona", "vinculo"}
-					if d.clave == "bolsa_anclaje" {
-						concesion.CamposPermitidos = []string{"anclaje"}
-					}
-				}
-				if d.clave == "personal_clases" {
-					concesion.CamposPermitidos = []string{"catalogo", "evidencia"}
-				}
-				if d.accion == ct.AccionConsultarVinculoCategoriaRPT {
-					concesion.CamposPermitidos = []string{"analisis", "vinculo"}
-				}
-				switch d.clave {
-				case "ct_plan_consultar":
-					concesion.CamposPermitidos = []string{"plan"}
-				case "ct_plan_preparar", "ct_origen_confirmar", claveRegistroVinculoRPTB2:
-					concesion.CamposPermitidos = []string{"recibo"}
-				case "rpt_publicacion":
-					concesion.CamposPermitidos = []string{"control_actual", "entrada", "publicacion"}
-				case claveCatalogoPublicarB2, claveCatalogoRetirarB2:
-					// Campos que el núcleo AD3-55 exige a publicar y retirar.
-					concesion.CamposPermitidos = []string{"entrada", "recibo"}
-				case claveListadoCategoriasRPTB2:
-					// Campos que AD3-117 admite para listar_habilitadas.
-					concesion.CamposPermitidos = []string{"categorias", "paginacion", "publicaciones"}
-				case "rpt_uso_consultar":
-					concesion.CamposPermitidos = []string{"uso"}
-				case "rpt_reservar", "rpt_confirmar":
-					concesion.CamposPermitidos = []string{"recibo", "uso"}
-				}
+				concesion.CamposPermitidos = camposConcesionB2(d.clave)
 				roles = append(roles, concesion)
 			}
 		}
@@ -148,6 +122,52 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 		}
 	}
 	p.b2[ct.AccionConsultarDetalleRRHH] = p.detalle
+	return nil
+}
+
+// camposConcesionB2 da, por operación B2, la lista exacta de campos que el
+// núcleo V3 instalado (consumir_decision_mutacion_v3_interna, AD3-233) exige
+// en la decisión; sin ella PostgreSQL rechaza el consumo. La prueba
+// TestIncorporacionB2CamposCoincidenConNucleoSQL la coteja con la SQL.
+func camposConcesionB2(clave string) []string {
+	switch clave {
+	case "bolsa_anclaje":
+		return []string{"anclaje"}
+	case "bolsa_persona":
+		return []string{"aceptacion", "persona", "vinculo"}
+	case "personal_clases":
+		return []string{"catalogo", "evidencia"}
+	case "personal_plan_preparar", "personal_plan_consultar", "personal_plan_ejecutar", "personal_plan_confirmar":
+		return []string{"ejecucion_huella_sha256", "ejecucion_recibo_ref", "estado", "evidencia", "plan", "recibo_alta_relacion", "recibo_ocupacion"}
+	case "personal_plan_seleccionar":
+		return []string{"evidencia", "seleccion"}
+	case "personal_vacantes":
+		return []string{"cobertura", "corte", "cursor", "cursor_siguiente", "evidencia", "limite", "organismo_ref", "vacantes"}
+	case "personal_catalogos":
+		return []string{"cursor_siguiente", "entradas", "evidencia", "organismo_ref"}
+	case "personal_alta":
+		return []string{"eficacia_administrativa", "empleado_ref", "evidencia", "firma_oficial", "persona_ref", "proyeccion_ref", "recibo", "relacion_ref", "version"}
+	case "personal_hecho":
+		return []string{"eficacia_administrativa", "empleado_ref", "evidencia", "firma_oficial", "hecho_ref", "recibo", "relacion_ref", "tipo", "version"}
+	case "personal_ficha":
+		return []string{"corte", "eficacia_administrativa", "empleado_ref", "evidencia", "firma_oficial", "ocupaciones", "organismo_ref", "persona_ref", "relaciones", "servicios", "situaciones", "version"}
+	case "ct_vinculo_consultar":
+		return []string{"analisis", "vinculo"}
+	case "ct_plan_consultar":
+		return []string{"plan"}
+	case "ct_plan_preparar", "ct_origen_confirmar", claveRegistroVinculoRPTB2:
+		return []string{"recibo"}
+	case "rpt_publicacion":
+		return []string{"control_actual", "entrada", "publicacion"}
+	case claveCatalogoPublicarB2, claveCatalogoRetirarB2:
+		return []string{"entrada", "recibo"}
+	case claveListadoCategoriasRPTB2:
+		return []string{"categorias", "paginacion", "publicaciones"}
+	case "rpt_uso_consultar":
+		return []string{"uso"}
+	case "rpt_reservar", "rpt_confirmar":
+		return []string{"recibo", "uso"}
+	}
 	return nil
 }
 
@@ -203,7 +223,8 @@ func (a *autoridadIncorporacionPersonalB2) emitirRecurso(ctx context.Context, ac
 	if !ok || op.descriptor.accion != accion || r.ModuloID != op.descriptor.modulo || r.Tipo != op.descriptor.tipo {
 		return core.SolicitudAutorizacionLigadaV3{}, cero, ct.ErrAutorizacionDenegada
 	}
-	if p := a.perfiles.b2[accion]; p != nil && (p.clave == "incorporacion_b2_personal" || p.clave == "incorporacion_b2_"+grupoCatalogoEmpleadoB2) && r.Ambitos["organismo_ref"] != a.organismoRef {
+	if p := a.perfiles.b2[accion]; p != nil && (p.clave == "incorporacion_b2_personal" || p.clave == "incorporacion_b2_"+grupoCatalogoEmpleadoB2 ||
+		objetivosLecturaPersonalB2(grupoOperacionIncorporacionB2(op.descriptor), a.organismoRef) != nil) && r.Ambitos["organismo_ref"] != a.organismoRef {
 		return core.SolicitudAutorizacionLigadaV3{}, cero, ct.ErrAutorizacionDenegada
 	}
 	c, e := a.contexto(ctx, accion)
@@ -568,9 +589,39 @@ const (
 )
 
 func gruposPerfilesIncorporacionB2() []string {
-	return []string{"ct155", ct.ModuloContratacion, "personal", "bolsa", "rpt_catalogo", "rpt_uso", grupoRegistroVinculoRPTB2, grupoListadoCategoriasRPTB2, grupoCatalogoEmpleadoB2}
+	return []string{"ct155", ct.ModuloContratacion, "personal", "bolsa", "rpt_catalogo", "rpt_uso", grupoRegistroVinculoRPTB2, grupoListadoCategoriasRPTB2, grupoCatalogoEmpleadoB2, grupoCatalogoConsultaB2, grupoClasesOcupacionB2}
+}
+
+// Las dos lecturas de Personal que hace el plan B2 al preparar sus opciones
+// llevan en el recurso, además del organismo, un ámbito objetivo_ref (el
+// catálogo «organismo:tipo» y el organismo para las clases). El PDP exige que
+// la asignación enumere exactamente las mismas dimensiones (Cubre), así que
+// cada una tiene perfil propio con sus valores cerrados; en el perfil común
+// de Personal, que sólo fija organismo_ref, se denegaban por ámbito.
+const (
+	grupoCatalogoConsultaB2 = "personal_catalogo_consulta"
+	grupoClasesOcupacionB2  = "personal_clases"
+)
+
+// objetivosLecturaPersonalB2 da los objetivo_ref que admite cada grupo de
+// lectura de Personal; nil para los grupos sin esa dimensión.
+func objetivosLecturaPersonalB2(grupo, organismo string) []string {
+	switch grupo {
+	case grupoCatalogoConsultaB2:
+		// El plan sólo lee régimen y modalidad (fuentes_incorporacion_personal_b2).
+		return []string{organismo + ":regimen", organismo + ":modalidad"}
+	case grupoClasesOcupacionB2:
+		return []string{organismo}
+	}
+	return nil
 }
 func grupoOperacionIncorporacionB2(d descriptorOperacionIncorporacionB2) string {
+	if d.accion == personal.AccionConsultarCatalogoEmpleadoB2 {
+		return grupoCatalogoConsultaB2
+	}
+	if d.accion == "personal.plan_incorporacion_ct.clases_ocupacion" {
+		return grupoClasesOcupacionB2
+	}
 	if d.accion == ct.AccionRegistrarVinculoCategoriaRPT {
 		return grupoRegistroVinculoRPTB2
 	}
