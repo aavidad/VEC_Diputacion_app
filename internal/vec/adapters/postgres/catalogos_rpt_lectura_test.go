@@ -585,3 +585,27 @@ func TestLecturasRPTRechazanMaterialAjenoAntesDeConsumirAD3(t *testing.T) {
 		})
 	}
 }
+
+// Las categorías publicadas con espacio de nombres («categoria:rpt:...»), que la
+// base admite, se listan y se leen; antes el dominio las tenía por no confiables.
+func TestListaRPTAdmiteClavesConDosPuntosComoLaBase(t *testing.T) {
+	p, e := publicacionRPTPrueba(t, 1, "categoria:rpt:administrativo")
+	lista := listaRPTWire{AnclajePublicacion: jsonRPTPrueba(t, map[string]any{
+		"catalogo_id": p.CatalogoID, "version": p.Version, "huella_sha256": p.HuellaSHA256,
+		"documento_canonico": p.DocumentoCanonico}),
+		Items: []json.RawMessage{jsonRPTPrueba(t, categoriaRPTWire{CategoriaID: e.Clave, CatalogoID: p.CatalogoID,
+			Version: p.Version, HuellaSHA256: p.HuellaSHA256, Revision: 1, Estado: "habilitada",
+			Etiqueta: e.Etiqueta, Definicion: jsonRPTPrueba(t, e)})},
+		Publicaciones: []json.RawMessage{}}
+	consulta := ports.ConsultaCategoriasHabilitadasRPT{CatalogoID: descriptorRPTPrueba.CatalogoID, Limite: 100}
+	r, err := decodificarListaRPT(jsonRPTPrueba(t, lista), consulta, descriptorRPTPrueba)
+	if err != nil || len(r.Categorias) != 1 || r.Categorias[0].CategoriaID != "categoria:rpt:administrativo" {
+		t.Fatalf("categoría con «:» rechazada: %+v %v", r, err)
+	}
+	historica := jsonRPTPrueba(t, publicacionHistoricaRPTWire{Publicacion: jsonRPTPrueba(t, p), Entrada: jsonRPTPrueba(t, e),
+		ControlActual: json.RawMessage("null")})
+	h, err := decodificarPublicacionHistoricaRPT(historica, ports.ConsultaPublicacionCategoriaRPT{Referencia: p.referencia(), CategoriaID: e.Clave}, descriptorRPTPrueba)
+	if err != nil || !h.Encontrado || h.Entrada.Clave != e.Clave {
+		t.Fatalf("publicación histórica con «:» rechazada: %+v %v", h, err)
+	}
+}
