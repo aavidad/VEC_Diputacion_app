@@ -24,9 +24,9 @@ import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamami
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261009-instantes-bolsa-v1";
 import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261007-pantallas-textos-final-v1";
 import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
-import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261009-instantes-bolsa-v1";
-import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261009-instantes-bolsa-v1";
-import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261009-ayuda-contacto-v1";
+import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261009-ct-bolsa-cohorte-v9";
+import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261009-ct-bolsa-cohorte-v9";
+import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261009-ct-bolsa-cohorte-v9";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 const FILTROS_GLOBALES = new Set(["todos", "disponible", "renuncia", "llamamientos"]);
@@ -1020,7 +1020,8 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
         invalidarSeleccionMasiva();
         // El origen (petición de personal) se guarda fuera de los filtros y se copia en cada llamamiento nuevo de esa bolsa.
-        const origen = estado.vista !== "llamamientos" && estado.origenLlamamientoB7?.bolsa_ref === estado.bolsaSeleccionada ? estado.origenLlamamientoB7 : null;
+        const origen = (estado.vista !== "llamamientos" || estado.llamamientoDesdeCT === true)
+          && estado.origenLlamamientoB7?.bolsa_ref === estado.bolsaSeleccionada ? estado.origenLlamamientoB7 : null;
         const { seguimiento: _sinSeguimiento, ...filtros } = estado.filtrosBolsa || {};
         estado.filtrosBolsa = { ...filtros, estado: "", texto: "", nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "", seleccion_total: false, cursoresPagina: [""],
           origen: origen ? Object.freeze({ referencia: origen.referencia, ...(origen.centro ? { centro: origen.centro } : {}), ...(origen.fecha_inicio ? { fecha_inicio: origen.fecha_inicio } : {}) }) : null } };

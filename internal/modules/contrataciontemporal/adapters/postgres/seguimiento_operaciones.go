@@ -232,7 +232,7 @@ func errorResultadoSeguimiento(resultado string) error {
 
 func decodificarRespuestaSeguimiento(contenido []byte, esquema string) (respuestaSeguimientoSQL, error) {
 	var r respuestaSeguimientoSQL
-	if len(contenido) == 0 || len(contenido) > maximoCargaSeguimiento || decodificarJSONEstricto(contenido, &r) != nil || r.Esquema != esquema {
+	if len(contenido) == 0 || len(contenido) > maximoCargaSeguimiento || decodificarConExpedienteSQL(contenido, &r, "expediente") != nil || r.Esquema != esquema {
 		return r, ports.ErrResultadoSeguimientoNoConfiable
 	}
 	return r, errorResultadoSeguimiento(r.Resultado)

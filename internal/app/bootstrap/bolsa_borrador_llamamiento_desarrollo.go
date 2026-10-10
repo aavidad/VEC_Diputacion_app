@@ -563,15 +563,15 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	_, fronteraCargaConvocaDeclarada := catalogoFronteras.porClave[claveFronteraConfirmarCargaConvocaBolsa]
-	cargaConvocaActiva := fronteraCargaConvocaDeclarada && autoridadesCargaConvoca != nil &&
-		alta.postgresql.proveedorMaterialCargaConvoca != nil && politicaBolsa.permiteCargaConvoca()
+	cargaConvocaActiva := cargaConvocaMontable(fronteraCargaConvocaDeclarada, autoridadesCargaConvoca,
+		alta.postgresql.proveedorMaterialCargaConvoca, politicaBolsa)
 	var politicaCargaConvoca politicaAutorizacionSolicitudLigadaV3Desarrollo
 	if cargaConvocaActiva {
 		politicaCargaConvoca, cargaConvocaActiva, err = politicaCargaConvocaPostgreSQL(ctx,
 			autoridadesCargaConvoca.fuente, autoridadesCargaConvoca.motivos, alta.postgresql.registroAutorizacion,
 			politicaBolsa.instantanea, dependenciasCT.reloj.Ahora())
 		if err != nil || !cargaConvocaActiva {
-			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+			cargaConvocaActiva = cargaConvocaNoMontada("politica_gobernada", err)
 		}
 	}
 	if cargaConvocaActiva && publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
@@ -599,7 +599,8 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	}
 	descriptoresAutorizacion := append(descriptoresAutorizacionContratacionTemporalDesarrollo(politicaCT, reincorporacionActiva,
 		firmaDocumentoPerfilFijoCompuesto(alta.soporte),
-		alta.soporte.perfilFijoParaRuta(cthttp.RutaConsultaCircuitoRRHH) != nil), descriptoresBolsa...)
+		alta.soporte.perfilFijoParaRuta(cthttp.RutaConsultaCircuitoRRHH) != nil,
+		alta.soporte.perfilFijoParaRuta(cthttp.RutaVinculosEmisionBolsa) != nil), descriptoresBolsa...)
 	descriptoresAutorizacion = append(descriptoresAutorizacion, autorizacionesAdicionales...)
 	catalogoAutorizacion, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptoresAutorizacion)
 	if err != nil {

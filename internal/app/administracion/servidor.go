@@ -40,8 +40,42 @@ type falloConfiguracion struct {
 	causa error
 }
 
-func (f falloConfiguracion) Error() string   { return ErrConfiguracion.Error() + ": " + f.clase }
-func (f falloConfiguracion) Unwrap() []error { return []error{ErrConfiguracion, f.causa} }
+func (f falloConfiguracion) Error() string { return ErrConfiguracion.Error() + ": " + f.clase }
+func (f falloConfiguracion) Unwrap() []error {
+	if f.causa == nil {
+		return []error{ErrConfiguracion}
+	}
+	return []error{ErrConfiguracion, f.causa}
+}
+
+// ClaseFallo devuelve la clase de un fallo de configuración del arranque ADMIN,
+// o "" si el error no lleva una de la lista cerrada. Nunca devuelve la causa.
+// Lista cerrada: dependencias, dependencias_runtime, registro_sesiones,
+// revalidador, cuentas_is16, contexto_ca36, resolver_sesion, contexto_conexion,
+// montaje_lecturas (ComponerServidorPerfiles); entorno, dependencias, host, ca,
+// red, resolver_sesion (NuevoResolverSesionPerfiles); entorno, retirada,
+// rutas_tls, host, superficie, red, tls, ca (nuevoServidor).
+func ClaseFallo(err error) string {
+	var f falloConfiguracion
+	if !errors.As(err, &f) {
+		return ""
+	}
+	switch f.clase {
+	case "dependencias", "dependencias_runtime", "registro_sesiones", "revalidador", "cuentas_is16",
+		"contexto_ca36", "resolver_sesion", "contexto_conexion", "montaje_lecturas", "entorno",
+		"retirada", "rutas_tls", "host", "superficie", "red", "tls", "ca":
+		return f.clase
+	}
+	return ""
+}
+
+// conClase conserva la clase que ya traiga err y, si no la trae, le pone clase.
+func conClase(clase string, err error) error {
+	if ClaseFallo(err) != "" {
+		return err
+	}
+	return falloConfiguracion{clase: clase, causa: err}
+}
 
 type Configuracion struct {
 	Entorno             string
@@ -69,17 +103,17 @@ func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Ser
 	if cfg.Entorno != "desarrollo" && cfg.Entorno != "cidonia" {
 		// Produccion exige ademas Kerberos y concesion V3; todavia no hay
 		// compositor ADMIN que pueda acreditarlos.
-		return nil, ErrConfiguracion
+		return nil, falloConfiguracion{clase: "entorno"}
 	}
-	if cfg.RetiradaEn.IsZero() || cfg.RetiradaEn.Location() != time.UTC ||
-		!time.Now().Before(cfg.RetiradaEn) ||
-		cfg.CertificadoServidor == "" || cfg.ClaveServidor == "" || cfg.CAAdministracion == "" ||
-		cfg.CRLAdministracion == "" {
-		return nil, ErrConfiguracion
+	if cfg.RetiradaEn.IsZero() || cfg.RetiradaEn.Location() != time.UTC || !time.Now().Before(cfg.RetiradaEn) {
+		return nil, falloConfiguracion{clase: "retirada"}
+	}
+	if cfg.CertificadoServidor == "" || cfg.ClaveServidor == "" || cfg.CAAdministracion == "" || cfg.CRLAdministracion == "" {
+		return nil, falloConfiguracion{clase: "rutas_tls"}
 	}
 	host, hostValido := analizarHostAdmin(cfg.Host)
 	if !hostValido {
-		return nil, ErrConfiguracion
+		return nil, falloConfiguracion{clase: "host"}
 	}
 	superficie := httpseguridad.ConfiguracionSuperficie{
 		Superficie:                          httpseguridad.SuperficieAdministracionPrivilegiada,

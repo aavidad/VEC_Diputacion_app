@@ -147,7 +147,8 @@ test("el plazo de confirmación puede vencer sin respuesta de un POST ya enviado
     new Promise((_resolver, rechazar) => opciones.signal.addEventListener("abort", () =>
       rechazar(new DOMException("", "AbortError")), { once: true })) });
   await assert.rejects(cliente.confirmar({ nombre: "bolsa.xlsx", base64: "AAAA", categoria: "auxiliar" }),
-    (error) => error.name === "AbortError");
+    // Sin respuesta en plazo no se sabe si la carga quedó registrada: la vista lo trata como indeterminado.
+    (error) => error instanceof ErrorCargaConvoca && error.estado === 0);
 });
 
 test("la página del servidor y la URL conservan solo filtro, página y otros parámetros", async () => {

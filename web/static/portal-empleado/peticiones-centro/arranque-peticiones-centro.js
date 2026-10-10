@@ -53,14 +53,18 @@ async function arrancar(origen = null) {
       // La marca vuelve al portal en el mismo idioma que esta página.
       document.querySelector(".pc-marca")?.setAttribute("href", `/portal-empleado/?lang=${encodeURIComponent(pc.idioma)}`);
       instalarValidacionI18n(document, traducir);
-      const peticiones = await import("./peticiones-centro.js?v=20261009-rrhh-etiquetas-v1");
+      const peticiones = await import("./peticiones-centro.js?v=20261009-centro-campos-cohorte-v5");
       peticiones.instalarAyudaPeticionCentro(document);
-      await Promise.all([
-        import("./incorporaciones-centro.js?v=20261009-retoques-textos-v1"),
-        import("./cancelaciones-centro.js?v=20261009-retoques-textos-v1"),
-      ]);
       ayuda.disabled = false;
       await peticiones.iniciarPeticionCentro();
+      // Los paneles propios del centro se montan tras conocer la vista real.
+      // RRHH no tiene su permiso de lectura y no debe pedirlos al abrir.
+      if (new URLSearchParams(location.search).get("vista") !== "rrhh") {
+        await Promise.all([
+          import("./incorporaciones-centro.js?v=20261009-retoques-textos-v1"),
+          import("./cancelaciones-centro.js?v=20261009-retoques-textos-v1"),
+        ]);
+      }
       montado = true;
       if (puedeDevolverFoco(origen)) {
         const titulo = raiz.querySelector("h1, h2");

@@ -28,7 +28,8 @@ test("la navegación EN presenta bandeja, formulario y ayudas propias sin rótul
       categorias:[{referencia:"cat1",etiqueta:"Category",grupos_subgrupos:[{clave:"C2",etiqueta:"C2"}]}],
       motivos:[{clave:"sustitucion",etiqueta:"Replacement"}],documentos:[]};
     const contexto={actor:{referencia:"actor:test",puede_presentar:true,puede_ratificar:false},catalogos};
-    const estado={fase:"edicion",disponible:true,ocupado:false,borrador:ct.crearBorradorAlta(),catalogos,errores:{},
+    const estado={fase:"edicion",disponible:true,ocupado:false,borrador:ct.crearBorradorAlta({conPeticionCentro:true,jornadaReferenciaMinutos:2250}),catalogos,
+      errores:{puesto_solicitado:"puesto_solicitado",jornada_minutos:"jornada"},
       mensaje_clave:"estado_disponible",tipo_mensaje:"informacion"};
     process.stdout.write(JSON.stringify({lista:pc.renderizarPeticionCentro({contexto}),
       formulario:pc.renderizarPeticionCentro({contexto,modo:"formulario",estado}),
@@ -39,6 +40,9 @@ test("la navegación EN presenta bandeja, formulario y ayudas propias sin rótul
   const pantalla = JSON.parse(stdout);
   assert.match(pantalla.lista, /Staff requests from your centre/u);
   assert.match(pantalla.formulario, /Centre and staffing need/u);
+  assert.equal((pantalla.formulario.match(/up to 160 characters/gu) || []).length, 2);
+  assert.equal((pantalla.formulario.match(/Maximum: 168 hours/gu) || []).length, 2);
+  assert.doesNotMatch(pantalla.formulario, /up to 4,000 characters/iu);
   assert.equal(pantalla.ayuda, "Centre request: what it does and does not do");
   assert.equal(pantalla.incorporaciones, "Centre incorporation confirmations");
   assert.equal(pantalla.cancelaciones, "Cancel a case");

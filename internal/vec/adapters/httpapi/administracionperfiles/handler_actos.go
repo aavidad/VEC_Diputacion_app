@@ -23,6 +23,22 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 		h.postGobiernoPlanFirma(w, r, s)
 		return
 	}
+	if p == RutaGobiernoRolProponer {
+		h.postGobiernoRolProponer(w, r, s)
+		return
+	}
+	if p == RutaGobiernoRolCerrar {
+		h.postGobiernoRolCerrar(w, r, s)
+		return
+	}
+	if p == RutaVersionarRolBolsaProponer {
+		h.postVersionarRolBolsaProponer(w, r, s)
+		return
+	}
+	if p == RutaVersionarRolBolsaCerrar {
+		h.postVersionarRolBolsaCerrar(w, r, s)
+		return
+	}
 	if e, ok := h.efectos[p]; ok {
 		h.postEfectoNominal(w, r, s, e)
 		return

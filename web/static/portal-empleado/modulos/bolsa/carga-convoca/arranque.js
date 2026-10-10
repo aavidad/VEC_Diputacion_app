@@ -1,7 +1,7 @@
 import { cargarTextos, reintentarTextos } from "../../../../comun/textos.js";
 import { crearClienteCategorias } from "../../../categorias-rpt/cliente.js?v=20261008-w-ct-borradores-main-v2";
-import { crearClienteCargaConvoca } from "./cliente.js?v=20261008-u-b1-preview-v6";
-import { montarVistaCargaConvoca } from "./vista.js?v=20261008-u-b1-preview-v6";
+import { crearClienteCargaConvoca } from "./cliente.js?v=20261010-b1-carga-v1";
+import { montarVistaCargaConvoca } from "./vista.js?v=20261010-b1-carga-v1";
 
 async function iniciar(reintento = false) {
   const error = document.getElementById("arranque-error");

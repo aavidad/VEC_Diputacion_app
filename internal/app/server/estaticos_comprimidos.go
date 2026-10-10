@@ -3,14 +3,19 @@ package server
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
+	"math"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -48,7 +53,7 @@ func (c *cacheEstaticosComprimidos) servir(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	w.Header().Add("Vary", "Accept-Encoding")
-	if directorio == "" || !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") ||
+	if directorio == "" || !aceptaGzip(r.Header.Get("Accept-Encoding")) ||
 		r.Header.Get("Range") != "" || strings.HasSuffix(r.URL.Path, "/index.html") {
 		siguiente.ServeHTTP(w, r)
 		return
@@ -60,6 +65,35 @@ func (c *cacheEstaticosComprimidos) servir(w http.ResponseWriter, r *http.Reques
 	}
 	w.Header().Set("Content-Encoding", "gzip")
 	http.ServeContent(w, r, path.Base(nombre), entrada.modificado, bytes.NewReader(entrada.gzip))
+}
+
+// aceptaGzip decide si el cliente admite gzip leyendo Accept-Encoding conforme
+// a la RFC 9110 (§12.4.2 y §12.5.3): cada codificación puede llevar un q con
+// valor por defecto 1; q=0 la excluye de forma explícita. Un q malformado o
+// fuera de 0..1 se registra y deniega por defecto. Sin cabecera o sin entrada
+// gzip se sirve sin comprimir, como se venía haciendo.
+func aceptaGzip(cabecera string) bool {
+	for _, elemento := range strings.Split(cabecera, ",") {
+		codificacion, parametros, _ := strings.Cut(strings.TrimSpace(elemento), ";")
+		if !strings.EqualFold(strings.TrimSpace(codificacion), "gzip") {
+			continue
+		}
+		q := 1.0
+		for _, parametro := range strings.Split(parametros, ";") {
+			nombre, valor, presente := strings.Cut(strings.TrimSpace(parametro), "=")
+			if !presente || !strings.EqualFold(strings.TrimSpace(nombre), "q") {
+				continue
+			}
+			numero, err := strconv.ParseFloat(strings.TrimSpace(valor), 64)
+			if err != nil || math.IsNaN(numero) || math.IsInf(numero, 0) || numero < 0 || numero > 1 {
+				slog.Warn("estatico comprimido: q de Accept-Encoding no admisible", "codificacion", "gzip", "longitud_q", len(valor))
+				return false
+			}
+			q = numero
+		}
+		return q > 0
+	}
+	return false
 }
 
 func (c *cacheEstaticosComprimidos) obtener(directorio, nombre string) *estaticoComprimido {
@@ -132,6 +166,67 @@ func cacheSegunVersion(r *http.Request) string {
 		return "public, max-age=31536000, immutable"
 	}
 	return "no-cache"
+}
+
+// cacheCatalogoTextos: con ?huella= igual a la de los catálogos que sirve este
+// proceso (VERSION_TEXTOS de comun/textos.js) se guardan un año. Cualquier otra
+// huella, sin huella o con los ?v= de los manifiestos PWA, se revalida (304):
+// así un despliegue a medias o una huella inventada nunca fijan contenido viejo.
+func cacheCatalogoTextos(r *http.Request) string {
+	if pedida := r.URL.Query().Get("huella"); pedida != "" && pedida == huellaCatalogosTextos() {
+		return "public, max-age=31536000, immutable"
+	}
+	return "no-cache"
+}
+
+// huellaCatalogosTextos se calcula una vez por proceso: cambiar un catálogo
+// exige desplegar y reiniciar, como el resto de estáticos. Sin huella ("") no
+// se acepta ninguna y los catálogos se sirven con no-cache.
+var huellaCatalogosTextos = sync.OnceValue(func() string {
+	directorio := directorioEstaticos()
+	if directorio == "" {
+		slog.Warn("huella de catálogos de textos no disponible", "etapa", "localizar", "causa", "sin directorio de estáticos")
+		return ""
+	}
+	huella, err := calcularHuellaCatalogosTextos(os.DirFS(filepath.Join(directorio, "textos")))
+	if err != nil {
+		slog.Warn("huella de catálogos de textos no disponible", "etapa", "calcular", "error", err)
+		return ""
+	}
+	return huella
+})
+
+// calcularHuellaCatalogosTextos replica comun/textos-version.test.mjs: SHA-256
+// de "<idioma>/<fichero>\0<bytes>\0" de cada <idioma>/*.json en orden, 16 hex.
+func calcularHuellaCatalogosTextos(raiz fs.FS) (string, error) {
+	huella := sha256.New()
+	idiomas, err := fs.ReadDir(raiz, ".")
+	if err != nil {
+		return "", fmt.Errorf("leer idiomas: %w", err)
+	}
+	for _, idioma := range idiomas {
+		if !idioma.IsDir() {
+			continue
+		}
+		ficheros, err := fs.ReadDir(raiz, idioma.Name())
+		if err != nil {
+			return "", fmt.Errorf("leer catálogos de %s: %w", idioma.Name(), err)
+		}
+		for _, fichero := range ficheros {
+			if fichero.IsDir() || !strings.HasSuffix(fichero.Name(), ".json") {
+				continue
+			}
+			ruta := idioma.Name() + "/" + fichero.Name()
+			contenido, err := fs.ReadFile(raiz, ruta)
+			if err != nil {
+				return "", fmt.Errorf("leer %s: %w", ruta, err)
+			}
+			huella.Write([]byte(ruta + "\x00"))
+			huella.Write(contenido)
+			huella.Write([]byte("\x00"))
+		}
+	}
+	return hex.EncodeToString(huella.Sum(nil))[:16], nil
 }
 
 // fijarCacheEstatico sustituye la política no-store que securityHeaders pone

@@ -108,3 +108,22 @@ test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar ex
   assert.equal(Object.hasOwn(ingles, "panel_resultado_sin_expediente"), false);
   assert.match(ingles.panel_contacto_no_respuesta, /If the person accepts or declines/);
 });
+
+test("Bolsa solo ofrece cargar desde CONVOCA si el servidor monta la carga", () => {
+  let disponible = false;
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: () => "info",
+    encabezadoVista: (_area, titulo, _descripcion, acciones) => `<header><h2>${titulo}</h2>${acciones}</header>`,
+    escaparHTML: (valor) => String(valor ?? ""),
+    numero: (valor) => String(valor ?? 0),
+    obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }),
+    tituloVista: (valor) => valor,
+    obtenerDatosBolsas: () => ({ carga: "cargando" }),
+    cargaConvocaDisponible: () => disponible,
+  });
+  assert.doesNotMatch(presentador.renderizarSoloBolsas("resumen-bolsas"), /carga-convoca/);
+  disponible = true;
+  const html = presentador.renderizarSoloBolsas("resumen-bolsas");
+  assert.match(html, /href="\/portal-empleado\/modulos\/bolsa\/carga-convoca\/\?lang=[a-z]{2}"/);
+  assert.match(html, new RegExp(traducirPortal("txt_cargar_bolsa_convoca")));
+});

@@ -96,14 +96,16 @@ function navegadorFichaCT({ bolsaRef = "bolsa:auxiliar", origenRef = "expediente
     estado: { vista: "contratacion-temporal", datosBolsas: null, filtrosBolsa: {}, datosCandidatos: null },
     contextoBolsaCT: contexto, rutasBolsa: null, controladorBolsas: null, rutaCandidatosAplicada: null,
     generacionCuadroBolsas: 0, cicloLecturaBolsas: 0,
-    TITULOS: { "bolsa-candidatos": ["", "Candidatos"] },
+    TITULOS: { "bolsa-candidatos": ["", "Candidatos"], llamamientos: ["", "Llamamientos"] },
     VISTA_PLANTILLAS_RRHH: "plantillas-rrhh", vistaBolsaPendienteNoCompuesta: () => false,
     sondearCapacidadAlAbrir: () => false, vistaBolsaNavegable, vistaBolsaOfrecida,
     moduloDeVistaPortal, superficieBorradores: { obtenerAcceso: () => ({ disponible: false }) },
     coordinadorModulos: { vistaDisponible: () => false, obtenerCatalogo: () => [] },
     VISTA_CANDIDATOS_BOLSA: "bolsa-candidatos", VISTAS_MODULOS_PERSONALES: new Set(),
     VISTAS_AUTOSERVICIO_EMPLEADO: new Set(),
-    vistaNecesitaBolsa: (vista) => vista === "bolsa-candidatos", rutaDeVista: () => "#bolsa/bolsa-candidatos",
+    vistaNecesitaBolsa: (vista) => vista === "bolsa-candidatos" || vista === "llamamientos",
+    rutaDeVista: (vista) => vista === "llamamientos" ? "#bolsa/llamamientos" : "#bolsa/bolsa-candidatos",
+    selectorLlamamientos: null,
     rutaPortalConFiltroCT, filtroServidorCTValido: () => false,
     renderizar: () => {}, cerrarMenuMovil: () => {}, tituloDeVista: () => ["", "Candidatos"],
     anunciar: (mensaje) => llamadas.avisos.push(mensaje), traducirPortal: (clave) => clave,
@@ -123,25 +125,25 @@ function navegadorFichaCT({ bolsaRef = "bolsa:auxiliar", origenRef = "expediente
   return { click, control, contextoVM, llamadas, bolsa };
 }
 
-test("clic real CT con cuadro global y rutas ausentes llega a Bolsa y exige su GET posterior", async () => {
+test("clic CT abre el asistente de Bolsa y espera su lectura autorizada", async () => {
   const { click, contextoVM, llamadas, bolsa } = navegadorFichaCT();
   assert.equal(contextoVM.capacidadesBolsa().bolsasConsultables, false, "CT no presta su contexto al menú");
-  assert.equal(contextoVM.vistaPermitida("bolsa-candidatos"), true, "la ruta puede mostrar carga antes del GET");
+  assert.equal(contextoVM.vistaPermitida("llamamientos"), true, "la ruta puede mostrar carga antes del GET");
   assert.equal(vistaBolsaOfrecida("bolsa-candidatos", { bolsasConsultables: false }), false);
   await click();
   assert.equal(llamadas.rutas, 1, "solo se importa el helper de rutas al pulsar");
   assert.equal(llamadas.getBolsas, 1, "la navegación inicia la lectura ordinaria de Bolsa");
   assert.equal(contextoVM.estado.datosBolsas.carga, "cargando", "el contexto CT no se presta como cuadro general");
   assert.equal(contextoVM.contextoBolsaCT, null, "la ficha se invalida al salir");
-  assert.equal(contextoVM.window.location.hash, "#bolsa/bolsa-candidatos");
+  assert.equal(contextoVM.window.location.hash, "#bolsa/llamamientos");
   assert.equal(contextoVM.window.location.searchParams.get("bolsa_ref"), bolsa.bolsa_ref);
   assert.equal(contextoVM.window.location.searchParams.get("origen_expediente"), "expediente:ct:1");
   assert.equal(contextoVM.window.location.searchParams.get("origen_inicio"), "2026-10-20");
   assert.equal(llamadas.avisos.some((mensaje) => mensaje.includes("no_esta_autorizada")), false);
-  assert.equal(llamadas.aplicar, 1, "antes del GET no hay candidaturas ni acto");
+  assert.equal(llamadas.aplicar, 0, "antes del GET no hay candidaturas ni acto");
   // El GET normal debe devolver una lista autorizada antes de aceptar la ruta.
-  assert.equal(rutasBolsa.leerCandidatosBolsaCompartible(contextoVM.window.location.search, [bolsa]).bolsaRef, bolsa.bolsa_ref);
-  assert.throws(() => rutasBolsa.leerCandidatosBolsaCompartible(contextoVM.window.location.search, []), RangeError);
+  assert.equal(rutasBolsa.leerLlamamientoBolsaCompartible(contextoVM.window.location.search, [bolsa]).bolsaRef, bolsa.bolsa_ref);
+  assert.throws(() => rutasBolsa.leerLlamamientoBolsaCompartible(contextoVM.window.location.search, []), RangeError);
 });
 
 test("bolsa u origen ajenos y denegación CT no navegan ni cargan rutas", async () => {

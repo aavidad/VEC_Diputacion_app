@@ -2,8 +2,10 @@
 
 La CLI invoca la operación técnica de mantenimiento con un plan y una aprobación
 externos: AUT42 (plan versión 1, Rol4 a Rol5), AUT45 (versión 2, Rol5 a Rol6,
-lote ordinario) o AUT51 (versión 3, Rol6 a Rol7, gobierno del plan nominal de
-firma). Actualiza los dos perfiles existentes de Aplicación, con historia y
+lote ordinario), AUT51 (versión 3, Rol6 a Rol7, gobierno del plan nominal de
+firma), AUT59 (versión 4, Rol7 a Rol8, gobierno de definiciones) o AUT64
+(versión 5, Rol8 a Rol9, versión de Bolsa). Actualiza los dos perfiles
+existentes de Aplicación, con historia y
 auditoría común. No solicita perfiles nuevos ni actúa por HTTP.
 
 ```sh

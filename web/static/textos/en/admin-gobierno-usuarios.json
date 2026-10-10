@@ -1,8 +1,8 @@
 {
   "idioma": "en",
   "mensajes": {
-    "limite": "This command prepares, applies and verifies the Administration keys: the two user management keys; with set 1, 2, 3 or 4, also the batch profile changes key; with set 2, 3 or 4, the signature plan governance key as well; with set 3 or 4, also the Personal post publication key; and, with set 4, the signer certificate key. The DBA creates the technical LOGIN and the approved configuration. The receipt only counts after COMMIT.",
-    "uso_invalido": "Give the phase (preparar, aplicar or verificar), the private configuration, the text catalogue and a positive time limit. Give the receipt only when applying.",
+    "limite": "This command prepares, applies and verifies the Administration keys: the two user management keys; with set 1 or higher, also the batch profile changes key; with set 2 or higher, the signature plan governance key as well; with set 3 or higher, the Personal post publication key; with set 4 or 5, the signer certificate key; and, with set 5, the two keys for new versions of the Bolsa role. The DBA creates the technical LOGIN and the approved configuration. The receipt only counts after COMMIT.",
+    "uso_invalido": "Give the phase (preparar, aplicar, verificar or version-bolsa), the private configuration, the text catalogue and a positive time limit. Give the receipt only when applying and in version-bolsa, where it is the receipt already saved by aplicar.",
     "configuracion_insegura": "The private configuration cannot be read. It must be your own file with 0600 permissions, in your own 0700 folder outside the repository.",
     "configuracion_invalida": "The private configuration has the wrong format or lacks data for this phase. Check the fields, absolute paths, connections and validity hours (1 to 24).",
     "salida_insegura": "The output folder is not safe. Use your own folder with 0700 permissions outside the repository.",
@@ -17,6 +17,8 @@
     "gobierno_no_disponible": "The operation ended with an error and the database recorded the attempt. Check the private receipt.",
     "cadena_verificada": "The user governance audit chain was recalculated with no differences. The report is in the output folder.",
     "cadena_rechazada": "The audit chain does not match when recalculated. Check the report in the output folder.",
-    "verificacion_no_disponible": "The audit chain could not be read or the report could not be saved."
+    "verificacion_no_disponible": "The audit chain could not be read or the report could not be saved.",
+    "version_bolsa_escrita": "version-bolsa.json was written to the output folder, with its two keys in their own files. Restart vec-admin with that file to use today's keys.",
+    "version_bolsa_fallida": "version-bolsa.json could not be written. Check that the set is 5, that the receipt given is the aplicar receipt with permitted status and that the folder does not already hold those files. If key files were left without version-bolsa.json, do not use that folder for vec-admin."
   }
 }

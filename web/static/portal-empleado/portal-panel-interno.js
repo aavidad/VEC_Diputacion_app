@@ -13,7 +13,7 @@ import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamient
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-r-traza-idioma-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
-import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261009-ayuda-contacto-v1";
+import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261009-ct-bolsa-cohorte-v9";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-r-fichas-idioma-nav-v1";
 import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261008-r-traza-idioma-v1";
@@ -31,8 +31,8 @@ const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_dispo
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
 const RUTA_PANTALLA_CARGA_CONVOCA = `/portal-empleado/modulos/bolsa/carga-convoca/?lang=${encodeURIComponent(IDIOMA_ACTUAL)}`;
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261009-instantes-bolsa-v1";
-import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261009-instantes-bolsa-v1";
+import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261009-ct-bolsa-cohorte-v9";
+import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261009-ct-bolsa-cohorte-v9";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
@@ -52,6 +52,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     obtenerModalContactos,
     obtenerModalFicha,
     obtenerModalResultado,
+    cargaConvocaDisponible,
   } = dependencias;
   if ([claseEstado, encabezadoVista, escaparHTML, numero, obtenerDatosPanel, tituloVista]
     .some((dependencia) => typeof dependencia !== "function")) {
@@ -59,6 +60,11 @@ export function crearPresentadorPanelInterno(dependencias) {
   }
   function datosPanel() {
     return obtenerDatosPanel();
+  }
+  // Solo se ofrece si el servidor publica la carga (rutas montadas para RRHH).
+  function botonCargaConvoca() {
+    return typeof cargaConvocaDisponible === "function" && cargaConvocaDisponible() === true
+      ? `<a class="boton-secundario" href="${RUTA_PANTALLA_CARGA_CONVOCA}">${textoPortal("txt_cargar_bolsa_convoca")}</a>` : "";
   }
   function esActivo() {
     return datosPanel()?.esquema === ESQUEMA_PANEL_INTERNO;
@@ -391,7 +397,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       ["alerta", i.incidencias_abiertas, traducirPortal("txt_incidencias_abiertas")],
     ];
     return `
-      ${encabezadoVista("", traducirPortal("txt_bolsas_de_trabajo"), "", `<a class="boton-secundario" href="${RUTA_PANTALLA_CARGA_CONVOCA}">${textoPortal("txt_cargar_bolsa_convoca")}</a><a class="boton-secundario" href="${RUTA_PANTALLA_REGLAS}" target="_blank" rel="noopener">${textoPortal("txt_reglas_vigentes")}</a><button type="button" class="boton-secundario" data-accion="imprimir">${textoPortal("txt_imprimir_resumen")}</button>`)}
+      ${encabezadoVista("", traducirPortal("txt_bolsas_de_trabajo"), "", `${botonCargaConvoca()}<a class="boton-secundario" href="${RUTA_PANTALLA_REGLAS}" target="_blank" rel="noopener">${textoPortal("txt_reglas_vigentes")}</a><button type="button" class="boton-secundario" data-accion="imprimir">${textoPortal("txt_imprimir_resumen")}</button>`)}
       <div class="rejilla-kpi" aria-label="${textoPortal("txt_indicadores_operativos_de_bolsa")}">
         ${indicadoresConectados.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta)).join("")}
       </div>
@@ -906,7 +912,8 @@ export function crearPresentadorPanelInterno(dependencias) {
   function renderizarSoloBolsas(vista) {
     if (vista === "bolsa-candidatos") return renderizarCandidatosBolsa();
     const estadoAvisos = typeof obtenerDatosAvisos === "function" ? obtenerDatosAvisos() : null;
-    return `${encabezadoVista("", traducirPortal("txt_bolsas_de_trabajo"), "", `<a class="boton-secundario" href="${RUTA_PANTALLA_CARGA_CONVOCA}">${textoPortal("txt_cargar_bolsa_convoca")}</a>`)}
+    const carga = botonCargaConvoca();
+    return `${carga ? encabezadoVista("", traducirPortal("txt_bolsas_de_trabajo"), "", carga) : ""}
       <div class="cuadro-bolsa-solo">
       ${renderizarCuadroB12()}
       ${renderizarBloqueAvisos({

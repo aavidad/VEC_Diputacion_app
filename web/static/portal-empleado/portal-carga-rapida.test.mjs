@@ -618,7 +618,7 @@ test("ningún módulo del portal se pide con dos URL distintas (una sola descarg
   const versionIncorporacion = versionDe(codigoCoordinador,
     "./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js");
   for (const url of [
-    "/portal-empleado/portal-bolsas-api.js?v=20261009-ayuda-contacto-v1",
+    "/portal-empleado/portal-bolsas-api.js?v=20261009-ct-bolsa-cohorte-v9",
     "/portal-empleado/portal-bolsas-contrato.js?v=20261009-instantes-bolsa-v1",
     `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
     `/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=${versionIncorporacion}`,
@@ -668,5 +668,128 @@ test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras
   for (const [, grupo, estilos] of grupos) {
     assert.match(estilos, new RegExp(`/modulos/${grupo}/[^" ]+\\.css`));
     assert.doesNotMatch(inicial, new RegExp(`/modulos/${grupo}/[^" ]+\\.css`), `${grupo} no bloquea Inicio ni CT`);
+  }
+});
+
+// 09/10/2026 (PR #962): de la lista a la ficha pasaban ~1,1 s antes de pedir el
+// detalle. La lista ya tiene el cuadro, su resumen y los catálogos del alta
+// autorizados; la ficha los toma una vez y descarga su vista mientras consulta.
+test("abrir una ficha desde la lista no repite consultas y pide el detalle sin esperar a la vista", async (t) => {
+  const llamadas = [];
+  const vista = diferido();
+  const fila = Object.freeze({ expediente_ref: "expediente:ct:0001", numero_visible: "2026/CT-0001", version: 2,
+    fase_clave: "solicitud", estado_clave: "pendiente", centro_ref: "centro:001", categoria_ref: "categoria:auxiliar",
+    creado_en: "2026-10-01T08:00:00Z", actualizado_en: "2026-10-01T09:00:00Z" });
+  const resumen = Object.freeze({ en_tramite: 1, con_incidencia: 0, vencidos: 0, vencen_hoy: 0,
+    vencen_semana: 0, sin_calcular: 1, por_fase: Object.freeze({ solicitud: 1 }) });
+  const cliente = Object.freeze({
+    consultarCuadroRRHH: async (solicitud) => {
+      llamadas.push(solicitud.resumen ? `cuadro+resumen:${solicitud.paginacion.limite}` : `cuadro:${solicitud.paginacion.limite}`);
+      return { generada_en: "2026-10-01T09:00:00Z", expedientes: [fila], hay_mas: false,
+        ...(solicitud.resumen ? { resumen } : {}) };
+    },
+    obtenerCatalogosAlta: async () => { llamadas.push("alta"); return { centros: [], categorias: [] }; },
+    obtenerConfiguracionAnalisis: async () => { llamadas.push("analisis"); throw new Error("503"); },
+    registrarSolicitud: async () => ({}),
+  });
+  const consultaCuadro = (c, limite, conResumen = false) => c.consultarCuadroRRHH({
+    filtros: { texto: "", estado_clave: "", fase_clave: "" }, paginacion: { limite, cursor: "" },
+    ...(conResumen ? { resumen: true } : {}) });
+  let fuenteCompleta = null;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
+    cargarFasesCircuito: async () => ({ solicitud: "Solicitud" }),
+    cargadoresInternos: { contratacion_temporal: async () => ({
+      cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+      contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
+      cargarCuadroLigero: () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js"),
+      cargarCompleto: async () => ({
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: ({ cliente: c }) => (fuenteCompleta = {
+          capacidades: [],
+          resumenInicio: async () => ({ resumen: (await consultaCuadro(c, 1, true)).resumen }),
+          listar: () => consultaCuadro(c, 100),
+        }) },
+        presentador: { crearPresentadorExpedientesContratacionTemporal: ({ fuente }) => {
+          let cuadro = null;
+          return { cargar: async () => { cuadro = await fuente.listar(); }, obtenerEstado: () => ({ cuadro }),
+            seleccionarExpediente: async (referencia) => { llamadas.push(`detalle:${referencia}`); } };
+        } },
+      }),
+      cargarVista: () => { llamadas.push("vista"); return vista.promesa; },
+    }) },
+  });
+  await coordinador.cargarInterno();
+  const eventos = new Map();
+  const raiz = { eventos, innerHTML: "", replaceChildren() { this.innerHTML = ""; },
+    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); }, removeEventListener(tipo) { eventos.delete(tipo); },
+    contains: () => true, querySelector: () => null, querySelectorAll: () => [], setAttribute() {}, removeAttribute() {} };
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+  await esperarTurnos(20);
+  assert.deepEqual(llamadas, ["cuadro+resumen:100", "alta"], "la lista: una página con resumen y sus nombres");
+  const clic = eventos.get("click")({ target: { closest: () => ({ dataset: { ctExpAbrir: fila.expediente_ref } }) } });
+  await esperarTurnos(40);
+  assert.deepEqual(llamadas.slice(2), ["analisis", "vista", `detalle:${fila.expediente_ref}`],
+    "ni cuadro, ni resumen, ni catálogos repetidos; el detalle sale antes de que llegue la vista");
+  const montajes = [];
+  vista.resolver({ vista: { montarModuloContratacionTemporal: async () => { montajes.push("ficha"); return { desmontar() {} }; } } });
+  await clic;
+  assert.deepEqual(montajes, ["ficha"]);
+  await consultaCuadro({ consultarCuadroRRHH: (...args) => fuenteCompleta.listar(...args) }, 100);
+  assert.equal(llamadas.at(-1), "cuadro:100", "una recarga posterior vuelve a consultar el servidor");
+  // Un enlace directo a la ficha no viene de la lista: consulta el cuadro.
+  vista.resolver({ vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) } });
+  const antes = llamadas.length;
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz, { expedienteRef: fila.expediente_ref }), true);
+  assert.deepEqual(llamadas.slice(antes), ["cuadro:100", `detalle:${fila.expediente_ref}`]);
+  // Un clic en una lista abierta hace más de 30 s también consulta el cuadro.
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+  await esperarTurnos(20);
+  t.mock.method(performance, "now", () => Number.MAX_SAFE_INTEGER);
+  const tardio = llamadas.length;
+  await eventos.get("click")({ target: { closest: () => ({ dataset: { ctExpAbrir: fila.expediente_ref } }) } });
+  assert.deepEqual(llamadas.slice(tardio), ["cuadro:100", `detalle:${fila.expediente_ref}`]);
+  coordinador.desmontarVistaActual();
+});
+
+// Con la lista abierta, el código y los textos de la ficha se descargan en
+// reposo, sin ninguna consulta de datos; no con ahorro de datos o red 2G.
+test("la lista CT precarga en reposo solo el código de la ficha y respeta el ahorro de datos", async () => {
+  for (const conexion of [{ saveData: false, effectiveType: "4g" }, { saveData: true }, { effectiveType: "2g" }]) {
+    const reposo = [], cancelados = [], cargas = [], consultas = [];
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      entorno: { navigator: { connection: conexion }, requestIdleCallback: (cb) => reposo.push(cb),
+        cancelIdleCallback: (id) => cancelados.push(id) },
+      cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
+      cargadoresInternos: { contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => ({
+          consultarCuadroRRHH: async () => { consultas.push("cuadro"); return { generada_en: "2026-10-01T09:00:00Z", expedientes: [], hay_mas: false }; },
+          obtenerCatalogosAlta: async () => { consultas.push("alta"); return { centros: [], categorias: [] }; },
+        }) },
+        contrato: { validarCatalogosAlta: (valor) => valor },
+        cargarCuadroLigero: () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js"),
+        cargarCompleto: async () => { cargas.push("completo"); return {}; },
+        cargarVista: async () => { cargas.push("vista"); return {}; },
+      }) },
+    });
+    await coordinador.cargarInterno();
+    const raiz = { innerHTML: "", replaceChildren() {}, addEventListener() {}, removeEventListener() {},
+      contains: () => true, querySelector: () => null, querySelectorAll: () => [], setAttribute() {}, removeAttribute() {} };
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+    await esperarTurnos(10);
+    const consultasLista = [...consultas];
+    if (conexion.saveData || conexion.effectiveType === "2g") {
+      assert.equal(reposo.length, 0, "sin precarga con ahorro de datos o 2G");
+      continue;
+    }
+    assert.equal(reposo.length, 1);
+    assert.deepEqual(cargas, [], "nada se descarga hasta que el navegador está en reposo");
+    reposo[0]();
+    await esperarTurnos(5);
+    assert.deepEqual(cargas.sort(), ["completo", "vista"]);
+    assert.deepEqual(consultas, consultasLista, "la precarga no consulta datos");
+    coordinador.desmontarVistaActual();
+    assert.deepEqual(cancelados, [1], "al salir de la lista se cancela la espera");
   }
 });

@@ -1,15 +1,20 @@
+import { consultarJSON, ErrorConsultaJSON } from "../../../../comun/http.js?v=20261010-http-carga-v1";
 import { FILTROS_SERVIDOR, TAMANO_PAGINA } from "./modelo.js?v=20261008-u-b1-paginacion-v1";
 
 /**
- * Transporte de la carga de bolsas desde CONVOCA. El fichero viaja en base64
- * dentro de un JSON cerrado; la identidad la pone la frontera mTLS del
- * servidor, nunca este cliente (sin cabeceras de autorización ni almacenamiento).
+ * Contrato de la carga de bolsas desde CONVOCA sobre el transporte mTLS común
+ * (comun/http.js). El fichero viaja en base64 dentro de un JSON cerrado; la
+ * identidad la pone la frontera del servidor, nunca este cliente.
  */
 export const RUTA_VISTA_PREVIA = "/api/vec/bolsa/cargas-convoca/vista-previa";
 export const RUTA_CONFIRMAR = "/api/vec/bolsa/cargas-convoca";
 export const MAXIMO_FICHERO = 1024 * 1024;
 export const PLAZO_MS = 60000;
-const MAXIMO_RESPUESTA = 12 * 1024 * 1024;
+// Base64 del fichero máximo más los campos del JSON (el servidor admite lo mismo).
+const MAXIMO_CUERPO = Math.ceil(MAXIMO_FICHERO / 3) * 4 + 4096;
+// Estado HTTP sin código de negocio legible → código estable de la pantalla.
+const CODIGO_POR_ESTADO = Object.freeze({ 400: "peticion_no_valida", 401: "autenticacion_requerida",
+  403: "acceso_denegado", 413: "fichero_demasiado_grande" });
 const ESQUEMA_VISTA = "vec.bolsa.rrhh.carga_convoca.vista_previa.v1";
 const ESQUEMA_RECIBO = "vec.bolsa.rrhh.carga_convoca.recibo.v1";
 const HUELLA = /^[a-f0-9]{64}$/u;
@@ -99,40 +104,20 @@ export function validarRecibo(sobre) {
   return Object.freeze({ ...d });
 }
 
-async function leerJSON(respuesta) {
-  if (!/^application\/json(?:;|$)/iu.test(respuesta.headers?.get?.("content-type") || "")) return null;
-  const longitud = Number(respuesta.headers.get("content-length") || 0);
-  if (longitud > MAXIMO_RESPUESTA) throw new TypeError("respuesta excesiva");
-  const contenido = await respuesta.text();
-  if (contenido.length > MAXIMO_RESPUESTA) throw new TypeError("respuesta excesiva");
-  return JSON.parse(contenido);
-}
-
 export function crearClienteCargaConvoca({ fetchImpl = globalThis.fetch, plazoMs = PLAZO_MS } = {}) {
   if (typeof fetchImpl !== "function" || !Number.isSafeInteger(plazoMs) || plazoMs < 1) {
     throw new TypeError("cliente de carga no disponible");
   }
   async function enviar(ruta, cuerpo, signal) {
-    const controlador = new AbortController();
-    const cancelar = () => controlador.abort();
-    signal?.addEventListener("abort", cancelar, { once: true });
-    const temporizador = setTimeout(cancelar, plazoMs);
     try {
-      if (signal?.aborted) controlador.abort();
-      const respuesta = await fetchImpl(ruta, {
-        method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error",
-        referrerPolicy: "no-referrer", headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(cuerpo), signal: controlador.signal,
-      });
-      const json = await leerJSON(respuesta).catch(() => null);
-      if (!respuesta.ok) {
-        const codigo = json?.error?.codigo;
-        throw new ErrorCargaConvoca(respuesta.status, CODIGO.test(codigo ?? "") ? codigo : "servicio_no_disponible");
-      }
-      return json;
-    } finally {
-      clearTimeout(temporizador);
-      signal?.removeEventListener("abort", cancelar);
+      return await consultarJSON(ruta, { metodo: "POST", cuerpo, signal, fetchImpl, plazoMs,
+        limiteCuerpoBytes: MAXIMO_CUERPO });
+    } catch (fallo) {
+      if (!(fallo instanceof ErrorConsultaJSON)) throw fallo;
+      if (fallo.codigo === "cancelado") throw new DOMException("cancelado", "AbortError");
+      const codigo = CODIGO.test(fallo.codigoServidor ?? "") ? fallo.codigoServidor
+        : CODIGO_POR_ESTADO[fallo.estado] ?? "servicio_no_disponible";
+      throw new ErrorCargaConvoca(fallo.estado, codigo);
     }
   }
   return Object.freeze({

@@ -92,6 +92,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	registroAutorizacion              *pgxpool.Pool
 	confirmador                       *pgxpool.Pool
 	lectorResultado                   *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
+	vinculoEmisionBolsa               bool
 	registradorAuditoriaFrontera      *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
 	auditoriaFrontera                 *pgxpool.Pool
 	candidaturas                      ports.ResolutorCandidaturaAlta
@@ -128,6 +129,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialDietas                                   materialDietasDesdeCTDesarrollo
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialInscripcionBolsa                         materialInscripcionRRHHDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalExportacionServicios             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalHistoriaServicios                *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -420,6 +422,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	seleccion.vinculoEmisionBolsa, err = detectarVinculoEmisionBolsaCTDesarrollo(ctx, ejecucion)
+	if err != nil {
+		return vacias, err
+	}
+	dependencias.vinculoEmisionBolsa = seleccion.vinculoEmisionBolsa
 	// CT137/AD3-100 deben existir y conservar sus ACL antes de publicar la
 	// audiencia documental. Se reutiliza el pool ejecutor ya acreditado.
 	if seleccion.plantillasDocumental {
@@ -493,6 +500,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		}
 		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialAuditoriaConsultaDesarrollo())
 	}
+	descriptoresMaterial = materialCargaConvocaDesarrollo(descriptoresMaterial, seleccion.borradoresBolsa) // B1: ver bolsa_carga_convoca_gobernada.go
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -610,6 +618,15 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		if err != nil {
 			return vacias, err
 		}
+	}
+	if etapa = "material_inscripcion_bolsa"; seleccion.inscripcionBolsa {
+		var proveedores [2]*proveedorMaterialAltaContratacionTemporalDesarrollo
+		for i, descriptor := range descriptoresMaterialInscripcionRRHHDesarrollo() {
+			if proveedores[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia); err != nil {
+				return vacias, err
+			}
+		}
+		dependencias.materialInscripcionBolsa = materialInscripcionRRHHDesarrollo{revisar: proveedores[0], incorporar: proveedores[1]}
 	}
 	etapa = "material_personal_ficha_propia"
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
@@ -756,6 +773,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 		if cfg.BolsaBorradoresEnabled {
+			dependencias.proveedorMaterialCargaConvoca = proveedorCargaConvocaOpcionalDesarrollo(nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConfirmarCargaConvoca))
 			if seleccion.reincorporacionTitular {
 				etapa = "material_consulta_reincorporacion_titular_bolsa"
 				dependencias.proveedorMaterialConsultaReincorporacionTitular, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(

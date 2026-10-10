@@ -82,7 +82,7 @@ func (r respuestaReincorporacionSQL) recibo() ports.ReciboReincorporacionTitular
 
 func decodificarReincorporacionSQL(b []byte) (respuestaReincorporacionSQL, error) {
 	var r respuestaReincorporacionSQL
-	if len(b) == 0 || len(b) > maximoCargaSeguimiento || decodificarJSONEstricto(b, &r) != nil || r.Esquema != esquemaResultadoReincorporacion {
+	if len(b) == 0 || len(b) > maximoCargaSeguimiento || decodificarConExpedienteSQL(b, &r, "expediente") != nil || r.Esquema != esquemaResultadoReincorporacion {
 		return r, ports.ErrResultadoSeguimientoNoConfiable
 	}
 	// Los conflictos de CT130 son respuestas mínimas. Un campo adicional

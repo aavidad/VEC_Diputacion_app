@@ -273,6 +273,7 @@ func (f *FuenteLecturas) ConsultarRecibo(ctx context.Context, actor domain.Conte
 		if decodificar(b, &dto) != nil {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
+		dto.normalizarUTC()
 		x = dto.dominio()
 		if x.Validar() != nil || x.ReciboRef != ref || !instantePersistible(x.ConfirmadoEn) {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible

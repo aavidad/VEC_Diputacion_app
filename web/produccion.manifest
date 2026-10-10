@@ -267,11 +267,13 @@ static/textos/en/contratacion-temporal-firma.json
 static/textos/es/contratacion-temporal-incorporacion-personal-b2.json
 static/textos/en/contratacion-temporal-incorporacion-personal-b2.json
 static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
+static/portal-empleado/modulos/contratacion-temporal/resultado-bolsa.js
 static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.html
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.js
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.css
 static/portal-empleado/modulos/contratacion-temporal/contrato-expedientes.js
+static/portal-empleado/modulos/contratacion-temporal/contrato-resultado-bolsa.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-analisis.js
 static/portal-empleado/modulos/contratacion-temporal/contrato.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-cobertura.js
@@ -298,6 +300,7 @@ static/portal-empleado/modulos/contratacion-temporal/cliente-http.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-transporte.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-alta.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-consultas-rrhh.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-vinculo-bolsa.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-informe-definitivo.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-ejercicio.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js
@@ -361,6 +364,7 @@ static/portal-empleado/modulos/contratacion-temporal/cliente-http-documentacion-
 static/portal-empleado/modulos/contratacion-temporal/i18n-documentacion-formalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/presentador.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
+static/portal-empleado/modulos/contratacion-temporal/gestor-resultado-bolsa.js
 static/portal-empleado/modulos/contratacion-temporal/vista-circuito-rrhh.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-circuito-rrhh.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-circuito-rrhh.js
@@ -729,3 +733,11 @@ static/portal-empleado/reglas/ajustes.js
 static/portal-empleado/reglas/ajustes-i18n.js
 static/textos/es/reglas-plazos.json
 static/textos/en/reglas-plazos.json
+static/portal-empleado/modulos/bolsa/inscripcion-rrhh-cliente.js
+static/portal-empleado/modulos/bolsa/inscripcion-rrhh-vista.js
+static/textos/es/bolsa-inscripcion-rrhh.json
+static/textos/en/bolsa-inscripcion-rrhh.json
+static/area-personal/inscripcion-bolsa-api.js
+static/area-personal/inscripcion-bolsa-vista.js
+static/textos/es/bolsa-inscripcion-aspirante.json
+static/textos/en/bolsa-inscripcion-aspirante.json

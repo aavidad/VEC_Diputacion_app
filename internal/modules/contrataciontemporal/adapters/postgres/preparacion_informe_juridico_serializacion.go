@@ -84,7 +84,7 @@ func (f filaPreparacionInformeJuridico) restaurar(
 			ports.ErrPersistenciaInformeJuridicoNoDisponible
 	}
 	var expediente domain.Expediente
-	if decodificarJSONEstricto([]byte(f.expedienteJSON), &expediente) != nil ||
+	if decodificarExpedienteSQL([]byte(f.expedienteJSON), &expediente) != nil ||
 		expediente.Validar() != nil {
 		return ports.PreparacionInformeJuridico{},
 			ports.ErrPersistenciaInformeJuridicoNoDisponible

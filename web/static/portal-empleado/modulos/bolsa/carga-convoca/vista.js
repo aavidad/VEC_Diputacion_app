@@ -1,5 +1,5 @@
-import { bytesABase64, comprobarFichero, ErrorCargaConvoca } from "./cliente.js?v=20261008-u-b1-preview-v6";
-import { rutaCandidatosBolsaCompartible } from "../../../portal-bolsas-ruta-filtros.js";
+import { bytesABase64, comprobarFichero, ErrorCargaConvoca } from "./cliente.js?v=20261010-b1-carga-v1";
+import { rutaCandidatosBolsaCompartible } from "../../../portal-bolsas-ruta-filtros.js?v=20261009-ct-bolsa-cohorte-v9";
 import {
   claveCategoria, escribirEstadoRuta, filtroControl, filtroServidor, leerEstadoRuta, nombrePersona,
   paginaServidor, TAMANO_PAGINA, textoAviso, textoBloqueo, textoError, textoIncidencia,
@@ -304,7 +304,6 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     $("cargar").hidden = estado.soloLectura || estado.indeterminado;
     $("cargar").disabled = estado.soloLectura || estado.indeterminado || Boolean(v.bloqueo) || estado.cargandoPagina;
     $("recuperar-resultado").hidden = !estado.indeterminado;
-    $("recuperar-ayuda").hidden = !estado.indeterminado;
     $("ver-bolsas-tras-error").hidden = !estado.indeterminado;
     $("otro-fichero").hidden = estado.soloLectura;
     $("volver-resultado").hidden = !estado.soloLectura;
@@ -324,8 +323,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
   function avisarRecuperacionSinFichero() {
     if (!estado.indeterminado || estado.base64) return;
     $("recuperar-resultado").disabled = true;
-    $("recuperar-ayuda").textContent = t("recuperacionSinFichero");
-    $("recuperar-ayuda").hidden = false;
+    mostrarErrorRevision(t("recuperacionSinFichero"));
     doc.querySelectorAll('input[name="filtro"], .carga-kpi-boton, #anterior, #siguiente')
       .forEach((control) => { control.disabled = true; });
   }
@@ -374,7 +372,6 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       if (estado.indeterminado) {
         $("cargar").hidden = true;
         $("recuperar-resultado").hidden = false;
-        $("recuperar-ayuda").hidden = false;
         $("ver-bolsas-tras-error").hidden = false;
         if (!estado.base64) avisarRecuperacionSinFichero();
       }
@@ -426,6 +423,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       grupo.append(lista);
       datos.push(grupo);
     }
+    datos.push(t("hechoVersion", { version: n(recibo.version_bolsa) }));
     datos.push(t("hechoFecha", { fecha: textos.fecha(recibo.confirmada_en, { dateStyle: "long", timeStyle: "short", timeZone: ZONA }) }));
     $("hecho-datos").replaceChildren(cargadas, ...datos.map((dato) => {
       if (typeof dato !== "string") return dato;
@@ -439,7 +437,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       li.textContent = `${t("fila", { numero: n(p.fila) })}: ${textoAviso(textos, p.motivo)}`;
       return li;
     }));
-    $("detalle-registro").textContent = t("detalleRegistro", { referencia: recibo.auditoria_ref });
+    $("detalle-registro").textContent = t("detalleRegistro", { referencia: recibo.acta_ref });
   }
 
   function avisarFicheroNoDisponible(enfocar = false) {
@@ -475,8 +473,6 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       cargandoPagina: false, peticionActual: null, recibo: null, soloLectura: false, indeterminado: false });
     $("ver-bolsas-tras-error").hidden = true;
     $("recuperar-resultado").hidden = true;
-    $("recuperar-ayuda").hidden = true;
-    $("recuperar-ayuda").textContent = t("recuperarResultadoAyuda");
     doc.querySelectorAll('input[name="filtro"], .carga-kpi-boton, #anterior, #siguiente')
       .forEach((control) => { control.disabled = false; });
     $("fichero").value = "";

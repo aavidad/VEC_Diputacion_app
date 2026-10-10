@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { consultarJSON, ErrorConsultaJSON } from "./http.js";
+import { consultarJSON, ErrorConsultaJSON, rutaEnvioPublicada } from "./http.js";
 
 function respuesta(datos, estado = 200, cabeceras = {}) {
   return new Response(JSON.stringify(datos), { status: estado, headers: { "Content-Type": "application/json", ...cabeceras } });
@@ -137,4 +137,43 @@ test("rechaza exceso de bytes, JSON inválido, redirección y estados tipados", 
 test("plazo máximo cancela incluso si fetch ignora AbortSignal", async () => {
   await assert.rejects(consultarJSON("/api/vec/session", { plazoMs: 5, reintentos: 0, fetchImpl: () => new Promise(() => {}) }),
     (fallo) => fallo.codigo === "red");
+});
+
+test("un 409 o 422 conserva el código de negocio acotado y un 500 no lee el cuerpo", async () => {
+  const { consultarJSON: consultar } = await import("./http.js?prueba-codigo-servidor");
+  const conCodigo = (status, codigo) => async () => new Response(JSON.stringify({ error: { codigo } }),
+    { status, headers: { "Content-Type": "application/json" } });
+  await assert.rejects(consultar("/api/vec/x", { metodo: "POST", cuerpo: {}, fetchImpl: conCodigo(422, "plazo_cerrado") }),
+    (error) => error.estado === 422 && error.codigoServidor === "plazo_cerrado");
+  await assert.rejects(consultar("/api/vec/x", { metodo: "POST", cuerpo: {}, fetchImpl: conCodigo(409, "<script>") }),
+    (error) => error.estado === 409 && error.codigo === "conflicto" && error.codigoServidor === "");
+  await assert.rejects(consultar("/api/vec/x", { metodo: "POST", cuerpo: {}, fetchImpl: conCodigo(500, "interno") }),
+    (error) => error.estado === 500 && error.codigoServidor === undefined);
+});
+
+test("un envío grande solo pasa con su límite propio y nunca en GET", async () => {
+  const grande = { contenido: "a".repeat(300 * 1024) };
+  const fetchImpl = async () => respuesta({ ok: true });
+  assert.throws(() => consultarJSON("/api/vec/x", { metodo: "POST", cuerpo: grande, fetchImpl }), TypeError);
+  assert.deepEqual(await consultarJSON("/api/vec/x", { metodo: "POST", cuerpo: grande, fetchImpl,
+    limiteCuerpoBytes: 512 * 1024, plazoMs: 60_000 }), { ok: true });
+  assert.throws(() => consultarJSON("/api/vec/x", { metodo: "POST", cuerpo: grande, fetchImpl, limiteCuerpoBytes: 3 * 1024 * 1024 }), TypeError);
+  assert.throws(() => consultarJSON("/api/vec/x", { fetchImpl, limiteCuerpoBytes: 512 * 1024 }), TypeError);
+  assert.throws(() => consultarJSON("/api/vec/x", { fetchImpl, plazoMs: 60_000 }), TypeError);
+});
+
+test("rutaEnvioPublicada solo es cierta con 405 del mismo origen y no reintenta", async () => {
+  let llamadas = 0;
+  let opciones;
+  const con = (estado) => async (_ruta, o) => { llamadas++; opciones = o; return new Response(null, { status: estado }); };
+  assert.equal(await rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca", { fetchImpl: con(405) }), true);
+  assert.equal(opciones.method, "GET");
+  assert.equal(opciones.credentials, "same-origin");
+  assert.equal(opciones.redirect, "error");
+  assert.equal(opciones.body, undefined);
+  assert.equal(await rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca", { fetchImpl: con(404) }), false);
+  assert.equal(await rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca", { fetchImpl: con(503) }), false);
+  assert.equal(await rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca", { fetchImpl: async () => { throw new Error("red"); } }), false);
+  assert.equal(llamadas, 3);
+  await assert.rejects(rutaEnvioPublicada("https://evil.test/api/vec/x", { fetchImpl: con(405) }), TypeError);
 });

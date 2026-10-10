@@ -60,7 +60,11 @@ func (a *Autoridad) AplicarActoOrdinario(ctx context.Context, s domain.Solicitud
 	}
 	err = a.ejecutar(ctx, s.Actor, s.Evidencia, s.InstantaneaAutorizacion, e, aplicarSQL, func(b []byte) error {
 		var x reciboJSON
-		if decodificar(b, &x) != nil || !x.vigenciaHistoricaCompleta() {
+		if decodificar(b, &x) != nil {
+			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		}
+		x.normalizarUTC()
+		if !x.vigenciaHistoricaCompleta() {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
 		recibo = x.dominio()
@@ -92,7 +96,7 @@ func (a *Autoridad) ProponerActoSensible(ctx context.Context, s domain.Solicitud
 		}
 		resultado = ports.PropuestaAdministracionPerfiles{OperacionRef: x.OperacionRef, PropuestaRef: x.PropuestaRef,
 			HuellaSHA256: x.HuellaSHA256, ProponentePersonaRef: x.ProponentePersonaRef,
-			ObjetivoPersonaRef: x.ObjetivoPersonaRef, CaducaEn: x.CaducaEn}
+			ObjetivoPersonaRef: x.ObjetivoPersonaRef, CaducaEn: utcDesplazamientoCero(x.CaducaEn)}
 		if resultado.ValidarPara(s) != nil || !resultado.CaducaEn.After(a.reloj.Ahora()) || !instantePersistible(resultado.CaducaEn) {
 			return domain.ErrControlAdministracionPerfilesInvalido
 		}
@@ -125,8 +129,10 @@ func (a *Autoridad) CerrarPropuestaSensible(ctx context.Context, s domain.Solici
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
 		resultado = ports.CierrePropuestaAdministracionPerfiles{OperacionRef: x.OperacionRef, PropuestaRef: x.PropuestaRef,
-			PropuestaHuellaSHA256: x.PropuestaHuellaSHA256, Decision: x.Decision, HuellaCierreSHA256: x.HuellaCierreSHA256, ConfirmadoEn: x.ConfirmadoEn}
+			PropuestaHuellaSHA256: x.PropuestaHuellaSHA256, Decision: x.Decision, HuellaCierreSHA256: x.HuellaCierreSHA256,
+			ConfirmadoEn: utcDesplazamientoCero(x.ConfirmadoEn)}
 		if x.Recibo != nil {
+			x.Recibo.normalizarUTC()
 			if !x.Recibo.vigenciaHistoricaCompleta() {
 				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 			}
