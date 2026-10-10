@@ -51,6 +51,19 @@ portal. Las capturas y su alcance están en
 desbordamiento horizontal. El HTML temporal no usó el servidor VEC ni una
 sesión nominal; estas capturas prueban sólo el aspecto de la tarjeta.
 
+Los catálogos RRHH ES/EN cambiaron la huella global de textos a
+`39b189606d91e3bc`. `comun/textos.js` se importa sin `?v=` y el servidor
+lo revalida con `no-cache`; cada catálogo se solicita con
+`?huella=39b189606d91e3bc`. La prueba `textos-version.test.mjs` comprueba
+la huella completa. El shell y sus cachés públicos ya apuntan a las vistas
+versionadas de B99.
+
+La migración B99 también se ensayó sobre la preimagen B96 en un PostgreSQL
+18.4 desechable como LOGIN migrador sin superusuario, miembro del rol
+`vec_bolsa_llamamientos_propietario` con permiso `SET`. Terminó con éxito;
+las tres funciones conservaron dueño y ACL idénticos. Reaplicar B99 se detuvo
+en la guarda de preimagen antes de alterar ninguna función.
+
 CONFIG NUEVA: versión gobernada de los roles que ya conceden las cinco
 acciones anteriores, con las cinco hojas exactas de la tabla. No hay variable
 de entorno nueva.

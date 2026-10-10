@@ -1,16 +1,29 @@
 -- B99: título histórico en cada solicitud y recuento pendiente por convocatoria.
 -- Preimagen: funciones literales de B96 (aún no instalada en la principal).
 -- Depende de B96 y BC9; B99 conserva firmas, dueño, ACL y auditoría de B96.
+\set ON_ERROR_STOP on
 BEGIN;
-SET LOCAL lock_timeout='2s';
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+SET LOCAL search_path=pg_catalog,pg_temp;
+SET LOCAL timezone='UTC';
+SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
+SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:000099',0));
 DO $guard$
 DECLARE actual text;
 BEGIN
- IF to_regprocedure('vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(boolean,text,jsonb,text,text,text,text)') IS NULL
+ IF current_user<>'vec_bolsa_llamamientos_propietario'
+ OR current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
+ OR to_regprocedure('vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(boolean,text,jsonb,text,text,text,text)') IS NULL
  OR to_regprocedure('vec_bolsa_llamamientos.leer_solicitud_inscripcion_interna_v1(boolean,text,text,text,text,text,text)') IS NULL
  OR to_regprocedure('vec_bolsa_llamamientos.listar_convocatorias_rrhh_inscripcion_interna_v1(text,text,text,integer,text)') IS NULL
  THEN RAISE EXCEPTION 'B99 requiere B96' USING ERRCODE='55000'; END IF;
+ IF EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid IN (
+  to_regprocedure('vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(boolean,text,jsonb,text,text,text,text)'),
+  to_regprocedure('vec_bolsa_llamamientos.leer_solicitud_inscripcion_interna_v1(boolean,text,text,text,text,text,text)'),
+  to_regprocedure('vec_bolsa_llamamientos.listar_convocatorias_rrhh_inscripcion_interna_v1(text,text,text,integer,text)'))
+  AND pg_catalog.pg_get_userbyid(p.proowner)<>'vec_bolsa_llamamientos_propietario')
+ THEN RAISE EXCEPTION 'B99 requiere dueño propietario B96' USING ERRCODE='55000'; END IF;
  SELECT md5(prosrc) INTO actual FROM pg_catalog.pg_proc
  WHERE oid=to_regprocedure('vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(boolean,text,jsonb,text,text,text,text)');
  IF actual IS DISTINCT FROM '67c65e39fdd4c326b05a9c36db6eaea6'
