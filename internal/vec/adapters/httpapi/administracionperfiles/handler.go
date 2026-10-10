@@ -445,7 +445,7 @@ func (h *Handler) denegarSesionIncompatible(w http.ResponseWriter, r *http.Reque
 
 func (h *Handler) denegarActor(w http.ResponseWriter, r *http.Request, s SesionConfiable,
 	estado int, codigo, accion, recurso string) {
-	if h.registrarDenegacionActor(r, s, codigo, accion, recurso) != "" {
+	if h.registrarDenegacionActor(r, s, codigo, accion, recurso) != nil {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
@@ -453,28 +453,51 @@ func (h *Handler) denegarActor(w http.ResponseWriter, r *http.Request, s SesionC
 }
 
 // registrarDenegacionActor audita la denegación con la sesión nominal. Devuelve
-// "" si quedó registrada o la clase cerrada de lo que impidió registrarla.
+// nil si quedó registrada; si no, un error con la causa y la clase cerrada de
+// lo que impidió registrarla (claseDenegacionActor), que solo va al registro
+// técnico.
 func (h *Handler) registrarDenegacionActor(r *http.Request, s SesionConfiable,
-	codigo, accion, recurso string) string {
+	codigo, accion, recurso string) error {
 	actor, err := s.Actor.Clonar()
 	if err != nil {
-		return "denegacion_actor"
+		return falloDenegacionActor{clase: "denegacion_actor", causa: err}
 	}
 	resultado, err := s.Evidencia.ResultadoContexto.Clonar()
 	if err != nil {
-		return "denegacion_evidencia"
+		return falloDenegacionActor{clase: "denegacion_evidencia", causa: err}
 	}
 	evidencia := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: s.Evidencia.Vinculo}
-	if evidencia.ValidarPara(actor) != nil {
-		return "denegacion_evidencia"
+	if err := evidencia.ValidarPara(actor); err != nil {
+		return falloDenegacionActor{clase: "denegacion_evidencia", causa: err}
 	}
 	registro := DenegacionADMIN{SesionResuelta: true, Codigo: codigo, Accion: accion, RecursoRef: recurso,
 		ActorPersonaRef: actor.PersonaRef, PerfilActivoRef: actor.PerfilActivoRef,
 		CorrelacionRef: s.CorrelacionRef, Actor: actor, Evidencia: evidencia}
-	if h.auditor.RegistrarDenegacionADMIN(r.Context(), registro) != nil {
-		return "denegacion_auditoria"
+	if err := h.auditor.RegistrarDenegacionADMIN(r.Context(), registro); err != nil {
+		return falloDenegacionActor{clase: "denegacion_auditoria", causa: err}
 	}
-	return ""
+	return nil
+}
+
+// falloDenegacionActor conserva la causa (errors.Is/As) y la clase cerrada de
+// por qué no se pudo auditar una denegación. Error() es la causa: la clase no
+// llega al cliente.
+type falloDenegacionActor struct {
+	clase string
+	causa error
+}
+
+func (f falloDenegacionActor) Error() string { return f.causa.Error() }
+func (f falloDenegacionActor) Unwrap() error { return f.causa }
+
+// claseDenegacionActor devuelve la clase cerrada de un fallo de
+// registrarDenegacionActor, o "sin_clase" si err no la lleva.
+func claseDenegacionActor(err error) string {
+	var f falloDenegacionActor
+	if errors.As(err, &f) && f.clase != "" {
+		return f.clase
+	}
+	return "sin_clase"
 }
 
 func fallo(w http.ResponseWriter, estado int, codigo string) {
