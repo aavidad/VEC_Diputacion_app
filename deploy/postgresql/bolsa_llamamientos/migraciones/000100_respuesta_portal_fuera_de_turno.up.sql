@@ -27,7 +27,8 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.respuesta_portal_llamamiento') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.situacion_participacion') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(text[],timestamptz)') IS NULL
-    OR to_regprocedure('vec_bolsa_llamamientos.respuestas_portal_sin_reflejar_v1(text,timestamptz)') IS NOT NULL THEN
+    OR to_regprocedure('vec_bolsa_llamamientos.respuestas_portal_sin_reflejar_v1(text,timestamptz)') IS NOT NULL
+    OR to_regclass('vec_bolsa_llamamientos.respuesta_portal_llamamiento_bolsa_pendiente') IS NOT NULL THEN
   RAISE EXCEPTION 'B100: clave=preimagen esperado=B30_B41_B90_instaladas actual=incompatible_o_ya_instalada'
    USING ERRCODE='55000';
  END IF;
@@ -48,8 +49,9 @@ END $pre$;
 -- Respuestas del portal que ninguna situación registrada después ha
 -- reflejado, la más reciente por participación. Se compara con registrada_en
 -- (instante del servidor al guardar), no con «desde», que puede fecharse
--- hacia atrás. Invocadora y sin concesiones: solo la llaman las lecturas
--- definidoras del propietario.
+-- hacia atrás; la situación nueva solo cuenta cuando ya está en vigor.
+-- Invocadora y sin concesiones: solo la llaman las lecturas definidoras del
+-- propietario.
 CREATE FUNCTION vec_bolsa_llamamientos.respuestas_portal_sin_reflejar_v1(p_bolsa_ref text, p_en timestamptz)
 RETURNS TABLE(participacion_ref text, respuesta text, respondida_en timestamptz)
 LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp SET timezone = 'UTC' AS $f$
@@ -58,10 +60,15 @@ LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp SET timezone = 'UTC' A
   WHERE r.bolsa_ref = p_bolsa_ref AND r.respondida_en <= p_en
     AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.situacion_participacion s
                      WHERE s.participacion_ref = r.participacion_ref
-                       AND s.registrada_en >= r.respondida_en AND s.registrada_en <= p_en)
+                       AND s.registrada_en >= r.respondida_en AND s.registrada_en <= p_en
+                       AND s.desde <= p_en)
   ORDER BY r.participacion_ref, r.respondida_en DESC, r.respuesta_ref DESC
 $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.respuestas_portal_sin_reflejar_v1(text,timestamptz) FROM PUBLIC;
+-- Los avisos de salto de orden (000020) leen el orden una vez por llamamiento
+-- emitido: sin este índice cada lectura recorrería todas las respuestas.
+CREATE INDEX respuesta_portal_llamamiento_bolsa_pendiente
+ ON vec_bolsa_llamamientos.respuesta_portal_llamamiento(bolsa_ref, participacion_ref, respondida_en DESC);
 
 -- B90 más «respuesta_pendiente»: no ocupa turno y su razón es
 -- respuesta_portal_pendiente. La columna situacion no cambia.
@@ -180,7 +187,7 @@ DECLARE esperado jsonb := jsonb_build_object(
  'owner_orden','vec_bolsa_llamamientos_propietario','owner_marcas','vec_bolsa_llamamientos_propietario',
  'owner_ayuda','vec_bolsa_llamamientos_propietario','definidoras',true,'ayuda_invocadora',true,
  'orden_ejecutor',true,'marcas_ejecutor',true,'ayuda_ejecutor',false,'ayuda_publica',false,
- 'orden_publico',false,'marcas_publico',false);
+ 'orden_publico',false,'marcas_publico',false,'ayuda_config',true,'indice',true);
  actual jsonb;
 BEGIN
  SELECT jsonb_build_object(
@@ -196,9 +203,12 @@ BEGIN
  'ayuda_ejecutor',has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.respuestas_portal_sin_reflejar_v1(text,timestamptz)','EXECUTE'),
  'ayuda_publica',EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
    WHERE p.oid='vec_bolsa_llamamientos.respuestas_portal_sin_reflejar_v1(text,timestamptz)'::regprocedure AND a.grantee=0),
- 'orden_publico',EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a
+ 'ayuda_config',(SELECT proconfig @> ARRAY['search_path=pg_catalog, pg_temp','TimeZone=UTC'] FROM pg_proc
+   WHERE oid='vec_bolsa_llamamientos.respuestas_portal_sin_reflejar_v1(text,timestamptz)'::regprocedure),
+ 'indice',to_regclass('vec_bolsa_llamamientos.respuesta_portal_llamamiento_bolsa_pendiente') IS NOT NULL,
+ 'orden_publico',EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
    WHERE p.oid='vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)'::regprocedure AND a.grantee=0),
- 'marcas_publico',EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a
+ 'marcas_publico',EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
    WHERE p.oid='vec_bolsa_llamamientos.consultar_marcas_participaciones_v1(text,timestamptz)'::regprocedure AND a.grantee=0))
  INTO actual;
  IF actual IS DISTINCT FROM esperado THEN

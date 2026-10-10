@@ -1,6 +1,8 @@
 \set ON_ERROR_STOP on
 -- Ejecutar tras B100 en PostgreSQL 18 desechable con al menos un llamamiento
 -- emitido en una bolsa de dos o más personas en turno. Todo se deshace.
+-- (Las dos primeras en turno pueden estar en «disponible» o en
+-- «disponible_desde» ya vencida.)
 -- Comprueba que una respuesta de Mi Bolsa sin reflejar saca a la persona del
 -- turno (orden vigente nulo, razón respuesta_portal_pendiente), que la marca
 -- «en revisión» distingue aceptación y renuncia, que el corte histórico
@@ -18,10 +20,13 @@ SELECT quote_literal(l.bolsa_ref) AS bolsa_sql, quote_literal(l.llamamiento_ref)
          WHERE o.orden_vigente IS NOT NULL) >= 2
  ORDER BY l.emitido_en DESC LIMIT 1 \gset
 
--- Las dos primeras personas en turno antes de responder.
-SELECT quote_literal(max(o.participacion_ref) FILTER (WHERE o.orden_vigente = 1)) AS primera_sql,
-       quote_literal(max(o.participacion_ref) FILTER (WHERE o.orden_vigente = 2)) AS segunda_sql
-  FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(:bolsa_sql, clock_timestamp()) o \gset
+-- Las dos primeras personas en turno sin respuesta previa a ese llamamiento.
+SELECT quote_literal((array_agg(o.participacion_ref ORDER BY o.orden_vigente))[1]) AS primera_sql,
+       quote_literal((array_agg(o.participacion_ref ORDER BY o.orden_vigente))[2]) AS segunda_sql
+  FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(:bolsa_sql, clock_timestamp()) o
+ WHERE o.orden_vigente IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.respuesta_portal_llamamiento r
+                    WHERE r.llamamiento_ref = :llamamiento_sql AND r.participacion_ref = o.participacion_ref) \gset
 
 -- La primera acepta en firme y la segunda renuncia desde Mi Bolsa.
 INSERT INTO vec_bolsa_llamamientos.respuesta_portal_llamamiento(respuesta_ref, recibo_ref, bolsa_ref, participacion_ref,
@@ -42,13 +47,19 @@ DECLARE b text := current_setting('b100.bolsa'); p1 text := current_setting('b10
  v record; n_turno int; marca1 text; marca2 text;
 BEGIN
  FOR v IN SELECT * FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(b, clock_timestamp()) o WHERE o.participacion_ref IN (p1, p2) LOOP
-  IF v.orden_vigente IS NOT NULL OR v.razon <> 'respuesta_portal_pendiente' OR v.situacion <> 'disponible' THEN
+  IF v.orden_vigente IS NOT NULL OR v.razon <> 'respuesta_portal_pendiente' OR v.situacion NOT IN ('disponible','disponible_desde') THEN
    RAISE EXCEPTION 'B100: con respuesta pendiente sigue en turno: % % % %', v.participacion_ref, v.orden_vigente, v.razon, v.situacion;
   END IF;
  END LOOP;
  SELECT count(*) INTO n_turno FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(b, clock_timestamp()) o
   WHERE o.orden_vigente = 1 AND o.participacion_ref NOT IN (p1, p2);
  IF n_turno <> 1 THEN RAISE EXCEPTION 'B100: el primero en turno no avanza'; END IF;
+ -- La reserva B7 (000018) solo admite participaciones con orden vigente: misma
+ -- consulta que su recuento de válidas.
+ SELECT count(*) INTO n_turno FROM jsonb_array_elements_text(jsonb_build_array(p1, p2)) x(ref)
+   JOIN vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(b, clock_timestamp()) o
+     ON o.participacion_ref = x.ref AND o.orden_vigente IS NOT NULL;
+ IF n_turno <> 0 THEN RAISE EXCEPTION 'B100: la emisión admitiría a quien tiene respuesta pendiente'; END IF;
  -- Corte anterior a la respuesta: el orden histórico no cambia.
  SELECT count(*) INTO n_turno FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(b, t0 - interval '1 second') o
   WHERE o.participacion_ref = p1 AND o.orden_vigente = 1;

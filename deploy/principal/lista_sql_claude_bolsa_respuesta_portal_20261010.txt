@@ -6,5 +6,9 @@
 # instalada de leer_orden_vigente_bolsa_v1 o consultar_marcas_participaciones_v1
 # no es la de B90/B41. Prueba de solo lectura (ROLLBACK):
 # deploy/postgresql/bolsa_llamamientos/pruebas_sql/b100_respuesta_portal_fuera_de_turno.sql
-# SHA256 544e1d1057a99fefc3d45d6fdc188888407c0062f02022c6f6b8f65e424db2d5
+# Antes de instalar, para saber a quién saca del turno (solo lectura):
+# deploy/postgresql/bolsa_llamamientos/pruebas_sql/b100_afectados_antes_de_instalar.sql
+# Al aplicarla, toda respuesta antigua sin reflejar saca a su persona del turno y
+# los avisos de salto de orden de emisiones pasadas que la saltaron dejan de salir.
+# SHA256 4332e745cc37e33cfe75eca1b72be3812ec89cdcd04a61893cb895f9c9d3874f
 deploy/postgresql/bolsa_llamamientos/migraciones/000100_respuesta_portal_fuera_de_turno.up.sql
