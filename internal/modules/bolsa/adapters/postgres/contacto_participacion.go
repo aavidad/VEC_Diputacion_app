@@ -184,7 +184,9 @@ func errorContactoParticipacion(err error) error {
 			return dominiovec.ErrAutorizacionDenegada
 		case "23503":
 			return ports.ErrContactoParticipacionNoEncontrado
-		case "VBC01", "22023", "23514":
+		case "VBC01":
+			return dominiobolsa.ErrContactoClaveDivergente
+		case "22023", "23514":
 			return dominiobolsa.ErrContactoParticipacionInvalido
 		case "VBC02":
 			return dominiobolsa.ErrIntentoAntesDeSeparacion

@@ -53,7 +53,10 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 		instante = solicitud.Instante.UTC().Truncate(time.Microsecond)
 	}
 	contacto := dominiobolsa.ContactoParticipacion{ContactoRef: "contacto:" + sufijo, BolsaRef: solicitud.BolsaRef, ParticipacionRef: solicitud.ParticipacionRef, LlamamientoRef: solicitud.LlamamientoRef, OfertaRef: solicitud.OfertaRef, EvidenciaRef: solicitud.EvidenciaRef, EvidenciaHuellaSHA256: solicitud.EvidenciaHuellaSHA256, Canal: solicitud.Canal, Instante: instante, InstanteServidor: solicitud.InstanteServidor, Actor: actor.PersonaRef, Resultado: solicitud.Resultado, Anotacion: solicitud.Anotacion}
-	if contacto.Validar() != nil {
+	if err := contacto.Validar(); err != nil {
+		if errors.Is(err, dominiobolsa.ErrAnotacionContactoDatoPersonal) {
+			return puertosbolsa.RegistroContactoParticipacion{}, err
+		}
 		return puertosbolsa.RegistroContactoParticipacion{}, dominiobolsa.ErrContactoParticipacionInvalido
 	}
 	intento, err := s.prepararIntento(ctx, contacto)
