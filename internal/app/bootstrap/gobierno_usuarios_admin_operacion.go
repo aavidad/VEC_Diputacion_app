@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/app/administracion"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
@@ -79,7 +80,34 @@ type instantaneaGobiernoUsuarios struct {
 	PreSHA      string    `json:"pre_sha"`
 }
 
-const consultaInstantaneaGobiernoUsuarios = `SELECT jsonb_build_object('revision',c.revision,'secuencia',c.secuencia,'spki',encode(r.clave_publica_spki,'base64'),'clave_id',r.clave_id,'version',r.version,'audiencia',r.audiencia_despliegue,'desde',r.valida_desde,'hasta',r.valida_hasta,'orden',(SELECT max(orden) FROM vec_autorizacion_atestada_v3.puntero_clave_emision),'max_version',(SELECT max(version) FROM vec_autorizacion_atestada_v3.clave_capacidad_version),'max_revision',(SELECT max(revision_gobierno) FROM vec_autorizacion_atestada_v3.clave_capacidad_version),'pre_sha',encode(sha256(convert_to(vec_autorizacion_atestada_v3.preimagen_gobierno_usuarios_admin_v1()::text,'UTF8')),'hex')) FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version c ON c.revision=p.configuracion_revision JOIN vec_autorizacion_atestada_v3.configuracion_raiz cr ON cr.configuracion_revision=c.revision JOIN vec_autorizacion_atestada_v3.raiz_confianza_version r ON r.clave_id=cr.raiz_clave_id AND r.version=cr.raiz_version ORDER BY p.orden DESC LIMIT 1`
+// Desde AD235 preparar y verificar leen por dos fachadas SECURITY DEFINER de
+// solo lectura, con EXECUTE solo para el grupo NOLOGIN
+// vec_autorizacion_atestada_v3_lector_gobierno: el LOGIN de dsn_lectura ya no
+// tiene que ser superusuario ni leer tablas privadas. Devuelven el mismo jsonb
+// que las consultas anteriores (lo comprueba el ensayo con base real). La
+// instantánea lleva solo la huella de la preimagen de AD188 (conjunto 0) o de
+// AD198 (conjunto 1 o más), nunca la preimagen ni secretos.
+const (
+	consultaInstantaneaGobiernoLectura = `SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1($1::integer)`
+	consultaCadenaGobiernoLectura      = `SELECT vec_autorizacion_atestada_v3.cadena_gobierno_admin_lectura_v1($1::text)`
+)
+
+// leerDocumentoGobiernoLectura lanza una de las dos fachadas en una transacción
+// READ ONLY: aunque el LOGIN tuviera más permisos, la lectura no escribe. En
+// REPEATABLE READ la huella de la preimagen y el resto del documento salen de
+// la misma instantánea aunque otra sesión publique a la vez.
+func leerDocumentoGobiernoLectura(ctx context.Context, lectura *pgxpool.Pool, consulta string, argumento any) ([]byte, error) {
+	tx, err := lectura.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return nil, ErrGobiernoUsuariosAdmin
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	var raw []byte
+	if tx.QueryRow(ctx, consulta, argumento).Scan(&raw) != nil || len(raw) == 0 {
+		return nil, ErrGobiernoUsuariosAdmin
+	}
+	return raw, nil
+}
 
 // descriptoresClavesUsuariosAdmin fija las dos claves de capacidad de una
 // publicación. La derivación es determinista y AD188 rechaza un clave_id o un
@@ -98,11 +126,6 @@ func descriptoresClavesUsuariosAdmin(conjunto []AudienciaCapacidadAdmin, secuenc
 	return entradas
 }
 
-// La misma instantánea con la preimagen del conjunto de AD198 ($1).
-var consultaInstantaneaGobiernoCapacidades = strings.Replace(consultaInstantaneaGobiernoUsuarios,
-	"vec_autorizacion_atestada_v3.preimagen_gobierno_usuarios_admin_v1()",
-	"vec_autorizacion_atestada_v3.preimagen_gobierno_capacidades_admin_v1($1::integer)", 1)
-
 // PrepararGobiernoUsuariosAdmin lee la configuración vigente con un pool de
 // lectura, deriva las dos claves con el proveedor existente y escribe plan,
 // material y configuración en la carpeta privada. No publica nada.
@@ -115,13 +138,9 @@ func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, o
 	if !ok {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
-	consulta, argumentos := consultaInstantaneaGobiernoUsuarios, []any{}
-	if origen.ConjuntoVersion != 0 {
-		consulta, argumentos = consultaInstantaneaGobiernoCapacidades, []any{int64(origen.ConjuntoVersion)}
-	}
-	var raw []byte
-	if lectura.QueryRow(ctx, consulta, argumentos...).Scan(&raw) != nil {
-		return vacio, ErrGobiernoUsuariosAdmin
+	raw, err := leerDocumentoGobiernoLectura(ctx, lectura, consultaInstantaneaGobiernoLectura, int64(origen.ConjuntoVersion))
+	if err != nil {
+		return vacio, err
 	}
 	var actual instantaneaGobiernoUsuarios
 	if decodificarGobiernoUsuarios(raw, &actual) != nil || !shaGobiernoUsuarios.MatchString(actual.PreSHA) {
@@ -278,9 +297,9 @@ func VerificarCadenaGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.
 	if ctx == nil || lectura == nil || salida == nil || !nombreAcuseGobiernoUsuariosValido(nombre) {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
-	var data []byte
-	if lectura.QueryRow(ctx, consultaCadenaGobiernoUsuarios, auditoria.EsquemaVerificacionGobiernoUsuarios).Scan(&data) != nil {
-		return vacio, ErrGobiernoUsuariosAdmin
+	data, err := leerDocumentoGobiernoLectura(ctx, lectura, consultaCadenaGobiernoLectura, auditoria.EsquemaVerificacionGobiernoUsuarios)
+	if err != nil {
+		return vacio, err
 	}
 	var doc auditoria.DocumentoVerificacionMixta
 	if decodificarGobiernoUsuarios(data, &doc) != nil {
@@ -293,27 +312,6 @@ func VerificarCadenaGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.
 	}
 	return informe, nil
 }
-
-// Posiciones de la cadena: hasta el corte de AD207 coinciden con el número
-// del asiento; después las da el eslabón y solo cuentan los asientos sellados.
-const consultaCadenaGobiernoUsuarios = `WITH corte AS (SELECT secuencia n FROM vec_autorizacion_atestada_v3.control_cadena_auditoria),
-cadena AS (
- SELECT a.*,a.secuencia posicion,NULL::jsonb eslabon,a.anterior_sha256 enlace_previo,a.huella_sha256 enlace
- FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a,corte WHERE a.secuencia<=corte.n
- UNION ALL
- SELECT a.*,e.posicion,jsonb_build_object('posicion',e.posicion,'secuencia',e.secuencia,'anterior_sha256',e.anterior_sha256,'eslabon_sha256',e.eslabon_sha256,'registrada_en',to_char(a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'sellado_en',to_char(e.sellado_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')),e.anterior_sha256,e.eslabon_sha256
- FROM vec_autorizacion_atestada_v3.eslabon_auditoria_v5 e JOIN vec_autorizacion_atestada_v3.auditoria_consumo_v3 a USING (secuencia)
-), rows AS (
- SELECT * FROM cadena
- WHERE tipo_registro IN ('gobierno_usuarios_admin','intento_gobierno_usuarios_admin')
- AND posicion > COALESCE((SELECT max(posicion) FROM cadena
- WHERE tipo_registro NOT IN ('gobierno_usuarios_admin','intento_gobierno_usuarios_admin')),0)
-), rango AS(SELECT min(posicion) primero,max(posicion) ultimo,count(*) cuenta FROM rows)
- SELECT jsonb_build_object('esquema',$1::text,'manifiesto',jsonb_build_object('cadena_id','cadena:comun:interna','primera_secuencia',ra.primero,'ultima_secuencia',ra.ultimo,'registros',ra.cuenta,'anterior_sha256',(SELECT enlace_previo FROM rows ORDER BY posicion LIMIT 1),'cabeza_sha256',(SELECT enlace FROM rows ORDER BY posicion DESC LIMIT 1)),
- 'registros',(SELECT jsonb_agg(jsonb_build_object('tipo_registro',a.tipo_registro) || CASE WHEN a.eslabon IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('eslabon',a.eslabon) END ||
- CASE WHEN a.tipo_registro='gobierno_usuarios_admin' THEN jsonb_build_object('gobierno_usuarios',jsonb_build_object('auditoria_ref',a.auditoria_ref,'secuencia',a.secuencia,'anterior_sha256',a.anterior_sha256,'huella_sha256',a.huella_sha256,'registrada_en',to_char(a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'evento_ref',a.evento_ref,'evento_material_sha256',a.evento_material_sha256,'operador_login',a.operador_login,'accion',a.accion,'modulo_id',a.modulo_id,'recurso_ref',a.recurso_ref,'resultado',a.resultado,'motivo_ref',a.motivo_ref,'proceso',a.proceso,'canal',a.canal,'finalidad_ref',a.finalidad_ref,'correlacion_ref',a.correlacion_ref) || jsonb_build_object('plan_sha256',a.plan_sha256,'preimagen_sha256',a.gobierno_usuarios_detalle->>'preimagen_sha256','configuracion_origen_ref',a.gobierno_usuarios_detalle->>'configuracion_origen_ref','configuracion_destino_ref',a.gobierno_usuarios_detalle->>'configuracion_destino_ref','claves_sha256',a.gobierno_usuarios_detalle->>'claves_sha256'))
- ELSE jsonb_build_object('intento_gobierno_usuarios',jsonb_build_object('auditoria_ref',a.auditoria_ref,'secuencia',a.secuencia,'anterior_sha256',a.anterior_sha256,'huella_sha256',a.huella_sha256,'registrada_en',to_char(a.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'evento_ref',a.evento_ref,'evento_material_sha256',a.evento_material_sha256,'operador_login',a.operador_login,'accion',a.accion,'modulo_id',a.modulo_id,'recurso_ref',a.recurso_ref,'resultado',a.resultado,'motivo_ref',a.motivo_ref,'proceso',a.proceso,'canal',a.canal,'finalidad_ref',a.finalidad_ref,'correlacion_ref',a.correlacion_ref) || jsonb_build_object('solicitud_sha256',a.gobierno_usuarios_solicitud_sha256)) END
- ORDER BY a.posicion) FROM rows a)) FROM rango ra`
 
 func publicaRaizGobiernoUsuarios(spki string) (ed25519.PublicKey, error) {
 	der, err := base64.StdEncoding.DecodeString(spki)

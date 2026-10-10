@@ -1,0 +1,9 @@
+# Lector del gobierno ADMIN sin superusuario (AD235) para la principal (cidonia).
+# Va DESPUÉS de AD188, AD191, AD198 y AD207 (y, en la cadena hzb1, después de AD234).
+# Crea el grupo NOLOGIN vec_autorizacion_atestada_v3_lector_gobierno y dos fachadas de solo
+# lectura para preparar/verificar de vec-gobierno-usuarios-admin. No crea LOGIN, no publica
+# claves y no toca las preimágenes de AD188/AD198 (exige sus huellas exactas).
+# Una sola vez; nunca DOWN ni reaplicar: repetirla se rechaza sin efecto.
+# Cada «# <huella>» fija la SHA256 de la ruta siguiente.
+# 2c1fd1529a40f13bfe894e01099b786ad1fc6d359dbbd3676720c18ba41e6efc
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000235_lector_gobierno_admin.up.sql
