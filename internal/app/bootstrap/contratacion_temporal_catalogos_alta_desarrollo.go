@@ -454,16 +454,17 @@ func (o *origenConsultasContratacionTemporalDesarrollo) referenciasCentros() []s
 }
 
 // centrosOrganizacionPeticion devuelve una copia de las claves originales de
-// centro que usan las peticiones del centro; nil si no hay catálogo.
-func (o *origenConsultasContratacionTemporalDesarrollo) centrosOrganizacionPeticion() []string {
+// centro que usan las peticiones del centro; nil sin origen. Un catálogo que
+// no se puede leer se propaga: no se amplía el perfil a ciegas.
+func (o *origenConsultasContratacionTemporalDesarrollo) centrosOrganizacionPeticion() ([]string, error) {
 	if o == nil {
-		return nil
+		return nil, nil
 	}
 	catalogos, err := o.catalogosAlta()
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return append([]string(nil), catalogos.centrosOrganizacion...)
+	return append([]string(nil), catalogos.centrosOrganizacion...), nil
 }
 
 func (o *origenConsultasContratacionTemporalDesarrollo) referenciasCategorias() []string {

@@ -90,7 +90,10 @@ func prepararPerfilVinculoEmisionBolsaCTDesarrollo(ctx context.Context, cfg conf
 	if perfil == nil || perfil.clave != clavePerfilFijoAltaCTDesarrollo {
 		return errVinculoEmisionBolsaCTNoDisponible
 	}
-	centrosPeticion := origen.centrosOrganizacionPeticion()
+	centrosPeticion, err := origen.centrosOrganizacionPeticion()
+	if err != nil {
+		return err
+	}
 	s.mu.Lock()
 	previa, err := plantillaAltaConVinculoBolsaCT(perfil.plantilla, nil)
 	if err != nil {

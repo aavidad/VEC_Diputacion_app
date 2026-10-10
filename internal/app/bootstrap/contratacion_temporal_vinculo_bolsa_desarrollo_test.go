@@ -68,8 +68,8 @@ func TestVinculoBolsaEsperaProvisionSinRomperAlta(t *testing.T) {
 func TestVinculoBolsaCubreCentroDePeticionYConservaAsignacionPrevia(t *testing.T) {
 	s, fuente := escenarioPerfilesFijosPrueba(t)
 	p := s.perfilFijoParaRuta(httpinterno.RutaAltaSolicitudes)
-	centros := s.origen.centrosOrganizacionPeticion()
-	if p == nil || len(centros) == 0 {
+	centros, err := s.origen.centrosOrganizacionPeticion()
+	if err != nil || p == nil || len(centros) == 0 {
 		t.Fatal("escenario sin perfil de alta o sin centros de petición")
 	}
 	anterior := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(p.plantilla)
