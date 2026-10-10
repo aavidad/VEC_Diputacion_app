@@ -21,7 +21,7 @@ function montaje(cargarVista) {
     portal.indexOf("function aplicarRutaCandidatosBolsa("));
   // Sustituimos únicamente el transporte del import; se ejecuta el montaje
   // publicado para comprobar las carreras de navegación del shell.
-  const referencia = 'import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=20261010-inscripcion-lecturas-b99")';
+  const referencia = 'import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=20261010-b1-inscripcion-b99-v1")';
   assert.equal(funcion.split(referencia).length, 2);
   const estado = { vista: "solicitudes", solicitudes: ["anterior"] };
   let reintentar;

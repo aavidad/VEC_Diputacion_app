@@ -659,7 +659,7 @@ test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras
     "/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2",
     "/portal-empleado/portal-bolsas-api.js?v=20261008-bolsa-global-v2",
-    "/portal-empleado/portal-panel-interno.js?v=20261008-bolsa-global-v2",
+    "/portal-empleado/portal-panel-interno.js?v=20261008-b1-traza-v1",
     "/portal-empleado/portal-i18n-contratos.js?v=20260930-portales-i18n-integracion-v1",
   ]) assert.ok(!estatico.has(modulo), `${modulo} se abre solo con su pantalla`);
   const grupos = [...html.matchAll(/<template data-estilos-vista="([^"]+)">([\s\S]*?)<\/template>/g)];
