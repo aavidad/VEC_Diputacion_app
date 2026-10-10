@@ -1,0 +1,1 @@
+deploy/postgresql/contratacion_temporal/migraciones/000200_peticion_centro_datos_puesto.up.sql

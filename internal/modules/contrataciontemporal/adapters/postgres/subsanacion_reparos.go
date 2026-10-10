@@ -103,7 +103,7 @@ type respuestaSubsanacionSQL struct {
 
 func decodificarRespuestaSubsanacionSQL(contenido []byte) (respuestaSubsanacionSQL, error) {
 	var r respuestaSubsanacionSQL
-	if len(contenido) == 0 || len(contenido) > maximoCargaConfirmarFiscalizacion || decodificarJSONEstricto(contenido, &r) != nil || r.Esquema != esquemaRespuestaSubsanacionReparos {
+	if len(contenido) == 0 || len(contenido) > maximoCargaConfirmarFiscalizacion || decodificarConExpedienteSQL(contenido, &r, "expediente") != nil || r.Esquema != esquemaRespuestaSubsanacionReparos {
 		return r, ports.ErrResultadoFiscalizacionNoConfiable
 	}
 	switch r.Resultado {

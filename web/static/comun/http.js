@@ -2,6 +2,7 @@ import { registrarErrorCliente } from "./registro-errores.js?v=20261007-p7-http-
 
 const MAXIMO_BYTES = 256 * 1024;
 const MAXIMO_MS = 15_000;
+const MAXIMO_BYTES_ERROR = 8 * 1024;
 const EN_VUELO = new WeakMap();
 
 export class ErrorConsultaJSON extends Error {
@@ -85,6 +86,14 @@ async function leerJSON(respuesta, limiteBytes, signal) {
   catch { throw error("respuesta_no_valida", respuesta.status); }
 }
 
+// Código de negocio de un 409/422 ({"error":{"codigo":"…"}}), acotado; nunca se muestra tal cual.
+async function codigoGobernado(respuesta, signal) {
+  try {
+    const codigo = (await leerJSON(respuesta, MAXIMO_BYTES_ERROR, signal))?.error?.codigo;
+    return typeof codigo === "string" && /^[a-z_]{1,64}$/u.test(codigo) ? codigo : "";
+  } catch { cancelarCuerpo(respuesta); return ""; }
+}
+
 async function ejecutar(ruta, metodo, cuerpoSerializado, fetchImpl, limiteBytes, plazoMs, reintentos, signal) {
   const controlador = new AbortController();
   const temporizador = setTimeout(() => controlador.abort(), plazoMs);
@@ -113,7 +122,12 @@ async function ejecutar(ruta, metodo, cuerpoSerializado, fetchImpl, limiteBytes,
       if (respuesta.status === 502 || respuesta.status === 503) {
         if (metodo === "GET" && intento < reintentos) { cancelarCuerpo(respuesta); await esperar(150 * (intento + 1), controlador.signal); continue; }
       }
-      if (!respuesta.ok) { cancelarCuerpo(respuesta); throw error(codigoEstado(respuesta.status), respuesta.status); }
+      if (!respuesta.ok) {
+        const fallo = error(codigoEstado(respuesta.status), respuesta.status);
+        if (respuesta.status === 409 || respuesta.status === 422) fallo.codigoServidor = await codigoGobernado(respuesta, controlador.signal);
+        else cancelarCuerpo(respuesta);
+        throw fallo;
+      }
       if (respuesta.status === 204) return null;
       return await leerJSON(respuesta, limiteBytes, controlador.signal);
     }

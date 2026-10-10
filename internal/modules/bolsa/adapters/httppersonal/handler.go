@@ -194,6 +194,9 @@ type respuesta struct {
 		Ofertas []ofertaPortal `json:"ofertas,omitempty"`
 		// Contactos solo aparece si está compuesta la confirmación del contacto.
 		Contactos []contactoPortal `json:"contactos,omitempty"`
+		// El nombre de la titular solo aparece en su propia consulta.
+		NombreVisible string `json:"nombre_visible,omitempty"`
+		Iniciales     string `json:"iniciales,omitempty"`
 	} `json:"data"`
 }
 
@@ -233,6 +236,9 @@ func nuevaRespuesta(i puertosbolsa.InstantaneaMiBolsa) respuesta {
 	r.Data.Portal, r.Data.AccionesPortal = respuestaPortal(i)
 	r.Data.Ofertas = respuestaOfertas(i)
 	r.Data.Contactos = respuestaContactos(i)
+	if i.NombrePropio != nil {
+		r.Data.NombreVisible, r.Data.Iniciales = i.NombrePropio.Visible, i.NombrePropio.Iniciales
+	}
 	return r
 }
 func responderError(w http.ResponseWriter, e error) {

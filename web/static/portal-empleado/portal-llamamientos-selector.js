@@ -56,9 +56,14 @@ export function renderizarPantallaLlamamientos({ estado, encabezadoVista, escapa
     </div></section>`;
 }
 
-export function instalarSelectorLlamamientos({ documento, estado, controladorBolsas, actualizarVistaBolsa, porId }) {
-  function cargarEIniciar(bolsaRef) {
+export function instalarSelectorLlamamientos({ documento, estado, controladorBolsas, actualizarVistaBolsa, porId,
+  rutasBolsa = null, obtenerUbicacion = () => null, limpiarRuta = () => {} }) {
+  let rutaConsumida = null;
+  function cargarEIniciar(bolsaRef, origen = null) {
     estado.llamamientoDesdeMenu = true;
+    estado.llamamientoDesdeCT = Boolean(origen);
+    estado.origenLlamamientoB7 = origen ? Object.freeze({ ...origen, bolsa_ref: bolsaRef }) : null;
+    estado.bolsaSeleccionada = bolsaRef;
     estado.filtrosBolsa = { estado: "", texto: "" };
     const carga = controladorBolsas.cargarCandidatosBolsa(bolsaRef);
     porId("contenido-principal")?.focus?.({ preventScroll: true });
@@ -70,19 +75,41 @@ export function instalarSelectorLlamamientos({ documento, estado, controladorBol
       porId("espacio-trabajo")?.querySelector('[aria-current="step"]')?.focus?.({ preventScroll: true });
     });
   }
+  function consumirRuta() {
+    const ubicacion = obtenerUbicacion();
+    if (estado.vista !== "llamamientos" || estado.datosBolsas?.carga !== "listo"
+      || ubicacion?.hash !== "#bolsa/llamamientos" || !new URLSearchParams(ubicacion.search).has("bolsa_ref")
+      || !rutasBolsa) return false;
+    const ruta = `${ubicacion.search}${ubicacion.hash}`;
+    if (rutaConsumida?.ruta === ruta && rutaConsumida?.datos === estado.datosBolsas.datos
+      && estado.llamamientoDesdeCT === true && estado.llamamientoDesdeMenu === true) return true;
+    let seleccion;
+    try { seleccion = rutasBolsa.leerLlamamientoBolsaCompartible(ubicacion.search, estado.datosBolsas.datos?.bolsas); }
+    catch { limpiarRuta(); return false; }
+    if (!bolsasVigentesParaLlamamiento(estado.datosBolsas).some((bolsa) => bolsa.bolsa_ref === seleccion.bolsaRef)) {
+      limpiarRuta(); return false;
+    }
+    rutaConsumida = { ruta, datos: estado.datosBolsas.datos };
+    cargarEIniciar(seleccion.bolsaRef, seleccion.origen);
+    return true;
+  }
   documento.addEventListener("click", (evento) => {
     if (estado.vista !== "llamamientos") return;
     const cancelar = evento.target.closest?.('[data-bolsa-accion="cancelar-b7"], [data-cambiar-bolsa-llamamiento]');
     if (cancelar && estado.llamamientoDesdeMenu) {
       estado.llamamientoDesdeMenu = false;
+      estado.llamamientoDesdeCT = false;
+      estado.origenLlamamientoB7 = null;
       estado.bolsaSeleccionada = "";
+      limpiarRuta();
       actualizarVistaBolsa();
       porId("espacio-trabajo")?.querySelector("[data-elegir-bolsa-llamamiento]")?.focus?.({ preventScroll: true });
       return;
     }
     if (evento.target.closest?.("[data-reintentar-bolsa-llamamiento]")) {
       evento.preventDefault();
-      if (estado.llamamientoDesdeMenu && estado.bolsaSeleccionada) cargarEIniciar(estado.bolsaSeleccionada);
+      if (estado.llamamientoDesdeMenu && estado.bolsaSeleccionada)
+        cargarEIniciar(estado.bolsaSeleccionada, estado.llamamientoDesdeCT ? estado.origenLlamamientoB7 : null);
       return;
     }
     const boton = evento.target.closest?.("[data-elegir-bolsa-llamamiento]");
@@ -90,6 +117,8 @@ export function instalarSelectorLlamamientos({ documento, estado, controladorBol
     evento.preventDefault();
     const bolsaRef = boton.dataset.elegirBolsaLlamamiento;
     if (!bolsasVigentesParaLlamamiento(estado.datosBolsas).some((bolsa) => bolsa.bolsa_ref === bolsaRef)) return;
+    limpiarRuta();
     cargarEIniciar(bolsaRef);
   });
+  return Object.freeze({ consumirRuta });
 }

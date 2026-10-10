@@ -90,15 +90,23 @@ func resultadoConVinculoEmpleadoF1(t *testing.T, semilla dominiovec.ResultadoCon
 
 func resultadoConVersionVinculoEmpleadoF1(t *testing.T, semilla dominiovec.ResultadoContextoActorRegistradoV2, version uint64) dominiovec.ResultadoContextoActorRegistradoV2 {
 	t.Helper()
+	return resultadoConVinculoContextoPrueba(t, semilla, version, dominiovec.TipoReferenciaContextoActorEmpleado, "emp_", "f1-empleado")
+}
+
+// resultadoConVinculoContextoPrueba añade a la semilla un único vínculo
+// activo del tipo pedido, con manifiesto y huellas recalculados.
+func resultadoConVinculoContextoPrueba(t *testing.T, semilla dominiovec.ResultadoContextoActorRegistradoV2, version uint64,
+	tipo dominiovec.TipoReferenciaContextoActor, prefijo, semillaRef string) dominiovec.ResultadoContextoActorRegistradoV2 {
+	t.Helper()
 	resultado, err := semilla.Clonar()
 	if err != nil {
 		t.Fatal(err)
 	}
 	instantanea := resultado.Contexto.Instantanea
 	vinculo := dominiovec.VinculoReferenciaContextoActor{
-		VinculoRef: referenciaAltaContratacionTemporalDesarrollo("vin_", "f1-empleado-vinculo"),
-		Version:    version, Tipo: dominiovec.TipoReferenciaContextoActorEmpleado,
-		Referencia:   referenciaAltaContratacionTemporalDesarrollo("emp_", "f1-empleado"),
+		VinculoRef: referenciaAltaContratacionTemporalDesarrollo("vin_", semillaRef+"-vinculo"),
+		Version:    version, Tipo: tipo,
+		Referencia:   referenciaAltaContratacionTemporalDesarrollo(prefijo, semillaRef),
 		Estado:       dominiovec.EstadoVinculoContextoActorActivo,
 		VigenteDesde: instantanea.VigenteDesde, VigenteHasta: instantanea.VigenteHasta,
 	}

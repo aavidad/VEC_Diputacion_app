@@ -113,7 +113,7 @@ func (f filaPreparacionAsignacion) restaurar(
 			ports.ErrPersistenciaAsignacionNoDisponible
 	}
 	var expediente domain.Expediente
-	if decodificarJSONEstricto(
+	if decodificarExpedienteSQL(
 		[]byte(f.expedienteJSON),
 		&expediente,
 	) != nil || expediente.Validar() != nil {

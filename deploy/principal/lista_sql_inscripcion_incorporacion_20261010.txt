@@ -1,0 +1,9 @@
+# Incorporación a la bolsa de una inscripción admitida (PR-D), SIN ENCENDER NADA.
+# Va justo DESPUÉS de lista_sql_inscripcion_nucleo_20261010.txt (exige AD228, B96, BC9, CC11 y CA38).
+# Preimagen V3 tras AD228: núcleo interno def ff64dcb9…/prosrc 81e298dd…, CHECK de audiencias 40c514b3….
+# incorporar_inscripcion_v1 tiene 13 argumentos (el 3.º es p_recurso_canonico), como el Go de main.
+# Cada UP una sola vez; nunca DOWN ni reaplicar. Cada «# <huella>» fija la SHA256 de la ruta siguiente.
+# 612696787df1eac4630c5bbb801d4592ea4f7a3b266729197a445100ab3b98a9
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000229_incorporacion_inscripcion_v3.up.sql
+# b547a2019da01f4538af2519e01777c636605943ef5e650fa75d6e3c21114ad8
+deploy/postgresql/bolsa_llamamientos/migraciones/000097_incorporacion_inscripcion.up.sql
