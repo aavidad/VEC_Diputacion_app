@@ -1,16 +1,17 @@
 /** Montaje y refresco de resolución de formalización e incorporación al ejercicio. */
 
-import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js?v=20261009-ct-bolsa-cohorte-v9";
-import { escaparHTML } from "./componentes-expedientes.js?v=20261009-ct-bolsa-cohorte-v9";
-import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261009-ct-bolsa-cohorte-v9";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261009-ct-bolsa-cohorte-v9";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261009-ct-bolsa-cohorte-v9";
-import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261009-ct-bolsa-cohorte-v9";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261009-ct-bolsa-cohorte-v9";
+import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261009-ct-bolsa-cohorte-v9";
-import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261009-ct-bolsa-cohorte-v9";
+import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { cargarTextosVinculoCategoriaRPT, montarVinculoCategoriaRPT } from "./vinculo-categoria-rpt.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
 import { cargarTextos } from "../../../comun/textos.js";
 
 export function crearResolverEtiquetasIncorporacionB2(textos, personal) {
@@ -46,6 +47,8 @@ export function crearGestorIncorporacion({
   let consultaResolucionFormalizacion = null;
   let desmontarPersonalB2 = null;
   let consultaPersonalB2 = null;
+  let desmontarVinculoRPT = null;
+  let bloqueVinculoRPT = null;
 
   function candidatoPersonalB2(estado) {
     if (!esMontada() || !incorporacionPersonalB2
@@ -76,6 +79,7 @@ export function crearGestorIncorporacion({
         && actual.expediente?.expediente_ref === expedienteRef && actual.expediente?.version === version;
     };
     const t = crearTraductorExpedientesContratacion(mensajes);
+    void ofrecerVinculoRPT(contenedor, expedienteRef, vigente);
     contenedor.innerHTML = `<p class="ct-ayuda" role="status">${escaparHTML(t("incorporacion_preparacion_cargando"))}</p>`;
     const [textos, personal, lectura] = await Promise.allSettled([
       cargarTextosIncorporacionPersonalB2(), cargarTextos("personal"),
@@ -122,6 +126,44 @@ export function crearGestorIncorporacion({
       resolverEtiqueta: crearResolverEtiquetasIncorporacionB2(textos.value, personal.value),
       esVigente: vigente,
     });
+  }
+
+  /**
+   * Paso previo a la incorporación B2: vincular el expediente a la categoría
+   * publicada de la relación de puestos. Va en su propio bloque, antes del de
+   * la incorporación, y se retira con él. Sin permiso no se muestra.
+   */
+  async function ofrecerVinculoRPT(contenedor, expedienteRef, vigente) {
+    if (!["consultarVinculoRPT", "listarCategoriasRPT", "registrarVinculoRPT"]
+      .every((metodo) => typeof incorporacionPersonalB2?.[metodo] === "function")) return;
+    // Un repintado de la ficha deja el bloque anterior fuera del documento.
+    if (desmontarVinculoRPT && bloqueVinculoRPT && raiz.contains?.(bloqueVinculoRPT)) return;
+    desmontarVinculoRPT?.();
+    desmontarVinculoRPT = null;
+    let textos;
+    try { textos = await cargarTextosVinculoCategoriaRPT(); } catch { return; }
+    if (!vigente() || desmontarVinculoRPT) return;
+    const documento = contenedor.ownerDocument ?? entornoDescarga.document;
+    const bloque = documento?.createElement?.("div");
+    if (!bloque || typeof contenedor.before !== "function") return;
+    bloque.setAttribute("data-ct-exp-vinculo-rpt", "");
+    contenedor.before(bloque);
+    const desmontar = montarVinculoCategoriaRPT({
+      raiz: bloque, cliente: incorporacionPersonalB2, expedienteRef, textos,
+      esVigente: () => esMontada() && raiz.contains?.(bloque),
+      alDenegar: () => { desmontarVinculoRPT?.(); desmontarVinculoRPT = null; },
+      alRegistrar: async () => {
+        // Con el vínculo registrado, la incorporación vuelve a consultarse.
+        if (!raiz.contains?.(contenedor)) return;
+        consultaPersonalB2?.abort();
+        consultaPersonalB2 = null;
+        desmontarPersonalB2?.();
+        desmontarPersonalB2 = null;
+        await ofrecerPersonalB2();
+      },
+    });
+    bloqueVinculoRPT = bloque;
+    desmontarVinculoRPT = () => { desmontar(); bloque.remove?.(); if (bloqueVinculoRPT === bloque) bloqueVinculoRPT = null; };
   }
 
   async function montarResolucionFormalizacion() {
@@ -488,6 +530,8 @@ export function crearGestorIncorporacion({
       consultaPersonalB2 = null;
       desmontarPersonalB2?.();
       desmontarPersonalB2 = null;
+      desmontarVinculoRPT?.();
+      desmontarVinculoRPT = null;
       consultaResolucionFormalizacion?.abort();
       consultaResolucionFormalizacion = null;
       consultaIncorporacionEjercicio?.abort();
