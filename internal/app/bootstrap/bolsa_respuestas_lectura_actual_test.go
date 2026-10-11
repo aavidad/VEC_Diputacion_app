@@ -63,6 +63,9 @@ func TestCapturarLecturaRespuestasLlamamientoLigaSesionPermisoYRecurso(t *testin
 		orden["resultado"] != "obtenida" || orden["lectura_instantanea_sha256"] == "" {
 		t.Fatal("orden de auditoría no ligada al permiso puntual")
 	}
+	if politicas, ok := orden["politicas_evaluadas"].([]any); !ok || len(politicas) != 0 {
+		t.Fatal("el catálogo vacío debe serializarse como una lista vacía")
+	}
 }
 
 func TestCapturarLecturaRespuestasLlamamientoDeniegaRevocacionYCampoAjeno(t *testing.T) {

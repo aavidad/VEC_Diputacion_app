@@ -182,7 +182,7 @@ func CapturarLecturaRespuestasLlamamiento(
 		ControlVersionRolHuellaSHA256: evaluacion.ControlVersionRolHuellaSHA256,
 		RevisionCatalogoPoliticas:     evaluacion.RevisionCatalogoPoliticas,
 		CatalogoPoliticasHuellaSHA256: evaluacion.CatalogoPoliticasHuellaSHA256,
-		PoliticasEvaluadas:            slices.Clone(evaluacion.PoliticasEvaluadas),
+		PoliticasEvaluadas:            append([]vecdomain.ReferenciaHuellaPoliticaLecturaActualV3{}, evaluacion.PoliticasEvaluadas...),
 		EmitidaEn:                     evaluacion.EvaluadaEn, ValidaHasta: limite,
 	})
 	if err != nil {
