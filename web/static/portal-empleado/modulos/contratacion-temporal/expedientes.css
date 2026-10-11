@@ -7,6 +7,74 @@
   --ct-suave: var(--modulo-suave, var(--portal-azul-100));
 }
 
+.ct-expedientes [data-ct-informe-documento] {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ct-expedientes [data-ct-informe-documento] .ct-informe-secciones {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  margin: 16px 0;
+}
+
+.ct-expedientes [data-ct-informe-documento] .ct-informe-secciones > section {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.ct-expedientes [data-ct-informe-documento] .ct-informe-secciones h4 {
+  margin: 0 0 12px;
+}
+
+.ct-expedientes [data-ct-informe-documento] .ct-informe-secciones ol {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding-left: 24px;
+}
+
+.ct-expedientes [data-ct-informe-documento] .ct-informe-secciones li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ct-expedientes [data-ct-informe-documento] details {
+  min-width: 0;
+  margin-top: 12px;
+}
+
+.ct-expedientes [data-ct-informe-documento] summary {
+  width: fit-content;
+  min-height: 28px;
+  color: var(--portal-azul-700);
+  cursor: pointer;
+}
+
+.ct-expedientes [data-ct-informe-documento] details dl {
+  min-width: 0;
+  margin: 8px 0 0;
+}
+
+.ct-expedientes [data-ct-informe-documento] details dd {
+  min-width: 0;
+  margin: 4px 0 10px;
+  overflow-wrap: anywhere;
+}
+
+.ct-expedientes [data-ct-informe-documento] .ct-informe-original pre {
+  max-width: 100%;
+  max-height: 30rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .ct-expedientes :focus-visible {
   outline: 3px solid var(--portal-azul-700);
   outline-offset: 3px;

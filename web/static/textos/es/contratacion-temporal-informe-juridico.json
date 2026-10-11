@@ -1,0 +1,16 @@
+{
+  "general": {
+    "plantilla": "Plantilla del informe",
+    "plantilla_version": "Versión {version}",
+    "normas": "Referencias normativas",
+    "norma": "Referencia normativa {numero} · versión {version}",
+    "anexos": "Anexos del expediente",
+    "anexo": "Anexo {numero} · versión {version}",
+    "sin_entradas": "No constan elementos en este apartado.",
+    "detalle_tecnico": "Ver detalle técnico",
+    "referencia": "Referencia",
+    "huella": "Huella digital",
+    "original": "Ver contenido original",
+    "sin_estructura": "No se puede mostrar este documento por apartados. Puede consultar su contenido original."
+  }
+}

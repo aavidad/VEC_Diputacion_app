@@ -1,12 +1,49 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
 import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioInformeJuridico, renderizarContenidoInforme } from "./formulario-informe-juridico.js?v=20261008-alta-rpt-circular-v6";
 import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
 
 const EXPEDIENTE = "expediente:ct:sintetico:informe-001";
 const CLAVE = "123e4567-e89b-42d3-a456-426614174000";
+
+test("presenta las referencias del paquete jurídico sin exponer JSON ni ejecutar texto", async () => {
+  for (const idioma of ["es", "en"]) {
+    const catalogo = JSON.parse(await readFile(new URL(`../../../textos/${idioma}/contratacion-temporal-informe-juridico.json`, import.meta.url), "utf8"));
+    const t = (clave, variables = {}) => Object.entries(variables).reduce(
+      (valor, [nombre, dato]) => valor.replaceAll(`{${nombre}}`, dato), catalogo.general[clave]);
+    const paquete = {
+      esquema: "vec.dipgra.contratacion-temporal.informe-juridico.paquete-datos",
+      version_esquema: 1,
+      version_expediente: 4,
+      plantilla: { plantilla_ref: "plantilla:<script>", version: 3, huella_sha256: "a".repeat(64) },
+      referencias_normativas: [{ norma_ref: "norma:<img src=x onerror=alert(1)>",
+        version: 2, huella_sha256: "b".repeat(64) }],
+      anexos: [{ documento_ref: "documento:ct:anexo-1", version_documento: 1,
+        huella_sha256: "c".repeat(64) }],
+    };
+    const contenido = `DOCUMENTO DE DESARROLLO — SIN FIRMA NI VALIDEZ JURIDICA\n\nDatos juridicos canónicos:\n${JSON.stringify(paquete)}\n`;
+    const html = renderizarContenidoInforme(contenido, t);
+    const visible = html.split('<details class="ct-informe-original">')[0];
+    assert.match(visible, /ct-informe-secciones/u);
+    assert.match(visible, new RegExp(catalogo.general.normas, "u"));
+    assert.match(visible, /&lt;img src=x onerror=alert\(1\)&gt;/u);
+    assert.doesNotMatch(visible, /<img|<script|"referencias_normativas"/u);
+    assert.match(html, /ct-informe-original/u);
+  }
+});
+
+test("un documento histórico sin paquete válido sigue disponible sin ensanchar la vista", async () => {
+  const catalogo = JSON.parse(await readFile(new URL("../../../textos/es/contratacion-temporal-informe-juridico.json", import.meta.url), "utf8"));
+  const contenido = "DOCUMENTO DE DESARROLLO — SIN FIRMA NI VALIDEZ JURIDICA\n" + "x".repeat(9000);
+  const html = renderizarContenidoInforme(contenido, (clave) => catalogo.general[clave]);
+  assert.match(html, /No se puede mostrar este documento por apartados/u);
+  assert.match(html, /<details class="ct-informe-original">/u);
+  assert.match(html, /x{9000}/u);
+  assert.doesNotMatch(html.split("<details")[0], /x{100}/u);
+});
 
 function recibo() {
   return {
