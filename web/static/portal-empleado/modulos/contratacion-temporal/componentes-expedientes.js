@@ -249,7 +249,7 @@ export function renderizarAbrirLlamamiento(expediente, resolverBolsa, t) {
   const inicioBolsa = typeof inicioCT === "string" && /^\d{4}-\d{2}-\d{2}T00:00:00Z$/u.test(inicioCT)
     ? inicioCT.slice(0, 10) : inicioCT;
   const origen = bolsaRef ? origenLlamamientoValido({
-    expediente_ref: expediente.expediente_ref, referencia: expediente.numero_visible, centro: valor("centro"),
+    expediente_ref: expediente.expediente_ref, version: expediente.version, referencia: expediente.numero_visible, centro: valor("centro"),
     fecha_inicio: inicioBolsa,
   }) : null;
   if (!origen) {
@@ -259,7 +259,7 @@ export function renderizarAbrirLlamamiento(expediente, resolverBolsa, t) {
   }
   const atributo = (nombre, dato) => (dato ? ` data-origen-${nombre}="${escaparHTML(dato)}"` : "");
   const etiqueta = requiereRevisionBolsa(expediente) ? t("resultado_bolsa_revisar") : continuidadBolsaDisponible(expediente) ? t("resultado_bolsa_continuar") : traducirPortal("panel_ct_abrir_llamamiento");
-  return `<div class="acciones-vista"><button type="button" class="boton-primario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}"${atributo("expediente", origen.expediente_ref)}${atributo("referencia", origen.referencia)}${atributo("centro", origen.centro)}${atributo("inicio", origen.fecha_inicio)}>${escaparHTML(etiqueta)}</button></div>`;
+  return `<div class="acciones-vista"><button type="button" class="boton-primario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}"${atributo("expediente", origen.expediente_ref)}${atributo("version", origen.version)}${atributo("referencia", origen.referencia)}${atributo("centro", origen.centro)}${atributo("inicio", origen.fecha_inicio)}>${escaparHTML(etiqueta)}</button></div>`;
 }
 
 function renderizarTareas(expediente, tareaRef, t) {
