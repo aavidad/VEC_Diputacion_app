@@ -1,101 +1,112 @@
-# HZ21 — orden para preparar la principal desde HZ20 (main@9b5c08770).
-# Inventario documental; NO pasar este fichero a psql ni a un ejecutor de listas.
-# Cidonia no se toca desde esta rama. Comprobar antes el inventario instalado y
-# usar únicamente las rutas todavía ausentes. No ejecutar DOWN ni repetir UP.
-# MAIN = fusionado en origin/main@126bdaca9; PR = rama abierta, aún no fusionada.
-# Las rutas PR se cotejan de nuevo contra el commit final que fusione Dirección.
-# Las cargas de datos, ternas, reprovisiones y binario son pasos distintos de SQL.
+# HZ21 — inventario y orden causal desde HZ20 (main@9b5c08770).
+# Documento de preparación, NO ejecutor: no pasarlo a psql ni aplicar por lotes.
+# Dirección coteja la historia de la principal y aplica solo cada entrada ausente.
+# Nunca ejecutar DOWN ni repetir UP instalada. Cidonia la opera solo Claude.
+# MAIN significa origin/main@126bdaca9; PR requiere integrar y verificar su hash final.
+# Esta lista reúne rutas SQL/datos; binario, web, ternas AD172, perfiles y secretos
+# son pasos distintos, anotados junto a la dependencia correspondiente.
 
-# 01 MAIN #1002. Personal40, después de Personal17 ya instalado en HZ20.
-# Fuente: lista_sql_claude_personal40_organizacion_20261010.txt.
+# 01 MAIN #1002: Personal40, después de Personal17 conservada en HZ20.
 deploy/postgresql/personal/migraciones/000040_cobertura_declarada_por_fuente_plantilla.up.sql
 
-# 02 MAIN #1002. Dato de organización, después de Personal40. Ejecutar con
-# psql -X -v ON_ERROR_STOP=1 -v organismo=<organismo_ref> -f <ruta>.
-# Obtener organismo_ref de la configuración privada personal-b2/servidor.json
-# del destino; no sustituirlo por el valor del clon. La fuente explica la carga
-# y su comprobación: deploy/postgresql/personal/datos/README.md.
+# 02 MAIN #1002: datos RPT después de Personal40. psql con -v organismo=<organismo_ref>
+# obtenido de personal-b2/servidor.json PRIVADO del destino, no del clon.
 deploy/postgresql/personal/datos/organizacion_rpt_2026_v1.sql
 
-# 03 MAIN #1001. Publicación v1 del catálogo RPT, tras el bloque de organización.
-# Ejecutar con el superusuario indicado en el README; no necesita -v organismo.
-# Fuente: deploy/postgresql/catalogos_configurables/datos/README.md.
+# 03 MAIN #1001: catálogo RPT después de la organización; usar el rol del README.
 deploy/postgresql/catalogos_configurables/datos/categorias_rpt_v1.sql
 
-# 04 MAIN #988. Corrección del enlace probatorio O4-04E; lista propia
-# lista_sql_codexo_sql_defectos_20261010.txt. No sustituye CT aut anteriores.
+# 04 MAIN #988: árbitro O4-04E. CT autorización anterior tiene historia.
 deploy/postgresql/contratacion_temporal/migraciones_autorizacion/000008_conflicto_enlace_probatorio_o4_04e.up.sql
 
-# 05 MAIN, operativo sin UP nueva: habilitar el bloque AD172 incorporacionb
-# mediante deploy/principal/origen_consumos_ad172/ejecutar.sh. El paquete MAIN
-# tiene 24 ternas; PR #1004 agrega publicar y retirar el catálogo de Personal:
-# esperar su fusión, cotejar el fichero final (26 ternas), los seis LOGIN y el
-# núcleo instalado; --inventario, luego --ensayo (ROLLBACK), y solo entonces
-# --aplicar con VEC_ORIGEN_BLOQUES=incorporacionb y
-# VEC_ORIGEN_AD172_APLICAR=SI-REVISADO, según ejecutar.sh.
-# Fuente: origen_consumos_ad172/README.md, ternas.tsv y PR #1004.
+# 05 Inscripción, solo si el inventario confirma que faltan estas entradas.
+# Fuente: lista_sql_inscripcion_nucleo_20261010.txt. Respeta HZ12, AD233,
+# HZB1 estructura y AD234, sin activar aún las pantallas de inscripción.
+deploy/postgresql/bolsa_convocatorias/roles_up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000001_revalidacion_convocatorias.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000001_almacen_convocatorias.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000038_candidato_persona_inscripcion.up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000011_lectura_lote_categorias_inscripcion.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000009_comprobar_publicacion_inscripcion.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000228_inscripcion_v3_auditoria.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000096_inscripcion_convocatoria.up.sql
 
-# 06 Dependencia de inscripción, ya en MAIN antes de HZ20; confirmar qué quedó
-# instalado. Si falta, ejecutar las listas existentes en este orden, sin encender
-# la inscripción: lista_sql_inscripcion_nucleo_20261010.txt y después
-# lista_sql_inscripcion_incorporacion_20261010.txt. La primera exige HZ12,
-# AD233, lista_sql_hzb1_estructura_b1_20261009.txt y
-# lista_sql_hzb1_g1_conjunto5_20261009.txt (AD234), según su cabecera.
-# La secuencia nueva en esas listas es roles/BC1, CA38, CC11, BC9, AD228,
-# B96; después AD229 y B97. B99 del paso 09 requiere esta cadena.
+# 06 Inscripción, continuación exacta AD229 → B97. Fuente:
+# lista_sql_inscripcion_incorporacion_20261010.txt.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000229_incorporacion_inscripcion_v3.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000097_incorporacion_inscripcion.up.sql
 
-# 07 PR #1004, cabeza c578cd9032b7697f293e4e934995c794710d1a0b.
-# Personal41-44 en orden, con el vec-server de esa misma PR: su contrato de
-# recurso cambia a la vez en Go y SQL. Preimagen: Personal18/19/20/23.
-# Fuente: lista_sql_claude_b2_campos_personal_20261010.txt en esa rama.
+# 07 PR #987@182e2abd8f: B99 reconstruida sobre B97, CI 5/5 y dos GO.
+# Tras 05–06, antes de encender inscripción. Publicar sus cinco hojas gobernadas
+# según inscripcion_b99_gobierno_lecturas_20261010.md; no crea permisos.
+deploy/postgresql/bolsa_llamamientos/migraciones/000099_inscripcion_lecturas.up.sql
+
+# 08 PR #989@1db2695e09: núcleo literal AD229 → AD236 → AUT74, CI 5/5
+# y dos GO. Aplicar solo tras 05–06; B99 no es preimagen de este par.
+# La activación ADMIN exige después tres claves HMAC, cinco orígenes nominales,
+# asignaciones, decisiones y concesiones gobernadas; las SQL no los provisionan.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql
+deploy/postgresql/autorizacion/migraciones/000074_consumo_nominal_actos_admin_v2.up.sql
+
+# 09 PR #1004@bf2abb8ce7: Personal41–44 en orden, con vec-server de la MISMA
+# PR antes de consumirlas. Reutiliza Personal40 y cambia el canon del recurso.
+# Reprovisionar incorporacion_b2_personal solo con aprobación y preimagen real.
 deploy/postgresql/personal/migraciones/000041_ficha_b2_empleado_en_atributos.up.sql
 deploy/postgresql/personal/migraciones/000042_actos_b2_objetivo_en_atributos.up.sql
 deploy/postgresql/personal/migraciones/000043_catalogo_b2_entrada_en_atributos.up.sql
 deploy/postgresql/personal/migraciones/000044_plan_b2_objetivo_en_atributos.up.sql
 
-# 08 PR #995, cabeza d5d54f5df548c3a15dcbef3464f9575c82a319d2.
-# Instalar primero SU binario y web. Antes de SQL, ejecutar la consulta de solo
-# lectura bolsa_llamamientos/pruebas_sql/b100_afectados_antes_de_instalar.sql:
-# las respuestas anteriores sin cambio de situación también saldrán del turno.
-# B100 exige B30, B41 y B90 instaladas; cotejar preimagen. Fuente:
-# lista_sql_claude_bolsa_respuesta_portal_20261010.txt en la rama de #995.
+# 10 PR #1011@1507f926c2: Personal45 después de 41–44. Es solo SQL;
+# #1012@e4346d114 y #1016@ace426214 reutilizan la lectura/autoridad B2,
+# no añaden UP propias. No ejecutar alta B2 hasta instalar y provisionar.
+deploy/postgresql/personal/migraciones/000045_unidad_y_material_plan_b2.up.sql
+
+# 11 PR #1004: 26 ternas AD172 incorporacionb, NO otra migración.
+# Con binario B2 y SQL 41–45 integrados, cotejar ternas.tsv final, los seis LOGIN
+# y el núcleo instalado. Ejecutar origen_consumos_ad172/ejecutar.sh con
+# --inventario, --ensayo (ROLLBACK) y después --aplicar solo con
+# VEC_ORIGEN_BLOQUES=incorporacionb y VEC_ORIGEN_AD172_APLICAR=SI-REVISADO.
+
+# 12 PR #1013@ac5f5699b2: lectura nominal de respuestas, después de AD229.
+# CA40 coteja contexto vigente; AD237 conserva decisión y auditoría central.
+deploy/postgresql/contexto_actor_v1/migraciones/000040_cotejo_actual_lectura_bolsa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000237_lectura_nominal_respuestas_bolsa.up.sql
+
+# 13 PR #992@c72fd8dc09: B103 después de CA40/AD237 y de la cadena 05–06.
+# Subir su binario y web antes de activar la lectura; fuente privada nominal abajo.
+deploy/postgresql/bolsa_llamamientos/migraciones/000103_respuestas_portal_seguimiento_rrhh.up.sql
+
+# 14 PR #995@45e9910dd1: B100 después de B30/B41/B90 ya instaladas.
+# Subir ANTES su binario y web; la web anterior no conoce los nuevos estados.
+# Ejecutar antes la consulta de solo lectura b100_afectados_antes_de_instalar.sql.
 deploy/postgresql/bolsa_llamamientos/migraciones/000100_respuesta_portal_fuera_de_turno.up.sql
 
-# 09 BLOQUEADA PR #987, cabeza rechazada 32518b4ffc0b7dc36a00e74775ab337fbd4d0ec3.
-# B99 DEBE ir después de AD229/B97 (paso 06) y antes de encender la
-# inscripción, con sus cinco hojas nuevas publicadas en los roles. La cabeza
-# actual reconstruye lecturas desde B96 y pierde el JOIN y participacion_ref
-# de B97; NO INSTALARLA. Dirección comunicó NO-GO el 10/10 a las 14:50.
-# Esperar otra cabeza ensayada sobre B97, su lista corregida y GO exacto.
-# Ruta candidata rechazada: deploy/postgresql/bolsa_llamamientos/migraciones/000099_inscripcion_lecturas.up.sql
+# 15 PR #1010@0c3f1064b3: B101 después de B100, binario y web antes.
+deploy/postgresql/bolsa_llamamientos/migraciones/000101_respuesta_propia_en_revision.up.sql
 
-# 10 BLOQUEADA PR #989, cabeza condicionada 6c0c711d225a60a9fa5241694f08d13378e06d30.
-# Orden obligatorio: AD228 → AD229 (paso 06) → AD236 → AUT74. La cabeza
-# actual de AD236 parte de la preimagen anterior a AD228 y colisiona con la
-# cadena de inscripción; NO INSTALARLA. Dirección exigió reconstruir AD236
-# sobre el núcleo final de AD229 y revisar la fachada AUT74 (10/10, 14:50).
-# Esperar nueva cabeza, lista causal, ensayo PG18 y revisiones exactas.
-# Rutas candidatas bloqueadas:
-# deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql
-# deploy/postgresql/autorizacion/migraciones/000074_consumo_nominal_actos_admin_v2.up.sql
-# Las claves, orígenes y concesiones de los actos ADMIN siguen sin provisionar.
+# 16 PR #1009@0a70a0d8a9: B102 después de B87; preimagen HZ20 + B87.
+deploy/postgresql/bolsa_llamamientos/migraciones/000102_privacidad_anotacion_contacto.up.sql
 
-# Configuración privada y perfiles que acompañan a estos pasos:
-# - MAIN #991: reprovisionar el perfil fijo alta para el vínculo CT/Bolsa con
-#   VEC_CT_PROVISION_PERFILES_RRHH_APROBACION (referencia nueva aprobada) y
-#   VEC_CT_PROVISION_PERFILES_RRHH_PREIMAGENES (huella vigente del destino,
-#   consultada en el clon de la principal). La huella 7132464a… de HZ19 solo
-#   orienta; no copiarla sin comprobarla en cidonia. Reiniciar tras provisión.
-# - PR #1004: reprovisionar incorporacion_b2_personal con las mismas variables
-#   y la preimagen vigente del destino. 82b93efa… es solo la simulación.
-# - En personal-b2/servidor.json privado: entradas operaciones para
-#   ct_vinculo_registrar y rpt_listar (opcionales en MAIN #1000), y
-#   personal_catalogo_publicar y personal_catalogo_retirar (PR #1004).
-#   Cada entrada requiere motivo y capacidad gobernada del destino; preparar
-#   material con la herramienta de la PR, no copiar valores de pruebas.
-# - B99: gobierno de cinco hojas según la futura lista revisada del paso 09.
-# - AD236/AUT74: gobierno nominal de las tres audiencias y cinco orígenes
-#   descrito en #989; las SQL no crean claves, asignaciones ni concesiones.
-# Estado comprobado el 11/10: #1004 abierta y fusionable; #995 es borrador
-# con conflicto; #987 abierta con conflicto y NO-GO SQL, #989 abierta y
-# fusionable en GitHub pero bloqueada por preimagen SQL. Revalidar al operar.
+# #993, #1014, #1015 y #1019 son cortes de consumidores/pantalla en la cadena
+# #1013→#992→#993→#995→#1010→#1009→#1014→#1015→#1019.
+# No aplicar otra vez las SQL heredadas en el diff de cada PR apilada.
+
+# Provisiones y configuración privada que NO son SQL de esta lista:
+# - MAIN #991: reprovisionar perfil fijo alta para vínculo CT/Bolsa con
+#   VEC_CT_PROVISION_PERFILES_RRHH_APROBACION y
+#   VEC_CT_PROVISION_PERFILES_RRHH_PREIMAGENES, usando la huella vigente del
+#   destino. No copiar huellas de HZ19 ni del clon; reiniciar tras provisión.
+# - PR #1004: reprovisionar incorporacion_b2_personal con esas mismas variables
+#   y preimagen vigente; el valor 82b93efa… pertenece solo a la simulación.
+# - personal-b2/servidor.json privado: operaciones ct_vinculo_registrar y
+#   rpt_listar (MAIN #1000); personal_catalogo_publicar y
+#   personal_catalogo_retirar (PR #1004). Motivo y capacidad gobernada exactos.
+# - B103: VEC_BOLSA_B103_FUENTE_AUTORIZACION_DATABASE_URL apunta a LOGIN
+#   miembro únicamente de vec_autorizacion_fuente; provisión nominal exacta
+#   de bolsa.rrhh.respuestas_llamamiento.consultar y vínculo corporativo
+#   consulta_rrhh del perfil B5. No escribir DSN ni claves en Git.
+# - AD236/AUT74: tres audiencias y cinco orígenes ADMIN, concesiones exactas;
+#   ausencia deja actos cerrados. B99: cinco hojas de lectura por gobierno.
+# Estado: MAIN 01–04; 05–06 son base de inscripción a inventariar; 07–10 y
+# 12–16 esperan fusión de sus PR LISTAS. El bloque 11 espera #1004 y datos
+# privados. Ninguna entrada acredita instalación en cidonia.
