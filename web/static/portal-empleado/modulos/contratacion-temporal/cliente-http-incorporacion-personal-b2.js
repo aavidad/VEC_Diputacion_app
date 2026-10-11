@@ -1,5 +1,6 @@
 import { registroB2, referenciaB2, validarConsultaB2, validarSolicitudPlanB2, validarSolicitudConfirmacionB2, validarReciboB2 } from "./contrato-incorporacion-personal-b2.js";
-import { validarSignal, ejecutarAbortable, cancelarRespuesta, validarTipoJSON, longitudDeclarada, serializarAcotado, construirCabeceras } from "./cliente-http-transporte.js?v=20261009-ct-bolsa-cohorte-v9";
+import { RUTA_VINCULO_RPT, RUTA_CATEGORIAS_RPT, validarLecturaVinculoRPT, validarPaginaCategoriasRPT, validarEntradaVinculoRPT, validarReciboVinculoRPT } from "./contrato-vinculo-categoria-rpt.js";
+import { validarSignal, ejecutarAbortable, cancelarRespuesta, validarTipoJSON, longitudDeclarada, serializarAcotado, construirCabeceras } from "./cliente-http-transporte.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
 
 export const RUTA_PLAN_B2 = "/api/vec/contratacion-temporal/incorporacion-personal-b2/plan/v1";
 export const RUTA_CONFIRMAR_B2 = "/api/vec/contratacion-temporal/incorporacion-personal-b2/confirmar/v1";
@@ -83,6 +84,18 @@ export function crearClienteIncorporacionPersonalB2HTTP({ fetchImpl = globalThis
     confirmar(solicitud, opciones) {
       const entrada = validarSolicitudConfirmacionB2(solicitud);
       return pedir(RUTA_CONFIRMAR_B2, entrada, opciones, (v) => validarReciboB2(v, entrada));
+    },
+    consultarVinculoRPT(expedienteRef, opciones) {
+      if (!referenciaB2(expedienteRef)) throw error("contenido_no_valido");
+      return pedir(`${RUTA_VINCULO_RPT}?expediente_ref=${encodeURIComponent(expedienteRef)}`, undefined, opciones, (v) => validarLecturaVinculoRPT(v, expedienteRef));
+    },
+    listarCategoriasRPT(cursor, opciones) {
+      if (cursor !== "" && !/^[a-z][a-z0-9_.:-]{2,127}$/u.test(cursor)) throw error("contenido_no_valido");
+      return pedir(cursor ? `${RUTA_CATEGORIAS_RPT}?cursor=${encodeURIComponent(cursor)}` : RUTA_CATEGORIAS_RPT, undefined, opciones, (v) => validarPaginaCategoriasRPT(v, cursor));
+    },
+    registrarVinculoRPT(solicitud, opciones) {
+      const entrada = validarEntradaVinculoRPT(solicitud);
+      return pedir(RUTA_VINCULO_RPT, entrada, opciones, (v) => validarReciboVinculoRPT(v, entrada));
     },
   });
 }

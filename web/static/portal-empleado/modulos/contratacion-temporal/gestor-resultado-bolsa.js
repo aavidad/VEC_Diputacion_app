@@ -1,5 +1,5 @@
-import { renderizarResultadoBolsa } from "./resultado-bolsa.js?v=20261009-ct-bolsa-cohorte-v9";
-import { renderizarLineaFases } from "./vista-expedientes-ficha.js?v=20261009-ct-bolsa-cohorte-v9";
+import { renderizarResultadoBolsa } from "./resultado-bolsa.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { renderizarLineaFases } from "./vista-expedientes-ficha.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
 
 /** Conserva el comando de un vínculo incierto en memoria; una navegación no lo sustituye. */
 export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, locale, zonaHoraria,

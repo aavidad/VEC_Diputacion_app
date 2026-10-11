@@ -1,4 +1,4 @@
-import { consultarJSON, ErrorConsultaJSON } from "../../../comun/http.js?v=20261010-http-codigo-v1";
+import { consultarJSON, ErrorConsultaJSON } from "../../../comun/http.js?v=20261010-http-carga-v1";
 
 const BASE = "/api/vec/bolsa/rrhh/inscripciones";
 const SEGMENTO = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,511}$/u;
