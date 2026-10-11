@@ -218,6 +218,42 @@ func TestFuentesContextoB2PersonaRevocadaEnOtraPeticionSeDeniega(t *testing.T) {
 	}
 }
 
+func TestFuentesContextoB2PersonaCapturadaRevalidaConcesionEnMismaPeticion(t *testing.T) {
+	for _, caso := range []string{"revocada", "rol_retirado", "ambito_restringido", "acto_ajeno", "lector_caido"} {
+		t.Run(caso, func(t *testing.T) {
+			f, _, c, a, ctx, llamadas := escenarioPersonaB2Capturada(t)
+			if _, err := f.LeerPersonaSeleccionada(ctx, c); err != nil {
+				t.Fatal(err)
+			}
+			lector := a.perfiles.soporte.autoridadAsignaciones.(*lectorAsignacionB2ContadoPrueba)
+			perfil := a.perfiles.b2[bp.AccionConsultaPersonaAceptacionCT]
+			publicada := lector.base.publicadas[perfil.perfilRef()]
+			publicada.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
+			switch caso {
+			case "revocada":
+				publicada.instantanea.AsignacionPerfil.Estado = core.EstadoAsignacionPerfilRevocada
+			case "rol_retirado":
+				publicada.instantanea.ControlVigenciaVersionRol.Estado = core.EstadoControlVigenciaVersionRolRetirada
+			case "ambito_restringido":
+				publicada.instantanea.AsignacionPerfil.Ambitos[0].Valores = []string{"unidad:otra"}
+			case "acto_ajeno":
+				publicada.actoAsignacion = "acto:ajeno"
+			case "lector_caido":
+				lector.base.errorLectura = errors.New("asignación no disponible después de capturar persona")
+			}
+			lector.base.publicadas[perfil.perfilRef()] = publicada
+			r, err := f.LeerPersonaSeleccionada(ctx, c)
+			esperado := ct.ErrDenegadaIncorporacionAplicacion
+			if caso == "lector_caido" {
+				esperado = ct.ErrComposicionIncorporacionAplicacion
+			}
+			if !errors.Is(err, esperado) || r != (inc.PersonaSeleccionadaBolsa{}) || llamadas.consultas != 1 || lector.lecturas != 2 {
+				t.Fatalf("captura omitió concesión vigente: caso=%s lecturas=%d consultas=%d err=%v", caso, lector.lecturas, llamadas.consultas, err)
+			}
+		})
+	}
+}
+
 func TestFuentesContextoB2PersonaConcurrentePuedeAutorizarSinBloqueoNominal(t *testing.T) {
 	f, d, c, a, ctx, llamadas := escenarioPersonaB2Capturada(t)
 	ctx, cancelar := context.WithTimeout(ctx, 2*time.Second)

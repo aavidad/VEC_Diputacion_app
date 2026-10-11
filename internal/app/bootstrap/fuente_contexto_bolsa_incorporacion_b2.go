@@ -105,6 +105,18 @@ func (f *FuentesContextoIncorporacionB2) consultarPersonaBolsaB2(ctx context.Con
 	}
 	clave := clavePersonaBolsaB2{f, selector}
 	if lectura, existe := holder.personasB2[clave]; existe {
+		perfil := propietario.b2[bp.AccionConsultaPersonaAceptacionCT]
+		if perfil == nil || actor.Resultado.Contexto.PerfilActivoRef != perfil.perfilRef() {
+			return cero, ct.ErrAutorizacionDenegada
+		}
+		// Reutilizar los datos no reutiliza la concesión: la autoridad nominal
+		// relee la asignación actual también dentro de esta misma petición.
+		if err := propietario.consumir(ctx, perfil); err != nil {
+			return cero, err
+		}
+		if err := ctx.Err(); err != nil {
+			return cero, err
+		}
 		if propietario.soporte.reloj.Ahora().Before(lectura.vinculo.VigenteHasta) {
 			return lectura.resultado(), nil
 		}
