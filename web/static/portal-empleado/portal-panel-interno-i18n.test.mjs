@@ -6,7 +6,7 @@ import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=202610
 await prepararTextosPortal("ayuda");
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-b1-traza-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js";
 
 test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () => {
@@ -107,4 +107,23 @@ test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar ex
   const ingles = JSON.parse(await readFile(new URL("../textos/en/portal.json", import.meta.url), "utf8")).panel_interno;
   assert.equal(Object.hasOwn(ingles, "panel_resultado_sin_expediente"), false);
   assert.match(ingles.panel_contacto_no_respuesta, /If the person accepts or declines/);
+});
+
+test("Bolsa solo ofrece cargar desde CONVOCA si el servidor monta la carga", () => {
+  let disponible = false;
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: () => "info",
+    encabezadoVista: (_area, titulo, _descripcion, acciones) => `<header><h2>${titulo}</h2>${acciones}</header>`,
+    escaparHTML: (valor) => String(valor ?? ""),
+    numero: (valor) => String(valor ?? 0),
+    obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }),
+    tituloVista: (valor) => valor,
+    obtenerDatosBolsas: () => ({ carga: "cargando" }),
+    cargaConvocaDisponible: () => disponible,
+  });
+  assert.doesNotMatch(presentador.renderizarSoloBolsas("resumen-bolsas"), /carga-convoca/);
+  disponible = true;
+  const html = presentador.renderizarSoloBolsas("resumen-bolsas");
+  assert.match(html, /href="\/portal-empleado\/modulos\/bolsa\/carga-convoca\/\?lang=[a-z]{2}"/);
+  assert.match(html, new RegExp(traducirPortal("txt_cargar_bolsa_convoca")));
 });

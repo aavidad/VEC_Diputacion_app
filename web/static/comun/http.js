@@ -2,6 +2,9 @@ import { registrarErrorCliente } from "./registro-errores.js?v=20261007-p7-http-
 
 const MAXIMO_BYTES = 256 * 1024;
 const MAXIMO_MS = 15_000;
+// Techo para envíos grandes acotados por cada pantalla (p. ej. un Excel en base64).
+const MAXIMO_BYTES_CUERPO = 2 * 1024 * 1024;
+const MAXIMO_MS_ENVIO = 60_000;
 const MAXIMO_BYTES_ERROR = 8 * 1024;
 const EN_VUELO = new WeakMap();
 
@@ -160,18 +163,25 @@ function suscribir(entrada, signal, quitar) {
   });
 }
 
-/** Consulta JSON interna con límite de bytes, tiempo y reintentos solo de GET. */
+/**
+ * Consulta JSON interna con límite de bytes, tiempo y reintentos solo de GET.
+ * `limiteCuerpoBytes` y un `plazoMs` mayor de 15 s solo se admiten en envíos
+ * (no GET), con los techos fijos de este módulo.
+ */
 export function consultarJSON(ruta, { metodo = "GET", cuerpo, signal, fetchImpl = globalThis.fetch,
-  limiteBytes = MAXIMO_BYTES, plazoMs = MAXIMO_MS, reintentos = 2 } = {}) {
+  limiteBytes = MAXIMO_BYTES, plazoMs = MAXIMO_MS, reintentos = 2, limiteCuerpoBytes = MAXIMO_BYTES } = {}) {
   rutaInterna(ruta);
+  const techoMs = metodo === "GET" ? MAXIMO_MS : MAXIMO_MS_ENVIO;
+  const techoCuerpo = metodo === "GET" ? MAXIMO_BYTES : MAXIMO_BYTES_CUERPO;
   if (!["GET", "POST", "PUT", "PATCH", "DELETE"].includes(metodo) || (metodo === "GET" && cuerpo !== undefined)
     || typeof fetchImpl !== "function" || !Number.isSafeInteger(limiteBytes) || limiteBytes < 1 || limiteBytes > MAXIMO_BYTES
-    || !Number.isSafeInteger(plazoMs) || plazoMs < 1 || plazoMs > MAXIMO_MS
+    || !Number.isSafeInteger(plazoMs) || plazoMs < 1 || plazoMs > techoMs
+    || !Number.isSafeInteger(limiteCuerpoBytes) || limiteCuerpoBytes < 1 || limiteCuerpoBytes > techoCuerpo
     || !Number.isSafeInteger(reintentos) || reintentos < 0 || reintentos > 2) throw new TypeError("opciones_http_invalidas");
   if (signal?.aborted) return Promise.reject(error("cancelado"));
   const cuerpoSerializado = cuerpo === undefined ? undefined : JSON.stringify(cuerpo);
   if (cuerpo !== undefined && typeof cuerpoSerializado !== "string") throw new TypeError("cuerpo_http_invalido");
-  if (cuerpoSerializado !== undefined && new TextEncoder().encode(cuerpoSerializado).byteLength > MAXIMO_BYTES) throw new TypeError("cuerpo_http_demasiado_grande");
+  if (cuerpoSerializado !== undefined && new TextEncoder().encode(cuerpoSerializado).byteLength > limiteCuerpoBytes) throw new TypeError("cuerpo_http_demasiado_grande");
   if (metodo !== "GET") reintentos = 0;
   const clave = JSON.stringify([ruta, metodo, limiteBytes, plazoMs, reintentos]);
   let mapa = EN_VUELO.get(fetchImpl);
@@ -190,4 +200,35 @@ export function consultarJSON(ruta, { metodo = "GET", cuerpo, signal, fetchImpl 
       () => { if (mapa.get(clave) === entrada) mapa.delete(clave); });
   }
   return suscribir(entrada, signal, () => mapa.delete(clave));
+}
+
+/**
+ * Comprueba sin efectos si el servidor publica una ruta interna que solo
+ * admite POST: un GET recibe 405 cuando la ruta está montada y 404 cuando no.
+ * Devuelve true o false; cualquier otra respuesta o fallo de red es false
+ * (lo que no se puede comprobar no se ofrece). No reintenta ni anota errores.
+ */
+export async function rutaEnvioPublicada(ruta, { signal, fetchImpl = globalThis.fetch, plazoMs = 5_000 } = {}) {
+  rutaInterna(ruta);
+  if (typeof fetchImpl !== "function" || !Number.isSafeInteger(plazoMs) || plazoMs < 1 || plazoMs > MAXIMO_MS) {
+    throw new TypeError("opciones_http_invalidas");
+  }
+  const controlador = new AbortController();
+  const temporizador = setTimeout(() => controlador.abort(), plazoMs);
+  const abortar = () => controlador.abort();
+  signal?.addEventListener?.("abort", abortar, { once: true });
+  if (signal?.aborted) controlador.abort();
+  try {
+    const respuesta = await fetchImpl(ruta, {
+      method: "GET", mode: "same-origin", credentials: "same-origin", cache: "no-store",
+      redirect: "error", referrerPolicy: "no-referrer", signal: controlador.signal, headers: { Accept: "application/json" },
+    });
+    cancelarCuerpo(respuesta);
+    return respuesta.redirected !== true && respuesta.status === 405;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(temporizador);
+    signal?.removeEventListener?.("abort", abortar);
+  }
 }

@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"errors"
 	"math"
 	"testing"
@@ -15,5 +16,15 @@ func TestVersionConstitucionRespetaBigintPostgreSQL(t *testing.T) {
 	}
 	if _, err := versionBigintConstitucion(uint64(math.MaxInt64) + 1); !errors.Is(err, ports.ErrConstitucionBolsaInvalida) {
 		t.Fatalf("versión fuera de bigint admitida: %v", err)
+	}
+}
+
+func TestBolsaConstituidaVigenteFallaCerradaSinDependencias(t *testing.T) {
+	var r *RepositorioConstitucionPostgreSQL
+	if vigente, err := r.BolsaConstituidaVigente(context.Background(), "bolsa:x"); vigente || !errors.Is(err, ports.ErrConstitucionBolsaNoDisponible) {
+		t.Fatalf("sin pool: %v %v", vigente, err)
+	}
+	if vigente, err := (&RepositorioConstitucionPostgreSQL{}).BolsaConstituidaVigente(context.Background(), ""); vigente || !errors.Is(err, ports.ErrConstitucionBolsaNoDisponible) {
+		t.Fatalf("referencia vacía: %v %v", vigente, err)
 	}
 }

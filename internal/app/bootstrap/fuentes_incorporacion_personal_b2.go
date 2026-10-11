@@ -10,7 +10,6 @@ import (
 	bp "vec-diputacion-granada/internal/modules/bolsa/ports"
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
-	appct "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	domct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	apppersonal "vec-diputacion-granada/internal/modules/personal/application"
@@ -20,12 +19,19 @@ import (
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
 
+// lectorDetalleIncorporacionB2 contrae el lector de detalle del expediente:
+// la composición inyecta el servicio propio de Contratación temporal y las
+// pruebas lo sustituyen por un doble que cuenta las lecturas.
+type lectorDetalleIncorporacionB2 interface {
+	Consultar(context.Context, ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error)
+}
+
 type fuentesIncorporacionPersonalB2 struct {
 	organizacionRef, organismoRef string
 	autoridad                     *autoridadIncorporacionPersonalB2
 	ct                            *pgct.FuentePlanNominalB2PostgreSQL
 	servicioCT                    servicioCTIncorporacionB2
-	detalle                       *appct.ServicioConsultaDetalleRRHH
+	detalle                       lectorDetalleIncorporacionB2
 	personal                      pp.ServicioPlanIncorporacionCT
 	ficha                         pp.FuenteFichaIncorporacionCT
 	hechos                        pp.ConsultaHechosIncorporacionCT
@@ -52,8 +58,21 @@ func versionB2HaciaInt64(v uint64) (int64, bool) {
 	return int64(v), true
 }
 
-func (f *fuentesIncorporacionPersonalB2) antecedentes(ctx context.Context, exp string) (ct.AntecedentesPlanNominalB2, error) {
-	unidad, e := f.ResolverUnidadPlanNominalB2(ctx, f.organizacionRef, exp)
+// unidadExpedienteDesdeDetalleB2 comprueba la unidad del expediente contra su
+// asignación usando el detalle ya leído: la comparación es la misma que hacía
+// ResolverUnidadPlanNominalB2, sin volver a pedir el detalle.
+func unidadExpedienteDesdeDetalleB2(d ct.DetalleExpedienteRRHH) (string, error) {
+	if d.Asignacion == nil || d.Asignacion.UnidadRef == "" || d.Asignacion.UnidadRef != d.Resumen.UnidadRef {
+		return "", ct.ErrPreparacionIncorporacionPendiente
+	}
+	return d.Asignacion.UnidadRef, nil
+}
+
+// antecedentesDesde lee los antecedentes con el detalle ya leído por el
+// llamador: la autorización y la lectura SQL de antecedentes se mantienen
+// exactamente igual; sólo se evita repetir la lectura autorizada del detalle.
+func (f *fuentesIncorporacionPersonalB2) antecedentesDesde(ctx context.Context, exp string, d ct.DetalleExpedienteRRHH) (ct.AntecedentesPlanNominalB2, error) {
+	unidad, e := unidadExpedienteDesdeDetalleB2(d)
 	if e != nil {
 		return ct.AntecedentesPlanNominalB2{}, e
 	}
@@ -66,6 +85,15 @@ func (f *fuentesIncorporacionPersonalB2) antecedentes(ctx context.Context, exp s
 		return ct.AntecedentesPlanNominalB2{}, e
 	}
 	return f.ct.LeerAntecedentesPlanB2(ctx, f.organizacionRef, exp, x, unidad)
+}
+
+// antecedentes conserva la lectura única para quien no tiene el detalle a mano.
+func (f *fuentesIncorporacionPersonalB2) antecedentes(ctx context.Context, exp string) (ct.AntecedentesPlanNominalB2, error) {
+	d, e := f.detalleActual(ctx, exp)
+	if e != nil {
+		return ct.AntecedentesPlanNominalB2{}, e
+	}
+	return f.antecedentesDesde(ctx, exp, d)
 }
 func (f *fuentesIncorporacionPersonalB2) detalleActual(ctx context.Context, exp string) (ct.DetalleExpedienteRRHH, error) {
 	s, e := ct.NuevaSolicitudDetalleRRHH(exp, 0)
@@ -82,11 +110,11 @@ func (f *fuentesIncorporacionPersonalB2) ResolverPlanNominalB2(ctx context.Conte
 	if e := f.autoridad.actorCoincide(ctx, ct.AccionRegistrarPlanNominalB2, actor); e != nil {
 		return cero, e
 	}
-	a, e := f.antecedentes(ctx, s.ExpedienteRef)
+	d, e := f.detalleActual(ctx, s.ExpedienteRef)
 	if e != nil {
 		return cero, e
 	}
-	d, e := f.detalleActual(ctx, s.ExpedienteRef)
+	a, e := f.antecedentesDesde(ctx, s.ExpedienteRef, d)
 	if e != nil {
 		return cero, e
 	}
@@ -312,7 +340,7 @@ func (f *fuentesIncorporacionPersonalB2) ConsultarOpcionesIncorporacionB2(ctx co
 	if e != nil {
 		return cero, e
 	}
-	a, e := f.antecedentes(ctx, exp)
+	a, e := f.antecedentesDesde(ctx, exp, d)
 	if e != nil {
 		return cero, e
 	}
@@ -452,10 +480,7 @@ func (f *fuentesIncorporacionPersonalB2) ResolverUnidadPlanNominalB2(ctx context
 	if e != nil {
 		return "", e
 	}
-	if d.Asignacion == nil || d.Asignacion.UnidadRef == "" || d.Asignacion.UnidadRef != d.Resumen.UnidadRef {
-		return "", ct.ErrPreparacionIncorporacionPendiente
-	}
-	return d.Asignacion.UnidadRef, nil
+	return unidadExpedienteDesdeDetalleB2(d)
 }
 
 func (f *fuentesIncorporacionPersonalB2) validarClaseOcupacion(ctx context.Context, clase string) error {

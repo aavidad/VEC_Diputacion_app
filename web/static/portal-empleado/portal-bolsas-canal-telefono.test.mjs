@@ -303,7 +303,7 @@ test("quien ya respondió o dejó de estar disponible no es «Siguiente a llamar
   const contactos = [contacto(1, "telefono", "contactado", "2026-10-08T08:00:00Z")];
   const filas = filasSeguimiento({ candidatos, contactos, llamamientoRef: LLAMAMIENTO, telefono: TELEFONO });
   assert.deepEqual(filas.map((f) => [f.motivo, f.siguiente]),
-    [["renuncia", false], ["renuncia", false], ["aceptado", false], ["aceptado", false], [null, true]], "una respuesta a otro llamamiento no cuenta");
+    [["renuncia", false], ["renuncia", false], ["aceptado", false], ["aceptado", false], [null, false]], "una aceptación cierra el llamamiento completo");
   const otros = filasSeguimiento({ candidatos: [persona(1, "A", { estado_clave: "excluido" }), persona(2, "B")],
     contactos: [contacto(2, "telefono", "numero_erroneo", "2026-10-08T08:00:00Z")], llamamientoRef: LLAMAMIENTO, telefono: TELEFONO });
   assert.deepEqual(otros.map((f) => f.motivo), ["no_disponible", "no_localizado"]);

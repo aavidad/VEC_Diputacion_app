@@ -8,7 +8,7 @@
  */
 import { textoPortal, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
-import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261010-seguimiento-siguiente-v1";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261011-bolsa-contacto-v11";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
 
 /** Canales activos: el correo siempre (se envía al emitir); el teléfono si el servidor lo publica. */
@@ -55,10 +55,16 @@ function motivoResuelta(candidato, llamadas, cierre, llamamientoRef) {
  */
 export function filasSeguimiento({ candidatos = [], contactos = [], llamamientoRef = "", telefono = null }) {
   const cierre = new Set(telefono?.resultados_cierre || []);
-  const delLlamamiento = contactos.filter((contacto) => contacto?.llamamiento_ref === llamamientoRef);
+  const porParticipacion = new Map();
+  for (const contacto of contactos) {
+    if (contacto?.llamamiento_ref !== llamamientoRef) continue;
+    const propios = porParticipacion.get(contacto.participacion_ref) || [];
+    propios.push(contacto);
+    porParticipacion.set(contacto.participacion_ref, propios);
+  }
   let siguienteMarcado = false;
-  return [...candidatos].sort(porOrden).map((candidato) => {
-    const propios = delLlamamiento.filter((contacto) => contacto.participacion_ref === candidato.participacion_ref);
+  const filas = [...candidatos].sort(porOrden).map((candidato) => {
+    const propios = porParticipacion.get(candidato.participacion_ref) || [];
     const llamadas = propios.filter((contacto) => contacto.canal === "telefono");
     const correo = propios.filter((contacto) => contacto.canal === "correo").reduce(masReciente, null);
     const ultimaLlamada = llamadas.reduce(masReciente, null);
@@ -68,6 +74,10 @@ export function filasSeguimiento({ candidatos = [], contactos = [], llamamientoR
     if (siguiente) siguienteMarcado = true;
     return Object.freeze({ candidato, correo, llamadas: llamadas.length, ultimaLlamada, cerrada, motivo, siguiente });
   });
+  // Una aceptación cierra el llamamiento completo, incluso si la persona
+  // aparece después de otra todavía pendiente en el orden de la bolsa.
+  return filas.some((fila) => fila.motivo === "aceptado")
+    ? filas.map((fila) => Object.freeze({ ...fila, siguiente: false })) : filas;
 }
 
 const CLASE_MOTIVO = Object.freeze({ aceptado: "exito", renuncia: "advertencia", no_localizado: "advertencia", no_disponible: "neutro" });

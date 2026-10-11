@@ -63,6 +63,9 @@ type perfilFijoCTDesarrollo struct {
 	// Sólo el perfil de alta puede consumir además una versión posterior
 	// aprobada por CAS para vincular emisiones reales de Bolsa.
 	plantillaVinculoBolsa *dominiovec.InstantaneaAutorizacion
+	// plantillaVinculoBolsaPrevia es la misma ampliación sin los centros de
+	// petición: la asignación aprobada antes sigue consumible hasta el CAS.
+	plantillaVinculoBolsaPrevia *dominiovec.InstantaneaAutorizacion
 	// actoSesion es el de las filas de sesión del perfil (propio en los
 	// perfiles nuevos, el histórico en un perfil que ya existía).
 	actoSesion                 string
