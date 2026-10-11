@@ -796,12 +796,12 @@ export function crearCoordinadorModulosPortal({
   }
 
   async function sesionDeIntervencion(consultar) {
-    if (consultarSesion === null) return false;
+    if (consultarSesion === null) return null;
     try {
       const sesion = await consultar((opciones) => consultarSesion(opciones), "consultar sesión");
-      return Array.isArray(sesion?.roles) && sesion.roles.includes(ROL_INTERVENCION);
+      return Array.isArray(sesion?.roles) ? sesion.roles.includes(ROL_INTERVENCION) : null;
     } catch {
-      return false;
+      return null;
     }
   }
 
@@ -1496,6 +1496,7 @@ export function crearCoordinadorModulosPortal({
             ?.registrarResultadoFiscalizacion === "function"
             ? { cliente: temporal.analisis.cliente }
             : null,
+          fiscalizacionAjena: temporal.fiscalizacionEnFicha === false,
           continuidad: temporal.continuidad,
           incorporacionPersonalB2: temporal.clienteIncorporacionB2,
           subsanacion: temporal.subsanacion,
