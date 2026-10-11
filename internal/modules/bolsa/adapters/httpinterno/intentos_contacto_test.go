@@ -129,11 +129,10 @@ func TestRegistroDeIntentoDevuelveEstadoYRechazosDeLasReglas(t *testing.T) {
 	}
 }
 
-// Fallo 4 del recorrido del 10/10: una nota con «teléfono» respondía 409
-// «contacto_en_conflicto» y la pantalla hablaba de una clave reutilizada.
-// Cada causa tiene ahora su código.
+// Una nota con números de teléfono tiene un error propio; el conflicto de
+// clave y un resultado incompatible mantienen sus códigos separados.
 func TestRegistroDistingueNotaConDatoPersonalClaveRepetidaYContactoNoValido(t *testing.T) {
-	cuerpo := `{"canal":"telefono","resultado":"acepta","anotacion":"Acepta por teléfono","llamamiento_ref":"llamamiento:1"}`
+	cuerpo := `{"canal":"telefono","resultado":"acepta","anotacion":"Teléfono 600123456","llamamiento_ref":"llamamiento:1"}`
 	operador := &operadorIntentosPrueba{}
 	h, _ := NuevoHandlerContactoParticipacion(preparadorIntentosPrueba{}, operador)
 	for _, caso := range []struct {
