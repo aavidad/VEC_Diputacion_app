@@ -29,7 +29,7 @@ END $pre$;
 CREATE FUNCTION vec_documentos.validar_plan_carga_para_lectura_v1(
  p_plan_ref text,p_carga_id text,p_persona_ref text,p_hecho_ref text,p_version_carga bigint)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
- SET search_path=pg_catalog SET row_security=on AS $f$
+ SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE valido boolean;
 BEGIN
  IF current_user<>'vec_documentos_propietario'
@@ -53,7 +53,7 @@ REVOKE ALL ON FUNCTION vec_documentos.validar_plan_carga_para_lectura_v1(text,te
 -- El login ejecutor no tiene DML sobre la tabla. Esta función solo se invoca
 -- desde el INSERT D3, después del consumo V3 en su misma transacción.
 CREATE FUNCTION vec_documentos.guardar_referencia_meritos_mayan_v1() RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE p vec_documentos.plan_ingesta_mayan%ROWTYPE;
         custodia text; id_documento text; n_outbox bigint; n_auditoria bigint;
 BEGIN
