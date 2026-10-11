@@ -1808,11 +1808,14 @@ test("la ficha CT solo ofrece registrar la fiscalización al perfil de Intervenc
     async obtener() { return {}; },
     async ejecutar() { throw new Error("solo lectura"); },
   });
-  for (const [roles, esperado] of [[["tecnico_rrhh"], false], [["intervencion"], true]]) {
+  for (const [roles, esperado] of [[["tecnico_rrhh"], false], [["intervencion"], true], [null, false]]) {
     let montaje;
     const coordinador = crearCoordinadorModulosPortal({
       escaparHTML: String,
-      consultarSesion: async () => ({ roles }),
+      consultarSesion: async () => {
+        if (roles === null) throw new Error("sesión no disponible");
+        return { roles };
+      },
       cargarCatalogoInterno: async () => catalogo,
       cargadoresInternos: {
         contratacion_temporal: async () => ({
@@ -1830,7 +1833,8 @@ test("la ficha CT solo ofrece registrar la fiscalización al perfil de Intervenc
     });
     await cargarConDiferidos(coordinador);
     assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
-    assert.ok(montaje.analisis, roles.join());
-    assert.equal(montaje.fiscalizacion !== null, esperado, roles.join());
+    assert.ok(montaje.analisis, String(roles));
+    assert.equal(montaje.fiscalizacion !== null, esperado, String(roles));
+    assert.equal(montaje.fiscalizacionAjena, roles !== null && !esperado);
   }
 });
