@@ -28,9 +28,9 @@ func descriptoresMaterialDocumentosDesarrollo() []descriptorMaterialConsumidorV3
 // composición gobernada de Documentos estén disponibles.
 func descriptorMaterialLecturaCargaAdmitidaCustodiaDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
 	return descriptorMaterialConsumidorV3Desarrollo{
-		Audiencia: vecports.AudienciaAlmacenLeerCargaAdmitidaCustodiaV3,
-		Dominio: "vec.documentos.carga-admitida-lectura.desarrollo.capacidad-v3",
-		Prefijo: "clave:capacidad:documentos-carga-admitida-lectura:",
+		Audiencia:        vecports.AudienciaAlmacenLeerCargaAdmitidaCustodiaV3,
+		Dominio:          "vec.documentos.carga-admitida-lectura.desarrollo.capacidad-v3",
+		Prefijo:          "clave:capacidad:documentos-carga-admitida-lectura:",
 		ProveedorNominal: "proveedor-material-documentos-carga-admitida-lectura",
 	}
 }
