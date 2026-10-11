@@ -56,3 +56,15 @@ func TestDecodificarMiBolsaConUltimoLlamamientoPropio(t *testing.T) {
 		t.Fatalf("último llamamiento: %#v, %v", r, err)
 	}
 }
+
+func TestPortalPropagaRevisionDeRespuestaSinOtraConsulta(t *testing.T) {
+	for _, valor := range []string{"true", "false"} {
+		t.Run(valor, func(t *testing.T) {
+			tx := &txLecturaMiBolsaPrueba{filas: []filaPanelPostgreSQLPrueba{{contenido: []byte(`[{"bolsa":"bolsa:01","ultima_respuesta":{"respuesta":"acepta","modo":"firme","recibo":"recibo:respuesta:01","respondida_en":"2026-10-11T10:00:00Z","en_revision":` + valor + `}}]`)}}}
+			estados, err := leerPortalCandidato(context.Background(), tx, "can_persona01", time.Date(2026, 10, 11, 11, 0, 0, 0, time.UTC), []string{"contactado"})
+			if err != nil || len(estados) != 1 || estados[0].UltimaRespuesta == nil || estados[0].UltimaRespuesta.EnRevision != (valor == "true") || len(tx.consultas) != 1 {
+				t.Fatalf("revision=%s resultado=%+v consultas=%d error=%v", valor, estados, len(tx.consultas), err)
+			}
+		})
+	}
+}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash, webcrypto } from "node:crypto";
 import { File } from "node:buffer";
 import { readFile } from "node:fs/promises";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261011-ct-bolsa-vinculo-v1";
 import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261011-informe-legible-v1";
 
 

@@ -111,7 +111,7 @@ func marcaLeidaValida(m dominiobolsa.MarcasParticipacion, dias int64) bool {
 		return false
 	}
 	switch m.EnRevision {
-	case "", dominiobolsa.RevisionRenunciaPendiente, dominiobolsa.RevisionSolicitudPendiente:
+	case "", dominiobolsa.RevisionAceptacionPendiente, dominiobolsa.RevisionRenunciaPendiente, dominiobolsa.RevisionSolicitudPendiente:
 	default:
 		return false
 	}

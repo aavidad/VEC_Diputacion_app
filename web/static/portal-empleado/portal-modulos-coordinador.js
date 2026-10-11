@@ -8,7 +8,7 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
+} from "./portal-catalogo-modulos.js?v=20261011-ct-bolsa-vinculo-v1";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { enlaceCTSinVersionFueraDePagina } from "./portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
 import {
@@ -17,7 +17,7 @@ import {
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261011-bolsa-b103-privacidad-v1";
 import { cargarTextos } from "../comun/textos.js";
 import { INDICE_IDIOMAS } from "../comun/idioma.js";
 import {
@@ -130,20 +130,20 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js?v=20261009-centro-campos-cohorte-v5"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261010-ct-vinculo-rpt-cohorte-v10"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261011-ct-bolsa-vinculo-v1"),
 
     ]);
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
-        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261010-ct-vinculo-rpt-cohorte-v10"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261010-ct-vinculo-rpt-cohorte-v10"),
-        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261010-ct-vinculo-rpt-cohorte-v10"),
+        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261011-ct-bolsa-vinculo-v1"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261011-ct-bolsa-vinculo-v1"),
+        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261011-ct-bolsa-vinculo-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
       return completos;
     };
-    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261010-ct-vinculo-rpt-cohorte-v10");
+    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261011-bolsa-b103-privacidad-v1");
     // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
@@ -688,7 +688,12 @@ export function crearCoordinadorModulosPortal({
     // descarga ya, tras lanzar las consultas para no retrasarlas. Un fallo se
     // ignora aquí; el montaje la vuelve a pedir y lo muestra.
     if (typeof recursos.tomarCuadroLista === "function") void esperarVista().catch(() => {});
+    // El perfil de la sesión decide qué actos se ofrecen: la fiscalización solo
+    // la registra Intervención. Se pide a la vez que el cuadro (nunca falla:
+    // sin sesión legible, el acto no se ofrece).
+    const promesaIntervencion = sesionDeIntervencion(consultar);
     const [cuadro, configuracion] = await Promise.allSettled([consultaCuadro, promesaConfiguracion]);
+    const perfilIntervencion = await promesaIntervencion;
     exigirVigente();
     const cuadroDisponible = cuadro.status === "fulfilled";
     const listadoCuadro = cuadroDisponible ? cuadro.value : null;
@@ -749,7 +754,7 @@ export function crearCoordinadorModulosPortal({
     const fiscalizacion = alta === null && analisis === null
       && typeof cliente.registrarResultadoFiscalizacion === "function"
       && await esperarVista().then((partes) => typeof partes.vista.montarModuloFiscalizacionContratacionTemporal === "function", () => false)
-      && await sesionDeIntervencion(consultar)
+      && perfilIntervencion
       ? Object.freeze({ cliente }) : null;
     exigirVigente();
     if (!cuadroDisponible && alta === null && fiscalizacion === null) {
@@ -768,6 +773,8 @@ export function crearCoordinadorModulosPortal({
         esperarAlta: () => promesaAlta,
         analisis,
         fiscalizacion,
+        // Actos de Intervención dentro de la ficha: solo con ese perfil.
+        fiscalizacionEnFicha: perfilIntervencion,
         subsanacion,
         continuidad: fiscalizacion === null ? Object.freeze({ cliente }) : null,
         // Con la vista ya cargada (el montaje la espera antes de leer esto).
@@ -789,12 +796,12 @@ export function crearCoordinadorModulosPortal({
   }
 
   async function sesionDeIntervencion(consultar) {
-    if (consultarSesion === null) return false;
+    if (consultarSesion === null) return null;
     try {
       const sesion = await consultar((opciones) => consultarSesion(opciones), "consultar sesión");
-      return Array.isArray(sesion?.roles) && sesion.roles.includes(ROL_INTERVENCION);
+      return Array.isArray(sesion?.roles) ? sesion.roles.includes(ROL_INTERVENCION) : null;
     } catch {
-      return false;
+      return null;
     }
   }
 
@@ -1331,7 +1338,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261010-ct-vinculo-rpt-cohorte-v10");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261011-ct-bolsa-vinculo-v1");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
@@ -1485,10 +1492,11 @@ export function crearCoordinadorModulosPortal({
           mensajes: temporal.mensajesExpedientes,
           alta: temporal.alta,
           analisis: temporal.analisis,
-          fiscalizacion: typeof temporal.analisis?.cliente
+          fiscalizacion: temporal.fiscalizacionEnFicha === true && typeof temporal.analisis?.cliente
             ?.registrarResultadoFiscalizacion === "function"
             ? { cliente: temporal.analisis.cliente }
             : null,
+          fiscalizacionAjena: temporal.fiscalizacionEnFicha === false,
           continuidad: temporal.continuidad,
           incorporacionPersonalB2: temporal.clienteIncorporacionB2,
           subsanacion: temporal.subsanacion,
