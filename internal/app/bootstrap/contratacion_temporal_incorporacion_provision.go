@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	domct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	alta "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	lectura "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
@@ -191,6 +192,7 @@ type capturaContextosNominalesIncorporacion struct {
 	asignacionesB2 map[*perfilFijoCTDesarrollo]instantaneaPublicadaDesarrollo
 	muPersonasB2   chan struct{}
 	personasB2     map[clavePersonaBolsaB2]lecturaPersonaBolsaB2
+	preparacionB2  *preparacionIncorporacionB2
 }
 
 func (p *perfilesNominalesIncorporacion) resolver(ctx context.Context, perfil *perfilFijoCTDesarrollo) (ct.ContextoAutorizacionAltaV3, error) {
@@ -310,4 +312,101 @@ func (p *perfilesNominalesIncorporacion) leerAsignacionConsumible(ctx context.Co
 		return cero, ct.ErrAutorizacionDenegada
 	}
 	return publicada, nil
+}
+
+// La captura sólo vive en la petición nominal. El material existente contiene
+// valores y liga la proyección al contrato que devuelve el servicio de CT.
+type preparacionIncorporacionB2 struct {
+	fuente     *fuentesIncorporacionPersonalB2
+	identidad  core.DatosVinculoAutenticacionActorV2
+	material   domct.PlanIncorporacionPersonalB2
+	proyeccion httpinterno.ProyeccionIncorporacionPersonalB2HTTP
+}
+
+func copiarProyeccionPreparacionB2(p httpinterno.ProyeccionIncorporacionPersonalB2HTTP) httpinterno.ProyeccionIncorporacionPersonalB2HTTP {
+	p.Prerrequisitos = slices.Clone(p.Prerrequisitos)
+	p.Opciones.Vacantes = slices.Clone(p.Opciones.Vacantes)
+	p.Opciones.Regimenes = slices.Clone(p.Opciones.Regimenes)
+	p.Opciones.Modalidades = slices.Clone(p.Opciones.Modalidades)
+	p.Opciones.ClasesOcupacion = slices.Clone(p.Opciones.ClasesOcupacion)
+	p.Opciones.Motivos = slices.Clone(p.Opciones.Motivos)
+	p.Opciones.Documentos = slices.Clone(p.Opciones.Documentos)
+	if p.Plan != nil {
+		plan := *p.Plan
+		p.Plan = &plan
+	}
+	if p.Recibo != nil {
+		recibo := *p.Recibo
+		p.Recibo = &recibo
+	}
+	return p
+}
+
+func (f *fuentesIncorporacionPersonalB2) capturarPreparacionB2(ctx context.Context, m domct.PlanIncorporacionPersonalB2, p httpinterno.ProyeccionIncorporacionPersonalB2HTTP) {
+	holder, _ := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+	if holder == nil || f.autoridad == nil || f.autoridad.perfiles == nil {
+		return
+	}
+	perfil := f.autoridad.perfiles.b2[ct.AccionRegistrarPlanNominalB2]
+	if perfil == nil {
+		return
+	}
+	holder.mu.Lock()
+	defer holder.mu.Unlock()
+	if holder.propietario != f.autoridad.perfiles {
+		return
+	}
+	c, ok := holder.contextos[perfil.clave]
+	if !ok {
+		return
+	}
+	identidad, err := c.Vinculo.Datos()
+	if err != nil {
+		return
+	}
+	holder.preparacionB2 = &preparacionIncorporacionB2{f, identidad, m, copiarProyeccionPreparacionB2(p)}
+}
+
+func (f *fuentesIncorporacionPersonalB2) opcionesTrasPreparacionB2(ctx context.Context, c ct.ContratoPlanNominalB2) (httpinterno.ProyeccionIncorporacionPersonalB2HTTP, error) {
+	var cero httpinterno.ProyeccionIncorporacionPersonalB2HTTP
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	holder, _ := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+	if holder == nil {
+		return f.ConsultarOpcionesIncorporacionB2(ctx, c.Material.ExpedienteRef)
+	}
+	holder.mu.Lock()
+	captura := holder.preparacionB2
+	propietario := holder.propietario
+	holder.mu.Unlock()
+	if captura == nil || captura.fuente != f || f.autoridad == nil || propietario != f.autoridad.perfiles || captura.material != c.Material {
+		return f.ConsultarOpcionesIncorporacionB2(ctx, c.Material.ExpedienteRef)
+	}
+	actual, err := f.autoridad.contexto(ctx, ct.AccionRegistrarPlanNominalB2)
+	if err != nil {
+		return cero, err
+	}
+	identidad, err := actual.Vinculo.Datos()
+	if err != nil {
+		return cero, err
+	}
+	if identidad != captura.identidad {
+		return f.ConsultarOpcionesIncorporacionB2(ctx, c.Material.ExpedienteRef)
+	}
+	// La captura no concede acceso: cada perfil relee su asignación vigente.
+	for _, accion := range []string{ct.AccionConsultarDetalleRRHH, ct.AccionLeerPlanNominalB2} {
+		if _, err := f.autoridad.contexto(ctx, accion); err != nil {
+			return cero, err
+		}
+		if err := propietario.consumir(ctx, propietario.b2[accion]); err != nil {
+			return cero, err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	m := c.Material
+	a := ct.AntecedentesPlanNominalB2{OrganizacionRef: m.OrganizacionRef, ExpedienteRef: m.ExpedienteRef, VersionExpediente: m.VersionExpediente, CategoriaRef: m.CategoriaRef, DocumentoRef: m.DocumentoRef, DocumentoSHA256: m.DocumentoSHA256, AceptacionRef: m.AceptacionRef, AceptacionReciboRef: m.AceptacionReciboRef, Bolsa: m.Bolsa}
+	return f.completarOpcionesIncorporacionB2(ctx, copiarProyeccionPreparacionB2(captura.proyeccion), a)
 }
