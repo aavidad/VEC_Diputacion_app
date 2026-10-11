@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title data-i18n="tituloDocumento"></title>
+    <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1" />
+    <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261009-inscripciones-rrhh-v1" />
+    <link rel="stylesheet" href="./carga-convoca.css?v=20261008-b1-correctivo-v1" />
+    <script type="module" src="./arranque.js?v=20261010-b1-carga-v1"></script>
+  </head>
+  <body class="portal-empleado-app carga-convoca-pagina">
+    <a class="salto-contenido" href="#carga" data-i18n="saltarContenido"></a>
+    <main class="portal-superficie" id="carga" tabindex="0">
+      <section class="panel carga-arranque-error" id="arranque-error" role="alert" tabindex="-1" hidden>
+        <div class="cabecera-panel"><h2 id="arranque-error-titulo"></h2></div>
+        <div class="cuerpo-panel"><p id="arranque-error-detalle"></p><button type="button" class="boton-primario" id="arranque-reintentar"><span aria-hidden="true">↻</span></button></div>
+      </section>
+      <header class="cabecera-portal" id="carga-cabecera" hidden>
+        <div class="contexto-cabecera">
+          <nav class="migas" data-i18n-label="ruta">
+            <a href="/portal-empleado/" data-i18n="portal"></a> <span aria-hidden="true">›</span>
+            <a href="/portal-empleado/#resumen" data-i18n="bolsas"></a> <span aria-hidden="true">›</span>
+            <span data-i18n="titulo"></span>
+          </nav>
+          <h1 data-i18n="titulo"></h1>
+        </div>
+        <div class="acciones-cabecera">
+          <button type="button" class="boton-cabecera carga-ayuda" id="ayuda-abrir" data-i18n-label="ayudaAbrir">?</button>
+          <a class="boton-secundario" href="/portal-empleado/#resumen" data-i18n="volver"></a>
+        </div>
+      </header>
+
+      <div class="contenido-portal carga-convoca" id="carga-contenido" hidden>
+        <ol class="carga-pasos" data-i18n-label="pasos">
+          <li id="marca-paso-1" aria-current="step"><span class="carga-pasos__numero" aria-hidden="true">1</span><span data-i18n="paso1"></span><span class="carga-oculto carga-pasos__estado"></span></li>
+          <li id="marca-paso-2"><span class="carga-pasos__numero" aria-hidden="true">2</span><span data-i18n="paso2"></span><span class="carga-oculto carga-pasos__estado"></span></li>
+          <li id="marca-paso-3"><span class="carga-pasos__numero" aria-hidden="true">3</span><span data-i18n="paso3"></span><span class="carga-oculto carga-pasos__estado"></span></li>
+        </ol>
+
+        <section class="panel" id="paso-elegir" tabindex="-1" aria-labelledby="elegir-titulo">
+          <div class="cabecera-panel"><h2 id="elegir-titulo" data-i18n="elegirTitulo"></h2></div>
+          <div class="cuerpo-panel">
+            <div class="carga-resumen-errores" id="resumen-errores" role="alert" tabindex="-1" hidden>
+              <p data-i18n="erroresFormulario"></p>
+              <ul id="lista-errores"></ul>
+            </div>
+            <form id="form-elegir" class="carga-formulario" novalidate>
+              <div class="carga-campo">
+                <label for="fichero"><span data-i18n="fichero"></span> <span class="carga-obligatorio">(<span data-i18n="obligatorio"></span>)</span></label>
+                <div class="carga-fichero">
+                  <input id="fichero" name="fichero" type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-describedby="fichero-nombre fichero-error" required />
+                  <label for="fichero" class="boton-secundario" data-i18n="ficheroElegir" aria-hidden="true"></label>
+                  <span class="carga-fichero-nombre" id="fichero-nombre" data-i18n="ficheroNinguno"></span>
+                </div>
+                <p class="carga-error-campo" id="fichero-error" hidden></p>
+              </div>
+              <div class="carga-campo">
+                <label for="categoria"><span data-i18n="categoria"></span> <span class="carga-obligatorio">(<span data-i18n="obligatorio"></span>)</span></label>
+                <select id="categoria" name="categoria" aria-describedby="categoria-error categorias-estado" required disabled>
+                  <option value="" data-i18n="categoriaElegir"></option>
+                </select>
+                <p class="carga-error-campo" id="categoria-error" hidden></p>
+                <p id="categorias-estado" role="status" aria-live="polite"></p>
+                <button type="button" class="boton-secundario" id="categorias-reintentar" hidden data-i18n="reintentar"></button>
+              </div>
+              <p id="estado-elegir" class="carga-estado" role="status" aria-live="polite"></p>
+              <p id="error-elegir" class="carga-aviso carga-aviso--peligro" role="alert" tabindex="-1" hidden></p>
+              <div class="carga-acciones">
+                <button type="submit" class="boton-primario" id="revisar" data-i18n="revisar"></button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="panel" id="paso-revisar" tabindex="-1" aria-labelledby="revisar-titulo" hidden>
+          <div class="cabecera-panel">
+            <div>
+              <h2 id="revisar-titulo" data-i18n="revisionTitulo"></h2>
+              <p id="resumen-fichero" class="carga-subtitulo"></p>
+            </div>
+          </div>
+          <div class="cuerpo-panel">
+            <p id="bloqueo" class="carga-aviso carga-aviso--peligro" role="alert" hidden></p>
+            <div class="rejilla-kpi rejilla-kpi--compacta carga-kpi">
+              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="todas" aria-pressed="true"><strong class="valor-kpi" id="kpi-leidas"></strong><span class="etiqueta-kpi" data-i18n="kpiLeidas"></span></button>
+              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="aceptadas" aria-pressed="false"><strong class="valor-kpi" id="kpi-cargaran"></strong><span class="etiqueta-kpi" data-i18n="kpiCargaran"></span></button>
+              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="errores" aria-pressed="false"><strong class="valor-kpi" id="kpi-errores"></strong><span class="etiqueta-kpi" data-i18n="kpiErrores"></span></button>
+              <button type="button" class="tarjeta-kpi carga-kpi-boton" data-filtro="avisos" aria-pressed="false"><strong class="valor-kpi" id="kpi-avisos"></strong><span class="etiqueta-kpi" data-i18n="kpiAvisos"></span></button>
+            </div>
+            <fieldset class="carga-filtro">
+              <legend data-i18n="filtro"></legend>
+              <label><input type="radio" name="filtro" value="todas" checked /> <span data-i18n="filtroTodas"></span></label>
+              <label><input type="radio" name="filtro" value="aceptadas" /> <span data-i18n="filtroAceptadas"></span></label>
+              <label><input type="radio" name="filtro" value="errores" /> <span data-i18n="filtroErrores"></span></label>
+              <label><input type="radio" name="filtro" value="avisos" /> <span data-i18n="filtroAvisos"></span></label>
+            </fieldset>
+            <p id="cuenta" aria-live="polite" tabindex="-1"></p>
+          </div>
+          <div class="tabla-contenedor" id="tabla-contenedor" role="region" tabindex="0" data-i18n-label="tablaTitulo">
+            <table class="tabla-datos carga-tabla">
+              <caption class="carga-oculto" data-i18n="tablaTitulo"></caption>
+              <thead><tr>
+                <th scope="col" class="carga-numero" data-i18n="colPosicion"></th>
+                <th scope="col" data-i18n="colPersona"></th>
+                <th scope="col" data-i18n="colEstado"></th>
+                <th scope="col" data-i18n="colDocumento"></th>
+                <th scope="col" class="carga-numero" data-i18n="colPuntuacion"></th>
+                <th scope="col" data-i18n="colDetalle"></th>
+              </tr></thead>
+              <tbody id="filas"></tbody>
+            </table>
+          </div>
+          <nav class="paginacion-marco" id="paginacion" data-i18n-label="paginacion">
+            <span id="pagina-estado" aria-live="polite"></span>
+            <div class="paginacion-marco__paginas">
+              <button type="button" id="anterior" data-i18n="anterior"></button>
+              <button type="button" id="siguiente" data-i18n="siguiente"></button>
+            </div>
+          </nav>
+          <div class="cuerpo-panel carga-pie">
+            <label class="carga-casilla" id="excluir-marco" hidden>
+              <input type="checkbox" id="excluir" aria-describedby="error-revisar" /> <span id="excluir-texto"></span>
+            </label>
+            <p id="error-revisar" class="carga-aviso carga-aviso--peligro" role="alert" tabindex="-1" hidden></p>
+            <p id="estado-revisar" class="carga-estado" role="status" aria-live="polite"></p>
+            <div class="carga-acciones">
+              <button type="button" class="boton-secundario" id="otro-fichero" data-i18n="otroFichero"></button>
+              <button type="button" class="boton-secundario" id="volver-resultado" data-i18n="volverResultado" hidden></button>
+              <button type="button" class="boton-primario" id="cargar" data-i18n="cargar"></button>
+              <button type="button" class="boton-primario" id="recuperar-resultado" data-i18n="recuperarResultado" hidden></button>
+              <a class="boton-secundario" id="ver-bolsas-tras-error" href="/portal-empleado/#resumen" data-i18n="verBolsas" hidden></a>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" id="paso-hecho" tabindex="-1" aria-labelledby="hecho-titulo" hidden>
+          <div class="cabecera-panel"><h2 id="hecho-titulo" data-i18n="hechoTitulo"></h2></div>
+          <div class="cuerpo-panel">
+            <p id="hecho-mensaje" class="carga-aviso carga-aviso--exito" role="status"></p>
+            <ul id="hecho-datos" class="carga-datos"></ul>
+            <p id="error-hecho" class="carga-aviso carga-aviso--peligro" role="alert" tabindex="-1" hidden></p>
+            <div id="hecho-pendientes" hidden>
+              <h3 data-i18n="hechoPendientes"></h3>
+              <ul id="hecho-pendientes-lista" class="carga-datos"></ul>
+            </div>
+            <details class="carga-tecnico"><summary data-i18n="detalleTecnico"></summary><p id="detalle-registro" class="carga-detalle"></p></details>
+            <div class="carga-acciones">
+              <button type="button" class="boton-secundario" id="otra-carga" data-i18n="otraCarga"></button>
+              <a class="boton-primario" href="/portal-empleado/#resumen" data-i18n="verBolsas"></a>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <dialog id="ayuda" class="carga-dialogo" aria-labelledby="ayuda-titulo">
+        <h2 id="ayuda-titulo" data-i18n="ayudaTitulo"></h2>
+        <ol>
+          <li data-i18n="ayudaPaso1"></li>
+          <li data-i18n="ayudaPaso2"></li>
+          <li data-i18n="ayudaPaso3"></li>
+          <li data-i18n="ayudaPaso4"></li>
+        </ol>
+        <p data-i18n="ayudaAvisos"></p>
+        <div class="carga-acciones"><button type="button" class="boton-secundario" id="ayuda-cerrar" data-i18n="ayudaCerrar"></button></div>
+      </dialog>
+
+      <dialog id="confirmar" class="carga-dialogo" aria-labelledby="confirmar-titulo" aria-describedby="confirmar-texto">
+        <h2 id="confirmar-titulo" data-i18n="confirmarTitulo"></h2>
+        <p id="confirmar-texto"></p>
+        <div class="carga-acciones">
+          <button type="button" class="boton-secundario" id="confirmar-no" data-i18n="confirmarNo"></button>
+          <button type="button" class="boton-primario" id="confirmar-si" data-i18n="confirmarSi"></button>
+        </div>
+      </dialog>
+    </main>
+  </body>
+</html>

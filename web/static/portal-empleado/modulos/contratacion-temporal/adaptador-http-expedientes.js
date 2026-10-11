@@ -2,7 +2,7 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL,
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
-} from "./contrato-expedientes.js?v=20261010-ct-ficha-cohorte-v1";
+} from "./contrato-expedientes.js?v=20261011-ct-ficha-cohorte-v11";
 import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { validarCatalogosAlta } from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
@@ -488,9 +488,6 @@ function fasesDesdeHitos(detalle, traducir) {
 
 // Datos de la petición para prerrellenar el análisis; si no encajan en el
 // contrato se omiten: la ficha nunca deja de abrirse por una sugerencia.
-// Sin modalidad propia del expediente se propone el motivo que pidió el centro
-// (p. ej. «acumulación de tareas»); el formulario la descarta si no figura en
-// el catálogo de modalidades vigente y RRHH puede cambiarla siempre.
 function datosPeticionParaAnalisis(detalle) {
   if (detalle.analisis || !detalle.solicitud) return {};
   const modalidad = detalle.resumen.modalidad_clave || detalle.solicitud.motivo_clave;

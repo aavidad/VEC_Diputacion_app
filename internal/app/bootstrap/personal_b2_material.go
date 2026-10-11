@@ -172,7 +172,7 @@ func descriptorPersonalB2Interno(d DescriptorCapacidadPersonalB2V3) descriptorMa
 		ProveedorNominal: "proveedor-material-personal-b2-" + d.Capacidad}
 }
 
-// publicarMaterialIncorporacionB2Desarrollo publica las nueve audiencias
+// publicarMaterialIncorporacionB2Desarrollo publica las diez audiencias
 // nominales de la incorporación en el mismo gobierno V3 de vec-server. La
 // configuración privada sólo habilita su selección; vec-interno consume las
 // claves publicadas sin convertirse en publicador.
@@ -184,7 +184,7 @@ func publicarMaterialIncorporacionB2Desarrollo(ctx context.Context, gobierno *pg
 
 func publicarMaterialIncorporacionB2ConDesarrollo(material materialAtestacionContratacionTemporalDesarrollo, catalogo catalogoMaterialAutorizacionComunDesarrollo, publicar func(*materialAtestacionContratacionTemporalDesarrollo) error) error {
 	descriptores := descriptoresMaterialIncorporacionB2()
-	if publicar == nil || len(descriptores) != 9 {
+	if publicar == nil || len(descriptores) != 10 {
 		return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	// Comprobar el lote completo antes del primer efecto: cada audiencia debe
