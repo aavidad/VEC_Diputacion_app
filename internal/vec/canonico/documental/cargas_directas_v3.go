@@ -8,19 +8,20 @@ import (
 // validados por aplicación y puertos. El orden de los campos es parte del
 // contrato AD240 y se comprueba con vectores de bytes.
 type ReservaCargaV3 struct {
-	Accion              string `json:"accion"`
-	CargaID             string `json:"carga_id"`
-	RecursoRef          string `json:"recurso_ref"`
-	PersonaRef          string `json:"persona_ref"`
-	ClaveReserva        string `json:"clave_reserva"`
-	HuellaReservaSHA256 string `json:"huella_reserva_sha256"`
-	VersionReserva      uint64 `json:"version_reserva"`
-	IndiceCargaHMAC     string `json:"indice_carga_hmac"`
-	HuellaCargaHMAC     string `json:"huella_carga_hmac"`
-	MIME                string `json:"mime"`
-	Tamano              int64  `json:"tamano"`
-	HuellaContenido     string `json:"huella_contenido_sha256"`
-	HuellaToken         string `json:"huella_token_sha256"`
+	Accion                string `json:"accion"`
+	CargaID               string `json:"carga_id"`
+	RecursoRef            string `json:"recurso_ref"`
+	PersonaRef            string `json:"persona_ref"`
+	ClaveReserva          string `json:"clave_reserva"`
+	HuellaReservaSHA256   string `json:"huella_reserva_sha256"`
+	VersionReserva        uint64 `json:"version_reserva"`
+	IndiceCargaHMAC       string `json:"indice_carga_hmac"`
+	HuellaCargaHMAC       string `json:"huella_carga_hmac"`
+	MIME                  string `json:"mime"`
+	Tamano                int64  `json:"tamano"`
+	HuellaContenido       string `json:"huella_contenido_sha256"`
+	HuellaCargaJSONSHA256 string `json:"huella_carga_json_sha256"`
+	HuellaToken           string `json:"huella_token_sha256"`
 }
 
 func (d ReservaCargaV3) Preimagen() ([]byte, error) { return json.Marshal(d) }

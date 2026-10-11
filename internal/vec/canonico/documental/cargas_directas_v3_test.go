@@ -10,12 +10,12 @@ func TestPreimagenReservaCargaV3FijaOrdenYCambioDeVersion(t *testing.T) {
 		RecursoRef: "ref:1", PersonaRef: "per_1", ClaveReserva: "clave:1",
 		HuellaReservaSHA256: "hr", VersionReserva: 2, IndiceCargaHMAC: "i",
 		HuellaCargaHMAC: "hc", MIME: "application/pdf", Tamano: 7,
-		HuellaContenido: "sha", HuellaToken: "ht"}
+		HuellaContenido: "sha", HuellaCargaJSONSHA256: "hj", HuellaToken: "ht"}
 	primera, err := d.Preimagen()
 	if err != nil {
 		t.Fatal(err)
 	}
-	const esperado = `{"accion":"documentos.carga.preparar_reserva","carga_id":"carga:1","recurso_ref":"ref:1","persona_ref":"per_1","clave_reserva":"clave:1","huella_reserva_sha256":"hr","version_reserva":2,"indice_carga_hmac":"i","huella_carga_hmac":"hc","mime":"application/pdf","tamano":7,"huella_contenido_sha256":"sha","huella_token_sha256":"ht"}`
+	const esperado = `{"accion":"documentos.carga.preparar_reserva","carga_id":"carga:1","recurso_ref":"ref:1","persona_ref":"per_1","clave_reserva":"clave:1","huella_reserva_sha256":"hr","version_reserva":2,"indice_carga_hmac":"i","huella_carga_hmac":"hc","mime":"application/pdf","tamano":7,"huella_contenido_sha256":"sha","huella_carga_json_sha256":"hj","huella_token_sha256":"ht"}`
 	if string(primera) != esperado {
 		t.Fatalf("bytes distintos: %s", primera)
 	}

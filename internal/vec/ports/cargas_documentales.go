@@ -822,6 +822,10 @@ func PreimagenReservaCargaDocumentalV3(s SolicitudReservarCargaDocumental,
 	if err != nil {
 		return nil, ErrReservaCargaDocumentalInvalida
 	}
+	huellaCargaJSON, err := s.Carga.HuellaSHA256()
+	if err != nil {
+		return nil, ErrReservaCargaDocumentalInvalida
+	}
 	return (canonicodoc.ReservaCargaV3{
 		Accion: AccionCargaDocumentalPrepararReservaV3, CargaID: s.Carga.ID,
 		RecursoRef: r.RecursoRef, PersonaRef: r.PersonaRef, ClaveReserva: r.ClaveReserva,
@@ -829,6 +833,7 @@ func PreimagenReservaCargaDocumentalV3(s SolicitudReservarCargaDocumental,
 		IndiceCargaHMAC: s.IndiceIdempotenciaHMAC, HuellaCargaHMAC: s.HuellaSolicitudHMAC,
 		MIME: s.Carga.MIMEDeclarado, Tamano: s.Carga.TamanoDeclarado,
 		HuellaContenido: s.Carga.HuellaDeclaradaSHA256, HuellaToken: huellaToken,
+		HuellaCargaJSONSHA256: huellaCargaJSON,
 	}).Preimagen()
 }
 
