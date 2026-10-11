@@ -61,20 +61,24 @@ deploy/postgresql/personal/migraciones/000044_plan_b2_objetivo_en_atributos.up.s
 # lista_sql_claude_bolsa_respuesta_portal_20261010.txt en la rama de #995.
 deploy/postgresql/bolsa_llamamientos/migraciones/000100_respuesta_portal_fuera_de_turno.up.sql
 
-# 09 PR #987, cabeza 32518b4ffc0b7dc36a00e74775ab337fbd4d0ec3.
-# B99 después de la cadena de inscripción del paso 06; mantiene la inscripción
-# apagada. Fuente: lista_sql_inscripcion_lecturas_b99_20261010.txt en #987.
-# Sus cinco hojas de lectura se gobiernan según
-# deploy/principal/inscripcion_b99_gobierno_lecturas_20261010.md de esa PR.
-deploy/postgresql/bolsa_llamamientos/migraciones/000099_inscripcion_lecturas.up.sql
+# 09 BLOQUEADA PR #987, cabeza rechazada 32518b4ffc0b7dc36a00e74775ab337fbd4d0ec3.
+# B99 DEBE ir después de AD229/B97 (paso 06) y antes de encender la
+# inscripción, con sus cinco hojas nuevas publicadas en los roles. La cabeza
+# actual reconstruye lecturas desde B96 y pierde el JOIN y participacion_ref
+# de B97; NO INSTALARLA. Dirección comunicó NO-GO el 10/10 a las 14:50.
+# Esperar otra cabeza ensayada sobre B97, su lista corregida y GO exacto.
+# Ruta candidata rechazada: deploy/postgresql/bolsa_llamamientos/migraciones/000099_inscripcion_lecturas.up.sql
 
-# 10 PR #989, cabeza 6c0c711d225a60a9fa5241694f08d13378e06d30.
-# AD236 y después AUT74, una vez instalado el núcleo de inscripción AD228.
-# Fuente: lista_sql_codexo_aut24_consumo_v3_20261010.txt en #989.
-# Las claves, orígenes y concesiones de los actos ADMIN siguen sin provisionar;
-# la PR detalla su gobierno. No considerar estas dos SQL una activación.
-deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql
-deploy/postgresql/autorizacion/migraciones/000074_consumo_nominal_actos_admin_v2.up.sql
+# 10 BLOQUEADA PR #989, cabeza condicionada 6c0c711d225a60a9fa5241694f08d13378e06d30.
+# Orden obligatorio: AD228 → AD229 (paso 06) → AD236 → AUT74. La cabeza
+# actual de AD236 parte de la preimagen anterior a AD228 y colisiona con la
+# cadena de inscripción; NO INSTALARLA. Dirección exigió reconstruir AD236
+# sobre el núcleo final de AD229 y revisar la fachada AUT74 (10/10, 14:50).
+# Esperar nueva cabeza, lista causal, ensayo PG18 y revisiones exactas.
+# Rutas candidatas bloqueadas:
+# deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql
+# deploy/postgresql/autorizacion/migraciones/000074_consumo_nominal_actos_admin_v2.up.sql
+# Las claves, orígenes y concesiones de los actos ADMIN siguen sin provisionar.
 
 # Configuración privada y perfiles que acompañan a estos pasos:
 # - MAIN #991: reprovisionar el perfil fijo alta para el vínculo CT/Bolsa con
@@ -89,8 +93,9 @@ deploy/postgresql/autorizacion/migraciones/000074_consumo_nominal_actos_admin_v2
 #   personal_catalogo_publicar y personal_catalogo_retirar (PR #1004).
 #   Cada entrada requiere motivo y capacidad gobernada del destino; preparar
 #   material con la herramienta de la PR, no copiar valores de pruebas.
-# - B99: gobierno de cinco hojas según el documento citado en el paso 09.
+# - B99: gobierno de cinco hojas según la futura lista revisada del paso 09.
 # - AD236/AUT74: gobierno nominal de las tres audiencias y cinco orígenes
 #   descrito en #989; las SQL no crean claves, asignaciones ni concesiones.
-# Estado comprobado el 11/10: #1004 y #989 abiertas y fusionables; #995 es
-# borrador con conflicto; #987 está abierta con conflicto. Revalidar al operar.
+# Estado comprobado el 11/10: #1004 abierta y fusionable; #995 es borrador
+# con conflicto; #987 abierta con conflicto y NO-GO SQL, #989 abierta y
+# fusionable en GitHub pero bloqueada por preimagen SQL. Revalidar al operar.
