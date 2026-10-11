@@ -7,7 +7,7 @@ import {
   registrarContactoIntento,
   renderizarIntentosContacto,
   rutaContactosCandidato,
-} from "./portal-bolsas-intentos.js?v=20261011-bolsa-contacto-v13";
+} from "./portal-bolsas-intentos.js?v=20261011-bolsa-contacto-v14";
 import { MENSAJES_INTENTOS, crearTraductorIntentos } from "./portal-i18n-intentos.js";
 
 const candidato = { participacion_ref: "participacion:1", estado_clave: "disponible", ultimo_llamamiento: { llamamiento_ref: "llamamiento:1" } };
@@ -99,11 +99,10 @@ test("con los procesos agotados propone la baja con la exclusión existente y no
   assert.match(salida, /data-b8-accion="seleccionar" data-operacion="excluir"/);
   assert.doesNotMatch(salida, /data-intentos-form="intento"/);
   assert.match(salida, /data-intentos-form="rebote"/);
+  const conRecibo = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: agotado, recibo: "recibo:contacto:1" } });
+  assert.equal((conRecibo.match(/role="status"/gu) || []).length, 1, "el recibo y la propuesta se anuncian juntos");
   const excluido = renderizarIntentosContacto({ candidato: { ...candidato, estado_clave: "excluido" }, estado: { carga: "listo", datos: agotado } });
   assert.doesNotMatch(excluido, /data-b8-accion/);
-  const conRecibo = renderizarIntentosContacto({ candidato,
-    estado: { carga: "listo", datos: agotado, recibo: "recibo:contacto:1" } });
-  assert.equal((conRecibo.match(/role="status"/gu) || []).length, 1);
 });
 
 test("sin llamamiento o sin catálogo lo dice sin inventar reglas", () => {

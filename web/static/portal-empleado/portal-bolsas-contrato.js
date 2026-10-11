@@ -16,7 +16,7 @@
  * - Contratos estrictos y cerrados: cualquier propiedad no declarada invalida la respuesta.
  */
 
-import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261011-bolsa-contacto-v13";
+import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261011-bolsa-contacto-v14";
 
 export const ESQUEMA_BOLSAS = "vec.bolsa.rrhh.bolsas.v1";
 export const ESQUEMA_CANDIDATOS = "vec.bolsa.rrhh.candidatos.v1";
