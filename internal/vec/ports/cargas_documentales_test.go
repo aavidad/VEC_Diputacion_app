@@ -96,7 +96,7 @@ func TestAutorizacionCargaDocumentalV3RechazaAusenciaYCaducidad(t *testing.T) {
 	preimagen := []byte(`{"accion":"documentos.carga.preparar_reserva","carga_id":"carga:puerto:0123456789abcdef"}`)
 	base := AutorizacionCargaDocumentalV3{
 		Accion: AccionCargaDocumentalPrepararReservaV3, Finalidad: carga.Finalidad,
-		RecursoRef: carga.RecursoRef, PersonaRef: carga.PrincipalID,
+		RecursoRef: carga.ID, PersonaRef: carga.PrincipalID,
 		PerfilActivoRef: actor.Contexto.PerfilActivoRef, CorrelacionRef: carga.CorrelacionRef,
 	}
 	if err := base.ValidarPara(AccionCargaDocumentalPrepararReservaV3, preimagen, actor, carga, ahora); !errors.Is(err, ErrDecisionPreparacionCargaNoDisponible) {
@@ -218,7 +218,7 @@ func TestPreparacionEmisionReciboV3EsOpacaYUnSoloIntento(t *testing.T) {
 	}
 	autorizacion := AutorizacionCargaDocumentalV3{Material: material,
 		Accion: AccionCargaDocumentalPrepararRespuestaV3, Finalidad: preparada.Finalidad,
-		RecursoRef: preparada.RecursoRef, PersonaRef: preparada.PrincipalID,
+		RecursoRef: preparada.ID, PersonaRef: preparada.PrincipalID,
 		PerfilActivoRef: actor.Contexto.PerfilActivoRef, CorrelacionRef: preparada.CorrelacionRef}
 	cruce := autorizacion
 	cruce.PersonaRef = "per_ajena0123456789abcdefghijkl"

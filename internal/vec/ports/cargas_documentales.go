@@ -590,7 +590,7 @@ func (a AutorizacionCargaDocumentalV3) ValidarPara(
 ) error {
 	if actor.Validar() != nil || a.Material.ValidarEstructura() != nil ||
 		a.Accion != accion || a.Finalidad != carga.Finalidad ||
-		a.RecursoRef != carga.RecursoRef || a.PersonaRef != carga.PrincipalID ||
+		a.RecursoRef != carga.ID || a.PersonaRef != carga.PrincipalID ||
 		a.PersonaRef != actor.Contexto.PersonaRef ||
 		a.PerfilActivoRef != actor.Contexto.PerfilActivoRef ||
 		a.CorrelacionRef != carga.CorrelacionRef || len(preimagen) == 0 ||
