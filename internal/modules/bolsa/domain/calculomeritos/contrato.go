@@ -185,7 +185,8 @@ func validarConsistenciaDependencias(dependencias []Dependencia) error {
 
 func (c Conjunto) Validar() error {
 	v2 := c.Esquema == EsquemaReglasV2
-	if (c.Esquema != EsquemaReglas && !v2) || c.Duplicados != "bloquear" || c.MomentoRedondeo != "por_regla" || c.SeleccionElementos != "mayor_unidad" || !c.FechaCorteInclusiva.EsValida() || !topeValido(c.MaximoTotal, v2) || (v2 && (!opaca(c.PlazaRef, "pla_") || !opaca(c.CategoriaRef, "cat_"))) || (!v2 && (c.PlazaRef != "" || c.CategoriaRef != "")) {
+	seleccionValida := c.SeleccionElementos == "mayor_unidad" || v2 && c.SeleccionElementos == "mayor_puntuacion"
+	if (c.Esquema != EsquemaReglas && !v2) || c.Duplicados != "bloquear" || c.MomentoRedondeo != "por_regla" || !seleccionValida || !c.FechaCorteInclusiva.EsValida() || !topeValido(c.MaximoTotal, v2) || (v2 && (!opaca(c.PlazaRef, "pla_") || !opaca(c.CategoriaRef, "cat_"))) || (!v2 && (c.PlazaRef != "" || c.CategoriaRef != "")) {
 		return fallo("politica_incompleta")
 	}
 	if _, err := reglasbaremo.NuevaIdentidadConjuntoReglasBaremo(c.Referencia, c.Version, c.ConvocatoriaRef, c.ExpedienteRef); err != nil {

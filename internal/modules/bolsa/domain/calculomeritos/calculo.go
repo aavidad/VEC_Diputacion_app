@@ -2,6 +2,7 @@ package calculomeritos
 
 import (
 	"encoding/json"
+	"math/big"
 	"sort"
 
 	"vec-diputacion-granada/internal/shared/baremacion"
@@ -38,6 +39,7 @@ type DetalleMerito struct {
 	Codigo              string             `json:"codigo"`
 	Validez             string             `json:"validez,omitempty"`
 	Corte               string             `json:"corte,omitempty"`
+	CodigoPuntos        string             `json:"codigo_puntos,omitempty"`
 	PuntosProvisionales *baremacion.Puntos `json:"puntos_provisionales,omitempty"`
 }
 type DetalleRegla struct {
@@ -53,7 +55,7 @@ type DetalleRegla struct {
 	MaximoPuntos       *baremacion.Puntos      `json:"maximo_puntos,omitempty"`
 	Puntos             baremacion.Puntos       `json:"puntos"`
 	UnidadesRecientes  *baremacion.Racional    `json:"unidades_recientes,omitempty"`
-	PuntosRecientes    *baremacion.Puntos      `json:"puntos_recientes,omitempty"`
+	TarifaReciente     *baremacion.Puntos      `json:"tarifa_reciente_por_unidad,omitempty"`
 }
 type DetalleSeccion struct {
 	Clave        string             `json:"clave"`
@@ -215,21 +217,38 @@ func Calcular(c Conjunto, e Entrada) (Resultado, error) {
 	puntosSeccion := make(map[string]baremacion.Puntos)
 	for _, regla := range c.Reglas {
 		indices := candidatos[regla.Clave]
-		// Mayor cantidad gana; en igualdad todos tienen idéntico efecto numérico.
-		// El desempate por referencia solo fija el desglose reproducible.
+		// La política de bases fija la prioridad. Una referencia solo ordena
+		// resultados iguales cuando ningún tope obliga a elegir entre ellos.
 		sort.Slice(indices, func(i, j int) bool {
-			cmp, _ := e.Meritos[indices[i]].Unidades.Comparar(*e.Meritos[indices[j]].Unidades)
+			cmp := compararPrioridad(c.SeleccionElementos, regla, e.Meritos[indices[i]], e.Meritos[indices[j]])
 			if cmp != 0 {
 				return cmp > 0
 			}
 			return e.Meritos[indices[i]].Referencia < e.Meritos[indices[j]].Referencia
 		})
+		if v2 && prioridadAmbiguaBajoTope(c.SeleccionElementos, regla, e.Meritos, indices) {
+			r.Estado = "bloqueado"
+			r.Incidencias = append(r.Incidencias, Incidencia{e.Meritos[indices[0]].Referencia, "prioridad_bases_insuficiente"})
+			r.Reglas, r.Secciones = []DetalleRegla{}, []DetalleSeccion{}
+			r.SumaSecciones, r.Total = nil, nil
+			for i := range r.Meritos {
+				r.Meritos[i].PuntosProvisionales = nil
+				r.Meritos[i].CodigoPuntos = ""
+				if r.Meritos[i].Codigo == "admitido" {
+					r.Meritos[i].Validez = "pendiente_revision"
+				}
+			}
+			return r, nil
+		}
 		unidades := cero
 		antiguas, recientes := cero, cero
 		admitidos := uint32(0)
 		for _, idx := range indices {
 			if regla.MaximoElementos != nil && admitidos >= *regla.MaximoElementos {
 				r.Meritos[idx].Codigo = "maximo_elementos"
+				if v2 {
+					r.Meritos[idx].Validez = "no_aplicable_segun_regla"
+				}
 				continue
 			}
 			unidades, err = unidades.Sumar(*e.Meritos[idx].Unidades)
@@ -278,15 +297,18 @@ func Calcular(c Conjunto, e Entrada) (Resultado, error) {
 				if err != nil {
 					return Resultado{}, err
 				}
-				p, pErr := tarifa.MultiplicarRedondeado(computar, regla.Redondeo)
-				if pErr != nil {
-					// Una fracción individual puede no caber en micropuntos aunque
-					// la suma de la regla sí sea exacta: no forzar otro redondeo.
-					if regla.Redondeo != baremacion.RedondeoExacto {
+				// El desglose solo publica micropuntos individuales exactos.
+				// Las fracciones se acumulan antes del único redondeo de regla.
+				exactos := productoPuntosRacional(tarifa, computar)
+				if exactos.IsInt() && exactos.Num().Cmp(big.NewInt(baremacion.MaximoMicropuntos)) <= 0 {
+					p, pErr := baremacion.PuntosDesdeMicropuntos(exactos.Num().Int64())
+					if pErr != nil {
 						return Resultado{}, pErr
 					}
-				} else {
 					r.Meritos[idx].PuntosProvisionales = &p
+					r.Meritos[idx].CodigoPuntos = "antes_topes"
+				} else {
+					r.Meritos[idx].CodigoPuntos = "acumulado_por_regla"
 				}
 			}
 		}
@@ -298,17 +320,8 @@ func Calcular(c Conjunto, e Entrada) (Resultado, error) {
 			}
 		}
 		var bruto baremacion.Puntos
-		var brutoReciente baremacion.Puntos
 		if v2 && regla.Temporal != nil {
-			bruto, err = regla.PuntosPorUnidad.MultiplicarRedondeado(antiguas, regla.Redondeo)
-			if err != nil {
-				return Resultado{}, err
-			}
-			brutoReciente, err = regla.Temporal.PuntosRecientes.MultiplicarRedondeado(recientes, regla.Redondeo)
-			if err != nil {
-				return Resultado{}, err
-			}
-			bruto, err = bruto.Sumar(brutoReciente)
+			bruto, err = redondearDosTarifas(*regla.PuntosPorUnidad, antiguas, regla.Temporal.PuntosRecientes, recientes, regla.Redondeo)
 		} else {
 			bruto, err = regla.PuntosPorUnidad.MultiplicarRedondeado(computadas, regla.Redondeo)
 		}
@@ -322,7 +335,7 @@ func Calcular(c Conjunto, e Entrada) (Resultado, error) {
 		detalleRegla := DetalleRegla{Clave: regla.Clave, SeccionClave: regla.SeccionClave, Definicion: regla.Definicion, ElementosAdmitidos: admitidos, UnidadesAdmitidas: unidades, UnidadesComputadas: computadas, PuntosPorUnidad: *regla.PuntosPorUnidad, Redondeo: regla.Redondeo, BrutoRedondeado: bruto, MaximoPuntos: regla.MaximoPuntos, Puntos: puntos}
 		if v2 && regla.Temporal != nil {
 			detalleRegla.UnidadesRecientes = &recientes
-			detalleRegla.PuntosRecientes = &brutoReciente
+			detalleRegla.TarifaReciente = &regla.Temporal.PuntosRecientes
 		}
 		r.Reglas = append(r.Reglas, detalleRegla)
 		puntosSeccion[regla.SeccionClave], err = puntosSeccion[regla.SeccionClave].Sumar(puntos)
@@ -376,4 +389,99 @@ func aplicarTopeOpcional(puntos baremacion.Puntos, maximo *baremacion.Puntos) (b
 		return baremacion.Puntos{}, err
 	}
 	return resultado.Resultado(), nil
+}
+
+func racionalGrande(unidades baremacion.Racional) *big.Rat {
+	return new(big.Rat).SetFrac(big.NewInt(unidades.Numerador()), big.NewInt(unidades.Denominador()))
+}
+
+func productoPuntosRacional(tarifa baremacion.Puntos, unidades baremacion.Racional) *big.Rat {
+	numerador := new(big.Int).Mul(big.NewInt(tarifa.Micropuntos()), big.NewInt(unidades.Numerador()))
+	return new(big.Rat).SetFrac(numerador, big.NewInt(unidades.Denominador()))
+}
+
+func puntuacionPotencial(regla Regla, merito Merito) *big.Rat {
+	tarifa := *regla.PuntosPorUnidad
+	if regla.Temporal != nil && !fechaAnterior(*merito.FechaObtencion, regla.Temporal.DesdeBonificacion) {
+		tarifa = regla.Temporal.PuntosRecientes
+	}
+	return productoPuntosRacional(tarifa, *merito.Unidades)
+}
+
+func compararPrioridad(modo string, regla Regla, izquierda, derecha Merito) int {
+	if modo == "mayor_puntuacion" {
+		return puntuacionPotencial(regla, izquierda).Cmp(puntuacionPotencial(regla, derecha))
+	}
+	cmp, _ := izquierda.Unidades.Comparar(*derecha.Unidades)
+	return cmp
+}
+
+// prioridadAmbiguaBajoTope rechaza un grupo de igual prioridad cuando el
+// límite obligaría a escoger una identidad. No consulta ni usa referencias.
+func prioridadAmbiguaBajoTope(modo string, regla Regla, meritos []Merito, indices []int) bool {
+	consumidas := new(big.Rat)
+	var maximo *big.Rat
+	if regla.MaximoUnidades != nil {
+		maximo = racionalGrande(*regla.MaximoUnidades)
+	}
+	for inicio := 0; inicio < len(indices); {
+		if regla.MaximoElementos != nil && inicio >= int(*regla.MaximoElementos) {
+			break
+		}
+		if maximo != nil && consumidas.Cmp(maximo) >= 0 {
+			break
+		}
+		fin := inicio + 1
+		for fin < len(indices) && compararPrioridad(modo, regla, meritos[indices[inicio]], meritos[indices[fin]]) == 0 {
+			fin++
+		}
+		grupo := new(big.Rat)
+		for _, idx := range indices[inicio:fin] {
+			grupo.Add(grupo, racionalGrande(*meritos[idx].Unidades))
+		}
+		if fin-inicio > 1 {
+			if regla.MaximoElementos != nil && fin > int(*regla.MaximoElementos) {
+				return true
+			}
+			if maximo != nil && new(big.Rat).Add(consumidas, grupo).Cmp(maximo) > 0 {
+				return true
+			}
+		}
+		consumidas.Add(consumidas, grupo)
+		inicio = fin
+	}
+	return false
+}
+
+// redondearDosTarifas suma las dos tasas exactas y aplica una sola decisión
+// de redondeo, tal como declara el conjunto en momento_redondeo=por_regla.
+func redondearDosTarifas(base baremacion.Puntos, unidadesBase baremacion.Racional,
+	reciente baremacion.Puntos, unidadesRecientes baremacion.Racional, modo baremacion.ModoRedondeo) (baremacion.Puntos, error) {
+	total := new(big.Rat).Add(productoPuntosRacional(base, unidadesBase), productoPuntosRacional(reciente, unidadesRecientes))
+	cociente, resto := new(big.Int), new(big.Int)
+	cociente.QuoRem(total.Num(), total.Denom(), resto)
+	incrementar := false
+	switch modo {
+	case baremacion.RedondeoExacto:
+		if resto.Sign() != 0 {
+			return baremacion.Puntos{}, baremacion.ErrResultadoNoExacto
+		}
+	case baremacion.RedondeoTruncar:
+	case baremacion.RedondeoHaciaArriba:
+		incrementar = resto.Sign() != 0
+	case baremacion.RedondeoMitadArriba:
+		incrementar = new(big.Int).Lsh(resto, 1).Cmp(total.Denom()) >= 0
+	case baremacion.RedondeoMitadAlPar:
+		cmp := new(big.Int).Lsh(resto, 1).Cmp(total.Denom())
+		incrementar = cmp > 0 || cmp == 0 && cociente.Bit(0) == 1
+	default:
+		return baremacion.Puntos{}, fallo("redondeo_invalido")
+	}
+	if incrementar {
+		cociente.Add(cociente, big.NewInt(1))
+	}
+	if cociente.Sign() < 0 || cociente.Cmp(big.NewInt(baremacion.MaximoMicropuntos)) > 0 {
+		return baremacion.Puntos{}, baremacion.ErrDesbordamiento
+	}
+	return baremacion.PuntosDesdeMicropuntos(cociente.Int64())
 }

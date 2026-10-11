@@ -1,6 +1,7 @@
 package calculomeritos
 
 import (
+	"sort"
 	"testing"
 
 	"vec-diputacion-granada/internal/shared/baremacion"
@@ -161,5 +162,61 @@ func TestFormacionExactaRedondeaSoloTrasAgruparTarifa(t *testing.T) {
 	}
 	if r.Meritos[0].PuntosProvisionales != nil || r.Meritos[1].PuntosProvisionales != nil {
 		t.Fatal("se publicó una fracción de micropunto por mérito")
+	}
+}
+
+func TestTarifasMixtasUnSoloRedondeoPorRegla(t *testing.T) {
+	c, e := psicologiaV2(t)
+	e.Meritos = e.Meritos[:2]
+	for i := range e.Meritos {
+		e.Meritos[i].Unidades = racional(t, 1, 2)
+	}
+	c.Reglas[0].PuntosPorUnidad = puntos(t, 1)
+	c.Reglas[0].Temporal.PuntosRecientes = *puntos(t, 3)
+	for _, modo := range []baremacion.ModoRedondeo{baremacion.RedondeoExacto, baremacion.RedondeoMitadArriba} {
+		c.Reglas[0].Redondeo = modo
+		r, err := Calcular(c, e)
+		if err != nil || r.Total == nil || r.Total.Micropuntos() != 2 || r.Reglas[0].BrutoRedondeado.Micropuntos() != 2 {
+			t.Fatalf("dos tarifas redondeadas por separado, modo %s: %v %+v", modo, err, r)
+		}
+		if r.Meritos[0].PuntosProvisionales != nil || r.Meritos[1].PuntosProvisionales != nil || r.Meritos[0].CodigoPuntos != "acumulado_por_regla" {
+			t.Fatal("el desglose publicó puntos individuales redondeados que no suman el total")
+		}
+	}
+}
+
+func TestEmpateBajoTopeNoDependeDelIdentificador(t *testing.T) {
+	c, e := psicologiaV2(t)
+	e.Meritos = e.Meritos[:2] // 10 horas antiguas y 10 recientes, tarifas distintas
+	uno := uint32(1)
+	c.Reglas[0].MaximoElementos = &uno
+	for _, invertir := range []bool{false, true} {
+		entrada := e
+		entrada.Meritos = append([]Merito(nil), e.Meritos...)
+		if invertir {
+			entrada.Meritos[0].Referencia, entrada.Meritos[1].Referencia = entrada.Meritos[1].Referencia, entrada.Meritos[0].Referencia
+			sort.Slice(entrada.Meritos, func(i, j int) bool { return entrada.Meritos[i].Referencia < entrada.Meritos[j].Referencia })
+		}
+		r, err := Calcular(c, entrada)
+		if err != nil || r.Estado != "bloqueado" || r.Total != nil || len(r.Incidencias) != 1 || r.Incidencias[0].Codigo != "prioridad_bases_insuficiente" {
+			t.Fatalf("identificador decidió bajo mayor_unidad: %v %+v", err, r)
+		}
+		c.SeleccionElementos = "mayor_puntuacion" // política expresa de las bases
+		r, err = Calcular(c, entrada)
+		if err != nil || r.Estado != "completado" || r.Total == nil || r.Total.Micropuntos() != 800_000 {
+			t.Fatalf("prioridad publicada no seleccionó tarifa mayor: %v %+v", err, r)
+		}
+		for _, detalle := range r.Meritos {
+			if detalle.Codigo == "maximo_elementos" && detalle.Validez != "no_aplicable_segun_regla" {
+				t.Fatal("curso fuera del tope marcado aplicable")
+			}
+		}
+		c.SeleccionElementos = "mayor_unidad"
+	}
+	c.Reglas[0].MaximoElementos = nil
+	c.Reglas[0].MaximoUnidades = racional(t, 10, 1)
+	r, err := Calcular(c, e)
+	if err != nil || r.Estado != "bloqueado" || r.Total != nil {
+		t.Fatal("tope de horas eligió un empate sin prioridad")
 	}
 }
