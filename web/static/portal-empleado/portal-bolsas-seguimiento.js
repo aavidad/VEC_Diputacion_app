@@ -145,7 +145,8 @@ export function renderizarSeguimientoLlamamiento({
   if (!telefono) return estadoPanel("status", `<p>${textoPortal("panel_seg_no_disponible")}</p>`);
   const respuestas = estadoCandidatos.datos.respuestas_portal;
   if (respuestas?.llamamiento_ref !== seguimiento.llamamiento_ref || !Array.isArray(respuestas.respuestas)) {
-    return estadoPanel("alert", `<p><strong>${textoPortal("panel_seg_error_titulo")}</strong></p><p>${textoPortal("panel_seg_error")}</p>`);
+    return estadoPanel("alert", `<p><strong>${textoPortal("panel_seg_error_titulo")}</strong></p><p>${textoPortal("panel_seg_error")}</p>
+      <div class="acciones-vista"><button type="button" class="boton-primario" data-bolsa-accion="reintentar-candidatos">${textoPortal("txt_reintentar")}</button></div>`);
   }
   const filas = filasSeguimiento({
     candidatos: estadoCandidatos.datos.candidatos || [], contactos: estadoCandidatos.datos.contactos || [],
