@@ -483,7 +483,14 @@ function railFasesDesdeHitos(detalle, traducir) {
     || presentacion.fase_actual);
   // La fase administrativa también gobierna la lista y el filtro. Un hito
   // completado dentro de ella no adelanta por sí solo la fase del expediente.
-  if (actual >= 0) fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
+  // El historial sí conserva ese hito, pero el raíl no marca fases posteriores
+  // como terminadas mientras la fase administrativa siga en curso.
+  if (actual >= 0) {
+    for (let posicion = actual + 1; posicion < fases.length; posicion += 1) {
+      fases[posicion].estado_clave = ESTADO_FASE_PENDIENTE;
+    }
+    fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
+  }
   return { fases, actual: actual >= 0 ? presentacion.fases[actual].clave : "" };
 }
 
