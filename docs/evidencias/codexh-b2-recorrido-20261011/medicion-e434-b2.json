@@ -1,0 +1,112 @@
+{
+  "revision": "e4346d1141c0717e4bd2d61854d46c5fe66996dc",
+  "go": "1.26.9",
+  "binario_sha256": "31596db07bfddd408d8a4f0cb161f7646b6d298f916562cf924e74dbfbd12c09",
+  "expediente": "2026/94014",
+  "version": 5,
+  "ruta": "/api/vec/contratacion-temporal/incorporacion-personal-b2/plan/v1",
+  "muestras": [
+    {
+      "http": 409,
+      "ms": 296.62,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 195.8,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 188.97,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 173.03,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 172.05,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 175.46,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 159.4,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 163.04,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 158.51,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 166.6,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 160.32,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 159.64,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 162.77,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 161.5,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 160.43,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 161.46,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 159.68,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 159.51,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 200.65,
+      "codigo": "preparacion_pendiente"
+    },
+    {
+      "http": 409,
+      "ms": 157.13,
+      "codigo": "preparacion_pendiente"
+    }
+  ],
+  "p50_ms": 162.135,
+  "p95_ms": 200.65
+}

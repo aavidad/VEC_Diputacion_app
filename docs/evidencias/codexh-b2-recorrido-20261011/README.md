@@ -69,6 +69,19 @@ Las lecturas directas se midieron secuencialmente, 20 veces por ruta, con TLS, m
 
 Las mediciones del 409 y 503 describen esas puertas; no estiman un plan preparado ni una decisión aplicada. Tampoco son la comparación de rendimiento de las candidatas #1004 y #1012. El [inventario agregado](volumenes.json) conserva la escala observada por propietario: 12 bolsas y 390 participaciones, además de la historia CT indicada. No demuestra carga de producción.
 
+### Comparación exacta #1004 → #1012
+
+Después de recuperar el caso se instaló el binario de `bf2abb8ce76dbee567bed56c5c27dfb32ac09143` (#1004), compilado con Go 1.26.9 y SHA-256 `4a3caca7a0dba6a9f21d8e5eade0d6d924a6794339df6c6749a588c2c947b16f`. Las funciones de Personal41–44 ya coincidían con sus postimágenes, por lo que se conservaron. El kit AD172 ensayó cinco ternas nuevas en ROLLBACK y luego confirmó su alta por el mismo procedimiento. Los perfiles nominales de alta y Personal se actualizaron por CAS de sus preimágenes reales; la aprobación era local y las variables se retiraron.
+
+La comparación usa `GET /api/vec/contratacion-temporal/incorporacion-personal-b2/plan/v1?expediente_ref=expediente:ct:1fe2c0eda847e5e11e4ab7b15953df0b7a19a525264f3cf2381890e3d0d2e85b`, certificado de RRHH y `Accept: application/json`. Ambos binarios usan Go 1.26.9, el mismo PostgreSQL, la configuración de 22 operaciones, el mismo actor y el expediente 94014 en v5. Cada tanda tiene 20 lecturas consecutivas, sin escrituras de negocio entre ellas. El servidor y PostgreSQL tienen cada uno un límite de 2 CPU y 2 GiB. Se sustituyó solamente el binario entre tandas; #1012 conserva los activos web de su base #1004.
+
+| Fuente exacta | HTTP y código en las 20 muestras | p50 ms | p95 ms |
+| --- | --- | ---: | ---: |
+| [bf2abb8ce, baseline](baseline-bf2-b2.json) | 409 `preparacion_pendiente` | 181,865 | 226,48 |
+| [e4346d114, candidata revisada](medicion-e434-b2.json) | 409 `preparacion_pendiente` | 162,135 | 200,65 |
+
+En esta puerta el p95 bajó un 11,4 %. Las referencias de binario, revisiones y muestras están en los JSON enlazados. El resultado mide la lectura que termina en preparación pendiente; no acredita el tiempo del plan preparado, del alta en Personal ni del recorrido B2 completo. La candidata anterior `c4853c1a` fue rechazada y no se midió.
+
 ## Reproducción y siguiente corte
 
 Los siguientes cuerpos conservan los datos del caso 94014 y sustituyen solo la clave de idempotencia por `CLAVE_ORIGINAL_EXTERNA`. Para un replay hay que aportar la clave privada original de **cada** operación; una clave nueva no recupera la misma actuación. El alta usa el vínculo único de petición y versión y no trae una clave libre. Las referencias de catálogo y sus huellas corresponden a esta instalación y deben cotejarse con las preparaciones autorizadas.
