@@ -342,29 +342,33 @@ func copiarProyeccionPreparacionB2(p httpinterno.ProyeccionIncorporacionPersonal
 	return p
 }
 
-func (f *fuentesIncorporacionPersonalB2) capturarPreparacionB2(ctx context.Context, m domct.PlanIncorporacionPersonalB2, p httpinterno.ProyeccionIncorporacionPersonalB2HTTP) {
+func (f *fuentesIncorporacionPersonalB2) capturarPreparacionB2(ctx context.Context, m domct.PlanIncorporacionPersonalB2, p httpinterno.ProyeccionIncorporacionPersonalB2HTTP) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	holder, _ := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
 	if holder == nil || f.autoridad == nil || f.autoridad.perfiles == nil {
-		return
+		return nil
 	}
 	perfil := f.autoridad.perfiles.b2[ct.AccionRegistrarPlanNominalB2]
 	if perfil == nil {
-		return
+		return nil
 	}
 	holder.mu.Lock()
 	defer holder.mu.Unlock()
 	if holder.propietario != f.autoridad.perfiles {
-		return
+		return nil
 	}
 	c, ok := holder.contextos[perfil.clave]
 	if !ok {
-		return
+		return nil
 	}
 	identidad, err := c.Vinculo.Datos()
 	if err != nil {
-		return
+		return err
 	}
 	holder.preparacionB2 = &preparacionIncorporacionB2{f, identidad, m, copiarProyeccionPreparacionB2(p)}
+	return nil
 }
 
 func (f *fuentesIncorporacionPersonalB2) opcionesTrasPreparacionB2(ctx context.Context, c ct.ContratoPlanNominalB2) (httpinterno.ProyeccionIncorporacionPersonalB2HTTP, error) {

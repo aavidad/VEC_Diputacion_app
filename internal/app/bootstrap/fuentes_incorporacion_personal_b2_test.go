@@ -400,7 +400,9 @@ func escenarioProyeccionPreparacionB2(t *testing.T) (*fuentesIncorporacionPerson
 		}
 		return bp.ResultadoConsultaAnclajeAceptacionCT{Estado: "pendiente"}, nil
 	})
-	f.capturarPreparacionB2(ctx, m, p)
+	if err := f.capturarPreparacionB2(ctx, m, p); err != nil {
+		t.Fatal(err)
+	}
 	completo, err := f.completarOpcionesIncorporacionB2(ctx, copiarProyeccionPreparacionB2(p), antecedentes)
 	if err != nil {
 		t.Fatal(err)

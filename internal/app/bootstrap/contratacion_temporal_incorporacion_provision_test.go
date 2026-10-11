@@ -474,7 +474,9 @@ func TestIncorporacionB2CapturaPreparacionNoComparteProyeccion(t *testing.T) {
 	f, ctx, c, esperado, _, _ := escenarioProyeccionPreparacionB2(t)
 	holder := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
 	base := copiarProyeccionPreparacionB2(holder.preparacionB2.proyeccion)
-	f.capturarPreparacionB2(ctx, c.Material, base)
+	if err := f.capturarPreparacionB2(ctx, c.Material, base); err != nil {
+		t.Fatal(err)
+	}
 	// La fuente conserva sus DTO; cambiarlos después no altera la captura.
 	base.Prerrequisitos[1].Cumplido = !base.Prerrequisitos[1].Cumplido
 	base.Opciones.Motivos[0] = "motivo:otro"

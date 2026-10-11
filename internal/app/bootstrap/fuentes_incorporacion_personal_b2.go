@@ -190,7 +190,9 @@ func (f *fuentesIncorporacionPersonalB2) ResolverPlanNominalB2(ctx context.Conte
 	if p.Validar() != nil {
 		return cero, ct.ErrPlanNominalB2Invalido
 	}
-	f.capturarPreparacionB2(ctx, p, proyeccionCTIncorporacionB2(s.ExpedienteRef, d, a))
+	if e = f.capturarPreparacionB2(ctx, p, proyeccionCTIncorporacionB2(s.ExpedienteRef, d, a)); e != nil {
+		return cero, e
+	}
 	return p, nil
 }
 func validarSeleccionFuenteCTB2(s ct.SolicitudPlanNominalB2, a ct.AntecedentesPlanNominalB2, d ct.DetalleExpedienteRRHH) error {
