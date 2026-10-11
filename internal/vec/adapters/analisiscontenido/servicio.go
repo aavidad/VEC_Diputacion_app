@@ -20,6 +20,7 @@ import (
 
 type ConfiguracionServicio struct {
 	ConectorID, ClamdSocket string
+	Control                 *ClamdControlado
 	Bwrap, QPDF, Prlimit    string
 	IdentidadesCliente      []string // URI SAN exactas; CN no autoriza.
 	MaxEdadFirmas           time.Duration
@@ -27,6 +28,7 @@ type ConfiguracionServicio struct {
 
 type Servicio struct {
 	conectorID, clamdSocket string
+	control                 *ClamdControlado
 	qpdf                    configuracionQPDF
 	identidades             map[string]struct{}
 	maxEdadFirmas           time.Duration
@@ -34,7 +36,8 @@ type Servicio struct {
 }
 
 func NuevoServicio(c ConfiguracionServicio) (*Servicio, error) {
-	if !referenciaSegura(c.ConectorID, 128) || c.ClamdSocket == "" || c.Bwrap == "" || c.QPDF == "" || c.Prlimit == "" ||
+	if !referenciaSegura(c.ConectorID, 128) || c.ClamdSocket == "" || c.Control == nil || c.Control.socket != c.ClamdSocket || !c.Control.vivo() ||
+		c.Bwrap == "" || c.QPDF == "" || c.Prlimit == "" ||
 		c.MaxEdadFirmas <= 0 || c.MaxEdadFirmas > 72*time.Hour || len(c.IdentidadesCliente) == 0 {
 		return nil, ErrConfiguracion
 	}
@@ -51,7 +54,7 @@ func NuevoServicio(c ConfiguracionServicio) (*Servicio, error) {
 			return nil, ErrConfiguracion
 		}
 	}
-	return &Servicio{conectorID: c.ConectorID, clamdSocket: c.ClamdSocket, qpdf: configuracionQPDF{Bwrap: c.Bwrap, QPDF: c.QPDF, Prlimit: c.Prlimit}, identidades: identidades, maxEdadFirmas: c.MaxEdadFirmas, ocupacion: make(chan struct{}, 2)}, nil
+	return &Servicio{conectorID: c.ConectorID, clamdSocket: c.ClamdSocket, control: c.Control, qpdf: configuracionQPDF{Bwrap: c.Bwrap, QPDF: c.QPDF, Prlimit: c.Prlimit}, identidades: identidades, maxEdadFirmas: c.MaxEdadFirmas, ocupacion: make(chan struct{}, 2)}, nil
 }
 
 // TLSConfig exige certificados de cliente verificados por una CA privada.
@@ -95,12 +98,20 @@ func (s *Servicio) Handler() http.Handler {
 				w.WriteHeader(http.StatusMethodNotAllowed)
 				return
 			}
+			if !s.ocupar(w) {
+				return
+			}
+			defer s.liberar()
 			s.capacidades(w, r)
 		case "/v1/analisis":
 			if r.Method != http.MethodPost {
 				w.WriteHeader(http.StatusMethodNotAllowed)
 				return
 			}
+			if !s.ocupar(w) {
+				return
+			}
+			defer s.liberar()
 			s.analisis(w, r)
 		default:
 			http.NotFound(w, r)
@@ -108,18 +119,35 @@ func (s *Servicio) Handler() http.Handler {
 	})
 }
 
+func (s *Servicio) ocupar(w http.ResponseWriter) bool {
+	select {
+	case s.ocupacion <- struct{}{}:
+		return true
+	default:
+		http.Error(w, "ocupado", http.StatusServiceUnavailable)
+		return false
+	}
+}
+func (s *Servicio) liberar() { <-s.ocupacion }
+
 func (s *Servicio) identidadPermitida(r *http.Request) bool {
 	if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.PeerCertificates) == 0 {
 		return false
 	}
-	identidades:=r.TLS.PeerCertificates[0].URIs
-	if len(identidades)!=1 { return false }
-	_,permitida:=s.identidades[identidades[0].String()]
+	identidades := r.TLS.PeerCertificates[0].URIs
+	if len(identidades) != 1 {
+		return false
+	}
+	_, permitida := s.identidades[identidades[0].String()]
 	return permitida
 }
 
 func (s *Servicio) capacidades(w http.ResponseWriter, r *http.Request) {
-	if _, err := versionClamd(r.Context(), s.clamdSocket, time.Now().UTC(), s.maxEdadFirmas); err != nil || s.sondaQPDF(r.Context()) != nil {
+	if !s.control.vivo() {
+		http.Error(w, "no_disponible", http.StatusServiceUnavailable)
+		return
+	}
+	if _, err := versionClamd(r.Context(), s.clamdSocket, time.Now().UTC(), s.maxEdadFirmas); err != nil || s.sondaQPDF(r.Context()) != nil || !s.control.vivo() {
 		http.Error(w, "no_disponible", http.StatusServiceUnavailable)
 		return
 	}
@@ -136,11 +164,8 @@ func (s *Servicio) sondaQPDF(ctx context.Context) error {
 }
 
 func (s *Servicio) analisis(w http.ResponseWriter, r *http.Request) {
-	select {
-	case s.ocupacion <- struct{}{}:
-		defer func() { <-s.ocupacion }()
-	default:
-		http.Error(w, "ocupado", http.StatusServiceUnavailable)
+	if !s.control.vivo() {
+		http.Error(w, "no_disponible", http.StatusServiceUnavailable)
 		return
 	}
 	ctx, cancelar := context.WithTimeout(r.Context(), 40*time.Second)
@@ -186,7 +211,7 @@ func (s *Servicio) analisis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resultado := s.analizarBytes(ctx, meta, contenido, inicio)
-	if resultado.Validar() != nil {
+	if resultado.Validar() != nil || (resultado.Estado == ports.EstadoAnalisisContenidoLimpio && !s.control.vivo()) {
 		http.Error(w, "resultado_invalido", http.StatusServiceUnavailable)
 		return
 	}
@@ -204,7 +229,7 @@ func (s *Servicio) analizarBytes(ctx context.Context, meta solicitudRemota, cont
 		resultado.MIMEDetectado = "application/pdf"
 	}
 	info, estado, err := analizarClamd(ctx, s.clamdSocket, contenido, s.maxEdadFirmas, time.Now().UTC())
-	if err != nil {
+	if err != nil || !s.control.vivo() {
 		resultado.CodigoResultado = "AV_NO_CONCLUYENTE"
 	} else {
 		resultado.MotorRef = "clamav"
