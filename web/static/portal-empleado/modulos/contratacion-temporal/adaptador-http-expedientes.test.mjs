@@ -897,6 +897,21 @@ test("sin análisis, el expediente lleva los datos de la petición para prerrell
   assert.equal(expediente.analisis_previo, undefined);
 });
 
+test("sin modalidad en el expediente, se propone el motivo que pidió el centro", async () => {
+  const cliente = clienteFalso([]);
+  const obtenerDetalle = cliente.consultarDetalleRRHH;
+  cliente.consultarDetalleRRHH = async (...args) => {
+    const detalle = await obtenerDetalle(...args);
+    delete detalle.analisis; delete detalle.cobertura;
+    return { ...detalle, resumen: { ...detalle.resumen, modalidad_clave: "" },
+      solicitud: { ...detalle.solicitud, motivo_clave: "acumulacion_tareas" } };
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar();
+  const expediente = await adaptador.obtener(resumen.expediente_ref);
+  assert.equal(expediente.datos_peticion.modalidad_clave, "acumulacion_tareas");
+});
+
 test("con análisis registrado, el expediente no ofrece datos de la petición", async () => {
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteFalso([]) });
   await adaptador.listar();

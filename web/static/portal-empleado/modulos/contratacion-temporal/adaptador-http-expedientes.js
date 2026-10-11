@@ -2,7 +2,7 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL,
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
-} from "./contrato-expedientes.js?v=20261010-ct-ficha-cohorte-v1";
+} from "./contrato-expedientes.js?v=20261011-ct-ficha-cohorte-v11";
 import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { validarCatalogosAlta } from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
@@ -497,9 +497,10 @@ function railFasesDesdeHitos(detalle, traducir) {
 // contrato se omiten: la ficha nunca deja de abrirse por una sugerencia.
 function datosPeticionParaAnalisis(detalle) {
   if (detalle.analisis || !detalle.solicitud) return {};
+  const modalidad = detalle.resumen.modalidad_clave || detalle.solicitud.motivo_clave;
   try {
     return { datos_peticion: validarDatosPeticionAnalisis({
-      ...(detalle.resumen.modalidad_clave ? { modalidad_clave: detalle.resumen.modalidad_clave } : {}),
+      ...(modalidad ? { modalidad_clave: modalidad } : {}),
       categoria_ref: detalle.resumen.categoria_ref,
       grupo_subgrupo: detalle.solicitud.grupo_subgrupo,
       periodo: { inicio: detalle.solicitud.periodo_inicio,

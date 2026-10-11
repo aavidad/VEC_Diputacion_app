@@ -56,6 +56,7 @@ func TestIncorporacionB2SeleccionaNueveAudienciasNominales(t *testing.T) {
 		ct.AudienciaConfirmarOrigenB2:                    true,
 		bolsa.AudienciaConsultaPersonaAceptacionCT:       true,
 		ct.AudienciaConsultarVinculoCategoriaRPT:         true,
+		ct.AudienciaRegistrarVinculoCategoriaRPT:         true,
 		ct.AudienciaConsultarPublicacionCategoriaRPT:     true,
 		"vec_catalogos_configurables.usos_categorias.v1": true,
 	}
