@@ -22,10 +22,10 @@ BEGIN
   OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
   OR encode(sha256(convert_to(pg_get_functiondef(to_regprocedure(
     'vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')),'UTF8')),'hex')
-    IS DISTINCT FROM '739e454676a6b992d2ce48b9cc44fd9a24d8514559447fe0141868cf80e29d3b'
+    IS DISTINCT FROM '248a17487513464b36e3e55d0be4eacfaa49d09525f968932b000360d43f8ec9'
   OR encode(sha256(convert_to(pg_get_functiondef(to_regprocedure(
     'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')),'UTF8')),'hex')
-    IS DISTINCT FROM '71432cb8ece498d006aeb2ca8b96424a07981b22ab14b59cf18d0e1e62a6ae80'
+    IS DISTINCT FROM 'a2fdd71945a926ab52cb0143595ec857961e929ae3f044f1fdefadb4abf6bcca'
  THEN RAISE EXCEPTION 'D17: dependencia D16/AD240 ausente' USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -56,6 +56,7 @@ BEGIN
   WHEN 'documentos.carga.preparar_confirmacion' THEN 'vec_documentos.carga.preparar_confirmacion.v1'
   WHEN 'documentos.carga.preparar_respuesta' THEN 'vec_documentos.carga.preparar_respuesta.v1'
   WHEN 'documentos.carga.consultar_propia' THEN 'vec_documentos.carga.consultar_propia.v1'
+  WHEN 'documentos.carga_admitida.consultar_para_custodia' THEN 'vec_documentos.carga_admitida.consultar_para_custodia.v1'
   WHEN 'documentos.carga.conciliar' THEN 'vec_documentos.carga.conciliar.v1'
   WHEN 'documentos.carga.confirmar_intencion' THEN 'vec_documentos.carga.confirmar_intencion.v1'
   WHEN 'documentos.carga.confirmar_resultado' THEN 'vec_documentos.carga.confirmar_resultado.v1'
@@ -206,7 +207,7 @@ DECLARE tabla text; nombre text; previo text; cuerpo text; anadido text;
 BEGIN
  FOR tabla,nombre,anadido IN SELECT * FROM (VALUES
   ('auditoria_operacion','auditoria_operacion_accion_check',
-   'accion IN (''documentos.carga.preparar_reserva'',''documentos.carga.preparar_confirmacion'',''documentos.carga.preparar_respuesta'',''documentos.carga.consultar_propia'',''documentos.carga.conciliar'',''documentos.carga.confirmar_intencion'',''documentos.carga.confirmar_resultado'',''vec.documentos.carga.analizar'',''documentos.carga.promover_intencion'',''documentos.carga.promover_resultado'')'),
+   'accion IN (''documentos.carga.preparar_reserva'',''documentos.carga.preparar_confirmacion'',''documentos.carga.preparar_respuesta'',''documentos.carga.consultar_propia'',''documentos.carga_admitida.consultar_para_custodia'',''documentos.carga.conciliar'',''documentos.carga.confirmar_intencion'',''documentos.carga.confirmar_resultado'',''vec.documentos.carga.analizar'',''documentos.carga.promover_intencion'',''documentos.carga.promover_resultado'')'),
   ('auditoria_operacion','auditoria_operacion_resultado_check',
    'resultado IN (''preparacion_iniciada'',''emision_recibo_iniciada'',''recibo_registrado'',''confirmacion_iniciada'',''confirmacion_indeterminada'',''no_recuperable'',''denegado'',''cuarentena'',''analizada_limpia'',''retenida_seguridad'',''promocion_iniciada'',''admitida'')'),
   ('outbox','outbox_tipo_check','tipo=''carga_directa_estado''')
@@ -1016,6 +1017,99 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_documentos.consultar_carga_directa_propia_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_documentos.consultar_carga_directa_propia_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_documentos_ejecutor;
+
+-- Lectura Mayan de metadata admitida. La decisión AD240 se consume ANTES de
+-- consultar la fila; la fase abrir coteja el objeto/version del primer SELECT.
+CREATE FUNCTION vec_documentos.consultar_carga_admitida_custodia_v1(
+ p_preimagen bytea,p_auth jsonb,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp
+ SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
+DECLARE m jsonb; v record; r vec_documentos.carga_directa_operacion%ROWTYPE;
+ ahora timestamptz(6):=date_trunc('microseconds',clock_timestamp()); autorizado boolean;
+BEGIN
+ IF current_user<>'vec_documentos_propietario' OR session_user=current_user OR
+  octet_length(p_preimagen) NOT BETWEEN 1 AND 8192 OR p_auth IS NULL OR pg_column_size(p_auth)>4096
+ THEN RAISE EXCEPTION 'D17: lectura de carga denegada' USING ERRCODE='42501'; END IF;
+ BEGIN m:=convert_from(p_preimagen,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'D17: preimagen inválida' USING ERRCODE='22023'; END;
+ IF jsonb_typeof(m)<>'object' OR (SELECT count(*) FROM jsonb_object_keys(m))<>19 OR
+  EXISTS(SELECT 1 FROM jsonb_object_keys(m) k WHERE k NOT IN
+   ('accion','fase','carga_id','recurso_ref','persona_ref','plan_ref','version_esperada',
+    'huella_carga_esperada_sha256','objeto_ref','objeto_version','huella_contenido_sha256',
+    'tamano','mime','evidencia_analisis_ref','perfil_activo_ref','registro_contexto_ref',
+    'huella_contexto_sha256','finalidad','correlacion_ref')) OR
+  m->>'accion' IS DISTINCT FROM 'documentos.carga_admitida.consultar_para_custodia' OR
+  m->>'fase' NOT IN ('consulta','abrir') OR
+  m->>'carga_id' !~ '^ref:[0-9a-f]{64}$' OR m->>'recurso_ref' !~ '^ref:[0-9a-f]{64}$' OR
+  m->>'persona_ref' !~ '^per_[A-Za-z0-9_-]{22,128}$' OR m->>'version_esperada' IS DISTINCT FROM '5' OR
+  m->>'huella_contexto_sha256' !~ '^[0-9a-f]{64}$' OR
+  m->>'finalidad' IS DISTINCT FROM 'custodiar_evidencia_meritos' OR
+  (m->>'fase'='consulta' AND
+   (m->>'huella_carga_esperada_sha256'<>'' OR m->>'objeto_ref'<>'' OR
+    m->>'objeto_version'<>'' OR m->>'huella_contenido_sha256'<>'' OR
+    m->>'tamano'<>'0' OR m->>'mime'<>'' OR m->>'evidencia_analisis_ref'<>'')) OR
+  (m->>'fase'='abrir' AND
+   (m->>'plan_ref'='' OR m->>'huella_carga_esperada_sha256' !~ '^[0-9a-f]{64}$' OR
+    m->>'objeto_ref'='' OR m->>'objeto_version'='' OR
+    m->>'huella_contenido_sha256' !~ '^[0-9a-f]{64}$' OR
+    m->>'tamano' !~ '^[1-9][0-9]*$' OR m->>'mime'='' OR m->>'evidencia_analisis_ref'='')) OR
+  p_auth->>'accion' IS DISTINCT FROM m->>'accion' OR
+  p_auth->>'recurso_ref' IS DISTINCT FROM m->>'carga_id' OR
+  p_auth->>'ambito_ref' IS DISTINCT FROM m->>'recurso_ref' OR
+  p_auth->>'principal_id' IS DISTINCT FROM m->>'persona_ref' OR
+  p_auth->>'perfil_activo_ref' IS DISTINCT FROM m->>'perfil_activo_ref' OR
+  p_auth->>'finalidad' IS DISTINCT FROM m->>'finalidad' OR
+  p_auth->>'correlacion_ref' IS DISTINCT FROM m->>'correlacion_ref'
+ THEN RAISE EXCEPTION 'D17: lectura no ligada' USING ERRCODE='42501'; END IF;
+ SELECT * INTO STRICT v FROM vec_documentos.consumir_carga_directa_v3_v1(
+  p_preimagen,m->>'accion',m->>'carga_id',p_auth->>'principal_id',p_auth->>'perfil_activo_ref',
+  p_auth->>'finalidad',p_auth->>'correlacion_ref',p_capacidad,p_decision,p_motivo,p_contexto,
+  p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ IF v.consumo_nuevo IS FALSE THEN RAISE EXCEPTION 'D17: lectura requiere decisión nueva' USING ERRCODE='42501'; END IF;
+ PERFORM set_config('vec.documentos.expediente_ref',m->>'recurso_ref',true);
+ IF m->>'fase'='abrir' THEN
+  IF to_regprocedure('vec_documentos.validar_plan_carga_para_lectura_v1(text,text,text,text,bigint)') IS NULL
+  THEN RAISE EXCEPTION 'D17: lectura no disponible' USING ERRCODE='42501'; END IF;
+  BEGIN
+   IF vec_documentos.validar_plan_carga_para_lectura_v1(m->>'plan_ref',m->>'carga_id',
+     m->>'persona_ref',m->>'recurso_ref',5::bigint) IS DISTINCT FROM TRUE
+   THEN RAISE EXCEPTION 'D17: lectura no disponible' USING ERRCODE='42501'; END IF;
+  EXCEPTION WHEN others THEN RAISE EXCEPTION 'D17: lectura no disponible' USING ERRCODE='42501'; END;
+ END IF;
+ SELECT * INTO r FROM vec_documentos.carga_directa_operacion WHERE carga_id=m->>'carga_id'
+  AND recurso_ref=m->>'recurso_ref' AND persona_ref=m->>'persona_ref';
+ autorizado:=coalesce(FOUND AND r.estado_operativo='admitida' AND r.version_contenido=5 AND
+  r.carga->>'version'='5' AND r.carga->>'estado'='admitida' AND
+  r.carga->>'modulo_id'='meritos' AND r.carga->>'finalidad'=m->>'finalidad' AND
+  r.carga#>>'{analisis,estado}'='limpio' AND
+  r.carga#>>'{analisis,evidencia_ref}'<>'' AND
+  r.carga#>>'{contenido_admitido,zona}'='admitida' AND
+  r.carga#>>'{contenido_admitido,referencia}'<>'' AND
+  r.carga#>>'{contenido_admitido,version}'<>'' AND
+  r.carga#>>'{contenido_admitido,huella_sha256}' ~ '^[0-9a-f]{64}$' AND
+  r.carga#>>'{contenido_admitido,tamano}' ~ '^[1-9][0-9]*$' AND
+  r.carga#>>'{contenido_admitido,mime}'<>'' AND
+  r.carga#>>'{contenido_admitido,evidencia_ref}'<>'',false);
+ IF autorizado AND m->>'fase'='abrir' THEN
+  autorizado:=coalesce(r.huella_carga_json_sha256=m->>'huella_carga_esperada_sha256' AND
+   r.carga#>>'{contenido_admitido,referencia}'=m->>'objeto_ref' AND
+   r.carga#>>'{contenido_admitido,version}'=m->>'objeto_version' AND
+   r.carga#>>'{contenido_admitido,huella_sha256}'=m->>'huella_contenido_sha256' AND
+   r.carga#>>'{contenido_admitido,tamano}'=m->>'tamano' AND
+   r.carga#>>'{contenido_admitido,mime}'=m->>'mime' AND
+   r.carga#>>'{analisis,evidencia_ref}'=m->>'evidencia_analisis_ref',false);
+ END IF;
+ INSERT INTO vec_documentos.auditoria_operacion(accion,recurso_ref,expediente_ref,principal_ref,
+  perfil_ref,finalidad,correlacion_ref,decision_ref,auditoria_ad3_ref,resultado,registrada_en)
+ VALUES(m->>'accion',m->>'carga_id',m->>'recurso_ref',m->>'persona_ref',p_auth->>'perfil_activo_ref',
+  p_auth->>'finalidad',p_auth->>'correlacion_ref',v.decision_ref,v.auditoria_ref,
+  CASE WHEN autorizado THEN 'autorizado' ELSE 'denegado' END,ahora);
+ IF autorizado IS NOT TRUE THEN RETURN jsonb_build_object('denegado',true); END IF;
+ RETURN jsonb_build_object('carga',r.carga);
+END $f$;
+REVOKE ALL ON FUNCTION vec_documentos.consultar_carga_admitida_custodia_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_documentos.consultar_carga_admitida_custodia_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_documentos_ejecutor;
 
 CREATE FUNCTION vec_documentos.cerrar_carga_directa_no_recuperable_v1(
  p_preimagen bytea,p_auth jsonb,

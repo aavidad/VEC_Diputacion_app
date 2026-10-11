@@ -29,3 +29,28 @@ func TestPreimagenReservaCargaV3FijaOrdenYCambioDeVersion(t *testing.T) {
 		t.Fatal("version D16 no cambia la identidad del efecto")
 	}
 }
+
+func TestPreimagenCustodiaCargaAdmitidaV3FijaFaseYVersion(t *testing.T) {
+	d := ConsultaAdmitidaCustodiaV3{Accion: "a", Fase: "abrir", CargaID: "c", RecursoRef: "r",
+		PersonaRef: "p", PlanRef: "pl", VersionEsperada: 5, HuellaCargaEsperadaSHA256: "hc",
+		ObjetoRef: "o", ObjetoVersion: "v", HuellaContenidoSHA256: "ho", Tamano: 7,
+		MIME: "application/pdf", EvidenciaAnalisisRef: "e", PerfilActivoRef: "pr",
+		RegistroContextoRef: "rc", HuellaContextoSHA256: "hx", Finalidad: "f", CorrelacionRef: "co"}
+	primera, err := d.Preimagen()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const esperado = `{"accion":"a","fase":"abrir","carga_id":"c","recurso_ref":"r","persona_ref":"p","plan_ref":"pl","version_esperada":5,"huella_carga_esperada_sha256":"hc","objeto_ref":"o","objeto_version":"v","huella_contenido_sha256":"ho","tamano":7,"mime":"application/pdf","evidencia_analisis_ref":"e","perfil_activo_ref":"pr","registro_contexto_ref":"rc","huella_contexto_sha256":"hx","finalidad":"f","correlacion_ref":"co"}`
+	if string(primera) != esperado {
+		t.Fatalf("preimagen diferente: %s", primera)
+	}
+	segunda, err := d.Preimagen()
+	if err != nil || !bytes.Equal(primera, segunda) {
+		t.Fatal("preimagen no determinista")
+	}
+	d.ObjetoVersion = "otra"
+	otra, err := d.Preimagen()
+	if err != nil || bytes.Equal(primera, otra) || HuellaEfectoCargaV3(primera) == HuellaEfectoCargaV3(otra) {
+		t.Fatal("versión S3 no altera el efecto")
+	}
+}

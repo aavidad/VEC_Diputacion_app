@@ -45,6 +45,7 @@ BEGIN
   WHEN 'documentos.carga.preparar_confirmacion' THEN 'vec_documentos.carga.preparar_confirmacion.v1'
   WHEN 'documentos.carga.preparar_respuesta' THEN 'vec_documentos.carga.preparar_respuesta.v1'
   WHEN 'documentos.carga.consultar_propia' THEN 'vec_documentos.carga.consultar_propia.v1'
+  WHEN 'documentos.carga_admitida.consultar_para_custodia' THEN 'vec_documentos.carga_admitida.consultar_para_custodia.v1'
   WHEN 'documentos.carga.conciliar' THEN 'vec_documentos.carga.conciliar.v1'
   WHEN 'documentos.carga.confirmar_intencion' THEN 'vec_documentos.carga.confirmar_intencion.v1'
   WHEN 'documentos.carga.confirmar_resultado' THEN 'vec_documentos.carga.confirmar_resultado.v1'
@@ -87,6 +88,7 @@ BEGIN
  FOREACH accion IN ARRAY ARRAY[
   'documentos.carga.preparar_reserva','documentos.carga.preparar_confirmacion',
   'documentos.carga.preparar_respuesta','documentos.carga.consultar_propia',
+  'documentos.carga_admitida.consultar_para_custodia',
   'documentos.carga.conciliar','documentos.carga.confirmar_intencion',
   'documentos.carga.confirmar_resultado',
   'vec.documentos.carga.analizar','documentos.carga.promover_intencion',
@@ -334,7 +336,7 @@ BEGIN
   RAISE EXCEPTION 'D17: segunda promoción permitida';
  EXCEPTION WHEN unique_violation THEN NULL; END;
  admitido:=objeto||jsonb_build_object('referencia','objeto:admitido:uno',
-  'version','v2','zona','admitida','evidencia_ref','evidencia:s3:promocion');
+  'version','v2','zona','admitida','evidencia_ref','ref:'||repeat('f',64));
  j5:=j4||jsonb_build_object('version',5,'estado','admitida',
   'autorizacion_promocion_ref','decision:v1:promover','contenido_admitido',admitido);
  pre_carga:=convert_to(j5::text,'UTF8');

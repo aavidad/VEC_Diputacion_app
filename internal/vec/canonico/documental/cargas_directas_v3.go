@@ -80,6 +80,32 @@ type ConsultaCargaV3 struct {
 
 func (d ConsultaCargaV3) Preimagen() ([]byte, error) { return json.Marshal(d) }
 
+// ConsultaAdmitidaCustodiaV3 liga la fase a una carga y al plan Mayan. La
+// segunda fase aporta la huella de la instantánea obtenida en la primera.
+type ConsultaAdmitidaCustodiaV3 struct {
+	Accion                    string `json:"accion"`
+	Fase                      string `json:"fase"`
+	CargaID                   string `json:"carga_id"`
+	RecursoRef                string `json:"recurso_ref"`
+	PersonaRef                string `json:"persona_ref"`
+	PlanRef                   string `json:"plan_ref"`
+	VersionEsperada           int    `json:"version_esperada"`
+	HuellaCargaEsperadaSHA256 string `json:"huella_carga_esperada_sha256"`
+	ObjetoRef                 string `json:"objeto_ref"`
+	ObjetoVersion             string `json:"objeto_version"`
+	HuellaContenidoSHA256     string `json:"huella_contenido_sha256"`
+	Tamano                    int64  `json:"tamano"`
+	MIME                      string `json:"mime"`
+	EvidenciaAnalisisRef      string `json:"evidencia_analisis_ref"`
+	PerfilActivoRef           string `json:"perfil_activo_ref"`
+	RegistroContextoRef       string `json:"registro_contexto_ref"`
+	HuellaContextoSHA256      string `json:"huella_contexto_sha256"`
+	Finalidad                 string `json:"finalidad"`
+	CorrelacionRef            string `json:"correlacion_ref"`
+}
+
+func (d ConsultaAdmitidaCustodiaV3) Preimagen() ([]byte, error) { return json.Marshal(d) }
+
 type ConciliacionCargaV3 struct {
 	Accion                   string `json:"accion"`
 	CargaID                  string `json:"carga_id"`

@@ -570,6 +570,7 @@ const (
 	AccionCargaDocumentalPrepararConfirmacionV3    = "documentos.carga.preparar_confirmacion"
 	AccionCargaDocumentalPrepararRespuestaV3       = "documentos.carga.preparar_respuesta"
 	AccionCargaDocumentalConsultarPropiaV3         = "documentos.carga.consultar_propia"
+	AccionCargaAdmitidaConsultarCustodiaV3         = "documentos.carga_admitida.consultar_para_custodia"
 	AccionCargaDocumentalConciliarV3               = "documentos.carga.conciliar"
 	AccionCargaDocumentalConfirmarIntencionV3      = "documentos.carga.confirmar_intencion"
 	AccionCargaDocumentalConfirmarResultadoV3      = "documentos.carga.confirmar_resultado"
@@ -580,6 +581,7 @@ const (
 	AudienciaCargaDocumentalPrepararConfirmacionV3 = "vec_documentos.carga.preparar_confirmacion.v1"
 	AudienciaCargaDocumentalPrepararRespuestaV3    = "vec_documentos.carga.preparar_respuesta.v1"
 	AudienciaCargaDocumentalConsultarPropiaV3      = "vec_documentos.carga.consultar_propia.v1"
+	AudienciaCargaAdmitidaConsultarCustodiaV3      = "vec_documentos.carga_admitida.consultar_para_custodia.v1"
 	AudienciaCargaDocumentalConciliarV3            = "vec_documentos.carga.conciliar.v1"
 	AudienciaCargaDocumentalConfirmarIntencionV3   = "vec_documentos.carga.confirmar_intencion.v1"
 	AudienciaCargaDocumentalConfirmarResultadoV3   = "vec_documentos.carga.confirmar_resultado.v1"
@@ -600,6 +602,8 @@ func audienciaCargaDocumentalV3(accion string) string {
 		return AudienciaCargaDocumentalPrepararRespuestaV3
 	case AccionCargaDocumentalConsultarPropiaV3:
 		return AudienciaCargaDocumentalConsultarPropiaV3
+	case AccionCargaAdmitidaConsultarCustodiaV3:
+		return AudienciaCargaAdmitidaConsultarCustodiaV3
 	case AccionCargaDocumentalConciliarV3:
 		return AudienciaCargaDocumentalConciliarV3
 	case AccionCargaDocumentalConfirmarIntencionV3:
@@ -729,6 +733,98 @@ type ConsultaCargaPropiaV3 struct {
 
 type RepositorioConsultaCargasDocumentalesV3 interface {
 	ConsultarPropia(context.Context, SolicitudConsultarCargaPropiaV3) (ConsultaCargaPropiaV3, error)
+}
+
+// ConsultaCargaAdmitidaCustodiaV3 limita la lectura Mayan a una carga propia
+// admitida. En fase abrir, la instantánea anterior liga el objeto exacto antes
+// del SELECT; el repositorio coteja esos datos con su fila autoritativa.
+type ConsultaCargaAdmitidaCustodiaV3 struct {
+	Fase                      string
+	CargaID                   string
+	RecursoRef                string
+	PersonaRef                string
+	PlanRef                   string
+	VersionEsperada           int
+	HuellaCargaEsperadaSHA256 string
+	ObjetoRef                 string
+	ObjetoVersion             string
+	HuellaContenidoSHA256     string
+	Tamano                    int64
+	MIME                      string
+	EvidenciaAnalisisRef      string
+	ActorRegistradoV2         domain.ResultadoContextoActorRegistradoV2
+	VinculoV2                 domain.VinculoAutenticacionActorV2
+	Finalidad                 string
+	CorrelacionRef            string
+	AutorizacionV3            AutorizacionCargaDocumentalV3
+}
+
+func PreimagenConsultaCargaAdmitidaCustodiaV3(s ConsultaCargaAdmitidaCustodiaV3) ([]byte, error) {
+	if s.ActorRegistradoV2.Validar() != nil || s.VinculoV2.ValidarPara(s.ActorRegistradoV2) != nil ||
+		!referenciaOpacaAlmacenValida(s.CargaID, 512) || !referenciaOpacaAlmacenValida(s.RecursoRef, 512) ||
+		s.PersonaRef != s.ActorRegistradoV2.Contexto.PersonaRef || s.VersionEsperada != 5 ||
+		s.Finalidad != "custodiar_evidencia_meritos" || !referenciaOpacaAlmacenValida(s.CorrelacionRef, 512) ||
+		(s.PlanRef != "" && !referenciaOpacaAlmacenValida(s.PlanRef, 512)) {
+		return nil, domain.ErrAutorizacionDenegada
+	}
+	switch s.Fase {
+	case "consulta":
+		if s.HuellaCargaEsperadaSHA256 != "" || s.ObjetoRef != "" || s.ObjetoVersion != "" ||
+			s.HuellaContenidoSHA256 != "" || s.Tamano != 0 || s.MIME != "" || s.EvidenciaAnalisisRef != "" {
+			return nil, domain.ErrAutorizacionDenegada
+		}
+	case "abrir":
+		if s.PlanRef == "" || !esSHA256Hexadecimal(s.HuellaCargaEsperadaSHA256) ||
+			!referenciaOpacaAlmacenValida(s.ObjetoRef, 512) ||
+			!referenciaOpacaAlmacenValida(s.ObjetoVersion, 512) ||
+			!esSHA256Hexadecimal(s.HuellaContenidoSHA256) || s.Tamano < 1 ||
+			!textoSeguroAlmacen(s.MIME, 256) || !referenciaOpacaAlmacenValida(s.EvidenciaAnalisisRef, 512) {
+			return nil, domain.ErrAutorizacionDenegada
+		}
+	default:
+		return nil, domain.ErrAutorizacionDenegada
+	}
+	return (canonicodoc.ConsultaAdmitidaCustodiaV3{
+		Accion: AccionCargaAdmitidaConsultarCustodiaV3, Fase: s.Fase,
+		CargaID: s.CargaID, RecursoRef: s.RecursoRef, PersonaRef: s.PersonaRef, PlanRef: s.PlanRef,
+		VersionEsperada: s.VersionEsperada, HuellaCargaEsperadaSHA256: s.HuellaCargaEsperadaSHA256,
+		ObjetoRef: s.ObjetoRef, ObjetoVersion: s.ObjetoVersion,
+		HuellaContenidoSHA256: s.HuellaContenidoSHA256, Tamano: s.Tamano, MIME: s.MIME,
+		EvidenciaAnalisisRef: s.EvidenciaAnalisisRef,
+		PerfilActivoRef:      s.ActorRegistradoV2.Contexto.PerfilActivoRef,
+		RegistroContextoRef:  s.ActorRegistradoV2.RegistroContextoRef,
+		HuellaContextoSHA256: s.ActorRegistradoV2.HuellaSHA256,
+		Finalidad:            s.Finalidad, CorrelacionRef: s.CorrelacionRef,
+	}).Preimagen()
+}
+
+func (s ConsultaCargaAdmitidaCustodiaV3) Validar(ahora time.Time) error {
+	pre, err := PreimagenConsultaCargaAdmitidaCustodiaV3(s)
+	if err != nil || ahora.IsZero() || s.AutorizacionV3.Material.ValidarEstructura() != nil ||
+		s.AutorizacionV3.Accion != AccionCargaAdmitidaConsultarCustodiaV3 ||
+		s.AutorizacionV3.RecursoRef != s.CargaID || s.AutorizacionV3.AmbitoRef != s.RecursoRef ||
+		s.AutorizacionV3.PersonaRef != s.PersonaRef ||
+		s.AutorizacionV3.PerfilActivoRef != s.ActorRegistradoV2.Contexto.PerfilActivoRef ||
+		s.AutorizacionV3.Finalidad != s.Finalidad || s.AutorizacionV3.CorrelacionRef != s.CorrelacionRef {
+		return domain.ErrAutorizacionDenegada
+	}
+	r := s.AutorizacionV3.Material.ResumenCapacidad()
+	if r.ValidarEstructura() != nil || r.AudienciaConsumo() != AudienciaCargaAdmitidaConsultarCustodiaV3 ||
+		r.Operacion() != AccionCargaAdmitidaConsultarCustodiaV3 || r.EfectoRef() != s.CargaID ||
+		r.EfectoHuellaSHA256() != HuellaPreimagenCargaDocumentalV3(pre) ||
+		ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) {
+		return domain.ErrAutorizacionDenegada
+	}
+	return nil
+}
+
+type RepositorioConsultaCargaAdmitidaCustodiaV3 interface {
+	ConsultarAdmitidaCustodia(context.Context, ConsultaCargaAdmitidaCustodiaV3) (domain.CargaDocumental, error)
+}
+
+type AutoridadConsultaCargaAdmitidaCustodiaV3 interface {
+	AutorizarConsultaCargaAdmitidaCustodia(context.Context, []byte,
+		domain.ResultadoContextoActorRegistradoV2, string, string) (AutorizacionCargaDocumentalV3, error)
 }
 
 type SolicitudConciliarCargaV3 struct {

@@ -3,8 +3,10 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -254,6 +256,65 @@ func mismaCargaPreparada(preparada, actual vecdomain.CargaDocumental) bool {
 		preparada.AutorizacionPreparacionRef == actual.AutorizacionPreparacionRef &&
 		preparada.CreadaEn.Equal(actual.CreadaEn) &&
 		preparada.PreparadaEn.Equal(actual.PreparadaEn) && preparada.ExpiraEn.Equal(actual.ExpiraEn)
+}
+
+// ConsultarAdmitidaCustodia consume la decisión V3 dentro de D17 antes de
+// proyectar la carga. El objeto que se abrirá después procede solo de esta
+// fila; la instantánea de entrada se usa exclusivamente para cotejo.
+func (r *RepositorioCargasDirectas) ConsultarAdmitidaCustodia(ctx context.Context,
+	s vecports.ConsultaCargaAdmitidaCustodiaV3) (vecdomain.CargaDocumental, error) {
+	if r == nil || r.base == nil || s.Validar(time.Now().UTC()) != nil {
+		return vecdomain.CargaDocumental{}, vecdomain.ErrAutorizacionDenegada
+	}
+	pre, err := vecports.PreimagenConsultaCargaAdmitidaCustodiaV3(s)
+	if err != nil {
+		return vecdomain.CargaDocumental{}, vecdomain.ErrAutorizacionDenegada
+	}
+	auth, err := autorizacionCargaJSON(s.AutorizacionV3)
+	if err != nil {
+		return vecdomain.CargaDocumental{}, vecdomain.ErrAutorizacionDenegada
+	}
+	m, err := materialCargaV3(s.AutorizacionV3)
+	if err != nil {
+		return vecdomain.CargaDocumental{}, vecdomain.ErrAutorizacionDenegada
+	}
+	raw, err := r.base.transaccion(ctx,
+		"SELECT vec_documentos.consultar_carga_admitida_custodia_v1($1,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+		pre, string(auth), m.capacidad, m.decision, m.motivo, m.contexto,
+		m.persona, m.perfil, m.payload, m.sobre, m.evidencia, m.raiz)
+	if err != nil {
+		if errors.Is(err, docports.ErrAccesoDenegado) || errors.Is(err, docports.ErrNoEncontrado) {
+			return vecdomain.CargaDocumental{}, vecdomain.ErrAutorizacionDenegada
+		}
+		return vecdomain.CargaDocumental{}, err
+	}
+	var salida struct {
+		Denegado bool                      `json:"denegado"`
+		Carga    vecdomain.CargaDocumental `json:"carga"`
+	}
+	if json.Unmarshal(raw, &salida) != nil || salida.Denegado || salida.Carga.Validar() != nil ||
+		salida.Carga.Estado != vecdomain.EstadoCargaDocumentalAdmitida || salida.Carga.Version != 5 ||
+		salida.Carga.ID != s.CargaID || salida.Carga.RecursoRef != s.RecursoRef ||
+		salida.Carga.PrincipalID != s.PersonaRef || salida.Carga.ModuloID != "meritos" ||
+		salida.Carga.Finalidad != s.Finalidad || salida.Carga.Analisis == nil ||
+		salida.Carga.Analisis.Estado != vecdomain.EstadoAnalisisCargaLimpio ||
+		salida.Carga.ContenidoAdmitido == nil {
+		return vecdomain.CargaDocumental{}, vecdomain.ErrAutorizacionDenegada
+	}
+	huella, err := salida.Carga.HuellaSHA256()
+	if err != nil {
+		return vecdomain.CargaDocumental{}, ErrRepositorioNoDisponible
+	}
+	if s.Fase == "abrir" && (huella != s.HuellaCargaEsperadaSHA256 ||
+		salida.Carga.ContenidoAdmitido.Referencia != s.ObjetoRef ||
+		salida.Carga.ContenidoAdmitido.Version != s.ObjetoVersion ||
+		salida.Carga.ContenidoAdmitido.HuellaSHA256 != s.HuellaContenidoSHA256 ||
+		salida.Carga.ContenidoAdmitido.Tamano != s.Tamano ||
+		salida.Carga.ContenidoAdmitido.MIME != s.MIME ||
+		salida.Carga.Analisis.EvidenciaRef != s.EvidenciaAnalisisRef) {
+		return vecdomain.CargaDocumental{}, vecdomain.ErrAutorizacionDenegada
+	}
+	return salida.Carga, nil
 }
 
 func (r *RepositorioCargasDirectas) CerrarIntentoNoRecuperable(ctx context.Context, s vecports.SolicitudConciliarCargaV3) (vecports.EstadoOperativoCargaDocumental, error) {
