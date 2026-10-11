@@ -220,3 +220,36 @@ func TestEmpateBajoTopeNoDependeDelIdentificador(t *testing.T) {
 		t.Fatal("tope de horas eligió un empate sin prioridad")
 	}
 }
+
+func TestEmpatesEquivalentesConservanAplicabilidadSinAsignacionPorID(t *testing.T) {
+	c, e := psicologiaV2(t)
+	e.Meritos = e.Meritos[:2]
+	e.Meritos[0].FechaObtencion = e.Meritos[1].FechaObtencion // ambas tarifas recientes
+	uno := uint32(1)
+	for _, caparElementos := range []bool{true, false} {
+		if caparElementos {
+			c.Reglas[0].MaximoElementos = &uno
+			c.Reglas[0].MaximoUnidades = nil
+		} else {
+			c.Reglas[0].MaximoElementos = nil
+			c.Reglas[0].MaximoUnidades = racional(t, 10, 1)
+		}
+		for _, invertir := range []bool{false, true} {
+			entrada := e
+			entrada.Meritos = append([]Merito(nil), e.Meritos...)
+			if invertir {
+				entrada.Meritos[0].Referencia, entrada.Meritos[1].Referencia = entrada.Meritos[1].Referencia, entrada.Meritos[0].Referencia
+				sort.Slice(entrada.Meritos, func(i, j int) bool { return entrada.Meritos[i].Referencia < entrada.Meritos[j].Referencia })
+			}
+			r, err := Calcular(c, entrada)
+			if err != nil || r.Estado != "completado" || r.Total == nil || r.Total.Micropuntos() != 800_000 {
+				t.Fatalf("empate materialmente igual bloqueado o cambiado: %v %+v", err, r)
+			}
+			for _, detalle := range r.Meritos {
+				if detalle.Validez != "aplicable_segun_regla" || detalle.Codigo != "tope_alcanzado_por_grupo_equivalente" || detalle.PuntosProvisionales != nil || detalle.CodigoPuntos != "asignacion_agrupada_por_tope" {
+					t.Fatalf("desglose eligió hecho por ID: %+v", detalle)
+				}
+			}
+		}
+	}
+}

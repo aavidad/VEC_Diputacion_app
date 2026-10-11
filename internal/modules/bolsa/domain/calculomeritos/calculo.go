@@ -217,8 +217,8 @@ func Calcular(c Conjunto, e Entrada) (Resultado, error) {
 	puntosSeccion := make(map[string]baremacion.Puntos)
 	for _, regla := range c.Reglas {
 		indices := candidatos[regla.Clave]
-		// La política de bases fija la prioridad. Una referencia solo ordena
-		// resultados iguales cuando ningún tope obliga a elegir entre ellos.
+		// La política de bases fija la prioridad. La referencia solo conserva
+		// orden estable entre méritos de efecto material equivalente.
 		sort.Slice(indices, func(i, j int) bool {
 			cmp := compararPrioridad(c.SeleccionElementos, regla, e.Meritos[indices[i]], e.Meritos[indices[j]])
 			if cmp != 0 {
@@ -226,7 +226,11 @@ func Calcular(c Conjunto, e Entrada) (Resultado, error) {
 			}
 			return e.Meritos[indices[i]].Referencia < e.Meritos[indices[j]].Referencia
 		})
-		if v2 && prioridadAmbiguaBajoTope(c.SeleccionElementos, regla, e.Meritos, indices) {
+		ambigua, equivalentes := false, map[int]bool(nil)
+		if v2 {
+			ambigua, equivalentes = analizarPrioridadBajoTope(c.SeleccionElementos, regla, e.Meritos, indices)
+		}
+		if ambigua {
 			r.Estado = "bloqueado"
 			r.Incidencias = append(r.Incidencias, Incidencia{e.Meritos[indices[0]].Referencia, "prioridad_bases_insuficiente"})
 			r.Reglas, r.Secciones = []DetalleRegla{}, []DetalleSeccion{}
@@ -311,6 +315,12 @@ func Calcular(c Conjunto, e Entrada) (Resultado, error) {
 					r.Meritos[idx].CodigoPuntos = "acumulado_por_regla"
 				}
 			}
+		}
+		for idx := range equivalentes {
+			r.Meritos[idx].Codigo = "tope_alcanzado_por_grupo_equivalente"
+			r.Meritos[idx].Validez = "aplicable_segun_regla"
+			r.Meritos[idx].PuntosProvisionales = nil
+			r.Meritos[idx].CodigoPuntos = "asignacion_agrupada_por_tope"
 		}
 		computadas := unidades
 		if regla.MaximoUnidades != nil {
@@ -416,9 +426,25 @@ func compararPrioridad(modo string, regla Regla, izquierda, derecha Merito) int 
 	return cmp
 }
 
-// prioridadAmbiguaBajoTope rechaza un grupo de igual prioridad cuando el
-// límite obligaría a escoger una identidad. No consulta ni usa referencias.
-func prioridadAmbiguaBajoTope(modo string, regla Regla, meritos []Merito, indices []int) bool {
+func mismaContribucion(regla Regla, izquierda, derecha Merito) bool {
+	if cmp, _ := izquierda.Unidades.Comparar(*derecha.Unidades); cmp != 0 {
+		return false
+	}
+	return tarifaEfectiva(regla, izquierda).Micropuntos() == tarifaEfectiva(regla, derecha).Micropuntos()
+}
+
+func tarifaEfectiva(regla Regla, merito Merito) baremacion.Puntos {
+	if regla.Temporal != nil && !fechaAnterior(*merito.FechaObtencion, regla.Temporal.DesdeBonificacion) {
+		return regla.Temporal.PuntosRecientes
+	}
+	return *regla.PuntosPorUnidad
+}
+
+// analizarPrioridadBajoTope solo bloquea un empate cuyo reparto cambia el
+// valor. Un grupo equivalente se conserva a nivel de regla sin atribuir puntos
+// a un hecho elegido por su referencia.
+func analizarPrioridadBajoTope(modo string, regla Regla, meritos []Merito, indices []int) (bool, map[int]bool) {
+	equivalentes := make(map[int]bool)
 	consumidas := new(big.Rat)
 	var maximo *big.Rat
 	if regla.MaximoUnidades != nil {
@@ -440,17 +466,23 @@ func prioridadAmbiguaBajoTope(modo string, regla Regla, meritos []Merito, indice
 			grupo.Add(grupo, racionalGrande(*meritos[idx].Unidades))
 		}
 		if fin-inicio > 1 {
-			if regla.MaximoElementos != nil && fin > int(*regla.MaximoElementos) {
-				return true
-			}
-			if maximo != nil && new(big.Rat).Add(consumidas, grupo).Cmp(maximo) > 0 {
-				return true
+			cruzaElementos := regla.MaximoElementos != nil && fin > int(*regla.MaximoElementos)
+			cruzaUnidades := maximo != nil && new(big.Rat).Add(consumidas, grupo).Cmp(maximo) > 0
+			if cruzaElementos || cruzaUnidades {
+				for _, idx := range indices[inicio+1 : fin] {
+					if !mismaContribucion(regla, meritos[indices[inicio]], meritos[idx]) {
+						return true, nil
+					}
+				}
+				for _, idx := range indices[inicio:fin] {
+					equivalentes[idx] = true
+				}
 			}
 		}
 		consumidas.Add(consumidas, grupo)
 		inicio = fin
 	}
-	return false
+	return false, equivalentes
 }
 
 // redondearDosTarifas suma las dos tasas exactas y aplica una sola decisión
