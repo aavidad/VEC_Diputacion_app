@@ -189,6 +189,8 @@ type capturaContextosNominalesIncorporacion struct {
 	propietario    *perfilesNominalesIncorporacion
 	contextos      map[string]ct.ContextoAutorizacionAltaV3
 	asignacionesB2 map[*perfilFijoCTDesarrollo]instantaneaPublicadaDesarrollo
+	muPersonasB2   chan struct{}
+	personasB2     map[clavePersonaBolsaB2]lecturaPersonaBolsaB2
 }
 
 func (p *perfilesNominalesIncorporacion) resolver(ctx context.Context, perfil *perfilFijoCTDesarrollo) (ct.ContextoAutorizacionAltaV3, error) {

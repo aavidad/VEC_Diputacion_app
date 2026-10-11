@@ -5,6 +5,8 @@ import (
 	"errors"
 	"math"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,6 +18,103 @@ import (
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	pp "vec-diputacion-granada/internal/modules/personal/ports"
 )
+
+type catalogosIncorporacionB2Prueba func(context.Context, personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error)
+
+func (c catalogosIncorporacionB2Prueba) Consultar(ctx context.Context, s personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
+	return c(ctx, s)
+}
+
+func TestIncorporacionB2CatalogosParalelosConActorPropioYDosLecturas(t *testing.T) {
+	a, ctx, _ := escenarioCapturaAsignacionB2Prueba(t)
+	ctx, cancelar := context.WithTimeout(ctx, 2*time.Second)
+	defer cancelar()
+	inicios := make(chan personal.SolicitudConsultaCatalogoEmpleadoB2, 2)
+	liberar := make(chan struct{})
+	var una sync.Once
+	abrir := func() { una.Do(func() { close(liberar) }) }
+	defer abrir()
+	f := &fuentesIncorporacionPersonalB2{autoridad: a, organismoRef: "organismo:prueba"}
+	f.catalogos = catalogosIncorporacionB2Prueba(func(ctx context.Context, s personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
+		if s.Actor.Principal.Attributes == nil {
+			s.Actor.Principal.Attributes = map[string]string{}
+		}
+		s.Actor.Principal.Attributes["prueba_paralelo"] = s.Tipo
+		inicios <- s
+		select {
+		case <-liberar:
+		case <-ctx.Done():
+			return pp.ResultadoConsultaCatalogoEmpleadoB2{}, ctx.Err()
+		}
+		if s.Actor.Principal.Attributes["prueba_paralelo"] != s.Tipo {
+			return pp.ResultadoConsultaCatalogoEmpleadoB2{}, errors.New("actor compartido entre consultas")
+		}
+		return pp.ResultadoConsultaCatalogoEmpleadoB2{OrganismoRef: s.OrganismoRef, Entradas: []personal.EntradaCatalogoRegistroEmpleadoB2{{Tipo: s.Tipo, Ref: "catalogo:" + s.Tipo}}}, nil
+	})
+	type resultado struct {
+		catalogos [2]pp.ResultadoConsultaCatalogoEmpleadoB2
+		err       error
+	}
+	termino := make(chan resultado, 1)
+	go func() { r, err := f.consultarCatalogosB2(ctx); termino <- resultado{r, err} }()
+	solicitudes := map[string]personal.SolicitudConsultaCatalogoEmpleadoB2{}
+	for range 2 {
+		select {
+		case s := <-inicios:
+			solicitudes[s.Tipo] = s
+		case <-ctx.Done():
+			t.Fatal("las dos consultas no empezaron antes de terminar la primera")
+		}
+	}
+	regimen, modalidad := solicitudes["regimen"], solicitudes["modalidad"]
+	if len(solicitudes) != 2 || regimen.Actor.PerfilActivoRef != modalidad.Actor.PerfilActivoRef || regimen.Actor.PersonaRef != modalidad.Actor.PersonaRef ||
+		regimen.OrganismoRef != f.organismoRef || modalidad.OrganismoRef != f.organismoRef || regimen.Estado != "publicada" || modalidad.Estado != "publicada" || regimen.Limite != 100 || modalidad.Limite != 100 {
+		t.Fatal("las lecturas alteraron actor, organismo o selector")
+	}
+	abrir()
+	r := <-termino
+	if r.err != nil || r.catalogos[0].Entradas[0].Tipo != "regimen" || r.catalogos[1].Entradas[0].Tipo != "modalidad" {
+		t.Fatalf("se mezclaron resultados: %+v", r)
+	}
+	actor, err := a.actor(ctx, personal.AccionConsultarCatalogoEmpleadoB2)
+	if err != nil || actor.Principal.Attributes["prueba_paralelo"] != "" {
+		t.Fatalf("consulta alteró actor nominal: %v", err)
+	}
+}
+
+func TestIncorporacionB2CatalogosEsperanAmbasYConservanErrores(t *testing.T) {
+	for _, caso := range []string{"denegada", "caida_y_denegada", "cancelada"} {
+		t.Run(caso, func(t *testing.T) {
+			a, ctx, _ := escenarioCapturaAsignacionB2Prueba(t)
+			ctx, cancelar := context.WithCancel(ctx)
+			defer cancelar()
+			var llamadas atomic.Int32
+			f := &fuentesIncorporacionPersonalB2{autoridad: a, organismoRef: "organismo:prueba"}
+			f.catalogos = catalogosIncorporacionB2Prueba(func(_ context.Context, s personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
+				llamadas.Add(1)
+				if caso == "cancelada" {
+					if s.Tipo == "regimen" {
+						cancelar()
+						return pp.ResultadoConsultaCatalogoEmpleadoB2{}, context.Canceled
+					}
+					return pp.ResultadoConsultaCatalogoEmpleadoB2{}, personal.ErrRegistroEmpleadoB2NoDisponible
+				}
+				if caso == "caida_y_denegada" && s.Tipo == "modalidad" {
+					return pp.ResultadoConsultaCatalogoEmpleadoB2{}, personal.ErrRegistroEmpleadoB2NoDisponible
+				}
+				return pp.ResultadoConsultaCatalogoEmpleadoB2{}, personal.ErrRegistroEmpleadoB2Denegado
+			})
+			r, err := f.consultarCatalogosB2(ctx)
+			if llamadas.Load() != 2 || r[0].Entradas != nil || r[1].Entradas != nil {
+				t.Fatalf("no esperó ambas o devolvió resultado parcial: %d %+v", llamadas.Load(), r)
+			}
+			if caso != "cancelada" && !errors.Is(err, personal.ErrRegistroEmpleadoB2Denegado) ||
+				caso != "denegada" && !errors.Is(err, personal.ErrRegistroEmpleadoB2NoDisponible) || caso == "cancelada" && !errors.Is(err, context.Canceled) {
+				t.Fatalf("se ocultó causa de una consulta: %v", err)
+			}
+		})
+	}
+}
 
 type clasesIncorporacionB2Prueba struct {
 	resultado pp.ResultadoClasesOcupacionCT
