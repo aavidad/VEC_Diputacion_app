@@ -23,6 +23,9 @@ const (
 	AccionConciliarIngestaMayan = "documentos.ingesta_mayan.conciliar"
 	AccionConsultarIngestaMayan = "documentos.ingesta_mayan.consultar"
 	FinalidadIngestaMayan       = "custodiar_evidencia_meritos"
+	AccionConsultaCargaCustodia = "documentos.carga_admitida.consultar_para_custodia"
+	FaseConsultaCargaCustodia   = "consulta"
+	FaseAperturaCargaCustodia   = "abrir"
 	EstadoIngestaPreparada      = "preparado"
 	EstadoIngestaDespachada     = "despachado"
 	EstadoIngestaConfirmada     = "confirmado"
@@ -283,6 +286,50 @@ type RepositorioIngestaMayan interface {
 type CustodioMayan interface {
 	IngerirOriginal(context.Context, PlanIngestaMayan, io.Reader) (DocumentoMayan, error)
 	ReconciliarOriginal(context.Context, DocumentoMayan) (DocumentoMayan, error)
+}
+
+// SolicitudCargaAdmitidaCustodia procede de la frontera autenticada. E emite
+// material V3 nuevo para cada fase y lo consume antes del SELECT PostgreSQL;
+// abrir exige además una concesión nativa de almacén para la versión derivada
+// de ese SELECT. Ni el cliente ni este DTO proponen key, bucket o URL.
+type SolicitudCargaAdmitidaCustodia struct {
+	Accion, Fase, Finalidad                  string
+	CargaID, RecursoRef, PersonaRef, PlanRef string
+	VersionEsperada                          int
+	ActorRegistradoV2                        vecdomain.ResultadoContextoActorRegistradoV2
+	VinculoV2                                vecdomain.VinculoAutenticacionActorV2
+}
+
+func (s SolicitudCargaAdmitidaCustodia) Validar() error {
+	if s.Accion != AccionConsultaCargaCustodia ||
+		(s.Fase != FaseConsultaCargaCustodia && s.Fase != FaseAperturaCargaCustodia) ||
+		s.Finalidad != FinalidadIngestaMayan || !domain.ReferenciaOpacaValida(s.CargaID) ||
+		!domain.ReferenciaExpedienteModuloValida("meritos", s.RecursoRef) ||
+		!vecdomain.ReferenciaPersonaDenominacionValida(s.PersonaRef) || s.VersionEsperada != 5 ||
+		(s.Fase == FaseAperturaCargaCustodia && !domain.ReferenciaOpacaValida(s.PlanRef)) ||
+		s.ActorRegistradoV2.Validar() != nil || s.VinculoV2.ValidarPara(s.ActorRegistradoV2) != nil ||
+		s.ActorRegistradoV2.Contexto.PersonaRef != s.PersonaRef {
+		return ErrSolicitudInvalida
+	}
+	return nil
+}
+
+// Solo metadatos del agregado autoritativo y su huella canónica, sin bytes.
+type DatosCargaAdmitidaCustodia struct {
+	Carga             vecdomain.CargaDocumental
+	HuellaCargaSHA256 string
+}
+
+type LecturaCargaAdmitidaCustodia struct {
+	Datos     DatosCargaAdmitidaCustodia
+	Contenido io.ReadCloser
+}
+
+// AbrirOriginalExacto reconsulta PG con otra decisión V3 y abre en S3 solo la
+// versión derivada de esa fila, cotejando la huella esperada del primer SELECT.
+type FuenteCargaAdmitidaCustodia interface {
+	ConsultarAdmitida(context.Context, SolicitudCargaAdmitidaCustodia) (DatosCargaAdmitidaCustodia, error)
+	AbrirOriginalExacto(context.Context, SolicitudCargaAdmitidaCustodia, string) (LecturaCargaAdmitidaCustodia, error)
 }
 
 // AutoridadIngestaMayan obtiene una decisión nueva para la preimagen exacta.

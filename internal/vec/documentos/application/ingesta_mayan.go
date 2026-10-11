@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"io"
 	"time"
 
 	baseapp "vec-diputacion-granada/internal/vec/application"
@@ -20,7 +19,7 @@ type ServicioIngestaMayan struct {
 	Repositorio ports.RepositorioIngestaMayan
 	Autoridad   ports.AutoridadIngestaMayan
 	Custodio    ports.CustodioMayan
-	Cargas      vecports.RepositorioCargasDocumentales
+	Cargas      ports.FuenteCargaAdmitidaCustodia
 	Politicas   vecports.ResolutorPoliticaConservacionDocumental
 	Reloj       interface{ Ahora() time.Time }
 }
@@ -86,15 +85,39 @@ func (s *ServicioIngestaMayan) AbandonarRecurso(ctx context.Context, clave strin
 	return s.Repositorio.AbandonarRecurso(ctx, ports.OrdenAbandonarRecursoMayan{ClaveIdempotencia: clave, Autorizacion: a})
 }
 
-func (s *ServicioIngestaMayan) comprobarCarga(ctx context.Context, p ports.PlanIngestaMayan, resultado vecdomain.ResultadoContextoActorRegistradoV2, vinculo vecdomain.VinculoAutenticacionActorV2) error {
+func (s *ServicioIngestaMayan) comprobarCarga(ctx context.Context, p ports.PlanIngestaMayan, resultado vecdomain.ResultadoContextoActorRegistradoV2, vinculo vecdomain.VinculoAutenticacionActorV2) (ports.DatosCargaAdmitidaCustodia, error) {
 	if resultado.Validar() != nil || vinculo.ValidarPara(resultado) != nil ||
 		resultado.Contexto.PersonaRef != p.PersonaRef || resultado.Contexto.Principal.ID != p.PersonaRef {
-		return ports.ErrSolicitudInvalida
+		return ports.DatosCargaAdmitidaCustodia{}, ports.ErrSolicitudInvalida
 	}
-	c, err := s.Cargas.Obtener(ctx, p.CargaID)
-	if err != nil || c.Validar() != nil || c.Estado != vecdomain.EstadoCargaDocumentalAdmitida ||
-		c.ModuloID != "meritos" || c.RecursoRef != p.ExpedienteRef || c.PrincipalID != p.PersonaRef ||
-		int64(c.Version) != p.CargaVersion || c.ContenidoAdmitido == nil ||
+	solicitud := ports.SolicitudCargaAdmitidaCustodia{Accion: ports.AccionConsultaCargaCustodia,
+		Fase: ports.FaseConsultaCargaCustodia, Finalidad: ports.FinalidadIngestaMayan,
+		CargaID: p.CargaID, RecursoRef: p.ExpedienteRef, PersonaRef: p.PersonaRef, PlanRef: p.PlanRef,
+		VersionEsperada: 5, ActorRegistradoV2: resultado, VinculoV2: vinculo}
+	if solicitud.Validar() != nil {
+		return ports.DatosCargaAdmitidaCustodia{}, ports.ErrSolicitudInvalida
+	}
+	datos, err := s.Cargas.ConsultarAdmitida(ctx, solicitud)
+	if err != nil {
+		return ports.DatosCargaAdmitidaCustodia{}, err
+	}
+	if validarCargaAdmitidaContraPlan(datos, p) != nil {
+		return ports.DatosCargaAdmitidaCustodia{}, ports.ErrSolicitudInvalida
+	}
+	return datos, nil
+}
+
+func validarCargaAdmitidaContraPlan(datos ports.DatosCargaAdmitidaCustodia, p ports.PlanIngestaMayan) error {
+	c := datos.Carga
+	huella, err := c.HuellaSHA256()
+	if err != nil || datos.HuellaCargaSHA256 != huella || c.Validar() != nil || c.Estado != vecdomain.EstadoCargaDocumentalAdmitida ||
+		c.ModuloID != "meritos" || c.Finalidad != ports.FinalidadIngestaMayan ||
+		c.RecursoRef != p.ExpedienteRef || c.PrincipalID != p.PersonaRef ||
+		c.ID != p.CargaID || int64(c.Version) != p.CargaVersion || c.ContenidoAdmitido == nil ||
+		c.ContenidoAdmitido.Zona != vecdomain.ZonaContenidoCargaAdmitida ||
+		c.Analisis == nil || c.Analisis.Estado != vecdomain.EstadoAnalisisCargaLimpio ||
+		c.Analisis.EvidenciaRef == "" || c.Analisis.HuellaEvidenciaSHA256 == "" ||
+		c.AutorizacionRecepcionRef == "" || c.AutorizacionPromocionRef == "" ||
 		c.ContenidoAdmitido.EvidenciaRef != p.EvidenciaRef ||
 		c.ContenidoAdmitido.HuellaSHA256 != p.HuellaSHA256 ||
 		c.ContenidoAdmitido.Tamano != p.Tamano || c.ContenidoAdmitido.MIME != p.MIME {
@@ -152,7 +175,7 @@ func (s *ServicioIngestaMayan) Preparar(ctx context.Context, p ports.PlanIngesta
 	if p.ValidarBase() != nil {
 		return ports.PlanIngestaMayan{}, ports.ErrSolicitudInvalida
 	}
-	if err := s.comprobarCarga(ctx, p, resultado, vinculo); err != nil {
+	if _, err := s.comprobarCarga(ctx, p, resultado, vinculo); err != nil {
 		return ports.PlanIngestaMayan{}, err
 	}
 	a, err := s.autorizar(ctx, ports.AccionPrepararIngestaMayan, p, p.CargaID, p.ExpedienteRef)
@@ -204,8 +227,8 @@ func (s *ServicioIngestaMayan) cambiar(ctx context.Context, accion string, o por
 // Un fallo del proveedor conserva el mismo plan como indeterminado. Si la
 // persistencia de la respuesta falla, el despacho durable sigue impidiendo
 // otro POST y la consulta permite continuar la conciliación.
-func (s *ServicioIngestaMayan) Ingerir(ctx context.Context, planRef, expedienteRef string, resultado vecdomain.ResultadoContextoActorRegistradoV2, vinculo vecdomain.VinculoAutenticacionActorV2, contenido io.Reader) (ports.PlanIngestaMayan, error) {
-	if !s.disponible() || ctx == nil || contenido == nil {
+func (s *ServicioIngestaMayan) Ingerir(ctx context.Context, planRef, expedienteRef string, resultado vecdomain.ResultadoContextoActorRegistradoV2, vinculo vecdomain.VinculoAutenticacionActorV2) (ports.PlanIngestaMayan, error) {
+	if !s.disponible() || ctx == nil {
 		return ports.PlanIngestaMayan{}, ports.ErrSolicitudInvalida
 	}
 	p, err := s.Consultar(ctx, planRef, expedienteRef)
@@ -215,20 +238,43 @@ func (s *ServicioIngestaMayan) Ingerir(ctx context.Context, planRef, expedienteR
 	if p.Estado != ports.EstadoIngestaPreparada {
 		return p, ports.ErrIngestaNoReenviable
 	}
-	if err := s.comprobarCarga(ctx, p, resultado, vinculo); err != nil {
+	primera, err := s.comprobarCarga(ctx, p, resultado, vinculo)
+	if err != nil {
 		return p, err
+	}
+	solicitud := ports.SolicitudCargaAdmitidaCustodia{Accion: ports.AccionConsultaCargaCustodia,
+		Fase: ports.FaseAperturaCargaCustodia, Finalidad: ports.FinalidadIngestaMayan,
+		CargaID: p.CargaID, RecursoRef: p.ExpedienteRef, PersonaRef: p.PersonaRef, PlanRef: p.PlanRef,
+		VersionEsperada: 5, ActorRegistradoV2: resultado, VinculoV2: vinculo}
+	if solicitud.Validar() != nil {
+		return p, ports.ErrSolicitudInvalida
+	}
+	lectura, err := s.Cargas.AbrirOriginalExacto(ctx, solicitud, primera.HuellaCargaSHA256)
+	if err != nil {
+		return p, err
+	}
+	if dependenciaNula(lectura.Contenido) ||
+		lectura.Datos.HuellaCargaSHA256 != primera.HuellaCargaSHA256 ||
+		validarCargaAdmitidaContraPlan(lectura.Datos, p) != nil {
+		if !dependenciaNula(lectura.Contenido) {
+			_ = lectura.Contenido.Close()
+		}
+		return p, ports.ErrSolicitudInvalida
 	}
 	despacho := ports.OrdenCambiarIngestaMayan{PlanRef: planRef, ExpedienteRef: expedienteRef, VersionEsperada: p.Version, Estado: ports.EstadoIngestaDespachada}
 	p, nuevo, err := s.cambiar(ctx, ports.AccionDespacharIngestaMayan, despacho)
 	if err != nil {
+		_ = lectura.Contenido.Close()
 		return ports.PlanIngestaMayan{}, err
 	}
 	if !nuevo {
+		_ = lectura.Contenido.Close()
 		return p, ports.ErrIngestaNoReenviable
 	}
-	d, errProveedor := s.Custodio.IngerirOriginal(ctx, p, contenido)
+	d, errProveedor := s.Custodio.IngerirOriginal(ctx, p, lectura.Contenido)
+	errCierre := lectura.Contenido.Close()
 	estado := ports.EstadoIngestaConfirmada
-	if errProveedor != nil || d.ValidarContra(p) != nil {
+	if errProveedor != nil || errCierre != nil || d.ValidarContra(p) != nil {
 		estado = ports.EstadoIngestaIndeterminada
 	}
 	orden := ports.OrdenCambiarIngestaMayan{PlanRef: planRef, ExpedienteRef: expedienteRef, VersionEsperada: p.Version, Estado: estado, Documento: d}
@@ -253,7 +299,7 @@ func (s *ServicioIngestaMayan) Conciliar(ctx context.Context, planRef, expedient
 	if err != nil {
 		return ports.PlanIngestaMayan{}, err
 	}
-	if err := s.comprobarCarga(ctx, p, resultado, vinculo); err != nil {
+	if _, err := s.comprobarCarga(ctx, p, resultado, vinculo); err != nil {
 		return p, err
 	}
 	if p.Estado != ports.EstadoIngestaIndeterminada && p.Estado != ports.EstadoIngestaDespachada {
