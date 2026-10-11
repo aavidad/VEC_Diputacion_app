@@ -329,8 +329,10 @@ export function validarRespuestaCandidatosBolsa(envelope) {
   const conTurno = datos?.esquema === ESQUEMA_CANDIDATOS_TURNO;
   // «canales_llamamiento» solo viaja cuando el servidor publica los canales activos.
   const conCanales = esObjeto(datos) && Object.hasOwn(datos, "canales_llamamiento");
+  const conRespuestasPortal = esObjeto(datos) && Object.hasOwn(datos, "respuestas_portal");
   exigirCamposExactos(datos, ["esquema", "generado_en", "bolsa", "candidatos", "contactos", "hay_mas", "cursor_siguiente",
-    ...(conTurno ? ["turno"] : []), ...(conCanales ? ["canales_llamamiento"] : [])], "respuesta de candidatos");
+    ...(conTurno ? ["turno"] : []), ...(conCanales ? ["canales_llamamiento"] : []),
+    ...(conRespuestasPortal ? ["respuestas_portal"] : [])], "respuesta de candidatos");
 
   if (datos.esquema !== ESQUEMA_CANDIDATOS && !conTurno) {
     throw new Error(`esquema no compatible: ${datos.esquema}`);
@@ -345,6 +347,24 @@ export function validarRespuestaCandidatosBolsa(envelope) {
   const turno = conTurno ? validarTurno(datos.turno, bolsa) : null;
   if (!Array.isArray(datos.contactos)) throw new Error("el campo contactos debe ser un array");
   const contactos = Object.freeze(datos.contactos.map(validarContacto));
+  let respuestasPortal;
+  if (conRespuestasPortal) {
+    exigirCamposExactos(datos.respuestas_portal, ["llamamiento_ref", "respuestas"], "respuestas del llamamiento");
+    const llamamientoRef = exigirCadenaSegura(datos.respuestas_portal.llamamiento_ref, "llamamiento_ref");
+    const respuestas = datos.respuestas_portal.respuestas;
+    if (!Array.isArray(respuestas) || respuestas.length > 100) throw new Error("respuestas del llamamiento inválidas");
+    const vistas = new Set();
+    respuestasPortal = Object.freeze({ llamamiento_ref: llamamientoRef, respuestas: Object.freeze(respuestas.map((respuesta) => {
+      exigirCamposExactos(respuesta, ["participacion_ref", "respuesta"], "respuesta del llamamiento");
+      const participacionRef = exigirCadenaSegura(respuesta.participacion_ref, "participacion_ref");
+      if (vistas.has(participacionRef) || !candidatos.some((c) => c.participacion_ref === participacionRef)
+        || !["acepta", "renuncia", "renuncia_justificada"].includes(respuesta.respuesta)) {
+        throw new Error("respuesta del llamamiento incoherente");
+      }
+      vistas.add(participacionRef);
+      return Object.freeze({ participacion_ref: participacionRef, respuesta: respuesta.respuesta });
+    })) });
+  }
 
   if (typeof datos.hay_mas !== "boolean") {
     throw new Error("hay_mas debe ser un booleano");
@@ -367,6 +387,7 @@ export function validarRespuestaCandidatosBolsa(envelope) {
     candidatos,
     turno,
     contactos,
+    ...(conRespuestasPortal ? { respuestas_portal: respuestasPortal } : {}),
     hay_mas: datos.hay_mas,
     cursor_siguiente: cursorSiguiente,
     ...(conCanales ? { canales_llamamiento: validarCanalesLlamamiento(datos.canales_llamamiento) } : {}),

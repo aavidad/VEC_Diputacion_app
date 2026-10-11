@@ -10,7 +10,16 @@ import (
 	"time"
 
 	bolsadominio "vec-diputacion-granada/internal/modules/bolsa/domain"
+	bolsaports "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
+
+type respuestasPortalLlamamientoPrueba struct {
+	dato bolsaports.RespuestasPortalLlamamientoRRHH
+}
+
+func (r respuestasPortalLlamamientoPrueba) ConsultarRespuestasPortalLlamamiento(context.Context, string, string) (bolsaports.RespuestasPortalLlamamientoRRHH, error) {
+	return r.dato, nil
+}
 
 type canalesLlamamientoPrueba []bolsadominio.CanalLlamamiento
 
@@ -67,6 +76,10 @@ func TestCandidatosPorLlamamientoYCanalesPublicados(t *testing.T) {
 		{ContactoRef: "contacto:3", BolsaRef: datos.Bolsas[0].Referencia, ParticipacionRef: "participacion:001", LlamamientoRef: "llamamiento:otro-llamamiento", Canal: "correo", Resultado: bolsadominio.ResultadoContactoEnviado, Instante: fecha},
 	}
 	manejador := nuevoManejadorBolsasRRHHDesarrollo(func(context.Context) (datasetBolsasRRHHDesarrollo, error) { return datos, nil })
+	manejador.respuestasPortal = respuestasPortalLlamamientoPrueba{dato: bolsaports.RespuestasPortalLlamamientoRRHH{
+		LlamamientoRef: llamamiento,
+		Respuestas:     []bolsaports.RespuestaPortalRRHH{{ParticipacionRef: "participacion:002", Respuesta: "acepta"}},
+	}}
 	manejador.contactos = lectorContactosTurnoPrueba{primera: contactos}
 	manejador.canales = canalesLlamamientoPrueba{{Canal: "correo", Modo: "automatico", AlEmitir: true, Resultados: []string{"enviado"}, Activo: true}}
 	respuesta := httptest.NewRecorder()
@@ -79,11 +92,24 @@ func TestCandidatosPorLlamamientoYCanalesPublicados(t *testing.T) {
 			Candidatos []struct {
 				Referencia string `json:"participacion_ref"`
 			} `json:"candidatos"`
-			Canales []bolsadominio.CanalLlamamiento `json:"canales_llamamiento"`
+			Canales          []bolsadominio.CanalLlamamiento `json:"canales_llamamiento"`
+			RespuestasPortal struct {
+				LlamamientoRef string                           `json:"llamamiento_ref"`
+				Respuestas     []bolsaports.RespuestaPortalRRHH `json:"respuestas"`
+			} `json:"respuestas_portal"`
 		} `json:"data"`
 	}
-	if err := json.Unmarshal(respuesta.Body.Bytes(), &salida); err != nil || len(salida.Data.Candidatos) != 1 || salida.Data.Candidatos[0].Referencia != "participacion:002" || len(salida.Data.Canales) != 1 || salida.Data.Canales[0].Canal != "correo" {
+	if err := json.Unmarshal(respuesta.Body.Bytes(), &salida); err != nil || len(salida.Data.Candidatos) != 1 || salida.Data.Candidatos[0].Referencia != "participacion:002" || len(salida.Data.Canales) != 1 || salida.Data.Canales[0].Canal != "correo" || salida.Data.RespuestasPortal.LlamamientoRef != llamamiento || len(salida.Data.RespuestasPortal.Respuestas) != 1 || salida.Data.RespuestasPortal.Respuestas[0].Respuesta != "acepta" {
 		t.Fatalf("filtro por llamamiento o canales: %+v err=%v", salida, err)
+	}
+	manejador.respuestasPortal = respuestasPortalLlamamientoPrueba{dato: bolsaports.RespuestasPortalLlamamientoRRHH{
+		LlamamientoRef: llamamiento,
+		Respuestas:     []bolsaports.RespuestaPortalRRHH{{ParticipacionRef: "participacion:ajena", Respuesta: "acepta"}},
+	}}
+	ajena := httptest.NewRecorder()
+	manejador.ServeHTTP(ajena, httptest.NewRequest(http.MethodGet, rutaBolsasRRHHDesarrollo+"/bolsa:constituida:administrativo/candidatos?llamamiento="+llamamiento+"&limite=100", nil))
+	if ajena.Code != http.StatusServiceUnavailable {
+		t.Fatalf("respuesta de otra participación revelada: %d", ajena.Code)
 	}
 	for _, consulta := range []string{"llamamiento=" + llamamiento + "&estado=disponible", "llamamiento=" + llamamiento + "&cursor=participacion:001", "llamamiento=otro", "llamamiento=llamamiento:con%20espacio"} {
 		mala := httptest.NewRecorder()

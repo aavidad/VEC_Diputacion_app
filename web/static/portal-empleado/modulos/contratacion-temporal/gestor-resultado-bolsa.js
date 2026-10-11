@@ -1,5 +1,5 @@
-import { renderizarResultadoBolsa } from "./resultado-bolsa.js?v=20261011-bolsa-contacto-v13";
-import { renderizarLineaFases } from "./vista-expedientes-ficha.js?v=20261011-bolsa-contacto-v13";
+import { renderizarResultadoBolsa } from "./resultado-bolsa.js?v=20261011-bolsa-contacto-b103-v1";
+import { renderizarLineaFases } from "./vista-expedientes-ficha.js?v=20261011-bolsa-contacto-b103-v1";
 
 /** Conserva el comando de un vínculo incierto en memoria; una navegación no lo sustituye. */
 export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, locale, zonaHoraria,
