@@ -1,6 +1,7 @@
 -- B99: título histórico en cada solicitud y recuento pendiente por convocatoria.
--- Preimagen: funciones literales de B96 (aún no instalada en la principal).
--- Depende de B96 y BC9; B99 conserva firmas, dueño, ACL y auditoría de B96.
+-- Preimagen: funciones literales finales de B97, después de B96.
+-- Depende de B96, B97 y BC9; conserva firmas, dueño, ACL, auditoría
+-- y las referencias de incorporación (participacion_ref y bolsa_ref).
 \set ON_ERROR_STOP on
 BEGIN;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
@@ -10,35 +11,48 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:000099',0));
 DO $guard$
-DECLARE actual text;
+DECLARE actual text; f record;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
  OR current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR to_regprocedure('vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(boolean,text,jsonb,text,text,text,text)') IS NULL
  OR to_regprocedure('vec_bolsa_llamamientos.leer_solicitud_inscripcion_interna_v1(boolean,text,text,text,text,text,text)') IS NULL
  OR to_regprocedure('vec_bolsa_llamamientos.listar_convocatorias_rrhh_inscripcion_interna_v1(text,text,text,integer,text)') IS NULL
- THEN RAISE EXCEPTION 'B99 requiere B96' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'B99 requiere B97' USING ERRCODE='55000'; END IF;
  IF EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid IN (
   to_regprocedure('vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(boolean,text,jsonb,text,text,text,text)'),
   to_regprocedure('vec_bolsa_llamamientos.leer_solicitud_inscripcion_interna_v1(boolean,text,text,text,text,text,text)'),
   to_regprocedure('vec_bolsa_llamamientos.listar_convocatorias_rrhh_inscripcion_interna_v1(text,text,text,integer,text)'))
   AND pg_catalog.pg_get_userbyid(p.proowner)<>'vec_bolsa_llamamientos_propietario')
- THEN RAISE EXCEPTION 'B99 requiere dueño propietario B96' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'B99 requiere dueño propietario B97' USING ERRCODE='55000'; END IF;
  SELECT md5(prosrc) INTO actual FROM pg_catalog.pg_proc
  WHERE oid=to_regprocedure('vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(boolean,text,jsonb,text,text,text,text)');
- IF actual IS DISTINCT FROM '67c65e39fdd4c326b05a9c36db6eaea6'
+ IF actual IS DISTINCT FROM 'f276d5a027dc8db94092d92efe99288c'
  THEN RAISE EXCEPTION 'B99 preimagen listado: esperado %, actual %',
-  '67c65e39fdd4c326b05a9c36db6eaea6',actual USING ERRCODE='55000'; END IF;
+  'f276d5a027dc8db94092d92efe99288c',actual USING ERRCODE='55000'; END IF;
  SELECT md5(prosrc) INTO actual FROM pg_catalog.pg_proc
  WHERE oid=to_regprocedure('vec_bolsa_llamamientos.leer_solicitud_inscripcion_interna_v1(boolean,text,text,text,text,text,text)');
- IF actual IS DISTINCT FROM 'e4747679291d6124bc0bfd9ea9e2f564'
+ IF actual IS DISTINCT FROM '202efba5f5bbe68b64eb457fc4b0481c'
  THEN RAISE EXCEPTION 'B99 preimagen detalle: esperado %, actual %',
-  'e4747679291d6124bc0bfd9ea9e2f564',actual USING ERRCODE='55000'; END IF;
+  '202efba5f5bbe68b64eb457fc4b0481c',actual USING ERRCODE='55000'; END IF;
  SELECT md5(prosrc) INTO actual FROM pg_catalog.pg_proc
  WHERE oid=to_regprocedure('vec_bolsa_llamamientos.listar_convocatorias_rrhh_inscripcion_interna_v1(text,text,text,integer,text)');
  IF actual IS DISTINCT FROM 'c8bf62701090b6761acfae13b253c8ec'
  THEN RAISE EXCEPTION 'B99 preimagen selector: esperado %, actual %',
   'c8bf62701090b6761acfae13b253c8ec',actual USING ERRCODE='55000'; END IF;
+ FOR f IN SELECT p.proname,p.proacl::text AS acl,p.proconfig::text AS config,
+   p.prosecdef,p.provolatile,p.proparallel
+  FROM pg_catalog.pg_proc p WHERE p.oid IN (
+   to_regprocedure('vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(boolean,text,jsonb,text,text,text,text)'),
+   to_regprocedure('vec_bolsa_llamamientos.leer_solicitud_inscripcion_interna_v1(boolean,text,text,text,text,text,text)'),
+   to_regprocedure('vec_bolsa_llamamientos.listar_convocatorias_rrhh_inscripcion_interna_v1(text,text,text,integer,text)')) LOOP
+  IF f.acl IS DISTINCT FROM '{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario}'
+   OR f.config IS DISTINCT FROM (CASE WHEN f.proname='leer_solicitud_inscripcion_interna_v1'
+    THEN '{"search_path=pg_catalog, pg_temp",row_security=on,TimeZone=UTC,lock_timeout=2s,statement_timeout=10s}'
+    ELSE '{"search_path=pg_catalog, pg_temp",row_security=on,TimeZone=UTC,lock_timeout=2s,statement_timeout=15s}' END)
+   OR f.prosecdef IS DISTINCT FROM true OR f.provolatile<>'v' OR f.proparallel<>'u'
+  THEN RAISE EXCEPTION 'B99 preimagen metadatos: %',f.proname USING ERRCODE='55000'; END IF;
+ END LOOP;
 END $guard$;
 CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(
  p_propia boolean,p_persona_ref text,p_filtro jsonb,p_idioma text,p_canal text,
@@ -111,12 +125,14 @@ BEGIN
    s.bases_ref,s.declaracion_ref,s.plazo_abre_en,s.plazo_cierra_en,s.presentada_en,
    v.version,v.estado,v.evaluacion,v.motivo_ref,v.motivo_catalogo_ref,
    v.motivo_catalogo_version,v.motivo_catalogo_sha256,v.decision_ref,v.aplicada_en,
-   r.recibo_ref
+   r.recibo_ref,inc.participacion_ref,inc.bolsa_ref
   FROM vec_bolsa_llamamientos.solicitud_inscripcion s
   JOIN LATERAL (SELECT * FROM vec_bolsa_llamamientos.solicitud_inscripcion_version x
     WHERE x.solicitud_ref=s.solicitud_ref ORDER BY x.version DESC LIMIT 1) v ON true
   JOIN vec_bolsa_llamamientos.solicitud_inscripcion_recibo r
     ON r.solicitud_ref=s.solicitud_ref AND r.version=v.version
+  LEFT JOIN vec_bolsa_llamamientos.inscripcion_incorporacion inc
+    ON inc.solicitud_ref=s.solicitud_ref AND inc.version=v.version
   WHERE (NOT p_propia OR s.persona_ref=p_persona_ref)
    AND (p_propia OR (s.unidad_ref=p_unidad_ref AND s.ambito_ref=p_ambito_ref))
    AND (v_estado='' OR v.estado=v_estado)
@@ -215,12 +231,14 @@ BEGIN
    s.bases_ref,s.declaracion_ref,s.plazo_abre_en,s.plazo_cierra_en,s.presentada_en,
    v.version,v.estado,v.evaluacion,v.motivo_ref,v.motivo_catalogo_ref,
    v.motivo_catalogo_version,v.motivo_catalogo_sha256,v.decision_ref,v.aplicada_en,
-   r.recibo_ref
+   r.recibo_ref,inc.participacion_ref,inc.bolsa_ref
   FROM vec_bolsa_llamamientos.solicitud_inscripcion s
   JOIN LATERAL (SELECT * FROM vec_bolsa_llamamientos.solicitud_inscripcion_version x
    WHERE x.solicitud_ref=s.solicitud_ref ORDER BY x.version DESC LIMIT 1) v ON true
   JOIN vec_bolsa_llamamientos.solicitud_inscripcion_recibo r
    ON r.solicitud_ref=s.solicitud_ref AND r.version=v.version
+  LEFT JOIN vec_bolsa_llamamientos.inscripcion_incorporacion inc
+   ON inc.solicitud_ref=s.solicitud_ref AND inc.version=v.version
   WHERE s.solicitud_ref=p_solicitud_ref
    AND (NOT p_propia OR s.persona_ref=p_persona_ref)
    AND (p_propia OR (s.unidad_ref=p_unidad_ref AND s.ambito_ref=p_ambito_ref))
@@ -349,4 +367,29 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_convocatorias_rrhh_inscripcion_interna_v1(text,text,text,integer,text)
  FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,
  vec_bolsa_llamamientos_lector_inscripciones,vec_bolsa_llamamientos_lector_inscripciones_rrhh;
+DO $post$
+DECLARE f record;
+BEGIN
+ FOR f IN SELECT p.proname,
+   encode(sha256(convert_to(pg_catalog.pg_get_functiondef(p.oid),'UTF8')),'hex') AS definition_sha256,
+   pg_catalog.pg_get_userbyid(p.proowner) AS owner,
+   p.proacl::text AS acl,p.proconfig::text AS config,
+   p.prosecdef,p.provolatile,p.proparallel
+  FROM pg_catalog.pg_proc p WHERE p.oid IN (
+   to_regprocedure('vec_bolsa_llamamientos.listar_solicitudes_inscripcion_interna_v1(boolean,text,jsonb,text,text,text,text)'),
+   to_regprocedure('vec_bolsa_llamamientos.leer_solicitud_inscripcion_interna_v1(boolean,text,text,text,text,text,text)'),
+   to_regprocedure('vec_bolsa_llamamientos.listar_convocatorias_rrhh_inscripcion_interna_v1(text,text,text,integer,text)')) LOOP
+  IF f.definition_sha256 IS DISTINCT FROM (CASE f.proname
+    WHEN 'listar_solicitudes_inscripcion_interna_v1' THEN 'd9e31b1f5c58a912641bdb7b6e7ae2708515685a85a8ab9cb47a446879c6315c'
+    WHEN 'leer_solicitud_inscripcion_interna_v1' THEN 'd5d83abe5483427b317618b73061e63df7dd6c9e6c3198011049bdfec242dc5e'
+    WHEN 'listar_convocatorias_rrhh_inscripcion_interna_v1' THEN '62753d6eb039062f4e2f1afaeb0f89a03043b9848ecbee1d8d04a517b1897cd5' END)
+   OR f.owner<>'vec_bolsa_llamamientos_propietario'
+   OR f.acl IS DISTINCT FROM '{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario}'
+   OR f.config IS DISTINCT FROM (CASE WHEN f.proname='leer_solicitud_inscripcion_interna_v1'
+    THEN '{"search_path=pg_catalog, pg_temp",row_security=on,TimeZone=UTC,lock_timeout=2s,statement_timeout=10s}'
+    ELSE '{"search_path=pg_catalog, pg_temp",row_security=on,TimeZone=UTC,lock_timeout=2s,statement_timeout=15s}' END)
+   OR f.prosecdef IS DISTINCT FROM true OR f.provolatile<>'v' OR f.proparallel<>'u'
+  THEN RAISE EXCEPTION 'B99 postimagen incompatible: %',f.proname USING ERRCODE='55000'; END IF;
+ END LOOP;
+END $post$;
 COMMIT;

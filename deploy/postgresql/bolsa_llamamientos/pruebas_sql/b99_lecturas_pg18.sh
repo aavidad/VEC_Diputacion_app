@@ -9,6 +9,6 @@ if [[ "$(tail -n 1 "$base")" != "ROLLBACK;" ]]; then
   printf '%s\n' 'La fixture B96 cambió; no se puede intercalar B99.' >&2
   exit 1
 fi
-{ sed '$d' "$base"; cat "$b99"; } |
+{ sed '$d' "$base"; printf '%s\n' 'RESET SESSION AUTHORIZATION;'; cat "$b99"; } |
   docker exec -i "$contenedor" psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 -v B96_DISPOSABLE_CLONE=1
 printf '%s\n' 'B99 fixture: OK; transacción revertida.'
