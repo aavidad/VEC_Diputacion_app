@@ -1,9 +1,40 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { cuerpoPortalMiBolsa, enviarPortalMiBolsa, renderizarPortalMiBolsa, revisarRespuestaPortalMiBolsa, validarPortalMiBolsa, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js";
+import { iniciarI18nAreaPersonal } from "./i18n.js";
+import { lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const acciones = { causas_renuncia: ["enfermedad", "matrimonio_union_hecho"], pausa_maxima: "2027-09-25T21:59:59.000000Z", modo_respuesta: "firme" };
 const participaciones = [{ bolsa: "bolsa:demo:1", categoria: "Auxiliar de enfermería" }];
+
+test("separa el llamamiento abierto de la última respuesta propia en ambos idiomas", async () => {
+  const abierto = { contacto_en: "2026-10-11T12:00:00Z", vence_antes_de: "2026-10-12T12:00:00Z" };
+  const anterior = { respuesta: "acepta", modo: "propuesta_rrhh", recibo: "recibo:anterior", respondida_en: "2026-10-10T10:00:00Z" };
+  for (const [idioma, actual, previa, ultima] of [
+    ["es", "Llamamiento abierto", "Respuesta anterior en esta bolsa", "Última respuesta registrada en esta bolsa"],
+    ["en", "Open call-up", "Earlier response in this job pool", "Latest response recorded in this job pool"],
+  ]) {
+    await iniciarI18nAreaPersonal({ querySelectorAll: () => [], documentElement: {} }, {
+      leer: lectorCatalogos(), ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` },
+    });
+    const juntos = renderizarPortalMiBolsa(participaciones, [{ bolsa: participaciones[0].bolsa,
+      llamamiento_abierto: abierto, ultima_respuesta: anterior }], acciones);
+    assert.ok(juntos.indexOf(actual) < juntos.indexOf(previa));
+    assert.match(juntos, /recibo:anterior/u);
+    assert.equal((juntos.match(/<section class="panel">/gu) || []).length, 2);
+    const soloAbierto = renderizarPortalMiBolsa(participaciones, [{ bolsa: participaciones[0].bolsa,
+      llamamiento_abierto: abierto }], acciones);
+    assert.match(soloAbierto, new RegExp(actual, "u"));
+    assert.doesNotMatch(soloAbierto, new RegExp(previa, "u"));
+    const soloRespuesta = renderizarPortalMiBolsa(participaciones, [{ bolsa: participaciones[0].bolsa,
+      ultima_respuesta: anterior }], acciones);
+    assert.match(soloRespuesta, new RegExp(ultima, "u"));
+    assert.doesNotMatch(soloRespuesta, new RegExp(previa, "u"));
+  }
+  await iniciarI18nAreaPersonal({ querySelectorAll: () => [], documentElement: {} }, {
+    leer: lectorCatalogos(), ubicacion: { href: "https://vec.example/area-personal/?lang=es" },
+  });
+});
 
 test("renunciar exige revisión y permite volver a editar sin crear una petición", async () => {
   const revision = { hidden: true, focus() { this.enfocada = true; } };

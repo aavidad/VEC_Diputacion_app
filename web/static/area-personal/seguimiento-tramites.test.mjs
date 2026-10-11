@@ -102,6 +102,9 @@ test("la respuesta en revisión avisa junto a Disponible y desaparece tras confi
   const vista = renderizarLlamamientos(datosPrueba(), estado);
   assert.match(vista, /Disponible[\s\S]*Tu respuesta está en revisión\. RRHH confirmará tu situación\./u);
   assert.equal((vista.match(/Tu respuesta está en revisión/gu) || []).length, 1);
+  estado.portalMiBolsa[0].llamamiento_abierto = { contacto_en: "2026-10-11T12:00:00Z", vence_antes_de: "2026-10-12T12:00:00Z" };
+  assert.match(renderizarLlamamientos(datosPrueba(), estado), /Tu respuesta anterior en esta bolsa sigue en revisión/u);
+  delete estado.portalMiBolsa[0].llamamiento_abierto;
   estado.portalMiBolsa[0].ultima_respuesta.en_revision = false;
   assert.doesNotMatch(renderizarLlamamientos(datosPrueba(), estado), /Tu respuesta está en revisión/u);
   delete estado.portalMiBolsa[0].ultima_respuesta.en_revision;

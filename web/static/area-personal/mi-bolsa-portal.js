@@ -150,16 +150,22 @@ export function renderizarPortalMiBolsa(participaciones, portal, acciones) {
     }
     if (estado.llamamiento_abierto) {
       const a = estado.llamamiento_abierto;
-      partes.push(`<h4>${escaparHTML(textoPortal("llamamiento"))}</h4>${listaDatos([
+      partes.push(`<section class="panel"><header><h4>${escaparHTML(textoPortal("llamamiento"))}</h4></header><div class="panel-contenido">${listaDatos([
         [textoPortal("contacto"), escaparHTML(fecha(a.contacto_en))],
         [textoPortal("vence"), escaparHTML(a.vence_antes_de ? fecha(a.vence_antes_de) : textoPortal("venceNoDisponible"))],
-      ])}<p><span class="estado-chip info">${escaparHTML(textoPortal(`modo.${acciones.modo_respuesta}`))}</span></p>${a.vence_antes_de ? formularioRespuesta(p.bolsa, acciones) : ""}`);
+      ])}<p><span class="estado-chip info">${escaparHTML(textoPortal(`modo.${acciones.modo_respuesta}`))}</span></p>${a.vence_antes_de ? formularioRespuesta(p.bolsa, acciones) : ""}</div></section>`);
     }
     if (estado.ultima_respuesta) {
       const r = estado.ultima_respuesta;
-      partes.push(listaDatos([[textoPortal("ultimaRespuesta"), `${escaparHTML(textoPortal(`respuesta.${r.respuesta}`))} · ${escaparHTML(fecha(r.respondida_en))} · ${escaparHTML(textoPortal(`modo.${r.modo}`))} · ${escaparHTML(textoPortal("recibo"))} ${escaparHTML(r.recibo)}`]]));
+      const titulo = textoPortal(estado.llamamiento_abierto ? "respuestaAnterior" : "ultimaRespuestaBolsa");
+      partes.push(`<section class="panel"><header><h4>${escaparHTML(titulo)}</h4></header><div class="panel-contenido">${listaDatos([
+        [textoPortal("respuesta"), escaparHTML(textoPortal(`respuesta.${r.respuesta}`))],
+        [textoPortal("fechaRespuesta"), escaparHTML(fecha(r.respondida_en))],
+        [textoPortal("modoRespuesta"), escaparHTML(textoPortal(`modo.${r.modo}`))],
+        [textoPortal("recibo"), escaparHTML(r.recibo)],
+      ])}</div></section>`);
     }
-    return `<article class="portal-mi-bolsa__bolsa"><h4>${escaparHTML(nombreCategoria(p))}</h4>${partes.join("")}</article>`;
+    return `<article class="portal-mi-bolsa__bolsa"><h3>${escaparHTML(nombreCategoria(p))}</h3>${partes.join("")}</article>`;
   }).join("");
   const gestion = `<p class="nota">${escaparHTML(textoPortal("documental.limite"))}</p>`;
   return `<div class="portal-mi-bolsa">${bloques}${gestion}</div>`;
