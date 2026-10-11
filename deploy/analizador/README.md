@@ -11,7 +11,11 @@ autorización, el plan durable o la promoción del objeto.
   `MaxFileSize` y `MaxScanSize` deben superar 32 MiB. FreshClam actualiza la
   base en un proceso separado y hace recargar `clamd`; el servicio exige que
   `VERSION` informe firmas cargadas con fecha no superior a 48 horas. Un fallo
-  de actualización o una firma caducada produce `no_concluyente`.
+  de actualización o una firma caducada produce `no_concluyente`. Configure
+  `AlertExceedsMax yes` en `clamd`: los límites internos de descompresión,
+  recursión y análisis deben generar una detección, nunca un `OK` parcial.
+  Compruebe esa política en la instancia antes de habilitarla en VEC; el
+  protocolo INSTREAM no permite leer la configuración efectiva del daemon.
 - `qpdf`, `bwrap` y `prlimit` son binarios locales. Cada inspección PDF corre
   sin red, con montajes de solo lectura de bibliotecas y del directorio
   temporal privado, CPU máximo de 4 segundos, memoria virtual máxima de
