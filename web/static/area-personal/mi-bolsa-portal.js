@@ -79,6 +79,7 @@ export function validarPortalMiBolsa(datos) {
     } else if (estado.solicitud_documental_pendiente) throw new TypeError("Solicitud documental pendiente sin recibo.");
     if (estado.ultima_respuesta) {
       if (!["acepta", "renuncia", "renuncia_justificada"].includes(estado.ultima_respuesta.respuesta) || typeof estado.ultima_respuesta.recibo !== "string") throw new TypeError("Respuesta registrada no válida.");
+      if (estado.ultima_respuesta.en_revision !== undefined && typeof estado.ultima_respuesta.en_revision !== "boolean") throw new TypeError("Revisión de respuesta no válida.");
       instante(estado.ultima_respuesta.respondida_en, "respondida_en");
     }
   }

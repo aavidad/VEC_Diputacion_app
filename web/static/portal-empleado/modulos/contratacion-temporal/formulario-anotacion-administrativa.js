@@ -1,5 +1,5 @@
 import { validarReciboAnotacionAdministrativa, validarSolicitudAnotacionAdministrativa, validarRecuperacionAnotacionAdministrativa } from "./contrato-anotacion-administrativa.js";
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261011-bolsa-contacto-v15";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261011-bolsa-b103-privacidad-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
 

@@ -7,8 +7,8 @@
  * (`canales_llamamiento`); sin ese dato solo existe el correo.
  */
 import { textoPortal, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261011-bolsa-contacto-v15";
-import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261011-bolsa-contacto-v15";
+import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261011-bolsa-b103-privacidad-v1";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261011-bolsa-b103-privacidad-v1";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
 
 /** Canales activos: el correo siempre (se envía al emitir); el teléfono si el servidor lo publica. */
@@ -39,12 +39,13 @@ const SITUACIONES_ACEPTACION = new Set(["pendiente_incorporacion", "trabajando"]
  * llamada de cierre, p. ej. número erróneo) o «no_disponible» (su situación en
  * la bolsa ya no es «disponible»).
  */
-function motivoResuelta(candidato, llamadas, cierre, llamamientoRef) {
+function motivoResuelta(candidato, llamadas, cierre, llamamientoRef, respuestaPortal) {
   const ultimo = candidato.ultimo_llamamiento?.llamamiento_ref === llamamientoRef ? candidato.ultimo_llamamiento : null;
   const cierres = llamadas.filter((contacto) => cierre.has(contacto.resultado)).map((contacto) => contacto.resultado);
-  if (cierres.includes("acepta") || ultimo?.resultado === "aceptado"
+  if (respuestaPortal === "acepta" || cierres.includes("acepta") || ultimo?.resultado === "aceptado"
     || (ultimo && SITUACIONES_ACEPTACION.has(candidato.estado_clave))) return "aceptado";
-  if (cierres.includes("rechaza") || ultimo?.resultado === "renuncia" || candidato.estado_clave === "renuncia") return "renuncia";
+  if (respuestaPortal === "renuncia" || respuestaPortal === "renuncia_justificada"
+    || cierres.includes("rechaza") || ultimo?.resultado === "renuncia" || candidato.estado_clave === "renuncia") return "renuncia";
   if (cierres.length) return "no_localizado";
   return candidato.estado_clave === "disponible" ? null : "no_disponible";
 }
@@ -53,8 +54,9 @@ function motivoResuelta(candidato, llamadas, cierre, llamamientoRef) {
  * Filas del seguimiento en el orden de la bolsa. «Siguiente» es la primera
  * persona que sigue pendiente de llamar.
  */
-export function filasSeguimiento({ candidatos = [], contactos = [], llamamientoRef = "", telefono = null }) {
+export function filasSeguimiento({ candidatos = [], contactos = [], respuestasPortal = [], llamamientoRef = "", telefono = null }) {
   const cierre = new Set(telefono?.resultados_cierre || []);
+  const respuestaPorParticipacion = new Map(respuestasPortal.map((r) => [r.participacion_ref, r.respuesta]));
   const porParticipacion = new Map();
   for (const contacto of contactos) {
     if (contacto?.llamamiento_ref !== llamamientoRef) continue;
@@ -68,7 +70,7 @@ export function filasSeguimiento({ candidatos = [], contactos = [], llamamientoR
     const llamadas = propios.filter((contacto) => contacto.canal === "telefono");
     const correo = propios.filter((contacto) => contacto.canal === "correo").reduce(masReciente, null);
     const ultimaLlamada = llamadas.reduce(masReciente, null);
-    const motivo = motivoResuelta(candidato, llamadas, cierre, llamamientoRef);
+    const motivo = motivoResuelta(candidato, llamadas, cierre, llamamientoRef, respuestaPorParticipacion.get(candidato.participacion_ref));
     const cerrada = motivo !== null;
     const siguiente = !cerrada && !siguienteMarcado;
     if (siguiente) siguienteMarcado = true;
@@ -141,9 +143,14 @@ export function renderizarSeguimientoLlamamiento({
   }
   const { telefono } = canalesAviso(estadoCandidatos.datos);
   if (!telefono) return estadoPanel("status", `<p>${textoPortal("panel_seg_no_disponible")}</p>`);
+  const respuestas = estadoCandidatos.datos.respuestas_portal;
+  if (respuestas?.llamamiento_ref !== seguimiento.llamamiento_ref || !Array.isArray(respuestas.respuestas)) {
+    return estadoPanel("alert", `<p><strong>${textoPortal("panel_seg_error_titulo")}</strong></p><p>${textoPortal("panel_seg_error")}</p>
+      <div class="acciones-vista"><button type="button" class="boton-primario" data-bolsa-accion="reintentar-candidatos">${textoPortal("txt_reintentar")}</button></div>`);
+  }
   const filas = filasSeguimiento({
     candidatos: estadoCandidatos.datos.candidatos || [], contactos: estadoCandidatos.datos.contactos || [],
-    llamamientoRef: seguimiento.llamamiento_ref, telefono,
+    respuestasPortal: respuestas.respuestas, llamamientoRef: seguimiento.llamamiento_ref, telefono,
   });
   if (filas.length === 0) return estadoPanel("status", `<p>${textoPortal("panel_seg_vacio")}</p>`);
   // Si alguien aceptó, el llamamiento está cubierto. Si nadie aceptó y nadie

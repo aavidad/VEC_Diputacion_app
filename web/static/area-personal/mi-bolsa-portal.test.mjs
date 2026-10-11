@@ -181,3 +181,15 @@ test("ningún formulario heredado de pausa o reactivación envía una petición"
   assert.equal(await cuerpoPortalMiBolsa({ dataset: { portalMiBolsa: "solicitar", tipo: "pausa", bolsa: "bolsa:demo:1" } }, new FormData()), null);
   assert.equal(await cuerpoPortalMiBolsa({ dataset: { portalMiBolsa: "desconocida", bolsa: "bolsa:demo:1" } }, new FormData()), null);
 });
+
+test("la revisión de la respuesta conserva compatibilidad y exige booleano", () => {
+  const ultima_respuesta = { respuesta: "acepta", modo: "firme", recibo: "recibo:01", respondida_en: "2026-10-11T10:00:00Z" };
+  const datos = { participaciones, acciones_portal: acciones, portal: [{ bolsa: participaciones[0].bolsa, ultima_respuesta }] };
+  assert.doesNotThrow(() => validarPortalMiBolsa(datos));
+  for (const en_revision of [true, false]) {
+    ultima_respuesta.en_revision = en_revision;
+    assert.doesNotThrow(() => validarPortalMiBolsa(datos));
+  }
+  ultima_respuesta.en_revision = "true";
+  assert.throws(() => validarPortalMiBolsa(datos), /Revisión de respuesta/u);
+});
