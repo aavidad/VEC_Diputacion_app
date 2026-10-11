@@ -220,7 +220,12 @@ func (s *ServicioCargaDocumental) Preparar(
 	if err != nil || !hmacCargaDocumentalValido(huellaSolicitud) {
 		return ResultadoPrepararCargaDocumental{}, ports.ErrSelladoIdempotenciaCargaNoDisponible
 	}
-	id, err := s.generadorID.NuevoIDCargaDocumental()
+	var id string
+	if s.autoridadV3 != nil {
+		id, err = ports.IDCargaDocumentalV3DesdeIndice(indice)
+	} else {
+		id, err = s.generadorID.NuevoIDCargaDocumental()
+	}
 	if err != nil {
 		return ResultadoPrepararCargaDocumental{}, fmt.Errorf("generar identificador de carga: %w", err)
 	}

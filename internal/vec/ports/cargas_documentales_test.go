@@ -14,6 +14,26 @@ import (
 
 var instantePuertoCarga = time.Date(2026, 7, 15, 9, 0, 0, 0, time.UTC)
 
+func TestIDCargaV3EstablePorIndiceSellado(t *testing.T) {
+	a := "hmac-sha256:idempotencia_v1:" + strings.Repeat("a", 64)
+	b := "hmac-sha256:idempotencia_v1:" + strings.Repeat("b", 64)
+	id1, err := IDCargaDocumentalV3DesdeIndice(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idReplay, err := IDCargaDocumentalV3DesdeIndice(a)
+	if err != nil || id1 != idReplay {
+		t.Fatal("replay cambió recurso autorizable")
+	}
+	idOtro, err := IDCargaDocumentalV3DesdeIndice(b)
+	if err != nil || idOtro == id1 || !strings.HasPrefix(id1, "ref:") || len(id1) != 68 {
+		t.Fatal("índices de distinta operación/contexto colisionaron")
+	}
+	if _, err = IDCargaDocumentalV3DesdeIndice("clave-del-navegador"); !errors.Is(err, ErrReservaCargaDocumentalInvalida) {
+		t.Fatal("clave sin sello aceptada")
+	}
+}
+
 func recursoBaseCargaPuertoPrueba() domain.RecursoAutorizable {
 	return domain.RecursoAutorizable{
 		Referencia: "solicitud:0123456789abcdef", ModuloID: "bolsa", Tipo: "solicitud",

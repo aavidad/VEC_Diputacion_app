@@ -80,6 +80,20 @@ type ConsultaCargaV3 struct {
 
 func (d ConsultaCargaV3) Preimagen() ([]byte, error) { return json.Marshal(d) }
 
+type ConciliacionCargaV3 struct {
+	Accion                   string `json:"accion"`
+	CargaID                  string `json:"carga_id"`
+	RecursoRef               string `json:"recurso_ref"`
+	VersionOperativaEsperada uint64 `json:"version_operativa_esperada"`
+	EstadoOperativoEsperado  string `json:"estado_operativo_esperado"`
+	EstadoResultado          string `json:"estado_resultado"`
+	EvidenciaRef             string `json:"evidencia_ref"`
+	HuellaEvidenciaSHA256    string `json:"huella_evidencia_sha256"`
+	MotivoRef                string `json:"motivo_ref"`
+}
+
+func (d ConciliacionCargaV3) Preimagen() ([]byte, error) { return json.Marshal(d) }
+
 type EmisionReciboCargaV3 struct {
 	Accion                 string `json:"accion"`
 	CargaID                string `json:"carga_id"`

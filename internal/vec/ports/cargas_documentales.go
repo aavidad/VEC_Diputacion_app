@@ -41,6 +41,17 @@ const EsquemaHuellaRecursoBaseCargaDocumentalV1 = "vec.carga-documental.recurso-
 
 const dominioHuellaTokenReservaCargaDocumental = "vec:token-reserva-carga-documental:v1"
 
+// IDCargaDocumentalV3DesdeIndice fija un recurso opaco estable para la
+// operación idempotente ya sellada por el servidor. La decisión V3 de replay
+// autoriza el mismo ID; no se deriva de clave de navegador ni de PII en claro.
+func IDCargaDocumentalV3DesdeIndice(indiceHMAC string) (string, error) {
+	if !hmacSHA256PuertoValido(indiceHMAC) {
+		return "", ErrReservaCargaDocumentalInvalida
+	}
+	suma := sha256.Sum256([]byte("vec:carga-documental:id:v3\x00" + indiceHMAC))
+	return "ref:" + hex.EncodeToString(suma[:]), nil
+}
+
 const (
 	accionCargaDocumentalPreparar  = "vec.documentos.carga.preparar"
 	accionCargaDocumentalConfirmar = "vec.documentos.carga.confirmar"
@@ -519,6 +530,7 @@ type ReservaRecursoCargaDocumentalV3 struct {
 // registrado y revalidado; ningun campo de la orden HTTP es autoridad.
 type AutoridadCargaDocumentalV3 interface {
 	AutorizarConsultaCarga(context.Context, []byte, domain.ResultadoContextoActorRegistradoV2, string) (AutorizacionCargaDocumentalV3, error)
+	AutorizarConciliacionCarga(context.Context, []byte, domain.ResultadoContextoActorRegistradoV2, string) (AutorizacionCargaDocumentalV3, error)
 	AutorizarReservaCarga(context.Context, []byte, domain.ResultadoContextoActorRegistradoV2, domain.CargaDocumental) (AutorizacionCargaDocumentalV3, error)
 	AutorizarConfirmacionPreparacionCarga(context.Context, []byte, domain.ResultadoContextoActorRegistradoV2, domain.CargaDocumental) (AutorizacionCargaDocumentalV3, error)
 	AutorizarRespuestaCarga(context.Context, []byte, domain.ResultadoContextoActorRegistradoV2, domain.CargaDocumental) (AutorizacionCargaDocumentalV3, error)
@@ -541,10 +553,12 @@ const (
 	AccionCargaDocumentalPrepararConfirmacionV3    = "documentos.carga.preparar_confirmacion"
 	AccionCargaDocumentalPrepararRespuestaV3       = "documentos.carga.preparar_respuesta"
 	AccionCargaDocumentalConsultarPropiaV3         = "documentos.carga.consultar_propia"
+	AccionCargaDocumentalConciliarV3               = "documentos.carga.conciliar"
 	AudienciaCargaDocumentalPrepararReservaV3      = "vec_documentos.carga.preparar_reserva.v1"
 	AudienciaCargaDocumentalPrepararConfirmacionV3 = "vec_documentos.carga.preparar_confirmacion.v1"
 	AudienciaCargaDocumentalPrepararRespuestaV3    = "vec_documentos.carga.preparar_respuesta.v1"
 	AudienciaCargaDocumentalConsultarPropiaV3      = "vec_documentos.carga.consultar_propia.v1"
+	AudienciaCargaDocumentalConciliarV3            = "vec_documentos.carga.conciliar.v1"
 	AudienciaCargaDocumentalConfirmarV3            = "vec_documentos.carga.confirmar.v1"
 	AudienciaCargaDocumentalAnalizarV3             = "vec_documentos.carga.analizar.v1"
 	AudienciaCargaDocumentalPromoverV3             = "vec_documentos.carga.promover.v1"
@@ -560,6 +574,8 @@ func audienciaCargaDocumentalV3(accion string) string {
 		return AudienciaCargaDocumentalPrepararRespuestaV3
 	case AccionCargaDocumentalConsultarPropiaV3:
 		return AudienciaCargaDocumentalConsultarPropiaV3
+	case AccionCargaDocumentalConciliarV3:
+		return AudienciaCargaDocumentalConciliarV3
 	case accionCargaDocumentalConfirmar:
 		return AudienciaCargaDocumentalConfirmarV3
 	case accionCargaDocumentalAnalizar:
@@ -665,6 +681,54 @@ type ConsultaCargaPropiaV3 struct {
 
 type RepositorioConsultaCargasDocumentalesV3 interface {
 	ConsultarPropia(context.Context, SolicitudConsultarCargaPropiaV3) (ConsultaCargaPropiaV3, error)
+}
+
+type SolicitudConciliarCargaV3 struct {
+	CargaID                  string
+	RecursoRef               string
+	ActorRegistradoV2        domain.ResultadoContextoActorRegistradoV2
+	VersionOperativaEsperada uint64
+	EstadoOperativoEsperado  EstadoOperativoCargaDocumental
+	EvidenciaRef             string
+	HuellaEvidenciaSHA256    string
+	MotivoRef                string
+	AutorizacionV3           AutorizacionCargaDocumentalV3
+}
+
+func PreimagenConciliacionCargaV3(s SolicitudConciliarCargaV3) ([]byte, error) {
+	if !referenciaOpacaAlmacenValida(s.CargaID, 512) || !referenciaOpacaAlmacenValida(s.RecursoRef, 512) ||
+		s.ActorRegistradoV2.Validar() != nil || s.VersionOperativaEsperada == 0 ||
+		!s.EstadoOperativoEsperado.Valido() || !referenciaOpacaAlmacenValida(s.EvidenciaRef, 512) ||
+		!esSHA256Hexadecimal(s.HuellaEvidenciaSHA256) || !referenciaOpacaAlmacenValida(s.MotivoRef, 512) {
+		return nil, ErrConfirmacionCargaDocumentalInvalida
+	}
+	return (canonicodoc.ConciliacionCargaV3{Accion: AccionCargaDocumentalConciliarV3,
+		CargaID: s.CargaID, RecursoRef: s.RecursoRef, VersionOperativaEsperada: s.VersionOperativaEsperada,
+		EstadoOperativoEsperado: string(s.EstadoOperativoEsperado), EstadoResultado: string(EstadoCargaOperacionNoRecuperable),
+		EvidenciaRef: s.EvidenciaRef, HuellaEvidenciaSHA256: s.HuellaEvidenciaSHA256, MotivoRef: s.MotivoRef}).Preimagen()
+}
+
+func (s SolicitudConciliarCargaV3) Validar(ahora time.Time) error {
+	preimagen, err := PreimagenConciliacionCargaV3(s)
+	if err != nil || s.AutorizacionV3.Material.ValidarEstructura() != nil ||
+		s.AutorizacionV3.Accion != AccionCargaDocumentalConciliarV3 ||
+		s.AutorizacionV3.RecursoRef != s.CargaID || s.AutorizacionV3.AmbitoRef != s.RecursoRef ||
+		s.AutorizacionV3.PersonaRef != s.ActorRegistradoV2.Contexto.PersonaRef ||
+		s.AutorizacionV3.PerfilActivoRef != s.ActorRegistradoV2.Contexto.PerfilActivoRef || ahora.IsZero() {
+		return ErrConfirmacionCargaDocumentalInvalida
+	}
+	r := s.AutorizacionV3.Material.ResumenCapacidad()
+	if r.ValidarEstructura() != nil || r.Operacion() != AccionCargaDocumentalConciliarV3 ||
+		r.AudienciaConsumo() != AudienciaCargaDocumentalConciliarV3 || r.EfectoRef() != s.CargaID ||
+		r.EfectoHuellaSHA256() != HuellaPreimagenCargaDocumentalV3(preimagen) ||
+		ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) {
+		return ErrConfirmacionCargaDocumentalInvalida
+	}
+	return nil
+}
+
+type RepositorioConciliacionCargaV3 interface {
+	CerrarIntentoNoRecuperable(context.Context, SolicitudConciliarCargaV3) (EstadoOperativoCargaDocumental, error)
 }
 
 // HuellaPreimagenCargaDocumentalV3 fija la identidad exacta del efecto que

@@ -1,0 +1,283 @@
+package postgres
+
+import (
+	"context"
+	"encoding/json"
+	"time"
+
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
+)
+
+// RepositorioCargasDirectas usa exclusivamente las fachadas owner D17. Los
+// métodos legados de lectura quedan cerrados: la lectura productiva siempre
+// consume V3 antes del SELECT.
+type RepositorioCargasDirectas struct{ base *Repositorio }
+
+func NuevoRepositorioCargasDirectas(base *Repositorio) (*RepositorioCargasDirectas, error) {
+	if base == nil || base.db == nil {
+		return nil, ErrRepositorioNoDisponible
+	}
+	return &RepositorioCargasDirectas{base: base}, nil
+}
+
+func materialCargaV3(a vecports.AutorizacionCargaDocumentalV3) (materialV3, error) {
+	if a.Material.ValidarEstructura() != nil || a.Material.PersonaVersion() == 0 ||
+		a.Material.PerfilVersion() == 0 || a.Material.PersonaVersion() > 9007199254740991 ||
+		a.Material.PerfilVersion() > 9007199254740991 {
+		return materialV3{}, ErrRepositorioNoDisponible
+	}
+	return materialV3{capacidad: a.Material.CapacidadCanonica(), decision: a.Material.DecisionCanonica(),
+		motivo: a.Material.MotivoCanonico(), contexto: a.Material.ContextoActorCanonico(),
+		persona: int64(a.Material.PersonaVersion()), perfil: int64(a.Material.PerfilVersion()),
+		payload: a.Material.PayloadVECAD3(), sobre: a.Material.SobreCOSESign1(),
+		evidencia: a.Material.EvidenciaVerificacion(), raiz: a.Material.RaizPublicaSPKI()}, nil
+}
+
+func autorizacionCargaJSON(a vecports.AutorizacionCargaDocumentalV3) ([]byte, error) {
+	return json.Marshal(struct {
+		Accion          string `json:"accion"`
+		RecursoRef      string `json:"recurso_ref"`
+		AmbitoRef       string `json:"ambito_ref"`
+		PrincipalID     string `json:"principal_id"`
+		PerfilActivoRef string `json:"perfil_activo_ref"`
+		Finalidad       string `json:"finalidad"`
+		CorrelacionRef  string `json:"correlacion_ref"`
+	}{a.Accion, a.RecursoRef, a.AmbitoRef, a.PersonaRef, a.PerfilActivoRef, a.Finalidad, a.CorrelacionRef})
+}
+
+func (r *RepositorioCargasDirectas) Reservar(ctx context.Context, s vecports.SolicitudReservarCargaDocumental) (vecports.ReservaCargaDocumental, error) {
+	if r == nil || r.base == nil || s.ValidarParaPersistenciaV3(time.Now().UTC()) != nil {
+		return vecports.ReservaCargaDocumental{}, vecports.ErrReservaCargaDocumentalInvalida
+	}
+	pre, err := vecports.PreimagenReservaCargaDocumentalV3(s, s.ReservaRecursoV3)
+	if err != nil {
+		return vecports.ReservaCargaDocumental{}, err
+	}
+	carga, err := json.Marshal(s.Carga)
+	if err != nil {
+		return vecports.ReservaCargaDocumental{}, vecports.ErrReservaCargaDocumentalInvalida
+	}
+	reserva, err := json.Marshal(struct {
+		RecursoRef    string `json:"recurso_ref"`
+		PersonaRef    string `json:"persona_ref"`
+		ClaveReserva  string `json:"clave_reserva"`
+		HuellaReserva string `json:"huella_reserva_sha256"`
+		Version       uint64 `json:"version_reserva"`
+	}{s.ReservaRecursoV3.RecursoRef, s.ReservaRecursoV3.PersonaRef,
+		s.ReservaRecursoV3.ClaveReserva, s.ReservaRecursoV3.HuellaReservaSHA256, s.ReservaRecursoV3.VersionReserva})
+	if err != nil {
+		return vecports.ReservaCargaDocumental{}, vecports.ErrReservaCargaDocumentalInvalida
+	}
+	auth, err := autorizacionCargaJSON(s.AutorizacionV3)
+	if err != nil {
+		return vecports.ReservaCargaDocumental{}, vecports.ErrReservaCargaDocumentalInvalida
+	}
+	m, err := materialCargaV3(s.AutorizacionV3)
+	if err != nil {
+		return vecports.ReservaCargaDocumental{}, err
+	}
+	raw, err := r.base.transaccion(ctx,
+		"SELECT vec_documentos.reservar_carga_directa_v1($1,$2,$3::jsonb,$4::jsonb,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
+		pre, carga, string(reserva), string(auth), m.capacidad, m.decision, m.motivo, m.contexto,
+		m.persona, m.perfil, m.payload, m.sobre, m.evidencia, m.raiz)
+	if err != nil {
+		return vecports.ReservaCargaDocumental{}, err
+	}
+	var respuesta struct {
+		CargaID   string                                  `json:"carga_id"`
+		Carga     vecdomain.CargaDocumental               `json:"carga"`
+		Estado    vecports.EstadoOperativoCargaDocumental `json:"estado_operativo"`
+		Pendiente bool                                    `json:"pendiente"`
+	}
+	if json.Unmarshal(raw, &respuesta) != nil || respuesta.CargaID != s.Carga.ID ||
+		respuesta.CargaID != respuesta.Carga.ID ||
+		respuesta.Carga.Validar() != nil || respuesta.Carga.PrincipalID != s.Carga.PrincipalID ||
+		respuesta.Carga.RecursoRef != s.Carga.RecursoRef ||
+		respuesta.Carga.IndiceIdempotenciaHMAC != s.IndiceIdempotenciaHMAC ||
+		respuesta.Carga.HuellaSolicitudHMAC != s.HuellaSolicitudHMAC ||
+		respuesta.Carga.MIMEDeclarado != s.Carga.MIMEDeclarado ||
+		respuesta.Carga.TamanoDeclarado != s.Carga.TamanoDeclarado ||
+		respuesta.Carga.HuellaDeclaradaSHA256 != s.Carga.HuellaDeclaradaSHA256 ||
+		respuesta.Carga.Finalidad != s.Carga.Finalidad ||
+		respuesta.Carga.Clasificacion != s.Carga.Clasificacion ||
+		respuesta.Carga.OperacionRef != s.Carga.OperacionRef ||
+		respuesta.Carga.CorrelacionRef != s.Carga.CorrelacionRef || !respuesta.Estado.Valido() {
+		return vecports.ReservaCargaDocumental{}, ErrRepositorioNoDisponible
+	}
+	if respuesta.Pendiente {
+		return vecports.ReservaCargaDocumental{Repetida: true, Pendiente: true,
+			EstadoOperativo: respuesta.Estado, Carga: respuesta.Carga}, nil
+	}
+	if respuesta.Estado != vecports.EstadoCargaOperacionPreparacionIniciada {
+		return vecports.ReservaCargaDocumental{}, ErrRepositorioNoDisponible
+	}
+	if respuesta.CargaID != s.Carga.ID {
+		return vecports.ReservaCargaDocumental{}, ErrRepositorioNoDisponible
+	}
+	return vecports.ReservaCargaDocumental{Token: s.Token, Carga: respuesta.Carga,
+		EstadoOperativo: respuesta.Estado}, nil
+}
+
+func (r *RepositorioCargasDirectas) ConfirmarPreparacion(ctx context.Context, s vecports.SolicitudConfirmarPreparacionCargaDocumental) error {
+	if r == nil || r.base == nil || s.ValidarParaPersistenciaV3(time.Now().UTC()) != nil {
+		return vecports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	instantanea, err := vecports.InstantaneaSolicitudConfirmarPreparacionCargaDocumental(s)
+	if err != nil {
+		return err
+	}
+	pre, err := vecports.PreimagenConfirmacionPreparacionCargaDocumentalV3(instantanea)
+	if err != nil {
+		return err
+	}
+	carga, err := json.Marshal(instantanea.Confirmacion.Carga)
+	if err != nil {
+		return vecports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	datos, err := instantanea.Manifiesto.Datos()
+	if err != nil {
+		return vecports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	manifiesto, err := json.Marshal(datos)
+	if err != nil {
+		return vecports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	auth, err := autorizacionCargaJSON(instantanea.AutorizacionV3)
+	if err != nil {
+		return vecports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	m, err := materialCargaV3(instantanea.AutorizacionV3)
+	if err != nil {
+		return err
+	}
+	raw, err := r.base.transaccion(ctx,
+		"SELECT vec_documentos.confirmar_preparacion_carga_directa_v1($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
+		pre, carga, manifiesto, string(auth), m.capacidad, m.decision, m.motivo, m.contexto,
+		m.persona, m.perfil, m.payload, m.sobre, m.evidencia, m.raiz)
+	if err != nil {
+		return err
+	}
+	var salida struct {
+		CargaID string `json:"carga_id"`
+		Estado  string `json:"estado_operativo"`
+	}
+	if json.Unmarshal(raw, &salida) != nil || salida.CargaID != instantanea.Confirmacion.Carga.ID ||
+		salida.Estado != string(vecports.EstadoCargaOperacionEmisionReciboIniciada) {
+		return ErrRepositorioNoDisponible
+	}
+	return nil
+}
+
+func (r *RepositorioCargasDirectas) ConsultarPropia(ctx context.Context, s vecports.SolicitudConsultarCargaPropiaV3) (vecports.ConsultaCargaPropiaV3, error) {
+	if r == nil || r.base == nil || s.Validar(time.Now().UTC()) != nil {
+		return vecports.ConsultaCargaPropiaV3{}, vecdomain.ErrAutorizacionDenegada
+	}
+	pre, err := vecports.PreimagenConsultaCargaPropiaV3(s)
+	if err != nil {
+		return vecports.ConsultaCargaPropiaV3{}, vecdomain.ErrAutorizacionDenegada
+	}
+	auth, err := autorizacionCargaJSON(s.AutorizacionV3)
+	if err != nil {
+		return vecports.ConsultaCargaPropiaV3{}, vecdomain.ErrAutorizacionDenegada
+	}
+	m, err := materialCargaV3(s.AutorizacionV3)
+	if err != nil {
+		return vecports.ConsultaCargaPropiaV3{}, vecdomain.ErrAutorizacionDenegada
+	}
+	raw, err := r.base.transaccion(ctx,
+		"SELECT vec_documentos.consultar_carga_directa_propia_v1($1,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+		pre, string(auth), m.capacidad, m.decision, m.motivo, m.contexto,
+		m.persona, m.perfil, m.payload, m.sobre, m.evidencia, m.raiz)
+	if err != nil {
+		return vecports.ConsultaCargaPropiaV3{}, err
+	}
+	var salida struct {
+		Denegado   bool                                    `json:"denegado"`
+		Carga      vecdomain.CargaDocumental               `json:"carga"`
+		Manifiesto json.RawMessage                         `json:"manifiesto"`
+		Estado     vecports.EstadoOperativoCargaDocumental `json:"estado_operativo"`
+	}
+	if json.Unmarshal(raw, &salida) != nil {
+		return vecports.ConsultaCargaPropiaV3{}, ErrRepositorioNoDisponible
+	}
+	if salida.Denegado {
+		return vecports.ConsultaCargaPropiaV3{}, vecdomain.ErrAutorizacionDenegada
+	}
+	if salida.Carga.Validar() != nil || salida.Carga.ID != s.CargaID ||
+		salida.Carga.PrincipalID != s.ActorRegistradoV2.Contexto.PersonaRef ||
+		salida.Carga.RecursoRef != s.RecursoRef || !salida.Estado.Valido() {
+		return vecports.ConsultaCargaPropiaV3{}, ErrRepositorioNoDisponible
+	}
+	respuesta := vecports.ConsultaCargaPropiaV3{Carga: salida.Carga}
+	if s.IncluyeManifiesto {
+		if len(salida.Manifiesto) == 0 || string(salida.Manifiesto) == "null" {
+			return vecports.ConsultaCargaPropiaV3{}, vecports.ErrManifiestoPreparacionNoEncontrado
+		}
+		var datos vecdomain.DatosManifiestoPreparacionCargaDirectaV1
+		if json.Unmarshal(salida.Manifiesto, &datos) != nil {
+			return vecports.ConsultaCargaPropiaV3{}, ErrRepositorioNoDisponible
+		}
+		manifiesto, err := vecdomain.RestaurarManifiestoPreparacionCargaDirectaV1(datos)
+		if err != nil || manifiesto.ValidarContraCarga(salida.Carga) != nil {
+			return vecports.ConsultaCargaPropiaV3{}, ErrRepositorioNoDisponible
+		}
+		respuesta.Manifiesto = &manifiesto
+	}
+	return respuesta, nil
+}
+
+func (r *RepositorioCargasDirectas) CerrarIntentoNoRecuperable(ctx context.Context, s vecports.SolicitudConciliarCargaV3) (vecports.EstadoOperativoCargaDocumental, error) {
+	if r == nil || r.base == nil || s.Validar(time.Now().UTC()) != nil {
+		return "", vecports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	pre, err := vecports.PreimagenConciliacionCargaV3(s)
+	if err != nil {
+		return "", err
+	}
+	auth, err := autorizacionCargaJSON(s.AutorizacionV3)
+	if err != nil {
+		return "", vecports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	m, err := materialCargaV3(s.AutorizacionV3)
+	if err != nil {
+		return "", err
+	}
+	raw, err := r.base.transaccion(ctx,
+		"SELECT vec_documentos.cerrar_carga_directa_no_recuperable_v1($1,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+		pre, string(auth), m.capacidad, m.decision, m.motivo, m.contexto,
+		m.persona, m.perfil, m.payload, m.sobre, m.evidencia, m.raiz)
+	if err != nil {
+		return "", err
+	}
+	var salida struct {
+		CargaID string                                  `json:"carga_id"`
+		Estado  vecports.EstadoOperativoCargaDocumental `json:"estado_operativo"`
+	}
+	if json.Unmarshal(raw, &salida) != nil || salida.CargaID != s.CargaID ||
+		salida.Estado != vecports.EstadoCargaOperacionNoRecuperable {
+		return "", ErrRepositorioNoDisponible
+	}
+	return salida.Estado, nil
+}
+
+var _ vecports.RepositorioConsultaCargasDocumentalesV3 = (*RepositorioCargasDirectas)(nil)
+var _ vecports.RepositorioConciliacionCargaV3 = (*RepositorioCargasDirectas)(nil)
+
+// El protocolo V3 usa ConsultarPropia; estos métodos no leen por ID.
+func (*RepositorioCargasDirectas) Obtener(context.Context, string) (vecdomain.CargaDocumental, error) {
+	return vecdomain.CargaDocumental{}, vecports.ErrRepositorioCargasNoDisponible
+}
+func (*RepositorioCargasDirectas) ObtenerPreparacion(context.Context, string) (vecports.PreparacionCargaDocumentalPersistida, error) {
+	return vecports.PreparacionCargaDocumentalPersistida{}, vecports.ErrRepositorioCargasNoDisponible
+}
+func (*RepositorioCargasDirectas) AbandonarReserva(context.Context, vecports.TokenReservaCargaDocumental) error {
+	// La reserva iniciada no se roba ni se revierte después de una respuesta incierta.
+	return vecports.ErrPreparacionCargaDocumentalPendiente
+}
+func (*RepositorioCargasDirectas) ConfirmarTransicion(context.Context, vecports.ConfirmacionTransicionCargaDocumental) error {
+	// Falta intención V3 previa al efecto S3; la ruta pública sigue cerrada.
+	return vecports.ErrConfirmacionCargaDocumentalPendiente
+}
+
+var _ vecports.RepositorioCargasDocumentales = (*RepositorioCargasDirectas)(nil)
