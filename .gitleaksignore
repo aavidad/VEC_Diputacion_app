@@ -99,3 +99,14 @@ f548260d7c6bc962fd5f1fcd6a5d4b1e3d144106:deploy/postgresql/bolsa_llamamientos/pr
 # Copias: referencia pública de cuenta ordinaria sintética en fixture sellada.
 # No es clave, credencial ni dato personal; sólo este hallazgo histórico.
 440cebf1ade5acc38857d784e9745dbca9c69000:internal/modules/administracion/adapters/intentoscopias/fixture_test.go:generic-api-key:65
+
+# Falsos positivos sumologic-access-token: SHA-256 públicos del consumo V3
+# de ocho recibos, no credenciales. Excepciones exactas de commit/ruta/regla/línea.
+a2fc469bbb76b091b230d778b6bed8b75c144789:docs/evidencias/codexh-b2-recorrido-20261011/catalogos-personal-recuperacion.json:sumologic-access-token:12
+a2fc469bbb76b091b230d778b6bed8b75c144789:docs/evidencias/codexh-b2-recorrido-20261011/catalogos-personal-recuperacion.json:sumologic-access-token:26
+a2fc469bbb76b091b230d778b6bed8b75c144789:docs/evidencias/codexh-b2-recorrido-20261011/catalogos-personal-recuperacion.json:sumologic-access-token:40
+a2fc469bbb76b091b230d778b6bed8b75c144789:docs/evidencias/codexh-b2-recorrido-20261011/catalogos-personal-recuperacion.json:sumologic-access-token:54
+a2fc469bbb76b091b230d778b6bed8b75c144789:docs/evidencias/codexh-b2-recorrido-20261011/catalogos-personal-recuperacion.json:sumologic-access-token:68
+a2fc469bbb76b091b230d778b6bed8b75c144789:docs/evidencias/codexh-b2-recorrido-20261011/catalogos-personal-recuperacion.json:sumologic-access-token:82
+a2fc469bbb76b091b230d778b6bed8b75c144789:docs/evidencias/codexh-b2-recorrido-20261011/catalogos-personal-recuperacion.json:sumologic-access-token:96
+a2fc469bbb76b091b230d778b6bed8b75c144789:docs/evidencias/codexh-b2-recorrido-20261011/catalogos-personal-recuperacion.json:sumologic-access-token:110
