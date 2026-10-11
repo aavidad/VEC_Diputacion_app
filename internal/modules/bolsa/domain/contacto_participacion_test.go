@@ -53,6 +53,8 @@ func TestAnotacionContactoDescribeTelefonoSinGuardarDatos(t *testing.T) {
 		"Llamar al 600123456",
 		"Llamar al 600-123-456",
 		"Llamar al +34 600 123 456",
+		"Teléfono fijo 812345678",
+		"Llamar al 812345678",
 		"Documento DNI 12345678Z",
 		"Pasaporte de otra persona",
 		"Correo tercero@example.test",

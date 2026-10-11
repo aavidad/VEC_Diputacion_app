@@ -18,6 +18,8 @@ BEGIN
    ('Llamar al 600123456',true),
    ('Llamar al 600-123-456',true),
    ('Llamar al +34 600 123 456',true),
+   ('Teléfono fijo 812345678',true),
+   ('Llamar al 812345678',true),
    ('Documento DNI 12345678Z',true),
    ('Pasaporte de otra persona',true),
    ('Correo tercero@example.test',true),

@@ -62,7 +62,7 @@ const AVISOS = Object.freeze(["antes_de_separacion", "fuera_de_franja", "dia_no_
 const ERRORES = Object.freeze(["intento_antes_de_separacion", "intento_fuera_de_franja", "intentos_agotados", "acceso_denegado", "contacto_en_conflicto", "contacto_no_valido", "anotacion_con_dato_personal", "solicitud_invalida"]);
 const DATO_IDENTITARIO = /(?:^|[^\p{L}])(?:dni|nie|nif|pasaporte|email)(?:$|[^\p{L}])|@/iu;
 const TELEFONO_CON_CIFRAS = /(?:^|[^\p{L}])tel[eé]fono[^\p{L}\p{N}]{0,8}[+]?[0-9]/iu;
-const NUMERO_TELEFONO = /(?:^|[^\p{L}\p{N}])(?:[+]34[\s.-]*)?[679](?:[\s.-]*[0-9]){8}(?:$|[^0-9])/u;
+const NUMERO_TELEFONO = /(?:^|[^\p{L}\p{N}])(?:[+]34[\s.-]*)?[6789](?:[\s.-]*[0-9]){8}(?:$|[^0-9])/u;
 
 export function anotacionContieneDatoPersonal(valor) {
   return DATO_IDENTITARIO.test(valor) || TELEFONO_CON_CIFRAS.test(valor) || NUMERO_TELEFONO.test(valor);

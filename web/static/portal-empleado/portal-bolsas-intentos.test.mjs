@@ -35,6 +35,7 @@ test("la nota permite describir el teléfono y avisa junto al campo al escribir 
     assert.equal(anotacionContieneDatoPersonal(nota), false, nota);
   }
   for (const nota of ["Teléfono 600123456", "teléfono / (6)", "Llamar al +34 600 123 456",
+    "Teléfono fijo 812345678", "Llamar al 812345678",
     "Documento DNI 12345678Z", "tercero@example.test", "Enviar por email"]) {
     assert.equal(anotacionContieneDatoPersonal(nota), true, nota);
   }
