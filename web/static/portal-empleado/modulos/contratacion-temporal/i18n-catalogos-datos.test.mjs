@@ -114,7 +114,7 @@ const CLAVES_REINCORPORACION_CAPACIDAD = Object.freeze([
   "reincorporacion_capacidad_no_habilitada",
 ]);
 const CLAVES_FICHA_SIN_BOLSA = Object.freeze([
-  "ficha_llamamiento_sin_bolsa", "ficha_llamamiento_bolsa_error",
+  "ficha_llamamiento_sin_bolsa", "ficha_llamamiento_sin_bolsa_historica", "ficha_llamamiento_bolsa_error",
   "ficha_llamamiento_bolsa_denegado", "ficha_llamamiento_bolsa_reintentar",
   "ficha_llamamiento_bolsa_no_localizada",
 ]);

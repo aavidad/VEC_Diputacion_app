@@ -71,9 +71,19 @@ test("con la cobertura decidida, la ficha dice lo mismo que la comprobación que
   const afirmativa = renderizar(estado({ cabecera: [comprobacion("exito")] }), () => ({ estado: "sin_bolsa" }));
   assert.doesNotMatch(afirmativa, /No hay bolsa vigente/u);
   assert.match(afirmativa, /Al decidir la cobertura había una bolsa vigente para esta categoría/u);
-  // El expediente registró «no hay bolsa»: se dice aunque la lista no se haya podido leer.
+  // El expediente registró «no había bolsa»: no describe el estado actual sin consulta.
   const negativa = renderizar(estado({ cabecera: [comprobacion("aviso")] }), () => null);
-  assert.match(negativa, /No hay bolsa vigente para esta categoría/u);
+  assert.match(negativa, /Al decidir la cobertura no constaba una bolsa vigente/u);
+  assert.doesNotMatch(negativa, /<p>No hay bolsa vigente para esta categoría/u);
+  for (const estadoBolsa of ["error", "denegado"]) {
+    const fallida = renderizar(estado({ cabecera: [comprobacion("aviso")] }),
+      () => ({ estado: estadoBolsa }));
+    assert.doesNotMatch(fallida, /Al decidir la cobertura no constaba|<p>No hay bolsa vigente/u);
+    assert.match(fallida, estadoBolsa === "error" ? /No se pudo comprobar/u : /No tiene permiso/u);
+  }
+  const actualSinBolsa = renderizar(estado({ cabecera: [comprobacion("aviso")] }),
+    () => ({ estado: "sin_bolsa" }));
+  assert.match(actualSinBolsa, /Al decidir la cobertura no constaba una bolsa vigente/u);
   // Si ahora sí hay bolsa visible, se ofrece abrir el llamamiento.
   const conBolsa = renderizar(estado({ cabecera: [comprobacion("aviso")] }),
     () => ({ categoria: "Auxiliar", bolsa_ref: "bolsa:sintetica:1" }));

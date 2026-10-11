@@ -235,17 +235,17 @@ export function renderizarAbrirLlamamiento(expediente, resolverBolsa, t) {
   const cobertura = valor("bolsa_cobertura");
   let bolsaRef = typeof cobertura === "string" && resolverBolsa(cobertura)?.categoria ? cobertura : "";
   let sinBolsaConfirmada = false;
+  let sinBolsaHistorica = false;
   let incidenciaBolsa = "";
-  // Con la cobertura decidida, si hay o no bolsa vigente lo dice la comprobación
-  // que quedó en el expediente (la misma que recogen sus documentos), no la
-  // lista de bolsas de este momento.
+  // La comprobación del expediente describe la cobertura cuando se decidió.
+  // La consulta de Bolsa describe la disponibilidad actual.
   const comprobada = expediente.cabecera?.find((campo) => campo.clave === "comprobacion_existe_bolsa_vigente");
   if (!bolsaRef) {
     const categoriaRef = expediente.analisis_previo?.categoria_ref ?? expediente.datos_peticion?.categoria_ref;
     const bolsaCategoria = typeof categoriaRef === "string" ? resolverBolsa("", { categoriaRef }) : null;
     bolsaRef = bolsaCategoria?.bolsa_ref || "";
-    sinBolsaConfirmada = !cobertura && (comprobada ? comprobada.tono === "aviso"
-      : bolsaCategoria?.estado === "sin_bolsa");
+    sinBolsaHistorica = !cobertura && comprobada?.tono === "aviso";
+    sinBolsaConfirmada = !cobertura && !comprobada && bolsaCategoria?.estado === "sin_bolsa";
     if (!cobertura && comprobada?.tono === "exito" && bolsaCategoria?.estado === "sin_bolsa") incidenciaBolsa = "no_localizada";
     if (["error", "denegado"].includes(bolsaCategoria?.estado)) incidenciaBolsa = bolsaCategoria.estado;
   }
@@ -259,8 +259,9 @@ export function renderizarAbrirLlamamiento(expediente, resolverBolsa, t) {
     fecha_inicio: inicioBolsa,
   }) : null;
   if (!origen) {
-    if (sinBolsaConfirmada) return `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t("ficha_llamamiento_sin_bolsa"))}</p></div></section>`;
     if (incidenciaBolsa) return `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t(`ficha_llamamiento_bolsa_${incidenciaBolsa}`))}</p>${incidenciaBolsa === "error" ? `<button type="button" class="boton-secundario" data-ct-bolsa-reintentar>${escaparHTML(t("ficha_llamamiento_bolsa_reintentar"))}</button>` : ""}</div></section>`;
+    if (sinBolsaHistorica) return `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t("ficha_llamamiento_sin_bolsa_historica"))}</p></div></section>`;
+    if (sinBolsaConfirmada) return `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t("ficha_llamamiento_sin_bolsa"))}</p></div></section>`;
     return "";
   }
   const atributo = (nombre, dato) => (dato ? ` data-origen-${nombre}="${escaparHTML(dato)}"` : "");

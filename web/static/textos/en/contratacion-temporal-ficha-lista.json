@@ -46,6 +46,7 @@
     "ficha_datos_titulo": "Request details",
     "ficha_datos_todos": "View all details",
     "ficha_llamamiento_sin_bolsa": "There is no active job pool for this category. Review the case file's recruitment route.",
+    "ficha_llamamiento_sin_bolsa_historica": "When the recruitment route was decided, there was no active job pool for this category. Check Job pools for the current position.",
     "ficha_llamamiento_bolsa_error": "We could not check whether there is an active job pool for this category.",
     "ficha_llamamiento_bolsa_denegado": "You do not have permission to view the job pools for this category.",
     "ficha_llamamiento_bolsa_no_localizada": "When the recruitment route was decided, this category had an active job pool, but it can no longer be found. Check it in “Job pools”. If the pool is still active, contact IT.",
