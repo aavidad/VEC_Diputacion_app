@@ -6,12 +6,17 @@ import (
 	"errors"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"vec-diputacion-granada/internal/vec/documentos/domain"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 const (
+	AccionReservarRecursoMayan  = "documentos.ingesta_mayan.reservar_recurso"
+	AccionConsultarReservaMayan = "documentos.ingesta_mayan.consultar_reserva"
+	AccionAbandonarRecursoMayan = "documentos.ingesta_mayan.abandonar_recurso"
 	AccionPrepararIngestaMayan  = "documentos.ingesta_mayan.preparar"
 	AccionDespacharIngestaMayan = "documentos.ingesta_mayan.despachar"
 	AccionResolverIngestaMayan  = "documentos.ingesta_mayan.resolver"
@@ -23,10 +28,67 @@ const (
 	EstadoIngestaConfirmada     = "confirmado"
 	EstadoIngestaIndeterminada  = "indeterminado"
 	EstadoIngestaRechazada      = "rechazado"
+	EstadoRecursoReservado      = "reservada"
+	EstadoRecursoVinculado      = "vinculada"
+	EstadoRecursoAbandonado     = "abandonada"
+	EstadoRecursoCaducado       = "caducada"
 )
 
 var ErrIngestaIndeterminada = errors.New("documentos: ingesta externa pendiente de conciliacion")
 var ErrIngestaNoReenviable = errors.New("documentos: despacho externo ya registrado")
+
+// ReservaRecursoDocumental no representa un hecho declarado en RUM. Fija el
+// recurso opaco y su persona antes de la primera carga S3. ClaveIdempotencia
+// identifica la operación; un replay devuelve la fila ganadora.
+type ReservaRecursoDocumental struct {
+	RecursoRef            string    `json:"recurso_ref"`
+	PersonaRef            string    `json:"persona_ref"`
+	RegistroContextoRef   string    `json:"registro_contexto_ref"`
+	HuellaContextoSHA256  string    `json:"huella_contexto_sha256"`
+	ClaveIdempotencia     string    `json:"clave_idempotencia"`
+	HuellaSolicitudSHA256 string    `json:"huella_solicitud_sha256"`
+	Estado                string    `json:"estado"`
+	Version               int64     `json:"version"`
+	CreadaEn              time.Time `json:"creada_en"`
+	ExpiraEn              time.Time `json:"expira_en"`
+}
+
+func (r ReservaRecursoDocumental) ValidarCandidata() error {
+	if !strings.HasPrefix(r.RecursoRef, "ref:") || !huellaHexIngesta(strings.TrimPrefix(r.RecursoRef, "ref:")) ||
+		!domain.ReferenciaOpacaValida(r.RecursoRef) || !vecdomain.ReferenciaPersonaDenominacionValida(r.PersonaRef) ||
+		r.RegistroContextoRef == "" || !huellaHexIngesta(r.HuellaContextoSHA256) ||
+		!domain.ReferenciaOpacaValida(r.ClaveIdempotencia) || !huellaHexIngesta(r.HuellaSolicitudSHA256) ||
+		r.Estado != "" || r.Version != 0 || !r.CreadaEn.IsZero() || !r.ExpiraEn.IsZero() {
+		return ErrSolicitudInvalida
+	}
+	return nil
+}
+
+func (r ReservaRecursoDocumental) ValidarPersistida() error {
+	copia := r
+	copia.Estado = ""
+	copia.Version = 0
+	copia.CreadaEn = time.Time{}
+	copia.ExpiraEn = time.Time{}
+	if copia.ValidarCandidata() != nil || r.Version < 1 || r.CreadaEn.IsZero() || r.ExpiraEn.IsZero() || !r.ExpiraEn.After(r.CreadaEn) ||
+		(r.Estado != EstadoRecursoReservado && r.Estado != EstadoRecursoVinculado && r.Estado != EstadoRecursoAbandonado && r.Estado != EstadoRecursoCaducado) {
+		return ErrSolicitudInvalida
+	}
+	return nil
+}
+
+type OrdenReservarRecursoMayan struct {
+	Reserva      ReservaRecursoDocumental
+	Autorizacion AutorizacionV3
+}
+type OrdenConsultaReservaMayan struct {
+	ClaveIdempotencia string
+	Autorizacion      AutorizacionV3
+}
+type OrdenAbandonarRecursoMayan struct {
+	ClaveIdempotencia string
+	Autorizacion      AutorizacionV3
+}
 
 // PlanIngestaMayan conserva metadatos y referencias, nunca contenido. CargaID
 // identifica una carga previamente admitida por Documentos y no concede por si
@@ -35,12 +97,22 @@ type PlanIngestaMayan struct {
 	PlanRef               string    `json:"plan_ref"`
 	CargaID               string    `json:"carga_id"`
 	PersonaRef            string    `json:"persona_ref"`
+	RegistroContextoRef   string    `json:"registro_contexto_ref"`
+	HuellaContextoSHA256  string    `json:"huella_contexto_sha256"`
 	ExpedienteRef         string    `json:"expediente_ref"`
 	EvidenciaRef          string    `json:"evidencia_ref"`
+	TipoRef               string    `json:"tipo_ref"`
 	ClaveIdempotencia     string    `json:"clave_idempotencia"`
+	ClaveReserva          string    `json:"clave_reserva"`
 	HuellaSolicitudSHA256 string    `json:"huella_solicitud_sha256"`
 	HuellaSHA256          string    `json:"huella_sha256"`
 	MIME                  string    `json:"mime"`
+	PoliticaRef           string    `json:"politica_ref"`
+	VersionPolitica       int64     `json:"version_politica"`
+	HuellaPoliticaSHA256  string    `json:"huella_politica_sha256"`
+	ConservacionHasta     time.Time `json:"conservacion_hasta"`
+	EstadoPolitica        string    `json:"estado_politica"`
+	Proteccion            string    `json:"proteccion"`
 	Tamano                int64     `json:"tamano"`
 	CargaVersion          int64     `json:"carga_version"`
 	Version               int64     `json:"version"`
@@ -53,12 +125,29 @@ type PlanIngestaMayan struct {
 }
 
 func (p PlanIngestaMayan) ValidarBase() error {
-	if !domain.ReferenciaOpacaValida(p.PlanRef) || !domain.ReferenciaOpacaValida(p.CargaID) ||
-		!domain.ReferenciaOpacaValida(p.PersonaRef) || !domain.ReferenciaExpedienteModuloValida("meritos", p.ExpedienteRef) ||
-		!domain.ReferenciaOpacaValida(p.EvidenciaRef) || !domain.ReferenciaOpacaValida(p.ClaveIdempotencia) ||
+	if (p.PlanRef != "" && !domain.ReferenciaOpacaValida(p.PlanRef)) || !domain.ReferenciaOpacaValida(p.CargaID) ||
+		!vecdomain.ReferenciaPersonaDenominacionValida(p.PersonaRef) ||
+		p.RegistroContextoRef == "" || !huellaHexIngesta(p.HuellaContextoSHA256) ||
+		!strings.HasPrefix(p.ExpedienteRef, "ref:") || !huellaHexIngesta(strings.TrimPrefix(p.ExpedienteRef, "ref:")) ||
+		!domain.ReferenciaExpedienteModuloValida("meritos", p.ExpedienteRef) ||
+		!domain.ReferenciaOpacaValida(p.EvidenciaRef) || !domain.ReferenciaOpacaValida(p.TipoRef) ||
+		!domain.ReferenciaOpacaValida(p.PoliticaRef) || p.VersionPolitica < 1 ||
+		!huellaHexIngesta(p.HuellaPoliticaSHA256) || p.ConservacionHasta.IsZero() ||
+		(p.EstadoPolitica != "aprobada" && p.EstadoPolitica != "provisional") ||
+		(p.Proteccion != "conservacion" && p.Proteccion != "bloqueo") ||
+		(p.EstadoPolitica == "provisional" && p.Proteccion != "conservacion") ||
+		!domain.ReferenciaOpacaValida(p.ClaveIdempotencia) || !domain.ReferenciaOpacaValida(p.ClaveReserva) ||
 		!huellaHexIngesta(p.HuellaSolicitudSHA256) || !huellaHexIngesta(p.HuellaSHA256) ||
 		p.Tamano < 1 || p.Tamano > 64<<20 || p.CargaVersion != 5 ||
 		p.MIME == "" || len(p.MIME) > 255 {
+		return ErrSolicitudInvalida
+	}
+	return nil
+}
+
+func (p PlanIngestaMayan) ValidarPersistido() error {
+	if p.ValidarBase() != nil || !domain.ReferenciaOpacaValida(p.PlanRef) || p.Version < 1 ||
+		p.Estado == "" || p.CreadoEn.IsZero() || p.ActualizadoEn.IsZero() {
 		return ErrSolicitudInvalida
 	}
 	return nil
@@ -111,15 +200,33 @@ type OrdenCambiarIngestaMayan struct {
 	Autorizacion                   AutorizacionV3
 }
 
+func (o OrdenCambiarIngestaMayan) Preimagen(accion string) ([]byte, error) {
+	return PreimagenIngestaMayan(accion, struct {
+		PlanRef         string         `json:"plan_ref"`
+		ExpedienteRef   string         `json:"expediente_ref"`
+		VersionEsperada int64          `json:"version_esperada"`
+		Estado          string         `json:"estado"`
+		Documento       DocumentoMayan `json:"documento"`
+	}{o.PlanRef, o.ExpedienteRef, o.VersionEsperada, o.Estado, o.Documento})
+}
+
 type OrdenConsultarIngestaMayan struct {
 	PlanRef, ExpedienteRef string
 	Autorizacion           AutorizacionV3
 }
 
+func (o OrdenConsultarIngestaMayan) Preimagen() ([]byte, error) {
+	return PreimagenIngestaMayan(AccionConsultarIngestaMayan, struct {
+		PlanRef       string `json:"plan_ref"`
+		ExpedienteRef string `json:"expediente_ref"`
+	}{o.PlanRef, o.ExpedienteRef})
+}
+
 // PreimagenIngestaMayan usa campos ordenados y exactos. SQL vuelve a cotejar
 // accion, recurso y ambito contra el material V3 antes de cada efecto.
 func PreimagenIngestaMayan(accion string, dato any) ([]byte, error) {
-	if accion != AccionPrepararIngestaMayan && accion != AccionDespacharIngestaMayan &&
+	if accion != AccionReservarRecursoMayan && accion != AccionConsultarReservaMayan && accion != AccionAbandonarRecursoMayan &&
+		accion != AccionPrepararIngestaMayan && accion != AccionDespacharIngestaMayan &&
 		accion != AccionResolverIngestaMayan && accion != AccionConciliarIngestaMayan &&
 		accion != AccionConsultarIngestaMayan {
 		return nil, ErrSolicitudInvalida
@@ -135,6 +242,13 @@ func PreimagenIngestaMayan(accion string, dato any) ([]byte, error) {
 }
 
 func (a AutorizacionV3) ValidarParaIngestaMayan(accion, planRef, expedienteRef string, ahora time.Time) error {
+	switch accion {
+	case AccionReservarRecursoMayan, AccionConsultarReservaMayan, AccionAbandonarRecursoMayan,
+		AccionPrepararIngestaMayan, AccionDespacharIngestaMayan, AccionResolverIngestaMayan,
+		AccionConciliarIngestaMayan, AccionConsultarIngestaMayan:
+	default:
+		return ErrSolicitudInvalida
+	}
 	if !domain.ReferenciaOpacaValida(planRef) || !domain.ReferenciaExpedienteModuloValida("meritos", expedienteRef) ||
 		a.Accion != accion || a.Finalidad != FinalidadIngestaMayan || a.RecursoRef != planRef ||
 		a.AmbitoRef != expedienteRef || !domain.ReferenciaValida(a.PrincipalID) ||
@@ -155,6 +269,9 @@ func (a AutorizacionV3) ValidarParaIngestaMayan(accion, planRef, expedienteRef s
 // en la misma transaccion. Despachar devuelve nuevo=false en cualquier replay:
 // la aplicacion solo puede llamar al proveedor cuando nuevo=true.
 type RepositorioIngestaMayan interface {
+	ReservarRecurso(context.Context, OrdenReservarRecursoMayan) (ReservaRecursoDocumental, error)
+	ConsultarReserva(context.Context, OrdenConsultaReservaMayan) (ReservaRecursoDocumental, error)
+	AbandonarRecurso(context.Context, OrdenAbandonarRecursoMayan) (ReservaRecursoDocumental, error)
 	PrepararIngesta(context.Context, OrdenPrepararIngestaMayan) (PlanIngestaMayan, error)
 	DespacharIngesta(context.Context, OrdenCambiarIngestaMayan) (PlanIngestaMayan, bool, error)
 	ResolverIngesta(context.Context, OrdenCambiarIngestaMayan) (PlanIngestaMayan, error)
