@@ -7,6 +7,7 @@
     "ficha_volver_lista": "Volver a la lista",
     "ficha_expediente_numero": "Expediente {numero}",
     "ficha_siguiente_paso_fase": "Siguiente paso: {fase}",
+    "ficha_siguiente_paso_fiscalizacion_intervencion": "Intervención tiene que registrar el resultado de la fiscalización. Cuando lo haga, verá aquí el siguiente paso.",
     "ficha_siguiente_paso_espera": "Esperando a otra unidad",
     "ficha_siguiente_paso_terminado": "Expediente terminado",
     "ficha_siguiente_paso_cobertura_titulo": "Siguiente paso: decidir la vía de cobertura",
