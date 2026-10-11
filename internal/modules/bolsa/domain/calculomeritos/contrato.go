@@ -14,10 +14,13 @@ import (
 )
 
 const (
-	EsquemaReglas    = "vec.bolsa.reglas_meritos.v1"
-	EsquemaEntrada   = "vec.bolsa.entrada_meritos.v1"
-	EsquemaResultado = "vec.bolsa.resultado_meritos.v1"
-	MaximoBytes      = 1024 * 1024
+	EsquemaReglas      = "vec.bolsa.reglas_meritos.v1"
+	EsquemaReglasV2    = "vec.bolsa.reglas_meritos.v2"
+	EsquemaEntrada     = "vec.bolsa.entrada_meritos.v1"
+	EsquemaEntradaV2   = "vec.bolsa.entrada_meritos.v2"
+	EsquemaResultado   = "vec.bolsa.resultado_meritos.v1"
+	EsquemaResultadoV2 = "vec.bolsa.resultado_meritos.v2"
+	MaximoBytes        = 1024 * 1024
 )
 
 var patronClave = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
@@ -55,12 +58,14 @@ type Conjunto struct {
 	Version             uint64                `json:"version"`
 	ConvocatoriaRef     string                `json:"convocatoria_ref"`
 	ExpedienteRef       string                `json:"expediente_ref"`
+	CategoriaRef        string                `json:"categoria_ref,omitempty"`
+	PlazaRef            string                `json:"plaza_ref,omitempty"`
 	Bases               Dependencia           `json:"bases"`
 	FechaCorteInclusiva baremacion.FechaCivil `json:"fecha_corte_inclusiva"`
 	Duplicados          string                `json:"duplicados"`
 	MomentoRedondeo     string                `json:"momento_redondeo"`
 	SeleccionElementos  string                `json:"seleccion_elementos"`
-	MaximoTotal         *baremacion.Puntos    `json:"maximo_total"`
+	MaximoTotal         *baremacion.Puntos    `json:"maximo_total,omitempty"`
 	Secciones           []Seccion             `json:"secciones"`
 	Reglas              []Regla               `json:"reglas"`
 }
@@ -68,7 +73,7 @@ type Conjunto struct {
 type Seccion struct {
 	Clave        string             `json:"clave"`
 	Definicion   Dependencia        `json:"definicion"`
-	MaximoPuntos *baremacion.Puntos `json:"maximo_puntos"`
+	MaximoPuntos *baremacion.Puntos `json:"maximo_puntos,omitempty"`
 }
 
 // Familia/unidad quedan cerradas: formación/hora, titulación/titulo y otros/unidad.
@@ -82,11 +87,22 @@ type Regla struct {
 	Catalogo        Dependencia             `json:"catalogo"`
 	Unidad          string                  `json:"unidad"`
 	MinimoUnidades  *baremacion.Racional    `json:"minimo_unidades"`
-	MaximoUnidades  *baremacion.Racional    `json:"maximo_unidades"`
-	MaximoElementos *uint32                 `json:"maximo_elementos"`
+	MaximoUnidades  *baremacion.Racional    `json:"maximo_unidades,omitempty"`
+	MaximoElementos *uint32                 `json:"maximo_elementos,omitempty"`
 	PuntosPorUnidad *baremacion.Puntos      `json:"puntos_por_unidad"`
-	MaximoPuntos    *baremacion.Puntos      `json:"maximo_puntos"`
+	MaximoPuntos    *baremacion.Puntos      `json:"maximo_puntos,omitempty"`
 	Redondeo        baremacion.ModoRedondeo `json:"redondeo"`
+	// V2: relación exacta de conceptos RUM con la plaza, declarada en las bases.
+	ConceptosRelacionados []string           `json:"conceptos_relacionados,omitempty"`
+	Temporal              *PoliticaFormacion `json:"temporal,omitempty"`
+}
+
+// PoliticaFormacion usa un día civil explícito: el motor nunca deduce años
+// desde la publicación. PuntosPorUnidad conserva la tarifa anterior.
+type PoliticaFormacion struct {
+	DesdeBonificacion baremacion.FechaCivil `json:"desde_bonificacion"`
+	EfectoAnterior    string                `json:"efecto_anterior"` // excluir o bonificar
+	PuntosRecientes   baremacion.Puntos     `json:"puntos_recientes"`
 }
 
 // Entrada guarda referencias opacas de hechos y evidencias, sin personas ni
@@ -104,6 +120,9 @@ type Merito struct {
 	Evidencia      Dependencia            `json:"evidencia"`
 	Familia        string                 `json:"familia"`
 	Clase          string                 `json:"clase"`
+	TipoHecho      string                 `json:"tipo_hecho,omitempty"`
+	ConceptoRef    string                 `json:"concepto_ref,omitempty"`
+	OrigenRef      string                 `json:"origen_ref,omitempty"`
 	Catalogo       Dependencia            `json:"catalogo"`
 	Uso            string                 `json:"uso"`
 	Estado         string                 `json:"estado"`
@@ -136,6 +155,18 @@ func racionalPositivo(r *baremacion.Racional) bool {
 	return r != nil && r.EsValido() && r.Numerador() > 0
 }
 
+func topeValido(p *baremacion.Puntos, v2 bool) bool {
+	return v2 && p == nil || puntosPositivos(p)
+}
+
+func unidadesValidas(r *baremacion.Racional, v2 bool) bool {
+	return v2 && r == nil || racionalPositivo(r)
+}
+
+func elementosValidos(n *uint32, v2 bool) bool {
+	return v2 && n == nil || n != nil && *n > 0 && *n <= 2048
+}
+
 func validarConsistenciaDependencias(dependencias []Dependencia) error {
 	type identidad struct {
 		ref     string
@@ -153,7 +184,8 @@ func validarConsistenciaDependencias(dependencias []Dependencia) error {
 }
 
 func (c Conjunto) Validar() error {
-	if c.Esquema != EsquemaReglas || c.Duplicados != "bloquear" || c.MomentoRedondeo != "por_regla" || c.SeleccionElementos != "mayor_unidad" || !c.FechaCorteInclusiva.EsValida() || !puntosPositivos(c.MaximoTotal) {
+	v2 := c.Esquema == EsquemaReglasV2
+	if (c.Esquema != EsquemaReglas && !v2) || c.Duplicados != "bloquear" || c.MomentoRedondeo != "por_regla" || c.SeleccionElementos != "mayor_unidad" || !c.FechaCorteInclusiva.EsValida() || !topeValido(c.MaximoTotal, v2) || (v2 && (!opaca(c.PlazaRef, "pla_") || !opaca(c.CategoriaRef, "cat_"))) || (!v2 && (c.PlazaRef != "" || c.CategoriaRef != "")) {
 		return fallo("politica_incompleta")
 	}
 	if _, err := reglasbaremo.NuevaIdentidadConjuntoReglasBaremo(c.Referencia, c.Version, c.ConvocatoriaRef, c.ExpedienteRef); err != nil {
@@ -168,6 +200,10 @@ func (c Conjunto) Validar() error {
 	dependencias := []Dependencia{c.Bases}
 	secciones := make(map[string]bool)
 	refs := map[string]bool{c.Referencia: true, c.ConvocatoriaRef: true, c.ExpedienteRef: true}
+	if v2 {
+		refs[c.CategoriaRef] = true
+		refs[c.PlazaRef] = true
+	}
 	registrar := func(ref string) bool {
 		if refs[ref] {
 			return false
@@ -180,7 +216,7 @@ func (c Conjunto) Validar() error {
 	}
 	for i, s := range c.Secciones {
 		dependencias = append(dependencias, s.Definicion)
-		if !patronClave.MatchString(s.Clave) || !puntosPositivos(s.MaximoPuntos) || s.Definicion.validar() != nil || !registrar(s.Definicion.Referencia) {
+		if !patronClave.MatchString(s.Clave) || !topeValido(s.MaximoPuntos, v2) || s.Definicion.validar() != nil || !registrar(s.Definicion.Referencia) {
 			return fallo("seccion_invalida")
 		}
 		if i > 0 && c.Secciones[i-1].Clave >= s.Clave {
@@ -193,15 +229,42 @@ func (c Conjunto) Validar() error {
 	for i, r := range c.Reglas {
 		dependencias = append(dependencias, r.Definicion, r.Catalogo)
 		pareja := r.Familia + ":" + r.Clase
-		if !patronClave.MatchString(r.Clave) || !patronClave.MatchString(r.Clase) || !secciones[r.SeccionClave] || !familiaUnidad(r.Familia, r.Unidad) || !r.Redondeo.EsValido() || !puntosPositivos(r.PuntosPorUnidad) || !puntosPositivos(r.MaximoPuntos) || r.MinimoUnidades == nil || !r.MinimoUnidades.EsValido() || r.MinimoUnidades.Numerador() < 0 || !racionalPositivo(r.MaximoUnidades) || r.MaximoElementos == nil || *r.MaximoElementos == 0 || *r.MaximoElementos > 2048 {
+		if !patronClave.MatchString(r.Clave) || !patronClave.MatchString(r.Clase) || !secciones[r.SeccionClave] || !familiaUnidad(r.Familia, r.Unidad) || !r.Redondeo.EsValido() || !puntosPositivos(r.PuntosPorUnidad) || !topeValido(r.MaximoPuntos, v2) || r.MinimoUnidades == nil || !r.MinimoUnidades.EsValido() || r.MinimoUnidades.Numerador() < 0 || !unidadesValidas(r.MaximoUnidades, v2) || !elementosValidos(r.MaximoElementos, v2) {
 			return fallo("regla_incompleta")
 		}
 		if r.Definicion.validar() != nil || r.Catalogo.validar() != nil || !registrar(r.Definicion.Referencia) {
 			return fallo("dependencia_invalida")
 		}
-		cmp, _ := r.MinimoUnidades.Comparar(*r.MaximoUnidades)
-		if cmp > 0 {
-			return fallo("limites_incompatibles")
+		if !v2 && (r.Temporal != nil || len(r.ConceptosRelacionados) != 0) {
+			return fallo("version_regla_incompatible")
+		}
+		if v2 && r.Familia == "formacion" {
+			if r.Temporal == nil || !r.Temporal.DesdeBonificacion.EsValida() || !puntosPositivos(&r.Temporal.PuntosRecientes) || (r.Temporal.EfectoAnterior != "excluir" && r.Temporal.EfectoAnterior != "bonificar") {
+				return fallo("politica_formacion_incompleta")
+			}
+			cmp, _ := r.Temporal.DesdeBonificacion.Comparar(c.FechaCorteInclusiva)
+			if cmp > 0 {
+				return fallo("ventana_formacion_invalida")
+			}
+			if r.Temporal.EfectoAnterior == "bonificar" && r.Temporal.PuntosRecientes.Micropuntos() <= r.PuntosPorUnidad.Micropuntos() {
+				return fallo("bonificacion_formacion_invalida")
+			}
+			if len(r.ConceptosRelacionados) == 0 || len(r.ConceptosRelacionados) > 256 {
+				return fallo("relacion_formacion_incompleta")
+			}
+			for j, concepto := range r.ConceptosRelacionados {
+				if !patronReferencia.MatchString(concepto) || (j > 0 && r.ConceptosRelacionados[j-1] >= concepto) {
+					return fallo("relacion_formacion_invalida")
+				}
+			}
+		} else if v2 && (r.Temporal != nil || len(r.ConceptosRelacionados) != 0) {
+			return fallo("politica_formacion_fuera_seccion")
+		}
+		if r.MaximoUnidades != nil {
+			cmp, _ := r.MinimoUnidades.Comparar(*r.MaximoUnidades)
+			if cmp > 0 {
+				return fallo("limites_incompatibles")
+			}
 		}
 		if i > 0 && c.Reglas[i-1].Clave >= r.Clave || parejas[pareja] {
 			return fallo("reglas_ambiguas")
@@ -220,7 +283,8 @@ func (c Conjunto) Validar() error {
 	return nil
 }
 func (e Entrada) Validar() error {
-	if e.Esquema != EsquemaEntrada || !opaca(e.Referencia, "ent_") || e.Version == 0 || e.Version > 1_000_000_000 || e.Meritos == nil || len(e.Meritos) > 2048 {
+	v2 := e.Esquema == EsquemaEntradaV2
+	if (e.Esquema != EsquemaEntrada && !v2) || !opaca(e.Referencia, "ent_") || e.Version == 0 || e.Version > 1_000_000_000 || e.Meritos == nil || len(e.Meritos) > 2048 {
 		return fallo("entrada_invalida")
 	}
 	dependencias := make([]Dependencia, 0, len(e.Meritos)*3)
@@ -228,6 +292,25 @@ func (e Entrada) Validar() error {
 		dependencias = append(dependencias, m.Hecho, m.Evidencia, m.Catalogo)
 		if !opaca(m.Referencia, "mer_") || !patronClave.MatchString(m.Clase) || (m.Familia != "formacion" && m.Familia != "titulacion" && m.Familia != "otros") || m.Hecho.validar() != nil || m.Evidencia.validar() != nil || m.Catalogo.validar() != nil {
 			return fallo("merito_invalido")
+		}
+		if !v2 && (m.TipoHecho != "" || m.ConceptoRef != "" || m.OrigenRef != "") {
+			return fallo("version_merito_incompatible")
+		}
+		if v2 {
+			switch m.Familia {
+			case "formacion":
+				if (m.TipoHecho != "curso_asistencia" && m.TipoHecho != "curso_superacion") || !patronReferencia.MatchString(m.ConceptoRef) || !opaca(m.OrigenRef, "ori_") {
+					return fallo("hecho_formacion_invalido")
+				}
+			case "titulacion":
+				if m.TipoHecho != "titulacion" || !patronReferencia.MatchString(m.ConceptoRef) || !opaca(m.OrigenRef, "ori_") {
+					return fallo("hecho_titulacion_invalido")
+				}
+			default:
+				if m.TipoHecho != "" || m.ConceptoRef != "" || m.OrigenRef != "" {
+					return fallo("tipo_hecho_invalido")
+				}
+			}
 		}
 		if i > 0 && e.Meritos[i-1].Referencia >= m.Referencia {
 			return fallo("orden_no_canonico")
