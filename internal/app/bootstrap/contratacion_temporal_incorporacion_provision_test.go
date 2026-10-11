@@ -88,6 +88,39 @@ func TestIncorporacionB2CapturaConcurrenteNoDuplicaLectura(t *testing.T) {
 	}
 }
 
+func TestIncorporacionB2CapturaNoComparteCamposNiObligacionesConFuente(t *testing.T) {
+	a, ctx, lector := escenarioCapturaAsignacionB2Prueba(t)
+	perfil := a.perfiles.b2[ct.AccionLeerPlanNominalB2]
+	perfil.plantilla.VersionRol.Concesiones[0].Obligaciones = []string{"registrar_auditoria"}
+	publicada := lector.base.publicadas[perfil.perfilRef()]
+	publicada.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(perfil.plantilla)
+	campoOriginal := publicada.instantanea.VersionRol.Concesiones[0].CamposPermitidos[0]
+	lector.base.publicadas[perfil.perfilRef()] = publicada
+	if _, err := a.actor(ctx, ct.AccionLeerPlanNominalB2); err != nil {
+		t.Fatal(err)
+	}
+	holder := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+	concesion := holder.asignacionesB2[perfil].instantanea.VersionRol.Concesiones[0]
+	var grupo sync.WaitGroup
+	grupo.Go(func() {
+		for range 1000 {
+			publicada.instantanea.VersionRol.Concesiones[0].CamposPermitidos[0] = "campo_del_origen"
+			publicada.instantanea.VersionRol.Concesiones[0].Obligaciones[0] = "obligacion_del_origen"
+		}
+	})
+	independiente := true
+	for range 1000 {
+		independiente = independiente && concesion.CamposPermitidos[0] == campoOriginal && concesion.Obligaciones[0] == "registrar_auditoria"
+	}
+	grupo.Wait()
+	if !independiente || concesion.CamposPermitidos[0] != campoOriginal || concesion.Obligaciones[0] != "registrar_auditoria" {
+		t.Fatal("la fuente alteró campos u obligaciones después de capturarlos")
+	}
+	if lector.lecturas != 1 {
+		t.Fatalf("comprobación de independencia releyó %d veces", lector.lecturas)
+	}
+}
+
 func TestIncorporacionB2OtraPeticionRechazaAsignacionRevocada(t *testing.T) {
 	for _, caso := range []string{"revocada", "rol_retirado", "ambitos_restringidos", "acto_ajeno", "lector_caido"} {
 		t.Run(caso, func(t *testing.T) {
