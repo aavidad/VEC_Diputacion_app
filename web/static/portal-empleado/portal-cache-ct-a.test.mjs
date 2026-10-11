@@ -4,10 +4,10 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261010-ct-vinculo-rpt-cohorte-v10";
+const versionCoordinador = "20261011-informe-legible-v1";
 const versionCircuito = "20261010-ct-vinculo-rpt-cohorte-v10";
-const versionVista = "20261010-ct-vinculo-rpt-cohorte-v10";
-const versionVistaPortal = "20261010-ct-vinculo-rpt-cohorte-v10";
+const versionVista = "20261011-informe-legible-v1";
+const versionVistaPortal = "20261011-informe-legible-v1";
 const versionAdaptador = "20261010-ct-vinculo-rpt-cohorte-v10";
 const versionRender = "20261010-ct-vinculo-rpt-cohorte-v10";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
@@ -79,7 +79,7 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
     await Promise.all(rutas.map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const version = "20261007-pantallas-textos-final-v1";
   const cohorteCT = "20261010-ct-vinculo-rpt-cohorte-v10";
-  exigirVersiones(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", version);
+  exigirVersiones(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", versionVista);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteCT);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/adaptador-http-expedientes.js", versionAdaptador);
   for (const hoja of ["./modulos/documentos/vista.js", "./modulos/documentos/cliente-http.js"])
@@ -114,8 +114,8 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = cohorte;
   const cohorteIdioma = "20261010-ct-vinculo-rpt-cohorte-v10";
-  const cohorteEntrada = "20261010-ct-vinculo-rpt-cohorte-v10";
-  const cohorteFicha = cohorteNavegacion;
+  const cohorteEntrada = "20261011-informe-legible-v1";
+  const cohorteFicha = versionVista;
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
     ["/portal-empleado/portal-modulos-coordinador.js", "20261008-ct-inicio-v1"],
@@ -163,7 +163,7 @@ test("la ficha compartible y su aviso usan una única cohorte empaquetada", asyn
     "../../interno.manifest", "../../produccion.manifest", "cache-publica-v1.json",
   ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const cohorte = "20261008-r-fichas-idioma-nav-v1";
-  const entrada = "20261010-ct-vinculo-rpt-cohorte-v10";
+  const entrada = "20261011-informe-legible-v1";
   exigirVersiones(html, "/portal-empleado/portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(portal, "./portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(coordinador, "./portal-ct-ruta-ficha.js", cohorte);

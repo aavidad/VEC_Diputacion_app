@@ -23,7 +23,7 @@ import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedient
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261011-informe-legible-v1";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261010-ct-vinculo-rpt-cohorte-v10";

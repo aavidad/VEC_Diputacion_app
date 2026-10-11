@@ -5,7 +5,7 @@ import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=2026100
 import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v6";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261011-informe-legible-v1";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
