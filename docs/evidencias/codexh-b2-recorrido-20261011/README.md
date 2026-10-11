@@ -71,6 +71,38 @@ Las mediciones del 409 y 503 describen esas puertas; no estiman un plan preparad
 
 ## Reproducción y siguiente corte
 
+Los siguientes cuerpos conservan los datos del caso 94014 y sustituyen solo la clave de idempotencia por `CLAVE_ORIGINAL_EXTERNA`. Para un replay hay que aportar la clave privada original de **cada** operación; una clave nueva no recupera la misma actuación. El alta usa el vínculo único de petición y versión y no trae una clave libre. Las referencias de catálogo y sus huellas corresponden a esta instalación y deben cotejarse con las preparaciones autorizadas.
+
+| Actor mTLS | Método y ruta | JSON exacto del caso | Versión esperada |
+| --- | --- | --- | ---: |
+| Solicitante | POST `/api/vec/contratacion-temporal/peticiones-centro/operaciones` | [Presentación](comandos/01-presentar.json) | — |
+| Ratificador | POST `/api/vec/contratacion-temporal/peticiones-centro/operaciones` | [Ratificación](comandos/02-ratificar.json) | 1 |
+| RRHH | POST `/api/vec/contratacion-temporal/peticiones-centro/rrhh` | [Alta](comandos/03-alta.json) | Petición 2 |
+| RRHH | POST `/api/vec/contratacion-temporal/analisis/registros` | [Análisis](comandos/04-analisis.json) | 1 |
+| RRHH | POST `/api/vec/contratacion-temporal/cobertura/decisiones` | [Cobertura](comandos/05-cobertura.json) | 2 |
+| RRHH | POST `/api/vec/contratacion-temporal/asignaciones` | [Asignación](comandos/06-asignacion.json) | 3 |
+| RRHH | POST `/api/vec/contratacion-temporal/informes-juridicos/preparaciones` | [Informe](comandos/07-informe.json) | 4 |
+| Intervención; RRHH para la denegación | POST `/api/vec/contratacion-temporal/fiscalizaciones/resultados` | [Fiscalización](comandos/08-fiscalizacion.json) | 5 |
+
+El siguiente comando ilustra la recuperación de análisis. `ORIGEN_CLON`, `CA_PRIVADA`, `CERTIFICADO_ACTOR`, `CLAVE_MTLS_ACTOR` y `CLAVE_ORIGINAL_ANALISIS` se aportan fuera de Git. El origen debe ser el loopback del clon reservado. La clave mTLS corresponde a RRHH; para cada otra operación se elige el certificado nominal de la tabla.
+
+```sh
+umask 077
+cuerpo_privado=$(mktemp)
+jq --arg clave "$CLAVE_ORIGINAL_ANALISIS" '.clave_idempotencia = $clave' \
+  docs/evidencias/codexh-b2-recorrido-20261011/comandos/04-analisis.json > "$cuerpo_privado"
+curl --silent --show-error --max-time 20 \
+  --cacert "$CA_PRIVADA" --cert "$CERTIFICADO_ACTOR" --key "$CLAVE_MTLS_ACTOR" \
+  --header 'Accept: application/json' --header 'Content-Type: application/json' \
+  --data-binary "@$cuerpo_privado" \
+  "$ORIGEN_CLON/api/vec/contratacion-temporal/analisis/registros"
+rm "$cuerpo_privado"
+```
+
+Para la lectura posterior usar POST `/api/vec/contratacion-temporal/expedientes/consultas` con `{"expediente_ref":"expediente:ct:1fe2c0eda847e5e11e4ab7b15953df0b7a19a525264f3cf2381890e3d0d2e85b","version_observada":5}`. La propuesta de cobertura se consulta mediante POST `/api/vec/contratacion-temporal/cobertura/propuesta` con la misma referencia y `version_esperada:2`, en el estado de preparación previo a decidir. Ambas son lecturas y llevan `Accept: application/json` y `Content-Type: application/json`.
+
+El bloqueo de candidatos se reproduce mediante GET `/api/vec/bolsa/bolsas/bolsa:administrativo:2026-09-17/candidatos?limite=50`, con mTLS de RRHH y `Accept: application/json`. El bloqueo de firma se reproduce con el cuerpo de fiscalización y mTLS de Intervención mientras el expediente siga en v5 y no conste firma de remisión. La misma ruta con RRHH devuelve la denegación 403. Estas dos solicitudes no completan la fiscalización.
+
 Reutilizar los contratos de `scripts/recorridos/centro_rrhh/recorrer.py`, `scripts/recorridos/analisis_informe/recorrer.py` y el lector sin firma de `scripts/recorridos/propuesta_firma/recorrer.py`. Los dos primeros guiones necesitan adaptar su ejecución manual a los campos actuales de número de personas, puesto solicitado y número MOAD; sus guardas no se cambiaron.
 
 Para recuperar este caso, aportar fuera de Git el origen del clon, su CA, certificados, comandos y recibos privados originales. Ejecutar únicamente los replays conservados, consultar el detalle y comparar los archivos de historia. Una ejecución nueva debe elegir juntas la categoría, bolsa, puesto, plaza, publicación, unidad y permisos antes de presentar otra petición.
