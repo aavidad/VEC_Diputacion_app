@@ -17,16 +17,16 @@ import {
 import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20261007-pantallas-textos-final-v1";
 import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-r-traza-idioma-v1";
-import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261010-ct-bolsa-cohorte-v10";
+import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261011-bolsa-contacto-v12";
 import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261008-r-traza-idioma-v1";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261009-instantes-bolsa-v1";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261009-instantes-bolsa-v1";
 import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261007-pantallas-textos-final-v1";
 import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
-import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261010-ct-bolsa-cohorte-v10";
-import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261010-ct-bolsa-cohorte-v10";
-import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261010-ct-bolsa-cohorte-v10";
+import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261011-bolsa-contacto-v12";
+import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261011-bolsa-contacto-v12";
+import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261011-bolsa-contacto-v12";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 const FILTROS_GLOBALES = new Set(["todos", "disponible", "renuncia", "llamamientos"]);
@@ -1024,7 +1024,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           && estado.origenLlamamientoB7?.bolsa_ref === estado.bolsaSeleccionada ? estado.origenLlamamientoB7 : null;
         const { seguimiento: _sinSeguimiento, ...filtros } = estado.filtrosBolsa || {};
         estado.filtrosBolsa = { ...filtros, estado: "", texto: "", nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "", seleccion_total: false, cursoresPagina: [""],
-          origen: origen ? Object.freeze({ referencia: origen.referencia, ...(origen.centro ? { centro: origen.centro } : {}), ...(origen.fecha_inicio ? { fecha_inicio: origen.fecha_inicio } : {}) }) : null } };
+          origen: origen ? Object.freeze({ expediente_ref: origen.expediente_ref, referencia: origen.referencia, ...(origen.centro ? { centro: origen.centro } : {}), ...(origen.fecha_inicio ? { fecha_inicio: origen.fecha_inicio } : {}) }) : null } };
         void cargarPlazoRespuestaB7(estado.filtrosBolsa.nuevo_llamamiento);
         controladorCorreoB7.prepararFlujo(estado.filtrosBolsa.nuevo_llamamiento);
         renderizar();

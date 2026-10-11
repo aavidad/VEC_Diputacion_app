@@ -6,7 +6,7 @@ import {
   registrarContactoIntento,
   renderizarIntentosContacto,
   rutaContactosCandidato,
-} from "./portal-bolsas-intentos.js?v=20261010-ct-bolsa-cohorte-v10";
+} from "./portal-bolsas-intentos.js?v=20261011-bolsa-contacto-v12";
 import { MENSAJES_INTENTOS, crearTraductorIntentos } from "./portal-i18n-intentos.js";
 
 const candidato = { participacion_ref: "participacion:1", estado_clave: "disponible", ultimo_llamamiento: { llamamiento_ref: "llamamiento:1" } };
@@ -24,7 +24,7 @@ const respuesta = (status, cuerpo) => ({ ok: status >= 200 && status < 300, stat
 
 test("el catálogo i18n de intentos está completo y rechaza claves ajenas", () => {
   const t = crearTraductorIntentos();
-  assert.equal(t("registrado"), "Contacto registrado.");
+  assert.equal(t("registrado"), "Registrado.");
   assert.throws(() => t("inexistente"));
   assert.throws(() => crearTraductorIntentos({ ...MENSAJES_INTENTOS, titulo: "" }));
 });
@@ -88,7 +88,7 @@ test("cada rechazo del registro tiene su propio mensaje: nota con dato personal,
 test("el justificante muestra el aviso de día no hábil que devolvió el propio registro", () => {
   const contactado = { ...intentos, contactado: true, avisos: [] };
   const salida = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: contactado, recibo: "recibo:contacto:1", avisosRegistro: ["dia_no_habil", "<inventado>"] } });
-  assert.match(salida, /<p class="mensaje-exito" role="status">Contacto registrado\.[^]*Avisos: <span class="estado-chip aviso">Día no hábil<\/span><\/p>/u);
+  assert.match(salida, /<p class="mensaje-exito" role="status">Registrado\.[^]*Avisos: <span class="estado-chip aviso">Día no hábil<\/span><\/p>/u);
   assert.equal(salida.match(/role="status"/gu).length, 1);
   assert.doesNotMatch(salida, /inventado/u);
   const sinAviso = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: contactado, recibo: "recibo:contacto:1", avisosRegistro: [] } });

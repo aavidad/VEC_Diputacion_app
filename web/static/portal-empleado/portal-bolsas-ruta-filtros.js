@@ -6,7 +6,8 @@ const CLAVE_BOLSA = "bolsa_ref";
 const CLAVE_ESTADO = "estado";
 // Seguimiento por teléfono de un llamamiento ya emitido.
 const CLAVE_SEGUIMIENTO = "seguimiento";
-// Origen de un llamamiento nuevo abierto desde una petición de personal.
+// Origen de un llamamiento nuevo abierto desde una petición de personal. Junto
+// al seguimiento solo sirve para precargar el siguiente llamamiento.
 const CLAVES_ORIGEN = Object.freeze({
   expediente_ref: "origen_expediente",
   referencia: "origen_referencia",
@@ -76,7 +77,7 @@ export function leerGlobalBolsaCompartible(search) {
 
 export function rutaCandidatosBolsaCompartible(search, bolsaRef, estado = "", { seguimiento = "", origen = null } = {}) {
   if (!referenciaValida(bolsaRef) || !estadoValido(estado)) throw new TypeError("filtro de Bolsa no válido");
-  if (seguimiento && (!referenciaValida(seguimiento) || estado || origen)) throw new TypeError("seguimiento de Bolsa no válido");
+  if (seguimiento && (!referenciaValida(seguimiento) || estado)) throw new TypeError("seguimiento de Bolsa no válido");
   const origenValido = origen ? origenLlamamientoValido(origen) : null;
   if (origen && (!origenValido || estado)) throw new TypeError("origen del llamamiento no válido");
   const parametros = parametrosDe(search);
@@ -128,7 +129,7 @@ export function leerCandidatosBolsaCompartible(search, bolsasAutorizadas) {
   const crudo = Object.fromEntries(Object.entries(CLAVES_ORIGEN).map(([campo, clave]) => [campo, unico(parametros, clave)]));
   const hayOrigen = Object.values(crudo).some((valor) => valor !== undefined);
   if (parametros.has("cursor") || ((estado || seguimiento || hayOrigen) && bolsaRef === undefined)
-    || (seguimiento && (estado || hayOrigen)) || (hayOrigen && estado)) {
+    || (seguimiento && estado) || (hayOrigen && estado)) {
     throw new TypeError("filtro de Bolsa duplicado o incompleto");
   }
   if (bolsaRef === undefined) return null;

@@ -628,7 +628,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261008-documentos-ficha-v1");
-  for (const ruta of ["portal-preferencias-integracion.js", "portal-preferencias.js", "portal-preferencias-api.js"]) versionesEspeciales.set(ruta, "20261010-http-codigo-v1"); // http.js con código 409/422
+  for (const ruta of ["portal-preferencias-integracion.js", "portal-preferencias.js", "portal-preferencias-api.js"]) versionesEspeciales.set(ruta, "20261010-http-carga-v1"); // http.js con código 409/422
   for (const ruta of ["portal-modulos-coordinador.js", "portal.js"])
     versionesEspeciales.set(ruta, "20261008-documentos-ficha-v2");
   for (const ruta of [
@@ -748,7 +748,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
     "modulos/contratacion-temporal/vista-borradores-publicados.js", "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js"]) versionesEspeciales.set(ruta, "20261009-borradores-fase-v3");
-  versionesEspeciales.set("portal-bolsas-intentos.js", "20261010-ct-bolsa-cohorte-v10");
+  versionesEspeciales.set("portal-bolsas-intentos.js", "20261009-ayuda-contacto-v1");
   // La solicitud del centro y el alta CT comparten contrato y renderer.
   for (const ruta of ["modulos/contratacion-temporal/alta-renderer-puro.js",
     "modulos/contratacion-temporal/cliente-http-alta.js", "modulos/contratacion-temporal/contrato.js",
@@ -796,14 +796,19 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-render.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vinculo-categoria-rpt.js",
     "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261010-ct-bolsa-cohorte-v10");
-  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261010-ct-bolsa-cohorte-v10");
+  ]) versionesEspeciales.set(ruta, "20261011-bolsa-contacto-v12");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261011-bolsa-contacto-v12");
   for (const ruta of ["portal-bolsas-ruta-filtros.js", "portal-ct-ruta-filtro.js",
-    "portal-llamamientos-selector.js", "portal-bolsas-global.js", "portal-bolsas-seguimiento.js",
+    "portal-llamamientos-selector.js", "portal-bolsas-global.js", "portal-bolsas-seguimiento.js", "portal-bolsas-intentos.js",
     "portal-inicio.js", "portal-bolsas-api.js", "portal-panel-interno.js",
     "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js", "portal-menu-bolsa.js"])
-    versionesEspeciales.set(ruta, "20261010-ct-bolsa-cohorte-v10");
+    versionesEspeciales.set(ruta, "20261011-bolsa-contacto-v12");
+  // Botón de carga CONVOCA en la cabecera de Bolsa: panel y entrada en su propia cohorte.
+  for (const ruta of ["portal-panel-interno.js", "portal.js"]) versionesEspeciales.set(ruta, "20261011-bolsa-contacto-v12");
+  // El vínculo de categoría RPT renueva la entrada después de la carga CONVOCA.
+  versionesEspeciales.set("portal.js", "20261011-bolsa-contacto-v12");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
