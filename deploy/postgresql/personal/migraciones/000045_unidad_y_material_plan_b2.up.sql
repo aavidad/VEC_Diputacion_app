@@ -20,6 +20,22 @@ BEGIN
  THEN RAISE EXCEPTION 'Personal45: PostgreSQL incompatible' USING ERRCODE='55000'; END IF;
  IF pg_catalog.to_regclass('vec_personal.org_nodo_historia') IS NULL
  THEN RAISE EXCEPTION 'Personal45: Organización de Personal ausente' USING ERRCODE='55000'; END IF;
+ IF pg_catalog.to_regclass('vec_personal.control_unidad_bootstrap_admin_v1') IS NULL
+ OR (SELECT relowner FROM pg_catalog.pg_class WHERE oid='vec_personal.control_unidad_bootstrap_admin_v1'::regclass)
+    IS DISTINCT FROM 'vec_personal_propietario'::regrole
+ OR NOT (SELECT relrowsecurity AND relforcerowsecurity FROM pg_catalog.pg_class
+    WHERE oid='vec_personal.control_unidad_bootstrap_admin_v1'::regclass)
+ OR (SELECT count(*) FROM vec_personal.control_unidad_bootstrap_admin_v1 WHERE singleton AND generacion>=1)<>1
+ OR pg_catalog.to_regprocedure('vec_personal.avanzar_barrera_unidad_bootstrap_admin_v1()') IS NULL
+ OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(
+    'vec_personal.avanzar_barrera_unidad_bootstrap_admin_v1()'::regprocedure),'UTF8')),'hex')
+    IS DISTINCT FROM 'c9a87220312d71429351aa267412dafa75e357d3a7553475c6f3dcfa10c2704d'
+ OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_trigger
+    WHERE tgrelid='vec_personal.org_nodo_historia'::regclass
+      AND tgname='barrera_unidad_bootstrap_admin_v1'
+      AND tgfoid='vec_personal.avanzar_barrera_unidad_bootstrap_admin_v1()'::regprocedure
+      AND tgtype=6 AND tgenabled IN ('O','A') AND NOT tgisinternal AND tgnargs=0)
+ THEN RAISE EXCEPTION 'Personal45: barrera de publicación Personal31 incompatible' USING ERRCODE='55000'; END IF;
  f:=pg_catalog.to_regprocedure('vec_personal.registrar_acto_empleado_b2_interna(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  IF f IS NULL
  OR (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=f)<>'vec_personal_propietario'::regrole
@@ -28,7 +44,7 @@ BEGIN
  OR (SELECT proconfig::text FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM '{"search_path=pg_catalog, pg_temp",row_security=on,lock_timeout=2s}'
  THEN RAISE EXCEPTION 'Personal45: preimagen alta incompatible' USING ERRCODE='55000'; END IF;
  actual:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(f),'UTF8')),'hex');
- IF actual='74c1f4df1e228f3a461a08618ecdf5ab7acd9024fd7633d293f7352a2db649b3' THEN RAISE EXCEPTION 'Personal45: ya aplicada' USING ERRCODE='55000'; END IF;
+ IF actual='9ba1f3c54a9140a2dfe6dca5ee6a55637f6a0deafb4e8dbbff88a4e82be2d258' THEN RAISE EXCEPTION 'Personal45: ya aplicada' USING ERRCODE='55000'; END IF;
  IF actual IS DISTINCT FROM '0b0efafebb10439c61a4b5401238ae4efec028923be3f97e313265514bf2c1a6'
  THEN RAISE EXCEPTION 'Personal45: preimagen alta divergente' USING ERRCODE='55000'; END IF;
  f:=pg_catalog.to_regprocedure('vec_personal.registrar_acto_plan_incorporacion_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
@@ -261,6 +277,13 @@ BEGIN
   v_relacion:='rel_'||pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-','');
   v_pep:='pep_'||pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-','');
   v_unidad:=m->>'unidad_ref';
+  -- Personal45: barrera existente Personal31. Una publicación posterior a
+  -- esta instantánea produce 40001; una publicación posterior al bloqueo
+  -- espera a COMMIT. No se captura ni se reintenta dentro de la función.
+  PERFORM c.generacion FROM vec_personal.control_unidad_bootstrap_admin_v1 c
+    WHERE c.singleton FOR SHARE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'barrera de unidad ausente' USING ERRCODE='42501'; END IF;
   -- Personal45: solo un nodo publicado actual puede acreditar esta unidad.
   -- Elegir su última revisión antes de comprobar ámbito, retirada y vigencia:
   -- una revisión nueva no permite rescatar la anterior. El replay ya retornó.
@@ -575,7 +598,7 @@ BEGIN
  OR (SELECT proconfig::text FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM '{"search_path=pg_catalog, pg_temp",row_security=on,lock_timeout=2s}'
  THEN RAISE EXCEPTION 'Personal45: postimagen alta incompatible' USING ERRCODE='55000'; END IF;
  actual:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(f),'UTF8')),'hex');
- IF actual IS DISTINCT FROM '74c1f4df1e228f3a461a08618ecdf5ab7acd9024fd7633d293f7352a2db649b3'
+ IF actual IS DISTINCT FROM '9ba1f3c54a9140a2dfe6dca5ee6a55637f6a0deafb4e8dbbff88a4e82be2d258'
  THEN RAISE EXCEPTION 'Personal45: postimagen alta divergente' USING ERRCODE='55000'; END IF;
  f:=pg_catalog.to_regprocedure('vec_personal.registrar_acto_plan_incorporacion_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  IF f IS NULL

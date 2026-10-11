@@ -20,7 +20,7 @@ DECLARE f regprocedure; a record; h text;
 BEGIN
  FOR a IN SELECT * FROM (VALUES
  ('vec_personal.registrar_acto_empleado_b2_interna(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-  '74c1f4df1e228f3a461a08618ecdf5ab7acd9024fd7633d293f7352a2db649b3',false),
+  '9ba1f3c54a9140a2dfe6dca5ee6a55637f6a0deafb4e8dbbff88a4e82be2d258',false),
  ('vec_personal.registrar_acto_plan_incorporacion_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'ed3701c97406915c0cef13161a861fe44d2dd133aa981b4354ffc4ac6881a485',true)) x(firma,huella,ejecutor) LOOP
   f:=a.firma::regprocedure;
@@ -63,7 +63,9 @@ BEGIN
  'vec_personal.registrar_acto_empleado_b2_interna(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
  guarda:='  SELECT count(*) INTO v_nodos'||split_part(split_part(fuente,'  SELECT count(*) INTO v_nodos',2),'  v_catalogo:=',1);
  IF guarda='' OR strpos(fuente,'IF FOUND THEN')>strpos(fuente,'-- Personal45:')
-    OR strpos(fuente,'consumir_registro_empleado_b2_v3_atestada')>strpos(fuente,'IF FOUND THEN') THEN
+    OR strpos(fuente,'consumir_registro_empleado_b2_v3_atestada')>strpos(fuente,'IF FOUND THEN')
+    OR strpos(fuente,'IF FOUND THEN')>strpos(fuente,'WHERE c.singleton FOR SHARE;')
+    OR strpos(fuente,'WHERE c.singleton FOR SHARE;')>strpos(fuente,'  SELECT count(*) INTO v_nodos') THEN
   RAISE EXCEPTION 'P45: extracción u orden consumo/replay/unidad divergente'; END IF;
  FOR caso IN SELECT * FROM (VALUES
  ('valida','ok'),('ajena','42501'),('inexistente','42501'),('retirada','42501'),
