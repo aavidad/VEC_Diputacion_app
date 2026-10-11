@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"time"
 
@@ -101,18 +102,21 @@ func (s *ServicioFirmantesMerito) Preparar(ctx context.Context, q SolicitudFirma
 	} else {
 		anterior, leerErr := s.repositorio.ObtenerActualAutorizado(ctx, aut, q.Material.DecisionRef)
 		if leerErr != nil {
+			if errors.Is(leerErr, ports.ErrPlanFirmantesConflicto) {
+				return s.recuperarTrasConflicto(ctx, q, solicitudAutoridad)
+			}
 			return ports.ResultadoGuardarPlanFirmantes{}, leerErr
 		}
 		if anterior.Material.Validar() != nil || anterior.VersionRoster != q.VersionRosterEsperada ||
 			anterior.HuellaRosterSHA256 != q.HuellaAnteriorSHA256 || anterior.Material.HechoRef != q.Material.HechoRef {
-			return ports.ResultadoGuardarPlanFirmantes{}, ports.ErrPlanFirmantesConflicto
+			return s.recuperarTrasConflicto(ctx, q, solicitudAutoridad)
 		}
 		switch q.Accion {
 		case ports.AccionCambiarPlanFirmantes:
 			plan, err = anterior.NuevaVersionContenido(q.Material, s.catalogo, q.Firmantes)
 		case ports.AccionSustituirPlanFirmantes:
 			if !materialesSolicitudFirmantesIguales(q.Material, anterior.Material) {
-				return ports.ResultadoGuardarPlanFirmantes{}, ports.ErrPlanFirmantesConflicto
+				return s.recuperarTrasConflicto(ctx, q, solicitudAutoridad)
 			}
 			plan, err = anterior.SustituirFirmante(s.catalogo, q.SustituyeRef, q.Sustituto)
 		}
@@ -134,6 +138,9 @@ func (s *ServicioFirmantesMerito) Preparar(ctx context.Context, q SolicitudFirma
 		Autoridad: aut, Designaciones: designaciones}
 	resultado, err := s.repositorio.GuardarVersion(ctx, orden)
 	if err != nil {
+		if errors.Is(err, ports.ErrPlanFirmantesConflicto) {
+			return s.recuperarTrasConflicto(ctx, q, solicitudAutoridad)
+		}
 		return ports.ResultadoGuardarPlanFirmantes{}, err
 	}
 	if !domain.ReferenciaValida(resultado.ReciboRef) || !reflect.DeepEqual(resultado.Plan, clonarPlanFirmantes(plan)) {
@@ -141,6 +148,30 @@ func (s *ServicioFirmantesMerito) Preparar(ctx context.Context, q SolicitudFirma
 	}
 	resultado.Plan = clonarPlanFirmantes(resultado.Plan)
 	return resultado, nil
+}
+
+// Tras una ausencia observada, otra petición puede confirmar la misma clave
+// antes del SELECT o del CAS. Solo se permite una segunda recuperación, con
+// autoridad fresca y la preimagen exacta; no se repite la escritura.
+func (s *ServicioFirmantesMerito) recuperarTrasConflicto(ctx context.Context, q SolicitudFirmantesMerito,
+	solicitud ports.SolicitudAutoridadFirmantes) (ports.ResultadoGuardarPlanFirmantes, error) {
+	aut, err := s.autorizador.AutorizarPreparacionFirmantes(ctx, solicitud)
+	if err != nil {
+		return ports.ResultadoGuardarPlanFirmantes{}, err
+	}
+	if !autoridadFirmantesCoincide(aut, solicitud, q.Contexto.Contexto, s.reloj.Ahora().UTC()) {
+		return ports.ResultadoGuardarPlanFirmantes{}, ports.ErrPlanFirmantesNoDisponible
+	}
+	recuperada, existe, err := s.repositorio.RecuperarConfirmadaAutorizada(ctx, aut, q.ClaveIdempotencia)
+	if err != nil {
+		return ports.ResultadoGuardarPlanFirmantes{}, err
+	}
+	if !existe || !recuperacionFirmantesCoincide(recuperada, aut, q, s.catalogo) {
+		return ports.ResultadoGuardarPlanFirmantes{}, ports.ErrPlanFirmantesConflicto
+	}
+	out := recuperada.Resultado
+	out.Plan = clonarPlanFirmantes(out.Plan)
+	return out, nil
 }
 
 func recuperacionFirmantesCoincide(r ports.RecuperacionPlanFirmantes, a ports.AutoridadFirmantes, q SolicitudFirmantesMerito, c domain.CatalogoRolesFirmantes) bool {

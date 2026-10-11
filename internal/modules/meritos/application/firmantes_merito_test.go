@@ -65,13 +65,14 @@ func (d *designacionesFirmantesPrueba) ComprobarDesignacionesExactas(_ context.C
 }
 
 type repositorioFirmantesPrueba struct {
-	plan           domain.PlanFirmantesMerito
-	recibo         string
-	clave          string
-	operaciones    map[string]ports.RecuperacionPlanFirmantes
-	confirmaciones int
-	lecturas       int
-	recuperaciones int
+	plan              domain.PlanFirmantesMerito
+	recibo            string
+	clave             string
+	operaciones       map[string]ports.RecuperacionPlanFirmantes
+	confirmaciones    int
+	lecturas          int
+	recuperaciones    int
+	intercalarLectura func(*repositorioFirmantesPrueba)
 }
 
 func (r *repositorioFirmantesPrueba) RecuperarConfirmadaAutorizada(_ context.Context, a ports.AutoridadFirmantes, clave string) (ports.RecuperacionPlanFirmantes, bool, error) {
@@ -85,10 +86,59 @@ func (r *repositorioFirmantesPrueba) RecuperarConfirmadaAutorizada(_ context.Con
 
 func (r *repositorioFirmantesPrueba) ObtenerActualAutorizado(_ context.Context, _ ports.AutoridadFirmantes, ref string) (domain.PlanFirmantesMerito, error) {
 	r.lecturas++
+	if r.intercalarLectura != nil {
+		f := r.intercalarLectura
+		r.intercalarLectura = nil
+		f(r)
+	}
 	if r.plan.Material.DecisionRef != ref {
 		return domain.PlanFirmantesMerito{}, ports.ErrPlanFirmantesNoDisponible
 	}
 	return r.plan, nil
+}
+
+func TestFirmantesIntercaladoAusenciaConfirmacionYLecturaRecupera(t *testing.T) {
+	for _, distinta := range []bool{false, true} {
+		t.Run(map[bool]string{false: "misma_preimagen", true: "preimagen_distinta"}[distinta], func(t *testing.T) {
+			s, a, _, r := servicioFirmantesPrueba(t)
+			q := solicitudFirmantesPrueba(t)
+			inicial, err := s.Preparar(context.Background(), q)
+			if err != nil {
+				t.Fatal(err)
+			}
+			q.Accion, q.VersionRosterEsperada, q.HuellaAnteriorSHA256 = ports.AccionCambiarPlanFirmantes, 1, inicial.Plan.HuellaRosterSHA256
+			q.ClaveIdempotencia = "clave:firmantes:intercalado"
+			q.Material.DecisionVersion, q.Material.MotivoRef = 2, "motivo:revision:2"
+			q.Material.ContenidoSHA256, _ = domain.HuellaContenidoDecisionFirmantes(q.Material)
+			preimagen, _ := preimagenFirmantes(q)
+			huella := sha256.Sum256(preimagen)
+			r.intercalarLectura = func(r *repositorioFirmantesPrueba) {
+				plan, err := r.plan.NuevaVersionContenido(q.Material, s.catalogo, q.Firmantes)
+				if err != nil {
+					t.Fatal(err)
+				}
+				r.plan, r.confirmaciones = plan, r.confirmaciones+1
+				horquilla := hex.EncodeToString(huella[:])
+				if distinta {
+					horquilla = strings.Repeat("e", 64)
+				}
+				r.operaciones[persona+":"+q.ClaveIdempotencia] = ports.RecuperacionPlanFirmantes{
+					Accion: q.Accion, ActorRef: persona, ClaveIdempotencia: q.ClaveIdempotencia,
+					HuellaSolicitudSHA256: horquilla, VersionRosterEsperada: q.VersionRosterEsperada,
+					Resultado: ports.ResultadoGuardarPlanFirmantes{Plan: clonarPlanFirmantes(plan), ReciboRef: "recibo:intercalado"},
+				}
+			}
+			out, err := s.Preparar(context.Background(), q)
+			if distinta {
+				if !errors.Is(err, ports.ErrPlanFirmantesConflicto) || out.ReciboRef != "" || r.confirmaciones != 2 {
+					t.Fatalf("preimagen ajena se recupero: %+v, %v", out, err)
+				}
+			} else if err != nil || !out.Repetida || out.ReciboRef != "recibo:intercalado" ||
+				r.confirmaciones != 2 || r.lecturas != 1 || r.recuperaciones != 3 || a.llamadas != 3 {
+				t.Fatalf("carrera llego al CAS antes del replay: %+v, %v", out, err)
+			}
+		})
+	}
 }
 
 func (r *repositorioFirmantesPrueba) GuardarVersion(_ context.Context, o ports.OrdenGuardarPlanFirmantes) (ports.ResultadoGuardarPlanFirmantes, error) {
