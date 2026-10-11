@@ -47,7 +47,7 @@ func TestHandlerAnalisisPDFPorMTLS(t *testing.T) {
 			socket, cerrar := clamdFalso(t, contenido, "stream: OK", []string{version, version})
 			defer cerrar()
 			servicio, err := NuevoServicio(ConfiguracionServicio{
-				ConectorID: "analizador_test", ClamdSocket: socket,
+				ConectorID: "analizador_test", ClamdSocket: socket, Control: controlClamdSintetico(socket),
 				Bwrap: buscarHerramienta(t, "bwrap"), QPDF: buscarHerramienta(t, "qpdf"), Prlimit: buscarHerramienta(t, "prlimit"),
 				IdentidadesCliente: []string{propia}, MaxEdadFirmas: time.Hour,
 			})
@@ -146,7 +146,7 @@ func TestCapacidadesExigeFirmasVigentesYParserOperativo(t *testing.T) {
 			socket, cerrar := clamdFalso(t, []byte("sin lectura"), "stream: OK", []string{versionFalsa(caso.fecha, "27604")})
 			defer cerrar()
 			servicio, err := NuevoServicio(ConfiguracionServicio{
-				ConectorID: "analizador_test", ClamdSocket: socket,
+				ConectorID: "analizador_test", ClamdSocket: socket, Control: controlClamdSintetico(socket),
 				Bwrap: buscarHerramienta(t, "bwrap"), QPDF: buscarHerramienta(t, "qpdf"), Prlimit: buscarHerramienta(t, "prlimit"),
 				IdentidadesCliente: []string{propia}, MaxEdadFirmas: 24 * time.Hour,
 			})

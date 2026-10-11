@@ -29,8 +29,9 @@ func TestServicioMTLSIdentidadAjena(t *testing.T) {
 		return ruta
 	}
 	const propia = "spiffe://vec.test/analizador-cliente"
+	socket := filepath.Join(t.TempDir(), "no-usado.sock")
 	servicio, err := NuevoServicio(ConfiguracionServicio{
-		ConectorID: "analizador_test", ClamdSocket: filepath.Join(t.TempDir(), "no-usado.sock"),
+		ConectorID: "analizador_test", ClamdSocket: socket, Control: controlClamdSintetico(socket),
 		Bwrap: buscar("bwrap"), QPDF: buscar("qpdf"), Prlimit: buscar("prlimit"),
 		IdentidadesCliente: []string{propia}, MaxEdadFirmas: time.Hour,
 	})
@@ -84,6 +85,13 @@ func TestServicioMTLSIdentidadAjena(t *testing.T) {
 				t.Fatalf("estado=%d, esperado=%d", respuesta.StatusCode, caso.estado)
 			}
 		})
+	}
+}
+
+func controlClamdSintetico(socket string) *ClamdControlado {
+	return &ClamdControlado{
+		socket: socket, huellaPolitica: huella([]byte("politica-sintetica")),
+		terminado: make(chan error, 1),
 	}
 }
 
