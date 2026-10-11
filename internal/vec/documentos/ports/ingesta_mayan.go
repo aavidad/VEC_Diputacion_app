@@ -325,11 +325,12 @@ type LecturaCargaAdmitidaCustodia struct {
 	Contenido io.ReadCloser
 }
 
-// AbrirOriginalExacto reconsulta PG con otra decisión V3 y abre en S3 solo la
-// versión derivada de esa fila, cotejando la huella esperada del primer SELECT.
+// AbrirOriginalExacto liga el snapshot completo de la primera consulta en la
+// segunda decisión V3, reconsulta PG y abre S3 solo por objeto+versión de la
+// fila revalidada. El snapshot es expectativa, nunca fuente de key ni URL.
 type FuenteCargaAdmitidaCustodia interface {
 	ConsultarAdmitida(context.Context, SolicitudCargaAdmitidaCustodia) (DatosCargaAdmitidaCustodia, error)
-	AbrirOriginalExacto(context.Context, SolicitudCargaAdmitidaCustodia, string) (LecturaCargaAdmitidaCustodia, error)
+	AbrirOriginalExacto(context.Context, SolicitudCargaAdmitidaCustodia, DatosCargaAdmitidaCustodia) (LecturaCargaAdmitidaCustodia, error)
 }
 
 // AutoridadIngestaMayan obtiene una decisión nueva para la preimagen exacta.

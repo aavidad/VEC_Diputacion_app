@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
 	"strings"
@@ -11,6 +13,8 @@ import (
 	"vec-diputacion-granada/internal/vec/documentos/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
+
+var contenidoOriginalIngestaPrueba = strings.Repeat("A", 100)
 
 type repositorioIngestaPrueba struct {
 	ports.RepositorioIngestaMayan
@@ -134,13 +138,81 @@ type fuenteCargaCierreFallidoPrueba struct {
 func (f fuenteCargaCierreFallidoPrueba) ConsultarAdmitida(context.Context, ports.SolicitudCargaAdmitidaCustodia) (ports.DatosCargaAdmitidaCustodia, error) {
 	return f.datos, nil
 }
-func (f fuenteCargaCierreFallidoPrueba) AbrirOriginalExacto(context.Context, ports.SolicitudCargaAdmitidaCustodia, string) (ports.LecturaCargaAdmitidaCustodia, error) {
-	return ports.LecturaCargaAdmitidaCustodia{Datos: f.datos, Contenido: lectorCierreFallido{Reader: strings.NewReader("original")}}, nil
+func (f fuenteCargaCierreFallidoPrueba) AbrirOriginalExacto(context.Context, ports.SolicitudCargaAdmitidaCustodia, ports.DatosCargaAdmitidaCustodia) (ports.LecturaCargaAdmitidaCustodia, error) {
+	return ports.LecturaCargaAdmitidaCustodia{Datos: f.datos, Contenido: lectorCierreFallido{Reader: strings.NewReader(contenidoOriginalIngestaPrueba)}}, nil
 }
 
 type lectorCierreFallido struct{ *strings.Reader }
 
 func (lectorCierreFallido) Close() error { return errors.New("lectura S3 sin EOF verificado") }
+
+type fuenteContenidoIngestaPrueba struct {
+	datos     ports.DatosCargaAdmitidaCustodia
+	contenido string
+}
+
+func (f fuenteContenidoIngestaPrueba) ConsultarAdmitida(context.Context, ports.SolicitudCargaAdmitidaCustodia) (ports.DatosCargaAdmitidaCustodia, error) {
+	return f.datos, nil
+}
+func (f fuenteContenidoIngestaPrueba) AbrirOriginalExacto(context.Context, ports.SolicitudCargaAdmitidaCustodia, ports.DatosCargaAdmitidaCustodia) (ports.LecturaCargaAdmitidaCustodia, error) {
+	return ports.LecturaCargaAdmitidaCustodia{Datos: f.datos, Contenido: io.NopCloser(strings.NewReader(f.contenido))}, nil
+}
+
+func TestOriginalS3SeVerificaCompletoAntesDePOSTAunqueCustodioNoLea(t *testing.T) {
+	escenario := nuevoEscenarioOrdenAutorizacionV3Prueba(t)
+	datosActor, err := escenario.solicitud.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, datos := cargaAdmitidaIngestaPrueba(t, escenario.ahora, escenario.resultado.Contexto.PersonaRef)
+	for _, caso := range []struct {
+		nombre, contenido string
+		valido            bool
+	}{
+		{"truncado", contenidoOriginalIngestaPrueba[:99], false},
+		{"byte_extra", contenidoOriginalIngestaPrueba + "B", false},
+		{"sha_distinto", strings.Repeat("B", 100), false},
+		{"exacto", contenidoOriginalIngestaPrueba, true},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			repo := &repositorioIngestaPrueba{plan: p, despachoNuevo: true}
+			custodio := &custodioExitoIngestaPrueba{} // devuelve éxito sin leer
+			s := ServicioIngestaMayan{Repositorio: repo, Autoridad: autoridadIngestaPrueba{t: t, ahora: escenario.ahora, principal: p.PersonaRef},
+				Cargas: fuenteContenidoIngestaPrueba{datos, caso.contenido}, Custodio: custodio,
+				Politicas: politicasExternaPrueba{}, Reloj: relojExternaPrueba{escenario.ahora}}
+			_, err := s.Ingerir(context.Background(), p.PlanRef, p.ExpedienteRef, escenario.resultado, datosActor.VinculoAutenticacionActor)
+			if caso.valido {
+				if err != nil || repo.despachos != 1 || custodio.llamadas != 1 || repo.ultimaResolucion.Estado != ports.EstadoIngestaConfirmada {
+					t.Fatalf("original exacto no confirmado: err=%v despachos=%d POST=%d estado=%s", err, repo.despachos, custodio.llamadas, repo.ultimaResolucion.Estado)
+				}
+			} else if !errors.Is(err, ports.ErrSolicitudInvalida) || repo.despachos != 0 || custodio.llamadas != 0 {
+				t.Fatalf("original inválido llegó a POST: err=%v despachos=%d POST=%d", err, repo.despachos, custodio.llamadas)
+			}
+		})
+	}
+}
+
+func TestProveedorFallaTrasDespachoQuedaIndeterminadoYNoReenvia(t *testing.T) {
+	escenario := nuevoEscenarioOrdenAutorizacionV3Prueba(t)
+	datosActor, err := escenario.solicitud.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, datos := cargaAdmitidaIngestaPrueba(t, escenario.ahora, escenario.resultado.Contexto.PersonaRef)
+	repo := &repositorioIngestaPrueba{plan: p, despachoNuevo: true}
+	custodio := &custodioIngestaPrueba{}
+	s := ServicioIngestaMayan{Repositorio: repo, Autoridad: autoridadIngestaPrueba{t: t, ahora: escenario.ahora, principal: p.PersonaRef},
+		Cargas: fuenteContenidoIngestaPrueba{datos, contenidoOriginalIngestaPrueba}, Custodio: custodio,
+		Politicas: politicasExternaPrueba{}, Reloj: relojExternaPrueba{escenario.ahora}}
+	_, err = s.Ingerir(context.Background(), p.PlanRef, p.ExpedienteRef, escenario.resultado, datosActor.VinculoAutenticacionActor)
+	if !errors.Is(err, ports.ErrIngestaIndeterminada) || repo.ultimaResolucion.Estado != ports.EstadoIngestaIndeterminada || custodio.llamadas != 1 {
+		t.Fatalf("POST incierto no conservado: err=%v estado=%s POST=%d", err, repo.ultimaResolucion.Estado, custodio.llamadas)
+	}
+	_, err = s.Ingerir(context.Background(), p.PlanRef, p.ExpedienteRef, escenario.resultado, datosActor.VinculoAutenticacionActor)
+	if !errors.Is(err, ports.ErrIngestaNoReenviable) || repo.despachos != 1 || custodio.llamadas != 1 {
+		t.Fatalf("replay reenvió POST: err=%v despachos=%d POST=%d", err, repo.despachos, custodio.llamadas)
+	}
+}
 
 type custodioExitoIngestaPrueba struct{ llamadas int }
 
@@ -152,7 +224,7 @@ func (*custodioExitoIngestaPrueba) ReconciliarOriginal(context.Context, ports.Do
 	panic("no conciliar sin petición")
 }
 
-func TestCierreS3FallidoTrasDespachoQuedaIndeterminadoSinSegundoPOST(t *testing.T) {
+func TestCierreS3FallidoAntesDelDespachoNoEnviaPOST(t *testing.T) {
 	escenario := nuevoEscenarioOrdenAutorizacionV3Prueba(t)
 	datosActor, err := escenario.solicitud.Datos()
 	if err != nil {
@@ -164,12 +236,8 @@ func TestCierreS3FallidoTrasDespachoQuedaIndeterminadoSinSegundoPOST(t *testing.
 	s := ServicioIngestaMayan{Repositorio: repo, Autoridad: autoridadIngestaPrueba{t: t, ahora: escenario.ahora, principal: p.PersonaRef},
 		Cargas: fuenteCargaCierreFallidoPrueba{datos}, Custodio: custodio, Politicas: politicasExternaPrueba{}, Reloj: relojExternaPrueba{escenario.ahora}}
 	_, err = s.Ingerir(context.Background(), p.PlanRef, p.ExpedienteRef, escenario.resultado, datosActor.VinculoAutenticacionActor)
-	if !errors.Is(err, ports.ErrIngestaIndeterminada) || repo.ultimaResolucion.Estado != ports.EstadoIngestaIndeterminada || custodio.llamadas != 1 {
-		t.Fatalf("cierre S3 no conservó incertidumbre: err=%v estado=%s POST=%d", err, repo.ultimaResolucion.Estado, custodio.llamadas)
-	}
-	_, err = s.Ingerir(context.Background(), p.PlanRef, p.ExpedienteRef, escenario.resultado, datosActor.VinculoAutenticacionActor)
-	if !errors.Is(err, ports.ErrIngestaNoReenviable) || custodio.llamadas != 1 || repo.despachos != 1 {
-		t.Fatalf("replay hizo segundo POST: err=%v POST=%d despachos=%d", err, custodio.llamadas, repo.despachos)
+	if !errors.Is(err, ports.ErrCapacidadNoDisponible) || repo.despachos != 0 || custodio.llamadas != 0 {
+		t.Fatalf("cierre S3 permitió despacho: err=%v despachos=%d POST=%d", err, repo.despachos, custodio.llamadas)
 	}
 }
 
@@ -177,7 +245,7 @@ func (f *fuenteCargaVersionCambiadaPrueba) ConsultarAdmitida(_ context.Context, 
 	f.consultas++
 	return f.datos, nil
 }
-func (f *fuenteCargaVersionCambiadaPrueba) AbrirOriginalExacto(_ context.Context, _ ports.SolicitudCargaAdmitidaCustodia, _ string) (ports.LecturaCargaAdmitidaCustodia, error) {
+func (f *fuenteCargaVersionCambiadaPrueba) AbrirOriginalExacto(_ context.Context, _ ports.SolicitudCargaAdmitidaCustodia, _ ports.DatosCargaAdmitidaCustodia) (ports.LecturaCargaAdmitidaCustodia, error) {
 	f.aperturas++
 	otra := f.datos
 	c := otra.Carga
@@ -192,7 +260,8 @@ func (f *fuenteCargaVersionCambiadaPrueba) AbrirOriginalExacto(_ context.Context
 func cargaAdmitidaIngestaPrueba(t *testing.T, ahora time.Time, persona string) (ports.PlanIngestaMayan, ports.DatosCargaAdmitidaCustodia) {
 	t.Helper()
 	ref := func(c string) string { return "ref:" + strings.Repeat(c, 64) }
-	sha := strings.Repeat("a", 64)
+	suma := sha256.Sum256([]byte(contenidoOriginalIngestaPrueba))
+	sha := hex.EncodeToString(suma[:])
 	creada := ahora.Add(-5 * time.Minute)
 	c, err := vecdomain.NuevaCargaDocumental(ref("1"), persona, ref("2"), "meritos", "evidencia", ref("3"), ref("4"),
 		ports.FinalidadIngestaMayan, "privada", "application/pdf", 100, sha,
@@ -259,7 +328,7 @@ func TestCambioDeVersionS3AntesDelDespachoNoEnviaMayan(t *testing.T) {
 			err, fuente.consultas, fuente.aperturas, repo.despachos, custodio.llamadas)
 	}
 }
-func (*fuenteCargaNoAutorizadaPrueba) AbrirOriginalExacto(context.Context, ports.SolicitudCargaAdmitidaCustodia, string) (ports.LecturaCargaAdmitidaCustodia, error) {
+func (*fuenteCargaNoAutorizadaPrueba) AbrirOriginalExacto(context.Context, ports.SolicitudCargaAdmitidaCustodia, ports.DatosCargaAdmitidaCustodia) (ports.LecturaCargaAdmitidaCustodia, error) {
 	panic("S3 abierto sin consulta V3")
 }
 
