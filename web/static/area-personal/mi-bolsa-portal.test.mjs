@@ -1,9 +1,42 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cuerpoPortalMiBolsa, enviarPortalMiBolsa, renderizarPortalMiBolsa, validarPortalMiBolsa } from "./mi-bolsa-portal.js";
+import { cuerpoPortalMiBolsa, enviarPortalMiBolsa, renderizarPortalMiBolsa, revisarRespuestaPortalMiBolsa, validarPortalMiBolsa, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js";
 
 const acciones = { causas_renuncia: ["enfermedad", "matrimonio_union_hecho"], pausa_maxima: "2027-09-25T21:59:59.000000Z", modo_respuesta: "firme" };
 const participaciones = [{ bolsa: "bolsa:demo:1", categoria: "Auxiliar de enfermería" }];
+
+test("renunciar exige revisión y permite volver a editar sin crear una petición", async () => {
+  const revision = { hidden: true, focus() { this.enfocada = true; } };
+  const edicion = { hidden: false };
+  const iniciar = { hidden: false };
+  const resumen = { innerHTML: "" };
+  const resultado = { textContent: "" };
+  const radio = { focus() { this.enfocado = true; } };
+  const nodos = { "[data-portal-revision]": revision, "[data-portal-edicion]": edicion,
+    "[data-portal-iniciar-revision]": iniciar, "[data-portal-revision-datos]": resumen,
+    "[data-portal-resultado]": resultado, '[name="respuesta"]:checked': radio };
+  const formulario = { dataset: { portalMiBolsa: "responder", bolsa: "bolsa:demo:1" }, querySelector: (selector) => nodos[selector] || null };
+  const datos = new FormData(); datos.set("respuesta", "renuncia");
+  let envios = 0;
+  assert.equal(revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  assert.equal(envios, 0);
+  assert.equal(revision.hidden, false);
+  assert.equal(edicion.hidden, true);
+  assert.equal(revision.enfocada, true);
+  assert.match(resumen.innerHTML, /Renuncio/u);
+  assert.equal(volverRespuestaPortalMiBolsa(formulario), true);
+  assert.equal(revision.hidden, true);
+  assert.equal(radio.enfocado, true);
+  datos.set("respuesta", "renuncia_justificada");
+  assert.equal(revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  assert.equal(revision.hidden, true, "sin justificante no avanza a la revisión");
+  assert.equal(envios, 0);
+  const html = renderizarPortalMiBolsa(participaciones, [{ bolsa: "bolsa:demo:1", llamamiento_abierto: {
+    contacto_en: "2026-09-25T08:00:00.000000Z", vence_antes_de: "2026-09-26T21:59:59.000000Z" } }], acciones);
+  assert.match(html, /data-portal-revision hidden/u);
+  assert.match(html, /data-portal-revision-volver/u);
+  assert.match(html, /Confirmar renuncia/u);
+});
 
 test("sin acciones compuestas no se exige nada y con ellas se valida todo", () => {
   assert.doesNotThrow(() => validarPortalMiBolsa({ participaciones }));

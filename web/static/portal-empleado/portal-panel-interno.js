@@ -733,13 +733,24 @@ export function crearPresentadorPanelInterno(dependencias) {
       : `<div class="fila-resumen"><dt>${textoPortal("txt_ultimo_llamamiento")}</dt><dd>${textoPortal("txt_sin_llamamientos_registrados")}</dd></div>`;
     const destinos = destinosSituacion(modal.reglasSituacion, candidato.estado_clave);
     const fechaPropuesta = fechaDisponiblePropuesta(modal.reglasSituacion, modal.reposicion);
+    const borrador = modal.borradorCambioSituacion || {};
+    const revision = modal.revisionCambioSituacion;
     const cambio = modal.cambioSituacion ? `
-      <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
-        <label>${textoPortal("txt_destino")} <select name="situacion" required><option value="">${textoPortal("txt_elija_nueva_situacion")}</option>${destinos.map((d) => `<option value="${d}">${escaparHTML(etiquetaClave(d))}</option>`).join("")}</select></label>
+      <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}"${revision ? " novalidate" : ""}>
+        <div data-bolsa-cambio-edicion${revision ? " hidden" : ""}><label>${textoPortal("txt_destino")} <select name="situacion" required><option value="">${textoPortal("txt_elija_nueva_situacion")}</option>${destinos.map((d) => `<option value="${d}"${borrador.situacion === d ? " selected" : ""}>${escaparHTML(etiquetaClave(d))}</option>`).join("")}</select></label>
         ${renderizarCamposReposicion({ reglas: modal.reglasSituacion, candidato, estadoReposicion: modal.reposicion, escaparHTML })}
-        <label data-bolsa-fecha-disponible>${textoPortal("txt_fecha_de_disponibilidad")} <input type="datetime-local" name="fecha_disponible"${fechaPropuesta ? ` value="${escaparHTML(fechaPropuesta)}"` : ""}></label>
-        <label>${textoPortal("txt_motivo")} <textarea name="motivo" required maxlength="1000"></textarea></label>
-        <button type="submit" class="boton-primario"${destinos.length ? "" : " disabled"}>${textoPortal("txt_guardar_cambio")}</button>
+        <label data-bolsa-fecha-disponible>${textoPortal("txt_fecha_de_disponibilidad")} <input type="datetime-local" name="fecha_disponible"${borrador.fecha || fechaPropuesta ? ` value="${escaparHTML(borrador.fecha || fechaPropuesta)}"` : ""}></label>
+        <label>${textoPortal("txt_motivo")} <textarea name="motivo" required maxlength="1000">${escaparHTML(borrador.motivo || "")}</textarea></label>
+        <button type="submit" class="boton-primario"${destinos.length ? "" : " disabled"}>${textoPortal("txt_revisar_cambio_situacion")}</button></div>
+        ${revision ? `<section class="panel" data-bolsa-cambio-revision tabindex="-1" aria-label="${textoPortal("txt_revisar_cambio_situacion")}">
+          <div class="cabecera-panel"><h4>${textoPortal("txt_revisar_cambio_situacion")}</h4></div><div class="cuerpo-panel">
+          <dl class="resumen-expediente">
+            <div class="fila-resumen"><dt>${textoPortal("txt_destino")}</dt><dd>${escaparHTML(etiquetaClave(revision.situacion))}</dd></div>
+            <div class="fila-resumen"><dt>${textoPortal("txt_motivo")}</dt><dd>${escaparHTML(revision.motivo)}</dd></div>
+            ${revision.fecha ? `<div class="fila-resumen"><dt>${textoPortal("txt_fecha_de_disponibilidad")}</dt><dd>${escaparHTML(revision.fecha)}</dd></div>` : ""}
+          </dl>${modal.resultadoInciertoCambioSituacion ? `<p class="nota aviso">${textoPortal("txt_resultado_cambio_incierto")}</p>` : ""}
+          <button type="button" class="boton-secundario" data-bolsa-accion="volver-cambio-situacion"${modal.resultadoInciertoCambioSituacion || modal.enviandoCambioSituacion ? " disabled" : ""}>${textoPortal("txt_volver_a_editar_cambio")}</button>
+          <button type="submit" class="boton-primario"${modal.enviandoCambioSituacion ? " disabled" : ""}>${textoPortal("txt_confirmar_cambio_situacion")}</button></div></section>` : ""}
         <p class="mensaje-error" role="alert">${escaparHTML(modal.errorCambioSituacion || "")}</p>
       </form>` : "";
     const reciboSituacion = modal.reciboSituacion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_cambio_registrado")} ${justificanteTraducido(modal.reciboSituacion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : "";

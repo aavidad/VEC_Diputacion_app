@@ -936,4 +936,11 @@ test("la ficha usa las transiciones del catálogo y prellena la reposición solo
   assert.match(reposicion, /data-bolsa-reposicion/);
   assert.match(reposicion, /<input type="datetime-local" name="fecha_disponible" value="2099-0[67]-\d{2}T\d{2}:\d{2}">/);
   assert.match(reposicion, /Reglamento, art\. 9\.1/);
+  modalFicha = { ...modalFicha, revisionCambioSituacion: { situacion: "disponible_desde", motivo: "Cambio comprobado", fecha: "2099-07-01T08:00", fechaDisponible: "2099-07-01T06:00:00.000Z" } };
+  const revision = formulario(presentador.renderizarVista("bolsa-candidatos"));
+  assert.match(revision, /data-bolsa-cambio-edicion hidden/u);
+  assert.match(revision, /data-bolsa-cambio-revision/u);
+  assert.match(revision, /Cambio comprobado/u);
+  assert.match(revision, /Confirmar cambio de situación/u);
+  assert.match(revision, /data-bolsa-accion="volver-cambio-situacion"/u);
 });

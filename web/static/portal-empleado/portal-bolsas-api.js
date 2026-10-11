@@ -983,6 +983,13 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       } else if (accion === "abrir-cambio-situacion") {
         evento.preventDefault();
         abrirCambioSituacion();
+      } else if (accion === "volver-cambio-situacion") {
+        evento.preventDefault();
+        if (!estado.modalFicha?.enviandoCambioSituacion && !estado.modalFicha?.resultadoInciertoCambioSituacion) {
+          estado.modalFicha.revisionCambioSituacion = null;
+          renderizar();
+          documento.querySelector('[data-bolsa-form="cambio-situacion"] select[name="situacion"]')?.focus?.();
+        }
       } else if (accion === "cerrar-ficha") {
         evento.preventDefault();
         cerrarFicha();
@@ -1219,15 +1226,25 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       const formCambioSituacion = evento.target?.closest?.('[data-bolsa-form="cambio-situacion"]');
       if (formCambioSituacion) {
         evento.preventDefault();
-        const datos = new FormData(formCambioSituacion);
-        const situacion = String(datos.get("situacion") || "");
-        const motivo = String(datos.get("motivo") || "").trim();
-        const fecha = String(datos.get("fecha_disponible") || "");
+        const modal = estado.modalFicha;
+        if (!modal || modal.enviandoCambioSituacion) return;
+        const datos = modal.revisionCambioSituacion ? null : new FormData(formCambioSituacion);
+        const situacion = modal.revisionCambioSituacion?.situacion || String(datos.get("situacion") || "");
+        const motivo = modal.revisionCambioSituacion?.motivo || String(datos.get("motivo") || "").trim();
+        const fecha = modal.revisionCambioSituacion?.fecha || String(datos.get("fecha_disponible") || "");
         if (!situacion || !motivo || (situacion === "disponible_desde" && !fecha)) {
           if (estado.modalFicha) { estado.modalFicha.errorCambioSituacion = traducirPortal("txt_indique_destino_motivo_y_la_fecha_futura_cuando"); renderizar(); }
           return;
         }
         const fechaDisponible = fecha && situacion === "disponible_desde" ? new Date(fecha).toISOString() : null;
+        if (!modal.revisionCambioSituacion) {
+          modal.borradorCambioSituacion = { situacion, motivo, fecha };
+          modal.revisionCambioSituacion = { situacion, motivo, fecha, fechaDisponible };
+          modal.errorCambioSituacion = "";
+          renderizar();
+          documento.querySelector("[data-bolsa-cambio-revision]")?.focus?.();
+          return;
+        }
         const huellaComando = JSON.stringify([situacion, motivo, fechaDisponible]);
         let clave = estado.modalFicha?.claveCambioSituacion;
         if (!clave || estado.modalFicha?.huellaCambioSituacion !== huellaComando) {
@@ -1237,9 +1254,12 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             estado.modalFicha.huellaCambioSituacion = huellaComando;
           }
         }
+        modal.enviandoCambioSituacion = true;
+        renderizar();
         void cambiarSituacionCandidato(estado.bolsaSeleccionada, formCambioSituacion.dataset.participacionRef, {
           situacion, motivo, fecha_disponible: fechaDisponible, clave_idempotencia: clave,
         }).then(async (res) => {
+          if (estado.modalFicha !== modal) return;
           if (res.ok) {
             const participacionRef = formCambioSituacion.dataset.participacionRef;
             estado.modalFicha = null;
@@ -1247,7 +1267,12 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             abrirFicha(participacionRef);
             if (estado.modalFicha) { estado.modalFicha.reciboSituacion = res.datos.recibo_ref; renderizar(); }
           }
-          else if (estado.modalFicha) { estado.modalFicha.errorCambioSituacion = res.mensaje; renderizar(); }
+          else if (estado.modalFicha) {
+            modal.resultadoInciertoCambioSituacion = res.status >= 500 || res.status === 0;
+            modal.errorCambioSituacion = res.mensaje;
+            modal.enviandoCambioSituacion = false;
+            renderizar();
+          }
         });
         return;
       }

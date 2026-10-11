@@ -99,13 +99,19 @@ function formularioRespuesta(bolsa, acciones) {
     `<label class="opcion-check"><input type="radio" name="respuesta" value="${valor}" required><span>${escaparHTML(textoPortal(`respuesta.${valor}`))}</span></label>`).join("");
   const causas = acciones.causas_renuncia.map((c) => `<option value="${escaparAtributo(c)}">${escaparHTML(textoPortal(`causa.${c}`))}</option>`).join("");
   return `<form class="portal-mi-bolsa__formulario" data-portal-mi-bolsa="responder" data-bolsa="${escaparAtributo(bolsa)}" novalidate>
-    <fieldset><legend>${escaparHTML(textoPortal("respuesta"))}</legend>${opciones}</fieldset>
+    <div data-portal-edicion><fieldset><legend>${escaparHTML(textoPortal("respuesta"))}</legend>${opciones}</fieldset>
     <div class="formulario-rejilla" data-portal-justificada>
       <div class="campo"><label for="${id("causa")}">${escaparHTML(textoPortal("causa"))}</label><select id="${id("causa")}" name="causa"><option value=""></option>${causas}</select></div>
       <div class="campo"><label for="${id("justificante")}">${escaparHTML(textoPortal("justificante"))}</label><input id="${id("justificante")}" name="justificante" type="file"></div>
       <div class="campo"><label for="${id("referencia")}">${escaparHTML(textoPortal("justificanteRef"))}</label><input id="${id("referencia")}" name="justificante_ref" maxlength="128" pattern="[A-Za-z0-9][A-Za-z0-9._:/#-]*" autocomplete="off"></div>
-    </div>
-    <button type="submit" class="boton-primario">${escaparHTML(textoPortal("responder"))}</button>
+    </div></div>
+    <section class="panel" data-portal-revision hidden tabindex="-1" aria-label="${escaparAtributo(textoPortal("revision.titulo"))}">
+      <div class="cabecera-panel"><h4>${escaparHTML(textoPortal("revision.titulo"))}</h4></div>
+      <div class="cuerpo-panel"><p>${escaparHTML(textoPortal("revision.aviso"))}</p><dl class="resumen-expediente" data-portal-revision-datos></dl>
+      <button type="button" class="boton-secundario" data-portal-revision-volver>${escaparHTML(textoPortal("revision.volver"))}</button>
+      <button type="submit" class="boton-primario">${escaparHTML(textoPortal("revision.confirmar"))}</button></div>
+    </section>
+    <button type="submit" class="boton-primario" data-portal-iniciar-revision>${escaparHTML(textoPortal("responder"))}</button>
     <p class="nota" role="status" aria-live="polite" data-portal-resultado></p>
   </form>`;
 }
@@ -208,6 +214,47 @@ export async function cuerpoPortalMiBolsa(formulario, datos = new FormData(formu
 const peticionesInciertas = new WeakMap();
 const enviosEnCurso = new WeakSet();
 
+// La revisión se prepara sin construir la petición ni generar una clave.
+// Así, volver para corregir los campos sigue siendo una edición local.
+export function revisarRespuestaPortalMiBolsa(formulario, datos = new FormData(formulario)) {
+  if (formulario.dataset.portalMiBolsa !== "responder") return true;
+  const revision = formulario.querySelector("[data-portal-revision]");
+  if (!revision || !revision.hidden) return true;
+  const respuesta = String(datos.get("respuesta") || "");
+  if (respuesta === "acepta") return true;
+  if (!["renuncia", "renuncia_justificada"].includes(respuesta)) {
+    formulario.querySelector("[data-portal-resultado]").textContent = textoPortal("error.datos_no_validos");
+    return false;
+  }
+  const filas = [[textoPortal("respuesta"), textoPortal(`respuesta.${respuesta}`)]];
+  if (respuesta === "renuncia_justificada") {
+    const causa = String(datos.get("causa") || "");
+    const referencia = String(datos.get("justificante_ref") || "").trim();
+    const fichero = datos.get("justificante");
+    if (!causa || !referencia || !(fichero instanceof Blob) || fichero.size === 0) {
+      formulario.querySelector("[data-portal-resultado]").textContent = textoPortal("error.datos_no_validos");
+      return false;
+    }
+    filas.push([textoPortal("causa"), textoPortal(`causa.${causa}`)], [textoPortal("justificanteRef"), referencia]);
+  }
+  formulario.querySelector("[data-portal-revision-datos]").innerHTML = filas.map(([etiqueta, valor]) =>
+    `<div class="fila-resumen"><dt>${escaparHTML(etiqueta)}</dt><dd>${escaparHTML(valor)}</dd></div>`).join("");
+  formulario.querySelector("[data-portal-edicion]").hidden = true;
+  formulario.querySelector("[data-portal-iniciar-revision]").hidden = true;
+  revision.hidden = false;
+  revision.focus();
+  return false;
+}
+
+export function volverRespuestaPortalMiBolsa(formulario) {
+  if (peticionesInciertas.has(formulario) || enviosEnCurso.has(formulario)) return false;
+  formulario.querySelector("[data-portal-revision]").hidden = true;
+  formulario.querySelector("[data-portal-edicion]").hidden = false;
+  formulario.querySelector("[data-portal-iniciar-revision]").hidden = false;
+  formulario.querySelector('[name="respuesta"]:checked')?.focus();
+  return true;
+}
+
 function bloquearDatosDocumentales(formulario, bloqueados) {
   for (const campo of formulario.querySelectorAll?.('input[name="fecha_fin_causa"], input[name="documento_ref"], input[name="documento"]') || []) {
     campo.disabled = bloqueados;
@@ -258,7 +305,9 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
   if (enviosEnCurso.has(formulario)) return false;
   enviosEnCurso.add(formulario);
   const zona = formulario.querySelector("[data-portal-resultado]");
-  const boton = formulario.querySelector('button[type="submit"]');
+  const boton = formulario.querySelector("[data-portal-revision]")?.hidden
+    ? formulario.querySelector("[data-portal-iniciar-revision]") : formulario.querySelector('button[type="submit"]');
+  const volver = formulario.querySelector("[data-portal-revision-volver]");
   const mostrar = (texto) => { if (zona) zona.textContent = texto; };
   try {
     // Un resultado incierto puede haber persistido: un reintento explícito usa
@@ -303,16 +352,17 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
       peticionesInciertas.delete(formulario);
       if (peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental) bloquearDatosDocumentales(formulario, false);
     }
-    mostrar(peticionesInciertas.has(formulario) && peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental
-      ? textoPortal("documental.errorIncierto")
+    mostrar(peticionesInciertas.has(formulario) && [RUTAS_PORTAL_MI_BOLSA.documental, RUTAS_PORTAL_MI_BOLSA.responder].includes(peticion.ruta)
+      ? textoPortal(peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental ? "documental.errorIncierto" : "error.servicio_no_disponible")
       : textoPortal(`error.${CODIGOS_ERROR.has(codigo) ? codigo : "servicio_no_disponible"}`));
     return false;
   } catch {
-    mostrar(peticionesInciertas.get(formulario)?.ruta === RUTAS_PORTAL_MI_BOLSA.documental
-      ? textoPortal("documental.errorIncierto") : textoPortal("error.servicio_no_disponible"));
+    const ruta = peticionesInciertas.get(formulario)?.ruta;
+    mostrar(textoPortal(ruta === RUTAS_PORTAL_MI_BOLSA.documental ? "documental.errorIncierto" : "error.servicio_no_disponible"));
     return false;
   } finally {
     enviosEnCurso.delete(formulario);
     if (boton) boton.disabled = false;
+    if (volver) volver.disabled = peticionesInciertas.has(formulario);
   }
 }
