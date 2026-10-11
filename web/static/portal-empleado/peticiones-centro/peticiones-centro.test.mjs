@@ -313,6 +313,24 @@ test("las peticiones del mismo día muestran categoría y puesto en ambas bandej
   assert.ok(detalle.indexOf("Administración C2") < detalle.indexOf("<details class="), "la referencia técnica queda plegada tras los datos de negocio");
 });
 
+test("dos peticiones con el mismo resumen reciben ordinales distintos en ambas bandejas", () => {
+  const primera = { ...structuredClone(peticion), solicitud: { ...peticion.solicitud,
+    puesto_solicitado: "Archivo & documentación", numero_personas: 1 } };
+  const segunda = { ...structuredClone(primera), referencia: "peticion:centro:002",
+    solicitud: { ...primera.solicitud, detalle: "Otra necesidad" } };
+  const centro = renderizarPeticionCentro({ contexto, peticiones: [primera, segunda] });
+  const rrhh = renderizarPeticionesCentroRRHH({ peticiones: [primera, segunda].map((p) => ({
+    peticion: p, estado_entrega: "pendiente",
+  })) });
+  for (const html of [centro, rrhh]) {
+    assert.match(html, /Archivo &amp; documentación · 1 persona · 6 sept 2026 · petición 1/u);
+    assert.match(html, /Archivo &amp; documentación · 1 persona · 6 sept 2026 · petición 2/u);
+    assert.match(html, /aria-label="Ver: [^"]*Archivo &amp; documentación[^"]*petición 1"/u);
+    assert.match(html, /aria-label="Ver: [^"]*Archivo &amp; documentación[^"]*petición 2"/u);
+    assert.doesNotMatch(html, /&amp;amp;/u);
+  }
+});
+
 test("el puesto recibido no rompe atributos de los enlaces y botones de la bandeja", () => {
   const puesto = '"><img src=x onerror=alert(1)>';
   const recibida = { ...peticion, solicitud: { ...peticion.solicitud, puesto_solicitado: puesto } };
@@ -321,6 +339,9 @@ test("el puesto recibido no rompe atributos de los enlaces y botones de la bande
   });
   assert.doesNotMatch(html, /<img/u);
   assert.match(html, /&quot;&gt;&lt;img/u);
+  const centro = renderizarPeticionCentro({ contexto, peticiones: [recibida] });
+  assert.doesNotMatch(centro, /<img/u);
+  assert.match(centro, /&quot;&gt;&lt;img/u);
 });
 
 

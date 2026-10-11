@@ -177,6 +177,7 @@
     "pc_peticion_una_persona": "{necesidad} · 1 person",
     "pc_peticion_personas": "{necesidad} · {cantidad} people",
     "pc_peticion_resumen_fecha": "{necesidad} · {fecha}",
+    "pc_peticion_ordinal": "{necesidad} · request {numero}",
     "pc_detalle_tecnico": "View technical details",
     "pc_dato_no_disponible": "Information unavailable. Refresh the list.",
     "pc_documento_referencia": "Document reference",

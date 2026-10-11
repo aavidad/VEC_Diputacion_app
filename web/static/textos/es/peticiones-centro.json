@@ -177,6 +177,7 @@
     "pc_peticion_una_persona": "{necesidad} · 1 persona",
     "pc_peticion_personas": "{necesidad} · {cantidad} personas",
     "pc_peticion_resumen_fecha": "{necesidad} · {fecha}",
+    "pc_peticion_ordinal": "{necesidad} · petición {numero}",
     "pc_detalle_tecnico": "Ver detalle técnico",
     "pc_dato_no_disponible": "Dato no disponible. Actualice la bandeja.",
     "pc_documento_referencia": "Referencia del documento",

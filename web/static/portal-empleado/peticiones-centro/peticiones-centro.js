@@ -157,6 +157,20 @@ function nombrePeticion(peticion, contexto = null, etiquetas = null) {
     : necesidad;
 }
 
+function nombresEnLista(peticiones, contexto = null, etiquetas = null) {
+  const entradas = peticiones.map((peticion) => [peticion?.referencia,
+    nombrePeticion(peticion, contexto, etiquetas)]);
+  const totales = new Map();
+  for (const [, nombre] of entradas) totales.set(nombre, (totales.get(nombre) || 0) + 1);
+  const ordinales = new Map();
+  return new Map(entradas.map(([referencia, nombre]) => {
+    if (totales.get(nombre) === 1) return [referencia, nombre];
+    const numero = (ordinales.get(nombre) || 0) + 1;
+    ordinales.set(nombre, numero);
+    return [referencia, traducirCentro("pc_peticion_ordinal", { necesidad: nombre, numero })];
+  }));
+}
+
 // Un código («centro-520», «cen_…») no se enseña: se usa la etiqueta del
 // catálogo, la unidad de la persona o «Su centro».
 const PARECE_CODIGO = /^[a-z]+[-_:][\w:-]*\d[\w:-]*$/u;
@@ -291,18 +305,18 @@ function urlExpedienteRRHH(expedienteRef) {
   return urlPortalContratacion(expedienteRef);
 }
 
-function enlaceExpedienteRRHH(peticion, recibo, etiquetas) {
+function enlaceExpedienteRRHH(peticion, recibo, etiquetas, nombre = nombrePeticion(peticion, null, etiquetas)) {
   if (!recibo?.expediente_ref) return "";
   const numero = recibo.numero_visible;
-  const etiqueta = numero ? textoCT("pc_expediente_enlace_rrhh_aria", { peticion: nombrePeticion(peticion, null, etiquetas), numero }) : textoCT("pc_abrir_expediente");
-  return ` <a class="pc-enlace-expediente" href="${esc(urlExpedienteRRHH(recibo.expediente_ref))}" aria-label="${esc(etiqueta)}">${esc(numero ? textoCT("pc_expediente_enlace", { numero }) : textoCT("pc_abrir_expediente"))}</a>`;
+  const etiqueta = numero ? textoCT("pc_expediente_enlace_rrhh_aria", { peticion: nombre, numero }) : textoCT("pc_abrir_expediente");
+  return ` <a class="pc-enlace-expediente" href="${esc(urlExpedienteRRHH(recibo.expediente_ref))}" aria-label="${etiqueta}">${numero ? textoCT("pc_expediente_enlace", { numero }) : textoCT("pc_abrir_expediente")}</a>`;
 }
 
 // Enlace de una petición del centro a la fila de su expediente en la bandeja
 // de incorporaciones de la misma página: el centro no tiene vista de expediente.
-function enlaceExpedienteCentro(peticion, expediente, contexto) {
+function enlaceExpedienteCentro(peticion, expediente, contexto, nombre = nombrePeticion(peticion, contexto)) {
   if (!expediente) return "";
-  return ` <a class="pc-enlace-expediente" href="#${esc(expediente.destino)}" data-pc-ir-expediente="${esc(expediente.destino)}" aria-label="${esc(textoCT("pc_expediente_enlace_centro_aria", { peticion: nombrePeticion(peticion, contexto), numero: expediente.numero_visible }))}">${esc(textoCT("pc_expediente_enlace", { numero: expediente.numero_visible }))}</a>`;
+  return ` <a class="pc-enlace-expediente" href="#${esc(expediente.destino)}" data-pc-ir-expediente="${esc(expediente.destino)}" aria-label="${textoCT("pc_expediente_enlace_centro_aria", { peticion: nombre, numero: expediente.numero_visible })}">${textoCT("pc_expediente_enlace", { numero: expediente.numero_visible })}</a>`;
 }
 
 function reciboAltaRRHHHTML(recibo) {
@@ -316,7 +330,11 @@ function reciboAltaRRHHHTML(recibo) {
 
 function tablaRRHH(peticiones, seleccionada, etiquetas) {
   if (!peticiones.length) return `<p>${esc(TEXTO.rrhhSinPeticiones)}</p>`;
-  return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${esc(TEXTO.rrhhTitulo)}</caption><thead><tr><th>${textoCT("pc_col_peticion")}</th><th>${textoCT("ct_txt_estado_de_entrega")}</th><th>${textoCT("ct_txt_ratificacion")}</th><th>${textoCT("ct_txt_accion")}</th></tr></thead><tbody>${peticiones.map(({ peticion, estado_entrega: estadoEntrega, recibo_alta: reciboAlta }) => `<tr${peticion?.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(nombrePeticion(peticion, null, etiquetas))}</td><td><span class="pc-estado pc-estado-${esc(estadoEntrega)}">${esc(textoEstadoEntrega(estadoEntrega))}</span>${estadoEntrega === "confirmada" ? enlaceExpedienteRRHH(peticion, reciboAlta, etiquetas) : ""}</td><td>${esc(peticion?.ratificada_en ? fecha(peticion.ratificada_en, true) : "—")}</td><td><button type="button" data-seleccionar-rrhh="${esc(peticion?.referencia)}" aria-label="${esc(textoCT("pc_ver_peticion", { peticion: nombrePeticion(peticion, null, etiquetas) }))}">${esc(TEXTO.seleccionar)}</button></td></tr>`).join("")}</tbody></table></div>`;
+  const nombres = nombresEnLista(peticiones.map(({ peticion }) => peticion), null, etiquetas);
+  return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${esc(TEXTO.rrhhTitulo)}</caption><thead><tr><th>${textoCT("pc_col_peticion")}</th><th>${textoCT("ct_txt_estado_de_entrega")}</th><th>${textoCT("ct_txt_ratificacion")}</th><th>${textoCT("ct_txt_accion")}</th></tr></thead><tbody>${peticiones.map(({ peticion, estado_entrega: estadoEntrega, recibo_alta: reciboAlta }) => {
+    const nombre = nombres.get(peticion?.referencia);
+    return `<tr${peticion?.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(nombre)}</td><td><span class="pc-estado pc-estado-${esc(estadoEntrega)}">${esc(textoEstadoEntrega(estadoEntrega))}</span>${estadoEntrega === "confirmada" ? enlaceExpedienteRRHH(peticion, reciboAlta, etiquetas, nombre) : ""}</td><td>${esc(peticion?.ratificada_en ? fecha(peticion.ratificada_en, true) : "—")}</td><td><button type="button" data-seleccionar-rrhh="${esc(peticion?.referencia)}" aria-label="${textoCT("pc_ver_peticion", { peticion: nombre })}">${esc(TEXTO.seleccionar)}</button></td></tr>`;
+  }).join("")}</tbody></table></div>`;
 }
 
 export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null, modo = "bandeja", confirmado = false, recibo = null, mensaje = "", numeroMOAD = "", politicaNumero = null, errorNumero = false, etiquetas = null } = {}) {
@@ -347,9 +365,10 @@ export async function registrarAltaRRHH(cliente, comando) {
 
 function tabla(peticiones, seleccionada, expedientes = new Map(), contexto = null) {
   if (!peticiones.length) return `<p>${textoCT("pc_sin_peticiones")}</p>`;
+  const nombres = nombresEnLista(peticiones, contexto);
   return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${textoCT("pc_lista_centro")}</caption><thead><tr><th>${textoCT("pc_col_peticion")}</th><th>${textoCT("ct_txt_centro")}</th><th>${textoCT("ct_txt_periodo")}</th><th>${textoCT("ct_txt_estado")}</th><th>${textoCT("ct_txt_accion")}</th></tr></thead><tbody>${peticiones.map((p) => {
-    const nombre = nombrePeticion(p, contexto);
-    return `<tr${p.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(nombre)}</td><td>${esc(nombreCentro(p.solicitud?.centro_ref, contexto))}</td><td>${esc(periodoLegible(p.solicitud?.periodo))}</td><td><span class="pc-estado pc-estado-${esc(p.estado === "ratificada" ? "ratificada" : "pendiente")}">${esc(estadoPeticion(p.estado))}</span>${enlaceExpedienteCentro(p, expedientes.get(p.referencia), contexto)}</td><td><button type="button" data-seleccionar="${esc(p.referencia)}" aria-label="${textoCT("pc_ver_peticion", { peticion: nombre })}">${textoCT("pc_ver")}</button></td></tr>`;
+    const nombre = nombres.get(p.referencia);
+    return `<tr${p.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(nombre)}</td><td>${esc(nombreCentro(p.solicitud?.centro_ref, contexto))}</td><td>${esc(periodoLegible(p.solicitud?.periodo))}</td><td><span class="pc-estado pc-estado-${esc(p.estado === "ratificada" ? "ratificada" : "pendiente")}">${esc(estadoPeticion(p.estado))}</span>${enlaceExpedienteCentro(p, expedientes.get(p.referencia), contexto, nombre)}</td><td><button type="button" data-seleccionar="${esc(p.referencia)}" aria-label="${textoCT("pc_ver_peticion", { peticion: nombre })}">${textoCT("pc_ver")}</button></td></tr>`;
   }).join("")}</tbody></table></div>`;
 }
 
@@ -374,7 +393,9 @@ export function renderizarPeticionCentro({ contexto, peticiones = [], peticion =
   if (modo === "ratificacion") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.ratificador)}</h2>${detallePeticion(peticion, contexto)}<p class="pc-aviso">${esc(TEXTO.confirmarPregunta)}</p><label for="motivo-ratificacion">${esc(TEXTO.motivo)}</label><input id="motivo-ratificacion" name="motivo_ratificacion" value="${esc(motivo)}" maxlength="1000" required aria-describedby="motivo-ratificacion-ayuda"><small id="motivo-ratificacion-ayuda">${esc(TEXTO.motivoAyuda)}</small><label class="pc-confirmacion"><input type="checkbox" name="confirmacion_ratificacion"${confirmado ? " checked" : ""}> ${esc(TEXTO.confirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-ratificacion">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-ratificar">${esc(TEXTO.confirmarRatificar)}</button></div></section>`;
   if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.peticionNoEnviada)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar">${esc(traducirCentro("ct_txt_reintentar_la_misma_operacion"))}</button></div></section>`;
   // El recuadro de datos solo aparece cuando hay una petición elegida.
-  const detalle = peticion ? `<aside class="pc-panel pc-detalle" aria-labelledby="pc-detalle-titulo"><h2 id="pc-detalle-titulo">${textoCT("pc_detalle_titulo")}: ${esc(nombrePeticion(peticion, contexto))}</h2>${detallePeticion(peticion, contexto)}<div class="pc-acciones">${peticion.estado === "pendiente_ratificacion" && peticion.version === 1 && actor?.puede_ratificar ? `<button type="button" class="boton-primario" data-accion="abrir-ratificacion">${esc(TEXTO.ratificador)}</button>` : ""}<button type="button" class="boton-secundario" data-accion="cerrar-detalle">${textoCT("pc_cerrar_detalle")}</button></div></aside>` : "";
+  const nombreDetalle = peticion ? nombresEnLista(peticiones, contexto).get(peticion.referencia)
+    || nombrePeticion(peticion, contexto) : "";
+  const detalle = peticion ? `<aside class="pc-panel pc-detalle" aria-labelledby="pc-detalle-titulo"><h2 id="pc-detalle-titulo">${textoCT("pc_detalle_titulo")}: ${esc(nombreDetalle)}</h2>${detallePeticion(peticion, contexto)}<div class="pc-acciones">${peticion.estado === "pendiente_ratificacion" && peticion.version === 1 && actor?.puede_ratificar ? `<button type="button" class="boton-primario" data-accion="abrir-ratificacion">${esc(TEXTO.ratificador)}</button>` : ""}<button type="button" class="boton-secundario" data-accion="cerrar-detalle">${textoCT("pc_cerrar_detalle")}</button></div></aside>` : "";
   return `${cabecera}${error}${recibo ? reciboHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${textoCT(esSolicitante ? "pc_lista_centro" : "pc_lista_ratificar")}</h2>${tabla(peticiones, peticion?.referencia, expedientes, contexto)}<p>${textoCT("pc_ultimas")}</p><div class="pc-acciones">${esSolicitante ? `<button type="button" class="boton-primario" data-accion="nueva">${textoCT("pc_nueva")}</button>` : ""}<button type="button" class="boton-secundario" data-accion="recargar">${textoCT("pc_actualizar")}</button><button type="button" class="boton-secundario" data-accion="volver-contratacion">${textoCT("pc_volver")}</button></div></section>${detalle}</div>`;
 }
 
