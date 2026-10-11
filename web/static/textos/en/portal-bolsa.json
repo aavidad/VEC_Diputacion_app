@@ -1,4 +1,11 @@
 {
+  "vinculo_ct": {
+    "identidad_error": "Your session could not be checked. Try again before issuing the call.",
+    "vinculando": "Call issued. It is being added to the temporary staffing case.",
+    "pendiente": "Call issued. It could not be confirmed in the case. Retry the link without issuing another call.",
+    "confirmado": "Call added to the temporary staffing case.",
+    "reintentar": "Retry link to the case"
+  },
   "baremacion": {
     "ayuda": "Help",
     "ayuda_meritos": "An item in the merit record can be used to check an entry requirement and, separately, to score a merit. The score belongs to one application and to a specific version of the terms.",

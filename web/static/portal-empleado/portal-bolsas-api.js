@@ -27,6 +27,9 @@ import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-regis
 import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261011-bolsa-b103-privacidad-v1";
 import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261011-bolsa-b103-privacidad-v1";
 import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261011-bolsa-b103-privacidad-v1";
+import { cargarTextos } from "../comun/textos.js";
+
+const TEXTOS_VINCULO_CT = (await cargarTextos("portal-bolsa")).seccion("vinculo_ct");
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 const FILTROS_GLOBALES = new Set(["todos", "disponible", "renuncia", "llamamientos"]);
@@ -412,7 +415,8 @@ export function propuestaPlazoRespuesta(datos) {
   return { texto: traducirPortal("panel_b7_plazo_regla_texto", { fecha, hora }), procedencia, ejemplo: regla.origen === "ejemplo" || regla.ejemplo === true, descripcion: regla.texto, referencia: regla.referencia };
 }
 
-export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null, documento = globalThis.document }) {
+export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null,
+  consultarIdentidadAtestada, vincularLlamamientoBolsa, documento = globalThis.document }) {
   const controladoresLectura = new Map();
   const cambiosSituacionPendientes = new Map();
   const claveParticipacion = (bolsa, participacion) => JSON.stringify([bolsa, participacion]);
@@ -421,6 +425,50 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   // Custodia volátil del comando mientras el resultado de un POST puede ser incierto.
   // La navegación cambia filtros y bolsa; nunca cambia esta clave ni este cuerpo.
   let emisionB7 = null;
+  const vigenteB7 = (registro) => emisionB7 === registro
+    && estado.filtrosBolsa?.nuevo_llamamiento === registro.flujo
+    && estado.bolsaSeleccionada === registro.comando.bolsa_ref;
+  const identidadIgual = (a, b) => Boolean(a?.id && b?.id && a.id === b.id
+    && a.certificado === b.certificado && a.metodo === b.metodo && a.garantia === b.garantia);
+  async function comprobarIdentidadB7(registro) {
+    if (typeof consultarIdentidadAtestada !== "function") throw new TypeError("identidad_no_disponible");
+    const identidad = await consultarIdentidadAtestada();
+    if (!identidad?.id) throw new TypeError("identidad_no_disponible");
+    if (registro.identidad && !identidadIgual(registro.identidad, identidad)) throw new TypeError("identidad_cambiada");
+    registro.identidad ||= Object.freeze({ id: identidad.id, certificado: identidad.certificado || "",
+      metodo: identidad.metodo || "", garantia: identidad.garantia || "" });
+  }
+  async function confirmarVinculoB7(registro) {
+    if (!registro.vinculo || registro.vinculando || registro.vinculoEstado === "confirmado" || !vigenteB7(registro)) return;
+    registro.vinculando = true;
+    registro.vinculoEstado = "vinculando";
+    registro.flujo.vinculoEstado = "vinculando";
+    renderizar();
+    try {
+      await comprobarIdentidadB7(registro);
+      if (!vigenteB7(registro)) return;
+      const recibo = await vincularLlamamientoBolsa(registro.vinculo);
+      if (!vigenteB7(registro)) return;
+      await comprobarIdentidadB7(registro);
+      if (!vigenteB7(registro)) return;
+      if (!recibo || recibo.recibo_emision_ref !== registro.vinculo.recibo_emision_ref) throw new TypeError("recibo_vinculo_invalido");
+      registro.vinculoEstado = "confirmado";
+      registro.flujo.vinculoEstado = "confirmado";
+      registro.flujo.recibo_vinculo_ref = recibo.recibo_vinculo_ref;
+    } catch {
+      if (vigenteB7(registro)) {
+        registro.vinculoEstado = "pendiente";
+        registro.flujo.vinculoEstado = "pendiente";
+      }
+    } finally {
+      registro.vinculando = false;
+      if (registro.vinculoEstado === "vinculando") {
+        registro.vinculoEstado = "pendiente";
+        registro.flujo.vinculoEstado = "pendiente";
+      }
+      if (vigenteB7(registro)) renderizar();
+    }
+  }
   function restaurarComandoB7(registro) {
     registro.flujo.participaciones = [...registro.comando.participaciones];
     registro.flujo.configuracion = { ...registro.comando.configuracion };
@@ -428,7 +476,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
   // Un llamamiento ya confirmado no se vuelve a mostrar al abrir su seguimiento.
   function olvidarEmisionConfirmada() {
-    if (emisionB7?.flujo.recibo) emisionB7 = null;
+    if (emisionB7?.flujo.recibo && (!emisionB7.vinculo || emisionB7.vinculoEstado === "confirmado")) emisionB7 = null;
   }
   // La propuesta del catálogo se pide al abrir el asistente, para que esté
   // lista en el paso 3; sin ella el plazo sigue siendo texto libre.
@@ -1026,6 +1074,10 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             estado.datosCandidatos?.datos?.bolsa?.bolsa_ref !== bolsaOriginal;
           estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: "", texto: "", nuevo_llamamiento: emisionB7.flujo };
           emisionB7.flujo.paso = 4;
+          if (emisionB7.vinculo && emisionB7.vinculoEstado !== "confirmado") {
+            emisionB7.vinculoEstado = "pendiente";
+            emisionB7.flujo.vinculoEstado = "pendiente";
+          }
           if (recargar) {
             void cargarCandidatosBolsa(bolsaOriginal, { enfocarDestino: true });
           } else {
@@ -1041,22 +1093,25 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           && estado.origenLlamamientoB7?.bolsa_ref === estado.bolsaSeleccionada ? estado.origenLlamamientoB7 : null;
         const { seguimiento: _sinSeguimiento, ...filtros } = estado.filtrosBolsa || {};
         estado.filtrosBolsa = { ...filtros, estado: "", texto: "", nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "", seleccion_total: false, cursoresPagina: [""],
-          origen: origen ? Object.freeze({ expediente_ref: origen.expediente_ref, referencia: origen.referencia, ...(origen.centro ? { centro: origen.centro } : {}), ...(origen.fecha_inicio ? { fecha_inicio: origen.fecha_inicio } : {}) }) : null } };
+          origen: origen ? Object.freeze({ expediente_ref: origen.expediente_ref, ...(Number.isSafeInteger(origen.version) && origen.version > 0 ? { version: origen.version } : {}), referencia: origen.referencia, ...(origen.centro ? { centro: origen.centro } : {}), ...(origen.fecha_inicio ? { fecha_inicio: origen.fecha_inicio } : {}) }) : null } };
         void cargarPlazoRespuestaB7(estado.filtrosBolsa.nuevo_llamamiento);
         controladorCorreoB7.prepararFlujo(estado.filtrosBolsa.nuevo_llamamiento);
         renderizar();
         documento.querySelector('[aria-current="step"]')?.focus?.();
       } else if (accion === "cancelar-b7") {
         evento.preventDefault();
-        if (emisionB7?.flujo.recibo) emisionB7 = null;
+        if (emisionB7?.flujo.recibo && (!emisionB7.vinculo || emisionB7.vinculoEstado === "confirmado")) emisionB7 = null;
         suspenderLlamamientoB7();
         renderizar();
       } else if (accion === "ver-historico-b7") {
         evento.preventDefault();
-        if (emisionB7?.flujo.recibo) emisionB7 = null;
+        if (emisionB7?.flujo.recibo && (!emisionB7.vinculo || emisionB7.vinculoEstado === "confirmado")) emisionB7 = null;
         invalidarSeleccionMasiva();
         estado.filtrosBolsa = { estado: "", texto: "", pestana: "historico", pagina_historico: 0 };
         void cargarCandidatosBolsa(estado.bolsaSeleccionada, { enfocarDestino: true });
+      } else if (accion === "reintentar-vinculo-b7") {
+        evento.preventDefault();
+        if (emisionB7?.flujo.recibo && emisionB7.vinculoEstado === "pendiente") void confirmarVinculoB7(emisionB7);
       } else if (accion === "b7-pagina") {
         evento.preventDefault();
         const formulario = documento.querySelector('[data-bolsa-form="b7-paso2"]');
@@ -1179,11 +1234,27 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
               clave_idempotencia: flujo.clave_idempotencia,
             }),
             estado: "incierto",
+            requiereVinculo: Number.isSafeInteger(flujo.origen?.version) && flujo.origen.version > 0,
+            origen: flujo.origen ? Object.freeze({ ...flujo.origen }) : null,
           };
         }
         const registro = emisionB7;
         flujo.enviando=true; flujo.error=""; flujo.error_422=false; registro.estado="enviando"; renderizar();
-        void emitirLlamamiento(registro.comando).then(res=>{
+        void (async () => {
+          if (registro.requiereVinculo) {
+            try {
+              if (typeof vincularLlamamientoBolsa !== "function") throw new TypeError("vinculo_no_disponible");
+              await comprobarIdentidadB7(registro);
+              if (!vigenteB7(registro)) { flujo.enviando = false; registro.estado = "incierto"; return; }
+            } catch {
+              flujo.enviando = false;
+              registro.estado = "incierto";
+              flujo.error = TEXTOS_VINCULO_CT.identidad_error;
+              if (vigenteB7(registro)) renderizar();
+              return;
+            }
+          }
+          const res = await emitirLlamamiento(registro.comando);
           if (emisionB7 !== registro) return;
           flujo.enviando = false;
           if (res.ok) {
@@ -1191,6 +1262,14 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             flujo.recibo = res.datos.recibo_ref;
             flujo.llamamiento_ref = res.datos.llamamiento_ref;
             flujo.avisos_contacto = res.datos.avisos_contacto || [];
+            if (registro.requiereVinculo) {
+              registro.vinculo = Object.freeze({ expediente_ref: registro.origen.expediente_ref,
+                version_esperada: registro.origen.version, bolsa_ref: registro.comando.bolsa_ref,
+                llamamiento_ref: res.datos.llamamiento_ref, recibo_emision_ref: res.datos.recibo_ref,
+                clave_idempotencia: `vinculo:${registro.comando.clave_idempotencia}` });
+              registro.vinculoEstado = "pendiente";
+              flujo.vinculoEstado = "pendiente";
+            }
           } else if ([400, 409, 422].includes(res.status)) {
             // Rechazo definitivo: el servidor no aplicó este comando. Una
             // revisión podrá iniciar otra intención con una clave nueva.
@@ -1218,7 +1297,8 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             renderizar();
             documento.querySelector(res.ok ? "[data-b7-recibo]" : "[data-b7-emision-error]")?.focus?.();
           }
-        }); return;
+          if (res.ok && registro.vinculo && vigenteB7(registro)) void confirmarVinculoB7(registro);
+        })(); return;
       }
       const formFiltros = evento.target?.closest?.('[data-bolsa-form="filtros"]');
       if (formFiltros) {

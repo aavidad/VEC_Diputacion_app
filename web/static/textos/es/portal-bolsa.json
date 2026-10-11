@@ -1,4 +1,11 @@
 {
+  "vinculo_ct": {
+    "identidad_error": "No se ha podido comprobar su sesión. Vuelva a intentarlo antes de emitir el llamamiento.",
+    "vinculando": "Llamamiento emitido. Se está incorporando al expediente de personal temporal.",
+    "pendiente": "Llamamiento emitido. No se ha podido confirmar su incorporación al expediente. Reintente el enlace sin emitir otro llamamiento.",
+    "confirmado": "Llamamiento incorporado al expediente de personal temporal.",
+    "reintentar": "Reintentar enlace con el expediente"
+  },
   "baremacion": {
     "ayuda": "Ayuda",
     "ayuda_meritos": "Un dato del expediente de méritos puede usarse para comprobar un requisito de acceso y, por separado, para valorar un mérito. La puntuación pertenece a una solicitud y a una versión concreta de las bases.",

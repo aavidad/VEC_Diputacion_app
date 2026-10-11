@@ -423,7 +423,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261011-bolsa-confirmaciones-v1");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261011-ct-bolsa-vinculo-v1");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -1634,9 +1634,10 @@ function prepararBolsaBase() {
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
     import("./portal-panel-interno.js?v=20261011-bolsa-textos-v1"),
-    import("./portal-bolsas-api.js?v=20261011-bolsa-confirmaciones-v1"),
+    import("./portal-bolsas-api.js?v=20261011-ct-bolsa-vinculo-v1"),
     import("./portal-bolsas-ruta-filtros.js?v=20261011-bolsa-b103-privacidad-v1"),
-  ]).then(([panel, bolsas, rutas]) => {
+    import("./modulos/contratacion-temporal/cliente-http.js?v=20261011-bolsa-b103-privacidad-v1"),
+  ]).then(([panel, bolsas, rutas, ct]) => {
     if (!vistaNecesitaBolsa()) {
       promesaBolsaBase = null;
       return;
@@ -1656,8 +1657,11 @@ function prepararBolsaBase() {
   cargaConvocaDisponible,
     });
 
+    const clienteCT = ct.crearClienteHTTPContratacionTemporal();
     const controlador = bolsas.crearControladorBolsas({
       estado, renderizar: actualizarVistaBolsa, navegar, obtenerFuenteLectura: () => null,
+      consultarIdentidadAtestada: async () => (await consultarSesionPortal({ incluirIdentidadAtestada: true })).identidadAtestada,
+      vincularLlamamientoBolsa: (solicitud) => clienteCT.vincularLlamamientoBolsa(solicitud),
     });
     controlador.instalar();
     selectorLlamamientos = instalarSelectorLlamamientos({ documento: document, estado, controladorBolsas: controlador,

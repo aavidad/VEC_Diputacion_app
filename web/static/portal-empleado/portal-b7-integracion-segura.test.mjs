@@ -276,3 +276,160 @@ test("B7 purga candidatos ante 403 del POST y conserva la clave incierta sin rep
     assert.equal(posts, 1);
   } finally { globalThis.fetch = fetchOriginal; restaurar(); }
 });
+
+test("B7 enlaza una emisión CT una sola vez y reintenta únicamente el vínculo con el mismo cuerpo", async () => {
+  const anteriorFetch = globalThis.fetch;
+  const restaurarFormData = simularFormData();
+  const huella = "c".repeat(64);
+  const llamadasEmision = [];
+  const llamadasVinculo = [];
+  let sesion = { id: "principal:rrhh-1", certificado: "a".repeat(64), metodo: "certificado", garantia: "alto" };
+  let intentosVinculo = 0;
+  globalThis.fetch = async (_ruta, opciones) => {
+    llamadasEmision.push(JSON.parse(opciones.body));
+    return { status: 201, json: async () => ({ data: { llamamiento_ref: `llamamiento:${huella}`,
+      recibo_ref: `recibo:llamamiento:${huella}`, bolsa_ref: "bolsa:01", estado: "emitido_pendiente_respuesta",
+      participaciones: [candidata.participacion_ref], configuracion,
+      emitido_en: "2026-09-23T10:00:00Z", reutilizada: false } }) };
+  };
+  try {
+    const app = montar({ paso: 4 });
+    app.flujo.origen = { expediente_ref: "expediente:01", version: 7, referencia: "Petición 01" };
+    // El controlador probado comparte el estado y el documento del montaje real.
+    const escuchas = {};
+    const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector() { return null; } };
+    const controlador = crearControladorBolsas({ estado: app.estado, renderizar() {}, navegar() {}, documento,
+      consultarIdentidadAtestada: async () => sesion,
+      vincularLlamamientoBolsa: async (solicitud) => {
+        llamadasVinculo.push(solicitud);
+        if (++intentosVinculo === 1) throw new Error("respuesta incierta");
+        return { ...solicitud, recibo_vinculo_ref: "recibo:vinculo:01" };
+      } });
+    controlador.instalar();
+    const formulario = { dataset: { cantidad: "1" } };
+    const confirmar = () => escuchas.submit({ preventDefault() {}, target: { closest(selector) {
+      return selector === '[data-bolsa-form="b7-paso4"]' ? formulario : null;
+    } } });
+    const reintentar = () => escuchas.click({ preventDefault() {}, target: { closest(selector) {
+      return selector === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: "reintentar-vinculo-b7" } } : null;
+    } } });
+    confirmar(); confirmar();
+    await esperar(); await esperar();
+    assert.equal(llamadasEmision.length, 1);
+    assert.equal(llamadasVinculo.length, 1);
+    assert.equal(app.flujo.recibo, `recibo:llamamiento:${huella}`);
+    assert.equal(app.flujo.vinculoEstado, "pendiente");
+    assert.match(app.html(), /data-b7-vinculo="pendiente"/);
+    reintentar(); reintentar();
+    await esperar(); await esperar();
+    assert.equal(llamadasEmision.length, 1, "el reintento no reemite Bolsa");
+    assert.equal(llamadasVinculo.length, 2, "doble clic no duplica el POST CT");
+    assert.deepEqual(llamadasVinculo[1], llamadasVinculo[0]);
+    assert.deepEqual(llamadasVinculo[0], { expediente_ref: "expediente:01", version_esperada: 7,
+      bolsa_ref: "bolsa:01", llamamiento_ref: `llamamiento:${huella}`,
+      recibo_emision_ref: `recibo:llamamiento:${huella}`,
+      clave_idempotencia: `vinculo:${app.flujo.clave_idempotencia}` });
+    assert.equal(app.flujo.vinculoEstado, "confirmado");
+    assert.match(app.html(), /data-b7-vinculo="confirmado"/);
+    sesion = { ...sesion, id: "principal:otra-persona" };
+    reintentar(); await esperar();
+    assert.equal(llamadasVinculo.length, 2);
+  } finally {
+    globalThis.fetch = anteriorFetch;
+    restaurarFormData();
+  }
+});
+
+test("B7 conserva el recibo y no enlaza cuando cambia el certificado tras la emisión", async () => {
+  const anteriorFetch = globalThis.fetch;
+  const restaurarFormData = simularFormData();
+  const huella = "d".repeat(64);
+  const identidad = { id: "principal:rrhh-1", certificado: "a".repeat(64), metodo: "certificado", garantia: "alto" };
+  let consultas = 0;
+  let emisiones = 0;
+  let vinculos = 0;
+  globalThis.fetch = async (_ruta, opciones) => {
+    emisiones += 1;
+    return { status: 201, json: async () => ({ data: { llamamiento_ref: `llamamiento:${huella}`,
+      recibo_ref: `recibo:llamamiento:${huella}`, bolsa_ref: "bolsa:01", estado: "emitido_pendiente_respuesta",
+      participaciones: [candidata.participacion_ref], configuracion: JSON.parse(opciones.body).configuracion,
+      emitido_en: "2026-09-23T10:00:00Z", reutilizada: false } }) };
+  };
+  try {
+    const app = montar({ paso: 4 });
+    app.flujo.origen = { expediente_ref: "expediente:01", version: 7, referencia: "Petición 01" };
+    const escuchas = {};
+    const formulario = { dataset: { cantidad: "1" } };
+    const controlador = crearControladorBolsas({ estado: app.estado, renderizar() {}, navegar() {},
+      documento: { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector() { return null; } },
+      consultarIdentidadAtestada: async () => ++consultas === 1 ? identidad : { ...identidad, certificado: "b".repeat(64) },
+      vincularLlamamientoBolsa: async () => { vinculos += 1; return {}; } });
+    controlador.instalar();
+    escuchas.submit({ preventDefault() {}, target: { closest(selector) {
+      return selector === '[data-bolsa-form="b7-paso4"]' ? formulario : null;
+    } } });
+    await esperar(); await esperar();
+    assert.equal(emisiones, 1);
+    assert.equal(vinculos, 0);
+    assert.equal(app.flujo.recibo, `recibo:llamamiento:${huella}`);
+    assert.equal(app.flujo.vinculoEstado, "pendiente");
+    assert.doesNotMatch(app.html(), /data-b7-vinculo="confirmado"/);
+  } finally {
+    globalThis.fetch = anteriorFetch;
+    restaurarFormData();
+  }
+});
+
+test("B7 no confirma una respuesta tardía del vínculo tras salir y conserva el reintento", async () => {
+  const anteriorFetch = globalThis.fetch;
+  const restaurarFormData = simularFormData();
+  const huella = "e".repeat(64);
+  let emisiones = 0;
+  let resolverVinculo;
+  let vinculos = 0;
+  globalThis.fetch = async (_ruta, opciones) => {
+    emisiones += 1;
+    return { status: 201, json: async () => ({ data: { llamamiento_ref: `llamamiento:${huella}`,
+      recibo_ref: `recibo:llamamiento:${huella}`, bolsa_ref: "bolsa:01", estado: "emitido_pendiente_respuesta",
+      participaciones: [candidata.participacion_ref], configuracion: JSON.parse(opciones.body).configuracion,
+      emitido_en: "2026-09-23T10:00:00Z", reutilizada: false } }) };
+  };
+  try {
+    const app = montar({ paso: 4 });
+    app.flujo.origen = { expediente_ref: "expediente:01", version: 7, referencia: "Petición 01" };
+    const escuchas = {};
+    const formulario = { dataset: { cantidad: "1" } };
+    crearControladorBolsas({ estado: app.estado, renderizar() {}, navegar() {},
+      documento: { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector() { return null; } },
+      consultarIdentidadAtestada: async () => ({ id: "principal:rrhh-1", certificado: "a".repeat(64), metodo: "certificado", garantia: "alto" }),
+      vincularLlamamientoBolsa: async (solicitud) => {
+        vinculos += 1;
+        return vinculos === 1 ? new Promise((resolver) => { resolverVinculo = resolver; })
+          : { ...solicitud, recibo_vinculo_ref: "recibo:vinculo:01" };
+      } }).instalar();
+    escuchas.submit({ preventDefault() {}, target: { closest(selector) {
+      return selector === '[data-bolsa-form="b7-paso4"]' ? formulario : null;
+    } } });
+    await esperar(); await esperar();
+    assert.equal(vinculos, 1);
+    app.estado.filtrosBolsa = { estado: "", texto: "" };
+    resolverVinculo({ recibo_emision_ref: `recibo:llamamiento:${huella}`, recibo_vinculo_ref: "recibo:vinculo:01" });
+    await esperar();
+    assert.notEqual(app.flujo.vinculoEstado, "confirmado");
+    escuchas.click({ preventDefault() {}, target: { closest(selector) {
+      return selector === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: "iniciar-b7" } } : null;
+    } } });
+    assert.equal(app.estado.filtrosBolsa.nuevo_llamamiento, app.flujo);
+    assert.equal(app.flujo.vinculoEstado, "pendiente");
+    escuchas.click({ preventDefault() {}, target: { closest(selector) {
+      return selector === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: "reintentar-vinculo-b7" } } : null;
+    } } });
+    await esperar(); await esperar();
+    assert.equal(emisiones, 1);
+    assert.equal(vinculos, 2);
+    assert.equal(app.flujo.vinculoEstado, "confirmado");
+  } finally {
+    globalThis.fetch = anteriorFetch;
+    restaurarFormData();
+  }
+});
