@@ -274,7 +274,7 @@ test("la ficha CT abre el llamamiento en la bolsa de la categoría con su origen
   const estado = expedienteCT([campoCT("centro", "Residencia La Milagrosa")], {
     datos_peticion: { categoria_ref: "categoria:rpt:auxiliar_enfermeria", grupo_subgrupo: "C2", periodo: { inicio: "2026-10-20", fin: "2026-12-31" } } });
   const vista = renderizarExpediente(estado, t, "es-ES", "Europe/Madrid", false, resolver);
-  assert.match(vista, /<button type="button" class="boton-primario" data-accion="ver-bolsa" data-bolsa-ref="bolsa:sintetica:1" data-origen-expediente="expediente:sintetico:42" data-origen-referencia="2026\/CT-00042" data-origen-centro="Residencia La Milagrosa" data-origen-inicio="2026-10-20">Abrir llamamiento en Bolsa<\/button>/u);
+  assert.match(vista, /<button type="button" class="boton-primario" data-accion="ver-bolsa" data-bolsa-ref="bolsa:sintetica:1" data-origen-expediente="expediente:sintetico:42" data-origen-version="3" data-origen-referencia="2026\/CT-00042" data-origen-centro="Residencia La Milagrosa" data-origen-inicio="2026-10-20">Abrir llamamiento en Bolsa<\/button>/u);
   const cobertura = renderizarExpediente(expedienteCT([campoCT("bolsa_cobertura", "bolsa:sintetica:9")]), t, "es-ES", "Europe/Madrid", false,
     (ref) => (ref === "bolsa:sintetica:9" ? { categoria: "Peón" } : null));
   assert.match(cobertura, /data-accion="ver-bolsa" data-bolsa-ref="bolsa:sintetica:9" data-origen-expediente=/u, "la bolsa de cobertura manda");
