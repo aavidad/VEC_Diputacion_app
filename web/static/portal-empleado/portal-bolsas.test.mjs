@@ -273,7 +273,7 @@ test("B45 acepta restricciones con fecha y B46 retorno al turno, pero rechaza cr
   assert.equal(validarCandidato(retorno).razon_orden, "retorno_tras_cese");
   assert.throws(() => validarCandidato({ ...restriccion, disponible_desde: null }));
   assert.throws(() => validarCandidato({ ...retorno, orden: null }));
-  const datos = validarRespuestaCandidatosBolsa({ data: { ...envelopeCandidatos.data,
+  let datos = validarRespuestaCandidatosBolsa({ data: { ...envelopeCandidatos.data,
     candidatos: [restriccion, retorno] } });
   const presentador = crearPresentadorPanelInterno({
     claseEstado: (clave) => clave, encabezadoVista: () => "", escaparHTML: (valor) => String(valor ?? ""),
@@ -284,6 +284,8 @@ test("B45 acepta restricciones con fecha y B46 retorno al turno, pero rechaza cr
   const html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /Fuera de turno por cese hasta/u);
   assert.match(html, /Retorno al turno tras cese verificado/u);
+  datos = { ...datos, candidatos: [{ ...datos.candidatos[0], razon_orden: "pausa" }] };
+  assert.match(presentador.renderizarVista("bolsa-candidatos"), /Fuera de turno durante la pausa/u);
 });
 test("validarRespuestaBolsas rechaza respuestas no canónicas o alteradas", () => {
   const { envelopeBolsas } = construirFixturesDesdeDemo();
@@ -570,6 +572,9 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
   assert.match(htmlListo, /Aspirantes/);
   assert.match(htmlListo, /Disponibles/);
   assert.match(htmlListo, /ADMINISTRATIVO/);
+  estadoBolsas = { carga: "listo", datos: { bolsas: [{ ...datosBolsasValidadas.bolsas[0], por_estado: { ...datosBolsasValidadas.bolsas[0].por_estado, disponible: 1 } }] }, error: "" };
+  assert.match(presentador.renderizarVista("resumen"), /<span class="etiqueta-kpi">Disponible<\/span><strong class="valor-kpi">1<\/strong>/u);
+  estadoBolsas = { carga: "listo", datos: datosBolsasValidadas, error: "" };
   const bolsaRef = datosBolsasValidadas.bolsas[0].bolsa_ref;
   const refURL = encodeURIComponent(bolsaRef);
   assert.match(htmlListo, new RegExp(`<a class="enlace-tabla" href="\\?bolsa_ref=${refURL}#bolsa/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" aria-label="Abrir candidatos de la bolsa [^"]+">`));

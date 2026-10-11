@@ -59,8 +59,7 @@ export function renderizarLlamamientos(datos, estado = {}) {
   const ultimo = propios[0];
   const resultado = ultimo?.ultimo_llamamiento.resultado;
   const detalle = ultimo ? `${listaDatos([
-    [traducir("areaPersonal.miBolsa.llamamiento.bolsa"), escaparHTML(ultimo.bolsa)],
-    [traducir("areaPersonal.miBolsa.llamamiento.categoria"), escaparHTML(nombreCategoria(ultimo))],
+    [traducir("areaPersonal.miBolsa.llamamiento.bolsa"), escaparHTML(nombreCategoria(ultimo))],
     [traducir("areaPersonal.miBolsa.llamamiento.fecha"), escaparHTML(fechaSituacion(ultimo.ultimo_llamamiento.emitido_en))],
     [traducir("areaPersonal.miBolsa.llamamiento.canal"), escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.correo"))],
     [traducir("areaPersonal.miBolsa.llamamiento.resultado"), `<span class="estado-chip ${resultado === "enviado" ? "info" : "aviso"}">${escaparHTML(traducir(`areaPersonal.miBolsa.llamamiento.${resultado}`))}</span>`],

@@ -358,7 +358,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         <div class="rejilla-kpi cuadro-b12-kpi" aria-label="${textoPortal("txt_resumen_de_las_bolsas_de_trabajo")}">
           <a class="tarjeta-kpi" href="${escaparHTML(rutaResumenBolsasCompartible(globalThis.location?.search ?? ""))}" data-vista="resumen"><span class="icono-kpi" aria-hidden="true">${icono("bolsas")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_bolsas_visibles")}</span><strong class="valor-kpi">${numero(bolsas.length)}</strong></div></a>
           ${kpiGlobal("personas", "txt_aspirantes", totalAspirantes, "todos")}
-          ${kpiGlobal("persona_ok", "txt_disponibles", totalDisponibles, "disponible", "kpi--exito")}
+          ${kpiGlobal("persona_ok", totalDisponibles === 1 ? "txt_disponible" : "txt_disponibles", totalDisponibles, "disponible", "kpi--exito")}
           ${kpiGlobal("persona_baja", "txt_personas_en_renuncia", totalPersonasEnRenuncia, "renuncia", "kpi--advertencia")}
         </div>
         <div class="tabla-contenedor">
@@ -586,7 +586,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               : c.razon_orden === "respuesta_portal_pendiente" ? traducirPortal("bolsa_razon_respuesta_portal_pendiente")
               : c.razon_orden === "cese_pendiente" ? traducirPortal("bolsa_razon_cese_pendiente")
                 : c.razon_orden === "reposicion_tras_contrato" ? traducirPortal("txt_reposicion_tras_contrato")
-                  : c.razon_orden === "pausa" ? traducirPortal("txt_pausa")
+                  : c.razon_orden === "pausa" ? traducirPortal("bolsa_razon_pausa")
                     : c.razon_orden === "sin_turno" ? traducirPortal("bolsa_turno_sin_puesto") : etiquetaClave(c.razon_orden))}</small>` : ""}</td>
             <td><button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${escaparHTML(c.participacion_ref)}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="${textoPortal("txt_aria_abrir_ficha_de", { persona: c.nombre_visible })}"><strong>${escaparHTML(c.nombre_visible)}</strong></button></td>
             <td><code>${escaparHTML(c.documento_enmascarado)}</code></td>

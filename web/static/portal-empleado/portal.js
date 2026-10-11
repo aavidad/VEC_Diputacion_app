@@ -1633,7 +1633,7 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261011-bolsa-confirmaciones-v1"),
+    import("./portal-panel-interno.js?v=20261011-bolsa-textos-v1"),
     import("./portal-bolsas-api.js?v=20261011-bolsa-confirmaciones-v1"),
     import("./portal-bolsas-ruta-filtros.js?v=20261011-bolsa-b103-privacidad-v1"),
   ]).then(([panel, bolsas, rutas]) => {

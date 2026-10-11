@@ -81,6 +81,7 @@
     "bolsa_razon_retorno_tras_cese": "Back in turn after verified termination",
     "bolsa_razon_respuesta_portal_pendiente": "Out of turn: answered in “My job pool”. Confirm it with “Change status”",
     "bolsa_razon_cese_pendiente": "Out of turn: end of contract pending confirmation",
+    "bolsa_razon_pausa": "Out of turn while on hold",
     "bolsa_turno_titulo": "Pool calling order",
     "bolsa_turno_ultimo": "Last recorded attempt to contact an applicant",
     "bolsa_turno_siguiente": "First available in the current order",

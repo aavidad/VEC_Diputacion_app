@@ -81,6 +81,7 @@
     "bolsa_razon_retorno_tras_cese": "Retorno al turno tras cese verificado",
     "bolsa_razon_respuesta_portal_pendiente": "Fuera de turno: respondió en «Mi bolsa». Confírmelo con «Cambiar situación»",
     "bolsa_razon_cese_pendiente": "Fuera de turno: cese pendiente de confirmar",
+    "bolsa_razon_pausa": "Fuera de turno durante la pausa",
     "bolsa_turno_titulo": "Turno de la bolsa",
     "bolsa_turno_ultimo": "Último intento de llamamiento registrado",
     "bolsa_turno_siguiente": "Primero disponible según el orden vigente",

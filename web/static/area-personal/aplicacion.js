@@ -8,7 +8,7 @@ import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261011-bo
 import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261011-bolsa-confirmaciones-v1";
 import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261011-bolsa-confirmaciones-v1";
+} from "./vistas/seguimiento-tramites.js?v=20261011-bolsa-textos-v1";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-bolsa-confirmaciones-v1";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261011-bolsa-confirmaciones-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
@@ -186,7 +186,7 @@ export function datosMinimosMiBolsa(consulta) {
   const nombre = consulta.nombre_visible || "";
   return Object.freeze({
     meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en, busqueda_convocatorias_disponible: false },
-    sesion: { nombre_visible: nombre, iniciales: (nombre && consulta.iniciales) || "—", metodo: traducir("areaPersonal.miBolsa.identidad.metodoNoFacilitado"), persona_ref: null },
+    sesion: { nombre_visible: nombre, iniciales: (nombre && consulta.iniciales) || "—", metodo: "", persona_ref: null },
     resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
     perfil: { referencia: null, nombre_visible: nombre, identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), telefono: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), domicilio: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), estado_verificacion: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado") },
     plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
@@ -231,7 +231,9 @@ function actualizarShell(estado) {
   // La etiqueta del botón tapa su contenido: el nombre va también en ella y en el title del botón.
   const botonSesion = nombreSesion.closest?.(".sesion-usuario");
   if (botonSesion) { botonSesion.title = nombre; botonSesion.setAttribute("aria-label", nombre ? traducir("areaPersonal.preferencias.menuIdentidadNombre", { nombre }) : traducir("areaPersonal.preferencias.menuIdentidad")); }
-  porId("perfil-sesion").textContent = datos.sesion.metodo;
+  const perfilSesion = porId("perfil-sesion");
+  perfilSesion.textContent = datos.sesion.metodo;
+  perfilSesion.hidden = !datos.sesion.metodo;
   document.querySelectorAll("[data-ruta]").forEach((enlace) => {
     const activa = enlace.dataset.ruta === vista;
     if (activa) enlace.setAttribute("aria-current", "page"); else enlace.removeAttribute("aria-current");
@@ -430,7 +432,7 @@ function verSesion(estado) {
   const prefijoTraduccion = "areaPersonal.sesion.";
   const campos = [...(sesion.nombre_visible ? [[traducir(`${prefijoTraduccion}persona`), escaparHTML(sesion.nombre_visible)]] : []),
     ...(sesion.persona_ref ? [[traducir(`${prefijoTraduccion}referencia`), escaparHTML(sesion.persona_ref)]] : []),
-    [traducir(`${prefijoTraduccion}metodo`), escaparHTML(sesion.metodo)],
+    ...(sesion.metodo ? [[traducir(`${prefijoTraduccion}metodo`), escaparHTML(sesion.metodo)]] : []),
     [traducir(`${prefijoTraduccion}origen`), escaparHTML(estado.datos.meta.origen)]];
   mostrarDetalle(traducir(`${prefijoTraduccion}titulo`), `${listaDatos(campos)}<p class="nota">${escaparHTML(traducir(`${prefijoTraduccion}autoridadServidor`))}</p>`);
 }
@@ -770,7 +772,7 @@ export function aplicarPreferenciasInicialesAplazadas(estado, lectura, error = n
       const metodo = metodoIdentidadPreferencias(true);
       estado.datos.sesion.metodo = metodo;
       const perfilSesion = porId("perfil-sesion");
-      if (perfilSesion) perfilSesion.textContent = metodo;
+      if (perfilSesion) { perfilSesion.textContent = metodo; perfilSesion.hidden = false; }
     }
     estado.filasPreferidas = lectura.estado.valores.filas;
     if (estado.ajusteVisualVersion === 0) {
