@@ -31,7 +31,7 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   assert.ok(!html.includes(`/area-personal/area-personal.css?v=${versionCSSOportunidades}`), "no reutilizar CSS anterior con caché inmutable");
   assert.ok(html.includes(`/area-personal/arranque.js?v=${versionPadre}`));
   assert.ok(arranque.includes(`./aplicacion.js?v=20261011-bolsa-textos-v1`));
-  assert.ok(aplicacion.includes(`from "./mi-bolsa-historial.js?v=20261011-bolsa-confirmaciones-v1"`), "el histórico conserva la cohorte de la aplicación");
+  assert.ok(aplicacion.includes(`from "./mi-bolsa-historial.js?v=20261011-bolsa-textos-v1"`), "el histórico conserva la cohorte de la aplicación");
   assert.ok(arranque.includes('from "./i18n.js"'));
   assert.ok(aplicacion.includes('from "./i18n.js"'));
   assert.doesNotMatch(`${arranque}\n${aplicacion}`, /\.\/i18n\.js\?v=/);
@@ -45,7 +45,7 @@ test("Mi Bolsa con pausa nula cierra una sola cohorte hasta el HTML y la caché"
     "contrato.js", "cliente-http.js", "contacto-propio.js", "vistas/seguimiento-tramites.js",
     "aplicacion.js", "arranque.js", "index.html", "cache-publica-v1.json", "../../produccion.manifest",
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
-  const cohorte = "20261011-bolsa-confirmaciones-v1";
+  const cohorte = "20261011-bolsa-textos-v1";
   for (const [fuente, ruta] of [[contrato, "./mi-bolsa-portal.js"],
     [seguimiento, "../mi-bolsa-portal.js"], [aplicacion, "./mi-bolsa-portal.js"],
     [cliente, "./contrato.js"], [contacto, "./cliente-http.js"],
