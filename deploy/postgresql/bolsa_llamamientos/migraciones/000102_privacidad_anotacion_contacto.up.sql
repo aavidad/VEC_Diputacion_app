@@ -45,7 +45,7 @@ CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.registrar_contacto_participaci
  RETURNS TABLE(reutilizado boolean, recibo_ref text, contacto_ref text)
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'pg_catalog'
+ SET search_path TO 'pg_catalog', 'pg_temp'
  SET "TimeZone" TO 'UTC'
  SET lock_timeout TO '2s'
  SET statement_timeout TO '15s'
