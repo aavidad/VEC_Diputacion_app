@@ -84,6 +84,37 @@ test("la confirmación envía la renuncia revisada aunque cambien los campos del
   assert.deepEqual(enviados[1], enviados[0]);
 });
 
+test("un plazo terminado permite volver sin ofrecer reintento de renuncia", async () => {
+  const revision = { hidden: true, focus() {} };
+  const edicion = { hidden: false };
+  const iniciar = { hidden: false };
+  const resumen = { innerHTML: "" };
+  const resultado = { textContent: "", focus() {} };
+  const confirmar = { disabled: false, hidden: false };
+  const reintentar = { hidden: true, disabled: false };
+  const volver = { disabled: false };
+  const nodos = { "[data-portal-revision]": revision, "[data-portal-edicion]": edicion,
+    "[data-portal-iniciar-revision]": iniciar, "[data-portal-revision-datos]": resumen,
+    "[data-portal-resultado]": resultado, 'button[type="submit"]': confirmar,
+    "[data-portal-reintentar]": reintentar, "[data-portal-revision-volver]": volver };
+  const formulario = { dataset: { portalMiBolsa: "responder", bolsa: "bolsa:demo:1" },
+    querySelector: (selector) => nodos[selector] || null };
+  const datos = new FormData(); datos.set("respuesta", "renuncia");
+  assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  let envios = 0;
+  assert.equal(await enviarPortalMiBolsa(formulario, { fetchImpl: async () => {
+    envios++;
+    return { status: 409, json: async () => ({ error: { codigo: "fuera_de_plazo" } }) };
+  } }), false);
+  assert.equal(envios, 1);
+  assert.match(resultado.textContent, /plazo de respuesta ha terminado/u);
+  assert.equal(confirmar.hidden, true);
+  assert.equal(reintentar.hidden, true);
+  assert.equal(volver.disabled, false);
+  assert.equal(volverRespuestaPortalMiBolsa(formulario), true);
+  assert.equal(revision.hidden, true);
+});
+
 test("sin acciones compuestas no se exige nada y con ellas se valida todo", () => {
   assert.doesNotThrow(() => validarPortalMiBolsa({ participaciones }));
   const datos = { participaciones, acciones_portal: acciones, portal: [{ bolsa: "bolsa:demo:1", llamamiento_abierto: { contacto_en: "2026-09-25T08:00:00.000000Z", vence_antes_de: "2026-09-26T21:59:59.000000Z" }, solicitud_pendiente: null, ultima_respuesta: null }] };

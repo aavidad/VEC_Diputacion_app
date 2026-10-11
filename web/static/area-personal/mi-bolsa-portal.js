@@ -331,6 +331,7 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
   const mostrar = (texto) => { if (zona) zona.textContent = texto; };
   let seEnvio = false;
   let confirmado = false;
+  let rechazoDefinitivo = false;
   try {
     // Un resultado incierto puede haber persistido: un reintento explícito usa
     // el mismo cuerpo, incluida la versión, aunque se hayan editado los campos.
@@ -377,6 +378,7 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
     const codigo = String(resultado?.error?.codigo || "servicio_no_disponible");
     if (respuesta.status >= 400 && respuesta.status < 500 && CODIGOS_ERROR.has(codigo)) {
       peticionesInciertas.delete(formulario);
+      rechazoDefinitivo = true;
       if (peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental) bloquearDatosDocumentales(formulario, false);
     }
     mostrar(peticionesInciertas.has(formulario) && [RUTAS_PORTAL_MI_BOLSA.documental, RUTAS_PORTAL_MI_BOLSA.responder].includes(peticion.ruta)
@@ -389,13 +391,15 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
     return false;
   } finally {
     enviosEnCurso.delete(formulario);
-    const requiereReintento = seEnvio && !confirmado && respuestasRevisadas.has(formulario);
+    const requiereReintento = seEnvio && !confirmado && respuestasRevisadas.has(formulario)
+      && peticionesInciertas.has(formulario);
+    const volverParaCorregir = rechazoDefinitivo && respuestasRevisadas.has(formulario);
     if (boton) {
-      boton.disabled = requiereReintento;
-      if (requiereReintento) boton.hidden = true;
+      boton.disabled = requiereReintento || volverParaCorregir;
+      if (requiereReintento || volverParaCorregir) boton.hidden = true;
     }
     if (reintentar) { reintentar.hidden = !requiereReintento; reintentar.disabled = !requiereReintento; }
     if (volver) volver.disabled = peticionesInciertas.has(formulario);
-    if (requiereReintento) zona?.focus?.();
+    if (requiereReintento || volverParaCorregir) zona?.focus?.();
   }
 }
