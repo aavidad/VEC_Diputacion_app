@@ -1,0 +1,8 @@
+# Dependencia de lectura de respuestas Bolsa, antes de B103 de #992.
+# Requiere HZ20 y cadena de inscripción ya instalada; verificar inventario
+# y no repetir UP ni ejecutar DOWN de SQL con historia.
+# Solo estas dos SQL nuevas, en orden causal.
+deploy/postgresql/contexto_actor_v1/migraciones/000040_cotejo_actual_lectura_bolsa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000237_lectura_nominal_respuestas_bolsa.up.sql
+# SHA256 480a53e93599027c2342a1208de31bd2318c9efa8bed1a3872958fa53f54600a deploy/postgresql/contexto_actor_v1/migraciones/000040_cotejo_actual_lectura_bolsa.up.sql
+# SHA256 b86cc16c00dd41b68609c4f59316986741637d540072988d9a8ae09b7729d57d deploy/postgresql/autorizacion_atestada_v3/migraciones/000237_lectura_nominal_respuestas_bolsa.up.sql
