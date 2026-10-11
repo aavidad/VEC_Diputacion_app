@@ -425,7 +425,15 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   // Custodia volátil del comando mientras el resultado de un POST puede ser incierto.
   // La navegación cambia filtros y bolsa; nunca cambia esta clave ni este cuerpo.
   let emisionB7 = null;
-  const vigenteB7 = (registro) => emisionB7 === registro
+  let generacionB7 = 0;
+  function invalidarIntentoB7() {
+    generacionB7 += 1;
+    if (emisionB7?.vinculo && emisionB7.vinculoEstado === "vinculando") {
+      emisionB7.vinculoEstado = "pendiente";
+      emisionB7.flujo.vinculoEstado = "pendiente";
+    }
+  }
+  const vigenteB7 = (registro, intento) => intento === generacionB7 && emisionB7 === registro
     && estado.filtrosBolsa?.nuevo_llamamiento === registro.flujo
     && estado.bolsaSeleccionada === registro.comando.bolsa_ref;
   const identidadIgual = (a, b) => Boolean(a?.id && b?.id && a.id === b.id
@@ -439,35 +447,43 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       metodo: identidad.metodo || "", garantia: identidad.garantia || "" });
   }
   async function confirmarVinculoB7(registro) {
-    if (!registro.vinculo || registro.vinculando || registro.vinculoEstado === "confirmado" || !vigenteB7(registro)) return;
+    if (!registro.vinculo || registro.vinculando || registro.vinculoEstado === "confirmado"
+      || !vigenteB7(registro, generacionB7)) return;
+    const intento = ++generacionB7;
     registro.vinculando = true;
     registro.vinculoEstado = "vinculando";
     registro.flujo.vinculoEstado = "vinculando";
-    renderizar();
+    renderizarVinculoConFoco(registro, intento);
     try {
       await comprobarIdentidadB7(registro);
-      if (!vigenteB7(registro)) return;
+      if (!vigenteB7(registro, intento)) return;
       const recibo = await vincularLlamamientoBolsa(registro.vinculo);
-      if (!vigenteB7(registro)) return;
+      if (!vigenteB7(registro, intento)) return;
       await comprobarIdentidadB7(registro);
-      if (!vigenteB7(registro)) return;
+      if (!vigenteB7(registro, intento)) return;
       if (!recibo || recibo.recibo_emision_ref !== registro.vinculo.recibo_emision_ref) throw new TypeError("recibo_vinculo_invalido");
       registro.vinculoEstado = "confirmado";
       registro.flujo.vinculoEstado = "confirmado";
       registro.flujo.recibo_vinculo_ref = recibo.recibo_vinculo_ref;
     } catch {
-      if (vigenteB7(registro)) {
+      if (vigenteB7(registro, intento)) {
         registro.vinculoEstado = "pendiente";
         registro.flujo.vinculoEstado = "pendiente";
       }
     } finally {
       registro.vinculando = false;
-      if (registro.vinculoEstado === "vinculando") {
+      if (vigenteB7(registro, intento) && registro.vinculoEstado === "vinculando") {
         registro.vinculoEstado = "pendiente";
         registro.flujo.vinculoEstado = "pendiente";
       }
-      if (vigenteB7(registro)) renderizar();
+      if (vigenteB7(registro, intento)) renderizarVinculoConFoco(registro, intento);
     }
+  }
+  function renderizarVinculoConFoco(registro, intento) {
+    if (!vigenteB7(registro, intento)) return;
+    const focoEnRecibo = Boolean(documento.activeElement?.closest?.("[data-b7-recibo]"));
+    renderizar();
+    if (focoEnRecibo && vigenteB7(registro, intento)) documento.querySelector?.("[data-b7-vinculo]")?.focus?.();
   }
   function restaurarComandoB7(registro) {
     registro.flujo.participaciones = [...registro.comando.participaciones];
@@ -665,6 +681,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   function cancelarPeticiones() {
     // El POST de emisión no es cancelable: conservar su flujo permite recuperar
     // el recibo al volver a Bolsa aunque se abandone la vista durante la espera.
+    invalidarIntentoB7();
     const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
     if (!flujo?.enviando && !flujo?.clave_idempotencia) invalidarSeleccionMasiva();
     estado.modalFicha?.controladorOperaciones?.abort();
@@ -676,6 +693,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
 
   function suspenderLlamamientoB7() {
+    invalidarIntentoB7();
     const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
     if (flujo && flujo !== emisionB7?.flujo) invalidarSeleccionMasiva();
     if (flujo) {
@@ -1105,6 +1123,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         renderizar();
       } else if (accion === "ver-historico-b7") {
         evento.preventDefault();
+        invalidarIntentoB7();
         if (emisionB7?.flujo.recibo && (!emisionB7.vinculo || emisionB7.vinculoEstado === "confirmado")) emisionB7 = null;
         invalidarSeleccionMasiva();
         estado.filtrosBolsa = { estado: "", texto: "", pestana: "historico", pagina_historico: 0 };
@@ -1213,6 +1232,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         evento.preventDefault(); const datos = new FormData(paso4); const flujo=estado.filtrosBolsa?.nuevo_llamamiento;
         if (!flujo || !datos.get("confirmacion") || flujo.enviando || flujo.recibo || flujo.acceso_denegado || flujo.revision_obligatoria) return;
         if (emisionB7 && emisionB7.flujo !== flujo) return;
+        if (emisionB7?.operando) return;
         if (emisionB7) restaurarComandoB7(emisionB7);
         if (!emisionB7 && (!flujo.participaciones?.length || flujo.participaciones.length > 100 || Number(paso4.dataset.cantidad) !== flujo.participaciones.length)) {
           flujo.error = traducirBolsaInterna("b7_seleccion_cambiada");
@@ -1239,23 +1259,30 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           };
         }
         const registro = emisionB7;
+        const intento = ++generacionB7;
+        registro.operando = true;
         flujo.enviando=true; flujo.error=""; flujo.error_422=false; registro.estado="enviando"; renderizar();
         void (async () => {
           if (registro.requiereVinculo) {
             try {
               if (typeof vincularLlamamientoBolsa !== "function") throw new TypeError("vinculo_no_disponible");
               await comprobarIdentidadB7(registro);
-              if (!vigenteB7(registro)) { flujo.enviando = false; registro.estado = "incierto"; return; }
+              if (!vigenteB7(registro, intento)) { flujo.enviando = false; registro.operando = false; registro.estado = "incierto"; return; }
             } catch {
               flujo.enviando = false;
+              registro.operando = false;
               registro.estado = "incierto";
-              flujo.error = TEXTOS_VINCULO_CT.identidad_error;
-              if (vigenteB7(registro)) renderizar();
+              if (vigenteB7(registro, intento)) {
+                flujo.error = TEXTOS_VINCULO_CT.identidad_error;
+                renderizar();
+                documento.querySelector?.("[data-b7-emision-error]")?.focus?.();
+              }
               return;
             }
           }
           const res = await emitirLlamamiento(registro.comando);
           if (emisionB7 !== registro) return;
+          registro.operando = false;
           flujo.enviando = false;
           if (res.ok) {
             registro.estado = "confirmado";
@@ -1270,7 +1297,9 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
               registro.vinculoEstado = "pendiente";
               flujo.vinculoEstado = "pendiente";
             }
-          } else if ([400, 409, 422].includes(res.status)) {
+          }
+          if (!vigenteB7(registro, intento)) return;
+          if (!res.ok && [400, 409, 422].includes(res.status)) {
             // Rechazo definitivo: el servidor no aplicó este comando. Una
             // revisión podrá iniciar otra intención con una clave nueva.
             emisionB7 = null;
@@ -1282,14 +1311,14 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             flujo.error = res.status === 422 ? traducirBolsaInterna("b7_emision_rechazada")
               : res.status === 400 ? traducirPortal("panel_b7_solicitud_rechazada")
               : res.mensaje;
-          } else if ([401, 403].includes(res.status)) {
+          } else if (!res.ok && [401, 403].includes(res.status)) {
             registro.estado = "incierto";
             flujo.acceso_denegado = true;
             flujo.error = res.mensaje;
             if (estado.filtrosBolsa?.nuevo_llamamiento === flujo) {
               estado.datosCandidatos = { carga: "denegado", datos: null, error: res.mensaje };
             }
-          } else {
+          } else if (!res.ok) {
             registro.estado = "incierto";
             flujo.error = traducirPortal("panel_b7_resultado_incierto");
           }
@@ -1297,7 +1326,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             renderizar();
             documento.querySelector(res.ok ? "[data-b7-recibo]" : "[data-b7-emision-error]")?.focus?.();
           }
-          if (res.ok && registro.vinculo && vigenteB7(registro)) void confirmarVinculoB7(registro);
+          if (res.ok && registro.vinculo && vigenteB7(registro, intento)) void confirmarVinculoB7(registro);
         })(); return;
       }
       const formFiltros = evento.target?.closest?.('[data-bolsa-form="filtros"]');
