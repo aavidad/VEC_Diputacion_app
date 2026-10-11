@@ -24,9 +24,9 @@ import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamami
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261009-instantes-bolsa-v1";
 import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261007-pantallas-textos-final-v1";
 import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
-import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261011-bolsa-contacto-v11";
-import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261011-bolsa-contacto-v11";
-import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261011-bolsa-contacto-v11";
+import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261011-bolsa-b103-v1";
+import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261011-bolsa-b103-v1";
+import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261011-bolsa-b103-v1";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 const FILTROS_GLOBALES = new Set(["todos", "disponible", "renuncia", "llamamientos"]);
