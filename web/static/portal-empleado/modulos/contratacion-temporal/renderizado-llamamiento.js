@@ -1,7 +1,7 @@
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261011-bolsa-contacto-v14";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261011-bolsa-contacto-v15";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261011-bolsa-contacto-v14";
-import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261011-bolsa-contacto-v14";
+import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261011-bolsa-contacto-v15";
+import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261011-bolsa-contacto-v15";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,

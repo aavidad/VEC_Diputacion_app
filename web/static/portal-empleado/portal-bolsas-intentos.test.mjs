@@ -7,7 +7,7 @@ import {
   registrarContactoIntento,
   renderizarIntentosContacto,
   rutaContactosCandidato,
-} from "./portal-bolsas-intentos.js?v=20261011-bolsa-contacto-v14";
+} from "./portal-bolsas-intentos.js?v=20261011-bolsa-contacto-v15";
 import { MENSAJES_INTENTOS, crearTraductorIntentos } from "./portal-i18n-intentos.js";
 
 const candidato = { participacion_ref: "participacion:1", estado_clave: "disponible", ultimo_llamamiento: { llamamiento_ref: "llamamiento:1" } };
@@ -31,11 +31,13 @@ test("el catálogo i18n de intentos está completo y rechaza claves ajenas", () 
 });
 
 test("la nota permite describir el teléfono y avisa junto al campo al escribir cifras", () => {
-  for (const nota of ["Acepta por teléfono", "TELÉFONO sin respuesta", "Se llamó 2 veces por teléfono"]) {
+  for (const nota of ["Acepta por teléfono", "TELÉFONO sin respuesta", "Se llamó 2 veces por teléfono",
+    "Por teléfono a las 12:30", "Por teléfono el 11/10/2026"]) {
     assert.equal(anotacionContieneDatoPersonal(nota), false, nota);
   }
   for (const nota of ["Teléfono 600123456", "teléfono / (6)", "Llamar al +34 600 123 456",
     "Teléfono fijo 812345678", "Llamar al 812345678",
+    "Teléfono fijo +44 20 7946 0123", "Llamar al +44 20 7946 0123",
     "Documento DNI 12345678Z", "tercero@example.test", "Enviar por email"]) {
     assert.equal(anotacionContieneDatoPersonal(nota), true, nota);
   }

@@ -1,17 +1,17 @@
 /** Montaje y refresco de resolución de formalización e incorporación al ejercicio. */
 
-import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js?v=20261011-bolsa-contacto-v14";
-import { escaparHTML } from "./componentes-expedientes.js?v=20261011-bolsa-contacto-v14";
-import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261011-bolsa-contacto-v14";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261011-bolsa-contacto-v14";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261011-bolsa-contacto-v14";
-import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261011-bolsa-contacto-v14";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261011-bolsa-contacto-v14";
+import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js?v=20261011-bolsa-contacto-v15";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261011-bolsa-contacto-v15";
+import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261011-bolsa-contacto-v15";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261011-bolsa-contacto-v15";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261011-bolsa-contacto-v15";
+import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261011-bolsa-contacto-v15";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261011-bolsa-contacto-v15";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261011-bolsa-contacto-v14";
-import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261011-bolsa-contacto-v14";
-import { cargarTextosVinculoCategoriaRPT, montarVinculoCategoriaRPT } from "./vinculo-categoria-rpt.js?v=20261011-bolsa-contacto-v14";
+import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261011-bolsa-contacto-v15";
+import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261011-bolsa-contacto-v15";
+import { cargarTextosVinculoCategoriaRPT, montarVinculoCategoriaRPT } from "./vinculo-categoria-rpt.js?v=20261011-bolsa-contacto-v15";
 import { cargarTextos } from "../../../comun/textos.js";
 
 export function crearResolverEtiquetasIncorporacionB2(textos, personal) {

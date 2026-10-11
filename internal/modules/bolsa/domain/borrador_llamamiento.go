@@ -41,7 +41,7 @@ var patronClaveBorradorLlamamiento = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9:
 var patronDatoPersonalBorradorLlamamiento = regexp.MustCompile(`(?i)(?:^|[^\p{L}])(?:dni|nie|nif|pasaporte|email|tel[eé]fono)(?:$|[^\p{L}])|@`)
 var patronDatoPersonalContacto = regexp.MustCompile(`(?i)(?:^|[^\p{L}])(?:dni|nie|nif|pasaporte|email)(?:$|[^\p{L}])|@`)
 var patronTelefonoConCifrasContacto = regexp.MustCompile(`(?i)(?:^|[^\p{L}])tel[eé]fono[^\p{L}\p{N}]{0,8}[+]?[0-9]`)
-var patronNumeroTelefonoContacto = regexp.MustCompile(`(?:^|[^\p{L}\p{N}])(?:\+34[\s.-]*)?[6789](?:[\s.-]*[0-9]){8}(?:$|[^0-9])`)
+var patronNumeroTelefonoContacto = regexp.MustCompile(`(?:^|[^\p{L}\p{N}])\+?[0-9](?:[\s.-]*[0-9]){8,14}(?:$|[^0-9])`)
 
 func NuevoBorradorLlamamiento(referencia, propietarioRef, unidadRef, ambitoRef string, contenido ContenidoBorradorLlamamiento) (BorradorLlamamiento, error) {
 	b := BorradorLlamamiento{referencia: referencia, propietarioRef: propietarioRef, unidadRef: unidadRef, ambitoRef: ambitoRef, contenido: contenido, estado: EstadoBorradorLlamamientoInterno, version: 1}

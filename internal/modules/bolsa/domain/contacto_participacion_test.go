@@ -44,6 +44,8 @@ func TestAnotacionContactoDescribeTelefonoSinGuardarDatos(t *testing.T) {
 		"TELÉFONO sin respuesta",
 		"El teléfono estaba apagado",
 		"Se llamó 2 veces y respondió por teléfono",
+		"Por teléfono a las 12:30",
+		"Por teléfono el 11/10/2026",
 	}
 	rechazadas := []string{
 		"Teléfono 600123456",
@@ -55,6 +57,8 @@ func TestAnotacionContactoDescribeTelefonoSinGuardarDatos(t *testing.T) {
 		"Llamar al +34 600 123 456",
 		"Teléfono fijo 812345678",
 		"Llamar al 812345678",
+		"Teléfono fijo +44 20 7946 0123",
+		"Llamar al +44 20 7946 0123",
 		"Documento DNI 12345678Z",
 		"Pasaporte de otra persona",
 		"Correo tercero@example.test",

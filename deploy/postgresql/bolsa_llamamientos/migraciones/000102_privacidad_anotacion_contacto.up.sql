@@ -38,7 +38,7 @@ ALTER TABLE vec_bolsa_llamamientos.contacto_participacion
        (instante_servidor AND canal='telefono' AND llamamiento_ref IS NOT NULL AND oferta_ref IS NULL))
   AND anotacion !~* '(^|[^[:alpha:]])(dni|nie|nif|pasaporte|email)([^[:alpha:]]|$)'
   AND anotacion !~* '(^|[^[:alpha:]])tel[eé]fono[^[:alnum:]]{0,8}[+]?[0-9]'
-  AND anotacion !~ '(^|[^[:alnum:]])([+]34[[:space:].-]*)?[6789]([[:space:].-]*[0-9]){8}($|[^0-9])'
+  AND anotacion !~ '(^|[^[:alnum:]])[+]?[0-9]([[:space:].-]*[0-9]){8,14}($|[^0-9])'
   AND pg_catalog.strpos(anotacion,'@')=0);
 
 CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.registrar_contacto_participacion_v3(p_contacto_ref text, p_bolsa_ref text, p_participacion_ref text, p_llamamiento_ref text, p_canal text, p_instante timestamp with time zone, p_actor text, p_resultado text, p_anotacion text, p_clave text, p_recibo text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea, p_oferta_ref text, p_evidencia_ref text, p_evidencia_huella text)
@@ -63,7 +63,7 @@ BEGIN
     OR p_anotacion IS NULL OR p_anotacion<>btrim(p_anotacion) OR octet_length(p_anotacion) NOT BETWEEN 1 AND 1000
     OR (p_anotacion ~* '(^|[^[:alpha:]])(dni|nie|nif|pasaporte|email)([^[:alpha:]]|$)'
        OR p_anotacion ~* '(^|[^[:alpha:]])tel[eé]fono[^[:alnum:]]{0,8}[+]?[0-9]'
-       OR p_anotacion ~ '(^|[^[:alnum:]])([+]34[[:space:].-]*)?[6789]([[:space:].-]*[0-9]){8}($|[^0-9])') OR strpos(p_anotacion,'@')<>0
+       OR p_anotacion ~ '(^|[^[:alnum:]])[+]?[0-9]([[:space:].-]*[0-9]){8,14}($|[^0-9])') OR strpos(p_anotacion,'@')<>0
     OR p_clave IS NULL OR p_clave<>btrim(p_clave) OR octet_length(p_clave) NOT BETWEEN 1 AND 256
     OR p_recibo IS NULL OR p_recibo<>btrim(p_recibo) OR octet_length(p_recibo) NOT BETWEEN 1 AND 256
     OR (p_llamamiento_ref IS NOT NULL AND (p_llamamiento_ref<>btrim(p_llamamiento_ref) OR octet_length(p_llamamiento_ref) NOT BETWEEN 1 AND 256))
