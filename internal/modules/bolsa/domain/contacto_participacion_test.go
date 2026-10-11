@@ -22,9 +22,9 @@ func TestContactoParticipacionCatalogoYPrivacidad(t *testing.T) {
 }
 
 func TestNotaConPalabraDePrivacidadTieneErrorPropio(t *testing.T) {
-	base := ContactoParticipacion{ContactoRef: "contacto:01234567", BolsaRef: "bolsa:01234567", ParticipacionRef: "participacion:01234567", LlamamientoRef: "llamamiento:01234567", Canal: "telefono", Actor: "per_0123456789abcdefghijkl", Resultado: "acepta", Anotacion: "Acepta por teléfono el llamamiento", InstanteServidor: true}
+	base := ContactoParticipacion{ContactoRef: "contacto:01234567", BolsaRef: "bolsa:01234567", ParticipacionRef: "participacion:01234567", LlamamientoRef: "llamamiento:01234567", Canal: "telefono", Actor: "per_0123456789abcdefghijkl", Resultado: "acepta", Anotacion: "Teléfono 600123456", InstanteServidor: true}
 	if err := base.Validar(); !errors.Is(err, ErrAnotacionContactoDatoPersonal) || !errors.Is(err, ErrContactoParticipacionInvalido) {
-		t.Fatalf("nota con «teléfono»: %v", err)
+		t.Fatalf("nota con número de teléfono: %v", err)
 	}
 	base.Anotacion = "Acepta el llamamiento"
 	if err := base.Validar(); err != nil {
@@ -34,6 +34,43 @@ func TestNotaConPalabraDePrivacidadTieneErrorPropio(t *testing.T) {
 	base.Anotacion = "Llamó por teléfono"
 	if err := base.Validar(); !errors.Is(err, ErrContactoParticipacionInvalido) || errors.Is(err, ErrAnotacionContactoDatoPersonal) {
 		t.Fatalf("otro defecto no debe culpar a la nota: %v", err)
+	}
+}
+
+func TestAnotacionContactoDescribeTelefonoSinGuardarDatos(t *testing.T) {
+	base := ContactoParticipacion{ContactoRef: "contacto:01234567", BolsaRef: "bolsa:01234567", ParticipacionRef: "participacion:01234567", Canal: CanalContactoTelefono, Actor: "per_0123456789abcdefghijkl", Resultado: ResultadoContactoContactado, Instante: time.Date(2026, 10, 11, 10, 0, 0, 0, time.UTC)}
+	permitidas := []string{
+		"Acepta por teléfono el llamamiento",
+		"TELÉFONO sin respuesta",
+		"El teléfono estaba apagado",
+		"Se llamó 2 veces y respondió por teléfono",
+	}
+	rechazadas := []string{
+		"Teléfono 600123456",
+		"teléfono: 6",
+		"teléfono / (6)",
+		"TELÉFONO +34 600 123 456",
+		"Llamar al 600123456",
+		"Llamar al 600-123-456",
+		"Llamar al +34 600 123 456",
+		"Documento DNI 12345678Z",
+		"Pasaporte de otra persona",
+		"Correo tercero@example.test",
+		"Enviar por email",
+	}
+	for _, nota := range permitidas {
+		c := base
+		c.Anotacion = nota
+		if err := c.Validar(); err != nil {
+			t.Errorf("nota descriptiva rechazada %q: %v", nota, err)
+		}
+	}
+	for _, nota := range rechazadas {
+		c := base
+		c.Anotacion = nota
+		if err := c.Validar(); err == nil {
+			t.Errorf("dato de contacto o identidad admitido %q", nota)
+		}
 	}
 }
 

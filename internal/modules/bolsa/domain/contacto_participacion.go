@@ -75,7 +75,7 @@ func (c ContactoParticipacion) Validar() error {
 		c.Anotacion != strings.TrimSpace(c.Anotacion) || (len(c.Anotacion) == 0 && (c.Canal != CanalContactoTelefono || c.LlamamientoRef == "")) || len(c.Anotacion) > 1000 || strings.ContainsAny(c.Anotacion, "\x00\u2028\u2029") {
 		return ErrContactoParticipacionInvalido
 	}
-	if contieneDatoPersonalEvidente(c.Anotacion) {
+	if contieneDatoPersonalEvidente(c.Anotacion, true) {
 		return ErrAnotacionContactoDatoPersonal
 	}
 	return nil
