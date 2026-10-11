@@ -809,6 +809,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["portal-panel-interno.js", "portal.js"]) versionesEspeciales.set(ruta, "20261011-bolsa-b103-privacidad-v1");
   // El vínculo de categoría RPT renueva la entrada después de la carga CONVOCA.
   versionesEspeciales.set("portal.js", "20261011-bolsa-b103-privacidad-v1");
+  for (const ruta of ["portal-bolsas-api.js", "portal-panel-interno.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261011-bolsa-confirmaciones-v1");
+  for (const ruta of ["portal-panel-interno.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261011-bolsa-textos-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

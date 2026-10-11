@@ -294,6 +294,7 @@
     },
     "justificante": "Supporting document (the file is not sent)",
     "justificanteRef": "Supporting document reference",
+    "revision": {"titulo": "Review your decision to decline", "aviso": "Check your response before recording it.", "volver": "Edit response", "confirmar": "Confirm decision to decline", "reintentar": "Retry the same decision to decline", "nombreArchivo": "Selected file", "archivoSeleccionado": "File selected"},
     "responder": "Send response",
     "modo": {
       "propuesta_rrhh": "HR will confirm the response",

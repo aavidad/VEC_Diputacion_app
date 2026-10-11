@@ -224,6 +224,7 @@
     },
     "justificante": "Justificante (el archivo no se envía)",
     "justificanteRef": "Referencia del justificante",
+    "revision": {"titulo": "Revise su renuncia", "aviso": "Compruebe su respuesta antes de registrarla.", "volver": "Volver a editar", "confirmar": "Confirmar renuncia", "reintentar": "Reintentar la misma renuncia", "nombreArchivo": "Archivo seleccionado", "archivoSeleccionado": "Archivo seleccionado"},
     "responder": "Enviar respuesta",
     "modo": {
       "propuesta_rrhh": "RRHH confirmará la respuesta",

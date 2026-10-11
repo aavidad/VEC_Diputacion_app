@@ -358,7 +358,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         <div class="rejilla-kpi cuadro-b12-kpi" aria-label="${textoPortal("txt_resumen_de_las_bolsas_de_trabajo")}">
           <a class="tarjeta-kpi" href="${escaparHTML(rutaResumenBolsasCompartible(globalThis.location?.search ?? ""))}" data-vista="resumen"><span class="icono-kpi" aria-hidden="true">${icono("bolsas")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_bolsas_visibles")}</span><strong class="valor-kpi">${numero(bolsas.length)}</strong></div></a>
           ${kpiGlobal("personas", "txt_aspirantes", totalAspirantes, "todos")}
-          ${kpiGlobal("persona_ok", "txt_disponibles", totalDisponibles, "disponible", "kpi--exito")}
+          ${kpiGlobal("persona_ok", totalDisponibles === 1 ? "txt_disponible" : "txt_disponibles", totalDisponibles, "disponible", "kpi--exito")}
           ${kpiGlobal("persona_baja", "txt_personas_en_renuncia", totalPersonasEnRenuncia, "renuncia", "kpi--advertencia")}
         </div>
         <div class="tabla-contenedor">
@@ -586,7 +586,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               : c.razon_orden === "respuesta_portal_pendiente" ? traducirPortal("bolsa_razon_respuesta_portal_pendiente")
               : c.razon_orden === "cese_pendiente" ? traducirPortal("bolsa_razon_cese_pendiente")
                 : c.razon_orden === "reposicion_tras_contrato" ? traducirPortal("txt_reposicion_tras_contrato")
-                  : c.razon_orden === "pausa" ? traducirPortal("txt_pausa")
+                  : c.razon_orden === "pausa" ? traducirPortal("bolsa_razon_pausa")
                     : c.razon_orden === "sin_turno" ? traducirPortal("bolsa_turno_sin_puesto") : etiquetaClave(c.razon_orden))}</small>` : ""}</td>
             <td><button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${escaparHTML(c.participacion_ref)}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="${textoPortal("txt_aria_abrir_ficha_de", { persona: c.nombre_visible })}"><strong>${escaparHTML(c.nombre_visible)}</strong></button></td>
             <td><code>${escaparHTML(c.documento_enmascarado)}</code></td>
@@ -733,13 +733,25 @@ export function crearPresentadorPanelInterno(dependencias) {
       : `<div class="fila-resumen"><dt>${textoPortal("txt_ultimo_llamamiento")}</dt><dd>${textoPortal("txt_sin_llamamientos_registrados")}</dd></div>`;
     const destinos = destinosSituacion(modal.reglasSituacion, candidato.estado_clave);
     const fechaPropuesta = fechaDisponiblePropuesta(modal.reglasSituacion, modal.reposicion);
+    const borrador = modal.borradorCambioSituacion || {};
+    const revision = modal.revisionCambioSituacion;
+    const cierreBloqueado = modal.enviandoCambioSituacion || modal.resultadoInciertoCambioSituacion;
     const cambio = modal.cambioSituacion ? `
-      <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
-        <label>${textoPortal("txt_destino")} <select name="situacion" required><option value="">${textoPortal("txt_elija_nueva_situacion")}</option>${destinos.map((d) => `<option value="${d}">${escaparHTML(etiquetaClave(d))}</option>`).join("")}</select></label>
+      <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}"${revision ? " novalidate" : ""}>
+        <div data-bolsa-cambio-edicion${revision ? " hidden" : ""}><label>${textoPortal("txt_destino")} <select name="situacion" required><option value="">${textoPortal("txt_elija_nueva_situacion")}</option>${destinos.map((d) => `<option value="${d}"${borrador.situacion === d ? " selected" : ""}>${escaparHTML(etiquetaEstadoBolsa(d))}</option>`).join("")}</select></label>
         ${renderizarCamposReposicion({ reglas: modal.reglasSituacion, candidato, estadoReposicion: modal.reposicion, escaparHTML })}
-        <label data-bolsa-fecha-disponible>${textoPortal("txt_fecha_de_disponibilidad")} <input type="datetime-local" name="fecha_disponible"${fechaPropuesta ? ` value="${escaparHTML(fechaPropuesta)}"` : ""}></label>
-        <label>${textoPortal("txt_motivo")} <textarea name="motivo" required maxlength="1000"></textarea></label>
-        <button type="submit" class="boton-primario"${destinos.length ? "" : " disabled"}>${textoPortal("txt_guardar_cambio")}</button>
+        <label data-bolsa-fecha-disponible>${textoPortal("txt_fecha_de_disponibilidad")} <input type="datetime-local" name="fecha_disponible"${borrador.fecha || fechaPropuesta ? ` value="${escaparHTML(borrador.fecha || fechaPropuesta)}"` : ""}></label>
+        <label>${textoPortal("txt_motivo")} <textarea name="motivo" required maxlength="1000">${escaparHTML(borrador.motivo || "")}</textarea></label>
+        <button type="submit" class="boton-primario"${destinos.length ? "" : " disabled"}>${textoPortal("txt_revisar_cambio_situacion")}</button></div>
+        ${revision ? `<section class="panel" data-bolsa-cambio-revision tabindex="-1" aria-label="${textoPortal("txt_revisar_cambio_situacion")}">
+          <div class="cabecera-panel"><h4>${textoPortal("txt_revisar_cambio_situacion")}</h4></div><div class="cuerpo-panel">
+          <dl class="resumen-expediente">
+            <div class="fila-resumen"><dt>${textoPortal("txt_destino")}</dt><dd>${escaparHTML(etiquetaEstadoBolsa(revision.situacion))}</dd></div>
+            <div class="fila-resumen"><dt>${textoPortal("txt_motivo")}</dt><dd>${escaparHTML(revision.motivo)}</dd></div>
+            ${revision.fechaDisponible ? `<div class="fila-resumen"><dt>${textoPortal("txt_fecha_de_disponibilidad")}</dt><dd>${escaparHTML(instanteVisible(revision.fechaDisponible))}</dd></div>` : ""}
+          </dl>${modal.enviandoCambioSituacion ? `<p role="status">${textoPortal("txt_guardando")}</p>` : ""}${modal.resultadoInciertoCambioSituacion ? `<p class="nota aviso">${textoPortal("txt_resultado_cambio_incierto")}</p>` : ""}
+          <button type="button" class="boton-secundario" data-bolsa-accion="volver-cambio-situacion"${modal.resultadoInciertoCambioSituacion || modal.enviandoCambioSituacion ? " disabled" : ""}>${textoPortal("txt_volver_a_editar_cambio")}</button>
+          <button type="submit" class="boton-primario"${modal.enviandoCambioSituacion ? " disabled" : ""}>${textoPortal("txt_confirmar_cambio_situacion")}</button></div></section>` : ""}
         <p class="mensaje-error" role="alert">${escaparHTML(modal.errorCambioSituacion || "")}</p>
       </form>` : "";
     const reciboSituacion = modal.reciboSituacion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_cambio_registrado")} ${justificanteTraducido(modal.reciboSituacion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : "";
@@ -763,7 +775,7 @@ export function crearPresentadorPanelInterno(dependencias) {
           <section id="${escaparHTML(fichaId)}" class="panel" data-bolsa-ficha-inline="true" tabindex="-1" aria-labelledby="titulo-${escaparHTML(fichaId)}">
             <div class="cabecera-panel">
               <h3 id="titulo-${escaparHTML(fichaId)}">${textoPortal("txt_ficha_de_persona", { nombre: candidato.nombre_visible })}</h3>
-              <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-ficha" aria-label="${textoPortal("txt_cerrar_ficha_de_persona", { nombre: candidato.nombre_visible })}">×</button>
+              <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-ficha" aria-label="${textoPortal("txt_cerrar_ficha_de_persona", { nombre: candidato.nombre_visible })}"${cierreBloqueado ? " disabled" : ""}>×</button>
             </div>
             <div class="cuerpo-panel">
               <dl class="resumen-expediente">
@@ -790,7 +802,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             <div class="acciones-vista">
               <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">${textoPortal("txt_cambiar_situacion")}</button>
               <button type="button" class="boton-secundario" data-bolsa-auditoria="${escaparHTML(candidato.participacion_ref)}">${textoPortal("auditoria_participacion_accion")}</button>
-              <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha">${textoPortal("txt_cerrar")}</button>
+              <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha"${cierreBloqueado ? " disabled" : ""}>${textoPortal("txt_cerrar")}</button>
             </div>
           </section>
           ${cambio}

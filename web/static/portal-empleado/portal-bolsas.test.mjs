@@ -273,7 +273,7 @@ test("B45 acepta restricciones con fecha y B46 retorno al turno, pero rechaza cr
   assert.equal(validarCandidato(retorno).razon_orden, "retorno_tras_cese");
   assert.throws(() => validarCandidato({ ...restriccion, disponible_desde: null }));
   assert.throws(() => validarCandidato({ ...retorno, orden: null }));
-  const datos = validarRespuestaCandidatosBolsa({ data: { ...envelopeCandidatos.data,
+  let datos = validarRespuestaCandidatosBolsa({ data: { ...envelopeCandidatos.data,
     candidatos: [restriccion, retorno] } });
   const presentador = crearPresentadorPanelInterno({
     claseEstado: (clave) => clave, encabezadoVista: () => "", escaparHTML: (valor) => String(valor ?? ""),
@@ -284,6 +284,8 @@ test("B45 acepta restricciones con fecha y B46 retorno al turno, pero rechaza cr
   const html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /Fuera de turno por cese hasta/u);
   assert.match(html, /Retorno al turno tras cese verificado/u);
+  datos = { ...datos, candidatos: [{ ...datos.candidatos[0], razon_orden: "pausa" }] };
+  assert.match(presentador.renderizarVista("bolsa-candidatos"), /Fuera de turno durante la pausa/u);
 });
 test("validarRespuestaBolsas rechaza respuestas no canónicas o alteradas", () => {
   const { envelopeBolsas } = construirFixturesDesdeDemo();
@@ -570,6 +572,9 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
   assert.match(htmlListo, /Aspirantes/);
   assert.match(htmlListo, /Disponibles/);
   assert.match(htmlListo, /ADMINISTRATIVO/);
+  estadoBolsas = { carga: "listo", datos: { bolsas: [{ ...datosBolsasValidadas.bolsas[0], por_estado: { ...datosBolsasValidadas.bolsas[0].por_estado, disponible: 1 } }] }, error: "" };
+  assert.match(presentador.renderizarVista("resumen"), /<span class="etiqueta-kpi">Disponible<\/span><strong class="valor-kpi">1<\/strong>/u);
+  estadoBolsas = { carga: "listo", datos: datosBolsasValidadas, error: "" };
   const bolsaRef = datosBolsasValidadas.bolsas[0].bolsa_ref;
   const refURL = encodeURIComponent(bolsaRef);
   assert.match(htmlListo, new RegExp(`<a class="enlace-tabla" href="\\?bolsa_ref=${refURL}#bolsa/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" aria-label="Abrir candidatos de la bolsa [^"]+">`));
@@ -879,6 +884,67 @@ test("controlador de B5 lleva el foco a la ficha inline y lo recupera en su cont
   assert.deepEqual(focos, ["ficha", "control-principal"]);
   assert.equal(renderizados, 2);
 });
+
+test("un cambio incierto conserva clave y recibo al salir y reabrir la ficha", async () => {
+  const { envelopeCandidatos } = construirFixturesDesdeDemo();
+  const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+  const candidato = datos.candidatos[0];
+  const escuchas = {};
+  const documento = { addEventListener(tipo, fn) { (escuchas[tipo] ||= []).push(fn); },
+    querySelector: () => null, querySelectorAll: () => [] };
+  const estado = { datosCandidatos: { carga: "listo", datos }, bolsaSeleccionada: datos.bolsa.bolsa_ref,
+    filtrosBolsa: {}, modalFicha: { abierto: true, candidato, bolsa: datos.bolsa, cambioSituacion: true,
+      revisionCambioSituacion: { situacion: "no_disponible", motivo: "Pausa comunicada", fecha: "", fechaDisponible: null },
+      borradorCambioSituacion: { situacion: "no_disponible", motivo: "Pausa comunicada", fecha: "" } } };
+  const formulario = { dataset: { participacionRef: candidato.participacion_ref } };
+  const evento = { preventDefault() {}, target: { closest(selector) {
+    return selector === '[data-bolsa-form="cambio-situacion"]' ? formulario : null;
+  } } };
+  const controlador = crearControladorBolsas({ estado, renderizar: () => {}, navegar: () => {}, documento });
+  controlador.instalar();
+  const anterior = globalThis.fetch;
+  const peticiones = [];
+  let confirmar;
+  globalThis.fetch = async (_ruta, opciones) => {
+    if (opciones?.method !== "POST") return { ok: false, status: 503, json: async () => ({}) };
+    peticiones.push(opciones);
+    if (peticiones.length === 1) return { ok: false, status: 503, json: async () => ({}) };
+    return new Promise((resolver) => { confirmar = resolver; });
+  };
+  try {
+    for (const fn of escuchas.submit || []) fn(evento);
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(peticiones.length, 1);
+    const clave = peticiones[0].headers["Idempotency-Key"];
+    assert.equal(estado.modalFicha.resultadoInciertoCambioSituacion, true);
+    controlador.cerrarFicha();
+    assert.ok(estado.modalFicha, "la ficha no se cierra mediante su botón con resultado incierto");
+    estado.modalFicha = null; // navegación exterior al controlador
+    controlador.abrirFicha(candidato.participacion_ref);
+    assert.equal(estado.modalFicha.claveCambioSituacion, clave);
+    assert.equal(estado.modalFicha.revisionCambioSituacion.motivo, "Pausa comunicada");
+    for (const fn of escuchas.submit || []) fn(evento);
+    assert.equal(peticiones.length, 2);
+    assert.equal(peticiones[1].headers["Idempotency-Key"], clave);
+    assert.equal(peticiones[1].body, peticiones[0].body);
+    estado.modalFicha = null; // otra navegación antes del acuse
+    controlador.abrirFicha(candidato.participacion_ref);
+    assert.equal(estado.modalFicha.enviandoCambioSituacion, true);
+    for (const fn of escuchas.submit || []) fn(evento);
+    assert.equal(peticiones.length, 2, "reabrir durante el envío no inicia otro POST");
+    confirmar({ ok: true, status: 200, json: async () => ({ data: { recibo_ref: "recibo:situacion:prueba" } }) });
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(estado.modalFicha.enviandoCambioSituacion, false);
+    assert.equal(estado.modalFicha.resultadoInciertoCambioSituacion, false);
+    assert.equal(estado.modalFicha.reciboSituacion, "recibo:situacion:prueba");
+    controlador.cerrarFicha();
+    assert.equal(estado.modalFicha, null, "el acuse vuelve a habilitar el cierre de la ficha");
+    controlador.abrirFicha(candidato.participacion_ref);
+    assert.equal(estado.modalFicha.reciboSituacion, "recibo:situacion:prueba");
+    assert.equal(estado.modalFicha.revisionCambioSituacion, undefined);
+    assert.equal(peticiones.length, 2);
+  } finally { globalThis.fetch = anterior; }
+});
 test("B7 lleva el foco al raíl al iniciarse desde teclado", () => {
   const escuchas = {};
   const focos = [];
@@ -936,4 +1002,12 @@ test("la ficha usa las transiciones del catálogo y prellena la reposición solo
   assert.match(reposicion, /data-bolsa-reposicion/);
   assert.match(reposicion, /<input type="datetime-local" name="fecha_disponible" value="2099-0[67]-\d{2}T\d{2}:\d{2}">/);
   assert.match(reposicion, /Reglamento, art\. 9\.1/);
+  modalFicha = { ...modalFicha, revisionCambioSituacion: { situacion: "disponible_desde", motivo: "Cambio comprobado", fecha: "2099-07-01T08:00", fechaDisponible: "2099-07-01T06:00:00.000Z" } };
+  const revision = formulario(presentador.renderizarVista("bolsa-candidatos"));
+  assert.match(revision, /data-bolsa-cambio-edicion hidden/u);
+  assert.match(revision, /data-bolsa-cambio-revision/u);
+  assert.match(revision, /Cambio comprobado/u);
+  assert.match(revision, /Confirmar cambio de situación/u);
+  assert.match(revision, /Disponible desde fecha/u);
+  assert.match(revision, /data-bolsa-accion="volver-cambio-situacion"/u);
 });
