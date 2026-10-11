@@ -189,6 +189,9 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaRespuestasPort
 	if p == nil || p.fuenteRespuestas == nil || bolsaRef == "" || llamamientoRef == "" {
 		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
 	}
+	if err := p.admitirBolsa(ctx, bolsaRef); err != nil {
+		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
+	}
 	contexto, err := p.contextoRevalidado(ctx)
 	if err != nil {
 		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles

@@ -352,6 +352,7 @@ test("si alguien aceptó (por teléfono o en Mi bolsa) no se ofrece otro llamami
   assert.match(portal, /Aceptado por Lucía Martín Serrano/u);
   const sinFuente = presentador({ datos: listo({ canales_llamamiento: canales, candidatos: [yago], respuestas_portal: null }), filtros }).renderizarVista("bolsa-candidatos");
   assert.doesNotMatch(sinFuente, /data-bolsa-accion="iniciar-b7"/u, "sin lectura propia no se ofrece otro llamamiento");
+  assert.match(sinFuente, /role="alert"[^]*data-bolsa-accion="reintentar-candidatos"/u, "el fallo deja una salida visible y reintentable");
   // Ya incorporándose por este llamamiento, aunque la respuesta no conste.
   const incorporada = ver([persona(2, "Lucía Martín Serrano", { estado_clave: "pendiente_incorporacion" })]);
   assert.doesNotMatch(incorporada, /data-bolsa-accion="iniciar-b7"/u);
