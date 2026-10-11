@@ -152,7 +152,7 @@ CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.consultar_marcas_participacion
  RETURNS TABLE(participacion_ref text, presta_servicios text, en_revision text, encadenamiento_dias bigint, encadenamiento_umbral_meses integer, encadenamiento_ventana_meses integer)
  LANGUAGE sql
  STABLE SECURITY DEFINER
- SET search_path TO 'pg_catalog'
+ SET search_path TO 'pg_catalog', 'pg_temp'
  SET "TimeZone" TO 'UTC'
 AS $function$
  WITH propias AS (

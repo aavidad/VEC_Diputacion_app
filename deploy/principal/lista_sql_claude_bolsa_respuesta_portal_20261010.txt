@@ -10,5 +10,5 @@
 # deploy/postgresql/bolsa_llamamientos/pruebas_sql/b100_afectados_antes_de_instalar.sql
 # Al aplicarla, toda respuesta antigua sin reflejar saca a su persona del turno y
 # los avisos de salto de orden de emisiones pasadas que la saltaron dejan de salir.
-# SHA256 4332e745cc37e33cfe75eca1b72be3812ec89cdcd04a61893cb895f9c9d3874f
+# SHA256 da53aaf3b646d8ab46efa27fe8f451bafc7651dfa34322238e3b94a1606d0078
 deploy/postgresql/bolsa_llamamientos/migraciones/000100_respuesta_portal_fuera_de_turno.up.sql
