@@ -314,3 +314,50 @@ func TestPaginasIncompletasNoConfirmanVersion(t *testing.T) {
 		})
 	}
 }
+
+func TestPaginacionCompletaEnDosRespuestas(t *testing.T) {
+	contenido := []byte("pdf-sintetico")
+	var paginasVersion, paginasArchivo atomic.Int32
+	c := clientePrueba(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v4/documents/5/files/6/download/" {
+			_, _ = w.Write(contenido)
+			return
+		}
+		if r.URL.Query().Get("page_size") != "100" {
+			t.Errorf("tamaño de página inesperado: %s", r.URL.RawQuery)
+		}
+		pagina := r.URL.Query().Get("page")
+		var resultados []map[string]any
+		inicio, fin := 201, 301
+		var siguiente any = "https://mayan.example.test/continuacion"
+		if pagina == "2" {
+			inicio, fin, siguiente = 301, 302, nil
+		} else if pagina != "1" {
+			t.Errorf("página inesperada: %s", pagina)
+			http.NotFound(w, r)
+			return
+		}
+		for id := inicio; id < fin; id++ {
+			switch r.URL.Path {
+			case "/api/v4/documents/5/versions/7/pages/":
+				resultados = append(resultados, map[string]any{"content_type": map[string]string{"app_label": "documents", "model": "documentfilepage"}, "object_id": id})
+			case "/api/v4/documents/5/files/6/pages/":
+				resultados = append(resultados, map[string]any{"id": id, "document_file_id": 6})
+			default:
+				http.NotFound(w, r)
+				return
+			}
+		}
+		if strings.Contains(r.URL.Path, "/versions/") {
+			paginasVersion.Add(1)
+		} else {
+			paginasArchivo.Add(1)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"count": 101, "next": siguiente, "results": resultados})
+	})
+	doc := Documento{DocumentoID: "5", ArchivoID: "6", VersionID: "7", HuellaSHA256: digest(contenido), Tamano: int64(len(contenido)), MIME: "application/pdf"}
+	recuperado, err := c.ReconciliarOriginal(context.Background(), doc)
+	if err != nil || recuperado != doc || paginasVersion.Load() != 2 || paginasArchivo.Load() != 2 {
+		t.Fatalf("recuperado=%+v err=%v version=%d archivo=%d", recuperado, err, paginasVersion.Load(), paginasArchivo.Load())
+	}
+}
