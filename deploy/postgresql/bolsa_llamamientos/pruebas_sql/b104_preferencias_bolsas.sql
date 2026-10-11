@@ -3,6 +3,7 @@
 -- Los materiales nominales de V3 se prueban desde el fixture de atestación;
 -- aquí se cotejan estructura, ACL, historia, proyección y denegación directa.
 BEGIN;
+CREATE ROLE vec_bolsa_preferencias_ajeno_prueba LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -18,10 +19,13 @@ BEGIN
     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid=v_tabla AND tgname='preferencia_bolsas_version_inmutable' AND tgenabled='O')
     OR has_table_privilege('vec_bolsa_llamamientos_ejecutor',v_tabla,'SELECT')
     OR NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor',v_funcion,'EXECUTE')
+    OR NOT has_function_privilege('vec_bolsa_llamamientos_portal_externo',v_funcion,'EXECUTE')
+    OR has_function_privilege('public',v_funcion,'EXECUTE')
+    OR has_function_privilege('vec_bolsa_preferencias_ajeno_prueba',v_funcion,'EXECUTE')
  THEN RAISE EXCEPTION 'B104: ACL/historia incompatibles' USING ERRCODE='55000'; END IF;
  v_estado:=vec_bolsa_llamamientos.preferencias_bolsas_estado_interno_v1(v_candidato,clock_timestamp());
- IF v_estado->>'version'<>'0' OR v_estado->>'revision_requerida'<>'true'
-    OR v_estado->'orden_guardado'<>'[]'::jsonb
+ IF v_estado->>'version' IS DISTINCT FROM '0' OR v_estado->>'revision_requerida' IS DISTINCT FROM 'true'
+    OR v_estado->'orden_guardado' IS DISTINCT FROM '[]'::jsonb
  THEN RAISE EXCEPTION 'B104: estado inicial incorrecto' USING ERRCODE='55000'; END IF;
  INSERT INTO vec_bolsa_llamamientos.preferencia_bolsas_version(
   candidato_ref,version,orden,conjunto_huella_sha256,clave_idempotencia,
@@ -29,9 +33,9 @@ BEGIN
  VALUES(v_candidato,1,ARRAY['bolsa:a','bolsa:b'],repeat('a',64),'clave-prueba-1',repeat('b',64),
   'recibo:preferencias-bolsas:'||repeat('c',64),'decision:prueba:1','auditoria:prueba:1',clock_timestamp());
  v_estado:=vec_bolsa_llamamientos.preferencias_bolsas_estado_interno_v1(v_candidato,clock_timestamp());
- IF v_estado->>'version'<>'1' OR v_estado->>'revision_requerida'<>'true'
-    OR v_estado->'orden_guardado'<>'["bolsa:a","bolsa:b"]'::jsonb
-    OR v_estado->'bolsas_retiradas'<>'["bolsa:a","bolsa:b"]'::jsonb
+ IF v_estado->>'version' IS DISTINCT FROM '1' OR v_estado->>'revision_requerida' IS DISTINCT FROM 'true'
+    OR v_estado->'orden_guardado' IS DISTINCT FROM '["bolsa:a","bolsa:b"]'::jsonb
+    OR v_estado->'bolsas_retiradas' IS DISTINCT FROM '["bolsa:a","bolsa:b"]'::jsonb
  THEN RAISE EXCEPTION 'B104: proyeccion de retirada incorrecta' USING ERRCODE='55000'; END IF;
  BEGIN
   UPDATE vec_bolsa_llamamientos.preferencia_bolsas_version SET orden=ARRAY['bolsa:b','bolsa:a']
@@ -54,7 +58,7 @@ BEGIN
    convert_to('{}','UTF8'),decode('01','hex'),decode('01','hex'),1,1,
    decode('01','hex'),decode('01','hex'),decode('01','hex'),decode('01','hex'));
  EXCEPTION WHEN others THEN GET STACKED DIAGNOSTICS v_code=RETURNED_SQLSTATE; END;
- IF v_code<>'42501' THEN RAISE EXCEPTION 'AD241: audiencia ajena admitida: %',v_code USING ERRCODE='55000'; END IF;
+ IF v_code IS DISTINCT FROM '42501' THEN RAISE EXCEPTION 'AD241: audiencia ajena admitida: %',v_code USING ERRCODE='55000'; END IF;
 END $audiencia_ajena$;
 ROLLBACK;
 
@@ -108,7 +112,7 @@ BEGIN
   convert_to(c::text,'UTF8'),convert_to(d::text,'UTF8'),decode('01','hex'),
   convert_to(x::text,'UTF8'),1,1,decode('01','hex'),decode('01','hex'),
   decode('01','hex'),decode('01','hex'));
- IF r.reutilizada OR r.version<>1 OR r.orden<>ARRAY['bolsa:b','bolsa:a'] THEN
+ IF r.reutilizada IS DISTINCT FROM false OR r.version IS DISTINCT FROM 1 OR r.orden IS DISTINCT FROM ARRAY['bolsa:b','bolsa:a'] THEN
   RAISE EXCEPTION 'B104: alta incorrecta' USING ERRCODE='55000'; END IF;
  v_recibo:=r.recibo_ref; v_fecha:=r.registrada_en;
  c:=jsonb_set(c,'{decision_ref}','"decision:preferencias:2"'::jsonb);
@@ -117,7 +121,7 @@ BEGIN
   convert_to(c::text,'UTF8'),convert_to(d::text,'UTF8'),decode('01','hex'),
   convert_to(x::text,'UTF8'),1,1,decode('01','hex'),decode('01','hex'),
   decode('01','hex'),decode('01','hex'));
- IF NOT r.reutilizada OR r.recibo_ref<>v_recibo OR r.registrada_en<>v_fecha OR r.version<>1
+ IF r.reutilizada IS DISTINCT FROM true OR r.recibo_ref IS DISTINCT FROM v_recibo OR r.registrada_en IS DISTINCT FROM v_fecha OR r.version IS DISTINCT FROM 1
     OR (SELECT count(*) FROM vec_bolsa_llamamientos.preferencia_bolsas_version p
         WHERE p.candidato_ref=v_candidato)<>1 THEN
   RAISE EXCEPTION 'B104: replay duplicó o sustituyó recibo' USING ERRCODE='55000'; END IF;
@@ -128,7 +132,7 @@ BEGIN
    convert_to(x::text,'UTF8'),1,1,decode('01','hex'),decode('01','hex'),
    decode('01','hex'),decode('01','hex'));
  EXCEPTION WHEN others THEN GET STACKED DIAGNOSTICS v_sqlstate=RETURNED_SQLSTATE; END;
- IF v_sqlstate<>'VBP01' THEN RAISE EXCEPTION 'B104: CAS aceptó versión anterior: %',v_sqlstate USING ERRCODE='55000'; END IF;
+ IF v_sqlstate IS DISTINCT FROM 'VBP01' THEN RAISE EXCEPTION 'B104: CAS aceptó versión anterior: %',v_sqlstate USING ERRCODE='55000'; END IF;
  v_sqlstate:=NULL;
  BEGIN
   PERFORM 1 FROM vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(
@@ -137,7 +141,7 @@ BEGIN
    convert_to(x::text,'UTF8'),1,1,decode('01','hex'),decode('01','hex'),
    decode('01','hex'),decode('01','hex'));
  EXCEPTION WHEN others THEN GET STACKED DIAGNOSTICS v_sqlstate=RETURNED_SQLSTATE; END;
- IF v_sqlstate<>'VBP02' THEN RAISE EXCEPTION 'B104: clave cambió de significado: %',v_sqlstate USING ERRCODE='55000'; END IF;
+ IF v_sqlstate IS DISTINCT FROM 'VBP02' THEN RAISE EXCEPTION 'B104: clave cambió de significado: %',v_sqlstate USING ERRCODE='55000'; END IF;
  v_sqlstate:=NULL;
  x:=jsonb_build_object('vinculos',jsonb_build_array(jsonb_build_object(
   'tipo','candidato','estado','activo','referencia',v_ajeno)));
@@ -148,6 +152,6 @@ BEGIN
    convert_to(x::text,'UTF8'),1,1,decode('01','hex'),decode('01','hex'),
    decode('01','hex'),decode('01','hex'));
  EXCEPTION WHEN others THEN GET STACKED DIAGNOSTICS v_sqlstate=RETURNED_SQLSTATE; END;
- IF v_sqlstate<>'42501' THEN RAISE EXCEPTION 'B104: actor ajeno aceptado: %',v_sqlstate USING ERRCODE='55000'; END IF;
+ IF v_sqlstate IS DISTINCT FROM '42501' THEN RAISE EXCEPTION 'B104: actor ajeno aceptado: %',v_sqlstate USING ERRCODE='55000'; END IF;
 END $contrato$;
 ROLLBACK;

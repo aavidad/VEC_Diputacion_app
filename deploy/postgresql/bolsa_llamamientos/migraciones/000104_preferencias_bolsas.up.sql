@@ -17,6 +17,7 @@ BEGIN
     OR to_regprocedure('vec_bolsa_llamamientos.listar_participaciones_candidato_v1(text)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regrole('vec_bolsa_llamamientos_portal_externo') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.preferencia_bolsas_version') IS NOT NULL
  THEN RAISE EXCEPTION 'B104: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
@@ -206,5 +207,5 @@ REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(
  text,text[],bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(
  text,text[],bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
- TO vec_bolsa_llamamientos_ejecutor;
+ TO vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_portal_externo;
 COMMIT;
