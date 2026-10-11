@@ -7,7 +7,7 @@ import {
   registrarContactoIntento,
   renderizarIntentosContacto,
   rutaContactosCandidato,
-} from "./portal-bolsas-intentos.js?v=20261011-bolsa-contacto-v12";
+} from "./portal-bolsas-intentos.js?v=20261011-bolsa-contacto-v13";
 import { MENSAJES_INTENTOS, crearTraductorIntentos } from "./portal-i18n-intentos.js";
 
 const candidato = { participacion_ref: "participacion:1", estado_clave: "disponible", ultimo_llamamiento: { llamamiento_ref: "llamamiento:1" } };
@@ -101,6 +101,9 @@ test("con los procesos agotados propone la baja con la exclusión existente y no
   assert.match(salida, /data-intentos-form="rebote"/);
   const excluido = renderizarIntentosContacto({ candidato: { ...candidato, estado_clave: "excluido" }, estado: { carga: "listo", datos: agotado } });
   assert.doesNotMatch(excluido, /data-b8-accion/);
+  const conRecibo = renderizarIntentosContacto({ candidato,
+    estado: { carga: "listo", datos: agotado, recibo: "recibo:contacto:1" } });
+  assert.equal((conRecibo.match(/role="status"/gu) || []).length, 1);
 });
 
 test("sin llamamiento o sin catálogo lo dice sin inventar reglas", () => {
@@ -129,7 +132,8 @@ test("traduce los rechazos de las reglas al registrar", async () => {
 
 test("cada rechazo del registro tiene su propio mensaje: nota con dato personal, clave repetida o resultado no admitido", async () => {
   const mensaje = async (estado, codigo) => (await registrarContactoIntento("b", "p", {}, "k", { fetchImpl: async () => respuesta(estado, { error: { codigo } }) })).mensaje;
-  assert.match(await mensaje(400, "anotacion_con_dato_personal"), /^La nota no puede llevar datos personales/u);
+  assert.match(await mensaje(400, "anotacion_con_dato_personal"), /^Quite de la nota DNI/u);
+  assert.match(await mensaje(400, "anotacion_con_dato_personal"), /Puede indicar «por teléfono» sin escribir el número/u);
   assert.match(await mensaje(409, "contacto_en_conflicto"), /ya se envió antes con otros datos/u);
   assert.match(await mensaje(409, "contacto_no_valido"), /anótelo con «Cambiar situación» en su ficha/u);
   assert.doesNotMatch(await mensaje(409, "contacto_no_valido"), /clave/u);
