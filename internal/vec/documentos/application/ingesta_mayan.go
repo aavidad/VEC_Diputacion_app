@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"math"
 	"time"
 
 	baseapp "vec-diputacion-granada/internal/vec/application"
@@ -169,6 +170,9 @@ func (s *ServicioIngestaMayan) Preparar(ctx context.Context, p ports.PlanIngesta
 	}
 	instancia := politica.Politica()
 	resuelta := instancia.Solicitud()
+	if resuelta.VersionPolitica() == 0 || resuelta.VersionPolitica() > math.MaxInt64 {
+		return ports.PlanIngestaMayan{}, ports.ErrSolicitudInvalida
+	}
 	p.PoliticaRef = resuelta.PoliticaRef()
 	p.VersionPolitica = int64(resuelta.VersionPolitica())
 	p.HuellaPoliticaSHA256 = hex.EncodeToString(resuelta.HuellaPoliticaSHA256())
