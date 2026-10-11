@@ -479,16 +479,10 @@ function railFasesDesdeHitos(detalle, traducir) {
       if (cumplida >= 0) fases[cumplida].estado_clave = ESTADO_FASE_COMPLETADO;
     }
   }
-  let actual = indice(presentacion.fase_actual || FASE_VISUAL[detalle.resumen.fase_clave]);
-  // La fase administrativa marca la posición del raíl. Si un hito ya cumplió
-  // esa fase sin cambiarla (el análisis se registra dentro de la solicitud),
-  // la fase en curso es la siguiente pendiente: nunca «Solicitud: ahora» con
-  // el análisis hecho.
-  if (actual >= 0 && fases[actual].estado_clave === ESTADO_FASE_COMPLETADO) {
-    const siguiente = fases.findIndex((fase, posicion) => posicion > actual
-      && fase.estado_clave === ESTADO_FASE_PENDIENTE);
-    if (siguiente >= 0) actual = siguiente;
-  }
+  const actual = indice(FASE_VISUAL[detalle.resumen.fase_clave]
+    || presentacion.fase_actual);
+  // La fase administrativa también gobierna la lista y el filtro. Un hito
+  // completado dentro de ella no adelanta por sí solo la fase del expediente.
   if (actual >= 0) fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
   return { fases, actual: actual >= 0 ? presentacion.fases[actual].clave : "" };
 }
