@@ -126,7 +126,8 @@ SET search_path=pg_catalog,pg_temp AS $f$
   WHERE l.rolname=session_user AND l.rolcanlogin AND l.rolinherit
    AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls)
    AND l.rolconfig IS NULL
-   AND g.rolname='vec_bolsa_llamamientos_ejecutor' AND NOT(g.rolcanlogin OR g.rolinherit
+   AND g.rolname='vec_bolsa_llamamientos_ejecutor'
+   AND NOT(g.rolcanlogin
     OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
    AND g.rolconfig IS NULL AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option
    AND (SELECT count(*) FROM pg_auth_members x WHERE x.member=l.oid)=1
