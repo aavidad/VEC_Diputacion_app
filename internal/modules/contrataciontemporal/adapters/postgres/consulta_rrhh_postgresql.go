@@ -346,6 +346,8 @@ func ejecutarConsultaRRHHEnTransaccion[T any](
 	destinos []any,
 	validar func() (T, error),
 ) (T, error) {
+	reintentable := consulta == consultaCuadroRRHHPostgreSQL || consulta == consultaDetalleRRHHPostgreSQL ||
+		consulta == consultaDetalleConBolsaRRHHPostgreSQL
 	for intento := 1; ; intento++ {
 		if ctx != nil && ctx.Err() != nil {
 			var vacio T
@@ -358,7 +360,7 @@ func ejecutarConsultaRRHHEnTransaccion[T any](
 			var vacio T
 			return vacio, ctx.Err()
 		}
-		if (consulta != consultaCuadroRRHHPostgreSQL && consulta != consultaDetalleRRHHPostgreSQL) || !carrera ||
+		if !reintentable || !carrera ||
 			intento >= postgresqlcomun.IntentosMaximosCarreraSerializable {
 			return resultado, err
 		}

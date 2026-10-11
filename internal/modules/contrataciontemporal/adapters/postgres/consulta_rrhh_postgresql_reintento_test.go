@@ -42,8 +42,9 @@ func nuevaTransaccionSecuenciaConsultaRRHHPrueba() *transaccionConsultaRRHHPrueb
 func TestConsultasRRHHReintentan40001SinCambiarMaterialNiCursor(t *testing.T) {
 	t.Parallel()
 	for nombre, consulta := range map[string]string{
-		"cuadro":  consultaCuadroRRHHPostgreSQL,
-		"detalle": consultaDetalleRRHHPostgreSQL,
+		"cuadro":        consultaCuadroRRHHPostgreSQL,
+		"detalle":       consultaDetalleRRHHPostgreSQL,
+		"detalle_bolsa": consultaDetalleConBolsaRRHHPostgreSQL,
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			t.Parallel()
@@ -122,6 +123,10 @@ func TestCuadroRRHHNoReintentaOtrosErroresNiValidacion(t *testing.T) {
 		{"detalle_deadlock", "scan", consultaDetalleRRHHPostgreSQL, &pgconn.PgError{Code: "40P01"}, ports.ErrConsultaRRHHNoDisponible},
 		{"detalle_confirmacion_ambigua", "commit", consultaDetalleRRHHPostgreSQL, errors.New("respuesta perdida"), ports.ErrConsultaRRHHNoDisponible},
 		{"detalle_validacion_40001", "validar", consultaDetalleRRHHPostgreSQL, &pgconn.PgError{Code: "40001"}, nil},
+		{"detalle_bolsa_permiso", "scan", consultaDetalleConBolsaRRHHPostgreSQL, &pgconn.PgError{Code: "42501"}, ports.ErrConsultaRRHHNoObservable},
+		{"detalle_bolsa_deadlock", "scan", consultaDetalleConBolsaRRHHPostgreSQL, &pgconn.PgError{Code: "40P01"}, ports.ErrConsultaRRHHNoDisponible},
+		{"detalle_bolsa_confirmacion_ambigua", "commit", consultaDetalleConBolsaRRHHPostgreSQL, errors.New("respuesta perdida"), ports.ErrConsultaRRHHNoDisponible},
+		{"detalle_bolsa_validacion_40001", "validar", consultaDetalleConBolsaRRHHPostgreSQL, &pgconn.PgError{Code: "40001"}, nil},
 		{"resumen_40001", "commit", consultaResumenSeguimientoRRHHPostgreSQL, &pgconn.PgError{Code: "40001"}, ports.ErrConsultaRRHHNoDisponible},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
