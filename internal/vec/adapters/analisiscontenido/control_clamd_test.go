@@ -122,7 +122,7 @@ func TestCapacidadesSaturadasNoConsultaMotores(t *testing.T) {
 	}
 	respuesta := httptest.NewRecorder()
 	servicio.Handler().ServeHTTP(respuesta, peticion)
-	if respuesta.Code != http.StatusServiceUnavailable || len(servicio.ocupacion) != 2 {
-		t.Fatalf("cupo ignorado: HTTP %d, ocupación %d", respuesta.Code, len(servicio.ocupacion))
+	if respuesta.Code != http.StatusServiceUnavailable || respuesta.Body.String() != "ocupado\n" || len(servicio.ocupacion) != 2 {
+		t.Fatalf("cupo ignorado: HTTP %d, cuerpo %q, ocupación %d", respuesta.Code, respuesta.Body.String(), len(servicio.ocupacion))
 	}
 }
