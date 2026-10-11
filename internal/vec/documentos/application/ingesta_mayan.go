@@ -1,9 +1,12 @@
 package application
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
 	"time"
 
 	baseapp "vec-diputacion-granada/internal/vec/application"
@@ -249,7 +252,7 @@ func (s *ServicioIngestaMayan) Ingerir(ctx context.Context, planRef, expedienteR
 	if solicitud.Validar() != nil {
 		return p, ports.ErrSolicitudInvalida
 	}
-	lectura, err := s.Cargas.AbrirOriginalExacto(ctx, solicitud, primera.HuellaCargaSHA256)
+	lectura, err := s.Cargas.AbrirOriginalExacto(ctx, solicitud, primera)
 	if err != nil {
 		return p, err
 	}
@@ -261,20 +264,33 @@ func (s *ServicioIngestaMayan) Ingerir(ctx context.Context, planRef, expedienteR
 		}
 		return p, ports.ErrSolicitudInvalida
 	}
+	if p.Tamano < 1 || p.Tamano > 64<<20 {
+		_ = lectura.Contenido.Close()
+		return p, ports.ErrSolicitudInvalida
+	}
+	// Se consume y verifica la versión S3 completa ANTES de confirmar el
+	// despacho. El límite tamano+1 detecta un byte extra; ReadAll exige EOF o
+	// propaga un fallo de lectura. Nunca se conserva el original en PostgreSQL.
+	contenido, errLectura := io.ReadAll(io.LimitReader(lectura.Contenido, p.Tamano+1))
+	errCierre := lectura.Contenido.Close()
+	if errLectura != nil || errCierre != nil {
+		return p, errors.Join(ports.ErrCapacidadNoDisponible, errLectura, errCierre)
+	}
+	huella := sha256.Sum256(contenido)
+	if int64(len(contenido)) != p.Tamano || hex.EncodeToString(huella[:]) != p.HuellaSHA256 {
+		return p, ports.ErrSolicitudInvalida
+	}
 	despacho := ports.OrdenCambiarIngestaMayan{PlanRef: planRef, ExpedienteRef: expedienteRef, VersionEsperada: p.Version, Estado: ports.EstadoIngestaDespachada}
 	p, nuevo, err := s.cambiar(ctx, ports.AccionDespacharIngestaMayan, despacho)
 	if err != nil {
-		_ = lectura.Contenido.Close()
 		return ports.PlanIngestaMayan{}, err
 	}
 	if !nuevo {
-		_ = lectura.Contenido.Close()
 		return p, ports.ErrIngestaNoReenviable
 	}
-	d, errProveedor := s.Custodio.IngerirOriginal(ctx, p, lectura.Contenido)
-	errCierre := lectura.Contenido.Close()
+	d, errProveedor := s.Custodio.IngerirOriginal(ctx, p, bytes.NewReader(contenido))
 	estado := ports.EstadoIngestaConfirmada
-	if errProveedor != nil || errCierre != nil || d.ValidarContra(p) != nil {
+	if errProveedor != nil || d.ValidarContra(p) != nil {
 		estado = ports.EstadoIngestaIndeterminada
 	}
 	orden := ports.OrdenCambiarIngestaMayan{PlanRef: planRef, ExpedienteRef: expedienteRef, VersionEsperada: p.Version, Estado: estado, Documento: d}
