@@ -214,12 +214,16 @@ export async function cuerpoPortalMiBolsa(formulario, datos = new FormData(formu
 const peticionesInciertas = new WeakMap();
 const enviosEnCurso = new WeakSet();
 
-// La revisión se prepara sin construir la petición ni generar una clave.
-// Así, volver para corregir los campos sigue siendo una edición local.
-export function revisarRespuestaPortalMiBolsa(formulario, datos = new FormData(formulario)) {
+const respuestasRevisadas = new WeakMap();
+const revisionesEnCurso = new WeakSet();
+
+// La operación revisada queda fijada antes de mostrar el resumen: una edición
+// posterior del DOM no puede transformar una renuncia confirmada en aceptación.
+export async function revisarRespuestaPortalMiBolsa(formulario, datos = new FormData(formulario)) {
   if (formulario.dataset.portalMiBolsa !== "responder") return true;
   const revision = formulario.querySelector("[data-portal-revision]");
   if (!revision || !revision.hidden) return true;
+  if (revisionesEnCurso.has(formulario)) return false;
   const respuesta = String(datos.get("respuesta") || "");
   if (respuesta === "acepta") return true;
   if (!["renuncia", "renuncia_justificada"].includes(respuesta)) {
@@ -237,6 +241,16 @@ export function revisarRespuestaPortalMiBolsa(formulario, datos = new FormData(f
     }
     filas.push([textoPortal("causa"), textoPortal(`causa.${causa}`)], [textoPortal("justificanteRef"), referencia]);
   }
+  revisionesEnCurso.add(formulario);
+  try {
+    const copia = new FormData();
+    for (const [nombre, valor] of datos) copia.append(nombre, valor);
+    const peticion = await cuerpoPortalMiBolsa(formulario, copia);
+    if (!peticion) return false;
+    respuestasRevisadas.set(formulario, peticion);
+  } finally {
+    revisionesEnCurso.delete(formulario);
+  }
   formulario.querySelector("[data-portal-revision-datos]").innerHTML = filas.map(([etiqueta, valor]) =>
     `<div class="fila-resumen"><dt>${escaparHTML(etiqueta)}</dt><dd>${escaparHTML(valor)}</dd></div>`).join("");
   formulario.querySelector("[data-portal-edicion]").hidden = true;
@@ -248,6 +262,8 @@ export function revisarRespuestaPortalMiBolsa(formulario, datos = new FormData(f
 
 export function volverRespuestaPortalMiBolsa(formulario) {
   if (peticionesInciertas.has(formulario) || enviosEnCurso.has(formulario)) return false;
+  respuestasRevisadas.delete(formulario);
+  delete formulario.dataset.clave;
   formulario.querySelector("[data-portal-revision]").hidden = true;
   formulario.querySelector("[data-portal-edicion]").hidden = false;
   formulario.querySelector("[data-portal-iniciar-revision]").hidden = false;
@@ -325,7 +341,8 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
         return false;
       }
     }
-    const peticion = peticionesInciertas.get(formulario) || await cuerpoPortalMiBolsa(formulario, datos);
+    const peticion = peticionesInciertas.get(formulario) || respuestasRevisadas.get(formulario)
+      || await cuerpoPortalMiBolsa(formulario, datos);
     if (!peticion) {
       mostrar(textoPortal("error.datos_no_validos"));
       return false;
@@ -342,6 +359,7 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
     if (respuesta.status === 200 || respuesta.status === 201) {
       const recibo = validarReciboPortal(resultado, peticion, respuesta.status);
       peticionesInciertas.delete(formulario);
+      respuestasRevisadas.delete(formulario);
       if (peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental) bloquearDatosDocumentales(formulario, false);
       mostrar(textoPortal(peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental ? `documental.resultado.${recibo.estado}` : "hecho", { recibo: recibo.recibo }));
       alRegistrar();

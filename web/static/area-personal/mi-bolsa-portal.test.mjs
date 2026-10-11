@@ -18,7 +18,7 @@ test("renunciar exige revisión y permite volver a editar sin crear una petició
   const formulario = { dataset: { portalMiBolsa: "responder", bolsa: "bolsa:demo:1" }, querySelector: (selector) => nodos[selector] || null };
   const datos = new FormData(); datos.set("respuesta", "renuncia");
   let envios = 0;
-  assert.equal(revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
   assert.equal(envios, 0);
   assert.equal(revision.hidden, false);
   assert.equal(edicion.hidden, true);
@@ -28,7 +28,7 @@ test("renunciar exige revisión y permite volver a editar sin crear una petició
   assert.equal(revision.hidden, true);
   assert.equal(radio.enfocado, true);
   datos.set("respuesta", "renuncia_justificada");
-  assert.equal(revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
   assert.equal(revision.hidden, true, "sin justificante no avanza a la revisión");
   assert.equal(envios, 0);
   const html = renderizarPortalMiBolsa(participaciones, [{ bolsa: "bolsa:demo:1", llamamiento_abierto: {
@@ -36,6 +36,37 @@ test("renunciar exige revisión y permite volver a editar sin crear una petició
   assert.match(html, /data-portal-revision hidden/u);
   assert.match(html, /data-portal-revision-volver/u);
   assert.match(html, /Confirmar renuncia/u);
+});
+
+test("la confirmación envía la renuncia revisada aunque cambien los campos del DOM", async () => {
+  const revision = { hidden: true, focus() {} };
+  const edicion = { hidden: false };
+  const iniciar = { hidden: false };
+  const resumen = { innerHTML: "" };
+  const resultado = { textContent: "" };
+  const confirmar = { disabled: false };
+  const nodos = { "[data-portal-revision]": revision, "[data-portal-edicion]": edicion,
+    "[data-portal-iniciar-revision]": iniciar, "[data-portal-revision-datos]": resumen,
+    "[data-portal-resultado]": resultado, 'button[type="submit"]': confirmar };
+  const formulario = { dataset: { portalMiBolsa: "responder", bolsa: "bolsa:demo:1" },
+    querySelector: (selector) => nodos[selector] || null };
+  const datos = new FormData(); datos.set("respuesta", "renuncia");
+  assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  const clave = formulario.dataset.clave;
+  datos.set("respuesta", "acepta");
+  formulario.dataset.bolsa = "bolsa:otra";
+  const enviados = [];
+  assert.equal(await enviarPortalMiBolsa(formulario, { datos, fetchImpl: async (_ruta, opciones) => {
+    enviados.push(JSON.parse(opciones.body));
+    return { status: 503, json: async () => ({}) };
+  } }), false);
+  assert.deepEqual(enviados, [{ bolsa: "bolsa:demo:1", respuesta: "renuncia", clave }]);
+  assert.equal(volverRespuestaPortalMiBolsa(formulario), false, "el resultado incierto mantiene el cuerpo revisado");
+  assert.equal(await enviarPortalMiBolsa(formulario, { datos, fetchImpl: async (_ruta, opciones) => {
+    enviados.push(JSON.parse(opciones.body));
+    return { status: 503, json: async () => ({}) };
+  } }), false);
+  assert.deepEqual(enviados[1], enviados[0]);
 });
 
 test("sin acciones compuestas no se exige nada y con ellas se valida todo", () => {

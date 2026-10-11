@@ -735,9 +735,10 @@ export function crearPresentadorPanelInterno(dependencias) {
     const fechaPropuesta = fechaDisponiblePropuesta(modal.reglasSituacion, modal.reposicion);
     const borrador = modal.borradorCambioSituacion || {};
     const revision = modal.revisionCambioSituacion;
+    const cierreBloqueado = modal.enviandoCambioSituacion || modal.resultadoInciertoCambioSituacion;
     const cambio = modal.cambioSituacion ? `
       <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}"${revision ? " novalidate" : ""}>
-        <div data-bolsa-cambio-edicion${revision ? " hidden" : ""}><label>${textoPortal("txt_destino")} <select name="situacion" required><option value="">${textoPortal("txt_elija_nueva_situacion")}</option>${destinos.map((d) => `<option value="${d}"${borrador.situacion === d ? " selected" : ""}>${escaparHTML(etiquetaClave(d))}</option>`).join("")}</select></label>
+        <div data-bolsa-cambio-edicion${revision ? " hidden" : ""}><label>${textoPortal("txt_destino")} <select name="situacion" required><option value="">${textoPortal("txt_elija_nueva_situacion")}</option>${destinos.map((d) => `<option value="${d}"${borrador.situacion === d ? " selected" : ""}>${escaparHTML(etiquetaEstadoBolsa(d))}</option>`).join("")}</select></label>
         ${renderizarCamposReposicion({ reglas: modal.reglasSituacion, candidato, estadoReposicion: modal.reposicion, escaparHTML })}
         <label data-bolsa-fecha-disponible>${textoPortal("txt_fecha_de_disponibilidad")} <input type="datetime-local" name="fecha_disponible"${borrador.fecha || fechaPropuesta ? ` value="${escaparHTML(borrador.fecha || fechaPropuesta)}"` : ""}></label>
         <label>${textoPortal("txt_motivo")} <textarea name="motivo" required maxlength="1000">${escaparHTML(borrador.motivo || "")}</textarea></label>
@@ -745,10 +746,10 @@ export function crearPresentadorPanelInterno(dependencias) {
         ${revision ? `<section class="panel" data-bolsa-cambio-revision tabindex="-1" aria-label="${textoPortal("txt_revisar_cambio_situacion")}">
           <div class="cabecera-panel"><h4>${textoPortal("txt_revisar_cambio_situacion")}</h4></div><div class="cuerpo-panel">
           <dl class="resumen-expediente">
-            <div class="fila-resumen"><dt>${textoPortal("txt_destino")}</dt><dd>${escaparHTML(etiquetaClave(revision.situacion))}</dd></div>
+            <div class="fila-resumen"><dt>${textoPortal("txt_destino")}</dt><dd>${escaparHTML(etiquetaEstadoBolsa(revision.situacion))}</dd></div>
             <div class="fila-resumen"><dt>${textoPortal("txt_motivo")}</dt><dd>${escaparHTML(revision.motivo)}</dd></div>
-            ${revision.fecha ? `<div class="fila-resumen"><dt>${textoPortal("txt_fecha_de_disponibilidad")}</dt><dd>${escaparHTML(revision.fecha)}</dd></div>` : ""}
-          </dl>${modal.resultadoInciertoCambioSituacion ? `<p class="nota aviso">${textoPortal("txt_resultado_cambio_incierto")}</p>` : ""}
+            ${revision.fechaDisponible ? `<div class="fila-resumen"><dt>${textoPortal("txt_fecha_de_disponibilidad")}</dt><dd>${escaparHTML(instanteVisible(revision.fechaDisponible))}</dd></div>` : ""}
+          </dl>${modal.enviandoCambioSituacion ? `<p role="status">${textoPortal("txt_guardando")}</p>` : ""}${modal.resultadoInciertoCambioSituacion ? `<p class="nota aviso">${textoPortal("txt_resultado_cambio_incierto")}</p>` : ""}
           <button type="button" class="boton-secundario" data-bolsa-accion="volver-cambio-situacion"${modal.resultadoInciertoCambioSituacion || modal.enviandoCambioSituacion ? " disabled" : ""}>${textoPortal("txt_volver_a_editar_cambio")}</button>
           <button type="submit" class="boton-primario"${modal.enviandoCambioSituacion ? " disabled" : ""}>${textoPortal("txt_confirmar_cambio_situacion")}</button></div></section>` : ""}
         <p class="mensaje-error" role="alert">${escaparHTML(modal.errorCambioSituacion || "")}</p>
@@ -774,7 +775,7 @@ export function crearPresentadorPanelInterno(dependencias) {
           <section id="${escaparHTML(fichaId)}" class="panel" data-bolsa-ficha-inline="true" tabindex="-1" aria-labelledby="titulo-${escaparHTML(fichaId)}">
             <div class="cabecera-panel">
               <h3 id="titulo-${escaparHTML(fichaId)}">${textoPortal("txt_ficha_de_persona", { nombre: candidato.nombre_visible })}</h3>
-              <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-ficha" aria-label="${textoPortal("txt_cerrar_ficha_de_persona", { nombre: candidato.nombre_visible })}">×</button>
+              <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-ficha" aria-label="${textoPortal("txt_cerrar_ficha_de_persona", { nombre: candidato.nombre_visible })}"${cierreBloqueado ? " disabled" : ""}>×</button>
             </div>
             <div class="cuerpo-panel">
               <dl class="resumen-expediente">
@@ -801,7 +802,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             <div class="acciones-vista">
               <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">${textoPortal("txt_cambiar_situacion")}</button>
               <button type="button" class="boton-secundario" data-bolsa-auditoria="${escaparHTML(candidato.participacion_ref)}">${textoPortal("auditoria_participacion_accion")}</button>
-              <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha">${textoPortal("txt_cerrar")}</button>
+              <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha"${cierreBloqueado ? " disabled" : ""}>${textoPortal("txt_cerrar")}</button>
             </div>
           </section>
           ${cambio}

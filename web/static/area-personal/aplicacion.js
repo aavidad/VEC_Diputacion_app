@@ -12,7 +12,7 @@ import {
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-bolsa-confirmaciones-v1";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261011-bolsa-confirmaciones-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
-import { enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261011-bolsa-confirmaciones-v1";
+import { enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261011-bolsa-confirmaciones-v1";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261011-bolsa-confirmaciones-v1";
 
 
@@ -588,8 +588,12 @@ function conectarEventos(estado) {
       return;
     }
     if (formulario.dataset.portalMiBolsa) {
-      if (!revisarRespuestaPortalMiBolsa(formulario)) return;
-      enviarPortalMiBolsa(formulario, { fetchImpl: estado.fetchImpl, alRegistrar: () => cargar(estado) });
+      void revisarRespuestaPortalMiBolsa(formulario).then((enviar) => {
+        if (enviar) void enviarPortalMiBolsa(formulario, { fetchImpl: estado.fetchImpl, alRegistrar: () => cargar(estado) });
+      }).catch(() => {
+        const resultado = formulario.querySelector("[data-portal-resultado]");
+        if (resultado) resultado.textContent = textoPortal("error.servicio_no_disponible");
+      });
       return;
     }
     if (formulario.dataset.accion === "buscar-ayuda") {

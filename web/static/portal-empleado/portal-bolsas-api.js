@@ -414,6 +414,8 @@ export function propuestaPlazoRespuesta(datos) {
 
 export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null, documento = globalThis.document }) {
   const controladoresLectura = new Map();
+  const cambiosSituacionPendientes = new Map();
+  const claveParticipacion = (bolsa, participacion) => JSON.stringify([bolsa, participacion]);
   let controladorSeleccionMasiva = null;
   let revisionSeleccionMasiva = 0;
   // Custodia volátil del comando mientras el resultado de un POST puede ser incierto.
@@ -770,7 +772,14 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     estado.modalFicha?.controladorReincorporaciones?.abort();
     estado.modalFicha?.controladorSanciones?.abort();
     const seguimiento = estado.filtrosBolsa?.seguimiento?.llamamiento_ref || "";
-    estado.modalFicha = { abierto: true, candidato, bolsa: datos.bolsa, ...(seguimiento ? { llamamientoSeguimiento: seguimiento } : {}) };
+    const pendiente = cambiosSituacionPendientes.get(claveParticipacion(estado.bolsaSeleccionada, participacionRef));
+    estado.modalFicha = { abierto: true, candidato, bolsa: datos.bolsa,
+      ...(seguimiento ? { llamamientoSeguimiento: seguimiento } : {}),
+      ...(pendiente?.recibo ? { reciboSituacion: pendiente.recibo } : {}),
+      ...(pendiente && !pendiente.recibo ? { cambioSituacion: true, revisionCambioSituacion: pendiente.revision,
+        borradorCambioSituacion: pendiente.borrador, claveCambioSituacion: pendiente.clave,
+        huellaCambioSituacion: pendiente.huella, enviandoCambioSituacion: pendiente.enviando,
+        resultadoInciertoCambioSituacion: !pendiente.enviando } : {}) };
     void controladorSancionesB24.cargar(estado.modalFicha);
     void controladorOperacionesB8.cargar(estado.modalFicha);
     void controladorIntentosContacto.cargar(estado.modalFicha);
@@ -793,6 +802,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
 
   function cerrarFicha() {
+    if (estado.modalFicha?.enviandoCambioSituacion || estado.modalFicha?.resultadoInciertoCambioSituacion) return;
     const participacionRef = estado.modalFicha?.candidato?.participacion_ref;
     const recargar = llamadaAnotada(estado.modalFicha);
     estado.modalFicha?.controladorOperaciones?.abort();
@@ -1229,9 +1239,9 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         const modal = estado.modalFicha;
         if (!modal || modal.enviandoCambioSituacion) return;
         const datos = modal.revisionCambioSituacion ? null : new FormData(formCambioSituacion);
-        const situacion = modal.revisionCambioSituacion?.situacion || String(datos.get("situacion") || "");
-        const motivo = modal.revisionCambioSituacion?.motivo || String(datos.get("motivo") || "").trim();
-        const fecha = modal.revisionCambioSituacion?.fecha || String(datos.get("fecha_disponible") || "");
+        const situacion = modal.revisionCambioSituacion?.situacion ?? String(datos.get("situacion") || "");
+        const motivo = modal.revisionCambioSituacion?.motivo ?? String(datos.get("motivo") || "").trim();
+        const fecha = modal.revisionCambioSituacion?.fecha ?? String(datos.get("fecha_disponible") || "");
         if (!situacion || !motivo || (situacion === "disponible_desde" && !fecha)) {
           if (estado.modalFicha) { estado.modalFicha.errorCambioSituacion = traducirPortal("txt_indique_destino_motivo_y_la_fecha_futura_cuando"); renderizar(); }
           return;
@@ -1246,7 +1256,12 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           return;
         }
         const huellaComando = JSON.stringify([situacion, motivo, fechaDisponible]);
+        const participacionRef = formCambioSituacion.dataset.participacionRef;
+        const bolsaRef = estado.bolsaSeleccionada;
+        const clavePendiente = claveParticipacion(bolsaRef, participacionRef);
+        const pendientePrevio = cambiosSituacionPendientes.get(clavePendiente);
         let clave = estado.modalFicha?.claveCambioSituacion;
+        if (pendientePrevio) clave = pendientePrevio.clave;
         if (!clave || estado.modalFicha?.huellaCambioSituacion !== huellaComando) {
           clave = globalThis.crypto?.randomUUID?.() || `situacion-${Date.now()}-${Math.random().toString(16).slice(2)}`;
           if (estado.modalFicha) {
@@ -1254,14 +1269,41 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             estado.modalFicha.huellaCambioSituacion = huellaComando;
           }
         }
+        cambiosSituacionPendientes.set(clavePendiente, { clave, huella: huellaComando, enviando: true,
+          revision: { ...modal.revisionCambioSituacion }, borrador: { ...modal.borradorCambioSituacion } });
         modal.enviandoCambioSituacion = true;
         renderizar();
-        void cambiarSituacionCandidato(estado.bolsaSeleccionada, formCambioSituacion.dataset.participacionRef, {
+        void cambiarSituacionCandidato(bolsaRef, participacionRef, {
           situacion, motivo, fecha_disponible: fechaDisponible, clave_idempotencia: clave,
         }).then(async (res) => {
-          if (estado.modalFicha !== modal) return;
           if (res.ok) {
-            const participacionRef = formCambioSituacion.dataset.participacionRef;
+            if (estado.modalFicha !== modal) {
+              cambiosSituacionPendientes.set(clavePendiente, { recibo: res.datos.recibo_ref });
+              const abierta = estado.modalFicha;
+              if (abierta?.candidato?.participacion_ref === participacionRef && estado.bolsaSeleccionada === bolsaRef) {
+                abierta.cambioSituacion = false;
+                abierta.reciboSituacion = res.datos.recibo_ref;
+                renderizar();
+              }
+              return;
+            }
+            cambiosSituacionPendientes.delete(clavePendiente);
+          } else if (res.status >= 400 && res.status < 500) cambiosSituacionPendientes.delete(clavePendiente);
+          else {
+            const pendiente = cambiosSituacionPendientes.get(clavePendiente);
+            if (pendiente && !pendiente.recibo) pendiente.enviando = false;
+          }
+          if (estado.modalFicha !== modal) {
+            const abierta = estado.modalFicha;
+            if (abierta?.candidato?.participacion_ref === participacionRef && estado.bolsaSeleccionada === bolsaRef) {
+              abierta.enviandoCambioSituacion = false;
+              abierta.resultadoInciertoCambioSituacion = res.status >= 500 || res.status === 0;
+              abierta.errorCambioSituacion = res.mensaje;
+              renderizar();
+            }
+            return;
+          }
+          if (res.ok) {
             estado.modalFicha = null;
             await cargarCandidatosBolsa(estado.bolsaSeleccionada);
             abrirFicha(participacionRef);

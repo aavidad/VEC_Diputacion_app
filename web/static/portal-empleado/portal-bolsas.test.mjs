@@ -879,6 +879,63 @@ test("controlador de B5 lleva el foco a la ficha inline y lo recupera en su cont
   assert.deepEqual(focos, ["ficha", "control-principal"]);
   assert.equal(renderizados, 2);
 });
+
+test("un cambio incierto conserva clave y recibo al salir y reabrir la ficha", async () => {
+  const { envelopeCandidatos } = construirFixturesDesdeDemo();
+  const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+  const candidato = datos.candidatos[0];
+  const escuchas = {};
+  const documento = { addEventListener(tipo, fn) { (escuchas[tipo] ||= []).push(fn); },
+    querySelector: () => null, querySelectorAll: () => [] };
+  const estado = { datosCandidatos: { carga: "listo", datos }, bolsaSeleccionada: datos.bolsa.bolsa_ref,
+    filtrosBolsa: {}, modalFicha: { abierto: true, candidato, bolsa: datos.bolsa, cambioSituacion: true,
+      revisionCambioSituacion: { situacion: "no_disponible", motivo: "Pausa comunicada", fecha: "", fechaDisponible: null },
+      borradorCambioSituacion: { situacion: "no_disponible", motivo: "Pausa comunicada", fecha: "" } } };
+  const formulario = { dataset: { participacionRef: candidato.participacion_ref } };
+  const evento = { preventDefault() {}, target: { closest(selector) {
+    return selector === '[data-bolsa-form="cambio-situacion"]' ? formulario : null;
+  } } };
+  const controlador = crearControladorBolsas({ estado, renderizar: () => {}, navegar: () => {}, documento });
+  controlador.instalar();
+  const anterior = globalThis.fetch;
+  const peticiones = [];
+  let confirmar;
+  globalThis.fetch = async (_ruta, opciones) => {
+    if (opciones?.method !== "POST") return { ok: false, status: 503, json: async () => ({}) };
+    peticiones.push(opciones);
+    if (peticiones.length === 1) return { ok: false, status: 503, json: async () => ({}) };
+    return new Promise((resolver) => { confirmar = resolver; });
+  };
+  try {
+    for (const fn of escuchas.submit || []) fn(evento);
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(peticiones.length, 1);
+    const clave = peticiones[0].headers["Idempotency-Key"];
+    assert.equal(estado.modalFicha.resultadoInciertoCambioSituacion, true);
+    controlador.cerrarFicha();
+    assert.ok(estado.modalFicha, "la ficha no se cierra mediante su botón con resultado incierto");
+    estado.modalFicha = null; // navegación exterior al controlador
+    controlador.abrirFicha(candidato.participacion_ref);
+    assert.equal(estado.modalFicha.claveCambioSituacion, clave);
+    assert.equal(estado.modalFicha.revisionCambioSituacion.motivo, "Pausa comunicada");
+    for (const fn of escuchas.submit || []) fn(evento);
+    assert.equal(peticiones.length, 2);
+    assert.equal(peticiones[1].headers["Idempotency-Key"], clave);
+    assert.equal(peticiones[1].body, peticiones[0].body);
+    estado.modalFicha = null; // otra navegación antes del acuse
+    controlador.abrirFicha(candidato.participacion_ref);
+    assert.equal(estado.modalFicha.enviandoCambioSituacion, true);
+    for (const fn of escuchas.submit || []) fn(evento);
+    assert.equal(peticiones.length, 2, "reabrir durante el envío no inicia otro POST");
+    estado.modalFicha = null; // el acuse llega después del cambio de pantalla
+    confirmar({ ok: true, status: 200, json: async () => ({ data: { recibo_ref: "recibo:situacion:prueba" } }) });
+    await new Promise((resolver) => setImmediate(resolver));
+    controlador.abrirFicha(candidato.participacion_ref);
+    assert.equal(estado.modalFicha.reciboSituacion, "recibo:situacion:prueba");
+    assert.equal(estado.modalFicha.revisionCambioSituacion, undefined);
+    assert.equal(peticiones.length, 2);
+  } finally { globalThis.fetch = anterior; }
+});
 test("B7 lleva el foco al raíl al iniciarse desde teclado", () => {
   const escuchas = {};
   const focos = [];
@@ -942,5 +999,6 @@ test("la ficha usa las transiciones del catálogo y prellena la reposición solo
   assert.match(revision, /data-bolsa-cambio-revision/u);
   assert.match(revision, /Cambio comprobado/u);
   assert.match(revision, /Confirmar cambio de situación/u);
+  assert.match(revision, /Disponible desde fecha/u);
   assert.match(revision, /data-bolsa-accion="volver-cambio-situacion"/u);
 });
