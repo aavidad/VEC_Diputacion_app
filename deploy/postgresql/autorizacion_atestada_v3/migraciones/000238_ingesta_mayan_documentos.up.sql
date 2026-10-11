@@ -2881,10 +2881,13 @@ BEGIN
 END $function$;
 
 DO $post$
-DECLARE c oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)');
+DECLARE c oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
         w oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
         p record;
 BEGIN
+ IF c IS NULL OR w IS NULL THEN
+  RAISE EXCEPTION 'AD238: postimagen ausente' USING ERRCODE='55000';
+ END IF;
  FOR p IN SELECT oid,proname,proowner,proacl,prosecdef,proconfig,pg_get_functiondef(oid) AS definicion
           FROM pg_proc WHERE oid IN (c,w) LOOP
   IF p.proowner<>'vec_autorizacion_atestada_v3_propietario'::regrole
