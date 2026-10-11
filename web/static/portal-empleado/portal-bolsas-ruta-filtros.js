@@ -9,6 +9,7 @@ const CLAVE_SEGUIMIENTO = "seguimiento";
 // Origen de un llamamiento nuevo abierto desde una petición de personal.
 const CLAVES_ORIGEN = Object.freeze({
   expediente_ref: "origen_expediente",
+  version: "origen_version",
   referencia: "origen_referencia",
   centro: "origen_centro",
   fecha_inicio: "origen_inicio",
