@@ -428,14 +428,19 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   let generacionB7 = 0;
   function invalidarIntentoB7() {
     generacionB7 += 1;
-    if (emisionB7?.vinculo && emisionB7.vinculoEstado === "vinculando") {
-      emisionB7.vinculoEstado = "pendiente";
-      emisionB7.flujo.vinculoEstado = "pendiente";
-    }
   }
   const vigenteB7 = (registro, intento) => intento === generacionB7 && emisionB7 === registro
     && estado.filtrosBolsa?.nuevo_llamamiento === registro.flujo
     && estado.bolsaSeleccionada === registro.comando.bolsa_ref;
+  const recuperadoB7 = (registro, reaperturaInicial) => emisionB7 === registro
+    && (registro.reaperturas || 0) > reaperturaInicial
+    && estado.filtrosBolsa?.nuevo_llamamiento === registro.flujo
+    && estado.bolsaSeleccionada === registro.comando.bolsa_ref;
+  function renderizarRecuperadoB7(registro, reaperturaInicial, selectorFoco) {
+    if (!recuperadoB7(registro, reaperturaInicial)) return;
+    renderizar();
+    if (recuperadoB7(registro, reaperturaInicial)) documento.querySelector?.(selectorFoco)?.focus?.();
+  }
   const identidadIgual = (a, b) => Boolean(a?.id && b?.id && a.id === b.id
     && a.certificado === b.certificado && a.metodo === b.metodo && a.garantia === b.garantia);
   async function comprobarIdentidadB7(registro) {
@@ -450,6 +455,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     if (!registro.vinculo || registro.vinculando || registro.vinculoEstado === "confirmado"
       || !vigenteB7(registro, generacionB7)) return;
     const intento = ++generacionB7;
+    const reaperturaInicial = registro.reaperturas || 0;
     registro.vinculando = true;
     registro.vinculoEstado = "vinculando";
     registro.flujo.vinculoEstado = "vinculando";
@@ -472,11 +478,12 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       }
     } finally {
       registro.vinculando = false;
-      if (vigenteB7(registro, intento) && registro.vinculoEstado === "vinculando") {
+      if (registro.vinculoEstado === "vinculando") {
         registro.vinculoEstado = "pendiente";
         registro.flujo.vinculoEstado = "pendiente";
       }
       if (vigenteB7(registro, intento)) renderizarVinculoConFoco(registro, intento);
+      else renderizarRecuperadoB7(registro, reaperturaInicial, "[data-b7-vinculo]");
     }
   }
   function renderizarVinculoConFoco(registro, intento) {
@@ -1085,6 +1092,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       } else if (accion === "iniciar-b7") {
         evento.preventDefault();
         if (emisionB7) {
+          emisionB7.reaperturas = (emisionB7.reaperturas || 0) + 1;
           const bolsaOriginal = emisionB7.comando.bolsa_ref;
           restaurarComandoB7(emisionB7);
           const recargar = estado.bolsaSeleccionada !== bolsaOriginal ||
@@ -1093,8 +1101,8 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: "", texto: "", nuevo_llamamiento: emisionB7.flujo };
           emisionB7.flujo.paso = 4;
           if (emisionB7.vinculo && emisionB7.vinculoEstado !== "confirmado") {
-            emisionB7.vinculoEstado = "pendiente";
-            emisionB7.flujo.vinculoEstado = "pendiente";
+            emisionB7.vinculoEstado = emisionB7.vinculando ? "vinculando" : "pendiente";
+            emisionB7.flujo.vinculoEstado = emisionB7.vinculoEstado;
           }
           if (recargar) {
             void cargarCandidatosBolsa(bolsaOriginal, { enfocarDestino: true });
@@ -1260,6 +1268,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         }
         const registro = emisionB7;
         const intento = ++generacionB7;
+        const reaperturaInicial = registro.reaperturas || 0;
         registro.operando = true;
         flujo.enviando=true; flujo.error=""; flujo.error_422=false; registro.estado="enviando"; renderizar();
         void (async () => {
@@ -1267,7 +1276,11 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             try {
               if (typeof vincularLlamamientoBolsa !== "function") throw new TypeError("vinculo_no_disponible");
               await comprobarIdentidadB7(registro);
-              if (!vigenteB7(registro, intento)) { flujo.enviando = false; registro.operando = false; registro.estado = "incierto"; return; }
+              if (!vigenteB7(registro, intento)) {
+                flujo.enviando = false; registro.operando = false; registro.estado = "incierto";
+                renderizarRecuperadoB7(registro, reaperturaInicial, '[data-bolsa-form="b7-paso4"] button[type="submit"]');
+                return;
+              }
             } catch {
               flujo.enviando = false;
               registro.operando = false;
@@ -1276,7 +1289,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
                 flujo.error = TEXTOS_VINCULO_CT.identidad_error;
                 renderizar();
                 documento.querySelector?.("[data-b7-emision-error]")?.focus?.();
-              }
+              } else renderizarRecuperadoB7(registro, reaperturaInicial, '[data-bolsa-form="b7-paso4"] button[type="submit"]');
               return;
             }
           }
@@ -1298,7 +1311,12 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
               flujo.vinculoEstado = "pendiente";
             }
           }
-          if (!vigenteB7(registro, intento)) return;
+          if (!vigenteB7(registro, intento)) {
+            if (!res.ok) flujo.error = traducirPortal("panel_b7_resultado_incierto");
+            renderizarRecuperadoB7(registro, reaperturaInicial,
+              res.ok ? "[data-b7-recibo]" : "[data-b7-emision-error]");
+            return;
+          }
           if (!res.ok && [400, 409, 422].includes(res.status)) {
             // Rechazo definitivo: el servidor no aplicó este comando. Una
             // revisión podrá iniciar otra intención con una clave nueva.

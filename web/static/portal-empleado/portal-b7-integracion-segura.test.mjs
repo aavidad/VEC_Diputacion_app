@@ -390,6 +390,7 @@ test("B7 no confirma una respuesta tardía del vínculo tras salir y conserva el
   let resolverVinculo;
   let vinculos = 0;
   const solicitudes = [];
+  let renders = 0;
   globalThis.fetch = async (_ruta, opciones) => {
     emisiones += 1;
     return { status: 201, json: async () => ({ data: { llamamiento_ref: `llamamiento:${huella}`,
@@ -402,7 +403,7 @@ test("B7 no confirma una respuesta tardía del vínculo tras salir y conserva el
     app.flujo.origen = { expediente_ref: "expediente:01", version: 7, referencia: "Petición 01" };
     const escuchas = {};
     const formulario = { dataset: { cantidad: "1" } };
-    const controlador = crearControladorBolsas({ estado: app.estado, renderizar() {}, navegar() {},
+    const controlador = crearControladorBolsas({ estado: app.estado, renderizar() { renders += 1; }, navegar() {},
       documento: { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector() { return null; } },
       consultarIdentidadAtestada: async () => ({ id: "principal:rrhh-1", certificado: "a".repeat(64), metodo: "certificado", garantia: "alto" }),
       vincularLlamamientoBolsa: async (solicitud) => {
@@ -423,9 +424,15 @@ test("B7 no confirma una respuesta tardía del vínculo tras salir y conserva el
       return selector === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: "iniciar-b7" } } : null;
     } } });
     assert.equal(app.estado.filtrosBolsa.nuevo_llamamiento, app.flujo);
+    assert.match(app.html(), /data-b7-vinculo="vinculando"/);
+    assert.doesNotMatch(app.html(), /data-bolsa-accion="reintentar-vinculo-b7"/);
+    const rendersAntesRespuesta = renders;
     resolverVinculo({ recibo_emision_ref: `recibo:llamamiento:${huella}`, recibo_vinculo_ref: "recibo:vinculo:01" });
     await esperar();
     assert.notEqual(app.flujo.vinculoEstado, "confirmado");
+    assert.equal(renders, rendersAntesRespuesta + 1);
+    assert.match(app.html(), /data-b7-vinculo="pendiente"/);
+    assert.match(app.html(), /data-bolsa-accion="reintentar-vinculo-b7"/);
     escuchas.click({ preventDefault() {}, target: { closest(selector) {
       return selector === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: "iniciar-b7" } } : null;
     } } });
@@ -450,7 +457,8 @@ function montarVinculoCTDiferido({ consultarIdentidadAtestada, vincularLlamamien
   app.flujo.origen = { expediente_ref: "expediente:01", version: 7, referencia: "Petición 01" };
   const escuchas = {};
   const formulario = { dataset: { cantidad: "1" } };
-  const controlador = crearControladorBolsas({ estado: app.estado, renderizar() {}, navegar() {},
+  let renders = 0;
+  const controlador = crearControladorBolsas({ estado: app.estado, renderizar() { renders += 1; }, navegar() {},
     documento: { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector() { return null; } },
     consultarIdentidadAtestada, vincularLlamamientoBolsa });
   controlador.instalar();
@@ -460,7 +468,7 @@ function montarVinculoCTDiferido({ consultarIdentidadAtestada, vincularLlamamien
   const pulsar = (accion) => escuchas.click({ preventDefault() {}, target: { closest(selector) {
     return selector === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: accion } } : null;
   } } });
-  return { ...app, controlador, confirmar, pulsar };
+  return { ...app, controlador, confirmar, pulsar, renders: () => renders };
 }
 
 const identidadVinculo = Object.freeze({ id: "principal:rrhh-1", certificado: "a".repeat(64), metodo: "certificado", garantia: "alto" });
@@ -524,10 +532,17 @@ test("cancelar y reabrir durante la emisión guarda el recibo sin enlace automá
     app.controlador.suspenderLlamamientoB7();
     app.pulsar("iniciar-b7");
     assert.equal(app.estado.filtrosBolsa.nuevo_llamamiento, app.flujo);
+    assert.match(app.html(), /disabled>Enviando…<\/button>/);
+    app.confirmar();
+    assert.equal(emisiones, 1, "la reapertura no compite con el POST pendiente");
+    const rendersAntesRespuesta = app.renders();
     resolverEmision();
     await esperar(); await esperar();
     assert.equal(app.flujo.recibo, `recibo:llamamiento:${huella}`);
     assert.equal(vinculos, 0);
+    assert.equal(app.renders(), rendersAntesRespuesta + 1);
+    assert.match(app.html(), /data-b7-vinculo="pendiente"/);
+    assert.match(app.html(), /data-bolsa-accion="reintentar-vinculo-b7"/);
     app.pulsar("reintentar-vinculo-b7");
     await esperar(); await esperar();
     assert.equal(emisiones, 1);
@@ -641,5 +656,32 @@ test("un fallo de sesión antes de emitir enfoca el aviso sin enviar el llamamie
     assert.equal(emisiones, 0);
     assert.equal(focoError, 1);
     assert.match(app.flujo.error, /sesión/i);
+  } finally { globalThis.fetch = anteriorFetch; restaurarFormData(); }
+});
+
+test("una emisión tardía no repinta otra bolsa ni otro flujo", async () => {
+  const anteriorFetch = globalThis.fetch;
+  const restaurarFormData = simularFormData();
+  const huella = "d".repeat(64);
+  let resolverEmision;
+  globalThis.fetch = async (_ruta, opciones) => new Promise((resolver) => {
+    resolverEmision = () => resolver(reciboEmisionCT(huella, JSON.parse(opciones.body)));
+  });
+  try {
+    const app = montarVinculoCTDiferido({ consultarIdentidadAtestada: async () => identidadVinculo,
+      vincularLlamamientoBolsa: async () => { throw new Error("vínculo tardío inesperado"); } });
+    app.confirmar();
+    await esperar();
+    app.controlador.cancelarPeticiones();
+    app.controlador.suspenderLlamamientoB7();
+    app.pulsar("iniciar-b7");
+    app.estado.bolsaSeleccionada = "bolsa:otra";
+    app.estado.filtrosBolsa = { estado: "", texto: "", nuevo_llamamiento: { paso: 1 } };
+    const rendersAntesRespuesta = app.renders();
+    resolverEmision();
+    await esperar();
+    assert.equal(app.renders(), rendersAntesRespuesta);
+    assert.equal(app.flujo.recibo, `recibo:llamamiento:${huella}`);
+    assert.equal(app.estado.filtrosBolsa.nuevo_llamamiento.recibo, undefined);
   } finally { globalThis.fetch = anteriorFetch; restaurarFormData(); }
 });
