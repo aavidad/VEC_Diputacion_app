@@ -927,9 +927,13 @@ test("un cambio incierto conserva clave y recibo al salir y reabrir la ficha", a
     assert.equal(estado.modalFicha.enviandoCambioSituacion, true);
     for (const fn of escuchas.submit || []) fn(evento);
     assert.equal(peticiones.length, 2, "reabrir durante el envío no inicia otro POST");
-    estado.modalFicha = null; // el acuse llega después del cambio de pantalla
     confirmar({ ok: true, status: 200, json: async () => ({ data: { recibo_ref: "recibo:situacion:prueba" } }) });
     await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(estado.modalFicha.enviandoCambioSituacion, false);
+    assert.equal(estado.modalFicha.resultadoInciertoCambioSituacion, false);
+    assert.equal(estado.modalFicha.reciboSituacion, "recibo:situacion:prueba");
+    controlador.cerrarFicha();
+    assert.equal(estado.modalFicha, null, "el acuse vuelve a habilitar el cierre de la ficha");
     controlador.abrirFicha(candidato.participacion_ref);
     assert.equal(estado.modalFicha.reciboSituacion, "recibo:situacion:prueba");
     assert.equal(estado.modalFicha.revisionCambioSituacion, undefined);

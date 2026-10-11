@@ -112,7 +112,8 @@ function formularioRespuesta(bolsa, acciones) {
       <button type="submit" class="boton-primario">${escaparHTML(textoPortal("revision.confirmar"))}</button></div>
     </section>
     <button type="submit" class="boton-primario" data-portal-iniciar-revision>${escaparHTML(textoPortal("responder"))}</button>
-    <p class="nota" role="status" aria-live="polite" data-portal-resultado></p>
+    <p class="nota" role="status" aria-live="polite" tabindex="-1" data-portal-resultado></p>
+    <button type="button" class="boton-secundario" data-portal-reintentar hidden>${escaparHTML(textoPortal("revision.reintentar"))}</button>
   </form>`;
 }
 
@@ -239,7 +240,8 @@ export async function revisarRespuestaPortalMiBolsa(formulario, datos = new Form
       formulario.querySelector("[data-portal-resultado]").textContent = textoPortal("error.datos_no_validos");
       return false;
     }
-    filas.push([textoPortal("causa"), textoPortal(`causa.${causa}`)], [textoPortal("justificanteRef"), referencia]);
+    filas.push([textoPortal("causa"), textoPortal(`causa.${causa}`)], [textoPortal("justificanteRef"), referencia],
+      [textoPortal("revision.nombreArchivo"), fichero.name || textoPortal("revision.archivoSeleccionado")]);
   }
   revisionesEnCurso.add(formulario);
   try {
@@ -317,14 +319,18 @@ function validarReciboPortal(entrada, peticion, estadoHTTP) {
 
 // enviarPortalMiBolsa envía el formulario y deja el resultado en su zona de
 // estado; tras un registro correcto pide recargar «Mi bolsa».
-export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.fetch, alRegistrar = () => {}, datos } = {}) {
+export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.fetch, alRegistrar = () => {}, datos, reintentoExplicito = false } = {}) {
+  if (peticionesInciertas.has(formulario) && respuestasRevisadas.has(formulario) && !reintentoExplicito) return false;
   if (enviosEnCurso.has(formulario)) return false;
   enviosEnCurso.add(formulario);
   const zona = formulario.querySelector("[data-portal-resultado]");
   const boton = formulario.querySelector("[data-portal-revision]")?.hidden
     ? formulario.querySelector("[data-portal-iniciar-revision]") : formulario.querySelector('button[type="submit"]');
   const volver = formulario.querySelector("[data-portal-revision-volver]");
+  const reintentar = formulario.querySelector("[data-portal-reintentar]");
   const mostrar = (texto) => { if (zona) zona.textContent = texto; };
+  let seEnvio = false;
+  let confirmado = false;
   try {
     // Un resultado incierto puede haber persistido: un reintento explícito usa
     // el mismo cuerpo, incluida la versión, aunque se hayan editado los campos.
@@ -350,7 +356,9 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
     peticionesInciertas.set(formulario, peticion);
     if (peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental) bloquearDatosDocumentales(formulario, true);
     if (boton) boton.disabled = true;
+    if (reintentar) reintentar.disabled = true;
     mostrar(textoPortal("enviando"));
+    seEnvio = true;
     const respuesta = await fetchImpl(peticion.ruta, {
       method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
       headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(peticion.cuerpo),
@@ -363,6 +371,7 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
       if (peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental) bloquearDatosDocumentales(formulario, false);
       mostrar(textoPortal(peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental ? `documental.resultado.${recibo.estado}` : "hecho", { recibo: recibo.recibo }));
       alRegistrar();
+      confirmado = true;
       return true;
     }
     const codigo = String(resultado?.error?.codigo || "servicio_no_disponible");
@@ -380,7 +389,13 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
     return false;
   } finally {
     enviosEnCurso.delete(formulario);
-    if (boton) boton.disabled = false;
+    const requiereReintento = seEnvio && !confirmado && respuestasRevisadas.has(formulario);
+    if (boton) {
+      boton.disabled = requiereReintento;
+      if (requiereReintento) boton.hidden = true;
+    }
+    if (reintentar) { reintentar.hidden = !requiereReintento; reintentar.disabled = !requiereReintento; }
     if (volver) volver.disabled = peticionesInciertas.has(formulario);
+    if (requiereReintento) zona?.focus?.();
   }
 }

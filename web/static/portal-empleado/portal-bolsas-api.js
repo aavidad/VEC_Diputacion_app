@@ -1282,6 +1282,8 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
               const abierta = estado.modalFicha;
               if (abierta?.candidato?.participacion_ref === participacionRef && estado.bolsaSeleccionada === bolsaRef) {
                 abierta.cambioSituacion = false;
+                abierta.enviandoCambioSituacion = false;
+                abierta.resultadoInciertoCambioSituacion = false;
                 abierta.reciboSituacion = res.datos.recibo_ref;
                 renderizar();
               }

@@ -562,6 +562,15 @@ function conectarEventos(estado) {
   window.addEventListener("scroll", () => { estado.interaccionVersion += 1; }, { passive: true });
   document.addEventListener("click", (evento) => {
     estado.interaccionVersion += 1;
+    const reintentarRespuesta = evento.target.closest("[data-portal-reintentar]");
+    if (reintentarRespuesta) {
+      if (evento.detail > 1) return;
+      const formulario = reintentarRespuesta.closest("[data-portal-mi-bolsa]");
+      if (formulario) void enviarPortalMiBolsa(formulario, {
+        fetchImpl: estado.fetchImpl, alRegistrar: () => cargar(estado), reintentoExplicito: true,
+      });
+      return;
+    }
     const volverRevision = evento.target.closest("[data-portal-revision-volver]");
     if (volverRevision) {
       volverRespuestaPortalMiBolsa(volverRevision.closest("[data-portal-mi-bolsa]"));
