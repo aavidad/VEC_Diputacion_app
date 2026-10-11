@@ -47,7 +47,7 @@ import {
   extraerDatos,
   construirErrorRespuesta,
   construirCabeceras,
-} from "./cliente-http-transporte.js?v=20261011-bolsa-b103-privacidad-v1";
+} from "./cliente-http-transporte.js?v=20261011-ct-bolsa-vinculo-v1";
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,

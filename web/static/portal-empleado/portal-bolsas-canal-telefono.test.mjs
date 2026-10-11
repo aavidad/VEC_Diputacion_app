@@ -6,7 +6,7 @@ await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
 import { crearControladorBolsas, rutaCandidatosBolsa } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
 import { validarCanalesLlamamiento } from "./portal-bolsas-contrato.js?v=20261008-canal-telefono-v2";
-import { crearControladorIntentosContacto, llamamientoDeFicha, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261011-bolsa-b103-privacidad-v1";
+import { crearControladorIntentosContacto, llamamientoDeFicha, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-bolsa-global-v2";
 import { canalesAviso, enlaceSeguimiento, filasSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261008-bolsa-global-v2";
 import { leerCandidatosBolsaCompartible, leerLlamamientoBolsaCompartible,
