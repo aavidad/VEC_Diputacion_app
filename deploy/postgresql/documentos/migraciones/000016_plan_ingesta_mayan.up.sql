@@ -402,7 +402,10 @@ BEGIN
   CASE WHEN accion='documentos.ingesta_mayan.consultar' THEN 'autorizado'
        WHEN accion='documentos.ingesta_mayan.preparar' THEN 'preparado'
        WHEN nuevo THEN 'despachado' ELSE r.estado END,ahora);
- RETURN jsonb_build_object('plan',to_jsonb(r)-'principal_ref'-'decision_preparacion_ref','nuevo_despacho',nuevo);
+ RETURN jsonb_build_object('plan',
+  (to_jsonb(r)-'principal_ref'-'decision_preparacion_ref'-'creada_en'-'actualizada_en')
+    ||jsonb_build_object('creado_en',r.creada_en,'actualizado_en',r.actualizada_en),
+  'nuevo_despacho',nuevo);
 END $f$;
 REVOKE ALL ON FUNCTION vec_documentos.operar_ingesta_mayan_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_documentos.operar_ingesta_mayan_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_documentos_ejecutor;

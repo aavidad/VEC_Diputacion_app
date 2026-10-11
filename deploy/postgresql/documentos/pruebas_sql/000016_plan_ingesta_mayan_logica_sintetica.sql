@@ -113,10 +113,12 @@ BEGIN
  plan:=p1#>>'{plan,plan_ref}';
  IF plan !~ '^plan:[0-9a-f-]{36}$' OR p1#>>'{plan,expediente_ref}' IS DISTINCT FROM hecho
  THEN RAISE EXCEPTION 'D16: plan Mayan perdió recurso'; END IF;
+ RAISE NOTICE 'D16_PLAN_JSON=%',p1;
  SELECT * INTO STRICT mat FROM ensayo_doc16.material(pre,preparar,carga,hecho,'decision:d16:5',true);
  p2:=vec_documentos.operar_ingesta_mayan_v1(pre,mat.auth,mat.capacidad,mat.decision,
   '\x01'::bytea,'\x01'::bytea,1,1,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea);
  IF p2#>>'{plan,plan_ref}' IS DISTINCT FROM plan THEN RAISE EXCEPTION 'D16: replay plan distinto'; END IF;
+ RAISE NOTICE 'D16_REPLAY_JSON=%',p2;
  doc:=jsonb_build_object('documento_id','','archivo_id','','version_id','','huella_sha256','','mime','','tamano',0);
  dato:=jsonb_build_object('plan_ref',plan,'expediente_ref',hecho,'version_esperada',1,'estado','despachado','documento',doc);
  pre:=convert_to(jsonb_build_object('accion',despachar,'dato',dato)::text,'UTF8');

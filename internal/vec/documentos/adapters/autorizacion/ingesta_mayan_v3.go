@@ -28,7 +28,9 @@ func NuevaAutoridadIngestaMayanV3(emisor EmisorOperacionIngestaMayan, reloj vecp
 func (a *AutoridadIngestaMayanV3) AutorizarIngestaMayan(ctx context.Context, accion string, preimagen []byte, planRef, expedienteRef string) (docports.AutorizacionV3, error) {
 	if a == nil || nulo(a.emisor) || nulo(a.reloj) || ctx == nil || ctx.Err() != nil ||
 		len(preimagen) == 0 || len(preimagen) > 16384 || planRef == "" || expedienteRef == "" ||
-		(accion != docports.AccionPrepararIngestaMayan && accion != docports.AccionDespacharIngestaMayan &&
+		(accion != docports.AccionReservarRecursoMayan && accion != docports.AccionConsultarReservaMayan &&
+			accion != docports.AccionAbandonarRecursoMayan &&
+			accion != docports.AccionPrepararIngestaMayan && accion != docports.AccionDespacharIngestaMayan &&
 			accion != docports.AccionResolverIngestaMayan && accion != docports.AccionConciliarIngestaMayan &&
 			accion != docports.AccionConsultarIngestaMayan) {
 		return docports.AutorizacionV3{}, denegadoPor(contextoCancelado(ctx))
