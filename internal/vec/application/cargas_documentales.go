@@ -513,22 +513,32 @@ type OrdenConfirmarCargaDocumental struct {
 }
 
 func (s *ServicioCargaDocumental) consultarCargaPropiaV3(
-	ctx context.Context,cargaID string,actorEntrada domain.ResultadoContextoActorRegistradoV2,
-	finalidad,correlacion string,incluirManifiesto bool,
-)(ports.ConsultaCargaPropiaV3,error){
-	repositorio,ok:=s.repositorio.(ports.RepositorioConsultaCargasDocumentalesV3)
-	if !ok {return ports.ConsultaCargaPropiaV3{},ports.ErrRepositorioCargasNoDisponible}
-	actor,err:=actorEntrada.Clonar()
-	if err!=nil {return ports.ConsultaCargaPropiaV3{},domain.ErrAutorizacionDenegada}
-	solicitud:=ports.SolicitudConsultarCargaPropiaV3{CargaID:cargaID,ActorRegistradoV2:actor,
-		Finalidad:finalidad,CorrelacionRef:correlacion,IncluyeManifiesto:incluirManifiesto}
-	preimagen,err:=ports.PreimagenConsultaCargaPropiaV3(solicitud)
-	if err!=nil {return ports.ConsultaCargaPropiaV3{},domain.ErrAutorizacionDenegada}
-	autorizacion,err:=s.autoridadV3.AutorizarConsultaCarga(ctx,preimagen,actor,cargaID)
-	if err!=nil {return ports.ConsultaCargaPropiaV3{},domain.ErrAutorizacionDenegada}
-	solicitud.AutorizacionV3=autorizacion
-	if solicitud.Validar(s.reloj.Ahora().UTC())!=nil {return ports.ConsultaCargaPropiaV3{},domain.ErrAutorizacionDenegada}
-	return repositorio.ConsultarPropia(ctx,solicitud)
+	ctx context.Context, cargaID, recursoRef string, actorEntrada domain.ResultadoContextoActorRegistradoV2,
+	finalidad, correlacion string, incluirManifiesto bool,
+) (ports.ConsultaCargaPropiaV3, error) {
+	repositorio, ok := s.repositorio.(ports.RepositorioConsultaCargasDocumentalesV3)
+	if !ok {
+		return ports.ConsultaCargaPropiaV3{}, ports.ErrRepositorioCargasNoDisponible
+	}
+	actor, err := actorEntrada.Clonar()
+	if err != nil {
+		return ports.ConsultaCargaPropiaV3{}, domain.ErrAutorizacionDenegada
+	}
+	solicitud := ports.SolicitudConsultarCargaPropiaV3{CargaID: cargaID, RecursoRef: recursoRef, ActorRegistradoV2: actor,
+		Finalidad: finalidad, CorrelacionRef: correlacion, IncluyeManifiesto: incluirManifiesto}
+	preimagen, err := ports.PreimagenConsultaCargaPropiaV3(solicitud)
+	if err != nil {
+		return ports.ConsultaCargaPropiaV3{}, domain.ErrAutorizacionDenegada
+	}
+	autorizacion, err := s.autoridadV3.AutorizarConsultaCarga(ctx, preimagen, actor, cargaID)
+	if err != nil {
+		return ports.ConsultaCargaPropiaV3{}, domain.ErrAutorizacionDenegada
+	}
+	solicitud.AutorizacionV3 = autorizacion
+	if solicitud.Validar(s.reloj.Ahora().UTC()) != nil {
+		return ports.ConsultaCargaPropiaV3{}, domain.ErrAutorizacionDenegada
+	}
+	return repositorio.ConsultarPropia(ctx, solicitud)
 }
 
 func (s *ServicioCargaDocumental) Confirmar(
@@ -551,10 +561,14 @@ func (s *ServicioCargaDocumental) Confirmar(
 	var preparacionPersistida ports.PreparacionCargaDocumentalPersistida
 	var err error
 	if s.autoridadV3 != nil {
-		consulta, errConsulta := s.consultarCargaPropiaV3(ctx, orden.CargaID,
+		consulta, errConsulta := s.consultarCargaPropiaV3(ctx, orden.CargaID, orden.Recurso.Referencia,
 			orden.ActorRegistradoV2, orden.Finalidad, orden.CorrelacionRef, true)
-		if errConsulta != nil { return domain.CargaDocumental{}, errConsulta }
-		if consulta.Manifiesto == nil { return domain.CargaDocumental{}, ports.ErrManifiestoPreparacionNoEncontrado }
+		if errConsulta != nil {
+			return domain.CargaDocumental{}, errConsulta
+		}
+		if consulta.Manifiesto == nil {
+			return domain.CargaDocumental{}, ports.ErrManifiestoPreparacionNoEncontrado
+		}
 		preparacionPersistida = ports.PreparacionCargaDocumentalPersistida{Carga: consulta.Carga, Manifiesto: *consulta.Manifiesto}
 	} else {
 		preparacionPersistida, err = s.repositorio.ObtenerPreparacion(ctx, orden.CargaID)
@@ -785,9 +799,11 @@ func (s *ServicioCargaDocumental) AnalizarYPromover(
 	var carga domain.CargaDocumental
 	var err error
 	if s.autoridadV3 != nil {
-		consulta, errConsulta := s.consultarCargaPropiaV3(ctx, orden.CargaID,
+		consulta, errConsulta := s.consultarCargaPropiaV3(ctx, orden.CargaID, orden.Recurso.Referencia,
 			orden.ActorRegistradoV2, orden.Finalidad, orden.CorrelacionRef, false)
-		if errConsulta != nil { return domain.CargaDocumental{}, errConsulta }
+		if errConsulta != nil {
+			return domain.CargaDocumental{}, errConsulta
+		}
 		carga = consulta.Carga
 	} else {
 		carga, err = s.repositorio.Obtener(ctx, orden.CargaID)

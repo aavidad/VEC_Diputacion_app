@@ -27,19 +27,28 @@ type ReservaCargaV3 struct {
 func (d ReservaCargaV3) Preimagen() ([]byte, error) { return json.Marshal(d) }
 
 type ConfirmacionPreparacionCargaV3 struct {
-	Accion           string `json:"accion"`
-	CargaID          string `json:"carga_id"`
-	RecursoRef       string `json:"recurso_ref"`
-	PersonaRef       string `json:"persona_ref"`
-	HuellaToken      string `json:"huella_token_sha256"`
-	HuellaManifiesto string `json:"huella_manifiesto_sha256"`
-	VersionEsperada  int    `json:"version_esperada"`
-	HuellaAnterior   string `json:"huella_anterior_sha256"`
-	VersionSiguiente int    `json:"version_siguiente"`
-	HuellaSiguiente  string `json:"huella_siguiente_sha256"`
+	Accion               string `json:"accion"`
+	CargaID              string `json:"carga_id"`
+	RecursoRef           string `json:"recurso_ref"`
+	PersonaRef           string `json:"persona_ref"`
+	HuellaToken          string `json:"huella_token_sha256"`
+	HuellaManifiesto     string `json:"huella_manifiesto_sha256"`
+	HuellaManifiestoJSON string `json:"huella_manifiesto_json_sha256"`
+	VersionEsperada      int    `json:"version_esperada"`
+	HuellaAnterior       string `json:"huella_anterior_sha256"`
+	VersionSiguiente     int    `json:"version_siguiente"`
+	HuellaSiguiente      string `json:"huella_siguiente_sha256"`
 }
 
 func (d ConfirmacionPreparacionCargaV3) Preimagen() ([]byte, error) { return json.Marshal(d) }
+
+func HuellaJSONCargaV3(valor any) (string, error) {
+	bytes, err := json.Marshal(valor)
+	if err != nil {
+		return "", err
+	}
+	return HuellaBytesSHA256(bytes), nil
+}
 
 type TransicionCargaV3 struct {
 	Accion            string `json:"accion"`
@@ -59,6 +68,7 @@ func (d TransicionCargaV3) Preimagen() ([]byte, error) { return json.Marshal(d) 
 type ConsultaCargaV3 struct {
 	Accion               string `json:"accion"`
 	CargaID              string `json:"carga_id"`
+	RecursoRef           string `json:"recurso_ref"`
 	PersonaRef           string `json:"persona_ref"`
 	PerfilActivoRef      string `json:"perfil_activo_ref"`
 	RegistroContextoRef  string `json:"registro_contexto_ref"`
@@ -73,6 +83,7 @@ func (d ConsultaCargaV3) Preimagen() ([]byte, error) { return json.Marshal(d) }
 type EmisionReciboCargaV3 struct {
 	Accion                 string `json:"accion"`
 	CargaID                string `json:"carga_id"`
+	RecursoRef             string `json:"recurso_ref"`
 	VersionCarga           int    `json:"version_carga"`
 	PersonaRef             string `json:"persona_ref"`
 	RegistroContextoRef    string `json:"registro_contexto_ref"`

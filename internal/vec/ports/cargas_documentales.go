@@ -579,6 +579,7 @@ type AutorizacionCargaDocumentalV3 struct {
 	Accion          string
 	Finalidad       string
 	RecursoRef      string
+	AmbitoRef       string
 	PersonaRef      string
 	PerfilActivoRef string
 	CorrelacionRef  string
@@ -590,7 +591,7 @@ func (a AutorizacionCargaDocumentalV3) ValidarPara(
 ) error {
 	if actor.Validar() != nil || a.Material.ValidarEstructura() != nil ||
 		a.Accion != accion || a.Finalidad != carga.Finalidad ||
-		a.RecursoRef != carga.ID || a.PersonaRef != carga.PrincipalID ||
+		a.RecursoRef != carga.ID || a.AmbitoRef != carga.RecursoRef || a.PersonaRef != carga.PrincipalID ||
 		a.PersonaRef != actor.Contexto.PersonaRef ||
 		a.PerfilActivoRef != actor.Contexto.PerfilActivoRef ||
 		a.CorrelacionRef != carga.CorrelacionRef || len(preimagen) == 0 ||
@@ -609,6 +610,7 @@ func (a AutorizacionCargaDocumentalV3) ValidarPara(
 
 type SolicitudConsultarCargaPropiaV3 struct {
 	CargaID           string
+	RecursoRef        string
 	ActorRegistradoV2 domain.ResultadoContextoActorRegistradoV2
 	Finalidad         string
 	CorrelacionRef    string
@@ -617,12 +619,14 @@ type SolicitudConsultarCargaPropiaV3 struct {
 }
 
 func PreimagenConsultaCargaPropiaV3(s SolicitudConsultarCargaPropiaV3) ([]byte, error) {
-	if !referenciaOpacaAlmacenValida(s.CargaID, 512) || s.ActorRegistradoV2.Validar() != nil ||
+	if !referenciaOpacaAlmacenValida(s.CargaID, 512) ||
+		!referenciaOpacaAlmacenValida(s.RecursoRef, 512) || s.ActorRegistradoV2.Validar() != nil ||
 		s.Finalidad == "" || s.CorrelacionRef == "" {
 		return nil, ErrCargaDocumentalNoEncontrada
 	}
 	return (canonicodoc.ConsultaCargaV3{
 		Accion: AccionCargaDocumentalConsultarPropiaV3, CargaID: s.CargaID,
+		RecursoRef:           s.RecursoRef,
 		PersonaRef:           s.ActorRegistradoV2.Contexto.PersonaRef,
 		PerfilActivoRef:      s.ActorRegistradoV2.Contexto.PerfilActivoRef,
 		RegistroContextoRef:  s.ActorRegistradoV2.RegistroContextoRef,
@@ -637,6 +641,7 @@ func (s SolicitudConsultarCargaPropiaV3) Validar(ahora time.Time) error {
 	if err != nil || s.AutorizacionV3.Material.ValidarEstructura() != nil ||
 		s.AutorizacionV3.Accion != AccionCargaDocumentalConsultarPropiaV3 ||
 		s.AutorizacionV3.RecursoRef != s.CargaID ||
+		s.AutorizacionV3.AmbitoRef != s.RecursoRef ||
 		s.AutorizacionV3.PersonaRef != s.ActorRegistradoV2.Contexto.PersonaRef ||
 		s.AutorizacionV3.PerfilActivoRef != s.ActorRegistradoV2.Contexto.PerfilActivoRef ||
 		s.AutorizacionV3.Finalidad != s.Finalidad ||
@@ -705,7 +710,8 @@ func NuevaPreparacionEmisionReciboCargaDirectaV3(
 	}
 	preimagen, err := (canonicodoc.EmisionReciboCargaV3{
 		Accion:  AccionCargaDocumentalPrepararRespuestaV3,
-		CargaID: carga.ID, VersionCarga: carga.Version, PersonaRef: carga.PrincipalID,
+		CargaID: carga.ID, RecursoRef: carga.RecursoRef,
+		VersionCarga: carga.Version, PersonaRef: carga.PrincipalID,
 		RegistroContextoRef: actor.RegistroContextoRef, HuellaContextoSHA256: actor.HuellaSHA256,
 		HuellaManifiestoSHA256: huellaManifiesto, IndiceHMAC: registro.IndiceHMAC,
 		GrupoHMAC: registro.GrupoHMAC, VinculoHMAC: registro.VinculoHMAC,
@@ -847,8 +853,10 @@ func PreimagenConfirmacionPreparacionCargaDocumentalV3(
 	}
 	huellaToken, errToken := s.Token.HuellaSHA256()
 	huellaManifiesto, errManifiesto := s.Manifiesto.HuellaSHA256()
+	datosManifiesto, errDatos := s.Manifiesto.Datos()
+	huellaManifiestoJSON, errJSON := canonicodoc.HuellaJSONCargaV3(datosManifiesto)
 	huellaCarga, errCarga := s.Confirmacion.Carga.HuellaSHA256()
-	if errToken != nil || errManifiesto != nil || errCarga != nil ||
+	if errToken != nil || errManifiesto != nil || errDatos != nil || errJSON != nil || errCarga != nil ||
 		s.Confirmacion.Auditoria.AfterHash != huellaCarga {
 		return nil, ErrConfirmacionCargaDocumentalInvalida
 	}
@@ -856,7 +864,8 @@ func PreimagenConfirmacionPreparacionCargaDocumentalV3(
 		Accion:  AccionCargaDocumentalPrepararConfirmacionV3,
 		CargaID: s.Confirmacion.Carga.ID, RecursoRef: s.Confirmacion.Carga.RecursoRef,
 		PersonaRef: s.Confirmacion.Carga.PrincipalID, HuellaToken: huellaToken,
-		HuellaManifiesto: huellaManifiesto, VersionEsperada: s.Confirmacion.VersionEsperada,
+		HuellaManifiesto: huellaManifiesto, HuellaManifiestoJSON: huellaManifiestoJSON,
+		VersionEsperada:  s.Confirmacion.VersionEsperada,
 		HuellaAnterior:   s.Confirmacion.HuellaAnteriorSHA256,
 		VersionSiguiente: s.Confirmacion.Carga.Version, HuellaSiguiente: huellaCarga,
 	}).Preimagen()
