@@ -13,8 +13,8 @@ test("la vista y sus importadores comparten una URL renovada", async () => {
     readFile(new URL("../arranque.js", import.meta.url), "utf8"),
     readFile(new URL("../aplicacion.js", import.meta.url), "utf8"),
   ]);
-  const version = "20261011-mibolsa-revision-v1";
-  assert.match(html, /\/area-personal\/arranque\.js\?v=20261011-mibolsa-idioma-v1/u);
+  const version = "20261011-mibolsa-b103-privacidad-idioma-v1";
+  assert.match(html, /\/area-personal\/arranque\.js\?v=20261011-mibolsa-b103-privacidad-idioma-v1/u);
   assert.match(arranque, new RegExp(`\\./aplicacion\\.js\\?v=${version}`));
   assert.match(aplicacion, new RegExp(`\\./vistas/inicio-convocatorias\\.js\\?v=${version}`));
 });

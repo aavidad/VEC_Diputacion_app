@@ -39,6 +39,9 @@ var patronReferenciaBorradorLlamamiento = regexp.MustCompile(`^[A-Za-z][A-Za-z0-
 var patronPersonaBorradorLlamamiento = regexp.MustCompile(`^per_[A-Za-z0-9_-]{22,128}$`)
 var patronClaveBorradorLlamamiento = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9:._/-]{7,191}$`)
 var patronDatoPersonalBorradorLlamamiento = regexp.MustCompile(`(?i)(?:^|[^\p{L}])(?:dni|nie|nif|pasaporte|email|tel[eé]fono)(?:$|[^\p{L}])|@`)
+var patronDatoPersonalContacto = regexp.MustCompile(`(?i)(?:^|[^\p{L}])(?:dni|nie|nif|pasaporte|email)(?:$|[^\p{L}])|@`)
+var patronTelefonoConCifrasContacto = regexp.MustCompile(`(?i)(?:^|[^\p{L}])tel[eé]fono[^\p{L}\p{N}]{0,8}[+]?[0-9]`)
+var patronNumeroTelefonoContacto = regexp.MustCompile(`(?:^|[^\p{L}\p{N}])\+?[0-9](?:[\s.-]*[0-9]){8,14}(?:$|[^0-9])`)
 
 func NuevoBorradorLlamamiento(referencia, propietarioRef, unidadRef, ambitoRef string, contenido ContenidoBorradorLlamamiento) (BorradorLlamamiento, error) {
 	b := BorradorLlamamiento{referencia: referencia, propietarioRef: propietarioRef, unidadRef: unidadRef, ambitoRef: ambitoRef, contenido: contenido, estado: EstadoBorradorLlamamientoInterno, version: 1}
@@ -58,14 +61,21 @@ func (b BorradorLlamamiento) Validar() error {
 }
 
 func (c ContenidoBorradorLlamamiento) validar() error {
-	if c.Resumen != strings.TrimSpace(c.Resumen) || len(c.Resumen) < 3 || len(c.Resumen) > 2000 || strings.ContainsAny(c.Resumen, "\x00\u2028\u2029") || contieneDatoPersonalEvidente(c.Resumen) {
+	if c.Resumen != strings.TrimSpace(c.Resumen) || len(c.Resumen) < 3 || len(c.Resumen) > 2000 || strings.ContainsAny(c.Resumen, "\x00\u2028\u2029") || contieneDatoPersonalEvidente(c.Resumen, false) {
 		return ErrBorradorLlamamientoInvalido
 	}
 	return nil
 }
 
-func contieneDatoPersonalEvidente(s string) bool {
-	return patronDatoPersonalBorradorLlamamiento.MatchString(s)
+// La nota del contacto puede describir el canal sin conservar un número.
+// El borrador mantiene su regla original, más estricta.
+func contieneDatoPersonalEvidente(s string, anotacionContacto bool) bool {
+	if !anotacionContacto {
+		return patronDatoPersonalBorradorLlamamiento.MatchString(s)
+	}
+	return patronDatoPersonalContacto.MatchString(s) ||
+		patronTelefonoConCifrasContacto.MatchString(s) ||
+		patronNumeroTelefonoContacto.MatchString(s)
 }
 
 func referenciaBorradorLlamamientoValida(valor string) bool {

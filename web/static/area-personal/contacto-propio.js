@@ -1,4 +1,4 @@
-import { crearClienteOperacionesContactoPropio, ErrorOperacionContacto, referenciaOperacionContactoValida } from "./cliente-http.js?v=20261011-mibolsa-revision-v1";
+import { crearClienteOperacionesContactoPropio, ErrorOperacionContacto, referenciaOperacionContactoValida } from "./cliente-http.js?v=20261011-mibolsa-b103-privacidad-idioma-v1";
 import { textoContactoPropio as t } from "./i18n-contacto-propio.js";
 
 export function capturarCorreoEnviado(entrada) { return String(entrada?.value ?? "").trim(); }

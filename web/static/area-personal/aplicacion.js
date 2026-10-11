@@ -4,16 +4,16 @@ import { idiomaActivoAreaPersonal, iniciarI18nAreaPersonal, textosErrorCargaArea
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
   sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261007-p7-imagen-v1";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
-import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261011-mibolsa-revision-v1";
-import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261011-mibolsa-revision-v1";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261011-mibolsa-b103-privacidad-idioma-v1";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261011-mibolsa-b103-privacidad-idioma-v1";
 import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261011-mibolsa-revision-v1";
-import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-mibolsa-revision-v1";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261011-mibolsa-revision-v1";
+} from "./vistas/seguimiento-tramites.js?v=20261011-mibolsa-b103-privacidad-idioma-v1";
+import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-mibolsa-b103-privacidad-idioma-v1";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261011-mibolsa-b103-privacidad-idioma-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
-import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261011-mibolsa-revision-v1";
-import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261011-mibolsa-revision-v1";
+import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261011-mibolsa-b103-privacidad-idioma-v1";
+import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261011-mibolsa-b103-privacidad-idioma-v1";
 
 
 const RUTAS = Object.freeze({
@@ -679,7 +679,7 @@ async function cargar(estado) {
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
   errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false,
-  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261011-mibolsa-revision-v1") } = {}) {
+  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261011-mibolsa-b103-privacidad-idioma-v1") } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }

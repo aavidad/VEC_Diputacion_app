@@ -16,7 +16,7 @@
  * - Contratos estrictos y cerrados: cualquier propiedad no declarada invalida la respuesta.
  */
 
-import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261007-pantallas-textos-final-v1";
+import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261011-bolsa-b103-privacidad-v1";
 
 export const ESQUEMA_BOLSAS = "vec.bolsa.rrhh.bolsas.v1";
 export const ESQUEMA_CANDIDATOS = "vec.bolsa.rrhh.candidatos.v1";
@@ -277,7 +277,7 @@ export function validarCandidato(candidato) {
   const participacionRef = exigirCadenaSegura(candidato.participacion_ref, "participacion_ref");
   if (candidato.orden !== null && (!Number.isSafeInteger(candidato.orden) || candidato.orden < 1)) throw new Error("orden de candidato debe ser nulo o entero positivo");
   if (!Number.isSafeInteger(candidato.orden_acta) || candidato.orden_acta < 1) throw new Error("orden_acta debe ser entero positivo");
-  if (!["orden_acta","reposicion_tras_contrato","pausa","trabajando","sin_turno","sancion_al_final","adelanta_por_sancion","restriccion_cese","retorno_tras_cese"].includes(candidato.razon_orden)) throw new Error("razon_orden no reconocida");
+  if (!["orden_acta","reposicion_tras_contrato","pausa","trabajando","sin_turno","sancion_al_final","adelanta_por_sancion","restriccion_cese","retorno_tras_cese","cese_pendiente","respuesta_portal_pendiente"].includes(candidato.razon_orden)) throw new Error("razon_orden no reconocida");
   const nombreVisible = exigirCadenaSegura(candidato.nombre_visible, "nombre_visible");
   const documentoEnmascarado = validarDocumentoEnmascarado(candidato.documento_enmascarado);
 
@@ -295,6 +295,10 @@ export function validarCandidato(candidato) {
   }
   if (candidato.razon_orden === "retorno_tras_cese" && (candidato.orden === null || estadoClave !== "disponible")) {
     throw new Error("retorno tras cese sin turno disponible");
+  }
+  // Bolsa 000100: respondió en «Mi bolsa» y RRHH aún no lo ha reflejado; nunca tiene turno.
+  if (candidato.razon_orden === "respuesta_portal_pendiente" && candidato.orden !== null) {
+    throw new Error("respuesta del portal pendiente con turno");
   }
 
   let ultimoLlamamiento = null;
@@ -329,8 +333,10 @@ export function validarRespuestaCandidatosBolsa(envelope) {
   const conTurno = datos?.esquema === ESQUEMA_CANDIDATOS_TURNO;
   // «canales_llamamiento» solo viaja cuando el servidor publica los canales activos.
   const conCanales = esObjeto(datos) && Object.hasOwn(datos, "canales_llamamiento");
+  const conRespuestasPortal = esObjeto(datos) && Object.hasOwn(datos, "respuestas_portal");
   exigirCamposExactos(datos, ["esquema", "generado_en", "bolsa", "candidatos", "contactos", "hay_mas", "cursor_siguiente",
-    ...(conTurno ? ["turno"] : []), ...(conCanales ? ["canales_llamamiento"] : [])], "respuesta de candidatos");
+    ...(conTurno ? ["turno"] : []), ...(conCanales ? ["canales_llamamiento"] : []),
+    ...(conRespuestasPortal ? ["respuestas_portal"] : [])], "respuesta de candidatos");
 
   if (datos.esquema !== ESQUEMA_CANDIDATOS && !conTurno) {
     throw new Error(`esquema no compatible: ${datos.esquema}`);
@@ -345,6 +351,24 @@ export function validarRespuestaCandidatosBolsa(envelope) {
   const turno = conTurno ? validarTurno(datos.turno, bolsa) : null;
   if (!Array.isArray(datos.contactos)) throw new Error("el campo contactos debe ser un array");
   const contactos = Object.freeze(datos.contactos.map(validarContacto));
+  let respuestasPortal;
+  if (conRespuestasPortal) {
+    exigirCamposExactos(datos.respuestas_portal, ["llamamiento_ref", "respuestas"], "respuestas del llamamiento");
+    const llamamientoRef = exigirCadenaSegura(datos.respuestas_portal.llamamiento_ref, "llamamiento_ref");
+    const respuestas = datos.respuestas_portal.respuestas;
+    if (!Array.isArray(respuestas) || respuestas.length > 100) throw new Error("respuestas del llamamiento inválidas");
+    const vistas = new Set();
+    respuestasPortal = Object.freeze({ llamamiento_ref: llamamientoRef, respuestas: Object.freeze(respuestas.map((respuesta) => {
+      exigirCamposExactos(respuesta, ["participacion_ref", "respuesta"], "respuesta del llamamiento");
+      const participacionRef = exigirCadenaSegura(respuesta.participacion_ref, "participacion_ref");
+      if (vistas.has(participacionRef) || !candidatos.some((c) => c.participacion_ref === participacionRef)
+        || !["acepta", "renuncia", "renuncia_justificada"].includes(respuesta.respuesta)) {
+        throw new Error("respuesta del llamamiento incoherente");
+      }
+      vistas.add(participacionRef);
+      return Object.freeze({ participacion_ref: participacionRef, respuesta: respuesta.respuesta });
+    })) });
+  }
 
   if (typeof datos.hay_mas !== "boolean") {
     throw new Error("hay_mas debe ser un booleano");
@@ -367,6 +391,7 @@ export function validarRespuestaCandidatosBolsa(envelope) {
     candidatos,
     turno,
     contactos,
+    ...(conRespuestasPortal ? { respuestas_portal: respuestasPortal } : {}),
     hay_mas: datos.hay_mas,
     cursor_siguiente: cursorSiguiente,
     ...(conCanales ? { canales_llamamiento: validarCanalesLlamamiento(datos.canales_llamamiento) } : {}),

@@ -1,4 +1,4 @@
-import { validarRespuestaMiBolsa } from "./contrato.js?v=20261011-mibolsa-revision-v1";
+import { validarRespuestaMiBolsa } from "./contrato.js?v=20261011-mibolsa-b103-privacidad-idioma-v1";
 import { traducir } from "./i18n.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 

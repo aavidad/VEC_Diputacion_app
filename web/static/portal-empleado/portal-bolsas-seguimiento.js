@@ -7,8 +7,9 @@
  * (`canales_llamamiento`); sin ese dato solo existe el correo.
  */
 import { textoPortal, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
-import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261011-bolsa-b103-privacidad-v1";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261011-bolsa-b103-privacidad-v1";
+import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
 
 /** Canales activos: el correo siempre (se envía al emitir); el teléfono si el servidor lo publica. */
 export function canalesAviso(datos) {
@@ -28,25 +29,60 @@ function masReciente(actual, contacto) {
   return !actual || String(contacto.instante) > String(actual.instante) ? contacto : actual;
 }
 
+// Situaciones a las que se llega aceptando un llamamiento.
+const SITUACIONES_ACEPTACION = new Set(["pendiente_incorporacion", "trabajando"]);
+
+/**
+ * Motivo por el que una persona ya no está pendiente de llamar, o null si lo
+ * está: «aceptado» (aceptó por teléfono o en Mi bolsa, o ya se incorpora por
+ * este llamamiento), «renuncia» (rechazó o renunció), «no_localizado» (otra
+ * llamada de cierre, p. ej. número erróneo) o «no_disponible» (su situación en
+ * la bolsa ya no es «disponible»).
+ */
+function motivoResuelta(candidato, llamadas, cierre, llamamientoRef, respuestaPortal) {
+  const ultimo = candidato.ultimo_llamamiento?.llamamiento_ref === llamamientoRef ? candidato.ultimo_llamamiento : null;
+  const cierres = llamadas.filter((contacto) => cierre.has(contacto.resultado)).map((contacto) => contacto.resultado);
+  if (respuestaPortal === "acepta" || cierres.includes("acepta") || ultimo?.resultado === "aceptado"
+    || (ultimo && SITUACIONES_ACEPTACION.has(candidato.estado_clave))) return "aceptado";
+  if (respuestaPortal === "renuncia" || respuestaPortal === "renuncia_justificada"
+    || cierres.includes("rechaza") || ultimo?.resultado === "renuncia" || candidato.estado_clave === "renuncia") return "renuncia";
+  if (cierres.length) return "no_localizado";
+  return candidato.estado_clave === "disponible" ? null : "no_disponible";
+}
+
 /**
  * Filas del seguimiento en el orden de la bolsa. «Siguiente» es la primera
- * persona cuya última llamada no tiene un resultado de cierre.
+ * persona que sigue pendiente de llamar.
  */
-export function filasSeguimiento({ candidatos = [], contactos = [], llamamientoRef = "", telefono = null }) {
+export function filasSeguimiento({ candidatos = [], contactos = [], respuestasPortal = [], llamamientoRef = "", telefono = null }) {
   const cierre = new Set(telefono?.resultados_cierre || []);
-  const delLlamamiento = contactos.filter((contacto) => contacto?.llamamiento_ref === llamamientoRef);
+  const respuestaPorParticipacion = new Map(respuestasPortal.map((r) => [r.participacion_ref, r.respuesta]));
+  const porParticipacion = new Map();
+  for (const contacto of contactos) {
+    if (contacto?.llamamiento_ref !== llamamientoRef) continue;
+    const propios = porParticipacion.get(contacto.participacion_ref) || [];
+    propios.push(contacto);
+    porParticipacion.set(contacto.participacion_ref, propios);
+  }
   let siguienteMarcado = false;
-  return [...candidatos].sort(porOrden).map((candidato) => {
-    const propios = delLlamamiento.filter((contacto) => contacto.participacion_ref === candidato.participacion_ref);
+  const filas = [...candidatos].sort(porOrden).map((candidato) => {
+    const propios = porParticipacion.get(candidato.participacion_ref) || [];
     const llamadas = propios.filter((contacto) => contacto.canal === "telefono");
     const correo = propios.filter((contacto) => contacto.canal === "correo").reduce(masReciente, null);
     const ultimaLlamada = llamadas.reduce(masReciente, null);
-    const cerrada = llamadas.some((contacto) => cierre.has(contacto.resultado));
+    const motivo = motivoResuelta(candidato, llamadas, cierre, llamamientoRef, respuestaPorParticipacion.get(candidato.participacion_ref));
+    const cerrada = motivo !== null;
     const siguiente = !cerrada && !siguienteMarcado;
     if (siguiente) siguienteMarcado = true;
-    return Object.freeze({ candidato, correo, llamadas: llamadas.length, ultimaLlamada, cerrada, siguiente });
+    return Object.freeze({ candidato, correo, llamadas: llamadas.length, ultimaLlamada, cerrada, motivo, siguiente });
   });
+  // Una aceptación cierra el llamamiento completo, incluso si la persona
+  // aparece después de otra todavía pendiente en el orden de la bolsa.
+  return filas.some((fila) => fila.motivo === "aceptado")
+    ? filas.map((fila) => Object.freeze({ ...fila, siguiente: false })) : filas;
 }
+
+const CLASE_MOTIVO = Object.freeze({ aceptado: "exito", renuncia: "advertencia", no_localizado: "advertencia", no_disponible: "neutro" });
 
 function etiquetaResultado(contacto) {
   const telefonica = contacto.canal === "telefono" ? etiquetaResultadoTelefono(contacto.resultado) : null;
@@ -75,10 +111,15 @@ function enlaceBolsa(bolsaRef, escaparHTML, clase, contenido, extra = "") {
 }
 
 /** Enlace a la vista de seguimiento de un llamamiento concreto. */
-export function enlaceSeguimiento({ bolsaRef, llamamientoRef, escaparHTML, clase, contenido, extra = "" }) {
-  const href = rutaSegura(bolsaRef, "", { seguimiento: llamamientoRef });
+// Con origen (petición de personal), el seguimiento lo conserva para que
+// «Llamar al siguiente» abra el asistente con los mismos datos.
+export function enlaceSeguimiento({ bolsaRef, llamamientoRef, escaparHTML, clase, contenido, extra = "", origen = null }) {
+  const valido = origen ? origenLlamamientoValido(origen) : null;
+  const href = rutaSegura(bolsaRef, "", { seguimiento: llamamientoRef, origen: valido });
   if (!href) return "";
-  return `<a class="${clase}" href="${escaparHTML(href)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}" data-seguimiento="${escaparHTML(llamamientoRef)}"${extra}>${contenido}</a>`;
+  const atributo = (nombre, dato) => (dato ? ` data-origen-${nombre}="${escaparHTML(dato)}"` : "");
+  const datosOrigen = valido ? `${atributo("expediente", valido.expediente_ref)}${atributo("referencia", valido.referencia)}${atributo("centro", valido.centro)}${atributo("inicio", valido.fecha_inicio)}` : "";
+  return `<a class="${clase}" href="${escaparHTML(href)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}" data-seguimiento="${escaparHTML(llamamientoRef)}"${datosOrigen}${extra}>${contenido}</a>`;
 }
 
 export function renderizarSeguimientoLlamamiento({
@@ -102,11 +143,26 @@ export function renderizarSeguimientoLlamamiento({
   }
   const { telefono } = canalesAviso(estadoCandidatos.datos);
   if (!telefono) return estadoPanel("status", `<p>${textoPortal("panel_seg_no_disponible")}</p>`);
+  const respuestas = estadoCandidatos.datos.respuestas_portal;
+  if (respuestas?.llamamiento_ref !== seguimiento.llamamiento_ref || !Array.isArray(respuestas.respuestas)) {
+    return estadoPanel("alert", `<p><strong>${textoPortal("panel_seg_error_titulo")}</strong></p><p>${textoPortal("panel_seg_error")}</p>
+      <div class="acciones-vista"><button type="button" class="boton-primario" data-bolsa-accion="reintentar-candidatos">${textoPortal("txt_reintentar")}</button></div>`);
+  }
   const filas = filasSeguimiento({
     candidatos: estadoCandidatos.datos.candidatos || [], contactos: estadoCandidatos.datos.contactos || [],
-    llamamientoRef: seguimiento.llamamiento_ref, telefono,
+    respuestasPortal: respuestas.respuestas, llamamientoRef: seguimiento.llamamiento_ref, telefono,
   });
   if (filas.length === 0) return estadoPanel("status", `<p>${textoPortal("panel_seg_vacio")}</p>`);
+  // Si alguien aceptó, el llamamiento está cubierto. Si nadie aceptó y nadie
+  // queda pendiente, el siguiente paso es otro llamamiento de esta bolsa: el
+  // asistente existente («iniciar-b7») con el origen de la petición si se conoce.
+  const aceptada = filas.find((fila) => fila.motivo === "aceptado");
+  const sinPendientes = !aceptada && !filas.some((fila) => fila.siguiente);
+  const chipPendientes = aceptada
+    ? `<span class="estado-chip exito">${escaparHTML(traducirPortal("panel_seg_aceptado_por", { persona: aceptada.candidato.nombre_visible }))}</span>`
+    : sinPendientes ? `<span class="estado-chip info">${textoPortal("panel_seg_sin_pendientes")}</span>` : "";
+  const siguiente = sinPendientes
+    ? `<button type="button" class="boton-primario" data-bolsa-accion="iniciar-b7">${textoPortal("panel_seg_llamar_siguiente")}</button>` : "";
   const momento = (contacto) => `<br><small><time datetime="${escaparHTML(contacto.instante)}">${escaparHTML(instanteVisible(contacto.instante))}</time></small>`;
   const cuerpo = filas.map((fila) => {
     const c = fila.candidato;
@@ -120,15 +176,15 @@ export function renderizarSeguimientoLlamamiento({
       : `<span class="texto-atenuado">${textoPortal("panel_seg_sin_llamadas")}</span>`;
     return `<tr class="fila-candidato" data-participacion-ref="${ref}">
         <td><strong>${c.orden === null ? "—" : `#${numero(c.orden)}`}</strong></td>
-        <td><button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-participacion-ref="${ref}" aria-label="${textoPortal("txt_aria_abrir_ficha_de", { persona: c.nombre_visible })}"><strong>${nombre}</strong></button>${fila.siguiente ? ` <span class="estado-chip info">${textoPortal("panel_seg_siguiente")}</span>` : ""}</td>
+        <td><button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-participacion-ref="${ref}" aria-label="${textoPortal("txt_aria_abrir_ficha_de", { persona: c.nombre_visible })}"><strong>${nombre}</strong></button>${fila.siguiente ? ` <span class="estado-chip info">${textoPortal("panel_seg_siguiente")}</span>` : ""}${fila.motivo ? ` <span class="estado-chip ${CLASE_MOTIVO[fila.motivo]}">${textoPortal(`panel_seg_motivo_${fila.motivo}`)}</span>` : ""}</td>
         <td>${correo}</td>
         <td>${llamadas}</td>
         <td><button type="button" class="${fila.siguiente ? "boton-primario" : "boton-secundario"}" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${ref}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="${textoPortal("panel_seg_llamar_aria", { persona: c.nombre_visible })}">${textoPortal("panel_seg_llamar")}</button></td>
       </tr>${fichaAbierta ? renderizarFicha(modalFicha, fichaId, 5) : ""}`;
   }).join("");
-  return `${cabecera}
+  return `${siguiente ? encabezadoVista("", titulo, "", `${volver}${siguiente}`) : cabecera}
     <section class="panel" data-bolsa-b5-destino="true" tabindex="-1" aria-labelledby="bolsa-seguimiento-titulo">
-      <div class="cabecera-panel"><h3 id="bolsa-seguimiento-titulo">${textoPortal("panel_seg_tabla")}</h3></div>
+      <div class="cabecera-panel"><h3 id="bolsa-seguimiento-titulo">${textoPortal("panel_seg_tabla")}</h3>${chipPendientes}</div>
       <div class="tabla-contenedor" tabindex="0" role="region" aria-labelledby="bolsa-seguimiento-titulo">
         <table class="tabla-datos tabla-datos--candidatos">
           <thead><tr><th scope="col">${textoPortal("panel_seg_col_orden")}</th><th scope="col">${textoPortal("panel_seg_col_persona")}</th><th scope="col">${textoPortal("panel_seg_col_correo")}</th><th scope="col">${textoPortal("panel_seg_col_llamadas")}</th><th scope="col">${textoPortal("panel_seg_col_accion")}</th></tr></thead>
