@@ -358,7 +358,7 @@ func ejecutarConsultaRRHHEnTransaccion[T any](
 			var vacio T
 			return vacio, ctx.Err()
 		}
-		if consulta != consultaCuadroRRHHPostgreSQL || !carrera ||
+		if (consulta != consultaCuadroRRHHPostgreSQL && consulta != consultaDetalleRRHHPostgreSQL) || !carrera ||
 			intento >= postgresqlcomun.IntentosMaximosCarreraSerializable {
 			return resultado, err
 		}
