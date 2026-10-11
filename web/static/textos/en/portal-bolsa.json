@@ -285,7 +285,7 @@
     "error_acceso_denegado": "Your session does not have permission to record contacts.",
     "error_contacto_en_conflicto": "This entry was already sent with different data. Close the record, open it again and enter the result again.",
     "error_contacto_no_valido": "This result cannot be recorded because another result for this call prevents it. If the person accepts or declines, record it with “Change status” in their record.",
-    "error_anotacion_con_dato_personal": "The note cannot contain personal data, terms for identity documents, passports, email or phones, or the @ sign. Remove them and try again.",
+    "error_anotacion_con_dato_personal": "The note cannot contain personal data or these exact blocked terms: DNI, NIE, NIF, ‘pasaporte’ (passport), ‘email’ or ‘teléfono’ (phone), or the @ sign. Remove them and try again.",
     "error_solicitud_invalida": "Review the form fields.",
     "error_servicio": "The contact could not be recorded. You can try again."
   },

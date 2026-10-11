@@ -163,7 +163,7 @@ function formularios(e, i, candidato, flujo) {
   let intento = "";
   if (i.baja_propuesta && !i.contactado) {
     const excluible = candidato.estado_clave !== "excluido";
-    intento = `<p role="status">${e(t("baja_propuesta_texto"))}</p>${excluible ? `<button type="button" class="boton-primario" data-b8-accion="seleccionar" data-operacion="excluir">${t("boton_proponer_baja")}</button>` : ""}`;
+    intento = `<p${flujo.recibo ? "" : ' role="status"'}>${e(t("baja_propuesta_texto"))}</p>${excluible ? `<button type="button" class="boton-primario" data-b8-accion="seleccionar" data-operacion="excluir">${t("boton_proponer_baja")}</button>` : ""}`;
   } else {
     intento = `<form data-intentos-form="intento"><h5>${t("formulario_intento")}</h5><label>${t("campo_resultado")} <select name="resultado" required${deshabilitado}>${resultados.map((r) => `<option value="${e(r)}"${borrador("intento").resultado === r ? " selected" : ""}>${e(registro ? telefono(`resultado_${r}`) : t(`resultado_${r}`))}</option>`).join("")}</select></label>${camposTelefono}<button type="submit" class="boton-primario"${deshabilitado}>${flujo.enviando ? t("boton_enviando") : registro ? telefono("confirmar_resultado") : t("boton_intento")}</button></form>`;
   }
