@@ -1,0 +1,220 @@
+{
+  "fuente_preparador": "bf2abb8ce76dbee567bed56c5c27dfb32ac09143",
+  "fuente_servidor": "e4346d1141c0717e4bd2d61854d46c5fe66996dc",
+  "operaciones": 26,
+  "capacidades": [
+    {
+      "operacion": "bolsa_anclaje",
+      "clave_id": "clave:capacidad:incorporacion-b2-bolsa_anclaje:desarrollo:v2",
+      "version": 135,
+      "sha256": "b0dc63490bb0b47a30370959b2c83416646ccacee7d11b7688d44ba076a0ad5e",
+      "huella_gobierno": "0d5dcef1de1b530a37c96f39538a0b15ae9528e1f853b9d571f82dce702d97c5",
+      "revision_gobierno": 135
+    },
+    {
+      "operacion": "bolsa_persona",
+      "clave_id": "clave:capacidad:incorporacion-b2-bolsa_persona:desarrollo:v2",
+      "version": 140,
+      "sha256": "b968ccb00e180424ba1ff62072ffa5bf12e72b4a41254cb231d82675f070b573",
+      "huella_gobierno": "bea14bf3b0f2ce0e2cd75418848d4e8ab2dc283391e6bead72069bfa20a824bd",
+      "revision_gobierno": 140
+    },
+    {
+      "operacion": "ct_detalle",
+      "clave_id": "clave:capacidad:ct-detalle:desarrollo:v2",
+      "version": 109,
+      "sha256": "2cf7b3e1b0df1588022b96a10a869b21c9b6dc709ee19b869b154266718eb3a4",
+      "huella_gobierno": "858dcc9d37b13f41050c98ee37608c16901b3e7d5d5b32cac705db2e2d09c216",
+      "revision_gobierno": 109
+    },
+    {
+      "operacion": "ct_origen_confirmar",
+      "clave_id": "clave:capacidad:incorporacion-b2-ct_origen_confirmar:desarrollo:v2",
+      "version": 139,
+      "sha256": "2dbf97a1ed8c15ffb03c0aa3dbda0850255387cef98b38e0eac2148d1e0092fc",
+      "huella_gobierno": "1932c3803274299329b0be5db80e27388b85ea934f096e34e6f20b1c63413ed0",
+      "revision_gobierno": 139
+    },
+    {
+      "operacion": "ct_plan_consultar",
+      "clave_id": "clave:capacidad:incorporacion-b2-ct_plan_consultar:desarrollo:v2",
+      "version": 138,
+      "sha256": "ae1d862b5cea2f48d3502c8c98273241bc9e5c5b1979cb9a8f44accf001034d6",
+      "huella_gobierno": "b6d4993d6e9a4ea0c31b8bfce2b6e37d1f22a70c3f6491003da7c3ce58ba6e4d",
+      "revision_gobierno": 138
+    },
+    {
+      "operacion": "ct_plan_preparar",
+      "clave_id": "clave:capacidad:incorporacion-b2-ct_plan_preparar:desarrollo:v2",
+      "version": 137,
+      "sha256": "7b80978d1028523b6947ec22160dfa228f2537b534dd1c1051ca89ee2a75e42e",
+      "huella_gobierno": "a304d7d038aa84ec25bb13c4a0224489bad9d98e64fe3cd77dd1a02190693050",
+      "revision_gobierno": 137
+    },
+    {
+      "operacion": "ct_vinculo_consultar",
+      "clave_id": "clave:capacidad:incorporacion-b2-ct_vinculo_consultar:desarrollo:v2",
+      "version": 141,
+      "sha256": "33caf47e70383cea1f92876f92851a13d7aa81e9ed95e42a5567de1df43cc520",
+      "huella_gobierno": "e2dd5e07a7f5ebf0595fdc100fdf1e7a625a1101318ab5bdc0bf4b14a426901f",
+      "revision_gobierno": 141
+    },
+    {
+      "operacion": "ct_vinculo_registrar",
+      "clave_id": "clave:capacidad:incorporacion-b2-ct_vinculo_registrar:desarrollo:v2",
+      "version": 145,
+      "sha256": "5eb7520a0524da414341a9a38760a8532447ee9dfe8741a14283d84d4b9a42a2",
+      "huella_gobierno": "59d850197d3b7b17d98a693b6eb831f2bcc50f5befe1516e28df6a500260a0b3",
+      "revision_gobierno": 145
+    },
+    {
+      "operacion": "personal_alta",
+      "clave_id": "clave:capacidad:personal-b2-alta:desarrollo:v2",
+      "version": 129,
+      "sha256": "0552320fe4dcca64b07f8700ece15372a1f8f2585573f550edd94a1eeb2f625a",
+      "huella_gobierno": "60ad0cce8684478ec9bd5d6bf4be10337971329312d53cfe13b6e82a4848f021",
+      "revision_gobierno": 129
+    },
+    {
+      "operacion": "personal_catalogo_publicar",
+      "clave_id": "clave:capacidad:personal-b2-catalogo-publicar:desarrollo:v2",
+      "version": 132,
+      "sha256": "2c17efb9ff8565ad31beb0751989d13a6f8d79a339a400616e75bd363c3d3c08",
+      "huella_gobierno": "12304ecb3e87c5b686f3660bb997d7bc12f11c3cd6e53f7ab4e04b438bc52715",
+      "revision_gobierno": 132
+    },
+    {
+      "operacion": "personal_catalogo_retirar",
+      "clave_id": "clave:capacidad:personal-b2-catalogo-retirar:desarrollo:v2",
+      "version": 133,
+      "sha256": "c6498c14c9fdc1706becb3f023e8bc66ae9622c1cf9c6486adb5e6f100ac0602",
+      "huella_gobierno": "6b60274da97ffce42c4924f2c87169ea72e747b4d82693a686d0880fbc5a0c47",
+      "revision_gobierno": 133
+    },
+    {
+      "operacion": "personal_catalogos",
+      "clave_id": "clave:capacidad:personal-b2-catalogo-consultar:desarrollo:v2",
+      "version": 131,
+      "sha256": "c940dfacf347cfdb3531c934943846349bf608618d5ac035d30286c2c6feee38",
+      "huella_gobierno": "f577d408e7e9b3f32c7dc7acc5e99c20465d967bef1c404bc632a8e9d3b73c9e",
+      "revision_gobierno": 131
+    },
+    {
+      "operacion": "personal_clases",
+      "clave_id": "clave:capacidad:incorporacion-b2-personal_clases:desarrollo:v2",
+      "version": 136,
+      "sha256": "9feb49bd9c0528226d085e53d035710a25271adcf41833d1f56254f46dda1842",
+      "huella_gobierno": "b1997620446459d62019ed70b65e295f74abe11202e3eb1db9e7a0d553e14cd2",
+      "revision_gobierno": 136
+    },
+    {
+      "operacion": "personal_ficha",
+      "clave_id": "clave:capacidad:personal-b2-ficha:desarrollo:v2",
+      "version": 127,
+      "sha256": "606ce62ee4f2ea09998bc733caffbf2c8e5f92b5979d825101fbfde915de67f5",
+      "huella_gobierno": "9d5b55c91ba1f703e1cc50fb0f3c378c4f01fc6753a50f4a2f984fb447efc8b2",
+      "revision_gobierno": 127
+    },
+    {
+      "operacion": "personal_hecho",
+      "clave_id": "clave:capacidad:personal-b2-hecho:desarrollo:v2",
+      "version": 130,
+      "sha256": "dfec6f1d6f87bec36a7f06bddf4f25b2321c124db50cbc857e394f82e0b159f7",
+      "huella_gobierno": "b3ac8833c0e1ee17f27a0b26250d649ec19fc5fa252d2ee820e281d7c13f0bc9",
+      "revision_gobierno": 130
+    },
+    {
+      "operacion": "personal_plan_confirmar",
+      "clave_id": "clave:capacidad:incorporacion-b2-personal_clases:desarrollo:v2",
+      "version": 136,
+      "sha256": "9feb49bd9c0528226d085e53d035710a25271adcf41833d1f56254f46dda1842",
+      "huella_gobierno": "b1997620446459d62019ed70b65e295f74abe11202e3eb1db9e7a0d553e14cd2",
+      "revision_gobierno": 136
+    },
+    {
+      "operacion": "personal_plan_consultar",
+      "clave_id": "clave:capacidad:incorporacion-b2-personal_clases:desarrollo:v2",
+      "version": 136,
+      "sha256": "9feb49bd9c0528226d085e53d035710a25271adcf41833d1f56254f46dda1842",
+      "huella_gobierno": "b1997620446459d62019ed70b65e295f74abe11202e3eb1db9e7a0d553e14cd2",
+      "revision_gobierno": 136
+    },
+    {
+      "operacion": "personal_plan_ejecutar",
+      "clave_id": "clave:capacidad:incorporacion-b2-personal_clases:desarrollo:v2",
+      "version": 136,
+      "sha256": "9feb49bd9c0528226d085e53d035710a25271adcf41833d1f56254f46dda1842",
+      "huella_gobierno": "b1997620446459d62019ed70b65e295f74abe11202e3eb1db9e7a0d553e14cd2",
+      "revision_gobierno": 136
+    },
+    {
+      "operacion": "personal_plan_preparar",
+      "clave_id": "clave:capacidad:incorporacion-b2-personal_clases:desarrollo:v2",
+      "version": 136,
+      "sha256": "9feb49bd9c0528226d085e53d035710a25271adcf41833d1f56254f46dda1842",
+      "huella_gobierno": "b1997620446459d62019ed70b65e295f74abe11202e3eb1db9e7a0d553e14cd2",
+      "revision_gobierno": 136
+    },
+    {
+      "operacion": "personal_plan_seleccionar",
+      "clave_id": "clave:capacidad:incorporacion-b2-personal_clases:desarrollo:v2",
+      "version": 136,
+      "sha256": "9feb49bd9c0528226d085e53d035710a25271adcf41833d1f56254f46dda1842",
+      "huella_gobierno": "b1997620446459d62019ed70b65e295f74abe11202e3eb1db9e7a0d553e14cd2",
+      "revision_gobierno": 136
+    },
+    {
+      "operacion": "personal_vacantes",
+      "clave_id": "clave:capacidad:personal-b2-vacantes:desarrollo:v2",
+      "version": 128,
+      "sha256": "450d72fe71e6181bec34d4da93a42ad2f4fc284f8cafa8fe8be65211bc25e5c7",
+      "huella_gobierno": "8a30897b22df29faefd3c835d2aa2014cb2c6233fd3f2c57de0884c3125897fb",
+      "revision_gobierno": 128
+    },
+    {
+      "operacion": "rpt_confirmar",
+      "clave_id": "clave:capacidad:incorporacion-b2-rpt_reservar:desarrollo:v2",
+      "version": 143,
+      "sha256": "35f96ce8fea7268e41991e5e9c47b7c01bb858aba0fe67be16c9f3fff8ab5d55",
+      "huella_gobierno": "1c07e7d16e3af0875e72fc3f49345f4cf3bea42b64ffbd8e0ad5608396d93bca",
+      "revision_gobierno": 143
+    },
+    {
+      "operacion": "rpt_listar",
+      "clave_id": "clave:capacidad:incorporacion-b2-rpt_publicacion:desarrollo:v2",
+      "version": 142,
+      "sha256": "ec3c3bce228a5515ff80373cbd31a8c34d42a6fc464fd2240d94b728536e39cd",
+      "huella_gobierno": "6f2306e662ee0857a4036db50b0b0552c802325d862c9c35b8039cc314e6ad0b",
+      "revision_gobierno": 142
+    },
+    {
+      "operacion": "rpt_publicacion",
+      "clave_id": "clave:capacidad:incorporacion-b2-rpt_publicacion:desarrollo:v2",
+      "version": 142,
+      "sha256": "ec3c3bce228a5515ff80373cbd31a8c34d42a6fc464fd2240d94b728536e39cd",
+      "huella_gobierno": "6f2306e662ee0857a4036db50b0b0552c802325d862c9c35b8039cc314e6ad0b",
+      "revision_gobierno": 142
+    },
+    {
+      "operacion": "rpt_reservar",
+      "clave_id": "clave:capacidad:incorporacion-b2-rpt_reservar:desarrollo:v2",
+      "version": 143,
+      "sha256": "35f96ce8fea7268e41991e5e9c47b7c01bb858aba0fe67be16c9f3fff8ab5d55",
+      "huella_gobierno": "1c07e7d16e3af0875e72fc3f49345f4cf3bea42b64ffbd8e0ad5608396d93bca",
+      "revision_gobierno": 143
+    },
+    {
+      "operacion": "rpt_uso_consultar",
+      "clave_id": "clave:capacidad:incorporacion-b2-rpt_publicacion:desarrollo:v2",
+      "version": 142,
+      "sha256": "ec3c3bce228a5515ff80373cbd31a8c34d42a6fc464fd2240d94b728536e39cd",
+      "huella_gobierno": "6f2306e662ee0857a4036db50b0b0552c802325d862c9c35b8039cc314e6ad0b",
+      "revision_gobierno": 142
+    }
+  ],
+  "login_tecnico_final": "NOLOGIN PASSWORD NULL",
+  "sesiones_tecnico": 0,
+  "dsn_tecnico_retirado": true,
+  "credencial_y_stdin_retirados": true,
+  "motivo_mapa_4_opcionales": "admitido expresamente por Dirección en simulación local; referencia existente compartida con21 operaciones"
+}

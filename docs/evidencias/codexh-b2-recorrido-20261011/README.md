@@ -2,6 +2,8 @@
 
 El expediente `2026/94014` alcanzó la preparación del informe jurídico, versión 5. Intervención intentó registrar el resultado desde su propia pantalla y recibió `409 firma_remision_pendiente`. La fiscalización quedó pendiente. No se registró una firma ni una incorporación en Personal.
 
+El corte posterior, sobre `e4346d1141c0717e4bd2d61854d46c5fe66996dc`, publicó ocho entradas de régimen y modalidad por HTTP y registró el vínculo de la categoría RPT del mismo expediente. Ambos resultados se conservaron tras reiniciar aplicación y PostgreSQL. El GET del plan B2 sigue en `409 preparacion_pendiente`.
+
 ## Árbol y entorno comprobados
 
 El recorrido se ejecutó en una copia local aislada de HZ19 y HZ20, con PostgreSQL 18.4 y material de desarrollo conservado. No se actuó sobre cidonia ni sobre la principal. No se reaplicaron migraciones instaladas ni se ejecutó DOWN.
@@ -17,6 +19,8 @@ La asignación de alta de RRHH se actualizó mediante la provisión nominal exis
 ## Caso 94014 y respuestas reales
 
 La petición solicita el puesto 9 de Administrativo de Transformación Digital, centro 520, categoría `categoria:rpt:administrativo`, grupo C1, una persona, del 10 de noviembre al 10 de diciembre de 2026. La RPT pública del repositorio identifica ese puesto y categoría. La bolsa administrativa del clon tiene 41 participaciones, 26 de ellas disponibles. La propuesta de cobertura autorizada devolvió `viable` para `bolsa_vigente`.
+
+La tabla recoge el primer corte del caso, antes de la configuración de 26 operaciones y la carga de categorías descritas en la extensión posterior.
 
 | Operación | HTTP | Resultado |
 | --- | ---: | --- |
@@ -120,4 +124,43 @@ Reutilizar los contratos de `scripts/recorridos/centro_rrhh/recorrer.py`, `scrip
 
 Para recuperar este caso, aportar fuera de Git el origen del clon, su CA, certificados, comandos y recibos privados originales. Ejecutar únicamente los replays conservados, consultar el detalle y comparar los archivos de historia. Una ejecución nueva debe elegir juntas la categoría, bolsa, puesto, plaza, publicación, unidad y permisos antes de presentar otra petición.
 
-El siguiente corte ensaya el árbol exacto #1004 con Go 1.26.9 y sus preimágenes SQL, publica los catálogos por HTTP gobernado y comprueba el vínculo RPT. La comparación de #1012 requiere una baseline #1004 del mismo estado. La firma de remisión, la clave histórica de Bolsa y la publicación de Personal siguen pendientes.
+## Extensión instalada de catálogos y vínculo RPT
+
+Esta extensión emplea el servidor `e4346d1141c0717e4bd2d61854d46c5fe66996dc`, Go 1.26.9, SHA-256 `31596db07bfddd408d8a4f0cb161f7646b6d298f916562cf924e74dbfbd12c09`. La comparación de tiempos se realizó antes de esta configuración y carga de datos.
+
+Dirección aprobó expresamente el mapa local de las cuatro operaciones opcionales `ct_vinculo_registrar`, `rpt_listar`, `personal_catalogo_publicar` y `personal_catalogo_retirar` al motivo V2 genérico publicado que ya compartían 21 operaciones. El motivo no concede permisos: actor, perfil, acción, finalidad, recurso y campos siguen sometidos al PDP y consumo V3 correspondientes.
+
+Se activó el publicador existente con `VEC_PERSONAL_B2_GOBIERNO_ENABLED=true`. El preparador oficial de #1004 derivó y contrastó 26 capacidades en una salida nueva: [coordenadas públicas y huellas](material26-validado.json). El LOGIN heredado de gobierno tiene seis membresías y el preparador lo rechazó. Se creó un LOGIN técnico temporal con el contrato mínimo de la prueba oficial del preparador: una membresía en el migrador V3, sin ADMIN ni INHERIT de ese grupo y con SET, cuyo cierre es únicamente migrador y propietario AD3. La provisión tuvo dos revisiones focales, ensayo ROLLBACK con salida 0 y rol ausente, y COMMIT de la misma fuente SHA-256 `949da809dab28a571106507f59c27140e93337bc961f868c840f8b3df9dc003b`: [ensayo](provision-gobierno-ensayo.json), [confirmación](provision-gobierno-commit.json).
+
+El preparador terminó con código 0. Después se deshabilitó ese LOGIN mediante NOLOGIN, se retiró su contraseña, se comprobaron cero sesiones y se borraron el DSN técnico y las entradas privadas de credencial. El LOGIN heredado y sus membresías se conservaron. Se activó la nueva configuración de 26 operaciones y se consumió por CAS la preimagen real del perfil de alta requerida por su plantilla; las variables de provisión se retiraron.
+
+### Ocho publicaciones HTTP
+
+Las ocho solicitudes a POST `/api/vec/contratacion-temporal/incorporacion-personal-b2/catalogos-registro-empleado/v1` devolvieron 201 con mTLS de RRHH. Cada una lleva `Accept: application/json`, `Content-Type: application/json` e `Idempotency-Key: UUID_ORIGINAL_EXTERNO` en la cabecera. El cuerpo no contiene actor, perfil ni organismo.
+
+| Tipo | Entrada y cuerpo reproducible |
+| --- | --- |
+| Régimen | [Funcionario de carrera](comandos/catalogos-personal/01-funcionario_carrera.json) |
+| Régimen | [Funcionario interino](comandos/catalogos-personal/02-funcionario_interino.json) |
+| Régimen | [Personal laboral fijo](comandos/catalogos-personal/03-laboral_fijo.json) |
+| Régimen | [Personal laboral temporal](comandos/catalogos-personal/04-laboral_temporal.json) |
+| Modalidad | [Vacante](comandos/catalogos-personal/05-vacante.json) |
+| Modalidad | [Sustitución](comandos/catalogos-personal/06-sustitucion.json) |
+| Modalidad | [Programa](comandos/catalogos-personal/07-programa.json) |
+| Modalidad | [Acumulación de tareas](comandos/catalogos-personal/08-acumulacion_tareas.json) |
+
+Para reproducir una recuperación se usa el curl anterior, se añade `--header "Idempotency-Key: $CLAVE_ORIGINAL_CATALOGO"` y se envía directamente el JSON correspondiente sin añadir una clave al cuerpo. Cada entrada tiene su propia clave original conservada fuera de Git. La huella del cuerpo se calculó conforme a `HuellaPublicacionCatalogoEmpleadoB2`, que incluye el organismo resuelto por la configuración; las huellas publicadas corresponden a este clon.
+
+Tras reiniciar aplicación y PostgreSQL, los ocho replays devolvieron 200. Todas las entradas y recibos originales, incluidas decisión, auditoría, huella de consumo y fecha, son idénticos: [comparación de ocho recibos](catalogos-personal-recuperacion.json). Personal conserva ocho filas actuales y ocho de historia. El acceso del replay mantiene su auditoría propia; no sustituye el recibo inicial. Estos datos locales no acreditan una aprobación jurídica ni un alta de empleado.
+
+### Publicación de categorías y vínculo
+
+La publicación RPT estaba vacía. Se cargó el archivo de datos existente de la misma fuente `deploy/postgresql/catalogos_configurables/datos/categorias_rpt_v1.sql`, SHA-256 `d4687997d4d71193b32f6692eb2d60cb0818e8e4f87c70faba4c80d0607e418b`, mediante la función CC1 y su propietario. Se conservaron íntegros su documento, referencias técnicas y precondiciones. No se creó SQL ni una versión distinta. Quedaron una publicación, 16 entradas y 16 controles, con huella canónica `ce7c6034ac465ed44e41d8de4347e641efe9e06818ce16c21d97308e3a527da6` y recibo `recibo:catalogos:categorias_rpt:v1`: [carga y procedencia](categorias-rpt-v1-carga.json). Es una carga técnica local basada en la fuente pública; no acredita aprobación jurídica de la RPT.
+
+Después, GET `/api/vec/contratacion-temporal/incorporacion-personal-b2/categorias-rpt/v1` devolvió 200 con las 16 categorías. GET del vínculo del expediente devolvió el análisis v2, su recibo y huella, con el expediente aún en v5. POST `/api/vec/contratacion-temporal/incorporacion-personal-b2/vinculo-categoria-rpt/v1` con [el cuerpo del vínculo](comandos/09-vinculo-rpt.json) devolvió 200 y registró la revisión 1. Fuente y referencia de aprobación técnica proceden del GET de categorías; `motivo_ref` es el recibo real del análisis, igual que en el cliente web existente.
+
+El vínculo conserva `prospectivo:true` y `acredita_procedencia_historica:false`. Tras otro reinicio, su replay devolvió 200 con el recibo íntegro idéntico, misma fecha y revisión; GET de vínculo y categorías también devolvieron 200: [recuperación del vínculo](vinculo26-recuperacion.json). Las seis tablas CT anteriores mantienen sus hashes exactos incluso después de esta extensión: [historia final](historia-tras-extension26.json).
+
+Para repetir la carga de datos en otro clon autorizado, cotejar primero la publicación y ejecutar el archivo inmutable de la fuente exacta con `psql -X -v ON_ERROR_STOP=1 -f deploy/postgresql/catalogos_configurables/datos/categorias_rpt_v1.sql`, usando exclusivamente la conexión privada de ese clon. Para el vínculo, aportar fuera de Git su clave original, consultar los dos GET anteriores y enviar el JSON sanitizado con esa clave. No se cambian las referencias de una publicación instalada ni el material de un replay.
+
+La firma de remisión, la clave histórica de Bolsa y la publicación adicional de puesto 9/nodo de Personal siguen pendientes. El último GET del plan B2 devuelve 409; no se preparó, ejecutó ni confirmó un plan, ni se registró alta en Personal. La banda de resultados de este acta separa el recorrido principal, las lecturas medidas y estos actos independientes.
