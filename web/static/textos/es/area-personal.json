@@ -231,7 +231,12 @@
       "firme": "Respuesta firme"
     },
     "ultimaRespuesta": "Respuesta registrada",
+    "ultimaRespuestaBolsa": "Última respuesta registrada en esta bolsa",
+    "respuestaAnterior": "Respuesta anterior en esta bolsa",
+    "fechaRespuesta": "Respondida el",
+    "modoRespuesta": "Estado de la respuesta",
     "respuestaEnRevision": "Tu respuesta está en revisión. RRHH confirmará tu situación.",
+    "respuestaAnteriorEnRevision": "Tu respuesta anterior en esta bolsa sigue en revisión. RRHH confirmará tu situación.",
     "enviando": "Enviando…",
     "hecho": "Registrado. Recibo {recibo}.",
     "error": {
