@@ -148,6 +148,7 @@ export async function montarModuloContratacionTemporal({
   alta = null,
   analisis = null,
   fiscalizacion = null,
+  fiscalizacionAjena = false,
   subsanacion = null,
   continuidad = null,
   incorporacionPersonalB2 = null,
@@ -720,6 +721,7 @@ export async function montarModuloContratacionTemporal({
       asignacionDisponible,
       informeJuridicoDisponible,
       fiscalizacionDisponible,
+      fiscalizacionAjena,
       subsanacionDisponible,
       reciboSubsanacionConfirmado: gestorTramitacion.obtenerReciboSubsanacionConfirmado(),
       recuperacionSubsanacionPendiente: gestorTramitacion.tieneIntencionSubsanacionParaEstado(estado),
@@ -753,6 +755,7 @@ export async function montarModuloContratacionTemporal({
         asignacionDisponible: false,
         informeJuridicoDisponible: false,
         fiscalizacionDisponible: false,
+        fiscalizacionAjena,
       });
     } else {
       gestorTramitacion.montarCoberturaDesdeEstado();

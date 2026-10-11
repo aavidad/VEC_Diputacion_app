@@ -688,7 +688,12 @@ export function crearCoordinadorModulosPortal({
     // descarga ya, tras lanzar las consultas para no retrasarlas. Un fallo se
     // ignora aquí; el montaje la vuelve a pedir y lo muestra.
     if (typeof recursos.tomarCuadroLista === "function") void esperarVista().catch(() => {});
+    // El perfil de la sesión decide qué actos se ofrecen: la fiscalización solo
+    // la registra Intervención. Se pide a la vez que el cuadro (nunca falla:
+    // sin sesión legible, el acto no se ofrece).
+    const promesaIntervencion = sesionDeIntervencion(consultar);
     const [cuadro, configuracion] = await Promise.allSettled([consultaCuadro, promesaConfiguracion]);
+    const perfilIntervencion = await promesaIntervencion;
     exigirVigente();
     const cuadroDisponible = cuadro.status === "fulfilled";
     const listadoCuadro = cuadroDisponible ? cuadro.value : null;
@@ -749,7 +754,7 @@ export function crearCoordinadorModulosPortal({
     const fiscalizacion = alta === null && analisis === null
       && typeof cliente.registrarResultadoFiscalizacion === "function"
       && await esperarVista().then((partes) => typeof partes.vista.montarModuloFiscalizacionContratacionTemporal === "function", () => false)
-      && await sesionDeIntervencion(consultar)
+      && perfilIntervencion
       ? Object.freeze({ cliente }) : null;
     exigirVigente();
     if (!cuadroDisponible && alta === null && fiscalizacion === null) {
@@ -768,6 +773,8 @@ export function crearCoordinadorModulosPortal({
         esperarAlta: () => promesaAlta,
         analisis,
         fiscalizacion,
+        // Actos de Intervención dentro de la ficha: solo con ese perfil.
+        fiscalizacionEnFicha: perfilIntervencion,
         subsanacion,
         continuidad: fiscalizacion === null ? Object.freeze({ cliente }) : null,
         // Con la vista ya cargada (el montaje la espera antes de leer esto).
@@ -789,12 +796,12 @@ export function crearCoordinadorModulosPortal({
   }
 
   async function sesionDeIntervencion(consultar) {
-    if (consultarSesion === null) return false;
+    if (consultarSesion === null) return null;
     try {
       const sesion = await consultar((opciones) => consultarSesion(opciones), "consultar sesión");
-      return Array.isArray(sesion?.roles) && sesion.roles.includes(ROL_INTERVENCION);
+      return Array.isArray(sesion?.roles) ? sesion.roles.includes(ROL_INTERVENCION) : null;
     } catch {
-      return false;
+      return null;
     }
   }
 
@@ -1485,10 +1492,11 @@ export function crearCoordinadorModulosPortal({
           mensajes: temporal.mensajesExpedientes,
           alta: temporal.alta,
           analisis: temporal.analisis,
-          fiscalizacion: typeof temporal.analisis?.cliente
+          fiscalizacion: temporal.fiscalizacionEnFicha === true && typeof temporal.analisis?.cliente
             ?.registrarResultadoFiscalizacion === "function"
             ? { cliente: temporal.analisis.cliente }
             : null,
+          fiscalizacionAjena: temporal.fiscalizacionEnFicha === false,
           continuidad: temporal.continuidad,
           incorporacionPersonalB2: temporal.clienteIncorporacionB2,
           subsanacion: temporal.subsanacion,

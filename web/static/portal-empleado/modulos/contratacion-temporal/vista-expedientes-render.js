@@ -291,12 +291,26 @@ export function contextoCoberturaDesdeEstado(estado) {
     clave === "via_cobertura" || clave === "decision_gobernada" || clave === "unidad"
   ));
   if (resumen?.fase_clave !== "solicitud" || resumen.estado_clave !== "en_curso"
-    || resumen.version !== estado.expediente.version || resumen.version < 2
+    || !versionCuadroCoherente(resumen, estado.expediente) || estado.expediente.version < 2
     || !analisisConfirmado || coberturaOAsignacionExistente) return null;
   return Object.freeze({
     expediente_ref: estado.expediente.expediente_ref,
     version_esperada: estado.expediente.version,
   });
+}
+
+// Justo tras registrar o rectificar el análisis la ficha ya se releyó, pero el
+// cuadro en memoria sigue en la versión anterior. El análisis no cambia la
+// fase ni el estado del expediente, así que ese resumen sigue valiendo y la
+// cobertura se ofrece sin esperar a recargar la página.
+const ACCIONES_ANALISIS = new Set([
+  "contratacion_temporal.analisis.registrar", "contratacion_temporal.analisis.rectificar",
+]);
+function versionCuadroCoherente(resumen, expediente) {
+  if (resumen.version === expediente.version) return true;
+  const ultimo = expediente.historial?.at(-1);
+  return resumen.version === expediente.version - 1 && ACCIONES_ANALISIS.has(ultimo?.accion_clave)
+    && ultimo.version_expediente === expediente.version;
 }
 
 export function contextoRectificacionAnalisisDesdeEstado(estado) {
@@ -334,6 +348,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   asignacionDisponible = false,
   informeJuridicoDisponible = false,
   fiscalizacionDisponible = false,
+  fiscalizacionAjena = false,
   subsanacionDisponible = false,
   reciboSubsanacionConfirmado = null,
   recuperacionSubsanacionPendiente = false,
@@ -377,6 +392,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       analisisDisponible,
       resolverBolsa,
       contextoCobertura !== null,
+      { fiscalizacionAjena },
     );
     const contextoInforme = informeJuridicoDisponible
       ? contextoInformeJuridicoDesdeEstado(estado)
