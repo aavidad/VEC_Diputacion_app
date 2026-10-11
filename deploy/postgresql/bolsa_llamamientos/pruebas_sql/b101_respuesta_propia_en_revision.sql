@@ -8,6 +8,7 @@ SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL statement_timeout='20s';
 DO $prueba$
 DECLARE e record; cand text; j jsonb; respuesta jsonb;
+ inicio timestamptz;
  base timestamptz:=clock_timestamp()+interval '1 day';
  recibo text:='recibo:respuesta-portal:'||repeat('a',64);
 BEGIN
@@ -34,7 +35,9 @@ BEGIN
  EXCEPTION WHEN insufficient_privilege THEN NULL;
  END;
  PERFORM vec_bolsa_llamamientos.anotar_consumo_candidato_v1('consulta',cand,'mi-bolsa');
+ inicio:=clock_timestamp();
  j:=vec_bolsa_llamamientos.leer_portal_candidato_v1(cand,base,ARRAY['contactado']);
+ RAISE NOTICE 'B101 lectura_ms=%',extract(epoch FROM clock_timestamp()-inicio)*1000;
  SELECT x->'ultima_respuesta' INTO STRICT respuesta FROM jsonb_array_elements(j) x WHERE x->>'bolsa'=e.bolsa_ref;
  IF respuesta->>'recibo' IS DISTINCT FROM recibo OR (respuesta->>'en_revision')::boolean IS DISTINCT FROM true THEN
   RAISE EXCEPTION 'B101 clave=respuesta_pendiente actual=% esperado=recibo_propio/en_revision_true',respuesta;
