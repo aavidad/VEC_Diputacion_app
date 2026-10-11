@@ -75,6 +75,21 @@ test("la guía inglesa usa el catálogo de la ficha", async () => {
   assert.doesNotMatch(html, /Siguiente paso: decidir/u);
 });
 
+test("un cliente de fiscalización ausente no se confunde con un perfil ajeno", () => {
+  const enFiscalizacion = { ...estado, cuadro: { ...estado.cuadro, expedientes: [
+    { ...resumen, fase_clave: "fiscalizacion" },
+  ] } };
+  const sinCliente = renderizarModuloContratacionTemporal(enFiscalizacion, {
+    fiscalizacionDisponible: false, fiscalizacionAjena: false,
+  });
+  assert.match(sinCliente, /data-ct-exp-accion="ir-tramite"/u);
+  assert.doesNotMatch(sinCliente, /Pendiente de Intervención/u);
+  const perfilAjeno = renderizarModuloContratacionTemporal(enFiscalizacion, {
+    fiscalizacionDisponible: false, fiscalizacionAjena: true,
+  });
+  assert.doesNotMatch(perfilAjeno, /data-ct-exp-accion="ir-tramite"/u);
+});
+
 test("justo tras registrar el análisis, la cobertura aparece aunque el cuadro siga en la versión anterior", () => {
   const conHito = { ...expediente, historial: [{ ...expediente.historial[0],
     accion_clave: "contratacion_temporal.analisis.registrar", version_expediente: 2 }] };

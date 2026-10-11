@@ -348,6 +348,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   asignacionDisponible = false,
   informeJuridicoDisponible = false,
   fiscalizacionDisponible = false,
+  fiscalizacionAjena = false,
   subsanacionDisponible = false,
   reciboSubsanacionConfirmado = null,
   recuperacionSubsanacionPendiente = false,
@@ -391,7 +392,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       analisisDisponible,
       resolverBolsa,
       contextoCobertura !== null,
-      { fiscalizacionAjena: !fiscalizacionDisponible },
+      { fiscalizacionAjena },
     );
     const contextoInforme = informeJuridicoDisponible
       ? contextoInformeJuridicoDesdeEstado(estado)

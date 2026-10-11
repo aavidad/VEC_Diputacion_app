@@ -1496,6 +1496,7 @@ export function crearCoordinadorModulosPortal({
             ?.registrarResultadoFiscalizacion === "function"
             ? { cliente: temporal.analisis.cliente }
             : null,
+          fiscalizacionAjena: temporal.fiscalizacionEnFicha === false,
           continuidad: temporal.continuidad,
           incorporacionPersonalB2: temporal.clienteIncorporacionB2,
           subsanacion: temporal.subsanacion,
