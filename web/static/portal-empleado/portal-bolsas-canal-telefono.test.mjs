@@ -263,6 +263,32 @@ test("la ruta directa de CT llega al asistente y exige bolsa autorizada y origen
   assert.throws(() => leerLlamamientoBolsaCompartible("?bolsa_ref=bolsa%3A1&origen_expediente=otro", [{ bolsa_ref: "bolsa:1" }]), TypeError);
 });
 
+test("la versión de origen viaja por el enlace sin heredar otra selección", () => {
+  const origen = { expediente_ref: "expediente:ct:42", version: 7, referencia: "2026/CT-00042" };
+  const bolsas = [{ bolsa_ref: "bolsa:1" }];
+  const ruta = rutaLlamamientoBolsaCompartible("?lang=en&origen_version=2", "bolsa:1", origen);
+  const search = ruta.split("#")[0];
+  assert.equal(new URLSearchParams(search).get("origen_version"), "7");
+  assert.deepEqual(leerLlamamientoBolsaCompartible(search, bolsas).origen, origen);
+  assert.equal(Object.isFrozen(origenLlamamientoValido(origen)), true);
+  assert.throws(() => leerLlamamientoBolsaCompartible(`${search}&origen_version=8`, bolsas), TypeError);
+  const sinOrigen = rutaCandidatosBolsaCompartible(search, "bolsa:1");
+  assert.equal(new URLSearchParams(sinOrigen.split("#")[0]).has("origen_version"), false);
+});
+
+test("una versión inválida no permite reutilizar el origen del expediente", () => {
+  const origen = { expediente_ref: "expediente:ct:42", referencia: "2026/CT-00042" };
+  for (const version of [null, true, {}, 0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1,
+    "", "0", "01", " 7", "7 ", "+7", "7.0", "1e1", "9007199254740992"]) {
+    assert.equal(origenLlamamientoValido({ ...origen, version }), null);
+  }
+  assert.deepEqual(origenLlamamientoValido({ ...origen, version: "7" }), { ...origen, version: 7 });
+  assert.deepEqual(origenLlamamientoValido(origen), origen, "los enlaces anteriores siguen permitiendo navegar");
+  assert.throws(() => leerLlamamientoBolsaCompartible(
+    "?bolsa_ref=bolsa%3A1&origen_expediente=expediente%3Act%3A42&origen_referencia=2026%2FCT-00042&origen_version=0",
+    [{ bolsa_ref: "bolsa:1" }]), TypeError);
+});
+
 const t = crearTraductorExpedientesContratacion({});
 const campoCT = (clave, valor) => ({ clave, etiqueta: clave, valor, tono: "neutro", control: "solo_lectura", obligatorio: false, opciones: [] });
 const expedienteCT = (cabecera, extra = {}) => ({ carga: "listo", tarea_ref: "", expediente: { expediente_ref: "expediente:sintetico:42", numero_visible: "2026/CT-00042",

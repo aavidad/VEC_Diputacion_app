@@ -10,6 +10,7 @@ const CLAVE_SEGUIMIENTO = "seguimiento";
 // al seguimiento solo sirve para precargar el siguiente llamamiento.
 const CLAVES_ORIGEN = Object.freeze({
   expediente_ref: "origen_expediente",
+  version: "origen_version",
   referencia: "origen_referencia",
   centro: "origen_centro",
   fecha_inicio: "origen_inicio",
