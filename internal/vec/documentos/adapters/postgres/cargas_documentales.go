@@ -192,9 +192,16 @@ func (r *RepositorioCargasDirectas) ConsultarPropia(ctx context.Context, s vecpo
 	if err != nil {
 		return vecports.ConsultaCargaPropiaV3{}, err
 	}
+	return decodificarConsultaCargaPropiaV3(raw, s.CargaID, s.RecursoRef,
+		s.ActorRegistradoV2.Contexto.PersonaRef, s.IncluyeManifiesto)
+}
+
+func decodificarConsultaCargaPropiaV3(raw []byte, cargaID, recursoRef, personaRef string,
+	incluirManifiesto bool) (vecports.ConsultaCargaPropiaV3, error) {
 	var salida struct {
 		Denegado   bool                                    `json:"denegado"`
 		Carga      vecdomain.CargaDocumental               `json:"carga"`
+		Preparada  vecdomain.CargaDocumental               `json:"carga_preparada"`
 		Manifiesto json.RawMessage                         `json:"manifiesto"`
 		Estado     vecports.EstadoOperativoCargaDocumental `json:"estado_operativo"`
 	}
@@ -204,13 +211,13 @@ func (r *RepositorioCargasDirectas) ConsultarPropia(ctx context.Context, s vecpo
 	if salida.Denegado {
 		return vecports.ConsultaCargaPropiaV3{}, vecdomain.ErrAutorizacionDenegada
 	}
-	if salida.Carga.Validar() != nil || salida.Carga.ID != s.CargaID ||
-		salida.Carga.PrincipalID != s.ActorRegistradoV2.Contexto.PersonaRef ||
-		salida.Carga.RecursoRef != s.RecursoRef || !salida.Estado.Valido() {
+	if salida.Carga.Validar() != nil || salida.Carga.ID != cargaID ||
+		salida.Carga.PrincipalID != personaRef ||
+		salida.Carga.RecursoRef != recursoRef || !salida.Estado.Valido() {
 		return vecports.ConsultaCargaPropiaV3{}, ErrRepositorioNoDisponible
 	}
 	respuesta := vecports.ConsultaCargaPropiaV3{Carga: salida.Carga, EstadoOperativo: salida.Estado}
-	if s.IncluyeManifiesto {
+	if incluirManifiesto {
 		if len(salida.Manifiesto) == 0 || string(salida.Manifiesto) == "null" {
 			return vecports.ConsultaCargaPropiaV3{}, vecports.ErrManifiestoPreparacionNoEncontrado
 		}
@@ -219,12 +226,34 @@ func (r *RepositorioCargasDirectas) ConsultarPropia(ctx context.Context, s vecpo
 			return vecports.ConsultaCargaPropiaV3{}, ErrRepositorioNoDisponible
 		}
 		manifiesto, err := vecdomain.RestaurarManifiestoPreparacionCargaDirectaV1(datos)
-		if err != nil || manifiesto.ValidarContraCarga(salida.Carga) != nil {
+		if err != nil || manifiesto.ValidarContraCarga(salida.Preparada) != nil ||
+			!mismaCargaPreparada(salida.Preparada, salida.Carga) {
 			return vecports.ConsultaCargaPropiaV3{}, ErrRepositorioNoDisponible
 		}
 		respuesta.Manifiesto = &manifiesto
 	}
 	return respuesta, nil
+}
+
+// El manifiesto describe la instantanea v2, no la carga actual. El enlace
+// conserva todos los atributos de identidad y preparacion que las transiciones
+// v3/v5 no pueden sustituir.
+func mismaCargaPreparada(preparada, actual vecdomain.CargaDocumental) bool {
+	return preparada.Validar() == nil && actual.Validar() == nil &&
+		preparada.Estado == vecdomain.EstadoCargaDocumentalPreparada &&
+		preparada.ID == actual.ID && preparada.PrincipalID == actual.PrincipalID &&
+		preparada.RecursoRef == actual.RecursoRef && preparada.ModuloID == actual.ModuloID &&
+		preparada.TipoRecurso == actual.TipoRecurso && preparada.OperacionRef == actual.OperacionRef &&
+		preparada.CorrelacionRef == actual.CorrelacionRef && preparada.Finalidad == actual.Finalidad &&
+		preparada.Clasificacion == actual.Clasificacion && preparada.MIMEDeclarado == actual.MIMEDeclarado &&
+		preparada.TamanoDeclarado == actual.TamanoDeclarado &&
+		preparada.HuellaDeclaradaSHA256 == actual.HuellaDeclaradaSHA256 &&
+		preparada.IndiceIdempotenciaHMAC == actual.IndiceIdempotenciaHMAC &&
+		preparada.HuellaSolicitudHMAC == actual.HuellaSolicitudHMAC &&
+		preparada.VinculoSesionHMAC == actual.VinculoSesionHMAC &&
+		preparada.AutorizacionPreparacionRef == actual.AutorizacionPreparacionRef &&
+		preparada.CreadaEn.Equal(actual.CreadaEn) &&
+		preparada.PreparadaEn.Equal(actual.PreparadaEn) && preparada.ExpiraEn.Equal(actual.ExpiraEn)
 }
 
 func (r *RepositorioCargasDirectas) CerrarIntentoNoRecuperable(ctx context.Context, s vecports.SolicitudConciliarCargaV3) (vecports.EstadoOperativoCargaDocumental, error) {

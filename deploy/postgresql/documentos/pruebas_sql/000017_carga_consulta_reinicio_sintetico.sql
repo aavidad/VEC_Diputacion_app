@@ -19,6 +19,10 @@ BEGIN
  r:=vec_documentos.consultar_carga_directa_propia_v1(pre,mat.auth,mat.capacidad,mat.decision,
   '\x01'::bytea,'\x01'::bytea,1,1,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea);
  IF r#>>'{carga,id}' IS DISTINCT FROM carga OR r->>'estado_operativo' IS DISTINCT FROM 'admitida'
+  OR r#>>'{carga,version}' IS DISTINCT FROM '5' OR r#>>'{carga_preparada,version}' IS DISTINCT FROM '2'
+  OR r#>>'{carga_preparada,id}' IS DISTINCT FROM carga OR
+  r#>>'{manifiesto,huella_carga_sha256}' IS DISTINCT FROM
+   encode(sha256(convert_to((r->'carga_preparada')::text,'UTF8')),'hex')
   OR r->>'entrega_acreditada' IS DISTINCT FROM 'false' OR r->'manifiesto' IS NULL
  THEN RAISE EXCEPTION 'D17: recuperación tras reinicio incorrecta'; END IF;
  m:=m||jsonb_build_object('recurso_ref','ref:'||repeat('4',64));

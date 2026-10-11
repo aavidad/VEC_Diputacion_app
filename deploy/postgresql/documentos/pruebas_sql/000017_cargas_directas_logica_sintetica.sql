@@ -200,6 +200,20 @@ BEGIN
   '\x01'::bytea,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea);
  IF z->>'estado_operativo' IS DISTINCT FROM 'emision_recibo_iniciada'
  THEN RAISE EXCEPTION 'D17: TX2 no fijó manifiesto'; END IF;
+ m:=jsonb_build_object('accion','documentos.carga.consultar_propia','carga_id',carga,
+  'recurso_ref',hecho,'persona_ref',persona,
+  'perfil_activo_ref','perfil:00000000-0000-4000-8000-000000000001',
+  'registro_contexto_ref','rca_'||repeat('b',32),'huella_contexto_sha256',repeat('a',64),
+  'finalidad','custodiar_evidencia_meritos',
+  'correlacion_ref','corr:00000000-0000-4000-8000-000000000001',
+  'incluye_manifiesto',true);
+ pre:=convert_to(m::text,'UTF8');
+ SELECT * INTO STRICT mat FROM ensayo_doc17.material(pre,m->>'accion',carga,hecho,'decision:d17:consulta:v2');
+ z:=vec_documentos.consultar_carga_directa_propia_v1(pre,mat.auth,mat.capacidad,mat.decision,
+  '\x01'::bytea,'\x01'::bytea,1,1,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea);
+ IF z#>>'{carga,version}' IS DISTINCT FROM '2' OR z#>>'{carga_preparada,version}' IS DISTINCT FROM '2'
+  OR z#>>'{manifiesto,huella_carga_sha256}' IS DISTINCT FROM d->>'huella_carga_sha256'
+ THEN RAISE EXCEPTION 'D17: consulta preparada perdió instantánea v2'; END IF;
  recibo:=jsonb_build_object('indice_hmac','hmac-sha256:indice_v1:'||repeat('8',64),
   'grupo_hmac','hmac-sha256:grupo_v1:'||repeat('9',64),
   'vinculo_hmac','hmac-sha256:vinculo_v1:'||repeat('a',64),
@@ -267,6 +281,20 @@ BEGIN
  IF z->>'estado_operativo' IS DISTINCT FROM 'cuarentena' OR z#>>'{carga,version}' IS DISTINCT FROM '3'
  THEN RAISE EXCEPTION 'D17: resultado S3 no conservado'; END IF;
  RAISE NOTICE 'D17_RESULTADO_JSON=%',z;
+ m:=jsonb_build_object('accion','documentos.carga.consultar_propia','carga_id',carga,
+  'recurso_ref',hecho,'persona_ref',persona,
+  'perfil_activo_ref','perfil:00000000-0000-4000-8000-000000000001',
+  'registro_contexto_ref','rca_'||repeat('b',32),'huella_contexto_sha256',repeat('a',64),
+  'finalidad','custodiar_evidencia_meritos',
+  'correlacion_ref','corr:00000000-0000-4000-8000-000000000001',
+  'incluye_manifiesto',true);
+ pre:=convert_to(m::text,'UTF8');
+ SELECT * INTO STRICT mat FROM ensayo_doc17.material(pre,m->>'accion',carga,hecho,'decision:d17:consulta:v3');
+ z:=vec_documentos.consultar_carga_directa_propia_v1(pre,mat.auth,mat.capacidad,mat.decision,
+  '\x01'::bytea,'\x01'::bytea,1,1,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea);
+ IF z#>>'{carga,version}' IS DISTINCT FROM '3' OR z#>>'{carga_preparada,version}' IS DISTINCT FROM '2'
+  OR z#>>'{manifiesto,huella_carga_sha256}' IS DISTINCT FROM d->>'huella_carga_sha256'
+ THEN RAISE EXCEPTION 'D17: consulta cuarentena perdió instantánea v2'; END IF;
  analisis:=jsonb_build_object('objeto_referencia',objeto->>'referencia',
   'objeto_version',objeto->>'version','huella_objeto_sha256',repeat('d',64),
   'conector_analizador_id','antivirus:desarrollo','version_conector',1,

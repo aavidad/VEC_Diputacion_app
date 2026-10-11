@@ -109,6 +109,11 @@ CREATE TABLE vec_documentos.carga_directa_operacion (
    'promocion_indeterminada','admitida',
    'preparacion_indeterminada','recibo_indeterminado','no_recuperable')),
  carga jsonb NOT NULL CHECK(jsonb_typeof(carga)='object'),
+ carga_preparada jsonb CHECK(carga_preparada IS NULL OR
+   (jsonb_typeof(carga_preparada)='object' AND carga_preparada->>'estado'='preparada' AND
+    carga_preparada->>'version'='2' AND carga_preparada->>'id'=carga_id AND
+    carga_preparada->>'principal_id'=persona_ref AND carga_preparada->>'recurso_ref'=recurso_ref AND
+    carga_preparada->>'indice_idempotencia_hmac'=indice_carga_hmac)),
  manifiesto jsonb,
  huella_manifiesto_sha256 text CHECK(huella_manifiesto_sha256 ~ '^[0-9a-f]{64}$'),
  recibo_indice_hmac text UNIQUE CHECK(recibo_indice_hmac ~ '^hmac-sha256:[^:]{3,64}:[0-9a-f]{64}$'),
@@ -120,8 +125,9 @@ CREATE TABLE vec_documentos.carga_directa_operacion (
  decision_promocion_intencion_ref text,
  creada_en timestamptz(6) NOT NULL,
  actualizada_en timestamptz(6) NOT NULL,
- CHECK ((manifiesto IS NULL AND huella_manifiesto_sha256 IS NULL) OR
-        (jsonb_typeof(manifiesto)='object' AND huella_manifiesto_sha256 IS NOT NULL)),
+ CHECK ((manifiesto IS NULL AND carga_preparada IS NULL AND huella_manifiesto_sha256 IS NULL) OR
+        (jsonb_typeof(manifiesto)='object' AND carga_preparada IS NOT NULL AND
+         huella_manifiesto_sha256 IS NOT NULL)),
  CHECK (estado_operativo IN ('preparacion_iniciada','preparacion_indeterminada','no_recuperable')
         OR manifiesto IS NOT NULL)
 );
@@ -431,7 +437,7 @@ BEGIN
  h:=encode(sha256(p_preimagen),'hex');
  UPDATE vec_documentos.carga_directa_operacion SET
   carga=j,version_contenido=2,version_operativa=3,estado_operativo='emision_recibo_iniciada',
-  manifiesto=d,huella_manifiesto_sha256=m->>'huella_manifiesto_sha256',
+  manifiesto=d,carga_preparada=j,huella_manifiesto_sha256=m->>'huella_manifiesto_sha256',
   huella_carga_json_sha256=m->>'huella_siguiente_sha256',decision_confirmacion_ref=v.decision_ref,
   actualizada_en=ahora
  WHERE carga_id=r.carga_id AND version_operativa=1 RETURNING * INTO r;
@@ -1004,7 +1010,8 @@ BEGIN
  VALUES(m->>'accion',r.carga_id,r.recurso_ref,r.persona_ref,p_auth->>'perfil_activo_ref',
   p_auth->>'finalidad',p_auth->>'correlacion_ref',v.decision_ref,v.auditoria_ref,'autorizado',ahora);
  RETURN jsonb_build_object('carga',r.carga,'manifiesto',CASE WHEN (m->>'incluye_manifiesto')::boolean
-  THEN r.manifiesto ELSE NULL END,'estado_operativo',r.estado_operativo,
+  THEN r.manifiesto ELSE NULL END,'carga_preparada',CASE WHEN (m->>'incluye_manifiesto')::boolean
+  THEN r.carga_preparada ELSE NULL END,'estado_operativo',r.estado_operativo,
   'version_operativa',r.version_operativa,'entrega_acreditada',false);
 END $f$;
 REVOKE ALL ON FUNCTION vec_documentos.consultar_carga_directa_propia_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
