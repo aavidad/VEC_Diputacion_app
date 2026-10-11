@@ -137,7 +137,7 @@ test("un catálogo incompleto usa el idioma de respaldo y no impide recuperar el
   const catalogo = JSON.parse(await readFile(new URL(
     "../../../textos/es/contratacion-temporal-informe-juridico.json", import.meta.url,
   ), "utf8"));
-  const cargarTextosDocumento = async (_modulo, opciones) => {
+  const leerCatalogoInforme = async (_modulo, opciones) => {
     idiomas.push(opciones ?? null);
     const mensajes = opciones ? catalogo.general : { sin_estructura: "Incomplete" };
     return {
@@ -163,7 +163,7 @@ test("un catálogo incompleto usa el idioma de respaldo y no impide recuperar el
     },
     contexto: { expediente_ref: EXPEDIENTE, version_esperada: 4 },
     generarClaveIdempotencia: () => CLAVE, confirmarOperacion: () => true,
-    cargarTextosDocumento,
+    leerCatalogoInforme,
   });
   await raiz.enviar();
   await new Promise((resolver) => setImmediate(resolver));

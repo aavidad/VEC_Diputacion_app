@@ -12,7 +12,7 @@ import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
-  "confirmarOperacion", "mensajes", "locale", "zonaHoraria", "anunciar", "cargarTextosDocumento",
+  "confirmarOperacion", "mensajes", "locale", "zonaHoraria", "anunciar", "leerCatalogoInforme",
   "alConfirmar",
 ]);
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
@@ -224,7 +224,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
     confirmarOperacion = () => false, mensajes = {}, locale = "es-ES",
     zonaHoraria = "Europe/Madrid", anunciar = () => {}, alConfirmar = () => {},
-    cargarTextosDocumento = cargarTextos,
+    leerCatalogoInforme = null,
   } = configuracion;
   configuracion = null;
   if (!raiz || typeof raiz.addEventListener !== "function"
@@ -235,7 +235,8 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     || typeof cliente?.consultarDetalleRRHH !== "function"
     || typeof generarClaveIdempotencia !== "function"
     || typeof confirmarOperacion !== "function" || typeof anunciar !== "function"
-    || typeof alConfirmar !== "function" || typeof cargarTextosDocumento !== "function"
+    || typeof alConfirmar !== "function"
+    || (leerCatalogoInforme !== null && typeof leerCatalogoInforme !== "function")
     || typeof AbortController !== "function") {
     throw new TypeError("dependencias del formulario de informe jurídico no válidas");
   }
@@ -246,7 +247,6 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
   let confirmarActual = confirmarOperacion;
   let anunciarActual = anunciar;
   let alConfirmarActual = alConfirmar;
-  let cargarTextosActual = cargarTextosDocumento;
   let t = crearTraductorContratacionTemporal(mensajes);
   let mensajesHistorial = { ...mensajes };
   let formateador = new Intl.DateTimeFormat(locale, {
@@ -273,7 +273,6 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
   zonaHoraria = null;
   anunciar = null;
   alConfirmar = null;
-  cargarTextosDocumento = null;
 
   function enfocar(selector) {
     const elemento = raizActual?.querySelector?.(selector);
@@ -306,17 +305,19 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     if (cargaTextosDocumento) return cargaTextosDocumento;
     cargaTextosDocumento = Promise.resolve()
       .then(async () => {
-        const modulo = "contratacion-temporal-informe-juridico";
-        let textos = await cargarTextosActual(modulo);
+        let textos = await (leerCatalogoInforme
+          ? leerCatalogoInforme("contratacion-temporal-informe-juridico")
+          : cargarTextos("contratacion-temporal-informe-juridico"));
         if (!montado) return;
         let documentoNuevo;
         try {
           documentoNuevo = renderizarDocumento(estado.recibo, t, textos);
         } catch (error) {
           if (textos.idioma === IDIOMA_POR_DEFECTO) throw error;
-          textos = await cargarTextosActual(modulo, {
-            idioma: IDIOMA_POR_DEFECTO, porDefecto: IDIOMA_POR_DEFECTO,
-          });
+          const opciones = { idioma: IDIOMA_POR_DEFECTO, porDefecto: IDIOMA_POR_DEFECTO };
+          textos = await (leerCatalogoInforme
+            ? leerCatalogoInforme("contratacion-temporal-informe-juridico", opciones)
+            : cargarTextos("contratacion-temporal-informe-juridico", opciones));
           if (!montado) return;
           documentoNuevo = renderizarDocumento(estado.recibo, t, textos);
         }
@@ -525,7 +526,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     confirmarActual = null;
     anunciarActual = null;
     alConfirmarActual = null;
-    cargarTextosActual = null;
+    leerCatalogoInforme = null;
     controlador = null;
     vuelo = null;
     solicitudActual = null;
