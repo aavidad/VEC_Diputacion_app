@@ -59,7 +59,7 @@ function registroTelefonoValido(registro) {
 const BASE = "/api/vec/bolsa/bolsas";
 const RESULTADOS_INTENTO = Object.freeze(["contactado", "no_contesta", "numero_erroneo"]);
 const AVISOS = Object.freeze(["antes_de_separacion", "fuera_de_franja", "dia_no_habil"]);
-const ERRORES = Object.freeze(["intento_antes_de_separacion", "intento_fuera_de_franja", "intentos_agotados", "acceso_denegado", "contacto_en_conflicto", "solicitud_invalida"]);
+const ERRORES = Object.freeze(["intento_antes_de_separacion", "intento_fuera_de_franja", "intentos_agotados", "acceso_denegado", "contacto_en_conflicto", "contacto_no_valido", "anotacion_con_dato_personal", "solicitud_invalida"]);
 
 function segmento(valor) {
   return encodeURIComponent(String(valor ?? "").trim()).replace(/%3A/gi, ":");
@@ -163,7 +163,7 @@ function formularios(e, i, candidato, flujo) {
   let intento = "";
   if (i.baja_propuesta && !i.contactado) {
     const excluible = candidato.estado_clave !== "excluido";
-    intento = `<p role="status">${e(t("baja_propuesta_texto"))}</p>${excluible ? `<button type="button" class="boton-primario" data-b8-accion="seleccionar" data-operacion="excluir">${t("boton_proponer_baja")}</button>` : ""}`;
+    intento = `<p${flujo.recibo ? "" : ' role="status"'}>${e(t("baja_propuesta_texto"))}</p>${excluible ? `<button type="button" class="boton-primario" data-b8-accion="seleccionar" data-operacion="excluir">${t("boton_proponer_baja")}</button>` : ""}`;
   } else {
     intento = `<form data-intentos-form="intento"><h5>${t("formulario_intento")}</h5><label>${t("campo_resultado")} <select name="resultado" required${deshabilitado}>${resultados.map((r) => `<option value="${e(r)}"${borrador("intento").resultado === r ? " selected" : ""}>${e(registro ? telefono(`resultado_${r}`) : t(`resultado_${r}`))}</option>`).join("")}</select></label>${camposTelefono}<button type="submit" class="boton-primario"${deshabilitado}>${flujo.enviando ? t("boton_enviando") : registro ? telefono("confirmar_resultado") : t("boton_intento")}</button></form>`;
   }
@@ -178,8 +178,13 @@ export function renderizarIntentosContacto({ candidato, estado = {}, escaparHTML
   const envolver = (extra, cuerpo) => `<section class="panel panel-separado" data-intentos-raiz="true" aria-labelledby="titulo-intentos-contacto">${cabecera(extra)}<div class="cuerpo-panel">${cuerpo}</div></section>`;
   if (!llamamientoRef && !candidato?.ultimo_llamamiento?.llamamiento_ref) return envolver("", `<p class="vacio-controlado" role="status">${t("sin_llamamiento")}</p>`);
   const actual = estado.carga || "cargando";
-  const reciboVisible = estado.recibo ? `<p class="mensaje-exito" role="status">${e(t("registrado"))} ${justificanteTraducido(estado.recibo, e, (clave) => traducirPortal(`panel_${clave}`))}${estado.registradoEn ? ` <time datetime="${e(estado.registradoEn)}">${e(instante(estado.registradoEn))}</time>` : ""}</p>` : "";
-  if (actual === "cargando") return envolver("", `${reciboVisible}<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`);
+  // Los avisos del propio registro (p. ej. día no hábil con la regla en
+  // «advertir») solo llegan en su respuesta: tras «Contactado» la consulta ya
+  // no los repite, así que se muestran junto al justificante.
+  const avisosRegistro = (Array.isArray(estado.avisosRegistro) ? estado.avisosRegistro : []).filter((a) => AVISOS.includes(a));
+  const avisosVisibles = avisosRegistro.length ? ` ${e(t("registrado_con_avisos"))} ${avisosRegistro.map((a) => `<span class="estado-chip aviso">${t(`aviso_${a}`)}</span>`).join(" ")}` : "";
+  const reciboVisible = estado.recibo ? `<p class="mensaje-exito"${actual === "cargando" ? "" : ' role="status"'}>${e(t("registrado"))} ${justificanteTraducido(estado.recibo, e, (clave) => traducirPortal(`panel_${clave}`))}${estado.registradoEn ? ` <time datetime="${e(estado.registradoEn)}">${e(instante(estado.registradoEn))}</time>` : ""}${avisosVisibles}</p>` : "";
+  if (actual === "cargando") return envolver("", `<div role="status" aria-busy="true">${reciboVisible}<p class="vacio-controlado">${t("cargando")}</p></div>`);
   if (actual === "error") return envolver("", `${reciboVisible}<p class="mensaje-error" role="alert">${e(estado.error || t("error_carga"))}</p><button type="button" class="boton-secundario" data-intentos-accion="reintentar">${t("reintentar")}</button>`);
   const i = estado.datos;
   if (i?.registro_telefono && (!textosTelefono || !registroTelefonoValido(i.registro_telefono))) {
@@ -237,7 +242,7 @@ export function crearControladorIntentosContacto({ estado, renderizar, fetchImpl
       flujo.huella = huella;
       flujo.clave = globalThis.crypto?.randomUUID?.() || `intento-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
-    flujo.enviando = true; flujo.errorOperacion = ""; flujo.recibo = ""; flujo.registradoEn = "";
+    flujo.enviando = true; flujo.errorOperacion = ""; flujo.recibo = ""; flujo.registradoEn = ""; flujo.avisosRegistro = [];
     renderizar();
     const res = await registrarContactoIntento(estado.bolsaSeleccionada, modal.candidato.participacion_ref, comando, flujo.clave, opciones);
     if (estado.modalFicha !== modal) return;
@@ -249,6 +254,7 @@ export function crearControladorIntentosContacto({ estado, renderizar, fetchImpl
     }
     flujo.recibo = res.datos.recibo_ref;
     flujo.registradoEn = res.datos.instante;
+    flujo.avisosRegistro = Array.isArray(res.datos.intentos?.avisos) ? res.datos.intentos.avisos.filter((a) => AVISOS.includes(a)) : [];
     delete flujo.huella; delete flujo.clave;
     delete flujo.borradores?.[tipo];
     await cargar(modal);
