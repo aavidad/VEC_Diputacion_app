@@ -76,6 +76,18 @@ func (s *ServicioFirmantesMerito) Preparar(ctx context.Context, q SolicitudFirma
 	if !autoridadFirmantesCoincide(aut, solicitudAutoridad, q.Contexto.Contexto, ahora) {
 		return ports.ResultadoGuardarPlanFirmantes{}, ports.ErrPlanFirmantesNoDisponible
 	}
+	recuperada, existe, err := s.repositorio.RecuperarConfirmadaAutorizada(ctx, aut, q.ClaveIdempotencia)
+	if err != nil {
+		return ports.ResultadoGuardarPlanFirmantes{}, err
+	}
+	if existe {
+		if !recuperacionFirmantesCoincide(recuperada, aut, q, s.catalogo) {
+			return ports.ResultadoGuardarPlanFirmantes{}, ports.ErrPlanFirmantesConflicto
+		}
+		out := recuperada.Resultado
+		out.Plan = clonarPlanFirmantes(out.Plan)
+		return out, nil
+	}
 	materialAutorizado, err := s.decisiones.ObtenerMaterialExactoAutorizado(ctx, aut, q.Material)
 	if err != nil {
 		return ports.ResultadoGuardarPlanFirmantes{}, err
@@ -129,6 +141,42 @@ func (s *ServicioFirmantesMerito) Preparar(ctx context.Context, q SolicitudFirma
 	}
 	resultado.Plan = clonarPlanFirmantes(resultado.Plan)
 	return resultado, nil
+}
+
+func recuperacionFirmantesCoincide(r ports.RecuperacionPlanFirmantes, a ports.AutoridadFirmantes, q SolicitudFirmantesMerito, c domain.CatalogoRolesFirmantes) bool {
+	p := r.Resultado.Plan
+	if r.Accion != q.Accion || r.ActorRef != a.ActorRef || r.ClaveIdempotencia != q.ClaveIdempotencia ||
+		r.HuellaSolicitudSHA256 != a.HuellaSolicitudSHA256 || r.VersionRosterEsperada != q.VersionRosterEsperada ||
+		!r.Resultado.Repetida || !domain.ReferenciaValida(r.Resultado.ReciboRef) ||
+		p.Material.Validar() != nil || !materialesSolicitudFirmantesIguales(p.Material, q.Material) ||
+		p.VersionRoster != q.VersionRosterEsperada+1 || !huellaSolicitudFirmantesValida(p.HuellaRosterSHA256) ||
+		p.Estado != "preparado_congelado" || len(p.Firmas) != 0 {
+		return false
+	}
+	if q.Accion == ports.AccionPrepararPlanFirmantes || q.Accion == ports.AccionCambiarPlanFirmantes {
+		esperado, err := domain.PrepararPlanFirmantesMerito(q.Material, c, q.VersionRosterEsperada+1, q.Firmantes)
+		if err != nil || p.HuellaRosterSHA256 != esperado.HuellaRosterSHA256 {
+			return false
+		}
+	}
+	if q.Accion == ports.AccionSustituirPlanFirmantes {
+		encontrado := false
+		for _, f := range p.Firmantes {
+			if f.DesignacionRef == q.SustituyeRef {
+				return false
+			}
+			if f.DesignacionRef == q.Sustituto.DesignacionRef && f != q.Sustituto {
+				return false
+			}
+			if f == q.Sustituto {
+				encontrado = true
+			}
+		}
+		if !encontrado {
+			return false
+		}
+	}
+	return true
 }
 
 func solicitudFirmantesCoherente(q SolicitudFirmantesMerito) bool {

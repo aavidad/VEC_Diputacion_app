@@ -69,12 +69,27 @@ type FuenteDesignacionesFirmantes interface {
 }
 
 // RepositorioPlanFirmantes debe exigir CAS e idempotencia en la misma
-// transacción que historia, auditoría y recibo. Una recuperación equivalente
+// transacción que historia, auditoría y recibo. GuardarVersion vuelve a
+// comprobar actor+clave+huella antes del CAS para cerrar la carrera entre
+// RecuperarConfirmadaAutorizada y la escritura. Una recuperación equivalente
 // devuelve el plan/recibo originales y no añade firmas ni otra versión.
 // No existe adaptador productivo en este corte; inyectar nil falla cerrado.
 type RepositorioPlanFirmantes interface {
+	// RecuperarConfirmadaAutorizada revalida/consume una autoridad fresca antes
+	// de leer por actor+clave y por hecho/decisión exactos. Devuelve la preimagen original ligada al recibo;
+	// una clave usada con otra huella nunca se trata como ausencia.
+	RecuperarConfirmadaAutorizada(context.Context, AutoridadFirmantes, string) (RecuperacionPlanFirmantes, bool, error)
 	ObtenerActualAutorizado(context.Context, AutoridadFirmantes, string) (domain.PlanFirmantesMerito, error)
 	GuardarVersion(context.Context, OrdenGuardarPlanFirmantes) (ResultadoGuardarPlanFirmantes, error)
+}
+
+type RecuperacionPlanFirmantes struct {
+	Accion                string
+	ActorRef              string
+	ClaveIdempotencia     string
+	HuellaSolicitudSHA256 string
+	VersionRosterEsperada uint64
+	Resultado             ResultadoGuardarPlanFirmantes
 }
 
 type OrdenGuardarPlanFirmantes struct {
