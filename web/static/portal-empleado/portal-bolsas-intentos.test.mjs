@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  anotacionContieneDatoPersonal,
   consultarIntentosContacto,
   crearControladorIntentosContacto,
   registrarContactoIntento,
@@ -27,6 +28,55 @@ test("el catálogo i18n de intentos está completo y rechaza claves ajenas", () 
   assert.equal(t("registrado"), "Registrado.");
   assert.throws(() => t("inexistente"));
   assert.throws(() => crearTraductorIntentos({ ...MENSAJES_INTENTOS, titulo: "" }));
+});
+
+test("la nota permite describir el teléfono y avisa junto al campo al escribir cifras", () => {
+  for (const nota of ["Acepta por teléfono", "TELÉFONO sin respuesta", "Se llamó 2 veces por teléfono"]) {
+    assert.equal(anotacionContieneDatoPersonal(nota), false, nota);
+  }
+  for (const nota of ["Teléfono 600123456", "teléfono / (6)", "Llamar al +34 600 123 456",
+    "Documento DNI 12345678Z", "tercero@example.test", "Enviar por email"]) {
+    assert.equal(anotacionContieneDatoPersonal(nota), true, nota);
+  }
+  const modal = { candidato, intentosContacto: { carga: "listo", datos: intentos } };
+  const estado = { modalFicha: modal };
+  const controlador = crearControladorIntentosContacto({ estado, renderizar() {} });
+  const aviso = { hidden: true };
+  const atributos = {};
+  const formulario = { querySelector: () => aviso };
+  const campo = {
+    dataset: { intentosCampo: "intento" }, value: "teléfono: 6",
+    closest: (selector) => selector.startsWith("textarea") ? campo : formulario,
+    setAttribute: (clave, valor) => { atributos[clave] = valor; },
+    removeAttribute: (clave) => { delete atributos[clave]; },
+  };
+  assert.equal(controlador.manejarInput({ target: campo }), true);
+  assert.equal(aviso.hidden, false);
+  assert.equal(atributos["aria-invalid"], "true");
+  assert.match(renderizarIntentosContacto({ candidato, estado: modal.intentosContacto }), /teléfono: 6[\s\S]*Quite de la nota el dato personal/u);
+  campo.value = "Acepta por teléfono";
+  controlador.manejarInput({ target: campo });
+  assert.equal(aviso.hidden, true);
+  assert.equal(atributos["aria-invalid"], undefined);
+});
+
+test("una anotación con datos personales se detiene antes del POST", async () => {
+  const anterior = globalThis.FormData;
+  globalThis.FormData = class { constructor(f) { this.v = f.valores; } get(c) { return this.v[c]; } };
+  try {
+    let peticiones = 0;
+    const modal = { candidato, intentosContacto: { carga: "listo", datos: intentos } };
+    const estado = { bolsaSeleccionada: "bolsa:1", modalFicha: modal };
+    const controlador = crearControladorIntentosContacto({ estado, renderizar() {},
+      fetchImpl: async () => { peticiones++; return respuesta(201, {}); } });
+    const formulario = { dataset: { intentosForm: "intento" },
+      valores: { instante: "2026-09-28T10:00", resultado: "contactado", anotacion: "Teléfono 600123456" },
+      closest() { return this; } };
+    assert.equal(controlador.manejarSubmit({ target: formulario, preventDefault() {} }), true);
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(peticiones, 0);
+    assert.match(renderizarIntentosContacto({ candidato, estado: modal.intentosContacto }), /aria-invalid="true"/u);
+  } finally { globalThis.FormData = anterior; }
 });
 
 test("la ficha muestra proceso, avisos y reglas sin rotular su procedencia, escapando textos", () => {

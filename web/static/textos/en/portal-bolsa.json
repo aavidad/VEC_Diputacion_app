@@ -269,6 +269,7 @@
     "campo_resultado": "Result",
     "campo_instante": "Date and time",
     "campo_anotacion": "Note",
+    "aviso_anotacion_privacidad": "Remove the personal detail from the note. You can write “by phone”, but do not include phone numbers, ID numbers or email addresses.",
     "resultado_contactado": "Contacted",
     "resultado_no_contesta": "No answer",
     "resultado_numero_erroneo": "Wrong number",

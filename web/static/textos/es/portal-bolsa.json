@@ -269,6 +269,7 @@
     "campo_resultado": "Resultado",
     "campo_instante": "Fecha y hora",
     "campo_anotacion": "Anotación",
+    "aviso_anotacion_privacidad": "Quite de la nota el dato personal. Puede indicar «por teléfono», pero no escriba números de teléfono, DNI ni correos.",
     "resultado_contactado": "Contactado",
     "resultado_no_contesta": "No contesta",
     "resultado_numero_erroneo": "Número erróneo",

@@ -60,6 +60,13 @@ const BASE = "/api/vec/bolsa/bolsas";
 const RESULTADOS_INTENTO = Object.freeze(["contactado", "no_contesta", "numero_erroneo"]);
 const AVISOS = Object.freeze(["antes_de_separacion", "fuera_de_franja", "dia_no_habil"]);
 const ERRORES = Object.freeze(["intento_antes_de_separacion", "intento_fuera_de_franja", "intentos_agotados", "acceso_denegado", "contacto_en_conflicto", "contacto_no_valido", "anotacion_con_dato_personal", "solicitud_invalida"]);
+const DATO_IDENTITARIO = /(?:^|[^\p{L}])(?:dni|nie|nif|pasaporte|email)(?:$|[^\p{L}])|@/iu;
+const TELEFONO_CON_CIFRAS = /(?:^|[^\p{L}])tel[eé]fono[^\p{L}\p{N}]{0,8}[+]?[0-9]/iu;
+const NUMERO_TELEFONO = /(?:^|[^\p{L}\p{N}])(?:[+]34[\s.-]*)?[679](?:[\s.-]*[0-9]){8}(?:$|[^0-9])/u;
+
+export function anotacionContieneDatoPersonal(valor) {
+  return DATO_IDENTITARIO.test(valor) || TELEFONO_CON_CIFRAS.test(valor) || NUMERO_TELEFONO.test(valor);
+}
 
 function segmento(valor) {
   return encodeURIComponent(String(valor ?? "").trim()).replace(/%3A/gi, ":");
@@ -154,11 +161,16 @@ function formularios(e, i, candidato, flujo) {
   const deshabilitado = flujo.enviando ? " disabled" : "";
   const etiquetaBoton = (clave) => (flujo.enviando ? t("boton_enviando") : t(clave));
   const borrador = (tipo) => flujo.borradores?.[tipo] || {};
-  const campos = (tipo) => `<label>${t("campo_instante")} <input type="datetime-local" name="instante" required value="${e(borrador(tipo).instante || localAhora())}"${deshabilitado}></label><label>${t("campo_anotacion")} <textarea name="anotacion" required maxlength="1000" data-intentos-campo="${tipo}"${deshabilitado}>${e(borrador(tipo).anotacion || "")}</textarea></label>`;
+  const nota = (tipo, etiqueta, requerida) => {
+    const invalida = anotacionContieneDatoPersonal(borrador(tipo).anotacion || "");
+    const id = `intentos-privacidad-${tipo}`;
+    return `<label>${e(etiqueta)} <textarea name="anotacion"${requerida ? " required" : ""} maxlength="1000" data-intentos-campo="${tipo}"${invalida ? ` aria-invalid="true" aria-describedby="${id}"` : ""}${deshabilitado}>${e(borrador(tipo).anotacion || "")}</textarea></label><p id="${id}" class="mensaje-error" role="alert" data-intentos-privacidad="${tipo}"${invalida ? "" : " hidden"}>${e(t("aviso_anotacion_privacidad"))}</p>`;
+  };
+  const campos = (tipo) => `<label>${t("campo_instante")} <input type="datetime-local" name="instante" required value="${e(borrador(tipo).instante || localAhora())}"${deshabilitado}></label>${nota(tipo, t("campo_anotacion"), true)}`;
   const registro = i.registro_telefono;
   const resultados = registro ? registro.resultados : RESULTADOS_INTENTO;
   const camposTelefono = registro
-    ? `<p>${e(telefono("fecha_automatica"))}</p><label>${e(telefono("anotacion_opcional"))} <textarea name="anotacion" maxlength="1000" data-intentos-campo="intento"${deshabilitado}>${e(borrador("intento").anotacion || "")}</textarea></label>`
+    ? `<p>${e(telefono("fecha_automatica"))}</p>${nota("intento", telefono("anotacion_opcional"), false)}`
     : campos("intento");
   let intento = "";
   if (i.baja_propuesta && !i.contactado) {
@@ -236,6 +248,27 @@ export function crearControladorIntentosContacto({ estado, renderizar, fetchImpl
     return true;
   }
 
+  function manejarInput(evento) {
+    const campo = evento.target?.closest?.("textarea[data-intentos-campo]");
+    if (!campo || !estado.modalFicha) return false;
+    const tipo = campo.dataset.intentosCampo;
+    const formulario = campo.closest("[data-intentos-form]");
+    const aviso = formulario?.querySelector?.(`[data-intentos-privacidad="${tipo}"]`);
+    const flujo = estado.modalFicha.intentosContacto || (estado.modalFicha.intentosContacto = {});
+    flujo.borradores ??= {};
+    flujo.borradores[tipo] = { ...flujo.borradores[tipo], anotacion: campo.value };
+    const invalida = anotacionContieneDatoPersonal(campo.value);
+    if (aviso) aviso.hidden = !invalida;
+    if (invalida) {
+      campo.setAttribute("aria-invalid", "true");
+      campo.setAttribute("aria-describedby", `intentos-privacidad-${tipo}`);
+    } else {
+      campo.removeAttribute("aria-invalid");
+      campo.removeAttribute("aria-describedby");
+    }
+    return true;
+  }
+
   async function enviar(modal, flujo, comando, tipo) {
     const huella = JSON.stringify(comando);
     if (flujo.huella !== huella) {
@@ -275,6 +308,11 @@ export function crearControladorIntentosContacto({ estado, renderizar, fetchImpl
     const registro = !rebote ? flujo.datos?.registro_telefono : null;
     const fecha = new Date(String(datos.get("instante") || ""));
     const anotacion = String(datos.get("anotacion") || "").trim();
+    if (anotacionContieneDatoPersonal(anotacion)) {
+      flujo.errorOperacion = "";
+      renderizar();
+      return true;
+    }
     if ((!registro && (!Number.isFinite(fecha.getTime()) || !anotacion))
       || (registro && !registroTelefonoValido(registro)) || anotacion.length > 1000) {
       flujo.errorOperacion = t("error_solicitud_invalida");
@@ -297,8 +335,9 @@ export function crearControladorIntentosContacto({ estado, renderizar, fetchImpl
 
   function instalar(documento = globalThis.document) {
     documento.addEventListener("click", (evento) => { manejarClick(evento); });
+    documento.addEventListener("input", (evento) => { manejarInput(evento); });
     documento.addEventListener("submit", (evento) => { manejarSubmit(evento); });
   }
 
-  return Object.freeze({ cargar, instalar, manejarClick, manejarSubmit });
+  return Object.freeze({ cargar, instalar, manejarClick, manejarInput, manejarSubmit });
 }
