@@ -628,7 +628,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261008-documentos-ficha-v1");
-  for (const ruta of ["portal-preferencias-integracion.js", "portal-preferencias.js", "portal-preferencias-api.js"]) versionesEspeciales.set(ruta, "20261010-http-codigo-v1"); // http.js con código 409/422
+  for (const ruta of ["portal-preferencias-integracion.js", "portal-preferencias.js", "portal-preferencias-api.js"]) versionesEspeciales.set(ruta, "20261010-http-carga-v1"); // http.js con código 409/422
   for (const ruta of ["portal-modulos-coordinador.js", "portal.js"])
     versionesEspeciales.set(ruta, "20261008-documentos-ficha-v2");
   for (const ruta of [
@@ -796,20 +796,19 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-render.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vinculo-categoria-rpt.js",
     "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v9");
-  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261009-ct-bolsa-cohorte-v9");
-  for (const ruta of ["portal-bolsas-ruta-filtros.js", "portal-ct-ruta-filtro.js",
-    "portal-llamamientos-selector.js", "portal-bolsas-global.js", "portal-bolsas-seguimiento.js",
+  ]) versionesEspeciales.set(ruta, "20261011-bolsa-contacto-v12");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261011-bolsa-contacto-v12");
+  for (const ruta of ["portal-bolsas-contrato.js", "portal-bolsas-marcas.js", "portal-bolsas-ruta-filtros.js", "portal-ct-ruta-filtro.js",
+    "portal-llamamientos-selector.js", "portal-bolsas-global.js", "portal-bolsas-seguimiento.js", "portal-bolsas-intentos.js",
     "portal-inicio.js", "portal-bolsas-api.js", "portal-panel-interno.js",
     "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js", "portal-menu-bolsa.js"])
-    versionesEspeciales.set(ruta, "20261009-ct-bolsa-cohorte-v9");
-  // Bolsa 000100: marcas y razón de orden de la respuesta de «Mi bolsa» sin reflejar.
-  for (const ruta of ["portal-bolsas-marcas.js", "portal-bolsas-contrato.js", "portal-bolsas-ruta-filtros.js",
-    "portal-bolsas-global.js", "portal-bolsas-seguimiento.js", "portal-inicio.js", "portal-bolsas-api.js",
-    "portal-panel-interno.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js",
-    "portal-llamamientos-operaciones-api.js", "portal.js"])
-    versionesEspeciales.set(ruta, "20261010-bolsa-respuesta-portal-v1");
+    versionesEspeciales.set(ruta, "20261011-bolsa-contacto-v12");
+  // Botón de carga CONVOCA en la cabecera de Bolsa: panel y entrada en su propia cohorte.
+  for (const ruta of ["portal-panel-interno.js", "portal.js"]) versionesEspeciales.set(ruta, "20261011-bolsa-contacto-v12");
+  // El vínculo de categoría RPT renueva la entrada después de la carga CONVOCA.
+  versionesEspeciales.set("portal.js", "20261011-bolsa-contacto-v12");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
