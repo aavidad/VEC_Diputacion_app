@@ -209,7 +209,7 @@ func (a *autoridadIncorporacionPersonalB2) contexto(ctx context.Context, accion 
 	if e != nil {
 		return c, e
 	}
-	if e = a.perfiles.consumir(ctx, p); e != nil {
+	if e = a.perfiles.consumirInicialB2(ctx, p); e != nil {
 		return ct.ContextoAutorizacionAltaV3{}, e
 	}
 	return c, nil

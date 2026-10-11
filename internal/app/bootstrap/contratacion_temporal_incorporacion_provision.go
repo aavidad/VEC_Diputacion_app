@@ -185,9 +185,10 @@ func configurarSesionesNominalesIncorporacion(ctx context.Context, p *perfilesNo
 
 type claveContextosNominalesIncorporacion struct{}
 type capturaContextosNominalesIncorporacion struct {
-	mu          sync.Mutex
-	propietario *perfilesNominalesIncorporacion
-	contextos   map[string]ct.ContextoAutorizacionAltaV3
+	mu             sync.Mutex
+	propietario    *perfilesNominalesIncorporacion
+	contextos      map[string]ct.ContextoAutorizacionAltaV3
+	asignacionesB2 map[*perfilFijoCTDesarrollo]instantaneaPublicadaDesarrollo
 }
 
 func (p *perfilesNominalesIncorporacion) resolver(ctx context.Context, perfil *perfilFijoCTDesarrollo) (ct.ContextoAutorizacionAltaV3, error) {
@@ -241,27 +242,70 @@ func (p *perfilesNominalesIncorporacion) resolver(ctx context.Context, perfil *p
 }
 
 func (p *perfilesNominalesIncorporacion) consumir(ctx context.Context, perfil *perfilFijoCTDesarrollo) error {
-	if p == nil || p.soporte == nil || perfil == nil || ctx == nil {
+	_, err := p.leerAsignacionConsumible(ctx, perfil)
+	return err
+}
+
+// Sólo B2 reutiliza la primera lectura del perfil en la petición. Cada
+// emisión conserva consumir después del PDP, que siempre vuelve a la fuente.
+func (p *perfilesNominalesIncorporacion) consumirInicialB2(ctx context.Context, perfil *perfilFijoCTDesarrollo) error {
+	if p == nil || p.soporte == nil || perfil == nil || ctx == nil || !p.contiene(perfil) || ctx.Value(claveIncorporacionV2Desarrollo{}) != p.soporte.sello {
 		return ct.ErrAutorizacionDenegada
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	p.soporte.mu.Lock()
-	lector, ok := p.soporte.autoridadAsignaciones.(lectorAsignacionPublicadaCTDesarrollo)
-	p.soporte.mu.Unlock()
-	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(lector) {
-		return ct.ErrConsultaRRHHNoDisponible
-	}
-	publicada, encontrada, err := lector.leerAsignacionPublicada(ctx, perfil.perfilRef())
-	if err != nil {
-		return errors.Join(ct.ErrConsultaRRHHNoDisponible, err)
-	}
-	if !encontrada || publicada.actoAsignacion != actoAsignacionPerfilFijoCTDesarrollo {
+	holder, ok := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+	if !ok || holder == nil {
 		return ct.ErrAutorizacionDenegada
+	}
+	holder.mu.Lock()
+	defer holder.mu.Unlock()
+	if holder.propietario != p {
+		return ct.ErrAutorizacionDenegada
+	}
+	publicada, existe := holder.asignacionesB2[perfil]
+	if !existe {
+		var err error
+		publicada, err = p.leerAsignacionConsumible(ctx, perfil)
+		if err != nil {
+			return err
+		}
+		publicada.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
+		if holder.asignacionesB2 == nil {
+			holder.asignacionesB2 = map[*perfilFijoCTDesarrollo]instantaneaPublicadaDesarrollo{}
+		}
+		holder.asignacionesB2[perfil] = publicada
 	}
 	if _, valida := instantaneaConsumible(publicada, perfil.plantilla, p.soporte.reloj.Ahora()); !valida {
 		return ct.ErrAutorizacionDenegada
 	}
 	return nil
+}
+
+func (p *perfilesNominalesIncorporacion) leerAsignacionConsumible(ctx context.Context, perfil *perfilFijoCTDesarrollo) (instantaneaPublicadaDesarrollo, error) {
+	var cero instantaneaPublicadaDesarrollo
+	if p == nil || p.soporte == nil || perfil == nil || ctx == nil {
+		return cero, ct.ErrAutorizacionDenegada
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	p.soporte.mu.Lock()
+	lector, ok := p.soporte.autoridadAsignaciones.(lectorAsignacionPublicadaCTDesarrollo)
+	p.soporte.mu.Unlock()
+	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(lector) {
+		return cero, ct.ErrConsultaRRHHNoDisponible
+	}
+	publicada, encontrada, err := lector.leerAsignacionPublicada(ctx, perfil.perfilRef())
+	if err != nil {
+		return cero, errors.Join(ct.ErrConsultaRRHHNoDisponible, err)
+	}
+	if !encontrada || publicada.actoAsignacion != actoAsignacionPerfilFijoCTDesarrollo {
+		return cero, ct.ErrAutorizacionDenegada
+	}
+	if _, valida := instantaneaConsumible(publicada, perfil.plantilla, p.soporte.reloj.Ahora()); !valida {
+		return cero, ct.ErrAutorizacionDenegada
+	}
+	return publicada, nil
 }

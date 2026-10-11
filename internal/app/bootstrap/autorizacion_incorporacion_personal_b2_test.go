@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -16,6 +17,96 @@ import (
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
+
+type registroConcesionCapturaB2Prueba struct{ ahora time.Time }
+
+func (r registroConcesionCapturaB2Prueba) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(context.Context, vp.OrdenRegistroConcesionCandidataAutorizacionLigadaV3) (time.Time, error) {
+	return r.ahora, nil
+}
+
+type pdpCapturaAsignacionB2Prueba struct {
+	t        *testing.T
+	a        *autoridadIncorporacionPersonalB2
+	despues  func()
+	llamadas int
+}
+
+func (p *pdpCapturaAsignacionB2Prueba) ExigirSolicitudLigadaV3(ctx context.Context, s core.SolicitudAutorizacionLigadaV3, r core.ResultadoContextoActorRegistradoV2) (core.DecisionAutorizacionLigadaV3, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3, error) {
+	p.t.Helper()
+	p.llamadas++
+	datos, err := s.Datos()
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	perfil := p.a.perfiles.b2[datos.Accion]
+	ahora := p.a.reloj.Ahora()
+	evidencia, err := core.NuevaEvidenciaEvaluacionAutorizacionV3(s, perfil.plantilla, "decision:captura-b2", ahora, ahora.Add(time.Minute))
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	decision, err := core.NuevaDecisionAutorizacionLigadaV3(s, evidencia)
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	orden, err := vp.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(s, decision, datos.ReferenciaMotivo, r)
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	confirmacion, err := vp.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(ctx, registroConcesionCapturaB2Prueba{ahora}, orden)
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	if p.despues != nil {
+		p.despues()
+	}
+	return decision, confirmacion, nil
+}
+
+func TestIncorporacionB2EmisionReleeAsignacionTrasCadaPDP(t *testing.T) {
+	for _, caso := range []string{"sin_cambio", "revocada", "lector_caido"} {
+		t.Run(caso, func(t *testing.T) {
+			a, ctx, lector := escenarioCapturaAsignacionB2Prueba(t)
+			accion := ct.AccionLeerPlanNominalB2
+			perfil := a.perfiles.b2[accion]
+			descriptor, ok := descriptorIncorporacionB2(accion)
+			if !ok {
+				t.Fatal("falta descriptor B2")
+			}
+			pdp := &pdpCapturaAsignacionB2Prueba{t: t, a: a, despues: func() {
+				if caso == "revocada" {
+					publicada := lector.base.publicadas[perfil.perfilRef()]
+					publicada.instantanea.AsignacionPerfil.Estado = core.EstadoAsignacionPerfilRevocada
+					lector.base.publicadas[perfil.perfilRef()] = publicada
+				}
+				if caso == "lector_caido" {
+					lector.base.errorLectura = errors.New("lector B2 cae durante PDP")
+				}
+			}}
+			// El registro del PDP es un doble; la decisión y su confirmación
+			// usan los constructores reales. No hay firmante: sólo el perfil
+			// vigente puede alcanzar ese error posterior a la relectura.
+			a.material = &proveedorMaterialAltaContratacionTemporalDesarrollo{}
+			a.operaciones = map[string]operacionAutorizadaIncorporacionB2{accion: {descriptor: descriptor, motivo: a.perfiles.soporte.motivo, pdp: pdp}}
+			recurso := core.RecursoAutorizable{Referencia: "expediente:ejercicio:ct:0001", ModuloID: descriptor.modulo, Tipo: descriptor.tipo, Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo, "unidad_ref": "unidad:desarrollo:rrhh"}}
+			if _, err := a.actor(ctx, accion); err != nil {
+				t.Fatal(err)
+			}
+			for intento := 0; intento < 2; intento++ {
+				_, material, err := a.emitirRecurso(ctx, accion, recurso)
+				esperado := vp.ErrFirmaAtestacionNoDisponible
+				if caso == "revocada" {
+					esperado = ct.ErrAutorizacionDenegada
+				}
+				if caso == "lector_caido" {
+					esperado = ct.ErrConsultaRRHHNoDisponible
+				}
+				if !errors.Is(err, esperado) || len(material.PayloadVECAD3()) != 0 || lector.lecturas != intento+2 || pdp.llamadas != intento+1 {
+					t.Fatalf("relectura posterior PDP: caso=%s lecturas=%d pdp=%d err=%v", caso, lector.lecturas, pdp.llamadas, err)
+				}
+			}
+		})
+	}
+}
 
 type preparadorUsosB2Prueba struct{ llamadas int }
 
@@ -268,8 +359,12 @@ func TestIncorporacionB2PerfilPersonalConservaActorYRevocaLectura(t *testing.T) 
 	revocada := publicador.publicadas[perfil.perfilRef()]
 	revocada.instantanea.AsignacionPerfil.Estado = core.EstadoAsignacionPerfilRevocada
 	publicador.publicadas[perfil.perfilRef()] = revocada
+	if e = base.nominales.consumir(ctx, perfil); !errors.Is(e, ct.ErrAutorizacionDenegada) {
+		t.Fatalf("relectura de emisión conservó concesión revocada: %v", e)
+	}
+	ctx = context.WithValue(ctx, claveContextosNominalesIncorporacion{}, &capturaContextosNominalesIncorporacion{})
 	if _, e = autoridad.ActorLecturaHechosB2(ctx); !errors.Is(e, ct.ErrAutorizacionDenegada) {
-		t.Fatalf("contexto capturado conservó concesión revocada: %v", e)
+		t.Fatalf("otra petición conservó concesión revocada: %v", e)
 	}
 }
 func TestIncorporacionB2GETYPrepararNoAutorizanEfectoPersonal(t *testing.T) {
