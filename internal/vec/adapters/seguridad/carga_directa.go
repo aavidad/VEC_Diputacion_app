@@ -20,6 +20,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -241,6 +242,68 @@ func (a *AdaptadorCriptograficoCargaDirecta) EmitirReciboCargaDirecta(
 	return ports.ReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoDisponible
 }
 
+// PrepararEmision genera el secreto una vez en memoria sin escribir en el
+// repositorio. La aplicacion obtiene despues una decision V3 sobre su preimagen.
+func (a *AdaptadorCriptograficoCargaDirecta) PrepararEmision(
+	ctx context.Context, solicitud ports.SolicitudEmitirReciboCargaDirecta,
+	carga domain.CargaDocumental, actor domain.ResultadoContextoActorRegistradoV2,
+	manifiesto domain.ManifiestoPreparacionCargaDirectaV1,
+) (ports.PreparacionEmisionReciboCargaDirectaV3, error) {
+	if err := validarContextoCargaDirecta(ctx); err != nil {
+		return ports.PreparacionEmisionReciboCargaDirectaV3{}, err
+	}
+	contexto, sesionRef, expiraEn, vinculo, err := solicitud.RevelarParaEmision()
+	if err != nil {
+		return ports.PreparacionEmisionReciboCargaDirectaV3{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	instantanea, err := a.obtenerInstantanea()
+	if err != nil {
+		return ports.PreparacionEmisionReciboCargaDirectaV3{}, err
+	}
+	defer instantanea.borrar()
+	ahora := instantanea.reloj.Ahora().UTC()
+	if !expiraEn.After(ahora) || contexto.ValidarParaEn(ports.AccionAlmacenPrepararCargaDirecta, ahora) != nil {
+		return ports.PreparacionEmisionReciboCargaDirectaV3{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	material, registro, err := crearMaterialReciboYRegistro(instantanea.claveIndiceRecibo,
+		instantanea.claveVinculoRecibo, contexto, sesionRef, vinculo, expiraEn)
+	if err != nil {
+		return ports.PreparacionEmisionReciboCargaDirectaV3{}, err
+	}
+	return ports.NuevaPreparacionEmisionReciboCargaDirectaV3([]byte(material), registro, carga, actor, manifiesto)
+}
+
+// RegistrarEmisionPreparada consume una decision obtenida por la aplicacion y
+// delega un solo commit al repositorio. La preparacion se invalida antes de la
+// llamada: una respuesta incierta nunca reenvia el alta con otro recibo.
+func (a *AdaptadorCriptograficoCargaDirecta) RegistrarEmisionPreparada(
+	ctx context.Context, preparada ports.PreparacionEmisionReciboCargaDirectaV3,
+	autorizacion ports.AutorizacionCargaDocumentalV3,
+) (ports.ReciboCargaDirecta, error) {
+	if err := validarContextoCargaDirecta(ctx); err != nil {
+		return ports.ReciboCargaDirecta{}, err
+	}
+	instantanea, err := a.obtenerInstantanea()
+	if err != nil {
+		return ports.ReciboCargaDirecta{}, err
+	}
+	defer instantanea.borrar()
+	repositorio, ok := instantanea.repositorio.(ports.RepositorioRegistroReciboCargaDirectaV3)
+	if !ok || repositorio == nil {
+		return ports.ReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoDisponible
+	}
+	return preparada.ConsumirParaRegistro(func(material []byte, registro ports.RegistroReciboCargaDirectaV3) (ports.ReciboCargaDirecta, error) {
+		resultado, err := repositorio.RegistrarReciboCargaDirectaV3(ctx, registro)
+		if err != nil {
+			return ports.ReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoDisponible
+		}
+		if resultado.ValidarContra(registro.Registro) != nil {
+			return ports.ReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoDisponible
+		}
+		return completarReciboTrasAltaDurable(instantanea.claveVinculoRecibo, string(material), registro.Registro, resultado.RegistradoEn)
+	}, autorizacion, instantanea.reloj.Ahora().UTC())
+}
+
 func (a *AdaptadorCriptograficoCargaDirecta) ConsumirReciboCargaDirecta(
 	ctx context.Context,
 	solicitud ports.SolicitudConsumirReciboCargaDirecta,
@@ -406,6 +469,90 @@ func (a *AdaptadorCriptograficoCargaDirecta) VerificarAtestacionConsumoReciboCar
 		return ports.ErrAtestacionReciboCargaDirectaNoValida
 	}
 	return nil
+}
+
+// RecuperarConsumoReciboCargaDirecta reatestigua un consumo historico exacto.
+// No llama Consumir ni concede una ventana nueva para ejecutar S3.
+func (a *AdaptadorCriptograficoCargaDirecta) RecuperarConsumoReciboCargaDirecta(
+	ctx context.Context,
+	solicitud ports.SolicitudConsumirReciboCargaDirecta,
+) (ports.ComprobanteConsumoReciboCargaDirecta, error) {
+	if err := validarContextoCargaDirecta(ctx); err != nil {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, err
+	}
+	if solicitud.Validar() != nil {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	lector, ok := a.repositorio.(ports.RepositorioConsultaConsumoReciboCargaDirecta)
+	if !ok || lector == nil {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoDisponible
+	}
+	valorRecibo, err := solicitud.Recibo.RevelarParaEntregaOConsumo()
+	if err != nil {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	instantanea, err := a.obtenerInstantanea()
+	if err != nil {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, err
+	}
+	defer instantanea.borrar()
+	partes, err := analizarReciboCargaDirecta(valorRecibo, instantanea.claveVinculoRecibo.identificador)
+	if err != nil {
+		partes.borrar()
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	defer partes.borrar()
+	vinculoCalculado := calcularVinculoReciboCargaDirecta(
+		instantanea.claveVinculoRecibo, solicitud.Contexto, solicitud.SesionRef,
+		partes.vinculoSolicitudSHA256, partes.expiraEn, partes.aleatorio,
+	)
+	defer borrarBytesCargaDirecta(vinculoCalculado)
+	if !hmac.Equal(vinculoCalculado, partes.vinculo) {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	indiceCalculado := calcularHMACCargaDirecta(
+		instantanea.claveIndiceRecibo, "indice-recibo-carga-directa-v1", partes.materialIndice,
+	)
+	defer borrarBytesCargaDirecta(indiceCalculado)
+	grupoCalculado := calcularGrupoReciboCargaDirecta(instantanea.claveIndiceRecibo, solicitud.Contexto, solicitud.SesionRef)
+	defer borrarBytesCargaDirecta(grupoCalculado)
+	indiceHMAC := representarHMACCargaDirecta(instantanea.claveIndiceRecibo.identificador, indiceCalculado)
+	grupoHMAC := representarHMACCargaDirecta(instantanea.claveIndiceRecibo.identificador, grupoCalculado)
+	vinculoHMAC := representarHMACCargaDirecta(instantanea.claveVinculoRecibo.identificador, vinculoCalculado)
+	consulta, err := lector.ConsultarConsumoReciboCargaDirecta(ctx, indiceHMAC)
+	if err != nil {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoDisponible
+	}
+	resultado := consulta.Resultado
+	if consulta.Validar() != nil || resultado.IndiceHMAC != indiceHMAC ||
+		resultado.GrupoHMAC != grupoHMAC || resultado.VinculoHMAC != vinculoHMAC ||
+		!resultado.RegistradoEn.Equal(partes.registradoEn) || !resultado.ExpiraEn.Equal(partes.expiraEn) ||
+		!consulta.ValidaHasta.Equal(solicitud.ValidaHasta) ||
+		solicitud.Contexto.ValidarParaEn(ports.AccionAlmacenConfirmarCargaDirecta, resultado.ConsumidoEn) != nil {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	huellaCalculada := calcularHuellaIntencionCargaDirecta(
+		instantanea.claveAtestacion, solicitud.Contexto, solicitud.SesionRef,
+		vinculoHMAC, indiceHMAC, grupoHMAC, resultado.IntencionConfirmacionRef,
+		resultado.EvidenciaConsumoRef, resultado.RegistradoEn, consulta.ValidaHasta,
+	)
+	defer borrarBytesCargaDirecta(huellaCalculada)
+	if !hmacRepresentadoCargaDirectaValido(resultado.HuellaIntencionHMAC,
+		instantanea.claveAtestacion.identificador, huellaCalculada) {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	atestacion := calcularAtestacionConsumoCargaDirecta(
+		instantanea.claveAtestacion, solicitud.Contexto, solicitud.SesionRef, resultado, consulta.ValidaHasta,
+	)
+	defer borrarBytesCargaDirecta(atestacion)
+	comprobante, err := ports.NuevoComprobanteConsumoReciboCargaDirecta(
+		solicitud, resultado,
+		representarHMACCargaDirecta(instantanea.claveAtestacion.identificador, atestacion),
+	)
+	if err != nil {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoDisponible
+	}
+	return comprobante, nil
 }
 
 func crearMaterialReciboYRegistro(

@@ -183,6 +183,30 @@ func (r *repositorioRecibosCargaDirectaPrueba) ConsumirReciboCargaDirecta(
 	}, nil
 }
 
+func (r *repositorioRecibosCargaDirectaPrueba) ConsultarConsumoReciboCargaDirecta(
+	ctx context.Context, indice string,
+) (ports.ConsumoReciboCargaDirectaPersistido, error) {
+	if err := ctx.Err(); err != nil {
+		return ports.ConsumoReciboCargaDirectaPersistido{}, err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	e, existe := r.entradas[indice]
+	if !existe || !e.consumido {
+		return ports.ConsumoReciboCargaDirectaPersistido{}, ports.ErrConsumoReciboCargaDirectaDenegado
+	}
+	o := e.orden
+	return ports.ConsumoReciboCargaDirectaPersistido{
+		Resultado: ports.ResultadoConsumoReciboCargaDirecta{
+			IndiceHMAC: o.IndiceHMAC, GrupoHMAC: o.GrupoHMAC, VinculoHMAC: o.VinculoHMAC,
+			EvidenciaConsumoRef: o.EvidenciaConsumoRef, IntencionConfirmacionRef: o.IntencionConfirmacionRef,
+			HuellaIntencionHMAC: o.HuellaIntencionHMAC, RegistradoEn: e.registradoEn,
+			ConsumidoEn: r.horaDurable, ExpiraEn: e.registro.ExpiraEn,
+		},
+		ValidaHasta: o.ValidaHasta, Estado: "pendiente", Version: 1,
+	}, nil
+}
+
 func (r *repositorioRecibosCargaDirectaPrueba) estado() (altas, consumos, entradas, usados int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -620,6 +644,52 @@ func TestReciboCargaDirectaSeConsumeUnaSolaVezYProduceEvidenciaOpaca(t *testing.
 	_, consumos, _, usados := repositorio.estado()
 	if consumos != 2 || usados != 1 {
 		t.Fatalf("consumos=%d usados=%d", consumos, usados)
+	}
+}
+
+func TestRecuperacionReciboCargaDirectaSoloAtestiguaConsumoHistorico(t *testing.T) {
+	adaptador, repositorio, reloj := nuevoAdaptadorCargaDirectaPrueba(t)
+	recibo := emitirReciboCargaDirectaPrueba(t, context.Background(), adaptador, reloj)
+	solicitud := solicitudConsumoCargaDirectaPrueba(recibo)
+	original, err := adaptador.ConsumirReciboCargaDirecta(context.Background(), solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloj.fijar(solicitud.ValidaHasta.Add(time.Second))
+	recuperado, err := adaptador.RecuperarConsumoReciboCargaDirecta(context.Background(), solicitud)
+	if err != nil || recuperado != original {
+		t.Fatalf("respuesta perdida tras COMMIT no recuperada: %v", err)
+	}
+	_, consumos, _, usados := repositorio.estado()
+	if consumos != 1 || usados != 1 {
+		t.Fatalf("recuperacion reconsumio: consumos=%d usados=%d", consumos, usados)
+	}
+	if _, err := ports.NuevaSolicitudConfirmarCargaDirecta(context.Background(), solicitud.Contexto,
+		solicitud.SesionRef, recuperado, adaptador); err == nil {
+		t.Fatal("ventana historica caducada habilito otra confirmacion S3")
+	}
+	cruce := solicitud
+	cruce.SesionRef = "sesion-ajena-001"
+	if _, err := adaptador.RecuperarConsumoReciboCargaDirecta(context.Background(), cruce); !errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
+		t.Fatalf("sesion ajena recupero consumo: %v", err)
+	}
+	reloj.fijar(repositorio.horaDurable)
+	otroRecibo := emitirReciboCargaDirectaPrueba(t, context.Background(), adaptador, reloj)
+	cruce = solicitud
+	cruce.Recibo = otroRecibo
+	if _, err := adaptador.RecuperarConsumoReciboCargaDirecta(context.Background(), cruce); err == nil {
+		t.Fatal("recibo ajeno recupero intencion anterior")
+	}
+	repositorio.mu.Lock()
+	for indice, entrada := range repositorio.entradas {
+		if entrada.consumido {
+			entrada.orden.IntencionConfirmacionRef = "intencion:alterada"
+			repositorio.entradas[indice] = entrada
+		}
+	}
+	repositorio.mu.Unlock()
+	if _, err := adaptador.RecuperarConsumoReciboCargaDirecta(context.Background(), solicitud); !errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
+		t.Fatalf("intencion alterada recuperada: %v", err)
 	}
 }
 

@@ -12,8 +12,10 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	canonicodoc "vec-diputacion-granada/internal/vec/canonico/documental"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -30,6 +32,7 @@ var (
 	ErrDecisionPreparacionCargaYaConsumida  = errors.New("vec: decision de preparacion de carga ya consumida")
 	ErrRecursoBaseCargaDocumentalInvalido   = errors.New("vec: recurso base de carga documental invalido")
 	ErrSerializacionTokenReservaProhibida   = errors.New("vec: serializacion de token de reserva prohibida")
+	ErrPreparacionCargaDocumentalPendiente  = errors.New("vec: preparacion documental pendiente de conciliacion")
 )
 
 const duracionMaximaReservaRepositorioCarga = 10 * time.Minute
@@ -128,12 +131,16 @@ func (*TokenReservaCargaDocumental) UnmarshalXML(*xml.Decoder, xml.StartElement)
 }
 
 type SolicitudReservarCargaDocumental struct {
+	Token                  TokenReservaCargaDocumental
 	IndiceIdempotenciaHMAC string
 	HuellaSolicitudHMAC    string
 	Carga                  domain.CargaDocumental
 	DecisionPreparacion    ConsumoDecisionPreparacionCargaDocumentalV1
 	SolicitadaEn           time.Time
 	ReservaExpiraEn        time.Time
+	ReservaRecursoV3       ReservaRecursoCargaDocumentalV3
+	ActorRegistradoV2      domain.ResultadoContextoActorRegistradoV2
+	AutorizacionV3         AutorizacionCargaDocumentalV3
 }
 
 func (s SolicitudReservarCargaDocumental) Validar() error {
@@ -150,13 +157,28 @@ func (s SolicitudReservarCargaDocumental) Validar() error {
 	return nil
 }
 
+func (s SolicitudReservarCargaDocumental) ValidarParaPersistenciaV3(ahora time.Time) error {
+	if !s.Token.Valido() {
+		return ErrReservaCargaDocumentalInvalida
+	}
+	preimagen, err := PreimagenReservaCargaDocumentalV3(s, s.ReservaRecursoV3)
+	if err != nil || s.ActorRegistradoV2.Validar() != nil ||
+		s.AutorizacionV3.ValidarPara(AccionCargaDocumentalPrepararReservaV3, preimagen,
+			s.ActorRegistradoV2, s.Carga, ahora) != nil {
+		return ErrReservaCargaDocumentalInvalida
+	}
+	return nil
+}
+
 // ReservaCargaDocumental devuelve exactamente uno de dos resultados: token
 // nuevo, o agregado previamente confirmado. Una reserva en curso ajena se
 // comunica como error y nunca se roba silenciosamente.
 type ReservaCargaDocumental struct {
-	Token    TokenReservaCargaDocumental
-	Repetida bool
-	Carga    domain.CargaDocumental
+	Token           TokenReservaCargaDocumental
+	Repetida        bool
+	Pendiente       bool
+	EstadoOperativo EstadoOperativoCargaDocumental
+	Carga           domain.CargaDocumental
 }
 
 func (r ReservaCargaDocumental) Validar() error {
@@ -164,7 +186,8 @@ func (r ReservaCargaDocumental) Validar() error {
 		return ErrReservaCargaDocumentalInvalida
 	}
 	if r.Repetida {
-		if r.Token.Valido() || r.Carga.Estado == domain.EstadoCargaDocumentalReservada {
+		if r.Token.Valido() || (r.Carga.Estado == domain.EstadoCargaDocumentalReservada && !r.Pendiente) ||
+			r.Pendiente && !r.EstadoOperativo.Valido() {
 			return ErrReservaCargaDocumentalInvalida
 		}
 		return nil
@@ -175,12 +198,52 @@ func (r ReservaCargaDocumental) Validar() error {
 	return nil
 }
 
+// EstadoOperativoCargaDocumental registra el avance del protocolo y no cambia
+// el estado del contenido. Los estados inciertos se cierran por conciliacion
+// nominal; nunca autorizan otro intento automatico sobre S3 o recibos.
+type EstadoOperativoCargaDocumental string
+
+const (
+	EstadoCargaOperacionReservada                EstadoOperativoCargaDocumental = "reservada"
+	EstadoCargaOperacionPreparacionIniciada      EstadoOperativoCargaDocumental = "preparacion_iniciada"
+	EstadoCargaOperacionPreparada                EstadoOperativoCargaDocumental = "preparada"
+	EstadoCargaOperacionEmisionReciboIniciada    EstadoOperativoCargaDocumental = "emision_recibo_iniciada"
+	EstadoCargaOperacionReciboRegistrado         EstadoOperativoCargaDocumental = "recibo_registrado"
+	EstadoCargaOperacionPreparacionIndeterminada EstadoOperativoCargaDocumental = "preparacion_indeterminada"
+	EstadoCargaOperacionReciboIndeterminado      EstadoOperativoCargaDocumental = "recibo_indeterminado"
+	EstadoCargaOperacionNoRecuperable            EstadoOperativoCargaDocumental = "no_recuperable"
+)
+
+func (e EstadoOperativoCargaDocumental) Valido() bool {
+	switch e {
+	case EstadoCargaOperacionReservada, EstadoCargaOperacionPreparacionIniciada,
+		EstadoCargaOperacionPreparada, EstadoCargaOperacionEmisionReciboIniciada,
+		EstadoCargaOperacionReciboRegistrado, EstadoCargaOperacionPreparacionIndeterminada,
+		EstadoCargaOperacionReciboIndeterminado, EstadoCargaOperacionNoRecuperable:
+		return true
+	default:
+		return false
+	}
+}
+
 type ConfirmacionTransicionCargaDocumental struct {
 	VersionEsperada      int
 	HuellaAnteriorSHA256 string
 	Carga                domain.CargaDocumental
 	Auditoria            domain.AuditEntry
 	Evento               domain.Event
+	ActorRegistradoV2    domain.ResultadoContextoActorRegistradoV2
+	AutorizacionV3       AutorizacionCargaDocumentalV3
+}
+
+func (c ConfirmacionTransicionCargaDocumental) ValidarParaPersistenciaV3(ahora time.Time) error {
+	preimagen, err := PreimagenTransicionCargaDocumentalV3(c)
+	if err != nil || c.ActorRegistradoV2.Validar() != nil ||
+		c.AutorizacionV3.ValidarPara(c.Auditoria.Action, preimagen,
+			c.ActorRegistradoV2, c.Carga, ahora) != nil {
+		return ErrConfirmacionCargaDocumentalInvalida
+	}
+	return nil
 }
 
 // InstantaneaConfirmacionTransicionCargaDocumental corta todos los alias
@@ -198,9 +261,21 @@ func InstantaneaConfirmacionTransicionCargaDocumental(
 // manifiesto historico en una unica transaccion. Persistir cualquiera de esas
 // piezas por separado no satisface el contrato.
 type SolicitudConfirmarPreparacionCargaDocumental struct {
-	Token        TokenReservaCargaDocumental
-	Confirmacion ConfirmacionTransicionCargaDocumental
-	Manifiesto   domain.ManifiestoPreparacionCargaDirectaV1
+	Token             TokenReservaCargaDocumental
+	Confirmacion      ConfirmacionTransicionCargaDocumental
+	Manifiesto        domain.ManifiestoPreparacionCargaDirectaV1
+	ActorRegistradoV2 domain.ResultadoContextoActorRegistradoV2
+	AutorizacionV3    AutorizacionCargaDocumentalV3
+}
+
+func (s SolicitudConfirmarPreparacionCargaDocumental) ValidarParaPersistenciaV3(ahora time.Time) error {
+	preimagen, err := PreimagenConfirmacionPreparacionCargaDocumentalV3(s)
+	if err != nil || s.ActorRegistradoV2.Validar() != nil ||
+		s.AutorizacionV3.ValidarPara(AccionCargaDocumentalPrepararConfirmacionV3,
+			preimagen, s.ActorRegistradoV2, s.Confirmacion.Carga, ahora) != nil {
+		return ErrConfirmacionCargaDocumentalInvalida
+	}
+	return nil
 }
 
 func (s SolicitudConfirmarPreparacionCargaDocumental) Validar() error {
@@ -228,6 +303,12 @@ func InstantaneaSolicitudConfirmarPreparacionCargaDocumental(
 		Confirmacion: clonarConfirmacionCargaDocumental(solicitud.Confirmacion),
 		Manifiesto:   manifiesto,
 	}
+	material := clonarConfirmacionCargaDocumental(ConfirmacionTransicionCargaDocumental{
+		ActorRegistradoV2: solicitud.ActorRegistradoV2,
+		AutorizacionV3:    solicitud.AutorizacionV3,
+	})
+	copia.ActorRegistradoV2 = material.ActorRegistradoV2
+	copia.AutorizacionV3 = material.AutorizacionV3
 	if validarSolicitudConfirmarPreparacionCargaDocumental(copia) != nil {
 		return SolicitudConfirmarPreparacionCargaDocumental{}, ErrConfirmacionCargaDocumentalInvalida
 	}
@@ -419,6 +500,387 @@ type RepositorioCargasDocumentales interface {
 	AbandonarReserva(context.Context, TokenReservaCargaDocumental) error
 	Obtener(context.Context, string) (domain.CargaDocumental, error)
 	ObtenerPreparacion(context.Context, string) (PreparacionCargaDocumentalPersistida, error)
+}
+
+// ReservaRecursoCargaDocumentalV3 procede del recibo durable de Documentos D16.
+// El adaptador PostgreSQL coteja estos datos mediante la fachada propietaria
+// en la misma transaccion que la reserva de carga; ninguna referencia concede
+// titularidad por si sola.
+type ReservaRecursoCargaDocumentalV3 struct {
+	RecursoRef          string
+	PersonaRef          string
+	ClaveReserva        string
+	HuellaReservaSHA256 string
+	VersionReserva      uint64
+}
+
+// AutoridadCargaDocumentalV3 obtiene cinco decisiones independientes sobre
+// preimagenes cerradas. La composicion productiva la alimenta desde el actor
+// registrado y revalidado; ningun campo de la orden HTTP es autoridad.
+type AutoridadCargaDocumentalV3 interface {
+	AutorizarConsultaCarga(context.Context, []byte, domain.ResultadoContextoActorRegistradoV2, string) (AutorizacionCargaDocumentalV3, error)
+	AutorizarReservaCarga(context.Context, []byte, domain.ResultadoContextoActorRegistradoV2, domain.CargaDocumental) (AutorizacionCargaDocumentalV3, error)
+	AutorizarConfirmacionPreparacionCarga(context.Context, []byte, domain.ResultadoContextoActorRegistradoV2, domain.CargaDocumental) (AutorizacionCargaDocumentalV3, error)
+	AutorizarRespuestaCarga(context.Context, []byte, domain.ResultadoContextoActorRegistradoV2, domain.CargaDocumental) (AutorizacionCargaDocumentalV3, error)
+	AutorizarConfirmacionCarga(context.Context, []byte, domain.ResultadoContextoActorRegistradoV2, domain.CargaDocumental) (AutorizacionCargaDocumentalV3, error)
+	AutorizarAnalisisCarga(context.Context, []byte, domain.ResultadoContextoActorRegistradoV2, domain.CargaDocumental) (AutorizacionCargaDocumentalV3, error)
+	AutorizarPromocionCarga(context.Context, []byte, domain.ResultadoContextoActorRegistradoV2, domain.CargaDocumental) (AutorizacionCargaDocumentalV3, error)
+}
+
+func (r ReservaRecursoCargaDocumentalV3) ValidarPara(carga domain.CargaDocumental) error {
+	if r.RecursoRef == "" || r.PersonaRef == "" || r.ClaveReserva == "" ||
+		!esSHA256Hexadecimal(r.HuellaReservaSHA256) || r.VersionReserva == 0 ||
+		r.RecursoRef != carga.RecursoRef || r.PersonaRef != carga.PrincipalID {
+		return ErrReservaCargaDocumentalInvalida
+	}
+	return nil
+}
+
+const (
+	AccionCargaDocumentalPrepararReservaV3         = "documentos.carga.preparar_reserva"
+	AccionCargaDocumentalPrepararConfirmacionV3    = "documentos.carga.preparar_confirmacion"
+	AccionCargaDocumentalPrepararRespuestaV3       = "documentos.carga.preparar_respuesta"
+	AccionCargaDocumentalConsultarPropiaV3         = "documentos.carga.consultar_propia"
+	AudienciaCargaDocumentalPrepararReservaV3      = "vec_documentos.carga.preparar_reserva.v1"
+	AudienciaCargaDocumentalPrepararConfirmacionV3 = "vec_documentos.carga.preparar_confirmacion.v1"
+	AudienciaCargaDocumentalPrepararRespuestaV3    = "vec_documentos.carga.preparar_respuesta.v1"
+	AudienciaCargaDocumentalConsultarPropiaV3      = "vec_documentos.carga.consultar_propia.v1"
+	AudienciaCargaDocumentalConfirmarV3            = "vec_documentos.carga.confirmar.v1"
+	AudienciaCargaDocumentalAnalizarV3             = "vec_documentos.carga.analizar.v1"
+	AudienciaCargaDocumentalPromoverV3             = "vec_documentos.carga.promover.v1"
+)
+
+func audienciaCargaDocumentalV3(accion string) string {
+	switch accion {
+	case AccionCargaDocumentalPrepararReservaV3:
+		return AudienciaCargaDocumentalPrepararReservaV3
+	case AccionCargaDocumentalPrepararConfirmacionV3:
+		return AudienciaCargaDocumentalPrepararConfirmacionV3
+	case AccionCargaDocumentalPrepararRespuestaV3:
+		return AudienciaCargaDocumentalPrepararRespuestaV3
+	case AccionCargaDocumentalConsultarPropiaV3:
+		return AudienciaCargaDocumentalConsultarPropiaV3
+	case accionCargaDocumentalConfirmar:
+		return AudienciaCargaDocumentalConfirmarV3
+	case accionCargaDocumentalAnalizar:
+		return AudienciaCargaDocumentalAnalizarV3
+	case accionCargaDocumentalPromover:
+		return AudienciaCargaDocumentalPromoverV3
+	default:
+		return ""
+	}
+}
+
+// AutorizacionCargaDocumentalV3 transporta material integro emitido por la
+// autoridad nominal. Su validacion local detecta cruces y caducidad; solo el
+// consumidor AD240 puede verificarlo y consumirlo dentro del efecto SQL.
+type AutorizacionCargaDocumentalV3 struct {
+	Material        ExportacionMaterialConsumoAutorizacionAtestadaV3
+	Accion          string
+	Finalidad       string
+	RecursoRef      string
+	PersonaRef      string
+	PerfilActivoRef string
+	CorrelacionRef  string
+}
+
+func (a AutorizacionCargaDocumentalV3) ValidarPara(
+	accion string, preimagen []byte, actor domain.ResultadoContextoActorRegistradoV2,
+	carga domain.CargaDocumental, ahora time.Time,
+) error {
+	if actor.Validar() != nil || a.Material.ValidarEstructura() != nil ||
+		a.Accion != accion || a.Finalidad != carga.Finalidad ||
+		a.RecursoRef != carga.RecursoRef || a.PersonaRef != carga.PrincipalID ||
+		a.PersonaRef != actor.Contexto.PersonaRef ||
+		a.PerfilActivoRef != actor.Contexto.PerfilActivoRef ||
+		a.CorrelacionRef != carga.CorrelacionRef || len(preimagen) == 0 ||
+		ahora.IsZero() {
+		return ErrDecisionPreparacionCargaNoDisponible
+	}
+	r := a.Material.ResumenCapacidad()
+	if r.ValidarEstructura() != nil || r.AudienciaConsumo() != audienciaCargaDocumentalV3(accion) ||
+		r.Operacion() != accion || r.EfectoRef() != carga.ID ||
+		r.EfectoHuellaSHA256() != HuellaPreimagenCargaDocumentalV3(preimagen) ||
+		ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) {
+		return ErrDecisionPreparacionCargaNoDisponible
+	}
+	return nil
+}
+
+type SolicitudConsultarCargaPropiaV3 struct {
+	CargaID           string
+	ActorRegistradoV2 domain.ResultadoContextoActorRegistradoV2
+	Finalidad         string
+	CorrelacionRef    string
+	IncluyeManifiesto bool
+	AutorizacionV3    AutorizacionCargaDocumentalV3
+}
+
+func PreimagenConsultaCargaPropiaV3(s SolicitudConsultarCargaPropiaV3) ([]byte, error) {
+	if !referenciaOpacaAlmacenValida(s.CargaID, 512) || s.ActorRegistradoV2.Validar() != nil ||
+		s.Finalidad == "" || s.CorrelacionRef == "" {
+		return nil, ErrCargaDocumentalNoEncontrada
+	}
+	return (canonicodoc.ConsultaCargaV3{
+		Accion: AccionCargaDocumentalConsultarPropiaV3, CargaID: s.CargaID,
+		PersonaRef:           s.ActorRegistradoV2.Contexto.PersonaRef,
+		PerfilActivoRef:      s.ActorRegistradoV2.Contexto.PerfilActivoRef,
+		RegistroContextoRef:  s.ActorRegistradoV2.RegistroContextoRef,
+		HuellaContextoSHA256: s.ActorRegistradoV2.HuellaSHA256,
+		Finalidad:            s.Finalidad, CorrelacionRef: s.CorrelacionRef,
+		IncluyeManifiesto: s.IncluyeManifiesto,
+	}).Preimagen()
+}
+
+func (s SolicitudConsultarCargaPropiaV3) Validar(ahora time.Time) error {
+	preimagen, err := PreimagenConsultaCargaPropiaV3(s)
+	if err != nil || s.AutorizacionV3.Material.ValidarEstructura() != nil ||
+		s.AutorizacionV3.Accion != AccionCargaDocumentalConsultarPropiaV3 ||
+		s.AutorizacionV3.RecursoRef != s.CargaID ||
+		s.AutorizacionV3.PersonaRef != s.ActorRegistradoV2.Contexto.PersonaRef ||
+		s.AutorizacionV3.PerfilActivoRef != s.ActorRegistradoV2.Contexto.PerfilActivoRef ||
+		s.AutorizacionV3.Finalidad != s.Finalidad ||
+		s.AutorizacionV3.CorrelacionRef != s.CorrelacionRef || ahora.IsZero() {
+		return ErrCargaDocumentalNoEncontrada
+	}
+	r := s.AutorizacionV3.Material.ResumenCapacidad()
+	if r.ValidarEstructura() != nil || r.AudienciaConsumo() != AudienciaCargaDocumentalConsultarPropiaV3 ||
+		r.Operacion() != AccionCargaDocumentalConsultarPropiaV3 || r.EfectoRef() != s.CargaID ||
+		r.EfectoHuellaSHA256() != HuellaPreimagenCargaDocumentalV3(preimagen) ||
+		ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) {
+		return ErrCargaDocumentalNoEncontrada
+	}
+	return nil
+}
+
+type ConsultaCargaPropiaV3 struct {
+	Carga      domain.CargaDocumental
+	Manifiesto *domain.ManifiestoPreparacionCargaDirectaV1
+}
+
+type RepositorioConsultaCargasDocumentalesV3 interface {
+	ConsultarPropia(context.Context, SolicitudConsultarCargaPropiaV3) (ConsultaCargaPropiaV3, error)
+}
+
+// HuellaPreimagenCargaDocumentalV3 fija la identidad exacta del efecto que
+// AD240 vuelve a calcular desde los bytes de la preimagen.
+func HuellaPreimagenCargaDocumentalV3(preimagen []byte) string {
+	return canonicodoc.HuellaEfectoCargaV3(preimagen)
+}
+
+type estadoEmisionReciboCargaV3 struct {
+	mu               sync.Mutex
+	material         []byte
+	registro         RegistroReciboCargaDirecta
+	carga            domain.CargaDocumental
+	actor            domain.ResultadoContextoActorRegistradoV2
+	huellaManifiesto string
+	preimagen        []byte
+	usada            bool
+}
+
+// PreparacionEmisionReciboCargaDirectaV3 retiene el secreto solo en memoria,
+// sin serializacion ni logs. ConsumirParaRegistro lo usa una vez y lo borra
+// aun si la respuesta SQL es incierta: el replay no genera otro recibo.
+type PreparacionEmisionReciboCargaDirectaV3 struct{ estado *estadoEmisionReciboCargaV3 }
+
+func NuevaPreparacionEmisionReciboCargaDirectaV3(
+	material []byte, registro RegistroReciboCargaDirecta,
+	carga domain.CargaDocumental, actor domain.ResultadoContextoActorRegistradoV2,
+	manifiesto domain.ManifiestoPreparacionCargaDirectaV1,
+) (PreparacionEmisionReciboCargaDirectaV3, error) {
+	if len(material) == 0 || len(material) > 1024 || registro.Validar() != nil ||
+		carga.Validar() != nil || carga.Estado != domain.EstadoCargaDocumentalPreparada ||
+		actor.Validar() != nil || actor.Contexto.PersonaRef != carga.PrincipalID ||
+		manifiesto.ValidarContraCarga(carga) != nil {
+		return PreparacionEmisionReciboCargaDirectaV3{}, ErrReciboCargaDirectaNoValido
+	}
+	huellaManifiesto, err := manifiesto.HuellaSHA256()
+	if err != nil {
+		return PreparacionEmisionReciboCargaDirectaV3{}, ErrReciboCargaDirectaNoValido
+	}
+	actor, err = actor.Clonar()
+	if err != nil {
+		return PreparacionEmisionReciboCargaDirectaV3{}, ErrReciboCargaDirectaNoValido
+	}
+	preimagen, err := (canonicodoc.EmisionReciboCargaV3{
+		Accion:  AccionCargaDocumentalPrepararRespuestaV3,
+		CargaID: carga.ID, VersionCarga: carga.Version, PersonaRef: carga.PrincipalID,
+		RegistroContextoRef: actor.RegistroContextoRef, HuellaContextoSHA256: actor.HuellaSHA256,
+		HuellaManifiestoSHA256: huellaManifiesto, IndiceHMAC: registro.IndiceHMAC,
+		GrupoHMAC: registro.GrupoHMAC, VinculoHMAC: registro.VinculoHMAC,
+		EvidenciaAltaRef: registro.EvidenciaAltaRef,
+		ExpiraEn:         registro.ExpiraEn.Format(time.RFC3339Nano),
+	}).Preimagen()
+	if err != nil {
+		return PreparacionEmisionReciboCargaDirectaV3{}, ErrReciboCargaDirectaNoValido
+	}
+	return PreparacionEmisionReciboCargaDirectaV3{estado: &estadoEmisionReciboCargaV3{
+		material: append([]byte(nil), material...), registro: registro, carga: clonarCargaDocumentalPuerto(carga),
+		actor: actor, huellaManifiesto: huellaManifiesto, preimagen: preimagen,
+	}}, nil
+}
+
+func (p PreparacionEmisionReciboCargaDirectaV3) Preimagen() ([]byte, error) {
+	if p.estado == nil {
+		return nil, ErrReciboCargaDirectaNoValido
+	}
+	p.estado.mu.Lock()
+	defer p.estado.mu.Unlock()
+	if p.estado.usada {
+		return nil, ErrReciboCargaDirectaNoValido
+	}
+	return append([]byte(nil), p.estado.preimagen...), nil
+}
+
+func (p PreparacionEmisionReciboCargaDirectaV3) ConsumirParaRegistro(
+	fn func([]byte, RegistroReciboCargaDirectaV3) (ReciboCargaDirecta, error),
+	autorizacion AutorizacionCargaDocumentalV3, ahora time.Time,
+) (ReciboCargaDirecta, error) {
+	if p.estado == nil || fn == nil {
+		return ReciboCargaDirecta{}, ErrReciboCargaDirectaNoValido
+	}
+	p.estado.mu.Lock()
+	if p.estado.usada {
+		p.estado.mu.Unlock()
+		return ReciboCargaDirecta{}, ErrReciboCargaDirectaNoValido
+	}
+	p.estado.usada = true
+	material := p.estado.material
+	p.estado.material = nil
+	registro := RegistroReciboCargaDirectaV3{Registro: p.estado.registro, Carga: clonarCargaDocumentalPuerto(p.estado.carga),
+		ActorRegistradoV2: p.estado.actor, HuellaManifiestoSHA256: p.estado.huellaManifiesto,
+		Preimagen: append([]byte(nil), p.estado.preimagen...), AutorizacionV3: autorizacion}
+	p.estado.mu.Unlock()
+	defer func() {
+		for i := range material {
+			material[i] = 0
+		}
+	}()
+	if registro.Validar(ahora) != nil {
+		return ReciboCargaDirecta{}, ErrReciboCargaDirectaNoValido
+	}
+	return fn(material, registro)
+}
+
+func (p PreparacionEmisionReciboCargaDirectaV3) Descartar() {
+	if p.estado == nil {
+		return
+	}
+	p.estado.mu.Lock()
+	defer p.estado.mu.Unlock()
+	for i := range p.estado.material {
+		p.estado.material[i] = 0
+	}
+	p.estado.material = nil
+	p.estado.usada = true
+}
+
+func (PreparacionEmisionReciboCargaDirectaV3) String() string {
+	return "[PREPARACION-RECIBO-CONFIDENCIAL]"
+}
+func (p PreparacionEmisionReciboCargaDirectaV3) GoString() string { return p.String() }
+func (p PreparacionEmisionReciboCargaDirectaV3) LogValue() slog.Value {
+	return slog.StringValue(p.String())
+}
+func (PreparacionEmisionReciboCargaDirectaV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionReciboCargaProhibida
+}
+func (PreparacionEmisionReciboCargaDirectaV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionReciboCargaProhibida
+}
+
+type RegistroReciboCargaDirectaV3 struct {
+	Registro               RegistroReciboCargaDirecta
+	Carga                  domain.CargaDocumental
+	ActorRegistradoV2      domain.ResultadoContextoActorRegistradoV2
+	HuellaManifiestoSHA256 string
+	Preimagen              []byte
+	AutorizacionV3         AutorizacionCargaDocumentalV3
+}
+
+func (r RegistroReciboCargaDirectaV3) Validar(ahora time.Time) error {
+	if r.Registro.Validar() != nil || r.Carga.Validar() != nil ||
+		r.Carga.Estado != domain.EstadoCargaDocumentalPreparada ||
+		r.ActorRegistradoV2.Validar() != nil || r.ActorRegistradoV2.Contexto.PersonaRef != r.Carga.PrincipalID ||
+		!esSHA256Hexadecimal(r.HuellaManifiestoSHA256) ||
+		r.AutorizacionV3.ValidarPara(AccionCargaDocumentalPrepararRespuestaV3, r.Preimagen,
+			r.ActorRegistradoV2, r.Carga, ahora) != nil {
+		return ErrReciboCargaDirectaNoValido
+	}
+	return nil
+}
+
+// PreimagenReservaCargaDocumentalV3 se construye solo con la carga sellada y
+// el recibo D16 del servidor. La clave del navegador nunca pasa directamente.
+func PreimagenReservaCargaDocumentalV3(s SolicitudReservarCargaDocumental,
+	r ReservaRecursoCargaDocumentalV3) ([]byte, error) {
+	if s.Validar() != nil || r.ValidarPara(s.Carga) != nil || !s.Token.Valido() {
+		return nil, ErrReservaCargaDocumentalInvalida
+	}
+	huellaToken, err := s.Token.HuellaSHA256()
+	if err != nil {
+		return nil, ErrReservaCargaDocumentalInvalida
+	}
+	return (canonicodoc.ReservaCargaV3{
+		Accion: AccionCargaDocumentalPrepararReservaV3, CargaID: s.Carga.ID,
+		RecursoRef: r.RecursoRef, PersonaRef: r.PersonaRef, ClaveReserva: r.ClaveReserva,
+		HuellaReservaSHA256: r.HuellaReservaSHA256, VersionReserva: r.VersionReserva,
+		IndiceCargaHMAC: s.IndiceIdempotenciaHMAC, HuellaCargaHMAC: s.HuellaSolicitudHMAC,
+		MIME: s.Carga.MIMEDeclarado, Tamano: s.Carga.TamanoDeclarado,
+		HuellaContenido: s.Carga.HuellaDeclaradaSHA256, HuellaToken: huellaToken,
+	}).Preimagen()
+}
+
+// PreimagenConfirmacionPreparacionCargaDocumentalV3 ata el segundo COMMIT al
+// token reservado, la postimagen y el manifiesto exacto ya obtenido de S3.
+func PreimagenConfirmacionPreparacionCargaDocumentalV3(
+	s SolicitudConfirmarPreparacionCargaDocumental,
+) ([]byte, error) {
+	if validarSolicitudConfirmarPreparacionCargaDocumental(s) != nil {
+		return nil, ErrConfirmacionCargaDocumentalInvalida
+	}
+	huellaToken, errToken := s.Token.HuellaSHA256()
+	huellaManifiesto, errManifiesto := s.Manifiesto.HuellaSHA256()
+	huellaCarga, errCarga := s.Confirmacion.Carga.HuellaSHA256()
+	if errToken != nil || errManifiesto != nil || errCarga != nil ||
+		s.Confirmacion.Auditoria.AfterHash != huellaCarga {
+		return nil, ErrConfirmacionCargaDocumentalInvalida
+	}
+	return (canonicodoc.ConfirmacionPreparacionCargaV3{
+		Accion:  AccionCargaDocumentalPrepararConfirmacionV3,
+		CargaID: s.Confirmacion.Carga.ID, RecursoRef: s.Confirmacion.Carga.RecursoRef,
+		PersonaRef: s.Confirmacion.Carga.PrincipalID, HuellaToken: huellaToken,
+		HuellaManifiesto: huellaManifiesto, VersionEsperada: s.Confirmacion.VersionEsperada,
+		HuellaAnterior:   s.Confirmacion.HuellaAnteriorSHA256,
+		VersionSiguiente: s.Confirmacion.Carga.Version, HuellaSiguiente: huellaCarga,
+	}).Preimagen()
+}
+
+// PreimagenTransicionCargaDocumentalV3 liga el CAS, la postimagen y la
+// evidencia de auditoria del paso. Cada accion usa audiencia AD240 separada.
+func PreimagenTransicionCargaDocumentalV3(c ConfirmacionTransicionCargaDocumental) ([]byte, error) {
+	if c.Carga.Validar() != nil || c.VersionEsperada < 1 ||
+		!esSHA256Hexadecimal(c.HuellaAnteriorSHA256) ||
+		c.Carga.Version != c.VersionEsperada+1 ||
+		c.Auditoria.Action != accionCargaDocumentalConfirmar &&
+			c.Auditoria.Action != accionCargaDocumentalAnalizar &&
+			c.Auditoria.Action != accionCargaDocumentalPromover ||
+		c.Auditoria.ActorID == "" || c.Auditoria.AuthorizationRef == "" {
+		return nil, ErrConfirmacionCargaDocumentalInvalida
+	}
+	huellaSiguiente, err := c.Carga.HuellaSHA256()
+	if err != nil || c.Auditoria.AfterHash != huellaSiguiente ||
+		c.Auditoria.BeforeHash != c.HuellaAnteriorSHA256 {
+		return nil, ErrConfirmacionCargaDocumentalInvalida
+	}
+	return (canonicodoc.TransicionCargaV3{
+		Accion: c.Auditoria.Action, CargaID: c.Carga.ID, RecursoRef: c.Carga.RecursoRef,
+		PersonaRef: c.Carga.PrincipalID, VersionEsperada: c.VersionEsperada,
+		HuellaAnterior: c.HuellaAnteriorSHA256, VersionSiguiente: c.Carga.Version,
+		HuellaSiguiente: huellaSiguiente, AutorizacionV1Ref: c.Auditoria.AuthorizationRef,
+		Evento: c.Evento.Type,
+	}).Preimagen()
 }
 
 // ValidarRecursoBaseManifiestoPreparacionCargaDocumental comprueba antes del
@@ -718,6 +1180,26 @@ func clonarConfirmacionCargaDocumental(
 	clon.Carga = clonarCargaDocumentalPuerto(confirmacion.Carga)
 	clon.Auditoria = clonarAuditoriaCargaDocumental(confirmacion.Auditoria)
 	clon.Evento = clonarEventoCargaDocumental(confirmacion.Evento)
+	clon.ActorRegistradoV2 = domain.ResultadoContextoActorRegistradoV2{}
+	clon.AutorizacionV3.Material = ExportacionMaterialConsumoAutorizacionAtestadaV3{}
+	if actor, err := confirmacion.ActorRegistradoV2.Clonar(); err == nil {
+		clon.ActorRegistradoV2 = actor
+	}
+	if material, err := NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(
+		confirmacion.AutorizacionV3.Material.CapacidadCanonica(),
+		confirmacion.AutorizacionV3.Material.ResumenCapacidad(),
+		confirmacion.AutorizacionV3.Material.DecisionCanonica(),
+		confirmacion.AutorizacionV3.Material.MotivoCanonico(),
+		confirmacion.AutorizacionV3.Material.ContextoActorCanonico(),
+		confirmacion.AutorizacionV3.Material.PersonaVersion(),
+		confirmacion.AutorizacionV3.Material.PerfilVersion(),
+		confirmacion.AutorizacionV3.Material.PayloadVECAD3(),
+		confirmacion.AutorizacionV3.Material.SobreCOSESign1(),
+		confirmacion.AutorizacionV3.Material.EvidenciaVerificacion(),
+		confirmacion.AutorizacionV3.Material.RaizPublicaSPKI(),
+	); err == nil {
+		clon.AutorizacionV3.Material = material
+	}
 	return clon
 }
 

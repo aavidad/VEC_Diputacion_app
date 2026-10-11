@@ -72,6 +72,7 @@ type OpcionesServicioCargaDocumental struct {
 // Todos los errores de dependencias o respuestas ambiguas fallan cerrados.
 type ServicioCargaDocumental struct {
 	repositorio           ports.RepositorioCargasDocumentales
+	autoridadV3           ports.AutoridadCargaDocumentalV3
 	autorizador           ports.Autorizador
 	almacen               ports.AlmacenObjetos
 	gestorCargaDirecta    ports.GestorCargaDirecta
@@ -90,6 +91,20 @@ type ServicioCargaDocumental struct {
 	conectorAlmacen       string
 	conectorAnalizador    string
 	versionAnalizador     int
+}
+
+// ConAutoridadCargaDocumentalV3 compone la autoridad nominal de las cuatro
+// acciones sin alterar los dobles historicos del contrato V1. El repositorio
+// durable exige ValidarParaPersistenciaV3 y falla cerrado si falta material.
+func (s *ServicioCargaDocumental) ConAutoridadCargaDocumentalV3(
+	autoridad ports.AutoridadCargaDocumentalV3,
+) (*ServicioCargaDocumental, error) {
+	if s == nil || dependenciaCargaDocumentalNula(autoridad) {
+		return nil, ErrDependenciaCargaDocumentalRequerida
+	}
+	copia := *s
+	copia.autoridadV3 = autoridad
+	return &copia, nil
 }
 
 func NuevoServicioCargaDocumental(
@@ -149,6 +164,8 @@ func NuevoServicioCargaDocumental(
 
 type OrdenPrepararCargaDocumental struct {
 	Principal                domain.Principal
+	ActorRegistradoV2        domain.ResultadoContextoActorRegistradoV2
+	ReservaRecursoV3         ports.ReservaRecursoCargaDocumentalV3
 	PerfilActivo             string
 	Recurso                  domain.RecursoAutorizable
 	OperacionRef             string
@@ -163,10 +180,11 @@ type OrdenPrepararCargaDocumental struct {
 }
 
 type ResultadoPrepararCargaDocumental struct {
-	Carga         domain.CargaDocumental
-	Instrucciones ports.InstruccionesCargaDirecta
-	Recibo        ports.ReciboCargaDirecta
-	Repetida      bool
+	Carga           domain.CargaDocumental
+	EstadoOperativo ports.EstadoOperativoCargaDocumental
+	Instrucciones   ports.InstruccionesCargaDirecta
+	Recibo          ports.ReciboCargaDirecta
+	Repetida        bool
 }
 
 func (s *ServicioCargaDocumental) Preparar(
@@ -272,11 +290,39 @@ func (s *ServicioCargaDocumental) Preparar(
 			return ResultadoPrepararCargaDocumental{}, err
 		}
 	}
-	reserva, err := s.repositorio.Reservar(ctx, ports.SolicitudReservarCargaDocumental{
+	solicitudReserva := ports.SolicitudReservarCargaDocumental{
 		IndiceIdempotenciaHMAC: indice, HuellaSolicitudHMAC: huellaSolicitud, Carga: carga,
 		DecisionPreparacion: decisionPreparacion,
 		SolicitadaEn:        ahora, ReservaExpiraEn: expiraEn,
-	})
+	}
+	if s.autoridadV3 != nil {
+		token, errToken := ports.NuevoTokenReservaCargaDocumental()
+		if errToken != nil {
+			return ResultadoPrepararCargaDocumental{}, errToken
+		}
+		solicitudReserva.Token = token
+		actor, errActor := orden.ActorRegistradoV2.Clonar()
+		if errActor != nil || actor.Contexto.Principal.ID != orden.Principal.ID ||
+			actor.Contexto.PerfilActivoRef != orden.PerfilActivo ||
+			orden.ReservaRecursoV3.ValidarPara(carga) != nil {
+			return ResultadoPrepararCargaDocumental{}, ports.ErrReservaCargaDocumentalInvalida
+		}
+		solicitudReserva.ActorRegistradoV2 = actor
+		solicitudReserva.ReservaRecursoV3 = orden.ReservaRecursoV3
+		preimagen, errPreimagen := ports.PreimagenReservaCargaDocumentalV3(solicitudReserva, orden.ReservaRecursoV3)
+		if errPreimagen != nil {
+			return ResultadoPrepararCargaDocumental{}, errPreimagen
+		}
+		autorizacion, errAutorizacion := s.autoridadV3.AutorizarReservaCarga(ctx, preimagen, actor, carga)
+		if errAutorizacion != nil || autorizacion.ValidarPara(ports.AccionCargaDocumentalPrepararReservaV3, preimagen, actor, carga, s.reloj.Ahora().UTC()) != nil {
+			return ResultadoPrepararCargaDocumental{}, ports.ErrDecisionPreparacionCargaNoDisponible
+		}
+		solicitudReserva.AutorizacionV3 = autorizacion
+		if solicitudReserva.ValidarParaPersistenciaV3(s.reloj.Ahora().UTC()) != nil {
+			return ResultadoPrepararCargaDocumental{}, ports.ErrDecisionPreparacionCargaNoDisponible
+		}
+	}
+	reserva, err := s.repositorio.Reservar(ctx, solicitudReserva)
 	if err != nil {
 		return ResultadoPrepararCargaDocumental{}, err
 	}
@@ -285,12 +331,22 @@ func (s *ServicioCargaDocumental) Preparar(
 		return ResultadoPrepararCargaDocumental{}, ports.ErrReservaCargaDocumentalInvalida
 	}
 	if reserva.Repetida {
+		if reserva.Pendiente {
+			return ResultadoPrepararCargaDocumental{Carga: reserva.Carga, EstadoOperativo: reserva.EstadoOperativo},
+				ports.ErrPreparacionCargaDocumentalPendiente
+		}
 		// Reemitir exigiria activar coordinadamente otro manifiesto y otro
 		// recibo en dos repositorios. Sin una transaccion comun o sin incluir
 		// DecisionRef+huella del manifiesto en la atestacion del recibo, cualquier
 		// orden de escrituras abre una ventana de cruce. Se mantiene el primer
 		// manifiesto inmutable y el reintento falla cerrado.
 		return ResultadoPrepararCargaDocumental{}, ErrCargaDocumentalYaProcesada
+	}
+	if s.autoridadV3 != nil {
+		huellaToken, errHuella := solicitudReserva.Token.HuellaSHA256()
+		if errHuella != nil || !reserva.Token.CoincideConHuellaSHA256(huellaToken) {
+			return ResultadoPrepararCargaDocumental{}, ports.ErrReservaCargaDocumentalInvalida
+		}
 	}
 	huellaReservada, err := reserva.Carga.HuellaSHA256()
 	if err != nil {
@@ -366,9 +422,33 @@ func (s *ServicioCargaDocumental) Preparar(
 	persistenciaIniciada = true
 	ctxPersistencia, cancelarPersistencia := contextoPersistenciaCarga(ctx)
 	defer cancelarPersistencia()
-	if err := s.repositorio.ConfirmarPreparacion(ctxPersistencia, ports.SolicitudConfirmarPreparacionCargaDocumental{
+	solicitudConfirmar := ports.SolicitudConfirmarPreparacionCargaDocumental{
 		Token: reserva.Token, Confirmacion: confirmacion, Manifiesto: manifiesto,
-	}); err != nil {
+	}
+	if s.autoridadV3 != nil {
+		actor, errActor := orden.ActorRegistradoV2.Clonar()
+		if errActor != nil || actor.Contexto.PersonaRef != preparada.PrincipalID {
+			return ResultadoPrepararCargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(ports.ErrConfirmacionCargaDocumentalInvalida)
+		}
+		solicitudConfirmar.ActorRegistradoV2 = actor
+		preimagen, errPreimagen := ports.PreimagenConfirmacionPreparacionCargaDocumentalV3(solicitudConfirmar)
+		if errPreimagen != nil {
+			return ResultadoPrepararCargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(errPreimagen)
+		}
+		autorizacion, errAutorizacion := s.autoridadV3.AutorizarConfirmacionPreparacionCarga(ctx, preimagen, actor, preparada)
+		if errAutorizacion != nil || autorizacion.ValidarPara(ports.AccionCargaDocumentalPrepararConfirmacionV3,
+			preimagen, actor, preparada, s.reloj.Ahora().UTC()) != nil {
+			return ResultadoPrepararCargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(ports.ErrConfirmacionCargaDocumentalInvalida)
+		}
+		solicitudConfirmar.AutorizacionV3 = autorizacion
+		if solicitudConfirmar.ValidarParaPersistenciaV3(s.reloj.Ahora().UTC()) != nil {
+			return ResultadoPrepararCargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(ports.ErrConfirmacionCargaDocumentalInvalida)
+		}
+	}
+	if err := s.repositorio.ConfirmarPreparacion(ctxPersistencia, solicitudConfirmar); err != nil {
+		if s.autoridadV3 != nil && errors.Is(err, ports.ErrConfirmacionCargaDocumentalInvalida) {
+			return ResultadoPrepararCargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(err)
+		}
 		// Estos conflictos son respuestas inequivocas anteriores al commit por
 		// contrato. Se puede compensar la sesion sin riesgo de revocar una
 		// preparacion confirmada; cualquier otro error sigue siendo ambiguo y se
@@ -380,6 +460,38 @@ func (s *ServicioCargaDocumental) Preparar(
 		return ResultadoPrepararCargaDocumental{}, err
 	}
 	confirmada = true
+	if s.autoridadV3 != nil {
+		emisorV3, ok := s.emisorRecibo.(ports.EmisorReciboCargaDirectaV3)
+		if !ok {
+			return ResultadoPrepararCargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(ports.ErrReciboCargaDirectaNoDisponible)
+		}
+		actor, errActor := orden.ActorRegistradoV2.Clonar()
+		if errActor != nil {
+			return ResultadoPrepararCargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(ports.ErrReciboCargaDirectaNoValido)
+		}
+		preparacionRecibo, errPreparacion := instrucciones.PrepararReciboConfirmacionV3(
+			ctx, solicitudPreparar, capacidades, emisorV3, preparada, actor, manifiesto)
+		if errPreparacion != nil {
+			return ResultadoPrepararCargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(errPreparacion)
+		}
+		defer preparacionRecibo.Descartar()
+		preimagen, errPreimagen := preparacionRecibo.Preimagen()
+		if errPreimagen != nil {
+			return ResultadoPrepararCargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(errPreimagen)
+		}
+		autorizacion, errAutorizacion := s.autoridadV3.AutorizarRespuestaCarga(ctx, preimagen, actor, preparada)
+		if errAutorizacion != nil || autorizacion.ValidarPara(
+			ports.AccionCargaDocumentalPrepararRespuestaV3, preimagen, actor, preparada, s.reloj.Ahora().UTC()) != nil {
+			return ResultadoPrepararCargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(ports.ErrReciboCargaDirectaNoValido)
+		}
+		recibo, errRegistro := emisorV3.RegistrarEmisionPreparada(ctx, preparacionRecibo, autorizacion)
+		if errRegistro != nil {
+			return ResultadoPrepararCargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(errRegistro)
+		}
+		return ResultadoPrepararCargaDocumental{Carga: preparada,
+			EstadoOperativo: ports.EstadoCargaOperacionReciboRegistrado,
+			Instrucciones:   instrucciones, Recibo: recibo}, nil
+	}
 	recibo, err := instrucciones.EmitirReciboConfirmacion(ctx, solicitudPreparar, capacidades, s.emisorRecibo)
 	if err != nil {
 		return ResultadoPrepararCargaDocumental{}, err
@@ -388,15 +500,35 @@ func (s *ServicioCargaDocumental) Preparar(
 }
 
 type OrdenConfirmarCargaDocumental struct {
-	Principal      domain.Principal
-	PerfilActivo   string
-	Recurso        domain.RecursoAutorizable
-	CargaID        string
-	SesionRef      string
-	Recibo         ports.ReciboCargaDirecta
-	Finalidad      string
-	Motivo         string
-	CorrelacionRef string
+	Principal         domain.Principal
+	ActorRegistradoV2 domain.ResultadoContextoActorRegistradoV2
+	PerfilActivo      string
+	Recurso           domain.RecursoAutorizable
+	CargaID           string
+	SesionRef         string
+	Recibo            ports.ReciboCargaDirecta
+	Finalidad         string
+	Motivo            string
+	CorrelacionRef    string
+}
+
+func (s *ServicioCargaDocumental) consultarCargaPropiaV3(
+	ctx context.Context,cargaID string,actorEntrada domain.ResultadoContextoActorRegistradoV2,
+	finalidad,correlacion string,incluirManifiesto bool,
+)(ports.ConsultaCargaPropiaV3,error){
+	repositorio,ok:=s.repositorio.(ports.RepositorioConsultaCargasDocumentalesV3)
+	if !ok {return ports.ConsultaCargaPropiaV3{},ports.ErrRepositorioCargasNoDisponible}
+	actor,err:=actorEntrada.Clonar()
+	if err!=nil {return ports.ConsultaCargaPropiaV3{},domain.ErrAutorizacionDenegada}
+	solicitud:=ports.SolicitudConsultarCargaPropiaV3{CargaID:cargaID,ActorRegistradoV2:actor,
+		Finalidad:finalidad,CorrelacionRef:correlacion,IncluyeManifiesto:incluirManifiesto}
+	preimagen,err:=ports.PreimagenConsultaCargaPropiaV3(solicitud)
+	if err!=nil {return ports.ConsultaCargaPropiaV3{},domain.ErrAutorizacionDenegada}
+	autorizacion,err:=s.autoridadV3.AutorizarConsultaCarga(ctx,preimagen,actor,cargaID)
+	if err!=nil {return ports.ConsultaCargaPropiaV3{},domain.ErrAutorizacionDenegada}
+	solicitud.AutorizacionV3=autorizacion
+	if solicitud.Validar(s.reloj.Ahora().UTC())!=nil {return ports.ConsultaCargaPropiaV3{},domain.ErrAutorizacionDenegada}
+	return repositorio.ConsultarPropia(ctx,solicitud)
 }
 
 func (s *ServicioCargaDocumental) Confirmar(
@@ -416,7 +548,17 @@ func (s *ServicioCargaDocumental) Confirmar(
 	if err := validarOrdenConfirmarCargaDocumental(orden); err != nil {
 		return domain.CargaDocumental{}, err
 	}
-	preparacionPersistida, err := s.repositorio.ObtenerPreparacion(ctx, orden.CargaID)
+	var preparacionPersistida ports.PreparacionCargaDocumentalPersistida
+	var err error
+	if s.autoridadV3 != nil {
+		consulta, errConsulta := s.consultarCargaPropiaV3(ctx, orden.CargaID,
+			orden.ActorRegistradoV2, orden.Finalidad, orden.CorrelacionRef, true)
+		if errConsulta != nil { return domain.CargaDocumental{}, errConsulta }
+		if consulta.Manifiesto == nil { return domain.CargaDocumental{}, ports.ErrManifiestoPreparacionNoEncontrado }
+		preparacionPersistida = ports.PreparacionCargaDocumentalPersistida{Carga: consulta.Carga, Manifiesto: *consulta.Manifiesto}
+	} else {
+		preparacionPersistida, err = s.repositorio.ObtenerPreparacion(ctx, orden.CargaID)
+	}
 	if err != nil {
 		return domain.CargaDocumental{}, err
 	}
@@ -502,6 +644,13 @@ func (s *ServicioCargaDocumental) Confirmar(
 	}
 	comprobante, err := s.consumidorRecibo.ConsumirReciboCargaDirecta(ctx, peticionConsumo)
 	if err != nil {
+		if recuperador, ok := s.consumidorRecibo.(ports.RecuperadorReciboCargaDirecta); ok {
+			if _, errRecuperacion := recuperador.RecuperarConsumoReciboCargaDirecta(ctx, peticionConsumo); errRecuperacion == nil {
+				// El consumo existia; no se sabe si el efecto remoto se
+				// ejecuto. La conciliacion observa, nunca reenvia el PUT.
+				return domain.CargaDocumental{}, ports.ErrConfirmacionCargaDocumentalPendiente
+			}
+		}
 		if errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
 			return domain.CargaDocumental{}, ports.ErrReciboCargaDirectaNoValido
 		}
@@ -556,6 +705,10 @@ func (s *ServicioCargaDocumental) Confirmar(
 	if err != nil {
 		return domain.CargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(err)
 	}
+	confirmacion, err = s.autorizarTransicionV3(ctx, orden.ActorRegistradoV2, confirmacion)
+	if err != nil {
+		return domain.CargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(err)
+	}
 	ctxPersistencia, cancelarPersistencia := contextoPersistenciaCarga(ctx)
 	defer cancelarPersistencia()
 	if err := s.repositorio.ConfirmarTransicion(ctxPersistencia, confirmacion); err != nil {
@@ -565,13 +718,54 @@ func (s *ServicioCargaDocumental) Confirmar(
 }
 
 type OrdenAnalizarCargaDocumental struct {
-	Principal      domain.Principal
-	PerfilActivo   string
-	Recurso        domain.RecursoAutorizable
-	CargaID        string
-	Finalidad      string
-	Motivo         string
-	CorrelacionRef string
+	Principal         domain.Principal
+	ActorRegistradoV2 domain.ResultadoContextoActorRegistradoV2
+	PerfilActivo      string
+	Recurso           domain.RecursoAutorizable
+	CargaID           string
+	Finalidad         string
+	Motivo            string
+	CorrelacionRef    string
+}
+
+func (s *ServicioCargaDocumental) autorizarTransicionV3(
+	ctx context.Context,
+	actorEntrada domain.ResultadoContextoActorRegistradoV2,
+	confirmacion ports.ConfirmacionTransicionCargaDocumental,
+) (ports.ConfirmacionTransicionCargaDocumental, error) {
+	if s.autoridadV3 == nil {
+		return confirmacion, nil
+	}
+	actor, err := actorEntrada.Clonar()
+	if err != nil || actor.Contexto.PersonaRef != confirmacion.Carga.PrincipalID ||
+		actor.Contexto.Principal.ID != confirmacion.Auditoria.ActorID {
+		return ports.ConfirmacionTransicionCargaDocumental{}, ports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	preimagen, err := ports.PreimagenTransicionCargaDocumentalV3(confirmacion)
+	if err != nil {
+		return ports.ConfirmacionTransicionCargaDocumental{}, err
+	}
+	var autorizacion ports.AutorizacionCargaDocumentalV3
+	switch confirmacion.Auditoria.Action {
+	case AccionConfirmarCargaDocumental:
+		autorizacion, err = s.autoridadV3.AutorizarConfirmacionCarga(ctx, preimagen, actor, confirmacion.Carga)
+	case AccionAnalizarCargaDocumental:
+		autorizacion, err = s.autoridadV3.AutorizarAnalisisCarga(ctx, preimagen, actor, confirmacion.Carga)
+	case AccionPromoverCargaDocumental:
+		autorizacion, err = s.autoridadV3.AutorizarPromocionCarga(ctx, preimagen, actor, confirmacion.Carga)
+	default:
+		return ports.ConfirmacionTransicionCargaDocumental{}, ports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	if err != nil || autorizacion.ValidarPara(confirmacion.Auditoria.Action, preimagen,
+		actor, confirmacion.Carga, s.reloj.Ahora().UTC()) != nil {
+		return ports.ConfirmacionTransicionCargaDocumental{}, ports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	confirmacion.ActorRegistradoV2 = actor
+	confirmacion.AutorizacionV3 = autorizacion
+	if confirmacion.ValidarParaPersistenciaV3(s.reloj.Ahora().UTC()) != nil {
+		return ports.ConfirmacionTransicionCargaDocumental{}, ports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	return confirmacion, nil
 }
 
 // AnalizarYPromover conserva primero el resultado del analisis. Solo despues
@@ -588,7 +782,16 @@ func (s *ServicioCargaDocumental) AnalizarYPromover(
 	if err := validarOrdenAnalizarCargaDocumental(orden); err != nil {
 		return domain.CargaDocumental{}, err
 	}
-	carga, err := s.repositorio.Obtener(ctx, orden.CargaID)
+	var carga domain.CargaDocumental
+	var err error
+	if s.autoridadV3 != nil {
+		consulta, errConsulta := s.consultarCargaPropiaV3(ctx, orden.CargaID,
+			orden.ActorRegistradoV2, orden.Finalidad, orden.CorrelacionRef, false)
+		if errConsulta != nil { return domain.CargaDocumental{}, errConsulta }
+		carga = consulta.Carga
+	} else {
+		carga, err = s.repositorio.Obtener(ctx, orden.CargaID)
+	}
 	if err != nil {
 		return domain.CargaDocumental{}, err
 	}
@@ -727,6 +930,10 @@ func (s *ServicioCargaDocumental) AnalizarYPromover(
 	if err != nil {
 		return domain.CargaDocumental{}, err
 	}
+	confirmacionAnalisis, err = s.autorizarTransicionV3(ctx, orden.ActorRegistradoV2, confirmacionAnalisis)
+	if err != nil {
+		return domain.CargaDocumental{}, err
+	}
 	ctxPersistencia, cancelarPersistencia := contextoPersistenciaCarga(ctx)
 	defer cancelarPersistencia()
 	if err := s.repositorio.ConfirmarTransicion(ctxPersistencia, confirmacionAnalisis); err != nil {
@@ -817,6 +1024,10 @@ func (s *ServicioCargaDocumental) promoverCargaLimpia(
 		map[string]string{"almacen_conector": resultado.Objeto.ConectorID, "estado": string(admitida.Estado),
 			"evidencia_promocion_ref": resultado.Evidencia.Referencia},
 	)
+	if err != nil {
+		return domain.CargaDocumental{}, err
+	}
+	confirmacion, err = s.autorizarTransicionV3(ctx, orden.ActorRegistradoV2, confirmacion)
 	if err != nil {
 		return domain.CargaDocumental{}, err
 	}
@@ -1424,6 +1635,9 @@ func clonarOrdenPrepararCargaDocumental(orden OrdenPrepararCargaDocumental) Orde
 	clon := orden
 	clon.Principal = clonarPrincipalCarga(orden.Principal)
 	clon.Recurso = clonarRecursoCarga(orden.Recurso)
+	if actor, err := orden.ActorRegistradoV2.Clonar(); err == nil {
+		clon.ActorRegistradoV2 = actor
+	}
 	return clon
 }
 
@@ -1431,6 +1645,9 @@ func clonarOrdenConfirmarCargaDocumental(orden OrdenConfirmarCargaDocumental) Or
 	clon := orden
 	clon.Principal = clonarPrincipalCarga(orden.Principal)
 	clon.Recurso = clonarRecursoCarga(orden.Recurso)
+	if actor, err := orden.ActorRegistradoV2.Clonar(); err == nil {
+		clon.ActorRegistradoV2 = actor
+	}
 	return clon
 }
 
@@ -1438,6 +1655,9 @@ func clonarOrdenAnalizarCargaDocumental(orden OrdenAnalizarCargaDocumental) Orde
 	clon := orden
 	clon.Principal = clonarPrincipalCarga(orden.Principal)
 	clon.Recurso = clonarRecursoCarga(orden.Recurso)
+	if actor, err := orden.ActorRegistradoV2.Clonar(); err == nil {
+		clon.ActorRegistradoV2 = actor
+	}
 	return clon
 }
 

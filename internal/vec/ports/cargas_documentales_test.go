@@ -1,6 +1,8 @@
 package ports
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -34,6 +36,218 @@ func cargaReservadaPuertoPrueba(t *testing.T) domain.CargaDocumental {
 		t.Fatal(err)
 	}
 	return carga
+}
+
+func TestPreimagenReservaCargaDocumentalV3VinculaReservaYContenido(t *testing.T) {
+	carga := cargaReservadaPuertoPrueba(t)
+	token, errToken := NuevoTokenReservaCargaDocumental()
+	if errToken != nil {
+		t.Fatal(errToken)
+	}
+	solicitud := SolicitudReservarCargaDocumental{
+		Token:                  token,
+		IndiceIdempotenciaHMAC: carga.IndiceIdempotenciaHMAC,
+		HuellaSolicitudHMAC:    carga.HuellaSolicitudHMAC,
+		Carga:                  carga,
+		DecisionPreparacion: ConsumoDecisionPreparacionCargaDocumentalV1{
+			DecisionRef:            "decision:preparar:0123456789abcdef",
+			EfectoRef:              "efecto:carga:preparar:0123456789abcdef",
+			HuellaPlanEfectoSHA256: strings.Repeat("e", 64),
+			EsquemaHuellaDecision:  EsquemaHuellaDecisionAutorizacionReforzadaV1,
+			HuellaDecisionSHA256:   strings.Repeat("f", 64),
+		},
+		SolicitadaEn: instantePuertoCarga, ReservaExpiraEn: carga.ExpiraEn,
+	}
+	reserva := ReservaRecursoCargaDocumentalV3{
+		RecursoRef: carga.RecursoRef, PersonaRef: carga.PrincipalID,
+		ClaveReserva: "reserva:0123456789abcdef", HuellaReservaSHA256: strings.Repeat("a", 64),
+		VersionReserva: 1,
+	}
+	preimagen, err := PreimagenReservaCargaDocumentalV3(solicitud, reserva)
+	if err != nil || HuellaPreimagenCargaDocumentalV3(preimagen) == "" {
+		t.Fatalf("reserva válida no produjo preimagen: %v", err)
+	}
+	cruce := reserva
+	cruce.PersonaRef = "persona:ajena:0123456789abcdef"
+	if _, err := PreimagenReservaCargaDocumentalV3(solicitud, cruce); !errors.Is(err, ErrReservaCargaDocumentalInvalida) {
+		t.Fatalf("persona ajena admitida: %v", err)
+	}
+	otraVersion := reserva
+	otraVersion.VersionReserva++
+	otra, err := PreimagenReservaCargaDocumentalV3(solicitud, otraVersion)
+	if err != nil || HuellaPreimagenCargaDocumentalV3(preimagen) == HuellaPreimagenCargaDocumentalV3(otra) {
+		t.Fatal("la versión D16 no queda ligada al efecto V3")
+	}
+}
+
+func TestAutorizacionCargaDocumentalV3RechazaAusenciaYCaducidad(t *testing.T) {
+	actor, ahora, _ := escenarioOrdenAcreditacionContextoActorV2Prueba(t)
+	carga, err := domain.NuevaCargaDocumental(
+		"carga:puerto:0123456789abcdef", actor.Contexto.PersonaRef,
+		"ref:"+strings.Repeat("a", 64), "meritos", "hecho", "operacion:carga:0123456789abcdef",
+		"correlacion:0123456789abcdef", "aportar_documentacion_bolsa", "datos_personales",
+		"application/pdf", 2048, strings.Repeat("b", 64),
+		"hmac-sha256:idempotencia_v1:"+strings.Repeat("c", 64),
+		"hmac-sha256:solicitud_v1:"+strings.Repeat("d", 64), ahora, ahora.Add(5*time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preimagen := []byte(`{"accion":"documentos.carga.preparar_reserva","carga_id":"carga:puerto:0123456789abcdef"}`)
+	base := AutorizacionCargaDocumentalV3{
+		Accion: AccionCargaDocumentalPrepararReservaV3, Finalidad: carga.Finalidad,
+		RecursoRef: carga.RecursoRef, PersonaRef: carga.PrincipalID,
+		PerfilActivoRef: actor.Contexto.PerfilActivoRef, CorrelacionRef: carga.CorrelacionRef,
+	}
+	if err := base.ValidarPara(AccionCargaDocumentalPrepararReservaV3, preimagen, actor, carga, ahora); !errors.Is(err, ErrDecisionPreparacionCargaNoDisponible) {
+		t.Fatalf("material V3 ausente admitido: %v", err)
+	}
+	resumen, err := NuevoResumenCapacidadAtestacionAutorizacionV3(
+		"decision:carga:0123456789abcdef", strings.Repeat("1", 64), strings.Repeat("2", 64),
+		"contexto:carga:0123456789abcdef", strings.Repeat("3", 64),
+		AccionCargaDocumentalPrepararReservaV3, carga.ID, HuellaPreimagenCargaDocumentalV3(preimagen),
+		AudienciaCargaDocumentalPrepararReservaV3, ahora.Add(-4*time.Second), ahora.Add(-time.Second),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spki, err := hex.DecodeString(spkiMaterialPostgreSQLV3Hex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base.Material, err = NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(
+		[]byte(capacidadCanonicaPostgreSQLV3), resumen,
+		[]byte("decision-canonica"), []byte("motivo-canonico"), []byte("contexto-canonico"),
+		3, 4, []byte("payload-ad3"), []byte("sobre-cose"), []byte("evidencia"),
+		spki,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := base.ValidarPara(AccionCargaDocumentalPrepararReservaV3, preimagen, actor, carga, ahora); !errors.Is(err, ErrDecisionPreparacionCargaNoDisponible) {
+		t.Fatalf("material V3 caducado admitido: %v", err)
+	}
+	if err := base.ValidarPara(accionCargaDocumentalConfirmar, preimagen, actor, carga, ahora.Add(-2*time.Second)); !errors.Is(err, ErrDecisionPreparacionCargaNoDisponible) {
+		t.Fatalf("audiencia de otro paso admitida: %v", err)
+	}
+	if err := base.ValidarPara(AccionCargaDocumentalPrepararConfirmacionV3, preimagen,
+		actor, carga, ahora.Add(-2*time.Second)); !errors.Is(err, ErrDecisionPreparacionCargaNoDisponible) {
+		t.Fatalf("decision de reserva usada en TX de confirmacion: %v", err)
+	}
+}
+
+func TestPreparacionEmisionReciboV3EsOpacaYUnSoloIntento(t *testing.T) {
+	actor, _, _ := escenarioOrdenAcreditacionContextoActorV2Prueba(t)
+	carga, err := domain.NuevaCargaDocumental(
+		"carga:puerto:0123456789abcdef", actor.Contexto.PersonaRef,
+		"solicitud:0123456789abcdef", "bolsa", "solicitud", "operacion:carga:0123456789abcdef",
+		"correlacion:0123456789abcdef", "aportar_documentacion_bolsa", "datos_personales",
+		"application/pdf", 2048, strings.Repeat("a", 64),
+		"hmac-sha256:idempotencia_v1:"+strings.Repeat("c", 64),
+		"hmac-sha256:solicitud_v1:"+strings.Repeat("b", 64),
+		instantePuertoCarga, instantePuertoCarga.Add(5*time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparada, err := carga.Preparar("hmac-sha256:sesion_v1:"+strings.Repeat("d", 64),
+		"decision:preparar:0123456789abcdef", instantePuertoCarga.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifiesto := manifiestoPreparacionPuertoPrueba(t, preparada)
+	registro := RegistroReciboCargaDirecta{
+		IndiceHMAC:             "hmac-sha256:indice_v1:" + strings.Repeat("1", 64),
+		GrupoHMAC:              "hmac-sha256:grupo_v1:" + strings.Repeat("2", 64),
+		VinculoHMAC:            "hmac-sha256:vinculo_v1:" + strings.Repeat("3", 64),
+		EvidenciaAltaRef:       "evidencia:alta:0123456789abcdef",
+		AutorizacionEmisionRef: preparada.AutorizacionPreparacionRef,
+		ExpiraEn:               preparada.ExpiraEn,
+	}
+	secreto := []byte("recibo-efimero-de-prueba")
+	preparacion, err := NuevaPreparacionEmisionReciboCargaDirectaV3(secreto, registro, preparada, actor, manifiesto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preimagen, err := preparacion.Preimagen()
+	if err != nil || !strings.Contains(string(preimagen), `"version_carga":2`) ||
+		strings.Contains(string(preimagen), string(secreto)) {
+		t.Fatalf("preimagen incompleta o secreto filtrado: %v", err)
+	}
+	if _, err := json.Marshal(preparacion); !errors.Is(err, ErrSerializacionReciboCargaProhibida) {
+		t.Fatalf("serializacion admitida: %v", err)
+	}
+	llamadas := 0
+	_, err = preparacion.ConsumirParaRegistro(func([]byte, RegistroReciboCargaDirectaV3) (ReciboCargaDirecta, error) {
+		llamadas++
+		return ReciboCargaDirecta{}, nil
+	}, AutorizacionCargaDocumentalV3{}, instantePuertoCarga.Add(2*time.Second))
+	if !errors.Is(err, ErrReciboCargaDirectaNoValido) || llamadas != 0 {
+		t.Fatalf("sin V3 se registro: %v", err)
+	}
+	if _, err = preparacion.Preimagen(); !errors.Is(err, ErrReciboCargaDirectaNoValido) {
+		t.Fatal("material se reutilizo tras fallo")
+	}
+	preparacion.Descartar()
+	preparacion, err = NuevaPreparacionEmisionReciboCargaDirectaV3(secreto, registro, preparada, actor, manifiesto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preimagen, err = preparacion.Preimagen()
+	if err != nil {
+		t.Fatal(err)
+	}
+	instante := instantePuertoCarga.Add(2 * time.Second)
+	resumen, err := NuevoResumenCapacidadAtestacionAutorizacionV3(
+		"decision:respuesta:0123456789abcdef", strings.Repeat("1", 64), strings.Repeat("2", 64),
+		"contexto:respuesta:0123456789abcdef", strings.Repeat("3", 64),
+		AccionCargaDocumentalPrepararRespuestaV3, preparada.ID, HuellaPreimagenCargaDocumentalV3(preimagen),
+		AudienciaCargaDocumentalPrepararRespuestaV3, instante.Add(-time.Second), instante.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	spki, err := hex.DecodeString(spkiMaterialPostgreSQLV3Hex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	material, err := NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(
+		[]byte(capacidadCanonicaPostgreSQLV3), resumen, []byte("decision"), []byte("motivo"),
+		[]byte("contexto"), 3, 4, []byte("payload"), []byte("sobre"), []byte("evidencia"), spki)
+	if err != nil {
+		t.Fatal(err)
+	}
+	autorizacion := AutorizacionCargaDocumentalV3{Material: material,
+		Accion: AccionCargaDocumentalPrepararRespuestaV3, Finalidad: preparada.Finalidad,
+		RecursoRef: preparada.RecursoRef, PersonaRef: preparada.PrincipalID,
+		PerfilActivoRef: actor.Contexto.PerfilActivoRef, CorrelacionRef: preparada.CorrelacionRef}
+	cruce := autorizacion
+	cruce.PersonaRef = "per_ajena0123456789abcdefghijkl"
+	if _, err = preparacion.ConsumirParaRegistro(func([]byte, RegistroReciboCargaDirectaV3) (ReciboCargaDirecta, error) {
+		llamadas++
+		return ReciboCargaDirecta{}, nil
+	}, cruce, instante); !errors.Is(err, ErrReciboCargaDirectaNoValido) || llamadas != 0 {
+		t.Fatalf("otra persona registro recibo: %v", err)
+	}
+	preparacion, err = NuevaPreparacionEmisionReciboCargaDirectaV3(secreto, registro, preparada, actor, manifiesto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = preparacion.ConsumirParaRegistro(func(_ []byte, r RegistroReciboCargaDirectaV3) (ReciboCargaDirecta, error) {
+		llamadas++
+		if r.Carga.ID != preparada.ID || r.Carga.Version != preparada.Version {
+			t.Fatal("carga/version distinta")
+		}
+		return ReciboCargaDirecta{}, ErrReciboCargaDirectaNoDisponible // COMMIT posible, respuesta perdida.
+	}, autorizacion, instante)
+	if !errors.Is(err, ErrReciboCargaDirectaNoDisponible) || llamadas != 1 {
+		t.Fatalf("respuesta ambigua: %v", err)
+	}
+	if _, err = preparacion.ConsumirParaRegistro(func([]byte, RegistroReciboCargaDirectaV3) (ReciboCargaDirecta, error) {
+		llamadas++
+		return ReciboCargaDirecta{}, nil
+	}, autorizacion, instante); !errors.Is(err, ErrReciboCargaDirectaNoValido) || llamadas != 1 {
+		t.Fatalf("reintento tras COMMIT pudo reemitir: %v", err)
+	}
 }
 
 func manifiestoPreparacionPuertoPrueba(
