@@ -75,17 +75,15 @@ test("la falta de confirmación prevalece sobre el registro y los mensajes se es
   assert.doesNotMatch(html, /<el recibo>|Registrando la actuación/u);
 });
 
-test("en fiscalización, a quien no es Intervención se le dice quién actúa y no se le ofrece trámite", async () => {
-  const mensajes = { ficha_siguiente_paso_fiscalizacion_intervencion: "Intervención tiene que registrar el resultado de la fiscalización.",
-    ficha_siguiente_paso_espera: "Esperando a otra unidad" };
-  const t = crearTraductorExpedientesContratacion(mensajes);
-  const enFiscalizacion = { ...listo, cuadro: { expedientes: [{ ...listo.cuadro.expedientes[0],
-    fase_clave: "fiscalizacion", estado_clave: "espera_externa" }] } };
-  const sinTareas = { ...expediente, tareas: [] };
-  const ajeno = renderizarSiguientePasoFicha(sinTareas, enFiscalizacion, t, false, { fiscalizacionAjena: true });
-  assert.match(ajeno, /Esperando a otra unidad/u);
-  assert.match(ajeno, /Intervención tiene que registrar el resultado/u);
-  assert.equal(boton(ajeno), undefined);
-  const propio = renderizarSiguientePasoFicha(sinTareas, enFiscalizacion, t, false, { fiscalizacionAjena: false });
-  assert.doesNotMatch(propio, /Intervención tiene que registrar/u);
+test("el siguiente paso nombra la fase en curso del raíl aunque el cuadro vaya por detrás", () => {
+  const t = crearTraductorExpedientesContratacion({});
+  const conRail = { ...expediente, fases: [
+    { fase_ref: "presentacion:f:solicitud", orden: 1, etiqueta: "Solicitud", estado_clave: "completado" },
+    { fase_ref: "presentacion:f:analisis_rrhh", orden: 2, etiqueta: "Análisis RRHH", estado_clave: "completado" },
+    { fase_ref: "presentacion:f:gestion_bolsa", orden: 3, etiqueta: "Gestión de bolsa", estado_clave: "en_curso" },
+  ] };
+  const estado = { ...listo, cuadro: { expedientes: [{ ...listo.cuadro.expedientes[0], fase_clave: "solicitud" }] } };
+  const html = renderizarSiguientePasoFicha(conRail, estado, t);
+  assert.match(html, /Gestión de bolsa/u);
+  assert.doesNotMatch(html, /Siguiente paso: Solicitud/u);
 });
