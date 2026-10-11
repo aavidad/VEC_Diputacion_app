@@ -91,3 +91,18 @@ test("subsanaciones y alegaciones pendientes solo ofrecen la operación real", (
   assert.equal(vistas.match(/>Revisar, firmar y presentar<\/button>/gu)?.length, 2);
   assert.doesNotMatch(vistas, /DEMO|demostración/iu);
 });
+
+test("la respuesta en revisión avisa junto a Disponible y desaparece tras confirmarla", () => {
+  const participaciones = [{ bolsa: "bolsa:administrativo", categoria: "Administrativo", orden_inicial: 1, total_instantanea: 40,
+    estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null,
+    situacion_actual: { estado: "disponible", desde: "2026-09-01T00:00:00Z", hasta: null } }];
+  const estado = { participaciones, accionesPortal: { causas_renuncia: [], pausa_maxima: null, modo_respuesta: "firme" },
+    portalMiBolsa: [{ bolsa: "bolsa:administrativo", ultima_respuesta: { respuesta: "acepta", modo: "firme", recibo: "recibo:01", respondida_en: "2026-10-11T10:00:00Z", en_revision: true } }] };
+  const vista = renderizarLlamamientos(datosPrueba(), estado);
+  assert.match(vista, /Disponible[\s\S]*Tu respuesta está en revisión\. RRHH confirmará tu situación\./u);
+  assert.equal((vista.match(/Tu respuesta está en revisión/gu) || []).length, 1);
+  estado.portalMiBolsa[0].ultima_respuesta.en_revision = false;
+  assert.doesNotMatch(renderizarLlamamientos(datosPrueba(), estado), /Tu respuesta está en revisión/u);
+  delete estado.portalMiBolsa[0].ultima_respuesta.en_revision;
+  assert.doesNotMatch(renderizarLlamamientos(datosPrueba(), estado), /Tu respuesta está en revisión/u);
+});

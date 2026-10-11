@@ -300,6 +300,7 @@
       "firme": "Final response"
     },
     "ultimaRespuesta": "Response recorded",
+    "respuestaEnRevision": "Your response is under review. HR will confirm your status.",
     "enviando": "Sending…",
     "hecho": "Recorded. Receipt {recibo}.",
     "error": {

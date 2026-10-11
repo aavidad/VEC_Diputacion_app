@@ -230,6 +230,7 @@
       "firme": "Respuesta firme"
     },
     "ultimaRespuesta": "Respuesta registrada",
+    "respuestaEnRevision": "Tu respuesta está en revisión. RRHH confirmará tu situación.",
     "enviando": "Enviando…",
     "hecho": "Registrado. Recibo {recibo}.",
     "error": {

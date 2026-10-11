@@ -1,10 +1,10 @@
 import { chip, encabezadoVista, escaparAtributo, escaparHTML, listaDatos, panel } from "./comunes.js";
 import { localizacionAreaPersonal, traducir } from "../i18n.js";
 import { campoVisibleMiBolsa, nombreCategoria } from "../mi-bolsa-campos.js";
-import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js?v=20261009-inscripcion-v1";
+import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js?v=20261011-mibolsa-revision-v1";
 import { renderizarOfertasMiBolsa, textoOfertas } from "../mi-bolsa-ofertas.js";
 import { renderizarContactoMiBolsa, textoContacto } from "../mi-bolsa-contacto.js";
-import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js?v=20261009-inscripcion-v1";
+import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js?v=20261011-mibolsa-revision-v1";
 
 const b = (clave, variables) => traducir(`areaPersonal.vista.miBolsa.${clave}`, variables);
 const u = (clave, variables) => traducir(`areaPersonal.vista.subsanaciones.${clave}`, variables);
@@ -45,12 +45,13 @@ export function renderizarLlamamientos(datos, estado = {}) {
   const paginaActual = Math.min(pagina, totalPaginas);
   const visibles = participaciones.slice((paginaActual - 1) * porPagina, paginaActual * porPagina);
   const ver = (campo) => campoVisibleMiBolsa(estado.camposMiBolsa, campo);
+  const respuestasEnRevision = new Set((estado.portalMiBolsa || []).filter((item) => item.ultima_respuesta?.en_revision === true).map((item) => item.bolsa));
   const tarjetasParticipacion = visibles.map((item) => panel(b("participacion"), nombreCategoria(item), `${listaDatos([
     ...(ver("estado") ? [[b("estadoBolsa"), chip(item.estado_bolsa)]] : []),
     ...(ver("posicion") ? [[traducir("areaPersonal.miBolsa.ordenInicial"), h(b("ordenDe", { orden: String(item.orden_inicial), total: String(item.total_instantanea) }))]] : []),
     [traducir("areaPersonal.miBolsa.vigenciaBolsa"), h(item.vigente_hasta ? b("vigenciaHasta", { desde: fechaSituacion(item.vigente_desde), hasta: fechaSituacion(item.vigente_hasta) }) : b("vigenciaAbierta", { desde: fechaSituacion(item.vigente_desde) }))],
     ...(!ver("estado") && ver("fecha_disponible") && item.situacion_actual?.fecha_disponible ? [[traducir("areaPersonal.miBolsa.situacion.fechaDisponible"), escaparHTML(fechaSituacion(item.situacion_actual.fecha_disponible))]] : []),
-  ])}${ver("estado") ? `<h4>${escaparHTML(traducir("areaPersonal.miBolsa.situacion.titulo"))}</h4>${fichaSituacionActual(item.situacion_actual)}` : ""}`, { estado: ver("estado") ? item.estado_bolsa : "", clase: "participacion-propia" })).join("");
+  ])}${ver("estado") ? `<h4>${escaparHTML(traducir("areaPersonal.miBolsa.situacion.titulo"))}</h4>${fichaSituacionActual(item.situacion_actual)}${respuestasEnRevision.has(item.bolsa) ? `<p class="nota aviso" role="status">${h(textoPortal("respuestaEnRevision"))}</p>` : ""}` : ""}`, { estado: ver("estado") ? item.estado_bolsa : "", clase: "participacion-propia" })).join("");
   const paginacion = participaciones.length > porPagina ? `<nav class="paginacion-participaciones" aria-label="${escaparAtributo(b("paginacion"))}"><span>${h(b("mostrando", { desde: (paginaActual - 1) * porPagina + 1, hasta: Math.min(paginaActual * porPagina, participaciones.length), total: participaciones.length }))}</span><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual - 1}" ${paginaActual === 1 ? "disabled" : ""}>${h(b("anterior"))}</button><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual + 1}" ${paginaActual === totalPaginas ? "disabled" : ""}>${h(b("siguiente"))}</button></nav>` : "";
   const fichaParticipaciones = participaciones.length ? `<section class="marco-participaciones" aria-label="${escaparAtributo(b("participacionesEtiqueta"))}">${tarjetasParticipacion}${paginacion}</section>` : panel(b("participaciones"), b("sinParticipaciones"), `<p>${h(b("sinParticipacionesDetalle"))}</p>`);
   const propios = participaciones.filter((item) => item.ultimo_llamamiento);
