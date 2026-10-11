@@ -555,6 +555,114 @@ func (a *AdaptadorCriptograficoCargaDirecta) RecuperarConsumoReciboCargaDirecta(
 	return comprobante, nil
 }
 
+// PrepararConsumo fija una intención nueva antes de consultar SQL. No consume
+// el recibo ni inicia el efecto S3; la aplicación autoriza esta preimagen V3.
+func (a *AdaptadorCriptograficoCargaDirecta) PrepararConsumo(
+	ctx context.Context, solicitud ports.SolicitudConsumirReciboCargaDirecta,
+	carga domain.CargaDocumental, actor domain.ResultadoContextoActorRegistradoV2,
+) (ports.PreparacionConsumoReciboCargaV3, error) {
+	if err := validarContextoCargaDirecta(ctx); err != nil {
+		return ports.PreparacionConsumoReciboCargaV3{}, err
+	}
+	if solicitud.Validar() != nil {
+		return ports.PreparacionConsumoReciboCargaV3{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	valor, err := solicitud.Recibo.RevelarParaEntregaOConsumo()
+	if err != nil {
+		return ports.PreparacionConsumoReciboCargaV3{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	instantanea, err := a.obtenerInstantanea()
+	if err != nil {
+		return ports.PreparacionConsumoReciboCargaV3{}, err
+	}
+	defer instantanea.borrar()
+	ahora := instantanea.reloj.Ahora().UTC()
+	if solicitud.Contexto.ValidarParaEn(ports.AccionAlmacenConfirmarCargaDirecta, ahora) != nil ||
+		!solicitud.ValidaHasta.After(ahora) {
+		return ports.PreparacionConsumoReciboCargaV3{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	partes, err := analizarReciboCargaDirecta(valor, instantanea.claveVinculoRecibo.identificador)
+	if err != nil {
+		partes.borrar()
+		return ports.PreparacionConsumoReciboCargaV3{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	defer partes.borrar()
+	vinculo := calcularVinculoReciboCargaDirecta(instantanea.claveVinculoRecibo, solicitud.Contexto,
+		solicitud.SesionRef, partes.vinculoSolicitudSHA256, partes.expiraEn, partes.aleatorio)
+	defer borrarBytesCargaDirecta(vinculo)
+	if !hmac.Equal(vinculo, partes.vinculo) {
+		return ports.PreparacionConsumoReciboCargaV3{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	indice := calcularHMACCargaDirecta(instantanea.claveIndiceRecibo, "indice-recibo-carga-directa-v1", partes.materialIndice)
+	defer borrarBytesCargaDirecta(indice)
+	grupo := calcularGrupoReciboCargaDirecta(instantanea.claveIndiceRecibo, solicitud.Contexto, solicitud.SesionRef)
+	defer borrarBytesCargaDirecta(grupo)
+	indiceHMAC := representarHMACCargaDirecta(instantanea.claveIndiceRecibo.identificador, indice)
+	grupoHMAC := representarHMACCargaDirecta(instantanea.claveIndiceRecibo.identificador, grupo)
+	vinculoHMAC := representarHMACCargaDirecta(instantanea.claveVinculoRecibo.identificador, vinculo)
+	atestacionAlta := calcularAtestacionAltaReciboCargaDirecta(instantanea.claveVinculoRecibo,
+		partes.materialIndice, indiceHMAC, grupoHMAC, partes.registradoEn)
+	defer borrarBytesCargaDirecta(atestacionAlta)
+	if !hmac.Equal(atestacionAlta, partes.atestacionAlta) {
+		return ports.PreparacionConsumoReciboCargaV3{}, ports.ErrReciboCargaDirectaNoValido
+	}
+	evidencia, err := nuevaReferenciaOpacaCargaDirecta("recibo-consumo-v1")
+	if err != nil {
+		return ports.PreparacionConsumoReciboCargaV3{}, err
+	}
+	intencion, err := nuevaReferenciaOpacaCargaDirecta("confirmacion-intencion-v1")
+	if err != nil {
+		return ports.PreparacionConsumoReciboCargaV3{}, err
+	}
+	huella := calcularHuellaIntencionCargaDirecta(instantanea.claveAtestacion, solicitud.Contexto,
+		solicitud.SesionRef, vinculoHMAC, indiceHMAC, grupoHMAC, intencion, evidencia, partes.registradoEn, solicitud.ValidaHasta)
+	defer borrarBytesCargaDirecta(huella)
+	orden := ports.OrdenConsumoReciboCargaDirecta{IndiceHMAC: indiceHMAC, GrupoHMAC: grupoHMAC,
+		VinculoHMAC: vinculoHMAC, EvidenciaConsumoRef: evidencia, IntencionConfirmacionRef: intencion,
+		HuellaIntencionHMAC: representarHMACCargaDirecta(instantanea.claveAtestacion.identificador, huella),
+		RegistradoEn:        partes.registradoEn, ValidaHasta: solicitud.ValidaHasta}
+	return ports.NuevaPreparacionConsumoReciboCargaV3(solicitud, orden, carga, actor)
+}
+
+// ConsumirPreparado usa una sola transacción D17 para recibo+intención+carga.
+// Una respuesta incierta invalida la preparación local y no reenvía S3.
+func (a *AdaptadorCriptograficoCargaDirecta) ConsumirPreparado(
+	ctx context.Context, preparada ports.PreparacionConsumoReciboCargaV3,
+	autorizacion ports.AutorizacionCargaDocumentalV3,
+) (ports.ComprobanteConsumoReciboCargaDirecta, error) {
+	if err := validarContextoCargaDirecta(ctx); err != nil {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, err
+	}
+	instantanea, err := a.obtenerInstantanea()
+	if err != nil {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, err
+	}
+	defer instantanea.borrar()
+	repo, ok := instantanea.repositorio.(ports.RepositorioConsumoReciboCargaDirectaV3)
+	if !ok || repo == nil {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoDisponible
+	}
+	return preparada.ConsumirParaRegistro(func(solicitud ports.SolicitudConsumirReciboCargaDirecta,
+		registro ports.ConsumoReciboCargaDirectaV3) (ports.ComprobanteConsumoReciboCargaDirecta, error) {
+		resultado, err := repo.ConsumirReciboCargaDirectaV3(ctx, registro)
+		if err != nil {
+			return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoDisponible
+		}
+		if resultado.ValidarContra(registro.Orden) != nil {
+			return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoDisponible
+		}
+		atestacion := calcularAtestacionConsumoCargaDirecta(instantanea.claveAtestacion,
+			solicitud.Contexto, solicitud.SesionRef, resultado, solicitud.ValidaHasta)
+		defer borrarBytesCargaDirecta(atestacion)
+		comprobante, err := ports.NuevoComprobanteConsumoReciboCargaDirecta(solicitud, resultado,
+			representarHMACCargaDirecta(instantanea.claveAtestacion.identificador, atestacion))
+		if err != nil {
+			return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoDisponible
+		}
+		return comprobante, nil
+	}, autorizacion, instantanea.reloj.Ahora().UTC())
+}
+
 func crearMaterialReciboYRegistro(
 	claveIndiceRecibo, claveVinculoRecibo claveHMACCargaDirecta,
 	contexto ports.ContextoOperacionAlmacen,

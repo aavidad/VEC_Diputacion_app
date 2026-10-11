@@ -112,6 +112,68 @@ type EmisionReciboCargaV3 struct {
 
 func (d EmisionReciboCargaV3) Preimagen() ([]byte, error) { return json.Marshal(d) }
 
+type IntencionConfirmacionCargaV3 struct {
+	Accion               string `json:"accion"`
+	CargaID              string `json:"carga_id"`
+	RecursoRef           string `json:"recurso_ref"`
+	PersonaRef           string `json:"persona_ref"`
+	VersionCarga         int    `json:"version_carga"`
+	RegistroContextoRef  string `json:"registro_contexto_ref"`
+	HuellaContextoSHA256 string `json:"huella_contexto_sha256"`
+	IndiceHMAC           string `json:"indice_hmac"`
+	GrupoHMAC            string `json:"grupo_hmac"`
+	VinculoHMAC          string `json:"vinculo_hmac"`
+	EvidenciaConsumoRef  string `json:"evidencia_consumo_ref"`
+	IntencionRef         string `json:"intencion_ref"`
+	HuellaIntencionHMAC  string `json:"huella_intencion_hmac"`
+	RegistradoEn         string `json:"registrado_en"`
+	ValidaHasta          string `json:"valida_hasta"`
+}
+
+func (d IntencionConfirmacionCargaV3) Preimagen() ([]byte, error) { return json.Marshal(d) }
+
+type IntencionPromocionCargaV3 struct {
+	Accion                string `json:"accion"`
+	CargaID               string `json:"carga_id"`
+	RecursoRef            string `json:"recurso_ref"`
+	PersonaRef            string `json:"persona_ref"`
+	VersionCarga          int    `json:"version_carga"`
+	HuellaCargaJSONSHA256 string `json:"huella_carga_json_sha256"`
+	IndicePromocionHMAC   string `json:"indice_promocion_hmac"`
+	OrigenRef             string `json:"origen_ref"`
+	OrigenVersion         string `json:"origen_version"`
+	HuellaOrigenSHA256    string `json:"huella_origen_sha256"`
+	EvidenciaAnalisisRef  string `json:"evidencia_analisis_ref"`
+	RegistroContextoRef   string `json:"registro_contexto_ref"`
+	HuellaContextoSHA256  string `json:"huella_contexto_sha256"`
+}
+
+func (d IntencionPromocionCargaV3) Preimagen() ([]byte, error) { return json.Marshal(d) }
+
+type ResultadoPromocionCargaV3 struct {
+	TransicionCargaV3
+	IndicePromocionHMAC string `json:"indice_promocion_hmac"`
+}
+
+func (d ResultadoPromocionCargaV3) Preimagen() ([]byte, error) {
+	// No incrustar TransicionCargaV3: encoding/json aplanaría el orden de los
+	// campos por reglas de promoción. Esta proyección fija el orden explícito.
+	return json.Marshal(struct {
+		Accion              string `json:"accion"`
+		CargaID             string `json:"carga_id"`
+		RecursoRef          string `json:"recurso_ref"`
+		PersonaRef          string `json:"persona_ref"`
+		VersionEsperada     int    `json:"version_esperada"`
+		HuellaAnterior      string `json:"huella_anterior_sha256"`
+		VersionSiguiente    int    `json:"version_siguiente"`
+		HuellaSiguiente     string `json:"huella_siguiente_sha256"`
+		AutorizacionV1Ref   string `json:"autorizacion_v1_ref"`
+		Evento              string `json:"evento"`
+		IndicePromocionHMAC string `json:"indice_promocion_hmac"`
+	}{d.Accion, d.CargaID, d.RecursoRef, d.PersonaRef, d.VersionEsperada, d.HuellaAnterior,
+		d.VersionSiguiente, d.HuellaSiguiente, d.AutorizacionV1Ref, d.Evento, d.IndicePromocionHMAC})
+}
+
 // HuellaEfectoCargaV3 usa la misma forma de contexto que Documentos V3:
 // organización fija y atributo preimagen_sha256. AD240 recalcula estos bytes.
 func HuellaEfectoCargaV3(preimagen []byte) string {

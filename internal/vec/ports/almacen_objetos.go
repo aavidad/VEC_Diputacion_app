@@ -952,6 +952,17 @@ type ConsumidorReciboCargaDirecta interface {
 	) (ComprobanteConsumoReciboCargaDirecta, error)
 }
 
+type ConsumidorReciboCargaDirectaV3 interface {
+	PrepararConsumo(context.Context, SolicitudConsumirReciboCargaDirecta,
+		domain.CargaDocumental, domain.ResultadoContextoActorRegistradoV2) (PreparacionConsumoReciboCargaV3, error)
+	ConsumirPreparado(context.Context, PreparacionConsumoReciboCargaV3,
+		AutorizacionCargaDocumentalV3) (ComprobanteConsumoReciboCargaDirecta, error)
+}
+
+type RepositorioConsumoReciboCargaDirectaV3 interface {
+	ConsumirReciboCargaDirectaV3(context.Context, ConsumoReciboCargaDirectaV3) (ResultadoConsumoReciboCargaDirecta, error)
+}
+
 // VerificadorAtestacionConsumoReciboCargaDirecta es una dependencia de
 // seguridad obligatoria del nucleo. Una implementacion que solo compruebe la
 // forma o devuelva nil no es apta para produccion: debe verificar con la clave

@@ -571,6 +571,13 @@ func (s *ServicioCargaDocumental) Confirmar(
 		if errConsulta != nil {
 			return domain.CargaDocumental{}, errConsulta
 		}
+		if consulta.EstadoOperativo == ports.EstadoCargaOperacionConfirmacionIniciada ||
+			consulta.EstadoOperativo == ports.EstadoCargaOperacionConfirmacionIndeterminada {
+			return domain.CargaDocumental{}, ports.ErrConfirmacionCargaDocumentalPendiente
+		}
+		if consulta.EstadoOperativo != ports.EstadoCargaOperacionReciboRegistrado {
+			return domain.CargaDocumental{}, ErrCargaDocumentalNoPreparada
+		}
 		if consulta.Manifiesto == nil {
 			return domain.CargaDocumental{}, ports.ErrManifiestoPreparacionNoEncontrado
 		}
@@ -661,19 +668,47 @@ func (s *ServicioCargaDocumental) Confirmar(
 	if err := peticionConsumo.Validar(); err != nil {
 		return domain.CargaDocumental{}, err
 	}
-	comprobante, err := s.consumidorRecibo.ConsumirReciboCargaDirecta(ctx, peticionConsumo)
-	if err != nil {
-		if recuperador, ok := s.consumidorRecibo.(ports.RecuperadorReciboCargaDirecta); ok {
-			if _, errRecuperacion := recuperador.RecuperarConsumoReciboCargaDirecta(ctx, peticionConsumo); errRecuperacion == nil {
-				// El consumo existia; no se sabe si el efecto remoto se
-				// ejecuto. La conciliacion observa, nunca reenvia el PUT.
-				return domain.CargaDocumental{}, ports.ErrConfirmacionCargaDocumentalPendiente
+	var comprobante ports.ComprobanteConsumoReciboCargaDirecta
+	if s.autoridadV3 != nil {
+		consumidorV3, ok := s.consumidorRecibo.(ports.ConsumidorReciboCargaDirectaV3)
+		if !ok {
+			return domain.CargaDocumental{}, ports.ErrConfirmacionCargaDocumentalPendiente
+		}
+		actor, errActor := orden.ActorRegistradoV2.Clonar()
+		if errActor != nil || actor.Contexto.PersonaRef != carga.PrincipalID {
+			return domain.CargaDocumental{}, domain.ErrAutorizacionDenegada
+		}
+		preparacion, errPreparacion := consumidorV3.PrepararConsumo(ctx, peticionConsumo, carga, actor)
+		if errPreparacion != nil {
+			return domain.CargaDocumental{}, errPreparacion
+		}
+		defer preparacion.Descartar()
+		preimagen, errPreimagen := preparacion.Preimagen()
+		if errPreimagen != nil {
+			return domain.CargaDocumental{}, errPreimagen
+		}
+		autorizacion, errAutorizacion := s.autoridadV3.AutorizarConfirmacionIntencionCarga(ctx, preimagen, actor, carga)
+		if errAutorizacion != nil || autorizacion.ValidarPara(ports.AccionCargaDocumentalConfirmarIntencionV3,
+			preimagen, actor, carga, s.reloj.Ahora().UTC()) != nil {
+			return domain.CargaDocumental{}, domain.ErrAutorizacionDenegada
+		}
+		comprobante, err = consumidorV3.ConsumirPreparado(ctx, preparacion, autorizacion)
+		if err != nil {
+			return domain.CargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(err)
+		}
+	} else {
+		comprobante, err = s.consumidorRecibo.ConsumirReciboCargaDirecta(ctx, peticionConsumo)
+		if err != nil {
+			if recuperador, ok := s.consumidorRecibo.(ports.RecuperadorReciboCargaDirecta); ok {
+				if _, errRecuperacion := recuperador.RecuperarConsumoReciboCargaDirecta(ctx, peticionConsumo); errRecuperacion == nil {
+					return domain.CargaDocumental{}, ports.ErrConfirmacionCargaDocumentalPendiente
+				}
 			}
+			if errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
+				return domain.CargaDocumental{}, ports.ErrReciboCargaDirectaNoValido
+			}
+			return domain.CargaDocumental{}, ports.ErrReciboCargaDirectaNoDisponible
 		}
-		if errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
-			return domain.CargaDocumental{}, ports.ErrReciboCargaDirectaNoValido
-		}
-		return domain.CargaDocumental{}, ports.ErrReciboCargaDirectaNoDisponible
 	}
 	confirmacionAlmacen, err := ports.NuevaSolicitudConfirmarCargaDirecta(
 		ctx, contextoConfirmacion, orden.SesionRef, comprobante, s.verificadorRecibo,
@@ -775,7 +810,7 @@ func (s *ServicioCargaDocumental) autorizarTransicionV3(
 	default:
 		return ports.ConfirmacionTransicionCargaDocumental{}, ports.ErrConfirmacionCargaDocumentalInvalida
 	}
-	if err != nil || autorizacion.ValidarPara(confirmacion.Auditoria.Action, preimagen,
+	if err != nil || autorizacion.ValidarPara(ports.AccionTransicionCargaDocumentalV3(confirmacion.Auditoria.Action), preimagen,
 		actor, confirmacion.Carga, s.reloj.Ahora().UTC()) != nil {
 		return ports.ConfirmacionTransicionCargaDocumental{}, ports.ErrConfirmacionCargaDocumentalInvalida
 	}
@@ -802,6 +837,7 @@ func (s *ServicioCargaDocumental) AnalizarYPromover(
 		return domain.CargaDocumental{}, err
 	}
 	var carga domain.CargaDocumental
+	var estadoOperativo ports.EstadoOperativoCargaDocumental
 	var err error
 	if s.autoridadV3 != nil {
 		consulta, errConsulta := s.consultarCargaPropiaV3(ctx, orden.CargaID, orden.Recurso.Referencia,
@@ -810,6 +846,7 @@ func (s *ServicioCargaDocumental) AnalizarYPromover(
 			return domain.CargaDocumental{}, errConsulta
 		}
 		carga = consulta.Carga
+		estadoOperativo = consulta.EstadoOperativo
 	} else {
 		carga, err = s.repositorio.Obtener(ctx, orden.CargaID)
 	}
@@ -818,6 +855,16 @@ func (s *ServicioCargaDocumental) AnalizarYPromover(
 	}
 	if err := validarRecursoCarga(carga, orden.Recurso, orden.Finalidad, orden.CorrelacionRef); err != nil {
 		return domain.CargaDocumental{}, err
+	}
+	if s.autoridadV3 != nil {
+		if estadoOperativo == ports.EstadoCargaOperacionPromocionIniciada ||
+			estadoOperativo == ports.EstadoCargaOperacionPromocionIndeterminada {
+			return domain.CargaDocumental{}, ports.ErrConfirmacionCargaDocumentalPendiente
+		}
+		if (carga.Estado == domain.EstadoCargaDocumentalCuarentena && estadoOperativo != ports.EstadoCargaOperacionCuarentena) ||
+			(carga.Estado == domain.EstadoCargaDocumentalAnalizadaLimpia && estadoOperativo != ports.EstadoCargaOperacionAnalizadaLimpia) {
+			return domain.CargaDocumental{}, ErrCargaDocumentalYaProcesada
+		}
 	}
 	if carga.Estado == domain.EstadoCargaDocumentalAnalizadaLimpia && carga.ContenidoCuarentena != nil && carga.Analisis != nil {
 		capacidadesAlmacen, err := s.capacidadesAlmacenAnalisis(ctx, carga.TamanoDeclarado)
@@ -1018,16 +1065,49 @@ func (s *ServicioCargaDocumental) promoverCargaLimpia(
 		Contexto: contexto, ClaveIdempotencia: indicePromocion,
 		Origen: objetoOrigen, EvidenciaAnalisisRef: carga.Analisis.EvidenciaRef,
 	}
+	if s.autoridadV3 != nil {
+		repositorio, ok := s.repositorio.(ports.RepositorioIniciarPromocionCargaV3)
+		if !ok {
+			return domain.CargaDocumental{}, ports.ErrConfirmacionCargaDocumentalPendiente
+		}
+		actor, errActor := orden.ActorRegistradoV2.Clonar()
+		if errActor != nil || actor.Contexto.PersonaRef != carga.PrincipalID {
+			return domain.CargaDocumental{}, domain.ErrAutorizacionDenegada
+		}
+		inicio := ports.SolicitudIniciarPromocionCargaV3{Carga: carga, ActorRegistradoV2: actor,
+			IndicePromocionHMAC: indicePromocion}
+		preimagen, errPreimagen := ports.PreimagenIniciarPromocionCargaV3(inicio)
+		if errPreimagen != nil {
+			return domain.CargaDocumental{}, errPreimagen
+		}
+		autorizacion, errAutorizacion := s.autoridadV3.AutorizarPromocionIntencionCarga(ctx, preimagen, actor, carga)
+		if errAutorizacion != nil {
+			return domain.CargaDocumental{}, domain.ErrAutorizacionDenegada
+		}
+		inicio.AutorizacionV3 = autorizacion
+		if inicio.Validar(s.reloj.Ahora().UTC()) != nil {
+			return domain.CargaDocumental{}, domain.ErrAutorizacionDenegada
+		}
+		if _, err := repositorio.IniciarPromocion(ctx, inicio); err != nil {
+			return domain.CargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(err)
+		}
+	}
 	instantePromocion := s.reloj.Ahora().UTC()
 	if contexto.ValidarParaEn(ports.AccionAlmacenPromover, instantePromocion) != nil {
 		return domain.CargaDocumental{}, domain.ErrAutorizacionDenegada
 	}
 	resultado, err := s.almacen.Promover(ctx, solicitud)
 	if err != nil {
+		if s.autoridadV3 != nil {
+			return domain.CargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(err)
+		}
 		return domain.CargaDocumental{}, err
 	}
 	origen := objetoAlmacenadoDesdeContenido(*carga.ContenidoCuarentena)
 	if resultado.ValidarPromocion(solicitud, origen, capacidades) != nil {
+		if s.autoridadV3 != nil {
+			return domain.CargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(ErrResultadoCargaDocumentalInvalido)
+		}
 		return domain.CargaDocumental{}, ErrResultadoCargaDocumentalInvalido
 	}
 	instante := s.reloj.Ahora().UTC()
@@ -1048,6 +1128,7 @@ func (s *ServicioCargaDocumental) promoverCargaLimpia(
 	if err != nil {
 		return domain.CargaDocumental{}, err
 	}
+	confirmacion.IndicePromocionHMAC = indicePromocion
 	confirmacion, err = s.autorizarTransicionV3(ctx, orden.ActorRegistradoV2, confirmacion)
 	if err != nil {
 		return domain.CargaDocumental{}, err

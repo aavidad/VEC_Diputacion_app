@@ -209,7 +209,7 @@ func (r *RepositorioCargasDirectas) ConsultarPropia(ctx context.Context, s vecpo
 		salida.Carga.RecursoRef != s.RecursoRef || !salida.Estado.Valido() {
 		return vecports.ConsultaCargaPropiaV3{}, ErrRepositorioNoDisponible
 	}
-	respuesta := vecports.ConsultaCargaPropiaV3{Carga: salida.Carga}
+	respuesta := vecports.ConsultaCargaPropiaV3{Carga: salida.Carga, EstadoOperativo: salida.Estado}
 	if s.IncluyeManifiesto {
 		if len(salida.Manifiesto) == 0 || string(salida.Manifiesto) == "null" {
 			return vecports.ConsultaCargaPropiaV3{}, vecports.ErrManifiestoPreparacionNoEncontrado
@@ -264,6 +264,44 @@ func (r *RepositorioCargasDirectas) CerrarIntentoNoRecuperable(ctx context.Conte
 var _ vecports.RepositorioConsultaCargasDocumentalesV3 = (*RepositorioCargasDirectas)(nil)
 var _ vecports.RepositorioConciliacionCargaV3 = (*RepositorioCargasDirectas)(nil)
 
+func (r *RepositorioCargasDirectas) IniciarPromocion(ctx context.Context, s vecports.SolicitudIniciarPromocionCargaV3) (vecports.EstadoOperativoCargaDocumental, error) {
+	if r == nil || r.base == nil || s.Validar(time.Now().UTC()) != nil {
+		return "", vecports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	pre, err := vecports.PreimagenIniciarPromocionCargaV3(s)
+	if err != nil {
+		return "", err
+	}
+	auth, err := autorizacionCargaJSON(s.AutorizacionV3)
+	if err != nil {
+		return "", vecports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	m, err := materialCargaV3(s.AutorizacionV3)
+	if err != nil {
+		return "", err
+	}
+	raw, err := r.base.transaccion(ctx,
+		"SELECT vec_documentos.iniciar_promocion_carga_directa_v3_v1($1,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+		pre, string(auth), m.capacidad, m.decision, m.motivo, m.contexto,
+		m.persona, m.perfil, m.payload, m.sobre, m.evidencia, m.raiz)
+	if err != nil {
+		return "", err
+	}
+	var salida struct {
+		CargaID string                                  `json:"carga_id"`
+		Estado  vecports.EstadoOperativoCargaDocumental `json:"estado_operativo"`
+		Indice  string                                  `json:"indice_promocion_hmac"`
+	}
+	if json.Unmarshal(raw, &salida) != nil || salida.CargaID != s.Carga.ID ||
+		salida.Estado != vecports.EstadoCargaOperacionPromocionIniciada ||
+		salida.Indice != s.IndicePromocionHMAC {
+		return "", ErrRepositorioNoDisponible
+	}
+	return salida.Estado, nil
+}
+
+var _ vecports.RepositorioIniciarPromocionCargaV3 = (*RepositorioCargasDirectas)(nil)
+
 // El protocolo V3 usa ConsultarPropia; estos métodos no leen por ID.
 func (*RepositorioCargasDirectas) Obtener(context.Context, string) (vecdomain.CargaDocumental, error) {
 	return vecdomain.CargaDocumental{}, vecports.ErrRepositorioCargasNoDisponible
@@ -275,9 +313,74 @@ func (*RepositorioCargasDirectas) AbandonarReserva(context.Context, vecports.Tok
 	// La reserva iniciada no se roba ni se revierte después de una respuesta incierta.
 	return vecports.ErrPreparacionCargaDocumentalPendiente
 }
-func (*RepositorioCargasDirectas) ConfirmarTransicion(context.Context, vecports.ConfirmacionTransicionCargaDocumental) error {
-	// Falta intención V3 previa al efecto S3; la ruta pública sigue cerrada.
-	return vecports.ErrConfirmacionCargaDocumentalPendiente
+func (r *RepositorioCargasDirectas) ConfirmarTransicion(ctx context.Context, c vecports.ConfirmacionTransicionCargaDocumental) error {
+	if r == nil || r.base == nil || c.ValidarParaPersistenciaV3(time.Now().UTC()) != nil {
+		return vecports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	var funcion string
+	var estadoEsperado string
+	switch c.Carga.Estado {
+	case vecdomain.EstadoCargaDocumentalCuarentena:
+		if c.AutorizacionV3.Accion != vecports.AccionCargaDocumentalConfirmarResultadoV3 {
+			return vecports.ErrConfirmacionCargaDocumentalInvalida
+		}
+		funcion = "vec_documentos.confirmar_resultado_carga_directa_v3_v1"
+		estadoEsperado = "cuarentena"
+	case vecdomain.EstadoCargaDocumentalAnalizadaLimpia, vecdomain.EstadoCargaDocumentalRetenidaSeguridad:
+		if c.AutorizacionV3.Accion != vecports.AccionCargaDocumentalAnalizarV3 {
+			return vecports.ErrConfirmacionCargaDocumentalInvalida
+		}
+		funcion = "vec_documentos.registrar_analisis_carga_directa_v3_v1"
+		estadoEsperado = string(c.Carga.Estado)
+	case vecdomain.EstadoCargaDocumentalAdmitida:
+		if c.AutorizacionV3.Accion != vecports.AccionCargaDocumentalPromoverResultadoV3 {
+			return vecports.ErrConfirmacionCargaDocumentalInvalida
+		}
+		funcion = "vec_documentos.confirmar_promocion_carga_directa_v3_v1"
+		estadoEsperado = "admitida"
+	default:
+		// La promoción necesita una intención V3 anterior al efecto S3.
+		return vecports.ErrConfirmacionCargaDocumentalPendiente
+	}
+	c = vecports.InstantaneaConfirmacionTransicionCargaDocumental(c)
+	pre, err := vecports.PreimagenTransicionCargaDocumentalV3(c)
+	if err != nil {
+		return err
+	}
+	carga, err := json.Marshal(c.Carga)
+	if err != nil {
+		return vecports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	auth, err := autorizacionCargaJSON(c.AutorizacionV3)
+	if err != nil {
+		return vecports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	m, err := materialCargaV3(c.AutorizacionV3)
+	if err != nil {
+		return err
+	}
+	raw, err := r.base.transaccion(ctx,
+		"SELECT "+funcion+"($1,$2,$3::jsonb,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
+		pre, carga, string(auth), m.capacidad, m.decision, m.motivo, m.contexto,
+		m.persona, m.perfil, m.payload, m.sobre, m.evidencia, m.raiz)
+	if err != nil {
+		return err
+	}
+	var salida struct {
+		CargaID string                    `json:"carga_id"`
+		Estado  string                    `json:"estado_operativo"`
+		Carga   vecdomain.CargaDocumental `json:"carga"`
+	}
+	if json.Unmarshal(raw, &salida) != nil || salida.CargaID != c.Carga.ID || salida.Estado != estadoEsperado ||
+		salida.Carga.Validar() != nil {
+		return ErrRepositorioNoDisponible
+	}
+	huellaSQL, err := salida.Carga.HuellaSHA256()
+	huellaGo, errGo := c.Carga.HuellaSHA256()
+	if err != nil || errGo != nil || huellaSQL != huellaGo {
+		return ErrRepositorioNoDisponible
+	}
+	return nil
 }
 
 var _ vecports.RepositorioCargasDocumentales = (*RepositorioCargasDirectas)(nil)
