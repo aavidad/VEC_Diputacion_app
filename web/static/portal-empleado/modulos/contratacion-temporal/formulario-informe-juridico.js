@@ -8,10 +8,11 @@ import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=20
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { cargarTextos } from "../../../comun/textos.js";
+import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
-  "confirmarOperacion", "mensajes", "locale", "zonaHoraria", "anunciar",
+  "confirmarOperacion", "mensajes", "locale", "zonaHoraria", "anunciar", "cargarTextosDocumento",
   "alConfirmar",
 ]);
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
@@ -223,6 +224,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
     confirmarOperacion = () => false, mensajes = {}, locale = "es-ES",
     zonaHoraria = "Europe/Madrid", anunciar = () => {}, alConfirmar = () => {},
+    cargarTextosDocumento = cargarTextos,
   } = configuracion;
   configuracion = null;
   if (!raiz || typeof raiz.addEventListener !== "function"
@@ -233,7 +235,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     || typeof cliente?.consultarDetalleRRHH !== "function"
     || typeof generarClaveIdempotencia !== "function"
     || typeof confirmarOperacion !== "function" || typeof anunciar !== "function"
-    || typeof alConfirmar !== "function"
+    || typeof alConfirmar !== "function" || typeof cargarTextosDocumento !== "function"
     || typeof AbortController !== "function") {
     throw new TypeError("dependencias del formulario de informe jurídico no válidas");
   }
@@ -244,6 +246,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
   let confirmarActual = confirmarOperacion;
   let anunciarActual = anunciar;
   let alConfirmarActual = alConfirmar;
+  let cargarTextosActual = cargarTextosDocumento;
   let t = crearTraductorContratacionTemporal(mensajes);
   let mensajesHistorial = { ...mensajes };
   let formateador = new Intl.DateTimeFormat(locale, {
@@ -270,6 +273,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
   zonaHoraria = null;
   anunciar = null;
   alConfirmar = null;
+  cargarTextosDocumento = null;
 
   function enfocar(selector) {
     const elemento = raizActual?.querySelector?.(selector);
@@ -301,16 +305,26 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
   function prepararTextosDocumento() {
     if (cargaTextosDocumento) return cargaTextosDocumento;
     cargaTextosDocumento = Promise.resolve()
-      .then(() => cargarTextos("contratacion-temporal-informe-juridico"))
-      .then((textos) => {
+      .then(async () => {
+        const modulo = "contratacion-temporal-informe-juridico";
+        let textos = await cargarTextosActual(modulo);
         if (!montado) return;
-        textosDocumento = textos;
-        if (estado.recibo) {
-          const documento = raizActual.querySelector("[data-ct-informe-documento]");
-          if (typeof documento?.outerHTML === "string") {
-            documento.outerHTML = renderizarDocumento(estado.recibo, t, textosDocumento);
-          } else repintar();
+        let documentoNuevo;
+        try {
+          documentoNuevo = renderizarDocumento(estado.recibo, t, textos);
+        } catch (error) {
+          if (textos.idioma === IDIOMA_POR_DEFECTO) throw error;
+          textos = await cargarTextosActual(modulo, {
+            idioma: IDIOMA_POR_DEFECTO, porDefecto: IDIOMA_POR_DEFECTO,
+          });
+          if (!montado) return;
+          documentoNuevo = renderizarDocumento(estado.recibo, t, textos);
         }
+        if (!montado) return;
+        const documento = raizActual.querySelector("[data-ct-informe-documento]");
+        if (typeof documento?.outerHTML === "string") documento.outerHTML = documentoNuevo;
+        textosDocumento = textos;
+        if (typeof documento?.outerHTML !== "string") repintar();
       }).catch(() => {
         // El documento original sigue consultable si tampoco carga el idioma de respaldo.
       });
@@ -511,6 +525,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     confirmarActual = null;
     anunciarActual = null;
     alConfirmarActual = null;
+    cargarTextosActual = null;
     controlador = null;
     vuelo = null;
     solicitudActual = null;

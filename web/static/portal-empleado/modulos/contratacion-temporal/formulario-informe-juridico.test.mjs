@@ -131,6 +131,51 @@ test("conserva documento y recibo si el historial no corresponde", async () => {
   assert.deepEqual(confirmados, [recibo()]);
 });
 
+test("un catálogo incompleto usa el idioma de respaldo y no impide recuperar el historial", async () => {
+  const raiz = raizFalsa();
+  const idiomas = [];
+  const catalogo = JSON.parse(await readFile(new URL(
+    "../../../textos/es/contratacion-temporal-informe-juridico.json", import.meta.url,
+  ), "utf8"));
+  const cargarTextosDocumento = async (_modulo, opciones) => {
+    idiomas.push(opciones ?? null);
+    const mensajes = opciones ? catalogo.general : { sin_estructura: "Incomplete" };
+    return {
+      idioma: opciones ? opciones.idioma : "en",
+      traducir(ruta) {
+        const texto = mensajes[ruta.split(".")[1]];
+        if (!texto) throw new Error("clave ausente");
+        return texto;
+      },
+    };
+  };
+  const desmontar = montarFormularioInformeJuridico({
+    raiz,
+    cliente: {
+      async prepararInformeJuridico() { return recibo(); },
+      async consultarDetalleRRHH() {
+        return { resumen: { expediente_ref: EXPEDIENTE, version: 5 }, hitos: [{
+          secuencia: 5, version_expediente: 5,
+          accion_clave: "contratacion_temporal.informe_juridico.generar",
+          fase_destino: "informe_juridico", realizada_en: recibo().confirmada_en,
+        }] };
+      },
+    },
+    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 4 },
+    generarClaveIdempotencia: () => CLAVE, confirmarOperacion: () => true,
+    cargarTextosDocumento,
+  });
+  await raiz.enviar();
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(idiomas.length, 2);
+  assert.equal(idiomas[1].idioma, idiomas[1].porDefecto);
+  assert.match(raiz.innerHTML, /data-ct-informe-recibo/u);
+  assert.match(raiz.innerHTML, /data-ct-informe-historial/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-informe-historial-error/u);
+  assert.match(raiz.innerHTML, /No se puede mostrar este documento por apartados/u);
+  desmontar();
+});
+
 test("ofrece el informe al reabrir un expediente asignado", () => {
   const expediente = {
     expediente_ref: EXPEDIENTE,
