@@ -44,7 +44,7 @@ function presentador({ datos, filtros, modal = null }) {
     obtenerDatosCandidatosBolsa: () => datos, obtenerEstadoCandidatos: () => filtros, obtenerModalFicha: () => modal,
   });
 }
-const listo = (extra = {}) => ({ carga: "listo", error: "", datos: { bolsa: BOLSA, candidatos: CANDIDATOS, contactos: [], hay_mas: false, cursor_siguiente: null, ...extra } });
+const listo = (extra = {}) => ({ carga: "listo", error: "", datos: { bolsa: BOLSA, candidatos: CANDIDATOS, contactos: [], respuestas_portal: { llamamiento_ref: LLAMAMIENTO, respuestas: [] }, hay_mas: false, cursor_siguiente: null, ...extra } });
 
 test("el contrato acepta solo canales conocidos y bien formados", () => {
   const canales = validarCanalesLlamamiento([CORREO, TELEFONO, { canal: "telegram", modo: "manual", al_emitir: false, seguimiento: false }]);
@@ -336,7 +336,8 @@ test("el enlace al seguimiento conserva el origen de la petición para el siguie
 test("si alguien aceptó (por teléfono o en Mi bolsa) no se ofrece otro llamamiento", () => {
   const filtros = { estado: "", texto: "", seguimiento: { llamamiento_ref: LLAMAMIENTO, bolsa_ref: BOLSA.bolsa_ref } };
   const canales = validarCanalesLlamamiento([CORREO, TELEFONO]);
-  const ver = (candidatos, contactos = []) => presentador({ datos: listo({ canales_llamamiento: canales, candidatos, contactos }), filtros }).renderizarVista("bolsa-candidatos");
+  const ver = (candidatos, contactos = [], respuestas = []) => presentador({ datos: listo({ canales_llamamiento: canales, candidatos, contactos,
+    respuestas_portal: { llamamiento_ref: LLAMAMIENTO, respuestas } }), filtros }).renderizarVista("bolsa-candidatos");
   const yago = persona(1, "Yago Lozano Hidalgo", { estado_clave: "renuncia" });
   // Aceptación registrada por teléfono.
   const telefono = ver([yago, persona(2, "Lucía Martín Serrano")], [contacto(2, "telefono", "acepta", "2026-10-08T09:00:00Z")]);
@@ -344,10 +345,13 @@ test("si alguien aceptó (por teléfono o en Mi bolsa) no se ofrece otro llamami
   assert.doesNotMatch(telefono, /Nadie pendiente de llamar|Siguiente a llamar/u);
   assert.match(telefono, /<span class="estado-chip exito">Aceptado por Lucía Martín Serrano<\/span><\/div>/u);
   assert.match(telefono, /Lucía Martín Serrano<\/strong><\/button> <span class="estado-chip exito">Ha aceptado<\/span>/u);
-  // Aceptación desde Mi bolsa: la respuesta llega en el último llamamiento de la persona.
-  const portal = ver([yago, persona(2, "Lucía Martín Serrano", { ultimo_llamamiento: { ...CANDIDATOS[1].ultimo_llamamiento, resultado: "aceptado" } })]);
+  // Aceptación desde Mi bolsa: viene de la respuesta propia asociada a este llamamiento,
+  // aunque el último contacto siga indicando que el correo está pendiente.
+  const portal = ver([yago, persona(2, "Lucía Martín Serrano")], [], [{ participacion_ref: "participacion:sintetica:2", respuesta: "acepta" }]);
   assert.doesNotMatch(portal, /data-bolsa-accion="iniciar-b7"/u);
   assert.match(portal, /Aceptado por Lucía Martín Serrano/u);
+  const sinFuente = presentador({ datos: listo({ canales_llamamiento: canales, candidatos: [yago], respuestas_portal: null }), filtros }).renderizarVista("bolsa-candidatos");
+  assert.doesNotMatch(sinFuente, /data-bolsa-accion="iniciar-b7"/u, "sin lectura propia no se ofrece otro llamamiento");
   // Ya incorporándose por este llamamiento, aunque la respuesta no conste.
   const incorporada = ver([persona(2, "Lucía Martín Serrano", { estado_clave: "pendiente_incorporacion" })]);
   assert.doesNotMatch(incorporada, /data-bolsa-accion="iniciar-b7"/u);

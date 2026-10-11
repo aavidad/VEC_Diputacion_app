@@ -248,6 +248,20 @@ test("validarRespuestaCandidatosBolsa acepta fixtures derivadas del dataset sint
   }
 });
 
+test("la respuesta del portal en seguimiento se limita al mismo llamamiento y a candidatos presentes", () => {
+  const { envelopeCandidatos } = construirFixturesDesdeDemo();
+  const participacion = envelopeCandidatos.data.candidatos[0].participacion_ref;
+  const respuestas_portal = { llamamiento_ref: "llamamiento:sintetico:7", respuestas: [{ participacion_ref: participacion, respuesta: "acepta" }] };
+  const base = { ...envelopeCandidatos.data, respuestas_portal };
+  assert.equal(validarRespuestaCandidatosBolsa({ data: base }).respuestas_portal.respuestas[0].respuesta, "acepta");
+  assert.throws(() => validarRespuestaCandidatosBolsa({ data: { ...base, respuestas_portal: {
+    ...respuestas_portal, respuestas: [{ participacion_ref: "participacion:ajena", respuesta: "acepta" }],
+  } } }), /incoherente/u);
+  assert.throws(() => validarRespuestaCandidatosBolsa({ data: { ...base, respuestas_portal: {
+    ...respuestas_portal, respuestas: [respuestas_portal.respuestas[0], respuestas_portal.respuestas[0]],
+  } } }), /incoherente/u);
+});
+
 test("B45 acepta restricciones con fecha y B46 retorno al turno, pero rechaza cruces", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const base = envelopeCandidatos.data.candidatos[0];
