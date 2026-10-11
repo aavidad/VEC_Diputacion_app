@@ -31,6 +31,22 @@ BEGIN
  x:=vec_autorizacion.validar_material_acto_admin_v1(jsonb_set(m,'{objetivo}',o||jsonb_build_object('centro_ref','centro:prueba'))::text,true);
  IF x#>>'{objetivo,centro_ref}' IS DISTINCT FROM 'centro:prueba' THEN RAISE EXCEPTION 'AUT74: centro opcional perdido'; END IF;
  BEGIN
+  PERFORM vec_autorizacion.validar_material_acto_admin_v1(
+   jsonb_set(m,'{objetivo,vigente_desde}',to_jsonb(clock_timestamp()+interval '1 day'))::text,true);
+  RAISE EXCEPTION 'AUT74: inicio futuro admitido';
+ EXCEPTION WHEN invalid_parameter_value THEN
+  GET STACKED DIAGNOSTICS codigo=RETURNED_SQLSTATE;
+  IF codigo<>'22023' THEN RAISE; END IF;
+ END;
+ BEGIN
+  PERFORM vec_autorizacion.validar_material_acto_admin_v1(
+   jsonb_set(m,'{objetivo,vigente_hasta}',to_jsonb(clock_timestamp()-interval '1 day'))::text,true);
+  RAISE EXCEPTION 'AUT74: vigencia terminada admitida';
+ EXCEPTION WHEN invalid_parameter_value THEN
+  GET STACKED DIAGNOSTICS codigo=RETURNED_SQLSTATE;
+  IF codigo<>'22023' THEN RAISE; END IF;
+ END;
+ BEGIN
   PERFORM vec_autorizacion.validar_material_acto_admin_v1((m||jsonb_build_object('asignacion_ref',''))::text,true);
   RAISE EXCEPTION 'AUT74: asignación vacía admitida';
  EXCEPTION WHEN invalid_parameter_value THEN

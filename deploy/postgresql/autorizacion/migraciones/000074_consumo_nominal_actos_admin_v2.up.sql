@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP on
 -- AUT74: adapta los contratos emitidos por Go v2 y liga AUT24 al consumidor AD236.
 -- Definiciones literales de copia local HZ20; conserva ACL y alcance de las fachadas.
+-- preparar_preimagen_admin_v1 queda obsoleta para actos v2: no aporta vigente_desde.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC';
@@ -58,13 +59,13 @@ BEGIN
   RAISE EXCEPTION 'AUT24: DTO de acto invalido' USING ERRCODE='22023'; END IF;
  r:=vec_autorizacion.resolver_rol_administrable_v1(m->>'rol_version_ref');
  IF r->>'huella_sha256' IS DISTINCT FROM m->>'rol_huella_sha256'
- OR (p_propuesta AND r->>'clase' NOT IN ('administrador','intervencion'))
+ OR (p_propuesta AND (r->>'clase' IN ('administrador','intervencion')) IS NOT TRUE)
  OR (NOT p_propuesta AND r->>'clase' IS DISTINCT FROM 'ordinario')
  OR ((r->>'unidad_requerida')::boolean AND vec_autorizacion.texto_positivo_valido(m->>'unidad_ref',512) IS NOT TRUE)
  OR (NOT (r->>'unidad_requerida')::boolean AND m ? 'unidad_ref')
  OR (m ? 'referencia_acto' AND vec_autorizacion.texto_positivo_valido(m->>'referencia_acto',512) IS NOT TRUE)
  OR (m->>'actor_persona_ref' IS NOT DISTINCT FROM o->>'persona_ref'
-  AND NOT(p_propuesta AND r->>'clase'='administrador' AND m->>'operacion'='revocar')) THEN
+  AND (p_propuesta AND r->>'clase'='administrador' AND m->>'operacion'='revocar') IS NOT TRUE) THEN
   RAISE EXCEPTION 'AUT24: rol, unidad o independencia invalidos' USING ERRCODE='42501'; END IF;
  IF NOT o ?& ARRAY['cuenta_ref','cuenta_version','persona_ref','persona_version','perfil_ref','perfil_version','vinculo_ref','vinculo_version','huella_sha256','revision_continuidad','procedencia_ref','procedencia_version','procedencia_huella_sha256','vigente_hasta','vigente_desde']
  OR (SELECT count(*) FROM jsonb_object_keys(o))<>(CASE WHEN o ? 'centro_ref' THEN 16 ELSE 15 END)
@@ -78,8 +79,9 @@ BEGIN
  OR (o->>'cuenta_version')::numeric NOT BETWEEN 1 AND 18446744073709551615
  OR (o->>'persona_version')::numeric NOT BETWEEN 1 AND 18446744073709551615
  OR (o->>'procedencia_version')::numeric NOT BETWEEN 1 AND 18446744073709551615
- OR NOT isfinite((o->>'vigente_desde')::timestamptz)
- OR (m->>'operacion'='otorgar' AND ((o->>'perfil_version')::numeric<>0 OR (o->>'vinculo_version')::numeric<>0 OR NOT isfinite((o->>'vigente_hasta')::timestamptz)))
+ OR isfinite((o->>'vigente_desde')::timestamptz) IS NOT TRUE
+ OR (o->>'vigente_desde')::timestamptz > clock_timestamp()
+ OR (m->>'operacion'='otorgar' AND ((o->>'perfil_version')::numeric<>0 OR (o->>'vinculo_version')::numeric<>0 OR isfinite((o->>'vigente_hasta')::timestamptz) IS NOT TRUE OR (o->>'vigente_hasta')::timestamptz <= clock_timestamp()))
  OR (m->>'operacion'='revocar' AND ((o->>'perfil_version')::numeric<1 OR (o->>'vinculo_version')::numeric<1 OR o->>'vigente_hasta'<>'0001-01-01T00:00:00Z')) THEN
   RAISE EXCEPTION 'AUT24: preimagen estructural invalida' USING ERRCODE='22023'; END IF;
  RETURN m;
@@ -172,7 +174,7 @@ BEGIN
    AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','TimeZone=UTC'])
  THEN RAISE EXCEPTION 'AUT74: postimagen ACL o propietario divergente' USING ERRCODE='55000'; END IF;
  SELECT encode(sha256(convert_to(pg_get_functiondef('vec_autorizacion.validar_material_acto_admin_v1(text,boolean)'::regprocedure),'UTF8')),'hex') INTO h;
- IF h IS DISTINCT FROM '2ce7b31acb11c859d437774b6c5235e0639d1cbfc8825113889f2440b55eb6ed'
+ IF h IS DISTINCT FROM '3a32c77425e9f1cb4f06ad932bed514ccc42efa69d43014e6c87549c388c13fd'
  THEN RAISE EXCEPTION 'AUT74: validador postimagen actual=%',h USING ERRCODE='55000'; END IF;
  SELECT encode(sha256(convert_to(pg_get_functiondef('vec_autorizacion.consumir_material_admin_interno_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'UTF8')),'hex') INTO h;
  IF h IS DISTINCT FROM '91bc582ee90cc8006336df048febdff3041e6b207985c4eccf28b1649bc4f6fe'

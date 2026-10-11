@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- AD236: consumidor nominal para los cinco actos ADMIN previstos por AUT24.
--- Preimagen literal del núcleo tras HZ20 (AD233/AD234/AD235); ninguna clave ni concesión se crea.
+-- Preimagen literal final del núcleo tras AD229 (cadena de inscripción); ninguna clave ni concesión se crea.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC';
@@ -18,16 +18,16 @@ BEGIN
  OR to_regprocedure('vec_autorizacion.consumir_material_admin_interno_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  THEN RAISE EXCEPTION 'AD236: preimagen estructural incompatible' USING ERRCODE='55000'; END IF;
  SELECT encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') INTO h;
- IF h IS DISTINCT FROM '3538c97c205e0cc40b78ea280e7e458cca9694759a83d157c8049b9d9499d335'
+ IF h IS DISTINCT FROM 'd6adb74c9ee12498fe02e686ed69a63091669f551184152abbc3e16f3877ca76'
  OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef AND p.provolatile='v'
    AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
    AND p.proacl::text='{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario}')
- THEN RAISE EXCEPTION 'AD236: núcleo HZ20 actual=% esperado=3538c97c205e0cc40b78ea280e7e458cca9694759a83d157c8049b9d9499d335',h USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD236: núcleo AD229 actual=% esperado=d6adb74c9ee12498fe02e686ed69a63091669f551184152abbc3e16f3877ca76',h USING ERRCODE='55000'; END IF;
  SELECT encode(sha256(convert_to(pg_get_constraintdef(c.oid,false),'UTF8')),'hex') INTO h
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF h IS DISTINCT FROM '8cc696472242b7238df78d0b09f7a39e8bf5ea64450d847b75c520986edfffd5'
- THEN RAISE EXCEPTION 'AD236: audiencias HZ20 actual=% esperado=8cc696472242b7238df78d0b09f7a39e8bf5ea64450d847b75c520986edfffd5',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM '82fcb35bd6dbf808cb1a4e9960df853afd7b9d9412ea75d09b38f2871a473b8d'
+ THEN RAISE EXCEPTION 'AD236: audiencias AD229 actual=% esperado=82fcb35bd6dbf808cb1a4e9960df853afd7b9d9412ea75d09b38f2871a473b8d',h USING ERRCODE='55000'; END IF;
 END $pre$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 CREATE FUNCTION vec_autorizacion_atestada_v3.login_actos_admin_perfiles_valido_v1()
@@ -93,7 +93,7 @@ BEGIN
         RETURN;
     END IF;
     IF session_user = 'vec_externo_bolsa_desarrollo' THEN
-        IF p_perfil_mutacion NOT IN ('consulta_participaciones_propias_bolsa','portal_candidato_bolsa')
+        IF p_perfil_mutacion NOT IN ('consulta_participaciones_propias_bolsa','portal_candidato_bolsa','presentacion_inscripcion')
            OR p_perfil_mutacion IS NULL THEN
             RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='perfil externo VEC-AD-3 rechazado';
         END IF;
@@ -120,11 +120,33 @@ BEGIN
                       JOIN roles r ON r.rol_id=m.member)
                     SELECT 1 FROM roles
                      WHERE rol_id<>'vec_bolsa_llamamientos_portal_externo'::pg_catalog.regrole)))
-       OR NOT (
+       OR (
            (p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_plan_nominal_firma_ct'
             AND vec_autorizacion_atestada_v3.login_gobierno_plan_firma_valido_v1() IS TRUE)
            OR (p_perfil_mutacion IS NOT DISTINCT FROM 'version_rol_bolsa'
             AND vec_autorizacion_atestada_v3.login_version_rol_bolsa_valido_v1() IS TRUE)
+           OR (p_perfil_mutacion IS NOT DISTINCT FROM 'incorporacion_inscripcion'
+            AND session_user='vec_bolsa_llamamientos_desarrollo'
+            AND current_setting('role')='none'
+            AND EXISTS(SELECT 1 FROM pg_roles l JOIN pg_auth_members m ON m.member=l.oid
+              WHERE l.rolname=session_user AND l.rolcanlogin AND l.rolinherit
+              AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls)
+              AND l.rolconfig IS NULL AND m.roleid='vec_bolsa_llamamientos_ejecutor'::regrole
+              AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option
+              AND (SELECT count(*) FROM pg_auth_members x WHERE x.member=l.oid)=1
+              AND NOT EXISTS(SELECT 1 FROM pg_auth_members x WHERE x.member='vec_bolsa_llamamientos_ejecutor'::regrole)
+              AND NOT EXISTS(SELECT 1 FROM pg_db_role_setting x WHERE x.setrole IN(l.oid,m.roleid))))
+           OR (p_perfil_mutacion IS NOT DISTINCT FROM 'revision_inscripcion'
+            AND session_user='vec_bolsa_llamamientos_desarrollo'
+            AND current_setting('role')='none'
+            AND EXISTS(SELECT 1 FROM pg_roles l JOIN pg_auth_members m ON m.member=l.oid
+              WHERE l.rolname=session_user AND l.rolcanlogin AND l.rolinherit
+              AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls)
+              AND l.rolconfig IS NULL AND m.roleid='vec_bolsa_llamamientos_ejecutor'::regrole
+              AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option
+              AND (SELECT count(*) FROM pg_auth_members x WHERE x.member=l.oid)=1
+              AND NOT EXISTS(SELECT 1 FROM pg_auth_members x WHERE x.member='vec_bolsa_llamamientos_ejecutor'::regrole)
+              AND NOT EXISTS(SELECT 1 FROM pg_db_role_setting x WHERE x.setrole IN(l.oid,m.roleid))))
            OR (p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_rol_nuevo'
             AND vec_autorizacion_atestada_v3.login_gobierno_rol_nuevo_valido_v1() IS TRUE)
            OR (p_perfil_mutacion IS NOT DISTINCT FROM 'actos_admin_perfiles'
@@ -212,7 +234,7 @@ BEGIN
              AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
             AND (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=session_user::regrole)=1)
            OR (
-               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento' AND p_perfil_mutacion IS DISTINCT FROM 'consulta_rrhh_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'carga_convoca_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'historia_servicios_propia' AND p_perfil_mutacion IS DISTINCT FROM 'exportacion_servicios_propios' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_certificado_nominal' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_cargo_competencial' AND p_perfil_mutacion IS DISTINCT FROM 'capacidades_admin' AND p_perfil_mutacion IS DISTINCT FROM 'persona_denominacion_publicar' AND p_perfil_mutacion IS DISTINCT FROM 'persona_denominacion_leer' AND p_perfil_mutacion IS DISTINCT FROM 'usuarios_admin_listar' AND p_perfil_mutacion IS DISTINCT FROM 'usuarios_admin_consultar' AND p_perfil_mutacion IS DISTINCT FROM 'servicios_certificados_propios' AND p_perfil_mutacion IS DISTINCT FROM 'lote_perfiles_admin' AND p_perfil_mutacion IS DISTINCT FROM 'actos_admin_perfiles' AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_plan_nominal_firma_ct' AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_rol_nuevo' AND p_perfil_mutacion IS DISTINCT FROM 'version_rol_bolsa'
+               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento' AND p_perfil_mutacion IS DISTINCT FROM 'consulta_rrhh_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'carga_convoca_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'historia_servicios_propia' AND p_perfil_mutacion IS DISTINCT FROM 'exportacion_servicios_propios' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_certificado_nominal' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_cargo_competencial' AND p_perfil_mutacion IS DISTINCT FROM 'capacidades_admin' AND p_perfil_mutacion IS DISTINCT FROM 'persona_denominacion_publicar' AND p_perfil_mutacion IS DISTINCT FROM 'persona_denominacion_leer' AND p_perfil_mutacion IS DISTINCT FROM 'usuarios_admin_listar' AND p_perfil_mutacion IS DISTINCT FROM 'usuarios_admin_consultar' AND p_perfil_mutacion IS DISTINCT FROM 'servicios_certificados_propios' AND p_perfil_mutacion IS DISTINCT FROM 'lote_perfiles_admin' AND p_perfil_mutacion IS DISTINCT FROM 'actos_admin_perfiles' AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_plan_nominal_firma_ct' AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_rol_nuevo' AND p_perfil_mutacion IS DISTINCT FROM 'revision_inscripcion' AND p_perfil_mutacion IS DISTINCT FROM 'incorporacion_inscripcion' AND p_perfil_mutacion IS DISTINCT FROM 'version_rol_bolsa'
                AND p_perfil_mutacion IS DISTINCT FROM 'consulta_politica_ofertas_bolsa'
                AND p_perfil_mutacion IS DISTINCT FROM 'consulta_persona_aceptacion_ct_bolsa'
                AND p_perfil_mutacion IS DISTINCT FROM 'consulta_anclaje_aceptacion_ct_bolsa'
@@ -567,7 +589,7 @@ BEGIN
                     AND pg_catalog.pg_has_role(session_user,r.oid,'MEMBER'))
            )
            )
-       ) THEN
+       ) IS NOT TRUE THEN
         RAISE EXCEPTION USING
             ERRCODE = '42501',
             MESSAGE = 'consumo VEC-AD-3 rechazado';
@@ -622,7 +644,7 @@ BEGIN
        OR c ->> 'esquema' <>
           'vec.autorizacion.capacidad-registro-consumo-atestado.v3'
        OR c ->> 'version' <> '3'
-       OR NOT (
+       OR (
            (
                p_perfil_mutacion IS NOT DISTINCT FROM 'alta'
                AND c ->> 'audiencia_consumo' IS NOT DISTINCT FROM
@@ -2255,22 +2277,26 @@ BEGIN
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
  AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
  AND d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
- AND d->'obligaciones' IN ('[]'::jsonb,'["auditar"]'::jsonb)
+ AND (d->'obligaciones' IN ('[]'::jsonb,'["auditar"]'::jsonb)) IS TRUE
  AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'administracion_privilegiada'
  AND d#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS NOT DISTINCT FROM 'true'
  AND (
    (c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_autorizacion.administracion_perfiles.ordinario.v1'
-    AND c->>'operacion' IN ('administracion.perfiles.otorgar','administracion.perfiles.revocar')
+    AND (c->>'operacion' IN ('administracion.perfiles.otorgar','administracion.perfiles.revocar')) IS TRUE
     AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'perfil'
-    AND d->>'recurso_ref' ~ '^acto_admin:[0-9a-f]{32}$')
+    AND (d->>'recurso_ref' ~ '^acto_admin:[0-9a-f]{32}$') IS TRUE)
    OR (c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_autorizacion.administracion_perfiles.propuesta.v1'
     AND c->>'operacion' IS NOT DISTINCT FROM 'administracion.perfiles.proponer'
     AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'perfil'
-    AND d->>'recurso_ref' ~ '^propuesta_admin:[0-9a-f]{32}$')
+    AND (d->>'recurso_ref' ~ '^propuesta_admin:[0-9a-f]{32}$') IS TRUE)
    OR (c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_autorizacion.administracion_perfiles.cierre.v1'
-    AND c->>'operacion' IN ('administracion.perfiles.aprobar','administracion.perfiles.rechazar')
+    AND (c->>'operacion' IN ('administracion.perfiles.aprobar','administracion.perfiles.rechazar')) IS TRUE
     AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'propuesta_perfil'
-    AND d->>'recurso_ref' ~ '^cierre_admin:[0-9a-f]{32}$'))
+    AND (d->>'recurso_ref' ~ '^cierre_admin:[0-9a-f]{32}$') IS TRUE))
+ AND vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(
+   d->>'version_rol_ref',d->>'asignacion_ref',d->>'principal_id',d->>'perfil_activo_ref',
+   c->>'operacion','administracion',d->>'tipo_recurso','gestion_perfiles',
+   '[]'::jsonb,d->'vinculo_autenticacion_actor') IS TRUE
  AND vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(
     p_decision_canonica,p_motivo_canonico,p_persona_version,p_perfil_version) IS NOT NULL)
            OR (
@@ -2395,7 +2421,7 @@ BEGIN
  AND ((c->>'operacion'='administracion.perfiles.version_bolsa.proponer'
       AND d->>'recurso_ref' ~ '^rol:tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo:v[1-9][0-9]{0,8}$')
    OR (c->>'operacion'='administracion.perfiles.version_bolsa.aprobar'
-      AND d->>'recurso_ref' ~ '^propuesta_admin:[0-9a-f]{32}$'))
+      AND (d->>'recurso_ref' ~ '^propuesta_admin:[0-9a-f]{32}$') IS TRUE))
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
  AND d->>'contexto_recurso_huella_sha256' IS NOT NULL
  AND d->>'contexto_recurso_huella_sha256' ~ '^[0-9a-f]{64}$'
@@ -2405,6 +2431,34 @@ BEGIN
  AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'administracion_privilegiada'
  AND d#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS NOT DISTINCT FROM 'true'
  AND vec_autorizacion.acreditar_version_rol_bolsa_v1(d) IS TRUE)
+           OR (
+ p_perfil_mutacion IS NOT DISTINCT FROM 'incorporacion_inscripcion'
+ AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.inscripcion.incorporar.v1'
+ AND c->>'operacion' IS NOT DISTINCT FROM 'bolsa.inscripcion.rrhh.incorporar'
+ AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
+ AND d->>'modulo_id' IS NOT DISTINCT FROM 'bolsa'
+ AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'solicitud_inscripcion'
+ AND d->>'finalidad' IS NOT DISTINCT FROM 'incorporar_inscripcion'
+ AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
+ AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
+ AND d->>'recurso_ref' ~ '^solicitud_inscripcion_[0-9a-f]{64}$'
+ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
+           OR (
+ p_perfil_mutacion IS NOT DISTINCT FROM 'revision_inscripcion'
+ AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.inscripcion.revisar.v1'
+ AND c->>'operacion' IS NOT DISTINCT FROM 'bolsa.inscripcion.rrhh.decidir'
+ AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
+ AND d->>'modulo_id' IS NOT DISTINCT FROM 'bolsa'
+ AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'solicitud_inscripcion'
+ AND d->>'finalidad' IS NOT DISTINCT FROM 'revisar_inscripcion'
+ AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
+ AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
+ AND d->>'recurso_ref' ~ '^solicitud_inscripcion_[0-9a-f]{64}$'
+ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
            OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_rol_nuevo'
  AND (c->>'operacion' IN ('administracion.perfiles.definicion.proponer','administracion.perfiles.definicion.aprobar')) IS TRUE
@@ -2423,7 +2477,7 @@ BEGIN
  AND ((c->>'operacion'='administracion.perfiles.definicion.proponer'
       AND d->>'recurso_ref' ~ '^rol:[a-z][a-z0-9_]{2,63}:v1$')
    OR (c->>'operacion'='administracion.perfiles.definicion.aprobar'
-      AND d->>'recurso_ref' ~ '^propuesta_admin:[0-9a-f]{32}$'))
+      AND (d->>'recurso_ref' ~ '^propuesta_admin:[0-9a-f]{32}$') IS TRUE))
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
  AND d->>'contexto_recurso_huella_sha256' IS NOT NULL
  AND d->>'contexto_recurso_huella_sha256' ~ '^[0-9a-f]{64}$'
@@ -2433,7 +2487,7 @@ BEGIN
  AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'administracion_privilegiada'
  AND d#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS NOT DISTINCT FROM 'true'
  AND vec_autorizacion.acreditar_gobierno_rol_nuevo_v1(d) IS TRUE)
-       )
+       ) IS NOT TRUE
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'
        OR c ->> 'nonce' !~ '^[0-9a-f]{64}$'
        OR c ->> 'nonce' = pg_catalog.repeat('0', 64)
@@ -2827,10 +2881,30 @@ EXCEPTION
 END
 $function$;
 
-ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
- DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
-ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
- ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check CHECK ((((audiencia_consumo = ANY (ARRAY['vec_contratacion_temporal.confirmar_alta_atestada.v1'::text, 'vec_bolsa_llamamientos.confirmar_integracion_desarrollo.v1'::text, 'vec_contratacion_temporal.consultar_cuadro_rrhh_atestado.v1'::text, 'vec_contratacion_temporal.consultar_detalle_rrhh_atestado.v1'::text, 'vec_personal.alta_ejercicio.v1'::text, 'vec_contratacion_temporal.incorporacion_ejercicio.v2'::text, 'vec_personal.lectura_incorporacion.v1'::text, 'vec_personal.lectura_incorporacion.v2'::text, 'vec_contratacion_temporal.anotacion_administrativa.v1'::text, 'vec_contratacion_temporal.cierre_administrativo_sin_cese.v1'::text, 'vec_contratacion_temporal.despacho_correo_llamamiento.v1'::text, 'vec_contratacion_temporal.resultado_correo_llamamiento.v1'::text, 'vec.bolsa.mi-bolsa.v1'::text, 'vec_bolsa_llamamientos.borrador_llamamiento_interno.crear.v1'::text, 'vec_bolsa_llamamientos.borrador_llamamiento_interno.consultar.v1'::text, 'vec_bolsa_llamamientos.situacion_participacion.cambiar.v1'::text, 'vec_bolsa_llamamientos.contacto_participacion.registrar.v1'::text, 'vec_bolsa_llamamientos.contacto_participacion.consultar.v1'::text, 'vec_bolsa_llamamientos.datos_contacto_participacion.registrar.v1'::text, 'vec_bolsa_llamamientos.llamamiento.emitir.v1'::text, 'vec_personal.relacion_propia.consultar_dietas.v1'::text, 'vec_dietas.borrador_propio.crear.v1'::text, 'vec_dietas.borrador_propio.consultar.v1'::text, 'vec_dietas_rutas_v1.acceso.v1'::text, 'vec_personal.organizacion_historica.consultar.v1'::text, 'vec_personal.organizacion_historica.importar.v1'::text, 'vec_cronos_v1.marcaje_propio.v1'::text, 'vec_cronos_v1.marcaje_remoto_disponibilidad.v1'::text, 'vec_cronos_v1.marcaje_remoto_recibo.v1'::text, 'vec_cronos_v1.saldo_propio.consultar.v1'::text, 'vec_dietas.borrador_propio.editar.v1'::text, 'vec_dietas.borrador_propio.borrar.v1'::text, 'vec_dietas.borrador_propio.enviar.v1'::text, 'vec_dietas.documento_propio.consultar.v1'::text, 'vec_personal.asignacion_dietas.consultar.v1'::text, 'vec_personal.asignacion_dietas.corregir.v1'::text, 'vec_personal.asignacion_dietas.grupo_corregir.v1'::text, 'vec_personal.asignacion_dietas.registrar_inicial.v1'::text, 'vec_dietas.documento.revisar.v1'::text, 'vec_dietas.documento.autorizar.v1'::text, 'vec_dietas.circuito.preleer.v1'::text, 'vec_dietas.documento.liquidar.v1'::text, 'vec_dietas.documento.fiscalizar.v1'::text, 'vec_dietas.bandeja.revision.consultar.v1'::text, 'vec_dietas.bandeja.autorizacion.consultar.v1'::text, 'vec_dietas.bandeja.liquidacion.consultar.v1'::text, 'vec_dietas.bandeja.fiscalizacion.consultar.v1'::text, 'vec_personal.asignacion_dietas.competencias.v1'::text, 'vec_personal.asignacion_dietas.rectificacion.solicitar.v1'::text, 'vec_personal.asignacion_dietas.rectificacion.propia.consultar.v1'::text, 'vec_personal.asignacion_dietas.rectificacion.resolver.v1'::text, 'vec_personal.asignacion_dietas.rectificacion.competente.consultar.v1'::text, 'vec_dietas.circuito.documento.consultar.v1'::text, 'vec_cronos_v1.movimientos_propio.consultar.v1'::text, 'vec_cronos_v1.correccion_propia.solicitar.v1'::text, 'vec_cronos_v1.permisos_propio.consultar.v1'::text, 'vec_cronos_v1.permiso_propio.solicitar.v1'::text, 'vec_personal.registro_empleado.alta.v1'::text, 'vec_personal.registro_empleado.hecho.v1'::text, 'vec_personal.registro_empleado.ficha.v1'::text, 'vec_personal.registro_empleado.vacantes.v1'::text, 'vec_personal.registro_empleado.catalogo.publicar.v1'::text, 'vec_personal.registro_empleado.catalogo.retirar.v1'::text, 'vec_personal.registro_empleado.catalogo.consultar.v1'::text, 'vec_personal.registro_empleado.empleados.v1'::text, 'vec_contratacion_temporal.cese.v1'::text, 'vec_contratacion_temporal.cierre_expediente.v1'::text, 'vec_contratacion_temporal.modificacion_tras_nombramiento.v1'::text, 'vec_bolsa_llamamientos.participaciones_propias.solicitar_pausa.v1'::text, 'vec_bolsa_llamamientos.participaciones_propias.solicitar_reactivacion.v1'::text, 'vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1'::text, 'vec_bolsa_llamamientos.participaciones_propias.manifestar_disposicion.v1'::text, 'vec_contratacion_temporal.firma_documento.v1'::text, 'vec_bolsa_llamamientos.participaciones_propias.confirmar_contacto.v1'::text, 'vec_documentos.operacion.v1'::text, 'vec_contratacion_temporal.cancelacion_expediente.v1'::text, 'vec_contratacion_temporal.confirmacion_ginpix.v1'::text, 'vec_contratacion_temporal.no_incorporacion.v1'::text, 'vec.bolsa.mi-bolsa.historial.v1'::text, 'vec_auditoria.consulta_rrhh.v1'::text, 'vec_contratacion_temporal.reincorporacion_titular.v1'::text, 'vec_bolsa_llamamientos.politica_ofertas.publicar.v1'::text, 'vec_contratacion_temporal.catalogo_plantillas.v1'::text, 'vec_bolsa_llamamientos.politica_cese.consultar.v1'::text, 'vec_contratacion_temporal.catalogo_plantillas_documental.v1'::text, 'vec_bolsa_llamamientos.politica_ofertas.consultar.v1'::text, 'vec_contratacion_temporal.lectura_reincorporacion_titular.v1'::text, 'vec_bolsa_llamamientos.reincorporacion_titular.consultar.v1'::text, 'vec_contratacion_temporal.comunicaciones_expediente.consultar.v1'::text, 'vec_usuarios.preferencias.consultar.interna_corporativa.v1'::text, 'vec_usuarios.preferencias.actualizar.interna_corporativa.v1'::text, 'vec_usuarios.preferencias.consultar.externa_personal.v1'::text, 'vec_usuarios.preferencias.actualizar.externa_personal.v1'::text, 'vec_usuarios.correos.consultar.interna_corporativa.v1'::text, 'vec_usuarios.correos.consultar.externa_personal.v1'::text, 'vec_usuarios.correos.anadir.interna_corporativa.v1'::text, 'vec_usuarios.correos.anadir.externa_personal.v1'::text, 'vec_usuarios.correos.reenviar.interna_corporativa.v1'::text, 'vec_usuarios.correos.reenviar.externa_personal.v1'::text, 'vec_usuarios.correos.verificar.interna_corporativa.v1'::text, 'vec_usuarios.correos.verificar.externa_personal.v1'::text, 'vec_usuarios.correos.activar.interna_corporativa.v1'::text, 'vec_usuarios.correos.activar.externa_personal.v1'::text, 'vec_usuarios.correos.retirar.interna_corporativa.v1'::text, 'vec_usuarios.correos.retirar.externa_personal.v1'::text, 'vec_usuarios.imagen.consultar.interna_corporativa.v1'::text, 'vec_usuarios.imagen.consultar.externa_personal.v1'::text, 'vec_usuarios.imagen.actualizar.interna_corporativa.v1'::text, 'vec_usuarios.imagen.actualizar.externa_personal.v1'::text, 'vec_usuarios.correos.avisos_llamamiento.interna_corporativa.v1'::text, 'vec_aspirantes.ficha.consultar.externa_personal.v1'::text, 'vec_aspirantes.ficha.alta.externa_personal.v1'::text, 'vec_aspirantes.ficha.rectificar.externa_personal.v1'::text, 'vec_contratacion_temporal.ajustes_reglas.v1'::text, 'vec_contratacion_temporal.firmas_documento.consultar.v1'::text, 'vec_catalogos_configurables.lectura_categorias.v1'::text, 'vec_catalogos_configurables.usos_categorias.v1'::text, 'vec_contratacion_temporal.categoria_rpt.vinculo.consultar.v1'::text, 'vec_contratacion_temporal.categoria_rpt.vinculo.registrar.v1'::text, 'vec_bolsa_llamamientos.aceptacion_ct.persona.v1'::text, 'vec_bolsa_llamamientos.aceptacion_ct.anclaje.v1'::text, 'vec_personal.plan_incorporacion_ct.v1'::text, 'vec_contratacion_temporal.incorporacion_personal.plan.consultar.v1'::text, 'vec_contratacion_temporal.incorporacion_personal.plan.registrar.v1'::text, 'vec_contratacion_temporal.incorporacion_personal.origen.confirmar.v1'::text, 'vec_bolsa_llamamientos.participaciones_propias.presentar_solicitud_documental.v1'::text, 'vec_bolsa_llamamientos.solicitudes_documentales.resolver.v1'::text, 'vec_bolsa_llamamientos.solicitudes_documentales.consultar_rrhh.v1'::text, 'vec_contratacion_temporal.circuito.consultar.v1'::text, 'vec_contratacion_temporal.firma_externa.v1'::text, 'vec_contratacion_temporal.firma_vec.v2'::text, 'vec_contratacion_temporal.firma_externa.v2'::text, 'vec_contratacion_temporal.firmas_r5.consultar.v2'::text, 'vec_contratacion_temporal.firmas_r5.consultar.v1'::text, 'vec_contexto_actor.certificado_nominal.publicar.v1'::text, 'vec_personal.cargo_competencial.publicar.v1'::text, 'vec_autorizacion.administracion_perfiles.lectura.capacidades.v1'::text])) OR (audiencia_consumo = ANY (ARRAY['vec.persona.denominacion.publicar.v1'::text, 'vec.persona.denominacion.leer.v1'::text])) OR (audiencia_consumo = ANY (ARRAY['vec.admin.usuarios.listar.v1'::text, 'vec.admin.usuarios.consultar.v1'::text])) OR (audiencia_consumo = 'vec_personal.servicios_certificados.v1'::text) OR (audiencia_consumo = ANY (ARRAY['vec_contratacion_temporal.firmas_r5.recuperar.v2'::text, 'vec_catalogos_configurables.plan_nominal_firma.gobierno.v1'::text])) OR (audiencia_consumo = 'vec_autorizacion.administracion_perfiles.lote_ordinario.v1'::text) OR (audiencia_consumo = 'vec_bolsa_llamamientos.datos_contacto_participacion.consultar.v1'::text) OR (audiencia_consumo = 'vec_contratacion_temporal.borrador_rrhh.descargar.v1'::text) OR (audiencia_consumo = 'vec_personal.registro_empleado.ficha_propia.v1'::text) OR (audiencia_consumo = 'vec_personal.registro_empleado.ficha_propia.servicios.exportar.v1'::text) OR (audiencia_consumo = 'vec_personal.registro_empleado.servicios.historia_propia.v1'::text) OR (audiencia_consumo = ANY (ARRAY['vec_bolsa_llamamientos.rrhh.bolsas.consultar.v1'::text, 'vec_bolsa_llamamientos.rrhh.estadisticas.consultar.v1'::text, 'vec_bolsa_llamamientos.rrhh.candidatos.consultar.v1'::text])) OR (audiencia_consumo = 'vec_bolsa_llamamientos.carga_convoca.confirmar.v1'::text) OR (audiencia_consumo = 'vec_contratacion_temporal.vinculo_emision_bolsa.v1'::text) OR (audiencia_consumo = ANY (ARRAY['vec_autorizacion.gobierno_rol_nuevo.propuesta.v1'::text, 'vec_autorizacion.gobierno_rol_nuevo.cierre.v1'::text])) OR (audiencia_consumo = ANY (ARRAY['vec_autorizacion.versionar_rol_bolsa.propuesta.v1'::text, 'vec_autorizacion.versionar_rol_bolsa.cierre.v1'::text])))) OR audiencia_consumo = ANY (ARRAY['vec_autorizacion.administracion_perfiles.ordinario.v1'::text,'vec_autorizacion.administracion_perfiles.propuesta.v1'::text,'vec_autorizacion.administracion_perfiles.cierre.v1'::text]));
+-- Amplía la definición instalada por AD229 sin perder las audiencias de inscripción.
+LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
+DO $audiencias$
+DECLARE anterior text; nueva text; h text;
+BEGIN
+ SELECT pg_get_constraintdef(c.oid,false) INTO STRICT anterior FROM pg_constraint c
+ WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
+ AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
+ h:=encode(sha256(convert_to(anterior,'UTF8')),'hex');
+ IF h IS DISTINCT FROM '82fcb35bd6dbf808cb1a4e9960df853afd7b9d9412ea75d09b38f2871a473b8d'
+ OR left(anterior,7)<>'CHECK (' OR right(anterior,1)<>')'
+ OR strpos(anterior,'vec_bolsa_llamamientos.inscripcion.presentar.v1')=0
+ OR strpos(anterior,'vec_bolsa_llamamientos.inscripcion.revisar.v1')=0
+ OR strpos(anterior,'vec_bolsa_llamamientos.inscripcion.incorporar.v1')=0
+ OR strpos(anterior,'vec_autorizacion.administracion_perfiles.ordinario.v1')<>0
+ THEN RAISE EXCEPTION 'AD236: PARO clave=audiencias_ad229 esperado=% actual=%',
+  '82fcb35bd6dbf808cb1a4e9960df853afd7b9d9412ea75d09b38f2871a473b8d',h USING ERRCODE='55000'; END IF;
+ nueva:='CHECK ('||substr(anterior,8,length(anterior)-8)||
+  ' OR audiencia_consumo = ANY (ARRAY[''vec_autorizacion.administracion_perfiles.ordinario.v1''::text,'||
+  '''vec_autorizacion.administracion_perfiles.propuesta.v1''::text,'||
+  '''vec_autorizacion.administracion_perfiles.cierre.v1''::text]))';
+ ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
+ EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||nueva;
+END $audiencias$;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_consumir_admin_perfiles_v3(
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
@@ -2858,16 +2932,16 @@ BEGIN
  OR d->>'garantia_minima' IS DISTINCT FROM 'alto'
  OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'administracion_privilegiada'
  OR d#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS DISTINCT FROM 'true'
- OR NOT (
+ OR (
   (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.ordinario.v1'
-    AND c->>'operacion' IN ('administracion.perfiles.otorgar','administracion.perfiles.revocar')
+    AND (c->>'operacion' IN ('administracion.perfiles.otorgar','administracion.perfiles.revocar')) IS TRUE
     AND d->>'tipo_recurso'='perfil' AND c->>'efecto_ref' ~ '^acto_admin:[0-9a-f]{32}$')
   OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.propuesta.v1'
     AND c->>'operacion'='administracion.perfiles.proponer'
     AND d->>'tipo_recurso'='perfil' AND c->>'efecto_ref' ~ '^propuesta_admin:[0-9a-f]{32}$')
   OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.cierre.v1'
-    AND c->>'operacion' IN ('administracion.perfiles.aprobar','administracion.perfiles.rechazar')
-    AND d->>'tipo_recurso'='propuesta_perfil' AND c->>'efecto_ref' ~ '^cierre_admin:[0-9a-f]{32}$'))
+    AND (c->>'operacion' IN ('administracion.perfiles.aprobar','administracion.perfiles.rechazar')) IS TRUE
+    AND d->>'tipo_recurso'='propuesta_perfil' AND c->>'efecto_ref' ~ '^cierre_admin:[0-9a-f]{32}$')) IS NOT TRUE
  OR vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(
     p_decision,p_motivo,p_persona_version,p_perfil_version) IS NULL
  THEN RAISE EXCEPTION 'AD236: acto ADMIN denegado' USING ERRCODE='42501'; END IF;
@@ -2890,12 +2964,12 @@ DO $post$
 DECLARE h text; f oid:=to_regprocedure('vec_autorizacion_atestada_v3.registrar_consumir_admin_perfiles_v3(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
 BEGIN
  SELECT encode(sha256(convert_to(pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'UTF8')),'hex') INTO h;
- IF h IS DISTINCT FROM '514d7594b664a1b59b6f72c41ec0528b091c1f5a6b6c4049a9006324a428dac1'
- THEN RAISE EXCEPTION 'AD236: núcleo postimagen actual=% esperado=514d7594b664a1b59b6f72c41ec0528b091c1f5a6b6c4049a9006324a428dac1',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM '28233b87c7bbaf99c129c53f823896169b69c6750143578bfdfb107c6ad844d1'
+ THEN RAISE EXCEPTION 'AD236: núcleo postimagen actual=% esperado=28233b87c7bbaf99c129c53f823896169b69c6750143578bfdfb107c6ad844d1',h USING ERRCODE='55000'; END IF;
  SELECT encode(sha256(convert_to(pg_get_constraintdef(c.oid,false),'UTF8')),'hex') INTO h
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF h IS DISTINCT FROM 'b970db83aff8b47366856a753703ff4f899e6a45b4f408bf8aa5d7af24791d8a'
+ IF h IS DISTINCT FROM '182f98a8f5f408eddf2af4b55f62200295a2bd939b51932447bfa2de54c5b748'
  OR f IS NULL OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f
   AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']

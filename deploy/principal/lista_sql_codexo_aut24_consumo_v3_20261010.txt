@@ -1,2 +1,19 @@
+# Orden causal para un clon que parte del estado anterior a la inscripción.
+# Inscripción sigue apagada: estas migraciones no crean claves, asignaciones ni permisos ADMIN.
+# En una base con parte de esta cadena ya instalada, verificar el inventario y aplicar
+# únicamente el sufijo pendiente. Nunca reaplicar UP ni ejecutar DOWN con historia.
+# Primero: lista_sql_inscripcion_nucleo_20261010.txt.
+deploy/postgresql/bolsa_convocatorias/roles_up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000001_revalidacion_convocatorias.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000001_almacen_convocatorias.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000038_candidato_persona_inscripcion.up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000011_lectura_lote_categorias_inscripcion.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000009_comprobar_publicacion_inscripcion.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000228_inscripcion_v3_auditoria.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000096_inscripcion_convocatoria.up.sql
+# Segundo: lista_sql_inscripcion_incorporacion_20261010.txt.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000229_incorporacion_inscripcion_v3.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000097_incorporacion_inscripcion.up.sql
+# Tercero: consumidor nominal de perfiles ADMIN.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql
 deploy/postgresql/autorizacion/migraciones/000074_consumo_nominal_actos_admin_v2.up.sql
