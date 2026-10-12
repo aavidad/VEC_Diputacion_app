@@ -304,7 +304,7 @@ BEGIN
  instante:=to_char(fecha AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
  r:=jsonb_build_object('referencia',recibo,'hecho_ref',hecho,'version_hecho',v_hecho,
   'disponibilidad',jsonb_build_object('estado','retirado','version',1),
-  'retirado_en',instante,'motivo',c->'motivo','clave_idempotencia',clave,
+  'retirado_en',instante,'clave_idempotencia',clave,
   'huella_comando_sha256',huella,'auditoria_ref',u.auditoria_ref,
   'evento_ref',evento);
  INSERT INTO vec_meritos.disponibilidad_evento_v1
