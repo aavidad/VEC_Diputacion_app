@@ -111,7 +111,7 @@ func TestHandlerDatosContactoConsultaEnmascaraSalvoVerCompleto(t *testing.T) {
 	h, _ := NuevoHandlerDatosContactoParticipacion(prep, op)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, ""))
-	if rec.Code != http.StatusOK || prep.ultimoCompleto || strings.Contains(rec.Body.String(), "candidata@dipgra.es") || strings.Contains(rec.Body.String(), "600123456") || rec.Header().Get("X-Audit-Ref") != "" {
+	if rec.Code != http.StatusOK || prep.ultimoCompleto || strings.Contains(rec.Body.String(), "candidata@dipgra.es") || strings.Contains(rec.Body.String(), "600123456") || rec.Header().Get("X-Audit-Ref") == "" {
 		t.Fatalf("la lectura ordinaria no debe exponer el claro: %d %s", rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), "c***@dipgra.es") || !strings.Contains(rec.Body.String(), "***3456") {
@@ -176,5 +176,27 @@ func TestHandlerDatosContactoRechazaRutasMetodosYErrores(t *testing.T) {
 		if strings.Contains(rec.Body.String(), "dipgra") {
 			t.Errorf("la respuesta de error no debe traer datos: %s", rec.Body.String())
 		}
+	}
+}
+
+func TestHandlerContactoVacioExigeAsientoYNoOculta404(t *testing.T) {
+	op := &operadorDatosContactoPrueba{leidos: puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: "participacion:b4", SinContacto: true, AuditoriaRef: "aud_v3_lc_0123456789abcdef0123456789abcdef"}}
+	h, _ := NuevoHandlerDatosContactoParticipacion(&preparadorDatosContactoPrueba{}, op)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, ""))
+	if rec.Code != http.StatusOK || rec.Header().Get("X-Audit-Ref") == "" || !strings.Contains(rec.Body.String(), `"sin_contacto":true`) || !strings.Contains(rec.Body.String(), `"registrada_en":null`) {
+		t.Fatalf("vacío no explícito/auditado: %d %s", rec.Code, rec.Body.String())
+	}
+	op.leidos.AuditoriaRef = ""
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, ""))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatal("vacío sin auditoría aceptado")
+	}
+	op.errCons = puertosbolsa.ErrDatosContactoParticipacionNoEncontrados
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, ""))
+	if rec.Code != http.StatusNotFound {
+		t.Fatal("recurso inexistente ocultado como vacío")
 	}
 }

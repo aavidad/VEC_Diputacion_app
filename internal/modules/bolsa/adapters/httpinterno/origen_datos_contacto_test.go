@@ -55,7 +55,7 @@ func TestHandlerDatosContactoRegistraYMuestraOrigenConvoca(t *testing.T) {
 
 func TestHandlerDatosContactoConsultaIncluyeEstadoDelOrigen(t *testing.T) {
 	datos := dominiobolsa.DatosContactoParticipacion{ParticipacionRef: "participacion:b4", Correo: "candidata@dipgra.es", Telefono1: "600123456"}
-	op := &operadorDatosContactoPrueba{leidos: puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: "participacion:b4", Version: 1, RegistradaEn: time.Now(), Datos: datos, Enmascarados: datos.Enmascarados(), Origen: marcaOrigenHTTPPrueba(), EstadoOrigen: dominiobolsa.EstadoOrigenContactoVencido}}
+	op := &operadorDatosContactoPrueba{leidos: puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: "participacion:b4", Version: 1, RegistradaEn: time.Now(), AuditoriaRef: "aud_v3_lc_0123456789abcdef0123456789abcdef", Datos: datos, Enmascarados: datos.Enmascarados(), Origen: marcaOrigenHTTPPrueba(), EstadoOrigen: dominiobolsa.EstadoOrigenContactoVencido}}
 	h, _ := NuevoHandlerDatosContactoParticipacion(&preparadorDatosContactoPrueba{}, op)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, ""))
