@@ -80,8 +80,9 @@ func solicitudFachadaDesdeEscenario(e escenarioPrueba) SolicitudAltaBorrador {
 		IdentificadorPublico: contenido.IdentificadorPublico,
 		ExpedienteRef:        e.orden.ExpedienteRef,
 		Contenido: ContenidoEditableBorrador{
-			Tipo: contenido.Tipo, Categorias: append([]string(nil), contenido.Categorias...),
-			Titulo: contenido.Titulo, Resumen: contenido.Resumen, Descripcion: contenido.Descripcion,
+			Tipo: contenido.Tipo, ModalidadInscripcion: contenido.ModalidadInscripcion,
+			Categorias: append([]string(nil), contenido.Categorias...),
+			Titulo:     contenido.Titulo, Resumen: contenido.Resumen, Descripcion: contenido.Descripcion,
 			Plazos:     append([]dominiobolsa.PlazoConvocatoria(nil), contenido.Plazos...),
 			Requisitos: append([]dominiobolsa.RequisitoConvocatoria(nil), contenido.Requisitos...),
 			Ayuda:      []dominiobolsa.AyudaConvocatoria{},
@@ -90,6 +91,60 @@ func solicitudFachadaDesdeEscenario(e escenarioPrueba) SolicitudAltaBorrador {
 			Referencia: "motivos_rrhh:crear_borrador", Version: e.orden.MotivoCatalogo.CatalogoVersion,
 			HuellaSHA256: e.orden.MotivoCatalogo.CatalogoHuellaSHA256,
 		},
+	}
+}
+
+func TestFachadaBorradoresModalidadEditadaCambiaEstadoYRechazaPreparacionDistinta(t *testing.T) {
+	escenario := nuevoEscenario(t, confirmarBien, 2, 1)
+	esperada, err := puertosbolsa.EstadoVersionConvocatoria(escenario.inicial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	motivo := escenario.orden.MotivoCatalogo
+	motivo.EntradaClave = "actualizar_borrador"
+	preparador := &preparadorContenidoFachadaDoble{contenido: escenario.inicial.Contenido, motivo: motivo}
+	preparador.contenido.ModalidadInscripcion = dominiobolsa.ModalidadInscripcionConjunta
+	fachada, err := NuevaFachadaBorradoresInternos(escenario.servicio, preparador, lectorFachadaBorradoresDoble{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	contexto := ContextoOperacionBorrador{
+		Actor: escenario.orden.Actor, Vinculo: escenario.orden.VinculoAutenticacionActor,
+		CorrelacionRef: escenario.orden.CorrelacionRef,
+	}
+	solicitud := SolicitudActualizacionBorrador{
+		ClaveIdempotencia: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		Esperada:          esperada, Contenido: solicitudFachadaDesdeEscenario(escenario).Contenido,
+		Motivo: SelectorMotivoBorrador{Referencia: motivo.Referencia(), Version: motivo.CatalogoVersion,
+			HuellaSHA256: motivo.CatalogoHuellaSHA256},
+	}
+	solicitud.Contenido.ModalidadInscripcion = "individual"
+	if _, err := fachada.Actualizar(context.Background(), contexto, solicitud); !errors.Is(err, ErrSolicitudBorradorInvalida) || preparador.llamadasActualizar != 0 {
+		t.Fatalf("modalidad inválida alcanzó preparación: %v, llamadas=%d", err, preparador.llamadasActualizar)
+	}
+	solicitud.Contenido.ModalidadInscripcion = dominiobolsa.ModalidadInscripcionSeparada
+	if _, err := fachada.Actualizar(context.Background(), contexto, solicitud); !errors.Is(err, ErrPreparacionBorradorInsegura) || escenario.confirmador.efectos != 0 {
+		t.Fatalf("preparacion con otra modalidad produjo efecto: %v, %d", err, escenario.confirmador.efectos)
+	}
+	solicitud.Contenido.ModalidadInscripcion = dominiobolsa.ModalidadInscripcionConjunta
+	recibo, err := fachada.Actualizar(context.Background(), contexto, solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recibo.EstadoPrincipal.Revision != esperada.Revision+1 ||
+		recibo.EstadoPrincipal.HuellaEstadoSHA256 == esperada.HuellaEstadoSHA256 ||
+		escenario.confirmador.ultima == nil ||
+		escenario.confirmador.ultima.Version.Contenido.ModalidadInscripcion != dominiobolsa.ModalidadInscripcionConjunta ||
+		escenario.confirmador.efectos != 1 {
+		t.Fatalf("modalidad sin nueva revision, huella o efecto unico: recibo=%+v, efectos=%d", recibo, escenario.confirmador.efectos)
+	}
+	huellaAnterior, err := escenario.inicial.HuellaContenidoSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaNueva, err := escenario.confirmador.ultima.Version.HuellaContenidoSHA256()
+	if err != nil || huellaNueva == huellaAnterior {
+		t.Fatalf("la modalidad no cambió la huella del contenido: %q/%q, %v", huellaAnterior, huellaNueva, err)
 	}
 }
 
