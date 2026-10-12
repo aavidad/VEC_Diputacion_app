@@ -195,8 +195,8 @@ RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
 DECLARE c jsonb;d jsonb;m jsonb;u record;op vec_meritos.retirada_operacion_v1%ROWTYPE;
- persona text;actor text;hecho text;clave text;huella text;
- v_hecho integer;v_disponibilidad integer;v_actual integer;identidad record;
+ persona text;actor text;hecho text;clave text;huella text;contexto text;
+ v_hecho integer;v_actual integer;identidad record;
  fecha timestamptz(6);instante text;recibo text;evento text;r jsonb;
 BEGIN
  IF current_user<>'vec_meritos_propietario' OR session_user=current_user
@@ -235,13 +235,19 @@ BEGIN
  persona:=c->>'persona_ref';actor:=c->>'actor_ref';hecho:=c->>'hecho_ref';
  clave:=c->>'clave_idempotencia';
  v_hecho:=(c->>'hecho_version_esperada')::integer;
- v_disponibilidad:=0;huella:=encode(sha256(p_comando),'hex');
+ huella:=encode(sha256(p_comando),'hex');
+ contexto:='{"ambitos":{"disponibilidad_version_esperada":"0",'
+  ||'"hecho_version_esperada":"'||v_hecho::text||'",'
+  ||'"huella_comando_sha256":"'||huella||'",'
+  ||'"persona_ref":"'||persona||'"},"atributos":{"propiedad":"persona"}}';
  IF d->>'principal_id' IS DISTINCT FROM actor
  OR d->>'accion' IS DISTINCT FROM 'meritos.cartera.retirar_propio'
  OR d->>'modulo_id' IS DISTINCT FROM 'meritos'
  OR d->>'tipo_recurso' IS DISTINCT FROM 'hecho'
  OR d->>'recurso_ref' IS DISTINCT FROM hecho
  OR d->>'finalidad' IS DISTINCT FROM 'gestion_cartera_propia'
+ OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM
+  encode(sha256(convert_to(contexto,'UTF8')),'hex')
  OR d->'campos_permitidos' IS DISTINCT FROM '["disponibilidad","recibo"]'::jsonb
  OR d->'obligaciones' IS DISTINCT FROM '["auditar"]'::jsonb
  OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'externa_personal'
