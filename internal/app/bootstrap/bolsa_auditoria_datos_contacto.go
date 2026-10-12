@@ -26,11 +26,11 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudConsultarDato
 	solicitud.Correlacion, solicitud.MotivoAutorizacion = correlacion, motivoConsultarDatosContactoParticipacionBolsaDesarrollo()
 	if !completo {
 		if p.fuenteRespuestas == nil {
-			return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{}, puertosbolsa.ErrDatosContactoParticipacionNoDisponibles
+			return solicitud, puertosbolsa.ErrDatosContactoParticipacionNoDisponibles
 		}
 		resuelto, err := p.ResolverContextoSituacionParticipacion(ctx, solicitud.ContextoActor, bolsaRef, participacionRef)
 		if err != nil {
-			return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{}, err
+			return solicitud, err
 		}
 		contrato := contratoLecturaBolsa{
 			accion:    puertosbolsa.AccionConsultarOrigenDatosContactoParticipacion,
@@ -43,7 +43,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudConsultarDato
 			contexto.Vinculo, contexto.Resultado, resuelto.UnidadRef, resuelto.AmbitoRef,
 			bolsaRef, participacionRef, contrato)
 		if err != nil {
-			return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{}, err
+			return solicitud, err
 		}
 	}
 	return solicitud, nil

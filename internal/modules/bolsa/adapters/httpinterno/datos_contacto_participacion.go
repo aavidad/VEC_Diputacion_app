@@ -78,6 +78,20 @@ func (h *HandlerDatosContactoParticipacion) consultar(w http.ResponseWriter, r *
 	}
 	solicitud, err := h.preparador.PrepararSolicitudConsultarDatosContacto(r.Context(), bolsa, participacion, completo)
 	if err != nil {
+		if solicitud.ValidarNominal() == nil {
+			auditor, disponible := h.operador.(interface {
+				AuditarFalloConsultaDatosContacto(context.Context, puertosbolsa.SolicitudConsultarDatosContactoParticipacion, error) error
+			})
+			if disponible {
+				err = auditor.AuditarFalloConsultaDatosContacto(r.Context(), solicitud, err)
+			} else {
+				err = application.ErrRegistroDatosContactoParticipacionNoDisponible
+			}
+		}
+		if acuse, confirmado := application.AcuseConsultaDatosContactoFallida(err); confirmado {
+			w.Header().Set("X-Audit-Ref", acuse.AuditoriaRef)
+			w.Header().Set("X-Correlation-Ref", acuse.CorrelacionRef)
+		}
 		responderErrorDatosContacto(w, err)
 		return
 	}

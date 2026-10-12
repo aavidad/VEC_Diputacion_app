@@ -86,9 +86,8 @@ type DatosContactoParticipacionLeidos struct {
 	// existen si la versión vigente es de origen CONVOCA.
 	Origen       *dominiobolsa.MarcaOrigenDatosContacto
 	EstadoOrigen string
-	// AuditoriaRef y DecisionRef solo existen en la consulta completa: son el
-	// asiento de la auditoría común y la decisión V3 que se consumieron en la
-	// misma transacción que la lectura. La consulta enmascarada no los tiene.
+	// AuditoriaRef identifica el asiento común de ambas lecturas. DecisionRef
+	// existe sólo en la completa, que consume su decisión V3.
 	AuditoriaRef string
 	DecisionRef  string
 }
@@ -137,7 +136,15 @@ type SolicitudConsultarDatosContactoParticipacion struct {
 
 // ValidarCompleta exige lo que necesita la decisión V3 de la consulta completa.
 func (s SolicitudConsultarDatosContactoParticipacion) ValidarCompleta() error {
-	if !s.Completo || s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil ||
+	if !s.Completo {
+		return ErrDatosContactoParticipacionNoDisponibles
+	}
+	return s.ValidarNominal()
+}
+
+// ValidarNominal exige el actor y la correlación también para auditar fallos.
+func (s SolicitudConsultarDatosContactoParticipacion) ValidarNominal() error {
+	if s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil ||
 		s.BolsaRef == "" || s.ParticipacionRef == "" || s.ResultadoContexto.Contexto.PersonaRef == "" ||
 		s.ContextoActor.PersonaRef != s.ResultadoContexto.Contexto.PersonaRef ||
 		s.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.MotivoAutorizacion) {
