@@ -345,8 +345,9 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' AS $f$
 DECLARE d jsonb;m jsonb;registro record;viva timestamptz;
 BEGIN
- IF vec_autorizacion.login_candidato_externo_v1(
-  'vec_externo_meritos_registro_autorizacion','vec_autorizacion_registro_meritos_externo') IS NOT TRUE
+ IF NOT (vec_autorizacion.login_candidato_externo_v1(
+  'vec_externo_meritos_registro_autorizacion','vec_autorizacion_registro_meritos_externo') IS TRUE
+  OR pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER'))
  OR current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off'
  OR p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 1 AND 524288
@@ -371,7 +372,8 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.registrar_y_revalidar_decision_meritos_externo_v3(
  bytea,bytea,numeric,numeric) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.registrar_y_revalidar_decision_meritos_externo_v3(
- bytea,bytea,numeric,numeric) TO vec_autorizacion_registro_meritos_externo;
+ bytea,bytea,numeric,numeric) TO vec_autorizacion_registro_meritos_externo,
+ vec_autorizacion_atestada_v3_propietario;
 
 CREATE FUNCTION vec_autorizacion.revalidar_decision_meritos_externo_v3_viva(
  p_decision bytea,p_motivo bytea,p_persona_version numeric,p_perfil_version numeric)

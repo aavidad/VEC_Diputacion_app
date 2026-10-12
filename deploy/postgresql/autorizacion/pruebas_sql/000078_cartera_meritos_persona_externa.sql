@@ -40,6 +40,7 @@ BEGIN
  f:=to_regprocedure('vec_autorizacion.registrar_y_revalidar_decision_meritos_externo_v3(bytea,bytea,numeric,numeric)');
  IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
  OR NOT has_function_privilege('vec_autorizacion_registro_meritos_externo',f,'EXECUTE')
+ OR NOT has_function_privilege('vec_autorizacion_atestada_v3_propietario',f,'EXECUTE')
  OR has_function_privilege('vec_meritos_cartera_externo',f,'EXECUTE')
  THEN RAISE EXCEPTION 'AUT78: registrador V3 abierto o ausente' USING ERRCODE='55000';END IF;
  f:=to_regprocedure('vec_autorizacion.resolver_motivo_meritos_externo_v1(text,integer,text,text,timestamptz)');
