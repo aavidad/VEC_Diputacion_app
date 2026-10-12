@@ -18,6 +18,7 @@ import (
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecapplication "vec-diputacion-granada/internal/vec/application"
 	docautorizacion "vec-diputacion-granada/internal/vec/documentos/adapters/autorizacion"
+	docapp "vec-diputacion-granada/internal/vec/documentos/application"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -141,8 +142,12 @@ func (a autoridadCanalOriginalCTDesarrollo) ResolverOrganizacionFirmaVec(ctx con
 func nuevaRutaOriginalFirmableCTDesarrollo(alta *dependenciasAltaContratacionTemporalDesarrollo,
 	consultas dependenciasConsultasRRHHDesarrollo, render ports.RenderizadorBorradorRRHH,
 	documentos *autoridadDocumentosDesarrollo, seudonimos *seudonimizadorAlmacenDesarrollo,
-	reloj ports.Reloj) ([]vechttp.RutaExacta, error) {
-	rutas, err := componerRutaOriginalFirmableCTDesarrollo(alta, consultas, render, documentos, seudonimos, reloj)
+	reloj ports.Reloj, destino ...*firmaDocumentoCTDesarrollo) ([]vechttp.RutaExacta, error) {
+	if len(destino) > 1 || len(destino) == 1 && (destino[0] == nil || destino[0].servicioOriginal != nil ||
+		destino[0].tiposOriginal != nil || destino[0].documentosOriginal != nil) {
+		return nil, errMontajeOriginalFirmableCTNoDisponible
+	}
+	montaje, err := componerRutaOriginalFirmableCTDesarrollo(alta, consultas, render, documentos, seudonimos, reloj)
 	if err != nil || alta == nil || alta.postgresql.gobierno == nil {
 		return nil, errMontajeOriginalFirmableCTNoDisponible
 	}
@@ -156,7 +161,19 @@ func nuevaRutaOriginalFirmableCTDesarrollo(alta *dependenciasAltaContratacionTem
 		[]core.ReferenciaEntradaCatalogo{motivoOriginalFirmableCTDesarrollo()}, desde); err != nil || ctx.Err() != nil {
 		return nil, errMontajeOriginalFirmableCTNoDisponible
 	}
-	return rutas, nil
+	if len(destino) == 1 {
+		destino[0].servicioOriginal = montaje.servicio
+		destino[0].tiposOriginal = montaje.tipos
+		destino[0].documentosOriginal = montaje.documentos
+	}
+	return montaje.rutas, nil
+}
+
+type montajeOriginalFirmableCTDesarrollo struct {
+	rutas      []vechttp.RutaExacta
+	servicio   *vecapplication.ServicioOriginalFirmableCT
+	tipos      *ctadapters.TiposOriginalFirmableRRHH
+	documentos *docapp.Servicio
 }
 
 // La composición sin publicación se prueba con las mismas piezas reales de
@@ -164,32 +181,32 @@ func nuevaRutaOriginalFirmableCTDesarrollo(alta *dependenciasAltaContratacionTem
 func componerRutaOriginalFirmableCTDesarrollo(alta *dependenciasAltaContratacionTemporalDesarrollo,
 	consultas dependenciasConsultasRRHHDesarrollo, render ports.RenderizadorBorradorRRHH,
 	documentos *autoridadDocumentosDesarrollo, seudonimos *seudonimizadorAlmacenDesarrollo,
-	reloj ports.Reloj) ([]vechttp.RutaExacta, error) {
+	reloj ports.Reloj) (montajeOriginalFirmableCTDesarrollo, error) {
 	if alta == nil || alta.soporte == nil || alta.soporte.perfilesOriginal == nil ||
 		consultas.detalle == nil || consultas.originalPropuesta == nil || render == nil ||
 		documentos == nil || documentos.servicioOriginal == nil || !seudonimos.valido() || reloj == nil {
-		return nil, errMontajeOriginalFirmableCTNoDisponible
+		return montajeOriginalFirmableCTDesarrollo{}, errMontajeOriginalFirmableCTNoDisponible
 	}
 	if documentos.servicioOriginal.Politicas == nil || documentos.servicioOriginal.Repositorio == nil || documentos.servicioOriginal.Almacen == nil {
-		return nil, errMontajeOriginalFirmableCTNoDisponible
+		return montajeOriginalFirmableCTDesarrollo{}, errMontajeOriginalFirmableCTNoDisponible
 	}
 	// V2 pertenece sólo al original CT: el servicio histórico conserva V1
 	// para recuperar recibos anteriores con su política y huella originales.
 	politicas, err := conservacion.NuevoCatalogoProvisionalV2(reloj)
 	if err != nil {
-		return nil, errMontajeOriginalFirmableCTNoDisponible
+		return montajeOriginalFirmableCTDesarrollo{}, errMontajeOriginalFirmableCTNoDisponible
 	}
 	tipos, err := ctadapters.NuevosTiposOriginalFirmableRRHH(politicas)
 	if err != nil {
-		return nil, errMontajeOriginalFirmableCTNoDisponible
+		return montajeOriginalFirmableCTDesarrollo{}, errMontajeOriginalFirmableCTNoDisponible
 	}
 	autoridad, err := nuevoOriginalFirmableCTDesarrollo(pdpCTOriginalFirmableDesarrollo{alta: alta}, seudonimos, politicas, reloj)
 	if err != nil {
-		return nil, errMontajeOriginalFirmableCTNoDisponible
+		return montajeOriginalFirmableCTDesarrollo{}, errMontajeOriginalFirmableCTNoDisponible
 	}
 	lectura, err := docautorizacion.NuevaFabricaContextoLecturaOriginalV3(autoridad, reloj)
 	if err != nil {
-		return nil, errMontajeOriginalFirmableCTNoDisponible
+		return montajeOriginalFirmableCTDesarrollo{}, errMontajeOriginalFirmableCTNoDisponible
 	}
 	copia := *documentos.servicioOriginal
 	copia.ContextosLectura = lectura
@@ -197,19 +214,20 @@ func componerRutaOriginalFirmableCTDesarrollo(alta *dependenciasAltaContratacion
 	custodia, err := almacen.NuevaCustodiaDocumentosOriginalCT(servicioDocumentosOriginalCTDesarrollo{servicio: &copia},
 		autoridad, autoridad.mapear, tipos)
 	if err != nil {
-		return nil, errMontajeOriginalFirmableCTNoDisponible
+		return montajeOriginalFirmableCTDesarrollo{}, errMontajeOriginalFirmableCTNoDisponible
 	}
 	origen, err := ctapplication.NuevaFuenteOriginalFirmableRRHH(consultas.detalle, consultas.originalPropuesta, render, tipos)
 	if err != nil {
-		return nil, errMontajeOriginalFirmableCTNoDisponible
+		return montajeOriginalFirmableCTDesarrollo{}, errMontajeOriginalFirmableCTNoDisponible
 	}
 	servicio, err := vecapplication.NuevoServicioOriginalFirmableCT(origen, custodia, tipos)
 	if err != nil {
-		return nil, errMontajeOriginalFirmableCTNoDisponible
+		return montajeOriginalFirmableCTDesarrollo{}, errMontajeOriginalFirmableCTNoDisponible
 	}
 	h, err := httpinterno.NuevoManejadorOriginalFirmableCT(autoridadCanalOriginalCTDesarrollo{alta.soporte}, servicio)
 	if err != nil {
-		return nil, errMontajeOriginalFirmableCTNoDisponible
+		return montajeOriginalFirmableCTDesarrollo{}, errMontajeOriginalFirmableCTNoDisponible
 	}
-	return []vechttp.RutaExacta{{Ruta: httpinterno.RutaOriginalFirmableCT, Manejador: h}}, nil
+	return montajeOriginalFirmableCTDesarrollo{rutas: []vechttp.RutaExacta{{Ruta: httpinterno.RutaOriginalFirmableCT, Manejador: h}},
+		servicio: servicio, tipos: tipos, documentos: &copia}, nil
 }

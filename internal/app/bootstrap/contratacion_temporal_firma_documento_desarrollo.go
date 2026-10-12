@@ -11,16 +11,19 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/app/composicion/firmasct"
+	ctadapters "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	consultafirmas "vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmas"
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
+	vecapplication "vec-diputacion-granada/internal/vec/application"
+	docapp "vec-diputacion-granada/internal/vec/documentos/application"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -167,6 +170,11 @@ type firmaDocumentoCTDesarrollo struct {
 	// Se fija únicamente después de que Documentos acepte la custodia. Los
 	// constructores R5 la exigen; no consumimos el original antes de tiempo.
 	custodiaR5Compuesta bool
+	// Son las mismas instancias de la ruta Original, conservadas al componerla.
+	// No constituyen una segunda raíz documental ni activan por sí solas R5.
+	servicioOriginal   *vecapplication.ServicioOriginalFirmableCT
+	tiposOriginal      *ctadapters.TiposOriginalFirmableRRHH
+	documentosOriginal *docapp.Servicio
 }
 
 func (f *firmaDocumentoCTDesarrollo) emisorResultadosFirma() puertosvec.EmisorResultadosTecnicosConContexto {
@@ -193,28 +201,7 @@ func vincularResultadosFirmaCT(f *firmaDocumentoCTDesarrollo, d *autoridadDocume
 // adaptador durable de firmas V2: la consulta y el registro con plan fijado
 // (CT176). No incluye el registro directo de CT172, así que esta dependencia
 // no puede entregarse a las vías R5 por error: no compilaría.
-type registroFirmaV2DurableDesarrollo interface {
-	ConsultarFirmasAutorizadasV2(context.Context, ports.MaterialConsultaFirmasR5V2,
-		ports.CapacidadConsultaFirmasR5V2) (ports.LecturaFirmasR5V2, error)
-	ports.RegistradorFirmaConPlanV2
-}
-
-// consultaFirmasV2SinRegistroDirecto adapta la consulta durable al puerto que
-// pide el decorador. Su registro directo rechaza siempre: RegistroConPlanV2
-// sólo escribe por CT176.
-type consultaFirmasV2SinRegistroDirecto struct {
-	durable registroFirmaV2DurableDesarrollo
-}
-
-func (c consultaFirmasV2SinRegistroDirecto) RegistrarFirmaVerificadaV2(context.Context,
-	ports.MaterialFirmaVerificadaV2, ports.CapacidadFirmaVerificadaV2) (ports.ReciboFirmaDocumento, error) {
-	return ports.ReciboFirmaDocumento{}, ports.ErrRegistroFirmaDocumentoNoDisponible
-}
-
-func (c consultaFirmasV2SinRegistroDirecto) ConsultarFirmasAutorizadasV2(ctx context.Context,
-	m ports.MaterialConsultaFirmasR5V2, cap ports.CapacidadConsultaFirmasR5V2) (ports.LecturaFirmasR5V2, error) {
-	return c.durable.ConsultarFirmasAutorizadasV2(ctx, m, cap)
-}
+type registroFirmaV2DurableDesarrollo = firmasct.RegistroDurable
 
 // Ambas vías consumen una sola historia nominal V2, el mismo verificador
 // acumulado y la custodia de las revisiones del PDF original. Desde CT176 una
@@ -251,26 +238,16 @@ func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desar
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.politicaFirmantes) {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	registro, err := firmaautorizacionv2.NuevoRegistroConPlanV2(d.descriptorPlan, d.emisorPlan, d.registro,
-		consultaFirmasV2SinRegistroDirecto{d.registro})
+	servicios, err := firmasct.Componer(firmasct.Dependencias{
+		Base: f.servicio, Original: d.original, Registro: d.registro,
+		DescriptorPlan: d.descriptorPlan, EmisorPlan: d.emisorPlan,
+		Consulta: d.consulta, Autorizar: d.autorizar, Verificador: d.verificador,
+		PDFAnterior: d.pdfAnterior, Competencia: d.competencia, PoliticaFirmantes: d.politicaFirmantes,
+	})
 	if err != nil {
-		return errFirmaDocumentoCTDesarrolloNoDisponible
+		return errors.Join(errFirmaDocumentoCTDesarrolloNoDisponible, err)
 	}
-	base := *f.servicio
-	if err := base.ComponerOriginalAutorizado(d.original); err != nil {
-		return errFirmaDocumentoCTDesarrolloNoDisponible
-	}
-	externa, err := ctapplication.NuevoServicioFirmaExternaV2(&base, d.verificador, registro,
-		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
-	if err != nil {
-		return errFirmaDocumentoCTDesarrolloNoDisponible
-	}
-	vec, err := ctapplication.NuevoServicioFirmaVecV2(&base, d.verificador, registro,
-		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
-	if err != nil {
-		return errFirmaDocumentoCTDesarrolloNoDisponible
-	}
-	f.firmaExterna, f.firmaVec, f.registroR5 = externa, vec, registro
+	f.firmaExterna, f.firmaVec, f.registroR5 = servicios.Externa, servicios.Vec, servicios.Registro
 	return nil
 }
 

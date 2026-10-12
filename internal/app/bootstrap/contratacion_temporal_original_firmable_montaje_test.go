@@ -33,9 +33,13 @@ func TestOriginalR5MontaConServicioDocumentosV1SinCambiarHistoria(t *testing.T) 
 	defer seudonimos.borrar()
 	consultas := dependenciasConsultasRRHHDesarrollo{detalle: &ctapp.ServicioConsultaDetalleRRHH{}, originalPropuesta: &ctapp.ServicioConsultaDetalleRRHH{}}
 	render := informe.RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
-	rutas, err := componerRutaOriginalFirmableCTDesarrollo(e.pdp.alta, consultas, render, documentos, seudonimos, e.soporte.reloj)
-	if err != nil || len(rutas) != 1 || rutas[0].Ruta != httpinterno.RutaOriginalFirmableCT || rutas[0].Manejador == nil {
-		t.Fatalf("ruta original sin servicio compartido: rutas=%d error=%v", len(rutas), err)
+	montaje, err := componerRutaOriginalFirmableCTDesarrollo(e.pdp.alta, consultas, render, documentos, seudonimos, e.soporte.reloj)
+	if err != nil || len(montaje.rutas) != 1 || montaje.rutas[0].Ruta != httpinterno.RutaOriginalFirmableCT || montaje.rutas[0].Manejador == nil {
+		t.Fatalf("ruta original sin servicio compartido: rutas=%d error=%v", len(montaje.rutas), err)
+	}
+	if montaje.servicio == nil || montaje.tipos == nil || montaje.documentos == nil || montaje.documentos == servicio ||
+		montaje.documentos.Politicas == v1 || montaje.documentos.Repositorio != repo || montaje.documentos.Almacen != objetos {
+		t.Fatal("original sin su copia V2 o sin recursos Documentos compartidos")
 	}
 	if servicio.Politicas != v1 || servicio.Repositorio != repo || servicio.Almacen != objetos {
 		t.Fatal("el montaje reescribió los recursos o la política V1 de Documentos")
