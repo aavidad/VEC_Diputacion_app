@@ -107,7 +107,15 @@ func (f *fachadaIncorporacionPersonalB2) Preparar(ctx context.Context, e httpct.
 	if err != nil {
 		return cero, errorHTTPNominalB2(ctx, err)
 	}
-	p, err := f.opciones.ConsultarOpcionesIncorporacionB2(ctx, e.ExpedienteRef)
+	var p httpct.ProyeccionIncorporacionPersonalB2HTTP
+	// Sólo el montaje nominal comparte estas instancias; otros consumidores
+	// conservan la consulta completa aunque el contexto contenga una captura.
+	servicio, nominal := f.ct.(*appct.ServicioPlanNominalB2)
+	if fuentes, ok := f.opciones.(*fuentesIncorporacionPersonalB2); ok && nominal && fuentes == f.fuentes && fuentes.servicioCT == servicio {
+		p, err = fuentes.opcionesTrasPreparacionB2(ctx, c)
+	} else {
+		p, err = f.opciones.ConsultarOpcionesIncorporacionB2(ctx, e.ExpedienteRef)
+	}
 	if err != nil {
 		return cero, errorHTTPNominalB2(ctx, err)
 	}

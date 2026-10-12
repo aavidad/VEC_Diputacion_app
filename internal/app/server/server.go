@@ -681,6 +681,7 @@ func setNoStoreForStatic(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(path, "/textos/") && strings.HasSuffix(path, ".json") {
 		// Catálogos públicos de textos por idioma: ver cacheCatalogoTextos.
 		fijarCacheEstatico(w, cacheCatalogoTextos(r))
+		anunciarHuellaTextos(w, path)
 		return
 	}
 	if path == "/" || strings.HasSuffix(path, ".html") || strings.HasSuffix(path, ".json") {

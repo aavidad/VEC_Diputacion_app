@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -17,6 +18,7 @@ import (
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	pp "vec-diputacion-granada/internal/modules/personal/ports"
+	core "vec-diputacion-granada/internal/vec/domain"
 )
 
 type catalogosIncorporacionB2Prueba func(context.Context, personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error)
@@ -354,4 +356,191 @@ func TestIncorporacionB2TraduccionNoTruncaVersionesCT(t *testing.T) {
 			t.Fatalf("plan %d: procedencia truncada: %v", version, err)
 		}
 	}
+}
+
+type vacantesPreparacionB2Prueba func(context.Context, personal.SolicitudVacantesB2) (pp.ResultadoVacantesB2, error)
+
+func (v vacantesPreparacionB2Prueba) ConsultarVacantes(ctx context.Context, q personal.SolicitudVacantesB2) (pp.ResultadoVacantesB2, error) {
+	return v(ctx, q)
+}
+
+type anclajePreparacionB2Prueba func(context.Context, bp.SolicitudConsultaAnclajeAceptacionCT) (bp.ResultadoConsultaAnclajeAceptacionCT, error)
+
+func (a anclajePreparacionB2Prueba) ConsultarAnclajeAceptacionCT(ctx context.Context, q bp.SolicitudConsultaAnclajeAceptacionCT) (bp.ResultadoConsultaAnclajeAceptacionCT, error) {
+	return a(ctx, q)
+}
+
+func escenarioProyeccionPreparacionB2(t *testing.T) (*fuentesIncorporacionPersonalB2, context.Context, ct.ContratoPlanNominalB2, httpct.ProyeccionIncorporacionPersonalB2HTTP, *lectorAsignacionB2ContadoPrueba, *lectorDetalleIncorporacionB2Prueba) {
+	t.Helper()
+	a, ctx, lector := escenarioCapturaAsignacionB2Prueba(t)
+	if _, err := a.actor(ctx, ct.AccionRegistrarPlanNominalB2); err != nil {
+		t.Fatal(err)
+	}
+	detalle := &lectorDetalleIncorporacionB2Prueba{err: errors.New("lectura completa del detalle")}
+	f := &fuentesIncorporacionPersonalB2{autoridad: a, organizacionRef: "organizacion:prueba", organismoRef: "organismo:prueba", reloj: a.reloj, detalle: detalle}
+	m := materialPreparacionB2Prueba(t)
+	m.OrganizacionRef, m.OrganismoRef = f.organizacionRef, f.organismoRef
+	m.ExpedienteRef = "expediente:prueba"
+	d := ct.DetalleExpedienteRRHH{Resumen: ct.ResumenExpedienteRRHH{Version: m.VersionExpediente}, Solicitud: ct.SolicitudOperativaRRHH{MotivoClave: domct.ClaveCatalogo(m.MotivoClave)}, Analisis: &ct.AnalisisOperativoRRHH{PeriodoInicio: time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)}}
+	antecedentes := ct.AntecedentesPlanNominalB2{ExpedienteRef: m.ExpedienteRef, VersionExpediente: m.VersionExpediente, CategoriaRef: m.CategoriaRef, DocumentoRef: m.DocumentoRef, DocumentoSHA256: m.DocumentoSHA256, AnalisisVersion: 2, AnalisisReciboRef: "recibo:analisis", AnalisisSHA256: strings.Repeat("b", 64), AceptacionRef: m.AceptacionRef, AceptacionReciboRef: m.AceptacionReciboRef, Bolsa: m.Bolsa}
+	p := proyeccionCTIncorporacionB2(m.ExpedienteRef, d, antecedentes)
+	f.vacantes = vacantesPreparacionB2Prueba(func(_ context.Context, q personal.SolicitudVacantesB2) (pp.ResultadoVacantesB2, error) {
+		if q.Actor.PerfilActivoRef != a.perfiles.b2[personal.AccionVacantesB2].perfilRef() || q.Limite != 100 || string(q.Corte.VigenteEn) != m.Desde {
+			t.Fatal("selector nominal de vacantes cambiado")
+		}
+		return pp.ResultadoVacantesB2{Pagina: personal.PaginaVacantesB2{Vacantes: []personal.VacantePlazaB2{{PlazaRef: "plaza:una", PuestoRef: "puesto:uno", VersionRPTRef: "rpt:uno", CodigoPlazaFuente: "001", PuestoDenominacion: "Puesto uno"}, {PlazaRef: "plaza:dos", PuestoRef: "puesto:dos", VersionRPTRef: "rpt:dos", CodigoPlazaFuente: "002", PuestoDenominacion: "Puesto dos"}}}}, nil
+	})
+	f.catalogos = catalogosIncorporacionB2Prueba(func(_ context.Context, q personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
+		return pp.ResultadoConsultaCatalogoEmpleadoB2{Entradas: []personal.EntradaCatalogoRegistroEmpleadoB2{{Ref: q.Tipo + ":uno", Version: 1, Denominacion: "Uno", VigenteDesde: "2026-01-01"}, {Ref: q.Tipo + ":dos", Version: 2, Denominacion: "Dos", VigenteDesde: "2026-01-01"}}}, nil
+	})
+	f.clases = &clasesIncorporacionB2Prueba{resultado: pp.ResultadoClasesOcupacionCT{Catalogo: personal.CatalogoClasesOcupacionCT{Ref: "catalogo:clases", Version: 3, HuellaSHA256: strings.Repeat("c", 64), Opciones: []personal.OpcionClaseOcupacionCT{{Valor: "temporal", TextoClave: "personal.clases.temporal"}, {Valor: "sustitucion", TextoClave: "personal.clases.sustitucion"}}}}}
+	f.anclaje = anclajePreparacionB2Prueba(func(_ context.Context, q bp.SolicitudConsultaAnclajeAceptacionCT) (bp.ResultadoConsultaAnclajeAceptacionCT, error) {
+		if q.Selector.LlamamientoRef != m.Bolsa.LlamamientoRef {
+			t.Fatal("anclaje cambió selector")
+		}
+		return bp.ResultadoConsultaAnclajeAceptacionCT{Estado: "pendiente"}, nil
+	})
+	if err := f.capturarPreparacionB2(ctx, m, p); err != nil {
+		t.Fatal(err)
+	}
+	completo, err := f.completarOpcionesIncorporacionB2(ctx, copiarProyeccionPreparacionB2(p), antecedentes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f, ctx, ct.ContratoPlanNominalB2{Material: m}, completo, lector, detalle
+}
+
+func TestIncorporacionB2PreparacionReutilizaCTYConservaOpcionesCompletas(t *testing.T) {
+	f, ctx, c, esperada, _, detalle := escenarioProyeccionPreparacionB2(t)
+	for range 2 { // La misma captura también sirve tras el replay del registro nominal.
+		r, err := f.opcionesTrasPreparacionB2(ctx, c)
+		if err != nil || !reflect.DeepEqual(r, esperada) {
+			t.Fatalf("respuesta distinta: %+v err=%v", r, err)
+		}
+		if len(r.Opciones.Vacantes) != 2 || len(r.Opciones.Regimenes) != 2 || len(r.Opciones.Modalidades) != 2 || len(r.Opciones.ClasesOcupacion) != 2 {
+			t.Fatal("se sustituyó lista por selección")
+		}
+		r.Prerrequisitos[0].Cumplido = true
+		r.Opciones.Motivos[0] = "ajeno"
+	}
+	if detalle.llamadas != 0 {
+		t.Fatalf("repitió detalle %d veces", detalle.llamadas)
+	}
+}
+
+func TestIncorporacionB2PreparacionUsaConsultaCompletaSiCapturaNoCoincide(t *testing.T) {
+	for _, caso := range []string{"ausente", "peticion", "fuente", "expediente", "version", "selector", "actor", "sin_holder"} {
+		t.Run(caso, func(t *testing.T) {
+			f, ctx, c, _, _, detalle := escenarioProyeccionPreparacionB2(t)
+			holder := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+			switch caso {
+			case "ausente":
+				holder.preparacionB2 = nil
+			case "peticion":
+				ctx = context.WithValue(ctx, claveContextosNominalesIncorporacion{}, &capturaContextosNominalesIncorporacion{})
+			case "fuente":
+				otra := *f
+				f = &otra
+			case "expediente":
+				c.Material.ExpedienteRef = "expediente:otro"
+			case "version":
+				c.Material.VersionExpediente++
+			case "selector":
+				c.Material.Bolsa.LlamamientoRef = "llamamiento:otro"
+			case "actor":
+				holder.preparacionB2.identidad.PrincipalID = "persona:otra"
+			case "sin_holder":
+				ctx = context.Background()
+			}
+			_, err := f.opcionesTrasPreparacionB2(ctx, c)
+			if !errors.Is(err, detalle.err) || detalle.llamadas != 1 {
+				t.Fatalf("fallback incompleto: lecturas=%d err=%v", detalle.llamadas, err)
+			}
+		})
+	}
+}
+
+func TestIncorporacionB2PreparacionRevalidaRevocacionYFalloEnMismaPeticion(t *testing.T) {
+	for _, caso := range []string{"detalle_revocado", "plan_revocado", "fuente_caida", "cancelada", "vacantes_caidas", "catalogo_denegado", "clases_caidas", "anclaje_caido"} {
+		t.Run(caso, func(t *testing.T) {
+			f, ctx, c, _, lector, detalle := escenarioProyeccionPreparacionB2(t)
+			// Los dos perfiles ya están capturados cuando cambia la fuente.
+			for _, accion := range []string{ct.AccionConsultarDetalleRRHH, ct.AccionLeerPlanNominalB2} {
+				if _, err := f.autoridad.actor(ctx, accion); err != nil {
+					t.Fatal(err)
+				}
+			}
+			esperado := ct.ErrAutorizacionDenegada
+			switch caso {
+			case "detalle_revocado", "plan_revocado":
+				accion := ct.AccionLeerPlanNominalB2
+				if caso == "detalle_revocado" {
+					accion = ct.AccionConsultarDetalleRRHH
+				}
+				perfil := f.autoridad.perfiles.b2[accion]
+				publicada := lector.base.publicadas[perfil.perfilRef()]
+				publicada.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
+				publicada.instantanea.AsignacionPerfil.Estado = core.EstadoAsignacionPerfilRevocada
+				lector.base.publicadas[perfil.perfilRef()] = publicada
+			case "fuente_caida":
+				lector.base.errorLectura = errors.New("caida")
+				esperado = ct.ErrConsultaRRHHNoDisponible
+			case "cancelada":
+				var cancelar context.CancelFunc
+				ctx, cancelar = context.WithCancel(ctx)
+				cancelar()
+				esperado = context.Canceled
+			case "vacantes_caidas":
+				esperado = personal.ErrRegistroEmpleadoB2NoDisponible
+				f.vacantes = vacantesPreparacionB2Prueba(func(context.Context, personal.SolicitudVacantesB2) (pp.ResultadoVacantesB2, error) {
+					return pp.ResultadoVacantesB2{}, esperado
+				})
+			case "catalogo_denegado":
+				esperado = personal.ErrRegistroEmpleadoB2Denegado
+				f.catalogos = catalogosIncorporacionB2Prueba(func(context.Context, personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
+					return pp.ResultadoConsultaCatalogoEmpleadoB2{}, esperado
+				})
+			case "clases_caidas":
+				esperado = personal.ErrRegistroEmpleadoB2NoDisponible
+				f.clases.(*clasesIncorporacionB2Prueba).err = esperado
+			case "anclaje_caido":
+				esperado = bp.ErrConsultaPersonaAceptacionCTNoDisponible
+				f.anclaje = anclajePreparacionB2Prueba(func(context.Context, bp.SolicitudConsultaAnclajeAceptacionCT) (bp.ResultadoConsultaAnclajeAceptacionCT, error) {
+					return bp.ResultadoConsultaAnclajeAceptacionCT{}, esperado
+				})
+			}
+			r, err := f.opcionesTrasPreparacionB2(ctx, c)
+			if !errors.Is(err, esperado) || !reflect.ValueOf(r).IsZero() || detalle.llamadas != 0 {
+				t.Fatalf("captura evitó control o devolvió parcial: %+v err=%v", r, err)
+			}
+		})
+	}
+}
+
+func materialPreparacionB2Prueba(t *testing.T) domct.PlanIncorporacionPersonalB2 {
+	t.Helper()
+	h := strings.Repeat("a", 64)
+	fuente := domct.FuentePlanPersonalB2{Ref: "fuente:original", Version: 1, SHA256: h}
+	m := domct.PlanIncorporacionPersonalB2{
+		OrganizacionRef: "org:uno", UnidadCTRef: "unidad:rrhh", ExpedienteRef: "expediente:uno", VersionExpediente: 8,
+		AnalisisVersion: 2, AnalisisReciboRef: "recibo:analisis", AnalisisSHA256: h, PropuestaReciboRef: "recibo:propuesta",
+		AceptacionRef: "aceptacion:uno", AceptacionReciboRef: "recibo:aceptacion",
+		Bolsa: domct.SelectorBolsaPlanB2{UnidadRef: "unidad:uno", CategoriaRef: "categoria:uno", NecesidadRef: "necesidad:uno",
+			AceptacionOperacionRef: "operacion:aceptacion", AceptacionRegistroSHA256: h, AperturaOperacionRef: "operacion:apertura",
+			AperturaRegistroSHA256: h, LlamamientoRef: "llamamiento:uno", PropuestaRef: "propuesta:uno"},
+		PersonaRef: "per_aaaaaaaaaaaaaaaaaaaaaaaa", PersonaVersion: 1, PersonaFuente: fuente, PersonaReciboBolsaRef: "recibo:bolsa",
+		OrganismoRef: "organismo:uno", UnidadRef: "unidad:uno", FuenteOrganizacion: domct.FuenteSinVersionPlanB2{Ref: fuente.Ref, SHA256: h},
+		FuentePlantilla: domct.InstrumentoPlanPersonalB2{Ref: "11111111-1111-4111-8111-111111111111", Revision: 1, FuenteRef: fuente.Ref, FuenteSHA256: h},
+		FuenteRPT:       domct.InstrumentoPlanPersonalB2{Ref: "22222222-2222-4222-8222-222222222222", Revision: 1, FuenteRef: fuente.Ref, FuenteSHA256: h},
+		VersionPlazaRef: "plantilla:uno", VersionPuestoRef: "rpt:uno", RevisionPlaza: 1, RevisionPuesto: 1,
+		PuestoRef: "puesto:uno", PlazaRef: "plaza:uno", CatalogoRPTID: "catalogo:rpt", CatalogoRPTModulo: "personal",
+		CatalogoRPTVersion: 1, CatalogoRPTSHA256: h, CategoriaRef: "categoria:uno", VinculoRevision: 1, VinculoReciboRef: "recibo:vinculo",
+		Regimen: domct.EntradaPlanPersonalB2{Ref: "regimen:uno", Version: 1}, Modalidad: domct.EntradaPlanPersonalB2{Ref: "modalidad:uno", Version: 1},
+		ClaseOcupacion: "temporal", Desde: "2026-09-30", MotivoClave: "incorporacion", DocumentoRef: "documento:uno", DocumentoSHA256: h,
+		EjercicioSintetico: true,
+	}
+	if err := m.Validar(); err != nil {
+		t.Fatalf("plan de prueba inválido: %v", err)
+	}
+	return m
 }
