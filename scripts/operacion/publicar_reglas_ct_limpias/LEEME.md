@@ -18,12 +18,14 @@ scripts/operacion/publicar_reglas_ct_limpias/publicar.sh --aplicar PUBLICA-REGLA
 
 Si CT148 contiene ajustes, el guion conserva sus valores en una **versión nueva** vinculada a la base v2; no altera ni borra las filas anteriores. Este rebase de datos de operación no pasa por `operar_ajustes_reglas_v1`, pues esa operación exige un cambio real de valor y una decisión V3. La fila nueva registra la referencia `operacion:datos-inventados:20261012`, la cuenta técnica, un recibo y un evento; no registra cambios de valor ni afirma una decisión V3 o aprobación RRHH. Si el publicador CT confirma el `COMMIT` pero falla el rebase, la misma orden completa el vínculo tras cotejar de nuevo ambas cabezas. Mantenga detenida la admisión hasta que `--comprobar` devuelva `replay` y coteje recibos e historia en el clon y destino.
 
-Después de la publicación, copie los tres JSON junto con los demás catálogos de `/app/data/catalogos/` y cambie únicamente estas tres líneas del lanzador privado:
+El guion verifica únicamente esta publicación inicial. Si más adelante RRHH registra otro ajuste real, la cabeza CT148 avanzará y `--comprobar` responderá `ajustes_incompatibles`; consulte entonces el historial vigente desde la aplicación. No repita el guion para editar reglas nuevas ni revierta ese ajuste.
+
+Después de la publicación, copie cada JSON al montaje privado `/vec-incorporacion/` con los nombres indicados y cambie únicamente estas tres líneas del lanzador privado:
 
 ```bash
-export VEC_BOLSA_REGLAS_SOURCE_PATH=/app/data/catalogos/bolsa/reglas.v6.json
-export VEC_CT_REGLAS_SOURCE_PATH=/app/data/catalogos/contratacion-temporal/reglas.v2.json
-export VEC_CT_CIRCUITO_FIRMA_SOURCE_PATH=/app/data/catalogos/contratacion-temporal/circuito_firma.v2.json
+export VEC_BOLSA_REGLAS_SOURCE_PATH=/vec-incorporacion/bolsa_reglas.v6.json
+export VEC_CT_REGLAS_SOURCE_PATH=/vec-incorporacion/ct_reglas.v2.json
+export VEC_CT_CIRCUITO_FIRMA_SOURCE_PATH=/vec-incorporacion/ct_circuito_firma.v2.json
 ```
 
 El arranque coteja la versión y la huella CT con la base activa. Una divergencia impide habilitar la edición de reglas. Los pasos del circuito describen datos configurados; su ejecución y una firma efectiva requieren el sistema corporativo y su autoridad propia.

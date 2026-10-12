@@ -63,10 +63,37 @@ privada. La puerta completa corresponde a la CI de la PR.
 
 Límite de presentación: el historial por regla filtra por cambios de valor,
 por lo que el traslado v2 consta en API/base pero no añade una línea a ese
-historial. Las cifras resumen y el filtro de origen conservan sus categorías
-anteriores; el total incluye las configuradas. La revisión independiente lo
-consideró no bloqueante. No se afirma validación global WCAG ni recorrido
+historial. El delta de dirección añade Configuradas al resumen y al filtro; los cuatro
+indicadores abren su filtro y conservan el origen en la URL. No se afirma validación global WCAG ni recorrido
 completo de otros módulos.
 
 Configuración exacta y orden operativo en LEEME y lista SQL. Dirección
 fusiona y ejecuta en cidonia; este ensayo no tocó ese servidor.
+
+## Corrección solicitada por dirección
+
+El envoltorio de `psql` puede ejecutarse dentro de un contenedor, sin acceso
+a la ruta del guion en el host. El rebase se entrega ahora por entrada
+estándar. Una prueba focal con un envoltorio recibió los 6.105 bytes de SQL
+y no recibió `-f`. El cuerpo SQL no cambia; no se repitió el ensayo de datos.
+Dirección también lo ensayó en su copia HZ21 con un ajuste previo: preparado,
+registrado y replay, con v1 conservada.
+
+La primera CI detectó tres fallos web: metadatos EN sin sus pares ES y dos
+expectativas anteriores al catálogo y al grafo de caché nuevos. Se corrigió
+la paridad de claves y se contrastaron los originales con las fuentes
+conocidas, sin retirar las guardas. Pasaron 44 pruebas Node focales y la
+comprobación de tamaños; portal-i18n.test.mjs queda en 1.102 líneas.
+
+Chrome del sistema comprobó exclusivamente el delta visual en un arnés
+local, con los 86 datos del catálogo y la respuesta AJ2 registrada. No es
+otro ensayo SQL ni de autorización. En escritorio: 86 = 27 del Reglamento
++ 0 propuestas + 59 configuradas. Pulsar Configuradas abre 59 filas y
+conserva `origen=configuracion` en la URL; al abrir esa URL se restaura el
+filtro. A 390 px no hay desborde horizontal y sólo se pide el catálogo
+`textos/en/reglas.json` para la pantalla inglesa. Capturas del delta:
+[es1440](configuradas-es-1440.png) y [en390](configuradas-en-390.png).
+
+El LEEME usa el montaje final `/vec-incorporacion/` y aclara que el guion
+comprueba esta publicación inicial: un ajuste posterior real hace que
+`--comprobar` devuelva `ajustes_incompatibles`, sin revertir ese ajuste.

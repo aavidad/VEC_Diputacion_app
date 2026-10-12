@@ -141,7 +141,7 @@ if [[ $version == 1 ]]; then
   secuencia=$((secuencia+1))
 fi
 if [[ $ajustes != 0 ]]; then
-  if ! "$psql_bin" -X -qAt -v ON_ERROR_STOP=1 -f "$carpeta/rebase_ajustes.sql" >/dev/null 2>&1; then
+  if ! "$psql_bin" -X -qAt -v ON_ERROR_STOP=1 < "$carpeta/rebase_ajustes.sql" >/dev/null 2>&1; then
     error rebase_incierto; exit 1
   fi
 fi

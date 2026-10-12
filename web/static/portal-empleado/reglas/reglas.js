@@ -106,14 +106,18 @@ export function filtrar(catalogos, { modulo = "", origen = "", texto: consulta =
   }));
 }
 
-const ICONOS_KPI = Object.freeze({ total: "reglas", reglamento: "documento", ejemplo: "pendiente" });
+const ICONOS_KPI = Object.freeze({ total: "reglas", reglamento: "documento", ejemplo: "pendiente", configuracion: "reglas" });
 
 export function renderizarResumen(catalogos) {
   const reglas = catalogos.flatMap((c) => c.reglas);
-  const kpi = (clase, clave, valor) => `<div class="rg-kpi rg-kpi--${clase}"><span class="rg-kpi-icono">${icono(ICONOS_KPI[clase])}</span><span class="rg-kpi-rotulo">${esc(t(clave))}</span><strong>${esc(formatearNumero(valor))}</strong></div>`;
+  const kpi = (clase, clave, valor) => {
+    const contenido = `<span class="rg-kpi-icono">${icono(ICONOS_KPI[clase])}</span><span class="rg-kpi-rotulo">${esc(t(clave))}</span><strong>${esc(formatearNumero(valor))}</strong>`;
+    return `<button type="button" class="rg-kpi rg-kpi--${clase}" data-rg-filtrar-origen="${clase === "total" ? "" : clase}">${contenido}</button>`;
+  };
   return kpi("total", "kpiTotal", reglas.length)
     + kpi("reglamento", "kpiReglamento", reglas.filter((r) => r.origen === "reglamento").length)
-    + kpi("ejemplo", "kpiEjemplo", reglas.filter((r) => r.origen === "ejemplo").length);
+    + kpi("ejemplo", "kpiEjemplo", reglas.filter((r) => r.origen === "ejemplo").length)
+    + kpi("configuracion", "kpiConfiguracion", reglas.filter((r) => r.origen === "configuracion").length);
 }
 
 /** Identificador de fila estable y seguro para `id` y `aria-controls`. */
@@ -296,7 +300,18 @@ export async function iniciar(doc, cliente) {
     }
     const modulos = [...new Set(datos.catalogos.map((c) => c.modulo))];
     $("rg-modulo").innerHTML = `<option value="">${esc(t("todos"))}</option>` + modulos.map((m) => `<option value="${esc(m)}">${esc(etiquetaModulo(m))}</option>`).join("");
-    $("rg-origen").innerHTML = `<option value="">${esc(t("todos"))}</option>` + [...ORIGENES].filter((o) => o !== "configuracion").map((o) => `<option value="${o}">${esc(t(`origen_${o}`))}</option>`).join("");
+    $("rg-origen").innerHTML = `<option value="">${esc(t("todos"))}</option>` + [...ORIGENES].map((o) => `<option value="${o}">${esc(t(`origen_${o}`))}</option>`).join("");
+    const origenInicial = new URLSearchParams(String(doc.defaultView?.location?.search ?? "")).get("origen");
+    if (ORIGENES.has(origenInicial)) $("rg-origen").value = origenInicial;
+    const guardarOrigen = () => {
+      const vista = doc.defaultView;
+      const parametros = new URLSearchParams(String(vista.location.search ?? ""));
+      const origen = $("rg-origen").value;
+      if (origen) parametros.set("origen", origen); else parametros.delete("origen");
+      const consulta = parametros.toString();
+      const ancla = String(vista.location.hash ?? "");
+      vista.history.replaceState(null, "", `${vista.location.pathname}${consulta ? `?${consulta}` : ""}${ancla}`);
+    };
     // Reglas abiertas: sobreviven al filtrar y, la última, a recargar (ancla).
     const abiertas = new Set();
     let ancla = "";
@@ -329,8 +344,19 @@ export async function iniciar(doc, cliente) {
       alternar(fila);
     });
     $("rg-filtros").addEventListener("submit", (evento) => evento.preventDefault());
-    for (const id of ["rg-modulo", "rg-origen"]) $(id).addEventListener("change", pintar);
+    $("rg-modulo").addEventListener("change", pintar);
+    $("rg-origen").addEventListener("change", () => { guardarOrigen(); pintar(); });
     $("rg-texto").addEventListener("input", pintar);
+    $("rg-kpis").addEventListener("click", (evento) => {
+      const boton = evento.target.closest?.("[data-rg-filtrar-origen]");
+      if (!boton) return;
+      const origen = boton.dataset.rgFiltrarOrigen;
+      if (origen !== "" && !ORIGENES.has(origen)) return;
+      $("rg-origen").value = origen;
+      guardarOrigen();
+      pintar();
+      $("rg-origen").focus();
+    });
     pintar();
     const devolverFoco = conservarFoco && doc.activeElement === aviso;
     avisar("");

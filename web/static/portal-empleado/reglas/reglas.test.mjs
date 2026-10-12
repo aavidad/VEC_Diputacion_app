@@ -115,6 +115,9 @@ test("pinta valor, unidad, origen, duda y versión, escapando el contenido", () 
   const resumen = renderizarResumen(d.catalogos);
   assert.match(resumen, /Reglas vigentes<\/span><strong>2</u);
   assert.match(resumen, /Del Reglamento<\/span><strong>1</u);
+  assert.match(resumen, /data-rg-filtrar-origen="configuracion"[^>]*>/u);
+  assert.match(resumen, /Configuradas<\/span><strong>0</u);
+  assert.equal((resumen.match(/<button type="button" class="rg-kpi /gu) ?? []).length, 4);
 });
 
 test("filtra por módulo, origen y texto", () => {
@@ -210,7 +213,7 @@ test("los textos de la pantalla vienen de los catálogos es y en con las mismas 
 });
 
 /** DOM mínimo para recorrer la pantalla sin navegador: suficiente para abrir, filtrar y recargar. */
-function documentoFalso(hash = "") {
+function documentoFalso(hash = "", search = "") {
   const html = leer("./index.html");
   const nodos = new Map();
   let doc;
@@ -237,9 +240,14 @@ function documentoFalso(hash = "") {
   for (const [, id] of html.matchAll(/id="([a-z-]+)"/gu)) {
     nodos.set(id, crearNodo(id));
   }
-  const estado = { hash, reemplazos: [], recargas: 0 };
-  const vista = { location: { get hash() { return estado.hash; }, pathname: "/portal-empleado/reglas/", search: "", reload: () => { estado.recargas++; } },
-    history: { replaceState: (_e, _t, url) => { estado.reemplazos.push(url); estado.hash = url.startsWith("#") ? url : ""; } } };
+  const estado = { hash, search, reemplazos: [], recargas: 0 };
+  const vista = { location: { get hash() { return estado.hash; }, get search() { return estado.search; }, pathname: "/portal-empleado/reglas/", reload: () => { estado.recargas++; } },
+    history: { replaceState: (_e, _t, url) => {
+      estado.reemplazos.push(url);
+      const siguiente = new URL(url, `https://vec.example/portal-empleado/reglas/${estado.search}${estado.hash}`);
+      estado.hash = siguiente.hash;
+      estado.search = siguiente.search;
+    } } };
   doc = {
     body: {}, createElement: (tag) => crearNodo(tag),
     title: "", documentElement: { lang: "" }, defaultView: vista,
@@ -295,6 +303,38 @@ test("pulsar el nombre abre y cierra el detalle, lo anota en el ancla y la recar
   await iniciar(malformada.doc, cliente);
   assert.equal(malformada.nodos.get("rg-resultado").hidden, false);
   assert.match(malformada.nodos.get("rg-catalogos").innerHTML, /aria-expanded="false"/u);
+});
+
+test("los cuatro indicadores abren el filtro y conservan la consulta y el ancla", async () => {
+  const configurada = regla({ clave: "b06.configurada", etiqueta: "Regla configurada", origen: "configuracion",
+    paquete_ejemplo: false, version: 6, referencia: "vec.bolsa.reglas:6:b06.configurada" });
+  const reglamentaria = regla({ clave: "b07.reglamento", origen: "reglamento", articulo: "art. 7",
+    paquete_ejemplo: false, version: 6, referencia: "vec.bolsa.reglas:6:b07.reglamento" });
+  const cliente = { reglas: async () => validarReglas({ data: { esquema: ESQUEMA, catalogos: [
+    { modulo: "bolsa", catalogo_id: "vec.bolsa.reglas", estado: "disponible", version: 6,
+      paquete_ejemplo: false, reglas: [configurada, reglamentaria] },
+  ] } }) };
+  const hash = `#${idRegla("bolsa", configurada.clave)}`;
+  const { doc, nodos, estado } = documentoFalso(hash, "?vista=compacta");
+  await iniciar(doc, cliente);
+  assert.match(nodos.get("rg-origen").innerHTML, /value="configuracion">Configuradas/u);
+  const pulsar = (origen) => {
+    const boton = { dataset: { rgFiltrarOrigen: origen }, closest: () => boton };
+    nodos.get("rg-kpis").oyentes.click({ target: boton });
+    assert.equal(nodos.get("rg-origen").value, origen);
+    assert.equal(doc.activeElement, nodos.get("rg-origen"));
+    assert.equal(estado.hash, hash);
+  };
+  for (const origen of ["configuracion", "reglamento", "ejemplo", ""]) pulsar(origen);
+  assert.equal(estado.search, "?vista=compacta");
+  nodos.get("rg-origen").value = "configuracion";
+  nodos.get("rg-origen").oyentes.change();
+  assert.equal(estado.search, "?vista=compacta&origen=configuracion");
+  const recarga = documentoFalso(estado.hash, estado.search);
+  await iniciar(recarga.doc, cliente);
+  assert.equal(recarga.nodos.get("rg-origen").value, "configuracion");
+  assert.match(recarga.nodos.get("rg-catalogos").innerHTML, /Regla configurada/u);
+  assert.doesNotMatch(recarga.nodos.get("rg-catalogos").innerHTML, /b07\.reglamento/u);
 });
 
 test("la cabecera del catálogo muestra la versión sin identificadores ni huellas", () => {
@@ -428,7 +468,7 @@ test("las reglas traducidas se presentan y se buscan en ES/EN sin modificar la d
       }
       assert.equal(JSON.stringify(catalogos), preimagen);
       process.stdout.write(String(comprobadas));`;
-    assert.equal(execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" }), idioma === "es" ? "23" : "37");
+    assert.equal(execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" }), "37");
   }
 });
 
