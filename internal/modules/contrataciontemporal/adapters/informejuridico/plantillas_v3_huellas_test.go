@@ -9,8 +9,11 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/documentos/docx"
 	"vec-diputacion-granada/internal/vec/adapters/documentos/pdf"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 const rutaCatalogoPlantillasV3Prueba = "../../../../../data/catalogos/contratacion-temporal/plantillas_documentos.v3.json"
@@ -56,7 +59,7 @@ func TestPlantillasV3SinMarcasDeEnsayoNiFirmaFingida(t *testing.T) {
 		}
 	}
 	for tipo, esperado := range huellasPDFV3 {
-		contenido, err := contenidoBorradorDesarrollo(tipo, detalleInformeDefinitivoPrueba(), nil, plantillas)
+		contenido, err := contenidoBorradorDesarrollo(tipo, detalleInformeDefinitivoPrueba(), nil, plantillas, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -74,5 +77,59 @@ func TestPlantillasV3SinMarcasDeEnsayoNiFirmaFingida(t *testing.T) {
 		if actual != esperado {
 			t.Errorf("%s: huella obtenida %s, esperada %s", tipo, actual, esperado)
 		}
+		// La misma v3 publicada permite descargar nombres sin cambiar el original.
+		detalle := detalleInformeDefinitivoPrueba()
+		nombres := map[string]string{
+			detalle.Resumen.CentroRef:    "Secretaría General",
+			detalle.Resumen.CategoriaRef: "Auxiliar administrativo/a",
+			detalle.Asignacion.UnidadRef: "Servicio de Personal",
+		}
+		for _, documento := range []vecports.RenderizadorDocumento{
+			pdf.Renderizador{Membrete: true}, docx.Renderizador{Membrete: true},
+		} {
+			t.Run(string(tipo)+"/"+string(documento.Formato()), func(t *testing.T) {
+				captura := &renderizadorCapturaNombres{RenderizadorDocumento: documento}
+				proveedor := &proveedorPlantillasVariable{catalogo: catalogo}
+				r := RenderizadorBorradorCatalogoVivo{
+					Proveedor: proveedor, PDF: captura, DOCX: captura,
+					Etiquetas:         func(ref string) string { return " " + nombres[ref] + " " },
+					Ahora:             func() time.Time { return time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC) },
+					OmitirReferencias: true,
+				}
+				var resultado BorradorCatalogado
+				var err error
+				if documento.Formato() == vecdomain.FormatoDocumentoPDF {
+					resultado, err = r.GenerarPDF(context.Background(), tipo, detalle)
+				} else {
+					resultado, err = r.GenerarDOCX(context.Background(), tipo, detalle)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				if resultado.CatalogoRef != plantillas.Referencia() || resultado.CatalogoHuellaSHA256 != plantillas.Huella() || proveedor.llamadas != 1 {
+					t.Fatal("la descarga debe conservar la misma publicación v3 y una sola lectura")
+				}
+				texto := strings.Join(captura.contenido.Parrafos, "\n")
+				for ref, nombre := range nombres {
+					if strings.Contains(texto, ref) {
+						t.Errorf("referencia interna junto al nombre: %s", ref)
+					}
+					if ref != detalle.Asignacion.UnidadRef && !strings.Contains(texto, nombre) {
+						t.Errorf("falta el nombre %q", nombre)
+					}
+				}
+			})
+		}
 	}
+}
+
+// Captura el contenido y delega en los generadores PDF/Word reales y su validación.
+type renderizadorCapturaNombres struct {
+	vecports.RenderizadorDocumento
+	contenido vecdomain.ContenidoDocumento
+}
+
+func (r *renderizadorCapturaNombres) Renderizar(ctx context.Context, contenido vecdomain.ContenidoDocumento) ([]byte, error) {
+	r.contenido = contenido
+	return r.RenderizadorDocumento.Renderizar(ctx, contenido)
 }
