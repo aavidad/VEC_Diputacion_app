@@ -87,6 +87,12 @@ func (a *AutoridadRutaSeguimiento) AutorizarRutaExacta(ctx context.Context, ruta
 		}
 		return nil
 	}
+	if ruta == httpct.RutaOriginalFirmableCT {
+		if _, err := a.fuente.ContextoVinculadoOriginalCT(ctx); err != nil {
+			return httpapi.ErrAccesoRutaExactaDenegado
+		}
+		return nil
+	}
 	if ruta != httpct.RutaConsultaSeguimientoV2 {
 		// La prueba F1 ya está sellada por el puente tras mTLS. Validarla aquí
 		// evita otra resolución y deniega invocaciones directas del router.
@@ -128,7 +134,7 @@ func (f *FuenteF1) ResolverContextoPersonalB2(ctx context.Context) (vecdomain.Co
 // admite una sola referencia de empleado; la decisión sobre ese empleado se
 // realiza después en V3, nunca a partir del identificador de la URL.
 func RutaInternaGobernada(ruta string) bool {
-	if ruta == httpapi.RutaOrganizacionHistoricaPersonal || ruta == httpct.RutaConsultaSeguimientoV2 || ruta == httpapi.RutaVacantesEmpleadoB2 ||
+	if ruta == httpapi.RutaOrganizacionHistoricaPersonal || ruta == httpct.RutaConsultaSeguimientoV2 || ruta == httpct.RutaOriginalFirmableCT || ruta == httpapi.RutaVacantesEmpleadoB2 ||
 		ruta == httpapi.RutaEmpleadosOrganismoB2 ||
 		ruta == "/api/vec/personal/empleados" || ruta == "/api/vec/personal/hechos" ||
 		ruta == httpapi.RutaCatalogosRegistroEmpleadoB2 {
