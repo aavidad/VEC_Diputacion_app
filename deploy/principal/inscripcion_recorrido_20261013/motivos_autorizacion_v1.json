@@ -1,0 +1,14 @@
+{
+  "decidir": {
+    "catalogo_id": "motivos_inscripcion_bolsa_desarrollo",
+    "catalogo_version": 1,
+    "catalogo_huella_sha256": "37714f8ee837cd7f72a68c1fde2b3a4cfa1d5bcf440cb7f4d79500b8cb9260d1",
+    "entrada_clave": "motivo_add9e62706d8575fa22b5529f3370177"
+  },
+  "incorporar": {
+    "catalogo_id": "motivos_inscripcion_bolsa_desarrollo",
+    "catalogo_version": 1,
+    "catalogo_huella_sha256": "37714f8ee837cd7f72a68c1fde2b3a4cfa1d5bcf440cb7f4d79500b8cb9260d1",
+    "entrada_clave": "motivo_e99601da335957e930423d711ed03c4c"
+  }
+}
