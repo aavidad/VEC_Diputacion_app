@@ -399,11 +399,11 @@ test("el panel antiguo no anuncia recorridos sin API compuesta", async () => {
 test("la navegación directa a una vista de Bolsa sin servicio no se permite", async () => {
   const { vistaBolsaNavegable, vistaBolsaOfrecida } = await import("./portal-menu-bolsa.js");
   const sinServicio = { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false };
-  for (const vista of ["convocatorias", "alegaciones", "contratos",
+  for (const vista of ["alegaciones", "contratos",
     "reglas", "baremacion", "consulta", "documentos", "auditoria", "configuracion", "elaboracion"]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), false, vista);
   }
-  for (const vista of ["resumen", "estadisticas", "llamamientos", "solicitudes", "meritos", VISTA_CANDIDATOS_BOLSA]) {
+  for (const vista of ["resumen", "estadisticas", "llamamientos", "solicitudes", "meritos", "convocatorias", VISTA_CANDIDATOS_BOLSA]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), true, vista);
   }
   // Inscripciones: con el servicio apagado (o sin comprobar) no aparece en el
@@ -413,6 +413,8 @@ test("la navegación directa a una vista de Bolsa sin servicio no se permite", a
   assert.equal(vistaBolsaOfrecida("solicitudes", { inscripciones: true }), true);
   assert.equal(vistaBolsaOfrecida("meritos", { inscripciones: false, bolsasConsultables: true }), false);
   assert.equal(vistaBolsaOfrecida("meritos", { inscripciones: true }), true);
+  assert.equal(vistaBolsaOfrecida("convocatorias", { inscripciones: false, bolsasConsultables: true }), false);
+  assert.equal(vistaBolsaOfrecida("convocatorias", { inscripciones: true }), true);
   // Elaboración sin comprobar: no se ofrece en el menú, pero su enlace directo
   // se deja abrir (abrirla es lo que comprueba su API); si consta que falta, no.
   assert.equal(vistaBolsaNavegable("elaboracion", { borradores: null }), true);
@@ -451,7 +453,7 @@ test("las rutas pendientes conservan su vista al navegar y al pintar tras F5 sin
   const inicio = codigoPortal.indexOf("function vistaPermitida(");
   const fin = codigoPortal.indexOf("\n}\n", inicio);
   const decidir = new Function("vistaBolsaPendienteNoCompuesta", `${codigoPortal.slice(inicio, fin + 3)}; return vistaPermitida;`)(vistaBolsaPendienteNoCompuesta);
-  for (const vista of ["contratos", "documentos", "convocatorias"]) {
+  for (const vista of ["contratos", "documentos"]) {
     assert.equal(decidir(vista), true);
     assert.equal(vistaBolsaOfrecida(vista, { bolsasConsultables: true, panelInterno: true }), false);
   }
