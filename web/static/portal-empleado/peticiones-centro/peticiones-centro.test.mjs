@@ -423,3 +423,34 @@ test("la vista RRHH nombra centro, contacto, categoría, motivo y personas con l
   assert.doesNotMatch(sin, /<dd[^>]*>cen_sintetico_001/u);
   assert.match(sin, /<dt>Motivo<\/dt><dd>—<\/dd>/u);
 });
+
+test("RRHH conserva el cargo de cada petición de una misma persona y escapa sus etiquetas", () => {
+  const ratificada = { ...structuredClone(peticion), estado: "ratificada",
+    configuracion: { solicitante: { actor_ref: "per_sol", puesto_ref: "puesto:anterior" } } };
+  const entrega = { peticion: ratificada, estado_entrega: "pendiente" };
+  const etiquetas = {
+    intervinientes: { per_sol: { nombre: "Nombre actual", cargo: "Cargo actual", puesto_ref: "puesto:actual" } },
+    intervinientes_por_puesto: { per_sol: {
+      "puesto:anterior": { nombre: "Lucía <img src=x onerror=alert(1)>", cargo: "Jefatura de Servicio", puesto_ref: "puesto:anterior" },
+      "puesto:actual": { nombre: "Lucía Fernández Castillo", cargo: "Subdirección de Informática", puesto_ref: "puesto:actual" },
+    } },
+  };
+  const html = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega, etiquetas });
+  assert.match(html, /Lucía &lt;img src=x onerror=alert\(1\)&gt; · Jefatura de Servicio/u);
+  assert.doesNotMatch(html, /<img|Nombre actual|Subdirección de Informática/u);
+  ratificada.configuracion.solicitante.puesto_ref = "puesto:actual";
+  const actual = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega, etiquetas });
+  assert.match(actual, /Lucía Fernández Castillo · Subdirección de Informática/u);
+  assert.doesNotMatch(actual, /Jefatura de Servicio|Nombre actual/u);
+  // Una entrada exacta incoherente no se sustituye por el mapa antiguo.
+  etiquetas.intervinientes_por_puesto.per_sol["puesto:actual"].puesto_ref = "puesto:ajeno";
+  const incoherente = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega, etiquetas });
+  assert.match(incoherente, /Dato no disponible\. Actualice la bandeja\./u);
+  assert.doesNotMatch(incoherente, /Nombre actual|Lucía Fernández Castillo/u);
+});
+
+test("el centro no atribuye el cargo actual a una petición sin etiqueta del puesto histórico", () => {
+  const html = renderizarPeticionCentro({ contexto, peticion, modo: "detalle" });
+  assert.match(html, /<dd>Persona de prueba<\/dd>/u);
+  assert.doesNotMatch(html, /<dd>Persona de prueba · Cargo sintético<\/dd>/u);
+});

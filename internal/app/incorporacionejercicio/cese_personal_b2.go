@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"regexp"
 	"time"
 
 	dom "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -62,7 +63,7 @@ type LectorOrigenCesePersonalB2 interface {
 }
 
 // ActosCesePersonalB2 es la autoridad única de actos B2 de Personal. El cese
-// no abre otra vía de alta o baja: registra una revisión de la relación.
+// no abre otra vía de alta o baja: revisa la relación y su ocupación exacta.
 type ActosCesePersonalB2 interface {
 	RegistrarHecho(context.Context, personal.SolicitudHechoEmpleadoB2) (pp.ResultadoHechoEmpleadoB2, error)
 }
@@ -119,9 +120,13 @@ type ResultadoCesePersonalB2 struct {
 	Aplica          bool
 	IdempotenciaRef string
 	RelacionRef     string
+	OcupacionRef    string
 	VigenteHasta    personal.FechaCivil
 	Recibo          pp.ReciboActoRegistroEmpleadoB2
+	OcupacionRecibo pp.ReciboActoRegistroEmpleadoB2
 }
+
+var referenciaOcupacionCeseB2 = regexp.MustCompile(`^ocu_[A-Za-z0-9_-]{22,128}$`)
 
 func (c *CesePersonalB2) FinalizarRelacionPersonalB2(ctx context.Context, s SolicitudCesePersonalB2) (ResultadoCesePersonalB2, error) {
 	var cero ResultadoCesePersonalB2
@@ -160,7 +165,8 @@ func (c *CesePersonalB2) FinalizarRelacionPersonalB2(ctx context.Context, s Soli
 	h := origen.Confirmacion.Hechos
 	if origen.ReciboRef != s.IncorporacionReciboRef || origen.Protocolo != ct.ProtocoloIncorporacionPersonalB2 || origen.Confirmacion.OrganizacionRef != r.OrganizacionRef ||
 		origen.Confirmacion.ExpedienteRef != r.ExpedienteRef || !personal.ReferenciaEmpleadoValida(h.EmpleadoRef) ||
-		!personal.ReferenciaRelacionValida(h.RelacionRef) || h.RelacionVersion < 1 {
+		!personal.ReferenciaRelacionValida(h.RelacionRef) || h.RelacionVersion < 1 || h.RelacionVersion >= math.MaxInt32 ||
+		!referenciaOcupacionCeseB2.MatchString(h.OcupacionRef) || h.OcupacionVersion < 1 || h.OcupacionVersion >= math.MaxInt32 {
 		return cero, ct.ErrConflictoIncorporacionAplicacion
 	}
 	hasta, err := c.c.Fecha.Hasta(r.FechaEfecto)
@@ -171,7 +177,11 @@ func (c *CesePersonalB2) FinalizarRelacionPersonalB2(ctx context.Context, s Soli
 	if err != nil {
 		return cero, err
 	}
-	actual, previa, err := c.relacionActual(ctx, contrato, h)
+	ficha, actual, previa, err := c.relacionActual(ctx, contrato, h)
+	if err != nil {
+		return cero, err
+	}
+	ocupacion, err := ocupacionCesePersonalB2(ficha, h, contrato.DatosPersonal, hasta, procedencia)
 	if err != nil {
 		return cero, err
 	}
@@ -187,7 +197,8 @@ func (c *CesePersonalB2) FinalizarRelacionPersonalB2(ctx context.Context, s Soli
 	default:
 		return cero, ct.ErrConflictoIncorporacionAplicacion
 	}
-	if !base.Traza.Desde.AntesDe(hasta) || (base.Traza.Hasta != "" && base.Traza.Hasta.AntesDe(hasta)) {
+	if base.Traza.Version >= math.MaxInt32 || !base.Traza.Desde.AntesDe(hasta) ||
+		(base.Traza.Hasta != "" && base.Traza.Hasta.AntesDe(hasta)) {
 		// Un cese no adelanta el inicio ni alarga la relación prevista.
 		return cero, ct.ErrConflictoIncorporacionAplicacion
 	}
@@ -220,31 +231,66 @@ func (c *CesePersonalB2) FinalizarRelacionPersonalB2(ctx context.Context, s Soli
 		rec.Version != solicitud.RevisionEsperada || rec.FirmaOficial || rec.EficaciaAdministrativa || !referenciaPlanB2(rec.ReciboRef) {
 		return cero, ct.ErrConflictoIncorporacionAplicacion
 	}
+	claveOcupacion := sha256.Sum256([]byte("vec.personal-b2.cese-ct.ocupacion.idempotencia.v1\x00" + r.OrganizacionRef + "\x00" + r.ExpedienteRef + "\x00" + r.ReciboRef + "\x00" + h.RelacionRef + "\x00" + h.OcupacionRef))
+	procedenciaOcupacion := procedencia
+	procedenciaOcupacion.IdempotenciaRef = uuidDeterministaCeseB2(claveOcupacion)
+	if procedenciaOcupacion.IdempotenciaRef == procedencia.IdempotenciaRef {
+		return cero, ct.ErrConflictoIncorporacionAplicacion
+	}
+	modOcupacion := ocupacion.CatalogoSnapshot.Modalidad
+	if modOcupacion == nil {
+		return cero, ct.ErrConflictoIncorporacionAplicacion
+	}
+	solicitudOcupacion := personal.SolicitudHechoEmpleadoB2{Tipo: "ocupacion", EmpleadoRef: h.EmpleadoRef,
+		OrganismoRef: contrato.DatosPersonal.OrganismoRef, RelacionRef: h.RelacionRef, OcupacionRef: h.OcupacionRef,
+		RelacionVersionEsperada: rec.Version, RevisionEsperada: ocupacion.Traza.Version + 1,
+		UnidadRef: ocupacion.UnidadRef, Modalidad: personal.EntradaCatalogoEmpleadoB2{Ref: modOcupacion.Ref, Version: modOcupacion.Version},
+		ClaseOcupacion: ocupacion.Clase, Estado: "finalizada", PlazaRef: contrato.PlazaRef,
+		PuestoRef: contrato.PuestoRef, VersionPlazaRef: contrato.DatosPersonal.VersionPlantillaRef,
+		VersionPuestoRef: contrato.DatosPersonal.VersionRPTRef, VigenteDesde: ocupacion.Traza.Desde,
+		VigenteHasta: hasta, Procedencia: procedenciaOcupacion, Actor: actor}
+	resultadoOcupacion, err := c.c.Actos.RegistrarHecho(ctx, solicitudOcupacion)
+	if err != nil {
+		return cero, errorConsumidorPersonalB2(ctx, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	recOcupacion := resultadoOcupacion.Recibo
+	if recOcupacion.Tipo != "ocupacion" || recOcupacion.EmpleadoRef != h.EmpleadoRef || recOcupacion.RelacionRef != h.RelacionRef ||
+		recOcupacion.HechoRef != h.OcupacionRef || recOcupacion.Version != solicitudOcupacion.RevisionEsperada ||
+		recOcupacion.FirmaOficial || recOcupacion.EficaciaAdministrativa || !referenciaPlanB2(recOcupacion.ReciboRef) {
+		return cero, ct.ErrConflictoIncorporacionAplicacion
+	}
 	return ResultadoCesePersonalB2{Aplica: true, IdempotenciaRef: procedencia.IdempotenciaRef, RelacionRef: h.RelacionRef,
-		VigenteHasta: hasta, Recibo: rec}, nil
+		OcupacionRef: h.OcupacionRef, VigenteHasta: hasta, Recibo: rec, OcupacionRecibo: recOcupacion}, nil
 }
 
 // relacionActual lee la ficha B2 vigente y devuelve la última revisión de la
 // relación del origen y la anterior, si existe. Rechaza fichas de otra
 // persona, empleado u organismo y relaciones que no aparecen en ella.
-func (c *CesePersonalB2) relacionActual(ctx context.Context, contrato ContratoPlanNominal, h ct.HechosPersonalIncorporacionB2) (personal.RelacionRegistroEmpleadoB2, *personal.RelacionRegistroEmpleadoB2, error) {
+func (c *CesePersonalB2) relacionActual(ctx context.Context, contrato ContratoPlanNominal, h ct.HechosPersonalIncorporacionB2) (personal.FichaEmpleadoB2, personal.RelacionRegistroEmpleadoB2, *personal.RelacionRegistroEmpleadoB2, error) {
+	var fichaVacia personal.FichaEmpleadoB2
 	var cero personal.RelacionRegistroEmpleadoB2
+	if h.RelacionVersion < 1 || h.RelacionVersion >= math.MaxInt32 {
+		return fichaVacia, cero, nil, ct.ErrConflictoIncorporacionAplicacion
+	}
 	actor, err := c.c.Actores.ActorLecturaHechosB2(ctx)
 	if err != nil {
-		return cero, nil, errorConsumidorPersonalB2(ctx, err)
+		return fichaVacia, cero, nil, errorConsumidorPersonalB2(ctx, err)
 	}
 	d := contrato.DatosPersonal
 	corte := personal.CorteEmpleadoB2{VigenteEn: d.Desde, ConocidoEn: c.c.Reloj.Ahora().UTC().Truncate(time.Microsecond)}
 	ficha, err := c.c.Ficha.ConsultarFicha(ctx, personal.SolicitudFichaEmpleadoB2{EmpleadoRef: h.EmpleadoRef, OrganismoRef: d.OrganismoRef, Corte: corte, Actor: actor})
 	if err != nil {
-		return cero, nil, errorConsumidorPersonalB2(ctx, err)
+		return fichaVacia, cero, nil, errorConsumidorPersonalB2(ctx, err)
 	}
 	if err := ctx.Err(); err != nil {
-		return cero, nil, err
+		return fichaVacia, cero, nil, err
 	}
 	f := ficha.Ficha
 	if f.EmpleadoRef != h.EmpleadoRef || f.PersonaRef != contrato.PersonaRef || f.OrganismoRef != d.OrganismoRef || f.Version < 1 {
-		return cero, nil, ct.ErrConflictoIncorporacionAplicacion
+		return fichaVacia, cero, nil, ct.ErrConflictoIncorporacionAplicacion
 	}
 	var ultima, previa *personal.RelacionRegistroEmpleadoB2
 	for i := range f.Relaciones {
@@ -253,14 +299,15 @@ func (c *CesePersonalB2) relacionActual(ctx context.Context, contrato ContratoPl
 			continue
 		}
 		if r.OrganismoRef != d.OrganismoRef {
-			return cero, nil, ct.ErrConflictoIncorporacionAplicacion
+			return fichaVacia, cero, nil, ct.ErrConflictoIncorporacionAplicacion
 		}
 		if ultima == nil || r.Traza.Version > ultima.Traza.Version {
 			ultima = r
 		}
 	}
+	// #nosec G115 -- la versión se acota a [1, MaxInt32) antes de convertirla.
 	if ultima == nil || ultima.Traza.Version < int64(h.RelacionVersion) {
-		return cero, nil, ct.ErrConflictoIncorporacionAplicacion
+		return fichaVacia, cero, nil, ct.ErrConflictoIncorporacionAplicacion
 	}
 	for i := range f.Relaciones {
 		r := &f.Relaciones[i]
@@ -268,7 +315,56 @@ func (c *CesePersonalB2) relacionActual(ctx context.Context, contrato ContratoPl
 			previa = r
 		}
 	}
-	return *ultima, previa, nil
+	return f, *ultima, previa, nil
+}
+
+// La lectura única de la ficha selecciona la ocupación del origen CT. En un
+// reintento se reconstruye el material de la revisión anterior, pues Personal
+// devuelve por la misma clave el recibo de cierre sin añadir otra revisión.
+func ocupacionCesePersonalB2(f personal.FichaEmpleadoB2, h ct.HechosPersonalIncorporacionB2, d DatosActosPersonalB2, hasta personal.FechaCivil, proc personal.ProcedenciaActoEmpleadoB2) (personal.OcupacionEmpleadoB2, error) {
+	if h.OcupacionVersion < 1 || h.OcupacionVersion >= math.MaxInt32 {
+		return personal.OcupacionEmpleadoB2{}, ct.ErrConflictoIncorporacionAplicacion
+	}
+	// #nosec G115 -- la versión se acota a [1, MaxInt32) antes de convertirla.
+	versionOrigen := int64(h.OcupacionVersion)
+	var actual, previa *personal.OcupacionEmpleadoB2
+	for i := range f.Ocupaciones {
+		o := &f.Ocupaciones[i]
+		if o.OcupacionRef != h.OcupacionRef {
+			continue
+		}
+		if o.RelacionRef != h.RelacionRef || o.UnidadRef != d.UnidadRef {
+			return personal.OcupacionEmpleadoB2{}, ct.ErrConflictoIncorporacionAplicacion
+		}
+		if actual == nil || o.Traza.Version > actual.Traza.Version {
+			actual = o
+		}
+	}
+	if actual == nil {
+		return personal.OcupacionEmpleadoB2{}, ct.ErrConflictoIncorporacionAplicacion
+	}
+	for i := range f.Ocupaciones {
+		o := &f.Ocupaciones[i]
+		if o.OcupacionRef == h.OcupacionRef && o.Traza.Version == versionOrigen {
+			previa = o
+		}
+	}
+	var base personal.OcupacionEmpleadoB2
+	switch {
+	case actual.Traza.Version == versionOrigen && actual.Estado == "vigente":
+		base = *actual
+	case actual.Traza.Version == versionOrigen+1 && actual.Estado == "finalizada" && previa != nil && previa.Estado == "vigente" &&
+		actual.Traza.Hasta == hasta && actual.Traza.ActoRef == proc.ActoRef && actual.Traza.FuenteRef == proc.FuenteRef &&
+		actual.Traza.FuenteVersion == proc.FuenteVersion:
+		base = *previa
+	default:
+		return personal.OcupacionEmpleadoB2{}, ct.ErrConflictoIncorporacionAplicacion
+	}
+	if !base.Traza.Desde.AntesDe(hasta) || (base.Traza.Hasta != "" && base.Traza.Hasta.AntesDe(hasta)) ||
+		base.CatalogoSnapshot.Modalidad == nil {
+		return personal.OcupacionEmpleadoB2{}, ct.ErrConflictoIncorporacionAplicacion
+	}
+	return base, nil
 }
 
 // procedenciaCesePersonalB2 liga el acto de Personal al recibo durable del cese
@@ -276,6 +372,9 @@ func (c *CesePersonalB2) relacionActual(ctx context.Context, contrato ContratoPl
 // siempre la misma clave (y por tanto el mismo recibo B2) y otro cese, otra.
 func procedenciaCesePersonalB2(s SolicitudCesePersonalB2, relacionRef string) (personal.ProcedenciaActoEmpleadoB2, error) {
 	r := s.Recibo
+	if r.VersionResultante < 1 || r.VersionResultante > math.MaxInt64 {
+		return personal.ProcedenciaActoEmpleadoB2{}, ct.ErrIntencionIncorporacionAplicacion
+	}
 	huella, err := json.Marshal(struct {
 		Esquema            string `json:"esquema"`
 		Operacion          string `json:"operacion"`
@@ -300,6 +399,7 @@ func procedenciaCesePersonalB2(s SolicitudCesePersonalB2, relacionRef string) (p
 	}
 	suma := sha256.Sum256(huella)
 	clave := sha256.Sum256([]byte("vec.personal-b2.cese-ct.idempotencia.v1\x00" + r.OrganizacionRef + "\x00" + r.ExpedienteRef + "\x00" + r.ReciboRef + "\x00" + relacionRef))
+	// #nosec G115 -- la versión se acota a [1, MaxInt64] antes de convertirla.
 	p := personal.ProcedenciaActoEmpleadoB2{ActoRef: r.ReciboRef, FuenteRef: r.ReciboRef, FuenteVersion: int64(r.VersionResultante),
 		FuenteHuellaSHA256: hex.EncodeToString(suma[:]), IdempotenciaRef: uuidDeterministaCeseB2(clave)}
 	if p.Validar() != nil {

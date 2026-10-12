@@ -32,14 +32,16 @@ const (
 	// Acciones de negocio de lista positiva. Se duplican deliberadamente en
 	// este puerto estable para no importar la capa de aplicacion ni el modulo
 	// bolsa desde el nucleo VEC.
-	AccionNegocioPrepararCargaDocumental       = "vec.documentos.carga.preparar"
-	AccionNegocioConfirmarCargaDocumental      = "vec.documentos.carga.confirmar"
-	AccionNegocioAnalizarCargaDocumental       = "vec.documentos.carga.analizar"
-	AccionNegocioPromoverCargaDocumental       = "vec.documentos.carga.promover"
-	AccionNegocioCustodiarDecisionBaremacion   = "bolsa.decision.custodiar"
-	AccionNegocioCustodiarDocumentoFirmado     = "bolsa.decision.firma.documento.custodiar"
-	AccionNegocioRetenerDocumentoFirmado       = "bolsa.decision.firma.documento.retener"
-	AccionNegocioLeerOriginalDocumentoGenerado = "documentos.original.descargar"
+	AccionNegocioPrepararCargaDocumental        = "vec.documentos.carga.preparar"
+	AccionNegocioConfirmarCargaDocumental       = "vec.documentos.carga.confirmar"
+	AccionNegocioAnalizarCargaDocumental        = "vec.documentos.carga.analizar"
+	AccionNegocioPromoverCargaDocumental        = "vec.documentos.carga.promover"
+	AccionNegocioCustodiarDecisionBaremacion    = "bolsa.decision.custodiar"
+	AccionNegocioCustodiarDocumentoFirmado      = "bolsa.decision.firma.documento.custodiar"
+	AccionNegocioRetenerDocumentoFirmado        = "bolsa.decision.firma.documento.retener"
+	AccionNegocioLeerOriginalDocumentoGenerado  = "documentos.original.descargar"
+	AccionNegocioLeerCargaAdmitidaCustodia      = "documentos.carga_admitida.leer_carga_admitida_para_custodia"
+	AudienciaAlmacenLeerCargaAdmitidaCustodiaV3 = "vec_documentos.carga_admitida.leer_carga_admitida_para_custodia.v1"
 	// AccionNegocioCustodiarDocumentoFirmadoExpediente escribe en el almacén
 	// de Documentos el documento firmado de un expediente de otro módulo
 	// (p. ej. la resolución firmada de Contratación temporal) tras verificar
@@ -422,6 +424,17 @@ func especificacionLeerOriginalDocumentoGenerado() especificacionAutorizacionAlm
 	return especificacionAutorizacionAlmacen{
 		accionNegocio: AccionNegocioLeerOriginalDocumentoGenerado,
 		camposExactos: []string{"contenido", "documento"},
+		pasos: []pasoPlanOperacionAlmacen{{
+			referencia: PasoAlmacenLeerOriginalDocumento, accion: AccionAlmacenLeer,
+		}},
+		requiereObjeto: true,
+	}
+}
+
+func especificacionLeerCargaAdmitidaCustodia() especificacionAutorizacionAlmacen {
+	return especificacionAutorizacionAlmacen{
+		accionNegocio: AccionNegocioLeerCargaAdmitidaCustodia,
+		camposExactos: []string{"contenido", "carga_admitida"},
 		pasos: []pasoPlanOperacionAlmacen{{
 			referencia: PasoAlmacenLeerOriginalDocumento, accion: AccionAlmacenLeer,
 		}},
