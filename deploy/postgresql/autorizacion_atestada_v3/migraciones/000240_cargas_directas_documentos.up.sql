@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- AD240: consumidor nominal de la carga directa documental D17.
--- Depende de AD238; AD239 quedó anulada (tombstone) y no se simula.
+-- Depende de AD247→AD238; AD239 quedó anulada (tombstone) y no se simula.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -20,26 +20,29 @@ END $pre$;
 -- Huellas de metadatos/dependencias viven solo en esta transacción; no hay DDL temporal.
 DO $preimagenes$
 DECLARE firma text; esperada text; acl_esperada text; clave text; f oid;
- definicion text; meta jsonb; acl aclitem[]; propietario oid; config text[];
+ definicion text; fuente text; meta jsonb; acl aclitem[]; propietario oid; config text[];
  definidora boolean; deps jsonb;
 BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario' OR session_user=current_user
  THEN RAISE EXCEPTION 'AD240: propietario no habilitado' USING ERRCODE='42501'; END IF;
  FOR firma,esperada,acl_esperada,clave IN SELECT * FROM (VALUES
   ('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   'ccc90c9baf9c721e7aff0764b5ccb25dd4330db52f9fda1d5bd194eaa5c4b5c5',
+   '0b51a3e8f32bbada3479b8d59fc91232ee4502116489806fb747717c59bbc604',
    '{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario}','core'),
   ('vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   'f43b5c42452d250b44c092719d705555a5341805e867a24bb6c243796a794600',
+   'd5815b2f889feaa553452f7c33f07b82df4e753d7ebe417f55642daf6683a4bf',
    '{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario,vec_documentos_propietario=X/vec_autorizacion_atestada_v3_propietario}','wrapper')
  ) AS x(f,h,a,k) LOOP
   f:=to_regprocedure(firma);
   IF f IS NULL THEN RAISE EXCEPTION 'AD240: función previa ausente' USING ERRCODE='55000'; END IF;
-  SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
-   INTO STRICT definicion,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
+  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
+   INTO STRICT definicion,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
   SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
    INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
   IF encode(sha256(convert_to(definicion,'UTF8')),'hex') IS DISTINCT FROM esperada OR
+   encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM
+    (CASE clave WHEN 'core' THEN '524e514f2adf07f102e4a9f8eafd09eac2ea143e4bcbc37484b1e39dd5e648e3'
+                ELSE '681ac7c24e69da13c7cfbea82c50759ed656f8de7cb33ba0bc08cfccaf4981a6' END) OR
    propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR
    acl::text IS DISTINCT FROM acl_esperada OR definidora IS DISTINCT FROM true OR
    config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
@@ -2051,7 +2054,7 @@ BEGIN
  AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb
  AND ((d->>'accion' IS NOT DISTINCT FROM 'documentos.original_firmable.reservar'
-       AND d->'campos_permitidos' IS NOT DISTINCT FROM '["reserva","intento"]'::jsonb)
+       AND d->'campos_permitidos' IS NOT DISTINCT FROM '["intento","reserva"]'::jsonb)
    OR (d->>'accion' IS NOT DISTINCT FROM 'documentos.original_firmable.confirmar'
        AND d->'campos_permitidos' IS NOT DISTINCT FROM '["documento","recibo"]'::jsonb)))
            OR (
@@ -3016,7 +3019,7 @@ BEGIN
      OR (accion='documentos.firmado.custodiar' AND d->>'tipo_recurso'='documento_firmado'
       AND d->>'finalidad'='custodiar_documento_firmado' AND d->'campos_permitidos'='["documento_firmado.custodia","evidencia_custodia"]'::jsonb)
      OR (accion='documentos.original_firmable.reservar' AND d->>'tipo_recurso'='documento_original_firmable'
-      AND d->>'finalidad'='custodiar_original_firmable' AND d->'campos_permitidos'='["reserva","intento"]'::jsonb)
+      AND d->>'finalidad'='custodiar_original_firmable' AND d->'campos_permitidos'='["intento","reserva"]'::jsonb)
      OR (accion='documentos.original_firmable.confirmar' AND d->>'tipo_recurso'='documento_original_firmable'
       AND d->>'finalidad'='custodiar_original_firmable' AND d->'campos_permitidos'='["documento","recibo"]'::jsonb)
      OR (accion IN ('documentos.ingesta_mayan.reservar_recurso','documentos.ingesta_mayan.consultar_reserva','documentos.ingesta_mayan.abandonar_recurso')
@@ -3118,25 +3121,28 @@ END $function$
 
 DO $postimagenes$
 DECLARE firma text; esperada text; acl_esperada text; clave text; f oid;
- definicion text; meta jsonb; acl aclitem[]; propietario oid; config text[];
+ definicion text; fuente text; meta jsonb; acl aclitem[]; propietario oid; config text[];
  definidora boolean; deps jsonb;
 BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario' OR session_user=current_user
  THEN RAISE EXCEPTION 'AD240: postimagen sin propietario' USING ERRCODE='42501'; END IF;
  FOR firma,esperada,acl_esperada,clave IN SELECT * FROM (VALUES
   ('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   '526e09d585a6cbef4d84c78e5f16374e09ed0a958d13170ef6ffdcd4cbc10924',
+   '83d655e8eba8f94f5d53d6d7b68ec06a5db3ec4b8e5ff5d4c477c31b02b93801',
    '{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario}','core'),
   ('vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   '2ed4668842417f5e8c5e1c306dadcf23fb0394c8b533f1154b25a7ee9cd96367',
+   'a54f41151fec2405330ad514fe2462a2ced1765481d12e724c3bd0fbceb70141',
    '{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario,vec_documentos_propietario=X/vec_autorizacion_atestada_v3_propietario}','wrapper')
  ) AS x(f,h,a,k) LOOP
   f:=to_regprocedure(firma);
-  SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
-   INTO STRICT definicion,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
+  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
+   INTO STRICT definicion,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
   SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjsubid,d.deptype),'[]'::jsonb)
    INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
   IF encode(sha256(convert_to(definicion,'UTF8')),'hex') IS DISTINCT FROM esperada OR
+   encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM
+    (CASE clave WHEN 'core' THEN '6831bff013fbc5d42ab448643d728672d1ddd4ee30713731cf83193dd9d1aea2'
+                ELSE 'b49ee978b4b83acc433e223e0337a2ed779df756d91266e133ceade0d84b8332' END) OR
    propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR
    acl::text IS DISTINCT FROM acl_esperada OR definidora IS DISTINCT FROM true OR
    config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'] OR

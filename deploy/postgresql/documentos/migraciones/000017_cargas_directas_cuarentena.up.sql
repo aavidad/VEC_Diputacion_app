@@ -22,10 +22,10 @@ BEGIN
   OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
   OR encode(sha256(convert_to(pg_get_functiondef(to_regprocedure(
     'vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')),'UTF8')),'hex')
-    IS DISTINCT FROM '2ed4668842417f5e8c5e1c306dadcf23fb0394c8b533f1154b25a7ee9cd96367'
+    IS DISTINCT FROM 'a54f41151fec2405330ad514fe2462a2ced1765481d12e724c3bd0fbceb70141'
   OR encode(sha256(convert_to(pg_get_functiondef(to_regprocedure(
     'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')),'UTF8')),'hex')
-    IS DISTINCT FROM '526e09d585a6cbef4d84c78e5f16374e09ed0a958d13170ef6ffdcd4cbc10924'
+    IS DISTINCT FROM '83d655e8eba8f94f5d53d6d7b68ec06a5db3ec4b8e5ff5d4c477c31b02b93801'
  THEN RAISE EXCEPTION 'D17: dependencia D16/AD240 ausente' USING ERRCODE='55000'; END IF;
 END $pre$;
 

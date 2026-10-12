@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- AD238. Definiciones finales literales del núcleo y fachada Documentos
--- obtenidas de la postimagen HZ21 (AD236) + D16→AD238 en el clon PG18 desechable.
+-- obtenidas de la postimagen AD247 sobre HZ21; AD238 precede D16, AD240 y D17.
 -- Rechaza cualquier preimagen, propietario, ACL o configuración divergente.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
@@ -17,16 +17,20 @@ BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
     OR to_regrole('vec_documentos_propietario') IS NULL OR c IS NULL OR w IS NULL
  THEN RAISE EXCEPTION 'AD238: preimagen ausente' USING ERRCODE='55000'; END IF;
- FOR p IN SELECT oid,proname,proowner,proacl,prosecdef,proconfig,pg_get_functiondef(oid) AS definicion
+ PERFORM set_config('vec.ad238.core.oid',c::text,true);
+ PERFORM set_config('vec.ad238.wrapper.oid',w::text,true);
+ FOR p IN SELECT oid,proname,proowner,proacl,prosecdef,proconfig,prosrc,pg_get_functiondef(oid) AS definicion
           FROM pg_proc WHERE oid IN (c,w) LOOP
   IF p.proowner<>'vec_autorizacion_atestada_v3_propietario'::regrole
      OR p.prosecdef IS DISTINCT FROM true
      OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']::text[]
      OR (p.oid=c AND (
-       encode(sha256(convert_to(p.definicion,'UTF8')),'hex')<>'28233b87c7bbaf99c129c53f823896169b69c6750143578bfdfb107c6ad844d1'
+       encode(sha256(convert_to(p.definicion,'UTF8')),'hex')<>'06f2963b7cfacea3d4fbbdd29ba0461b1e7bb27f42932572643421648216039d'
+       OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')<>'c4dd199941da4b7e1c3660425cffedcf3dedc6351486fb448c610f895561572a'
        OR p.proacl IS DISTINCT FROM ARRAY['vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario']::aclitem[]))
      OR (p.oid=w AND (
-       encode(sha256(convert_to(p.definicion,'UTF8')),'hex')<>'ad37b692d166b26803e6c9d4bf7952bbd65c27b1aa0942f930309c78a2a99ff2'
+       encode(sha256(convert_to(p.definicion,'UTF8')),'hex')<>'c1d277eca3c12ead01e92b250262c38830bea82e942a39550da4309fcfa48a81'
+       OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')<>'8ba87607633ef557fb28dacb4dbf630e449343ab7117b5e35245bd3dda49faa2'
        OR p.proacl IS DISTINCT FROM ARRAY['vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario',
          'vec_documentos_propietario=X/vec_autorizacion_atestada_v3_propietario']::aclitem[]))
   THEN RAISE EXCEPTION 'AD238: preimagen de función % incompatible',p.proname USING ERRCODE='55000'; END IF;
@@ -2036,7 +2040,7 @@ BEGIN
  AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb
  AND ((d->>'accion' IS NOT DISTINCT FROM 'documentos.original_firmable.reservar'
-       AND d->'campos_permitidos' IS NOT DISTINCT FROM '["reserva","intento"]'::jsonb)
+       AND d->'campos_permitidos' IS NOT DISTINCT FROM '["intento","reserva"]'::jsonb)
    OR (d->>'accion' IS NOT DISTINCT FROM 'documentos.original_firmable.confirmar'
        AND d->'campos_permitidos' IS NOT DISTINCT FROM '["documento","recibo"]'::jsonb)))
            OR (
@@ -2940,7 +2944,7 @@ BEGIN
      OR (accion='documentos.firmado.custodiar' AND d->>'tipo_recurso'='documento_firmado'
       AND d->>'finalidad'='custodiar_documento_firmado' AND d->'campos_permitidos'='["documento_firmado.custodia","evidencia_custodia"]'::jsonb)
      OR (accion='documentos.original_firmable.reservar' AND d->>'tipo_recurso'='documento_original_firmable'
-      AND d->>'finalidad'='custodiar_original_firmable' AND d->'campos_permitidos'='["reserva","intento"]'::jsonb)
+      AND d->>'finalidad'='custodiar_original_firmable' AND d->'campos_permitidos'='["intento","reserva"]'::jsonb)
      OR (accion='documentos.original_firmable.confirmar' AND d->>'tipo_recurso'='documento_original_firmable'
       AND d->>'finalidad'='custodiar_original_firmable' AND d->'campos_permitidos'='["documento","recibo"]'::jsonb)
      OR (accion IN ('documentos.ingesta_mayan.reservar_recurso','documentos.ingesta_mayan.consultar_reserva','documentos.ingesta_mayan.abandonar_recurso')
@@ -3028,19 +3032,23 @@ DECLARE c oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_m
         w oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
         p record;
 BEGIN
- IF c IS NULL OR w IS NULL THEN
+ IF c IS NULL OR w IS NULL
+    OR c::text IS DISTINCT FROM current_setting('vec.ad238.core.oid',true)
+    OR w::text IS DISTINCT FROM current_setting('vec.ad238.wrapper.oid',true) THEN
   RAISE EXCEPTION 'AD238: postimagen ausente' USING ERRCODE='55000';
  END IF;
- FOR p IN SELECT oid,proname,proowner,proacl,prosecdef,proconfig,pg_get_functiondef(oid) AS definicion
+ FOR p IN SELECT oid,proname,proowner,proacl,prosecdef,proconfig,prosrc,pg_get_functiondef(oid) AS definicion
           FROM pg_proc WHERE oid IN (c,w) LOOP
   IF p.proowner<>'vec_autorizacion_atestada_v3_propietario'::regrole
      OR p.prosecdef IS DISTINCT FROM true
      OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']::text[]
      OR (p.oid=c AND (
-       encode(sha256(convert_to(p.definicion,'UTF8')),'hex')<>'ccc90c9baf9c721e7aff0764b5ccb25dd4330db52f9fda1d5bd194eaa5c4b5c5'
+       encode(sha256(convert_to(p.definicion,'UTF8')),'hex')<>'0b51a3e8f32bbada3479b8d59fc91232ee4502116489806fb747717c59bbc604'
+       OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')<>'524e514f2adf07f102e4a9f8eafd09eac2ea143e4bcbc37484b1e39dd5e648e3'
        OR p.proacl IS DISTINCT FROM ARRAY['vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario']::aclitem[]))
      OR (p.oid=w AND (
-       encode(sha256(convert_to(p.definicion,'UTF8')),'hex')<>'f43b5c42452d250b44c092719d705555a5341805e867a24bb6c243796a794600'
+       encode(sha256(convert_to(p.definicion,'UTF8')),'hex')<>'d5815b2f889feaa553452f7c33f07b82df4e753d7ebe417f55642daf6683a4bf'
+       OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')<>'681ac7c24e69da13c7cfbea82c50759ed656f8de7cb33ba0bc08cfccaf4981a6'
        OR p.proacl IS DISTINCT FROM ARRAY['vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario',
          'vec_documentos_propietario=X/vec_autorizacion_atestada_v3_propietario']::aclitem[]))
   THEN RAISE EXCEPTION 'AD238: postimagen de función % incompatible',p.proname USING ERRCODE='55000'; END IF;

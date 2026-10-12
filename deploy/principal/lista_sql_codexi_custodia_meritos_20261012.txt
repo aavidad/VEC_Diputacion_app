@@ -1,6 +1,7 @@
 # Dependencia documental para preferencias y cartera de méritos.
-# AD238 y AD240 parten de las definiciones finales HZ21; cada destino exige
-# cotejo de preimagen, instalación única, revisión independiente y sin DOWN.
+# Instalar primero AD247 de #1044, una vez y con su hash publicado exacto.
+# AD238 y AD240 parten de su postimagen final; cada destino exige cotejo de
+# preimagen, instalación única, revisión independiente y sin DOWN.
 # Estas migraciones preparan almacenamiento; no habilitan por sí solas carga
 # externa ni acreditan un mérito o una firma.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000238_ingesta_mayan_documentos.up.sql
