@@ -57,7 +57,7 @@ func nuevasPreferenciasPortalExterno(ctx context.Context, cfg config.Config, ide
 	}
 	// Cartera es una capacidad independiente. Una configuración ausente o una
 	// precondición incompleta deja sus rutas en 503 sin desmontar Preferencias.
-	cerrarCartera, falloCartera := montarCarteraPortalExterno(ctx, cfg, autoridad, preflight)
+	cerrarCartera, falloCartera := montarCarteraPortalExterno(ctx, cfg, autoridad, derivador, preflight)
 	if falloCartera != nil {
 		slog.Warn("cartera_meritos_portal_externo_no_disponible", "causa", falloCartera.Error())
 	} else {

@@ -24,9 +24,22 @@ El motivo técnico de la retirada V3 es distinto: su referencia publicada en
     "catalogo_version": 1,
     "catalogo_huella_sha256": "<huella real publicada>",
     "entrada_clave": "<clave real publicada>"
-  }
+  },
+  "cuentas": [
+    {
+      "certificado_sha256": "<huella SHA256 de la hoja reconocida por el portal>",
+      "cuenta_ref": "<cuenta externa propia de Méritos>",
+      "perfil_ref": "<perfil externo propio de Méritos>"
+    }
+  ]
 }
 ```
 
-La aplicación muestra la cartera como no disponible hasta que existan las
-publicaciones, los cinco accesos PostgreSQL y el material V3 propios de M4.
+La misma persona puede usar Usuarios y Méritos con su certificado, pero cada
+uno tiene cuenta y perfil distintos. Identidad externa y ContextoActor deben
+aprobar antes la cuenta, su vínculo con la persona y el contexto de Méritos.
+Autorización publica después el rol, su control y la asignación nominal por
+CAS. El fichero privado solo selecciona referencias aprobadas: no concede el
+perfil. La aplicación muestra la cartera como no disponible hasta que existan
+esas publicaciones, los seis accesos PostgreSQL propios, el registro externo
+de sesión y el material V3.

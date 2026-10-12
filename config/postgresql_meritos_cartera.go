@@ -13,6 +13,7 @@ const (
 	EnvExternoMeritosRegistroAutorizacionDatabaseURL = "VEC_EXTERNO_MERITOS_REGISTRO_AUTORIZACION_DATABASE_URL"
 	EnvExternoMeritosMotivosAutorizacionDatabaseURL  = "VEC_EXTERNO_MERITOS_MOTIVOS_AUTORIZACION_DATABASE_URL"
 	EnvExternoMeritosFuenteAutorizacionDatabaseURL   = "VEC_EXTERNO_MERITOS_FUENTE_AUTORIZACION_DATABASE_URL"
+	EnvExternoMeritosContextoDatabaseURL             = "VEC_EXTERNO_MERITOS_CONTEXTO_DATABASE_URL"
 )
 
 var (
@@ -21,37 +22,39 @@ var (
 )
 
 // DSNMeritosCarteraSeparados exige LOGIN distintos para datos, frontera,
-// fuente, registro y motivos V3; ninguna credencial se reutiliza de otro módulo.
+// fuente, registro, motivos V3 y contexto Usuarios externo CA15.
 // El montaje convierte cualquier error en 503 del módulo; no detiene el portal.
-func (c Config) DSNMeritosCarteraSeparados() (datos, frontera, fuente, registro, motivos string, err error) {
+func (c Config) DSNMeritosCarteraSeparados() (datos, frontera, fuente, registro, motivos, contexto string, err error) {
 	c = c.Normalize()
 	configuraciones := [...]ConfiguracionPostgreSQLExterna{
 		c.ExternoMeritosCarteraPostgreSQL, c.ExternoMeritosFronteraPostgreSQL,
 		c.ExternoMeritosFuenteAutorizacionPostgreSQL,
 		c.ExternoMeritosRegistroAutorizacionPostgreSQL, c.ExternoMeritosMotivosAutorizacionPostgreSQL,
+		c.ExternoMeritosContextoPostgreSQL,
 	}
 	esperados := [...]string{
 		"vec_externo_meritos_cartera", "vec_externo_meritos_frontera",
 		"vec_externo_meritos_fuente_autorizacion",
 		"vec_externo_meritos_registro_autorizacion", "vec_externo_meritos_motivos_autorizacion",
+		"vec_externo_meritos_contexto",
 	}
-	var dsns [5]string
+	var dsns [6]string
 	for i, cfg := range configuraciones {
 		dsn, e := cfg.DSN()
 		if e != nil {
-			return "", "", "", "", "", ErrMeritosCarteraPostgreSQLIncompleto
+			return "", "", "", "", "", "", ErrMeritosCarteraPostgreSQLIncompleto
 		}
 		configuracion, parseErr := pgconn.ParseConfig(dsn)
 		if parseErr != nil || configuracion.User == "" {
-			return "", "", "", "", "", ErrMeritosCarteraPostgreSQLIncompleto
+			return "", "", "", "", "", "", ErrMeritosCarteraPostgreSQLIncompleto
 		}
 		if configuracion.User != esperados[i] {
-			return "", "", "", "", "", fmt.Errorf("%w: clave=login_m4_%d esperado=%s actual=%s",
+			return "", "", "", "", "", "", fmt.Errorf("%w: clave=login_m4_%d esperado=%s actual=%s",
 				ErrMeritosCarteraPostgreSQLNoSeparado, i, esperados[i], configuracion.User)
 		}
 		for _, anterior := range dsns[:i] {
 			if conexionPostgreSQLComparteLogin(dsn, anterior) {
-				return "", "", "", "", "", ErrMeritosCarteraPostgreSQLNoSeparado
+				return "", "", "", "", "", "", ErrMeritosCarteraPostgreSQLNoSeparado
 			}
 		}
 		dsns[i] = dsn
@@ -67,9 +70,9 @@ func (c Config) DSNMeritosCarteraSeparados() (datos, frontera, fuente, registro,
 	for _, previa := range previas {
 		for _, dsn := range dsns {
 			if conexionPostgreSQLComparteLogin(dsn, previa) {
-				return "", "", "", "", "", ErrMeritosCarteraPostgreSQLNoSeparado
+				return "", "", "", "", "", "", ErrMeritosCarteraPostgreSQLNoSeparado
 			}
 		}
 	}
-	return dsns[0], dsns[1], dsns[2], dsns[3], dsns[4], nil
+	return dsns[0], dsns[1], dsns[2], dsns[3], dsns[4], dsns[5], nil
 }
