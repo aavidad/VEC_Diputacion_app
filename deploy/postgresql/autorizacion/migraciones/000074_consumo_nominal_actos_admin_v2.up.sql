@@ -160,6 +160,8 @@ BEGIN
  RETURN vec_autorizacion.registrar_resultado_admin_interno_v1(p_material,consumo,resultado,CASE WHEN m->>'decision'='aprobada' THEN 'propuesta_aprobada' ELSE 'propuesta_rechazada' END);
 END $function$;
 
+COMMENT ON FUNCTION vec_autorizacion.preparar_preimagen_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) IS 'Obsoleta para los actos ADMIN v2 desde AUT74: no aporta vigente_desde. Usar el material v2 consumido por AD236.';
+
 DO $post$
 DECLARE h text;
 BEGIN

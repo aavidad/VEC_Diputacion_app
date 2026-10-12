@@ -277,6 +277,7 @@ func descriptoresFronterasIncorporacionB2Desarrollo() []descriptorFronteraComunD
 		vinculoGET,
 		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-vinculo-rpt-registrar", ports.AccionRegistrarVinculoCategoriaRPT, httpinterno.RutaVinculoCategoriaRPTB2, nil),
 		categoriasGET,
+		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-catalogos-registro-gobernar", accionFronteraCatalogoEmpleadoB2, rutaCatalogosRegistroEmpleadoB2, nil),
 	}
 }
 
@@ -994,7 +995,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		rutas = append(rutas, firmasR5V2.rutas...)
 	}
 	if len(incorporacion) == 1 && incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil {
-		rutasB2, err := incorporacion[0].nominales.montajeB2.rutas(alta.soporte, catalogoFronteras)
+		rutasB2, err := incorporacion[0].nominales.montajeB2.rutas(alta.soporte, catalogoFronteras, alta.postgresql.registradorAuditoriaFrontera)
 		if err != nil {
 			return nil, nil, nil, err
 		}
