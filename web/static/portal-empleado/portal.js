@@ -7,11 +7,11 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261013-documentos-bolsa-v3";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261013-documentos-bolsa-v4";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-documentos-bolsa-v3";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-documentos-bolsa-v4";
 import { instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261011-bolsa-b103-privacidad-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
@@ -483,7 +483,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
         if (vista === "auditoria") { vistaAuditoriaBolsa?.desmontar(); vistaAuditoriaBolsa = null; }
         if (vista === "reglas") { vistaPoliticaCese?.desmontar(); vistaPoliticaCese = null; }
         if (vista === "baremacion") desmontarRankingBolsa();
-        if (vista === "solicitudes") desmontarInscripcionesBolsa(); } });
+        if (["solicitudes", "convocatorias"].includes(vista)) desmontarInscripcionesBolsa(); } });
     },
   }),
   confirmarOperacion: (descriptor) => window.confirm(traducirPortal("txt_confirmar_operacion", { titulo: descriptor.titulo, advertencia: descriptor.advertencia, referencia: descriptor.referencia })) });
@@ -1147,16 +1147,21 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     });
     return;
   }
-  if (vista === "solicitudes") {
+  if (["solicitudes", "convocatorias"].includes(vista)) {
     if (controladorInscripcionesBolsa && contenedor.querySelector("[data-inscripciones-montaje]")) return;
     desmontarInscripcionesBolsa();
     const controlador = new AbortController();
     controladorInscripcionesBolsa = controlador;
     contenedor.innerHTML = `<div data-inscripciones-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_comprobando")}</p></div></section></div>`;
     const raiz = contenedor.querySelector("[data-inscripciones-montaje]");
-    import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=20261010-b1-inscripcion-b99-v1").then(async ({ montarInscripcionesRRHH }) => {
+    import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=20261013-convocatorias-rrhh-v3").then(async ({ montarInscripcionesRRHH }) => {
       if (controlador.signal.aborted || estado.vista !== vista) return;
       const montaje = await montarInscripcionesRRHH({ raiz, signal: controlador.signal,
+        soloConvocatorias: vista === "convocatorias",
+        alAbrirSolicitudes: (ruta) => {
+          history.pushState(null, "", ruta);
+          navegar("solicitudes", { desdeRuta: true });
+        },
         alDenegacion: () => { estado.solicitudes = []; },
         alDisponibilidad: (disponible) => {
           if (estado.inscripcionesDisponibles === disponible) return;
@@ -1354,7 +1359,7 @@ function renderizar() {
   const grupoEstilos = grupoEstilosDeVista(estado.vista);
   const estilosVistaNecesarios = grupoEstilos && coordinadorModulos.vistaDisponible(estado.vista);
   if (estilosVistaNecesarios) cargarEstilosVista(grupoEstilos);
-  const necesitaBolsaBase = estado.vista !== "solicitudes" && moduloDeVistaPortal(estado.vista) === "bolsa"
+  const necesitaBolsaBase = !["solicitudes", "convocatorias"].includes(estado.vista) && moduloDeVistaPortal(estado.vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(estado.vista);
   if (necesitaBolsaBase && !controladorBolsas && !promesaBolsaBase && !errorBolsaBase) {
     void prepararBolsaBase().catch(() => {});
@@ -1705,7 +1710,7 @@ let rutaCandidatosAplicada = null;
 let promesaBolsaBase = null;
 let errorBolsaBase = false;
 function vistaNecesitaBolsa(vista = estado.vista) {
-  return vista === "portal" || (vista !== "solicitudes" && moduloDeVistaPortal(vista) === "bolsa"
+  return vista === "portal" || (!["solicitudes", "convocatorias"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(vista));
 }
 // La carga desde CONVOCA solo se ofrece si el servidor monta sus rutas; se
@@ -1727,7 +1732,7 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261013-documentos-bolsa-v3"),
+    import("./portal-panel-interno.js?v=20261013-documentos-bolsa-v4"),
     import("./portal-bolsas-api.js?v=20261013-bolsa-ranking-n4"),
     import("./portal-bolsas-ruta-filtros.js?v=20261013-bolsa-ranking-n4"),
     import("./modulos/contratacion-temporal/cliente-http.js?v=20261011-ct-bolsa-vinculo-v1"),
