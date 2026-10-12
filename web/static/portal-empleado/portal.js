@@ -1654,7 +1654,7 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261013-bolsa-menu-n3"),
+    import("./portal-panel-interno.js?v=20261013-auditoria-rrhh-v1"),
     import("./portal-bolsas-api.js?v=20261013-bolsa-menu-n3"),
     import("./portal-bolsas-ruta-filtros.js?v=20261011-ct-bolsa-vinculo-v1"),
     import("./modulos/contratacion-temporal/cliente-http.js?v=20261011-ct-bolsa-vinculo-v1"),
