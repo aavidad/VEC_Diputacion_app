@@ -2,7 +2,9 @@ package ports
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -18,6 +20,11 @@ const (
 	FinalidadPreferenciaRRHH           = "seleccion_simultanea_bolsas"
 	CampoPreferenciasBolsas            = "orden_preferencias_bolsas"
 )
+
+// La proyección B104 es cerrada; su orden coincide con la concesión nominal.
+func CamposLecturaPreferenciasBolsas() []string {
+	return []string{"version", "orden_guardado", "bolsas_actuales", "bolsas_nuevas", "bolsas_retiradas", "revision_requerida", "recibo_ref", "registrado_en"}
+}
 
 var (
 	ErrOrdenPreferenciasInvalido   = errors.New("bolsa: orden de preferencias invalido")
@@ -68,6 +75,38 @@ type EscrituraPreferenciasBolsas interface {
 // permiso y auditoria. Por sí sola no se monta en HTTP.
 type ConsultaPreferenciasBolsas interface {
 	ConsultarPreferenciasBolsas(context.Context, SolicitudPreferenciasBolsas) (EstadoPreferenciasBolsas, error)
+}
+
+// CapturaLecturaPreferencias conserva una evaluación puntual y las dos
+// representaciones canónicas. Sus bytes se copian al crear y al consumir.
+type CapturaLecturaPreferencias struct {
+	candidatoRef, correlacionRef string
+	contexto, vinculo, orden     []byte
+	validaHasta                  time.Time
+}
+
+func NuevaCapturaLecturaPreferencias(candidato, correlacion string, contexto, vinculo, orden []byte, validaHasta time.Time) CapturaLecturaPreferencias {
+	return CapturaLecturaPreferencias{candidatoRef: candidato, correlacionRef: correlacion,
+		contexto: slices.Clone(contexto), vinculo: slices.Clone(vinculo), orden: slices.Clone(orden), validaHasta: validaHasta}
+}
+
+func (c CapturaLecturaPreferencias) CandidatoRef() string       { return c.candidatoRef }
+func (c CapturaLecturaPreferencias) CorrelacionRef() string     { return c.correlacionRef }
+func (c CapturaLecturaPreferencias) ContextoCanonico() []byte   { return slices.Clone(c.contexto) }
+func (c CapturaLecturaPreferencias) VinculoCanonico() []byte    { return slices.Clone(c.vinculo) }
+func (c CapturaLecturaPreferencias) OrdenJSON() json.RawMessage { return slices.Clone(c.orden) }
+func (c CapturaLecturaPreferencias) ValidaHasta() time.Time     { return c.validaHasta }
+
+// LecturaPreferenciasBolsas solo recibe una captura del servicio de aplicación.
+// El adaptador repite las guardas nominales en SQL, dentro de la lectura.
+type LecturaPreferenciasBolsas interface {
+	LeerPreferenciasBolsas(context.Context, CapturaLecturaPreferencias) (EstadoPreferenciasBolsas, error)
+}
+
+// El intento fallido conserva evidencia nominal sin transportar datos de Bolsa.
+// La fachada SQL revalida el vínculo y el candidato antes de confirmar el asiento.
+type AuditoriaIntentosPreferenciasBolsas interface {
+	RegistrarIntentoLecturaPreferenciasBolsas(context.Context, CapturaLecturaPreferencias) error
 }
 
 // El proveedor atesta una decisión nominal para el único efecto de ordenar.

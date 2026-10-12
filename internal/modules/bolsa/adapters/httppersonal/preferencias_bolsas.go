@@ -21,11 +21,43 @@ type OrdenadorPreferenciasBolsas interface {
 	Ordenar(context.Context, mibolsa.Orden, []string, uint64, string) (bolsa.ReciboPreferenciasBolsas, error)
 }
 
-// El montaje exige un Preparador real de Mi Bolsa y el servicio V3. Esta
-// ruta no incluye GET mientras falte la autoridad nominal de lectura.
+type LectorPreferenciasBolsas interface {
+	ConsultarPreferencias(context.Context, mibolsa.Orden) (bolsa.EstadoPreferenciasBolsas, error)
+}
+
+// El montaje exige un Preparador real de Mi Bolsa. GET requiere además la
+// autoridad nominal de lectura y PUT conserva su servicio V3.
 type HandlerPreferenciasBolsas struct {
 	preparador Preparador
 	ordenador  OrdenadorPreferenciasBolsas
+	lector     LectorPreferenciasBolsas
+}
+
+// La composición pública requiere las dos capacidades. El constructor
+// anterior conserva PUT aislado para sus consumidores existentes.
+func NuevoHandlerPreferenciasBolsasConLectura(preparador Preparador, ordenador OrdenadorPreferenciasBolsas, lector LectorPreferenciasBolsas) (http.Handler, error) {
+	if nula(preparador) || nula(ordenador) || nula(lector) {
+		return nil, ErrDependenciaNoDisponible
+	}
+	return &HandlerPreferenciasBolsas{preparador: preparador, ordenador: ordenador, lector: lector}, nil
+}
+
+// NuevoHandlerPreferenciasBolsasNoDisponible conserva la ruta exacta cuando
+// la composición carece de una autoridad necesaria. No resuelve identidad.
+func NuevoHandlerPreferenciasBolsasNoDisponible() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r == nil || r.URL == nil || r.URL.Path != RutaPreferenciasBolsas ||
+			r.URL.RawPath != "" || r.URL.EscapedPath() != RutaPreferenciasBolsas {
+			responder(w, http.StatusNotFound, errorRespuesta{"recurso_no_encontrado"})
+			return
+		}
+		if r.Method != http.MethodGet && r.Method != http.MethodPut {
+			w.Header().Set("Allow", http.MethodGet+", "+http.MethodPut)
+			responder(w, http.StatusMethodNotAllowed, errorRespuesta{"metodo_no_permitido"})
+			return
+		}
+		responder(w, http.StatusServiceUnavailable, errorRespuesta{"servicio_no_disponible"})
+	})
 }
 
 func NuevoHandlerPreferenciasBolsas(preparador Preparador, ordenador OrdenadorPreferenciasBolsas) (http.Handler, error) {
@@ -45,8 +77,12 @@ func (h *HandlerPreferenciasBolsas) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responder(w, http.StatusNotFound, errorRespuesta{"recurso_no_encontrado"})
 		return
 	}
+	if r.Method == http.MethodGet {
+		h.consultar(w, r)
+		return
+	}
 	if r.Method != http.MethodPut {
-		w.Header().Set("Allow", http.MethodPut)
+		w.Header().Set("Allow", http.MethodGet+", "+http.MethodPut)
 		responder(w, http.StatusMethodNotAllowed, errorRespuesta{"metodo_no_permitido"})
 		return
 	}
@@ -88,6 +124,50 @@ func (h *HandlerPreferenciasBolsas) ServeHTTP(w http.ResponseWriter, r *http.Req
 		RegistradoEn string   `json:"registrado_en"`
 		Reutilizado  bool     `json:"reutilizado"`
 	}{recibo.ReciboRef, recibo.Version, recibo.Orden, recibo.RegistradoEn.UTC().Format("2006-01-02T15:04:05.000000Z"), recibo.Reutilizado})
+}
+
+func (h *HandlerPreferenciasBolsas) consultar(w http.ResponseWriter, r *http.Request) {
+	if nula(h.lector) {
+		responder(w, http.StatusServiceUnavailable, errorRespuesta{"servicio_no_disponible"})
+		return
+	}
+	if r.URL.RawQuery != "" || r.URL.ForceQuery || r.ContentLength != 0 ||
+		len(r.TransferEncoding) != 0 || !cuerpoAusente(r) || cabeceraProhibida(r.Header) {
+		responder(w, http.StatusBadRequest, errorRespuesta{"peticion_no_permitida"})
+		return
+	}
+	orden, err := h.preparador.PrepararMiBolsa(r)
+	if err != nil {
+		responderError(w, err)
+		return
+	}
+	estado, err := h.lector.ConsultarPreferencias(r.Context(), orden)
+	if err != nil {
+		responderErrorPreferenciasBolsas(w, err)
+		return
+	}
+	var registradaEn any
+	if estado.RegistradoEn != nil {
+		registradaEn = estado.RegistradoEn.UTC().Format("2006-01-02T15:04:05.000000Z")
+	}
+	responder(w, http.StatusOK, struct {
+		Version           uint64   `json:"version"`
+		OrdenGuardado     []string `json:"orden_guardado"`
+		BolsasActuales    []string `json:"bolsas_actuales"`
+		BolsasNuevas      []string `json:"bolsas_nuevas"`
+		BolsasRetiradas   []string `json:"bolsas_retiradas"`
+		RevisionRequerida bool     `json:"revision_requerida"`
+		ReciboRef         any      `json:"recibo_ref"`
+		RegistradoEn      any      `json:"registrado_en"`
+	}{estado.Version, estado.OrdenGuardado, estado.BolsasActuales, estado.BolsasNuevas,
+		estado.BolsasRetiradas, estado.RevisionRequerida, reciboRefOpcional(estado.ReciboRef), registradaEn})
+}
+
+func reciboRefOpcional(ref string) any {
+	if ref == "" {
+		return nil
+	}
+	return ref
 }
 
 // Exige tres claves exactas y rechaza duplicados antes de interpretar el
