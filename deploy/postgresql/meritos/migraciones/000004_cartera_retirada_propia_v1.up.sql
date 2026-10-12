@@ -87,7 +87,7 @@ CREATE TABLE vec_meritos.cartera_acceso_v1 (
  correlacion_ref text NOT NULL,
  filtro text NOT NULL CHECK(filtro IN ('todos','disponibles','retirados')),
  corte_en timestamptz(6) NOT NULL,
- total integer NOT NULL CHECK(total>=0),
+ total bigint NOT NULL CHECK(total>=0),
  consultada_en timestamptz(6) NOT NULL
 );
 CREATE INDEX hecho_version_persona_corte_m4_idx
@@ -109,7 +109,7 @@ RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
 DECLARE a record; persona text;limite integer;filtro text;cursor text;corte timestamptz(6);
- total integer;datos jsonb;siguiente text;recibo text;ahora timestamptz(6);
+ total bigint;datos jsonb;siguiente text;recibo text;ahora timestamptz(6);
 BEGIN
  IF current_user<>'vec_meritos_propietario' OR session_user=current_user
  OR NOT pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
@@ -157,7 +157,7 @@ BEGIN
   SELECT * FROM base WHERE hecho_ref COLLATE "C">cursor COLLATE "C"
   ORDER BY hecho_ref COLLATE "C" LIMIT limite+1
  )
- SELECT (SELECT count(*)::integer FROM base),
+ SELECT (SELECT count(*) FROM base),
   (SELECT coalesce(jsonb_agg(jsonb_build_object(
    'hecho_ref',p.hecho_ref,'version_hecho',p.version,
    'denominacion',p.hecho->>'denominacion','tipo',p.hecho->>'tipo',
