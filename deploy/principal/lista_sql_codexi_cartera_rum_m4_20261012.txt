@@ -2,7 +2,8 @@
 # Comprobar la cabeza causal y las postimágenes exactas antes de ejecutar.
 # RUM03/000001 y RUM04/000002 ya tienen historia: no reaplicar ni ejecutar DOWN.
 # Requiere AUT76/AD246 de #1041, AUT77/AD248 de #1048 y AD249/B108 C3 de L
-# en la cabeza final, junto con AUT79 de L y CC12 de X. AD250 se construye solo desde el
+# en la cabeza final, junto con AUT79 de L, CC11 instalada y CC12 de X.
+# AD250 se construye solo desde el
 # literal POST-AD249 real. AUT80 se ancla al cuerpo AUT60/61 instalado en esa
 # misma cabeza, sin sustituir las migraciones con historia.
 # AUT80 extiende el productor ADMIN de RolID nuevo para dos concesiones exactas
