@@ -388,7 +388,11 @@ func escenarioProyeccionPreparacionB2(t *testing.T) (*fuentesIncorporacionPerson
 		if q.Actor.PerfilActivoRef != a.perfiles.b2[personal.AccionVacantesB2].perfilRef() || q.Limite != 100 || string(q.Corte.VigenteEn) != m.Desde {
 			t.Fatal("selector nominal de vacantes cambiado")
 		}
-		return pp.ResultadoVacantesB2{Pagina: personal.PaginaVacantesB2{Vacantes: []personal.VacantePlazaB2{{PlazaRef: "plaza:una", PuestoRef: "puesto:uno", VersionRPTRef: "rpt:uno", CodigoPlazaFuente: "001", PuestoDenominacion: "Puesto uno"}, {PlazaRef: "plaza:dos", PuestoRef: "puesto:dos", VersionRPTRef: "rpt:dos", CodigoPlazaFuente: "002", PuestoDenominacion: "Puesto dos"}}}}, nil
+		return pp.ResultadoVacantesB2{Pagina: personal.PaginaVacantesB2{Vacantes: []personal.VacantePlazaB2{
+			{PlazaRef: "94e49fa4-78fe-01bb-3e51-a0f58827006b", PuestoRef: "9a35a8d5-0c73-73fd-18bc-5ba501b68889", VersionPlantillaRef: "plantilla:uno", VersionRPTRef: "rpt:uno", UnidadRef: "unidad:uno", CodigoPlazaFuente: "001", PuestoDenominacion: "Puesto uno"},
+			{PlazaRef: "plaza:bd016f88-0457-df90-512e-04161de75944", PuestoRef: "puesto:c327f762-a171-2127-7354-6089f0238264", VersionPlantillaRef: "plantilla:dos", VersionRPTRef: "rpt:dos", UnidadRef: "unidad:dos", CodigoPlazaFuente: "002", PuestoDenominacion: "Puesto dos"},
+			{PlazaRef: "plaza:sin-uuid", PuestoRef: "puesto:c327f762-a171-2127-7354-6089f0238264", VersionPlantillaRef: "plantilla:tres", VersionRPTRef: "rpt:tres", UnidadRef: "unidad:tres", CodigoPlazaFuente: "003", PuestoDenominacion: "Puesto tres"},
+		}}}, nil
 	})
 	f.catalogos = catalogosIncorporacionB2Prueba(func(_ context.Context, q personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
 		return pp.ResultadoConsultaCatalogoEmpleadoB2{Entradas: []personal.EntradaCatalogoRegistroEmpleadoB2{{Ref: q.Tipo + ":uno", Version: 1, Denominacion: "Uno", VigenteDesde: "2026-01-01"}, {Ref: q.Tipo + ":dos", Version: 2, Denominacion: "Dos", VigenteDesde: "2026-01-01"}}}, nil
@@ -419,6 +423,11 @@ func TestIncorporacionB2PreparacionReutilizaCTYConservaOpcionesCompletas(t *test
 		}
 		if len(r.Opciones.Vacantes) != 2 || len(r.Opciones.Regimenes) != 2 || len(r.Opciones.Modalidades) != 2 || len(r.Opciones.ClasesOcupacion) != 2 {
 			t.Fatal("se sustituyó lista por selección")
+		}
+		if r.Opciones.Vacantes[0].PlazaRef != "plaza:94e49fa4-78fe-01bb-3e51-a0f58827006b" ||
+			r.Opciones.Vacantes[0].PuestoRef != "puesto:9a35a8d5-0c73-73fd-18bc-5ba501b68889" ||
+			r.Opciones.Vacantes[1].PlazaRef != "plaza:bd016f88-0457-df90-512e-04161de75944" {
+			t.Fatal("la selección debe usar referencias tipadas de Personal")
 		}
 		r.Prerrequisitos[0].Cumplido = true
 		r.Opciones.Motivos[0] = "ajeno"

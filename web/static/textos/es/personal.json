@@ -17,7 +17,7 @@
     "registro_b2_ver_ficha": "Ver ficha",
     "registro_b2_ver_ficha_de": "Ver ficha: {descripcion}",
     "registro_b2_nueva_alta": "Nueva alta",
-    "registro_b2_nueva_alta_motivo": "El alta se iniciará desde el expediente de contratación, que aporta la persona; todavía no está conectada.",
+    "registro_b2_nueva_alta_motivo": "Inicie el alta desde el expediente de contratación. Después de registrarla, abra la ficha de Personal desde el recibo.",
     "registro_b2_elegir_empleado": "Elegir empleado",
     "registro_b2_empleados_vacio": "No hay empleados registrados en esta fecha.",
     "registro_b2_pestanas": "Consultas del Registro de Personal",

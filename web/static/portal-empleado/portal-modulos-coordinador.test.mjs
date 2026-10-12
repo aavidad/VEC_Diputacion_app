@@ -1076,8 +1076,12 @@ test("RRHH sondea el Registro de Personal al entrar, una vez por sesión; sin pe
   assert.ok(raiz.querySelector("[data-personal-ficha-integral]"));
   coordinador.desmontarVistaActual();
   // Volver al registro no repite la sonda: vale para la sesión.
-  assert.equal(await coordinador.montarVista("personal-registro", raiz), true);
+  const empleadoCT = `emp_${"A".repeat(32)}`;
+  assert.equal(await coordinador.montarVista("personal-registro", raiz, { empleadoRef: empleadoCT }), true);
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(sondas(rutas), 1);
+  assert.ok(rutas.some((ruta) => ruta.startsWith(`/api/vec/personal/empleados/${empleadoCT}?`)),
+    "el montaje consulta el empleado del recibo CT con el cliente real, sin pedir la lista");
   coordinador.desmontarVistaActual();
 
   const rutasEmpleado = [];

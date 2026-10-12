@@ -427,3 +427,17 @@ test("régimen y modalidad se rotulan por referencia en cada idioma; sin traducc
     x.desmontar();
   }
 });
+
+
+test("el recibo permite abrir sólo la ficha del empleado confirmado por Personal", async () => {
+  const empleado = `emp_${"A".repeat(32)}`;
+  const conEmpleado = { ...historia(), recibo: { ...recibo, empleado_ref: empleado } };
+  const x = await montar(clienteBase({ consultar: async () => conEmpleado }));
+  assert.match(x.r.innerHTML, /data-vista="personal-registro"/u);
+  assert.match(x.r.innerHTML, new RegExp(`data-personal-empleado-ref="${empleado}"`, "u"));
+  assert.match(x.r.innerHTML, />Abrir ficha en Personal<\/button>/u);
+  x.desmontar();
+  const sinReferencia = await montar(clienteBase({ consultar: async () => historia() }));
+  assert.doesNotMatch(sinReferencia.r.innerHTML, /data-personal-empleado-ref/u);
+  sinReferencia.desmontar();
+});
