@@ -52,8 +52,12 @@ lee 2.390 participaciones.
 Las filas nuevas miden listas y agregados. No representan 5.000 expedientes
 integrales ni 2.000 fichas nominales nuevas: la bolsa añadida carece de lote
 CONVOCA protegido. Las fichas se consultan sobre originales válidos. La
-antigüedad de una fase no prueba por sí sola que su plazo esté vencido; falta
-acreditar esa distribución con el cálculo de la aplicación.
+antigüedad de una fase no prueba por sí sola que su plazo esté vencido. Una
+consulta HTTPS posterior al lote, con el mismo servidor y sin cambiar filas,
+confirmó HTTP 200 y el resumen calculado: 2.979 vencidos, 834 incidencias,
+84 vencimientos durante la semana y 42 plazos sin calcular. Las cien filas de
+esa página tenían `urgente: true`; incluían plazos vencidos y en plazo. No se
+publican sus cuerpos ni referencias personales.
 
 La primera carga CT dio 502 porque 3.780 publicaciones situaban la entrada
 en fase antes del alta. Se corrigieron únicamente esas filas sintéticas,
