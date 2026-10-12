@@ -4,11 +4,15 @@ import (
 	"context"
 	"errors"
 	"math"
+	"reflect"
 	"testing"
+	"time"
 
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	bp "vec-diputacion-granada/internal/modules/bolsa/ports"
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	appct "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	domct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	pp "vec-diputacion-granada/internal/modules/personal/ports"
@@ -110,5 +114,160 @@ func TestIncorporacionB2DependenciaCaidaNoPareceDenegacion(t *testing.T) {
 		if r := errorHTTPNominalB2(context.Background(), e); !errors.Is(r, httpct.ErrDenegadaIncorporacionPersonalB2) {
 			t.Fatalf("denegación oculta: %v", r)
 		}
+	}
+}
+
+// El servicio real de aplicación conserva su validación, canon y replay;
+// sólo sus fuentes y repositorio se sustituyen por el escenario sintético.
+type fuentesRegistroPreparacionB2Prueba struct {
+	ct.FuentePreparacionPlanNominalB2
+	fuente        *fuentesIncorporacionPersonalB2
+	material      domct.PlanIncorporacionPersonalB2
+	proyeccion    httpct.ProyeccionIncorporacionPersonalB2HTTP
+	capturar      bool
+	antesCapturar func(context.Context)
+}
+
+func (s *fuentesRegistroPreparacionB2Prueba) ResolverPlanNominalB2(ctx context.Context, _ ct.SolicitudPlanNominalB2, _ core.ContextoActor) (domct.PlanIncorporacionPersonalB2, error) {
+	if s.capturar {
+		if s.antesCapturar != nil {
+			s.antesCapturar(ctx)
+		}
+		if err := s.fuente.capturarPreparacionB2(ctx, s.material, s.proyeccion); err != nil {
+			return domct.PlanIncorporacionPersonalB2{}, err
+		}
+	}
+	return s.material, nil
+}
+
+type autoridadRegistroPreparacionB2Prueba struct{}
+
+func (autoridadRegistroPreparacionB2Prueba) AutorizarPlanNominalB2(context.Context, string, []byte, core.ContextoActor) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, nil
+}
+
+type repositorioRegistroPreparacionB2Prueba struct {
+	ct.RepositorioPlanNominalB2
+	contrato  ct.ContratoPlanNominalB2
+	registros int
+	ahora     func() time.Time
+}
+
+func (r *repositorioRegistroPreparacionB2Prueba) RegistrarPlanNominalB2(_ context.Context, m ct.RegistroPlanNominalB2, _ vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ct.ContratoPlanNominalB2, error) {
+	r.registros++
+	if r.contrato.PlanRef == "" {
+		h, _ := domct.SHA256PlanPersonalB2(m)
+		r.contrato = ct.ContratoPlanNominalB2{Protocolo: ct.ProtocoloIncorporacionPersonalB2, Material: m.Material, Solicitud: m.Solicitud, PlanRef: "plan:prueba", PlanVersion: 1, PlanReciboRef: "recibo:plan", PlanSHA256: h, IntencionRef: "intencion:prueba", IntencionVersion: 1, IntencionReciboRef: "recibo:intencion", SolicitudPersonalRef: "solicitud:personal", IdempotenciaPersonalUUID: "33333333-3333-4333-8333-333333333333", RegistradoEn: r.ahora().UTC()}
+	}
+	return r.contrato, nil
+}
+
+func TestIncorporacionB2PrepararConServicioRealActivaCapturaYReplay(t *testing.T) {
+	fuente, ctx, c, esperada, _, detalle := escenarioProyeccionPreparacionB2(t)
+	holder := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+	origen := &fuentesRegistroPreparacionB2Prueba{fuente: fuente, material: c.Material, proyeccion: copiarProyeccionPreparacionB2(holder.preparacionB2.proyeccion), capturar: true}
+	holder.preparacionB2 = nil
+	repo := &repositorioRegistroPreparacionB2Prueba{ahora: fuente.reloj.Ahora}
+	servicio, err := appct.NuevoServicioPlanNominalB2(origen, autoridadRegistroPreparacionB2Prueba{}, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fuente.servicioCT = servicio
+	fachada := &fachadaIncorporacionPersonalB2{organizacionRef: fuente.organizacionRef, ct: servicio, opciones: fuente, fuentes: fuente, autoridad: fuente.autoridad}
+	entrada := planHTTPIncorporacionB2(ct.ContratoPlanNominalB2{Material: c.Material, Solicitud: ct.SolicitudPlanNominalB2{ClaveIdempotencia: "44444444-4444-4444-8444-444444444444"}}).Intencion
+	var primera httpct.ProyeccionIncorporacionPersonalB2HTTP
+	for i := range 2 {
+		r, err := fachada.Preparar(ctx, entrada)
+		if err != nil {
+			t.Fatal(err)
+		}
+		esperada.Estado = "plan_preparado"
+		esperada.Plan = planHTTPIncorporacionB2(repo.contrato)
+		if !reflect.DeepEqual(r, esperada) || r.Plan.Intencion != entrada {
+			t.Fatalf("respuesta de preparación distinta: %+v", r)
+		}
+		if i == 0 {
+			primera = r
+		} else if !reflect.DeepEqual(primera, r) {
+			t.Fatal("replay cambió respuesta o recibo")
+		}
+	}
+	if repo.registros != 2 || detalle.llamadas != 0 {
+		t.Fatalf("no activó reutilización en instancias reales: registros=%d detalle=%d", repo.registros, detalle.llamadas)
+	}
+	// Un registro alternativo que no captura conserva la consulta completa.
+	origen.capturar = false
+	holder.preparacionB2 = nil
+	_, err = fachada.Preparar(ctx, entrada)
+	if !errors.Is(err, detalle.err) || detalle.llamadas != 1 {
+		t.Fatalf("ausencia de captura bloqueó fallback completo: %v", err)
+	}
+	// Unas opciones externas nunca reciben la captura de la fuente nominal.
+	op := &opcionesFacadeB2Prueba{}
+	fachada.opciones = op
+	if _, err = fachada.Preparar(ctx, entrada); err != nil || op.lecturas != 1 {
+		t.Fatalf("opciones alternativas no conservaron su servicio: %v", err)
+	}
+}
+
+func TestIncorporacionB2PreparacionPropagaFalloDeCapturaSinMaterial(t *testing.T) {
+	for _, caso := range []string{"cancelada", "vinculo_invalido", "sin_holder"} {
+		t.Run(caso, func(t *testing.T) {
+			f, ctx, c, _, _, _ := escenarioProyeccionPreparacionB2(t)
+			holder := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+			origen := &fuentesRegistroPreparacionB2Prueba{fuente: f, material: c.Material, proyeccion: holder.preparacionB2.proyeccion, capturar: true}
+			holder.preparacionB2 = nil
+			var esperado error
+			switch caso {
+			case "cancelada":
+				var cancelar context.CancelFunc
+				ctx, cancelar = context.WithCancel(ctx)
+				cancelar()
+				esperado = context.Canceled
+			case "vinculo_invalido":
+				perfil := f.autoridad.perfiles.b2[ct.AccionRegistrarPlanNominalB2]
+				invalido := ct.ContextoAutorizacionAltaV3{}
+				_, esperado = invalido.Vinculo.Datos()
+				if esperado == nil {
+					t.Fatal("el vínculo vacío debe ser inválido")
+				}
+				holder.contextos[perfil.clave] = invalido
+			case "sin_holder":
+				ctx = context.Background()
+			}
+			m, err := origen.ResolverPlanNominalB2(ctx, ct.SolicitudPlanNominalB2{}, core.ContextoActor{})
+			if esperado == nil {
+				if err != nil || m != c.Material {
+					t.Fatalf("la ausencia benigna de captura impide la consulta completa: %v", err)
+				}
+			} else if !errors.Is(err, esperado) || !reflect.ValueOf(m).IsZero() || holder.preparacionB2 != nil {
+				t.Fatalf("fallo de captura ocultado o material válido tras el fallo: material=%v err=%v", !reflect.ValueOf(m).IsZero(), err)
+			}
+		})
+	}
+}
+
+func TestIncorporacionB2PrepararConservaCausaDeCapturaAntesDelRegistro(t *testing.T) {
+	fuente, ctx, c, _, _, detalle := escenarioProyeccionPreparacionB2(t)
+	holder := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+	invalido := ct.ContextoAutorizacionAltaV3{}
+	_, esperado := invalido.Vinculo.Datos()
+	origen := &fuentesRegistroPreparacionB2Prueba{fuente: fuente, material: c.Material, proyeccion: holder.preparacionB2.proyeccion, capturar: true,
+		antesCapturar: func(context.Context) {
+			perfil := fuente.autoridad.perfiles.b2[ct.AccionRegistrarPlanNominalB2]
+			holder.contextos[perfil.clave] = invalido
+		}}
+	holder.preparacionB2 = nil
+	repo := &repositorioRegistroPreparacionB2Prueba{ahora: fuente.reloj.Ahora}
+	servicio, err := appct.NuevoServicioPlanNominalB2(origen, autoridadRegistroPreparacionB2Prueba{}, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fuente.servicioCT = servicio
+	fachada := &fachadaIncorporacionPersonalB2{organizacionRef: fuente.organizacionRef, ct: servicio, opciones: fuente, fuentes: fuente, autoridad: fuente.autoridad}
+	entrada := planHTTPIncorporacionB2(ct.ContratoPlanNominalB2{Material: c.Material, Solicitud: ct.SolicitudPlanNominalB2{ClaveIdempotencia: "44444444-4444-4444-8444-444444444444"}}).Intencion
+	r, err := fachada.Preparar(ctx, entrada)
+	if esperado == nil || !errors.Is(err, esperado) || !reflect.ValueOf(r).IsZero() || repo.registros != 0 || detalle.llamadas != 0 {
+		t.Fatalf("captura oculta la causa o permite efectos: registros=%d detalle=%d err=%v", repo.registros, detalle.llamadas, err)
 	}
 }

@@ -14,7 +14,6 @@ import (
 	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	domct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
-	apppersonal "vec-diputacion-granada/internal/modules/personal/application"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	pp "vec-diputacion-granada/internal/modules/personal/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -32,6 +31,10 @@ type lectorCatalogosIncorporacionB2 interface {
 	Consultar(context.Context, personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error)
 }
 
+type lectorVacantesIncorporacionB2 interface {
+	ConsultarVacantes(context.Context, personal.SolicitudVacantesB2) (pp.ResultadoVacantesB2, error)
+}
+
 type fuentesIncorporacionPersonalB2 struct {
 	organizacionRef, organismoRef string
 	autoridad                     *autoridadIncorporacionPersonalB2
@@ -41,7 +44,7 @@ type fuentesIncorporacionPersonalB2 struct {
 	personal                      pp.ServicioPlanIncorporacionCT
 	ficha                         pp.FuenteFichaIncorporacionCT
 	hechos                        pp.ConsultaHechosIncorporacionCT
-	vacantes                      *apppersonal.ServicioRegistroEmpleadoB2
+	vacantes                      lectorVacantesIncorporacionB2
 	catalogos                     lectorCatalogosIncorporacionB2
 	externas                      *FuentesContextoIncorporacionB2
 	lectorRPT                     vp.LectorCategoriasRPT
@@ -186,6 +189,9 @@ func (f *fuentesIncorporacionPersonalB2) ResolverPlanNominalB2(ctx context.Conte
 	}
 	if p.Validar() != nil {
 		return cero, ct.ErrPlanNominalB2Invalido
+	}
+	if e = f.capturarPreparacionB2(ctx, p, proyeccionCTIncorporacionB2(s.ExpedienteRef, d, a)); e != nil {
+		return cero, e
 	}
 	return p, nil
 }
@@ -350,6 +356,14 @@ func (f *fuentesIncorporacionPersonalB2) ConsultarOpcionesIncorporacionB2(ctx co
 	if e != nil {
 		return cero, e
 	}
+	r := proyeccionCTIncorporacionB2(exp, d, a)
+	if d.Analisis == nil {
+		return r, nil
+	}
+	return f.completarOpcionesIncorporacionB2(ctx, r, a)
+}
+
+func proyeccionCTIncorporacionB2(exp string, d ct.DetalleExpedienteRRHH, a ct.AntecedentesPlanNominalB2) httpct.ProyeccionIncorporacionPersonalB2HTTP {
 	r := httpct.ProyeccionIncorporacionPersonalB2HTTP{Esquema: httpct.EsquemaConsultaIncorporacionPersonalB2, ExpedienteRef: exp, VersionExpedienteActual: d.Resumen.Version, Estado: "sin_plan", Prerrequisitos: []httpct.PrerrequisitoB2{
 		{ClaveI18n: "ct_incorporacion_b2_previo_aceptacion_persona"},
 		{ClaveI18n: "ct_incorporacion_b2_previo_documento"},
@@ -360,11 +374,17 @@ func (f *fuentesIncorporacionPersonalB2) ConsultarOpcionesIncorporacionB2(ctx co
 	r.Prerrequisitos[1].Cumplido = domct.ReferenciaOpacaValida(a.DocumentoRef) && domct.HuellaPlanPersonalB2Valida(a.DocumentoSHA256)
 	r.Prerrequisitos[2].Cumplido = a.Vinculo != nil && a.Vinculo.Validar() == nil && domct.ReferenciaOpacaValida(a.CategoriaRef)
 	if d.Analisis == nil {
-		return r, nil
+		return r
 	}
 	desde, hasta := fechaCivilFuenteCT(d.Analisis.PeriodoInicio), fechaCivilFuenteCT(d.Analisis.PeriodoFin)
 	r.Opciones.Periodo = httpct.PeriodoOpcionesB2{Desde: desde, Hasta: hasta, FuenteRef: a.AnalisisReciboRef}
 	r.Prerrequisitos[4].Cumplido = domct.ReferenciaOpacaValida(a.AnalisisReciboRef) && domct.HuellaPlanPersonalB2Valida(a.AnalisisSHA256) && domct.VersionPlanPersonalB2Valida(a.AnalisisVersion) && a.AnalisisVersion <= d.Resumen.Version && desde != "" && d.Analisis.PeriodoInicio.Year() > 0 && (hasta == "" || d.Analisis.PeriodoFin.Year() > 0 && hasta > desde)
+	return r
+}
+
+func (f *fuentesIncorporacionPersonalB2) completarOpcionesIncorporacionB2(ctx context.Context, r httpct.ProyeccionIncorporacionPersonalB2HTTP, a ct.AntecedentesPlanNominalB2) (httpct.ProyeccionIncorporacionPersonalB2HTTP, error) {
+	var cero httpct.ProyeccionIncorporacionPersonalB2HTTP
+	exp, desde := r.ExpedienteRef, r.Opciones.Periodo.Desde
 	actor, e := f.autoridad.actor(ctx, personal.AccionVacantesB2)
 	if e != nil {
 		return cero, e
@@ -425,7 +445,7 @@ func (f *fuentesIncorporacionPersonalB2) ConsultarOpcionesIncorporacionB2(ctx co
 	if a.DocumentoRef != "" && a.DocumentoSHA256 != "" {
 		r.Opciones.Documentos = append(r.Opciones.Documentos, httpct.OpcionDocumentoB2{DocumentoRef: a.DocumentoRef, DocumentoSHA256: a.DocumentoSHA256, EtiquetaClaveI18n: "ct_incorporacion_b2_documento_formalizacion"})
 	}
-	if a.ExpedienteRef == exp && a.VersionExpediente == d.Resumen.Version && domct.ReferenciaOpacaValida(a.AceptacionRef) && domct.ReferenciaOpacaValida(a.AceptacionReciboRef) {
+	if a.ExpedienteRef == exp && a.VersionExpediente == r.VersionExpedienteActual && domct.ReferenciaOpacaValida(a.AceptacionRef) && domct.ReferenciaOpacaValida(a.AceptacionReciboRef) {
 		anclado, err := f.acreditarAnclajeB2(ctx, a)
 		if err != nil {
 			if e := errorPrevioPersonaIncorporacionB2(ctx, err); e != nil {
