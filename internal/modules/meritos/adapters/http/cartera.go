@@ -12,7 +12,7 @@ import (
 	"vec-diputacion-granada/internal/modules/meritos/ports"
 )
 
-const RutaCartera = "/api/meritos/cartera"
+const RutaCartera = "/api/vec/meritos/cartera"
 
 // La identidad la prepara la composición desde certificado y sesión vigentes.
 // El navegador solo elige filtros y página, nunca una persona ni un perfil.

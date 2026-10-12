@@ -15,7 +15,7 @@ import (
 	vec "vec-diputacion-granada/internal/vec/domain"
 )
 
-const RutaRetiradasCartera = "/api/meritos/cartera/retiradas"
+const RutaRetiradasCartera = "/api/vec/meritos/cartera/retiradas"
 
 type ProveedorSolicitudRetiradaCartera interface {
 	PrepararSolicitudRetiradaCartera(*http.Request) (application.SolicitudRetiradaCartera, error)

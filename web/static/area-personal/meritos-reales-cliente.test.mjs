@@ -16,7 +16,7 @@ test("GET propio usa un único filtro del servidor, sin identidad ni cookies", a
   const pagina = await cliente.consultar({ filtro: "retirados", idioma: "en", limite: 25 });
   assert.equal(pagina.cursor_siguiente, "");
   assert.equal(llamadas.length, 1);
-  assert.equal(llamadas[0].ruta, "/api/meritos/cartera?filtro=retirados&limite=25&lang=en");
+  assert.equal(llamadas[0].ruta, "/api/vec/meritos/cartera?filtro=retirados&limite=25&lang=en");
   assert.equal(llamadas[0].opciones.credentials, "omit");
   assert.equal(llamadas[0].opciones.cache, "no-store");
   assert.equal(llamadas[0].opciones.method, "GET");

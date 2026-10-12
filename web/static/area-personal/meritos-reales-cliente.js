@@ -1,5 +1,5 @@
-const RUTA_CARTERA = "/api/meritos/cartera";
-const RUTA_RETIRADAS = "/api/meritos/cartera/retiradas";
+const RUTA_CARTERA = "/api/vec/meritos/cartera";
+const RUTA_RETIRADAS = "/api/vec/meritos/cartera/retiradas";
 
 export class ErrorCartera extends Error {
   constructor(codigo, estado, causa) {
