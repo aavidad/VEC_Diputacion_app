@@ -919,8 +919,14 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
       else if (entrada.name.endsWith(".js")) archivos.push(nombre);
     }
   }
-  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-menu-bolsa.js", "portal-panel-interno.js", "modulos/bolsa/documentos-api.js", "modulos/bolsa/documentos-vista.js"])
-    versionesEspeciales.set(ruta, "20261013-documentos-bolsa-v2");
+  for (const ruta of ["portal-baremacion-ranking.js", "portal-bolsas-api.js", "portal-bolsas-contrato.js",
+    "portal-bolsas-global.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js",
+    "portal-bolsas-ruta-filtros.js", "portal-bolsas-seguimiento.js", "portal-inicio.js",
+    "portal-llamamientos-operaciones-api.js", "modulos/bolsa/carga-convoca/arranque.js",
+    "modulos/bolsa/carga-convoca/vista.js"]) versionesEspeciales.set(ruta, "20261013-bolsa-ranking-n4");
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-menu-bolsa.js", "portal-panel-interno.js"])
+    versionesEspeciales.set(ruta, "20261013-documentos-bolsa-v3");
+  for (const ruta of ["modulos/bolsa/documentos-api.js", "modulos/bolsa/documentos-vista.js"]) versionesEspeciales.set(ruta, "20261013-documentos-bolsa-v2");
   const versiones = new Map();
   const aristas = [];
   const codigo = new Map();

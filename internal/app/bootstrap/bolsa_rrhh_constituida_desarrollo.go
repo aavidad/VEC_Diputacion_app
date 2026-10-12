@@ -59,6 +59,10 @@ type lectorBolsaRRHHConjunto interface {
 	LeerBolsa(context.Context, string, time.Time) (dominiobolsa.OrdenVigenteBolsa, []ports.SituacionBolsaRRHH, int, error)
 }
 
+type filaVisibleBolsaRRHH struct {
+	nombre, documento, puntuacion string
+}
+
 const envBolsaCeseCTEnabled = "VEC_BOLSA_CESE_CT_ENABLED"
 
 // El texto original del error puede incluir datos de conexión. La etapa y la
@@ -267,6 +271,9 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 		return datasetBolsasRRHHDesarrollo{}, err
 	}
 	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: corte.UTC().Format(time.RFC3339)}
+	if alcance.detalle {
+		datos.Puntuaciones = make(map[string]string)
+	}
 	if alcance.detalle && !alcance.conjunto {
 		if err := f.cargarMarcasBase(ctx, &datos); err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err
@@ -276,7 +283,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 		if alcance.bolsa != "" && vigente.Bolsa.BolsaRef != alcance.bolsa {
 			continue
 		}
-		var filasPreparadas map[int]struct{ nombre, documento string }
+		var filasPreparadas map[int]filaVisibleBolsaRRHH
 		var errFilas error
 		var esperaFilas sync.WaitGroup
 		if alcance.conjunto && alcance.detalle {
@@ -349,7 +356,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 		if err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err
 		}
-		var filas map[int]struct{ nombre, documento string }
+		var filas map[int]filaVisibleBolsaRRHH
 		if alcance.detalle {
 			if err := f.cargarMarcas(ctx, &datos, vigente.Bolsa.BolsaRef); err != nil {
 				return datasetBolsasRRHHDesarrollo{}, err
@@ -382,6 +389,9 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 			visible, encontrada := filas[entrada.FilaNumero]
 			if alcance.detalle && !encontrada {
 				return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+			}
+			if alcance.detalle && visible.puntuacion != "" {
+				datos.Puntuaciones[entrada.ParticipacionRef] = visible.puntuacion
 			}
 			situacion, err := f.situacionDeLote(ctx, situacionesLote, entrada.ParticipacionRef)
 			if err != nil {
@@ -422,9 +432,9 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 	return datos, nil
 }
 
-// filasVisibles descifra del acta protegida el nombre y el documento
-// enmascarado de cada fila. Solo la lista de candidatos los necesita.
-func (f *fuenteConstituidaRRHHDesarrollo) filasVisibles(ctx context.Context, vigente ports.ConstitucionVigente) (map[int]struct{ nombre, documento string }, error) {
+// filasVisibles recupera del acta protegida nombre, documento enmascarado y
+// Total original del resumen. Solo la lista de candidatos los necesita.
+func (f *fuenteConstituidaRRHHDesarrollo) filasVisibles(ctx context.Context, vigente ports.ConstitucionVigente) (map[int]filaVisibleBolsaRRHH, error) {
 	lote, _, existe, err := f.recuperador.RecuperarLote(ctx, vigente.Bolsa.HuellaListadoSHA256, vigente.CategoriaRef)
 	if err != nil {
 		return nil, err
@@ -432,10 +442,14 @@ func (f *fuenteConstituidaRRHHDesarrollo) filasVisibles(ctx context.Context, vig
 	if !existe {
 		return nil, ErrComposicionDesarrolloIncompleta
 	}
-	filas := make(map[int]struct{ nombre, documento string }, len(lote.Aceptadas))
+	filas := make(map[int]filaVisibleBolsaRRHH, len(lote.Aceptadas))
 	for _, fila := range lote.Aceptadas {
 		nombre := strings.TrimSpace(strings.Join([]string{fila.Identidad.Nombre, fila.Identidad.PrimerApellido, fila.Identidad.SegundoApellido}, " "))
-		filas[fila.Numero] = struct{ nombre, documento string }{strings.Join(strings.Fields(nombre), " "), fila.Identidad.Documento}
+		visible := filaVisibleBolsaRRHH{nombre: strings.Join(strings.Fields(nombre), " "), documento: fila.Identidad.Documento}
+		if fila.Resumen != nil {
+			visible.puntuacion = fila.Resumen.Total
+		}
+		filas[fila.Numero] = visible
 	}
 	return filas, nil
 }
