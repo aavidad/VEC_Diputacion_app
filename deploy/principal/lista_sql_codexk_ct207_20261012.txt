@@ -1,0 +1,12 @@
+# CT207: pasar el organismo de Personal del plan CT sellado a su prueba de origen.
+# Cadena causal de alta: CT205 (#1049, ya fusionada) -> CT206 (#1050) -> CT207.
+# Instalar únicamente lo que falte; nunca reaplicar SQL con historia ni DOWN.
+# Preimagen pg_get_functiondef SHA256 postCT206:
+# 60f934d163e8809a52c7dadfe6af6c0076172182aa76a57394b707431721082a
+# Postimagen pg_get_functiondef SHA256 CT207:
+# 42a55dcc6efe7c939b1f7d798b9f1ae78f96f489697c0f76a0c28d49e06d86f9
+# Conserva organización CT en autorización, bloqueo y consultas; cambia solo
+# el primer argumento del lector propietario de Personal. OID, dueño, invocador,
+# volatilidad, configuración, ACL e historia conservados por guardas de la UP.
+# CONFIG NUEVA de CT207: ninguna; siguen las de la cadena B2.
+deploy/postgresql/contratacion_temporal/migraciones/000207_plan_b2_organismo_personal.up.sql
