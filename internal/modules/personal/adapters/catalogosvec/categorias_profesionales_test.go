@@ -34,7 +34,7 @@ func instanteCatalogoProfesionalPrueba() time.Time {
 
 func fuenteCatalogoProfesionalDemo(t *testing.T) *ficherovec.ConsultaCatalogos {
 	t.Helper()
-	fuente, err := ficherovec.NuevaConsultaCatalogos(rutaCatalogoProfesionalDemo)
+	fuente, err := ficherovec.NuevaConsultaCatalogoProvisionable(rutaCatalogoProfesionalDemo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,8 +55,8 @@ func TestConsultaPersonalProyectaLas68CategoriasConHuellaExactaYMinimizada(t *te
 		t.Fatal(err)
 	}
 	if resultado.Referencia != referenciaCatalogoProfesionalV1() || len(resultado.Categorias) != 68 ||
-		!resultado.Fuente.Demostracion || resultado.Fuente.Revision != "opes-bop-inventario-publico-demo-v3" ||
-		!strings.Contains(resultado.Fuente.Aviso, "pendiente de validación") {
+		resultado.Fuente.Demostracion || resultado.Fuente.Revision != "opes-bop-inventario-publico-v4" ||
+		resultado.Fuente.Aviso != "" {
 		t.Fatalf("referencia=%#v fuente=%#v categorias=%d", resultado.Referencia, resultado.Fuente, len(resultado.Categorias))
 	}
 	areas := map[string]int{}

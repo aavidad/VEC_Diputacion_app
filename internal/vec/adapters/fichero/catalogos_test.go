@@ -22,7 +22,7 @@ const (
 )
 
 func TestPaqueteCategoriasProfesionalesEsEstrictoCompletoEInmutable(t *testing.T) {
-	consulta, err := NuevaConsultaCatalogos(rutaCatalogoProfesionalDemo)
+	consulta, err := NuevaConsultaCatalogoProvisionable(rutaCatalogoProfesionalDemo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestPaqueteCategoriasProfesionalesEsEstrictoCompletoEInmutable(t *testing.T
 		t.Fatalf("la instantanea pudo mutarse: %#v, %v", otra.Entradas[0], err)
 	}
 	metadatos, err := consulta.ObtenerMetadatosFuenteCatalogos(context.Background())
-	if err != nil || !metadatos.Demostracion || metadatos.Revision == "" {
+	if err != nil || metadatos.Demostracion || metadatos.Aviso != "" || metadatos.Revision == "" {
 		t.Fatalf("metadatos=%#v error=%v", metadatos, err)
 	}
 }
@@ -93,7 +93,7 @@ func TestPaqueteCatalogoRechazaCampoDesconocidoYClaveDuplicada(t *testing.T) {
 	}
 	for nombre, contenido := range casos {
 		t.Run(nombre, func(t *testing.T) {
-			_, err := nuevaConsultaCatalogosDesdeJSON([]byte(contenido))
+			_, err := nuevaConsultaCatalogosDesdeJSONConMarca([]byte(contenido), false)
 			if !errors.Is(err, domain.ErrCatalogoConfigurableInvalido) {
 				t.Fatalf("error=%v", err)
 			}
@@ -102,7 +102,7 @@ func TestPaqueteCatalogoRechazaCampoDesconocidoYClaveDuplicada(t *testing.T) {
 }
 
 func TestConsultaCatalogosRespetaContextoCancelado(t *testing.T) {
-	consulta, err := NuevaConsultaCatalogos(rutaCatalogoProfesionalDemo)
+	consulta, err := NuevaConsultaCatalogoProvisionable(rutaCatalogoProfesionalDemo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestConsultaCatalogosRespetaContextoCancelado(t *testing.T) {
 }
 
 func TestConsultaCatalogosAcotadaSeñalaPresupuestoSinMutar(t *testing.T) {
-	consulta, err := NuevaConsultaCatalogos(rutaCatalogoProfesionalDemo)
+	consulta, err := NuevaConsultaCatalogoProvisionable(rutaCatalogoProfesionalDemo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ func TestConsultaCatalogosAcotadaSeñalaPresupuestoSinMutar(t *testing.T) {
 }
 
 func TestConsultaCatalogosAcotadaRespetaCancelacionYContrato(t *testing.T) {
-	consulta, err := NuevaConsultaCatalogos(rutaCatalogoProfesionalDemo)
+	consulta, err := NuevaConsultaCatalogoProvisionable(rutaCatalogoProfesionalDemo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,9 +232,13 @@ func TestPaqueteProvisionableSoloAdmiteLaFaltaDeMarca(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sinMarca := strings.Replace(string(base), `"demostracion": true`, `"demostracion": false`, 1)
-	if sinMarca == string(base) {
-		t.Fatal("el paquete de referencia no declara la marca")
+	sinMarca := string(base)
+	if !strings.Contains(sinMarca, `"demostracion": false`) {
+		t.Fatal("el paquete de referencia declara la marca")
+	}
+	conMarcaSinAviso := strings.Replace(sinMarca, `"demostracion": false`, `"demostracion": true`, 1)
+	if _, err := nuevaConsultaCatalogosDesdeJSONConMarca([]byte(conMarcaSinAviso), false); !errors.Is(err, domain.ErrCatalogoConfigurableInvalido) {
+		t.Fatalf("paquete con marca y sin aviso admitido: %v", err)
 	}
 	if _, err := nuevaConsultaCatalogosDesdeJSON([]byte(sinMarca)); !errors.Is(err, domain.ErrCatalogoConfigurableInvalido) {
 		t.Fatalf("la lectura general admitió un paquete sin marca: %v", err)

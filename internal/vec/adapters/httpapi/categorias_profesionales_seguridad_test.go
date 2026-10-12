@@ -59,7 +59,7 @@ func TestCategoriasProfesionalesListaYDetalleDerivanEstadoDeFuente(t *testing.T)
 	if err := json.Unmarshal(lista.Body.Bytes(), &respuestaLista); err != nil {
 		t.Fatal(err)
 	}
-	if !respuestaLista.Datos.Categorias.Fuente.Demostracion || len(respuestaLista.Datos.Categorias.Items) != 1 ||
+	if respuestaLista.Datos.Categorias.Fuente.Demostracion || len(respuestaLista.Datos.Categorias.Items) != 1 ||
 		respuestaLista.Datos.Categorias.Items[0].Estado != "Vigente" {
 		t.Fatalf("lista no deriva estado de la fuente: %#v; cuerpo=%s", respuestaLista.Datos.Categorias, lista.Body.String())
 	}
@@ -83,7 +83,7 @@ func TestCategoriasProfesionalesListaYDetalleDerivanEstadoDeFuente(t *testing.T)
 	if err := json.Unmarshal(detalle.Body.Bytes(), &respuestaDetalle); err != nil {
 		t.Fatal(err)
 	}
-	if !respuestaDetalle.Datos.Fuente.Demostracion || respuestaDetalle.Datos.Fuente.Revision == "" ||
+	if respuestaDetalle.Datos.Fuente.Demostracion || respuestaDetalle.Datos.Fuente.Revision == "" ||
 		respuestaDetalle.Datos.Categoria.Estado != "Vigente" {
 		t.Fatalf("detalle sin fuente segura o estado coherente: %#v", respuestaDetalle)
 	}
