@@ -24,7 +24,7 @@ func conectarAjustesReglasCTAlResolutor(cfg config.Config, destino *reglas.Resol
 	if err != nil || !activas || rutas.CTSourcePath == "" {
 		return errMontajeAjustesReglasCT
 	}
-	base, err := fichero.NuevaConsultaCatalogos(rutas.CTSourcePath)
+	base, err := fichero.NuevaConsultaCatalogoProvisionable(rutas.CTSourcePath)
 	if err != nil {
 		return errMontajeAjustesReglasCT
 	}

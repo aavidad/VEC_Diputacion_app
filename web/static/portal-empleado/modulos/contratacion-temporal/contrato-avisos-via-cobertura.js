@@ -13,7 +13,7 @@ const CLAVES_AVISO = new Set([
   "nueva_convocatoria",
 ]);
 const MOTIVOS = new Set(["vigencia_superada", "bolsa_agotada"]);
-const ORIGENES = new Set(["reglamento", "ejemplo"]);
+const ORIGENES = new Set(["reglamento", "ejemplo", "configuracion"]);
 const MAXIMOS_AVISOS = 8;
 const MAXIMAS_REGLAS = 8;
 const MAXIMO_TEXTO = 2000;
@@ -72,6 +72,7 @@ function validarRegla(regla) {
   registroPlano(regla, CAMPOS_REGLA);
   if (typeof regla.clave !== "string" || !PATRON_CLAVE_REGLA.test(regla.clave)
     || !ORIGENES.has(regla.origen) || typeof regla.ejemplo !== "boolean"
+    || (regla.origen === "configuracion" && regla.ejemplo)
     || (regla.origen === "reglamento") !== (typeof regla.articulo === "string" && regla.articulo !== "")) fallo();
   return {
     clave: regla.clave,

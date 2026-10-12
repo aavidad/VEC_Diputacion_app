@@ -423,7 +423,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261012-c3-contacto-v1");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261012-reglas-configuracion-v1");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -1646,7 +1646,7 @@ function prepararBolsaBase() {
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
     import("./portal-panel-interno.js?v=20261013-convoca-menu-n1"),
-    import("./portal-bolsas-api.js?v=20261012-c3-contacto-v1"),
+    import("./portal-bolsas-api.js?v=20261012-reglas-configuracion-v1"),
     import("./portal-bolsas-ruta-filtros.js?v=20261011-ct-bolsa-vinculo-v1"),
     import("./modulos/contratacion-temporal/cliente-http.js?v=20261011-ct-bolsa-vinculo-v1"),
   ]).then(([panel, bolsas, rutas, ct]) => {
