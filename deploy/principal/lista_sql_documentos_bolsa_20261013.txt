@@ -1,0 +1,1 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000252_exito_nominal_lectura_documentos_bolsa.up.sql

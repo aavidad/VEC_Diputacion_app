@@ -120,11 +120,12 @@ test("las diez categorías reproducen la jerarquía funcional facilitada por RRH
   assert.doesNotMatch(html, /\bB(5|6|7|12)\b|dudas? 1\d|relay/u);
 });
 
-test("Documentos de Bolsa explica la capacidad ausente sin abrir Contratación", () => {
+test("Documentos de Bolsa abre su consulta propia sin abrir Contratación", () => {
   const menu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
   assert.ok(menu.length > 0);
-  assert.match(menu, /data-categoria-bolsa="documentos" data-vista="documentos"[^>]*disabled/u);
-  assert.match(menu, /id="bolsa-documentos-pendientes"[^>]*data-i18n-portal="bolsa_documentos_pendiente"/u);
+  assert.match(menu, /data-categoria-bolsa="documentos" data-vista="documentos"/u);
+  assert.doesNotMatch(menu, /data-categoria-bolsa="documentos"[^>]*disabled/u);
+  assert.doesNotMatch(menu, /id="bolsa-documentos-pendientes"/u);
   assert.doesNotMatch(menu, /data-categoria-bolsa="documentos" data-vista="contratacion-temporal"/u);
   for (const categoria of ["llamamientos", "contratos", "comunicaciones"]) {
     const entrada = html.match(new RegExp(`<button[^>]*data-categoria-bolsa="${categoria}"[^>]*>`, "u"))?.[0] || "";
@@ -195,7 +196,7 @@ test("las entradas del menú llevan solo a recorridos disponibles", () => {
     assert.doesNotMatch(boton, /categoria-menu-pendiente|\sdisabled(?:\s|=|>)|aria-disabled="true"/);
     assert.doesNotMatch(boton, /aria-describedby|pendiente/iu);
   }
-  assert.match(fragmentoMenu, /data-categoria-bolsa="documentos"[^>]*disabled/u);
+  assert.doesNotMatch(fragmentoMenu, /data-categoria-bolsa="documentos"[^>]*disabled/u);
   assert.equal(vistaBolsaPendienteNoCompuesta("llamamientos"), false);
   assert.equal(vistaBolsaPendienteNoCompuesta("contratos"), true);
   assert.equal(vistaBolsaPendienteNoCompuesta("resumen"), false);
@@ -358,7 +359,7 @@ test("el menú espera la lectura positiva de bolsas sin impedir el estado de una
   const { aplicarDisponibilidadMenuBolsa, vistaBolsaNavegable } = await import("./portal-menu-bolsa.js");
   const raiz = menuDesdeHTML();
   aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: false, borradores: false, contratacionTemporal: false });
-  assert.deepEqual(categoriasVisibles(raiz), ["documentos"]);
+  assert.deepEqual(categoriasVisibles(raiz), []);
   for (const vista of ["resumen", "estadisticas", "llamamientos"]) {
     assert.equal(vistaBolsaNavegable(vista, { bolsasConsultables: false }), true, vista);
   }
@@ -401,7 +402,7 @@ test("la navegación directa a una vista de Bolsa sin servicio no se permite", a
   const { vistaBolsaNavegable, vistaBolsaOfrecida } = await import("./portal-menu-bolsa.js");
   const sinServicio = { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false };
   for (const vista of ["convocatorias", "meritos", "alegaciones", "importacion", "contratos",
-    "reglas", "baremacion", "consulta", "documentos", "comunicaciones", "auditoria", "configuracion", "elaboracion"]) {
+    "reglas", "baremacion", "consulta", "comunicaciones", "auditoria", "configuracion", "elaboracion"]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), false, vista);
   }
   for (const vista of ["resumen", "estadisticas", "llamamientos", "solicitudes", VISTA_CANDIDATOS_BOLSA]) {
@@ -442,7 +443,7 @@ test("los controles de rutas sin consumidor se retiran del DOM y se conserva la 
     }));
   } };
   aplicarDisponibilidadMenuBolsa(raiz, { auditoriaReferencia: true });
-  assert.deepEqual(retirados, ["documentos", "contratos", "importacion"]);
+  assert.deepEqual(retirados, ["contratos", "importacion"]);
 });
 
 
@@ -450,7 +451,7 @@ test("las rutas pendientes conservan su vista al navegar y al pintar tras F5 sin
   const inicio = codigoPortal.indexOf("function vistaPermitida(");
   const fin = codigoPortal.indexOf("\n}\n", inicio);
   const decidir = new Function("vistaBolsaPendienteNoCompuesta", `${codigoPortal.slice(inicio, fin + 3)}; return vistaPermitida;`)(vistaBolsaPendienteNoCompuesta);
-  for (const vista of ["contratos", "documentos", "comunicaciones", "convocatorias"]) {
+  for (const vista of ["contratos", "comunicaciones", "convocatorias"]) {
     assert.equal(decidir(vista), true);
     assert.equal(vistaBolsaOfrecida(vista, { bolsasConsultables: true, panelInterno: true }), false);
   }

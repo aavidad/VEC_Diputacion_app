@@ -36,7 +36,7 @@ export const VISTAS_INTERNAS_BOLSA = Object.freeze([
 // Se mantienen las rutas para la composición futura, pero estos puntos no
 // tienen todavía un servicio autorizado que pueda ejecutar su operación.
 export const VISTAS_BOLSA_PENDIENTES_NO_COMPUESTAS = Object.freeze([
-  "contratos", "documentos", "comunicaciones", "convocatorias",
+  "contratos", "comunicaciones", "convocatorias",
   "meritos", "alegaciones", "importacion", "baremacion", "consulta", "configuracion",
 ]);
 
@@ -72,8 +72,8 @@ export function resumenAccesosModulos(accesos, comprobandoBolsas, traducir = tra
  * Decide si una entrada del menú de Bolsa se ofrece según la capacidad real
  * que la sirve: el cuadro, los candidatos, las estadísticas y el llamamiento
  * desde cada bolsa exigen una lectura positiva de la API del cuadro;
- * Elaboración, su API de borradores. Documentos de Bolsa no tiene consumidor:
- * su entrada explica la dependencia y no abre el módulo de Contratación.
+ * Elaboración, su API de borradores. Documentos de Bolsa abre su consulta
+ * de registros y recibos; no abre el módulo de Contratación.
  *
  * La API de borradores no se sondea al cargar el portal (un servidor que no la
  * sirve respondería 404 en cada carga): Elaboración solo se ofrece en el menú
@@ -85,6 +85,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
       // Solo cuando la bandeja de inscripciones ha respondido: apagada, el
       // servidor no publica sus rutas y la entrada no se ofrece.
       return capacidades?.inscripciones === true;
+    case "documentos":
     case "resumen":
     case "estadisticas":
     case "llamamientos":
@@ -111,7 +112,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
 export function vistaBolsaNavegable(vista, capacidades = {}) {
   if (vista === "solicitudes") return true;
   if (vista === "elaboracion") return capacidades?.borradores !== false;
-  if (["resumen", "estadisticas", "llamamientos", VISTA_CANDIDATOS_BOLSA].includes(vista)) return true;
+  if (["documentos", "resumen", "estadisticas", "llamamientos", VISTA_CANDIDATOS_BOLSA].includes(vista)) return true;
   return vistaBolsaOfrecida(vista, capacidades);
 }
 
@@ -137,8 +138,7 @@ export function aplicarDisponibilidadMenuBolsa(raiz, capacidades = {}) {
   // Estas rutas carecen de consumidor: se retiran del DOM, no dependen de
   // un sondeo fallido ni de una capacidad pendiente de resolver.
   raiz.querySelectorAll("[data-vista]").forEach((control) => {
-    if (vistaBolsaPendienteNoCompuesta(vistaDeControl(control))
-      && control.dataset?.categoriaBolsa !== "documentos") control.remove?.();
+    if (vistaBolsaPendienteNoCompuesta(vistaDeControl(control))) control.remove?.();
   });
   raiz.querySelectorAll(".submenu-bolsa [data-vista]").forEach((control) => {
     control.hidden = !vistaBolsaOfrecida(control.getAttribute?.("data-vista"), capacidades);
@@ -150,8 +150,7 @@ export function aplicarDisponibilidadMenuBolsa(raiz, capacidades = {}) {
   const indicadores = [];
   raiz.querySelectorAll(".categoria-menu-bolsa").forEach((control) => {
     const grupo = control.dataset.grupoBolsa ? control.closest?.(".grupo-menu-bolsa") : null;
-    const visible = grupo ? !grupo.hidden : control.dataset.categoriaBolsa === "documentos"
-      ? true : vistaBolsaOfrecida(vistaDeControl(control), capacidades);
+    const visible = grupo ? !grupo.hidden : vistaBolsaOfrecida(vistaDeControl(control), capacidades);
     if (!grupo) control.hidden = !visible;
     const indicador = control.querySelector?.(".numero-menu");
     if (visible && indicador) indicadores.push(indicador);

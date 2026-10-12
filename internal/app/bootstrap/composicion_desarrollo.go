@@ -329,6 +329,21 @@ func nuevoServidorDesarrollo(
 	}
 	configurarAvisosViaCoberturaDesarrollo(autoridadContratacion, reglasEjemplo.bolsa, fuenteConstituida)
 	cancelarBolsas()
+	if fuenteConstituida != nil && autoridadContratacion != nil && autoridadContratacion.soporteDocumentosBolsa != nil && autoridadContratacion.poolDocumentosBolsa != nil {
+		ctxDocumentos, cancelarDocumentos := context.WithTimeout(context.Background(), 15*time.Second)
+		registrador, proceso, detener, errDocumentos := AbrirRegistradorIntentosAuditoriaDesarrollo(
+			ctxDocumentos, cfg, autoridadContratacion.poolDocumentosBolsa, nil)
+		cancelarDocumentos()
+		if errDocumentos != nil {
+			registrarFalloFuenteConstituidaRRHHDesarrollo("auditoria_documentos_bolsa", errDocumentos)
+		} else {
+			anterior := cerrarContratacion
+			cerrarContratacion = func() { detener(); anterior() }
+			resolver := resolverSoporteDocumentosBolsa(autoridadContratacion.soporteDocumentosBolsa, autoridadContratacion.soportesLectoresDocumentosBolsa)
+			fuenteConstituida.controlDocumentos = nuevoControlLecturaDocumentosBolsa(
+				resolver, nuevoAuditorDocumentosBolsa(resolver, registrador, proceso))
+		}
+	}
 	autoridadContratacion.personalizacionB7.fijar(fuenteConstituida)
 	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, fuenteConstituida, autoridadContratacion.manejadorSituacionParticipacion)
 	if err != nil {
