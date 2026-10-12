@@ -17,19 +17,37 @@ import (
 // contadoresBolsasRRHHPrueba registra cuántas lecturas hace la fuente para
 // fijar que el coste por petición no crece con el número de participaciones.
 type contadoresBolsasRRHHPrueba struct {
-	situacionIndividual, situacionLote atomic.Int64
-	ceseIndividual, ceseLote           atomic.Int64
-	orden, recuperar                   atomic.Int64
+	situacionIndividual, situacionLote  atomic.Int64
+	ceseIndividual, ceseLote            atomic.Int64
+	orden, recuperar                    atomic.Int64
+	vigentesGlobales, vigentesFiltradas atomic.Int64
 }
 
 type repositorioVariasBolsasRRHHPrueba struct {
 	ports.RepositorioConstitucion
-	vigentes []ports.ConstitucionVigente
-	entradas map[string][]ports.EntradaConstitucion
+	vigentes   []ports.ConstitucionVigente
+	entradas   map[string][]ports.EntradaConstitucion
+	contadores *contadoresBolsasRRHHPrueba
 }
 
 func (r repositorioVariasBolsasRRHHPrueba) ListarVigentes(context.Context) ([]ports.ConstitucionVigente, error) {
+	if r.contadores != nil {
+		r.contadores.vigentesGlobales.Add(1)
+	}
 	return r.vigentes, nil
+}
+
+func (r repositorioVariasBolsasRRHHPrueba) ListarVigentesBolsa(_ context.Context, bolsaRef string) ([]ports.ConstitucionVigente, error) {
+	if r.contadores != nil {
+		r.contadores.vigentesFiltradas.Add(1)
+	}
+	var salida []ports.ConstitucionVigente
+	for _, vigente := range r.vigentes {
+		if vigente.Bolsa.BolsaRef == bolsaRef {
+			salida = append(salida, vigente)
+		}
+	}
+	return salida, nil
 }
 
 func (r repositorioVariasBolsasRRHHPrueba) Entradas(_ context.Context, instantanea string, _ uint64) ([]ports.EntradaConstitucion, error) {
@@ -129,7 +147,7 @@ func (r recuperadorContadoRRHHPrueba) RecuperarLote(context.Context, string, str
 func fuenteVariasBolsasRRHHPrueba(t *testing.T, bolsas, participaciones int, conLotes bool) (*fuenteConstituidaRRHHDesarrollo, *contadoresBolsasRRHHPrueba) {
 	t.Helper()
 	c := &contadoresBolsasRRHHPrueba{}
-	repo := repositorioVariasBolsasRRHHPrueba{entradas: map[string][]ports.EntradaConstitucion{}}
+	repo := repositorioVariasBolsasRRHHPrueba{entradas: map[string][]ports.EntradaConstitucion{}, contadores: c}
 	for b := 1; b <= bolsas; b++ {
 		bolsa := fmt.Sprintf("bolsa:prueba:%02d", b)
 		repo.vigentes = append(repo.vigentes, ports.ConstitucionVigente{
