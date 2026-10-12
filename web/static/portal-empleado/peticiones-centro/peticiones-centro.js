@@ -264,7 +264,7 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
     [traducirCentro("ct_txt_detalle"), s.detalle], [traducirCentro("ct_txt_periodo"), periodoLegible(s.periodo)], [traducirCentro("ct_txt_observaciones"), s.observaciones || "—"],
     [traducirCentro("ct_txt_retencion_de_credito"), rc], [traducirCentro("ct_txt_documentos_aportados"), (s.documentos_adjuntos || []).map((ref) => nombre("documentos", catalogos?.documentos, ref)).join(" · ") || traducirCentro("ct_txt_ninguno")],
     [TEXTO.solicitanteDatos, solicitante
-      || (contexto ? (c?.actor_ref === actor?.referencia ? [actor?.nombre, actor?.cargo].filter(Boolean).join(" · ") || "—" : "—")
+      || (contexto ? (c?.actor_ref === actor?.referencia ? actor?.nombre || "—" : "—")
         : textoCT("pc_dato_no_disponible"))],
     [traducirCentro("ct_txt_creada_en"), fecha(peticion.creada_en, true)]];
   if (peticion.estado === "ratificada") {

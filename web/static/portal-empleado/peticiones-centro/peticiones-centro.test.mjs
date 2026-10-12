@@ -448,3 +448,9 @@ test("RRHH conserva el cargo de cada petición de una misma persona y escapa sus
   assert.match(incoherente, /Dato no disponible\. Actualice la bandeja\./u);
   assert.doesNotMatch(incoherente, /Nombre actual|Lucía Fernández Castillo/u);
 });
+
+test("el centro no atribuye el cargo actual a una petición sin etiqueta del puesto histórico", () => {
+  const html = renderizarPeticionCentro({ contexto, peticion, modo: "detalle" });
+  assert.match(html, /<dd>Persona de prueba<\/dd>/u);
+  assert.doesNotMatch(html, /<dd>Persona de prueba · Cargo sintético<\/dd>/u);
+});
