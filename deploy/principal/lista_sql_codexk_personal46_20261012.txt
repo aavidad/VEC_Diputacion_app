@@ -1,3 +1,5 @@
-# Requiere Personal45 instalada (PR1050); no reaplicar migraciones históricas.
+# Requiere Personal45 instalada (#1011); no reaplicar migraciones históricas.
+# Para la ficha/lista RRHH, comprobar la terna AD172 incorporacionb
+# vec_personal.registro_empleado.empleados.v1 del inventario ya publicado.
 # Interna pre SHA 9ba1f3c54a9140a2dfe6dca5ee6a55637f6a0deafb4e8dbbff88a4e82be2d258.
 deploy/postgresql/personal/migraciones/000046_cierre_ocupacion_b2.up.sql
