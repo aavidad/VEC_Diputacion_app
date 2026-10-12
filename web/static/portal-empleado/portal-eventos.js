@@ -378,6 +378,9 @@ export function crearControladorPortal(dependencias) {
       if (botonVista && !botonVista.disabled) {
         evento.preventDefault();
         const opciones = {};
+        if (botonVista.dataset.vista === "personal-registro" && botonVista.dataset.personalEmpleadoRef) {
+          opciones.empleadoRef = botonVista.dataset.personalEmpleadoRef;
+        }
         if (botonVista.dataset.ctExpVista) {
           opciones.subvista = botonVista.dataset.ctExpVista;
         }

@@ -1,7 +1,7 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
-import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20261008-alta-rpt-circular-v4";
+import { ErrorRegistroB2, referenciaEmpleadoB2Valida } from "./registro-b2-cliente.js?v=20261012-ct-personal-ficha-v1";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20261012-ct-personal-ficha-v1";
 import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20261008-alta-rpt-circular-v4";
 import { crearTraductorTraza } from "./personal-traza-i18n.js?v=20261001-personal-expediente-v2";
 import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=20261002-b-vacantes-401-retoma-v2";
@@ -171,7 +171,7 @@ function conocidoUTC(valor) {
 /** Montaje de lectura RRHH. El empleado se recibe de una selección autorizada del shell. */
 export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef = "", personaRef = "", catalogos, anunciar = () => {}, registrarDesmontar, reloj = () => new Date() } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || !cliente?.consultarFicha || !cliente?.listarVacantes ||
-      (empleadoRef !== "" && !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(empleadoRef)) ||
+      (empleadoRef !== "" && !referenciaEmpleadoB2Valida(empleadoRef)) ||
       (personaRef !== "" && !/^per_[A-Za-z0-9_-]{22,128}$/u.test(personaRef)) ||
       typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") || typeof reloj !== "function") throw new TypeError("Registro de Personal no disponible");
   const d = raiz.ownerDocument; const t = crearTraductorPersonal(); const tt = crearTraductorTraza(); const s = nodo(d, "section"); s.className = "modulo-personal personal-registro-b2"; s.dataset.personalRegistroB2 = "";
@@ -389,11 +389,11 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     botones.set(clave, tab); pestañas.append(tab);
   });
   function elegirEmpleado(ref) {
-    if (!activo || typeof ref !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(ref)) return;
+    if (!activo || !referenciaEmpleadoB2Valida(ref)) return;
     empleado = ref; ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; seleccionRelacion = "";
     cambiarVista("ficha"); botones.get("ficha")?.focus?.();
   }
-  const cambiarEmpleado = (ref) => { if (ref !== "" && (typeof ref !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(ref))) throw new TypeError("referencia de empleado no válida"); empleado = ref; ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; seleccionRelacion = ""; if (vista === "ficha") consultar(); else if (vista === "actos") cambiarVista("actos"); };
+  const cambiarEmpleado = (ref) => { if (ref !== "" && (!referenciaEmpleadoB2Valida(ref))) throw new TypeError("referencia de empleado no válida"); empleado = ref; ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; seleccionRelacion = ""; if (vista === "ficha") consultar(); else if (vista === "actos") cambiarVista("actos"); };
   cambiarVista(empleado || !botones.has("empleados") ? "ficha" : "empleados");
   return Object.freeze({ desmontar, cambiarEmpleado });
 }

@@ -1,3 +1,4 @@
+import { referenciaEmpleadoB2Valida } from "../personal/registro-b2-cliente.js?v=20261012-ct-personal-ficha-v1";
 import { validarConsultaB2, validarSolicitudPlanB2, validarSolicitudConfirmacionB2, validarReciboB2, fechaCivilB2 } from "./contrato-incorporacion-personal-b2.js";
 import { escaparHTML as e } from "./componentes-expedientes.js?v=20261011-ct-bolsa-vinculo-v1";
 import { cargarTextos } from "../../../comun/textos.js";
@@ -137,7 +138,8 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
       if (recibo) {
         cuerpo = `<section class="ct-recibo" role="status"><h4>${e(t("confirmada"))}</h4><dl class="ct-resumen">
           ${fila("recibo", recibo.recibo_ref)}${fila("fecha_registro", textos.fecha(recibo.registrada_en, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }))}
-          </dl><p>${e(t("siguiente"))}</p><p>${e(t("limite"))}</p><details><summary>${e(t("detalle_tecnico"))}</summary><dl>
+          </dl>${referenciaEmpleadoB2Valida(recibo.empleado_ref) ? `<div class="ct-acciones"><button type="button" class="boton-secundario"
+          data-vista="personal-registro" data-personal-empleado-ref="${e(recibo.empleado_ref)}">${e(t("abrir_ficha_personal"))}</button></div>` : ""}<p>${e(t("siguiente"))}</p><p>${e(t("limite"))}</p><details><summary>${e(t("detalle_tecnico"))}</summary><dl>
           ${["plan", "empleado", "relacion", "ocupacion"].map((k) => fila(k, recibo[`${k}_ref`])).join("")}</dl></details></section>`;
       } else if (!denegado && consulta) {
         const previos = `<h4>${e(t("prerrequisitos"))}</h4><ul>${consulta.prerrequisitos.map((p) => `<li>${e(traducirDato(p.clave_i18n))}: ${e(t(p.cumplido ? "cumplido" : "pendiente"))}</li>`).join("")}</ul>`;
