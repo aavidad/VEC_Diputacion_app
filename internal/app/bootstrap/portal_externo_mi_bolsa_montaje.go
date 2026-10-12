@@ -2,11 +2,13 @@ package bootstrap
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
+	bolsapuertos "vec-diputacion-granada/internal/modules/bolsa/ports"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
 	vecpg "vec-diputacion-granada/internal/vec/adapters/postgres"
@@ -150,7 +152,31 @@ func nuevaMiBolsaPortalExterno(ctx context.Context, cfg config.Config,
 		return nil, nada, errMiBolsaNoDisponible
 	}
 	d := dependenciasMiBolsaPortalExterno{preparador: &preparadorMiBolsaPortalExterno{preferencias: sesion, identidad: identidad.candidatoBolsa},
-		autorizador: autorizador, bolsa: bolsa, proveedores: proveedores, reloj: relojContratacionTemporalDesarrollo{}}
+		autorizador: autorizador, bolsa: bolsa, proveedores: proveedores,
+		fuentePreferencias: fuente, reloj: relojContratacionTemporalDesarrollo{}}
+	var preferenciasSQL bool
+	if err := bolsa.QueryRow(ctx, `SELECT pg_catalog.to_regprocedure(
+	 'vec_bolsa_llamamientos.consultar_preferencias_bolsas_v1(text,bytea,bytea,jsonb)') IS NOT NULL`).Scan(&preferenciasSQL); err != nil {
+		return nil, nada, errMiBolsaNoDisponible
+	}
+	if preferenciasSQL {
+		inventario, err := leerInventarioV3PortalExterno(cfg.DevelopmentMaterialDir)
+		if err != nil {
+			return nil, nada, errMiBolsaNoDisponible
+		}
+		if len(inventario.Consumidores[consumidorPreferenciasBolsasPortalExternoV3]) != 0 {
+			material, err := nuevosProveedoresV3PortalExterno(ctx, cfg.DevelopmentMaterialDir,
+				preflight, consumidorPreferenciasBolsasPortalExternoV3, relojContratacionTemporalDesarrollo{})
+			if err != nil {
+				slog.Error("material de preferencias entre bolsas no disponible", "causa", err)
+			} else {
+				d.proveedorPreferencias = material[bolsapuertos.AudienciaOrdenarPreferenciasBolsas]
+				if d.proveedorPreferencias == nil {
+					slog.Error("audiencia de preferencias entre bolsas no disponible")
+				}
+			}
+		}
+	}
 	if portal {
 		if comprobarMigracionesPortalCandidatoDesarrollo(ctx, bolsa) != nil {
 			return nil, nada, errMiBolsaNoDisponible

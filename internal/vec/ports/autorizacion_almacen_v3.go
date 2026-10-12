@@ -86,6 +86,20 @@ func NuevoContextoLeerDocumentoGeneradoAlmacenV3(
 		especificacionLeerOriginalDocumentoGenerado())
 }
 
+// NuevoContextoLeerCargaAdmitidaCustodiaAlmacenV3 solo habilita GET del objeto
+// admitido y de su versión exacta, desde una decisión PDP nativa registrada.
+// La consulta de la fila y su auditoría AD240 son una autorización distinta.
+func NuevoContextoLeerCargaAdmitidaCustodiaAlmacenV3(
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	decision domain.DecisionAutorizacionLigadaV3,
+	confirmacion ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	vinculos VinculosOperacionAlmacen,
+	verificadaEn time.Time,
+) (ContextoOperacionAlmacen, error) {
+	return nuevoContextoOperacionAlmacenV3(solicitud, decision, confirmacion, vinculos, verificadaEn,
+		especificacionLeerCargaAdmitidaCustodia())
+}
+
 func nuevoContextoOperacionAlmacenV3(
 	solicitud domain.SolicitudAutorizacionLigadaV3,
 	decision domain.DecisionAutorizacionLigadaV3,
@@ -235,6 +249,8 @@ func especificacionAlmacenV3(accionNegocio string) (especificacionAutorizacionAl
 		return especificacionEscribirOriginalFirmable(), true
 	case AccionNegocioLeerOriginalDocumentoGenerado:
 		return especificacionLeerOriginalDocumentoGenerado(), true
+	case AccionNegocioLeerCargaAdmitidaCustodia:
+		return especificacionLeerCargaAdmitidaCustodia(), true
 	default:
 		return especificacionAutorizacionAlmacen{}, false
 	}

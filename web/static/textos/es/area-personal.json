@@ -1,5 +1,31 @@
 {
   "miBolsa": {
+    "preferenciasBolsas": {
+      "titulo": "Orden de mis bolsas",
+      "cargando": "Cargando el orden de sus bolsas…",
+      "guardando": "Guardando el nuevo orden…",
+      "vacio": "No constan bolsas en las que participe.",
+      "bolsaSinNombre": "Bolsa sin nombre disponible",
+      "subir": "Subir",
+      "bajar": "Bajar",
+      "subirBolsa": "Subir {bolsa}",
+      "bajarBolsa": "Bajar {bolsa}",
+      "nuevaBolsa": "Nueva participación",
+      "retiradaBolsa": "El orden anterior incluye bolsas que ya no figuran entre sus participaciones actuales. Revise el orden mostrado.",
+      "confirmarNuevoOrden": "He revisado el orden de todas mis bolsas actuales",
+      "guardar": "Guardar orden",
+      "guardado": "Orden guardado",
+      "ultimoGuardado": "Último orden guardado",
+      "autenticacion": "Identifíquese de nuevo para consultar el orden de sus bolsas.",
+      "denegado": "No tiene permiso para consultar o guardar este orden.",
+      "conflicto": "Sus bolsas han cambiado. Vuelva a consultarlas y revise el orden antes de guardarlo.",
+      "servicio": "El servicio no está disponible. Si estaba guardando, puede reintentar con la misma solicitud.",
+      "incierto": "No se pudo confirmar si se guardó el orden. Reintente la misma solicitud.",
+      "respuesta": "No se pudo comprobar la respuesta del servicio. Vuelva a consultar sus bolsas.",
+      "error": "No se pudo consultar el orden de sus bolsas. Inténtelo de nuevo.",
+      "recargar": "Volver a consultar",
+      "reintentarGuardado": "Reintentar guardado"
+    },
     "historial": {
       "titulo": "Histórico de mi bolsa",
       "subtitulo": "Actuaciones de mis participaciones registradas en VEC",

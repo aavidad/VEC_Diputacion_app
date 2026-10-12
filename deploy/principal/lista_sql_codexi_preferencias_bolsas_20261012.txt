@@ -1,0 +1,11 @@
+# Preferencias entre bolsas. Prerrequisitos instalados en orden, sin repetir:
+# AD247 de #1044 → AD238→D16→AD240→D17 de #1056 custodia.
+# Después aplicar AD241→AUT76→AD246→B104 de esta lista.
+# Comprobar esquema, historia y huellas exactas del destino antes de aplicar;
+# no ejecutar DOWN ni reaplicar migraciones con historia.
+# La instalación NO publica el rol externo v2 ni asigna perfil por sí sola.
+# Requiere acto gobernado de publicación/asignación por huella y CAS.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000241_preferencias_bolsas.up.sql
+deploy/postgresql/autorizacion/migraciones/000076_lectura_preferencias_bolsas.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000246_lectura_preferencias_bolsas.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000104_preferencias_bolsas.up.sql

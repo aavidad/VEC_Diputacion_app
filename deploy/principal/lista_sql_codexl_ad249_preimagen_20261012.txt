@@ -1,0 +1,6 @@
+# Corrección de AD249 todavía no instalada en la principal.
+# Parte de AD237 final #1035 (SHA256 2dada108e60bf70ca5b56168499e7c20a87f12237f36d53c2014167ebdb17e83)
+# y del CHECK post AD248. Cadena completa en listas HZ21 y C3 existentes.
+# Instalar AD249 una sola vez antes de B108; no repetirla en copias con historia.
+# No cambia el número reservado ni requiere una migración adicional.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000249_lectura_origen_datos_contacto.up.sql

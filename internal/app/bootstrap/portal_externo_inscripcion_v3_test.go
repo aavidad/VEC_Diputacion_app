@@ -12,18 +12,30 @@ import (
 )
 
 type consultadorACLMiBolsaInscripcionPrueba struct {
-	funciones    []string
-	permitido    bool
-	funcionesB96 int
-	b96Exacta    bool
-	consulta     string
-	firma        any
+	funciones            []string
+	permitido            bool
+	funcionesB96         int
+	b96Exacta            bool
+	funcionesB104        int
+	b104Exacta           bool
+	funcionesLecturaB104 int
+	lecturaB104Exacta    bool
+	funcionesIntentoB104 int
+	intentoB104Exacta    bool
+	consulta             string
+	firma                any
+	firmaB104            any
+	firmaLecturaB104     any
+	firmaIntentoB104     any
 }
 
 func (q *consultadorACLMiBolsaInscripcionPrueba) QueryRow(_ context.Context, consulta string, args ...any) pgx.Row {
 	q.consulta = consulta
-	if len(args) == 2 {
+	if len(args) == 5 {
 		q.firma = args[0]
+		q.firmaB104 = args[2]
+		q.firmaLecturaB104 = args[3]
+		q.firmaIntentoB104 = args[4]
 	}
 	return filaACLMiBolsaInscripcionPrueba{q}
 }
@@ -33,13 +45,19 @@ type filaACLMiBolsaInscripcionPrueba struct {
 }
 
 func (f filaACLMiBolsaInscripcionPrueba) Scan(dest ...any) error {
-	if len(dest) != 4 {
+	if len(dest) != 10 {
 		return ErrMaterialV3PortalExternoInvalido
 	}
 	*dest[0].(*[]string) = slices.Clone(f.q.funciones)
 	*dest[1].(*bool) = f.q.permitido
 	*dest[2].(*int) = f.q.funcionesB96
 	*dest[3].(*bool) = f.q.b96Exacta
+	*dest[4].(*int) = f.q.funcionesB104
+	*dest[5].(*bool) = f.q.b104Exacta
+	*dest[6].(*int) = f.q.funcionesLecturaB104
+	*dest[7].(*bool) = f.q.lecturaB104Exacta
+	*dest[8].(*int) = f.q.funcionesIntentoB104
+	*dest[9].(*bool) = f.q.intentoB104Exacta
 	return nil
 }
 
@@ -119,25 +137,46 @@ func TestACLPortalExternoDualExactaAntesYDespuesB96(t *testing.T) {
 	if funcionesMiBolsaPortalExternoExactas(conDuplicado, 1, true) {
 		t.Fatal("sobrecarga repetida aceptada")
 	}
+	conPreferencias := funcionesMiBolsaPortalExternoConPreferencias(true)
+	if len(conPreferencias) != 16 ||
+		!funcionesMiBolsaPortalExternoExactasConPreferencias(conPreferencias, 1, true, 1, true, 1, true, 1, true) ||
+		funcionesMiBolsaPortalExternoExactasConPreferencias(conPreferencias, 1, true, 1, false, 1, true, 1, true) ||
+		funcionesMiBolsaPortalExternoExactasConPreferencias(conPreferencias, 1, true, 2, true, 1, true, 1, true) ||
+		funcionesMiBolsaPortalExternoExactasConPreferencias(conPreferencias, 1, true, 1, true, 0, false, 1, true) ||
+		funcionesMiBolsaPortalExternoExactasConPreferencias(conPreferencias, 1, true, 1, true, 1, true, 1, false) ||
+		funcionesMiBolsaPortalExternoExactasConPreferencias(conPreferencias, 1, true, 0, false, 1, true, 1, true) {
+		t.Fatal("B104 sin firma exacta, sobrecarga o GRANT ajeno admitido")
+	}
 	for _, caso := range []struct {
-		nombre            string
-		funciones         []string
-		n, exacta         int
-		permitido, espera bool
+		nombre                                                                              string
+		funciones                                                                           []string
+		n, exacta                                                                           int
+		nB104, exactaB104, nLecturaB104, exactaLecturaB104, nIntentoB104, exactaIntentoB104 int
+		permitido, espera                                                                   bool
 	}{
-		{"codigo antes de SQL", antes, 0, 0, true, true},
-		{"SQL antes de codigo", despues, 1, 1, true, true},
-		{"firma vieja", despues, 1, 0, true, false},
-		{"grant lateral", conExtraDespues, 1, 1, true, false},
-		{"tabla concedida", despues, 1, 1, false, false},
+		{"codigo antes de SQL", antes, 0, 0, 0, 0, 0, 0, 0, 0, true, true},
+		{"SQL antes de codigo", despues, 1, 1, 0, 0, 0, 0, 0, 0, true, true},
+		{"B104 exacta", conPreferencias, 1, 1, 1, 1, 1, 1, 1, 1, true, true},
+		{"B104 sin grant", conPreferencias, 1, 1, 1, 0, 1, 1, 1, 1, true, false},
+		{"B104 lectura sin grant", conPreferencias, 1, 1, 1, 1, 1, 0, 1, 1, true, false},
+		{"B104 intento sin grant", conPreferencias, 1, 1, 1, 1, 1, 1, 1, 0, true, false},
+		{"firma vieja", despues, 1, 0, 0, 0, 0, 0, 0, 0, true, false},
+		{"grant lateral", conExtraDespues, 1, 1, 0, 0, 0, 0, 0, 0, true, false},
+		{"tabla concedida", despues, 1, 1, 0, 0, 0, 0, 0, 0, false, false},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			q := &consultadorACLMiBolsaInscripcionPrueba{funciones: caso.funciones,
-				permitido: caso.permitido, funcionesB96: caso.n, b96Exacta: caso.exacta == 1}
+				permitido: caso.permitido, funcionesB96: caso.n, b96Exacta: caso.exacta == 1,
+				funcionesB104: caso.nB104, b104Exacta: caso.exactaB104 == 1,
+				funcionesLecturaB104: caso.nLecturaB104, lecturaB104Exacta: caso.exactaLecturaB104 == 1,
+				funcionesIntentoB104: caso.nIntentoB104, intentoB104Exacta: caso.exactaIntentoB104 == 1}
 			if got := comprobarACLMiBolsaPortalExterno(context.Background(), q, false); got != caso.espera {
 				t.Fatalf("preflight = %v", got)
 			}
 			if q.firma != firmaSolicitarInscripcionPortalExterno ||
+				q.firmaB104 != firmaOrdenarPreferenciasBolsasPortalExterno ||
+				q.firmaLecturaB104 != firmaConsultarPreferenciasBolsasPortalExterno ||
+				q.firmaIntentoB104 != firmaIntentoPreferenciasBolsasPortalExterno ||
 				!strings.Contains(q.consulta, "array_agg(proname::text") ||
 				!strings.Contains(q.consulta, "aclexplode(p.proacl)") ||
 				!strings.Contains(q.consulta, "has_table_privilege") {

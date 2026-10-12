@@ -14,6 +14,7 @@ func TestAuditoriaFronteraBolsaSoloRutasYActorCandidatoVerificado(t *testing.T) 
 		"/api/vec/bolsa/mi-bolsa/respuestas",
 		"/api/vec/bolsa/mi-bolsa/disposiciones",
 		"/api/vec/bolsa/mi-bolsa/contacto",
+		"/api/vec/bolsa/mi-bolsa/preferencias",
 	}
 	base := OrdenAuditoriaFronteraRutaExacta{
 		CorrelacionRef: "corr_0123456789abcdef0123456789abcdef",

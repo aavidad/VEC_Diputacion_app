@@ -114,7 +114,8 @@ func ordenFronteraBolsaExternaValida(o vecports.OrdenAuditoriaFronteraRutaExacta
 	switch o.Ruta {
 	case bolsahttp.RutaMiBolsa, bolsahttp.RutaMiBolsaHistorial,
 		bolsahttp.RutaMiBolsaSolicitudes, bolsahttp.RutaMiBolsaRespuestas,
-		bolsahttp.RutaMiBolsaDisposiciones, bolsahttp.RutaMiBolsaContacto:
+		bolsahttp.RutaMiBolsaDisposiciones, bolsahttp.RutaMiBolsaContacto,
+		bolsahttp.RutaPreferenciasBolsas:
 	default:
 		return false
 	}
