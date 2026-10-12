@@ -14,6 +14,8 @@ DO $pre$ BEGIN
  OR to_regrole('vec_autorizacion_fuente_meritos_externa') IS NOT NULL
  OR to_regprocedure('vec_autorizacion.cotejar_cartera_meritos_actual_v1(jsonb,jsonb)') IS NOT NULL
  OR to_regprocedure('vec_autorizacion.obtener_instantanea_meritos_externo_v1(text,text)') IS NOT NULL
+ OR to_regprocedure('vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(jsonb)') IS NOT NULL
+ OR to_regprocedure('vec_autorizacion.resolver_motivo_autorizacion_v2_actual(text,integer,text,text)') IS NULL
  OR to_regprocedure('vec_autorizacion.revalidar_sesion_cartera_meritos_v1(jsonb,timestamptz,timestamptz,timestamptz)') IS NOT NULL
  OR to_regprocedure('vec_identidad_externa_v1.acreditar_sesion_externa_v1(text,text,text,text,text,text,boolean,text,text,text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,timestamptz)') IS NULL
  OR to_regprocedure('vec_autorizacion.login_candidato_externo_v1(text,text)') IS NULL
@@ -80,6 +82,33 @@ REVOKE ALL ON FUNCTION vec_autorizacion.obtener_instantanea_meritos_externo_v1(t
 GRANT EXECUTE ON FUNCTION vec_autorizacion.obtener_instantanea_meritos_externo_v1(text,text)
  TO vec_autorizacion_fuente_meritos_externa;
 GRANT USAGE ON SCHEMA vec_autorizacion TO vec_autorizacion_fuente_meritos_externa;
+
+CREATE FUNCTION vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(p_motivo jsonb)
+RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' AS $f$
+BEGIN
+ IF current_user<>'vec_autorizacion_propietario'
+ OR current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off'
+ OR jsonb_typeof(p_motivo) IS DISTINCT FROM 'object'
+ OR (SELECT count(*) FROM jsonb_object_keys(p_motivo))<>4
+ OR (p_motivo ?& ARRAY['catalogo_id','catalogo_version','catalogo_huella_sha256','entrada_clave']) IS NOT TRUE
+ OR p_motivo->>'catalogo_id' IS DISTINCT FROM 'motivos_meritos_cartera'
+ OR jsonb_typeof(p_motivo->'catalogo_version') IS DISTINCT FROM 'number'
+ OR p_motivo->>'catalogo_version' !~ '^[1-9][0-9]{0,8}$'
+ OR p_motivo->>'catalogo_huella_sha256' !~ '^[0-9a-f]{64}$'
+ OR p_motivo->>'entrada_clave' !~ '^motivo_[0-9a-f]{32}$'
+ THEN RETURN false; END IF;
+ RETURN vec_autorizacion.resolver_motivo_autorizacion_v2_actual(
+  p_motivo->>'catalogo_id',(p_motivo->>'catalogo_version')::integer,
+  p_motivo->>'catalogo_huella_sha256',p_motivo->>'entrada_clave') IS TRUE;
+EXCEPTION WHEN data_exception OR invalid_text_representation OR numeric_value_out_of_range THEN
+ RETURN false;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(jsonb)
+ TO vec_meritos_propietario;
+GRANT USAGE ON SCHEMA vec_autorizacion TO vec_meritos_propietario;
 CREATE FUNCTION vec_autorizacion.revalidar_sesion_cartera_meritos_v1(
  p_vinculo jsonb,p_emitida_en timestamptz,p_valida_hasta timestamptz,p_instante timestamptz)
 RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE

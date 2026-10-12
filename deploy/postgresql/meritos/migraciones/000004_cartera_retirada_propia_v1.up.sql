@@ -13,6 +13,7 @@ DO $pre$ BEGIN
  OR to_regclass('vec_meritos.disponibilidad_evento_v1') IS NOT NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_lectura_cartera_meritos_v1(bytea,bytea,jsonb)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_retirada_merito_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+ OR to_regprocedure('vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(jsonb)') IS NULL
  OR to_regrole('vec_meritos_cartera_externo') IS NULL
  THEN RAISE EXCEPTION 'M4: preimagen o autoridad incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
@@ -194,7 +195,7 @@ CREATE FUNCTION vec_meritos.retirar_hecho_propio_v1(
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
-DECLARE c jsonb;d jsonb;m jsonb;u record;op vec_meritos.retirada_operacion_v1%ROWTYPE;
+DECLARE c jsonb;d jsonb;u record;op vec_meritos.retirada_operacion_v1%ROWTYPE;
  persona text;actor text;hecho text;clave text;huella text;contexto text;
  v_hecho integer;v_actual integer;identidad record;
  fecha timestamptz(6);instante text;recibo text;evento text;r jsonb;
@@ -209,7 +210,6 @@ BEGIN
  BEGIN
   c:=convert_from(p_comando,'UTF8')::jsonb;
   d:=convert_from(p_decision,'UTF8')::jsonb;
-  m:=convert_from(p_motivo,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'M4: material inválido' USING ERRCODE='22023'; END;
  IF vec_meritos.claves_exactas_v1(c,
   ARRAY['esquema','actor_ref','persona_ref','hecho_ref','hecho_version_esperada',
@@ -251,7 +251,6 @@ BEGIN
  OR d->'campos_permitidos' IS DISTINCT FROM '["disponibilidad","recibo"]'::jsonb
  OR d->'obligaciones' IS DISTINCT FROM '["auditar"]'::jsonb
  OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'externa_personal'
- OR m->'referencia' IS DISTINCT FROM c->'motivo'
  THEN RAISE EXCEPTION 'M4: decisión divergente' USING ERRCODE='42501'; END IF;
  -- La fachada común consume V3 estricta y registra auditoría en esta TX,
  -- antes de que el módulo lea el hecho o compruebe una clave de replay.
@@ -298,6 +297,8 @@ BEGIN
   RETURN jsonb_build_object('codigo','conflicto',
    'auditoria_ref',u.auditoria_ref,'recibo',NULL);
  END IF;
+ IF vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(c->'motivo') IS NOT TRUE
+ THEN RAISE EXCEPTION 'M4: motivo de retirada no vigente' USING ERRCODE='42501';END IF;
  recibo:='recibo:'||gen_random_uuid()::text;
  evento:='evento:'||gen_random_uuid()::text;
  instante:=to_char(fecha AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');

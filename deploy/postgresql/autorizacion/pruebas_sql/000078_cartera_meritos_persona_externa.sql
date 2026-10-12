@@ -23,6 +23,11 @@ BEGIN
  IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
  OR NOT has_function_privilege('vec_autorizacion_atestada_v3_propietario',f,'EXECUTE')
  THEN RAISE EXCEPTION 'AUT78: ACL de sesión divergente' USING ERRCODE='55000'; END IF;
+ f:=to_regprocedure('vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(jsonb)');
+ IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
+ OR NOT has_function_privilege('vec_meritos_propietario',f,'EXECUTE')
+ OR vec_autorizacion.validar_motivo_retirada_meritos_actual_v1('{}'::jsonb) IS NOT FALSE
+ THEN RAISE EXCEPTION 'AUT78: motivo libre o ACL divergente' USING ERRCODE='55000'; END IF;
  IF vec_autorizacion.cotejar_cartera_meritos_actual_v1('{}'::jsonb,'{}'::jsonb) IS NOT FALSE
  THEN RAISE EXCEPTION 'AUT78: concede orden vacía' USING ERRCODE='55000'; END IF;
 END $test$;
