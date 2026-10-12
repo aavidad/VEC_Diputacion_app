@@ -52,7 +52,7 @@ test("B7 convierte la regla en texto editable y procedencia solo para RRHH", () 
   const reglamento = propuestaPlazoRespuesta(conRegla({ origen: "reglamento", articulo: "art. 9", ejemplo: false }));
   assert.equal(reglamento.procedencia, "Reglamento, art. 9");
   assert.equal(reglamento.ejemplo, false);
-  assert.equal(propuestaPlazoRespuesta(conRegla({ origen: "reglamento", articulo: "art. 9", ejemplo: true })).procedencia, "Reglamento, art. 9, con parte de ejemplo");
+  assert.equal(propuestaPlazoRespuesta(conRegla({ origen: "reglamento", articulo: "art. 9", ejemplo: true })).procedencia, "Reglamento, art. 9, con una parte pendiente de aprobación");
   assert.equal(propuestaPlazoRespuesta(sinCatalogo), null);
   assert.equal(propuestaPlazoRespuesta(conRegla({ origen: "reglamento", articulo: "" })), null);
   assert.equal(propuestaPlazoRespuesta(conRegla({ referencia: "sin formato" })), null);

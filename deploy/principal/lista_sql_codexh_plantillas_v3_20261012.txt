@@ -1,0 +1,10 @@
+# Plantillas CT v3: operación de datos ficticios; NO hay migraciones nuevas.
+# Prerrequisito: desplegar #1065; conservar CT131/133/135 ya instaladas y la v1.
+# Orden manual de dirección (conexión privada de instalación CT):
+# 1. scripts/operacion/publicar_plantillas_v3/publicar.sh --comprobar
+# 2. scripts/operacion/publicar_plantillas_v3/publicar.sh --aplicar PUBLICA-PLANTILLAS-V3
+# 3. scripts/operacion/publicar_plantillas_v3/publicar.sh --comprobar
+# 4. Actualizar ficha 2026/CT-000132 y descargar Resolución > PDF.
+# SQL de datos parametrizado: scripts/operacion/publicar_plantillas_v3/sql.go.
+# No ejecutar UP/DOWN ni cambiar VEC_CT_PLANTILLAS_SOURCE_PATH a v3.
+# CONFIG NUEVA de la aplicación: ninguna. Ver LEEME.md para el ejecutable/conexión.

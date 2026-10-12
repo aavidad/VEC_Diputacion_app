@@ -14,7 +14,7 @@
     "ficha_ginpix_transmision_pendiente": "Pendiente de integración con GINPIX.",
     "ficha_ginpix_nombre_archivo": "Nombre de archivo",
     "ficha_ginpix_descargar": "Descargar ficha GINPIX",
-    "ficha_ginpix_aviso": "La descarga no realiza envío ni firma, ni produce eficacia administrativa.",
+    "ficha_ginpix_aviso": "La descarga no envía ni firma la ficha.",
     "ficha_ginpix_descargando": "Preparando la descarga.",
     "ficha_ginpix_error": "No se ha podido preparar la descarga.",
     "seguimiento_incorporacion_titulo": "Seguimiento de la incorporación",

@@ -60,7 +60,7 @@ func TestBorradorConFinPorCausaUsaEtiquetaCatalogada(t *testing.T) {
 	detalle.Solicitud.PeriodoCausaFin = "reincorporacion_titular"
 	detalle.Analisis.PeriodoFin = time.Time{}
 	detalle.Analisis.PeriodoCausaFin = "reincorporacion_titular"
-	contenido, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, detalle, nil, plantillas)
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, detalle, nil, plantillas, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,12 +68,12 @@ func TestBorradorConFinPorCausaUsaEtiquetaCatalogada(t *testing.T) {
 	if !strings.Contains(texto, "la reincorporación del titular") || strings.Contains(texto, "01/01/0001") || strings.Contains(texto, "reincorporacion_titular") {
 		t.Fatalf("fin sin fecha mal representado: %q", texto)
 	}
-	informe, err := contenidoBorradorDesarrollo(ports.BorradorInformeDefinitivo, detalle, nil, plantillas)
+	informe, err := contenidoBorradorDesarrollo(ports.BorradorInformeDefinitivo, detalle, nil, plantillas, false)
 	if err != nil || !strings.Contains(strings.Join(informe.Parrafos, "\n"), "Sin fecha de finalización no se puede calcular un coste total") {
 		t.Fatalf("informe sin explicación del coste sin horizonte: %v", err)
 	}
 	delete(plantillas.etiquetas, "fin.reincorporacion_titular")
-	if _, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, detalle, nil, plantillas); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
+	if _, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, detalle, nil, plantillas, false); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
 		t.Fatalf("sin etiqueta de fin debe cerrarse el borrador: %v", err)
 	}
 }
@@ -188,7 +188,7 @@ func TestTipoNuevoEnVersionPublicadaGeneraWordYPDF(t *testing.T) {
 	if !ok || plantilla.Nombre != nueva.Etiqueta || plantilla.Referencia != publicado.Referencia()+":"+nueva.Clave {
 		t.Fatalf("plantilla nueva: %+v, existe=%v", plantilla, ok)
 	}
-	contenido, err := contenidoBorradorDesarrollo(tipo, detalleInformeDefinitivoPrueba(), nil, plantillas)
+	contenido, err := contenidoBorradorDesarrollo(tipo, detalleInformeDefinitivoPrueba(), nil, plantillas, false)
 	if err != nil || !strings.Contains(strings.Join(contenido.Parrafos, "\n"), publicado.Referencia()+":"+nueva.Clave) {
 		t.Fatalf("contenido desde tipo nuevo: %+v, %v", contenido, err)
 	}
@@ -241,7 +241,7 @@ func TestSinCatalogoNoHayBorradores(t *testing.T) {
 	if _, err := (RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}).RenderizarBorrador(context.Background(), ports.BorradorResolucion, d); !errors.Is(err, ports.ErrConsultaRRHHNoDisponible) {
 		t.Fatalf("sin catálogo: %v", err)
 	}
-	if _, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, d, nil, nil); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
+	if _, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, d, nil, nil, false); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
 		t.Fatalf("sin plantilla: %v", err)
 	}
 }
@@ -249,7 +249,7 @@ func TestSinCatalogoNoHayBorradores(t *testing.T) {
 func TestLosValoresNoSeInterpretanComoPlantilla(t *testing.T) {
 	d := detalleInformeDefinitivoPrueba()
 	d.Analisis.Observaciones = "Texto con {{coste}} y {{?centro}}literal{{/centro}}."
-	contenido, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, d, nil, plantillasPrueba(t))
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, d, nil, plantillasPrueba(t), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +269,7 @@ func TestPlantillaEditadaCambiaElDocumentoSinTocarCodigo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	contenido, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, detalleInformeDefinitivoPrueba(), nil, plantillas)
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, detalleInformeDefinitivoPrueba(), nil, plantillas, false)
 	if err != nil || contenido.Parrafos[2] != "Antecedentes que redacta RRHH para centro:sintetico:001" {
 		t.Fatalf("plantilla editada no aplicada: %v %q", err, contenido.Parrafos)
 	}
@@ -279,7 +279,7 @@ func TestNuevosDocumentosSegunModalidad(t *testing.T) {
 	plantillas := plantillasPrueba(t)
 	d := detalleInformeDefinitivoPrueba() // modalidad sustitución: admite los dos
 	for _, tipo := range []ports.TipoBorradorRRHH{ports.BorradorContratoLaboral, ports.BorradorNombramiento} {
-		contenido, err := contenidoBorradorDesarrollo(tipo, d, nil, plantillas)
+		contenido, err := contenidoBorradorDesarrollo(tipo, d, nil, plantillas, false)
 		if err != nil {
 			t.Fatalf("%s: %v", tipo, err)
 		}
@@ -307,10 +307,10 @@ func TestNuevosDocumentosSegunModalidad(t *testing.T) {
 	}
 	relevo := detalleInformeDefinitivoPrueba()
 	relevo.Analisis.ModalidadClave, relevo.Resumen.ModalidadClave = "relevo", "relevo"
-	if _, err := contenidoBorradorDesarrollo(ports.BorradorNombramiento, relevo, nil, plantillas); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
+	if _, err := contenidoBorradorDesarrollo(ports.BorradorNombramiento, relevo, nil, plantillas, false); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
 		t.Fatalf("nombramiento para relevo: %v", err)
 	}
-	if _, err := contenidoBorradorDesarrollo(ports.BorradorContratoLaboral, relevo, nil, plantillas); err != nil {
+	if _, err := contenidoBorradorDesarrollo(ports.BorradorContratoLaboral, relevo, nil, plantillas, false); err != nil {
 		t.Fatalf("contrato para relevo: %v", err)
 	}
 }
@@ -333,11 +333,11 @@ func TestCeseYModificacionSoloConSuActuacion(t *testing.T) {
 	plantillas := plantillasPrueba(t)
 	for _, tipo := range []ports.TipoBorradorRRHH{ports.BorradorCese, ports.BorradorModificacionNombramiento} {
 		plantilla, _ := plantillas.Plantilla(tipo)
-		if _, err := contenidoBorradorDesarrollo(tipo, detalleInformeDefinitivoPrueba(), nil, plantillas); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
+		if _, err := contenidoBorradorDesarrollo(tipo, detalleInformeDefinitivoPrueba(), nil, plantillas, false); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
 			t.Fatalf("%s sin actuación: %v", tipo, err)
 		}
 		d := detalleConActuacionPosterior(domain.ClaveCatalogo(plantilla.RequiereAccion))
-		contenido, err := contenidoBorradorDesarrollo(tipo, d, nil, plantillas)
+		contenido, err := contenidoBorradorDesarrollo(tipo, d, nil, plantillas, false)
 		if err != nil {
 			t.Fatalf("%s: %v", tipo, err)
 		}
@@ -347,13 +347,13 @@ func TestCeseYModificacionSoloConSuActuacion(t *testing.T) {
 		}
 		// Los borradores de formalización dejan de estar disponibles cuando
 		// la propuesta ya no es la última actuación reconocida.
-		if _, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, d, nil, plantillas); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
+		if _, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, d, nil, plantillas, false); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
 			t.Fatalf("resolución tras %s: %v", tipo, err)
 		}
 	}
 	sinPropuesta := detalleConActuacionPosterior("registrar_cese")
 	sinPropuesta.Hitos[6].AccionClave = "actuacion_sintetica"
-	if _, err := contenidoBorradorDesarrollo(ports.BorradorCese, sinPropuesta, nil, plantillas); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
+	if _, err := contenidoBorradorDesarrollo(ports.BorradorCese, sinPropuesta, nil, plantillas, false); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
 		t.Fatalf("cese sin propuesta previa: %v", err)
 	}
 }

@@ -509,8 +509,9 @@ func TestComunicacionLlamamientoDesarrolloCorreoSinteticoNoAfectaRegistro(t *tes
 		!strings.Contains(mensaje.Asunto, "2026/CT-000010") ||
 		!strings.Contains(mensaje.Cuerpo, "categoria:sintetica:auxiliar") ||
 		!strings.Contains(mensaje.Cuerpo, "centro:sintetico:granada") ||
-		!strings.Contains(mensaje.Cuerpo, "pendiente de definición por RRHH") ||
-		!strings.Contains(mensaje.Cuerpo, "no abre plazo") ||
+		strings.Contains(mensaje.Cuerpo, "no abre plazo") ||
+		strings.Contains(mensaje.Cuerpo, "sintéticos") ||
+		strings.Contains(mensaje.Cuerpo, "efectos administrativos") ||
 		strings.Contains(mensaje.MessageID, r.ComunicacionRef) {
 		t.Fatalf("mensaje de demostracion invalido: %#v", mensaje)
 	}

@@ -78,11 +78,11 @@ function resumenCambio(r, t) {
 
 function presentarRegistroAuditoria(registro, t, ejemplo, contexto = {}) {
   const actor = ejemplo && Object.hasOwn(PERSONAS_EJEMPLO, registro.actor_ref)
-    ? `${PERSONAS_EJEMPLO[registro.actor_ref]} (${t("dato_ficticio")})`
+    ? PERSONAS_EJEMPLO[registro.actor_ref]
     : registro.actor_ref.startsWith("sistema:") ? t("persona_sistema") : t("persona_no_disponible");
   let expediente = t("numero_no_disponible");
   if (ejemplo && Object.hasOwn(EXPEDIENTES_EJEMPLO, registro.expediente_ref)) {
-    expediente = `${EXPEDIENTES_EJEMPLO[registro.expediente_ref]} (${t("dato_ficticio")})`;
+    expediente = EXPEDIENTES_EJEMPLO[registro.expediente_ref];
   } else if (contexto.expedienteRef && registro.expediente_ref === contexto.expedienteRef) {
     expediente = numeroHumano(contexto.numeroVisible) ? contexto.numeroVisible
       : t(contexto.fuenteContexto === "bolsa" ? "relacion_participacion_actual" : "relacion_expediente_actual");
@@ -97,7 +97,7 @@ function presentarRegistroAuditoria(registro, t, ejemplo, contexto = {}) {
 
 function presentarExpedienteAuditoria(ref, t, ejemplo, numeroVisible) {
   return ejemplo && Object.hasOwn(EXPEDIENTES_EJEMPLO, ref)
-    ? `${EXPEDIENTES_EJEMPLO[ref]} (${t("dato_ficticio")})`
+    ? EXPEDIENTES_EJEMPLO[ref]
     : numeroHumano(numeroVisible) ? numeroVisible : t("numero_no_disponible");
 }
 
@@ -186,7 +186,6 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
       <div class="cabecera-panel"><h3 id="auditoria-filtros-titulo">${escapar(t("filtros_titulo"))}</h3></div>
       <div class="cuerpo-panel">
         <p class="auditoria-expediente"><strong>${escapar(t(fuenteContexto === "bolsa" ? "participacion" : "expediente"))}:</strong> ${escapar(expedienteRef ? presentarExpedienteAuditoria(expedienteRef, t, ejemplo, numeroVisible) : t("sin_expediente"))}</p>
-        ${ejemplo ? `<p class="auditoria-ejemplo">${escapar(t("configuracion_ejemplo"))}</p>` : ""}
         <form data-auditoria-filtros class="auditoria-filtros">
         ${[["desde", "desde"], ["hasta", "hasta"]].map(([name, label]) =>
           `<label>${escapar(t(label))}<input name="${name}" type="datetime-local" value="${escapar(filtros[name] || "")}" ${bloqueada ? "disabled" : ""}></label>`).join("")}

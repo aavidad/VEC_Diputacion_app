@@ -13,13 +13,12 @@ test("el módulo se importa sin cargar textos y exige preparación antes de trad
   assert.throws(() => aislado.crearTraductorPersonal(), /pendientes de preparación/);
 });
 
-test("el catálogo de Personal advierte de la naturaleza DEMO y de sus límites", () => {
+test("el catálogo de Personal explica sus límites sin marcas de ensayo", () => {
   const t = crearTraductorPersonal();
-  assert.match(t("presentacion_demo"), /DEMO/);
-  assert.match(t("aviso_demo"), /no consulta datos reales/i);
-  assert.match(t("servicios_ayuda"), /no se calcula antigüedad, trienios/i);
+  for (const clave of ["presentacion_demo", "aviso_demo", "servicios_ayuda", "dietas_ayuda", "relacion_ayuda", "sin_datos"]) {
+    assert.doesNotMatch(t(clave), /DEMO|ejemplo|sintétic|efectos/i);
+  }
   assert.match(t("nominas_ayuda"), /No se muestran importes/i);
-  assert.match(t("dietas_ayuda"), /no acreditan liquidación/i);
   assert.match(t("ficha_accesos_ayuda"), /no envía identificadores ni acredita una relación de servicio/i);
   assert.match(t("ficha_estado_no_configurado"), /Fuente no conectada/i);
   assert.match(t("ficha_catalogos_completos"), /No acreditan ocupación actual/i);
@@ -39,7 +38,6 @@ test("el traductor rechaza catálogos y claves incompletos", () => {
 test("el catálogo conectado conserva textos y plural localizados", () => {
   const t = crearTraductorPersonal();
   assert.match(t("catalogo_error"), /No se muestran datos anteriores/);
-  assert.match(t("catalogo_demo"), /pendiente de validación por RRHH/);
   assert.equal(formatearRecuentoCategorias(1), "1 categoría");
   assert.equal(formatearRecuentoCategorias(1_000), "1000 categorías");
   assert.throws(() => formatearRecuentoCategorias(-1), /no válido/);

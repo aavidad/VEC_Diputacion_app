@@ -36,7 +36,7 @@ func TestInformePeriodoCSVCompletoYFiltrado(t *testing.T) {
 		"--unidad", "unidad-demo-01", "--situacion", "liquidado", "--desde", "2026-09-01", "--hasta", "2026-09-30")
 	lineas = strings.Split(strings.TrimSpace(salida), "\n")
 	if codigo != 0 || len(lineas) != 2 || !strings.HasPrefix(lineas[0], "Reference,Version,Person") ||
-		!strings.HasPrefix(lineas[1], "DI-007,2,María Ruiz,Servicios Generales,Settled,22/09/2026,4250,0,2100,6350,DRAFT FOR REVIEW") {
+		!strings.HasPrefix(lineas[1], "DI-007,2,María Ruiz,Servicios Generales,Settled,22/09/2026,4250,0,2100,6350,Draft pending approval.") {
 		t.Fatalf("%d %q", codigo, salida)
 	}
 }

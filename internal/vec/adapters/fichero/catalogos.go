@@ -63,6 +63,21 @@ type ConsultaCatalogos struct {
 }
 
 func NuevaConsultaCatalogos(ruta string) (*ConsultaCatalogos, error) {
+	return nuevaConsultaCatalogos(ruta, true)
+}
+
+// NuevaConsultaCatalogoProvisionable lee un paquete que no lleva la marca de
+// demostración porque no es la autoridad: solo es la fuente que se instala por
+// el canal migrador y que el arranque coteja con la huella guardada en
+// PostgreSQL. Mantiene todos los demás controles del paquete (tamaño, claves
+// duplicadas o desconocidas, datos personales y secretos, metadatos y
+// catálogo canónico). Si el paquete sí declara demostración, se exige el aviso
+// igual que en NuevaConsultaCatalogos.
+func NuevaConsultaCatalogoProvisionable(ruta string) (*ConsultaCatalogos, error) {
+	return nuevaConsultaCatalogos(ruta, false)
+}
+
+func nuevaConsultaCatalogos(ruta string, exigirDemostracion bool) (*ConsultaCatalogos, error) {
 	ruta = strings.TrimSpace(ruta)
 	if ruta == "" {
 		return nil, fmt.Errorf("%w: ruta vacia", domain.ErrCatalogoConfigurableInvalido)
@@ -80,10 +95,14 @@ func NuevaConsultaCatalogos(ruta string) (*ConsultaCatalogos, error) {
 	if err != nil || len(contenido) == 0 || len(contenido) > maximoBytesPaqueteCatalogo {
 		return nil, fmt.Errorf("%w: tamano no permitido", domain.ErrCatalogoConfigurableInvalido)
 	}
-	return nuevaConsultaCatalogosDesdeJSON(contenido)
+	return nuevaConsultaCatalogosDesdeJSONConMarca(contenido, exigirDemostracion)
 }
 
 func nuevaConsultaCatalogosDesdeJSON(contenido []byte) (*ConsultaCatalogos, error) {
+	return nuevaConsultaCatalogosDesdeJSONConMarca(contenido, true)
+}
+
+func nuevaConsultaCatalogosDesdeJSONConMarca(contenido []byte, exigirDemostracion bool) (*ConsultaCatalogos, error) {
 	if patronDNIPaquete.Match(contenido) || patronNIEPaquete.Match(contenido) || patronNIFPaquete.Match(contenido) || patronCorreoPaquete.Match(contenido) ||
 		patronTelefonoPaquete.Match(contenido) || patronIBANPaquete.Match(contenido) || patronClavePaquete.Match(contenido) {
 		return nil, fmt.Errorf("%w: posible dato personal o secreto", domain.ErrCatalogoConfigurableInvalido)
@@ -100,7 +119,7 @@ func nuevaConsultaCatalogosDesdeJSON(contenido []byte) (*ConsultaCatalogos, erro
 	if err := exigirFinJSONCatalogo(decodificador); err != nil {
 		return nil, fmt.Errorf("%w: mas de un documento JSON", domain.ErrCatalogoConfigurableInvalido)
 	}
-	if err := validarPaqueteCatalogo(paquete); err != nil {
+	if err := validarPaqueteCatalogo(paquete, exigirDemostracion); err != nil {
 		return nil, err
 	}
 	canonico, err := paquete.Catalogo.ClonarCanonico()
@@ -239,10 +258,11 @@ func (c *ConsultaCatalogos) ObtenerMetadatosFuenteCatalogos(ctx context.Context)
 	return c.metadatos, nil
 }
 
-func validarPaqueteCatalogo(paquete paqueteCatalogo) error {
+func validarPaqueteCatalogo(paquete paqueteCatalogo, exigirDemostracion bool) error {
 	fuente := paquete.Fuente
-	if paquete.VersionEsquema != versionEsquemaPaqueteCatalogo || !fuente.Demostracion ||
-		!strings.Contains(strings.ToUpper(fuente.Aviso), "DEMOSTRACI") ||
+	if paquete.VersionEsquema != versionEsquemaPaqueteCatalogo ||
+		(exigirDemostracion && !fuente.Demostracion) ||
+		(fuente.Demostracion && !strings.Contains(strings.ToUpper(fuente.Aviso), "DEMOSTRACI")) ||
 		!patronRevisionPaquete.MatchString(fuente.Revision) ||
 		!patronSHA256Paquete.MatchString(fuente.OrigenSHA256) ||
 		fuente.ActualizadaEn.IsZero() || fuente.ActualizadaEn.Location() != time.UTC ||

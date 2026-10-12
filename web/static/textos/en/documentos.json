@@ -4,7 +4,7 @@
     "miga": "Employee Portal → Documents",
     "titulo": "Case file documents",
     "ayuda_etiqueta": "Help about documents",
-    "aclaracion_firma": "Official signature pending means no officially valid signature is recorded yet. A test-signed PDF may be stored without changing that status. The document number is internal to VEC. Preparing a notice does not prove delivery. If another system keeps the original, VEC stores only its fingerprint.",
+    "aclaracion_firma": "“Official signature pending” means the document has not yet been signed in Portafirmas. The document number is internal to VEC. Preparing a notice does not prove delivery. If another system keeps the original, VEC stores only its fingerprint.",
     "cargar_mas": "Load more",
     "sin_expediente": "Open the documents from a case file.",
     "no_configurado": "Document search is not available.",

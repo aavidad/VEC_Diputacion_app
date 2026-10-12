@@ -20,7 +20,7 @@ const pintar = (m = modelo(), relacionRef = "rel_uno") => crearPanelPreparacionS
 
 test("presenta la preparación y su límite sin emitir ni calcular certificado", () => {
   const panel = pintar();
-  assert.match(visible(panel), /Información pendiente de validar.*Cobertura no acreditada.*no permite emitir un certificado oficial/u);
+  assert.match(visible(panel), /La fuente no confirma que la lista de servicios esté completa/u);
   assert.match(texto(panel), /Reconocido en el ejercicio.*Periodos coincidentes/u);
   assert.equal(nodos(panel).filter((n) => n.tagName === "button" || n.tagName === "a").length, 0);
   assert.equal(nodos(panel).filter((n) => n.tagName === "th" && n.attrs.scope === "col").length, 5);
@@ -63,6 +63,6 @@ test("catálogos completos ES y EN y traducción inglesa sin rótulos castellano
   const en = JSON.parse(await readFile(new URL("../../../textos/en/personal-servicios-cer.json", import.meta.url))).general;
   assert.deepEqual(Object.keys(en).sort(), Object.keys(es).sort());
   const panel = crearPanelPreparacionServiciosCER({ documento: documento(), modelo: modelo(), relacionRef: "rel_uno", t: crearTraductorPreparacionServiciosCER(en) });
-  assert.match(texto(panel), /Services for review.*Coverage is unverified.*Recognised in the exercise/u);
+  assert.match(texto(panel), /Services for review.*does not confirm that the list of services is complete.*Recognised in the exercise/u);
   assert.doesNotMatch(texto(panel), /Revisar periodos|Periodo|Preparación/u);
 });

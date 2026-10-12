@@ -84,7 +84,7 @@ func TestInformeDefinitivoPDFRealDeterministaYMarcado(t *testing.T) {
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("PDF no determinista o inválido: %v", err)
 	}
-	contenido, err := contenidoBorradorDesarrollo(ports.BorradorInformeDefinitivo, d, nil, plantillasPrueba(t))
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorInformeDefinitivo, d, nil, plantillasPrueba(t), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestBorradoresRRHHAceptanPropuestaHistoricaTrasResolucionYAnotacion(t *test
 			ports.BorradorTomaPosesion, ports.BorradorNotificacion, ports.BorradorComunicacionCentro,
 		} {
 			t.Run(fmt.Sprintf("v%d/%s", detalle.Resumen.Version, tipo), func(t *testing.T) {
-				contenido, err := contenidoBorradorDesarrollo(tipo, detalle, nil, plantillasPrueba(t))
+				contenido, err := contenidoBorradorDesarrollo(tipo, detalle, nil, plantillasPrueba(t), false)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -197,7 +197,7 @@ func TestResolucionPDFRealDeterministaSinAutoridadInventada(t *testing.T) {
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("resolución PDF no determinista o inválida: %v", err)
 	}
-	contenido, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, d, nil, plantillasPrueba(t))
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, d, nil, plantillasPrueba(t), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestDiligenciaPDFRealDeterministaSinHechosInventados(t *testing.T) {
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("diligencia PDF no determinista o inválida: %v", err)
 	}
-	contenido, err := contenidoBorradorDesarrollo(ports.BorradorDiligencia, d, nil, plantillasPrueba(t))
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorDiligencia, d, nil, plantillasPrueba(t), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +249,7 @@ func TestTomaPosesionPDFRealDeterministaSinIncorporacionInventada(t *testing.T) 
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("toma de posesión PDF no determinista o inválida: %v", err)
 	}
-	contenido, err := contenidoBorradorDesarrollo(ports.BorradorTomaPosesion, d, nil, plantillasPrueba(t))
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorTomaPosesion, d, nil, plantillasPrueba(t), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +275,7 @@ func TestNotificacionPDFRealDeterministaSinEntregaNiPlazosInventados(t *testing.
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("notificación PDF no determinista o inválida: %v", err)
 	}
-	contenido, err := contenidoBorradorDesarrollo(ports.BorradorNotificacion, d, nil, plantillasPrueba(t))
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorNotificacion, d, nil, plantillasPrueba(t), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +301,7 @@ func TestComunicacionCentroPDFRealDeterministaSinEnvioNiOrdenInventados(t *testi
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("comunicación al centro PDF no determinista o inválida: %v", err)
 	}
-	contenido, err := contenidoBorradorDesarrollo(ports.BorradorComunicacionCentro, d, nil, plantillasPrueba(t))
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorComunicacionCentro, d, nil, plantillasPrueba(t), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +316,7 @@ func TestComunicacionCentroPDFRealDeterministaSinEnvioNiOrdenInventados(t *testi
 	}
 }
 
-func TestBorradoresImprimenNombresDeCatalogoJuntoALaReferencia(t *testing.T) {
+func TestBorradoresImprimenSoloNombresDeCatalogoEnDescargas(t *testing.T) {
 	d := detalleInformeDefinitivoPrueba()
 	etiquetas := EtiquetadorReferencias(func(referencia string) string {
 		return map[string]string{
@@ -329,23 +329,25 @@ func TestBorradoresImprimenNombresDeCatalogoJuntoALaReferencia(t *testing.T) {
 		ports.BorradorInformeDefinitivo, ports.BorradorResolucion, ports.BorradorDiligencia,
 		ports.BorradorTomaPosesion, ports.BorradorNotificacion, ports.BorradorComunicacionCentro,
 	} {
-		conNombres, err := contenidoBorradorDesarrollo(tipo, d, etiquetas, plantillasPrueba(t))
+		conNombres, err := contenidoBorradorDesarrollo(tipo, d, etiquetas, plantillasPrueba(t), true)
 		if err != nil {
 			t.Fatal(err)
 		}
 		texto := strings.Join(conNombres.Parrafos, "\n")
 		for _, esperado := range []string{
-			"Centro: Secretaría General (centro:sintetico:001)",
-			"Categoría: Auxiliar administrativo/a (categoria:sintetica:c2)",
+			"Centro: Secretaría General",
+			"Categoría: Auxiliar administrativo/a",
 		} {
 			if !strings.Contains(texto, esperado) && !strings.Contains(texto, strings.Replace(esperado, "Centro:", "Centro solicitante:", 1)) {
 				t.Fatalf("%s: falta %q", tipo, esperado)
 			}
 		}
-		if strings.Contains(texto, "(referencia)") {
-			t.Fatalf("%s: rótulo «(referencia)» obsoleto", tipo)
+		for _, referencia := range []string{d.Resumen.CentroRef, d.Resumen.CategoriaRef, d.Asignacion.UnidadRef} {
+			if strings.Contains(texto, referencia) {
+				t.Fatalf("%s: referencia interna junto al nombre: %s", tipo, referencia)
+			}
 		}
-		sinNombres, err := contenidoBorradorDesarrollo(tipo, d, nil, plantillasPrueba(t))
+		sinNombres, err := contenidoBorradorDesarrollo(tipo, d, nil, plantillasPrueba(t), true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -364,7 +366,7 @@ func TestBorradoresImprimenObservacionesDelAnalisis(t *testing.T) {
 		ports.BorradorResolucion,
 		ports.BorradorComunicacionCentro,
 	} {
-		contenido, err := contenidoBorradorDesarrollo(tipo, d, nil, plantillasPrueba(t))
+		contenido, err := contenidoBorradorDesarrollo(tipo, d, nil, plantillasPrueba(t), false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -373,5 +375,24 @@ func TestBorradoresImprimenObservacionesDelAnalisis(t *testing.T) {
 		if !strings.Contains(texto, esperado) {
 			t.Fatalf("%s: no contiene %q", tipo, esperado)
 		}
+	}
+}
+
+func TestReferenciaConNombreConservaReferenciaSiFaltaNombre(t *testing.T) {
+	for _, caso := range []struct {
+		nombre    string
+		etiquetar EtiquetadorReferencias
+		esperado  string
+	}{
+		{"sin catálogo", nil, "centro:001"},
+		{"sin nombre", func(string) string { return "" }, "centro:001"},
+		{"nombre vacío", func(string) string { return "  " }, "centro:001"},
+		{"nombre disponible", func(string) string { return "  Secretaría General  " }, "Secretaría General"},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			if actual := referenciaConNombre(caso.etiquetar, "centro:001", true); actual != caso.esperado {
+				t.Fatalf("nombre: obtenido %q, esperado %q", actual, caso.esperado)
+			}
+		})
 	}
 }

@@ -342,7 +342,7 @@
     "referencia": "Referencia",
     "metodo": "Método",
     "origen": "Origen",
-    "origenSintetico": "Identidad sintética. No existe autenticación, certificado ni persona real.",
+    "origenSintetico": "Identidad asignada por el portal.",
     "autoridadServidor": "La autoridad efectiva se comprueba en el servidor para cada operación."
   },
   "ayuda": {
@@ -480,7 +480,7 @@
         "llamamientos": "Llamamientos personales",
         "llamamientosDetalle": "Aviso complementario sujeto al canal autorizado.",
         "noticias": "Noticias generales de empleo público",
-        "noticiasDetalle": "Información sin efectos administrativos.",
+        "noticiasDetalle": "Información general.",
         "guardar": "Guardar preferencias",
         "titulo": "Preferencias",
         "subtitulo": "Configure avisos complementarios"

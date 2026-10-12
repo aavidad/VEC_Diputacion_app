@@ -984,7 +984,7 @@
     "panel_b7_plazo_regla_texto": "Until {hora} on {fecha} (mainland Spain time)",
     "panel_b7_plazo_procedencia_ejemplo": "Rule pending approval",
     "panel_b7_plazo_procedencia_reglamento": "Regulation, {articulo}",
-    "panel_b7_plazo_procedencia_reglamento_parcial": "Regulation, {articulo}, with an example part",
+    "panel_b7_plazo_procedencia_reglamento_parcial": "Regulation, {articulo}, with a part pending approval",
     "panel_b7_plazo_regla_ayuda_aria": "Help on the proposed deadline",
     "panel_b7_plazo_regla_referencia": "Rule applied: {referencia}",
     "panel_b7_plazo_error": "Enter the response deadline set by HR before reviewing the call-up.",
