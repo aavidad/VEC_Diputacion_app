@@ -25,7 +25,7 @@ var accionesInscripcionBolsaExterna = [...]string{
 func accionesDeltaBolsaExterna(rol VersionRol, selecciones int) []string {
 	if (selecciones != len(accionesVersionarRolBolsaExterna) && selecciones != len(accionesInscripcionBolsaExterna)) ||
 		rol.RolID != RolIDVersionarBolsaExterna ||
-		rol.Nombre != "areaPersonal.miBolsa.rolPortal" || rol.Version < 1 || rol.Version > 2 {
+		rol.Version < 1 || rol.Version > 2 {
 		return nil
 	}
 	base := rol
@@ -86,7 +86,7 @@ var accionesBaseVersionarRolBolsaExterna = [...]string{
 
 func baseVersionarRolBolsaExterna(rol VersionRol) bool {
 	if rol.RolID != RolIDVersionarBolsaExterna || rol.Version != 1 ||
-		rol.Nombre != "areaPersonal.miBolsa.rolPortal" || len(rol.Concesiones) != len(accionesBaseVersionarRolBolsaExterna) {
+		len(rol.Concesiones) != len(accionesBaseVersionarRolBolsaExterna) {
 		return false
 	}
 	vistos := make(map[string]bool, len(rol.Concesiones))

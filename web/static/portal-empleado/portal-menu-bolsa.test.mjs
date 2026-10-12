@@ -343,14 +343,14 @@ test("sin panel interno ni borradores, el menú de Bolsa solo ofrece lo que tien
   const { aplicarDisponibilidadMenuBolsa } = await import("./portal-menu-bolsa.js");
   const raiz = menuDesdeHTML();
   const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: true });
-  assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos", "comunicaciones"]);
-  assert.equal(indicadores.length, 5, "se renumeran solo las categorías visibles");
-  // Grupos enteros sin servicio (convocatorias…, reglas, auditoría) quedan ocultos.
+  assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones"]);
+  assert.equal(indicadores.length, 6, "se renumeran solo las categorías visibles");
+  // Solo el grupo Reglas aparece: Baremación usa la consulta de bolsas.
   assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").length, 3);
-  assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").every((grupo) => grupo.hidden), true);
+  assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").filter((grupo) => !grupo.hidden).length, 1);
   // El aviso de Documentos de Bolsa no depende de la capacidad de CT.
   aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false });
-  assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos", "comunicaciones"]);
+  assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones"]);
 });
 
 test("el menú espera la lectura positiva de bolsas sin impedir el estado de una URL directa", async () => {
@@ -375,11 +375,11 @@ test("Elaboración solo se ofrece a RRHH cuando su API consta disponible", async
     .find((control) => control.getAttribute("data-vista") === "elaboracion");
   aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: true, contratacionTemporal: true });
   assert.equal(elaboracion().hidden, false);
-  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos", "comunicaciones"]);
+  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones"]);
   for (const borradores of [null, false]) {
     aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores, contratacionTemporal: true });
     assert.equal(elaboracion().hidden, true, String(borradores));
-    assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos", "comunicaciones"]);
+    assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones"]);
   }
 });
 
@@ -392,18 +392,18 @@ test("el panel antiguo no anuncia recorridos sin API compuesta", async () => {
   assert.deepEqual(grupoBolsas.querySelectorAll(".submenu-bolsa [data-vista]").filter((control) => !control.hidden)
     .map((control) => control.getAttribute("data-vista")), ["elaboracion"]);
   const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: true, borradores: true, contratacionTemporal: true });
-  assert.equal(indicadores.length, 6);
-  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos", "comunicaciones"]);
+  assert.equal(indicadores.length, 7);
+  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones"]);
 });
 
 test("la navegación directa a una vista de Bolsa sin servicio no se permite", async () => {
   const { vistaBolsaNavegable, vistaBolsaOfrecida } = await import("./portal-menu-bolsa.js");
   const sinServicio = { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false };
   for (const vista of ["convocatorias", "meritos", "alegaciones", "contratos",
-    "reglas", "baremacion", "consulta", "documentos", "auditoria", "configuracion", "elaboracion"]) {
+    "reglas", "consulta", "documentos", "auditoria", "configuracion", "elaboracion"]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), false, vista);
   }
-  for (const vista of ["resumen", "estadisticas", "llamamientos", "solicitudes", VISTA_CANDIDATOS_BOLSA]) {
+  for (const vista of ["resumen", "estadisticas", "llamamientos", "baremacion", "solicitudes", VISTA_CANDIDATOS_BOLSA]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), true, vista);
   }
   // Inscripciones: con el servicio apagado (o sin comprobar) no aparece en el
