@@ -26,7 +26,8 @@ func (s SolicitudPropuestaVersionarRolBolsaExterna) Validar() error {
 		!ReferenciaMotivoAutorizacionV2Valida(s.Intencion.Motivo) ||
 		!ReferenciaActoAdministracionValida(s.Intencion.ReferenciaActo) ||
 		len(s.Intencion.Asignaciones) < 1 || len(s.Intencion.Asignaciones) > 16 ||
-		len(s.Intencion.Selecciones) != len(accionesVersionarRolBolsaExterna) {
+		(len(s.Intencion.Selecciones) != len(accionesVersionarRolBolsaExterna) &&
+			len(s.Intencion.Selecciones) != len(accionesInscripcionBolsaExterna)) {
 		return ErrVersionarRolBolsaExternaInvalido
 	}
 	return nil
