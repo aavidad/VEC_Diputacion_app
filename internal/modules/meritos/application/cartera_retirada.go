@@ -186,7 +186,7 @@ func (s *ServicioRetiradaCartera) registrarFalloRetirada(ctx context.Context,
 	correlacion, resultado string) error {
 	identidad := SolicitudCartera{ResultadoContexto: q.ResultadoContexto,
 		Vinculo: q.Vinculo, Correlacion: q.Correlacion}
-	base, contexto, vinculo, err := capturaBaseCartera(identidad, datos, correlacion)
+	base, contexto, vinculo, err := capturaBaseCartera(identidad, datos, correlacion, true)
 	if err != nil {
 		return ports.ErrCarteraNoDisponible
 	}

@@ -81,13 +81,13 @@ func (s *ServicioCartera) Consultar(ctx context.Context, q SolicitudCartera) (po
 	}
 	if !filtroCarteraValido(q.Filtro) || !idiomaCarteraValido(q.Idioma) ||
 		q.Limite < 1 || q.Limite > 50 || len(q.Cursor) > 2048 {
-		return vacia, s.registrarFallo(ctx, q, datos, correlacion, "denegada")
+		return vacia, s.registrarFallo(ctx, q, datos, correlacion, "denegado")
 	}
 	corte, ultimo := ahora, ""
 	if q.Cursor != "" {
 		corte, ultimo, err = s.cursores.Abrir(q.Cursor, persona, q.Filtro, q.Idioma, q.Limite, ahora)
 		if err != nil {
-			return vacia, s.registrarFallo(ctx, q, datos, correlacion, "denegada")
+			return vacia, s.registrarFallo(ctx, q, datos, correlacion, "denegado")
 		}
 	}
 	recurso := vec.RecursoAutorizable{Referencia: "cartera:" + persona,
@@ -102,7 +102,7 @@ func (s *ServicioCartera) Consultar(ctx context.Context, q SolicitudCartera) (po
 		return vacia, s.registrarFallo(ctx, q, datos, correlacion, "error")
 	}
 	if !concesionCarteraExacta(instantanea) {
-		return vacia, s.registrarFallo(ctx, q, datos, correlacion, "denegada")
+		return vacia, s.registrarFallo(ctx, q, datos, correlacion, "denegado")
 	}
 	ahora = s.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	evaluacion, err := vec.EvaluarLecturaActualAutorizacionV3(q.Vinculo, q.ResultadoContexto,
@@ -111,7 +111,7 @@ func (s *ServicioCartera) Consultar(ctx context.Context, q SolicitudCartera) (po
 	if err != nil || !evaluacion.Permitido ||
 		!slices.Equal(evaluacion.CamposPermitidos, ports.CamposConsultaCartera()) ||
 		!slices.Equal(evaluacion.Obligaciones, []string{"auditar"}) {
-		return vacia, s.registrarFallo(ctx, q, datos, correlacion, "denegada")
+		return vacia, s.registrarFallo(ctx, q, datos, correlacion, "denegado")
 	}
 	captura, err := capturarConsultaCartera(q, datos, evaluacion, corte, ultimo, ahora, correlacion)
 	if err != nil {
@@ -121,7 +121,7 @@ func (s *ServicioCartera) Consultar(ctx context.Context, q SolicitudCartera) (po
 	if err != nil {
 		resultado := "error"
 		if errors.Is(err, vec.ErrAutorizacionDenegada) || errors.Is(err, ports.ErrCarteraDenegada) {
-			resultado = "denegada"
+			resultado = "denegado"
 		}
 		return vacia, s.registrarFallo(ctx, q, datos, correlacion, resultado)
 	}
@@ -192,23 +192,27 @@ func (s *ServicioCartera) registrarFallo(ctx context.Context, q SolicitudCartera
 	if err := s.auditor.RegistrarIntentoCartera(auditCtx, captura); err != nil {
 		return ports.ErrCarteraNoDisponible
 	}
-	if resultado == "denegada" {
+	if resultado == "denegado" {
 		return ports.ErrCarteraDenegada
 	}
 	return ports.ErrCarteraNoDisponible
 }
 
-func identificadorLecturaCartera() (string, error) {
+func identificadorRegistroCartera(intento bool) (string, error) {
 	var aleatorio [16]byte
 	if _, err := rand.Read(aleatorio[:]); err != nil {
 		return "", err
 	}
-	return "lectura_" + hex.EncodeToString(aleatorio[:]), nil
+	prefijo := "lectura_"
+	if intento {
+		prefijo = "intento_"
+	}
+	return prefijo + hex.EncodeToString(aleatorio[:]), nil
 }
 
 func capturaBaseCartera(q SolicitudCartera, datos vec.DatosVinculoAutenticacionActorV2,
-	correlacion string) (map[string]any, []byte, []byte, error) {
-	id, err := identificadorLecturaCartera()
+	correlacion string, intento bool) (map[string]any, []byte, []byte, error) {
+	id, err := identificadorRegistroCartera(intento)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -237,7 +241,7 @@ func capturaBaseCartera(q SolicitudCartera, datos vec.DatosVinculoAutenticacionA
 
 func capturarIntentoCartera(q SolicitudCartera, datos vec.DatosVinculoAutenticacionActorV2,
 	correlacion, resultado string) (ports.CapturaLecturaCartera, error) {
-	base, contexto, vinculo, err := capturaBaseCartera(q, datos, correlacion)
+	base, contexto, vinculo, err := capturaBaseCartera(q, datos, correlacion, true)
 	if err != nil {
 		return ports.CapturaLecturaCartera{}, err
 	}
@@ -256,7 +260,7 @@ func capturarIntentoCartera(q SolicitudCartera, datos vec.DatosVinculoAutenticac
 func capturarConsultaCartera(q SolicitudCartera, datos vec.DatosVinculoAutenticacionActorV2,
 	e vec.ResultadoLecturaActualAutorizacionV3, corte time.Time, ultimo string,
 	ahora time.Time, correlacion string) (ports.CapturaLecturaCartera, error) {
-	base, contexto, vinculo, err := capturaBaseCartera(q, datos, correlacion)
+	base, contexto, vinculo, err := capturaBaseCartera(q, datos, correlacion, false)
 	if err != nil {
 		return ports.CapturaLecturaCartera{}, err
 	}
