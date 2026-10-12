@@ -56,7 +56,7 @@ func (s *ServicioAdministracionPerfiles) ProponerVersionarRolBolsaExterna(ctx co
 	if err != nil {
 		return vacio, err
 	}
-	plan, err := domain.PrepararPlanVersionarRolBolsaExterna(fuentes.Catalogo, fuentes.Base, solicitud.Intencion, s.reloj.Ahora())
+	plan, err := domain.ReconstruirPlanVersionarRolBolsaExterna(fuentes.Catalogo, fuentes.Base, solicitud.Intencion, s.reloj.Ahora())
 	if err != nil {
 		return vacio, ports.ConClaseVersionBolsa("plan_servicio", err)
 	}

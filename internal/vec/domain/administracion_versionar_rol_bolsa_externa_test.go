@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -81,6 +82,24 @@ func escenarioVersionarRolBolsaExterna(t *testing.T) (CatalogoAccionesAdministra
 	return c, base, i, ahora
 }
 
+func TestVersionarRolBolsaExternaOrdenSinCamposEnCanonGo(t *testing.T) {
+	c, base, i, ahora := escenarioVersionarRolBolsaExterna(t)
+	orden, err := json.Marshal(c.Entradas[1].Concesion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var canon map[string]json.RawMessage
+	if err := json.Unmarshal(orden, &canon); err != nil {
+		t.Fatal(err)
+	}
+	if _, presente := canon["campos_permitidos"]; presente {
+		t.Fatal("el canon Go de ordenar incluye campos vacíos")
+	}
+	if _, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora); err != nil {
+		t.Fatal("el plan válido perdió la concesión sin campos:", err)
+	}
+}
+
 func TestVersionarRolBolsaExternaV2ConservaBaseYExigeDosConcesiones(t *testing.T) {
 	c, base, i, ahora := escenarioVersionarRolBolsaExterna(t)
 	plan, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora)
@@ -98,6 +117,45 @@ func TestVersionarRolBolsaExternaV2ConservaBaseYExigeDosConcesiones(t *testing.T
 	if plan.Base.Rol.Concesiones[0].Finalidades[0] == "alterada" ||
 		plan.Asignaciones[0].Documento.Ambitos[0].Valores[0] == "can_otro" {
 		t.Fatal("plan comparte memoria")
+	}
+}
+
+func TestVersionarRolBolsaExternaRecuperaPlanTrasVencerDescriptor(t *testing.T) {
+	c, base, i, ahora := escenarioVersionarRolBolsaExterna(t)
+	vencimiento := ahora.Add(time.Minute)
+	c.VigenteHasta = vencimiento
+	for j := range c.Entradas {
+		c.Entradas[j].VigenteHasta = vencimiento
+		huella, err := c.Entradas[j].HuellaSHA256()
+		if err != nil {
+			t.Fatal(err)
+		}
+		i.Selecciones[j].EntradaHuellaSHA256 = huella
+	}
+	huellaCatalogo, err := c.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	i.CatalogoHuellaSHA256 = huellaCatalogo
+	primero, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	despues := vencimiento.Add(time.Second)
+	if _, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, despues); err == nil {
+		t.Fatal("aceptó crear una propuesta con descriptor caducado")
+	}
+	recuperado, err := ReconstruirPlanVersionarRolBolsaExterna(c, base, i, despues)
+	if err != nil {
+		t.Fatal(err)
+	}
+	antesSHA, err := primero.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	despuesSHA, err := recuperado.HuellaSHA256()
+	if err != nil || despuesSHA != antesSHA {
+		t.Fatal("la recuperación cambió la intención confirmada")
 	}
 }
 

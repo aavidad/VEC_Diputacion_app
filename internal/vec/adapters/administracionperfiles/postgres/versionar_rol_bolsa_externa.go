@@ -124,7 +124,7 @@ func (a *AutoridadVersionarRolBolsaExterna) ResolverFuentesVersionarRolBolsaExte
 	if len(b) == 0 || len(b) > 131072 || decodificarGobiernoRol(b, &base) != nil {
 		return vacio, ports.ConClaseVersionBolsa("base_externa_respuesta", ports.ErrAutoridadAdministracionPerfilesNoDisponible)
 	}
-	plan, err := domain.PrepararPlanVersionarRolBolsaExterna(c, base, s.Intencion, a.base.reloj.Ahora())
+	plan, err := domain.ReconstruirPlanVersionarRolBolsaExterna(c, base, s.Intencion, a.base.reloj.Ahora())
 	h, e := plan.HuellaSHA256()
 	if err != nil || e != nil || h != s.HuellaPlanEsperada {
 		return vacio, ports.ConClaseVersionBolsa("catalogo_plan_huella", domain.ErrVersionarRolBolsaExternaInvalido)

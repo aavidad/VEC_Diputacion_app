@@ -174,10 +174,24 @@ func concesionVersionarRolBolsaExterna(c ConcesionRol, accion string) bool {
 
 func PrepararPlanVersionarRolBolsaExterna(c CatalogoAccionesAdministracionV1,
 	base PerfilPublicadoAdministracionV1, i IntencionVersionarRolBolsaExterna, ahora time.Time) (PlanVersionarRolBolsaExterna, error) {
+	return prepararPlanVersionarRolBolsaExterna(c, base, i, ahora, true)
+}
+
+// ReconstruirPlanVersionarRolBolsaExterna coteja el catálogo histórico exacto
+// para recuperar una propuesta. AUT77 exige vigencia al crearla por primera vez
+// y vuelve a comprobar la autorización actual incluso en un replay.
+func ReconstruirPlanVersionarRolBolsaExterna(c CatalogoAccionesAdministracionV1,
+	base PerfilPublicadoAdministracionV1, i IntencionVersionarRolBolsaExterna, ahora time.Time) (PlanVersionarRolBolsaExterna, error) {
+	return prepararPlanVersionarRolBolsaExterna(c, base, i, ahora, false)
+}
+
+func prepararPlanVersionarRolBolsaExterna(c CatalogoAccionesAdministracionV1,
+	base PerfilPublicadoAdministracionV1, i IntencionVersionarRolBolsaExterna, ahora time.Time,
+	exigirVigencia bool) (PlanVersionarRolBolsaExterna, error) {
 	var vacio PlanVersionarRolBolsaExterna
 	hc, err := c.HuellaSHA256()
 	if err != nil || !instanteAutorizacionCanonico(ahora) ||
-		!vigenteAccionesAdministracionEn(c.VigenteDesde, c.VigenteHasta, ahora) ||
+		(exigirVigencia && !vigenteAccionesAdministracionEn(c.VigenteDesde, c.VigenteHasta, ahora)) ||
 		c.Referencia != i.CatalogoRef || c.Version != i.CatalogoVersion || hc != i.CatalogoHuellaSHA256 ||
 		len(i.Selecciones) != len(accionesVersionarRolBolsaExterna) ||
 		len(i.Asignaciones) < 1 || len(i.Asignaciones) > 16 {
@@ -213,7 +227,7 @@ func PrepararPlanVersionarRolBolsaExterna(c CatalogoAccionesAdministracionV1,
 			}
 		}
 		if entrada == nil || entrada.ClaseControl != string(ClaseControlPerfilOrdinario) ||
-			!vigenteAccionesAdministracionEn(entrada.VigenteDesde, entrada.VigenteHasta, ahora) ||
+			(exigirVigencia && !vigenteAccionesAdministracionEn(entrada.VigenteDesde, entrada.VigenteHasta, ahora)) ||
 			!dimensionesCandidatoBolsaExterna(entrada.DimensionesAmbito) ||
 			!concesionVersionarRolBolsaExterna(entrada.Concesion, accion) {
 			return vacio, ErrVersionarRolBolsaExternaInvalido
