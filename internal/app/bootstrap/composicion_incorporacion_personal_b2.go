@@ -214,7 +214,8 @@ type claveRutaPeticionIncorporacionB2 struct{}
 func ligarContextoIncorporacionPersonalB2(h http.Handler, soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		previo := rutaPeticionIncorporacionB2{r.Method, r.URL.Path}
-		if ((previo.ruta == httpct.RutaPlanB2 || previo.ruta == httpct.RutaVinculoCategoriaRPTB2 || previo.ruta == httpapi.RutaCatalogosRegistroEmpleadoB2) && (previo.metodo == http.MethodGet || previo.metodo == http.MethodPost)) || (previo.ruta == httpct.RutaConfirmacionB2 && previo.metodo == http.MethodPost) || (previo.ruta == httpct.RutaCategoriasRPTB2 && previo.metodo == http.MethodGet) || (previo.ruta == rutaCatalogosRegistroEmpleadoB2 && previo.metodo == http.MethodPost) {
+		_, lecturaPersonal := accionConsultaRegistroPersonalB2(previo.ruta, previo.metodo)
+		if lecturaPersonal || ((previo.ruta == httpct.RutaPlanB2 || previo.ruta == httpct.RutaVinculoCategoriaRPTB2 || previo.ruta == httpapi.RutaCatalogosRegistroEmpleadoB2) && (previo.metodo == http.MethodGet || previo.metodo == http.MethodPost)) || (previo.ruta == httpct.RutaConfirmacionB2 && previo.metodo == http.MethodPost) || (previo.ruta == httpct.RutaCategoriasRPTB2 && previo.metodo == http.MethodGet) || (previo.ruta == rutaCatalogosRegistroEmpleadoB2 && previo.metodo == http.MethodPost) {
 			if ctx, ok := contextoNominalIncorporacionPersonalB2(r.Context(), soporte, fronteras, previo); ok {
 				r = r.WithContext(ctx)
 			}
@@ -255,6 +256,8 @@ type montajeIncorporacionPersonalB2 struct {
 	vinculo    *fachadaVinculoCategoriaRPTB2
 	categorias *fachadaCategoriasRPTB2
 	catalogos  *apppersonal.ServicioCatalogosRegistroEmpleadoB2
+	ficha      *apppersonal.ServicioRegistroEmpleadoB2
+	empleados  *apppersonal.ServicioEmpleadosRegistroB2
 	// gobiernoCatalogo es nil si la configuración no habilita publicar y
 	// retirar entradas del catálogo de registro de empleado.
 	gobiernoCatalogo *apppersonal.ServicioCatalogosRegistroEmpleadoB2
@@ -380,6 +383,13 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	ficha, e := apppersonal.NuevoServicioRegistroEmpleadoB2(autoridad, repoFicha)
 	if e != nil {
 		return nil, e
+	}
+	var empleados *apppersonal.ServicioEmpleadosRegistroB2
+	if operacionConfiguradaB2(c, claveEmpleadosPersonalB2) {
+		empleados, e = apppersonal.NuevoServicioEmpleadosRegistroB2(autoridad, repoFicha)
+		if e != nil {
+			return nil, e
+		}
 	}
 	fuenteFicha, e := fuentePersonal.NuevaFuenteRegistroEmpleadoB2(ficha)
 	if e != nil {
@@ -510,5 +520,5 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	completo = true
 	vinculo := &fachadaVinculoCategoriaRPTB2{organizacionRef: org, catalogoID: c.CatalogoRPTID, moduloID: c.ModuloRPTID, servicio: vinculos}
 	categorias := &fachadaCategoriasRPTB2{catalogoID: c.CatalogoRPTID, autoridad: autoridad, lector: lectorRPT}
-	return &montajeIncorporacionPersonalB2{fachada: fachada, autoridad: autoridad, cese: cese, vinculo: vinculo, categorias: categorias, catalogos: catalogos, gobiernoCatalogo: gobiernoCatalogo, cerrar: cerrar}, nil
+	return &montajeIncorporacionPersonalB2{fachada: fachada, autoridad: autoridad, cese: cese, vinculo: vinculo, categorias: categorias, catalogos: catalogos, ficha: ficha, empleados: empleados, gobiernoCatalogo: gobiernoCatalogo, cerrar: cerrar}, nil
 }

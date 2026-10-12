@@ -41,7 +41,8 @@ func TestRutasExactasAuditoriaEtiquetanSoloRutasNominales(t *testing.T) {
 		{"otra ruta usuarios", http.MethodGet, "/api/vec/usuarios/otras-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 		{"prefijo usuarios exterior", http.MethodGet, "/api/vec/usuarios/area-personal/mis-preferencias-extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 		{"otra ruta usuarios exterior", http.MethodGet, "/api/vec/usuarios/area-personal/otras-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
-		{"personal", http.MethodGet, "/api/vec/personal/vacantes", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
+		{"personal", http.MethodGet, RutaVacantesEmpleadoB2, ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaPersonal, true, false},
+		{"empleados Personal B2", http.MethodGet, RutaEmpleadosOrganismoB2, ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaPersonal, true, false},
 		{"catalogo Personal B2", http.MethodGet, RutaCatalogosRegistroEmpleadoB2, ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaPersonal, true, false},
 	}
 	for _, caso := range casos {

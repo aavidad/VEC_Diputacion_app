@@ -275,6 +275,12 @@ func descriptoresFronterasIncorporacionB2Desarrollo() []descriptorFronteraComunD
 	categoriasGET.Metodo = http.MethodGet
 	catalogosGET := fronteraContratacionTemporalDesarrollo("personal-b2-catalogos-consultar", personal.AccionConsultarCatalogoEmpleadoB2, vechttp.RutaCatalogosRegistroEmpleadoB2, nil)
 	catalogosGET.Metodo = http.MethodGet
+	fichaGET := fronteraContratacionTemporalDesarrollo("personal-b2-ficha-consultar", personal.AccionFichaEmpleadoB2, strings.TrimSuffix(vechttp.PrefijoFichaEmpleadoB2, "/"), nil)
+	fichaGET.Metodo, fichaGET.DetalleColeccion = http.MethodGet, true
+	empleadosGET := fronteraContratacionTemporalDesarrollo("personal-b2-empleados-consultar", personal.AccionEmpleadosB2, vechttp.RutaEmpleadosOrganismoB2, nil)
+	empleadosGET.Metodo = http.MethodGet
+	vacantesGET := fronteraContratacionTemporalDesarrollo("personal-b2-vacantes-consultar", personal.AccionVacantesB2, vechttp.RutaVacantesEmpleadoB2, nil)
+	vacantesGET.Metodo = http.MethodGet
 	return []descriptorFronteraComunDesarrollo{
 		planGET,
 		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-plan-registrar", ports.AccionRegistrarPlanNominalB2, httpinterno.RutaPlanB2, nil),
@@ -283,6 +289,7 @@ func descriptoresFronterasIncorporacionB2Desarrollo() []descriptorFronteraComunD
 		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-vinculo-rpt-registrar", ports.AccionRegistrarVinculoCategoriaRPT, httpinterno.RutaVinculoCategoriaRPTB2, nil),
 		categoriasGET,
 		catalogosGET,
+		fichaGET, empleadosGET, vacantesGET,
 		fronteraContratacionTemporalDesarrollo("personal-b2-catalogos-gobernar", accionFronteraCatalogoEmpleadoB2, vechttp.RutaCatalogosRegistroEmpleadoB2, nil),
 		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-catalogos-registro-gobernar", accionFronteraCatalogoEmpleadoB2, rutaCatalogosRegistroEmpleadoB2, nil),
 	}
@@ -1008,12 +1015,20 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if firmasR5V2 != nil {
 		rutas = append(rutas, firmasR5V2.rutas...)
 	}
+	var coleccionesPersonalB2 []vechttp.RutaColeccion
 	if len(incorporacion) == 1 && incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil {
 		rutasB2, err := incorporacion[0].nominales.montajeB2.rutas(alta.soporte, catalogoFronteras, alta.postgresql.registradorAuditoriaFrontera)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		rutas = append(rutas, rutasB2...)
+		b2 := incorporacion[0].nominales.montajeB2
+		consultasPersonal, colecciones, err := rutasRegistroEmpleadoPersonalB2(b2.ficha, b2.empleados, b2.autoridad, alta.postgresql.registradorAuditoriaFrontera, alta.soporte, catalogoFronteras)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, consultasPersonal...)
+		coleccionesPersonalB2 = colecciones
 	}
 	if incorporacionV2 != nil {
 		mapeo, err := nuevoMapeoFichaGINPIXDesarrollo()
@@ -1315,7 +1330,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		manejadorSituacionParticipacion:                  manejadorSituacion,
 		plazosOfertasBolsa:                               dependencias.plazosOfertasBolsa,
 		personalizacionB7:                                personalizacionB7,
-		coleccionesAdicionales:                           coleccionesBorrador,
+		coleccionesAdicionales:                           append(coleccionesBorrador, coleccionesPersonalB2...),
 		registradorAuditoriaFronteraRutasExactas:         registradorFrontera,
 		materialDietas:                                   alta.postgresql.materialDietas,
 		materialCronos:                                   alta.postgresql.materialCronos,

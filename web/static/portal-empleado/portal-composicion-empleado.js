@@ -310,8 +310,8 @@ export function componerRegistroPersonal(recursos, entorno) {
     // Consulta mínima autorizada: acredita que esta superficie sirve el
     // registro y que V3 concede su lectura al actor antes de ofrecerlo.
     sondear: ({ signal } = {}) => clienteCatalogos.listar({ tipo: "regimen", limite: 1, signal }),
-    montar: ({ raiz, anunciar = () => {}, registrarDesmontar } = {}) => registro.montarRegistroB2({
-      raiz, cliente, clienteCatalogos, anunciar, registrarDesmontar,
+    montar: ({ raiz, anunciar = () => {}, registrarDesmontar, empleadoRef = "" } = {}) => registro.montarRegistroB2({
+      raiz, cliente, clienteCatalogos, anunciar, registrarDesmontar, empleadoRef,
     }),
   });
 }
