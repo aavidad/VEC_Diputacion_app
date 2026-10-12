@@ -50,18 +50,24 @@ func TestCatalogosTextosSeRevalidanYLocalesSeComprimen(t *testing.T) {
 			t.Fatalf("%s revalidación = %d (Last-Modified %q)", ruta, rec304.Code, ultima)
 		}
 	}
-	// Solo la huella real de los catálogos (la de comun/textos.js) fija un año.
-	fuente, err := os.ReadFile(filepath.Join(directorioEstaticos(), "comun", "textos.js"))
-	coincidencia := regexp.MustCompile(`VERSION_TEXTOS = "([0-9a-f]{16})"`).FindSubmatch(fuente)
-	if err != nil || coincidencia == nil || string(coincidencia[1]) != huellaCatalogosTextos() {
-		t.Fatalf("VERSION_TEXTOS de textos.js no coincide con la huella del servidor %q", huellaCatalogosTextos())
+	// El índice de idiomas anuncia la huella real; solo esa fija un año.
+	indice := httptest.NewRecorder()
+	handler.ServeHTTP(indice, peticionServidorPrueba(http.MethodGet, "/textos/idiomas.json", nil))
+	anunciada := indice.Header().Get("X-VEC-Huella-Textos")
+	if !regexp.MustCompile(`^[0-9a-f]{16}$`).MatchString(anunciada) || anunciada != huellaCatalogosTextos() {
+		t.Fatalf("idiomas.json anuncia %q, huella del servidor %q", anunciada, huellaCatalogosTextos())
+	}
+	otro := httptest.NewRecorder()
+	handler.ServeHTTP(otro, peticionServidorPrueba(http.MethodGet, "/textos/es/portal.json", nil))
+	if otro.Header().Get("X-VEC-Huella-Textos") != "" {
+		t.Fatal("solo el índice anuncia la huella")
 	}
 	if _, err := calcularHuellaCatalogosTextos(os.DirFS(filepath.Join(t.TempDir(), "sin-textos"))); err == nil {
 		t.Fatal("sin catálogos legibles no debe haber huella")
 	}
 	for huella, esperada := range map[string]string{
-		string(coincidencia[1]): "public, max-age=31536000, immutable",
-		"0000000000000000":      "no-cache",
+		anunciada:          "public, max-age=31536000, immutable",
+		"0000000000000000": "no-cache",
 	} {
 		versionado := httptest.NewRecorder()
 		handler.ServeHTTP(versionado, peticionServidorPrueba(http.MethodGet, "/textos/es/portal.json?huella="+huella, nil))

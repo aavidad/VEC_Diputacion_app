@@ -196,15 +196,22 @@ func (a *AutoridadVersionarRolBolsa) CerrarVersionarRolBolsa(ctx context.Context
 func (a *AutoridadVersionarRolBolsa) ejecutar(ctx context.Context, actor domain.ContextoActor,
 	evidencia domain.EvidenciaSesionAdministracionPerfiles, instantanea domain.InstantaneaAutorizacion,
 	e Efecto, consulta string, validar func([]byte) error) error {
+	return a.ejecutarConRecurso(ctx, actor, evidencia, instantanea, e, consulta, RecursoVersionarRolBolsa, validar)
+}
+
+func (a *AutoridadVersionarRolBolsa) ejecutarConRecurso(ctx context.Context, actor domain.ContextoActor,
+	evidencia domain.EvidenciaSesionAdministracionPerfiles, instantanea domain.InstantaneaAutorizacion,
+	e Efecto, consulta string, recursoDe func(Efecto, domain.AsignacionPerfil) (domain.RecursoAutorizable, error),
+	validar func([]byte) error) error {
 	errNoDisponible := ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	if err := a.disponible(ctx); err != nil {
 		return err
 	}
-	if validar == nil || evidencia.ValidarEn(actor, a.reloj.Ahora()) != nil ||
+	if validar == nil || recursoDe == nil || evidencia.ValidarEn(actor, a.reloj.Ahora()) != nil ||
 		!domain.ReferenciaCorrelacionAutorizacionV2Valida(e.CorrelacionAccesoRef) {
 		return ports.ConClaseVersionBolsa("evidencia_o_correlacion", errNoDisponible)
 	}
-	recurso, err := RecursoVersionarRolBolsa(e, instantanea.AsignacionPerfil)
+	recurso, err := recursoDe(e, instantanea.AsignacionPerfil)
 	if err != nil {
 		return ports.ConClaseVersionBolsa("recurso_asignacion", err)
 	}
