@@ -43,6 +43,8 @@
 # `vec_autorizacion_registro_meritos_externo`; LOGIN de motivos
 # `vec_externo_meritos_motivos_autorizacion`, grupo único
 # `vec_autorizacion_motivos_meritos_externo`. Se provisionan fuera de Git.
+# Datos, frontera, fuente, registro y motivos usan cinco LOGIN/DSN segregados;
+# ningún pool de Usuarios o Bolsa sustituye estas identidades.
 # AD250 añade audiencia `vec_meritos.cartera.retirar_propio.v1`; la clave V3
 # y `configuracion_origen_consumos_v1` deben admitir exactamente esa audiencia,
 # acción `meritos.cartera.retirar_propio`, canal externa_personal y LOGIN de

@@ -9,12 +9,12 @@ BEGIN
  OR to_regrole('vec_autorizacion_registro_meritos_externo') IS NULL
  OR to_regrole('vec_autorizacion_motivos_meritos_externo') IS NULL
  OR EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_meritos_cartera_externo'
-  AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+  AND (rolcanlogin OR rolinherit OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
  OR EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_autorizacion_fuente_meritos_externa'
-  AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+  AND (rolcanlogin OR rolinherit OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
  OR EXISTS(SELECT 1 FROM pg_roles WHERE rolname IN(
   'vec_autorizacion_registro_meritos_externo','vec_autorizacion_motivos_meritos_externo')
-  AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+  AND (rolcanlogin OR rolinherit OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
  THEN RAISE EXCEPTION 'AUT78: grupo técnico inseguro' USING ERRCODE='55000'; END IF;
  f:=to_regprocedure('vec_autorizacion.cotejar_cartera_meritos_actual_v1(jsonb,jsonb)');
  IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')

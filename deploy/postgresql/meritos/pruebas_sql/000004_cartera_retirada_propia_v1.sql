@@ -13,6 +13,9 @@ BEGIN
  OR to_regclass('vec_meritos.cartera_acceso_v1') IS NULL
  OR to_regclass('vec_meritos.denegacion_frontera_cartera_v1') IS NULL
  OR to_regrole('vec_meritos_frontera_externo') IS NULL
+ OR EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_meritos_frontera_externo'
+  AND (rolcanlogin OR rolinherit OR rolsuper OR rolcreatedb OR rolcreaterole
+   OR rolreplication OR rolbypassrls))
  THEN RAISE EXCEPTION 'M4: falta estructura' USING ERRCODE='55000'; END IF;
  FOREACH t IN ARRAY ARRAY['disponibilidad_evento_v1','retirada_operacion_v1',
   'retirada_acceso_v1','retirada_outbox_v1','retirada_resultado_v1','cartera_acceso_v1'] LOOP
