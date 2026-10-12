@@ -1,11 +1,17 @@
 # Candidata M4. Datos sintéticos. Esta lista no autoriza instalación.
 # Comprobar la cabeza causal y las postimágenes exactas antes de ejecutar.
 # RUM03/000001 y RUM04/000002 ya tienen historia: no reaplicar ni ejecutar DOWN.
-# Requiere AUT76/AD246 de #1041, AUT77/AD248 de #1048 y AD249/B108 C3 de
-# PR1055@cd1e540a3 (AD249 SHA256 07b94d02f7d615211aa7cb02a394c518f8ba44748c9f17cf95ad0aebbc4898d5)
-# en la cabeza final, junto con AUT79 de L, CC11 instalada y CC12 de X.
-# AD250 se ancla solo al literal POST-AD249 real. AUT80 se ancla al cuerpo AUT60/61 instalado en esa
-# misma cabeza, sin sustituir las migraciones con historia.
+# Orden causal previo requerido: #1056, AUT76/AD246 de #1041,
+# AUT77/AD248 de #1048, AD249/B108 C3 de #1055 y su corrección #1060.
+# #1060@d3928db390742029932f00f69b6d516df98d8fbf conserva el cambio
+# AD249 de 813d5bedd314c01569f0623da76b1cf33f932f59, SHA256
+# bc5a75218f974f52782af726eebc29b1f8d27c308d158a81416cc61720b1aaa8.
+# A esta comprobación #1060 sigue abierto y origin/main conserva el AD249
+# anterior: exigir merge causal, cotejar HEAD/SHA final y comprobar postimagen
+# PostgreSQL 18 antes de instalar M4. La aprobación no acredita instalación.
+# Requiere además AUT79 de L, CC11 instalada y CC12 de X.
+# AD250 se ancla solo al literal POST-AD249 realmente instalado. AUT80 se ancla
+# al cuerpo AUT60/61 de esa misma cabeza, sin sustituir migraciones con historia.
 # AUT80 extiende el productor ADMIN de RolID nuevo para dos concesiones exactas
 # solo de persona_meritos_cartera. Después el acto ADMIN publica el rol/control;
 # la asignación externa de ámbito persona_ref exige su propio CAS nominal.
