@@ -6,9 +6,9 @@
 # #1060@d3928db390742029932f00f69b6d516df98d8fbf conserva el cambio
 # AD249 de 813d5bedd314c01569f0623da76b1cf33f932f59, SHA256
 # bc5a75218f974f52782af726eebc29b1f8d27c308d158a81416cc61720b1aaa8.
-# A esta comprobación #1060 sigue abierto y origin/main conserva el AD249
-# anterior: exigir merge causal, cotejar HEAD/SHA final y comprobar postimagen
-# PostgreSQL 18 antes de instalar M4. La aprobación no acredita instalación.
+# #1060 está fusionada en origin/main mediante 655c0b0e2ad5522113832aa60c3cc115559ba6c1;
+# cotejar HEAD/SHA final y comprobar postimagen PostgreSQL 18 antes de instalar M4.
+# La aprobación no acredita instalación.
 # Requiere además AUT79 de L, CC11 instalada y CC12 de X.
 # AD250 se ancla solo al literal POST-AD249 realmente instalado. AUT80 se ancla
 # al cuerpo AUT60/61 de esa misma cabeza, sin sustituir migraciones con historia.
