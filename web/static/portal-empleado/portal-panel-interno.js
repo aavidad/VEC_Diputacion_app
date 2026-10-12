@@ -35,7 +35,7 @@ import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-te
 const RUTA_PANTALLA_CARGA_CONVOCA = `/portal-empleado/modulos/bolsa/carga-convoca/?lang=${encodeURIComponent(IDIOMA_ACTUAL)}`;
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
 import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261011-ct-bolsa-vinculo-v1";
-import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261011-ct-bolsa-vinculo-v1";
+import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261013-correo-menu-n1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
