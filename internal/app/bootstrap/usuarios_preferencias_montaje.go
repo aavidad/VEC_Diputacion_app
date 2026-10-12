@@ -78,6 +78,7 @@ type autoridadPreferenciasUsuariosDesarrollo struct {
 	manejador   http.Handler
 	proveedor   *proveedorPreferenciasUsuarios
 	registrador registradorDenegacionPreferenciasUsuarios
+	fuente      vecports.FuenteAutorizacion
 	incidencias vecports.EmisorIncidenciasTecnicas
 	cerrar      func()
 	ruta        string
@@ -581,7 +582,9 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 		return nil, errComposicionUsuariosPreferencias
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: map[string]cuentaRutasDietasDesarrollo{}, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
-	a := &autoridadPreferenciasUsuariosDesarrollo{base: base, cuentas: cuentas, reloj: reloj, cerrar: cerrar, registrador: registrador, incidencias: incidencias, ruta: ruta, superficie: superficie, logins: logins}
+	a := &autoridadPreferenciasUsuariosDesarrollo{base: base, cuentas: cuentas, reloj: reloj, cerrar: cerrar,
+		registrador: registrador, fuente: fuente, incidencias: incidencias,
+		ruta: ruta, superficie: superficie, logins: logins}
 	a.proveedor = &proveedorPreferenciasUsuarios{autoridad: a, consulta: emisorConsulta, actualizacion: emisorActualizacion, motivoConsulta: c.MotivoConsulta, motivoActualizacion: c.MotivoActualizacion}
 	servicio, err := usuariosapp.NuevoServicioPreferencias(repositorio, time.Now)
 	if err != nil {
