@@ -127,9 +127,17 @@ func TestCustodiaDocumentosOriginalCTAltaUnicaConflictoYPermiso(t *testing.T) {
 	if err != nil || f.altas != 1 || primero.HuellaSHA256 != huella {
 		t.Fatalf("alta: err=%v altas=%d", err, f.altas)
 	}
-	_, err = a.GuardarUnaVez(context.Background(), s, pdf, s.OriginalRef, huella)
-	if err != nil || f.altas != 1 {
+	if primero.NumeroVEC != f.documento.NumeroVEC || !primero.CustodiadoEn.Equal(f.documento.CreadoEn) {
+		t.Fatal("el comprobante no procede del documento confirmado")
+	}
+	// PostgreSQL representa la fecha con offset; el contrato CT exige UTC.
+	f.documento.CreadoEn = f.documento.CreadoEn.In(time.FixedZone("offset-persistido", 0))
+	repetido, err := a.GuardarUnaVez(context.Background(), s, pdf, s.OriginalRef, huella)
+	if err != nil || f.altas != 1 || repetido.NumeroVEC != primero.NumeroVEC || !repetido.CustodiadoEn.Equal(primero.CustodiadoEn) {
 		t.Fatalf("replay reescribio: err=%v altas=%d", err, f.altas)
+	}
+	if repetido.CustodiadoEn.Location() != time.UTC {
+		t.Fatal("la representación del comprobante no es UTC")
 	}
 	otroTipo := pdf
 	otroTipo.TipoRef = "ref:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"

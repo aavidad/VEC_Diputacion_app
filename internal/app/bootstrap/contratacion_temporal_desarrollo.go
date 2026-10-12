@@ -58,6 +58,7 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 	principal               vecdomain.Principal
 	consultaRRHH            *contextoConsultaRRHHPeticionDesarrollo
 	contextoOperacion       *contextoOperacionCTDesarrollo
+	original                *capturaContextosOriginalCT
 	vinculoCanalTLS         [32]byte
 	certificadoVerificadoEn time.Time
 	certificadoValidoHasta  time.Time
@@ -67,6 +68,7 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // efimeras emitidas tras revalidar el certificado mTLS local. No representa
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
+	prepararOriginal                                 func(*autoridadDocumentosDesarrollo, *seudonimizadorAlmacenDesarrollo) ([]vechttp.RutaExacta, error)
 	sello                                            *selloConsultasContratacionTemporalDesarrollo
 	resolvedor                                       *resolvedorIdentidadDesarrollo
 	noCompuesta                                      *capacidadNoCompuestaContratacionTemporalDesarrollo
@@ -748,6 +750,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if alta.soporte.perfilesOriginal != nil {
+		fronteraOriginal, e := fronteraOriginalFirmableCTDesarrollo(alta.soporte.perfilesOriginal)
+		if e != nil {
+			return nil, nil, nil, e
+		}
+		declaracionesFrontera = append(declaracionesFrontera, fronteraOriginal)
+	}
 	if legadoConfigurado {
 		declaracionesFrontera, err = asignarPerfilesNominalesIncorporacionEnFronteras(alta.soporte, declaracionesFrontera)
 		if err != nil {
@@ -1342,6 +1351,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		presentadorCobertura:                             coberturaReal.presentador,
 		situacionBolsaCobertura:                          coberturaReal.situacionBolsa,
 		firmaDocumento:                                   firmaDocumento,
+	}
+	if alta.soporte.perfilesOriginal != nil {
+		autoridad.prepararOriginal = func(documentos *autoridadDocumentosDesarrollo, seudonimos *seudonimizadorAlmacenDesarrollo) ([]vechttp.RutaExacta, error) {
+			return nuevaRutaOriginalFirmableCTDesarrollo(&alta, consultasRRHH, borradorFormalizacion, documentos, seudonimos, reloj)
+		}
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)

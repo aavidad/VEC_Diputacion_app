@@ -427,6 +427,20 @@ func nuevoServidorDesarrollo(
 			return nil, nil, marcarFalloComponenteArranque("custodia_documentos_firma", err)
 		}
 	}
+	originalActivo, selectorOriginalErr := selectorCapacidadRRHHDesarrollo(cfg, envCTOriginalFirmableEnabled)
+	if selectorOriginalErr != nil {
+		return nil, nil, marcarFalloComponenteArranque("original_firmable_ct", selectorOriginalErr)
+	}
+	if originalActivo && autoridadContratacion.prepararOriginal == nil {
+		return nil, nil, marcarFalloComponenteArranque("original_firmable_ct", errMontajeOriginalFirmableCTNoDisponible)
+	}
+	if autoridadContratacion.prepararOriginal != nil {
+		original, err := autoridadContratacion.prepararOriginal(documentos, composicion.seudonimosAlmacen)
+		if err != nil {
+			return nil, nil, marcarFalloComponenteArranque("original_firmable_ct", err)
+		}
+		rutasContratacion = append(rutasContratacion, original...)
+	}
 	personalEmpleado, err := nuevasRutasPersonalEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialPersonalFichaPropia, autoridadContratacion.materialPersonalExportacionServicios, autoridadContratacion.materialPersonalHistoriaServicios, autoridadContratacion.materialPersonalHistoriaRelaciones)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("personal_empleado", err)

@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -327,6 +328,21 @@ func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, 
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaContexto(ctx context.Context, ruta string) (dominiovec.ReferenciaEntradaCatalogo, bool) {
+	if ruta == httpinterno.RutaOriginalFirmableCT && ctx != nil && s.perfilesOriginal != nil {
+		d, ok := ctx.Value(claveSolicitudAutorizacionContratacionTemporalDesarrollo{}).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
+		if !ok {
+			return dominiovec.ReferenciaEntradaCatalogo{}, false
+		}
+		if d.Accion == ports.AccionConsultarDetalleRRHH && s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, d) {
+			return s.motivoDetalleRRHH, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoDetalleRRHH)
+		}
+		if (d.Accion == docports.AccionDescargar || d.Accion == docports.AccionReservarOriginalFirmable ||
+			d.Accion == docports.AccionConfirmarOriginalFirmable || d.Accion == puertosvec.AccionNegocioEscribirOriginalFirmable) &&
+			solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, d) {
+			return motivoOriginalFirmableCTDesarrollo(), true
+		}
+		return dominiovec.ReferenciaEntradaCatalogo{}, false
+	}
 	if ruta == rutaEntregaPeticionCentro {
 		if _, ok := altaDePeticionConfiable(ctx); ok {
 			return s.motivo, true

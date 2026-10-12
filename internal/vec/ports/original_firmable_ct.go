@@ -3,6 +3,7 @@ package ports
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 var (
@@ -40,6 +41,10 @@ type OriginalFirmableCT struct {
 	Referencia, TipoRef, HuellaSHA256 string
 	Version                           uint64
 	Contenido                         []byte
+	// El comprobante procede del documento confirmado y de su lectura
+	// autorizada. No es un recibo de envío ni una evidencia de firma.
+	NumeroVEC    string
+	CustodiadoEn time.Time
 }
 
 // CustodiaOriginalFirmableCT se implementa con el servicio Documentos y su
