@@ -26,6 +26,7 @@ var centinelasFalloBolsaRRHH = []error{
 	puertosbolsa.ErrConstitucionBolsaNoDisponible, puertosbolsa.ErrConstitucionBolsaInvalida,
 	puertosbolsa.ErrEmisionLlamamientoNoDisponible, puertosbolsa.ErrPoliticaAvisosNoDisponible,
 	importacionpg.ErrRepositorioNoDisponible, importacionpg.ErrResultadoNoConfiable, importacionapp.ErrStagingExpurgado,
+	importacionpg.ErrMaterialNoConfiable, importacionpg.ErrProteccionNoDisponible,
 }
 
 // causaFalloBolsaRRHHDesarrollo describe un fallo de lectura de Bolsa RRHH
