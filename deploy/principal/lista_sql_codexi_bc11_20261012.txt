@@ -1,0 +1,7 @@
+# BC11: modalidad de inscripción publicada por Convocatorias.
+# Instalar después de bolsa_convocatorias 000009 (BC9) y de CC11.
+# La lista contiene solo SQL nueva: no reaplicar BC1, BC9 ni SQL con historia.
+# Sin instalación en principal/cidonia desde esta rama.
+# SHA256 7c8600506ef99cda550b5c9d199b870e438ea13ef9b8f6a74fe3732d0958b904
+# CONFIG NUEVA: ninguna.
+deploy/postgresql/bolsa_convocatorias/migraciones/000011_modalidad_inscripcion_publicada.up.sql
