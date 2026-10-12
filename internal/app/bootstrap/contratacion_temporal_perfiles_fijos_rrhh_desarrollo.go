@@ -345,6 +345,10 @@ func asegurarPerfilFijoCTDesarrollo(
 		publicada.actoAsignacion == actoAsignacionPerfilFijoCTDesarrollo {
 		return perfilFijoVigente, nil
 	}
+	if ampliacionVinculoBolsaPublicadaCTDesarrollo(p, plantilla, publicada.instantanea) && admitida(publicada, ahora) {
+		// Ampliación con vínculo a Bolsa: la asegura su paso; no se rebaja.
+		return perfilFijoVigente, nil
+	}
 	huella, errHuella := publicada.instantanea.AsignacionPerfil.HuellaSHA256()
 	if errHuella != nil || !aprobacion.valida() || !aprobacion.preimagenes[huella] || !admitida(publicada, ahora) {
 		slog.Warn("perfil fijo de RRHH sin asignación consumible: sus peticiones se deniegan hasta la provisión",
