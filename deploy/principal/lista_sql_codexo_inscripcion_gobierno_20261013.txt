@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000256_objetivo_version_rol_inscripcion_externa.up.sql
+deploy/postgresql/autorizacion/migraciones/000084_inscripcion_roles_admin.up.sql
