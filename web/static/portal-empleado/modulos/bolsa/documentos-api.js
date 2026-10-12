@@ -17,6 +17,7 @@ function rutaLista(bolsaRef) { return `${BASE}/${segmento(bolsaRef)}/documentos`
 function rutaRecibo(bolsaRef, documentoRef) { return `${rutaLista(bolsaRef)}/${segmento(documentoRef)}/recibo`; }
 const fechaValida = (v) => typeof v === "string" && v.length <= 64 && Number.isFinite(Date.parse(v));
 const versionValida = (v) => Number.isSafeInteger(v) && v > 0;
+const huellaValida = (v) => typeof v === "string" && /^[a-f0-9]{64}$/u.test(v);
 
 function validarDocumento(item, bolsaRef) {
   if (!item || !referencia(item.documento_ref) || item.tipo !== "constitucion"
@@ -24,6 +25,8 @@ function validarDocumento(item, bolsaRef) {
       || !referencia(item.acta_ref) || item.documento_ref !== item.acta_ref
       || !versionValida(item.version_bolsa) || !referencia(item.instantanea_ref)
       || !versionValida(item.version_instantanea)
+      || !referencia(item.listado_definitivo_ref) || !versionValida(item.version_listado)
+      || !huellaValida(item.huella_listado_sha256)
       || !Number.isSafeInteger(item.total_participaciones) || item.total_participaciones < 0
       || item.estado_firma !== "sin_firma_acreditada" || item.formato !== "application/json"
       || item.accion?.tipo !== "descargar_recibo" || item.accion.href !== rutaRecibo(bolsaRef, item.documento_ref)
@@ -51,6 +54,8 @@ function validarRecibo(datos, bolsaRef, documentoRef) {
   if (datos?.esquema !== ESQUEMA_RECIBO || datos.bolsa_ref !== bolsaRef || datos.documento_ref !== documentoRef
       || datos.acta_ref !== documentoRef || !versionValida(datos.version_bolsa)
       || !referencia(datos.instantanea_ref) || !versionValida(datos.version_instantanea)
+      || !referencia(datos.listado_definitivo_ref) || !versionValida(datos.version_listado)
+      || !huellaValida(datos.huella_listado_sha256)
       || !fechaValida(datos.confirmada_en) || !Number.isSafeInteger(datos.total_participaciones)
       || datos.total_participaciones < 0 || datos.estado_firma !== "sin_firma_acreditada") {
     throw new TypeError("recibo no válido");
@@ -58,30 +63,41 @@ function validarRecibo(datos, bolsaRef, documentoRef) {
   return Object.freeze({ ...datos });
 }
 
+export function validarCorrespondenciaReciboDocumento(recibo, documento) {
+  if (!recibo || !documento || recibo.documento_ref !== documento.documento_ref
+      || recibo.version_bolsa !== documento.version_bolsa
+      || recibo.instantanea_ref !== documento.instantanea_ref
+      || recibo.version_instantanea !== documento.version_instantanea
+      || recibo.listado_definitivo_ref !== documento.listado_definitivo_ref
+      || recibo.version_listado !== documento.version_listado
+      || recibo.huella_listado_sha256 !== documento.huella_listado_sha256
+      || recibo.total_participaciones !== documento.total_participaciones
+      || Date.parse(recibo.confirmada_en) !== Date.parse(documento.fecha)) {
+    throw new TypeError("recibo incoherente con la lista");
+  }
+  return recibo;
+}
+
 async function leerJSON(respuesta) {
   if (!/^application\/json(?:\s*;|$)/iu.test(respuesta.headers?.get("Content-Type") ?? "")) throw new TypeError("tipo de respuesta no válido");
   const longitud = Number(respuesta.headers?.get("Content-Length"));
   if (Number.isFinite(longitud) && longitud > MAX_JSON) throw new TypeError("respuesta demasiado grande");
-  let bytes;
-  if (respuesta.body?.getReader) {
-    const lector = respuesta.body.getReader();
-    const partes = [];
-    let total = 0;
-    try {
-      while (true) {
-        const parte = await lector.read();
-        if (parte.done) break;
-        total += parte.value.byteLength;
-        if (total > MAX_JSON) throw new TypeError("respuesta demasiado grande");
-        partes.push(parte.value);
-      }
-    } finally { await lector.cancel().catch(() => {}); }
-    bytes = new Uint8Array(total);
-    let posicion = 0;
-    for (const parte of partes) { bytes.set(parte, posicion); posicion += parte.byteLength; }
-  } else {
-    bytes = new Uint8Array(await respuesta.arrayBuffer());
-  }
+  if (typeof respuesta.body?.getReader !== "function") throw new TypeError("lector de respuesta no disponible");
+  const lector = respuesta.body.getReader();
+  const partes = [];
+  let total = 0;
+  try {
+    while (true) {
+      const parte = await lector.read();
+      if (parte.done) break;
+      total += parte.value.byteLength;
+      if (total > MAX_JSON) throw new TypeError("respuesta demasiado grande");
+      partes.push(parte.value);
+    }
+  } finally { await lector.cancel().catch(() => {}); }
+  const bytes = new Uint8Array(total);
+  let posicion = 0;
+  for (const parte of partes) { bytes.set(parte, posicion); posicion += parte.byteLength; }
   if (!bytes.length || bytes.length > MAX_JSON) throw new TypeError("respuesta no válida");
   const texto = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   return { bytes, datos: JSON.parse(texto)?.data };

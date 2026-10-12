@@ -341,7 +341,7 @@ func nuevoServidorDesarrollo(
 			cerrarContratacion = func() { detener(); anterior() }
 			resolver := resolverSoporteDocumentosBolsa(autoridadContratacion.soporteDocumentosBolsa, autoridadContratacion.soportesLectoresDocumentosBolsa)
 			fuenteConstituida.controlDocumentos = nuevoControlLecturaDocumentosBolsa(
-				resolver, nuevoAuditorDocumentosBolsa(resolver, registrador, proceso))
+				resolver, nuevoAuditorDocumentosBolsa(resolver, registrador, proceso, autoridadContratacion.registradorAuditoriaFronteraRutasExactas))
 		}
 	}
 	autoridadContratacion.personalizacionB7.fijar(fuenteConstituida)

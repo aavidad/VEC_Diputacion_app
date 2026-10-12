@@ -27,6 +27,7 @@
     "col_acciones": "Acciones",
     "estado_constitucion": "Registro de constitución",
     "ver_recibo": "Ver recibo",
+    "titulo_con_recibo": "{titulo} · Ver recibo",
     "ver_lista": "Ver lista de la bolsa",
     "paginacion": "Páginas de documentos",
     "total": {
@@ -47,9 +48,12 @@
     "cerrar": "Cerrar recibo",
     "recibo_bolsa": "Bolsa",
     "recibo_fecha": "Fecha de constitución",
-    "recibo_version": "Versión",
+    "recibo_version": "Versión de la bolsa",
     "recibo_participaciones": "Participaciones en la lista",
     "detalle_recibo": "Ver detalle del recibo",
+    "detalle_acta": "Referencia del acta",
+    "detalle_listado": "Referencia del listado definitivo",
+    "detalle_version_listado": "Versión del listado definitivo",
     "descargar_recibo": "Descargar recibo"
   }
 }

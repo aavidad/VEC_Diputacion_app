@@ -170,3 +170,43 @@ func TestDocumentosBolsaRRHHSeleccionaSoporteLectorNominal(t *testing.T) {
 		}
 	}
 }
+
+func TestDocumentosBolsaRRHHAuditaLecturaTerminadaTrasCancelacion(t *testing.T) {
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	lector := &lectorDocumentosRRHHPrueba{}
+	servicio, err := bolsaapp.NuevoServicioDocumentosBolsa(lector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruta := rutaBolsasRRHHDesarrollo + "/bolsa:01/documentos"
+	capacidad := capacidadConsultaContratacionTemporalDesarrollo{sello: soporte.sello, ruta: ruta,
+		metodo: http.MethodGet, principal: principal}
+	ctx, cancelar := context.WithCancel(context.WithValue(context.Background(),
+		claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad))
+	defer cancelar()
+	auditada := false
+	h := &bolsasRRHHDesarrollo{documentos: servicio, controlDocumentos: &controlLecturaDocumentosBolsa{
+		Autorizar: func(ctx context.Context, bolsaRef, accion string) error {
+			capsula, ok := ctx.Value(claveCapturaNominalDocumentosBolsa{}).(*capturaNominalDocumentosBolsa)
+			if !ok {
+				return errors.New("capsula ausente")
+			}
+			return capsula.guardar(soporte, capacidad, bolsaRef, accion, soporte.contexto)
+		},
+		Auditar: func(ctx context.Context, bolsaRef, accion string, resultado error) error {
+			cancelar() // la consulta ya terminó y no queda conexión HTTP activa.
+			nominal, err := contextoNominalAuditadoDocumentosBolsa(ctx, bolsaRef, accion)
+			if err != nil || resultado != nil || ctx.Err() == nil || context.WithoutCancel(ctx).Err() != nil ||
+				nominal.Resultado.Validar() != nil || nominal.Vinculo.ValidarPara(nominal.Resultado) != nil {
+				return errors.New("lectura terminada sin identidad histórica auditable")
+			}
+			auditada = true
+			return nil
+		},
+	}}
+	respuesta := httptest.NewRecorder()
+	h.ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet, ruta, nil).WithContext(ctx))
+	if respuesta.Code != http.StatusOK || !auditada || lector.lecturas != 1 {
+		t.Fatalf("lectura cancelada: status=%d auditada=%t lecturas=%d body=%s", respuesta.Code, auditada, lector.lecturas, respuesta.Body.String())
+	}
+}

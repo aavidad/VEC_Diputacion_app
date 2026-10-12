@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	bolsaapp "vec-diputacion-granada/internal/modules/bolsa/application"
@@ -18,6 +19,82 @@ const (
 	accionConsultarDocumentosBolsa = "lectura_bolsas_rrhh_consultar"
 	accionDescargarReciboBolsa     = "lectura_bolsas_rrhh_descargar_recibo"
 )
+
+type claveCapturaNominalDocumentosBolsa struct{}
+
+// La captura sólo existe dentro de una petición y se rellena una vez tras
+// validar la sesión real. Conserva el actor histórico para auditar el resultado
+// de una lectura que termina cuando la conexión HTTP ya se ha cancelado.
+type capturaNominalDocumentosBolsa struct {
+	mu         sync.Mutex
+	soporte    *soporteAltaContratacionTemporalDesarrollo
+	sello      *selloConsultasContratacionTemporalDesarrollo
+	actorID    string
+	certSHA256 string
+	ruta       string
+	metodo     string
+	bolsaRef   string
+	accion     string
+	contexto   ctports.ContextoAutorizacionAltaV3
+	lista      bool
+}
+
+func (c *capturaNominalDocumentosBolsa) guardar(s *soporteAltaContratacionTemporalDesarrollo,
+	capacidad capacidadConsultaContratacionTemporalDesarrollo, bolsaRef, accion string,
+	contexto ctports.ContextoAutorizacionAltaV3,
+) error {
+	bolsaRuta, _, descarga, rutaValida := referenciasDocumentosBolsaRRHH(capacidad.ruta)
+	if c == nil || s == nil || !soporteDocumentoCoincideConCapacidad(s, capacidad) ||
+		!rutaValida || bolsaRuta != bolsaRef ||
+		(descarga != (accion == accionDescargarReciboBolsa)) ||
+		(accion != accionConsultarDocumentosBolsa && accion != accionDescargarReciboBolsa) ||
+		(capacidad.metodo != http.MethodGet && capacidad.metodo != http.MethodHead) ||
+		contexto.Resultado.Validar() != nil || contexto.Vinculo.ValidarPara(contexto.Resultado) != nil {
+		return vecdomain.ErrAutorizacionDenegada
+	}
+	resultado, err := contexto.Resultado.Clonar()
+	if err != nil {
+		return vecdomain.ErrAutorizacionDenegada
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.lista {
+		return bolsaapp.ErrConsultaDocumentosBolsaNoDisponible
+	}
+	c.soporte, c.sello, c.actorID, c.certSHA256 = s, capacidad.sello, capacidad.principal.ID, capacidad.principal.Attributes["certificate_sha256"]
+	c.ruta, c.metodo, c.bolsaRef, c.accion = capacidad.ruta, capacidad.metodo, bolsaRef, accion
+	c.contexto = ctports.ContextoAutorizacionAltaV3{Vinculo: contexto.Vinculo, Resultado: resultado}
+	c.lista = true
+	return nil
+}
+
+// El auditor usa esta copia ya validada, sin volver a resolver una sesión que
+// pudo caducar después del acceso. El contexto de la petición conserva sus
+// valores incluso cuando Err() indica cancelación.
+func contextoNominalAuditadoDocumentosBolsa(ctx context.Context, bolsaRef, accion string) (ctports.ContextoAutorizacionAltaV3, error) {
+	vacia := ctports.ContextoAutorizacionAltaV3{}
+	if ctx == nil {
+		return vacia, bolsaapp.ErrConsultaDocumentosBolsaNoDisponible
+	}
+	c, ok := ctx.Value(claveCapturaNominalDocumentosBolsa{}).(*capturaNominalDocumentosBolsa)
+	capacidad, tieneCapacidad := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+	if !ok || c == nil || !tieneCapacidad {
+		return vacia, bolsaapp.ErrConsultaDocumentosBolsaNoDisponible
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.lista || c.soporte == nil || c.bolsaRef != bolsaRef || c.accion != accion ||
+		c.ruta != capacidad.ruta || c.metodo != capacidad.metodo || c.sello != capacidad.sello ||
+		c.actorID != capacidad.principal.ID || c.certSHA256 != capacidad.principal.Attributes["certificate_sha256"] ||
+		!soporteDocumentoCoincideConCapacidad(c.soporte, capacidad) {
+		return vacia, bolsaapp.ErrConsultaDocumentosBolsaNoDisponible
+	}
+	resultado, err := c.contexto.Resultado.Clonar()
+	if err != nil || c.contexto.Vinculo.ValidarPara(resultado) != nil {
+		return vacia, bolsaapp.ErrConsultaDocumentosBolsaNoDisponible
+	}
+	return ctports.ContextoAutorizacionAltaV3{Vinculo: c.contexto.Vinculo, Resultado: resultado}, nil
+}
 
 // El registro documental de Bolsa reutiliza exactamente la autoridad RRHH de
 // su lista actual. La sesión nominal de ese canal se revalida y registra; la
@@ -96,6 +173,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) autorizarDocumentosBolsa(ctx
 	}
 	if err != nil || contexto.Resultado.Validar() != nil || contexto.Vinculo.ValidarPara(contexto.Resultado) != nil {
 		return vecdomain.ErrAutorizacionDenegada
+	}
+	captura, ok := ctx.Value(claveCapturaNominalDocumentosBolsa{}).(*capturaNominalDocumentosBolsa)
+	if !ok || captura.guardar(s, capacidad, bolsaRef, accion, contexto) != nil {
+		return bolsaapp.ErrConsultaDocumentosBolsaNoDisponible
 	}
 	return nil
 }
@@ -204,6 +285,7 @@ func (h *bolsasRRHHDesarrollo) responderDocumentosBolsa(w http.ResponseWriter, r
 		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
 		return
 	}
+	r = r.WithContext(context.WithValue(r.Context(), claveCapturaNominalDocumentosBolsa{}, &capturaNominalDocumentosBolsa{}))
 	accion := accionConsultarDocumentosBolsa
 	if descarga {
 		accion = accionDescargarReciboBolsa

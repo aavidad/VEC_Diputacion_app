@@ -282,7 +282,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 	// Aspirantes nunca anota persona.
 	usuarios := superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias ||
 		superficie == ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
-	bolsa := superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
+	bolsa := superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato || superficie == ports.SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH
 	preparacion := superficie == ports.SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases ||
 		superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo
 	personal := superficie == ports.SuperficieAuditoriaFronteraRutaExactaPersonal
@@ -353,6 +353,9 @@ func (h *Handler) registrarDenegacionRutaExacta(
 }
 
 func superficieAuditoriaFronteraRutaExacta(ruta string) string {
+	if domain.RutaAuditoriaDocumentosBolsaRRHHValida(ruta) {
+		return ports.SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH
+	}
 	switch ruta {
 	case "/api/vec/auditoria/opciones", "/api/vec/auditoria/consultas":
 		return ports.SuperficieAuditoriaFronteraRutaExactaAuditoria

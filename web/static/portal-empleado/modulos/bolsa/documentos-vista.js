@@ -1,5 +1,5 @@
 import { cargarTextos } from "../../../comun/textos.js";
-import { crearClienteDocumentosBolsa } from "./documentos-api.js?v=20261013-documentos-bolsa-v1";
+import { crearClienteDocumentosBolsa, validarCorrespondenciaReciboDocumento } from "./documentos-api.js?v=20261013-documentos-bolsa-v1";
 
 const PARAMETROS = Object.freeze({ bolsa: "bolsa-doc-bolsa", tipo: "bolsa-doc-tipo", texto: "bolsa-doc-texto" });
 
@@ -188,20 +188,22 @@ export async function montarVistaDocumentosBolsa({ raiz, bolsas = [], cliente = 
     const tabla = nodo(doc, "table", undefined, "tabla-datos");
     const cab = nodo(doc, "thead");
     const filaCab = nodo(doc, "tr");
-    for (const clave of ["col_documento", "col_fecha", "col_version", "col_estado", "col_acciones"]) {
+    for (const clave of ["col_documento", "col_fecha", "col_version", "col_estado"]) {
       const th = nodo(doc, "th", t(clave)); th.scope = "col"; filaCab.append(th);
     }
     cab.append(filaCab);
     const cuerpo = nodo(doc, "tbody");
     resultado.documentos.forEach((item, indice) => {
       const tr = nodo(doc, "tr");
-      tr.append(nodo(doc, "th", t(item.titulo_clave)));
-      tr.firstChild.scope = "row";
-      tr.append(nodo(doc, "td", textos.fecha(item.fecha)));
-      tr.append(nodo(doc, "td", textos.numero(item.version_bolsa)));
-      tr.append(nodo(doc, "td", t("estado_constitucion")));
-      const acciones = nodo(doc, "td");
-      const ver = boton(doc, t("ver_recibo"), "recibo");
+      const documento = nodo(doc, "th");
+      documento.scope = "row";
+      documento.style.whiteSpace = "normal";
+      const acciones = nodo(doc, "div", undefined, "acciones-filtro");
+      acciones.style.display = "flex";
+      acciones.style.flexWrap = "wrap";
+      acciones.style.gap = "8px";
+      const titulo = t(item.titulo_clave);
+      const ver = boton(doc, t("titulo_con_recibo", { titulo }), "recibo");
       ver.dataset.indice = String(indice);
       ver.dataset.documentoRef = item.documento_ref;
       acciones.append(ver);
@@ -210,7 +212,11 @@ export async function montarVistaDocumentosBolsa({ raiz, bolsas = [], cliente = 
         ficha.dataset.indice = String(indice);
         acciones.append(ficha);
       }
-      tr.append(acciones);
+      documento.append(acciones);
+      tr.append(documento);
+      tr.append(nodo(doc, "td", textos.fecha(item.fecha)));
+      tr.append(nodo(doc, "td", textos.numero(item.version_bolsa)));
+      tr.append(nodo(doc, "td", t("estado_constitucion")));
       cuerpo.append(tr);
     });
     tabla.append(cab, cuerpo);
@@ -266,13 +272,7 @@ export async function montarVistaDocumentosBolsa({ raiz, bolsas = [], cliente = 
     try {
       const respuesta = await cliente.recibir({ bolsaRef: filtros.bolsa, documentoRef: item.documento_ref, signal });
       if (!activo || signal.aborted || numero !== secuenciaRecibo) return;
-      if (respuesta.datos.version_bolsa !== item.version_bolsa
-          || respuesta.datos.instantanea_ref !== item.instantanea_ref
-          || respuesta.datos.version_instantanea !== item.version_instantanea
-          || respuesta.datos.total_participaciones !== item.total_participaciones
-          || Date.parse(respuesta.datos.confirmada_en) !== Date.parse(item.fecha)) {
-        throw new TypeError("recibo incoherente con la lista");
-      }
+      validarCorrespondenciaReciboDocumento(respuesta.datos, item);
       const panel = nodo(doc, "section", undefined, "panel");
       panel.dataset.documentosRecibo = "";
       panel.setAttribute("aria-label", t("recibo_titulo"));
@@ -294,10 +294,15 @@ export async function montarVistaDocumentosBolsa({ raiz, bolsas = [], cliente = 
       } else participaciones.textContent = cuenta;
       lista.append(nodo(doc, "dt", t("recibo_participaciones")), participaciones);
       const detalle = nodo(doc, "details");
-      const original = nodo(doc, "pre", new TextDecoder("utf-8", { fatal: true }).decode(respuesta.bytes));
-      original.style.maxWidth = "100%";
-      original.style.overflowX = "auto";
-      detalle.append(nodo(doc, "summary", t("detalle_recibo")), original);
+      const campos = nodo(doc, "dl");
+      for (const [clave, valor] of [["detalle_acta", respuesta.datos.acta_ref],
+        ["detalle_listado", respuesta.datos.listado_definitivo_ref],
+        ["detalle_version_listado", textos.numero(respuesta.datos.version_listado)]]) {
+        const dato = nodo(doc, "dd", valor);
+        dato.style.overflowWrap = "anywhere";
+        campos.append(nodo(doc, "dt", t(clave)), dato);
+      }
+      detalle.append(nodo(doc, "summary", t("detalle_recibo")), campos);
       const descargar = boton(doc, t("descargar_recibo"), "descargar");
       descargar.dataset.documentoRef = item.documento_ref;
       descargar.addEventListener("click", () => descargarRecibo(respuesta.bytes));
