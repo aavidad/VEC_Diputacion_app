@@ -8,7 +8,7 @@
     "ayudaTitulo": "Current rules",
     "ayudaCerrar": "Close",
     "ayudaQue": "This page shows, read-only, the time limits, caps and lists that Job pools and Temporary Staff Requests apply today.",
-    "ayudaOrigen": "«Regulation» cites the article of the published Employment Pool Regulation. «Example» is a working value that HR has not yet approved; the «HR question» column says which question will settle it.",
+    "ayudaOrigen": "«Regulation» cites the article of the published Employment Pool Regulation. «Proposal» is a working value that HR has not yet approved; the «HR question» column says which question will settle it.",
     "ayudaVersion": "Each rule is identified by its catalogue and version. A change of value is published as a new catalogue version, without changing the software.",
     "filtros": "Rule filters",
     "filtroModulo": "Module",
@@ -16,16 +16,16 @@
     "filtroTexto": "Search",
     "todos": "All",
     "origen_reglamento": "Regulation",
-    "origen_ejemplo": "Example",
+    "origen_ejemplo": "Proposal",
     "cargando": "Loading rules…",
     "sinResultados": "No rule matches the filters.",
     "kpiTotal": "Current rules",
     "kpiReglamento": "From the Regulation",
-    "kpiEjemplo": "Examples",
+    "kpiEjemplo": "Proposals",
     "modulo_bolsa": "Job pools",
     "modulo_contratacion_temporal": "Temporary Staff Requests",
     "catalogoVersion": "Catalogue version {version}",
-    "paqueteEjemplo": "Example package",
+    "paqueteEjemplo": "Proposal package",
     "estado_sin_catalogo": "No rule catalogue loaded: the module keeps its current behaviour.",
     "estado_no_disponible": "The rule catalogue is not available right now.",
     "contadorReglas": "{cantidad} rules",
@@ -36,8 +36,8 @@
     "colDuda": "HR question",
     "colVersion": "Version",
     "origenArticulo": "Regulation, {articulo}",
-    "origenEjemplo": "Example",
-    "parteEjemplo": "Example part: {texto}",
+    "origenEjemplo": "Proposal",
+    "parteEjemplo": "Proposed part: {texto}",
     "sinValor": "Not applicable",
     "computo_administrativo": "Administrative count",
     "computo_civil": "Civil count",
@@ -80,7 +80,7 @@
         "agotamiento": {
           "ejemplo_parcial": {
             "original": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de ejemplo; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
-            "texto": "In this example, VEC proposes provisional exhaustion when available candidates do not exceed the configured threshold. HR confirms it by an express decision."
+            "texto": "VEC proposes provisional exhaustion when available candidates do not exceed the configured threshold. HR confirms it by an express decision."
           }
         }
       },

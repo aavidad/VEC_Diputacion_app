@@ -358,10 +358,10 @@ test("el montaje no ejecuta CT118 ni entrega un recibo aparente", async () => {
   assert.equal(efectos, 0);
 });
 
-test("la ayuda explica el circuito de ejemplo y la falta de eficacia sin portafirmas", async () => {
+test("la ayuda explica el circuito y el paso por el portafirmas", async () => {
   const ayuda = await readFile(new URL("../../../textos/es/portal-ayuda.json", import.meta.url), "utf8");
   assert.match(ayuda, /"ayuda_contenido_421": "«Circuito de firma»/u);
-  assert.match(ayuda, /"ayuda_contenido_422": ".*no tiene eficacia administrativa.*portafirmas corporativo/u);
+  assert.match(ayuda, /"ayuda_contenido_422": ".*portafirmas corporativo/u);
 });
 
 test("la fase de firma se ve en cualquier fase del expediente real, sin botones fuera de nombramiento", async () => {

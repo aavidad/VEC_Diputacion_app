@@ -14,7 +14,7 @@
     "ficha_ginpix_transmision_pendiente": "GINPIX integration pending.",
     "ficha_ginpix_nombre_archivo": "File name",
     "ficha_ginpix_descargar": "Download GINPIX record",
-    "ficha_ginpix_aviso": "Downloading does not send or sign the record, or give it administrative effect.",
+    "ficha_ginpix_aviso": "Downloading does not send or sign the record.",
     "ficha_ginpix_descargando": "Preparing the download.",
     "ficha_ginpix_error": "The download could not be prepared.",
     "seguimiento_incorporacion_titulo": "Start of service follow-up",

@@ -228,7 +228,7 @@
     "resolucion_formalizacion_clave": "Clave de recuperación",
     "resolucion_formalizacion_registrar": "Registrar validación manual",
     "resolucion_formalizacion_reintentar": "Reintentar / recuperar recibo",
-    "resolucion_formalizacion_limites": "Firma oficial: no. Eficacia administrativa: no. Custodia documental: no.",
+    "resolucion_formalizacion_limites": "Firma oficial: pendiente del circuito de firma.",
     "resolucion_formalizacion_contexto": "Contexto de revisión de la resolución",
     "resolucion_formalizacion_expediente_ref": "Expediente",
     "resolucion_formalizacion_propuesta_ref": "Propuesta antecedente",

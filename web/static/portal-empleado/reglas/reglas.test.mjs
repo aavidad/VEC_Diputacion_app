@@ -94,13 +94,13 @@ test("pinta valor, unidad, origen, duda y versión, escapando el contenido", () 
   assert.match(html, /Días hábiles/u);
   assert.match(html, /Cómputo administrativo/u);
   assert.match(html, /Duda 1 de RRHH\./u);
-  assert.match(html, /Paquete de ejemplo/u);
+  assert.match(html, /Paquete de propuestas/u);
   assert.match(html, /Franja &lt;b&gt;/u);
   assert.ok(!html.includes("<b>"));
   assert.match(renderizarCatalogo(d.catalogos[1]), /Sin catálogo de reglas cargado/u);
   assert.equal(valorRegla({ unidad: "ninguna" }), "No aplica");
   assert.equal(valorRegla({ unidad: "lista", valor: "a,b" }), "a, b");
-  assert.equal(origenRegla({ origen: "ejemplo" }), "Ejemplo");
+  assert.equal(origenRegla({ origen: "ejemplo" }), "Propuesta");
   const resumen = renderizarResumen(d.catalogos);
   assert.match(resumen, /Reglas vigentes<\/span><strong>2</u);
   assert.match(resumen, /Del Reglamento<\/span><strong>1</u);
@@ -167,7 +167,7 @@ test("claves válidas distintas conservan identificadores únicos y los datos no
     assert.match(html, new RegExp(`id="${id}"`, "u"));
   }
   assert.ok(!html.includes(">b04.franja<"), "la clave interna no se ve en pantalla");
-  assert.match(html, /Parte de ejemplo: <span>Solo personal fijo<\/span>/u);
+  assert.match(html, /Parte propuesta: <span>Solo personal fijo<\/span>/u);
 });
 
 test("la vista inglesa marca como españoles solo los datos recibidos", () => {
@@ -181,9 +181,9 @@ test("la vista inglesa marca como españoles solo los datos recibidos", () => {
       estado: "disponible", paquete_ejemplo: true, reglas: [regla] }));`;
   const html = execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" });
   assert.match(html, /<span class="rg-regla-nombre" lang="es">Plazo de respuesta<\/span>/u);
-  assert.match(html, /Example part: <span lang="es">Solo personal fijo<\/span>/u);
+  assert.match(html, /Proposed part: <span lang="es">Solo personal fijo<\/span>/u);
   assert.ok(!html.includes(">b05.plazo_respuesta<"), "la clave interna no se ve en pantalla");
-  assert.doesNotMatch(html, /lang="es">Example part:/u);
+  assert.doesNotMatch(html, /lang="es">Proposed part:/u);
 });
 
 test("los textos de la pantalla vienen de los catálogos es y en con las mismas claves", () => {

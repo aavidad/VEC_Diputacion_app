@@ -8,7 +8,7 @@
     "ayudaTitulo": "Reglas vigentes",
     "ayudaCerrar": "Cerrar",
     "ayudaQue": "Esta pantalla muestra, sin permitir cambios, los plazos, límites y listas que aplican hoy Bolsa y Peticiones de personal temporal.",
-    "ayudaOrigen": "«Reglamento» cita el artículo del Reglamento de bolsas publicado. «Ejemplo» es un valor de trabajo que RRHH todavía no ha aprobado; la columna «Duda de RRHH» indica qué pregunta lo resolverá.",
+    "ayudaOrigen": "«Reglamento» cita el artículo del Reglamento de bolsas publicado. «Propuesta» es un valor de trabajo que RRHH todavía no ha aprobado; la columna «Duda de RRHH» indica qué pregunta lo resolverá.",
     "ayudaVersion": "Cada regla se identifica por su catálogo y versión. Un cambio de valor se publica como versión nueva del catálogo, sin tocar el programa.",
     "filtros": "Filtros de reglas",
     "filtroModulo": "Módulo",
@@ -16,16 +16,16 @@
     "filtroTexto": "Buscar",
     "todos": "Todos",
     "origen_reglamento": "Reglamento",
-    "origen_ejemplo": "Ejemplo",
+    "origen_ejemplo": "Propuesta",
     "cargando": "Cargando reglas…",
     "sinResultados": "Ninguna regla coincide con los filtros.",
     "kpiTotal": "Reglas vigentes",
     "kpiReglamento": "Del Reglamento",
-    "kpiEjemplo": "De ejemplo",
+    "kpiEjemplo": "Propuestas",
     "modulo_bolsa": "Bolsa",
     "modulo_contratacion_temporal": "Peticiones de personal temporal",
     "catalogoVersion": "Versión {version} del catálogo",
-    "paqueteEjemplo": "Paquete de ejemplo",
+    "paqueteEjemplo": "Paquete de propuestas",
     "estado_sin_catalogo": "Sin catálogo de reglas cargado: el módulo aplica su comportamiento actual.",
     "estado_no_disponible": "El catálogo de reglas no está disponible en este momento.",
     "contadorReglas": "{cantidad} reglas",
@@ -36,8 +36,8 @@
     "colDuda": "Duda de RRHH",
     "colVersion": "Versión",
     "origenArticulo": "Reglamento, {articulo}",
-    "origenEjemplo": "Ejemplo",
-    "parteEjemplo": "Parte de ejemplo: {texto}",
+    "origenEjemplo": "Propuesta",
+    "parteEjemplo": "Parte propuesta: {texto}",
     "sinValor": "No aplica",
     "computo_administrativo": "Cómputo administrativo",
     "computo_civil": "Cómputo civil",
@@ -80,7 +80,7 @@
         "agotamiento": {
           "ejemplo_parcial": {
             "original": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de ejemplo; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
-            "texto": "En este ejemplo, VEC propone el agotamiento provisional cuando las personas disponibles no superan el umbral configurado. RRHH lo confirma mediante resolución expresa."
+            "texto": "VEC propone el agotamiento provisional cuando las personas disponibles no superan el umbral configurado. RRHH lo confirma mediante resolución expresa."
           }
         }
       },

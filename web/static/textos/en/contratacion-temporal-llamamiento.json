@@ -228,7 +228,7 @@
     "resolucion_formalizacion_clave": "Retrieval key",
     "resolucion_formalizacion_registrar": "Record manual validation",
     "resolucion_formalizacion_reintentar": "Retry / retrieve receipt",
-    "resolucion_formalizacion_limites": "Official signature: no. Administrative effect: no. Document custody: no.",
+    "resolucion_formalizacion_limites": "Official signature: pending in the signing process.",
     "resolucion_formalizacion_contexto": "Resolution review context",
     "resolucion_formalizacion_expediente_ref": "Case",
     "resolucion_formalizacion_propuesta_ref": "Previous proposal",

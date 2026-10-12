@@ -60,8 +60,8 @@ const PREIMAGEN = {
     // Excepción a la preimagen: textos reescritos en lenguaje llano (05/10/2026), sin
     // clave de operación ni modo manual en pantalla; los límites pasan a la ayuda «?».
     // 12/10/2026: sin avisos de no validez en la validación manual.
-    "MENSAJES_LLAMAMIENTO_EN": "c7536eb0359f33ea465eee026b66f4ffe98fcc0e3fd60f346fce0b393126d949",
-    "MENSAJES_LLAMAMIENTO_ES": "f37d6e8b93c2c91eadad57cf2a638a43f7ded0dea6fb25139e691286a0d67ee0"
+    "MENSAJES_LLAMAMIENTO_EN": "bc4a75a142e9fe7c02ea378f9721aa184f2b6c9a92c87671f1c16c135aad1242",
+    "MENSAJES_LLAMAMIENTO_ES": "0382ad2891ac444918f8d32c49d8e5d0b2e9c326ffaae6a8416dec5f76bdaffb"
   },
   "i18n-subsanacion-reparos.js": {
     "MENSAJES_SUBSANACION_REPAROS_EN": "d3dc09b6d8b28dfbfd56e64d54e6d40b9f3dd988562a67c28e1ccde882f6a12d",
