@@ -1,0 +1,9 @@
+# B103 ADMIN: aplicar solo después de HZ21 con CA40/AD237/B103, una vez y en este orden.
+# AD237 revisada SHA256 2dada108e60bf70ca5b56168499e7c20a87f12237f36d53c2014167ebdb17e83.
+# AUT75 SHA256 869339a3c2f885c223beb70e06cf111db402e92994515c1bc5489e17549650e1.
+# AD245 SHA256 deec251999296565205e3202cbe0c6ad80af5aff01645c5a09a8d8c42c5788c4.
+# Comprobar objetos e historia en el destino antes de instalar: no reaplicar ni ejecutar DOWN.
+# La instalación SQL no concede el rol B103: el catálogo AUT58/61 y el acto
+# AUT75 de dos ADMIN se publican después con la fuente gobernada aprobada.
+deploy/postgresql/autorizacion/migraciones/000075_version_rol_bolsa_respuestas.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000245_version_rol_bolsa_respuestas_v3.up.sql
