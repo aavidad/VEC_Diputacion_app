@@ -162,6 +162,7 @@ func TestVersionarRolBolsaExternaV2ConservaBaseYExigeDosConcesiones(t *testing.T
 
 func TestVersionarRolBolsaExternaInscripcionCincoExactas(t *testing.T) {
 	c, base, previa, ahora := escenarioVersionarRolBolsaExterna(t)
+	base.Rol.Nombre = "Consulta y acciones propias de bolsa en desarrollo"
 	for _, e := range c.Entradas {
 		base.Rol.Concesiones = append(base.Rol.Concesiones, e.Concesion)
 	}
@@ -299,6 +300,26 @@ func TestVersionarRolBolsaExternaInscripcionCincoExactas(t *testing.T) {
 	actualizar()
 	if _, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora); err == nil {
 		t.Fatal("aceptó campo extra")
+	}
+}
+
+func TestVersionarRolBolsaExternaConservaNombrePublicado(t *testing.T) {
+	for _, nombre := range []string{
+		"areaPersonal.miBolsa.rolPortal",
+		"Consulta y acciones propias de bolsa en desarrollo",
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			c, base, i, ahora := escenarioVersionarRolBolsaExterna(t)
+			base.Rol.Nombre = nombre
+			refrescarBaseExterna(t, &base, &i)
+			plan, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if plan.Base.Rol.Nombre != nombre || plan.DefinicionNueva.Nombre != nombre {
+				t.Fatal("el plan cambió el nombre publicado del rol")
+			}
+		})
 	}
 }
 
