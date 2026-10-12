@@ -1,0 +1,24 @@
+{
+  "referencia": "catalogo:meritos:roles_firmantes:v1",
+  "version": 1,
+  "roles": [
+    {
+      "clave": "tecnico_rrhh",
+      "clase": "tecnica",
+      "efecto": "constancia_documental",
+      "etiqueta": { "es": "Técnico de RRHH", "en": "HR reviewer" }
+    },
+    {
+      "clave": "miembro_organo",
+      "clase": "organo",
+      "efecto": "decision_segun_bases",
+      "etiqueta": { "es": "Miembro designado del órgano", "en": "Appointed board member" }
+    },
+    {
+      "clave": "observador_acta",
+      "clase": "observacion",
+      "efecto": "sin_efecto_decisorio",
+      "etiqueta": { "es": "Observación para el acta", "en": "Observation for the record" }
+    }
+  ]
+}
