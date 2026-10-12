@@ -1,0 +1,16 @@
+# Candidata M4. Datos sintéticos. Esta lista no autoriza instalación.
+# Comprobar la cabeza causal y las postimágenes exactas antes de ejecutar.
+# RUM03/000001 y RUM04/000002 ya tienen historia: no reaplicar ni ejecutar DOWN.
+# Requiere AUT76/AD246 de #1041, AUT77/AD248 de #1048 y AD249/B108 C3 de L
+# en la cabeza final. AD250 se construye solo desde el literal POST-AD249 real.
+# Falta el acto ADMIN gobernado que publique y asigne el rol
+# persona_meritos_cartera con ámbito persona_ref y dos concesiones exactas.
+# Ninguna migración de esta lista concede el rol a una persona.
+deploy/postgresql/autorizacion/migraciones/000078_cartera_meritos_persona_externa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000250_cartera_meritos_externa.up.sql
+deploy/postgresql/meritos/migraciones/000004_cartera_retirada_propia_v1.up.sql
+
+# Pruebas focales tras instalar en un único clon causal PostgreSQL 18:
+deploy/postgresql/autorizacion/pruebas_sql/000078_cartera_meritos_persona_externa.sql
+deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000250_cartera_meritos_externa.sql
+deploy/postgresql/meritos/pruebas_sql/000004_cartera_retirada_propia_v1.sql
