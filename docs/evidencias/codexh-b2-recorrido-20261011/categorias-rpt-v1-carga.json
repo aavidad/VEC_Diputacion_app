@@ -1,0 +1,11 @@
+{
+  "fuente": "e4346d1141c0717e4bd2d61854d46c5fe66996dc",
+  "archivo": "deploy/postgresql/catalogos_configurables/datos/categorias_rpt_v1.sql",
+  "archivo_sha256": "d4687997d4d71193b32f6692eb2d60cb0818e8e4f87c70faba4c80d0607e418b",
+  "preimagen_publicaciones": 0,
+  "codigo": 0,
+  "catalogo_huella_sha256": "ce7c6034ac465ed44e41d8de4347e641efe9e06818ce16c21d97308e3a527da6",
+  "recibo_ref": "recibo:catalogos:categorias_rpt:v1",
+  "carga_local_tecnica": true,
+  "acredita_aprobacion_juridica_rpt": false
+}

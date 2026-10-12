@@ -1,0 +1,11 @@
+{
+  "operacion": "publicar",
+  "tipo": "modalidad",
+  "ref": "modalidad:programa",
+  "version": 1,
+  "revision": 1,
+  "denominacion": "Programa",
+  "huella_sha256": "2faa5958f178bcda48b90274b873e219b270ed37b1c7fedbd934e663c74b488b",
+  "vigente_desde": "2026-10-11",
+  "vigente_hasta": ""
+}
