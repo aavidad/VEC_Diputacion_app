@@ -39,7 +39,7 @@ test("el centro enlaza cada petición entregada con la fila de su expediente en 
   const contexto = { actor: { referencia: "actor:1", puede_presentar: true, puede_ratificar: false, nombre: "Antonio Reyes Álvarez", cargo: "Dirección", centro: "Centro" } };
   const html = renderizarPeticionCentro({ contexto, peticiones: [peticion],
     expedientes: new Map([[peticion.referencia, { peticion_ref: peticion.referencia, numero_visible: "2026/CT-00001", destino }]]) });
-  assert.match(html, /<a class="pc-enlace-expediente" href="#ic-exp-expediente-sintetico-1" data-pc-ir-expediente="ic-exp-expediente-sintetico-1" aria-label="Petición del [^"]+: ver su expediente 2026\/CT-00001 en las incorporaciones del centro">Expediente 2026\/CT-00001<\/a>/u);
+  assert.match(html, /<a class="pc-enlace-expediente" href="#ic-exp-expediente-sintetico-1" data-pc-ir-expediente="ic-exp-expediente-sintetico-1" aria-label="Petición de personal · 20 sept 2026: ver su expediente 2026\/CT-00001 en las incorporaciones del centro">Expediente 2026\/CT-00001<\/a>/u);
   assert.doesNotMatch(renderizarPeticionCentro({ contexto, peticiones: [peticion] }), /pc-enlace-expediente/u);
 });
 
@@ -50,7 +50,7 @@ test("RRHH enlaza cada petición entregada con su expediente en Contratación te
     { peticion: { ...peticion, referencia: "peticion:centro:sintetica-2" }, estado_entrega: "preparada", recibo_alta: null },
   ] });
   assert.equal(html.match(/class="pc-enlace-expediente"/gu)?.length, 1);
-  assert.match(html, /href="\/portal-empleado\/\?lang=es&amp;expediente=expediente%3Asintetico%3A1#contratacion-temporal" aria-label="Petición peticion:centro:sintetica-1: abrir su expediente 2026\/CT-00001 en Peticiones de personal temporal">Expediente 2026\/CT-00001<\/a>/u);
+  assert.match(html, /href="\/portal-empleado\/\?lang=es&amp;expediente=expediente%3Asintetico%3A1#contratacion-temporal" aria-label="Petición de personal · 20 sept 2026 · petición 1: abrir su expediente 2026\/CT-00001 en Peticiones de personal temporal">Expediente 2026\/CT-00001<\/a>/u);
 });
 
 test("los enlaces de Peticiones del centro hacia el portal conservan el idioma de la página", async () => {
