@@ -1,0 +1,8 @@
+# R5 original CT: primero las SQL, después el binario y material privado.
+# La copia HZ21 ensayada no tenía AD69: instalarla solo si las dos v2 faltan.
+# Si AD69 ya está instalada, omitirla; nunca reaplicarla. AD244 una sola vez.
+# No DOWN. No publica perfiles, claves ni capacidad; provisión administrativa separada.
+# SHA256 43984903350f618c8d9c3a6b0c2055c368d51d7247ba2888aef8328299e42d3e
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000069_sonda_lectura_gobierno_por_consumidor.up.sql
+# SHA256 e0b36a011aab8a99d0f5e744c8f669270158c71e1fc75212e0185637a6fc69ef
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000244_gobierno_original_firmable_ct.up.sql
