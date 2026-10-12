@@ -66,7 +66,8 @@ func TestFuenteConstituidaRRHHBolsaConjuntoConservaListaSinConsultasPorParticipa
 		t.Fatal(err)
 	}
 	if lecturas.Load() != 1 || contadores.orden.Load() != 0 || contadores.situacionLote.Load() != 0 ||
-		contadores.ceseLote.Load() != 0 || contadores.situacionIndividual.Load() != 0 || contadores.ceseIndividual.Load() != 0 {
+		contadores.ceseLote.Load() != 0 || contadores.situacionIndividual.Load() != 0 || contadores.ceseIndividual.Load() != 0 ||
+		contadores.vigentesGlobales.Load() != 0 || contadores.vigentesFiltradas.Load() != 1 {
 		t.Fatalf("lecturas conjunto=%d orden=%d situaciones=%d/%d ceses=%d/%d", lecturas.Load(), contadores.orden.Load(),
 			contadores.situacionLote.Load(), contadores.situacionIndividual.Load(), contadores.ceseLote.Load(), contadores.ceseIndividual.Load())
 	}
