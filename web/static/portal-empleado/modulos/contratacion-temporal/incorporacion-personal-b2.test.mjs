@@ -441,3 +441,24 @@ test("el recibo permite abrir sólo la ficha del empleado confirmado por Persona
   assert.doesNotMatch(sinReferencia.r.innerHTML, /data-personal-empleado-ref/u);
   sinReferencia.desmontar();
 });
+
+test("tras el cese, el recibo B2 y el enlace Personal sobreviven a una versión CT posterior y al refresco", async () => {
+  const empleado = `emp_${"A".repeat(32)}`;
+  const confirmada = { ...historia(), recibo: { ...recibo, empleado_ref: empleado } };
+  let lecturas = 0;
+  const x = await montar(clienteBase({ consultar: async () => { lecturas++; return confirmada; },
+    preparar: () => assert.fail("no se prepara otra incorporación"),
+    confirmar: () => assert.fail("no se confirma otra incorporación") }), { versionEsperada: 10 });
+  assert.match(x.r.innerHTML, /recibo:b2:original/u);
+  assert.match(x.r.innerHTML, new RegExp(`data-personal-empleado-ref="${empleado}"`, "u"));
+  assert.doesNotMatch(x.r.innerHTML, /data-b2-accion="consultar"|data-b2-form/u);
+  await x.r.click("consultar");
+  assert.equal(lecturas, 2);
+  assert.match(x.r.innerHTML, /recibo:b2:original/u);
+  x.desmontar();
+
+  const pendiente = await montar(clienteBase({ consultar: async () => inicial(),
+    preparar: () => assert.fail("no se prepara con versión obsoleta") }), { versionEsperada: 10 });
+  assert.doesNotMatch(pendiente.r.innerHTML, /data-b2-form|recibo:b2:original/u);
+  pendiente.desmontar();
+});
