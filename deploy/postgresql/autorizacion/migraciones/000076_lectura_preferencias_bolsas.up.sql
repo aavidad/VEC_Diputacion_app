@@ -17,78 +17,10 @@ BEGIN
  THEN RAISE EXCEPTION 'AUT76: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 SET LOCAL ROLE vec_autorizacion_propietario;
--- El acto prospectivo publica exclusivamente la versión 2 del rol de portal,
--- con GET y PUT de preferencias entre bolsas como hojas cerradas.
--- La versión 1 y el rol de historial conservan exactamente sus concesiones.
--- La publicación y posterior reasignación siguen pasando por las fachadas
--- AUT16 con sus CAS, procedencia y acto; esta migración no crea tales filas.
-DO $ampliar_publicador$
-DECLARE p pg_proc%ROWTYPE;f regprocedure;original text;nuevo text;
- viejo text;nuevo_fragmento text;i integer;
- firmas text[]:=ARRAY[
-  'vec_autorizacion.rol_candidato_externo_acotado_v1(jsonb)',
-  'vec_autorizacion.publicar_rol_candidato_externo_v1(bytea,text,bytea,text,numeric,text,text,text)'];
- huellas text[]:=ARRAY[
-  '4212e0388ee883840011ea7874079e24eac5c947b2e8cc3c2f71921e613965da',
-  'b58b39f2c35341a545640bfde366f07a89ee65831306950c7f3ea342ee846ff0'];
-BEGIN
- FOR i IN 1..2 LOOP
-  f:=to_regprocedure(firmas[i]);
-  SELECT * INTO STRICT p FROM pg_proc WHERE oid=f;
-  IF p.proowner IS DISTINCT FROM 'vec_autorizacion_propietario'::regrole
-   OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp']
-   OR p.prosecdef IS DISTINCT FROM (i=2)
-   OR p.provolatile IS DISTINCT FROM (CASE WHEN i=2 THEN 'v' ELSE 'i' END)::"char"
-   OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM huellas[i]
-   OR (SELECT count(*) FROM aclexplode(p.proacl))<>i
-   OR EXISTS(SELECT 1 FROM aclexplode(p.proacl) acl
-    WHERE acl.grantee NOT IN ('vec_autorizacion_propietario'::regrole,
-      'vec_autorizacion_publicador_candidato_externo'::regrole)
-      OR (i=1 AND acl.grantee<>'vec_autorizacion_propietario'::regrole)
-      OR acl.privilege_type<>'EXECUTE' OR acl.is_grantable)
-  THEN RAISE EXCEPTION 'AUT76: publicador externo divergente %',firmas[i] USING ERRCODE='55000'; END IF;
-  original:=pg_get_functiondef(f);nuevo:=original;
-  viejo:=$old$   'bolsa.participaciones_propias.confirmar_contacto'];
- END IF;$old$;
-  nuevo_fragmento:=$new$   'bolsa.participaciones_propias.confirmar_contacto'];
-  IF d->>'version'='2' THEN
-   esperadas:=esperadas||ARRAY['bolsa.preferencias_bolsas.consultar_propias',
-    'bolsa.preferencias_bolsas.ordenar_propias'];
-  END IF;
- END IF;$new$;
-  IF (length(nuevo)-length(replace(nuevo,viejo,'')))/length(viejo)<>1
-  THEN RAISE EXCEPTION 'AUT76: lista cerrada divergente %',firmas[i] USING ERRCODE='55000'; END IF;
-  nuevo:=replace(nuevo,viejo,nuevo_fragmento);
-  viejo:=$old$      WHEN x->>'accion'='bolsa.participaciones_propias.consultar' THEN 'consulta_participaciones_propias'
-      ELSE 'gestion_participaciones_propias' END])$old$;
-  nuevo_fragmento:=$new$      WHEN x->>'accion'='bolsa.participaciones_propias.consultar' THEN 'consulta_participaciones_propias'
-      WHEN x->>'accion'='bolsa.preferencias_bolsas.consultar_propias' THEN 'gestion_preferencias_bolsas_propias'
-      WHEN x->>'accion'='bolsa.preferencias_bolsas.ordenar_propias' THEN 'gestion_preferencias_bolsas_propias'
-      ELSE 'gestion_participaciones_propias' END])$new$;
-  IF (length(nuevo)-length(replace(nuevo,viejo,'')))/length(viejo)<>1
-  THEN RAISE EXCEPTION 'AUT76: finalidad divergente %',firmas[i] USING ERRCODE='55000'; END IF;
-  nuevo:=replace(nuevo,viejo,nuevo_fragmento);
-  viejo:=$old$    OR (x->>'accion' NOT IN ('bolsa.historial_propio.consultar','bolsa.participaciones_propias.consultar')
-      AND COALESCE(x->'campos_permitidos','[]'::jsonb) IS DISTINCT FROM '[]'::jsonb)$old$;
-  nuevo_fragmento:=$new$    OR (x->>'accion'='bolsa.preferencias_bolsas.consultar_propias'
-      AND x->'campos_permitidos' IS DISTINCT FROM
-       '["version","orden_guardado","bolsas_actuales","bolsas_nuevas","bolsas_retiradas","revision_requerida","recibo_ref","registrado_en"]'::jsonb)
-    OR (x->>'accion'='bolsa.preferencias_bolsas.ordenar_propias'
-      AND x->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb)
-    OR (x->>'accion' NOT IN ('bolsa.historial_propio.consultar','bolsa.participaciones_propias.consultar','bolsa.preferencias_bolsas.consultar_propias')
-      AND COALESCE(x->'campos_permitidos','[]'::jsonb) IS DISTINCT FROM '[]'::jsonb)$new$;
-  IF (length(nuevo)-length(replace(nuevo,viejo,'')))/length(viejo)<>1
-  THEN RAISE EXCEPTION 'AUT76: campos divergentes %',firmas[i] USING ERRCODE='55000'; END IF;
-  nuevo:=replace(nuevo,viejo,nuevo_fragmento);
-  EXECUTE nuevo;
-  IF NOT EXISTS(SELECT 1 FROM pg_proc q WHERE q.oid=f AND q.proowner=p.proowner
-   AND q.proacl=p.proacl AND q.proconfig=p.proconfig AND q.prosecdef=p.prosecdef
-   AND q.provolatile=p.provolatile AND q.proargtypes=p.proargtypes
-   AND q.prorettype=p.prorettype AND q.prosrc<>p.prosrc
-   AND strpos(q.prosrc,'bolsa.preferencias_bolsas.consultar_propias')>0)
-  THEN RAISE EXCEPTION 'AUT76: publicador externo no conservado %',firmas[i] USING ERRCODE='55000'; END IF;
- END LOOP;
-END $ampliar_publicador$;
+-- La concesión externa v2 se publica después mediante un acto ADMIN propio.
+-- AUT16 conserva sus siete acciones anteriores y no publica GET/PUT de
+-- preferencias. Esta migración solo instala el cotejo vivo de lectura.
+
 
 CREATE FUNCTION vec_autorizacion.cotejar_lectura_preferencias_bolsas_actual_v1(
  p_orden jsonb,p_principal text,p_perfil text)
@@ -104,7 +36,7 @@ BEGIN
  OR p_orden->>'tipo_recurso' IS DISTINCT FROM 'participaciones_candidato'
  OR p_orden->>'finalidad_ref' IS DISTINCT FROM 'gestion_preferencias_bolsas_propias'
  OR p_orden->>'canal' IS DISTINCT FROM 'externa_personal'
- OR p_orden->>'recurso_ref' IS DISTINCT FROM 'mi-bolsa:'||p_orden->>'candidato_ref'
+ OR p_orden->>'recurso_ref' IS DISTINCT FROM 'mi-bolsa:'||(p_orden->>'candidato_ref')
  OR p_orden->>'candidato_ref' !~ '^can_[A-Za-z0-9_-]{22,128}$'
  OR p_orden->'campos_permitidos' IS DISTINCT FROM
   '["version","orden_guardado","bolsas_actuales","bolsas_nuevas","bolsas_retiradas","revision_requerida","recibo_ref","registrado_en"]'::jsonb

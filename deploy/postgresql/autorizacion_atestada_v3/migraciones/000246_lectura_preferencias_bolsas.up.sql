@@ -149,7 +149,7 @@ BEGIN
  OR p_orden->>'proceso' IS DISTINCT FROM 'vec-server'
  OR p_orden->>'canal' IS DISTINCT FROM 'externa_personal'
  OR p_orden->>'candidato_ref' !~ '^can_[A-Za-z0-9_-]{22,128}$'
- OR p_orden->>'recurso_ref' IS DISTINCT FROM 'mi-bolsa:'||p_orden->>'candidato_ref'
+ OR p_orden->>'recurso_ref' IS DISTINCT FROM 'mi-bolsa:'||(p_orden->>'candidato_ref')
  OR p_orden->>'tipo_recurso' IS DISTINCT FROM 'participaciones_candidato'
  OR p_orden->>'correlacion_ref' !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'
  OR p_orden->'campos_permitidos' IS DISTINCT FROM

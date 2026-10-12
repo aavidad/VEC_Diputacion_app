@@ -52,27 +52,117 @@ BEGIN
     OR NOT EXISTS (SELECT 1 FROM pg_class WHERE oid=tabla AND relrowsecurity AND relforcerowsecurity) THEN
   RAISE EXCEPTION 'PARO clave=B104.frontera_postimagen, actual=%, esperado=ambas rutas/RLS',
    expresion_nueva USING ERRCODE='55000'; END IF;
- SELECT pg_get_functiondef(firma),p.proacl,p.proowner,p.proconfig,p.prosecdef
+ SELECT p.prosrc,p.proacl,p.proowner,p.proconfig,p.prosecdef
  INTO STRICT anterior,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=firma;
  IF (length(anterior)-length(replace(anterior,marca,'')))/length(marca)<>1
     OR strpos(anterior,ruta_nueva)<>0 OR NOT definidora
     OR propietario<>'vec_bolsa_llamamientos_propietario'::regrole
+    OR encode(sha256(convert_to(anterior,'UTF8')),'hex') IS DISTINCT FROM
+     '0ceeb298f5505da8cfac40cad1f9733359d904813cfe4156db4122bc601618e6'
     OR ('search_path=pg_catalog, pg_temp'=ANY(config)) IS NOT TRUE THEN
-  RAISE EXCEPTION 'PARO clave=B104.frontera_funcion, actual=%/%, esperado=1/false',
-   (length(anterior)-length(replace(anterior,marca,'')))/length(marca),strpos(anterior,ruta_nueva)<>0
-   USING ERRCODE='55000'; END IF;
- nuevo:=replace(anterior,marca,marca||','||quote_literal(ruta_nueva));
- EXECUTE nuevo;
- SELECT pg_get_functiondef(firma) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,marca||','||quote_literal(ruta_nueva),marca) IS DISTINCT FROM anterior
-    OR (SELECT proacl FROM pg_proc WHERE oid=firma) IS DISTINCT FROM acl
-    OR (SELECT proowner FROM pg_proc WHERE oid=firma) IS DISTINCT FROM propietario
-    OR (SELECT proconfig FROM pg_proc WHERE oid=firma) IS DISTINCT FROM config
-    OR (SELECT prosecdef FROM pg_proc WHERE oid=firma) IS DISTINCT FROM definidora THEN
-  RAISE EXCEPTION 'PARO clave=B104.frontera_acl, actual=%, esperado=%',
-   encode(sha256(convert_to(actual,'UTF8')),'hex'),encode(sha256(convert_to(nuevo,'UTF8')),'hex')
+  RAISE EXCEPTION 'PARO clave=B104.frontera_funcion, actual=%, esperado=%',
+   encode(sha256(convert_to(anterior,'UTF8')),'hex'),
+   '0ceeb298f5505da8cfac40cad1f9733359d904813cfe4156db4122bc601618e6'
    USING ERRCODE='55000'; END IF;
 END $frontera$;
+
+-- Definición final literal tomada de la postimagen B104 ensayada en PG18.
+-- PostgreSQL conserva propietario y ACL al reemplazar la función.
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(p_correlacion text, p_motivo text, p_superficie text, p_ruta text, p_actor text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET row_security TO 'on'
+ SET "TimeZone" TO 'UTC'
+ SET lock_timeout TO '1s'
+ SET statement_timeout TO '2s'
+AS $function$
+DECLARE login pg_catalog.pg_roles%ROWTYPE; grupo pg_catalog.pg_roles%ROWTYPE;
+        fachada oid := 'vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(text,text,text,text,text)'::pg_catalog.regprocedure;
+BEGIN
+ SELECT * INTO login FROM pg_catalog.pg_roles WHERE rolname=session_user;
+ SELECT * INTO grupo FROM pg_catalog.pg_roles WHERE rolname='vec_bolsa_llamamientos_registrador_portal_externo';
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
+    OR login.oid IS NULL OR NOT login.rolcanlogin OR NOT login.rolinherit
+    OR login.rolsuper OR login.rolcreatedb OR login.rolcreaterole OR login.rolreplication OR login.rolbypassrls
+    OR grupo.oid IS NULL OR grupo.rolcanlogin OR NOT grupo.rolinherit
+    OR grupo.rolsuper OR grupo.rolcreatedb OR grupo.rolcreaterole OR grupo.rolreplication OR grupo.rolbypassrls
+    OR (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=login.oid)<>1
+    OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=login.oid
+      AND m.roleid=grupo.oid AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.roleid=login.oid OR m.member=grupo.oid)
+    OR NOT pg_catalog.has_schema_privilege(login.oid,'vec_bolsa_llamamientos','USAGE')
+    OR pg_catalog.has_schema_privilege(login.oid,'vec_bolsa_llamamientos','CREATE')
+    OR NOT pg_catalog.has_function_privilege(login.oid,fachada,'EXECUTE')
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p,
+       LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.oid=fachada
+       AND a.privilege_type='EXECUTE' AND
+         (a.grantee=0 OR (a.grantee=grupo.oid AND a.is_grantable)))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname LIKE 'vec_%'
+      AND n.nspname<>'vec_bolsa_llamamientos'
+      AND pg_catalog.has_schema_privilege(login.oid,n.oid,'USAGE,CREATE'))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname LIKE 'vec_%'
+      AND (n.nspowner IN (login.oid,grupo.oid) OR EXISTS
+        (SELECT 1 FROM pg_catalog.aclexplode(n.nspacl) a WHERE a.grantee=login.oid
+          OR (a.grantee=grupo.oid AND (n.nspname<>'vec_bolsa_llamamientos' OR a.privilege_type<>'USAGE')))))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname LIKE 'vec_%' AND (c.relowner IN (login.oid,grupo.oid)
+        OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(c.relacl) a WHERE a.grantee IN (login.oid,grupo.oid))))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid=a.attrelid
+      JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE 'vec_%'
+      AND EXISTS (SELECT 1 FROM pg_catalog.aclexplode(a.attacl) x WHERE x.grantee IN (login.oid,grupo.oid)))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname LIKE 'vec_%' AND (p.proowner IN (login.oid,grupo.oid)
+       OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a WHERE a.grantee=login.oid
+         OR (a.grantee=grupo.oid AND (p.oid<>fachada OR a.privilege_type<>'EXECUTE')))))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace
+      WHERE n.nspname LIKE 'vec_%' AND (t.typowner IN (login.oid,grupo.oid)
+        OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(t.typacl) a WHERE a.grantee IN (login.oid,grupo.oid))))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname LIKE 'vec_%' AND p.oid<>fachada AND pg_catalog.has_function_privilege(login.oid,p.oid,'EXECUTE'))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname LIKE 'vec_%' AND CASE WHEN c.relkind IN ('r','p','v','m','f') THEN
+        pg_catalog.has_table_privilege(login.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+        OR pg_catalog.has_any_column_privilege(login.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES') ELSE false END)
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname LIKE 'vec_%' AND CASE WHEN c.relkind='S' THEN
+       pg_catalog.has_sequence_privilege(login.oid,c.oid,'USAGE,SELECT,UPDATE') ELSE false END)
+    OR pg_catalog.pg_is_in_recovery() OR pg_catalog.current_setting('transaction_read_only')<>'off'
+ THEN RAISE EXCEPTION 'Bolsa: registrador exterior invalido' USING ERRCODE='42501'; END IF;
+ IF p_correlacion IS NULL OR (p_correlacion<>'corr_no_disponible' AND p_correlacion !~ '^corr_[0-9a-f]{32}$')
+    OR p_motivo IS NULL OR p_motivo NOT IN ('autenticacion_requerida','acceso_denegado')
+    OR p_superficie IS DISTINCT FROM 'api.bolsa.candidato.ruta_exacta'
+    OR p_ruta IS NULL OR p_ruta NOT IN (
+      '/api/vec/bolsa/mi-bolsa','/api/vec/bolsa/mi-bolsa/historial',
+      '/api/vec/bolsa/mi-bolsa/solicitudes','/api/vec/bolsa/mi-bolsa/respuestas',
+      '/api/vec/bolsa/mi-bolsa/disposiciones','/api/vec/bolsa/mi-bolsa/contacto','/api/vec/bolsa/mi-bolsa/solicitudes-documentales','/api/vec/bolsa/mi-bolsa/preferencias')
+    OR (p_motivo='autenticacion_requerida' AND p_actor IS NOT NULL)
+    OR (p_motivo='acceso_denegado' AND (p_actor IS NULL OR p_actor !~ '^per_[A-Za-z0-9_-]{22,128}$'))
+ THEN RAISE EXCEPTION 'Bolsa: denegacion exterior invalida' USING ERRCODE='22023'; END IF;
+ INSERT INTO vec_bolsa_llamamientos.denegacion_frontera_portal_externo
+  (correlacion_ref,motivo,superficie,ruta,actor_ref,registrada_en)
+ VALUES (p_correlacion,p_motivo,p_superficie,p_ruta,p_actor,
+  pg_catalog.date_trunc('microseconds',pg_catalog.clock_timestamp()));
+ RETURN true;
+END $function$;
+DO $frontera_post$
+DECLARE f regprocedure:='vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(text,text,text,text,text)'::regprocedure;
+ p pg_proc%ROWTYPE;
+BEGIN
+ SELECT * INTO STRICT p FROM pg_proc WHERE oid=f;
+ IF p.proowner IS DISTINCT FROM 'vec_bolsa_llamamientos_propietario'::regrole
+ OR NOT p.prosecdef OR p.proconfig IS NULL
+ OR NOT ('search_path=pg_catalog, pg_temp'=ANY(p.proconfig))
+ OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM
+  'c566dc322bd2af3326d57675b64430e455a783a58dc454c081dc4423ebb4cac2'
+ OR strpos(p.prosrc,'/api/vec/bolsa/mi-bolsa/preferencias')=0
+ THEN RAISE EXCEPTION 'PARO clave=B104.frontera_funcion_post, actual=%, esperado=%',
+  encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),
+  'c566dc322bd2af3326d57675b64430e455a783a58dc454c081dc4423ebb4cac2'
+  USING ERRCODE='55000';END IF;
+END $frontera_post$;
+
 
 -- Solo adición. El último número de versión es la preferencia vigente; la
 -- clave y huella conservan la semántica de reintento tras respuesta incierta.
