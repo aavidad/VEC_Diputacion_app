@@ -293,10 +293,11 @@ BEGIN
  clave:=c->>'clave_idempotencia';
  v_hecho:=(c->>'hecho_version_esperada')::integer;
  huella:=encode(sha256(p_comando),'hex');
- contexto:='{"ambitos":{"disponibilidad_version_esperada":"0",'
+ contexto:='{"ambitos":{"persona_ref":"'||persona||'"},'
+  ||'"atributos":{"disponibilidad_version_esperada":"0",'
   ||'"hecho_version_esperada":"'||v_hecho::text||'",'
   ||'"huella_comando_sha256":"'||huella||'",'
-  ||'"persona_ref":"'||persona||'"},"atributos":{"propiedad":"persona"}}';
+  ||'"propiedad":"persona"}}';
  IF d->>'principal_id' IS DISTINCT FROM actor
  OR d->>'accion' IS DISTINCT FROM 'meritos.cartera.retirar_propio'
  OR d->>'modulo_id' IS DISTINCT FROM 'meritos'

@@ -2,7 +2,7 @@
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
 DO $test$
-DECLARE f oid;t text;
+DECLARE f oid;t text;cuerpo text;expresion text;contexto text;otro text;huella text;
 BEGIN
  IF to_regrole('vec_meritos_cartera_externo') IS NULL
  OR to_regclass('vec_meritos.disponibilidad_evento_v1') IS NULL
@@ -40,6 +40,32 @@ BEGIN
  IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
  OR NOT has_function_privilege('vec_meritos_cartera_externo',f,'EXECUTE')
  THEN RAISE EXCEPTION 'M4: ACL de retirada divergente' USING ERRCODE='55000'; END IF;
+ SELECT p.prosrc INTO cuerpo FROM pg_proc p WHERE p.oid=f;
+ IF strpos(cuerpo,'encode(sha256(convert_to(contexto,''UTF8'')),''hex'')')=0
+ OR strpos(cuerpo,'huella:=encode(sha256(p_comando),''hex'');')=0
+ OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.prosecdef
+  AND p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp','row_security=on'])
+ THEN RAISE EXCEPTION 'M4: retirada sin vínculo criptográfico o entorno cerrado' USING ERRCODE='55000';END IF;
+ -- Ejecutar únicamente la expresión pura del contexto instalada, sin
+ -- consumir una capacidad ni sustituir sesión, autorización o criptografía.
+ expresion:=substring(cuerpo FROM 'contexto:=(.*?);');
+ IF expresion IS NULL
+ THEN RAISE EXCEPTION 'M4: expresión de contexto ausente' USING ERRCODE='55000';END IF;
+ huella:=repeat('a',64);
+ EXECUTE 'SELECT '||expresion||' FROM (VALUES($1::text,$2::integer,$3::text)) x(persona,v_hecho,huella)'
+  INTO contexto USING 'per_sintetica_m4',2,huella;
+ IF contexto IS DISTINCT FROM
+  '{"ambitos":{"persona_ref":"per_sintetica_m4"},"atributos":{"disponibilidad_version_esperada":"0","hecho_version_esperada":"2","huella_comando_sha256":"'
+   ||huella||'","propiedad":"persona"}}'
+ THEN RAISE EXCEPTION 'M4: contexto de retirada no coincide con canon Go' USING ERRCODE='55000';END IF;
+ EXECUTE 'SELECT '||expresion||' FROM (VALUES($1::text,$2::integer,$3::text)) x(persona,v_hecho,huella)'
+  INTO otro USING 'per_sintetica_m4',3,huella;
+ IF sha256(convert_to(contexto,'UTF8'))=sha256(convert_to(otro,'UTF8'))
+ THEN RAISE EXCEPTION 'M4: contexto no liga versión' USING ERRCODE='55000';END IF;
+ EXECUTE 'SELECT '||expresion||' FROM (VALUES($1::text,$2::integer,$3::text)) x(persona,v_hecho,huella)'
+  INTO otro USING 'per_sintetica_m4',2,repeat('b',64);
+ IF sha256(convert_to(contexto,'UTF8'))=sha256(convert_to(otro,'UTF8'))
+ THEN RAISE EXCEPTION 'M4: contexto no liga comando' USING ERRCODE='55000';END IF;
  f:=to_regprocedure('vec_meritos.registrar_denegacion_frontera_cartera_v1(text,text,text,text,text)');
  IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
  OR NOT has_function_privilege('vec_meritos_frontera_externo',f,'EXECUTE')

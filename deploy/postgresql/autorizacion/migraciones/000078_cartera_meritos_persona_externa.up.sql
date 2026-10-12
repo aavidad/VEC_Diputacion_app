@@ -325,8 +325,6 @@ BEGIN
  OR d->>'modulo_id' IS DISTINCT FROM 'meritos'
  OR d->>'tipo_recurso' IS DISTINCT FROM 'hecho'
  OR d->>'finalidad' IS DISTINCT FROM 'gestion_cartera_propia'
- OR d->'campos_permitidos' IS DISTINCT FROM '["disponibilidad","recibo"]'::jsonb
- OR d->'obligaciones' IS DISTINCT FROM '["auditar"]'::jsonb
  OR v->>'superficie' IS DISTINCT FROM 'externa_personal'
  OR v->>'cuenta_privilegiada' IS DISTINCT FROM 'false'
  OR d->>'principal_id' IS DISTINCT FROM v->>'principal_id'
@@ -341,7 +339,15 @@ BEGIN
     FROM jsonb_array_elements(r.documento->'concesiones') x)
     =ARRAY['meritos.cartera.consultar_propia','meritos.cartera.retirar_propio']::text[])
  THEN RETURN false;END IF;
- RETURN true;
+ -- La denegación conserva listas canónicas de la decisión V3, limitadas
+ -- al contrato nominal. No exige campos que nunca llegaron a concederse.
+ IF d->>'concedida'='true' THEN
+  RETURN d->'campos_permitidos' IS NOT DISTINCT FROM '["disponibilidad","recibo"]'::jsonb
+   AND d->'obligaciones' IS NOT DISTINCT FROM '["auditar"]'::jsonb;
+ END IF;
+ RETURN d->>'concedida'='false'
+  AND (d->'campos_permitidos' <@ '["disponibilidad","recibo"]'::jsonb)
+  AND (d->'obligaciones' <@ '["auditar"]'::jsonb);
 EXCEPTION WHEN data_exception OR invalid_text_representation THEN RETURN false;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.decision_meritos_externa_exacta_v1(jsonb,jsonb)
@@ -373,7 +379,15 @@ BEGIN
  THEN RAISE EXCEPTION 'AUT78: decisión M4 divergente' USING ERRCODE='42501';END IF;
  SELECT * INTO registro FROM vec_autorizacion.registrar_decision_contexto_actor_v3_meritos_interna(
   p_decision,p_motivo,p_persona_version,p_perfil_version);
- IF NOT FOUND OR registro.concedida IS NOT TRUE THEN RETURN;END IF;
+ IF NOT FOUND THEN RETURN;END IF;
+ -- La fila negativa permite confirmar el asiento durable. No revalida
+ -- permiso ejecutable ni produce material de capacidad para una denegación.
+ IF registro.concedida IS FALSE THEN
+  RETURN QUERY SELECT false,registro.codigo,registro.decision_huella_sha256,
+   registro.registrada_en,NULL::timestamptz;
+  RETURN;
+ END IF;
+ IF registro.concedida IS NOT TRUE THEN RETURN;END IF;
  viva:=vec_autorizacion.revalidar_decision_contexto_actor_v3_meritos_interna(
   p_decision,p_motivo,p_persona_version,p_perfil_version);
  IF viva IS NULL THEN RETURN;END IF;
