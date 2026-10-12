@@ -89,6 +89,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	// perfilesFijos: perfiles de la misma persona reservados a rutas cuyo
 	// permiso no depende del expediente; solo se consumen (corte 2).
 	perfilesFijos                     []*perfilFijoCTDesarrollo
+	perfilesOriginal                  *perfilesNominalesOriginalCT
 	candidatoBolsa                    bool
 	mu                                sync.Mutex
 	sello                             *selloConsultasContratacionTemporalDesarrollo
@@ -372,6 +373,22 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		if err != nil || soporte.registrarPerfilFijoCTDesarrollo(perfilFirma) != nil {
 			return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
 		}
+	}
+	originalActivo, err := originalFirmableCTSolicitado(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if originalActivo {
+		documentosActivos, e := cfg.DocumentosDesarrolloActivo()
+		if e != nil || !documentosActivos || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
+			return vacias, errMontajeOriginalFirmableCTNoDisponible
+		}
+		par, e := nuevosPerfilesNominalesOriginalCT(soporte, principal, ahora)
+		if e != nil || soporte.registrarPerfilFijoCTDesarrollo(par.detalle) != nil ||
+			soporte.registrarPerfilFijoCTDesarrollo(par.documentos) != nil {
+			return vacias, errMontajeOriginalFirmableCTNoDisponible
+		}
+		soporte.perfilesOriginal = par
 	}
 	generador := seguridadvec.GeneradorReferenciasCriptograficas{}
 	autorizadorBase, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
