@@ -91,23 +91,26 @@ type ServicioLotes interface {
 
 // Handler queda inyectable; ningún proceso lo monta en este corte.
 type Handler struct {
-	origen             string
-	host               string
-	organizacionLote   string
-	sesiones           ResolvedorSesion
-	lecturas           FuenteLecturas
-	catalogo           ports.CatalogoRolesAdministrables
-	actos              ServicioActos
-	lotes              ServicioLotesADMIN
-	motivosLote        []MotivoLote
-	gobiernoPlan       ServicioGobiernoPlanFirmaADMIN
-	gobiernoRol        ServicioGobiernoRolNuevoADMIN
-	fuenteGobiernoRol  ports.FuenteCatalogoAccionesAdministracionV1
-	relojGobiernoRol   ports.Reloj
-	versionBolsa       ServicioVersionarRolBolsaADMIN
-	fuenteVersionBolsa ports.FuenteCatalogoAccionesAdministracionV1
-	relojVersionBolsa  ports.Reloj
-	// registroVersionBolsa recibe sólo la clase cerrada de cada 503 B1; nil
+	origen                 string
+	host                   string
+	organizacionLote       string
+	sesiones               ResolvedorSesion
+	lecturas               FuenteLecturas
+	catalogo               ports.CatalogoRolesAdministrables
+	actos                  ServicioActos
+	lotes                  ServicioLotesADMIN
+	motivosLote            []MotivoLote
+	gobiernoPlan           ServicioGobiernoPlanFirmaADMIN
+	gobiernoRol            ServicioGobiernoRolNuevoADMIN
+	fuenteGobiernoRol      ports.FuenteCatalogoAccionesAdministracionV1
+	relojGobiernoRol       ports.Reloj
+	versionBolsa           ServicioVersionarRolBolsaADMIN
+	fuenteVersionBolsa     ports.FuenteCatalogoAccionesAdministracionV1
+	relojVersionBolsa      ports.Reloj
+	versionBolsaB103       ServicioVersionarRolBolsaB103ADMIN
+	fuenteVersionBolsaB103 ports.FuenteCatalogoAccionesAdministracionV1
+	relojVersionBolsaB103  ports.Reloj
+	// registroVersionBolsa recibe sólo la clase cerrada de cada 503 B1/B103; nil
 	// usa slog.Default. Las pruebas lo sustituyen por un registro en memoria.
 	registroVersionBolsa *slog.Logger
 	efectos              map[string]efectoNominal
@@ -165,7 +168,7 @@ func dependenciaNula(v any) bool {
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h == nil || h.sesiones == nil || h.lecturas == nil || h.auditor == nil ||
-		(!h.soloLectura && h.gobiernoPlan == nil && h.gobiernoRol == nil && h.versionBolsa == nil && len(h.efectos) == 0 && (h.catalogo == nil || (h.actos == nil && h.lotes == nil))) {
+		(!h.soloLectura && h.gobiernoPlan == nil && h.gobiernoRol == nil && h.versionBolsa == nil && h.versionBolsaB103 == nil && len(h.efectos) == 0 && (h.catalogo == nil || (h.actos == nil && h.lotes == nil))) {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
@@ -224,6 +227,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if (r.URL.Path == RutaVersionarRolBolsaProponer || r.URL.Path == RutaVersionarRolBolsaCerrar) && h.versionBolsa == nil {
+		h.denegarActor(w, r, sesion, http.StatusNotFound, "recurso_no_encontrado", "escribir", "")
+		return
+	}
+	if (r.URL.Path == RutaVersionarRolBolsaB103Proponer || r.URL.Path == RutaVersionarRolBolsaB103Cerrar) && h.versionBolsaB103 == nil {
 		h.denegarActor(w, r, sesion, http.StatusNotFound, "recurso_no_encontrado", "escribir", "")
 		return
 	}
