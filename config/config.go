@@ -109,122 +109,124 @@ const (
 const EnvCTAnalisisMotivosSourcePath = "VEC_CT_ANALISIS_RECTIFICACION_MOTIVOS_SOURCE_PATH"
 
 type Config struct {
-	Address                                     string
-	APIBasePath                                 string
-	ReadHeaderTimeout                           time.Duration
-	ReadTimeout                                 time.Duration
-	WriteTimeout                                time.Duration
-	IdleTimeout                                 time.Duration
-	MaxHeaderBytes                              int
-	MaxRequestBodyBytes                         int64
-	StorageMode                                 string
-	DataDir                                     string
-	DataPath                                    string
-	AuthMode                                    string
-	ExecutionProfile                            string
-	DevelopmentGuard                            string
-	DevelopmentMaterialDir                      string
-	PortalProceso                               string
-	ExternoPreflightV3DatabaseURL               string
-	ExternoBolsaPublicaPostgreSQL               ConfiguracionPostgreSQLPublica
-	ExternoBolsaPostgreSQL                      ConfiguracionPostgreSQLExterna
-	ExternoMeritosCarteraPostgreSQL             ConfiguracionPostgreSQLExterna
-	ExternoMeritosFronteraPostgreSQL            ConfiguracionPostgreSQLExterna
-	BolsaInscripcionesLectorPostgreSQL          ConfiguracionPostgreSQLExterna
-	BolsaInscripcionesRRHHLectorPostgreSQL      ConfiguracionPostgreSQLExterna
-	ExternoCalendariosPostgreSQL                ConfiguracionPostgreSQLExterna
-	ExternoBolsaFronteraPostgreSQL              ConfiguracionPostgreSQLExterna
-	ExternoAutorizacionFuentePostgreSQL         ConfiguracionPostgreSQLExterna
-	ExternoAutorizacionRegistroPostgreSQL       ConfiguracionPostgreSQLExterna
-	ExternoAutorizacionMotivosPostgreSQL        ConfiguracionPostgreSQLExterna
-	ExternoIdentidadRegistroPostgreSQL          ConfiguracionPostgreSQLExterna
-	ExternoIdentidadRevalidacionPostgreSQL      ConfiguracionPostgreSQLExterna
-	ExternoContextoPostgreSQL                   ConfiguracionPostgreSQLExterna
-	IncorporacionV2File                         string
-	ContratacionTemporalSubsanacionPoliticaFile string
-	CTAnalisisMotivosSourcePath                 string
-	ReglasEjemplo                               ConfiguracionReglasEjemplo
-	FakeCredentialsPath                         string
-	TrustedHeaderSubject                        string
-	TrustedHeaderRoles                          string
-	TrustedHeaderMechanism                      string
-	TrustedProxyCIDRs                           []string
-	HTTPAllowedCIDRs                            []string
-	TLSCertFile                                 string
-	TLSKeyFile                                  string
-	CTNumeroExpedienteSourcePath                string
-	CTCircuitoRRHHSourcePath                    string
-	CTNecesidadesAltaSourcePath                 string
-	PersonalCatalogPath                         string
-	PersonalCatalogInMemory                     bool
-	PersonalOrganizacionSourcePath              string
-	RPTCatalogoPath                             string
-	PersonalOrganizacionVersion                 int
-	PersonalOrganizacionPostgreSQL              bool
-	BolsaPublicSourcePath                       string
-	BolsaCategoriesSourcePath                   string
-	BolsaCategoriesCatalogID                    string
-	BolsaCategoriesVersion                      int
-	BolsaCategoriesSHA256                       string
-	BolsaCategoriesPublicProjectionSHA256       string
-	BolsaImportacionConvocaCustodiaDir          string
-	BolsaAprobacionProvisionMiBolsa             string
-	BolsaPreimagenProvisionMiBolsa              string
-	BolsaPublicaPostgreSQL                      ConfiguracionPostgreSQLPublica
-	BolsaPublicaManifiestoSHA256                string
-	OSRMBaseURL                                 string
-	OSRMScopeName                               string
-	OSRMScopeBounds                             string
-	OSRMAllowedCIDRs                            []string
-	OSRMGraphVersion                            string
-	RRHHPresentationEnabled                     bool
-	RRHHPresentationGuardOne                    string
-	RRHHPresentationGuardTwo                    string
-	SMTPHost                                    string
-	SMTPPort                                    int
-	SMTPFrom                                    string
-	SMTPCAFile                                  string
-	SMTPModoTLS                                 string
-	BolsaBorradoresPostgreSQL                   ConfiguracionPostgreSQLBorradores
-	BolsaBorradoresEnabled                      bool
-	BolsaContratosCT                            ConfiguracionEntregaContratosCTBolsa
-	DietasBorradoresEnabled                     string
-	CronosEmpleadoEnabled                       string
-	CronosResolucionEnabled                     string
-	CTFirmaRegistroEnabled                      string
-	BolsaPortalCandidatoEnabled                 string
-	BolsaInscripcionesEnabled                   string
-	CTSeguimientoCeseEnabled                    string
-	CTCancelacionEnabled                        string
-	CTIncorporacionAcreditadaEnabled            string
-	CTAprobacionPerfilesCentro                  string
-	CTPreimagenesPerfilesCentro                 string
-	CTAprobacionPerfilesRRHH                    string
-	CTPreimagenesPerfilesRRHH                   string
-	CronosNotificacionesEnabled                 string
-	DocumentosEnabled                           string
-	PortalModulosVisiblesLista                  string
-	FirmaVerificacionEnabled                    string
-	FirmaVerificacionURL                        string
-	FirmaVerificacionCAFile                     string
-	FirmaVerificacionTokenFile                  string
-	FirmaVerificacionCertFile                   string
-	FirmaVerificacionKeyFile                    string
-	FirmaVerificacionTimeout                    string
-	FirmaVerificacionNombreServidorTLS          string
-	PersonalEmpleadoEnabled                     string
-	PersonalB2GobiernoEnabled                   string
-	OrganizacionHistoricaGobiernoEnabled        string
-	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
-	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
-	BolsaConstitucionPostgreSQL                 ConfiguracionPostgreSQLBolsaConstitucion
-	BolsaRelevoNoIncorporacionPostgreSQL        ConfiguracionPostgreSQLBolsaRelevoNoIncorporacion
-	BolsaRelevoCesePostgreSQL                   ConfiguracionPostgreSQLBolsaRelevoCese
-	AuditoriaSelladoPostgreSQL                  ConfiguracionPostgreSQLAuditoriaSellado
-	BolsaPoliticaOfertasCalculadorPostgreSQL    ConfiguracionPostgreSQLBolsaPoliticaOfertasCalculador
-	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
-	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
-	CalendariosPostgreSQL                       ConfiguracionCalendarios
+	Address                                      string
+	APIBasePath                                  string
+	ReadHeaderTimeout                            time.Duration
+	ReadTimeout                                  time.Duration
+	WriteTimeout                                 time.Duration
+	IdleTimeout                                  time.Duration
+	MaxHeaderBytes                               int
+	MaxRequestBodyBytes                          int64
+	StorageMode                                  string
+	DataDir                                      string
+	DataPath                                     string
+	AuthMode                                     string
+	ExecutionProfile                             string
+	DevelopmentGuard                             string
+	DevelopmentMaterialDir                       string
+	PortalProceso                                string
+	ExternoPreflightV3DatabaseURL                string
+	ExternoBolsaPublicaPostgreSQL                ConfiguracionPostgreSQLPublica
+	ExternoBolsaPostgreSQL                       ConfiguracionPostgreSQLExterna
+	ExternoMeritosCarteraPostgreSQL              ConfiguracionPostgreSQLExterna
+	ExternoMeritosFronteraPostgreSQL             ConfiguracionPostgreSQLExterna
+	ExternoMeritosRegistroAutorizacionPostgreSQL ConfiguracionPostgreSQLExterna
+	ExternoMeritosMotivosAutorizacionPostgreSQL  ConfiguracionPostgreSQLExterna
+	BolsaInscripcionesLectorPostgreSQL           ConfiguracionPostgreSQLExterna
+	BolsaInscripcionesRRHHLectorPostgreSQL       ConfiguracionPostgreSQLExterna
+	ExternoCalendariosPostgreSQL                 ConfiguracionPostgreSQLExterna
+	ExternoBolsaFronteraPostgreSQL               ConfiguracionPostgreSQLExterna
+	ExternoAutorizacionFuentePostgreSQL          ConfiguracionPostgreSQLExterna
+	ExternoAutorizacionRegistroPostgreSQL        ConfiguracionPostgreSQLExterna
+	ExternoAutorizacionMotivosPostgreSQL         ConfiguracionPostgreSQLExterna
+	ExternoIdentidadRegistroPostgreSQL           ConfiguracionPostgreSQLExterna
+	ExternoIdentidadRevalidacionPostgreSQL       ConfiguracionPostgreSQLExterna
+	ExternoContextoPostgreSQL                    ConfiguracionPostgreSQLExterna
+	IncorporacionV2File                          string
+	ContratacionTemporalSubsanacionPoliticaFile  string
+	CTAnalisisMotivosSourcePath                  string
+	ReglasEjemplo                                ConfiguracionReglasEjemplo
+	FakeCredentialsPath                          string
+	TrustedHeaderSubject                         string
+	TrustedHeaderRoles                           string
+	TrustedHeaderMechanism                       string
+	TrustedProxyCIDRs                            []string
+	HTTPAllowedCIDRs                             []string
+	TLSCertFile                                  string
+	TLSKeyFile                                   string
+	CTNumeroExpedienteSourcePath                 string
+	CTCircuitoRRHHSourcePath                     string
+	CTNecesidadesAltaSourcePath                  string
+	PersonalCatalogPath                          string
+	PersonalCatalogInMemory                      bool
+	PersonalOrganizacionSourcePath               string
+	RPTCatalogoPath                              string
+	PersonalOrganizacionVersion                  int
+	PersonalOrganizacionPostgreSQL               bool
+	BolsaPublicSourcePath                        string
+	BolsaCategoriesSourcePath                    string
+	BolsaCategoriesCatalogID                     string
+	BolsaCategoriesVersion                       int
+	BolsaCategoriesSHA256                        string
+	BolsaCategoriesPublicProjectionSHA256        string
+	BolsaImportacionConvocaCustodiaDir           string
+	BolsaAprobacionProvisionMiBolsa              string
+	BolsaPreimagenProvisionMiBolsa               string
+	BolsaPublicaPostgreSQL                       ConfiguracionPostgreSQLPublica
+	BolsaPublicaManifiestoSHA256                 string
+	OSRMBaseURL                                  string
+	OSRMScopeName                                string
+	OSRMScopeBounds                              string
+	OSRMAllowedCIDRs                             []string
+	OSRMGraphVersion                             string
+	RRHHPresentationEnabled                      bool
+	RRHHPresentationGuardOne                     string
+	RRHHPresentationGuardTwo                     string
+	SMTPHost                                     string
+	SMTPPort                                     int
+	SMTPFrom                                     string
+	SMTPCAFile                                   string
+	SMTPModoTLS                                  string
+	BolsaBorradoresPostgreSQL                    ConfiguracionPostgreSQLBorradores
+	BolsaBorradoresEnabled                       bool
+	BolsaContratosCT                             ConfiguracionEntregaContratosCTBolsa
+	DietasBorradoresEnabled                      string
+	CronosEmpleadoEnabled                        string
+	CronosResolucionEnabled                      string
+	CTFirmaRegistroEnabled                       string
+	BolsaPortalCandidatoEnabled                  string
+	BolsaInscripcionesEnabled                    string
+	CTSeguimientoCeseEnabled                     string
+	CTCancelacionEnabled                         string
+	CTIncorporacionAcreditadaEnabled             string
+	CTAprobacionPerfilesCentro                   string
+	CTPreimagenesPerfilesCentro                  string
+	CTAprobacionPerfilesRRHH                     string
+	CTPreimagenesPerfilesRRHH                    string
+	CronosNotificacionesEnabled                  string
+	DocumentosEnabled                            string
+	PortalModulosVisiblesLista                   string
+	FirmaVerificacionEnabled                     string
+	FirmaVerificacionURL                         string
+	FirmaVerificacionCAFile                      string
+	FirmaVerificacionTokenFile                   string
+	FirmaVerificacionCertFile                    string
+	FirmaVerificacionKeyFile                     string
+	FirmaVerificacionTimeout                     string
+	FirmaVerificacionNombreServidorTLS           string
+	PersonalEmpleadoEnabled                      string
+	PersonalB2GobiernoEnabled                    string
+	OrganizacionHistoricaGobiernoEnabled         string
+	DietasBorradoresPostgreSQL                   ConfiguracionDietasBorradores
+	BolsaAuditoriaFronteraPostgreSQL             ConfiguracionPostgreSQLBolsaAuditoriaFrontera
+	BolsaConstitucionPostgreSQL                  ConfiguracionPostgreSQLBolsaConstitucion
+	BolsaRelevoNoIncorporacionPostgreSQL         ConfiguracionPostgreSQLBolsaRelevoNoIncorporacion
+	BolsaRelevoCesePostgreSQL                    ConfiguracionPostgreSQLBolsaRelevoCese
+	AuditoriaSelladoPostgreSQL                   ConfiguracionPostgreSQLAuditoriaSellado
+	BolsaPoliticaOfertasCalculadorPostgreSQL     ConfiguracionPostgreSQLBolsaPoliticaOfertasCalculador
+	BolsaImportacionConvocaPostgreSQL            ConfiguracionPostgreSQLImportacionConvoca
+	ContratacionTemporalPostgreSQL               ConfiguracionPostgreSQLContratacionTemporal
+	CalendariosPostgreSQL                        ConfiguracionCalendarios
 }
 
 func Load() Config {
@@ -252,45 +254,47 @@ func Load() Config {
 		ExternoBolsaPublicaPostgreSQL: ConfiguracionPostgreSQLPublica{
 			dsn: os.Getenv(EnvExternoBolsaPublicaDatabaseURL),
 		},
-		ExternoBolsaPostgreSQL:                 ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaDatabaseURL)},
-		ExternoMeritosCarteraPostgreSQL:        ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosCarteraDatabaseURL)},
-		ExternoMeritosFronteraPostgreSQL:       ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosFronteraDatabaseURL)},
-		BolsaInscripcionesLectorPostgreSQL:     ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaInscripcionesLectorDatabaseURL)},
-		BolsaInscripcionesRRHHLectorPostgreSQL: ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvBolsaInscripcionesRRHHLectorDatabaseURL)},
-		ExternoBolsaFronteraPostgreSQL:         ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaFronteraDatabaseURL)},
-		ExternoCalendariosPostgreSQL:           ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoCalendariosDatabaseURL)},
-		ExternoAutorizacionFuentePostgreSQL:    ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoAutorizacionFuenteDatabaseURL)},
-		ExternoAutorizacionRegistroPostgreSQL:  ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoAutorizacionRegistroDatabaseURL)},
-		ExternoAutorizacionMotivosPostgreSQL:   ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoAutorizacionMotivosDatabaseURL)},
-		ExternoIdentidadRegistroPostgreSQL:     ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoIdentidadRegistroDatabaseURL)},
-		ExternoIdentidadRevalidacionPostgreSQL: ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoIdentidadRevalidacionDatabaseURL)},
-		ExternoContextoPostgreSQL:              ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoContextoDatabaseURL)},
-		ReglasEjemplo:                          cargarConfiguracionReglasEjemplo(),
-		FakeCredentialsPath:                    envFirst(EnvFakeCredentialsPath),
-		TrustedHeaderSubject:                   envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),
-		TrustedHeaderRoles:                     envFirst(EnvTrustedHeaderRoles, LegacyTrustedHeaderRoles),
-		TrustedHeaderMechanism:                 envFirst(EnvTrustedHeaderMechanism, LegacyTrustedHeaderMechanism),
-		TrustedProxyCIDRs:                      splitCSV(envFirst(EnvTrustedProxyCIDRs, LegacyEnvTrustedProxyCIDRs)),
-		HTTPAllowedCIDRs:                       splitCSV(envFirst(EnvHTTPAllowedCIDRs)),
-		TLSCertFile:                            envFirst(EnvTLSCertFile),
-		TLSKeyFile:                             envFirst(EnvTLSKeyFile),
-		CTNumeroExpedienteSourcePath:           envFirst(EnvCTNumeroExpedienteSourcePath),
-		CTCircuitoRRHHSourcePath:               envFirst(EnvCTCircuitoRRHHSourcePath),
-		CTNecesidadesAltaSourcePath:            envFirst(EnvCTNecesidadesAltaSourcePath),
-		PersonalCatalogPath:                    envFirst(EnvPersonalCatalogPath),
-		PersonalOrganizacionSourcePath:         envFirst(EnvPersonalOrganizacionSourcePath),
-		RPTCatalogoPath:                        envFirst(EnvRPTCatalogoPath),
-		PersonalOrganizacionVersion:            envPositiveInt(EnvPersonalOrganizacionVersion),
-		PersonalOrganizacionPostgreSQL:         envBool(EnvPersonalOrganizacionPostgreSQL),
-		BolsaPublicSourcePath:                  envFirst(EnvBolsaPublicSourcePath),
-		BolsaCategoriesSourcePath:              envFirst(EnvBolsaCategoriesSourcePath),
-		BolsaCategoriesCatalogID:               envFirst(EnvBolsaCategoriesCatalogID),
-		BolsaCategoriesVersion:                 envPositiveInt(EnvBolsaCategoriesVersion),
-		BolsaCategoriesSHA256:                  envFirst(EnvBolsaCategoriesSHA256),
-		BolsaCategoriesPublicProjectionSHA256:  envFirst(EnvBolsaCategoriesPublicProjectionSHA256),
-		BolsaImportacionConvocaCustodiaDir:     envFirst(EnvBolsaImportacionConvocaCustodiaDir),
-		BolsaAprobacionProvisionMiBolsa:        envFirst(EnvBolsaProvisionMiBolsaAprobacion),
-		BolsaPreimagenProvisionMiBolsa:         envFirst(EnvBolsaProvisionMiBolsaPreimagen),
+		ExternoBolsaPostgreSQL:                       ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaDatabaseURL)},
+		ExternoMeritosCarteraPostgreSQL:              ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosCarteraDatabaseURL)},
+		ExternoMeritosFronteraPostgreSQL:             ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosFronteraDatabaseURL)},
+		ExternoMeritosRegistroAutorizacionPostgreSQL: ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosRegistroAutorizacionDatabaseURL)},
+		ExternoMeritosMotivosAutorizacionPostgreSQL:  ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosMotivosAutorizacionDatabaseURL)},
+		BolsaInscripcionesLectorPostgreSQL:           ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaInscripcionesLectorDatabaseURL)},
+		BolsaInscripcionesRRHHLectorPostgreSQL:       ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvBolsaInscripcionesRRHHLectorDatabaseURL)},
+		ExternoBolsaFronteraPostgreSQL:               ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaFronteraDatabaseURL)},
+		ExternoCalendariosPostgreSQL:                 ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoCalendariosDatabaseURL)},
+		ExternoAutorizacionFuentePostgreSQL:          ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoAutorizacionFuenteDatabaseURL)},
+		ExternoAutorizacionRegistroPostgreSQL:        ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoAutorizacionRegistroDatabaseURL)},
+		ExternoAutorizacionMotivosPostgreSQL:         ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoAutorizacionMotivosDatabaseURL)},
+		ExternoIdentidadRegistroPostgreSQL:           ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoIdentidadRegistroDatabaseURL)},
+		ExternoIdentidadRevalidacionPostgreSQL:       ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoIdentidadRevalidacionDatabaseURL)},
+		ExternoContextoPostgreSQL:                    ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoContextoDatabaseURL)},
+		ReglasEjemplo:                                cargarConfiguracionReglasEjemplo(),
+		FakeCredentialsPath:                          envFirst(EnvFakeCredentialsPath),
+		TrustedHeaderSubject:                         envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),
+		TrustedHeaderRoles:                           envFirst(EnvTrustedHeaderRoles, LegacyTrustedHeaderRoles),
+		TrustedHeaderMechanism:                       envFirst(EnvTrustedHeaderMechanism, LegacyTrustedHeaderMechanism),
+		TrustedProxyCIDRs:                            splitCSV(envFirst(EnvTrustedProxyCIDRs, LegacyEnvTrustedProxyCIDRs)),
+		HTTPAllowedCIDRs:                             splitCSV(envFirst(EnvHTTPAllowedCIDRs)),
+		TLSCertFile:                                  envFirst(EnvTLSCertFile),
+		TLSKeyFile:                                   envFirst(EnvTLSKeyFile),
+		CTNumeroExpedienteSourcePath:                 envFirst(EnvCTNumeroExpedienteSourcePath),
+		CTCircuitoRRHHSourcePath:                     envFirst(EnvCTCircuitoRRHHSourcePath),
+		CTNecesidadesAltaSourcePath:                  envFirst(EnvCTNecesidadesAltaSourcePath),
+		PersonalCatalogPath:                          envFirst(EnvPersonalCatalogPath),
+		PersonalOrganizacionSourcePath:               envFirst(EnvPersonalOrganizacionSourcePath),
+		RPTCatalogoPath:                              envFirst(EnvRPTCatalogoPath),
+		PersonalOrganizacionVersion:                  envPositiveInt(EnvPersonalOrganizacionVersion),
+		PersonalOrganizacionPostgreSQL:               envBool(EnvPersonalOrganizacionPostgreSQL),
+		BolsaPublicSourcePath:                        envFirst(EnvBolsaPublicSourcePath),
+		BolsaCategoriesSourcePath:                    envFirst(EnvBolsaCategoriesSourcePath),
+		BolsaCategoriesCatalogID:                     envFirst(EnvBolsaCategoriesCatalogID),
+		BolsaCategoriesVersion:                       envPositiveInt(EnvBolsaCategoriesVersion),
+		BolsaCategoriesSHA256:                        envFirst(EnvBolsaCategoriesSHA256),
+		BolsaCategoriesPublicProjectionSHA256:        envFirst(EnvBolsaCategoriesPublicProjectionSHA256),
+		BolsaImportacionConvocaCustodiaDir:           envFirst(EnvBolsaImportacionConvocaCustodiaDir),
+		BolsaAprobacionProvisionMiBolsa:              envFirst(EnvBolsaProvisionMiBolsaAprobacion),
+		BolsaPreimagenProvisionMiBolsa:               envFirst(EnvBolsaProvisionMiBolsaPreimagen),
 		BolsaPublicaPostgreSQL: ConfiguracionPostgreSQLPublica{
 			dsn: envFirst(EnvBolsaPublicaDatabaseURL),
 		},
@@ -511,6 +515,8 @@ func (c Config) Normalize() Config {
 	c.ExternoBolsaPostgreSQL = c.ExternoBolsaPostgreSQL.normalizar()
 	c.ExternoMeritosCarteraPostgreSQL = c.ExternoMeritosCarteraPostgreSQL.normalizar()
 	c.ExternoMeritosFronteraPostgreSQL = c.ExternoMeritosFronteraPostgreSQL.normalizar()
+	c.ExternoMeritosRegistroAutorizacionPostgreSQL = c.ExternoMeritosRegistroAutorizacionPostgreSQL.normalizar()
+	c.ExternoMeritosMotivosAutorizacionPostgreSQL = c.ExternoMeritosMotivosAutorizacionPostgreSQL.normalizar()
 	c.BolsaInscripcionesLectorPostgreSQL = c.BolsaInscripcionesLectorPostgreSQL.normalizar()
 	c.BolsaInscripcionesRRHHLectorPostgreSQL = c.BolsaInscripcionesRRHHLectorPostgreSQL.normalizar()
 	c.ExternoBolsaFronteraPostgreSQL = c.ExternoBolsaFronteraPostgreSQL.normalizar()
