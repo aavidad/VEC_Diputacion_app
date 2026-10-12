@@ -44,9 +44,12 @@ type AudienciaCapacidadAdmin struct {
 // Tramos y emisor de las dos claves B1 (versión de rol de Bolsa) del
 // conjunto 5. Las dos audiencias comparten emisor, como las de usuarios.
 const (
-	SegmentoVersionBolsaPropuesta = "perfiles:version-bolsa:propuesta"
-	SegmentoVersionBolsaCierre    = "perfiles:version-bolsa:cierre"
-	EmisorVersionBolsaAdmin       = "emisor:admin:perfiles:version-bolsa:desarrollo:v1"
+	SegmentoVersionBolsaPropuesta        = "perfiles:version-bolsa:propuesta"
+	SegmentoVersionBolsaCierre           = "perfiles:version-bolsa:cierre"
+	EmisorVersionBolsaAdmin              = "emisor:admin:perfiles:version-bolsa:desarrollo:v1"
+	SegmentoVersionBolsaExternaPropuesta = "perfiles:version-bolsa-externa:propuesta"
+	SegmentoVersionBolsaExternaCierre    = "perfiles:version-bolsa-externa:cierre"
+	EmisorVersionBolsaExternaAdmin       = "emisor:admin:perfiles:version-bolsa-externa:desarrollo:v1"
 )
 
 // AudienciasConjuntoCapacidadesAdmin devuelve las audiencias, en orden, de un
@@ -80,6 +83,12 @@ func AudienciasConjuntoCapacidadesAdmin(version uint64) ([]AudienciaCapacidadAdm
 		return append(usuarios, lote, plan, cargos, certificados,
 			AudienciaCapacidadAdmin{gobiernoperfiles.AudienciaVersionarRolBolsaProponer, SegmentoVersionBolsaPropuesta, EmisorVersionBolsaAdmin},
 			AudienciaCapacidadAdmin{gobiernoperfiles.AudienciaVersionarRolBolsaAprobar, SegmentoVersionBolsaCierre, EmisorVersionBolsaAdmin}), true
+	case 6:
+		return append(usuarios, lote, plan, cargos, certificados,
+			AudienciaCapacidadAdmin{gobiernoperfiles.AudienciaVersionarRolBolsaProponer, SegmentoVersionBolsaPropuesta, EmisorVersionBolsaAdmin},
+			AudienciaCapacidadAdmin{gobiernoperfiles.AudienciaVersionarRolBolsaAprobar, SegmentoVersionBolsaCierre, EmisorVersionBolsaAdmin},
+			AudienciaCapacidadAdmin{gobiernoperfiles.AudienciaVersionarRolBolsaExternaProponer, SegmentoVersionBolsaExternaPropuesta, EmisorVersionBolsaExternaAdmin},
+			AudienciaCapacidadAdmin{gobiernoperfiles.AudienciaVersionarRolBolsaExternaAprobar, SegmentoVersionBolsaExternaCierre, EmisorVersionBolsaExternaAdmin}), true
 	}
 	return nil, false
 }
