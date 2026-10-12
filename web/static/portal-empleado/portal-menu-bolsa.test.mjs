@@ -380,7 +380,7 @@ test("Elaboración solo se ofrece a RRHH cuando su API consta disponible", async
   for (const borradores of [null, false]) {
     aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores, contratacionTemporal: true });
     assert.equal(elaboracion().hidden, true, String(borradores));
-    assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos"]);
+    assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos"]);
   }
 });
 
@@ -391,7 +391,7 @@ test("el panel antiguo no anuncia recorridos sin API compuesta", async () => {
   const grupoBolsas = raiz.querySelectorAll(".grupo-menu-bolsa")[0];
   assert.equal(grupoBolsas.hidden, false);
   assert.deepEqual(grupoBolsas.querySelectorAll(".submenu-bolsa [data-vista]").filter((control) => !control.hidden)
-    .map((control) => control.getAttribute("data-vista")), ["elaboracion"]);
+    .map((control) => control.getAttribute("data-vista")), ["elaboracion", "convocatorias"]);
   const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: true, borradores: true, contratacionTemporal: true });
   assert.equal(indicadores.length, 5);
   assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos"]);
@@ -400,11 +400,11 @@ test("el panel antiguo no anuncia recorridos sin API compuesta", async () => {
 test("la navegación directa a una vista de Bolsa sin servicio no se permite", async () => {
   const { vistaBolsaNavegable, vistaBolsaOfrecida } = await import("./portal-menu-bolsa.js");
   const sinServicio = { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false };
-  for (const vista of ["convocatorias", "meritos", "alegaciones", "importacion", "contratos",
+  for (const vista of ["meritos", "alegaciones", "importacion", "contratos",
     "reglas", "baremacion", "consulta", "documentos", "comunicaciones", "auditoria", "configuracion", "elaboracion"]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), false, vista);
   }
-  for (const vista of ["resumen", "estadisticas", "llamamientos", "solicitudes", VISTA_CANDIDATOS_BOLSA]) {
+  for (const vista of ["resumen", "estadisticas", "llamamientos", "solicitudes", "convocatorias", VISTA_CANDIDATOS_BOLSA]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), true, vista);
   }
   // Inscripciones: con el servicio apagado (o sin comprobar) no aparece en el
@@ -450,7 +450,7 @@ test("las rutas pendientes conservan su vista al navegar y al pintar tras F5 sin
   const inicio = codigoPortal.indexOf("function vistaPermitida(");
   const fin = codigoPortal.indexOf("\n}\n", inicio);
   const decidir = new Function("vistaBolsaPendienteNoCompuesta", `${codigoPortal.slice(inicio, fin + 3)}; return vistaPermitida;`)(vistaBolsaPendienteNoCompuesta);
-  for (const vista of ["contratos", "documentos", "comunicaciones", "convocatorias"]) {
+  for (const vista of ["contratos", "documentos", "comunicaciones"]) {
     assert.equal(decidir(vista), true);
     assert.equal(vistaBolsaOfrecida(vista, { bolsasConsultables: true, panelInterno: true }), false);
   }
