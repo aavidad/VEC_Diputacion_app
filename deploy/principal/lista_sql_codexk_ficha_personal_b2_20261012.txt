@@ -1,0 +1,26 @@
+# Ficha Personal B2: orden causal de SQL sobre la copia principal.
+# CT168 y CT203 son precondiciones: instaladas ya en el clon K; no reaplicarlas
+# en un destino que conserve esa historia. Dirección verifica estado y SHA256
+# antes de instalar únicamente las migraciones pendientes.
+# CT168 SHA256 68fd471d8b810205de7edf5566560550de6888874199dabb461db0d76dfc9db2
+# CT203 SHA256 3aeb050815f2219e8c14f1ffa33a3ab3959d13815d5555aa438377c3faa8331b
+# CT204 SHA256 fa1b0afc7ab1a82fc57752c238810848c013a97a35480a13aa134f4c09fcc275
+# CONFIG NUEVA: personal_b2.operaciones.personal_empleados en el archivo privado
+# VEC_CT_INCORPORACION_V2_FILE. Acción personal.registro_empleado.empleados.consultar,
+# audiencia vec_personal.registro_empleado.empleados.v1; usar el motivo publicado
+# de personal_ficha y preparar el material con vec-preparar-material-interno
+# -incorporacion-config (27 operaciones, 19 audiencias). No copiar claves del clon.
+# Añadir con el paquete existente origen_consumos_ad172 la terna incorporacionb:
+# LOGIN vec_ct_personal_b2_consultas, grupo vec_personal_ejecutor, proceso vec-server,
+# canal interna_corporativa, perfil registro_empleado_b2. Ahora son 27 ternas.
+# VEC_ORIGEN_MOTOR=<motor local>; VEC_ORIGEN_PG_CONTENEDOR=<contenedor del destino>;
+# VEC_ORIGEN_BLOQUES=incorporacionb; ejecutar.sh --ensayo y después --aplicar
+# con VEC_ORIGEN_AD172_APLICAR=SI-REVISADO, siempre por Dirección.
+# El perfil de lista es propio y sólo se crea con esa operación configurada;
+# no cambia el perfil del plan ni exige otro selector a RRHH. Con material
+# anterior, ficha/vacantes montan y lista queda sin ruta; configurar para la web.
+# Conservar la provisión del catálogo descrita por #1036/CT203; retirar variables
+# del único arranque. B2 ya habilitado y LOGIN existentes, ningún servicio nuevo.
+deploy/postgresql/contratacion_temporal/migraciones/000168_auditoria_frontera_preparacion.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000203_auditoria_catalogos_personal_b2.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000204_auditoria_ficha_personal_b2.up.sql
