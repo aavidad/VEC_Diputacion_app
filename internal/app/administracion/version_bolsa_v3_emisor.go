@@ -93,7 +93,13 @@ func (e *EmisorVersionarRolBolsaV3) EmitirVersionarRolBolsa(ctx context.Context,
 	}
 	recurso, err := gobierno.RecursoVersionarRolBolsa(efecto, snapshot.AsignacionPerfil)
 	if err != nil {
-		return vacia, ports.ConClaseVersionBolsa("v3_recurso", domain.ErrActoAdministracionPerfilesInvalido)
+		// AUT75 conserva las acciones y audiencias ADMIN, pero firma un plan
+		// de cuatro concesiones con otro canon. Cada parser exige su esquema
+		// exacto y coteja el material antes de derivar el recurso autorizable.
+		recurso, err = gobierno.RecursoVersionarRolBolsaB103(efecto, snapshot.AsignacionPerfil)
+		if err != nil {
+			return vacia, ports.ConClaseVersionBolsa("v3_recurso", domain.ErrActoAdministracionPerfilesInvalido)
+		}
 	}
 	vinculo, err := evidencia.Vinculo.Datos()
 	if err != nil {
