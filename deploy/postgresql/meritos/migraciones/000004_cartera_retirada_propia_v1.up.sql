@@ -186,6 +186,7 @@ BEGIN
   p_contexto_canonico,p_vinculo_canonico,p_orden);
  IF a.auditoria_ref IS NULL OR a.correlacion_ref IS DISTINCT FROM p_orden->>'correlacion_ref'
  OR a.secuencia IS NULL OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
+ OR a.registrada_en IS NULL
  THEN RAISE EXCEPTION 'M4: auditoría divergente' USING ERRCODE='42501'; END IF;
  motivos_catalogo:=vec_autorizacion.listar_motivos_meritos_cartera_actual_v1(p_orden->>'idioma');
  IF motivos_catalogo->>'idioma' IS DISTINCT FROM p_orden->>'idioma'
@@ -220,7 +221,7 @@ BEGIN
    ORDER BY p.hecho_ref COLLATE "C"),'[]'::jsonb) FROM (SELECT * FROM pagina ORDER BY hecho_ref COLLATE "C" LIMIT limite) p),
   (SELECT CASE WHEN count(*)>limite THEN (SELECT hecho_ref FROM pagina ORDER BY hecho_ref COLLATE "C" OFFSET limite-1 LIMIT 1) ELSE NULL END FROM pagina)
  INTO total,datos,siguiente;
- ahora:=clock_timestamp();recibo:='cartera:'||gen_random_uuid()::text;
+ ahora:=a.registrada_en;recibo:='cartera:'||gen_random_uuid()::text;
  INSERT INTO vec_meritos.cartera_acceso_v1 VALUES(recibo,persona,a.auditoria_ref,a.correlacion_ref,filtro,corte,total,ahora);
  RETURN jsonb_build_object('hechos',datos,'total',total,'cursor_siguiente_hecho_ref',coalesce(siguiente,''),
   'motivos_retirada',motivos_catalogo->'motivos',
