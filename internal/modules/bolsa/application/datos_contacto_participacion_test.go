@@ -149,8 +149,8 @@ func TestServicioContactoRegistraCifradoYConsultaDescifrado(t *testing.T) {
 	if repo.ultimo.Actor != "per_0123456789abcdefghijkl" || repo.ultimo.RegistradaEn != ahora || repo.ultimo.Material.ValidarEstructura() != nil {
 		t.Fatalf("comando: %+v", repo.ultimo)
 	}
-	leidos, err := servicio.Consultar(context.Background(), puertosbolsa.SolicitudConsultarDatosContactoParticipacion{ContextoActor: dominiovec.ContextoActor{PersonaRef: "per_0123456789abcdefghijkl"}, BolsaRef: "bolsa:b4", ParticipacionRef: "participacion:b4"})
-	if err != nil || leidos.Version != 1 || leidos.Datos.Correo != "" || leidos.Datos.Telefono1 != "" || leidos.Enmascarados.Telefono1 != "***3456" || leidos.AuditoriaRef != "" || repo.consultas != 0 || autorizador.llamadas != 1 {
+	leidos, err := servicio.Consultar(context.Background(), consultaOrigenDatosContactoPrueba(t, ahora))
+	if err != nil || leidos.Version != 1 || leidos.Datos.Correo != "" || leidos.Datos.Telefono1 != "" || leidos.Enmascarados.Telefono1 != "***3456" || leidos.AuditoriaRef == "" || repo.consultas != 0 || autorizador.llamadas != 1 {
 		t.Fatalf("la lectura enmascarada no puede llevar el claro ni consumir: lectura=%+v err=%v", leidos, err)
 	}
 	completa := consultaCompletaDatosContactoPrueba(t, ahora)
@@ -260,5 +260,65 @@ func TestServicioContactoDeniegaSinAmbitoOParticipacionAjenaAntesDeCifrar(t *tes
 	invalidos.Correo, invalidos.Telefono1, invalidos.Telefono2 = "", "", ""
 	if _, err := servicio.Registrar(context.Background(), solicitudDatosContactoPrueba(t, ahora, "b4-alta-0009", invalidos)); !errors.Is(err, dominiobolsa.ErrDatosContactoParticipacionInvalidos) {
 		t.Fatalf("datos vacíos: %v", err)
+	}
+}
+
+func consultaOrigenDatosContactoPrueba(t *testing.T, ahora time.Time) puertosbolsa.SolicitudConsultarDatosContactoParticipacion {
+	q := consultaCompletaDatosContactoPrueba(t, ahora)
+	q.Completo = false
+	q.Captura = puertosvec.CapturaLecturaNominalBolsa{BolsaRef: q.BolsaRef, RecursoRef: q.ParticipacionRef, Orden: []byte(`{"accion":"bolsa.datos_contacto_participacion.origen.consultar"}`), ValidaHasta: ahora.Add(time.Minute)}
+	return q
+}
+
+func (r *repositorioDatosContactoPrueba) ConsultarOrigenDatosContactoActual(ctx context.Context, captura puertosvec.CapturaLecturaNominalBolsa, entregar func(puertosbolsa.LecturaDatosContactoAutorizada) error) (puertosbolsa.LecturaDatosContactoAutorizada, error) {
+	if r.errLectura != nil {
+		return puertosbolsa.LecturaDatosContactoAutorizada{}, r.errLectura
+	}
+	registro, err := r.DatosContactoVigentes(ctx, captura.RecursoRef)
+	if err != nil && !errors.Is(err, puertosbolsa.ErrDatosContactoParticipacionNoEncontrados) {
+		return puertosbolsa.LecturaDatosContactoAutorizada{}, err
+	}
+	sinContacto := errors.Is(err, puertosbolsa.ErrDatosContactoParticipacionNoEncontrados)
+	if sinContacto {
+		registro.ParticipacionRef = captura.RecursoRef
+	}
+	l := puertosbolsa.LecturaDatosContactoAutorizada{Registro: registro, SinContacto: sinContacto, AuditoriaRef: "aud_v3_lc_0123456789abcdef0123456789abcdef", ConsumidaEn: captura.ValidaHasta.Add(-time.Minute)}
+	if err := entregar(l); err != nil {
+		r.revertidas++
+		return puertosbolsa.LecturaDatosContactoAutorizada{}, err
+	}
+	r.confirmadas++
+	return l, nil
+}
+
+func TestConsultaOrigenDatosContactoNoDescifraSinPositivoYAuditaVacio(t *testing.T) {
+	ahora := time.Date(2026, 9, 22, 1, 0, 0, 0, time.UTC)
+	repo := &repositorioDatosContactoPrueba{}
+	cifrador := &cifradorDatosContactoPrueba{}
+	servicio, _ := servicioDatosContactoPrueba(t, ahora, repo, cifrador, contextoSituacionPrueba{}, true)
+	q := consultaOrigenDatosContactoPrueba(t, ahora)
+	for _, mutar := range []func(*puertosbolsa.SolicitudConsultarDatosContactoParticipacion){
+		func(q *puertosbolsa.SolicitudConsultarDatosContactoParticipacion) { q.Captura.Orden = nil },
+		func(q *puertosbolsa.SolicitudConsultarDatosContactoParticipacion) {
+			q.Captura.RecursoRef = "participacion:otra"
+		},
+		func(q *puertosbolsa.SolicitudConsultarDatosContactoParticipacion) { q.Captura.ValidaHasta = ahora },
+	} {
+		otra := q
+		mutar(&otra)
+		if _, err := servicio.Consultar(context.Background(), otra); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
+			t.Fatalf("lectura sin captura aceptada: %v", err)
+		}
+	}
+	if cifrador.descifrados != 0 || repo.confirmadas != 0 {
+		t.Fatal("se leyó antes del positivo")
+	}
+	leidos, err := servicio.Consultar(context.Background(), q)
+	if err != nil || !leidos.SinContacto || leidos.AuditoriaRef == "" || leidos.Version != 0 || repo.confirmadas != 1 || cifrador.descifrados != 0 {
+		t.Fatalf("vacío no auditado: %+v %v", leidos, err)
+	}
+	repo.errLectura = dominiovec.ErrAutorizacionDenegada
+	if _, err := servicio.Consultar(context.Background(), q); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || cifrador.descifrados != 0 {
+		t.Fatal("revocación no respetada")
 	}
 }
