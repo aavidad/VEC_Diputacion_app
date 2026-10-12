@@ -33,14 +33,18 @@ const acreditarVersionarRolBolsaB103SQL = `SELECT current_user=session_user AND 
    AND pg_catalog.has_schema_privilege(current_user,n.oid,'CREATE'))
  AND pg_catalog.to_regprocedure('vec_autorizacion.proponer_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.cerrar_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+ AND pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)') IS NOT NULL
  AND pg_catalog.has_function_privilege(current_user,
    pg_catalog.to_regprocedure('vec_autorizacion.proponer_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
  AND pg_catalog.has_function_privilege(current_user,
    pg_catalog.to_regprocedure('vec_autorizacion.cerrar_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
+ AND pg_catalog.has_function_privilege(current_user,
+   pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)'),'EXECUTE')
  AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
    WHERE n.nspname LIKE 'vec\_%' ESCAPE '\' AND pg_catalog.has_function_privilege(current_user,p.oid,'EXECUTE')
    AND p.oid NOT IN (pg_catalog.to_regprocedure('vec_autorizacion.proponer_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
-    pg_catalog.to_regprocedure('vec_autorizacion.cerrar_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')))
+    pg_catalog.to_regprocedure('vec_autorizacion.cerrar_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
+    pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)')))
  FROM pg_catalog.pg_roles r WHERE r.rolname=session_user`
 
 func NuevaAutoridadVersionarRolBolsaB103(ctx context.Context, pool *pgxpool.Pool,
