@@ -919,6 +919,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
       else if (entrada.name.endsWith(".js")) archivos.push(nombre);
     }
   }
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-menu-bolsa.js", "modulos/bolsa/documentos-api.js", "modulos/bolsa/documentos-vista.js"])
+    versionesEspeciales.set(ruta, "20261013-documentos-bolsa-v1");
   const versiones = new Map();
   const aristas = [];
   const codigo = new Map();

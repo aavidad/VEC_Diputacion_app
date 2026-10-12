@@ -218,11 +218,11 @@ export async function montarVistaDocumentosBolsa({ raiz, bolsas = [], cliente = 
     zona.append(region);
     const pie = nodo(doc, "nav", undefined, "paginacion-bolsa");
     pie.setAttribute("aria-label", t("paginacion"));
-    pie.append(boton(doc, t("total", { cuenta: textos.numero(resultado.paginacion.total) }), "primera"));
+    pie.append(boton(doc, t("total", { cuenta: resultado.paginacion.total }), "primera"));
     if (pagina > 0) pie.append(boton(doc, t("anterior"), "anterior"));
     if (resultado.paginacion.cursor_siguiente) pie.append(boton(doc, t("siguiente"), "siguiente"));
     zona.append(pie);
-    estado("mostrando", { cuenta: textos.numero(resultado.documentos.length) });
+    estado("mostrando", { cuenta: resultado.documentos.length });
   }
 
   async function cargarPagina() {
@@ -358,7 +358,7 @@ export async function montarVistaDocumentosBolsa({ raiz, bolsas = [], cliente = 
     } else if (accion === "cerrar_recibo") {
       recibo?.abort(); secuenciaRecibo++;
       contenedor.querySelector("[data-documentos-recibo]")?.remove();
-      estado("mostrando", { cuenta: textos.numero(resultado.documentos.length) });
+      estado("mostrando", { cuenta: resultado.documentos.length });
       if (botonOrigenRecibo?.isConnected) botonOrigenRecibo.focus({ preventScroll: true });
       botonOrigenRecibo = null;
     } else if (accion === "lista_recibo" && typeof abrirCandidatos === "function") {

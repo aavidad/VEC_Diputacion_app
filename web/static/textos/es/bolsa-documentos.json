@@ -29,10 +29,16 @@
     "ver_recibo": "Ver recibo",
     "ver_lista": "Ver lista de la bolsa",
     "paginacion": "Páginas de documentos",
-    "total": "{cuenta} documentos",
+    "total": {
+      "one": "{cuenta} documento",
+      "other": "{cuenta} documentos"
+    },
     "anterior": "Página anterior",
     "siguiente": "Página siguiente",
-    "mostrando": "Mostrando {cuenta} documentos",
+    "mostrando": {
+      "one": "Mostrando {cuenta} documento",
+      "other": "Mostrando {cuenta} documentos"
+    },
     "cargando_recibo": "Abriendo recibo…",
     "recibo_abierto": "Recibo disponible",
     "error_recibo": "No se ha podido abrir el recibo. Pulse Reintentar.",

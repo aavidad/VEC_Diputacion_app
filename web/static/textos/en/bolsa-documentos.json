@@ -29,10 +29,16 @@
     "ver_recibo": "View receipt",
     "ver_lista": "View pool list",
     "paginacion": "Document pages",
-    "total": "{cuenta} documents",
+    "total": {
+      "one": "{cuenta} document",
+      "other": "{cuenta} documents"
+    },
     "anterior": "Previous page",
     "siguiente": "Next page",
-    "mostrando": "Showing {cuenta} documents",
+    "mostrando": {
+      "one": "Showing {cuenta} document",
+      "other": "Showing {cuenta} documents"
+    },
     "cargando_recibo": "Opening receipt…",
     "recibo_abierto": "Receipt available",
     "error_recibo": "The receipt could not be opened. Select Try again.",
