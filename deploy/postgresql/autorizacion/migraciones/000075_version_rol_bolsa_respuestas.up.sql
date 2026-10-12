@@ -25,6 +25,7 @@ BEGIN
   'vec_autorizacion.solicitud_replay_version_rol_bolsa_v1(bytea,text)',
   'vec_autorizacion.resultado_propuesta_acceso_version_rol_bolsa_v1(jsonb,text)',
   'vec_autorizacion.registrar_fallo_version_rol_bolsa_v1(text,text,text)',
+  'vec_autorizacion.resolver_rol_administrable_v1(text)',
   'vec_autorizacion.resolver_catalogo_acciones_administracion_v2(text,integer,text)',
   'vec_autorizacion_atestada_v3.consumir_version_rol_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_autorizacion_atestada_v3.registrar_consumir_admin_perfiles_v3(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'] LOOP
@@ -677,7 +678,8 @@ REVOKE ALL ON FUNCTION vec_autorizacion.cerrar_version_rol_bolsa_v2(text,bytea,b
 
 GRANT USAGE ON SCHEMA vec_autorizacion TO vec_admin_version_rol_bolsa_b103_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.proponer_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea),
- vec_autorizacion.cerrar_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ vec_autorizacion.cerrar_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea),
+ vec_autorizacion.resolver_rol_administrable_v1(text)
  TO vec_admin_version_rol_bolsa_b103_ejecutor;
 RESET ROLE;
 COMMIT;
