@@ -156,7 +156,13 @@ func prepararAsignacionMiBolsaPortalExterno(semilla dominiovec.InstantaneaAutori
 // exterior: una sola membresía directa heredada, sin SET ni administración,
 // sin cadena de roles y sin atributos privilegiados. No registra el DSN.
 func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpool.Pool, string, error) {
-	if ctx == nil || ctx.Err() != nil || dsn == "" || rol == "" {
+	return abrirPoolNominalPortalExterno(ctx, dsn, rol, "vec-portal-externo-mi-bolsa")
+}
+
+// abrirPoolNominalPortalExterno comparte la guarda de TLS, membresía única y
+// telemetría; cada módulo conserva LOGIN, rol y nombre técnico propios.
+func abrirPoolNominalPortalExterno(ctx context.Context, dsn, rol, nombreAplicacion string) (*pgxpool.Pool, string, error) {
+	if ctx == nil || ctx.Err() != nil || dsn == "" || rol == "" || nombreAplicacion == "" {
 		return nil, "", errMiBolsaNoDisponible
 	}
 	cfg, err := pgxpool.ParseConfig(dsn)
@@ -171,7 +177,7 @@ func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpo
 		cfg.ConnConfig.RuntimeParams = map[string]string{}
 	}
 	for clave, valor := range map[string]string{
-		"application_name": "vec-portal-externo-mi-bolsa", "timezone": "UTC", "search_path": "pg_catalog",
+		"application_name": nombreAplicacion, "timezone": "UTC", "search_path": "pg_catalog",
 		"statement_timeout": "10s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "15s",
 	} {
 		cfg.ConnConfig.RuntimeParams[clave] = valor

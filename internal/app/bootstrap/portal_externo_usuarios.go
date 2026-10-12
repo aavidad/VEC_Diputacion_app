@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -53,6 +54,15 @@ func nuevasPreferenciasPortalExterno(ctx context.Context, cfg config.Config, ide
 		core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consulta, actualizacion, nil, nil, nil)
 	if err != nil {
 		return nil, ErrUsuariosPortalExternoNoDisponible
+	}
+	// Cartera es una capacidad independiente. Una configuración ausente o una
+	// precondición incompleta deja sus rutas en 503 sin desmontar Preferencias.
+	cerrarCartera, falloCartera := montarCarteraPortalExterno(ctx, cfg, autoridad, preflight)
+	if falloCartera != nil {
+		slog.Warn("cartera_meritos_portal_externo_no_disponible", "causa", falloCartera.Error())
+	} else {
+		cerrarPreferencias := autoridad.cerrar
+		autoridad.cerrar = func() { cerrarCartera(); cerrarPreferencias() }
 	}
 	return autoridad, nil
 }
