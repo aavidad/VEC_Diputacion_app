@@ -2,6 +2,7 @@ package auditoria
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -119,7 +120,14 @@ func TestOpcionesAuditoriaDistinguenDenegacionDeIndisponibilidad(t *testing.T) {
 				t.Fatalf("resultado=%v, esperado=%v, error=%v", datos.Datos.Resultado, caso.resultado, err)
 			}
 			w = httptest.NewRecorder()
-			peticion := httptest.NewRequest(http.MethodPost, RutaConsulta, strings.NewReader(`{"fuente":"ct","operacion":"invalida"}`))
+			cuerpo, err := json.Marshal(map[string]any{"fuente": "ct", "operacion": "invalida",
+				"expediente_ref": p.Filtro.ExpedienteRef, "desde": p.Filtro.Desde.Format(time.RFC3339Nano),
+				"hasta": p.Filtro.Hasta.Format(time.RFC3339Nano), "finalidad_ref": p.Filtro.FinalidadRef,
+				"motivo_ref": p.Filtro.MotivoRef, "motivo_consulta": "Revisión administrativa"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			peticion := httptest.NewRequest(http.MethodPost, RutaConsulta, strings.NewReader(string(cuerpo)))
 			peticion.Header.Set("Content-Type", "application/json")
 			h.ServeHTTP(w, peticion)
 			if w.Code != http.StatusBadRequest || len(r.ordenes) != 2 || w.Header().Get("X-Audit-Ref") == "" {
