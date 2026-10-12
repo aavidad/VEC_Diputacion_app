@@ -23,6 +23,7 @@ BEGIN
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_lectura_preferencias_bolsas_v1(bytea,bytea,jsonb)') IS NULL
     OR to_regrole('vec_bolsa_llamamientos_portal_externo') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.preferencia_bolsas_version') IS NOT NULL
+    OR to_regclass('vec_bolsa_llamamientos.preferencia_bolsas_outbox') IS NOT NULL
  THEN RAISE EXCEPTION 'B104: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -187,9 +188,42 @@ CREATE POLICY preferencia_bolsas_version_propietario ON vec_bolsa_llamamientos.p
  USING (current_user='vec_bolsa_llamamientos_propietario')
  WITH CHECK (current_user='vec_bolsa_llamamientos_propietario');
 REVOKE ALL ON vec_bolsa_llamamientos.preferencia_bolsas_version FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.preferencia_bolsas_version FROM PUBLIC;
 CREATE TRIGGER preferencia_bolsas_version_inmutable
  BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.preferencia_bolsas_version
  FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+
+-- La versión y su evento se insertan en la misma transacción que el consumo
+-- autorizado y la auditoría. El replay devuelve el recibo sin otro evento.
+CREATE TABLE vec_bolsa_llamamientos.preferencia_bolsas_outbox (
+ evento_ref text PRIMARY KEY CHECK(evento_ref ~ '^evento:preferencias-bolsas:[0-9a-f]{64}$'),
+ candidato_ref text NOT NULL,
+ version bigint NOT NULL,
+ recibo_ref text NOT NULL UNIQUE,
+ decision_ref text NOT NULL,
+ auditoria_ref text NOT NULL,
+ esquema text NOT NULL CHECK(esquema='vec.bolsa.preferencias.ordenadas.v1'),
+ evento jsonb NOT NULL CHECK(jsonb_typeof(evento)='object'),
+ creada_en timestamptz(6) NOT NULL,
+ UNIQUE(candidato_ref,version),
+ FOREIGN KEY(candidato_ref,version)
+  REFERENCES vec_bolsa_llamamientos.preferencia_bolsas_version(candidato_ref,version),
+ FOREIGN KEY(recibo_ref) REFERENCES vec_bolsa_llamamientos.preferencia_bolsas_version(recibo_ref)
+);
+ALTER TABLE vec_bolsa_llamamientos.preferencia_bolsas_outbox ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.preferencia_bolsas_outbox FORCE ROW LEVEL SECURITY;
+CREATE POLICY preferencia_bolsas_outbox_propietario ON vec_bolsa_llamamientos.preferencia_bolsas_outbox
+ TO vec_bolsa_llamamientos_propietario
+ USING (current_user='vec_bolsa_llamamientos_propietario')
+ WITH CHECK (current_user='vec_bolsa_llamamientos_propietario');
+REVOKE ALL ON vec_bolsa_llamamientos.preferencia_bolsas_outbox FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.preferencia_bolsas_outbox FROM PUBLIC;
+CREATE TRIGGER preferencia_bolsas_outbox_inmutable
+ BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.preferencia_bolsas_outbox
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+CREATE TRIGGER preferencia_bolsas_outbox_no_truncar
+ BEFORE TRUNCATE ON vec_bolsa_llamamientos.preferencia_bolsas_outbox
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
 
 -- Un candidato puede conservar participaciones históricas de una bolsa.
 -- Solo se ordena la constitución más reciente aún vigente o suspendida, en
@@ -405,7 +439,7 @@ BEGIN
  IF v_version<>p_version_esperada THEN
   RAISE EXCEPTION 'B104: versión de preferencias desactualizada' USING ERRCODE='VBP01';
  END IF;
- v_actuales:=vec_bolsa_llamamientos.preferencias_bolsas_actuales_interna_v1(p_candidato_ref,p_registrada_en);
+ v_actuales:=vec_bolsa_llamamientos.preferencias_bolsas_actuales_interna_v1(p_candidato_ref,v_ahora);
  IF cardinality(v_actuales)<>cardinality(p_orden) THEN
   RAISE EXCEPTION 'B104: conjunto de bolsas cambiado' USING ERRCODE='VBP03'; END IF;
  SELECT array_agg(u.ref ORDER BY u.ref) INTO v_ordenado FROM unnest(p_orden) AS u(ref);
@@ -418,12 +452,20 @@ BEGIN
   candidato_ref,version,orden,conjunto_huella_sha256,clave_idempotencia,
   solicitud_huella_sha256,recibo_ref,decision_ref,auditoria_ref,registrada_en)
  VALUES(p_candidato_ref,v_version+1,p_orden,v_conjunto,p_clave,v_huella,v_recibo,
-  v_consumo.decision_ref,v_consumo.auditoria_ref,p_registrada_en);
- RETURN QUERY SELECT false,v_recibo,v_version+1,p_orden,p_registrada_en;
+  v_consumo.decision_ref,v_consumo.auditoria_ref,v_ahora);
+ INSERT INTO vec_bolsa_llamamientos.preferencia_bolsas_outbox(
+  evento_ref,candidato_ref,version,recibo_ref,decision_ref,auditoria_ref,esquema,evento,creada_en)
+ VALUES('evento:preferencias-bolsas:'||substr(v_recibo,length('recibo:preferencias-bolsas:')+1),
+  p_candidato_ref,v_version+1,v_recibo,v_consumo.decision_ref,v_consumo.auditoria_ref,
+  'vec.bolsa.preferencias.ordenadas.v1',
+  jsonb_build_object('candidato_ref',p_candidato_ref,'version',v_version+1,
+   'orden',p_orden,'conjunto_huella_sha256',v_conjunto,'recibo_ref',v_recibo,
+   'decision_ref',v_consumo.decision_ref,'auditoria_ref',v_consumo.auditoria_ref),v_ahora);
+ RETURN QUERY SELECT false,v_recibo,v_version+1,p_orden,v_ahora;
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(
  text,text[],bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(
  text,text[],bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
- TO vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_portal_externo;
+ TO vec_bolsa_llamamientos_portal_externo;
 COMMIT;

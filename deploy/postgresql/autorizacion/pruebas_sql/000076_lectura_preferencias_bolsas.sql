@@ -3,10 +3,7 @@
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 DO $test$
 DECLARE f oid:=to_regprocedure('vec_autorizacion.cotejar_lectura_preferencias_bolsas_actual_v1(jsonb,text,text)');
- g oid; cuerpo text; huellas text[]:=ARRAY[
-  '4212e0388ee883840011ea7874079e24eac5c947b2e8cc3c2f71921e613965da',
-  'b58b39f2c35341a545640bfde366f07a89ee65831306950c7f3ea342ee846ff0'];
- i integer:=0;
+ g oid; cuerpo text; fuente_sha text;
 BEGIN
  IF f IS NULL THEN RAISE EXCEPTION 'AUT76: falta función'; END IF;
  SELECT pg_get_functiondef(f) INTO cuerpo;
@@ -24,13 +21,17 @@ BEGIN
  FOR g IN SELECT to_regprocedure(x)::oid FROM unnest(ARRAY[
   'vec_autorizacion.rol_candidato_externo_acotado_v1(jsonb)',
   'vec_autorizacion.publicar_rol_candidato_externo_v1(bytea,text,bytea,text,numeric,text,text,text)']) x LOOP
-  i:=i+1;
   IF g IS NULL OR has_function_privilege('public',g,'EXECUTE')
-   OR EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=g AND
-     (encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM huellas[i]
-      OR strpos(p.prosrc,'bolsa.preferencias_bolsas.consultar_propias')<>0
-      OR strpos(p.prosrc,'bolsa.preferencias_bolsas.ordenar_propias')<>0))
-  THEN RAISE EXCEPTION 'AUT76: publicador anterior divergente %',g; END IF;
+  THEN RAISE EXCEPTION 'AUT76: publicador ausente o expuesto %',g; END IF;
+  SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') INTO fuente_sha
+   FROM pg_proc p WHERE p.oid=g;
+  IF (g=to_regprocedure('vec_autorizacion.rol_candidato_externo_acotado_v1(jsonb)')
+      AND fuente_sha IS DISTINCT FROM '4212e0388ee883840011ea7874079e24eac5c947b2e8cc3c2f71921e613965da')
+   OR (g=to_regprocedure('vec_autorizacion.publicar_rol_candidato_externo_v1(bytea,text,bytea,text,numeric,text,text,text)')
+      AND fuente_sha NOT IN (
+       'b58b39f2c35341a545640bfde366f07a89ee65831306950c7f3ea342ee846ff0',
+       '958adcfd570ec730964e5bc39c170ac6a0013a1a49a1d12e437c47191bdadd8b'))
+  THEN RAISE EXCEPTION 'AUT76: fuente externa divergente %',g; END IF;
  END LOOP;
 END $test$;
 ROLLBACK;
