@@ -32,10 +32,10 @@ const TEXTOS_VINCULO_CT = (await cargarTextos("portal-bolsa")).seccion("vinculo_
 
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
-const RUTA_PANTALLA_CARGA_CONVOCA = `/portal-empleado/modulos/bolsa/carga-convoca/?lang=${encodeURIComponent(IDIOMA_ACTUAL)}`;
+import { RUTA_PANTALLA_CARGA_CONVOCA } from "./portal-menu-bolsa.js?v=20261013-documentos-bolsa-v2";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
 import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261011-ct-bolsa-vinculo-v1";
-import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261011-ct-bolsa-vinculo-v1";
+import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261013-bolsa-menu-n3";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
