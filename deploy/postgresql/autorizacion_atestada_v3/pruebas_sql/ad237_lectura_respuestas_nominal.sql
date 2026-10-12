@@ -12,6 +12,9 @@ BEGIN
  OR has_function_privilege('vec_bolsa_llamamientos_propietario',f,'EXECUTE') IS NOT TRUE
  OR has_function_privilege('vec_bolsa_llamamientos_ejecutor',f,'EXECUTE') IS TRUE
  OR has_function_privilege('public',f,'EXECUTE') IS TRUE
+ OR has_function_privilege('public',
+  'vec_autorizacion.cotejar_lectura_respuestas_llamamiento_actual_v1(jsonb,text,text)',
+  'EXECUTE') IS TRUE
  OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f
   AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on',
@@ -41,3 +44,41 @@ BEGIN
  IF despues<>antes THEN RAISE EXCEPTION 'AD237: lectura denegada alteró auditoría'; END IF;
 END $prueba$;
 ROLLBACK;
+
+-- Cuando ADMIN haya dado de alta un RRHH real, pasar una orden nominal vigente
+-- y dos referencias de bolsa distintas mediante -v. Este bloque sólo coteja
+-- permisos; B103/Go verifican el vínculo de cada bolsa con su llamamiento.
+\if :{?ad237_orden_json}
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL search_path=pg_catalog,pg_temp;
+SET LOCAL timezone='UTC';
+CREATE TEMP TABLE ad237_material_nominal ON COMMIT DROP AS
+ SELECT :'ad237_orden_json'::jsonb orden,
+        :'ad237_actor_ref'::text actor_ref,
+        :'ad237_perfil_ref'::text perfil_ref,
+        :'ad237_segunda_bolsa_ref'::text segunda_bolsa_ref;
+DO $nominal$
+DECLARE m record;o jsonb;
+BEGIN
+ SELECT * INTO STRICT m FROM ad237_material_nominal;
+ o:=m.orden;
+ IF o->>'bolsa_ref' IS NOT DISTINCT FROM m.segunda_bolsa_ref
+ OR vec_autorizacion.cotejar_lectura_respuestas_llamamiento_actual_v1(
+  o,m.actor_ref,m.perfil_ref) IS NOT TRUE
+ OR vec_autorizacion.cotejar_lectura_respuestas_llamamiento_actual_v1(
+  o||jsonb_build_object('bolsa_ref',m.segunda_bolsa_ref),m.actor_ref,m.perfil_ref) IS NOT TRUE
+ THEN RAISE EXCEPTION 'AD237: dos bolsas del mismo RRHH no admitidas'; END IF;
+ IF vec_autorizacion.cotejar_lectura_respuestas_llamamiento_actual_v1(
+  o||jsonb_build_object('unidad_ref','unidad:ajena-ad237'),m.actor_ref,m.perfil_ref) IS NOT FALSE
+ OR vec_autorizacion.cotejar_lectura_respuestas_llamamiento_actual_v1(
+  o||jsonb_build_object('ambito_ref','ambito:ajeno-ad237'),m.actor_ref,m.perfil_ref) IS NOT FALSE
+ OR vec_autorizacion.cotejar_lectura_respuestas_llamamiento_actual_v1(
+  o,m.actor_ref||':ajeno',m.perfil_ref) IS NOT FALSE
+ OR vec_autorizacion.cotejar_lectura_respuestas_llamamiento_actual_v1(
+  o||jsonb_build_object('version_rol_ref','rol:ajeno-ad237'),m.actor_ref,m.perfil_ref) IS NOT FALSE
+ OR vec_autorizacion.cotejar_lectura_respuestas_llamamiento_actual_v1(
+  o-'bolsa_ref',m.actor_ref,m.perfil_ref) IS NOT FALSE
+ THEN RAISE EXCEPTION 'AD237: alteración nominal admitida'; END IF;
+END $nominal$;
+ROLLBACK;
+\endif

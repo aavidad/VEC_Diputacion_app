@@ -41,7 +41,12 @@ BEGIN
  OR p_orden->>'finalidad_ref' IS DISTINCT FROM 'seguimiento_contacto_rrhh'
  OR p_orden->>'canal' IS DISTINCT FROM 'interna_corporativa'
  OR p_orden->>'recurso_ref' !~ '^llamamiento:[0-9a-f]{64}$'
- OR p_orden->>'bolsa_ref' IS NULL OR p_orden->>'bolsa_ref' LIKE '%*%'
+ OR jsonb_typeof(p_orden->'unidad_ref') IS DISTINCT FROM 'string'
+ OR jsonb_typeof(p_orden->'ambito_ref') IS DISTINCT FROM 'string'
+ OR jsonb_typeof(p_orden->'bolsa_ref') IS DISTINCT FROM 'string'
+ OR vec_autorizacion.texto_positivo_valido(p_orden->>'unidad_ref',512) IS NOT TRUE
+ OR vec_autorizacion.texto_positivo_valido(p_orden->>'ambito_ref',512) IS NOT TRUE
+ OR vec_autorizacion.texto_positivo_valido(p_orden->>'bolsa_ref',512) IS NOT TRUE
  OR p_orden->'campos_permitidos' IS DISTINCT FROM
     '["llamamiento_ref","respuestas[].participacion_ref","respuestas[].respuesta"]'::jsonb
  OR jsonb_typeof(p_orden->'politicas_evaluadas') IS DISTINCT FROM 'array'
@@ -91,9 +96,14 @@ BEGIN
   AND catalogo.revision IS NOT DISTINCT FROM (p_orden->>'revision_catalogo_politicas')::numeric
   AND catalogo.huella_sha256 IS NOT DISTINCT FROM p_orden->>'catalogo_politicas_huella_sha256'
   AND politicas IS NOT DISTINCT FROM p_orden->'politicas_evaluadas'
-  AND EXISTS(SELECT 1 FROM jsonb_array_elements(a.documento->'ambitos') ambito
-   WHERE ambito->>'clave'='bolsa_ref'
-    AND ambito->'valores' @> jsonb_build_array(p_orden->>'bolsa_ref'))
+  AND CASE WHEN jsonb_typeof(a.documento->'ambitos')='array' THEN
+   (SELECT count(*)=2
+     AND count(*) FILTER (WHERE ambito=jsonb_build_object('clave','unidad_ref',
+      'valores',jsonb_build_array(p_orden->>'unidad_ref')))=1
+     AND count(*) FILTER (WHERE ambito=jsonb_build_object('clave','ambito_ref',
+      'valores',jsonb_build_array(p_orden->>'ambito_ref')))=1
+    FROM jsonb_array_elements(a.documento->'ambitos') ambito)
+   ELSE false END
   AND (SELECT count(*) FROM jsonb_array_elements(r.documento->'concesiones') concesion
    WHERE concesion->>'accion'='bolsa.rrhh.respuestas_llamamiento.consultar')=1
   AND EXISTS(SELECT 1 FROM jsonb_array_elements(r.documento->'concesiones') concesion
@@ -179,7 +189,8 @@ DECLARE
  v_claves constant text[]:=ARRAY[
   'intento_ref','registro_contexto_ref','contexto_sha256','procedencia_sha256',
   'autenticacion_ref','sesion_ref','autenticacion_sha256','accion','modulo_id',
-  'recurso_ref','bolsa_ref','finalidad_ref','campos_permitidos','resultado','motivo_ref',
+  'recurso_ref','bolsa_ref','unidad_ref','ambito_ref','finalidad_ref',
+  'campos_permitidos','resultado','motivo_ref',
   'proceso','canal','correlacion_ref','lectura_revision_permisos',
   'lectura_instantanea_sha256','asignacion_ref','asignacion_version',
   'asignacion_huella_sha256','version_rol_ref','version_rol_version',
@@ -226,7 +237,9 @@ BEGIN
  OR p_orden->>'motivo_ref' IS DISTINCT FROM 'lectura_respuestas_llamamiento_correcta'
  OR p_orden->>'proceso' IS DISTINCT FROM 'vec-server'
  OR p_orden->>'canal' IS DISTINCT FROM 'interna_corporativa'
- OR p_orden->>'bolsa_ref' LIKE '%*%'
+ OR EXISTS(SELECT 1 FROM unnest(ARRAY[p_orden->>'bolsa_ref',p_orden->>'unidad_ref',
+   p_orden->>'ambito_ref']) ref
+   WHERE ref ~ '[[:space:][:cntrl:]]' OR strpos(ref,'*')>0)
  OR p_orden->>'correlacion_ref' !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'
  OR p_orden->'campos_permitidos' IS DISTINCT FROM
     '["llamamiento_ref","respuestas[].participacion_ref","respuestas[].respuesta"]'::jsonb
