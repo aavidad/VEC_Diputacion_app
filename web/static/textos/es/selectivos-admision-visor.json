@@ -13,7 +13,7 @@
   "solo_local": "Revisión local",
   "archivo": "Archivo de salida del preparador · Obligatorio",
   "archivo_pista": "Seleccione la salida JSON de admisión, no la entrada del preparador ni el borrador de solicitud. Máximo 4 MiB.",
-  "limite": "Use sólo datos sintéticos. El archivo no se verifica y no constituye un acto de admisión.",
+  "limite": "Use solo datos ficticios. El archivo no se verifica y no constituye un acto de admisión.",
   "vacio": "Abra un archivo del preparador para revisar sus pendientes.",
   "cargando": "Leyendo el archivo…",
   "cargado": "Archivo abierto. Revise los motivos; todos los requisitos siguen pendientes.",

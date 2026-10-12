@@ -18,15 +18,34 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudConsultarDato
 		return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{}, err
 	}
 	solicitud := puertosbolsa.SolicitudConsultarDatosContactoParticipacion{ContextoActor: contexto.Resultado.Contexto, BolsaRef: bolsaRef, ParticipacionRef: participacionRef}
-	if !completo {
-		return solicitud, nil
-	}
 	correlacion, err := puertosvec.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
 		return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{}, err
 	}
-	solicitud.Vinculo, solicitud.ResultadoContexto, solicitud.Completo = contexto.Vinculo, contexto.Resultado, true
+	solicitud.Vinculo, solicitud.ResultadoContexto, solicitud.Completo = contexto.Vinculo, contexto.Resultado, completo
 	solicitud.Correlacion, solicitud.MotivoAutorizacion = correlacion, motivoConsultarDatosContactoParticipacionBolsaDesarrollo()
+	if !completo {
+		if p.fuenteRespuestas == nil {
+			return solicitud, puertosbolsa.ErrDatosContactoParticipacionNoDisponibles
+		}
+		resuelto, err := p.ResolverContextoSituacionParticipacion(ctx, solicitud.ContextoActor, bolsaRef, participacionRef)
+		if err != nil {
+			return solicitud, err
+		}
+		contrato := contratoLecturaBolsa{
+			accion:    puertosbolsa.AccionConsultarOrigenDatosContactoParticipacion,
+			finalidad: puertosbolsa.FinalidadConsultarOrigenDatosContactoParticipacion,
+			tipo:      puertosbolsa.TipoRecursoSituacionParticipacion,
+			motivo:    "lectura_origen_datos_contacto_correcta",
+			campos:    puertosbolsa.CamposConsultarOrigenDatosContacto(),
+		}
+		solicitud.Captura, err = capturarLecturaBolsa(ctx, p.fuenteRespuestas,
+			contexto.Vinculo, contexto.Resultado, resuelto.UnidadRef, resuelto.AmbitoRef,
+			bolsaRef, participacionRef, contrato)
+		if err != nil {
+			return solicitud, err
+		}
+	}
 	return solicitud, nil
 }
 

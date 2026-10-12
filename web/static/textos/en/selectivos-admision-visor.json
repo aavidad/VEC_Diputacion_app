@@ -13,7 +13,7 @@
   "solo_local": "Local review",
   "archivo": "Preparation tool output file · Required",
   "archivo_pista": "Select the admission JSON output, not the tool input or the draft application. Maximum 4 MiB.",
-  "limite": "Use synthetic data only. The file is not verified and does not constitute an admission decision.",
+  "limite": "Use fictional data only. The file is not verified and does not constitute an admission decision.",
   "vacio": "Open a preparation tool file to review outstanding checks.",
   "cargando": "Reading the file…",
   "cargado": "File opened. Review the reasons; all requirements remain pending.",

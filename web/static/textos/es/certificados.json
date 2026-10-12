@@ -3,7 +3,7 @@
   "idioma": "es",
   "mensajes": {
     "titulo": "Borrador de ensayo de servicios",
-    "limite": "Datos sintéticos para revisión. Este borrador no es un certificado emitido. No acredita firma, sello, CSV, registro ni entrega.",
+    "limite": "Datos de preparación para revisión. Este borrador no es un certificado emitido. No acredita firma, sello, CSV, registro ni entrega.",
     "persona": "Persona de la muestra: {{nombre}}.",
     "corte": "Fecha de referencia: {{vigente}}. Información conocida en: {{conocido}}.",
     "fuente": "Fuente de ensayo: {{fuente}}. Huella SHA-256 de los datos: {{fuente_huella}}.",

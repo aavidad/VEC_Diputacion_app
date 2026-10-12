@@ -1,6 +1,6 @@
 {
  "esquema": "vec.demo.bolsa.v1",
- "aviso": "Datos sintéticos de demostración: bolsas por categoría de la RPT y candidaturas numeradas sin personas reales. Sin validez administrativa.",
+ "aviso": "Relación de bolsas y candidaturas preparada para su revisión. No tiene validez administrativa.",
  "generado_en": "2026-09-17T00:00:00Z",
  "resumen": {
   "bolsas": 12,

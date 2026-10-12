@@ -23,8 +23,8 @@ const PREIMAGEN = {
     "MENSAJES_ANALISIS_CATALOGO_ES": "7ebc3646ea6e5b35e13f785b67726b16d2957740c91a899382dd7f05d6ff0aa8"
   },
   "i18n-avisos-via-cobertura.js": {
-    "MENSAJES_AVISOS_VIA_COBERTURA_EN": "8b1395a10ed65f002ccec703cb5fe8aef1b66d37b4bf2f29bc1fe6fc1feb1d34",
-    "MENSAJES_AVISOS_VIA_COBERTURA_ES": "6d7de62fde85ab0b5004464ce518235e0c18f7041449414197b419812821dbcb"
+    "MENSAJES_AVISOS_VIA_COBERTURA_EN": "210732a4a5da432fa0c5d6eb0e544331d9b38ee1c23ad0d4783be0d07bd2387a",
+    "MENSAJES_AVISOS_VIA_COBERTURA_ES": "d2c54f54d09f6b274eb268bc29c58f497f7c9cbdb8c4bb0662c8e0e0812ea2e4"
   },
   "i18n-borradores-publicados.js": {
     // Excepción a la preimagen: corrección EN de bp_subtitulo posterior al traslado.
@@ -59,8 +59,8 @@ const PREIMAGEN = {
   "i18n-llamamiento.js": {
     // Excepción a la preimagen: textos reescritos en lenguaje llano (05/10/2026), sin
     // clave de operación ni modo manual en pantalla; los límites pasan a la ayuda «?».
-    "MENSAJES_LLAMAMIENTO_EN": "01cf19c78d4178976b57cf40991ab35583f098b94696073b273c8cffbe0971d7",
-    "MENSAJES_LLAMAMIENTO_ES": "59fefb4d78cab9bb79bdda15fc54c79d187a4ee0f503d18afc7430c34c21de7b"
+    "MENSAJES_LLAMAMIENTO_EN": "a5f9d8c288fae5778c35a63c351e301ec1b542844245350543cce82e6d150cd4",
+    "MENSAJES_LLAMAMIENTO_ES": "a0d063a2d43ef1752974c5869ead4bf6cd43444970a4376365812d9787b177d0"
   },
   "i18n-subsanacion-reparos.js": {
     "MENSAJES_SUBSANACION_REPAROS_EN": "d3dc09b6d8b28dfbfd56e64d54e6d40b9f3dd988562a67c28e1ccde882f6a12d",
