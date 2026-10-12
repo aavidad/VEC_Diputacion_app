@@ -30,8 +30,9 @@ import (
 // debe crear una instancia y un pool distintos para fuente y registro; ninguna
 // identidad de ejecucion hereda ambos grupos.
 type AlmacenAutorizacion struct {
-	pool    iniciadorTransacciones
-	externo bool
+	pool                 iniciadorTransacciones
+	externo              bool
+	fuenteMeritosExterna bool
 }
 
 type iniciadorTransacciones interface {
@@ -53,6 +54,18 @@ func NuevoAlmacenAutorizacionExterna(pool *pgxpool.Pool) (*AlmacenAutorizacion, 
 		return nil, err
 	}
 	a.externo = true
+	return a, nil
+}
+
+// NuevoAlmacenAutorizacionMeritosExterna reutiliza el decodificador y la
+// barrera de la fuente común, con la fachada exclusiva de la cartera personal.
+// El LOGIN del pool solo puede ejecutar esa función de AUT78.
+func NuevoAlmacenAutorizacionMeritosExterna(pool *pgxpool.Pool) (*AlmacenAutorizacion, error) {
+	a, err := nuevoAlmacenAutorizacion(pool)
+	if err != nil {
+		return nil, err
+	}
+	a.externo, a.fuenteMeritosExterna = true, true
 	return a, nil
 }
 
@@ -105,6 +118,11 @@ func (a *AlmacenAutorizacion) ObtenerInstantaneaAutorizacion(
 		consulta = `SELECT documento_asignacion, documento_rol, documento_control_rol,
 		       revision_catalogo, huella_catalogo, documentos_politicas
 		FROM vec_autorizacion.obtener_instantanea_candidato_externo_v1($1, $2)`
+	}
+	if a.fuenteMeritosExterna {
+		consulta = `SELECT documento_asignacion, documento_rol, documento_control_rol,
+		       revision_catalogo, huella_catalogo, documentos_politicas
+		FROM vec_autorizacion.obtener_instantanea_meritos_externo_v1($1, $2)`
 	}
 	err = tx.QueryRow(ctx, consulta,
 		principalID, perfilActivoRef,

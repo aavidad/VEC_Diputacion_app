@@ -25,10 +25,17 @@ type solicitudGobiernoRolProponerDTO struct {
 	EntradaRef           string                           `json:"entrada_ref"`
 	EntradaVersion       int                              `json:"entrada_version"`
 	EntradaHuellaSHA256  string                           `json:"entrada_huella_sha256"`
+	Selecciones          []seleccionGobiernoRolDTO        `json:"selecciones,omitempty"`
 	RolID                string                           `json:"rol_id"`
 	Nombre               string                           `json:"nombre"`
 	Motivo               domain.ReferenciaEntradaCatalogo `json:"motivo"`
 	ReferenciaActo       string                           `json:"referencia_acto,omitempty"`
+}
+
+type seleccionGobiernoRolDTO struct {
+	EntradaRef          string `json:"entrada_ref"`
+	EntradaVersion      int    `json:"entrada_version"`
+	EntradaHuellaSHA256 string `json:"entrada_huella_sha256"`
 }
 
 type ServicioGobiernoRolNuevoADMIN interface {
@@ -72,10 +79,22 @@ func (h *Handler) postGobiernoRolProponer(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if !domain.ReferenciaAdministracionPerfilesValida(dto.OperacionRef, "propuesta_admin:") ||
-		dto.CatalogoRef == "" || dto.CatalogoVersion < 1 || dto.CatalogoHuellaSHA256 == "" ||
-		dto.EntradaRef == "" || dto.EntradaVersion < 1 || dto.EntradaHuellaSHA256 == "" {
+		dto.CatalogoRef == "" || dto.CatalogoVersion < 1 || dto.CatalogoHuellaSHA256 == "" {
 		h.denegarActor(w, r, sesion, http.StatusBadRequest, "solicitud_invalida", accion, "")
 		return
+	}
+	selecciones := dto.Selecciones
+	if dto.RolID == domain.RolIDPersonaMeritosCartera {
+		if len(selecciones) != 2 || dto.EntradaRef != "" || dto.EntradaVersion != 0 || dto.EntradaHuellaSHA256 != "" {
+			h.denegarActor(w, r, sesion, http.StatusBadRequest, "solicitud_invalida", accion, "")
+			return
+		}
+	} else {
+		if len(selecciones) != 0 || dto.EntradaRef == "" || dto.EntradaVersion < 1 || dto.EntradaHuellaSHA256 == "" {
+			h.denegarActor(w, r, sesion, http.StatusBadRequest, "solicitud_invalida", accion, "")
+			return
+		}
+		selecciones = []seleccionGobiernoRolDTO{{dto.EntradaRef, dto.EntradaVersion, dto.EntradaHuellaSHA256}}
 	}
 	catalogo, err := h.fuenteGobiernoRol.ObtenerCatalogoAccionesAdministracionV1(r.Context(),
 		dto.CatalogoRef, dto.CatalogoVersion, dto.CatalogoHuellaSHA256)
@@ -83,33 +102,40 @@ func (h *Handler) postGobiernoRolProponer(w http.ResponseWriter, r *http.Request
 		h.responderErrorGobiernoRol(w, r, sesion, err, dto.OperacionRef)
 		return
 	}
-	var seleccion *domain.EntradaAccionAdministracionV1
-	for i := range catalogo.Entradas {
-		e := &catalogo.Entradas[i]
-		huella, errorHuella := e.HuellaSHA256()
-		if errorHuella == nil && e.Referencia == dto.EntradaRef && e.Version == dto.EntradaVersion &&
-			huella == dto.EntradaHuellaSHA256 {
-			seleccion = e
-			break
+	concesiones := make([]domain.ConcesionRol, 0, len(selecciones))
+	seleccionesCatalogo := make([]domain.SeleccionAccionAdministracionV1, 0, len(selecciones))
+	for _, seleccion := range selecciones {
+		var entrada *domain.EntradaAccionAdministracionV1
+		for i := range catalogo.Entradas {
+			e := &catalogo.Entradas[i]
+			huella, errorHuella := e.HuellaSHA256()
+			if errorHuella == nil && e.Referencia == seleccion.EntradaRef && e.Version == seleccion.EntradaVersion &&
+				huella == seleccion.EntradaHuellaSHA256 {
+				entrada = e
+				break
+			}
 		}
-	}
-	if seleccion == nil {
-		h.denegarActor(w, r, sesion, http.StatusBadRequest, "solicitud_invalida", accion, "")
-		return
+		if entrada == nil {
+			h.denegarActor(w, r, sesion, http.StatusBadRequest, "solicitud_invalida", accion, "")
+			return
+		}
+		concesiones = append(concesiones, entrada.Concesion)
+		seleccionesCatalogo = append(seleccionesCatalogo, domain.SeleccionAccionAdministracionV1{
+			EntradaRef: seleccion.EntradaRef, EntradaVersion: seleccion.EntradaVersion,
+			EntradaHuellaSHA256: seleccion.EntradaHuellaSHA256})
 	}
 	ahora := h.relojGobiernoRol.Ahora().UTC().Truncate(time.Microsecond)
 	propuestaRol := domain.VersionRol{RolID: dto.RolID, Version: 1, Nombre: dto.Nombre,
-		Estado: domain.EstadoVersionRolPublicada, Concesiones: []domain.ConcesionRol{seleccion.Concesion},
+		Estado: domain.EstadoVersionRolPublicada, Concesiones: concesiones,
 		PublicadaPor: sesion.Actor.PersonaRef, PublicadaEn: ahora}
 	publicacion := domain.PropuestaPerfilAdministracionV1{CatalogoRef: dto.CatalogoRef,
 		CatalogoVersion: dto.CatalogoVersion, CatalogoHuellaSHA256: dto.CatalogoHuellaSHA256,
-		RolPropuesto: propuestaRol, Selecciones: []domain.SeleccionAccionAdministracionV1{{
-			EntradaRef: dto.EntradaRef, EntradaVersion: dto.EntradaVersion,
-			EntradaHuellaSHA256: dto.EntradaHuellaSHA256}}}
+		RolPropuesto: propuestaRol, Selecciones: seleccionesCatalogo}
 	intencion := domain.SolicitudPlanGobiernoPerfil{Operacion: domain.OperacionCrearPerfilGobernado,
 		Publicacion: &publicacion, Motivo: dto.Motivo, ReferenciaActo: dto.ReferenciaActo}
 	plan, instantePlan, err := domain.PrepararPlanGobiernoRolNuevoDesdeCatalogo(catalogo, intencion, ahora, sesion.Actor.PersonaRef)
-	if err != nil || plan.Base != nil || plan.DefinicionNueva == nil || len(plan.DefinicionNueva.Concesiones) != 1 {
+	if err != nil || plan.Base != nil || plan.DefinicionNueva == nil ||
+		len(plan.DefinicionNueva.Concesiones) != len(selecciones) {
 		h.denegarActor(w, r, sesion, http.StatusBadRequest, "solicitud_invalida", accion, "")
 		return
 	}
