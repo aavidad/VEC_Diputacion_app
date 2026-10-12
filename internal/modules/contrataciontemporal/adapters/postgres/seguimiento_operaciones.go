@@ -454,6 +454,50 @@ func preimagenOriginalSeguimiento(p ports.PreparacionOperacionSeguimiento, org, 
 	return raw, nil
 }
 
+func postimagenOriginalSeguimiento(prep ports.PreparacionOperacionSeguimiento, siguiente domain.Expediente, instante time.Time) (json.RawMessage, error) {
+	var raiz map[string]json.RawMessage
+	if json.Unmarshal(prep.ExpedienteAnteriorJSON, &raiz) != nil || raiz == nil ||
+		siguiente.Version != prep.Expediente.Version+1 || !siguiente.ActualizadoEn.Equal(instante) || len(siguiente.Actuaciones) == 0 {
+		return nil, ports.ErrOperacionSeguimientoInvalida
+	}
+	var actuaciones []json.RawMessage
+	if json.Unmarshal(raiz["actuaciones"], &actuaciones) != nil || len(actuaciones)+1 != len(siguiente.Actuaciones) {
+		return nil, ports.ErrOperacionSeguimientoInvalida
+	}
+	version, e1 := json.Marshal(siguiente.Version)
+	actualizado, e2 := json.Marshal(instante)
+	actuacion, e3 := json.Marshal(siguiente.Actuaciones[len(siguiente.Actuaciones)-1])
+	if e1 != nil || e2 != nil || e3 != nil {
+		return nil, ports.ErrOperacionSeguimientoInvalida
+	}
+	actuaciones = append(actuaciones, actuacion)
+	raiz["version"], raiz["actualizado_en"] = version, actualizado
+	raiz["actuaciones"], e1 = json.Marshal(actuaciones)
+	if e1 != nil {
+		return nil, ports.ErrOperacionSeguimientoInvalida
+	}
+	resultado, err := json.Marshal(raiz)
+	if err != nil {
+		return nil, ports.ErrOperacionSeguimientoInvalida
+	}
+	return resultado, nil
+}
+
+func proyeccionesConfirmacionSeguimiento(o ports.OrdenConfirmarOperacionSeguimiento, org, exp string) (any, any, error) {
+	if o.Operacion != ports.OperacionRegistrarCese {
+		return o.Preparacion.Expediente, o.Siguiente, nil
+	}
+	anterior, err := preimagenOriginalSeguimiento(o.Preparacion, org, exp)
+	if err != nil {
+		return nil, nil, err
+	}
+	siguiente, err := postimagenOriginalSeguimiento(o.Preparacion, o.Siguiente, o.InstanteEfecto)
+	if err != nil {
+		return nil, nil, err
+	}
+	return anterior, siguiente, nil
+}
+
 func (r *RepositorioOperacionSeguimientoPostgreSQL) ConfirmarOperacionSeguimiento(ctx context.Context, o ports.OrdenConfirmarOperacionSeguimiento) (ports.ReciboOperacionSeguimiento, error) {
 	var vacio ports.ReciboOperacionSeguimiento
 	d, ok := operacionesSeguimientoSQL[o.Operacion]
@@ -464,7 +508,7 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConfirmarOperacionSeguimient
 	if err != nil {
 		return vacio, err
 	}
-	preimagen, err := preimagenOriginalSeguimiento(o.Preparacion, org, exp)
+	preimagen, postimagen, err := proyeccionesConfirmacionSeguimiento(o, org, exp)
 	if err != nil {
 		return vacio, err
 	}
@@ -480,7 +524,7 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConfirmarOperacionSeguimient
 		"esquema": d.esquemaConfirmar, "operacion": o.Operacion, "material": m,
 		"referencias":              referenciasSubsanacionSQL{o.Preparacion.Referencias.ReservaRef, o.Preparacion.Referencias.ReciboRef, o.Preparacion.Referencias.EventoRef},
 		"ambito_idempotencia_hmac": o.Preparacion.AmbitoIdempotenciaHMAC, "huella_peticion_hmac": o.Preparacion.HuellaPeticionHMAC,
-		"expediente_anterior": preimagen, "expediente_siguiente": o.Siguiente,
+		"expediente_anterior": preimagen, "expediente_siguiente": postimagen,
 		"actuacion": o.Siguiente.Actuaciones[len(o.Siguiente.Actuaciones)-1],
 		"politica": map[string]any{"definicion_ref": p.DefinicionRef, "definicion_version": p.DefinicionVersion, "definicion_huella_sha256": p.DefinicionHuellaSHA256,
 			"accion": string(o.Accion), "finalidad": o.Finalidad, "evaluada_en": p.EvaluadaEn, "valida_hasta": p.ValidaHasta},
