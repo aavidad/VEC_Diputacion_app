@@ -76,6 +76,12 @@ func rutaCoberturaCTPrueba(ruta string) vechttp.RutaExacta {
 func TestCoberturaRutasCTInventarioCompletoYOpcionales(t *testing.T) {
 	const perfil = "prf_cobertura_ct"
 	descriptores := descriptoresFronterasContratacionTemporalDesarrollo(perfil, []string{perfil}, true)
+	escenarioOriginal := nuevoEscenarioOriginalPDP(t)
+	fronteraOriginal, err := fronteraOriginalFirmableCTDesarrollo(escenarioOriginal.soporte.perfilesOriginal)
+	if err != nil {
+		t.Fatalf("frontera real del original CT: %v", err)
+	}
+	descriptores = append(descriptores, fronteraOriginal)
 	descriptores = append(descriptores, descriptoresFronterasReincorporacionTitularDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasCTDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasDocumentalCTDesarrollo(perfil)...)
