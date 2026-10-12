@@ -17,8 +17,11 @@
 # Acciones cerradas: meritos.cartera.consultar_propia sobre cartera:<persona_ref>
 # y meritos.cartera.retirar_propio sobre hecho_ref propio. Finalidad compartida
 # gestion_cartera_propia; campos GET minimizados y POST disponibilidad/recibo.
-# También falta la fuente AUT78 de instantánea externa para ese RolID:
-# AUT17 fija candidato_usuarios_propios_desarrollo y AUT15 fija los roles Bolsa.
+# AUT78 instala la fuente segregada de instantánea externa para ese RolID:
+# LOGIN vec_externo_meritos_fuente_autorizacion, grupo único
+# vec_autorizacion_fuente_meritos_externa, sin SET/ADMIN. La provisión del LOGIN
+# y su permiso de conexión es un acto separado; AUT17 fija el rol Usuarios y
+# AUT15 fija los roles Bolsa, por lo que sus fuentes no sustituyen esta función.
 # Para POST se requiere registrador/revalidador nominal V3 externo de Méritos,
 # con motivo gobernado de retirada; AUT15/AUT17 no admiten esa acción/rol.
 # Hasta cerrar esas piezas, las funciones de AUT78 son denegatorias y M4 no
