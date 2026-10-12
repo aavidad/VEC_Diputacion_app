@@ -38,7 +38,7 @@ ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3
  AND lectura_revision_permisos BETWEEN 1 AND 18446744073709551615::numeric
  AND lectura_instantanea_sha256 ~ '^[0-9a-f]{64}$'
  AND modulo_id='bolsa' AND proceso='vec-server' AND canal='interna_corporativa'
- AND accion='bolsa.datos_contacto_participacion.origen.consultar' AND recurso_ref ~ '^[A-Za-z0-9][A-Za-z0-9:._-]{0,511}$'
+ AND accion='bolsa.datos_contacto_participacion.origen.consultar' AND recurso_ref ~ '^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}[A-Za-z0-9:._-]{0,255}[A-Za-z0-9:._-]?$'
  AND finalidad_ref='consulta_origen_datos_contacto_participacion' AND resultado='obtenida'
  AND motivo_ref='lectura_origen_datos_contacto_correcta'
  AND correlacion_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'));
@@ -62,7 +62,7 @@ BEGIN
   campos:='["llamamiento_ref","respuestas[].participacion_ref","respuestas[].respuesta"]'::jsonb;patron:='^llamamiento:[0-9a-f]{64}$';
  WHEN 'bolsa.datos_contacto_participacion.origen.consultar' THEN
   finalidad:='consulta_origen_datos_contacto_participacion';tipo:='participacion_bolsa';
-  campos:='["enmascarados","origen","participacion_ref","registrada_en","sin_contacto","version"]'::jsonb;patron:='^[A-Za-z0-9][A-Za-z0-9:._-]{0,511}$';
+  campos:='["enmascarados","origen","participacion_ref","registrada_en","sin_contacto","version"]'::jsonb;patron:='^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}[A-Za-z0-9:._-]{0,255}[A-Za-z0-9:._-]?$';
  ELSE RETURN false; END CASE;
  IF current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off'
@@ -201,7 +201,7 @@ BEGIN
  WHEN 'bolsa.datos_contacto_participacion.origen.consultar' THEN
   v_tipo:='lectura_origen_datos_contacto';v_dominio_material:='vec.auditoria.lectura_origen_datos_contacto.v1';v_dominio:='vec.auditoria.eslabon.lectura_origen_datos_contacto.v1';v_prefijo:='aud_v3_lc_';
   v_finalidad:='consulta_origen_datos_contacto_participacion';v_motivo:='lectura_origen_datos_contacto_correcta';
-  v_campos:='["enmascarados","origen","participacion_ref","registrada_en","sin_contacto","version"]'::jsonb;v_patron:='^[A-Za-z0-9][A-Za-z0-9:._-]{0,511}$';
+  v_campos:='["enmascarados","origen","participacion_ref","registrada_en","sin_contacto","version"]'::jsonb;v_patron:='^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}[A-Za-z0-9:._-]{0,255}[A-Za-z0-9:._-]?$';
  ELSE RAISE EXCEPTION 'AD249: operación de lectura no admitida' USING ERRCODE='42501'; END CASE;
  IF v_accion='bolsa.datos_contacto_participacion.origen.consultar' OR p_orden ? 'unidad_ref' THEN
   v_claves:=v_claves||ARRAY['unidad_ref','ambito_ref'];
