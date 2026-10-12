@@ -149,6 +149,7 @@ type SolicitudDocumentalEstadoPortal struct {
 type UltimaRespuestaPortal struct {
 	Respuesta, Modo, Recibo string
 	RespondidaEn            time.Time
+	EnRevision              bool
 }
 
 // RegistroPortalCandidato es el contrato exacto para PostgreSQL: cada

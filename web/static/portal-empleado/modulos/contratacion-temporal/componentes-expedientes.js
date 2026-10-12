@@ -1,9 +1,9 @@
 /** Componentes HTML puros de la superficie de expedientes. */
 
 import "./atajos-incidencia.js";
-import { renderizarResultadoBolsa, continuidadBolsaDisponible, requiereRevisionBolsa } from "./resultado-bolsa.js?v=20261010-ct-b2-catalogo-registro-cohorte-v11";
-import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261010-ct-b2-catalogo-registro-cohorte-v11";
-import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261010-ct-b2-catalogo-registro-cohorte-v11";
+import { renderizarResultadoBolsa, continuidadBolsaDisponible, requiereRevisionBolsa } from "./resultado-bolsa.js?v=20261011-bolsa-b103-privacidad-v1";
+import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261011-bolsa-b103-privacidad-v1";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
@@ -13,7 +13,7 @@ import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-ex
 import {
   renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
   renderizarLineaFases, renderizarSiguientePasoFicha,
-} from "./vista-expedientes-ficha.js?v=20261010-ct-b2-catalogo-registro-cohorte-v11";
+} from "./vista-expedientes-ficha.js?v=20261011-ct-bolsa-vinculo-v1";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 
@@ -235,13 +235,19 @@ export function renderizarAbrirLlamamiento(expediente, resolverBolsa, t) {
   const cobertura = valor("bolsa_cobertura");
   let bolsaRef = typeof cobertura === "string" && resolverBolsa(cobertura)?.categoria ? cobertura : "";
   let sinBolsaConfirmada = false;
+  let sinBolsaHistorica = false;
   let incidenciaBolsa = "";
+  // La comprobación del expediente describe la cobertura cuando se decidió.
+  // La consulta de Bolsa describe la disponibilidad actual.
+  const comprobada = expediente.cabecera?.find((campo) => campo.clave === "comprobacion_existe_bolsa_vigente");
   if (!bolsaRef) {
     const categoriaRef = expediente.analisis_previo?.categoria_ref ?? expediente.datos_peticion?.categoria_ref;
     const bolsaCategoria = typeof categoriaRef === "string" ? resolverBolsa("", { categoriaRef }) : null;
     bolsaRef = bolsaCategoria?.bolsa_ref || "";
-    sinBolsaConfirmada = !cobertura && bolsaCategoria?.estado === "sin_bolsa";
-    incidenciaBolsa = ["error", "denegado"].includes(bolsaCategoria?.estado) ? bolsaCategoria.estado : "";
+    sinBolsaHistorica = !cobertura && comprobada?.tono === "aviso";
+    sinBolsaConfirmada = !cobertura && !comprobada && bolsaCategoria?.estado === "sin_bolsa";
+    if (!cobertura && comprobada?.tono === "exito" && bolsaCategoria?.estado === "sin_bolsa") incidenciaBolsa = "no_localizada";
+    if (["error", "denegado"].includes(bolsaCategoria?.estado)) incidenciaBolsa = bolsaCategoria.estado;
   }
   // El detalle CT conserva fechas civiles a medianoche UTC; el origen de Bolsa
   // transporta solo el día y valida de nuevo su calendario.
@@ -249,17 +255,18 @@ export function renderizarAbrirLlamamiento(expediente, resolverBolsa, t) {
   const inicioBolsa = typeof inicioCT === "string" && /^\d{4}-\d{2}-\d{2}T00:00:00Z$/u.test(inicioCT)
     ? inicioCT.slice(0, 10) : inicioCT;
   const origen = bolsaRef ? origenLlamamientoValido({
-    expediente_ref: expediente.expediente_ref, referencia: expediente.numero_visible, centro: valor("centro"),
+    expediente_ref: expediente.expediente_ref, version: expediente.version, referencia: expediente.numero_visible, centro: valor("centro"),
     fecha_inicio: inicioBolsa,
   }) : null;
   if (!origen) {
-    if (sinBolsaConfirmada) return `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t("ficha_llamamiento_sin_bolsa"))}</p></div></section>`;
     if (incidenciaBolsa) return `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t(`ficha_llamamiento_bolsa_${incidenciaBolsa}`))}</p>${incidenciaBolsa === "error" ? `<button type="button" class="boton-secundario" data-ct-bolsa-reintentar>${escaparHTML(t("ficha_llamamiento_bolsa_reintentar"))}</button>` : ""}</div></section>`;
+    if (sinBolsaHistorica) return `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t("ficha_llamamiento_sin_bolsa_historica"))}</p></div></section>`;
+    if (sinBolsaConfirmada) return `<section class="panel" role="status"><div class="cuerpo-panel"><p>${escaparHTML(t("ficha_llamamiento_sin_bolsa"))}</p></div></section>`;
     return "";
   }
   const atributo = (nombre, dato) => (dato ? ` data-origen-${nombre}="${escaparHTML(dato)}"` : "");
   const etiqueta = requiereRevisionBolsa(expediente) ? t("resultado_bolsa_revisar") : continuidadBolsaDisponible(expediente) ? t("resultado_bolsa_continuar") : traducirPortal("panel_ct_abrir_llamamiento");
-  return `<div class="acciones-vista"><button type="button" class="boton-primario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}"${atributo("expediente", origen.expediente_ref)}${atributo("referencia", origen.referencia)}${atributo("centro", origen.centro)}${atributo("inicio", origen.fecha_inicio)}>${escaparHTML(etiqueta)}</button></div>`;
+  return `<div class="acciones-vista"><button type="button" class="boton-primario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaRef)}"${atributo("expediente", origen.expediente_ref)}${atributo("version", origen.version)}${atributo("referencia", origen.referencia)}${atributo("centro", origen.centro)}${atributo("inicio", origen.fecha_inicio)}>${escaparHTML(etiqueta)}</button></div>`;
 }
 
 function renderizarTareas(expediente, tareaRef, t) {
@@ -477,7 +484,7 @@ function renderizarTarea(
   </article>`;
 }
 
-export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDisponible = false, resolverBolsa = null, coberturaPendiente = false) {
+export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDisponible = false, resolverBolsa = null, coberturaPendiente = false, opcionesPaso = {}) {
   const expediente = estado.expediente;
   if (!expediente) {
     const esError = estado.carga === "error";
@@ -508,7 +515,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
   // Orden de la ficha: qué toca, en qué fase está y qué hay; los trámites de
   // la fase se montan después, a partir de la marca «ct-exp-tramite».
   return `${renderizarCabeceraFicha(expediente, estado, t)}
-    ${renderizarSiguientePasoFicha(expediente, estado, t, coberturaPendiente)}
+    ${renderizarSiguientePasoFicha(expediente, estado, t, coberturaPendiente, opcionesPaso)}
     ${renderizarIncidencia(expediente, t, estado.navegacion)}
     ${renderizarLineaFases(expediente, t)}
     <div class="rejilla-principal ct-exp-ficha-rejilla">

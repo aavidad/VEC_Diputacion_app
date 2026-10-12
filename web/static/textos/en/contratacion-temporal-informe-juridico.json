@@ -1,0 +1,16 @@
+{
+  "general": {
+    "plantilla": "Report template",
+    "plantilla_version": "Version {version}",
+    "normas": "Legal references",
+    "norma": "Legal reference {numero} · version {version}",
+    "anexos": "Case attachments",
+    "anexo": "Attachment {numero} · version {version}",
+    "sin_entradas": "No items are recorded in this section.",
+    "detalle_tecnico": "View technical details",
+    "referencia": "Reference",
+    "huella": "Digital fingerprint",
+    "original": "View original content",
+    "sin_estructura": "This document cannot be shown in sections. You can view its original content."
+  }
+}
