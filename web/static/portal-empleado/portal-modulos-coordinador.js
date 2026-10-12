@@ -17,7 +17,7 @@ import {
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20261012-ct-personal-ficha-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-convoca-menu-n1";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-bolsa-menu-n2";
 import { cargarTextos } from "../comun/textos.js";
 import { INDICE_IDIOMAS } from "../comun/idioma.js";
 import {
