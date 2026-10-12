@@ -82,8 +82,8 @@ func (s *ServicioFirmantesMerito) Preparar(ctx context.Context, q SolicitudFirma
 		return ports.ResultadoGuardarPlanFirmantes{}, err
 	}
 	if existe {
-		if !recuperacionFirmantesCoincide(recuperada, aut, q, s.catalogo) {
-			return ports.ResultadoGuardarPlanFirmantes{}, ports.ErrPlanFirmantesConflicto
+		if err := validarRecuperacionFirmantes(recuperada, aut, q, s.catalogo); err != nil {
+			return ports.ResultadoGuardarPlanFirmantes{}, err
 		}
 		out := recuperada.Resultado
 		out.Plan = clonarPlanFirmantes(out.Plan)
@@ -166,15 +166,18 @@ func (s *ServicioFirmantesMerito) recuperarTrasConflicto(ctx context.Context, q 
 	if err != nil {
 		return ports.ResultadoGuardarPlanFirmantes{}, err
 	}
-	if !existe || !recuperacionFirmantesCoincide(recuperada, aut, q, s.catalogo) {
+	if !existe {
 		return ports.ResultadoGuardarPlanFirmantes{}, ports.ErrPlanFirmantesConflicto
+	}
+	if err := validarRecuperacionFirmantes(recuperada, aut, q, s.catalogo); err != nil {
+		return ports.ResultadoGuardarPlanFirmantes{}, err
 	}
 	out := recuperada.Resultado
 	out.Plan = clonarPlanFirmantes(out.Plan)
 	return out, nil
 }
 
-func recuperacionFirmantesCoincide(r ports.RecuperacionPlanFirmantes, a ports.AutoridadFirmantes, q SolicitudFirmantesMerito, c domain.CatalogoRolesFirmantes) bool {
+func validarRecuperacionFirmantes(r ports.RecuperacionPlanFirmantes, a ports.AutoridadFirmantes, q SolicitudFirmantesMerito, c domain.CatalogoRolesFirmantes) error {
 	p := r.Resultado.Plan
 	if r.Accion != q.Accion || r.ActorRef != a.ActorRef || r.ClaveIdempotencia != q.ClaveIdempotencia ||
 		r.HuellaSolicitudSHA256 != a.HuellaSolicitudSHA256 || r.VersionRosterEsperada != q.VersionRosterEsperada ||
@@ -182,32 +185,35 @@ func recuperacionFirmantesCoincide(r ports.RecuperacionPlanFirmantes, a ports.Au
 		p.Material.Validar() != nil || !materialesSolicitudFirmantesIguales(p.Material, q.Material) ||
 		p.VersionRoster != q.VersionRosterEsperada+1 || !huellaSolicitudFirmantesValida(p.HuellaRosterSHA256) ||
 		p.Estado != "preparado_congelado" || len(p.Firmas) != 0 {
-		return false
+		return ports.ErrPlanFirmantesConflicto
 	}
 	if q.Accion == ports.AccionPrepararPlanFirmantes || q.Accion == ports.AccionCambiarPlanFirmantes {
 		esperado, err := domain.PrepararPlanFirmantesMerito(q.Material, c, q.VersionRosterEsperada+1, q.Firmantes)
-		if err != nil || p.HuellaRosterSHA256 != esperado.HuellaRosterSHA256 {
-			return false
+		if err != nil {
+			return errors.Join(ports.ErrPlanFirmantesConflicto, err)
+		}
+		if p.HuellaRosterSHA256 != esperado.HuellaRosterSHA256 {
+			return ports.ErrPlanFirmantesConflicto
 		}
 	}
 	if q.Accion == ports.AccionSustituirPlanFirmantes {
 		encontrado := false
 		for _, f := range p.Firmantes {
 			if f.DesignacionRef == q.SustituyeRef {
-				return false
+				return ports.ErrPlanFirmantesConflicto
 			}
 			if f.DesignacionRef == q.Sustituto.DesignacionRef && f != q.Sustituto {
-				return false
+				return ports.ErrPlanFirmantesConflicto
 			}
 			if f == q.Sustituto {
 				encontrado = true
 			}
 		}
 		if !encontrado {
-			return false
+			return ports.ErrPlanFirmantesConflicto
 		}
 	}
-	return true
+	return nil
 }
 
 func solicitudFirmantesCoherente(q SolicitudFirmantesMerito) bool {

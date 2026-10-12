@@ -74,9 +74,12 @@ type MaterialDecisionFirmantes struct {
 func (m MaterialDecisionFirmantes) Validar() error {
 	if (m.ConvocatoriaRef != "" && !ReferenciaValida(m.ConvocatoriaRef)) || !ReferenciaValida(m.HechoRef) || m.HechoVersion < 1 || !ReferenciaValida(m.DecisionRef) || m.DecisionVersion == 0 ||
 		!huellaFirmantesValida(m.ContenidoSHA256) || !huellaFirmantesValida(m.EvidenciasSHA256) ||
-		!ReferenciaValida(m.MotivoRef) || !puntosCanonicosFirmantes(m.PuntosMicropuntos) ||
+		!ReferenciaValida(m.MotivoRef) ||
 		len(m.Evidencias) == 0 || len(m.Evidencias) > 32 {
 		return ErrFirmantesMerito
+	}
+	if err := validarPuntosCanonicosFirmantes(m.PuntosMicropuntos); err != nil {
+		return err
 	}
 	for i, e := range m.Evidencias {
 		if e.Validar() != nil || !ReferenciaValida(e.ID) || i > 0 && (m.Evidencias[i-1].ID > e.ID ||
@@ -121,21 +124,24 @@ func HuellaContenidoDecisionFirmantes(m MaterialDecisionFirmantes) (string, erro
 	return hex.EncodeToString(h[:]), nil
 }
 
-func puntosCanonicosFirmantes(s string) bool {
+func validarPuntosCanonicosFirmantes(s string) error {
 	if len(s) == 0 || len(s) > 16 || len(s) > 1 && s[0] == '0' {
-		return false
+		return ErrFirmantesMerito
 	}
 	for _, c := range s {
 		if c < '0' || c > '9' {
-			return false
+			return ErrFirmantesMerito
 		}
 	}
 	valor, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
-		return false
+		return errors.Join(ErrFirmantesMerito, err)
 	}
 	_, err = baremacion.PuntosDesdeMicropuntos(valor)
-	return err == nil
+	if err != nil {
+		return errors.Join(ErrFirmantesMerito, err)
+	}
+	return nil
 }
 
 func huellaFirmantesValida(s string) bool {

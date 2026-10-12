@@ -3,11 +3,23 @@ package domain
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"strconv"
 	"strings"
 	"testing"
 
+	"vec-diputacion-granada/internal/shared/baremacion"
 	vec "vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestMaterialFirmantesPropagaLimitePuntos(t *testing.T) {
+	m := materialFirmantesPrueba()
+	m.PuntosMicropuntos = strconv.FormatInt(baremacion.MaximoMicropuntos+1, 10)
+	err := m.Validar()
+	if !errors.Is(err, ErrFirmantesMerito) || !errors.Is(err, baremacion.ErrFueraDeLimites) {
+		t.Fatalf("la validación perdió la causa del rechazo: %v", err)
+	}
+}
 
 func catalogoFirmantesPrueba() CatalogoRolesFirmantes {
 	return CatalogoRolesFirmantes{Referencia: "catalogo:firmantes:prueba", Version: 1,
