@@ -97,12 +97,13 @@ BEGIN
   AND catalogo.huella_sha256 IS NOT DISTINCT FROM p_orden->>'catalogo_politicas_huella_sha256'
   AND politicas IS NOT DISTINCT FROM p_orden->'politicas_evaluadas'
   AND CASE WHEN jsonb_typeof(a.documento->'ambitos')='array' THEN
-   (SELECT count(*)=2
-     AND count(*) FILTER (WHERE ambito=jsonb_build_object('clave','unidad_ref',
-      'valores',jsonb_build_array(p_orden->>'unidad_ref')))=1
-     AND count(*) FILTER (WHERE ambito=jsonb_build_object('clave','ambito_ref',
-      'valores',jsonb_build_array(p_orden->>'ambito_ref')))=1
-    FROM jsonb_array_elements(a.documento->'ambitos') ambito)
+   jsonb_array_length(a.documento->'ambitos')=2
+   AND vec_autorizacion.ambitos_positivos_validos(a.documento) IS TRUE
+   AND a.documento->'ambitos' @> jsonb_build_array(
+    jsonb_build_object('clave','unidad_ref',
+     'valores',jsonb_build_array(p_orden->>'unidad_ref')),
+    jsonb_build_object('clave','ambito_ref',
+     'valores',jsonb_build_array(p_orden->>'ambito_ref')))
    ELSE false END
   AND (SELECT count(*) FROM jsonb_array_elements(r.documento->'concesiones') concesion
    WHERE concesion->>'accion'='bolsa.rrhh.respuestas_llamamiento.consultar')=1

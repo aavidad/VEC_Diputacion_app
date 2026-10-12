@@ -45,8 +45,9 @@ BEGIN
 END $prueba$;
 ROLLBACK;
 
--- Cuando ADMIN haya dado de alta un RRHH real, pasar una orden nominal vigente
--- y dos referencias de bolsa distintas mediante -v. Este bloque sólo coteja
+-- Cuando ADMIN haya dado de alta un RRHH con varios valores en al menos un
+-- ámbito, pasar una orden nominal vigente y dos bolsas distintas mediante -v.
+-- Este bloque sólo coteja
 -- permisos; B103/Go verifican el vínculo de cada bolsa con su llamamiento.
 \if :{?ad237_orden_json}
 BEGIN ISOLATION LEVEL SERIALIZABLE;
@@ -58,10 +59,17 @@ CREATE TEMP TABLE ad237_material_nominal ON COMMIT DROP AS
         :'ad237_perfil_ref'::text perfil_ref,
         :'ad237_segunda_bolsa_ref'::text segunda_bolsa_ref;
 DO $nominal$
-DECLARE m record;o jsonb;
+DECLARE m record;o jsonb;ambitos jsonb;
 BEGIN
  SELECT * INTO STRICT m FROM ad237_material_nominal;
  o:=m.orden;
+ SELECT a.documento->'ambitos' INTO ambitos
+ FROM vec_autorizacion.asignacion_perfil_actual ap
+ JOIN vec_autorizacion.asignacion_perfil a USING(perfil_activo_ref,asignacion_ref)
+ WHERE ap.perfil_activo_ref=m.perfil_ref AND a.asignacion_ref=o->>'asignacion_ref';
+ IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(ambitos) b
+  WHERE jsonb_array_length(b->'valores')>1)
+ THEN RAISE EXCEPTION 'AD237: fixture sin ámbito multivalor'; END IF;
  IF o->>'bolsa_ref' IS NOT DISTINCT FROM m.segunda_bolsa_ref
  OR vec_autorizacion.cotejar_lectura_respuestas_llamamiento_actual_v1(
   o,m.actor_ref,m.perfil_ref) IS NOT TRUE
