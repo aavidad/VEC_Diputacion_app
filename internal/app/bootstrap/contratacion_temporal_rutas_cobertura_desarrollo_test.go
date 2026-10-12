@@ -280,3 +280,45 @@ func TestCoberturaRutasCTRestringeElManejadorFinalAntesDeEjecutarlo(t *testing.T
 		t.Fatalf("ejecuciones nominales: %d", llamadas)
 	}
 }
+
+func TestOriginalR5CoberturaExigeFronteraYRestringeVerbos(t *testing.T) {
+	e := nuevoEscenarioOriginalPDP(t)
+	frontera, err := fronteraOriginalFirmableCTDesarrollo(e.soporte.perfilesOriginal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, declarada := range []bool{false, true} {
+		fs := descriptoresFronterasContratacionTemporalDesarrollo("prf_catalogo_ct", []string{"prf_catalogo_ct"})
+		if declarada {
+			fs = append(fs, frontera)
+		}
+		catalogo, err := nuevoCatalogoFronterasComunDesarrollo(fs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		llamadas := 0
+		rutas := []vechttp.RutaExacta{{Ruta: httpinterno.RutaOriginalFirmableCT, Manejador: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { llamadas++; w.WriteHeader(http.StatusNoContent) })}}
+		err = validarCoberturaRutasCTDesarrollo(rutas, catalogo)
+		if !declarada {
+			if !errors.Is(err, ErrCoberturaRutasCTDesarrollo) {
+				t.Fatalf("sin frontera: %v", err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, metodo := range []string{http.MethodGet, http.MethodPut, http.MethodDelete} {
+			w := httptest.NewRecorder()
+			rutas[0].Manejador.ServeHTTP(w, httptest.NewRequest(metodo, httpinterno.RutaOriginalFirmableCT, nil))
+			if w.Code != http.StatusMethodNotAllowed || llamadas != 0 || w.Header().Get("Allow") != "POST" {
+				t.Fatalf("verbo=%s HTTP=%d llamadas=%d", metodo, w.Code, llamadas)
+			}
+		}
+		w := httptest.NewRecorder()
+		rutas[0].Manejador.ServeHTTP(w, httptest.NewRequest(http.MethodPost, httpinterno.RutaOriginalFirmableCT, nil))
+		if w.Code != http.StatusNoContent || llamadas != 1 {
+			t.Fatalf("POST=%d llamadas=%d", w.Code, llamadas)
+		}
+	}
+}
