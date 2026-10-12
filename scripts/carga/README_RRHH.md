@@ -29,7 +29,7 @@ Guarda fuera de Git un JSON como este, con referencias de la copia local:
     "nombre": "cuadro-ct-100",
     "metodo": "POST",
     "ruta": "/api/vec/contratacion-temporal/cuadro/consultas",
-    "cuerpo": {"filtros": {"texto": ""}, "paginacion": {"limite": 100}},
+    "cuerpo": {"filtros": {"texto": ""}, "paginacion": {"limite": 100}, "resumen": true},
     "presupuesto_ms": 300
   },
   {
@@ -53,6 +53,9 @@ preferencias con sus rutas y contratos vigentes. Para POST solo se admiten
 `/api/vec/contratacion-temporal/expedientes/consultas`. Copia los cuerpos de
 lectura que usa el navegador de la copia local. Si el contrato necesita una
 sesión previa, prepárala con el circuito existente; el cliente no la inventa.
+
+Cuadro y lista CT comparten la ruta: mide el cuadro con `resumen: true` para
+incluir los totales, y la lista sin ese campo. Son dos casos de medida distintos.
 
 ```sh
 GOCACHE=$HOME/.cache/go-build go run -p 6 ./scripts/carga/cliente \
