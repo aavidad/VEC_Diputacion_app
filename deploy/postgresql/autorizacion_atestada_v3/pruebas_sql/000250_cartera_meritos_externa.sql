@@ -7,6 +7,7 @@ BEGIN
  FOREACH firma IN ARRAY ARRAY[
   'vec_autorizacion_atestada_v3.registrar_lectura_cartera_meritos_v1(bytea,bytea,jsonb)',
   'vec_autorizacion_atestada_v3.registrar_intento_lectura_cartera_meritos_v1(bytea,bytea,jsonb)',
+  'vec_autorizacion_atestada_v3.registrar_intento_retirada_cartera_meritos_v1(bytea,bytea,jsonb)',
   'vec_autorizacion_atestada_v3.consumir_retirada_merito_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'] LOOP
   f:=to_regprocedure(firma);
   IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
