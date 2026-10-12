@@ -89,7 +89,7 @@
 875 internal/vec/ports/reconciliacion_documental_v4.go
 1179 scripts/smoke_nominas_peoplenet.js
 13067 web/static/app.js
-819 web/static/area-personal/aplicacion.js
+831 web/static/area-personal/aplicacion.js
 612 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 1015 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 956 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
@@ -152,3 +152,4 @@
 960 deploy/postgresql/bolsa_llamamientos/migraciones/000097_incorporacion_inscripcion.up.sql
 907 deploy/postgresql/catalogos_configurables/migraciones/000011_lectura_lote_categorias_inscripcion.up.sql
 2983 deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql
+1791 deploy/postgresql/autorizacion_atestada_v3/migraciones/000241_preferencias_bolsas.up.sql
