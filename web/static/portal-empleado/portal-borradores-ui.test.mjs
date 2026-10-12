@@ -414,12 +414,14 @@ test("la actualización envía CAS e idempotencia exactos y muestra el recibo", 
   const { superficie } = crearSuperficie({ cliente });
   await superficie.activar();
   cambiar(superficie, "contenido_editable.titulo", "Título local actualizado");
+  cambiar(superficie, "contenido_editable.modalidad_inscripcion", "separada");
   assert.equal(await superficie.guardar(), true);
   assert.equal(llamadas.length, 1);
   const [referencia, solicitud, limitesAPI, control] = llamadas[0];
   assert.equal(referencia, detalle().referencia_estado.referencia);
   assert.equal(solicitud.esquema, ESQUEMAS_BORRADORES.actualizar);
   assert.equal(solicitud.contenido_editable.titulo, "Título local actualizado");
+  assert.equal(solicitud.contenido_editable.modalidad_inscripcion, "separada");
   assert.equal(Object.hasOwn(solicitud, "identificador_publico"), false);
   assert.deepEqual(validarSolicitudActualizarBorrador(solicitud, limitesAPI), solicitud);
   assert.deepEqual(limitesAPI, opciones().limites);
@@ -518,6 +520,7 @@ test("un alta confirmada conserva recibo aunque falle la lectura posterior", asy
   cambiar(superficie, "identificador_publico", "bolsa-nueva-2026");
   cambiar(superficie, "codigo_version_publica", "version_inicial");
   cambiar(superficie, "expediente_ref", "expediente:seleccion:2026:99");
+  cambiar(superficie, "contenido_editable.modalidad_inscripcion", "conjunta");
   cambiar(superficie, "contenido_editable.titulo", "Nueva bolsa temporal");
   cambiar(superficie, "contenido_editable.resumen", "Resumen del nuevo borrador.");
   cambiar(superficie, "contenido_editable.descripcion", "Descripción completa del nuevo borrador.");
@@ -531,6 +534,7 @@ test("un alta confirmada conserva recibo aunque falle la lectura posterior", asy
   assert.equal(alta[0].esquema, ESQUEMAS_BORRADORES.crear);
   assert.equal(alta[0].plantilla_ref, opciones().plantillas[0].plantilla_ref);
   assert.equal(alta[0].identificador_publico, "bolsa-nueva-2026");
+  assert.equal(alta[0].contenido_editable.modalidad_inscripcion, "conjunta");
   assert.deepEqual(validarSolicitudCrearBorrador(alta[0], alta[1]), alta[0]);
   const { signal, ...controlSinSignal } = alta[2];
   assert.equal(signal instanceof AbortSignal, true);

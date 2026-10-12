@@ -41,6 +41,7 @@ export function editorNuevo(opciones) {
     expediente_ref: "",
     contenido_editable: {
       tipo: opciones.tipos[0]?.clave || "",
+      modalidad_inscripcion: "",
       categorias: opciones.categorias[0] ? [opciones.categorias[0].clave] : [],
       titulo: "",
       resumen: "",
@@ -53,7 +54,10 @@ export function editorNuevo(opciones) {
 }
 
 export function editorDesdeDetalle(detalle) {
-  return { motivo_indice: 0, contenido_editable: copiar(detalle.contenido_editable) };
+  return { motivo_indice: 0, contenido_editable: {
+    ...copiar(detalle.contenido_editable),
+    modalidad_inscripcion: detalle.contenido_editable.modalidad_inscripcion ?? "",
+  } };
 }
 
 export function asignarRutaEditor(editor, ruta, valor) {

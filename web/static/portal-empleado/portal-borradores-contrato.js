@@ -42,7 +42,7 @@ const LIMITES_ABSOLUTOS_DOMINIO = Object.freeze({
 });
 
 const CAMPOS_CONTENIDO = Object.freeze([
-  "tipo", "categorias", "titulo", "resumen", "descripcion",
+  "tipo", "modalidad_inscripcion", "categorias", "titulo", "resumen", "descripcion",
   "plazos", "requisitos", "ayuda",
 ]);
 
@@ -418,7 +418,11 @@ function validarAyuda(ayuda, indice, limites) {
 
 export function validarContenidoEditable(contenido, limites) {
   const limitesValidados = validarLimites(limites);
-  exigirCamposExactos(contenido, CAMPOS_CONTENIDO, "contenido editable");
+  exigirCamposExactos(contenido, CAMPOS_CONTENIDO, "contenido editable", ["modalidad_inscripcion"]);
+  const modalidad = contenido.modalidad_inscripcion;
+  if (modalidad !== undefined && modalidad !== "separada" && modalidad !== "conjunta") {
+    throw new Error("modalidad de inscripción no válida");
+  }
   const categorias = exigirListaUnica(
     contenido.categorias, "categorías del contenido", limitesValidados.maximo_categorias,
     (item, indice) => exigirClave(item, `categorias[${indice}]`),
@@ -449,6 +453,7 @@ export function validarContenidoEditable(contenido, limites) {
   }
   return {
     tipo: exigirClave(contenido.tipo, "tipo de convocatoria"),
+    ...(modalidad === undefined ? {} : { modalidad_inscripcion: modalidad }),
     categorias,
     titulo: exigirCadena(contenido.titulo, "título", limitesValidados.maximo_titulo),
     resumen: exigirCadena(contenido.resumen, "resumen", limitesValidados.maximo_resumen),
