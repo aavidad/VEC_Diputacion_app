@@ -265,7 +265,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 		return datasetBolsasRRHHDesarrollo{}, err
 	}
 	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: corte.UTC().Format(time.RFC3339)}
-	if alcance.detalle {
+	if alcance.detalle && !alcance.conjunto {
 		if err := f.cargarMarcasBase(ctx, &datos); err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err
 		}
@@ -287,6 +287,11 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 			// También ante un error SQL se cancela y espera la recuperación;
 			// nunca queda una tarea con identidades después de responder.
 			defer func() { cancelarFilas(); esperaFilas.Wait() }()
+		}
+		if alcance.conjunto {
+			if err := f.cargarMarcasBase(ctx, &datos); err != nil {
+				return datasetBolsasRRHHDesarrollo{}, err
+			}
 		}
 		var ordenVigente dominiobolsa.OrdenVigenteBolsa
 		var filasResumen []ports.SituacionBolsaRRHH
