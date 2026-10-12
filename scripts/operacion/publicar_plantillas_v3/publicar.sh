@@ -4,8 +4,8 @@ umask 077
 carpeta=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 raiz=$(cd -- "$carpeta/../../.." && pwd)
 case "${1:-}" in
-  --comprobar) ;;
-  --aplicar) [[ ${2:-} == PUBLICA-PLANTILLAS-V3 ]] || { echo 'Falta --aplicar PUBLICA-PLANTILLAS-V3' >&2; exit 2; } ;;
+  --comprobar) [[ $# == 1 ]] || { echo "--comprobar no admite más argumentos" >&2; exit 2; } ;;
+  --aplicar) [[ $# == 2 && ${2:-} == PUBLICA-PLANTILLAS-V3 ]] || { echo 'Falta --aplicar PUBLICA-PLANTILLAS-V3' >&2; exit 2; } ;;
   *) echo 'Uso: publicar.sh --comprobar | --aplicar PUBLICA-PLANTILLAS-V3' >&2; exit 2 ;;
 esac
 binario=${VEC_PLANTILLAS_V3_BIN:-$carpeta/publicar-plantillas-v3}

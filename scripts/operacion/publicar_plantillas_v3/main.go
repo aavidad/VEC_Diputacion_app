@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -43,14 +42,9 @@ type salida struct {
 }
 
 func main() {
-	var ruta, aplica string
-	var comprobar bool
-	flag.StringVar(&ruta, "catalogo", "", "catálogo v3 de la PR #1065")
-	flag.BoolVar(&comprobar, "comprobar", false, "solo lectura")
-	flag.StringVar(&aplica, "aplicar", "", "PUBLICA-PLANTILLAS-V3")
-	flag.Parse()
-	if flag.NArg() != 0 || ruta == "" || comprobar == (aplica != "") || (aplica != "" && aplica != "PUBLICA-PLANTILLAS-V3") {
-		fmt.Fprintln(os.Stderr, "Uso: --catalogo ruta --comprobar | --aplicar PUBLICA-PLANTILLAS-V3")
+	ruta, comprobar, err := argumentos(os.Args[1:])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 	inicio := time.Now()
@@ -66,6 +60,16 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Salida no entregada; repita la misma operación para recuperar el recibo")
 		os.Exit(1)
 	}
+}
+
+func argumentos(args []string) (string, bool, error) {
+	if len(args) == 3 && args[0] == "--catalogo" && args[1] != "" && args[2] == "--comprobar" {
+		return args[1], true, nil
+	}
+	if len(args) == 4 && args[0] == "--catalogo" && args[1] != "" && args[2] == "--aplicar" && args[3] == "PUBLICA-PLANTILLAS-V3" {
+		return args[1], false, nil
+	}
+	return "", false, errors.New("Uso: --catalogo ruta --comprobar | --aplicar PUBLICA-PLANTILLAS-V3 (sin argumentos adicionales)")
 }
 
 func cargar(ctx context.Context, ruta string) (vecdomain.CatalogoConfigurable, string, []byte, error) {

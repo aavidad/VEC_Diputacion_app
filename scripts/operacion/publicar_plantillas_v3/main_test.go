@@ -27,3 +27,18 @@ func TestCatalogoExacto1065(t *testing.T) {
 		t.Fatalf("debe rechazar otro contenido válido antes de conectar: %v", err)
 	}
 }
+
+func TestComprobarNoPuedeConvertirseEnAplicar(t *testing.T) {
+	for _, args := range [][]string{
+		{"--catalogo", "v3.json", "--comprobar", "--comprobar=false", "--aplicar", "PUBLICA-PLANTILLAS-V3"},
+		{"--catalogo", "v3.json", "--comprobar=false"},
+		{"--catalogo", "v3.json", "--aplicar", "OTRA-ORDEN"},
+	} {
+		if _, _, err := argumentos(args); err == nil {
+			t.Errorf("aceptó %v", args)
+		}
+	}
+	if _, solo, err := argumentos([]string{"--catalogo", "v3.json", "--comprobar"}); err != nil || !solo {
+		t.Fatalf("comprobar: %v", err)
+	}
+}
