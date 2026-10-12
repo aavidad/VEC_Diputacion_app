@@ -2974,6 +2974,10 @@ BEGIN
   AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
   AND p.proacl::text='{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario,vec_autorizacion_propietario=X/vec_autorizacion_atestada_v3_propietario}')
+ OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=to_regprocedure('vec_autorizacion_atestada_v3.login_actos_admin_perfiles_valido_v1()')
+  AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
+  AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
+  AND p.proacl::text='{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario}')
  THEN RAISE EXCEPTION 'AD236: postimagen audiencia o fachada incompatible' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;
