@@ -46,6 +46,8 @@ test("otra versión, otro PDF o custodia ajena no entrega bytes para firmar", as
 test("denegación, límite de respuesta y cancelación cierran la descarga", async () => {
   await assert.rejects(crearClienteOriginalFirmable({ fetchImpl: async () => respuesta({}, 403) }).preparar(solicitud),
     (e) => e.codigo === "acceso_denegado");
+  await assert.rejects(crearClienteOriginalFirmable({ fetchImpl: async () => respuesta({}, 404) }).preparar(solicitud),
+    (e) => e.codigo === "servicio_no_disponible", "una ruta ausente no acredita falta de permiso");
   const grande = respuesta(datos()); grande.headers.set("Content-Length", "2000000");
   await assert.rejects(crearClienteOriginalFirmable({ fetchImpl: async () => grande }).preparar(solicitud),
     (e) => e.codigo === "resultado_no_confiable");

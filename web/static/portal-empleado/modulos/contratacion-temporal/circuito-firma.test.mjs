@@ -120,7 +120,7 @@ test("la fase muestra Dirección o Jefatura desde el catálogo sin abrir firma o
   assert.match(es, /Firma con certificado en VEC · Firma de prueba, sin eficacia administrativa/u);
   assert.match(es, /Envío al portafirmas corporativo/u);
   assert.match(en, /Sign with a certificate in VEC · Test signature with no administrative effect/u);
-  assert.match(en, /Sending to the corporate signature service/u);
+  assert.match(en, /Sending to Portafirmas/u);
   assert.match(es, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
   assert.doesNotMatch(es, /data-ct-firma-accion=/u);
   assert.match(es, /Desde esta pantalla aún no se ha firmado, enviado ni registrado el documento en Portafirmas/u);
@@ -246,9 +246,9 @@ test("las dos vías de firma usan el idioma del portal", () => {
   }
   const traductor = crearTraductorCircuitoFirma(MENSAJES_CIRCUITO_FIRMA_EN, "en-GB");
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), traductor);
-  assert.match(html, /Sending to the corporate signature service/u);
+  assert.match(html, /Sending to Portafirmas/u);
   assert.match(html, /Sending unavailable/u);
-  assert.match(html, /<button[^>]*disabled[^>]*>Send to the signature service<\/button>/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Send to Portafirmas<\/button>/u);
   assert.match(html, /Sending from this panel is not available/u);
   assert.match(html, /The document has not yet been signed, sent or registered in Portafirmas from this screen/u);
   assert.match(html, /Awaiting test signature by/u);
@@ -326,7 +326,7 @@ test("el gestor distingue denegación 403 de indisponibilidad 503 de CT118", asy
     expediente: { expediente_ref: ref, version: 7, demostracion: false },
     cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
       fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
-  for (const [resultado, texto] of [["denegado", "No dispone de permiso"], ["no_disponible", "Ahora no se puede saber en qué estado"]]) {
+  for (const [resultado, texto] of [["denegado", "No dispone de permiso"], ["no_disponible", "Ahora no se puede consultar el estado de firma"]]) {
     const insertados = [];
     const fases = { insertAdjacentHTML: (_, html) => insertados.push(html) };
     const raiz = { querySelector: (selector) => (selector === ".ct-exp-progreso" ? fases : null) };
@@ -569,8 +569,8 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261012-ct-original-preparado-v1"],
-    ["vista-expedientes.js", "20261012-ct-personal-ficha-v1"],
+    ["circuito-firma.js", "20261012-ct-firma-error-v4"],
+    ["vista-expedientes.js", "20261012-ct-firma-error-v4"],
 
   ]);
   const anterior = "20260929-custodia-506-v1";
@@ -604,6 +604,20 @@ test("la preparación muestra el recibo y los pasos sin acreditar envío ni firm
   assert.doesNotMatch(en, /Verified signature/u);
   assert.equal((en.match(/Status unavailable/gu) ?? []).length, 2, "la historia local no acredita el estado en Portafirmas");
   assert.doesNotMatch(en, /Documento preparado|Recibo|Dirección de RRHH/u);
+  const antes = renderizarCircuitoFirma(null, t, "no_disponible", null, { documento: d });
+  assert.match(antes, /El envío desde este panel no está disponible/u);
+  assert.doesNotMatch(antes, /Puede descargar el PDF preparado/u);
+  const despues = renderizarCircuitoFirma(null, t, "no_disponible", null, { documento: d, original });
+  assert.match(despues, /Puede descargar el PDF preparado/u);
+});
+
+test("un catálogo anterior de tres cargos no se presenta como tres firmas consecutivas", () => {
+  const documento = circuitoConAlternativa().documentos[0];
+  documento.pasos.push({ ...documento.pasos[1], orden: 3, cargo: "Secretaría General (toma de razón)" });
+  const html = renderizarPreparacionResolucion({ documento }, crearTraductorCircuitoFirma());
+  assert.match(html, /Aún no se puede mostrar el orden de firma de esta resolución/u);
+  assert.doesNotMatch(html, /<ol>|Secretaría General/u);
+  assert.match(html, /data-ct-preparar-resolucion/u);
 });
 
 test("preparar y descargar mantienen el original con otra lectura nominal; cancelan y no duplican clics", async () => {

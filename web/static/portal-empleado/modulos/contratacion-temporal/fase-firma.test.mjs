@@ -49,7 +49,8 @@ test("el apartado dice documento, estado, quién firma y desde cuándo, escapado
   assert.match(html, /Resolución &lt;x&gt;/u);
   assert.match(html, /data-ct-fase-firma-estado="pendiente_firma"/u);
   assert.match(html, />Pendiente de firma</u);
-  assert.match(html, /Cargo 2 \(paso 2 de 3\)/u);
+  assert.match(html, /Orden de firma pendiente de confirmación/u);
+  assert.doesNotMatch(html, /Cargo 2 \(paso 2 de 3\)/u);
   assert.match(html, /28 sept 2026, 10:30/u, "fecha y hora de Madrid");
   assert.doesNotMatch(html, /ct-fase-firma-aviso/u);
 });
@@ -57,7 +58,7 @@ test("el apartado dice documento, estado, quién firma y desde cuándo, escapado
 test("sin estado real se avisa y se muestra el primer firmante", () => {
   const catalogo = { documentos: [{ documento: "resolucion", etiqueta: "Resolución", pasos: [{ orden: 1, cargo: "Jefatura" }, { orden: 2, cargo: "Diputado" }] }] };
   const html = renderizarFaseFirma({ catalogo, real: null, textos: es });
-  assert.match(html, /role="status">Ahora no se puede saber/u);
+  assert.match(html, /role="status">Ahora no se puede consultar el estado de firma/u);
   assert.match(html, />Estado no disponible</u);
   assert.match(html, /Jefatura \(paso 1 de 2\)/u);
   assert.match(html, /Fecha no disponible/u);

@@ -4,10 +4,10 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261012-ct-personal-ficha-v1";
-const versionCircuito = "20261012-ct-original-preparado-v1";
+const versionCoordinador = "20261012-ct-firma-error-v4";
+const versionCircuito = "20261012-ct-firma-error-v4";
 const versionVista = "20261011-informe-legible-v1";
-const versionVistaPortal = "20261012-ct-personal-ficha-v1";
+const versionVistaPortal = "20261012-ct-firma-error-v4";
 const versionAdaptador = "20261011-ct-bolsa-vinculo-v1";
 const versionRender = "20261011-ct-bolsa-vinculo-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
@@ -110,12 +110,12 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     vista, presentadorAlta, rendererAlta, i18n, contrato, interno, produccion, cache] = await Promise.all(
     nombres.map((nombre) => readFile(new URL(nombre, raiz), "utf8")));
   const cohorte = "20261009-centro-campos-cohorte-v5";
-  const cohorteNavegacion = "20261012-ct-personal-ficha-v1";
+  const cohorteNavegacion = "20261012-ct-firma-error-v4";
   const cohorteClienteHTTP = "20261011-ct-bolsa-vinculo-v1";
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = cohorte;
   const cohorteIdioma = "20261011-ct-bolsa-vinculo-v1";
-  const cohorteEntrada = "20261012-ct-personal-ficha-v1";
+  const cohorteEntrada = "20261012-ct-firma-error-v4";
   const cohorteFicha = "20261011-informe-legible-v1";
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
@@ -164,7 +164,7 @@ test("la ficha compartible y su aviso usan una única cohorte empaquetada", asyn
     "../../interno.manifest", "../../produccion.manifest", "cache-publica-v1.json",
   ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const cohorte = "20261008-r-fichas-idioma-nav-v1";
-  const entrada = "20261012-ct-personal-ficha-v1";
+  const entrada = "20261012-ct-firma-error-v4";
   exigirVersiones(html, "/portal-empleado/portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(portal, "./portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(coordinador, "./portal-ct-ruta-ficha.js", cohorte);
