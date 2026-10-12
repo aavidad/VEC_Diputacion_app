@@ -90,7 +90,7 @@ func concesionRolMeritosCartera(c ConcesionRol, accion string) bool {
 		return false
 	}
 	if accion == accionRolMeritosConsultar {
-		campos := []string{"denominacion", "disponibilidad", "hecho_ref", "retirada", "tipo", "total", "version_hecho"}
+		campos := []string{"denominacion", "disponibilidad", "hecho_ref", "motivos_retirada", "retirada", "tipo", "total", "version_hecho"}
 		return reflect.DeepEqual(c.CamposPermitidos, campos)
 	}
 	return reflect.DeepEqual(c.CamposPermitidos, []string{"disponibilidad", "recibo"})

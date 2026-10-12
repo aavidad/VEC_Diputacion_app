@@ -17,7 +17,7 @@ func escenarioRolMeritosCartera(t *testing.T) (CatalogoAccionesAdministracionV1,
 	get.Concesion = ConcesionRol{Accion: accionRolMeritosConsultar, ModuloID: "meritos",
 		TipoRecurso: "cartera_personal", Finalidades: []string{"gestion_cartera_propia"},
 		GarantiaMinima:   AuthAssuranceHigh,
-		CamposPermitidos: []string{"denominacion", "disponibilidad", "hecho_ref", "retirada", "tipo", "total", "version_hecho"},
+		CamposPermitidos: []string{"denominacion", "disponibilidad", "hecho_ref", "motivos_retirada", "retirada", "tipo", "total", "version_hecho"},
 		Obligaciones:     []string{"auditar"}}
 	post := get
 	post.Referencia = "entrada:meritos:cartera:retirar"
