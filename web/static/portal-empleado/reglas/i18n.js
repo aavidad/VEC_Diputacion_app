@@ -29,7 +29,7 @@ const CLAVES = Object.freeze(`
   filtros filtroModulo filtroOrigen filtroTexto todos origen_reglamento origen_ejemplo cargando sinResultados
   kpiTotal kpiReglamento kpiEjemplo modulo_bolsa modulo_contratacion_temporal catalogoVersion reintentar
   paqueteEjemplo estado_sin_catalogo estado_no_disponible contadorReglas colRegla colValor colUnidad colOrigen
-  colDuda colVersion origenArticulo origenEjemplo parteEjemplo sinValor computo_administrativo computo_civil
+  colDuda colVersion origenArticulo origenEjemplo parteEjemplo parteConfigurada sinValor computo_administrativo computo_civil
   unidad_dias_habiles unidad_dias_naturales unidad_meses unidad_anios unidad_horas unidad_minutos_semanales
   unidad_intentos unidad_procesos unidad_franja_horaria unidad_lista unidad_ninguna error_solicitud_invalida
   error_servicio_no_disponible error_autenticacion_requerida error_acceso_denegado error_respuesta ayudaDetalle
@@ -91,9 +91,11 @@ export function textoPresentacionRegla(modulo, regla, campo, {
   const entrada = Object.hasOwn(campos ?? {}, campo) ? campos[campo] : null;
   const rutaTexto = `presentacion.${modulo}.${regla?.clave}.${campo}.texto`;
   if (faltantes.includes(rutaTexto)) return { texto: original, idioma: IDIOMA_DATOS_REGLAS };
-  if (typeof original === "string" && entrada?.original === original
-    && typeof entrada.texto === "string" && entrada.texto !== "") {
-    return { texto: entrada.texto, idioma };
+  const variante = entrada?.variantes && typeof entrada.variantes === "object"
+    ? Object.values(entrada.variantes).find((item) => item?.original === original) : null;
+  const elegida = entrada?.original === original ? entrada : variante;
+  if (typeof original === "string" && typeof elegida?.texto === "string" && elegida.texto !== "") {
+    return { texto: elegida.texto, idioma };
   }
   return { texto: original, idioma: IDIOMA_DATOS_REGLAS };
 }
