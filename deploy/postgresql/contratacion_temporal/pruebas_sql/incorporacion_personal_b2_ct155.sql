@@ -76,6 +76,9 @@ BEGIN
  END;
  END LOOP;
  -- Ni la selección ni el plan pueden sustituir una de las dos versiones.
+ p:=p||jsonb_build_object('clase_ocupacion','reserva');
+ s:=s||jsonb_build_object('clase_ocupacion','reserva');
+ PERFORM vec_contratacion_temporal.validar_plan_personal_ct155(p,s);
  BEGIN
    PERFORM vec_contratacion_temporal.validar_plan_personal_ct155(p,s||jsonb_build_object('version_plantilla_ref','plantilla:44444444-4444-4444-8444-444444444444'));
    RAISE EXCEPTION 'CT205: versión de plantilla ajena admitida';
