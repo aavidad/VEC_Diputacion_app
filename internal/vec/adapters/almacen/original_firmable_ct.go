@@ -99,7 +99,7 @@ func (a *CustodiaDocumentosOriginalCT) LeerOriginal(ctx context.Context, s ports
 		Referencia: ref, Version: s.OriginalVersion,
 		TipoRef:      documento.TipoRef,
 		HuellaSHA256: original.HuellaSHA256, Contenido: bytes.Clone(original.Contenido),
-		NumeroVEC: documento.NumeroVEC, CustodiadoEn: documento.CreadoEn,
+		NumeroVEC: documento.NumeroVEC, CustodiadoEn: documento.CreadoEn.UTC(),
 	}, nil
 }
 
