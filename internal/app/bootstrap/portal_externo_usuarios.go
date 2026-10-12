@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+	meritoshttp "vec-diputacion-granada/internal/modules/meritos/adapters/http"
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecmemory "vec-diputacion-granada/internal/vec/adapters/memory"
@@ -63,14 +64,24 @@ type autoridadExactasPortalExterno struct {
 }
 
 func (a autoridadExactasPortalExterno) AutorizarRutaExacta(ctx context.Context, ruta string) error {
-	if ctx == nil || a.preferencias == nil || ruta != usuarioshttp.RutaMisPreferenciasAreaPersonal {
+	if ctx == nil || a.preferencias == nil {
+		return vechttp.ErrAutenticacionRutaExactaRequerida
+	}
+	seleccionada := a.preferencias
+	switch ruta {
+	case usuarioshttp.RutaMisPreferenciasAreaPersonal:
+	case meritoshttp.RutaCartera:
+		seleccionada = a.preferencias.cartera
+	case meritoshttp.RutaRetiradasCartera:
+		seleccionada = a.preferencias.retirada
+	default:
 		return vechttp.ErrAutenticacionRutaExactaRequerida
 	}
 	c, ok := ctx.Value(claveContextoPreferenciasUsuarios{}).(contextoPreferenciasUsuarios)
-	if !ok || c.autoridad != a.preferencias || c.resultado.Validar() != nil {
+	if !ok || seleccionada == nil || c.autoridad != seleccionada || c.resultado.Validar() != nil {
 		return vechttp.ErrAutenticacionRutaExactaRequerida
 	}
-	if c.vinculo.ValidarPara(c.resultado) != nil || !c.vinculo.VigenteEn(a.preferencias.reloj.Ahora(), c.resultado) {
+	if c.vinculo.ValidarPara(c.resultado) != nil || !c.vinculo.VigenteEn(seleccionada.reloj.Ahora(), c.resultado) {
 		return vechttp.ErrAccesoRutaExactaDenegado
 	}
 	return nil
@@ -90,16 +101,39 @@ func nuevaAPIPersonalPortalExterno(identidad *resolvedorIdentidadDesarrollo, inc
 	if err != nil {
 		return nil, err
 	}
+	rutas := []vechttp.RutaExacta{{Ruta: usuarioshttp.RutaMisPreferenciasAreaPersonal, Manejador: preferencias.manejador}}
+	frontera := registradorFronterasConUsuariosPreferencias{externa: preferencias.registrador}
+	carteraLista := preferencias.cartera != nil && preferencias.retirada != nil &&
+		preferencias.cartera.manejador != nil && preferencias.retirada.manejador != nil &&
+		preferencias.cartera.registrador != nil && preferencias.retirada.registrador != nil
+	if carteraLista {
+		rutas = append(rutas,
+			vechttp.RutaExacta{Ruta: meritoshttp.RutaCartera, Manejador: preferencias.cartera.manejador},
+			vechttp.RutaExacta{Ruta: meritoshttp.RutaRetiradasCartera, Manejador: preferencias.retirada.manejador})
+		frontera.meritos = preferencias.cartera.registrador
+	}
 	manejador, err := vechttp.NewHandlerWithOptions(servicio, vechttp.HandlerOptions{
 		AllowDemoIdentity:                        true,
 		DemoIdentityResolver:                     identidad,
-		RutasExactas:                             []vechttp.RutaExacta{{Ruta: usuarioshttp.RutaMisPreferenciasAreaPersonal, Manejador: preferencias.manejador}},
+		RutasExactas:                             rutas,
 		AutoridadRutasExactas:                    autoridadExactasPortalExterno{preferencias: preferencias},
-		RegistradorAuditoriaFronteraRutasExactas: registradorFronterasConUsuariosPreferencias{externa: preferencias.registrador},
+		RegistradorAuditoriaFronteraRutasExactas: frontera,
 		EmisorIncidenciasTecnicas:                incidencias,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return preferencias.proteger(manejador), nil
+	protegido := preferencias.proteger(manejador)
+	if carteraLista {
+		return preferencias.cartera.proteger(preferencias.retirada.proteger(protegido)), nil
+	}
+	cerrada := meritoshttp.NuevoHandlerCarteraNoDisponible()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r != nil && r.URL != nil &&
+			(r.URL.Path == meritoshttp.RutaCartera || r.URL.Path == meritoshttp.RutaRetiradasCartera) {
+			cerrada.ServeHTTP(w, r)
+			return
+		}
+		protegido.ServeHTTP(w, r)
+	}), nil
 }

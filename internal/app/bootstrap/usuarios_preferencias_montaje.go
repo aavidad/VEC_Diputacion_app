@@ -97,6 +97,7 @@ type autoridadPreferenciasUsuariosDesarrollo struct {
 	// externa, con su propio registro de frontera y superficie de auditoría.
 	aspirantes           *autoridadPreferenciasUsuariosDesarrollo
 	componenteAspirantes *componenteAspirantes
+	cartera, retirada    *autoridadPreferenciasUsuariosDesarrollo
 	superficieAuditoria  string
 }
 
