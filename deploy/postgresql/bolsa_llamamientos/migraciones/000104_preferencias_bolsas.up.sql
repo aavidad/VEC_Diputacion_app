@@ -1,7 +1,9 @@
 \set ON_ERROR_STOP on
 -- B104. Base de historia propia para preferencias ENTRE bolsas. No modifica
 -- puntuaciones, orden de bolsa, disponibilidad, ofertas ni llamamientos.
--- Se instala después de AD241; las fachadas V3 se completan en este mismo
+-- Se instala después de AD241, AUT76 y AD246; la lectura nominal se audita
+-- en la misma transacción sin consumir una decisión V3.
+-- Las fachadas V3 de escritura se completan en este mismo
 -- corte antes de instalar la migración en cualquier base conservada.
 BEGIN;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
@@ -17,10 +19,60 @@ BEGIN
     OR to_regprocedure('vec_bolsa_llamamientos.listar_participaciones_candidato_v1(text)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_lectura_preferencias_bolsas_v1(bytea,bytea,jsonb)') IS NULL
+    OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_lectura_preferencias_bolsas_v1(bytea,bytea,jsonb)') IS NULL
     OR to_regrole('vec_bolsa_llamamientos_portal_externo') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.preferencia_bolsas_version') IS NOT NULL
  THEN RAISE EXCEPTION 'B104: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
+
+-- La frontera externa conserva la denegación nominal también en la ruta
+-- nueva. Se amplían únicamente su CHECK y su guarda de rutas, desde la
+-- definición B77 instalada; propietario, ACL y configuración son idénticos.
+DO $frontera$
+DECLARE ruta_nueva text:='/api/vec/bolsa/mi-bolsa/preferencias';
+ tabla regclass:='vec_bolsa_llamamientos.denegacion_frontera_portal_externo'::regclass;
+ firma regprocedure:='vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(text,text,text,text,text)'::regprocedure;
+ marca text:='''/api/vec/bolsa/mi-bolsa/solicitudes-documentales''';
+ nombre text; expresion text; expresion_nueva text; total integer;
+ anterior text; nuevo text; actual text; acl aclitem[]; propietario oid; config text[]; definidora boolean;
+BEGIN
+ SELECT count(*),min(c.conname),min(pg_get_expr(c.conbin,c.conrelid))
+ INTO total,nombre,expresion FROM pg_constraint c WHERE c.conrelid=tabla AND c.contype='c'
+  AND c.convalidated AND pg_get_constraintdef(c.oid) LIKE '%/api/vec/bolsa/mi-bolsa/solicitudes-documentales%';
+ IF total<>1 OR expresion IS NULL OR strpos(expresion,ruta_nueva)<>0 THEN
+  RAISE EXCEPTION 'PARO clave=B104.frontera_check, actual=%/%, esperado=1/false',
+   total,coalesce(strpos(expresion,ruta_nueva)<>0,false) USING ERRCODE='55000'; END IF;
+ EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.denegacion_frontera_portal_externo DROP CONSTRAINT %I',nombre);
+ EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.denegacion_frontera_portal_externo ADD CONSTRAINT %I CHECK ((%s) OR ruta=%L)',
+  nombre,expresion,ruta_nueva);
+ SELECT pg_get_expr(c.conbin,c.conrelid) INTO STRICT expresion_nueva FROM pg_constraint c
+ WHERE c.conrelid=tabla AND c.conname=nombre AND c.convalidated;
+ IF strpos(expresion_nueva,ruta_nueva)=0 OR strpos(expresion_nueva,'/api/vec/bolsa/mi-bolsa/solicitudes-documentales')=0
+    OR NOT EXISTS (SELECT 1 FROM pg_class WHERE oid=tabla AND relrowsecurity AND relforcerowsecurity) THEN
+  RAISE EXCEPTION 'PARO clave=B104.frontera_postimagen, actual=%, esperado=ambas rutas/RLS',
+   expresion_nueva USING ERRCODE='55000'; END IF;
+ SELECT pg_get_functiondef(firma),p.proacl,p.proowner,p.proconfig,p.prosecdef
+ INTO STRICT anterior,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=firma;
+ IF (length(anterior)-length(replace(anterior,marca,'')))/length(marca)<>1
+    OR strpos(anterior,ruta_nueva)<>0 OR NOT definidora
+    OR propietario<>'vec_bolsa_llamamientos_propietario'::regrole
+    OR ('search_path=pg_catalog, pg_temp'=ANY(config)) IS NOT TRUE THEN
+  RAISE EXCEPTION 'PARO clave=B104.frontera_funcion, actual=%/%, esperado=1/false',
+   (length(anterior)-length(replace(anterior,marca,'')))/length(marca),strpos(anterior,ruta_nueva)<>0
+   USING ERRCODE='55000'; END IF;
+ nuevo:=replace(anterior,marca,marca||','||quote_literal(ruta_nueva));
+ EXECUTE nuevo;
+ SELECT pg_get_functiondef(firma) INTO STRICT actual;
+ IF actual IS DISTINCT FROM nuevo OR replace(actual,marca||','||quote_literal(ruta_nueva),marca) IS DISTINCT FROM anterior
+    OR (SELECT proacl FROM pg_proc WHERE oid=firma) IS DISTINCT FROM acl
+    OR (SELECT proowner FROM pg_proc WHERE oid=firma) IS DISTINCT FROM propietario
+    OR (SELECT proconfig FROM pg_proc WHERE oid=firma) IS DISTINCT FROM config
+    OR (SELECT prosecdef FROM pg_proc WHERE oid=firma) IS DISTINCT FROM definidora THEN
+  RAISE EXCEPTION 'PARO clave=B104.frontera_acl, actual=%, esperado=%',
+   encode(sha256(convert_to(actual,'UTF8')),'hex'),encode(sha256(convert_to(nuevo,'UTF8')),'hex')
+   USING ERRCODE='55000'; END IF;
+END $frontera$;
 
 -- Solo adición. El último número de versión es la preferencia vigente; la
 -- clave y huella conservan la semántica de reintento tras respuesta incierta.
@@ -106,6 +158,82 @@ BEGIN
   'recibo_ref',v_recibo,'registrado_en',v_fecha);
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.preferencias_bolsas_estado_interno_v1(text,timestamptz) FROM PUBLIC;
+
+-- La proyección privada no tiene GRANT exterior. Esta fachada exige evidencia
+-- nominal de la sesión externa y asienta la lectura positiva antes de devolver
+-- datos. El adaptador debe confirmar COMMIT antes de responder por HTTP.
+CREATE FUNCTION vec_bolsa_llamamientos.consultar_preferencias_bolsas_v1(
+ p_candidato_ref text,p_contexto_canonico bytea,p_vinculo_canonico bytea,p_orden jsonb)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
+SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
+DECLARE v_estado jsonb; v_auditoria record; v_corte timestamptz(6):=clock_timestamp();
+BEGIN
+ IF current_user <> 'vec_bolsa_llamamientos_propietario'
+    OR session_user <> 'vec_externo_bolsa_desarrollo'
+    OR current_setting('transaction_isolation') <> 'serializable'
+    OR current_setting('transaction_read_only') <> 'off'
+    OR p_candidato_ref IS NULL OR p_candidato_ref !~ '^can_[A-Za-z0-9_-]{22,128}$'
+    OR p_contexto_canonico IS NULL OR p_vinculo_canonico IS NULL
+    OR jsonb_typeof(p_orden) IS DISTINCT FROM 'object'
+    OR p_orden->>'recurso_ref' IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref
+ THEN RAISE EXCEPTION 'B104: lectura nominal inválida' USING ERRCODE='42501'; END IF;
+ v_estado:=vec_bolsa_llamamientos.preferencias_bolsas_estado_interno_v1(p_candidato_ref,v_corte);
+ SELECT * INTO STRICT v_auditoria
+ FROM vec_autorizacion_atestada_v3.registrar_lectura_preferencias_bolsas_v1(
+  p_contexto_canonico,p_vinculo_canonico,p_orden);
+ IF v_estado IS NULL OR jsonb_typeof(v_estado) IS DISTINCT FROM 'object'
+    OR v_auditoria.auditoria_ref IS NULL OR v_auditoria.huella_sha256 !~ '^[0-9a-f]{64}$'
+    OR v_auditoria.correlacion_ref IS DISTINCT FROM p_orden->>'correlacion_ref'
+    OR v_auditoria.registrada_en IS NULL
+ THEN RAISE EXCEPTION 'B104: lectura no asentada' USING ERRCODE='42501'; END IF;
+ RETURN jsonb_build_object('estado',v_estado,'auditoria_ref',v_auditoria.auditoria_ref,
+  'auditoria_huella_sha256',v_auditoria.huella_sha256,
+  'correlacion_ref',v_auditoria.correlacion_ref,'auditada_en',v_auditoria.registrada_en);
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_preferencias_bolsas_v1(text,bytea,bytea,jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_preferencias_bolsas_v1(text,bytea,bytea,jsonb)
+ TO vec_bolsa_llamamientos_portal_externo;
+
+-- Fallo posterior a la autenticación. La misma sesión LOGIN entra por la
+-- fachada Bolsa; AD246 acredita CA/AUT y registra el intento nominal común.
+-- No concede al LOGIN acceso directo a AD3 ni consulta la concesión del GET.
+CREATE FUNCTION vec_bolsa_llamamientos.registrar_intento_lectura_preferencias_bolsas_v1(
+ p_candidato_ref text,p_contexto_canonico bytea,p_vinculo_canonico bytea,p_orden jsonb)
+RETURNS TABLE(auditoria_ref text,secuencia numeric,huella_sha256 text,
+ correlacion_ref text,registrada_en timestamptz)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
+SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
+DECLARE v_contexto jsonb;v_candidato text;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario'
+ OR session_user<>'vec_externo_bolsa_desarrollo'
+ OR current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off'
+ OR p_candidato_ref IS NULL OR p_candidato_ref !~ '^can_[A-Za-z0-9_-]{22,128}$'
+ OR p_contexto_canonico IS NULL OR p_vinculo_canonico IS NULL
+ OR jsonb_typeof(p_orden) IS DISTINCT FROM 'object'
+ OR p_orden->>'recurso_ref' IS DISTINCT FROM
+  'mi-bolsa:'||encode(sha256(convert_to('mi-bolsa:'||p_candidato_ref,'UTF8')),'hex')
+ THEN RAISE EXCEPTION 'B104: intento nominal inválido' USING ERRCODE='42501'; END IF;
+ BEGIN
+  v_contexto:=convert_from(p_contexto_canonico,'UTF8')::jsonb;
+ EXCEPTION WHEN data_exception OR invalid_text_representation THEN
+  RAISE EXCEPTION 'B104: contexto inválido' USING ERRCODE='42501'; END;
+ SELECT x->>'referencia' INTO v_candidato FROM jsonb_array_elements(v_contexto->'vinculos') x
+ WHERE x->>'tipo'='candidato' AND x->>'estado'='activo';
+ IF (SELECT count(*) FROM jsonb_array_elements(v_contexto->'vinculos') x
+     WHERE x->>'tipo'='candidato' AND x->>'estado'='activo')<>1
+ OR v_candidato IS DISTINCT FROM p_candidato_ref
+ THEN RAISE EXCEPTION 'B104: candidato de intento denegado' USING ERRCODE='42501'; END IF;
+ RETURN QUERY SELECT a.auditoria_ref,a.secuencia,a.huella_sha256,a.correlacion_ref,a.registrada_en
+ FROM vec_autorizacion_atestada_v3.registrar_intento_lectura_preferencias_bolsas_v1(
+  p_contexto_canonico,p_vinculo_canonico,p_orden) a;
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.registrar_intento_lectura_preferencias_bolsas_v1(text,bytea,bytea,jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.registrar_intento_lectura_preferencias_bolsas_v1(text,bytea,bytea,jsonb)
+ TO vec_bolsa_llamamientos_portal_externo;
 
 -- Fachada de efecto. AD241 verifica la concesión vigente, el contexto y el
 -- material atestado y registra su auditoría dentro de esta transacción. Una

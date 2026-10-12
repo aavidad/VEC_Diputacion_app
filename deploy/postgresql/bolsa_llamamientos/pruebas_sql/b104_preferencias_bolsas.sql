@@ -13,8 +13,9 @@ DO $prueba$
 DECLARE v_candidato text:='can_AAAAAAAAAAAAAAAAAAAAAA'; v_estado jsonb; v_rechazada boolean:=false;
  v_tabla oid:='vec_bolsa_llamamientos.preferencia_bolsas_version'::regclass;
  v_funcion oid:=to_regprocedure('vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(text,text[],bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ v_lectura oid:=to_regprocedure('vec_bolsa_llamamientos.consultar_preferencias_bolsas_v1(text,bytea,bytea,jsonb)');
 BEGIN
- IF v_funcion IS NULL
+ IF v_funcion IS NULL OR v_lectura IS NULL
     OR NOT EXISTS (SELECT 1 FROM pg_class WHERE oid=v_tabla AND relrowsecurity AND relforcerowsecurity)
     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid=v_tabla AND tgname='preferencia_bolsas_version_inmutable' AND tgenabled='O')
     OR has_table_privilege('vec_bolsa_llamamientos_ejecutor',v_tabla,'SELECT')
@@ -22,7 +23,26 @@ BEGIN
     OR NOT has_function_privilege('vec_bolsa_llamamientos_portal_externo',v_funcion,'EXECUTE')
     OR has_function_privilege('public',v_funcion,'EXECUTE')
     OR has_function_privilege('vec_bolsa_preferencias_ajeno_prueba',v_funcion,'EXECUTE')
+    OR NOT has_function_privilege('vec_bolsa_llamamientos_portal_externo',v_lectura,'EXECUTE')
+    OR has_function_privilege('public',v_lectura,'EXECUTE')
+    OR has_function_privilege('vec_bolsa_preferencias_ajeno_prueba',v_lectura,'EXECUTE')
+    OR has_function_privilege('vec_bolsa_llamamientos_portal_externo',
+     'vec_bolsa_llamamientos.preferencias_bolsas_estado_interno_v1(text,timestamptz)','EXECUTE')
  THEN RAISE EXCEPTION 'B104: ACL/historia incompatibles' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_constraint c
+   WHERE c.conrelid='vec_bolsa_llamamientos.denegacion_frontera_portal_externo'::regclass
+    AND c.contype='c' AND c.convalidated
+    AND pg_get_constraintdef(c.oid) LIKE '%/api/vec/bolsa/mi-bolsa/preferencias%')
+    OR strpos(pg_get_functiondef('vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(text,text,text,text,text)'::regprocedure),
+     '/api/vec/bolsa/mi-bolsa/preferencias')=0
+ THEN RAISE EXCEPTION 'B104: frontera de denegación ausente' USING ERRCODE='55000'; END IF;
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.consultar_preferencias_bolsas_v1(v_candidato,
+   convert_to('{}','UTF8'),convert_to('{}','UTF8'),'{}'::jsonb);
+  RAISE EXCEPTION 'B104: lectura sin sesión aceptada' USING ERRCODE='55000';
+ EXCEPTION WHEN insufficient_privilege THEN v_rechazada:=true; END;
+ IF NOT v_rechazada THEN RAISE EXCEPTION 'B104: lectura sin sesión no denegada' USING ERRCODE='55000'; END IF;
+ v_rechazada:=false;
  v_estado:=vec_bolsa_llamamientos.preferencias_bolsas_estado_interno_v1(v_candidato,clock_timestamp());
  IF v_estado->>'version' IS DISTINCT FROM '0' OR v_estado->>'revision_requerida' IS DISTINCT FROM 'true'
     OR v_estado->'orden_guardado' IS DISTINCT FROM '[]'::jsonb

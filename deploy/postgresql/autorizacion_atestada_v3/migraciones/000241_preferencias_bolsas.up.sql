@@ -1722,7 +1722,7 @@ BEGIN
   WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
     AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
  IF encode(sha256(convert_to(anterior,'UTF8')),'hex') IS DISTINCT FROM
-   'c335c66158bc7edc81d2fe05d5864755b4bc47a2e4c710c09edf75b2de937d9b'
+   '0c4b261a3822b6432592ab94b3b964f2ea409a56178a4ef4586037d3d4d3879b'
     OR right(anterior,1)<>')' OR strpos(anterior,'vec.bolsa.preferencias-bolsas.ordenar.v1')<>0
  THEN RAISE EXCEPTION 'AD241: audiencia preimagen AD240 divergente' USING ERRCODE='55000'; END IF;
  siguiente:=left(anterior,length(anterior)-1)||
