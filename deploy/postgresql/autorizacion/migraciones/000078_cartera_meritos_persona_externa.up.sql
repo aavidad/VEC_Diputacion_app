@@ -151,6 +151,7 @@ BEGIN
  OR current_setting('transaction_read_only')<>'off'
  OR current_setting('TimeZone')<>'UTC'
  OR p_idioma NOT IN ('es','en') OR p_idioma IS NULL
+ OR session_user<>'vec_externo_meritos_cartera'
  OR NOT pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
  THEN RAISE EXCEPTION 'AUT78: lectura de motivos denegada' USING ERRCODE='42501';END IF;
  cc:=vec_catalogos_configurables.listar_motivos_meritos_cartera_v1(p_idioma);
@@ -225,7 +226,8 @@ BEGIN
    WHERE l.rolname=session_user AND l.rolcanlogin AND l.rolinherit
    AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls)
    AND l.rolconfig IS NULL
-   AND (g.rolname='vec_meritos_cartera_externo'
+   AND ((g.rolname='vec_meritos_cartera_externo'
+     AND l.rolname='vec_externo_meritos_cartera')
     OR (g.rolname='vec_autorizacion_registro_meritos_externo'
      AND l.rolname='vec_externo_meritos_registro_autorizacion'))
    AND NOT(g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
@@ -355,7 +357,8 @@ DECLARE d jsonb;m jsonb;registro record;viva timestamptz;
 BEGIN
  IF NOT (vec_autorizacion.login_candidato_externo_v1(
   'vec_externo_meritos_registro_autorizacion','vec_autorizacion_registro_meritos_externo') IS TRUE
-  OR pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER'))
+  OR (session_user='vec_externo_meritos_cartera'
+   AND pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')))
  OR current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off'
  OR p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 1 AND 524288
@@ -389,7 +392,8 @@ RETURNS timestamptz LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' AS $f$
 DECLARE d jsonb;m jsonb;
 BEGIN
- IF NOT pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
+ IF session_user<>'vec_externo_meritos_cartera'
+ OR NOT pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
  OR current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off'
  OR p_decision IS NULL OR p_motivo IS NULL
@@ -428,7 +432,8 @@ BEGIN
  OR (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1
  OR NOT EXISTS(SELECT 1 FROM pg_roles l JOIN pg_auth_members m ON m.member=l.oid
    JOIN pg_roles g ON g.oid=m.roleid
-   WHERE l.rolname=session_user AND l.rolcanlogin AND l.rolinherit
+   WHERE l.rolname=session_user AND l.rolname='vec_externo_meritos_cartera'
+    AND l.rolcanlogin AND l.rolinherit
    AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls)
    AND l.rolconfig IS NULL AND g.rolname='vec_meritos_cartera_externo'
    AND NOT(g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)

@@ -154,7 +154,10 @@ DECLARE a record; persona text;limite integer;filtro text;cursor text;corte time
  motivos_catalogo jsonb;
 BEGIN
  IF current_user<>'vec_meritos_propietario' OR session_user=current_user
- OR NOT pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
+ OR session_user<>'vec_externo_meritos_cartera'
+ OR NOT EXISTS(SELECT 1 FROM pg_auth_members m
+  WHERE m.member=session_user::regrole AND m.roleid='vec_meritos_cartera_externo'::regrole
+   AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
  OR (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1
  OR current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off' OR current_setting('TimeZone')<>'UTC'
@@ -251,7 +254,10 @@ DECLARE c jsonb;d jsonb;u record;op vec_meritos.retirada_operacion_v1%ROWTYPE;
  fecha timestamptz(6);instante text;recibo text;evento text;r jsonb;
 BEGIN
  IF current_user<>'vec_meritos_propietario' OR session_user=current_user
- OR NOT pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
+ OR session_user<>'vec_externo_meritos_cartera'
+ OR NOT EXISTS(SELECT 1 FROM pg_auth_members m
+  WHERE m.member=session_user::regrole AND m.roleid='vec_meritos_cartera_externo'::regrole
+   AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
  OR (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1
  OR current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off' OR current_setting('TimeZone')<>'UTC'

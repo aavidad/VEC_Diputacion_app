@@ -11,7 +11,8 @@
 # la asignación externa de ámbito persona_ref exige su propio CAS nominal.
 # Ninguna migración de esta lista concede el rol a una persona.
 # Identidad aprueba dos filas nominales en
-# vec_identidad_externa_v1.llamante_autorizacion: LOGIN de datos M4 con
+# vec_identidad_externa_v1.llamante_autorizacion: LOGIN de datos
+# vec_externo_meritos_cartera con
 # grupo_esperado=vec_meritos_cartera_externo, y LOGIN
 # vec_externo_meritos_registro_autorizacion con
 # grupo_esperado=vec_autorizacion_registro_meritos_externo. Cada fila necesita

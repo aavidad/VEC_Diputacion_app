@@ -37,7 +37,9 @@ BEGIN
  OR current_setting('transaction_read_only')<>'off'
  OR current_setting('TimeZone')<>'UTC'
  OR p_idioma NOT IN ('es','en') OR p_idioma IS NULL
+ OR session_user<>'vec_externo_meritos_cartera'
  OR NOT pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
+ OR (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1
  THEN RAISE EXCEPTION 'CC13: lectura de motivos denegada' USING ERRCODE='42501';END IF;
  SELECT p.* INTO pub FROM vec_catalogos_configurables.publicacion p
  WHERE p.catalogo_id='meritos.cartera.motivos'
