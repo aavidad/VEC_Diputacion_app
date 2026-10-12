@@ -89,7 +89,7 @@
 875 internal/vec/ports/reconciliacion_documental_v4.go
 1179 scripts/smoke_nominas_peoplenet.js
 13067 web/static/app.js
-819 web/static/area-personal/aplicacion.js
+831 web/static/area-personal/aplicacion.js
 612 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 1015 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 956 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
@@ -157,5 +157,6 @@
 1669 internal/vec/ports/cargas_documentales.go
 841 internal/vec/ports/cargas_documentales_test.go
 2983 deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql
+1791 deploy/postgresql/autorizacion_atestada_v3/migraciones/000241_preferencias_bolsas.up.sql
 2998 deploy/postgresql/autorizacion_atestada_v3/migraciones/000247_campos_canonicos_original_firmable.up.sql
 822 internal/app/bootstrap/contratacion_temporal_perfiles_fijos_rrhh_desarrollo.go

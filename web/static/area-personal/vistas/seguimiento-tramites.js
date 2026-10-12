@@ -5,6 +5,7 @@ import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js?v=20
 import { renderizarOfertasMiBolsa, textoOfertas } from "../mi-bolsa-ofertas.js";
 import { renderizarContactoMiBolsa, textoContacto } from "../mi-bolsa-contacto.js";
 import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { renderizarPreferenciasBolsas } from "../mi-bolsa-preferencias-bolsas.js?v=20261012-preferencias-bolsas-v1";
 
 const b = (clave, variables) => traducir(`areaPersonal.vista.miBolsa.${clave}`, variables);
 const u = (clave, variables) => traducir(`areaPersonal.vista.subsanaciones.${clave}`, variables);
@@ -71,6 +72,7 @@ export function renderizarLlamamientos(datos, estado = {}) {
   const ayudaLlamamiento = `<details class="mi-bolsa-ayuda"><summary aria-label="${escaparAtributo(b("ayudaLlamamientoAbrir"))}">?</summary><p>${h(b("ayudaLlamamiento"))}</p></details>`;
   return `${encabezadoVista(b("titulo"), "", ayudaLlamamiento)}
     ${fichaParticipaciones}
+    <div id="preferencias-bolsas" aria-live="polite">${renderizarPreferenciasBolsas()}</div>
     <div id="historial-mi-bolsa" aria-live="polite">${renderizarHistorialMiBolsa()}</div>
     <div class="rejilla-principal"><div>${ver("ultimo_llamamiento") ? llamamientos : ""}${estado.ofertasMiBolsa?.length ? panel(textoOfertas("titulo"), textoOfertas("subtitulo"), renderizarOfertasMiBolsa(estado.ofertasMiBolsa)) : ""}</div><aside>
       ${estado.accionesPortal

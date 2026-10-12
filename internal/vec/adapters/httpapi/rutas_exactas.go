@@ -363,7 +363,8 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 	case "/api/vec/bolsa/mi-bolsa", "/api/vec/bolsa/mi-bolsa/historial",
 		"/api/vec/bolsa/mi-bolsa/solicitudes", "/api/vec/bolsa/mi-bolsa/respuestas",
 		"/api/vec/bolsa/mi-bolsa/solicitudes-documentales",
-		"/api/vec/bolsa/mi-bolsa/disposiciones", "/api/vec/bolsa/mi-bolsa/contacto":
+		"/api/vec/bolsa/mi-bolsa/disposiciones", "/api/vec/bolsa/mi-bolsa/contacto",
+		"/api/vec/bolsa/mi-bolsa/preferencias":
 		return ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
 	case "/api/vec/aspirantes/area-personal/mi-ficha":
 		return ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
