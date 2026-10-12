@@ -345,9 +345,9 @@ test("sin panel interno ni borradores, el menú de Bolsa solo ofrece lo que tien
   const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: true });
   assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones"]);
   assert.equal(indicadores.length, 6, "se renumeran solo las categorías visibles");
-  // Grupos enteros sin servicio (convocatorias…, reglas, auditoría) quedan ocultos.
+  // Solo el grupo Reglas aparece: Baremación usa la consulta de bolsas.
   assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").length, 3);
-  assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").every((grupo) => grupo.hidden), true);
+  assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").filter((grupo) => !grupo.hidden).length, 1);
   // El aviso de Documentos de Bolsa no depende de la capacidad de CT.
   aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false });
   assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones"]);
