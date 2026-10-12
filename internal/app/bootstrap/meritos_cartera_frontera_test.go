@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -32,5 +33,24 @@ func TestFronteraCarteraAdmiteFiltroSoloTrasIdentidadYNoRelajaUsuarios(t *testin
 		ServeHTTP(w, httptest.NewRequest(http.MethodGet, usuarioshttp.RutaMisPreferenciasAreaPersonal+"?filtro=retirados", nil))
 	if w.Code != http.StatusUnprocessableEntity || len(registrador.ordenes) != 1 {
 		t.Fatalf("ruta Usuarios relajada: estado=%d ordenes=%d", w.Code, len(registrador.ordenes))
+	}
+}
+
+func TestAuditoriaDispatcherSeparaMeritosDeUsuarios(t *testing.T) {
+	meritos := &registradorDenegacionPreferenciasPrueba{}
+	usuarios := &registradorDenegacionPreferenciasPrueba{}
+	agregador := registradorFronterasConUsuariosPreferencias{meritos: meritos, externa: usuarios}
+	orden := vecports.OrdenAuditoriaFronteraRutaExacta{
+		CorrelacionRef: "corr_0123456789abcdef0123456789abcdef",
+		Motivo:         vecports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida,
+		Superficie:     vecports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera,
+		Ruta:           meritoshttp.RutaCartera}
+	if err := agregador.RegistrarAuditoriaFronteraRutaExacta(context.Background(), orden); err != nil ||
+		len(meritos.ordenes) != 1 || len(usuarios.ordenes) != 0 {
+		t.Fatalf("denegación M4 mezclada: %v / %d / %d", err, len(meritos.ordenes), len(usuarios.ordenes))
+	}
+	agregador.meritos = nil
+	if agregador.RegistrarAuditoriaFronteraRutaExacta(context.Background(), orden) == nil {
+		t.Fatal("denegación M4 sin registrador confirmada")
 	}
 }
