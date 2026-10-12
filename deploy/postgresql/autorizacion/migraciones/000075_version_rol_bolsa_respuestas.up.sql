@@ -9,19 +9,45 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec:admin:continuidad:v1',0));
 DO $pre$
+DECLARE firma text;tabla text;
 BEGIN
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
- OR to_regprocedure('vec_autorizacion.canon_version_rol_bolsa_v2(jsonb,text)') IS NULL
- OR to_regprocedure('vec_autorizacion.aplicar_version_rol_bolsa_v2(boolean,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
- OR to_regprocedure('vec_autorizacion.resolver_catalogo_acciones_administracion_v2(text,integer,text)') IS NULL
- OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_version_rol_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
- OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_consumir_admin_perfiles_v3(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
- OR to_regprocedure('vec_autorizacion.proponer_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
- OR to_regclass('vec_autorizacion.propuesta_version_rol_bolsa_v2') IS NOT NULL
- OR to_regrole('vec_admin_version_rol_bolsa_ejecutor') IS NULL
- OR to_regrole('vec_admin_version_rol_bolsa_b103_ejecutor') IS NOT NULL
- THEN RAISE EXCEPTION 'AUT75: preimagen AUT63/AD236/AUT61 incompatible' USING ERRCODE='55000';END IF;
+ THEN RAISE EXCEPTION 'AUT75: requiere PostgreSQL 18 y superusuario migrador' USING ERRCODE='55000';END IF;
+ IF to_regrole('vec_admin_version_rol_bolsa_ejecutor') IS NULL
+ THEN RAISE EXCEPTION 'AUT75: falta ejecutor AD227' USING ERRCODE='55000';END IF;
+ FOREACH firma IN ARRAY ARRAY[
+  'vec_autorizacion.canon_version_rol_bolsa_v1(jsonb,text)',
+  'vec_autorizacion.validar_plan_version_rol_bolsa_v1(jsonb,boolean)',
+  'vec_autorizacion.aplicar_version_rol_bolsa_v1(boolean,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_autorizacion.acreditar_version_rol_bolsa_v1(jsonb)',
+  'vec_autorizacion.administradores_version_rol_bolsa_v1()',
+  'vec_autorizacion.solicitud_replay_version_rol_bolsa_v1(bytea,text)',
+  'vec_autorizacion.resultado_propuesta_acceso_version_rol_bolsa_v1(jsonb,text)',
+  'vec_autorizacion.registrar_fallo_version_rol_bolsa_v1(text,text,text)',
+  'vec_autorizacion.resolver_catalogo_acciones_administracion_v2(text,integer,text)',
+  'vec_autorizacion_atestada_v3.consumir_version_rol_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_autorizacion_atestada_v3.registrar_consumir_admin_perfiles_v3(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'] LOOP
+  IF to_regprocedure(firma) IS NULL
+  THEN RAISE EXCEPTION 'AUT75: falta función preexistente %',firma USING ERRCODE='55000';END IF;
+ END LOOP;
+ FOREACH firma IN ARRAY ARRAY[
+  'vec_autorizacion.canon_version_rol_bolsa_v2(jsonb,text)',
+  'vec_autorizacion.validar_plan_version_rol_bolsa_v2(jsonb,boolean)',
+  'vec_autorizacion.comprobar_postimagen_version_rol_bolsa_v2(text)',
+  'vec_autorizacion.aplicar_version_rol_bolsa_v2(boolean,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_autorizacion.proponer_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_autorizacion.cerrar_version_rol_bolsa_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'] LOOP
+  IF to_regprocedure(firma) IS NOT NULL
+  THEN RAISE EXCEPTION 'AUT75: función propia ya presente %',firma USING ERRCODE='55000';END IF;
+ END LOOP;
+ FOREACH tabla IN ARRAY ARRAY['propuesta_version_rol_bolsa_v2',
+  'cierre_version_rol_bolsa_v2','outbox_version_rol_bolsa_v2'] LOOP
+  IF to_regclass('vec_autorizacion.'||tabla) IS NOT NULL
+  THEN RAISE EXCEPTION 'AUT75: tabla propia ya presente %',tabla USING ERRCODE='55000';END IF;
+ END LOOP;
+ IF to_regrole('vec_admin_version_rol_bolsa_b103_ejecutor') IS NOT NULL
+ THEN RAISE EXCEPTION 'AUT75: ejecutor B103 ya presente' USING ERRCODE='55000';END IF;
 END $pre$;
 CREATE ROLE vec_admin_version_rol_bolsa_b103_ejecutor
  NOLOGIN NOINHERIT NOSUPERUSER NOCREATEROLE NOCREATEDB NOREPLICATION NOBYPASSRLS;
