@@ -1880,6 +1880,7 @@ function instalarEnlacesBolsa() {
     const vista = vistaDesdeHash();
     if (vista !== estado.vista || vista === "contratacion-temporal")
       navegar(vista, { enfocar: false, desdeRuta: true });
+    if (vista === "baremacion") vistaRankingBolsa?.actualizarRuta();
     if (vista !== "bolsa-candidatos") return;
     rutaCandidatosAplicada = null;
     aplicarRutaCandidatosBolsa();
