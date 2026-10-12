@@ -16,7 +16,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
+} from "./portal-composicion-empleado.js?v=20261012-ct-personal-ficha-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261011-bolsa-b103-privacidad-v1";
 import { cargarTextos } from "../comun/textos.js";
 import { INDICE_IDIOMAS } from "../comun/idioma.js";
@@ -148,7 +148,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261012-ct-original-preparado-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261012-ct-personal-ficha-v1");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),
@@ -164,8 +164,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista.js?v=20261008-alta-rpt-circular-v4"),
       import("./modulos/personal/vista-ficha-integral.js?v=20261008-alta-rpt-circular-v4"),
-      import("./modulos/personal/registro-b2.js?v=20261008-alta-rpt-circular-v4"),
-      import("./modulos/personal/registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3"),
+      import("./modulos/personal/registro-b2.js?v=20261012-ct-personal-ficha-v1"),
+      import("./modulos/personal/registro-b2-cliente.js?v=20261012-ct-personal-ficha-v1"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
       import("./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4"),
       import("./modulos/personal/cliente-http-ficha-propia.js?v=20261004-personal-relaciones-v1"),
@@ -1598,6 +1598,7 @@ export function crearCoordinadorModulosPortal({
       raiz.replaceChildren();
       const navegacion = navegacionPersonal(raiz, vista);
       const registro = composicion.personalRegistro.montar({ raiz, anunciar,
+        empleadoRef: typeof opciones?.empleadoRef === "string" ? opciones.empleadoRef : "",
         registrarDesmontar: (limpiar) => {
           const retirar = () => { limpiar(); navegacion?.remove(); };
           if (montaje !== secuenciaMontaje) { retirar(); return; }

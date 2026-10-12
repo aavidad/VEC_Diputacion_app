@@ -1,0 +1,1 @@
+deploy/postgresql/bolsa_llamamientos/migraciones/000106_lectura_rrhh_bolsa_conjunto.up.sql
