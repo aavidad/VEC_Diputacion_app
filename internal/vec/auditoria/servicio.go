@@ -41,6 +41,7 @@ type Peticion struct {
 type Pagina struct {
 	Registros       []Registro `json:"registros"`
 	SiguienteCursor string     `json:"siguiente_cursor"`
+	AuditoriaRef    string     `json:"auditoria_ref,omitempty"`
 }
 
 type Servicio struct {
@@ -50,6 +51,8 @@ type Servicio struct {
 	intentos    *ConfiguracionIntentos
 	claveCursor [32]byte
 	ahora       func() time.Time
+	capturador  CapturadorLecturaSesion
+	lectura     FuenteLecturaSesion
 }
 
 // ConfiguracionIntentos pertenece al servidor. El motivo procede del catálogo
@@ -161,6 +164,9 @@ func errorValidacionConsulta(ctx context.Context) error {
 }
 
 func (s *Servicio) Consultar(ctx context.Context, p Peticion) (Pagina, error) {
+	if s != nil && s.lectura != nil {
+		return s.consultarSesion(ctx, p)
+	}
 	if s == nil || ctx == nil || ctx.Err() != nil ||
 		dependenciaNula(s.emisor) || dependenciaNula(s.ct) || dependenciaNula(s.bolsa) {
 		return Pagina{}, ErrNoDisponible
@@ -238,28 +244,53 @@ func (s *Servicio) Consultar(ctx context.Context, p Peticion) (Pagina, error) {
 	if ctx.Err() != nil {
 		return Pagina{}, ErrNoDisponible
 	}
-	if len(pagina.Registros) > int(f.Limite)+1 {
-		return Pagina{}, ErrFuenteInvalida
+	return s.prepararPagina(f, pagina, false)
+}
+
+func (s *Servicio) prepararPagina(f Filtro, pagina PaginaFuente, dinamica bool) (Pagina, error) {
+	if err := validarRegistrosFuente(f, pagina.Registros, dinamica); err != nil {
+		return Pagina{}, err
 	}
 	filas := make([]Registro, 0, len(pagina.Registros))
-	for i, r := range pagina.Registros {
-		if !registroValido(r, f, f.Fuente) || (i > 0 && !posicionMenor(posicion(r), posicion(pagina.Registros[i-1]))) {
-			return Pagina{}, ErrFuenteInvalida
-		}
+	for _, r := range pagina.Registros {
 		filas = append(filas, clonarRegistro(r))
 	}
 	mas := len(filas) > int(f.Limite)
 	if mas {
 		filas = filas[:f.Limite]
 	}
-	resultado := Pagina{Registros: filas, SiguienteCursor: ""}
+	if pagina.AuditoriaRef != "" && !referenciaExacta(pagina.AuditoriaRef, 128) {
+		return Pagina{}, ErrFuenteInvalida
+	}
+	resultado := Pagina{Registros: filas, SiguienteCursor: "", AuditoriaRef: pagina.AuditoriaRef}
 	if mas {
-		resultado.SiguienteCursor, err = s.codificarCursor(f, posicion(filas[len(filas)-1]))
+		cursor, err := s.codificarCursor(f, posicion(filas[len(filas)-1]))
 		if err != nil {
 			return Pagina{}, ErrNoDisponible
 		}
+		resultado.SiguienteCursor = cursor
 	}
 	return resultado, nil
+}
+
+func ValidarRegistrosFuenteSesion(f Filtro, registros []Registro) error {
+	return validarRegistrosFuente(f, registros, true)
+}
+
+func validarRegistrosFuente(f Filtro, registros []Registro, dinamica bool) error {
+	if len(registros) > int(f.Limite)+1 {
+		return ErrFuenteInvalida
+	}
+	for i, r := range registros {
+		comprobacion := f
+		if dinamica {
+			comprobacion.ExpedienteRef = r.ExpedienteRef
+		}
+		if !registroValido(r, comprobacion, f.Fuente) || (i > 0 && !posicionMenor(posicion(r), posicion(registros[i-1]))) {
+			return ErrFuenteInvalida
+		}
+	}
+	return nil
 }
 
 func posicion(r Registro) Posicion {

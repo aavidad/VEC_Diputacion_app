@@ -24,11 +24,12 @@ const (
 	FuenteConsultaGeneral FuenteConsulta = ""
 	FuenteConsultaCT      FuenteConsulta = "ct"
 	FuenteConsultaBolsa   FuenteConsulta = "bolsa"
+	FuenteConsultaPersona FuenteConsulta = "persona"
 )
 
 func fuenteConsultaDesdeTexto(valor string) (FuenteConsulta, bool) {
 	switch FuenteConsulta(valor) {
-	case FuenteConsultaCT, FuenteConsultaBolsa:
+	case FuenteConsultaCT, FuenteConsultaBolsa, FuenteConsultaPersona:
 		return FuenteConsulta(valor), true
 	default:
 		return FuenteConsultaGeneral, false
@@ -132,19 +133,27 @@ func (h *Manejador) servirOpciones(w http.ResponseWriter, r *http.Request) {
 		h.responderIntento(w, r, identidad, recursoIntentoOpcionesRRHH, http.StatusServiceUnavailable, &opciones)
 		return
 	}
+	if err := h.servicio.registrarOpcionesSesion(r.Context(), identidad, opciones); err != nil {
+		h.responderIntento(w, r, identidad, recursoIntentoOpcionesRRHH, http.StatusServiceUnavailable, &opciones)
+		return
+	}
 	responderJSON(w, http.StatusOK, opciones)
 }
 
 type cuerpoConsulta struct {
-	Fuente        string `json:"fuente"`
-	ExpedienteRef string `json:"expediente_ref"`
-	ActorRef      string `json:"actor_ref"`
-	Desde         string `json:"desde"`
-	Hasta         string `json:"hasta"`
-	Limite        uint16 `json:"limite"`
-	Cursor        string `json:"cursor"`
-	FinalidadRef  string `json:"finalidad_ref"`
-	MotivoRef     string `json:"motivo_ref"`
+	Fuente         string `json:"fuente"`
+	ExpedienteRef  string `json:"expediente_ref"`
+	ActorRef       string `json:"actor_ref"`
+	Desde          string `json:"desde"`
+	Hasta          string `json:"hasta"`
+	Limite         uint16 `json:"limite"`
+	Cursor         string `json:"cursor"`
+	FinalidadRef   string `json:"finalidad_ref"`
+	MotivoRef      string `json:"motivo_ref"`
+	Operacion      string `json:"operacion"`
+	Busqueda       string `json:"busqueda"`
+	DespuesRef     string `json:"despues_ref"`
+	MotivoConsulta string `json:"motivo_consulta"`
 }
 
 // decodificarCuerpoConsulta recorre una sola vez el JSON, rechaza claves
@@ -189,6 +198,14 @@ func decodificarCuerpoConsulta(w http.ResponseWriter, r *http.Request) (cuerpoCo
 			destino = &c.FinalidadRef
 		case "motivo_ref":
 			destino = &c.MotivoRef
+		case "operacion":
+			destino = &c.Operacion
+		case "busqueda":
+			destino = &c.Busqueda
+		case "despues_ref":
+			destino = &c.DespuesRef
+		case "motivo_consulta":
+			destino = &c.MotivoConsulta
 		case "limite":
 			var limite *uint16
 			if dec.Decode(&limite) != nil || limite == nil {
@@ -207,8 +224,8 @@ func decodificarCuerpoConsulta(w http.ResponseWriter, r *http.Request) (cuerpoCo
 	}
 	fin, err := dec.Token()
 	if err != nil || fin != json.Delim('}') ||
-		!vistas["fuente"] || !vistas["expediente_ref"] || !vistas["desde"] ||
-		!vistas["hasta"] || !vistas["finalidad_ref"] || !vistas["motivo_ref"] {
+		!vistas["fuente"] || !vistas["finalidad_ref"] || !vistas["motivo_ref"] ||
+		(c.Operacion != "buscar" && (!vistas["expediente_ref"] || !vistas["desde"] || !vistas["hasta"])) {
 		return c, ErrDenegada
 	}
 	var extra any
@@ -225,20 +242,47 @@ func decodificarCuerpoConsulta(w http.ResponseWriter, r *http.Request) (cuerpoCo
 func (h *Manejador) servirConsulta(w http.ResponseWriter, r *http.Request) {
 	cuerpo, err := decodificarCuerpoConsulta(w, r)
 	if err != nil {
+		if h.servicio.lectura != nil {
+			identidad, fallo := h.resolverIdentidad(r, FuenteConsultaGeneral)
+			if fallo != nil {
+				responderError(w, http.StatusForbidden)
+				return
+			}
+			h.responderIntento(w, r, identidad, recursoIntentoConsultaInvalida, http.StatusBadRequest, nil)
+			return
+		}
 		responderError(w, http.StatusBadRequest)
 		return
 	}
 	fuente, valida := fuenteConsultaDesdeTexto(cuerpo.Fuente)
 	if !valida {
+		if h.servicio.lectura != nil {
+			identidad, fallo := h.resolverIdentidad(r, FuenteConsultaGeneral)
+			if fallo != nil {
+				responderError(w, http.StatusForbidden)
+				return
+			}
+			h.responderIntento(w, r, identidad, recursoIntentoConsultaInvalida, http.StatusBadRequest, nil)
+			return
+		}
 		responderError(w, http.StatusBadRequest)
 		return
 	}
 	if cuerpo.Limite == 0 {
 		cuerpo.Limite = 50
 	}
+	if cuerpo.Operacion != "" && cuerpo.Operacion != "consultar" && cuerpo.Operacion != "buscar" ||
+		(h.servicio.lectura == nil && (cuerpo.Operacion != "" || cuerpo.MotivoConsulta != "" || fuente == FuenteConsultaPersona)) {
+		responderError(w, http.StatusBadRequest)
+		return
+	}
 	identidad, err := h.resolverIdentidad(r, fuente)
 	if err != nil {
 		responderError(w, http.StatusForbidden)
+		return
+	}
+	if cuerpo.Operacion == "buscar" {
+		h.servirBusqueda(w, r, identidad, cuerpo)
 		return
 	}
 	desde, errDesde := parsearInstante(cuerpo.Desde)
@@ -249,7 +293,7 @@ func (h *Manejador) servirConsulta(w http.ResponseWriter, r *http.Request) {
 	}
 	f := Filtro{Fuente: string(fuente), ExpedienteRef: cuerpo.ExpedienteRef, ActorRef: cuerpo.ActorRef,
 		Desde: desde, Hasta: hasta, Limite: cuerpo.Limite,
-		FinalidadRef: cuerpo.FinalidadRef, MotivoRef: cuerpo.MotivoRef}
+		FinalidadRef: cuerpo.FinalidadRef, MotivoRef: cuerpo.MotivoRef, MotivoConsulta: cuerpo.MotivoConsulta}
 	if f.Validar() != nil {
 		h.responderIntento(w, r, identidad, recursoIntentoConsultaInvalida, http.StatusForbidden, nil)
 		return

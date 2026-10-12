@@ -17,8 +17,8 @@ import {
 
 test("Auditoría de Bolsa exige una participación procedente de una ficha consultada", () => {
   assert.equal(vistaBolsaOfrecida("auditoria", { panelInterno: true }), false);
-  assert.equal(vistaBolsaOfrecida("auditoria", { auditoriaReferencia: false }), false);
-  assert.equal(vistaBolsaOfrecida("auditoria", { auditoriaReferencia: true }), true);
+  assert.equal(vistaBolsaOfrecida("auditoria", { auditoriaConsulta: false }), false);
+  assert.equal(vistaBolsaOfrecida("auditoria", { auditoriaConsulta: true }), true);
 });
 
 test("Reglas de cese solo se ofrecen tras su consulta V3 positiva", () => {
@@ -441,7 +441,7 @@ test("los controles de rutas sin consumidor se retiran del DOM y se conserva la 
       getAttribute: () => vista, dataset: {}, remove: () => retirados.push(vista),
     }));
   } };
-  aplicarDisponibilidadMenuBolsa(raiz, { auditoriaReferencia: true });
+  aplicarDisponibilidadMenuBolsa(raiz, { auditoriaConsulta: true });
   assert.deepEqual(retirados, ["documentos", "contratos", "importacion"]);
 });
 

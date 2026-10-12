@@ -232,7 +232,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-menu-bolsa.js", "portal-llamamientos-selector.js"])
     versionesEspeciales.set(ruta, "20261007-bolsa-llamamientos-unico-v1");
   for (const ruta of ["modulos/auditoria/vista.js", "modulos/auditoria/cliente-http.js"])
-    versionesEspeciales.set(ruta, "20261007-auditoria-disponibilidad-v1");
+    versionesEspeciales.set(ruta, "20261013-auditoria-rrhh-v1");
   // Todos estos importadores reales cambiaron de bytes o alcanzan una hoja cambiada.
   for (const ruta of [
     "ayuda-contenido.js", "ayudante-tramites.js", "categorias-rpt/arranque.js", "categorias-rpt/cliente.js",
@@ -900,14 +900,15 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
   ]) versionesEspeciales.set(ruta, "20261012-ct-b2-cese-v1");
-  versionesEspeciales.set("portal-modulos-coordinador.js", "20261012-sin-prueba-v1");
-  versionesEspeciales.set("modulos/auditoria/vista.js", "20261012-sin-prueba-v1");
+  versionesEspeciales.set("portal-menu-bolsa.js", "20261013-auditoria-rrhh-v1");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261013-auditoria-rrhh-v1");
+  versionesEspeciales.set("modulos/auditoria/vista.js", "20261013-auditoria-rrhh-v1");
   for (const ruta of [
     "portal-bolsas-contacto-origen.js", "portal-bolsas-api.js",
     "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js",
     "portal-panel-interno.js",
   ]) versionesEspeciales.set(ruta, "20261012-c3-contacto-v1");
-  versionesEspeciales.set("portal.js", "20261012-sin-prueba-v1");
+  versionesEspeciales.set("portal.js", "20261013-auditoria-rrhh-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

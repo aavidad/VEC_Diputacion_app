@@ -1,0 +1,45 @@
+{
+  "version_esquema": 1,
+  "fuente": {
+    "revision": "auditoria-consulta-rrhh-v2",
+    "actualizada_en": "2026-10-13T00:00:00Z",
+    "demostracion": false,
+    "aviso": "",
+    "origen_sha256": "a6cec3b22809453f879342c6ea09fac18e563a3dce2c4982fef7f970b9347482"
+  },
+  "catalogo": {
+    "id": "motivos_autorizacion_auditoria",
+    "version": 2,
+    "revision": 2,
+    "modulo_id": "auditoria",
+    "nombre": "Consulta de auditoría de RRHH",
+    "descripcion": "Motivo de la revisión de expedientes, bolsas y personas.",
+    "fuente_ref": "configuracion:auditoria_rrhh:v2",
+    "motivo_creacion": "Consulta de auditoría por organización",
+    "entradas": [
+      {
+        "clave": "motivo_a36f10964f684ec2bea55091667db47a",
+        "etiqueta": "Revisión administrativa de RRHH",
+        "descripcion": "Consultar los registros de un expediente, una bolsa o una persona.",
+        "vigente_desde": "2026-09-27T00:00:00Z",
+        "atributos": {
+          "uso": "consulta_rrhh",
+          "finalidad_ref": "consulta_auditoria_rrhh",
+          "permiso": "vec.auditoria.consultar",
+          "tipo_recurso": "historial_auditoria",
+          "ambito": "organizacion_ref",
+          "fuentes": "ct,bolsa,persona",
+          "origen": "configuracion"
+        },
+        "orden": 1
+      }
+    ],
+    "estado": "publicado",
+    "creado_por": "configuracion_operativa",
+    "creado_en": "2026-09-27T00:00:00Z",
+    "publicado_por": "configuracion_operativa",
+    "publicado_en": "2026-09-27T00:00:00Z",
+    "aprobacion_ref": "configuracion:auditoria_rrhh:v2",
+    "motivo_publicacion": "Consulta de auditoría de RRHH"
+  }
+}
