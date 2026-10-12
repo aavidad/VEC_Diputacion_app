@@ -19,7 +19,7 @@ BEGIN
     OR NOT EXISTS (SELECT 1 FROM pg_class WHERE oid=v_tabla AND relrowsecurity AND relforcerowsecurity)
     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid=v_tabla AND tgname='preferencia_bolsas_version_inmutable' AND tgenabled='O')
     OR has_table_privilege('vec_bolsa_llamamientos_ejecutor',v_tabla,'SELECT')
-    OR NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor',v_funcion,'EXECUTE')
+    OR has_function_privilege('vec_bolsa_llamamientos_ejecutor',v_funcion,'EXECUTE')
     OR NOT has_function_privilege('vec_bolsa_llamamientos_portal_externo',v_funcion,'EXECUTE')
     OR has_function_privilege('public',v_funcion,'EXECUTE')
     OR has_function_privilege('vec_bolsa_preferencias_ajeno_prueba',v_funcion,'EXECUTE')
