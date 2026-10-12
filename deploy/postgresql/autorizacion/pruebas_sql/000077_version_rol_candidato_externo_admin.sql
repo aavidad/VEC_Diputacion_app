@@ -28,9 +28,9 @@ BEGIN
  OR has_function_privilege('public',cierre,'EXECUTE') IS TRUE
  OR has_function_privilege('public',base,'EXECUTE') IS TRUE
  THEN RAISE EXCEPTION 'AUT77: ACL cruzada o pública' USING ERRCODE='42501';END IF;
- IF EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-  WHERE left(n.nspname,4)='vec_' AND has_function_privilege(nuevo,p.oid,'EXECUTE')
-   AND p.oid NOT IN(to_regprocedure(propuesta),to_regprocedure(cierre),
+ IF EXISTS(SELECT 1 FROM pg_proc obj JOIN pg_namespace n ON n.oid=obj.pronamespace
+  WHERE left(n.nspname,4)='vec_' AND has_function_privilege(nuevo,obj.oid,'EXECUTE')
+   AND obj.oid NOT IN(to_regprocedure(propuesta),to_regprocedure(cierre),
     to_regprocedure(base),to_regprocedure(resolver_admin)))
  THEN RAISE EXCEPTION 'AUT77: ejecutor con funciones adicionales' USING ERRCODE='42501';END IF;
  FOREACH tabla IN ARRAY ARRAY['propuesta_version_rol_bolsa_externa_v1',
@@ -49,8 +49,8 @@ BEGIN
    AND confrelid='vec_autorizacion.asignacion_perfil_externa'::regclass
    AND contype='f')
  THEN RAISE EXCEPTION 'AUT77: sello externo sin FK nominal' USING ERRCODE='55000';END IF;
- IF (SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') FROM pg_proc p
-  WHERE p.oid=to_regprocedure('vec_autorizacion.rol_candidato_externo_acotado_v1(jsonb)'))
+ IF (SELECT encode(sha256(convert_to(validador.prosrc,'UTF8')),'hex') FROM pg_proc validador
+  WHERE validador.oid=to_regprocedure('vec_autorizacion.rol_candidato_externo_acotado_v1(jsonb)'))
   IS DISTINCT FROM '4212e0388ee883840011ea7874079e24eac5c947b2e8cc3c2f71921e613965da'
  THEN RAISE EXCEPTION 'AUT77: validador técnico anterior alterado' USING ERRCODE='55000';END IF;
  FOR v IN SELECT * FROM (VALUES

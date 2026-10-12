@@ -153,3 +153,4 @@
 907 deploy/postgresql/catalogos_configurables/migraciones/000011_lectura_lote_categorias_inscripcion.up.sql
 2983 deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql
 1007 deploy/postgresql/autorizacion/migraciones/000077_version_rol_candidato_externo_admin.up.sql
+3295 deploy/postgresql/autorizacion_atestada_v3/migraciones/000248_version_rol_candidato_externo_admin.up.sql

@@ -1,0 +1,9 @@
+# Acto ADMIN nominal del perfil externo v2. Aplicar una vez por destino y
+# únicamente tras cotejar su preimagen e historia; no ejecutar DOWN.
+# Prerrequisitos instalados en orden causal, sin repetirlos: AD247 (#1044),
+# AD238→D16→AD240→D17 (custodia), AD241→AUT76→AD246→B104
+# (preferencias) y AUT75→AD245 (B103). AUT77 no publica rol/asignación;
+# solo dos ADMIN nominales podrán hacerlo después de instalar AD248 y
+# provisionar el material privado del conjunto 6.
+deploy/postgresql/autorizacion/migraciones/000077_version_rol_candidato_externo_admin.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000248_version_rol_candidato_externo_admin.up.sql
