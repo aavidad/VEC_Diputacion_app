@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"regexp"
 	"time"
@@ -161,7 +162,7 @@ func (s *ServicioConsultaAceptacionNativaCT) orden(ctx context.Context, q ports.
 	}
 	m, err := s.proveedor.AutorizarConsultaAceptacionNativaCT(ctx, p, persona)
 	if err != nil {
-		return cero, ErrorConsultaPersonaAceptacionCT(ctx, err)
+		return cero, errorAceptacionNativaCT(ctx, err)
 	}
 	o := ports.OrdenConsultaAceptacionNativaCT{Solicitud: p.Solicitud, Material: m}
 	if err = ValidarOrdenConsultaAceptacionNativaCT(o, persona, s.ahora().UTC().Truncate(time.Microsecond)); err != nil {
@@ -178,7 +179,7 @@ func (s *ServicioConsultaAceptacionNativaCT) ConsultarAnclajeAceptacionNativaCT(
 	}
 	r, err := s.repositorio.ConsultarAnclajeAceptacionNativaCT(ctx, o)
 	if err != nil {
-		return cero, ErrorConsultaPersonaAceptacionCT(ctx, err)
+		return cero, errorAceptacionNativaCT(ctx, err)
 	}
 	if err = ValidarResultadoAnclajeAceptacionNativaCT(o, r, s.ahora().UTC().Truncate(time.Microsecond)); err != nil {
 		return cero, err
@@ -194,7 +195,7 @@ func (s *ServicioConsultaAceptacionNativaCT) ConsultarPersonaAceptacionNativaCT(
 	}
 	r, err := s.repositorio.ConsultarPersonaAceptacionNativaCT(ctx, o)
 	if err != nil {
-		return cero, ErrorConsultaPersonaAceptacionCT(ctx, err)
+		return cero, errorAceptacionNativaCT(ctx, err)
 	}
 	if err = ValidarResultadoPersonaAceptacionNativaCT(o, r, s.ahora().UTC().Truncate(time.Microsecond)); err != nil {
 		return cero, err
@@ -203,6 +204,23 @@ func (s *ServicioConsultaAceptacionNativaCT) ConsultarPersonaAceptacionNativaCT(
 }
 
 var _ ports.ConsultaAceptacionNativaCT = (*ServicioConsultaAceptacionNativaCT)(nil)
+
+func errorAceptacionNativaCT(ctx context.Context, err error) error {
+	if errors.Is(err, ports.ErrAceptacionNativaCTInvalida) {
+		return ports.ErrAceptacionNativaCTInvalida
+	}
+	if errors.Is(err, ports.ErrAceptacionNativaCTDenegada) {
+		return ports.ErrAceptacionNativaCTDenegada
+	}
+	e := ErrorConsultaPersonaAceptacionCT(ctx, err)
+	if errors.Is(e, ports.ErrConsultaPersonaAceptacionCTDenegada) {
+		return ports.ErrAceptacionNativaCTDenegada
+	}
+	if errors.Is(e, ports.ErrConsultaPersonaAceptacionCTNoDisponible) {
+		return ports.ErrAceptacionNativaCTNoDisponible
+	}
+	return e
+}
 
 type ProveedorNominalConsultaAceptacionNativaCT struct {
 	emisor      ports.AutorizadorSituacionParticipacionV3
