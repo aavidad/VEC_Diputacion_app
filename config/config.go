@@ -128,6 +128,8 @@ type Config struct {
 	ExternoPreflightV3DatabaseURL               string
 	ExternoBolsaPublicaPostgreSQL               ConfiguracionPostgreSQLPublica
 	ExternoBolsaPostgreSQL                      ConfiguracionPostgreSQLExterna
+	ExternoMeritosCarteraPostgreSQL             ConfiguracionPostgreSQLExterna
+	ExternoMeritosFronteraPostgreSQL            ConfiguracionPostgreSQLExterna
 	BolsaInscripcionesLectorPostgreSQL          ConfiguracionPostgreSQLExterna
 	BolsaInscripcionesRRHHLectorPostgreSQL      ConfiguracionPostgreSQLExterna
 	ExternoCalendariosPostgreSQL                ConfiguracionPostgreSQLExterna
@@ -251,6 +253,8 @@ func Load() Config {
 			dsn: os.Getenv(EnvExternoBolsaPublicaDatabaseURL),
 		},
 		ExternoBolsaPostgreSQL:                 ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaDatabaseURL)},
+		ExternoMeritosCarteraPostgreSQL:        ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosCarteraDatabaseURL)},
+		ExternoMeritosFronteraPostgreSQL:       ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosFronteraDatabaseURL)},
 		BolsaInscripcionesLectorPostgreSQL:     ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaInscripcionesLectorDatabaseURL)},
 		BolsaInscripcionesRRHHLectorPostgreSQL: ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvBolsaInscripcionesRRHHLectorDatabaseURL)},
 		ExternoBolsaFronteraPostgreSQL:         ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaFronteraDatabaseURL)},
@@ -505,6 +509,8 @@ func (c Config) Normalize() Config {
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
 	c.ExternoBolsaPublicaPostgreSQL = c.ExternoBolsaPublicaPostgreSQL.normalizar()
 	c.ExternoBolsaPostgreSQL = c.ExternoBolsaPostgreSQL.normalizar()
+	c.ExternoMeritosCarteraPostgreSQL = c.ExternoMeritosCarteraPostgreSQL.normalizar()
+	c.ExternoMeritosFronteraPostgreSQL = c.ExternoMeritosFronteraPostgreSQL.normalizar()
 	c.BolsaInscripcionesLectorPostgreSQL = c.BolsaInscripcionesLectorPostgreSQL.normalizar()
 	c.BolsaInscripcionesRRHHLectorPostgreSQL = c.BolsaInscripcionesRRHHLectorPostgreSQL.normalizar()
 	c.ExternoBolsaFronteraPostgreSQL = c.ExternoBolsaFronteraPostgreSQL.normalizar()
