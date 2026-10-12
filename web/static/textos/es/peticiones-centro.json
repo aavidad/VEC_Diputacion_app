@@ -193,6 +193,7 @@
     "pc_titulo_incierto": "Resultado pendiente de comprobación",
     "pc_titulo_sin_consulta": "Consulta no disponible",
     "pc_ultimas": "Se muestran las 50 peticiones más recientes.",
+    "pc_revisar_peticion": "Revisar: {peticion}",
     "pc_ver": "Ver",
     "pc_ver_peticion": "Ver: {peticion}",
     "pc_volver": "Volver a Personal temporal",

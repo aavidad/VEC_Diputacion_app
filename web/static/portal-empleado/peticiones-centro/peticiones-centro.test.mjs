@@ -320,6 +320,7 @@ test("las peticiones del mismo día muestran categoría y puesto en ambas bandej
     etiquetas: { categorias: { cat_sintetica_001: "Administración C2" } } });
   assert.match(rrhh, /Administración C2 · RPT-ADM-0133 · 1 persona · 6 sept 2026/u);
   assert.match(rrhh, /Administración C2 · RPT-PRG-0420 · 2 personas · 6 sept 2026/u);
+  assert.match(rrhh, /aria-label="Revisar: Administración C2 · RPT-ADM-0133 · 1 persona · 6 sept 2026">Revisar<\/button>/u);
   assert.doesNotMatch(rrhh.replaceAll(/data-seleccionar-rrhh="[^"]*"/gu, ""), /peticion:centro:/u);
   const detalle = renderizarPeticionesCentroRRHH({ entrega: { peticion: a, estado_entrega: "pendiente" }, etiquetas: { categorias: { cat_sintetica_001: "Administración C2" } } });
   assert.match(detalle, /<details class="pc-detalle-tecnico"><summary>Ver detalle técnico<\/summary>/u);
@@ -335,11 +336,11 @@ test("dos peticiones con el mismo resumen reciben ordinales distintos en ambas b
   const rrhh = renderizarPeticionesCentroRRHH({ peticiones: [primera, segunda].map((p) => ({
     peticion: p, estado_entrega: "pendiente",
   })) });
-  for (const html of [centro, rrhh]) {
+  for (const [html, accion] of [[centro, "Ver"], [rrhh, "Revisar"]]) {
     assert.match(html, /Archivo &amp; documentación · 1 persona · 6 sept 2026 · petición 1/u);
     assert.match(html, /Archivo &amp; documentación · 1 persona · 6 sept 2026 · petición 2/u);
-    assert.match(html, /aria-label="Ver: [^"]*Archivo &amp; documentación[^"]*petición 1"/u);
-    assert.match(html, /aria-label="Ver: [^"]*Archivo &amp; documentación[^"]*petición 2"/u);
+    assert.match(html, new RegExp(`aria-label="${accion}: [^"]*Archivo &amp; documentación[^"]*petición 1"`, "u"));
+    assert.match(html, new RegExp(`aria-label="${accion}: [^"]*Archivo &amp; documentación[^"]*petición 2"`, "u"));
     assert.doesNotMatch(html, /&amp;amp;/u);
   }
 });

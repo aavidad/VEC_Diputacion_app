@@ -193,6 +193,7 @@
     "pc_titulo_incierto": "Result awaiting verification",
     "pc_titulo_sin_consulta": "Enquiry unavailable",
     "pc_ultimas": "Showing the 50 most recent requests.",
+    "pc_revisar_peticion": "Review: {peticion}",
     "pc_ver": "View",
     "pc_ver_peticion": "View: {peticion}",
     "pc_volver": "Back to Temporary staff",
