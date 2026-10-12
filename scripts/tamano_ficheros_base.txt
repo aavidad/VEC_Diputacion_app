@@ -151,8 +151,8 @@
 1762 deploy/postgresql/bolsa_llamamientos/migraciones/000096_inscripcion_convocatoria.up.sql
 960 deploy/postgresql/bolsa_llamamientos/migraciones/000097_incorporacion_inscripcion.up.sql
 907 deploy/postgresql/catalogos_configurables/migraciones/000011_lectura_lote_categorias_inscripcion.up.sql
-2906 deploy/postgresql/autorizacion_atestada_v3/migraciones/000238_ingesta_mayan_documentos.up.sql
-3038 deploy/postgresql/autorizacion_atestada_v3/migraciones/000240_cargas_directas_documentos.up.sql
+3057 deploy/postgresql/autorizacion_atestada_v3/migraciones/000238_ingesta_mayan_documentos.up.sql
+3187 deploy/postgresql/autorizacion_atestada_v3/migraciones/000240_cargas_directas_documentos.up.sql
 1191 deploy/postgresql/documentos/migraciones/000017_cargas_directas_cuarentena.up.sql
 1669 internal/vec/ports/cargas_documentales.go
 841 internal/vec/ports/cargas_documentales_test.go
