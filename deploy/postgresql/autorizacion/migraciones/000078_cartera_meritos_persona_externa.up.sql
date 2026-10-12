@@ -106,6 +106,7 @@ GRANT USAGE ON SCHEMA vec_autorizacion TO vec_autorizacion_fuente_meritos_extern
 CREATE FUNCTION vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(p_motivo jsonb)
 RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' AS $f$
+DECLARE cc jsonb;
 BEGIN
  IF current_user<>'vec_autorizacion_propietario'
  OR current_setting('transaction_isolation')<>'serializable'
@@ -119,6 +120,13 @@ BEGIN
  OR p_motivo->>'catalogo_huella_sha256' !~ '^[0-9a-f]{64}$'
  OR p_motivo->>'entrada_clave' !~ '^motivo_[0-9a-f]{32}$'
  THEN RETURN false; END IF;
+ cc:=vec_catalogos_configurables.listar_motivos_meritos_cartera_v1('es');
+ IF cc#>>'{catalogo_aut,catalogo_id}' IS DISTINCT FROM p_motivo->>'catalogo_id'
+ OR cc#>>'{catalogo_aut,catalogo_version}' IS DISTINCT FROM p_motivo->>'catalogo_version'
+ OR cc#>>'{catalogo_aut,catalogo_huella_sha256}' IS DISTINCT FROM p_motivo->>'catalogo_huella_sha256'
+ OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(cc->'motivos') e
+  WHERE e->>'entrada_clave'=p_motivo->>'entrada_clave')
+ THEN RETURN false;END IF;
  RETURN vec_autorizacion.resolver_motivo_autorizacion_v2_actual(
   p_motivo->>'catalogo_id',(p_motivo->>'catalogo_version')::integer,
   p_motivo->>'catalogo_huella_sha256',p_motivo->>'entrada_clave') IS TRUE;
