@@ -14,6 +14,7 @@
     "ayudaPaso3": "Revise la lista: el orden es el que tendrá la bolsa. Las filas con errores no pueden entrar. Corríjalas en el Excel y vuelva a empezar, o marque la casilla «Cargar la bolsa sin…» para dejarlas fuera.",
     "ayudaPaso4": "Pulse «Cargar la bolsa». Si ya había una bolsa de esa categoría, la nueva la sustituye.",
     "ayudaAvisos": "Una fila con aviso coincide en documento y nombre con otra. Entra en la bolsa con su orden, pero no queda unida a la persona: no la verá en su área personal hasta que se compruebe en CONVOCA si son la misma persona.",
+    "ayudaRecuperar": "Si la carga termina sin mostrar el resultado, pulse «Recuperar resultado». Se consultará la misma carga con el fichero que sigue abierto en esta página.",
     "ayudaCerrar": "Cerrar la ayuda",
     "pasos": "Pasos de la carga",
     "paso1": "Elegir fichero",
@@ -106,6 +107,10 @@
     "confirmarDescartes": {
       "one": "Se dejará fuera {cuenta} fila con errores.",
       "other": "Se dejarán fuera {cuenta} filas con errores."
+    },
+    "confirmarAvisos": {
+      "one": "La fila con aviso entrará, pero deberá comprobarla después.",
+      "other": "Las {cuenta} filas con aviso entrarán, pero deberá comprobarlas después."
     },
     "cargandoPagina": "Cargando filas…",
     "verCargadas": {

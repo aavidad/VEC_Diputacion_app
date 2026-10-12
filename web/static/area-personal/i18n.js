@@ -10,7 +10,7 @@
  *
  * El idioma sigue a la URL (`?lang=`), después a la preferencia guardada de la
  * persona y por último al navegador (`comun/idioma.js`). Mientras no se cargue
- * el catálogo elegido se usa el del idioma por defecto.
+ * el catálogo elegido se mantiene el estado de carga del documento.
  */
 import { IDIOMA_POR_DEFECTO, localizacionDe, resolverIdiomaNavegacion } from "../comun/idioma.js";
 import { cargarTextos, esMensajePlural } from "../comun/textos.js";
@@ -30,13 +30,16 @@ function aplanar(seccion, prefijo, salida = {}) {
 async function cargarCatalogo(idioma, opciones = {}) {
   const [propios, preferencias] = await Promise.all(["area-personal", "preferencias"]
     .map((modulo) => cargarTextos(modulo, { ...opciones, idioma })));
+  if (propios.idioma !== preferencias.idioma) return cargarCatalogo(IDIOMA_POR_DEFECTO, opciones);
   return Object.freeze({
     idioma: propios.idioma,
     entradas: Object.freeze({ ...aplanar(preferencias.seccion(PREFIJO), PREFIJO), ...aplanar(propios.mensajes, PREFIJO) }),
   });
 }
 
-const RESPALDO = await cargarCatalogo(IDIOMA_POR_DEFECTO);
+// Las pruebas Node que traducen sin arrancar conservan su catálogo local.
+// En el navegador, el idioma se resuelve en arranque antes de pedir catálogos.
+let RESPALDO = import.meta.url.startsWith("file:") ? await cargarCatalogo(IDIOMA_POR_DEFECTO) : null;
 let activo = RESPALDO;
 
 function interpolar(plantilla, variables) {
@@ -45,12 +48,12 @@ function interpolar(plantilla, variables) {
 
 /** Idioma de los textos mostrados. */
 export function idiomaActivoAreaPersonal() {
-  return activo.idioma;
+  return activo?.idioma ?? IDIOMA_POR_DEFECTO;
 }
 
 /** Localización Intl del idioma de los textos mostrados (fechas, cifras). */
 export function localizacionAreaPersonal() {
-  return localizacionDe(activo.idioma);
+  return localizacionDe(idiomaActivoAreaPersonal());
 }
 
 /**
@@ -59,7 +62,7 @@ export function localizacionAreaPersonal() {
  * Una clave desconocida se devuelve tal cual.
  */
 export function traducir(clave, variables = {}) {
-  const mensaje = activo.entradas[clave] ?? RESPALDO.entradas[clave];
+  const mensaje = activo?.entradas[clave] ?? RESPALDO?.entradas[clave];
   if (typeof mensaje === "string") return interpolar(mensaje, variables);
   if (esMensajePlural(mensaje)) {
     const localizacion = localizacionAreaPersonal();
@@ -137,8 +140,10 @@ export async function iniciarI18nAreaPersonal(documento = globalThis.document, {
   const idioma = idiomaAreaPersonal(preferidos, ubicacion, idiomaPreferido);
   try {
     activo = await cargarCatalogo(idioma, leer ? { leer, avisar: () => {} } : {});
+    if (activo.idioma === IDIOMA_POR_DEFECTO) RESPALDO = activo;
   } catch {
-    activo = RESPALDO;
+    activo = RESPALDO ?? await cargarCatalogo(IDIOMA_POR_DEFECTO, leer ? { leer, avisar: () => {} } : {});
+    RESPALDO = activo;
   }
   aplicarCatalogoAreaPersonal(documento, activo.entradas);
   if (documento?.documentElement) documento.documentElement.lang = activo.idioma;

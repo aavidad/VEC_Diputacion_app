@@ -2,8 +2,10 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
@@ -12,7 +14,6 @@ import (
 	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	domct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
-	apppersonal "vec-diputacion-granada/internal/modules/personal/application"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	pp "vec-diputacion-granada/internal/modules/personal/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -26,6 +27,14 @@ type lectorDetalleIncorporacionB2 interface {
 	Consultar(context.Context, ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error)
 }
 
+type lectorCatalogosIncorporacionB2 interface {
+	Consultar(context.Context, personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error)
+}
+
+type lectorVacantesIncorporacionB2 interface {
+	ConsultarVacantes(context.Context, personal.SolicitudVacantesB2) (pp.ResultadoVacantesB2, error)
+}
+
 type fuentesIncorporacionPersonalB2 struct {
 	organizacionRef, organismoRef string
 	autoridad                     *autoridadIncorporacionPersonalB2
@@ -35,8 +44,8 @@ type fuentesIncorporacionPersonalB2 struct {
 	personal                      pp.ServicioPlanIncorporacionCT
 	ficha                         pp.FuenteFichaIncorporacionCT
 	hechos                        pp.ConsultaHechosIncorporacionCT
-	vacantes                      *apppersonal.ServicioRegistroEmpleadoB2
-	catalogos                     *apppersonal.ServicioCatalogosRegistroEmpleadoB2
+	vacantes                      lectorVacantesIncorporacionB2
+	catalogos                     lectorCatalogosIncorporacionB2
 	externas                      *FuentesContextoIncorporacionB2
 	lectorRPT                     vp.LectorCategoriasRPT
 	reloj                         ct.Reloj
@@ -180,6 +189,9 @@ func (f *fuentesIncorporacionPersonalB2) ResolverPlanNominalB2(ctx context.Conte
 	}
 	if p.Validar() != nil {
 		return cero, ct.ErrPlanNominalB2Invalido
+	}
+	if e = f.capturarPreparacionB2(ctx, p, proyeccionCTIncorporacionB2(s.ExpedienteRef, d, a)); e != nil {
+		return cero, e
 	}
 	return p, nil
 }
@@ -344,6 +356,14 @@ func (f *fuentesIncorporacionPersonalB2) ConsultarOpcionesIncorporacionB2(ctx co
 	if e != nil {
 		return cero, e
 	}
+	r := proyeccionCTIncorporacionB2(exp, d, a)
+	if d.Analisis == nil {
+		return r, nil
+	}
+	return f.completarOpcionesIncorporacionB2(ctx, r, a)
+}
+
+func proyeccionCTIncorporacionB2(exp string, d ct.DetalleExpedienteRRHH, a ct.AntecedentesPlanNominalB2) httpct.ProyeccionIncorporacionPersonalB2HTTP {
 	r := httpct.ProyeccionIncorporacionPersonalB2HTTP{Esquema: httpct.EsquemaConsultaIncorporacionPersonalB2, ExpedienteRef: exp, VersionExpedienteActual: d.Resumen.Version, Estado: "sin_plan", Prerrequisitos: []httpct.PrerrequisitoB2{
 		{ClaveI18n: "ct_incorporacion_b2_previo_aceptacion_persona"},
 		{ClaveI18n: "ct_incorporacion_b2_previo_documento"},
@@ -354,11 +374,17 @@ func (f *fuentesIncorporacionPersonalB2) ConsultarOpcionesIncorporacionB2(ctx co
 	r.Prerrequisitos[1].Cumplido = domct.ReferenciaOpacaValida(a.DocumentoRef) && domct.HuellaPlanPersonalB2Valida(a.DocumentoSHA256)
 	r.Prerrequisitos[2].Cumplido = a.Vinculo != nil && a.Vinculo.Validar() == nil && domct.ReferenciaOpacaValida(a.CategoriaRef)
 	if d.Analisis == nil {
-		return r, nil
+		return r
 	}
 	desde, hasta := fechaCivilFuenteCT(d.Analisis.PeriodoInicio), fechaCivilFuenteCT(d.Analisis.PeriodoFin)
 	r.Opciones.Periodo = httpct.PeriodoOpcionesB2{Desde: desde, Hasta: hasta, FuenteRef: a.AnalisisReciboRef}
 	r.Prerrequisitos[4].Cumplido = domct.ReferenciaOpacaValida(a.AnalisisReciboRef) && domct.HuellaPlanPersonalB2Valida(a.AnalisisSHA256) && domct.VersionPlanPersonalB2Valida(a.AnalisisVersion) && a.AnalisisVersion <= d.Resumen.Version && desde != "" && d.Analisis.PeriodoInicio.Year() > 0 && (hasta == "" || d.Analisis.PeriodoFin.Year() > 0 && hasta > desde)
+	return r
+}
+
+func (f *fuentesIncorporacionPersonalB2) completarOpcionesIncorporacionB2(ctx context.Context, r httpct.ProyeccionIncorporacionPersonalB2HTTP, a ct.AntecedentesPlanNominalB2) (httpct.ProyeccionIncorporacionPersonalB2HTTP, error) {
+	var cero httpct.ProyeccionIncorporacionPersonalB2HTTP
+	exp, desde := r.ExpedienteRef, r.Opciones.Periodo.Desde
 	actor, e := f.autoridad.actor(ctx, personal.AccionVacantesB2)
 	if e != nil {
 		return cero, e
@@ -374,15 +400,12 @@ func (f *fuentesIncorporacionPersonalB2) ConsultarOpcionesIncorporacionB2(ctx co
 		r.Opciones.Vacantes = append(r.Opciones.Vacantes, httpct.OpcionVacanteB2{PlazaRef: v.PlazaRef, PuestoRef: v.PuestoRef, VersionPlantillaRef: v.VersionPlantillaRef, VersionRPTRef: v.VersionRPTRef, UnidadRef: v.UnidadRef, CategoriaRef: a.CategoriaRef, PlazaEtiqueta: v.CodigoPlazaFuente, PuestoEtiqueta: v.PuestoDenominacion})
 	}
 	r.Prerrequisitos[3].Cumplido = len(r.Opciones.Vacantes) > 0
-	actor, e = f.autoridad.actor(ctx, personal.AccionConsultarCatalogoEmpleadoB2)
+	catalogos, e := f.consultarCatalogosB2(ctx)
 	if e != nil {
 		return cero, e
 	}
-	for _, tipo := range []string{"regimen", "modalidad"} {
-		catalogo, e := f.catalogos.Consultar(ctx, personal.SolicitudConsultaCatalogoEmpleadoB2{OrganismoRef: f.organismoRef, Tipo: tipo, Estado: "publicada", Limite: 100, Actor: actor})
-		if e != nil {
-			return cero, e
-		}
+	for i, tipo := range []string{"regimen", "modalidad"} {
+		catalogo := catalogos[i]
 		lista := []httpct.OpcionCatalogoB2{}
 		for _, entrada := range catalogo.Entradas {
 			if personal.FechaCivil(desde).AntesDe(entrada.VigenteDesde) || entrada.VigenteHasta != "" && !personal.FechaCivil(desde).AntesDe(entrada.VigenteHasta) {
@@ -422,7 +445,7 @@ func (f *fuentesIncorporacionPersonalB2) ConsultarOpcionesIncorporacionB2(ctx co
 	if a.DocumentoRef != "" && a.DocumentoSHA256 != "" {
 		r.Opciones.Documentos = append(r.Opciones.Documentos, httpct.OpcionDocumentoB2{DocumentoRef: a.DocumentoRef, DocumentoSHA256: a.DocumentoSHA256, EtiquetaClaveI18n: "ct_incorporacion_b2_documento_formalizacion"})
 	}
-	if a.ExpedienteRef == exp && a.VersionExpediente == d.Resumen.Version && domct.ReferenciaOpacaValida(a.AceptacionRef) && domct.ReferenciaOpacaValida(a.AceptacionReciboRef) {
+	if a.ExpedienteRef == exp && a.VersionExpediente == r.VersionExpedienteActual && domct.ReferenciaOpacaValida(a.AceptacionRef) && domct.ReferenciaOpacaValida(a.AceptacionReciboRef) {
 		anclado, err := f.acreditarAnclajeB2(ctx, a)
 		if err != nil {
 			if e := errorPrevioPersonaIncorporacionB2(ctx, err); e != nil {
@@ -454,11 +477,7 @@ func errorPrevioPersonaIncorporacionB2(ctx context.Context, err error) error {
 
 func (f *fuentesIncorporacionPersonalB2) resolverPersonaInicialB2(ctx context.Context, c inc.ContratoPlanNominal) (inc.PersonaSeleccionadaBolsa, error) {
 	x := c.SelectorBolsa
-	actor, e := f.externas.c.ActorBolsa(ctx)
-	if e != nil {
-		return inc.PersonaSeleccionadaBolsa{}, e
-	}
-	r, e := f.externas.c.Bolsa.ConsultarPersonaAceptacionCT(ctx, bp.SolicitudConsultaPersonaAceptacionCT{ActorConfiable: actor, Selector: bp.SelectorPersonaAceptacionCT{UnidadRef: x.UnidadRef, CategoriaRef: x.CategoriaRef, NecesidadRef: x.NecesidadRef, AceptacionOperacionRef: x.AceptacionOperacionRef, AceptacionRegistroSHA256: x.AceptacionRegistroSHA256, AperturaOperacionRef: x.AperturaOperacionRef, AperturaRegistroSHA256: x.AperturaRegistroSHA256, LlamamientoRef: x.LlamamientoRef, PropuestaRef: x.PropuestaRef}})
+	r, e := f.externas.consultarPersonaBolsaB2(ctx, x)
 	if e != nil {
 		return inc.PersonaSeleccionadaBolsa{}, e
 	}
@@ -470,6 +489,33 @@ func (f *fuentesIncorporacionPersonalB2) resolverPersonaInicialB2(ctx context.Co
 		return inc.PersonaSeleccionadaBolsa{}, ct.ErrPlanNominalB2NoDisponible
 	}
 	return inc.PersonaSeleccionadaBolsa{OrganizacionRef: c.OrganizacionRef, ExpedienteRef: c.ExpedienteRef, AceptacionRef: c.AceptacionRef, LlamamientoRef: r.Aceptacion.LlamamientoRef, PersonaRef: r.Persona.Ref, PersonaVersion: personaVersion, ReciboRef: r.Aceptacion.ReciboRef, FuenteRef: r.Vinculo.ProcedenciaRef, FuenteVersion: r.Vinculo.ProcedenciaVersion, FuenteSHA256: r.Vinculo.ProcedenciaSHA256}, nil
+}
+
+func (f *fuentesIncorporacionPersonalB2) consultarCatalogosB2(ctx context.Context) ([2]pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
+	var resultados [2]pp.ResultadoConsultaCatalogoEmpleadoB2
+	actor, err := f.autoridad.actor(ctx, personal.AccionConsultarCatalogoEmpleadoB2)
+	if err != nil {
+		return resultados, err
+	}
+	var actores [2]core.ContextoActor
+	for i := range actores {
+		actores[i], err = actor.Clonar()
+		if err != nil {
+			return resultados, err
+		}
+	}
+	var errores [2]error
+	var grupo sync.WaitGroup
+	for i, tipo := range []string{"regimen", "modalidad"} {
+		grupo.Go(func() {
+			resultados[i], errores[i] = f.catalogos.Consultar(ctx, personal.SolicitudConsultaCatalogoEmpleadoB2{OrganismoRef: f.organismoRef, Tipo: tipo, Estado: "publicada", Limite: 100, Actor: actores[i]})
+		})
+	}
+	grupo.Wait()
+	if err := errors.Join(ctx.Err(), errores[0], errores[1]); err != nil {
+		return [2]pp.ResultadoConsultaCatalogoEmpleadoB2{}, err
+	}
+	return resultados, nil
 }
 
 func (f *fuentesIncorporacionPersonalB2) ResolverUnidadPlanNominalB2(ctx context.Context, org, exp string) (string, error) {

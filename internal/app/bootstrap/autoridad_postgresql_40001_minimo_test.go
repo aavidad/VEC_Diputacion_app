@@ -3,11 +3,14 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -109,5 +112,135 @@ func TestAutoridadPublicacion40001YReplayPublicadoPostgreSQL18(t *testing.T) {
 	}
 	if final := historiaPerfilPostgreSQLPrueba(t, ctx, admin, perfil); final != historia {
 		t.Fatalf("un replay o rechazo cambió historia: antes=%+v después=%+v", historia, final)
+	}
+}
+
+// Esta prueba alcanza exactamente Exec(pg_advisory_xact_lock): el interbloqueo
+// PostgreSQL real produce 40P01 antes de leer las tablas. Requiere una base
+// vacía desechable con el rol NOLOGIN propietario; no instala SQL de VEC ni
+// acredita provisión, permisos, publicación o la guarda de preimagen.
+func TestAutoridadErrorBloqueoConsultivoPostgreSQL18(t *testing.T) {
+	if os.Getenv("VEC_AUTORIDAD_BLOQUEO_PG_MINIMO") != "1" {
+		t.Skip("requiere PostgreSQL 18 vacío desechable para interbloqueo consultivo")
+	}
+	for _, operacion := range []string{"preparar", "publicar"} {
+		t.Run(operacion, func(t *testing.T) {
+			ctx, cancelar := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancelar()
+			cfg, err := pgxpool.ParseConfig(os.Getenv("VEC_AUTORIDAD_BLOQUEO_PG_DSN"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			erroresSQL := make(chan string, 4)
+			cfg.ConnConfig.OnPgError = func(_ *pgconn.PgConn, err *pgconn.PgError) bool {
+				erroresSQL <- err.Code
+				return err.Severity != "FATAL"
+			}
+			cfg.MaxConns = 1
+			cfg.MinConns = 0
+			cfg.ConnConfig.RuntimeParams["deadlock_timeout"] = "50ms"
+			pool, err := pgxpool.NewWithConfig(ctx, cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer pool.Close()
+			soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+			autoridad := autoridadPostgreSQLDesarrollo{pool: pool, vinculo: soporte.contexto.Vinculo,
+				prefijoBloqueo: "prueba:propagacion:" + operacion + ":", actoControlRol: "acto:prueba:control",
+				actoAsignacion: "acto:prueba:asignacion", actoSesion: "acto:prueba:sesion"}
+			var pid int
+			claveAuxiliar := autoridad.prefijoBloqueo + "auxiliar"
+			if err := pool.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&pid); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := pool.Exec(ctx, `SELECT pg_advisory_lock(hashtextextended($1,0))`, claveAuxiliar); err != nil {
+				t.Fatal(err)
+			}
+			bloqueador, err := pgx.Connect(ctx, os.Getenv("VEC_AUTORIDAD_BLOQUEO_PG_DSN"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer bloqueador.Close(context.Background())
+			if _, err := bloqueador.Exec(ctx, `SET deadlock_timeout='5s'`); err != nil {
+				t.Fatal(err)
+			}
+			tx, err := bloqueador.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tx.Rollback(context.Background())
+			if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,
+				autoridad.prefijoBloqueo+soporte.instantanea.AsignacionPerfil.PerfilActivoRef); err != nil {
+				t.Fatal(err)
+			}
+			resultado := make(chan error, 1)
+			go func() {
+				if operacion == "preparar" {
+					_, err := autoridad.prepararInstantaneaUnaVez(ctx, soporte.instantanea, true)
+					resultado <- err
+				} else {
+					resultado <- autoridad.publicarInstantaneaConPreimagenUnaVez(ctx, soporte.instantanea, nil)
+				}
+			}()
+			// Barrera real: no se inicia el segundo lado del ciclo hasta que el método
+			// esté esperando el bloqueo del perfil en la conexión identificada.
+			for {
+				var espera bool
+				if err := bloqueador.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_locks
+      WHERE pid=$1 AND locktype='advisory' AND NOT granted)`, pid).Scan(&espera); err != nil {
+					t.Fatal(err)
+				}
+				if espera {
+					break
+				}
+				select {
+				case err := <-resultado:
+					t.Fatalf("el método no alcanzó el bloqueo: %v", err)
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
+				case <-time.After(time.Millisecond):
+				}
+			}
+			otroLado := make(chan error, 1)
+			go func() {
+				_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, claveAuxiliar)
+				otroLado <- err
+			}()
+			var fallo error
+			select {
+			case fallo = <-resultado:
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+			select {
+			case codigo := <-erroresSQL:
+				if codigo != "40P01" {
+					t.Fatalf("error SQL distinto del interbloqueo: %s", codigo)
+				}
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+			// Liberar la sesión auxiliar permite terminar el publicador bloqueador.
+			if _, err := pool.Exec(ctx, `SELECT pg_advisory_unlock(hashtextextended($1,0))`, claveAuxiliar); err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case err := <-otroLado:
+				if err != nil {
+					t.Fatalf("el bloqueador fue víctima: %v", err)
+				}
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+			if err := tx.Rollback(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if !errors.Is(fallo, errPostgreSQLContratacionTemporalDesarrolloNoDisponible) {
+				t.Fatalf("se perdió el centinela: %v", fallo)
+			}
+			if !falloReintentableSerializacionCTDesarrollo(fallo) {
+				t.Fatalf("el error real del bloqueo perdió su marca reintentable: %v", fallo)
+			}
+		})
 	}
 }

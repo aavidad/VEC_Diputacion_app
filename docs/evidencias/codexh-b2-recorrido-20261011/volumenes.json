@@ -1,0 +1,23 @@
+{
+  "CT_altas": 74,
+  "CT_versiones": 178,
+  "CT_actuaciones": 104,
+  "CT_outbox": 157,
+  "CT_peticiones_revisiones": 10,
+  "CT_entregas": 4,
+  "Bolsa_bolsas": 12,
+  "Bolsa_participaciones": 390,
+  "Bolsa_estados": {
+    "disponible": 252,
+    "disponible_desde": 20,
+    "en_revision": 0,
+    "excluido": 1,
+    "no_disponible": 31,
+    "pendiente_incorporacion": 26,
+    "renuncia": 24,
+    "trabajando": 36
+  },
+  "Personal_nodo_unidad_centro520": 0,
+  "Personal_puesto9_centro520": 0,
+  "fuente": "consultas agregadas por propietario; sin datos personales"
+}

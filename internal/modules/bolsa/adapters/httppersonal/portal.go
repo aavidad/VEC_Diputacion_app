@@ -345,6 +345,7 @@ type estadoPortal struct {
 		Modo         string `json:"modo"`
 		Recibo       string `json:"recibo"`
 		RespondidaEn string `json:"respondida_en"`
+		EnRevision   bool   `json:"en_revision"`
 	} `json:"ultima_respuesta"`
 }
 
@@ -407,7 +408,8 @@ func respuestaPortal(i puertosbolsa.InstantaneaMiBolsa) ([]estadoPortal, *accion
 				Modo         string `json:"modo"`
 				Recibo       string `json:"recibo"`
 				RespondidaEn string `json:"respondida_en"`
-			}{Respuesta: u.Respuesta, Modo: u.Modo, Recibo: u.Recibo, RespondidaEn: u.RespondidaEn.UTC().Format(formatoInstantePortal)}
+				EnRevision   bool   `json:"en_revision"`
+			}{Respuesta: u.Respuesta, Modo: u.Modo, Recibo: u.Recibo, RespondidaEn: u.RespondidaEn.UTC().Format(formatoInstantePortal), EnRevision: u.EnRevision}
 		}
 		estados = append(estados, e)
 	}

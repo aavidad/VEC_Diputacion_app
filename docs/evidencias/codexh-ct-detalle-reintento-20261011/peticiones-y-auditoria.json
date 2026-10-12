@@ -1,0 +1,86 @@
+{
+  "fuente_integration_local": "80f24ae8fc62f31660017150cb6e4899589f79dc",
+  "feature_origen": "67649997776f14d3f4f14ba5f1541cf40316169b",
+  "config26_sha256": "006276abaf447d99ff24b125c0031740fd14687213faff44767cc12d1c55b110",
+  "inicio_UTC": "2026-10-11T16:32:56.478909+00:00",
+  "fin_UTC": "2026-10-11T16:32:56.921897+00:00",
+  "secuencia_antes": 6947,
+  "sha256_cuerpo_idéntico": "467c3cf9ae6cc12cbdc381ea0b234f6dfe3b9692442e21f13aac829a681e8fa4",
+  "peticiones": [
+    {
+      "n": 1,
+      "inicio_UTC": "2026-10-11T16:32:56.478988+00:00",
+      "fin_UTC": "2026-10-11T16:32:56.764804+00:00",
+      "http_tiempo": "200 0.280604",
+      "sha256_respuesta": "80208ebf66bd66c15f38a8551e858b19cd6b8e531fa2b34d2c8575ecda8dbf6c",
+      "version": 9,
+      "numero": "2026/CT-000127",
+      "codigo_error": null
+    },
+    {
+      "n": 2,
+      "inicio_UTC": "2026-10-11T16:32:56.479388+00:00",
+      "fin_UTC": "2026-10-11T16:32:56.921852+00:00",
+      "http_tiempo": "200 0.437282",
+      "sha256_respuesta": "80208ebf66bd66c15f38a8551e858b19cd6b8e531fa2b34d2c8575ecda8dbf6c",
+      "version": 9,
+      "numero": "2026/CT-000127",
+      "codigo_error": null
+    },
+    {
+      "n": 3,
+      "inicio_UTC": "2026-10-11T16:32:56.479705+00:00",
+      "fin_UTC": "2026-10-11T16:32:56.848748+00:00",
+      "http_tiempo": "200 0.364517",
+      "sha256_respuesta": "80208ebf66bd66c15f38a8551e858b19cd6b8e531fa2b34d2c8575ecda8dbf6c",
+      "version": 9,
+      "numero": "2026/CT-000127",
+      "codigo_error": null
+    }
+  ],
+  "auditoria_canonica_nueva_mismo_recurso_accion": [
+    {
+      "secuencia": 6948,
+      "auditoria_ref": "aud_v3_987cecbc92cbdb2dd6b23549f0ede11d",
+      "decision_ref": "decision:bd7b92893ce0de7d25e41929e873a283",
+      "tipo_registro": "consumo_confirmado",
+      "registrada_en": "2026-10-11T16:32:56.669185+00:00",
+      "huella_decision_sha256": "db0ce7d8c4f13ac06c03629fc5a51a3767dd9d62baa1a16c19f5fce68600993a",
+      "accion": "contratacion_temporal.expediente.consultar",
+      "recurso_ref": "expediente:ct:9511d16dce57e0ebe1baa849a749f3eed2a29ff7722dc1499132d1d536d66253",
+      "principal_ref": "per_3db38270d496f325e592ca2ce1513d18",
+      "perfil_ref": "prf_5afb68cea85dd3f1eda95a0683b20898",
+      "finalidad": "tramitacion_expediente_contratacion_temporal",
+      "eslabon_sha256": "e2d022495e7f88a04145e2b0eed204e0269792adf597b2708884d9853a25ef97"
+    },
+    {
+      "secuencia": 6950,
+      "auditoria_ref": "aud_v3_abd06ead62f6d5fe9de3a3a15f5d033c",
+      "decision_ref": "decision:38bd31b4c3fdb895735cbf3db334dca6",
+      "tipo_registro": "consumo_confirmado",
+      "registrada_en": "2026-10-11T16:32:56.776759+00:00",
+      "huella_decision_sha256": "27ede46848c93b68751ef95aa40e9f9dc5659ab0c9982a951ebc8f21fe2e8c79",
+      "accion": "contratacion_temporal.expediente.consultar",
+      "recurso_ref": "expediente:ct:9511d16dce57e0ebe1baa849a749f3eed2a29ff7722dc1499132d1d536d66253",
+      "principal_ref": "per_3db38270d496f325e592ca2ce1513d18",
+      "perfil_ref": "prf_5afb68cea85dd3f1eda95a0683b20898",
+      "finalidad": "tramitacion_expediente_contratacion_temporal",
+      "eslabon_sha256": "1d53304133fe0b1f8cd84c587913a15854a77a4cb846d5c629dd647b5fddbaba"
+    },
+    {
+      "secuencia": 6952,
+      "auditoria_ref": "aud_v3_d5d8c2813d8a9f71ff46b077aff58719",
+      "decision_ref": "decision:88b318ad3b75b793a7c8c21393d8de25",
+      "tipo_registro": "consumo_confirmado",
+      "registrada_en": "2026-10-11T16:32:56.843657+00:00",
+      "huella_decision_sha256": "4c915a4919e126b4650ee3367e4bfa4775ee77e39a79ea09ac77589c3a78fc76",
+      "accion": "contratacion_temporal.expediente.consultar",
+      "recurso_ref": "expediente:ct:9511d16dce57e0ebe1baa849a749f3eed2a29ff7722dc1499132d1d536d66253",
+      "principal_ref": "per_3db38270d496f325e592ca2ce1513d18",
+      "perfil_ref": "prf_5afb68cea85dd3f1eda95a0683b20898",
+      "finalidad": "tramitacion_expediente_contratacion_temporal",
+      "eslabon_sha256": null
+    }
+  ],
+  "metodo": "Una única tanda de3lecturas nominales concurrentes autorizadas; mismo cuerpo, CA/cert/mTLS/headers; sinSQLinyectado ni cambiosroles/PG. Tres intentosHTTP originales, sinreplaysforzados delcliente."
+}

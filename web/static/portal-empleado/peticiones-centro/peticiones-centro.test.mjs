@@ -190,10 +190,23 @@ test("detalle incluye crédito y documentos; ratificada no ofrece otra ratificac
   const html = renderizarPeticionCentro({ contexto: ctx, peticion: completa });
   assert.match(html, /RC-SINTETICA/);
   assert.match(html, /doc:rc:001/);
-  assert.match(html, /doc:adjunto:001/);
+  assert.match(html, /<dt>Documentos aportados<\/dt><dd>Dato no disponible\. Actualice la bandeja\.<\/dd>/u);
+  assert.doesNotMatch(html, /<dt>Documentos aportados<\/dt><dd>doc:adjunto:001/u);
   assert.match(html, /data-accion="abrir-ratificacion"/);
   completa.version = 2; completa.estado = "ratificada";
   assert.doesNotMatch(renderizarPeticionCentro({ contexto: ctx, peticion: completa }), /data-accion="abrir-ratificacion"/);
+});
+
+test("el detalle del centro no revela referencias cuando faltan etiquetas del catálogo", () => {
+  const incompleta = structuredClone(peticion);
+  incompleta.solicitud.contacto_ref = "con_sintetico_ausente";
+  incompleta.solicitud.categoria_ref = "cat_sintetica_ausente";
+  incompleta.solicitud.documentos_adjuntos = ["doc:adjunto:ausente"];
+  const html = renderizarPeticionCentro({ contexto, peticion: incompleta });
+  for (const campo of ["Contacto", "Categoría", "Documentos aportados"]) {
+    assert.match(html, new RegExp(`<dt>${campo}</dt><dd>Dato no disponible\\. Actualice la bandeja\\.`, "u"));
+  }
+  assert.doesNotMatch(html, /<dd[^>]*>(con_sintetico_ausente|cat_sintetica_ausente|doc:adjunto:ausente)/u);
 });
 
 test("un recibo confirmado permite volver a la bandeja sin repetir la presentación", () => {
@@ -214,6 +227,8 @@ test("la vista RRHH no usa el contexto de centros y conserva datos, ratificació
   assert.match(html, /Revisión sintética/);
   assert.match(html, /Referencia del expediente/);
   assert.match(html, /expediente:ct:001/);
+  assert.match(html, /Número visible[^]*CT-001[^]*<details class="pc-detalle-tecnico"><summary>Ver detalle técnico<\/summary>/u);
+  assert.ok(html.indexOf("CT-001") < html.indexOf("expediente:ct:001"));
   assert.match(html, /\/portal-empleado\/\?lang=es#contratacion-temporal/);
   assert.doesNotMatch(html, /Persona de prueba/);
   const preparada = renderizarPeticionesCentroRRHH({ peticiones: [{ peticion: ratificada, estado_entrega: "preparada" }], entrega: { peticion: ratificada, estado_entrega: "preparada" } });
@@ -222,6 +237,8 @@ test("la vista RRHH no usa el contexto de centros y conserva datos, ratificació
 	assert.match(pendiente, /data-accion="abrir-alta-rrhh"/);
 	assert.match(pendiente, /Crear expediente en RRHH/);
   assert.doesNotMatch(html, /data-accion="abrir-alta-rrhh"/);
+  const sinNumero = renderizarPeticionesCentroRRHH({ peticiones: [{ ...entrega, recibo_alta: { ...entrega.recibo_alta, numero_visible: "" } }] });
+  assert.doesNotMatch(sinNumero, /Expediente expediente:ct:001/u);
   assert.match(renderizarPeticionesCentroRRHH({ entrega: { peticion: ratificada, estado_entrega: "preparada" }, modo: "confirmar" }), /Crear expediente en RRHH/);
 });
 
@@ -281,7 +298,7 @@ test("la portada del centro no enseña referencias ni códigos y solo abre el de
   const ctx = { ...contexto, actor: { ...contexto.actor, centro: "Residencia sintética" } };
   const html = renderizarPeticionCentro({ contexto: ctx, peticiones: [ratificada] });
   assert.doesNotMatch(html.replaceAll(/data-seleccionar="[^"]*"/gu, ""), /peticion:centro|centro-520/u);
-  assert.match(html, /Petición del 6 sept 2026/u);
+  assert.match(html, /C2 sintética · 6 sept 2026/u);
   assert.match(html, /Residencia sintética/u);
   assert.match(html, />Ratificada</u);
   assert.match(html, /Sin fechas indicadas/u);
@@ -291,6 +308,54 @@ test("la portada del centro no enseña referencias ni códigos y solo abre el de
   assert.match(sinUnidad, /class="pc-panel pc-detalle"/u);
   assert.match(sinUnidad, /data-accion="cerrar-detalle"/u);
   assert.doesNotMatch(sinUnidad.replaceAll(/data-seleccionar="[^"]*"/gu, ""), /peticion:centro|centro-520/u);
+});
+
+test("las peticiones del mismo día muestran categoría y puesto en ambas bandejas", () => {
+  const a = { ...structuredClone(peticion), solicitud: { ...peticion.solicitud, puesto_solicitado: "RPT-ADM-0133", numero_personas: 1 } };
+  const b = { ...structuredClone(peticion), referencia: "peticion:centro:002", solicitud: { ...peticion.solicitud, puesto_solicitado: "RPT-PRG-0420", numero_personas: 2 } };
+  const centro = renderizarPeticionCentro({ contexto, peticiones: [a, b] });
+  assert.match(centro, /C2 sintética · RPT-ADM-0133 · 1 persona · 6 sept 2026/u);
+  assert.match(centro, /C2 sintética · RPT-PRG-0420 · 2 personas · 6 sept 2026/u);
+  const rrhh = renderizarPeticionesCentroRRHH({ peticiones: [a, b].map((p) => ({ peticion: p, estado_entrega: "pendiente" })),
+    etiquetas: { categorias: { cat_sintetica_001: "Administración C2" } } });
+  assert.match(rrhh, /Administración C2 · RPT-ADM-0133 · 1 persona · 6 sept 2026/u);
+  assert.match(rrhh, /Administración C2 · RPT-PRG-0420 · 2 personas · 6 sept 2026/u);
+  assert.match(rrhh, /aria-label="Revisar: Administración C2 · RPT-ADM-0133 · 1 persona · 6 sept 2026">Revisar<\/button>/u);
+  assert.doesNotMatch(rrhh.replaceAll(/data-seleccionar-rrhh="[^"]*"/gu, ""), /peticion:centro:/u);
+  const detalle = renderizarPeticionesCentroRRHH({ entrega: { peticion: a, estado_entrega: "pendiente" }, etiquetas: { categorias: { cat_sintetica_001: "Administración C2" } } });
+  assert.match(detalle, /<details class="pc-detalle-tecnico"><summary>Ver detalle técnico<\/summary>/u);
+  assert.ok(detalle.indexOf("Administración C2") < detalle.indexOf("<details class="), "la referencia técnica queda plegada tras los datos de negocio");
+});
+
+test("dos peticiones con el mismo resumen reciben ordinales distintos en ambas bandejas", () => {
+  const primera = { ...structuredClone(peticion), solicitud: { ...peticion.solicitud,
+    puesto_solicitado: "Archivo & documentación", numero_personas: 1 } };
+  const segunda = { ...structuredClone(primera), referencia: "peticion:centro:002",
+    solicitud: { ...primera.solicitud, detalle: "Otra necesidad" } };
+  const centro = renderizarPeticionCentro({ contexto, peticiones: [primera, segunda] });
+  const rrhh = renderizarPeticionesCentroRRHH({ peticiones: [primera, segunda].map((p) => ({
+    peticion: p, estado_entrega: "pendiente",
+  })) });
+  for (const [html, accion] of [[centro, "Ver"], [rrhh, "Revisar"]]) {
+    assert.match(html, /Archivo &amp; documentación · 1 persona · 6 sept 2026 · petición 1/u);
+    assert.match(html, /Archivo &amp; documentación · 1 persona · 6 sept 2026 · petición 2/u);
+    assert.match(html, new RegExp(`aria-label="${accion}: [^"]*Archivo &amp; documentación[^"]*petición 1"`, "u"));
+    assert.match(html, new RegExp(`aria-label="${accion}: [^"]*Archivo &amp; documentación[^"]*petición 2"`, "u"));
+    assert.doesNotMatch(html, /&amp;amp;/u);
+  }
+});
+
+test("el puesto recibido no rompe atributos de los enlaces y botones de la bandeja", () => {
+  const puesto = '"><img src=x onerror=alert(1)>';
+  const recibida = { ...peticion, solicitud: { ...peticion.solicitud, puesto_solicitado: puesto } };
+  const html = renderizarPeticionesCentroRRHH({ peticiones: [{ peticion: recibida,
+    estado_entrega: "confirmada", recibo_alta: { expediente_ref: "expediente:ct:001", numero_visible: "2026/CT-001" } }],
+  });
+  assert.doesNotMatch(html, /<img/u);
+  assert.match(html, /&quot;&gt;&lt;img/u);
+  const centro = renderizarPeticionCentro({ contexto, peticiones: [recibida] });
+  assert.doesNotMatch(centro, /<img/u);
+  assert.match(centro, /&quot;&gt;&lt;img/u);
 });
 
 
@@ -336,9 +401,11 @@ test("la vista RRHH nombra centro, contacto, categoría, motivo y personas con l
   assert.doesNotMatch(html, /<dd[^>]*>(cen_sintetico_001|con_sintetico_001|cat_sintetica_001|per_sol)/u);
   // El nombre solo vale para el mismo puesto que guarda la petición.
   assert.doesNotMatch(html, /Manuel García Robles/u);
-  assert.match(html, /per_rat · rpt-520-001/u);
-  // Sin etiquetas, la vista sigue mostrando las referencias y el motivo vacío.
+  assert.match(html, /Dato no disponible\. Actualice la bandeja\./u);
+  assert.doesNotMatch(html, /per_rat · rpt-520-001/u);
+  // Sin etiquetas, la vista pide actualizar la bandeja y conserva el motivo vacío.
   const sin = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega });
-  assert.match(sin, /cen_sintetico_001/u);
+  assert.match(sin, /Dato no disponible\. Actualice la bandeja\./u);
+  assert.doesNotMatch(sin, /<dd[^>]*>cen_sintetico_001/u);
   assert.match(sin, /<dt>Motivo<\/dt><dd>—<\/dd>/u);
 });

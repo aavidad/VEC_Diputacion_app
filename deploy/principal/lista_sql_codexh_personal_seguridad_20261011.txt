@@ -1,0 +1,2 @@
+# Después de PR1004 Personal41–44. Solo SQL nueva propia.
+deploy/postgresql/personal/migraciones/000045_unidad_y_material_plan_b2.up.sql

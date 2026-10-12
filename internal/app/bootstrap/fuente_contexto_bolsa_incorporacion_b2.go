@@ -34,6 +34,113 @@ type FuentesContextoIncorporacionB2 struct {
 	c ConfiguracionFuentesContextoIncorporacionB2
 }
 
+type clavePersonaBolsaB2 struct {
+	fuente   *FuentesContextoIncorporacionB2
+	selector bp.SelectorPersonaAceptacionCT
+}
+
+// Estos DTO de Bolsa sólo contienen valores; la captura no conserva sus
+// punteros ni material de autorización. Cada lectura devuelve valores propios.
+type lecturaPersonaBolsaB2 struct {
+	aceptacion bp.AceptacionPersonaCT
+	persona    bp.PersonaAceptadaCT
+	vinculo    bp.VinculoPersonaAceptadaCT
+	evidencia  bp.EvidenciaConsultaPersonaAceptacionCT
+}
+
+func (l lecturaPersonaBolsaB2) resultado() bp.ResultadoConsultaPersonaAceptacionCT {
+	return bp.ResultadoConsultaPersonaAceptacionCT{Estado: "acreditado", Aceptacion: &l.aceptacion, Persona: &l.persona, Vinculo: &l.vinculo, Evidencia: l.evidencia}
+}
+
+func (f *FuentesContextoIncorporacionB2) consultarPersonaBolsaB2(ctx context.Context, x dom.SelectorBolsaPlanB2) (bp.ResultadoConsultaPersonaAceptacionCT, error) {
+	var cero bp.ResultadoConsultaPersonaAceptacionCT
+	if f == nil || ctx == nil || dependenciaBootstrapNula(f.c.Bolsa) || f.c.ActorBolsa == nil {
+		return cero, ct.ErrComposicionIncorporacionAplicacion
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	holder, _ := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+	if holder != nil {
+		// El lector real vuelve al resolutor nominal al autorizar. Su mutex
+		// queda libre mientras esta lectura consume y audita su propia V3.
+		holder.mu.Lock()
+		if holder.muPersonasB2 == nil {
+			holder.muPersonasB2 = make(chan struct{}, 1)
+		}
+		mutexPersona := holder.muPersonasB2
+		holder.mu.Unlock()
+		select {
+		case mutexPersona <- struct{}{}:
+			defer func() { <-mutexPersona }()
+		case <-ctx.Done():
+			return cero, ctx.Err()
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	actor, err := f.c.ActorBolsa(ctx)
+	if err != nil {
+		return cero, err
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	selector := bp.SelectorPersonaAceptacionCT{UnidadRef: x.UnidadRef, CategoriaRef: x.CategoriaRef, NecesidadRef: x.NecesidadRef,
+		AceptacionOperacionRef: x.AceptacionOperacionRef, AceptacionRegistroSHA256: x.AceptacionRegistroSHA256,
+		AperturaOperacionRef: x.AperturaOperacionRef, AperturaRegistroSHA256: x.AperturaRegistroSHA256,
+		LlamamientoRef: x.LlamamientoRef, PropuestaRef: x.PropuestaRef}
+	consultar := func() (bp.ResultadoConsultaPersonaAceptacionCT, error) {
+		return f.c.Bolsa.ConsultarPersonaAceptacionCT(ctx, bp.SolicitudConsultaPersonaAceptacionCT{ActorConfiable: actor, Selector: selector})
+	}
+	if holder == nil {
+		return consultar()
+	}
+	holder.mu.Lock()
+	propietario := holder.propietario
+	holder.mu.Unlock()
+	if propietario == nil || propietario.soporte == nil {
+		return consultar()
+	}
+	clave := clavePersonaBolsaB2{f, selector}
+	if lectura, existe := holder.personasB2[clave]; existe {
+		perfil := propietario.b2[bp.AccionConsultaPersonaAceptacionCT]
+		if perfil == nil || actor.Resultado.Contexto.PerfilActivoRef != perfil.perfilRef() {
+			return cero, ct.ErrAutorizacionDenegada
+		}
+		// Reutilizar los datos no reutiliza la concesión: la autoridad nominal
+		// relee la asignación actual también dentro de esta misma petición.
+		if err := propietario.consumir(ctx, perfil); err != nil {
+			return cero, err
+		}
+		if err := ctx.Err(); err != nil {
+			return cero, err
+		}
+		if propietario.soporte.reloj.Ahora().Before(lectura.vinculo.VigenteHasta) {
+			return lectura.resultado(), nil
+		}
+		delete(holder.personasB2, clave)
+	}
+	r, err := consultar()
+	if err != nil {
+		return cero, err
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	if r.Estado == "acreditado" && r.Aceptacion != nil && r.Persona != nil && r.Vinculo != nil &&
+		r.Persona.Version > 0 && r.Vinculo.ProcedenciaVersion > 0 && propietario.soporte.reloj.Ahora().Before(r.Vinculo.VigenteHasta) &&
+		r.Aceptacion.OperacionRef == selector.AceptacionOperacionRef && r.Aceptacion.RegistroSHA256 == selector.AceptacionRegistroSHA256 &&
+		r.Aceptacion.AperturaOperacionRef == selector.AperturaOperacionRef && r.Aceptacion.AperturaRegistroSHA256 == selector.AperturaRegistroSHA256 && r.Aceptacion.LlamamientoRef == selector.LlamamientoRef {
+		if holder.personasB2 == nil {
+			holder.personasB2 = map[clavePersonaBolsaB2]lecturaPersonaBolsaB2{}
+		}
+		holder.personasB2[clave] = lecturaPersonaBolsaB2{*r.Aceptacion, *r.Persona, *r.Vinculo, r.Evidencia}
+	}
+	return r, nil
+}
+
 func NuevasFuentesContextoIncorporacionB2(c ConfiguracionFuentesContextoIncorporacionB2) (*FuentesContextoIncorporacionB2, error) {
 	if dependenciaBootstrapNula(c.Bolsa) || c.ActorBolsa == nil || dependenciaBootstrapNula(c.Vinculos) ||
 		dependenciaBootstrapNula(c.Publicacion) || dependenciaBootstrapNula(c.AutoridadRPT) {
@@ -54,24 +161,9 @@ func (f *FuentesContextoIncorporacionB2) LeerPersonaSeleccionada(ctx context.Con
 	if c.Protocolo != inc.ProtocoloPersonalB2V1 || x.CategoriaRef != c.CategoriaRef || x.LlamamientoRef != c.LlamamientoRef {
 		return cero, ct.ErrConflictoIncorporacionAplicacion
 	}
-	a, err := f.c.ActorBolsa(ctx)
-	if err != nil {
-		return cero, errorFuenteContextoIncorporacionB2(ctx, err)
-	}
-	if err := ctx.Err(); err != nil {
-		return cero, err
-	}
 	// Traducción literal de los nueve selectores sellados por CT155. Bolsa
 	// conserva la validación, la autorización vigente y la identidad aceptante.
-	r, err := f.c.Bolsa.ConsultarPersonaAceptacionCT(ctx, bp.SolicitudConsultaPersonaAceptacionCT{
-		ActorConfiable: a,
-		Selector: bp.SelectorPersonaAceptacionCT{
-			UnidadRef: x.UnidadRef, CategoriaRef: x.CategoriaRef, NecesidadRef: x.NecesidadRef,
-			AceptacionOperacionRef: x.AceptacionOperacionRef, AceptacionRegistroSHA256: x.AceptacionRegistroSHA256,
-			AperturaOperacionRef: x.AperturaOperacionRef, AperturaRegistroSHA256: x.AperturaRegistroSHA256,
-			LlamamientoRef: x.LlamamientoRef, PropuestaRef: x.PropuestaRef,
-		},
-	})
+	r, err := f.consultarPersonaBolsaB2(ctx, x)
 	if err != nil {
 		return cero, errorFuenteContextoIncorporacionB2(ctx, err)
 	}
