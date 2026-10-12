@@ -200,3 +200,18 @@ func TestPortalPausaRetiradaNoConvierteFallosTecnicosNiAutorizacion(t *testing.T
 		})
 	}
 }
+
+func TestPortalEntregaRevisionDeRespuestaPropia(t *testing.T) {
+	for _, revision := range []bool{true, false} {
+		instantanea := puertosbolsa.InstantaneaMiBolsa{ReglasPortal: &puertosbolsa.ReglasPortalVisibles{ModoRespuesta: puertosbolsa.ModoRespuestaPortalFirme}, Portal: []puertosbolsa.EstadoPortalCandidato{{Bolsa: "bolsa:01", UltimaRespuesta: &puertosbolsa.UltimaRespuestaPortal{Respuesta: "acepta", Modo: "firme", Recibo: "recibo:respuesta:01", RespondidaEn: time.Date(2026, 10, 11, 10, 0, 0, 0, time.UTC), EnRevision: revision}}}}
+		estados, _ := respuestaPortal(instantanea)
+		contenido, err := json.Marshal(estados)
+		esperado := `"en_revision":false`
+		if revision {
+			esperado = `"en_revision":true`
+		}
+		if err != nil || !strings.Contains(string(contenido), esperado) {
+			t.Fatalf("revision=%t esperado=%s resultado=%s error=%v", revision, esperado, contenido, err)
+		}
+	}
+}

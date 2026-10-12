@@ -294,12 +294,19 @@
     },
     "justificante": "Supporting document (the file is not sent)",
     "justificanteRef": "Supporting document reference",
+    "revision": {"titulo": "Review your decision to decline", "aviso": "Check your response before recording it.", "volver": "Edit response", "confirmar": "Confirm decision to decline", "reintentar": "Retry the same decision to decline", "nombreArchivo": "Selected file", "archivoSeleccionado": "File selected"},
     "responder": "Send response",
     "modo": {
       "propuesta_rrhh": "HR will confirm the response",
       "firme": "Final response"
     },
     "ultimaRespuesta": "Response recorded",
+    "ultimaRespuestaBolsa": "Latest response recorded in this job pool",
+    "respuestaAnterior": "Earlier response in this job pool",
+    "fechaRespuesta": "Responded on",
+    "modoRespuesta": "Response status",
+    "respuestaEnRevision": "Your response is under review. HR will confirm your status.",
+    "respuestaAnteriorEnRevision": "Your earlier response in this job pool is still under review. HR will confirm your status.",
     "enviando": "Sending…",
     "hecho": "Recorded. Receipt {recibo}.",
     "error": {
