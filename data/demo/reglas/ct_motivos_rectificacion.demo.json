@@ -12,8 +12,8 @@
     "version": 1,
     "revision": 1,
     "modulo_id": "contratacion_temporal",
-    "nombre": "Motivos de rectificación del análisis — ejemplo",
-    "descripcion": "Motivos de ejemplo para rectificar el análisis de una solicitud. No son motivos legales aprobados.",
+    "nombre": "Motivos de rectificación del análisis (pendiente de validación)",
+    "descripcion": "Motivos propuestos para rectificar el análisis. Pendientes de validación por RRHH.",
     "fuente_ref": "paquete:ejemplo:vec:v1",
     "motivo_creacion": "Reglas de ejemplo para la presentación a RRHH; se retiran antes de producción.",
     "entradas": [

@@ -12,7 +12,7 @@
     "version": 1,
     "revision": 1,
     "modulo_id": "contratacion_temporal",
-    "nombre": "Retribuciones de referencia para el coste — ejemplo",
+    "nombre": "Retribuciones de referencia para el coste (pendiente de validación)",
     "descripcion": "Coste estimado de un nombramiento por grupo o categoría. Importes mensuales en céntimos de euro a jornada completa: sueldo_mensual_centimos y complementos_mensual_centimos (destino y específico); pagas_anuales es el número de pagas al año de ese total (12 ordinarias más las extraordinarias); seguridad_social_centesimas es la cuota empresarial en centésimas de punto (3200 = 32 %); proporcional_jornada «si» prorratea por la jornada del nombramiento. Coste mensual = (sueldo + complementos) × pagas ÷ 12 × (1 + cuota), prorrateado por días naturales (mes de 30,4375 días). Una entrada con atributo categoria_ref se aplica a esa categoría antes que la de su grupo.",
     "fuente_ref": "paquete:ejemplo:vec:v1",
     "motivo_creacion": "Retribuciones de ejemplo para la presentación a RRHH; se retiran antes de producción.",

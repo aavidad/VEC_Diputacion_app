@@ -1,7 +1,7 @@
 {
   "general": {
     "titulo": "Services for review",
-    "limite": "Preparation using synthetic data. Coverage is unverified; an official certificate cannot be issued.",
+    "limite": "Draft pending validation. Coverage is unverified; an official certificate cannot be issued.",
     "corte_efectivo": "Reference date",
     "corte_conocimiento": "Information known up to",
     "seleccionar_relacion": "Select an employment relationship to review its periods.",

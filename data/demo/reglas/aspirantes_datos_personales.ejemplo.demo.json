@@ -12,7 +12,7 @@
     "version": 1,
     "revision": 1,
     "modulo_id": "aspirantes",
-    "nombre": "Datos personales por finalidad y momento — ejemplo pendiente de RRHH y DPD",
+    "nombre": "Datos personales por finalidad y momento (pendiente de RRHH y del DPD)",
     "descripcion": "Qué datos personales pide cada tipo de convocatoria (bolsa, proceso selectivo libre, promoción interna y provisión), si son obligatorios, condicionales o voluntarios, en qué momento (inscripción, pago de la tasa, admisión, baremación, antes de las pruebas, llamamiento, nombramiento o contrato), con qué finalidad y base del RGPD, de dónde se obtienen (identificación electrónica, la persona, consulta a otra Administración con derecho de oposición del art. 28.2 de la Ley 39/2015, Personal o Vigilancia de la salud), su categoría (ordinaria, especial del art. 9, penal del art. 10 o protegida) y quién los guarda. Lo que no figura aquí no se pide.",
     "fuente_ref": "paquete:ejemplo:vec:v1",
     "motivo_creacion": "Valores provisionales del estudio de datos personales para desarrollo y presentación; se retiran antes de producción.",

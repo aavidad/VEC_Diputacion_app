@@ -12,7 +12,7 @@
     "version": 1,
     "revision": 1,
     "modulo_id": "bolsa",
-    "nombre": "Separación de funciones en Bolsa — ejemplo",
+    "nombre": "Separación de funciones en Bolsa (pendiente de validación)",
     "descripcion": "Qué operaciones sobre la permanencia en la bolsa exigen que valide una segunda persona distinta de quien la registra. La exclusión la exige siempre; el catálogo solo puede añadir la pausa o la reactivación.",
     "fuente_ref": "paquete:ejemplo:vec:v1",
     "motivo_creacion": "Reglas de ejemplo para la presentación a RRHH; se retiran antes de producción.",

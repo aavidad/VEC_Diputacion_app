@@ -12,8 +12,8 @@
     "version": 1,
     "revision": 1,
     "modulo_id": "auditoria",
-    "nombre": "Consulta de Auditoría RRHH — ejemplo",
-    "descripcion": "Finalidad, motivo, permiso, ámbito y fuentes de ejemplo para la consulta administrativa exacta de Auditoría. Duda 67 pendiente de RRHH.",
+    "nombre": "Consulta de Auditoría RRHH (pendiente de validación)",
+    "descripcion": "Finalidad, motivo, permiso y ámbito de la consulta de Auditoría. Pendiente de validación por RRHH.",
     "fuente_ref": "paquete:ejemplo:vec:v1",
     "motivo_creacion": "Parámetros de demostración modificables mediante una versión nueva del catálogo; no aprobados por RRHH.",
     "entradas": [

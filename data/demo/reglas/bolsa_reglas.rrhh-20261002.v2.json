@@ -13,7 +13,7 @@
     "revision": 1,
     "modulo_id": "bolsa",
     "nombre": "Reglas de Bolsa — decisiones RRHH 02/10/2026",
-    "descripcion": "Reglas de llamamiento y gestión de las bolsas. Las de origen «reglamento» citan el Reglamento publicado en el BOP de Granada n.º 9 de 16/01/2026 (CVE BOP-GRA-2026-009002), modificado en el BOP n.º 91 de 14/05/2026 (CVE BOP-GRA-2026-091001); origen_sha256 es la huella del PDF publicado. Las de origen «ejemplo» no están aprobadas.",
+    "descripcion": "Reglas de llamamiento y gestión de las bolsas. Las de origen «reglamento» citan el Reglamento publicado en el BOP de Granada n.º 9 de 16/01/2026 (CVE BOP-GRA-2026-009002), modificado en el BOP n.º 91 de 14/05/2026 (CVE BOP-GRA-2026-091001); origen_sha256 es la huella del PDF publicado. Las reglas sin origen reglamentario siguen pendientes de aprobación.",
     "fuente_ref": "paquete:ejemplo:vec:v1",
     "motivo_creacion": "Nueva versión: dos días desde la notificación del extracto, según la respuesta de RRHH de 02/10/2026.",
     "entradas": [

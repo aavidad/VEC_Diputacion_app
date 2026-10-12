@@ -12,8 +12,8 @@
     "version": 1,
     "revision": 1,
     "modulo_id": "contratacion_temporal",
-    "nombre": "Causas de cese del nombramiento o contrato — ejemplo",
-    "descripcion": "Causas de ejemplo para registrar el cese de un nombramiento o contrato temporal, con el justificante que se pide. No son causas legales aprobadas.",
+    "nombre": "Causas de cese del nombramiento o contrato (pendiente de validación)",
+    "descripcion": "Causas propuestas para registrar el cese y su justificante. Pendientes de validación por RRHH.",
     "fuente_ref": "paquete:ejemplo:vec:v1",
     "motivo_creacion": "Reglas de ejemplo para la presentación a RRHH; se retiran antes de producción.",
     "entradas": [
