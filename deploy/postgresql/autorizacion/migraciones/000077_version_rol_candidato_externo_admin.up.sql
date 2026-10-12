@@ -743,7 +743,8 @@ BEGIN
  BEGIN
   resultado:=vec_autorizacion.aplicar_version_rol_bolsa_externa_v1(false,p_material,p_capacidad,p_decision,
    p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
- EXCEPTION WHEN OTHERS THEN
+ EXCEPTION WHEN SQLSTATE '40001' THEN RAISE;
+ WHEN OTHERS THEN
   GET STACKED DIAGNOSTICS fallo=RETURNED_SQLSTATE;
   RETURN vec_autorizacion.registrar_fallo_version_rol_bolsa_externa_v1(p_material,
    'administracion.perfiles.version_bolsa.proponer',fallo);
@@ -763,7 +764,8 @@ BEGIN
  BEGIN
   resultado:=vec_autorizacion.aplicar_version_rol_bolsa_externa_v1(true,p_material,p_capacidad,p_decision,
    p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
- EXCEPTION WHEN OTHERS THEN
+ EXCEPTION WHEN SQLSTATE '40001' THEN RAISE;
+ WHEN OTHERS THEN
   GET STACKED DIAGNOSTICS fallo=RETURNED_SQLSTATE;
   RETURN vec_autorizacion.registrar_fallo_version_rol_bolsa_externa_v1(p_material,
    'administracion.perfiles.version_bolsa.aprobar',fallo);
