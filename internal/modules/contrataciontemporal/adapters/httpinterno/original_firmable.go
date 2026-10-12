@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	almacencanonico "vec-diputacion-granada/internal/vec/canonico/almacen"
@@ -116,12 +117,18 @@ func (h *manejadorOriginalFirmableCT) ServeHTTP(w http.ResponseWriter, r *http.R
 		responderErrorPreflightFirma(w, r, nil, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
+	expedienteDocumental, err := ctapplication.ReferenciaExpedienteDocumentalFormalizacion(entrada.ExpedienteRef)
+	if err != nil {
+		responderErrorPreflightFirma(w, r, err, errorResultadoConsultaRRHHNoConfiable)
+		return
+	}
 	datos := map[string]any{
 		"esquema": EsquemaOriginalFirmableCT, "expediente_ref": entrada.ExpedienteRef,
 		"version_observada": entrada.VersionObservada, "documento": entrada.Documento,
 		"original_ref": original.Referencia, "original_version": original.Version, "original_sha256": original.HuellaSHA256,
 		"tipo_ref": original.TipoRef, "mime": "application/pdf", "pdf_base64": base64.StdEncoding.EncodeToString(original.Contenido),
-		"documento_custodiado": documentoCustodiado(organizacion, entrada.ExpedienteRef, original.Referencia, original.Version, original.HuellaSHA256),
+		"documento_custodiado": documentoCustodiadoJSON{ExpedienteRef: expedienteDocumental,
+			DocumentoRef: original.Referencia, Version: original.Version, HuellaSHA256: original.HuellaSHA256},
 	}
 	if conComprobante {
 		if !docdomain.NumeroVECValido(original.NumeroVEC) || !domain.InstanteUTCCanonico(original.CustodiadoEn) {
