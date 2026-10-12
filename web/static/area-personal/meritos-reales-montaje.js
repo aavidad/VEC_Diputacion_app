@@ -15,7 +15,7 @@ function estadoInicial(ubicacion) {
 // La vista reemplaza el HTML al cambiar de estado. Se identifica el control
 // activo por su acción, nunca por una referencia interpolada en un selector.
 function restauradorFoco(contenedor, activo) {
-  if (!activo || !contenedor.contains(active)) return null;
+  if (!activo || !contenedor.contains(activo)) return null;
   if (activo.dataset?.meritosFiltro !== undefined) {
     const filtro = activo.dataset.meritosFiltro;
     return () => [...contenedor.querySelectorAll("[data-meritos-filtro]")]

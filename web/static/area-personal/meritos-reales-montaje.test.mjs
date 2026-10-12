@@ -50,7 +50,7 @@ function montajeInteractivo(fetchImpl, url = "https://ejemplo.local/area-persona
   const enviar = () => eventos.get("submit")({ preventDefault() {}, target: {
     id: "meritos-reales-retirada-formulario", elements: { namedItem: () => ({ value: "0" }) },
   } });
-  return { vista, contenedor, pulsar, enviar };
+  return { vista, contenedor, documento, pulsar, enviar };
 }
 
 function pagina(hechos, filtro = "todos") {
@@ -116,5 +116,23 @@ test("una respuesta incierta conserva clave y aviso aunque Disponibles quede vac
     assert.match(contenedor.innerHTML, /Aún no sabemos si se retiró/u);
     assert.match(contenedor.innerHTML, /data-meritos-filtro="todos"/u);
     assert.equal(ordenes.length, 1);
+  } finally { vista.desmontar(); }
+});
+
+test("al repintar un filtro conserva el foco de teclado en el control equivalente", async () => {
+  const fetchImpl = async () => ({ status: 200, ok: true, async json() { return pagina([hecho(1)]); } });
+  const { vista, contenedor, documento, pulsar } = montajeInteractivo(fetchImpl);
+  try {
+    await vista.preparada;
+    let restauraciones = 0;
+    documento.activeElement = { dataset: { meritosFiltro: "todos" } };
+    contenedor.querySelectorAll = (selector) => selector === "[data-meritos-filtro]"
+      ? [{ dataset: { meritosFiltro: "todos" }, focus(opciones) {
+        assert.equal(opciones.preventScroll, true);
+        restauraciones += 1;
+      } }] : [];
+    pulsar({ meritosFiltro: "todos" });
+    await new Promise(setImmediate);
+    assert.ok(restauraciones >= 2, "mantiene el foco durante carga y resultado");
   } finally { vista.desmontar(); }
 });
