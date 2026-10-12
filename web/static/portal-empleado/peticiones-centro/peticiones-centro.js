@@ -236,7 +236,8 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
   const solicitante = nombreInterviniente(intervinientes, c);
   const catalogos = contexto?.catalogos;
   const centro = catalogos?.centros?.find((v) => v.referencia === s.centro_ref);
-  const etiqueta = (opciones, referencia) => opciones?.find((v) => v.referencia === referencia)?.etiqueta || referencia || "—";
+  const etiqueta = (opciones, referencia) => !referencia ? "—"
+    : opciones?.find((v) => v.referencia === referencia)?.etiqueta || textoCT("pc_dato_no_disponible");
   const nombre = (grupo, opciones, referencia) => (contexto ? etiqueta(opciones, referencia)
     : etiquetas?.[grupo]?.[referencia] || textoCT("pc_dato_no_disponible"));
   const etiquetaMotivo = (contexto ? catalogos?.motivos?.find((v) => v.clave === s.motivo_clave)?.etiqueta : etiquetas?.motivos?.[s.motivo_clave]) || "—";

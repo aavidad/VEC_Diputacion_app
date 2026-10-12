@@ -106,3 +106,14 @@ Medición con 2.390 participaciones: lector de cuatro consultas p95 19,96 ms
 (100 muestras); manejador HTTP de resumen p95 17,31 ms y páginas p95 < 1 ms
 (30 muestras por filtro). HTTP medido sobre el cargador y manejador reales contra
 el clon: no incluye TLS ni la frontera nominal. B94: EXPLAIN ANALYZE 2,64 ms.
+
+## Acceso a Mi Bolsa desde una carga CONVOCA — 11 de octubre
+
+La carga ya crea la participación y su referencia de candidato. El DNI
+enmascarado y el nombre no permiten acreditar quién es su titular. Para dar
+acceso se reutiliza la provisión exterior existente: una autoridad verifica el
+enlace entre persona, fila importada y cuenta ligada al certificado, y publica
+el contexto nominal mediante huella y CAS. Las filas ambiguas quedan pendientes;
+no se enlazan por coincidencia de máscara o nombre. No hace falta otro portal ni
+otra ruta de Mi Bolsa. Falta la correspondencia verificada de la autoridad de
+personas; este cambio no aprovisiona cuentas ni permisos.

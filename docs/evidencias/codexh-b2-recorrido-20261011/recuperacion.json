@@ -1,0 +1,76 @@
+[
+  {
+    "operacion": "solicitante",
+    "http": 200,
+    "campos_comparados": [
+      "recibo_ref",
+      "registrado_en",
+      "version"
+    ],
+    "identicos": true
+  },
+  {
+    "operacion": "ratificador",
+    "http": 200,
+    "campos_comparados": [
+      "recibo_ref",
+      "registrado_en",
+      "version"
+    ],
+    "identicos": true
+  },
+  {
+    "operacion": "alta",
+    "http": 200,
+    "campos_comparados": [
+      "recibo_ref",
+      "confirmada_en",
+      "version",
+      "expediente_ref"
+    ],
+    "identicos": true
+  },
+  {
+    "operacion": "analisis",
+    "http": 201,
+    "campos_comparados": [
+      "recibo_ref",
+      "confirmada_en",
+      "version_resultante",
+      "expediente_ref"
+    ],
+    "identicos": true
+  },
+  {
+    "operacion": "cobertura",
+    "http": 201,
+    "campos_comparados": [
+      "recibo_ref",
+      "confirmada_en",
+      "version_resultante"
+    ],
+    "identicos": true
+  },
+  {
+    "operacion": "asignacion",
+    "http": 201,
+    "campos_comparados": [
+      "recibo_ref",
+      "confirmada_en",
+      "version_resultante",
+      "expediente_ref"
+    ],
+    "identicos": true
+  },
+  {
+    "operacion": "informe",
+    "http": 201,
+    "campos_comparados": [
+      "recibo_ref",
+      "confirmada_en",
+      "version_resultante",
+      "expediente_ref"
+    ],
+    "identicos": true
+  }
+]

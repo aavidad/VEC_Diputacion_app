@@ -40,7 +40,7 @@ func camposLecturaInscripcionBolsa(accion string, rrhh bool) []string {
 		"categorias[].categoria", "plazo_inicio", "plazo_fin", "catalogo_version", "requisitos_resumen",
 		"puede_iniciar", "impedimento_etiqueta", "estado_solicitud_propia", "solicitud_ref"}
 	bolsa = append(bolsa, prefijar("requisitos[].", requisitos)...)
-	solicitud := []string{"solicitud_ref", "recibo_ref", "convocatoria_ref", "categoria_ref", "bolsa_ref",
+	solicitud := []string{"solicitud_ref", "recibo_ref", "convocatoria_ref", "convocatoria_titulo", "categoria_ref", "bolsa_ref",
 		"categoria", "declaracion_ref", "bases_ref", "catalogo_version", "plazo_inicio", "plazo_fin",
 		"decision_ref", "estado", "version", "registrada_en", "decidida_en", "motivo_codigo",
 		"motivo_etiqueta", "participacion_ref"}
@@ -64,7 +64,7 @@ func camposLecturaInscripcionBolsa(accion string, rrhh bool) []string {
 		campos = []string{"catalogo_version", "motivos[].codigo", "motivos[].etiqueta", "motivos[].obligatorio"}
 	case accionListarConvocatoriasGestionRRHHInscripcion:
 		campos = []string{"convocatorias[].convocatoria_ref", "convocatorias[].titulo", "convocatorias[].categorias_resumen",
-			"convocatorias[].plazo_fin", "convocatorias[].estado_publicacion", "total", "cursor_siguiente"}
+			"convocatorias[].plazo_fin", "convocatorias[].estado_publicacion", "convocatorias[].pendientes", "total", "cursor_siguiente"}
 	default:
 		return nil
 	}

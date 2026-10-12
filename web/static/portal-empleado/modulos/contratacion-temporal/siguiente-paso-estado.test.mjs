@@ -74,3 +74,16 @@ test("la falta de confirmación prevalece sobre el registro y los mensajes se es
   assert.match(html, /Revise &lt;el recibo&gt; &amp; confirme/u);
   assert.doesNotMatch(html, /<el recibo>|Registrando la actuación/u);
 });
+
+test("el siguiente paso nombra la fase en curso del raíl aunque el cuadro vaya por detrás", () => {
+  const t = crearTraductorExpedientesContratacion({});
+  const conRail = { ...expediente, fases: [
+    { fase_ref: "presentacion:f:solicitud", orden: 1, etiqueta: "Solicitud", estado_clave: "completado" },
+    { fase_ref: "presentacion:f:analisis_rrhh", orden: 2, etiqueta: "Análisis RRHH", estado_clave: "completado" },
+    { fase_ref: "presentacion:f:gestion_bolsa", orden: 3, etiqueta: "Gestión de bolsa", estado_clave: "en_curso" },
+  ] };
+  const estado = { ...listo, cuadro: { expedientes: [{ ...listo.cuadro.expedientes[0], fase_clave: "solicitud" }] } };
+  const html = renderizarSiguientePasoFicha(conRail, estado, t);
+  assert.match(html, /Gestión de bolsa/u);
+  assert.doesNotMatch(html, /Siguiente paso: Solicitud/u);
+});

@@ -46,6 +46,16 @@ test("los catálogos de español e inglés tienen las mismas claves y no les fal
   assert.deepEqual(claves(await leerCatalogo("en")).sort(), claves(await leerCatalogo("es")).sort());
 });
 
+test("la confirmación informa de las filas con aviso que entran y habrá que comprobar", async () => {
+  for (const idioma of ["es", "en"]) {
+    const textos = await textosDe(idioma);
+    const una = textos.traducir("general.confirmarAvisos", { cuenta: 1 });
+    const varias = textos.traducir("general.confirmarAvisos", { cuenta: 2 });
+    assert.match(una, idioma === "es" ? /entrará.*comprobarla/u : /included.*check it/u);
+    assert.match(varias, idioma === "es" ? /2 filas.*entrarán.*comprobarlas/u : /2 rows.*included.*check them/u);
+  }
+});
+
 test("el HTML solo usa claves que existen en el catálogo", async () => {
   const html = await readFile(new URL("./index.html", import.meta.url), "utf8");
   const general = (await leerCatalogo("es")).general;

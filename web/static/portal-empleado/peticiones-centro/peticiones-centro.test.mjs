@@ -190,10 +190,23 @@ test("detalle incluye crédito y documentos; ratificada no ofrece otra ratificac
   const html = renderizarPeticionCentro({ contexto: ctx, peticion: completa });
   assert.match(html, /RC-SINTETICA/);
   assert.match(html, /doc:rc:001/);
-  assert.match(html, /doc:adjunto:001/);
+  assert.match(html, /<dt>Documentos aportados<\/dt><dd>Dato no disponible\. Actualice la bandeja\.<\/dd>/u);
+  assert.doesNotMatch(html, /<dt>Documentos aportados<\/dt><dd>doc:adjunto:001/u);
   assert.match(html, /data-accion="abrir-ratificacion"/);
   completa.version = 2; completa.estado = "ratificada";
   assert.doesNotMatch(renderizarPeticionCentro({ contexto: ctx, peticion: completa }), /data-accion="abrir-ratificacion"/);
+});
+
+test("el detalle del centro no revela referencias cuando faltan etiquetas del catálogo", () => {
+  const incompleta = structuredClone(peticion);
+  incompleta.solicitud.contacto_ref = "con_sintetico_ausente";
+  incompleta.solicitud.categoria_ref = "cat_sintetica_ausente";
+  incompleta.solicitud.documentos_adjuntos = ["doc:adjunto:ausente"];
+  const html = renderizarPeticionCentro({ contexto, peticion: incompleta });
+  for (const campo of ["Contacto", "Categoría", "Documentos aportados"]) {
+    assert.match(html, new RegExp(`<dt>${campo}</dt><dd>Dato no disponible\\. Actualice la bandeja\\.`, "u"));
+  }
+  assert.doesNotMatch(html, /<dd[^>]*>(con_sintetico_ausente|cat_sintetica_ausente|doc:adjunto:ausente)/u);
 });
 
 test("un recibo confirmado permite volver a la bandeja sin repetir la presentación", () => {
