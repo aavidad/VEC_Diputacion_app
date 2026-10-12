@@ -60,9 +60,14 @@ func prepararReferenciasLlamamientoDesarrollo(expediente ports.ExpedienteParaSel
 }
 
 type puenteBolsaLlamamientoDesarrollo struct {
-	alta        *dependenciasAltaContratacionTemporalDesarrollo
-	repositorio puertosbolsa.RepositorioLlamamientoDesarrollo
-	autorizador puertosbolsa.AutorizadorLlamamientoDesarrollo
+	alta                   *dependenciasAltaContratacionTemporalDesarrollo
+	repositorio            puertosbolsa.RepositorioLlamamientoDesarrollo
+	autorizador            puertosbolsa.AutorizadorLlamamientoDesarrollo
+	emisorNativo           emisorNativoLlamamientoCT
+	origenNativo           puertosbolsa.FuenteOrigenLlamamientoCTAuditada
+	configuracionNativa    proveedorConfiguracionEmisionCT
+	auditarOrdenNativo     registradorLecturaOrdenCT
+	resultadoEmisionNativo puertosbolsa.LectorResultadoEmisionCT
 	// Solo composición puede inyectar el permiso propio tras validar respuesta
 	// y plazo. Nunca se sustituye por el autorizador de selección o consulta.
 	autorizadorAceptacion puertosbolsa.AutorizadorLlamamientoDesarrollo
@@ -254,6 +259,11 @@ func (p *puenteBolsaLlamamientoDesarrollo) contexto(ctx context.Context, prepara
 // datos firmados de desarrollo, no una interpretación de normativa.
 func (p *puenteBolsaLlamamientoDesarrollo) fuente(preparacion preparacionLlamamientoDesarrollo) (*fuentesintetica.FuenteLlamamientos, fuentesintetica.DocumentoFuenteLlamamientos, error) {
 	vacio := fuentesintetica.DocumentoFuenteLlamamientos{}
+	// Al componer la emisión nativa, ninguna selección nueva puede volver a
+	// abrir el llamamiento paralelo del circuito sintético.
+	if p == nil || p.emisorNativo != nil {
+		return nil, vacio, ports.ErrIntegracionBolsaNoDisponible
+	}
 	e := preparacion.expediente.Fiscalizado
 	if e.Analisis == nil || e.Asignacion == nil || e.Fiscalizacion == nil || len(p.privadaFuente) != ed25519.PrivateKeySize {
 		return nil, vacio, ports.ErrIntegracionBolsaNoDisponible
@@ -360,12 +370,36 @@ func referenciasFuentePuenteLlamamientoDesarrollo(f fuentesintetica.DocumentoFue
 		referenciaVersionadaPuenteLlamamientoDesarrollo(f.Datos.Politica.PoliticaRef, f.Datos.Politica.Version, f.Datos.Politica.HuellaSHA256)
 }
 
+func posicionesFuentePuenteLlamamiento(f fuentesintetica.DocumentoFuenteLlamamientos) (uint32, error) {
+	n := len(f.Datos.Entradas)
+	if n == 0 || n > 128 {
+		return 0, ports.ErrRespuestaBolsaNoConfiable
+	}
+	return uint32(n), nil
+}
+
 func (p *puenteBolsaLlamamientoDesarrollo) PrepararConsultaDisponibilidad(ctx context.Context, clave string) (ports.SolicitudDisponibilidadBolsa, error) {
 	d, err := p.preparacion(ctx, clave)
 	if err != nil {
 		return ports.SolicitudDisponibilidadBolsa{}, err
 	}
-	_, f, err := p.fuente(d)
+	var f fuentesintetica.DocumentoFuenteLlamamientos
+	if p.emisorNativo != nil {
+		var legado bool
+		f, legado, err = p.fuenteLegadaReservadaCT(ctx, d)
+		if err != nil {
+			return ports.SolicitudDisponibilidadBolsa{}, err
+		}
+		if !legado {
+			return p.prepararConsultaConstituidaCT(ctx, d)
+		}
+	} else {
+		_, f, err = p.fuente(d)
+	}
+	if err != nil {
+		return ports.SolicitudDisponibilidadBolsa{}, err
+	}
+	posiciones, err := posicionesFuentePuenteLlamamiento(f)
 	if err != nil {
 		return ports.SolicitudDisponibilidadBolsa{}, err
 	}
@@ -374,7 +408,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) PrepararConsultaDisponibilidad(ctx co
 	if err != nil {
 		return ports.SolicitudDisponibilidadBolsa{}, err
 	}
-	return ports.SolicitudDisponibilidadBolsa{Contexto: c, Necesidad: n, CategoriaRef: d.categoria, MaximoResultados: posicionesFuenteLlamamientoDesarrollo}, nil
+	return ports.SolicitudDisponibilidadBolsa{Contexto: c, Necesidad: n, CategoriaRef: d.categoria, MaximoResultados: posiciones}, nil
 }
 
 func (p *puenteBolsaLlamamientoDesarrollo) PrepararOrdenCompleto(ctx context.Context, clave string, resultado ports.ResultadoDisponibilidadBolsa) (ports.ComandoPrepararOrdenBolsa, error) {
@@ -383,26 +417,44 @@ func (p *puenteBolsaLlamamientoDesarrollo) PrepararOrdenCompleto(ctx context.Con
 	if err != nil || d.expediente.VersionActual != d.expediente.Fiscalizado.Version {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
+	if p.emisorNativo != nil {
+		return p.prepararOrdenCompletoConstituidaCT(ctx, d, resultado)
+	}
 	_, f, err := p.fuente(d)
+	if err != nil {
+		return vacio, err
+	}
+	posiciones, err := posicionesFuentePuenteLlamamiento(f)
 	if err != nil {
 		return vacio, err
 	}
 	n, b, politica := referenciasFuentePuenteLlamamientoDesarrollo(f)
 	if resultado.Necesidad != n || resultado.Bolsa != b || resultado.CategoriaRef != d.categoria ||
-		resultado.CantidadDisponible != 2 || !resultado.CantidadExacta || !resultado.Disponible {
+		resultado.CantidadDisponible == 0 || resultado.CantidadDisponible > posiciones || !resultado.CantidadExacta || !resultado.Disponible {
 		return vacio, ports.ErrRespuestaBolsaNoConfiable
 	}
 	c, err := p.contexto(ctx, d, d.operacionOrden, puertosbolsa.AccionPrepararOrdenDesarrollo, b)
 	if err != nil {
 		return vacio, err
 	}
-	return ports.ComandoPrepararOrdenBolsa{Contexto: c, Necesidad: n, Bolsa: b, Politica: politica, MaximoPosiciones: posicionesFuenteLlamamientoDesarrollo}, nil
+	return ports.ComandoPrepararOrdenBolsa{Contexto: c, Necesidad: n, Bolsa: b, Politica: politica, MaximoPosiciones: posiciones}, nil
 }
 
 func (p *puenteBolsaLlamamientoDesarrollo) PrepararContextoLlamamiento(ctx context.Context, clave string, recibo ports.ReciboOrdenBolsa) (ports.ContextoPeticionIntegracionBolsa, error) {
 	d, err := p.preparacion(ctx, clave)
+	if err != nil {
+		return ports.ContextoPeticionIntegracionBolsa{}, err
+	}
+	if p.emisorNativo != nil {
+		return p.prepararContextoLlamamientoConstituidoCT(ctx, d, recibo)
+	}
+	_, f, err := p.fuente(d)
+	if err != nil {
+		return ports.ContextoPeticionIntegracionBolsa{}, err
+	}
+	posiciones, err := posicionesFuentePuenteLlamamiento(f)
 	if err != nil || d.expediente.VersionActual != d.expediente.Fiscalizado.Version || recibo.OperacionRef != d.operacionOrden ||
-		!recibo.OrdenGenerada || !recibo.OrdenCompleta || recibo.TotalPosiciones != posicionesFuenteLlamamientoDesarrollo ||
+		!recibo.OrdenGenerada || !recibo.OrdenCompleta || recibo.TotalPosiciones != posiciones ||
 		recibo.AccionLlamamiento != referenciaCatalogoPuenteLlamamientoDesarrollo(puertosbolsa.AccionAbrirLlamamientoDesarrollo) {
 		return ports.ContextoPeticionIntegracionBolsa{}, ports.ErrPeticionIntegracionBolsaInvalida
 	}
@@ -462,14 +514,21 @@ func (p *puenteBolsaLlamamientoDesarrollo) ConsultarDisponibilidad(ctx context.C
 	if err != nil || d.expediente.VersionActual != d.expediente.Fiscalizado.Version {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
+	if p.emisorNativo != nil {
+		return p.consultarDisponibilidadConstituidaCT(ctx, d, solicitud)
+	}
 	s, f, err := p.servicio(d)
+	if err != nil {
+		return vacio, err
+	}
+	posiciones, err := posicionesFuentePuenteLlamamiento(f)
 	if err != nil {
 		return vacio, err
 	}
 	n, b, _ := referenciasFuentePuenteLlamamientoDesarrollo(f)
 	c, err := p.verificarPeticion(ctx, d, solicitud.Contexto, referenciaPuenteLlamamientoDesarrollo("operacion-consulta", d.necesidad, d.clave), "bolsa.disponibilidad.consultar", n)
 	if err != nil || solicitud.Necesidad != n || solicitud.CategoriaRef != d.categoria ||
-		solicitud.MaximoResultados != posicionesFuenteLlamamientoDesarrollo {
+		solicitud.MaximoResultados != posiciones {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
 	resultado, err := s.ConsultarDisponibilidad(ctx, d.necesidad, solicitud.MaximoResultados)
@@ -495,14 +554,21 @@ func (p *puenteBolsaLlamamientoDesarrollo) PrepararOrden(ctx context.Context, co
 	if err != nil || d.expediente.VersionActual != d.expediente.Fiscalizado.Version {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
+	if p.emisorNativo != nil {
+		return p.prepararOrdenConstituidaCT(ctx, d, comando)
+	}
 	s, f, err := p.servicio(d)
+	if err != nil {
+		return vacio, err
+	}
+	posiciones, err := posicionesFuentePuenteLlamamiento(f)
 	if err != nil {
 		return vacio, err
 	}
 	n, b, politica := referenciasFuentePuenteLlamamientoDesarrollo(f)
 	c, err := p.verificarPeticion(ctx, d, comando.Contexto, d.operacionOrden, puertosbolsa.AccionPrepararOrdenDesarrollo, b)
 	if err != nil || comando.Necesidad != n || comando.Bolsa != b || comando.Politica != politica ||
-		comando.MaximoPosiciones != posicionesFuenteLlamamientoDesarrollo {
+		comando.MaximoPosiciones != posiciones {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
 	r, err := s.PrepararOrden(ctx, puertosbolsa.PeticionLlamamientoDesarrollo{OperacionRef: d.operacionOrden, NecesidadRef: d.necesidad, MaximoPosiciones: comando.MaximoPosiciones})
@@ -543,7 +609,14 @@ func (p *puenteBolsaLlamamientoDesarrollo) SolicitarLlamamiento(ctx context.Cont
 	if err != nil || d.expediente.VersionActual != d.expediente.Fiscalizado.Version {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
+	if p.emisorNativo != nil {
+		return p.solicitarLlamamientoConstituidoCT(ctx, d, comando)
+	}
 	s, f, err := p.servicio(d)
+	if err != nil {
+		return vacio, err
+	}
+	posiciones, err := posicionesFuentePuenteLlamamiento(f)
 	if err != nil {
 		return vacio, err
 	}
@@ -554,7 +627,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) SolicitarLlamamiento(ctx context.Cont
 	}
 	c, err := p.verificarPeticion(ctx, d, datos.Contexto, d.operacionPropuesta, puertosbolsa.AccionAbrirLlamamientoDesarrollo, datos.Orden)
 	if err != nil || datos.Necesidad != n || datos.Bolsa != b || datos.Politica != politica ||
-		datos.TotalPosicionesOrden != posicionesFuenteLlamamientoDesarrollo || datos.MaximaPosicionEvaluable != posicionesFuenteLlamamientoDesarrollo {
+		datos.TotalPosicionesOrden != posiciones || datos.MaximaPosicionEvaluable != posiciones {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
 	// La referencia de orden sale del registro Bolsa, nunca se recrea en CT.

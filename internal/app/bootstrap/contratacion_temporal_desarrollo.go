@@ -16,6 +16,7 @@ import (
 	contratacioncomposicion "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/catalogoalta"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -1134,6 +1135,15 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var envolverBorrador func(http.Handler) http.Handler
 	var manejadorSituacion http.Handler
 	cerrarBorrador := func() {}
+	cerrarClienteM10CT := func() {}
+	cerrarOrigenAuditadoCT := func() {}
+	cerrarClienteM10CTPendiente := true
+	defer func() {
+		if cerrarClienteM10CTPendiente {
+			cerrarClienteM10CT()
+			cerrarOrigenAuditadoCT()
+		}
+	}()
 	personalizacionB7 := &fuentePersonalizacionB7{}
 	var autorizacionesPreparacionBases []descriptorAutorizacionComunDesarrollo
 	if preparacionBasesActiva {
@@ -1156,6 +1166,64 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		)
 		if errBorrador != nil {
 			return nil, nil, nil, errBorrador
+		}
+		if seleccion, ok := seleccionReal.(*ejecutorSeleccionLlamamientoDesarrollo); ok {
+			bolsa, compuesta := manejadorSituacion.(*manejadorParticipacionBolsaDesarrollo)
+			if !compuesta || bolsa == nil || bolsa.emision == nil || seleccion.puente == nil {
+				return nil, nil, nil, ports.ErrIntegracionBolsaNoDisponible
+			}
+			derivadorToken, err := nuevoDerivadorTokenFinalizacionCTDesarrollo(derivador)
+			if err != nil || bolsa.emision.EstablecerDerivadorTokenFinalizacionCT(derivadorToken) != nil {
+				return nil, nil, nil, ports.ErrIntegracionBolsaNoDisponible
+			}
+			if err := seleccion.puente.configurarEmisorNativoLlamamientoCT(bolsa.emision); err != nil {
+				return nil, nil, nil, err
+			}
+			cAuditoria, err := leerConfiguracionAuditoriaIntentosDesarrollo(cfg)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			reservados := []string{alta.postgresql.gobierno.Config().ConnConfig.User,
+				alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
+				alta.postgresql.bolsa.Config().ConnConfig.User}
+			_, poolAuditado, cerrarAuditado, err := abrirComponentesRegistradorIntentosAuditoriaDesarrollo(
+				context.Background(), cfg, alta.postgresql.ejecucion, reservados, cAuditoria)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			cerrarOrigenAuditadoCT = cerrarAuditado
+			lectorAuditado, err := postgresbolsa.NuevoLectorOrigenLlamamientoCTAuditadoPostgreSQL(
+				poolAuditado, postgresvec.AppendIntentoAuditoriaEnTx, cAuditoria.Proceso, cAuditoria.Canal)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			if lectorAuditado.Preflight(context.Background()) == nil {
+				if err := seleccion.puente.configurarOrigenConstituidoLlamamientoCT(lectorAuditado); err != nil {
+					return nil, nil, nil, err
+				}
+			}
+			if err := seleccion.puente.configurarAuditoriaLecturaOrdenCT(nuevoConstructorOrdenOrigenCT(&alta, cAuditoria)); err != nil {
+				return nil, nil, nil, err
+			}
+			if os.Getenv(rutaClienteM10LlamamientoCT) != "" {
+				if cfg.RPTCatalogoPath == "" {
+					return nil, nil, nil, fmt.Errorf("VEC_RPT_CATALOGO_PATH: %w", ports.ErrIntegracionBolsaNoDisponible)
+				}
+				fuenteRPT, err := personalrpt.NuevaFuente(cfg.RPTCatalogoPath)
+				if err != nil {
+					return nil, nil, nil, err
+				}
+				clienteM10, organismoRef, err := cargarClienteM10LlamamientoCT()
+				if err != nil {
+					return nil, nil, nil, fmt.Errorf("%s: %w", rutaClienteM10LlamamientoCT, err)
+				}
+				cerrarClienteM10CT = clienteM10.Cerrar
+				resolverPuesto := nuevoResolutorPuestoRPTConstituidoCT(clienteM10, organismoRef, reloj.Ahora)
+				if err := seleccion.puente.configurarDatosEmisionConstituidaCT(nuevoProveedorDatosEmisionConstituidaCT(
+					fuenteRPT, reglasLlamamiento, reloj.Ahora, resolverPuesto)); err != nil {
+					return nil, nil, nil, err
+				}
+			}
 		}
 	}
 	cerrarBorradorPendiente := true
@@ -1367,6 +1435,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		cerrarFronteraAuditoria()
 		cerrarAuditoria()
 		cerrarBorrador()
+		cerrarClienteM10CT()
+		cerrarOrigenAuditadoCT()
 		cerrarIncorporacion()
 		consultasRRHH.cerrar()
 		coberturaReal.cerrar()
@@ -1375,6 +1445,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	cerrarCobertura = false
 	cerrarAlta = false
 	cerrarBorradorPendiente = false
+	cerrarClienteM10CTPendiente = false
 	cerrarAuditoriaPendiente = false
 	cerrarFronteraAuditoriaPendiente = false
 	cerrarAutoridadesPlantillasPendiente = false

@@ -246,6 +246,9 @@ func materialReciboOrdenBolsa(
 	if recibo.OrdenRecuperada {
 		c.booleano("recibo_orden_recuperada", true)
 	}
+	if recibo.OrdenAtestada {
+		c.booleano("recibo_orden_atestada", true)
+	}
 	return c.bytes()
 }
 
