@@ -1,0 +1,214 @@
+{
+  "esquema": "vec.inscripcion.recorrido.cc1.v1",
+  "uso": "ensayo_sintetico",
+  "catalogo_categorias_existente": {
+    "id": "categorias_rpt",
+    "version": 1,
+    "huella_sha256": "ce7c6034ac465ed44e41d8de4347e641efe9e06818ce16c21d97308e3a527da6",
+    "categorias": ["categoria:rpt:administrativo", "categoria:rpt:operario"]
+  },
+  "catalogos": [
+    {
+      "id": "bolsa.politica.inscripcion",
+      "version": 1,
+      "entradas": [
+        {
+          "clave": "presentacion.con.pendientes",
+          "etiqueta": "Puede presentar la solicitud con requisitos pendientes de acreditar",
+          "orden": 1,
+          "vigente_desde": "2026-10-01T00:00:00Z",
+          "atributos": {
+            "valor": "true",
+            "canal": "externa_personal",
+            "etiqueta_en": "Application allowed with evidence pending"
+          }
+        },
+        {
+          "clave": "requisito.pendiente",
+          "etiqueta": "Pendiente de acreditar",
+          "orden": 2,
+          "vigente_desde": "2026-10-01T00:00:00Z",
+          "atributos": {
+            "etiqueta_en": "Evidence pending"
+          }
+        },
+        {
+          "clave": "requisito.cumple",
+          "etiqueta": "Acreditado",
+          "orden": 3,
+          "vigente_desde": "2026-10-01T00:00:00Z",
+          "atributos": {
+            "etiqueta_en": "Verified"
+          }
+        },
+        {
+          "clave": "solicitud.existente",
+          "etiqueta": "Solicitud ya presentada",
+          "orden": 4,
+          "vigente_desde": "2026-10-01T00:00:00Z",
+          "atributos": {
+            "etiqueta_en": "Application already submitted"
+          }
+        },
+        {
+          "clave": "presentacion.no.disponible",
+          "etiqueta": "Presentación no disponible",
+          "orden": 5,
+          "vigente_desde": "2026-10-01T00:00:00Z",
+          "atributos": {
+            "etiqueta_en": "Application unavailable"
+          }
+        },
+        {
+          "clave": "ambito.gestion.3e813b41174c84268234503fd7507eda5934d5efc68a6ad244bbc4420cc865fc.v1",
+          "etiqueta": "Departamento de Recursos Humanos",
+          "orden": 6,
+          "vigente_desde": "2026-10-01T00:00:00Z",
+          "atributos": {
+            "convocatoria_ref": "cv1_3e813b41174c84268234503fd7507eda5934d5efc68a6ad244bbc4420cc865fc_v1",
+            "unidad_ref": "__UNIDAD_REF__",
+            "ambito_ref": "__AMBITO_REF__",
+            "canal": "interna_corporativa"
+          }
+        },
+        {
+          "clave": "ambito.gestion.a6474d09dd751b618033af097c8ce088bab209c6834cd469f45261e6fdac69cf.v1",
+          "etiqueta": "Departamento de Recursos Humanos",
+          "orden": 7,
+          "vigente_desde": "2026-10-01T00:00:00Z",
+          "atributos": {
+            "convocatoria_ref": "cv1_a6474d09dd751b618033af097c8ce088bab209c6834cd469f45261e6fdac69cf_v1",
+            "unidad_ref": "__UNIDAD_REF__",
+            "ambito_ref": "__AMBITO_REF__",
+            "canal": "interna_corporativa"
+          }
+        },
+        {
+          "clave": "asociacion.manual.acta",
+          "etiqueta": "Asociación con acta existente autorizada por RRHH",
+          "orden": 8,
+          "vigente_desde": "2026-10-01T00:00:00Z",
+          "atributos": {
+            "valor": "true",
+            "canal": "interna_corporativa",
+            "motivo_ref": "asociacion.manual.acta.cc1",
+            "alcance_ref": "cv1_3e813b41174c84268234503fd7507eda5934d5efc68a6ad244bbc4420cc865fc_v1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "bolsa.conjunto.gestion.inscripcion",
+      "version": 1,
+      "entradas": [
+        {
+          "clave": "inscripcion.gestion.rrhh.conjunto",
+          "etiqueta": "Departamento de Recursos Humanos",
+          "orden": 1,
+          "vigente_desde": "2026-10-01T00:00:00Z",
+          "atributos": {
+            "conjunto_ref": "conjunto:gestion-inscripcion",
+            "unidad_ref": "__UNIDAD_REF__",
+            "ambito_ref": "__AMBITO_REF__",
+            "canal": "interna_corporativa"
+          }
+        }
+      ]
+    },
+    {
+      "id": "bolsa.inscripcion.motivos",
+      "version": 1,
+      "entradas": [
+        {
+          "clave": "documentacion.incompleta",
+          "etiqueta": "Documentación incompleta",
+          "orden": 1,
+          "vigente_desde": "2026-10-01T00:00:00Z",
+          "atributos": {
+            "etiqueta_en": "Incomplete documents"
+          }
+        }
+      ]
+    }
+  ],
+  "convocatorias": [
+    {
+      "id": "proceso:bolsa:ensayo-auxiliar-2026",
+      "secuencia": 1,
+      "identificador_publico": "bolsa-administrativo-2026",
+      "titulo": "Bolsa de Administrativo/a",
+      "categoria_ref": "categoria:rpt:administrativo",
+      "plazo": {
+        "referencia": "plazo:auxiliar-ensayo-2026",
+        "abre_en": "2026-10-01T00:00:00Z",
+        "cierra_en": "2026-11-30T23:59:59Z"
+      },
+      "requisitos": [
+        {
+          "referencia": "identidad_certificada",
+          "orden": 1,
+          "descripcion": "Identidad acreditada mediante el canal admitido",
+          "obligatorio": true
+        },
+        {
+          "referencia": "titulacion_eso",
+          "orden": 2,
+          "descripcion": "Titulación exigida por las bases de la convocatoria",
+          "obligatorio": true,
+          "hito": "fin_plazo",
+          "cumplimiento_previsto": false
+        }
+      ],
+      "bases_ref": "bases:auxiliar-ensayo-2026",
+      "convocatoria_ref": "cv1_3e813b41174c84268234503fd7507eda5934d5efc68a6ad244bbc4420cc865fc_v1"
+    },
+    {
+      "id": "proceso:bolsa:ensayo-operario-2026",
+      "secuencia": 1,
+      "identificador_publico": "bolsa-operario-2026",
+      "titulo": "Bolsa de Operario/a de servicios",
+      "categoria_ref": "categoria:rpt:operario",
+      "plazo": {
+        "referencia": "plazo:operario-ensayo-2026",
+        "abre_en": "2026-08-01T00:00:00Z",
+        "cierra_en": "2026-09-30T23:59:59Z"
+      },
+      "requisitos": [
+        {
+          "referencia": "identidad_certificada",
+          "orden": 1,
+          "descripcion": "Identidad acreditada mediante el canal admitido",
+          "obligatorio": true
+        }
+      ],
+      "bases_ref": "bases:operario-ensayo-2026",
+      "convocatoria_ref": "cv1_a6474d09dd751b618033af097c8ce088bab209c6834cd469f45261e6fdac69cf_v1"
+    }
+  ],
+  "solicitudes": [
+    {
+      "nombre_operativo": "Lucía Herrera Martín",
+      "convocatoria_id": "proceso:bolsa:ensayo-auxiliar-2026",
+      "estado": "pendiente",
+      "presentada_en": "2026-10-10T10:15:00Z"
+    },
+    {
+      "nombre_operativo": "Daniel Ruiz Ortega",
+      "convocatoria_id": "proceso:bolsa:ensayo-auxiliar-2026",
+      "estado": "admitida_a_convocatoria",
+      "presentada_en": "2026-10-08T09:30:00Z",
+      "decidida_en": "2026-10-11T08:00:00Z"
+    },
+    {
+      "nombre_operativo": "Marta López Vega",
+      "convocatoria_id": "proceso:bolsa:ensayo-operario-2026",
+      "estado": "rechazada",
+      "presentada_en": "2026-09-12T11:45:00Z",
+      "decidida_en": "2026-10-02T09:00:00Z"
+    }
+  ],
+  "ambito_actual": {
+    "unidad_ref": "unidad:desarrollo:rrhh",
+    "ambito_ref": "ambito:desarrollo:bolsa"
+  }
+}
