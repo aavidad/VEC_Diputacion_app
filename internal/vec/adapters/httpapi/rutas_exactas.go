@@ -304,6 +304,9 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		Superficie:     superficie,
 		Ruta:           ruta,
 	}
+	if personal {
+		orden.Ruta = RutaAuditoriaRegistroEmpleadoB2(ruta)
+	}
 	if superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias &&
 		motivo == ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado {
 		orden.ActorRef, _ = ctx.Value(claveActorAuditoriaPreferenciasUsuarios{}).(string)
@@ -364,7 +367,7 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 		return ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
 	case "/api/vec/aspirantes/area-personal/mi-ficha":
 		return ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
-	case RutaCatalogosRegistroEmpleadoB2:
+	case RutaCatalogosRegistroEmpleadoB2, RutaEmpleadosOrganismoB2, RutaVacantesEmpleadoB2:
 		return ports.SuperficieAuditoriaFronteraRutaExactaPersonal
 	case "/api/vec/seleccion/preparacion-bases/guardar", "/api/vec/seleccion/preparacion-bases/consultar":
 		return ports.SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases
@@ -372,6 +375,9 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 		"/api/vec/bolsa/reglas-baremo/recibos/recuperar":
 		return ports.SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo
 	default:
+		if strings.HasPrefix(ruta, PrefijoFichaEmpleadoB2) {
+			return ports.SuperficieAuditoriaFronteraRutaExactaPersonal
+		}
 		return ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
 	}
 }

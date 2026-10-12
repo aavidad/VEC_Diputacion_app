@@ -85,15 +85,7 @@ func (a autoridadCatalogosEmpleadoB2) ResolverContextoRegistroEmpleadoB2(ctx con
 		ruta.ruta == httpapi.RutaCatalogosRegistroEmpleadoB2 && ruta.metodo == http.MethodGet {
 		accion = personal.AccionConsultarCatalogoEmpleadoB2
 	}
-	actor, e := a.autoridad.actor(ctx, accion)
-	if e != nil {
-		// Sin perfil configurado o fuera de la ruta: 403 auditado, no 503.
-		if errors.Is(e, ct.ErrAutorizacionDenegada) || errors.Is(e, core.ErrAutorizacionDenegada) {
-			return core.ContextoActor{}, "", core.ErrAutorizacionDenegada
-		}
-		return core.ContextoActor{}, "", e
-	}
-	return actor, a.autoridad.organismoRef, nil
+	return contextoRegistroPersonalB2(ctx, a.autoridad, accion)
 }
 
 // auditorCatalogosEmpleadoB2 registra las negativas en la auditoría de frontera
@@ -109,10 +101,13 @@ func (a auditorCatalogosEmpleadoB2) RegistrarDenegacionRegistroEmpleadoB2(ctx co
 	}
 	ruta := a.ruta
 	if ruta == "" {
-		ruta = rutaCatalogosRegistroEmpleadoB2
+		ruta = d.Ruta
+		if ruta == "" {
+			ruta = rutaCatalogosRegistroEmpleadoB2
+		}
 	}
 	superficie := vp.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
-	if ruta == httpapi.RutaCatalogosRegistroEmpleadoB2 {
+	if ruta != rutaCatalogosRegistroEmpleadoB2 {
 		superficie = vp.SuperficieAuditoriaFronteraRutaExactaPersonal
 	}
 	orden := vp.OrdenAuditoriaFronteraRutaExacta{CorrelacionRef: d.CorrelacionRef, Motivo: vp.MotivoAuditoriaFronteraRutaExacta(d.Motivo),
@@ -174,7 +169,7 @@ func rutaCatalogosEmpleadoB2(servicio *apppersonal.ServicioCatalogosRegistroEmpl
 	if servicio == nil || autoridad == nil || dependenciaEsNulaContratacionTemporalDesarrollo(registrador) {
 		return httpapi.RutaExacta{}, errors.New("vec: catálogo de registro B2 incompleto")
 	}
-	h, e := httpapi.NewHandlerCatalogosRegistroEmpleadoB2(autoridadCatalogosEmpleadoB2{autoridad}, servicio, auditorCatalogosEmpleadoB2{registrador: registrador})
+	h, e := httpapi.NewHandlerCatalogosRegistroEmpleadoB2(autoridadCatalogosEmpleadoB2{autoridad}, servicio, auditorCatalogosEmpleadoB2{registrador: registrador, ruta: rutaCatalogosRegistroEmpleadoB2})
 	if e != nil {
 		return httpapi.RutaExacta{}, e
 	}

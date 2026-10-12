@@ -128,7 +128,7 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 		return 0
 	}
 	if o.incorporacionConfig != "" {
-		fmt.Fprintln(salida, "material incorporación B2 preparado y validado: servidor.json y 22 operaciones cotejadas")
+		fmt.Fprintln(salida, "material incorporación B2 preparado y validado: servidor.json y operaciones cotejadas")
 		return 0
 	}
 	fmt.Fprintln(salida, "material Personal B2 preparado y validado: personal_b2_v3.json (formato 4) y 8 claves de capacidad")

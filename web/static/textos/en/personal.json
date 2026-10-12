@@ -17,7 +17,7 @@
     "registro_b2_ver_ficha": "View record",
     "registro_b2_ver_ficha_de": "View record: {descripcion}",
     "registro_b2_nueva_alta": "New hire",
-    "registro_b2_nueva_alta_motivo": "The hire will start from the recruitment file, supplied by the person; it is not connected yet.",
+    "registro_b2_nueva_alta_motivo": "Start the hire from the recruitment file. Once registered, open the personnel record from the receipt.",
     "registro_b2_elegir_empleado": "Choose employee",
     "registro_b2_empleados_vacio": "There are no employees registered on this date.",
     "registro_b2_pestanas": "Staff Register queries",
