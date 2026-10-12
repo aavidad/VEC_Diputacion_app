@@ -31,3 +31,6 @@ fabbbfde585ab2a9112c2dbe12b705a7b9ceaa4d9b069c3f7a48e66845700fb0
 # quitando el bloque de AD233 su definición es la ensayada sobre POST225 (30bab608…).
 # Definición 3538c97c205e0cc40b78ea280e7e458cca9694759a83d157c8049b9d9499d335.
 d8aa8eccd5cccff8c0fa36fecc70affc31450a7e0c2cf23cb6e7223240d3067c
+# Post AD228/AD229/AD236 en la copia HZ19 + HZ20 + HZ21 (12/10/2026).
+# AD236 añade el consumidor ADMIN; las 26 ternas B2 se cotejan contra el prosrc instalado.
+10f652516a4666954a89a7f2f0fef8dec54908e8f0d6d8cc1e5e410ec04458c0

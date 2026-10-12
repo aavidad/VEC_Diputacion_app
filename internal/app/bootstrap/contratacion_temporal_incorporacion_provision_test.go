@@ -469,3 +469,24 @@ func TestIncorporacionV2SesionNominalReutilizaCadenaYErrores(t *testing.T) {
 		})
 	}
 }
+
+func TestIncorporacionB2CapturaPreparacionNoComparteProyeccion(t *testing.T) {
+	f, ctx, c, esperado, _, _ := escenarioProyeccionPreparacionB2(t)
+	holder := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+	base := copiarProyeccionPreparacionB2(holder.preparacionB2.proyeccion)
+	if err := f.capturarPreparacionB2(ctx, c.Material, base); err != nil {
+		t.Fatal(err)
+	}
+	// La fuente conserva sus DTO; cambiarlos después no altera la captura.
+	base.Prerrequisitos[1].Cumplido = !base.Prerrequisitos[1].Cumplido
+	base.Opciones.Motivos[0] = "motivo:otro"
+	for range 2 {
+		r, err := f.opcionesTrasPreparacionB2(ctx, c)
+		if err != nil || !reflect.DeepEqual(r, esperado) {
+			t.Fatalf("proyección comparte datos con la fuente o el consumidor: %+v err=%v", r, err)
+		}
+		r.Prerrequisitos[1].Cumplido = !r.Prerrequisitos[1].Cumplido
+		r.Opciones.Motivos[0] = "motivo:tercero"
+		r.Opciones.Documentos[0].DocumentoRef = "documento:otro"
+	}
+}

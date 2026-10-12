@@ -205,7 +205,11 @@ func mensajeInternoArranque(valor string) string {
 		"bootstrap: material criptografico de desarrollo invalido: el directorio pertenece al repositorio",
 		"bootstrap: material criptografico de desarrollo invalido: TLS no corresponde al material del perfil",
 		"auditoria.intentos.configuracion_no_disponible",
-		"administracion: configuracion no valida":
+		"administracion: configuracion no valida",
+		// Perfiles de CT pendientes de provisión: sin esta causa el arranque solo
+		// decía «error interno no catalogado» y había que depurar con otro binario.
+		"perfil fijo de RRHH sin asignación publicada consumible",
+		"perfil del centro sin asignación publicada consumible":
 		return valor
 	}
 	return ""

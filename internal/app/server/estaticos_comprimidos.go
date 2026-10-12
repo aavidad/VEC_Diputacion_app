@@ -169,7 +169,7 @@ func cacheSegunVersion(r *http.Request) string {
 }
 
 // cacheCatalogoTextos: con ?huella= igual a la de los catálogos que sirve este
-// proceso (VERSION_TEXTOS de comun/textos.js) se guardan un año. Cualquier otra
+// proceso (la que anuncia /textos/idiomas.json en X-VEC-Huella-Textos) se guardan un año. Cualquier otra
 // huella, sin huella o con los ?v= de los manifiestos PWA, se revalida (304):
 // así un despliegue a medias o una huella inventada nunca fijan contenido viejo.
 func cacheCatalogoTextos(r *http.Request) string {
@@ -177,6 +177,17 @@ func cacheCatalogoTextos(r *http.Request) string {
 		return "public, max-age=31536000, immutable"
 	}
 	return "no-cache"
+}
+
+// anunciarHuellaTextos: el índice de idiomas lleva en X-VEC-Huella-Textos la
+// huella con la que el navegador pide después los catálogos.
+func anunciarHuellaTextos(w http.ResponseWriter, ruta string) {
+	if ruta != "/textos/idiomas.json" {
+		return
+	}
+	if huella := huellaCatalogosTextos(); huella != "" {
+		w.Header().Set("X-VEC-Huella-Textos", huella)
+	}
 }
 
 // huellaCatalogosTextos se calcula una vez por proceso: cambiar un catálogo
