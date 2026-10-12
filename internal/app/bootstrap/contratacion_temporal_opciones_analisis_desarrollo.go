@@ -143,7 +143,7 @@ func opcionesAnalisisPredeterminadas() *opcionesAnalisisCTDesarrollo {
 		entradasRC: []entradaRCAnalisisCT{{
 			Referencia:  entradaRCAnalisisContratacionTemporalDesarrollo,
 			Huella:      huellaEntradaRCAnalisisContratacionTemporalDesarrollo,
-			Etiqueta:    "Retención de crédito pendiente de validación",
+			Etiqueta:    "Retención de crédito sintética 001",
 			Declaracion: declaracionRCAnalisisContratacionTemporalDesarrollo(),
 		}},
 	}

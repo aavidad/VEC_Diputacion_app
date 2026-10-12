@@ -13,8 +13,8 @@
     "revision": 3,
     "version_anterior_ref": "vec.contratacion_temporal.reglas:2",
     "modulo_id": "contratacion_temporal",
-    "nombre": "Reglas de Contratación temporal (pendiente de validación)",
-    "descripcion": "Plazos y límites propuestos para el expediente de contratación temporal. Pendientes de validación por RRHH; origen_sha256 identifica la matriz normativa del módulo.",
+    "nombre": "Reglas de Contratación temporal — ejemplo",
+    "descripcion": "Plazos y límites de ejemplo del expediente de contratación temporal, con la norma que los inspira. Ninguno está aprobado por RRHH; origen_sha256 es la huella de la matriz normativa del módulo.",
     "fuente_ref": "paquete:ejemplo:vec:v1",
     "motivo_creacion": "Reglas de ejemplo para la presentación a RRHH; se retiran antes de producción.",
     "entradas": [
@@ -340,7 +340,7 @@
       {
         "clave": "c12.modalidad.relevo",
         "etiqueta": "Relevo",
-        "descripcion": "Modalidad que RRHH puede elegir al analizar la solicitud. El límite de duración está pendiente de confirmación por RRHH.",
+        "descripcion": "Modalidad que RRHH puede elegir al analizar la solicitud. Sin duración máxima en las reglas de ejemplo.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
@@ -366,8 +366,8 @@
       },
       {
         "clave": "c14.entrada_rc.sintetica_001",
-        "etiqueta": "Retención de crédito pendiente de validación",
-        "descripcion": "Retención de crédito pendiente de confirmar con Intervención.",
+        "etiqueta": "Retención de crédito sintética 001",
+        "descripcion": "Retención de crédito de ejemplo con la que se ensaya el análisis; la real la da el sistema de Intervención.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
@@ -415,12 +415,12 @@
       {
         "clave": "c17.via_cobertura.bolsa_vigente",
         "etiqueta": "Bolsa vigente",
-        "descripcion": "Vía preferente de cobertura: exige que exista una bolsa vigente de la categoría y que tenga candidaturas disponibles. Documentos y datos de preparación pendientes de confirmación por RRHH.",
+        "descripcion": "Vía preferente de cobertura: exige que exista una bolsa vigente de la categoría y que tenga candidaturas disponibles. Documentos y datos de preparación: ejemplo pendiente de RRHH — duda 73; no son requisitos aprobados.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
           "norma": "Supuesto de trabajo.",
-          "duda": "Duda 7: vías y comprobaciones. Documentos y datos pendientes de confirmación por RRHH.",
+          "duda": "Duda 7: vías y comprobaciones. Documentos y datos: ejemplo pendiente de RRHH — duda 73.",
           "unidad": "lista",
           "valor": "existe_bolsa_vigente,hay_candidaturas_disponibles",
           "procedencia": "bolsa",
@@ -433,7 +433,7 @@
       {
         "clave": "c17.via_cobertura.oferta_sae",
         "etiqueta": "Oferta SAE",
-        "descripcion": "Vía alternativa: oferta al Servicio Andaluz de Empleo cuando está disponible. Elegirla antes que la preferente exige motivo. Esta lista es solo informativa: no abre, tramita ni envía ofertas al SAE. Documentos y datos pendientes de confirmación por RRHH.",
+        "descripcion": "Vía alternativa: oferta al Servicio Andaluz de Empleo cuando está disponible. Elegirla antes que la preferente exige motivo. Esta lista es solo informativa: no abre, tramita ni envía ofertas al SAE. Documentos y datos: ejemplo pendiente de RRHH — duda 73.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
@@ -451,12 +451,12 @@
       {
         "clave": "c17.via_cobertura.nueva_convocatoria_bolsa",
         "etiqueta": "Nueva convocatoria de Bolsa",
-        "descripcion": "Vía alternativa: convocar una bolsa nueva de la categoría. Elegirla antes que la preferente exige motivo. Documentos y datos de preparación pendientes de confirmación por RRHH.",
+        "descripcion": "Vía alternativa: convocar una bolsa nueva de la categoría. Elegirla antes que la preferente exige motivo. Documentos y datos de preparación: ejemplo pendiente de RRHH — duda 73; no son requisitos aprobados.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
           "norma": "Supuesto de trabajo.",
-          "duda": "Duda 7: cuándo procede una nueva convocatoria. Documentos y datos pendientes de confirmación por RRHH.",
+          "duda": "Duda 7: cuándo procede una nueva convocatoria. Documentos y datos: ejemplo pendiente de RRHH — duda 73.",
           "unidad": "lista",
           "valor": "requiere_nueva_convocatoria",
           "procedencia": "bolsa",
@@ -618,8 +618,8 @@
       },
       {
         "clave": "c24.sustitucion_reserva_retorno_ejemplo",
-        "etiqueta": "Sustitución y retorno del titular",
-        "descripcion": "Una persona se incorpora para sustituir temporalmente a quien conserva su puesto. RRHH debe confirmar la modalidad y los documentos que acreditan la ocupación, la reserva y el retorno. Esta regla está pendiente de confirmación por RRHH y no registra ninguno de esos actos.",
+        "etiqueta": "Sustitución y retorno del titular (ejemplo)",
+        "descripcion": "Una persona se incorpora para sustituir temporalmente a quien conserva su puesto. RRHH debe confirmar la modalidad y los documentos que acreditan la ocupación, la reserva y el retorno. Esta regla de prueba se puede cambiar o retirar; no registra ninguno de esos actos.",
         "vigente_desde": "2026-09-30T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
