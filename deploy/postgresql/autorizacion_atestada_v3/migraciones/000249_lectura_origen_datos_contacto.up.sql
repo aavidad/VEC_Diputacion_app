@@ -147,7 +147,7 @@ BEGIN
     AND concesion->'obligaciones' IN ('[]'::jsonb,'["auditar"]'::jsonb));
 EXCEPTION WHEN data_exception OR invalid_text_representation OR numeric_value_out_of_range THEN
  RETURN false;
-END $function$
+END $function$;
 
 REVOKE ALL ON FUNCTION vec_autorizacion.cotejar_lectura_bolsa_actual_interna_v1(jsonb,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.cotejar_lectura_bolsa_actual_interna_v1(jsonb,text,text) TO vec_autorizacion_atestada_v3_propietario;
@@ -346,7 +346,7 @@ BEGIN
   (p_orden->>'lectura_revision_permisos')::numeric,
   p_orden->>'lectura_instantanea_sha256');
  RETURN QUERY SELECT v_ref,v_secuencia,v_huella,p_orden->>'correlacion_ref',v_instante;
-END $function$
+END $function$;
 
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_lectura_bolsa_interna_v1(bytea,bytea,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_lectura_bolsa_interna_v1(bytea,bytea,jsonb) TO vec_bolsa_llamamientos_propietario;

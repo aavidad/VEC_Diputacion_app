@@ -111,7 +111,7 @@ BEGIN
   salida:=salida||vec_autorizacion.json_cadena_canonica_go_admin_v1(claves[i])||':'||partes[i];
  END LOOP;
  RETURN '{'||salida||'}';
-END $function$
+END $function$;
 
 CREATE OR REPLACE FUNCTION vec_autorizacion.validar_plan_version_rol_bolsa_v2(p jsonb, p_primera boolean)
  RETURNS jsonb
@@ -309,6 +309,6 @@ BEGIN
  RETURN jsonb_build_object('vigente_hasta',CASE WHEN isfinite(limite_entradas)
   THEN to_char(limite_entradas AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
   ELSE '0001-01-01T00:00:00Z' END);
-END $function$
+END $function$;
 
 COMMIT;
