@@ -104,7 +104,7 @@ export function crearClienteOriginalFirmable({ fetchImpl = globalThis.fetch, exi
     if (signal?.aborted || respuesta.redirected || respuesta.status !== 200) {
       void respuesta.body?.cancel?.().catch(() => {});
       throw new ErrorOriginalFirmable(signal?.aborted ? "operacion_abortada"
-        : [401, 403, 404].includes(respuesta.status) ? "acceso_denegado" : "servicio_no_disponible");
+        : [401, 403].includes(respuesta.status) ? "acceso_denegado" : "servicio_no_disponible");
     }
     const envoltorio = await leerJSON(respuesta);
     if (!exacto(envoltorio, ["data"])) throw new ErrorOriginalFirmable("resultado_no_confiable");
