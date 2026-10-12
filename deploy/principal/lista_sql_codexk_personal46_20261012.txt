@@ -1,0 +1,3 @@
+# Requiere Personal45 instalada (PR1050); no reaplicar migraciones históricas.
+# Interna pre SHA 9ba1f3c54a9140a2dfe6dca5ee6a55637f6a0deafb4e8dbbff88a4e82be2d258.
+deploy/postgresql/personal/migraciones/000046_cierre_ocupacion_b2.up.sql
