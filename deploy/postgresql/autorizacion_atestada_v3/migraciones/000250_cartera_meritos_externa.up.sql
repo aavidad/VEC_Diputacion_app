@@ -647,7 +647,7 @@ $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_lectura_cartera_meritos_v1(
  bytea,bytea,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_lectura_cartera_meritos_v1(
- bytea,bytea,jsonb) TO vec_meritos_propietario;
+ bytea,bytea,jsonb) TO vec_meritos_propietario,vec_meritos_cartera_externo;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_intento_retirada_cartera_meritos_v1(
  p_contexto bytea,p_vinculo bytea,p_orden jsonb)
@@ -662,6 +662,7 @@ $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_retirada_cartera_meritos_v1(
  bytea,bytea,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_retirada_cartera_meritos_v1(
- bytea,bytea,jsonb) TO vec_meritos_propietario;
-GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_meritos_propietario;
+ bytea,bytea,jsonb) TO vec_meritos_propietario,vec_meritos_cartera_externo;
+GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3
+ TO vec_meritos_propietario,vec_meritos_cartera_externo;
 COMMIT;

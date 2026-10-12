@@ -53,14 +53,21 @@ BEGIN
  f:=to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_cartera_meritos_privado_v1(bytea,bytea,jsonb,text)');
  IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
  OR has_function_privilege('vec_meritos_propietario',f,'EXECUTE')
+ OR has_function_privilege('vec_meritos_cartera_externo',f,'EXECUTE')
  THEN RAISE EXCEPTION 'AD250: primitiva de intento expuesta' USING ERRCODE='55000';END IF;
+ IF has_schema_privilege('vec_meritos_cartera_externo',
+  'vec_autorizacion_atestada_v3','USAGE') IS NOT TRUE
+ OR has_schema_privilege('vec_autorizacion_fuente_meritos_externa',
+  'vec_autorizacion_atestada_v3','USAGE') IS TRUE
+ THEN RAISE EXCEPTION 'AD250: ACL de esquema divergente' USING ERRCODE='55000';END IF;
  FOREACH f IN ARRAY ARRAY[
   to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_lectura_cartera_meritos_v1(bytea,bytea,jsonb)')::oid,
   to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_retirada_cartera_meritos_v1(bytea,bytea,jsonb)')::oid]
  LOOP
   IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
   OR NOT has_function_privilege('vec_meritos_propietario',f,'EXECUTE')
-  OR has_function_privilege('vec_meritos_cartera_externo',f,'EXECUTE')
+  OR NOT has_function_privilege('vec_meritos_cartera_externo',f,'EXECUTE')
+  OR has_function_privilege('vec_autorizacion_fuente_meritos_externa',f,'EXECUTE')
   THEN RAISE EXCEPTION 'AD250: ACL de intento divergente' USING ERRCODE='55000';END IF;
  END LOOP;
  BEGIN
@@ -81,4 +88,20 @@ BEGIN
   RAISE EXCEPTION 'AD250: consumo aceptado sin emisor nominal' USING ERRCODE='55000';
  EXCEPTION WHEN insufficient_privilege THEN NULL;END;
 END $test$;
+-- El grupo tiene EXECUTE sobre los dos wrappers; SET ROLE no fabrica el LOGIN
+-- nominal ni permite saltar la comprobación interna de sesión.
+SET LOCAL ROLE vec_meritos_cartera_externo;
+DO $guard$
+BEGIN
+ BEGIN
+  PERFORM * FROM vec_autorizacion_atestada_v3.registrar_intento_lectura_cartera_meritos_v1(
+   NULL,NULL,'{}'::jsonb);
+  RAISE EXCEPTION 'AD250: SET ROLE aceptado como LOGIN M4' USING ERRCODE='55000';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+ BEGIN
+  PERFORM * FROM vec_autorizacion_atestada_v3.registrar_intento_retirada_cartera_meritos_v1(
+   NULL,NULL,'{}'::jsonb);
+  RAISE EXCEPTION 'AD250: SET ROLE aceptado como LOGIN M4' USING ERRCODE='55000';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+END $guard$;
 ROLLBACK;
