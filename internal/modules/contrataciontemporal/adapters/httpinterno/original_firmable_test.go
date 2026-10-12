@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	almacencanonico "vec-diputacion-granada/internal/vec/canonico/almacen"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -62,6 +63,10 @@ func TestOriginalFirmableHTTPComprobanteConfirmadoYReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	var anterior string
+	expedienteDocumental, err := ctapplication.ReferenciaExpedienteDocumentalFormalizacion("expediente:ct:001")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for range 2 {
 		r := peticionOriginalHTTPPrueba(cuerpoOriginalHTTPPrueba)
 		r.Header.Set("Accept", AcceptOriginalFirmableCTConComprobante)
@@ -69,8 +74,9 @@ func TestOriginalFirmableHTTPComprobanteConfirmadoYReplay(t *testing.T) {
 		h.ServeHTTP(w, r)
 		var salida struct {
 			Data struct {
-				Esquema     string `json:"esquema"`
-				Comprobante struct {
+				Esquema             string                  `json:"esquema"`
+				DocumentoCustodiado documentoCustodiadoJSON `json:"documento_custodiado"`
+				Comprobante         struct {
 					Numero string    `json:"numero_vec"`
 					Fecha  time.Time `json:"custodiado_en"`
 				} `json:"comprobante"`
@@ -78,6 +84,7 @@ func TestOriginalFirmableHTTPComprobanteConfirmadoYReplay(t *testing.T) {
 		}
 		if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &salida) != nil ||
 			salida.Data.Esquema != EsquemaOriginalFirmableCTConComprobante ||
+			salida.Data.DocumentoCustodiado.ExpedienteRef != expedienteDocumental ||
 			salida.Data.Comprobante.Numero != "VEC-2026-17" || !salida.Data.Comprobante.Fecha.Equal(instante) {
 			t.Fatalf("comprobante: estado=%d, respuesta=%s", w.Code, w.Body)
 		}
