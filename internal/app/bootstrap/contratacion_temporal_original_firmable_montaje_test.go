@@ -6,10 +6,47 @@ import (
 	"testing"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	informe "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
+	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	ficheros "vec-diputacion-granada/internal/vec/adapters/almacen/ficheros"
+	"vec-diputacion-granada/internal/vec/adapters/conservacion"
+	pdf "vec-diputacion-granada/internal/vec/adapters/documentos/pdf"
+	docpg "vec-diputacion-granada/internal/vec/documentos/adapters/postgres"
+	docapp "vec-diputacion-granada/internal/vec/documentos/application"
 	doc "vec-diputacion-granada/internal/vec/documentos/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestOriginalR5MontaConServicioDocumentosV1SinCambiarHistoria(t *testing.T) {
+	e := nuevoEscenarioOriginalPDP(t)
+	v1, err := conservacion.NuevoCatalogoProvisional(e.soporte.reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := &docpg.Repositorio{}
+	objetos := &ficheros.Almacen{}
+	servicio := &docapp.Servicio{Repositorio: repo, Almacen: objetos, Politicas: v1, Reloj: e.soporte.reloj}
+	documentos := &autoridadDocumentosDesarrollo{servicioOriginal: servicio}
+	clave := [32]byte{1}
+	seudonimos := nuevoSeudonimizadorAlmacenDesarrollo(clave)
+	defer seudonimos.borrar()
+	consultas := dependenciasConsultasRRHHDesarrollo{detalle: &ctapp.ServicioConsultaDetalleRRHH{}, originalPropuesta: &ctapp.ServicioConsultaDetalleRRHH{}}
+	render := informe.RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	rutas, err := componerRutaOriginalFirmableCTDesarrollo(e.pdp.alta, consultas, render, documentos, seudonimos, e.soporte.reloj)
+	if err != nil || len(rutas) != 1 || rutas[0].Ruta != httpinterno.RutaOriginalFirmableCT || rutas[0].Manejador == nil {
+		t.Fatalf("ruta original sin servicio compartido: rutas=%d error=%v", len(rutas), err)
+	}
+	if servicio.Politicas != v1 || servicio.Repositorio != repo || servicio.Almacen != objetos {
+		t.Fatal("el montaje reescribió los recursos o la política V1 de Documentos")
+	}
+	if _, err := v1.TipoDocumentalRef("contratacion_temporal.borrador.resolucion.v1"); !errors.Is(err, conservacion.ErrTipoNoCatalogado) {
+		t.Fatalf("el catálogo histórico adquirió un tipo reservado V2: %v", err)
+	}
+	if rutas, err := nuevaRutaOriginalFirmableCTDesarrollo(e.pdp.alta, consultas, render, documentos, seudonimos, e.soporte.reloj); err == nil || len(rutas) != 0 {
+		t.Fatal("se publicó ruta sin gobierno PostgreSQL para el motivo Original")
+	}
+}
 
 func TestOriginalR5SeleccionaPerfilesPorAccionSinCruce(t *testing.T) {
 	e := nuevoEscenarioOriginalPDP(t)

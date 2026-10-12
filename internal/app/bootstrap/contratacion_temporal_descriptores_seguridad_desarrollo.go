@@ -9,6 +9,7 @@ import (
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -220,6 +221,19 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 			Accion: docports.AccionCustodiarFirmado, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
 			ClaveCapacidad: ctports.AccionFirmarDocumento, Fronteras: []string{"ct-documento-firmar"}, Politica: politica,
 		})
+	}
+	if len(reincorporacion) > 4 && reincorporacion[4] {
+		// La frontera del original conserva una sola capacidad de canal. Cada
+		// operación decide con su perfil y recurso exactos en la política CT.
+		for _, accion := range []string{ctports.AccionConsultarDetalleRRHH, docports.AccionDescargar,
+			docports.AccionReservarOriginalFirmable, docports.AccionConfirmarOriginalFirmable,
+			puertosvec.AccionNegocioEscribirOriginalFirmable} {
+			descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
+				Accion: accion, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
+				ClaveCapacidad: ctports.AccionConsultarDetalleRRHH,
+				Fronteras:      []string{"ct-original-firmable-preparar"}, Politica: politica,
+			})
+		}
 	}
 	// CrearSolicitud desde una petición ratificada conserva el perfil y el
 	// sello de la reserva. Su autorización se liga solo al POST de entrega;

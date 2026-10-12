@@ -657,13 +657,6 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	}
 	reloj := relojRutasDietas{}
 	politicas, err := conservacion.NuevoCatalogoProvisional(reloj)
-	originalActivo, selectorErr := selectorCapacidadRRHHDesarrollo(cfg, envCTOriginalFirmableEnabled)
-	if selectorErr != nil {
-		return nil, selectorErr
-	}
-	if originalActivo {
-		politicas, err = conservacion.NuevoCatalogoProvisionalV2(reloj)
-	}
 	if err != nil {
 		return nil, errDocumentosEn()
 	}

@@ -12,6 +12,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/almacen"
 	"vec-diputacion-granada/internal/vec/adapters/conservacion"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -141,13 +142,41 @@ func nuevaRutaOriginalFirmableCTDesarrollo(alta *dependenciasAltaContratacionTem
 	consultas dependenciasConsultasRRHHDesarrollo, render ports.RenderizadorBorradorRRHH,
 	documentos *autoridadDocumentosDesarrollo, seudonimos *seudonimizadorAlmacenDesarrollo,
 	reloj ports.Reloj) ([]vechttp.RutaExacta, error) {
+	rutas, err := componerRutaOriginalFirmableCTDesarrollo(alta, consultas, render, documentos, seudonimos, reloj)
+	if err != nil || alta == nil || alta.postgresql.gobierno == nil {
+		return nil, errMontajeOriginalFirmableCTNoDisponible
+	}
+	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
+	if !vigente {
+		return nil, errMontajeOriginalFirmableCTNoDisponible
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
+	defer cancelar()
+	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+		[]core.ReferenciaEntradaCatalogo{motivoOriginalFirmableCTDesarrollo()}, desde); err != nil || ctx.Err() != nil {
+		return nil, errMontajeOriginalFirmableCTNoDisponible
+	}
+	return rutas, nil
+}
+
+// La composición sin publicación se prueba con las mismas piezas reales de
+// dominio/adaptadores. El wrapper anterior es la única puerta de producción.
+func componerRutaOriginalFirmableCTDesarrollo(alta *dependenciasAltaContratacionTemporalDesarrollo,
+	consultas dependenciasConsultasRRHHDesarrollo, render ports.RenderizadorBorradorRRHH,
+	documentos *autoridadDocumentosDesarrollo, seudonimos *seudonimizadorAlmacenDesarrollo,
+	reloj ports.Reloj) ([]vechttp.RutaExacta, error) {
 	if alta == nil || alta.soporte == nil || alta.soporte.perfilesOriginal == nil ||
 		consultas.detalle == nil || consultas.originalPropuesta == nil || render == nil ||
 		documentos == nil || documentos.servicioOriginal == nil || !seudonimos.valido() || reloj == nil {
 		return nil, errMontajeOriginalFirmableCTNoDisponible
 	}
-	politicas, ok := documentos.servicioOriginal.Politicas.(*conservacion.Catalogo)
-	if !ok || politicas == nil || documentos.servicioOriginal.Repositorio == nil || documentos.servicioOriginal.Almacen == nil {
+	if documentos.servicioOriginal.Politicas == nil || documentos.servicioOriginal.Repositorio == nil || documentos.servicioOriginal.Almacen == nil {
+		return nil, errMontajeOriginalFirmableCTNoDisponible
+	}
+	// V2 pertenece sólo al original CT: el servicio histórico conserva V1
+	// para recuperar recibos anteriores con su política y huella originales.
+	politicas, err := conservacion.NuevoCatalogoProvisionalV2(reloj)
+	if err != nil {
 		return nil, errMontajeOriginalFirmableCTNoDisponible
 	}
 	tipos, err := ctadapters.NuevosTiposOriginalFirmableRRHH(politicas)
@@ -164,6 +193,7 @@ func nuevaRutaOriginalFirmableCTDesarrollo(alta *dependenciasAltaContratacionTem
 	}
 	copia := *documentos.servicioOriginal
 	copia.ContextosLectura = lectura
+	copia.Politicas = politicas
 	custodia, err := almacen.NuevaCustodiaDocumentosOriginalCT(servicioDocumentosOriginalCTDesarrollo{servicio: &copia},
 		autoridad, autoridad.mapear, tipos)
 	if err != nil {
