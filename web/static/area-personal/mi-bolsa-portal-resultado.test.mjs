@@ -25,7 +25,8 @@ function formularioDe(escenario) {
   const zona = { textContent: "" };
   const boton = { disabled: false };
   return { dataset: { portalMiBolsa: escenario.accion, ...escenario.dataset }, zona, boton,
-    querySelector: (selector) => selector === "[data-portal-resultado]" ? zona : boton };
+    querySelector: (selector) => selector === "[data-portal-resultado]" ? zona
+      : selector === 'button[type="submit"]' ? boton : null };
 }
 
 function datosDe() {
@@ -165,7 +166,8 @@ test("Mi bolsa explica el resultado incierto y el límite del justificante en am
       const boton = { disabled: false };
       const formulario = {
         dataset: { portalMiBolsa: "responder", bolsa: "bolsa:demo:1" },
-        querySelector: (selector) => selector === "[data-portal-resultado]" ? zona : boton,
+        querySelector: (selector) => selector === "[data-portal-resultado]" ? zona
+          : selector === 'button[type="submit"]' ? boton : null,
       };
       const enviadas = [];
       let confirmaciones = 0;

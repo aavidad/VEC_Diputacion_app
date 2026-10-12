@@ -14,6 +14,9 @@ func TestNuevoBorradorLlamamientoFijaEstadoVersionYContenidoMinimo(t *testing.T)
 	if !errors.Is(err, ErrBorradorLlamamientoInvalido) {
 		t.Fatalf("acepto contenido personal: %v", err)
 	}
+	if _, err := NuevoBorradorLlamamiento("borrador-llamamiento:alta:tel", "per_0123456789abcdefghijkl", "unidad:rrhh", "ambito:rrhh", ContenidoBorradorLlamamiento{Resumen: "Se contactará por teléfono"}); !errors.Is(err, ErrBorradorLlamamientoInvalido) {
+		t.Fatalf("se amplió la regla del borrador: %v", err)
+	}
 	if _, err := NuevoBorradorLlamamiento("borrador-llamamiento:alta:def", "per_0123456789abcdefghijkl", "unidad:rrhh", "ambito:rrhh", ContenidoBorradorLlamamiento{Resumen: "Necesidad de ingeniero"}); err != nil {
 		t.Fatalf("rechazo una palabra ordinaria: %v", err)
 	}

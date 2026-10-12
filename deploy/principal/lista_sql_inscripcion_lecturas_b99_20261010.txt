@@ -1,0 +1,7 @@
+# B99 amplía las lecturas de inscripción después de B97.
+# Orden: lista_sql_inscripcion_nucleo_20261010.txt → lista_sql_inscripcion_incorporacion_20261010.txt → esta ruta.
+# Instalar B99 y publicar las cinco hojas de lectura indicadas en
+# inscripcion_b99_gobierno_lecturas_20261010.md ANTES de encender la inscripción.
+# No instalar en principal/cidonia desde este worktree. Sólo ensayo PG18 desechable.
+# SHA256 5ef002b2132e2303aca347c88f795fdeb470d6078468854d98af8dd225e8d1b4
+deploy/postgresql/bolsa_llamamientos/migraciones/000099_inscripcion_lecturas.up.sql
