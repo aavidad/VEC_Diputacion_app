@@ -388,7 +388,11 @@ func escenarioProyeccionPreparacionB2(t *testing.T) (*fuentesIncorporacionPerson
 		if q.Actor.PerfilActivoRef != a.perfiles.b2[personal.AccionVacantesB2].perfilRef() || q.Limite != 100 || string(q.Corte.VigenteEn) != m.Desde {
 			t.Fatal("selector nominal de vacantes cambiado")
 		}
-		return pp.ResultadoVacantesB2{Pagina: personal.PaginaVacantesB2{Vacantes: []personal.VacantePlazaB2{{PlazaRef: "plaza:una", PuestoRef: "puesto:uno", VersionRPTRef: "rpt:uno", CodigoPlazaFuente: "001", PuestoDenominacion: "Puesto uno"}, {PlazaRef: "plaza:dos", PuestoRef: "puesto:dos", VersionRPTRef: "rpt:dos", CodigoPlazaFuente: "002", PuestoDenominacion: "Puesto dos"}}}}, nil
+		return pp.ResultadoVacantesB2{Pagina: personal.PaginaVacantesB2{Vacantes: []personal.VacantePlazaB2{
+			{PlazaRef: "94e49fa4-78fe-01bb-3e51-a0f58827006b", PuestoRef: "9a35a8d5-0c73-73fd-18bc-5ba501b68889", VersionPlantillaRef: "plantilla:uno", VersionRPTRef: "rpt:uno", UnidadRef: "unidad:uno", CodigoPlazaFuente: "001", PuestoDenominacion: "Puesto uno"},
+			{PlazaRef: "plaza:bd016f88-0457-df90-512e-04161de75944", PuestoRef: "puesto:c327f762-a171-2127-7354-6089f0238264", VersionPlantillaRef: "plantilla:dos", VersionRPTRef: "rpt:dos", UnidadRef: "unidad:dos", CodigoPlazaFuente: "002", PuestoDenominacion: "Puesto dos"},
+			{PlazaRef: "plaza:sin-uuid", PuestoRef: "puesto:c327f762-a171-2127-7354-6089f0238264", VersionPlantillaRef: "plantilla:tres", VersionRPTRef: "rpt:tres", UnidadRef: "unidad:tres", CodigoPlazaFuente: "003", PuestoDenominacion: "Puesto tres"},
+		}}}, nil
 	})
 	f.catalogos = catalogosIncorporacionB2Prueba(func(_ context.Context, q personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
 		return pp.ResultadoConsultaCatalogoEmpleadoB2{Entradas: []personal.EntradaCatalogoRegistroEmpleadoB2{{Ref: q.Tipo + ":uno", Version: 1, Denominacion: "Uno", VigenteDesde: "2026-01-01"}, {Ref: q.Tipo + ":dos", Version: 2, Denominacion: "Dos", VigenteDesde: "2026-01-01"}}}, nil
@@ -419,6 +423,11 @@ func TestIncorporacionB2PreparacionReutilizaCTYConservaOpcionesCompletas(t *test
 		}
 		if len(r.Opciones.Vacantes) != 2 || len(r.Opciones.Regimenes) != 2 || len(r.Opciones.Modalidades) != 2 || len(r.Opciones.ClasesOcupacion) != 2 {
 			t.Fatal("se sustituyó lista por selección")
+		}
+		if r.Opciones.Vacantes[0].PlazaRef != "plaza:94e49fa4-78fe-01bb-3e51-a0f58827006b" ||
+			r.Opciones.Vacantes[0].PuestoRef != "puesto:9a35a8d5-0c73-73fd-18bc-5ba501b68889" ||
+			r.Opciones.Vacantes[1].PlazaRef != "plaza:bd016f88-0457-df90-512e-04161de75944" {
+			t.Fatal("la selección debe usar referencias tipadas de Personal")
 		}
 		r.Prerrequisitos[0].Cumplido = true
 		r.Opciones.Motivos[0] = "ajeno"
@@ -543,4 +552,167 @@ func materialPreparacionB2Prueba(t *testing.T) domct.PlanIncorporacionPersonalB2
 		t.Fatalf("plan de prueba inválido: %v", err)
 	}
 	return m
+}
+
+type detalleCompartidoB2Prueba func(context.Context, ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error)
+
+func (f detalleCompartidoB2Prueba) Consultar(ctx context.Context, s ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error) {
+	return f(ctx, s)
+}
+
+func TestIncorporacionB2DetalleCompartidoUnaLecturaConcurrenteYCopias(t *testing.T) {
+	ctx := context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "GET", ruta: httpct.RutaPlanB2})
+	ctx, cancelar := context.WithTimeout(contextoDetalleCompartidoB2(ctx), 2*time.Second)
+	defer cancelar()
+	inicio := make(chan struct{})
+	liberar := make(chan struct{})
+	var una sync.Once
+	abrir := func() { una.Do(func() { close(liberar) }) }
+	defer abrir()
+	var llamadas atomic.Int32
+	f := &fuentesIncorporacionPersonalB2{organizacionRef: "organizacion:prueba"}
+	f.detalle = detalleCompartidoB2Prueba(func(ctx context.Context, s ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error) {
+		if llamadas.Add(1) == 1 {
+			close(inicio)
+			select {
+			case <-liberar:
+			case <-ctx.Done():
+				return ct.DetalleExpedienteRRHH{}, ctx.Err()
+			}
+		}
+		return ct.DetalleExpedienteRRHH{Resumen: ct.ResumenExpedienteRRHH{ExpedienteRef: s.ExpedienteRef(), Version: 9}, Asignacion: &ct.AsignacionOperativaRRHH{UnidadRef: "unidad:prueba"}}, nil
+	})
+	type resultado struct {
+		detalle ct.DetalleExpedienteRRHH
+		err     error
+	}
+	resultados := make(chan resultado, 8)
+	arrancan := make(chan struct{}, 8)
+	for range 8 {
+		go func() {
+			arrancan <- struct{}{}
+			d, err := f.detalleActual(ctx, "expediente:prueba")
+			resultados <- resultado{d, err}
+		}()
+	}
+	for range 8 {
+		<-arrancan
+	}
+	select {
+	case <-inicio:
+	case <-ctx.Done():
+		t.Fatal("no comenzó la lectura nominal")
+	}
+	if llamadas.Load() != 1 {
+		t.Fatal("la consulta concurrente duplicó la lectura nominal")
+	}
+	abrir()
+	for range 8 {
+		select {
+		case r := <-resultados:
+			if r.err != nil || r.detalle.Resumen.Version != 9 || r.detalle.Asignacion.UnidadRef != "unidad:prueba" {
+				t.Fatalf("detalle compartido incorrecto: %+v %v", r.detalle, r.err)
+			}
+			r.detalle.Asignacion.UnidadRef = "unidad:alterada"
+		case <-ctx.Done():
+			t.Fatal("las lecturas no terminaron")
+		}
+	}
+	if llamadas.Load() != 1 {
+		t.Fatal("los clones repitieron el acceso")
+	}
+	d, err := f.detalleActual(ctx, "expediente:prueba")
+	if err != nil || d.Asignacion.UnidadRef != "unidad:prueba" {
+		t.Fatal("un consumidor alteró el detalle capturado")
+	}
+	// Nueva petición, expediente, organización y fuente no comparten detalle.
+	if _, err := f.detalleActual(contextoDetalleCompartidoB2(ctx), "expediente:prueba"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.detalleActual(ctx, "expediente:otro"); err != nil {
+		t.Fatal(err)
+	}
+	f.organizacionRef = "organizacion:otra"
+	if _, err := f.detalleActual(ctx, "expediente:prueba"); err != nil {
+		t.Fatal(err)
+	}
+	otraFuente := *f
+	if _, err := otraFuente.detalleActual(ctx, "expediente:prueba"); err != nil || llamadas.Load() != 5 {
+		t.Fatalf("detalle compartido fuera de su clave: llamadas=%d err=%v", llamadas.Load(), err)
+	}
+	post := context.WithValue(ctx, claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "POST", ruta: httpct.RutaPlanB2})
+	for range 2 {
+		if _, err := f.detalleActual(contextoDetalleCompartidoB2(post), "expediente:prueba"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if llamadas.Load() != 7 {
+		t.Fatal("una escritura reutilizó el detalle de la consulta GET")
+	}
+}
+
+func TestIncorporacionB2DetalleCompartidoNoCapturaErroresYCancelaEspera(t *testing.T) {
+	for _, fallo := range []error{ct.ErrAutorizacionDenegada, ct.ErrConsultaRRHHNoDisponible} {
+		ctx := context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "GET", ruta: httpct.RutaPlanB2})
+		ctx = contextoDetalleCompartidoB2(ctx)
+		var llamadas int
+		f := &fuentesIncorporacionPersonalB2{detalle: detalleCompartidoB2Prueba(func(context.Context, ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error) {
+			llamadas++
+			if llamadas == 1 {
+				return ct.DetalleExpedienteRRHH{Resumen: ct.ResumenExpedienteRRHH{Version: 9}}, fallo
+			}
+			return ct.DetalleExpedienteRRHH{Resumen: ct.ResumenExpedienteRRHH{Version: 9}}, nil
+		})}
+		d, err := f.detalleActual(ctx, "expediente:prueba")
+		if !errors.Is(err, fallo) || !reflect.DeepEqual(d, ct.DetalleExpedienteRRHH{}) {
+			t.Fatalf("el fallo publicó datos parciales: %+v err=%v", d, err)
+		}
+		if d, err = f.detalleActual(ctx, "expediente:prueba"); err != nil || d.Resumen.Version != 9 || llamadas != 2 {
+			t.Fatal("el fallo reemplazó una lectura nominal posterior")
+		}
+	}
+	ctx := context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "GET", ruta: httpct.RutaPlanB2})
+	ctx, cancelar := context.WithTimeout(contextoDetalleCompartidoB2(ctx), 2*time.Second)
+	defer cancelar()
+	inicio := make(chan struct{})
+	liberar := make(chan struct{})
+	defer close(liberar)
+	var llamadas atomic.Int32
+	f := &fuentesIncorporacionPersonalB2{detalle: detalleCompartidoB2Prueba(func(ctx context.Context, _ ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error) {
+		llamadas.Add(1)
+		close(inicio)
+		select {
+		case <-liberar:
+		case <-ctx.Done():
+			return ct.DetalleExpedienteRRHH{}, ctx.Err()
+		}
+		return ct.DetalleExpedienteRRHH{}, nil
+	})}
+	termino := make(chan error, 1)
+	go func() { _, err := f.detalleActual(ctx, "expediente:prueba"); termino <- err }()
+	<-inicio
+	espera, cancelarEspera := context.WithCancel(ctx)
+	terminoEspera := make(chan error, 1)
+	go func() { _, err := f.detalleActual(espera, "expediente:prueba"); terminoEspera <- err }()
+	cancelarEspera()
+	select {
+	case err := <-terminoEspera:
+		if !errors.Is(err, context.Canceled) || llamadas.Load() != 1 {
+			t.Fatalf("espera cancelada releyó o ignoró cancelación: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("la espera cancelada quedó bloqueada por la lectura")
+	}
+	cancelar()
+	if err := <-termino; !errors.Is(err, context.Canceled) {
+		t.Fatalf("lectura cancelada convertida en éxito: %v", err)
+	}
+}
+
+func TestIncorporacionB2DetalleRechazaContextoNulo(t *testing.T) {
+	f := &fuentesIncorporacionPersonalB2{}
+	d, err := f.detalleActual(nil, "expediente:prueba")
+	if !errors.Is(err, ct.ErrAutorizacionDenegada) || !reflect.DeepEqual(d, ct.DetalleExpedienteRRHH{}) {
+		t.Fatalf("contexto nulo no rechazado: %+v err=%v", d, err)
+	}
 }

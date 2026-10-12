@@ -5,7 +5,7 @@
   "referencia": "cronos-informe-movimientos-en",
   "idioma": "en-GB",
   "titulo": "Clocking events for the period",
-  "sintetico": "Synthetic example. It does not read the real register and has no administrative validity. Employee downloads remain pending.",
+  "sintetico": "Draft for review. It does not read the real register and has no administrative validity. Employee downloads remain pending.",
   "nombre_sintetico": "Example person: {{nombre}}",
   "periodo": "Period: {{desde}} to {{hasta}}",
   "zona": "Time zone: {{zona}}",

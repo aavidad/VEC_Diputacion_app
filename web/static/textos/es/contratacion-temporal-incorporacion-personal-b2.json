@@ -58,7 +58,7 @@
   "empleado": "Empleado",
   "relacion": "Relación de servicio",
   "ocupacion": "Ocupación del puesto",
-  "limite": "Registrar la incorporación no completa la firma oficial ni da eficacia administrativa al documento.",
+  "limite": "La firma oficial del documento se hace en el circuito de firma.",
   "motivo": "Motivo (obligatorio)",
   "documento": "Documento de la incorporación (obligatorio)",
   "sin_documento": "No hay documento disponible. Revise la formalización antes de continuar.",
@@ -100,5 +100,6 @@
       "laboral_sustitucion": "Contrato de sustitución",
       "laboral_circunstancias_produccion": "Contrato por circunstancias de la producción"
     }
-  }
+  },
+  "abrir_ficha_personal": "Abrir ficha en Personal"
 }

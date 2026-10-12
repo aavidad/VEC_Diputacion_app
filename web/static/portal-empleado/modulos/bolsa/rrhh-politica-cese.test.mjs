@@ -68,7 +68,7 @@ test("la vista muestra versión, meses y mapeo del servidor; ayuda oculta tras ?
   assert.match(html, /5 meses naturales/u);
   assert.match(html, /9 meses naturales/u);
   assert.match(html, /interinidad\|acumulacion_tareas/u);
-  assert.match(html, /Ejemplo sintético · sin aprobación/u);
+  assert.match(html, /Pendiente de aprobación por RRHH/u);
   assert.match(html, /id="politica-cese-ayuda"[^>]*hidden/u);
   const eventos = new Map();
   const raiz = { innerHTML: "", addEventListener: (tipo, fn) => eventos.set(tipo, fn),

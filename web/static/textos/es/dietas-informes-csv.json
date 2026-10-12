@@ -9,7 +9,7 @@
     "version_comision": "Versión",
     "persona": "Persona",
     "unidad": "Unidad",
-    "situacion": "Situación del ejemplo",
+    "situacion": "Situación",
     "importe_incluido_centimos": "Importe incluido (céntimos)",
     "aviso": "Aviso"
   },
@@ -28,5 +28,5 @@
     "liquidado": "Liquidado",
     "fiscalizado": "Fiscalizado"
   },
-  "sintetico": "EJEMPLO SINTÉTICO. No es una liquidación registrada ni una exportación autorizada."
+  "sintetico": "Borrador pendiente de aprobación."
 }

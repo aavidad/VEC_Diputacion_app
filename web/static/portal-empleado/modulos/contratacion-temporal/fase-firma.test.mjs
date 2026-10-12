@@ -49,7 +49,8 @@ test("el apartado dice documento, estado, quién firma y desde cuándo, escapado
   assert.match(html, /Resolución &lt;x&gt;/u);
   assert.match(html, /data-ct-fase-firma-estado="pendiente_firma"/u);
   assert.match(html, />Pendiente de firma</u);
-  assert.match(html, /Cargo 2 \(paso 2 de 3\)/u);
+  assert.match(html, /Orden de firma pendiente de confirmación/u);
+  assert.doesNotMatch(html, /Cargo 2 \(paso 2 de 3\)/u);
   assert.match(html, /28 sept 2026, 10:30/u, "fecha y hora de Madrid");
   assert.doesNotMatch(html, /ct-fase-firma-aviso/u);
 });
@@ -57,7 +58,7 @@ test("el apartado dice documento, estado, quién firma y desde cuándo, escapado
 test("sin estado real se avisa y se muestra el primer firmante", () => {
   const catalogo = { documentos: [{ documento: "resolucion", etiqueta: "Resolución", pasos: [{ orden: 1, cargo: "Jefatura" }, { orden: 2, cargo: "Diputado" }] }] };
   const html = renderizarFaseFirma({ catalogo, real: null, textos: es });
-  assert.match(html, /role="status">Ahora no se puede saber/u);
+  assert.match(html, /role="status">Ahora no se puede consultar el estado de firma/u);
   assert.match(html, />Estado no disponible</u);
   assert.match(html, /Jefatura \(paso 1 de 2\)/u);
   assert.match(html, /Fecha no disponible/u);
@@ -67,8 +68,8 @@ test("en inglés, sin texto en castellano, y sin catálogo no pinta nada", () =>
   const real = { documentos: [documento(["firmado", "firmado"], 0, ["2026-09-28T08:30:00Z", "2026-09-29T09:15:00Z"])] };
   const html = renderizarFaseFirma({ catalogo: real, real, textos: en, nombrar: (tipo, valor) => `${tipo}:${valor}` });
   assert.match(html, /Signing stage/u);
-  assert.match(html, />Signed \(test\)</u);
-  assert.match(html, /No one: test workflow complete/u);
+  assert.match(html, />Signed in VEC</u);
+  assert.match(html, /No one: VEC signatures complete/u);
   assert.match(html, /documento:Resolución &lt;x&gt;/u);
   assert.doesNotMatch(html, /Fase de firma|>Firmado<|Quién debe/u);
   assert.equal(renderizarFaseFirma({ catalogo: null, real: null, textos: es }), "");
@@ -104,8 +105,8 @@ test("una devolución dice quién la hizo y el motivo, y la firma completa se de
     /Devuelto por<\/span>\s*<span>Cargo 1<\/span>/u);
   const firmado = documento(["firmado"], 0, ["2026-09-29T07:20:00Z"]);
   const completo = renderizarFaseFirma({ catalogo: { documentos: [firmado] }, real: { documentos: [firmado] }, textos: es });
-  assert.match(completo, />Firmado en prueba</u);
-  assert.match(completo, /Nadie: circuito de prueba completo/u);
+  assert.match(completo, />Firmado en VEC</u);
+  assert.match(completo, /Nadie: firmas de VEC completas/u);
   const pendiente = documento(["pendiente_firma"], 1);
   assert.match(renderizarFaseFirma({ catalogo: { documentos: [pendiente] }, real: { documentos: [pendiente] }, textos: es }), /Sin empezar/u);
 });
@@ -129,7 +130,7 @@ test("un documento con PDF firmado guardado ofrece descargarlo, con la terna que
   assert.match(html, new RegExp(`data-ct-firmado-huella="${c.huella_sha256}"`, "u"));
   assert.match(html, />Descargar PDF firmado</u);
   assert.match(html, /aria-label="Descargar PDF firmado: Resolución &lt;x&gt;"/u, "el nombre accesible empieza por el texto visible");
-  assert.match(html, /sin validez oficial/u);
+  assert.match(html, /Pendiente de Firmadoc/u);
   assert.match(renderizarFaseFirma({ catalogo: { documentos: [doc] }, real: { documentos: [doc] }, textos: en }), />Download signed PDF</u);
   // Sin PDF guardado, sin estado real o con dos pasos: lo que corresponde.
   const sin = documento(["firmado"], 0);

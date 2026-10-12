@@ -9,7 +9,7 @@
     "version_comision": "Version",
     "persona": "Person",
     "unidad": "Unit",
-    "situacion": "Sample status",
+    "situacion": "Status",
     "importe_incluido_centimos": "Included amount (cents)",
     "aviso": "Notice"
   },
@@ -28,5 +28,5 @@
     "liquidado": "Settled",
     "fiscalizado": "Reviewed"
   },
-  "sintetico": "SYNTHETIC SAMPLE. Not a recorded settlement or an authorised export."
+  "sintetico": "Draft pending approval."
 }

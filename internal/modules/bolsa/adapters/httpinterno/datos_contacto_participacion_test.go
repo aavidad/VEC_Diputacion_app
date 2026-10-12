@@ -9,12 +9,16 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/bolsa/application"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/pruebas"
 )
 
 type preparadorDatosContactoPrueba struct {
+	solicitud      puertosbolsa.SolicitudConsultarDatosContactoParticipacion
 	err            error
 	ultimaEntrada  EntradaRegistrarDatosContactoParticipacion
 	ultimaConsulta [2]string
@@ -32,7 +36,7 @@ func (p *preparadorDatosContactoPrueba) PrepararSolicitudRegistrarDatosContacto(
 func (p *preparadorDatosContactoPrueba) PrepararSolicitudConsultarDatosContacto(_ context.Context, bolsa, participacion string, completo bool) (puertosbolsa.SolicitudConsultarDatosContactoParticipacion, error) {
 	p.ultimaConsulta, p.ultimoCompleto = [2]string{bolsa, participacion}, completo
 	if p.err != nil {
-		return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{}, p.err
+		return p.solicitud, p.err
 	}
 	return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{BolsaRef: bolsa, ParticipacionRef: participacion, Completo: completo}, nil
 }
@@ -111,7 +115,7 @@ func TestHandlerDatosContactoConsultaEnmascaraSalvoVerCompleto(t *testing.T) {
 	h, _ := NuevoHandlerDatosContactoParticipacion(prep, op)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, ""))
-	if rec.Code != http.StatusOK || prep.ultimoCompleto || strings.Contains(rec.Body.String(), "candidata@dipgra.es") || strings.Contains(rec.Body.String(), "600123456") || rec.Header().Get("X-Audit-Ref") != "" {
+	if rec.Code != http.StatusOK || prep.ultimoCompleto || strings.Contains(rec.Body.String(), "candidata@dipgra.es") || strings.Contains(rec.Body.String(), "600123456") || rec.Header().Get("X-Audit-Ref") == "" {
 		t.Fatalf("la lectura ordinaria no debe exponer el claro: %d %s", rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), "c***@dipgra.es") || !strings.Contains(rec.Body.String(), "***3456") {
@@ -176,5 +180,59 @@ func TestHandlerDatosContactoRechazaRutasMetodosYErrores(t *testing.T) {
 		if strings.Contains(rec.Body.String(), "dipgra") {
 			t.Errorf("la respuesta de error no debe traer datos: %s", rec.Body.String())
 		}
+	}
+}
+
+func TestHandlerContactoVacioExigeAsientoYNoOculta404(t *testing.T) {
+	op := &operadorDatosContactoPrueba{leidos: puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: "participacion:b4", SinContacto: true, AuditoriaRef: "aud_v3_lc_0123456789abcdef0123456789abcdef"}}
+	h, _ := NuevoHandlerDatosContactoParticipacion(&preparadorDatosContactoPrueba{}, op)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, ""))
+	if rec.Code != http.StatusOK || rec.Header().Get("X-Audit-Ref") == "" || !strings.Contains(rec.Body.String(), `"sin_contacto":true`) || !strings.Contains(rec.Body.String(), `"registrada_en":null`) {
+		t.Fatalf("vacío no explícito/auditado: %d %s", rec.Code, rec.Body.String())
+	}
+	op.leidos.AuditoriaRef = ""
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, ""))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatal("vacío sin auditoría aceptado")
+	}
+	op.errCons = puertosbolsa.ErrDatosContactoParticipacionNoEncontrados
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, ""))
+	if rec.Code != http.StatusNotFound {
+		t.Fatal("recurso inexistente ocultado como vacío")
+	}
+}
+
+func TestHandlerDatosContactoAuditaDenegacionEnPreparacion(t *testing.T) {
+	ctx, err := vecports.ConCorrelacionIncidenciasPeticion(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	correlacion, err := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(time.Now().UTC(), "per_0123456789abcdefghijkl", "prf_0123456789abcdefghijkl", dominiovec.AuthMethodCertificate, dominiovec.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := puertosbolsa.SolicitudConsultarDatosContactoParticipacion{ContextoActor: actor.Contexto, ResultadoContexto: actor, Vinculo: vinculo, BolsaRef: "bolsa:b4", ParticipacionRef: "participacion:b4", Correlacion: correlacion,
+		MotivoAutorizacion: dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_autorizacion", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("b", 64), EntradaClave: "motivo_0123456789abcdef0123456789abcdef"}}
+	r := &registradorDocumentalesHTTPPrueba{t: t}
+	o := &operadorDatosContactoPrueba{}
+	auditado, err := application.NuevosDatosContactoRRHHAuditados(o, r, "vec-bolsa-prueba")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := NuevoHandlerDatosContactoParticipacion(&preparadorDatosContactoPrueba{solicitud: q, err: dominiovec.ErrAutorizacionDenegada}, auditado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, "").WithContext(ctx))
+	if w.Code != http.StatusForbidden || len(r.ordenes) != 1 || w.Header().Get("X-Audit-Ref") != "aud_documental_http_sintetica" || r.ordenes[0].Datos.Accion != puertosbolsa.AccionConsultarOrigenDatosContactoParticipacion {
+		t.Fatalf("fallo no auditado nominal: %d %s ordenes=%d", w.Code, w.Body.String(), len(r.ordenes))
 	}
 }

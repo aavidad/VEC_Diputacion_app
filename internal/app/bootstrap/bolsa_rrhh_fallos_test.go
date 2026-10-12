@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	importacionpg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgresimportacionconvoca"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -39,6 +40,8 @@ func TestBolsasRRHHCandidatosRegistraCausaYEstadoDelFallo(t *testing.T) {
 		{"denegada", "autorizacion denegada", fmt.Errorf("envoltura: %w", dominiovec.ErrAutorizacionDenegada), http.StatusForbidden},
 		{"plazo", "tiempo_agotado", fmt.Errorf("lectura: %w", context.DeadlineExceeded), http.StatusGatewayTimeout},
 		{"centinela", puertosbolsa.ErrContactoParticipacionNoDisponible.Error(), puertosbolsa.ErrContactoParticipacionNoDisponible, http.StatusServiceUnavailable},
+		{"material_protegido", importacionpg.ErrMaterialNoConfiable.Error(), fmt.Errorf("secreto-marcador: %w", importacionpg.ErrMaterialNoConfiable), http.StatusServiceUnavailable},
+		{"proteccion", importacionpg.ErrProteccionNoDisponible.Error(), errors.Join(importacionpg.ErrProteccionNoDisponible, errors.New("secreto-marcador")), http.StatusServiceUnavailable},
 		{"postgresql", "sqlstate_55P03", &pgconn.PgError{Code: "55P03", Message: "secreto-marcador"}, http.StatusServiceUnavailable},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {

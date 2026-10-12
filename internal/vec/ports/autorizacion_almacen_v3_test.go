@@ -134,6 +134,45 @@ func exigirDenegacionAlmacenV3(t *testing.T, caso string, _ ContextoOperacionAlm
 	}
 }
 
+func TestAlmacenV3LecturaCargaAdmitidaExigeDecisionNominalYObjetoExacto(t *testing.T) {
+	e := nuevoAlmacenV3Prueba(t, opcionesAlmacenV3Prueba{
+		accion: AccionNegocioLeerCargaAdmitidaCustodia,
+		campos: []string{"contenido", "carga_admitida"}, requiereObjeto: true,
+	})
+	instante := e.ahora.Add(2 * time.Second)
+	contexto, err := NuevoContextoLeerCargaAdmitidaCustodiaAlmacenV3(
+		e.solicitud, e.decision, e.confirmacion, e.vinculos, instante)
+	if err != nil || contexto.ValidarParaEn(AccionAlmacenLeer, instante) != nil {
+		t.Fatalf("lectura exacta V3: %v", err)
+	}
+	if contexto.ValidarParaEn(AccionAlmacenEscribir, instante) == nil {
+		t.Fatal("la lectura autorizó escritura")
+	}
+	ajeno := e.vinculos
+	ajeno.ObjetoVinculado.Version = "version:ajena"
+	if _, err := NuevoContextoLeerCargaAdmitidaCustodiaAlmacenV3(
+		e.solicitud, e.decision, e.confirmacion, ajeno, instante); err == nil {
+		t.Fatal("se autorizó otra versión")
+	}
+	if _, err := NuevoContextoLeerCargaAdmitidaCustodiaAlmacenV3(
+		e.solicitud, e.decision, ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
+		e.vinculos, instante); err == nil {
+		t.Fatal("se autorizó sin confirmación registrada")
+	}
+	if _, err := NuevoContextoLeerCargaAdmitidaCustodiaAlmacenV3(
+		e.solicitud, e.decision, e.confirmacion, e.vinculos, e.validaHasta.Add(time.Second)); err == nil {
+		t.Fatal("se autorizó una decisión caducada")
+	}
+	otra := nuevoAlmacenV3Prueba(t, opcionesAlmacenV3Prueba{
+		accion: AccionNegocioLeerOriginalDocumentoGenerado,
+		campos: []string{"contenido", "documento"}, requiereObjeto: true,
+	})
+	if _, err := NuevoContextoLeerCargaAdmitidaCustodiaAlmacenV3(
+		otra.solicitud, otra.decision, otra.confirmacion, otra.vinculos, instante); err == nil {
+		t.Fatal("se prestó el permiso de descarga documental")
+	}
+}
+
 func TestAlmacenV3CustodiaRegistradaSoloEscribe(t *testing.T) {
 	e := custodiaV3Prueba(t)
 	instante := e.ahora.Add(2 * time.Second)

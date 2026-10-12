@@ -88,6 +88,12 @@ func (s *ServicioActosRegistroEmpleadoB2) RegistrarHecho(ctx context.Context, so
 	if solicitud.Tipo == "relacion" && solicitud.RelacionRef != "" {
 		versionResultado = solicitud.RelacionVersionEsperada + 1
 	}
+	if solicitud.Tipo == "ocupacion" && solicitud.OcupacionRef != "" {
+		versionResultado = solicitud.RevisionEsperada
+		if resultado.Recibo.HechoRef != solicitud.OcupacionRef {
+			return vacio, domain.ErrRegistroEmpleadoB2NoDisponible
+		}
+	}
 	if !reciboActoRegistroB2ValidoPara(material, resultado.Recibo, solicitud.Tipo, solicitud.RelacionRef, versionResultado) || !accesoActualRegistroB2Valido(material, autorizacion, resultado.AccesoActual) {
 		return vacio, domain.ErrRegistroEmpleadoB2NoDisponible
 	}

@@ -82,7 +82,27 @@ LANGUAGE SQL SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT 1';
 REVOKE ALL ON FUNCTION ` + firmaSolicitarInscripcionPortalExterno + ` FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ` + firmaSolicitarInscripcionPortalExterno + ` TO vec_bolsa_llamamientos_portal_externo;`)
 	t.Run("B77_y_B96", func(t *testing.T) { comprobar(true, true) })
+	ejecutar(`CREATE FUNCTION ` + firmaOrdenarPreferenciasBolsasPortalExterno + ` RETURNS integer
+LANGUAGE SQL SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT 1';
+REVOKE ALL ON FUNCTION ` + firmaOrdenarPreferenciasBolsasPortalExterno + ` FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ` + firmaOrdenarPreferenciasBolsasPortalExterno + ` TO vec_bolsa_llamamientos_portal_externo;`)
+	ejecutar(`CREATE FUNCTION ` + firmaConsultarPreferenciasBolsasPortalExterno + ` RETURNS integer
+LANGUAGE SQL SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT 1';
+REVOKE ALL ON FUNCTION ` + firmaConsultarPreferenciasBolsasPortalExterno + ` FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ` + firmaConsultarPreferenciasBolsasPortalExterno + ` TO vec_bolsa_llamamientos_portal_externo;`)
+	ejecutar(`CREATE FUNCTION ` + firmaIntentoPreferenciasBolsasPortalExterno + ` RETURNS integer
+LANGUAGE SQL SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT 1';
+REVOKE ALL ON FUNCTION ` + firmaIntentoPreferenciasBolsasPortalExterno + ` FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ` + firmaIntentoPreferenciasBolsasPortalExterno + ` TO vec_bolsa_llamamientos_portal_externo;`)
+	t.Run("B77_B96_y_B104", func(t *testing.T) { comprobar(true, true) })
 	for _, caso := range []struct{ nombre, alterar, restaurar string }{
+		{"B104_intento_publico", `GRANT EXECUTE ON FUNCTION ` + firmaIntentoPreferenciasBolsasPortalExterno + ` TO PUBLIC`, `REVOKE EXECUTE ON FUNCTION ` + firmaIntentoPreferenciasBolsasPortalExterno + ` FROM PUBLIC`},
+		{"B104_intento_sin_grant", `REVOKE EXECUTE ON FUNCTION ` + firmaIntentoPreferenciasBolsasPortalExterno + ` FROM vec_bolsa_llamamientos_portal_externo`, `GRANT EXECUTE ON FUNCTION ` + firmaIntentoPreferenciasBolsasPortalExterno + ` TO vec_bolsa_llamamientos_portal_externo`},
+		{"B104_lectura_publica", `GRANT EXECUTE ON FUNCTION ` + firmaConsultarPreferenciasBolsasPortalExterno + ` TO PUBLIC`, `REVOKE EXECUTE ON FUNCTION ` + firmaConsultarPreferenciasBolsasPortalExterno + ` FROM PUBLIC`},
+		{"B104_lectura_sin_grant", `REVOKE EXECUTE ON FUNCTION ` + firmaConsultarPreferenciasBolsasPortalExterno + ` FROM vec_bolsa_llamamientos_portal_externo`, `GRANT EXECUTE ON FUNCTION ` + firmaConsultarPreferenciasBolsasPortalExterno + ` TO vec_bolsa_llamamientos_portal_externo`},
+		{"B104_publica", `GRANT EXECUTE ON FUNCTION ` + firmaOrdenarPreferenciasBolsasPortalExterno + ` TO PUBLIC`, `REVOKE EXECUTE ON FUNCTION ` + firmaOrdenarPreferenciasBolsasPortalExterno + ` FROM PUBLIC`},
+		{"B104_sin_grant", `REVOKE EXECUTE ON FUNCTION ` + firmaOrdenarPreferenciasBolsasPortalExterno + ` FROM vec_bolsa_llamamientos_portal_externo`, `GRANT EXECUTE ON FUNCTION ` + firmaOrdenarPreferenciasBolsasPortalExterno + ` TO vec_bolsa_llamamientos_portal_externo`},
+		{"B104_sobrecarga", `CREATE FUNCTION vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(text) RETURNS integer LANGUAGE SQL SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT 1'; REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(text) FROM PUBLIC`, `DROP FUNCTION vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(text)`},
 		{"funcion_extra", `CREATE FUNCTION vec_bolsa_llamamientos.ajena() RETURNS integer LANGUAGE SQL SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT 1'; GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.ajena() TO vec_bolsa_llamamientos_portal_externo`, `DROP FUNCTION vec_bolsa_llamamientos.ajena()`},
 		{"sobrecarga_B77", `CREATE FUNCTION vec_bolsa_llamamientos.solicitar_documental_portal_v1(text) RETURNS integer LANGUAGE SQL SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT 1'; GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.solicitar_documental_portal_v1(text) TO vec_bolsa_llamamientos_portal_externo`, `DROP FUNCTION vec_bolsa_llamamientos.solicitar_documental_portal_v1(text)`},
 		{"sobrecarga_B96_sin_grant", `CREATE FUNCTION vec_bolsa_llamamientos.solicitar_inscripcion_v1(text) RETURNS integer LANGUAGE SQL SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT 1'; REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.solicitar_inscripcion_v1(text) FROM PUBLIC`, `DROP FUNCTION vec_bolsa_llamamientos.solicitar_inscripcion_v1(text)`},

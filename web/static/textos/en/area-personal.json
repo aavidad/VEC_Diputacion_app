@@ -51,6 +51,32 @@
     "operacionNoDisponible": "This action is unavailable."
   },
   "miBolsa": {
+    "preferenciasBolsas": {
+      "titulo": "Order of my job pools",
+      "cargando": "Loading the order of your job pools…",
+      "guardando": "Saving the new order…",
+      "vacio": "You are not recorded as participating in any job pool.",
+      "bolsaSinNombre": "Job pool name unavailable",
+      "subir": "Move up",
+      "bajar": "Move down",
+      "subirBolsa": "Move {bolsa} up",
+      "bajarBolsa": "Move {bolsa} down",
+      "nuevaBolsa": "New participation",
+      "retiradaBolsa": "Your previous order includes job pools that are no longer among your current participations. Review the order shown.",
+      "confirmarNuevoOrden": "I have reviewed the order of all my current job pools",
+      "guardar": "Save order",
+      "guardado": "Order saved",
+      "ultimoGuardado": "Last saved order",
+      "autenticacion": "Identify yourself again to view the order of your job pools.",
+      "denegado": "You do not have permission to view or save this order.",
+      "conflicto": "Your job pools have changed. Load them again and review the order before saving.",
+      "servicio": "The service is unavailable. If you were saving, you can retry the same request.",
+      "incierto": "We could not confirm whether the order was saved. Retry the same request.",
+      "respuesta": "The service response could not be verified. Load your job pools again.",
+      "error": "The order of your job pools could not be loaded. Please try again.",
+      "recargar": "Load again",
+      "reintentarGuardado": "Retry saving"
+    },
     "situacion": {
       "titulo": "Latest recorded status of my participation",
       "sinDato": "The current status of this participation is not yet available in My job pool.",
@@ -212,7 +238,7 @@
     "referencia": "Reference",
     "metodo": "Method",
     "origen": "Origin",
-    "origenSintetico": "Synthetic identity. There is no authentication, certificate or real person.",
+    "origenSintetico": "Identity assigned by the portal.",
     "autoridadServidor": "Effective authorisation is checked on the server for every operation."
   },
   "ayuda": {
@@ -453,7 +479,7 @@
         "llamamientos": "Personal call-ups",
         "llamamientosDetalle": "Additional alert, subject to the authorised channel.",
         "noticias": "General public employment news",
-        "noticiasDetalle": "Information with no administrative effect.",
+        "noticiasDetalle": "General information.",
         "guardar": "Save preferences",
         "titulo": "Preferences",
         "subtitulo": "Set up additional alerts"

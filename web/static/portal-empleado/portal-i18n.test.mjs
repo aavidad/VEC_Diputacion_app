@@ -883,6 +883,32 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261011-informe-legible-v1");
+  for (const ruta of [
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/personal/registro-b2-cliente.js", "modulos/personal/registro-b2-actos.js",
+    "modulos/personal/registro-b2.js", "portal-composicion-empleado.js", "portal-eventos.js",
+  ]) versionesEspeciales.set(ruta, "20261012-ct-personal-ficha-v1");
+  for (const ruta of [
+    "modulos/contratacion-temporal/circuito-firma.js", "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/original-firmable-api.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-modulos-coordinador.js", "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261012-ct-firma-error-v4");
+  for (const ruta of [
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+  ]) versionesEspeciales.set(ruta, "20261012-ct-b2-cese-v1");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261012-sin-prueba-v1");
+  versionesEspeciales.set("modulos/auditoria/vista.js", "20261012-sin-prueba-v1");
+  for (const ruta of [
+    "portal-bolsas-contacto-origen.js", "portal-bolsas-api.js",
+    "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js",
+    "portal-panel-interno.js",
+  ]) versionesEspeciales.set(ruta, "20261012-c3-contacto-v1");
+  versionesEspeciales.set("portal-bolsas-api.js", "20261012-reglas-configuracion-v1");
+  versionesEspeciales.set("portal.js", "20261012-sin-prueba-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

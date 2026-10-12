@@ -30,6 +30,11 @@ const (
 	// La consulta puede devolver 50 versiones; cada una procede de un
 	// material de hasta 64 KiB en CT-148.
 	maximoRespuestaOperacionAjustesCT = 4 << 20
+	// El rebase excepcional de datos conserva los valores de CT148 sin una fila
+	// de cambio. Esta marca identifica únicamente la operación de 12/10/2026.
+	motivoRebaseAjustesCT     = "rebase_operacion"
+	referenciaRebaseAjustesCT = "operacion:datos-inventados:20261012"
+	huellaBaseRebaseAjustesCT = "6ecf24d17b889c8bbd4400580977ac8b1c2c863c824f09ac5498d70a3d4a7141"
 )
 
 var (
@@ -122,11 +127,24 @@ func (r *RepositorioAjustesReglasCT) Consultar(ctx context.Context, actor vecdom
 		return app.Lectura{}, app.ErrNoDisponible
 	}
 	for _, h := range lectura.Historial {
-		if h.Version < 1 || h.Version > maximoVersionAjustesCT || h.VigenteDesde.IsZero() || h.ReciboRef == "" || len(h.Cambios) == 0 {
+		if h.Version < 1 || h.Version > maximoVersionAjustesCT || h.VigenteDesde.IsZero() || h.ReciboRef == "" ||
+			len(h.Cambios) == 0 && !rebaseAjustesCTSinCambio(h, lectura) {
 			return app.Lectura{}, app.ErrNoDisponible
 		}
 	}
 	return lectura, nil
+}
+
+func rebaseAjustesCTSinCambio(h app.CambioHistorico, lectura app.Lectura) bool {
+	if h.Cambios == nil || h.Version < 2 || h.BaseVersion != 2 ||
+		h.MotivoClave != motivoRebaseAjustesCT || h.Referencia == nil ||
+		*h.Referencia != referenciaRebaseAjustesCT || h.Nota != nil {
+		return false
+	}
+	// La consulta puede estar paginada. Si el rebase es la cabeza, cotejar
+	// también la huella de base que CT148 entrega con la versión vigente.
+	return lectura.Vigente == nil || h.Version != lectura.Vigente.Version ||
+		lectura.VigenteBaseVersion == 2 && lectura.VigenteBaseHuella == huellaBaseRebaseAjustesCT
 }
 
 // consultarV3 reutiliza la lectura nominal, el registro y la auditoría que

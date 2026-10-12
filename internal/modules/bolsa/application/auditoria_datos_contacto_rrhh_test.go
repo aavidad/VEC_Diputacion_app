@@ -79,11 +79,11 @@ func TestDatosContactoAuditadosConservanPositivoYEnmascaradoSinRegistro(t *testi
 	if err != nil || leidos.Datos.Correo != correoContactoAuditadoPrueba || len(r.ordenes) != 0 {
 		t.Fatalf("positivo alterado o registrado: %+v err=%v ordenes=%d", leidos, err, len(r.ordenes))
 	}
-	// La enmascarada y el registro se delegan aunque fallen: sin acción propia.
-	o.err = core.ErrAutorizacionDenegada
+	// El positivo enmascarado ya está auditado y no necesita decisión V3.
+	o.leidos.DecisionRef = ""
 	enmascarada := consultaCompletaDatosContactoPrueba(t, ahora)
 	enmascarada.Completo = false
-	if _, err := s.Consultar(context.Background(), enmascarada); !errors.Is(err, core.ErrAutorizacionDenegada) || len(r.ordenes) != 0 {
+	if _, err := s.Consultar(context.Background(), enmascarada); err != nil || len(r.ordenes) != 0 {
 		t.Fatalf("enmascarada registró intento: err=%v ordenes=%d", err, len(r.ordenes))
 	}
 	if _, err := s.Registrar(context.Background(), ports.SolicitudRegistrarDatosContactoParticipacion{}); err != nil || o.registros != 1 || len(r.ordenes) != 0 {
@@ -171,5 +171,35 @@ func TestDatosContactoAuditadosCierranSinAcuseYConCancelacion(t *testing.T) {
 	}
 	if _, err := NuevosDatosContactoRRHHAuditados(o, r, "Proceso Inválido"); err == nil {
 		t.Fatal("proceso inválido admitido")
+	}
+}
+
+func TestDatosContactoEnmascaradosAuditanServicioYPreparacion(t *testing.T) {
+	for _, preparacion := range []bool{false, true} {
+		for _, causa := range []error{core.ErrAutorizacionDenegada, ports.ErrDatosContactoParticipacionNoDisponibles} {
+			o := &operadorDatosContactoAuditadoPrueba{err: causa, cerrada: preparacion}
+			r := &registradorDatosContactoAuditadoPrueba{t: t, operador: o}
+			s, err := NuevosDatosContactoRRHHAuditados(o, r, "vec-bolsa-prueba")
+			if err != nil {
+				t.Fatal(err)
+			}
+			q := consultaCompletaDatosContactoPrueba(t, time.Date(2026, 10, 5, 1, 0, 0, 0, time.UTC))
+			q.Completo = false
+			if preparacion {
+				err = s.AuditarFalloConsultaDatosContacto(context.Background(), q, causa)
+			} else {
+				_, err = s.Consultar(context.Background(), q)
+			}
+			if _, ok := AcuseConsultaDatosContactoFallida(err); !ok || !errors.Is(err, causa) || len(r.ordenes) != 1 {
+				t.Fatalf("fallo sin asiento: %v ordenes=%d", err, len(r.ordenes))
+			}
+			d := r.ordenes[0].Datos
+			if d.Accion != ports.AccionConsultarOrigenDatosContactoParticipacion || d.FinalidadRef != ports.FinalidadConsultarOrigenDatosContactoParticipacion || d.RecursoRef != q.ParticipacionRef {
+				t.Fatalf("orden masked incorrecta: %+v", d)
+			}
+			if preparacion && o.consultas != 0 {
+				t.Fatal("el fallo de preparación leyó datos")
+			}
+		}
 	}
 }

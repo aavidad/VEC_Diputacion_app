@@ -25,17 +25,34 @@ var camposLecturaRespuestasLlamamiento = []string{
 	"llamamiento_ref", "respuestas[].participacion_ref", "respuestas[].respuesta",
 }
 
+type contratoLecturaBolsa struct {
+	accion, finalidad, tipo, motivo string
+	campos                          []string
+}
+
+func contratoRespuestasLlamamiento() contratoLecturaBolsa {
+	return contratoLecturaBolsa{accionLecturaRespuestasLlamamiento, finalidadLecturaRespuestasLlamamiento, "llamamiento_bolsa", "lectura_respuestas_llamamiento_correcta", camposLecturaRespuestasLlamamiento}
+}
+
 func concesionLecturaRespuestasLlamamientoExacta(i vecdomain.InstantaneaAutorizacion) bool {
+	return concesionLecturaBolsaExacta(i, contratoRespuestasLlamamiento())
+}
+
+func concesionLecturaBolsaExacta(i vecdomain.InstantaneaAutorizacion, contrato contratoLecturaBolsa) bool {
+	if i.VersionRol.RolID != "tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo" {
+		return false
+	}
 	coincidencias := 0
 	for _, c := range i.VersionRol.Concesiones {
-		if c.Accion != accionLecturaRespuestasLlamamiento {
+		if c.Accion != contrato.accion {
 			continue
 		}
 		campos := slices.Clone(c.CamposPermitidos)
 		slices.Sort(campos)
-		if c.ModuloID != "bolsa" || c.TipoRecurso != "llamamiento_bolsa" ||
-			!slices.Equal(c.Finalidades, []string{finalidadLecturaRespuestasLlamamiento}) ||
-			!slices.Equal(campos, camposLecturaRespuestasLlamamiento) ||
+		if c.ModuloID != "bolsa" || c.TipoRecurso != contrato.tipo ||
+			!slices.Equal(c.Finalidades, []string{contrato.finalidad}) ||
+			!slices.Equal(campos, contrato.campos) ||
+			c.GarantiaMinima != vecdomain.AuthAssuranceHigh ||
 			(len(c.Obligaciones) != 0 && !slices.Equal(c.Obligaciones, []string{"auditar"})) {
 			return false
 		}
@@ -45,18 +62,26 @@ func concesionLecturaRespuestasLlamamientoExacta(i vecdomain.InstantaneaAutoriza
 }
 
 // CapturarLecturaRespuestasLlamamiento evalúa una concesión actual para el
-// vínculo real de la petición. La lectura de Bolsa vuelve a cotejar la
-// captura dentro de su transacción antes de devolver cualquier respuesta.
+// vínculo real de la petición. Unidad y ámbito proceden del soporte interno;
+// bolsaRef identifica el dato consultado y no amplía la asignación. La lectura
+// de Bolsa vuelve a cotejar la captura dentro de su transacción.
 func CapturarLecturaRespuestasLlamamiento(
 	ctx context.Context, fuente vecports.FuenteAutorizacion,
 	vinculo vecdomain.VinculoAutenticacionActorV2,
 	resultado vecdomain.ResultadoContextoActorRegistradoV2,
-	bolsaRef, llamamientoRef string,
+	unidadRef, ambitoRef, bolsaRef, llamamientoRef string,
 ) (vecports.CapturaLecturaNominalRespuestasLlamamiento, error) {
+	return capturarLecturaBolsa(ctx, fuente, vinculo, resultado, unidadRef, ambitoRef, bolsaRef, llamamientoRef, contratoRespuestasLlamamiento())
+}
+
+func capturarLecturaBolsa(ctx context.Context, fuente vecports.FuenteAutorizacion,
+	vinculo vecdomain.VinculoAutenticacionActorV2, resultado vecdomain.ResultadoContextoActorRegistradoV2,
+	unidadRef, ambitoRef, bolsaRef, recursoRef string, contrato contratoLecturaBolsa,
+) (vecports.CapturaLecturaNominalBolsa, error) {
 	vacia := vecports.CapturaLecturaNominalRespuestasLlamamiento{}
 	if ctx == nil || ctx.Err() != nil || nuloInscripcionBolsa(fuente) ||
 		resultado.Validar() != nil || vinculo.ValidarPara(resultado) != nil ||
-		bolsaRef == "" || llamamientoRef == "" {
+		unidadRef == "" || ambitoRef == "" || bolsaRef == "" || recursoRef == "" {
 		return vacia, vecdomain.ErrAutorizacionDenegada
 	}
 	datos, err := vinculo.Datos()
@@ -64,9 +89,12 @@ func CapturarLecturaRespuestasLlamamiento(
 		return vacia, vecdomain.ErrAutorizacionDenegada
 	}
 	recurso := vecdomain.RecursoAutorizable{
-		Referencia: llamamientoRef, ModuloID: "bolsa", Tipo: "llamamiento_bolsa",
-		Ambitos:   map[string]string{"bolsa_ref": bolsaRef},
-		Atributos: map[string]string{"llamamiento_ref": llamamientoRef},
+		Referencia: recursoRef, ModuloID: "bolsa", Tipo: contrato.tipo,
+		Ambitos:   map[string]string{"unidad_ref": unidadRef, "ambito_ref": ambitoRef},
+		Atributos: map[string]string{contrato.tipo + "_ref": recursoRef},
+	}
+	if contrato.tipo == "llamamiento_bolsa" {
+		recurso.Atributos = map[string]string{"llamamiento_ref": recursoRef}
 	}
 	if recurso.Validar() != nil {
 		return vacia, vecdomain.ErrAutorizacionDenegada
@@ -80,15 +108,15 @@ func CapturarLecturaRespuestasLlamamiento(
 		instantanea.AsignacionPerfil.EmitidaPor == "identidad:desarrollo:no-autoritativa" ||
 		instantanea.VersionRol.PublicadaPor == "seguridad:desarrollo:no-autoritativa" ||
 		instantanea.ControlVigenciaVersionRol.ActualizadoPor == "seguridad:desarrollo:no-autoritativa" ||
-		!concesionLecturaRespuestasLlamamientoExacta(instantanea) {
+		!concesionLecturaBolsaExacta(instantanea, contrato) {
 		return vacia, vecdomain.ErrAutorizacionDenegada
 	}
 	ahora = time.Now().UTC().Truncate(time.Microsecond)
 	evaluacion, err := vecdomain.EvaluarLecturaActualAutorizacionV3(vinculo, resultado,
-		instantanea, accionLecturaRespuestasLlamamiento, recurso,
-		finalidadLecturaRespuestasLlamamiento, camposLecturaRespuestasLlamamiento, ahora)
+		instantanea, contrato.accion, recurso,
+		contrato.finalidad, contrato.campos, ahora)
 	if err != nil || !evaluacion.Permitido ||
-		!slices.Equal(evaluacion.CamposPermitidos, camposLecturaRespuestasLlamamiento) ||
+		!slices.Equal(evaluacion.CamposPermitidos, contrato.campos) ||
 		(len(evaluacion.Obligaciones) != 0 && !slices.Equal(evaluacion.Obligaciones, []string{"auditar"})) {
 		return vacia, vecdomain.ErrAutorizacionDenegada
 	}
@@ -133,6 +161,8 @@ func CapturarLecturaRespuestasLlamamiento(
 		Accion                        string                                              `json:"accion"`
 		ModuloID                      string                                              `json:"modulo_id"`
 		RecursoRef                    string                                              `json:"recurso_ref"`
+		UnidadRef                     string                                              `json:"unidad_ref"`
+		AmbitoRef                     string                                              `json:"ambito_ref"`
 		BolsaRef                      string                                              `json:"bolsa_ref"`
 		FinalidadRef                  string                                              `json:"finalidad_ref"`
 		CamposPermitidos              []string                                            `json:"campos_permitidos"`
@@ -165,11 +195,12 @@ func CapturarLecturaRespuestasLlamamiento(
 		AutenticacionRef:    datos.AutenticacionRef,
 		SesionRef:           datos.SesionRef,
 		AutenticacionSHA256: datos.AutenticacionHuellaSHA256,
-		Accion:              accionLecturaRespuestasLlamamiento,
-		ModuloID:            "bolsa", RecursoRef: llamamientoRef, BolsaRef: bolsaRef,
-		FinalidadRef:     finalidadLecturaRespuestasLlamamiento,
-		CamposPermitidos: slices.Clone(camposLecturaRespuestasLlamamiento),
-		Resultado:        "obtenida", MotivoRef: "lectura_respuestas_llamamiento_correcta",
+		Accion:              contrato.accion,
+		ModuloID:            "bolsa", RecursoRef: recursoRef,
+		UnidadRef: unidadRef, AmbitoRef: ambitoRef, BolsaRef: bolsaRef,
+		FinalidadRef:     contrato.finalidad,
+		CamposPermitidos: slices.Clone(contrato.campos),
+		Resultado:        "obtenida", MotivoRef: contrato.motivo,
 		Proceso: "vec-server", Canal: "interna_corporativa", CorrelacionRef: correlacionRef,
 		LecturaRevisionPermisos:  strconv.FormatUint(evaluacion.RevisionPermisos, 10),
 		LecturaInstantaneaSHA256: evaluacion.HuellaInstantaneaSHA256,
@@ -190,7 +221,7 @@ func CapturarLecturaRespuestasLlamamiento(
 	}
 	return vecports.CapturaLecturaNominalRespuestasLlamamiento{
 		ContextoCanonico: contextoCanonico, VinculoCanonico: vinculoCanonico,
-		Orden: orden, BolsaRef: bolsaRef, LlamamientoRef: llamamientoRef,
+		Orden: orden, BolsaRef: bolsaRef, RecursoRef: recursoRef, LlamamientoRef: recursoRef,
 		ValidaHasta: limite,
 	}, nil
 }

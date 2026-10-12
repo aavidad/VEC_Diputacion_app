@@ -104,12 +104,88 @@ func (f *fuentesIncorporacionPersonalB2) antecedentes(ctx context.Context, exp s
 	}
 	return f.antecedentesDesde(ctx, exp, d)
 }
+
+// La fachada GET crea una captura nueva por petición. No se reutiliza el
+// contexto de otra petición ni se guardan capacidades de autorización.
+type claveCapturaDetalleB2 struct{}
+type claveDetalleCompartidoB2 struct {
+	fuente                   *fuentesIncorporacionPersonalB2
+	organizacion, expediente string
+}
+type entradaDetalleCompartidoB2 struct {
+	lista   chan struct{}
+	detalle ct.DetalleExpedienteRRHH
+	err     error
+}
+type capturaDetalleCompartidoB2 struct {
+	mu       sync.Mutex
+	entradas map[claveDetalleCompartidoB2]*entradaDetalleCompartidoB2
+}
+
+func contextoDetalleCompartidoB2(ctx context.Context) context.Context {
+	if ctx == nil {
+		return ctx
+	}
+	ruta, _ := ctx.Value(claveRutaPeticionIncorporacionB2{}).(rutaPeticionIncorporacionB2)
+	if ruta.metodo != "GET" || ruta.ruta != httpct.RutaPlanB2 {
+		return ctx
+	}
+	return context.WithValue(ctx, claveCapturaDetalleB2{}, &capturaDetalleCompartidoB2{entradas: map[claveDetalleCompartidoB2]*entradaDetalleCompartidoB2{}})
+}
+
 func (f *fuentesIncorporacionPersonalB2) detalleActual(ctx context.Context, exp string) (ct.DetalleExpedienteRRHH, error) {
+	var cero ct.DetalleExpedienteRRHH
+	if ctx == nil {
+		return cero, ct.ErrAutorizacionDenegada
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
 	s, e := ct.NuevaSolicitudDetalleRRHH(exp, 0)
 	if e != nil {
-		return ct.DetalleExpedienteRRHH{}, e
+		return cero, e
 	}
-	return f.detalle.Consultar(ctx, s)
+	captura, _ := ctx.Value(claveCapturaDetalleB2{}).(*capturaDetalleCompartidoB2)
+	ruta, _ := ctx.Value(claveRutaPeticionIncorporacionB2{}).(rutaPeticionIncorporacionB2)
+	if captura == nil || ruta.metodo != "GET" || ruta.ruta != httpct.RutaPlanB2 {
+		return f.detalle.Consultar(ctx, s)
+	}
+	clave := claveDetalleCompartidoB2{f, f.organizacionRef, exp}
+	captura.mu.Lock()
+	if entrada := captura.entradas[clave]; entrada != nil {
+		captura.mu.Unlock()
+		select {
+		case <-entrada.lista:
+			if err := ctx.Err(); err != nil {
+				return cero, err
+			}
+			return entrada.detalle.Clonar(), entrada.err
+		case <-ctx.Done():
+			return cero, ctx.Err()
+		}
+	}
+	entrada := &entradaDetalleCompartidoB2{lista: make(chan struct{})}
+	captura.entradas[clave] = entrada
+	captura.mu.Unlock()
+	// El lector conserva su autorización y auditoría. Contrato y origen
+	// vuelven a autorizar sus propias acciones con este detalle como dato.
+	d, err := f.detalle.Consultar(ctx, s)
+	if ctx.Err() != nil {
+		err = errors.Join(ctx.Err(), err)
+	}
+	captura.mu.Lock()
+	if err != nil {
+		delete(captura.entradas, clave)
+	} else {
+		entrada.detalle = d.Clonar()
+	}
+	entrada.err = err
+	close(entrada.lista)
+	captura.mu.Unlock()
+	if err != nil {
+		return cero, err
+	}
+	return entrada.detalle.Clonar(), nil
 }
 func (f *fuentesIncorporacionPersonalB2) ResolverPlanNominalB2(ctx context.Context, s ct.SolicitudPlanNominalB2, actor core.ContextoActor) (domct.PlanIncorporacionPersonalB2, error) {
 	var cero domct.PlanIncorporacionPersonalB2
@@ -394,10 +470,12 @@ func (f *fuentesIncorporacionPersonalB2) completarOpcionesIncorporacionB2(ctx co
 		return cero, e
 	}
 	for _, v := range vacantes.Pagina.Vacantes {
-		if v.PuestoRef == "" || v.VersionRPTRef == "" || v.PuestoDenominacion == "" || v.CodigoPlazaFuente == "" {
+		plaza, plazaValida := referenciaPlanIncorporacionB2("plaza:", v.PlazaRef)
+		puesto, puestoValido := referenciaPlanIncorporacionB2("puesto:", v.PuestoRef)
+		if !plazaValida || !puestoValido || v.VersionPlantillaRef == "" || v.VersionRPTRef == "" || v.PuestoDenominacion == "" || v.CodigoPlazaFuente == "" {
 			continue
 		}
-		r.Opciones.Vacantes = append(r.Opciones.Vacantes, httpct.OpcionVacanteB2{PlazaRef: v.PlazaRef, PuestoRef: v.PuestoRef, VersionPlantillaRef: v.VersionPlantillaRef, VersionRPTRef: v.VersionRPTRef, UnidadRef: v.UnidadRef, CategoriaRef: a.CategoriaRef, PlazaEtiqueta: v.CodigoPlazaFuente, PuestoEtiqueta: v.PuestoDenominacion})
+		r.Opciones.Vacantes = append(r.Opciones.Vacantes, httpct.OpcionVacanteB2{PlazaRef: plaza, PuestoRef: puesto, VersionPlantillaRef: v.VersionPlantillaRef, VersionRPTRef: v.VersionRPTRef, UnidadRef: v.UnidadRef, CategoriaRef: a.CategoriaRef, PlazaEtiqueta: v.CodigoPlazaFuente, PuestoEtiqueta: v.PuestoDenominacion})
 	}
 	r.Prerrequisitos[3].Cumplido = len(r.Opciones.Vacantes) > 0
 	catalogos, e := f.consultarCatalogosB2(ctx)
@@ -463,6 +541,16 @@ func (f *fuentesIncorporacionPersonalB2) completarOpcionesIncorporacionB2(ctx co
 		}
 	}
 	return r, nil
+}
+
+// Personal publica identificadores organizativos como UUID; su operación de
+// selección exige el tipo explícito para impedir intercambiar plaza y puesto.
+func referenciaPlanIncorporacionB2(prefijo, ref string) (string, bool) {
+	uuid := strings.TrimPrefix(ref, prefijo)
+	if !domct.UUIDPlanPersonalB2Valido(uuid) {
+		return "", false
+	}
+	return prefijo + uuid, true
 }
 
 func errorPrevioPersonaIncorporacionB2(ctx context.Context, err error) error {

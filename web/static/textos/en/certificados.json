@@ -3,7 +3,7 @@
   "idioma": "en",
   "mensajes": {
     "titulo": "Service record rehearsal draft",
-    "limite": "Synthetic data for review. This draft is not an issued certificate. It provides no evidence of a signature, seal, verification code, registration or delivery.",
+    "limite": "Preparatory data for review. This draft is not an issued certificate. It provides no evidence of a signature, seal, verification code, registration or delivery.",
     "persona": "Sample person: {{nombre}}.",
     "corte": "Reference date: {{vigente}}. Information known at: {{conocido}}.",
     "fuente": "Rehearsal source: {{fuente}}. Data SHA-256 digest: {{fuente_huella}}.",

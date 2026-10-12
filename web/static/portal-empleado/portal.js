@@ -1,4 +1,4 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20261008-ct-inicio-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20261012-ct-personal-ficha-v1";
 import { FILTRO_INCIDENCIA_CT, filtroServidorCTValido, leerFiltroCTDeRuta,
   limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261011-bolsa-b103-privacidad-v1";
 import { leerFichaCTDeRuta, rutaConFichaCT } from "./portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
@@ -7,7 +7,7 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261011-informe-legible-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261012-sin-prueba-v1";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
@@ -120,9 +120,9 @@ function cargarRecursosVista(grupo) {
       : grupo === "documentos"
     ? import("./modulos/documentos/i18n.js?v=20260928-ppt-v2")
     : grupo === "auditoria"
-      ? import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1")
+      ? import("./modulos/auditoria/vista.js?v=20261012-sin-prueba-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261011-ct-bolsa-vinculo-v1"),
+        import("./portal-bolsas-ofertas.js?v=20261012-c3-contacto-v1"),
         import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
@@ -423,7 +423,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261011-ct-bolsa-vinculo-v1");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261012-reglas-configuracion-v1");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -1619,7 +1619,7 @@ function vistaNecesitaBolsa(vista = estado.vista) {
 function cargaConvocaDisponible() {
   if (estado.cargaConvocaDisponible === null) {
     estado.cargaConvocaDisponible = false;
-    import("../comun/http.js?v=20261010-http-carga-v1")
+    import("../comun/http.js?v=20261012-sonda-frontera-v1")
       .then(({ rutaEnvioPublicada }) => rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca"))
       .then((disponible) => {
         if (disponible !== true) return;
@@ -1633,8 +1633,8 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261011-ct-bolsa-vinculo-v1"),
-    import("./portal-bolsas-api.js?v=20261011-ct-bolsa-vinculo-v1"),
+    import("./portal-panel-interno.js?v=20261012-c3-contacto-v1"),
+    import("./portal-bolsas-api.js?v=20261012-reglas-configuracion-v1"),
     import("./portal-bolsas-ruta-filtros.js?v=20261011-ct-bolsa-vinculo-v1"),
     import("./modulos/contratacion-temporal/cliente-http.js?v=20261011-ct-bolsa-vinculo-v1"),
   ]).then(([panel, bolsas, rutas, ct]) => {

@@ -33,6 +33,7 @@ func (g GeneradorBorradoresCatalogo) Generar(
 	r := informejuridico.RenderizadorBorradorCatalogoVivo{
 		Proveedor: PlantillasFijadas{Instantanea: plantillas},
 		PDF:       g.PDF, DOCX: g.DOCX, Etiquetas: g.Etiquetas,
+		OmitirReferencias: true,
 	}
 	var resultado informejuridico.BorradorCatalogado
 	var err error

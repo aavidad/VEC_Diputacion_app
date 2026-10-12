@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -51,6 +52,26 @@ func TestValidarAutorizacionLigaOperacionYHuellaDeLaPreimagen(t *testing.T) {
 }
 
 const finalidadListarPrueba = "listar_documentos_expediente"
+
+func TestVersionesMaterialSQLNoTruncanAntesDeUnaTransaccion(t *testing.T) {
+	for _, caso := range []struct {
+		nombre          string
+		persona, perfil uint64
+		valida          bool
+	}{
+		{"maximo", uint64(math.MaxInt64), uint64(math.MaxInt64), true},
+		{"persona_desbordada", uint64(math.MaxInt64) + 1, 1, false},
+		{"perfil_desbordado", 1, uint64(math.MaxInt64) + 1, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			persona, perfil, ok := versionesMaterialSQL(caso.persona, caso.perfil)
+			if ok != caso.valida || ok && (uint64(persona) != caso.persona || uint64(perfil) != caso.perfil) ||
+				!ok && (persona != 0 || perfil != 0) {
+				t.Fatalf("versiones SQL mal convertidas: %d/%d -> %d/%d, ok=%t", caso.persona, caso.perfil, persona, perfil, ok)
+			}
+		})
+	}
+}
 
 // La regla de retención del adaptador replica la de la fachada SQL.
 func TestRetencionCoherenteSegunEstadoDePolitica(t *testing.T) {

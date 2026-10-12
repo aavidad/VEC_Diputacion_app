@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -64,6 +65,10 @@ func validarAutorizacion(a ports.AutorizacionV3, accion string, preimagen []byte
 	if a.ValidarPara(accion, time.Now().UTC()) != nil || len(preimagen) == 0 {
 		return materialV3{}, ports.ErrSolicitudInvalida
 	}
+	persona, perfil, versionesValidas := versionesMaterialSQL(a.Material.PersonaVersion(), a.Material.PerfilVersion())
+	if !versionesValidas {
+		return materialV3{}, ports.ErrSolicitudInvalida
+	}
 	resumen := a.Material.ResumenCapacidad()
 	if resumen.Operacion() != accion || resumen.EfectoHuellaSHA256() != ports.HuellaEfectoV3(preimagen) {
 		return materialV3{}, ports.ErrSolicitudInvalida
@@ -71,10 +76,19 @@ func validarAutorizacion(a ports.AutorizacionV3, accion string, preimagen []byte
 	return materialV3{
 		capacidad: a.Material.CapacidadCanonica(), decision: a.Material.DecisionCanonica(),
 		motivo: a.Material.MotivoCanonico(), contexto: a.Material.ContextoActorCanonico(),
-		persona: int64(a.Material.PersonaVersion()), perfil: int64(a.Material.PerfilVersion()),
+		persona: persona, perfil: perfil,
 		payload: a.Material.PayloadVECAD3(), sobre: a.Material.SobreCOSESign1(),
 		evidencia: a.Material.EvidenciaVerificacion(), raiz: a.Material.RaizPublicaSPKI(),
 	}, nil
+}
+
+// El material V3 ordinario se limita ya a 2^53-1; se comprueba también el
+// rango SQL para impedir cualquier truncamiento si cambia ese contrato.
+func versionesMaterialSQL(persona, perfil uint64) (int64, int64, bool) {
+	if persona == 0 || perfil == 0 || persona > math.MaxInt64 || perfil > math.MaxInt64 {
+		return 0, 0, false
+	}
+	return int64(persona), int64(perfil), true
 }
 
 func autorizacionJSON(a ports.AutorizacionV3) ([]byte, error) {

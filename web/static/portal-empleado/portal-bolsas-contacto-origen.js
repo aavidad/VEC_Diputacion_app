@@ -43,14 +43,14 @@ export async function consultarOrigenContacto(bolsa, participacion, { fetchImpl 
     const respuesta = await fetchImpl(`${RUTA_BOLSAS}/${segmento(bolsa)}/candidatos/${segmento(participacion)}/datos-contacto`, {
       method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal, headers: { Accept: "application/json" },
     });
-    if (respuesta.status === 404) return { ok: true, datos: { sin_contacto: true, origen: null } };
     if (respuesta.status === 403) return { ok: false, status: 403, codigo: "acceso_denegado" };
     if (!respuesta.ok) return { ok: false, status: respuesta.status, codigo: "error_servidor" };
     const cuerpo = await respuesta.json();
     const datos = cuerpo?.data;
     const origen = datos?.origen ?? null;
-    if (!datos || typeof datos !== "object" || !origenValido(origen)) return { ok: false, status: 0, codigo: "respuesta_invalida" };
-    return { ok: true, datos: { sin_contacto: false, origen } };
+    if (!datos || typeof datos !== "object" || typeof datos.sin_contacto !== "boolean"
+      || !origenValido(origen) || (datos.sin_contacto && origen !== null)) return { ok: false, status: 0, codigo: "respuesta_invalida" };
+    return { ok: true, datos: { sin_contacto: datos.sin_contacto, origen } };
   } catch (_error) {
     return { ok: false, status: 0, codigo: "error_red" };
   }

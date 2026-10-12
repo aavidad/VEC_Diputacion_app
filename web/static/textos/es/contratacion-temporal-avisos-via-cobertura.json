@@ -20,7 +20,7 @@
     "avisos_via_motivo_vigencia_superada": "La bolsa superó su vigencia el {vigencia_hasta} (constituida el {constituida_en}).",
     "avisos_via_motivo_bolsa_agotada": "La bolsa está agotada.",
     "avisos_via_regla_reglamento": "Reglamento de bolsas, {articulo}",
-    "avisos_via_regla_ejemplo": "Regla de ejemplo, sin aprobación de RRHH",
-    "avisos_via_regla_parte_ejemplo": "Parte de ejemplo: {texto}"
+    "avisos_via_regla_ejemplo": "Regla pendiente de aprobación por RRHH",
+    "avisos_via_regla_parte_ejemplo": "Texto pendiente de aprobación: {texto}"
   }
 }

@@ -1,5 +1,5 @@
 import { cargarTextos } from "../comun/textos.js";
-import { consultarCandidatosBolsa } from "./portal-bolsas-api.js?v=20261011-ct-bolsa-vinculo-v1";
+import { consultarCandidatosBolsa } from "./portal-bolsas-api.js?v=20261012-reglas-configuracion-v1";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 const textos = await cargarTextos("bolsa-historial-ofrecimientos");

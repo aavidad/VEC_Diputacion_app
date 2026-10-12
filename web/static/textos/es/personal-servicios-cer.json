@@ -1,7 +1,7 @@
 {
   "general": {
     "titulo": "Servicios para revisión",
-    "limite": "Preparación con datos sintéticos. Cobertura no acreditada; no permite emitir un certificado oficial.",
+    "limite": "La fuente no confirma que la lista de servicios esté completa. Revísela antes de emitir un certificado.",
     "corte_efectivo": "Fecha de referencia",
     "corte_conocimiento": "Información conocida hasta",
     "seleccionar_relacion": "Seleccione una relación de servicio para revisar sus periodos.",

@@ -111,9 +111,9 @@ test("sin preflight R5, ningún DTO sintético abre la vista ni emite el POST ex
   const html = renderizarAccionesPaso({ registro: { verificacion: true, externo: {
     permitido: true, original_ref: solicitud.originalRef, original_version: 3,
   } } }, { documento: "resolucion", paso_pendiente: 1 }, { orden: 1 }, t);
-  assert.match(html, /Firmar en PRUEBA<\/button>/u);
-  assert.match(html, /<button[^>]*disabled[^>]*>Firmar en PRUEBA/u);
-  assert.match(html, /<button[^>]*disabled[^>]*>Devolver en PRUEBA/u);
+  assert.match(html, /Firmar con certificado<\/button>/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Firmar con certificado/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Devolver</u);
   assert.doesNotMatch(html, /data-ct-firma-accion|type="file"/u);
   let llamados = 0;
   const acciones = crearAccionesFirma({ clienteExterno: { registrar: async () => { llamados++; } },

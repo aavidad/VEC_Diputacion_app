@@ -162,7 +162,7 @@ test("un envío grande solo pasa con su límite propio y nunca en GET", async ()
   assert.throws(() => consultarJSON("/api/vec/x", { fetchImpl, plazoMs: 60_000 }), TypeError);
 });
 
-test("rutaEnvioPublicada solo es cierta con 405 del mismo origen y no reintenta", async () => {
+test("rutaEnvioPublicada es cierta con 405, o 401/403 de la frontera, del mismo origen y no reintenta", async () => {
   let llamadas = 0;
   let opciones;
   const con = (estado) => async (_ruta, o) => { llamadas++; opciones = o; return new Response(null, { status: estado }); };
@@ -171,9 +171,11 @@ test("rutaEnvioPublicada solo es cierta con 405 del mismo origen y no reintenta"
   assert.equal(opciones.credentials, "same-origin");
   assert.equal(opciones.redirect, "error");
   assert.equal(opciones.body, undefined);
+  assert.equal(await rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca", { fetchImpl: con(401) }), true);
+  assert.equal(await rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca", { fetchImpl: con(403) }), true);
   assert.equal(await rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca", { fetchImpl: con(404) }), false);
   assert.equal(await rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca", { fetchImpl: con(503) }), false);
   assert.equal(await rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca", { fetchImpl: async () => { throw new Error("red"); } }), false);
-  assert.equal(llamadas, 3);
+  assert.equal(llamadas, 5);
   await assert.rejects(rutaEnvioPublicada("https://evil.test/api/vec/x", { fetchImpl: con(405) }), TypeError);
 });

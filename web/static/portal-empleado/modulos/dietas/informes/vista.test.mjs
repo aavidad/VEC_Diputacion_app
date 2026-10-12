@@ -60,7 +60,7 @@ test("el montaje consulta el JSON inyectado, pagina y mantiene exportar e imprim
   await esperar();
   assert.equal(lecturas, 1);
   assert.equal(contenedor.querySelectorAll("button").filter((boton) => [t("exportar"), t("imprimir")].includes(boton.textContent)).every((boton) => boton.disabled), true);
-  assert.match(texto(contenedor), /Datos de ejemplo/u);
+  assert.match(texto(contenedor), /Comisiones de servicio del período/u);
   const nota = contenedor.querySelectorAll("p").find((parrafo) => parrafo.textContent === t("origen_sintetico"));
   assert.equal(nota.className, "nota-integracion");
   assert.equal(nota.attrs.role, "note");
@@ -400,10 +400,10 @@ test("Ayuda muestra configuración e historia sintética sin abrir referencias",
   boton.listeners.click();
   assert.equal(boton.attrs["aria-expanded"], "true");
   assert.equal(ayuda.hidden, false);
-  assert.match(texto(ayuda), /Configuración de este ejemplo/u);
+  assert.match(texto(ayuda), /Configuración del informe/u);
   assert.match(texto(ayuda), /Marina Torres/u);
-  assert.match(texto(ayuda), /Preparación de un informe sintético/u);
-  assert.match(texto(ayuda), /No acredita aprobación administrativa/u);
+  assert.match(texto(ayuda), /Preparación del informe para revisión/u);
+  assert.match(texto(ayuda), /Configuración vigente del informe/u);
   const motivo = ayuda.querySelectorAll("dd").find((n) => n.textContent === configuracion.historia[0].motivo);
   assert.equal(motivo.attrs.lang, configuracion.historia[0].idioma_motivo);
   const referencias = ayuda.querySelector("details");

@@ -231,6 +231,8 @@ func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHDesarrollo(ctx co
 	rutaValida := rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta)
 	if a.documentalCT133 {
 		rutaValida = rutaPlantillasDocumentalCTDesarrollo(capacidad.ruta)
+	} else if capacidad.ruta == httpinterno.RutaOriginalFirmableCT {
+		rutaValida = a.soporte.perfilesOriginal != nil
 	}
 	if !valida || !rutaValida || capacidad.consultaRRHH == nil {
 		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaAutoridadContexto, nil)
@@ -248,10 +250,12 @@ func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHDesarrollo(ctx co
 		peticion.autoridad = a
 		if continuidad, ok := ctx.Value(claveContinuidadCursorRRHHDesarrollo{}).(continuidadCursorRRHHDesarrollo); ok {
 			peticion.contexto, peticion.err = continuidad.dueno.contextoContinuado(ctx)
+		} else if capacidad.ruta == httpinterno.RutaOriginalFirmableCT {
+			peticion.contexto, peticion.err = a.soporte.perfilesOriginal.resolver(ctx, a.soporte.perfilesOriginal.detalle)
 		} else {
 			peticion.contexto, peticion.err = proveedor.ResolverContexto(ctx)
 		}
-		if peticion.err != nil || !a.contextoConsultaRRHHConservaActor(peticion.contexto) {
+		if peticion.err != nil || !a.contextoConsultaRRHHConservaActor(peticion.contexto, ctx) {
 			peticion.contexto = ports.ContextoAutorizacionAltaV3{}
 			var fallo *diagnostico.FalloConsultaRRHH
 			if peticion.err == nil || !errors.As(peticion.err, &fallo) {
@@ -278,11 +282,21 @@ func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHDesarrollo(ctx co
 	return contexto, err
 }
 
-func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHConservaActor(contexto ports.ContextoAutorizacionAltaV3) bool {
+func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHConservaActor(contexto ports.ContextoAutorizacionAltaV3, peticion ...context.Context) bool {
 	base := a.soporte.contexto
 	a.soporte.mu.Lock()
 	esperado := a.soporte.contextoEsperadoRegistrado
 	a.soporte.mu.Unlock()
+	if len(peticion) > 0 {
+		capacidad, valida := a.soporte.capacidadValida(peticion[0])
+		if valida && capacidad.ruta == httpinterno.RutaOriginalFirmableCT {
+			if a.soporte.perfilesOriginal == nil || a.soporte.perfilesOriginal.detalle == nil {
+				return false
+			}
+			base = a.soporte.perfilesOriginal.detalle.contexto
+			esperado = a.soporte.perfilesOriginal.detalle.contextoEsperadoRegistrado
+		}
+	}
 	if esperado.Validar() != nil {
 		return false
 	}
@@ -330,6 +344,9 @@ func (a *autoridadConsultasRRHHDesarrollo) solicitudAutorizacionConsultaRRHHDesa
 	if a.documentalCT133 && rutaPlantillasDocumentalCTDesarrollo(ruta) {
 		motivo = a.motivoDetalleDocumental
 		valido = dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo)
+	} else if ruta == httpinterno.RutaOriginalFirmableCT && !a.documentalCT133 {
+		motivo = a.soporte.motivoDetalleRRHH
+		valido = dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo)
 	}
 	r := datos.Recurso
 	if !valido || datos.ReferenciaMotivo != motivo || r.Validar() != nil ||
@@ -346,6 +363,11 @@ func (a *autoridadConsultasRRHHDesarrollo) solicitudAutorizacionConsultaRRHHDesa
 			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaCuadroRRHH
 	case httpinterno.RutaConsultaDetalleRRHH:
 		return !a.documentalCT133 && solicitudDetalleODescargaRRHHValida(datos)
+	case httpinterno.RutaOriginalFirmableCT:
+		return !a.documentalCT133 && datos.Accion == ports.AccionConsultarDetalleRRHH &&
+			datos.Finalidad == ports.FinalidadConsultarDetalleRRHH && r.Tipo == ports.TipoRecursoExpediente &&
+			domain.ReferenciaOpacaValida(r.Referencia) &&
+			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaDetalleRRHH
 	case plantillashttp.RutaBorradoresDisponibles, plantillashttp.RutaBorradores:
 		return a.documentalCT133 && datos.Accion == ports.AccionConsultarDetalleRRHH &&
 			datos.Finalidad == ports.FinalidadConsultarDetalleRRHH && r.Tipo == ports.TipoRecursoExpediente &&
@@ -360,6 +382,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) solicitudAutorizacionConsult
 	ruta string, datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
 ) bool {
 	motivo, valido := s.motivoAutorizacionParaRuta(ruta)
+	if ruta == httpinterno.RutaOriginalFirmableCT && s.perfilesOriginal != nil {
+		motivo = s.motivoDetalleRRHH
+		valido = dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo)
+	}
 	r := datos.Recurso
 	organizacion, clase, ambito := organizacionAltaContratacionTemporalDesarrollo, ports.AmbitoOrganizacionRRHH, organizacionAltaContratacionTemporalDesarrollo
 	if s.lectorConsultasRRHH {
@@ -380,6 +406,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) solicitudAutorizacionConsult
 			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaCuadroRRHH
 	case httpinterno.RutaConsultaDetalleRRHH:
 		return solicitudDetalleODescargaRRHHValida(datos)
+	case httpinterno.RutaOriginalFirmableCT:
+		return datos.Accion == ports.AccionConsultarDetalleRRHH &&
+			datos.Finalidad == ports.FinalidadConsultarDetalleRRHH && r.Tipo == ports.TipoRecursoExpediente &&
+			domain.ReferenciaOpacaValida(r.Referencia) &&
+			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaDetalleRRHH
 	default:
 		return false
 	}

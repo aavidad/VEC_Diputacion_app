@@ -3,6 +3,8 @@ package seguridad
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -181,6 +183,39 @@ func (r *repositorioRecibosCargaDirectaPrueba) ConsumirReciboCargaDirecta(
 		HuellaIntencionHMAC:      orden.HuellaIntencionHMAC,
 		RegistradoEn:             entrada.registradoEn, ConsumidoEn: consumidoEn, ExpiraEn: entrada.registro.ExpiraEn,
 	}, nil
+}
+
+func (r *repositorioRecibosCargaDirectaPrueba) ConsultarConsumoReciboCargaDirecta(
+	ctx context.Context, indice string,
+) (ports.ConsumoReciboCargaDirectaPersistido, error) {
+	if err := ctx.Err(); err != nil {
+		return ports.ConsumoReciboCargaDirectaPersistido{}, err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	e, existe := r.entradas[indice]
+	if !existe || !e.consumido {
+		return ports.ConsumoReciboCargaDirectaPersistido{}, ports.ErrConsumoReciboCargaDirectaDenegado
+	}
+	o := e.orden
+	return ports.ConsumoReciboCargaDirectaPersistido{
+		Resultado: ports.ResultadoConsumoReciboCargaDirecta{
+			IndiceHMAC: o.IndiceHMAC, GrupoHMAC: o.GrupoHMAC, VinculoHMAC: o.VinculoHMAC,
+			EvidenciaConsumoRef: o.EvidenciaConsumoRef, IntencionConfirmacionRef: o.IntencionConfirmacionRef,
+			HuellaIntencionHMAC: o.HuellaIntencionHMAC, RegistradoEn: e.registradoEn,
+			ConsumidoEn: r.horaDurable, ExpiraEn: e.registro.ExpiraEn,
+		},
+		ValidaHasta: o.ValidaHasta, Estado: "pendiente", Version: 1,
+	}, nil
+}
+
+func (r *repositorioRecibosCargaDirectaPrueba) ConsumirReciboCargaDirectaV3(
+	_ context.Context, _ ports.ConsumoReciboCargaDirectaV3,
+) (ports.ResultadoConsumoReciboCargaDirecta, error) {
+	r.mu.Lock()
+	r.llamadasConsumo++
+	r.mu.Unlock()
+	return ports.ResultadoConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoDisponible
 }
 
 func (r *repositorioRecibosCargaDirectaPrueba) estado() (altas, consumos, entradas, usados int) {
@@ -620,6 +655,185 @@ func TestReciboCargaDirectaSeConsumeUnaSolaVezYProduceEvidenciaOpaca(t *testing.
 	_, consumos, _, usados := repositorio.estado()
 	if consumos != 2 || usados != 1 {
 		t.Fatalf("consumos=%d usados=%d", consumos, usados)
+	}
+}
+
+func TestRecuperacionReciboCargaDirectaSoloAtestiguaConsumoHistorico(t *testing.T) {
+	adaptador, repositorio, reloj := nuevoAdaptadorCargaDirectaPrueba(t)
+	recibo := emitirReciboCargaDirectaPrueba(t, context.Background(), adaptador, reloj)
+	solicitud := solicitudConsumoCargaDirectaPrueba(recibo)
+	original, err := adaptador.ConsumirReciboCargaDirecta(context.Background(), solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloj.fijar(solicitud.ValidaHasta.Add(time.Second))
+	recuperado, err := adaptador.RecuperarConsumoReciboCargaDirecta(context.Background(), solicitud)
+	if err != nil || recuperado != original {
+		t.Fatalf("respuesta perdida tras COMMIT no recuperada: %v", err)
+	}
+	_, consumos, _, usados := repositorio.estado()
+	if consumos != 1 || usados != 1 {
+		t.Fatalf("recuperacion reconsumio: consumos=%d usados=%d", consumos, usados)
+	}
+	if _, err := ports.NuevaSolicitudConfirmarCargaDirecta(context.Background(), solicitud.Contexto,
+		solicitud.SesionRef, recuperado, adaptador); err == nil {
+		t.Fatal("ventana historica caducada habilito otra confirmacion S3")
+	}
+	cruce := solicitud
+	cruce.SesionRef = "sesion-ajena-001"
+	if _, err := adaptador.RecuperarConsumoReciboCargaDirecta(context.Background(), cruce); !errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
+		t.Fatalf("sesion ajena recupero consumo: %v", err)
+	}
+	reloj.fijar(repositorio.horaDurable)
+	otroRecibo := emitirReciboCargaDirectaPrueba(t, context.Background(), adaptador, reloj)
+	cruce = solicitud
+	cruce.Recibo = otroRecibo
+	if _, err := adaptador.RecuperarConsumoReciboCargaDirecta(context.Background(), cruce); err == nil {
+		t.Fatal("recibo ajeno recupero intencion anterior")
+	}
+	repositorio.mu.Lock()
+	for indice, entrada := range repositorio.entradas {
+		if entrada.consumido {
+			entrada.orden.IntencionConfirmacionRef = "intencion:alterada"
+			repositorio.entradas[indice] = entrada
+		}
+	}
+	repositorio.mu.Unlock()
+	if _, err := adaptador.RecuperarConsumoReciboCargaDirecta(context.Background(), solicitud); !errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
+		t.Fatalf("intencion alterada recuperada: %v", err)
+	}
+}
+
+func TestPreparacionConsumoV3NoConsumeSinDecision(t *testing.T) {
+	adaptador, repositorio, reloj := nuevoAdaptadorCargaDirectaPrueba(t)
+	recibo := emitirReciboCargaDirectaPrueba(t, context.Background(), adaptador, reloj)
+	solicitud := solicitudConsumoCargaDirectaPrueba(recibo)
+	actor, _, err := pruebasvec.NuevoContextoRegistradoYVinculoV2(reloj.Ahora(),
+		"per_0123456789abcdefghijkl", "prf_0123456789abcdefghijkl",
+		domain.AuthMethodCertificate, domain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	carga, err := domain.NuevaCargaDocumental("ref:"+strings.Repeat("a", 64), actor.Contexto.PersonaRef,
+		"expediente:001", "bolsas", "expediente", "operacion:carga:001", "correlacion:001",
+		"incorporar_documento_expediente", "confidencial", "application/pdf", 4096,
+		strings.Repeat("d", 64), "hmac-sha256:idempotencia_v1:"+strings.Repeat("c", 64),
+		"hmac-sha256:solicitud_v1:"+strings.Repeat("b", 64),
+		reloj.Ahora(), reloj.Ahora().Add(5*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparada, err := carga.Preparar("hmac-sha256:sesion_v1:"+strings.Repeat("e", 64),
+		"autorizacion:preparar:001", reloj.Ahora().Add(time.Microsecond))
+	if err != nil {
+		t.Fatal(err)
+	}
+	intencion, err := adaptador.PrepararConsumo(context.Background(), solicitud, preparada, actor)
+	if err != nil {
+		t.Fatalf("preparar intención: %v", err)
+	}
+	preimagen, err := intencion.Preimagen()
+	valor, _ := recibo.RevelarParaEntregaOConsumo()
+	if err != nil || len(preimagen) == 0 || strings.Contains(string(preimagen), valor) {
+		t.Fatalf("preimagen filtró recibo: %v", err)
+	}
+	if _, err := json.Marshal(intencion); !errors.Is(err, ports.ErrSerializacionReciboCargaProhibida) {
+		t.Fatalf("preparación serializable: %v", err)
+	}
+	if _, err := adaptador.ConsumirPreparado(context.Background(), intencion, ports.AutorizacionCargaDocumentalV3{}); !errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
+		t.Fatalf("sin V3 se consumió: %v", err)
+	}
+	if _, err := intencion.Preimagen(); !errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
+		t.Fatal("intención pudo reutilizarse")
+	}
+	_, consumos, _, usados := repositorio.estado()
+	if consumos != 0 || usados != 0 {
+		t.Fatal("el repositorio antiguo recibió consumo")
+	}
+	intencion, err = adaptador.PrepararConsumo(context.Background(), solicitud, preparada, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preimagen, err = intencion.Preimagen()
+	if err != nil {
+		t.Fatal(err)
+	}
+	instanteV3 := reloj.Ahora().UTC().Truncate(time.Microsecond)
+	resumen, err := ports.NuevoResumenCapacidadAtestacionAutorizacionV3(
+		"decision:intencion:0123456789abcdef", strings.Repeat("1", 64), strings.Repeat("2", 64),
+		"contexto:intencion:0123456789abcdef", strings.Repeat("3", 64),
+		ports.AccionCargaDocumentalConfirmarIntencionV3, preparada.ID,
+		ports.HuellaPreimagenCargaDocumentalV3(preimagen),
+		ports.AudienciaCargaDocumentalConfirmarIntencionV3,
+		instanteV3.Add(-time.Second), instanteV3.Add(2*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	privada := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x42}, 32))
+	spki, err := x509.MarshalPKIXPublicKey(privada.Public())
+	if err != nil {
+		t.Fatal(err)
+	}
+	material, err := ports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(
+		bytes.Repeat([]byte{'x'}, ports.TamanoMinimoCapacidadCanonicaV3), resumen,
+		[]byte("decision"), []byte("motivo"), []byte("contexto"), 1, 1,
+		[]byte("payload"), []byte("sobre"), []byte("evidencia"), spki)
+	if err != nil {
+		t.Fatal(err)
+	}
+	autorizacion := ports.AutorizacionCargaDocumentalV3{Material: material,
+		Accion: ports.AccionCargaDocumentalConfirmarIntencionV3, Finalidad: preparada.Finalidad,
+		RecursoRef: preparada.ID, AmbitoRef: preparada.RecursoRef, PersonaRef: preparada.PrincipalID,
+		PerfilActivoRef: actor.Contexto.PerfilActivoRef, CorrelacionRef: preparada.CorrelacionRef}
+	cruce := autorizacion
+	cruce.PersonaRef = "per_ajena0123456789abcdefghijkl"
+	if _, err = adaptador.ConsumirPreparado(context.Background(), intencion, cruce); !errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
+		t.Fatalf("otra persona consumió: %v", err)
+	}
+	_, consumos, _, _ = repositorio.estado()
+	if consumos != 0 {
+		t.Fatal("persona ajena alcanzó repositorio")
+	}
+	intencion, err = adaptador.PrepararConsumo(context.Background(), solicitud, preparada, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preimagen, err = intencion.Preimagen()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Nueva intención aleatoria exige nueva decisión; la previa no se reutiliza.
+	resumen, err = ports.NuevoResumenCapacidadAtestacionAutorizacionV3(
+		"decision:intencion:otra", strings.Repeat("1", 64), strings.Repeat("2", 64),
+		"contexto:intencion:otra", strings.Repeat("3", 64),
+		ports.AccionCargaDocumentalConfirmarIntencionV3, preparada.ID,
+		ports.HuellaPreimagenCargaDocumentalV3(preimagen),
+		ports.AudienciaCargaDocumentalConfirmarIntencionV3,
+		instanteV3.Add(-time.Second), instanteV3.Add(2*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	material, err = ports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(
+		bytes.Repeat([]byte{'x'}, ports.TamanoMinimoCapacidadCanonicaV3), resumen,
+		[]byte("decision"), []byte("motivo"), []byte("contexto"), 1, 1,
+		[]byte("payload"), []byte("sobre"), []byte("evidencia"), spki)
+	if err != nil {
+		t.Fatal(err)
+	}
+	autorizacion.Material = material
+	if _, err = adaptador.ConsumirPreparado(context.Background(), intencion, autorizacion); !errors.Is(err, ports.ErrReciboCargaDirectaNoDisponible) {
+		t.Fatalf("respuesta incierta: %v", err)
+	}
+	_, consumos, _, usados = repositorio.estado()
+	if consumos != 1 || usados != 0 {
+		t.Fatal("primera llamada inesperada")
+	}
+	if _, err = adaptador.ConsumirPreparado(context.Background(), intencion, autorizacion); !errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
+		t.Fatalf("reintento tras respuesta incierta: %v", err)
+	}
+	_, consumos, _, _ = repositorio.estado()
+	if consumos != 1 {
+		t.Fatal("reemitió consumo tras respuesta incierta")
 	}
 }
 

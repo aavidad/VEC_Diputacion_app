@@ -1,0 +1,10 @@
+# CT206 sobre vec_contratacion_temporal.operacion_plan_personal_ct155 literal.
+# Causa: con JSONB, `p->'bolsa'-'clave'` se interpreta como resta entre
+# literales y PostgreSQL devuelve 42725. Dos operandos llevan paréntesis.
+# Preimagen pg_get_functiondef SHA256: e6c593131921395e84d18859e556ca30d61719877c0f2ebffe2f5cee1042e5a9.
+# Postimagen pg_get_functiondef SHA256: 60f934d163e8809a52c7dadfe6af6c0076172182aa76a57394b707431721082a.
+# Conserva propietario, invocador, volatilidad, config, ACL, OID e historia.
+# En la cadena completa del alta: instalar CT205 (#1049) antes de CT206.
+# No reaplicar SQL instalado ni usar DOWN; Dirección despliega en cidonia.
+# CONFIG NUEVA de CT206: ninguna; se mantienen las de la cadena B2.
+deploy/postgresql/contratacion_temporal/migraciones/000206_plan_b2_operador_jsonb.up.sql

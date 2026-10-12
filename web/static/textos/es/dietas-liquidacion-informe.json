@@ -8,7 +8,7 @@
   },
   "rotulos": {
     "titulo": "Preparación de liquidación de dietas",
-    "estado": "Borrador de ensayo · pendiente de aprobación",
+    "estado": "Borrador · pendiente de aprobación",
     "limite": "Esta propuesta no está registrada. No acredita aprobación, fiscalización ni pago.",
     "comision": "Comisión de servicio",
     "version": "Versión",
@@ -39,7 +39,7 @@
     "justificante_ref": "Referencia declarada del justificante",
     "justificante_huella": "Huella SHA-256 declarada del justificante",
     "catalogo_otros_gastos": "Versión del catálogo de otros gastos",
-    "tope_linea": "Tope por línea del catálogo de ejemplo",
+    "tope_linea": "Tope por línea del catálogo",
     "justificante_limite": "La referencia y la huella del justificante son datos declarados. Este informe no acredita su comprobación ni su custodia.",
     "ruta": "Ruta",
     "origen_codigo": "Origen (código)",

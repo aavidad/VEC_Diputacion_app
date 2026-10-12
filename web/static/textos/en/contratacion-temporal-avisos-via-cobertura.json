@@ -20,7 +20,7 @@
     "avisos_via_motivo_vigencia_superada": "The recruitment pool expired on {vigencia_hasta} (established on {constituida_en}).",
     "avisos_via_motivo_bolsa_agotada": "The recruitment pool is exhausted.",
     "avisos_via_regla_reglamento": "Recruitment pool regulations, {articulo}",
-    "avisos_via_regla_ejemplo": "Example rule, without HR approval",
-    "avisos_via_regla_parte_ejemplo": "Example excerpt: {texto}"
+    "avisos_via_regla_ejemplo": "Rule pending HR approval",
+    "avisos_via_regla_parte_ejemplo": "Text pending approval: {texto}"
   }
 }
