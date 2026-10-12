@@ -61,8 +61,8 @@ END $pre$;
 DO $tecnica_pre$
 DECLARE v record;p pg_proc%ROWTYPE;
 BEGIN
- IF (SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')
-  FROM pg_proc p WHERE p.oid=to_regprocedure('vec_autorizacion.rol_candidato_externo_acotado_v1(jsonb)'))
+ IF (SELECT encode(sha256(convert_to(validador.prosrc,'UTF8')),'hex')
+  FROM pg_proc validador WHERE validador.oid=to_regprocedure('vec_autorizacion.rol_candidato_externo_acotado_v1(jsonb)'))
   IS DISTINCT FROM '4212e0388ee883840011ea7874079e24eac5c947b2e8cc3c2f71921e613965da'
  THEN RAISE EXCEPTION 'AUT77: validador técnico externo divergente' USING ERRCODE='55000';END IF;
  FOR v IN SELECT * FROM (VALUES
