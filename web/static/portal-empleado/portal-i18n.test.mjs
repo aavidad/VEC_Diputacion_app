@@ -883,6 +883,12 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261011-informe-legible-v1");
+  for (const ruta of [
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/original-firmable-api.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-modulos-coordinador.js", "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261012-ct-original-preparado-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
