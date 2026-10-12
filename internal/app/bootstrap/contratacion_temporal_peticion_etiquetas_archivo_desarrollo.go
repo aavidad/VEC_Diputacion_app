@@ -45,7 +45,7 @@ func cargarEtiquetasHistoricasPeticionCentro(root string) (map[string]string, er
 	}
 	nombres := make(map[string]string, len(archivo.Entradas))
 	for _, entrada := range archivo.Entradas {
-		if !domain.ReferenciaOpacaValida(entrada.ActorRef) || !strings.HasPrefix(entrada.ActorRef, "per_") ||
+		if !domain.ReferenciaOpacaValida(entrada.ActorRef) ||
 			entrada.Nombre == "" || !utf8.ValidString(entrada.Nombre) || strings.TrimSpace(entrada.Nombre) != entrada.Nombre ||
 			utf8.RuneCountInString(entrada.Nombre) > 250 || strings.IndexFunc(entrada.Nombre, unicode.IsControl) >= 0 {
 			return nil, errEtiquetasHistoricasPeticionCentro

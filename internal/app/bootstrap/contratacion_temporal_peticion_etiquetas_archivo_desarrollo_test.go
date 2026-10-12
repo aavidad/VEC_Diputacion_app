@@ -24,6 +24,15 @@ func TestEtiquetasHistoricasCentroSonOpcionalesYNoContienenAutoridad(t *testing.
 	if err != nil || len(r) != 1 || r["per_antiguo"] != "Manuel García Robles" {
 		t.Fatalf("etiquetas: %v %v", r, err)
 	}
+	// Las peticiones conservadas también usan el espacio de referencias del
+	// resolvedor original: no exigir el prefijo de la provisión más reciente.
+	conservado := `{"version":1,"fuente_ref":"fuente:ct:archivo-centros","entradas":[{"actor_ref":"desarrollo:centro:solicitante","nombre":"Lucía Fernández Castillo"}]}`
+	if err := os.WriteFile(ruta, []byte(conservado), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := cargarEtiquetasHistoricasPeticionCentro(root); err != nil || r["desarrollo:centro:solicitante"] != "Lucía Fernández Castillo" {
+		t.Fatal("debe admitir las referencias válidas conservadas")
+	}
 	for _, contenido := range []string{
 		`{"version":1,"fuente_ref":"fuente:ct:archivo-centros","entradas":[{"actor_ref":"per_antiguo","nombre":"Manuel García Robles","role":"ratificador_centro"}]}`,
 		`{"version":1,"fuente_ref":"fuente:ct:archivo-centros","entradas":[{"actor_ref":"per_antiguo","nombre":"Manuel García Robles"},{"actor_ref":"per_antiguo","nombre":"Otra persona"}]}`,
