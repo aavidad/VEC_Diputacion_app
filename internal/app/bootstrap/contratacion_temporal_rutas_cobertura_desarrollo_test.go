@@ -182,6 +182,8 @@ func TestFronterasIncorporacionB2SoloPerfilesNominalesYAccionesExactas(t *testin
 		{http.MethodGet, httpinterno.RutaVinculoCategoriaRPTB2, "contratacion_temporal.categoria_rpt.vinculo.consultar"},
 		{http.MethodPost, httpinterno.RutaVinculoCategoriaRPTB2, "contratacion_temporal.categoria_rpt.vinculo.registrar"},
 		{http.MethodGet, httpinterno.RutaCategoriasRPTB2, "vec.catalogos.categorias.listar_habilitadas"},
+		{http.MethodGet, vechttp.RutaCatalogosRegistroEmpleadoB2, "personal.registro_empleado.catalogo.consultar"},
+		{http.MethodPost, vechttp.RutaCatalogosRegistroEmpleadoB2, "personal.registro_empleado.catalogo.publicar"},
 		{http.MethodPost, rutaCatalogosRegistroEmpleadoB2, "personal.registro_empleado.catalogo.publicar"},
 	}
 	if len(descriptores) != len(esperadas) {

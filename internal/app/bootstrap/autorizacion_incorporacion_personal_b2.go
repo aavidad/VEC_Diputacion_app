@@ -16,6 +16,7 @@ import (
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	pp "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -393,7 +394,8 @@ func asignarPerfilesNominalesB2EnFronteras(s *soporteAltaContratacionTemporalDes
 			r[i].Ruta == httpct.RutaConfirmacionB2 && r[i].Metodo == http.MethodPost ||
 			r[i].Ruta == httpct.RutaVinculoCategoriaRPTB2 && (r[i].Metodo == http.MethodGet || r[i].Metodo == http.MethodPost) ||
 			r[i].Ruta == httpct.RutaCategoriasRPTB2 && r[i].Metodo == http.MethodGet ||
-			r[i].Ruta == rutaCatalogosRegistroEmpleadoB2 && r[i].Metodo == http.MethodPost {
+			r[i].Ruta == rutaCatalogosRegistroEmpleadoB2 && r[i].Metodo == http.MethodPost ||
+			r[i].Ruta == httpapi.RutaCatalogosRegistroEmpleadoB2 && (r[i].Metodo == http.MethodGet || r[i].Metodo == http.MethodPost) {
 			r[i].PerfilesActivosRef = append(append([]string(nil), r[i].PerfilesActivosRef...), ids...)
 		}
 	}
@@ -617,8 +619,9 @@ const (
 func objetivosLecturaPersonalB2(grupo, organismo string) []string {
 	switch grupo {
 	case grupoCatalogoConsultaB2:
-		// El plan sólo lee régimen y modalidad (fuentes_incorporacion_personal_b2).
-		return []string{organismo + ":regimen", organismo + ":modalidad"}
+		// La vista RRHH consulta los cuatro tipos; el plan sólo solicita
+		// régimen y modalidad en fuentes_incorporacion_personal_b2.
+		return []string{organismo + ":regimen", organismo + ":modalidad", organismo + ":situacion", organismo + ":clase_servicio"}
 	case grupoClasesOcupacionB2:
 		return []string{organismo}
 	}
@@ -666,6 +669,10 @@ func operacionPermitidaEnRutaIncorporacionB2(ctx context.Context, accion string)
 	if ruta.ruta == rutaCatalogosRegistroEmpleadoB2 {
 		// Sólo publicar o retirar una entrada; la consulta va por el plan.
 		return ruta.metodo == "POST" && accionGobiernoCatalogoEmpleadoB2(accion)
+	}
+	if ruta.ruta == httpapi.RutaCatalogosRegistroEmpleadoB2 {
+		return ruta.metodo == http.MethodGet && accion == personal.AccionConsultarCatalogoEmpleadoB2 ||
+			ruta.metodo == http.MethodPost && accionGobiernoCatalogoEmpleadoB2(accion)
 	}
 	if ruta.ruta == httpct.RutaCategoriasRPTB2 {
 		// La pantalla del vínculo sólo lista las categorías publicadas.

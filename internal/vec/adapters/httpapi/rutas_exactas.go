@@ -278,13 +278,14 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		return nil
 	}
 	superficie := superficieAuditoriaFronteraRutaExacta(ruta)
-	// Usuarios y Aspirantes fallan cerrado: una denegación sin anotar es 503.
+	// Usuarios, Aspirantes y Personal fallan cerrado si falta el apunte.
 	// Aspirantes nunca anota persona.
 	usuarios := superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias ||
 		superficie == ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
 	bolsa := superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
 	preparacion := superficie == ports.SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases ||
 		superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo
+	personal := superficie == ports.SuperficieAuditoriaFronteraRutaExactaPersonal
 	if h == nil || dependenciaRutaExactaNula(h.registradorAuditoriaFronteraRutasExactas) {
 		if usuarios {
 			return errAuditoriaFronteraUsuariosNoDisponible
@@ -292,7 +293,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		if bolsa {
 			return errAuditoriaFronteraBolsaNoDisponible
 		}
-		if preparacion {
+		if preparacion || personal {
 			return ErrAutoridadRutaExactaNoDisponible
 		}
 		return nil
@@ -318,7 +319,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		if bolsa {
 			return errAuditoriaFronteraBolsaNoDisponible
 		}
-		if preparacion {
+		if preparacion || personal {
 			return ErrAutoridadRutaExactaNoDisponible
 		}
 		return nil
@@ -341,7 +342,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		if bolsa {
 			return errAuditoriaFronteraBolsaNoDisponible
 		}
-		if preparacion {
+		if preparacion || personal {
 			return ErrAutoridadRutaExactaNoDisponible
 		}
 	}
@@ -364,6 +365,8 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 		return ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
 	case "/api/vec/aspirantes/area-personal/mi-ficha":
 		return ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
+	case RutaCatalogosRegistroEmpleadoB2:
+		return ports.SuperficieAuditoriaFronteraRutaExactaPersonal
 	case "/api/vec/seleccion/preparacion-bases/guardar", "/api/vec/seleccion/preparacion-bases/consultar":
 		return ports.SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases
 	case "/api/vec/bolsa/reglas-baremo/borradores/alta", "/api/vec/bolsa/reglas-baremo/versiones/consultar",

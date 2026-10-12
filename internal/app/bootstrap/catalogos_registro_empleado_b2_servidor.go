@@ -9,6 +9,7 @@ import (
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	apppersonal "vec-diputacion-granada/internal/modules/personal/application"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
+	pp "vec-diputacion-granada/internal/modules/personal/ports"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
@@ -79,7 +80,12 @@ func (a autoridadCatalogosEmpleadoB2) ResolverContextoRegistroEmpleadoB2(ctx con
 	if a.autoridad == nil || a.autoridad.organismoRef == "" {
 		return core.ContextoActor{}, "", errors.New("vec: catálogo de registro B2 no disponible")
 	}
-	actor, e := a.autoridad.actor(ctx, personal.AccionPublicarCatalogoEmpleadoB2)
+	accion := personal.AccionPublicarCatalogoEmpleadoB2
+	if ruta, ok := ctx.Value(claveRutaPeticionIncorporacionB2{}).(rutaPeticionIncorporacionB2); ok &&
+		ruta.ruta == httpapi.RutaCatalogosRegistroEmpleadoB2 && ruta.metodo == http.MethodGet {
+		accion = personal.AccionConsultarCatalogoEmpleadoB2
+	}
+	actor, e := a.autoridad.actor(ctx, accion)
 	if e != nil {
 		// Sin perfil configurado o fuera de la ruta: 403 auditado, no 503.
 		if errors.Is(e, ct.ErrAutorizacionDenegada) || errors.Is(e, core.ErrAutorizacionDenegada) {
@@ -94,18 +100,70 @@ func (a autoridadCatalogosEmpleadoB2) ResolverContextoRegistroEmpleadoB2(ctx con
 // CT de vec-server, con la ruta CT por la que entró la petición.
 type auditorCatalogosEmpleadoB2 struct {
 	registrador vp.RegistradorAuditoriaFronteraRutaExacta
+	ruta        string
 }
 
 func (a auditorCatalogosEmpleadoB2) RegistrarDenegacionRegistroEmpleadoB2(ctx context.Context, d httpapi.DenegacionRegistroEmpleadoB2) error {
 	if dependenciaEsNulaContratacionTemporalDesarrollo(a.registrador) || ctx == nil || ctx.Err() != nil {
 		return errors.New("vec: auditoría de frontera B2 no disponible")
 	}
+	ruta := a.ruta
+	if ruta == "" {
+		ruta = rutaCatalogosRegistroEmpleadoB2
+	}
+	superficie := vp.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
+	if ruta == httpapi.RutaCatalogosRegistroEmpleadoB2 {
+		superficie = vp.SuperficieAuditoriaFronteraRutaExactaPersonal
+	}
 	orden := vp.OrdenAuditoriaFronteraRutaExacta{CorrelacionRef: d.CorrelacionRef, Motivo: vp.MotivoAuditoriaFronteraRutaExacta(d.Motivo),
-		Superficie: vp.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal, Ruta: rutaCatalogosRegistroEmpleadoB2, ActorRef: d.ActorRef}
+		Superficie: superficie, Ruta: ruta, ActorRef: d.ActorRef}
 	if e := orden.Validar(); e != nil {
 		return e
 	}
 	return a.registrador.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
+}
+
+// El GET usa el LOGIN de consultas y el POST el de actos. Ambos servicios
+// comparten el contrato y la autoridad nominal de Personal.
+type operadorCatalogosPersonalB2 struct {
+	consulta *apppersonal.ServicioCatalogosRegistroEmpleadoB2
+	gobierno *apppersonal.ServicioCatalogosRegistroEmpleadoB2
+}
+
+func (o operadorCatalogosPersonalB2) Consultar(ctx context.Context, s personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
+	return o.consulta.Consultar(ctx, s)
+}
+
+func (o operadorCatalogosPersonalB2) Cambiar(ctx context.Context, s personal.SolicitudCambioCatalogoEmpleadoB2) (pp.ResultadoCambioCatalogoEmpleadoB2, error) {
+	if o.gobierno == nil {
+		return pp.ResultadoCambioCatalogoEmpleadoB2{}, personal.ErrRegistroEmpleadoB2Denegado
+	}
+	return o.gobierno.Cambiar(ctx, s)
+}
+
+// rutaPersonalCatalogosEmpleadoB2 publica la ruta que consume la ficha RRHH.
+// Conserva el manejador común y selecciona el perfil nominal por verbo.
+func rutaPersonalCatalogosEmpleadoB2(consulta, gobierno *apppersonal.ServicioCatalogosRegistroEmpleadoB2,
+	autoridad *autoridadIncorporacionPersonalB2, registrador vp.RegistradorAuditoriaFronteraRutaExacta,
+	soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) (httpapi.RutaExacta, error) {
+	if consulta == nil || autoridad == nil || dependenciaEsNulaContratacionTemporalDesarrollo(registrador) {
+		return httpapi.RutaExacta{}, errors.New("vec: catálogo de registro B2 incompleto")
+	}
+	autorizar := autoridadCatalogosEmpleadoB2{autoridad: autoridad}
+	auditar := auditorCatalogosEmpleadoB2{registrador: registrador, ruta: httpapi.RutaCatalogosRegistroEmpleadoB2}
+	h, err := httpapi.NewHandlerCatalogosRegistroEmpleadoB2(autorizar, operadorCatalogosPersonalB2{consulta, gobierno}, auditar)
+	if err != nil {
+		return httpapi.RutaExacta{}, err
+	}
+	adaptado := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r == nil || r.URL == nil || r.URL.Path != httpapi.RutaCatalogosRegistroEmpleadoB2 || r.URL.RawPath != "" {
+			http.NotFound(w, r)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
+	return httpapi.RutaExacta{Ruta: httpapi.RutaCatalogosRegistroEmpleadoB2,
+		Manejador: ligarContextoIncorporacionPersonalB2(adaptado, soporte, fronteras)}, nil
 }
 
 // rutaCatalogosEmpleadoB2 monta el manejador de Personal en la ruta CT. El
@@ -116,7 +174,7 @@ func rutaCatalogosEmpleadoB2(servicio *apppersonal.ServicioCatalogosRegistroEmpl
 	if servicio == nil || autoridad == nil || dependenciaEsNulaContratacionTemporalDesarrollo(registrador) {
 		return httpapi.RutaExacta{}, errors.New("vec: catálogo de registro B2 incompleto")
 	}
-	h, e := httpapi.NewHandlerCatalogosRegistroEmpleadoB2(autoridadCatalogosEmpleadoB2{autoridad}, servicio, auditorCatalogosEmpleadoB2{registrador})
+	h, e := httpapi.NewHandlerCatalogosRegistroEmpleadoB2(autoridadCatalogosEmpleadoB2{autoridad}, servicio, auditorCatalogosEmpleadoB2{registrador: registrador})
 	if e != nil {
 		return httpapi.RutaExacta{}, e
 	}
