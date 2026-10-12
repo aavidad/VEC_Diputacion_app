@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -324,6 +325,13 @@ func asegurarPerfilFijoCTDesarrollo(
 		publicada.actoAsignacion == actoAsignacionPerfilFijoCTDesarrollo {
 		return perfilFijoVigente, nil
 	}
+	if ampliacionVinculoBolsaPublicadaCTDesarrollo(p, plantilla, publicada.instantanea) && admitida(publicada, ahora) {
+		// La asignación vigente es la ampliación del alta con el vínculo a
+		// Bolsa, que asegura su propio paso de arranque. No se rebaja a la
+		// plantilla base: si se rebajara, cada arranque alternaría entre las
+		// dos versiones y el perfil quedaría pendiente de provisión.
+		return perfilFijoVigente, nil
+	}
 	huella, errHuella := publicada.instantanea.AsignacionPerfil.HuellaSHA256()
 	if errHuella != nil || !aprobacion.valida() || !aprobacion.preimagenes[huella] || !admitida(publicada, ahora) {
 		slog.Warn("perfil fijo de RRHH sin asignación consumible: sus peticiones se deniegan hasta la provisión",
@@ -350,6 +358,30 @@ func asegurarPerfilFijoCTDesarrollo(
 		"version", objetivo.AsignacionPerfil.Version, "asignacion_huella_sha256", huellaNueva,
 		"estado", string(perfilFijoProvisionado))
 	return perfilFijoProvisionado, nil
+}
+
+// ampliacionVinculoBolsaPublicadaCTDesarrollo indica si, siendo la plantilla
+// la base del perfil de alta (solo crear solicitud), lo publicado es su
+// ampliación con la concesión de vínculo a Bolsa del mismo perfil y principal.
+func ampliacionVinculoBolsaPublicadaCTDesarrollo(p *perfilFijoCTDesarrollo, base, publicada dominiovec.InstantaneaAutorizacion) bool {
+	if p == nil || p.clave != clavePerfilFijoAltaCTDesarrollo || concedeVinculoBolsaCTDesarrollo(base) ||
+		!concedeVinculoBolsaCTDesarrollo(publicada) ||
+		publicada.AsignacionPerfil.PerfilActivoRef != base.AsignacionPerfil.PerfilActivoRef ||
+		publicada.AsignacionPerfil.PrincipalID != base.AsignacionPerfil.PrincipalID {
+		return false
+	}
+	for _, c := range base.VersionRol.Concesiones {
+		if !slices.ContainsFunc(publicada.VersionRol.Concesiones, func(o dominiovec.ConcesionRol) bool { return o.Accion == c.Accion }) {
+			return false
+		}
+	}
+	return len(publicada.VersionRol.Concesiones) == len(base.VersionRol.Concesiones)+1
+}
+
+func concedeVinculoBolsaCTDesarrollo(i dominiovec.InstantaneaAutorizacion) bool {
+	return slices.ContainsFunc(i.VersionRol.Concesiones, func(c dominiovec.ConcesionRol) bool {
+		return c.Accion == ports.AccionVincularEmisionBolsa
+	})
 }
 
 // preimagenPropiaPerfilFijoCTDesarrollo admite como preimagen de una
