@@ -7,7 +7,7 @@
     "quien": "Who must sign",
     "desde": "Since",
     "paso": "{cargo} (step {actual} of {total})",
-    "nadie": "No one: test workflow complete",
+    "nadie": "No one: VEC signatures complete",
     "orden_no_confirmado": "Signing order awaiting confirmation",
     "sin_fecha": "Not started",
     "fecha_desconocida": "Date not available",
@@ -16,7 +16,7 @@
     "devuelto_motivo": "{cargo}: {motivo}",
     "descargar_firmado": "Download signed PDF",
     "descargar_firmado_de": "Download signed PDF: {documento}",
-    "firmado_prueba": "Test signature, not officially valid until Firmadoc.",
+    "firmado_prueba": "Signed with certificate in VEC; it still has to go through Firmadoc.",
     "firmado_paso": "Signature for step {actual} of {total}.",
     "descargando": "Downloading the signed PDF…",
     "descargado": "Signed PDF downloaded: {documento}.",
@@ -28,7 +28,7 @@
     "borrador": "Unsigned draft",
     "pendiente_firma": "Awaiting signature",
     "enviado_portafirmas": "Sent to Firmadoc",
-    "firmado": "Signed (test)",
+    "firmado": "Signed in VEC",
     "devuelto": "Returned",
     "no_disponible": "Status not available"
   }

@@ -7,7 +7,7 @@
     "quien": "Quién debe firmar",
     "desde": "Desde",
     "paso": "{cargo} (paso {actual} de {total})",
-    "nadie": "Nadie: circuito de prueba completo",
+    "nadie": "Nadie: firmas de VEC completas",
     "orden_no_confirmado": "Orden de firma pendiente de confirmación",
     "sin_fecha": "Sin empezar",
     "fecha_desconocida": "Fecha no disponible",
@@ -16,7 +16,7 @@
     "devuelto_motivo": "{cargo}: {motivo}",
     "descargar_firmado": "Descargar PDF firmado",
     "descargar_firmado_de": "Descargar PDF firmado: {documento}",
-    "firmado_prueba": "Firma de prueba, sin validez oficial hasta Firmadoc.",
+    "firmado_prueba": "Firmado con certificado en VEC; falta pasarlo por Firmadoc.",
     "firmado_paso": "Firma del paso {actual} de {total}.",
     "descargando": "Descargando el PDF firmado…",
     "descargado": "PDF firmado descargado: {documento}.",
@@ -28,7 +28,7 @@
     "borrador": "Borrador sin firmar",
     "pendiente_firma": "Pendiente de firma",
     "enviado_portafirmas": "Enviado a Firmadoc",
-    "firmado": "Firmado en prueba",
+    "firmado": "Firmado en VEC",
     "devuelto": "Devuelto",
     "no_disponible": "Estado no disponible"
   }
