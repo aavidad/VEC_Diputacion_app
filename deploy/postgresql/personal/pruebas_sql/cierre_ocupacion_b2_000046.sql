@@ -40,6 +40,9 @@ DECLARE o vec_personal.ocupacion_empleado_historia%ROWTYPE;
  r vec_personal.relacion_servicio_historia%ROWTYPE; h jsonb; m jsonb; fin date; vpla text; vpue text;
  rel text:='rel_'||repeat('p46r',8); ajena text:='rel_'||repeat('p46a',8);
  ocu text:='ocu_'||repeat('p46o',8); ocuajena text:='ocu_'||repeat('p46x',8);
+ relemp text:='rel_'||repeat('p46e',8); relorg text:='rel_'||repeat('p46g',8);
+ empajeno text:='emp_'||repeat('p46e',8); ocuemp text:='ocu_'||repeat('p46e',8);
+ orgajeno text:='organismo:p46:ajeno';
  proc jsonb:=jsonb_build_object('acto_ref','acto:p46:cese','fuente_ref','fuente:p46:cese',
  'fuente_version',2,'fuente_huella_sha256',repeat('e',64),
  'idempotencia_ref','46000000-0000-4000-8000-000000000001');
@@ -73,6 +76,21 @@ BEGIN
  h:=h||jsonb_build_object('revision',2,'estado','finalizada');
  INSERT INTO vec_personal.relacion_servicio_historia
  SELECT (jsonb_populate_record(NULL::vec_personal.relacion_servicio_historia,h)).*;
+ -- Relación de otro empleado y relación del mismo empleado en otro organismo.
+ -- Las refs y estados son conocidos por el fixture, nunca por el actor de prueba.
+ INSERT INTO vec_personal.relacion_servicio_historia
+ SELECT (jsonb_populate_record(NULL::vec_personal.relacion_servicio_historia,
+ h||jsonb_build_object('relacion_ref',relemp,'revision',1,'empleado_ref',empajeno))).*;
+ INSERT INTO vec_personal.relacion_servicio_historia
+ SELECT (jsonb_populate_record(NULL::vec_personal.relacion_servicio_historia,
+ h||jsonb_build_object('relacion_ref',relorg,'revision',1,'organismo_ref',orgajeno))).*;
+ INSERT INTO vec_personal.relacion_servicio_historia
+ SELECT (jsonb_populate_record(NULL::vec_personal.relacion_servicio_historia,
+ h||jsonb_build_object('relacion_ref',relorg,'organismo_ref',orgajeno))).*;
+ INSERT INTO vec_personal.ocupacion_empleado_historia
+ SELECT (jsonb_populate_record(NULL::vec_personal.ocupacion_empleado_historia,
+ to_jsonb(o)||jsonb_build_object('ocupacion_ref',ocuemp,'revision',1,
+ 'relacion_ref',relemp,'relacion_revision',1,'empleado_ref',empajeno))).*;
  h:=to_jsonb(o)||jsonb_build_object('ocupacion_ref',ocu,'revision',1,
  'relacion_ref',rel,'relacion_revision',1);
  INSERT INTO vec_personal.ocupacion_empleado_historia
@@ -137,6 +155,16 @@ DECLARE m jsonb; n jsonb; caso record; codigo text; mensaje text; contexto text;
 BEGIN
  SELECT material INTO STRICT m FROM pg_temp.p46_material;
  FOR caso IN SELECT * FROM (VALUES
+ -- Ajeno e inexistente comparten código y mensaje, incluso si su CAS
+ -- real difiere. La ocupación de otro organismo se consulta con V3/relación
+ -- del organismo ajeno; el fixture de plaza permanece en su organismo propio.
+ ('relacion_otro_org','relacion_ref',to_jsonb('rel_'||repeat('p46g',8)),'P7404'),
+ ('relacion_otro_empleado','relacion_ref',to_jsonb('rel_'||repeat('p46e',8)),'P7404'),
+ ('relacion_inexistente','relacion_ref',to_jsonb('rel_'||repeat('p46n',8)),'P7404'),
+ ('ocupacion_otro_empleado','ocupacion_ref',to_jsonb('ocu_'||repeat('p46e',8)),'P7404'),
+ ('ocupacion_inexistente','ocupacion_ref',to_jsonb('ocu_'||repeat('p46n',8)),'P7404'),
+ ('ocupacion_otro_org','ocupacion_ref',to_jsonb('ocu_'||repeat('p46o',8)),'P7404'),
+ ('ocupacion_otro_org_inexistente','ocupacion_ref',to_jsonb('ocu_'||repeat('p46n',8)),'P7404'),
  ('relacion_ajena','relacion_ref',to_jsonb('rel_'||repeat('p46a',8)),'42501'),
  ('ocupacion_ajena','ocupacion_ref',to_jsonb('ocu_'||repeat('p46x',8)),'42501'),
  ('revision_ocupacion','revision_esperada','3'::jsonb,'23505'),
@@ -148,6 +176,10 @@ BEGIN
  ('v1_con_ocupacion','esquema','"vec.personal.registro-empleado-b2.hecho.v1"'::jsonb,'22023'),
  ('estado','estado','"vigente"'::jsonb,'22023')) c(nombre,campo,valor,esperado) LOOP
   n:=jsonb_set(m,ARRAY[caso.campo],caso.valor); codigo:='ok';
+  IF caso.nombre IN ('ocupacion_otro_org','ocupacion_otro_org_inexistente') THEN
+   n:=n||jsonb_build_object('organismo_ref','organismo:p46:ajeno',
+    'relacion_ref','rel_'||repeat('p46g',8));
+  END IF;
   BEGIN
    PERFORM pg_temp.invocar_p46(n);
   EXCEPTION WHEN others THEN
@@ -156,6 +188,9 @@ BEGIN
   IF codigo IS DISTINCT FROM caso.esperado THEN
    RAISE EXCEPTION 'P46 negativo %: actual %, esperado %; mensaje %; contexto %',
     caso.nombre,codigo,caso.esperado,mensaje,contexto; END IF;
+  IF caso.esperado='P7404' AND mensaje IS DISTINCT FROM
+    (CASE WHEN caso.campo='relacion_ref' THEN 'relación no encontrada' ELSE 'ocupación no encontrada' END) THEN
+   RAISE EXCEPTION 'P46: respuesta ajena/inexistente distinta en %: %',caso.nombre,mensaje; END IF;
  END LOOP;
  n:=jsonb_set(m,'{procedencia,fuente_huella_sha256}',to_jsonb(repeat('0',64))); codigo:='ok';
  BEGIN PERFORM pg_temp.invocar_p46(n);
@@ -211,6 +246,9 @@ BEGIN
  OR o.auditoria_ref IS DISTINCT FROM p#>>'{recibo,auditoria_ref}'
  OR (SELECT count(*) FROM vec_personal.ocupacion_empleado_historia WHERE ocupacion_ref=m->>'ocupacion_ref')<>2
  OR (SELECT count(*) FROM vec_personal.ocupacion_empleado_historia WHERE ocupacion_ref='ocu_'||repeat('p46x',8))<>1
+ OR (SELECT count(*) FROM vec_personal.ocupacion_empleado_historia WHERE ocupacion_ref='ocu_'||repeat('p46e',8))<>1
+ OR (SELECT count(*) FROM vec_personal.relacion_servicio_historia WHERE relacion_ref='rel_'||repeat('p46e',8))<>1
+ OR (SELECT count(*) FROM vec_personal.relacion_servicio_historia WHERE relacion_ref='rel_'||repeat('p46g',8))<>2
  OR (SELECT count(*) FROM vec_personal.relacion_servicio_historia WHERE relacion_ref IN
  ('rel_'||repeat('p46r',8),'rel_'||repeat('p46a',8)))<>4
  OR (SELECT count(*) FROM vec_personal.registro_empleado_b2_recibo WHERE idempotencia_ref IN
@@ -223,6 +261,6 @@ BEGIN
  IF has_function_privilege('vec_personal_ejecutor',
  'vec_personal.registrar_acto_empleado_b2_interna(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') THEN
   RAISE EXCEPTION 'P46: interna expuesta'; END IF;
- RAISE NOTICE 'P46_OK: relación2/ocupación2 finalizadas, recibo/replay, preservación y 12 negativas sin efectos; doble V3 explícito';
+ RAISE NOTICE 'P46_OK: relación2/ocupación2 finalizadas, recibo/replay, preservación y 19 negativas sin efectos; doble V3 explícito';
 END $resultado$;
 ROLLBACK;

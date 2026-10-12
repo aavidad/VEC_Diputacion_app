@@ -35,7 +35,7 @@ BEGIN
  THEN RAISE EXCEPTION 'Personal46: preimagen interna incompatible' USING ERRCODE='55000'; END IF;
  actual:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(f),'UTF8')),'hex');
  -- Pre: literal instalada P45. Post: literal de cierre P46; otra definición aborta.
- IF actual='9ee3dbb80a80ee8599d9cdd27cfa173ea93e2c3f6fce5ccca948b81365be9b49' THEN RAISE EXCEPTION 'Personal46: ya aplicada' USING ERRCODE='55000'; END IF;
+ IF actual='35c1b1a3bfbd49d35176c365cd02e5bd58f77b6fa55df704a5494c54d2cd2afb' THEN RAISE EXCEPTION 'Personal46: ya aplicada' USING ERRCODE='55000'; END IF;
  IF actual IS DISTINCT FROM '9ba1f3c54a9140a2dfe6dca5ee6a55637f6a0deafb4e8dbbff88a4e82be2d258'
  THEN RAISE EXCEPTION 'Personal46: preimagen interna divergente' USING ERRCODE='55000'; END IF;
 END $pre$;
@@ -378,7 +378,8 @@ BEGIN
    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
      'vec_personal:registro-b2:ocupacion_empleado_historia:'||v_hecho,0));
    SELECT h.* INTO v_rel_cierre FROM vec_personal.relacion_servicio_historia h
-    WHERE h.relacion_ref=v_relacion ORDER BY h.revision DESC LIMIT 1;
+    WHERE h.relacion_ref=v_relacion AND h.empleado_ref=v_empleado
+      AND h.organismo_ref=v_org ORDER BY h.revision DESC LIMIT 1;
    IF NOT FOUND THEN RAISE EXCEPTION 'relación no encontrada' USING ERRCODE='P7404'; END IF;
    IF v_rel_cierre.revision IS DISTINCT FROM v_rel_esperada THEN
     RAISE EXCEPTION 'revisión de relación divergente' USING ERRCODE='23505'; END IF;
@@ -395,7 +396,8 @@ BEGIN
       OR v_rel_cierre.fuente_huella_sha256 IS DISTINCT FROM proc->>'fuente_huella_sha256' THEN
     RAISE EXCEPTION 'relación de cierre ajena o divergente' USING ERRCODE='42501'; END IF;
    SELECT h.* INTO v_ocu_cierre FROM vec_personal.ocupacion_empleado_historia h
-    WHERE h.ocupacion_ref=v_hecho ORDER BY h.revision DESC LIMIT 1;
+    WHERE h.ocupacion_ref=v_hecho AND h.empleado_ref=v_empleado
+      AND h.organismo_ref=v_org ORDER BY h.revision DESC LIMIT 1;
    IF NOT FOUND THEN RAISE EXCEPTION 'ocupación no encontrada' USING ERRCODE='P7404'; END IF;
    IF v_ocu_cierre.revision+1 IS DISTINCT FROM v_esperada
       OR v_ocu_cierre.relacion_revision IS DISTINCT FROM v_rel_cierre.revision-1 THEN
@@ -590,7 +592,7 @@ BEGIN
  OR (SELECT proconfig::text FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM '{"search_path=pg_catalog, pg_temp",row_security=on,lock_timeout=2s}'
  THEN RAISE EXCEPTION 'Personal46: postimagen interna incompatible' USING ERRCODE='55000'; END IF;
  actual:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(f),'UTF8')),'hex');
- IF actual IS DISTINCT FROM '9ee3dbb80a80ee8599d9cdd27cfa173ea93e2c3f6fce5ccca948b81365be9b49'
+ IF actual IS DISTINCT FROM '35c1b1a3bfbd49d35176c365cd02e5bd58f77b6fa55df704a5494c54d2cd2afb'
  THEN RAISE EXCEPTION 'Personal46: postimagen interna divergente' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;
