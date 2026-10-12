@@ -272,7 +272,12 @@ export function validarRespuestaBolsas(envelope) {
 export function validarCandidato(candidato) {
   // «marcas» solo viaja cuando Bolsa 000041 está compuesta; entonces es cerrado.
   const conMarcas = esObjeto(candidato) && Object.hasOwn(candidato, "marcas");
-  exigirCamposExactos(candidato, conMarcas ? [...CAMPOS_CANDIDATO, "marcas"] : CAMPOS_CANDIDATO, "candidato");
+  const conPuntuacion = esObjeto(candidato) && Object.hasOwn(candidato, "puntuacion");
+  exigirCamposExactos(candidato, [...CAMPOS_CANDIDATO, ...(conMarcas ? ["marcas"] : []), ...(conPuntuacion ? ["puntuacion"] : [])], "candidato");
+  if (conPuntuacion && candidato.puntuacion !== null && (typeof candidato.puntuacion !== "string"
+    || candidato.puntuacion.length > 64 || !/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/u.test(candidato.puntuacion))) {
+    throw new Error("puntuacion de acta no válida");
+  }
 
   const participacionRef = exigirCadenaSegura(candidato.participacion_ref, "participacion_ref");
   if (candidato.orden !== null && (!Number.isSafeInteger(candidato.orden) || candidato.orden < 1)) throw new Error("orden de candidato debe ser nulo o entero positivo");
@@ -324,6 +329,7 @@ export function validarCandidato(candidato) {
     disponible_desde: disponibleDesde,
     ultimo_llamamiento: ultimoLlamamiento,
     contactos_total: exigirEnteroNoNegativo(candidato.contactos_total, "contactos_total"),
+    ...(conPuntuacion ? { puntuacion: candidato.puntuacion } : {}),
     ...(conMarcas ? { marcas: validarMarcasCandidato(candidato.marcas) } : {}),
   });
 }
