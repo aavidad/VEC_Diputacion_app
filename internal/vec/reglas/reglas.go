@@ -75,6 +75,9 @@ type Origen string
 const (
 	OrigenReglamento Origen = "reglamento"
 	OrigenEjemplo    Origen = "ejemplo"
+	// OrigenConfiguracion identifica datos operativos versionados sin atribuirles
+	// procedencia reglamentaria ni una decisión administrativa de RRHH.
+	OrigenConfiguracion Origen = "configuracion"
 )
 
 // Computo fija la regla de cálculo: administrativo (art. 30 de la Ley
@@ -169,7 +172,7 @@ func reglaDesdeEntrada(catalogo domain.CatalogoConfigurable, huella string, ejem
 		if regla.Articulo == "" {
 			return Regla{}, ErrReglaInvalida
 		}
-	case OrigenEjemplo:
+	case OrigenEjemplo, OrigenConfiguracion:
 		if regla.Articulo != "" || regla.ParteEjemplo != "" {
 			return Regla{}, ErrReglaInvalida
 		}

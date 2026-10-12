@@ -56,7 +56,7 @@ func nuevaIncorporacionCentroDesarrollo(cfg config.Config, reloj relojContrataci
 	if !incorporacionAcreditadaSolicitada(cfg) {
 		return &incorporacionCentroDesarrollo{}, nil
 	}
-	consulta, err := fichero.NuevaConsultaCatalogos(cfg.Normalize().ReglasEjemplo.CTSourcePath)
+	consulta, err := fichero.NuevaConsultaCatalogoProvisionable(cfg.Normalize().ReglasEjemplo.CTSourcePath)
 	if err != nil {
 		return nil, errors.Join(errIncorporacionCentroDesarrollo, err)
 	}

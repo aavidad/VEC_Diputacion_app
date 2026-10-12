@@ -811,7 +811,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	if err != nil {
 		return fallar("catalogo_motivos", err)
 	}
-	consultaReglas, err := fichero.NuevaConsultaCatalogos(cfg.ReglasEjemplo.CTSourcePath)
+	consultaReglas, err := fichero.NuevaConsultaCatalogoProvisionable(cfg.ReglasEjemplo.CTSourcePath)
 	if err != nil {
 		return fallar("catalogo_reglas", err)
 	}

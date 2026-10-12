@@ -14,6 +14,9 @@ import (
 // No consulta más datos, registra propuestas ni sustituye un modelo oficial.
 type RenderizadorBorradorDesarrollo struct {
 	PDF vecports.RenderizadorDocumento
+	// OmitirReferencias muestra sólo el nombre cuando lo hay. Se activa en
+	// descargas; el valor cero conserva los bytes de formalización y custodia.
+	OmitirReferencias bool
 	// Etiquetas devuelve el nombre de catálogo de una referencia (centro,
 	// categoría, unidad) o cadena vacía si no lo conoce. Puede ser nil.
 	Etiquetas EtiquetadorReferencias
@@ -26,16 +29,18 @@ type RenderizadorBorradorDesarrollo struct {
 // conoce RRHH. Es sólo presentación: no altera el detalle ni sus huellas.
 type EtiquetadorReferencias func(referencia string) string
 
-// referenciaConNombre imprime «Nombre (referencia)» cuando hay nombre y la
-// referencia sola cuando no; nunca oculta la referencia, que es lo que consta
-// en el expediente.
-func referenciaConNombre(etiquetar EtiquetadorReferencias, referencia string) string {
+// referenciaConNombre conserva la referencia si falta nombre. Las descargas
+// pueden omitirla junto al nombre sin alterar las referencias del expediente.
+func referenciaConNombre(etiquetar EtiquetadorReferencias, referencia string, omitirReferencia bool) string {
 	if etiquetar == nil {
 		return referencia
 	}
 	nombre := strings.TrimSpace(etiquetar(referencia))
 	if nombre == "" {
 		return referencia
+	}
+	if omitirReferencia {
+		return nombre
 	}
 	return nombre + " (" + referencia + ")"
 }
@@ -49,7 +54,7 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	documento, err := contenidoBorradorDesarrollo(tipo, detalle, r.Etiquetas, r.Plantillas)
+	documento, err := contenidoBorradorDesarrollo(tipo, detalle, r.Etiquetas, r.Plantillas, r.OmitirReferencias)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +77,7 @@ func BorradorPreparable(
 	if plantillas == nil {
 		return false
 	}
-	_, err := contenidoBorradorDesarrollo(tipo, detalle, nil, plantillas)
+	_, err := contenidoBorradorDesarrollo(tipo, detalle, nil, plantillas, false)
 	return err == nil
 }
 
@@ -84,6 +89,7 @@ func contenidoBorradorDesarrollo(
 	detalle ports.DetalleExpedienteRRHH,
 	etiquetar EtiquetadorReferencias,
 	plantillas *PlantillasBorrador,
+	omitirReferencias bool,
 ) (vecdomain.ContenidoDocumento, error) {
 	plantilla, ok := plantillas.Plantilla(tipo)
 	if !ok {
@@ -101,7 +107,7 @@ func contenidoBorradorDesarrollo(
 		!plantillas.tieneEtiqueta("fin.", string(detalle.Analisis.PeriodoCausaFin)) {
 		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
 	}
-	fuente := fuenteCampos{detalle: detalle, etiquetar: etiquetar, plantillas: plantillas, plantilla: plantilla}
+	fuente := fuenteCampos{detalle: detalle, etiquetar: etiquetar, plantillas: plantillas, plantilla: plantilla, omitirReferencias: omitirReferencias}
 	if plantilla.RequiereAccion == "" {
 		if detalle.Resumen.FaseClave != "nombramiento" || detalle.Resumen.EstadoClave != domain.EstadoEnCurso {
 			return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
