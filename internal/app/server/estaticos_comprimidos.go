@@ -179,6 +179,17 @@ func cacheCatalogoTextos(r *http.Request) string {
 	return "no-cache"
 }
 
+// anunciarHuellaTextos: el índice de idiomas lleva en X-VEC-Huella-Textos la
+// huella con la que el navegador pide después los catálogos.
+func anunciarHuellaTextos(w http.ResponseWriter, ruta string) {
+	if ruta != "/textos/idiomas.json" {
+		return
+	}
+	if huella := huellaCatalogosTextos(); huella != "" {
+		w.Header().Set("X-VEC-Huella-Textos", huella)
+	}
+}
+
 // huellaCatalogosTextos se calcula una vez por proceso: cambiar un catálogo
 // exige desplegar y reiniciar, como el resto de estáticos. Sin huella ("") no
 // se acepta ninguna y los catálogos se sirven con no-cache.
