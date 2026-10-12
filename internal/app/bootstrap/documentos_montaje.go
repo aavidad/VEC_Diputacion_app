@@ -110,6 +110,8 @@ type autoridadDocumentosDesarrollo struct {
 	cerrar      func()
 	// custodia es nil salvo con la sección custodia_firmado del material.
 	custodia *custodiaDocumentosDesarrollo
+	// Original CT comparte estos recursos y aporta su propia fábrica de lectura.
+	servicioOriginal *docapp.Servicio
 }
 
 type registradorDenegacionesDocumentos interface {
@@ -655,6 +657,13 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	}
 	reloj := relojRutasDietas{}
 	politicas, err := conservacion.NuevoCatalogoProvisional(reloj)
+	originalActivo, selectorErr := selectorCapacidadRRHHDesarrollo(cfg, envCTOriginalFirmableEnabled)
+	if selectorErr != nil {
+		return nil, selectorErr
+	}
+	if originalActivo {
+		politicas, err = conservacion.NuevoCatalogoProvisionalV2(reloj)
+	}
 	if err != nil {
 		return nil, errDocumentosEn()
 	}
@@ -738,6 +747,7 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	}
 	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicas, Reloj: reloj,
 		ContextosLectura: lectura, VerificadorFirma: verificadorFirma}
+	a.servicioOriginal = servicio
 	a.custodia, err = nuevaCustodiaDocumentosDesarrollo(c.CustodiaFirmado, repositorio, almacen, politicas, reloj, seudonimosAlmacen)
 	if err != nil {
 		return nil, errDocumentosEn()

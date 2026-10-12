@@ -229,6 +229,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == httpinterno.RutaConsultaCircuitoRRHH ||
 		r.URL.Path == httpinterno.RutaVinculosEmisionBolsa ||
 		rutaFirmasR5V2CTDesarrollo(r.URL.Path) ||
+		r.URL.Path == httpinterno.RutaOriginalFirmableCT ||
 		r.URL.Path == httpinterno.RutaEventoPlazoLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaResultadosFiscalizacion ||

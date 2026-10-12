@@ -153,6 +153,15 @@ func fronteraContratacionTemporalDesarrollo(
 	}
 }
 
+func fronteraOriginalFirmableCTDesarrollo(p *perfilesNominalesOriginalCT) (descriptorFronteraComunDesarrollo, error) {
+	if p == nil || p.detalle == nil || p.documentos == nil || p.detalle.perfilRef() == p.documentos.perfilRef() {
+		return descriptorFronteraComunDesarrollo{}, errMontajeOriginalFirmableCTNoDisponible
+	}
+	return fronteraContratacionTemporalDesarrollo("ct-original-firmable-preparar",
+		ctports.AccionConsultarDetalleRRHH, cthttp.RutaOriginalFirmableCT,
+		[]string{p.detalle.perfilRef(), p.documentos.perfilRef()}), nil
+}
+
 // descriptoresAutorizacionContratacionTemporalDesarrollo enlaza cada acción
 // CT con una única frontera y con la política completa recibida por composición.
 func descriptoresAutorizacionContratacionTemporalDesarrollo(

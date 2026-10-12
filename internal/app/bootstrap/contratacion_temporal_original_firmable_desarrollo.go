@@ -234,12 +234,15 @@ func (p pdpCTOriginalFirmableDesarrollo) solicitarOriginalV3(ctx context.Context
 	}
 	s := p.alta.soporte
 	capacidad, valida := s.capacidadValida(ctx)
-	perfil := s.perfilFijoParaContexto(ctx, capacidad.ruta)
+	var perfil *perfilFijoCTDesarrollo
+	if s.perfilesOriginal != nil {
+		perfil = s.perfilesOriginal.documentos
+	}
 	if !valida || !rutaOriginalFirmableCTDesarrollo(capacidad.ruta) || perfil == nil {
 		return vacia, errOriginalFirmableCTDenegado
 	}
-	motivo, motivoValido := s.motivoAutorizacionParaContexto(ctx, capacidad.ruta)
-	if !motivoValido || !motivoOriginalFirmableCTAdmitido(motivo) {
+	motivo := motivoOriginalFirmableCTDesarrollo()
+	if !motivoOriginalFirmableCTAdmitido(motivo) {
 		return vacia, errOriginalFirmableCTDenegado
 	}
 	_, estadoPerfil := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil)
