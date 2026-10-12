@@ -104,7 +104,8 @@ BEGIN
     AND concesion->'finalidades'='["gestion_preferencias_bolsas_propias"]'::jsonb
     AND concesion->'campos_permitidos'=p_orden->'campos_permitidos'
     AND concesion->>'garantia_minima'='alto'
-    AND concesion->'obligaciones' IN ('[]'::jsonb,'["auditar"]'::jsonb));
+    AND coalesce(concesion->'obligaciones','[]'::jsonb)
+      IN ('[]'::jsonb,'["auditar"]'::jsonb));
 EXCEPTION WHEN data_exception OR invalid_text_representation OR numeric_value_out_of_range THEN
  RETURN false;
 END $f$;
