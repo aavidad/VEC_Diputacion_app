@@ -1783,3 +1783,79 @@ test("la sesión del núcleo se lee del mismo origen y la cabecera muestra nombr
   const html = await readFile(new URL("index.html", import.meta.url), "utf8");
   assert.doesNotMatch(html, /Identidad personal no mostrada|Portal interno<\/strong>|Fase inicial/u);
 });
+
+test("la consulta privada de sesión expone identidad atestada solo al consumidor del vínculo", async () => {
+  const { consultarSesionPortal } = await import("./portal-catalogo-modulos.js");
+  const fetchImpl = async () => new Response(JSON.stringify({ data: { principal: {
+    id: "principal:rrhh-1", display_name: "Persona RRHH", roles: ["tecnico_rrhh"],
+    auth_method: "certificado", auth_assurance: "alto", attributes: { certificate_sha256: "a".repeat(64) },
+  } } }), { status: 200, headers: { "Content-Type": "application/json" } });
+  const comun = await consultarSesionPortal({ fetchImpl });
+  const privado = await consultarSesionPortal({ fetchImpl, incluirIdentidadAtestada: true });
+  assert.equal(Object.hasOwn(comun, "identidadAtestada"), false);
+  assert.deepEqual(privado.identidadAtestada, { id: "principal:rrhh-1", certificado: "a".repeat(64),
+    metodo: "certificado", garantia: "alto" });
+  await assert.rejects(consultarSesionPortal({ incluirIdentidadAtestada: true,
+    fetchImpl: async () => new Response(JSON.stringify({ data: { principal: {
+      display_name: "Persona RRHH", roles: ["tecnico_rrhh"], attributes: {},
+    } } }), { status: 200 }) }), TypeError);
+  await assert.rejects(consultarSesionPortal({ incluirIdentidadAtestada: true,
+    fetchImpl: async () => new Response(JSON.stringify({ data: { principal: {
+      id: "principal:rrhh-1", roles: ["tecnico_rrhh"], auth_method: "certificado", auth_assurance: "alto",
+    } } }), { status: 200 }) }), TypeError);
+});
+
+test("la ficha CT solo ofrece registrar la fiscalización al perfil de Intervención", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  const configuracionAnalisis = Object.freeze({
+    esquema: "vec.contratacion_temporal.configuracion_analisis.v1",
+    artefacto_ref: "artefacto:analisis:vigente:001",
+    modalidades: Object.freeze([{ clave: "sustitucion", etiqueta: "Sustitución" }]),
+    categorias: Object.freeze([]), causas: Object.freeze([]), entradas_rc: Object.freeze([]),
+    motivos_rectificacion: Object.freeze([]), jornada_completa_minutos_semanales: 2250,
+  });
+  const cliente = Object.freeze({
+    async obtenerCatalogosAlta() { return { centros: [], categorias: [], documentos: [] }; },
+    async registrarSolicitud() {},
+    async obtenerConfiguracionAnalisis() { return configuracionAnalisis; },
+    async registrarAnalisis() {},
+    async registrarResultadoFiscalizacion() {},
+  });
+  const fuente = Object.freeze({
+    capacidades: Object.freeze(["contratacion_temporal.cuadro.consultar"]),
+    async resumenInicio(opciones) { return this.listar(opciones); }, async listar() { return { expedientes: [] }; },
+    async obtener() { return {}; },
+    async ejecutar() { throw new Error("solo lectura"); },
+  });
+  for (const [roles, esperado] of [[["tecnico_rrhh"], false], [["intervencion"], true], [null, false]]) {
+    let montaje;
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      consultarSesion: async () => {
+        if (roles === null) throw new Error("sesión no disponible");
+        return { roles };
+      },
+      cargarCatalogoInterno: async () => catalogo,
+      cargadoresInternos: {
+        contratacion_temporal: async () => ({
+          cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+          adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => fuente },
+          contrato: { validarCatalogosAlta: (valor) => valor },
+          presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
+          vista: { montarModuloFiscalizacionContratacionTemporal: async () => ({ desmontar() {} }),
+            montarModuloContratacionTemporal: async (dependencias) => {
+              montaje = dependencias;
+              return { desmontar() {} };
+            } },
+        }),
+      },
+    });
+    await cargarConDiferidos(coordinador);
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
+    assert.ok(montaje.analisis, String(roles));
+    assert.equal(montaje.fiscalizacion !== null, esperado, String(roles));
+    assert.equal(montaje.fiscalizacionAjena, roles !== null && !esperado);
+  }
+});

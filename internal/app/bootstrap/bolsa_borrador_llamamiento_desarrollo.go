@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +25,7 @@ import (
 	cthttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	smtpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/smtp"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
+	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -34,9 +37,10 @@ import (
 // llegan del manifiesto privado publicado durante composición, nunca del
 // cliente.
 type preparadorBorradorLlamamientoDesarrollo struct {
-	sesion  *seguridadComunDesarrollo
-	soporte *soporteSesionBorradorBolsaDesarrollo
-	generar seguridadvec.GeneradorReferenciasCriptograficas
+	sesion           *seguridadComunDesarrollo
+	soporte          *soporteSesionBorradorBolsaDesarrollo
+	fuenteRespuestas puertosvec.FuenteAutorizacion
+	generar          seguridadvec.GeneradorReferenciasCriptograficas
 	// vigentes admite las bolsas constituidas después de arrancar (carga
 	// CONVOCA). Sin él solo valen las del manifiesto bolsas_ref.
 	vigentes consultaBolsaVigenteDesarrollo
@@ -179,6 +183,28 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaContactosBolsa
 	return puertosbolsa.ConsultaContactosBolsa{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: bolsaRef, Cursor: cursor, Limite: limite, Correlacion: correlacion, MotivoAutorizacion: motivoConsultarContactoParticipacionBolsaDesarrollo()}, nil
 }
 
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaRespuestasPortalLlamamiento(
+	ctx context.Context, bolsaRef, llamamientoRef string,
+) (puertosbolsa.ConsultaRespuestasPortalRRHH, error) {
+	if p == nil || p.fuenteRespuestas == nil || bolsaRef == "" || llamamientoRef == "" {
+		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
+	}
+	if err := p.admitirBolsa(ctx, bolsaRef); err != nil {
+		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
+	}
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
+	}
+	captura, err := CapturarLecturaRespuestasLlamamiento(ctx, p.fuenteRespuestas,
+		contexto.Vinculo, contexto.Resultado, bolsaRef, llamamientoRef)
+	if err != nil {
+		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
+	}
+	return puertosbolsa.ConsultaRespuestasPortalRRHH{BolsaRef: bolsaRef, LlamamientoRef: llamamientoRef,
+		Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, Captura: captura}, nil
+}
+
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudCrearBorradorLlamamientoInterno(
 	ctx context.Context, entrada bolsahttp.EntradaCrearBorradorLlamamientoInterno,
 ) (puertosbolsa.SolicitudCrearBorradorLlamamiento, error) {
@@ -310,6 +336,7 @@ type manejadorParticipacionBolsaDesarrollo struct {
 	situacion, operaciones, solicitudesDocumentales, contacto, datosContacto, contratos, sanciones, reincorporaciones http.Handler
 	preparador                                                                                                        *preparadorBorradorLlamamientoDesarrollo
 	servicio                                                                                                          *aplicacionbolsa.ServicioContactoParticipacion
+	respuestas                                                                                                        *aplicacionbolsa.ServicioRespuestasPortalRRHH
 	// servicioSituacion permite componer después las reglas de transición.
 	servicioSituacion *aplicacionbolsa.ServicioSituacionParticipacion
 	// datos y emision reciben después la regla del contacto de origen CONVOCA.
@@ -357,6 +384,19 @@ func (m *manejadorParticipacionBolsaDesarrollo) ListarContactosBolsa(ctx context
 		return puertosbolsa.PaginaContactosParticipacion{}, err
 	}
 	return m.servicio.ListarContactosBolsa(ctx, q)
+}
+
+func (m *manejadorParticipacionBolsaDesarrollo) ConsultarRespuestasPortalLlamamiento(
+	ctx context.Context, bolsaRef, llamamientoRef string,
+) (puertosbolsa.RespuestasPortalLlamamientoRRHH, error) {
+	if m == nil || m.preparador == nil || m.respuestas == nil {
+		return puertosbolsa.RespuestasPortalLlamamientoRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
+	}
+	q, err := m.preparador.PrepararConsultaRespuestasPortalLlamamiento(ctx, bolsaRef, llamamientoRef)
+	if err != nil {
+		return puertosbolsa.RespuestasPortalLlamamientoRRHH{}, err
+	}
+	return m.respuestas.ConsultarRespuestasPortalLlamamiento(ctx, q)
 }
 
 func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context, solicitud dominiovec.SolicitudAutorizacionLigadaV3, resultado dominiovec.ResultadoContextoActorRegistradoV2) (dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -482,6 +522,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	completa := false
 	cerrarIntentosDocumentales := func() {}
 	cerrarCargaConvoca := func() {}
+	cerrarFuenteRespuestas := func() {}
 	detenerReincorporaciones := func() {}
 	defer func() {
 		if !completa {
@@ -489,6 +530,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 			cerrarAuditoria()
 			cerrarIntentosDocumentales()
 			cerrarCargaConvoca()
+			cerrarFuenteRespuestas()
 		}
 	}()
 	sesionBolsa, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(
@@ -795,6 +837,14 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	repositorioRespuestas, err := postgresbolsa.NuevoRepositorioRespuestasPortalRRHHPostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	servicioRespuestas, err := aplicacionbolsa.NuevoServicioRespuestasPortalRRHH(repositorioRespuestas)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
 	repositorioDatos, err := postgresbolsa.NuevoRepositorioDatosContactoParticipacionPostgreSQL(alta.postgresql.bolsa)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
@@ -863,7 +913,25 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{canales: canales, situacion: handlerSituacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	// La lectura B103 es una capacidad optativa y falla cerrada cuando falta su
+	// LOGIN fuente. Una configuración presente pero inválida detiene el montaje.
+	if dsn, errDSN := cfg.DSNFuenteAutorizacionRespuestasBolsa(); errDSN == nil {
+		poolFuente, errPool := abrirPoolAutoridadAuditoriaDesarrollo(ctx, dsn,
+			config.RolAutorizacionFuenteRRHH, "vec-bolsa-b103-fuente")
+		if errPool != nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		fuente, errFuente := postgresvec.NuevoAlmacenAutorizacion(poolFuente)
+		if errFuente != nil {
+			poolFuente.Close()
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		preparador.fuenteRespuestas = fuente
+		cerrarFuenteRespuestas = poolFuente.Close
+	} else if strings.TrimSpace(os.Getenv(config.EnvBolsaB103FuenteAutorizacionDatabaseURL)) != "" {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	mutador := &manejadorParticipacionBolsaDesarrollo{canales: canales, situacion: handlerSituacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	proyectorFicha, err := nuevoProyectorDisponibilidadFichaOperacionesBolsa(
 		preparador, politicaBolsa, dependenciasCT.reloj, mutador.solicitudesDocumentales, mutador.reincorporaciones)
 	if err != nil {
@@ -898,6 +966,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		cerrarAuditoria()
 		cerrarIntentosDocumentales()
 		cerrarCargaConvoca()
+		cerrarFuenteRespuestas()
 	}
 	if incorporacionAcreditadaSolicitada(cfg) {
 		var catalogo catalogoNoIncorporacionBolsa

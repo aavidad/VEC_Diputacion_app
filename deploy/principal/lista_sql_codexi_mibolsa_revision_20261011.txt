@@ -1,0 +1,6 @@
+# Mi Bolsa: respuesta pendiente de confirmación por RRHH.
+# Instalar después de B100 de #995. Publicar antes binario y web de esta PR.
+# No encender otro circuito ni provisionar perfiles con esta lista.
+# Solo SQL nueva; B30/B77/HZ20 ya instaladas, no repetirlas ni ejecutar DOWN.
+deploy/postgresql/bolsa_llamamientos/migraciones/000101_respuesta_propia_en_revision.up.sql
+# SHA256 B101 bfdc8671df37e6cb82c88fb2a84c38e9a68fe57f72c464011f075a12520cc639
