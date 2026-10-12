@@ -1,0 +1,6 @@
+# B45 debe estar instalada con su política de ejemplo v1 y su historia intacta.
+# Dirección coteja la preimagen en el destino; el guion la comprueba antes de
+# publicar solo v2. No es una migración, no ejecutar DOWN ni reescribir v1.
+# El catálogo fuente es data/catalogos/bolsa/politica_cese_ejemplo_v2.json.
+# El guion se regenera con scripts/preparar_publicacion_politica_cese.py.
+deploy/principal/publicar_politica_cese_bolsa_v2.sql

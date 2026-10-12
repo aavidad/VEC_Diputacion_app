@@ -152,7 +152,7 @@
     "ayuda_texto": "Open the prepared file to compare earlier and proposed scores. A pending score remains ungraded. Official review, approval and publication are still pending.",
     "abrir": "Open a preparation",
     "solo_local": "Example data",
-    "limite": "Preparation using synthetic data. It does not register an appeal or approve a grade.",
+    "limite": "Draft pending validation. It does not register an appeal or approve a grade.",
     "archivo": "Preparation JSON file",
     "descargar": "Download original",
     "cerrar": "Close file",

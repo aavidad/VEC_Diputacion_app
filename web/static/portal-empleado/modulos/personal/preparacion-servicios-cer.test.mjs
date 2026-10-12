@@ -20,7 +20,7 @@ const pintar = (m = modelo(), relacionRef = "rel_uno") => crearPanelPreparacionS
 
 test("presenta la preparación y su límite sin emitir ni calcular certificado", () => {
   const panel = pintar();
-  assert.match(visible(panel), /Preparación con datos sintéticos.*Cobertura no acreditada.*no permite emitir un certificado oficial/u);
+  assert.match(visible(panel), /Información pendiente de validar.*Cobertura no acreditada.*no permite emitir un certificado oficial/u);
   assert.match(texto(panel), /Reconocido en el ejercicio.*Periodos coincidentes/u);
   assert.equal(nodos(panel).filter((n) => n.tagName === "button" || n.tagName === "a").length, 0);
   assert.equal(nodos(panel).filter((n) => n.tagName === "th" && n.attrs.scope === "col").length, 5);

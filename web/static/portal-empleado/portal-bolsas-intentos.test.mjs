@@ -89,7 +89,7 @@ test("la ficha muestra proceso, avisos y reglas sin rotular su procedencia, esca
   assert.match(salida, /Antes de la separación mínima/);
   assert.match(salida, /1 de 4/);
   assert.match(salida, /<li>Franja &lt;b&gt;/);
-  assert.doesNotMatch(salida, /Regla de ejemplo|<code>/);
+  assert.doesNotMatch(salida, /Regla pendiente de aprobación|<code>/);
   assert.match(salida, /data-intentos-form="intento"/);
   assert.match(salida, /data-intentos-form="rebote"/);
   assert.doesNotMatch(salida, /data-b8-accion/);

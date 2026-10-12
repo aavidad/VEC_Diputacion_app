@@ -7,7 +7,7 @@
   "cabeceras": {"registro": "Record", "fecha": "Date", "hora": "Time", "movimiento": "Event", "origen": "Origin", "desde": "From", "hasta": "To", "zona_horaria": "Time zone", "estado_fuente": "Source status", "aviso": "Notice"},
   "contexto": "Example context",
   "marcaje": "Example clocking event",
-  "sintetico": "Synthetic example. It does not read the real register and has no administrative validity. Employee downloads remain pending.",
+  "sintetico": "Draft for review. It does not read the real register and has no administrative validity. Employee downloads remain pending.",
   "fuente_completa": "The example source is declared complete. It does not verify the real register.",
   "fuente_incompleta": "The example source is incomplete. Information may be missing.",
   "origen_sin_verificar": "Unverified",
