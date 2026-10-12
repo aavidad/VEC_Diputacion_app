@@ -163,7 +163,14 @@ func nuevoMaterialPlanCT(op, ref, org string, d DatosPlanIncorporacionCT, a core
 		return MaterialPlanIncorporacionCT{}, ErrRegistroEmpleadoB2Invalido
 	}
 	h := sha256.Sum256(b)
-	r := core.RecursoAutorizable{Referencia: ref, ModuloID: "personal", Tipo: "plan_incorporacion_ct", Ambitos: map[string]string{"objetivo_ref": ref, "organismo_ref": org}, Atributos: map[string]string{"operacion": op, "material_sha256": hex.EncodeToString(h[:])}}
+	// Ámbito: el organismo, que es la competencia del perfil fijo. El plan
+	// concreto va en los atributos firmados; Personal44 lo coteja. La lectura
+	// de clases de ocupación conserva su objetivo cerrado en los ámbitos.
+	r := core.RecursoAutorizable{Referencia: ref, ModuloID: "personal", Tipo: "plan_incorporacion_ct", Ambitos: map[string]string{"organismo_ref": org}, Atributos: map[string]string{"objetivo_ref": ref, "operacion": op, "material_sha256": hex.EncodeToString(h[:])}}
+	if op == "clases_ocupacion" {
+		r.Ambitos["objetivo_ref"] = ref
+		delete(r.Atributos, "objetivo_ref")
+	}
 	if _, err = r.HuellaContextoAutorizacionSHA256(); err != nil {
 		return MaterialPlanIncorporacionCT{}, ErrRegistroEmpleadoB2Invalido
 	}
@@ -242,7 +249,7 @@ func NuevoMaterialSeleccionPlanIncorporacionCT(s SolicitudSeleccionPlanIncorpora
 		return MaterialPlanIncorporacionCT{}, ErrRegistroEmpleadoB2Invalido
 	}
 	h := sha256.Sum256(b)
-	r := core.RecursoAutorizable{Referencia: s.PlazaRef, ModuloID: "personal", Tipo: "plan_incorporacion_ct", Ambitos: map[string]string{"objetivo_ref": s.PlazaRef, "organismo_ref": s.OrganismoRef}, Atributos: map[string]string{"operacion": "seleccionar", "material_sha256": hex.EncodeToString(h[:])}}
+	r := core.RecursoAutorizable{Referencia: s.PlazaRef, ModuloID: "personal", Tipo: "plan_incorporacion_ct", Ambitos: map[string]string{"organismo_ref": s.OrganismoRef}, Atributos: map[string]string{"objetivo_ref": s.PlazaRef, "operacion": "seleccionar", "material_sha256": hex.EncodeToString(h[:])}}
 	if _, e = r.HuellaContextoAutorizacionSHA256(); e != nil {
 		return MaterialPlanIncorporacionCT{}, ErrRegistroEmpleadoB2Invalido
 	}

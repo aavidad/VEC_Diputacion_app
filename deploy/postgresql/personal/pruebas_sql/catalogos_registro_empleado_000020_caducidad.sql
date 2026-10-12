@@ -16,7 +16,7 @@ BEGIN
  x:=jsonb_build_object('esquema','vec.contexto-actor.vinculado.v2','principal_ref','actor:sintetico:rrhh',
   'perfil_activo_ref','perfil:sintetico:rrhh','persona_version',1,'perfil_version',1);
  mh:=encode(sha256(convert_to(m::text,'UTF8')),'hex');
- recurso:='{"ambitos":{"objetivo_ref":"org:sintetico:regimen:reg:carrera:1","organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||mh||'","operacion":"publicar"}}';
+ recurso:='{"ambitos":{"organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||mh||'","objetivo_ref":"org:sintetico:regimen:reg:carrera:1","operacion":"publicar"}}';
  rh:=encode(sha256(convert_to(recurso,'UTF8')),'hex');
  c:=jsonb_build_object('operacion','personal.registro_empleado.catalogo.publicar',
   'audiencia_consumo','vec_personal.registro_empleado.catalogo.publicar.v1',

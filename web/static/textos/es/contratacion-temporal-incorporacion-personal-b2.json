@@ -86,5 +86,19 @@
   "ct_incorporacion_b2_previo_documento": "Documento de formalización disponible",
   "ct_incorporacion_b2_previo_rpt": "Puesto vigente comprobado",
   "ct_incorporacion_b2_previo_plaza": "Plaza disponible comprobada",
-  "ct_incorporacion_b2_previo_periodo": "Periodo de incorporación comprobado"
+  "ct_incorporacion_b2_previo_periodo": "Periodo de incorporación comprobado",
+  "catalogo_registro": {
+    "regimen": {
+      "funcionario_interino": "Funcionario interino",
+      "laboral_temporal": "Personal laboral temporal"
+    },
+    "modalidad": {
+      "interino_plaza_vacante": "Interinidad por plaza vacante",
+      "interino_sustitucion_titular": "Interinidad por sustitución del titular",
+      "interino_programa_temporal": "Interinidad por programa temporal",
+      "interino_exceso_acumulacion_tareas": "Interinidad por exceso o acumulación de tareas",
+      "laboral_sustitucion": "Contrato de sustitución",
+      "laboral_circunstancias_produccion": "Contrato por circunstancias de la producción"
+    }
+  }
 }
