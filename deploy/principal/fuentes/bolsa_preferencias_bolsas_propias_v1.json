@@ -1,0 +1,66 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:preferencias_bolsas_propias",
+  "version": 1,
+  "huella_sha256": "4ef4d31641136feda9d9d29cb97b133ca3dc1312fa093e9439d31b2b68c01788",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.preferencias_bolsas.consultar_propias\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:preferencias_bolsas_propias\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.preferencias_bolsas.consultar_propias\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"participaciones_candidato\",\"finalidades\":[\"gestion_preferencias_bolsas_propias\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"version\",\"orden_guardado\",\"bolsas_actuales\",\"bolsas_nuevas\",\"bolsas_retiradas\",\"revision_requerida\",\"recibo_ref\",\"registrado_en\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"candidato_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"},{\"referencia\":\"accion:bolsa.preferencias_bolsas.ordenar_propias\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:preferencias_bolsas_propias\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.preferencias_bolsas.ordenar_propias\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"participaciones_candidato\",\"finalidades\":[\"gestion_preferencias_bolsas_propias\"],\"garantia_minima\":\"alto\"},\"dimensiones_ambito\":[\"candidato_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.preferencias_bolsas.consultar_propias",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:preferencias_bolsas_propias",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "4ef4d31641136feda9d9d29cb97b133ca3dc1312fa093e9439d31b2b68c01788",
+      "concesion": {
+        "accion": "bolsa.preferencias_bolsas.consultar_propias",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "participaciones_candidato",
+        "finalidades": [
+          "gestion_preferencias_bolsas_propias"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "version",
+          "orden_guardado",
+          "bolsas_actuales",
+          "bolsas_nuevas",
+          "bolsas_retiradas",
+          "revision_requerida",
+          "recibo_ref",
+          "registrado_en"
+        ],
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "candidato_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z"
+    },
+    {
+      "referencia": "accion:bolsa.preferencias_bolsas.ordenar_propias",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:preferencias_bolsas_propias",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "4ef4d31641136feda9d9d29cb97b133ca3dc1312fa093e9439d31b2b68c01788",
+      "concesion": {
+        "accion": "bolsa.preferencias_bolsas.ordenar_propias",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "participaciones_candidato",
+        "finalidades": [
+          "gestion_preferencias_bolsas_propias"
+        ],
+        "garantia_minima": "alto"
+      },
+      "dimensiones_ambito": [
+        "candidato_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z"
+    }
+  ]
+}

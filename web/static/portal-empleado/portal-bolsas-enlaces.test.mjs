@@ -71,7 +71,14 @@ test("la relación global minimiza referencias y ofrece paginación accesible", 
   assert.match(html, /data-bolsa-accion="pagina-global" data-cursor="1"/u);
   assert.match(html, /data-accion="ver-bolsa"/u);
   assert.doesNotMatch(html, /secreto/u);
-  assert.doesNotMatch(html, /data-seguimiento|<th scope="col">Aspirantes<\/th>/u);
+  assert.doesNotMatch(html, /<th scope="col">Aspirantes<\/th>/u);
+  const enlace = html.match(/<a[^>]+href="([^"]+)"[^>]*data-seguimiento="([^"]+)"/u);
+  assert.ok(enlace, "cada aviso abre su seguimiento autorizado");
+  const destino = new URL(enlace[1].replaceAll("&amp;", "&"), "https://vec.invalid");
+  assert.equal(destino.searchParams.get("bolsa_ref"), BOLSA.bolsa_ref);
+  assert.equal(destino.searchParams.get("seguimiento"), "llamamiento:prueba:00000001");
+  assert.equal(enlace[2], destino.searchParams.get("seguimiento"));
+  assert.doesNotMatch(html, />llamamiento:prueba:00000001</u);
 });
 
 test("los resúmenes nuevos conservan los campos validados y activan enlaces con corte", async () => {
