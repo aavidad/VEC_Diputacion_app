@@ -101,6 +101,12 @@
       "one": "{cuenta} pending application",
       "other": "{cuenta} pending applications"
     },
-    "revision_meritos_titulo": "Qualification and merit review"
+    "revision_meritos_titulo": "Qualification and merit review",
+    "convocatorias_titulo": "Recruitment notices",
+    "convocatorias_listado": "Published and past notices",
+    "convocatorias_ayuda_boton": "Help with recruitment notices",
+    "convocatorias_ayuda": "Check the category, status and closing date of each notice. Select a notice to view its pending applications. You can also view notices whose application period has ended.",
+    "convocatorias_no_disponible": "Recruitment notices could not be opened. Contact the person responsible for recruitment pools.",
+    "convocatorias_denegada": "Your current access does not allow you to view recruitment notices. Contact the person responsible for access permissions."
   }
 }
