@@ -1,20 +1,22 @@
 # Candidata M4. Datos sintéticos. Esta lista no autoriza instalación.
 # Comprobar la cabeza causal y las postimágenes exactas antes de ejecutar.
 # RUM03/000001 y RUM04/000002 ya tienen historia: no reaplicar ni ejecutar DOWN.
-# Requiere AUT76/AD246 de #1041, AUT77/AD248 de #1048 y AD249/B108 C3 de L
+# Requiere AUT76/AD246 de #1041, AUT77/AD248 de #1048 y AD249/B108 C3 de
+# PR1055@cd1e540a3 (AD249 SHA256 07b94d02f7d615211aa7cb02a394c518f8ba44748c9f17cf95ad0aebbc4898d5)
 # en la cabeza final, junto con AUT79 de L, CC11 instalada y CC12 de X.
-# AD250 se construye solo desde el
-# literal POST-AD249 real. AUT80 se ancla al cuerpo AUT60/61 instalado en esa
+# AD250 se ancla solo al literal POST-AD249 real. AUT80 se ancla al cuerpo AUT60/61 instalado en esa
 # misma cabeza, sin sustituir las migraciones con historia.
 # AUT80 extiende el productor ADMIN de RolID nuevo para dos concesiones exactas
 # solo de persona_meritos_cartera. Después el acto ADMIN publica el rol/control;
 # la asignación externa de ámbito persona_ref exige su propio CAS nominal.
 # Ninguna migración de esta lista concede el rol a una persona.
-# Provisión de LOGIN separada, aprobada por Identidad: una fila nueva en
-# vec_identidad_externa_v1.llamante_autorizacion para el LOGIN nominal M4, con
-# grupo_esperado=vec_meritos_cartera_externo y aprobacion_ref propio. Ese LOGIN
-# debe ser ordinario, heredar solo ese grupo sin SET/ADMIN y usar certificado
-# vigente en el canal externa_personal. No usar el LOGIN Bolsa ni Usuarios.
+# Identidad aprueba dos filas nominales en
+# vec_identidad_externa_v1.llamante_autorizacion: LOGIN de datos M4 con
+# grupo_esperado=vec_meritos_cartera_externo, y LOGIN
+# vec_externo_meritos_registro_autorizacion con
+# grupo_esperado=vec_autorizacion_registro_meritos_externo. Cada fila necesita
+# aprobacion_ref propio. Ambos LOGIN deben ser ordinarios, heredar solo su
+# grupo sin SET/ADMIN y usar certificado vigente en externa_personal.
 # No hay INSERT ni credencial en estas migraciones. La fila de Identidad tampoco
 # publica el permiso: el acto ADMIN distinto debe gobernar rol
 # persona_meritos_cartera, control vigente y asignación exacta persona_ref por CAS.
@@ -34,8 +36,16 @@
 # vec_autorizacion_fuente_meritos_externa, sin SET/ADMIN. La provisión del LOGIN
 # y su permiso de conexión es un acto separado; AUT17 fija el rol Usuarios y
 # AUT15 fija los roles Bolsa, por lo que sus fuentes no sustituyen esta función.
-# Para POST se requiere registrador/revalidador nominal V3 externo de Méritos,
-# con motivo de autorización V3 propio; AUT15/AUT17 no admiten esa acción/rol.
+# AUT78 instala el registrador/revalidador nominal V3 externo de Méritos y la
+# fachada de motivo de autorización `motivos_autorizacion_meritos_cartera`.
+# LOGIN de registro `vec_externo_meritos_registro_autorizacion`, grupo único
+# `vec_autorizacion_registro_meritos_externo`; LOGIN de motivos
+# `vec_externo_meritos_motivos_autorizacion`, grupo único
+# `vec_autorizacion_motivos_meritos_externo`. Se provisionan fuera de Git.
+# AD250 añade audiencia `vec_meritos.cartera.retirar_propio.v1`; la clave V3
+# y `configuracion_origen_consumos_v1` deben admitir exactamente esa audiencia,
+# acción `meritos.cartera.retirar_propio`, canal externa_personal y LOGIN de
+# datos M4 antes del recorrido. No sembrar esas filas por migración.
 # El motivo de negocio es distinto: catálogo común publicado
 # motivos_meritos_cartera, con versión, huella y entrada vigente. AUT78 lo
 # valida al crear la retirada; un replay conserva su referencia histórica.

@@ -12,6 +12,8 @@ DO $pre$ BEGIN
  OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
  OR to_regrole('vec_meritos_cartera_externo') IS NOT NULL
  OR to_regrole('vec_autorizacion_fuente_meritos_externa') IS NOT NULL
+ OR to_regrole('vec_autorizacion_registro_meritos_externo') IS NOT NULL
+ OR to_regrole('vec_autorizacion_motivos_meritos_externo') IS NOT NULL
  OR to_regprocedure('vec_autorizacion.cotejar_cartera_meritos_actual_v1(jsonb,jsonb)') IS NOT NULL
  OR to_regprocedure('vec_autorizacion.obtener_instantanea_meritos_externo_v1(text,text)') IS NOT NULL
  OR to_regprocedure('vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(jsonb)') IS NOT NULL
@@ -21,14 +23,30 @@ DO $pre$ BEGIN
  OR to_regprocedure('vec_autorizacion.revalidar_sesion_cartera_meritos_v1(jsonb,timestamptz,timestamptz,timestamptz)') IS NOT NULL
  OR to_regprocedure('vec_identidad_externa_v1.acreditar_sesion_externa_v1(text,text,text,text,text,text,boolean,text,text,text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,timestamptz)') IS NULL
  OR to_regprocedure('vec_autorizacion.login_candidato_externo_v1(text,text)') IS NULL
+ OR to_regprocedure('vec_autorizacion.vinculo_contexto_actor_v2_valido(jsonb)') IS NULL
+ OR to_regprocedure('vec_contexto_actor_v1.acreditar_perfil_usuarios_externo_v1(text,text,text)') IS NULL
+ OR to_regprocedure('vec_autorizacion.registrar_decision_contexto_actor_v3_externa_interna(bytea,bytea,numeric,numeric)') IS NULL
+ OR to_regprocedure('vec_autorizacion.revalidar_decision_contexto_actor_v3_externa_interna(bytea,bytea,numeric,numeric)') IS NULL
+ OR to_regprocedure('vec_autorizacion.registrar_decision_contexto_actor_v3_meritos_interna(bytea,bytea,numeric,numeric)') IS NOT NULL
+ OR to_regprocedure('vec_autorizacion.revalidar_decision_contexto_actor_v3_meritos_interna(bytea,bytea,numeric,numeric)') IS NOT NULL
+ OR to_regprocedure('vec_autorizacion.resolver_motivo_meritos_externo_v1(text,integer,text,text,timestamptz)') IS NOT NULL
+ OR to_regprocedure('vec_autorizacion.decision_meritos_externa_exacta_v1(jsonb,jsonb)') IS NOT NULL
+ OR to_regprocedure('vec_autorizacion.registrar_y_revalidar_decision_meritos_externo_v3(bytea,bytea,numeric,numeric)') IS NOT NULL
+ OR to_regprocedure('vec_autorizacion.revalidar_decision_meritos_externo_v3_viva(bytea,bytea,numeric,numeric)') IS NOT NULL
+ OR to_regprocedure('vec_autorizacion.decision_contexto_actor_v3_canonica(jsonb)') IS NULL
+ OR to_regprocedure('vec_autorizacion.motivo_contexto_actor_v3_canonico(jsonb)') IS NULL
  OR to_regprocedure('vec_contexto_actor_v1.perfil_usuarios_externo_provisionado_v1(text,text)') IS NULL
  OR to_regclass('vec_autorizacion.asignacion_perfil_actual_externa') IS NULL
  THEN RAISE EXCEPTION 'AUT78: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 CREATE ROLE vec_meritos_cartera_externo NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 CREATE ROLE vec_autorizacion_fuente_meritos_externa NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+CREATE ROLE vec_autorizacion_registro_meritos_externo NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+CREATE ROLE vec_autorizacion_motivos_meritos_externo NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 DO $db$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_meritos_cartera_externo',current_database()); END $db$;
 DO $db_fuente$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_autorizacion_fuente_meritos_externa',current_database()); END $db_fuente$;
+DO $db_registro$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_autorizacion_registro_meritos_externo',current_database()); END $db_registro$;
+DO $db_motivos$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_autorizacion_motivos_meritos_externo',current_database()); END $db_motivos$;
 SET LOCAL ROLE vec_autorizacion_propietario;
 
 CREATE FUNCTION vec_autorizacion.obtener_instantanea_meritos_externo_v1(
@@ -187,6 +205,7 @@ BEGIN
  OR current_setting('transaction_read_only')<>'off'
  OR current_setting('TimeZone')<>'UTC'
  OR jsonb_typeof(p_vinculo) IS DISTINCT FROM 'object'
+ OR vec_autorizacion.vinculo_contexto_actor_v2_valido(p_vinculo) IS NOT TRUE
  OR p_vinculo->>'superficie' IS DISTINCT FROM 'externa_personal'
  OR p_vinculo->>'cuenta_privilegiada' IS DISTINCT FROM 'false'
  OR p_vinculo->>'metodo_observado' NOT IN ('certificado','dnie')
@@ -197,7 +216,10 @@ BEGIN
    JOIN pg_roles g ON g.oid=m.roleid
    WHERE l.rolname=session_user AND l.rolcanlogin AND l.rolinherit
    AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls)
-   AND l.rolconfig IS NULL AND g.rolname='vec_meritos_cartera_externo'
+   AND l.rolconfig IS NULL
+   AND (g.rolname='vec_meritos_cartera_externo'
+    OR (g.rolname='vec_autorizacion_registro_meritos_externo'
+     AND l.rolname='vec_externo_meritos_registro_autorizacion'))
    AND NOT(g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
    AND g.rolconfig IS NULL AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
  OR (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1
@@ -224,6 +246,161 @@ EXCEPTION WHEN data_exception OR invalid_text_representation OR datetime_field_o
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.revalidar_sesion_cartera_meritos_v1(
  jsonb,timestamptz,timestamptz,timestamptz) FROM PUBLIC;
+
+-- Se clona solo el transporte externo V3 existente. El consumidor AD250
+-- conserva las mismas firmas criptográficas y comprueba acción/audiencia.
+DO $clonar_v3$
+DECLARE v record;p pg_proc%ROWTYPE;original text;nuevo text;firma_nueva text;
+BEGIN
+ FOR v IN SELECT * FROM (VALUES
+  ('vec_autorizacion.registrar_decision_contexto_actor_v3_externa_interna(bytea,bytea,numeric,numeric)',
+   'registrar_decision_contexto_actor_v3_externa_interna',
+   'registrar_decision_contexto_actor_v3_meritos_interna',
+   '4dd4719d58c64526ec9f6001a2227d479a5182001cf9c125548898cb52fc2fa6'),
+  ('vec_autorizacion.revalidar_decision_contexto_actor_v3_externa_interna(bytea,bytea,numeric,numeric)',
+   'revalidar_decision_contexto_actor_v3_externa_interna',
+   'revalidar_decision_contexto_actor_v3_meritos_interna',
+   'eeed4d2d437d463a5fbed163e23168126184dd2003d095fc4c90ceb0ee54052c')
+ ) AS x(firma,nombre,nuevo_nombre,huella) LOOP
+  SELECT * INTO p FROM pg_proc WHERE oid=to_regprocedure(v.firma);
+  IF NOT FOUND OR p.proowner<>to_regrole('vec_autorizacion_propietario')
+   OR p.prosecdef IS NOT TRUE OR p.provolatile<>'v'
+   OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM v.huella
+  THEN RAISE EXCEPTION 'AUT78: preimagen V3 externa divergente %',v.firma USING ERRCODE='55000';END IF;
+  original:=pg_get_functiondef(p.oid);
+  IF strpos(original,'CREATE OR REPLACE FUNCTION vec_autorizacion.'||v.nombre||'(')<>1
+   OR (length(original)-length(replace(original,
+    'vec_autorizacion.revalidar_sesion_vinculo_externo_v2','')))
+     /length('vec_autorizacion.revalidar_sesion_vinculo_externo_v2')<1
+  THEN RAISE EXCEPTION 'AUT78: fuente V3 sin marca única %',v.firma USING ERRCODE='55000';END IF;
+  nuevo:=replace(original,
+   'CREATE OR REPLACE FUNCTION vec_autorizacion.'||v.nombre||'(',
+   'CREATE FUNCTION vec_autorizacion.'||v.nuevo_nombre||'(');
+  nuevo:=replace(nuevo,'vec_autorizacion.revalidar_sesion_vinculo_externo_v2',
+   'vec_autorizacion.revalidar_sesion_cartera_meritos_v1');
+  EXECUTE nuevo;
+  firma_nueva:='vec_autorizacion.'||v.nuevo_nombre||'(bytea,bytea,numeric,numeric)';
+  IF to_regprocedure(firma_nueva) IS NULL
+  THEN RAISE EXCEPTION 'AUT78: clon V3 ausente %',firma_nueva USING ERRCODE='55000';END IF;
+  EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC',to_regprocedure(firma_nueva));
+ END LOOP;
+END $clonar_v3$;
+
+CREATE FUNCTION vec_autorizacion.resolver_motivo_meritos_externo_v1(
+ p_catalogo_id text,p_catalogo_version integer,p_huella text,p_entrada text,p_instante timestamptz)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp AS $f$
+BEGIN
+ IF vec_autorizacion.login_candidato_externo_v1(
+  'vec_externo_meritos_motivos_autorizacion','vec_autorizacion_motivos_meritos_externo') IS NOT TRUE
+ OR p_catalogo_id IS DISTINCT FROM 'motivos_autorizacion_meritos_cartera'
+ THEN RAISE EXCEPTION 'AUT78: motivo V3 externo denegado' USING ERRCODE='42501';END IF;
+ RETURN vec_autorizacion.resolver_motivo_autorizacion_v2_historico(
+  p_catalogo_id,p_catalogo_version,p_huella,p_entrada,p_instante);
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.resolver_motivo_meritos_externo_v1(
+ text,integer,text,text,timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.resolver_motivo_meritos_externo_v1(
+ text,integer,text,text,timestamptz) TO vec_autorizacion_motivos_meritos_externo;
+
+CREATE FUNCTION vec_autorizacion.decision_meritos_externa_exacta_v1(d jsonb,m jsonb)
+RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
+DECLARE v jsonb;
+BEGIN
+ v:=d->'vinculo_autenticacion_actor';
+ IF current_user<>'vec_autorizacion_propietario'
+ OR vec_autorizacion.decision_contexto_actor_v3_valida(d) IS NOT TRUE
+ OR d->>'accion' IS DISTINCT FROM 'meritos.cartera.retirar_propio'
+ OR d->>'modulo_id' IS DISTINCT FROM 'meritos'
+ OR d->>'tipo_recurso' IS DISTINCT FROM 'hecho'
+ OR d->>'finalidad' IS DISTINCT FROM 'gestion_cartera_propia'
+ OR d->'campos_permitidos' IS DISTINCT FROM '["disponibilidad","recibo"]'::jsonb
+ OR d->'obligaciones' IS DISTINCT FROM '["auditar"]'::jsonb
+ OR v->>'superficie' IS DISTINCT FROM 'externa_personal'
+ OR v->>'cuenta_privilegiada' IS DISTINCT FROM 'false'
+ OR d->>'principal_id' IS DISTINCT FROM v->>'principal_id'
+ OR d->>'perfil_activo_ref' IS DISTINCT FROM v->>'perfil_activo_ref'
+ OR vec_contexto_actor_v1.acreditar_perfil_usuarios_externo_v1(
+  v->>'cuenta_ref',d->>'principal_id',d->>'perfil_activo_ref') IS NOT TRUE
+ OR m#>>'{referencia,catalogo_id}' IS DISTINCT FROM 'motivos_autorizacion_meritos_cartera'
+ OR NOT EXISTS(SELECT 1 FROM vec_autorizacion.version_rol r
+  WHERE r.version_rol_ref=d->>'version_rol_ref'
+   AND r.rol_id='persona_meritos_cartera'
+   AND (SELECT array_agg(x.value->>'accion' ORDER BY x.value->>'accion')
+    FROM jsonb_array_elements(r.documento->'concesiones') x)
+    =ARRAY['meritos.cartera.consultar_propia','meritos.cartera.retirar_propio']::text[])
+ THEN RETURN false;END IF;
+ RETURN true;
+EXCEPTION WHEN data_exception OR invalid_text_representation THEN RETURN false;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.decision_meritos_externa_exacta_v1(jsonb,jsonb)
+ FROM PUBLIC;
+
+CREATE FUNCTION vec_autorizacion.registrar_y_revalidar_decision_meritos_externo_v3(
+ p_decision bytea,p_motivo bytea,p_persona_version numeric,p_perfil_version numeric)
+RETURNS TABLE(concedida boolean,codigo text,decision_huella_sha256 text,
+ registrada_en timestamptz,revalidada_en timestamptz)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' AS $f$
+DECLARE d jsonb;m jsonb;registro record;viva timestamptz;
+BEGIN
+ IF vec_autorizacion.login_candidato_externo_v1(
+  'vec_externo_meritos_registro_autorizacion','vec_autorizacion_registro_meritos_externo') IS NOT TRUE
+ OR current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off'
+ OR p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 1 AND 524288
+ OR p_motivo IS NULL OR octet_length(p_motivo) NOT BETWEEN 1 AND 65536
+ THEN RAISE EXCEPTION 'AUT78: registro V3 externo denegado' USING ERRCODE='42501';END IF;
+ BEGIN d:=convert_from(p_decision,'UTF8')::jsonb;m:=convert_from(p_motivo,'UTF8')::jsonb;
+ EXCEPTION WHEN data_exception OR invalid_text_representation THEN
+  RAISE EXCEPTION 'AUT78: material V3 inválido' USING ERRCODE='22023';END;
+ IF vec_autorizacion.decision_contexto_actor_v3_canonica(d) IS DISTINCT FROM p_decision
+ OR vec_autorizacion.motivo_contexto_actor_v3_canonico(m) IS DISTINCT FROM p_motivo
+ OR vec_autorizacion.decision_meritos_externa_exacta_v1(d,m) IS NOT TRUE
+ THEN RAISE EXCEPTION 'AUT78: decisión M4 divergente' USING ERRCODE='42501';END IF;
+ SELECT * INTO registro FROM vec_autorizacion.registrar_decision_contexto_actor_v3_meritos_interna(
+  p_decision,p_motivo,p_persona_version,p_perfil_version);
+ IF NOT FOUND OR registro.concedida IS NOT TRUE THEN RETURN;END IF;
+ viva:=vec_autorizacion.revalidar_decision_contexto_actor_v3_meritos_interna(
+  p_decision,p_motivo,p_persona_version,p_perfil_version);
+ IF viva IS NULL THEN RETURN;END IF;
+ RETURN QUERY SELECT registro.concedida,registro.codigo,registro.decision_huella_sha256,
+  registro.registrada_en,viva;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.registrar_y_revalidar_decision_meritos_externo_v3(
+ bytea,bytea,numeric,numeric) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.registrar_y_revalidar_decision_meritos_externo_v3(
+ bytea,bytea,numeric,numeric) TO vec_autorizacion_registro_meritos_externo;
+
+CREATE FUNCTION vec_autorizacion.revalidar_decision_meritos_externo_v3_viva(
+ p_decision bytea,p_motivo bytea,p_persona_version numeric,p_perfil_version numeric)
+RETURNS timestamptz LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' AS $f$
+DECLARE d jsonb;m jsonb;
+BEGIN
+ IF NOT pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
+ OR current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off'
+ OR p_decision IS NULL OR p_motivo IS NULL
+ THEN RAISE EXCEPTION 'AUT78: revalidación V3 externa denegada' USING ERRCODE='42501';END IF;
+ BEGIN d:=convert_from(p_decision,'UTF8')::jsonb;m:=convert_from(p_motivo,'UTF8')::jsonb;
+ EXCEPTION WHEN data_exception OR invalid_text_representation THEN
+  RAISE EXCEPTION 'AUT78: material V3 inválido' USING ERRCODE='22023';END;
+ IF vec_autorizacion.decision_contexto_actor_v3_canonica(d) IS DISTINCT FROM p_decision
+ OR vec_autorizacion.motivo_contexto_actor_v3_canonico(m) IS DISTINCT FROM p_motivo
+ OR vec_autorizacion.decision_meritos_externa_exacta_v1(d,m) IS NOT TRUE
+ THEN RAISE EXCEPTION 'AUT78: revalidación M4 divergente' USING ERRCODE='42501';END IF;
+ RETURN vec_autorizacion.revalidar_decision_contexto_actor_v3_meritos_interna(
+  p_decision,p_motivo,p_persona_version,p_perfil_version);
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.revalidar_decision_meritos_externo_v3_viva(
+ bytea,bytea,numeric,numeric) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.revalidar_decision_meritos_externo_v3_viva(
+ bytea,bytea,numeric,numeric) TO vec_autorizacion_atestada_v3_propietario;
+GRANT USAGE ON SCHEMA vec_autorizacion
+ TO vec_autorizacion_registro_meritos_externo,vec_autorizacion_motivos_meritos_externo,
+ vec_autorizacion_atestada_v3_propietario;
 
 CREATE FUNCTION vec_autorizacion.cotejar_cartera_meritos_actual_v1(p_orden jsonb,p_vinculo jsonb)
 RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
