@@ -69,11 +69,17 @@ func CompararConjuntos(anterior, nuevo Conjunto) (DiferenciaReglas, error) {
 		Anterior: Dependencia{anterior.Referencia, anterior.Version, HuellaSHA256(a)},
 		Nuevo:    Dependencia{nuevo.Referencia, nuevo.Version, HuellaSHA256(n)}, Cambios: []CambioReglas{},
 	}
+	if anterior.Esquema == EsquemaReglasV2 || nuevo.Esquema == EsquemaReglasV2 {
+		d.Esquema = "vec.bolsa.diferencia_reglas_meritos.v2"
+	}
 	// Campos tipados del conjunto, sin identidad, version ni colecciones.
 	for _, par := range []struct {
 		campo string
 		a, n  any
 	}{
+		{"esquema", anterior.Esquema, nuevo.Esquema},
+		{"categoria_ref", anterior.CategoriaRef, nuevo.CategoriaRef},
+		{"plaza_ref", anterior.PlazaRef, nuevo.PlazaRef},
 		{"bases", anterior.Bases, nuevo.Bases},
 		{"fecha_corte_inclusiva", anterior.FechaCorteInclusiva, nuevo.FechaCorteInclusiva},
 		{"duplicados", anterior.Duplicados, nuevo.Duplicados},
@@ -134,8 +140,15 @@ func CompararConjuntos(anterior, nuevo Conjunto) (DiferenciaReglas, error) {
 			if err := json.Unmarshal(nb, &nc); err != nil {
 				return DiferenciaReglas{}, err
 			}
-			for campo, valor := range pc {
-				if err := d.registrar(ambito, k, campo, valor, nc[campo]); err != nil {
+			campos := make(map[string]bool, len(pc)+len(nc))
+			for campo := range pc {
+				campos[campo] = true
+			}
+			for campo := range nc {
+				campos[campo] = true
+			}
+			for campo := range campos {
+				if err := d.registrar(ambito, k, campo, pc[campo], nc[campo]); err != nil {
 					return DiferenciaReglas{}, err
 				}
 			}

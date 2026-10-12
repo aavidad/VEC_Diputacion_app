@@ -46,9 +46,16 @@ func (ServicioMeritos) SimularMeritos(s Solicitud) (SimulacionMeritos, error) {
 		ConvocatoriaRef       string          `json:"convocatoria_ref"`
 		HuellaResultadoSHA256 string          `json:"huella_resultado_sha256"`
 		Resultado             json.RawMessage `json:"resultado"`
-	}{"vec.bolsa.simulacion_meritos.v1", "simulacion", c.ConvocatoriaRef, huella, canonico})
+	}{esquemaSimulacionMeritos(r.Esquema), "simulacion", c.ConvocatoriaRef, huella, canonico})
 	if err != nil {
 		return fallo("resultado", err)
 	}
 	return SimulacionMeritos{canonico: contenido, huellaResultado: huella}, nil
+}
+
+func esquemaSimulacionMeritos(resultado string) string {
+	if resultado == calculomeritos.EsquemaResultadoV2 {
+		return "vec.bolsa.simulacion_meritos.v2"
+	}
+	return "vec.bolsa.simulacion_meritos.v1"
 }
