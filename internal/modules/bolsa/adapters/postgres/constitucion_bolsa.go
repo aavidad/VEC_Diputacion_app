@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -155,6 +156,19 @@ func (recibo reciboConstitucionJSON) traducir() (ports.ReciboConstitucion, error
 }
 
 func (r *RepositorioConstitucionPostgreSQL) ListarVigentes(ctx context.Context) ([]ports.ConstitucionVigente, error) {
+	return r.listarVigentes(ctx, "", false)
+}
+
+// ListarVigentesBolsa usa la misma función y validador que ListarVigentes,
+// filtrando antes de transferir y validar los canónicos de otras bolsas.
+func (r *RepositorioConstitucionPostgreSQL) ListarVigentesBolsa(ctx context.Context, bolsaRef string) ([]ports.ConstitucionVigente, error) {
+	if bolsaRef == "" || bolsaRef != strings.TrimSpace(bolsaRef) || len(bolsaRef) > 512 {
+		return nil, ports.ErrConstitucionBolsaNoDisponible
+	}
+	return r.listarVigentes(ctx, bolsaRef, true)
+}
+
+func (r *RepositorioConstitucionPostgreSQL) listarVigentes(ctx context.Context, bolsaRef string, filtrada bool) ([]ports.ConstitucionVigente, error) {
 	if ctx == nil || r == nil || r.pool == nil {
 		return nil, ports.ErrConstitucionBolsaNoDisponible
 	}
@@ -163,8 +177,14 @@ func (r *RepositorioConstitucionPostgreSQL) ListarVigentes(ctx context.Context) 
 		return nil, ports.ErrConstitucionBolsaNoDisponible
 	}
 	defer tx.Rollback(context.Background())
-	filas, err := tx.Query(ctx, `SELECT acta_ref, categoria_ref, estado, instantanea_canonica, total_participaciones, confirmada_en
-		FROM vec_bolsa_llamamientos.listar_constituciones_v1()`)
+	consulta := `SELECT acta_ref, categoria_ref, estado, instantanea_canonica, total_participaciones, confirmada_en
+		FROM vec_bolsa_llamamientos.listar_constituciones_v1()`
+	var filas pgx.Rows
+	if filtrada {
+		filas, err = tx.Query(ctx, consulta+` WHERE bolsa_ref=$1`, bolsaRef)
+	} else {
+		filas, err = tx.Query(ctx, consulta)
+	}
 	if err != nil {
 		return nil, errorConstitucion(ctx, err)
 	}
@@ -186,6 +206,9 @@ func (r *RepositorioConstitucionPostgreSQL) ListarVigentes(ctx context.Context) 
 		v.Bolsa = dominio.BolsaConstituida{BolsaRef: instantanea.BolsaRef, Version: instantanea.VersionBolsa,
 			CategoriaRef: v.CategoriaRef, ListadoDefinitivoRef: instantanea.ListadoDefinitivoRef,
 			VersionListado: instantanea.VersionListado, HuellaListadoSHA256: instantanea.HuellaListadoSHA256}
+		if filtrada && (v.Bolsa.BolsaRef != bolsaRef || len(resultado) != 0) {
+			return nil, ports.ErrConstitucionBolsaNoDisponible
+		}
 		resultado = append(resultado, v)
 	}
 	if filas.Err() != nil {

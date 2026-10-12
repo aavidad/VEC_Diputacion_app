@@ -128,3 +128,9 @@ type RepositorioConstitucion interface {
 	RegistrarVinculos(context.Context, string, []VinculoCandidato, time.Time) (ReciboVinculosCandidato, error)
 	ParticipacionesCandidato(context.Context, string) ([]ParticipacionCandidato, error)
 }
+
+// LectorConstitucionVigenteBolsa acota la lectura RRHH a la bolsa solicitada.
+// El repositorio conserva la validación completa de su instantánea canónica.
+type LectorConstitucionVigenteBolsa interface {
+	ListarVigentesBolsa(context.Context, string) ([]ConstitucionVigente, error)
+}

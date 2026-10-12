@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"vec-diputacion-granada/config"
@@ -229,6 +230,9 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarBolsaRRHH(ctx context.Context, b
 	if f == nil || f.bolsaConjunto == nil || bolsaRef == "" {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
+	if _, ok := f.repositorio.(ports.LectorConstitucionVigenteBolsa); !ok {
+		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+	}
 	return f.cargarAlcance(ctx, alcanceCargaBolsasRRHH{bolsa: bolsaRef, detalle: true, conjunto: true})
 }
 
@@ -243,7 +247,20 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
 	corte := f.ahora()
-	vigentes, err := f.repositorio.ListarVigentes(ctx)
+	var vigentes []ports.ConstitucionVigente
+	var err error
+	if alcance.conjunto {
+		lector, ok := f.repositorio.(ports.LectorConstitucionVigenteBolsa)
+		if !ok {
+			return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+		}
+		vigentes, err = lector.ListarVigentesBolsa(ctx, alcance.bolsa)
+		if len(vigentes) > 1 {
+			return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+		}
+	} else {
+		vigentes, err = f.repositorio.ListarVigentes(ctx)
+	}
 	if err != nil {
 		return datasetBolsasRRHHDesarrollo{}, err
 	}
@@ -256,6 +273,20 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 	for _, vigente := range vigentes {
 		if alcance.bolsa != "" && vigente.Bolsa.BolsaRef != alcance.bolsa {
 			continue
+		}
+		var filasPreparadas map[int]struct{ nombre, documento string }
+		var errFilas error
+		var esperaFilas sync.WaitGroup
+		if alcance.conjunto && alcance.detalle {
+			ctxFilas, cancelarFilas := context.WithCancel(ctx)
+			esperaFilas.Add(1)
+			go func() {
+				defer esperaFilas.Done()
+				filasPreparadas, errFilas = f.filasVisibles(ctxFilas, vigente)
+			}()
+			// También ante un error SQL se cancela y espera la recuperación;
+			// nunca queda una tarea con identidades después de responder.
+			defer func() { cancelarFilas(); esperaFilas.Wait() }()
 		}
 		var ordenVigente dominiobolsa.OrdenVigenteBolsa
 		var filasResumen []ports.SituacionBolsaRRHH
@@ -316,7 +347,13 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargarAlcance(ctx context.Context, alc
 			if err := f.cargarMarcas(ctx, &datos, vigente.Bolsa.BolsaRef); err != nil {
 				return datasetBolsasRRHHDesarrollo{}, err
 			}
-			if filas, err = f.filasVisibles(ctx, vigente); err != nil {
+			if alcance.conjunto {
+				esperaFilas.Wait()
+				filas, err = filasPreparadas, errFilas
+			} else {
+				filas, err = f.filasVisibles(ctx, vigente)
+			}
+			if err != nil {
 				return datasetBolsasRRHHDesarrollo{}, err
 			}
 		}
