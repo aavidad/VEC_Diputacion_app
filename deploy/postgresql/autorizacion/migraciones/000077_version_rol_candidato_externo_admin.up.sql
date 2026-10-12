@@ -367,7 +367,7 @@ BEGIN
   hojas:=CASE WHEN i=0 THEN ARRAY['version','orden_guardado','bolsas_actuales',
    'bolsas_nuevas','bolsas_retiradas','revision_requerida','recibo_ref','registrado_en']::text[]
    ELSE ARRAY[]::text[] END;
-  IF entrada#>'{concesion,campos_permitidos}' IS DISTINCT FROM to_jsonb(hojas)
+  IF coalesce(entrada#>'{concesion,campos_permitidos}','[]'::jsonb) IS DISTINCT FROM to_jsonb(hojas)
   THEN RAISE EXCEPTION 'AUT77: campos fuera de contrato %',acciones[i+1] USING ERRCODE='42501';END IF;
   IF p_primera AND (ahora<(entrada->>'vigente_desde')::timestamptz
    OR (entrada->>'vigente_hasta'<>'0001-01-01T00:00:00Z'
