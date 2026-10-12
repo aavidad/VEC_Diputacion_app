@@ -120,7 +120,7 @@ test("la fase muestra Dirección o Jefatura desde el catálogo sin abrir firma o
   assert.match(es, /Firma con certificado en VEC · Firma de prueba, sin eficacia administrativa/u);
   assert.match(es, /Envío al portafirmas corporativo/u);
   assert.match(en, /Sign with a certificate in VEC · Test signature with no administrative effect/u);
-  assert.match(en, /Sending to the corporate signature service/u);
+  assert.match(en, /Sending to Portafirmas/u);
   assert.match(es, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
   assert.doesNotMatch(es, /data-ct-firma-accion=/u);
   assert.match(es, /Desde esta pantalla aún no se ha firmado, enviado ni registrado el documento en Portafirmas/u);
@@ -246,9 +246,9 @@ test("las dos vías de firma usan el idioma del portal", () => {
   }
   const traductor = crearTraductorCircuitoFirma(MENSAJES_CIRCUITO_FIRMA_EN, "en-GB");
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), traductor);
-  assert.match(html, /Sending to the corporate signature service/u);
+  assert.match(html, /Sending to Portafirmas/u);
   assert.match(html, /Sending unavailable/u);
-  assert.match(html, /<button[^>]*disabled[^>]*>Send to the signature service<\/button>/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Send to Portafirmas<\/button>/u);
   assert.match(html, /Sending from this panel is not available/u);
   assert.match(html, /The document has not yet been signed, sent or registered in Portafirmas from this screen/u);
   assert.match(html, /Awaiting test signature by/u);
@@ -569,8 +569,8 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261012-ct-firma-error-v1"],
-    ["vista-expedientes.js", "20261012-ct-firma-error-v1"],
+    ["circuito-firma.js", "20261012-ct-firma-error-v2"],
+    ["vista-expedientes.js", "20261012-ct-firma-error-v2"],
 
   ]);
   const anterior = "20260929-custodia-506-v1";

@@ -12,7 +12,7 @@ import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
 import { cargarTextosFaseFirma, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
-import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261012-ct-firma-error-v1";
+import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261012-ct-firma-error-v2";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
@@ -304,7 +304,11 @@ export function crearGestorCircuitoFirma({
     const peticion = new AbortController(); preparacionControlador = peticion;
     boton.disabled = true;
     const aviso = zona.querySelector?.("[data-ct-preparacion-aviso]");
-    if (aviso) aviso.textContent = t("circuito_firma_original_preparando");
+    if (aviso) {
+      aviso.classList?.remove?.("estado-chip", "peligro", "ct-preparacion-error");
+      aviso.setAttribute?.("role", "status");
+      aviso.textContent = t("circuito_firma_original_preparando");
+    }
     try {
       const original = await clienteOriginal.preparar({ expedienteRef: contexto.ref, version: contexto.version,
         documento: "resolucion" }, { signal: peticion.signal });
@@ -316,8 +320,12 @@ export function crearGestorCircuitoFirma({
       raiz.querySelector?.("[data-ct-descargar-preparado]")?.focus?.({ preventScroll: true });
     } catch (error) {
       if (!mismaFicha(contexto) || peticion.signal.aborted) return;
-      if (aviso) aviso.textContent = t(error?.codigo === "acceso_denegado"
-        ? "circuito_firma_original_denegado" : "circuito_firma_original_error");
+      if (aviso) {
+        aviso.classList?.add?.("estado-chip", "peligro", "ct-preparacion-error");
+        aviso.setAttribute?.("role", "alert");
+        aviso.textContent = t(error?.codigo === "acceso_denegado"
+          ? "circuito_firma_original_denegado" : "circuito_firma_original_error");
+      }
     } finally {
       boton.disabled = false;
       if (preparacionControlador === peticion) preparacionControlador = null;

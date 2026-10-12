@@ -102,7 +102,7 @@
     "circuito_firma_original_descargar": "Descargar PDF preparado",
     "circuito_firma_original_nombre": "resolucion-preparada.pdf",
     "circuito_firma_original_descargando": "Descargando el PDF preparado…",
-    "circuito_firma_original_error": "No se ha podido confirmar la preparación. Reintente para recuperar el comprobante; si sigue igual, avise a Informática.",
+    "circuito_firma_original_error": "No se ha podido preparar la resolución. Vuelva a intentarlo en unos minutos; si sigue igual, avise a Informática.",
     "circuito_firma_original_denegado": "No tiene permiso para preparar esta resolución. Pídalo a quien administra los permisos de RRHH.",
     "circuito_firma_original_descarga_error": "No se ha podido descargar el PDF preparado. Vuelva a intentarlo.",
     "circuito_firma_firmantes": "Orden de firma de la resolución",
