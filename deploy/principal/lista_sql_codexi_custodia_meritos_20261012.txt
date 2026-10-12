@@ -8,3 +8,6 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000238_ingesta_mayan_docu
 deploy/postgresql/documentos/migraciones/000016_plan_ingesta_mayan.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000240_cargas_directas_documentos.up.sql
 deploy/postgresql/documentos/migraciones/000017_cargas_directas_cuarentena.up.sql
+# D18: guardia de referencias externas de Méritos; necesaria para abrir la custodia (consultar_carga_admitida_custodia_v1).
+# 1bcae620b3dbae78fe0bccf57bf59376258b378642ba715747ef88c43b96780a
+deploy/postgresql/documentos/migraciones/000018_guardia_meritos_mayan.up.sql
