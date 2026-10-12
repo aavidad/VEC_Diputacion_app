@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -12,6 +13,166 @@ import (
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
+
+type lectorAsignacionB2ContadoPrueba struct {
+	*publicadorPermisoIncorporacionPrueba
+	mu       sync.Mutex
+	base     *publicadorPermisoIncorporacionPrueba
+	lecturas int
+}
+
+func (l *lectorAsignacionB2ContadoPrueba) leerAsignacionPublicada(ctx context.Context, perfil string) (instantaneaPublicadaDesarrollo, bool, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.lecturas++
+	return l.base.leerAsignacionPublicada(ctx, perfil)
+}
+
+func escenarioCapturaAsignacionB2Prueba(t *testing.T) (*autoridadIncorporacionPersonalB2, context.Context, *lectorAsignacionB2ContadoPrueba) {
+	t.Helper()
+	base, ctx, _, publicador := escenarioNominalIncorporacion(t)
+	refs := base.referencias
+	refs.PerfilV3Ref = base.soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	if err := extenderPerfilesNominalesB2(base.nominales, refs, &archivoIncorporacionPersonalB2{Protocolo: "personal_b2_v1", OrganismoRef: "organismo:prueba", CatalogoRPTID: "categorias_rpt", ModuloRPTID: "personal"}, base.reloj.Ahora()); err != nil {
+		t.Fatal(err)
+	}
+	for _, perfil := range base.nominales.todos() {
+		perfil.contextoEsperadoRegistrado = perfil.contexto.Resultado
+		perfil.sesionOperativa = &sesionNominalIncorporacionPrueba{contexto: perfil.contexto}
+		publicador.publicadas[perfil.perfilRef()] = instantaneaPublicadaDesarrollo{instantanea: perfil.plantilla, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}
+	}
+	lector := &lectorAsignacionB2ContadoPrueba{publicadorPermisoIncorporacionPrueba: publicador, base: publicador}
+	base.soporte.autoridadAsignaciones = lector
+	ctx = context.WithValue(ctx, claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "POST", ruta: httpinterno.RutaPlanB2})
+	return &autoridadIncorporacionPersonalB2{perfiles: base.nominales, reloj: base.reloj}, ctx, lector
+}
+
+func TestIncorporacionB2CapturaAsignacionUnaVezPorPerfilYPeticion(t *testing.T) {
+	a, ctx, lector := escenarioCapturaAsignacionB2Prueba(t)
+	acciones := []string{ct.AccionLeerPlanNominalB2, ct.AccionRegistrarPlanNominalB2, "personal.plan_incorporacion_ct.seleccionar"}
+	for range 3 {
+		for _, accion := range acciones {
+			if _, err := a.actor(ctx, accion); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if lector.lecturas != 2 {
+		t.Fatalf("tres acciones de dos perfiles leyeron %d asignaciones", lector.lecturas)
+	}
+	otra := context.WithValue(ctx, claveContextosNominalesIncorporacion{}, &capturaContextosNominalesIncorporacion{})
+	if _, err := a.actor(otra, ct.AccionLeerPlanNominalB2); err != nil || lector.lecturas != 3 {
+		t.Fatalf("otra petición reutilizó la asignación: lecturas=%d err=%v", lector.lecturas, err)
+	}
+}
+
+func TestIncorporacionB2CapturaConcurrenteNoDuplicaLectura(t *testing.T) {
+	a, ctx, lector := escenarioCapturaAsignacionB2Prueba(t)
+	errores := make(chan error, 8)
+	var grupo sync.WaitGroup
+	for range 8 {
+		grupo.Go(func() {
+			_, err := a.actor(ctx, ct.AccionLeerPlanNominalB2)
+			errores <- err
+		})
+	}
+	grupo.Wait()
+	close(errores)
+	for err := range errores {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if lector.lecturas != 1 {
+		t.Fatalf("captura concurrente hizo %d lecturas", lector.lecturas)
+	}
+}
+
+func TestIncorporacionB2CapturaNoComparteCamposNiObligacionesConFuente(t *testing.T) {
+	a, ctx, lector := escenarioCapturaAsignacionB2Prueba(t)
+	perfil := a.perfiles.b2[ct.AccionLeerPlanNominalB2]
+	perfil.plantilla.VersionRol.Concesiones[0].Obligaciones = []string{"registrar_auditoria"}
+	publicada := lector.base.publicadas[perfil.perfilRef()]
+	publicada.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(perfil.plantilla)
+	campoOriginal := publicada.instantanea.VersionRol.Concesiones[0].CamposPermitidos[0]
+	lector.base.publicadas[perfil.perfilRef()] = publicada
+	if _, err := a.actor(ctx, ct.AccionLeerPlanNominalB2); err != nil {
+		t.Fatal(err)
+	}
+	holder := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+	concesion := holder.asignacionesB2[perfil].instantanea.VersionRol.Concesiones[0]
+	var grupo sync.WaitGroup
+	grupo.Go(func() {
+		for range 1000 {
+			publicada.instantanea.VersionRol.Concesiones[0].CamposPermitidos[0] = "campo_del_origen"
+			publicada.instantanea.VersionRol.Concesiones[0].Obligaciones[0] = "obligacion_del_origen"
+		}
+	})
+	independiente := true
+	for range 1000 {
+		independiente = independiente && concesion.CamposPermitidos[0] == campoOriginal && concesion.Obligaciones[0] == "registrar_auditoria"
+	}
+	grupo.Wait()
+	if !independiente || concesion.CamposPermitidos[0] != campoOriginal || concesion.Obligaciones[0] != "registrar_auditoria" {
+		t.Fatal("la fuente alteró campos u obligaciones después de capturarlos")
+	}
+	if lector.lecturas != 1 {
+		t.Fatalf("comprobación de independencia releyó %d veces", lector.lecturas)
+	}
+}
+
+func TestIncorporacionB2OtraPeticionRechazaAsignacionRevocada(t *testing.T) {
+	for _, caso := range []string{"revocada", "rol_retirado", "ambitos_restringidos", "acto_ajeno", "lector_caido"} {
+		t.Run(caso, func(t *testing.T) {
+			a, ctx, lector := escenarioCapturaAsignacionB2Prueba(t)
+			if _, err := a.actor(ctx, ct.AccionLeerPlanNominalB2); err != nil {
+				t.Fatal(err)
+			}
+			perfil := a.perfiles.b2[ct.AccionLeerPlanNominalB2]
+			publicada := lector.base.publicadas[perfil.perfilRef()]
+			publicada.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
+			switch caso {
+			case "revocada":
+				publicada.instantanea.AsignacionPerfil.Estado = core.EstadoAsignacionPerfilRevocada
+			case "rol_retirado":
+				publicada.instantanea.ControlVigenciaVersionRol.Estado = core.EstadoControlVigenciaVersionRolRetirada
+			case "ambitos_restringidos":
+				publicada.instantanea.AsignacionPerfil.Ambitos[0].Valores = []string{"organizacion:ajena"}
+			case "acto_ajeno":
+				publicada.actoAsignacion = "acto:ajeno"
+			case "lector_caido":
+				lector.base.errorLectura = errors.New("lector B2 no disponible")
+			}
+			lector.base.publicadas[perfil.perfilRef()] = publicada
+			otra := context.WithValue(ctx, claveContextosNominalesIncorporacion{}, &capturaContextosNominalesIncorporacion{})
+			_, err := a.actor(otra, ct.AccionLeerPlanNominalB2)
+			esperado := ct.ErrAutorizacionDenegada
+			if caso == "lector_caido" {
+				esperado = ct.ErrConsultaRRHHNoDisponible
+			}
+			if !errors.Is(err, esperado) || lector.lecturas != 2 {
+				t.Fatalf("otra petición no releyó y rechazó: lecturas=%d err=%v", lector.lecturas, err)
+			}
+		})
+	}
+}
+
+func TestIncorporacionB2CapturaNoGuardaErroresNiCruzaPropietarios(t *testing.T) {
+	a, ctx, lector := escenarioCapturaAsignacionB2Prueba(t)
+	lector.base.errorLectura = errors.New("lector B2 no disponible")
+	if _, err := a.actor(ctx, ct.AccionLeerPlanNominalB2); !errors.Is(err, ct.ErrConsultaRRHHNoDisponible) {
+		t.Fatal(err)
+	}
+	lector.base.errorLectura = nil
+	if _, err := a.actor(ctx, ct.AccionLeerPlanNominalB2); err != nil || lector.lecturas != 2 {
+		t.Fatalf("se guardó el fallo de lectura: lecturas=%d err=%v", lector.lecturas, err)
+	}
+	ajeno := *a.perfiles
+	a.perfiles = &ajeno
+	if _, err := a.actor(ctx, ct.AccionLeerPlanNominalB2); !errors.Is(err, ct.ErrAutorizacionDenegada) || lector.lecturas != 2 {
+		t.Fatalf("captura de otro propietario admitida: lecturas=%d err=%v", lector.lecturas, err)
+	}
+}
 
 type sesionNominalIncorporacionPrueba struct {
 	contexto ct.ContextoAutorizacionAltaV3

@@ -261,26 +261,27 @@ func (d Decision) Validar() error {
 }
 
 type Solicitud struct {
-	SolicitudRef    string      `json:"solicitud_ref"`
-	ReciboRef       string      `json:"recibo_ref"`
-	ConvocatoriaRef string      `json:"convocatoria_ref"`
-	CategoriaRef    string      `json:"categoria_ref"`
-	BolsaRef        *string     `json:"bolsa_ref,omitempty"`
-	Categoria       string      `json:"categoria"`
-	DeclaracionRef  string      `json:"declaracion_ref,omitempty"`
-	BasesRef        string      `json:"bases_ref,omitempty"`
-	CatalogoVersion uint64      `json:"catalogo_version,omitempty"`
-	PlazoInicio     *time.Time  `json:"plazo_inicio,omitempty"`
-	PlazoFin        *time.Time  `json:"plazo_fin,omitempty"`
-	Requisitos      []Requisito `json:"requisitos,omitempty"`
-	PersonaResumen  string      `json:"persona_resumen,omitempty"`
-	DecisionRef     string      `json:"decision_ref,omitempty"`
-	Estado          string      `json:"estado"`
-	Version         uint64      `json:"version"`
-	RegistradaEn    time.Time   `json:"registrada_en"`
-	DecididaEn      *time.Time  `json:"decidida_en,omitempty"`
-	MotivoCodigo    string      `json:"motivo_codigo,omitempty"`
-	MotivoEtiqueta  string      `json:"motivo_etiqueta,omitempty"`
+	SolicitudRef       string      `json:"solicitud_ref"`
+	ReciboRef          string      `json:"recibo_ref"`
+	ConvocatoriaRef    string      `json:"convocatoria_ref"`
+	ConvocatoriaTitulo string      `json:"convocatoria_titulo,omitempty"`
+	CategoriaRef       string      `json:"categoria_ref"`
+	BolsaRef           *string     `json:"bolsa_ref,omitempty"`
+	Categoria          string      `json:"categoria"`
+	DeclaracionRef     string      `json:"declaracion_ref,omitempty"`
+	BasesRef           string      `json:"bases_ref,omitempty"`
+	CatalogoVersion    uint64      `json:"catalogo_version,omitempty"`
+	PlazoInicio        *time.Time  `json:"plazo_inicio,omitempty"`
+	PlazoFin           *time.Time  `json:"plazo_fin,omitempty"`
+	Requisitos         []Requisito `json:"requisitos,omitempty"`
+	PersonaResumen     string      `json:"persona_resumen,omitempty"`
+	DecisionRef        string      `json:"decision_ref,omitempty"`
+	Estado             string      `json:"estado"`
+	Version            uint64      `json:"version"`
+	RegistradaEn       time.Time   `json:"registrada_en"`
+	DecididaEn         *time.Time  `json:"decidida_en,omitempty"`
+	MotivoCodigo       string      `json:"motivo_codigo,omitempty"`
+	MotivoEtiqueta     string      `json:"motivo_etiqueta,omitempty"`
 	// ParticipacionRef sólo existe cuando la autoridad de Bolsa ha creado un
 	// vínculo a una participación válida del orden vigente.
 	ParticipacionRef string `json:"participacion_ref,omitempty"`
@@ -290,6 +291,7 @@ func (s Solicitud) Validar() error {
 	if !solicitudRefValida(s.SolicitudRef) || !referenciaOpaca.MatchString(s.ReciboRef) ||
 		!convocatoriaRefValida(s.ConvocatoriaRef) || !referenciaOpaca.MatchString(s.CategoriaRef) || len(s.CategoriaRef) > 200 ||
 		s.Categoria == "" || len(s.Categoria) > 2048 ||
+		(s.ConvocatoriaTitulo != "" && (strings.TrimSpace(s.ConvocatoriaTitulo) == "" || len([]rune(s.ConvocatoriaTitulo)) > 180)) ||
 		s.Version == 0 || s.RegistradaEn.IsZero() {
 		return ErrSolicitudInvalida
 	}
@@ -348,6 +350,7 @@ type Pagina struct {
 type ConvocatoriaGestion struct {
 	ConvocatoriaRef   string    `json:"convocatoria_ref"`
 	Titulo            string    `json:"titulo"`
+	Pendientes        uint64    `json:"pendientes"`
 	CategoriasResumen string    `json:"categorias_resumen"`
 	PlazoFin          time.Time `json:"plazo_fin"`
 	EstadoPublicacion string    `json:"estado_publicacion"`
