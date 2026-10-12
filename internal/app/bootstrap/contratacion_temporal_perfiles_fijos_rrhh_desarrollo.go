@@ -14,7 +14,9 @@ import (
 	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 // Perfiles fijos de RRHH (corte 2; el análisis, corte 3).
@@ -162,6 +164,25 @@ func (s *soporteAltaContratacionTemporalDesarrollo) perfilFijoParaRuta(ruta stri
 func (s *soporteAltaContratacionTemporalDesarrollo) perfilFijoParaContexto(
 	ctx context.Context, ruta string,
 ) *perfilFijoCTDesarrollo {
+	if ruta == httpinterno.RutaOriginalFirmableCT {
+		capacidad, valida := s.capacidadValida(ctx)
+		if !valida || capacidad.ruta != ruta || capacidad.metodo != http.MethodPost || s.perfilesOriginal == nil {
+			return nil
+		}
+		datos, ok := ctx.Value(claveSolicitudAutorizacionContratacionTemporalDesarrollo{}).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
+		if !ok {
+			return nil
+		}
+		switch {
+		case datos.Accion == ports.AccionConsultarDetalleRRHH && datos.Recurso.ModuloID == ports.ModuloContratacion && datos.Finalidad == ports.FinalidadConsultarDetalleRRHH:
+			return s.perfilesOriginal.detalle
+		case datos.Recurso.ModuloID == moduloRecursoDocumentosCT && (datos.Accion == docports.AccionDescargar || datos.Accion == docports.AccionReservarOriginalFirmable ||
+			datos.Accion == docports.AccionConfirmarOriginalFirmable || datos.Accion == puertosvec.AccionNegocioEscribirOriginalFirmable):
+			return s.perfilesOriginal.documentos
+		default:
+			return nil
+		}
+	}
 	if ruta == rutaEntregaPeticionCentro {
 		capacidad, valida := s.capacidadValida(ctx)
 		if !valida || capacidad.ruta != ruta ||
@@ -322,6 +343,10 @@ func asegurarPerfilFijoCTDesarrollo(
 	}
 	if _, exacta := instantaneaConsumible(publicada, plantilla, ahora); exacta &&
 		publicada.actoAsignacion == actoAsignacionPerfilFijoCTDesarrollo {
+		return perfilFijoVigente, nil
+	}
+	if ampliacionVinculoBolsaPublicadaCTDesarrollo(p, plantilla, publicada.instantanea) && admitida(publicada, ahora) {
+		// Ampliación con vínculo a Bolsa: la asegura su paso; no se rebaja.
 		return perfilFijoVigente, nil
 	}
 	huella, errHuella := publicada.instantanea.AsignacionPerfil.HuellaSHA256()
@@ -508,7 +533,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 		case rutaFirmaExternaV2CTDesarrollo(ruta):
 			valida = solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(datos)
 		case rutaOriginalFirmableCTDesarrollo(ruta):
-			valida = solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos)
+			valida = p == s.perfilesOriginal.documentos && solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, datos) ||
+				p == s.perfilesOriginal.detalle && s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos)
 		}
 		if !valida {
 			return dominiovec.InstantaneaAutorizacion{}, false

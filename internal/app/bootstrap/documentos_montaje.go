@@ -110,6 +110,8 @@ type autoridadDocumentosDesarrollo struct {
 	cerrar      func()
 	// custodia es nil salvo con la sección custodia_firmado del material.
 	custodia *custodiaDocumentosDesarrollo
+	// Original CT comparte estos recursos y aporta su propia fábrica de lectura.
+	servicioOriginal *docapp.Servicio
 }
 
 type registradorDenegacionesDocumentos interface {
@@ -738,6 +740,7 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	}
 	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicas, Reloj: reloj,
 		ContextosLectura: lectura, VerificadorFirma: verificadorFirma}
+	a.servicioOriginal = servicio
 	a.custodia, err = nuevaCustodiaDocumentosDesarrollo(c.CustodiaFirmado, repositorio, almacen, politicas, reloj, seudonimosAlmacen)
 	if err != nil {
 		return nil, errDocumentosEn()

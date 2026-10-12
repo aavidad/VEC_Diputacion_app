@@ -398,7 +398,8 @@ func selectorBolsaPlanB2Valido(c ContratoPlanNominal) bool {
 			return false
 		}
 	}
-	return s.UnidadRef == c.DatosPersonal.UnidadRef && s.CategoriaRef == c.CategoriaRef && s.LlamamientoRef == c.LlamamientoRef &&
+	// La unidad de la bolsa identifica el origen; la unidad del puesto es el destino.
+	return s.CategoriaRef == c.CategoriaRef && s.LlamamientoRef == c.LlamamientoRef &&
 		huellaPlanNominalValida(s.AceptacionRegistroSHA256) && huellaPlanNominalValida(s.AperturaRegistroSHA256) &&
 		c.DatosPersonal.CategoriaID == c.CategoriaRef
 }
