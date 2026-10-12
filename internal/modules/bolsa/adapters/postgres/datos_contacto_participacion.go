@@ -248,3 +248,70 @@ func errorDatosContactoParticipacion(err error) error {
 	}
 	return ports.ErrDatosContactoParticipacionNoDisponibles
 }
+
+// ConsultarOrigenDatosContactoActual confirma el cotejo, la lectura opcional y
+// su asiento común juntos. Un fallo de descifrado revierte el acceso positivo.
+func (r *RepositorioDatosContactoParticipacionPostgreSQL) ConsultarOrigenDatosContactoActual(ctx context.Context,
+	captura puertosvec.CapturaLecturaNominalBolsa, entregar func(ports.LecturaDatosContactoAutorizada) error,
+) (ports.LecturaDatosContactoAutorizada, error) {
+	vacia := ports.LecturaDatosContactoAutorizada{}
+	if r == nil || r.pool == nil || ctx == nil || entregar == nil || captura.BolsaRef == "" || captura.RecursoRef == "" ||
+		len(captura.Orden) == 0 || len(captura.ContextoCanonico) == 0 || len(captura.VinculoCanonico) == 0 || !captura.ValidaHasta.After(time.Now().UTC()) {
+		return vacia, dominiovec.ErrAutorizacionDenegada
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	if err != nil {
+		return vacia, err
+	}
+	defer tx.Rollback(context.Background())
+	if _, err = tx.Exec(ctx, configuracionTransaccionPortal); err != nil {
+		return vacia, err
+	}
+	var lectura ports.LecturaDatosContactoAutorizada
+	var version int64
+	var clave, recibo, origen, reglaRef, huella *string
+	var registrada, vigenteHasta, confirmada, ultimoDia *time.Time
+	registro := &lectura.Registro
+	err = tx.QueryRow(ctx, `SELECT sin_contacto,version,clave_ref,nonce,cifrado,registrada_en,recibo_ref,origen,vigente_hasta,ultimo_dia,regla_ref,regla_huella_sha256,confirmada_en,auditoria_ref,consultada_en FROM vec_bolsa_llamamientos.consultar_origen_datos_contacto_participacion_rrhh_v1($1,$2,$3,$4,$5::jsonb)`,
+		captura.BolsaRef, captura.RecursoRef, captura.ContextoCanonico, captura.VinculoCanonico, []byte(captura.Orden)).Scan(
+		&lectura.SinContacto, &version, &clave, &registro.Sobre.Nonce, &registro.Sobre.Cifrado, &registrada, &recibo,
+		&origen, &vigenteHasta, &ultimoDia, &reglaRef, &huella, &confirmada, &lectura.AuditoriaRef, &lectura.ConsumidaEn)
+	if err != nil {
+		return vacia, errors.Join(errorConsultaDatosContacto(err), err)
+	}
+	if !strings.HasPrefix(lectura.AuditoriaRef, "aud_v3_lc_") || lectura.ConsumidaEn.IsZero() || version < 0 {
+		return vacia, ports.ErrDatosContactoParticipacionNoDisponibles
+	}
+	registro.ParticipacionRef = captura.RecursoRef
+	if lectura.SinContacto {
+		if version != 0 || clave != nil || len(registro.Sobre.Cifrado) != 0 || origen != nil {
+			return vacia, ports.ErrDatosContactoParticipacionNoDisponibles
+		}
+	} else {
+		if version <= 0 || clave == nil || registrada == nil || recibo == nil {
+			return vacia, ports.ErrDatosContactoParticipacionNoDisponibles
+		}
+		registro.Version, registro.Sobre.Version = uint64(version), uint64(version)
+		registro.Sobre.ClaveRef, registro.ReciboRef, registro.RegistradaEn = *clave, *recibo, registrada.UTC()
+		if registro.Sobre.Validar() != nil {
+			return vacia, ports.ErrDatosContactoParticipacionNoDisponibles
+		}
+		if origen != nil && confirmada == nil {
+			if vigenteHasta == nil || ultimoDia == nil || reglaRef == nil || huella == nil {
+				return vacia, ports.ErrDatosContactoParticipacionNoDisponibles
+			}
+			marca := dominiobolsa.MarcaOrigenDatosContacto{Origen: *origen, VigenteHasta: vigenteHasta.UTC(), UltimoDia: ultimoDia.Format(time.DateOnly), ReglaRef: *reglaRef, ReglaHuella: *huella}
+			if marca.Validar() != nil {
+				return vacia, ports.ErrDatosContactoParticipacionNoDisponibles
+			}
+			registro.Origen = &marca
+		}
+	}
+	if err = entregar(lectura); err != nil {
+		return vacia, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return vacia, err
+	}
+	return lectura, nil
+}

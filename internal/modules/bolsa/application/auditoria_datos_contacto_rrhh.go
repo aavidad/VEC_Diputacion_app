@@ -16,9 +16,8 @@ type OperadorDatosContactoRRHH interface {
 }
 
 // DatosContactoRRHHAuditados deja en la auditoría común (AD169) los intentos
-// fallidos de la consulta completa: denegaciones y errores. La consulta que
-// sale bien ya dejó su asiento al consumir la decisión V3 en su transacción.
-// El registro y la consulta enmascarada se delegan sin cambios.
+// fallidos de ambas consultas: denegaciones y errores. Cada positivo ya
+// dejó su asiento en la transacción de lectura; sólo la completa consume V3.
 type DatosContactoRRHHAuditados struct {
 	operador    OperadorDatosContactoRRHH
 	registrador vecports.RegistradorIntentosAuditoria
@@ -51,16 +50,7 @@ func (s *DatosContactoRRHHAuditados) Consultar(ctx context.Context,
 	if ctx == nil || s == nil || dependenciaLlamamientoNula(s.operador) {
 		return vacia, falloAuditoriaConsultaDatosContacto()
 	}
-	if !q.Completo {
-		return s.operador.Consultar(ctx, q)
-	}
-	if dependenciaLlamamientoNula(s.registrador) || !procesoAuditoriaDocumentales.MatchString(s.proceso) || q.ValidarCompleta() != nil {
-		return vacia, falloAuditoriaConsultaDatosContacto()
-	}
-	actor, err := q.ResultadoContexto.Clonar()
-	vinculo, errVinculo := q.Vinculo.Datos()
-	correlacion, errCorrelacion := q.Correlacion.ValorCanonico()
-	if err != nil || errVinculo != nil || errCorrelacion != nil || vinculo.Superficie != core.SuperficieAutenticacionInternaCorporativaV1 {
+	if dependenciaLlamamientoNula(s.registrador) || !procesoAuditoriaDocumentales.MatchString(s.proceso) || q.ValidarNominal() != nil {
 		return vacia, falloAuditoriaConsultaDatosContacto()
 	}
 	// El actor se captura antes de leer: una revocación o desconexión
@@ -68,32 +58,55 @@ func (s *DatosContactoRRHHAuditados) Consultar(ctx context.Context,
 	leidos, causa := s.operador.Consultar(ctx, q)
 	if ctx.Err() != nil {
 		causa = ctx.Err()
-	} else if causa == nil && (leidos.ParticipacionRef != q.ParticipacionRef || leidos.AuditoriaRef == "" || leidos.DecisionRef == "") {
+	} else if causa == nil && (leidos.ParticipacionRef != q.ParticipacionRef || leidos.AuditoriaRef == "" || (q.Completo && leidos.DecisionRef == "")) {
 		// Una lectura completa sin su acuse de consumo no se entrega.
 		causa = ErrRegistroDatosContactoParticipacionNoDisponible
 	}
 	if causa == nil {
 		return leidos, nil
 	}
+	return vacia, s.AuditarFalloConsultaDatosContacto(ctx, q, causa)
+}
+
+// AuditarFalloConsultaDatosContacto comparte AD169 con los errores de preparación.
+// El transporte sólo aporta la solicitud nominal capturada por el preparador.
+func (s *DatosContactoRRHHAuditados) AuditarFalloConsultaDatosContacto(ctx context.Context,
+	q ports.SolicitudConsultarDatosContactoParticipacion, causa error,
+) error {
+	if ctx == nil || causa == nil || s == nil || dependenciaLlamamientoNula(s.registrador) ||
+		!procesoAuditoriaDocumentales.MatchString(s.proceso) || q.ValidarNominal() != nil {
+		return falloAuditoriaConsultaDatosContacto()
+	}
+	actor, err := q.ResultadoContexto.Clonar()
+	vinculo, errVinculo := q.Vinculo.Datos()
+	correlacion, errCorrelacion := q.Correlacion.ValorCanonico()
+	if err != nil || errVinculo != nil || errCorrelacion != nil || vinculo.Superficie != core.SuperficieAutenticacionInternaCorporativaV1 {
+		return falloAuditoriaConsultaDatosContacto()
+	}
+	accion, finalidad := ports.AccionConsultarDatosContactoParticipacion, ports.FinalidadConsultarDatosContactoParticipacion
+	if !q.Completo {
+		accion, finalidad = ports.AccionConsultarOrigenDatosContactoParticipacion, ports.FinalidadConsultarOrigenDatosContactoParticipacion
+	}
+
 	referencia, err := vecports.NuevaReferenciaIntentoAuditoria()
 	if err != nil {
-		return vacia, falloAuditoriaConsultaDatosContacto()
+		return falloAuditoriaConsultaDatosContacto()
 	}
 	orden, err := vecports.NuevaOrdenIntentoAuditoria(referencia, actor, q.Vinculo, core.DatosIntentoAuditoria{
-		Accion: ports.AccionConsultarDatosContactoParticipacion, ModuloID: ports.ModuloSituacionParticipacion,
-		RecursoRef: q.ParticipacionRef, FinalidadRef: ports.FinalidadConsultarDatosContactoParticipacion,
+		Accion: accion, ModuloID: ports.ModuloSituacionParticipacion,
+		RecursoRef: q.ParticipacionRef, FinalidadRef: finalidad,
 		Resultado: resultadoFalloConsultaDatosContacto(causa), Motivo: q.MotivoAutorizacion,
 		Proceso: s.proceso, Canal: string(vinculo.Superficie), CorrelacionRef: correlacion,
 	})
 	if err != nil {
-		return vacia, falloAuditoriaConsultaDatosContacto()
+		return falloAuditoriaConsultaDatosContacto()
 	}
 	// El registro AD169 usa su propia transacción y no depende del plazo HTTP.
 	acuse, err := s.registrador.AppendIntentoAuditoria(context.WithoutCancel(ctx), orden)
 	if err != nil || acuse.ValidarPara(orden) != nil {
-		return vacia, falloAuditoriaConsultaDatosContacto()
+		return falloAuditoriaConsultaDatosContacto()
 	}
-	return vacia, falloConsultaDatosContactoAuditado{causa: causa, acuse: acuse}
+	return falloConsultaDatosContactoAuditado{causa: causa, acuse: acuse}
 }
 
 func falloAuditoriaConsultaDatosContacto() error {

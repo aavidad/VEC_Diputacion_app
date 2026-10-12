@@ -177,27 +177,36 @@ func (s *ServicioDatosContactoParticipacion) Consultar(ctx context.Context, soli
 	if solicitud.Completo {
 		return s.consultarCompletos(ctx, solicitud)
 	}
-	resuelto, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, solicitud.ContextoActor, solicitud.BolsaRef, solicitud.ParticipacionRef)
-	if err != nil || resuelto.Validar() != nil {
-		return puertosbolsa.DatosContactoParticipacionLeidos{}, errorDependenciaDatosContacto(err)
-	}
-	pertenece, err := s.pertenencia.ParticipacionPerteneceABolsa(ctx, solicitud.BolsaRef, solicitud.ParticipacionRef)
-	if err != nil {
-		return puertosbolsa.DatosContactoParticipacionLeidos{}, err
-	}
-	if !pertenece {
+	lector, ok := s.repositorio.(puertosbolsa.LectorDatosContactoActuales)
+	if !ok || solicitud.ResultadoContexto.Validar() != nil || solicitud.Vinculo.ValidarPara(solicitud.ResultadoContexto) != nil ||
+		solicitud.ContextoActor.PersonaRef != solicitud.ResultadoContexto.Contexto.PersonaRef ||
+		solicitud.Captura.BolsaRef != solicitud.BolsaRef || solicitud.Captura.RecursoRef != solicitud.ParticipacionRef ||
+		len(solicitud.Captura.Orden) == 0 || !solicitud.Captura.ValidaHasta.After(s.reloj().UTC()) {
 		return puertosbolsa.DatosContactoParticipacionLeidos{}, dominiovec.ErrAutorizacionDenegada
 	}
-	vigente, err := s.repositorio.DatosContactoVigentes(ctx, solicitud.ParticipacionRef)
+	var datos dominiobolsa.DatosContactoParticipacion
+	lectura, err := lector.ConsultarOrigenDatosContactoActual(ctx, solicitud.Captura, func(l puertosbolsa.LecturaDatosContactoAutorizada) error {
+		if l.AuditoriaRef == "" || l.Registro.ParticipacionRef != solicitud.ParticipacionRef {
+			return ErrRegistroDatosContactoParticipacionNoDisponible
+		}
+		if l.SinContacto {
+			if l.Registro.Version != 0 {
+				return ErrRegistroDatosContactoParticipacionNoDisponible
+			}
+			return nil
+		}
+		var errDescifrar error
+		datos, errDescifrar = s.descifrar(ctx, l.Registro)
+		return errDescifrar
+	})
 	if err != nil {
 		return puertosbolsa.DatosContactoParticipacionLeidos{}, err
 	}
-	datos, err := s.descifrar(ctx, vigente)
-	if err != nil {
-		return puertosbolsa.DatosContactoParticipacionLeidos{}, err
+	vigente := lectura.Registro
+	leidos := puertosbolsa.DatosContactoParticipacionLeidos{SinContacto: lectura.SinContacto, AuditoriaRef: lectura.AuditoriaRef, ParticipacionRef: vigente.ParticipacionRef, Version: vigente.Version, RegistradaEn: vigente.RegistradaEn}
+	if !lectura.SinContacto {
+		leidos.Enmascarados = datos.Enmascarados()
 	}
-	// Sin la decisión de consulta el claro no sale del caso de uso.
-	leidos := puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: vigente.ParticipacionRef, Version: vigente.Version, RegistradaEn: vigente.RegistradaEn, Enmascarados: datos.Enmascarados()}
 	s.completarOrigen(&leidos, vigente.Origen)
 	return leidos, nil
 }

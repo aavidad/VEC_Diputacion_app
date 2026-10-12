@@ -6,7 +6,7 @@
   "formato_fecha": "02/01/2006",
   "separador_decimal": ",",
   "titulo": "Informe de dietas por período",
-  "sintetico": "EJEMPLO SINTÉTICO. Las personas y los importes son inventados. No es una liquidación registrada ni una exportación autorizada.",
+  "sintetico": "BORRADOR SIN VALIDAR. Las personas y los importes son inventados. No es una liquidación registrada ni una exportación autorizada.",
   "criterio": "El período se cuenta por la {{campo}} de cada comisión. La unidad es la que constaba en su documento.",
   "campos_fecha": {
     "fecha_inicio": "fecha de inicio",

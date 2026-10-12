@@ -3,7 +3,7 @@
   "idioma": "en",
   "textos": {
     "titulo": "Record incidents by period",
-    "aviso": "Example query with synthetic data. Records are unchanged.",
+    "aviso": "Query awaiting validation. Records are unchanged.",
     "registrado": "Records available",
     "registro_incompleto": "Incomplete record sequence",
     "sin_registros": "No records in the queried source",

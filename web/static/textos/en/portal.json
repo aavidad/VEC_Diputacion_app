@@ -982,7 +982,7 @@
     "panel_b7_plazo_indicado": "Response deadline set by HR",
     "panel_b7_plazo_ayuda": "Enter the deadline set by HR before continuing. This application does not assume a legal deadline or prove that the email was delivered.",
     "panel_b7_plazo_regla_texto": "Until {hora} on {fecha} (mainland Spain time)",
-    "panel_b7_plazo_procedencia_ejemplo": "Example rule",
+    "panel_b7_plazo_procedencia_ejemplo": "Rule pending approval",
     "panel_b7_plazo_procedencia_reglamento": "Regulation, {articulo}",
     "panel_b7_plazo_procedencia_reglamento_parcial": "Regulation, {articulo}, with an example part",
     "panel_b7_plazo_regla_ayuda_aria": "Help on the proposed deadline",

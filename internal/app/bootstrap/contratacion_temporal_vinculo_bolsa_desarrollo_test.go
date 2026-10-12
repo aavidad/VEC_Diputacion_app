@@ -141,3 +141,38 @@ func TestVinculoBolsaDenegacionV3NoSaleComoIndisponible(t *testing.T) {
 		t.Fatal("la cancelación debe conservarse")
 	}
 }
+
+// El arranque general asegura el perfil de alta con su plantilla base. Si lo
+// publicado ya es la ampliación con vínculo a Bolsa, no debe rebajarla: cada
+// arranque alternaría entre las dos versiones (ensayo HZ21, defecto 2).
+func TestAltaNoRebajaLaAmpliacionConVinculoBolsa(t *testing.T) {
+	s, _ := escenarioPerfilesFijosPrueba(t)
+	p := s.perfilFijoParaRuta(httpinterno.RutaAltaSolicitudes)
+	if p == nil {
+		t.Fatal("perfil de alta ausente")
+	}
+	base := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(p.plantilla)
+	ampliada, err := plantillaAltaConVinculoBolsaCT(base, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ampliacionVinculoBolsaPublicadaCTDesarrollo(p, base, ampliada) {
+		t.Fatal("la ampliación con vínculo debe reconocerse y no rebajarse")
+	}
+	if ampliacionVinculoBolsaPublicadaCTDesarrollo(p, base, base) {
+		t.Fatal("la propia base no es una ampliación")
+	}
+	if ampliacionVinculoBolsaPublicadaCTDesarrollo(p, ampliada, ampliada) {
+		t.Fatal("con la plantilla ya ampliada no aplica la excepción")
+	}
+	otro := ampliada
+	otro.AsignacionPerfil.PrincipalID = "principal:otro"
+	if ampliacionVinculoBolsaPublicadaCTDesarrollo(p, base, otro) {
+		t.Fatal("una asignación de otro principal nunca se acepta")
+	}
+	extra := ampliada
+	extra.VersionRol.Concesiones = append(append([]core.ConcesionRol(nil), ampliada.VersionRol.Concesiones...), ampliada.VersionRol.Concesiones[0])
+	if ampliacionVinculoBolsaPublicadaCTDesarrollo(p, base, extra) {
+		t.Fatal("una asignación con concesiones de más nunca se acepta")
+	}
+}

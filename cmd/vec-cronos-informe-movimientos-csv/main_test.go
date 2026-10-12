@@ -15,7 +15,7 @@ func TestCLIUsaMismoEjemploQuePDF(t *testing.T) {
 	if err := ejecutar(context.Background(), args, &salida); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(salida.String(), "Europe/Madrid") || !strings.Contains(salida.String(), "+02:00") || !strings.Contains(salida.String(), "+01:00") || !strings.Contains(salida.String(), "Ejemplo sintético") {
+	if !strings.Contains(salida.String(), "Europe/Madrid") || !strings.Contains(salida.String(), "+02:00") || !strings.Contains(salida.String(), "+01:00") || !strings.Contains(salida.String(), "Borrador sin validar") {
 		t.Fatal("CSV incompleto")
 	}
 	if strings.Contains(salida.String(), "Carmen Molina Ortega") {

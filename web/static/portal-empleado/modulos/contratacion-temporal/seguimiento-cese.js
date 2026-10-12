@@ -170,7 +170,11 @@ export function montarPanelSeguimientoCese({
     const salida = contenedor.querySelector("[data-ct-seg-justificante-tipo]");
     if (!select || !salida) return;
     const tipo = select.selectedOptions?.[0]?.dataset?.justificante ?? "";
-    salida.textContent = tipo ? t("cese_justificante_tipo", { tipo }) : "";
+    // El tipo viene del catálogo de causas como clave interna: se muestra su
+    // nombre en el idioma activo y nunca la clave.
+    const nombre = /^[a-z_]+$/u.test(tipo) ? t(`cese_justificante_${tipo}`) : "";
+    salida.textContent = nombre && nombre !== `cese_justificante_${tipo}`
+      ? t("cese_justificante_tipo", { tipo: nombre }) : "";
   }
 
   async function cargar() {

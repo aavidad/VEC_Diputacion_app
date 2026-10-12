@@ -3,7 +3,7 @@
   "idioma": "es",
   "textos": {
     "titulo": "Incidencias por periodo",
-    "aviso": "Ensayo local con datos sintéticos. La selección no concede acceso a datos reales.",
+    "aviso": "Revisión local. La selección no concede acceso a datos reales.",
     "completo": "Cobertura completa",
     "incompleto": "Cobertura incompleta; el total queda sin determinar.",
     "desconocido": "Faltan datos para determinar el total.",

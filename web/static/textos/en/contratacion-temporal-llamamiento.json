@@ -276,7 +276,7 @@
     "llamamiento_plazo_en_plazo": "Within the response period",
     "llamamiento_plazo_vencido": "Overdue",
     "llamamiento_plazo_expirado": "Expired",
-    "llamamiento_plazo_regla_ejemplo": "Example rule",
+    "llamamiento_plazo_regla_ejemplo": "Rule pending approval",
     "llamamiento_plazo_tratamiento": "Late response",
     "llamamiento_plazo_tratamiento_admitir": "Accepted",
     "llamamiento_plazo_tratamiento_exige_causa_justificada": "Only with evidenced justification",
