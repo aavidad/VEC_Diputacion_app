@@ -3,7 +3,7 @@
   "idioma": "en",
   "textos": {
     "titulo": "Incidents by period",
-    "aviso": "Local exercise using synthetic data. The selection does not grant access to real data.",
+    "aviso": "Local review. The selection does not grant access to real data.",
     "completo": "Complete coverage",
     "incompleto": "Incomplete coverage; the total remains undetermined.",
     "desconocido": "Data is missing; the total cannot be determined.",

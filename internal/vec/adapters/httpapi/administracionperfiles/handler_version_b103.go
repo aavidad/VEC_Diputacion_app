@@ -65,7 +65,7 @@ func (h *Handler) postVersionarRolBolsaB103Proponer(w http.ResponseWriter, r *ht
 	if !domain.ReferenciaAdministracionPerfilesValida(dto.OperacionRef, "propuesta_admin:") ||
 		dto.CatalogoRef == "" || dto.CatalogoVersion < 1 || dto.CatalogoHuellaSHA256 == "" ||
 		dto.BaseRef == "" || dto.BaseHuellaSHA256 == "" || dto.ControlRevision == 0 ||
-		dto.ControlHuellaSHA256 == "" || len(dto.Selecciones) != 4 ||
+		dto.ControlHuellaSHA256 == "" || (len(dto.Selecciones) != 4 && len(dto.Selecciones) != 1) ||
 		len(dto.Asignaciones) < 1 || len(dto.Asignaciones) > 16 {
 		h.denegarActor(w, r, sesion, http.StatusBadRequest, "solicitud_invalida", accion, "")
 		return

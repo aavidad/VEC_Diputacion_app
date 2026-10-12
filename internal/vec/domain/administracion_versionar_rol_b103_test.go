@@ -178,3 +178,36 @@ func refrescarCatalogoB103(t *testing.T, c *CatalogoAccionesAdministracionV1, i 
 	}
 	i.BaseHuellaSHA256 = hr
 }
+
+func TestVersionarRolBolsaB103AmpliaSoloOrigenDeContactoConservandoBase(t *testing.T) {
+	c, i, ahora := escenarioVersionarRolBolsaB103(t)
+	for _, e := range c.Entradas {
+		c.Perfiles[0].Rol.Concesiones = append(c.Perfiles[0].Rol.Concesiones, e.Concesion)
+	}
+	e := c.Entradas[0]
+	e.Referencia = "accion:contacto:origen"
+	e.Concesion = ConcesionRol{Accion: AccionLecturaOrigenContactoBolsa, ModuloID: "bolsa", TipoRecurso: "participacion_bolsa", Finalidades: []string{"consulta_origen_datos_contacto_participacion"}, GarantiaMinima: AuthAssuranceHigh, CamposPermitidos: CamposLecturaOrigenContactoBolsa(), Obligaciones: []string{"auditar"}}
+	c.Entradas = []EntradaAccionAdministracionV1{e}
+	i.Selecciones = i.Selecciones[:1]
+	i.Selecciones[0].EntradaRef = e.Referencia
+	refrescarCatalogoB103(t, &c, &i)
+	p, err := PrepararPlanVersionarRolBolsaB103(c, i, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Selecciones) != 1 || len(p.DefinicionNueva.Concesiones) != len(p.Base.Rol.Concesiones)+1 || !reflect.DeepEqual(p.DefinicionNueva.Concesiones[:len(p.Base.Rol.Concesiones)], p.Base.Rol.Concesiones) {
+		t.Fatal("alteró concesiones previas")
+	}
+	if _, err := p.HuellaSHA256(); err != nil {
+		t.Fatal(err)
+	}
+	p.DefinicionNueva.Concesiones[len(p.Base.Rol.Concesiones)].CamposPermitidos = append(CamposLecturaOrigenContactoBolsa(), "correo")
+	if _, err := p.HuellaSHA256(); err == nil {
+		t.Fatal("amplió al contacto completo")
+	}
+	c.Perfiles[0].Rol.Concesiones = c.Perfiles[0].Rol.Concesiones[:1]
+	refrescarCatalogoB103(t, &c, &i)
+	if _, err := PrepararPlanVersionarRolBolsaB103(c, i, ahora); err == nil {
+		t.Fatal("permitió extensión sin base B103")
+	}
+}

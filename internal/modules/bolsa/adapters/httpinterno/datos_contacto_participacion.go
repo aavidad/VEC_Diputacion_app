@@ -78,6 +78,20 @@ func (h *HandlerDatosContactoParticipacion) consultar(w http.ResponseWriter, r *
 	}
 	solicitud, err := h.preparador.PrepararSolicitudConsultarDatosContacto(r.Context(), bolsa, participacion, completo)
 	if err != nil {
+		if solicitud.ValidarNominal() == nil {
+			auditor, disponible := h.operador.(interface {
+				AuditarFalloConsultaDatosContacto(context.Context, puertosbolsa.SolicitudConsultarDatosContactoParticipacion, error) error
+			})
+			if disponible {
+				err = auditor.AuditarFalloConsultaDatosContacto(r.Context(), solicitud, err)
+			} else {
+				err = application.ErrRegistroDatosContactoParticipacionNoDisponible
+			}
+		}
+		if acuse, confirmado := application.AcuseConsultaDatosContactoFallida(err); confirmado {
+			w.Header().Set("X-Audit-Ref", acuse.AuditoriaRef)
+			w.Header().Set("X-Correlation-Ref", acuse.CorrelacionRef)
+		}
 		responderErrorDatosContacto(w, err)
 		return
 	}
@@ -91,7 +105,7 @@ func (h *HandlerDatosContactoParticipacion) consultar(w http.ResponseWriter, r *
 		return
 	}
 	// El claro nunca sale sin el asiento del consumo de su decisión propia.
-	if completo && (leidos.AuditoriaRef == "" || leidos.Datos.Correo == "" && leidos.Datos.Telefono1 == "" && leidos.Datos.Telefono2 == "") {
+	if leidos.AuditoriaRef == "" || (completo && leidos.Datos.Correo == "" && leidos.Datos.Telefono1 == "" && leidos.Datos.Telefono2 == "") {
 		responderErrorDatosContacto(w, errors.New("bolsa http interno: consulta completa sin acuse"))
 		return
 	}
@@ -101,6 +115,13 @@ func (h *HandlerDatosContactoParticipacion) consultar(w http.ResponseWriter, r *
 		"registrada_en":     leidos.RegistradaEn.UTC().Format(time.RFC3339Nano),
 		"enmascarados":      leidos.Enmascarados,
 		"origen":            origenDatosContactoRespuesta(leidos.Origen, leidos.EstadoOrigen),
+	}
+	if !completo {
+		datos["sin_contacto"] = leidos.SinContacto
+	}
+	w.Header().Set("X-Audit-Ref", leidos.AuditoriaRef)
+	if leidos.SinContacto {
+		datos["version"], datos["registrada_en"], datos["enmascarados"] = nil, nil, nil
 	}
 	if completo {
 		w.Header().Set("X-Audit-Ref", leidos.AuditoriaRef)

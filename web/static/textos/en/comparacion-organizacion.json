@@ -1,6 +1,6 @@
 {
   "titulo": "Organisation and RPT comparison",
-  "aviso": "Preparation with synthetic data. Coverage is declared; this does not certify a production query, a legal removal or an audit record.",
+  "aviso": "Information awaiting validation. Coverage is declared; this does not certify a production query, a legal removal or an audit record.",
   "limite": "An entry or exit reflects the selected snapshots. Abolition requires an explicit structural status. Absence with partial coverage remains unverified.",
   "error_entrada": "The comparison could not be completed. Check the schema, snapshots and coverage in the preparation file.",
   "error_salida": "The report could not be generated. Check the output destination and repeat the preparation.",
