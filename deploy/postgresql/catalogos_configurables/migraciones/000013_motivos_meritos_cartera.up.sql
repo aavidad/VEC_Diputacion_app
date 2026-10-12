@@ -58,6 +58,7 @@ BEGIN
  OR jsonb_typeof(vinculo->'catalogo_version') IS DISTINCT FROM 'number'
  OR coalesce(vinculo->>'catalogo_version' ~ '^[1-9][0-9]{0,8}$',false) IS NOT TRUE
  OR coalesce(vinculo->>'catalogo_huella_sha256' ~ '^[0-9a-f]{64}$',false) IS NOT TRUE
+ OR vinculo->>'catalogo_huella_sha256' IS NOT DISTINCT FROM pub.huella_sha256
  THEN RAISE EXCEPTION 'CC13: vínculo de autorización incompatible' USING ERRCODE='55000';END IF;
  ahora:=clock_timestamp();
  WITH activos AS MATERIALIZED (
