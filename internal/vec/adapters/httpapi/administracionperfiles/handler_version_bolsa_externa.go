@@ -66,7 +66,7 @@ func (h *Handler) postVersionarRolBolsaExternaProponer(w http.ResponseWriter, r 
 	if !domain.ReferenciaAdministracionPerfilesValida(dto.OperacionRef, "propuesta_admin:") ||
 		dto.CatalogoRef == "" || dto.CatalogoVersion < 1 || dto.CatalogoHuellaSHA256 == "" ||
 		dto.BaseRef == "" || dto.BaseHuellaSHA256 == "" || dto.ControlRevision == 0 ||
-		dto.ControlHuellaSHA256 == "" || len(dto.Selecciones) != 2 ||
+		dto.ControlHuellaSHA256 == "" || (len(dto.Selecciones) != 2 && len(dto.Selecciones) != 5) ||
 		len(dto.Asignaciones) < 1 || len(dto.Asignaciones) > 16 || dto.HuellaPlanEsperada == "" {
 		h.denegarActor(w, r, sesion, http.StatusBadRequest, "solicitud_invalida", accion, "")
 		return
