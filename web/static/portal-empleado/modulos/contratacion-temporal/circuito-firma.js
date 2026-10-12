@@ -12,7 +12,7 @@ import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
 import { cargarTextosFaseFirma, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
-import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261012-ct-original-preparado-v2";
+import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261012-ct-firma-error-v1";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";

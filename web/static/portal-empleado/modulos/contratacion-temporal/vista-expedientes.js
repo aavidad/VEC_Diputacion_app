@@ -21,8 +21,8 @@ import {
 } from "./vista-expedientes-render.js?v=20261011-ct-bolsa-vinculo-v1";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261011-ct-bolsa-vinculo-v1";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261012-ct-original-preparado-v2";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261011-ct-bolsa-vinculo-v1";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261012-ct-firma-error-v1";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261012-ct-personal-ficha-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261011-informe-legible-v1";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261011-ct-bolsa-vinculo-v1";
 

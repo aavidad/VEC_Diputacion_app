@@ -1,7 +1,7 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
-import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20261008-alta-rpt-circular-v4";
+import { ErrorRegistroB2, referenciaEmpleadoB2Valida } from "./registro-b2-cliente.js?v=20261012-ct-personal-ficha-v1";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20261012-ct-personal-ficha-v1";
 import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20261008-alta-rpt-circular-v4";
 import { crearTraductorTraza } from "./personal-traza-i18n.js?v=20261001-personal-expediente-v2";
 import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=20261002-b-vacantes-401-retoma-v2";
@@ -148,7 +148,7 @@ function validarPaginaEmpleados(respuesta) {
   const p = respuesta?.pagina;
   if (!p || typeof p !== "object" || !p.corte || !fechaValida(p.corte.vigente_en) || !instanteValido(p.corte.conocido_en) ||
       !Array.isArray(p.empleados) || p.empleados.length > 100 || typeof p.cursor_siguiente !== "string" || p.cursor_siguiente.length > 256 ||
-      !p.empleados.every((e) => e && typeof e === "object" && /^emp_[A-Za-z0-9_-]{22,128}$/u.test(e.empleado_ref) && !Object.hasOwn(e, "persona_ref") &&
+      !p.empleados.every((e) => e && typeof e === "object" && referenciaEmpleadoB2Valida(e.empleado_ref) && !Object.hasOwn(e, "persona_ref") &&
         Array.isArray(e.relaciones) && e.relaciones.length <= 20 &&
         e.relaciones.every((r) => r && typeof r === "object" && ["vigente", "suspendida"].includes(r.estado) && textoSeguro(r.unidad_ref, 160) && r.traza && fechaValida(r.traza.desde)))) throw new TypeError("página de empleados incompatible");
   return p;
@@ -160,10 +160,10 @@ function hoyMadrid(reloj) {
 }
 function localFechaHora(fecha) {
   const dos = (valor) => String(valor).padStart(2, "0");
-  return `${fecha.getFullYear()}-${dos(fecha.getMonth() + 1)}-${dos(fecha.getDate())}T${dos(fecha.getHours())}:${dos(fecha.getMinutes())}`;
+  return `${fecha.getFullYear()}-${dos(fecha.getMonth() + 1)}-${dos(fecha.getDate())}T${dos(fecha.getHours())}:${dos(fecha.getMinutes())}:${dos(fecha.getSeconds())}.${String(fecha.getMilliseconds()).padStart(3, "0")}`;
 }
 function conocidoUTC(valor) {
-  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u.test(valor)) return "";
+  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/u.test(valor)) return "";
   const fecha = new Date(valor);
   return Number.isFinite(fecha.getTime()) ? fecha.toISOString().replace(/Z$/u, "000Z") : "";
 }
@@ -171,7 +171,7 @@ function conocidoUTC(valor) {
 /** Montaje de lectura RRHH. El empleado se recibe de una selección autorizada del shell. */
 export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef = "", personaRef = "", catalogos, anunciar = () => {}, registrarDesmontar, reloj = () => new Date() } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || !cliente?.consultarFicha || !cliente?.listarVacantes ||
-      (empleadoRef !== "" && !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(empleadoRef)) ||
+      (empleadoRef !== "" && !referenciaEmpleadoB2Valida(empleadoRef)) ||
       (personaRef !== "" && !/^per_[A-Za-z0-9_-]{22,128}$/u.test(personaRef)) ||
       typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") || typeof reloj !== "function") throw new TypeError("Registro de Personal no disponible");
   const d = raiz.ownerDocument; const t = crearTraductorPersonal(); const tt = crearTraductorTraza(); const s = nodo(d, "section"); s.className = "modulo-personal personal-registro-b2"; s.dataset.personalRegistroB2 = "";
@@ -340,7 +340,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
   }
   const form = nodo(d, "form"); form.className = "personal-registro-b2-toolbar";
   const etiquetaVigente = nodo(d, "label", t("registro_b2_vigente_en")); const campoVigente = nodo(d, "input"); campoVigente.type = "date"; campoVigente.required = true; campoVigente.value = vigenteEn; etiquetaVigente.append(campoVigente);
-  const etiquetaConocido = nodo(d, "label", t("registro_b2_conocido_en")); const campoConocido = nodo(d, "input"); campoConocido.type = "datetime-local"; campoConocido.required = true; campoConocido.value = conocidoEnLocal; etiquetaConocido.append(campoConocido);
+  const etiquetaConocido = nodo(d, "label", t("registro_b2_conocido_en")); const campoConocido = nodo(d, "input"); campoConocido.type = "datetime-local"; campoConocido.step = "0.001"; campoConocido.required = true; campoConocido.value = conocidoEnLocal; etiquetaConocido.append(campoConocido);
   const boton = nodo(d, "button", t("registro_b2_consultar")); boton.type = "submit"; form.append(etiquetaVigente, etiquetaConocido, boton);
   form.addEventListener("submit", (evento) => { evento.preventDefault(); vigenteEn = campoVigente.value; conocidoEnLocal = campoConocido.value; for (const p of Object.values(paginas)) { p.cursor = ""; p.anteriores = []; } consultar(); });
   s.replaceChildren(cabecera, pestañas, form, contenido);
@@ -389,11 +389,11 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     botones.set(clave, tab); pestañas.append(tab);
   });
   function elegirEmpleado(ref) {
-    if (!activo || typeof ref !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(ref)) return;
+    if (!activo || !referenciaEmpleadoB2Valida(ref)) return;
     empleado = ref; ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; seleccionRelacion = "";
     cambiarVista("ficha"); botones.get("ficha")?.focus?.();
   }
-  const cambiarEmpleado = (ref) => { if (ref !== "" && (typeof ref !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(ref))) throw new TypeError("referencia de empleado no válida"); empleado = ref; ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; seleccionRelacion = ""; if (vista === "ficha") consultar(); else if (vista === "actos") cambiarVista("actos"); };
+  const cambiarEmpleado = (ref) => { if (ref !== "" && (!referenciaEmpleadoB2Valida(ref))) throw new TypeError("referencia de empleado no válida"); empleado = ref; ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; seleccionRelacion = ""; if (vista === "ficha") consultar(); else if (vista === "actos") cambiarVista("actos"); };
   cambiarVista(empleado || !botones.has("empleados") ? "ficha" : "empleados");
   return Object.freeze({ desmontar, cambiarEmpleado });
 }

@@ -1,5 +1,10 @@
 export const RUTA_REGISTRO_B2 = "/api/vec/personal";
 
+/** Formato público de la referencia emitida por el Registro de Personal. */
+export function referenciaEmpleadoB2Valida(valor) {
+  return typeof valor === "string" && /^emp_[A-Za-z0-9_-]{22,128}$/u.test(valor);
+}
+
 export class ErrorRegistroB2 extends Error {
   constructor(codigo, estado = 0) {
     super(codigo);
@@ -23,7 +28,7 @@ function validarCuerpo(cuerpo, campos, clave) {
   const nuevaRelacion = cuerpo.relacion_version_esperada === 0 && (cuerpo.relacion_ref === undefined || cuerpo.relacion_ref === "");
   const revisionRelacion = cuerpo.relacion_version_esperada >= 1 && /^rel_[A-Za-z0-9_-]{22,128}$/u.test(cuerpo.relacion_ref);
   if (campos === CAMPOS_HECHO && (!["relacion", "ocupacion", "servicio", "situacion"].includes(cuerpo.tipo) ||
-      !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(cuerpo.empleado_ref) || !Number.isSafeInteger(cuerpo.revision_esperada) || cuerpo.revision_esperada < 1 ||
+      !referenciaEmpleadoB2Valida(cuerpo.empleado_ref) || !Number.isSafeInteger(cuerpo.revision_esperada) || cuerpo.revision_esperada < 1 ||
       !Number.isSafeInteger(cuerpo.relacion_version_esperada) || cuerpo.relacion_version_esperada < (cuerpo.tipo === "relacion" ? 0 : 1) ||
       (cuerpo.tipo !== "relacion" && !/^rel_[A-Za-z0-9_-]{22,128}$/u.test(cuerpo.relacion_ref)) ||
       (cuerpo.tipo === "relacion" && !nuevaRelacion && !revisionRelacion) ||
@@ -39,7 +44,7 @@ function validarRecibo(respuesta, estado) {
   const r = respuesta?.data?.recibo;
   const acceso = respuesta?.data?.acceso_actual;
   if (!r || typeof r !== "object" || !/^perrec_[0-9a-f]{32}$/u.test(r.recibo_ref) ||
-      !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(r.empleado_ref) || !/^rel_[A-Za-z0-9_-]{22,128}$/u.test(r.relacion_ref) ||
+      !referenciaEmpleadoB2Valida(r.empleado_ref) || !/^rel_[A-Za-z0-9_-]{22,128}$/u.test(r.relacion_ref) ||
       !Number.isSafeInteger(r.version) || r.version < 1 || !["alta", "relacion", "ocupacion", "servicio", "situacion"].includes(r.tipo) ||
       !Number.isFinite(Date.parse(r.registrado_en)) ||
       !["decision_ref", "efecto_ref", "auditoria_ref"].every((campo) => typeof r[campo] === "string" && r[campo]) ||
@@ -172,7 +177,7 @@ export function crearClienteRegistroB2({ fetchImpl = globalThis.fetch, plazoMs =
   }
   return Object.freeze({
     async consultarFicha({ empleadoRef, vigenteEn, conocidoEn, signal }) {
-      if (typeof empleadoRef !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(empleadoRef)) throw new TypeError("referencia de empleado no válida");
+      if (!referenciaEmpleadoB2Valida(empleadoRef)) throw new TypeError("referencia de empleado no válida");
       consultaValida({ vigenteEn, conocidoEn });
       const query = new URLSearchParams({ vigente_en: vigenteEn, conocido_en: conocidoEn });
       const respuesta = await get(`${RUTA_REGISTRO_B2}/empleados/${encodeURIComponent(empleadoRef)}`, query, signal, true);
