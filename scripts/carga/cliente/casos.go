@@ -27,7 +27,7 @@ type casoLectura struct {
 
 func validarDestino(base string) error {
 	u, err := url.Parse(base)
-	if err != nil || u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+	if err != nil || u.Scheme != "https" || u.User != nil || u.ForceQuery || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
 		return fmt.Errorf("destino esperado=origen HTTPS local obtenido=no válido")
 	}
 	ip := net.ParseIP(u.Hostname())

@@ -20,7 +20,7 @@ import (
 )
 
 func TestBancoNoSaleDelOrigenNiEjecutaActos(t *testing.T) {
-	for _, base := range []string{"http://127.0.0.1", "https://example.org", "https://usuario@localhost", "https://localhost/ruta", "https://localhost?otra=1"} {
+	for _, base := range []string{"http://127.0.0.1", "https://example.org", "https://usuario@localhost", "https://localhost/ruta", "https://localhost?otra=1", "https://localhost?", "https://localhost/?"} {
 		if validarDestino(base) == nil {
 			t.Fatalf("aceptó %s", base)
 		}
