@@ -1,4 +1,4 @@
-import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas, textoPresentacionRegla } from "./i18n.js?v=20261007-pantallas-textos-final-v1";
+import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas, textoPresentacionRegla } from "./i18n.js?v=20261012-reglas-configuracion-v1";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";
@@ -7,7 +7,7 @@ export const LIMITE_RESPUESTA = 1024 * 1024;
 
 const t = MENSAJES_REGLAS ? crearTraductorReglas() : null;
 const ESTADOS = new Set(["disponible", "sin_catalogo", "no_disponible"]);
-const ORIGENES = new Set(["reglamento", "ejemplo"]);
+const ORIGENES = new Set(["reglamento", "ejemplo", "configuracion"]);
 const CODIGOS_API = new Set(["solicitud_invalida", "servicio_no_disponible", "autenticacion_requerida", "acceso_denegado"]);
 const CLAVE = /^[a-z][a-z0-9._:-]{0,95}$/u;
 
@@ -92,6 +92,7 @@ export function valorRegla(r) {
 }
 
 export function origenRegla(r) {
+  if (r.origen === "configuracion") return "";
   return r.origen === "reglamento" ? t("origenArticulo", { articulo: r.articulo }) : t("origenEjemplo");
 }
 
@@ -100,7 +101,7 @@ export function filtrar(catalogos, { modulo = "", origen = "", texto: consulta =
   return catalogos.filter((c) => !modulo || c.modulo === modulo).map((c) => ({
     ...c,
     reglas: c.reglas.filter((r) => (!origen || r.origen === origen)
-      && (!q || [r.etiqueta, r.clave, r.norma, ...["descripcion", "duda", "ejemplo_parcial"]
+      && (!q || [r.etiqueta, textoPresentacionRegla(c.modulo, r, "etiqueta").texto, r.clave, r.norma, ...["descripcion", "duda", "ejemplo_parcial"]
         .map((campo) => textoPresentacionRegla(c.modulo, r, campo).texto)].some((v) => minusculas(v).includes(q)))),
   }));
 }
@@ -121,28 +122,29 @@ const idSeguro = (valor) => Array.from(new TextEncoder().encode(valor),
 export const idRegla = (modulo, clave) => `rg-regla-${idSeguro(`${modulo}\0${clave}`)}`;
 
 /** Los textos de cada regla llegan del catálogo en su idioma: se marcan si la interfaz usa otro. */
-const LANG_DATOS = IDIOMA_REGLAS === IDIOMA_DATOS_REGLAS ? "" : ` lang="${esc(IDIOMA_DATOS_REGLAS)}"`;
 const datos = (texto, idioma = IDIOMA_DATOS_REGLAS) => `<span${idioma === IDIOMA_REGLAS ? "" : ` lang="${esc(idioma)}"`}>${esc(texto)}</span>`;
 const textoRegla = (modulo, regla, campo) => {
   const { texto, idioma } = textoPresentacionRegla(modulo, regla, campo);
   return datos(texto, idioma);
 };
 const parteEjemplo = (r, modulo) => {
-  const [antes, despues] = MENSAJES_REGLAS.parteEjemplo.split("{texto}");
+  const clave = r.paquete_ejemplo ? "parteEjemplo" : "parteConfigurada";
+  const [antes, despues] = MENSAJES_REGLAS[clave].split("{texto}");
   return `${esc(antes)}${textoRegla(modulo, r, "ejemplo_parcial")}${esc(despues)}`;
 };
 
 function filaRegla(r, modulo, abiertas) {
+  const titulo = textoPresentacionRegla(modulo, r, "etiqueta");
   const parcial = r.ejemplo_parcial ? `<br><small>${parteEjemplo(r, modulo)}</small>` : "";
   const computo = r.computo && existeClaveReglas(`computo_${r.computo}`) ? `<br><small>${esc(t(`computo_${r.computo}`))}</small>` : "";
   const pastilla = r.origen === "reglamento" ? "rg-pastilla--reglamento" : "rg-pastilla--ejemplo";
   const id = idRegla(modulo, r.clave);
   const abierta = abiertas.has(id);
   return `<tr class="rg-fila rg-fila--${esc(r.origen)}${abierta ? " rg-fila--abierta" : ""}" data-regla="${id}">
-    <th scope="row"><button type="button" class="rg-regla-abrir" aria-expanded="${abierta}" aria-controls="${id}"><span class="rg-regla-nombre"${LANG_DATOS}>${esc(r.etiqueta)}</span></button></th>
+    <th scope="row"><button type="button" class="rg-regla-abrir" aria-expanded="${abierta}" aria-controls="${id}"><span class="rg-regla-nombre"${titulo.idioma === IDIOMA_REGLAS ? "" : ` lang="${esc(titulo.idioma)}"`}>${esc(titulo.texto)}</span></button></th>
     <td class="rg-numero">${r.valor ? datos(valorRegla(r)) : esc(valorRegla(r))}</td>
     <td>${esc(etiquetaUnidad(r.unidad))}${computo}</td>
-    <td><span class="rg-pastilla ${pastilla}">${esc(origenRegla(r))}</span>${parcial}</td>
+    <td>${r.origen === "configuracion" ? "" : `<span class="rg-pastilla ${pastilla}">${esc(origenRegla(r))}</span>${parcial}`}</td>
     <td>${textoRegla(modulo, r, "duda")}</td>
     <td class="rg-numero">${esc(formatearNumero(r.version))}</td>
   </tr>
@@ -154,7 +156,7 @@ export function detalleRegla(r, modulo = "") {
   const bloque = (clave, contenido) => `<div class="rg-detalle-bloque"><dt>${esc(t(clave))}</dt><dd>${contenido}</dd></div>`;
   const partes = [
     bloque("detalleQue", r.descripcion ? textoRegla(modulo, r, "descripcion") : esc(t("detalleSinDescripcion"))),
-    bloque("detalleOrigen", esc(origenRegla(r)) + (r.ejemplo_parcial ? `<br>${parteEjemplo(r, modulo)}` : "")),
+    ...(r.origen === "configuracion" ? [] : [bloque("detalleOrigen", esc(origenRegla(r)) + (r.ejemplo_parcial ? `<br>${parteEjemplo(r, modulo)}` : ""))]),
     bloque("detalleNorma", datos(r.norma)),
     bloque("detalleDuda", textoRegla(modulo, r, "duda")),
   ];
@@ -203,7 +205,7 @@ export async function iniciar(doc, cliente) {
   if (contenedorAjustes?.querySelector) {
     const contenedor = contenedorAjustes;
     const montarAjustes = () => {
-      void import("./ajustes.js?v=20261008-ct-ajustes-v1")
+      void import("./ajustes.js?v=20261012-reglas-configuracion-v1")
         .then(({ iniciarAjustes }) => iniciarAjustes(doc))
         .catch(async () => {
           let mensaje = "";
@@ -294,7 +296,7 @@ export async function iniciar(doc, cliente) {
     }
     const modulos = [...new Set(datos.catalogos.map((c) => c.modulo))];
     $("rg-modulo").innerHTML = `<option value="">${esc(t("todos"))}</option>` + modulos.map((m) => `<option value="${esc(m)}">${esc(etiquetaModulo(m))}</option>`).join("");
-    $("rg-origen").innerHTML = `<option value="">${esc(t("todos"))}</option>` + [...ORIGENES].map((o) => `<option value="${o}">${esc(t(`origen_${o}`))}</option>`).join("");
+    $("rg-origen").innerHTML = `<option value="">${esc(t("todos"))}</option>` + [...ORIGENES].filter((o) => o !== "configuracion").map((o) => `<option value="${o}">${esc(t(`origen_${o}`))}</option>`).join("");
     // Reglas abiertas: sobreviven al filtrar y, la última, a recargar (ancla).
     const abiertas = new Set();
     let ancla = "";

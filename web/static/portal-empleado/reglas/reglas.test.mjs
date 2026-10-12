@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { exigirRenovado, versionDe } from "../versiones-cache.test-helper.mjs";
 import {
-  API_REGLAS, ErrorReglas, crearCliente, detalleRegla, filtrar, idRegla, iniciar, mensajeError, origenRegla, renderizarCatalogo,
+  API_REGLAS, ESQUEMA, ErrorReglas, crearCliente, detalleRegla, filtrar, idRegla, iniciar, mensajeError, origenRegla, renderizarCatalogo,
   renderizarResumen, validarReglas, valorRegla,
 } from "./reglas.js";
 import { MENSAJES_REGLAS, crearTraductorReglas } from "./i18n.js";
@@ -44,10 +44,10 @@ test("el catálogo renovado usa una URL única en la pantalla y en sus consumido
   const html = leer("./index.html");
   const reglas = leer("./reglas.js");
   const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v3");
-  assert.equal(version, "20261007-pantallas-textos-final-v1");
+  assert.equal(version, "20261012-reglas-configuracion-v1");
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
   const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
-  assert.equal(versionDe(html, "reglas.js"), "20261008-ct-ajustes-v1");
+  assert.equal(versionDe(html, "reglas.js"), "20261012-reglas-configuracion-v1");
   assert.equal(exigirRenovado([bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v3"), version);
   // La pantalla de plazos lee las reglas a través de rrhh-plazos-api.js (una sola lectura compartida).
   assert.doesNotMatch(leer("../modulos/bolsa/rrhh-plazos-ui.js"), /reglas\/reglas\.js/u);
@@ -63,7 +63,7 @@ test("las versiones en caché se renuevan juntas y la pantalla está en el manif
   const js = leer("./reglas.js");
   assert.equal(versionDe(html, "reglas.js"), versionDe(html, "reglas.css"));
   assert.equal(versionDe(js, "i18n.js"), versionDe(html, "i18n.js"));
-  assert.equal(versionDe(html, "reglas.js"), "20261008-ct-ajustes-v1");
+  assert.equal(versionDe(html, "reglas.js"), "20261012-reglas-configuracion-v1");
   assert.equal(versionDe(js, "ajustes.js"), versionDe(html, "reglas.js"));
   for (const nombre of ["interno.manifest", "produccion.manifest"]) {
     const manifiesto = readFileSync(new URL(`../../../${nombre}`, import.meta.url), "utf8");
@@ -84,6 +84,17 @@ test("valida el contrato y rechaza lo que no encaja", () => {
   const sinCatalogoConReglas = respuesta();
   sinCatalogoConReglas.data.catalogos[1].reglas = [regla()];
   assert.throws(() => validarReglas(sinCatalogoConReglas), ErrorReglas);
+});
+
+test("un valor de configuración se lee sin rótulo de propuesta ni cita legal", () => {
+  const catalogo = { modulo: "bolsa", catalogo_id: "vec.bolsa.reglas", estado: "disponible", version: 6,
+    paquete_ejemplo: false, reglas: [regla({ origen: "configuracion", paquete_ejemplo: false, version: 6,
+      referencia: "vec.bolsa.reglas:6:b05.plazo_respuesta" })] };
+  validarReglas({ data: { esquema: ESQUEMA, catalogos: [catalogo] } });
+  const html = renderizarCatalogo(catalogo);
+  assert.equal(origenRegla(catalogo.reglas[0]), "");
+  assert.doesNotMatch(html, /rg-pastilla|Parte propuesta|Reglamento, art/u);
+  assert.match(html, /Plazo de respuesta/u);
 });
 
 test("pinta valor, unidad, origen, duda y versión, escapando el contenido", () => {
@@ -143,7 +154,7 @@ test("cada regla se abre para leerla entera: descripción, origen, norma y duda,
   assert.match(html, new RegExp(`<button type="button" class="rg-regla-abrir" aria-expanded="false" aria-controls="${id}">`, "u"));
   assert.match(html, new RegExp(`<tr class="rg-detalle rg-fila--ejemplo" id="${id}" hidden>`, "u"));
   const detalle = detalleRegla(lista);
-  for (const texto of ["Qué establece", "Un día hábil.", "Norma en que se basa", "Supuesto de trabajo.", "Duda de RRHH", larga]) {
+  for (const texto of ["Qué establece", "Un día hábil.", "Referencia o criterio", "Supuesto de trabajo.", "Notas", larga]) {
     assert.ok(detalle.includes(texto), texto);
   }
   for (const codigo of ["vec.bolsa.reglas:1", "b30.documentos", "dni", "carnet"]) assert.ok(!detalle.includes(codigo), `sin código interno: ${codigo}`);
@@ -377,7 +388,7 @@ function catalogosDemo() {
   });
 }
 
-test("las 23 reglas se presentan y se buscan en ES/EN sin modificar la definición recibida", () => {
+test("las reglas traducidas se presentan y se buscan en ES/EN sin modificar la definición recibida", () => {
   const modulo = new URL("./reglas.js", import.meta.url).href;
   const moduloIdioma = new URL("../../comun/idioma.js", import.meta.url).href;
   const catalogos = catalogosDemo();
@@ -408,7 +419,7 @@ test("las 23 reglas se presentan y se buscan en ES/EN sin modificar la definici�
           if (!campos) continue;
           for (const [campo, entrada] of Object.entries(campos)) {
             assert.equal(regla[campo], entrada.original, clave + ": " + campo);
-            assert.ok(html.includes("<span>" + escapar(entrada.texto) + "</span>"), clave + ": " + campo);
+            assert.ok(html.includes(">" + escapar(entrada.texto) + "</span>"), clave + ": " + campo);
             const filtrado = filtrar(catalogos, { texto: entrada.texto }).find((c) => c.modulo === catalogo.modulo);
             assert.ok(filtrado.reglas.includes(regla), clave + ": búsqueda por texto presentado");
           }
@@ -417,7 +428,7 @@ test("las 23 reglas se presentan y se buscan en ES/EN sin modificar la definici�
       }
       assert.equal(JSON.stringify(catalogos), preimagen);
       process.stdout.write(String(comprobadas));`;
-    assert.equal(execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" }), "23");
+    assert.equal(execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" }), idioma === "es" ? "23" : "37");
   }
 });
 

@@ -8,7 +8,7 @@
     "ayudaTitulo": "Reglas vigentes",
     "ayudaCerrar": "Cerrar",
     "ayudaQue": "Esta pantalla muestra, sin permitir cambios, los plazos, límites y listas que aplican hoy Bolsa y Peticiones de personal temporal.",
-    "ayudaOrigen": "«Reglamento» cita el artículo del Reglamento de bolsas publicado. «Propuesta» es un valor de trabajo que RRHH todavía no ha aprobado; la columna «Duda de RRHH» indica qué pregunta lo resolverá.",
+    "ayudaOrigen": "Las citas del Reglamento muestran su artículo. Los demás valores se leen junto con su versión y sus notas, sin atribuirles una fuente normativa.",
     "ayudaVersion": "Cada regla se identifica por su catálogo y versión. Un cambio de valor se publica como versión nueva del catálogo, sin tocar el programa.",
     "filtros": "Filtros de reglas",
     "filtroModulo": "Módulo",
@@ -33,7 +33,7 @@
     "colValor": "Valor",
     "colUnidad": "Unidad",
     "colOrigen": "Origen",
-    "colDuda": "Duda de RRHH",
+    "colDuda": "Notas",
     "colVersion": "Versión",
     "origenArticulo": "Reglamento, {articulo}",
     "origenEjemplo": "Propuesta",
@@ -57,14 +57,15 @@
     "error_autenticacion_requerida": "Identifíquese con su certificado para consultar las reglas.",
     "error_acceso_denegado": "Su perfil no permite consultar las reglas.",
     "error_respuesta": "No se han podido leer las reglas. Pulse Reintentar y, si sigue igual, avise a Informática.",
-    "ayudaDetalle": "Pulse el nombre de una regla para leerla entera: qué establece, en qué norma se basa, qué valores admite y qué duda de RRHH queda por contestar. Vuelva a pulsarlo para cerrarla.",
-    "ayudaResolver": "En esta pantalla no se cambian reglas. Las dudas las contesta el Departamento de RRHH fuera de VEC. Cuando se aprueba un valor, se publica una versión nueva del catálogo y esa versión es la que aparece aquí.",
+    "ayudaDetalle": "Pulse el nombre de una regla para leer qué establece, su referencia o criterio y las notas que constan. Vuelva a pulsarlo para cerrar el detalle.",
+    "ayudaResolver": "Esta página es de consulta. Los cambios se publican en una versión nueva del catálogo y se conservan las anteriores.",
     "detalleQue": "Qué establece",
-    "detalleNorma": "Norma en que se basa",
+    "detalleNorma": "Referencia o criterio",
     "detalleOrigen": "Origen",
-    "detalleDuda": "Duda de RRHH",
+    "detalleDuda": "Notas",
     "detalleSinDescripcion": "El catálogo no describe esta regla.",
-    "reintentar": "Reintentar"
+    "reintentar": "Reintentar",
+    "parteConfigurada": "Parte configurada: {texto}"
   },
   "presentacion": {
     "bolsa": {
@@ -80,7 +81,13 @@
         "agotamiento": {
           "ejemplo_parcial": {
             "original": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de ejemplo; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
-            "texto": "VEC propone el agotamiento provisional cuando las personas disponibles no superan el umbral configurado. RRHH lo confirma mediante resolución expresa."
+            "texto": "VEC propone el agotamiento provisional cuando las personas disponibles no superan el umbral configurado. RRHH lo confirma mediante resolución expresa.",
+            "variantes": {
+              "configuracion": {
+                "original": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de operación; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
+                "texto": "VEC propone el agotamiento provisional cuando las personas disponibles no superan el umbral configurado. RRHH lo confirma mediante resolución expresa."
+              }
+            }
           }
         }
       },
@@ -89,13 +96,25 @@
           "disponible": {
             "duda": {
               "original": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
-              "texto": "Duda 62. VEC publica al arrancar los cambios de situación permitidos y aplica la lista publicada."
+              "texto": "Duda 62. VEC publica al arrancar los cambios de situación permitidos y aplica la lista publicada.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Respuesta 18 de RRHH (02/10/2026); decisión configurable y versionada.",
+                  "texto": "RRHH confirmó el 02/10/2026 que esta decisión se configura y conserva por versiones."
+                }
+              }
             }
           },
           "renuncia": {
             "duda": {
               "original": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
-              "texto": "Duda 62. VEC publica al arrancar los cambios permitidos tras una renuncia y aplica la lista publicada."
+              "texto": "Duda 62. VEC publica al arrancar los cambios permitidos tras una renuncia y aplica la lista publicada.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Respuesta 18 de RRHH (02/10/2026); decisión configurable y versionada.",
+                  "texto": "RRHH confirmó el 02/10/2026 que esta decisión se configura y conserva por versiones."
+                }
+              }
             }
           }
         }
