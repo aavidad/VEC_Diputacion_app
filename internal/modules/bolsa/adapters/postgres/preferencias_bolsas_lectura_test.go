@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -44,5 +45,11 @@ func TestDecodificarLecturaPreferenciasExigeAcuseYProyeccionExactos(t *testing.T
 		if _, err := decodificarLecturaPreferencias([]byte(v), "correlacion:propia"); !errors.Is(err, bolsa.ErrPreferenciasNoDisponibles) {
 			t.Fatalf("respuesta sin autoridad aceptada: %s: %v", v, err)
 		}
+	}
+	malformado := strings.Replace(base, `"version":0`, `"version":?`, 1)
+	_, err = decodificarLecturaPreferencias([]byte(malformado), "correlacion:propia")
+	var sintaxis *json.SyntaxError
+	if !errors.Is(err, bolsa.ErrPreferenciasNoDisponibles) || !errors.As(err, &sintaxis) {
+		t.Fatalf("error de JSON no propagado con clasificación segura: %v", err)
 	}
 }

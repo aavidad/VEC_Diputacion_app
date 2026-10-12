@@ -163,20 +163,34 @@ type lecturaPreferenciasJSON struct {
 
 func decodificarLecturaPreferencias(contenido []byte, correlacion string) (bolsa.EstadoPreferenciasBolsas, error) {
 	vacia := bolsa.EstadoPreferenciasBolsas{}
-	if len(contenido) == 0 || len(contenido) > 131072 || !clavesJSONExactasPreferencias(contenido, []string{"estado", "auditoria_ref", "auditoria_huella_sha256", "correlacion_ref", "auditada_en"}) {
+	if len(contenido) == 0 || len(contenido) > 131072 {
 		return vacia, bolsa.ErrPreferenciasNoDisponibles
+	}
+	if err := validarClavesJSONPreferencias(contenido, []string{"estado", "auditoria_ref", "auditoria_huella_sha256", "correlacion_ref", "auditada_en"}); err != nil {
+		return vacia, errors.Join(bolsa.ErrPreferenciasNoDisponibles, err)
 	}
 	var envoltura struct {
 		Estado json.RawMessage `json:"estado"`
 	}
-	if json.Unmarshal(contenido, &envoltura) != nil || !clavesJSONExactasPreferencias(envoltura.Estado, bolsa.CamposLecturaPreferenciasBolsas()) {
-		return vacia, bolsa.ErrPreferenciasNoDisponibles
+	if err := json.Unmarshal(contenido, &envoltura); err != nil {
+		return vacia, errors.Join(bolsa.ErrPreferenciasNoDisponibles, err)
+	}
+	if err := validarClavesJSONPreferencias(envoltura.Estado, bolsa.CamposLecturaPreferenciasBolsas()); err != nil {
+		return vacia, errors.Join(bolsa.ErrPreferenciasNoDisponibles, err)
 	}
 	dec := json.NewDecoder(bytes.NewReader(contenido))
 	dec.DisallowUnknownFields()
 	var p lecturaPreferenciasJSON
-	if dec.Decode(&p) != nil || dec.Decode(&struct{}{}) != io.EOF ||
-		!auditoriaLecturaPreferenciasRef.MatchString(p.AuditoriaRef) || !auditoriaLecturaPreferenciasHuella.MatchString(p.AuditoriaHuellaSHA256) ||
+	if err := dec.Decode(&p); err != nil {
+		return vacia, errors.Join(bolsa.ErrPreferenciasNoDisponibles, err)
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		if err != nil {
+			return vacia, errors.Join(bolsa.ErrPreferenciasNoDisponibles, err)
+		}
+		return vacia, bolsa.ErrPreferenciasNoDisponibles
+	}
+	if !auditoriaLecturaPreferenciasRef.MatchString(p.AuditoriaRef) || !auditoriaLecturaPreferenciasHuella.MatchString(p.AuditoriaHuellaSHA256) ||
 		p.CorrelacionRef != correlacion || p.AuditadaEn.IsZero() || p.AuditadaEn.After(time.Now().UTC().Add(time.Second)) {
 		return vacia, bolsa.ErrPreferenciasNoDisponibles
 	}
@@ -208,11 +222,14 @@ func decodificarLecturaPreferencias(contenido []byte, correlacion string) (bolsa
 
 // Comprueba las claves y los duplicados antes del DTO. json.Unmarshal por sí
 // solo aceptaría la última aparición de una clave repetida.
-func clavesJSONExactasPreferencias(contenido []byte, esperadas []string) bool {
+func validarClavesJSONPreferencias(contenido []byte, esperadas []string) error {
 	d := json.NewDecoder(bytes.NewReader(contenido))
 	inicio, err := d.Token()
-	if err != nil || inicio != json.Delim('{') {
-		return false
+	if err != nil {
+		return err
+	}
+	if inicio != json.Delim('{') {
+		return bolsa.ErrPreferenciasNoDisponibles
 	}
 	permitidas := make(map[string]bool, len(esperadas))
 	for _, k := range esperadas {
@@ -222,24 +239,33 @@ func clavesJSONExactasPreferencias(contenido []byte, esperadas []string) bool {
 	for d.More() {
 		token, err := d.Token()
 		if err != nil {
-			return false
+			return err
 		}
 		clave, ok := token.(string)
 		if !ok || !permitidas[clave] || vistas[clave] {
-			return false
+			return bolsa.ErrPreferenciasNoDisponibles
 		}
 		var valor json.RawMessage
-		if d.Decode(&valor) != nil {
-			return false
+		if err := d.Decode(&valor); err != nil {
+			return err
 		}
 		vistas[clave] = true
 	}
 	cierre, err := d.Token()
-	if err != nil || cierre != json.Delim('}') || len(vistas) != len(esperadas) {
-		return false
+	if err != nil {
+		return err
+	}
+	if cierre != json.Delim('}') || len(vistas) != len(esperadas) {
+		return bolsa.ErrPreferenciasNoDisponibles
 	}
 	_, err = d.Token()
-	return err == io.EOF
+	if err == io.EOF {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return bolsa.ErrPreferenciasNoDisponibles
 }
 
 func errorLecturaPreferencias(ctx context.Context, err error) error {
