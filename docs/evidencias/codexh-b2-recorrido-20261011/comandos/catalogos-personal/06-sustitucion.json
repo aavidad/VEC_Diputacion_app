@@ -1,0 +1,11 @@
+{
+  "operacion": "publicar",
+  "tipo": "modalidad",
+  "ref": "modalidad:sustitucion",
+  "version": 1,
+  "revision": 1,
+  "denominacion": "Sustitución",
+  "huella_sha256": "d6273348a69539e0af9995f974b7d5ff193d38f6ec64bd66d192e4989ac56ac3",
+  "vigente_desde": "2026-10-11",
+  "vigente_hasta": ""
+}

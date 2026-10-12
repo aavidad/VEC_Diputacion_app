@@ -76,7 +76,8 @@ test("mi bolsa muestra el último resultado B7 propio sin respuesta ni plazo", (
   ];
   const vista = renderizarLlamamientos(datos, { participaciones, fuenteBolsa: "real" });
   assert.match(vista, /<details class="mi-bolsa-ayuda"><summary[^>]+>\?<\/summary><p>[^<]*plazo para responder/u);
-  assert.match(vista, /Último resultado de correo[\s\S]*bolsa:2[\s\S]*Administrativo[\s\S]*No enviado/u);
+  assert.match(vista, /Último resultado de correo[\s\S]*<dt>Bolsa<\/dt><dd>Administrativo<\/dd>[\s\S]*No enviado/u);
+  assert.doesNotMatch(vista, /<dd>bolsa:2<\/dd>/u);
   assert.doesNotMatch(vista, /Que el correo se enviara no significa que haya llegado ni que ya tenga respuesta\./u);
   assert.doesNotMatch(vista, /Aceptar llamamiento|Rechazar llamamiento|nota privada/u);
 });
@@ -90,4 +91,22 @@ test("subsanaciones y alegaciones pendientes solo ofrecen la operación real", (
   assert.match(vistas, /La operación se firmará y registrará/u);
   assert.equal(vistas.match(/>Revisar, firmar y presentar<\/button>/gu)?.length, 2);
   assert.doesNotMatch(vistas, /DEMO|demostración/iu);
+});
+
+test("la respuesta en revisión avisa junto a Disponible y desaparece tras confirmarla", () => {
+  const participaciones = [{ bolsa: "bolsa:administrativo", categoria: "Administrativo", orden_inicial: 1, total_instantanea: 40,
+    estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null,
+    situacion_actual: { estado: "disponible", desde: "2026-09-01T00:00:00Z", hasta: null } }];
+  const estado = { participaciones, accionesPortal: { causas_renuncia: [], pausa_maxima: null, modo_respuesta: "firme" },
+    portalMiBolsa: [{ bolsa: "bolsa:administrativo", ultima_respuesta: { respuesta: "acepta", modo: "firme", recibo: "recibo:01", respondida_en: "2026-10-11T10:00:00Z", en_revision: true } }] };
+  const vista = renderizarLlamamientos(datosPrueba(), estado);
+  assert.match(vista, /Disponible[\s\S]*Tu respuesta está en revisión\. RRHH confirmará tu situación\./u);
+  assert.equal((vista.match(/Tu respuesta está en revisión/gu) || []).length, 1);
+  estado.portalMiBolsa[0].llamamiento_abierto = { contacto_en: "2026-10-11T12:00:00Z", vence_antes_de: "2026-10-12T12:00:00Z" };
+  assert.match(renderizarLlamamientos(datosPrueba(), estado), /Tu respuesta anterior en esta bolsa sigue en revisión/u);
+  delete estado.portalMiBolsa[0].llamamiento_abierto;
+  estado.portalMiBolsa[0].ultima_respuesta.en_revision = false;
+  assert.doesNotMatch(renderizarLlamamientos(datosPrueba(), estado), /Tu respuesta está en revisión/u);
+  delete estado.portalMiBolsa[0].ultima_respuesta.en_revision;
+  assert.doesNotMatch(renderizarLlamamientos(datosPrueba(), estado), /Tu respuesta está en revisión/u);
 });

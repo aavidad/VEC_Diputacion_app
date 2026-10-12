@@ -1,0 +1,22 @@
+{
+  "expediente_ref": "expediente:ct:1fe2c0eda847e5e11e4ab7b15953df0b7a19a525264f3cf2381890e3d0d2e85b",
+  "version_esperada": 1,
+  "clave_idempotencia": "CLAVE_ORIGINAL_EXTERNA",
+  "artefacto_ref": "artefacto:analisis:desarrollo:v1",
+  "analisis": {
+    "modalidad_clave": "vacante",
+    "categoria_ref": "categoria:rpt:administrativo",
+    "grupo_subgrupo": "C1",
+    "causa_clave": "necesidad_temporal",
+    "periodo": {
+      "inicio": "2026-11-10T00:00:00Z",
+      "fin": "2026-12-10T00:00:00Z"
+    },
+    "porcentaje_jornada": 10000,
+    "entrada_rc": {
+      "referencia": "rc:desarrollo:001",
+      "huella_sha256": "3259ad24878afcc3e4cf6ad860377c7d84f6b2b5152dc61146686a8e69ee895b"
+    },
+    "observaciones": "Vacante temporal del puesto 9 de Administrativo en Transformación Digital."
+  }
+}

@@ -96,6 +96,10 @@
     "accion_rechazar": "reject",
     "accion_incorporar": "add to the job pool",
     "persona_aspirante": "the applicant",
-    "registrado_el": "Recorded on {fecha}."
+    "registrado_el": "Recorded on {fecha}.",
+    "pendientes": {
+      "one": "{cuenta} pending application",
+      "other": "{cuenta} pending applications"
+    }
   }
 }

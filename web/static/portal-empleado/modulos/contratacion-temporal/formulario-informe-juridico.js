@@ -4,13 +4,15 @@ import {
   validarReciboInformeJuridico,
   validarSolicitudInformeJuridico,
 } from "./contrato-informe-juridico.js";
-import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=20261010-ct-b2-catalogo-registro-cohorte-v11";
+import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { justificanteTraducido } from "../../portal-justificante.js";
+import { cargarTextos } from "../../../comun/textos.js";
+import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
-  "confirmarOperacion", "mensajes", "locale", "zonaHoraria", "anunciar",
+  "confirmarOperacion", "mensajes", "locale", "zonaHoraria", "anunciar", "leerCatalogoInforme",
   "alConfirmar",
 ]);
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
@@ -104,19 +106,68 @@ function renderizarRecibo(recibo, t, formateador) {
   </section>`;
 }
 
-function renderizarDocumento(recibo, t) {
+function paqueteInforme(contenido) {
+  const inicio = contenido.lastIndexOf("\n{");
+  if (inicio < 0) return null;
+  try {
+    const paquete = JSON.parse(contenido.slice(inicio + 1).trim());
+    if (paquete?.esquema !== "vec.dipgra.contratacion-temporal.informe-juridico.paquete-datos"
+      || paquete.version_esquema !== 1 || !Number.isSafeInteger(paquete.version_expediente)
+      || !Number.isSafeInteger(paquete.plantilla?.version)
+      || typeof paquete.plantilla.plantilla_ref !== "string"
+      || typeof paquete.plantilla.huella_sha256 !== "string"
+      || !Array.isArray(paquete.referencias_normativas) || !Array.isArray(paquete.anexos)
+      || paquete.referencias_normativas.some((norma) => typeof norma?.norma_ref !== "string"
+        || typeof norma?.huella_sha256 !== "string" || !Number.isSafeInteger(norma.version))
+      || paquete.anexos.some((anexo) => typeof anexo?.documento_ref !== "string"
+        || typeof anexo?.huella_sha256 !== "string" || !Number.isSafeInteger(anexo.version_documento))) return null;
+    return paquete;
+  } catch { return null; }
+}
+
+function detalleTecnico(t, referencia, huella) {
+  return `<details class="ct-informe-detalle-tecnico"><summary>${escaparHTML(t("detalle_tecnico"))}</summary>
+    <dl><div><dt>${escaparHTML(t("referencia"))}</dt><dd>${escaparHTML(referencia)}</dd></div>
+    <div><dt>${escaparHTML(t("huella"))}</dt><dd>${escaparHTML(huella)}</dd></div></dl></details>`;
+}
+
+export function renderizarContenidoInforme(contenido, t) {
+  const paquete = paqueteInforme(contenido);
+  const original = `<details class="ct-informe-original"><summary>${escaparHTML(t("original"))}</summary>
+    <pre tabindex="0">${escaparHTML(contenido)}</pre></details>`;
+  if (!paquete) return `<p role="status">${escaparHTML(t("sin_estructura"))}</p>${original}`;
+  const lista = (entradas, tipo, referencia, version) => entradas.length === 0
+    ? `<p>${escaparHTML(t("sin_entradas"))}</p>`
+    : `<ol>${entradas.map((entrada, indice) => `<li>
+      <span>${escaparHTML(t(tipo, { numero: indice + 1, version: entrada[version] }))}</span>
+      ${detalleTecnico(t, entrada[referencia], entrada.huella_sha256)}
+    </li>`).join("")}</ol>`;
+  return `<div class="ct-informe-secciones">
+    <section><h4>${escaparHTML(t("plantilla"))}</h4>
+      <p>${escaparHTML(t("plantilla_version", { version: paquete.plantilla.version }))}</p>
+      ${detalleTecnico(t, paquete.plantilla.plantilla_ref, paquete.plantilla.huella_sha256)}
+    </section>
+    <section><h4>${escaparHTML(t("normas"))}</h4>
+      ${lista(paquete.referencias_normativas, "norma", "norma_ref", "version")}</section>
+    <section><h4>${escaparHTML(t("anexos"))}</h4>
+      ${lista(paquete.anexos, "anexo", "documento_ref", "version_documento")}</section>
+  </div>${original}`;
+}
+
+function renderizarDocumento(recibo, t, textosDocumento) {
   return `<section class="ct-bloque" data-ct-informe-documento role="note"
     aria-labelledby="ct-informe-documento-titulo">
     <p class="sobrelinea">${escaparHTML(t("informe_documento_rotulo"))}</p>
-    <h3 id="ct-informe-documento-titulo">${escaparHTML(recibo.nombre)}</h3>
+    <h3 id="ct-informe-documento-titulo">${escaparHTML(t("informe_documento_contenido"))}</h3>
     <p><strong>${escaparHTML(t("informe_documento_advertencia"))}</strong></p>
     <dl class="ct-resumen">
       <div><dt>${escaparHTML(t("informe_documento_version"))}</dt><dd>${escaparHTML(t("informe_documento_version_valor", { version: recibo.version_documento }))}</dd></div>
       <div><dt>${escaparHTML(t("informe_documento_formato"))}</dt><dd>${escaparHTML(recibo.formato)}</dd></div>
     </dl>
-    <h4>${escaparHTML(t("informe_documento_contenido"))}</h4>
-    <pre tabindex="0" aria-label="${escaparHTML(t("informe_documento_contenido"))}">${
-  escaparHTML(recibo.contenido_desarrollo)}</pre>
+    ${textosDocumento ? renderizarContenidoInforme(recibo.contenido_desarrollo,
+    (clave, variables) => textosDocumento.traducir(`general.${clave}`, variables))
+    : `<details class="ct-informe-original"><summary>${escaparHTML(t("informe_documento_contenido"))}</summary>
+      <pre tabindex="0">${escaparHTML(recibo.contenido_desarrollo)}</pre></details>`}
   </section>`;
 }
 
@@ -173,6 +224,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
     confirmarOperacion = () => false, mensajes = {}, locale = "es-ES",
     zonaHoraria = "Europe/Madrid", anunciar = () => {}, alConfirmar = () => {},
+    leerCatalogoInforme = null,
   } = configuracion;
   configuracion = null;
   if (!raiz || typeof raiz.addEventListener !== "function"
@@ -184,6 +236,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     || typeof generarClaveIdempotencia !== "function"
     || typeof confirmarOperacion !== "function" || typeof anunciar !== "function"
     || typeof alConfirmar !== "function"
+    || (leerCatalogoInforme !== null && typeof leerCatalogoInforme !== "function")
     || typeof AbortController !== "function") {
     throw new TypeError("dependencias del formulario de informe jurídico no válidas");
   }
@@ -199,6 +252,8 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
   let formateador = new Intl.DateTimeFormat(locale, {
     dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
   });
+  let textosDocumento = null;
+  let cargaTextosDocumento = null;
   let controlador = null;
   let vuelo = null;
   let solicitudActual = null;
@@ -237,13 +292,44 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
         aria-atomic="true" tabindex="-1"><strong>${escaparHTML(t(estado.mensaje_clave))}</strong></div>
       ${renderizarFormulario(estado, contexto, t)}
       ${estado.recibo ? renderizarRecibo(estado.recibo, t, formateador) : ""}
-      ${estado.recibo ? renderizarDocumento(estado.recibo, t) : ""}
+      ${estado.recibo ? renderizarDocumento(estado.recibo, t, textosDocumento) : ""}
       ${renderizarHistorial(estado, t, formateador, mensajesHistorial)}
     </section>`;
     if (selectorFoco) enfocar(selectorFoco);
     try { anunciarActual(t(estado.mensaje_clave), estado.tipo_mensaje); } catch {
       // La región viva conserva el estado aunque falle un anunciador auxiliar.
     }
+  }
+
+  function prepararTextosDocumento() {
+    if (cargaTextosDocumento) return cargaTextosDocumento;
+    cargaTextosDocumento = Promise.resolve()
+      .then(async () => {
+        let textos = await (leerCatalogoInforme
+          ? leerCatalogoInforme("contratacion-temporal-informe-juridico")
+          : cargarTextos("contratacion-temporal-informe-juridico"));
+        if (!montado) return;
+        let documentoNuevo;
+        try {
+          documentoNuevo = renderizarDocumento(estado.recibo, t, textos);
+        } catch (error) {
+          if (textos.idioma === IDIOMA_POR_DEFECTO) throw error;
+          const opciones = { idioma: IDIOMA_POR_DEFECTO, porDefecto: IDIOMA_POR_DEFECTO };
+          textos = await (leerCatalogoInforme
+            ? leerCatalogoInforme("contratacion-temporal-informe-juridico", opciones)
+            : cargarTextos("contratacion-temporal-informe-juridico", opciones));
+          if (!montado) return;
+          documentoNuevo = renderizarDocumento(estado.recibo, t, textos);
+        }
+        if (!montado) return;
+        const documento = raizActual.querySelector("[data-ct-informe-documento]");
+        if (typeof documento?.outerHTML === "string") documento.outerHTML = documentoNuevo;
+        textosDocumento = textos;
+        if (typeof documento?.outerHTML !== "string") repintar();
+      }).catch(() => {
+        // El documento original sigue consultable si tampoco carga el idioma de respaldo.
+      });
+    return cargaTextosDocumento;
   }
 
   function prepararSolicitud() {
@@ -351,6 +437,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
           mensaje_clave: "informe_estado_confirmado", tipo_mensaje: "exito",
         };
         solicitudActual = null;
+        void prepararTextosDocumento();
         repintar("[data-ct-informe-recibo]");
         try { alConfirmarActual(recibo); } catch {
           // El recibo del informe prevalece si no puede montarse Fiscalización.
@@ -439,6 +526,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     confirmarActual = null;
     anunciarActual = null;
     alConfirmarActual = null;
+    leerCatalogoInforme = null;
     controlador = null;
     vuelo = null;
     solicitudActual = null;
