@@ -9,7 +9,6 @@ import (
 
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
-	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 type politicaOrigenPrueba struct {
@@ -84,12 +83,13 @@ func TestServicioContactoOrigenConvocaMarcaVersionYSeVenceEnLaLectura(t *testing
 	if err != nil || !repetido.Reutilizada || repo.llamadas != 1 {
 		t.Fatalf("replay exacto: %+v %v", repetido, err)
 	}
-	consulta := puertosbolsa.SolicitudConsultarDatosContactoParticipacion{ContextoActor: dominiovec.ContextoActor{PersonaRef: "per_0123456789abcdefghijkl"}, BolsaRef: "bolsa:b4", ParticipacionRef: "participacion:b4"}
+	consulta := consultaOrigenDatosContactoPrueba(t, ahora)
 	leidos, err := servicio.Consultar(context.Background(), consulta)
 	if err != nil || leidos.Origen == nil || leidos.EstadoOrigen != dominiobolsa.EstadoOrigenContactoVigente {
 		t.Fatalf("lectura vigente: %+v %v", leidos, err)
 	}
 	instante = time.Date(2027, 9, 28, 8, 0, 0, 0, time.UTC)
+	consulta = consultaOrigenDatosContactoPrueba(t, instante)
 	leidos, err = servicio.Consultar(context.Background(), consulta)
 	if err != nil || leidos.EstadoOrigen != dominiobolsa.EstadoOrigenContactoVencido {
 		t.Fatalf("lectura vencida: %+v %v", leidos, err)

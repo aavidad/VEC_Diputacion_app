@@ -28,5 +28,5 @@
     "liquidado": "Settled",
     "fiscalizado": "Reviewed"
   },
-  "sintetico": "SYNTHETIC SAMPLE. Not a recorded settlement or an authorised export."
+  "sintetico": "DRAFT FOR REVIEW. Not a recorded settlement or an authorised export."
 }

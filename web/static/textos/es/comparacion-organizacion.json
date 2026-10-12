@@ -1,6 +1,6 @@
 {
   "titulo": "Comparación de organización y RPT",
-  "aviso": "Preparación con datos sintéticos. La cobertura es declarada; no acredita una consulta productiva, una baja legal ni un registro de auditoría.",
+  "aviso": "Información pendiente de validar. La cobertura es declarada; no acredita una consulta productiva, una baja legal ni un registro de auditoría.",
   "limite": "Una entrada o salida del corte refleja la selección comparada. La amortización requiere un estado estructural explícito. Una ausencia con cobertura parcial queda sin verificar.",
   "error_entrada": "No se ha podido comparar. Revise el esquema, los cortes y la cobertura del archivo de preparación.",
   "error_salida": "No se ha podido generar el informe. Compruebe el destino de salida y repita la preparación.",

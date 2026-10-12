@@ -80,7 +80,7 @@ func TestInformeListaHechosOrdenadosConCoincidenciasZonaYFuenteIncompleta(t *tes
 	if len(parrafos) != 10 {
 		t.Fatal(parrafos)
 	}
-	for _, fragmento := range []string{"Ejemplo sintético", "Europe/Madrid", "fuente del ejemplo es incompleta", "02:30:00 +02:00 CEST. Entrada. Origen: Terminal (declarado)", "02:30:00 +02:00 CEST. Entrada. Origen: Sin verificar", "02:45:00 +02:00 CEST. Inicio de pausa", "02:30:00 +01:00 CET. Salida"} {
+	for _, fragmento := range []string{"Borrador sin validar", "Europe/Madrid", "fuente del ejemplo es incompleta", "02:30:00 +02:00 CEST. Entrada. Origen: Terminal (declarado)", "02:30:00 +02:00 CEST. Entrada. Origen: Sin verificar", "02:45:00 +02:00 CEST. Inicio de pausa", "02:30:00 +01:00 CET. Salida"} {
 		if !strings.Contains(strings.Join(parrafos, "\n"), fragmento) {
 			t.Fatalf("no figura %q: %v", fragmento, parrafos)
 		}

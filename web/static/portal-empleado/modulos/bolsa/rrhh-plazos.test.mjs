@@ -120,7 +120,7 @@ test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST 
   const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
     generarClave: () => "misma-clave", cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo });
   superficie.activar("bolsa:1"); await turno();
-  assert.match(superficie.renderizar(), /Regla de ejemplo/);
+  assert.match(superficie.renderizar(), /Regla pendiente de aprobación/);
   assert.match(superficie.renderizar(), /Oferta no cubierta/);
   assert.match(superficie.renderizar(), /Días hábiles/);
   assert.match(superficie.renderizar(), /name="cantidad"[^>]*value="2"/u);

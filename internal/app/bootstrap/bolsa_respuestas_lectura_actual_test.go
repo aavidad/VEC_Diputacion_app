@@ -122,3 +122,25 @@ func TestCapturarLecturaRespuestasLlamamientoDeniegaAmbitoAjenoYRolAusente(t *te
 		t.Fatal("otro rol con concesión copiada admitido")
 	}
 }
+
+func TestCapturaContactoC3ExigeConcesionPropiaAntesDeLeer(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	sesion, fuente := escenarioLecturaRespuestasLlamamiento(t, ahora)
+	contrato := contratoLecturaBolsa{accion: vecdomain.AccionLecturaOrigenContactoBolsa, finalidad: "consulta_origen_datos_contacto_participacion", tipo: "participacion_bolsa", motivo: "lectura_origen_datos_contacto_correcta", campos: vecdomain.CamposLecturaOrigenContactoBolsa()}
+	capturar := func() error {
+		_, err := capturarLecturaBolsa(context.Background(), fuente, sesion.Vinculo, sesion.Resultado, "unidad:prueba", "ambito:prueba", "bolsa:prueba", "participacion:prueba", contrato)
+		return err
+	}
+	if err := capturar(); !errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
+		t.Fatal("la concesión B103 permitió contacto", err)
+	}
+	fuente.i.VersionRol.Concesiones = append(fuente.i.VersionRol.Concesiones, vecdomain.ConcesionRol{Accion: contrato.accion, ModuloID: "bolsa", TipoRecurso: contrato.tipo, Finalidades: []string{contrato.finalidad}, GarantiaMinima: vecdomain.AuthAssuranceHigh, CamposPermitidos: slices.Clone(contrato.campos), Obligaciones: []string{"auditar"}})
+	if err := capturar(); err != nil {
+		t.Fatal(err)
+	}
+	j := len(fuente.i.VersionRol.Concesiones) - 1
+	fuente.i.VersionRol.Concesiones[j].CamposPermitidos = []string{"correo"}
+	if err := capturar(); !errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
+		t.Fatal("el permiso del claro permitió la máscara", err)
+	}
+}

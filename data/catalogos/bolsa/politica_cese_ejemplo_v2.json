@@ -1,0 +1,34 @@
+{
+  "esquema": "vec.bolsa.politica-cese.publicacion.v1",
+  "preimagen": {
+    "version": 1,
+    "catalogo_ref": "catalogo:bolsa:cese:ejemplo-sintetico:v1",
+    "mapeo": {
+      "interinidad": "general",
+      "interinidad|acumulacion_tareas": "acumulacion_tareas",
+      "contratacion_temporal.interinidad": "general",
+      "contratacion_temporal.interinidad|acumulacion_tareas": "acumulacion_tareas",
+      "relevo": "general"
+    },
+    "meses_general": 5,
+    "meses_acumulacion": 9,
+    "computo": "fecha_cese_meses_calendario_ajuste_fin_mes",
+    "estado": "ejemplo_sintetico"
+  },
+  "nueva": {
+    "version": 2,
+    "catalogo_ref": "catalogo:bolsa:cese:ejemplo-sintetico:v2",
+    "mapeo": {
+      "interinidad": "general",
+      "interinidad|acumulacion_tareas": "acumulacion_tareas",
+      "contratacion_temporal.interinidad": "general",
+      "contratacion_temporal.interinidad|acumulacion_tareas": "acumulacion_tareas",
+      "relevo": "general",
+      "vacante": "general"
+    },
+    "meses_general": 5,
+    "meses_acumulacion": 9,
+    "computo": "fecha_cese_meses_calendario_ajuste_fin_mes",
+    "estado": "ejemplo_sintetico"
+  }
+}

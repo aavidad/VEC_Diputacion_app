@@ -37,3 +37,19 @@ func TestMaterialPropuestaVersionarRolBolsaB103FijaCuatroSelecciones(t *testing.
 		t.Fatal("material alterado aceptado")
 	}
 }
+
+func TestSolicitudPropuestaB103AdmiteExtensionContactoDeUnaSeleccion(t *testing.T) {
+	_, i, ahora := escenarioVersionarRolBolsaB103(t)
+	vinculo, resultado, _ := vinculoAutenticacionActorV2Prueba(t, ahora)
+	base := solicitudActoAdministracionPerfilesPrueba(t)
+	base.InstantaneaAutorizacion.AsignacionPerfil.PrincipalID = resultado.Contexto.PersonaRef
+	base.InstantaneaAutorizacion.AsignacionPerfil.PerfilActivoRef = resultado.Contexto.PerfilActivoRef
+	q := SolicitudPropuestaVersionarRolBolsaB103{OperacionRef: "propuesta_admin:" + strings.Repeat("a", 32), Actor: resultado.Contexto, Evidencia: EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: vinculo}, InstantaneaAutorizacion: base.InstantaneaAutorizacion, Intencion: i, HuellaPlanEsperada: strings.Repeat("a", 64), CorrelacionRef: base.CorrelacionRef}
+	for _, n := range []int{1, 4, 0, 2} {
+		q.Intencion.Selecciones = make([]SeleccionAccionAdministracionV1, n)
+		err := q.Validar()
+		if (n == 1 || n == 4) != (err == nil) {
+			t.Fatalf("selecciones=%d error=%v actor=%v evidencia=%v snapshot=%v motivo=%v acto=%v", n, err, q.Actor.Validar(), q.Evidencia.ValidarPara(q.Actor), q.InstantaneaAutorizacion.Validar(), ReferenciaMotivoAutorizacionV2Valida(q.Intencion.Motivo), ReferenciaActoAdministracionValida(q.Intencion.ReferenciaActo))
+		}
+	}
+}

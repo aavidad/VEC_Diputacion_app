@@ -5,7 +5,7 @@
   "referencia": "cronos-informe-movimientos-es",
   "idioma": "es-ES",
   "titulo": "Fichajes del periodo",
-  "sintetico": "Ejemplo sintético. No consulta el registro real y no tiene validez administrativa. La descarga para empleados sigue pendiente.",
+  "sintetico": "Borrador sin validar. No consulta el registro real y no tiene validez administrativa. La descarga para empleados sigue pendiente.",
   "nombre_sintetico": "Persona del ejemplo: {{nombre}}",
   "periodo": "Periodo: {{desde}} a {{hasta}}",
   "zona": "Zona horaria: {{zona}}",

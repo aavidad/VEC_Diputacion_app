@@ -17,7 +17,7 @@ import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } fro
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-r-fichas-idioma-nav-v1";
 import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261008-r-traza-idioma-v1";
-import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { traducirEnlacesBolsa } from "./portal-enlaces-i18n.js?v=20260930-portales-i18n-integracion-v1";
