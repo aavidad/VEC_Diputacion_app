@@ -172,8 +172,9 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
   }
   function aceptarConsulta(datos) {
     const c = validarConsultaB2(datos, expedienteRef);
-    if (c.version_expediente_actual < versionEsperada || (!c.plan && c.version_expediente_actual !== versionEsperada)) throw Object.assign(new Error(), { estado: 409, envelopeValido: true });
-    if (intencion && c.plan && JSON.stringify(c.plan.intencion) !== JSON.stringify(intencion)) throw Object.assign(new Error(), { estado: 409, envelopeValido: true });
+    if (!c.recibo && (c.version_expediente_actual < versionEsperada
+      || (!c.plan && c.version_expediente_actual !== versionEsperada))) throw Object.assign(new Error(), { estado: 409, envelopeValido: true });
+    if (!c.recibo && intencion && c.plan && JSON.stringify(c.plan.intencion) !== JSON.stringify(intencion)) throw Object.assign(new Error(), { estado: 409, envelopeValido: true });
     const seleccionCambiada = Boolean(intencion && !c.plan && !seleccionCompatible(c, intencion));
     if (seleccionCambiada && !intencionEnviada) { intencion = null; catalogoRevision = null; fase = "datos"; }
     reintentoBloqueado = seleccionCambiada && intencionEnviada;
