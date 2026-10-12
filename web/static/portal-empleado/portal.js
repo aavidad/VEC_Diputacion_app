@@ -122,7 +122,7 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261012-c3-contacto-v1"),
+        import("./portal-bolsas-ofertas.js?v=20261013-bolsa-menu-n3"),
         import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
@@ -423,7 +423,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261012-c3-contacto-v1");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261013-bolsa-menu-n3");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -609,6 +609,7 @@ function capacidadesBolsa() {
     auditoriaConsulta: estado.fuenteLista === true || coordinadorModulos.vistaDisponible("contratacion-temporal"),
     politicaCese: estado.politicaCese !== null,
     inscripciones: estado.inscripcionesDisponibles === true,
+    cargaConvoca: estado.cargaConvocaDisponible === true,
   };
 }
 function vistaPermitida(vista) {
@@ -954,7 +955,10 @@ function vistaDesdeHash() {
 }
 
 function rutaDeVista(vista) { return vista === "mis-preferencias" ? "#mis-preferencias" : rutaDeVistaPortal(vista); }
-function tituloDeVista(vista) { return TITULOS[vista] || TITULOS.portal; }
+function tituloDeVista(vista) {
+  if (vista === "bolsa-candidatos" && new URLSearchParams(window.location.search).get("bolsa_global") === "llamamientos") return TITULOS.comunicaciones;
+  return TITULOS[vista] || TITULOS.portal;
+}
 function moduloActivoDeVista(vista) { return moduloDeVistaPortal(vista); }
 function actualizarNavegacionModulos() {
   const contenedor = porId("navegacion-modulos-dinamica");
@@ -964,6 +968,9 @@ function actualizarNavegacionModulos() {
   contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
   const enlacePlantillas = porId("enlace-plantillas-rrhh");
   if (enlacePlantillas) enlacePlantillas.hidden = estado.plantillasAutorizadas !== true;
+  if (moduloActivo === "bolsa") cargaConvocaDisponible();
+  const enlaceConvoca = porId("navegacion-bolsa")?.querySelector('[data-vista="importacion"]');
+  if (enlaceConvoca) enlaceConvoca.setAttribute("href", RUTA_PANTALLA_CARGA_CONVOCA);
   aplicarDisponibilidadMenuBolsa(porId("navegacion-bolsa"), capacidadesBolsa())
     .forEach((indicador, indice) => { indicador.textContent = String(indice + 1); });
   const fase = porId("texto-estado-modulos-portal");
@@ -1003,6 +1010,15 @@ function alCambiarFichaCT(ficha) {
     history.pushState(null, "", ruta);
 }
 function navegar(vista, opciones = {}) {
+  if (vista === "comunicaciones" && rutasBolsa) {
+    history.pushState(null, "", rutasBolsa.rutaGlobalBolsaCompartible(window.location.search, "llamamientos"));
+    navegar("bolsa-candidatos", { ...opciones, desdeRuta: true });
+    return;
+  }
+  if (vista === "importacion") {
+    window.location.assign(RUTA_PANTALLA_CARGA_CONVOCA);
+    return;
+  }
   if (!Object.hasOwn(TITULOS, vista)) return;
   if (vista !== VISTA_PLANTILLAS_RRHH) destinoPlantillasInicial = false;
   if (vista !== "reglas") destinoPoliticaCeseInicial = false;
@@ -1085,6 +1101,14 @@ function navegar(vista, opciones = {}) {
   anunciar(traducirPortal("txt_vista_abierta", { vista: tituloDeVista(vista)[1] }));
 }
 function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } = {}) {
+  if (vista === "comunicaciones") {
+    navegar(vista, { ...opciones, enfocar: false });
+    return;
+  }
+  if (vista === "importacion") {
+    window.location.replace(RUTA_PANTALLA_CARGA_CONVOCA);
+    return;
+  }
   if (vista === "solicitudes") {
     if (controladorInscripcionesBolsa && contenedor.querySelector("[data-inscripciones-montaje]")) return;
     desmontarInscripcionesBolsa();
@@ -1362,7 +1386,8 @@ function renderizar() {
     if (actual) boton.setAttribute("aria-current", "page");
     else boton.removeAttribute("aria-current");
   });
-  sincronizarMenuBolsa(porId("navegacion-bolsa"), estado.vista);
+  sincronizarMenuBolsa(porId("navegacion-bolsa"), estado.vista === "bolsa-candidatos"
+    && new URLSearchParams(window.location.search).get("bolsa_global") === "llamamientos" ? "comunicaciones" : estado.vista);
   if (estado.vista === "mis-preferencias") {
     coordinadorModulos.retirarVistaMontada();
     estado.vistaMontada = "";
@@ -1629,8 +1654,8 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261012-c3-contacto-v1"),
-    import("./portal-bolsas-api.js?v=20261012-c3-contacto-v1"),
+    import("./portal-panel-interno.js?v=20261013-bolsa-menu-n3"),
+    import("./portal-bolsas-api.js?v=20261013-bolsa-menu-n3"),
     import("./portal-bolsas-ruta-filtros.js?v=20261011-ct-bolsa-vinculo-v1"),
     import("./modulos/contratacion-temporal/cliente-http.js?v=20261011-ct-bolsa-vinculo-v1"),
   ]).then(([panel, bolsas, rutas, ct]) => {

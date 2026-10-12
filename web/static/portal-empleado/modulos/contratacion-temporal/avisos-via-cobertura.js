@@ -67,9 +67,9 @@ function renderizarProcedencia(avisos, t) {
   return `<dl class="ct-avisos-via-reglas">${[...vistas.values()].map((regla) => {
     const origen = regla.origen === "reglamento"
       ? t("avisos_via_regla_reglamento", { articulo: regla.articulo })
-      : t("avisos_via_regla_ejemplo");
+      : regla.origen === "configuracion" ? "" : t("avisos_via_regla_ejemplo");
     const partes = [
-      `<p class="ct-avisos-via-origen">${escaparHTML(origen)}</p>`,
+      ...(origen ? [`<p class="ct-avisos-via-origen">${escaparHTML(origen)}</p>`] : []),
       `<p>${escaparHTML(regla.descripcion)}</p>`,
       `<p>${escaparHTML(regla.norma)}</p>`,
     ];

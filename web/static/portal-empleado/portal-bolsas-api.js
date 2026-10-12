@@ -24,7 +24,7 @@ import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamami
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
 import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
-import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261011-ct-bolsa-vinculo-v1";
+import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261013-bolsa-menu-n3";
 import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261011-ct-bolsa-vinculo-v1";
 import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261011-ct-bolsa-vinculo-v1";
 import { cargarTextos } from "../comun/textos.js";
@@ -405,11 +405,11 @@ export function propuestaPlazoRespuesta(datos) {
   const regla = datos.regla || {};
   const venceEn = new Date(datos.vencimiento?.vence_en || "");
   const cadena = (valor) => typeof valor === "string" && valor.trim().length > 0;
-  if (!cadena(regla.texto) || !/^[^:\s]+:\d+:[^:\s]+$/.test(regla.referencia || "") || !["ejemplo", "reglamento"].includes(regla.origen) ||
-    (regla.origen === "reglamento" && !cadena(regla.articulo)) || !Number.isFinite(venceEn.getTime())) return null;
+  if (!cadena(regla.texto) || !/^[^:\s]+:\d+:[^:\s]+$/.test(regla.referencia || "") || !["ejemplo", "reglamento", "configuracion"].includes(regla.origen) ||
+    (regla.origen === "reglamento" && !cadena(regla.articulo)) || (regla.origen === "configuracion" && regla.ejemplo === true) || !Number.isFinite(venceEn.getTime())) return null;
   const fecha = new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { timeZone: ZONA_HORARIA_PORTAL, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(venceEn);
   const hora = new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { timeZone: ZONA_HORARIA_PORTAL, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(venceEn);
-  const procedencia = regla.origen === "ejemplo"
+  const procedencia = regla.origen === "configuracion" ? "" : regla.origen === "ejemplo"
     ? traducirPortal("panel_b7_plazo_procedencia_ejemplo")
     : traducirPortal(regla.ejemplo ? "panel_b7_plazo_procedencia_reglamento_parcial" : "panel_b7_plazo_procedencia_reglamento", { articulo: regla.articulo });
   return { texto: traducirPortal("panel_b7_plazo_regla_texto", { fecha, hora }), procedencia, ejemplo: regla.origen === "ejemplo" || regla.ejemplo === true, descripcion: regla.texto, referencia: regla.referencia };
