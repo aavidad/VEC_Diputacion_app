@@ -14,6 +14,7 @@ import (
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/separacionportales"
 	aspiranteshttp "vec-diputacion-granada/internal/modules/aspirantes/adapters/httpapi"
+	meritoshttp "vec-diputacion-granada/internal/modules/meritos/adapters/http"
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	usuariospg "vec-diputacion-granada/internal/modules/usuarios/adapters/postgres"
 	usuariosapp "vec-diputacion-granada/internal/modules/usuarios/application"
@@ -288,7 +289,11 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 			}
 			fallo(401, "no_autenticado")
 		}
-		if r.URL.RawPath != "" || r.URL.RawQuery != "" || r.URL.ForceQuery || len(r.TransferEncoding) != 0 || len(r.Trailer) != 0 {
+		// Solo el GET de cartera necesita selectores. Su handler los valida
+		// después de resolver la sesión y audita los intentos inválidos.
+		consultaCartera := a.ruta == meritoshttp.RutaCartera && r.Method == http.MethodGet
+		if r.URL.RawPath != "" || r.URL.RawQuery != "" && !consultaCartera ||
+			r.URL.ForceQuery || len(r.TransferEncoding) != 0 || len(r.Trailer) != 0 {
 			fallo(422, "peticion_invalida")
 			return
 		}
