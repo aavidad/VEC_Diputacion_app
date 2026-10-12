@@ -147,6 +147,7 @@ func TestPlanesNominalesB2ExigeFuentesYNoVuelveAlEjercicio(t *testing.T) {
 
 func TestPlanesNominalesB2LigaPersonaPuestoYReservaExactos(t *testing.T) {
 	c := contratoB2Prueba()
+	c.DatosPersonal.UnidadRef = "unidad:centro:520" // La bolsa de RRHH cubre un puesto de otro centro.
 	reservas := 0
 	cfg := configuracionB2Prueba(c, &reservas)
 	f, err := NuevosPlanesNominales(cfg)
@@ -155,6 +156,7 @@ func TestPlanesNominalesB2LigaPersonaPuestoYReservaExactos(t *testing.T) {
 	}
 	p, err := f.Preparar(context.Background(), c.OrganizacionRef, c.ExpedienteRef)
 	if err != nil || p.Protocolo != ProtocoloPersonalB2V1 || p.Personal == nil || p.Ejercicio != nil || reservas != 1 ||
+		p.Personal.Contrato.SelectorBolsa.UnidadRef != "unidad:uno" || p.Personal.Contrato.DatosPersonal.UnidadRef != "unidad:centro:520" ||
 		p.Personal.Persona.PersonaRef != p.Personal.Reserva.PersonaRef {
 		t.Fatalf("plan B2 no ligado: %+v, %v, reservas=%d", p, err, reservas)
 	}
