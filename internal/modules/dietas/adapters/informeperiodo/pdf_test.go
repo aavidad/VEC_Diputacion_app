@@ -60,7 +60,7 @@ func TestPDFComponeResumenConceptosYFilasDelCatalogo(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := espia.contenido.Parrafos
-	if espia.contenido.Titulo != "Informe de dietas por período" || !strings.HasPrefix(p[0], "BORRADOR SIN VALIDAR") ||
+	if espia.contenido.Titulo != "Informe de dietas por período" || !strings.HasPrefix(p[0], "Borrador pendiente de aprobación") ||
 		!strings.Contains(p[1], "fecha de liquidación") || p[2] != "Período consultado: del 05/09/2026 al 20/09/2026." ||
 		p[3] != "Informes incluidos: 1. Importe incluido: 1.234,56 €." || p[4] != "Manutención: 42,50 €." ||
 		p[5] != "Kilometraje: 0,00 €." ||

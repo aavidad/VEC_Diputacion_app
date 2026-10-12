@@ -6,7 +6,7 @@
   "formato_fecha": "02/01/2006",
   "separador_decimal": ".",
   "titulo": "Expenses report by period",
-  "sintetico": "DRAFT FOR REVIEW. People and amounts are made up. Not a recorded settlement or an authorised export.",
+  "sintetico": "Draft pending approval.",
   "criterio": "The period is counted by the {{campo}} of each trip. The unit is the one recorded in its document.",
   "campos_fecha": {
     "fecha_inicio": "start date",

@@ -208,7 +208,7 @@ test("formulario: 201 muestra recibo válido y sus límites", async () => {
   montarFormularioResolucionFormalizacion({ raiz, preparacion: preparacionFormulario, generarClaveIdempotencia: () => solicitud.clave_idempotencia,
     confirmarOperacion: () => true, cliente: { registrarResolucionFormalizacion(x) { llamadas += 1; return Promise.resolve({ ...recibo, expediente_ref: x.expediente_ref, propuesta_ref: x.propuesta_ref }); } } });
   await raiz.enviar(valoresFormulario);
-  assert.equal(llamadas, 1); assert.match(raiz.innerHTML, /recibo:ct:001/u); assert.match(raiz.innerHTML, /Firma oficial: no/u);
+  assert.equal(llamadas, 1); assert.match(raiz.innerHTML, /recibo:ct:001/u); assert.match(raiz.innerHTML, /Firma oficial: pendiente/u);
   // Solo lo útil a quien tramita: sin volcado técnico de referencias, huellas ni esquema.
   assert.doesNotMatch(raiz.innerHTML, /<details|manual_de_ejercicio|auditoria:ct:001|a{64}/u);
   for (const valor of ["datetime=\"2026-09-06T12:00:00Z\"", "Registrada", "Firma oficial", "Eficacia administrativa"]) {

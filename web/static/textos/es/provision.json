@@ -87,7 +87,7 @@
   "preferencia_movida": "{puesto} ocupa ahora la preferencia {orden}.",
   "preferencia_agregada": "Puesto añadido a sus preferencias.",
   "preferencia_quitada": "Puesto quitado de sus preferencias.",
-  "resultado_limite": "Esta simulación no acredita admisión, publicación ni adjudicación.",
+  "resultado_limite": "La adjudicación definitiva se publica tras resolver el concurso.",
   "detalle": "Desglose por puesto",
   "requisitos": "Requisitos de acceso",
   "ayuda_texto": "Revise la convocatoria y la versión exacta de cada puesto RPT. Añada los puestos que le interesen y cambie el orden con Subir y Bajar. La simulación usa el servicio del concurso. Un dato pendiente no equivale a cero puntos. Esta preparación no presenta una solicitud ni firma documentos.",
@@ -102,8 +102,8 @@
     "datos_pendientes": "Falta acreditar el dato del requisito.",
     "dato_acreditado": "Dato aportado para la simulación.",
     "sin_motivo": "Revisión pendiente.",
-    "grupo_compatible": "Grupo compatible en este ensayo.",
-    "grupo_acreditado": "Grupo acreditado en este ensayo."
+    "grupo_compatible": "Grupo compatible.",
+    "grupo_acreditado": "Grupo acreditado."
   },
   "version_rpt": "Versión {version}",
   "detalle_tecnico": "Ver referencias de la valoración",
@@ -127,13 +127,13 @@
     "valoracion_trabajo": "Trabajo desarrollado"
   },
   "configuracion": {
-    "titulo": "Baremo del ensayo",
+    "titulo": "Baremo de la simulación",
     "fecha_corte": "Fecha de corte (extremo exclusivo)",
     "ventana_desde": "Inicio de la ventana",
     "coeficiente": "Puntos por unidad",
     "maximo": "Tope de puntos",
     "etiqueta": "{campo}: {familia}",
-    "actualizada": "Configuración del ensayo actualizada. Vuelva a simular para obtener la valoración.",
+    "actualizada": "Configuración de la simulación actualizada. Vuelva a simular para obtener la valoración.",
     "invalida": "Introduzca puntos iguales o mayores que cero, con hasta seis decimales.",
     "por_tramos": "Según tramos de las bases",
     "fecha_invalida": "Introduzca una fecha válida. El inicio de la ventana debe ser anterior a la fecha de corte.",
@@ -141,50 +141,50 @@
     "corregir": "Corregir configuración"
   },
   "volver_al_baremador": "Volver al simulador de baremos",
-  "ejemplo_selector": "Caso de ensayo",
+  "ejemplo_selector": "Caso",
   "ensayos": {
-    "limite": "Ensayo sintético. No adjudica puestos ni modifica solicitudes.",
+    "limite": "Simulación. No adjudica puestos ni modifica solicitudes.",
     "ejemplo_numero": "Caso {numero}",
-    "politica_ref": "Referencia de la política de ensayo",
+    "politica_ref": "Referencia de la política",
     "politica_version": "Versión de la política",
-    "bases_ref": "Referencia de bases del ensayo",
-    "version": "Versión del ensayo",
+    "bases_ref": "Referencia de las bases",
+    "version": "Versión de la simulación",
     "metodo": "Método configurado",
     "prioridad": "Prioridad de valoración",
     "incompatibilidad": "Puestos por persona",
-    "desempates": "Cadena de desempates del ensayo",
+    "desempates": "Cadena de desempates",
     "sentido": "Orden del criterio",
     "sin_desempates": "No hay criterios de desempate. Un empate sin resolver dejará la adjudicación pendiente.",
     "preferencias": "Preferencias y valoraciones de partida",
     "persona": "Persona",
-    "persona_sin_nombre": "Persona del ensayo",
-    "puesto_sin_nombre": "Puesto del ensayo",
-    "regla_sin_nombre": "Criterio del ensayo",
-    "simular": "Ensayar adjudicación",
+    "persona_sin_nombre": "Persona sin nombre",
+    "puesto_sin_nombre": "Puesto sin nombre",
+    "regla_sin_nombre": "Criterio sin nombre",
+    "simular": "Simular adjudicación",
     "asignaciones": "Asignaciones simuladas",
-    "sin_asignaciones": "El ensayo no ha producido asignaciones.",
-    "incidencia_pendiente": "Hay una incidencia pendiente de revisar en el ensayo.",
+    "sin_asignaciones": "La simulación no ha producido asignaciones.",
+    "incidencia_pendiente": "Hay una incidencia pendiente de revisar.",
     "personas_pendientes": "Sin asignación: {personas}.",
     "huella_resultado": "Huella del resultado",
     "bloqueo": "La resolución oficial requiere bases aprobadas, expediente conservado, revisión, firma y registro.",
-    "configuracion_invalida": "Introduzca una referencia o versión de ensayo de entre 1 y 160 caracteres.",
+    "configuracion_invalida": "Introduzca una referencia o versión de entre 1 y 160 caracteres.",
     "mover_desempate": "{accion} el criterio {orden}",
     "estados": {
-      "cargando": "Cargando el ensayo…",
-      "listo": "Configuración de ensayo preparada",
-      "calculando": "Calculando el ensayo…",
-      "resultado": "Ensayo obtenido",
-      "vacio": "No hay casos de ensayo disponibles.",
-      "error": "No se ha podido obtener el ensayo. Reintente cuando el servicio esté disponible.",
+      "cargando": "Cargando la simulación…",
+      "listo": "Configuración preparada",
+      "calculando": "Calculando la simulación…",
+      "resultado": "Simulación obtenida",
+      "vacio": "No hay casos disponibles.",
+      "error": "No se ha podido obtener la simulación. Reintente cuando el servicio esté disponible.",
       "validacion": "Revise los campos indicados y los criterios antes de ensayar.",
-      "conflicto": "El caso ha cambiado. Recargue el ensayo.",
-      "denegado": "No tiene acceso a este ensayo. Solicite permiso al responsable.",
-      "propuesta_simulada": "Propuesta simulada, sin efectos",
+      "conflicto": "El caso ha cambiado. Recargue la simulación.",
+      "denegado": "No tiene acceso a esta simulación. Solicite permiso al responsable.",
+      "propuesta_simulada": "Propuesta simulada",
       "pendiente": "Adjudicación pendiente",
-      "no_soportado": "Configuración no soportada por este ensayo"
+      "no_soportado": "Configuración no soportada por esta simulación"
     },
     "opciones": {
-      "aceptacion_diferida_personas_proponen_ensayo_v1": "Aceptación diferida: propuestas de las personas (ensayo)",
+      "aceptacion_diferida_personas_proponen_ensayo_v1": "Aceptación diferida: propuestas de las personas",
       "total_descendente": "Mayor puntuación total primero",
       "un_puesto_por_persona": "Un puesto como máximo",
       "mayor": "Mayor puntuación primero",
@@ -202,23 +202,23 @@
       "regla_cursos": "Formación"
     },
     "incidencias": {
-      "metodo_no_soportado": "El método configurado no está disponible en este ensayo.",
+      "metodo_no_soportado": "El método configurado no está disponible en esta simulación.",
       "universo_no_cerrado": "El conjunto de solicitudes no está cerrado.",
       "admision_pendiente": "Hay una admisión pendiente de revisión.",
       "valoracion_pendiente": "Hay una valoración pendiente de datos.",
       "empate_residual": "Los criterios configurados no resuelven el empate. No se han asignado puestos."
     },
-    "restablecer": "Restablecer caso de ensayo"
+    "restablecer": "Restablecer caso"
   },
   "ciclo": {
-    "limite": "Ensayo sintético de reclamación y revisión. No registra alegaciones ni cambia datos administrativos.",
+    "limite": "Simulación de reclamación y revisión. No registra alegaciones ni cambia datos administrativos.",
     "elegir": "Decisión que desea ensayar",
     "catalogo": "Versión del catálogo de causas",
-    "simular": "Ensayar reclamación y revisión",
-    "cronologia": "Versiones conservadas en el ensayo",
+    "simular": "Simular reclamación y revisión",
+    "cronologia": "Versiones conservadas",
     "revision": "Revisión",
-    "inicial": "Valoración inicial del ensayo",
-    "reclamaciones": "Reclamaciones incluidas en el ensayo",
+    "inicial": "Valoración inicial",
+    "reclamaciones": "Reclamaciones incluidas",
     "reclamacion": "Valoración {version}: {causa}",
     "pendiente_revision": "Reclamación pendiente de revisión",
     "causa_pendiente": "Causa pendiente de contraste",
@@ -235,14 +235,14 @@
     "casos": {
       "pendiente": "Dejar reclamación pendiente",
       "mantener": "Mantener la valoración",
-      "rectificar": "Rectificar un dato del ensayo"
+      "rectificar": "Rectificar un dato"
     },
     "decisiones": {
       "mantener": "Valoración mantenida con revisión motivada",
       "rectificar": "Valoración recalculada con otra instantánea"
     },
     "causas": {
-      "rectificacion_dato_ensayo": "Rectificación de un dato del ensayo"
+      "rectificacion_dato_ensayo": "Rectificación de un dato"
     },
     "pendientes": {
       "bases_y_catalogo_sin_contraste": "Bases y catálogo pendientes de contraste",

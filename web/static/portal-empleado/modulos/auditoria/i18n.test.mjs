@@ -32,7 +32,7 @@ test("catálogo inglés completo y elegido por el idioma común", async () => {
       motivo: "rectificacion", fuente: "Personal", datos_disponibles: true, antes: {}, despues: {} };
     const html = renderizarVistaAuditoria({ estado: "disponible", habilitada: true, ejemplo: true, registros: [registro] });
     if (!denegado.includes("Access denied") || !filtrosPendientes.includes("Press Search to apply the filters") || html.includes("Acceso denegado") ||
-      !html.includes("Updated the employment record") || !html.includes("Fictitious sample") ||
+      !html.includes("Updated the employment record") || html.includes("Fictitious") ||
       !html.includes("View technical details") || !html.includes("Sept 2026")) process.exit(1);`;
   const resultado = spawnSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" });
   assert.equal(resultado.status, 0, resultado.stderr);

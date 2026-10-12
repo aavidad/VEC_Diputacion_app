@@ -13,7 +13,7 @@
   "solo_local": "Local review",
   "archivo": "Preparation tool output file · Required",
   "archivo_pista": "Select the session preparation tool JSON output, not its input or the board preparation. Maximum 4 MiB.",
-  "limite": "Use synthetic material only. The file is not verified and does not constitute minutes of a session that took place.",
+  "limite": "The file is shown as received; it is not verified.",
   "vacio": "Open a preparation tool file to review the proposals.",
   "cargando": "Reading the file…",
   "cargado": "Draft opened. Review the proposals and the outstanding checks.",

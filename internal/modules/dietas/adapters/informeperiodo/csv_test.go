@@ -66,7 +66,7 @@ func TestEscribeColumnasDeLaSeleccionConFechaDelCatalogo(t *testing.T) {
 		t.Fatal(err)
 	}
 	filas := leer(t, b)
-	if len(filas) != 2 || strings.Join(filas[0][:7], "|") != "Referencia|Versión|Persona|Unidad|Situación del ejemplo|Fecha de liquidación|Manutención (céntimos)" ||
+	if len(filas) != 2 || strings.Join(filas[0][:7], "|") != "Referencia|Versión|Persona|Unidad|Situación|Fecha de liquidación|Manutención (céntimos)" ||
 		len(filas[0]) != 10 {
 		t.Fatalf("cabecera %q", filas[0])
 	}

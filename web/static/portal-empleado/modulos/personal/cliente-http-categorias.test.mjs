@@ -3,7 +3,7 @@ import test from "node:test";
 import { crearClienteHTTPCategoriasPersonal, ErrorClienteCategoriasPersonal } from "./cliente-http-categorias.js";
 
 function sobre({ items = [] } = {}) { return { data: { categories: { items, total: items.length, limit: 25, offset: 0, catalogo: { catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) }, fuente: { revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." } } } }; }
-function categoria() { return { catalog: "categoria_profesional", clave: "administrativo", slug: "administrativo", etiqueta: "Administrativo", name: "Administrativo", descripcion: "", orden: 1, area: "administracion_general", area_etiqueta: "Administración general", source: "catalogo_gobernado_vec", module_key: "vec.module.personal", state: "Demostración pendiente de validación RRHH", usage: "Bolsa, RPT, certificados y demás módulos autorizados." }; }
+function categoria() { return { catalog: "categoria_profesional", clave: "administrativo", slug: "administrativo", etiqueta: "Administrativo", name: "Administrativo", descripcion: "", orden: 1, area: "administracion_general", area_etiqueta: "Administración general", source: "catalogo_gobernado_vec", module_key: "vec.module.personal", state: "Vigente", usage: "Bolsa, RPT, certificados y demás módulos autorizados." }; }
 function respuesta(cuerpo, estado = 200, tipo = "application/json; charset=utf-8") { return new Response(JSON.stringify(cuerpo), { status: estado, headers: { "content-type": tipo } }); }
 
 test("el cliente usa la ruta, filtros y protección same-origin exactos", async () => {

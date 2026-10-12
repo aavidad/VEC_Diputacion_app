@@ -151,7 +151,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261012-ct-b2-cese-v1");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
-        import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1"),
+        import("./modulos/auditoria/vista.js?v=20261012-sin-prueba-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1"),
       ]);
       return Object.freeze({ vista, auditoriaVista, auditoriaCliente });
@@ -162,7 +162,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia, contacto] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista.js?v=20261008-alta-rpt-circular-v4"),
+      import("./modulos/personal/vista.js?v=20261012-textos-limpios-v1"),
       import("./modulos/personal/vista-ficha-integral.js?v=20261008-alta-rpt-circular-v4"),
       import("./modulos/personal/registro-b2.js?v=20261012-ct-personal-ficha-v1"),
       import("./modulos/personal/registro-b2-cliente.js?v=20261012-ct-personal-ficha-v1"),
