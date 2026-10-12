@@ -228,6 +228,7 @@ type Config struct {
 
 	ExternoMeritosRegistroAutorizacionPostgreSQL ConfiguracionPostgreSQLExterna
 	ExternoMeritosMotivosAutorizacionPostgreSQL  ConfiguracionPostgreSQLExterna
+	ExternoMeritosFuenteAutorizacionPostgreSQL   ConfiguracionPostgreSQLExterna
 }
 
 func Load() Config {
@@ -382,6 +383,7 @@ func Load() Config {
 
 		ExternoMeritosRegistroAutorizacionPostgreSQL: ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosRegistroAutorizacionDatabaseURL)},
 		ExternoMeritosMotivosAutorizacionPostgreSQL:  ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosMotivosAutorizacionDatabaseURL)},
+		ExternoMeritosFuenteAutorizacionPostgreSQL:   ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosFuenteAutorizacionDatabaseURL)},
 	}.Normalize()
 }
 
@@ -519,6 +521,7 @@ func (c Config) Normalize() Config {
 	c.ExternoMeritosFronteraPostgreSQL = c.ExternoMeritosFronteraPostgreSQL.normalizar()
 	c.ExternoMeritosRegistroAutorizacionPostgreSQL = c.ExternoMeritosRegistroAutorizacionPostgreSQL.normalizar()
 	c.ExternoMeritosMotivosAutorizacionPostgreSQL = c.ExternoMeritosMotivosAutorizacionPostgreSQL.normalizar()
+	c.ExternoMeritosFuenteAutorizacionPostgreSQL = c.ExternoMeritosFuenteAutorizacionPostgreSQL.normalizar()
 	c.BolsaInscripcionesLectorPostgreSQL = c.BolsaInscripcionesLectorPostgreSQL.normalizar()
 	c.BolsaInscripcionesRRHHLectorPostgreSQL = c.BolsaInscripcionesRRHHLectorPostgreSQL.normalizar()
 	c.ExternoBolsaFronteraPostgreSQL = c.ExternoBolsaFronteraPostgreSQL.normalizar()
