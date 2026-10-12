@@ -326,7 +326,7 @@ test("el gestor distingue denegación 403 de indisponibilidad 503 de CT118", asy
     expediente: { expediente_ref: ref, version: 7, demostracion: false },
     cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
       fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
-  for (const [resultado, texto] of [["denegado", "No dispone de permiso"], ["no_disponible", "Ahora no se puede saber en qué estado"]]) {
+  for (const [resultado, texto] of [["denegado", "No dispone de permiso"], ["no_disponible", "Ahora no se puede consultar el estado de firma"]]) {
     const insertados = [];
     const fases = { insertAdjacentHTML: (_, html) => insertados.push(html) };
     const raiz = { querySelector: (selector) => (selector === ".ct-exp-progreso" ? fases : null) };
@@ -569,8 +569,8 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261012-ct-firma-error-v3"],
-    ["vista-expedientes.js", "20261012-ct-firma-error-v3"],
+    ["circuito-firma.js", "20261012-ct-firma-error-v4"],
+    ["vista-expedientes.js", "20261012-ct-firma-error-v4"],
 
   ]);
   const anterior = "20260929-custodia-506-v1";
