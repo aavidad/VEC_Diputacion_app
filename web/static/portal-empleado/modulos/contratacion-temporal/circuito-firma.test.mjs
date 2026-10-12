@@ -601,7 +601,8 @@ test("la preparación muestra el recibo y los pasos sin acreditar envío ni firm
   assert.doesNotMatch(sinHistoria, /Firma verificada|Enviado a firma|data-ct-firma-accion/u);
   const en = renderizarPreparacionResolucion({ documento: d, original, verificada: true },
     crearTraductorCircuitoFirma(MENSAJES_CIRCUITO_FIRMA_EN, "en-GB"), "en-GB");
-  assert.match(en, /Verified signature/u);
+  assert.doesNotMatch(en, /Verified signature/u);
+  assert.equal((en.match(/Status unavailable/gu) ?? []).length, 2, "la historia local no acredita el estado en Portafirmas");
   assert.doesNotMatch(en, /Documento preparado|Recibo|Dirección de RRHH/u);
 });
 
@@ -628,7 +629,7 @@ test("preparar y descargar mantienen el original con otra lectura nominal; cance
   const original = { contenido: new TextEncoder().encode("%PDF-1.7\nresolucion\n%%EOF"),
     originalRef: `ref:${"d".repeat(64)}`, originalHuella: "a".repeat(64),
     comprobante: { numero_vec: "VEC-2026-17", custodiado_en: "2026-10-12T09:00:00Z" } };
-  const gestor = crearGestorCircuitoFirma({ raiz, cargarTextos: cargarTextosPrueba, obtenerEstado: () => estado,
+  const gestor = crearGestorCircuitoFirma({ raiz, cargarTextos: async () => { throw new Error("catálogo fase ausente"); }, obtenerEstado: () => estado,
     cliente: { obtenerCircuito: async () => validarCircuitoFirma(circuitoConAlternativa()) },
     clienteFirma: { consultar: async () => null },
     clienteOriginal: { async preparar(solicitud, opciones) {
@@ -653,6 +654,7 @@ test("preparar y descargar mantienen el original con otra lectura nominal; cance
   assert.equal(consultas.length, 2, "descargar exige otra acción nominal en el servidor");
   assert.deepEqual(consultas[0].solicitud, consultas[1].solicitud);
   assert.equal(archivos[0].download, "resolucion-preparada.pdf");
+  assert.equal(aviso.textContent, "PDF preparado descargado.", "el aviso no depende del catálogo de fase");
   espera = new Promise((r) => { resolver = r; });
   manejar({ target: preparar }); await tick();
   const anterior = zona.outerHTML;

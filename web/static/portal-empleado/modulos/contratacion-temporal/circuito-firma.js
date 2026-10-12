@@ -197,12 +197,10 @@ export function renderizarPreparacionResolucion(preparacion, t, locale = prepara
   const original = preparacion.original;
   const comprobante = original?.comprobante;
   const firmado = preparacion.documento;
-  const estados = { pendiente_firma: "pendiente", en_espera: "espera", firmado: "firmado", devuelto: "devuelto" };
   const pasos = firmado?.pasos?.map((paso) => {
-    const estado = preparacion.verificada && estados[paso.estado] ? estados[paso.estado] : "sin_estado";
     return `<li class="ct-circuito-paso"><span class="ct-circuito-orden">${paso.orden}</span>
       <div class="ct-circuito-paso-cuerpo"><strong>${escaparHTML(traducirValorCircuitoFirma("cargo", paso.cargo, t))}</strong>
-        <span class="ct-circuito-estado">${escaparHTML(t(`circuito_firma_firmante_${estado}`))}</span></div></li>`;
+        <span class="ct-circuito-estado">${escaparHTML(t("circuito_firma_firmante_sin_estado"))}</span></div></li>`;
   }).join("") ?? "";
   return `<div class="ct-circuito-limite ct-circuito-documento" data-ct-preparacion-resolucion>
     ${comprobante ? `<p class="ct-circuito-estado ct-tono-aviso" role="status">${escaparHTML(t("circuito_firma_original_preparado"))}</p>
@@ -285,8 +283,7 @@ export function crearGestorCircuitoFirma({
     const estado = obtenerEstado();
     const documento = (resultado?.circuito ?? resultado?.catalogo)?.documentos?.find((d) => d.documento === "resolucion");
     if (estado?.vista !== "expediente" || !solicitudInformeDefinitivoDesdeEstado(estado) || !documento) return null;
-    return { documento, verificada: resultado?.circuito?.registro?.verificacion === true,
-      original: preparacionActual, locale };
+    return { documento, original: preparacionActual, locale };
   }
   function cancelarPreparacion() {
     preparacionControlador?.abort(); preparacionControlador = null;
@@ -443,7 +440,7 @@ export function crearGestorCircuitoFirma({
       ?? boton.closest?.("[data-ct-exp-firmados]")?.querySelector?.("#ct-firma-descarga-aviso")
       ?? boton.closest?.("[data-ct-circuito-firma]")?.querySelector?.("[data-ct-firma-aviso]");
     const decir = (clave, valores) => {
-      if (aviso && textos) aviso.textContent = preparado ? t(clave, valores) : textos.traducir(clave, valores);
+      if (aviso && (preparado || textos)) aviso.textContent = preparado ? t(clave, valores) : textos.traducir(clave, valores);
     };
     const documento = boton.closest?.(".ct-fase-firma-fila")?.querySelector?.(".ct-fase-firma-documento strong")?.textContent?.trim();
     decir(preparado ? "circuito_firma_original_descargando" : "fase.descargando");
