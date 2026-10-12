@@ -169,7 +169,7 @@ BEGIN
  INTO total,datos,siguiente;
  ahora:=clock_timestamp();recibo:='cartera:'||gen_random_uuid()::text;
  INSERT INTO vec_meritos.cartera_acceso_v1 VALUES(recibo,persona,a.auditoria_ref,a.correlacion_ref,filtro,corte,total,ahora);
- RETURN jsonb_build_object('hechos',datos,'total',total,'cursor_siguiente_hecho_ref',siguiente,
+ RETURN jsonb_build_object('hechos',datos,'total',total,'cursor_siguiente_hecho_ref',coalesce(siguiente,''),
   'corte_en',to_char(corte AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
   'recibo_acceso',jsonb_build_object('referencia',recibo,'auditoria_ref',a.auditoria_ref,
    'secuencia',a.secuencia::text,'huella_sha256',a.huella_sha256,
