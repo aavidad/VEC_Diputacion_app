@@ -107,12 +107,7 @@ func (s *ServicioRetiradaCartera) Retirar(ctx context.Context,
 	}
 	h := sha256.Sum256(comando)
 	huella := hex.EncodeToString(h[:])
-	recurso := vec.RecursoAutorizable{Referencia: q.HechoRef, ModuloID: ports.ModuloCartera,
-		Tipo: "hecho", Ambitos: map[string]string{"persona_ref": datos.PrincipalID,
-			"hecho_version_esperada":          strconv.Itoa(q.HechoVersionEsperada),
-			"disponibilidad_version_esperada": strconv.FormatUint(q.DisponibilidadVersionEsperada, 10),
-			"huella_comando_sha256":           huella},
-		Atributos: map[string]string{"propiedad": "persona"}}
+	recurso := recursoRetiradaCartera(q, datos.PrincipalID, huella)
 	if recurso.Validar() != nil {
 		return vacio, s.registrarFalloRetirada(ctx, q, datos, correlacion, "error")
 	}
@@ -179,6 +174,19 @@ func (s *ServicioRetiradaCartera) Retirar(ctx context.Context,
 	}
 	return ports.ConfirmacionRetiradaCartera{Recibo: r,
 		Repetida: resultado.Codigo == "repetida", AuditoriaAccesoRef: resultado.AuditoriaRef}, nil
+}
+
+// La asignación personal se limita a persona_ref. Versiones y huella quedan
+// ligadas a la decisión por el hash del contexto, sin crear otro ámbito.
+func recursoRetiradaCartera(q SolicitudRetiradaCartera, persona, huella string) vec.RecursoAutorizable {
+	return vec.RecursoAutorizable{Referencia: q.HechoRef, ModuloID: ports.ModuloCartera,
+		Tipo: "hecho", Ambitos: map[string]string{"persona_ref": persona},
+		Atributos: map[string]string{
+			"propiedad":                       "persona",
+			"hecho_version_esperada":          strconv.Itoa(q.HechoVersionEsperada),
+			"disponibilidad_version_esperada": strconv.FormatUint(q.DisponibilidadVersionEsperada, 10),
+			"huella_comando_sha256":           huella,
+		}}
 }
 
 func (s *ServicioRetiradaCartera) registrarFalloRetirada(ctx context.Context,
