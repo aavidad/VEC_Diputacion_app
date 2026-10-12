@@ -394,10 +394,12 @@ func (f *fuentesIncorporacionPersonalB2) completarOpcionesIncorporacionB2(ctx co
 		return cero, e
 	}
 	for _, v := range vacantes.Pagina.Vacantes {
-		if v.PuestoRef == "" || v.VersionRPTRef == "" || v.PuestoDenominacion == "" || v.CodigoPlazaFuente == "" {
+		plaza, plazaValida := referenciaPlanIncorporacionB2("plaza:", v.PlazaRef)
+		puesto, puestoValido := referenciaPlanIncorporacionB2("puesto:", v.PuestoRef)
+		if !plazaValida || !puestoValido || v.VersionPlantillaRef == "" || v.VersionRPTRef == "" || v.PuestoDenominacion == "" || v.CodigoPlazaFuente == "" {
 			continue
 		}
-		r.Opciones.Vacantes = append(r.Opciones.Vacantes, httpct.OpcionVacanteB2{PlazaRef: v.PlazaRef, PuestoRef: v.PuestoRef, VersionPlantillaRef: v.VersionPlantillaRef, VersionRPTRef: v.VersionRPTRef, UnidadRef: v.UnidadRef, CategoriaRef: a.CategoriaRef, PlazaEtiqueta: v.CodigoPlazaFuente, PuestoEtiqueta: v.PuestoDenominacion})
+		r.Opciones.Vacantes = append(r.Opciones.Vacantes, httpct.OpcionVacanteB2{PlazaRef: plaza, PuestoRef: puesto, VersionPlantillaRef: v.VersionPlantillaRef, VersionRPTRef: v.VersionRPTRef, UnidadRef: v.UnidadRef, CategoriaRef: a.CategoriaRef, PlazaEtiqueta: v.CodigoPlazaFuente, PuestoEtiqueta: v.PuestoDenominacion})
 	}
 	r.Prerrequisitos[3].Cumplido = len(r.Opciones.Vacantes) > 0
 	catalogos, e := f.consultarCatalogosB2(ctx)
@@ -463,6 +465,16 @@ func (f *fuentesIncorporacionPersonalB2) completarOpcionesIncorporacionB2(ctx co
 		}
 	}
 	return r, nil
+}
+
+// Personal publica identificadores organizativos como UUID; su operación de
+// selección exige el tipo explícito para impedir intercambiar plaza y puesto.
+func referenciaPlanIncorporacionB2(prefijo, ref string) (string, bool) {
+	uuid := strings.TrimPrefix(ref, prefijo)
+	if !domct.UUIDPlanPersonalB2Valido(uuid) {
+		return "", false
+	}
+	return prefijo + uuid, true
 }
 
 func errorPrevioPersonaIncorporacionB2(ctx context.Context, err error) error {

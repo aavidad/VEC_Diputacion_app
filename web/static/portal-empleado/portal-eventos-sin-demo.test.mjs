@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
 
-function montarControlador({ estado, propuesta, datosPanel = { necesidades_llamamiento: [] } } = {}) {
+function montarControlador({ estado, propuesta, datosPanel = { necesidades_llamamiento: [] }, navegar = () => {} } = {}) {
   const escuchas = new Map();
   const anuncios = [];
   const dialogo = { open: false, addEventListener() {}, showModal() { this.open = true; } };
@@ -28,7 +28,7 @@ function montarControlador({ estado, propuesta, datosPanel = { necesidades_llama
     cerrarMenuMovil() {},
     escaparHTML: (valor) => String(valor).replaceAll("<", "&lt;").replaceAll(">", "&gt;"),
     estado,
-    navegar() {},
+    navegar,
     notaOperacionNoCompuesta: () => "Capacidad pendiente",
     obtenerDatosPanel: () => datosPanel,
     porId: (id) => controles[id],
@@ -45,6 +45,10 @@ function montarControlador({ estado, propuesta, datosPanel = { necesidades_llama
       escuchas.get("click")({
         target: { closest: (selector) => selector === "[data-accion]" ? boton : null },
       });
+    },
+    clicVista(dataset) {
+      const boton = { dataset, disabled: false };
+      escuchas.get("click")({ preventDefault() {}, target: { closest: (s) => s === "[data-vista]" ? boton : null } });
     },
     limpiar() {
       globalThis.document = documentoAnterior;
@@ -154,4 +158,17 @@ test("el controlador distribuido carece de rutas y texto de efectos simulados", 
   const codigo = await readFile(new URL("./portal-eventos.js", import.meta.url), "utf8");
   assert.doesNotMatch(codigo, /validar-recorrido|preparar-llamamiento-demo|operacion-presentacion|recibo-presentacion/u);
   assert.doesNotMatch(codigo, /modoPresentacion|ejecutarOperacionPresentacion|DEMO/u);
+});
+
+
+test("abrir la ficha desde CT conserva el empleado únicamente en la navegación a Personal", () => {
+  const navegaciones = [];
+  const prueba = montarControlador({ estado: {}, navegar: (...args) => navegaciones.push(args) });
+  const empleado = `emp_${"A".repeat(32)}`;
+  try {
+    prueba.clicVista({ vista: "personal-registro", personalEmpleadoRef: empleado });
+    assert.deepEqual(navegaciones.at(-1), ["personal-registro", { empleadoRef: empleado }]);
+    prueba.clicVista({ vista: "portal", personalEmpleadoRef: empleado });
+    assert.deepEqual(navegaciones.at(-1), ["portal", {}]);
+  } finally { prueba.limpiar(); }
 });

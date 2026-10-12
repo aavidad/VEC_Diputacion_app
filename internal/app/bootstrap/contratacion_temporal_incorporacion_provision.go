@@ -2,9 +2,7 @@ package bootstrap
 
 import (
 	"context"
-	"errors"
 	"slices"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -186,9 +184,8 @@ func configurarSesionesNominalesIncorporacion(ctx context.Context, p *perfilesNo
 
 type claveContextosNominalesIncorporacion struct{}
 type capturaContextosNominalesIncorporacion struct {
-	mu             sync.Mutex
+	capturaPerfilesNominalesCT
 	propietario    *perfilesNominalesIncorporacion
-	contextos      map[string]ct.ContextoAutorizacionAltaV3
 	asignacionesB2 map[*perfilFijoCTDesarrollo]instantaneaPublicadaDesarrollo
 	muPersonasB2   chan struct{}
 	personasB2     map[clavePersonaBolsaB2]lecturaPersonaBolsaB2
@@ -200,49 +197,28 @@ func (p *perfilesNominalesIncorporacion) resolver(ctx context.Context, perfil *p
 	if p == nil || p.soporte == nil || perfil == nil || ctx == nil || ctx.Value(claveIncorporacionV2Desarrollo{}) != p.soporte.sello {
 		return vacio, ct.ErrAutorizacionDenegada
 	}
-	if err := ctx.Err(); err != nil {
-		return vacio, err
-	}
 	holder, ok := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
 	if !ok || holder == nil || !p.contiene(perfil) {
 		return vacio, ct.ErrAutorizacionDenegada
 	}
-	if _, valida := p.soporte.capacidadValida(ctx); !valida {
+	holder.mu.Lock()
+	ajeno := holder.propietario != nil && holder.propietario != p
+	holder.mu.Unlock()
+	if ajeno {
 		return vacio, ct.ErrAutorizacionDenegada
 	}
+	contexto, err := resolverContextoPerfilNominalCT(ctx, p.soporte, perfil, &holder.capturaPerfilesNominalesCT, p)
+	if err != nil {
+		return vacio, err
+	}
 	holder.mu.Lock()
-	defer holder.mu.Unlock()
 	if holder.propietario != nil && holder.propietario != p {
+		holder.mu.Unlock()
 		return vacio, ct.ErrAutorizacionDenegada
 	}
 	holder.propietario = p
-	if holder.contextos == nil {
-		holder.contextos = map[string]ct.ContextoAutorizacionAltaV3{}
-	}
-	contexto, existe := holder.contextos[perfil.clave]
-	if !existe {
-		if perfil.sesionOperativa == nil {
-			return vacio, ct.ErrConsultaRRHHNoDisponible
-		}
-		comun, err := perfil.sesionOperativa.ResolverContexto(ctx)
-		if err != nil {
-			return vacio, err
-		}
-		contexto = ct.ContextoAutorizacionAltaV3{Vinculo: comun.Vinculo, Resultado: comun.Resultado}
-		if !mismoContextoEsperadoRegistradoDesarrollo(perfil.contextoEsperadoRegistrado, contexto.Resultado) {
-			return vacio, ct.ErrAutorizacionDenegada
-		}
-		holder.contextos[perfil.clave] = contexto
-	}
-	v, err := contexto.Vinculo.Datos()
-	if err != nil || v.PrincipalID != perfil.plantilla.AsignacionPerfil.PrincipalID || v.PerfilActivoRef != perfil.perfilRef() || contexto.ValidarPara(ct.SolicitudResolverContextoAutorizacionAltaV3{AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef, PerfilRef: perfil.perfilRef()}, p.soporte.reloj.Ahora()) != nil {
-		return vacio, ct.ErrAutorizacionDenegada
-	}
-	resultado, err := contexto.Resultado.Clonar()
-	if err != nil {
-		return vacio, ct.ErrAutorizacionDenegada
-	}
-	return ct.ContextoAutorizacionAltaV3{Vinculo: contexto.Vinculo, Resultado: resultado}, nil
+	holder.mu.Unlock()
+	return contexto, nil
 }
 
 func (p *perfilesNominalesIncorporacion) consumir(ctx context.Context, perfil *perfilFijoCTDesarrollo) error {
@@ -288,30 +264,10 @@ func (p *perfilesNominalesIncorporacion) consumirInicialB2(ctx context.Context, 
 }
 
 func (p *perfilesNominalesIncorporacion) leerAsignacionConsumible(ctx context.Context, perfil *perfilFijoCTDesarrollo) (instantaneaPublicadaDesarrollo, error) {
-	var cero instantaneaPublicadaDesarrollo
-	if p == nil || p.soporte == nil || perfil == nil || ctx == nil {
-		return cero, ct.ErrAutorizacionDenegada
+	if p == nil || !p.contiene(perfil) {
+		return instantaneaPublicadaDesarrollo{}, ct.ErrAutorizacionDenegada
 	}
-	if err := ctx.Err(); err != nil {
-		return cero, err
-	}
-	p.soporte.mu.Lock()
-	lector, ok := p.soporte.autoridadAsignaciones.(lectorAsignacionPublicadaCTDesarrollo)
-	p.soporte.mu.Unlock()
-	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(lector) {
-		return cero, ct.ErrConsultaRRHHNoDisponible
-	}
-	publicada, encontrada, err := lector.leerAsignacionPublicada(ctx, perfil.perfilRef())
-	if err != nil {
-		return cero, errors.Join(ct.ErrConsultaRRHHNoDisponible, err)
-	}
-	if !encontrada || publicada.actoAsignacion != actoAsignacionPerfilFijoCTDesarrollo {
-		return cero, ct.ErrAutorizacionDenegada
-	}
-	if _, valida := instantaneaConsumible(publicada, perfil.plantilla, p.soporte.reloj.Ahora()); !valida {
-		return cero, ct.ErrAutorizacionDenegada
-	}
-	return publicada, nil
+	return leerAsignacionConsumiblePerfilNominalCT(ctx, p.soporte, perfil)
 }
 
 // La captura sólo vive en la petición nominal. El material existente contiene

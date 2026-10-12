@@ -27,6 +27,9 @@ const TEXTO = TEXTOS_LOCALES_PETICIONES_CENTRO;
 
 const textoCT = (clave, variables) => esc(traducirCentro(clave, variables));
 
+const etiquetaContacto = (etiqueta) => etiqueta === "pc_contacto_secretaria"
+  ? traducirCentro(etiqueta) : etiqueta;
+
 function esc(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -238,8 +241,11 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
   const centro = catalogos?.centros?.find((v) => v.referencia === s.centro_ref);
   const etiqueta = (opciones, referencia) => !referencia ? "—"
     : opciones?.find((v) => v.referencia === referencia)?.etiqueta || textoCT("pc_dato_no_disponible");
-  const nombre = (grupo, opciones, referencia) => (contexto ? etiqueta(opciones, referencia)
-    : etiquetas?.[grupo]?.[referencia] || textoCT("pc_dato_no_disponible"));
+  const nombre = (grupo, opciones, referencia) => {
+    const valor = contexto ? etiqueta(opciones, referencia)
+      : etiquetas?.[grupo]?.[referencia] || textoCT("pc_dato_no_disponible");
+    return grupo === "contactos" ? etiquetaContacto(valor) : valor;
+  };
   const etiquetaMotivo = (contexto ? catalogos?.motivos?.find((v) => v.clave === s.motivo_clave)?.etiqueta : etiquetas?.motivos?.[s.motivo_clave]) || "—";
   const rc = s.rc?.existe
     ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)}`
@@ -374,6 +380,11 @@ function tabla(peticiones, seleccionada, expedientes = new Map(), contexto = nul
 }
 
 function formularioHTML(contexto, estado, revision) {
+  estado = { ...estado, catalogos: { ...estado.catalogos,
+    centros: (estado.catalogos?.centros ?? []).map((centro) => ({ ...centro,
+      contactos: (centro.contactos ?? []).map((contacto) => ({ ...contacto, etiqueta: etiquetaContacto(contacto.etiqueta) })),
+    })),
+  } };
   const contenido = revision ? renderizarRevisionPura(estado, traducirCentro, LOCALIZACION, traducirCentro)
     : renderizarFormularioPuro(estado, traducirCentro, traducirCentro);
   return `<section class="pc-panel ct-alta"><h2>${esc(TEXTO.solicitante)}</h2><p class="pc-aviso">${esc(TEXTO.confirmarPregunta)}</p>${contenido}<button type="button" class="boton-secundario" data-accion="cancelar-ratificacion">${esc(TEXTO.cancelar)}</button></section>`;

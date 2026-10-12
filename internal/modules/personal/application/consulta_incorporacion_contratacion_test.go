@@ -33,14 +33,16 @@ func incorporacionCTPrueba(t *testing.T) (ports.SolicitudHechosIncorporacionCT, 
 	t.Helper()
 	actor := solicitudP(t).Actor
 	corte := domain.CorteEmpleadoB2{VigenteEn: "2026-09-25", ConocidoEn: time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)}
-	x := ports.SeleccionHechosIncorporacionCT{OrganismoRef: "organismo:dipgra", PersonaRef: "per_" + strings.Repeat("p", 24), EmpleadoRef: "emp_" + strings.Repeat("e", 24), RelacionRef: "rel_" + strings.Repeat("r", 24), OcupacionRef: "ocupacion:uno", VersionEmpleado: 3, VersionRelacion: 2, VersionOcupacion: 1, UnidadRef: "unidad:uno", PuestoRef: "puesto:uno", PlazaRef: "plaza:uno", Corte: corte}
+	puestoUUID := "9a35a8d5-0c73-73fd-18bc-5ba501b68889"
+	plazaUUID := "94e49fa4-78fe-01bb-3e51-a0f58827006b"
+	x := ports.SeleccionHechosIncorporacionCT{OrganismoRef: "organismo:dipgra", PersonaRef: "per_" + strings.Repeat("p", 24), EmpleadoRef: "emp_" + strings.Repeat("e", 24), RelacionRef: "rel_" + strings.Repeat("r", 24), OcupacionRef: "ocupacion:uno", VersionEmpleado: 3, VersionRelacion: 2, VersionOcupacion: 1, UnidadRef: "unidad:uno", PuestoRef: "puesto:" + puestoUUID, PlazaRef: "plaza:" + plazaUUID, Corte: corte}
 	traza := domain.TrazaEmpleadoB2{Desde: "2026-09-01", Hasta: "2026-10-01", RegistradaEn: corte.ConocidoEn, Version: 2, ActoRef: "acto:uno", FuenteRef: "fuente:personal", FuenteVersion: 1}
 	snapshot := func(tipo, ref string) *domain.SnapshotEntradaCatalogoEmpleadoB2 {
 		return &domain.SnapshotEntradaCatalogoEmpleadoB2{OrganismoRef: x.OrganismoRef, Tipo: tipo, Ref: ref, Version: 1, Revision: 1, Denominacion: "Entrada sintética", HuellaSHA256: strings.Repeat("a", 64), VigenteDesde: "2026-01-01", Estado: "publicada"}
 	}
 	relacion := domain.RelacionRegistroEmpleadoB2{RelacionRef: x.RelacionRef, OrganismoRef: x.OrganismoRef, UnidadRef: x.UnidadRef, RegimenRef: "regimen:uno", ModalidadRef: "modalidad:uno", Estado: "vigente", Traza: traza, CatalogoSnapshot: domain.SnapshotCatalogoEmpleadoB2{Regimen: snapshot("regimen", "regimen:uno"), Modalidad: snapshot("modalidad", "modalidad:uno")}}
 	traza.Version = 1
-	ocupacion := domain.OcupacionEmpleadoB2{OcupacionRef: x.OcupacionRef, RelacionRef: x.RelacionRef, UnidadRef: x.UnidadRef, PlazaRef: x.PlazaRef, PuestoRef: x.PuestoRef, ModalidadRef: "modalidad:uno", Clase: "temporal", Estado: "vigente", Traza: traza, CatalogoSnapshot: domain.SnapshotCatalogoEmpleadoB2{Modalidad: snapshot("modalidad", "modalidad:uno")}}
+	ocupacion := domain.OcupacionEmpleadoB2{OcupacionRef: x.OcupacionRef, RelacionRef: x.RelacionRef, UnidadRef: x.UnidadRef, PlazaRef: plazaUUID, PuestoRef: puestoUUID, ModalidadRef: "modalidad:uno", Clase: "temporal", Estado: "vigente", Traza: traza, CatalogoSnapshot: domain.SnapshotCatalogoEmpleadoB2{Modalidad: snapshot("modalidad", "modalidad:uno")}}
 	f := domain.FichaEmpleadoB2{EmpleadoRef: x.EmpleadoRef, PersonaRef: x.PersonaRef, OrganismoRef: x.OrganismoRef, Corte: corte, Version: x.VersionEmpleado, Relaciones: []domain.RelacionRegistroEmpleadoB2{relacion}, Ocupaciones: []domain.OcupacionEmpleadoB2{ocupacion}}
 	e := ports.EvidenciaRegistroEmpleadoB2{ReciboRef: "recibo:lectura", DecisionRef: "decision:lectura", AuditoriaRef: "auditoria:lectura", EfectoRef: x.EmpleadoRef, ConsumoHuellaSHA256: strings.Repeat("a", 64), ConsultadaEn: corte.ConocidoEn}
 	return ports.SolicitudHechosIncorporacionCT{Seleccion: x, Actor: actor}, &fuenteIncorporacionCTPrueba{resultado: ports.ResultadoFichaEmpleadoB2{Ficha: f, Evidencia: e}}
@@ -102,6 +104,9 @@ func TestConsultaIncorporacionCTNoAceptaCrucesNiVersionesDivergentes(t *testing.
 		},
 		"puesto": func(s *ports.SolicitudHechosIncorporacionCT, _ *fuenteIncorporacionCTPrueba) {
 			s.Seleccion.PuestoRef = "puesto:otro"
+		},
+		"tipo de puesto": func(s *ports.SolicitudHechosIncorporacionCT, _ *fuenteIncorporacionCTPrueba) {
+			s.Seleccion.PuestoRef = "plaza:9a35a8d5-0c73-73fd-18bc-5ba501b68889"
 		},
 		"plaza": func(s *ports.SolicitudHechosIncorporacionCT, _ *fuenteIncorporacionCTPrueba) {
 			s.Seleccion.PlazaRef = "plaza:otra"

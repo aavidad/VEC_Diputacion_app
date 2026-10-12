@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -16,6 +17,7 @@ import (
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	pp "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -70,6 +72,9 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 			modulo == grupoCatalogoEmpleadoB2 && !operacionConfiguradaB2(c, claveCatalogoPublicarB2) {
 			continue
 		}
+		if modulo == grupoEmpleadosConsultaB2 && !operacionConfiguradaB2(c, claveEmpleadosPersonalB2) {
+			continue
+		}
 		clave := "incorporacion_b2_" + modulo
 		ctx, e := nuevoContextoSinteticoContratacionTemporalDesarrolloConDiscriminador(principalCanalNominalIncorporacion(s), ahora, discriminadorPerfilFijoCTDesarrollo(clave))
 		if e != nil {
@@ -90,7 +95,7 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 		// lo cotejan; la unidad, versión y estado del expediente los sigue
 		// comprobando la SQL de cada acto. Las lecturas de régimen/modalidad
 		// y clases conservan sus perfiles con objetivo_ref cerrado.
-		if modulo == "personal" || modulo == grupoCatalogoEmpleadoB2 {
+		if modulo == "personal" || modulo == grupoCatalogoEmpleadoB2 || modulo == grupoEmpleadosConsultaB2 {
 			ambitos = []core.AmbitoPerfil{{Clave: "organismo_ref", Valores: []string{c.OrganismoRef}}}
 		}
 		if objetivos := objetivosLecturaPersonalB2(modulo, c.OrganismoRef); objetivos != nil {
@@ -158,6 +163,8 @@ func camposConcesionB2(clave string) []string {
 		return []string{"eficacia_administrativa", "empleado_ref", "evidencia", "firma_oficial", "hecho_ref", "recibo", "relacion_ref", "tipo", "version"}
 	case "personal_ficha":
 		return []string{"corte", "eficacia_administrativa", "empleado_ref", "evidencia", "firma_oficial", "ocupaciones", "organismo_ref", "persona_ref", "relaciones", "servicios", "situaciones", "version"}
+	case claveEmpleadosPersonalB2:
+		return []string{"corte", "cursor", "cursor_siguiente", "empleados", "evidencia", "limite", "organismo_ref"}
 	case "ct_vinculo_consultar":
 		return []string{"analisis", "vinculo"}
 	case "ct_plan_consultar":
@@ -302,6 +309,8 @@ func (a *autoridadIncorporacionPersonalB2) AutorizarConsultaRegistroEmpleadoB2(c
 	accion := personal.AccionFichaEmpleadoB2
 	if m.Operacion() == "vacantes" {
 		accion = personal.AccionVacantesB2
+	} else if m.Operacion() == "empleados" {
+		accion = personal.AccionEmpleadosB2
 	}
 	if e := a.actorCoincide(ctx, accion, m.Actor()); e != nil {
 		return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, e
@@ -393,7 +402,9 @@ func asignarPerfilesNominalesB2EnFronteras(s *soporteAltaContratacionTemporalDes
 			r[i].Ruta == httpct.RutaConfirmacionB2 && r[i].Metodo == http.MethodPost ||
 			r[i].Ruta == httpct.RutaVinculoCategoriaRPTB2 && (r[i].Metodo == http.MethodGet || r[i].Metodo == http.MethodPost) ||
 			r[i].Ruta == httpct.RutaCategoriasRPTB2 && r[i].Metodo == http.MethodGet ||
-			r[i].Ruta == rutaCatalogosRegistroEmpleadoB2 && r[i].Metodo == http.MethodPost {
+			r[i].Ruta == rutaCatalogosRegistroEmpleadoB2 && r[i].Metodo == http.MethodPost ||
+			r[i].Ruta == httpapi.RutaCatalogosRegistroEmpleadoB2 && (r[i].Metodo == http.MethodGet || r[i].Metodo == http.MethodPost) ||
+			r[i].Metodo == http.MethodGet && (r[i].Ruta == strings.TrimSuffix(httpapi.PrefijoFichaEmpleadoB2, "/") || r[i].Ruta == httpapi.RutaEmpleadosOrganismoB2 || r[i].Ruta == httpapi.RutaVacantesEmpleadoB2) {
 			r[i].PerfilesActivosRef = append(append([]string(nil), r[i].PerfilesActivosRef...), ids...)
 		}
 	}
@@ -597,7 +608,7 @@ const (
 )
 
 func gruposPerfilesIncorporacionB2() []string {
-	return []string{"ct155", ct.ModuloContratacion, "personal", "bolsa", "rpt_catalogo", "rpt_uso", grupoRegistroVinculoRPTB2, grupoListadoCategoriasRPTB2, grupoCatalogoEmpleadoB2, grupoCatalogoConsultaB2, grupoClasesOcupacionB2}
+	return []string{"ct155", ct.ModuloContratacion, "personal", "bolsa", "rpt_catalogo", "rpt_uso", grupoRegistroVinculoRPTB2, grupoListadoCategoriasRPTB2, grupoCatalogoEmpleadoB2, grupoCatalogoConsultaB2, grupoClasesOcupacionB2, grupoEmpleadosConsultaB2}
 }
 
 // Las dos lecturas de Personal que hace el plan B2 al preparar sus opciones
@@ -607,9 +618,10 @@ func gruposPerfilesIncorporacionB2() []string {
 // cada una tiene perfil propio con sus valores cerrados; en el perfil común
 // de Personal, que sólo fija organismo_ref, se denegaban por ámbito.
 const (
-	grupoCatalogoConsultaB2 = "personal_catalogo_consulta"
-	grupoClasesOcupacionB2  = "personal_clases"
-	accionClasesOcupacionB2 = "personal.plan_incorporacion_ct.clases_ocupacion"
+	grupoCatalogoConsultaB2  = "personal_catalogo_consulta"
+	grupoClasesOcupacionB2   = "personal_clases"
+	grupoEmpleadosConsultaB2 = "personal_empleados"
+	accionClasesOcupacionB2  = "personal.plan_incorporacion_ct.clases_ocupacion"
 )
 
 // objetivosLecturaPersonalB2 da los objetivo_ref que admite cada grupo de
@@ -617,14 +629,18 @@ const (
 func objetivosLecturaPersonalB2(grupo, organismo string) []string {
 	switch grupo {
 	case grupoCatalogoConsultaB2:
-		// El plan sólo lee régimen y modalidad (fuentes_incorporacion_personal_b2).
-		return []string{organismo + ":regimen", organismo + ":modalidad"}
+		// La vista RRHH consulta los cuatro tipos; el plan sólo solicita
+		// régimen y modalidad en fuentes_incorporacion_personal_b2.
+		return []string{organismo + ":regimen", organismo + ":modalidad", organismo + ":situacion", organismo + ":clase_servicio"}
 	case grupoClasesOcupacionB2:
 		return []string{organismo}
 	}
 	return nil
 }
 func grupoOperacionIncorporacionB2(d descriptorOperacionIncorporacionB2) string {
+	if d.accion == personal.AccionEmpleadosB2 {
+		return grupoEmpleadosConsultaB2
+	}
 	if d.accion == personal.AccionConsultarCatalogoEmpleadoB2 {
 		return grupoCatalogoConsultaB2
 	}
@@ -659,6 +675,9 @@ func operacionPermitidaEnRutaIncorporacionB2(ctx context.Context, accion string)
 	if !ok {
 		return false
 	}
+	if consulta, ok := accionConsultaRegistroPersonalB2(ruta.ruta, ruta.metodo); ok {
+		return accion == consulta
+	}
 	if ruta.ruta == httpct.RutaConfirmacionB2 && ruta.metodo == "POST" {
 		_, ok := descriptorIncorporacionB2(accion)
 		return ok && accion != ct.AccionRegistrarVinculoCategoriaRPT && accion != accionListarCategoriasRPTB2 && !accionGobiernoCatalogoEmpleadoB2(accion)
@@ -666,6 +685,10 @@ func operacionPermitidaEnRutaIncorporacionB2(ctx context.Context, accion string)
 	if ruta.ruta == rutaCatalogosRegistroEmpleadoB2 {
 		// Sólo publicar o retirar una entrada; la consulta va por el plan.
 		return ruta.metodo == "POST" && accionGobiernoCatalogoEmpleadoB2(accion)
+	}
+	if ruta.ruta == httpapi.RutaCatalogosRegistroEmpleadoB2 {
+		return ruta.metodo == http.MethodGet && accion == personal.AccionConsultarCatalogoEmpleadoB2 ||
+			ruta.metodo == http.MethodPost && accionGobiernoCatalogoEmpleadoB2(accion)
 	}
 	if ruta.ruta == httpct.RutaCategoriasRPTB2 {
 		// La pantalla del vínculo sólo lista las categorías publicadas.

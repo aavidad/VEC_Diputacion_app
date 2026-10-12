@@ -1,0 +1,188 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:lecturas_rrhh_b103",
+  "version": 1,
+  "huella_sha256": "e8989834fbfafa773ed88cd0de95ece9ba66ef5be7054a4332d2853b2cfa5fe4",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.inscripcion.rrhh.listar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:lecturas_rrhh_b103\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.inscripcion.rrhh.listar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"solicitud_inscripcion\",\"finalidades\":[\"consulta_inscripcion_rrhh\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"convocatoria_titulo\",\"cursor_siguiente\",\"solicitudes[].bases_ref\",\"solicitudes[].bolsa_ref\",\"solicitudes[].catalogo_version\",\"solicitudes[].categoria\",\"solicitudes[].categoria_ref\",\"solicitudes[].convocatoria_ref\",\"solicitudes[].convocatoria_titulo\",\"solicitudes[].decidida_en\",\"solicitudes[].decision_ref\",\"solicitudes[].declaracion_ref\",\"solicitudes[].estado\",\"solicitudes[].motivo_codigo\",\"solicitudes[].motivo_etiqueta\",\"solicitudes[].participacion_ref\",\"solicitudes[].persona_resumen\",\"solicitudes[].plazo_fin\",\"solicitudes[].plazo_inicio\",\"solicitudes[].recibo_ref\",\"solicitudes[].registrada_en\",\"solicitudes[].requisitos[].codigo\",\"solicitudes[].requisitos[].descripcion\",\"solicitudes[].requisitos[].estado\",\"solicitudes[].requisitos[].hito_cumplimiento\",\"solicitudes[].requisitos[].hito_etiqueta\",\"solicitudes[].requisitos[].hito_fecha\",\"solicitudes[].requisitos[].motivo_codigo\",\"solicitudes[].requisitos[].motivo_etiqueta\",\"solicitudes[].requisitos[].obligatorio\",\"solicitudes[].requisitos[].procedencia_ref\",\"solicitudes[].solicitud_ref\",\"solicitudes[].version\",\"total\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"},{\"referencia\":\"accion:bolsa.inscripcion.rrhh.consultar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:lecturas_rrhh_b103\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.inscripcion.rrhh.consultar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"solicitud_inscripcion\",\"finalidades\":[\"consulta_inscripcion_rrhh\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"bases_ref\",\"bolsa_ref\",\"catalogo_version\",\"categoria\",\"categoria_ref\",\"convocatoria_ref\",\"convocatoria_titulo\",\"decidida_en\",\"decision_ref\",\"declaracion_ref\",\"estado\",\"motivo_codigo\",\"motivo_etiqueta\",\"participacion_ref\",\"persona_resumen\",\"plazo_fin\",\"plazo_inicio\",\"recibo_ref\",\"registrada_en\",\"requisitos[].codigo\",\"requisitos[].descripcion\",\"requisitos[].estado\",\"requisitos[].hito_cumplimiento\",\"requisitos[].hito_etiqueta\",\"requisitos[].hito_fecha\",\"requisitos[].motivo_codigo\",\"requisitos[].motivo_etiqueta\",\"requisitos[].obligatorio\",\"requisitos[].procedencia_ref\",\"solicitud_ref\",\"version\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"},{\"referencia\":\"accion:bolsa.inscripcion.rrhh.convocatorias.listar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:lecturas_rrhh_b103\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.inscripcion.rrhh.convocatorias.listar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"conjunto_gestion_inscripcion\",\"finalidades\":[\"consulta_convocatorias_gestion_rrhh\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"convocatorias[].categorias_resumen\",\"convocatorias[].convocatoria_ref\",\"convocatorias[].estado_publicacion\",\"convocatorias[].pendientes\",\"convocatorias[].plazo_fin\",\"convocatorias[].titulo\",\"cursor_siguiente\",\"total\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"},{\"referencia\":\"accion:bolsa.rrhh.respuestas_llamamiento.consultar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:lecturas_rrhh_b103\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.rrhh.respuestas_llamamiento.consultar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"llamamiento_bolsa\",\"finalidades\":[\"seguimiento_contacto_rrhh\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"llamamiento_ref\",\"respuestas[].participacion_ref\",\"respuestas[].respuesta\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.inscripcion.rrhh.listar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:lecturas_rrhh_b103",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "e8989834fbfafa773ed88cd0de95ece9ba66ef5be7054a4332d2853b2cfa5fe4",
+      "concesion": {
+        "accion": "bolsa.inscripcion.rrhh.listar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "solicitud_inscripcion",
+        "finalidades": [
+          "consulta_inscripcion_rrhh"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "convocatoria_titulo",
+          "cursor_siguiente",
+          "solicitudes[].bases_ref",
+          "solicitudes[].bolsa_ref",
+          "solicitudes[].catalogo_version",
+          "solicitudes[].categoria",
+          "solicitudes[].categoria_ref",
+          "solicitudes[].convocatoria_ref",
+          "solicitudes[].convocatoria_titulo",
+          "solicitudes[].decidida_en",
+          "solicitudes[].decision_ref",
+          "solicitudes[].declaracion_ref",
+          "solicitudes[].estado",
+          "solicitudes[].motivo_codigo",
+          "solicitudes[].motivo_etiqueta",
+          "solicitudes[].participacion_ref",
+          "solicitudes[].persona_resumen",
+          "solicitudes[].plazo_fin",
+          "solicitudes[].plazo_inicio",
+          "solicitudes[].recibo_ref",
+          "solicitudes[].registrada_en",
+          "solicitudes[].requisitos[].codigo",
+          "solicitudes[].requisitos[].descripcion",
+          "solicitudes[].requisitos[].estado",
+          "solicitudes[].requisitos[].hito_cumplimiento",
+          "solicitudes[].requisitos[].hito_etiqueta",
+          "solicitudes[].requisitos[].hito_fecha",
+          "solicitudes[].requisitos[].motivo_codigo",
+          "solicitudes[].requisitos[].motivo_etiqueta",
+          "solicitudes[].requisitos[].obligatorio",
+          "solicitudes[].requisitos[].procedencia_ref",
+          "solicitudes[].solicitud_ref",
+          "solicitudes[].version",
+          "total"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z"
+    },
+    {
+      "referencia": "accion:bolsa.inscripcion.rrhh.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:lecturas_rrhh_b103",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "e8989834fbfafa773ed88cd0de95ece9ba66ef5be7054a4332d2853b2cfa5fe4",
+      "concesion": {
+        "accion": "bolsa.inscripcion.rrhh.consultar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "solicitud_inscripcion",
+        "finalidades": [
+          "consulta_inscripcion_rrhh"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "bases_ref",
+          "bolsa_ref",
+          "catalogo_version",
+          "categoria",
+          "categoria_ref",
+          "convocatoria_ref",
+          "convocatoria_titulo",
+          "decidida_en",
+          "decision_ref",
+          "declaracion_ref",
+          "estado",
+          "motivo_codigo",
+          "motivo_etiqueta",
+          "participacion_ref",
+          "persona_resumen",
+          "plazo_fin",
+          "plazo_inicio",
+          "recibo_ref",
+          "registrada_en",
+          "requisitos[].codigo",
+          "requisitos[].descripcion",
+          "requisitos[].estado",
+          "requisitos[].hito_cumplimiento",
+          "requisitos[].hito_etiqueta",
+          "requisitos[].hito_fecha",
+          "requisitos[].motivo_codigo",
+          "requisitos[].motivo_etiqueta",
+          "requisitos[].obligatorio",
+          "requisitos[].procedencia_ref",
+          "solicitud_ref",
+          "version"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z"
+    },
+    {
+      "referencia": "accion:bolsa.inscripcion.rrhh.convocatorias.listar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:lecturas_rrhh_b103",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "e8989834fbfafa773ed88cd0de95ece9ba66ef5be7054a4332d2853b2cfa5fe4",
+      "concesion": {
+        "accion": "bolsa.inscripcion.rrhh.convocatorias.listar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "conjunto_gestion_inscripcion",
+        "finalidades": [
+          "consulta_convocatorias_gestion_rrhh"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "convocatorias[].categorias_resumen",
+          "convocatorias[].convocatoria_ref",
+          "convocatorias[].estado_publicacion",
+          "convocatorias[].pendientes",
+          "convocatorias[].plazo_fin",
+          "convocatorias[].titulo",
+          "cursor_siguiente",
+          "total"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z"
+    },
+    {
+      "referencia": "accion:bolsa.rrhh.respuestas_llamamiento.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:lecturas_rrhh_b103",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "e8989834fbfafa773ed88cd0de95ece9ba66ef5be7054a4332d2853b2cfa5fe4",
+      "concesion": {
+        "accion": "bolsa.rrhh.respuestas_llamamiento.consultar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "llamamiento_bolsa",
+        "finalidades": [
+          "seguimiento_contacto_rrhh"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "llamamiento_ref",
+          "respuestas[].participacion_ref",
+          "respuestas[].respuesta"
+        ],
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z"
+    }
+  ]
+}

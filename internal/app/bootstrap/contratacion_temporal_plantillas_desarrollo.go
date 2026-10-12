@@ -34,7 +34,7 @@ import (
 // rutaPlantillasCTEjemplo es el catálogo de plantillas que trae el
 // repositorio. VEC_CT_PLANTILLAS_SOURCE_PATH lo sustituye por otro con el
 // mismo formato; en ambos casos se valida entero al arrancar.
-const rutaPlantillasCTEjemplo = "data/demo/plantillas/ct_plantillas_documentos.ejemplo.demo.json"
+const rutaPlantillasCTEjemplo = "data/demo/plantillas/ct_plantillas_documentos.ejemplo.v3.demo.json"
 
 var errPlantillasCTNoDisponibles = errors.New("bootstrap: catalogo de plantillas de contratacion temporal no disponible")
 

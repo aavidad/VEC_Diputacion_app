@@ -1,0 +1,5 @@
+# Original CT en vec-server; AD158 ya instalada, no reaplicar.
+# AD247 NUEVA una sola vez sobre preimagen exacta HZ21; sin DOWN.
+# Después binario/config VEC_CT_ORIGINAL_FIRMABLE_ENABLED=true y provisión nominal CAS.
+# SHA256 915c8e91223e4fc7d79531d28375b951fa16b9e088fa8dea6e5d20ac6caab707
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000247_campos_canonicos_original_firmable.up.sql

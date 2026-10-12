@@ -46,7 +46,7 @@ test("B7 consulta el plazo de respuesta por GET de mismo origen y sin caché", a
 test("B7 convierte la regla en texto editable y procedencia solo para RRHH", () => {
   const ejemplo = propuestaPlazoRespuesta(conRegla());
   assert.equal(ejemplo.texto, "Hasta las 23:59:59 del martes, 29 de septiembre de 2026 (hora peninsular)");
-  assert.equal(ejemplo.procedencia, "Regla de ejemplo");
+  assert.equal(ejemplo.procedencia, "Regla pendiente de aprobación");
   assert.equal(ejemplo.ejemplo, true);
   assert.equal(ejemplo.referencia, "vec.bolsa.reglas:1:b05.plazo_respuesta");
   const reglamento = propuestaPlazoRespuesta(conRegla({ origen: "reglamento", articulo: "art. 9", ejemplo: false }));
@@ -81,12 +81,12 @@ test("B7 con regla rellena el plazo editable y rotula su procedencia", async () 
   // Al abrir B7 se pide el plazo una sola vez; la plantilla del correo B7
   // personalizado se pide aparte y no forma parte de esta comprobación.
   assert.deepEqual(rutas.filter((ruta) => ruta === RUTA_PLAZO_RESPUESTA_LLAMAMIENTO), [RUTA_PLAZO_RESPUESTA_LLAMAMIENTO]);
-  assert.equal(flujo.reglaPlazo.procedencia, "Regla de ejemplo");
+  assert.equal(flujo.reglaPlazo.procedencia, "Regla pendiente de aprobación");
   flujo.paso = 3;
   const html = presentador(flujo).renderizarVista("bolsa-candidatos");
   assert.match(html, /<input name="plazo" required minlength="2" maxlength="160" value="Hasta las 23:59:59 del martes, 29 de septiembre de 2026 \(hora peninsular\)">/);
   // La procedencia de la regla no se rotula en la pantalla de trabajo: consta en la ayuda y en «Reglas vigentes».
-  assert.doesNotMatch(html, /Regla de ejemplo|data-b7-plazo-procedencia|<summary|vec\.bolsa\.reglas:1/);
+  assert.doesNotMatch(html, /Regla pendiente de aprobación|data-b7-plazo-procedencia|<summary|vec\.bolsa\.reglas:1/);
   // Lo que RRHH escriba prevalece sobre la propuesta.
   flujo.configuracion = { plazo: "Hasta el viernes a las 14:00" };
   assert.match(presentador(flujo).renderizarVista("bolsa-candidatos"), /name="plazo"[^>]*value="Hasta el viernes a las 14:00"/);
@@ -110,7 +110,7 @@ test("B7 no manda al candidato la procedencia ni la referencia de la regla", asy
   assert.equal(flujo.paso, 4);
   assert.match(flujo.configuracion.cuerpo, /Plazo de respuesta: Hasta las 23:59:59 del martes, 29 de septiembre de 2026 \(hora peninsular\)/);
   const enviado = JSON.stringify(flujo.configuracion);
-  assert.doesNotMatch(enviado, /Regla de ejemplo|Reglamento|vec\.bolsa\.reglas|b05/);
+  assert.doesNotMatch(enviado, /Regla pendiente de aprobación|Reglamento|vec\.bolsa\.reglas|b05/);
 });
 
 test("B7 sin catálogo o con la consulta caída queda como hoy, con texto libre", async () => {

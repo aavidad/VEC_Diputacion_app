@@ -18,10 +18,18 @@ const (
 	ClaveRefSobreDatosContactoDesarrollo         = "clave:kms:desarrollo:datos-contacto-participacion:v1"
 	// Consulta RRHH del correo y los teléfonos completos: acción, finalidad y
 	// audiencia propias, distintas de las de registro (AD197/B78).
-	AccionConsultarDatosContactoParticipacion    = "bolsa.datos_contacto_participacion.consultar"
-	FinalidadConsultarDatosContactoParticipacion = "consulta_datos_contacto_participacion"
-	AudienciaConsultarDatosContactoParticipacion = "vec_bolsa_llamamientos.datos_contacto_participacion.consultar.v1"
+	AccionConsultarDatosContactoParticipacion          = "bolsa.datos_contacto_participacion.consultar"
+	FinalidadConsultarDatosContactoParticipacion       = "consulta_datos_contacto_participacion"
+	AudienciaConsultarDatosContactoParticipacion       = "vec_bolsa_llamamientos.datos_contacto_participacion.consultar.v1"
+	AccionConsultarOrigenDatosContactoParticipacion    = dominiovec.AccionLecturaOrigenContactoBolsa
+	FinalidadConsultarOrigenDatosContactoParticipacion = "consulta_origen_datos_contacto_participacion"
 )
+
+// CamposConsultarOrigenDatosContacto enumera la proyección de la ficha; nunca
+// permite el correo ni los teléfonos completos.
+func CamposConsultarOrigenDatosContacto() []string {
+	return dominiovec.CamposLecturaOrigenContactoBolsa()
+}
 
 var (
 	ErrDatosContactoParticipacionNoDisponibles = errors.New("bolsa: datos de contacto de participacion no disponibles")
@@ -68,6 +76,7 @@ type RegistroDatosContactoParticipacion struct {
 // DatosContactoParticipacionLeidos es la lectura autorizada para RRHH: claro
 // (para contactar) y enmascarado (para listar).
 type DatosContactoParticipacionLeidos struct {
+	SinContacto      bool
 	ParticipacionRef string
 	Version          uint64
 	RegistradaEn     time.Time
@@ -77,9 +86,8 @@ type DatosContactoParticipacionLeidos struct {
 	// existen si la versión vigente es de origen CONVOCA.
 	Origen       *dominiobolsa.MarcaOrigenDatosContacto
 	EstadoOrigen string
-	// AuditoriaRef y DecisionRef solo existen en la consulta completa: son el
-	// asiento de la auditoría común y la decisión V3 que se consumieron en la
-	// misma transacción que la lectura. La consulta enmascarada no los tiene.
+	// AuditoriaRef identifica el asiento común de ambas lecturas. DecisionRef
+	// existe sólo en la completa, que consume su decisión V3.
 	AuditoriaRef string
 	DecisionRef  string
 }
@@ -115,6 +123,7 @@ func (s SolicitudRegistrarDatosContactoParticipacion) Validar() error {
 // caso de uso emite y consume la decisión V3 propia de la consulta, ligada a
 // la participación, antes de devolver el claro.
 type SolicitudConsultarDatosContactoParticipacion struct {
+	Captura            puertosvec.CapturaLecturaNominalBolsa
 	ContextoActor      dominiovec.ContextoActor
 	Vinculo            dominiovec.VinculoAutenticacionActorV2
 	ResultadoContexto  dominiovec.ResultadoContextoActorRegistradoV2
@@ -127,7 +136,15 @@ type SolicitudConsultarDatosContactoParticipacion struct {
 
 // ValidarCompleta exige lo que necesita la decisión V3 de la consulta completa.
 func (s SolicitudConsultarDatosContactoParticipacion) ValidarCompleta() error {
-	if !s.Completo || s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil ||
+	if !s.Completo {
+		return ErrDatosContactoParticipacionNoDisponibles
+	}
+	return s.ValidarNominal()
+}
+
+// ValidarNominal exige el actor y la correlación también para auditar fallos.
+func (s SolicitudConsultarDatosContactoParticipacion) ValidarNominal() error {
+	if s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil ||
 		s.BolsaRef == "" || s.ParticipacionRef == "" || s.ResultadoContexto.Contexto.PersonaRef == "" ||
 		s.ContextoActor.PersonaRef != s.ResultadoContexto.Contexto.PersonaRef ||
 		s.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.MotivoAutorizacion) {
@@ -139,6 +156,7 @@ func (s SolicitudConsultarDatosContactoParticipacion) ValidarCompleta() error {
 // LecturaDatosContactoAutorizada es la versión vigente leída en la misma
 // transacción que consumió la decisión de consulta, con su acuse común.
 type LecturaDatosContactoAutorizada struct {
+	SinContacto  bool
 	Registro     RegistroDatosContactoParticipacion
 	DecisionRef  string
 	AuditoriaRef string
@@ -182,4 +200,10 @@ type RepositorioDatosContactoParticipacion interface {
 	// bolsa, la decisión no vale o entregar falla (p. ej., no se puede
 	// descifrar), se revierte y no queda consumo.
 	ConsultarDatosContactoAutorizados(ctx context.Context, bolsaRef, participacionRef, actorRef string, material puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, entregar func(LecturaDatosContactoAutorizada) error) (LecturaDatosContactoAutorizada, error)
+}
+
+// LectorDatosContactoActuales devuelve el sobre opcional sólo después del
+// cotejo actual. La entrega y la auditoría común forman una transacción.
+type LectorDatosContactoActuales interface {
+	ConsultarOrigenDatosContactoActual(ctx context.Context, captura puertosvec.CapturaLecturaNominalBolsa, entregar func(LecturaDatosContactoAutorizada) error) (LecturaDatosContactoAutorizada, error)
 }
