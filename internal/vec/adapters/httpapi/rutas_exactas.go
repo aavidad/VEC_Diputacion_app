@@ -278,10 +278,11 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		return nil
 	}
 	superficie := superficieAuditoriaFronteraRutaExacta(ruta)
-	// Usuarios, Aspirantes y Personal fallan cerrado si falta el apunte.
+	// Usuarios, Aspirantes, Meritos y Personal fallan cerrado si falta el apunte.
 	// Aspirantes nunca anota persona.
 	usuarios := superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias ||
-		superficie == ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
+		superficie == ports.SuperficieAuditoriaFronteraRutaExactaAspirantes ||
+		superficie == ports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera
 	bolsa := superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
 	preparacion := superficie == ports.SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases ||
 		superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo
@@ -307,7 +308,8 @@ func (h *Handler) registrarDenegacionRutaExacta(
 	if personal {
 		orden.Ruta = RutaAuditoriaRegistroEmpleadoB2(ruta)
 	}
-	if superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias &&
+	if (superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias ||
+		superficie == ports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera) &&
 		motivo == ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado {
 		orden.ActorRef, _ = ctx.Value(claveActorAuditoriaPreferenciasUsuarios{}).(string)
 	}
@@ -367,6 +369,8 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 		return ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
 	case "/api/vec/aspirantes/area-personal/mi-ficha":
 		return ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
+	case "/api/vec/meritos/cartera", "/api/vec/meritos/cartera/retiradas":
+		return ports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera
 	case RutaCatalogosRegistroEmpleadoB2, RutaEmpleadosOrganismoB2, RutaVacantesEmpleadoB2:
 		return ports.SuperficieAuditoriaFronteraRutaExactaPersonal
 	case "/api/vec/seleccion/preparacion-bases/guardar", "/api/vec/seleccion/preparacion-bases/consultar":
