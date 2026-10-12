@@ -747,3 +747,7 @@ static/area-personal/inscripcion-bolsa-api.js
 static/area-personal/inscripcion-bolsa-vista.js
 static/textos/es/bolsa-inscripcion-aspirante.json
 static/textos/en/bolsa-inscripcion-aspirante.json
+static/portal-empleado/modulos/bolsa/documentos-api.js
+static/portal-empleado/modulos/bolsa/documentos-vista.js
+static/textos/es/bolsa-documentos.json
+static/textos/en/bolsa-documentos.json
