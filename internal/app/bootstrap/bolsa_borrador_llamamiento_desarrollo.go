@@ -186,10 +186,8 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaContactosBolsa
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaRespuestasPortalLlamamiento(
 	ctx context.Context, bolsaRef, llamamientoRef string,
 ) (puertosbolsa.ConsultaRespuestasPortalRRHH, error) {
-	if p == nil || p.fuenteRespuestas == nil || bolsaRef == "" || llamamientoRef == "" {
-		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
-	}
-	if err := p.admitirBolsa(ctx, bolsaRef); err != nil {
+	if p == nil || p.soporte == nil || p.fuenteRespuestas == nil ||
+		p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" || bolsaRef == "" || llamamientoRef == "" {
 		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
 	}
 	contexto, err := p.contextoRevalidado(ctx)
@@ -197,7 +195,8 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaRespuestasPort
 		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
 	}
 	captura, err := CapturarLecturaRespuestasLlamamiento(ctx, p.fuenteRespuestas,
-		contexto.Vinculo, contexto.Resultado, bolsaRef, llamamientoRef)
+		contexto.Vinculo, contexto.Resultado, p.soporte.unidadRef, p.soporte.ambitoRef,
+		bolsaRef, llamamientoRef)
 	if err != nil {
 		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
 	}
