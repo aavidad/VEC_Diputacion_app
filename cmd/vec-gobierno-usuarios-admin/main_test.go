@@ -60,6 +60,10 @@ func nuevoEscenario(t *testing.T) *escenario {
 			e.llamadas++
 			return nil
 		},
+		versionBolsaExterna: func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error {
+			e.llamadas++
+			return nil
+		},
 	}
 	return e
 }
@@ -435,6 +439,54 @@ func TestVersionBolsaExigeConjuntoCincoYAcuse(t *testing.T) {
 		e.config = e.escribirConfig(t, c)
 		if code, d, _, _ := e.ejecutar(e.args("version-bolsa", "-acuse", "acuse-aplicar.json")); code != 1 || d.Codigo != "configuracion_invalida" || e.llamadas != 0 {
 			t.Fatal("configuración aceptada", nombre, d.Codigo)
+		}
+	}
+}
+
+func TestVersionBolsaExternaExigeConjuntoSeisYAcuse(t *testing.T) {
+	e := nuevoEscenario(t)
+	motivo := domain.ReferenciaEntradaCatalogo{CatalogoID: "motivos_autorizacion", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_" + strings.Repeat("1", 32)}
+	ext := &configuracionVersionBolsa{PoolGobierno: "/srv/privado/pools/version-bolsa-externa.json",
+		PoolCatalogo: "/srv/privado/pools/catalogo-externo.json",
+		Motivos: map[string]domain.ReferenciaEntradaCatalogo{
+			gobiernoperfiles.AudienciaVersionarRolBolsaExternaProponer: motivo,
+			gobiernoperfiles.AudienciaVersionarRolBolsaExternaAprobar:  motivo}}
+	var destino bootstrap.DestinoOverlayVersionBolsaAdmin
+	e.ops.versionBolsaExterna = func(_ *os.Root, d bootstrap.DestinoOverlayVersionBolsaAdmin, acuse string) error {
+		e.llamadas++
+		if acuse != "acuse-aplicar.json" {
+			t.Fatal("acuse incorrecto")
+		}
+		destino = d
+		return nil
+	}
+	e.config = e.escribirConfig(t, configuracionPrivada{Salida: e.salida, ConjuntoCapacidades: 6, VersionBolsaExterna: ext})
+	if code, d, _, _ := e.ejecutar(e.args("version-bolsa-externa")); code != 1 || d.Codigo != "uso_invalido" || e.llamadas != 0 {
+		t.Fatal("fase externa sin acuse aceptada", d.Codigo)
+	}
+	if code, d, _, _ := e.ejecutar(e.args("version-bolsa-externa", "-acuse", "../acuse.json")); code != 1 || d.Codigo != "acuse_inseguro" || e.llamadas != 0 {
+		t.Fatal("acuse externo con ruta aceptado", d.Codigo)
+	}
+	code, d, stdout, stderr := e.ejecutar(e.args("version-bolsa-externa", "-acuse", "acuse-aplicar.json"))
+	if code != 0 || d.Codigo != "version_bolsa_escrita" || e.llamadas != 1 ||
+		destino.PoolGobierno != ext.PoolGobierno || destino.PoolCatalogo != ext.PoolCatalogo ||
+		len(destino.Motivos) != 2 {
+		t.Fatal("fase externa", code, d.Codigo)
+	}
+	if strings.Contains(stdout+stderr, "/srv/") || strings.Contains(stdout+stderr, "motivo_") {
+		t.Fatal("fase externa expone configuración privada")
+	}
+	for _, caso := range []configuracionPrivada{
+		{Salida: e.salida, ConjuntoCapacidades: 5, VersionBolsaExterna: ext},
+		{Salida: e.salida, ConjuntoCapacidades: 6},
+		{Salida: e.salida, ConjuntoCapacidades: 6, VersionBolsaExterna: &configuracionVersionBolsa{
+			PoolGobierno: ext.PoolGobierno, PoolCatalogo: ext.PoolCatalogo,
+			Motivos: map[string]domain.ReferenciaEntradaCatalogo{gobiernoperfiles.AudienciaVersionarRolBolsaProponer: motivo, gobiernoperfiles.AudienciaVersionarRolBolsaAprobar: motivo}}},
+	} {
+		e.config = e.escribirConfig(t, caso)
+		if code, d, _, _ := e.ejecutar(e.args("version-bolsa-externa", "-acuse", "acuse-aplicar.json")); code != 1 || d.Codigo != "configuracion_invalida" || e.llamadas != 1 {
+			t.Fatal("configuración externa inválida aceptada", d.Codigo)
 		}
 	}
 }

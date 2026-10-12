@@ -44,7 +44,8 @@ type configuracionPrivada struct {
 	ConjuntoCapacidades uint64 `json:"conjunto_capacidades,omitempty"`
 	// VersionBolsa sólo lo usa la fase version-bolsa: los ficheros DSN de los
 	// dos LOGIN B1 de vec-admin y los motivos de sus dos audiencias.
-	VersionBolsa *configuracionVersionBolsa `json:"version_bolsa,omitempty"`
+	VersionBolsa        *configuracionVersionBolsa `json:"version_bolsa,omitempty"`
+	VersionBolsaExterna *configuracionVersionBolsa `json:"version_bolsa_externa,omitempty"`
 }
 
 type configuracionVersionBolsa struct {
@@ -84,10 +85,26 @@ func (c configuracionPrivada) validar(fase string) error {
 			!rutaAbsoluta(c.VersionBolsa.PoolGobierno) || !rutaAbsoluta(c.VersionBolsa.PoolCatalogo) || len(c.VersionBolsa.Motivos) != 2 {
 			return errConfiguracion
 		}
+	case "version-bolsa-externa":
+		if c.ConjuntoCapacidades != 6 || c.VersionBolsaExterna == nil ||
+			!rutaAbsoluta(c.VersionBolsaExterna.PoolGobierno) || !rutaAbsoluta(c.VersionBolsaExterna.PoolCatalogo) ||
+			len(c.VersionBolsaExterna.Motivos) != 2 ||
+			!motivosVersionBolsaExternaValidos(c.VersionBolsaExterna.Motivos) {
+			return errConfiguracion
+		}
 	default:
 		return errConfiguracion
 	}
 	return nil
+}
+
+func motivosVersionBolsaExternaValidos(m map[string]domain.ReferenciaEntradaCatalogo) bool {
+	if len(m) != 2 {
+		return false
+	}
+	_, propuesta := m[gobiernoperfiles.AudienciaVersionarRolBolsaExternaProponer]
+	_, cierre := m[gobiernoperfiles.AudienciaVersionarRolBolsaExternaAprobar]
+	return propuesta && cierre
 }
 
 func conjuntoConVersionBolsa(version uint64) bool {
@@ -169,11 +186,12 @@ type operaciones struct {
 	aplicar   func(context.Context, string, time.Duration, *os.Root, string) (bootstrap.ConfirmacionGobiernoUsuariosAdmin, error)
 	verificar func(context.Context, string, time.Duration, *os.Root, string) (auditoria.InformeVerificacion, error)
 	// versionBolsa escribe el overlay B1 del día; no conecta con la base.
-	versionBolsa func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error
+	versionBolsa        func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error
+	versionBolsaExterna func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error
 }
 
 func (o operaciones) incompletas() bool {
-	return o.preparar == nil || o.aplicar == nil || o.verificar == nil || o.versionBolsa == nil
+	return o.preparar == nil || o.aplicar == nil || o.verificar == nil || o.versionBolsa == nil || o.versionBolsaExterna == nil
 }
 
 type relojSistema struct{}
@@ -208,6 +226,9 @@ func operacionesPG() operaciones {
 		},
 		versionBolsa: func(r *os.Root, d bootstrap.DestinoOverlayVersionBolsaAdmin, acuse string) error {
 			return bootstrap.EscribirOverlayVersionBolsaAdmin(r, d, acuse, relojSistema{})
+		},
+		versionBolsaExterna: func(r *os.Root, d bootstrap.DestinoOverlayVersionBolsaAdmin, acuse string) error {
+			return bootstrap.EscribirOverlayVersionBolsaExternaAdmin(r, d, acuse, relojSistema{})
 		},
 	}
 }

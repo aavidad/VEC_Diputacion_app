@@ -21,9 +21,12 @@ import (
 // escriben en la misma carpeta privada de la publicación. Cada clave va en su
 // propio fichero 0600: nunca se comparte con otro overlay de vec-admin.
 const (
-	ArchivoOverlayVersionBolsa           = "version-bolsa.json"
-	ArchivoMaterialVersionBolsaPropuesta = "version-bolsa-propuesta.bin"
-	ArchivoMaterialVersionBolsaCierre    = "version-bolsa-cierre.bin"
+	ArchivoOverlayVersionBolsa                  = "version-bolsa.json"
+	ArchivoMaterialVersionBolsaPropuesta        = "version-bolsa-propuesta.bin"
+	ArchivoMaterialVersionBolsaCierre           = "version-bolsa-cierre.bin"
+	ArchivoOverlayVersionBolsaExterna           = "version-bolsa-externa.json"
+	ArchivoMaterialVersionBolsaExternaPropuesta = "version-bolsa-externa-propuesta.bin"
+	ArchivoMaterialVersionBolsaExternaCierre    = "version-bolsa-externa-cierre.bin"
 )
 
 // DestinoOverlayVersionBolsaAdmin procede de la configuración privada del
@@ -109,7 +112,28 @@ type claveMaterialGobiernoUsuarios struct {
 // clave y por último version-bolsa.json; nada se sobrescribe. No conecta con
 // la base ni publica nada.
 func EscribirOverlayVersionBolsaAdmin(salida *os.Root, d DestinoOverlayVersionBolsaAdmin, nombreAcuse string, reloj ports.Reloj) error {
-	if salida == nil || dependenciaBootstrapNula(reloj) || !nombreAcuseGobiernoUsuariosValido(nombreAcuse) || validarDestinoOverlayVersionBolsa(d) != nil {
+	archivos := map[string]string{
+		gobiernoperfiles.AudienciaVersionarRolBolsaProponer: ArchivoMaterialVersionBolsaPropuesta,
+		gobiernoperfiles.AudienciaVersionarRolBolsaAprobar:  ArchivoMaterialVersionBolsaCierre,
+	}
+	return escribirOverlayVersionBolsaAdmin(salida, d, nombreAcuse, reloj, ArchivoOverlayVersionBolsa,
+		[2]string{gobiernoperfiles.AudienciaVersionarRolBolsaProponer, gobiernoperfiles.AudienciaVersionarRolBolsaAprobar}, archivos)
+}
+
+// El material externo procede exclusivamente del acuse del conjunto 6.
+// Ninguna ruta ADMIN crea ni publica claves durante el arranque.
+func EscribirOverlayVersionBolsaExternaAdmin(salida *os.Root, d DestinoOverlayVersionBolsaAdmin, nombreAcuse string, reloj ports.Reloj) error {
+	archivos := map[string]string{
+		gobiernoperfiles.AudienciaVersionarRolBolsaExternaProponer: ArchivoMaterialVersionBolsaExternaPropuesta,
+		gobiernoperfiles.AudienciaVersionarRolBolsaExternaAprobar:  ArchivoMaterialVersionBolsaExternaCierre,
+	}
+	return escribirOverlayVersionBolsaAdmin(salida, d, nombreAcuse, reloj, ArchivoOverlayVersionBolsaExterna,
+		[2]string{gobiernoperfiles.AudienciaVersionarRolBolsaExternaProponer, gobiernoperfiles.AudienciaVersionarRolBolsaExternaAprobar}, archivos)
+}
+
+func escribirOverlayVersionBolsaAdmin(salida *os.Root, d DestinoOverlayVersionBolsaAdmin, nombreAcuse string,
+	reloj ports.Reloj, archivoOverlay string, par [2]string, archivos map[string]string) error {
+	if salida == nil || dependenciaBootstrapNula(reloj) || !nombreAcuseGobiernoUsuariosValido(nombreAcuse) || validarDestinoOverlayVersionBolsa(d, par) != nil {
 		return ErrGobiernoUsuariosAdmin
 	}
 	data, err := leerPrivadoGobiernoUsuarios(salida, ArchivoConfiguracionGobiernoUsuarios)
@@ -126,7 +150,7 @@ func EscribirOverlayVersionBolsaAdmin(salida *os.Root, d DestinoOverlayVersionBo
 	for _, a := range conjunto {
 		segmentos[a.Audiencia] = a.Segmento
 	}
-	audiencias := []string{gobiernoperfiles.AudienciaVersionarRolBolsaProponer, gobiernoperfiles.AudienciaVersionarRolBolsaAprobar}
+	audiencias := par[:]
 	for _, a := range audiencias {
 		if segmentos[a] == "" {
 			return ErrGobiernoUsuariosAdmin
@@ -185,10 +209,6 @@ func EscribirOverlayVersionBolsaAdmin(salida *os.Root, d DestinoOverlayVersionBo
 	c.Raiz.RevocadaEn = time.Time{}.UTC()
 	c.Gobierno.Revision, c.Gobierno.HuellaSHA256, c.Gobierno.Secuencia = cfg.Gobierno.Revision, cfg.Gobierno.HuellaSHA256, cfg.Gobierno.Secuencia
 	c.Gobierno.PublicadaEn, c.Gobierno.ExpiraEn = cfg.Gobierno.PublicadaEn.UTC(), cfg.Gobierno.ExpiraEn.UTC()
-	archivos := map[string]string{
-		gobiernoperfiles.AudienciaVersionarRolBolsaProponer: ArchivoMaterialVersionBolsaPropuesta,
-		gobiernoperfiles.AudienciaVersionarRolBolsaAprobar:  ArchivoMaterialVersionBolsaCierre,
-	}
 	secretos := map[string][]byte{}
 	for _, a := range audiencias {
 		i := slices.IndexFunc(m.Claves, func(k claveMaterialGobiernoUsuarios) bool { return k.Audiencia == a })
@@ -220,10 +240,10 @@ func EscribirOverlayVersionBolsaAdmin(salida *os.Root, d DestinoOverlayVersionBo
 			return ErrGobiernoUsuariosAdmin
 		}
 	}
-	return escribirPrivadoGobiernoUsuarios(salida, ArchivoOverlayVersionBolsa, append(b, '\n'))
+	return escribirPrivadoGobiernoUsuarios(salida, archivoOverlay, append(b, '\n'))
 }
 
-func validarDestinoOverlayVersionBolsa(d DestinoOverlayVersionBolsaAdmin) error {
+func validarDestinoOverlayVersionBolsa(d DestinoOverlayVersionBolsaAdmin, par [2]string) error {
 	rutas := []string{d.DirectorioSalida, d.PoolGobierno, d.PoolCatalogo}
 	for _, r := range rutas {
 		if r == "" || !filepath.IsAbs(r) || filepath.Clean(r) != r || strings.ContainsRune(r, 0) {
@@ -239,7 +259,7 @@ func validarDestinoOverlayVersionBolsa(d DestinoOverlayVersionBolsaAdmin) error 
 		return ErrGobiernoUsuariosAdmin
 	}
 	catalogo := ""
-	for _, a := range []string{gobiernoperfiles.AudienciaVersionarRolBolsaProponer, gobiernoperfiles.AudienciaVersionarRolBolsaAprobar} {
+	for _, a := range par {
 		m, ok := d.Motivos[a]
 		if !ok || !domain.ReferenciaMotivoAutorizacionV2Valida(m) || (catalogo != "" && m.CatalogoID != catalogo) {
 			return ErrGobiernoUsuariosAdmin

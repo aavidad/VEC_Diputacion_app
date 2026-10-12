@@ -157,6 +157,8 @@
 1669 internal/vec/ports/cargas_documentales.go
 841 internal/vec/ports/cargas_documentales_test.go
 2983 deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql
+1009 deploy/postgresql/autorizacion/migraciones/000077_version_rol_candidato_externo_admin.up.sql
+3295 deploy/postgresql/autorizacion_atestada_v3/migraciones/000248_version_rol_candidato_externo_admin.up.sql
 1791 deploy/postgresql/autorizacion_atestada_v3/migraciones/000241_preferencias_bolsas.up.sql
 2998 deploy/postgresql/autorizacion_atestada_v3/migraciones/000247_campos_canonicos_original_firmable.up.sql
 822 internal/app/bootstrap/contratacion_temporal_perfiles_fijos_rrhh_desarrollo.go

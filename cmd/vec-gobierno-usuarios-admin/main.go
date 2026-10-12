@@ -82,9 +82,9 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 	fallo := func(codigo string) int { return emitir(errores, diagnostico{Codigo: codigo}, 1) }
 
 	duracion, err := time.ParseDuration(timeout)
-	faseValida := fase == "preparar" || fase == "aplicar" || fase == "verificar" || fase == "version-bolsa"
+	faseValida := fase == "preparar" || fase == "aplicar" || fase == "verificar" || fase == "version-bolsa" || fase == "version-bolsa-externa"
 	// aplicar crea un acuse nuevo; version-bolsa lee el acuse de aplicar.
-	acuseCoherente := (fase == "aplicar" || fase == "version-bolsa") == (acuse != "")
+	acuseCoherente := (fase == "aplicar" || fase == "version-bolsa" || fase == "version-bolsa-externa") == (acuse != "")
 	if parseErr != nil || err != nil || duracion <= 0 || duracion > limiteTimeout || f.NArg() != 0 || !faseValida || !acuseCoherente || rutaConfig == "" || ops.incompletas() || ahora == nil {
 		return fallo("uso_invalido")
 	}
@@ -127,6 +127,12 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 	case "version-bolsa":
 		d := bootstrap.DestinoOverlayVersionBolsaAdmin{DirectorioSalida: cfg.Salida, PoolGobierno: cfg.VersionBolsa.PoolGobierno, PoolCatalogo: cfg.VersionBolsa.PoolCatalogo, Motivos: cfg.VersionBolsa.Motivos}
 		if ops.versionBolsa(raiz, d, acuse) != nil {
+			return fallo("version_bolsa_fallida")
+		}
+		return emitir(salida, diagnostico{Codigo: "version_bolsa_escrita"}, 0)
+	case "version-bolsa-externa":
+		d := bootstrap.DestinoOverlayVersionBolsaAdmin{DirectorioSalida: cfg.Salida, PoolGobierno: cfg.VersionBolsaExterna.PoolGobierno, PoolCatalogo: cfg.VersionBolsaExterna.PoolCatalogo, Motivos: cfg.VersionBolsaExterna.Motivos}
+		if ops.versionBolsaExterna(raiz, d, acuse) != nil {
 			return fallo("version_bolsa_fallida")
 		}
 		return emitir(salida, diagnostico{Codigo: "version_bolsa_escrita"}, 0)

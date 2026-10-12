@@ -129,10 +129,18 @@ func main() {
 			}
 			versionBolsaB103 = &c
 		}
-		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConVersionBolsaB103(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno, versionBolsa, versionBolsaB103, fuenteCatalogoGobiernoOficial)
+		var versionBolsaExterna *configuracionVersionBolsaExternaPrivada
+		if rutaExterna := os.Getenv("VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE"); rutaExterna != "" {
+			c, errorVersion := cargarConfiguracionVersionBolsaExternaPrivada(rutaExterna, privada, usuarios, runtime, lote, plan, efectos, gobierno, versionBolsa, versionBolsaB103)
+			if errorVersion != nil {
+				fallarConfiguracion("version_bolsa_externa_config", errorVersion)
+			}
+			versionBolsaExterna = &c
+		}
+		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConVersionBolsaExterna(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno, versionBolsa, versionBolsaB103, versionBolsaExterna, fuenteCatalogoGobiernoOficial)
 	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE") != "" ||
 		os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_CERTIFICADOS_CONFIG_FILE") != "" ||
-		os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_VERSION_BOLSA_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_VERSION_BOLSA_B103_CONFIG_FILE") != "" {
+		os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_VERSION_BOLSA_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_VERSION_BOLSA_B103_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE") != "" {
 		fallarConfiguracion("lote_sin_usuarios", nil)
 	} else {
 		servidor, cerrar, err = componerProcesoADMINConRuntime(configServidor, privada, runtime)

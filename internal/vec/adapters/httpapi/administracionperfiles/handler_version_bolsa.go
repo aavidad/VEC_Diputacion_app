@@ -236,6 +236,10 @@ func (h *Handler) registrarClaseVersionBolsa(r *http.Request, clase string) {
 			ruta = "b103_propuestas"
 		case RutaVersionarRolBolsaB103Cerrar:
 			ruta = "b103_cierres"
+		case RutaVersionarRolBolsaExternaProponer:
+			ruta = "externa_propuestas"
+		case RutaVersionarRolBolsaExternaCerrar:
+			ruta = "externa_cierres"
 		}
 	}
 	correlacion := ""
