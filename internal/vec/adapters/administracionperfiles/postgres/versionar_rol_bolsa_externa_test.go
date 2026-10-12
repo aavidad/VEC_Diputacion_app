@@ -72,6 +72,8 @@ func TestAutoridadVersionarRolBolsaExternaFallaCerradaSinACL(t *testing.T) {
 	}
 	if !strings.Contains(acreditarVersionarRolBolsaExternaSQL, "vec_admin_version_rol_bolsa_externa_ejecutor") ||
 		!strings.Contains(acreditarVersionarRolBolsaExternaSQL, "resolver_base_version_rol_bolsa_externa_v1()") ||
+		!strings.Contains(acreditarVersionarRolBolsaExternaSQL, "resolver_base_version_rol_bolsa_externa_historica_v1(text,text,numeric,text)") ||
+		!strings.Contains(resolverBaseHistoricaVersionarRolBolsaExternaSQL, "$3::numeric") ||
 		strings.Contains(acreditarVersionarRolBolsaExternaSQL, "proponer_version_rol_bolsa_v2(") {
 		t.Fatal("preflight de la fachada nominal divergente")
 	}

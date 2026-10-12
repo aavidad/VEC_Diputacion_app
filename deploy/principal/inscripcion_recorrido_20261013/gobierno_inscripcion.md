@@ -5,6 +5,16 @@ La inscripción amplía dos roles existentes con las ocho entradas de
 asignaciones anteriores, y liga las preimágenes actuales. Dos personas ADMIN
 distintas proponen y aprueban; el arranque no publica permisos.
 
+Antes de los actos, instalar las nuevas migraciones de
+`lista_sql_codexo_inscripcion_gobierno_20261013.txt`: AD256 → AUT84 → AUT85.
+No repetir ninguna ya instalada. AUT85 añade al ejecutor externo su quinta
+función permitida: recupera la base y el control originales por referencia y
+huella, incluso después de avanzar el rol. Las primeras publicaciones siguen
+exigiendo las preimágenes actuales; un replay conserva su plan y recibo.
+
+CONFIG NUEVA: ninguna adicional a los overlays B103 y Bolsa externa existentes.
+La configuración de activación de inscripción está en `LEEME.md`.
+
 ## RRHH
 
 Reutilizar el montaje B103 de `vec-admin` y
