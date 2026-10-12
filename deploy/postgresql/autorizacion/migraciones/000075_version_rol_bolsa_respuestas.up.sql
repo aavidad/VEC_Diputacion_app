@@ -222,7 +222,7 @@ CREATE FUNCTION vec_autorizacion.validar_plan_version_rol_bolsa_v2(p jsonb,p_pri
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET timezone='UTC' SET row_security=on AS $f$
 DECLARE catalogo jsonb;entrada jsonb;seleccion jsonb;base jsonb;nueva jsonb;
- cabeza record;rol record;control record;asignacion record;
+ cabeza record;rol record;control record;puntero_control record;asignacion record;
  t jsonb;original jsonb;vistas text[]:=ARRAY[]::text[];
  acciones text[]:=ARRAY['bolsa.inscripcion.rrhh.listar','bolsa.inscripcion.rrhh.consultar',
   'bolsa.inscripcion.rrhh.convocatorias.listar','bolsa.rrhh.respuestas_llamamiento.consultar'];
@@ -341,12 +341,19 @@ BEGIN
  IF NOT FOUND OR control.estado IS DISTINCT FROM 'habilitada'
  OR control.huella_sha256 IS DISTINCT FROM encode(sha256(convert_to(vec_autorizacion.canon_control_rol_admin_v1(control.documento),'UTF8')),'hex')
  OR control.documento IS DISTINCT FROM base->'control_vigencia'
- OR (p_primera AND NOT EXISTS(SELECT 1 FROM vec_autorizacion.control_vigencia_version_rol_actual q
-   WHERE q.version_rol_ref=control.version_rol_ref AND q.revision=control.revision))
  OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(catalogo->'perfiles') q
   WHERE q->'rol'=base->'rol' AND q->'control_vigencia'=base->'control_vigencia'
    AND q->>'tipo_perfil'='administrable')
  THEN RAISE EXCEPTION 'AUT75: control o perfil catalogado divergente' USING ERRCODE='40001';END IF;
+ -- El cierre nuevo retiene el puntero base hasta COMMIT. Una retirada o
+ -- avance concurrente no puede intercalarse entre cotejo y efecto.
+ IF p_primera THEN
+  SELECT q.revision INTO puntero_control
+  FROM vec_autorizacion.control_vigencia_version_rol_actual q
+  WHERE q.version_rol_ref=control.version_rol_ref FOR SHARE;
+  IF NOT FOUND OR puntero_control.revision IS DISTINCT FROM control.revision
+  THEN RAISE EXCEPTION 'AUT75: control base ya no actual' USING ERRCODE='40001';END IF;
+ END IF;
  IF nueva->>'nombre' IS DISTINCT FROM base#>>'{rol,nombre}'
  OR nueva->'concesiones' IS DISTINCT FROM (base#>'{rol,concesiones}')||normalizadas
  OR vec_autorizacion.concesiones_positivas_validas(nueva) IS NOT TRUE
