@@ -1,0 +1,11 @@
+{
+  "operacion": "publicar",
+  "tipo": "modalidad",
+  "ref": "modalidad:vacante",
+  "version": 1,
+  "revision": 1,
+  "denominacion": "Vacante",
+  "huella_sha256": "634fe0e41cc0de8dee7fc5a700ca34d0fe7cf73626de061fa5fe753ee12d4939",
+  "vigente_desde": "2026-10-11",
+  "vigente_hasta": ""
+}

@@ -11,6 +11,7 @@
   .carga-convoca-pagina .contenido-portal { overflow: visible; flex: 0 0 auto; }
 }
 .carga-arranque-error { margin: var(--portal-espacio-4); }
+.carga-convoca-pagina .migas a { color: inherit; }
 
 .carga-pasos {
   display: flex; flex-wrap: wrap; gap: var(--portal-espacio-3);
@@ -74,6 +75,13 @@
 .carga-casilla input { width: 20px; height: 20px; margin: 2px 0 0; }
 .carga-acciones { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--portal-espacio-3); }
 .carga-datos { margin: 0 0 var(--portal-espacio-3); padding-left: 1.25rem; }
+.carga-datos a, .carga-datos button.carga-enlace {
+  padding: 0; border: 0; background: none; color: var(--portal-azul-700);
+  font: inherit; text-align: left; text-decoration: underline; cursor: pointer;
+}
+.carga-datos a:focus-visible, .carga-datos button.carga-enlace:focus-visible {
+  outline: 3px solid var(--portal-foco); outline-offset: 2px;
+}
 .carga-detalle { margin-bottom: var(--portal-espacio-4); color: var(--portal-muted); overflow-wrap: anywhere; }
 .carga-ayuda {
   display: inline-grid; width: 40px; height: 40px; place-items: center; padding: 0;

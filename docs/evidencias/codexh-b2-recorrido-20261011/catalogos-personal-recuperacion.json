@@ -1,0 +1,114 @@
+[
+  {
+    "archivo": "01-funcionario_carrera.json",
+    "http_inicial": 201,
+    "http_tras_reinicio": 200,
+    "entrada_identica": true,
+    "recibo_identico": true,
+    "estado_replay": "replay",
+    "recibo": {
+      "decision_ref": "decision:850586750f04bff9f3724e24eeb6412c",
+      "auditoria_ref": "aud_v3_c0c63f706e6ae1bf17456913bcb5be9a",
+      "consumo_huella_sha256": "c0c63f706e6ae1bf17456913bcb5be9a2ef359d55ab1f44ae43401f87a778334",
+      "registrado_en": "2026-10-11T14:14:31.722626Z"
+    }
+  },
+  {
+    "archivo": "02-funcionario_interino.json",
+    "http_inicial": 201,
+    "http_tras_reinicio": 200,
+    "entrada_identica": true,
+    "recibo_identico": true,
+    "estado_replay": "replay",
+    "recibo": {
+      "decision_ref": "decision:fe150f6920f4e753931378463ec7313f",
+      "auditoria_ref": "aud_v3_3ef90ab10ebc4b8648744651fe1eb939",
+      "consumo_huella_sha256": "3ef90ab10ebc4b8648744651fe1eb9395105e0c63d023a1e7ce20167345f74e1",
+      "registrado_en": "2026-10-11T14:14:31.833206Z"
+    }
+  },
+  {
+    "archivo": "03-laboral_fijo.json",
+    "http_inicial": 201,
+    "http_tras_reinicio": 200,
+    "entrada_identica": true,
+    "recibo_identico": true,
+    "estado_replay": "replay",
+    "recibo": {
+      "decision_ref": "decision:71dd7501edafbef18102dfb4b1298657",
+      "auditoria_ref": "aud_v3_c75bf526b9691b7c65221e7002f8f14c",
+      "consumo_huella_sha256": "c75bf526b9691b7c65221e7002f8f14c0579dbf4044e05035ee0ef222ab8c2f1",
+      "registrado_en": "2026-10-11T14:14:31.936347Z"
+    }
+  },
+  {
+    "archivo": "04-laboral_temporal.json",
+    "http_inicial": 201,
+    "http_tras_reinicio": 200,
+    "entrada_identica": true,
+    "recibo_identico": true,
+    "estado_replay": "replay",
+    "recibo": {
+      "decision_ref": "decision:9cac74600328826b570bf52c1494f859",
+      "auditoria_ref": "aud_v3_56d94e03e229888fce508829403a8156",
+      "consumo_huella_sha256": "56d94e03e229888fce508829403a81569c60da2915a2067d621da60d7c85c199",
+      "registrado_en": "2026-10-11T14:14:32.000993Z"
+    }
+  },
+  {
+    "archivo": "05-vacante.json",
+    "http_inicial": 201,
+    "http_tras_reinicio": 200,
+    "entrada_identica": true,
+    "recibo_identico": true,
+    "estado_replay": "replay",
+    "recibo": {
+      "decision_ref": "decision:3a3691c780bff7f18f5fbad2674496e4",
+      "auditoria_ref": "aud_v3_f451eaf5e052f791fb69c8384b5000f4",
+      "consumo_huella_sha256": "f451eaf5e052f791fb69c8384b5000f4be9b0e5051679a2632b54f29527c2c2a",
+      "registrado_en": "2026-10-11T14:14:32.059627Z"
+    }
+  },
+  {
+    "archivo": "06-sustitucion.json",
+    "http_inicial": 201,
+    "http_tras_reinicio": 200,
+    "entrada_identica": true,
+    "recibo_identico": true,
+    "estado_replay": "replay",
+    "recibo": {
+      "decision_ref": "decision:8f8e5812b691443c69f7303b993bc97d",
+      "auditoria_ref": "aud_v3_4ee7177fbcc4856b8d1833c5149c74c9",
+      "consumo_huella_sha256": "4ee7177fbcc4856b8d1833c5149c74c90e456b1cce5b7556beb2798a154ab32b",
+      "registrado_en": "2026-10-11T14:14:32.126169Z"
+    }
+  },
+  {
+    "archivo": "07-programa.json",
+    "http_inicial": 201,
+    "http_tras_reinicio": 200,
+    "entrada_identica": true,
+    "recibo_identico": true,
+    "estado_replay": "replay",
+    "recibo": {
+      "decision_ref": "decision:91a3e26500512520d75a763ce34e35b3",
+      "auditoria_ref": "aud_v3_8c64e73ce506d3dc46875607b213b57f",
+      "consumo_huella_sha256": "8c64e73ce506d3dc46875607b213b57f01de5eda3f20b4d868c694f2db07a0b3",
+      "registrado_en": "2026-10-11T14:14:32.222905Z"
+    }
+  },
+  {
+    "archivo": "08-acumulacion_tareas.json",
+    "http_inicial": 201,
+    "http_tras_reinicio": 200,
+    "entrada_identica": true,
+    "recibo_identico": true,
+    "estado_replay": "replay",
+    "recibo": {
+      "decision_ref": "decision:be05ff2ca20c14650cb6f2d2e8016052",
+      "auditoria_ref": "aud_v3_1df8638d66fc6909be02de2099495af5",
+      "consumo_huella_sha256": "1df8638d66fc6909be02de2099495af5a0c438edbf08ce983076faec69e92e98",
+      "registrado_en": "2026-10-11T14:14:32.320227Z"
+    }
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "operacion": "publicar",
+  "tipo": "regimen",
+  "ref": "regimen:laboral_temporal",
+  "version": 1,
+  "revision": 1,
+  "denominacion": "Personal laboral temporal",
+  "huella_sha256": "04897d3a6acd480ef03d9a8c3453eb161edaaa9dcd2c292168ed9fe6dc710950",
+  "vigente_desde": "2026-10-11",
+  "vigente_hasta": ""
+}
