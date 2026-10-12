@@ -12,7 +12,7 @@ import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
 import { cargarTextosFaseFirma, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
-import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261012-ct-firma-error-v2";
+import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261012-ct-firma-error-v3";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
@@ -197,11 +197,16 @@ export function renderizarPreparacionResolucion(preparacion, t, locale = prepara
   const original = preparacion.original;
   const comprobante = original?.comprobante;
   const firmado = preparacion.documento;
-  const pasos = firmado?.pasos?.map((paso) => {
+  const ordenR5 = firmado?.documento === "resolucion" && firmado.pasos?.length === 2
+    && firmado.pasos[0].orden === 1 && firmado.pasos[0].accion === "visto_bueno"
+    && Array.isArray(firmado.pasos[0].perfiles_ref_alternativos)
+    && firmado.pasos[0].perfiles_ref_alternativos.length > 0
+    && firmado.pasos[1].orden === 2 && firmado.pasos[1].accion === "firma";
+  const pasos = ordenR5 ? firmado.pasos.map((paso) => {
     return `<li class="ct-circuito-paso"><span class="ct-circuito-orden">${paso.orden}</span>
       <div class="ct-circuito-paso-cuerpo"><strong>${escaparHTML(traducirValorCircuitoFirma("cargo", paso.cargo, t))}</strong>
         <span class="ct-circuito-estado">${escaparHTML(t("circuito_firma_firmante_sin_estado"))}</span></div></li>`;
-  }).join("") ?? "";
+  }).join("") : "";
   return `<div class="ct-circuito-limite ct-circuito-documento" data-ct-preparacion-resolucion>
     ${comprobante ? `<p class="ct-circuito-estado ct-tono-aviso" role="status">${escaparHTML(t("circuito_firma_original_preparado"))}</p>
       <p>${escaparHTML(t("circuito_firma_original_recibo", { numero: comprobante.numero_vec }))}</p>
@@ -209,7 +214,8 @@ export function renderizarPreparacionResolucion(preparacion, t, locale = prepara
       <button type="button" class="boton-secundario" data-ct-descargar-preparado>${escaparHTML(t("circuito_firma_original_descargar"))}</button>`
     : `<button type="button" class="boton-secundario" data-ct-preparar-resolucion>${escaparHTML(t("circuito_firma_preparar_resolucion"))}</button>`}
     <p role="status" aria-live="polite" tabindex="-1" id="ct-preparacion-aviso" data-ct-preparacion-aviso></p>
-    ${pasos ? `<h5>${escaparHTML(t("circuito_firma_firmantes"))}</h5><ol>${pasos}</ol>` : ""}
+    ${ordenR5 ? `<h5>${escaparHTML(t("circuito_firma_firmantes"))}</h5><ol>${pasos}</ol>`
+    : `<p role="status">${escaparHTML(t("circuito_firma_firmantes_pendiente"))}</p>`}
   </div>`;
 }
 

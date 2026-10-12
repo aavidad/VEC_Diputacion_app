@@ -106,6 +106,7 @@
     "circuito_firma_original_denegado": "You do not have permission to prepare this resolution. Contact the administrator of HR permissions.",
     "circuito_firma_original_descarga_error": "The prepared PDF could not be downloaded. Try again.",
     "circuito_firma_firmantes": "Signing order for the resolution",
+    "circuito_firma_firmantes_pendiente": "The signing order for this resolution is not available yet.",
     "circuito_firma_firmante_sin_estado": "Status unavailable",
     "circuito_firma_original_envio_pendiente": "Submission to Portafirmas is not available yet. You can download the prepared PDF."
   },

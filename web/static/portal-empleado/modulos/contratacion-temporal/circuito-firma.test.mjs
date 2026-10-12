@@ -569,8 +569,8 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261012-ct-firma-error-v2"],
-    ["vista-expedientes.js", "20261012-ct-firma-error-v2"],
+    ["circuito-firma.js", "20261012-ct-firma-error-v3"],
+    ["vista-expedientes.js", "20261012-ct-firma-error-v3"],
 
   ]);
   const anterior = "20260929-custodia-506-v1";
@@ -609,6 +609,15 @@ test("la preparación muestra el recibo y los pasos sin acreditar envío ni firm
   assert.doesNotMatch(antes, /Puede descargar el PDF preparado/u);
   const despues = renderizarCircuitoFirma(null, t, "no_disponible", null, { documento: d, original });
   assert.match(despues, /Puede descargar el PDF preparado/u);
+});
+
+test("un catálogo anterior de tres cargos no se presenta como tres firmas consecutivas", () => {
+  const documento = circuitoConAlternativa().documentos[0];
+  documento.pasos.push({ ...documento.pasos[1], orden: 3, cargo: "Secretaría General (toma de razón)" });
+  const html = renderizarPreparacionResolucion({ documento }, crearTraductorCircuitoFirma());
+  assert.match(html, /Aún no se puede mostrar el orden de firma de esta resolución/u);
+  assert.doesNotMatch(html, /<ol>|Secretaría General/u);
+  assert.match(html, /data-ct-preparar-resolucion/u);
 });
 
 test("preparar y descargar mantienen el original con otra lectura nominal; cancelan y no duplican clics", async () => {
