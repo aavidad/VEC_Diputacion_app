@@ -11,14 +11,21 @@ DO $pre$ BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
  OR to_regclass('vec_meritos.hecho_identidad') IS NULL
  OR to_regclass('vec_meritos.disponibilidad_evento_v1') IS NOT NULL
+ OR to_regclass('vec_meritos.denegacion_frontera_cartera_v1') IS NOT NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_lectura_cartera_meritos_v1(bytea,bytea,jsonb)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_retirada_merito_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regprocedure('vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(jsonb)') IS NULL
  OR to_regprocedure('vec_autorizacion.listar_motivos_meritos_cartera_actual_v1(text)') IS NULL
  OR to_regrole('vec_meritos_cartera_externo') IS NULL
+ OR to_regrole('vec_meritos_frontera_externo') IS NOT NULL
  THEN RAISE EXCEPTION 'M4: preimagen o autoridad incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
+CREATE ROLE vec_meritos_frontera_externo NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT USAGE ON SCHEMA vec_meritos TO vec_meritos_cartera_externo;
+GRANT USAGE ON SCHEMA vec_meritos TO vec_meritos_frontera_externo;
+DO $db_frontera$ BEGIN EXECUTE format(
+ 'GRANT CONNECT ON DATABASE %I TO vec_meritos_frontera_externo',current_database());
+END $db_frontera$;
 SET LOCAL ROLE vec_meritos_propietario;
 
 CREATE TABLE vec_meritos.disponibilidad_evento_v1 (
@@ -91,6 +98,39 @@ CREATE TABLE vec_meritos.cartera_acceso_v1 (
  total bigint NOT NULL CHECK(total>=0),
  consultada_en timestamptz(6) NOT NULL
 );
+-- La frontera anterior a sesión no dispone de actor. El grupo de registro
+-- está separado del ejecutor de datos y no recibe permisos sobre tablas.
+CREATE TABLE vec_meritos.denegacion_frontera_cartera_v1 (
+ evento_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+ correlacion_ref text NOT NULL CHECK(
+  correlacion_ref='corr_no_disponible' OR correlacion_ref ~ '^corr_[0-9a-f]{32}$'),
+ motivo text NOT NULL CHECK(motivo IN ('autenticacion_requerida','acceso_denegado')),
+ superficie text NOT NULL CHECK(superficie='api.meritos.cartera.ruta_exacta'),
+ ruta text NOT NULL CHECK(ruta IN (
+  '/api/vec/meritos/cartera','/api/vec/meritos/cartera/retiradas')),
+ actor_ref text CHECK(actor_ref IS NULL OR actor_ref ~ '^per_[A-Za-z0-9_-]{22,128}$'),
+ registrada_en timestamptz(6) NOT NULL,
+ CHECK((motivo='autenticacion_requerida' AND actor_ref IS NULL)
+  OR (motivo='acceso_denegado' AND actor_ref IS NOT NULL))
+);
+ALTER TABLE vec_meritos.denegacion_frontera_cartera_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.denegacion_frontera_cartera_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY alta_frontera_nominal ON vec_meritos.denegacion_frontera_cartera_v1
+ FOR INSERT TO vec_meritos_propietario
+ WITH CHECK(current_user='vec_meritos_propietario'
+  AND pg_has_role(session_user,'vec_meritos_frontera_externo','MEMBER'));
+CREATE TRIGGER frontera_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE
+ ON vec_meritos.denegacion_frontera_cartera_v1 FOR EACH STATEMENT
+ EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.denegacion_frontera_cartera_v1
+ FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,
+ vec_meritos_migrador,vec_meritos_cartera_externo,vec_meritos_frontera_externo;
+REVOKE ALL ON TYPE vec_meritos.denegacion_frontera_cartera_v1
+ FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,
+ vec_meritos_migrador,vec_meritos_cartera_externo,vec_meritos_frontera_externo;
+REVOKE ALL ON SEQUENCE vec_meritos.denegacion_frontera_cartera_v1_evento_id_seq
+ FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,
+ vec_meritos_migrador,vec_meritos_cartera_externo,vec_meritos_frontera_externo;
 CREATE INDEX hecho_version_persona_corte_m4_idx
  ON vec_meritos.hecho_version(persona_ref,registrada_en,hecho_ref,version DESC);
 DO $seguridad$ DECLARE t text; BEGIN
@@ -337,4 +377,45 @@ REVOKE ALL ON FUNCTION vec_meritos.retirar_hecho_propio_v1(
 GRANT EXECUTE ON FUNCTION vec_meritos.retirar_hecho_propio_v1(
  bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  TO vec_meritos_cartera_externo;
+
+CREATE FUNCTION vec_meritos.registrar_denegacion_frontera_cartera_v1(
+ p_correlacion_ref text,p_motivo text,p_superficie text,p_ruta text,p_actor_ref text)
+RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
+SET lock_timeout='1s' SET statement_timeout='2s' AS $f$
+BEGIN
+ IF current_user<>'vec_meritos_propietario'
+ OR current_setting('role')<>'none'
+ OR session_user<>'vec_externo_meritos_frontera'
+ OR NOT EXISTS(SELECT 1 FROM pg_roles l JOIN pg_auth_members m ON m.member=l.oid
+  JOIN pg_roles g ON g.oid=m.roleid
+  WHERE l.rolname=session_user AND l.rolcanlogin AND l.rolinherit
+   AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls)
+   AND l.rolconfig IS NULL AND g.rolname='vec_meritos_frontera_externo'
+   AND NOT(g.rolcanlogin OR g.rolinherit OR g.rolsuper OR g.rolcreatedb
+    OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
+   AND g.rolconfig IS NULL AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+ OR (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1
+ THEN RAISE EXCEPTION 'M4: emisor de frontera denegado' USING ERRCODE='42501';END IF;
+ IF p_correlacion_ref IS NULL
+ OR (p_correlacion_ref<>'corr_no_disponible'
+  AND p_correlacion_ref !~ '^corr_[0-9a-f]{32}$')
+ OR p_motivo NOT IN ('autenticacion_requerida','acceso_denegado') OR p_motivo IS NULL
+ OR p_superficie IS DISTINCT FROM 'api.meritos.cartera.ruta_exacta'
+ OR p_ruta NOT IN ('/api/vec/meritos/cartera',
+   '/api/vec/meritos/cartera/retiradas') OR p_ruta IS NULL
+ OR (p_motivo='autenticacion_requerida' AND p_actor_ref IS NOT NULL)
+ OR (p_motivo='acceso_denegado'
+  AND coalesce(p_actor_ref ~ '^per_[A-Za-z0-9_-]{22,128}$',false) IS NOT TRUE)
+ THEN RAISE EXCEPTION 'M4: orden de frontera inválida' USING ERRCODE='22023';END IF;
+ INSERT INTO vec_meritos.denegacion_frontera_cartera_v1
+  (correlacion_ref,motivo,superficie,ruta,actor_ref,registrada_en)
+ VALUES(p_correlacion_ref,p_motivo,p_superficie,p_ruta,p_actor_ref,
+  date_trunc('microseconds',clock_timestamp()));
+ RETURN true;
+END $f$;
+REVOKE ALL ON FUNCTION vec_meritos.registrar_denegacion_frontera_cartera_v1(
+ text,text,text,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_meritos.registrar_denegacion_frontera_cartera_v1(
+ text,text,text,text,text) TO vec_meritos_frontera_externo;
 COMMIT;

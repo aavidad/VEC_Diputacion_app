@@ -11,6 +11,8 @@ BEGIN
  OR to_regclass('vec_meritos.retirada_outbox_v1') IS NULL
  OR to_regclass('vec_meritos.retirada_resultado_v1') IS NULL
  OR to_regclass('vec_meritos.cartera_acceso_v1') IS NULL
+ OR to_regclass('vec_meritos.denegacion_frontera_cartera_v1') IS NULL
+ OR to_regrole('vec_meritos_frontera_externo') IS NULL
  THEN RAISE EXCEPTION 'M4: falta estructura' USING ERRCODE='55000'; END IF;
  FOREACH t IN ARRAY ARRAY['disponibilidad_evento_v1','retirada_operacion_v1',
   'retirada_acceso_v1','retirada_outbox_v1','retirada_resultado_v1','cartera_acceso_v1'] LOOP
@@ -20,6 +22,13 @@ BEGIN
    AND g.tgname='historia_inmutable' AND g.tgenabled='O')
   THEN RAISE EXCEPTION 'M4: tabla no inmutable o sin RLS %',t USING ERRCODE='55000'; END IF;
  END LOOP;
+ IF NOT EXISTS(SELECT 1 FROM pg_class c
+   WHERE c.oid='vec_meritos.denegacion_frontera_cartera_v1'::regclass
+   AND c.relrowsecurity AND c.relforcerowsecurity)
+ OR NOT EXISTS(SELECT 1 FROM pg_trigger t
+   WHERE t.tgrelid='vec_meritos.denegacion_frontera_cartera_v1'::regclass
+   AND t.tgname='frontera_inmutable' AND t.tgenabled='O')
+ THEN RAISE EXCEPTION 'M4: frontera mutable o sin RLS' USING ERRCODE='55000';END IF;
  f:=to_regprocedure('vec_meritos.listar_cartera_propia_v1(bytea,bytea,jsonb)');
  IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
  OR NOT has_function_privilege('vec_meritos_cartera_externo',f,'EXECUTE')
@@ -28,6 +37,17 @@ BEGIN
  IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
  OR NOT has_function_privilege('vec_meritos_cartera_externo',f,'EXECUTE')
  THEN RAISE EXCEPTION 'M4: ACL de retirada divergente' USING ERRCODE='55000'; END IF;
+ f:=to_regprocedure('vec_meritos.registrar_denegacion_frontera_cartera_v1(text,text,text,text,text)');
+ IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
+ OR NOT has_function_privilege('vec_meritos_frontera_externo',f,'EXECUTE')
+ OR has_function_privilege('vec_meritos_cartera_externo',f,'EXECUTE')
+ THEN RAISE EXCEPTION 'M4: ACL de frontera divergente' USING ERRCODE='55000';END IF;
+ BEGIN
+  PERFORM vec_meritos.registrar_denegacion_frontera_cartera_v1(
+   'corr_no_disponible','autenticacion_requerida',
+   'api.meritos.cartera.ruta_exacta','/api/vec/meritos/cartera',NULL);
+  RAISE EXCEPTION 'M4: emisor no nominal aceptado' USING ERRCODE='55000';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;END;
  -- Ni un superusuario con una orden sin sesión nominal puede leer o retirar.
  BEGIN
   PERFORM vec_meritos.listar_cartera_propia_v1(NULL,NULL,'{}'::jsonb);

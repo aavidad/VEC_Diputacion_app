@@ -18,6 +18,14 @@
 # No hay INSERT ni credencial en estas migraciones. La fila de Identidad tampoco
 # publica el permiso: el acto ADMIN distinto debe gobernar rol
 # persona_meritos_cartera, control vigente y asignación exacta persona_ref por CAS.
+# Frontera HTTP previa a sesión: LOGIN separado vec_externo_meritos_frontera,
+# miembro único INHERIT sin SET/ADMIN de vec_meritos_frontera_externo.
+# RUM4 crea solo ese grupo y la función privada de asiento; el LOGIN/DSN se
+# provisiona fuera de Git. Acepta solo las rutas literales de cartera GET y
+# retirada POST, sin query, y motivos autenticacion_requerida sin actor o
+# acceso_denegado con actor per_ acreditado por la frontera. No inserta datos
+# del formulario ni certificados. Es independiente de AD250, que registra
+# intentos autenticados ya dentro del caso de uso.
 # Acciones cerradas: meritos.cartera.consultar_propia sobre cartera:<persona_ref>
 # y meritos.cartera.retirar_propio sobre hecho_ref propio. Finalidad compartida
 # gestion_cartera_propia; campos GET minimizados y POST disponibilidad/recibo.
