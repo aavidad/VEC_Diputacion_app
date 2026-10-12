@@ -15,6 +15,7 @@ import (
 	apppersonal "vec-diputacion-granada/internal/modules/personal/application"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
@@ -50,6 +51,13 @@ func TestCatalogoEmpleadoB2GobiernoConPerfilPropioYConcesionExacta(t *testing.T)
 		if accionGobiernoCatalogoEmpleadoB2(concesion.Accion) {
 			t.Fatal("el perfil de consulta de Personal ganó publicar o retirar")
 		}
+	}
+	lectura := consulta.plantilla.AsignacionPerfil.Ambitos
+	if len(lectura) != 2 || lectura[0].Clave != "organismo_ref" ||
+		!slices.Equal(lectura[0].Valores, []string{config.OrganismoRef}) || lectura[1].Clave != "objetivo_ref" ||
+		!slices.Equal(lectura[1].Valores, []string{config.OrganismoRef + ":regimen", config.OrganismoRef + ":modalidad",
+			config.OrganismoRef + ":situacion", config.OrganismoRef + ":clase_servicio"}) {
+		t.Fatalf("el lector no cubre exclusivamente los cuatro catálogos del organismo: %+v", lectura)
 	}
 }
 
@@ -210,6 +218,61 @@ func TestCatalogoEmpleadoB2RutaHTTPDeniegaYAuditaSinEscribir(t *testing.T) {
 	}
 	if _, err := rutaCatalogosEmpleadoB2(servicio, a, nil, nil, catalogoFronterasComunDesarrollo{}); err == nil {
 		t.Fatal("ruta montada sin auditoría de frontera")
+	}
+}
+
+func TestCatalogoEmpleadoB2RutaPersonalNativaCierraVerbosYAudita(t *testing.T) {
+	config := configuracionB2PuraPrueba().PersonalB2
+	a := &autoridadIncorporacionPersonalB2{perfiles: perfilesB2VinculoPrueba(t, config), organismoRef: config.OrganismoRef}
+	repo := &repositorioCatalogoNoUsadoPrueba{}
+	servicio, err := apppersonal.NuevoServicioCatalogosRegistroEmpleadoB2(a, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registrador := &registradorFronteraCatalogoPrueba{}
+	ruta, err := rutaPersonalCatalogosEmpleadoB2(servicio, servicio, a, registrador, nil, catalogoFronterasComunDesarrollo{})
+	if err != nil || ruta.Ruta != httpapi.RutaCatalogosRegistroEmpleadoB2 {
+		t.Fatalf("ruta Personal: %v", err)
+	}
+	for _, caso := range []struct {
+		metodo, ruta string
+		codigo       int
+	}{
+		{http.MethodGet, httpapi.RutaCatalogosRegistroEmpleadoB2 + "?tipo=regimen", http.StatusForbidden},
+		{http.MethodPost, httpapi.RutaCatalogosRegistroEmpleadoB2, http.StatusForbidden},
+		{http.MethodPut, httpapi.RutaCatalogosRegistroEmpleadoB2, http.StatusMethodNotAllowed},
+		{http.MethodGet, httpapi.RutaCatalogosRegistroEmpleadoB2 + "/?tipo=regimen", http.StatusNotFound},
+	} {
+		w := httptest.NewRecorder()
+		var r *http.Request
+		if caso.metodo == http.MethodPost {
+			cuerpo := `{"operacion":"publicar","tipo":"regimen","ref":"regimen:funcionario-interino","version":1,"revision":1,` +
+				`"denominacion":"Funcionario interino","huella_sha256":"` + strings.Repeat("a", 64) + `","vigente_desde":"2026-01-01","vigente_hasta":""}`
+			r = httptest.NewRequest(caso.metodo, caso.ruta, strings.NewReader(cuerpo))
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("Idempotency-Key", "11111111-2222-4333-8444-555555555555")
+		} else {
+			r = httptest.NewRequest(caso.metodo, caso.ruta, nil)
+		}
+		ruta.Manejador.ServeHTTP(w, r)
+		if w.Code != caso.codigo {
+			t.Fatalf("%s %s: HTTP %d, quiero %d", caso.metodo, caso.ruta, w.Code, caso.codigo)
+		}
+	}
+	if len(registrador.ordenes) != 2 || repo.llamadas != 0 {
+		t.Fatalf("auditoría/SQL sin autorización: %d/%d", len(registrador.ordenes), repo.llamadas)
+	}
+	for _, orden := range registrador.ordenes {
+		if orden.Superficie != vp.SuperficieAuditoriaFronteraRutaExactaPersonal || orden.Ruta != httpapi.RutaCatalogosRegistroEmpleadoB2 {
+			t.Fatalf("auditoría de Personal: %+v", orden)
+		}
+	}
+	get := context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: http.MethodGet, ruta: httpapi.RutaCatalogosRegistroEmpleadoB2})
+	post := context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: http.MethodPost, ruta: httpapi.RutaCatalogosRegistroEmpleadoB2})
+	if !operacionPermitidaEnRutaIncorporacionB2(get, personal.AccionConsultarCatalogoEmpleadoB2) || operacionPermitidaEnRutaIncorporacionB2(get, personal.AccionPublicarCatalogoEmpleadoB2) ||
+		!operacionPermitidaEnRutaIncorporacionB2(post, personal.AccionPublicarCatalogoEmpleadoB2) || !operacionPermitidaEnRutaIncorporacionB2(post, personal.AccionRetirarCatalogoEmpleadoB2) ||
+		operacionPermitidaEnRutaIncorporacionB2(post, personal.AccionConsultarCatalogoEmpleadoB2) {
+		t.Fatal("perfil de lectura y actos del catálogo mezclados")
 	}
 }
 

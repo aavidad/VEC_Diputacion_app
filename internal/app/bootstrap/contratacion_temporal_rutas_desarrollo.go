@@ -218,7 +218,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	if _, noCompuesta := rutasCapacidadNoCompuestaContratacionTemporal[r.URL.Path]; noCompuesta {
 		return true
 	}
-	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaPlanB2 || r.URL.Path == httpinterno.RutaConfirmacionB2 || r.URL.Path == httpinterno.RutaVinculoCategoriaRPTB2 || r.URL.Path == httpinterno.RutaCategoriasRPTB2 || r.URL.Path == rutaCatalogosRegistroEmpleadoB2 || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || rutaAnalisisContratacionTemporalDesarrollo(r.URL.Path) ||
+	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaPlanB2 || r.URL.Path == httpinterno.RutaConfirmacionB2 || r.URL.Path == httpinterno.RutaVinculoCategoriaRPTB2 || r.URL.Path == httpinterno.RutaCategoriasRPTB2 || r.URL.Path == rutaCatalogosRegistroEmpleadoB2 || r.URL.Path == vechttp.RutaCatalogosRegistroEmpleadoB2 || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || rutaAnalisisContratacionTemporalDesarrollo(r.URL.Path) ||
 		rutaPlantillasCatalogoCTDesarrollo(r.URL.Path) ||
 		r.URL.Path == ajusteshttp.Ruta ||
 		rutaPlantillasDocumentalCTDesarrollo(r.URL.Path) ||

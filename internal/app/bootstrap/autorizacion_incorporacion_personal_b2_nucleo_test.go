@@ -223,15 +223,15 @@ func TestIncorporacionB2CamposCoincidenConNucleoSQL(t *testing.T) {
 	if err != nil || !cubre(personal.AccionVacantesB2, vacantes.Recurso()) {
 		t.Fatalf("vacantes fuera de su perfil: %v", err)
 	}
-	for _, tipo := range []string{"regimen", "modalidad"} {
+	for _, tipo := range []string{"regimen", "modalidad", "situacion", "clase_servicio"} {
 		m, err := personal.NuevoMaterialConsultaCatalogoEmpleadoB2(personal.SolicitudConsultaCatalogoEmpleadoB2{OrganismoRef: org, Tipo: tipo, Estado: "publicada", Limite: 100, Actor: actor})
 		if err != nil || !cubre(personal.AccionConsultarCatalogoEmpleadoB2, m.Recurso()) {
 			t.Fatalf("catálogo %s fuera de su perfil: %v", tipo, err)
 		}
 	}
-	situacion, err := personal.NuevoMaterialConsultaCatalogoEmpleadoB2(personal.SolicitudConsultaCatalogoEmpleadoB2{OrganismoRef: org, Tipo: "situacion", Estado: "publicada", Limite: 100, Actor: actor})
-	if err != nil || cubre(personal.AccionConsultarCatalogoEmpleadoB2, situacion.Recurso()) {
-		t.Fatal("el perfil del plan no debe leer otros catálogos de Personal")
+	ajeno, err := personal.NuevoMaterialConsultaCatalogoEmpleadoB2(personal.SolicitudConsultaCatalogoEmpleadoB2{OrganismoRef: "organismo:ajeno", Tipo: "situacion", Estado: "publicada", Limite: 100, Actor: actor})
+	if err != nil || cubre(personal.AccionConsultarCatalogoEmpleadoB2, ajeno.Recurso()) {
+		t.Fatal("el lector no debe cubrir catálogos de otro organismo")
 	}
 	clases, err := personal.NuevoMaterialClasesOcupacionCT(personal.ConsultaClasesOcupacionCT{OrganismoRef: org, Actor: actor})
 	if err != nil || !cubre("personal.plan_incorporacion_ct.clases_ocupacion", clases.Recurso()) {
