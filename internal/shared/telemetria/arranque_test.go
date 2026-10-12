@@ -84,6 +84,11 @@ func TestMensajeErrorArranqueConservaDiagnosticosInternosAnidados(t *testing.T) 
 	if got := MensajeErrorArranque(errors.New("auditoria.intentos.configuracion_no_disponible")); got != "auditoria.intentos.configuracion_no_disponible" {
 		t.Fatalf("componente de auditoria perdido: %q", got)
 	}
+	for _, perfil := range []string{"perfil fijo de RRHH sin asignación publicada consumible", "perfil del centro sin asignación publicada consumible"} {
+		if got := MensajeErrorArranque(fmt.Errorf("bootstrap: %w", errors.New(perfil))); got != "bootstrap: "+perfil {
+			t.Fatalf("causa de perfil pendiente perdida: %q", got)
+		}
+	}
 	admin := errors.New("administracion: configuracion no valida")
 	pg := &pgconn.PgError{Code: "42501", Message: "Juan Perez", Detail: "password=secreto", Hint: "postgres://usuario:clave@host/base", Routine: "Juan_Perez", ConstraintName: "dni_12345678Z"}
 	got := MensajeErrorArranque(errors.Join(admin, fmt.Errorf("auditoria_intentos: %w", pg)))

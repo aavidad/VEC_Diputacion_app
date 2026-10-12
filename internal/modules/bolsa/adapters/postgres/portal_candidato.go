@@ -164,6 +164,7 @@ type estadoPortalPostgreSQL struct {
 		Modo         string    `json:"modo"`
 		Recibo       string    `json:"recibo"`
 		RespondidaEn time.Time `json:"respondida_en"`
+		EnRevision   bool      `json:"en_revision"`
 	} `json:"ultima_respuesta"`
 }
 
@@ -216,7 +217,7 @@ func leerPortalCandidato(ctx context.Context, tx consultorPortal, candidato stri
 			if u.Respuesta == "" || u.Recibo == "" || u.RespondidaEn.IsZero() || (u.Modo != puertosbolsa.ModoRespuestaPortalFirme && u.Modo != puertosbolsa.ModoRespuestaPortalPropuesta) {
 				return nil, puertosbolsa.ErrPortalCandidatoNoDisponible
 			}
-			e.UltimaRespuesta = &puertosbolsa.UltimaRespuestaPortal{Respuesta: u.Respuesta, Modo: u.Modo, Recibo: u.Recibo, RespondidaEn: u.RespondidaEn.UTC()}
+			e.UltimaRespuesta = &puertosbolsa.UltimaRespuestaPortal{Respuesta: u.Respuesta, Modo: u.Modo, Recibo: u.Recibo, RespondidaEn: u.RespondidaEn.UTC(), EnRevision: u.EnRevision}
 		}
 		estados = append(estados, e)
 	}

@@ -1,0 +1,199 @@
+{
+  "intervalo_UTC": [
+    "2026-10-11T16:32:55.478909+00:00",
+    "2026-10-11T16:32:57.921897+00:00"
+  ],
+  "app": [
+    {
+      "time": "2026-10-11T16:32:56.722246585Z",
+      "service.version": "80f24ae8fc62f31660017150cb6e4899589f79dc",
+      "url.path": "/api/vec/contratacion-temporal/expedientes/consultas",
+      "http.response.status_code": 200,
+      "vec.correlacion": "15e037daae76e19435eea52a7cfcc53e",
+      "http.server.request.duration": 0.2368,
+      "vec.bd.consultas": 27,
+      "vec.bd.operaciones": [
+        {
+          "nombre": "insert",
+          "n": 8,
+          "total": 0.00091567,
+          "maxima": 0.0003371
+        },
+        {
+          "nombre": "select",
+          "n": 18,
+          "total": 0.055053226,
+          "maxima": 0.019644937
+        },
+        {
+          "nombre": "vec_identidad_sesiones_v1.registrar_sesion_v1",
+          "n": 1,
+          "total": 0.006158648,
+          "maxima": 0.006158648
+        }
+      ]
+    },
+    {
+      "time": "2026-10-11T16:32:56.80693353Z",
+      "service.version": "80f24ae8fc62f31660017150cb6e4899589f79dc",
+      "url.path": "/api/vec/contratacion-temporal/expedientes/consultas",
+      "http.response.status_code": 200,
+      "vec.correlacion": "2b1de70e35228bfa1439644ea892234c",
+      "http.server.request.duration": 0.3212,
+      "vec.bd.consultas": 27,
+      "vec.bd.operaciones": [
+        {
+          "nombre": "insert",
+          "n": 8,
+          "total": 0.000993981,
+          "maxima": 0.000369581
+        },
+        {
+          "nombre": "select",
+          "n": 18,
+          "total": 0.098700315,
+          "maxima": 0.050324298
+        },
+        {
+          "nombre": "vec_identidad_sesiones_v1.registrar_sesion_v1",
+          "n": 1,
+          "total": 0.00760045,
+          "maxima": 0.00760045
+        }
+      ]
+    },
+    {
+      "time": "2026-10-11T16:32:56.879548508Z",
+      "service.version": "80f24ae8fc62f31660017150cb6e4899589f79dc",
+      "url.path": "/api/vec/contratacion-temporal/expedientes/consultas",
+      "http.response.status_code": 200,
+      "vec.correlacion": "634b4783cb627ce36ecc0fed6ee2a35a",
+      "http.server.request.duration": 0.3936,
+      "vec.bd.consultas": 28,
+      "vec.bd.operaciones": [
+        {
+          "nombre": "insert",
+          "n": 8,
+          "total": 0.000891241,
+          "maxima": 0.00033027
+        },
+        {
+          "nombre": "select",
+          "n": 18,
+          "total": 0.01472034,
+          "maxima": 0.005889498
+        },
+        {
+          "nombre": "vec_identidad_sesiones_v1.registrar_sesion_v1",
+          "n": 2,
+          "total": 0.012707297,
+          "maxima": 0.011018995,
+          "errores": {
+            "bd_40001": 1
+          }
+        }
+      ]
+    }
+  ],
+  "causas_app": [],
+  "pg_errores": [
+    {
+      "timestamp": "2026-10-11T16:32:56.500802316Z",
+      "pid": "718",
+      "causa": "serialize_read_write_dependencies",
+      "contexto": [
+        {
+          "funcion": "vec_identidad_sesiones_v1.registrar_sesion_v1",
+          "linea": 241
+        }
+      ],
+      "relaciones_nominales": [
+        "vec_identidad_sesiones_v1.consumo_asercion",
+        "vec_identidad_sesiones_v1.registrar_sesion_v1"
+      ]
+    },
+    {
+      "timestamp": "2026-10-11T16:32:56.768832198Z",
+      "pid": "723",
+      "causa": "serialize_read_write_dependencies",
+      "contexto": [
+        {
+          "funcion": "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_rrhh_v3_interna",
+          "linea": 89
+        },
+        {
+          "funcion": "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_detalle_rrhh_v3_atestada",
+          "linea": 3
+        },
+        {
+          "funcion": "vec_contratacion_temporal.cerrar_prueba_resultado_recibo_rrhh_v2",
+          "linea": 301
+        },
+        {
+          "funcion": "vec_contratacion_temporal.motor_consultar_detalle_rrhh_v1",
+          "linea": 112
+        },
+        {
+          "funcion": "vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1",
+          "linea": 238
+        },
+        {
+          "funcion": "vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1",
+          "linea": 19
+        }
+      ],
+      "relaciones_nominales": [
+        "vec_autorizacion_atestada_v3.auditoria_consumo_v3",
+        "vec_autorizacion_atestada_v3.control_cadena_auditoria",
+        "vec_autorizacion_atestada_v3.eslabon_auditoria_v5",
+        "vec_autorizacion_atestada_v3.pendiente_sellado_auditoria_v5",
+        "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_detalle_rrhh_v3_atestada",
+        "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_rrhh_v3_interna",
+        "vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1",
+        "vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1"
+      ]
+    },
+    {
+      "timestamp": "2026-10-11T16:32:56.826390266Z",
+      "pid": "723",
+      "causa": "serialize_read_write_dependencies",
+      "contexto": [
+        {
+          "funcion": "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_rrhh_v3_interna",
+          "linea": 89
+        },
+        {
+          "funcion": "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_detalle_rrhh_v3_atestada",
+          "linea": 3
+        },
+        {
+          "funcion": "vec_contratacion_temporal.cerrar_prueba_resultado_recibo_rrhh_v2",
+          "linea": 301
+        },
+        {
+          "funcion": "vec_contratacion_temporal.motor_consultar_detalle_rrhh_v1",
+          "linea": 112
+        },
+        {
+          "funcion": "vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1",
+          "linea": 238
+        },
+        {
+          "funcion": "vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1",
+          "linea": 19
+        }
+      ],
+      "relaciones_nominales": [
+        "vec_autorizacion_atestada_v3.auditoria_consumo_v3",
+        "vec_autorizacion_atestada_v3.control_cadena_auditoria",
+        "vec_autorizacion_atestada_v3.eslabon_auditoria_v5",
+        "vec_autorizacion_atestada_v3.pendiente_sellado_auditoria_v5",
+        "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_detalle_rrhh_v3_atestada",
+        "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_rrhh_v3_interna",
+        "vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1",
+        "vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1"
+      ]
+    }
+  ],
+  "limite": "PG no imprime correlacionHTTP; timestamps/contexto y requestIDs app preservados. SQL40001 acreditado por causasPGserialize ycontextolector; no asignación exacta error→petición sinenlaceID. Sólo3POSTnominales autorizados y3consumosconfirmados delrecurso/acción."
+}

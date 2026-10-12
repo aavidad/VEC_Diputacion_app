@@ -27,11 +27,14 @@ function fechaValida(valor) {
 /** Devuelve el origen normalizado y congelado, o null si no es utilizable. */
 export function origenLlamamientoValido(origen) {
   if (!origen || typeof origen !== "object") return null;
-  const { expediente_ref: expediente, referencia, centro, fecha_inicio: inicio } = origen;
+  const { expediente_ref: expediente, version, referencia, centro, fecha_inicio: inicio } = origen;
+  const versionNormalizada = typeof version === "string" && /^[1-9]\d*$/u.test(version) ? Number(version) : version;
   if (typeof expediente !== "string" || !PATRON_EXPEDIENTE.test(expediente)
-    || !textoValido(referencia, LIMITE_REFERENCIA_ORIGEN)) return null;
+    || !textoValido(referencia, LIMITE_REFERENCIA_ORIGEN)
+    || (version !== undefined && (!Number.isSafeInteger(versionNormalizada) || versionNormalizada < 1))) return null;
   return Object.freeze({
     expediente_ref: expediente,
+    ...(version !== undefined ? { version: versionNormalizada } : {}),
     referencia,
     ...(textoValido(centro, LIMITE_CENTRO_ORIGEN) ? { centro } : {}),
     ...(fechaValida(inicio) ? { fecha_inicio: inicio } : {}),
