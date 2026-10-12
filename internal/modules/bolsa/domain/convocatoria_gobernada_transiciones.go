@@ -253,7 +253,7 @@ func (v VersionConvocatoriaGobernada) representacionContenidoSinValidar() ([]byt
 		Contenido            ContenidoPublicableConvocatoria        `json:"contenido"`
 		Configuracion        ConfiguracionFijadaConvocatoria        `json:"configuracion"`
 		ExpedienteRef        string                                 `json:"expediente_ref"`
-	}{esquemaContenidoParaModalidad(configuracion.ModalidadInscripcion), v.ID, v.Secuencia, v.CodigoVersionPublica,
+	}{esquemaContenidoParaModalidad(contenido.ModalidadInscripcion), v.ID, v.Secuencia, v.CodigoVersionPublica,
 		v.VersionAnteriorRef, v.InstanciaFlujoRef,
 		materialAmbitoOrganizativoConvocatoriaDe(v.AmbitoOrganizativo),
 		contenido, configuracion, v.ExpedienteRef}
@@ -270,7 +270,7 @@ func (v VersionConvocatoriaGobernada) RepresentacionCanonica() ([]byte, error) {
 		return nil, err
 	}
 	material := materialEstadoVersionConvocatoria{
-		Esquema: esquemaEstadoParaModalidad(canonica.Configuracion.ModalidadInscripcion),
+		Esquema: esquemaEstadoParaModalidad(canonica.Contenido.ModalidadInscripcion),
 		ID:      canonica.ID, Secuencia: canonica.Secuencia,
 		CodigoVersionPublica: canonica.CodigoVersionPublica, Revision: canonica.Revision,
 		VersionAnteriorRef: canonica.VersionAnteriorRef, InstanciaFlujoRef: canonica.InstanciaFlujoRef,
@@ -318,7 +318,7 @@ func DecodificarVersionConvocatoriaGobernadaCanonica(
 	}
 	var resto any
 	if err := decodificador.Decode(&resto); !errors.Is(err, io.EOF) ||
-		material.Esquema != esquemaEstadoParaModalidad(material.Configuracion.ModalidadInscripcion) {
+		material.Esquema != esquemaEstadoParaModalidad(material.Contenido.ModalidadInscripcion) {
 		return VersionConvocatoriaGobernada{}, ErrVersionConvocatoriaGobernadaInvalida
 	}
 

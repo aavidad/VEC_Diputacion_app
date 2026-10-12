@@ -62,14 +62,13 @@ func (r ReferenciaDocumentoOficialConvocatoria) Validar() error {
 }
 
 type ConfiguracionFijadaConvocatoria struct {
-	ModalidadInscripcion ModalidadInscripcionConvocatoria         `json:"modalidad_inscripcion,omitempty"`
-	Catalogos            ReferenciaConfiguracionConvocatoria      `json:"catalogos"`
-	Calendario           ReferenciaConfiguracionConvocatoria      `json:"calendario"`
-	ReglasBaremacion     ReferenciaConfiguracionConvocatoria      `json:"reglas_baremacion"`
-	FlujoProceso         ReferenciaConfiguracionConvocatoria      `json:"flujo_proceso"`
-	FlujoSolicitud       ReferenciaConfiguracionConvocatoria      `json:"flujo_solicitud"`
-	Plantilla            ReferenciaConfiguracionConvocatoria      `json:"plantilla"`
-	Documentos           []ReferenciaDocumentoOficialConvocatoria `json:"documentos"`
+	Catalogos        ReferenciaConfiguracionConvocatoria      `json:"catalogos"`
+	Calendario       ReferenciaConfiguracionConvocatoria      `json:"calendario"`
+	ReglasBaremacion ReferenciaConfiguracionConvocatoria      `json:"reglas_baremacion"`
+	FlujoProceso     ReferenciaConfiguracionConvocatoria      `json:"flujo_proceso"`
+	FlujoSolicitud   ReferenciaConfiguracionConvocatoria      `json:"flujo_solicitud"`
+	Plantilla        ReferenciaConfiguracionConvocatoria      `json:"plantilla"`
+	Documentos       []ReferenciaDocumentoOficialConvocatoria `json:"documentos"`
 }
 
 func (c ConfiguracionFijadaConvocatoria) ClonarCanonicaPara(
@@ -90,9 +89,7 @@ func (c ConfiguracionFijadaConvocatoria) ClonarCanonicaPara(
 }
 
 func (c ConfiguracionFijadaConvocatoria) ValidarPara(contenido ContenidoPublicableConvocatoria) error {
-	if contenido.Validar() != nil ||
-		(c.ModalidadInscripcion != "" && !c.ModalidadInscripcion.ValidaParaPublicar()) ||
-		c.Catalogos.Validar() != nil || c.Calendario.Validar() != nil ||
+	if contenido.Validar() != nil || c.Catalogos.Validar() != nil || c.Calendario.Validar() != nil ||
 		c.ReglasBaremacion.Validar() != nil || c.FlujoProceso.Validar() != nil ||
 		c.FlujoSolicitud.Validar() != nil || c.Plantilla.Validar() != nil ||
 		!patronIdentificadorFlujo.MatchString(c.FlujoProceso.ID) ||
@@ -172,6 +169,7 @@ func (m ModalidadInscripcionConvocatoria) ValidaParaPublicar() bool {
 type ContenidoPublicableConvocatoria struct {
 	IdentificadorPublico string                            `json:"identificador_publico"`
 	Tipo                 string                            `json:"tipo"`
+	ModalidadInscripcion ModalidadInscripcionConvocatoria  `json:"modalidad_inscripcion,omitempty"`
 	CatalogoCategorias   ReferenciaCatalogoCategorias      `json:"catalogo_categorias"`
 	Categorias           []string                          `json:"categorias"`
 	Titulo               string                            `json:"titulo"`
@@ -185,7 +183,9 @@ type ContenidoPublicableConvocatoria struct {
 
 func (c ContenidoPublicableConvocatoria) Validar() error {
 	if !patronIdentificadorPublico.MatchString(c.IdentificadorPublico) ||
-		!claveCatalogoConvocatoriaValida(c.Tipo) || !c.CatalogoCategorias.Valida() ||
+		!claveCatalogoConvocatoriaValida(c.Tipo) ||
+		(c.ModalidadInscripcion != "" && !c.ModalidadInscripcion.ValidaParaPublicar()) ||
+		!c.CatalogoCategorias.Valida() ||
 		!textoConvocatoriaValido(c.Titulo, 180, false) ||
 		!textoConvocatoriaValido(c.Resumen, 500, false) ||
 		!textoConvocatoriaValido(c.Descripcion, 12000, true) ||

@@ -25,8 +25,9 @@ func contenidoConvocatoriaGobernadaPrueba() ContenidoPublicableConvocatoria {
 	}
 	return ContenidoPublicableConvocatoria{
 		IdentificadorPublico: publica.IdentificadorPublico, Tipo: publica.Tipo,
-		CatalogoCategorias: publica.CatalogoCategorias,
-		Categorias:         append([]string(nil), publica.Categorias...), Titulo: publica.Titulo,
+		ModalidadInscripcion: ModalidadInscripcionSeparada,
+		CatalogoCategorias:   publica.CatalogoCategorias,
+		Categorias:           append([]string(nil), publica.Categorias...), Titulo: publica.Titulo,
 		Resumen: publica.Resumen, Descripcion: publica.Descripcion,
 		Plazos:     append([]PlazoConvocatoria(nil), publica.Plazos...),
 		Requisitos: append([]RequisitoConvocatoria(nil), publica.Requisitos...),
@@ -85,10 +86,9 @@ func configuracionConvocatoriaGobernadaPrueba(t *testing.T) ConfiguracionFijadaC
 		t.Fatal(err)
 	}
 	return ConfiguracionFijadaConvocatoria{
-		ModalidadInscripcion: ModalidadInscripcionSeparada,
-		Catalogos:            referencia("catalogos:bolsa", 3, '1'),
-		Calendario:           referencia("calendario:auxiliar-2026", 2, '2'),
-		ReglasBaremacion:     referencia("baremo:auxiliar-2026", 5, '3'),
+		Catalogos:        referencia("catalogos:bolsa", 3, '1'),
+		Calendario:       referencia("calendario:auxiliar-2026", 2, '2'),
+		ReglasBaremacion: referencia("baremo:auxiliar-2026", 5, '3'),
 		FlujoProceso: ReferenciaConfiguracionConvocatoria{
 			ID: definicion.ID, Version: definicion.Version, HuellaContenidoSHA256: huellaFlujo,
 		},
@@ -283,10 +283,10 @@ func TestPublicacionMantieneHuellaSemanticaYProyectaFaseDelFlujo(t *testing.T) {
 	}
 }
 
-func TestModalidadInscripcionQuedaEnConfiguracionYHuella(t *testing.T) {
+func TestModalidadInscripcionQuedaEnContenidoYHuella(t *testing.T) {
 	separada := versionConvocatoriaGobernadaPrueba(t)
 	conjunta := separada
-	conjunta.Configuracion.ModalidadInscripcion = ModalidadInscripcionConjunta
+	conjunta.Contenido.ModalidadInscripcion = ModalidadInscripcionConjunta
 	conjunta, err := conjunta.ClonarCanonico()
 	if err != nil {
 		t.Fatal(err)
@@ -299,8 +299,8 @@ func TestModalidadInscripcionQuedaEnConfiguracionYHuella(t *testing.T) {
 		{conjunta, "conjunta"},
 	} {
 		contenido, err := caso.version.RepresentacionContenidoCanonica()
-		if err != nil || !bytes.Contains(contenido, []byte(`"configuracion":{"modalidad_inscripcion":"`+caso.esperada+`"`)) {
-			t.Fatalf("modalidad ausente de la configuracion canonica: %s, %v", contenido, err)
+		if err != nil || !bytes.Contains(contenido, []byte(`"contenido":{"identificador_publico":"`+caso.version.Contenido.IdentificadorPublico+`","tipo":"`+caso.version.Contenido.Tipo+`","modalidad_inscripcion":"`+caso.esperada+`"`)) {
+			t.Fatalf("modalidad ausente del contenido canonico: %s, %v", contenido, err)
 		}
 	}
 	huellaSeparada, err := separada.HuellaContenidoSHA256()
@@ -320,7 +320,7 @@ func TestModalidadInscripcionQuedaEnConfiguracionYHuella(t *testing.T) {
 
 func TestPublicacionExigeModalidadYConservaLegadoSinElla(t *testing.T) {
 	legado := versionConvocatoriaGobernadaPrueba(t)
-	legado.Configuracion.ModalidadInscripcion = ""
+	legado.Contenido.ModalidadInscripcion = ""
 	legado, err := legado.ClonarCanonico()
 	if err != nil {
 		t.Fatal(err)
@@ -347,13 +347,13 @@ func TestPublicacionExigeModalidadYConservaLegadoSinElla(t *testing.T) {
 		t.Fatalf("el JSON historico adquirio modalidad: %s, %v", representacion, err)
 	}
 	recuperada, err := DecodificarVersionConvocatoriaGobernadaCanonica(representacion)
-	if err != nil || recuperada.Configuracion.ModalidadInscripcion != "" {
-		t.Fatalf("no recupero version historica: %+v, %v", recuperada.Configuracion, err)
+	if err != nil || recuperada.Contenido.ModalidadInscripcion != "" {
+		t.Fatalf("no recupero version historica: %+v, %v", recuperada.Contenido, err)
 	}
 
-	configuracionNueva := legado.Configuracion
-	configuracionNueva.ModalidadInscripcion = ModalidadInscripcionConjunta
-	sucesora, err := legado.NuevaVersion("v2", legado.Contenido, configuracionNueva,
+	contenidoNuevo := legado.Contenido
+	contenidoNuevo.ModalidadInscripcion = ModalidadInscripcionConjunta
+	sucesora, err := legado.NuevaVersion("v2", contenidoNuevo, legado.Configuracion,
 		"expediente:seleccion:2026-002", "persona:tecnica:003", "Bases con modalidad.", fecha.Add(time.Hour))
 	if err != nil {
 		t.Fatal(err)
@@ -362,14 +362,13 @@ func TestPublicacionExigeModalidadYConservaLegadoSinElla(t *testing.T) {
 	aprobacionNueva, dependenciasNuevas := evidenciasPublicacionPrueba(t, sucesora, fechaSucesora)
 	resultado, err := sucesora.PublicarSucesora(legado, "persona:gestora:002", aprobacionNueva,
 		dependenciasNuevas, "Publicacion sucesora.", fechaSucesora)
-	if err != nil || resultado.Publicada.Configuracion.ModalidadInscripcion != ModalidadInscripcionConjunta {
-		t.Fatalf("no publico sucesora con modalidad: %+v, %v", resultado.Publicada.Configuracion, err)
+	if err != nil || resultado.Publicada.Contenido.ModalidadInscripcion != ModalidadInscripcionConjunta {
+		t.Fatalf("no publico sucesora con modalidad: %+v, %v", resultado.Publicada.Contenido, err)
 	}
-	if resultado.Predecesora.Configuracion.ModalidadInscripcion != "" {
+	if resultado.Predecesora.Contenido.ModalidadInscripcion != "" {
 		t.Fatal("reescribio la modalidad de la predecesora historica")
 	}
-	configuracionVacia := legado.Configuracion
-	sinModalidad, err := legado.NuevaVersion("v3", legado.Contenido, configuracionVacia,
+	sinModalidad, err := legado.NuevaVersion("v3", legado.Contenido, legado.Configuracion,
 		"expediente:seleccion:2026-003", "persona:tecnica:004", "Borrador sin eleccion.", fecha.Add(3*time.Hour))
 	if err != nil {
 		t.Fatal(err)
@@ -384,10 +383,9 @@ func TestPublicacionExigeModalidadYConservaLegadoSinElla(t *testing.T) {
 
 func TestModalidadInscripcionRechazaValorNoPrevisto(t *testing.T) {
 	contenido := contenidoConvocatoriaGobernadaPrueba()
-	configuracion := configuracionConvocatoriaGobernadaPrueba(t)
 	for _, invalida := range []ModalidadInscripcionConvocatoria{"individual", "SEPARADA", " separada ", "conjunta "} {
-		configuracion.ModalidadInscripcion = invalida
-		if err := configuracion.ValidarPara(contenido); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
+		contenido.ModalidadInscripcion = invalida
+		if err := contenido.Validar(); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
 			t.Fatalf("acepto modalidad %q: %v", invalida, err)
 		}
 	}
@@ -791,7 +789,7 @@ func TestReferenciaDeInstanciaFormaParteDeAmbasHuellas(t *testing.T) {
 
 func TestVectoresGoldenDeRepresentacionesCanonicas(t *testing.T) {
 	version := versionConvocatoriaGobernadaPrueba(t)
-	version.Configuracion.ModalidadInscripcion = ""
+	version.Contenido.ModalidadInscripcion = ""
 	estado, err := version.RepresentacionCanonica()
 	if err != nil {
 		t.Fatal(err)
@@ -828,8 +826,8 @@ func TestVectoresGoldenDeRepresentacionesConModalidad(t *testing.T) {
 	}
 	huellaEstado := sha256.Sum256(estado)
 	huellaContenido := sha256.Sum256(contenido)
-	const esperadaEstado = "dad5b9f582a46abc795cb1780d1fb548bc215a2ea4336939726d6f3c66042c32"
-	const esperadaContenido = "f4609bf9c1ed43be2f123cdfa41e621370092a5e6ff21c03b804304209bb9629"
+	const esperadaEstado = "da88eccf17c97e9f454e64209ca9a6adfcf0a6c79c1f59b08a37468209b26387"
+	const esperadaContenido = "81ebbb3a37b561308b6f94c97451b4a05438a40325e03c920339119a77f279ad"
 	if obtenida := hex.EncodeToString(huellaEstado[:]); obtenida != esperadaEstado {
 		t.Errorf("vector golden de estado con modalidad cambiado: %s", obtenida)
 	}
