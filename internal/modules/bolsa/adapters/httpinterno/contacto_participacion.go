@@ -284,8 +284,12 @@ func responderErrorContacto(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, dominiovec.ErrAutorizacionDenegada), errors.Is(err, dominiovec.ErrPermissionDenied):
 		responderContacto(w, 403, map[string]any{"error": map[string]string{"codigo": "acceso_denegado"}})
-	case errors.Is(err, dominiobolsa.ErrContactoParticipacionInvalido):
+	case errors.Is(err, dominiobolsa.ErrAnotacionContactoDatoPersonal):
+		responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "anotacion_con_dato_personal"}})
+	case errors.Is(err, dominiobolsa.ErrContactoClaveDivergente):
 		responderContacto(w, 409, map[string]any{"error": map[string]string{"codigo": "contacto_en_conflicto"}})
+	case errors.Is(err, dominiobolsa.ErrContactoParticipacionInvalido):
+		responderContacto(w, 409, map[string]any{"error": map[string]string{"codigo": "contacto_no_valido"}})
 	case errors.Is(err, puertosbolsa.ErrContactoParticipacionNoEncontrado):
 		responderContacto(w, 404, map[string]any{"error": map[string]string{"codigo": "recurso_no_encontrado"}})
 	default:
