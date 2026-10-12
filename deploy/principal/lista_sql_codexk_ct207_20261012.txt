@@ -6,7 +6,7 @@
 # Postimagen pg_get_functiondef SHA256 CT207:
 # 42a55dcc6efe7c939b1f7d798b9f1ae78f96f489697c0f76a0c28d49e06d86f9
 # Conserva organización CT en autorización, bloqueo y consultas; cambia solo
-# el primer argumento del lector propietario de Personal. OID, dueño, invocador,
+# el primer argumento del lector propietario de Personal. Dueño, invocador,
 # volatilidad, configuración y ACL comprobados por guardas; OID conservado por
 # CREATE OR REPLACE de la misma firma e historia intacta (no hay DML).
 # CONFIG NUEVA de CT207: ninguna; siguen las de la cadena B2.
