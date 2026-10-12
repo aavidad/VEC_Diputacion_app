@@ -18,15 +18,9 @@
  * La carga normal usa sólo el catálogo elegido; si falla, carga el de defecto.
  */
 import { ERROR_INDICE_IDIOMAS, IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, INDICE_IDIOMAS,
-  leerRecursoJSON, localizacionDe, prepararIdiomas, reintentarIdiomas } from "./idioma.js";
+  leerRecursoJSON, localizacionDe, prepararIdiomas, reintentarIdiomas, huellaTextos } from "./idioma.js";
 
 export const URL_RAIZ_TEXTOS = new URL("../textos/", import.meta.url);
-/**
- * Huella de todos los catálogos de `textos/<idioma>/` (la comprueba
- * `textos-version.test.mjs`). Va como `?huella=` en cada lectura para que el
- * navegador los guarde sin volver a pedirlos; cambia con cualquier catálogo.
- */
-export const VERSION_TEXTOS = "4ab6e60222ffe647";
 
 const PATRON_MODULO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const PATRON_IDIOMA = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/u;
@@ -74,7 +68,10 @@ export function urlCatalogo(idioma, modulo, raiz = URL_RAIZ_TEXTOS) {
 /** URL de lectura: los catálogos propios llevan la huella común. */
 function urlLectura(idioma, modulo, raiz) {
   const url = urlCatalogo(idioma, modulo, raiz);
-  if (raiz.href === URL_RAIZ_TEXTOS.href) url.searchParams.set("huella", VERSION_TEXTOS);
+  // La huella de los catálogos la calcula el servidor y llega con el índice de
+  // idiomas; sin ella el catálogo se pide sin guardar (nunca contenido viejo).
+  const huella = huellaTextos();
+  if (raiz.href === URL_RAIZ_TEXTOS.href && huella) url.searchParams.set("huella", huella);
   return url;
 }
 

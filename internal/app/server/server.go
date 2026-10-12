@@ -681,6 +681,12 @@ func setNoStoreForStatic(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(path, "/textos/") && strings.HasSuffix(path, ".json") {
 		// Catálogos públicos de textos por idioma: ver cacheCatalogoTextos.
 		fijarCacheEstatico(w, cacheCatalogoTextos(r))
+		if path == "/textos/idiomas.json" {
+			// El navegador toma de aquí la huella con la que pide los catálogos.
+			if huella := huellaCatalogosTextos(); huella != "" {
+				w.Header().Set("X-VEC-Huella-Textos", huella)
+			}
+		}
 		return
 	}
 	if path == "/" || strings.HasSuffix(path, ".html") || strings.HasSuffix(path, ".json") {
