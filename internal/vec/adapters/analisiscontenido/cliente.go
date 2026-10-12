@@ -156,7 +156,14 @@ func (c *Cliente) Analizar(ctx context.Context, solicitud ports.SolicitudAnaliza
 	}
 	var resultado ports.ResultadoAnalisisContenido
 	if decodificarLimitado(resp.Body, limiteRespuestaHTTP, &resultado) != nil || resultado.ValidarContra(solicitud) != nil ||
-		resultado.ConectorAnalizadorID != c.conectorID || resultado.VersionConector != 1 || resultado.BytesAnalizados > solicitud.Tamano || !evidenciaIntegra(resultado) {
+		resultado.ConectorAnalizadorID != c.conectorID || resultado.VersionConector != 1 || resultado.BytesAnalizados > solicitud.Tamano {
+		return ports.ResultadoAnalisisContenido{}, ports.ErrResultadoAnalisisContenidoInvalido
+	}
+	integra, err := evidenciaIntegra(resultado)
+	if err != nil {
+		return ports.ResultadoAnalisisContenido{}, errors.Join(ports.ErrResultadoAnalisisContenidoInvalido, err)
+	}
+	if !integra {
 		return ports.ResultadoAnalisisContenido{}, ports.ErrResultadoAnalisisContenidoInvalido
 	}
 	return resultado, nil
@@ -175,15 +182,15 @@ func decodificarLimitado(r io.Reader, limite int64, destino any) error {
 
 func huella(b []byte) string { suma := sha256.Sum256(b); return hex.EncodeToString(suma[:]) }
 
-func evidenciaIntegra(resultado ports.ResultadoAnalisisContenido) bool {
+func evidenciaIntegra(resultado ports.ResultadoAnalisisContenido) (bool, error) {
 	esperada := resultado.HuellaEvidenciaSHA256
 	resultado.HuellaEvidenciaSHA256 = ""
 	bruto, err := json.Marshal(resultado)
 	if err != nil {
-		return false
+		return false, err
 	}
 	actual := huella(bruto)
-	return subtle.ConstantTimeCompare([]byte(actual), []byte(esperada)) == 1
+	return subtle.ConstantTimeCompare([]byte(actual), []byte(esperada)) == 1, nil
 }
 
 var _ ports.AnalizadorContenido = (*Cliente)(nil)

@@ -62,7 +62,7 @@ func TestClienteRechazaRespuestaDeOtroObjeto(t *testing.T) {
 	if err := respuestaAjena.Validar(); err != nil {
 		t.Fatalf("la respuesta adulterada debe ser individualmente válida: %v", err)
 	}
-	if !evidenciaIntegra(respuestaAjena) {
+	if integra, err := evidenciaIntegra(respuestaAjena); err != nil || !integra {
 		t.Fatal("la evidencia sintética debe tener una huella coherente")
 	}
 	if !errors.Is(respuestaAjena.ValidarContra(solicitud), ports.ErrResultadoAnalisisContenidoInvalido) {
