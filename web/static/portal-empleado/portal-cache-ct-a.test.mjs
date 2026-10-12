@@ -4,7 +4,7 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261013-bolsa-ranking-n4";
+const versionCoordinador = "20261013-convocatorias-rrhh-v3";
 const versionCircuito = "20261012-ct-firma-error-v4";
 const versionVista = "20261011-informe-legible-v1";
 const versionVistaPortal = "20261012-ct-b2-cese-v1";
@@ -115,7 +115,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = cohorte;
   const cohorteIdioma = "20261011-ct-bolsa-vinculo-v1";
-  const cohorteEntrada = "20261013-bolsa-ranking-n4";
+  const cohorteEntrada = "20261013-convocatorias-rrhh-v3";
   const cohorteFicha = "20261011-informe-legible-v1";
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
@@ -164,7 +164,7 @@ test("la ficha compartible y su aviso usan una única cohorte empaquetada", asyn
     "../../interno.manifest", "../../produccion.manifest", "cache-publica-v1.json",
   ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const cohorte = "20261008-r-fichas-idioma-nav-v1";
-  const entrada = "20261013-bolsa-ranking-n4";
+  const entrada = "20261013-convocatorias-rrhh-v3";
   exigirVersiones(html, "/portal-empleado/portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(portal, "./portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(coordinador, "./portal-ct-ruta-ficha.js", cohorte);
