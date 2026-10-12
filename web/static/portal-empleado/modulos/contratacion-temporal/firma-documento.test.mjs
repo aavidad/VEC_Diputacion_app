@@ -181,10 +181,11 @@ test("clics forjados de firma y devolución no descargan, no abren AutoFirma ni 
   assert.deepEqual(efectos, { descarga: 0, autofirma: 0, registro: 0, aviso: 0 });
 });
 
-test("la ayuda y los textos dicen que la firma no tiene eficacia administrativa", async () => {
+test("la ayuda y los textos explican el paso siguiente sin avisos de no validez", async () => {
   const ayuda = await readFile(new URL("../../../textos/es/portal-ayuda.json", import.meta.url), "utf8");
-  assert.match(ayuda, /"ayuda_contenido_421": ".*AutoFirma.*no tiene eficacia administrativa.*portafirmas corporativo/u);
-  assert.match(t("circuito_firma_registrada", { recibo: "r" }), /Para que tenga efectos, falta firmarlo en Portafirmas/u);
+  assert.match(ayuda, /"ayuda_contenido_421": ".*AutoFirma.*portafirmas corporativo/u);
+  assert.doesNotMatch(ayuda, /"ayuda_contenido_421": "[^"]*(?:prueba|eficacia)/u);
+  assert.match(t("circuito_firma_registrada", { recibo: "r" }), /Siguiente paso: Portafirmas/u);
 });
 
 test("cliente del registro: el PDF firmado custodiado se valida en estado y recibo", () => {

@@ -130,7 +130,7 @@ test("un documento con PDF firmado guardado ofrece descargarlo, con la terna que
   assert.match(html, new RegExp(`data-ct-firmado-huella="${c.huella_sha256}"`, "u"));
   assert.match(html, />Descargar PDF firmado</u);
   assert.match(html, /aria-label="Descargar PDF firmado: Resolución &lt;x&gt;"/u, "el nombre accesible empieza por el texto visible");
-  assert.match(html, /falta pasarlo por Firmadoc/u);
+  assert.match(html, /Pendiente de Firmadoc/u);
   assert.match(renderizarFaseFirma({ catalogo: { documentos: [doc] }, real: { documentos: [doc] }, textos: en }), />Download signed PDF</u);
   // Sin PDF guardado, sin estado real o con dos pasos: lo que corresponde.
   const sin = documento(["firmado"], 0);

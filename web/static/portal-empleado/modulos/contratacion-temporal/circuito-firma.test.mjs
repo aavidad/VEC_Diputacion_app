@@ -117,9 +117,9 @@ test("la fase muestra Dirección o Jefatura desde el catálogo sin abrir firma o
   assert.match(es, /Dirección de RRHH o Jefatura del Servicio de RRHH/u);
   assert.match(en, /HR Directorate or Head of the HR Service/u);
   assert.doesNotMatch(en, /Dirección de RRHH|Jefatura del Servicio/u);
-  assert.match(es, /Firma con certificado en VEC · Falta firmarlo en Portafirmas para que tenga efectos/u);
+  assert.match(es, /Firma con certificado en VEC · Pendiente de Portafirmas/u);
   assert.match(es, /Envío al portafirmas corporativo/u);
-  assert.match(en, /Sign with a certificate in VEC · It must still be signed in Portafirmas to take effect/u);
+  assert.match(en, /Sign with a certificate in VEC · Pending in Portafirmas/u);
   assert.match(en, /Sending to Portafirmas/u);
   assert.match(es, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
   assert.doesNotMatch(es, /data-ct-firma-accion=/u);
@@ -161,7 +161,7 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y sin marca
   assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Enviar a Portafirmas<\/button>/u);
   assert.match(html, /El envío desde este panel no está disponible/u);
   assert.match(html, /Desde esta pantalla aún no se ha firmado, enviado ni registrado el documento en Portafirmas/u);
-  assert.match(html, /Firma con certificado en VEC · Falta firmarlo en Portafirmas para que tenga efectos/u);
+  assert.match(html, /Firma con certificado en VEC · Pendiente de Portafirmas/u);
   assert.match(html, /<details class="ct-circuito-limite">/u);
   assert.match(html, /<details class="ct-circuito-prueba" data-ct-firma-detalles>/u);
   assert.doesNotMatch(html, /<details[^>]*\sopen/u);
@@ -255,7 +255,7 @@ test("las dos vías de firma usan el idioma del portal", () => {
   assert.match(html, /Allows referral to Financial Control/u);
   assert.match(html, /If returned, goes back to drafting/u);
   assert.doesNotMatch(html, /Pendiente de firma|Permite remitir|Si se devuelve|Firmado en Portafirmas|Firma con certificado en VEC/u);
-  assert.match(html, /Sign with a certificate in VEC · It must still be signed in Portafirmas to take effect/u);
+  assert.match(html, /Sign with a certificate in VEC · Pending in Portafirmas/u);
   assert.doesNotMatch(html, /Official signing in Firmadoc|GrxFirma or AutoFirma · TEST/u);
   assert.equal(MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_firmar, "Sign with certificate");
   assert.equal(MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_devolver, "Return");

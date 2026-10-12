@@ -27,11 +27,11 @@ test("sin expediente de navegación la consulta permanece cerrada y no ofrece v�
   assert.doesNotMatch(html, /name="expediente_ref"|name="actor_ref"|<table/u);
 });
 
-test("solo muestra expediente exacto escapado y aviso de configuración de ejemplo", () => {
+test("solo muestra expediente exacto escapado y sin marcas de ejemplo", () => {
   const html = renderizarVistaAuditoria({ estado: "esperando", habilitada: true,
     expedienteRef: 'exp_1"><script>', fuenteContexto: "ct", ejemplo: true });
   assert.match(html, /Número no disponible/u);
-  assert.match(html, /Muestra ficticia/u);
+  assert.doesNotMatch(html, /ficticia|ficticio/u);
   assert.doesNotMatch(html, /exp_1&quot;&gt;&lt;script&gt;/u);
   assert.doesNotMatch(html, /<script>|name="expediente_ref"|name="actor_ref"/u);
   const bolsa = renderizarVistaAuditoria({ estado: "esperando", habilitada: true,
@@ -55,10 +55,10 @@ test("conserva el número humano recibido de la ficha sin derivarlo de la refere
   assert.doesNotMatch(extraño, /<CT-000127>/u);
 });
 
-test("la muestra enseña nombres y números ficticios; las referencias y huellas quedan plegadas", () => {
+test("la muestra enseña nombres y números; las referencias y huellas quedan plegadas", () => {
   const respuesta = validarRespuestaAuditoria({ registros: [{ ...registro, antes: { unidad: "<script>" } }], siguiente_cursor: "" });
   const html = renderizarVistaAuditoria({ estado: "disponible", habilitada: true, ejemplo: true, registros: respuesta.registros });
-  assert.match(html, /Carmen Molina \(ficticio\).*Actualizó la relación de servicio.*EXP-2026-001 \(ficticio\)/su);
+  assert.match(html, /Carmen Molina.*Actualizó la relación de servicio.*EXP-2026-001/su);
   assert.match(html, /<details><summary>Ver detalle técnico<\/summary>[\s\S]*per_1[\s\S]*relacion\.actualizada[\s\S]*Huella SHA-256/u);
   assert.match(html, /datetime="2026-09-28T08:00:00Z"/u);
   assert.match(html, /&lt;script&gt;/u);
@@ -90,10 +90,10 @@ test("GET de opciones antecede al POST, que usa expediente de navegación y refs
     const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1", fuenteContexto: "ct" });
     assert.match(raiz.innerHTML, /Comprobando opciones/u);
     await esperar();
-    assert.match(raiz.innerHTML, /Muestra ficticia/u);
+    assert.doesNotMatch(raiz.innerHTML, /ficticia|ficticio/u);
     assert.equal(peticiones.length, 1, "consulta automática al abrir");
     assert.equal(Date.parse(peticiones[0].hasta) - Date.parse(peticiones[0].desde), 30 * 86400000);
-    assert.match(raiz.innerHTML, /Carmen Molina \(ficticio\)/u);
+    assert.match(raiz.innerHTML, /Carmen Molina/u);
     eventos.submit({ target: { matches: () => true }, preventDefault() {} });
     await esperar();
     assert.equal(peticiones.length, 2);

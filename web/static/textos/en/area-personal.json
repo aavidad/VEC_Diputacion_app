@@ -238,7 +238,7 @@
     "referencia": "Reference",
     "metodo": "Method",
     "origen": "Origin",
-    "origenSintetico": "Synthetic identity. There is no authentication, certificate or real person.",
+    "origenSintetico": "Identity assigned by the portal.",
     "autoridadServidor": "Effective authorisation is checked on the server for every operation."
   },
   "ayuda": {
@@ -479,7 +479,7 @@
         "llamamientos": "Personal call-ups",
         "llamamientosDetalle": "Additional alert, subject to the authorised channel.",
         "noticias": "General public employment news",
-        "noticiasDetalle": "Information with no administrative effect.",
+        "noticiasDetalle": "General information.",
         "guardar": "Save preferences",
         "titulo": "Preferences",
         "subtitulo": "Set up additional alerts"

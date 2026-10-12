@@ -219,7 +219,7 @@
     "llamamiento_propuesta_sin_anexos": "No attached documents.",
     "llamamiento_propuesta_ref": "Proposal",
     "resolucion_formalizacion_titulo": "Formalisation resolution",
-    "resolucion_formalizacion_ayuda": "Manual validation is not a legal signature, does not produce administrative effect and does not evidence document custody.",
+    "resolucion_formalizacion_ayuda": "Record HR's manual validation. The document is signed afterwards, in the signing process.",
     "resolucion_formalizacion_numero": "Resolution number",
     "resolucion_formalizacion_fecha": "Resolution date",
     "resolucion_formalizacion_motivo": "Reason",

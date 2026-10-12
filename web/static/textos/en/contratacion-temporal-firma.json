@@ -16,7 +16,7 @@
     "devuelto_motivo": "{cargo}: {motivo}",
     "descargar_firmado": "Download signed PDF",
     "descargar_firmado_de": "Download signed PDF: {documento}",
-    "firmado_prueba": "Signed with certificate in VEC; it still has to go through Firmadoc.",
+    "firmado_prueba": "Signed with certificate in VEC. Pending in Firmadoc.",
     "firmado_paso": "Signature for step {actual} of {total}.",
     "descargando": "Downloading the signed PDF…",
     "descargado": "Signed PDF downloaded: {documento}.",

@@ -16,7 +16,7 @@
     "devuelto_motivo": "{cargo}: {motivo}",
     "descargar_firmado": "Descargar PDF firmado",
     "descargar_firmado_de": "Descargar PDF firmado: {documento}",
-    "firmado_prueba": "Firmado con certificado en VEC; falta pasarlo por Firmadoc.",
+    "firmado_prueba": "Firmado con certificado en VEC. Pendiente de Firmadoc.",
     "firmado_paso": "Firma del paso {actual} de {total}.",
     "descargando": "Descargando el PDF firmado…",
     "descargado": "PDF firmado descargado: {documento}.",
