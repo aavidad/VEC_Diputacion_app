@@ -1,0 +1,30 @@
+.meritos-reales { min-width: 0; }
+.meritos-reales > header { padding: var(--portal-espacio-4); }
+.meritos-reales > .panel-contenido { display: grid; gap: var(--portal-espacio-4); min-width: 0; }
+.meritos-reales-filtros { display: flex; flex-wrap: wrap; gap: var(--portal-espacio-2); }
+.meritos-reales-filtros button { min-height: 40px; padding: var(--portal-espacio-2) var(--portal-espacio-3); border: 1px solid var(--portal-borde-control); border-radius: var(--portal-radio); color: var(--portal-tinta); background: var(--portal-superficie); cursor: pointer; }
+.meritos-reales-filtros button[aria-pressed="true"] { color: var(--portal-azul-700); border-color: var(--portal-azul-700); background: var(--portal-azul-100); font-weight: 600; }
+.meritos-reales-lista { max-height: min(58vh, 660px); overflow-y: auto; overscroll-behavior: contain; border-block: 1px solid var(--portal-borde); }
+.meritos-reales-ficha { border-bottom: 1px solid var(--portal-borde); }
+.meritos-reales-ficha:last-child { border-bottom: 0; }
+.meritos-reales-ficha-contenido { padding: var(--portal-espacio-4) 0; }
+.meritos-reales-ficha-cabecera { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--portal-espacio-3); }
+.meritos-reales-ficha-cabecera > div { min-width: 0; }
+.meritos-reales-ficha h3 { margin: 0; overflow-wrap: anywhere; font-size: 1rem; }
+.meritos-reales-ficha-cabecera p { margin: var(--portal-espacio-1) 0 0; color: var(--portal-muted); }
+.meritos-reales-ficha-pie { display: flex; align-items: center; flex-wrap: wrap; gap: var(--portal-espacio-3); margin-top: var(--portal-espacio-3); }
+.meritos-reales-estado { display: inline-flex; align-items: center; gap: var(--portal-espacio-2); flex: none; border-radius: 999px; padding: var(--portal-espacio-1) var(--portal-espacio-2); color: var(--portal-exito); background: var(--portal-exito-suave); font-size: .8125rem; font-weight: 600; }
+.meritos-reales-estado::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.meritos-reales-estado--retirado { color: var(--portal-muted); background: var(--portal-superficie-alterna); }
+.meritos-reales-aviso { padding: var(--portal-espacio-4) 0; }
+.meritos-reales-aviso button { margin-inline-start: var(--portal-espacio-3); }
+.meritos-reales-paginacion { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--portal-espacio-3); }
+.meritos-reales-total { border: 0; background: transparent; color: var(--portal-azul-700); text-decoration: underline; cursor: pointer; text-align: start; }
+.meritos-reales-revision, .meritos-reales-confirmacion { padding: var(--portal-espacio-4); border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie-alterna); }
+.meritos-reales-revision h3 { margin: 0 0 var(--portal-espacio-3); }
+.meritos-reales-seleccion { font-weight: 600; overflow-wrap: anywhere; }
+.meritos-reales-revision label { display: block; margin: var(--portal-espacio-3) 0 var(--portal-espacio-1); font-weight: 600; }
+.meritos-reales-revision select { width: min(100%, 32rem); min-height: 40px; border: 1px solid var(--portal-borde-control); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-tinta); }
+.meritos-reales-acciones { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--portal-espacio-2); margin-top: var(--portal-espacio-4); }
+.meritos-reales button:focus-visible, .meritos-reales select:focus-visible { outline: 3px solid var(--portal-azul-700); outline-offset: 2px; }
+@media (max-width: 430px) { .meritos-reales-ficha-cabecera { flex-direction: column; } .meritos-reales-acciones { justify-content: stretch; } .meritos-reales-acciones button { flex: 1 1 100%; } }

@@ -1,0 +1,43 @@
+{
+  "propio": {
+    "lista_titulo": "Mi cartera de méritos",
+    "filtros_titulo": "Filtrar méritos",
+    "filtro_todos": "Todos",
+    "filtro_disponibles": "Disponibles",
+    "filtro_retirados": "Retirados",
+    "tipo_titulacion": "Título",
+    "tipo_curso_asistencia": "Curso de asistencia",
+    "tipo_curso_superacion": "Curso superado",
+    "tipo_experiencia": "Experiencia",
+    "tipo_idioma": "Idioma",
+    "tipo_otro": "Otro mérito",
+    "disponibilidad_disponible": "Disponible",
+    "disponibilidad_retirado": "Retirado",
+    "retirar_este": "Solicitar retirada",
+    "detalle_recibo": "Ver recibo anterior",
+    "revision_titulo": "Revise la retirada",
+    "revision_efecto": "Este mérito dejará de estar disponible para solicitudes nuevas. Las anteriores conservarán lo presentado.",
+    "motivo": "Motivo",
+    "motivo_elegir": "Elija un motivo",
+    "cancelar": "Cancelar",
+    "guardando": "Registrando…",
+    "confirmar_retirada": "Retirar mérito",
+    "motivos_no_disponibles": "Ahora no se pueden mostrar los motivos. Vuelva a intentarlo en unos minutos.",
+    "retirada_confirmada": "Mérito retirado de futuras solicitudes.",
+    "reintento_confirmado": "La retirada ya estaba registrada.",
+    "recibo_numero": "Recibo {numero}",
+    "consultar_de_nuevo": "Volver a consultar",
+    "estado_vista_cargando": "Cargando sus méritos…",
+    "estado_vista_vacio": "No hay méritos en este filtro.",
+    "estado_vista_listo": "No hay méritos en este filtro.",
+    "estado_vista_error": "No se han podido cargar sus méritos. Pulse Volver a consultar; si sigue igual, avise a Informática.",
+    "estado_vista_denegado": "No tiene acceso a esta cartera. Si cree que es un error, contacte con RRHH.",
+    "estado_vista_conflicto": "La cartera cambió mientras trabajaba. Consulte de nuevo antes de continuar.",
+    "estado_vista_resultado_indeterminado": "No se ha podido confirmar la retirada. Consulte de nuevo antes de repetirla.",
+    "total_filtro": {
+      "one": "{cuenta} mérito en este filtro",
+      "other": "{cuenta} méritos en este filtro"
+    },
+    "ver_mas": "Ver más méritos"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "propio": {
+    "lista_titulo": "My qualifications",
+    "filtros_titulo": "Filter qualifications",
+    "filtro_todos": "All",
+    "filtro_disponibles": "Available",
+    "filtro_retirados": "Withdrawn",
+    "tipo_titulacion": "Qualification",
+    "tipo_curso_asistencia": "Attendance course",
+    "tipo_curso_superacion": "Completed course",
+    "tipo_experiencia": "Experience",
+    "tipo_idioma": "Language",
+    "tipo_otro": "Other qualification",
+    "disponibilidad_disponible": "Available",
+    "disponibilidad_retirado": "Withdrawn",
+    "retirar_este": "Request withdrawal",
+    "detalle_recibo": "View previous receipt",
+    "revision_titulo": "Review withdrawal",
+    "revision_efecto": "This qualification will no longer be available for new applications. Earlier applications will keep what you submitted.",
+    "motivo": "Reason",
+    "motivo_elegir": "Choose a reason",
+    "cancelar": "Cancel",
+    "guardando": "Recording…",
+    "confirmar_retirada": "Withdraw qualification",
+    "motivos_no_disponibles": "Reasons are unavailable right now. Please try again in a few minutes.",
+    "retirada_confirmada": "Qualification withdrawn from future applications.",
+    "reintento_confirmado": "The withdrawal was already recorded.",
+    "recibo_numero": "Receipt {numero}",
+    "consultar_de_nuevo": "Check again",
+    "estado_vista_cargando": "Loading your qualifications…",
+    "estado_vista_vacio": "There are no qualifications for this filter.",
+    "estado_vista_listo": "There are no qualifications for this filter.",
+    "estado_vista_error": "Your qualifications could not be loaded. Select Check again; if the problem continues, contact IT.",
+    "estado_vista_denegado": "You cannot access this portfolio. If you think this is a mistake, contact HR.",
+    "estado_vista_conflicto": "Your portfolio changed while you were working. Check it again before continuing.",
+    "estado_vista_resultado_indeterminado": "The withdrawal could not be confirmed. Check again before repeating it.",
+    "total_filtro": {
+      "one": "{cuenta} qualification in this filter",
+      "other": "{cuenta} qualifications in this filter"
+    },
+    "ver_mas": "Show more qualifications"
+  }
+}
