@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -62,6 +63,9 @@ type datasetBolsasRRHHDesarrollo struct {
 		Resultado   string `json:"resultado"`
 	} `json:"llamamientos"`
 	Contactos []dominiobolsa.ContactoParticipacion `json:"contactos"`
+	// Puntuaciones conserva el Total del acta CONVOCA por participación. Solo
+	// se rellena al leer el detalle autorizado de candidatos de una bolsa.
+	Puntuaciones map[string]string `json:"-"`
 	// Marcas (Bolsa 000041) por participación; nil si no están compuestas.
 	Marcas map[string]dominiobolsa.MarcasParticipacion `json:"-"`
 	// PoliticaIntentos, si el catálogo la tiene, permite rotular la baja
@@ -425,8 +429,8 @@ func (h *bolsasRRHHDesarrollo) vistaBolsa(w http.ResponseWriter, r *http.Request
 }
 
 type consultaCandidatosRRHH struct {
-	estado, texto, cursor string
-	limite                int
+	estado, texto, cursor, orden string
+	limite                       int
 	// llamamiento limita la lista a las personas de ese llamamiento (las que
 	// tienen algún aviso o llamada suyos), en el orden de la bolsa, para
 	// seguirlo por teléfono. No se combina con otros filtros ni con cursor.
@@ -441,7 +445,7 @@ func consultaCandidatos(cruda string) (consultaCandidatosRRHH, bool) {
 		return resultado, true
 	}
 	valores, err := url.ParseQuery(cruda)
-	if err != nil || len(valores) > 4 {
+	if err != nil || len(valores) > 5 {
 		return resultado, false
 	}
 	for clave, valoresClave := range valores {
@@ -471,6 +475,11 @@ func consultaCandidatos(cruda string) (consultaCandidatosRRHH, bool) {
 				return resultado, false
 			}
 			resultado.limite = n
+		case "orden":
+			if valor != "acta" {
+				return resultado, false
+			}
+			resultado.orden = valor
 		case "llamamiento":
 			if !patronLlamamientoCandidatosRRHH.MatchString(valor) {
 				return resultado, false
@@ -480,7 +489,7 @@ func consultaCandidatos(cruda string) (consultaCandidatosRRHH, bool) {
 			return resultado, false
 		}
 	}
-	if resultado.llamamiento != "" && (resultado.estado != "" || resultado.texto != "" || resultado.cursor != "") {
+	if resultado.llamamiento != "" && (resultado.estado != "" || resultado.texto != "" || resultado.cursor != "" || resultado.orden != "") {
 		return resultado, false
 	}
 	return resultado, true
@@ -575,7 +584,16 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 		candidatas = append(candidatas, bolsaapplication.CandidatoTurno{ParticipacionRef: candidata.Referencia, NombreVisible: candidata.Nombre, Orden: candidata.Orden, OrdenActa: candidata.OrdenActa, Estado: candidata.Estado})
 		indices[candidata.Referencia] = indice
 	}
-	candidatas = bolsaapplication.OrdenarCandidatosTurno(candidatas)
+	if consulta.orden == "acta" {
+		sort.Slice(candidatas, func(i, j int) bool {
+			if candidatas[i].OrdenActa != candidatas[j].OrdenActa {
+				return candidatas[i].OrdenActa < candidatas[j].OrdenActa
+			}
+			return candidatas[i].ParticipacionRef < candidatas[j].ParticipacionRef
+		})
+	} else {
+		candidatas = bolsaapplication.OrdenarCandidatosTurno(candidatas)
+	}
 	inicio := 0
 	if consulta.cursor != "" {
 		for i, candidata := range candidatas {
@@ -673,6 +691,13 @@ func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
 		llamada = map[string]any{"llamamiento_ref": contacto.LlamamientoRef, "comunicado_en": contacto.Instante.UTC().Format(time.RFC3339Nano), "canal": contacto.Canal, "resultado": contacto.Resultado}
 	}
 	salida := map[string]any{"participacion_ref": candidata.Referencia, "orden": candidata.Orden, "orden_acta": candidata.OrdenActa, "razon_orden": candidata.RazonOrden, "nombre_visible": candidata.Nombre, "documento_enmascarado": candidata.Documento, "estado_clave": estadoBolsaCanonico(candidata.Estado), "estado_desde": candidata.EstadoDesde, "disponible_desde": candidata.Disponible, "ultimo_llamamiento": llamada, "contactos_total": contactos}
+	if h.datos.Puntuaciones != nil {
+		if puntuacion, existe := h.datos.Puntuaciones[candidata.Referencia]; existe {
+			salida["puntuacion"] = puntuacion
+		} else {
+			salida["puntuacion"] = nil
+		}
+	}
 	if h.datos.Marcas != nil {
 		salida["marcas"] = h.salidaMarcas(candidata.Referencia, candidata.Estado)
 	}

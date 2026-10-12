@@ -120,6 +120,26 @@ func TestVersionarRolBolsaExternaV2ConservaBaseYExigeDosConcesiones(t *testing.T
 	}
 }
 
+func TestVersionarRolBolsaExternaConservaNombrePublicado(t *testing.T) {
+	for _, nombre := range []string{
+		"areaPersonal.miBolsa.rolPortal",
+		"Consulta y acciones propias de bolsa en desarrollo",
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			c, base, i, ahora := escenarioVersionarRolBolsaExterna(t)
+			base.Rol.Nombre = nombre
+			refrescarBaseExterna(t, &base, &i)
+			plan, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if plan.Base.Rol.Nombre != nombre || plan.DefinicionNueva.Nombre != nombre {
+				t.Fatal("el plan cambió el nombre publicado del rol")
+			}
+		})
+	}
+}
+
 func TestVersionarRolBolsaExternaRecuperaPlanTrasVencerDescriptor(t *testing.T) {
 	c, base, i, ahora := escenarioVersionarRolBolsaExterna(t)
 	vencimiento := ahora.Add(time.Minute)
@@ -170,6 +190,14 @@ func TestVersionarRolBolsaExternaDeniegaAmpliacionesYPreimagenes(t *testing.T) {
 		}},
 		{"version_tres", func(_ *CatalogoAccionesAdministracionV1, b *PerfilPublicadoAdministracionV1, i *IntencionVersionarRolBolsaExterna) {
 			b.Rol.Version = 2
+			refrescarBaseExterna(t, b, i)
+		}},
+		{"concesion_base_ausente", func(_ *CatalogoAccionesAdministracionV1, b *PerfilPublicadoAdministracionV1, i *IntencionVersionarRolBolsaExterna) {
+			b.Rol.Concesiones = b.Rol.Concesiones[1:]
+			refrescarBaseExterna(t, b, i)
+		}},
+		{"concesion_base_alterada", func(_ *CatalogoAccionesAdministracionV1, b *PerfilPublicadoAdministracionV1, i *IntencionVersionarRolBolsaExterna) {
+			b.Rol.Concesiones[0].Finalidades = []string{"otra"}
 			refrescarBaseExterna(t, b, i)
 		}},
 		{"orden", func(_ *CatalogoAccionesAdministracionV1, _ *PerfilPublicadoAdministracionV1, i *IntencionVersionarRolBolsaExterna) {
