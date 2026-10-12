@@ -12,6 +12,30 @@ function estadoInicial(ubicacion) {
     pendiente: null, guardando: false };
 }
 
+// La vista reemplaza el HTML al cambiar de estado. Se identifica el control
+// activo por su acción, nunca por una referencia interpolada en un selector.
+function restauradorFoco(contenedor, activo) {
+  if (!activo || !contenedor.contains(active)) return null;
+  if (activo.dataset?.meritosFiltro !== undefined) {
+    const filtro = activo.dataset.meritosFiltro;
+    return () => [...contenedor.querySelectorAll("[data-meritos-filtro]")]
+      .find((nodo) => nodo.dataset.meritosFiltro === filtro);
+  }
+  if (activo.dataset?.meritosRetirar !== undefined) {
+    const hecho = activo.dataset.meritosRetirar;
+    return () => [...contenedor.querySelectorAll("[data-meritos-retirar]")]
+      .find((nodo) => nodo.dataset.meritosRetirar === hecho);
+  }
+  if (activo.id === "meritos-retirada-motivo") return () => contenedor.querySelector("#meritos-retirada-motivo");
+  for (const marca of ["meritosConsultar", "meritosMas", "meritosCancelar", "meritosTextosReintentar"]) {
+    if (activo.dataset?.[marca] !== undefined) {
+      const atributo = marca.replace(/[A-Z]/gu, (letra) => `-${letra.toLowerCase()}`);
+      return () => contenedor.querySelector(`[data-${atributo}]`);
+    }
+  }
+  return null;
+}
+
 /** Carga catálogo y datos solo al abrir la cartera; mantiene la clave incierta en memoria. */
 export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
   idioma = idiomaActivoAreaPersonal(), ubicacion = globalThis.location,
@@ -34,7 +58,15 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
 
   const pintar = () => {
     if (activo && textos && contenedor.isConnected) {
+      const restaurar = restauradorFoco(contenedor, doc.activeElement);
       contenedor.innerHTML = renderizarMeritosPropios(modelo, textos);
+      if (restaurar) {
+        const destino = restaurar() ?? contenedor.querySelector(".meritos-reales-pendiente")
+          ?? contenedor.querySelector(".meritos-reales-confirmacion")
+          ?? contenedor.querySelector(".meritos-reales-aviso")
+          ?? contenedor.querySelector("#meritos-cartera-titulo");
+        destino?.focus?.({ preventScroll: true });
+      }
     }
   };
 
@@ -118,6 +150,7 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
         disponibilidad_version_esperada: hecho.disponibilidad.version, motivo,
         clave_idempotencia: `retiro:${globalThis.crypto.randomUUID()}` } };
     const orden = modelo.pendiente.orden;
+    modelo.confirmacion = null;
     modelo.guardando = true;
     pintar();
     try {
@@ -132,15 +165,25 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
       modelo.hechos = [];
       modelo.motivos = [];
       modelo.seleccion = null;
-      if (error instanceof ErrorCartera && [401, 403].includes(error.estado)) {
+      if (error instanceof ErrorCartera && [400, 409, 422].includes(error.estado)) {
+        // El servidor rechazó esta orden definitivamente. La siguiente
+        // selección tomará versión y clave nuevas después de consultar.
+        modelo.pendiente = null;
+        modelo.estado = "conflicto";
+      } else if (error instanceof ErrorCartera && [401, 403].includes(error.estado)) {
+        modelo.pendiente = null;
         modelo.confirmacion = null;
         modelo.estado = "denegado";
-      } else modelo.estado = error instanceof ErrorCartera && error.estado === 409
-        ? "conflicto" : "resultado_indeterminado";
-      pintar();
+      } else if (error instanceof ErrorCartera && error.estado === 404) {
+        modelo.pendiente = null;
+        modelo.estado = "error";
+      } else modelo.estado = "resultado_indeterminado";
     } finally {
       modelo.guardando = false;
       pintar();
+      const destino = modelo.confirmacion?.recibo?.referencia ? ".meritos-reales-confirmacion"
+        : modelo.pendiente ? ".meritos-reales-pendiente" : ".meritos-reales-aviso";
+      contenedor.querySelector(destino)?.focus?.({ preventScroll: true });
     }
   }
 
@@ -156,8 +199,11 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
       pintar();
       contenedor.querySelector("#meritos-retirada-motivo")?.focus();
     } else if (boton.hasAttribute("data-meritos-cancelar")) {
+      const hecho = modelo.seleccion?.hecho_ref;
       modelo.seleccion = null;
       pintar();
+      [...contenedor.querySelectorAll("[data-meritos-retirar]")]
+        .find((nodo) => nodo.dataset.meritosRetirar === hecho)?.focus?.({ preventScroll: true });
     }
   };
   const alEnviar = (evento) => {

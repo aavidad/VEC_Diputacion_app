@@ -25,6 +25,8 @@
     "motivos_no_disponibles": "Ahora no se pueden mostrar los motivos. Vuelva a intentarlo en unos minutos.",
     "retirada_confirmada": "Mérito retirado de futuras solicitudes.",
     "reintento_confirmado": "La retirada ya estaba registrada.",
+    "retirada_pendiente": "Aún no sabemos si se retiró este mérito. Consulte todos sus méritos para ver el estado y el recibo. Si sigue disponible, puede reintentar la retirada.",
+    "consultar_todos": "Consultar todos",
     "recibo_numero": "Recibo {numero}",
     "consultar_de_nuevo": "Volver a consultar",
     "estado_vista_cargando": "Cargando sus méritos…",

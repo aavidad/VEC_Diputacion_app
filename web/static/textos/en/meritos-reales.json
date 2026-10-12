@@ -25,6 +25,8 @@
     "motivos_no_disponibles": "Reasons are unavailable right now. Please try again in a few minutes.",
     "retirada_confirmada": "Qualification withdrawn from future applications.",
     "reintento_confirmado": "The withdrawal was already recorded.",
+    "retirada_pendiente": "We cannot yet confirm whether this qualification was withdrawn. Check all your qualifications for its status and receipt. If it is still available, you can try the withdrawal again.",
+    "consultar_todos": "Check all",
     "recibo_numero": "Receipt {numero}",
     "consultar_de_nuevo": "Check again",
     "estado_vista_cargando": "Loading your qualifications…",

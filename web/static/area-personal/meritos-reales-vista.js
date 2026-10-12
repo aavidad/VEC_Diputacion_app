@@ -57,11 +57,19 @@ function revisarRetirada(modelo, textos) {
 function confirmacion(modelo, textos) {
   if (!modelo.confirmacion?.recibo?.referencia) return "";
   const recibo = modelo.confirmacion.recibo;
-  return `<section class="meritos-reales-confirmacion" role="status"><div>
+  return `<section class="meritos-reales-confirmacion" role="status" tabindex="-1"><div>
     <strong>${t(textos, modelo.confirmacion.repetida ? "reintento_confirmado" : "retirada_confirmada")}</strong>
     <p>${t(textos, "recibo_numero", { numero: recibo.referencia })}</p>
     <button type="button" class="boton-secundario" data-meritos-consultar>${t(textos, "consultar_de_nuevo")}</button>
   </div></section>`;
+}
+
+function retiradaPendiente(modelo, textos) {
+  if (!modelo.pendiente || modelo.guardando) return "";
+  return `<section class="meritos-reales-pendiente" role="alert" tabindex="-1">
+    <p>${t(textos, "retirada_pendiente")}</p>
+    <button type="button" class="boton-secundario" data-meritos-filtro="todos">${t(textos, "consultar_todos")}</button>
+  </section>`;
 }
 
 /** Un dato agrupado solo se muestra con el filtro de esa misma página. */
@@ -71,7 +79,7 @@ export function renderizarMeritosPropios(modelo, textos) {
   const hechos = Array.isArray(modelo.hechos) ? modelo.hechos : [];
   const lista = modelo.estado === "listo" && hechos.length
     ? hechos.map((h) => ficha(h, textos, Array.isArray(modelo.motivos) && modelo.motivos.length > 0)).join("")
-    : `<div class="meritos-reales-aviso" role="status">${t(textos, `estado_vista_${modelo.estado}`)}
+    : `<div class="meritos-reales-aviso" role="status" tabindex="-1">${t(textos, `estado_vista_${modelo.estado}`)}
       ${["error", "conflicto", "resultado_indeterminado"].includes(modelo.estado)
         ? `<button type="button" data-meritos-consultar class="boton-secundario">${t(textos, "consultar_de_nuevo")}</button>` : ""}</div>`;
   const total = modelo.estado === "listo" && Number.isSafeInteger(modelo.total) && modelo.total >= 0
@@ -80,8 +88,8 @@ export function renderizarMeritosPropios(modelo, textos) {
   const mas = modelo.estado === "listo" && modelo.cursor_siguiente
     ? `<button type="button" data-meritos-mas class="boton-secundario">${t(textos, "ver_mas")}</button>` : "";
   return `<section class="panel meritos-reales" aria-labelledby="meritos-cartera-titulo">
-    <header><h2 id="meritos-cartera-titulo">${t(textos, "lista_titulo")}</h2></header>
-    <div class="panel-contenido">${filtros(modelo, textos)}<div class="meritos-reales-lista">${lista}</div>
+    <header><h2 id="meritos-cartera-titulo" tabindex="-1">${t(textos, "lista_titulo")}</h2></header>
+    <div class="panel-contenido">${filtros(modelo, textos)}${retiradaPendiente(modelo, textos)}<div class="meritos-reales-lista">${lista}</div>
       <div class="meritos-reales-paginacion">${total}${mas}</div>${confirmacion(modelo, textos)}${revisarRetirada(modelo, textos)}</div>
   </section>`;
 }
