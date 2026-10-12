@@ -104,6 +104,12 @@
     "propuesta_vigente": "Propuesta de nombramiento vigente",
     "propuesta_vigente_desde": "Registrada el {fecha}.",
     "propuesta_anterior": "Propuesta anterior ({orden})",
-    "propuesta_sustituida": "Registrada el {desde}; sustituida por no incorporación ({motivo}) el {fecha}."
+    "propuesta_sustituida": "Registrada el {desde}; sustituida por no incorporación ({motivo}) el {fecha}.",
+    "cese_justificante_comunicacion_reincorporacion": "comunicación de la reincorporación de la persona titular",
+    "cese_justificante_escrito_renuncia": "escrito de renuncia firmado por la persona",
+    "cese_justificante_informe_centro": "informe del centro",
+    "cese_justificante_informe_periodo_prueba": "informe del periodo de prueba",
+    "cese_justificante_resolucion_cobertura": "resolución de cobertura reglamentaria de la vacante",
+    "cese_justificante_resolucion_fin_programa": "resolución de fin del programa"
   }
 }
