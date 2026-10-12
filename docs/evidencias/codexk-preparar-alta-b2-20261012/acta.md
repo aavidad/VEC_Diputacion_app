@@ -32,13 +32,12 @@ La versión 8 conserva antes y después SHA del agregado `c92cb38dd82f14c0201f2d
 
 ## Instalación y uso
 
-La corrección del cese #1069 está integrada. Esta preparación permanece en borrador y bloqueada; no ejecutarla en cidonia. No hay SQL de migración nuevo. La [lista ordenada](../../../deploy/principal/lista_sql_codexk_preparar_alta_b2_20261012.txt) identifica las tres preparaciones de datos y su punto del recorrido; sólo el guion las ejecuta, con parámetros del estado privado.
+La corrección del cese #1069 está integrada. Esta preparación permanece en borrador y bloqueada; no ejecutarla en cidonia. No hay SQL de migración nuevo. La [lista ordenada](../../../deploy/principal/lista_sql_codexk_preparar_alta_b2_20261012.txt) identifica las dos preparaciones de datos y su punto del recorrido; sólo el guion las ejecuta, con parámetros del estado privado.
 
-Como `openclaw`, desde un checkout que contenga ambas entregas:
+Como `openclaw`, desde un checkout con esta comprobación:
 
 ```sh
 bash scripts/operacion/preparar_expediente_alta_b2/preparar.sh --comprobar
-bash scripts/operacion/preparar_expediente_alta_b2/preparar.sh --aplicar PREPARA-ALTA-B2
 ```
 
 CONFIG NUEVA: `VEC_PERSONAL_B2_GOBIERNO_ENABLED=true`, ocho catálogos de régimen/modalidad publicados y `personal_b2.cese_fecha_efecto=primer_dia_sin_relacion` para este escenario. Se mantienen incorporación acreditada y retorno a Bolsa activados con el material de HZ21. Si falta algo, la comprobación imprime el comando concreto; no edita el lanzador ni la configuración por su cuenta. La duda 140 sigue fijando la decisión de RRHH para el uso real.
@@ -55,4 +54,4 @@ Los GO anteriores del guion quedaron sustituidos por el NO-GO de dirección; el 
 
 ## Corrección posterior y restauración
 
-La copia original HZ19 conserva 71 expedientes, 12 bolsas constituidas y 606 situaciones. La restauración completa del dump de esa base con `pg_restore --exit-on-error` terminó correctamente. El SQL corregido rechaza la apertura sintética sin escribir; se ensayó el vínculo por autoridad contra una participación real ya constituida, con datos preparados sólo en la copia. La remisión insertó dos filas bajo el propietario CT. Esta comprobación SQL aislada no acredita que la raíz CT consuma Bolsa real ni repite el recorrido web. La restauración completa tras ese delta terminó con código 0: 71 expedientes, 12 bolsas, 606 situaciones, 18 registros de integración y dos precondiciones de remisión. No cambió el número de bolsas o situaciones. La prueba del modo aplicar informó FALTA antes del primer POST; seis pruebas focales y Semgrep local (151 reglas) están verdes.
+La copia original HZ19 conserva 71 expedientes, 12 bolsas constituidas y 606 situaciones. La restauración completa del dump de esa base con `pg_restore --exit-on-error` terminó correctamente. El SQL corregido rechaza la apertura sintética sin escribir; se ensayó el vínculo por autoridad contra una participación real ya constituida, con datos preparados sólo en la copia. La remisión insertó dos filas bajo el propietario CT. Esta comprobación SQL aislada no acredita que la raíz CT consuma Bolsa real ni repite el recorrido web. La restauración completa tras ese delta terminó con código 0: 71 expedientes, 12 bolsas, 606 situaciones, 19 registros de integración y dos precondiciones de remisión. No cambió el número de bolsas o situaciones. La correlación final incluye categoría, instantánea/version, orden y bytes canónicos de la apertura; el caso positivo usa la instantánea constituida original. La prueba del modo aplicar informó FALTA antes del primer POST; seis pruebas focales y Semgrep local (151 reglas) están verdes.

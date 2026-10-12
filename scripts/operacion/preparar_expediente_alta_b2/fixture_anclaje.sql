@@ -12,12 +12,15 @@ SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 DO $anclaje$
 DECLARE
  apertura jsonb;
+ apertura_original json;
  acta text;
  participacion text;
  candidato text:=current_setting('vec.fixture.candidato');
  coincidencias integer;
 BEGIN
- SELECT convert_from(registro_canonico,'UTF8')::jsonb INTO STRICT apertura
+ SELECT convert_from(registro_canonico,'UTF8')::jsonb,
+        convert_from(registro_canonico,'UTF8')::json
+ INTO STRICT apertura,apertura_original
  FROM vec_bolsa_llamamientos.integracion_desarrollo
  WHERE operacion_ref=current_setting('vec.fixture.apertura') AND tipo='propuesta';
  IF apertura->'llamamiento'->>'LlamamientoRef' IS DISTINCT FROM current_setting('vec.fixture.llamamiento') THEN
@@ -31,10 +34,18 @@ BEGIN
   AND b.huella_bolsa_sha256=c.huella_bolsa_sha256
  JOIN vec_bolsa_llamamientos.constitucion_entrada e
    ON e.instantanea_ref=c.instantanea_ref AND e.version_instantanea=c.version_instantanea
+ JOIN vec_bolsa_llamamientos.instantanea_orden_bolsa io
+   ON io.instantanea_ref=c.instantanea_ref AND io.version=c.version_instantanea
+  AND io.huella_instantanea_sha256=c.huella_instantanea_sha256
  WHERE c.bolsa_ref=apertura->'instantanea'->>'bolsa_ref'
    AND c.version_bolsa=(apertura->'instantanea'->>'version_bolsa')::bigint
    AND c.huella_bolsa_sha256=apertura->'instantanea'->>'huella_bolsa_sha256'
-   AND e.participacion_ref=participacion;
+   AND c.categoria_ref=apertura->>'categoria_ref'
+   AND c.instantanea_ref=apertura->'instantanea'->>'instantanea_ref'
+   AND c.version_instantanea=(apertura->'instantanea'->>'version')::bigint
+   AND e.participacion_ref=participacion
+   AND e.orden=(apertura->'propuesta'->>'orden_seleccionado')::bigint
+   AND convert_from(io.instantanea_canonica,'UTF8')=(apertura_original->'instantanea')::text;
  IF coincidencias<>1 OR NOT EXISTS (
    SELECT 1 FROM vec_bolsa_llamamientos.situacion_participacion
    WHERE participacion_ref=participacion) THEN
