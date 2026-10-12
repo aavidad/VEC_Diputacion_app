@@ -49,8 +49,18 @@
 # `vec_autorizacion_registro_meritos_externo`; LOGIN de motivos
 # `vec_externo_meritos_motivos_autorizacion`, grupo único
 # `vec_autorizacion_motivos_meritos_externo`. Se provisionan fuera de Git.
-# Datos, frontera, fuente, registro y motivos usan cinco LOGIN/DSN segregados;
-# ningún pool de Usuarios o Bolsa sustituye estas identidades.
+# Datos, frontera, fuente, registro, motivos y contexto usan seis LOGIN/DSN M4.
+# Contexto M4: LOGIN vec_externo_meritos_contexto, miembro único INHERIT sin
+# SET/ADMIN de vec_contexto_actor_v1_usuarios_externo (CA15), fuera de Git.
+# Los dos pools comunes de Identidad externa reutilizan sus DSN/roles existentes.
+# Ningún pool de Usuarios o Bolsa sustituye estas identidades M4.
+# AUT81 conserva el publicador nominal externo de AUT17/18/21 y amplía sólo
+# su guard de rol a las dos concesiones completas de persona_meritos_cartera.
+# Requiere acto ADMIN previo de rol/control AUT80 y publicación de asignación
+# persona_ref por CAS; su instalación no publica asignaciones. CA15 exige
+# cuenta/perfil/contexto M4 distintos de Usuarios para la misma persona.
+# El mapa privado certificado→cuenta_ref/perfil_ref M4 elige esas referencias
+# gobernadas; el certificado no concede el rol ni crea una cuenta.
 # AD250 añade audiencia `vec_meritos.cartera.retirar_propio.v1`; la clave V3
 # y `configuracion_origen_consumos_v1` deben admitir exactamente esa audiencia,
 # acción `meritos.cartera.retirar_propio`, canal externa_personal y LOGIN de
@@ -73,6 +83,7 @@
 # Hasta cerrar esas piezas, las funciones de AUT78 son denegatorias y M4 no
 # constituye un recorrido instalable o accesible desde HTTP.
 deploy/postgresql/autorizacion/migraciones/000080_gobierno_rol_meritos_cartera_dos_concesiones.up.sql
+deploy/postgresql/autorizacion/migraciones/000081_asignacion_meritos_cartera_externa.up.sql
 deploy/postgresql/catalogos_configurables/migraciones/000013_motivos_meritos_cartera.up.sql
 deploy/postgresql/autorizacion/migraciones/000078_cartera_meritos_persona_externa.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000250_cartera_meritos_externa.up.sql
@@ -81,6 +92,7 @@ deploy/postgresql/meritos/migraciones/000004_cartera_retirada_propia_v1.up.sql
 # Pruebas focales tras instalar en un único clon causal PostgreSQL 18:
 deploy/postgresql/autorizacion/pruebas_sql/000078_cartera_meritos_persona_externa.sql
 deploy/postgresql/autorizacion/pruebas_sql/000080_gobierno_rol_meritos_cartera_dos_concesiones.sql
+deploy/postgresql/autorizacion/pruebas_sql/000081_asignacion_meritos_cartera_externa.sql
 deploy/postgresql/catalogos_configurables/pruebas_sql/000013_motivos_meritos_cartera.sql
 deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000250_cartera_meritos_externa.sql
 deploy/postgresql/meritos/pruebas_sql/000004_cartera_retirada_propia_v1.sql
