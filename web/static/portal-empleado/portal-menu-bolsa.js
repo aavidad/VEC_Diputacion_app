@@ -5,6 +5,9 @@
  * permisos, no cargan datos y no conservan estado en el navegador.
  */
 import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { IDIOMA_ACTUAL } from "../comun/idioma.js";
+export const RUTA_PANTALLA_CARGA_CONVOCA = `/portal-empleado/modulos/bolsa/carga-convoca/?lang=${encodeURIComponent(IDIOMA_ACTUAL)}`;
+
 const VISTAS_POR_CATEGORIA = Object.freeze({
   "bolsas-candidatos": Object.freeze([
     "elaboracion", "convocatorias", "solicitudes", "meritos", "alegaciones", "importacion",
@@ -37,7 +40,7 @@ export const VISTAS_INTERNAS_BOLSA = Object.freeze([
 // tienen todavía un servicio autorizado que pueda ejecutar su operación.
 export const VISTAS_BOLSA_PENDIENTES_NO_COMPUESTAS = Object.freeze([
   "contratos", "documentos", "convocatorias",
-  "meritos", "alegaciones", "importacion", "baremacion", "consulta", "configuracion",
+  "meritos", "alegaciones", "baremacion", "consulta", "configuracion",
 ]);
 
 export function vistaBolsaPendienteNoCompuesta(vista) {
@@ -81,6 +84,8 @@ export function resumenAccesosModulos(accesos, comprobandoBolsas, traducir = tra
  */
 export function vistaBolsaOfrecida(vista, capacidades = {}) {
   switch (vista) {
+    case "importacion":
+      return capacidades?.cargaConvoca === true;
     case "solicitudes":
       // Solo cuando la bandeja de inscripciones ha respondido: apagada, el
       // servidor no publica sus rutas y la entrada no se ofrece.
@@ -110,7 +115,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
  * el menú. Elaboración comprueba su API al abrirse por enlace.
  */
 export function vistaBolsaNavegable(vista, capacidades = {}) {
-  if (vista === "solicitudes") return true;
+  if (vista === "solicitudes" || vista === "importacion") return true;
   if (vista === "elaboracion") return capacidades?.borradores !== false;
   if (["resumen", "estadisticas", "llamamientos", "comunicaciones", VISTA_CANDIDATOS_BOLSA].includes(vista)) return true;
   return vistaBolsaOfrecida(vista, capacidades);

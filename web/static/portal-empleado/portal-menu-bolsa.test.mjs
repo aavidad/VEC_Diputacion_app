@@ -326,7 +326,7 @@ function menuDesdeHTML() {
     nodo({}, control, "numero-menu");
     if (!agrupado) continue;
     const submenu = nodo({}, padre, "submenu-bolsa");
-    for (const [etiqueta] of bloque.matchAll(/<button type="button" class="enlace-lateral enlace-submenu"[^>]*>/gu)) {
+    for (const [etiqueta] of bloque.matchAll(/<(?:button|a)[^>]*class="enlace-lateral enlace-submenu"[^>]*>/gu)) {
       nodo(atributosDe(etiqueta), submenu);
     }
   }
@@ -399,7 +399,7 @@ test("el panel antiguo no anuncia recorridos sin API compuesta", async () => {
 test("la navegación directa a una vista de Bolsa sin servicio no se permite", async () => {
   const { vistaBolsaNavegable, vistaBolsaOfrecida } = await import("./portal-menu-bolsa.js");
   const sinServicio = { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false };
-  for (const vista of ["convocatorias", "meritos", "alegaciones", "importacion", "contratos",
+  for (const vista of ["convocatorias", "meritos", "alegaciones", "contratos",
     "reglas", "baremacion", "consulta", "documentos", "auditoria", "configuracion", "elaboracion"]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), false, vista);
   }
@@ -441,7 +441,7 @@ test("los controles de rutas sin consumidor se retiran del DOM y se conserva la 
     }));
   } };
   aplicarDisponibilidadMenuBolsa(raiz, { auditoriaReferencia: true });
-  assert.deepEqual(retirados, ["documentos", "contratos", "importacion"]);
+  assert.deepEqual(retirados, ["documentos", "contratos"]);
 });
 
 
