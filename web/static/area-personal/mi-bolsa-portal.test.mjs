@@ -1,9 +1,150 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cuerpoPortalMiBolsa, enviarPortalMiBolsa, renderizarPortalMiBolsa, validarPortalMiBolsa } from "./mi-bolsa-portal.js";
+import { cuerpoPortalMiBolsa, enviarPortalMiBolsa, renderizarPortalMiBolsa, revisarRespuestaPortalMiBolsa, validarPortalMiBolsa, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js";
+import { iniciarI18nAreaPersonal } from "./i18n.js";
+import { lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const acciones = { causas_renuncia: ["enfermedad", "matrimonio_union_hecho"], pausa_maxima: "2027-09-25T21:59:59.000000Z", modo_respuesta: "firme" };
 const participaciones = [{ bolsa: "bolsa:demo:1", categoria: "Auxiliar de enfermería" }];
+
+test("separa el llamamiento abierto de la última respuesta propia en ambos idiomas", async () => {
+  const abierto = { contacto_en: "2026-10-11T12:00:00Z", vence_antes_de: "2026-10-12T12:00:00Z" };
+  const anterior = { respuesta: "acepta", modo: "propuesta_rrhh", recibo: "recibo:anterior", respondida_en: "2026-10-10T10:00:00Z" };
+  for (const [idioma, actual, previa, ultima] of [
+    ["es", "Llamamiento abierto", "Respuesta anterior en esta bolsa", "Última respuesta registrada en esta bolsa"],
+    ["en", "Open call-up", "Earlier response in this job pool", "Latest response recorded in this job pool"],
+  ]) {
+    await iniciarI18nAreaPersonal({ querySelectorAll: () => [], documentElement: {} }, {
+      leer: lectorCatalogos(), ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` },
+    });
+    const juntos = renderizarPortalMiBolsa(participaciones, [{ bolsa: participaciones[0].bolsa,
+      llamamiento_abierto: abierto, ultima_respuesta: anterior }], acciones);
+    assert.ok(juntos.indexOf(actual) < juntos.indexOf(previa));
+    assert.match(juntos, /recibo:anterior/u);
+    assert.equal((juntos.match(/<section class="panel">/gu) || []).length, 2);
+    const soloAbierto = renderizarPortalMiBolsa(participaciones, [{ bolsa: participaciones[0].bolsa,
+      llamamiento_abierto: abierto }], acciones);
+    assert.match(soloAbierto, new RegExp(actual, "u"));
+    assert.doesNotMatch(soloAbierto, new RegExp(previa, "u"));
+    const soloRespuesta = renderizarPortalMiBolsa(participaciones, [{ bolsa: participaciones[0].bolsa,
+      ultima_respuesta: anterior }], acciones);
+    assert.match(soloRespuesta, new RegExp(ultima, "u"));
+    assert.doesNotMatch(soloRespuesta, new RegExp(previa, "u"));
+  }
+  await iniciarI18nAreaPersonal({ querySelectorAll: () => [], documentElement: {} }, {
+    leer: lectorCatalogos(), ubicacion: { href: "https://vec.example/area-personal/?lang=es" },
+  });
+});
+
+test("renunciar exige revisión y permite volver a editar sin crear una petición", async () => {
+  const revision = { hidden: true, focus() { this.enfocada = true; } };
+  const edicion = { hidden: false };
+  const iniciar = { hidden: false };
+  const resumen = { innerHTML: "" };
+  const resultado = { textContent: "" };
+  const radio = { focus() { this.enfocado = true; } };
+  const nodos = { "[data-portal-revision]": revision, "[data-portal-edicion]": edicion,
+    "[data-portal-iniciar-revision]": iniciar, "[data-portal-revision-datos]": resumen,
+    "[data-portal-resultado]": resultado, '[name="respuesta"]:checked': radio };
+  const formulario = { dataset: { portalMiBolsa: "responder", bolsa: "bolsa:demo:1" }, querySelector: (selector) => nodos[selector] || null };
+  const datos = new FormData(); datos.set("respuesta", "renuncia");
+  let envios = 0;
+  assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  assert.equal(envios, 0);
+  assert.equal(revision.hidden, false);
+  assert.equal(edicion.hidden, true);
+  assert.equal(revision.enfocada, true);
+  assert.match(resumen.innerHTML, /Renuncio/u);
+  assert.equal(volverRespuestaPortalMiBolsa(formulario), true);
+  assert.equal(revision.hidden, true);
+  assert.equal(radio.enfocado, true);
+  datos.set("respuesta", "renuncia_justificada");
+  assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  assert.equal(revision.hidden, true, "sin justificante no avanza a la revisión");
+  assert.equal(envios, 0);
+  datos.set("causa", "enfermedad");
+  datos.set("justificante_ref", "documento:parte");
+  datos.set("justificante", new Blob(["parte"]), "parte.pdf");
+  assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  assert.match(resumen.innerHTML, /parte\.pdf/u, "la revisión identifica el archivo elegido");
+  assert.equal(volverRespuestaPortalMiBolsa(formulario), true);
+  const html = renderizarPortalMiBolsa(participaciones, [{ bolsa: "bolsa:demo:1", llamamiento_abierto: {
+    contacto_en: "2026-09-25T08:00:00.000000Z", vence_antes_de: "2026-09-26T21:59:59.000000Z" } }], acciones);
+  assert.match(html, /data-portal-revision hidden/u);
+  assert.match(html, /data-portal-revision-volver/u);
+  assert.match(html, /Confirmar renuncia/u);
+});
+
+test("la confirmación envía la renuncia revisada aunque cambien los campos del DOM", async () => {
+  const revision = { hidden: true, focus() {} };
+  const edicion = { hidden: false };
+  const iniciar = { hidden: false };
+  const resumen = { innerHTML: "" };
+  const resultado = { textContent: "" };
+  const confirmar = { disabled: false };
+  const reintentar = { hidden: true, disabled: false };
+  const nodos = { "[data-portal-revision]": revision, "[data-portal-edicion]": edicion,
+    "[data-portal-iniciar-revision]": iniciar, "[data-portal-revision-datos]": resumen,
+    "[data-portal-resultado]": resultado, 'button[type="submit"]': confirmar,
+    "[data-portal-reintentar]": reintentar };
+  const formulario = { dataset: { portalMiBolsa: "responder", bolsa: "bolsa:demo:1" },
+    querySelector: (selector) => nodos[selector] || null };
+  const datos = new FormData(); datos.set("respuesta", "renuncia");
+  assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  const clave = formulario.dataset.clave;
+  datos.set("respuesta", "acepta");
+  formulario.dataset.bolsa = "bolsa:otra";
+  const enviados = [];
+  assert.equal(await enviarPortalMiBolsa(formulario, { datos, fetchImpl: async (_ruta, opciones) => {
+    enviados.push(JSON.parse(opciones.body));
+    return { status: 503, json: async () => ({}) };
+  } }), false);
+  assert.deepEqual(enviados, [{ bolsa: "bolsa:demo:1", respuesta: "renuncia", clave }]);
+  assert.equal(volverRespuestaPortalMiBolsa(formulario), false, "el resultado incierto mantiene el cuerpo revisado");
+  assert.equal(confirmar.hidden, true);
+  assert.equal(reintentar.hidden, false);
+  assert.equal(await enviarPortalMiBolsa(formulario, { datos, fetchImpl: async (_ruta, opciones) => {
+    enviados.push(JSON.parse(opciones.body));
+    return { status: 503, json: async () => ({}) };
+  } }), false, "otro submit del mismo doble clic no reintenta");
+  assert.equal(enviados.length, 1);
+  assert.equal(await enviarPortalMiBolsa(formulario, { datos, reintentoExplicito: true, fetchImpl: async (_ruta, opciones) => {
+    enviados.push(JSON.parse(opciones.body));
+    return { status: 503, json: async () => ({}) };
+  } }), false);
+  assert.deepEqual(enviados[1], enviados[0]);
+});
+
+test("un plazo terminado permite volver sin ofrecer reintento de renuncia", async () => {
+  const revision = { hidden: true, focus() {} };
+  const edicion = { hidden: false };
+  const iniciar = { hidden: false };
+  const resumen = { innerHTML: "" };
+  const resultado = { textContent: "", focus() {} };
+  const confirmar = { disabled: false, hidden: false };
+  const reintentar = { hidden: true, disabled: false };
+  const volver = { disabled: false };
+  const nodos = { "[data-portal-revision]": revision, "[data-portal-edicion]": edicion,
+    "[data-portal-iniciar-revision]": iniciar, "[data-portal-revision-datos]": resumen,
+    "[data-portal-resultado]": resultado, 'button[type="submit"]': confirmar,
+    "[data-portal-reintentar]": reintentar, "[data-portal-revision-volver]": volver };
+  const formulario = { dataset: { portalMiBolsa: "responder", bolsa: "bolsa:demo:1" },
+    querySelector: (selector) => nodos[selector] || null };
+  const datos = new FormData(); datos.set("respuesta", "renuncia");
+  assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  let envios = 0;
+  assert.equal(await enviarPortalMiBolsa(formulario, { fetchImpl: async () => {
+    envios++;
+    return { status: 409, json: async () => ({ error: { codigo: "fuera_de_plazo" } }) };
+  } }), false);
+  assert.equal(envios, 1);
+  assert.match(resultado.textContent, /plazo de respuesta ha terminado/u);
+  assert.equal(confirmar.hidden, true);
+  assert.equal(reintentar.hidden, true);
+  assert.equal(volver.disabled, false);
+  assert.equal(volverRespuestaPortalMiBolsa(formulario), true);
+  assert.equal(revision.hidden, true);
+});
 
 test("sin acciones compuestas no se exige nada y con ellas se valida todo", () => {
   assert.doesNotThrow(() => validarPortalMiBolsa({ participaciones }));
@@ -180,4 +321,16 @@ test("ningún formulario heredado de pausa o reactivación envía una petición"
   assert.equal(envios, 0);
   assert.equal(await cuerpoPortalMiBolsa({ dataset: { portalMiBolsa: "solicitar", tipo: "pausa", bolsa: "bolsa:demo:1" } }, new FormData()), null);
   assert.equal(await cuerpoPortalMiBolsa({ dataset: { portalMiBolsa: "desconocida", bolsa: "bolsa:demo:1" } }, new FormData()), null);
+});
+
+test("la revisión de la respuesta conserva compatibilidad y exige booleano", () => {
+  const ultima_respuesta = { respuesta: "acepta", modo: "firme", recibo: "recibo:01", respondida_en: "2026-10-11T10:00:00Z" };
+  const datos = { participaciones, acciones_portal: acciones, portal: [{ bolsa: participaciones[0].bolsa, ultima_respuesta }] };
+  assert.doesNotThrow(() => validarPortalMiBolsa(datos));
+  for (const en_revision of [true, false]) {
+    ultima_respuesta.en_revision = en_revision;
+    assert.doesNotThrow(() => validarPortalMiBolsa(datos));
+  }
+  ultima_respuesta.en_revision = "true";
+  assert.throws(() => validarPortalMiBolsa(datos), /Revisión de respuesta/u);
 });

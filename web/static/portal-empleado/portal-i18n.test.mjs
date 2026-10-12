@@ -798,19 +798,91 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js",
     "modulos/contratacion-temporal/vinculo-categoria-rpt.js",
     "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261010-ct-vinculo-rpt-cohorte-v10");
-  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261010-ct-vinculo-rpt-cohorte-v10");
-  for (const ruta of ["portal-bolsas-ruta-filtros.js", "portal-ct-ruta-filtro.js",
-    "portal-llamamientos-selector.js", "portal-bolsas-global.js", "portal-bolsas-seguimiento.js",
+  ]) versionesEspeciales.set(ruta, "20261011-bolsa-b103-privacidad-v1");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-cuadro-ligera.js", "20261011-bolsa-b103-privacidad-v1");
+  for (const ruta of ["portal-bolsas-contrato.js", "portal-bolsas-marcas.js", "portal-bolsas-ruta-filtros.js", "portal-ct-ruta-filtro.js",
+    "portal-llamamientos-selector.js", "portal-bolsas-global.js", "portal-bolsas-seguimiento.js", "portal-bolsas-intentos.js",
     "portal-inicio.js", "portal-bolsas-api.js", "portal-panel-interno.js",
     "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js", "portal-menu-bolsa.js"])
-    versionesEspeciales.set(ruta, "20261010-ct-vinculo-rpt-cohorte-v10");
+    versionesEspeciales.set(ruta, "20261011-bolsa-b103-privacidad-v1");
   // Botón de carga CONVOCA en la cabecera de Bolsa: panel y entrada en su propia cohorte.
-  for (const ruta of ["portal-panel-interno.js", "portal.js"]) versionesEspeciales.set(ruta, "20261010-b1-carga-v1");
+  for (const ruta of ["portal-panel-interno.js", "portal.js"]) versionesEspeciales.set(ruta, "20261011-bolsa-b103-privacidad-v1");
   // El vínculo de categoría RPT renueva la entrada después de la carga CONVOCA.
-  versionesEspeciales.set("portal.js", "20261010-ct-vinculo-rpt-cohorte-v10");
-  // B99 renueva la entrada compartida después de incorporar el vínculo RPT.
-  versionesEspeciales.set("portal.js", "20261011-b99-ct-rpt-cohorte-v11");
+  versionesEspeciales.set("portal.js", "20261011-bolsa-b103-privacidad-v1");
+  for (const ruta of ["portal-bolsas-api.js", "portal-panel-interno.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261011-bolsa-confirmaciones-v1");
+  for (const ruta of ["portal-panel-interno.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261011-bolsa-textos-v1");
+  // Cohorte final del grafo CT/Bolsa integrado para el vínculo.
+  for (const ruta of [
+    "categorias-rpt/cliente.js",
+    "categorias-rpt/montaje.js",
+    "modulos/bolsa/carga-convoca/arranque.js",
+    "modulos/bolsa/carga-convoca/vista.js",
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/cliente-http-cambios-expediente.js",
+    "modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http-transporte.js",
+    "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/componentes-expedientes.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/datos-presentacion.js",
+    "modulos/contratacion-temporal/documentacion-formalizacion.js",
+    "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-cobertura.js",
+    "modulos/contratacion-temporal/formulario-fiscalizacion.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/gestor-resultado-bolsa.js",
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/presentador-expedientes.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vinculo-categoria-rpt.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-cambios.js",
+    "modulos/contratacion-temporal/vista-expedientes-ficha.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-bolsas-api.js",
+    "portal-bolsas-contrato.js",
+    "portal-bolsas-global.js",
+    "portal-bolsas-historial-ofrecimientos.js",
+    "portal-bolsas-intentos.js",
+    "portal-bolsas-marcas.js",
+    "portal-bolsas-ofertas.js",
+    "portal-bolsas-ruta-filtros.js",
+    "portal-bolsas-seguimiento.js",
+    "portal-catalogo-modulos.js",
+    "portal-inicio.js",
+    "portal-llamamiento-origen.js",
+    "portal-llamamientos-operaciones-api.js",
+    "portal-modulos-coordinador.js",
+    "portal-panel-interno.js",
+    "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261011-ct-bolsa-vinculo-v1");
+  // El informe legible renueva únicamente su entrada y los padres que lo cargan.
+  for (const ruta of [
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-modulos-coordinador.js", "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261011-informe-legible-v1");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {

@@ -4,16 +4,16 @@ import { idiomaActivoAreaPersonal, iniciarI18nAreaPersonal, textosErrorCargaArea
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
   sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261007-p7-imagen-v1";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
-import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261009-inscripcion-v1";
-import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261009-inscripcion-v1";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261009-inscripcion-v1";
-import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261009-inscripcion-v1";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261009-inscripcion-v1";
+} from "./vistas/seguimiento-tramites.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
-import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261009-inscripcion-v1";
-import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261009-inscripcion-v1";
+import { enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261011-mibolsa-respuesta-anterior-v1";
 
 
 const RUTAS = Object.freeze({
@@ -186,7 +186,7 @@ export function datosMinimosMiBolsa(consulta) {
   const nombre = consulta.nombre_visible || "";
   return Object.freeze({
     meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en, busqueda_convocatorias_disponible: false },
-    sesion: { nombre_visible: nombre, iniciales: (nombre && consulta.iniciales) || "—", metodo: traducir("areaPersonal.miBolsa.identidad.metodoNoFacilitado"), persona_ref: null },
+    sesion: { nombre_visible: nombre, iniciales: (nombre && consulta.iniciales) || "—", metodo: "", persona_ref: null },
     resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
     perfil: { referencia: null, nombre_visible: nombre, identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), telefono: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), domicilio: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), estado_verificacion: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado") },
     plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
@@ -231,7 +231,9 @@ function actualizarShell(estado) {
   // La etiqueta del botón tapa su contenido: el nombre va también en ella y en el title del botón.
   const botonSesion = nombreSesion.closest?.(".sesion-usuario");
   if (botonSesion) { botonSesion.title = nombre; botonSesion.setAttribute("aria-label", nombre ? traducir("areaPersonal.preferencias.menuIdentidadNombre", { nombre }) : traducir("areaPersonal.preferencias.menuIdentidad")); }
-  porId("perfil-sesion").textContent = datos.sesion.metodo;
+  const perfilSesion = porId("perfil-sesion");
+  perfilSesion.textContent = datos.sesion.metodo;
+  perfilSesion.hidden = !datos.sesion.metodo;
   document.querySelectorAll("[data-ruta]").forEach((enlace) => {
     const activa = enlace.dataset.ruta === vista;
     if (activa) enlace.setAttribute("aria-current", "page"); else enlace.removeAttribute("aria-current");
@@ -430,7 +432,7 @@ function verSesion(estado) {
   const prefijoTraduccion = "areaPersonal.sesion.";
   const campos = [...(sesion.nombre_visible ? [[traducir(`${prefijoTraduccion}persona`), escaparHTML(sesion.nombre_visible)]] : []),
     ...(sesion.persona_ref ? [[traducir(`${prefijoTraduccion}referencia`), escaparHTML(sesion.persona_ref)]] : []),
-    [traducir(`${prefijoTraduccion}metodo`), escaparHTML(sesion.metodo)],
+    ...(sesion.metodo ? [[traducir(`${prefijoTraduccion}metodo`), escaparHTML(sesion.metodo)]] : []),
     [traducir(`${prefijoTraduccion}origen`), escaparHTML(estado.datos.meta.origen)]];
   mostrarDetalle(traducir(`${prefijoTraduccion}titulo`), `${listaDatos(campos)}<p class="nota">${escaparHTML(traducir(`${prefijoTraduccion}autoridadServidor`))}</p>`);
 }
@@ -562,6 +564,20 @@ function conectarEventos(estado) {
   window.addEventListener("scroll", () => { estado.interaccionVersion += 1; }, { passive: true });
   document.addEventListener("click", (evento) => {
     estado.interaccionVersion += 1;
+    const reintentarRespuesta = evento.target.closest("[data-portal-reintentar]");
+    if (reintentarRespuesta) {
+      if (evento.detail > 1) return;
+      const formulario = reintentarRespuesta.closest("[data-portal-mi-bolsa]");
+      if (formulario) void enviarPortalMiBolsa(formulario, {
+        fetchImpl: estado.fetchImpl, alRegistrar: () => cargar(estado), reintentoExplicito: true,
+      });
+      return;
+    }
+    const volverRevision = evento.target.closest("[data-portal-revision-volver]");
+    if (volverRevision) {
+      volverRespuestaPortalMiBolsa(volverRevision.closest("[data-portal-mi-bolsa]"));
+      return;
+    }
     if (!evento.target.closest(".identidad-cabecera") && !porId("menu-identidad")?.hidden) cerrarMenuIdentidad();
     const enlace = evento.target.closest("[data-ruta]");
     if (enlace) {
@@ -583,7 +599,12 @@ function conectarEventos(estado) {
       return;
     }
     if (formulario.dataset.portalMiBolsa) {
-      enviarPortalMiBolsa(formulario, { fetchImpl: estado.fetchImpl, alRegistrar: () => cargar(estado) });
+      void revisarRespuestaPortalMiBolsa(formulario).then((enviar) => {
+        if (enviar) void enviarPortalMiBolsa(formulario, { fetchImpl: estado.fetchImpl, alRegistrar: () => cargar(estado) });
+      }).catch(() => {
+        const resultado = formulario.querySelector("[data-portal-resultado]");
+        if (resultado) resultado.textContent = textoPortal("error.servicio_no_disponible");
+      });
       return;
     }
     if (formulario.dataset.accion === "buscar-ayuda") {
@@ -679,7 +700,7 @@ async function cargar(estado) {
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
   errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false,
-  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261010-inscripcion-lecturas-b99") } = {}) {
+  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261011-mibolsa-respuesta-anterior-v1") } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }
@@ -751,7 +772,7 @@ export function aplicarPreferenciasInicialesAplazadas(estado, lectura, error = n
       const metodo = metodoIdentidadPreferencias(true);
       estado.datos.sesion.metodo = metodo;
       const perfilSesion = porId("perfil-sesion");
-      if (perfilSesion) perfilSesion.textContent = metodo;
+      if (perfilSesion) { perfilSesion.textContent = metodo; perfilSesion.hidden = false; }
     }
     estado.filasPreferidas = lectura.estado.valores.filas;
     if (estado.ajusteVisualVersion === 0) {

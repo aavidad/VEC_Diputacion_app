@@ -14,6 +14,7 @@
     "ayudaPaso3": "Check the list: the order is the one the pool will have. Rows with errors cannot go in. Fix them in the spreadsheet and start again, or tick the “Load the pool without…” box to leave them out.",
     "ayudaPaso4": "Press “Load the pool”. If there was already a pool for that category, the new one replaces it.",
     "ayudaAvisos": "A row with a warning has the same document and name as another row. It enters the pool in its place, but it is not linked to the person: they will not see it in their personal area until someone checks in CONVOCA whether they are the same person.",
+    "ayudaRecuperar": "If the load finishes without showing a result, press “Recover result”. The same load will be checked using the file still open on this page.",
     "ayudaCerrar": "Close help",
     "pasos": "Loading steps",
     "paso1": "Choose file",
@@ -106,6 +107,10 @@
     "confirmarDescartes": {
       "one": "{cuenta} row with errors will be left out.",
       "other": "{cuenta} rows with errors will be left out."
+    },
+    "confirmarAvisos": {
+      "one": "The row with a warning will be included, but you will need to check it afterwards.",
+      "other": "The {cuenta} rows with warnings will be included, but you will need to check them afterwards."
     },
     "cargandoPagina": "Loading rows…",
     "verCargadas": {

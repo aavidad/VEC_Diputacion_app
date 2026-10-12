@@ -13,11 +13,10 @@ test("la entrada se renueva y la vista de inicio conserva su URL vigente", async
     readFile(new URL("../arranque.js", import.meta.url), "utf8"),
     readFile(new URL("../aplicacion.js", import.meta.url), "utf8"),
   ]);
-  const versionEntrada = "20261010-inscripcion-lecturas-b99";
-  const versionVista = "20261009-inscripcion-v1";
-  assert.match(html, new RegExp(`/area-personal/arranque\\.js\\?v=${versionEntrada}`));
-  assert.match(arranque, new RegExp(`\\./aplicacion\\.js\\?v=${versionEntrada}`));
-  assert.match(aplicacion, new RegExp(`\\./vistas/inicio-convocatorias\\.js\\?v=${versionVista}`));
+  const version = "20261011-mibolsa-respuesta-anterior-v1";
+  assert.match(html, /\/area-personal\/arranque\.js\?v=20261011-mibolsa-respuesta-anterior-v1/u);
+  assert.match(arranque, new RegExp(`\\./aplicacion\\.js\\?v=${version}`));
+  assert.match(aplicacion, new RegExp(`\\./vistas/inicio-convocatorias\\.js\\?v=${version}`));
 });
 
 test("el inicio remite a Mi bolsa y ya no ofrece convocatorias ni expedientes", async () => {

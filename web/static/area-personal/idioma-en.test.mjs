@@ -15,6 +15,38 @@ test("carga inglés por preferencia del navegador sin usar el lang español de r
   assert.equal(traducir("areaPersonal.rutas.inicio"), (await catalogoPlano("en"))["areaPersonal.rutas.inicio"]);
   assert.ok(leer.pedidas.includes("en/area-personal.json"));
   assert.ok(leer.pedidas.includes("en/preferencias.json"));
+  assert.deepEqual(leer.pedidas.filter((ruta) => ruta.startsWith("es/")), []);
+});
+
+test("el catálogo español solo se consulta al elegirlo", async () => {
+  const documento = { documentElement: {}, querySelectorAll: () => [] };
+  const leer = lectorCatalogos();
+  await iniciarI18nAreaPersonal(documento, { leer, ubicacion: { href: "https://vec.example/area-personal/?lang=en" } });
+  assert.deepEqual(leer.pedidas.filter((ruta) => ruta.startsWith("es/")), []);
+  await iniciarI18nAreaPersonal(documento, { leer, ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
+  assert.deepEqual(leer.pedidas.filter((ruta) => ruta.startsWith("es/")).sort(),
+    ["es/area-personal.json", "es/preferencias.json"]);
+  assert.equal(documento.documentElement.lang, "es");
+});
+
+test("un fallo del catálogo elegido recupera todo el idioma por defecto", async () => {
+  const documento = { documentElement: {}, querySelectorAll: () => [] };
+  const local = lectorCatalogos();
+  const pedidas = [];
+  const leer = async (url) => {
+    const ruta = url.pathname.split("/textos/").at(-1);
+    pedidas.push(ruta);
+    if (ruta === "en/area-personal.json") throw new Error("lectura interrumpida");
+    return local(url);
+  };
+  const idioma = await iniciarI18nAreaPersonal(documento, {
+    leer, ubicacion: { href: "https://vec.example/area-personal/?lang=en" },
+  });
+  assert.equal(idioma, "es");
+  assert.equal(documento.documentElement.lang, "es");
+  assert.ok(pedidas.includes("es/area-personal.json"));
+  assert.ok(pedidas.includes("es/preferencias.json"));
+  assert.equal(traducir("areaPersonal.rutas.inicio"), (await catalogoPlano("es"))["areaPersonal.rutas.inicio"]);
 });
 
 test("la URL explícita prevalece y una preferencia extraña no construye rutas", () => {

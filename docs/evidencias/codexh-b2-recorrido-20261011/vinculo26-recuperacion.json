@@ -1,0 +1,10 @@
+{
+  "http_post_original": 200,
+  "http_replay_tras_reinicio": 200,
+  "recibo_integro_identico": true,
+  "recibo_ref": "recibo:a9791e57-a8b7-4d04-8eac-cf3e8769bd9c",
+  "registrado_en": "2026-10-11T14:22:58.774281Z",
+  "revision": 1,
+  "prospectivo": true,
+  "acredita_procedencia_historica": false
+}

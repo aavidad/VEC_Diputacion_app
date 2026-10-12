@@ -488,6 +488,7 @@ static/textos/es/contratacion-temporal-cambios-expediente.json
 static/textos/es/contratacion-temporal-cancelacion.json
 static/textos/es/contratacion-temporal-ficha-lista.json
 static/textos/es/contratacion-temporal-informe-tras-subsanacion.json
+static/textos/es/contratacion-temporal-informe-juridico.json
 static/textos/es/contratacion-temporal-llamamiento.json
 static/textos/es/contratacion-temporal-moad.json
 static/textos/es/contratacion-temporal-necesidades-alta.json
@@ -501,6 +502,7 @@ static/textos/en/contratacion-temporal-cambios-expediente.json
 static/textos/en/contratacion-temporal-cancelacion.json
 static/textos/en/contratacion-temporal-ficha-lista.json
 static/textos/en/contratacion-temporal-informe-tras-subsanacion.json
+static/textos/en/contratacion-temporal-informe-juridico.json
 static/textos/en/contratacion-temporal-llamamiento.json
 static/textos/en/contratacion-temporal-moad.json
 static/textos/en/contratacion-temporal-necesidades-alta.json
