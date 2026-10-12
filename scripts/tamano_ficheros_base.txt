@@ -110,7 +110,7 @@
 1520 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1141 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-1088 web/static/portal-empleado/portal-i18n.test.mjs
+1094 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 952 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
@@ -153,4 +153,4 @@
 907 deploy/postgresql/catalogos_configurables/migraciones/000011_lectura_lote_categorias_inscripcion.up.sql
 2983 deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql
 2998 deploy/postgresql/autorizacion_atestada_v3/migraciones/000247_campos_canonicos_original_firmable.up.sql
-818 internal/app/bootstrap/contratacion_temporal_perfiles_fijos_rrhh_desarrollo.go
+822 internal/app/bootstrap/contratacion_temporal_perfiles_fijos_rrhh_desarrollo.go
