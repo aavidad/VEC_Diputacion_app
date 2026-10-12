@@ -21,7 +21,7 @@ por_defecto=$(cuenta 'usuarios|contratacion|bolsa|documentos|incorporacion')
 cronos=$(cuenta cronos)
 mibolsa=$(cuenta mibolsa)
 incorporacionb=$(cuenta incorporacionb)
-[[ $mibolsa == 8 && $incorporacionb == 24 ]] || { echo 'FALLO: bloques opt-in incompletos' >&2; exit 1; }
+[[ $mibolsa == 8 && $incorporacionb == 26 ]] || { echo 'FALLO: bloques opt-in incompletos' >&2; exit 1; }
 
 # Tabla, disparadores, política y resolutor de AD172, copiados literalmente.
 ad172_objetos() {

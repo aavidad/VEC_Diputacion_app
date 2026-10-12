@@ -86,5 +86,19 @@
   "ct_incorporacion_b2_previo_documento": "Appointment document available",
   "ct_incorporacion_b2_previo_rpt": "Current post verified",
   "ct_incorporacion_b2_previo_plaza": "Available establishment position verified",
-  "ct_incorporacion_b2_previo_periodo": "Commencement period verified"
+  "ct_incorporacion_b2_previo_periodo": "Commencement period verified",
+  "catalogo_registro": {
+    "regimen": {
+      "funcionario_interino": "Interim civil servant",
+      "laboral_temporal": "Temporary staff under employment contract"
+    },
+    "modalidad": {
+      "interino_plaza_vacante": "Interim appointment to a vacant post",
+      "interino_sustitucion_titular": "Interim appointment to replace the post holder",
+      "interino_programa_temporal": "Interim appointment for a temporary programme",
+      "interino_exceso_acumulacion_tareas": "Interim appointment for an excess or build-up of work",
+      "laboral_sustitucion": "Replacement contract",
+      "laboral_circunstancias_produccion": "Contract for production needs"
+    }
+  }
 }
