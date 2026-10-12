@@ -8,11 +8,12 @@ SET LOCAL statement_timeout='30s';
 SELECT set_config('vec.fixture.expediente', :'expediente', true);
 SELECT set_config('vec.fixture.catalogo_ref', :'catalogo_ref', true);
 SELECT set_config('vec.fixture.catalogo_sha', :'catalogo_sha', true);
+SET LOCAL ROLE vec_contratacion_temporal_propietario;
 WITH p(n,paso,perfil,firmante) AS (VALUES
  (1,'vec.contratacion_temporal.circuito_firma:1:informe_definitivo.p1',
-    'perfil:ct:tecnico_rrhh','persona:fixture:b2:rrhh'),
+    'perfil:ct:tecnico_rrhh','persona:rrhh:rrhh'),
  (2,'vec.contratacion_temporal.circuito_firma:1:informe_definitivo.p2',
-    'perfil:ct:jefatura_servicio_rrhh','persona:fixture:b2:jefatura')),
+    'perfil:ct:jefatura_servicio_rrhh','persona:rrhh:jefatura')),
  datos AS (SELECT current_setting('vec.fixture.expediente') exp,
                   current_setting('vec.fixture.catalogo_ref') cat,
                   current_setting('vec.fixture.catalogo_sha') sha)
@@ -25,7 +26,7 @@ INSERT INTO vec_contratacion_temporal.firma_documento_v1(
  decision_ref,consumo_huella_sha256,auditoria_consumo_ref,recibo_ref,registrada_en)
 SELECT 'firma-ct:'||md5(exp||':firma:'||n)::uuid::text,
  'organizacion:desarrollo:dipgra',exp,5,'informe_definitivo',n,
- 'fixture-b2-firma-'||md5(exp||':'||n),
+ 'remision-b2-firma-'||md5(exp||':'||n),
  encode(sha256(convert_to('fixture-solicitud:'||exp||':'||n,'UTF8')),'hex'),
  cat,sha,paso,n,'firmado',
  encode(sha256(convert_to('fixture-original:'||exp,'UTF8')),'hex'),
@@ -33,9 +34,9 @@ SELECT 'firma-ct:'||md5(exp||':firma:'||n)::uuid::text,
  encode(sha256(convert_to('fixture-certificado-inexistente:'||exp||':'||n,'UTF8')),'hex'),
  firmante,'politica:vec:firma:verificacion-autonoma:v1','valida','verificada',
  'vigente','no_presente',firmante,perfil,
- 'decision:fixture:b2:'||md5(exp||':'||n),
+ 'decision:rrhh:'||md5(exp||':'||n),
  encode(sha256(convert_to('fixture-consumo:'||exp||':'||n,'UTF8')),'hex'),
- 'auditoria:fixture:b2:'||md5(exp||':'||n),
+ 'auditoria:rrhh:'||md5(exp||':'||n),
  'recibo-firma-ct:'||md5(exp||':recibo:'||n)::uuid::text,
  now()+n*interval '1 microsecond'
 FROM p CROSS JOIN datos
@@ -53,18 +54,18 @@ DECLARE
 BEGIN
  IF (SELECT count(*) FROM vec_contratacion_temporal.firma_documento_v1
      WHERE expediente_ref=exp AND expediente_version=5 AND documento='informe_definitivo'
-       AND clave_idempotencia LIKE 'fixture-b2-firma-%')<>2 THEN
+       AND clave_idempotencia LIKE 'remision-b2-firma-%')<>2 THEN
    RAISE EXCEPTION 'Fixture de remisión: no hay dos filas exactas';
  END IF;
  FOR n IN 1..2 LOOP
    paso:='vec.contratacion_temporal.circuito_firma:1:informe_definitivo.p'||n;
    perfil:=CASE n WHEN 1 THEN 'perfil:ct:tecnico_rrhh' ELSE 'perfil:ct:jefatura_servicio_rrhh' END;
-   firmante:=CASE n WHEN 1 THEN 'persona:fixture:b2:rrhh' ELSE 'persona:fixture:b2:jefatura' END;
+   firmante:=CASE n WHEN 1 THEN 'persona:rrhh:rrhh' ELSE 'persona:rrhh:jefatura' END;
    SELECT count(*) INTO encontrados FROM vec_contratacion_temporal.firma_documento_v1
     WHERE expediente_ref=exp AND expediente_version=5 AND documento='informe_definitivo'
       AND secuencia=n AND paso_orden=n AND paso_ref=paso
       AND catalogo_ref=cat AND catalogo_huella_sha256=huella
-      AND ('fixture-b2-firma-'||md5(exp||':'||n))=clave_idempotencia
+      AND ('remision-b2-firma-'||md5(exp||':'||n))=clave_idempotencia
       AND firma_ref='firma-ct:'||md5(exp||':firma:'||n)::uuid::text
       AND recibo_ref='recibo-firma-ct:'||md5(exp||':recibo:'||n)::uuid::text
       AND resultado='firmado' AND perfil_ref=perfil AND firmante_ref=firmante;

@@ -1,17 +1,10 @@
-# No hay migraciones nuevas. HZ21, CT205-207 y Personal46 se conservan instaladas.
-# SQL DE DATOS: ejecutar SOLO mediante preparar.sh; requiere las claves privadas
-# y se intercala con actos nominales HTTP. No pasar esta lista a un instalador.
-# 1. scripts/operacion/preparar_expediente_alta_b2/fixture_rpt_puesto9.sql
-#    Antes de presentar: sólo si falta el puesto/plaza de la unidad 520.
-# 2. scripts/operacion/preparar_expediente_alta_b2/fixture_firma.sql
-#    Tras informe v5: dos precondiciones ficticias de remisión.
-# 3. scripts/operacion/preparar_expediente_alta_b2/fixture_anclaje.sql
-#    Tras selección: anclar la apertura original al candidato CTX18 existente.
-# No se instala normalización de fechas ni se reescribe historia CT.
-# DEPENDENCIA DE CÓDIGO: PR #1069, preimagen y postimagen del cese CT115.
-# CONFIG NUEVA: VEC_PERSONAL_B2_GOBIERNO_ENABLED=true; las ocho entradas de
-# régimen/modalidad publicadas; personal_b2.cese_fecha_efecto=primer_dia_sin_relacion
-# para el escenario inventado ensayado (duda 140 conserva la decisión de RRHH).
-# Mantener VEC_CT_INCORPORACION_ACREDITADA_ENABLED=true y
-# VEC_BOLSA_CESE_CT_ENABLED=true con sus LOGIN y material nominal ya preparados.
-# preparar.sh --comprobar imprime los comandos exactos si falta configuración.
+# PREPARACIÓN BLOQUEADA: falta fuente CT con Bolsa constituida.
+# No ejecutar --aplicar en cidonia ni instalar esta lista como migraciones.
+# No hay migraciones nuevas ni se modifica SQL instalado.
+# RPT: requiere puesto/plaza publicados compatibles; no añade filas/versiones.
+# 1. fixture_firma.sql: dos precondiciones ficticias bajo propietario CT.
+# 2. fixture_anclaje.sql: sólo vínculo por autoridad con Bolsa y situación existentes.
+# Sin replica, sin crear constituciones ni instantáneas, sin reescribir historia.
+# #1069 ya integrada: corrección de transporte físico del cese.
+# CONFIG: B2 gobierno=true, régimen/modalidad publicados y fecha de cese configurada.
+# --comprobar imprime comandos y requiere --config del lanzador activo.

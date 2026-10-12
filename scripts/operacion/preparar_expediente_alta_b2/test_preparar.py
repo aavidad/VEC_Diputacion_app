@@ -7,10 +7,55 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from preparar import comando_catalogo_faltante, comando_psql, cuerpo_canonico, guardar, cargar, http, lectura_db, serializar_cuerpo
+from preparar import Corte, comando_catalogo_faltante, comando_psql, cuerpo_canonico, data_http, efecto, guardar, cargar, http, lectura_db, nuevo_numero, serializar_cuerpo
 
 
 class CanonTrasReinicio(unittest.TestCase):
+    def test_error_http_malformado_conserva_corte_nominal(self):
+        for error in (None, "cadena", [], 4):
+            with self.subTest(error=error), patch("preparar.http", return_value=(422, {"error": error})):
+                with self.assertRaisesRegex(Corte, "422 respuesta_invalida"):
+                    data_http(None, "RRHH", "POST", "/api/vec/prueba", {})
+
+    def test_numero_usa_politica_y_cuatro_fuentes_sin_repetir_consulta(self):
+        from datetime import date
+        year = date.today().year
+        politica = {"numero_expediente_moad": {"patron": rf"^{year}/CT-[0-9]{{4}}$", "ejemplo": f"{year}/CT-0001"}}
+        state = {"valores": {}}
+        with patch("preparar.data_http", return_value=politica) as catalogo, \
+             patch("preparar.lectura_db", return_value=["15"]) as lectura:
+            self.assertEqual(nuevo_numero(None, state, ""), f"{year}/CT-0016")
+            self.assertEqual(nuevo_numero(None, state, ""), f"{year}/CT-0016")
+        self.assertEqual(catalogo.call_count, 1)
+        self.assertEqual(lectura.call_count, 1)
+        sql = lectura.call_args.args[1]
+        for tabla in ("expediente_alta", "identidad_reserva_alta", "numeracion_anual_asignada", "candidatura_alta_tecnica"):
+            self.assertIn(tabla, sql)
+
+    def test_respuesta_incierta_recupera_hora_y_clave_originales(self):
+        with tempfile.TemporaryDirectory() as folder:
+            ruta = Path(folder) / "estado.json"
+            args = SimpleNamespace(estado=ruta)
+            state = {"esquema": "vec.preparar-alta-b2.v1", "operaciones": {}, "valores": {}}
+            llamadas = []
+            def cuerpo():
+                llamadas.append(1)
+                return {"organizacion_ref": "organizacion:prueba", "expediente_ref": "expediente:prueba",
+                        "llamamiento_ref": "llamamiento:prueba", "comunicacion_ref": "comunicacion:prueba",
+                        "version_comunicacion_esperada": 2, "respuesta": "aceptacion",
+                        "correo_ref": "correo:rrhh:prueba", "correo_sha256": "a" * 64,
+                        "recibida_en": "2026-10-12T11:59:00Z"}
+            with patch("preparar.data_http", side_effect=Corte("respuesta incierta")):
+                with self.assertRaises(Corte):
+                    efecto(args, state, "respuesta", cuerpo)
+            congelada = cargar(ruta)
+            clave = congelada["operaciones"]["respuesta"]["cuerpo"]["clave_idempotencia"]
+            with patch("preparar.data_http", return_value={"recibo_ref": "recibo:prueba"}) as post:
+                efecto(args, congelada, "respuesta", cuerpo)
+            self.assertEqual(llamadas, [1])
+            self.assertEqual(post.call_args.args[4]["clave_idempotencia"], clave)
+            self.assertEqual(post.call_args.args[4]["recibida_en"], "2026-10-12T11:59:00Z")
+
     def test_comunicacion_conserva_bytes_canonicos_tras_guardar_y_cargar(self):
         cuerpo = {
             "organizacion_ref": "organizacion:desarrollo:dipgra",

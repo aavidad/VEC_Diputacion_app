@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit, quote
 
@@ -153,7 +153,8 @@ def http(args, actor, method, route, body=None):
 def data_http(args, actor, method, route, body=None, allowed=(200,)):
     code, content = http(args, actor, method, route, body)
     if code not in allowed or not isinstance(content, dict) or not isinstance(content.get("data"), dict):
-        codigo = content.get("error", {}).get("codigo", "respuesta_invalida") if isinstance(content, dict) else "respuesta_invalida"
+        error = content.get("error") if isinstance(content, dict) else None
+        codigo = error.get("codigo", "respuesta_invalida") if isinstance(error, dict) else "respuesta_invalida"
         raise Corte(f"HTTP {method} {route}: {code} {codigo}; conservar estado privado y recuperar con la misma clave")
     return content["data"]
 
@@ -335,13 +336,13 @@ def continuar_llamamiento(args, state, expediente):
     comunicacion_ref = campo(comunicada, "comunicacion_ref")
 
     def respuesta():
-        correo_ref = f"correo:ensayo:b2:{uuid.uuid4().hex}"
+        correo_ref = f"correo:rrhh:b2:{uuid.uuid4().hex}"
         huella = hashlib.sha256((correo_ref + ":contenido-ficticio").encode()).hexdigest()
         return {"organizacion_ref": "organizacion:desarrollo:dipgra", "expediente_ref": expediente,
                 "llamamiento_ref": llamamiento, "comunicacion_ref": comunicacion_ref,
                 "version_comunicacion_esperada": 2, "respuesta": "aceptacion",
                 "correo_ref": correo_ref, "correo_sha256": huella,
-                "recibida_en": date.today().isoformat() + "T12:00:00Z"}
+                "recibida_en": (datetime.now(timezone.utc) - timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")}
     respondida = efecto(args, state, "respuesta", respuesta)
 
     def aceptacion():
@@ -413,12 +414,18 @@ def rpt_compatible(args):
     if not isinstance(org, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}", org):
         raise Corte("FALTA: organismo B2 no está fijado en JSON privado")
     query = ("SELECT count(*) FROM vec_personal.puesto_rpt_historia p "
+             "JOIN vec_personal.puesto_tipo_historia t ON t.tipo_ref=p.tipo_ref AND t.revision=p.tipo_revision AND t.organismo_ref=p.organismo_ref "
+             "JOIN vec_personal.version_rpt_historia r ON r.version_ref=t.rpt_version_ref AND r.revision=t.rpt_revision AND r.organismo_ref=t.organismo_ref "
              "JOIN vec_personal.vinculo_plaza_puesto_historia v "
              "ON v.puesto_ref=p.puesto_ref AND v.organismo_ref=p.organismo_ref "
              "JOIN vec_personal.plaza_plantilla_historia l "
              "ON l.plaza_ref=v.plaza_ref AND l.organismo_ref=p.organismo_ref "
+             "JOIN vec_personal.version_plantilla_historia pl ON pl.version_ref=l.plantilla_version_ref AND pl.revision=l.plantilla_revision AND pl.organismo_ref=l.organismo_ref "
              f"WHERE p.organismo_ref='{org}' AND p.unidad_ref='unidad:centro:520' "
-             "AND p.codigo_puesto_fuente='9/01' AND l.codigo_plaza_fuente='2026/0033'")
+             "AND p.codigo_puesto_fuente='9/01' AND l.codigo_plaza_fuente='2026/0033' AND l.unidad_ref=p.unidad_ref AND v.unidad_ref=p.unidad_ref "
+             "AND r.estado='publicada' AND pl.estado='publicada' AND r.publicada_en IS NOT NULL AND pl.publicada_en IS NOT NULL "
+             "AND NOT p.retirado AND NOT t.retirado AND NOT v.retirado AND NOT l.retirado AND NOT r.retirado AND NOT pl.retirado "
+             "AND p.fuente_ref NOT LIKE 'fuente:ensayo:%' AND l.fuente_ref NOT LIKE 'fuente:ensayo:%' AND v.fuente_ref NOT LIKE 'fuente:ensayo:%'")
     count = lectura_db(args, query)
     if len(count) != 1 or not count[0].isdigit():
         raise Corte("FALTA: consulta de puesto/plaza RPT no verificable")
@@ -426,22 +433,14 @@ def rpt_compatible(args):
 
 
 def preparar_rpt(args, state):
-    count, org = rpt_compatible(args)
-    if count == 1:
-        if state["valores"].get("rpt_puesto9") == "fixture_pendiente":
-            state["valores"]["rpt_puesto9"] = "fixture_sintetico_confirmado"
-        elif state["valores"].get("rpt_puesto9") != "fixture_sintetico_confirmado":
-            state["valores"]["rpt_puesto9"] = "existente"
-        return
-    if count != 0:
-        raise Corte("FALTA: RPT puesto9/plaza2026-0033 ambiguos; revisar fuente histórica")
-    state["valores"]["rpt_puesto9"] = "fixture_pendiente"
-    guardar(args.estado, state)
-    ejecutar_fixture(args, "fixture_rpt_puesto9.sql", {"organismo": org})
-    if rpt_compatible(args)[0] != 1:
-        raise Corte("FALTA: fixture RPT no produjo puesto/plaza compatible")
-    state["valores"]["rpt_puesto9"] = "fixture_sintetico_confirmado"
-    guardar(args.estado, state)
+    count, _ = rpt_compatible(args)
+    if count != 1:
+        raise Corte("FALTA: RPT publicada compatible con centro 520, puesto 9 y plaza 2026/0033")
+    state["valores"]["rpt_puesto9"] = "existente"
+
+
+def comprobar_fuente_bolsa_ct():
+    raise Corte("FALTA: selección CT con Bolsa constituida pendiente de montaje")
 
 
 def comando_catalogo_faltante(args, referencia):
@@ -508,6 +507,10 @@ def comprobar(args):
     if not (args.material / "ca/ca.crt").is_file():
         faltas.append("FALTA CA privada: --material <directorio-con-ca-y-mtls>")
     try:
+        comprobar_fuente_bolsa_ct()
+    except Corte as exc:
+        faltas.append(str(exc))
+    try:
         launcher = args.launcher.read_text(encoding="utf-8")
     except OSError:
         launcher = ""
@@ -525,7 +528,7 @@ def comprobar(args):
         if rpt_count == 1:
             print("EXISTE RPT puesto 9/01, plaza 2026/0033, unidad centro 520")
         else:
-            print("FALTA RPT compatible: --aplicar prepara sólo fixture sintético acotado de puesto 9/01 y plaza 2026/0033")
+            faltas.append("FALTA: RPT publicada compatible con centro 520, puesto 9 y plaza 2026/0033")
     except Corte as exc:
         faltas.append(str(exc))
     if args.estado.exists():
@@ -541,7 +544,7 @@ def comprobar(args):
         except (Corte, OSError, ValueError):
             faltas.append("FALTA: estado B2 privado ilegible o inseguro")
     else:
-        print("FALTA expediente B2 preparado en este estado; --aplicar PREPARA-ALTA-B2 inicia uno")
+        print("FALTA expediente B2 preparado en este estado; no hay recibo previo")
     try:
         # El GET nominal sólo devuelve catálogo; se consulta con la identidad RRHH.
         route = "/api/vec/personal/catalogos-registro-empleado?tipo=regimen&estado=publicada&limite=100"
@@ -567,16 +570,32 @@ def comprobar(args):
 def nuevo_numero(args, state, pedido):
     valores = state["valores"]
     if "numero" not in valores:
-        if pedido:
-            valores["numero"] = pedido
-        else:
-            year = date.today().year
-            result = lectura_db(args, "SELECT COALESCE(max(split_part(numero_visible,'/',2)::bigint),94000) "
-                               "FROM vec_contratacion_temporal.expediente_alta "
-                               f"WHERE numero_visible ~ '^{year}/[0-9]+$'")
-            if len(result) != 1 or not result[0].isdigit():
-                raise Corte("FALTA: numeración visible CT no verificable")
-            valores["numero"] = f"{year}/{int(result[0]) + 1}"
+        catalogo = data_http(args, "RRHH", "GET", f"{BASE}/catalogos-alta")
+        politica = catalogo.get("numero_expediente_moad")
+        if not isinstance(politica, dict) or not isinstance(politica.get("patron"), str) or not isinstance(politica.get("ejemplo"), str):
+            raise Corte("FALTA: política MOAD publicada en catálogo de alta")
+        muestra = re.fullmatch(r"([0-9]{4}/[A-Za-z0-9._-]*?)([0-9]{1,12})", politica["ejemplo"])
+        if not muestra or muestra.group(1)[:4] != str(date.today().year):
+            raise Corte("FALTA: ejemplo MOAD anual con sufijo numérico utilizable")
+        prefijo, cifras = muestra.groups()
+        q = ("SELECT coalesce(max(substring(numero_visible from " + str(len(prefijo) + 1) + ")::numeric),-1) FROM ("
+             "SELECT numero_visible FROM vec_contratacion_temporal.expediente_alta UNION ALL "
+             "SELECT numero_visible FROM vec_contratacion_temporal.identidad_reserva_alta UNION ALL "
+             "SELECT numero_visible FROM vec_contratacion_temporal.numeracion_anual_asignada UNION ALL "
+             "SELECT numero_visible FROM vec_contratacion_temporal.candidatura_alta_tecnica) n "
+             f"WHERE left(numero_visible,{len(prefijo)})='{prefijo}' "
+             f"AND substring(numero_visible from {len(prefijo) + 1}) ~ '^[0-9]+$'")
+        usado = lectura_db(args, q)
+        if len(usado) != 1 or not re.fullmatch(r"-?[0-9]+", usado[0]):
+            raise Corte("FALTA: numeración CT y reservas no verificables")
+        numero = pedido or prefijo + str(max(int(cifras), int(usado[0]) + 1)).zfill(len(cifras))
+        try:
+            valido = len(politica["patron"]) <= 512 and re.fullmatch(politica["patron"], numero)
+        except re.error:
+            valido = None
+        if not valido or not numero.startswith(prefijo) or not numero[len(prefijo):].isdigit() or int(numero[len(prefijo):]) <= int(usado[0]):
+            raise Corte("FALTA: número MOAD fuera de política publicada o ya reservado")
+        valores["numero"] = numero
     if pedido and valores["numero"] != pedido:
         raise Corte("FALTA: --numero no coincide con el número privado del primer intento")
     return valores["numero"]

@@ -1,4 +1,8 @@
-# Preparación de expediente, alta en Personal y cese
+# Alta y cese locales; preparación bloqueada para cidonia
+
+**Estado vigente: NO-GO para preparar el alta B2 en cidonia.** La revisión posterior detectó que el anclaje antiguo omitía claves foráneas y podía impedir la restauración. Se ha retirado ese mecanismo y la preparación RPT que ampliaba versiones publicadas. El guion corregido se detiene antes del primer POST: falta montar la selección CT con Bolsa constituida. La alternativa de constituir su bolsa sintética no cumple la condición de dirección de mantenerla fuera de listas y recuentos RRHH.
+
+Los resultados y capturas siguientes conservan la evidencia funcional local del cese integrado en #1069; **no acreditan una preparación segura ejecutable en cidonia**.
 
 Ensayo local del 12/10/2026 con Chrome del sistema, PostgreSQL 18.4 y datos inventados. La base procede de la copia de la principal usada en el corte de Personal46; se quitaron únicamente las seis filas privadas del antiguo fixture RPT para comprobar la preparación desde ausencia. Ningún servicio de cidonia se consultó o modificó. No se reaplicaron migraciones ni se ejecutó DOWN.
 
@@ -28,7 +32,7 @@ La versión 8 conserva antes y después SHA del agregado `c92cb38dd82f14c0201f2d
 
 ## Instalación y uso
 
-Orden: **#1069 → esta entrega**. No hay SQL de migración nuevo. La [lista ordenada](../../../deploy/principal/lista_sql_codexk_preparar_alta_b2_20261012.txt) identifica las tres preparaciones de datos y su punto del recorrido; sólo el guion las ejecuta, con parámetros del estado privado.
+La corrección del cese #1069 está integrada. Esta preparación permanece en borrador y bloqueada; no ejecutarla en cidonia. No hay SQL de migración nuevo. La [lista ordenada](../../../deploy/principal/lista_sql_codexk_preparar_alta_b2_20261012.txt) identifica las tres preparaciones de datos y su punto del recorrido; sólo el guion las ejecuta, con parámetros del estado privado.
 
 Como `openclaw`, desde un checkout que contenga ambas entregas:
 
@@ -43,8 +47,12 @@ El guion reutiliza los contratos centro→RRHH, análisis→informe y propuesta/
 
 ## Alcance y límites
 
-Las firmas de remisión y el anclaje de Bolsa son preparaciones ficticias expresamente autorizadas; no verifican firma electrónica ni publicación institucional de la RPT. El archivo seleccionado para el cese aportó su huella; no acredita custodia documental. No se sustituyó ningún catálogo publicado ni se concedieron perfiles desde el guion.
+En el ensayo histórico, las firmas de remisión y el anclaje de Bolsa fueron preparaciones ficticias expresamente autorizadas; no verifican firma electrónica ni publicación institucional de la RPT. El archivo seleccionado para el cese aportó su huella; no acredita custodia documental. No se sustituyó ningún catálogo publicado ni se concedieron perfiles desde el guion.
 
 La ficha tiene 13 consultas fijas; el GET del plan confirmado tiene 33 y respondió alrededor de 250–260 ms en este ensayo. El GET previo de opciones conserva la deuda de rendimiento comunicada a dirección. A 1440 y 390 px no hubo desbordamiento horizontal global. El clon tiene 503 heredados de preferencias de Usuarios y consulta de resolución posterior, y una advertencia del servicio de documentos; no se declara cero errores globales del portal. El alta, el cese y las tres lecturas de recuperación sí responden con los estados de la tabla.
 
-Revisiones SQL y seguridad del guion: GO sobre los bytes conservados de `95acc84` y `90cc5f33`. Revisión sensible del cese: GO exacto `e36151198`; usabilidad focal de las tres etiquetas de ocupación: GO. Semgrep local, sintaxis y pruebas focales verdes; la puerta completa se ejecuta una vez en CI por PR.
+Los GO anteriores del guion quedaron sustituidos por el NO-GO de dirección; el delta corregido requiere revisión independiente nueva. Revisión sensible del cese: GO exacto `e36151198`; usabilidad focal de las tres etiquetas de ocupación: GO. Semgrep local, sintaxis y pruebas focales verdes; la puerta completa se ejecuta una vez en CI por PR.
+
+## Corrección posterior y restauración
+
+La copia original HZ19 conserva 71 expedientes, 12 bolsas constituidas y 606 situaciones. La restauración completa del dump de esa base con `pg_restore --exit-on-error` terminó correctamente. El SQL corregido rechaza la apertura sintética sin escribir; se ensayó el vínculo por autoridad contra una participación real ya constituida, con datos preparados sólo en la copia. La remisión insertó dos filas bajo el propietario CT. Esta comprobación SQL aislada no acredita que la raíz CT consuma Bolsa real ni repite el recorrido web. La restauración completa tras ese delta terminó con código 0: 71 expedientes, 12 bolsas, 606 situaciones, 18 registros de integración y dos precondiciones de remisión. No cambió el número de bolsas o situaciones. La prueba del modo aplicar informó FALTA antes del primer POST; seis pruebas focales y Semgrep local (151 reglas) están verdes.
