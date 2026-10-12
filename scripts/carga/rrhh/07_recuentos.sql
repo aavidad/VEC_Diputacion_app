@@ -55,8 +55,8 @@ SELECT jsonb_pretty(jsonb_build_object(
       WHERE instantanea_ref = 'instantanea:rendimiento:20261012'),
     'vinculos_candidato_proyeccion', (SELECT count(*) FROM vec_bolsa_llamamientos.vinculo_candidato
       WHERE acta_ref='acta:rendimiento:20261012'),
-    'nombres_sinteticos_en_canon', (SELECT jsonb_array_length(convert_from(bolsa_canonica,'UTF8')::jsonb->'participaciones')
-      FROM vec_bolsa_llamamientos.bolsa_constituida
+    'participaciones_canonicas', (SELECT jsonb_array_length(convert_from(instantanea_canonica,'UTF8')::jsonb->'entradas')
+      FROM vec_bolsa_llamamientos.instantanea_orden_bolsa
       WHERE bolsa_ref='bolsa:rendimiento:20261012'),
     'situaciones_proyeccion', (SELECT jsonb_object_agg(situacion,total)
       FROM (SELECT situacion,count(*) total FROM vec_bolsa_llamamientos.situacion_participacion

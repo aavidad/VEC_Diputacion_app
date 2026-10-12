@@ -15,9 +15,20 @@ if [[ "$observado" != "$esperado" ]]; then
     exit 2
 fi
 
+raiz=$(cd -- "$directorio/../../.." && pwd -P)
+canones=$(mktemp "${TMPDIR:-/tmp}/vec-banco-canones.XXXXXX")
+trap 'rm -f -- "$canones"' EXIT
+GOCACHE="$HOME/.cache/go-build" GOMAXPROCS=6 go -C "$raiz" run -p 6 \
+    ./scripts/carga/rrhh/generar_bolsa_volumen.go > "$canones"
+
 for archivo in 01_ct_volumen.sql 02_ct_estados.sql 03_ct_urgencias.sql \
     04_ct_instantanea.sql 05_ct_cronologia.sql 06_bolsa_volumen.sql 07_recuentos.sql; do
     printf 'Carga: %s\n' "$archivo"
-    docker_local exec -i "$contenedor" psql -X -v ON_ERROR_STOP=1 \
-        -U postgres -d postgres < "$directorio/$archivo"
+    {
+        if [[ "$archivo" == 06_bolsa_volumen.sql ]]; then
+            cat -- "$canones"
+        fi
+        cat -- "$directorio/$archivo"
+    } | docker_local exec -i "$contenedor" psql -X -v ON_ERROR_STOP=1 \
+        -U postgres -d postgres
 done

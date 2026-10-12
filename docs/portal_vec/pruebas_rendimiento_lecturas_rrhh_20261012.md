@@ -17,14 +17,17 @@ sigue pendiente.
 | Lista CT, límite 50 | 30 | 173,371 | 214,172 | 300 |
 | Lista CT, límite 100 | 30 | 204,072 | 298,168 | 300 |
 | Ficha CT original | 30 | 118,484 | 140,505 | 300 |
-| Resumen de Bolsa | 30 | 64,791 | 103,637 | 300 |
+| Resumen de Bolsa | 30 | 63,204 | 68,444 | 300 |
 | Filtro CT sin resultados | 30 | 142,000 | 157,047 | 300 |
 | Preferencias | 0 | — | — | 100 |
 | Candidatos de bolsa original, límite 50 | 0 | — | — | 300 |
 
 Cada uno de los dos últimos casos recibió 30 respuestas 503 y otras tres en
 calentamiento. El cliente terminó con código 1. Los errores no entran en los
-percentiles. La ficha del candidato carga datos de la lista y varias secciones;
+percentiles. El resumen de Bolsa y candidatos se repitieron con 30 muestras
+y tres calentamientos después de corregir el canon de la fixture; esa es la
+medida de Bolsa de la tabla. Las demás lecturas conservan el lote inicial.
+La ficha del candidato carga datos de la lista y varias secciones;
 su lectura completa no queda acreditada con la lista fallida.
 
 ## Base, servidor y volumen
@@ -75,8 +78,9 @@ modificaron perfiles, roles o funciones.
    con los límites anteriores y la etiqueta `vec.propietario`. Conservar la
    configuración y el material privado fuera de Git. No arrancar ni modificar
    la copia de origen.
-2. Aplicar una sola vez `scripts/carga/rrhh/cargar.sh CONTENEDOR PROPIETARIO`.
-   Los guiones son DML de carga, no migraciones. Usan
+2. Con Go instalado, aplicar una sola vez `scripts/carga/rrhh/cargar.sh CONTENEDOR PROPIETARIO`.
+   El lanzador genera los dos cánones con los constructores de dominio de Bolsa
+   y los valida antes de cargar. Los guiones son DML de carga, no migraciones. Usan
    `session_replication_role=replica` en la sesión del banco; no deben aplicarse
    a una base de trabajo compartida. Conservar su salida de recuentos.
 3. Compilar el servidor del commit indicado, con su marca de revisión,
@@ -94,10 +98,23 @@ modificaron perfiles, roles o funciones.
 
 Preferencias falla en la fase de sesión: la única consulta observada es
 `vec_identidad_sesiones_v1.registrar_sesion_v1`; no llega a revalidación ni
-contexto. Candidatos falla en la carga de bolsa con siete consultas y un error
-interno sin centinela catalogado. Ambos 503 aparecían antes de añadir volumen.
-La recuperación del lote protegido forma parte de esa carga y debe comprobarse
-con el dueño de Bolsa.
+contexto. La única cuenta seleccionada por la configuración privada de preferencias no existe en
+`vec_identidad_sesiones_v1.cuenta`: recuento esperado 1, observado 0, y cero
+alias. Su alta nominal queda a cargo del dueño de identidad mediante el
+mecanismo existente.
+
+Antes del volumen, candidatos falló tras siete consultas con un error sin
+clasificar. En el lote publicado falló antes, tras una consulta, con
+`ErrConstitucionBolsaNoDisponible`: la instantánea añadida por la fixture no
+seguía el canon que valida el lector de todas las bolsas. Se corrigió
+únicamente la fixture propia con los constructores de dominio.
+El lector PostgreSQL real vuelve a aceptar las trece constituciones y la
+instantánea de 2.000 entradas. Una segunda copia limpia recibió los siete
+guiones por `cargar.sh` sin errores y conservó los recuentos originales.
+Después de la corrección, las 30 muestras y tres calentamientos de candidatos
+vuelven al fallo previo: siete consultas, 503 y causa sin clasificar. Su
+recuperación del lote protegido sigue pendiente del dueño de Bolsa; no se
+atribuye el error al rendimiento ni se rebajan validadores.
 
 No se atribuye a esta tabla una mejora antes/después ni una validación de
 cidonia, Chrome o la condición 3 completa. Las lecturas válidas medidas no
