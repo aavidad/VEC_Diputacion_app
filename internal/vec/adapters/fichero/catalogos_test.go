@@ -224,3 +224,30 @@ func limitesConsultaCatalogosFicheroPrueba() ports.LimitesConsultaCatalogosAcota
 		BytesAproximados: ports.MaximoBytesConsultaCatalogosAcotada,
 	}
 }
+
+// Solo la lectura de un paquete provisionable admite la falta de marca de
+// demostración; el resto de controles sigue siendo el mismo.
+func TestPaqueteProvisionableSoloAdmiteLaFaltaDeMarca(t *testing.T) {
+	base, err := os.ReadFile(rutaCatalogoProfesionalDemo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sinMarca := strings.Replace(string(base), `"demostracion": true`, `"demostracion": false`, 1)
+	if sinMarca == string(base) {
+		t.Fatal("el paquete de referencia no declara la marca")
+	}
+	if _, err := nuevaConsultaCatalogosDesdeJSON([]byte(sinMarca)); !errors.Is(err, domain.ErrCatalogoConfigurableInvalido) {
+		t.Fatalf("la lectura general admitió un paquete sin marca: %v", err)
+	}
+	consulta, err := nuevaConsultaCatalogosDesdeJSONConMarca([]byte(sinMarca), false)
+	if err != nil {
+		t.Fatalf("paquete provisionable rechazado: %v", err)
+	}
+	if metadatos, err := consulta.ObtenerMetadatosFuenteCatalogos(context.Background()); err != nil || metadatos.Demostracion {
+		t.Fatalf("metadatos=%#v error=%v", metadatos, err)
+	}
+	conDato := strings.Replace(sinMarca, "pendiente de validación por RRHH", "titular 12345678Z", 1)
+	if _, err := nuevaConsultaCatalogosDesdeJSONConMarca([]byte(conDato), false); !errors.Is(err, domain.ErrCatalogoConfigurableInvalido) {
+		t.Fatalf("paquete provisionable con dato personal admitido: %v", err)
+	}
+}

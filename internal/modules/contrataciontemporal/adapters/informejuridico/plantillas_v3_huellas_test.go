@@ -13,19 +13,19 @@ import (
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
 )
 
-const rutaCatalogoPlantillasV3Prueba = "../../../../../data/demo/plantillas/ct_plantillas_documentos.ejemplo.v3.demo.json"
+const rutaCatalogoPlantillasV3Prueba = "../../../../../data/catalogos/contratacion-temporal/plantillas_documentos.v3.json"
 
 var huellasPDFV3 = map[ports.TipoBorradorRRHH]string{
-	ports.BorradorInformeDefinitivo:  "c46a1ac69bfe53f1ae407bcad6b455fbfa1820102d1e3df7e53917ffc0422efa",
-	ports.BorradorResolucion:         "66f7da9d21d2f12bef740d0894f0933371900f6c4f92ef9c6b42f82166b4b17b",
-	ports.BorradorDiligencia:         "338de3163702c29f430ef83058b462c049d96fe9f75b3c9eb92cc2bf89642bd0",
-	ports.BorradorTomaPosesion:       "dfa0dc7d5be6ee2377bfe1de80b1b86c124c2618a258db7ae9e06508f3fffc06",
-	ports.BorradorNotificacion:       "c1bbd7f6fcfe4ae83ae5cebbdffe6995ac05603ce30535df0cbbe69181d1a358",
-	ports.BorradorComunicacionCentro: "c2bde6517069692390bcf90b1822a92d96f113c1abbf4a05e99871d3b7b5a53b",
+	ports.BorradorInformeDefinitivo:  "e506fb6bee374eb01f0813eee9f91409b0e3d71c07cb72eb66b5781fcf3f7248",
+	ports.BorradorResolucion:         "0946ca378ef63b80776785f1b9be9664fa23e6d0fd6d476d37333966d2345f2d",
+	ports.BorradorDiligencia:         "581a713b9a9f099d1a81ec97ff4a9ec992e1f13858b00713ef283e995f73b514",
+	ports.BorradorTomaPosesion:       "742f3f6b8c229df930ab61872f4d445686b33dce802a52baf11f8dbfc2ca4ac9",
+	ports.BorradorNotificacion:       "3014b96e015e201b96b5bb9c96f5caac220043eb560576dfdbc650e4da948daf",
+	ports.BorradorComunicacionCentro: "40e3d2550a029ff415fdc37339414fce42af604173b357e2aa83321064856c33",
 }
 
-func TestPlantillasV3ConservanBorradoresSinMarcadoresDeEnsayo(t *testing.T) {
-	consulta, err := fichero.NuevaConsultaCatalogos(rutaCatalogoPlantillasV3Prueba)
+func TestPlantillasV3SinMarcasDeEnsayoNiFirmaFingida(t *testing.T) {
+	consulta, err := fichero.NuevaConsultaCatalogoProvisionable(rutaCatalogoPlantillasV3Prueba)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,13 +40,19 @@ func TestPlantillasV3ConservanBorradoresSinMarcadoresDeEnsayo(t *testing.T) {
 	if !strings.HasPrefix(plantillas.Referencia(), CatalogoPlantillasBorradorID+":3") {
 		t.Fatalf("referencia: %s", plantillas.Referencia())
 	}
+	prohibidas := []string{"ejemplo", "demo", "sintétic", "borrador", "sin valor", "sin validez", "sin efectos", "desarrollo", "ensayo"}
+	visibles := []string{catalogo.Nombre, catalogo.FuenteRef, catalogo.MotivoCreacion, catalogo.AprobacionRef, catalogo.MotivoPublicacion}
 	for _, entrada := range catalogo.Entradas {
-		if entrada.Clave == "etiquetas" {
-			continue
+		visibles = append(visibles, entrada.Etiqueta, entrada.Descripcion)
+		for _, valor := range entrada.Atributos {
+			visibles = append(visibles, valor)
 		}
-		visible := entrada.Etiqueta + " " + entrada.Descripcion + " " + entrada.Atributos["titulo"] + " " + entrada.Atributos["parrafo.01"]
-		if strings.Contains(visible, "Datos sintéticos") || strings.Contains(visible, "modelo de ejemplo") || strings.Contains(visible, "BORRADOR DE DESARROLLO") {
-			t.Errorf("%s: el catálogo conserva un marcador visible", entrada.Clave)
+	}
+	for _, valor := range visibles {
+		for _, marca := range prohibidas {
+			if strings.Contains(strings.ToLower(valor), marca) {
+				t.Errorf("el catálogo conserva la marca %q: %s", marca, valor)
+			}
 		}
 	}
 	for tipo, esperado := range huellasPDFV3 {
@@ -55,8 +61,9 @@ func TestPlantillasV3ConservanBorradoresSinMarcadoresDeEnsayo(t *testing.T) {
 			t.Fatal(err)
 		}
 		texto := strings.Join(contenido.Parrafos, "\n")
-		if strings.Contains(texto, "Datos sintéticos") || strings.Contains(texto, "BORRADOR DE DESARROLLO") || !strings.Contains(texto, "Borrador sin firmar ni validar") {
-			t.Errorf("%s: texto visible incorrecto", tipo)
+		// El documento deja la firma por hacer: nunca afirma que ya está firmado.
+		if strings.Contains(strings.ToLower(texto), "firmado por") || strings.Contains(strings.ToLower(texto), "firmado electrónicamente") {
+			t.Errorf("%s: el texto da por hecha una firma", tipo)
 		}
 		pdfBytes, err := (RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}, Plantillas: plantillas}).RenderizarBorrador(context.Background(), tipo, detalleInformeDefinitivoPrueba())
 		if err != nil {
