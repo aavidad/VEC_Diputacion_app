@@ -1,0 +1,3 @@
+# B102 después de B87; preimagen HZ20 comprobada en la propia migración.
+# No ejecutar sobre una base que ya tenga B102 instalada.
+deploy/postgresql/bolsa_llamamientos/migraciones/000102_privacidad_anotacion_contacto.up.sql

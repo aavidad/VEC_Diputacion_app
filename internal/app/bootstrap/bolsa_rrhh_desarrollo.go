@@ -80,11 +80,12 @@ type bolsasRRHHDesarrollo struct {
 	cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
 	// resumen y cargarBolsa acotan la lectura (ver alcanceCargaBolsasRRHH);
 	// si faltan, se usa cargar con todo el detalle.
-	resumen     func(context.Context) (datasetBolsasRRHHDesarrollo, error)
-	cargarBolsa func(context.Context, string) (datasetBolsasRRHHDesarrollo, error)
-	mutar       http.Handler
-	contactos   lectorContactosBolsaDesarrollo
-	avisos      *bolsaapplication.ServicioAvisosRRHH
+	resumen          func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	cargarBolsa      func(context.Context, string) (datasetBolsasRRHHDesarrollo, error)
+	mutar            http.Handler
+	contactos        lectorContactosBolsaDesarrollo
+	respuestasPortal lectorRespuestasPortalBolsaDesarrollo
+	avisos           *bolsaapplication.ServicioAvisosRRHH
 	// canales publica los canales de aviso activos para el asistente del
 	// llamamiento; sin él la lectura no los anuncia (el cliente asume correo).
 	canales proveedorCanalesLlamamientoDesarrollo
@@ -96,6 +97,10 @@ type proveedorCanalesLlamamientoDesarrollo interface {
 
 type lectorContactosBolsaDesarrollo interface {
 	ListarContactosBolsa(context.Context, string, string, int) (puertosbolsa.PaginaContactosParticipacion, error)
+}
+
+type lectorRespuestasPortalBolsaDesarrollo interface {
+	ConsultarRespuestasPortalLlamamiento(context.Context, string, string) (puertosbolsa.RespuestasPortalLlamamientoRRHH, error)
 }
 
 func nuevasRutasBolsasRRHHDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
@@ -116,6 +121,7 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]
 		manejador.contactos, _ = mutadores[0].(lectorContactosBolsaDesarrollo)
+		manejador.respuestasPortal, _ = mutadores[0].(lectorRespuestasPortalBolsaDesarrollo)
 		manejador.canales, _ = mutadores[0].(proveedorCanalesLlamamientoDesarrollo)
 	}
 	return []vechttp.RutaExacta{
@@ -254,6 +260,37 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if !encontrada {
 		responderBolsaRRHHDesarrollo(w, http.StatusNotFound, map[string]string{"codigo": "recurso_no_encontrado"})
 		return
+	}
+	if consulta.llamamiento != "" {
+		candidatas, candidatosValidos := respuesta["candidatos"].([]map[string]any)
+		if h.respuestasPortal == nil || !candidatosValidos || respuesta["hay_mas"] != false {
+			responderFalloBolsaRRHHDesarrollo(w, r, "respuestas_portal", ErrComposicionDesarrolloIncompleta)
+			return
+		}
+		respuestas, err := h.respuestasPortal.ConsultarRespuestasPortalLlamamiento(r.Context(), bolsaRef, consulta.llamamiento)
+		if err != nil || respuestas.LlamamientoRef != consulta.llamamiento || respuestas.Respuestas == nil || len(respuestas.Respuestas) > 100 {
+			responderFalloBolsaRRHHDesarrollo(w, r, "respuestas_portal", ErrComposicionDesarrolloIncompleta)
+			return
+		}
+		visibles := make(map[string]bool)
+		for _, candidata := range candidatas {
+			ref, ok := candidata["participacion_ref"].(string)
+			if !ok || ref == "" {
+				responderFalloBolsaRRHHDesarrollo(w, r, "respuestas_portal", ErrComposicionDesarrolloIncompleta)
+				return
+			}
+			visibles[ref] = true
+		}
+		vistas := make(map[string]bool, len(respuestas.Respuestas))
+		for _, dato := range respuestas.Respuestas {
+			if !visibles[dato.ParticipacionRef] || vistas[dato.ParticipacionRef] ||
+				(dato.Respuesta != "acepta" && dato.Respuesta != "renuncia" && dato.Respuesta != "renuncia_justificada") {
+				responderFalloBolsaRRHHDesarrollo(w, r, "respuestas_portal", ErrComposicionDesarrolloIncompleta)
+				return
+			}
+			vistas[dato.ParticipacionRef] = true
+		}
+		respuesta["respuestas_portal"] = map[string]any{"llamamiento_ref": respuestas.LlamamientoRef, "respuestas": respuestas.Respuestas}
 	}
 	if h.canales != nil {
 		canales := h.canales.CanalesLlamamientoActivos(r.Context())
