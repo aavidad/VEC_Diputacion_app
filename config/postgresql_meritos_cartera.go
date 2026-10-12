@@ -8,6 +8,7 @@ import (
 )
 
 const (
+	EnvExternoMeritosOperacionDatabaseURL            = "VEC_EXTERNO_MERITOS_OPERACION_DATABASE_URL"
 	EnvExternoMeritosCarteraDatabaseURL              = "VEC_EXTERNO_MERITOS_CARTERA_DATABASE_URL"
 	EnvExternoMeritosFronteraDatabaseURL             = "VEC_EXTERNO_MERITOS_FRONTERA_DATABASE_URL"
 	EnvExternoMeritosRegistroAutorizacionDatabaseURL = "VEC_EXTERNO_MERITOS_REGISTRO_AUTORIZACION_DATABASE_URL"

@@ -10,13 +10,13 @@ func NuevoHandlerCarteraNoDisponible() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if r == nil || r.URL == nil || r.URL.RawPath != "" ||
-			r.URL.Path != RutaCartera && r.URL.Path != RutaRetiradasCartera ||
+			r.URL.Path != RutaCartera && r.URL.Path != RutaRetiradasCartera && r.URL.Path != RutaDeclaracionesCartera ||
 			r.URL.EscapedPath() != r.URL.Path {
 			responderErrorCartera(w, http.StatusNotFound, "meritos.error.ruta_no_encontrada")
 			return
 		}
 		metodo := http.MethodGet
-		if r.URL.Path == RutaRetiradasCartera {
+		if r.URL.Path == RutaRetiradasCartera || r.URL.Path == RutaDeclaracionesCartera {
 			metodo = http.MethodPost
 		}
 		if r.Method != metodo {

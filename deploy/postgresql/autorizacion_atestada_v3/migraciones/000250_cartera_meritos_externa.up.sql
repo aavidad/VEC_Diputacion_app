@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 -- AD250. Consumo V3 exclusivo de retirada y auditoría nominal de cartera.
--- Parte de POST-AD249 #1055@cd1e540a3, SHA archivo
--- 07b94d02f7d615211aa7cb02a394c518f8ba44748c9f17cf95ad0aebbc4898d5.
+-- Parte de la postimagen literal AD253 instalada después de AD256/POST-AD249.
+-- Conserva las cuatro audiencias basales de Méritos y demás consumidores.
 -- No instala permisos personales ni motivos.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -27,6 +27,7 @@ BEGIN
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_lectura_cartera_meritos_v1(bytea,bytea,jsonb)') IS NOT NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_lectura_cartera_meritos_v1(bytea,bytea,jsonb)') IS NOT NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_retirada_cartera_meritos_v1(bytea,bytea,jsonb)') IS NOT NULL
+ OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_declaracion_meritos_v1(bytea,bytea,jsonb)') IS NOT NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_retirada_merito_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  THEN RAISE EXCEPTION 'AD250: dependencias o firmas incompatibles' USING ERRCODE='55000';END IF;
  SELECT * INTO p FROM pg_proc WHERE oid=to_regprocedure(
@@ -37,8 +38,8 @@ BEGIN
  OR p.proacl IS DISTINCT FROM ARRAY[
   'vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario'::aclitem]
  OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM
-  '21293bfb02cda7760d3395ebbe2066528577e5eb20ff859e5ea2d652d1c64d7b'
- THEN RAISE EXCEPTION 'AD250: núcleo POST-AD249 divergente' USING ERRCODE='55000';END IF;
+  'e939aa161ebaf676aca549bcd0dca4be3580afa1d1efbd851796f76450637893'
+ THEN RAISE EXCEPTION 'AD250: núcleo POST-AD253 divergente' USING ERRCODE='55000';END IF;
  SELECT * INTO k FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
  AND c.conname='auditoria_tipo_disjunto_v4' AND c.contype='c' AND c.convalidated;
@@ -50,8 +51,8 @@ BEGIN
  AND c.conname='clave_capacidad_version_audiencia_consumo_check'
  AND c.contype='c' AND c.convalidated;
  IF NOT FOUND OR encode(sha256(convert_to(pg_get_constraintdef(k.oid,false),'UTF8')),'hex')
-  IS DISTINCT FROM '17e41379b0d758caba982dc4fdd9cb93c5c60f4d2df0883b557157afac74a63d'
- THEN RAISE EXCEPTION 'AD250: CHECK audiencias POST-AD249 divergente' USING ERRCODE='55000';END IF;
+  IS DISTINCT FROM '949b87aa96c7b0b2aac6bf48a0d97f7b9c6877faa2ff3910df926af94d513422'
+ THEN RAISE EXCEPTION 'AD250: CHECK audiencias POST-AD253 divergente' USING ERRCODE='55000';END IF;
 END $pre$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 
@@ -184,7 +185,7 @@ BEGIN
  FROM pg_proc p WHERE p.oid=f;
  IF original IS NULL
  OR (SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') FROM pg_proc p WHERE p.oid=f)
-  IS DISTINCT FROM '21293bfb02cda7760d3395ebbe2066528577e5eb20ff859e5ea2d652d1c64d7b'
+  IS DISTINCT FROM 'e939aa161ebaf676aca549bcd0dca4be3580afa1d1efbd851796f76450637893'
  OR (length(original)-length(replace(original,runtime,'')))/length(runtime)<>1
  OR (length(original)-length(replace(original,excl,'')))/length(excl)<>1
  OR (length(original)-length(replace(original,marca,'')))/length(marca)<>1
@@ -192,7 +193,7 @@ BEGIN
  OR (length(original)-length(replace(original,registro_marca,'')))/length(registro_marca)<>1
  OR (length(original)-length(replace(original,reval_marca,'')))/length(reval_marca)<>1
  OR strpos(original,'meritos_cartera_retirada')<>0
- THEN RAISE EXCEPTION 'AD250: núcleo sin marcas POST-AD249 únicas' USING ERRCODE='55000';END IF;
+ THEN RAISE EXCEPTION 'AD250: núcleo sin marcas POST-AD253 únicas' USING ERRCODE='55000';END IF;
  nuevo:=replace(original,runtime,runtime_nuevo);
  nuevo:=replace(nuevo,excl,excl_nuevo);
  nuevo:=replace(nuevo,marca,extension||marca);
@@ -218,13 +219,13 @@ BEGIN
  AND c.conname='clave_capacidad_version_audiencia_consumo_check'
  AND c.contype='c' AND c.convalidated;
  IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM
-   '17e41379b0d758caba982dc4fdd9cb93c5c60f4d2df0883b557157afac74a63d'
+   '949b87aa96c7b0b2aac6bf48a0d97f7b9c6877faa2ff3910df926af94d513422'
  OR left(d,7)<>'CHECK (' OR right(d,1)<>')'
  OR (length(d)-length(replace(d,
     '''vec_autorizacion.versionar_rol_bolsa_externa.cierre.v1''::text','')))
    /length('''vec_autorizacion.versionar_rol_bolsa_externa.cierre.v1''::text')<>1
  OR strpos(d,'''vec_meritos.cartera.retirar_propio.v1''::text')<>0
- THEN RAISE EXCEPTION 'AD250: audiencia POST-AD249 divergente' USING ERRCODE='55000';END IF;
+ THEN RAISE EXCEPTION 'AD250: audiencia POST-AD253 divergente' USING ERRCODE='55000';END IF;
  -- La audiencia personal tiene su propio disyunto, fuera de las audiencias ADMIN.
  nuevo:=left(d,length(d)-1)||
   ' OR (audiencia_consumo = ''vec_meritos.cartera.retirar_propio.v1''::text))';
@@ -495,7 +496,7 @@ BEGIN
  OR current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off'
  OR current_setting('TimeZone')<>'UTC'
- OR p_accion NOT IN ('meritos.cartera.consultar_propia','meritos.cartera.retirar_propio')
+ OR p_accion NOT IN ('meritos.cartera.consultar_propia','meritos.cartera.retirar_propio','meritos.hecho.declarar')
  OR p_contexto_canonico IS NULL OR octet_length(p_contexto_canonico) NOT BETWEEN 1 AND 65536
  OR p_vinculo_canonico IS NULL OR octet_length(p_vinculo_canonico) NOT BETWEEN 1 AND 16384
  OR jsonb_typeof(p_orden) IS DISTINCT FROM 'object'
@@ -509,19 +510,26 @@ BEGIN
  END LOOP;
  motivo_prefijo:=CASE p_accion
   WHEN 'meritos.cartera.consultar_propia' THEN 'lectura_cartera_meritos_'
+  WHEN 'meritos.hecho.declarar' THEN 'intento_declaracion_meritos_'
   ELSE 'intento_retirada_cartera_meritos_' END;
- IF p_orden->>'esquema' IS DISTINCT FROM 'vec.meritos.cartera.propia.v1'
+ IF p_orden->>'esquema' IS DISTINCT FROM (CASE p_accion
+   WHEN 'meritos.hecho.declarar' THEN 'vec.meritos.hecho.declaracion.v1'
+   ELSE 'vec.meritos.cartera.propia.v1' END)
  OR p_orden->>'persona_ref' !~ '^per_[A-Za-z0-9_-]{22,128}$'
  OR p_orden->>'intento_ref' !~ '^intento_[0-9a-f]{32}$'
  OR p_orden->>'contexto_sha256' !~ '^[0-9a-f]{64}$'
  OR p_orden->>'procedencia_sha256' !~ '^[0-9a-f]{64}$'
  OR p_orden->>'autenticacion_sha256' !~ '^[0-9a-f]{64}$'
- OR p_orden->>'recurso_ref' IS DISTINCT FROM
-  'cartera:'||encode(sha256(convert_to(p_orden->>'persona_ref','UTF8')),'hex')
+ OR (p_accion<>'meritos.hecho.declarar' AND p_orden->>'recurso_ref' IS DISTINCT FROM
+   'cartera:'||encode(sha256(convert_to(p_orden->>'persona_ref','UTF8')),'hex'))
+ OR (p_accion='meritos.hecho.declarar' AND p_orden->>'recurso_ref' !~ '^ref:[0-9a-f]{64}$')
  OR p_orden->>'accion' IS DISTINCT FROM p_accion
  OR p_orden->>'modulo_id' IS DISTINCT FROM 'meritos'
- OR p_orden->>'tipo_recurso' IS DISTINCT FROM 'cartera_personal'
- OR p_orden->>'finalidad_ref' IS DISTINCT FROM 'gestion_cartera_propia'
+ OR p_orden->>'tipo_recurso' IS DISTINCT FROM (CASE p_accion
+   WHEN 'meritos.hecho.declarar' THEN 'hecho' ELSE 'cartera_personal' END)
+ OR p_orden->>'finalidad_ref' IS DISTINCT FROM (CASE p_accion
+   WHEN 'meritos.hecho.declarar' THEN 'declaracion_hecho_propio'
+   ELSE 'gestion_cartera_propia' END)
  OR p_orden->>'resultado' NOT IN ('denegado','error')
  OR p_orden->>'motivo_ref' IS DISTINCT FROM motivo_prefijo||(p_orden->>'resultado')
  OR p_orden->>'proceso' IS DISTINCT FROM 'vec-server'
@@ -660,6 +668,21 @@ REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_retirada_c
  bytea,bytea,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_retirada_cartera_meritos_v1(
  bytea,bytea,jsonb) TO vec_meritos_propietario,vec_meritos_cartera_externo;
+
+CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_intento_declaracion_meritos_v1(
+ p_contexto bytea,p_vinculo bytea,p_orden jsonb)
+RETURNS TABLE(auditoria_ref text,secuencia numeric,huella_sha256 text,
+ correlacion_ref text,registrada_en timestamptz)
+LANGUAGE sql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on
+SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
+ SELECT * FROM vec_autorizacion_atestada_v3.registrar_intento_cartera_meritos_privado_v1(
+  p_contexto,p_vinculo,p_orden,'meritos.hecho.declarar')
+$f$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_declaracion_meritos_v1(
+ bytea,bytea,jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_declaracion_meritos_v1(
+ bytea,bytea,jsonb) TO vec_meritos_cartera_externo;
 GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3
  TO vec_meritos_propietario,vec_meritos_cartera_externo;
 COMMIT;

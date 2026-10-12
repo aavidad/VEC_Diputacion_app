@@ -129,6 +129,7 @@ type Config struct {
 	ExternoBolsaPublicaPostgreSQL               ConfiguracionPostgreSQLPublica
 	ExternoBolsaPostgreSQL                      ConfiguracionPostgreSQLExterna
 	ExternoMeritosCarteraPostgreSQL             ConfiguracionPostgreSQLExterna
+	ExternoMeritosOperacionPostgreSQL           ConfiguracionPostgreSQLExterna
 	ExternoMeritosFronteraPostgreSQL            ConfiguracionPostgreSQLExterna
 	BolsaInscripcionesLectorPostgreSQL          ConfiguracionPostgreSQLExterna
 	BolsaInscripcionesRRHHLectorPostgreSQL      ConfiguracionPostgreSQLExterna
@@ -259,6 +260,7 @@ func Load() Config {
 		},
 		ExternoBolsaPostgreSQL:                 ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaDatabaseURL)},
 		ExternoMeritosCarteraPostgreSQL:        ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosCarteraDatabaseURL)},
+		ExternoMeritosOperacionPostgreSQL:      ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosOperacionDatabaseURL)},
 		ExternoMeritosFronteraPostgreSQL:       ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosFronteraDatabaseURL)},
 		BolsaInscripcionesLectorPostgreSQL:     ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaInscripcionesLectorDatabaseURL)},
 		BolsaInscripcionesRRHHLectorPostgreSQL: ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvBolsaInscripcionesRRHHLectorDatabaseURL)},
@@ -520,6 +522,7 @@ func (c Config) Normalize() Config {
 	c.ExternoBolsaPublicaPostgreSQL = c.ExternoBolsaPublicaPostgreSQL.normalizar()
 	c.ExternoBolsaPostgreSQL = c.ExternoBolsaPostgreSQL.normalizar()
 	c.ExternoMeritosCarteraPostgreSQL = c.ExternoMeritosCarteraPostgreSQL.normalizar()
+	c.ExternoMeritosOperacionPostgreSQL = c.ExternoMeritosOperacionPostgreSQL.normalizar()
 	c.ExternoMeritosFronteraPostgreSQL = c.ExternoMeritosFronteraPostgreSQL.normalizar()
 	c.ExternoMeritosRegistroAutorizacionPostgreSQL = c.ExternoMeritosRegistroAutorizacionPostgreSQL.normalizar()
 	c.ExternoMeritosMotivosAutorizacionPostgreSQL = c.ExternoMeritosMotivosAutorizacionPostgreSQL.normalizar()

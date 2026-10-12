@@ -31,7 +31,8 @@ export function rutaInscripcionesRRHH(actual, filtro) {
 export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInscripcionesRRHH(),
   localizacion = globalThis.location, historial = globalThis.history,
   cargarCatalogo = cargarTextos, reintentarCatalogo = reintentarTextos,
-  alDenegacion = () => {}, alDisponibilidad = () => {}, signal } = {}) {
+  alDenegacion = () => {}, alDisponibilidad = () => {},
+  revisionMeritos = false, alAbrirMeritos = () => {}, signal } = {}) {
   if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
     || !cliente?.convocatorias || !cliente?.listar || !cliente?.detalle || !cliente?.motivos
     || !cliente?.decidir || !cliente?.incorporar) {
@@ -57,7 +58,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
   let enfocarRecibo = false;
   let errorCampo = "";
   let refError = "";
-  const t = (clave, vars = {}) => catalogo.traducir(`rrhh.${clave}`, vars);
+  const t = (clave, vars = {}) => catalogo.traducir(`rrhh.${revisionMeritos && clave === "titulo" ? "revision_meritos_titulo" : clave}`, vars);
   const et = (clave, vars) => esc(t(clave, vars));
   const fecha = (valor) => esc(catalogo.fecha(valor, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" }));
 
@@ -251,7 +252,12 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
         || evento.shiftKey || evento.altKey) return;
       evento.preventDefault();
     }
-    if (accion.dataset.inscripcionAbrir) void abrir(accion.dataset.inscripcionAbrir);
+    if (accion.dataset.inscripcionAbrir) {
+      if (revisionMeritos) {
+        const solicitud = listado?.solicitudes.find((s) => s.solicitud_ref === accion.dataset.inscripcionAbrir);
+        if (solicitud) alAbrirMeritos(solicitud.solicitud_ref, solicitud.persona_resumen || "");
+      } else void abrir(accion.dataset.inscripcionAbrir);
+    }
     else if (accion.dataset.inscripcionDecidir) void prepararDecision(accion.dataset.inscripcionDecidir);
     else if (accion.hasAttribute("data-inscripcion-confirmar")) void confirmar();
     else if (accion.hasAttribute("data-inscripcion-cancelar")) { const anterior = decision; decision = ""; motivos = null; intento = null; errorCampo = ""; pintar();

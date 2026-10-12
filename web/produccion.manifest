@@ -753,3 +753,6 @@ static/area-personal/inscripcion-bolsa-api.js
 static/area-personal/inscripcion-bolsa-vista.js
 static/textos/es/bolsa-inscripcion-aspirante.json
 static/textos/en/bolsa-inscripcion-aspirante.json
+static/portal-empleado/modulos/meritos/revision-rrhh.js
+static/textos/es/meritos-revision-rrhh.json
+static/textos/en/meritos-revision-rrhh.json

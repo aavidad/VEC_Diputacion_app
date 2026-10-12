@@ -55,8 +55,8 @@ $marca$;
     WHEN 'persona_meritos_cartera' THEN
      r.documento->>'rol_id' IS DISTINCT FROM 'persona_meritos_cartera'
      OR r.documento->>'estado' IS DISTINCT FROM 'publicada'
-     OR r.documento->'concesiones' IS DISTINCT FROM
-      '[{"accion":"meritos.cartera.consultar_propia","modulo_id":"meritos","tipo_recurso":"cartera_personal","finalidades":["gestion_cartera_propia"],"garantia_minima":"alto","campos_permitidos":["denominacion","disponibilidad","hecho_ref","motivos_retirada","retirada","tipo","total","version_hecho"],"obligaciones":["auditar"]},{"accion":"meritos.cartera.retirar_propio","modulo_id":"meritos","tipo_recurso":"hecho","finalidades":["gestion_cartera_propia"],"garantia_minima":"alto","campos_permitidos":["disponibilidad","recibo"],"obligaciones":["auditar"]}]'::pg_catalog.jsonb
+     OR (r.documento->'concesiones' IS DISTINCT FROM '[{"accion":"meritos.cartera.consultar_propia","modulo_id":"meritos","tipo_recurso":"cartera_personal","finalidades":["gestion_cartera_propia"],"garantia_minima":"alto","campos_permitidos":["denominacion","disponibilidad","hecho_ref","motivos_retirada","retirada","tipo","total","version_hecho"],"obligaciones":["auditar"]},{"accion":"meritos.cartera.retirar_propio","modulo_id":"meritos","tipo_recurso":"hecho","finalidades":["gestion_cartera_propia"],"garantia_minima":"alto","campos_permitidos":["disponibilidad","recibo"],"obligaciones":["auditar"]}]'::pg_catalog.jsonb
+      AND r.documento->'concesiones' IS DISTINCT FROM '[{"accion":"meritos.cartera.consultar_propia","modulo_id":"meritos","tipo_recurso":"cartera_personal","finalidades":["gestion_cartera_propia"],"garantia_minima":"alto","campos_permitidos":["denominacion","disponibilidad","hecho_ref","motivos_retirada","retirada","tipo","total","version_hecho"],"obligaciones":["auditar"]},{"accion":"meritos.cartera.retirar_propio","modulo_id":"meritos","tipo_recurso":"hecho","finalidades":["gestion_cartera_propia"],"garantia_minima":"alto","campos_permitidos":["disponibilidad","recibo"],"obligaciones":["auditar"]},{"accion":"meritos.hecho.declarar","modulo_id":"meritos","tipo_recurso":"hecho","finalidades":["declaracion_hecho_propio"],"garantia_minima":"alto","campos_permitidos":["declarante_ref","hecho","recibo","version"],"obligaciones":["auditar"]}]'::pg_catalog.jsonb)
     ELSE true END)
  THEN RAISE EXCEPTION 'rol externo no aprobado' USING ERRCODE='42501'; END IF;
 $sustituto$;
@@ -70,7 +70,7 @@ BEGIN
  IF (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
  OR replace(pg_get_functiondef(f),sustituto,marca) IS DISTINCT FROM original
  OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f)
-  IS DISTINCT FROM 'd628be56a728fe4ff39f61764eb7c24e543a39a75ea28678ff3cbfe7e9ec2f80'
+  IS DISTINCT FROM 'c97669739c7dfefd23cc8a6fa548d2212c75864daed3272a51929c62a86722d2'
  THEN RAISE EXCEPTION 'AUT81: modificación fuera del guard de rol' USING ERRCODE='55000';END IF;
 END $parche$;
 RESET ROLE;

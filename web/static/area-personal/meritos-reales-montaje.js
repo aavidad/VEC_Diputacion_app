@@ -1,7 +1,7 @@
 import { cargarTextos, reintentarTextos } from "../comun/textos.js";
 import { idiomaActivoAreaPersonal, traducir } from "./i18n.js";
-import { crearClienteCartera, ErrorCartera } from "./meritos-reales-cliente.js";
-import { renderizarMeritosPropios } from "./meritos-reales-vista.js";
+import { crearClienteCartera, ErrorCartera } from "./meritos-reales-cliente.js?v=20261013-meritos-recorrido-v1";
+import { renderizarMeritosPropios } from "./meritos-reales-vista.js?v=20261013-meritos-recorrido-v1";
 
 const FILTROS = new Set(["todos", "disponibles", "retirados"]);
 
@@ -9,7 +9,7 @@ function estadoInicial(ubicacion) {
   const filtro = new URLSearchParams(ubicacion?.search || "").get("filtro");
   return { estado: "cargando", filtro: FILTROS.has(filtro) ? filtro : "todos", hechos: [],
     total: 0, cursor_siguiente: "", motivos: [], seleccion: null, confirmacion: null,
-    pendiente: null, guardando: false };
+    pendiente: null, guardando: false, alta: null, altaPendiente: null, confirmacionAlta: null, errorAlta: "" };
 }
 
 // La vista reemplaza el HTML al cambiar de estado. Se identifica el control
@@ -47,10 +47,13 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
   const doc = contenedor.ownerDocument || document;
   const estilo = doc.createElement("link");
   estilo.rel = "stylesheet";
-  estilo.href = "/area-personal/meritos-reales-estilos.css";
+  estilo.href = "/area-personal/meritos-reales-estilos.css?v=20261013-meritos-recorrido-v1";
   doc.head.append(estilo);
   const modelo = estadoInicial(ubicacion);
-  modelo.pendiente = pendiente;
+  modelo.pendiente = pendiente?.operacion === "declaracion" ? null : pendiente;
+  if (pendiente?.operacion === "declaracion") {
+    modelo.altaPendiente = pendiente.orden; modelo.alta = pendiente.alta; modelo.errorAlta = "alta_error_incierto";
+  }
   let activo = true;
   let textos = null;
   let generacion = 0;
@@ -86,6 +89,7 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
       if (!activo || version !== generacion) return;
       modelo.hechos = siguiente ? [...modelo.hechos, ...pagina.hechos] : pagina.hechos;
       modelo.total = pagina.total;
+      modelo.declaradaEn = pagina.recibo_acceso?.consultada_en;
       modelo.cursor_siguiente = pagina.cursor_siguiente;
       modelo.motivos = Array.isArray(pagina.motivos_retirada) ? pagina.motivos_retirada : [];
       modelo.estado = modelo.hechos.length ? "listo" : "vacio";
@@ -187,10 +191,44 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
     }
   }
 
+  async function declarar(formulario) {
+    if (modelo.guardando || !modelo.alta) return;
+    if (!modelo.altaPendiente && !formulario.reportValidity()) return;
+    if (!modelo.altaPendiente) {
+      const valores = modelo.alta;
+      modelo.altaPendiente = { tipo: valores.tipo, denominacion: valores.denominacion.trim(),
+        fecha_desde: valores.fecha_desde, ...(valores.fecha_hasta ? { fecha_hasta: valores.fecha_hasta } : {}),
+        ...(["curso_asistencia", "curso_superacion"].includes(valores.tipo) && valores.horas !== "" ? { horas: Number(valores.horas) } : {}),
+        declarada_en: modelo.declaradaEn, clave_idempotencia: `declaracion:${globalThis.crypto.randomUUID()}` };
+    }
+    modelo.guardando = true; modelo.errorAlta = ""; modelo.confirmacionAlta = null; pintar();
+    try {
+      const recibo = await cliente.declarar(modelo.altaPendiente);
+      if (!activo) return;
+      modelo.confirmacionAlta = recibo; modelo.alta = null; modelo.altaPendiente = null;
+      await consultar();
+    } catch (error) {
+      if (!activo) return;
+      if (error instanceof ErrorCartera && [401, 403].includes(error.estado)) {
+        modelo.altaPendiente = null; modelo.alta = null; modelo.hechos = []; modelo.estado = "denegado";
+      } else if (error instanceof ErrorCartera && [400, 409, 422, 404].includes(error.estado)) {
+        modelo.altaPendiente = null; modelo.errorAlta = "alta_error_datos";
+      } else modelo.errorAlta = "alta_error_incierto";
+    } finally {
+      modelo.guardando = false; pintar();
+      if (activo) contenedor.querySelector(modelo.confirmacionAlta ? ".meritos-reales-confirmacion" : "#meritos-alta-titulo")?.focus?.({ preventScroll: true });
+    }
+  }
+
   const alClic = (evento) => {
     const boton = evento.target?.closest?.("button");
     if (!boton || !contenedor.contains(boton)) return;
-    if (boton.hasAttribute("data-meritos-textos-reintentar")) void prepararTextos();
+    if (boton.hasAttribute("data-meritos-alta")) {
+      modelo.alta = { tipo: "titulacion", denominacion: "", fecha_desde: "", fecha_hasta: "", horas: "" };
+      modelo.errorAlta = ""; pintar(); contenedor.querySelector('[name="denominacion"]')?.focus();
+    } else if (boton.hasAttribute("data-meritos-alta-cancelar") && !modelo.guardando && !modelo.altaPendiente) {
+      modelo.alta = null; modelo.errorAlta = ""; pintar(); contenedor.querySelector("[data-meritos-alta]")?.focus();
+    } else if (boton.hasAttribute("data-meritos-textos-reintentar")) void prepararTextos();
     else if (boton.dataset.meritosFiltro) cambiarFiltro(boton.dataset.meritosFiltro);
     else if (boton.hasAttribute("data-meritos-consultar")) void consultar();
     else if (boton.hasAttribute("data-meritos-mas") && modelo.cursor_siguiente) void consultar({ siguiente: true });
@@ -207,12 +245,23 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
     }
   };
   const alEnviar = (evento) => {
+    if (evento.target?.id === "meritos-reales-alta-formulario") {
+      evento.preventDefault(); void declarar(evento.target); return;
+    }
     if (evento.target?.id !== "meritos-reales-retirada-formulario") return;
     evento.preventDefault();
     void retirar(evento.target);
   };
   contenedor.addEventListener("click", alClic);
   contenedor.addEventListener("submit", alEnviar);
+  const alEditarAlta = (evento) => {
+    const control = evento.target;
+    if (!modelo.alta || modelo.altaPendiente || !control?.closest?.("#meritos-reales-alta-formulario")
+      || !Object.hasOwn(modelo.alta, control.name)) return;
+    modelo.alta[control.name] = control.value;
+    if (control.name === "tipo") { pintar(); contenedor.querySelector('[name="tipo"]')?.focus(); }
+  };
+  contenedor.addEventListener("input", alEditarAlta);
   async function prepararTextos() {
     try {
       const cargados = await cargarTextos("meritos-reales", { idioma })
@@ -236,7 +285,8 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
   }
   const preparada = prepararTextos();
   return Object.freeze({ preparada,
-    desmontar() { lectura?.abort(); generacion++; contenedor.removeEventListener("click", alClic); contenedor.removeEventListener("submit", alEnviar); contenedor.replaceChildren(); estilo.remove(); activo = false; },
-    pendiente() { return modelo.pendiente; },
+    desmontar() { lectura?.abort(); generacion++; contenedor.removeEventListener("click", alClic); contenedor.removeEventListener("submit", alEnviar);
+      contenedor.removeEventListener("input", alEditarAlta); contenedor.replaceChildren(); estilo.remove(); activo = false; },
+    pendiente() { return modelo.altaPendiente ? { operacion: "declaracion", orden: modelo.altaPendiente, alta: modelo.alta } : modelo.pendiente; },
   });
 }

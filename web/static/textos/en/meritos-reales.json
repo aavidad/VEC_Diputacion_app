@@ -40,6 +40,17 @@
       "one": "{cuenta} qualification in this filter",
       "other": "{cuenta} qualifications in this filter"
     },
-    "ver_mas": "Show more qualifications"
+    "ver_mas": "Show more qualifications",
+    "alta_titulo": "Add a qualification or merit",
+    "alta_tipo": "Type (required)",
+    "alta_denominacion": "Qualification or merit name (required)",
+    "alta_fecha_desde": "Date obtained or start date (required)",
+    "alta_fecha_hasta": "End date (optional)",
+    "alta_horas": "Duration in hours (optional)",
+    "alta_guardar": "Register merit",
+    "alta_reintentar": "Retry registration",
+    "alta_confirmada": "The merit has been registered. It is awaiting review.",
+    "alta_error_datos": "The merit could not be registered. Check the details and submit them again.",
+    "alta_error_incierto": "The result could not be confirmed. Select Retry registration to recover the same operation."
   }
 }

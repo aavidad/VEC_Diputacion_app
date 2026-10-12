@@ -10,6 +10,7 @@ const RolIDPersonaMeritosCartera = "persona_meritos_cartera"
 const (
 	accionRolMeritosConsultar = "meritos.cartera.consultar_propia"
 	accionRolMeritosRetirar   = "meritos.cartera.retirar_propio"
+	accionRolMeritosDeclarar  = "meritos.hecho.declarar"
 )
 
 // La única ampliación de GobiernoRolNuevo permite publicar juntos los dos
@@ -20,8 +21,8 @@ func prepararPlanGobiernoRolMeritosCartera(c CatalogoAccionesAdministracionV1,
 	vacio := PlanGobiernoPerfil{}
 	if c.Validar() != nil || !instanteAutorizacionCanonico(ahora) ||
 		s.Operacion != OperacionCrearPerfilGobernado || s.Publicacion == nil ||
-		s.Deshabilitacion != nil || len(s.Publicacion.Selecciones) != 2 ||
-		len(s.Publicacion.RolPropuesto.Concesiones) != 2 ||
+		s.Deshabilitacion != nil || (len(s.Publicacion.Selecciones) != 2 && len(s.Publicacion.Selecciones) != 3) ||
+		len(s.Publicacion.RolPropuesto.Concesiones) != len(s.Publicacion.Selecciones) ||
 		s.Publicacion.RolPropuesto.RolID != RolIDPersonaMeritosCartera ||
 		!textoAutorizacionSinComodinSeguro(actor, 512, false) {
 		return vacio, time.Time{}, ErrPlanGobiernoPerfilInvalido
@@ -32,8 +33,11 @@ func prepararPlanGobiernoRolMeritosCartera(c CatalogoAccionesAdministracionV1,
 		pub.CatalogoHuellaSHA256 != huella {
 		return vacio, time.Time{}, ErrOrigenPerfilAdministracionNoCoincide
 	}
-	esperadas := [2]string{accionRolMeritosConsultar, accionRolMeritosRetirar}
-	entradas := [2]*EntradaAccionAdministracionV1{}
+	esperadas := []string{accionRolMeritosConsultar, accionRolMeritosRetirar}
+	if len(pub.Selecciones) == 3 {
+		esperadas = append(esperadas, accionRolMeritosDeclarar)
+	}
+	entradas := make([]*EntradaAccionAdministracionV1, len(esperadas))
 	for i, seleccion := range pub.Selecciones {
 		for j := range c.Entradas {
 			e := &c.Entradas[j]
@@ -53,9 +57,13 @@ func prepararPlanGobiernoRolMeritosCartera(c CatalogoAccionesAdministracionV1,
 		}
 	}
 	// Para una propuesta nueva rige ahora. En un replay con catálogo vencido
-	// se reconstruye solo desde el intervalo publicado de AMBAS entradas.
+	// se reconstruye solo desde el intervalo publicado de las entradas.
 	instante := ahora
-	if !vigenteAccionesAdministracionEn(c.VigenteDesde, c.VigenteHasta, ahora) ||
+	todasVigentes := true
+	for _, entrada := range entradas {
+		todasVigentes = todasVigentes && vigenteAccionesAdministracionEn(entrada.VigenteDesde, entrada.VigenteHasta, ahora)
+	}
+	if !todasVigentes || !vigenteAccionesAdministracionEn(c.VigenteDesde, c.VigenteHasta, ahora) ||
 		!vigenteAccionesAdministracionEn(entradas[0].VigenteDesde, entradas[0].VigenteHasta, ahora) ||
 		!vigenteAccionesAdministracionEn(entradas[1].VigenteDesde, entradas[1].VigenteHasta, ahora) {
 		instante = c.VigenteDesde
@@ -75,7 +83,7 @@ func prepararPlanGobiernoRolMeritosCartera(c CatalogoAccionesAdministracionV1,
 	s.Publicacion = &pub
 	plan, err := PrepararPlanGobiernoPerfil(c, s, instante)
 	if err != nil || plan.Operacion != OperacionCrearPerfilGobernado || plan.Base != nil ||
-		plan.DefinicionNueva == nil || len(plan.DefinicionNueva.Concesiones) != 2 {
+		plan.DefinicionNueva == nil || len(plan.DefinicionNueva.Concesiones) != len(esperadas) {
 		return vacio, time.Time{}, ErrPlanGobiernoPerfilInvalido
 	}
 	return plan, instante, nil
@@ -85,9 +93,13 @@ func concesionRolMeritosCartera(c ConcesionRol, accion string) bool {
 	if c.Validar() != nil || c.ModuloID != "meritos" || c.GarantiaMinima != AuthAssuranceHigh ||
 		c.TipoRecurso != "cartera_personal" && accion == accionRolMeritosConsultar ||
 		c.TipoRecurso != "hecho" && accion == accionRolMeritosRetirar ||
-		len(c.Finalidades) != 1 || c.Finalidades[0] != "gestion_cartera_propia" ||
+		len(c.Finalidades) != 1 || (accion != accionRolMeritosDeclarar && c.Finalidades[0] != "gestion_cartera_propia") ||
 		len(c.Obligaciones) != 1 || c.Obligaciones[0] != "auditar" {
 		return false
+	}
+	if accion == accionRolMeritosDeclarar {
+		return c.TipoRecurso == "hecho" && c.Finalidades[0] == "declaracion_hecho_propio" &&
+			reflect.DeepEqual(c.CamposPermitidos, []string{"declarante_ref", "hecho", "recibo", "version"})
 	}
 	if accion == accionRolMeritosConsultar {
 		campos := []string{"denominacion", "disponibilidad", "hecho_ref", "motivos_retirada", "retirada", "tipo", "total", "version_hecho"}

@@ -96,10 +96,10 @@ type autoridadPreferenciasUsuariosDesarrollo struct {
 	prefijoError, metodoEscritura string
 	// Aspirantes (ficha propia): autoridad hermana solo en la superficie
 	// externa, con su propio registro de frontera y superficie de auditoría.
-	aspirantes           *autoridadPreferenciasUsuariosDesarrollo
-	componenteAspirantes *componenteAspirantes
-	cartera, retirada    *autoridadPreferenciasUsuariosDesarrollo
-	superficieAuditoria  string
+	aspirantes                     *autoridadPreferenciasUsuariosDesarrollo
+	componenteAspirantes           *componenteAspirantes
+	cartera, retirada, declaracion *autoridadPreferenciasUsuariosDesarrollo
+	superficieAuditoria            string
 }
 
 type composicionPreferenciasUsuarios struct {

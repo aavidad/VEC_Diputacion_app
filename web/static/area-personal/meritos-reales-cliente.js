@@ -1,5 +1,6 @@
 const RUTA_CARTERA = "/api/vec/meritos/cartera";
 const RUTA_RETIRADAS = "/api/vec/meritos/cartera/retiradas";
+const RUTA_DECLARACIONES = "/api/vec/meritos/cartera/declaraciones";
 
 export class ErrorCartera extends Error {
   constructor(codigo, estado, causa) {
@@ -30,6 +31,32 @@ function errorHTTP(respuesta, contenido) {
 export function crearClienteCartera({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== "function") throw new TypeError("meritos.cartera.fetch_invalido");
   return Object.freeze({
+    async declarar(orden, { signal } = {}) {
+      if (!orden || typeof orden !== "object") throw new TypeError("meritos.cartera.orden_invalida");
+      let respuesta;
+      try {
+        respuesta = exigirRespuesta(await fetchImpl(RUTA_DECLARACIONES, {
+          method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify(orden), mode: "same-origin", credentials: "omit", cache: "no-store",
+          redirect: "error", referrerPolicy: "no-referrer", signal,
+        }));
+      } catch (causa) {
+        if (causa?.name === "AbortError" || causa instanceof ErrorCartera) throw causa;
+        throw new ErrorCartera("resultado_indeterminado", 503, causa);
+      }
+      let contenido;
+      try { contenido = await leerJSON(respuesta); }
+      catch (causa) { throw new ErrorCartera("resultado_indeterminado", 503, causa); }
+      if (!respuesta.ok) throw errorHTTP(respuesta, contenido);
+      const recibo = contenido?.data;
+      if (respuesta.status !== 200 || !recibo?.referencia || !recibo.auditoria_ref
+        || recibo.accion !== "meritos.hecho.declarar" || recibo.clave_idempotencia !== orden.clave_idempotencia
+        || recibo.registro?.hecho?.estado !== "declarado" || recibo.registro.hecho.version !== 1
+        || recibo.registro.hecho.denominacion !== orden.denominacion) {
+        throw new ErrorCartera("resultado_indeterminado", 503);
+      }
+      return recibo;
+    },
     async consultar({ filtro = "todos", idioma = "es", limite = 25, cursor = "", signal } = {}) {
       if (!["es", "en"].includes(idioma)) throw new TypeError("meritos.cartera.idioma_invalido");
       const parametros = new URLSearchParams({ filtro, limite: String(limite), lang: idioma });

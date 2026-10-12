@@ -84,6 +84,8 @@ func (a autoridadExactasPortalExterno) AutorizarRutaExacta(ctx context.Context, 
 		seleccionada = a.preferencias.cartera
 	case meritoshttp.RutaRetiradasCartera:
 		seleccionada = a.preferencias.retirada
+	case meritoshttp.RutaDeclaracionesCartera:
+		seleccionada = a.preferencias.declaracion
 	default:
 		return vechttp.ErrAutenticacionRutaExactaRequerida
 	}
@@ -113,13 +115,14 @@ func nuevaAPIPersonalPortalExterno(identidad *resolvedorIdentidadDesarrollo, inc
 	}
 	rutas := []vechttp.RutaExacta{{Ruta: usuarioshttp.RutaMisPreferenciasAreaPersonal, Manejador: preferencias.manejador}}
 	frontera := registradorFronterasConUsuariosPreferencias{externa: preferencias.registrador}
-	carteraLista := preferencias.cartera != nil && preferencias.retirada != nil &&
+	carteraLista := preferencias.cartera != nil && preferencias.retirada != nil && preferencias.declaracion != nil &&
 		preferencias.cartera.manejador != nil && preferencias.retirada.manejador != nil &&
 		preferencias.cartera.registrador != nil && preferencias.retirada.registrador != nil
 	if carteraLista {
 		rutas = append(rutas,
 			vechttp.RutaExacta{Ruta: meritoshttp.RutaCartera, Manejador: preferencias.cartera.manejador},
-			vechttp.RutaExacta{Ruta: meritoshttp.RutaRetiradasCartera, Manejador: preferencias.retirada.manejador})
+			vechttp.RutaExacta{Ruta: meritoshttp.RutaRetiradasCartera, Manejador: preferencias.retirada.manejador},
+			vechttp.RutaExacta{Ruta: meritoshttp.RutaDeclaracionesCartera, Manejador: preferencias.declaracion.manejador})
 		frontera.meritos = preferencias.cartera.registrador
 	}
 	manejador, err := vechttp.NewHandlerWithOptions(servicio, vechttp.HandlerOptions{
@@ -135,12 +138,12 @@ func nuevaAPIPersonalPortalExterno(identidad *resolvedorIdentidadDesarrollo, inc
 	}
 	protegido := preferencias.proteger(manejador)
 	if carteraLista {
-		return preferencias.cartera.proteger(preferencias.retirada.proteger(protegido)), nil
+		return preferencias.cartera.proteger(preferencias.retirada.proteger(preferencias.declaracion.proteger(protegido))), nil
 	}
 	cerrada := meritoshttp.NuevoHandlerCarteraNoDisponible()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r != nil && r.URL != nil &&
-			(r.URL.Path == meritoshttp.RutaCartera || r.URL.Path == meritoshttp.RutaRetiradasCartera) {
+			(r.URL.Path == meritoshttp.RutaCartera || r.URL.Path == meritoshttp.RutaRetiradasCartera || r.URL.Path == meritoshttp.RutaDeclaracionesCartera) {
 			cerrada.ServeHTTP(w, r)
 			return
 		}

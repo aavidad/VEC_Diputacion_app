@@ -107,7 +107,8 @@ CREATE TABLE vec_meritos.denegacion_frontera_cartera_v1 (
  motivo text NOT NULL CHECK(motivo IN ('autenticacion_requerida','acceso_denegado')),
  superficie text NOT NULL CHECK(superficie='api.meritos.cartera.ruta_exacta'),
  ruta text NOT NULL CHECK(ruta IN (
-  '/api/vec/meritos/cartera','/api/vec/meritos/cartera/retiradas')),
+  '/api/vec/meritos/cartera','/api/vec/meritos/cartera/retiradas',
+  '/api/vec/meritos/cartera/declaraciones')),
  actor_ref text CHECK(actor_ref IS NULL OR actor_ref ~ '^per_[A-Za-z0-9_-]{22,128}$'),
  registrada_en timestamptz(6) NOT NULL,
  CHECK((motivo='autenticacion_requerida' AND actor_ref IS NULL)
@@ -412,7 +413,8 @@ BEGIN
  OR p_motivo NOT IN ('autenticacion_requerida','acceso_denegado') OR p_motivo IS NULL
  OR p_superficie IS DISTINCT FROM 'api.meritos.cartera.ruta_exacta'
  OR p_ruta NOT IN ('/api/vec/meritos/cartera',
-   '/api/vec/meritos/cartera/retiradas') OR p_ruta IS NULL
+   '/api/vec/meritos/cartera/retiradas',
+   '/api/vec/meritos/cartera/declaraciones') OR p_ruta IS NULL
  OR (p_motivo='autenticacion_requerida' AND p_actor_ref IS NOT NULL)
  OR (p_motivo='acceso_denegado'
   AND coalesce(p_actor_ref ~ '^per_[A-Za-z0-9_-]{22,128}$',false) IS NOT TRUE)

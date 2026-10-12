@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- AUT80: amplía únicamente el RolID M4 a dos entradas del catálogo ADMIN.
+-- AUT80: amplía únicamente el RolID M4 a tres entradas del catálogo ADMIN.
 -- Conserva el plan histórico de una entrada y el cierre V3 de AUT60/AUT61.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -39,10 +39,13 @@ DECLARE f oid:=to_regprocedure('vec_autorizacion.canon_gobierno_rol_nuevo_v1(jso
    ELSE s:='['||vec_autorizacion.canon_gobierno_rol_nuevo_v1(v->0,'seleccion')||']';END IF;
 $m$;
  sustituto text:=$s$
-   IF jsonb_typeof(v) IS DISTINCT FROM 'array' OR jsonb_array_length(v)<>
-    (CASE WHEN (t='plan' AND p#>>'{definicion_nueva,rol_id}'='persona_meritos_cartera')
-      OR (t='definicion' AND p->>'rol_id'='persona_meritos_cartera')
-     THEN 2 ELSE 1 END)
+   IF jsonb_typeof(v) IS DISTINCT FROM 'array' OR NOT (
+    (jsonb_array_length(v) IN (2,3) AND
+      ((t='plan' AND p#>>'{definicion_nueva,rol_id}'='persona_meritos_cartera')
+       OR (t='definicion' AND p->>'rol_id'='persona_meritos_cartera')))
+    OR (jsonb_array_length(v)=1 AND NOT
+      ((t='plan' AND p#>>'{definicion_nueva,rol_id}'='persona_meritos_cartera')
+       OR (t='definicion' AND p->>'rol_id'='persona_meritos_cartera'))))
    THEN RAISE EXCEPTION 'AUT80: cardinalidad de concesiones incompatible' USING ERRCODE='22023';END IF;
    IF tipos[i]='concesion[]' THEN
     SELECT '['||string_agg(vec_autorizacion.objeto_canonico_go_admin_v1(x.value,'concesion'),
@@ -66,8 +69,8 @@ BEGIN
  THEN RAISE EXCEPTION 'AUT80: canon alterado fuera del contrato' USING ERRCODE='55000';END IF;
 END $canon$;
 
--- El validador conserva íntegro el caso histórico y añade la comprobación
--- de dos selecciones M4. Su retorno mantiene vigente_hasta para AUT60.
+-- El validador conserva el caso histórico M4 de dos selecciones y acepta
+-- la tercera concesión exacta de declaración. Mantiene vigente_hasta para AUT60.
 DO $plan$
 DECLARE f oid:=to_regprocedure('vec_autorizacion.validar_plan_rol_nuevo_v1(jsonb,boolean)');
  original text;nuevo text;meta jsonb;
@@ -91,13 +94,19 @@ DECLARE f oid:=to_regprocedure('vec_autorizacion.validar_plan_rol_nuevo_v1(jsonb
 $m$;
  sustituto text:=$s$
  IF rolid='persona_meritos_cartera' THEN
-  IF jsonb_array_length(p->'selecciones')<>2
+  IF jsonb_array_length(p->'selecciones') NOT IN (2,3)
+   OR jsonb_array_length(p#>'{definicion_nueva,concesiones}') IS DISTINCT FROM jsonb_array_length(p->'selecciones')
    OR p#>>'{definicion_nueva,concesiones,0,accion}' IS DISTINCT FROM 'meritos.cartera.consultar_propia'
    OR p#>>'{definicion_nueva,concesiones,1,accion}' IS DISTINCT FROM 'meritos.cartera.retirar_propio'
+   OR (jsonb_array_length(p->'selecciones')=3
+    AND p#>>'{definicion_nueva,concesiones,2,accion}' IS DISTINCT FROM 'meritos.hecho.declarar')
    OR p#>>'{selecciones,0,entrada_ref}' IS NOT DISTINCT FROM p#>>'{selecciones,1,entrada_ref}'
-  THEN RAISE EXCEPTION 'AUT80: dos selecciones M4 incompatibles' USING ERRCODE='22023';END IF;
+   OR (jsonb_array_length(p->'selecciones')=3 AND (
+    p#>>'{selecciones,0,entrada_ref}' IS NOT DISTINCT FROM p#>>'{selecciones,2,entrada_ref}'
+    OR p#>>'{selecciones,1,entrada_ref}' IS NOT DISTINCT FROM p#>>'{selecciones,2,entrada_ref}'))
+  THEN RAISE EXCEPTION 'AUT80: selecciones M4 incompatibles' USING ERRCODE='22023';END IF;
   ahora:=clock_timestamp();
-  FOR idx IN 0..1 LOOP
+  FOR idx IN 0..jsonb_array_length(p->'selecciones')-1 LOOP
    s:=p->'selecciones'->idx;
    SELECT value INTO STRICT e FROM jsonb_array_elements(c->'entradas')
     WHERE value->>'referencia'=s->>'entrada_ref';
@@ -110,10 +119,16 @@ $m$;
     'garantia_minima','alto','campos_permitidos',jsonb_build_array(
      'denominacion','disponibilidad','hecho_ref','motivos_retirada','retirada','tipo','total','version_hecho'),
     'obligaciones',jsonb_build_array('auditar'))
-    ELSE jsonb_build_object(
+    WHEN 1 THEN jsonb_build_object(
      'accion','meritos.cartera.retirar_propio','modulo_id','meritos',
      'tipo_recurso','hecho','finalidades',jsonb_build_array('gestion_cartera_propia'),
      'garantia_minima','alto','campos_permitidos',jsonb_build_array('disponibilidad','recibo'),
+     'obligaciones',jsonb_build_array('auditar'))
+    ELSE jsonb_build_object(
+     'accion','meritos.hecho.declarar','modulo_id','meritos',
+     'tipo_recurso','hecho','finalidades',jsonb_build_array('declaracion_hecho_propio'),
+     'garantia_minima','alto','campos_permitidos',jsonb_build_array(
+      'declarante_ref','hecho','recibo','version'),
      'obligaciones',jsonb_build_array('auditar')) END;
    IF e->>'version' IS DISTINCT FROM s->>'entrada_version'
     OR encode(sha256(convert_to(vec_autorizacion.canon_gobierno_rol_nuevo_v1(e,'entrada'),'UTF8')),'hex')

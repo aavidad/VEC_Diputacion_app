@@ -370,7 +370,7 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 		return ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
 	case "/api/vec/aspirantes/area-personal/mi-ficha":
 		return ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
-	case "/api/vec/meritos/cartera", "/api/vec/meritos/cartera/retiradas":
+	case "/api/vec/meritos/cartera", "/api/vec/meritos/cartera/retiradas", "/api/vec/meritos/cartera/declaraciones":
 		return ports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera
 	case RutaCatalogosRegistroEmpleadoB2, RutaEmpleadosOrganismoB2, RutaVacantesEmpleadoB2:
 		return ports.SuperficieAuditoriaFronteraRutaExactaPersonal

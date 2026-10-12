@@ -161,7 +161,7 @@ func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpo
 
 // abrirPoolNominalPortalExterno comparte la guarda de TLS, membresía única y
 // telemetría; cada módulo conserva LOGIN, rol y nombre técnico propios.
-func abrirPoolNominalPortalExterno(ctx context.Context, dsn, rol, nombreAplicacion string) (*pgxpool.Pool, string, error) {
+func abrirPoolNominalPortalExterno(ctx context.Context, dsn, rol, nombreAplicacion string, otrosRoles ...string) (*pgxpool.Pool, string, error) {
 	if ctx == nil || ctx.Err() != nil || dsn == "" || rol == "" || nombreAplicacion == "" {
 		return nil, "", errMiBolsaNoDisponible
 	}
@@ -187,17 +187,26 @@ func abrirPoolNominalPortalExterno(ctx context.Context, dsn, rol, nombreAplicaci
 	if err != nil {
 		return nil, "", errMiBolsaNoDisponible
 	}
+	roles := append([]string{rol}, otrosRoles...)
+	vistos := map[string]bool{}
+	for _, esperado := range roles {
+		if esperado == "" || vistos[esperado] {
+			pool.Close()
+			return nil, "", errMiBolsaNoDisponible
+		}
+		vistos[esperado] = true
+	}
 	var login string
 	var permitido bool
 	err = pool.QueryRow(ctx, `SELECT session_user::text,
  session_user=current_user AND r.rolcanlogin AND r.rolinherit AND
  NOT(r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
- AND (SELECT count(*)=1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)
- AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid=m.roleid
-             WHERE m.member=r.oid AND g.rolname=$1 AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option
+ AND (SELECT count(*)=cardinality($1::text[]) FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)
+ AND (SELECT count(*)=cardinality($1::text[]) FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid=m.roleid
+             WHERE m.member=r.oid AND g.rolname=ANY($1::text[]) AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option
                AND NOT(g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
                AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members superior WHERE superior.member=g.oid))
- FROM pg_catalog.pg_roles r WHERE r.rolname=session_user`, rol).Scan(&login, &permitido)
+ FROM pg_catalog.pg_roles r WHERE r.rolname=session_user`, roles).Scan(&login, &permitido)
 	if err != nil || !permitido {
 		pool.Close()
 		return nil, "", errMiBolsaNoDisponible

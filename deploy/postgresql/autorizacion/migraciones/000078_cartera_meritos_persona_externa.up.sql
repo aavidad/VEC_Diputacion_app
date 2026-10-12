@@ -76,9 +76,12 @@ BEGIN
  FOR SHARE OF ap,a,r;
  IF NOT FOUND OR rol.rol_id IS DISTINCT FROM 'persona_meritos_cartera'
  OR jsonb_typeof(rol.documento->'concesiones') IS DISTINCT FROM 'array'
- OR (SELECT array_agg(x.value->>'accion' ORDER BY x.value->>'accion')
+ OR ((SELECT array_agg(x.value->>'accion' ORDER BY x.value->>'accion')
     FROM jsonb_array_elements(rol.documento->'concesiones') x) IS DISTINCT FROM
    ARRAY['meritos.cartera.consultar_propia','meritos.cartera.retirar_propio']::text[]
+  AND (SELECT array_agg(x.value->>'accion' ORDER BY x.value->>'accion')
+    FROM jsonb_array_elements(rol.documento->'concesiones') x) IS DISTINCT FROM
+   ARRAY['meritos.cartera.consultar_propia','meritos.cartera.retirar_propio','meritos.hecho.declarar']::text[])
  THEN RAISE EXCEPTION 'AUT78: rol externo de Méritos ausente' USING ERRCODE='42501'; END IF;
  RETURN QUERY SELECT a.documento,r.documento,c.documento,cat.revision::text,cat.huella_sha256,
   coalesce((SELECT jsonb_agg(p.documento ORDER BY p.politica_ref)
@@ -229,10 +232,17 @@ BEGIN
    AND ((g.rolname='vec_meritos_cartera_externo'
      AND l.rolname='vec_externo_meritos_cartera')
     OR (g.rolname='vec_autorizacion_registro_meritos_externo'
-     AND l.rolname='vec_externo_meritos_registro_autorizacion'))
+     AND l.rolname='vec_externo_meritos_registro_autorizacion')
+    OR (g.rolname='vec_meritos_ejecutor'
+     AND l.rolname='vec_externo_meritos_operacion'))
    AND NOT(g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
    AND g.rolconfig IS NULL AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
- OR (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1
+ OR (CASE WHEN session_user='vec_externo_meritos_operacion' THEN
+      (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>2
+      OR NOT EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
+       AND m.roleid='vec_meritos_externo'::regrole AND m.inherit_option
+       AND NOT m.set_option AND NOT m.admin_option)
+      ELSE (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1 END)
  THEN RETURN false; END IF;
  IF vec_identidad_externa_v1.acreditar_sesion_externa_v1(
    p_vinculo->>'autenticacion_ref',p_vinculo->>'autenticacion_huella_sha256',
@@ -303,7 +313,7 @@ SET search_path=pg_catalog,pg_temp AS $f$
 BEGIN
  IF vec_autorizacion.login_candidato_externo_v1(
   'vec_externo_meritos_motivos_autorizacion','vec_autorizacion_motivos_meritos_externo') IS NOT TRUE
- OR p_catalogo_id IS DISTINCT FROM 'motivos_autorizacion_meritos_cartera'
+ OR p_catalogo_id NOT IN ('motivos_autorizacion_meritos_cartera','motivos_meritos_declaracion')
  THEN RAISE EXCEPTION 'AUT78: motivo V3 externo denegado' USING ERRCODE='42501';END IF;
  RETURN vec_autorizacion.resolver_motivo_autorizacion_v2_historico(
   p_catalogo_id,p_catalogo_version,p_huella,p_entrada,p_instante);
@@ -321,32 +331,46 @@ BEGIN
  v:=d->'vinculo_autenticacion_actor';
  IF current_user<>'vec_autorizacion_propietario'
  OR vec_autorizacion.decision_contexto_actor_v3_valida(d) IS NOT TRUE
- OR d->>'accion' IS DISTINCT FROM 'meritos.cartera.retirar_propio'
+ OR d->>'accion' NOT IN ('meritos.cartera.retirar_propio','meritos.hecho.declarar')
  OR d->>'modulo_id' IS DISTINCT FROM 'meritos'
  OR d->>'tipo_recurso' IS DISTINCT FROM 'hecho'
- OR d->>'finalidad' IS DISTINCT FROM 'gestion_cartera_propia'
+ OR d->>'finalidad' IS DISTINCT FROM (CASE d->>'accion'
+   WHEN 'meritos.hecho.declarar' THEN 'declaracion_hecho_propio'
+   ELSE 'gestion_cartera_propia' END)
  OR v->>'superficie' IS DISTINCT FROM 'externa_personal'
  OR v->>'cuenta_privilegiada' IS DISTINCT FROM 'false'
  OR d->>'principal_id' IS DISTINCT FROM v->>'principal_id'
  OR d->>'perfil_activo_ref' IS DISTINCT FROM v->>'perfil_activo_ref'
  OR vec_contexto_actor_v1.acreditar_perfil_usuarios_externo_v1(
   v->>'cuenta_ref',d->>'principal_id',d->>'perfil_activo_ref') IS NOT TRUE
- OR m#>>'{referencia,catalogo_id}' IS DISTINCT FROM 'motivos_autorizacion_meritos_cartera'
+ OR m#>>'{referencia,catalogo_id}' IS DISTINCT FROM (CASE d->>'accion'
+   WHEN 'meritos.hecho.declarar' THEN 'motivos_meritos_declaracion'
+   ELSE 'motivos_autorizacion_meritos_cartera' END)
  OR NOT EXISTS(SELECT 1 FROM vec_autorizacion.version_rol r
   WHERE r.version_rol_ref=d->>'version_rol_ref'
    AND r.rol_id='persona_meritos_cartera'
-   AND (SELECT array_agg(x.value->>'accion' ORDER BY x.value->>'accion')
-    FROM jsonb_array_elements(r.documento->'concesiones') x)
-    =ARRAY['meritos.cartera.consultar_propia','meritos.cartera.retirar_propio']::text[])
+   AND ((d->>'accion'='meritos.hecho.declarar' AND
+     (SELECT array_agg(x.value->>'accion' ORDER BY x.value->>'accion')
+      FROM jsonb_array_elements(r.documento->'concesiones') x)
+      =ARRAY['meritos.cartera.consultar_propia','meritos.cartera.retirar_propio','meritos.hecho.declarar']::text[])
+    OR (d->>'accion'='meritos.cartera.retirar_propio' AND
+     (SELECT array_agg(x.value->>'accion' ORDER BY x.value->>'accion')
+      FROM jsonb_array_elements(r.documento->'concesiones') x) IN
+      (ARRAY['meritos.cartera.consultar_propia','meritos.cartera.retirar_propio']::text[],
+       ARRAY['meritos.cartera.consultar_propia','meritos.cartera.retirar_propio','meritos.hecho.declarar']::text[]))))
  THEN RETURN false;END IF;
  -- La denegación conserva listas canónicas de la decisión V3, limitadas
  -- al contrato nominal. No exige campos que nunca llegaron a concederse.
  IF d->>'concedida'='true' THEN
-  RETURN d->'campos_permitidos' IS NOT DISTINCT FROM '["disponibilidad","recibo"]'::jsonb
+  RETURN d->'campos_permitidos' IS NOT DISTINCT FROM (CASE d->>'accion'
+    WHEN 'meritos.hecho.declarar' THEN '["declarante_ref","hecho","recibo","version"]'::jsonb
+    ELSE '["disponibilidad","recibo"]'::jsonb END)
    AND d->'obligaciones' IS NOT DISTINCT FROM '["auditar"]'::jsonb;
  END IF;
  RETURN d->>'concedida'='false'
-  AND (d->'campos_permitidos' <@ '["disponibilidad","recibo"]'::jsonb)
+  AND (d->'campos_permitidos' <@ (CASE d->>'accion'
+    WHEN 'meritos.hecho.declarar' THEN '["declarante_ref","hecho","recibo","version"]'::jsonb
+    ELSE '["disponibilidad","recibo"]'::jsonb END))
   AND (d->'obligaciones' <@ '["auditar"]'::jsonb);
 EXCEPTION WHEN data_exception OR invalid_text_representation THEN RETURN false;
 END $f$;
@@ -364,7 +388,18 @@ BEGIN
  IF NOT (vec_autorizacion.login_candidato_externo_v1(
   'vec_externo_meritos_registro_autorizacion','vec_autorizacion_registro_meritos_externo') IS TRUE
   OR (session_user='vec_externo_meritos_cartera'
-   AND pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')))
+   AND pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
+   AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1)
+  OR (session_user='vec_externo_meritos_operacion'
+   AND pg_has_role(session_user,'vec_meritos_ejecutor','MEMBER')
+   AND pg_has_role(session_user,'vec_meritos_externo','MEMBER')
+   AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=2
+   AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
+    AND m.roleid='vec_meritos_ejecutor'::regrole AND m.inherit_option
+    AND NOT m.set_option AND NOT m.admin_option)
+   AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
+    AND m.roleid='vec_meritos_externo'::regrole AND m.inherit_option
+    AND NOT m.set_option AND NOT m.admin_option)))
  OR current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off'
  OR p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 1 AND 524288
@@ -406,8 +441,19 @@ RETURNS timestamptz LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' AS $f$
 DECLARE d jsonb;m jsonb;
 BEGIN
- IF session_user<>'vec_externo_meritos_cartera'
- OR NOT pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
+ IF NOT ((session_user='vec_externo_meritos_cartera'
+   AND pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
+   AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1)
+  OR (session_user='vec_externo_meritos_operacion'
+   AND pg_has_role(session_user,'vec_meritos_ejecutor','MEMBER')
+   AND pg_has_role(session_user,'vec_meritos_externo','MEMBER')
+   AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=2
+   AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
+    AND m.roleid='vec_meritos_ejecutor'::regrole AND m.inherit_option
+    AND NOT m.set_option AND NOT m.admin_option)
+   AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
+    AND m.roleid='vec_meritos_externo'::regrole AND m.inherit_option
+    AND NOT m.set_option AND NOT m.admin_option)))
  OR current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off'
  OR p_decision IS NULL OR p_motivo IS NULL
@@ -519,9 +565,12 @@ BEGIN
  OR rol.huella_sha256 IS DISTINCT FROM p_orden->>'version_rol_huella_sha256'
  OR rol.documento->>'estado' IS DISTINCT FROM 'publicada'
  OR jsonb_typeof(rol.documento->'concesiones') IS DISTINCT FROM 'array'
- OR (SELECT array_agg(e.value->>'accion' ORDER BY e.value->>'accion')
+ OR ((SELECT array_agg(e.value->>'accion' ORDER BY e.value->>'accion')
      FROM jsonb_array_elements(rol.documento->'concesiones') e) IS DISTINCT FROM
     ARRAY['meritos.cartera.consultar_propia','meritos.cartera.retirar_propio']::text[]
+  AND (SELECT array_agg(e.value->>'accion' ORDER BY e.value->>'accion')
+     FROM jsonb_array_elements(rol.documento->'concesiones') e) IS DISTINCT FROM
+    ARRAY['meritos.cartera.consultar_propia','meritos.cartera.retirar_propio','meritos.hecho.declarar']::text[])
  OR control.version_rol_ref IS DISTINCT FROM p_orden->>'control_version_rol_ref'
  OR control.revision IS DISTINCT FROM (p_orden->>'revision_control_version_rol')::numeric
  OR control.huella_sha256 IS DISTINCT FROM p_orden->>'control_version_rol_huella_sha256'

@@ -114,7 +114,8 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 		return ruta == "/api/vec/aspirantes/area-personal/mi-ficha"
 	case SuperficieAuditoriaFronteraRutaExactaMeritosCartera:
 		return ruta == "/api/vec/meritos/cartera" ||
-			ruta == "/api/vec/meritos/cartera/retiradas"
+			ruta == "/api/vec/meritos/cartera/retiradas" ||
+			ruta == "/api/vec/meritos/cartera/declaraciones"
 	case SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases:
 		return ruta == "/api/vec/seleccion/preparacion-bases/guardar" ||
 			ruta == "/api/vec/seleccion/preparacion-bases/consultar"

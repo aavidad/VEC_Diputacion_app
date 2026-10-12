@@ -37,9 +37,10 @@ func falloMontajeCartera(clave string) error {
 const rutaMotivoCarteraExterna = "identidad/meritos-cartera-externa.json"
 
 type configuracionMotivoCarteraExterna struct {
-	Version        int                           `json:"version"`
-	MotivoRetirada vec.ReferenciaEntradaCatalogo `json:"motivo_retirada"`
-	Cuentas        []cuentaCarteraExterna        `json:"cuentas"`
+	Version           int                           `json:"version"`
+	MotivoRetirada    vec.ReferenciaEntradaCatalogo `json:"motivo_retirada"`
+	MotivoDeclaracion vec.ReferenciaEntradaCatalogo `json:"motivo_declaracion,omitempty"`
+	Cuentas           []cuentaCarteraExterna        `json:"cuentas"`
 }
 
 type cuentaCarteraExterna struct {
@@ -137,7 +138,7 @@ func montarCarteraPortalExterno(ctx context.Context, cfg config.Config,
 	motivo := privada.MotivoRetirada
 	proveedores, err := nuevosProveedoresV3PortalExterno(ctx, cfg.DevelopmentMaterialDir, preflight,
 		consumidorMeritosCarteraPortalExternoV3, relojContratacionTemporalDesarrollo{})
-	if err != nil || proveedores[meritosports.AudienciaRetirarCartera] == nil {
+	if err != nil || proveedores[meritosports.AudienciaRetirarCartera] == nil || proveedores[descriptoresMaterialMeritosInternosDesarrollo()[0].Audiencia] == nil {
 		return nil, falloMontajeCartera("material_v3")
 	}
 	topologia, err := acreditarTopologiaPostgreSQLPreferenciasUsuarios(ctx, preflight)
@@ -316,6 +317,14 @@ func montarCarteraPortalExterno(ctx context.Context, cfg config.Config,
 	if err != nil {
 		return nil, falloMontajeCartera("handler_retirada")
 	}
+	declaracion := nuevaAutoridad(meritoshttp.RutaDeclaracionesCartera)
+	poolOperacion, err := montarDeclaracionMeritosCartera(ctx, cfg, declaracion, privada, topologia, pools[0], autorizador,
+		proveedores[descriptoresMaterialMeritosInternosDesarrollo()[0].Audiencia])
+	if err != nil {
+		return nil, err
+	}
+	pools = append(pools, poolOperacion)
+	externa.declaracion = declaracion
 	externa.cartera, externa.retirada = cartera, retirada
 	completo = true
 	return cerrar, nil

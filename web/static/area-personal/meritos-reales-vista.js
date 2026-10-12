@@ -72,6 +72,36 @@ function retiradaPendiente(modelo, textos) {
   </section>`;
 }
 
+function altaMerito(modelo, textos) {
+  if (!modelo.alta) return "";
+  const valores = modelo.alta;
+  const e = escaparMeritos;
+  const bloqueo = modelo.altaPendiente || modelo.guardando ? " disabled" : "";
+  const campo = (nombre, control) => `<div class="campo"><label for="meritos-alta-${nombre}">${t(textos, `alta_${nombre}`)}</label>${control.replace(/^(<\w+)/u, `$1 id="meritos-alta-${nombre}"`)}</div>`;
+  const esCurso = ["curso_asistencia", "curso_superacion"].includes(valores.tipo);
+  return `<section class="panel meritos-reales-revision" aria-labelledby="meritos-alta-titulo">
+    <header><h3 id="meritos-alta-titulo">${t(textos, "alta_titulo")}</h3></header>
+    <div><form id="meritos-reales-alta-formulario"><div class="formulario-rejilla">
+      ${campo("tipo", `<select name="tipo" required${bloqueo}>${[...TIPOS].map((tipo) => `<option value="${tipo}"${tipo === valores.tipo ? " selected" : ""}>${t(textos, `tipo_${tipo}`)}</option>`).join("")}</select>`)}
+      ${campo("denominacion", `<input name="denominacion" required maxlength="512" value="${e(valores.denominacion)}"${bloqueo}>`)}
+      ${campo("fecha_desde", `<input name="fecha_desde" type="date" required value="${e(valores.fecha_desde)}"${bloqueo}>`)}
+      ${campo("fecha_hasta", `<input name="fecha_hasta" type="date" min="${e(valores.fecha_desde)}" value="${e(valores.fecha_hasta)}"${bloqueo}>`)}
+      ${esCurso ? campo("horas", `<input name="horas" type="number" min="0" max="1000000" step="1" value="${e(valores.horas)}"${bloqueo}>`) : ""}
+    </div>${modelo.errorAlta ? `<p class="meritos-reales-aviso" role="alert">${t(textos, modelo.errorAlta)}</p>` : ""}
+    <div class="meritos-reales-acciones">
+      <button type="button" class="boton-secundario" data-meritos-alta-cancelar${bloqueo}>${t(textos, "cancelar")}</button>
+      <button type="submit" class="boton-primario"${modelo.guardando ? " disabled" : ""}>${t(textos, modelo.guardando ? "guardando" : modelo.altaPendiente ? "alta_reintentar" : "alta_guardar")}</button>
+    </div></form></div></section>`;
+}
+
+function reciboAlta(modelo, textos) {
+  const recibo = modelo.confirmacionAlta;
+  if (!recibo) return "";
+  return `<section class="meritos-reales-confirmacion" role="status" tabindex="-1"><p>${t(textos, "alta_confirmada")}</p>
+    <time datetime="${escaparMeritos(recibo.registrado_en)}">${escaparMeritos(textos.fecha(recibo.registrado_en, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" }))}</time>
+    <details><summary>${t(textos, "detalle_recibo")}</summary><p>${escaparMeritos(recibo.referencia)}</p></details></section>`;
+}
+
 /** Un dato agrupado solo se muestra con el filtro de esa misma página. */
 export function renderizarMeritosPropios(modelo, textos) {
   if (!modelo || !ESTADOS.has(modelo.estado) || !FILTROS.has(modelo.filtro) ||
@@ -88,8 +118,9 @@ export function renderizarMeritosPropios(modelo, textos) {
   const mas = modelo.estado === "listo" && modelo.cursor_siguiente
     ? `<button type="button" data-meritos-mas class="boton-secundario">${t(textos, "ver_mas")}</button>` : "";
   return `<section class="panel meritos-reales" aria-labelledby="meritos-cartera-titulo">
-    <header><h2 id="meritos-cartera-titulo" tabindex="-1">${t(textos, "lista_titulo")}</h2></header>
+    <header><h2 id="meritos-cartera-titulo" tabindex="-1">${t(textos, "lista_titulo")}</h2>
+      ${["listo", "vacio"].includes(modelo.estado) ? `<button type="button" class="boton-primario" data-meritos-alta${modelo.guardando || modelo.alta ? " disabled" : ""}>${t(textos, "alta_titulo")}</button>` : ""}</header>
     <div class="panel-contenido">${filtros(modelo, textos)}${retiradaPendiente(modelo, textos)}<div class="meritos-reales-lista">${lista}</div>
-      <div class="meritos-reales-paginacion">${total}${mas}</div>${confirmacion(modelo, textos)}${revisarRetirada(modelo, textos)}</div>
+      <div class="meritos-reales-paginacion">${total}${mas}</div>${confirmacion(modelo, textos)}${revisarRetirada(modelo, textos)}${reciboAlta(modelo, textos)}${altaMerito(modelo, textos)}</div>
   </section>`;
 }

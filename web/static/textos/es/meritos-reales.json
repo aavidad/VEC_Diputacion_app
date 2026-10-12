@@ -40,6 +40,17 @@
       "one": "{cuenta} mérito en este filtro",
       "other": "{cuenta} méritos en este filtro"
     },
-    "ver_mas": "Ver más méritos"
+    "ver_mas": "Ver más méritos",
+    "alta_titulo": "Añadir título o mérito",
+    "alta_tipo": "Tipo (obligatorio)",
+    "alta_denominacion": "Nombre del título o mérito (obligatorio)",
+    "alta_fecha_desde": "Fecha de obtención o de inicio (obligatoria)",
+    "alta_fecha_hasta": "Fecha de finalización (opcional)",
+    "alta_horas": "Duración en horas (opcional)",
+    "alta_guardar": "Registrar mérito",
+    "alta_reintentar": "Reintentar registro",
+    "alta_confirmada": "El mérito está registrado. Queda pendiente de revisión.",
+    "alta_error_datos": "No se pudo registrar el mérito. Revise los datos y vuelva a enviarlos.",
+    "alta_error_incierto": "No se pudo comprobar el resultado. Pulse Reintentar registro para recuperar la misma operación."
   }
 }
