@@ -164,7 +164,12 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Registrar(ctx context.Contex
 	if ctx.Err() != nil {
 		return vacio, ctx.Err()
 	}
-	if err != nil || expediente.Fiscalizado.Validar() != nil ||
+	if err != nil {
+		slog.ErrorContext(ctx, "contratacion temporal: lectura de aviso confirmado no disponible",
+			"etapa", "leer_expediente_aviso_confirmado", "causa", causaFalloPostgreSQLCTDesarrollo(err))
+		return vacio, application.ErrComunicacionLlamamientoNoDisponible
+	}
+	if expediente.Fiscalizado.Validar() != nil ||
 		!expedienteComunicacionLlamamientoDesarrolloValido(expediente, solicitud) {
 		return vacio, application.ErrComunicacionLlamamientoNoDisponible
 	}

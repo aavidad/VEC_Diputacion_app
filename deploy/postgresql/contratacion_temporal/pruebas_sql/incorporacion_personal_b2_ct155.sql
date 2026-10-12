@@ -59,8 +59,11 @@ BEGIN
  'modalidad',jsonb_build_object('ref','catalogo:gramatica','version',1),
  'bolsa',jsonb_build_object('unidad_ref','ref:gramatica','categoria_ref','ref:gramatica','necesidad_ref','ref:gramatica','aceptacion_operacion_ref','ref:gramatica','aceptacion_registro_sha256',repeat('1',64),'apertura_operacion_ref','ref:gramatica','apertura_registro_sha256',repeat('1',64),'llamamiento_ref','ref:gramatica','propuesta_ref','ref:gramatica'),
  'desde','2026-09-01','hasta','2026-12-31','motivo_clave','motivo_prueba','ejercicio_sintetico',true);
+ -- Personal23 publica la versión tipada; el instrumento conserva el UUID.
+ p:=p||jsonb_build_object('version_plaza_ref','plantilla:'||(p#>>'{fuente_plantilla,ref}'),
+                         'version_puesto_ref','rpt:'||(p#>>'{fuente_rpt,ref}'));
  SELECT jsonb_object_agg(c,p->c) INTO s FROM unnest(ARRAY['organizacion_ref','expediente_ref','version_expediente','puesto_ref','plaza_ref','regimen','modalidad','desde','hasta','motivo_clave','documento_ref','documento_sha256']) c;
- s:=s||jsonb_build_object('clave_idempotencia','33333333-3333-4333-8333-333333333333','version_plantilla_ref',p#>>'{fuente_plantilla,ref}','version_rpt_ref',p#>>'{fuente_rpt,ref}');
+ s:=s||jsonb_build_object('clave_idempotencia','33333333-3333-4333-8333-333333333333','version_plantilla_ref',p->>'version_plaza_ref','version_rpt_ref',p->>'version_puesto_ref');
  -- Límites y caracteres expresados como casos, sin repetir el regex.
  FOREACH clase IN ARRAY ARRAY['a','a0_','reserva',repeat('a',64)] LOOP
  PERFORM vec_contratacion_temporal.validar_plan_personal_ct155(p||jsonb_build_object('clase_ocupacion',clase),s||jsonb_build_object('clase_ocupacion',clase));
@@ -72,6 +75,22 @@ BEGIN
  EXCEPTION WHEN invalid_parameter_value THEN NULL;
  END;
  END LOOP;
+ -- Ni la selección ni el plan pueden sustituir una de las dos versiones.
+ p:=p||jsonb_build_object('clase_ocupacion','reserva');
+ s:=s||jsonb_build_object('clase_ocupacion','reserva');
+ PERFORM vec_contratacion_temporal.validar_plan_personal_ct155(p,s);
+ BEGIN
+   PERFORM vec_contratacion_temporal.validar_plan_personal_ct155(p,s||jsonb_build_object('version_plantilla_ref','plantilla:44444444-4444-4444-8444-444444444444'));
+   RAISE EXCEPTION 'CT205: versión de plantilla ajena admitida';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+ BEGIN
+   PERFORM vec_contratacion_temporal.validar_plan_personal_ct155(p||jsonb_build_object('version_puesto_ref','rpt:44444444-4444-4444-8444-444444444444'),s);
+   RAISE EXCEPTION 'CT205: versión RPT del plan divergente admitida';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+ BEGIN
+   PERFORM vec_contratacion_temporal.validar_plan_personal_ct155(p||jsonb_build_object('fuente_plantilla',(p->'fuente_plantilla')||jsonb_build_object('ref','44444444-4444-4444-8444-444444444444')),s);
+   RAISE EXCEPTION 'CT205: instrumento de plantilla divergente admitido';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
 END $gramatica$;
 -- CT155 positiva: plan y origen usan operaciones distintas aunque ambos
 -- eventos conservan el mismo plan_ref. Ejercita el helper y la restricción

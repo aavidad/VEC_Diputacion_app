@@ -10,9 +10,9 @@
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
-import { cargarTextosFaseFirma, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261011-ct-bolsa-vinculo-v1";
+import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261012-ct-firma-error-v4";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
-import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261012-ct-original-preparado-v1";
+import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261012-ct-firma-error-v4";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
@@ -197,11 +197,12 @@ export function renderizarPreparacionResolucion(preparacion, t, locale = prepara
   const original = preparacion.original;
   const comprobante = original?.comprobante;
   const firmado = preparacion.documento;
-  const pasos = firmado?.pasos?.map((paso) => {
+  const ordenR5 = ordenR5ResolucionConfirmado(firmado);
+  const pasos = ordenR5 ? firmado.pasos.map((paso) => {
     return `<li class="ct-circuito-paso"><span class="ct-circuito-orden">${paso.orden}</span>
       <div class="ct-circuito-paso-cuerpo"><strong>${escaparHTML(traducirValorCircuitoFirma("cargo", paso.cargo, t))}</strong>
         <span class="ct-circuito-estado">${escaparHTML(t("circuito_firma_firmante_sin_estado"))}</span></div></li>`;
-  }).join("") ?? "";
+  }).join("") : "";
   return `<div class="ct-circuito-limite ct-circuito-documento" data-ct-preparacion-resolucion>
     ${comprobante ? `<p class="ct-circuito-estado ct-tono-aviso" role="status">${escaparHTML(t("circuito_firma_original_preparado"))}</p>
       <p>${escaparHTML(t("circuito_firma_original_recibo", { numero: comprobante.numero_vec }))}</p>
@@ -209,7 +210,8 @@ export function renderizarPreparacionResolucion(preparacion, t, locale = prepara
       <button type="button" class="boton-secundario" data-ct-descargar-preparado>${escaparHTML(t("circuito_firma_original_descargar"))}</button>`
     : `<button type="button" class="boton-secundario" data-ct-preparar-resolucion>${escaparHTML(t("circuito_firma_preparar_resolucion"))}</button>`}
     <p role="status" aria-live="polite" tabindex="-1" id="ct-preparacion-aviso" data-ct-preparacion-aviso></p>
-    ${pasos ? `<h5>${escaparHTML(t("circuito_firma_firmantes"))}</h5><ol>${pasos}</ol>` : ""}
+    ${ordenR5 ? `<h5>${escaparHTML(t("circuito_firma_firmantes"))}</h5><ol>${pasos}</ol>`
+    : `<p role="status">${escaparHTML(t("circuito_firma_firmantes_pendiente"))}</p>`}
   </div>`;
 }
 
@@ -238,7 +240,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
       <span class="ct-circuito-estado ct-tono-aviso">${escaparHTML(t("circuito_firma_envio_corporativo_pendiente"))}</span>
       <div class="ct-circuito-envio">
         <button type="button" class="boton-primario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_envio_corporativo_accion"))}</button>
-        <p id="ct-circuito-envio-motivo">${escaparHTML(t(preparacion ? "circuito_firma_original_envio_pendiente" : "circuito_firma_envio_corporativo_bloqueado"))}</p>
+        <p id="ct-circuito-envio-motivo">${escaparHTML(t(preparacion?.original?.comprobante ? "circuito_firma_original_envio_pendiente" : "circuito_firma_envio_corporativo_bloqueado"))}</p>
       </div>
       <details class="ct-circuito-limite"><summary>${escaparHTML(t("circuito_firma_portafirmas_detalle"))}</summary>
         <p>${escaparHTML(t("circuito_firma_portafirmas_sin_envio"))}</p>
@@ -304,7 +306,11 @@ export function crearGestorCircuitoFirma({
     const peticion = new AbortController(); preparacionControlador = peticion;
     boton.disabled = true;
     const aviso = zona.querySelector?.("[data-ct-preparacion-aviso]");
-    if (aviso) aviso.textContent = t("circuito_firma_original_preparando");
+    if (aviso) {
+      aviso.classList?.remove?.("estado-chip", "peligro", "ct-preparacion-error");
+      aviso.setAttribute?.("role", "status");
+      aviso.textContent = t("circuito_firma_original_preparando");
+    }
     try {
       const original = await clienteOriginal.preparar({ expedienteRef: contexto.ref, version: contexto.version,
         documento: "resolucion" }, { signal: peticion.signal });
@@ -316,8 +322,12 @@ export function crearGestorCircuitoFirma({
       raiz.querySelector?.("[data-ct-descargar-preparado]")?.focus?.({ preventScroll: true });
     } catch (error) {
       if (!mismaFicha(contexto) || peticion.signal.aborted) return;
-      if (aviso) aviso.textContent = t(error?.codigo === "acceso_denegado"
-        ? "circuito_firma_original_denegado" : "circuito_firma_original_error");
+      if (aviso) {
+        aviso.classList?.add?.("estado-chip", "peligro", "ct-preparacion-error");
+        aviso.setAttribute?.("role", "alert");
+        aviso.textContent = t(error?.codigo === "acceso_denegado"
+          ? "circuito_firma_original_denegado" : "circuito_firma_original_error");
+      }
     } finally {
       boton.disabled = false;
       if (preparacionControlador === peticion) preparacionControlador = null;
