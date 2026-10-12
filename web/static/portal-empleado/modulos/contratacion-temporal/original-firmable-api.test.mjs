@@ -82,3 +82,32 @@ test("la preparación exige puertos explícitos y conserva la cancelación", asy
   const c = new AbortController(); c.abort();
   await assert.rejects(deps.obtenerOriginal(solicitud, { signal: c.signal }), (e) => e.codigo === "operacion_abortada");
 });
+
+
+test("la preparación exige el comprobante confirmado y conserva su número y fecha", async () => {
+  const d = datos();
+  d.esquema = "vec.contratacion-temporal.original-firmable.v2";
+  d.comprobante = { numero_vec: "VEC-2026-17", custodiado_en: "2026-10-12T09:00:00.123456Z" };
+  let accept;
+  const cliente = crearClienteOriginalFirmable({ exigirComprobante: true, fetchImpl: async (_ruta, opciones) => {
+    accept = opciones.headers.Accept; return respuesta(d);
+  } });
+  const primero = await cliente.preparar(solicitud);
+  const repetido = await cliente.preparar(solicitud);
+  assert.deepEqual(primero.comprobante, d.comprobante);
+  assert.deepEqual(repetido.comprobante, primero.comprobante);
+  assert.deepEqual(repetido.contenido, primero.contenido);
+  assert.equal(accept, "application/vnd.vec.ct.original-firmable.v2+json");
+  for (const alterar of [
+    (v) => { delete v.comprobante; },
+    (v) => { v.comprobante.numero_vec = "envio:inventado"; },
+    (v) => { v.comprobante.custodiado_en = ""; },
+    (v) => { v.comprobante.custodiado_en = "2026-10-12T09:00:00+02:00"; },
+    (v) => { v.comprobante.firmado = true; },
+    (v) => { v.esquema = "vec.contratacion-temporal.original-firmable.v1"; },
+  ]) {
+    const alterado = structuredClone(d); alterar(alterado);
+    await assert.rejects(crearClienteOriginalFirmable({ exigirComprobante: true,
+      fetchImpl: async () => respuesta(alterado) }).preparar(solicitud), (e) => e.codigo === "resultado_no_confiable");
+  }
+});
