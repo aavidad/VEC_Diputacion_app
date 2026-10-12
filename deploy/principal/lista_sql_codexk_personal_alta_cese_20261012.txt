@@ -1,0 +1,14 @@
+# Alta Personal B2: CT205 corrige el cotejo tipado que impide registrar el plan.
+# Precondiciones ya instaladas en la copia PG18 de K: CT155, Personal23,
+# Personal41–45, CT203 y CT204. En cidonia, Dirección instala primero
+# únicamente las pendientes de las listas HZ21/#1036/#1039; nunca reaplica UP.
+# La preimagen CT155 debe tener SHA256 pg_get_functiondef
+# 8b3dbde72cdb63bdb35bf0fddc75ac9fedcc23f8348c2f93838e16c26657a7e0.
+# CT205 no crea roles, perfiles, tablas ni configuración nueva; conserva OID,
+# propietario, ACL, invocador, volatilidad y search_path de la función.
+# CONFIG NUEVA de la cadena, no de CT205: VEC_PERSONAL_B2_GOBIERNO_ENABLED=true;
+# VEC_BOLSA_CESE_CT_ENABLED=true; personal_b2.cese_fecha_efecto debe fijarse
+# por RRHH (en la copia de K: primer_dia_sin_relacion, solo ejercicio).
+# Además, mantener material B2 27 operaciones/19 audiencias, origen AD172 y
+# provisión nominal de catálogo/lista según las listas de #1036/#1039.
+deploy/postgresql/contratacion_temporal/migraciones/000205_plan_b2_versiones_tipadas.up.sql
