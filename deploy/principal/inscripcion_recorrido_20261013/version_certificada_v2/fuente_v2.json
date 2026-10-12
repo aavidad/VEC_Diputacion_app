@@ -1,0 +1,46 @@
+{
+  "esquema": "vec.inscripcion.version_certificada_provisional.v2",
+  "uso": "preparacion_operativa_sin_bases_aprobadas",
+  "categoria": {
+    "catalogo_id": "categorias_rpt",
+    "version": 1,
+    "huella_sha256": "ce7c6034ac465ed44e41d8de4347e641efe9e06818ce16c21d97308e3a527da6",
+    "categoria_ref": "categoria:rpt:administrativo"
+  },
+  "politica": {
+    "catalogo_id": "bolsa.politica.inscripcion",
+    "version_anterior": 1,
+    "huella_anterior_sha256": "af1ea27a0a1ab40b8343ae3652cf9e0aa157bbbb6bf555ba1c1ea90b2e8cdcfd",
+    "version_nueva": 2,
+    "archivo_anterior": "politica_v1_canonica.json",
+    "archivo_preimagenes": "preimagenes_politica_v1.json"
+  },
+  "convocatoria": {
+    "id": "proceso:bolsa:ensayo-auxiliar-2026",
+    "secuencia_anterior": 1,
+    "huella_anterior_sha256": "536068f4499829b96e6bece0988a7f8a6f2e1e094056cc5d61e28c7735d3cd7b",
+    "secuencia_nueva": 2,
+    "archivo_anterior": "convocatoria_v1_canonica.json",
+    "identificador_publico": "bolsa-administrativo-2026",
+    "titulo": "Bolsa de Administrativo/a",
+    "resumen": "Inscripción con identidad acreditada",
+    "descripcion": "Para presentar la solicitud se exige identificarse con certificado digital o DNIe admitido.",
+    "bases_ref": "bases:administrativo-identidad-certificada-provisional-v2",
+    "plazo_ref": "plazo:administrativo-identidad-certificada-v2",
+    "plazo_abre_en": "2026-10-12T23:38:00Z",
+    "plazo_cierra_en": "2026-11-30T23:59:59Z",
+    "requisito": {
+      "referencia": "identidad_certificada",
+      "orden": 1,
+      "descripcion": "Identificación con certificado digital o DNIe admitido",
+      "obligatorio": true
+    }
+  },
+  "metadatos_operativos": {
+    "instante": "2026-10-12T23:38:00Z",
+    "actor_ref": "actor:preparacion-inscripcion-v2",
+    "revision_ref": "revision:operativa-inscripcion-v2",
+    "motivo_ref": "motivos_bolsa:1:motivo_demo",
+    "declaracion": "Preparación operativa para el recorrido; las bases y firmas legales siguen pendientes"
+  }
+}

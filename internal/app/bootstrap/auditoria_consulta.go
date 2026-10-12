@@ -307,7 +307,7 @@ func (r registradorFronterasPorSuperficieDesarrollo) RegistrarAuditoriaFronteraR
 		return auditoria.ErrDenegada
 	}
 	switch orden.Superficie {
-	case vecports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal:
+	case vecports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal, vecports.SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH:
 		if dependenciaAuditoriaConsultaNula(r.ct) {
 			return auditoria.ErrNoDisponible
 		}

@@ -26,7 +26,8 @@ func (s SolicitudPropuestaVersionarRolBolsaB103) Validar() error {
 		!ReferenciaMotivoAutorizacionV2Valida(s.Intencion.Motivo) ||
 		!ReferenciaActoAdministracionValida(s.Intencion.ReferenciaActo) ||
 		len(s.Intencion.Asignaciones) < 1 || len(s.Intencion.Asignaciones) > 16 ||
-		(len(s.Intencion.Selecciones) != len(accionesVersionarRolBolsaB103) && len(s.Intencion.Selecciones) != 1) {
+		(len(s.Intencion.Selecciones) != len(accionesVersionarRolBolsaB103) && len(s.Intencion.Selecciones) != 1 &&
+			len(s.Intencion.Selecciones) != len(accionesInscripcionRRHHB103)) {
 		return ErrVersionarRolBolsaB103Invalido
 	}
 	return nil
