@@ -370,7 +370,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) despacharCorreoSintetico(ctx
 	mensaje := smtp.Mensaje{
 		Destino:     fmt.Sprintf("candidatura-%x@sintetico.invalid", sumaDestinatario[:6]),
 		Asunto:      fmt.Sprintf("Llamamiento de contratación temporal: expediente %s", numero),
-		Cuerpo:      fmt.Sprintf("Diputación de Granada — Recursos Humanos.\nLlamamiento de contratación temporal.\n\nExpediente: %s\nCategoría: %s\nCentro: %s\nPlazo de respuesta: pendiente de definición por RRHH; este mensaje no abre plazo.\n\nPerfil de desarrollo con datos sintéticos: este correo no acredita entrega ni produce efectos administrativos.", numero, expediente.Solicitud.CategoriaRef, expediente.Solicitud.CentroRef),
+		Cuerpo:      fmt.Sprintf("Diputación de Granada — Recursos Humanos.\nLlamamiento de contratación temporal.\n\nExpediente: %s\nCategoría: %s\nCentro: %s\nPlazo de respuesta: pendiente de definición por RRHH; este mensaje no abre plazo.\n\nPara aceptar o renunciar, entre en Mi Bolsa en el portal de la Diputación.", numero, expediente.Solicitud.CategoriaRef, expediente.Solicitud.CentroRef),
 		MessageID:   fmt.Sprintf("<llamamiento-%x@sintetico.invalid>", sumaMensaje[:12]),
 		FechaOrigen: recibo.RegistradaEn,
 	}
