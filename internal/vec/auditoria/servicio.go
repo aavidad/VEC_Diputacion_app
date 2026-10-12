@@ -69,6 +69,7 @@ const (
 	recursoIntentoConsultaInvalida = "auditoria:consulta_invalida"
 	recursoIntentoConsultaCT       = "auditoria:consulta_ct"
 	recursoIntentoConsultaBolsa    = "auditoria:consulta_bolsa"
+	recursoIntentoConsultaPersona  = "auditoria:consulta_persona"
 	recursoIntentoOpcionesRRHH     = "auditoria:opciones_rrhh"
 )
 
@@ -91,7 +92,7 @@ func (s *Servicio) registrarIntento(ctx context.Context, identidad IdentidadResu
 	resultado vecdomain.ResultadoIntentoAuditoria, actuales *Opciones) (vecports.AcuseIntentoAuditoria, error) {
 	var vacio vecports.AcuseIntentoAuditoria
 	switch recurso {
-	case recursoIntentoConsultaInvalida, recursoIntentoConsultaCT, recursoIntentoConsultaBolsa, recursoIntentoOpcionesRRHH:
+	case recursoIntentoConsultaInvalida, recursoIntentoConsultaCT, recursoIntentoConsultaBolsa, recursoIntentoConsultaPersona, recursoIntentoOpcionesRRHH:
 	default:
 		return vacio, ErrNoDisponible
 	}

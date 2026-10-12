@@ -134,7 +134,11 @@ func (h *Manejador) servirOpciones(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.servicio.registrarOpcionesSesion(r.Context(), identidad, opciones); err != nil {
-		h.responderIntento(w, r, identidad, recursoIntentoOpcionesRRHH, http.StatusServiceUnavailable, &opciones)
+		codigo := http.StatusServiceUnavailable
+		if errors.Is(err, ErrDenegada) {
+			codigo = http.StatusForbidden
+		}
+		h.responderIntento(w, r, identidad, recursoIntentoOpcionesRRHH, codigo, &opciones)
 		return
 	}
 	responderJSON(w, http.StatusOK, opciones)
@@ -273,6 +277,15 @@ func (h *Manejador) servirConsulta(w http.ResponseWriter, r *http.Request) {
 	}
 	if cuerpo.Operacion != "" && cuerpo.Operacion != "consultar" && cuerpo.Operacion != "buscar" ||
 		(h.servicio.lectura == nil && (cuerpo.Operacion != "" || cuerpo.MotivoConsulta != "" || fuente == FuenteConsultaPersona)) {
+		if h.servicio.lectura != nil {
+			identidad, fallo := h.resolverIdentidad(r, FuenteConsultaGeneral)
+			if fallo != nil {
+				responderError(w, http.StatusForbidden)
+				return
+			}
+			h.responderIntento(w, r, identidad, recursoIntentoConsultaInvalida, http.StatusBadRequest, nil)
+			return
+		}
 		responderError(w, http.StatusBadRequest)
 		return
 	}
@@ -328,6 +341,9 @@ func recursoIntentoFiltro(f Filtro) string {
 	}
 	if f.Fuente == "ct" {
 		return recursoIntentoConsultaCT
+	}
+	if f.Fuente == "persona" {
+		return recursoIntentoConsultaPersona
 	}
 	return recursoIntentoConsultaBolsa
 }

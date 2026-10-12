@@ -3,13 +3,22 @@ package auditoria
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
+
+	"vec-diputacion-granada/internal/vec/domain"
 )
 
-type capturaSesionPrueba struct{}
+type capturaSesionPrueba struct{ err error }
 
-func (capturaSesionPrueba) CapturarLecturaAuditoria(context.Context, ContextoConsulta, Filtro, string, Busqueda) (CapturaLecturaSesion, error) {
+func (c capturaSesionPrueba) CapturarLecturaAuditoria(context.Context, ContextoConsulta, Filtro, string, Busqueda) (CapturaLecturaSesion, error) {
+	if c.err != nil {
+		return CapturaLecturaSesion{}, c.err
+	}
 	return CapturaLecturaSesion{ContextoCanonico: []byte("contexto"), VinculoCanonico: []byte("vinculo"),
 		Orden: []byte(`{}`), OrganizacionRef: "organizacion:rrhh"}, nil
 }
@@ -71,5 +80,51 @@ func TestCursorAuditoriaDeSesionLigaElPerfilQueConsulta(t *testing.T) {
 	f.AutorLecturaRef = "persona:uno:perfil:otro"
 	if _, err := s.decodificarCursor(cursor, f); !errors.Is(err, ErrDenegada) {
 		t.Fatalf("cursor de otro perfil admitido: %v", err)
+	}
+}
+
+func TestOpcionesAuditoriaDistinguenDenegacionDeIndisponibilidad(t *testing.T) {
+	for _, caso := range []struct {
+		nombre    string
+		err       error
+		codigo    int
+		resultado domain.ResultadoIntentoAuditoria
+	}{
+		{"permiso", fmt.Errorf("permiso propio: %w", ErrDenegada), http.StatusForbidden, domain.ResultadoIntentoAuditoriaDenegado},
+		{"dependencia", ErrNoDisponible, http.StatusServiceUnavailable, domain.ResultadoIntentoAuditoriaError},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			p := peticionAuditoriaIdentidadPrueba(t, time.Now().UTC().Truncate(time.Microsecond))
+			s, err := NuevoServicioLecturaSesion(capturaSesionPrueba{err: caso.err}, &lecturaSesionPrueba{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := &registradorIntentosConsultaPrueba{}
+			if err := s.ConfigurarIntentos(ConfiguracionIntentos{Registrador: r, Proceso: "vec_server_ensayo", Canal: string(domain.SuperficieAutenticacionInternaCorporativaV1), Finalidad: p.Filtro.FinalidadRef, Motivo: p.Contexto.Motivo}); err != nil {
+				t.Fatal(err)
+			}
+			o := &opcionesIntentosPrueba{valor: Opciones{FinalidadRef: p.Filtro.FinalidadRef, MotivoRef: p.Filtro.MotivoRef, Motivo: p.Contexto.Motivo, PermisoRequerido: AccionConsultar}}
+			i := IdentidadResuelta{Vinculo: p.Contexto.Vinculo, Resultado: p.Contexto.Resultado, Correlacion: p.Contexto.Correlacion}
+			h, err := NuevoManejador(s, o, identidadAuditoriaHTTPPrueba{i})
+			if err != nil {
+				t.Fatal(err)
+			}
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaOpciones, nil))
+			if w.Code != caso.codigo || len(r.ordenes) != 1 || w.Header().Get("X-Audit-Ref") == "" {
+				t.Fatalf("estado=%d, esperado=%d, intentos=%d", w.Code, caso.codigo, len(r.ordenes))
+			}
+			datos, err := r.ordenes[0].Datos()
+			if err != nil || datos.Datos.Resultado != caso.resultado {
+				t.Fatalf("resultado=%v, esperado=%v, error=%v", datos.Datos.Resultado, caso.resultado, err)
+			}
+			w = httptest.NewRecorder()
+			peticion := httptest.NewRequest(http.MethodPost, RutaConsulta, strings.NewReader(`{"fuente":"ct","operacion":"invalida"}`))
+			peticion.Header.Set("Content-Type", "application/json")
+			h.ServeHTTP(w, peticion)
+			if w.Code != http.StatusBadRequest || len(r.ordenes) != 2 || w.Header().Get("X-Audit-Ref") == "" {
+				t.Fatalf("operación inválida sin asiento: estado=%d, intentos=%d", w.Code, len(r.ordenes))
+			}
+		})
 	}
 }
