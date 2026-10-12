@@ -1,0 +1,45 @@
+# Habilitación de las lecturas RRHH de Bolsa B103
+
+Este guion prepara la publicación de cuatro acciones para el RolID RRHH de Bolsa. Es un candidato de operación. El archivo de fuente, sus huellas y un ensayo sintético no acreditan que el catálogo esté aprobado, instalado en cidonia ni asignado a una persona. Dirección conserva la decisión y la instalación.
+
+## Fuente que se propone
+
+La fuente `deploy/principal/fuentes/bolsa_lecturas_rrhh_b103_v1.json` declara `fuente:bolsa:lecturas_rrhh_b103`, versión 1. Su SHA-256 de `entradas_canon` es `e8989834fbfafa773ed88cd0de95ece9ba66ef5be7054a4332d2853b2cfa5fe4`; el SHA-256 del archivo UTF-8, incluida la nueva línea final, es `5e93f4f995ade1649ff2d7f991b08664b18d9ce2459bfcc97426a61be7cd9e60`. `entradas_canon` excluye solo `fuente_huella_sha256`; cada entrada completa lleva esa huella. El formato coincide con `catalogo_acciones_fuentes.go` y con la fuente B1.
+
+| Orden | Acción | Tipo de recurso | Finalidad | Hojas exactas |
+| --- | --- | --- | --- | ---: |
+| 1 | `bolsa.inscripcion.rrhh.listar` | `solicitud_inscripcion` | `consulta_inscripcion_rrhh` | 34 |
+| 2 | `bolsa.inscripcion.rrhh.consultar` | `solicitud_inscripcion` | `consulta_inscripcion_rrhh` | 31 |
+| 3 | `bolsa.inscripcion.rrhh.convocatorias.listar` | `conjunto_gestion_inscripcion` | `consulta_convocatorias_gestion_rrhh` | 8 |
+| 4 | `bolsa.rrhh.respuestas_llamamiento.consultar` | `llamamiento_bolsa` | `seguimiento_contacto_rrhh` | 3 |
+
+Las cuatro entradas llevan `modulo_id=bolsa`, garantía `alto`, clase `ordinario` y dimensiones `unidad_ref`, `ambito_ref`. Las tres lecturas de inscripción no llevan obligaciones. La consulta de respuestas lleva solo `auditar`. Las hojas y su orden lexicográfico están en el JSON y corresponden a `camposRRHHBolsaB103` del dominio: incluyen `convocatoria_titulo` en lista y ficha, `convocatorias[].pendientes` en el selector y únicamente `llamamiento_ref`, `respuestas[].participacion_ref`, `respuestas[].respuesta` en la última lectura. Las dos acciones de lectura propias del aspirante quedan fuera de este rol. `bolsa_ref` es dato de consulta y auditoría; no añade una dimensión de ámbito.
+
+La ventana `2026-10-01T00:00:00Z` a `2027-10-01T00:00:00Z` reproduce el ejemplo B1 y sigue siendo un dato configurable. Aprobar esta fuente exige aprobar también esos bytes. Si cambia la ventana, se prepara otra versión y se recalculan la huella canónica, la huella del archivo, el paquete, el catálogo y el plan; no se modifica una versión publicada. Esta ventana no establece un plazo legal.
+
+## Secuencia de dirección
+
+1. Cotejar en la historia de cidonia la cadena de Bolsa y autorización que B103 consume, incluidos CA40 y AD237, y comprobar por hash las migraciones nuevas AUT75 y AD245 del corte. Instalar solo las ausentes en su orden causal y una vez. La fuente JSON no es una migración. No ejecutar `DOWN` ni reaplicar `UP` de una base con historia.
+2. Obtener de la autoridad el catálogo y censo vigentes, la cabeza del RolID `tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo`, su control de vigencia y las asignaciones RRHH nominales. Confirmar que la cabeza sigue publicada y habilitada, que no contiene ya ninguna de las cuatro acciones ni las acciones propias del aspirante, y que sus asignaciones tienen exactamente `unidad_ref` y `ambito_ref`. Un cambio de cabeza o control obliga a preparar de nuevo el plan.
+3. Preparar el paquete AUT58/AUT61 v2 con el censo **completo** actualizado, los tipos `fijo_sistema` y `administrable` vigentes, las fuentes/entradas que deba conservar el catálogo y esta fuente de cuatro entradas. Mantener las concesiones previas del rol y clasificar su RolID como `administrable`. Cotejar los cuatro descriptores nominales, la ventana, `entradas_canon` y todas las huellas. La aprobación externa y la configuración DBA protegida deben ligar los bytes exactos del plan, paquete, catálogo, censo y fuente. El ensayo autorizado en clon puede insertar un catálogo sintético directamente solo para probar el circuito; ese atajo no publica ni aprueba la fuente en cidonia.
+4. Con el LOGIN técnico exclusivo de `vec_admin_catalogo_acciones_ejecutor`, ejecutar `vec-catalogo-acciones-admitir --fase aplicar --config <config-privada> --plan <plan-aprobado> --sha <sha256-del-plan> --idioma es`. Conservar el recibo y recuperar por `--fase consultar --ref <catalogo_ref> --version <catalogo_version> --catalogo-sha <catalogo_sha256>` antes de cualquier reintento incierto. Un reintento usa el mismo plan, `operacion_ref` y bytes originales. La admisión no asigna el rol.
+5. Aprovisionar fuera de Git el LOGIN B103 y las dos filas de origen AD172 indicadas abajo. Configurar el overlay B103 y comprobar que sus dos pools, material V3 y motivos corresponden a las audiencias de propuesta y cierre. Sin LOGIN, filas, configuración o catálogo admitido, las rutas quedan cerradas.
+6. Dos personas distintas con perfil ADMIN de Aplicación y sesión privilegiada vigente actúan en `/api/admin/perfiles/v1/gobierno-version-bolsa/propuestas` y `/api/admin/perfiles/v1/gobierno-version-bolsa/cierres`. La primera propone la versión siguiente del mismo RolID desde la cabeza, control, catálogo y asignaciones como preimágenes CAS; añade las cuatro concesiones en el orden de la tabla. La segunda aprueba la propuesta por su referencia y huella. El cierre debe conservar `AsignacionID`, persona, ámbitos y concesiones anteriores, y avanzar solo las asignaciones aprobadas. Un recibo incierto se consulta y se recupera con la misma operación y material, sin abrir otra propuesta o cierre.
+7. Comprobar la nueva versión y las asignaciones en autorización, la historia, auditoría, outbox y recibo; después reiniciar aplicación y PostgreSQL y repetir las lecturas con identidad sintética nominal de RRHH. Cotejar la lista, ficha, selector de convocatorias y respuestas firmes del mismo llamamiento con su autorización actual y asiento de lectura. Una sesión de aspirante no recibe estas cuatro acciones. Esta comprobación queda pendiente hasta que dirección instale y recorra el material aprobado.
+
+## Configuración privada y origen AD172
+
+CONFIG NUEVA: `VEC_ADMIN_VERSION_BOLSA_B103_CONFIG_FILE` apunta a un archivo privado B103 distinto de `VEC_ADMIN_VERSION_BOLSA_CONFIG_FILE` de B1. El contrato de composición del corte usará la forma del overlay B1: `pool_gobierno`, `pool_catalogo`, confianza y material V3 de las dos audiencias, y motivos publicados. Los pools no reutilizan la DSN B1. Dirección comprobará el nombre y la validación finales contra el código de este PR antes de encenderlo. El archivo y los materiales tienen permisos `0600` y no entran en Git.
+
+El DBA debe crear un LOGIN B103 exclusivo. Para fijar el candidato de las dos filas, se propone `vec_admin_version_rol_bolsa_b103_runtime`, miembro **solo** de `vec_admin_version_rol_bolsa_b103_ejecutor`, con herencia y sin opciones `SET` ni `ADMIN`. AUT75 crea el grupo, no este LOGIN. AD245 exige esa membresía exacta y aísla el consumidor B103. El mismo LOGIN técnico ejecuta propuesta y cierre desde `vec-admin`; las dos personas ADMIN son actores nominales distintos acreditados por sus sesiones y decisiones V3.
+
+| LOGIN AD172 | Audiencia de consumo | Operación | Canal permitido | Proceso |
+| --- | --- | --- | --- | --- |
+| `vec_admin_version_rol_bolsa_b103_runtime` | `vec_autorizacion.versionar_rol_bolsa.propuesta.v1` | `administracion.perfiles.version_bolsa.proponer` | `administracion_privilegiada` | `vec-admin` |
+| `vec_admin_version_rol_bolsa_b103_runtime` | `vec_autorizacion.versionar_rol_bolsa.cierre.v1` | `administracion.perfiles.version_bolsa.aprobar` | `administracion_privilegiada` | `vec-admin` |
+
+El DBA coteja el LOGIN real, la tabla AD172 inmutable, el núcleo y los pares audiencia/operación antes de insertar las dos filas mediante su canal autorizado. Si el nombre del LOGIN cambia, esas dos filas deben aprobarse de nuevo con el nombre real antes del primer consumo. El guion `origen_consumos_ad172/ejecutar.sh` es para los LOGIN de `vec-server` y no admite `administracion_privilegiada`; no se reutiliza para este acto. Las filas de origen identifican el proceso técnico, no conceden acciones ni sustituyen el catálogo y las dos decisiones ADMIN.
+
+## Evidencia local de la fuente
+
+Un cotejo focal de solo lectura en un sandbox sin red verificó cuatro entradas, sus referencias, tipos, finalidades, campos ordenados sin duplicados, obligaciones, dimensiones, fechas, vínculo de huella y la serialización canónica. Confirmó `entradas_canon` SHA-256 `e8989834fbfafa773ed88cd0de95ece9ba66ef5be7054a4332d2853b2cfa5fe4` y archivo SHA-256 `5e93f4f995ade1649ff2d7f991b08664b18d9ce2459bfcc97426a61be7cd9e60`. Esta prueba no ejercita las fachadas SQL, las sesiones ADMIN ni la publicación en cidonia.
