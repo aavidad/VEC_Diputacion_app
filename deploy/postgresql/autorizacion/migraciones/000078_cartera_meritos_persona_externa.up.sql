@@ -12,6 +12,7 @@ DO $pre$ BEGIN
  OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
  OR to_regrole('vec_meritos_cartera_externo') IS NOT NULL
  OR to_regprocedure('vec_autorizacion.cotejar_cartera_meritos_actual_v1(jsonb,jsonb)') IS NOT NULL
+ OR to_regprocedure('vec_autorizacion.revalidar_sesion_cartera_meritos_v1(jsonb,timestamptz,timestamptz,timestamptz)') IS NOT NULL
  OR to_regprocedure('vec_identidad_externa_v1.acreditar_sesion_externa_v1(text,text,text,text,text,text,boolean,text,text,text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,timestamptz)') IS NULL
  OR to_regclass('vec_autorizacion.asignacion_perfil_actual_externa') IS NULL
  THEN RAISE EXCEPTION 'AUT78: preimagen incompatible' USING ERRCODE='55000'; END IF;
@@ -19,6 +20,54 @@ END $pre$;
 CREATE ROLE vec_meritos_cartera_externo NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 DO $db$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_meritos_cartera_externo',current_database()); END $db$;
 SET LOCAL ROLE vec_autorizacion_propietario;
+CREATE FUNCTION vec_autorizacion.revalidar_sesion_cartera_meritos_v1(
+ p_vinculo jsonb,p_emitida_en timestamptz,p_valida_hasta timestamptz,p_instante timestamptz)
+RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' AS $f$
+BEGIN
+ IF current_user<>'vec_autorizacion_propietario'
+ OR current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off'
+ OR current_setting('TimeZone')<>'UTC'
+ OR jsonb_typeof(p_vinculo) IS DISTINCT FROM 'object'
+ OR p_vinculo->>'superficie' IS DISTINCT FROM 'externa_personal'
+ OR p_vinculo->>'cuenta_privilegiada' IS DISTINCT FROM 'false'
+ OR p_vinculo->>'metodo_observado' NOT IN ('certificado','dnie')
+ OR p_vinculo->>'garantia_observada' IS DISTINCT FROM 'alto'
+ OR p_emitida_en IS NULL OR p_valida_hasta IS NULL OR p_instante IS NULL
+ OR p_valida_hasta<=p_emitida_en OR p_instante<p_emitida_en OR p_instante>=p_valida_hasta
+ OR NOT EXISTS(SELECT 1 FROM pg_roles l JOIN pg_auth_members m ON m.member=l.oid
+   JOIN pg_roles g ON g.oid=m.roleid
+   WHERE l.rolname=session_user AND l.rolcanlogin AND l.rolinherit
+   AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls)
+   AND l.rolconfig IS NULL AND g.rolname='vec_meritos_cartera_externo'
+   AND NOT(g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
+   AND g.rolconfig IS NULL AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+ OR (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1
+ THEN RETURN false; END IF;
+ IF vec_identidad_externa_v1.acreditar_sesion_externa_v1(
+   p_vinculo->>'autenticacion_ref',p_vinculo->>'autenticacion_huella_sha256',
+   p_vinculo->>'asercion_ref',p_vinculo->>'sesion_ref',p_vinculo->>'cuenta_ref',
+   p_vinculo->>'cuenta_ordinaria_ref',(p_vinculo->>'cuenta_privilegiada')::boolean,
+   p_vinculo->>'superficie',p_vinculo->>'metodo_observado',p_vinculo->>'garantia_observada',
+   p_vinculo->>'politica_garantia_ref',p_vinculo->>'politica_garantia_huella_sha256',
+   (p_vinculo->>'autenticacion_verificada_en')::timestamptz,
+   (p_vinculo->>'sesion_emitida_en')::timestamptz,
+   p_vinculo->>'control_sesion_ref',p_vinculo->>'control_sesion_revision','activa',
+   p_vinculo->>'control_sesion_huella_sha256',
+   (p_vinculo->>'sesion_revalidada_en')::timestamptz,
+   (p_vinculo->>'sesion_valida_hasta')::timestamptz) IS NOT TRUE
+ THEN RETURN false; END IF;
+ RETURN p_emitida_en >= (p_vinculo->>'sesion_revalidada_en')::timestamptz
+  AND p_valida_hasta <= (p_vinculo->>'sesion_valida_hasta')::timestamptz
+  AND p_instante >= (p_vinculo->>'sesion_revalidada_en')::timestamptz
+  AND p_instante < (p_vinculo->>'sesion_valida_hasta')::timestamptz;
+EXCEPTION WHEN data_exception OR invalid_text_representation OR datetime_field_overflow THEN
+ RETURN false;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.revalidar_sesion_cartera_meritos_v1(
+ jsonb,timestamptz,timestamptz,timestamptz) FROM PUBLIC;
+
 CREATE FUNCTION vec_autorizacion.cotejar_cartera_meritos_actual_v1(p_orden jsonb,p_vinculo jsonb)
 RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' AS $f$
@@ -67,18 +116,9 @@ BEGIN
  IF (p_orden->>'emitida_en')::timestamptz>ahora
  OR (p_orden->>'valida_hasta')::timestamptz<=ahora
  OR (p_orden->>'valida_hasta')::timestamptz>ahora+interval '30 seconds'
- OR vec_identidad_externa_v1.acreditar_sesion_externa_v1(
-   p_vinculo->>'autenticacion_ref',p_vinculo->>'autenticacion_huella_sha256',
-   p_vinculo->>'asercion_ref',p_vinculo->>'sesion_ref',p_vinculo->>'cuenta_ref',
-   p_vinculo->>'cuenta_ordinaria_ref',(p_vinculo->>'cuenta_privilegiada')::boolean,
-   p_vinculo->>'superficie',p_vinculo->>'metodo_observado',p_vinculo->>'garantia_observada',
-   p_vinculo->>'politica_garantia_ref',p_vinculo->>'politica_garantia_huella_sha256',
-   (p_vinculo->>'autenticacion_verificada_en')::timestamptz,
-   (p_vinculo->>'sesion_emitida_en')::timestamptz,
-   p_vinculo->>'control_sesion_ref',p_vinculo->>'control_sesion_revision','activa',
-   p_vinculo->>'control_sesion_huella_sha256',
-   (p_vinculo->>'sesion_revalidada_en')::timestamptz,
-   (p_vinculo->>'sesion_valida_hasta')::timestamptz) IS NOT TRUE
+ OR vec_autorizacion.revalidar_sesion_cartera_meritos_v1(
+   p_vinculo,(p_orden->>'emitida_en')::timestamptz,
+   (p_orden->>'valida_hasta')::timestamptz,ahora) IS NOT TRUE
  THEN RETURN false; END IF;
  SELECT x.* INTO asignacion FROM vec_autorizacion.asignacion_perfil_actual_externa ap
  JOIN vec_autorizacion.asignacion_perfil_externa x
@@ -148,6 +188,9 @@ EXCEPTION WHEN data_exception OR invalid_text_representation OR numeric_value_ou
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.cotejar_cartera_meritos_actual_v1(jsonb,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.cotejar_cartera_meritos_actual_v1(jsonb,jsonb)
+ TO vec_autorizacion_atestada_v3_propietario;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.revalidar_sesion_cartera_meritos_v1(
+ jsonb,timestamptz,timestamptz,timestamptz)
  TO vec_autorizacion_atestada_v3_propietario;
 RESET ROLE;
 COMMIT;
