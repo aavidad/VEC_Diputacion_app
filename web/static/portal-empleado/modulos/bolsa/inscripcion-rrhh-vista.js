@@ -31,7 +31,8 @@ export function rutaInscripcionesRRHH(actual, filtro) {
 export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInscripcionesRRHH(),
   localizacion = globalThis.location, historial = globalThis.history,
   cargarCatalogo = cargarTextos, reintentarCatalogo = reintentarTextos,
-  alDenegacion = () => {}, alDisponibilidad = () => {}, signal } = {}) {
+  alDenegacion = () => {}, alDisponibilidad = () => {},
+  soloConvocatorias = false, alAbrirSolicitudes = (ruta) => localizacion.assign(ruta), signal } = {}) {
   if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
     || !cliente?.convocatorias || !cliente?.listar || !cliente?.detalle || !cliente?.motivos
     || !cliente?.decidir || !cliente?.incorporar) {
@@ -50,7 +51,11 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
   let recibo = null;
   let estadoVista = "cargando";
   let ayuda = false;
-  let filtro = leerRutaInscripcionesRRHH(localizacion.search);
+  const filtroDeRuta = () => {
+    const ruta = leerRutaInscripcionesRRHH(localizacion.search);
+    return soloConvocatorias ? { ...ruta, convocatoria: "", cursor: "" } : ruta;
+  };
+  let filtro = filtroDeRuta();
   let intento = null;
   let enviando = false;
   let enfocarLista = false;
@@ -72,16 +77,20 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     if (!vivo || !catalogo) return;
     if (!filtro.convocatoria) {
       const items = convocatorias?.convocatorias || [];
-      const tarjetas = items.map((c) => `<a class="tarjeta-modulo tarjeta-modulo-habilitada" href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, estado: "pendiente", convocatoria: c.convocatoria_ref, cursor: "" }))}" data-inscripcion-elegir="${esc(c.convocatoria_ref)}"><strong>${esc(c.titulo)}</strong><span>${et("categoria")}: ${esc(c.categorias_resumen)}</span><span class="estado-chip ${c.estado_publicacion === "publicada" ? "exito" : c.estado_publicacion === "sustituida" ? "violeta" : "peligro"}">${et(`publicacion_${c.estado_publicacion}`)}</span><time datetime="${esc(c.plazo_fin)}">${et("fin_plazo")}: ${fecha(c.plazo_fin)}</time>${Date.parse(c.plazo_fin) <= Date.now() ? `<span class="estado-chip aviso">${et("plazo_finalizado")}</span>` : ""}<span class="inscripcion-ver">${esc(catalogo.plural("rrhh.pendientes", c.pendientes))}</span></a>`).join("");
+      const destinoConvocatoria = (ref) => rutaInscripcionesRRHH(
+        soloConvocatorias ? new URL("#bolsa/solicitudes", localizacion.href).href : localizacion.href,
+        { ...filtro, estado: "pendiente", convocatoria: ref, cursor: "", selectorCursor: "" });
+      const tarjetas = items.map((c) => `<a class="tarjeta-modulo tarjeta-modulo-habilitada" href="${esc(destinoConvocatoria(c.convocatoria_ref))}" data-inscripcion-elegir="${esc(c.convocatoria_ref)}"><strong>${esc(c.titulo)}</strong><span>${et("categoria")}: ${esc(c.categorias_resumen)}</span><span class="estado-chip ${c.estado_publicacion === "publicada" ? "exito" : c.estado_publicacion === "sustituida" ? "violeta" : "peligro"}">${et(`publicacion_${c.estado_publicacion}`)}</span><time datetime="${esc(c.plazo_fin)}">${et("fin_plazo")}: ${fecha(c.plazo_fin)}</time>${Date.parse(c.plazo_fin) <= Date.now() ? `<span class="estado-chip aviso">${et("plazo_finalizado")}</span>` : ""}<span class="inscripcion-ver">${esc(catalogo.plural("rrhh.pendientes", c.pendientes))}</span></a>`).join("");
       const aviso = estadoVista === "cargando" ? `<p role="status" aria-busy="true">${et("cargando_convocatorias")}</p>`
-        : estadoVista === "denegada" ? `<p role="alert">${et("denegada")}</p>`
-          : estadoVista === "no_disponible" ? `<p role="status">${et("no_disponible")}</p>`
+        : estadoVista === "denegada" ? `<p role="alert">${et(soloConvocatorias ? "convocatorias_denegada" : "denegada")}</p>`
+          : estadoVista === "no_disponible" ? `<p role="status">${et(soloConvocatorias ? "convocatorias_no_disponible" : "no_disponible")}</p>`
           : estadoVista === "error" ? `<p role="alert">${et("error_convocatorias")}</p><button type="button" class="boton-secundario" data-inscripcion-reintentar>${et("reintentar")}</button>`
             : convocatorias?.total === 0 ? `<p>${et("vacio_convocatorias")}</p>` : "";
-      const total = convocatorias ? `<p>${esc(catalogo.plural("rrhh.total_convocatorias", convocatorias.total))}${filtro.selectorCursor
+      const cantidadConvocatorias = convocatorias ? esc(catalogo.plural("rrhh.total_convocatorias", convocatorias.total)) : "";
+      const total = convocatorias ? `<p>${soloConvocatorias ? `<a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, selectorCursor: "" }))}" data-inscripcion-selector-total>${cantidadConvocatorias}</a>` : cantidadConvocatorias}${filtro.selectorCursor
         ? ` <a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, selectorCursor: "" }))}" data-inscripcion-selector-total>${et("volver_principio")}</a>` : ""}</p>` : "";
       const siguiente = convocatorias?.cursor_siguiente ? `<nav aria-label="${et("paginacion_convocatorias")}"><a href="${esc(rutaInscripcionesRRHH(localizacion.href, { ...filtro, selectorCursor: convocatorias.cursor_siguiente }))}" data-inscripcion-selector-siguiente>${et("siguiente_convocatorias")}</a></nav>` : "";
-      raiz.innerHTML = `<section class="panel" aria-labelledby="inscripciones-titulo"><header class="cabecera-panel"><div><h2 id="inscripciones-titulo" tabindex="-1">${et("titulo")}</h2></div><button type="button" class="boton-secundario" data-inscripcion-ayuda aria-expanded="${ayuda}" aria-controls="inscripcion-ayuda" aria-label="${et("ayuda_boton")}">?</button></header><div class="cuerpo-panel"><div id="inscripcion-ayuda" ${ayuda ? "" : "hidden"}>${et("ayuda")}</div>${["no_disponible", "denegada"].includes(estadoVista) ? "" : `<h3>${et("elegir_convocatoria")}</h3>`}${aviso}${total}${tarjetas ? `<div class="rejilla-modulos">${tarjetas}</div>` : ""}${siguiente}</div></section>`;
+      raiz.innerHTML = `<section class="panel" aria-labelledby="inscripciones-titulo"><header class="cabecera-panel"><div><h2 id="inscripciones-titulo" tabindex="-1">${et(soloConvocatorias ? "convocatorias_titulo" : "titulo")}</h2></div><button type="button" class="boton-secundario" data-inscripcion-ayuda aria-expanded="${ayuda}" aria-controls="inscripcion-ayuda" aria-label="${et(soloConvocatorias ? "convocatorias_ayuda_boton" : "ayuda_boton")}">?</button></header><div class="cuerpo-panel"><div id="inscripcion-ayuda" ${ayuda ? "" : "hidden"}>${et(soloConvocatorias ? "convocatorias_ayuda" : "ayuda")}</div>${["no_disponible", "denegada"].includes(estadoVista) ? "" : `<h3>${et(soloConvocatorias ? "convocatorias_listado" : "elegir_convocatoria")}</h3>`}${aviso}${total}${tarjetas ? `<div class="rejilla-modulos">${tarjetas}</div>` : ""}${siguiente}</div></section>`;
       return;
     }
     const lista = listado?.solicitudes || [];
@@ -265,6 +274,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     else if (accion.hasAttribute("data-inscripcion-siguiente")) navegar({ ...filtro, cursor: listado.cursor_siguiente });
     else if (accion.hasAttribute("data-inscripcion-total")) navegar({ ...filtro, cursor: "" });
     else if (accion.dataset.inscripcionElegir) {
+      if (soloConvocatorias) { alAbrirSolicitudes(accion.getAttribute("href")); return; }
       seleccion = convocatorias?.convocatorias.find((c) => c.convocatoria_ref === accion.dataset.inscripcionElegir) || null;
       navegar({ ...filtro, estado: "pendiente", convocatoria: accion.dataset.inscripcionElegir, cursor: "" });
     }
@@ -280,7 +290,7 @@ export async function montarInscripcionesRRHH({ raiz, cliente = crearClienteInsc
     evento.preventDefault(); const form = new FormData(evento.target);
     navegar({ ...filtro, estado: form.get("estado"), cursor: "" });
   };
-  const pop = () => { filtro = leerRutaInscripcionesRRHH(localizacion.search);
+  const pop = () => { filtro = filtroDeRuta();
     if (seleccion?.convocatoria_ref !== filtro.convocatoria) seleccion = null;
     enfocarLista = true; void cargarVista(); };
   const desmontar = () => {

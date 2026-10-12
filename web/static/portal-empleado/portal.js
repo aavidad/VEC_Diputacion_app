@@ -485,7 +485,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
         if (vista === "reglas") { vistaPoliticaCese?.desmontar(); vistaPoliticaCese = null; }
         if (vista === "configuracion") desmontarConfiguracionBolsa();
         if (vista === "baremacion") desmontarRankingBolsa();
-        if (vista === "solicitudes") desmontarInscripcionesBolsa(); } });
+        if (["solicitudes", "convocatorias"].includes(vista)) desmontarInscripcionesBolsa(); } });
     },
   }),
   confirmarOperacion: (descriptor) => window.confirm(traducirPortal("txt_confirmar_operacion", { titulo: descriptor.titulo, advertencia: descriptor.advertencia, referencia: descriptor.referencia })) });
@@ -1168,16 +1168,21 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     });
     return;
   }
-  if (vista === "solicitudes") {
+  if (["solicitudes", "convocatorias"].includes(vista)) {
     if (controladorInscripcionesBolsa && contenedor.querySelector("[data-inscripciones-montaje]")) return;
     desmontarInscripcionesBolsa();
     const controlador = new AbortController();
     controladorInscripcionesBolsa = controlador;
     contenedor.innerHTML = `<div data-inscripciones-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_comprobando")}</p></div></section></div>`;
     const raiz = contenedor.querySelector("[data-inscripciones-montaje]");
-    import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=20261010-b1-inscripcion-b99-v1").then(async ({ montarInscripcionesRRHH }) => {
+    import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=20261013-convocatorias-rrhh-v3").then(async ({ montarInscripcionesRRHH }) => {
       if (controlador.signal.aborted || estado.vista !== vista) return;
       const montaje = await montarInscripcionesRRHH({ raiz, signal: controlador.signal,
+        soloConvocatorias: vista === "convocatorias",
+        alAbrirSolicitudes: (ruta) => {
+          history.pushState(null, "", ruta);
+          navegar("solicitudes", { desdeRuta: true });
+        },
         alDenegacion: () => { estado.solicitudes = []; },
         alDisponibilidad: (disponible) => {
           if (estado.inscripcionesDisponibles === disponible) return;
@@ -1344,7 +1349,7 @@ function renderizar() {
   const grupoEstilos = grupoEstilosDeVista(estado.vista);
   const estilosVistaNecesarios = grupoEstilos && coordinadorModulos.vistaDisponible(estado.vista);
   if (estilosVistaNecesarios) cargarEstilosVista(grupoEstilos);
-  const necesitaBolsaBase = !["solicitudes", "configuracion"].includes(estado.vista) && moduloDeVistaPortal(estado.vista) === "bolsa"
+  const necesitaBolsaBase = !["solicitudes", "convocatorias", "configuracion"].includes(estado.vista) && moduloDeVistaPortal(estado.vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(estado.vista);
   if (necesitaBolsaBase && !controladorBolsas && !promesaBolsaBase && !errorBolsaBase) {
     void prepararBolsaBase().catch(() => {});
@@ -1695,7 +1700,7 @@ let rutaCandidatosAplicada = null;
 let promesaBolsaBase = null;
 let errorBolsaBase = false;
 function vistaNecesitaBolsa(vista = estado.vista) {
-  return vista === "portal" || (!["solicitudes", "configuracion"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
+  return vista === "portal" || (!["solicitudes", "convocatorias", "configuracion"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(vista));
 }
 // La carga desde CONVOCA solo se ofrece si el servidor monta sus rutas; se
