@@ -1,0 +1,26 @@
+{
+  "expediente_alta": {
+    "filas": 74,
+    "sha256": "f4e4cdca7ef341e9c30c997c6125e31262723f5a40d0c620e2b283b91524601c"
+  },
+  "expediente_version_integral": {
+    "filas": 178,
+    "sha256": "1c08a38f5239523d2e4ee7d789c6c194f9e9dcb073a62e9d42a60a04680b7d8f"
+  },
+  "actuacion_expediente_integral": {
+    "filas": 104,
+    "sha256": "efaf0b3c9b780df57275098269293d39112d01aef371672bd2f2cf005452d614"
+  },
+  "outbox_expediente_integral": {
+    "filas": 157,
+    "sha256": "bb69497400f53c4cae6945c12b0e710e5589db7e217abb196f5af56fe86caef2"
+  },
+  "peticion_centro_revision": {
+    "filas": 10,
+    "sha256": "965cfeb8b86ac2b55c6e9cba349404b38205b78cfb1261b93a33eee54b54b14a"
+  },
+  "entrega_peticion_centro_confirmacion": {
+    "filas": 4,
+    "sha256": "22ab21545dd4c742c84548d1c56d4c870e6c5713641954e5551e26a90161261f"
+  }
+}

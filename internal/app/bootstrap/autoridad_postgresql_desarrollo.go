@@ -151,7 +151,7 @@ func (a autoridadPostgreSQLDesarrollo) prepararInstantaneaUnaVez(
 		SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1,0))`,
 		a.prefijoBloqueo+perfilRef,
 	); err != nil {
-		return vacia, falloPostgreSQLCTDesarrollo(nil)
+		return vacia, falloPostgreSQLCTDesarrollo(err)
 	}
 	actual, encontrada, err := leerAsignacionActualPostgreSQLDesarrollo(
 		ctx, tx, perfilRef,
@@ -454,7 +454,7 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagenUnaVez(
 		SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1,0))`,
 		a.prefijoBloqueo+datosVinculo.PerfilActivoRef,
 	); err != nil {
-		return falloPostgreSQLCTDesarrollo(nil)
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	actual, encontrada, err := leerAsignacionActualPostgreSQLDesarrollo(
 		ctx, tx, datosVinculo.PerfilActivoRef,

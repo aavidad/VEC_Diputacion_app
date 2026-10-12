@@ -338,7 +338,11 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
     if (!v || v.bloqueo || estado.ocupado || estado.cargandoPagina || estado.soloLectura || estado.indeterminado) return;
     if (v.rechazadas > 0 && !$("excluir").checked) { mostrarErrorRevision(t("faltaExcluir")); return; }
     $("error-revisar").hidden = true;
-    $("confirmar-texto").textContent = `${t("confirmarTexto", { cuenta: v.aceptadas, categoria: estado.categoria.etiqueta })} ${v.rechazadas ? t("confirmarDescartes", { cuenta: v.rechazadas }) : ""}`.trim();
+    $("confirmar-texto").textContent = [
+      t("confirmarTexto", { cuenta: v.aceptadas, categoria: estado.categoria.etiqueta }),
+      v.rechazadas ? t("confirmarDescartes", { cuenta: v.rechazadas }) : "",
+      v.con_avisos ? t("confirmarAvisos", { cuenta: v.con_avisos }) : "",
+    ].filter(Boolean).join(" ");
     $("confirmar").showModal?.();
   }
 
@@ -407,7 +411,7 @@ export function montarVistaCargaConvoca({ doc, cliente, categorias, textos }) {
       const boton = doc.createElement("button");
       boton.type = "button";
       boton.id = "ver-excluidas";
-      boton.className = "boton-secundario";
+      boton.className = "carga-enlace";
       boton.textContent = t("verExcluidas", { cuenta: recibo.filas_excluidas });
       boton.addEventListener("click", () => void abrirExcluidas());
       excluidas.append(boton);

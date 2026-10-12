@@ -1,0 +1,48 @@
+[
+  {
+    "etapa": "peticion",
+    "recibo_ref": "recibo:peticion-centro:b1540ef2-124b-4e8b-b122-9f256751effa",
+    "registrado_en": "2026-10-11T12:49:18.334592Z",
+    "version": 1
+  },
+  {
+    "etapa": "ratificacion",
+    "recibo_ref": "recibo:peticion-centro:18828a15-cc6a-46fc-a8dc-f0dbc32f4900",
+    "registrado_en": "2026-10-11T12:52:56.960173Z",
+    "version": 2
+  },
+  {
+    "etapa": "alta",
+    "recibo_ref": "recibo:ct-alta:38c44ed96906f44d29bbf4450b914f749fac5bcf376ca68e22317f698d8ef448",
+    "confirmada_en": "2026-10-11T12:52:59.003429Z",
+    "version": 1,
+    "expediente_ref": "expediente:ct:1fe2c0eda847e5e11e4ab7b15953df0b7a19a525264f3cf2381890e3d0d2e85b"
+  },
+  {
+    "etapa": "analisis",
+    "recibo_ref": "rec_ct_an_a065e530c2b459aad6db157e6a97d697",
+    "confirmada_en": "2026-10-11T12:53:27.493692Z",
+    "version_resultante": 2,
+    "expediente_ref": "expediente:ct:1fe2c0eda847e5e11e4ab7b15953df0b7a19a525264f3cf2381890e3d0d2e85b"
+  },
+  {
+    "etapa": "cobertura",
+    "recibo_ref": "recibo:ct:cobertura:baba4861326e042c70abf57b5812bbe6",
+    "confirmada_en": "2026-10-11T12:53:55.878619Z",
+    "version_resultante": 3
+  },
+  {
+    "etapa": "asignacion",
+    "recibo_ref": "recibo:ct-asignacion:d77a1aa63460d838ccb153f951aca22e559433acc83724c0606247cb8c9f1b95",
+    "confirmada_en": "2026-10-11T12:54:17.967046Z",
+    "version_resultante": 4,
+    "expediente_ref": "expediente:ct:1fe2c0eda847e5e11e4ab7b15953df0b7a19a525264f3cf2381890e3d0d2e85b"
+  },
+  {
+    "etapa": "informe",
+    "recibo_ref": "recibo:ct-informe-juridico:813cae182e47809d0f5ced0d536ccfed5c44c66ad19d75517027ec6637b3c26b",
+    "confirmada_en": "2026-10-11T12:54:57.488699Z",
+    "version_resultante": 5,
+    "expediente_ref": "expediente:ct:1fe2c0eda847e5e11e4ab7b15953df0b7a19a525264f3cf2381890e3d0d2e85b"
+  }
+]
