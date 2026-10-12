@@ -30,9 +30,10 @@ import (
 // debe crear una instancia y un pool distintos para fuente y registro; ninguna
 // identidad de ejecucion hereda ambos grupos.
 type AlmacenAutorizacion struct {
-	pool                 iniciadorTransacciones
-	externo              bool
-	fuenteMeritosExterna bool
+	pool                   iniciadorTransacciones
+	externo                bool
+	fuenteMeritosExterna   bool
+	registroMeritosExterno bool
 }
 
 type iniciadorTransacciones interface {
@@ -66,6 +67,17 @@ func NuevoAlmacenAutorizacionMeritosExterna(pool *pgxpool.Pool) (*AlmacenAutoriz
 		return nil, err
 	}
 	a.externo, a.fuenteMeritosExterna = true, true
+	return a, nil
+}
+
+// NuevoAlmacenAutorizacionRegistroMeritosExterno usa exclusivamente la fachada
+// de registro V3 de AUT78 con el login nominal de registro de Meritos.
+func NuevoAlmacenAutorizacionRegistroMeritosExterno(pool *pgxpool.Pool) (*AlmacenAutorizacion, error) {
+	a, err := nuevoAlmacenAutorizacion(pool)
+	if err != nil {
+		return nil, err
+	}
+	a.externo, a.registroMeritosExterno = true, true
 	return a, nil
 }
 
