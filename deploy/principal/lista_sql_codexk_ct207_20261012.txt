@@ -7,6 +7,7 @@
 # 42a55dcc6efe7c939b1f7d798b9f1ae78f96f489697c0f76a0c28d49e06d86f9
 # Conserva organización CT en autorización, bloqueo y consultas; cambia solo
 # el primer argumento del lector propietario de Personal. OID, dueño, invocador,
-# volatilidad, configuración, ACL e historia conservados por guardas de la UP.
+# volatilidad, configuración y ACL comprobados por guardas; OID conservado por
+# CREATE OR REPLACE de la misma firma e historia intacta (no hay DML).
 # CONFIG NUEVA de CT207: ninguna; siguen las de la cadena B2.
 deploy/postgresql/contratacion_temporal/migraciones/000207_plan_b2_organismo_personal.up.sql
