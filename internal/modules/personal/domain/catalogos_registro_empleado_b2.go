@@ -168,13 +168,17 @@ func nuevoMaterialCatalogoEmpleadoB2(operacion, organismo, tipo, ref string, ver
 	efecto := organismo + ":" + tipo
 	recursoTipo := "catalogo_empleado_rrhh"
 	ambitos := map[string]string{"organismo_ref": organismo, "objetivo_ref": efecto}
+	atributos := map[string]string{"operacion": operacion, "material_sha256": hex.EncodeToString(suma[:])}
 	if operacion != "consultar" {
+		// Publicar y retirar: la competencia es del organismo; la entrada
+		// concreta va en los atributos firmados y Personal43 la coteja.
 		efecto = organismo + ":" + tipo + ":" + ref + ":" + strconv.FormatInt(version, 10)
 		recursoTipo = "entrada_catalogo_empleado_rrhh"
-		ambitos["objetivo_ref"] = efecto
+		delete(ambitos, "objetivo_ref")
+		atributos["objetivo_ref"] = efecto
 	}
 	recurso := core.RecursoAutorizable{Referencia: efecto, ModuloID: "personal", Tipo: recursoTipo,
-		Ambitos: ambitos, Atributos: map[string]string{"operacion": operacion, "material_sha256": hex.EncodeToString(suma[:])}}
+		Ambitos: ambitos, Atributos: atributos}
 	if _, err = recurso.HuellaContextoAutorizacionSHA256(); err != nil {
 		return MaterialCatalogoEmpleadoB2{}, ErrRegistroEmpleadoB2Invalido
 	}

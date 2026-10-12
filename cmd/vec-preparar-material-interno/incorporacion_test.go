@@ -76,7 +76,7 @@ func TestPrepararIncorporacionGobiernoExactoYPublicacionAtomica(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer r.Close()
-	if len(c.PersonalB2.Operaciones) != 24 {
+	if len(c.PersonalB2.Operaciones) != 26 {
 		t.Fatal("operaciones incompletas")
 	}
 	for _, op := range c.PersonalB2.Operaciones {
