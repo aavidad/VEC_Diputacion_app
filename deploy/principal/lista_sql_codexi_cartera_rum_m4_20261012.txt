@@ -26,7 +26,10 @@
 # y su permiso de conexión es un acto separado; AUT17 fija el rol Usuarios y
 # AUT15 fija los roles Bolsa, por lo que sus fuentes no sustituyen esta función.
 # Para POST se requiere registrador/revalidador nominal V3 externo de Méritos,
-# con motivo gobernado de retirada; AUT15/AUT17 no admiten esa acción/rol.
+# con motivo de autorización V3 propio; AUT15/AUT17 no admiten esa acción/rol.
+# El motivo de negocio es distinto: catálogo común publicado
+# motivos_meritos_cartera, con versión, huella y entrada vigente. AUT78 lo
+# valida al crear la retirada; un replay conserva su referencia histórica.
 # Hasta cerrar esas piezas, las funciones de AUT78 son denegatorias y M4 no
 # constituye un recorrido instalable o accesible desde HTTP.
 deploy/postgresql/autorizacion/migraciones/000080_gobierno_rol_meritos_cartera_dos_concesiones.up.sql
