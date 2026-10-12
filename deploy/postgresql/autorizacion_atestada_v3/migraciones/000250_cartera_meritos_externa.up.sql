@@ -31,7 +31,7 @@ BEGIN
  THEN RAISE EXCEPTION 'AD250: dependencias o firmas incompatibles' USING ERRCODE='55000';END IF;
  SELECT * INTO p FROM pg_proc WHERE oid=to_regprocedure(
   'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
- IF NOT FOUND OR p.oid<>16692 OR p.proowner<>to_regrole('vec_autorizacion_atestada_v3_propietario')
+ IF NOT FOUND OR p.proowner<>to_regrole('vec_autorizacion_atestada_v3_propietario')
  OR p.prosecdef IS NOT TRUE OR p.provolatile<>'v' OR p.proparallel<>'u'
  OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']::text[]
  OR p.proacl IS DISTINCT FROM ARRAY[
@@ -42,16 +42,14 @@ BEGIN
  SELECT * INTO k FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
  AND c.conname='auditoria_tipo_disjunto_v4' AND c.contype='c' AND c.convalidated;
- IF NOT FOUND OR k.oid<>161379
- OR encode(sha256(convert_to(pg_get_constraintdef(k.oid,false),'UTF8')),'hex')
+ IF NOT FOUND OR encode(sha256(convert_to(pg_get_constraintdef(k.oid,false),'UTF8')),'hex')
   IS DISTINCT FROM '1a299eefbc2936a06b414d47defbb17b213fec7a29f2fa6eec448a008727d8ba'
  THEN RAISE EXCEPTION 'AD250: CHECK auditor POST-AD249 divergente' USING ERRCODE='55000';END IF;
  SELECT * INTO k FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check'
  AND c.contype='c' AND c.convalidated;
- IF NOT FOUND OR k.oid<>161185
- OR encode(sha256(convert_to(pg_get_constraintdef(k.oid,false),'UTF8')),'hex')
+ IF NOT FOUND OR encode(sha256(convert_to(pg_get_constraintdef(k.oid,false),'UTF8')),'hex')
   IS DISTINCT FROM '17e41379b0d758caba982dc4fdd9cb93c5c60f4d2df0883b557157afac74a63d'
  THEN RAISE EXCEPTION 'AD250: CHECK audiencias POST-AD249 divergente' USING ERRCODE='55000';END IF;
 END $pre$;
@@ -212,15 +210,14 @@ END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencia$
-DECLARE d text;nuevo text;oid_check oid;
+DECLARE d text;nuevo text;
 BEGIN
- SELECT c.oid,pg_get_constraintdef(c.oid,false) INTO STRICT oid_check,d
+ SELECT pg_get_constraintdef(c.oid,false) INTO STRICT d
  FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check'
  AND c.contype='c' AND c.convalidated;
- IF oid_check<>161185
- OR encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM
    '17e41379b0d758caba982dc4fdd9cb93c5c60f4d2df0883b557157afac74a63d'
  OR left(d,7)<>'CHECK (' OR right(d,1)<>')'
  OR (length(d)-length(replace(d,
