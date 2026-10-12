@@ -27,6 +27,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personalrpt "vec-diputacion-granada/internal/modules/personal/adapters/rptpublica"
+	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	docxvec "vec-diputacion-granada/internal/vec/adapters/documentos/docx"
 	pdfvec "vec-diputacion-granada/internal/vec/adapters/documentos/pdf"
@@ -270,6 +271,8 @@ func descriptoresFronterasIncorporacionB2Desarrollo() []descriptorFronteraComunD
 	vinculoGET.Metodo = http.MethodGet
 	categoriasGET := fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-categorias-rpt-listar", accionListarCategoriasRPTB2, httpinterno.RutaCategoriasRPTB2, nil)
 	categoriasGET.Metodo = http.MethodGet
+	catalogosGET := fronteraContratacionTemporalDesarrollo("personal-b2-catalogos-consultar", personal.AccionConsultarCatalogoEmpleadoB2, vechttp.RutaCatalogosRegistroEmpleadoB2, nil)
+	catalogosGET.Metodo = http.MethodGet
 	return []descriptorFronteraComunDesarrollo{
 		planGET,
 		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-plan-registrar", ports.AccionRegistrarPlanNominalB2, httpinterno.RutaPlanB2, nil),
@@ -277,6 +280,8 @@ func descriptoresFronterasIncorporacionB2Desarrollo() []descriptorFronteraComunD
 		vinculoGET,
 		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-vinculo-rpt-registrar", ports.AccionRegistrarVinculoCategoriaRPT, httpinterno.RutaVinculoCategoriaRPTB2, nil),
 		categoriasGET,
+		catalogosGET,
+		fronteraContratacionTemporalDesarrollo("personal-b2-catalogos-gobernar", accionFronteraCatalogoEmpleadoB2, vechttp.RutaCatalogosRegistroEmpleadoB2, nil),
 		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-catalogos-registro-gobernar", accionFronteraCatalogoEmpleadoB2, rutaCatalogosRegistroEmpleadoB2, nil),
 	}
 }
