@@ -19,7 +19,9 @@ BEGIN
  OR to_regclass('vec_catalogos_configurables.categoria_control') IS NULL
  OR to_regprocedure('vec_catalogos_configurables.listar_motivos_meritos_cartera_v1(text)') IS NOT NULL
  OR NOT FOUND OR cc11.proowner<>to_regrole('vec_catalogos_configurables_propietario')
- OR cc11.prosecdef IS NOT TRUE OR cc11.proconfig IS NULL
+ OR cc11.prosecdef IS NOT TRUE OR cc11.provolatile<>'s' OR cc11.proparallel<>'r'
+ OR cc11.proconfig IS NULL
+ OR has_function_privilege('public',cc11.oid,'EXECUTE')
  OR to_regrole('vec_autorizacion_propietario') IS NULL
  THEN RAISE EXCEPTION 'CC13: postimagen CC11 o autoridad incompatible' USING ERRCODE='55000';END IF;
 END $pre$;
