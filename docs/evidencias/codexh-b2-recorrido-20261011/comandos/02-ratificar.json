@@ -1,0 +1,7 @@
+{
+  "operacion": "ratificar",
+  "clave_idempotencia": "CLAVE_ORIGINAL_EXTERNA",
+  "peticion_ref": "peticion:centro:9503c83a-edd7-4931-9d0b-b5b0f46e0db2",
+  "version_esperada": 1,
+  "motivo": "Revisadas la vacante del puesto 9 de administrativo, la categoría C1 y las fechas solicitadas para Transformación Digital."
+}
