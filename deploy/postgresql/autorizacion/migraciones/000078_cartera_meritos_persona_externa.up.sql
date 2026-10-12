@@ -113,6 +113,10 @@ BEGIN
  OR rol.version IS DISTINCT FROM (p_orden->>'version_rol_version')::numeric
  OR rol.huella_sha256 IS DISTINCT FROM p_orden->>'version_rol_huella_sha256'
  OR rol.documento->>'estado' IS DISTINCT FROM 'publicada'
+ OR jsonb_typeof(rol.documento->'concesiones') IS DISTINCT FROM 'array'
+ OR (SELECT array_agg(e.value->>'accion' ORDER BY e.value->>'accion')
+     FROM jsonb_array_elements(rol.documento->'concesiones') e) IS DISTINCT FROM
+    ARRAY['meritos.cartera.consultar_propia','meritos.cartera.retirar_propio']::text[]
  OR control.version_rol_ref IS DISTINCT FROM p_orden->>'control_version_rol_ref'
  OR control.revision IS DISTINCT FROM (p_orden->>'revision_control_version_rol')::numeric
  OR control.huella_sha256 IS DISTINCT FROM p_orden->>'control_version_rol_huella_sha256'
