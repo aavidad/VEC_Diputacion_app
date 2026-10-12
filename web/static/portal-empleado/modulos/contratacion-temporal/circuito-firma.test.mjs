@@ -569,8 +569,8 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261012-ct-original-preparado-v1"],
-    ["vista-expedientes.js", "20261012-ct-original-preparado-v1"],
+    ["circuito-firma.js", "20261012-ct-original-preparado-v2"],
+    ["vista-expedientes.js", "20261012-ct-original-preparado-v2"],
 
   ]);
   const anterior = "20260929-custodia-506-v1";
@@ -604,6 +604,11 @@ test("la preparación muestra el recibo y los pasos sin acreditar envío ni firm
   assert.doesNotMatch(en, /Verified signature/u);
   assert.equal((en.match(/Status unavailable/gu) ?? []).length, 2, "la historia local no acredita el estado en Portafirmas");
   assert.doesNotMatch(en, /Documento preparado|Recibo|Dirección de RRHH/u);
+  const antes = renderizarCircuitoFirma(null, t, "no_disponible", null, { documento: d });
+  assert.match(antes, /El envío desde este panel no está disponible/u);
+  assert.doesNotMatch(antes, /Puede descargar el PDF preparado/u);
+  const despues = renderizarCircuitoFirma(null, t, "no_disponible", null, { documento: d, original });
+  assert.match(despues, /Puede descargar el PDF preparado/u);
 });
 
 test("preparar y descargar mantienen el original con otra lectura nominal; cancelan y no duplican clics", async () => {

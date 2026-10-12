@@ -12,7 +12,7 @@ import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
 import { cargarTextosFaseFirma, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
-import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261012-ct-original-preparado-v1";
+import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261012-ct-original-preparado-v2";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
@@ -238,7 +238,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
       <span class="ct-circuito-estado ct-tono-aviso">${escaparHTML(t("circuito_firma_envio_corporativo_pendiente"))}</span>
       <div class="ct-circuito-envio">
         <button type="button" class="boton-primario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_envio_corporativo_accion"))}</button>
-        <p id="ct-circuito-envio-motivo">${escaparHTML(t(preparacion ? "circuito_firma_original_envio_pendiente" : "circuito_firma_envio_corporativo_bloqueado"))}</p>
+        <p id="ct-circuito-envio-motivo">${escaparHTML(t(preparacion?.original?.comprobante ? "circuito_firma_original_envio_pendiente" : "circuito_firma_envio_corporativo_bloqueado"))}</p>
       </div>
       <details class="ct-circuito-limite"><summary>${escaparHTML(t("circuito_firma_portafirmas_detalle"))}</summary>
         <p>${escaparHTML(t("circuito_firma_portafirmas_sin_envio"))}</p>
