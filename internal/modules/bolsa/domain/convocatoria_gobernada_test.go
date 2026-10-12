@@ -85,9 +85,10 @@ func configuracionConvocatoriaGobernadaPrueba(t *testing.T) ConfiguracionFijadaC
 		t.Fatal(err)
 	}
 	return ConfiguracionFijadaConvocatoria{
-		Catalogos:        referencia("catalogos:bolsa", 3, '1'),
-		Calendario:       referencia("calendario:auxiliar-2026", 2, '2'),
-		ReglasBaremacion: referencia("baremo:auxiliar-2026", 5, '3'),
+		ModalidadInscripcion: ModalidadInscripcionSeparada,
+		Catalogos:            referencia("catalogos:bolsa", 3, '1'),
+		Calendario:           referencia("calendario:auxiliar-2026", 2, '2'),
+		ReglasBaremacion:     referencia("baremo:auxiliar-2026", 5, '3'),
 		FlujoProceso: ReferenciaConfiguracionConvocatoria{
 			ID: definicion.ID, Version: definicion.Version, HuellaContenidoSHA256: huellaFlujo,
 		},
@@ -279,6 +280,116 @@ func TestPublicacionMantieneHuellaSemanticaYProyectaFaseDelFlujo(t *testing.T) {
 		instanciaAjena, definicion,
 	); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
 		t.Fatalf("acepto una fase sin vinculo con el flujo exacto: %v", err)
+	}
+}
+
+func TestModalidadInscripcionQuedaEnConfiguracionYHuella(t *testing.T) {
+	separada := versionConvocatoriaGobernadaPrueba(t)
+	conjunta := separada
+	conjunta.Configuracion.ModalidadInscripcion = ModalidadInscripcionConjunta
+	conjunta, err := conjunta.ClonarCanonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct {
+		version  VersionConvocatoriaGobernada
+		esperada string
+	}{
+		{separada, "separada"},
+		{conjunta, "conjunta"},
+	} {
+		contenido, err := caso.version.RepresentacionContenidoCanonica()
+		if err != nil || !bytes.Contains(contenido, []byte(`"configuracion":{"modalidad_inscripcion":"`+caso.esperada+`"`)) {
+			t.Fatalf("modalidad ausente de la configuracion canonica: %s, %v", contenido, err)
+		}
+	}
+	huellaSeparada, err := separada.HuellaContenidoSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaConjunta, err := conjunta.HuellaContenidoSHA256()
+	if err != nil || huellaSeparada == huellaConjunta {
+		t.Fatalf("cambiar modalidad no cambio la huella: %q, %q, %v", huellaSeparada, huellaConjunta, err)
+	}
+	fecha := separada.CreadaEn.Add(time.Hour)
+	aprobacion, dependencias := evidenciasPublicacionPrueba(t, separada, fecha)
+	if _, err := conjunta.PublicarInicial("persona:gestora:001", aprobacion, dependencias, "Publicacion.", fecha); !errors.Is(err, ErrTransicionGobiernoConvocatoria) {
+		t.Fatalf("acepto aprobacion de otra modalidad: %v", err)
+	}
+}
+
+func TestPublicacionExigeModalidadYConservaLegadoSinElla(t *testing.T) {
+	legado := versionConvocatoriaGobernadaPrueba(t)
+	legado.Configuracion.ModalidadInscripcion = ""
+	legado, err := legado.ClonarCanonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fecha := legado.CreadaEn.Add(time.Hour)
+	aprobacion, dependencias := evidenciasPublicacionPrueba(t, legado, fecha)
+	if _, err := legado.PublicarInicial("persona:gestora:001", aprobacion, dependencias, "Publicacion.", fecha); !errors.Is(err, ErrTransicionGobiernoConvocatoria) {
+		t.Fatalf("publico borrador sin modalidad: %v", err)
+	}
+
+	// Reconstruye una publicacion anterior a la regla nueva con sus propias
+	// evidencias. La ausencia del campo conserva exactamente su JSON canonico.
+	legado.EstadoGobierno = EstadoGobiernoConvocatoriaPublicada
+	legado.PublicadaPor = "persona:gestora:001"
+	legado.PublicadaEn = fecha
+	legado.MotivoPublicacion = "Publicacion historica."
+	legado.AprobacionPublicacion = &aprobacion
+	legado.ComprobacionDependencias = &dependencias
+	if err := legado.Validar(); err != nil {
+		t.Fatalf("version historica ilegible: %v", err)
+	}
+	representacion, err := legado.RepresentacionCanonica()
+	if err != nil || bytes.Contains(representacion, []byte(`"modalidad_inscripcion"`)) {
+		t.Fatalf("el JSON historico adquirio modalidad: %s, %v", representacion, err)
+	}
+	recuperada, err := DecodificarVersionConvocatoriaGobernadaCanonica(representacion)
+	if err != nil || recuperada.Configuracion.ModalidadInscripcion != "" {
+		t.Fatalf("no recupero version historica: %+v, %v", recuperada.Configuracion, err)
+	}
+
+	configuracionNueva := legado.Configuracion
+	configuracionNueva.ModalidadInscripcion = ModalidadInscripcionConjunta
+	sucesora, err := legado.NuevaVersion("v2", legado.Contenido, configuracionNueva,
+		"expediente:seleccion:2026-002", "persona:tecnica:003", "Bases con modalidad.", fecha.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fechaSucesora := sucesora.CreadaEn.Add(time.Hour)
+	aprobacionNueva, dependenciasNuevas := evidenciasPublicacionPrueba(t, sucesora, fechaSucesora)
+	resultado, err := sucesora.PublicarSucesora(legado, "persona:gestora:002", aprobacionNueva,
+		dependenciasNuevas, "Publicacion sucesora.", fechaSucesora)
+	if err != nil || resultado.Publicada.Configuracion.ModalidadInscripcion != ModalidadInscripcionConjunta {
+		t.Fatalf("no publico sucesora con modalidad: %+v, %v", resultado.Publicada.Configuracion, err)
+	}
+	if resultado.Predecesora.Configuracion.ModalidadInscripcion != "" {
+		t.Fatal("reescribio la modalidad de la predecesora historica")
+	}
+	configuracionVacia := legado.Configuracion
+	sinModalidad, err := legado.NuevaVersion("v3", legado.Contenido, configuracionVacia,
+		"expediente:seleccion:2026-003", "persona:tecnica:004", "Borrador sin eleccion.", fecha.Add(3*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fechaSinModalidad := sinModalidad.CreadaEn.Add(time.Hour)
+	aprobacionVacia, dependenciasVacias := evidenciasPublicacionPrueba(t, sinModalidad, fechaSinModalidad)
+	if _, err := sinModalidad.PublicarSucesora(legado, "persona:gestora:003", aprobacionVacia,
+		dependenciasVacias, "Intento sin modalidad.", fechaSinModalidad); !errors.Is(err, ErrTransicionGobiernoConvocatoria) {
+		t.Fatalf("publico sucesora sin modalidad: %v", err)
+	}
+}
+
+func TestModalidadInscripcionRechazaValorNoPrevisto(t *testing.T) {
+	contenido := contenidoConvocatoriaGobernadaPrueba()
+	configuracion := configuracionConvocatoriaGobernadaPrueba(t)
+	for _, invalida := range []ModalidadInscripcionConvocatoria{"individual", "SEPARADA", " separada ", "conjunta "} {
+		configuracion.ModalidadInscripcion = invalida
+		if err := configuracion.ValidarPara(contenido); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
+			t.Fatalf("acepto modalidad %q: %v", invalida, err)
+		}
 	}
 }
 
@@ -680,6 +791,7 @@ func TestReferenciaDeInstanciaFormaParteDeAmbasHuellas(t *testing.T) {
 
 func TestVectoresGoldenDeRepresentacionesCanonicas(t *testing.T) {
 	version := versionConvocatoriaGobernadaPrueba(t)
+	version.Configuracion.ModalidadInscripcion = ""
 	estado, err := version.RepresentacionCanonica()
 	if err != nil {
 		t.Fatal(err)
@@ -698,9 +810,35 @@ func TestVectoresGoldenDeRepresentacionesCanonicas(t *testing.T) {
 	if obtenida := hex.EncodeToString(huellaContenido[:]); obtenida != esperadaContenido {
 		t.Errorf("vector golden de contenido cambiado: %s", obtenida)
 	}
+	if !strings.HasPrefix(string(estado), `{"esquema":"`+esquemaEstadoVersionConvocatoriaLegado+`"`) ||
+		!strings.HasPrefix(string(contenido), `{"esquema":"`+esquemaContenidoVersionConvocatoriaLegado+`"`) {
+		t.Fatal("las representaciones no declaran su esquema antes del material")
+	}
+}
+
+func TestVectoresGoldenDeRepresentacionesConModalidad(t *testing.T) {
+	version := versionConvocatoriaGobernadaPrueba(t)
+	estado, err := version.RepresentacionCanonica()
+	if err != nil {
+		t.Fatal(err)
+	}
+	contenido, err := version.RepresentacionContenidoCanonica()
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaEstado := sha256.Sum256(estado)
+	huellaContenido := sha256.Sum256(contenido)
+	const esperadaEstado = "dad5b9f582a46abc795cb1780d1fb548bc215a2ea4336939726d6f3c66042c32"
+	const esperadaContenido = "f4609bf9c1ed43be2f123cdfa41e621370092a5e6ff21c03b804304209bb9629"
+	if obtenida := hex.EncodeToString(huellaEstado[:]); obtenida != esperadaEstado {
+		t.Errorf("vector golden de estado con modalidad cambiado: %s", obtenida)
+	}
+	if obtenida := hex.EncodeToString(huellaContenido[:]); obtenida != esperadaContenido {
+		t.Errorf("vector golden de contenido con modalidad cambiado: %s", obtenida)
+	}
 	if !strings.HasPrefix(string(estado), `{"esquema":"`+esquemaEstadoVersionConvocatoria+`"`) ||
 		!strings.HasPrefix(string(contenido), `{"esquema":"`+esquemaContenidoVersionConvocatoria+`"`) {
-		t.Fatal("las representaciones no declaran su esquema antes del material")
+		t.Fatal("las representaciones con modalidad no declaran su esquema")
 	}
 }
 
