@@ -118,6 +118,7 @@ SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
 DECLARE cc jsonb;aut jsonb;entrada jsonb;salida jsonb:='[]'::jsonb;
  id text;version integer;huella text;clave text;etiqueta text;total integer:=0;
+ total_aut integer;ahora timestamptz(6);
 BEGIN
  IF current_user<>'vec_autorizacion_propietario'
  OR current_setting('transaction_isolation')<>'serializable'
@@ -158,6 +159,19 @@ BEGIN
  END LOOP;
  IF total NOT BETWEEN 1 AND 128
  THEN RAISE EXCEPTION 'AUT78: motivos vigentes ausentes' USING ERRCODE='55000';END IF;
+ ahora:=clock_timestamp();
+ SELECT count(*)::integer INTO total_aut
+ FROM vec_autorizacion.motivo_v2_catalogo_publicado c
+ JOIN vec_autorizacion.motivo_v2_entrada e
+  ON e.catalogo_id=c.catalogo_id AND e.catalogo_version=c.catalogo_version
+ WHERE c.catalogo_id=id AND c.catalogo_version=version
+  AND c.catalogo_huella_publicada_sha256=huella
+  AND c.publicado_en<=ahora AND e.vigente_desde<=ahora
+  AND (e.vigente_hasta IS NULL OR ahora<e.vigente_hasta)
+  AND NOT EXISTS(SELECT 1 FROM vec_autorizacion.motivo_v2_retirada r
+   WHERE r.catalogo_id=c.catalogo_id AND r.catalogo_version=c.catalogo_version);
+ IF total_aut<>total
+ THEN RAISE EXCEPTION 'AUT78: motivo vigente sin etiqueta' USING ERRCODE='55000';END IF;
  RETURN jsonb_build_object('motivos',salida,'idioma',p_idioma);
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.listar_motivos_meritos_cartera_actual_v1(text) FROM PUBLIC;
