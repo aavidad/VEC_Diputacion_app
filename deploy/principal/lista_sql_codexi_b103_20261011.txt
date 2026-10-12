@@ -1,0 +1,13 @@
+# #992/B103, solo tras integrar CA40 y AD237 y revisar los tres hashes.
+# CA40 coteja perfil/contexto actuales; AD237 conserva la decisión nominal y
+# el asiento central; B103
+# consulta únicamente respuestas firmes del mismo llamamiento. No aplicar
+# B100/B101/B102 de nuevo si ya tienen historia en la base conservada.
+# La configuración privada VEC_BOLSA_B103_FUENTE_AUTORIZACION_DATABASE_URL
+# debe apuntar a un LOGIN miembro únicamente de vec_autorizacion_fuente.
+# CA40 SHA256 480a53e93599027c2342a1208de31bd2318c9efa8bed1a3872958fa53f54600a
+# AD237 SHA256 b86cc16c00dd41b68609c4f59316986741637d540072988d9a8ae09b7729d57d
+# B103 SHA256 387f68b49e1f32aa68a43450f36ae48c8f5e8a88e6a6f870da835f266f60dc98
+deploy/postgresql/contexto_actor_v1/migraciones/000040_cotejo_actual_lectura_bolsa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000237_lectura_nominal_respuestas_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000103_respuestas_portal_seguimiento_rrhh.up.sql

@@ -76,6 +76,8 @@ func operacionesIncorporacionB2() []descriptorOperacionIncorporacionB2 {
 		{"personal_ficha", personal.AccionFichaEmpleadoB2, personal.AudienciaFichaEmpleadoB2, "personal", "registro_empleado_rrhh", "consultar_ficha_empleado"},
 		{claveRegistroVinculoRPTB2, ct.AccionRegistrarVinculoCategoriaRPT, ct.AudienciaRegistrarVinculoCategoriaRPT, ct.ModuloContratacion, "vinculo_categoria_rpt_ct", finalidadVinculoCategoriaRPTCT},
 		{claveListadoCategoriasRPTB2, accionListarCategoriasRPTB2, ct.AudienciaConsultarPublicacionCategoriaRPT, "rpt", "catalogo_configurable", finalidadLecturaCategoriaRPT},
+		{claveCatalogoPublicarB2, personal.AccionPublicarCatalogoEmpleadoB2, personal.AudienciaPublicarCatalogoEmpleadoB2, "personal", tipoEntradaCatalogoEmpleadoB2, finalidadGobiernoCatalogoEmpleadoB2},
+		{claveCatalogoRetirarB2, personal.AccionRetirarCatalogoEmpleadoB2, personal.AudienciaRetirarCatalogoEmpleadoB2, "personal", tipoEntradaCatalogoEmpleadoB2, finalidadGobiernoCatalogoEmpleadoB2},
 	}
 }
 
@@ -95,7 +97,8 @@ const ClaveRegistroVinculoRPTB2 = claveRegistroVinculoRPTB2
 // OperacionOpcionalIncorporacionB2 dice a la herramienta de preparación del
 // material qué capacidades sólo se escriben si la configuración las pide.
 func OperacionOpcionalIncorporacionB2(clave string) bool {
-	return clave == claveRegistroVinculoRPTB2 || clave == claveListadoCategoriasRPTB2
+	return clave == claveRegistroVinculoRPTB2 || clave == claveListadoCategoriasRPTB2 ||
+		clave == claveCatalogoPublicarB2 || clave == claveCatalogoRetirarB2
 }
 
 // operacionConfiguradaB2 dice si la configuración privada habilita la operación.
@@ -183,6 +186,7 @@ var rolesPoolsIncorporacionB2 = map[string]string{
 func validarConfiguracionIncorporacionB2(c *archivoIncorporacionPersonalB2) error {
 	f := ct.ErrComposicionIncorporacionAplicacion
 	if c == nil || c.Protocolo != "personal_b2_v1" || c.OrganismoRef == "" || c.CatalogoRPTID == "" || c.ModuloRPTID == "" || len(c.Pools) != len(rolesPoolsIncorporacionB2) || len(c.Operaciones) != len(operacionesConfiguradasB2(c)) ||
+		!gobiernoCatalogoEmpleadoB2Coherente(c) ||
 		(c.CeseFechaEfecto != "" && !inc.ReglaFechaCesePersonalB2(c.CeseFechaEfecto).Valida()) {
 		return f
 	}

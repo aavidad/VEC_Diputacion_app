@@ -30,8 +30,8 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   assert.ok(html.includes(`/comun/oportunidades/oportunidades.css?v=${versionCSSOportunidades}`));
   assert.ok(!html.includes(`/area-personal/area-personal.css?v=${versionCSSOportunidades}`), "no reutilizar CSS anterior con caché inmutable");
   assert.ok(html.includes(`/area-personal/arranque.js?v=${versionPadre}`));
-  assert.ok(arranque.includes(`./aplicacion.js?v=${versionPadre}`));
-  assert.ok(aplicacion.includes(`from "./mi-bolsa-historial.js?v=${versionPadre}"`), "el histórico entra en la misma cohorte que la aplicación");
+  assert.ok(arranque.includes(`./aplicacion.js?v=20261011-mibolsa-respuesta-anterior-v1`));
+  assert.ok(aplicacion.includes(`from "./mi-bolsa-historial.js?v=20261011-mibolsa-respuesta-anterior-v1"`), "el histórico conserva la cohorte de la aplicación");
   assert.ok(arranque.includes('from "./i18n.js"'));
   assert.ok(aplicacion.includes('from "./i18n.js"'));
   assert.doesNotMatch(`${arranque}\n${aplicacion}`, /\.\/i18n\.js\?v=/);
@@ -40,20 +40,24 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   exigirRenovado(arranque, "./cliente-http.js", ["20260924-f2-b11-v1", "20260924-f2-b11-v2"]);
 });
 
-test("Mi Bolsa con pausa nula cierra una sola cohorte hasta el HTML y la caché", async () => {
+test("Mi Bolsa conserva su cohorte y la entrada de inscripción usa la URL nueva", async () => {
   const [contrato, cliente, contacto, seguimiento, aplicacion, arranque, html, cache, manifiesto] = await Promise.all([
     "contrato.js", "cliente-http.js", "contacto-propio.js", "vistas/seguimiento-tramites.js",
     "aplicacion.js", "arranque.js", "index.html", "cache-publica-v1.json", "../../produccion.manifest",
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
-  const cohorte = "20261009-inscripcion-v1";
+  const cohorte = "20261011-mibolsa-respuesta-anterior-v1";
   for (const [fuente, ruta] of [[contrato, "./mi-bolsa-portal.js"],
     [seguimiento, "../mi-bolsa-portal.js"], [aplicacion, "./mi-bolsa-portal.js"],
     [cliente, "./contrato.js"], [contacto, "./cliente-http.js"],
-    [aplicacion, "./contacto-propio.js"], [aplicacion, "./vistas/seguimiento-tramites.js"],
+    [aplicacion, "./contacto-propio.js"],
     [aplicacion, "./mi-bolsa-historial.js"], [seguimiento, "../mi-bolsa-historial.js"],
-    [arranque, "./aplicacion.js"], [arranque, "./cliente-http.js"],
-    [html, "/area-personal/arranque.js"], [cache, "/area-personal/arranque.js"]]) {
+    [arranque, "./cliente-http.js"]]) {
     assert.equal(versionDe(fuente, ruta), cohorte, ruta);
+  }
+  assert.equal(versionDe(aplicacion, "./vistas/seguimiento-tramites.js"), "20261011-mibolsa-respuesta-anterior-v1");
+  assert.equal(versionDe(arranque, "./aplicacion.js"), "20261011-mibolsa-respuesta-anterior-v1");
+  for (const [fuente, ruta] of [[html, "/area-personal/arranque.js"], [cache, "/area-personal/arranque.js"]]) {
+    assert.equal(versionDe(fuente, ruta), "20261011-mibolsa-respuesta-anterior-v1", ruta);
   }
   assert.equal(versionesDe(arranque, "./cliente-http.js").length, 2,
     "la carga inicial y la diferida usan el mismo cliente HTTP");
@@ -74,7 +78,7 @@ test("una caché antigua v1-v5 no puede sustituir los padres v6 del montaje", as
   const padre = new URL(html.match(/src="(\/area-personal\/arranque\.js\?v=[^"]+)"/)?.[1] ?? "", "https://vec.example");
   const hijo = new URL(arranque.match(/from "(\.\/aplicacion\.js\?v=[^"]+)"/)?.[1] ?? "", padre);
   assert.equal(padre.searchParams.get("v"), nuevo);
-  assert.equal(hijo.searchParams.get("v"), nuevo);
+  assert.equal(hijo.searchParams.get("v"), "20261011-mibolsa-respuesta-anterior-v1");
   for (const antiguo of ["20260924-f2-b15-area-v1", "20260924-f2-b15-area-v2", "20260924-f2-b15-area-v3", "20260924-f2-b15-area-v4", "20260924-rescate-area-v5", "20260924-rescate-area-v6", "20260924-rescate-area-v7", "20260925-aspecto-v1"]) {
     assert.notEqual(padre.href, `https://vec.example/area-personal/arranque.js?v=${antiguo}`);
     assert.notEqual(hijo.href, `https://vec.example/area-personal/aplicacion.js?v=${antiguo}`);
