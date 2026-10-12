@@ -2,7 +2,7 @@ import { consultarJSON } from "../comun/http.js?v=20261012-sonda-frontera-v1";
 import { cargarTextos } from "../comun/textos.js";
 import { validarReglas, API_REGLAS, valorRegla } from "./reglas/reglas.js?v=20261012-reglas-configuracion-v1";
 import { textoPresentacionRegla } from "./reglas/i18n.js?v=20261012-reglas-configuracion-v1";
-import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20261007-pantallas-textos-final-v1";
+import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
 import { RUTA_PLANTILLA_CORREO, validarPlantillaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
 import { validarCanalesLlamamiento } from "./portal-bolsas-contrato.js?v=20261013-bolsa-ranking-n4";
 
