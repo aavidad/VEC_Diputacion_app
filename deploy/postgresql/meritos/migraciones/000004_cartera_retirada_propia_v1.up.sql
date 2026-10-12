@@ -76,7 +76,7 @@ CREATE TABLE vec_meritos.retirada_resultado_v1 (
  persona_ref text NOT NULL CHECK(vec_meritos.referencia_valida_v1(persona_ref)),
  hecho_ref text NOT NULL CHECK(vec_meritos.referencia_valida_v1(hecho_ref)),
  clave text NOT NULL CHECK(vec_meritos.referencia_valida_v1(clave)),
- codigo text NOT NULL CHECK(codigo IN ('confirmada','recuperada','clave_reutilizada','conflicto_version')),
+ codigo text NOT NULL CHECK(codigo IN ('confirmada','repetida','conflicto')),
  registrada_en timestamptz(6) NOT NULL
 );
 CREATE TABLE vec_meritos.cartera_acceso_v1 (
@@ -266,21 +266,21 @@ BEGIN
   IF op.persona_ref IS DISTINCT FROM persona OR op.hecho_ref IS DISTINCT FROM hecho
   OR op.comando IS DISTINCT FROM p_comando OR op.huella_comando IS DISTINCT FROM huella
   THEN
-   PERFORM vec_meritos.registrar_resultado_retirada_v1(u.auditoria_ref,actor,persona,hecho,clave,'clave_reutilizada',fecha);
-   RETURN jsonb_build_object('codigo','clave_reutilizada','auditoria_ref',u.auditoria_ref,'recibo',NULL);
+   PERFORM vec_meritos.registrar_resultado_retirada_v1(u.auditoria_ref,actor,persona,hecho,clave,'conflicto',fecha);
+   RETURN jsonb_build_object('codigo','conflicto','auditoria_ref',u.auditoria_ref,'recibo',NULL);
   END IF;
   INSERT INTO vec_meritos.retirada_acceso_v1 VALUES(
    'acceso:'||gen_random_uuid()::text,actor,clave,persona,
    u.decision_ref,u.auditoria_ref,u.consumo_huella_sha256,fecha);
-  PERFORM vec_meritos.registrar_resultado_retirada_v1(u.auditoria_ref,actor,persona,hecho,clave,'recuperada',fecha);
-  RETURN jsonb_build_object('codigo','confirmada','replay',true,
+  PERFORM vec_meritos.registrar_resultado_retirada_v1(u.auditoria_ref,actor,persona,hecho,clave,'repetida',fecha);
+  RETURN jsonb_build_object('codigo','repetida',
    'auditoria_ref',u.auditoria_ref,'recibo',op.recibo);
  END IF;
  SELECT i.hecho_ref,i.persona_ref INTO identidad FROM vec_meritos.hecho_identidad i
   WHERE i.hecho_ref=hecho AND i.persona_ref=persona;
  IF NOT FOUND THEN
-  PERFORM vec_meritos.registrar_resultado_retirada_v1(u.auditoria_ref,actor,persona,hecho,clave,'conflicto_version',fecha);
-  RETURN jsonb_build_object('codigo','conflicto_version',
+  PERFORM vec_meritos.registrar_resultado_retirada_v1(u.auditoria_ref,actor,persona,hecho,clave,'conflicto',fecha);
+  RETURN jsonb_build_object('codigo','conflicto',
    'auditoria_ref',u.auditoria_ref,'recibo',NULL);
  END IF;
  SELECT max(hv.version) INTO v_actual FROM vec_meritos.hecho_version hv
@@ -288,8 +288,8 @@ BEGIN
  IF v_actual IS DISTINCT FROM v_hecho
  OR EXISTS(SELECT 1 FROM vec_meritos.disponibilidad_evento_v1 x WHERE x.hecho_ref=hecho)
  THEN
-  PERFORM vec_meritos.registrar_resultado_retirada_v1(u.auditoria_ref,actor,persona,hecho,clave,'conflicto_version',fecha);
-  RETURN jsonb_build_object('codigo','conflicto_version',
+  PERFORM vec_meritos.registrar_resultado_retirada_v1(u.auditoria_ref,actor,persona,hecho,clave,'conflicto',fecha);
+  RETURN jsonb_build_object('codigo','conflicto',
    'auditoria_ref',u.auditoria_ref,'recibo',NULL);
  END IF;
  recibo:='recibo:'||gen_random_uuid()::text;
@@ -297,7 +297,8 @@ BEGIN
  instante:=to_char(fecha AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
  r:=jsonb_build_object('referencia',recibo,'hecho_ref',hecho,'version_hecho',v_hecho,
   'disponibilidad',jsonb_build_object('estado','retirado','version',1),
-  'retirado_en',instante,'motivo',c->'motivo','auditoria_ref',u.auditoria_ref,
+  'retirado_en',instante,'motivo',c->'motivo','clave_idempotencia',clave,
+  'huella_comando_sha256',huella,'auditoria_ref',u.auditoria_ref,
   'evento_ref',evento);
  INSERT INTO vec_meritos.disponibilidad_evento_v1
   (hecho_ref,persona_ref,version,estado,hecho_version_esperada,motivo,retirada_en,recibo_ref)
@@ -312,7 +313,7 @@ BEGIN
  VALUES(evento,actor,clave,persona,hecho,'meritos.hecho.disponibilidad_retirada.v1',
   jsonb_build_object('hecho_ref',hecho,'disponibilidad_version',1,'recibo_ref',recibo),fecha);
  PERFORM vec_meritos.registrar_resultado_retirada_v1(u.auditoria_ref,actor,persona,hecho,clave,'confirmada',fecha);
- RETURN jsonb_build_object('codigo','confirmada','replay',false,
+ RETURN jsonb_build_object('codigo','confirmada',
   'auditoria_ref',u.auditoria_ref,'recibo',r);
 END $f$;
 REVOKE ALL ON FUNCTION vec_meritos.retirar_hecho_propio_v1(
