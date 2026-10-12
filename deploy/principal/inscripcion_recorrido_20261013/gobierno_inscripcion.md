@@ -6,11 +6,13 @@ asignaciones anteriores, y liga las preimágenes actuales. Dos personas ADMIN
 distintas proponen y aprueban; el arranque no publica permisos.
 
 Antes de los actos, instalar las nuevas migraciones de
-`lista_sql_codexo_inscripcion_gobierno_20261013.txt`: AD256 → AUT84 → AUT85.
+`lista_sql_codexo_inscripcion_gobierno_20261013.txt`: AD256 → AUT84 → AUT85 → AUT86.
 No repetir ninguna ya instalada. AUT85 añade al ejecutor externo su quinta
 función permitida: recupera la base y el control originales por referencia y
 huella, incluso después de avanzar el rol. Las primeras publicaciones siguen
 exigiendo las preimágenes actuales; un replay conserva su plan y recibo.
+AUT86 elimina el nombre textual como criterio de autorización y conserva el
+nombre real de la base en la nueva versión, ligado por las mismas huellas.
 
 CONFIG NUEVA: ninguna adicional a los overlays B103 y Bolsa externa existentes.
 La configuración de activación de inscripción está en `LEEME.md`.
