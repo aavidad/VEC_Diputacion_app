@@ -127,8 +127,11 @@ func TestCustodiaDocumentosOriginalCTAltaUnicaConflictoYPermiso(t *testing.T) {
 	if err != nil || f.altas != 1 || primero.HuellaSHA256 != huella {
 		t.Fatalf("alta: err=%v altas=%d", err, f.altas)
 	}
-	_, err = a.GuardarUnaVez(context.Background(), s, pdf, s.OriginalRef, huella)
-	if err != nil || f.altas != 1 {
+	if primero.NumeroVEC != f.documento.NumeroVEC || !primero.CustodiadoEn.Equal(f.documento.CreadoEn) {
+		t.Fatal("el comprobante no procede del documento confirmado")
+	}
+	repetido, err := a.GuardarUnaVez(context.Background(), s, pdf, s.OriginalRef, huella)
+	if err != nil || f.altas != 1 || repetido.NumeroVEC != primero.NumeroVEC || !repetido.CustodiadoEn.Equal(primero.CustodiadoEn) {
 		t.Fatalf("replay reescribio: err=%v altas=%d", err, f.altas)
 	}
 	otroTipo := pdf

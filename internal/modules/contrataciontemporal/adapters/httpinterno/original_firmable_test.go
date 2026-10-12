@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	almacencanonico "vec-diputacion-granada/internal/vec/canonico/almacen"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -49,6 +50,65 @@ func peticionOriginalHTTPPrueba(cuerpo string) *http.Request {
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Accept", "application/json")
 	return r
+}
+
+func TestOriginalFirmableHTTPComprobanteConfirmadoYReplay(t *testing.T) {
+	instante := time.Date(2026, 10, 12, 9, 0, 0, 123456000, time.UTC)
+	s := &servicioOriginalHTTPPrueba{alterar: func(o *vecports.OriginalFirmableCT) {
+		o.NumeroVEC, o.CustodiadoEn = "VEC-2026-17", instante
+	}}
+	h, err := NuevoManejadorOriginalFirmableCT(autoridadRegistroFirmaVecPrueba{organizacion: "organizacion:desarrollo:dipgra"}, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var anterior string
+	for range 2 {
+		r := peticionOriginalHTTPPrueba(cuerpoOriginalHTTPPrueba)
+		r.Header.Set("Accept", AcceptOriginalFirmableCTConComprobante)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		var salida struct {
+			Data struct {
+				Esquema     string `json:"esquema"`
+				Comprobante struct {
+					Numero string    `json:"numero_vec"`
+					Fecha  time.Time `json:"custodiado_en"`
+				} `json:"comprobante"`
+			} `json:"data"`
+		}
+		if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &salida) != nil ||
+			salida.Data.Esquema != EsquemaOriginalFirmableCTConComprobante ||
+			salida.Data.Comprobante.Numero != "VEC-2026-17" || !salida.Data.Comprobante.Fecha.Equal(instante) {
+			t.Fatalf("comprobante: estado=%d, respuesta=%s", w.Code, w.Body)
+		}
+		if anterior != "" && w.Body.String() != anterior {
+			t.Fatal("la recuperación cambió el original o el comprobante")
+		}
+		anterior = w.Body.String()
+	}
+	antes := s.llamadas
+	r := peticionOriginalHTTPPrueba(cuerpoOriginalHTTPPrueba)
+	r.Header.Set("Accept", AcceptOriginalFirmableCTConComprobante)
+	r.Header.Add("Accept", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusNotAcceptable || s.llamadas != antes {
+		t.Fatalf("Accept ambiguo llegó a preparación: estado=%d, llamadas=%d/%d", w.Code, s.llamadas, antes)
+	}
+	for _, alterar := range []func(*vecports.OriginalFirmableCT){
+		func(o *vecports.OriginalFirmableCT) { o.NumeroVEC = "" },
+		func(o *vecports.OriginalFirmableCT) { o.NumeroVEC = "envio:inventado" },
+		func(o *vecports.OriginalFirmableCT) { o.CustodiadoEn = time.Time{} },
+	} {
+		s.alterar = alterar
+		r := peticionOriginalHTTPPrueba(cuerpoOriginalHTTPPrueba)
+		r.Header.Set("Accept", AcceptOriginalFirmableCTConComprobante)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != http.StatusBadGateway || strings.Contains(w.Body.String(), "comprobante") || strings.Contains(w.Body.String(), "pdf_base64") {
+			t.Fatalf("comprobante inexistente anunciado: %d %s", w.Code, w.Body)
+		}
+	}
 }
 
 func TestOriginalFirmableHTTPVersionFuenteBytesYReplay(t *testing.T) {

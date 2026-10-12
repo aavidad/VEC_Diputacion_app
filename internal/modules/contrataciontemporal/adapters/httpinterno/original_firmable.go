@@ -9,18 +9,22 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	almacencanonico "vec-diputacion-granada/internal/vec/canonico/almacen"
+	docdomain "vec-diputacion-granada/internal/vec/documentos/domain"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
-	RutaOriginalFirmableCT            = "/api/vec/contratacion-temporal/firmas-documento/original"
-	EsquemaOriginalFirmableCT         = "vec.contratacion-temporal.original-firmable.v1"
-	maximoRespuestaOriginalFirmableCT = ((vecports.LimiteOriginalFirmableCT+2)/3)*4 + (16 << 10)
+	RutaOriginalFirmableCT                  = "/api/vec/contratacion-temporal/firmas-documento/original"
+	EsquemaOriginalFirmableCT               = "vec.contratacion-temporal.original-firmable.v1"
+	EsquemaOriginalFirmableCTConComprobante = "vec.contratacion-temporal.original-firmable.v2"
+	AcceptOriginalFirmableCTConComprobante  = "application/vnd.vec.ct.original-firmable.v2+json"
+	maximoRespuestaOriginalFirmableCT       = ((vecports.LimiteOriginalFirmableCT+2)/3)*4 + (16 << 10)
 )
 
 // Preparar reutiliza la custodia inmutable y consume la autoridad nominal V3
@@ -65,7 +69,16 @@ func (h *manejadorOriginalFirmableCT) ServeHTTP(w http.ResponseWriter, r *http.R
 		responderErrorPreflightFirma(w, r, nil, errorMetodoConsultaRRHHNoPermitido)
 		return
 	}
-	if problema := validarMetadatosConsultaRRHH(r, MaximoCuerpoConsultaDetalleRRHHBytes); problema != nil {
+	accept, unico := cabeceraUnicaAlta(r.Header, "Accept")
+	conComprobante := unico && accept == AcceptOriginalFirmableCTConComprobante
+	metadatos := r
+	if conComprobante {
+		// Sólo esta representación exacta cambia Accept para reutilizar las
+		// guardas comunes de cuerpo, JSON y cabeceras sin rebajarlas.
+		metadatos = r.Clone(r.Context())
+		metadatos.Header.Set("Accept", "application/json")
+	}
+	if problema := validarMetadatosConsultaRRHH(metadatos, MaximoCuerpoConsultaDetalleRRHHBytes); problema != nil {
 		responderErrorPreflightFirma(w, r, nil, *problema)
 		return
 	}
@@ -103,13 +116,25 @@ func (h *manejadorOriginalFirmableCT) ServeHTTP(w http.ResponseWriter, r *http.R
 		responderErrorPreflightFirma(w, r, nil, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
-	responderJSONFirmaNominal(w, r, http.StatusOK, map[string]any{"data": map[string]any{
+	datos := map[string]any{
 		"esquema": EsquemaOriginalFirmableCT, "expediente_ref": entrada.ExpedienteRef,
 		"version_observada": entrada.VersionObservada, "documento": entrada.Documento,
 		"original_ref": original.Referencia, "original_version": original.Version, "original_sha256": original.HuellaSHA256,
 		"tipo_ref": original.TipoRef, "mime": "application/pdf", "pdf_base64": base64.StdEncoding.EncodeToString(original.Contenido),
 		"documento_custodiado": documentoCustodiado(organizacion, entrada.ExpedienteRef, original.Referencia, original.Version, original.HuellaSHA256),
-	}}, maximoRespuestaOriginalFirmableCT)
+	}
+	if conComprobante {
+		if !docdomain.NumeroVECValido(original.NumeroVEC) || !domain.InstanteUTCCanonico(original.CustodiadoEn) {
+			responderErrorPreflightFirma(w, r, nil, errorResultadoConsultaRRHHNoConfiable)
+			return
+		}
+		datos["esquema"] = EsquemaOriginalFirmableCTConComprobante
+		datos["comprobante"] = map[string]any{
+			"numero_vec":    original.NumeroVEC,
+			"custodiado_en": original.CustodiadoEn.Format(time.RFC3339Nano),
+		}
+	}
+	responderJSONFirmaNominal(w, r, http.StatusOK, map[string]any{"data": datos}, maximoRespuestaOriginalFirmableCT)
 }
 
 func originalFirmableCTConfiable(original vecports.OriginalFirmableCT, s vecports.SolicitudOriginalFirmableCT) bool {
