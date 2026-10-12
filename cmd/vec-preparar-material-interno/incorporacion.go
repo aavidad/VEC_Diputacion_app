@@ -67,7 +67,7 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errIdempotencia
 	}
-	if len(claves) != 26 {
+	if len(claves) != 27 {
 		return false, errDerivacion
 	}
 	dsn, err := leerDSN(p.dsnArchivo, p.dsnEntorno)

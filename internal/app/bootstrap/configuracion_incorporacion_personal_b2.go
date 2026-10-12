@@ -74,6 +74,7 @@ func operacionesIncorporacionB2() []descriptorOperacionIncorporacionB2 {
 		{"personal_alta", personal.AccionAltaEmpleadoB2, personal.AudienciaAltaEmpleadoB2, "personal", "alta_empleado_rrhh", "registrar_empleado"},
 		{"personal_hecho", personal.AccionHechoEmpleadoB2, personal.AudienciaHechoEmpleadoB2, "personal", "hecho_empleado_rrhh", "registrar_hecho_empleado"},
 		{"personal_ficha", personal.AccionFichaEmpleadoB2, personal.AudienciaFichaEmpleadoB2, "personal", "registro_empleado_rrhh", "consultar_ficha_empleado"},
+		{claveEmpleadosPersonalB2, personal.AccionEmpleadosB2, personal.AudienciaEmpleadosB2, "personal", "empleados_rrhh", "consultar_empleados"},
 		{claveRegistroVinculoRPTB2, ct.AccionRegistrarVinculoCategoriaRPT, ct.AudienciaRegistrarVinculoCategoriaRPT, ct.ModuloContratacion, "vinculo_categoria_rpt_ct", finalidadVinculoCategoriaRPTCT},
 		{claveListadoCategoriasRPTB2, accionListarCategoriasRPTB2, ct.AudienciaConsultarPublicacionCategoriaRPT, "rpt", "catalogo_configurable", finalidadLecturaCategoriaRPT},
 		{claveCatalogoPublicarB2, personal.AccionPublicarCatalogoEmpleadoB2, personal.AudienciaPublicarCatalogoEmpleadoB2, "personal", tipoEntradaCatalogoEmpleadoB2, finalidadGobiernoCatalogoEmpleadoB2},
@@ -88,6 +89,7 @@ func operacionesIncorporacionB2() []descriptorOperacionIncorporacionB2 {
 const (
 	claveRegistroVinculoRPTB2   = "ct_vinculo_registrar"
 	claveListadoCategoriasRPTB2 = "rpt_listar"
+	claveEmpleadosPersonalB2    = "personal_empleados"
 	accionListarCategoriasRPTB2 = "vec.catalogos.categorias.listar_habilitadas"
 )
 
@@ -98,7 +100,7 @@ const ClaveRegistroVinculoRPTB2 = claveRegistroVinculoRPTB2
 // material qué capacidades sólo se escriben si la configuración las pide.
 func OperacionOpcionalIncorporacionB2(clave string) bool {
 	return clave == claveRegistroVinculoRPTB2 || clave == claveListadoCategoriasRPTB2 ||
-		clave == claveCatalogoPublicarB2 || clave == claveCatalogoRetirarB2
+		clave == claveCatalogoPublicarB2 || clave == claveCatalogoRetirarB2 || clave == claveEmpleadosPersonalB2
 }
 
 // operacionConfiguradaB2 dice si la configuración privada habilita la operación.

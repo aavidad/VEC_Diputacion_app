@@ -382,3 +382,25 @@ test("Vacantes monta una sola hoja con tres ejes, corte y origen estructural, co
   assert.equal(consultas[1].cursor, "cursor_siguiente");
   assert.equal(consultas[1].vigenteEn, consultas[0].vigenteEn); assert.equal(consultas[1].conocidoEn, consultas[0].conocidoEn);
 });
+
+
+test("abrir un alta del mismo minuto conserva segundos y milisegundos del corte", async () => {
+  const raiz = raizFalsa(); const consultas = [];
+  const instanteAlta = Date.parse("2026-09-25T10:00:30.123Z");
+  const montaje = montarRegistroB2({ raiz, empleadoRef: "emp_aaaaaaaaaaaaaaaaaaaaaa",
+    reloj: () => new Date("2026-09-25T10:00:35.987Z"),
+    cliente: { consultarFicha: (q) => {
+      consultas.push(q);
+      if (Date.parse(q.conocidoEn) < instanteAlta) throw new ErrorRegistroB2("estado_no_valido", 404);
+      const respuesta = ficha([relacion("relacion-uno")]);
+      respuesta.ficha.corte = { vigente_en: q.vigenteEn, conocido_en: q.conocidoEn };
+      return respuesta;
+    }, listarVacantes() { throw new Error("consulta no esperada"); } },
+  });
+  await completar();
+  assert.equal(consultas[0].conocidoEn, "2026-09-25T10:00:35.987000Z");
+  assert.ok(Date.parse(consultas[0].conocidoEn) >= instanteAlta);
+  const campo = buscar(raiz, (n) => n.type === "datetime-local");
+  assert.equal(campo.step, "0.001");
+  montaje.desmontar();
+});
