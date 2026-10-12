@@ -41,7 +41,7 @@ func TestEtiquetasBandejaRRHHNombraLasReferenciasDeLaPeticion(t *testing.T) {
 		Documentos: []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo{{Referencia: "doc:memoria", Etiqueta: "Memoria justificativa"}},
 	}
 	fila := ports.EntregaPeticionCentro{Peticion: domain.DatosPeticionCentro{
-		Configuracion: domain.ConfiguracionPeticionCentro{Solicitante: domain.ActorPeticionCentro{ActorRef: "per_sol"}, Ratificador: domain.ActorPeticionCentro{ActorRef: "per_rat"}},
+		Configuracion: domain.ConfiguracionPeticionCentro{Solicitante: domain.ActorPeticionCentro{ActorRef: "per_sol", PuestoRef: "rpt-520-735"}, Ratificador: domain.ActorPeticionCentro{ActorRef: "per_rat", PuestoRef: "rpt-520-001"}},
 		Solicitud: domain.SolicitudCentro{CentroRef: "centro-520", ContactoRef: contactoAltaContratacionTemporalDesarrollo,
 			CategoriaRef: "categoria:rpt:analista-programador", MotivoClave: "acumulacion_tareas", DocumentosAdjuntos: []string{"doc:memoria"}},
 	}}
@@ -70,5 +70,41 @@ func TestEtiquetasBandejaRRHHNombraLasReferenciasDeLaPeticion(t *testing.T) {
 	}
 	if _, err := (*etiquetadorPeticionesRRHHDesarrollo)(nil).etiquetas(context.Background(), nil); err == nil {
 		t.Fatal("sin etiquetador no hay etiquetas")
+	}
+}
+
+func TestEtiquetasRRHHConservanPuestoHistoricoSinHabilitarAlActor(t *testing.T) {
+	proveedor := &proveedorPeticionCentroDesarrollo{catalogos: catalogoEtiquetasRRHHPrueba{}, actores: map[string]*identidadPeticionCentroDesarrollo{
+		"actual": {principal: vecdomain.Principal{DisplayName: "Lucía Fernández Castillo"}, actor: domain.ActorPeticionCentro{ActorRef: "per_sol", PuestoRef: "rpt-520-001"}},
+	}}
+	e := &etiquetadorPeticionesRRHHDesarrollo{proveedor: proveedor, nombresHistoricos: map[string]string{
+		"per_antiguo": "Manuel García Robles", "per_ajeno": "Elena Martín Ruiz",
+	}}
+	fila := ports.EntregaPeticionCentro{Peticion: domain.DatosPeticionCentro{Configuracion: domain.ConfiguracionPeticionCentro{
+		Solicitante: domain.ActorPeticionCentro{ActorRef: "per_sol", PuestoRef: "rpt-520-735"},
+		Ratificador: domain.ActorPeticionCentro{ActorRef: "per_antiguo", PuestoRef: "rpt-520-001"},
+	}}}
+	r, err := e.etiquetas(context.Background(), []ports.EntregaPeticionCentro{fila})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Intervinientes["per_sol"].Cargo != "Jefatura de Servicio" || r.Intervinientes["per_antiguo"].Nombre != "Manuel García Robles" {
+		t.Fatalf("no conserva intervinientes históricos: %+v", r.Intervinientes)
+	}
+	if len(proveedor.actores) != 1 || len(r.Intervinientes) != 2 || len(r.IntervinientesPorPuesto) != 2 {
+		t.Fatal("las etiquetas no deben habilitar actores ni exponer personas ajenas a la página")
+	}
+	segunda := fila
+	segunda.Peticion.Configuracion.Solicitante.PuestoRef = "rpt-520-001"
+	r, err = e.etiquetas(context.Background(), []ports.EntregaPeticionCentro{fila, segunda})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ambiguo := r.Intervinientes["per_sol"]; ambiguo {
+		t.Fatal("la proyección anterior no puede asignar un solo puesto a dos puestos históricos")
+	}
+	puestos := r.IntervinientesPorPuesto["per_sol"]
+	if len(puestos) != 2 || puestos["rpt-520-735"].Cargo != "Jefatura de Servicio" || puestos["rpt-520-001"].Cargo != "Subdirección de Informática" {
+		t.Fatalf("colapsa puestos históricos: %+v", puestos)
 	}
 }
