@@ -140,6 +140,93 @@ func nuevaSesionReincorporacionTitularDesarrollo(
 	return proveedor, nil
 }
 
+// capturaPerfilesNominalesCT es la única caché de contextos de una petición
+// con varios perfiles fijos. Conserva cada perfil por separado y rechaza otro
+// propietario; Incorporación y Original aportan su propia guarda de ruta.
+type capturaPerfilesNominalesCT struct {
+	mu                 sync.Mutex
+	propietarioGeneral any
+	contextos          map[string]ports.ContextoAutorizacionAltaV3
+}
+
+func resolverContextoPerfilNominalCT(ctx context.Context, soporte *soporteAltaContratacionTemporalDesarrollo,
+	perfil *perfilFijoCTDesarrollo, captura *capturaPerfilesNominalesCT, propietario any,
+) (ports.ContextoAutorizacionAltaV3, error) {
+	vacio := ports.ContextoAutorizacionAltaV3{}
+	if ctx == nil || soporte == nil || perfil == nil || captura == nil || propietario == nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	if err := ctx.Err(); err != nil {
+		return vacio, err
+	}
+	if _, valida := soporte.capacidadValida(ctx); !valida {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	captura.mu.Lock()
+	defer captura.mu.Unlock()
+	if captura.propietarioGeneral != nil && captura.propietarioGeneral != propietario {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	captura.propietarioGeneral = propietario
+	if captura.contextos == nil {
+		captura.contextos = map[string]ports.ContextoAutorizacionAltaV3{}
+	}
+	contexto, existe := captura.contextos[perfil.clave]
+	if !existe {
+		if perfil.sesionOperativa == nil {
+			return vacio, ports.ErrConsultaRRHHNoDisponible
+		}
+		comun, err := perfil.sesionOperativa.ResolverContexto(ctx)
+		if err != nil {
+			return vacio, err
+		}
+		contexto = ports.ContextoAutorizacionAltaV3{Vinculo: comun.Vinculo, Resultado: comun.Resultado}
+		if !mismoContextoEsperadoRegistradoDesarrollo(perfil.contextoEsperadoRegistrado, contexto.Resultado) {
+			return vacio, ports.ErrAutorizacionDenegada
+		}
+		captura.contextos[perfil.clave] = contexto
+	}
+	v, err := contexto.Vinculo.Datos()
+	if err != nil || v.PrincipalID != perfil.plantilla.AsignacionPerfil.PrincipalID || v.PerfilActivoRef != perfil.perfilRef() ||
+		contexto.ValidarPara(ports.SolicitudResolverContextoAutorizacionAltaV3{
+			AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef, PerfilRef: perfil.perfilRef()}, soporte.reloj.Ahora()) != nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	resultado, err := contexto.Resultado.Clonar()
+	if err != nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	return ports.ContextoAutorizacionAltaV3{Vinculo: contexto.Vinculo, Resultado: resultado}, nil
+}
+
+func leerAsignacionConsumiblePerfilNominalCT(ctx context.Context, s *soporteAltaContratacionTemporalDesarrollo,
+	perfil *perfilFijoCTDesarrollo) (instantaneaPublicadaDesarrollo, error) {
+	var cero instantaneaPublicadaDesarrollo
+	if ctx == nil || s == nil || perfil == nil {
+		return cero, ports.ErrAutorizacionDenegada
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	s.mu.Lock()
+	lector, ok := s.autoridadAsignaciones.(lectorAsignacionPublicadaCTDesarrollo)
+	s.mu.Unlock()
+	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(lector) {
+		return cero, ports.ErrConsultaRRHHNoDisponible
+	}
+	publicada, encontrada, err := lector.leerAsignacionPublicada(ctx, perfil.perfilRef())
+	if err != nil {
+		return cero, errors.Join(ports.ErrConsultaRRHHNoDisponible, err)
+	}
+	if !encontrada || publicada.actoAsignacion != actoAsignacionPerfilFijoCTDesarrollo {
+		return cero, ports.ErrAutorizacionDenegada
+	}
+	if _, valida := instantaneaConsumible(publicada, perfil.plantilla, s.reloj.Ahora()); !valida {
+		return cero, ports.ErrAutorizacionDenegada
+	}
+	return publicada, nil
+}
+
 func rutaReincorporacionTitularDesarrollo(ruta string) bool {
 	return ruta == httpinterno.RutaReincorporacionesTitular || ruta == httpinterno.RutaCapacidadReincorporacionTitular
 }
@@ -166,6 +253,12 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 		return vacio, ports.ErrAutorizacionDenegada
 	}
 	capacidad, valida := s.capacidadValida(ctx)
+	if valida && capacidad.ruta == httpinterno.RutaOriginalFirmableCT {
+		if capacidad.contextoOperacion == nil || s.perfilesOriginal == nil {
+			return vacio, ports.ErrAutorizacionDenegada
+		}
+		return s.perfilesOriginal.resolver(ctx, s.perfilesOriginal.documentos)
+	}
 	if !valida || capacidad.contextoOperacion == nil ||
 		!rutaSesionOperativaCTDesarrollo(capacidad.ruta) {
 		return vacio, ports.ErrAutorizacionDenegada

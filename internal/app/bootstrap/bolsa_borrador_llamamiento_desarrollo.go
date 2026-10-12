@@ -644,7 +644,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	descriptoresAutorizacion := append(descriptoresAutorizacionContratacionTemporalDesarrollo(politicaCT, reincorporacionActiva,
 		firmaDocumentoPerfilFijoCompuesto(alta.soporte),
 		alta.soporte.perfilFijoParaRuta(cthttp.RutaConsultaCircuitoRRHH) != nil,
-		alta.soporte.perfilFijoParaRuta(cthttp.RutaVinculosEmisionBolsa) != nil), descriptoresBolsa...)
+		alta.soporte.perfilFijoParaRuta(cthttp.RutaVinculosEmisionBolsa) != nil, alta.soporte.perfilesOriginal != nil), descriptoresBolsa...)
 	descriptoresAutorizacion = append(descriptoresAutorizacion, autorizacionesAdicionales...)
 	catalogoAutorizacion, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptoresAutorizacion)
 	if err != nil {

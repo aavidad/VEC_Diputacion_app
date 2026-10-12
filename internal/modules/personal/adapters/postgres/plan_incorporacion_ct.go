@@ -48,6 +48,14 @@ func (r *RepositorioRegistroEmpleadoB2PostgreSQL) planCT(ctx context.Context, o 
 		if !formaEstadoPlanCTValida(s) {
 			return vacio, errRegistroEmpleadoB2NoDisponible
 		}
+		// PostgreSQL serializa timestamptz como +00:00. Tras validar el offset,
+		// los recibos se entregan con la identidad UTC que exige el consumidor.
+		if s.ReciboAltaRelacion != nil {
+			s.ReciboAltaRelacion.RegistradoEn = s.ReciboAltaRelacion.RegistradoEn.UTC()
+		}
+		if s.ReciboOcupacion != nil {
+			s.ReciboOcupacion.RegistradoEn = s.ReciboOcupacion.RegistradoEn.UTC()
+		}
 		return s, nil
 	})
 	if err != nil {
