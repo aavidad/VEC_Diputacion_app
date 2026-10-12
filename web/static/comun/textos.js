@@ -21,7 +21,6 @@ import { ERROR_INDICE_IDIOMAS, IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, INDICE_IDIOMAS
   leerRecursoJSON, localizacionDe, prepararIdiomas, reintentarIdiomas, huellaTextos } from "./idioma.js";
 
 export const URL_RAIZ_TEXTOS = new URL("../textos/", import.meta.url);
-export const VERSION_TEXTOS = "";
 
 const PATRON_MODULO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const PATRON_IDIOMA = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/u;
