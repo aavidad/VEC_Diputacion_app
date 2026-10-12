@@ -29,7 +29,7 @@ var accionesBaseVersionarRolBolsaExterna = [...]string{
 
 func baseVersionarRolBolsaExterna(rol VersionRol) bool {
 	if rol.RolID != RolIDVersionarBolsaExterna || rol.Version != 1 ||
-		rol.Nombre != "areaPersonal.miBolsa.rolPortal" || len(rol.Concesiones) != len(accionesBaseVersionarRolBolsaExterna) {
+		len(rol.Concesiones) != len(accionesBaseVersionarRolBolsaExterna) {
 		return false
 	}
 	vistos := make(map[string]bool, len(rol.Concesiones))
