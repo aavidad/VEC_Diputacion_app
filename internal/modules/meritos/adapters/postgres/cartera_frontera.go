@@ -14,12 +14,23 @@ const registrarFronteraCarteraSQL = `SELECT vec_meritos.registrar_denegacion_fro
  $1::text,$2::text,$3::text,$4::text,NULLIF($5::text,''))`
 
 const preflightFronteraCarteraSQL = `SELECT session_user=current_user
- AND pg_has_role(session_user,'vec_meritos_frontera_externo','MEMBER')
- AND pg_has_role(session_user,'vec_meritos_frontera_externo','USAGE')
+ AND session_user='vec_externo_meritos_frontera'
+ AND l.rolcanlogin AND l.rolinherit
+ AND NOT (l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls)
+ AND l.rolconfig IS NULL
+ AND NOT (g.rolcanlogin OR g.rolinherit OR g.rolsuper OR g.rolcreatedb
+  OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
+ AND g.rolconfig IS NULL
+ AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=l.oid)=1
+ AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=l.oid AND m.roleid=g.oid
+  AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+ AND pg_has_role(session_user,g.oid,'USAGE')
  AND has_function_privilege(session_user,
   'vec_meritos.registrar_denegacion_frontera_cartera_v1(text,text,text,text,text)','EXECUTE')
  AND NOT has_schema_privilege(session_user,'vec_meritos','CREATE')
- AND NOT pg_is_in_recovery()`
+ AND NOT pg_is_in_recovery()
+ FROM pg_roles l JOIN pg_roles g ON g.rolname='vec_meritos_frontera_externo'
+ WHERE l.rolname=session_user`
 
 type consultorFronteraCartera interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
