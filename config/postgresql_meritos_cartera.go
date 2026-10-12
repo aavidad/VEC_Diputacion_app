@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -27,6 +28,10 @@ func (c Config) DSNMeritosCarteraSeparados() (datos, frontera, registro, motivos
 		c.ExternoMeritosCarteraPostgreSQL, c.ExternoMeritosFronteraPostgreSQL,
 		c.ExternoMeritosRegistroAutorizacionPostgreSQL, c.ExternoMeritosMotivosAutorizacionPostgreSQL,
 	}
+	esperados := [...]string{
+		"vec_externo_meritos_cartera", "vec_externo_meritos_frontera",
+		"vec_externo_meritos_registro_autorizacion", "vec_externo_meritos_motivos_autorizacion",
+	}
 	var dsns [4]string
 	for i, cfg := range configuraciones {
 		dsn, e := cfg.DSN()
@@ -36,6 +41,10 @@ func (c Config) DSNMeritosCarteraSeparados() (datos, frontera, registro, motivos
 		configuracion, parseErr := pgconn.ParseConfig(dsn)
 		if parseErr != nil || configuracion.User == "" {
 			return "", "", "", "", ErrMeritosCarteraPostgreSQLIncompleto
+		}
+		if configuracion.User != esperados[i] {
+			return "", "", "", "", fmt.Errorf("%w: clave=login_m4_%d esperado=%s actual=%s",
+				ErrMeritosCarteraPostgreSQLNoSeparado, i, esperados[i], configuracion.User)
 		}
 		for _, anterior := range dsns[:i] {
 			if conexionPostgreSQLComparteLogin(dsn, anterior) {

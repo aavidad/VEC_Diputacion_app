@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -34,5 +35,11 @@ func TestMeritosCarteraConexionesSeparadasYFalloSoloDelModulo(t *testing.T) {
 	base.ExternoMeritosRegistroAutorizacionPostgreSQL = ConfiguracionPostgreSQLExterna{dsn: frontera}
 	if _, _, _, _, err := base.DSNMeritosCarteraSeparados(); !errors.Is(err, ErrMeritosCarteraPostgreSQLNoSeparado) {
 		t.Fatalf("login V3 reutiliza frontera: %v", err)
+	}
+	base.ExternoMeritosRegistroAutorizacionPostgreSQL = ConfiguracionPostgreSQLExterna{
+		dsn: "postgres://vec_externo_otro@localhost:5432/vec?sslmode=disable"}
+	if _, _, _, _, err := base.DSNMeritosCarteraSeparados(); !errors.Is(err, ErrMeritosCarteraPostgreSQLNoSeparado) ||
+		!strings.Contains(err.Error(), "clave=login_m4_2 esperado=vec_externo_meritos_registro_autorizacion actual=vec_externo_otro") {
+		t.Fatalf("login nominal distinto no identificado: %v", err)
 	}
 }
