@@ -91,7 +91,7 @@ test("contacto efectivo muestra vencimiento y estado sin rotular la regla; sin t
   assert.match(plazo, /datetime="2026-09-06T22:00:00Z"/u);
   assert.match(plazo, /data-ct-llamamiento-plazo-situacion="en_plazo"/u);
   assert.match(plazo, /En plazo/u);
-  assert.doesNotMatch(plazo, /Regla de ejemplo/u);
+  assert.doesNotMatch(plazo, /Regla pendiente de aprobación/u);
   assert.doesNotMatch(plazo, /data-ct-llamamiento-propuesta-expiracion/u);
   assert.doesNotMatch(plazo, /class="ct-ayuda"|id="ct-llamamiento-contacto-ayuda"/u);
   assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="contacto"]');
