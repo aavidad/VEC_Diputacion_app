@@ -12,12 +12,19 @@ SET LOCAL statement_timeout='15s';
 DO $prueba$
 DECLARE v_candidato text:='can_AAAAAAAAAAAAAAAAAAAAAA'; v_estado jsonb; v_rechazada boolean:=false;
  v_tabla oid:='vec_bolsa_llamamientos.preferencia_bolsas_version'::regclass;
+ v_outbox oid:='vec_bolsa_llamamientos.preferencia_bolsas_outbox'::regclass;
  v_funcion oid:=to_regprocedure('vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(text,text[],bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  v_lectura oid:=to_regprocedure('vec_bolsa_llamamientos.consultar_preferencias_bolsas_v1(text,bytea,bytea,jsonb)');
 BEGIN
  IF v_funcion IS NULL OR v_lectura IS NULL
     OR NOT EXISTS (SELECT 1 FROM pg_class WHERE oid=v_tabla AND relrowsecurity AND relforcerowsecurity)
     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid=v_tabla AND tgname='preferencia_bolsas_version_inmutable' AND tgenabled='O')
+    OR NOT EXISTS (SELECT 1 FROM pg_class WHERE oid=v_outbox AND relrowsecurity AND relforcerowsecurity)
+    OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid=v_outbox AND tgname='preferencia_bolsas_outbox_inmutable' AND tgenabled='O')
+    OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid=v_outbox AND tgname='preferencia_bolsas_outbox_no_truncar' AND tgenabled='O')
+    OR has_table_privilege('public',v_outbox,'SELECT,INSERT,UPDATE,DELETE')
+    OR has_table_privilege('vec_bolsa_llamamientos_ejecutor',v_outbox,'SELECT,INSERT,UPDATE,DELETE')
+    OR has_type_privilege('public',(SELECT reltype FROM pg_class WHERE oid=v_outbox),'USAGE')
     OR has_table_privilege('vec_bolsa_llamamientos_ejecutor',v_tabla,'SELECT')
     OR has_function_privilege('vec_bolsa_llamamientos_ejecutor',v_funcion,'EXECUTE')
     OR NOT has_function_privilege('vec_bolsa_llamamientos_portal_externo',v_funcion,'EXECUTE')
@@ -135,6 +142,12 @@ BEGIN
  IF r.reutilizada IS DISTINCT FROM false OR r.version IS DISTINCT FROM 1 OR r.orden IS DISTINCT FROM ARRAY['bolsa:b','bolsa:a'] THEN
   RAISE EXCEPTION 'B104: alta incorrecta' USING ERRCODE='55000'; END IF;
  v_recibo:=r.recibo_ref; v_fecha:=r.registrada_en;
+ IF (SELECT count(*) FROM vec_bolsa_llamamientos.preferencia_bolsas_outbox o
+     WHERE o.candidato_ref=v_candidato AND o.version=1 AND o.recibo_ref=v_recibo
+      AND o.decision_ref='decision:preferencias:1'
+      AND o.auditoria_ref='auditoria:prueba:decision:preferencias:1'
+      AND o.evento->'orden'='["bolsa:b","bolsa:a"]'::jsonb)<>1 THEN
+  RAISE EXCEPTION 'B104: estado sin evento/auditoría' USING ERRCODE='55000'; END IF;
  c:=jsonb_set(c,'{decision_ref}','"decision:preferencias:2"'::jsonb);
  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(
   v_candidato,ARRAY['bolsa:b','bolsa:a'],0,'clave-prueba-cas-1',clock_timestamp(),
@@ -143,7 +156,9 @@ BEGIN
   decode('01','hex'),decode('01','hex'));
  IF r.reutilizada IS DISTINCT FROM true OR r.recibo_ref IS DISTINCT FROM v_recibo OR r.registrada_en IS DISTINCT FROM v_fecha OR r.version IS DISTINCT FROM 1
     OR (SELECT count(*) FROM vec_bolsa_llamamientos.preferencia_bolsas_version p
-        WHERE p.candidato_ref=v_candidato)<>1 THEN
+        WHERE p.candidato_ref=v_candidato)<>1
+    OR (SELECT count(*) FROM vec_bolsa_llamamientos.preferencia_bolsas_outbox o
+        WHERE o.candidato_ref=v_candidato)<>1 THEN
   RAISE EXCEPTION 'B104: replay duplicó o sustituyó recibo' USING ERRCODE='55000'; END IF;
  BEGIN
   PERFORM 1 FROM vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(

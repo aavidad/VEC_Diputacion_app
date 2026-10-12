@@ -362,6 +362,8 @@ GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.registrar_intento_lectura_prefe
 -- Fachada de efecto. AD241 verifica la concesión vigente, el contexto y el
 -- material atestado y registra su auditoría dentro de esta transacción. Una
 -- autorización nueva se exige también para recuperar un recibo por clave.
+-- p_registrada_en es solo una marca de frescura de la petición. La fecha
+-- conservada de la versión y del outbox procede de clock_timestamp() en PG.
 CREATE FUNCTION vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(
  p_candidato_ref text,p_orden text[],p_version_esperada bigint,p_clave text,p_registrada_en timestamptz,
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
