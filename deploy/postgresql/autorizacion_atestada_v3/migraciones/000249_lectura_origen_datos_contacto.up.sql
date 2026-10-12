@@ -190,16 +190,16 @@ DECLARE
   'catalogo_politicas_huella_sha256','politicas_evaluadas','emitida_en','valida_hasta'];
  v_clave text;v_material bytea;v_material_sha text;v_anterior text;v_secuencia numeric;
  v_instante timestamptz(6);v_huella text;v_ref text;
- v_tipo text;v_dominio text;v_prefijo text;v_accion text;v_finalidad text;v_campos jsonb;v_patron text;v_motivo text;
+ v_tipo text;v_dominio text;v_dominio_material text;v_prefijo text;v_accion text;v_finalidad text;v_campos jsonb;v_patron text;v_motivo text;
 BEGIN
  v_accion:=p_orden->>'accion';
  CASE v_accion
  WHEN 'bolsa.rrhh.respuestas_llamamiento.consultar' THEN
-  v_tipo:='lectura_respuestas_llamamiento';v_dominio:='vec.auditoria.eslabon.lectura_respuestas_llamamiento.v1';v_prefijo:='aud_v3_lr_';
+  v_tipo:='lectura_respuestas_llamamiento';v_dominio_material:='vec.auditoria.lectura_respuestas_llamamiento.v1';v_dominio:='vec.auditoria.eslabon.lectura_respuestas_llamamiento.v1';v_prefijo:='aud_v3_lr_';
   v_finalidad:='seguimiento_contacto_rrhh';v_motivo:='lectura_respuestas_llamamiento_correcta';
   v_campos:='["llamamiento_ref","respuestas[].participacion_ref","respuestas[].respuesta"]'::jsonb;v_patron:='^llamamiento:[0-9a-f]{64}$';
  WHEN 'bolsa.datos_contacto_participacion.origen.consultar' THEN
-  v_tipo:='lectura_origen_datos_contacto';v_dominio:='vec.auditoria.eslabon.lectura_origen_datos_contacto.v1';v_prefijo:='aud_v3_lc_';
+  v_tipo:='lectura_origen_datos_contacto';v_dominio_material:='vec.auditoria.lectura_origen_datos_contacto.v1';v_dominio:='vec.auditoria.eslabon.lectura_origen_datos_contacto.v1';v_prefijo:='aud_v3_lc_';
   v_finalidad:='consulta_origen_datos_contacto_participacion';v_motivo:='lectura_origen_datos_contacto_correcta';
   v_campos:='["enmascarados","origen","participacion_ref","registrada_en","sin_contacto","version"]'::jsonb;v_patron:='^[A-Za-z0-9][A-Za-z0-9:._-]{0,511}$';
  ELSE RAISE EXCEPTION 'AD249: operación de lectura no admitida' USING ERRCODE='42501'; END CASE;
@@ -303,7 +303,7 @@ BEGIN
  OR vec_autorizacion.cotejar_lectura_bolsa_actual_interna_v1(
   p_orden,v_contexto->>'principal_ref',v_contexto->>'perfil_activo_ref') IS NOT TRUE
  THEN RAISE EXCEPTION 'AD237: autoridad actual de lectura denegada' USING ERRCODE='42501'; END IF;
- v_material:=vec_autorizacion_atestada_v3.encuadrar_mac('vec.auditoria.lectura_respuestas_llamamiento.v1')||
+ v_material:=vec_autorizacion_atestada_v3.encuadrar_mac(v_dominio_material)||
   vec_autorizacion_atestada_v3.encuadrar_mac(encode(sha256(p_contexto_canonico),'hex'))||
   vec_autorizacion_atestada_v3.encuadrar_mac(encode(sha256(p_vinculo_canonico),'hex'));
  FOREACH v_clave IN ARRAY v_claves LOOP
