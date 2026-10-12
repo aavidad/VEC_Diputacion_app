@@ -15,7 +15,7 @@
   "desconocido": "No disponible",
   "vacio": "No hay filas disponibles para este informe.",
   "limite": "Los valores no disponibles siguen pendientes; no equivalen a cero.",
-  "sintetico": "EJEMPLO SINTÉTICO. Sin validez administrativa. Las reglas del ejemplo no están aprobadas. La descarga para personas empleadas sigue pendiente.",
+  "sintetico": "BORRADOR SIN VALIDAR. Sin validez administrativa. Las reglas propuestas no están aprobadas. La descarga para personas empleadas sigue pendiente.",
   "nombre_sintetico": "Persona del ejemplo: {{nombre}}",
   "unidades": {
     "dia": "Días",

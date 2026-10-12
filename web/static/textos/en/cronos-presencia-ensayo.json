@@ -3,7 +3,7 @@
   "idioma": "en",
   "textos": {
     "titulo": "Recorded state at the cutoff",
-    "aviso": "Synthetic data trial. States reflect punches recorded at the specified cutoff.",
+    "aviso": "Local preview. States reflect punches recorded at the specified cutoff.",
     "indeterminado": "Undetermined state",
     "agregado": "Selected team summary",
     "cobertura": "Coverage indicates whether the synthetic source contains the complete sequence from the start of the date to the cutoff.",
