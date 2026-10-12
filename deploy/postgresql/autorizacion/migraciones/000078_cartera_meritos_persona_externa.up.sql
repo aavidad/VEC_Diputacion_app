@@ -15,7 +15,9 @@ DO $pre$ BEGIN
  OR to_regprocedure('vec_autorizacion.cotejar_cartera_meritos_actual_v1(jsonb,jsonb)') IS NOT NULL
  OR to_regprocedure('vec_autorizacion.obtener_instantanea_meritos_externo_v1(text,text)') IS NOT NULL
  OR to_regprocedure('vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(jsonb)') IS NOT NULL
+ OR to_regprocedure('vec_autorizacion.listar_motivos_meritos_cartera_actual_v1(text)') IS NOT NULL
  OR to_regprocedure('vec_autorizacion.resolver_motivo_autorizacion_v2_actual(text,integer,text,text)') IS NULL
+ OR to_regprocedure('vec_catalogos_configurables.listar_motivos_meritos_cartera_v1(text)') IS NULL
  OR to_regprocedure('vec_autorizacion.revalidar_sesion_cartera_meritos_v1(jsonb,timestamptz,timestamptz,timestamptz)') IS NOT NULL
  OR to_regprocedure('vec_identidad_externa_v1.acreditar_sesion_externa_v1(text,text,text,text,text,text,boolean,text,text,text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,timestamptz)') IS NULL
  OR to_regprocedure('vec_autorizacion.login_candidato_externo_v1(text,text)') IS NULL
@@ -109,6 +111,58 @@ REVOKE ALL ON FUNCTION vec_autorizacion.validar_motivo_retirada_meritos_actual_v
 GRANT EXECUTE ON FUNCTION vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(jsonb)
  TO vec_meritos_propietario;
 GRANT USAGE ON SCHEMA vec_autorizacion TO vec_meritos_propietario;
+
+CREATE FUNCTION vec_autorizacion.listar_motivos_meritos_cartera_actual_v1(p_idioma text)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
+SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
+DECLARE cc jsonb;aut jsonb;entrada jsonb;salida jsonb:='[]'::jsonb;
+ id text;version integer;huella text;clave text;etiqueta text;total integer:=0;
+BEGIN
+ IF current_user<>'vec_autorizacion_propietario'
+ OR current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off'
+ OR current_setting('TimeZone')<>'UTC'
+ OR p_idioma NOT IN ('es','en') OR p_idioma IS NULL
+ OR NOT pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
+ THEN RAISE EXCEPTION 'AUT78: lectura de motivos denegada' USING ERRCODE='42501';END IF;
+ cc:=vec_catalogos_configurables.listar_motivos_meritos_cartera_v1(p_idioma);
+ aut:=cc->'catalogo_aut';
+ IF jsonb_typeof(cc) IS DISTINCT FROM 'object'
+ OR cc->>'idioma' IS DISTINCT FROM p_idioma
+ OR cc#>>'{catalogo_cc,referencia}' IS DISTINCT FROM 'meritos.cartera.motivos'
+ OR jsonb_typeof(aut) IS DISTINCT FROM 'object'
+ OR (SELECT count(*) FROM jsonb_object_keys(aut))<>3
+ OR aut->>'catalogo_id' IS DISTINCT FROM 'motivos_meritos_cartera'
+ OR jsonb_typeof(aut->'catalogo_version') IS DISTINCT FROM 'number'
+ OR coalesce(aut->>'catalogo_version' ~ '^[1-9][0-9]{0,8}$',false) IS NOT TRUE
+ OR coalesce(aut->>'catalogo_huella_sha256' ~ '^[0-9a-f]{64}$',false) IS NOT TRUE
+ OR jsonb_typeof(cc->'motivos') IS DISTINCT FROM 'array'
+ THEN RAISE EXCEPTION 'AUT78: catálogo CC incompatible' USING ERRCODE='55000';END IF;
+ id:=aut->>'catalogo_id';version:=(aut->>'catalogo_version')::integer;
+ huella:=aut->>'catalogo_huella_sha256';
+ FOR entrada IN SELECT value FROM jsonb_array_elements(cc->'motivos') LOOP
+  clave:=entrada->>'entrada_clave';etiqueta:=entrada->>'etiqueta';
+  IF jsonb_typeof(entrada) IS DISTINCT FROM 'object'
+  OR (SELECT count(*) FROM jsonb_object_keys(entrada))<>2
+  OR clave !~ '^motivo_[0-9a-f]{32}$'
+  OR etiqueta IS NULL OR octet_length(etiqueta) NOT BETWEEN 1 AND 200
+  OR vec_autorizacion.resolver_motivo_autorizacion_v2_actual(
+    id,version,huella,clave) IS NOT TRUE
+  THEN RAISE EXCEPTION 'AUT78: motivo CC/AUT divergente' USING ERRCODE='55000';END IF;
+  salida:=salida||jsonb_build_array(jsonb_build_object(
+   'motivo',jsonb_build_object('catalogo_id',id,'catalogo_version',version,
+    'catalogo_huella_sha256',huella,'entrada_clave',clave),
+   'etiqueta',etiqueta));
+  total:=total+1;
+ END LOOP;
+ IF total NOT BETWEEN 1 AND 128
+ THEN RAISE EXCEPTION 'AUT78: motivos vigentes ausentes' USING ERRCODE='55000';END IF;
+ RETURN jsonb_build_object('motivos',salida,'idioma',p_idioma);
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.listar_motivos_meritos_cartera_actual_v1(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.listar_motivos_meritos_cartera_actual_v1(text)
+ TO vec_meritos_propietario;
 CREATE FUNCTION vec_autorizacion.revalidar_sesion_cartera_meritos_v1(
  p_vinculo jsonb,p_emitida_en timestamptz,p_valida_hasta timestamptz,p_instante timestamptz)
 RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
@@ -182,7 +236,7 @@ BEGIN
  accion:=p_orden->>'accion';persona:=p_orden->>'persona_ref';
  campos:=CASE accion
   WHEN 'meritos.cartera.consultar_propia' THEN
-   '["denominacion","disponibilidad","hecho_ref","retirada","tipo","total","version_hecho"]'::jsonb
+   '["denominacion","disponibilidad","hecho_ref","motivos_retirada","retirada","tipo","total","version_hecho"]'::jsonb
   WHEN 'meritos.cartera.retirar_propio' THEN '["disponibilidad","recibo"]'::jsonb
   ELSE NULL END;
  IF campos IS NULL OR p_orden->>'modulo_id' IS DISTINCT FROM 'meritos'
@@ -190,6 +244,8 @@ BEGIN
   (CASE WHEN accion='meritos.cartera.consultar_propia' THEN 'cartera_personal' ELSE 'hecho' END)
  OR p_orden->>'finalidad_ref' IS DISTINCT FROM 'gestion_cartera_propia'
  OR p_orden->>'canal' IS DISTINCT FROM 'externa_personal'
+ OR (accion='meritos.cartera.consultar_propia' AND
+  (p_orden->>'idioma' IS NULL OR p_orden->>'idioma' NOT IN ('es','en')))
  OR p_orden->'campos_permitidos' IS DISTINCT FROM campos
  OR p_orden->>'recurso_ref' IS DISTINCT FROM
   (CASE WHEN accion='meritos.cartera.consultar_propia' THEN 'cartera:'||persona

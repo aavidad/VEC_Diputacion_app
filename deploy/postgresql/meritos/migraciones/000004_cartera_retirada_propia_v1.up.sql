@@ -14,6 +14,7 @@ DO $pre$ BEGIN
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_lectura_cartera_meritos_v1(bytea,bytea,jsonb)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_retirada_merito_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regprocedure('vec_autorizacion.validar_motivo_retirada_meritos_actual_v1(jsonb)') IS NULL
+ OR to_regprocedure('vec_autorizacion.listar_motivos_meritos_cartera_actual_v1(text)') IS NULL
  OR to_regrole('vec_meritos_cartera_externo') IS NULL
  THEN RAISE EXCEPTION 'M4: preimagen o autoridad incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
@@ -110,6 +111,7 @@ SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
 DECLARE a record; persona text;limite integer;filtro text;cursor text;corte timestamptz(6);
  total bigint;datos jsonb;siguiente text;recibo text;ahora timestamptz(6);
+ motivos_catalogo jsonb;
 BEGIN
  IF current_user<>'vec_meritos_propietario' OR session_user=current_user
  OR NOT pg_has_role(session_user,'vec_meritos_cartera_externo','MEMBER')
@@ -118,7 +120,7 @@ BEGIN
  OR current_setting('transaction_read_only')<>'off' OR current_setting('TimeZone')<>'UTC'
  OR jsonb_typeof(p_orden) IS DISTINCT FROM 'object'
  OR (p_orden ?& ARRAY['esquema','persona_ref','limite','filtro','cursor_hecho_ref',
-  'corte_en','correlacion_ref']) IS NOT TRUE
+  'corte_en','correlacion_ref','idioma']) IS NOT TRUE
  OR p_orden->>'esquema' IS DISTINCT FROM 'vec.meritos.cartera.propia.v1'
  OR p_orden->>'filtro' IS NULL
  OR p_orden->>'filtro' NOT IN ('todos','disponibles','retirados')
@@ -126,6 +128,7 @@ BEGIN
  OR coalesce(p_orden->>'limite' ~ '^([1-9]|[1-4][0-9]|50)$',false) IS NOT TRUE
  OR vec_meritos.referencia_valida_v1(p_orden->>'persona_ref') IS NOT TRUE
  OR jsonb_typeof(p_orden->'cursor_hecho_ref') IS DISTINCT FROM 'string'
+ OR p_orden->>'idioma' NOT IN ('es','en') OR p_orden->>'idioma' IS NULL
  THEN RAISE EXCEPTION 'M4: consulta inválida o sin ejecutor' USING ERRCODE='42501'; END IF;
  persona:=p_orden->>'persona_ref';limite:=(p_orden->>'limite')::integer;
  filtro:=p_orden->>'filtro';cursor:=coalesce(p_orden->>'cursor_hecho_ref','');
@@ -141,6 +144,11 @@ BEGIN
  IF a.auditoria_ref IS NULL OR a.correlacion_ref IS DISTINCT FROM p_orden->>'correlacion_ref'
  OR a.secuencia IS NULL OR a.huella_sha256 !~ '^[0-9a-f]{64}$'
  THEN RAISE EXCEPTION 'M4: auditoría divergente' USING ERRCODE='42501'; END IF;
+ motivos_catalogo:=vec_autorizacion.listar_motivos_meritos_cartera_actual_v1(p_orden->>'idioma');
+ IF motivos_catalogo->>'idioma' IS DISTINCT FROM p_orden->>'idioma'
+ OR jsonb_typeof(motivos_catalogo->'motivos') IS DISTINCT FROM 'array'
+ OR jsonb_array_length(motivos_catalogo->'motivos') NOT BETWEEN 1 AND 128
+ THEN RAISE EXCEPTION 'M4: motivos no disponibles' USING ERRCODE='55000';END IF;
  PERFORM set_config('vec_meritos.persona_ref',persona,true);
  WITH ultimas AS MATERIALIZED (
   SELECT DISTINCT ON (hv.hecho_ref) hv.hecho_ref,hv.version,hv.registro->'hecho' AS hecho
@@ -171,6 +179,7 @@ BEGIN
  ahora:=clock_timestamp();recibo:='cartera:'||gen_random_uuid()::text;
  INSERT INTO vec_meritos.cartera_acceso_v1 VALUES(recibo,persona,a.auditoria_ref,a.correlacion_ref,filtro,corte,total,ahora);
  RETURN jsonb_build_object('hechos',datos,'total',total,'cursor_siguiente_hecho_ref',coalesce(siguiente,''),
+  'motivos_retirada',motivos_catalogo->'motivos',
   'corte_en',to_char(corte AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
   'recibo_acceso',jsonb_build_object('auditoria_ref',a.auditoria_ref,
    'secuencia',a.secuencia::text,'huella_sha256',a.huella_sha256,

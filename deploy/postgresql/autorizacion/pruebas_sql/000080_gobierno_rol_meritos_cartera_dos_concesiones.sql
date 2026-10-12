@@ -10,7 +10,7 @@ BEGIN
    jsonb_build_object('accion','meritos.cartera.consultar_propia','modulo_id','meritos',
     'tipo_recurso','cartera_personal','finalidades',jsonb_build_array('gestion_cartera_propia'),
     'garantia_minima','alto','campos_permitidos',jsonb_build_array(
-     'denominacion','disponibilidad','hecho_ref','retirada','tipo','total','version_hecho'),
+     'denominacion','disponibilidad','hecho_ref','motivos_retirada','retirada','tipo','total','version_hecho'),
     'obligaciones',jsonb_build_array('auditar')),
    jsonb_build_object('accion','meritos.cartera.retirar_propio','modulo_id','meritos',
     'tipo_recurso','hecho','finalidades',jsonb_build_array('gestion_cartera_propia'),
