@@ -1,12 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  anotacionContieneDatoPersonal,
   consultarIntentosContacto,
   crearControladorIntentosContacto,
   registrarContactoIntento,
   renderizarIntentosContacto,
   rutaContactosCandidato,
-} from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
+} from "./portal-bolsas-intentos.js?v=20261011-bolsa-b103-privacidad-v1";
 import { MENSAJES_INTENTOS, crearTraductorIntentos } from "./portal-i18n-intentos.js";
 
 const candidato = { participacion_ref: "participacion:1", estado_clave: "disponible", ultimo_llamamiento: { llamamiento_ref: "llamamiento:1" } };
@@ -24,9 +25,61 @@ const respuesta = (status, cuerpo) => ({ ok: status >= 200 && status < 300, stat
 
 test("el catálogo i18n de intentos está completo y rechaza claves ajenas", () => {
   const t = crearTraductorIntentos();
-  assert.equal(t("registrado"), "Contacto registrado.");
+  assert.equal(t("registrado"), "Registrado.");
   assert.throws(() => t("inexistente"));
   assert.throws(() => crearTraductorIntentos({ ...MENSAJES_INTENTOS, titulo: "" }));
+});
+
+test("la nota permite describir el teléfono y avisa junto al campo al escribir cifras", () => {
+  for (const nota of ["Acepta por teléfono", "TELÉFONO sin respuesta", "Se llamó 2 veces por teléfono",
+    "Por teléfono a las 12:30", "Por teléfono el 11/10/2026"]) {
+    assert.equal(anotacionContieneDatoPersonal(nota), false, nota);
+  }
+  for (const nota of ["Teléfono 600123456", "teléfono / (6)", "Llamar al +34 600 123 456",
+    "Teléfono fijo 812345678", "Llamar al 812345678",
+    "Teléfono fijo +44 20 7946 0123", "Llamar al +44 20 7946 0123",
+    "Documento DNI 12345678Z", "tercero@example.test", "Enviar por email"]) {
+    assert.equal(anotacionContieneDatoPersonal(nota), true, nota);
+  }
+  const modal = { candidato, intentosContacto: { carga: "listo", datos: intentos } };
+  const estado = { modalFicha: modal };
+  const controlador = crearControladorIntentosContacto({ estado, renderizar() {} });
+  const aviso = { hidden: true };
+  const atributos = {};
+  const formulario = { querySelector: () => aviso };
+  const campo = {
+    dataset: { intentosCampo: "intento" }, value: "teléfono: 6",
+    closest: (selector) => selector.startsWith("textarea") ? campo : formulario,
+    setAttribute: (clave, valor) => { atributos[clave] = valor; },
+    removeAttribute: (clave) => { delete atributos[clave]; },
+  };
+  assert.equal(controlador.manejarInput({ target: campo }), true);
+  assert.equal(aviso.hidden, false);
+  assert.equal(atributos["aria-invalid"], "true");
+  assert.match(renderizarIntentosContacto({ candidato, estado: modal.intentosContacto }), /teléfono: 6[\s\S]*Quite de la nota el dato personal/u);
+  campo.value = "Acepta por teléfono";
+  controlador.manejarInput({ target: campo });
+  assert.equal(aviso.hidden, true);
+  assert.equal(atributos["aria-invalid"], undefined);
+});
+
+test("una anotación con datos personales se detiene antes del POST", async () => {
+  const anterior = globalThis.FormData;
+  globalThis.FormData = class { constructor(f) { this.v = f.valores; } get(c) { return this.v[c]; } };
+  try {
+    let peticiones = 0;
+    const modal = { candidato, intentosContacto: { carga: "listo", datos: intentos } };
+    const estado = { bolsaSeleccionada: "bolsa:1", modalFicha: modal };
+    const controlador = crearControladorIntentosContacto({ estado, renderizar() {},
+      fetchImpl: async () => { peticiones++; return respuesta(201, {}); } });
+    const formulario = { dataset: { intentosForm: "intento" },
+      valores: { instante: "2026-09-28T10:00", resultado: "contactado", anotacion: "Teléfono 600123456" },
+      closest() { return this; } };
+    assert.equal(controlador.manejarSubmit({ target: formulario, preventDefault() {} }), true);
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(peticiones, 0);
+    assert.match(renderizarIntentosContacto({ candidato, estado: modal.intentosContacto }), /aria-invalid="true"/u);
+  } finally { globalThis.FormData = anterior; }
 });
 
 test("la ficha muestra proceso, avisos y reglas sin rotular su procedencia, escapando textos", () => {
@@ -49,6 +102,8 @@ test("con los procesos agotados propone la baja con la exclusión existente y no
   assert.match(salida, /data-b8-accion="seleccionar" data-operacion="excluir"/);
   assert.doesNotMatch(salida, /data-intentos-form="intento"/);
   assert.match(salida, /data-intentos-form="rebote"/);
+  const conRecibo = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: agotado, recibo: "recibo:contacto:1" } });
+  assert.equal((conRecibo.match(/role="status"/gu) || []).length, 1, "el recibo y la propuesta se anuncian juntos");
   const excluido = renderizarIntentosContacto({ candidato: { ...candidato, estado_clave: "excluido" }, estado: { carga: "listo", datos: agotado } });
   assert.doesNotMatch(excluido, /data-b8-accion/);
 });
@@ -75,6 +130,25 @@ test("traduce los rechazos de las reglas al registrar", async () => {
   const res = await registrarContactoIntento("b", "p", {}, "k", { fetchImpl: async () => respuesta(409, { error: { codigo: "intento_antes_de_separacion" } }) });
   assert.equal(res.ok, false);
   assert.equal(res.mensaje, "No ha pasado la separación mínima desde el último intento.");
+});
+
+test("cada rechazo del registro tiene su propio mensaje: nota con dato personal, clave repetida o resultado no admitido", async () => {
+  const mensaje = async (estado, codigo) => (await registrarContactoIntento("b", "p", {}, "k", { fetchImpl: async () => respuesta(estado, { error: { codigo } }) })).mensaje;
+  assert.match(await mensaje(400, "anotacion_con_dato_personal"), /^Quite de la nota DNI/u);
+  assert.match(await mensaje(400, "anotacion_con_dato_personal"), /Puede indicar «por teléfono» sin escribir el número/u);
+  assert.match(await mensaje(409, "contacto_en_conflicto"), /ya se envió antes con otros datos/u);
+  assert.match(await mensaje(409, "contacto_no_valido"), /anótelo con «Cambiar situación» en su ficha/u);
+  assert.doesNotMatch(await mensaje(409, "contacto_no_valido"), /clave/u);
+});
+
+test("el justificante muestra el aviso de día no hábil que devolvió el propio registro", () => {
+  const contactado = { ...intentos, contactado: true, avisos: [] };
+  const salida = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: contactado, recibo: "recibo:contacto:1", avisosRegistro: ["dia_no_habil", "<inventado>"] } });
+  assert.match(salida, /<p class="mensaje-exito" role="status">Registrado\.[^]*Avisos: <span class="estado-chip aviso">Día no hábil<\/span><\/p>/u);
+  assert.equal(salida.match(/role="status"/gu).length, 1);
+  assert.doesNotMatch(salida, /inventado/u);
+  const sinAviso = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: contactado, recibo: "recibo:contacto:1", avisosRegistro: [] } });
+  assert.doesNotMatch(sinAviso, /Avisos:/u);
 });
 
 test("el controlador registra un rebote de correo ligado al llamamiento y recarga el estado", async () => {

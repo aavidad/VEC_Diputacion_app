@@ -229,7 +229,7 @@ const PERFILES_VISIBLES = Object.freeze({
  */
 export async function consultarSesionPortal({
   fetchImpl = globalThis.fetch, signal, limiteMs = LIMITE_CONSULTA_SESION_MS,
-  temporizadores = globalThis,
+  temporizadores = globalThis, incluirIdentidadAtestada = false,
 } = {}) {
   if (typeof fetchImpl !== "function") throw new TypeError("cliente HTTP no disponible");
   if (!Number.isSafeInteger(limiteMs) || limiteMs <= 0) throw new TypeError("límite de sesión no válido");
@@ -253,7 +253,18 @@ export async function consultarSesionPortal({
     }
     const nombre = typeof principal.display_name === "string" && principal.display_name.length <= 512
       ? principal.display_name.trim() : "";
-    return Object.freeze({ nombre, roles: Object.freeze([...principal.roles]) });
+    if (!incluirIdentidadAtestada) return Object.freeze({ nombre, roles: Object.freeze([...principal.roles]) });
+    const id = principal.id;
+    const certificado = principal.attributes?.certificate_sha256;
+    if (typeof id !== "string" || !id.trim() || id.length > 512 || id !== id.trim()
+      || typeof certificado !== "string" || !/^[a-f0-9]{64}$/iu.test(certificado)
+      || typeof principal.auth_method !== "string" || !principal.auth_method
+      || typeof principal.auth_assurance !== "string" || !principal.auth_assurance) {
+      throw new TypeError("identidad de sesión no válida");
+    }
+    return Object.freeze({ nombre, roles: Object.freeze([...principal.roles]),
+      identidadAtestada: Object.freeze({ id, certificado,
+        metodo: principal.auth_method, garantia: principal.auth_assurance }) });
   } finally {
     temporizadores.clearTimeout(temporizador);
     signal?.removeEventListener?.("abort", abortar);
