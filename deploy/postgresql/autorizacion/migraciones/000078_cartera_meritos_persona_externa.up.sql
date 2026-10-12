@@ -11,15 +11,75 @@ DO $pre$ BEGIN
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
  OR to_regrole('vec_meritos_cartera_externo') IS NOT NULL
+ OR to_regrole('vec_autorizacion_fuente_meritos_externa') IS NOT NULL
  OR to_regprocedure('vec_autorizacion.cotejar_cartera_meritos_actual_v1(jsonb,jsonb)') IS NOT NULL
+ OR to_regprocedure('vec_autorizacion.obtener_instantanea_meritos_externo_v1(text,text)') IS NOT NULL
  OR to_regprocedure('vec_autorizacion.revalidar_sesion_cartera_meritos_v1(jsonb,timestamptz,timestamptz,timestamptz)') IS NOT NULL
  OR to_regprocedure('vec_identidad_externa_v1.acreditar_sesion_externa_v1(text,text,text,text,text,text,boolean,text,text,text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,timestamptz)') IS NULL
+ OR to_regprocedure('vec_autorizacion.login_candidato_externo_v1(text,text)') IS NULL
+ OR to_regprocedure('vec_contexto_actor_v1.perfil_usuarios_externo_provisionado_v1(text,text)') IS NULL
  OR to_regclass('vec_autorizacion.asignacion_perfil_actual_externa') IS NULL
  THEN RAISE EXCEPTION 'AUT78: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 CREATE ROLE vec_meritos_cartera_externo NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+CREATE ROLE vec_autorizacion_fuente_meritos_externa NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 DO $db$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_meritos_cartera_externo',current_database()); END $db$;
+DO $db_fuente$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_autorizacion_fuente_meritos_externa',current_database()); END $db_fuente$;
 SET LOCAL ROLE vec_autorizacion_propietario;
+
+CREATE FUNCTION vec_autorizacion.obtener_instantanea_meritos_externo_v1(
+ p_principal_id text,p_perfil_activo_ref text)
+RETURNS TABLE(documento_asignacion jsonb,documento_rol jsonb,
+ documento_control_rol jsonb,revision_catalogo text,huella_catalogo text,
+ documentos_politicas jsonb)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' AS $f$
+DECLARE rol record;
+BEGIN
+ IF current_user<>'vec_autorizacion_propietario'
+ OR current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off'
+ OR current_setting('TimeZone')<>'UTC'
+ OR vec_autorizacion.login_candidato_externo_v1(
+  'vec_externo_meritos_fuente_autorizacion','vec_autorizacion_fuente_meritos_externa') IS NOT TRUE
+ OR vec_contexto_actor_v1.perfil_usuarios_externo_provisionado_v1(
+  p_principal_id,p_perfil_activo_ref) IS NOT TRUE
+ THEN RAISE EXCEPTION 'AUT78: fuente externa denegada' USING ERRCODE='42501'; END IF;
+ SELECT r.rol_id,r.documento INTO rol
+ FROM vec_autorizacion.asignacion_perfil_actual_externa ap
+ JOIN vec_autorizacion.asignacion_perfil_externa a
+  ON a.perfil_activo_ref=ap.perfil_activo_ref AND a.asignacion_ref=ap.asignacion_ref
+ JOIN vec_autorizacion.version_rol r ON r.version_rol_ref=a.version_rol_ref
+ WHERE ap.perfil_activo_ref=p_perfil_activo_ref AND a.principal_id=p_principal_id
+ FOR SHARE OF ap,a,r;
+ IF NOT FOUND OR rol.rol_id IS DISTINCT FROM 'persona_meritos_cartera'
+ OR jsonb_typeof(rol.documento->'concesiones') IS DISTINCT FROM 'array'
+ OR (SELECT array_agg(x.value->>'accion' ORDER BY x.value->>'accion')
+    FROM jsonb_array_elements(rol.documento->'concesiones') x) IS DISTINCT FROM
+   ARRAY['meritos.cartera.consultar_propia','meritos.cartera.retirar_propio']::text[]
+ THEN RAISE EXCEPTION 'AUT78: rol externo de Méritos ausente' USING ERRCODE='42501'; END IF;
+ RETURN QUERY SELECT a.documento,r.documento,c.documento,cat.revision::text,cat.huella_sha256,
+  coalesce((SELECT jsonb_agg(p.documento ORDER BY p.politica_ref)
+   FROM vec_autorizacion.politica_restrictiva_actual pa
+   JOIN vec_autorizacion.politica_restrictiva p
+    ON p.politica_id=pa.politica_id AND p.politica_ref=pa.politica_ref),'[]'::jsonb)
+ FROM vec_autorizacion.asignacion_perfil_actual_externa ap
+ JOIN vec_autorizacion.asignacion_perfil_externa a
+  ON a.perfil_activo_ref=ap.perfil_activo_ref AND a.asignacion_ref=ap.asignacion_ref
+ JOIN vec_autorizacion.version_rol r ON r.version_rol_ref=a.version_rol_ref
+ JOIN vec_autorizacion.control_vigencia_version_rol_actual cp
+  ON cp.version_rol_ref=r.version_rol_ref
+ JOIN vec_autorizacion.control_vigencia_version_rol c
+  ON c.version_rol_ref=cp.version_rol_ref AND c.revision=cp.revision
+ JOIN vec_autorizacion.control_catalogo_politicas cat ON cat.control_id IS TRUE
+ WHERE ap.perfil_activo_ref=p_perfil_activo_ref AND a.principal_id=p_principal_id
+  AND r.rol_id='persona_meritos_cartera' AND r.documento->>'estado'='publicada'
+  AND c.estado='habilitada';
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.obtener_instantanea_meritos_externo_v1(text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.obtener_instantanea_meritos_externo_v1(text,text)
+ TO vec_autorizacion_fuente_meritos_externa;
+GRANT USAGE ON SCHEMA vec_autorizacion TO vec_autorizacion_fuente_meritos_externa;
 CREATE FUNCTION vec_autorizacion.revalidar_sesion_cartera_meritos_v1(
  p_vinculo jsonb,p_emitida_en timestamptz,p_valida_hasta timestamptz,p_instante timestamptz)
 RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE

@@ -12,6 +12,10 @@ BEGIN
  IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
  OR NOT has_function_privilege('vec_autorizacion_atestada_v3_propietario',f,'EXECUTE')
  THEN RAISE EXCEPTION 'AUT78: ACL divergente' USING ERRCODE='55000'; END IF;
+ f:=to_regprocedure('vec_autorizacion.obtener_instantanea_meritos_externo_v1(text,text)');
+ IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
+ OR NOT has_function_privilege('vec_autorizacion_fuente_meritos_externa',f,'EXECUTE')
+ THEN RAISE EXCEPTION 'AUT78: ACL de fuente divergente' USING ERRCODE='55000'; END IF;
  f:=to_regprocedure('vec_autorizacion.revalidar_sesion_cartera_meritos_v1(jsonb,timestamptz,timestamptz,timestamptz)');
  IF f IS NULL OR has_function_privilege('public',f,'EXECUTE')
  OR NOT has_function_privilege('vec_autorizacion_atestada_v3_propietario',f,'EXECUTE')
