@@ -1,0 +1,158 @@
+{
+  "resultado": "GO focal HTTP+PostgreSQL real: tres lecturas exitosas tras conflictos reales de serialización del lector con Bolsa; límite a la tanda autorizada y este clon.",
+  "integration_local": "80f24ae8fc62f31660017150cb6e4899589f79dc",
+  "feature_origen": "67649997776f14d3f4f14ba5f1541cf40316169b",
+  "go": "1.26.9",
+  "vcs_modified": false,
+  "bin_sha256": "46cbc44dc2bebbb78f04a67b5f695b3637356932057d28340648f5f43518900d",
+  "config26_sha256": "006276abaf447d99ff24b125c0031740fd14687213faff44767cc12d1c55b110",
+  "cert_fingerprint_sha256": "A5634839C3AEFB391D6FD4F84D06BA23292975ED7F3B12B99CA4413B21B1A4AC",
+  "batch3_HTTP": [
+    200,
+    200,
+    200
+  ],
+  "duracion_curl_ms": [
+    280.604,
+    437.282,
+    364.517
+  ],
+  "tres_body_sha256_identicos_a_e434_20d4": true,
+  "versiones": [
+    9,
+    9,
+    9
+  ],
+  "errores_PG_core_reales": [
+    {
+      "timestamp": "2026-10-11T16:32:56.768832198Z",
+      "pid": "723",
+      "causa": "serialize_read_write_dependencies",
+      "contexto": [
+        {
+          "funcion": "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_rrhh_v3_interna",
+          "linea": 89
+        },
+        {
+          "funcion": "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_detalle_rrhh_v3_atestada",
+          "linea": 3
+        },
+        {
+          "funcion": "vec_contratacion_temporal.cerrar_prueba_resultado_recibo_rrhh_v2",
+          "linea": 301
+        },
+        {
+          "funcion": "vec_contratacion_temporal.motor_consultar_detalle_rrhh_v1",
+          "linea": 112
+        },
+        {
+          "funcion": "vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1",
+          "linea": 238
+        },
+        {
+          "funcion": "vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1",
+          "linea": 19
+        }
+      ],
+      "relaciones_nominales": [
+        "vec_autorizacion_atestada_v3.auditoria_consumo_v3",
+        "vec_autorizacion_atestada_v3.control_cadena_auditoria",
+        "vec_autorizacion_atestada_v3.eslabon_auditoria_v5",
+        "vec_autorizacion_atestada_v3.pendiente_sellado_auditoria_v5",
+        "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_detalle_rrhh_v3_atestada",
+        "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_rrhh_v3_interna",
+        "vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1",
+        "vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1"
+      ]
+    },
+    {
+      "timestamp": "2026-10-11T16:32:56.826390266Z",
+      "pid": "723",
+      "causa": "serialize_read_write_dependencies",
+      "contexto": [
+        {
+          "funcion": "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_rrhh_v3_interna",
+          "linea": 89
+        },
+        {
+          "funcion": "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_detalle_rrhh_v3_atestada",
+          "linea": 3
+        },
+        {
+          "funcion": "vec_contratacion_temporal.cerrar_prueba_resultado_recibo_rrhh_v2",
+          "linea": 301
+        },
+        {
+          "funcion": "vec_contratacion_temporal.motor_consultar_detalle_rrhh_v1",
+          "linea": 112
+        },
+        {
+          "funcion": "vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1",
+          "linea": 238
+        },
+        {
+          "funcion": "vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1",
+          "linea": 19
+        }
+      ],
+      "relaciones_nominales": [
+        "vec_autorizacion_atestada_v3.auditoria_consumo_v3",
+        "vec_autorizacion_atestada_v3.control_cadena_auditoria",
+        "vec_autorizacion_atestada_v3.eslabon_auditoria_v5",
+        "vec_autorizacion_atestada_v3.pendiente_sellado_auditoria_v5",
+        "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_detalle_rrhh_v3_atestada",
+        "vec_autorizacion_atestada_v3.revalidar_evidencia_consumo_consulta_rrhh_v3_interna",
+        "vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1",
+        "vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1"
+      ]
+    }
+  ],
+  "errores_sesion_independientes_n": 1,
+  "auditoria_confirmada_n": 3,
+  "decision_refs_unicas_n": 3,
+  "auditorias_ref_unicas_n": 3,
+  "auditoria_cotejo": [
+    {
+      "secuencia": 6948,
+      "auditoria_ref": "aud_v3_987cecbc92cbdb2dd6b23549f0ede11d",
+      "decision_ref": "decision:bd7b92893ce0de7d25e41929e873a283",
+      "consumo_confirmado": true,
+      "mismo_principal": true,
+      "mismo_perfil": true,
+      "misma_accion": true,
+      "mismo_recurso": true,
+      "misma_finalidad": true,
+      "eslabon_v5_presente": true,
+      "pendiente_sellado": false
+    },
+    {
+      "secuencia": 6950,
+      "auditoria_ref": "aud_v3_abd06ead62f6d5fe9de3a3a15f5d033c",
+      "decision_ref": "decision:38bd31b4c3fdb895735cbf3db334dca6",
+      "consumo_confirmado": true,
+      "mismo_principal": true,
+      "mismo_perfil": true,
+      "misma_accion": true,
+      "mismo_recurso": true,
+      "misma_finalidad": true,
+      "eslabon_v5_presente": true,
+      "pendiente_sellado": false
+    },
+    {
+      "secuencia": 6952,
+      "auditoria_ref": "aud_v3_d5d8c2813d8a9f71ff46b077aff58719",
+      "decision_ref": "decision:88b318ad3b75b793a7c8c21393d8de25",
+      "consumo_confirmado": true,
+      "mismo_principal": true,
+      "mismo_perfil": true,
+      "misma_accion": true,
+      "mismo_recurso": true,
+      "misma_finalidad": true,
+      "eslabon_v5_presente": true,
+      "pendiente_sellado": false
+    }
+  ],
+  "auditoria_nominal": "Principal/perfil/acción/recurso/finalidad de atestacion_decision_v3 canónica, referencias y huellas opacas. Columnaslegado NULL: canal sigue sinextraer; no inventar. Auditorías y eslabones porsecuencia, sin corrPG→requestID fabricado.",
+  "limites": "Sin p95 de3. No B2 completo, no guarda542 corregida: 403baseline20d4preservado y códigoautoridad intacto; no rerun fichas80f autorizado. Se conservan firma409/KMS/Personal9+nodo. Transporte curl real con CA+mTLS originales yheadersJSON; sin bypass niSQLinyectado.",
+  "scope": "UNA build y UNA tanda3tras cambiarbin/reiniciar sóloapp propia; PostgreSQL/config/perfiles/datos negocio intactos. Sin pruebasGo completas niotraspeticiones. E434 y20d4backupsconservados."
+}
