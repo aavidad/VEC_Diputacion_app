@@ -42,6 +42,7 @@ func TestRutasExactasAuditoriaEtiquetanSoloRutasNominales(t *testing.T) {
 		{"prefijo usuarios exterior", http.MethodGet, "/api/vec/usuarios/area-personal/mis-preferencias-extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 		{"otra ruta usuarios exterior", http.MethodGet, "/api/vec/usuarios/area-personal/otras-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 		{"personal", http.MethodGet, "/api/vec/personal/vacantes", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
+		{"catalogo Personal B2", http.MethodGet, RutaCatalogosRegistroEmpleadoB2, ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaPersonal, true, false},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -140,6 +141,7 @@ func TestRutasExactasUsuariosFalloAuditoriaCierraSinReintentoNiDetalle(t *testin
 		{"usuarios exterior 403", rutaExterior, ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
 		{"aspirantes 403 sin persona", "/api/vec/aspirantes/area-personal/mi-ficha", ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
 		{"aspirantes 401", "/api/vec/aspirantes/area-personal/mi-ficha", ErrAutenticacionRutaExactaRequerida, false, http.StatusServiceUnavailable},
+		{"catalogo Personal sin auditoria", RutaCatalogosRegistroEmpleadoB2, ErrAccesoRutaExactaDenegado, false, http.StatusServiceUnavailable},
 		{"contratacion conserva 403", rutaAltaContratacionPrueba, ErrAccesoRutaExactaDenegado, false, http.StatusForbidden},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {

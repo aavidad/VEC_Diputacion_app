@@ -1,0 +1,11 @@
+# Ruta nativa del catálogo Personal B2, copia principal HZ19/HZ21 usada por K.
+# Instalar CT168 solo si su superficie Preparación/Baremo aún falta; en el
+# clon autorizado faltaba y se instaló una vez antes de CT203. No reaplicar
+# ningún SQL con historia. Verificar la cabeza exacta y los SHA256 antes de
+# actuar en cidonia; el operador del despliegue es Dirección.
+# CT168 SHA256 68fd471d8b810205de7edf5566560550de6888874199dabb461db0d76dfc9db2
+# CT203 SHA256 3aeb050815f2219e8c14f1ffa33a3ab3959d13815d5555aa438377c3faa8331b
+# CONFIG NUEVA: ninguna para la ruta; requiere la configuración B2 existente
+# VEC_PERSONAL_B2_GOBIERNO_ENABLED=true y VEC_CT_INCORPORACION_V2_FILE.
+deploy/postgresql/contratacion_temporal/migraciones/000168_auditoria_frontera_preparacion.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000203_auditoria_catalogos_personal_b2.up.sql
