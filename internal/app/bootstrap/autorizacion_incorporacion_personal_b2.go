@@ -619,8 +619,9 @@ const (
 func objetivosLecturaPersonalB2(grupo, organismo string) []string {
 	switch grupo {
 	case grupoCatalogoConsultaB2:
-		// El plan sólo lee régimen y modalidad (fuentes_incorporacion_personal_b2).
-		return []string{organismo + ":regimen", organismo + ":modalidad"}
+		// La vista RRHH consulta los cuatro tipos; el plan sólo solicita
+		// régimen y modalidad en fuentes_incorporacion_personal_b2.
+		return []string{organismo + ":regimen", organismo + ":modalidad", organismo + ":situacion", organismo + ":clase_servicio"}
 	case grupoClasesOcupacionB2:
 		return []string{organismo}
 	}

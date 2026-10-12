@@ -52,6 +52,13 @@ func TestCatalogoEmpleadoB2GobiernoConPerfilPropioYConcesionExacta(t *testing.T)
 			t.Fatal("el perfil de consulta de Personal ganó publicar o retirar")
 		}
 	}
+	lectura := consulta.plantilla.AsignacionPerfil.Ambitos
+	if len(lectura) != 2 || lectura[0].Clave != "organismo_ref" ||
+		!slices.Equal(lectura[0].Valores, []string{config.OrganismoRef}) || lectura[1].Clave != "objetivo_ref" ||
+		!slices.Equal(lectura[1].Valores, []string{config.OrganismoRef + ":regimen", config.OrganismoRef + ":modalidad",
+			config.OrganismoRef + ":situacion", config.OrganismoRef + ":clase_servicio"}) {
+		t.Fatalf("el lector no cubre exclusivamente los cuatro catálogos del organismo: %+v", lectura)
+	}
 }
 
 // Sin las dos operaciones (servidor ya desplegado) se arranca igual, no hay
