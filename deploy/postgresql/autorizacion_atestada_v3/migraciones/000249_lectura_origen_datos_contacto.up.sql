@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
--- AD249: literal obtenido del clon HZ21 post AD248; instalación única.
+-- AD249: parte de AD237 final de #1035 y del CHECK post AD248.
+-- Instalación única: mantiene los ámbitos nominales de B103 y añade C3.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC';
@@ -10,9 +11,9 @@ DO $pre$
 DECLARE h text;
 BEGIN
  SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') INTO h FROM pg_proc p WHERE p.oid=to_regprocedure('vec_autorizacion.cotejar_lectura_respuestas_llamamiento_actual_v1(jsonb,text,text)');
- IF h IS DISTINCT FROM '664ed47eae7c0e16f909103a9567858a3b21b4557f5928e79e241e59363d2709' THEN RAISE EXCEPTION 'PARO clave=AD249.cotejar_lectura_respuestas_llamamiento_actual_v1 actual=% esperado=664ed47eae7c0e16f909103a9567858a3b21b4557f5928e79e241e59363d2709',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM 'e824ce6faab089fa22ee4bf2f4276a988f836147a78eecb92d7bd27eeb6a38bc' THEN RAISE EXCEPTION 'PARO clave=AD249.cotejar_lectura_respuestas_llamamiento_actual_v1 actual=% esperado=e824ce6faab089fa22ee4bf2f4276a988f836147a78eecb92d7bd27eeb6a38bc',h USING ERRCODE='55000'; END IF;
  SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') INTO h FROM pg_proc p WHERE p.oid=to_regprocedure('vec_autorizacion_atestada_v3.registrar_lectura_respuestas_llamamiento_v1(bytea,bytea,jsonb)');
- IF h IS DISTINCT FROM 'd660933af1b96394bf4ae25c2d79dac13a1d43c8f52cda3d0f837b8062f69435' THEN RAISE EXCEPTION 'PARO clave=AD249.registrar_lectura_respuestas_llamamiento_v1 actual=% esperado=d660933af1b96394bf4ae25c2d79dac13a1d43c8f52cda3d0f837b8062f69435',h USING ERRCODE='55000'; END IF;
+ IF h IS DISTINCT FROM 'a404f11f614e14470438eef9a322e1b4f4ec093a0485bca822011c66ced2947d' THEN RAISE EXCEPTION 'PARO clave=AD249.registrar_lectura_respuestas_llamamiento_v1 actual=% esperado=a404f11f614e14470438eef9a322e1b4f4ec093a0485bca822011c66ced2947d',h USING ERRCODE='55000'; END IF;
 END $pre$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 LOCK TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 IN ACCESS EXCLUSIVE MODE;
@@ -72,7 +73,13 @@ BEGIN
  OR p_orden->>'finalidad_ref' IS DISTINCT FROM finalidad
  OR p_orden->>'canal' IS DISTINCT FROM 'interna_corporativa'
  OR p_orden->>'recurso_ref' !~ patron
- OR p_orden->>'bolsa_ref' IS NULL OR p_orden->>'bolsa_ref' LIKE '%*%'
+ OR jsonb_typeof(p_orden->'unidad_ref') IS DISTINCT FROM 'string'
+ OR jsonb_typeof(p_orden->'ambito_ref') IS DISTINCT FROM 'string'
+ OR jsonb_typeof(p_orden->'bolsa_ref') IS DISTINCT FROM 'string'
+ OR vec_autorizacion.texto_positivo_valido(p_orden->>'unidad_ref',512) IS NOT TRUE
+ OR vec_autorizacion.texto_positivo_valido(p_orden->>'ambito_ref',512) IS NOT TRUE
+ OR vec_autorizacion.texto_positivo_valido(p_orden->>'bolsa_ref',512) IS NOT TRUE
+
  OR p_orden->'campos_permitidos' IS DISTINCT FROM
     campos
  OR jsonb_typeof(p_orden->'politicas_evaluadas') IS DISTINCT FROM 'array'
@@ -122,19 +129,15 @@ BEGIN
   AND catalogo.revision IS NOT DISTINCT FROM (p_orden->>'revision_catalogo_politicas')::numeric
   AND catalogo.huella_sha256 IS NOT DISTINCT FROM p_orden->>'catalogo_politicas_huella_sha256'
   AND politicas IS NOT DISTINCT FROM p_orden->'politicas_evaluadas'
-  AND CASE WHEN accion='bolsa.datos_contacto_participacion.origen.consultar' OR p_orden ? 'unidad_ref' THEN
-   jsonb_typeof(p_orden->'unidad_ref')='string' AND jsonb_typeof(p_orden->'ambito_ref')='string'
-   AND vec_autorizacion.texto_positivo_valido(p_orden->>'unidad_ref',512) IS TRUE
-   AND vec_autorizacion.texto_positivo_valido(p_orden->>'ambito_ref',512) IS TRUE
-   AND jsonb_typeof(a.documento->'ambitos')='array'
-   AND jsonb_array_length(a.documento->'ambitos')=2
+  AND CASE WHEN jsonb_typeof(a.documento->'ambitos')='array' THEN
+   jsonb_array_length(a.documento->'ambitos')=2
    AND vec_autorizacion.ambitos_positivos_validos(a.documento) IS TRUE
    AND a.documento->'ambitos' @> jsonb_build_array(
-    jsonb_build_object('clave','unidad_ref','valores',jsonb_build_array(p_orden->>'unidad_ref')),
-    jsonb_build_object('clave','ambito_ref','valores',jsonb_build_array(p_orden->>'ambito_ref')))
-   ELSE EXISTS(SELECT 1 FROM jsonb_array_elements(a.documento->'ambitos') ambito
-    WHERE ambito->>'clave'='bolsa_ref'
-     AND ambito->'valores' @> jsonb_build_array(p_orden->>'bolsa_ref')) END
+    jsonb_build_object('clave','unidad_ref',
+     'valores',jsonb_build_array(p_orden->>'unidad_ref')),
+    jsonb_build_object('clave','ambito_ref',
+     'valores',jsonb_build_array(p_orden->>'ambito_ref')))
+   ELSE false END
   AND (SELECT count(*) FROM jsonb_array_elements(r.documento->'concesiones') concesion
    WHERE concesion->>'accion'=accion)=1
   AND EXISTS(SELECT 1 FROM jsonb_array_elements(r.documento->'concesiones') concesion
@@ -181,7 +184,8 @@ DECLARE
  v_claves text[]:=ARRAY[
   'intento_ref','registro_contexto_ref','contexto_sha256','procedencia_sha256',
   'autenticacion_ref','sesion_ref','autenticacion_sha256','accion','modulo_id',
-  'recurso_ref','bolsa_ref','finalidad_ref','campos_permitidos','resultado','motivo_ref',
+  'recurso_ref','bolsa_ref','unidad_ref','ambito_ref','finalidad_ref',
+  'campos_permitidos','resultado','motivo_ref',
   'proceso','canal','correlacion_ref','lectura_revision_permisos',
   'lectura_instantanea_sha256','asignacion_ref','asignacion_version',
   'asignacion_huella_sha256','version_rol_ref','version_rol_version',
@@ -203,9 +207,6 @@ BEGIN
   v_finalidad:='consulta_origen_datos_contacto_participacion';v_motivo:='lectura_origen_datos_contacto_correcta';
   v_campos:='["enmascarados","origen","participacion_ref","registrada_en","sin_contacto","version"]'::jsonb;v_patron:='^[A-Za-z0-9][A-Za-z0-9:._-]{0,255}[A-Za-z0-9:._-]{0,255}[A-Za-z0-9:._-]?$';
  ELSE RAISE EXCEPTION 'AD249: operación de lectura no admitida' USING ERRCODE='42501'; END CASE;
- IF v_accion='bolsa.datos_contacto_participacion.origen.consultar' OR p_orden ? 'unidad_ref' THEN
-  v_claves:=v_claves||ARRAY['unidad_ref','ambito_ref'];
- END IF;
  IF current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off' OR current_setting('TimeZone')<>'UTC'
  OR vec_autorizacion_atestada_v3.login_lectura_respuestas_llamamiento_valido_v1() IS NOT TRUE
@@ -243,7 +244,9 @@ BEGIN
  OR p_orden->>'motivo_ref' IS DISTINCT FROM v_motivo
  OR p_orden->>'proceso' IS DISTINCT FROM 'vec-server'
  OR p_orden->>'canal' IS DISTINCT FROM 'interna_corporativa'
- OR p_orden->>'bolsa_ref' LIKE '%*%'
+ OR EXISTS(SELECT 1 FROM unnest(ARRAY[p_orden->>'bolsa_ref',p_orden->>'unidad_ref',
+   p_orden->>'ambito_ref']) ref
+   WHERE ref ~ '[[:space:][:cntrl:]]' OR strpos(ref,'*')>0)
  OR p_orden->>'correlacion_ref' !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'
  OR p_orden->'campos_permitidos' IS DISTINCT FROM
     v_campos
@@ -365,5 +368,18 @@ BEGIN
  RETURN QUERY SELECT * FROM vec_autorizacion_atestada_v3.registrar_lectura_bolsa_interna_v1(p_contexto_canonico,p_vinculo_canonico,p_orden);
 END
 $function$;
+
+DO $post$
+DECLARE h text;
+BEGIN
+ SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') INTO h FROM pg_proc p WHERE p.oid=to_regprocedure('vec_autorizacion.cotejar_lectura_bolsa_actual_interna_v1(jsonb,text,text)');
+ IF h IS DISTINCT FROM '25b0811f58b38dae2ef95a1caab37e110079ef028c4ad20294bdb4bb44d60274' THEN RAISE EXCEPTION 'PARO clave=AD249.post.cotejar_lectura_bolsa_actual_interna_v1 actual=% esperado=25b0811f58b38dae2ef95a1caab37e110079ef028c4ad20294bdb4bb44d60274',h USING ERRCODE='55000'; END IF;
+ SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') INTO h FROM pg_proc p WHERE p.oid=to_regprocedure('vec_autorizacion.cotejar_lectura_respuestas_llamamiento_actual_v1(jsonb,text,text)');
+ IF h IS DISTINCT FROM 'bc881d6c90ade1c5db555254b2865cf1816eb2d571d7fe779d92c55bd1cd6e61' THEN RAISE EXCEPTION 'PARO clave=AD249.post.cotejar_lectura_respuestas_llamamiento_actual_v1 actual=% esperado=bc881d6c90ade1c5db555254b2865cf1816eb2d571d7fe779d92c55bd1cd6e61',h USING ERRCODE='55000'; END IF;
+ SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') INTO h FROM pg_proc p WHERE p.oid=to_regprocedure('vec_autorizacion_atestada_v3.registrar_lectura_bolsa_interna_v1(bytea,bytea,jsonb)');
+ IF h IS DISTINCT FROM '914a53c4ab4f8d46fa5f1d0e05ad0a6d117ecf105e05a66c92f76c69dca4b3cd' THEN RAISE EXCEPTION 'PARO clave=AD249.post.registrar_lectura_bolsa_interna_v1 actual=% esperado=914a53c4ab4f8d46fa5f1d0e05ad0a6d117ecf105e05a66c92f76c69dca4b3cd',h USING ERRCODE='55000'; END IF;
+ SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') INTO h FROM pg_proc p WHERE p.oid=to_regprocedure('vec_autorizacion_atestada_v3.registrar_lectura_respuestas_llamamiento_v1(bytea,bytea,jsonb)');
+ IF h IS DISTINCT FROM '7d9c7113472066bee4624b4b9393e27adca70c2b6a7ca11253e8c477a64099d0' THEN RAISE EXCEPTION 'PARO clave=AD249.post.registrar_lectura_respuestas_llamamiento_v1 actual=% esperado=7d9c7113472066bee4624b4b9393e27adca70c2b6a7ca11253e8c477a64099d0',h USING ERRCODE='55000'; END IF;
+END $post$;
 
 COMMIT;
