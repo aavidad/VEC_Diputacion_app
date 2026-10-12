@@ -1,0 +1,11 @@
+{
+  "operacion": "publicar",
+  "tipo": "regimen",
+  "ref": "regimen:laboral_fijo",
+  "version": 1,
+  "revision": 1,
+  "denominacion": "Personal laboral fijo",
+  "huella_sha256": "27ac2ccc5a075c6f56eef2b1b518b69d3baeba64a3665e173ccbc9316c7bff22",
+  "vigente_desde": "2026-10-11",
+  "vigente_hasta": ""
+}

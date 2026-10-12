@@ -1,0 +1,11 @@
+{
+  "operacion": "publicar",
+  "tipo": "regimen",
+  "ref": "regimen:funcionario_carrera",
+  "version": 1,
+  "revision": 1,
+  "denominacion": "Funcionario de carrera",
+  "huella_sha256": "aabb8357f0f9d74aefd77b9aac20c6c57c5f4622a354a69512b5f7638af98224",
+  "vigente_desde": "2026-10-11",
+  "vigente_hasta": ""
+}

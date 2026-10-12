@@ -39,60 +39,69 @@ func nuevaTransaccionSecuenciaConsultaRRHHPrueba() *transaccionConsultaRRHHPrueb
 	}
 }
 
-func TestCuadroRRHHReintenta40001SinCambiarMaterialNiCursor(t *testing.T) {
+func TestConsultasRRHHReintentan40001SinCambiarMaterialNiCursor(t *testing.T) {
 	t.Parallel()
-	for _, etapa := range []string{"begin", "scan", "commit"} {
-		t.Run(etapa, func(t *testing.T) {
+	for nombre, consulta := range map[string]string{
+		"cuadro":        consultaCuadroRRHHPostgreSQL,
+		"detalle":       consultaDetalleRRHHPostgreSQL,
+		"detalle_bolsa": consultaDetalleConBolsaRRHHPostgreSQL,
+	} {
+		t.Run(nombre, func(t *testing.T) {
 			t.Parallel()
-			primera := nuevaTransaccionSecuenciaConsultaRRHHPrueba()
-			segunda := nuevaTransaccionSecuenciaConsultaRRHHPrueba()
-			iniciador := &iniciadorSecuenciaConsultaRRHHPrueba{
-				transacciones: []*transaccionConsultaRRHHPrueba{primera, segunda},
-			}
-			carrera := fmt.Errorf("operación SQL: %w", &pgconn.PgError{Code: "40001"})
-			var recibo, cursor string
-			primera.fila.llenar = func(destinos []any) error {
-				*destinos[0].(*string), *destinos[1].(*string) = "recibo_abortado", "cursor_abortado"
-				if etapa == "scan" {
-					return carrera
-				}
-				return nil
-			}
-			primera.errCommit = carrera
-			if etapa == "begin" {
-				iniciador.errBegin = carrera
-			}
-			segunda.fila.llenar = func(destinos []any) error {
-				if etapa != "begin" && primera.reversiones != 1 {
-					t.Fatal("nuevo intento antes de cerrar la transacción abortada")
-				}
-				*destinos[0].(*string), *destinos[1].(*string) = "recibo_confirmado", "cursor_confirmado"
-				return nil
-			}
-			argumentos := []any{"organizacion", "unidad", "filtro", "cursor_entrada", []byte("material_original")}
-			validaciones := 0
-			resultado, err := ejecutarConsultaRRHHEnTransaccion(context.Background(), iniciador,
-				consultaCuadroRRHHPostgreSQL, argumentos, []any{&recibo, &cursor},
-				func() (string, error) {
-					validaciones++
-					return recibo + "/" + cursor, nil
+			for _, etapa := range []string{"begin", "scan", "commit"} {
+				t.Run(etapa, func(t *testing.T) {
+					t.Parallel()
+					primera := nuevaTransaccionSecuenciaConsultaRRHHPrueba()
+					segunda := nuevaTransaccionSecuenciaConsultaRRHHPrueba()
+					iniciador := &iniciadorSecuenciaConsultaRRHHPrueba{
+						transacciones: []*transaccionConsultaRRHHPrueba{primera, segunda},
+					}
+					carrera := fmt.Errorf("operación SQL: %w", &pgconn.PgError{Code: "40001"})
+					var recibo, cursor string
+					primera.fila.llenar = func(destinos []any) error {
+						*destinos[0].(*string), *destinos[1].(*string) = "recibo_abortado", "cursor_abortado"
+						if etapa == "scan" {
+							return carrera
+						}
+						return nil
+					}
+					primera.errCommit = carrera
+					if etapa == "begin" {
+						iniciador.errBegin = carrera
+					}
+					segunda.fila.llenar = func(destinos []any) error {
+						if etapa != "begin" && primera.reversiones != 1 {
+							t.Fatal("nuevo intento antes de cerrar la transacción abortada")
+						}
+						*destinos[0].(*string), *destinos[1].(*string) = "recibo_confirmado", "cursor_confirmado"
+						return nil
+					}
+					argumentos := []any{"organizacion", "unidad", "filtro", "cursor_entrada", []byte("material_original")}
+					validaciones := 0
+					resultado, err := ejecutarConsultaRRHHEnTransaccion(context.Background(), iniciador,
+						consulta, argumentos, []any{&recibo, &cursor},
+						func() (string, error) {
+							validaciones++
+							return recibo + "/" + cursor, nil
+						})
+					if err != nil || resultado != "recibo_confirmado/cursor_confirmado" || iniciador.llamadas != 2 {
+						t.Fatalf("resultado=%q err=%v intentos=%d", resultado, err, iniciador.llamadas)
+					}
+					if segunda.confirmaciones != 1 || segunda.reversiones != 1 ||
+						segunda.consulta != consulta || !reflect.DeepEqual(segunda.valores, argumentos) {
+						t.Fatal("segundo intento alteró SQL/material o no cerró su transacción")
+					}
+					if etapa != "begin" && (!reflect.DeepEqual(primera.valores, segunda.valores) || primera.reversiones != 1) {
+						t.Fatal("material/cursor cambiado entre intentos")
+					}
+					validacionesEsperadas := 1
+					if etapa == "commit" {
+						validacionesEsperadas = 2
+					}
+					if validaciones != validacionesEsperadas {
+						t.Fatalf("validaciones=%d esperadas=%d", validaciones, validacionesEsperadas)
+					}
 				})
-			if err != nil || resultado != "recibo_confirmado/cursor_confirmado" || iniciador.llamadas != 2 {
-				t.Fatalf("resultado=%q err=%v intentos=%d", resultado, err, iniciador.llamadas)
-			}
-			if segunda.confirmaciones != 1 || segunda.reversiones != 1 ||
-				segunda.consulta != consultaCuadroRRHHPostgreSQL || !reflect.DeepEqual(segunda.valores, argumentos) {
-				t.Fatal("segundo intento alteró SQL/material o no cerró su transacción")
-			}
-			if etapa != "begin" && (!reflect.DeepEqual(primera.valores, segunda.valores) || primera.reversiones != 1) {
-				t.Fatal("material/cursor cambiado entre intentos")
-			}
-			validacionesEsperadas := 1
-			if etapa == "commit" {
-				validacionesEsperadas = 2
-			}
-			if validaciones != validacionesEsperadas {
-				t.Fatalf("validaciones=%d esperadas=%d", validaciones, validacionesEsperadas)
 			}
 		})
 	}
@@ -110,7 +119,14 @@ func TestCuadroRRHHNoReintentaOtrosErroresNiValidacion(t *testing.T) {
 		{"cancelacion_SQL", "scan", consultaCuadroRRHHPostgreSQL, &pgconn.PgError{Code: "57014"}, ports.ErrConsultaRRHHNoDisponible},
 		{"confirmacion_ambigua", "commit", consultaCuadroRRHHPostgreSQL, errors.New("respuesta perdida"), ports.ErrConsultaRRHHNoDisponible},
 		{"validacion_40001", "validar", consultaCuadroRRHHPostgreSQL, &pgconn.PgError{Code: "40001"}, nil},
-		{"detalle_40001", "scan", consultaDetalleRRHHPostgreSQL, &pgconn.PgError{Code: "40001"}, ports.ErrConsultaRRHHNoDisponible},
+		{"detalle_permiso", "scan", consultaDetalleRRHHPostgreSQL, &pgconn.PgError{Code: "42501"}, ports.ErrConsultaRRHHNoObservable},
+		{"detalle_deadlock", "scan", consultaDetalleRRHHPostgreSQL, &pgconn.PgError{Code: "40P01"}, ports.ErrConsultaRRHHNoDisponible},
+		{"detalle_confirmacion_ambigua", "commit", consultaDetalleRRHHPostgreSQL, errors.New("respuesta perdida"), ports.ErrConsultaRRHHNoDisponible},
+		{"detalle_validacion_40001", "validar", consultaDetalleRRHHPostgreSQL, &pgconn.PgError{Code: "40001"}, nil},
+		{"detalle_bolsa_permiso", "scan", consultaDetalleConBolsaRRHHPostgreSQL, &pgconn.PgError{Code: "42501"}, ports.ErrConsultaRRHHNoObservable},
+		{"detalle_bolsa_deadlock", "scan", consultaDetalleConBolsaRRHHPostgreSQL, &pgconn.PgError{Code: "40P01"}, ports.ErrConsultaRRHHNoDisponible},
+		{"detalle_bolsa_confirmacion_ambigua", "commit", consultaDetalleConBolsaRRHHPostgreSQL, errors.New("respuesta perdida"), ports.ErrConsultaRRHHNoDisponible},
+		{"detalle_bolsa_validacion_40001", "validar", consultaDetalleConBolsaRRHHPostgreSQL, &pgconn.PgError{Code: "40001"}, nil},
 		{"resumen_40001", "commit", consultaResumenSeguimientoRRHHPostgreSQL, &pgconn.PgError{Code: "40001"}, ports.ErrConsultaRRHHNoDisponible},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
