@@ -1,7 +1,7 @@
 {
   "general": {
     "demo_titulo": "VEC · Signature recovery",
-    "demo_aviso": "Example screen. The information shown does not refer to a real signature.",
+    "demo_aviso": "Signature recovery for the case.",
     "titulo": "Recorded signatures",
     "descripcion": "View this document's historical signature record.",
     "limite": "This view does not check the certificate's current validity.",

@@ -1,5 +1,6 @@
-// Package fichero aporta únicamente una fuente local de demostración. No es
-// un repositorio productivo ni persiste escrituras.
+// Package fichero aporta únicamente una fuente local de solo lectura para
+// perfiles no autoritativos. No es un repositorio productivo ni persiste
+// escrituras.
 package fichero
 
 import (
@@ -58,7 +59,7 @@ func NuevaConsultaConvocatorias(ruta string) (*ConsultaConvocatorias, error) {
 	}
 	fichero, err := os.Open(ruta)
 	if err != nil {
-		return nil, fmt.Errorf("%w: no se puede abrir la fuente DEMO", puertosbolsa.ErrFuenteConvocatoriasInvalida)
+		return nil, fmt.Errorf("%w: no se puede abrir la fuente", puertosbolsa.ErrFuenteConvocatoriasInvalida)
 	}
 	defer fichero.Close()
 	contenido, err := io.ReadAll(io.LimitReader(fichero, maximoBytesFichero+1))
@@ -169,9 +170,12 @@ func (c *ConsultaConvocatorias) ObtenerPublicada(ctx context.Context, identifica
 }
 
 func validarArchivo(archivo archivoConvocatorias) error {
-	if archivo.VersionEsquema != versionEsquemaFichero || !archivo.Fuente.Demostracion ||
-		!strings.Contains(strings.ToUpper(archivo.Fuente.Aviso), "DEMOSTRACIÓN") || len(archivo.Convocatorias) == 0 {
-		return fmt.Errorf("%w: el adaptador de fichero exige datos DEMO explícitos", puertosbolsa.ErrFuenteConvocatoriasInvalida)
+	// La marca de demostración es opcional: el fichero solo se compone en
+	// perfiles no autoritativos. Si el paquete la declara, debe llevar su aviso.
+	if archivo.VersionEsquema != versionEsquemaFichero || len(archivo.Convocatorias) == 0 ||
+		archivo.Fuente.Aviso != strings.TrimSpace(archivo.Fuente.Aviso) ||
+		(archivo.Fuente.Demostracion && !strings.Contains(strings.ToUpper(archivo.Fuente.Aviso), "DEMOSTRACIÓN")) {
+		return fmt.Errorf("%w: metadatos de fuente no válidos", puertosbolsa.ErrFuenteConvocatoriasInvalida)
 	}
 	indice, err := indiceCatalogos(archivo.Catalogos)
 	if err != nil {

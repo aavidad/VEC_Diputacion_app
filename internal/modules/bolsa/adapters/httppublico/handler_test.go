@@ -23,7 +23,7 @@ func handlerPublicoPrueba(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	paquete, err := ficherovec.NuevaConsultaCatalogos("../../../../../data/catalogos/categorias-profesionales/v1.demo.json")
+	paquete, err := ficherovec.NuevaConsultaCatalogoProvisionable("../../../../../data/catalogos/categorias-profesionales/v1.demo.json")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,7 +1,7 @@
 {
   "general": {
     "demo_titulo": "VEC · Recuperación de firmas",
-    "demo_aviso": "Pantalla de ejemplo. Los datos mostrados no corresponden a una firma real.",
+    "demo_aviso": "Recuperación de firmas del expediente.",
     "titulo": "Firmas registradas",
     "descripcion": "Consulte el registro histórico de firmas de este documento.",
     "limite": "Esta consulta no comprueba la vigencia actual del certificado.",
