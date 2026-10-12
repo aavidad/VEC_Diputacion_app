@@ -39,6 +39,14 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 		h.postVersionarRolBolsaCerrar(w, r, s)
 		return
 	}
+	if p == RutaVersionarRolBolsaB103Proponer {
+		h.postVersionarRolBolsaB103Proponer(w, r, s)
+		return
+	}
+	if p == RutaVersionarRolBolsaB103Cerrar {
+		h.postVersionarRolBolsaB103Cerrar(w, r, s)
+		return
+	}
 	if e, ok := h.efectos[p]; ok {
 		h.postEfectoNominal(w, r, s, e)
 		return

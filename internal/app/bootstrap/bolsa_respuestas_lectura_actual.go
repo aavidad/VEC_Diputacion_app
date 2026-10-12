@@ -26,6 +26,9 @@ var camposLecturaRespuestasLlamamiento = []string{
 }
 
 func concesionLecturaRespuestasLlamamientoExacta(i vecdomain.InstantaneaAutorizacion) bool {
+	if i.VersionRol.RolID != "tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo" {
+		return false
+	}
 	coincidencias := 0
 	for _, c := range i.VersionRol.Concesiones {
 		if c.Accion != accionLecturaRespuestasLlamamiento {
@@ -36,6 +39,7 @@ func concesionLecturaRespuestasLlamamientoExacta(i vecdomain.InstantaneaAutoriza
 		if c.ModuloID != "bolsa" || c.TipoRecurso != "llamamiento_bolsa" ||
 			!slices.Equal(c.Finalidades, []string{finalidadLecturaRespuestasLlamamiento}) ||
 			!slices.Equal(campos, camposLecturaRespuestasLlamamiento) ||
+			c.GarantiaMinima != vecdomain.AuthAssuranceHigh ||
 			(len(c.Obligaciones) != 0 && !slices.Equal(c.Obligaciones, []string{"auditar"})) {
 			return false
 		}
@@ -45,18 +49,19 @@ func concesionLecturaRespuestasLlamamientoExacta(i vecdomain.InstantaneaAutoriza
 }
 
 // CapturarLecturaRespuestasLlamamiento evalúa una concesión actual para el
-// vínculo real de la petición. La lectura de Bolsa vuelve a cotejar la
-// captura dentro de su transacción antes de devolver cualquier respuesta.
+// vínculo real de la petición. Unidad y ámbito proceden del soporte interno;
+// bolsaRef identifica el dato consultado y no amplía la asignación. La lectura
+// de Bolsa vuelve a cotejar la captura dentro de su transacción.
 func CapturarLecturaRespuestasLlamamiento(
 	ctx context.Context, fuente vecports.FuenteAutorizacion,
 	vinculo vecdomain.VinculoAutenticacionActorV2,
 	resultado vecdomain.ResultadoContextoActorRegistradoV2,
-	bolsaRef, llamamientoRef string,
+	unidadRef, ambitoRef, bolsaRef, llamamientoRef string,
 ) (vecports.CapturaLecturaNominalRespuestasLlamamiento, error) {
 	vacia := vecports.CapturaLecturaNominalRespuestasLlamamiento{}
 	if ctx == nil || ctx.Err() != nil || nuloInscripcionBolsa(fuente) ||
 		resultado.Validar() != nil || vinculo.ValidarPara(resultado) != nil ||
-		bolsaRef == "" || llamamientoRef == "" {
+		unidadRef == "" || ambitoRef == "" || bolsaRef == "" || llamamientoRef == "" {
 		return vacia, vecdomain.ErrAutorizacionDenegada
 	}
 	datos, err := vinculo.Datos()
@@ -65,7 +70,7 @@ func CapturarLecturaRespuestasLlamamiento(
 	}
 	recurso := vecdomain.RecursoAutorizable{
 		Referencia: llamamientoRef, ModuloID: "bolsa", Tipo: "llamamiento_bolsa",
-		Ambitos:   map[string]string{"bolsa_ref": bolsaRef},
+		Ambitos:   map[string]string{"unidad_ref": unidadRef, "ambito_ref": ambitoRef},
 		Atributos: map[string]string{"llamamiento_ref": llamamientoRef},
 	}
 	if recurso.Validar() != nil {
@@ -133,6 +138,8 @@ func CapturarLecturaRespuestasLlamamiento(
 		Accion                        string                                              `json:"accion"`
 		ModuloID                      string                                              `json:"modulo_id"`
 		RecursoRef                    string                                              `json:"recurso_ref"`
+		UnidadRef                     string                                              `json:"unidad_ref"`
+		AmbitoRef                     string                                              `json:"ambito_ref"`
 		BolsaRef                      string                                              `json:"bolsa_ref"`
 		FinalidadRef                  string                                              `json:"finalidad_ref"`
 		CamposPermitidos              []string                                            `json:"campos_permitidos"`
@@ -166,7 +173,8 @@ func CapturarLecturaRespuestasLlamamiento(
 		SesionRef:           datos.SesionRef,
 		AutenticacionSHA256: datos.AutenticacionHuellaSHA256,
 		Accion:              accionLecturaRespuestasLlamamiento,
-		ModuloID:            "bolsa", RecursoRef: llamamientoRef, BolsaRef: bolsaRef,
+		ModuloID:            "bolsa", RecursoRef: llamamientoRef,
+		UnidadRef: unidadRef, AmbitoRef: ambitoRef, BolsaRef: bolsaRef,
 		FinalidadRef:     finalidadLecturaRespuestasLlamamiento,
 		CamposPermitidos: slices.Clone(camposLecturaRespuestasLlamamiento),
 		Resultado:        "obtenida", MotivoRef: "lectura_respuestas_llamamiento_correcta",
