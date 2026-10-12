@@ -166,6 +166,7 @@ type respuestaSeguimientoSQL struct {
 	Resultado     string                     `json:"resultado"`
 	Material      map[string]any             `json:"material,omitempty"`
 	Expediente    *domain.Expediente         `json:"expediente,omitempty"`
+	ExpedienteRaw json.RawMessage            `json:"-"`
 	Referencias   *referenciasSubsanacionSQL `json:"referencias,omitempty"`
 	Incorporacion *struct {
 		ReciboRef string `json:"recibo_ref"`
@@ -234,6 +235,13 @@ func decodificarRespuestaSeguimiento(contenido []byte, esquema string) (respuest
 	var r respuestaSeguimientoSQL
 	if len(contenido) == 0 || len(contenido) > maximoCargaSeguimiento || decodificarConExpedienteSQL(contenido, &r, "expediente") != nil || r.Esquema != esquema {
 		return r, ports.ErrResultadoSeguimientoNoConfiable
+	}
+	if r.Expediente != nil {
+		var raiz map[string]json.RawMessage
+		if json.Unmarshal(contenido, &raiz) != nil || len(raiz["expediente"]) == 0 {
+			return r, ports.ErrResultadoSeguimientoNoConfiable
+		}
+		r.ExpedienteRaw = append(json.RawMessage(nil), raiz["expediente"]...)
 	}
 	return r, errorResultadoSeguimiento(r.Resultado)
 }
@@ -337,7 +345,8 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) PrepararOperacionSeguimiento
 			resp.Expediente.Validar() != nil || resp.Expediente.Referencia != exp || resp.Expediente.OrganizacionRef != org {
 			return ports.ErrResultadoSeguimientoNoConfiable
 		}
-		p = ports.PreparacionOperacionSeguimiento{Expediente: resp.Expediente.Clonar(), AmbitoIdempotenciaHMAC: resp.AmbitoHMAC, HuellaPeticionHMAC: resp.HuellaHMAC,
+		p = ports.PreparacionOperacionSeguimiento{Expediente: resp.Expediente.Clonar(), ExpedienteAnteriorJSON: resp.ExpedienteRaw,
+			AmbitoIdempotenciaHMAC: resp.AmbitoHMAC, HuellaPeticionHMAC: resp.HuellaHMAC,
 			Referencias:   ports.ReferenciasEfectoSeguimiento{ReservaRef: resp.Referencias.ReservaRef, ReciboRef: resp.Referencias.ReciboRef, EventoRef: resp.Referencias.EventoRef},
 			CeseReciboRef: resp.CeseReciboRef, Confirmada: resp.Resultado == "confirmada"}
 		if resp.Incorporacion != nil {
@@ -430,6 +439,21 @@ func tipoRecursoOperacionSeguimiento(operacion string) string {
 	return ""
 }
 
+func preimagenOriginalSeguimiento(p ports.PreparacionOperacionSeguimiento, org, exp string) (json.RawMessage, error) {
+	raw := p.ExpedienteAnteriorJSON
+	var cabecera struct {
+		Referencia      string `json:"referencia"`
+		OrganizacionRef string `json:"organizacion_ref"`
+		Version         uint64 `json:"version"`
+	}
+	if len(raw) == 0 || !json.Valid(raw) || json.Unmarshal(raw, &cabecera) != nil ||
+		p.Expediente.Referencia != exp || p.Expediente.OrganizacionRef != org ||
+		cabecera.Referencia != exp || cabecera.OrganizacionRef != org || cabecera.Version != p.Expediente.Version {
+		return nil, ports.ErrOperacionSeguimientoInvalida
+	}
+	return raw, nil
+}
+
 func (r *RepositorioOperacionSeguimientoPostgreSQL) ConfirmarOperacionSeguimiento(ctx context.Context, o ports.OrdenConfirmarOperacionSeguimiento) (ports.ReciboOperacionSeguimiento, error) {
 	var vacio ports.ReciboOperacionSeguimiento
 	d, ok := operacionesSeguimientoSQL[o.Operacion]
@@ -437,6 +461,10 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConfirmarOperacionSeguimient
 		return vacio, ports.ErrOperacionSeguimientoInvalida
 	}
 	m, org, exp, err := materialSeguimientoSQL(o.Operacion, o.Material)
+	if err != nil {
+		return vacio, err
+	}
+	preimagen, err := preimagenOriginalSeguimiento(o.Preparacion, org, exp)
 	if err != nil {
 		return vacio, err
 	}
@@ -452,7 +480,7 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConfirmarOperacionSeguimient
 		"esquema": d.esquemaConfirmar, "operacion": o.Operacion, "material": m,
 		"referencias":              referenciasSubsanacionSQL{o.Preparacion.Referencias.ReservaRef, o.Preparacion.Referencias.ReciboRef, o.Preparacion.Referencias.EventoRef},
 		"ambito_idempotencia_hmac": o.Preparacion.AmbitoIdempotenciaHMAC, "huella_peticion_hmac": o.Preparacion.HuellaPeticionHMAC,
-		"expediente_anterior": o.Preparacion.Expediente, "expediente_siguiente": o.Siguiente,
+		"expediente_anterior": preimagen, "expediente_siguiente": o.Siguiente,
 		"actuacion": o.Siguiente.Actuaciones[len(o.Siguiente.Actuaciones)-1],
 		"politica": map[string]any{"definicion_ref": p.DefinicionRef, "definicion_version": p.DefinicionVersion, "definicion_huella_sha256": p.DefinicionHuellaSHA256,
 			"accion": string(o.Accion), "finalidad": o.Finalidad, "evaluada_en": p.EvaluadaEn, "valida_hasta": p.ValidaHasta},
