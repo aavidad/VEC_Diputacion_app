@@ -96,16 +96,43 @@ CREATE TABLE vec_meritos.acceso_operacion (
 CREATE FUNCTION vec_meritos.historia_inmutable_v1() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$ BEGIN
  RAISE EXCEPTION 'meritos.error.historia_inmutable' USING ERRCODE='55000'; END $$;
-DO $seguridad$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['hecho_identidad','hecho_version','operacion','auditoria_operacion','outbox','acceso_operacion'] LOOP
- EXECUTE format('ALTER TABLE vec_meritos.%I ENABLE ROW LEVEL SECURITY',t);
- EXECUTE format('ALTER TABLE vec_meritos.%I FORCE ROW LEVEL SECURITY',t);
- EXECUTE format('CREATE POLICY lectura_nominal ON vec_meritos.%I FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting(''vec_meritos.persona_ref'',true))',t);
- EXECUTE format('CREATE POLICY alta_nominal ON vec_meritos.%I FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting(''vec_meritos.persona_ref'',true))',t);
- EXECUTE format('CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1()',t);
- EXECUTE format('REVOKE ALL ON TABLE vec_meritos.%I FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador',t);
- END LOOP;
-END $seguridad$;
+ALTER TABLE vec_meritos.hecho_identidad ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.hecho_identidad FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_nominal ON vec_meritos.hecho_identidad FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE POLICY alta_nominal ON vec_meritos.hecho_identidad FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.hecho_identidad FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.hecho_identidad FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador;
+ALTER TABLE vec_meritos.hecho_version ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.hecho_version FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_nominal ON vec_meritos.hecho_version FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE POLICY alta_nominal ON vec_meritos.hecho_version FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.hecho_version FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.hecho_version FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador;
+ALTER TABLE vec_meritos.operacion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.operacion FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_nominal ON vec_meritos.operacion FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE POLICY alta_nominal ON vec_meritos.operacion FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.operacion FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.operacion FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador;
+ALTER TABLE vec_meritos.auditoria_operacion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.auditoria_operacion FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_nominal ON vec_meritos.auditoria_operacion FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE POLICY alta_nominal ON vec_meritos.auditoria_operacion FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.auditoria_operacion FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.auditoria_operacion FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador;
+ALTER TABLE vec_meritos.outbox ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.outbox FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_nominal ON vec_meritos.outbox FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE POLICY alta_nominal ON vec_meritos.outbox FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.outbox FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.outbox FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador;
+ALTER TABLE vec_meritos.acceso_operacion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.acceso_operacion FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_nominal ON vec_meritos.acceso_operacion FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE POLICY alta_nominal ON vec_meritos.acceso_operacion FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.acceso_operacion FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.acceso_operacion FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador;
+
 
 -- Validación estructural del hecho de comando: declarado, sin revisión.
 -- Las evidencias son referencias a versiones, nunca prueba de acreditación.

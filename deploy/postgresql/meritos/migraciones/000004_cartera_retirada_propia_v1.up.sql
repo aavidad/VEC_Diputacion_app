@@ -134,17 +134,49 @@ REVOKE ALL ON SEQUENCE vec_meritos.denegacion_frontera_cartera_v1_evento_id_seq
  vec_meritos_migrador,vec_meritos_cartera_externo,vec_meritos_frontera_externo;
 CREATE INDEX hecho_version_persona_corte_m4_idx
  ON vec_meritos.hecho_version(persona_ref,registrada_en,hecho_ref,version DESC);
-DO $seguridad$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['disponibilidad_evento_v1','retirada_operacion_v1','retirada_acceso_v1','retirada_outbox_v1','retirada_resultado_v1','cartera_acceso_v1'] LOOP
-  EXECUTE format('ALTER TABLE vec_meritos.%I ENABLE ROW LEVEL SECURITY',t);
-  EXECUTE format('ALTER TABLE vec_meritos.%I FORCE ROW LEVEL SECURITY',t);
-  EXECUTE format('CREATE POLICY lectura_nominal ON vec_meritos.%I FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting(''vec_meritos.persona_ref'',true))',t);
-  EXECUTE format('CREATE POLICY alta_nominal ON vec_meritos.%I FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting(''vec_meritos.persona_ref'',true))',t);
-  EXECUTE format('CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1()',t);
-  EXECUTE format('REVOKE ALL ON TABLE vec_meritos.%I FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo',t);
-  EXECUTE format('REVOKE ALL ON TYPE vec_meritos.%I FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo',t);
- END LOOP;
-END $seguridad$;
+ALTER TABLE vec_meritos.disponibilidad_evento_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.disponibilidad_evento_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_nominal ON vec_meritos.disponibilidad_evento_v1 FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE POLICY alta_nominal ON vec_meritos.disponibilidad_evento_v1 FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.disponibilidad_evento_v1 FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.disponibilidad_evento_v1 FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo;
+REVOKE ALL ON TYPE vec_meritos.disponibilidad_evento_v1 FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo;
+ALTER TABLE vec_meritos.retirada_operacion_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.retirada_operacion_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_nominal ON vec_meritos.retirada_operacion_v1 FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE POLICY alta_nominal ON vec_meritos.retirada_operacion_v1 FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.retirada_operacion_v1 FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.retirada_operacion_v1 FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo;
+REVOKE ALL ON TYPE vec_meritos.retirada_operacion_v1 FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo;
+ALTER TABLE vec_meritos.retirada_acceso_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.retirada_acceso_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_nominal ON vec_meritos.retirada_acceso_v1 FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE POLICY alta_nominal ON vec_meritos.retirada_acceso_v1 FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.retirada_acceso_v1 FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.retirada_acceso_v1 FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo;
+REVOKE ALL ON TYPE vec_meritos.retirada_acceso_v1 FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo;
+ALTER TABLE vec_meritos.retirada_outbox_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.retirada_outbox_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_nominal ON vec_meritos.retirada_outbox_v1 FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE POLICY alta_nominal ON vec_meritos.retirada_outbox_v1 FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.retirada_outbox_v1 FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.retirada_outbox_v1 FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo;
+REVOKE ALL ON TYPE vec_meritos.retirada_outbox_v1 FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo;
+ALTER TABLE vec_meritos.retirada_resultado_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.retirada_resultado_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_nominal ON vec_meritos.retirada_resultado_v1 FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE POLICY alta_nominal ON vec_meritos.retirada_resultado_v1 FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.retirada_resultado_v1 FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.retirada_resultado_v1 FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo;
+REVOKE ALL ON TYPE vec_meritos.retirada_resultado_v1 FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo;
+ALTER TABLE vec_meritos.cartera_acceso_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_meritos.cartera_acceso_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_nominal ON vec_meritos.cartera_acceso_v1 FOR SELECT TO vec_meritos_propietario USING (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE POLICY alta_nominal ON vec_meritos.cartera_acceso_v1 FOR INSERT TO vec_meritos_propietario WITH CHECK (persona_ref=current_setting('vec_meritos.persona_ref',true));
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.cartera_acceso_v1 FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
+REVOKE ALL ON TABLE vec_meritos.cartera_acceso_v1 FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo;
+REVOKE ALL ON TYPE vec_meritos.cartera_acceso_v1 FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_externo,vec_meritos_interno,vec_meritos_migrador,vec_meritos_cartera_externo;
+
 
 CREATE FUNCTION vec_meritos.listar_cartera_propia_v1(p_contexto_canonico bytea,p_vinculo_canonico bytea,p_orden jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
