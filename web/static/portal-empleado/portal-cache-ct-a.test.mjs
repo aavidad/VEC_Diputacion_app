@@ -5,7 +5,7 @@ import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
 const versionCoordinador = "20261012-ct-personal-ficha-v1";
-const versionCircuito = "20261011-ct-bolsa-vinculo-v1";
+const versionCircuito = "20261012-ct-original-preparado-v1";
 const versionVista = "20261011-informe-legible-v1";
 const versionVistaPortal = "20261012-ct-personal-ficha-v1";
 const versionAdaptador = "20261011-ct-bolsa-vinculo-v1";
@@ -63,7 +63,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   // La consulta de circuito RRHH no cambió: conserva su URL anterior.
   exigirVersiones(vista, "./vista-circuito-rrhh.js", "20261002-ct-r5-grafo-v2");
   exigirVersiones(vista, "./circuito-firma.js", firma);
-  exigirVersiones(circuito, "./circuito-firma-acciones.js", firma);
+  exigirVersiones(circuito, "./circuito-firma-acciones.js", "20261011-ct-bolsa-vinculo-v1");
   for (const manifiesto of [interno, produccion]) {
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/firma-externa-cliente\.js$/mu);
   }

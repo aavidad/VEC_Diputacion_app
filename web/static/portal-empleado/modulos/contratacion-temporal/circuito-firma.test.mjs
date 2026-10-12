@@ -4,7 +4,7 @@ import test from "node:test";
 
 import {
   crearClienteHTTPCircuitoFirma, crearGestorCircuitoFirma, renderizarCircuitoFirma,
-  RUTA_CIRCUITO_FIRMA, validarCircuitoFirma,
+  RUTA_CIRCUITO_FIRMA, validarCircuitoFirma, renderizarPreparacionResolucion,
 
 } from "./circuito-firma.js?v=20261008-alta-circular-v3";
 import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261008-alta-circular-v3";
@@ -569,7 +569,7 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261011-ct-bolsa-vinculo-v1"],
+    ["circuito-firma.js", "20261012-ct-original-preparado-v1"],
     ["vista-expedientes.js", "20261012-ct-personal-ficha-v1"],
 
   ]);
@@ -584,4 +584,83 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     assert.equal(rutas[0][1], versiones.get(modulo), modulo);
     assert.notEqual(`${modulo}?v=${rutas[0][1]}`, `${modulo}?v=${anterior}`);
   }
+});
+
+
+test("la preparación muestra el recibo y los pasos sin acreditar envío ni firmas de catálogo", () => {
+  const d = circuitoConAlternativa().documentos[0];
+  d.pasos[0].estado = "firmado";
+  const original = { comprobante: { numero_vec: "VEC-2026-17", custodiado_en: "2026-10-12T09:00:00Z" } };
+  const t = crearTraductorCircuitoFirma();
+  const sinHistoria = renderizarPreparacionResolucion({ documento: d, original, verificada: false }, t);
+  assert.match(sinHistoria, /Documento preparado; pendiente de envío a firma/u);
+  assert.match(sinHistoria, /Recibo: VEC-2026-17/u);
+  assert.match(sinHistoria, /Descargar PDF preparado/u);
+  assert.match(sinHistoria, /Dirección de RRHH o Jefatura del Servicio de RRHH/u);
+  assert.equal((sinHistoria.match(/Estado no disponible/gu) ?? []).length, 2);
+  assert.doesNotMatch(sinHistoria, /Firma verificada|Enviado a firma|data-ct-firma-accion/u);
+  const en = renderizarPreparacionResolucion({ documento: d, original, verificada: true },
+    crearTraductorCircuitoFirma(MENSAJES_CIRCUITO_FIRMA_EN, "en-GB"), "en-GB");
+  assert.doesNotMatch(en, /Verified signature/u);
+  assert.equal((en.match(/Status unavailable/gu) ?? []).length, 2, "la historia local no acredita el estado en Portafirmas");
+  assert.doesNotMatch(en, /Documento preparado|Recibo|Dirección de RRHH/u);
+});
+
+test("preparar y descargar mantienen el original con otra lectura nominal; cancelan y no duplican clics", async () => {
+  const ref = "expediente:ct:resolucion";
+  let estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
+    expediente: { expediente_ref: ref, version: 7, demostracion: false },
+    cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
+      fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
+  const aviso = { textContent: "" };
+  const zona = { outerHTML: "", querySelector: () => aviso };
+  const preparar = { disabled: false, closest: (s) => s === "[data-ct-preparar-resolucion]" ? preparar
+    : s === "[data-ct-preparacion-resolucion]" ? zona : null };
+  const descargar = { dataset: {}, setAttribute() {}, removeAttribute() {}, focus() {},
+    closest: (s) => s === "[data-ct-descargar-preparado]" ? descargar
+      : s === "[data-ct-preparacion-resolucion]" ? zona : null };
+  let manejar, insertado = "", espera, resolver;
+  const bloque = { addEventListener: (_tipo, f) => { manejar = f; } };
+  const raiz = { querySelector: (s) => s === "[data-ct-exp-ancla-firma]"
+    ? { insertAdjacentHTML: (_posicion, html) => { insertado = html; } }
+    : s === "[data-ct-circuito-firma]" ? (insertado ? bloque : null)
+      : s === "[data-ct-descargar-preparado]" ? descargar : null };
+  const consultas = [], archivos = [];
+  const original = { contenido: new TextEncoder().encode("%PDF-1.7\nresolucion\n%%EOF"),
+    originalRef: `ref:${"d".repeat(64)}`, originalHuella: "a".repeat(64),
+    comprobante: { numero_vec: "VEC-2026-17", custodiado_en: "2026-10-12T09:00:00Z" } };
+  const gestor = crearGestorCircuitoFirma({ raiz, cargarTextos: async () => { throw new Error("catálogo fase ausente"); }, obtenerEstado: () => estado,
+    cliente: { obtenerCircuito: async () => validarCircuitoFirma(circuitoConAlternativa()) },
+    clienteFirma: { consultar: async () => null },
+    clienteOriginal: { async preparar(solicitud, opciones) {
+      consultas.push({ solicitud, signal: opciones.signal });
+      if (espera) await espera;
+      return original;
+    } },
+    entornoDescarga: { Blob, URL: { createObjectURL: () => "blob:original", revokeObjectURL() {} },
+      document: { body: { append(e) { archivos.push(e); } }, createElement: () => ({ click() {}, remove() {} }) } },
+  });
+  const tick = async () => { for (let i = 0; i < 3; i += 1) await new Promise((r) => setTimeout(r, 0)); };
+  gestor.montarSiProcede(estado); await tick();
+  assert.equal(consultas.length, 0, "abrir ficha no prepara un documento por efecto lateral");
+  assert.match(insertado, /data-ct-preparar-resolucion/u);
+  espera = new Promise((r) => { resolver = r; });
+  manejar({ target: preparar }); manejar({ target: preparar }); await tick();
+  assert.equal(consultas.length, 1);
+  assert.equal(preparar.disabled, true);
+  resolver(); espera = null; await tick();
+  assert.match(zona.outerHTML, /Recibo: VEC-2026-17/u);
+  manejar({ target: descargar }); await tick();
+  assert.equal(consultas.length, 2, "descargar exige otra acción nominal en el servidor");
+  assert.deepEqual(consultas[0].solicitud, consultas[1].solicitud);
+  assert.equal(archivos[0].download, "resolucion-preparada.pdf");
+  assert.equal(aviso.textContent, "PDF preparado descargado.", "el aviso no depende del catálogo de fase");
+  espera = new Promise((r) => { resolver = r; });
+  manejar({ target: preparar }); await tick();
+  const anterior = zona.outerHTML;
+  estado = { vista: "cuadro" }; gestor.montarSiProcede(estado);
+  assert.equal(consultas.at(-1).signal.aborted, true);
+  resolver(); await tick();
+  assert.equal(zona.outerHTML, anterior, "la respuesta tardía no repinta otro expediente");
+  gestor.retirar();
 });
