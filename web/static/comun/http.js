@@ -205,8 +205,11 @@ export function consultarJSON(ruta, { metodo = "GET", cuerpo, signal, fetchImpl 
 /**
  * Comprueba sin efectos si el servidor publica una ruta interna que solo
  * admite POST: un GET recibe 405 cuando la ruta está montada y 404 cuando no.
- * Devuelve true o false; cualquier otra respuesta o fallo de red es false
- * (lo que no se puede comprobar no se ofrece). No reintenta ni anota errores.
+ * Si la ruta está detrás de la frontera de seguridad, esta contesta al GET con
+ * 401 o 403 antes de llegar al manejador: también significa que está montada
+ * (el permiso real se comprueba al enviar). Devuelve true o false; cualquier
+ * otra respuesta o fallo de red es false (lo que no se puede comprobar no se
+ * ofrece). No reintenta ni anota errores.
  */
 export async function rutaEnvioPublicada(ruta, { signal, fetchImpl = globalThis.fetch, plazoMs = 5_000 } = {}) {
   rutaInterna(ruta);
@@ -224,7 +227,7 @@ export async function rutaEnvioPublicada(ruta, { signal, fetchImpl = globalThis.
       redirect: "error", referrerPolicy: "no-referrer", signal: controlador.signal, headers: { Accept: "application/json" },
     });
     cancelarCuerpo(respuesta);
-    return respuesta.redirected !== true && respuesta.status === 405;
+    return respuesta.redirected !== true && [401, 403, 405].includes(respuesta.status);
   } catch {
     return false;
   } finally {

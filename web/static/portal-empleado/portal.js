@@ -1619,7 +1619,7 @@ function vistaNecesitaBolsa(vista = estado.vista) {
 function cargaConvocaDisponible() {
   if (estado.cargaConvocaDisponible === null) {
     estado.cargaConvocaDisponible = false;
-    import("../comun/http.js?v=20261010-http-carga-v1")
+    import("../comun/http.js?v=20261012-sonda-frontera-v1")
       .then(({ rutaEnvioPublicada }) => rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca"))
       .then((disponible) => {
         if (disponible !== true) return;
