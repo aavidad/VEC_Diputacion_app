@@ -191,10 +191,11 @@ BEGIN
  THEN RAISE EXCEPTION 'M4: motivos no disponibles' USING ERRCODE='55000';END IF;
  PERFORM set_config('vec_meritos.persona_ref',persona,true);
  WITH ultimas AS MATERIALIZED (
-  SELECT DISTINCT ON (hv.hecho_ref) hv.hecho_ref,hv.version,hv.registro->'hecho' AS hecho
+  SELECT DISTINCT ON (hv.hecho_ref COLLATE "C")
+   hv.hecho_ref,hv.version,hv.registro->'hecho' AS hecho
   FROM vec_meritos.hecho_version hv
   WHERE hv.persona_ref=persona AND hv.registrada_en<=corte
-  ORDER BY hv.hecho_ref,hv.version DESC
+  ORDER BY hv.hecho_ref COLLATE "C",hv.version DESC
  ),base AS MATERIALIZED (
   SELECT u.hecho_ref,u.version,u.hecho,d.estado AS retirada_estado,
    d.version AS disponibilidad_version,d.recibo_ref,d.retirada_en

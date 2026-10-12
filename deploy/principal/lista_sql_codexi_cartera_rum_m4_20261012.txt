@@ -57,6 +57,10 @@
 # motivos_retirada. CC13 y AUT78 entregan solo entradas/etiquetas vigentes del
 # idioma pedido. El POST recibe la ReferenciaEntradaCatalogo completa y vuelve
 # a validar su vigencia antes de crear la disponibilidad v1.
+# GET calcula página y total del filtro en una sola sentencia y un snapshot por
+# petición. El cursor HMAC ata persona, filtro, idioma y corte, pero el total
+# puede cambiar entre páginas por una transacción concurrente confirmada más
+# tarde. No se afirma una instantánea durable entre peticiones.
 # Hasta cerrar esas piezas, las funciones de AUT78 son denegatorias y M4 no
 # constituye un recorrido instalable o accesible desde HTTP.
 deploy/postgresql/autorizacion/migraciones/000080_gobierno_rol_meritos_cartera_dos_concesiones.up.sql
