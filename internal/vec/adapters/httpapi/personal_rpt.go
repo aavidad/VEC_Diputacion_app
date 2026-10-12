@@ -294,7 +294,7 @@ func (h *Handler) handlePersonalCategory(w http.ResponseWriter, r *http.Request,
 			if categoria.Clave == slug {
 				w.Header().Set("Cache-Control", "no-store")
 				h.writeJSON(w, http.StatusOK, map[string]any{
-					"category": proyectarCategoriaProfesionalHTTP(categoria, catalogo.Fuente.Demostracion),
+					"category": proyectarCategoriaProfesionalHTTP(categoria),
 					"catalogo": catalogo.Referencia,
 					"fuente":   catalogo.Fuente,
 				})
@@ -457,7 +457,7 @@ func paginarCategoriasProfesionales(
 				continue
 			}
 		}
-		filtradas = append(filtradas, proyectarCategoriaProfesionalHTTP(categoria, catalogo.Fuente.Demostracion))
+		filtradas = append(filtradas, proyectarCategoriaProfesionalHTTP(categoria))
 	}
 	total := len(filtradas)
 	desde := filtro.desde
@@ -477,17 +477,12 @@ func paginarCategoriasProfesionales(
 
 func proyectarCategoriaProfesionalHTTP(
 	categoria personalports.CategoriaProfesionalConsultable,
-	demostracion bool,
 ) categoriaProfesionalHTTP {
-	estado := "Vigente"
-	if demostracion {
-		estado = "Demostración pendiente de validación RRHH"
-	}
 	return categoriaProfesionalHTTP{
 		Catalogo: "categoria_profesional", Clave: categoria.Clave, Slug: categoria.Clave,
 		Etiqueta: categoria.Etiqueta, Nombre: categoria.Etiqueta, Descripcion: categoria.Descripcion,
 		Orden: categoria.Orden, Area: categoria.Area, AreaEtiqueta: categoria.AreaEtiqueta,
-		Fuente: "catalogo_gobernado_vec", Modulo: personalmodule.ModuleID, Estado: estado,
+		Fuente: "catalogo_gobernado_vec", Modulo: personalmodule.ModuleID, Estado: "Vigente",
 		Uso: "Bolsa, RPT, certificados y demás módulos autorizados.",
 	}
 }

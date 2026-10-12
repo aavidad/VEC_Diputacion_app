@@ -381,7 +381,6 @@
     "catalogo_denegado": "The server did not authorise this professional catalogue search. No previous data is shown.",
     "catalogo_sin_ruta": "The portal could not find the professional catalogue search. No previous data is shown.",
     "catalogo_servicio_no_disponible": "The professional catalogue search is temporarily unavailable. No previous data is shown.",
-    "catalogo_demo": "Catalogue pending validation by HR; it is not an approved post structure.",
     "catalogo_publicado": "Provenance published by Personnel: the catalogue does not by itself accredit an approved post structure.",
     "catalogo_fuente": "Source: revision {revision}; catalogue {catalogo} v{version}. {aviso}",
     "catalogo_buscar": "Search category",

@@ -35,14 +35,14 @@ function nodos(nodo) { return [nodo, ...nodo.children.flatMap(nodos)]; }
 function texto(nodo) { return nodos(nodo).map((n) => n.textContent).join(" "); }
 const completar = () => new Promise((resolve) => setImmediate(resolve));
 function pagina(items = []) { return Object.freeze({ items: Object.freeze(items), total: items.length, limit: 25, offset: 0, catalogo: Object.freeze({ catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) }), fuente: Object.freeze({ revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." }) }); }
-const categoria = Object.freeze({ name: "Administrativo", area_etiqueta: "Administración general", state: "Demostración pendiente de validación RRHH" });
+const categoria = Object.freeze({ name: "Administrativo", area_etiqueta: "Administración general", state: "Vigente" });
 
-test("Personal muestra solo el catálogo RRHH autorizado, su demostración y su límite RPT", async () => {
+test("Personal muestra solo el catálogo RRHH autorizado, sin avisos de validación pendiente", async () => {
   const raiz = raizFalsa(); const llamadas = [];
   const modulo = await montarModuloPersonal({ raiz, cliente: { async listarCategorias(consulta, { signal }) { llamadas.push({ consulta, signal }); return pagina([categoria]); } } });
   assert.equal(modulo.capacidad, CAPACIDAD_CONSULTAR_PUESTO); assert.equal(llamadas.length, 1); assert.deepEqual(llamadas[0].consulta, { q: "", area: "", limit: 25, offset: 0 });
   const texto = raiz.querySelector("[data-personal-categorias]").children.map((n) => n.textContent).join(" ");
-  assert.match(texto, /pendiente de validación por RRHH/); assert.match(texto, /no es una RPT aprobada/); assert.doesNotMatch(texto, /demostracion|demo-v1|categorias-profesionales/); assert.doesNotMatch(texto, /nómina|servicios/i); modulo.desmontar(); assert.equal(raiz.querySelector("[data-personal-categorias]"), null);
+  assert.doesNotMatch(texto, /pendiente de validación|no es una RPT aprobada/); assert.doesNotMatch(texto, /demostracion|demo-v1|categorias-profesionales/); assert.doesNotMatch(texto, /nómina|servicios/i); modulo.desmontar(); assert.equal(raiz.querySelector("[data-personal-categorias]"), null);
 });
 
 test("el catálogo usa tabla semántica y rótulos localizados", async () => {

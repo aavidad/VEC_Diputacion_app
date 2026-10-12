@@ -50,7 +50,6 @@ function pintar(raiz, contenedor, estado, recargar, t, borrador = null) {
   const pagina = estado.pagina;
   // Un catálogo aún no validado por RRHH se señala como tal; revisión, versión e
   // identificadores del catálogo son datos técnicos y no se muestran.
-  if (pagina.fuente.demostracion === true) { const nota = nodo(documento, "p", t("catalogo_demo")); nota.className = "nota-pendiente"; contenedor.append(nota); }
   contenedor.append(formularioFiltros(documento, estado.consulta, recargar, t, borrador));
   if (pagina.items.length === 0) { const vacio = nodo(documento, "p", t("catalogo_vacio")); vacio.setAttribute("role", "status"); contenedor.append(vacio); } else {
     const marco = nodo(documento, "div"); marco.className = "marco-tabla-paginado panel"; marco.dataset.personalCategoriasMarco = "";
