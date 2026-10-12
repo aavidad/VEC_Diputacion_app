@@ -24,6 +24,7 @@ const RUTAS = Object.freeze({
       : renderizarPreferencias(estado.preferencias)) + (estado.imagen?.renderizar() ?? "") + (estado.correos?.renderizar() ?? "")],
   oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   perfil: ["areaPersonal.rutas.perfil", renderizarPerfil],
+  meritos: ["areaPersonal.rutas.meritos", () => '<div id="meritos-reales-montaje"></div>'],
   llamamientos: ["areaPersonal.rutas.llamamientos", renderizarLlamamientos],
   subsanaciones: ["areaPersonal.rutas.subsanaciones", renderizarSubsanaciones],
   alegaciones: ["areaPersonal.rutas.alegaciones", renderizarAlegaciones],
@@ -66,6 +67,7 @@ const PARAMETROS_URL_ADMITIDOS = Object.freeze(new Set(["vista", "id", "lang"]))
 
 export function exigirParametrosConocidos(parametros) {
   for (const nombre of parametros.keys()) {
+    if (nombre === "filtro" && parametros.get("vista") === "meritos") continue;
     if (!PARAMETROS_URL_ADMITIDOS.has(nombre)) throw new TypeError(t("parametrosNoAdmitidos"));
   }
 }
@@ -250,6 +252,11 @@ function actualizarShell(estado) {
 function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {}) {
   if (!estado.datos) return;
   const generacion = ++estado.generacionVista;
+  if (estado.montajeMeritos) {
+    estado.pendienteRetiradaMeritos = estado.montajeMeritos.pendiente();
+    estado.montajeMeritos.desmontar();
+    estado.montajeMeritos = null;
+  }
   estado.destruirInscripcionBolsa?.();
   estado.destruirInscripcionBolsa = null;
   estado.destruirHistorialMiBolsa?.();
@@ -266,6 +273,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
   if (estado.vista === "inscripcion") montarVistaInscripcion(estado, generacion);
+  if (estado.vista === "meritos") montarVistaMeritos(estado, generacion);
   if (estado.avisoInicio && estado.vista !== "preferencias") {
     const aviso = document.createElement("p");
     aviso.className = "preferencias-estado preferencias-aviso";
@@ -317,6 +325,22 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   }
 }
 
+function montarVistaMeritos(estado, generacion) {
+  const contenedor = porId("meritos-reales-montaje");
+  const vigente = () => estado.generacionVista === generacion && estado.vista === "meritos";
+  contenedor.innerHTML = `<p role="status">${escaparHTML(traducir("areaPersonal.html.cargandoInformacion"))}</p>`;
+  estado.cargarVistaMeritos().then(({ montarMeritosReales }) => {
+    if (!vigente()) return;
+    estado.montajeMeritos = montarMeritosReales({ contenedor, fetchImpl: estado.fetchImpl,
+      idioma: idiomaActivoAreaPersonal(), ubicacion: window.location,
+      historial: window.history, pendiente: estado.pendienteRetiradaMeritos });
+  }).catch((error) => {
+    if (!vigente()) return;
+    console.error("meritos_vista_carga", { tipo: error?.name ?? "Error" });
+    contenedor.innerHTML = renderizarErrorCargaAreaPersonal(error);
+  });
+}
+
 // La vista de inscripción se carga aparte y no depende de Mi Bolsa: la API
 // resuelve la identidad y autoriza cada petición, aunque no haya participación.
 function montarVistaInscripcion(estado, generacion) {
@@ -339,10 +363,11 @@ function montarVistaInscripcion(estado, generacion) {
 }
 
 // Entrar o salir de inscripción rehace los datos: su contenedor no usa los de Mi Bolsa.
-function recargarPorInscripcion(estado) {
-  if (estado.vista !== "inscripcion" && !estado.soloInscripcion) return false;
+function recargarPorVistaIndependiente(estado) {
+  if (!["inscripcion", "meritos"].includes(estado.vista) && !estado.soloInscripcion && !estado.soloMeritos) return false;
   estado.datos = null;
   estado.soloInscripcion = false;
+  estado.soloMeritos = false;
   void cargar(estado);
   return true;
 }
@@ -355,7 +380,7 @@ function navegar(estado, vista) {
   window.history.pushState({ vista }, "", crearURL(estado, vista));
   cerrarMenu();
   cerrarMenuIdentidad();
-  if (recargarPorInscripcion(estado)) return;
+  if (recargarPorVistaIndependiente(estado)) return;
   if (vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
     estado.datos = null;
     estado.soloPreferencias = false;
@@ -622,7 +647,7 @@ function conectarEventos(estado) {
     const inicioAjeno = inicioAjenoElegido(estado.preferencias.estado);
     estado.vista = parametros.has("vista") ? rutaDesdeURL(estado) : inicioAjeno ? "inicio" : "llamamientos";
     estado.avisoInicio = !parametros.has("vista") && inicioAjeno;
-    if (recargarPorInscripcion(estado)) return;
+    if (recargarPorVistaIndependiente(estado)) return;
     if (estado.vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
       estado.datos = null;
       estado.soloPreferencias = false;
@@ -651,6 +676,14 @@ function conectarEventos(estado) {
 const inicioAjenoElegido = (e) => Boolean(e && e.version > 0 && e.valores?.inicio !== "bolsas"); // solo elección guardada (versión > 0)
 async function cargar(estado) {
   const carga = ++estado.cargaDatosVersion;
+  if (estado.vista === "meritos" && rutaDisponible(estado, "meritos")) {
+    const base = datosMinimosMiBolsa({ consultada_en: "" });
+    estado.datos = { ...base, meta: { origen: traducir("areaPersonal.rutas.meritos") } };
+    estado.soloMeritos = true;
+    estado.error = null;
+    renderizar(estado);
+    return;
+  }
   if (estado.vista === "inscripcion" && rutaDisponible(estado, "inscripcion")) {
     const base = datosMinimosMiBolsa({ consultada_en: "" });
     estado.datos = { ...base, meta: { origen: "shell_inscripcion" }, sesion: { ...base.sesion, metodo: "" } };
@@ -700,7 +733,8 @@ async function cargar(estado) {
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
   errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false,
-  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261011-mibolsa-respuesta-anterior-v1") } = {}) {
+  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261011-mibolsa-respuesta-anterior-v1"),
+  cargarVistaMeritos = () => import("./meritos-reales-montaje.js?v=20261012-m4-cartera-v1") } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }
@@ -712,10 +746,14 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     vistasDisponibles,
     datos: null,
     cargarVistaInscripcion,
+    cargarVistaMeritos,
     destruirInscripcionBolsa: null,
+    montajeMeritos: null,
+    pendienteRetiradaMeritos: null,
     generacionVista: 0,
     cargaDatosVersion: 0,
     soloInscripcion: false,
+    soloMeritos: false,
     miBolsaIntentada: false,
     vista: parametros.has("vista") ? rutaDesdeURL({ vistasDisponibles }) : inicioAjeno ? "inicio" : "llamamientos",
     clientePreferencias,

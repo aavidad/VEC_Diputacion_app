@@ -2,6 +2,7 @@
   "rutas": {
     "inicio": "Home",
     "perfil": "Profile and contact details",
+    "meritos": "My qualifications and experience",
     "llamamientos": "Availability and call-ups",
     "subsanaciones": "Corrections",
     "alegaciones": "Representations",

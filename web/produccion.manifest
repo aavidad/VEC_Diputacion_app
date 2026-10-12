@@ -26,6 +26,8 @@ static/acceso/locales/es.json
 static/acceso/locales/en.json
 static/textos/es/area-personal.json
 static/textos/en/area-personal.json
+static/textos/es/meritos-reales.json
+static/textos/en/meritos-reales.json
 static/area-personal/aplicacion.js
 static/area-personal/area-personal.css
 static/area-personal/arranque.js
@@ -41,6 +43,10 @@ static/area-personal/mi-bolsa-contacto.js
 static/area-personal/mi-bolsa-historial.js
 static/area-personal/mi-bolsa-ofertas.js
 static/area-personal/mi-bolsa-portal.js
+static/area-personal/meritos-reales-cliente.js
+static/area-personal/meritos-reales-montaje.js
+static/area-personal/meritos-reales-vista.js
+static/area-personal/meritos-reales-estilos.css
 static/area-personal/preferencias.js
 static/area-personal/preferencias.css
 static/area-personal/vistas/comunes.js
