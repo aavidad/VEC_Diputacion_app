@@ -1,0 +1,16 @@
+{
+  "expediente_ref": "expediente:ct:1fe2c0eda847e5e11e4ab7b15953df0b7a19a525264f3cf2381890e3d0d2e85b",
+  "version_esperada": 2,
+  "clave_idempotencia": "CLAVE_ORIGINAL_EXTERNA",
+  "identidad_semantica": {
+    "referencia": "propuesta-cobertura-semantica:sha256:86d7e5126b448961648dc9256dd512337e71d59db71a396b9f0bc5b281514ffa",
+    "huella_sha256": "86d7e5126b448961648dc9256dd512337e71d59db71a396b9f0bc5b281514ffa",
+    "canon": {
+      "dominio": "vec.dipgra.contratacion-temporal.propuesta-decision-cobertura-semantica",
+      "version_esquema": 1,
+      "algoritmo": "sha-256"
+    }
+  },
+  "via_elegida": "bolsa_vigente",
+  "motivo_clave": ""
+}

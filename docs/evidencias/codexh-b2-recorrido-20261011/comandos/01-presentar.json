@@ -1,0 +1,24 @@
+{
+  "operacion": "presentar",
+  "clave_idempotencia": "CLAVE_ORIGINAL_EXTERNA",
+  "solicitud": {
+    "centro_ref": "centro-520",
+    "contacto_ref": "contacto:desarrollo:001",
+    "categoria_ref": "categoria:rpt:administrativo",
+    "grupo_subgrupo": "C1",
+    "motivo_clave": "vacante",
+    "detalle": "Cobertura temporal del puesto 9 de administrativo para tramitar las solicitudes y la documentación de Transformación Digital.",
+    "periodo": {
+      "inicio": "2026-11-10T00:00:00Z",
+      "fin": "2026-12-10T00:00:00Z"
+    },
+    "rc": {
+      "existe": false
+    },
+    "documentos_adjuntos": [],
+    "observaciones": "",
+    "jornada_minutos": 2250,
+    "numero_personas": 1,
+    "puesto_solicitado": "9 — Administrativo de Transformación Digital"
+  }
+}
