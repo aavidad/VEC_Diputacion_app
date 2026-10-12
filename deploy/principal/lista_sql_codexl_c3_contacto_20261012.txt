@@ -1,0 +1,9 @@
+# C3: instalar una vez tras las dependencias de I/H ya cotejadas.
+# Preimagen ensayada: HZ21 → AUT75 → AD245 → AD247 → AD238 → D16
+# → AD240 → D17 → AD241 → AUT76 → AD246 → B104 → AUT77 → AD248.
+# Las nuevas SQL no conceden permisos ni publican catálogos al arrancar.
+# Después: catálogo/fuente C3 y acto ADMIN B103 prospectivo de dos personas.
+# No DOWN ni repetición de migraciones instaladas.
+deploy/postgresql/autorizacion/migraciones/000079_extension_contacto_enmascarado_bolsa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000249_lectura_origen_datos_contacto.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000108_lectura_origen_contacto_opcional.up.sql

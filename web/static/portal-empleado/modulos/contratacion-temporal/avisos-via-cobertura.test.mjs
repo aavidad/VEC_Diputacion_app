@@ -119,13 +119,13 @@ test("el panel muestra propuestas y deja la procedencia en la ayuda «?»", () =
   assert.match(abierto, /Reglamento de bolsas, arts\. 3\.3 y 7\.c/);
   assert.match(abierto, /Reglamento de bolsas, arts\. 7\.b y 3\.4/);
   assert.match(abierto, /Reglamento de bolsas, art\. 3\.3/);
-  assert.match(abierto, /Parte de ejemplo: Circuito de ejemplo\./);
+  assert.match(abierto, /Texto pendiente de aprobación: Circuito de ejemplo\./);
   assert.equal((abierto.match(/data-ct-aviso-via-regla="b26.agotamiento"/g) ?? []).length, 1);
   assert.equal(renderizarAvisosViaCobertura(undefined, t, { formateadorFechas }), "");
   const noDisponible = renderizarAvisosViaCobertura(validarAvisosViaCobertura({ ...avisos(), estado: "no_disponible", avisos: [] }), t, { formateadorFechas });
   assert.match(noDisponible, /no están disponibles ahora/);
   const ejemplo = renderizarAvisosViaCobertura(validarAvisosViaCobertura({ ...avisos(), avisos: [{ ...avisos().avisos[0], reglas: [{ ...REGLA_AGOTAMIENTO, origen: "ejemplo", articulo: "" }] }] }), t, { formateadorFechas, ayudaAbierta: true });
-  assert.match(ejemplo, /Regla de ejemplo, sin aprobación de RRHH/);
+  assert.match(ejemplo, /Regla pendiente de aprobación por RRHH/);
 });
 
 function raizFalsa() {

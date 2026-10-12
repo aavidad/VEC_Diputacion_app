@@ -134,10 +134,13 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			capacidad.certificadoVerificadoEn = observado
 			capacidad.certificadoValidoHasta = certificado.NotAfter.UTC()
 			capacidad.consultaRRHH = &contextoConsultaRRHHPeticionDesarrollo{}
+			if capacidad.ruta == httpinterno.RutaOriginalFirmableCT {
+				capacidad.original = &capturaContextosOriginalCT{}
+			}
 			if protegidaCT || protegidaComun {
 				capacidad.contextoOperacion = &contextoOperacionCTDesarrollo{}
 			}
-			if rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
+			if rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) || capacidad.ruta == httpinterno.RutaOriginalFirmableCT {
 				vinculo, ok := vinculoCanalTLSCursorRRHHDesarrollo(r.TLS)
 				if !ok {
 					m.siguiente.ServeHTTP(w, r)

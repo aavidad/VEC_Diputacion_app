@@ -27,6 +27,9 @@ const TEXTO = TEXTOS_LOCALES_PETICIONES_CENTRO;
 
 const textoCT = (clave, variables) => esc(traducirCentro(clave, variables));
 
+const etiquetaContacto = (etiqueta) => etiqueta === "pc_contacto_secretaria"
+  ? traducirCentro(etiqueta) : etiqueta;
+
 function esc(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -218,8 +221,9 @@ function detalleTecnico(filas) {
 
 // Nombre de una persona interviniente si el servidor lo da para el mismo
 // puesto que guarda la petición; si no, null.
-function nombreInterviniente(intervinientes, participante) {
-  const persona = intervinientes?.[participante?.actor_ref];
+function nombreInterviniente(intervinientes, participante, porPuesto) {
+  const persona = porPuesto?.[participante?.actor_ref]?.[participante?.puesto_ref]
+    ?? intervinientes?.[participante?.actor_ref];
   if (!persona || persona.puesto_ref !== participante?.puesto_ref || !persona.nombre) return null;
   return [persona.nombre, persona.cargo].filter(Boolean).join(" · ");
 }
@@ -233,13 +237,17 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
   const c = peticion.configuracion?.solicitante;
   const actor = contexto?.actor;
   const intervinientes = contexto ? contexto.intervinientes : etiquetas?.intervinientes;
-  const solicitante = nombreInterviniente(intervinientes, c);
+  const porPuesto = contexto ? contexto.intervinientes_por_puesto : etiquetas?.intervinientes_por_puesto;
+  const solicitante = nombreInterviniente(intervinientes, c, porPuesto);
   const catalogos = contexto?.catalogos;
   const centro = catalogos?.centros?.find((v) => v.referencia === s.centro_ref);
   const etiqueta = (opciones, referencia) => !referencia ? "—"
     : opciones?.find((v) => v.referencia === referencia)?.etiqueta || textoCT("pc_dato_no_disponible");
-  const nombre = (grupo, opciones, referencia) => (contexto ? etiqueta(opciones, referencia)
-    : etiquetas?.[grupo]?.[referencia] || textoCT("pc_dato_no_disponible"));
+  const nombre = (grupo, opciones, referencia) => {
+    const valor = contexto ? etiqueta(opciones, referencia)
+      : etiquetas?.[grupo]?.[referencia] || textoCT("pc_dato_no_disponible");
+    return grupo === "contactos" ? etiquetaContacto(valor) : valor;
+  };
   const etiquetaMotivo = (contexto ? catalogos?.motivos?.find((v) => v.clave === s.motivo_clave)?.etiqueta : etiquetas?.motivos?.[s.motivo_clave]) || "—";
   const rc = s.rc?.existe
     ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)}`
@@ -256,12 +264,12 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
     [traducirCentro("ct_txt_detalle"), s.detalle], [traducirCentro("ct_txt_periodo"), periodoLegible(s.periodo)], [traducirCentro("ct_txt_observaciones"), s.observaciones || "—"],
     [traducirCentro("ct_txt_retencion_de_credito"), rc], [traducirCentro("ct_txt_documentos_aportados"), (s.documentos_adjuntos || []).map((ref) => nombre("documentos", catalogos?.documentos, ref)).join(" · ") || traducirCentro("ct_txt_ninguno")],
     [TEXTO.solicitanteDatos, solicitante
-      || (contexto ? (c?.actor_ref === actor?.referencia ? [actor?.nombre, actor?.cargo].filter(Boolean).join(" · ") || "—" : "—")
+      || (contexto ? (c?.actor_ref === actor?.referencia ? actor?.nombre || "—" : "—")
         : textoCT("pc_dato_no_disponible"))],
     [traducirCentro("ct_txt_creada_en"), fecha(peticion.creada_en, true)]];
   if (peticion.estado === "ratificada") {
     const rat = peticion.configuracion?.ratificador;
-    filas.push([traducirCentro("ct_txt_ratificador_y_cargo"), nombreInterviniente(intervinientes, rat) || (contexto ? "—" : textoCT("pc_dato_no_disponible"))],
+    filas.push([traducirCentro("ct_txt_ratificador_y_cargo"), nombreInterviniente(intervinientes, rat, porPuesto) || (contexto ? "—" : textoCT("pc_dato_no_disponible"))],
       [traducirCentro("ct_txt_motivo_de_ratificacion"), peticion.motivo_ratificacion], [traducirCentro("ct_txt_ratificada_en"), fecha(peticion.ratificada_en, true)]);
   }
   const tecnicos = [
@@ -374,6 +382,11 @@ function tabla(peticiones, seleccionada, expedientes = new Map(), contexto = nul
 }
 
 function formularioHTML(contexto, estado, revision) {
+  estado = { ...estado, catalogos: { ...estado.catalogos,
+    centros: (estado.catalogos?.centros ?? []).map((centro) => ({ ...centro,
+      contactos: (centro.contactos ?? []).map((contacto) => ({ ...contacto, etiqueta: etiquetaContacto(contacto.etiqueta) })),
+    })),
+  } };
   const contenido = revision ? renderizarRevisionPura(estado, traducirCentro, LOCALIZACION, traducirCentro)
     : renderizarFormularioPuro(estado, traducirCentro, traducirCentro);
   return `<section class="pc-panel ct-alta"><h2>${esc(TEXTO.solicitante)}</h2><p class="pc-aviso">${esc(TEXTO.confirmarPregunta)}</p>${contenido}<button type="button" class="boton-secundario" data-accion="cancelar-ratificacion">${esc(TEXTO.cancelar)}</button></section>`;

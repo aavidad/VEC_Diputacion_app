@@ -27,6 +27,15 @@ const TONO = Object.freeze({
   no_disponible: "neutro",
 });
 
+/** El plan R5 de la resolución tiene un visto bueno alternativo y una firma. */
+export function ordenR5ResolucionConfirmado(documento) {
+  return documento?.documento === "resolucion" && documento.pasos?.length === 2
+    && documento.pasos[0].orden === 1 && documento.pasos[0].accion === "visto_bueno"
+    && Array.isArray(documento.pasos[0].perfiles_ref_alternativos)
+    && documento.pasos[0].perfiles_ref_alternativos.length > 0
+    && documento.pasos[1].orden === 2 && documento.pasos[1].accion === "firma";
+}
+
 /** Carga los textos de la fase; si el catálogo falla devuelve null. */
 export function cargarTextosFaseFirma(cargar = cargarTextos) {
   return Promise.resolve().then(() => cargar(MODULO_TEXTOS_FASE_FIRMA)).catch(() => null);
@@ -122,7 +131,9 @@ export function renderizarFaseFirma({ catalogo, real, textos, nombrar = (_tipo, 
   const filas = documentos.map((documento) => {
     const fase = calcularFaseDocumento(documento, conEstado);
     const tono = TONO[fase.estado];
-    const [rotuloPersona, textoPersona] = persona(fase, textos, nombrar);
+    const [rotuloPersona, textoPersona] = documento.documento === "resolucion" && documento.pasos.length > 2
+      ? [textos.traducir("fase.quien"), textos.traducir("fase.orden_no_confirmado")]
+      : persona(fase, textos, nombrar);
     const etiqueta = nombrar("documento", documento.etiqueta);
     return `<li class="ct-fase-firma-fila ct-fase-firma-fila--${tono}" data-ct-fase-firma-documento="${escaparHTML(documento.documento)}"
       data-ct-fase-firma-estado="${fase.estado}">

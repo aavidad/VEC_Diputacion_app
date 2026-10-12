@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"maps"
 	"time"
 
@@ -223,6 +224,12 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 		return nil, err
 	}
 	etiquetador := &etiquetadorPeticionesRRHHDesarrollo{proveedor: p}
+	etiquetador.nombresHistoricos, err = cargarEtiquetasHistoricasPeticionCentro(cfg.DevelopmentMaterialDir)
+	if err != nil {
+		// Un catálogo de presentación inválido no habilita identidades ni tumba
+		// las peticiones. Se conservan los nombres de la fuente nominal actual.
+		log.Print("contratacion temporal: etiquetas historicas no disponibles; causa=catalogo_invalido")
+	}
 	if len(catalogosAlta) > 0 {
 		etiquetador.catalogo = catalogosAlta[0]
 	}

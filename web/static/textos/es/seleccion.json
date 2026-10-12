@@ -152,7 +152,7 @@
     "ayuda_texto": "Abra el archivo preparado para comparar las notas anteriores y las propuestas. Una nota pendiente sigue sin calificación. La revisión, aprobación y publicación oficiales están pendientes.",
     "abrir": "Abra una preparación",
     "solo_local": "Datos de ejemplo",
-    "limite": "Preparación con datos sintéticos. No registra una reclamación ni aprueba una calificación.",
+    "limite": "Información pendiente de validar. No registra una reclamación ni aprueba una calificación.",
     "archivo": "Archivo JSON de preparación",
     "descargar": "Descargar original",
     "cerrar": "Cerrar archivo",

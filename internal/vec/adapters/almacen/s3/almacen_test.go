@@ -743,6 +743,27 @@ func TestCargaDirectaConfirmaHEADCanonizaYReintentaSinCargaTemporal(t *testing.T
 		repetido.ValidarCargaDirecta(preparacion, confirmacion, almacen.capacidades) != nil {
 		t.Fatalf("reintento sin staging: %+v, %v", repetido, err)
 	}
+	putsAntes := cliente.puts
+	verificado, err := almacen.VerificarConfirmacionCargaDirecta(context.Background(), confirmacion, resultado.Objeto)
+	if err != nil || verificado.Objeto != resultado.Objeto.Objeto || cliente.puts != putsAntes {
+		t.Fatalf("consulta exacta no puede escribir ni sustituir version: %+v, %v", verificado, err)
+	}
+	ctxCancelado, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	if _, err := almacen.VerificarConfirmacionCargaDirecta(ctxCancelado, confirmacion, resultado.Objeto); err == nil || cliente.puts != putsAntes {
+		t.Fatal("consulta cancelada aceptada o reemitio PUT")
+	}
+	cliente.mu.Lock()
+	indiceFinal := indiceFalso(almacen.configuracion.BucketCuarentena, claveObjeto(resultado.Objeto.Objeto.Referencia))
+	original := cliente.objetos[indiceFinal][resultado.Objeto.Objeto.Version]
+	copia := *original
+	copia.version = "v-cambiada"
+	cliente.objetos[indiceFinal][copia.version] = &copia
+	cliente.actuales[indiceFinal] = copia.version
+	cliente.mu.Unlock()
+	if _, err := almacen.VerificarConfirmacionCargaDirecta(context.Background(), confirmacion, resultado.Objeto); !errors.Is(err, ports.ErrIntegridadObjetoAlmacen) || cliente.puts != putsAntes {
+		t.Fatalf("version actual cambiada aceptada o reemitio PUT: %v", err)
+	}
 }
 
 func TestCargaDirectaNoDeclaraExitoHastaConfirmarLimpiezaTemporal(t *testing.T) {

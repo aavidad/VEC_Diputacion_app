@@ -16,6 +16,7 @@ func TestRutasExactasBolsaAuditanDenegacionYCierranSiFallaElRegistro(t *testing.
 		"/api/vec/bolsa/mi-bolsa/solicitudes", "/api/vec/bolsa/mi-bolsa/respuestas",
 		"/api/vec/bolsa/mi-bolsa/solicitudes-documentales",
 		"/api/vec/bolsa/mi-bolsa/disposiciones", "/api/vec/bolsa/mi-bolsa/contacto",
+		"/api/vec/bolsa/mi-bolsa/preferencias",
 	}
 	for _, ruta := range rutas {
 		for _, caso := range []struct {

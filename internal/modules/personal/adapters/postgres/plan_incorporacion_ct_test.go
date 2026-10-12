@@ -3,6 +3,7 @@ package postgres
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -55,6 +56,61 @@ func TestPlanCTPostgresConfirmaSoloRespuestaLigada(t *testing.T) {
 	got, e := r.ConsultarPlan(context.Background(), o)
 	if e != nil || got.Plan.PlanRef != s.Plan.PlanRef || tx.commits != 1 || tx.q[1] != planIncorporacionCTSQL || len(tx.a[0]) != 11 {
 		t.Fatal("transaccion plan", e)
+	}
+}
+
+func TestPlanCTPostgresRecuperaRecibosConOffsetUTC(t *testing.T) {
+	orden := ordenPlanCTPrueba(t)
+	estado := estadoPlanCTPrueba(t, orden)
+	altaEn := time.Date(2026, 9, 20, 10, 0, 0, 100_000_000, time.UTC)
+	ocupacionEn := altaEn.Add(100 * time.Millisecond)
+	empleado := "emp_" + strings.Repeat("a", 24)
+	relacion := "rel_" + strings.Repeat("b", 24)
+	estado.ReciboAltaRelacion = &ports.ReciboActoRegistroEmpleadoB2{
+		ReciboRef: "perrec_" + strings.Repeat("a", 32), EmpleadoRef: empleado, RelacionRef: relacion,
+		ProyeccionRef: "pep_" + strings.Repeat("c", 24), Tipo: "alta", Version: 1,
+		RegistradoEn: altaEn, DecisionRef: "dec_prueba", EfectoRef: estado.Plan.Datos.PersonaRef,
+		ConsumoHuellaSHA256: strings.Repeat("a", 64), AuditoriaRef: "audit:actual",
+	}
+	estado.ReciboOcupacion = &ports.ReciboActoRegistroEmpleadoB2{
+		ReciboRef: "perrec_" + strings.Repeat("b", 32), EmpleadoRef: empleado, RelacionRef: relacion,
+		HechoRef: "ocu_" + strings.Repeat("d", 24), Tipo: "ocupacion", Version: 1,
+		RegistradoEn: ocupacionEn, DecisionRef: "dec_prueba", EfectoRef: empleado,
+		ConsumoHuellaSHA256: strings.Repeat("b", 64), AuditoriaRef: "audit:actual",
+	}
+	estado.Estado = "ejecutado"
+	estado.Evidencia.ConsultadaEn = ocupacionEn.Add(time.Millisecond)
+	estado.EjecucionReciboRef = "perplaneje_" + strings.Repeat("e", 32)
+	huella := sha256.Sum256([]byte(estado.Plan.HuellaSHA256 + "|" + estado.ReciboAltaRelacion.ReciboRef + "|" + estado.ReciboOcupacion.ReciboRef))
+	estado.EjecucionHuellaSHA256 = hex.EncodeToString(huella[:])
+	bruto, err := json.Marshal(estado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, instante := range []time.Time{altaEn, ocupacionEn} {
+		original := []byte(`"registrado_en":"` + instante.Format(time.RFC3339Nano) + `"`)
+		conOffset := []byte(`"registrado_en":"` + strings.TrimSuffix(instante.Format(time.RFC3339Nano), "Z") + `+00:00"`)
+		if !bytes.Contains(bruto, original) {
+			t.Fatal("falta la fecha del recibo en la respuesta de ensayo")
+		}
+		bruto = bytes.Replace(bruto, original, conOffset, 1)
+	}
+	transaccion := &txP{fila: filaP{vals: []any{bruto}}}
+	repositorio, err := nuevoRepositorioRegistroEmpleadoB2PostgreSQL(&poolP{tx: transaccion})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recuperado, err := repositorio.ConsultarPlan(context.Background(), orden)
+	if err != nil || transaccion.commits != 1 || recuperado.ReciboAltaRelacion == nil || recuperado.ReciboOcupacion == nil ||
+		recuperado.ReciboAltaRelacion.RegistradoEn.Location() != time.UTC || recuperado.ReciboOcupacion.RegistradoEn.Location() != time.UTC ||
+		!recuperado.ReciboAltaRelacion.RegistradoEn.Equal(altaEn) || !recuperado.ReciboOcupacion.RegistradoEn.Equal(ocupacionEn) {
+		t.Fatalf("recibos UTC de Personal no recuperados: %v", err)
+	}
+	brutoAjeno := bytes.Replace(bruto, []byte(`+00:00"`), []byte(`+01:00"`), 1)
+	transaccion = &txP{fila: filaP{vals: []any{brutoAjeno}}}
+	repositorio, _ = nuevoRepositorioRegistroEmpleadoB2PostgreSQL(&poolP{tx: transaccion})
+	if _, err := repositorio.ConsultarPlan(context.Background(), orden); !errors.Is(err, domain.ErrRegistroEmpleadoB2NoDisponible) || transaccion.commits != 0 || transaccion.rollbacks != 1 {
+		t.Fatalf("offset distinto de UTC aceptado: %v", err)
 	}
 }
 func TestPlanCTPostgresSalidaCorruptaRevierte(t *testing.T) {

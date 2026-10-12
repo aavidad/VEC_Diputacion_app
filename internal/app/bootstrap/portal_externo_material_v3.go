@@ -41,16 +41,26 @@ const (
 // El proceso externo solo recibe claves derivadas para estas audiencias.
 var consumidoresPortalExternoV3 = []string{
 	"usuarios_preferencias", "usuarios_correos", "usuarios_imagen", "mi_bolsa", "portal_candidato", consumidorInscripcionPortalExternoV3,
-	consumidorMeritosCarteraPortalExternoV3,
+	consumidorPreferenciasBolsasPortalExternoV3, consumidorMeritosCarteraPortalExternoV3,
 }
 
 const (
-	consumidorInscripcionPortalExternoV3     = "inscripcion_bolsa"
-	consumidorMeritosCarteraPortalExternoV3  = "meritos_cartera"
-	audienciaPresentarInscripcionExternaV3   = "vec_bolsa_llamamientos.inscripcion.presentar.v1"
-	accionPresentarInscripcionExternaV3      = "bolsa.inscripcion.presentar"
-	tipoRecursoPresentarInscripcionExternaV3 = "inscripcion_convocatoria"
+	consumidorInscripcionPortalExternoV3        = "inscripcion_bolsa"
+	consumidorPreferenciasBolsasPortalExternoV3 = "preferencias_bolsas"
+	consumidorMeritosCarteraPortalExternoV3     = "meritos_cartera"
+	audienciaPresentarInscripcionExternaV3      = "vec_bolsa_llamamientos.inscripcion.presentar.v1"
+	accionPresentarInscripcionExternaV3         = "bolsa.inscripcion.presentar"
+	tipoRecursoPresentarInscripcionExternaV3    = "inscripcion_convocatoria"
 )
+
+func descriptorMaterialOrdenarPreferenciasBolsasExternaV3() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia:        puertosbolsa.AudienciaOrdenarPreferenciasBolsas,
+		Dominio:          "vec.bolsa.preferencias-bolsas.ordenar.desarrollo.capacidad-v3",
+		Prefijo:          "clave:capacidad:bolsa-preferencias-bolsas-ordenar:",
+		ProveedorNominal: "proveedor-material-bolsa-preferencias-bolsas-ordenar",
+	}
+}
 
 func descriptorMaterialPresentarInscripcionExternaV3() descriptorMaterialConsumidorV3Desarrollo {
 	return descriptorMaterialConsumidorV3Desarrollo{
@@ -93,6 +103,8 @@ func audienciasConsumidorPortalExternoV3(consumidor string) []string {
 		}
 	case consumidorInscripcionPortalExternoV3:
 		return []string{audienciaPresentarInscripcionExternaV3}
+	case consumidorPreferenciasBolsasPortalExternoV3:
+		return []string{puertosbolsa.AudienciaOrdenarPreferenciasBolsas}
 	case consumidorMeritosCarteraPortalExternoV3:
 		return []string{puertosmeritos.AudienciaRetirarCartera}
 	default:
@@ -112,6 +124,7 @@ func descriptoresMaterialPortalExternoV3() []descriptorMaterialConsumidorV3Desar
 	todos = append(todos, descriptoresMaterialPortalCandidatoDesarrollo()...)
 	todos = append(todos, descriptoresMaterialContactoPropioDesarrollo()...)
 	todos = append(todos, descriptorMaterialPresentarInscripcionExternaV3())
+	todos = append(todos, descriptorMaterialOrdenarPreferenciasBolsasExternaV3())
 	todos = append(todos, descriptorMaterialRetirarCarteraExternaV3())
 	externas := map[string]bool{}
 	for _, consumidor := range consumidoresPortalExternoV3 {

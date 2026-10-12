@@ -23,6 +23,20 @@ const catalogos = {
 const contexto = { actor: { referencia: "actor:sintetico:001", nombre: "Persona de prueba", cargo: "Cargo sintético", centro: "Centro sintético", puede_presentar: true, puede_ratificar: false }, catalogos };
 const peticion = { referencia: "peticion:centro:001", version: 1, estado: "pendiente_ratificacion", configuracion: { solicitante: { actor_ref: "actor:sintetico:001", puesto_ref: "puesto:sintetico:001" } }, solicitud: { centro_ref: "cen_sintetico_001", categoria_ref: "cat_sintetica_001", grupo_subgrupo: "C2", motivo_clave: "sustitucion", detalle: "Necesidad sintética", periodo: { inicio: "2026-09-01T00:00:00Z", fin: "2026-09-30T00:00:00Z" } }, creada_en: "2026-09-06T08:00:00Z" };
 
+test("el contacto del catálogo se traduce y los nombres propios se conservan", () => {
+  for (const [etiqueta, visible] of [["pc_contacto_secretaria", "Secretaría del centro"], ["Lucía Romero", "Lucía Romero"]]) {
+    const datos = structuredClone(catalogos);
+    datos.centros[0].contactos[0].etiqueta = etiqueta;
+    const borrador = { ...crearBorradorAlta({ conPeticionCentro: true, jornadaReferenciaMinutos: 2250 }),
+      centro_ref: datos.centros[0].referencia, contacto_ref: datos.centros[0].contactos[0].referencia };
+    const html = renderizarPeticionCentro({ contexto: { ...contexto, catalogos: datos }, modo: "formulario",
+      estado: { fase: "edicion", disponible: true, ocupado: false, borrador, catalogos: datos, errores: {}, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" } });
+    assert.ok(html.includes(visible));
+    assert.doesNotMatch(html, /pc_contacto_secretaria/);
+    assert.equal(datos.centros[0].contactos[0].etiqueta, etiqueta);
+  }
+});
+
 test("renderer comparte el formulario de alta y deja claro el circuito previo", () => {
   const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado: { fase: "edicion", disponible: true, ocupado: false, borrador: crearBorradorAlta({ conPeticionCentro: true, jornadaReferenciaMinutos: 2250 }), catalogos, errores: {}, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" } });
   assert.match(html, /data-ct-form/);
@@ -408,4 +422,35 @@ test("la vista RRHH nombra centro, contacto, categoría, motivo y personas con l
   assert.match(sin, /Dato no disponible\. Actualice la bandeja\./u);
   assert.doesNotMatch(sin, /<dd[^>]*>cen_sintetico_001/u);
   assert.match(sin, /<dt>Motivo<\/dt><dd>—<\/dd>/u);
+});
+
+test("RRHH conserva el cargo de cada petición de una misma persona y escapa sus etiquetas", () => {
+  const ratificada = { ...structuredClone(peticion), estado: "ratificada",
+    configuracion: { solicitante: { actor_ref: "per_sol", puesto_ref: "puesto:anterior" } } };
+  const entrega = { peticion: ratificada, estado_entrega: "pendiente" };
+  const etiquetas = {
+    intervinientes: { per_sol: { nombre: "Nombre actual", cargo: "Cargo actual", puesto_ref: "puesto:actual" } },
+    intervinientes_por_puesto: { per_sol: {
+      "puesto:anterior": { nombre: "Lucía <img src=x onerror=alert(1)>", cargo: "Jefatura de Servicio", puesto_ref: "puesto:anterior" },
+      "puesto:actual": { nombre: "Lucía Fernández Castillo", cargo: "Subdirección de Informática", puesto_ref: "puesto:actual" },
+    } },
+  };
+  const html = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega, etiquetas });
+  assert.match(html, /Lucía &lt;img src=x onerror=alert\(1\)&gt; · Jefatura de Servicio/u);
+  assert.doesNotMatch(html, /<img|Nombre actual|Subdirección de Informática/u);
+  ratificada.configuracion.solicitante.puesto_ref = "puesto:actual";
+  const actual = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega, etiquetas });
+  assert.match(actual, /Lucía Fernández Castillo · Subdirección de Informática/u);
+  assert.doesNotMatch(actual, /Jefatura de Servicio|Nombre actual/u);
+  // Una entrada exacta incoherente no se sustituye por el mapa antiguo.
+  etiquetas.intervinientes_por_puesto.per_sol["puesto:actual"].puesto_ref = "puesto:ajeno";
+  const incoherente = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega, etiquetas });
+  assert.match(incoherente, /Dato no disponible\. Actualice la bandeja\./u);
+  assert.doesNotMatch(incoherente, /Nombre actual|Lucía Fernández Castillo/u);
+});
+
+test("el centro no atribuye el cargo actual a una petición sin etiqueta del puesto histórico", () => {
+  const html = renderizarPeticionCentro({ contexto, peticion, modo: "detalle" });
+  assert.match(html, /<dd>Persona de prueba<\/dd>/u);
+  assert.doesNotMatch(html, /<dd>Persona de prueba · Cargo sintético<\/dd>/u);
 });

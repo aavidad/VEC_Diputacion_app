@@ -348,3 +348,27 @@ func nuevaRutaVinculoEmisionBolsaCTDesarrollo(ctx context.Context,
 	}
 	return httpinterno.NuevoManejadorVinculoEmisionBolsa(autoridad, servicio)
 }
+
+// ampliacionVinculoBolsaPublicadaCTDesarrollo indica si, siendo la plantilla
+// la base del perfil de alta (solo crear solicitud), lo publicado es su
+// ampliación con la concesión de vínculo a Bolsa del mismo perfil y principal.
+func ampliacionVinculoBolsaPublicadaCTDesarrollo(p *perfilFijoCTDesarrollo, base, publicada core.InstantaneaAutorizacion) bool {
+	if p == nil || p.clave != clavePerfilFijoAltaCTDesarrollo || concedeVinculoBolsaCTDesarrollo(base) ||
+		!concedeVinculoBolsaCTDesarrollo(publicada) ||
+		publicada.AsignacionPerfil.PerfilActivoRef != base.AsignacionPerfil.PerfilActivoRef ||
+		publicada.AsignacionPerfil.PrincipalID != base.AsignacionPerfil.PrincipalID {
+		return false
+	}
+	for _, c := range base.VersionRol.Concesiones {
+		if !slices.ContainsFunc(publicada.VersionRol.Concesiones, func(o core.ConcesionRol) bool { return o.Accion == c.Accion }) {
+			return false
+		}
+	}
+	return len(publicada.VersionRol.Concesiones) == len(base.VersionRol.Concesiones)+1
+}
+
+func concedeVinculoBolsaCTDesarrollo(i core.InstantaneaAutorizacion) bool {
+	return slices.ContainsFunc(i.VersionRol.Concesiones, func(c core.ConcesionRol) bool {
+		return c.Accion == ports.AccionVincularEmisionBolsa
+	})
+}

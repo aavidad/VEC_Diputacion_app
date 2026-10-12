@@ -17,7 +17,7 @@
     "incompleto": "Datos incompletos"
   },
   "limite": "El informe resume el periodo consultado. Los datos pendientes de completar pueden cambiar el saldo.",
-  "sintetico": "EJEMPLO SINTÉTICO. Sin validez administrativa. La descarga para personas empleadas todavía no está habilitada.",
+  "sintetico": "BORRADOR SIN VALIDAR. Sin validez administrativa. La descarga para personas empleadas todavía no está habilitada.",
   "nombre_sintetico": "Persona del ejemplo: {{nombre}}",
   "duracion_corta": "{{minutos}} min"
 }

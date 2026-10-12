@@ -14,6 +14,7 @@ import { crearControladorContactoPropio, montarContactoPropio } from "./contacto
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { crearControladorPreferenciasBolsas } from "./mi-bolsa-preferencias-bolsas.js?v=20261012-preferencias-bolsas-v1";
 
 
 const RUTAS = Object.freeze({
@@ -261,6 +262,11 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   estado.destruirInscripcionBolsa = null;
   estado.destruirHistorialMiBolsa?.();
   estado.destruirHistorialMiBolsa = null;
+  if (estado.vista === "llamamientos") estado.controladorPreferenciasBolsas?.desmontar();
+  else {
+    estado.controladorPreferenciasBolsas?.destruir();
+    estado.controladorPreferenciasBolsas = null;
+  }
   estado.desmontarOportunidades?.();
   estado.desmontarOportunidades = null;
   estado.destruirContactoPropio?.();
@@ -281,6 +287,9 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
     porId("espacio-trabajo").prepend(aviso);
   }
   if (estado.vista === "llamamientos") {
+    estado.controladorPreferenciasBolsas ??= crearControladorPreferenciasBolsas({ fetchImpl: estado.fetchImpl });
+    estado.controladorPreferenciasBolsas.montar({ contenedor: porId("preferencias-bolsas"),
+      participaciones: estado.participaciones });
     estado.destruirHistorialMiBolsa = montarHistorialMiBolsa({
       contenedor: porId("historial-mi-bolsa"), fetchImpl: estado.fetchImpl,
     })?.destruir ?? null;
@@ -707,6 +716,8 @@ async function cargar(estado) {
     if (carga !== estado.cargaDatosVersion) return;
     estado.miBolsaIntentada = true;
     const datos = datosDeRespuesta(respuesta);
+    estado.controladorPreferenciasBolsas?.destruir();
+    estado.controladorPreferenciasBolsas = null;
     estado.datos = exigirDatosOperativos(datos);
     estado.soloPreferencias = false;
     estado.participaciones = respuesta?.consulta?.participaciones || [];
@@ -775,6 +786,7 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     controladorContactoPropio: null,
     destruirContactoPropio: null,
     destruirHistorialMiBolsa: null,
+    controladorPreferenciasBolsas: null,
     desmontarOportunidades: null,
     fetchImpl,
     participaciones: [],
