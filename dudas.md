@@ -275,6 +275,8 @@ Las preguntas 77 a 94 salen del estudio `docs/estudio_requisitos/datos_personale
    1. ¿Debe RRHH confirmar siempre la respuesta, como ahora, o queréis que la aceptación o la renuncia en firme cambie la situación sin que intervenga RRHH?
    2. A veces la respuesta no debe contar: el llamamiento se anuló, el puesto fue para otra persona o RRHH no acepta la propuesta. Desde «Disponible» solo se puede pasar a pendiente de incorporación, renuncia o exclusión, así que esa persona se queda fuera de turno. ¿Añadimos en el catálogo una opción «Mantener disponible», con motivo obligatorio, que la devuelva a su puesto?
 
+158. **Vuelta a la bolsa tras cesar en una vacante (pregunta a RRHH).** El ejemplo actual trata el cese de un contrato por vacante como caso general y deja a la persona no disponible durante cinco meses desde la fecha efectiva del cese, conforme al plazo general del art. 9 del [Reglamento][rgl]. ¿Confirmáis que esa modalidad corresponde al caso general? Si requiere otro tratamiento, ¿qué plazo, fecha de inicio o excepciones debemos aplicar y dónde consta la regla aprobada? El valor se puede cambiar en el catálogo cuando nos lo indiquéis.
+
 [rgl]: https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1768521622300-final-680c0e98.pdf
 [bop-correccion]: https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1769472066115-final-42c9b1bc.pdf
 [circ]: https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf
