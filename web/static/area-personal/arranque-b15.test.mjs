@@ -40,7 +40,7 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   exigirRenovado(arranque, "./cliente-http.js", ["20260924-f2-b11-v1", "20260924-f2-b11-v2"]);
 });
 
-test("Mi Bolsa con pausa nula cierra una sola cohorte hasta el HTML y la caché", async () => {
+test("Mi Bolsa conserva su cohorte y la entrada de inscripción usa la URL nueva", async () => {
   const [contrato, cliente, contacto, seguimiento, aplicacion, arranque, html, cache, manifiesto] = await Promise.all([
     "contrato.js", "cliente-http.js", "contacto-propio.js", "vistas/seguimiento-tramites.js",
     "aplicacion.js", "arranque.js", "index.html", "cache-publica-v1.json", "../../produccion.manifest",
