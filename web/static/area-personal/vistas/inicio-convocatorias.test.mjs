@@ -7,7 +7,7 @@ import { iniciarI18nAreaPersonal } from "../i18n.js";
 import { lectorCatalogos } from "../textos-prueba.test-helper.mjs";
 import * as vista from "./inicio-convocatorias.js";
 
-test("la vista y sus importadores comparten una URL renovada", async () => {
+test("la entrada se renueva y la vista de inicio conserva su URL vigente", async () => {
   const [html, arranque, aplicacion] = await Promise.all([
     readFile(new URL("../index.html", import.meta.url), "utf8"),
     readFile(new URL("../arranque.js", import.meta.url), "utf8"),
