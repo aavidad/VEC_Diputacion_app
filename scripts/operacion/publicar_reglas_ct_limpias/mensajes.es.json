@@ -1,0 +1,19 @@
+{
+  "uso": "Uso: publicar.sh --comprobar | --aplicar PUBLICA-REGLAS-CT-LIMPIAS",
+  "comprobar_argumentos": "--comprobar no admite otros argumentos.",
+  "aplicar_confirmacion": "Se requiere --aplicar PUBLICA-REGLAS-CT-LIMPIAS.",
+  "fuente_modificada": "Falta una fuente o ha cambiado su contenido.",
+  "metadatos_incompatibles": "Los metadatos de una fuente no coinciden con la versión prevista.",
+  "base_no_disponible": "No se pudo consultar la base CT190/191/148 con la cuenta técnica indicada.",
+  "respuesta_invalida": "La base devolvió una respuesta inválida.",
+  "base_inactiva": "La base de reglas CT no está activa. Revise la versión conservada.",
+  "base_incompatible": "La versión activa no coincide con la versión esperada. Revise la preimagen.",
+  "ajustes_incompatibles": "La versión vigente de ajustes CT148 no coincide con la base esperada.",
+  "rebase_incierto": "No se pudo verificar el vínculo de los ajustes. Repita la misma orden para consultar su resultado.",
+  "rebase_no_confirmado": "El vínculo de los ajustes no quedó confirmado. Revise la cabeza antes de continuar.",
+  "preparador_ausente": "Indique VEC_REGLAS_CT_PREPARADOR con el ejecutable de cmd/vec-preparar-catalogo-reglas-ct.",
+  "fuente_cambio": "La fuente CT cambió durante la preparación.",
+  "canonico_divergente": "La huella del catálogo canónico CT no coincide.",
+  "publicacion_incierta": "No se pudo verificar la publicación. Repita la misma orden para consultar su resultado.",
+  "publicacion_no_confirmada": "La publicación no quedó confirmada. Revise la cabeza antes de continuar."
+}

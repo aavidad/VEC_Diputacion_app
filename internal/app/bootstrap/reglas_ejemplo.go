@@ -46,9 +46,10 @@ func rechazarReglasEjemploFueraDesarrollo(cfg config.Config) error {
 	return err
 }
 
-// nuevasReglasEjemploDesarrollo carga y valida al arrancar los paquetes DEMO
-// declarados. Un paquete ilegible, que no sea de demostración o cuyas reglas
-// vigentes no cumplan el contrato impide arrancar en lugar de ignorarse.
+// nuevasReglasEjemploDesarrollo carga y valida al arrancar los paquetes
+// declarados en el perfil de desarrollo. Acepta paquetes de demostración y
+// versiones provisionables de datos de operación; un paquete ilegible o con
+// reglas inválidas impide arrancar.
 func nuevasReglasEjemploDesarrollo(
 	cfg config.Config,
 	calendarios calendariosports.ConsultaCalendarios,
@@ -94,7 +95,7 @@ func nuevoResolutorReglasEjemplo(
 	if ruta == "" {
 		return nil, nil
 	}
-	consulta, err := fichero.NuevaConsultaCatalogos(ruta)
+	consulta, err := fichero.NuevaConsultaCatalogoProvisionable(ruta)
 	if err != nil {
 		return nil, errors.Join(errReglasEjemploNoValidas, err)
 	}
@@ -108,7 +109,7 @@ func nuevoResolutorReglasEjemplo(
 	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(5*time.Second))
 	defer cancelar()
 	vigentes, err := resolutor.Reglas(ctx)
-	if err != nil || len(vigentes) == 0 || !vigentes[0].PaqueteEjemplo {
+	if err != nil || len(vigentes) == 0 {
 		return nil, errors.Join(errReglasEjemploNoValidas, err)
 	}
 	return resolutor, nil
