@@ -5,7 +5,7 @@ DO $test$
 DECLARE d jsonb;una jsonb;ajena jsonb;canon text;
 BEGIN
  d:=jsonb_build_object(
-  'rol_id','persona_meritos_cartera','version',1,'nombre','Cartera personal de méritos',
+  'rol_id','persona_meritos_cartera','version',1,'nombre','areaPersonal.meritos.rolCartera',
   'concesiones',jsonb_build_array(
    jsonb_build_object('accion','meritos.cartera.consultar_propia','modulo_id','meritos',
     'tipo_recurso','cartera_personal','finalidades',jsonb_build_array('gestion_cartera_propia'),
