@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -186,7 +187,8 @@ func (r renderizadorEtiquetadoOriginalR5) RenderizarBorrador(ctx context.Context
 }
 
 func cargarPlantillasOriginalR5(ctx context.Context, m internactproveedores.MaterialFirmaR5, ahora time.Time) (*informejuridico.PlantillasBorrador, error) {
-	if ctx == nil || ctx.Err() != nil || ahora.IsZero() || !huellaFicheroR5(m.PlantillasArchivo, m.PlantillasSHA256, 4<<20) {
+	if ctx == nil || ctx.Err() != nil || ahora.IsZero() || m.PlantillasVersion > math.MaxInt ||
+		!huellaFicheroR5(m.PlantillasArchivo, m.PlantillasSHA256, 4<<20) {
 		return nil, ErrDependenciasProductivasNoDisponibles
 	}
 	consulta, err := fichero.NuevaConsultaCatalogos(m.PlantillasArchivo)
