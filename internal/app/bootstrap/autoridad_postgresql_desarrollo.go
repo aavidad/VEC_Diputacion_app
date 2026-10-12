@@ -44,6 +44,8 @@ func clonarInstantaneaAutorizacionPostgreSQLDesarrollo(
 	copia.VersionRol.Concesiones = append([]dominiovec.ConcesionRol(nil), instantanea.VersionRol.Concesiones...)
 	for i := range copia.VersionRol.Concesiones {
 		copia.VersionRol.Concesiones[i].Finalidades = append([]string(nil), instantanea.VersionRol.Concesiones[i].Finalidades...)
+		copia.VersionRol.Concesiones[i].CamposPermitidos = append([]string(nil), instantanea.VersionRol.Concesiones[i].CamposPermitidos...)
+		copia.VersionRol.Concesiones[i].Obligaciones = append([]string(nil), instantanea.VersionRol.Concesiones[i].Obligaciones...)
 	}
 	copia.AsignacionPerfil.Ambitos = append([]dominiovec.AmbitoPerfil(nil), instantanea.AsignacionPerfil.Ambitos...)
 	for i := range copia.AsignacionPerfil.Ambitos {
@@ -57,6 +59,8 @@ func clonarInstantaneaAutorizacionPostgreSQLDesarrollo(
 		politica.Modulos = append([]string(nil), origen.Modulos...)
 		politica.TiposRecurso = append([]string(nil), origen.TiposRecurso...)
 		politica.FinalidadesPermitidas = append([]string(nil), origen.FinalidadesPermitidas...)
+		politica.CamposPermitidos = append([]string(nil), origen.CamposPermitidos...)
+		politica.Obligaciones = append([]string(nil), origen.Obligaciones...)
 		politica.Restricciones = append([]dominiovec.RestriccionAtributoRecurso(nil), origen.Restricciones...)
 		for j := range politica.Restricciones {
 			politica.Restricciones[j].ValoresPermitidos = append([]string(nil), origen.Restricciones[j].ValoresPermitidos...)

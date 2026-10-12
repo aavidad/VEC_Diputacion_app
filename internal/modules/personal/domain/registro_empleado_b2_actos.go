@@ -180,7 +180,9 @@ func nuevoMaterialActoB2(tipo, ref, organismo string, actor core.ContextoActor, 
 	if tipo == "hecho" {
 		accionTipo = "hecho_empleado_rrhh"
 	}
-	recurso := core.RecursoAutorizable{Referencia: ref, ModuloID: "personal", Tipo: accionTipo, Ambitos: map[string]string{"objetivo_ref": ref, "organismo_ref": organismo}, Atributos: map[string]string{"operacion": tipo, "material_sha256": hex.EncodeToString(suma[:])}}
+	// Ámbito: el organismo; el objetivo concreto va en los atributos firmados
+	// y Personal42 lo coteja con la fila que escribe.
+	recurso := core.RecursoAutorizable{Referencia: ref, ModuloID: "personal", Tipo: accionTipo, Ambitos: map[string]string{"organismo_ref": organismo}, Atributos: map[string]string{"objetivo_ref": ref, "operacion": tipo, "material_sha256": hex.EncodeToString(suma[:])}}
 	if _, err = recurso.HuellaContextoAutorizacionSHA256(); err != nil {
 		return MaterialActoRegistroEmpleadoB2{}, ErrRegistroEmpleadoB2Invalido
 	}

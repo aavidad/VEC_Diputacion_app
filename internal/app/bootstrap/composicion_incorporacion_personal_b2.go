@@ -206,7 +206,7 @@ type claveRutaPeticionIncorporacionB2 struct{}
 func ligarContextoIncorporacionPersonalB2(h http.Handler, soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		previo := rutaPeticionIncorporacionB2{r.Method, r.URL.Path}
-		if ((previo.ruta == httpct.RutaPlanB2 || previo.ruta == httpct.RutaVinculoCategoriaRPTB2) && (previo.metodo == http.MethodGet || previo.metodo == http.MethodPost)) || (previo.ruta == httpct.RutaConfirmacionB2 && previo.metodo == http.MethodPost) || (previo.ruta == httpct.RutaCategoriasRPTB2 && previo.metodo == http.MethodGet) {
+		if ((previo.ruta == httpct.RutaPlanB2 || previo.ruta == httpct.RutaVinculoCategoriaRPTB2) && (previo.metodo == http.MethodGet || previo.metodo == http.MethodPost)) || (previo.ruta == httpct.RutaConfirmacionB2 && previo.metodo == http.MethodPost) || (previo.ruta == httpct.RutaCategoriasRPTB2 && previo.metodo == http.MethodGet) || (previo.ruta == rutaCatalogosRegistroEmpleadoB2 && previo.metodo == http.MethodPost) {
 			if ctx, ok := contextoNominalIncorporacionPersonalB2(r.Context(), soporte, fronteras, previo); ok {
 				r = r.WithContext(ctx)
 			}
@@ -246,7 +246,10 @@ type montajeIncorporacionPersonalB2 struct {
 	cese       *inc.CesePersonalB2
 	vinculo    *fachadaVinculoCategoriaRPTB2
 	categorias *fachadaCategoriasRPTB2
-	cerrar     func()
+	// gobiernoCatalogo es nil si la configuración no habilita publicar y
+	// retirar entradas del catálogo de registro de empleado.
+	gobiernoCatalogo *apppersonal.ServicioCatalogosRegistroEmpleadoB2
+	cerrar           func()
 }
 
 // fachadaVinculoCategoriaRPTB2 reutiliza el ServicioVinculoCategoriaRPT que el
@@ -293,7 +296,7 @@ func (f *fachadaVinculoCategoriaRPTB2) RegistrarVinculo(ctx context.Context, e h
 	return r, nil
 }
 
-func (m *montajeIncorporacionPersonalB2) rutas(soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) ([]httpapi.RutaExacta, error) {
+func (m *montajeIncorporacionPersonalB2) rutas(soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo, registrador vp.RegistradorAuditoriaFronteraRutaExacta) ([]httpapi.RutaExacta, error) {
 	if m == nil || m.fachada == nil || m.autoridad == nil {
 		return nil, ct.ErrComposicionIncorporacionAplicacion
 	}
@@ -312,7 +315,15 @@ func (m *montajeIncorporacionPersonalB2) rutas(soporte *soporteAltaContratacionT
 		return nil, e
 	}
 	l = ligarContextoIncorporacionPersonalB2(l, soporte, fronteras)
-	return []httpapi.RutaExacta{{Ruta: httpct.RutaPlanB2, Manejador: h}, {Ruta: httpct.RutaConfirmacionB2, Manejador: h}, {Ruta: httpct.RutaVinculoCategoriaRPTB2, Manejador: v}, {Ruta: httpct.RutaCategoriasRPTB2, Manejador: l}}, nil
+	r := []httpapi.RutaExacta{{Ruta: httpct.RutaPlanB2, Manejador: h}, {Ruta: httpct.RutaConfirmacionB2, Manejador: h}, {Ruta: httpct.RutaVinculoCategoriaRPTB2, Manejador: v}, {Ruta: httpct.RutaCategoriasRPTB2, Manejador: l}}
+	if m.gobiernoCatalogo != nil {
+		c, e := rutaCatalogosEmpleadoB2(m.gobiernoCatalogo, m.autoridad, registrador, soporte, fronteras)
+		if e != nil {
+			return nil, e
+		}
+		r = append(r, c)
+	}
+	return r, nil
 }
 
 // Se invoca al cargar el archivo privado, antes de montar los handlers. Cada
@@ -470,8 +481,20 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	if e != nil {
 		return nil, e
 	}
+	var gobiernoCatalogo *apppersonal.ServicioCatalogosRegistroEmpleadoB2
+	if operacionConfiguradaB2(c, claveCatalogoPublicarB2) {
+		// Publicar y retirar escriben con el LOGIN de actos de Personal, no con
+		// el de consultas que usa el plan para leer el catálogo.
+		repoGobierno, e := pgpersonal.NuevoRepositorioRegistroEmpleadoB2PostgreSQL(nuevos["personal_actos"])
+		if e != nil {
+			return nil, e
+		}
+		if gobiernoCatalogo, e = apppersonal.NuevoServicioCatalogosRegistroEmpleadoB2(autoridad, repoGobierno); e != nil {
+			return nil, e
+		}
+	}
 	completo = true
 	vinculo := &fachadaVinculoCategoriaRPTB2{organizacionRef: org, catalogoID: c.CatalogoRPTID, moduloID: c.ModuloRPTID, servicio: vinculos}
 	categorias := &fachadaCategoriasRPTB2{catalogoID: c.CatalogoRPTID, autoridad: autoridad, lector: lectorRPT}
-	return &montajeIncorporacionPersonalB2{fachada: fachada, autoridad: autoridad, cese: cese, vinculo: vinculo, categorias: categorias, cerrar: cerrar}, nil
+	return &montajeIncorporacionPersonalB2{fachada: fachada, autoridad: autoridad, cese: cese, vinculo: vinculo, categorias: categorias, gobiernoCatalogo: gobiernoCatalogo, cerrar: cerrar}, nil
 }
