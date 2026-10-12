@@ -1,0 +1,56 @@
+package documental
+
+import (
+	"bytes"
+	"testing"
+)
+
+func TestPreimagenReservaCargaV3FijaOrdenYCambioDeVersion(t *testing.T) {
+	d := ReservaCargaV3{Accion: "documentos.carga.preparar_reserva", CargaID: "carga:1",
+		RecursoRef: "ref:1", PersonaRef: "per_1", ClaveReserva: "clave:1",
+		HuellaReservaSHA256: "hr", VersionReserva: 2, IndiceCargaHMAC: "i",
+		HuellaCargaHMAC: "hc", MIME: "application/pdf", Tamano: 7,
+		HuellaContenido: "sha", HuellaCargaJSONSHA256: "hj", HuellaToken: "ht"}
+	primera, err := d.Preimagen()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const esperado = `{"accion":"documentos.carga.preparar_reserva","carga_id":"carga:1","recurso_ref":"ref:1","persona_ref":"per_1","clave_reserva":"clave:1","huella_reserva_sha256":"hr","version_reserva":2,"indice_carga_hmac":"i","huella_carga_hmac":"hc","mime":"application/pdf","tamano":7,"huella_contenido_sha256":"sha","huella_carga_json_sha256":"hj","huella_token_sha256":"ht"}`
+	if string(primera) != esperado {
+		t.Fatalf("bytes distintos: %s", primera)
+	}
+	segunda, err := d.Preimagen()
+	if err != nil || !bytes.Equal(primera, segunda) {
+		t.Fatal("canon no determinista")
+	}
+	d.VersionReserva++
+	otra, err := d.Preimagen()
+	if err != nil || bytes.Equal(primera, otra) || HuellaEfectoCargaV3(primera) == HuellaEfectoCargaV3(otra) {
+		t.Fatal("version D16 no cambia la identidad del efecto")
+	}
+}
+
+func TestPreimagenCustodiaCargaAdmitidaV3FijaFaseYVersion(t *testing.T) {
+	d := ConsultaAdmitidaCustodiaV3{Accion: "a", Fase: "abrir", CargaID: "c", RecursoRef: "r",
+		PersonaRef: "p", PlanRef: "pl", VersionEsperada: 5, HuellaCargaEsperadaSHA256: "hc",
+		ObjetoRef: "o", ObjetoVersion: "v", HuellaContenidoSHA256: "ho", Tamano: 7,
+		MIME: "application/pdf", EvidenciaAnalisisRef: "e", PerfilActivoRef: "pr",
+		RegistroContextoRef: "rc", HuellaContextoSHA256: "hx", Finalidad: "f", CorrelacionRef: "co"}
+	primera, err := d.Preimagen()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const esperado = `{"accion":"a","fase":"abrir","carga_id":"c","recurso_ref":"r","persona_ref":"p","plan_ref":"pl","version_esperada":5,"huella_carga_esperada_sha256":"hc","objeto_ref":"o","objeto_version":"v","huella_contenido_sha256":"ho","tamano":7,"mime":"application/pdf","evidencia_analisis_ref":"e","perfil_activo_ref":"pr","registro_contexto_ref":"rc","huella_contexto_sha256":"hx","finalidad":"f","correlacion_ref":"co"}`
+	if string(primera) != esperado {
+		t.Fatalf("preimagen diferente: %s", primera)
+	}
+	segunda, err := d.Preimagen()
+	if err != nil || !bytes.Equal(primera, segunda) {
+		t.Fatal("preimagen no determinista")
+	}
+	d.ObjetoVersion = "otra"
+	otra, err := d.Preimagen()
+	if err != nil || bytes.Equal(primera, otra) || HuellaEfectoCargaV3(primera) == HuellaEfectoCargaV3(otra) {
+		t.Fatal("versión S3 no altera el efecto")
+	}
+}

@@ -1,6 +1,9 @@
 package bootstrap
 
-import docports "vec-diputacion-granada/internal/vec/documentos/ports"
+import (
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
+	vecports "vec-diputacion-granada/internal/vec/ports"
+)
 
 // Documentos se integra como Cronos, Dietas y Personal B2 en el gobierno V3
 // único de desarrollo: vec-server publica una clave HMAC derivada para la
@@ -18,4 +21,16 @@ func descriptoresMaterialDocumentosDesarrollo() []descriptorMaterialConsumidorV3
 		Prefijo:          "clave:capacidad:documentos-operacion:",
 		ProveedorNominal: "proveedor-material-documentos-operacion",
 	}}
+}
+
+// La lectura de una carga admitida para Mayan tiene clave y audiencia propias.
+// El descriptor no se agrega al catálogo activo hasta que el permiso PDP y la
+// composición gobernada de Documentos estén disponibles.
+func descriptorMaterialLecturaCargaAdmitidaCustodiaDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia:        vecports.AudienciaAlmacenLeerCargaAdmitidaCustodiaV3,
+		Dominio:          "vec.documentos.carga-admitida-lectura.desarrollo.capacidad-v3",
+		Prefijo:          "clave:capacidad:documentos-carga-admitida-lectura:",
+		ProveedorNominal: "proveedor-material-documentos-carga-admitida-lectura",
+	}
 }

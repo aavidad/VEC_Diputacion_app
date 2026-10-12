@@ -228,6 +228,51 @@ func (a *Almacen) ConfirmarCargaDirecta(
 	return resultado, nil
 }
 
+// VerificarConfirmacionCargaDirecta es una consulta de conciliacion estricta.
+// Solo acredita una version ya conocida por el repositorio; nunca inicia ni
+// repite la escritura y tampoco interpreta la ausencia como permiso de rePUT.
+func (a *Almacen) VerificarConfirmacionCargaDirecta(
+	ctx context.Context,
+	solicitud ports.SolicitudConfirmarCargaDirecta,
+	esperado ports.ObjetoAlmacenado,
+) (ports.ObjetoAlmacenado, error) {
+	if err := contextoValido(ctx); err != nil {
+		return ports.ObjetoAlmacenado{}, err
+	}
+	contexto, sesionRef, _, _, _, _, consumidoEn, expiraRecibo, validaHasta, err := solicitud.RevelarParaConector()
+	if err != nil || esperado.Validar() != nil || esperado.Zona != ports.ZonaAlmacenCuarentena {
+		return ports.ObjetoAlmacenado{}, ports.ErrSolicitudAlmacenInvalida
+	}
+	ahora := a.reloj.Ahora().UTC()
+	if contexto.ValidarParaEn(ports.AccionAlmacenConfirmarCargaDirecta, ahora) != nil ||
+		ahora.Before(consumidoEn) || !ahora.Before(expiraRecibo) || !ahora.Before(validaHasta) {
+		return ports.ObjetoAlmacenado{}, ports.ErrSesionCargaDirectaNoValida
+	}
+	finalRef, err := referenciaFinalDeSesion(sesionRef)
+	if err != nil || esperado.Objeto.Referencia != finalRef {
+		return ports.ObjetoAlmacenado{}, ports.ErrIntegridadObjetoAlmacen
+	}
+	actual, err := a.cargarObjetoActual(ctx, finalRef, ports.ZonaAlmacenCuarentena)
+	if err != nil {
+		return ports.ObjetoAlmacenado{}, err
+	}
+	if actual.Objeto != esperado.Objeto || actual.ConectorID != esperado.ConectorID ||
+		actual.MIME != esperado.MIME || actual.Tamano != esperado.Tamano ||
+		actual.HuellaSHA256 != esperado.HuellaSHA256 {
+		return ports.ObjetoAlmacenado{}, ports.ErrIntegridadObjetoAlmacen
+	}
+	metadatos, err := a.metadatosObjeto(ctx, actual)
+	if err != nil || metadatos.VinculoSesionSHA256 != huellaSesionCargaDirecta(sesionRef) ||
+		metadatos.SHA256 != esperado.HuellaSHA256 || metadatos.Tamano != esperado.Tamano ||
+		metadatos.MIME != esperado.MIME {
+		return ports.ObjetoAlmacenado{}, ports.ErrIntegridadObjetoAlmacen
+	}
+	if err := a.cotejarReservaIdempotencia(ctx, finalRef, metadatos.IdempotenciaSHA256); err != nil {
+		return ports.ObjetoAlmacenado{}, err
+	}
+	return actual, nil
+}
+
 func (a *Almacen) AbandonarCargaDirecta(
 	ctx context.Context,
 	contexto ports.ContextoOperacionAlmacen,
