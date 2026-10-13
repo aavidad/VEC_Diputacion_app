@@ -74,7 +74,9 @@ clave_b=${VEC_ADMIN_PLAN_CLAVE_B:?}
 python3 - "$url" <<'PY'
 import sys, urllib.parse
 u = urllib.parse.urlsplit(sys.argv[1])
-if u.scheme != 'https' or not u.hostname or u.username is not None or u.password is not None or u.path or u.query or u.fragment:
+if (any(ord(c) <= 32 or ord(c) == 127 for c in sys.argv[1])
+        or u.scheme != 'https' or not u.hostname or u.username is not None
+        or u.password is not None or u.path or u.query or u.fragment):
     raise SystemExit('origen_https_requerido')
 PY
 sha_a=$(openssl x509 -in "$cert_a" -outform DER | sha256sum | cut -d ' ' -f 1)
@@ -87,6 +89,8 @@ enviar() {
     --connect-timeout 10 --max-time 60 --max-filesize 65536 \
     --cacert "$ca" --cert "$certificado" --key "$clave" \
     --request POST --header 'Content-Type: application/json' --header 'Accept: application/json' \
+    --header "Origin: $url" --header 'Sec-Fetch-Site: same-origin' \
+    --header 'Sec-Fetch-Mode: cors' --header 'Sec-Fetch-Dest: empty' \
     --data-binary "@$trabajo/$operacion-peticion.json" \
     --output "$trabajo/$operacion-respuesta.json" --write-out '%{http_code}' \
     "$url/api/admin/perfiles/v1/plan-firma/gobierno")
