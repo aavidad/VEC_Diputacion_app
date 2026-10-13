@@ -32,15 +32,17 @@ func TestBolsaCombinadaConservaPersonaCandidatoYCertificadoAlCambiarPerfil(t *te
 	base.identidad.principal.ID = "actor_carmen_001"
 	ext := base
 	ext.perfilRef = "prf_externo_001"
+	ext.cuentaRef = "cta_externa_001"
 	a := &resolvedorIdentidadDesarrollo{candidatoBolsa: &base}
 	b := &resolvedorIdentidadDesarrollo{candidatoBolsa: &ext}
 	if !mismaIdentidadCandidataBolsa(a, b) {
-		t.Fatal("cambiar el perfil cambió la identidad propietaria")
+		t.Fatal("perfil y cuenta externos propios cambiaron la identidad propietaria")
 	}
 	for _, cambiar := range []func(*identidadCandidatoBolsaDesarrollo){
 		func(c *identidadCandidatoBolsaDesarrollo) { c.personaRef = "per_otra_001" },
 		func(c *identidadCandidatoBolsaDesarrollo) { c.candidatoRef = "can_otro_001" },
-		func(c *identidadCandidatoBolsaDesarrollo) { c.cuentaRef = "cta_otra_001" },
+		func(c *identidadCandidatoBolsaDesarrollo) { c.cuentaRef = base.cuentaRef },
+		func(c *identidadCandidatoBolsaDesarrollo) { c.cuentaRef = "" },
 		func(c *identidadCandidatoBolsaDesarrollo) { c.perfilRef = base.perfilRef },
 		func(c *identidadCandidatoBolsaDesarrollo) { c.identidad.principal.ID = "actor_otro_001" },
 		func(c *identidadCandidatoBolsaDesarrollo) { c.identidad.huella[0] = 2 },
