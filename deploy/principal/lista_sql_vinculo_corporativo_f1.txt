@@ -1,2 +1,5 @@
+# Requiere instalada lista_sql_auditoria_rrhh.txt:
+# AUT82 -> CT208 -> B109 -> P47 -> AD251. AD251 debe preceder a AD258.
+# Esta lista añade sólo AD258 -> CA42; no reaplicar SQL instalada ni ejecutar DOWN.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000258_publicacion_vinculo_corporativo_f1.up.sql
 deploy/postgresql/contexto_actor_v1/migraciones/000042_publicacion_vinculo_corporativo_f1.up.sql
