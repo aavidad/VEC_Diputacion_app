@@ -297,8 +297,9 @@ func (a *autoridadIncorporacionPersonalB2) ResolverContextoIncorporacionEjercici
 var _ httpct.EjecutorIncorporacionPersonalB2 = (*fachadaIncorporacionPersonalB2)(nil)
 
 type montajeIncorporacionPersonalB2 struct {
-	fachada   *fachadaIncorporacionPersonalB2
-	autoridad *autoridadIncorporacionPersonalB2
+	fachada          *fachadaIncorporacionPersonalB2
+	autoridad        *autoridadIncorporacionPersonalB2
+	aceptacionNativa bp.ConsultaAceptacionNativaCT
 	// cese es nil si la configuración no fija cese_fecha_efecto.
 	cese       *inc.CesePersonalB2
 	vinculo    *fachadaVinculoCategoriaRPTB2
@@ -310,6 +311,25 @@ type montajeIncorporacionPersonalB2 struct {
 	// retirar entradas del catálogo de registro de empleado.
 	gobiernoCatalogo *apppersonal.ServicioCatalogosRegistroEmpleadoB2
 	cerrar           func()
+}
+
+// Las dos consultas B113 comparten servicio, pero cada una conserva motivo,
+// emisor y acción V3 propios. El selector no concede otra capacidad.
+type proveedoresAceptacionNativaB113 struct {
+	anclaje bp.ProveedorAutorizacionConsultaAceptacionNativaCT
+	persona bp.ProveedorAutorizacionConsultaAceptacionNativaCT
+}
+
+func (p proveedoresAceptacionNativaB113) AutorizarConsultaAceptacionNativaCT(
+	ctx context.Context, entrada bp.PreparacionConsultaAceptacionNativaCT, persona bool,
+) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	if persona && !dependenciaBootstrapNula(p.persona) {
+		return p.persona.AutorizarConsultaAceptacionNativaCT(ctx, entrada, true)
+	}
+	if !persona && !dependenciaBootstrapNula(p.anclaje) {
+		return p.anclaje.AutorizarConsultaAceptacionNativaCT(ctx, entrada, false)
+	}
+	return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ct.ErrAutorizacionDenegada
 }
 
 // fachadaVinculoCategoriaRPTB2 reutiliza el ServicioVinculoCategoriaRPT que el
@@ -492,6 +512,29 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	if e != nil {
 		return nil, e
 	}
+	emisorAnclaje, e := autoridad.emisorMaterial(bp.AccionConsultaAnclajeAceptacionNativaCT)
+	if e != nil {
+		return nil, e
+	}
+	proveedorAnclajeNativo, e := appbolsa.NuevoProveedorNominalConsultaAceptacionNativaCT(
+		emisorAnclaje, c.Operaciones["bolsa_anclaje"].Motivo, correlacion, reloj.Ahora)
+	if e != nil {
+		return nil, e
+	}
+	proveedorPersonaNativa, e := appbolsa.NuevoProveedorNominalConsultaAceptacionNativaCT(
+		emisorBolsa, c.Operaciones["bolsa_persona"].Motivo, correlacion, reloj.Ahora)
+	if e != nil {
+		return nil, e
+	}
+	proveedorNativo := proveedoresAceptacionNativaB113{anclaje: proveedorAnclajeNativo, persona: proveedorPersonaNativa}
+	repoNativo, e := pgbolsa.NuevoRepositorioConsultaAceptacionNativaCTPostgreSQL(nuevos["bolsa_persona"], reloj.Ahora)
+	if e != nil {
+		return nil, e
+	}
+	aceptacionNativa, e := appbolsa.NuevoServicioConsultaAceptacionNativaCT(proveedorNativo, repoNativo, reloj.Ahora)
+	if e != nil {
+		return nil, e
+	}
 	fuenteVinculos, e := pgct.NuevaFuenteVinculoCategoriaRPTPostgreSQL(existentes["registro_ct"])
 	if e != nil {
 		return nil, e
@@ -504,14 +547,10 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	if e != nil {
 		return nil, e
 	}
-	externas, e := NuevasFuentesContextoIncorporacionB2(ConfiguracionFuentesContextoIncorporacionB2{Bolsa: bolsa, ActorBolsa: func(ctx context.Context) (bp.ActorConfiablePersonaAceptacionCT, error) {
+	externas, e := NuevasFuentesContextoIncorporacionB2(ConfiguracionFuentesContextoIncorporacionB2{Bolsa: bolsa, BolsaNativa: aceptacionNativa, ActorBolsa: func(ctx context.Context) (bp.ActorConfiablePersonaAceptacionCT, error) {
 		actual, e := autoridad.contexto(ctx, bp.AccionConsultaPersonaAceptacionCT)
 		return bp.ActorConfiablePersonaAceptacionCT{Vinculo: actual.Vinculo, Resultado: actual.Resultado}, e
 	}, Vinculos: vinculos, Publicacion: publicacion, AutoridadRPT: autoridad})
-	if e != nil {
-		return nil, e
-	}
-	emisorAnclaje, e := autoridad.emisorMaterial(bp.AccionConsultaAnclajeAceptacionCT)
 	if e != nil {
 		return nil, e
 	}
@@ -535,6 +574,7 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	fuentes.personal = personalServicio
 	fuentes.clases = personalServicio
 	fuentes.anclaje = anclaje
+	fuentes.anclajeNativo = aceptacionNativa
 	servicioCT, e := appct.NuevoServicioPlanNominalB2(fuentes, autoridad, lectorCT)
 	if e != nil {
 		return nil, e
@@ -568,5 +608,5 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	completo = true
 	vinculo := &fachadaVinculoCategoriaRPTB2{organizacionRef: org, catalogoID: c.CatalogoRPTID, moduloID: c.ModuloRPTID, servicio: vinculos}
 	categorias := &fachadaCategoriasRPTB2{catalogoID: c.CatalogoRPTID, autoridad: autoridad, lector: lectorRPT}
-	return &montajeIncorporacionPersonalB2{fachada: fachada, autoridad: autoridad, cese: cese, vinculo: vinculo, categorias: categorias, catalogos: catalogos, ficha: ficha, empleados: empleados, gobiernoCatalogo: gobiernoCatalogo, cerrar: cerrar}, nil
+	return &montajeIncorporacionPersonalB2{fachada: fachada, autoridad: autoridad, aceptacionNativa: aceptacionNativa, cese: cese, vinculo: vinculo, categorias: categorias, catalogos: catalogos, ficha: ficha, empleados: empleados, gobiernoCatalogo: gobiernoCatalogo, cerrar: cerrar}, nil
 }

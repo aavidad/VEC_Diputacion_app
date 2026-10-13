@@ -891,6 +891,19 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		borradorFormalizacion = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
 		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true}
 	}
+	// CT201 consume el detalle V3 y lee B98 en la misma transacción antes de
+	// devolverlo. La respuesta firme nativa conserva así su acuse nominal.
+	var lectorResultadoNativo *lectorResultadoEmisionCTDesdeDetalle
+	if alta.postgresql.vinculoEmisionBolsa && consultasRRHH.detalle != nil {
+		if seleccion, ok := seleccionReal.(*ejecutorSeleccionLlamamientoDesarrollo); ok && seleccion.puente != nil {
+			lectorResultadoNativo = &lectorResultadoEmisionCTDesdeDetalle{
+				soporte: alta.soporte, fronteras: catalogoFronteras, detalle: consultasRRHH.detalle,
+			}
+			if err := seleccion.puente.configurarLectorResultadoEmisionCT(lectorResultadoNativo); err != nil {
+				return nil, nil, nil, err
+			}
+		}
+	}
 	defer func() {
 		if cerrarAlta {
 			consultasRRHH.cerrar()
@@ -936,6 +949,19 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if incorporacion[0].legadoCompuesto {
 			incorporacionV2, err = nuevasDependenciasIncorporacionV2Desarrollo(incorporacion[0], &alta, consultasRRHH, reloj)
 			if err != nil {
+				return nil, nil, nil, err
+			}
+		}
+	}
+	if lectorResultadoNativo != nil && len(incorporacion) == 1 && incorporacion[0].nominales != nil {
+		b2 := incorporacion[0].nominales.montajeB2
+		if propuesta, ok := propuestaReal.(*ejecutorPropuestaFormalizacionDesarrollo); ok && b2 != nil &&
+			b2.autoridad != nil && !dependenciaEsNulaContratacionTemporalDesarrollo(b2.aceptacionNativa) {
+			actorAnclaje := func(ctx context.Context) (puertosbolsa.ActorConfiablePersonaAceptacionCT, error) {
+				actual, err := b2.autoridad.contexto(ctx, puertosbolsa.AccionConsultaAnclajeAceptacionNativaCT)
+				return puertosbolsa.ActorConfiablePersonaAceptacionCT{Vinculo: actual.Vinculo, Resultado: actual.Resultado}, err
+			}
+			if err := propuesta.configurarFuentesNativasPropuestaCT(lectorResultadoNativo, b2.aceptacionNativa, actorAnclaje); err != nil {
 				return nil, nil, nil, err
 			}
 		}

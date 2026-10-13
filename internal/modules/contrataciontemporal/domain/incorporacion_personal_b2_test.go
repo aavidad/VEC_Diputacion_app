@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -10,6 +11,42 @@ func planPersonalB2Prueba() PlanIncorporacionPersonalB2 {
 	h := strings.Repeat("a", 64)
 	fuente := FuentePlanPersonalB2{"fuente:original", 1, h}
 	return PlanIncorporacionPersonalB2{OrganizacionRef: "org:uno", UnidadCTRef: "unidad:rrhh", ExpedienteRef: "expediente:uno", VersionExpediente: 8, AnalisisVersion: 2, AnalisisReciboRef: "recibo:analisis", AnalisisSHA256: h, PropuestaReciboRef: "recibo:propuesta", AceptacionRef: "aceptacion:uno", AceptacionReciboRef: "recibo:aceptacion", Bolsa: SelectorBolsaPlanB2{UnidadRef: "unidad:uno", CategoriaRef: "categoria:uno", NecesidadRef: "necesidad:uno", AceptacionOperacionRef: "operacion:aceptacion", AceptacionRegistroSHA256: h, AperturaOperacionRef: "operacion:apertura", AperturaRegistroSHA256: h, LlamamientoRef: "llamamiento:uno", PropuestaRef: "propuesta:uno"}, PersonaRef: "per_aaaaaaaaaaaaaaaaaaaaaaaa", PersonaVersion: 1, PersonaFuente: fuente, PersonaReciboBolsaRef: "recibo:bolsa", OrganismoRef: "organismo:uno", UnidadRef: "unidad:uno", FuenteOrganizacion: FuenteSinVersionPlanB2{fuente.Ref, fuente.SHA256}, FuentePlantilla: InstrumentoPlanPersonalB2{"11111111-1111-4111-8111-111111111111", 1, fuente.Ref, fuente.SHA256}, FuenteRPT: InstrumentoPlanPersonalB2{"22222222-2222-4222-8222-222222222222", 1, fuente.Ref, fuente.SHA256}, VersionPlazaRef: "plantilla:uno", VersionPuestoRef: "rpt:uno", RevisionPlaza: 1, RevisionPuesto: 1, PuestoRef: "puesto:uno", PlazaRef: "plaza:uno", CatalogoRPTID: "catalogo:rpt", CatalogoRPTModulo: "personal", CatalogoRPTVersion: 1, CatalogoRPTSHA256: h, CategoriaRef: "categoria:uno", VinculoRevision: 1, VinculoReciboRef: "recibo:vinculo", Regimen: EntradaPlanPersonalB2{"regimen:uno", 1}, Modalidad: EntradaPlanPersonalB2{"modalidad:uno", 1}, ClaseOcupacion: "temporal", Desde: "2026-09-30", Hasta: "", MotivoClave: "incorporacion", DocumentoRef: "documento:uno", DocumentoSHA256: h, EjercicioSintetico: true}
+}
+func TestPlanPersonalB2NativoSinReferenciasLegadas(t *testing.T) {
+	legado := planPersonalB2Prueba()
+	antes, err := json.Marshal(legado)
+	if err != nil || bytes.Contains(antes, []byte(`"bolsa_nativa"`)) {
+		t.Fatal("el plan histórico cambió su JSON", err)
+	}
+	p := legado
+	p.Bolsa = SelectorBolsaPlanB2{}
+	p.BolsaNativa = SelectorBolsaPlanB2Nativo{
+		OrganizacionRef: p.OrganizacionRef, ExpedienteRef: p.ExpedienteRef,
+		ClaveCT:   "44444444-4444-4444-8444-444444444444",
+		UnidadRef: p.UnidadCTRef, CategoriaRef: p.CategoriaRef,
+		NecesidadRef: "necesidad:uno", BolsaRef: "bolsa:uno",
+		LlamamientoRef: "llamamiento:uno", ReciboEmisionRef: "recibo:emision:uno",
+		ReciboRespuestaRef: "recibo:respuesta:uno",
+	}
+	if err := p.Validar(); err != nil {
+		t.Fatal("selector B113 real rechazado", err)
+	}
+	b, err := json.Marshal(p)
+	if err != nil || bytes.Contains(b, []byte(`"bolsa":`)) ||
+		!bytes.Contains(b, []byte(`"bolsa_nativa":`)) || bytes.Contains(b, []byte(`"apertura_operacion_ref"`)) ||
+		bytes.Contains(b, []byte(`"propuesta_ref"`)) {
+		t.Fatal("el plan nativo arrastró referencias legadas", err)
+	}
+	mezclado := p
+	mezclado.Bolsa = legado.Bolsa
+	if mezclado.Validar() == nil {
+		t.Fatal("se admitieron dos autoridades de selección")
+	}
+	alterado := p
+	alterado.BolsaNativa.ReciboRespuestaRef = ""
+	if alterado.Validar() == nil {
+		t.Fatal("se admitió aceptación sin recibo B30")
+	}
 }
 func TestPlanPersonalB2NoConvierteFechasNiFuentes(t *testing.T) {
 	p := planPersonalB2Prueba()
