@@ -813,6 +813,27 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
         puesto_codigo: "", puesto_solicitado: "", rpt_catalogo_ref: "",
         rpt_catalogo_huella_sha256: "" },
         { busquedaPuesto: codigo, puestoRPT: { mensaje: "puesto_buscando" } });
+      const centroBuscado = estado.borrador.centro_ref;
+      const categoriaBuscada = estado.borrador.categoria_ref;
+      const motivoBuscado = estado.borrador.motivo_clave;
+      const formularioVivo = () => {
+        const actual = raiz.querySelector("[data-ct-form]");
+        if (!actual) return null;
+        return { borrador: extraerBorrador(actual, false),
+          codigo: raiz.querySelector("#ct-puesto_busqueda")?.value ?? "" };
+      };
+      const sinSeleccion = (vivo, mensaje) => {
+        const requiereRPT = contexto.catalogos.necesidades.causas.find(
+          ({ clave }) => clave === vivo.borrador.motivo_clave)?.campos_permitidos.includes("puesto_codigo");
+        return estadoBase(contexto.catalogos, { ...vivo.borrador,
+          puesto_codigo: "", puesto_solicitado: requiereRPT ? "" : vivo.borrador.puesto_solicitado,
+          rpt_catalogo_ref: "", rpt_catalogo_huella_sha256: "" },
+        { busquedaPuesto: vivo.codigo, ...(mensaje ? { puestoRPT: { mensaje } } : {}) });
+      };
+      const mismaConsulta = (vivo) => vivo.codigo === codigo
+        && vivo.borrador.centro_ref === centroBuscado
+        && vivo.borrador.categoria_ref === categoriaBuscada
+        && vivo.borrador.motivo_clave === motivoBuscado;
       dibujar();
       if (!/^[A-Z0-9][A-Z0-9-]{0,63}$/u.test(codigo)) {
         estado = { ...estado, puestoRPT: { mensaje: "puesto_no_encontrado" } }; dibujar(); return;
@@ -822,31 +843,30 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
         const pagina = await clienteRPT.listar({ vista: "puestos", q: "", codigo_puesto: codigo,
           limit: 1, offset: 0 }, { signal: controlador.signal });
         if (consultaPuesto !== controlador || controlador.signal.aborted || raiz.isConnected === false) return;
-        const codigoActual = raiz.querySelector("#ct-puesto_busqueda")?.value;
-        if (codigoActual !== codigo) {
-          estado = estadoBase(contexto.catalogos,
-            extraerBorrador(raiz.querySelector("[data-ct-form]"), false),
-            { busquedaPuesto: codigoActual });
-          return;
-        }
+        const vivo = formularioVivo();
+        if (!vivo) return;
+        if (!mismaConsulta(vivo)) { estado = sinSeleccion(vivo); return; }
         const puesto = seleccionarPuestoPublicadoRPT(pagina, codigo);
-        const borradorActual = extraerBorrador(raiz.querySelector("[data-ct-form]"), false);
-        estado = puesto && puestoPerteneceAlContexto(puesto, contexto, borradorActual)
-          ? estadoBase(contexto.catalogos, { ...borradorActual,
+        estado = puesto && puestoPerteneceAlContexto(puesto, contexto, vivo.borrador)
+          ? estadoBase(contexto.catalogos, { ...vivo.borrador,
           puesto_codigo: puesto.codigo, puesto_solicitado: puesto.denominacion,
           rpt_catalogo_ref: puesto.rpt_catalogo_ref,
           rpt_catalogo_huella_sha256: puesto.rpt_catalogo_huella_sha256 },
         { busquedaPuesto: codigo, puestoRPT: { codigo, denominacion: puesto.denominacion,
           mensaje: "puesto_seleccionado" } })
-          : { ...estado, puestoRPT: { mensaje: puesto
-            ? "puesto_ambito_no_disponible" : "puesto_no_encontrado" } };
+          : sinSeleccion(vivo, puesto ? "puesto_ambito_no_disponible" : "puesto_no_encontrado");
       } catch (error) {
         if (consultaPuesto !== controlador || controlador.signal.aborted || raiz.isConnected === false) return;
-        estado = { ...estado, puestoRPT: { mensaje: error instanceof TypeError
-          ? "puesto_publicacion_pendiente" : "puesto_consulta_error" } };
+        const vivo = formularioVivo();
+        if (!vivo) return;
+        estado = sinSeleccion(vivo, mismaConsulta(vivo)
+          ? (error instanceof TypeError ? "puesto_publicacion_pendiente" : "puesto_consulta_error")
+          : "");
       } finally {
-        if (consultaPuesto === controlador) consultaPuesto = null;
-        if (raiz.isConnected !== false) { dibujar(); raiz.querySelector("#ct-puesto_busqueda")?.focus(); }
+        if (consultaPuesto === controlador) {
+          consultaPuesto = null;
+          if (raiz.isConnected !== false) { dibujar(); raiz.querySelector("#ct-puesto_busqueda")?.focus(); }
+        }
       }
       return;
     }

@@ -13,6 +13,7 @@ import {
   registrarAltaRRHH,
   prepararNecesidadesPeticionesCentro,
   puestoPerteneceAlContexto,
+  iniciarPeticionCentro,
 } from "./peticiones-centro.js?v=20261008-alta-rpt-circular-v6";
 
 const catalogos = {
@@ -26,7 +27,7 @@ const catalogos = {
 const contexto = { actor: { referencia: "actor:sintetico:001", nombre: "Persona de prueba", cargo: "Cargo sintético", centro: "Centro sintético", puede_presentar: true, puede_ratificar: false }, catalogos };
 const peticion = { referencia: "peticion:centro:001", version: 1, estado: "pendiente_ratificacion", configuracion: { solicitante: { actor_ref: "actor:sintetico:001", puesto_ref: "puesto:sintetico:001" } }, solicitud: { centro_ref: "cen_sintetico_001", categoria_ref: "cat_sintetica_001", grupo_subgrupo: "C2", motivo_clave: "sustitucion", detalle: "Necesidad sintética", periodo: { inicio: "2026-09-01T00:00:00Z", fin: "2026-09-30T00:00:00Z" } }, creada_en: "2026-09-06T08:00:00Z" };
 
-test("la petición nueva envía la elección de necesidad y conserva el readback ratificable", async () => {
+test("la petición nueva envía la elección de necesidad y conserva el readback ratificable", async (t) => {
   const huella = "a".repeat(64);
   const rpt = "b".repeat(64);
   const baseCausa = (clave, campos, fecha_fin = "obligatoria", extra = {}) => ({
@@ -91,6 +92,55 @@ test("la petición nueva envía la elección de necesidad y conserva el readback
       tipo_mensaje: "informacion" } });
   assert.match(formulario, /name="puesto_solicitado" type="text"/);
   assert.doesNotMatch(formulario, /name="puesto_busqueda"/);
+
+  await t.test("un fallo RPT tardío conserva los cambios escritos mientras se consultaba", async () => {
+    const anteriorFetch = globalThis.fetch;
+    const anteriorFormData = globalThis.FormData;
+    let rechazarRPT;
+    globalThis.fetch = () => new Promise((_resolver, rechazar) => { rechazarRPT = rechazar; });
+    globalThis.FormData = class {
+      constructor(form) { this.valores = form.valores; }
+      get(campo) { return this.valores[campo] ?? null; }
+      getAll(campo) { return this.valores[campo] ?? []; }
+    };
+    const oyentes = new Map();
+    const formularioVivo = { valores: { ...borrador, puesto_codigo: "", puesto_solicitado: "",
+      rpt_catalogo_ref: "", rpt_catalogo_huella_sha256: "", jornada_horas: "37:30",
+      rc_existe: "no" },
+    querySelector(selector) { return ["puesto_solicitado", "puesto_codigo", "jornada_horas"]
+      .some((campo) => selector === `[name="${campo}"]`) ? {} : null; } };
+    const busqueda = { value: "P-217", focus() {} };
+    const raiz = { innerHTML: "", isConnected: true, setAttribute() {}, querySelectorAll() { return []; },
+      insertAdjacentHTML(_posicion, html) { this.innerHTML = html + this.innerHTML; },
+      addEventListener(tipo, fn) { oyentes.set(tipo, fn); },
+      querySelector(selector) {
+        if (selector === "#ct-puesto_busqueda") return busqueda;
+        if (selector === "[data-ct-form]") return this.innerHTML.includes("data-ct-form") ? formularioVivo : null;
+        return null;
+      },
+      async pulsar(dataset) { await oyentes.get("click")({ target: { closest: () => ({ dataset }) },
+        preventDefault() {} }); },
+    };
+    try {
+      await iniciarPeticionCentro({ raiz, cliente: async (ruta) => ruta.endsWith("/contexto")
+        ? { ...contexto, catalogos: datos, vinculos_rpt: { categorias: [], centros: [] } }
+        : { peticiones: [] } });
+      await raiz.pulsar({ accion: "nueva" });
+      const pendiente = raiz.pulsar({ ctAccion: "buscar-puesto" });
+      await new Promise((resolver) => setImmediate(resolver));
+      assert.equal(typeof rechazarRPT, "function");
+      formularioVivo.valores.detalle = "Dato escrito durante la consulta RPT.";
+      formularioVivo.valores.observaciones = "Observación escrita mientras esperaba.";
+      rechazarRPT(new Error("sin conexión"));
+      await pendiente;
+      assert.match(raiz.innerHTML, /Dato escrito durante la consulta RPT/u);
+      assert.match(raiz.innerHTML, /Observación escrita mientras esperaba/u);
+      assert.match(raiz.innerHTML, /No se pudo consultar la RPT/u);
+    } finally {
+      globalThis.fetch = anteriorFetch;
+      globalThis.FormData = anteriorFormData;
+    }
+  });
 });
 
 test("un rechazo expreso de la necesidad no se trata como resultado incierto", async () => {
