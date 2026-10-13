@@ -220,6 +220,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
+		postgrescontratacion.AudienciaConsultaCircuitoRRHH,
 		// Descarga de borradores de la consulta de detalle (AD199/CT177).
 		ports.AudienciaConsumoDescargaBorradorRRHHV3,
 		ports.AudienciaVincularEmisionBolsa,
