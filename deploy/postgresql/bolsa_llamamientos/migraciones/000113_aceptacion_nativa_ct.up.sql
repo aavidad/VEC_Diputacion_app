@@ -239,8 +239,9 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_aceptacion_nativa_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_aceptacion_nativa_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_ejecutor;
 
--- Puerto entre propietarios. CT lo invoca únicamente después de consumir su
--- ACT V3 en la misma TX. No hay concesión a LOGIN ni lector global de Bolsa.
+-- Puerto entre propietarios: CT lo invoca tras su ACT V3; el propietario
+-- Bolsa lo reutiliza internamente desde B115 tras el ACT propio. No hay
+-- concesión a LOGIN ni lector global de Bolsa.
 CREATE FUNCTION vec_bolsa_llamamientos.verificar_aceptacion_nativa_ct_para_ct_v1(p_selector jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $v$
@@ -249,7 +250,8 @@ DECLARE o record; l record; r record; total bigint; persona_ctx jsonb; anclaje j
   'categoria_ref','necesidad_ref','bolsa_ref','llamamiento_ref','recibo_emision_ref','recibo_respuesta_ref'];
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
-    OR NOT pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+    OR NOT (pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+       OR pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER'))
     OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
     OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
     OR pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
