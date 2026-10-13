@@ -476,6 +476,9 @@ que se exige; el estado de cada uno está en su plan de módulo.
 
 ### 9.2 Contratación temporal
 
+Para la presentación vale el caso de aceptación de `FLUJO_APP.md`, apartado 4.0,
+que empieza con la inscripción del aspirante y termina con su cese.
+
 El circuito lo describió RRHH (`docs/estudio_requisitos/decisiones_rrhh_2026-10-02.md`
 y la especificación de julio, hoy en `docs/producto/FLUJO_APP.md`, apartado 4.3):
 
