@@ -52,6 +52,7 @@ type fachadaIncorporacionPersonalB2 struct {
 	personal        consumidorEfectivoPersonalB2
 	autoridad       *autoridadIncorporacionPersonalB2
 	fuentes         *fuentesIncorporacionPersonalB2
+	efectosNativos  *efectosBolsaNativosB115
 }
 
 func (f *fachadaIncorporacionPersonalB2) Consultar(ctx context.Context, exp string) (httpct.ProyeccionIncorporacionPersonalB2HTTP, error) {
@@ -200,13 +201,30 @@ func (f *fachadaIncorporacionPersonalB2) Confirmar(ctx context.Context, e httpct
 	if err != nil {
 		return cero, err
 	}
-	actor, err := f.autoridad.actor(ctx, ct.AccionConfirmarOrigenB2)
+	actualCT, err := f.autoridad.contexto(ctx, ct.AccionConfirmarOrigenB2)
 	if err != nil {
 		return cero, errorHTTPNominalB2(ctx, err)
+	}
+	actor, err := actualCT.Resultado.Contexto.Clonar()
+	if err != nil {
+		return cero, errorHTTPNominalB2(ctx, ct.ErrPlanNominalB2Denegado)
+	}
+	ligadura, err := actualCT.Vinculo.Datos()
+	if err != nil || ligadura.PrincipalID != actor.Principal.ID {
+		return cero, errorHTTPNominalB2(ctx, ct.ErrPlanNominalB2Denegado)
 	}
 	o, err := f.ct.ConfirmarOrigenIncorporacionB2(ctx, ct.ConfirmacionOrigenIncorporacionB2{OrganizacionRef: f.organizacionRef, UnidadCTRef: c.Material.UnidadCTRef, ExpedienteRef: e.ExpedienteRef, PlanRef: c.PlanRef, PlanVersion: c.PlanVersion, PlanSHA256: c.PlanSHA256, Hechos: hechos}, actor)
 	if err != nil {
 		return cero, errorHTTPNominalB2(ctx, err)
+	}
+	if !c.Material.BolsaNativa.IsZero() {
+		if f.efectosNativos == nil {
+			return cero, errorHTTPNominalB2(ctx, ct.ErrPlanNominalB2NoDisponible)
+		}
+		original, _ := ctx.Value(claveContextoCTOriginalB115{}).(context.Context)
+		if err := f.efectosNativos.confirmarAlta(ctx, original, c, o, actualCT); err != nil {
+			return cero, errorHTTPNominalB2(ctx, errors.Join(ct.ErrPlanNominalB2NoDisponible, err))
+		}
 	}
 	return reciboHTTPIncorporacionB2(o), nil
 }
@@ -258,13 +276,18 @@ func errorHTTPNominalB2(ctx context.Context, e error) error {
 
 type rutaPeticionIncorporacionB2 struct{ metodo, ruta string }
 type claveRutaPeticionIncorporacionB2 struct{}
+type claveContextoCTOriginalB115 struct{}
 
 func ligarContextoIncorporacionPersonalB2(h http.Handler, soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		original := r.Context()
 		previo := rutaPeticionIncorporacionB2{r.Method, r.URL.Path}
 		_, lecturaPersonal := accionConsultaRegistroPersonalB2(previo.ruta, previo.metodo)
 		if lecturaPersonal || ((previo.ruta == httpct.RutaPlanB2 || previo.ruta == httpct.RutaVinculoCategoriaRPTB2 || previo.ruta == httpapi.RutaCatalogosRegistroEmpleadoB2) && (previo.metodo == http.MethodGet || previo.metodo == http.MethodPost)) || (previo.ruta == httpct.RutaConfirmacionB2 && previo.metodo == http.MethodPost) || (previo.ruta == httpct.RutaCategoriasRPTB2 && previo.metodo == http.MethodGet) || (previo.ruta == rutaCatalogosRegistroEmpleadoB2 && previo.metodo == http.MethodPost) {
 			if ctx, ok := contextoNominalIncorporacionPersonalB2(r.Context(), soporte, fronteras, previo); ok {
+				if previo.metodo == http.MethodPost && previo.ruta == httpct.RutaConfirmacionB2 {
+					ctx = context.WithValue(ctx, claveContextoCTOriginalB115{}, original)
+				}
 				r = r.WithContext(ctx)
 			}
 		}
@@ -297,9 +320,11 @@ func (a *autoridadIncorporacionPersonalB2) ResolverContextoIncorporacionEjercici
 var _ httpct.EjecutorIncorporacionPersonalB2 = (*fachadaIncorporacionPersonalB2)(nil)
 
 type montajeIncorporacionPersonalB2 struct {
-	fachada          *fachadaIncorporacionPersonalB2
-	autoridad        *autoridadIncorporacionPersonalB2
-	aceptacionNativa bp.ConsultaAceptacionNativaCT
+	fachada             *fachadaIncorporacionPersonalB2
+	autoridad           *autoridadIncorporacionPersonalB2
+	aceptacionNativa    bp.ConsultaAceptacionNativaCT
+	efectosBolsaNativos *efectosBolsaNativosB115
+	finCeseMontado      *finCesePersonalB2Desarrollo
 	// cese es nil si la configuración no fija cese_fecha_efecto.
 	cese       *inc.CesePersonalB2
 	vinculo    *fachadaVinculoCategoriaRPTB2
@@ -311,6 +336,21 @@ type montajeIncorporacionPersonalB2 struct {
 	// retirar entradas del catálogo de registro de empleado.
 	gobiernoCatalogo *apppersonal.ServicioCatalogosRegistroEmpleadoB2
 	cerrar           func()
+}
+
+func (m *montajeIncorporacionPersonalB2) configurarEfectosBolsaNativosB115(e *efectosBolsaNativosB115) error {
+	if m == nil || m.fachada == nil || e == nil || m.efectosBolsaNativos != nil ||
+		dependenciaBootstrapNula(e.alta) || dependenciaBootstrapNula(e.cese) ||
+		dependenciaBootstrapNula(e.anclaje) || e.actorAnclaje == nil || e.actorSituacion == nil ||
+		!core.ReferenciaMotivoAutorizacionV2Valida(e.motivo) {
+		return ct.ErrComposicionIncorporacionAplicacion
+	}
+	m.efectosBolsaNativos = e
+	m.fachada.efectosNativos = e
+	if m.finCeseMontado != nil {
+		m.finCeseMontado.efectos = e
+	}
+	return nil
 }
 
 // Las dos consultas B113 comparten servicio, pero cada una conserva motivo,

@@ -17,6 +17,7 @@ import (
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
+	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/catalogoalta"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -1260,6 +1261,50 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 					fuenteRPT, reglasLlamamiento, reloj.Ahora, resolverPuesto)); err != nil {
 					return nil, nil, nil, err
 				}
+			}
+		}
+		if len(incorporacion) == 1 && incorporacion[0].nominales != nil &&
+			incorporacion[0].nominales.montajeB2 != nil {
+			b2 := incorporacion[0].nominales.montajeB2
+			bolsa, ok := manejadorSituacion.(*manejadorParticipacionBolsaDesarrollo)
+			if !ok || bolsa == nil || bolsa.preparador == nil || bolsa.servicioSituacion == nil ||
+				alta.postgresql.bolsa == nil || b2.autoridad == nil ||
+				dependenciaEsNulaContratacionTemporalDesarrollo(b2.aceptacionNativa) {
+				return nil, nil, nil, ports.ErrIntegracionBolsaNoDisponible
+			}
+			if operacionNativa == nil {
+				operacionNativa, err = nuevaOperacionBolsaNativaCT(bolsa, alta.soporte, catalogoFronteras, reloj)
+				if err != nil {
+					return nil, nil, nil, err
+				}
+			}
+			repoAlta, err := postgresbolsa.NuevoRepositorioAltaNativaCTPostgreSQL(alta.postgresql.bolsa)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			repoCese, err := postgresbolsa.NuevoRepositorioCeseNativoCTPostgreSQL(alta.postgresql.bolsa)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			altaNativa, err := aplicacionbolsa.NuevoServicioAltaNativaCT(operacionNativa.servicio, repoAlta)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			ceseNativo, err := aplicacionbolsa.NuevoServicioCeseNativoCT(operacionNativa.servicio, repoCese)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			efectos := &efectosBolsaNativosB115{anclaje: b2.aceptacionNativa,
+				alta: altaNativa, cese: ceseNativo,
+				actorAnclaje: func(ctx context.Context) (puertosbolsa.ActorConfiablePersonaAceptacionCT, error) {
+					actual, err := b2.autoridad.contexto(ctx, puertosbolsa.AccionConsultaAnclajeAceptacionNativaCT)
+					return puertosbolsa.ActorConfiablePersonaAceptacionCT{Vinculo: actual.Vinculo, Resultado: actual.Resultado}, err
+				},
+				actorSituacion: operacionNativa.Contexto,
+				motivo:         motivoCambiarSituacionParticipacionBolsaDesarrollo(),
+			}
+			if err := b2.configurarEfectosBolsaNativosB115(efectos); err != nil {
+				return nil, nil, nil, err
 			}
 		}
 	}

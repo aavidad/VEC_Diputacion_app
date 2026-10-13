@@ -734,6 +734,13 @@ func operacionPermitidaEnRutaIncorporacionB2(ctx context.Context, accion string)
 		switch accion {
 		case ct.AccionConsultarDetalleRRHH, ct.AccionLeerPlanNominalB2, personal.AccionFichaEmpleadoB2, personal.AccionHechoEmpleadoB2:
 			return ruta.metodo == "POST"
+		case bp.AccionConsultaAnclajeAceptacionNativaCT:
+			anclaje, ok := ctx.Value(claveAnclajeNativoCeseB115{}).(anclajeNativoCeseB115)
+			return ruta.metodo == "POST" && ok &&
+				ct.ReciboOrigenIncorporacionPersonalB2(anclaje.incorporacion) &&
+				anclaje.recibo.ValidoPara(ct.OperacionRegistrarCese,
+					anclaje.recibo.OrganizacionRef, anclaje.recibo.ExpedienteRef,
+					anclaje.recibo.VersionAnterior)
 		}
 		return false
 	}
