@@ -277,30 +277,52 @@ type inscripcionRRHHDesarrollo struct {
 // gestión de RRHH y el material V3 de decidir e incorporar.
 func nuevaInscripcionRRHHDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo,
 	material materialInscripcionRRHHDesarrollo,
-) (*inscripcionRRHHDesarrollo, error) {
+) (resultado *inscripcionRRHHDesarrollo, err error) {
+	fase := "selector"
+	defer func() {
+		if err != nil {
+			err = marcarFalloComponenteArranque("inscripcion_rrhh_"+fase, err)
+		}
+	}()
 	activo, err := cfg.BolsaInscripcionesInternoActivo()
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
 	if !activo {
 		return nil, nil
 	}
+	fase = "resolvedor"
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
-	if !ok || identidad == nil || derivador == nil || !derivador.valido() || material.revisar == nil || material.incorporar == nil {
+	if !ok || identidad == nil {
 		return nil, errMontajeInscripcionBolsa
 	}
+	fase = "idempotencia"
+	if derivador == nil || !derivador.valido() {
+		return nil, errMontajeInscripcionBolsa
+	}
+	fase = "material_revisar"
+	if material.revisar == nil {
+		return nil, errMontajeInscripcionBolsa
+	}
+	fase = "material_incorporar"
+	if material.incorporar == nil {
+		return nil, errMontajeInscripcionBolsa
+	}
+	fase = "fichero_privado"
 	c, err := cargarConfiguracionInscripcionRRHHDesarrollo(cfg)
 	if err != nil {
 		return nil, err
 	}
 	cuentas := c.Cuentas
+	fase = "cuentas_lectores"
 	rrhh, err := cuentasRRHHInscripcionDesarrollo(identidad, cuentas)
 	if err != nil {
 		return nil, err
 	}
+	fase = "dsn_lector"
 	dsnLector, err := cfg.DSNBolsaInscripcionesLectorRRHHSeparado()
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancelar()
@@ -317,69 +339,83 @@ func nuevaInscripcionRRHHDesarrollo(cfg config.Config, resolvedor vechttp.DemoId
 		{c.DSNContexto, "vec_contexto_actor_v1_runtime"}, {c.DSNFuenteAutorizacion, "vec_autorizacion_fuente"},
 		{c.DSNRegistroAutorizacion, "vec_autorizacion_registro"}, {c.DSNMotivos, "vec_autorizacion_motivos_evaluador"},
 	} {
+		fase = "pool_" + entrada.rol
 		pool, usuario, err := abrirPoolRutasDietas(ctx, entrada.dsn, entrada.rol)
 		if err != nil {
-			return nil, errMontajeInscripcionBolsa
+			return nil, errors.Join(errMontajeInscripcionBolsa, err)
 		}
 		cierre.pools = append(cierre.pools, pool)
 		if usuarios[usuario] {
+			fase = "login_repetido"
 			return nil, errMontajeInscripcionBolsa
 		}
 		usuarios[usuario] = true
 	}
+	fase = "ejecutor_bolsa"
 	ejecutor, err := abrirEjecutorInternoInscripcionBolsa(ctx, cfg.ContratacionTemporalPostgreSQL)
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
 	cierre.pools = append(cierre.pools, ejecutor)
+	fase = "lector_bolsa"
 	lector, err := abrirLectorInscripcionBolsa(ctx, dsnLector, lectorInscripcionRRHH)
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
 	cierre.pools = append(cierre.pools, lector)
 	p := cierre.pools
+	fase = "registro_sesiones"
 	registroSesiones, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, p[0], p[1], &seudonimizadorSesionDesarrollo{derivador: derivador},
 		espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "revalidador"
 	revalidador, err := identidadpg.NuevoRevalidadorAutenticacionActorPostgreSQL(ctx, p[1])
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "resolutor_contexto"
 	resolutor, err := contextopg.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx, p[2])
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
 	relojBase := relojRutasDietas{}
+	fase = "servicio_contexto"
 	servicioContexto, err := vecapp.NuevoServicioContextoActorProductivoV2(resolutor, contextopg.NuevoGeneradorOperacionContextoActorV2Criptografico(), relojBase)
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "autoridad_contexto"
 	contextos, err := vecapp.NuevaAutoridadContextoActorRegistradoV2(servicioContexto)
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "fuente_autorizacion"
 	fuente, err := vecpg.NuevoAlmacenAutorizacion(p[3])
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "registro_autorizacion"
 	registroAutorizacion, err := vecpg.NuevoAlmacenAutorizacion(p[4])
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "motivos"
 	motivos, err := vecpg.NuevoValidadorReferenciaMotivoPostgreSQLV2(p[5], c.Motivos.Decidir.CatalogoID)
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "pdp"
 	pdp, err := vecapp.NuevoServicioAutorizacionSolicitudLigadaV3(fuente, registroAutorizacion, registroAutorizacion, motivos, relojBase,
 		seguridad.GeneradorReferenciasCriptograficas{}, vecapp.ConfiguracionServicioAutorizacion{VigenciaDecision: 30 * time.Second})
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "nonce"
 	nonce, err := nonceRutasDietas()
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
 	porHuella := map[string]cuentaRutasDietasDesarrollo{}
 	for _, cuenta := range cuentas {
@@ -387,22 +423,26 @@ func nuevaInscripcionRRHHDesarrollo(cfg config.Config, resolvedor vechttp.DemoId
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: porHuella, registro: registroSesiones,
 		revalidador: revalidador, contextos: contextos, reloj: relojBase, instancia: nonce}
+	fase = "sesion_rrhh"
 	sesion, err := nuevaSesionInternaInscripcionBolsa(base, cuentas)
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
 	reloj := relojContratacionTemporalDesarrollo{}
+	fase = "ambito_rrhh"
 	ambito, err := NuevaFuenteAmbitoRRHHInscripcionPostgreSQL(lector, reloj, rrhh)
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
 	superficie := superficieInternaInscripcionBolsa
+	fase = "decisor_lecturas"
 	decisor, err := NuevoDecisorLecturaActualInscripcionPostgreSQL(p[3], ConfiguracionDecisorLecturaActualInscripcion{
 		Superficie: superficie, Reloj: reloj, Descriptores: descriptoresLecturaActualInscripcionBolsa(superficie),
 		AmbitoRRHH: ambito, RRHHNominal: rrhh})
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "autoridad_inscripcion"
 	autoridad, err := NuevaAutoridadInscripcionBolsa(ConfiguracionAutoridadInscripcionBolsa{
 		Superficie: superficie, Lectura: decisor, PDP: pdp, Motivos: motivos, Reloj: reloj, FuenteActual: decisor,
 		AmbitoRRHH: ambito, RRHHNominal: rrhh,
@@ -413,24 +453,28 @@ func nuevaInscripcionRRHHDesarrollo(cfg config.Config, resolvedor vechttp.DemoId
 		Lecturas: descriptoresLecturaInscripcionBolsa(superficie),
 	})
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "repositorio"
 	repositorio, err := postgresbolsa.NuevoRepositorioInscripcionesInternoPostgreSQL(ejecutor, lector)
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "servicio_inscripcion"
 	servicio, err := inscripcion.NuevoServicio(repositorio)
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "preparador_rrhh"
 	preparador, err := NuevoPreparadorInscripcionBolsaInterno(ConfiguracionPreparadorInscripcionBolsa{
 		RRHH: rrhh, SesionRRHH: sesion, Autoridad: autoridad, Reloj: reloj})
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	fase = "handler_rrhh"
 	manejador, err := httpinscripcion.NuevoInterno(preparador, servicio)
 	if err != nil {
-		return nil, errMontajeInscripcionBolsa
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
 	revisionMeritos, err := NuevoHandlerRevisionMeritosRRHH(preparador, servicio, lector)
 	if err != nil {

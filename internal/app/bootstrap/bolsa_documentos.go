@@ -236,18 +236,21 @@ func referenciaBolsaDocumentoAuditable(ref string) bool {
 	return true
 }
 
-func consultaDocumentosBolsaRRHH(cruda, bolsaRef string) (bolsaapp.ConsultaDocumentosBolsa, bool) {
+func consultaDocumentosBolsaRRHH(cruda, bolsaRef string) (bolsaapp.ConsultaDocumentosBolsa, error) {
 	q := bolsaapp.ConsultaDocumentosBolsa{BolsaRef: bolsaRef, Limite: 50}
 	if len(cruda) > 1024 {
-		return q, false
+		return q, bolsaapp.ErrConsultaDocumentosBolsaInvalida
 	}
 	v, err := url.ParseQuery(cruda)
-	if err != nil || len(v) > 4 {
-		return q, false
+	if err != nil {
+		return q, errors.Join(bolsaapp.ErrConsultaDocumentosBolsaInvalida, err)
+	}
+	if len(v) > 4 {
+		return q, bolsaapp.ErrConsultaDocumentosBolsaInvalida
 	}
 	for clave, valores := range v {
 		if len(valores) != 1 || valores[0] == "" || valores[0] != strings.TrimSpace(valores[0]) {
-			return q, false
+			return q, bolsaapp.ErrConsultaDocumentosBolsaInvalida
 		}
 		switch clave {
 		case "tipo":
@@ -258,16 +261,22 @@ func consultaDocumentosBolsaRRHH(cruda, bolsaRef string) (bolsaapp.ConsultaDocum
 			q.Cursor = valores[0]
 		case "limite":
 			n, e := strconv.Atoi(valores[0])
-			if e != nil || strconv.Itoa(n) != valores[0] {
-				return q, false
+			if e != nil {
+				return q, errors.Join(bolsaapp.ErrConsultaDocumentosBolsaInvalida, e)
+			}
+			if strconv.Itoa(n) != valores[0] {
+				return q, bolsaapp.ErrConsultaDocumentosBolsaInvalida
 			}
 			q.Limite = n
 		default:
-			return q, false
+			return q, bolsaapp.ErrConsultaDocumentosBolsaInvalida
 		}
 	}
-	return q, (q.Tipo == "" || q.Tipo == "constitucion") && len(q.Texto) <= 120 && q.Limite >= 1 && q.Limite <= 100 &&
-		len(q.Cursor) <= 512 && !strings.ContainsAny(q.Cursor, "/\x00\r\n")
+	if (q.Tipo != "" && q.Tipo != "constitucion") || len(q.Texto) > 120 || q.Limite < 1 || q.Limite > 100 ||
+		len(q.Cursor) > 512 || strings.ContainsAny(q.Cursor, "/\x00\r\n") {
+		return q, bolsaapp.ErrConsultaDocumentosBolsaInvalida
+	}
+	return q, nil
 }
 
 func (h *bolsasRRHHDesarrollo) responderDocumentosBolsa(w http.ResponseWriter, r *http.Request) {
@@ -314,10 +323,10 @@ func (h *bolsasRRHHDesarrollo) responderDocumentosBolsa(w http.ResponseWriter, r
 	}
 	q := bolsaapp.ConsultaDocumentosBolsa{BolsaRef: bolsaRef, Limite: 1}
 	if !descarga {
-		var valida bool
-		q, valida = consultaDocumentosBolsaRRHH(r.URL.RawQuery, bolsaRef)
-		if !valida {
-			if h.controlDocumentos.Auditar(r.Context(), bolsaRef, accion, bolsaapp.ErrConsultaDocumentosBolsaInvalida) != nil {
+		var errConsulta error
+		q, errConsulta = consultaDocumentosBolsaRRHH(r.URL.RawQuery, bolsaRef)
+		if errConsulta != nil {
+			if h.controlDocumentos.Auditar(r.Context(), bolsaRef, accion, errConsulta) != nil {
 				responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
 				return
 			}
