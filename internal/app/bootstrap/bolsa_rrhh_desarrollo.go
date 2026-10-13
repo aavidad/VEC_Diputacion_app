@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -17,6 +18,7 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 const (
@@ -79,7 +81,12 @@ type politicaOrdenRRHHDesarrollo struct {
 	Provisional                                                              bool
 }
 
+type consultorPerfilPropioBolsaRRHH interface {
+	ConsultarPerfilBolsaRRHH(context.Context) (any, error)
+}
+
 type bolsasRRHHDesarrollo struct {
+	perfilPropio      consultorPerfilPropioBolsaRRHH
 	global            cacheGlobalBolsasRRHH
 	documentos        *bolsaapplication.ServicioDocumentosBolsa
 	controlDocumentos *controlLecturaDocumentosBolsa
@@ -130,6 +137,7 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 	}
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]
+		manejador.perfilPropio, _ = mutadores[0].(consultorPerfilPropioBolsaRRHH)
 		manejador.contactos, _ = mutadores[0].(lectorContactosBolsaDesarrollo)
 		manejador.respuestasPortal, _ = mutadores[0].(lectorRespuestasPortalBolsaDesarrollo)
 		manejador.canales, _ = mutadores[0].(proveedorCanalesLlamamientoDesarrollo)
@@ -225,6 +233,27 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	if r.URL.Path == rutaAvisosBolsaRRHHDesarrollo {
 		h.responderAvisos(w, r)
+		return
+	}
+	if r.URL.Path == rutaBolsasRRHHDesarrollo && r.URL.Query().Has("perfil") {
+		if r.URL.RawQuery != "perfil=propio" || r.ContentLength != 0 {
+			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
+			return
+		}
+		if h.perfilPropio == nil {
+			responderFalloBolsaRRHHDesarrollo(w, r, "perfil_propio", ErrComposicionDesarrolloIncompleta)
+			return
+		}
+		perfil, err := h.perfilPropio.ConsultarPerfilBolsaRRHH(r.Context())
+		if err != nil {
+			if errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
+				responderBolsaRRHHDesarrollo(w, http.StatusForbidden, map[string]string{"codigo": "acceso_denegado"})
+				return
+			}
+			responderFalloBolsaRRHHDesarrollo(w, r, "perfil_propio", err)
+			return
+		}
+		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": perfil}, r.Method == http.MethodHead)
 		return
 	}
 	if r.URL.Path == rutaBolsasRRHHDesarrollo {

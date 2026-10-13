@@ -148,6 +148,25 @@ func TestValidadorMotivoCandidatoExternoSeleccionaFachadaNominal(t *testing.T) {
 	}
 }
 
+func TestValidadorMotivoMeritosExternoSeleccionaFachadaNominal(t *testing.T) {
+	referencia := referenciaMotivoAutorizacionV2PostgreSQLPrueba()
+	instante := time.Date(2026, time.July, 17, 9, 8, 7, 654_321_000, time.UTC)
+	consultor := &consultorMotivoAutorizacionV2PostgreSQLPrueba{consultar: func(_ context.Context, sql string, _ ...any) pgx.Row {
+		if sql != consultaResolverMotivoMeritosExternoV2 {
+			t.Fatalf("consulta: %s", sql)
+		}
+		return filaMotivoAutorizacionV2PostgreSQLPrueba{resuelta: true}
+	}}
+	v, err := nuevoValidadorReferenciaMotivoPostgreSQLV2(consultor, referencia.CatalogoID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v.meritosExterno = true
+	if err = v.ValidarReferenciaMotivoAutorizacionV2(context.Background(), referencia, instante); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestValidadorMotivoAutorizacionV2PostgreSQLFallaCerradoAnteFalseYNoRows(t *testing.T) {
 	t.Parallel()
 	casos := []struct {

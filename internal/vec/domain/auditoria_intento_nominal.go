@@ -52,13 +52,17 @@ func resultadoIntentoAuditoriaValido(d DatosIntentoAuditoria) bool {
 		return true
 	case ResultadoIntentoAuditoriaExito:
 		return d.ModuloID == "bolsa" &&
-			d.FinalidadRef == "gestion_bolsa_rrhh" &&
 			d.Proceso == "vec-rrhh" &&
 			d.Canal == "interna_corporativa" &&
 			strings.HasPrefix(d.RecursoRef, "bolsa:") &&
 			len(d.RecursoRef) > len("bolsa:") &&
-			(d.Accion == "lectura_bolsas_rrhh_consultar" ||
-				d.Accion == "lectura_bolsas_rrhh_descargar_recibo")
+			((d.FinalidadRef == "gestion_bolsa_rrhh" &&
+				(d.Accion == "lectura_bolsas_rrhh_consultar" ||
+					d.Accion == "lectura_bolsas_rrhh_descargar_recibo")) ||
+				(d.FinalidadRef == "gestionar_contratacion_temporal" &&
+					d.Accion == "bolsa.origen_ct.consultar") ||
+				(d.FinalidadRef == "consulta_configuracion_bolsa_rrhh" && d.Accion == "bolsa.configuracion.consultar" &&
+					strings.HasPrefix(d.RecursoRef, "bolsa:perfil:") && huellaAcuseIntentoAuditoriaValida(strings.TrimPrefix(d.RecursoRef, "bolsa:perfil:"))))
 	default:
 		return false
 	}
