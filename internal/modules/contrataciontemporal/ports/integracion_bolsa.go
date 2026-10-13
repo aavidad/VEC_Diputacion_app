@@ -67,16 +67,16 @@ type EvidenciaNominalIntegracionBolsa struct {
 	RetenerHasta         time.Time `json:"retener_hasta"`
 }
 
-func (e EvidenciaNominalIntegracionBolsa) validarSintaxis(dominio string) bool {
+func (e EvidenciaNominalIntegracionBolsa) validarSintaxis(dominio string, sinRetencionDeclarada bool) bool {
 	referencia, _, valida := descomponerSelloHMACBolsa(e.SelloHMAC, dominio)
 	return domain.ReferenciaOpacaValida(e.EvidenciaRef) &&
 		referencia == e.ClaveVerificacionRef && valida &&
 		instanteBolsaCanonico(e.EmitidaEn) &&
 		instanteBolsaCanonico(e.ValidaHasta) &&
-		instanteBolsaCanonico(e.RetenerHasta) &&
 		e.ValidaHasta.After(e.EmitidaEn) &&
 		e.ValidaHasta.Sub(e.EmitidaEn) <= VigenciaMaximaPeticionIntegracionBolsa &&
-		e.RetenerHasta.After(e.ValidaHasta)
+		((sinRetencionDeclarada && e.RetenerHasta.IsZero()) ||
+			(!sinRetencionDeclarada && instanteBolsaCanonico(e.RetenerHasta) && e.RetenerHasta.After(e.ValidaHasta)))
 }
 
 // ProcedenciaIntegracionBolsa no acredita por sí sola a Bolsa. La autoridad
@@ -87,6 +87,12 @@ type ProcedenciaIntegracionBolsa struct {
 	ContratoVersion uint64                               `json:"contrato_version"`
 	Fuente          ReferenciaVersionadaIntegracionBolsa `json:"fuente"`
 	Evidencia       EvidenciaNominalIntegracionBolsa     `json:"evidencia"`
+	// Sólo el circuito constituido B7 puede usar una prueba sin fecha de
+	// retención declarada; la marca queda cubierta por el HMAC del recibo.
+	SinRetencionDeclarada bool `json:"sin_retencion_declarada,omitempty"`
+	// La lectura constituida conserva el estado real de la política B6. En el
+	// canon nativo se firma también false; los recibos legados no cambian.
+	PoliticaProvisional bool `json:"politica_provisional,omitempty"`
 }
 
 func (p ProcedenciaIntegracionBolsa) validarNominalEn(instante time.Time) bool {
@@ -99,7 +105,8 @@ func (p ProcedenciaIntegracionBolsa) validarNominal() bool {
 		domain.ReferenciaOpacaValida(p.RespuestaRef) &&
 		p.ContratoVersion == VersionContratoIntegracionBolsa &&
 		p.Fuente.Validar() == nil &&
-		p.Evidencia.validarSintaxis(dominioSelloRespuestaBolsa)
+		p.Evidencia.validarSintaxis(dominioSelloRespuestaBolsa, p.SinRetencionDeclarada) &&
+		(p.SinRetencionDeclarada || !p.PoliticaProvisional)
 }
 
 func enteroSeguroBolsa(valor uint64) bool {

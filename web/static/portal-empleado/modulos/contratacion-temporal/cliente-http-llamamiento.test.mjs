@@ -32,6 +32,19 @@ const RECIBO = {
   organizacion_ref: "organizacion:sintetica:001", llamamiento_ref: "llamamiento:sintetico:001",
   version_llamamiento: 1,
 };
+
+test("recibo de selección admite solo el booleano opcional de política provisional", () => {
+  assert.equal(Object.hasOwn(validarReciboSeleccionLlamamiento(RECIBO), "politica_provisional"), false);
+  for (const valor of [false, true]) {
+    assert.equal(validarReciboSeleccionLlamamiento({ ...RECIBO, politica_provisional: valor })
+      .politica_provisional, valor);
+  }
+  for (const valor of [null, 0, "false", {}]) {
+    assert.throws(() => validarReciboSeleccionLlamamiento({ ...RECIBO, politica_provisional: valor }), TypeError);
+  }
+  assert.throws(() => validarReciboSeleccionLlamamiento({ ...RECIBO, politica_provisional: true,
+    aprobada: true }), TypeError);
+});
 const REGISTRO = {
   esquema: "vec.contratacion-temporal.registro-comunicacion-llamamiento.v1",
   estado_local: "confirmado", comunicacion_ref: "comunicacion:sintetica:001",

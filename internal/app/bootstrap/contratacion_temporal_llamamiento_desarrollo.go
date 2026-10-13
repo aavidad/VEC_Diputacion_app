@@ -16,6 +16,7 @@ import (
 
 type ejecutorSeleccionLlamamientoDesarrollo struct {
 	soporte     *soporteAltaContratacionTemporalDesarrollo
+	puente      *puenteBolsaLlamamientoDesarrollo
 	lector      ports.LectorExpedienteSeleccionLlamamiento
 	autorizador *autorizadorLlamamientoDesarrollo
 	preparar    func(ports.ExpedienteParaSeleccion, string) (preparacionLlamamientoDesarrollo, error)
@@ -62,7 +63,7 @@ func nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg config.Conf
 		return nil, nil, err
 	}
 	seleccion := &ejecutorSeleccionLlamamientoDesarrollo{
-		soporte: alta.soporte, lector: lector, preparar: prepararReferenciasLlamamientoDesarrollo, servicio: servicio,
+		soporte: alta.soporte, puente: puente, lector: lector, preparar: prepararReferenciasLlamamientoDesarrollo, servicio: servicio,
 		autorizador: &autorizadorLlamamientoDesarrollo{alta: alta, material: alta.postgresql.proveedorMaterialBolsa},
 	}
 	comunicacion, err := nuevoEjecutorComunicacionLlamamientoDesarrollo(cfg, alta.postgresql.ejecucion, alta,
@@ -126,6 +127,12 @@ func (e *ejecutorSeleccionLlamamientoDesarrollo) SeleccionarYLlamarParaAdaptador
 	if err := e.autorizador.exigirLecturaSeleccion(ctx, expediente); err != nil {
 		return vacio, err
 	}
+	ctx = context.WithValue(ctx, claveEstadoOrigenConstituidoCT{}, &estadoOrigenConstituidoCT{
+		organizacion: expediente.Fiscalizado.OrganizacionRef,
+		expediente:   expediente.Fiscalizado.Referencia,
+		version:      expediente.Fiscalizado.Version,
+		clave:        solicitud.ClaveIdempotencia,
+	})
 	// El servicio conserva la recuperación terminal existente. El proveedor
 	// rechaza efectos nuevos sobre versiones históricas; el replay sigue ligado
 	// al mismo expediente, intención y actor autorizado en esta petición.

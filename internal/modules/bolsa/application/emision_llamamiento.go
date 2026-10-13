@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -26,7 +28,18 @@ type ServicioEmisionLlamamiento struct {
 	// origenes es opcional: sin él no se avisa del contacto no confirmado.
 	origenes puertosbolsa.FuenteOrigenContactoParticipacion
 	// avisador decide el correo de cada aviso (B59 opcional) y lo envía.
-	avisador *AvisadorLlamamiento
+	avisador         *AvisadorLlamamiento
+	derivadorTokenCT puertosbolsa.DerivadorTokenFinalizacionCT
+}
+
+// EstablecerDerivadorTokenFinalizacionCT inyecta el secreto persistente por su
+// autoridad privada antes de atender solicitudes CT. No afecta a B7 ordinaria.
+func (s *ServicioEmisionLlamamiento) EstablecerDerivadorTokenFinalizacionCT(d puertosbolsa.DerivadorTokenFinalizacionCT) error {
+	if s == nil || d == nil || s.derivadorTokenCT != nil {
+		return puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	}
+	s.derivadorTokenCT = d
+	return nil
 }
 
 // CorreoPersonalizadoLlamamiento agrupa el catálogo del correo, la fuente de
@@ -83,6 +96,15 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 	h := sha256.Sum256([]byte(q.BolsaRef + "\x1f" + q.ClaveIdempotencia))
 	sufijo := hex.EncodeToString(h[:])
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
+	// Resuelve también la versión privada de un replay CT antes de componer
+	// correos: si esa dependencia cae, aún podrá devolver un recibo completo
+	// ya confirmado sin cambiar el cuerpo de la intención.
+	tokenFinalizacion, origenCT, err := s.tokenFinalizacion(ctx, q, actor.PersonaRef)
+	if err != nil {
+		return puertosbolsa.EmisionLlamamiento{}, err
+	}
+	defer clear(tokenFinalizacion)
+	q.OrigenCT = origenCT
 	// Los correos se componen antes de reservar: un marcador sin dato o un texto
 	// que supera el límite se rechaza sin consumir la autorización.
 	correos, err := s.componerCorreos(ctx, q.BolsaRef, q.Participaciones, q.Configuracion, ahora)
@@ -91,13 +113,21 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 			previa.Reutilizada = true
 			return previa, nil
 		}
+		if q.OrigenCT != nil {
+			if lector, ok := s.repositorio.(puertosbolsa.LectorOrigenEmisionCT); ok {
+				if origen, readErr := lector.RecuperarOrigenEmisionCT(ctx, q.OrigenCT.ExpedienteRef, q.OrigenCT.ClaveCT); readErr == nil {
+					previa, recErr := s.repositorio.Recuperar(ctx, q.BolsaRef, q.ClaveIdempotencia)
+					previa.OrigenCT = &origen
+					if recErr == nil && mismaSolicitudEmision(previa, q) && len(previa.Contactos) == len(q.Participaciones) {
+						previa.Reutilizada = true
+						return previa, nil
+					}
+				}
+			}
+		}
 		return puertosbolsa.EmisionLlamamiento{}, err
 	}
-	tokenFinalizacion := make([]byte, 32)
-	if _, err = rand.Read(tokenFinalizacion); err != nil {
-		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoNoDisponible
-	}
-	reservada, err := s.repositorio.Reservar(ctx, puertosbolsa.ComandoEmitirLlamamiento{LlamamientoRef: "llamamiento:" + sufijo, ReciboRef: "recibo:llamamiento:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Participaciones: append([]string(nil), q.Participaciones...), Configuracion: q.Configuracion, EmitidoEn: ahora, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material, TokenFinalizacion: tokenFinalizacion})
+	reservada, err := s.repositorio.Reservar(ctx, puertosbolsa.ComandoEmitirLlamamiento{LlamamientoRef: "llamamiento:" + sufijo, ReciboRef: "recibo:llamamiento:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Participaciones: append([]string(nil), q.Participaciones...), Configuracion: q.Configuracion, EmitidoEn: ahora, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material, TokenFinalizacion: tokenFinalizacion, OrigenCT: q.OrigenCT})
 	if err != nil {
 		return puertosbolsa.EmisionLlamamiento{}, err
 	}
@@ -108,7 +138,12 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 		if len(reservada.Contactos) == len(q.Participaciones) {
 			return s.conAvisosContacto(ctx, reservada), nil
 		}
-		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+		// CT puede completar una reserva propia sin contactos con el mismo
+		// token derivado de la versión privada guardada. B7 ordinaria mantiene
+		// su denegación al perder el token aleatorio.
+		if q.OrigenCT == nil || len(reservada.Contactos) != 0 {
+			return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+		}
 	}
 	if err = s.correo.Huellas.RegistrarHuellasCuerpo(ctx, q.BolsaRef, q.ClaveIdempotencia, actor.PersonaRef, tokenFinalizacion, huellasCorreos(q.Participaciones, correos)); err != nil {
 		return puertosbolsa.EmisionLlamamiento{}, err
@@ -130,7 +165,51 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 	if err != nil {
 		return emitido, err
 	}
+	emitido.OrigenCT = reservada.OrigenCT
 	return s.conAvisosContacto(ctx, emitido), nil
+}
+
+func (s *ServicioEmisionLlamamiento) tokenFinalizacion(ctx context.Context, q puertosbolsa.SolicitudEmitirLlamamiento, actor string) ([]byte, *puertosbolsa.OrigenEmisionCT, error) {
+	if q.OrigenCT == nil {
+		token := make([]byte, 32)
+		if _, err := rand.Read(token); err != nil {
+			return nil, nil, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+		}
+		return token, nil, nil
+	}
+	lector, ok := s.repositorio.(puertosbolsa.LectorOrigenEmisionCT)
+	if !ok || s.derivadorTokenCT == nil {
+		return nil, nil, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	}
+	origen := *q.OrigenCT
+	origen.VersionToken = ""
+	canon, err := json.Marshal(origen)
+	if err != nil {
+		return nil, nil, puertosbolsa.ErrEmisionLlamamientoInvalida
+	}
+	huella := sha256.Sum256(canon)
+	version := ""
+	previo, err := lector.RecuperarOrigenEmisionCT(ctx, origen.ExpedienteRef, origen.ClaveCT)
+	switch {
+	case err == nil:
+		if previo.BolsaRef != q.BolsaRef || previo.LlamamientoRef == "" || previo.VersionToken == "" {
+			return nil, nil, puertosbolsa.ErrEmisionLlamamientoConflicto
+		}
+		version = previo.VersionToken
+	case errors.Is(err, puertosbolsa.ErrOrigenLlamamientoCTNoEncontrado):
+		// Primera reserva: el derivador elige la versión actual persistente.
+	default:
+		return nil, nil, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	}
+	token, versionUsada, err := s.derivadorTokenCT.DerivarTokenFinalizacionCT(ctx,
+		puertosbolsa.DatosDerivacionTokenFinalizacionCT{BolsaRef: q.BolsaRef,
+			ClaveB7: q.ClaveIdempotencia, ActorRef: actor,
+			HuellaOrigenSHA256: hex.EncodeToString(huella[:]), VersionClave: version})
+	if err != nil || len(token) != 32 || versionUsada == "" || (version != "" && versionUsada != version) {
+		return nil, nil, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	}
+	origen.VersionToken = versionUsada
+	return token, &origen, nil
 }
 
 func (s *ServicioEmisionLlamamiento) RecuperarLlamamiento(ctx context.Context, q puertosbolsa.SolicitudRecuperarLlamamiento) (puertosbolsa.EmisionLlamamiento, error) {
@@ -174,6 +253,10 @@ func mismaSolicitudEmision(previa puertosbolsa.EmisionLlamamiento, q puertosbols
 	if previa.BolsaRef != q.BolsaRef || previa.Configuracion != q.Configuracion || len(previa.Participaciones) != len(q.Participaciones) {
 		return false
 	}
+	if q.OrigenCT != nil && (previa.OrigenCT == nil || !reflect.DeepEqual(previa.OrigenCT.OrigenEmisionCT, *q.OrigenCT) ||
+		previa.OrigenCT.LlamamientoRef != previa.LlamamientoRef || previa.OrigenCT.ReciboRef != previa.ReciboRef) {
+		return false
+	}
 	for i := range q.Participaciones {
 		if previa.Participaciones[i] != q.Participaciones[i] {
 			return false
@@ -192,6 +275,13 @@ func (s *ServicioEmisionLlamamiento) validarSolicitudEmision(q puertosbolsa.Soli
 			return puertosbolsa.ErrEmisionLlamamientoInvalida
 		}
 		vistos[p] = true
+	}
+	if q.OrigenCT != nil && (q.OrigenCT.BolsaRef != q.BolsaRef || len(q.Participaciones) != 1 ||
+		q.Participaciones[0] != q.OrigenCT.ParticipacionRef || q.OrigenCT.CandidatoRef == "" ||
+		q.OrigenCT.ExpedienteRef == "" || q.OrigenCT.ClaveCT == "" || q.OrigenCT.OrdenSeleccionado == 0 ||
+		q.OrigenCT.Lectura.BolsaRef != q.BolsaRef || q.OrigenCT.Lectura.ActaRef != q.OrigenCT.ActaRef ||
+		q.OrigenCT.Lectura.InstantaneaRef != q.OrigenCT.InstantaneaRef || q.OrigenCT.Lectura.Corte.IsZero()) {
+		return puertosbolsa.ErrEmisionLlamamientoInvalida
 	}
 	return s.validarConfiguracion(q.Configuracion)
 }
