@@ -18,6 +18,9 @@ func registrarActivosCompartidos(mux *http.ServeMux, estaticos http.Handler) {
 	mux.Handle("/comun/idioma.js", soloLecturaHTTP(estaticos))
 	mux.Handle("/comun/textos.js", soloLecturaHTTP(estaticos))
 	mux.Handle("/comun/http.js", soloLecturaHTTP(estaticos))
+	mux.Handle("/comun/alegaciones-cliente.js", soloLecturaHTTP(estaticos))
+	mux.Handle("/comun/alegaciones-vista.js", soloLecturaHTTP(estaticos))
+	mux.Handle("/comun/alegaciones.css", soloLecturaHTTP(estaticos))
 	mux.Handle("/comun/registro-errores.js", soloLecturaHTTP(estaticos))
 	// «Mis correos» (5.08b), común a RRHH y al Área personal.
 	mux.Handle("/comun/correos-propios.js", soloLecturaHTTP(estaticos))
