@@ -189,7 +189,8 @@ function nombrePeticion(peticion, contexto = null, etiquetas = null) {
   const categoria = contexto?.catalogos?.categorias?.find((v) => v.referencia === solicitud?.categoria_ref)?.etiqueta
     || etiquetas?.categorias?.[solicitud?.categoria_ref];
   const puesto = solicitud?.puesto_solicitado?.trim();
-  const base = categoria && puesto ? traducirCentro("pc_peticion_categoria_puesto", { categoria, puesto })
+  const base = categoria && puesto && categoria.trim().toLowerCase() !== puesto.toLowerCase()
+    ? traducirCentro("pc_peticion_categoria_puesto", { categoria, puesto })
     : categoria || puesto || traducirCentro("pc_peticion_necesidad");
   const cantidad = solicitud?.numero_personas;
   const necesidad = Number.isSafeInteger(cantidad) && cantidad > 0

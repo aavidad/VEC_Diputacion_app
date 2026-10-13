@@ -181,7 +181,7 @@
 464 internal/app/bootstrap/contratacion_temporal_peticion_centro_desarrollo.go
 323 internal/modules/contrataciontemporal/application/peticion_centro_test.go
 617 web/static/portal-empleado/modulos/contratacion-temporal/alta-renderer-puro.js
-991 web/static/portal-empleado/peticiones-centro/peticiones-centro.js
+992 web/static/portal-empleado/peticiones-centro/peticiones-centro.js
 598 web/static/portal-empleado/peticiones-centro/peticiones-centro.test.mjs
 334 web/static/textos/en/peticiones-centro.json
 334 web/static/textos/es/peticiones-centro.json
