@@ -17,7 +17,8 @@ import (
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
-const funcionConsultaAceptacionNativaCT = `SELECT vec_bolsa_llamamientos.consultar_aceptacion_nativa_ct_v1($1::text,$2::text,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`
+const funcionConsultaAnclajeNativaCT = `SELECT vec_bolsa_llamamientos.consultar_anclaje_aceptacion_ct_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+const funcionConsultaPersonaNativaCT = `SELECT vec_bolsa_llamamientos.consultar_persona_aceptacion_ct_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 const ajustesConsultaAceptacionNativaCT = `SELECT set_config('search_path','pg_catalog',true),set_config('row_security','on',true),set_config('timezone','UTC',true),set_config('lock_timeout','2s',true),set_config('statement_timeout','15s',true),set_config('idle_in_transaction_session_timeout','20s',true)`
 
 type RepositorioConsultaAceptacionNativaCTPostgreSQL struct {
@@ -75,13 +76,13 @@ func (r *RepositorioConsultaAceptacionNativaCTPostgreSQL) consultarUna(ctx conte
 	if _, err = tx.Exec(ctx, ajustesConsultaAceptacionNativaCT); err != nil {
 		return err
 	}
-	tipo := "anclaje"
+	consultaSQL := funcionConsultaAnclajeNativaCT
 	if persona {
-		tipo = "persona"
+		consultaSQL = funcionConsultaPersonaNativaCT
 	}
 	m := o.Material
 	var b []byte
-	err = tx.QueryRow(ctx, funcionConsultaAceptacionNativaCT, string(canon), tipo, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&b)
+	err = tx.QueryRow(ctx, consultaSQL, string(canon), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&b)
 	if err != nil {
 		return err
 	}
