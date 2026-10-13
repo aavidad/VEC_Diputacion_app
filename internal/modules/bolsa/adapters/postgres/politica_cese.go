@@ -23,6 +23,16 @@ func NuevaConsultaPoliticaCesePostgreSQL(pool *pgxpool.Pool) (*ConsultaPoliticaC
 	return &ConsultaPoliticaCesePostgreSQL{pool: pool}, nil
 }
 
+// LeerPoliticaPublicada reutiliza B45 para las lecturas con sesión vigente.
+// El llamador comprueba la concesión actual y confirma la auditoría común antes
+// de entregar el resultado. No registra ni consume otra decisión V3.
+func (c *ConsultaPoliticaCesePostgreSQL) LeerPoliticaPublicada(ctx context.Context) (domain.PoliticaCese, error) {
+	if c == nil || c.pool == nil || ctx == nil || ctx.Err() != nil {
+		return domain.PoliticaCese{}, ports.ErrConsultaPoliticaCeseNoDisponible
+	}
+	return escanearPoliticaCese(c.pool.QueryRow(ctx, `SELECT version,catalogo_ref,catalogo_sha256,mapeo,meses_general,meses_acumulacion,computo,estado,publicada_en FROM vec_bolsa_llamamientos.consultar_politica_cese_bolsa_v1()`))
+}
+
 // La función B45 valida la huella del JSONB y el LOGIN ejecutor. Este
 // adaptador vuelve a cerrar tipos y catálogo antes de entregarlos al caso de
 // uso; nunca lee la tabla ni reutiliza el catálogo B14.

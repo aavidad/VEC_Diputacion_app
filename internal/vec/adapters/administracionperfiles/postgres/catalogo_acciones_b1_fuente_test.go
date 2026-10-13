@@ -60,3 +60,28 @@ func TestFuenteContactoC3ConservaCanonYNoConcedeClaro(t *testing.T) {
 		}
 	}
 }
+
+func TestFuenteMeritosCarteraConservaCanonYAmbitoPropio(t *testing.T) {
+	ruta := filepath.Join("..", "..", "..", "..", "..", "deploy", "principal", "fuentes", "meritos_cartera_propia_v1.json")
+	b, err := os.ReadFile(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fuente fuentePaqueteCatalogoAccionesV2
+	if err := json.Unmarshal(b, &fuente); err != nil || fuente.ModuloID != "meritos" || len(fuente.Entradas) != 3 {
+		t.Fatal("fuente de cartera incompleta", err)
+	}
+	canon, huella, err := canonEntradasFuenteV2(fuente.Entradas)
+	if err != nil || string(canon) != fuente.EntradasCanon || huella != fuente.HuellaSHA256 {
+		t.Fatal("fuente de cartera divergente", err)
+	}
+	acciones := []string{"meritos.cartera.consultar_propia", "meritos.cartera.retirar_propio", "meritos.hecho.declarar"}
+	for i, entrada := range fuente.Entradas {
+		if entrada.FuenteHuellaSHA256 != huella || entrada.Concesion.Accion != acciones[i] ||
+			entrada.Concesion.ModuloID != "meritos" || entrada.Concesion.GarantiaMinima != domain.AuthAssuranceHigh ||
+			len(entrada.DimensionesAmbito) != 1 || entrada.DimensionesAmbito[0] != "persona_ref" ||
+			len(entrada.Concesion.Obligaciones) != 1 || entrada.Concesion.Obligaciones[0] != "auditar" {
+			t.Fatalf("concesión %d de cartera fuera de contrato", i)
+		}
+	}
+}
