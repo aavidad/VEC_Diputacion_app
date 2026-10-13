@@ -257,9 +257,11 @@ Una persona no ocupa dos papeles. Ratificador y solicitante son personas
 distintas, y ningún firmante firma dos pasos del mismo documento.
 
 **Puesto y bolsa.** Categoría Administrativo de la RPT publicada, con su centro
-y su puesto publicados (**pendiente: K** confirma en el canal el centro y el
-puesto exactos; el ensayo local de K usó el centro 520 y el puesto publicado 9).
-La bolsa es la de Administrativo, ya constituida y con su orden. Antonio figura
+y su puesto publicados: **centro 520, categoría Administrativo de la RPT (9),
+puesto 9/01, plaza 2026/0033**. Los datos se cargan con un guion de datos
+repetible (no con código), sin tocar los demás puestos. La bolsa es
+`bolsa:administrativo:2026-09-17` v1, ya constituida y con su orden. El alta,
+la ocupación y el cese no se precargan: se hacen en pantalla en el recorrido. Antonio figura
 en ella como disponible y en el puesto que le toca el llamamiento. Si un dato no
 cuadra, se ajusta el dato, no el código (regla 5).
 
