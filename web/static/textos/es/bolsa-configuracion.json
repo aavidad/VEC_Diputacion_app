@@ -59,6 +59,7 @@
     "bolsa_rrhh_respuestas_llamamiento_consultar": "Consultar respuestas en Mi Bolsa",
     "bolsa_carga_convoca_importar": "Importar bolsas de CONVOCA",
     "bolsa_inscripcion_decidir": "Decidir solicitudes de inscripción",
-    "bolsa_inscripcion_incorporar": "Incorporar solicitudes admitidas a la bolsa"
+    "bolsa_inscripcion_incorporar": "Incorporar solicitudes admitidas a la bolsa",
+    "bolsa_configuracion_consultar": "Consultar mi perfil y la configuración"
   }
 }

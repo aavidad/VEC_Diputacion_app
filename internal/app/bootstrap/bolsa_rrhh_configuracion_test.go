@@ -2,7 +2,12 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -48,5 +53,41 @@ func TestPerfilBolsaFuenteAusenteAuditaErrorSinEntregarDatos(t *testing.T) {
 	salida, err := m.ConsultarPerfilBolsaRRHH(ctx)
 	if salida != nil || !errors.Is(err, vecports.ErrFuenteAutorizacionNoDisponible) || registro.llamadas != 1 || registro.datos.Datos.Resultado != vecdomain.ResultadoIntentoAuditoriaError || registro.datos.ResultadoContexto.Contexto.PersonaRef != actor.Resultado.Contexto.PersonaRef {
 		t.Fatalf("fuente ausente: datos=%t error=%v asientos=%d", salida != nil, err, registro.llamadas)
+	}
+}
+
+func TestPerfilBolsaExigeConcesionPropiaYFuenteCoincideConDescriptor(t *testing.T) {
+	b, err := os.ReadFile("../../../deploy/principal/fuentes/bolsa_configuracion_rrhh_v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var f struct {
+		Referencia string                                    `json:"referencia"`
+		Huella     string                                    `json:"huella_sha256"`
+		Canon      string                                    `json:"entradas_canon"`
+		Entradas   []vecdomain.EntradaAccionAdministracionV1 `json:"entradas"`
+	}
+	if json.Unmarshal(b, &f) != nil || len(f.Entradas) != 1 || f.Entradas[0].Validar() != nil {
+		t.Fatal("fuente de configuración inválida")
+	}
+	h := sha256.Sum256([]byte(f.Canon))
+	if hex.EncodeToString(h[:]) != f.Huella || f.Entradas[0].FuenteHuellaSHA256 != f.Huella {
+		t.Fatal("huella de fuente distinta")
+	}
+	c := f.Entradas[0].Concesion
+	if c.Accion != "bolsa.configuracion.consultar" || c.TipoRecurso != "perfil_rrhh_bolsa" || !reflect.DeepEqual(c.CamposPermitidos, camposConsultaPerfilBolsaRRHH()) || !reflect.DeepEqual(c.Finalidades, []string{"consulta_configuracion_bolsa_rrhh"}) {
+		t.Fatal("fuente distinta del descriptor consumido")
+	}
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	actor, fuente := escenarioLecturaRespuestasLlamamiento(t, ahora)
+	recurso := vecdomain.RecursoAutorizable{Referencia: "bolsa:perfil:" + huellaAltaContratacionTemporalDesarrollo(actor.Resultado.Contexto.PerfilActivoRef), ModuloID: "bolsa", Tipo: c.TipoRecurso, Ambitos: map[string]string{"unidad_ref": "unidad:prueba", "ambito_ref": "ambito:prueba"}, Atributos: map[string]string{"perfil_ref": actor.Resultado.Contexto.PerfilActivoRef}}
+	negado, err := vecdomain.EvaluarLecturaActualAutorizacionV3(actor.Vinculo, actor.Resultado, fuente.i, c.Accion, recurso, c.Finalidades[0], c.CamposPermitidos, ahora)
+	if err == nil && negado.Permitido {
+		t.Fatal("la concesión de otro recurso abrió el perfil")
+	}
+	fuente.i.VersionRol.Concesiones = append(fuente.i.VersionRol.Concesiones, c)
+	concedido, err := vecdomain.EvaluarLecturaActualAutorizacionV3(actor.Vinculo, actor.Resultado, fuente.i, c.Accion, recurso, c.Finalidades[0], c.CamposPermitidos, ahora)
+	if err != nil || !concedido.Permitido || !reflect.DeepEqual(concedido.Obligaciones, []string{"auditar"}) {
+		t.Fatalf("concesión exacta rechazada: %v", err)
 	}
 }
