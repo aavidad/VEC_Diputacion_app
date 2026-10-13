@@ -44,7 +44,10 @@ los pools segregados, las dos audiencias ADMIN y el material del
    con las mismas referencias y bytes.
 
 El límite existente es 512 concesiones en la definición final y 16
-asignaciones por plan. Las entradas nuevas pertenecen a Bolsa, son ordinarias
+asignaciones por plan. También se conservan los límites de tamaño B103:
+128 KiB para el material canónico y 192 KiB para su sobre; por tanto, 512
+concesiones no garantiza que cualquier definición quepa en un solo acto.
+Las entradas nuevas pertenecen a Bolsa, son ordinarias
 y tienen exactamente las dimensiones `unidad_ref` y `ambito_ref`. Las fuentes
 del candidato externo conservan su circuito separado.
 
