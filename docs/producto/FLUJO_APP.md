@@ -232,7 +232,93 @@ En cidonia *(por verificar)*.
 
 ## 4. Recorridos de punta a punta
 
-### 4.0 Vista general
+### 4.0 Caso de aceptación de la presentación
+
+Este es el único caso de aceptación del recorrido. Lo fijó dirección el 14/10
+para la presentación, a partir de lo que hace hoy el código. Toda tarea que lo
+contradiga se decide antes de programar (regla 3 de «Entrega y subida» en
+`AGENTS.md`). El recorrido se da por bueno cuando cada paso de la tabla
+produce en Chrome el resultado indicado, y lo sigue mostrando igual después de
+reiniciar la aplicación y la base.
+
+**Personas.** Todas son ficticias y entran con certificados de desarrollo, cada
+una con su perfil:
+
+| Papel | Persona | Perfil |
+| --- | --- | --- |
+| Aspirante | Antonio Reyes Álvarez | Aspirante externo (usuario web `candidato`) |
+| Centro solicitante | Lucía Fernández Castillo, Jefatura de Servicio de Servicios Digitales y Asesoría Tecnológica a Municipios | Centro |
+| Ratificador | Manuel García Robles, del mismo centro | Centro, ratificador |
+| RRHH | Carmen Molina Ortega, técnica de RRHH (usuario web `rrhh`) | Técnico de RRHH |
+| Intervención | Francisco Javier López Serrano | Intervención |
+| Firmantes de la resolución | Jefatura del Servicio de RRHH, Diputado/a delegado/a de RRHH y Secretaría General | Cargos de firma del circuito v2, asignados por Administración. **Pendiente:** en el repositorio no constan personas ficticias para estos tres cargos; hay que elegirlas y emitir sus certificados |
+
+Una persona no ocupa dos papeles. Ratificador y solicitante son personas
+distintas, y ningún firmante firma dos pasos del mismo documento.
+
+**Puesto y bolsa.** Categoría Administrativo de la RPT publicada, con su centro
+y su puesto publicados (**pendiente: K** confirma en el canal el centro y el
+puesto exactos; el ensayo local de K usó el centro 520 y el puesto publicado 9).
+La bolsa es la de Administrativo, ya constituida y con su orden. Antonio figura
+en ella como disponible y en el puesto que le toca el llamamiento. Si un dato no
+cuadra, se ajusta el dato, no el código (regla 5).
+
+**Pasos.** Es el orden que sigue hoy el código (4.3.2): el llamamiento va
+después de la fiscalización favorable y la propuesta exige el expediente en
+`fiscalizacion/en_curso`.
+
+| # | Quién | Pantalla | Qué hace | Resultado esperado |
+| --- | --- | --- | --- | --- |
+| 1 | Lucía (centro) | `/portal-empleado/peticiones-centro/` | Presenta la petición: elige categoría Administrativo y el puesto de la RPT publicada, motivo, fechas, crédito y una persona | Recibo de presentación; petición `pendiente_ratificacion`, versión 1 |
+| 2 | Manuel (ratificador) | La misma pantalla, bandeja del centro | Revisa y ratifica con motivo | Recibo de ratificación; petición `ratificada`, versión 2 |
+| 3 | Carmen (RRHH) | `peticiones-centro/?vista=rrhh` | Teclea el número de expediente de MOAD y crea el expediente | Recibo de alta; expediente `solicitud/en_curso`, v1, con la necesidad de la RPT conservada |
+| 4 | Carmen | Ficha del expediente, Análisis | Registra el análisis con el crédito | Recibo; `solicitud/en_curso`, v2 |
+| 5 | Carmen | Ficha, Vía de cobertura | Elige bolsa vigente | Recibo; `asignacion_unidad/en_curso`, v3 |
+| 6 | Carmen | Ficha, Asignación | Asigna la unidad gestora | Recibo; `asignacion_unidad/en_curso`, v4 |
+| 7 | Carmen | Ficha, Informe jurídico | Prepara el informe | Recibo; `informe_juridico/en_curso`, v5 |
+| 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6 |
+| 9 | Carmen | Ficha, Llamamiento y comunicación | Abre el llamamiento desde la bolsa Administrativo y registra la comunicación | Recibo del llamamiento con Antonio como llamado; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas) |
+| 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo de dos días | Recibo de su respuesta |
+| 11 | Carmen | Ficha, Llamamiento | Resuelve la aceptación | Recibo de resolución del llamamiento |
+| 12 | Carmen | Ficha, Formalización | Registra la propuesta de nombramiento | Recibo; `nombramiento/en_curso`, v7 |
+| 13 | Carmen | Ficha, Formalización | Registra la resolución | Recibo; `nombramiento/en_curso`, v8 |
+| 14 | Carmen | Ficha, Documentos | Descarga en PDF y Word los borradores | Cada documento se abre con el logotipo y los datos del expediente |
+| 15 | Firmantes | Ficha, panel de firma (GrxFirma) | Firman en el orden del catálogo (ver «Documentos») | Cada firma con su justificante y el PDF verificado |
+| 16 | Carmen | Ficha, GINPIX | Descarga la ficha y confirma número y fecha de la grabación manual | Recibo de confirmación GINPIX |
+| 17 | Lucía (centro) | `peticiones-centro/`, Incorporaciones | Acredita la incorporación de Antonio con fecha y documento | Recibo de incorporación |
+| 18 | Carmen | Ficha, Paso a Personal | Revisa el plan de alta y lo confirma | Antonio aparece en Personal con su relación y su ocupación |
+| 19 | Carmen | Ficha, Cese | Registra el cese con causa y justificante | Recibo de cese |
+| 20 | (automático) Bolsa | Mi Bolsa de Antonio y Bolsas de RRHH | Bolsa recibe el cese | Antonio vuelve a la bolsa Administrativo como **Disponible** o **Disponible desde** la fecha que marque la política |
+| 21 | Carmen | Ficha, Cierre | Cierra el expediente | `nombramiento/completado` |
+
+**Documentos.** Los que genera hoy el código desde la ficha, con el expediente en
+v7 o posterior (4.3.4), y el orden de firma del catálogo
+`circuito_firma.v2.json` (4.3.6):
+
+| Documento | Firman |
+| --- | --- |
+| Informe definitivo | Carmen (técnica de RRHH) y Jefatura del Servicio de RRHH |
+| Resolución | Jefatura del Servicio (visto bueno), Diputado/a delegado/a de RRHH y Secretaría General (toma de razón): los tres cargos |
+| Diligencia | Secretaría General |
+| Toma de posesión | Antonio, Jefatura y Secretaría General |
+| Notificación y comunicación al centro | Jefatura |
+
+**Contradicciones conocidas y cómo se resuelven para la presentación.** RRHH
+las confirmará después mediante `dudas.md`; hasta entonces manda lo que dice
+esta tabla.
+
+| Punto | Lo que hay escrito | Para la presentación |
+| --- | --- | --- |
+| Orden del ofrecimiento y la fiscalización | RRHH (02/10) y el circuito v2 ponen oferta y adjudicación antes del informe de Jefatura y de Intervención; el código hace el llamamiento después de la fiscalización favorable | Se sigue el orden del código. La pantalla puede pintar las doce fases del circuito v2, pero los pasos se hacen como en la tabla anterior |
+| Momento de la propuesta | Circuito v2: tras la adjudicación; código: exige `fiscalizacion/en_curso` | El del código: propuesta tras fiscalizar y aceptar |
+| Dos o tres firmantes | RRHH habló de resolución firmada por la Diputada con visto bueno de Dirección o Jefatura (dos); el catálogo v2 pide tres pasos | Tres: Jefatura, Diputado/a y Secretaría General, como dice el catálogo |
+| Petición firmada por técnico y Diputado/a | RRHH la pide firmada; el código la presenta y la ratifica otra persona del centro, sin firma | Presentación y ratificación sin firma, como hace el código |
+| Autorización de la Dirección de RRHH | Paso 2 del orden de RRHH; el código no tiene un paso propio | No se representa; la vía de cobertura y el informe la sustituyen en la presentación |
+| Unidad de Lucía | `docs/manuales/centro.md` la sitúa en TRANSFORMACIÓN DIGITAL | Se usa la que fija este caso; el manual se corrige cuando K confirme centro y puesto |
+| Una o varias plazas | Bolsa admite ofertas con varias plazas; el expediente no las usa | Una plaza y una persona |
+| Cuándo cuenta la incorporación | Duda 140: con el alta en Personal o con la toma de posesión | Se muestran las dos: acreditación del centro y alta en Personal |
+
+### 4.0.1 Vista general
 
 Es el recorrido que hará Alberto en la presentación, cambiando de perfil. Cada
 caja indica quién actúa y su estado.

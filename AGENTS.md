@@ -49,9 +49,12 @@ paralelo» (07/10). Orden exacto y bases en
 - Solo van a Alberto: gastar dinero o créditos, datos reales, producción o
   sistemas corporativos, y lo que el control de permisos bloquee pidiendo su
   visto bueno expreso. Eso no se deriva a otro agente para saltarlo.
-- Ante un fallo, nada de apaños (filas SQL a mano, quitar comprobaciones, datos
-  inventados para tapar un hueco): solo vías del producto, como actos de
+- Ante un fallo, nada de apaños que salten la seguridad (quitar comprobaciones,
+  falsear firmas, actos o recibos): solo vías del producto, como actos de
   administración, migraciones revisadas o pantallas.
+- **Los datos son ficticios (14/10).** Si un bloqueo es de datos (falta un
+  puesto, una fila, un estado), se usa otro dato existente o se recarga con la
+  semilla o el guion de datos; no se programa una función para fabricarlo.
 - En dudas de diseño o de proceso se mira antes cómo lo resuelven tres a cinco
   aplicaciones o administraciones de referencia, con fuentes públicas.
 - Lo que depende de RRHH: primero se busca en lo publicado (BOE, BOP de Granada,
@@ -96,12 +99,27 @@ paralelo» (07/10). Orden exacto y bases en
 créditos; al llegar al 100 % se avisa a Alberto. Bolsa y CT nunca se quedan sin
 equipo: si falta cuota, se para antes el equipo de menor prioridad.
 
-**Entrega (13/10).** Menos pruebas y menos esperas: en local solo pruebas
-focales; la CI pasa la puerta completa y nunca se repite una prueba sobre el
-mismo commit. SQL y seguridad conservan su ensayo en copia de la principal y un
-revisor; lo demás, lectura del diff por Claude. Se fusiona al pasar las puertas
-rápidas de la CI y se sube a cidonia tras cada fusión con algo visible. cidonia
-nunca puede quedar apagada por un fallo de arranque. Ciclo y formato de entrega
+**Entrega y subida: reglas fijas de Alberto (14/10, «a fuego»).**
+
+1. **A cidonia solo sube una candidata congelada y ensayada entera** en una copia
+   de cidonia: SQL en su orden, configuración, actos de administración,
+   arranque, recorrido en Chrome y reinicio. Se instala exactamente lo
+   ensayado. No hay subidas sueltas para probar.
+2. **Una PR está lista solo si trae código, guion de activación** (configuración,
+   actos, datos) **y la prueba de que la app arranca con esa configuración y
+   sin ella.** Lo que necesite algo que nadie ha probado junto no está listo.
+3. **Un único caso de aceptación del recorrido**, escrito en
+   [FLUJO_APP.md](docs/producto/FLUJO_APP.md), apartado 4.0. Lo que lo
+   contradiga se decide antes de programar.
+4. **Ninguna configuración nueva tumba la app**: falla solo su función. Ningún
+   fichero que la app lee al arrancar se cambia sin reinicio vigilado con
+   vuelta atrás. cidonia nunca queda apagada.
+5. **Datos ficticios:** si falta un dato, se ajusta el dato, no se programa.
+
+Pruebas: en local solo las focales; la CI pasa la puerta completa y nunca se
+repite una prueba sobre el mismo commit. SQL y seguridad conservan su ensayo en
+copia de la principal y un revisor; lo demás, lectura del diff por Claude. Se
+fusiona al pasar las puertas rápidas de la CI. Ciclo y formato de entrega
 en [PLAN_IMPLEMENTACION.md](docs/producto/PLAN_IMPLEMENTACION.md), apartados
 10.3 y 10.4. El agente no da su tarea por cerrada: lo hace dirección al
 integrar.
