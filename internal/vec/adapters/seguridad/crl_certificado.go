@@ -1,4 +1,4 @@
-package firmasct
+package seguridad
 
 import (
 	"bytes"

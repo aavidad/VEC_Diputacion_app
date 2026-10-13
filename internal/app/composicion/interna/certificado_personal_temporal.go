@@ -18,8 +18,8 @@ import (
 	"strings"
 	"time"
 
-	"vec-diputacion-granada/internal/app/composicion/firmasct"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
+	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -74,7 +74,7 @@ func (r *registroCertificadosPersonales) leerCRL() (*x509.RevocationList, error)
 		return nil, err
 	}
 	defer clear(contenido)
-	lista, err := firmasct.LeerCRLFirmaR5(contenido)
+	lista, err := seguridad.LeerCRLFirmaR5(contenido)
 	if err != nil {
 		return nil, ErrCertificadoPersonalNoDisponible
 	}
@@ -83,7 +83,7 @@ func (r *registroCertificadosPersonales) leerCRL() (*x509.RevocationList, error)
 
 func (r *registroCertificadosPersonales) comprobarCRL(certificado, autoridad *x509.Certificate, ahora time.Time) error {
 	lista, err := r.leerCRL()
-	if err != nil || firmasct.ComprobarCRLFirmaR5(lista, certificado, autoridad, ahora) != nil {
+	if err != nil || seguridad.ComprobarCRLFirmaR5(lista, certificado, autoridad, ahora) != nil {
 		return ErrCertificadoPersonalNoDisponible
 	}
 	return nil
