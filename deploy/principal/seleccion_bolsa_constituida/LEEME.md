@@ -38,3 +38,7 @@ Para continuar hacia la aceptación, el recorrido invoca el acto existente `POST
 Las migraciones finales se instalaron en una copia PostgreSQL 18.4. El binario normal arrancó con TLS en loopback en 1,47 s. La restauración del dump necesitó reponer las ACL de la base y de los tipos fila; eso pertenece a la copia y no es una migración para cidonia. El kit local no incluye la configuración del portal externo y ese portal permaneció apagado.
 
 La selección nominal, el alta en Personal y el cese desde Chrome siguen pendientes de acreditar. El arranque no demuestra esos efectos ni un envío de correo. Una interrupción después del envío SMTP y antes de registrar su resultado puede repetir el envío al recuperar; se conserva la misma operación local.
+
+## Petición del centro pendiente
+
+La petición del centro debe elegir la necesidad publicada de la RPT, validada por el lector existente. El formulario actual guarda el puesto como texto libre y la entrega no conserva esa necesidad. Ampliar la presentación, la ratificación y su pantalla corresponde al siguiente corte de K, según dirección del 13/10/2026 a las 21:05; véase dudas162. El guion completo #1070 conserva `FALTA` antes de crear otro expediente.
