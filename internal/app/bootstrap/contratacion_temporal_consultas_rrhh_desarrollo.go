@@ -273,12 +273,34 @@ func nuevoSoporteLectorRRHHDesarrollo(
 	alta *dependenciasAltaContratacionTemporalDesarrollo, lector identidadConsultaRRHHDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
 ) (*soporteAltaContratacionTemporalDesarrollo, autorizadorLigadoContratacionTemporalDesarrollo, error) {
-	if alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil || lector.identidad.principal.ID == "" {
+	if alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil || lector.identidad.principal.ID == "" || len(lector.identidad.principal.Roles) != 1 {
 		return nil, nil, ports.ErrConsultaRRHHNoDisponible
 	}
-	contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(lector.identidad.principal, reloj.Ahora())
-	if err != nil {
-		return nil, nil, err
+	var contexto ports.ContextoAutorizacionAltaV3
+	if lector.identidad.principal.Roles[0] == rolTecnicoRRHHContratacionTemporalDesarrollo {
+		if alta.soporte.principalID != lector.identidad.principal.ID ||
+			alta.soporte.certificadoSHA256 != lector.identidad.principal.Attributes["certificate_sha256"] {
+			return nil, nil, ports.ErrConsultaRRHHNoDisponible
+		}
+		encontrado := false
+		for _, fijo := range alta.soporte.perfilesFijosRegistrados() {
+			if fijo != nil && fijo.clave == clavePerfilFijoAltaCTDesarrollo && fijo.perfilRef() == lector.perfilRef {
+				if encontrado {
+					return nil, nil, ports.ErrConsultaRRHHNoDisponible
+				}
+				contexto = fijo.contexto
+				encontrado = true
+			}
+		}
+		if !encontrado {
+			return nil, nil, ports.ErrConsultaRRHHNoDisponible
+		}
+	} else {
+		var err error
+		contexto, err = nuevoContextoSinteticoContratacionTemporalDesarrollo(lector.identidad.principal, reloj.Ahora())
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	datos, err := contexto.Vinculo.Datos()
 	if err != nil || datos.PerfilActivoRef != lector.perfilRef {
