@@ -332,6 +332,8 @@ type emisorBorradorLlamamientoDesarrollo struct {
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
+	registradorPerfil                                                                                                 puertosvec.RegistradorIntentosAuditoria
+	procesoPerfil                                                                                                     string
 	situacion, operaciones, solicitudesDocumentales, contacto, datosContacto, contratos, sanciones, reincorporaciones http.Handler
 	preparador                                                                                                        *preparadorBorradorLlamamientoDesarrollo
 	servicio                                                                                                          *aplicacionbolsa.ServicioContactoParticipacion
@@ -930,7 +932,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	} else if strings.TrimSpace(os.Getenv(config.EnvBolsaB103FuenteAutorizacionDatabaseURL)) != "" {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{canales: canales, situacion: handlerSituacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	mutador := &manejadorParticipacionBolsaDesarrollo{registradorPerfil: registradorDocumentales, procesoPerfil: procesoDocumentales, canales: canales, situacion: handlerSituacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	proyectorFicha, err := nuevoProyectorDisponibilidadFichaOperacionesBolsa(
 		preparador, politicaBolsa, dependenciasCT.reloj, mutador.solicitudesDocumentales, mutador.reincorporaciones)
 	if err != nil {

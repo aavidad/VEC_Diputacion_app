@@ -100,23 +100,36 @@ func AbrirRegistradorIntentosAuditoriaExternaDesarrollo(ctx context.Context, cfg
 }
 
 func abrirRegistradorIntentosAuditoriaConfiguradoDesarrollo(ctx context.Context, cfg config.Config, referencia *pgxpool.Pool, reservados []string, c configuracionAuditoriaIntentosDesarrollo) (vecports.RegistradorIntentosAuditoria, string, func(), error) {
+	r, _, cerrar, err := abrirComponentesRegistradorIntentosAuditoriaDesarrollo(ctx, cfg, referencia, reservados, c)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	return r, c.Proceso, cerrar, nil
+}
+
+// La raíz conserva el pool nominal para lecturas y su asiento en una sola TX.
+// La cuenta mantiene exclusivamente el rol de registrador de auditoría.
+func abrirComponentesRegistradorIntentosAuditoriaDesarrollo(ctx context.Context, cfg config.Config, referencia *pgxpool.Pool, reservados []string, c configuracionAuditoriaIntentosDesarrollo) (*pgvec.RegistradorIntentosAuditoriaPostgreSQL, *pgxpool.Pool, func(), error) {
+	if ctx == nil || ctx.Err() != nil || referencia == nil {
+		return nil, nil, nil, errAuditoriaIntentosDesarrollo
+	}
 	raiz, err := os.OpenRoot(cfg.DevelopmentMaterialDir)
 	if err != nil {
-		return nil, "", nil, errAuditoriaIntentosDesarrollo
+		return nil, nil, nil, errAuditoriaIntentosDesarrollo
 	}
 	defer raiz.Close()
 	b, err := leerArchivoIncorporacionV2(raiz, c.DSNFile, 16<<10)
 	if err != nil {
-		return nil, "", nil, errAuditoriaIntentosDesarrollo
+		return nil, nil, nil, errAuditoriaIntentosDesarrollo
 	}
 	defer borrarBytes(b)
 	pc, err := pgxpool.ParseConfig(strings.TrimSpace(string(b)))
 	if err != nil || pc.ConnConfig == nil || pc.ConnConfig.User == "" || len(pc.ConnConfig.Fallbacks) != 0 || validarTLSPostgreSQLBorradores(&pc.ConnConfig.Config, true) != nil {
-		return nil, "", nil, errAuditoriaIntentosDesarrollo
+		return nil, nil, nil, errAuditoriaIntentosDesarrollo
 	}
 	for _, u := range append(append([]string{}, reservados...), referencia.Config().ConnConfig.User) {
 		if u == pc.ConnConfig.User {
-			return nil, "", nil, errAuditoriaIntentosDesarrollo
+			return nil, nil, nil, errAuditoriaIntentosDesarrollo
 		}
 	}
 	pc.MaxConns, pc.MinConns = 2, 0
@@ -138,18 +151,18 @@ func abrirRegistradorIntentosAuditoriaConfiguradoDesarrollo(ctx context.Context,
 	telemetria.Instrumentar(pc) // consultas por petición en el registro de acceso
 	pool, err := postgresqlcompartido.NuevoPoolConPreflightTEMP(ctx, pc)
 	if err != nil {
-		return nil, "", nil, errAuditoriaIntentosDesarrollo
+		return nil, nil, nil, errAuditoriaIntentosDesarrollo
 	}
 	cerrar := pool.Close
 	r, err := pgvec.NuevoRegistradorIntentosAuditoriaPostgreSQL(pool, c.Proceso, c.Canal, time.Duration(c.LimiteSegundos)*time.Second)
 	if err != nil {
 		cerrar()
-		return nil, "", nil, errAuditoriaIntentosDesarrollo
+		return nil, nil, nil, errAuditoriaIntentosDesarrollo
 	}
 	topologia, err := acreditarTopologiaPostgreSQLPreferenciasUsuarios(ctx, referencia)
 	if err != nil || cotejarTopologiaPostgreSQLPreferenciasUsuarios(ctx, pool, topologia) != nil || r.PreflightIntentoAuditoria(ctx) != nil {
 		cerrar()
-		return nil, "", nil, errAuditoriaIntentosDesarrollo
+		return nil, nil, nil, errAuditoriaIntentosDesarrollo
 	}
-	return r, c.Proceso, cerrar, nil
+	return r, pool, cerrar, nil
 }
