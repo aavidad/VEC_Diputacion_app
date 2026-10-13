@@ -131,6 +131,10 @@ export function validarRespuestaConsultaFirmasV2(x, solicitud) {
   const firmas = new Map();
   for (const firma of x.firmas) {
     validarFirma(firma, q);
+    if (firma.via !== "" && (firma.resultado !== "firmado"
+      || firma.revision_pdf === null || firma.documento_custodiado === null)) {
+      throw new TypeError("firma_consulta_sin_revision");
+    }
     if (firma.catalogo_huella !== q.catalogo_huella || firmas.has(firma.firma_ref)) {
       throw new TypeError("firma_consulta_cruzada");
     }
