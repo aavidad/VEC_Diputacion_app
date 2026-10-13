@@ -11,6 +11,7 @@ import (
 	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
 	plantillashttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -212,7 +213,8 @@ func validarMetodoRutaCTDesarrollo(ruta string, metodo metodoRutaCTDesarrollo, f
 			metodo.guardia == "contratacion_temporal_firmas_r5_v2_desarrollo.go:fuenteNominalFirmasR5V2CTDesarrollo" &&
 			frontera.Metodo == http.MethodPost && frontera.Ruta == ruta &&
 			frontera.Superficie == superficieInternaSeguridadComunDesarrollo &&
-			frontera.ClaveCapacidad == "ct-firma-vec-consultar" {
+			frontera.Clave == "ct-firma-vec-consultar" &&
+			frontera.ClaveCapacidad == ports.AccionConsultarFirmasR5V2 {
 			return nil
 		}
 		return fmt.Errorf("%w: frontera PDP no inventariada %s %q", ErrCoberturaRutasCTDesarrollo, metodo.metodo, ruta)
@@ -243,7 +245,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == httpinterno.RutaConsultaComunicacionesExpediente ||
 		r.URL.Path == httpinterno.RutaConsultaCircuitoRRHH ||
 		r.URL.Path == httpinterno.RutaVinculosEmisionBolsa ||
-		rutaFirmasR5V2CTDesarrollo(r.URL.Path) ||
+		rutaFirmasR5V2CTDesarrollo(r.URL.Path) || rutaFirmaVecR5CT(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaOriginalFirmableCT ||
 		r.URL.Path == httpinterno.RutaEventoPlazoLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroComunicacionLlamamiento ||
