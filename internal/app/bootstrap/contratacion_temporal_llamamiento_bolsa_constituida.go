@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"reflect"
 	"sync"
 	"time"
 
@@ -38,6 +39,43 @@ type registradorLecturaOrdenCT func(context.Context, preparacionLlamamientoDesar
 
 var _ emisorNativoLlamamientoCT = (*appbolsa.ServicioEmisionLlamamiento)(nil)
 
+// El servicio B7 privado usa la misma persistencia y correo que el portal,
+// pero revalida el perfil Bolsa administrado bajo la ruta CT original.
+type emisorNativoPrivadoCT struct {
+	puente *puenteBolsaLlamamientoDesarrollo
+}
+
+func (e emisorNativoPrivadoCT) EmitirLlamamiento(ctx context.Context,
+	q puertosbolsa.SolicitudEmitirLlamamiento) (puertosbolsa.EmisionLlamamiento, error) {
+	vacia := puertosbolsa.EmisionLlamamiento{}
+	if e.puente == nil || e.puente.operacionNativa == nil || e.puente.operacionNativa.emision == nil || ctx == nil || ctx.Err() != nil {
+		return vacia, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	}
+	captura, err := e.puente.capturaOperacionNativa(ctx)
+	if err != nil || !q.Vinculo.CoincideExactamenteCon(captura.ct.Vinculo) ||
+		!reflect.DeepEqual(q.ResultadoContexto, captura.ct.Resultado) {
+		return vacia, ports.ErrAutorizacionDenegada
+	}
+	q.Vinculo, q.ResultadoContexto = captura.bolsa.Vinculo, captura.bolsa.Resultado
+	return e.puente.operacionNativa.emision.EmitirLlamamiento(captura.ctx, q)
+}
+
+func (e emisorNativoPrivadoCT) RecuperarLlamamiento(ctx context.Context,
+	q puertosbolsa.SolicitudRecuperarLlamamiento) (puertosbolsa.EmisionLlamamiento, error) {
+	vacia := puertosbolsa.EmisionLlamamiento{}
+	if e.puente == nil || e.puente.operacionNativa == nil || e.puente.operacionNativa.emision == nil || ctx == nil || ctx.Err() != nil {
+		return vacia, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	}
+	captura, err := e.puente.capturaOperacionNativa(ctx)
+	if err != nil || !reflect.DeepEqual(q.ContextoActor, captura.ct.Resultado.Contexto) {
+		return vacia, ports.ErrAutorizacionDenegada
+	}
+	q.ContextoActor = captura.bolsa.Resultado.Contexto
+	return e.puente.operacionNativa.emision.RecuperarLlamamiento(captura.ctx, q)
+}
+
+var _ emisorNativoLlamamientoCT = emisorNativoPrivadoCT{}
+
 // La raíz inyecta el servicio de Bolsa ya compuesto una sola vez. El puente
 // no construye otro emisor ni sustituye una autoridad después del arranque.
 func (p *puenteBolsaLlamamientoDesarrollo) configurarEmisorNativoLlamamientoCT(emisor emisorNativoLlamamientoCT) error {
@@ -45,6 +83,15 @@ func (p *puenteBolsaLlamamientoDesarrollo) configurarEmisorNativoLlamamientoCT(e
 		return puertosbolsa.ErrEmisionLlamamientoNoDisponible
 	}
 	p.emisorNativo = emisor
+	return nil
+}
+
+func (p *puenteBolsaLlamamientoDesarrollo) configurarOperacionNativaCT(o *operacionBolsaNativaCT) error {
+	if p == nil || o == nil || o.ct == nil || o.emision == nil || p.alta == nil ||
+		o.ct != p.alta.soporte || p.operacionNativa != nil {
+		return ports.ErrIntegracionBolsaNoDisponible
+	}
+	p.operacionNativa = o
 	return nil
 }
 
@@ -121,6 +168,68 @@ type estadoOrigenConstituidoCT struct {
 	unaLectura                      sync.Once
 	preparado                       preparacionOrigenConstituidoCT
 	fallo                           error
+	unaSesion                       sync.Once
+	sesion                          capturaOperacionNativaCT
+	falloSesion                     error
+}
+
+type capturaOperacionNativaCT struct {
+	ctx   context.Context
+	ct    ports.ContextoAutorizacionAltaV3
+	bolsa ports.ContextoAutorizacionAltaV3
+}
+
+func (p *puenteBolsaLlamamientoDesarrollo) capturaOperacionNativa(ctx context.Context) (capturaOperacionNativaCT, error) {
+	vacia := capturaOperacionNativaCT{}
+	if p == nil || p.alta == nil || p.alta.soporte == nil || p.operacionNativa == nil ||
+		ctx == nil || ctx.Err() != nil {
+		return vacia, ports.ErrIntegracionBolsaNoDisponible
+	}
+	estado, ok := ctx.Value(claveEstadoOrigenConstituidoCT{}).(*estadoOrigenConstituidoCT)
+	if !ok || estado == nil {
+		return vacia, ports.ErrAutorizacionDenegada
+	}
+	estado.unaSesion.Do(func() {
+		actorCT, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
+		if err != nil || actorCT.Resultado.Validar() != nil || actorCT.Vinculo.ValidarPara(actorCT.Resultado) != nil {
+			estado.falloSesion = ports.ErrAutorizacionDenegada
+			return
+		}
+		hijo, bolsa, err := p.operacionNativa.Contexto(ctx, nil)
+		if err != nil {
+			estado.falloSesion = err
+			return
+		}
+		estado.sesion = capturaOperacionNativaCT{ctx: hijo, ct: actorCT, bolsa: bolsa}
+	})
+	actual, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil || estado.falloSesion != nil || !actual.Vinculo.CoincideExactamenteCon(estado.sesion.ct.Vinculo) ||
+		!reflect.DeepEqual(actual.Resultado, estado.sesion.ct.Resultado) ||
+		!actual.Vinculo.VigenteEn(p.reloj.Ahora(), actual.Resultado) || estado.sesion.ctx == nil {
+		return vacia, ports.ErrAutorizacionDenegada
+	}
+	return estado.sesion, nil
+}
+
+func (p *puenteBolsaLlamamientoDesarrollo) capturaOperacionNativaDesdeHijo(
+	ctx context.Context, d preparacionLlamamientoDesarrollo,
+) (capturaOperacionNativaCT, error) {
+	vacia := capturaOperacionNativaCT{}
+	if p == nil || p.reloj == nil || ctx == nil || ctx.Err() != nil {
+		return vacia, ports.ErrAutorizacionDenegada
+	}
+	estado, ok := ctx.Value(claveEstadoOrigenConstituidoCT{}).(*estadoOrigenConstituidoCT)
+	if !ok || estado == nil || estado.sesion.ctx != ctx || estado.falloSesion != nil ||
+		estado.organizacion != d.expediente.Fiscalizado.OrganizacionRef ||
+		estado.expediente != d.expediente.Fiscalizado.Referencia ||
+		estado.clave != d.clave || estado.version != d.expediente.Fiscalizado.Version ||
+		estado.sesion.ct.Resultado.Validar() != nil ||
+		!estado.sesion.ct.Vinculo.VigenteEn(p.reloj.Ahora(), estado.sesion.ct.Resultado) ||
+		estado.sesion.bolsa.Resultado.Validar() != nil ||
+		!estado.sesion.bolsa.Vinculo.VigenteEn(p.reloj.Ahora(), estado.sesion.bolsa.Resultado) {
+		return vacia, ports.ErrAutorizacionDenegada
+	}
+	return estado.sesion, nil
 }
 
 func (e *estadoOrigenConstituidoCT) cargar(ctx context.Context, d preparacionLlamamientoDesarrollo,
@@ -530,24 +639,21 @@ func (p *puenteBolsaLlamamientoDesarrollo) cargarOrigenConstituidoCT(ctx context
 		p.auditarOrdenNativo == nil || ctx == nil || ctx.Err() != nil {
 		return vacio, ports.ErrIntegracionBolsaNoDisponible
 	}
-	if _, err := p.alta.soporte.contextoOperativoDesarrollo(ctx); err != nil {
-		return vacio, err
-	}
-	operativo, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
-	if err != nil || operativo.Resultado.Validar() != nil ||
-		operativo.Vinculo.ValidarPara(operativo.Resultado) != nil {
+	sesion, err := p.capturaOperacionNativa(ctx)
+	if err != nil || sesion.bolsa.Resultado.Validar() != nil ||
+		sesion.bolsa.Vinculo.ValidarPara(sesion.bolsa.Resultado) != nil {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
-	vinculoCanonico, err := json.Marshal(operativo.Vinculo)
+	vinculoCanonico, err := json.Marshal(sesion.bolsa.Vinculo)
 	if err != nil {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
 	var captura puertosbolsa.CapturaOrigenCT
-	o, reserva, acuse, err := p.origenNativo.ConsultarOrigenCTAuditado(ctx,
+	o, reserva, acuse, err := p.origenNativo.ConsultarOrigenCTAuditado(sesion.ctx,
 		d.expediente.Fiscalizado.Referencia, d.clave, d.categoria, d.unidad,
-		operativo.Resultado.RepresentacionCanonica, vinculoCanonico,
+		sesion.bolsa.Resultado.RepresentacionCanonica, vinculoCanonico,
 		func(bolsaRef string) (puertosbolsa.CapturaOrigenCT, error) {
-			construida, fallo := p.auditarOrdenNativo(ctx, d, bolsaRef)
+			construida, fallo := p.auditarOrdenNativo(sesion.ctx, d, bolsaRef)
 			captura = construida
 			return construida, fallo
 		})

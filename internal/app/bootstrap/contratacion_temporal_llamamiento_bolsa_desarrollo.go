@@ -64,6 +64,7 @@ type puenteBolsaLlamamientoDesarrollo struct {
 	repositorio            puertosbolsa.RepositorioLlamamientoDesarrollo
 	autorizador            puertosbolsa.AutorizadorLlamamientoDesarrollo
 	emisorNativo           emisorNativoLlamamientoCT
+	operacionNativa        *operacionBolsaNativaCT
 	origenNativo           puertosbolsa.FuenteOrigenLlamamientoCTAuditada
 	configuracionNativa    proveedorConfiguracionEmisionCT
 	auditarOrdenNativo     registradorLecturaOrdenCT

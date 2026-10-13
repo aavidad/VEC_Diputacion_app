@@ -87,6 +87,7 @@ var camposLecturaOrigenCT = []string{
 
 func nuevoConstructorOrdenOrigenCT(
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
+	puente *puenteBolsaLlamamientoDesarrollo,
 	preparador *preparadorBorradorLlamamientoDesarrollo,
 	proceso, canal string,
 ) registradorLecturaOrdenCT {
@@ -99,29 +100,27 @@ func nuevoConstructorOrdenOrigenCT(
 	}
 	return func(ctx context.Context, d preparacionLlamamientoDesarrollo, bolsaRef string) (ports.CapturaOrigenCT, error) {
 		vacia := ports.CapturaOrigenCT{}
-		if ctx == nil || ctx.Err() != nil || alta == nil || alta.soporte == nil ||
+		if ctx == nil || ctx.Err() != nil || alta == nil || alta.soporte == nil || puente == nil ||
 			preparador == nil || preparador.soporte == nil || preparador.fuenteRespuestas == nil ||
 			bolsaRef == "" || d.unidad == "" || d.unidad != preparador.soporte.unidadRef ||
 			preparador.soporte.ambitoRef == "" {
 			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
 		}
-		operativo, err := alta.soporte.contextoOperativoDesarrollo(ctx)
-		if err != nil || operativo.Resultado.Validar() != nil || operativo.Vinculo.ValidarPara(operativo.Resultado) != nil {
+		captura, err := puente.capturaOperacionNativaDesdeHijo(ctx, d)
+		if err != nil || captura.ct.Resultado.Validar() != nil ||
+			captura.bolsa.Resultado.Validar() != nil ||
+			captura.bolsa.Vinculo.ValidarPara(captura.bolsa.Resultado) != nil {
 			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
 		}
-		propio, err := preparador.contextoRevalidado(ctx)
-		if err != nil || propio.Resultado.Validar() != nil || propio.Vinculo.ValidarPara(propio.Resultado) != nil {
-			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
-		}
-		a, ea := operativo.Vinculo.Datos()
-		b, eb := propio.Vinculo.Datos()
+		a, ea := captura.ct.Vinculo.Datos()
+		b, eb := captura.bolsa.Vinculo.Datos()
 		if ea != nil || eb != nil || a.PrincipalID != b.PrincipalID ||
-			a.PerfilActivoRef != b.PerfilActivoRef || a.CuentaRef != b.CuentaRef ||
-			a.AutenticacionRef != b.AutenticacionRef || a.SesionRef != b.SesionRef {
+			a.CuentaRef != b.CuentaRef ||
+			captura.ct.Resultado.Contexto.Instantanea.CuentaRef != captura.bolsa.Resultado.Contexto.Instantanea.CuentaRef {
 			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
 		}
 		permiso, err := capturarLecturaBolsa(ctx, preparador.fuenteRespuestas,
-			propio.Vinculo, propio.Resultado, preparador.soporte.unidadRef,
+			captura.bolsa.Vinculo, captura.bolsa.Resultado, preparador.soporte.unidadRef,
 			preparador.soporte.ambitoRef, bolsaRef, bolsaRef, contrato)
 		if err != nil {
 			return vacia, err
@@ -138,7 +137,7 @@ func nuevoConstructorOrdenOrigenCT(
 		if err != nil {
 			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
 		}
-		orden, err := vecports.NuevaOrdenIntentoAuditoria(intento, propio.Resultado, propio.Vinculo,
+		orden, err := vecports.NuevaOrdenIntentoAuditoria(intento, captura.bolsa.Resultado, captura.bolsa.Vinculo,
 			domain.DatosIntentoAuditoria{
 				Accion: ports.AccionConsultarOrigenCT, ModuloID: "bolsa", RecursoRef: bolsaRef,
 				FinalidadRef: ports.FinalidadConsultarOrigenCT, Resultado: domain.ResultadoIntentoAuditoriaExito,
