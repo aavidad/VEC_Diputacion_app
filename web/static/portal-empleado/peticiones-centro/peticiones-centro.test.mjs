@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearBorradorAlta, crearComandoPeticionCentro, validarBorradorAlta, validarComandoAlta } from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
+import { crearBorradorAlta, crearComandoPeticionCentro, validarBorradorAlta, validarCatalogosAlta, validarComandoAlta,
+  validarComandoPeticionCentroNecesidad } from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
 import { extraerBorrador } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261009-centro-campos-v1";
 import {
   pedir,
@@ -10,6 +11,8 @@ import {
   validarReciboPeticionCentro,
   registrarOperacionPeticionCentro,
   registrarAltaRRHH,
+  prepararNecesidadesPeticionesCentro,
+  puestoPerteneceAlContexto,
 } from "./peticiones-centro.js?v=20261008-alta-rpt-circular-v6";
 
 const catalogos = {
@@ -22,6 +25,95 @@ const catalogos = {
 
 const contexto = { actor: { referencia: "actor:sintetico:001", nombre: "Persona de prueba", cargo: "Cargo sintético", centro: "Centro sintético", puede_presentar: true, puede_ratificar: false }, catalogos };
 const peticion = { referencia: "peticion:centro:001", version: 1, estado: "pendiente_ratificacion", configuracion: { solicitante: { actor_ref: "actor:sintetico:001", puesto_ref: "puesto:sintetico:001" } }, solicitud: { centro_ref: "cen_sintetico_001", categoria_ref: "cat_sintetica_001", grupo_subgrupo: "C2", motivo_clave: "sustitucion", detalle: "Necesidad sintética", periodo: { inicio: "2026-09-01T00:00:00Z", fin: "2026-09-30T00:00:00Z" } }, creada_en: "2026-09-06T08:00:00Z" };
+
+test("la petición nueva envía la elección de necesidad y conserva el readback ratificable", async () => {
+  const huella = "a".repeat(64);
+  const rpt = "b".repeat(64);
+  const baseCausa = (clave, campos, fecha_fin = "obligatoria", extra = {}) => ({
+    clave, etiqueta_clave: `ct.necesidad.${clave}`, fuente_ref: "circular:ct:20260219",
+    fuente_url: "https://www.dipgra.es/circular.pdf", regla_ref: `regla:ct:${clave}`,
+    fecha_fin, maximo_meses: 36, campos_permitidos: ["numero_personas", ...campos],
+    campos_obligatorios: ["numero_personas", ...campos], ...extra,
+  });
+  const datos = { esquema: "vec.contratacion_temporal.catalogos_alta.v2",
+    centros: catalogos.centros, categorias: catalogos.categorias, documentos: [],
+    necesidades: { referencia: "catalogo:ct:necesidades:001", version: 2,
+      huella_sha256: huella, es_ejemplo: true, fuente_ref: "circular:ct:20260219",
+      fuente_url: "https://www.dipgra.es/circular.pdf", jornada_referencia_minutos: 2250,
+      jornada_fuente_ref: "operador:ct:provisional", causas: [
+        baseCausa("vacante", ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]),
+        baseCausa("sustitucion", ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"],
+          "opcional", { causa_fin: "reincorporacion_titular" }),
+        baseCausa("acumulacion_tareas", ["justificacion_temporal"]),
+        baseCausa("programa_temporal", ["programa_denominacion", "programa_fin",
+          "proyecto_codigo", "financiacion_ref", "rc_ref", "intervencion_ref"]),
+      ] } };
+  const borrador = { ...crearBorradorAlta({ conPeticionCentro: true, conNecesidad: true,
+    jornadaReferenciaMinutos: 2250 }), centro_ref: "cen_sintetico_001", contacto_ref: "con_sintetico_001",
+  categoria_ref: "cat_sintetica_001", grupo_subgrupo: "C2", motivo_clave: "vacante",
+  detalle: "Cobertura durante el periodo indicado.", inicio: "2026-11-02", fin: "2026-12-31",
+  numero_personas: "1", puesto_codigo: "P-217", puesto_solicitado: "Administrativo C2",
+  rpt_catalogo_ref: "rpt-dipgra-2026", rpt_catalogo_huella_sha256: rpt };
+  assert.equal(validarBorradorAlta(borrador, datos).valido, true);
+  const comando = crearComandoPeticionCentro(borrador, datos, "f3134ee2-61af-467d-aa58-dc71f07553b6");
+  assert.equal(comando.esquema, "vec.ct.alta_necesidad.v1");
+  assert.equal(comando.necesidad.campos.puesto_codigo, "P-217");
+  assert.equal(comando.solicitud.puesto_solicitado, "Administrativo C2");
+  assert.equal(Object.hasOwn(comando, "numero_expediente_moad"), false);
+  assert.equal(Object.hasOwn(comando.necesidad, "catalogo_instantanea"), false);
+  assert.deepEqual(validarComandoPeticionCentroNecesidad(comando), comando);
+  await prepararNecesidadesPeticionesCentro();
+  const ratificable = { ...peticion, solicitud: { ...comando.solicitud,
+    necesidad: { ...comando.necesidad, periodo: comando.solicitud.periodo,
+      catalogo_instantanea: "contenido-sellado-servidor" } } };
+  const html = renderizarPeticionCentro({ contexto: { ...contexto, catalogos: datos,
+    actor: { ...contexto.actor, puede_presentar: false, puede_ratificar: true } },
+  modo: "ratificacion", peticion: ratificable });
+  assert.match(html, /Administrativo C2/);
+  assert.match(html, /P-217/);
+  assert.match(html, /37:30/);
+  assert.doesNotMatch(html, /contenido-sellado-servidor|rpt-dipgra-2026|a{64}|b{64}/u);
+  const htmlRRHH = renderizarPeticionesCentroRRHH({ entrega: {
+    peticion: { ...ratificable, version: 2, estado: "ratificada" }, estado_entrega: "pendiente" } });
+  assert.match(htmlRRHH, /Administrativo C2/);
+  assert.match(htmlRRHH, /P-217/);
+  assert.doesNotMatch(htmlRRHH, /contenido-sellado-servidor|rpt-dipgra-2026|a{64}|b{64}/u);
+  const sinPuestoRPT = { ...borrador, motivo_clave: "acumulacion_tareas", puesto_codigo: "",
+    rpt_catalogo_ref: "", rpt_catalogo_huella_sha256: "", puesto_solicitado: "Apoyo administrativo",
+    justificacion_temporal: "Refuerzo de tareas durante el periodo previsto." };
+  assert.equal(validarBorradorAlta(sinPuestoRPT, datos).valido, true);
+  const sinRPT = crearComandoPeticionCentro(sinPuestoRPT, datos, "e3134ee2-61af-467d-aa58-dc71f07553b6");
+  assert.equal(Object.hasOwn(sinRPT.necesidad.campos, "puesto_codigo"), false);
+  assert.equal(sinRPT.solicitud.puesto_solicitado, "Apoyo administrativo");
+  const formulario = renderizarPeticionCentro({ contexto: { ...contexto, catalogos: validarCatalogosAlta(datos) },
+    modo: "formulario", estado: { fase: "edicion", disponible: true, ocupado: false,
+      borrador: sinPuestoRPT, catalogos: validarCatalogosAlta(datos), errores: {}, mensaje_clave: "estado_disponible",
+      tipo_mensaje: "informacion" } });
+  assert.match(formulario, /name="puesto_solicitado" type="text"/);
+  assert.doesNotMatch(formulario, /name="puesto_busqueda"/);
+});
+
+test("un rechazo expreso de la necesidad no se trata como resultado incierto", async () => {
+  const error = Object.assign(new Error("datos incompatibles"), { status: 422 });
+  await assert.rejects(registrarOperacionPeticionCentro(async () => { throw error; },
+    { operacion: "presentar", clave_idempotencia: "f3134ee2-61af-467d-aa58-dc71f07553b6" },
+    "actor:sintetico:001"), (causa) => causa === error && !causa.indeterminado);
+});
+
+test("la selección RPT exige vínculos explícitos de centro y categoría", () => {
+  const puesto = { rpt_categoria_clave: "administracion", rpt_centro_codigo: "520" };
+  const borrador = { categoria_ref: "categoria:rpt:administracion", centro_ref: "centro:rpt:520" };
+  const contextoRPT = { vinculos_rpt: {
+    categorias: [{ categoria_ref: borrador.categoria_ref, rpt_categoria_clave: "administracion" }],
+    centros: [{ centro_ref: borrador.centro_ref, rpt_centro_codigo: "520" }],
+  } };
+  assert.equal(puestoPerteneceAlContexto(puesto, contextoRPT, borrador), true);
+  assert.equal(puestoPerteneceAlContexto(puesto, contextoRPT,
+    { ...borrador, centro_ref: "centro-520" }), false);
+  assert.equal(puestoPerteneceAlContexto(puesto, { vinculos_rpt: { categorias: [], centros: [] } },
+    borrador), false);
+  assert.equal(puestoPerteneceAlContexto(puesto, {}, borrador), false);
+});
 
 test("el contacto del catálogo se traduce y los nombres propios se conservan", () => {
   for (const [etiqueta, visible] of [["pc_contacto_secretaria", "Secretaría del centro"], ["Lucía Romero", "Lucía Romero"]]) {

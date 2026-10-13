@@ -5,9 +5,12 @@ import {
   validarCatalogosAlta,
   numeroExpedienteMOADValido,
   jornadaVisibleDesdeMinutos,
-} from "../modulos/contratacion-temporal/contrato.js?v=20261009-centro-campos-cohorte-v5";
+  ESQUEMA_CATALOGOS_NECESIDADES,
+} from "../modulos/contratacion-temporal/contrato.js?v=20261014-need-centro-v1";
 import { extraerBorrador, formulario as renderizarFormularioPuro,
-  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261009-centro-campos-cohorte-v5";
+  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261014-need-centro-v1";
+import { cargarCatalogosContratacionEnIdioma } from "../modulos/contratacion-temporal/i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { crearClienteHTTPRPTPublica } from "../modulos/personal/cliente-http-rpt-publica.js?v=20261008-alta-rpt-circular-v4";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO, MENSAJES_AYUDA_PETICIONES_CENTRO,
   TEXTOS_LOCALES_PETICIONES_CENTRO, prepararAnalisisPeticionesCentro,
@@ -24,6 +27,43 @@ const MAX_BODY = 2 * 1024 * 1024;
 const TIMEOUT_MS = 15_000;
 const traducirCentro = traducirPeticionesCentro;
 const TEXTO = TEXTOS_LOCALES_PETICIONES_CENTRO;
+let mensajesNecesidades = null;
+export async function prepararNecesidadesPeticionesCentro() {
+  if (mensajesNecesidades) return mensajesNecesidades;
+  const catalogo = await cargarCatalogosContratacionEnIdioma("contratacion-temporal-necesidades-alta",
+    IDIOMA_EFECTIVO_PETICIONES_CENTRO);
+  mensajesNecesidades = catalogo.actual;
+  return mensajesNecesidades;
+}
+function mensajeNecesidades(clave) {
+  return String(clave ?? "").split(".").reduce((valor, parte) => valor?.[parte], mensajesNecesidades);
+}
+function seleccionarPuestoPublicadoRPT(pagina, codigo) {
+  const puesto = pagina?.total === 1 && Array.isArray(pagina.items) ? pagina.items[0] : null;
+  if (!puesto || puesto.codigo !== codigo || !puesto.denominacion?.trim()) return null;
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u.test(pagina.fuente?.importacion)
+    || !/^[a-f0-9]{64}$/u.test(pagina.fuente?.huella_sha256)) {
+    throw new TypeError("publicación RPT incompatible");
+  }
+  return { codigo, denominacion: puesto.denominacion,
+    rpt_categoria_clave: puesto.categoria_clave, rpt_centro_codigo: puesto.centro_codigo,
+    rpt_catalogo_ref: pagina.fuente.importacion,
+    rpt_catalogo_huella_sha256: pagina.fuente.huella_sha256 };
+}
+export function puestoPerteneceAlContexto(puesto, contexto, borrador) {
+  const vinculos = contexto?.vinculos_rpt;
+  if (!Array.isArray(vinculos?.categorias) || !Array.isArray(vinculos?.centros)) return false;
+  return vinculos.categorias.some(({ categoria_ref: referencia, rpt_categoria_clave: clave }) =>
+    referencia === borrador.categoria_ref && clave === puesto.rpt_categoria_clave)
+    && vinculos.centros.some(({ centro_ref: referencia, rpt_centro_codigo: codigo }) =>
+      referencia === borrador.centro_ref && codigo === puesto.rpt_centro_codigo);
+}
+const traducirFormulario = (clave, variables = {}) => {
+  const plantilla = mensajeNecesidades(clave);
+  if (typeof plantilla !== "string") return traducirCentro(clave, variables);
+  return Object.entries(variables).reduce((valor, [nombre, dato]) =>
+    valor.replaceAll(`{${nombre}}`, String(dato)), plantilla);
+};
 
 const textoCT = (clave, variables) => esc(traducirCentro(clave, variables));
 
@@ -248,7 +288,14 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
       : etiquetas?.[grupo]?.[referencia] || textoCT("pc_dato_no_disponible");
     return grupo === "contactos" ? etiquetaContacto(valor) : valor;
   };
-  const etiquetaMotivo = (contexto ? catalogos?.motivos?.find((v) => v.clave === s.motivo_clave)?.etiqueta : etiquetas?.motivos?.[s.motivo_clave]) || "—";
+  const motivoCatalogo = contexto ? catalogos?.motivos?.find((v) => v.clave === s.motivo_clave)?.etiqueta : etiquetas?.motivos?.[s.motivo_clave];
+  const etiquetaMotivo = mensajeNecesidades(motivoCatalogo) || motivoCatalogo || "—";
+  const necesidad = s.necesidad;
+  const REFERENCIAS_NECESIDAD = new Set(["titular_ref", "vacancia_fuente_ref", "financiacion_ref",
+    "rc_ref", "intervencion_ref", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]);
+  const camposNecesidad = necesidad?.campos && typeof necesidad.campos === "object"
+    ? Object.entries(necesidad.campos).filter(([campo, valor]) => valor && campo !== "numero_personas"
+      && !REFERENCIAS_NECESIDAD.has(campo)) : [];
   const rc = s.rc?.existe
     ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)}`
     : traducirCentro("ct_txt_sin_retencion_de_credito_aportada");
@@ -256,10 +303,21 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
     [traducirCentro("ct_txt_centro"), contexto ? nombreCentro(s.centro_ref, contexto) : nombre("centros", null, s.centro_ref)],
     [traducirCentro("ct_txt_contacto"), nombre("contactos", centro?.contactos, s.contacto_ref)],
     [traducirCentro("ct_txt_categoria"), nombre("categorias", catalogos?.categorias, s.categoria_ref)], [traducirCentro("ct_txt_grupo_o_subgrupo"), s.grupo_subgrupo], [traducirCentro("ct_txt_motivo"), etiquetaMotivo],
-    ...(s.puesto_solicitado ? [
+    ...(s.puesto_solicitado && !necesidad ? [
       [traducirCentro("numero_personas"), s.numero_personas],
       [traducirCentro("jornada_semanal"), jornadaVisibleDesdeMinutos(s.jornada_minutos)],
       [traducirCentro("puesto_solicitado"), s.puesto_solicitado],
+    ] : []),
+    ...(necesidad ? [
+      [traducirFormulario("numero_personas"), Number.isSafeInteger(s.numero_personas)
+        ? new Intl.NumberFormat(LOCALIZACION).format(s.numero_personas) : "—"],
+      [traducirFormulario("jornada_minutos"), jornadaVisibleDesdeMinutos(necesidad.jornada_minutos)],
+      ...camposNecesidad.map(([campo, valor]) => [traducirFormulario(campo),
+        campo === "numero_personas" && /^[1-9][0-9]*$/u.test(valor)
+          ? new Intl.NumberFormat(LOCALIZACION).format(Number(valor))
+          : campo === "programa_fin" && /^\d{4}-\d{2}-\d{2}$/u.test(valor)
+            ? fecha(`${valor}T00:00:00Z`) : valor]),
+      ...(s.puesto_solicitado ? [[traducirCentro("puesto_solicitado"), s.puesto_solicitado]] : []),
     ] : []),
     [traducirCentro("ct_txt_detalle"), s.detalle], [traducirCentro("ct_txt_periodo"), periodoLegible(s.periodo)], [traducirCentro("ct_txt_observaciones"), s.observaciones || "—"],
     [traducirCentro("ct_txt_retencion_de_credito"), rc], [traducirCentro("ct_txt_documentos_aportados"), (s.documentos_adjuntos || []).map((ref) => nombre("documentos", catalogos?.documentos, ref)).join(" · ") || traducirCentro("ct_txt_ninguno")],
@@ -382,13 +440,15 @@ function tabla(peticiones, seleccionada, expedientes = new Map(), contexto = nul
 }
 
 function formularioHTML(contexto, estado, revision) {
+  const traducir = estado.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES
+    ? traducirFormulario : traducirCentro;
   estado = { ...estado, catalogos: { ...estado.catalogos,
     centros: (estado.catalogos?.centros ?? []).map((centro) => ({ ...centro,
       contactos: (centro.contactos ?? []).map((contacto) => ({ ...contacto, etiqueta: etiquetaContacto(contacto.etiqueta) })),
     })),
   } };
-  const contenido = revision ? renderizarRevisionPura(estado, traducirCentro, LOCALIZACION, traducirCentro)
-    : renderizarFormularioPuro(estado, traducirCentro, traducirCentro);
+  const contenido = revision ? renderizarRevisionPura(estado, traducir, LOCALIZACION, traducir)
+    : renderizarFormularioPuro(estado, traducir, traducir);
   return `<section class="pc-panel ct-alta"><h2>${esc(TEXTO.solicitante)}</h2><p class="pc-aviso">${esc(TEXTO.confirmarPregunta)}</p>${contenido}<button type="button" class="boton-secundario" data-accion="cancelar-ratificacion">${esc(TEXTO.cancelar)}</button></section>`;
 }
 
@@ -425,7 +485,7 @@ export async function registrarOperacionPeticionCentro(cliente, comando, actorRe
   } catch (error) {
     // Solo un rechazo explícito permite descartar la clave. Transporte, lectura
     // o recibo inválido no prueban que PostgreSQL no haya confirmado.
-    if ([400, 401, 403, 409].includes(error?.status)) throw error;
+    if ([400, 401, 403, 409, 422].includes(error?.status)) throw error;
     throw Object.assign(new Error(TEXTO.estadoPendiente), { indeterminado: true });
   }
 }
@@ -459,6 +519,9 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
         || bandeja.peticiones.some((item) => !item?.peticion?.referencia || item.peticion.version !== 2
           || !["pendiente", "preparada", "confirmada"].includes(item.estado_entrega))) throw new Error(TEXTO.rrhhError);
       peticiones = bandeja.peticiones;
+      if (peticiones.some((item) => item.peticion?.solicitud?.necesidad)) {
+        await prepararNecesidadesPeticionesCentro();
+      }
       // Nombres de presentación para la bandeja y el detalle de RRHH.
       etiquetas = bandeja.etiquetas && typeof bandeja.etiquetas === "object" ? bandeja.etiquetas : null;
       if (peticiones.some((item) => item.peticion?.solicitud?.periodo?.causa_fin)) {
@@ -580,9 +643,12 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     if (!ocupado && modo === "bandeja" && contexto) dibujar();
   });
   let estado = null; let recibo = null; let mensaje = "";
+  const clienteRPT = crearClienteHTTPRPTPublica();
+  let consultaPuesto = null;
   let ocupado = false; let operacionPendiente = null; let resultadoIncierto = false; let motivo = ""; let confirmado = false;
   let generacionContexto = 0; let preparandoAnalisis = false;
   const retirarDatos = (error) => {
+    consultaPuesto?.abort(); consultaPuesto = null;
     generacionContexto += 1; preparandoAnalisis = false;
     const confirmada = Boolean(recibo);
     resultadoIncierto = resultadoIncierto || Boolean(operacionPendiente);
@@ -610,6 +676,9 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
       || bandeja.peticiones.some((p) => !p?.referencia || !p.solicitud || ![1, 2].includes(p.version)
         || !["pendiente_ratificacion", "ratificada"].includes(p.estado))) throw new Error(TEXTO.error);
     peticiones = bandeja.peticiones;
+    if (peticiones.some((item) => item.solicitud?.necesidad)) {
+      await prepararNecesidadesPeticionesCentro();
+    }
     if (peticiones.some((item) => item.solicitud?.periodo?.causa_fin)) {
       await prepararAnalisis();
     }
@@ -617,13 +686,17 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
   };
   const cargar = async () => {
     if ((ocupado && !preparandoAnalisis) || operacionPendiente) return;
+    consultaPuesto?.abort(); consultaPuesto = null;
     generacionContexto += 1; preparandoAnalisis = false;
     ocupado = true; mensaje = "";
     try {
       const nuevo = await cliente(RUTAS.contexto);
       if (!nuevo?.actor?.referencia || nuevo.actor.puede_presentar === nuevo.actor.puede_ratificar) throw new Error(TEXTO.error);
-      validarCatalogosAlta(nuevo.catalogos);
-      contexto = nuevo;
+      const catalogosValidados = validarCatalogosAlta(nuevo.catalogos);
+      if (nuevo.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
+        await prepararNecesidadesPeticionesCentro();
+      }
+      contexto = { ...nuevo, catalogos: catalogosValidados };
       await cargarBandeja();
       if (resultadoIncierto) {
         contexto = undefined; peticiones = []; peticion = null;
@@ -651,7 +724,9 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
       } else {
         operacionPendiente = null;
         modo = cuerpo.operacion === "presentar" ? "formulario" : "bandeja";
-        mensaje = error.status === 409 ? TEXTO.conflicto : TEXTO.error;
+        if (modo === "formulario" && estado) estado = { ...estado, fase: "edicion" };
+        mensaje = error.status === 409 ? TEXTO.conflicto
+          : error.status === 422 ? TEXTO.noCoinciden : TEXTO.error;
         if (error.status === 409) {
           modo = "bandeja";
           try { await cargarBandeja(); } catch (lecturaError) { retirarDatos(lecturaError); }
@@ -674,7 +749,11 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
       || (modo === "sin_verificar" && control.dataset.accion !== "recargar")
       || (operacionPendiente && control.dataset.accion !== "reintentar")) return;
     event.preventDefault();
-    if (control.dataset.ctEnfocar) { raiz.querySelector(`#ct-${control.dataset.ctEnfocar}`)?.focus(); return; }
+    if (control.dataset.ctEnfocar) {
+      const campo = ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]
+        .includes(control.dataset.ctEnfocar) ? "puesto_busqueda" : control.dataset.ctEnfocar;
+      raiz.querySelector(`#ct-${campo}`)?.focus(); return;
+    }
     const accion = control.dataset.accion || ({ volver: "editar", confirmar: "confirmar-presentar" })[control.dataset.ctAccion];
     try {
     if (control.dataset.seleccionar) { peticion = peticiones.find((p) => p.referencia === control.dataset.seleccionar) || null; dibujar(); return; }
@@ -702,8 +781,11 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
         || contexto?.actor?.referencia !== actorInicial || contexto.actor.puede_presentar !== true
         || modo !== "bandeja" || raiz.isConnected === false) return;
       modo = "formulario"; recibo = null;
+      const conNecesidad = contextoInicial.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES;
       estado = estadoBase(contextoInicial.catalogos, { ...crearBorradorAlta({ conPeticionCentro: true,
-        jornadaReferenciaMinutos: contextoInicial.jornada_referencia_minutos }),
+        conNecesidad, jornadaReferenciaMinutos: conNecesidad
+          ? contextoInicial.catalogos.necesidades.jornada_referencia_minutos
+          : contextoInicial.jornada_referencia_minutos }),
       centro_ref: contextoInicial.catalogos.centros[0]?.referencia || "" });
       mensaje = ""; dibujar(); return;
     }
@@ -711,9 +793,63 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     if (accion === "volver-contratacion") { globalThis.location.href = urlPortalContratacion(); return; }
     if (accion === "editar") { modo = "formulario"; dibujar(); return; }
     if (accion === "abrir-ratificacion" && contexto?.actor.puede_ratificar && peticion?.version === 1) { modo = "ratificacion"; recibo = null; motivo = ""; confirmado = false; dibujar(); return; }
-    if (accion === "cancelar-ratificacion") { modo = "bandeja"; dibujar(); return; }
+    if (accion === "cancelar-ratificacion") {
+      consultaPuesto?.abort(); consultaPuesto = null; modo = "bandeja"; dibujar(); return;
+    }
     if (accion === "cerrar-detalle") { peticion = null; dibujar(); return; }
     if (accion === "reintentar" && operacionPendiente) { await ejecutar(operacionPendiente); return; }
+    if (control.dataset.ctAccion === "ayuda") {
+      const ayuda = raiz.querySelector("[data-ct-ayuda]");
+      if (ayuda) { ayuda.hidden = !ayuda.hidden; control.setAttribute("aria-expanded", String(!ayuda.hidden)); }
+      return;
+    }
+    if (control.dataset.ctAccion === "buscar-puesto" && modo === "formulario"
+      && contexto?.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
+      consultaPuesto?.abort();
+      const formulario = raiz.querySelector("[data-ct-form]");
+      const codigo = raiz.querySelector("#ct-puesto_busqueda")?.value?.trim() || "";
+      if (!formulario) return;
+      estado = estadoBase(contexto.catalogos, { ...extraerBorrador(formulario, false),
+        puesto_codigo: "", puesto_solicitado: "", rpt_catalogo_ref: "",
+        rpt_catalogo_huella_sha256: "" },
+        { busquedaPuesto: codigo, puestoRPT: { mensaje: "puesto_buscando" } });
+      dibujar();
+      if (!/^[A-Z0-9][A-Z0-9-]{0,63}$/u.test(codigo)) {
+        estado = { ...estado, puestoRPT: { mensaje: "puesto_no_encontrado" } }; dibujar(); return;
+      }
+      const controlador = new AbortController(); consultaPuesto = controlador;
+      try {
+        const pagina = await clienteRPT.listar({ vista: "puestos", q: "", codigo_puesto: codigo,
+          limit: 1, offset: 0 }, { signal: controlador.signal });
+        if (consultaPuesto !== controlador || controlador.signal.aborted || raiz.isConnected === false) return;
+        const codigoActual = raiz.querySelector("#ct-puesto_busqueda")?.value;
+        if (codigoActual !== codigo) {
+          estado = estadoBase(contexto.catalogos,
+            extraerBorrador(raiz.querySelector("[data-ct-form]"), false),
+            { busquedaPuesto: codigoActual });
+          return;
+        }
+        const puesto = seleccionarPuestoPublicadoRPT(pagina, codigo);
+        const borradorActual = extraerBorrador(raiz.querySelector("[data-ct-form]"), false);
+        estado = puesto && puestoPerteneceAlContexto(puesto, contexto, borradorActual)
+          ? estadoBase(contexto.catalogos, { ...borradorActual,
+          puesto_codigo: puesto.codigo, puesto_solicitado: puesto.denominacion,
+          rpt_catalogo_ref: puesto.rpt_catalogo_ref,
+          rpt_catalogo_huella_sha256: puesto.rpt_catalogo_huella_sha256 },
+        { busquedaPuesto: codigo, puestoRPT: { codigo, denominacion: puesto.denominacion,
+          mensaje: "puesto_seleccionado" } })
+          : { ...estado, puestoRPT: { mensaje: puesto
+            ? "puesto_ambito_no_disponible" : "puesto_no_encontrado" } };
+      } catch (error) {
+        if (consultaPuesto !== controlador || controlador.signal.aborted || raiz.isConnected === false) return;
+        estado = { ...estado, puestoRPT: { mensaje: error instanceof TypeError
+          ? "puesto_publicacion_pendiente" : "puesto_consulta_error" } };
+      } finally {
+        if (consultaPuesto === controlador) consultaPuesto = null;
+        if (raiz.isConnected !== false) { dibujar(); raiz.querySelector("#ct-puesto_busqueda")?.focus(); }
+      }
+      return;
+    }
     if (accion === "confirmar-presentar" && modo === "revision" && contexto?.actor.puede_presentar) {
       const comando = crearComandoPeticionCentro(estado.borrador, contexto.catalogos, claveUUID());
       await ejecutar({ operacion: "presentar", ...comando }); return;
@@ -732,7 +868,9 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     if (ocupado || operacionPendiente || resultadoIncierto || !contexto || ["denegado", "sin_verificar"].includes(modo)) return;
     const borrador = extraerBorrador(event.target, false);
     const validacion = validarBorradorAlta(borrador, contexto.catalogos);
-    estado = { ...estadoBase(contexto.catalogos, borrador), errores: validacion.errores, fase: validacion.valido ? "revision" : "edicion" };
+    estado = { ...estadoBase(contexto.catalogos, borrador,
+      { puestoRPT: estado?.puestoRPT, busquedaPuesto: estado?.busquedaPuesto }),
+    errores: validacion.errores, fase: validacion.valido ? "revision" : "edicion" };
     modo = validacion.valido ? "revision" : "formulario"; dibujar();
     raiz.querySelector(validacion.valido ? "#ct-revision-titulo" : "[data-ct-error-general]")?.focus();
   });
@@ -744,10 +882,44 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     const borrador = extraerBorrador(formulario, false);
     if (campo === "centro_ref") borrador.contacto_ref = "";
     if (campo === "categoria_ref") borrador.grupo_subgrupo = "";
+    if (["centro_ref", "categoria_ref"].includes(campo)
+      && contexto.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES
+      && contexto.catalogos.necesidades.causas.find(({ clave }) => clave === borrador.motivo_clave)
+        ?.campos_permitidos.includes("puesto_codigo")) {
+      borrador.puesto_solicitado = "";
+      borrador.puesto_codigo = "";
+      borrador.rpt_catalogo_ref = "";
+      borrador.rpt_catalogo_huella_sha256 = "";
+    }
+    if (campo === "motivo_clave" && contexto.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
+      borrador.puesto_solicitado = "";
+      borrador.puesto_codigo = "";
+      borrador.rpt_catalogo_ref = "";
+      borrador.rpt_catalogo_huella_sha256 = "";
+    }
     if (campo === "motivo_clave" && contexto.catalogos.motivos.find(
       ({ clave }) => clave === borrador.motivo_clave)?.fecha_fin === "no_aplica") borrador.fin = "";
-    estado = estadoBase(contexto.catalogos, borrador); dibujar();
+    const limpiarPuesto = ["motivo_clave", "centro_ref", "categoria_ref"].includes(campo);
+    estado = estadoBase(contexto.catalogos, borrador,
+      { puestoRPT: limpiarPuesto ? null : estado?.puestoRPT,
+        busquedaPuesto: limpiarPuesto ? "" : estado?.busquedaPuesto }); dibujar();
     raiz.querySelector(campo === "rc_existe" ? `[name="rc_existe"][value="${borrador.rc_existe ? "si" : "no"}"]` : `#ct-${campo}`)?.focus();
+  });
+  raiz.addEventListener("input", (event) => {
+    if (event.target?.name !== "puesto_busqueda" || modo !== "formulario" || !estado?.puestoRPT?.codigo) return;
+    if (event.target.value === estado.puestoRPT.codigo) return;
+    const formulario = event.target.closest("[data-ct-form]");
+    if (!formulario) return;
+    consultaPuesto?.abort(); consultaPuesto = null;
+    estado = estadoBase(contexto.catalogos, { ...extraerBorrador(formulario, false), puesto_codigo: "",
+      puesto_solicitado: "", rpt_catalogo_ref: "", rpt_catalogo_huella_sha256: "" },
+    { busquedaPuesto: event.target.value });
+    for (const campo of ["puesto_codigo", "puesto_solicitado", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]) {
+      const oculto = formulario.querySelector(`[name="${campo}"]`);
+      if (oculto) oculto.value = "";
+    }
+    const resultado = formulario.querySelector("[data-ct-puesto-resultado]");
+    if (resultado) resultado.textContent = traducirFormulario("puesto_sin_seleccion");
   });
   globalThis.addEventListener?.("beforeunload", (event) => { if (ocupado || operacionPendiente) { event.preventDefault(); event.returnValue = ""; } });
   raiz.innerHTML = `<p class="pc-cargando">${esc(TEXTO.cargar)}</p>`;

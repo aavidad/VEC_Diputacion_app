@@ -569,9 +569,9 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
   const conNumero = esRegistro(borrador) && Object.hasOwn(borrador, "numero_expediente_moad");
   const conNecesidad = catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES;
   const conPeticionCentro = Object.hasOwn(borrador ?? {}, "puesto_solicitado");
-  if (!tieneCamposExactos(borrador, [...CAMPOS_BORRADOR, ...(conNumero ? ["numero_expediente_moad"] : []),
+  if (!tieneCamposExactos(borrador, [...new Set([...CAMPOS_BORRADOR, ...(conNumero ? ["numero_expediente_moad"] : []),
     ...(conNecesidad ? ["jornada_minutos", ...CAMPOS_NECESIDAD] : []),
-    ...(conPeticionCentro ? ["jornada_minutos", "numero_personas", "puesto_solicitado"] : [])])) {
+    ...(conPeticionCentro ? ["jornada_minutos", "numero_personas", "puesto_solicitado"] : [])])])) {
     return congelar({ valido: false, errores: { general: "contrato_cerrado" } });
   }
 
@@ -762,7 +762,7 @@ export function crearComandoPeticionCentro(borrador, catalogos, claveIdempotenci
       documento_ref: borrador.rc_documento_ref,
     }
     : { existe: false };
-  return validarComandoPeticionCentro({
+  const comando = validarComandoPeticionCentro({
     clave_idempotencia: claveIdempotencia,
     solicitud: {
       centro_ref: borrador.centro_ref,
@@ -785,6 +785,48 @@ export function crearComandoPeticionCentro(borrador, catalogos, claveIdempotenci
       } : {}),
     },
   });
+  if (catalogos.esquema !== ESQUEMA_CATALOGOS_NECESIDADES) return comando;
+  return validarComandoPeticionCentroNecesidad({ ...comando, esquema: ESQUEMA_ALTA_NECESIDAD,
+    necesidad: crearNecesidadDesdeBorrador(borrador, validarCatalogosAlta(catalogos).necesidades) });
+}
+
+function crearNecesidadDesdeBorrador(borrador, n) {
+  const causa = n.causas.find(({ clave }) => clave === borrador.motivo_clave);
+  return { esquema: "vec.ct.necesidad_alta.v1", catalogo_ref: n.referencia,
+    catalogo_version: n.version, catalogo_huella_sha256: n.huella_sha256,
+    causa_clave: causa.clave, jornada_minutos: Number(borrador.jornada_minutos),
+    campos: Object.fromEntries(causa.campos_permitidos.filter((campo) => borrador[campo])
+      .map((campo) => [campo, borrador[campo]])) };
+}
+
+export function validarComandoPeticionCentroNecesidad(comando) {
+  exigirCamposExactos(comando, ["clave_idempotencia", "solicitud", "esquema", "necesidad"],
+    "petición de centro con necesidad");
+  validarComandoPeticionCentro({ clave_idempotencia: comando.clave_idempotencia,
+    solicitud: comando.solicitud });
+  if (comando.esquema !== ESQUEMA_ALTA_NECESIDAD) throw new TypeError("esquema de necesidad incompatible");
+  validarNecesidadComando(comando.necesidad, comando.solicitud.motivo_clave,
+    comando.solicitud.jornada_minutos);
+  if (Number(comando.necesidad.campos.numero_personas) !== comando.solicitud.numero_personas) {
+    throw new TypeError("número de personas de centro no válido");
+  }
+  return clonarYCongelarAlta(comando);
+}
+
+function validarNecesidadComando(n, causaClave, jornadaMinutos) {
+  exigirCamposExactos(n, ["esquema", "catalogo_ref", "catalogo_version", "catalogo_huella_sha256",
+    "causa_clave", "jornada_minutos", "campos"], "necesidad de centro");
+  if (n.esquema !== "vec.ct.necesidad_alta.v1" || !referenciaValida(n.catalogo_ref)
+    || !Number.isSafeInteger(n.catalogo_version) || n.catalogo_version < 1
+    || !/^[a-f0-9]{64}$/u.test(n.catalogo_huella_sha256)
+    || !PATRON_CLAVE_CATALOGO.test(n.causa_clave) || n.causa_clave !== causaClave
+    || !Number.isSafeInteger(n.jornada_minutos) || n.jornada_minutos < 1
+    || n.jornada_minutos > 10080 || (jornadaMinutos !== undefined && n.jornada_minutos !== jornadaMinutos)
+    || !esRegistro(n.campos)
+    || Object.keys(n.campos).length > 32 || Object.entries(n.campos).some(([campo, valor]) =>
+      !CAMPOS_NECESIDAD.includes(campo) || !valorNecesidadValido(campo, valor))) {
+    throw new TypeError("necesidad de centro no válida");
+  }
 }
 
 export function validarComandoAlta(comando) {
@@ -806,8 +848,9 @@ export function crearComandoAlta(borrador, catalogos, claveIdempotencia) {
   if (!catalogosValidados.numero_expediente_moad) {
     throw new ErrorValidacionAlta({ general: "contrato_cerrado" });
   }
-  const { numero_expediente_moad, jornada_minutos, ...resto } = borrador;
+  const { numero_expediente_moad, ...resto } = borrador;
   const solicitud = { ...resto };
+  delete solicitud.jornada_minutos;
   for (const campo of CAMPOS_NECESIDAD) delete solicitud[campo];
   const catalogoPeticion = catalogosValidados.esquema === ESQUEMA_CATALOGOS_NECESIDADES
     ? { esquema: ESQUEMA_CATALOGOS, centros: catalogosValidados.centros, categorias: catalogosValidados.categorias,
@@ -817,15 +860,9 @@ export function crearComandoAlta(borrador, catalogos, claveIdempotencia) {
     : catalogosValidados;
   const base = crearComandoPeticionCentro(solicitud, catalogoPeticion, claveIdempotencia);
   if (catalogosValidados.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
-    const n = catalogosValidados.necesidades;
-    const causa = n.causas.find((dato) => dato.clave === borrador.motivo_clave);
     return validarComandoAltaNecesidad({ ...base, numero_expediente_moad,
       esquema: ESQUEMA_ALTA_NECESIDAD,
-      necesidad: { esquema: "vec.ct.necesidad_alta.v1", catalogo_ref: n.referencia,
-        catalogo_version: n.version, catalogo_huella_sha256: n.huella_sha256,
-        causa_clave: causa.clave, jornada_minutos: Number(jornada_minutos),
-        campos: Object.fromEntries(causa.campos_permitidos.filter((campo) => borrador[campo])
-          .map((campo) => [campo, borrador[campo]])) } });
+      necesidad: crearNecesidadDesdeBorrador(borrador, catalogosValidados.necesidades) });
   }
   return validarComandoAlta({
     ...base,
@@ -839,19 +876,7 @@ export function validarComandoAltaNecesidad(comando) {
   if (comando.esquema !== ESQUEMA_ALTA_NECESIDAD) throw new TypeError("esquema de alta incompatible");
   validarComandoAlta({ clave_idempotencia: comando.clave_idempotencia,
     numero_expediente_moad: comando.numero_expediente_moad, solicitud: comando.solicitud });
-  const n = comando.necesidad;
-  exigirCamposExactos(n, ["esquema", "catalogo_ref", "catalogo_version", "catalogo_huella_sha256",
-    "causa_clave", "jornada_minutos", "campos"], "necesidad");
-  if (n.esquema !== "vec.ct.necesidad_alta.v1" || !referenciaValida(n.catalogo_ref)
-    || !Number.isSafeInteger(n.catalogo_version) || n.catalogo_version < 1
-    || !/^[a-f0-9]{64}$/u.test(n.catalogo_huella_sha256)
-    || !PATRON_CLAVE_CATALOGO.test(n.causa_clave) || n.causa_clave !== comando.solicitud.motivo_clave
-    || !Number.isSafeInteger(n.jornada_minutos) || n.jornada_minutos < 1
-    || n.jornada_minutos > 10080 || !esRegistro(n.campos)
-    || Object.keys(n.campos).length > 32 || Object.entries(n.campos).some(([campo, valor]) =>
-      !CAMPOS_NECESIDAD.includes(campo) || !valorNecesidadValido(campo, valor))) {
-    throw new TypeError("necesidad de alta no válida");
-  }
+  validarNecesidadComando(comando.necesidad, comando.solicitud.motivo_clave);
   return clonarYCongelarAlta(comando);
 }
 

@@ -87,6 +87,7 @@
     "local_confirmarPresentar": "Confirm submission of this request",
     "local_confirmarRatificar": "Confirm ratification of this request",
     "local_conflicto": "The request changed. The worklist has been refreshed; review it before continuing.",
+    "local_noCoinciden": "Check the need, centre and category. If the staff list has changed, search for the position again.",
     "local_datosNoDisponibles": "No details selected.",
     "local_descripcion": "A preliminary request records the centre’s staffing need before HR creates the temporary staffing case.",
     "local_detalle": "Reviewable details",
