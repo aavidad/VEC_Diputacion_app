@@ -149,10 +149,11 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 		if len(lista) != 23 {
 			return falloPublicacionConfianzaExterna(nil)
 		}
+		var reutilizadas []coordenadaClaveExternaV3
 		var actual materialPublicoExternoV3
 		if len(estado.Actual) != 0 && string(estado.Actual) != "null" && json.Unmarshal(estado.Actual, &actual) == nil &&
 			actual.Raiz.HuellaSPKI == lista[0].spkiHuella && actual.Raiz.ClaveID == "clave:atestacion:externo:"+lista[0].spkiHuella &&
-			ahora.UTC().Before(actual.Configuracion.ExpiraEn) && len(actual.Claves) == len(lista) {
+			len(actual.Claves) == len(lista) {
 			sort.Slice(actual.Claves, func(i, j int) bool { return actual.Claves[i].Audiencia < actual.Claves[j].Audiencia })
 			if err := coordinarMaterialExternoV3(lista, actual.Configuracion.Revision, actual.Configuracion.Secuencia,
 				actual.Configuracion.PublicadaEn, actual.Configuracion.ExpiraEn, actual.Raiz.ValidaDesde, actual.Raiz.ValidaHasta,
@@ -164,30 +165,37 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 				return err
 			}
 			if publicoIgualExternoV3(propuesta, estado.Actual) {
-				esperada = propuesta
-				var confirmado []byte
-				if err := tx.QueryRow(ctx, `SELECT vec_autorizacion_atestada_v3.gestionar_publicacion_externa_v1($1::pg_catalog.jsonb)`, propuesta).Scan(&confirmado); err != nil {
-					return err
+				// La renovación diaria sólo cambia la configuración. Los proveedores
+				// vivos conservan las coordenadas de estas mismas claves.
+				reutilizadas = actual.Claves
+				if ahora.UTC().Before(actual.Configuracion.ExpiraEn) {
+					esperada = propuesta
+					var confirmado []byte
+					if err := tx.QueryRow(ctx, `SELECT vec_autorizacion_atestada_v3.gestionar_publicacion_externa_v1($1::pg_catalog.jsonb)`, propuesta).Scan(&confirmado); err != nil {
+						return err
+					}
+					if !publicoIgualExternoV3(propuesta, confirmado) {
+						return falloPublicacionConfianzaExterna(nil)
+					}
+					return tx.Commit(ctx)
 				}
-				if !publicoIgualExternoV3(propuesta, confirmado) {
-					return falloPublicacionConfianzaExterna(nil)
-				}
-				return tx.Commit(ctx)
 			}
 		}
-		if estado.SecuenciaSiguiente == 0 || estado.VersionSiguiente == 0 || estado.RevisionSiguiente == 0 || estado.OrdenSiguiente == 0 ||
-			estado.SecuenciaSiguiente > uint64(maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo) ||
-			estado.VersionSiguiente+uint64(len(lista)) > uint64(maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo) ||
-			estado.RevisionSiguiente+uint64(len(lista)) > uint64(maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo) ||
-			estado.OrdenSiguiente+uint64(len(lista)) > uint64(maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo) {
+		if estado.SecuenciaSiguiente == 0 || estado.SecuenciaSiguiente > uint64(maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo) {
 			return falloPublicacionConfianzaExterna(nil)
 		}
-		versiones := make([]coordenadaClaveExternaV3, len(lista))
-		for i, m := range lista {
-			versiones[i].Audiencia = m.audienciaConsumo
-			versiones[i].Version = estado.VersionSiguiente + uint64(i)
-			versiones[i].Revision = estado.RevisionSiguiente + uint64(i)
-			versiones[i].Orden = estado.OrdenSiguiente + uint64(i)
+		versiones := reutilizadas
+		if versiones == nil {
+			if estado.VersionSiguiente == 0 || estado.RevisionSiguiente == 0 || estado.OrdenSiguiente == 0 ||
+				estado.VersionSiguiente > uint64(maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo)-uint64(len(lista)) ||
+				estado.RevisionSiguiente > uint64(maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo)-uint64(len(lista)) ||
+				estado.OrdenSiguiente > uint64(maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo)-uint64(len(lista)) {
+				return falloPublicacionConfianzaExterna(nil)
+			}
+			versiones = make([]coordenadaClaveExternaV3, len(lista))
+			for i, m := range lista {
+				versiones[i] = coordenadaClaveExternaV3{m.audienciaConsumo, estado.VersionSiguiente + uint64(i), estado.RevisionSiguiente + uint64(i), estado.OrdenSiguiente + uint64(i)}
+			}
 		}
 		publicada := time.Date(ahora.UTC().Year(), ahora.UTC().Month(), ahora.UTC().Day(), 0, 0, 0, 0, time.UTC)
 		if err := coordinarMaterialExternoV3(lista, "confianza:atestacion:externo:"+numeroDecimal64(estado.SecuenciaSiguiente),
@@ -237,7 +245,7 @@ func confirmarPublicacionExternaV3(ctx context.Context, pool *pgxpool.Pool, espe
 	if json.Unmarshal(respuesta, &estado) != nil || !publicoIgualExternoV3(esperada, estado.Actual) {
 		return falloPublicacionConfianzaExterna(nil)
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 func ordenarMaterialExternoV3(materiales map[string][]materialAtestacionContratacionTemporalDesarrollo) []*materialAtestacionContratacionTemporalDesarrollo {

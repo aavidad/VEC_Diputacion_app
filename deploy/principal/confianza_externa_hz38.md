@@ -58,7 +58,9 @@ sus funciones, permisos y guardas.
    entrega las claves de los consumidores pedidos. Repetir el comando con el
    mismo material conserva raíz, configuración, claves y coordenadas; cada
    ejecución deja un asiento nominal. Si caduca la configuración o se renueva
-   el material externo, se añade una versión y se conserva la historia.
+   el material externo, se añade una versión y se conserva la historia. Renovar sólo la configuración
+   conserva las coordenadas de las claves para que el portal ya arrancado pueda
+   continuar; cambiar los secretos exige recomponer sus proveedores.
 7. Cerrar el LOGIN administrativo cuando finalice la preparación (`ALTER ROLE
    vec_confianza_externa_publicador_alberto NOLOGIN`) y retirar su DSN privado
    según el procedimiento de dirección. Para renovar se habilita por Sistemas
@@ -77,7 +79,8 @@ proceso web. Mantener `VEC_MATERIAL_PORTAL_EXTERNO_DIR` y las DSN externas del k
 La prueba `TestPreparacionConfianzaExternaPostgreSQL` usa una copia desechable
 post-HZ37/AD263/AD265 con TLS. Prepara el material, repite sin cambiar el inventario,
 lee `leer_configuracion_externa_v1` y crea los proveedores V3 de cada consumidor
-pedido. Se activa sólo con `VEC_HZ38_PG_DESECHABLE=1`,
+pedido. También publica una configuración de vigencia corta y comprueba que un
+proveedor ya creado se recupera al renovar, sin reiniciar. Se activa sólo con `VEC_HZ38_PG_DESECHABLE=1`,
 `VEC_HZ38_PUBLICADOR_DSN_FICHERO` y `VEC_HZ38_PREFLIGHT_DSN_FICHERO`, ambos ficheros
 privados. No instala SQL ni crea LOGIN desde la prueba.
 
