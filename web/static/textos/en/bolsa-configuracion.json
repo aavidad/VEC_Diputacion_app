@@ -59,6 +59,7 @@
     "bolsa_rrhh_respuestas_llamamiento_consultar": "View responses in My pool",
     "bolsa_carga_convoca_importar": "Import pools from CONVOCA",
     "bolsa_inscripcion_decidir": "Decide registration requests",
-    "bolsa_inscripcion_incorporar": "Add admitted applicants to the pool"
+    "bolsa_inscripcion_incorporar": "Add admitted applicants to the pool",
+    "bolsa_configuracion_consultar": "View my profile and configuration"
   }
 }

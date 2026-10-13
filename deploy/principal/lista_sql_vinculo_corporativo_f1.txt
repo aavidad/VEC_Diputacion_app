@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000258_publicacion_vinculo_corporativo_f1.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000042_publicacion_vinculo_corporativo_f1.up.sql

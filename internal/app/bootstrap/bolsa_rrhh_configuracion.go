@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"slices"
 	"time"
 
@@ -35,6 +36,10 @@ type perfilPropioBolsaRRHH struct {
 // lectura mediante la auditoría durable ya compuesta en la frontera RRHH.
 func (m *manejadorParticipacionBolsaDesarrollo) ConsultarPerfilBolsaRRHH(ctx context.Context) (salida any, fallo error) {
 	denegado := vecdomain.ErrAutorizacionDenegada
+	rechazar := func(clave string, causas ...error) (any, error) {
+		slog.Warn("bolsa_configuracion_denegada", "clave", clave, "esperado", true, "actual", false)
+		return nil, errors.Join(append([]error{denegado}, causas...)...)
+	}
 	if m == nil || m.preparador == nil || m.preparador.soporte == nil ||
 		m.registradorPerfil == nil || m.procesoPerfil == "" || ctx == nil || ctx.Err() != nil {
 		return nil, vecports.ErrFuenteAutorizacionNoDisponible
@@ -42,7 +47,7 @@ func (m *manejadorParticipacionBolsaDesarrollo) ConsultarPerfilBolsaRRHH(ctx con
 	p := m.preparador
 	contexto, err := p.contextoRevalidado(ctx)
 	if err != nil {
-		return nil, denegado
+		return rechazar("sesion_nominal", err)
 	}
 	defer func() {
 		resultado := vecdomain.ResultadoIntentoAuditoriaExito
@@ -54,7 +59,7 @@ func (m *manejadorParticipacionBolsaDesarrollo) ConsultarPerfilBolsaRRHH(ctx con
 		}
 		acuse, errAudit := m.registrarConsultaPerfilBolsaRRHH(ctx, contexto, resultado)
 		if errAudit != nil {
-			salida, fallo = nil, vecports.ErrIntentoAuditoriaNoDisponible
+			salida, fallo = nil, errors.Join(vecports.ErrIntentoAuditoriaNoDisponible, errAudit)
 			return
 		}
 		if ctx.Err() != nil {
@@ -70,50 +75,62 @@ func (m *manejadorParticipacionBolsaDesarrollo) ConsultarPerfilBolsaRRHH(ctx con
 		return nil, vecports.ErrFuenteAutorizacionNoDisponible
 	}
 	if p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" {
-		return nil, denegado
+		return rechazar("ambito_servidor")
 	}
 	datos, err := contexto.Vinculo.Datos()
 	if err != nil || datos.Superficie != "interna_corporativa" || datos.CuentaPrivilegiada {
-		return nil, denegado
+		return rechazar("canal_rrhh", err)
 	}
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
 	if !contexto.Vinculo.VigenteEn(ahora, contexto.Resultado) {
-		return nil, denegado
+		return rechazar("sesion_vigente")
 	}
 	i, err := p.fuenteRespuestas.ObtenerInstantaneaAutorizacion(ctx, datos.PrincipalID, datos.PerfilActivoRef)
 	if err != nil || ctx.Err() != nil {
-		return nil, vecports.ErrFuenteAutorizacionNoDisponible
+		return nil, errors.Join(vecports.ErrFuenteAutorizacionNoDisponible, err, ctx.Err())
 	}
 	ahora = time.Now().UTC().Truncate(time.Microsecond)
-	if i.Validar() != nil || !contexto.Vinculo.VigenteEn(ahora, contexto.Resultado) ||
-		i.AsignacionPerfil.PrincipalID != datos.PrincipalID ||
-		i.AsignacionPerfil.PerfilActivoRef != datos.PerfilActivoRef ||
-		!i.AsignacionPerfil.VigenteEn(ahora) ||
-		i.VersionRol.RolID != vecdomain.RolIDVersionarBolsaB1 ||
-		i.VersionRol.Estado != vecdomain.EstadoVersionRolPublicada ||
-		i.VersionRol.PublicadaEn.After(ahora) ||
-		i.ControlVigenciaVersionRol.Estado != vecdomain.EstadoControlVigenciaVersionRolHabilitada ||
-		i.ControlVigenciaVersionRol.ActualizadoEn.After(ahora) ||
-		i.AsignacionPerfil.EmitidaPor == "identidad:desarrollo:no-autoritativa" ||
-		i.VersionRol.PublicadaPor == "seguridad:desarrollo:no-autoritativa" ||
-		i.ControlVigenciaVersionRol.ActualizadoPor == "seguridad:desarrollo:no-autoritativa" {
-		return nil, denegado
+	for _, guarda := range []struct {
+		clave  string
+		valida bool
+	}{
+		{"instantanea_valida", i.Validar() == nil},
+		{"sesion_vigente", contexto.Vinculo.VigenteEn(ahora, contexto.Resultado)},
+		{"persona_propia", i.AsignacionPerfil.PrincipalID == datos.PrincipalID},
+		{"perfil_propio", i.AsignacionPerfil.PerfilActivoRef == datos.PerfilActivoRef},
+		{"asignacion_vigente", i.AsignacionPerfil.VigenteEn(ahora)},
+		{"rol_rrhh_bolsa", i.VersionRol.RolID == vecdomain.RolIDVersionarBolsaB1},
+		{"rol_publicado", i.VersionRol.Estado == vecdomain.EstadoVersionRolPublicada && !i.VersionRol.PublicadaEn.After(ahora)},
+		{"control_habilitado", i.ControlVigenciaVersionRol.Estado == vecdomain.EstadoControlVigenciaVersionRolHabilitada && !i.ControlVigenciaVersionRol.ActualizadoEn.After(ahora)},
+		{"asignacion_autoritativa", i.AsignacionPerfil.EmitidaPor != "identidad:desarrollo:no-autoritativa"},
+		{"rol_autoritativo", i.VersionRol.PublicadaPor != "seguridad:desarrollo:no-autoritativa"},
+		{"control_autoritativo", i.ControlVigenciaVersionRol.ActualizadoPor != "seguridad:desarrollo:no-autoritativa"},
+	} {
+		if !guarda.valida {
+			return rechazar(guarda.clave)
+		}
 	}
+
 	// La asignación sólo debe contener las dos dimensiones privadas de esta
 	// sesión, cada una con el valor exacto que resolverá la frontera HTTP.
 	if len(i.AsignacionPerfil.Ambitos) != 2 {
-		return nil, denegado
+		return rechazar("dimensiones_ambito")
 	}
 	valores := map[string]string{"unidad_ref": p.soporte.unidadRef, "ambito_ref": p.soporte.ambitoRef}
 	for _, ambito := range i.AsignacionPerfil.Ambitos {
 		valor, ok := valores[ambito.Clave]
 		if !ok || len(ambito.Valores) != 1 || ambito.Valores[0] != valor {
-			return nil, denegado
+			return rechazar("ambito_exacto")
 		}
 		delete(valores, ambito.Clave)
 	}
 	if len(valores) != 0 {
-		return nil, denegado
+		return rechazar("ambito_completo")
+	}
+	recurso := vecdomain.RecursoAutorizable{Referencia: "bolsa:perfil:" + huellaAltaContratacionTemporalDesarrollo(datos.PerfilActivoRef), ModuloID: "bolsa", Tipo: "perfil_rrhh_bolsa", Ambitos: map[string]string{"unidad_ref": p.soporte.unidadRef, "ambito_ref": p.soporte.ambitoRef}, Atributos: map[string]string{"perfil_ref": datos.PerfilActivoRef}}
+	evaluacion, err := vecdomain.EvaluarLecturaActualAutorizacionV3(contexto.Vinculo, contexto.Resultado, i, "bolsa.configuracion.consultar", recurso, "consulta_configuracion_bolsa_rrhh", camposConsultaPerfilBolsaRRHH(), ahora)
+	if err != nil || !evaluacion.Permitido || !slices.Equal(evaluacion.CamposPermitidos, camposConsultaPerfilBolsaRRHH()) || !slices.Equal(evaluacion.Obligaciones, []string{"auditar"}) {
+		return rechazar("concesion_configuracion", err)
 	}
 	acciones := make([]string, 0, len(i.VersionRol.Concesiones))
 	for _, c := range i.VersionRol.Concesiones {
@@ -169,4 +186,8 @@ func (m *manejadorParticipacionBolsaDesarrollo) registrarConsultaPerfilBolsaRRHH
 		return vacio, err
 	}
 	return acuse, nil
+}
+
+func camposConsultaPerfilBolsaRRHH() []string {
+	return []string{"acciones[]", "ambito.ambito_ref", "ambito.unidad_ref", "canales[].activo", "canales[].acuse", "canales[].admite_respuesta", "canales[].al_emitir", "canales[].canal", "canales[].limite_caracteres", "canales[].modo", "canales[].requiere_alta_voluntaria", "canales[].resultados[]", "canales[].resultados_cierre[]", "canales[].seguimiento", "consultada_en", "rol.nombre", "rol.version"}
 }

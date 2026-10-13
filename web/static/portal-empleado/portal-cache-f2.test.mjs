@@ -256,8 +256,9 @@ test("la integración B7 renueva controlador y presentador desde la entrada HTML
     // Entrada, panel interno y controlador (que ahora importa i18n con la misma
     // URL que el resto del portal) cambiaron después y piden una posterior.
     // CT consulta la misma API de Bolsa al abrir una ficha; ambas aristas
-    // deben conservar exactamente la misma URL immutable.
-    const cantidad = recurso === "portal-bolsas-api.js" ? 2 : 1;
+    // deben conservar exactamente la misma URL immutable. El ranking reutiliza
+    // también ese cliente; las tres referencias tienen la misma URL.
+    const cantidad = recurso === "portal-bolsas-api.js" ? 3 : 1;
     const nueva = exigirVersiones(codigo, prefijo + recurso, posterior(versionEntradaAyuda), cantidad);
     assert.notEqual(nueva, previa, recurso);
     assert.ok(!codigo.includes(`${prefijo}${recurso}?v=${previa}`), `${recurso}: no queda URL antigua`);

@@ -10,7 +10,7 @@ const instante = (valor) => typeof valor === "string" && /^\d{4}-\d{2}-\d{2}T\d{
 const fallo = (codigo, estado = 0) => Object.assign(new Error(codigo), { codigo, estado });
 
 function validarConsulta(entrada) {
-  if (!entrada || !["ct", "bolsa"].includes(entrada.fuente) || !referencia(entrada.expediente_ref) || !instante(entrada.desde) || !instante(entrada.hasta)
+  if (!entrada || !["ct", "bolsa", "persona"].includes(entrada.fuente) || !referencia(entrada.expediente_ref) || !instante(entrada.desde) || !instante(entrada.hasta)
     || Date.parse(entrada.hasta) <= Date.parse(entrada.desde)
     || Date.parse(entrada.hasta) - Date.parse(entrada.desde) > 31 * 86400000
     || !referencia(entrada.finalidad_ref, 128) || !referencia(entrada.motivo_ref, 128)
@@ -20,7 +20,14 @@ function validarConsulta(entrada) {
     fuente: entrada.fuente, expediente_ref: entrada.expediente_ref, actor_ref: entrada.actor_ref || "",
     desde: entrada.desde, hasta: entrada.hasta, limite: 50, cursor: entrada.cursor || "",
     finalidad_ref: entrada.finalidad_ref, motivo_ref: entrada.motivo_ref,
+    ...(entrada.motivo_consulta !== undefined ? { motivo_consulta: validarMotivo(entrada.motivo_consulta) } : {}),
   };
+}
+
+function validarMotivo(valor) {
+  if (typeof valor !== "string" || valor.trim() !== valor || valor.length < 3 || valor.length > 500
+    || /[\x00-\x1f\x7f]/u.test(valor)) throw fallo("consulta_invalida");
+  return valor;
 }
 
 async function leerLimitado(respuesta) {
@@ -50,6 +57,7 @@ export function crearFuenteAuditoriaHTTP({ fetchImpl = globalThis.fetch } = {}) 
       const controlador = new AbortController();
       const abortar = () => controlador.abort();
       signal?.addEventListener("abort", abortar, { once: true });
+      if (signal?.aborted) abortar();
       const temporizador = setTimeout(abortar, LIMITE_MS);
       try {
         const respuesta = await fetchImpl(ruta, {
@@ -72,12 +80,33 @@ export function crearFuenteAuditoriaHTTP({ fetchImpl = globalThis.fetch } = {}) 
     async obtenerOpciones({ signal } = {}) {
       const respuesta = await pedir(RUTA_OPCIONES, "GET", undefined, { signal });
       if (!respuesta || !referencia(respuesta.finalidad_ref, 128) || !referencia(respuesta.motivo_ref, 128)
-        || !Array.isArray(respuesta.fuentes) || respuesta.fuentes.length < 1 || respuesta.fuentes.length > 2
-        || new Set(respuesta.fuentes).size !== respuesta.fuentes.length || respuesta.fuentes.some((valor) => !["ct", "bolsa"].includes(valor))
+        || !Array.isArray(respuesta.fuentes) || respuesta.fuentes.length < 1 || respuesta.fuentes.length > 3
+        || new Set(respuesta.fuentes).size !== respuesta.fuentes.length || respuesta.fuentes.some((valor) => !["ct", "bolsa", "persona"].includes(valor))
         || !referencia(respuesta.permiso_requerido, 128) || typeof respuesta.es_ejemplo !== "boolean") throw fallo("respuesta_invalida");
       return Object.freeze({ finalidad_ref: respuesta.finalidad_ref, motivo_ref: respuesta.motivo_ref,
         permiso_requerido: respuesta.permiso_requerido, es_ejemplo: respuesta.es_ejemplo,
+        seleccion_objetivo: respuesta.seleccion_objetivo === true,
         fuentes: Object.freeze([...respuesta.fuentes]) });
+    },
+    async buscarObjetivos(entrada, { signal } = {}) {
+      if (!entrada || !["ct", "bolsa", "persona"].includes(entrada.fuente)
+        || !referencia(entrada.finalidad_ref, 128) || !referencia(entrada.motivo_ref, 128)
+        || typeof entrada.busqueda !== "string" || entrada.busqueda.length > 80
+        || /[\x00-\x1f\x7f]/u.test(entrada.busqueda)
+        || (entrada.despues_ref && !referencia(entrada.despues_ref))) throw fallo("consulta_invalida");
+      const respuesta = await pedir(RUTA, "POST", { operacion: "buscar", fuente: entrada.fuente,
+        busqueda: entrada.busqueda.trim(), despues_ref: entrada.despues_ref || "", limite: 20,
+        finalidad_ref: entrada.finalidad_ref, motivo_ref: entrada.motivo_ref,
+        motivo_consulta: validarMotivo(entrada.motivo_consulta) }, { signal });
+      if (!Array.isArray(respuesta?.objetivos) || respuesta.objetivos.length > 20
+        || typeof respuesta.despues_ref !== "string" || (respuesta.despues_ref && !referencia(respuesta.despues_ref))) throw fallo("respuesta_invalida");
+      const refs = new Set();
+      for (const o of respuesta.objetivos) {
+        if (!referencia(o?.referencia) || refs.has(o.referencia) || typeof o.etiqueta !== "string"
+          || !o.etiqueta || o.etiqueta.length > 160 || /[\x00-\x1f\x7f]/u.test(o.etiqueta)) throw fallo("respuesta_invalida");
+        refs.add(o.referencia);
+      }
+      return Object.freeze({ objetivos: Object.freeze(respuesta.objetivos.map((o) => Object.freeze({ ...o }))), despues_ref: respuesta.despues_ref });
     },
     async consultar(entrada, { signal } = {}) {
       return pedir(RUTA, "POST", validarConsulta(entrada), { signal });

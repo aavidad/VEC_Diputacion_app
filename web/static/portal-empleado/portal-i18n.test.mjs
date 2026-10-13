@@ -232,7 +232,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-menu-bolsa.js", "portal-llamamientos-selector.js"])
     versionesEspeciales.set(ruta, "20261007-bolsa-llamamientos-unico-v1");
   for (const ruta of ["modulos/auditoria/vista.js", "modulos/auditoria/cliente-http.js"])
-    versionesEspeciales.set(ruta, "20261007-auditoria-disponibilidad-v1");
+    versionesEspeciales.set(ruta, "20261013-auditoria-rrhh-v1");
   // Todos estos importadores reales cambiaron de bytes o alcanzan una hoja cambiada.
   for (const ruta of [
     "ayuda-contenido.js", "ayudante-tramites.js", "categorias-rpt/arranque.js", "categorias-rpt/cliente.js",
@@ -900,7 +900,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
   ]) versionesEspeciales.set(ruta, "20261012-ct-b2-cese-v1");
-  versionesEspeciales.set("portal-modulos-coordinador.js", "20261013-bolsa-menu-n3");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261013-meritos-convocatorias-v6");
   versionesEspeciales.set("modulos/auditoria/vista.js", "20261012-sin-prueba-v1");
   for (const ruta of [
     "portal-bolsas-contacto-origen.js", "portal-bolsas-api.js",
@@ -909,7 +909,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   ]) versionesEspeciales.set(ruta, "20261012-c3-contacto-v1");
   versionesEspeciales.set("portal-bolsas-api.js", "20261012-reglas-configuracion-v1");
   for (const ruta of ["portal.js", "portal-panel-interno.js", "portal-bolsas-api.js", "portal-menu-bolsa.js", "portal-bolsas-global.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js"]) versionesEspeciales.set(ruta, "20261013-bolsa-menu-n3");
-  for (const ruta of ["portal.js", "portal-panel-interno.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js"]) versionesEspeciales.set(ruta, "20261013-convocatorias-rrhh-v3");
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-menu-bolsa.js", "portal-panel-interno.js", "modulos/auditoria/vista.js", "modulos/auditoria/cliente-http.js"])
+    versionesEspeciales.set(ruta, "20261013-auditoria-rrhh-v1");
+  for (const ruta of ["portal.js", "portal-panel-interno.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js"]) versionesEspeciales.set(ruta, "20261013-auditoria-rrhh-v2");
   for (const ruta of ["portal-bolsas-ruta-filtros.js", "portal-bolsas-contrato.js", "portal-bolsas-api.js", "portal-bolsas-seguimiento.js", "portal-bolsas-global.js", "portal-bolsas-ofertas.js", "portal-bolsas-historial-ofrecimientos.js", "portal-llamamientos-operaciones-api.js", "portal-inicio.js", "portal-baremacion-ranking.js", "modulos/bolsa/carga-convoca/vista.js"]) versionesEspeciales.set(ruta, "20261013-bolsa-ranking-n4");
   const archivos = ["index.html"];
   const pendientes = [""];
@@ -930,7 +932,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     versionesEspeciales.set(ruta, "20261013-documentos-bolsa-v4");
   for (const ruta of ["modulos/bolsa/documentos-api.js", "modulos/bolsa/documentos-vista.js"]) versionesEspeciales.set(ruta, "20261013-documentos-bolsa-v2");
   for (const ruta of ["portal.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal-bolsa-configuracion.js"]) versionesEspeciales.set(ruta, "20261013-bolsa-configuracion-n5");
+  for (const ruta of ["portal.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js", "portal-panel-interno.js"]) versionesEspeciales.set(ruta, "20261013-auditoria-rrhh-v3");
   const versiones = new Map();
+  for (const ruta of ["portal.js", "portal-panel-interno.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js"]) versionesEspeciales.set(ruta, "20261013-meritos-integracion-v8");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;

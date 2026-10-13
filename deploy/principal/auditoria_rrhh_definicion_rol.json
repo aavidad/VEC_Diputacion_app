@@ -1,0 +1,39 @@
+{
+  "rol_id": "consulta_auditoria_rrhh",
+  "version": 1,
+  "nombre": "Consulta de auditoría de RRHH",
+  "concesiones": [
+    {
+      "accion": "vec.auditoria.consultar",
+      "modulo_id": "auditoria",
+      "tipo_recurso": "historial_auditoria",
+      "finalidades": [
+        "consulta_auditoria_rrhh"
+      ],
+      "garantia_minima": "alto",
+      "campos_permitidos": [
+        "accion",
+        "actor_ref",
+        "antes",
+        "antes_sha256",
+        "canal",
+        "datos_disponibles",
+        "despues",
+        "despues_sha256",
+        "expediente_ref",
+        "finalidad_ref",
+        "fuente",
+        "id",
+        "modulo_id",
+        "motivo",
+        "ocurrido_en",
+        "perfil_ref",
+        "recibo_ref",
+        "resultado"
+      ],
+      "obligaciones": [
+        "auditar"
+      ]
+    }
+  ]
+}

@@ -5,6 +5,7 @@
     "preferencias": true,
     "oportunidades": true,
     "perfil": true,
+    "meritos": true,
     "llamamientos": true,
     "subsanaciones": false,
     "alegaciones": false,

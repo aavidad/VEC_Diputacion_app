@@ -17,7 +17,7 @@ import {
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20261012-ct-personal-ficha-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-bolsa-configuracion-n5";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-meritos-integracion-v8";
 import { cargarTextos } from "../comun/textos.js";
 import { INDICE_IDIOMAS } from "../comun/idioma.js";
 import {
@@ -151,8 +151,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261012-ct-b2-cese-v1");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
-        import("./modulos/auditoria/vista.js?v=20261012-sin-prueba-v1"),
-        import("./modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1"),
+        import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
+        import("./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1"),
       ]);
       return Object.freeze({ vista, auditoriaVista, auditoriaCliente });
     };

@@ -200,6 +200,7 @@ func prefijoArranqueConocido(texto, causa string) string {
 func mensajeInternoArranque(valor string) string {
 	switch valor {
 	case "bootstrap: material criptografico de desarrollo invalido",
+		"bootstrap: montaje de inscripcion Bolsa no disponible",
 		"bootstrap: fuente configurada no disponible",
 		"bootstrap: material criptografico de desarrollo invalido: ruta enlazada o no canonica",
 		"bootstrap: material criptografico de desarrollo invalido: el directorio pertenece al repositorio",
