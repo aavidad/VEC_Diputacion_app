@@ -118,9 +118,8 @@
 780 internal/app/server/server_test.go
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1658 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1792 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
-1111 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
 1080 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 983 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 623 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
@@ -172,3 +171,6 @@
 3752 deploy/postgresql/autorizacion_atestada_v3/migraciones/000262_cartera_meritos_preimagen_actual.up.sql
 1142 deploy/postgresql/contratacion_temporal/migraciones/000209_firma_pdf_tres_pasos.up.sql
 845 deploy/postgresql/autorizacion/migraciones/000093_correspondencia_organizacion_firma_ct.up.sql
+1124 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
+928 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go
+850 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_desarrollo.go
