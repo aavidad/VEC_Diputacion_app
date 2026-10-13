@@ -169,8 +169,6 @@
 3325 deploy/postgresql/autorizacion_atestada_v3/migraciones/000253_meritos_basal_compatible.up.sql
 4891 deploy/postgresql/autorizacion_atestada_v3/migraciones/000260_alegaciones_dos_objetos.up.sql
 3752 deploy/postgresql/autorizacion_atestada_v3/migraciones/000262_cartera_meritos_preimagen_actual.up.sql
-1124 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
-1638 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1709 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 927 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go
 850 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_desarrollo.go
-1709 internal/app/bootstrap/contratacion_temporal_desarrollo.go
