@@ -303,6 +303,10 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// externo; revisar e incorporar en vec-server. Sólo con
 		// VEC_BOLSA_INSCRIPCIONES_ENABLED.
 		audienciaPresentarInscripcionExternaV3,
+		// Alegaciones (AD260) dentro del consumidor inscripcion_bolsa y
+		// preferencias entre bolsas del aspirante (AD248), ambas externas.
+		audienciaPresentarAlegacionExternaV3,
+		puertosbolsa.AudienciaOrdenarPreferenciasBolsas,
 		descriptoresMaterialInscripcionRRHHDesarrollo()[0].Audiencia,
 		descriptoresMaterialInscripcionRRHHDesarrollo()[1].Audiencia,
 		puertosbolsa.AudienciaManifestarDisposicionPropia,
