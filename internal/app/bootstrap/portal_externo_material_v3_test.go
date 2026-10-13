@@ -280,3 +280,30 @@ func TestPreparacionExigeIdempotenciaPropiaDelExterno(t *testing.T) {
 		t.Fatalf("idempotencia propia rechazada: %v", err)
 	}
 }
+
+func TestInventarioInscripcionAceptaSoloBaseOSusDosAudienciasExactas(t *testing.T) {
+	base := audienciasInventarioPortalExternoV3(consumidorInscripcionPortalExternoV3, 1)
+	completo := audienciasInventarioPortalExternoV3(consumidorInscripcionPortalExternoV3, 2)
+	if len(base) != 1 || base[0] != audienciaPresentarInscripcionExternaV3 ||
+		len(completo) != 2 || completo[1] != audienciaPresentarAlegacionExternaV3 ||
+		audienciasInventarioPortalExternoV3(consumidorInscripcionPortalExternoV3, 0) != nil ||
+		audienciasInventarioPortalExternoV3(consumidorInscripcionPortalExternoV3, 3) != nil ||
+		audienciasInventarioPortalExternoV3("mi_bolsa", 1) != nil {
+		t.Fatal("inventario aceptó audiencia lateral o perdió inscripción obligatoria")
+	}
+	publicados := materialesPublicadosPrueba(t, consumidorInscripcionPortalExternoV3)
+	publicados[consumidorInscripcionPortalExternoV3] = publicados[consumidorInscripcionPortalExternoV3][:1]
+	directorio := directorioExternoPrueba(t)
+	if err := escribirMaterialV3PortalExterno(directorio, publicados); err != nil {
+		t.Fatal(err)
+	}
+	inv, err := leerInventarioV3PortalExterno(directorio)
+	if err != nil || len(inv.Consumidores[consumidorInscripcionPortalExternoV3]) != 1 {
+		t.Fatalf("inscripción base no recuperada: %v", err)
+	}
+	materiales, err := materialesConsumidorV3PortalExterno(directorio, inv, consumidorInscripcionPortalExternoV3, inv.Configuracion)
+	if err != nil || len(materiales) != 1 || materiales[0].audienciaConsumo != audienciaPresentarInscripcionExternaV3 {
+		t.Fatalf("material base divergente: %v", err)
+	}
+	borrarMaterialesV3PortalExterno(materiales)
+}
