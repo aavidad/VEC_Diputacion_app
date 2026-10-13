@@ -8,11 +8,11 @@ import (
 	meritosports "vec-diputacion-granada/internal/modules/meritos/ports"
 )
 
-func TestMaterialCarteraExternaUsaUnaAudienciaPropia(t *testing.T) {
+func TestMaterialCarteraExternaUsaAudienciasPropias(t *testing.T) {
 	const consumidor = consumidorMeritosCarteraPortalExternoV3
 	if !slices.Contains(consumidoresPortalExternoV3, consumidor) ||
-		!slices.Equal(audienciasConsumidorPortalExternoV3(consumidor), []string{meritosports.AudienciaRetirarCartera}) {
-		t.Fatal("consumidor M4 no está cerrado a retirada propia")
+		!slices.Equal(audienciasConsumidorPortalExternoV3(consumidor), []string{meritosports.AudienciaRetirarCartera, "vec_meritos.hecho.declarar.v1"}) {
+		t.Fatal("consumidor de cartera no está cerrado a retirada y declaración propias")
 	}
 	d := descriptorMaterialRetirarCarteraExternaV3()
 	if d.Audiencia != meritosports.AudienciaRetirarCartera || d.ProveedorNominal == "" ||
