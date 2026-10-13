@@ -7,11 +7,11 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261013-meritos-convocatorias-v6";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261013-alegaciones-v1";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-meritos-convocatorias-v6";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-alegaciones-v1";
 import { instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261011-bolsa-b103-privacidad-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
@@ -376,6 +376,12 @@ function desmontarRankingBolsa() {
   vistaRankingBolsa?.desmontar(); vistaRankingBolsa = null;
 }
 let vistaInscripcionesBolsa = null;
+let controladorAlegacionesBolsa = null;
+let vistaAlegacionesBolsa = null;
+function desmontarAlegacionesBolsa() {
+  controladorAlegacionesBolsa?.abort(); controladorAlegacionesBolsa = null;
+  vistaAlegacionesBolsa?.desmontar(); vistaAlegacionesBolsa = null;
+}
 let controladorInscripcionesBolsa = null;
 function desmontarInscripcionesBolsa() {
   controladorInscripcionesBolsa?.abort();
@@ -478,6 +484,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
         if (vista === "reglas") { vistaPoliticaCese?.desmontar(); vistaPoliticaCese = null; }
         if (vista === "baremacion") desmontarRankingBolsa();
         if (vista === "baremacion") desmontarRankingBolsa();
+        if (vista === "alegaciones") desmontarAlegacionesBolsa();
         if (["solicitudes", "meritos", "convocatorias"].includes(vista)) desmontarInscripcionesBolsa(); } });
     },
   }),
@@ -1109,6 +1116,28 @@ function navegar(vista, opciones = {}) {
   anunciar(traducirPortal("txt_vista_abierta", { vista: tituloDeVista(vista)[1] }));
 }
 function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } = {}) {
+  if (vista === "alegaciones") {
+    if (controladorAlegacionesBolsa && contenedor.querySelector("[data-alegaciones-montaje]")) return;
+    desmontarAlegacionesBolsa();
+    const controlador = new AbortController(); controladorAlegacionesBolsa = controlador;
+    contenedor.innerHTML = `<div data-alegaciones-montaje><p role="status">${textoPortal("estado_modulo_comprobando")}</p></div>`;
+    const raiz = contenedor.querySelector("[data-alegaciones-montaje]");
+    import("../comun/alegaciones-vista.js?v=20261013-alegaciones-v1").then(async ({ montarAlegaciones }) => {
+      if (controlador.signal.aborted || estado.vista !== vista) return;
+      const montaje = await montarAlegaciones({ contenedor: raiz, modo: "rrhh", escaparHTML, signal: controlador.signal });
+      if (controlador.signal.aborted || estado.vista !== vista) { montaje.desmontar(); return; }
+      vistaAlegacionesBolsa = montaje;
+    }).catch((error) => {
+      if (controlador.signal.aborted || estado.vista !== vista) return;
+      console.error("alegaciones_montaje", { tipo: error?.name });
+      raiz.innerHTML = `<p role="alert">${textoPortal("estado_modulo_no_disponible_titulo")}</p><button type="button" class="boton-secundario" data-alegaciones-montaje-reintentar>${textoPortal("accion_reintentar")}</button>`;
+      raiz.querySelector("[data-alegaciones-montaje-reintentar]")?.addEventListener("click", () => {
+        desmontarAlegacionesBolsa(); montarVistaBolsa(vista, contenedor, opciones);
+      }, { once: true });
+    });
+    return;
+  }
+
   if (vista === "comunicaciones") {
     navegar(vista, { ...opciones, enfocar: false });
     return;
@@ -1352,7 +1381,7 @@ function renderizar() {
   const grupoEstilos = grupoEstilosDeVista(estado.vista);
   const estilosVistaNecesarios = grupoEstilos && coordinadorModulos.vistaDisponible(estado.vista);
   if (estilosVistaNecesarios) cargarEstilosVista(grupoEstilos);
-  const necesitaBolsaBase = !["solicitudes", "meritos", "convocatorias"].includes(estado.vista) && moduloDeVistaPortal(estado.vista) === "bolsa"
+  const necesitaBolsaBase = !["solicitudes", "meritos", "convocatorias", "alegaciones"].includes(estado.vista) && moduloDeVistaPortal(estado.vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(estado.vista);
   if (necesitaBolsaBase && !controladorBolsas && !promesaBolsaBase && !errorBolsaBase) {
     void prepararBolsaBase().catch(() => {});
@@ -1703,7 +1732,7 @@ let rutaCandidatosAplicada = null;
 let promesaBolsaBase = null;
 let errorBolsaBase = false;
 function vistaNecesitaBolsa(vista = estado.vista) {
-  return vista === "portal" || (!["solicitudes", "meritos", "convocatorias"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
+  return vista === "portal" || (!["solicitudes", "meritos", "convocatorias", "alegaciones"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(vista));
 }
 // La carga desde CONVOCA solo se ofrece si el servidor monta sus rutas; se
@@ -1725,7 +1754,7 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261013-meritos-convocatorias-v6"),
+    import("./portal-panel-interno.js?v=20261013-alegaciones-v1"),
     import("./portal-bolsas-api.js?v=20261013-bolsa-ranking-n4"),
     import("./portal-bolsas-ruta-filtros.js?v=20261013-bolsa-ranking-n4"),
     import("./modulos/contratacion-temporal/cliente-http.js?v=20261011-ct-bolsa-vinculo-v1"),

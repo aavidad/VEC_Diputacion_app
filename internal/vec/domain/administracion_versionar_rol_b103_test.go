@@ -312,3 +312,18 @@ func TestVersionarRolBolsaB103InscripcionRRHHExacta(t *testing.T) {
 		t.Fatal("aceptó campo extra")
 	}
 }
+
+func TestVersionarRolBolsaB103AlegacionesExigeBaseRRHHCompleta(t *testing.T) {
+	c, _, _ := escenarioVersionarRolBolsaB103(t)
+	base := c.Perfiles[0].Rol
+	for _, e := range c.Entradas {
+		base.Concesiones = append(base.Concesiones, e.Concesion)
+	}
+	if got := accionesDeltaVersionarBolsa(base, 1, AccionLecturaAlegacionesRRHHBolsa); len(got) != 1 || got[0] != AccionLecturaAlegacionesRRHHBolsa {
+		t.Fatal("no reconoció la base RRHH exacta")
+	}
+	base.Concesiones[len(base.Concesiones)-1].Finalidades = []string{"otra_finalidad"}
+	if accionesDeltaVersionarBolsa(base, 1, AccionLecturaAlegacionesRRHHBolsa) != nil {
+		t.Fatal("aceptó base RRHH alterada")
+	}
+}

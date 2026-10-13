@@ -25,12 +25,13 @@ var accionesInscripcionRRHHB103 = [...]string{
 
 // La ampliación C3 usa el mismo acto de dos ADMIN y conserva el plan histórico.
 const AccionLecturaOrigenContactoBolsa = "bolsa.datos_contacto_participacion.origen.consultar"
+const AccionLecturaAlegacionesRRHHBolsa = "bolsa.inscripcion.alegacion.rrhh.consultar"
 
 func CamposLecturaOrigenContactoBolsa() []string {
 	return []string{"enmascarados", "origen", "participacion_ref", "registrada_en", "sin_contacto", "version"}
 }
 
-func accionesDeltaVersionarBolsa(base VersionRol, selecciones int) []string {
+func accionesDeltaVersionarBolsa(base VersionRol, selecciones int, accionUnica ...string) []string {
 	if selecciones == len(accionesInscripcionRRHHB103) {
 		if base.RolID != RolIDVersionarBolsaB1 || base.Version < 1 {
 			return nil
@@ -53,6 +54,29 @@ func accionesDeltaVersionarBolsa(base VersionRol, selecciones int) []string {
 	if selecciones != 1 {
 		return nil
 	}
+	if len(accionUnica) == 1 && accionUnica[0] == AccionLecturaAlegacionesRRHHBolsa {
+		if base.RolID != RolIDVersionarBolsaB1 {
+			return nil
+		}
+		for _, accion := range accionesVersionarRolBolsaB103 {
+			coincidencias := 0
+			for _, c := range base.Concesiones {
+				if c.Accion == accion {
+					if !concesionVersionarRolBolsaB103(c, accion) {
+						return nil
+					}
+					coincidencias++
+				}
+				if c.Accion == AccionLecturaAlegacionesRRHHBolsa {
+					return nil
+				}
+			}
+			if coincidencias != 1 {
+				return nil
+			}
+		}
+		return []string{AccionLecturaAlegacionesRRHHBolsa}
+	}
 	for _, accion := range accionesVersionarRolBolsaB103 {
 		coincidencias := 0
 		for _, c := range base.Concesiones {
@@ -74,6 +98,13 @@ func accionesDeltaVersionarBolsa(base VersionRol, selecciones int) []string {
 }
 
 func concesionDeltaRRHHB103(c ConcesionRol, accion string) bool {
+	if accion == AccionLecturaAlegacionesRRHHBolsa {
+		return c.Validar() == nil && c.ModuloID == "bolsa" && c.Accion == accion &&
+			c.GarantiaMinima == AuthAssuranceHigh && len(c.Obligaciones) == 0 &&
+			c.TipoRecurso == "alegaciones_bolsa" &&
+			slices.Equal(c.Finalidades, []string{"consulta_alegaciones_rrhh"}) &&
+			slices.Equal(c.CamposPermitidos, CamposLecturaAlegacionesRRHHBolsa())
+	}
 	if !slices.Contains(accionesInscripcionRRHHB103[:], accion) {
 		return concesionVersionarRolBolsaB103(c, accion)
 	}
@@ -92,6 +123,18 @@ func concesionDeltaRRHHB103(c ConcesionRol, accion string) bool {
 		return c.TipoRecurso == "solicitud_inscripcion" && slices.Equal(c.Finalidades, []string{"incorporar_inscripcion"}) && len(c.CamposPermitidos) == 0
 	}
 	return false
+}
+
+func CamposLecturaAlegacionesRRHHBolsa() []string {
+	base := []string{"alegacion_ref", "objeto.tipo", "objeto.solicitud_ref", "objeto.participacion_ref",
+		"objeto.acto_ref", "objeto.version_acto", "fundamento", "estado", "presentada_en", "recibo_ref",
+		"auditoria_ref", "persona_resumen"}
+	campos := []string{"total", "cursor_siguiente", "ambitos[].tipo", "ambitos[].referencia", "ambitos[].titulo"}
+	for _, hoja := range base {
+		campos = append(campos, "alegaciones[]."+hoja, hoja)
+	}
+	slices.Sort(campos)
+	return campos
 }
 
 // IntencionVersionarRolBolsaB103 sólo identifica la cabeza, el catálogo y
@@ -128,7 +171,11 @@ type PlanVersionarRolBolsaB103 struct {
 }
 
 func (p PlanVersionarRolBolsaB103) HuellaSHA256() (string, error) {
-	acciones := accionesDeltaVersionarBolsa(p.Base.Rol, len(p.Selecciones))
+	accionUnica := ""
+	if len(p.Selecciones) == 1 && len(p.DefinicionNueva.Concesiones) > len(p.Base.Rol.Concesiones) {
+		accionUnica = p.DefinicionNueva.Concesiones[len(p.Base.Rol.Concesiones)].Accion
+	}
+	acciones := accionesDeltaVersionarBolsa(p.Base.Rol, len(p.Selecciones), accionUnica)
 	if p.Operacion != OperacionVersionarPerfilGobernado ||
 		!textoAutorizacionSinComodinSeguro(p.CatalogoRef, 512, false) || p.CatalogoVersion < 1 ||
 		!huellaSHA256AutorizacionV3NoNula(p.CatalogoHuellaSHA256) ||
@@ -276,7 +323,11 @@ func PrepararPlanVersionarRolBolsaB103(c CatalogoAccionesAdministracionV1,
 		base.ControlVigencia.ActualizadoEn.After(ahora) || base.Rol.Version == int(^uint(0)>>1) {
 		return vacio, ErrVersionarRolBolsaB103Invalido
 	}
-	acciones := accionesDeltaVersionarBolsa(base.Rol, len(i.Selecciones))
+	accionUnica := ""
+	if len(i.Selecciones) == 1 && i.Selecciones[0].EntradaRef == "accion:"+AccionLecturaAlegacionesRRHHBolsa {
+		accionUnica = AccionLecturaAlegacionesRRHHBolsa
+	}
+	acciones := accionesDeltaVersionarBolsa(base.Rol, len(i.Selecciones), accionUnica)
 	if len(acciones) == 0 {
 		return vacio, ErrVersionarRolBolsaB103Invalido
 	}

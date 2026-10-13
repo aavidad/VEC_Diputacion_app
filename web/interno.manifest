@@ -669,3 +669,8 @@ static/textos/en/meritos-revision-rrhh.json
 static/portal-empleado/portal-baremacion-ranking.js
 static/textos/es/bolsa-ranking.json
 static/textos/en/bolsa-ranking.json
+static/comun/alegaciones-cliente.js
+static/comun/alegaciones-vista.js
+static/comun/alegaciones.css
+static/textos/es/bolsa-alegaciones.json
+static/textos/en/bolsa-alegaciones.json

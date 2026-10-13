@@ -162,8 +162,17 @@ func nuevaInscripcionPortalExterno(ctx context.Context, cfg config.Config,
 		return nil, nada, errMontajeInscripcionBolsa
 	}
 	motivo := motivoPresentarInscripcionBolsaDesarrollo()
-	motivos, err := vecpg.NuevoValidadorReferenciaMotivoPostgreSQLV2Externo(cierre.pools[2], motivo.CatalogoID)
+	motivoAlegacion, err := leerMotivoAlegacionesBolsa(cfg.DevelopmentMaterialDir)
 	if err != nil {
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	motivos, err := nuevosValidadoresMotivoInscripcionAlegaciones(cierre.pools[2], motivoAlegacion)
+	if err != nil {
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	instanteMotivos := time.Now().UTC()
+	if motivos.ValidarReferenciaMotivoAutorizacionV2(ctx, motivo, instanteMotivos) != nil ||
+		motivos.ValidarReferenciaMotivoAutorizacionV2(ctx, motivoAlegacion, instanteMotivos) != nil {
 		return nil, nada, errMontajeInscripcionBolsa
 	}
 	pdp, err := nuevaAutorizacionMiBolsaPortalExterno(fuente, registro, registro, motivos)
@@ -172,7 +181,7 @@ func nuevaInscripcionPortalExterno(ctx context.Context, cfg config.Config,
 	}
 	reloj := relojContratacionTemporalDesarrollo{}
 	proveedores, err := nuevosProveedoresV3PortalExterno(ctx, cfg.DevelopmentMaterialDir, preflight, consumidorInscripcionPortalExternoV3, reloj)
-	if err != nil || proveedores[audienciaPresentarInscripcionExternaV3] == nil {
+	if err != nil || proveedores[audienciaPresentarInscripcionExternaV3] == nil || proveedores[audienciaPresentarAlegacionExternaV3] == nil {
 		return nil, nada, errMontajeInscripcionBolsa
 	}
 	superficie := superficieExternaInscripcionBolsa
@@ -184,9 +193,11 @@ func nuevaInscripcionPortalExterno(ctx context.Context, cfg config.Config,
 	autoridad, err := NuevaAutoridadInscripcionBolsa(ConfiguracionAutoridadInscripcionBolsa{
 		Superficie: superficie, Lectura: decisor, PDP: pdp, Motivos: motivos, Reloj: reloj, FuenteActual: decisor,
 		Material: map[ClaveOperacionInscripcionBolsa]*proveedorMaterialAltaContratacionTemporalDesarrollo{
-			{inscripcion.AccionPresentar, superficie}: proveedores[audienciaPresentarInscripcionExternaV3]},
-		Descriptores: descriptoresEscrituraInscripcionBolsa(superficie, map[string]core.ReferenciaEntradaCatalogo{inscripcion.AccionPresentar: motivo}),
-		Lecturas:     descriptoresLecturaInscripcionBolsa(superficie),
+			{inscripcion.AccionPresentar, superficie}:          proveedores[audienciaPresentarInscripcionExternaV3],
+			{inscripcion.AccionPresentarAlegacion, superficie}: proveedores[audienciaPresentarAlegacionExternaV3]},
+		Descriptores: descriptoresEscrituraInscripcionBolsa(superficie, map[string]core.ReferenciaEntradaCatalogo{
+			inscripcion.AccionPresentar: motivo, inscripcion.AccionPresentarAlegacion: motivoAlegacion}),
+		Lecturas: descriptoresLecturaInscripcionBolsa(superficie),
 	})
 	if err != nil {
 		return nil, nada, errMontajeInscripcionBolsa
@@ -269,6 +280,7 @@ func cuentasRRHHInscripcionDesarrollo(identidad *resolvedorIdentidadDesarrollo, 
 type inscripcionRRHHDesarrollo struct {
 	manejador       http.Handler
 	revisionMeritos http.Handler
+	alegaciones     http.Handler
 	cerrar          func()
 }
 
@@ -276,7 +288,7 @@ type inscripcionRRHHDesarrollo struct {
 // vec-server con la sesión interna nominal, el PDP interno, el ámbito de
 // gestión de RRHH y el material V3 de decidir e incorporar.
 func nuevaInscripcionRRHHDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo,
-	material materialInscripcionRRHHDesarrollo,
+	material materialInscripcionRRHHDesarrollo, fuenteNombres ...*fuenteConstituidaRRHHDesarrollo,
 ) (*inscripcionRRHHDesarrollo, error) {
 	activo, err := cfg.BolsaInscripcionesInternoActivo()
 	if err != nil {
@@ -436,8 +448,21 @@ func nuevaInscripcionRRHHDesarrollo(cfg config.Config, resolvedor vechttp.DemoId
 	if err != nil {
 		return nil, err
 	}
+	pa, ok := preparador.(httpinscripcion.PreparadorAlegaciones)
+	if !ok {
+		return nil, errMontajeInscripcionBolsa
+	}
+	var fuenteB7 *fuenteConstituidaRRHHDesarrollo
+	if len(fuenteNombres) > 0 {
+		fuenteB7 = fuenteNombres[0]
+	}
+	alegaciones, err := httpinscripcion.NuevoAlegacionesRRHH(pa,
+		aplicacionAlegacionesRRHHConNombres{AplicacionAlegaciones: servicio, fuente: fuenteB7})
+	if err != nil {
+		return nil, errMontajeInscripcionBolsa
+	}
 	completa = true
-	return &inscripcionRRHHDesarrollo{manejador: manejador, revisionMeritos: revisionMeritos, cerrar: cierre.cerrar}, nil
+	return &inscripcionRRHHDesarrollo{manejador: manejador, revisionMeritos: revisionMeritos, alegaciones: alegaciones, cerrar: cierre.cerrar}, nil
 }
 
 // componerRaizConInscripcionRRHH sólo añade el prefijo de RRHH cuando la
@@ -449,6 +474,10 @@ func componerRaizConInscripcionRRHH(raiz http.Handler, i *inscripcionRRHHDesarro
 	mux := http.NewServeMux()
 	if i.revisionMeritos != nil {
 		mux.Handle(meritoshttp.RutaRevisionRRHH, i.revisionMeritos)
+	}
+	if i.alegaciones != nil {
+		mux.Handle(httpinscripcion.RutaAlegacionesRRHH, i.alegaciones)
+		mux.Handle(httpinscripcion.RutaAlegacionesRRHH+"/", i.alegaciones)
 	}
 	mux.Handle(httpinscripcion.RutaRRHH, i.manejador)
 	mux.Handle(httpinscripcion.RutaRRHH+"/", i.manejador)

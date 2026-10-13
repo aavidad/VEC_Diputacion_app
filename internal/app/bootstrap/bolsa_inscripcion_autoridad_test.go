@@ -207,7 +207,7 @@ func TestAutoridadInscripcionAtributosDecisionEIncorporacionExactos(t *testing.T
 }
 
 func TestAutoridadInscripcionDescriptoresSeparadosPorSuperficie(t *testing.T) {
-	esperadas := map[string][2]int{superficieExternaInscripcionBolsa: {4, 1}, superficieInternaInscripcionBolsa: {4, 2}}
+	esperadas := map[string][2]int{superficieExternaInscripcionBolsa: {5, 2}, superficieInternaInscripcionBolsa: {5, 2}}
 	vistas := map[ClaveOperacionInscripcionBolsa]struct{}{}
 	for superficie, cuenta := range esperadas {
 		lecturas, escrituras := clavesLecturaInscripcionBolsa(superficie), clavesEscrituraInscripcionBolsa(superficie)

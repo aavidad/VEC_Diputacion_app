@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "motivo_presentacion": {
+    "catalogo_id": "motivos_alegaciones_bolsa",
+    "catalogo_version": 1,
+    "catalogo_huella_sha256": "32c407a3839486073ca92900a75e037fdd6ea4ff7a752d6aea14a384b32ec343",
+    "entrada_clave": "motivo_06d6356430ac92195b61172110906fc0"
+  }
+}

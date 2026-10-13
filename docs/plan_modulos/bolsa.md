@@ -117,3 +117,24 @@ el contexto nominal mediante huella y CAS. Las filas ambiguas quedan pendientes;
 no se enlazan por coincidencia de máscara o nombre. No hace falta otro portal ni
 otra ruta de Mi Bolsa. Falta la correspondencia verificada de la autoridad de
 personas; este cambio no aprovisiona cuentas ni permisos.
+
+
+## Alegaciones de inscripción y participación — 13 de octubre
+
+La entrega en preparación permite presentar una alegación sobre una decisión
+histórica de admisión o rechazo, o sobre un acto de una participación existente.
+Conserva la titularidad, el acto y su versión, el recibo de presentación en VEC,
+la historia y la consulta de RRHH por ámbito. Los títulos de convocatorias se
+recuperan por lote; las bolsas sin etiqueta histórica se distinguen por la fecha
+de su constitución. Se reutiliza el nombre de B7 cuando esté disponible; en los
+demás casos la pantalla indica «Nombre no disponible».
+
+Siguiente corte acordado por Dirección el 13/10 a las 11:45: pedir a O, dueño de
+Inscripción, que B96 proyecte el resumen de persona de cada solicitud con su
+autoridad existente. No resolver nombres mediante CN del certificado ni
+referencias opacas, ni abrir una segunda autoridad de identidad.
+
+La instalación causal y las comprobaciones focales no acreditan todavía el
+recorrido con aspirante y RRHH. Dirección publicará las concesiones, realizará
+la prueba en navegador y medirá los tiempos. El registro no es un asiento de
+entrada oficial ni resuelve la alegación.
