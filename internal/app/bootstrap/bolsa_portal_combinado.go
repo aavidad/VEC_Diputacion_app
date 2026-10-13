@@ -1,0 +1,119 @@
+package bootstrap
+
+import (
+	"context"
+	"crypto/sha256"
+	"net/http"
+	"path/filepath"
+	"time"
+
+	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/app/separacionportales"
+	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	"vec-diputacion-granada/internal/shared/plazoarranque"
+	vecports "vec-diputacion-granada/internal/vec/ports"
+)
+
+func nuevasRutasBolsaPersonalCombinado(cfg config.Config, identidad *resolvedorIdentidadDesarrollo, incidencias vecports.EmisorIncidenciasTecnicas) (bolsa, inscripcion http.Handler, cerrar func(), err error) {
+	nada := func() {}
+	if !superficieExternaUsuariosEnProceso(cfg) {
+		return nil, nil, nada, nil
+	}
+	activa, err := cfg.BolsaInscripcionesExternoActivo()
+	if err != nil {
+		return nil, nil, nada, err
+	}
+	_, sinBolsa := cfg.ExternoBolsaPostgreSQL.DSN()
+	if !activa && sinBolsa != nil && (identidad == nil || identidad.candidatoBolsa == nil) {
+		return nil, nil, nada, nil
+	}
+	if identidad == nil || identidad.candidatoBolsa == nil || incidencias == nil || sinBolsa != nil {
+		return nil, nil, nada, errMiBolsaNoDisponible
+	}
+	directorio := cfg.ExternoMaterialDir
+	if !filepath.IsAbs(directorio) || directorioDentro(cfg.DevelopmentMaterialDir, directorio) || directorioDentro(directorio, cfg.DevelopmentMaterialDir) {
+		return nil, nil, nada, ErrMaterialPortalExternoInvalido
+	}
+	if err := separacionportales.ComprobarMaterial(separacionportales.PortalExterno, directorio); err != nil {
+		return nil, nil, nada, err
+	}
+	if err := exigirIdempotenciaPropiaPortalExterno(cfg.DevelopmentMaterialDir, directorio); err != nil {
+		return nil, nil, nada, err
+	}
+	externa := cfg
+	externa.PortalProceso = config.ValorPortalProcesoExterno
+	externa.DevelopmentMaterialDir = directorio
+	rutas := externa.DevelopmentPaths()
+	externa.TLSCertFile, externa.TLSKeyFile = rutas.ServerCertificate, rutas.ServerPrivateKey
+	material, err := cargarMaterialPortalExterno(externa)
+	if err != nil {
+		return nil, nil, nada, err
+	}
+	if !mismaIdentidadCandidataBolsa(identidad, material.identidad) {
+		return nil, nil, nada, ErrMaterialPortalExternoInvalido
+	}
+	idempotencia, err := cargarMaterialIdempotenciaDesarrollo(directorio, filepath.Join(directorio, config.DevelopmentIdempotencyHMACConfigRelativePath))
+	if err != nil {
+		return nil, nil, nada, err
+	}
+	derivador, err := nuevoDerivadorIdentidadOperacionDesarrollo(&idempotencia)
+	idempotencia.borrar()
+	if err != nil {
+		return nil, nil, nada, err
+	}
+	derivador.espacioSeudonimos = espacioSeudonimosPortalExterno
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
+	defer cancelar()
+	preflight, err := abrirPoolPreflightV3PortalExterno(ctx, externa.ExternoPreflightV3DatabaseURL)
+	if err != nil {
+		derivador.borrar()
+		return nil, nil, nada, err
+	}
+	cerrarBase := func() { preflight.Close(); derivador.borrar() }
+	bolsa, sesion, cerrarBolsa, err := nuevaMiBolsaPortalExterno(ctx, externa, material.identidad, derivador, preflight, incidencias)
+	if err != nil || bolsa == nil || sesion == nil {
+		cerrarBolsa()
+		cerrarBase()
+		if err == nil {
+			err = errMiBolsaNoDisponible
+		}
+		return nil, nil, nada, err
+	}
+	inscripcion, cerrarInscripcion, err := nuevaInscripcionPortalExterno(ctx, externa, sesion, preflight)
+	if err != nil {
+		cerrarBolsa()
+		cerrarBase()
+		return nil, nil, nada, err
+	}
+	return bolsa, inscripcion, func() { cerrarInscripcion(); cerrarBolsa(); cerrarBase() }, nil
+}
+
+// El cambio de perfil conserva la identidad certificada, Persona y candidato.
+// Ninguna concesión interna se suma a la autoridad externa.
+func mismaIdentidadCandidataBolsa(interna, externa *resolvedorIdentidadDesarrollo) bool {
+	if interna == nil || externa == nil || interna.candidatoBolsa == nil || externa.candidatoBolsa == nil {
+		return false
+	}
+	a, b := interna.candidatoBolsa, externa.candidatoBolsa
+	return a.identidad.huella != ([sha256.Size]byte{}) && a.personaRef != "" && a.candidatoRef != "" && a.identidad.huella == b.identidad.huella && a.personaRef == b.personaRef && a.candidatoRef == b.candidatoRef
+}
+
+// Despacha las autoridades externas antes de cualquier frontera interna CT.
+func componerRaizConBolsaPersonalExterna(raiz, bolsa, inscripcion http.Handler) http.Handler {
+	if bolsa == nil && inscripcion == nil {
+		return raiz
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r != nil && r.URL != nil {
+			if inscripcion != nil && rutaInscripcionExterna(r.URL.Path) {
+				inscripcion.ServeHTTP(w, r)
+				return
+			}
+			if bolsa != nil && bolsahttp.EsRutaPortal(r.URL.Path) {
+				bolsa.ServeHTTP(w, r)
+				return
+			}
+		}
+		raiz.ServeHTTP(w, r)
+	})
+}

@@ -51,8 +51,8 @@ func TestFronteraBolsaExteriorNoConfundeRutaNiAutoridad(t *testing.T) {
 }
 
 func TestMiBolsaExteriorApagadaNoAbreInfraestructura(t *testing.T) {
-	h, cerrar, err := nuevaMiBolsaPortalExterno(context.Background(), config.Config{}, nil, nil, nil, nil)
-	if err != nil || h != nil || cerrar == nil {
+	h, sesion, cerrar, err := nuevaMiBolsaPortalExterno(context.Background(), config.Config{}, nil, nil, nil, nil)
+	if err != nil || h != nil || sesion != nil || cerrar == nil {
 		t.Fatalf("apagada: %v", err)
 	}
 	cerrar()

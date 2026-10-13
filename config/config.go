@@ -124,6 +124,7 @@ type Config struct {
 	ExecutionProfile                            string
 	DevelopmentGuard                            string
 	DevelopmentMaterialDir                      string
+	ExternoMaterialDir                          string
 	PortalProceso                               string
 	ExternoPreflightV3DatabaseURL               string
 	ExternoBolsaPublicaPostgreSQL               ConfiguracionPostgreSQLPublica
@@ -242,6 +243,7 @@ func Load() Config {
 		ExecutionProfile:       envFirst(EnvExecutionProfile),
 		DevelopmentGuard:       envFirst(EnvDevelopmentGuard),
 		DevelopmentMaterialDir: envFirst(EnvDevelopmentMaterialDir),
+		ExternoMaterialDir:     os.Getenv(EnvExternoMaterialDir),
 		PortalProceso:          os.Getenv(EnvPortalProceso),
 		IncorporacionV2File:    envFirst(EnvIncorporacionV2File),
 		ContratacionTemporalSubsanacionPoliticaFile: envFirst(EnvContratacionTemporalSubsanacionPoliticaFile),
