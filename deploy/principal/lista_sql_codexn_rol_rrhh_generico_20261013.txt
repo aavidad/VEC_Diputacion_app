@@ -1,0 +1,3 @@
+# Base instalada: B103/AUT75, AUT84 y el gobierno de catálogo AUT58/AUT61.
+# Aplicar únicamente AUT92 una vez; no reaplicar las dependencias instaladas.
+deploy/postgresql/autorizacion/migraciones/000092_version_rol_bolsa_rrhh_generico.up.sql

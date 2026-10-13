@@ -13,6 +13,8 @@ import (
 const (
 	RutaVersionarRolBolsaB103Proponer = PrefijoV1 + "/gobierno-version-bolsa-b103/propuestas"
 	RutaVersionarRolBolsaB103Cerrar   = PrefijoV1 + "/gobierno-version-bolsa-b103/cierres"
+	RutaVersionarRolBolsaRRHHProponer = PrefijoV1 + "/gobierno-version-bolsa-rrhh/propuestas"
+	RutaVersionarRolBolsaRRHHCerrar   = PrefijoV1 + "/gobierno-version-bolsa-rrhh/cierres"
 )
 
 // El cuerpo sólo expresa selecciones y preimágenes CAS. La identidad, el
@@ -54,7 +56,11 @@ func (h *Handler) postVersionarRolBolsaB103Proponer(w http.ResponseWriter, r *ht
 		return
 	}
 	var dto propuestaVersionarRolBolsaB103DTO
-	if err := decodificarLimitado(w, r, &dto, 64*1024); err != nil {
+	limiteCuerpo := int64(64 * 1024)
+	if r.URL.Path == RutaVersionarRolBolsaRRHHProponer {
+		limiteCuerpo = 512 * 1024
+	}
+	if err := decodificarLimitado(w, r, &dto, limiteCuerpo); err != nil {
 		estado := http.StatusBadRequest
 		if errors.Is(err, errCuerpoExcesivo) {
 			estado = http.StatusRequestEntityTooLarge
@@ -65,8 +71,7 @@ func (h *Handler) postVersionarRolBolsaB103Proponer(w http.ResponseWriter, r *ht
 	if !domain.ReferenciaAdministracionPerfilesValida(dto.OperacionRef, "propuesta_admin:") ||
 		dto.CatalogoRef == "" || dto.CatalogoVersion < 1 || dto.CatalogoHuellaSHA256 == "" ||
 		dto.BaseRef == "" || dto.BaseHuellaSHA256 == "" || dto.ControlRevision == 0 ||
-		dto.ControlHuellaSHA256 == "" || (len(dto.Selecciones) != 4 && len(dto.Selecciones) != 1 &&
-		len(dto.Selecciones) != 3) ||
+		dto.ControlHuellaSHA256 == "" || len(dto.Selecciones) < 1 || len(dto.Selecciones) > 512 ||
 		len(dto.Asignaciones) < 1 || len(dto.Asignaciones) > 16 {
 		h.denegarActor(w, r, sesion, http.StatusBadRequest, "solicitud_invalida", accion, "")
 		return
