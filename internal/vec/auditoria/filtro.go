@@ -44,12 +44,12 @@ func (p Posicion) vacia() bool { return p.OcurridoEn.IsZero() && p.Fuente == "" 
 
 func (p Posicion) validar() bool {
 	return p.vacia() || (instanteValido(p.OcurridoEn) &&
-		(p.Fuente == "ct" || p.Fuente == "bolsa") &&
+		(p.Fuente == "ct" || p.Fuente == "bolsa" || p.Fuente == "persona") &&
 		referenciaExacta(p.ID, 512))
 }
 
 func (f Filtro) Validar() error {
-	if (f.Fuente != "ct" && f.Fuente != "bolsa") || !referenciaExacta(f.ExpedienteRef, 512) ||
+	if (f.Fuente != "ct" && f.Fuente != "bolsa" && f.Fuente != "persona") || !referenciaExacta(f.ExpedienteRef, 512) ||
 		(f.ActorRef != "" && !referenciaExacta(f.ActorRef, 512)) ||
 		!instanteValido(f.Desde) || !instanteValido(f.Hasta) ||
 		!f.Hasta.After(f.Desde) || f.Hasta.Sub(f.Desde) > MaximoIntervalo ||
@@ -64,6 +64,15 @@ func (f Filtro) Validar() error {
 // HuellaFiltro es la ligadura reproducible para los consumidores SQL CT y
 // Bolsa. El separador LF es inequívoco: ninguna referencia admite controles.
 func HuellaFiltro(f Filtro) (string, error) {
+	canon, err := CanonicoFiltro(f)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.Sum256([]byte(canon))
+	return hex.EncodeToString(h[:]), nil
+}
+
+func CanonicoFiltro(f Filtro) (string, error) {
 	if f.Validar() != nil {
 		return "", ErrDenegada
 	}
@@ -77,8 +86,14 @@ func HuellaFiltro(f Filtro) (string, error) {
 		strconv.FormatUint(uint64(f.Limite), 10), antes, f.Antes.Fuente,
 		f.Antes.ID, f.FinalidadRef, f.MotivoRef,
 	}, "\n")
-	h := sha256.Sum256([]byte(canon))
-	return hex.EncodeToString(h[:]), nil
+	if f.MotivoConsulta != "" || f.AutorLecturaRef != "" {
+		if !textoMotivoMinimizado(f.MotivoConsulta) || len(f.MotivoConsulta) > 500 ||
+			!referenciaExacta(f.AutorLecturaRef, 1024) {
+			return "", ErrDenegada
+		}
+		canon += "\nvec.auditoria.lectura-sesion.v1\n" + f.MotivoConsulta + "\n" + f.AutorLecturaRef
+	}
+	return canon, nil
 }
 
 // RecursoFiltro mantiene el expediente exacto como ámbito positivo y liga
