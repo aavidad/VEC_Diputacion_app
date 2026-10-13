@@ -1,0 +1,2139 @@
+[
+  {
+    "id": "e1",
+    "actor": "aspirante",
+    "dueno": "P/Bolsa",
+    "ruta": "/area-personal/?vista=inscripcion",
+    "depende_de": [],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/area-personal/?vista=inscripcion"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-accion=\"bolsa\"][data-ref=\"$convocatoria_ref\"]"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-inscripcion-categoria]",
+        "valor": "$categoria"
+      },
+      {
+        "tipo": "check",
+        "selector": "[data-inscripcion-requisito]",
+        "todos": true
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-accion=\"revisar\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-accion=\"confirmar\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/bolsa/inscripciones/convocatorias-abiertas",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/bolsa/inscripciones/propias",
+        "codigos": [
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-inscripcion-aviso]"
+    },
+    "lecturas": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/bolsa/inscripciones/propias/$solicitud_ref",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "tipo": "ui",
+        "ruta": "/area-personal/?vista=inscripcion",
+        "selector": "[data-inscripcion-accion=\"propias\"]",
+        "sin_efecto": true
+      }
+    ],
+    "resultado_esperado": "Solicitud pendiente de revisión y recibo propio",
+    "bloqueo_despliegue": "web/static/area-personal/vistas.json tiene inscripcion=false; activar con autoridad de despliegue antes del ensayo.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "bloqueo_datos": "La inscripción exige marcar todos los requisitos visibles de la convocatoria elegida; check con todos=true. El runner debe verificar convocatoria/categoría antes de presentar.",
+    "recuperacion": "Consultar GET propio y pantalla tras reinicio; comparar referencia, estado, fecha y recibo sin repetir POST de efecto.",
+    "acciones_recuperacion": [
+      {
+        "tipo": "goto",
+        "valor": "/area-personal/?vista=inscripcion"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-accion=\"propias\"]"
+      }
+    ],
+    "esperar_recuperacion": {
+      "selector": "[data-inscripcion-accion=\"solicitud\"][data-ref=\"$solicitud_ref\"]"
+    },
+    "criterio_recuperacion": "La pantalla y la consulta propia deben mostrar el acto histórico; si no permiten cotejar recibo y estado, el paso queda pendiente."
+  },
+  {
+    "id": "e2",
+    "actor": "rrhh",
+    "dueno": "P/Bolsa",
+    "ruta": "/portal-empleado/#bolsa/solicitudes",
+    "depende_de": [
+      "e1"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#bolsa/solicitudes"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-elegir=\"$convocatoria_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-abrir=\"$solicitud_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-decidir=\"admitir\"]"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-inscripcion-motivo]",
+        "valor": "$motivo_admision"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-confirmar]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/bolsa/rrhh/inscripciones/$solicitud_ref/decisiones",
+        "codigos": [
+          200,
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "#inscripcion-recibo"
+    },
+    "resultado_esperado": "Solicitud admitida a la convocatoria; conservar recibo",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "recuperacion": "Consultar GET propio y pantalla tras reinicio; comparar referencia, estado, fecha y recibo sin repetir POST de efecto.",
+    "acciones_recuperacion": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#bolsa/solicitudes"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-elegir=\"$convocatoria_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-abrir=\"$solicitud_ref\"]"
+      }
+    ],
+    "lecturas": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/bolsa/rrhh/inscripciones/$solicitud_ref",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#bolsa/solicitudes",
+        "selector": "[data-inscripcion-elegir=\"$convocatoria_ref\"]",
+        "sin_efecto": true
+      }
+    ],
+    "esperar_recuperacion": {
+      "selector": "#inscripcion-detalle-titulo"
+    },
+    "criterio_recuperacion": "La pantalla y la consulta propia deben mostrar el acto histórico; si no permiten cotejar recibo y estado, el paso queda pendiente."
+  },
+  {
+    "id": "e3",
+    "actor": "rrhh",
+    "dueno": "P/Bolsa",
+    "ruta": "/portal-empleado/#bolsa/solicitudes",
+    "depende_de": [
+      "e2"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#bolsa/solicitudes"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-elegir=\"$convocatoria_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-abrir=\"$solicitud_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-decidir=\"incorporar\"]"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-inscripcion-evidencia]",
+        "valor": "$acta_incorporacion_ref"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-confirmar]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/bolsa/rrhh/inscripciones/$solicitud_ref/incorporaciones",
+        "codigos": [
+          200,
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "#inscripcion-recibo"
+    },
+    "lecturas": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/bolsa/rrhh/inscripciones/$solicitud_ref",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#bolsa/solicitudes",
+        "selector": "[data-inscripcion-elegir=\"$convocatoria_ref\"]",
+        "sin_efecto": true
+      }
+    ],
+    "resultado_esperado": "Antonio incorporado a bolsa constituida; orden y disponibilidad consultables",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "recuperacion": "Consultar GET propio y pantalla tras reinicio; comparar referencia, estado, fecha y recibo sin repetir POST de efecto.",
+    "acciones_recuperacion": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#bolsa/solicitudes"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-elegir=\"$convocatoria_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-inscripcion-abrir=\"$solicitud_ref\"]"
+      }
+    ],
+    "esperar_recuperacion": {
+      "selector": "#inscripcion-detalle-titulo"
+    },
+    "criterio_recuperacion": "La pantalla y la consulta propia deben mostrar el acto histórico; si no permiten cotejar recibo y estado, el paso queda pendiente."
+  },
+  {
+    "id": "e4",
+    "actor": "aspirante",
+    "dueno": "P/Bolsa",
+    "ruta": "/area-personal/?vista=meritos",
+    "depende_de": [],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/area-personal/?vista=meritos"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-meritos-alta]"
+      },
+      {
+        "tipo": "select",
+        "selector": "[name=\"tipo\"]",
+        "valor": "$merito_tipo"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"denominacion\"]",
+        "valor": "$merito_denominacion"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"fecha_desde\"]",
+        "valor": "$merito_fecha"
+      },
+      {
+        "tipo": "click",
+        "selector": "#meritos-reales-alta-formulario button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/meritos/cartera/declaraciones",
+        "codigos": [
+          200,
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": ".meritos-reales-confirmacion"
+    },
+    "lecturas": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/meritos/cartera",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "tipo": "ui",
+        "ruta": "/area-personal/?vista=meritos",
+        "selector": ".meritos-reales-lista",
+        "sin_efecto": true
+      }
+    ],
+    "resultado_esperado": "Mérito declarado y pendiente de revisión",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "recuperacion": "Leer GET de cartera y encontrar denominación, declaración y estado; la confirmación inicial no persiste como panel tras recarga. No repetir POST.",
+    "acciones_recuperacion": [
+      {
+        "tipo": "goto",
+        "valor": "/area-personal/?vista=meritos"
+      }
+    ],
+    "esperar_recuperacion": {
+      "selector": ".meritos-reales-ficha",
+      "texto": "$merito_denominacion"
+    },
+    "criterio_recuperacion": "La pantalla y la consulta propia deben mostrar el acto histórico; si no permiten cotejar recibo y estado, el paso queda pendiente."
+  },
+  {
+    "id": "e5",
+    "actor": "aspirante",
+    "dueno": "P/Bolsa",
+    "ruta": "/area-personal/?vista=alegaciones",
+    "depende_de": [
+      "e1"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/area-personal/?vista=alegaciones"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-alegacion-accion=\"formulario\"]"
+      },
+      {
+        "tipo": "select",
+        "selector": "#alegacion-objeto",
+        "valor": "$alegacion_objeto_indice"
+      },
+      {
+        "tipo": "fill",
+        "selector": "#alegacion-fundamento",
+        "valor": "$alegacion_fundamento"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-alegacion-formulario] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/bolsa/alegaciones/objetos",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/bolsa/alegaciones",
+        "codigos": [
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": ".alegaciones-ficha .alegaciones-referencia"
+    },
+    "resultado_esperado": "Justificante VEC de alegación; no equivale a registro oficial",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "recuperacion": "Leer GET de alegaciones propias y comprobar recibo/ref; la lista web por sí sola no conserva el justificante visible. Abrir la alegación si se necesita el recibo histórico. No repetir POST.",
+    "acciones_recuperacion": [
+      {
+        "tipo": "goto",
+        "valor": "/area-personal/?vista=alegaciones"
+      }
+    ],
+    "lecturas": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/bolsa/alegaciones",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "tipo": "ui",
+        "ruta": "/area-personal/?vista=alegaciones",
+        "selector": ".alegaciones-superficie",
+        "sin_efecto": true
+      }
+    ],
+    "esperar_recuperacion": {
+      "selector": ".alegaciones-tarjeta"
+    },
+    "criterio_recuperacion": "La pantalla y la consulta propia deben mostrar el acto histórico; si no permiten cotejar recibo y estado, el paso queda pendiente."
+  },
+  {
+    "id": "01",
+    "actor": "centro",
+    "dueno": "K/Centro",
+    "ruta": "/portal-empleado/peticiones-centro/",
+    "depende_de": [],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/peticiones-centro/"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-accion=\"nueva\"]"
+      },
+      {
+        "tipo": "select",
+        "selector": "[name=\"centro_ref\"]",
+        "valor": "$centro_ref"
+      },
+      {
+        "tipo": "select",
+        "selector": "[name=\"contacto_ref\"]",
+        "valor": "$contacto_ref"
+      },
+      {
+        "tipo": "select",
+        "selector": "[name=\"categoria_ref\"]",
+        "valor": "$categoria"
+      },
+      {
+        "tipo": "select",
+        "selector": "[name=\"grupo_subgrupo\"]",
+        "valor": "$grupo_subgrupo"
+      },
+      {
+        "tipo": "select",
+        "selector": "[name=\"motivo_clave\"]",
+        "valor": "$motivo"
+      },
+      {
+        "tipo": "fill",
+        "selector": "#ct-puesto_busqueda",
+        "valor": "$puesto"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-accion=\"buscar-puesto\"]"
+      },
+      {
+        "tipo": "text",
+        "selector": "[data-ct-puesto-resultado]",
+        "valor": "$puesto"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"jornada_horas\"]",
+        "valor": "$jornada_horas"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"detalle\"]",
+        "valor": "$detalle_peticion"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"inicio\"]",
+        "valor": "$fecha_inicio"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"fin\"]",
+        "valor": "$fecha_fin"
+      },
+      {
+        "tipo": "check",
+        "selector": "[name=\"rc_existe\"][value=\"$rc_existe\"]"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"rc_numero\"]",
+        "valor": "$rc_numero"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"rc_fecha\"]",
+        "valor": "$rc_fecha"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-form] button[type=\"submit\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-accion=\"confirmar\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/peticiones-centro/operaciones",
+        "codigos": [
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": ".pc-recibo"
+    },
+    "lecturas": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/contratacion-temporal/peticiones-centro/bandeja",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/peticiones-centro/",
+        "selector": ".pc-layout",
+        "sin_efecto": true
+      }
+    ],
+    "resultado_esperado": "Petición pendiente_ratificacion v1 con centro y puesto RPT publicados y crédito RC; recibo de presentación",
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "bloqueo_datos": "Requiere centro/categoría/puesto RPT publicados, contacto, crédito RC y fechas del caso privado; no elegir la primera opción del catálogo.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": "[data-seleccionar=\"$peticion_ref\"]"
+    }
+  },
+  {
+    "id": "02",
+    "actor": "ratificador",
+    "dueno": "K/Centro",
+    "ruta": "/portal-empleado/peticiones-centro/",
+    "depende_de": [
+      "01"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/peticiones-centro/"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-seleccionar=\"$peticion_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-accion=\"abrir-ratificacion\"]"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"motivo_ratificacion\"]",
+        "valor": "$motivo_ratificacion"
+      },
+      {
+        "tipo": "check",
+        "selector": "[name=\"confirmacion_ratificacion\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-accion=\"confirmar-ratificar\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/peticiones-centro/operaciones",
+        "codigos": [
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": ".pc-recibo"
+    },
+    "lecturas": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/contratacion-temporal/peticiones-centro/bandeja",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/peticiones-centro/",
+        "selector": ".pc-layout",
+        "sin_efecto": true
+      }
+    ],
+    "resultado_esperado": "Petición ratificada v2; recibo de ratificación",
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": "[data-seleccionar=\"$peticion_ref\"]"
+    }
+  },
+  {
+    "id": "03",
+    "actor": "rrhh",
+    "dueno": "Contratación temporal",
+    "ruta": "/portal-empleado/peticiones-centro/?vista=rrhh",
+    "depende_de": [
+      "02"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/peticiones-centro/?vista=rrhh"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-seleccionar-rrhh=\"$peticion_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-accion=\"abrir-alta-rrhh\"]"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"numero_expediente_moad\"]",
+        "valor": "$moad"
+      },
+      {
+        "tipo": "check",
+        "selector": "[name=\"confirmacion-alta-rrhh\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-accion=\"confirmar-alta-rrhh\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/peticiones-centro/rrhh",
+        "codigos": [
+          200,
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": ".pc-recibo"
+    },
+    "lecturas": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/contratacion-temporal/peticiones-centro/rrhh",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/peticiones-centro/?vista=rrhh",
+        "selector": ".pc-layout",
+        "sin_efecto": true
+      }
+    ],
+    "resultado_esperado": "Alta enlazada al expediente MOAD; solicitud/en_curso v1. Si 503, reconciliar por GET antes de reintentar la misma clave",
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "respuesta_incierta": "Si aparece 503, guardar clave y petición, consultar GET de bandeja RRHH; solo continuar con recibo reconciliado. El runner no debe marcar éxito por 503.",
+    "esperar_recuperacion": {
+      "selector": "[data-seleccionar-rrhh=\"$peticion_ref\"]"
+    }
+  },
+  {
+    "id": "04",
+    "actor": "rrhh",
+    "dueno": "Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "03"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-ct-analisis-form] [name=\"modalidad_clave\"]",
+        "valor": "$modalidad"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-ct-analisis-form] [name=\"categoria_ref\"]",
+        "valor": "$categoria"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-ct-analisis-form] [name=\"grupo_subgrupo\"]",
+        "valor": "$grupo_subgrupo"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-ct-analisis-form] [name=\"causa_clave\"]",
+        "valor": "$causa"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-analisis-form] [name=\"inicio\"]",
+        "valor": "$fecha_inicio"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-analisis-form] [name=\"fin\"]",
+        "valor": "$fecha_fin"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-analisis-form] [name=\"jornada_horas\"]",
+        "valor": "$jornada_horas"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-analisis-form] [name=\"jornada_minutos\"]",
+        "valor": "$jornada_minutos"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-ct-analisis-form] [name=\"entrada_rc_referencia\"]",
+        "valor": "$credito"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-analisis-form] [name=\"observaciones\"]",
+        "valor": "$observaciones"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-analisis-form] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/analisis/registros",
+        "codigos": [
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-cobertura-form]"
+    },
+    "resultado_esperado": "Análisis registrado; solicitud/en_curso v2",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": ".ct-exp-ficha-historial"
+    }
+  },
+  {
+    "id": "05",
+    "actor": "rrhh",
+    "dueno": "Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "04"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "check",
+        "selector": "[data-ct-cobertura-form] [name=\"via_elegida\"][value=\"$via_cobertura\"]"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-ct-cobertura-form] [name=\"motivo_clave\"]",
+        "valor": "$motivo_cobertura"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-cobertura-form] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/cobertura/decisiones",
+        "codigos": [
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-asignacion-form]"
+    },
+    "resultado_esperado": "Vía bolsa vigente; asignacion_unidad/en_curso v3",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": ".ct-exp-ficha-historial"
+    }
+  },
+  {
+    "id": "06",
+    "actor": "rrhh",
+    "dueno": "Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "05"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "check",
+        "selector": "[data-ct-asignacion-form] [name=\"confirmacion\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-asignacion-form] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/asignaciones",
+        "codigos": [
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-informe-form]"
+    },
+    "resultado_esperado": "Unidad gestora asignada; asignacion_unidad/en_curso v4",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": ".ct-exp-ficha-historial"
+    }
+  },
+  {
+    "id": "07",
+    "actor": "rrhh",
+    "dueno": "Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "06"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "check",
+        "selector": "[data-ct-informe-form] [name=\"confirmacion\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-informe-form] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/informes-juridicos/preparaciones",
+        "codigos": [
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-exp-hito-fase=\"informe_juridico\"]"
+    },
+    "resultado_esperado": "Informe jurídico preparado; informe_juridico/en_curso v5",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": ".ct-exp-ficha-historial"
+    }
+  },
+  {
+    "id": "07b",
+    "actor": "jefatura_firmante",
+    "dueno": "H/Firma",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "07"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-firma-detalles] summary"
+      },
+      {
+        "tipo": "externo",
+        "valor": "firma_h_remision_intervencion"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/contratacion-temporal/circuito-firma",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/firmas-documento/consultas-v2",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-firma-detalles]"
+    },
+    "resultado_esperado": "Jefatura firma con certificado el informe de remisión. El recibo y el PDF verificado habilitan la fiscalización.",
+    "bloqueo_datos": "H debe comprobar el paso 1 del informe definitivo por Carmen y firmar el paso 2 por Jefatura, habilitación remision_intervencion. Se requieren certificados nominales, plan ADMIN publicado, recibos y verificación positiva.",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/firmas-documento/consultas-v2",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Comparar documento, orden, firmante, recibo y verificación positiva; no repetir firma.",
+    "aceptacion": "Recibo nominal más firma verificada; abrir el panel no acredita el acto.",
+    "esperar_recuperacion": {
+      "selector": "[data-ct-fase-firma-documento=\"informe_definitivo\"][data-ct-fase-firma-estado=\"firmado\"]"
+    },
+    "criterio_recuperacion": "Comprobar en consulta de firmas el documento, paso, firmante, justificante y verificación positiva; el panel solo no basta."
+  },
+  {
+    "id": "08",
+    "actor": "intervencion",
+    "dueno": "Intervención",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "07b"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-fiscalizacion-acceso] [name=\"expediente_ref\"]",
+        "valor": "$expediente_ref"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-fiscalizacion-acceso] [name=\"version_esperada\"]",
+        "valor": "5"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-fiscalizacion-acceso] button[type=\"submit\"]"
+      },
+      {
+        "tipo": "check",
+        "selector": "[data-ct-fiscalizacion-form] [name=\"resultado\"][value=\"favorable\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-fiscalizacion-form] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/fiscalizaciones/resultados",
+        "codigos": [
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-fiscalizacion-recibo]"
+    },
+    "resultado_esperado": "Fiscalización favorable tras firma de remisión verificada; fiscalizacion/en_curso v6.",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-fiscalizacion-acceso]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": "[data-ct-fiscalizacion-acceso]"
+    }
+  },
+  {
+    "id": "09",
+    "actor": "rrhh",
+    "dueno": "CT con P/Bolsa",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "08"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-llamamiento-form=\"seleccion\"] button[type=\"submit\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-llamamiento-comunicacion] summary"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-llamamiento-form=\"comunicacion\"] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/llamamientos/seleccion",
+        "codigos": [
+          201
+        ]
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/llamamientos/comunicaciones",
+        "codigos": [
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-llamamiento-recibo=\"comunicacion\"]"
+    },
+    "resultado_esperado": "Antonio llamado desde Administrativo; comunicación registrada, fase v6 conservada; aviso en buzón de pruebas",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": ".ct-exp-ficha-historial"
+    }
+  },
+  {
+    "id": "10",
+    "actor": "aspirante",
+    "dueno": "P/Bolsa",
+    "ruta": "/area-personal/?vista=llamamientos",
+    "depende_de": [
+      "09"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/area-personal/?vista=llamamientos"
+      },
+      {
+        "tipo": "check",
+        "selector": "[data-portal-mi-bolsa=\"responder\"][data-bolsa=\"$bolsa_ref\"] [name=\"respuesta\"][value=\"acepta\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-portal-mi-bolsa=\"responder\"][data-bolsa=\"$bolsa_ref\"] [data-portal-iniciar-revision]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/bolsa/mi-bolsa/respuestas",
+        "codigos": [
+          200,
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-portal-resultado]"
+    },
+    "lecturas": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/bolsa/mi-bolsa",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "tipo": "ui",
+        "ruta": "/area-personal/?vista=llamamientos",
+        "selector": "#historial-mi-bolsa",
+        "sin_efecto": true
+      }
+    ],
+    "resultado_esperado": "Aceptación dentro de dos días y recibo propio",
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": "#historial-mi-bolsa"
+    }
+  },
+  {
+    "id": "11",
+    "actor": "rrhh",
+    "dueno": "Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "10"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-ct-llamamiento-form=\"resolucion\"] [name=\"respuesta\"]",
+        "valor": "aceptacion"
+      },
+      {
+        "tipo": "check",
+        "selector": "[data-ct-llamamiento-form=\"resolucion\"] [name=\"revision_respuesta_rrhh\"]"
+      },
+      {
+        "tipo": "check",
+        "selector": "[data-ct-llamamiento-form=\"resolucion\"] [name=\"revision_plazo_rrhh\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-llamamiento-form=\"resolucion\"] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/llamamientos/resoluciones",
+        "codigos": [
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-llamamiento-recibo=\"resolucion\"]"
+    },
+    "resultado_esperado": "Aceptación resuelta en CT; recibo de resolución del llamamiento",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": ".ct-exp-ficha-historial"
+    }
+  },
+  {
+    "id": "12",
+    "actor": "rrhh",
+    "dueno": "Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "11"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-llamamiento-form=\"propuesta\"] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/formalizacion/propuestas",
+        "codigos": [
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-llamamiento-recibo=\"propuesta\"]"
+    },
+    "resultado_esperado": "Propuesta registrada; nombramiento/en_curso v7",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": ".ct-exp-ficha-historial"
+    }
+  },
+  {
+    "id": "13",
+    "actor": "rrhh",
+    "dueno": "Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "12"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-propuesta-formalizacion-siguiente]"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-resolucion-formalizacion-form] [name=\"numero_resolucion\"]",
+        "valor": "$numero_resolucion"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-resolucion-formalizacion-form] [name=\"fecha_resolucion\"]",
+        "valor": "$fecha_resolucion"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-resolucion-formalizacion-form] [name=\"motivo\"]",
+        "valor": "$motivo_resolucion"
+      },
+      {
+        "tipo": "check",
+        "selector": "[data-ct-resolucion-formalizacion-form] [name=\"confirma_revision_propuesta\"]"
+      },
+      {
+        "tipo": "check",
+        "selector": "[data-ct-resolucion-formalizacion-form] [name=\"confirma_ejercicio_manual\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-resolucion-formalizacion-form] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/resoluciones-formalizacion",
+        "codigos": [
+          200,
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-resolucion-formalizacion] .ct-recibo"
+    },
+    "resultado_esperado": "Resolución registrada; nombramiento/en_curso v8",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": ".ct-exp-ficha-historial"
+    }
+  },
+  {
+    "id": "14",
+    "actor": "rrhh",
+    "dueno": "Documentos",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "13"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-vista=\"documentos\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-accion=\"descargar-informe-definitivo\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-accion=\"descargar-resolucion\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-accion=\"descargar-diligencia\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-accion=\"descargar-toma-posesion\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-accion=\"descargar-notificacion\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-accion=\"descargar-comunicacion-centro\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-informe-definitivo\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-resolucion\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-diligencia\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-toma-posesion\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-notificacion\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-comunicacion-centro\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-exp-borradores-legados]"
+    },
+    "resultado_esperado": "PDF y Word de los seis borradores, con logo y datos de expediente; conservar bytes y SHA-256",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": ".ct-exp-ficha-historial"
+    },
+    "criterio_recuperacion": "Descargar de nuevo documentos por lectura, comparar tamaño y SHA-256 de cada PDF y Word con lo guardado; ninguna escritura."
+  },
+  {
+    "id": "15",
+    "actor": "firmantes",
+    "dueno": "H/Firma y ADMIN",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "14"
+    ],
+    "acciones": [
+      {
+        "tipo": "click",
+        "selector": "[data-ct-firma-detalles] summary"
+      },
+      {
+        "tipo": "externo",
+        "valor": "firma_h_cli_segun_circuito_v2"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/contratacion-temporal/circuito-firma",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/firmas-documento/consultas-v2",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-firma-detalles]"
+    },
+    "resultado_esperado": "Panel y plan de firma leídos; H registra por separado cada acto con certificado nominal y verificador. Sin justificante real, estado pendiente.",
+    "bloqueo_contrato": "Faltan personas y certificados de los tres cargos en repositorio; plan ADMIN v2 y verificador deben producir justificantes reales. Continuar con H externo tras inspección del panel, sin inventar recibos.",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/firmas-documento/consultas-v2",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": "[data-ct-fase-firma]"
+    },
+    "criterio_recuperacion": "Comprobar en consulta de firmas el documento, paso, firmante, justificante y verificación positiva; el panel solo no basta."
+  },
+  {
+    "id": "16a",
+    "actor": "rrhh",
+    "dueno": "GINPIX/Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "15"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-ficha-ginpix-descargar]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/contratacion-temporal/incorporaciones-ejercicio/ficha-ginpix",
+        "codigos": [
+          200
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-ficha-ginpix]"
+    },
+    "resultado_esperado": "Ficha GINPIX descargada para la grabación manual; conservar bytes y huella. La descarga no confirma la grabación.",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": "[data-ct-ficha-ginpix]"
+    }
+  },
+  {
+    "id": "17",
+    "actor": "centro",
+    "dueno": "K/Centro",
+    "ruta": "/portal-empleado/peticiones-centro/",
+    "depende_de": [
+      "16a"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/peticiones-centro/"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ic-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ic-form=\"$expediente_ref\"] [name=\"fecha_incorporacion\"]",
+        "valor": "$fecha_incorporacion"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ic-form=\"$expediente_ref\"] [name=\"documento_ref\"]",
+        "valor": "$documento_incorporacion_ref"
+      },
+      {
+        "tipo": "upload",
+        "selector": "[data-ic-form=\"$expediente_ref\"] input[type=\"file\"]",
+        "valor": "$archivo_incorporacion"
+      },
+      {
+        "tipo": "check",
+        "selector": "[data-ic-form=\"$expediente_ref\"] [name=\"confirmacion\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ic-form=\"$expediente_ref\"] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/peticiones-centro/incorporaciones/confirmaciones",
+        "codigos": [
+          200,
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ic-aviso]"
+    },
+    "resultado_esperado": "Incorporación del centro acreditada con fecha, documento y huella; recibo",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/peticiones-centro/",
+        "selector": "#ic-titulo",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/contratacion-temporal/peticiones-centro/incorporaciones",
+        "codigos": [
+          200
+        ]
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "bloqueo_datos": "La confirmación del centro exige fichero/documento y huella; aportar archivo privado al runner.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": ".pc-tabla",
+      "texto": "$moad"
+    }
+  },
+  {
+    "id": "16b",
+    "actor": "rrhh",
+    "dueno": "GINPIX/Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "17"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-seg-form=\"ginpix\"] [name=\"ginpix_numero\"]",
+        "valor": "$ginpix_numero"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-seg-form=\"ginpix\"] [name=\"ginpix_confirmada_en\"]",
+        "valor": "$ginpix_fecha"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-seg-form=\"ginpix\"] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/confirmaciones-ginpix",
+        "codigos": [
+          200,
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-seg-aviso]"
+    },
+    "resultado_esperado": "Número y fecha de la grabación manual GINPIX confirmados; recibo conservado, sin transmisión automática.",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Comparar número, fecha y recibo GINPIX en seguimiento; no repetir confirmación.",
+    "aceptacion": "Recibo nominal y estado de seguimiento coinciden tras reiniciar.",
+    "esperar_recuperacion": {
+      "selector": "[data-ct-seg-cese] .ct-exp-fase-datos",
+      "texto": "$ginpix_numero"
+    }
+  },
+  {
+    "id": "18",
+    "actor": "rrhh",
+    "dueno": "K/Personal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "16b"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-b2-form] [name=\"vacante\"]",
+        "valor": "$b2_vacante_indice"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-b2-form] [name=\"regimen\"]",
+        "valor": "$b2_regimen_indice"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-b2-form] [name=\"modalidad\"]",
+        "valor": "$b2_modalidad_indice"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-b2-form] [name=\"clase_ocupacion\"]",
+        "valor": "$b2_clase_ocupacion_indice"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-b2-form] [name=\"motivo\"]",
+        "valor": "$b2_motivo_indice"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-b2-form] [name=\"documento\"]",
+        "valor": "$b2_documento_indice"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-b2-form] [name=\"desde\"]",
+        "valor": "$fecha_incorporacion",
+        "si_editable": true
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-b2-form] [name=\"hasta\"]",
+        "valor": "$fecha_fin",
+        "si_editable": true
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-b2-form] button[type=\"submit\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-b2-accion=\"registrar\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/incorporacion-personal-b2/plan/v1",
+        "codigos": [
+          200,
+          201
+        ]
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/incorporacion-personal-b2/confirmar/v1",
+        "codigos": [
+          200,
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-b2-incorporacion] .ct-estado-exito"
+    },
+    "lecturas": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/contratacion-temporal/incorporacion-personal-b2/plan/v1?expediente_ref=$expediente_ref",
+        "codigos": [
+          200
+        ]
+      },
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "resultado_esperado": "Alta Personal y ocupación según plan B2 después de confirmar GINPIX en 16b.",
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "bloqueo_datos": "Los select B2 usan índices de las opciones leídas del plan, no claves inventadas; la fecha puede venir bloqueada por la fuente. El runner debe omitir campos readonly/inexistentes como scripts/recorridos-a/recorrer.mjs.",
+    "esperar_recuperacion": {
+      "selector": ".ct-exp-ficha-historial"
+    }
+  },
+  {
+    "id": "19",
+    "actor": "rrhh",
+    "dueno": "Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "18"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "select",
+        "selector": "[data-ct-seg-form=\"cese\"] [name=\"causa_clave\"]",
+        "valor": "$causa_cese"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-seg-form=\"cese\"] [name=\"fecha_efecto\"]",
+        "valor": "$fecha_cese"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-seg-form=\"cese\"] [name=\"justificante_ref\"]",
+        "valor": "$justificante_cese_ref"
+      },
+      {
+        "tipo": "upload",
+        "selector": "[data-ct-seg-form=\"cese\"] input[type=\"file\"]",
+        "valor": "$archivo_cese"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-seg-form=\"cese\"] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/ceses",
+        "codigos": [
+          200,
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-seg-aviso]"
+    },
+    "resultado_esperado": "Cese registrado con referencia y huella del justificante; recibo de cese",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "bloqueo_datos": "El justificante de cese exige referencia y huella de archivo real, no solo texto; proporcionar archivo privado al runner.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": ".ct-exp-ficha-historial"
+    }
+  },
+  {
+    "id": "20",
+    "actor": "aspirante",
+    "dueno": "P/Bolsa",
+    "ruta": "/area-personal/?vista=llamamientos",
+    "depende_de": [
+      "19"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/area-personal/?vista=llamamientos"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/bolsa/mi-bolsa",
+        "codigos": [
+          200
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "#historial-mi-bolsa"
+    },
+    "resultado_esperado": "Antonio Disponible o Disponible desde según política; historia del cese conservada",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/area-personal/?vista=llamamientos",
+        "selector": "#historial-mi-bolsa",
+        "sin_efecto": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": "#historial-mi-bolsa"
+    }
+  },
+  {
+    "id": "21",
+    "actor": "rrhh",
+    "dueno": "Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "20"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-seg-form=\"cierre\"] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/cierres-expediente",
+        "codigos": [
+          200,
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-seg-aviso]"
+    },
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "resultado_esperado": "nombramiento/completado; historia, GINPIX y cese conservados",
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": ".ct-exp-ficha-historial"
+    }
+  }
+]
