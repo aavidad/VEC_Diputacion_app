@@ -54,7 +54,8 @@ func (m *montajeFirmaVecR5CT) politicaOriginalContextual(legacy politicaAutoriza
 
 func (p *politicaOriginalFirmaR5CT) nominal(ctx context.Context) (bool, bool) {
 	if p == nil || p.m == nil || p.m.nominal == nil || ctx == nil ||
-		!(rutaNominalFirmaCT(ctx) == httpinterno.RutaOriginalFirmableCT || rutaLecturaCTFirmaV2(rutaNominalFirmaCT(ctx))) {
+		!(rutaNominalFirmaCT(ctx) == httpinterno.RutaOriginalFirmableCT ||
+			rutaFirmaVecR5CT(rutaNominalFirmaCT(ctx)) || rutaLecturaCTFirmaV2(rutaNominalFirmaCT(ctx))) {
 		return false, false
 	}
 	if _, ok := ctx.Value(clavePeticionNominalFirmaCT{}).(*peticionNominalFirmaCT); !ok {
