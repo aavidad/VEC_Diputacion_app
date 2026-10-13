@@ -94,7 +94,7 @@
 1015 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 956 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 931 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
-1035 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
+1024 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
 1287 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 744 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
 848 web/static/bolsa/bolsa.css
@@ -110,7 +110,7 @@
 1521 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1141 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-1117 web/static/portal-empleado/portal-i18n.test.mjs
+1118 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 952 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
@@ -118,7 +118,7 @@
 780 internal/app/server/server_test.go
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1692 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1644 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
 1111 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
 1080 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
@@ -168,3 +168,4 @@
 1212 deploy/postgresql/autorizacion/migraciones/000078_cartera_meritos_persona_externa.up.sql
 3751 deploy/postgresql/autorizacion_atestada_v3/migraciones/000250_cartera_meritos_externa.up.sql
 3325 deploy/postgresql/autorizacion_atestada_v3/migraciones/000253_meritos_basal_compatible.up.sql
+1142 deploy/postgresql/contratacion_temporal/migraciones/000209_firma_pdf_tres_pasos.up.sql
