@@ -20,6 +20,9 @@ BEGIN
     OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_consulta_anclaje_aceptacion_ct_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_consulta_persona_aceptacion_ct_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.consultar_aceptacion_nativa_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.verificar_aceptacion_nativa_ct_para_ct_v1(jsonb)') IS NOT NULL
+    OR to_regrole('vec_contratacion_temporal_propietario') IS NULL
+    OR to_regrole('vec_contratacion_temporal_ejecutor') IS NULL
  THEN RAISE EXCEPTION 'B113: preimagen incompatible o falta unidad del origen B110' USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -235,4 +238,117 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_aceptacion_nativa_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_aceptacion_nativa_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_ejecutor;
+
+-- Puerto entre propietarios. CT lo invoca únicamente después de consumir su
+-- ACT V3 en la misma TX. No hay concesión a LOGIN ni lector global de Bolsa.
+CREATE FUNCTION vec_bolsa_llamamientos.verificar_aceptacion_nativa_ct_para_ct_v1(p_selector jsonb)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $v$
+DECLARE o record; l record; r record; total bigint; persona_ctx jsonb; anclaje jsonb;
+ claves constant text[]:=ARRAY['organizacion_ref','expediente_ref','clave_ct','unidad_ref',
+  'categoria_ref','necesidad_ref','bolsa_ref','llamamiento_ref','recibo_emision_ref','recibo_respuesta_ref'];
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
+    OR NOT pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+    OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
+    OR current_setting('transaction_isolation')<>'serializable'
+    OR current_setting('transaction_read_only')<>'off'
+ THEN RAISE EXCEPTION 'B113: verificador CT denegado' USING ERRCODE='42501'; END IF;
+ IF jsonb_typeof(p_selector) IS DISTINCT FROM 'object'
+    OR (SELECT count(*) FROM jsonb_object_keys(p_selector))<>10
+    OR NOT p_selector ?& claves
+    OR EXISTS(SELECT 1 FROM jsonb_each(p_selector) x
+      WHERE jsonb_typeof(x.value) IS DISTINCT FROM 'string'
+        OR octet_length(x.value#>>'{}') NOT BETWEEN 1 AND 512
+        OR x.value#>>'{}' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]*$')
+ THEN RAISE EXCEPTION 'B113: selector CT inválido' USING ERRCODE='22023'; END IF;
+ SELECT * INTO o FROM vec_bolsa_llamamientos.origen_llamamiento_ct_v1
+  WHERE expediente_ref=p_selector->>'expediente_ref' AND clave_ct=p_selector->>'clave_ct';
+ IF NOT FOUND THEN RETURN jsonb_build_object('estado','no_encontrada'); END IF;
+ IF o.organizacion_ref IS DISTINCT FROM p_selector->>'organizacion_ref'
+    OR o.unidad_ref IS DISTINCT FROM p_selector->>'unidad_ref'
+    OR o.categoria_ref IS DISTINCT FROM p_selector->>'categoria_ref'
+    OR o.necesidad_ref IS DISTINCT FROM p_selector->>'necesidad_ref'
+    OR o.bolsa_ref IS DISTINCT FROM p_selector->>'bolsa_ref'
+    OR o.llamamiento_ref IS DISTINCT FROM p_selector->>'llamamiento_ref'
+    OR o.recibo_ref IS DISTINCT FROM p_selector->>'recibo_emision_ref'
+    OR o.origen_canonico->>'unidad_ref' IS DISTINCT FROM o.unidad_ref
+    OR o.origen_huella_sha256 IS DISTINCT FROM encode(sha256(convert_to(o.origen_canonico::text,'UTF8')),'hex')
+ THEN RETURN jsonb_build_object('estado','no_encontrada'); END IF;
+ SELECT * INTO l FROM vec_bolsa_llamamientos.llamamiento_emitido
+  WHERE llamamiento_ref=o.llamamiento_ref AND recibo_ref=o.recibo_ref AND bolsa_ref=o.bolsa_ref;
+ IF NOT FOUND OR l.decision_ref IS DISTINCT FROM o.decision_ref
+    OR l.emitido_en IS DISTINCT FROM o.emitido_en
+    OR l.participaciones IS DISTINCT FROM jsonb_build_array(o.participacion_ref)
+    OR NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.origen_llamamiento_ct_outbox_v1 ev
+      WHERE ev.evento_ref=o.evento_ref AND ev.llamamiento_ref=o.llamamiento_ref)
+ THEN RAISE EXCEPTION 'B113: emisión CT divergente' USING ERRCODE='P1135'; END IF;
+ SELECT count(*) INTO total FROM vec_bolsa_llamamientos.constitucion ct
+ JOIN vec_bolsa_llamamientos.constitucion_entrada ce
+  ON ce.instantanea_ref=ct.instantanea_ref AND ce.version_instantanea=ct.version_instantanea
+ JOIN vec_bolsa_llamamientos.vinculo_candidato vc
+  ON vc.participacion_ref=ce.participacion_ref AND vc.acta_ref=ct.acta_ref
+  AND vc.instantanea_ref=ct.instantanea_ref AND vc.version_instantanea=ct.version_instantanea
+ WHERE ct.acta_ref=o.acta_ref AND ct.bolsa_ref=o.bolsa_ref
+  AND ct.version_bolsa=o.version_bolsa AND ct.huella_bolsa_sha256=o.huella_bolsa_sha256
+  AND ct.categoria_ref=o.categoria_ref AND ct.instantanea_ref=o.instantanea_ref
+  AND ct.version_instantanea=o.version_instantanea
+  AND ct.huella_instantanea_sha256=o.huella_instantanea_sha256
+  AND ce.participacion_ref=o.participacion_ref AND ce.orden=o.orden_seleccionado
+  AND vc.candidato_ref=o.candidato_ref;
+ IF total<>1 THEN RAISE EXCEPTION 'B113: selección CT divergente' USING ERRCODE='P1135'; END IF;
+ SELECT * INTO r FROM vec_bolsa_llamamientos.respuesta_portal_llamamiento
+  WHERE recibo_ref=p_selector->>'recibo_respuesta_ref';
+ IF NOT FOUND OR r.llamamiento_ref IS DISTINCT FROM o.llamamiento_ref
+    OR r.bolsa_ref IS DISTINCT FROM o.bolsa_ref
+    OR r.participacion_ref IS DISTINCT FROM o.participacion_ref
+    OR r.candidato_ref IS DISTINCT FROM o.candidato_ref
+    OR r.respuesta IS DISTINCT FROM 'acepta' OR r.modo IS DISTINCT FROM 'firme'
+    OR r.respondida_en<l.emitido_en
+    OR NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.contacto_participacion cp
+      WHERE cp.llamamiento_ref=r.llamamiento_ref AND cp.bolsa_ref=r.bolsa_ref
+      AND cp.participacion_ref=r.participacion_ref AND cp.instante=r.contacto_en)
+ THEN RETURN jsonb_build_object('estado','no_encontrada'); END IF;
+ anclaje:=jsonb_build_object('organizacion_ref',o.organizacion_ref,
+  'expediente_ref',o.expediente_ref,'clave_ct',o.clave_ct,'unidad_ref',o.unidad_ref,
+  'categoria_ref',o.categoria_ref,'necesidad_ref',o.necesidad_ref,'bolsa_ref',o.bolsa_ref,
+  'llamamiento_ref',o.llamamiento_ref,'recibo_emision_ref',o.recibo_ref,
+  'recibo_respuesta_ref',r.recibo_ref,'version_expediente',o.version_expediente,
+  'acta_ref',o.acta_ref,'version_bolsa',o.version_bolsa,
+  'huella_bolsa_sha256',o.huella_bolsa_sha256,'instantanea_ref',o.instantanea_ref,
+  'version_instantanea',o.version_instantanea,
+  'huella_instantanea_sha256',o.huella_instantanea_sha256,
+  'politica_ref',o.politica_ref,'version_politica',o.version_politica,
+  'huella_politica_sha256',o.huella_politica_sha256,
+  'participacion_ref',o.participacion_ref,'candidato_ref',o.candidato_ref,
+  'orden_seleccionado',o.orden_seleccionado,'respuesta_ref',r.respuesta_ref,
+  'respondida_en',to_char(r.respondida_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
+ persona_ctx:=vec_contexto_actor_v1.acreditar_persona_candidato_incorporacion_v1(o.candidato_ref);
+ IF jsonb_typeof(persona_ctx) IS DISTINCT FROM 'object'
+    OR (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(persona_ctx) k)
+      IS DISTINCT FROM ARRAY['estado','persona','vinculo']
+    OR persona_ctx->>'estado' NOT IN ('pendiente','acreditado')
+ THEN RAISE EXCEPTION 'B113: persona CT divergente' USING ERRCODE='P1135'; END IF;
+ IF persona_ctx->>'estado'='pendiente' THEN
+  IF persona_ctx->'persona' IS DISTINCT FROM 'null'::jsonb
+     OR persona_ctx->'vinculo' IS DISTINCT FROM 'null'::jsonb
+  THEN RAISE EXCEPTION 'B113: persona pendiente divergente' USING ERRCODE='P1135'; END IF;
+  RETURN jsonb_build_object('estado','pendiente','anclaje',anclaje,
+   'persona','null'::jsonb,'vinculo','null'::jsonb);
+ END IF;
+ IF jsonb_typeof(persona_ctx->'persona') IS DISTINCT FROM 'object'
+    OR jsonb_typeof(persona_ctx->'vinculo') IS DISTINCT FROM 'object'
+    OR persona_ctx#>>'{persona,ref}' !~ '^per_[A-Za-z0-9_-]{22,128}$'
+    OR persona_ctx#>>'{vinculo,procedencia_sha256}' !~ '^[0-9a-f]{64}$'
+    OR (persona_ctx#>>'{vinculo,vigente_hasta}')::timestamptz<=clock_timestamp()
+ THEN RAISE EXCEPTION 'B113: procedencia de persona divergente' USING ERRCODE='P1135'; END IF;
+ RETURN jsonb_build_object('estado','acreditado','anclaje',anclaje,
+  'persona',persona_ctx->'persona','vinculo',persona_ctx->'vinculo');
+END $v$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.verificar_aceptacion_nativa_ct_para_ct_v1(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.verificar_aceptacion_nativa_ct_para_ct_v1(jsonb)
+ TO vec_contratacion_temporal_propietario;
 COMMIT;

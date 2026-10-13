@@ -23,7 +23,9 @@ DO $pre$
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
     OR to_regprocedure('vec_bolsa_llamamientos.consultar_aceptacion_nativa_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.verificar_aceptacion_nativa_ct_para_ct_v1(jsonb)') IS NULL
  THEN RAISE EXCEPTION 'B113 DOWN: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
+DROP FUNCTION vec_bolsa_llamamientos.verificar_aceptacion_nativa_ct_para_ct_v1(jsonb);
 DROP FUNCTION vec_bolsa_llamamientos.consultar_aceptacion_nativa_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 COMMIT;
