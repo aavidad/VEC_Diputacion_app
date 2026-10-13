@@ -33,9 +33,9 @@ ALTER TABLE vec_contratacion_temporal.propuesta_formalizacion
  DROP CONSTRAINT propuesta_formalizacion_check3,
  ADD CONSTRAINT propuesta_formalizacion_check3 CHECK (
    jsonb_typeof(aceptacion_bolsa_json)='object' AND (
-    (material_json ? 'AceptacionBolsa' AND NOT material_json ? 'AceptacionBolsaNativa'
+    ((material_json ? 'AceptacionBolsa') AND NOT (material_json ? 'AceptacionBolsaNativa')
       AND aceptacion_bolsa_json=material_json->'AceptacionBolsa')
-    OR (material_json ? 'AceptacionBolsaNativa' AND NOT material_json ? 'AceptacionBolsa'
+    OR ((material_json ? 'AceptacionBolsaNativa') AND NOT (material_json ? 'AceptacionBolsa')
       AND aceptacion_bolsa_json=material_json->'AceptacionBolsaNativa')));
 
 CREATE FUNCTION vec_contratacion_temporal.leer_antecedente_propuesta_formalizacion_ct211_v1(p_material text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
