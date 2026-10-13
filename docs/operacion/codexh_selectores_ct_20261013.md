@@ -70,7 +70,16 @@ Se reutiliza el perfil fijo `reincorporacion_titular`, su contexto nominal regis
 
 La ventana final de diagnóstico, con el mismo material y la aplicación anterior detenida, localizó el fallo restante en la política Bolsa: `bolsa_borrador_politica_desarrollo.go:249`, `version_rol esperado=7 / recibido=8`. La asignación preparada es v2 y está dentro del rango admitido; `prepararInstantanea` no devuelve error. El rol v7 ya está publicado y asignado a otro perfil, mientras el perfil de `identidad/bolsa-bback.json` sigue en rol v5. La preparación avanza a v8 y la guarda detiene el arranque antes de publicar por CAS. El salto previsto es v5→v7; activar ofertas para forzar v8 no es una corrección.
 
-Se trasladó a dirección y al equipo de Bolsa la provisión gobernada del perfil objetivo sobre el rol existente o el ajuste de su publicación. No se cambió el código de Bolsa, no se reutilizó el perfil de otra persona y no se debilitó la guarda. Por tanto, `VEC_CT_REINCORPORACION_TITULAR_ENABLED=true` sigue pendiente de esa dependencia en la copia recibida; las variables y LOGIN anteriores son prerrequisitos, no una solución acreditada de este último bloqueo.
+Dirección decidió entregar con `export VEC_CT_REINCORPORACION_TITULAR_ENABLED=false`. Así arranca la aplicación local y recupera el recibo tras reiniciar. No se cambió el código de Bolsa, no se reutilizó el perfil de otra persona y no se debilitó la guarda.
+
+Para activarlo después, dirección debe:
+
+1. Leer `identidad/bolsa-bback.json` del material activo y la asignación vigente de su `perfil_ref`; conservar su preimagen CAS, persona, unidad, ámbito, bolsas y procedencia.
+2. Mediante el acto ADMIN existente, asignar a **ese mismo perfil** la versión v7 ya publicada del rol Bolsa, con su referencia y huella reales. El endpoint existente es `/api/admin/perfiles/v1/actos-ordinarios`; si el catálogo ADMIN exige propuesta sensible, usar `/api/admin/perfiles/v1/propuestas` y su cierre por otra persona. La autoridad decide el circuito, no el arranque. Conservar el recibo y comprobar el nuevo puntero de asignación; no crear una versión v8 ni transferir el perfil ajeno.
+3. Cotejar y actualizar el archivo privado con los datos de esa provisión, manteniendo `0600` y el propietario del proceso. Su esquema sólo admite `version`, `autoridad`, `sujeto`, `certificado_sha256`, `perfil_ref`, `unidad_ref`, `ambito_ref` y `bolsas_ref`: **no lleva campos de versión de rol ni de asignación**. Si se conserva el mismo perfil y ámbito, el acto durable cambia la asignación y esos valores del archivo se conservan. No añadir campos inventados para indicar v7.
+4. Con los catálogos de seguimiento declarados, añadir `export VEC_CT_REINCORPORACION_TITULAR_ENABLED=true`, reiniciar y comprobar arranque y consulta con el LOGIN ejecutor CT vigente. Si vuelve a rechazar una preimagen o procedencia, conservar el diagnóstico y el recibo; no sustituirlos por una asignación manual.
+
+La provisión y el arranque con ese selector activo quedan a cargo de dirección; no se acreditan en esta entrega.
 
 ## Alcance y comprobación pendiente
 
