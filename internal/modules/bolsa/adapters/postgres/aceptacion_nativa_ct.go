@@ -27,14 +27,14 @@ type RepositorioConsultaAceptacionNativaCTPostgreSQL struct {
 
 func NuevoRepositorioConsultaAceptacionNativaCTPostgreSQL(pool *pgxpool.Pool, ahora func() time.Time) (*RepositorioConsultaAceptacionNativaCTPostgreSQL, error) {
 	if pool == nil || ahora == nil {
-		return ports.ErrAceptacionNativaCTNoDisponible
+		return nil, ports.ErrAceptacionNativaCTNoDisponible
 	}
 	return &RepositorioConsultaAceptacionNativaCTPostgreSQL{pool, ahora}, nil
 }
 
 func (r *RepositorioConsultaAceptacionNativaCTPostgreSQL) consultar(ctx context.Context, o ports.OrdenConsultaAceptacionNativaCT, persona bool, validar func([]byte) error) error {
 	if ctx == nil || r == nil || r.pool == nil || r.ahora == nil {
-		return nil, ports.ErrAceptacionNativaCTNoDisponible
+		return ports.ErrAceptacionNativaCTNoDisponible
 	}
 	for intento := 0; intento < 3; intento++ {
 		if err := ctx.Err(); err != nil {
