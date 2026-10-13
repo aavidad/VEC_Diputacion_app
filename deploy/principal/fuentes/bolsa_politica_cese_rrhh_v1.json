@@ -1,0 +1,35 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:politica_cese_rrhh",
+  "version": 1,
+  "huella_sha256": "2a945869faa24a743ed3ee37f4788bdb228e45d51cfef9a6e556ef139a176567",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.politica_cese.consultar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:politica_cese_rrhh\",\"fuente_version\":1,\"fuente_huella_sha256\":\"e8989834fbfafa773ed88cd0de95ece9ba66ef5be7054a4332d2853b2cfa5fe4\",\"concesion\":{\"accion\":\"bolsa.politica_cese.consultar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"politica_cese_bolsa\",\"finalidades\":[\"consulta_politica_cese_rrhh\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"politica_cese\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.politica_cese.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:politica_cese_rrhh",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "e8989834fbfafa773ed88cd0de95ece9ba66ef5be7054a4332d2853b2cfa5fe4",
+      "concesion": {
+        "accion": "bolsa.politica_cese.consultar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "politica_cese_bolsa",
+        "finalidades": [
+          "consulta_politica_cese_rrhh"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "politica_cese"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z"
+    }
+  ]
+}
