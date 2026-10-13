@@ -1,4 +1,4 @@
-# AUT87 → AUT90 → AUT91 → CT209. Una vez en base que no las tenga instaladas.
+# AUT87 → AUT90 → AUT91 → CT209 → CA45 → AUT93 → CT214. Una vez en base que no las tenga instaladas.
 # Si alguna está instalada, conservarla; no DOWN ni reaplicar.
 # SHA256 2df5b9e48bda259551b86d25f9df80a63a8ba40a0ec5b1439652776b0742d328
 deploy/postgresql/autorizacion/migraciones/000087_cargos_firma_sustancial_desarrollo.up.sql
@@ -8,3 +8,12 @@ deploy/postgresql/autorizacion/migraciones/000090_cargos_firma_ambitos_auxiliare
 deploy/postgresql/autorizacion/migraciones/000091_cargos_firma_lecturas_nominales.up.sql
 # SHA256 3ce22a91c3c2a73a860929ea5efe7a9381a374854f17d1f6e93046bf329187cf
 deploy/postgresql/contratacion_temporal/migraciones/000209_firma_pdf_tres_pasos.up.sql
+
+# SHA256 8bfb81a11019cd3948f8c1da5c2eb5a409fd254e6ebf15972de2634694d6a2d3
+deploy/postgresql/contexto_actor_v1/migraciones/000045_correspondencia_organizacion_firma.up.sql
+
+# SHA256 b7bd3e53ebfb68e743607f636bf1bafd8b3cecf1f487cb830d508452b45ced6c
+deploy/postgresql/autorizacion/migraciones/000093_correspondencia_organizacion_firma_ct.up.sql
+
+# SHA256 c1616e78eb6a6056d740ee0f252910c38d36bfd7ab2f9ab2174d438caf3ea486
+deploy/postgresql/contratacion_temporal/migraciones/000214_correspondencia_organizacion_firma.up.sql

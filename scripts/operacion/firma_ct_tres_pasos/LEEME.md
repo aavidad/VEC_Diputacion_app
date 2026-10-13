@@ -3,6 +3,16 @@
 Dirección instala y prueba este corte. No modifica cidonia ni su arranque por sí solo.
 
 1. Instalar, una vez, las migraciones nuevas de `deploy/principal/lista_sql_codexh_firma_tres_pasos_20261013.txt`. Conservar las migraciones y los recibos anteriores.
+Antes de activar la firma, publicar la correspondencia aprobada de Organización con el LOGIN DBA/migrador existente. La fuente conserva versión, procedencia, vigencia y retirada; no concede ámbitos ni cambia expedientes. Ejecutar con la conexión privada y el archivo de datos:
+
+```sh
+psql --set=organizacion_operativa_ref=organizacion:desarrollo:dipgra \
+  --set=organizacion_canonica_ref=org_0e4b1d56ba2e24fb8e4808cbc7abb660 \
+  --file scripts/operacion/firma_ct_tres_pasos/publicar_correspondencia.sql
+```
+
+El LOGIN necesita poder asumir `vec_contexto_actor_v1_propietario` por la provisión DBA vigente; no usar el LOGIN de ejecución CT. La operación devuelve la prueba publicada y no modifica sus versiones anteriores. CA45 → AUT93 → CT214 consumen esa fuente en la transacción de firma; sin correspondencia vigente el circuito permanece cerrado.
+
 2. Compilar los ejecutables existentes `cmd/vec-publicar-cargos-firma` y `scripts/operacion/publicar_plantillas_v3`. Publicar el informe previo con `publicar_informe.sh --comprobar` y, después, `--aplicar PUBLICA-INFORME-PREVIO-V4`. Usa `VEC_PLANTILLAS_V3_BIN` y la conexión privada `VEC_PLANTILLAS_V3_DATABASE_URL`. La operación exige cabeza v3, conserva su historia y devuelve el recibo v4.
 3. Revisar `cargos.v2.json` (organización, fechas y competencias) y copiarlo a una carpeta privada fuera de Git (`0700`; archivo `0600`). Preparar el plan con `vec-publicar-cargos-firma preparar --cargos <fuente> --plan <plan> --caduca 1h --idioma es --textos <ruta absoluta a textos/es/admin-cargos-firma.json>`. Aprobar su huella por el procedimiento AUT53 y ejecutar `aplicar` con conexión, aprobación y acuse privados. La estructura SQL no publica roles ni asigna perfiles al instalarse.
 4. Con Administración y el circuito `vec-cargos-ct` existente, proveer persona, cuenta, vínculo de certificado CA25, cargo y asignación nominal de las cuatro personas. Carmen conserva su certificado; los otros tres se preparan con `certificados.sh --material <material existente> --salida <carpeta privada nueva> --comprobar` y `--aplicar PREPARA-CERTIFICADOS-CT`. Requiere la clave de la CA de desarrollo existente. El resultado contiene certificados, claves/P12 privados, CRL y fragmento Caddy; no asigna perfiles ni instala usuarios web. Revisar el fragmento y añadir las contraseñas web por el procedimiento habitual, sin guardarlas en Git.

@@ -169,3 +169,4 @@
 3751 deploy/postgresql/autorizacion_atestada_v3/migraciones/000250_cartera_meritos_externa.up.sql
 3325 deploy/postgresql/autorizacion_atestada_v3/migraciones/000253_meritos_basal_compatible.up.sql
 1142 deploy/postgresql/contratacion_temporal/migraciones/000209_firma_pdf_tres_pasos.up.sql
+845 deploy/postgresql/autorizacion/migraciones/000093_correspondencia_organizacion_firma_ct.up.sql
