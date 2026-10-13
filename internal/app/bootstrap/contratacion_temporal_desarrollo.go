@@ -759,11 +759,6 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	if consultaCircuitoRRHH != nil {
 		perfilesCircuito := []string{perfilCTCatalogo}
-		if firmaVecActiva {
-			for _, firmante := range configuracionFirmaVec.Firmantes {
-				perfilesCircuito = append(perfilesCircuito, firmante.PerfilConsultaCircuitoRef)
-			}
-		}
 		declaracionesFrontera = append(declaracionesFrontera,
 			fronteraContratacionTemporalDesarrollo("ct-circuito-rrhh-consultar",
 				postgresct.AccionConsultaCircuitoRRHH, httpinterno.RutaConsultaCircuitoRRHH,
@@ -772,6 +767,25 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	declaracionesFrontera, err = asignarPerfilesFijosEnFronterasCTDesarrollo(alta.soporte, perfilCTCatalogo, declaracionesFrontera)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	// Primero resolver el perfil fijo legado con su guarda original. Los
+	// perfiles nominales explícitos se añaden después sólo a esta consulta.
+	if firmaVecActiva && consultaCircuitoRRHH != nil {
+		for i := range declaracionesFrontera {
+			d := &declaracionesFrontera[i]
+			if d.Ruta != httpinterno.RutaConsultaCircuitoRRHH || d.Metodo != http.MethodPost {
+				continue
+			}
+			vistos := map[string]bool{d.PerfilesActivosRef[0]: true}
+			for _, firmante := range configuracionFirmaVec.Firmantes {
+				perfil := firmante.PerfilConsultaCircuitoRef
+				if !perfilActivoSeguridadComunValido(perfil) || vistos[perfil] {
+					return nil, nil, nil, ErrActivacionDesarrolloInvalida
+				}
+				vistos[perfil] = true
+				d.PerfilesActivosRef = append(d.PerfilesActivosRef, perfil)
+			}
+		}
 	}
 	if alta.soporte.perfilesOriginal != nil {
 		fronteraOriginal, e := fronteraOriginalFirmableCTDesarrollo(alta.soporte.perfilesOriginal)
