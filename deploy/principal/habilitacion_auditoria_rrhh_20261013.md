@@ -29,7 +29,7 @@ CONFIG NUEVA: `VEC_RRHH_AUDITORIA_ENABLED=true` y
 
 Copiar `data/catalogos/auditoria/consulta.v2.json` a esa ruta antes de arrancar.
 El fichero contiene el motivo configurable, sin claves ni identidades personales.
-El lector admite versiones posteriores; la referencia y la huella del motivo
+Esta instalación exige la versión 2 del catálogo; la referencia y la huella
 deben coincidir con su publicación vigente.
 
 Conservar los LOGIN segregados ya preparados y declarar sus DSN privados:
