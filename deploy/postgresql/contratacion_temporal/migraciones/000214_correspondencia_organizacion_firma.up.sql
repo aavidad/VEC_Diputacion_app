@@ -15,11 +15,11 @@ CREATE TABLE vec_contratacion_temporal.firma_correspondencia_organizacion_v1(
  version numeric(20,0) NOT NULL CHECK(version BETWEEN 1 AND 9007199254740991),
  prueba jsonb NOT NULL,
  confirmada_en timestamptz(6) NOT NULL,
- CHECK(jsonb_typeof(prueba)='object' AND prueba->>'esquema'='vec.organizacion.correspondencia.v1'
+ CHECK((jsonb_typeof(prueba)='object' AND prueba->>'esquema'='vec.organizacion.correspondencia.v1'
   AND prueba->>'organizacion_operativa_ref'=organizacion_operativa_ref
   AND prueba->>'organizacion_canonica_ref'=organizacion_canonica_ref
   AND prueba->>'correspondencia_ref'=correspondencia_ref AND (prueba->>'version')::numeric=version
-  AND prueba->>'estado'='vigente' AND prueba->>'huella_sha256' ~ '^[0-9a-f]{64}$')
+  AND prueba->>'estado'='vigente' AND prueba->>'huella_sha256' ~ '^[0-9a-f]{64}$') IS TRUE)
 );
 ALTER TABLE vec_contratacion_temporal.firma_correspondencia_organizacion_v1 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_contratacion_temporal.firma_correspondencia_organizacion_v1 FORCE ROW LEVEL SECURITY;
@@ -287,6 +287,6 @@ BEGIN
     OR (decision_e->>'valida_hasta')::timestamptz<=clock_timestamp() THEN
   RAISE EXCEPTION 'CT176 pin o decisión caducados antes de confirmar' USING ERRCODE='42501'; END IF;
  RETURN recibo;
-END $function$
+END $function$;
 
 COMMIT;

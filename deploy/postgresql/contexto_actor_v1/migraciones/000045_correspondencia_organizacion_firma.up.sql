@@ -76,6 +76,8 @@ BEGIN
   OR vec_contexto_actor_v1.organizacion_ref_valida(d->>'organizacion_canonica_ref') IS NOT TRUE
   OR d->>'organizacion_operativa_ref'=d->>'organizacion_canonica_ref'
   OR d->>'estado' NOT IN('vigente','retirada')
+  OR (d->>'vigente_desde' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?(Z|\+00:00)$') IS NOT TRUE
+  OR (d->>'vigente_hasta' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?(Z|\+00:00)$') IS NOT TRUE
   OR (d->>'version')::numeric NOT BETWEEN 1 AND 9007199254740991
   OR (d->>'vigente_hasta')::timestamptz<=(d->>'vigente_desde')::timestamptz
   OR NOT pg_catalog.isfinite((d->>'vigente_desde')::timestamptz)
