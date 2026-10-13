@@ -8,7 +8,7 @@ la hoja de ruta de
 reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
-Actualizado el 13 de octubre de 2026 sobre `origin/main@6c9ae43dc`.
+Actualizado el 13 de octubre de 2026 sobre `origin/main@2fbb15342`.
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
 cómo se sabe que cada fase está terminada y cómo se trabaja. Es lectura
@@ -141,6 +141,14 @@ PR abiertas, todas en borrador:
 | #1008 | Textos: cómo corregir o publicar la categoría antes de vincularla | J | 1 |
 | #882 | Formación: recuperar el idioma sin perder el borrador | T | 6, aparcado |
 | #881 | Provisión: agrupar experiencia y separar el corrector provisional | T | 5, aparcado |
+
+#1099 incorpora los originales, la consulta nominal y el cableado de firma
+desde la ficha. Los PDF nuevos superan la verificación local con GrxFirma
+actualizado; el plan v2 y los cuerpos del acto ADMIN están preparados y
+validados, sin enviar la llamada. Por orden de dirección de las 12:30, Claude
+publicará el plan y hará el recorrido final en cidonia con sus dos ADMIN.
+La candidata no cierra todavía la firma ni la fase 1. El guion y sus límites
+están en `scripts/operacion/firma_ct_tres_pasos/LEEME.md`.
 
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna

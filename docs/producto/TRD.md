@@ -14,7 +14,8 @@ tecnología, cómo se reparte el código, cómo arranca, cómo se identifica y a
 a cada persona, qué exige la seguridad y la protección de datos, cómo se prueba y
 cómo se sube al servidor.
 
-Comprobado sobre `origin/main@6c9ae43dc` el 13 de octubre de 2026.
+Comprobado sobre `origin/main@2fbb15342` el 13 de octubre de 2026; la candidata
+#1099 se indica aparte en los apartados 9 y 16.
 
 Es la fuente única de las reglas técnicas. Reúne lo vigente de
 `docs/portal_vec/arquitectura_tecnica.md`, `docs/portal_vec/cumplimiento_y_seguridad.md`,
@@ -497,6 +498,17 @@ Las decisiones pendientes del DPD (delegado de protección de datos) están en
 | Documentos publicados o entregados, accesibles | Pendiente de comprobar en los PDF generados |
 | CSV (código seguro de verificación), sello de tiempo, registro electrónico de entrada, notificación electrónica, índice del expediente firmado y exportación ENI completa | **Pendientes.** No hay puertos de registro ni de notificación electrónica |
 
+La candidata #1099 genera los PDF nuevos con cabecera 1.4 y dos elementos
+`/ID` estables en el productor común de Documentos. Conserva el contenido y los
+desplazamientos de los objetos; los documentos ya custodiados se recuperan con
+sus bytes originales. El plan nominal exige la referencia completa del circuito
+vigente, con versión y huella. El guion
+`scripts/operacion/firma_ct_tres_pasos/publicar_plan_v2.sh` prepara el acto con
+`vec-plan-firma-validar` y usa el gobierno ADMIN existente para crear y publicar
+con personas distintas; `--comprobar` no conecta con ADMIN. Dirección publicará
+el plan y hará la comprobación final con los certificados que conserva en
+cidonia. No se acredita todavía el registro final de la firma.
+
 Un borrador no es un documento firmado. Autenticarse no es firmar. Un aviso no es
 una entrega acreditada. Una referencia a un correo no es su custodia. No se
 inventan plazos, nombramientos eficaces ni incorporaciones.
@@ -742,7 +754,7 @@ administradores inventados se sustituyen por personas reales.
 
 | Sistema | Qué es | Cómo se conecta | Estado |
 | --- | --- | --- | --- |
-| GrxFirma | Firmador de la Diputación (antes AutofirmaV2), compatible con el protocolo de AutoFirma | La persona firma en su equipo (`afirma://` desde el navegador); la clave nunca sale de allí y el servidor nunca firma por su cuenta. VEC verifica con el validador de GrxFirma, desplegado como servicio aparte y consumido por HTTP (`internal/vec/documentos/adapters/validadorautofirma`). Política `politica:vec:firma:verificacion-autonoma:v1` (`deploy/firma/README.md`) | Circuito de dos firmantes en curso. El 13/10 la autorización pasaba, pero el validador devolvía `firma_no_verificada` por un fallo de GrxFirma con PDF de firma incremental; el arreglo está en GrxFirma y se decide su instalación. Nunca se marca «firmado» sin verificación positiva |
+| GrxFirma | Firmador de la Diputación (antes AutofirmaV2), compatible con el protocolo de AutoFirma | La persona firma en su equipo (`afirma://` desde el navegador); la clave nunca sale de allí y el servidor nunca firma por su cuenta. VEC verifica con el validador de GrxFirma, desplegado como servicio aparte y consumido por HTTP (`internal/vec/documentos/adapters/validadorautofirma`). Política `politica:vec:firma:verificacion-autonoma:v1` (`deploy/firma/README.md`) | Circuito de dos firmantes en curso. En la copia local, la candidata #1099 produce PDF 1.4 con /ID; la firma CLI y el verificador GrxFirma aeec0e5 superan el rechazo anterior. Falta publicar el plan nominal con la referencia completa y recorrer el registro desde la ficha; dirección lo comprobará en cidonia. Nunca se marca «firmado» sin verificación positiva |
 | Correo | Avisos a aspirantes y comunicaciones del llamamiento | Adaptadores SMTP (`internal/modules/contrataciontemporal/adapters/smtp`, avisos de Bolsa, «Mis correos» de Usuarios), con reserva previa para no duplicar envíos. La dirección sale del alta propia de VEC | Sale por un buzón de pruebas. Falta el servidor de la Diputación (duda 88) y su configuración desde Administración, con secreto de solo escritura, cifrado y auditado |
 | GINPIX | Aplicación de gestión de personal que usa hoy la Diputación, donde se da de alta a la persona contratada | `ginpixfichero` genera la ficha de carga y `ginpixapi` prepara un envío HTTP. RRHH carga la ficha a mano y registra en VEC el número de alta (`application/confirmacion_ginpix.go`) | Ficha y confirmación manual funcionan. Envío automático no conectado: faltan datos de Informática (duda 127) |
 | CONVOCA | Aplicación actual de convocatorias, que VEC sustituye | Importación del Excel de CONVOCA desde la pantalla de Bolsa (vista previa y confirmación) o con `vec-server importar-convoca`; formato `.xls` con `nkiri/xls` | Funciona en cidonia con datos sintéticos. El uso de datos reales espera al DPD (duda 45) |
