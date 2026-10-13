@@ -160,6 +160,7 @@ Patrón común de `roles_up.sql` (ejemplo legible: `deploy/postgresql/aspirantes
 | `vec_<esquema>_propietario` | `NOLOGIN` | Posee tablas, funciones y políticas. Nadie inicia sesión con él. |
 | `vec_<esquema>_migrador` | `NOLOGIN`, `SET TRUE` hacia el propietario | Aplica migraciones con `SET LOCAL ROLE …_propietario`. La aplicación no conoce su credencial y nunca migra al arrancar. |
 | `vec_<esquema>_ejecutor` (`_interno`, `_externo`, `_consultor`, `_relevo_…`, `_registrador_frontera`) | `NOLOGIN` | Grupo de la aplicación. Solo recibe `USAGE` del esquema y `EXECUTE` de funciones concretas. |
+| `vec_autorizacion_atestada_v3_publicador_externo` | `NOLOGIN`, sin membresías superiores | Preparación administrativa de la confianza externa (AD263). Un LOGIN nominal exclusivo llama a `gestionar_publicacion_externa_v1`; no puede asumir el propietario AD3. Consulta y publicación quedan en la auditoría común. AD265 actualiza las listas de sus lectores técnicos existentes. |
 | LOGIN nominales | `LOGIN`, fuera de Git | Uno por pool y superficie. Miembro **directo y exclusivo** de un único grupo, con `INHERIT TRUE`, `SET FALSE`, `ADMIN FALSE`. Méritos es la excepción documentada: dos membresías (`vec_meritos_ejecutor` y `_externo` o `_interno`). |
 | Grupos transversales | `NOLOGIN` | `vec_auditoria_encadenador` (sella la cadena), `vec_auditoria_periodica_sellador`/`_configurador`. |
 

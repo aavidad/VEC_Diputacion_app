@@ -137,8 +137,23 @@ func ejecutarPreparacionPortalExterno(ctx context.Context, args []string, salida
 	consumidores := opciones.String("consumidores", "", "consumidores separados por comas")
 	rutaSeudonimos := opciones.String("seudonimos", "", "fichero con los alias calculados por el proceso externo")
 	cuentas := opciones.String("cuentas", "", "cuentas del Área personal autorizadas para esos alias, separadas por comas")
+	rutaPublicador := opciones.String("publicador-confianza-dsn", "", "fichero privado 0600 con el DSN del publicador nominal externo")
 	if err := opciones.Parse(args); err != nil || opciones.NArg() != 0 || *destino == "" || *consumidores == "" ||
+		*rutaPublicador == "" ||
 		(*rutaSeudonimos != "" && *cuentas == "") {
+		return errArgumentosPreparacion
+	}
+	infoPublicador, err := os.Lstat(*rutaPublicador)
+	if err != nil || !infoPublicador.Mode().IsRegular() || infoPublicador.Mode().Perm() != 0o600 {
+		return errArgumentosPreparacion
+	}
+	contenidoDSN, err := leerFicheroAcotadoTarea(*rutaPublicador, subcomandoPrepararPortalExterno)
+	if err != nil || len(contenidoDSN) == 0 || len(contenidoDSN) > 8192 {
+		return errArgumentosPreparacion
+	}
+	defer clear(contenidoDSN)
+	infoAbierto, err := os.Lstat(*rutaPublicador)
+	if err != nil || !os.SameFile(infoPublicador, infoAbierto) {
 		return errArgumentosPreparacion
 	}
 	seudonimos, err := leerFicheroAcotadoTarea(*rutaSeudonimos, subcomandoPrepararPortalExterno)
@@ -151,6 +166,7 @@ func ejecutarPreparacionPortalExterno(ctx context.Context, args []string, salida
 	}
 	resumen, err := preparar(ctx, cfg, bootstrap.OpcionesPreparacionPortalExterno{
 		Destino: *destino, Consumidores: strings.Split(*consumidores, ","), Seudonimos: seudonimos, CuentasAutorizadas: autorizadas,
+		PublicadorConfianzaDSN: strings.TrimSpace(string(contenidoDSN)),
 	})
 	if err != nil {
 		return err
