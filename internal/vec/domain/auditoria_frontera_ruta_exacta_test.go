@@ -114,3 +114,40 @@ func TestAuditoriaFronteraAspirantesSinPersona(t *testing.T) {
 		t.Fatal("Aspirantes nunca anota persona ni otra ruta")
 	}
 }
+
+func TestAuditoriaFronteraMeritosCarteraExigeRutaYPersonaExactas(t *testing.T) {
+	base := OrdenAuditoriaFronteraRutaExacta{
+		CorrelacionRef: "corr_0123456789abcdef0123456789abcdef",
+		Motivo:         MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida,
+		Superficie:     SuperficieAuditoriaFronteraRutaExactaMeritosCartera,
+	}
+	for _, ruta := range []string{"/api/vec/meritos/cartera", "/api/vec/meritos/cartera/retiradas"} {
+		base.Ruta = ruta
+		if err := base.Validar(); err != nil {
+			t.Fatalf("401 de ruta M4 exacta: %v", err)
+		}
+		denegada := base
+		denegada.Motivo = MotivoAuditoriaFronteraRutaExactaAccesoDenegado
+		denegada.ActorRef = "per_" + strings.Repeat("a", 22)
+		if err := denegada.Validar(); err != nil {
+			t.Fatalf("403 nominal M4: %v", err)
+		}
+		for _, actor := range []string{"", "cta_" + strings.Repeat("a", 22)} {
+			denegada.ActorRef = actor
+			if denegada.Validar() == nil {
+				t.Fatalf("403 sin persona válida: %q", actor)
+			}
+		}
+		conActor := base
+		conActor.ActorRef = "per_" + strings.Repeat("a", 22)
+		if conActor.Validar() == nil {
+			t.Fatal("401 con persona aceptado")
+		}
+	}
+	for _, ruta := range []string{"/api/vec/meritos/cartera/", "/api/vec/meritos/cartera?persona_ref=otra", "/api/vec/usuarios/mis-preferencias"} {
+		base.Ruta = ruta
+		if base.Validar() == nil {
+			t.Fatalf("ruta ajena o ampliada M4: %q", ruta)
+		}
+	}
+}

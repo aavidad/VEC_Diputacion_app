@@ -189,6 +189,10 @@ func TestRecursoIntentoConsultaNoPersisteTextoPersonal(t *testing.T) {
 	if recursoIntentoFiltro(p.Filtro) != "auditoria:consulta_bolsa" {
 		t.Fatal("fuente Bolsa sin recurso fijo")
 	}
+	p.Filtro.Fuente = "persona"
+	if recursoIntentoFiltro(p.Filtro) != "auditoria:consulta_persona" {
+		t.Fatal("fuente Persona sin recurso fijo")
+	}
 	p.Filtro.ExpedienteRef = "*"
 	if recursoIntentoFiltro(p.Filtro) != "auditoria:consulta_invalida" {
 		t.Fatal("filtro inválido recibió recurso de consulta")

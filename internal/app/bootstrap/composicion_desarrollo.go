@@ -329,6 +329,21 @@ func nuevoServidorDesarrollo(
 	}
 	configurarAvisosViaCoberturaDesarrollo(autoridadContratacion, reglasEjemplo.bolsa, fuenteConstituida)
 	cancelarBolsas()
+	if fuenteConstituida != nil && autoridadContratacion != nil && autoridadContratacion.soporteDocumentosBolsa != nil && autoridadContratacion.poolDocumentosBolsa != nil {
+		ctxDocumentos, cancelarDocumentos := context.WithTimeout(context.Background(), 15*time.Second)
+		registrador, proceso, detener, errDocumentos := AbrirRegistradorIntentosAuditoriaDesarrollo(
+			ctxDocumentos, cfg, autoridadContratacion.poolDocumentosBolsa, nil)
+		cancelarDocumentos()
+		if errDocumentos != nil {
+			registrarFalloFuenteConstituidaRRHHDesarrollo("auditoria_documentos_bolsa", errDocumentos)
+		} else {
+			anterior := cerrarContratacion
+			cerrarContratacion = func() { detener(); anterior() }
+			resolver := resolverSoporteDocumentosBolsa(autoridadContratacion.soporteDocumentosBolsa, autoridadContratacion.soportesLectoresDocumentosBolsa)
+			fuenteConstituida.controlDocumentos = nuevoControlLecturaDocumentosBolsa(
+				resolver, nuevoAuditorDocumentosBolsa(resolver, registrador, proceso, autoridadContratacion.registradorAuditoriaFronteraRutasExactas))
+		}
+	}
 	autoridadContratacion.personalizacionB7.fijar(fuenteConstituida)
 	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, fuenteConstituida, autoridadContratacion.manejadorSituacionParticipacion)
 	if err != nil {
@@ -478,6 +493,15 @@ func nuevoServidorDesarrollo(
 		}()
 		rutasContratacion = append(rutasContratacion, rutaUsuariosPreferencias(usuariosPreferencias)...)
 	}
+	inscripcionExterna, cerrarInscripcionExterna, err := nuevaInscripcionCombinadaDesarrollo(cfg, usuariosPreferencias)
+	if err != nil {
+		return nil, nil, marcarFalloComponenteArranque("inscripcion_bolsa_externa", err)
+	}
+	defer func() {
+		if !completa {
+			cerrarInscripcionExterna()
+		}
+	}()
 	autoridadExactas := vechttp.AutoridadRutasExactas(autoridadContratacion)
 	if comisionesDietas != nil {
 		autoridadExactas = autoridadExactasConDietas{delegada: autoridadContratacion, dietas: comisionesDietas}
@@ -529,7 +553,8 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("bolsas_publicas", err)
 	}
-	servidor, err := server.NewHTTPServer(cfg, componerRaizConInscripcionRRHH(componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado), personalEmpleado), consultasPersonal), inscripcionRRHH))
+	raiz := componerRaizConInscripcionRRHH(componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado), personalEmpleado), consultasPersonal), inscripcionRRHH)
+	servidor, err := server.NewHTTPServer(cfg, componerRaizConInscripcionExterna(raiz, inscripcionExterna))
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("servidor_http", err)
 	}
@@ -552,6 +577,7 @@ func nuevoServidorDesarrollo(
 	if inscripcionRRHH != nil {
 		servidor.RegisterOnShutdown(inscripcionRRHH.cerrar)
 	}
+	servidor.RegisterOnShutdown(cerrarInscripcionExterna)
 	if personalEmpleado != nil {
 		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
 	}

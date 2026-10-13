@@ -4,32 +4,52 @@ SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL TIME ZONE 'UTC';
 SET LOCAL lock_timeout='2s';
 SET LOCAL statement_timeout='30s';
-SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion_atestada_v3:migracion:000257',0));
--- Literal instalado post AD252; solo se amplía la acción/finalidad positiva CT.
+SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+  'vec_autorizacion_atestada_v3:migracion:000259',0));
+
+-- Preimagen instalada AD252 comprobada en la copia principal PG18. Esta
+-- ampliación mantiene sus dos acciones y añade solo configuración N y origen K.
 DO $pre$
 DECLARE
- f text := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(
- 'vec_autorizacion_atestada_v3.registrar_intento_nominal_v1(bytea,bytea,jsonb)'::regprocedure),'UTF8')),'hex');
- c text := (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_constraintdef(oid),'UTF8')),'hex')
- FROM pg_catalog.pg_constraint WHERE conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass AND conname='auditoria_intento_formato_v1');
+  v_funcion oid := pg_catalog.to_regprocedure(
+    'vec_autorizacion_atestada_v3.registrar_intento_nominal_v1(bytea,bytea,jsonb)');
+  v_funcion_actual text;
+  v_restriccion_actual text;
 BEGIN
- IF f IS DISTINCT FROM 'ff79b5a1bad846023acbd254b3822d80955f390f170c2a1f2bf17842d2414c93' THEN
-  RAISE EXCEPTION 'AD257 función: esperado=% actual=%','ff79b5a1bad846023acbd254b3822d80955f390f170c2a1f2bf17842d2414c93',f USING ERRCODE='55000';
- END IF;
- IF c IS DISTINCT FROM 'c928c41a5b7e7d1702b601c084fe7f4998e6cf85b8c8294d78a4c8f780811768' THEN
-  RAISE EXCEPTION 'AD257 restricción: esperado=% actual=%','c928c41a5b7e7d1702b601c084fe7f4998e6cf85b8c8294d78a4c8f780811768',c USING ERRCODE='55000';
- END IF;
+  v_funcion_actual := CASE WHEN v_funcion IS NULL THEN NULL ELSE
+    pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+      pg_catalog.pg_get_functiondef(v_funcion),'UTF8')),'hex') END;
+  SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+           pg_catalog.pg_get_constraintdef(c.oid),'UTF8')),'hex')
+    INTO v_restriccion_actual
+    FROM pg_catalog.pg_constraint c
+   WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
+     AND c.conname='auditoria_intento_formato_v1';
+  IF v_funcion_actual IS DISTINCT FROM
+      'ff79b5a1bad846023acbd254b3822d80955f390f170c2a1f2bf17842d2414c93' THEN
+    RAISE EXCEPTION 'AD259 función registrar_intento_nominal_v1: esperado=% actual=%',
+      'ff79b5a1bad846023acbd254b3822d80955f390f170c2a1f2bf17842d2414c93',
+      v_funcion_actual USING ERRCODE='55000';
+  END IF;
+  IF v_restriccion_actual IS DISTINCT FROM
+      'c928c41a5b7e7d1702b601c084fe7f4998e6cf85b8c8294d78a4c8f780811768' THEN
+    RAISE EXCEPTION 'AD259 restricción auditoria_intento_formato_v1: esperado=% actual=%',
+      'c928c41a5b7e7d1702b601c084fe7f4998e6cf85b8c8294d78a4c8f780811768',
+      v_restriccion_actual USING ERRCODE='55000';
+  END IF;
 END
 $pre$;
-ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 DROP CONSTRAINT auditoria_intento_formato_v1;
-ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 ADD CONSTRAINT auditoria_intento_formato_v1
-CHECK (((tipo_registro <> 'intento_nominal'::text) OR ((intento_ref ~ '^intento_[0-9a-f]{32}$'::text) AND (intento_material_sha256 ~ '^[0-9a-f]{64}$'::text) AND (contexto_sha256 ~ '^[0-9a-f]{64}$'::text) AND (procedencia_sha256 ~ '^[0-9a-f]{64}$'::text) AND (autenticacion_sha256 ~ '^[0-9a-f]{64}$'::text) AND (vinculo_sha256 ~ '^[0-9a-f]{64}$'::text) AND ((resultado = ANY (ARRAY['denegado'::text, 'error'::text])) OR ((resultado = 'exito'::text) AND (((accion = ANY (ARRAY['lectura_bolsas_rrhh_consultar'::text, 'lectura_bolsas_rrhh_descargar_recibo'::text])) AND (finalidad_ref = 'gestion_bolsa_rrhh'::text)) OR ((accion = 'bolsa.origen_ct.consultar'::text) AND (finalidad_ref = 'gestionar_contratacion_temporal'::text))) AND (modulo_id = 'bolsa'::text) AND (proceso = 'vec-rrhh'::text) AND (canal = 'interna_corporativa'::text) AND (recurso_ref ~ '^bolsa:[a-z0-9][a-z0-9._:-]{0,193}$'::text))) AND ((octet_length(actor_ref) >= 1) AND (octet_length(actor_ref) <= 128)) AND ((octet_length(perfil_activo_ref) >= 1) AND (octet_length(perfil_activo_ref) <= 128)) AND ((octet_length(registro_contexto_ref) >= 1) AND (octet_length(registro_contexto_ref) <= 128)) AND ((octet_length(autenticacion_ref) >= 1) AND (octet_length(autenticacion_ref) <= 128)) AND ((octet_length(sesion_ref) >= 1) AND (octet_length(sesion_ref) <= 128)) AND ((octet_length(accion) >= 1) AND (octet_length(accion) <= 160)) AND ((octet_length(modulo_id) >= 1) AND (octet_length(modulo_id) <= 160)) AND ((octet_length(recurso_ref) >= 1) AND (octet_length(recurso_ref) <= 200)) AND ((octet_length(finalidad_ref) >= 1) AND (octet_length(finalidad_ref) <= 160)) AND ((octet_length(motivo_ref) >= 1) AND (octet_length(motivo_ref) <= 160)) AND ((octet_length(proceso) >= 1) AND (octet_length(proceso) <= 80)) AND ((octet_length(canal) >= 1) AND (octet_length(canal) <= 80)) AND ((octet_length(correlacion_ref) >= 1) AND (octet_length(correlacion_ref) <= 128)))));
+
+ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3
+  DROP CONSTRAINT auditoria_intento_formato_v1;
+ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3
+  ADD CONSTRAINT auditoria_intento_formato_v1 CHECK (((tipo_registro <> 'intento_nominal'::text) OR ((intento_ref ~ '^intento_[0-9a-f]{32}$'::text) AND (intento_material_sha256 ~ '^[0-9a-f]{64}$'::text) AND (contexto_sha256 ~ '^[0-9a-f]{64}$'::text) AND (procedencia_sha256 ~ '^[0-9a-f]{64}$'::text) AND (autenticacion_sha256 ~ '^[0-9a-f]{64}$'::text) AND (vinculo_sha256 ~ '^[0-9a-f]{64}$'::text) AND ((resultado = ANY (ARRAY['denegado'::text, 'error'::text])) OR (resultado = 'exito'::text AND (((accion IN ('lectura_bolsas_rrhh_consultar','lectura_bolsas_rrhh_descargar_recibo')) AND finalidad_ref = 'gestion_bolsa_rrhh'::text) OR ((accion = 'bolsa.configuracion.consultar'::text) AND (finalidad_ref = 'consulta_configuracion_bolsa_rrhh'::text) AND (recurso_ref ~ '^bolsa:perfil:[0-9a-f]{64}$'::text)) OR ((accion = 'bolsa.origen_ct.consultar'::text) AND (finalidad_ref = 'gestionar_contratacion_temporal'::text))) AND modulo_id = 'bolsa'::text AND proceso = 'vec-rrhh'::text AND canal = 'interna_corporativa'::text AND recurso_ref ~ '^bolsa:[a-z0-9][a-z0-9._:-]{0,193}$'::text)) AND ((octet_length(actor_ref) >= 1) AND (octet_length(actor_ref) <= 128)) AND ((octet_length(perfil_activo_ref) >= 1) AND (octet_length(perfil_activo_ref) <= 128)) AND ((octet_length(registro_contexto_ref) >= 1) AND (octet_length(registro_contexto_ref) <= 128)) AND ((octet_length(autenticacion_ref) >= 1) AND (octet_length(autenticacion_ref) <= 128)) AND ((octet_length(sesion_ref) >= 1) AND (octet_length(sesion_ref) <= 128)) AND ((octet_length(accion) >= 1) AND (octet_length(accion) <= 160)) AND ((octet_length(modulo_id) >= 1) AND (octet_length(modulo_id) <= 160)) AND ((octet_length(recurso_ref) >= 1) AND (octet_length(recurso_ref) <= 200)) AND ((octet_length(finalidad_ref) >= 1) AND (octet_length(finalidad_ref) <= 160)) AND ((octet_length(motivo_ref) >= 1) AND (octet_length(motivo_ref) <= 160)) AND ((octet_length(proceso) >= 1) AND (octet_length(proceso) <= 80)) AND ((octet_length(canal) >= 1) AND (octet_length(canal) <= 80)) AND ((octet_length(correlacion_ref) >= 1) AND (octet_length(correlacion_ref) <= 128)))));
 
 CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.registrar_intento_nominal_v1(p_contexto_canonico bytea, p_vinculo_canonico bytea, p_orden jsonb)
  RETURNS TABLE(auditoria_ref text, secuencia numeric, huella_sha256 text, correlacion_ref text, registrada_en timestamp with time zone)
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'pg_catalog', 'pg_temp'
+ SET search_path=pg_catalog,pg_temp
  SET row_security TO 'on'
  SET statement_timeout TO '10s'
  SET lock_timeout TO '2s'
@@ -90,16 +110,21 @@ BEGIN
        OR (p_orden ->> 'correlacion_ref') !~ '^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$' THEN
         RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='identificadores de auditoría inválidos';
     END IF;
-    -- Exito solo tras una lectura RRHH concreta de una bolsa opaca. El
-    -- registrador constata el resultado; no concede permiso de lectura.
+    -- Éxito solo para las cuatro parejas acción/finalidad exactas. Para
+    -- configuración, la referencia contiene la huella del perfil propio.
+    -- El registrador constata el resultado; no concede la lectura.
     IF (p_orden ->> 'resultado') = 'exito' AND (
         (p_orden ->> 'modulo_id') IS DISTINCT FROM 'bolsa'
         OR (p_orden ->> 'proceso') IS DISTINCT FROM 'vec-rrhh'
         OR (p_orden ->> 'canal') IS DISTINCT FROM 'interna_corporativa'
         OR (p_orden ->> 'recurso_ref') !~ '^bolsa:[a-z0-9][a-z0-9._:-]{0,193}$'
         OR NOT (
-            ((p_orden ->> 'accion') IN ('lectura_bolsas_rrhh_consultar','lectura_bolsas_rrhh_descargar_recibo')
+            ((p_orden ->> 'accion') IN
+                ('lectura_bolsas_rrhh_consultar','lectura_bolsas_rrhh_descargar_recibo')
              AND (p_orden ->> 'finalidad_ref') = 'gestion_bolsa_rrhh')
+            OR ((p_orden ->> 'accion') = 'bolsa.configuracion.consultar'
+                AND (p_orden ->> 'finalidad_ref') = 'consulta_configuracion_bolsa_rrhh'
+                AND (p_orden ->> 'recurso_ref') ~ '^bolsa:perfil:[0-9a-f]{64}$')
             OR ((p_orden ->> 'accion') = 'bolsa.origen_ct.consultar'
                 AND (p_orden ->> 'finalidad_ref') = 'gestionar_contratacion_temporal')
         )
@@ -216,4 +241,22 @@ BEGIN
 END
 $function$;
 
+-- CREATE OR REPLACE conserva propietario y EXECUTE existentes; se comprueban.
+DO $post$
+DECLARE v_funcion oid := pg_catalog.to_regprocedure(
+  'vec_autorizacion_atestada_v3.registrar_intento_nominal_v1(bytea,bytea,jsonb)');
+BEGIN
+  IF pg_catalog.pg_get_userbyid((SELECT p.proowner FROM pg_catalog.pg_proc p WHERE p.oid=v_funcion))
+       <> 'vec_autorizacion_atestada_v3_propietario'
+     OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p,
+               LATERAL pg_catalog.aclexplode(p.proacl) a
+               WHERE p.oid=v_funcion AND a.grantee=0
+                 AND a.privilege_type='EXECUTE')
+     OR NOT pg_catalog.has_function_privilege(
+          'vec_autorizacion_atestada_v3_registrador_intentos',v_funcion,'EXECUTE')
+  THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='ACL AD259 inesperada';
+  END IF;
+END
+$post$;
 COMMIT;

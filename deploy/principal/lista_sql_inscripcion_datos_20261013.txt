@@ -1,0 +1,7 @@
+# Datos operativos autorizados por dirección02:15, sin migraciones nuevas.
+# Prerrequisitos instalados: B96/B97/B99, CA38, CC11, BC9.
+# LOGIN: preparar_accesos.sh --aplicar es un paso DBA aparte, no da permisos V3.
+# Motivos V2: ejecutar con psql -X -v ON_ERROR_STOP=1 --single-transaction -f.
+scripts/operacion/inscripcion_bolsa/preparar_motivos_autorizacion.sql
+# CC1 y convocatorias: transacción propia dentro del archivo.
+deploy/principal/inscripcion_recorrido_20261013/catalogos/preparado/cargar_cc1_y_convocatorias.sql

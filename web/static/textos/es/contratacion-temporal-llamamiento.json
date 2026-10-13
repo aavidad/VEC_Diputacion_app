@@ -36,6 +36,7 @@
     "llamamiento_enviando": "Guardando. Espere, por favor.",
     "llamamiento_recibo": "Guardado",
     "llamamiento_seleccion_recibo": "Persona llamada",
+    "llamamiento_orden_bolsa_provisional": "Se aplicó el orden provisional de la bolsa a este llamamiento.",
     "llamamiento_comunicacion_recibo": "Aviso anotado",
     "llamamiento_error": "No se ha podido confirmar si se ha guardado. Pulse «Volver a intentar»: no se duplicará. Si sigue igual, avise a Informática.",
     "llamamiento_validacion": "Faltan datos o no son válidos. Revise el formulario y vuelva a intentarlo.",

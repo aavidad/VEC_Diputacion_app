@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	DominioFinalizacionCT = "bolsa.finalizacion.v1"
+	DominioFinalizacionCT      = "bolsa.finalizacion.v1"
 	AccionConsultarOrigenCT    = "bolsa.origen_ct.consultar"
 	FinalidadConsultarOrigenCT = "gestionar_contratacion_temporal"
 )
@@ -66,6 +66,7 @@ type FuenteOrigenLlamamientoCT interface {
 // coteja estos campos con su constitución y emisión en la misma transacción.
 type OrigenEmisionCT struct {
 	OrganizacionRef         string              `json:"organizacion_ref"`
+	UnidadRef               string              `json:"unidad_ref"`
 	ExpedienteRef           string              `json:"expediente_ref"`
 	VersionExpediente       uint64              `json:"version_expediente"`
 	ClaveCT                 string              `json:"clave_ct"`
@@ -121,15 +122,32 @@ type LectorOrigenEmisionCT interface {
 	RecuperarReservaLlamamientoCT(context.Context, string, string) (EmisionLlamamiento, error)
 }
 
-// CrearOrdenOrigenCT construye la orden común a partir del recurso real leído
-// y del contexto nominal que la composición ya acreditó, nunca de HTTP. La
-// petición opaca fija intento y correlación para un reintento del mismo acto.
-type CrearOrdenOrigenCT func(OrigenLlamamientoCT, *EmisionLlamamiento) (vecports.OrdenIntentoAuditoria, error)
+// ReservaOrigenCT proyecta sólo la identidad de la reserva necesaria para
+// cotejar el replay y los diez campos de configuración concedidos para B7.
+// La lectura de origen viaja una sola vez en OrigenLlamamientoCT.
+type ReservaOrigenCT struct {
+	ExpedienteRef     string                   `json:"expediente_ref"`
+	ClaveCT           string                   `json:"clave_ct"`
+	UnidadRef         string                   `json:"unidad_ref"`
+	ParticipacionRef  string                   `json:"participacion_ref"`
+	CandidatoRef      string                   `json:"candidato_ref"`
+	OrdenSeleccionado uint64                   `json:"orden_seleccionado"`
+	Configuracion     ConfiguracionLlamamiento `json:"configuracion"`
+}
+
+// CrearCapturaOrigenCT construye la orden positiva a partir de la referencia
+// opaca de Bolsa que SQL resolvió y del contexto nominal actual.
+type CapturaOrigenCT struct {
+	Permiso   vecports.CapturaLecturaNominalBolsa
+	Auditoria vecports.OrdenIntentoAuditoria
+}
+
+type CrearCapturaOrigenCT func(string) (CapturaOrigenCT, error)
 
 // FuenteOrigenLlamamientoCTAuditada entrega datos sólo con acuse positivo
 // confirmado en la misma transacción PostgreSQL. La reserva es nil cuando
 // aún no hubo emisión B7 para expediente y clave.
 type FuenteOrigenLlamamientoCTAuditada interface {
-	ConsultarOrigenCTAuditado(context.Context, string, string, string, CrearOrdenOrigenCT) (
-		OrigenLlamamientoCT, *EmisionLlamamiento, vecports.AcuseIntentoAuditoria, error)
+	ConsultarOrigenCTAuditado(context.Context, string, string, string, string, []byte, []byte, CrearCapturaOrigenCT) (
+		OrigenLlamamientoCT, *ReservaOrigenCT, vecports.AcuseIntentoAuditoria, error)
 }

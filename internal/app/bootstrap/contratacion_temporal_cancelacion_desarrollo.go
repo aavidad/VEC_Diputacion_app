@@ -384,7 +384,7 @@ func nuevasRutasCancelacionCTDesarrollo(dependencias *DependenciasCT, alta *depe
 	if err != nil {
 		return fallar("catalogo_motivos", err)
 	}
-	consultaReglas, err := fichero.NuevaConsultaCatalogos(strings.TrimSpace(reglasCfg.CTSourcePath))
+	consultaReglas, err := fichero.NuevaConsultaCatalogoProvisionable(strings.TrimSpace(reglasCfg.CTSourcePath))
 	if err != nil {
 		return fallar("catalogo_reglas", err)
 	}

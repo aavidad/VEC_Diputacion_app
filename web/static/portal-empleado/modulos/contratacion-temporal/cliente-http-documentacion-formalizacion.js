@@ -33,7 +33,8 @@ function texto(valor, maximo = 512) {
 
 function regla(valor) {
   exigir(valor && typeof valor === "object" && CLAVE.test(valor.clave?.replaceAll(".", "_") ?? "")
-    && texto(valor.unidad, 64) && ["reglamento", "ejemplo"].includes(valor.origen) && typeof valor.ejemplo === "boolean"
+    && texto(valor.unidad, 64) && ["reglamento", "ejemplo", "configuracion"].includes(valor.origen) && typeof valor.ejemplo === "boolean"
+    && (valor.origen !== "configuracion" || valor.ejemplo === false)
     && texto(valor.norma) && texto(valor.duda) && texto(valor.referencia) && /^[0-9a-f]{64}$/u.test(valor.huella_catalogo ?? "")
     && (valor.cantidad === undefined || (Number.isSafeInteger(valor.cantidad) && valor.cantidad > 0))
     && (valor.articulo === undefined || texto(valor.articulo)) && (valor.parte_ejemplo === undefined || texto(valor.parte_ejemplo)));

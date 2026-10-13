@@ -275,13 +275,15 @@ type Solicitud struct {
 	PlazoFin           *time.Time  `json:"plazo_fin,omitempty"`
 	Requisitos         []Requisito `json:"requisitos,omitempty"`
 	PersonaResumen     string      `json:"persona_resumen,omitempty"`
-	DecisionRef        string      `json:"decision_ref,omitempty"`
-	Estado             string      `json:"estado"`
-	Version            uint64      `json:"version"`
-	RegistradaEn       time.Time   `json:"registrada_en"`
-	DecididaEn         *time.Time  `json:"decidida_en,omitempty"`
-	MotivoCodigo       string      `json:"motivo_codigo,omitempty"`
-	MotivoEtiqueta     string      `json:"motivo_etiqueta,omitempty"`
+	// Solo sale del sobre SQL del detalle RRHH; nunca forma parte del JSON.
+	PersonaRef     string     `json:"-"`
+	DecisionRef    string     `json:"decision_ref,omitempty"`
+	Estado         string     `json:"estado"`
+	Version        uint64     `json:"version"`
+	RegistradaEn   time.Time  `json:"registrada_en"`
+	DecididaEn     *time.Time `json:"decidida_en,omitempty"`
+	MotivoCodigo   string     `json:"motivo_codigo,omitempty"`
+	MotivoEtiqueta string     `json:"motivo_etiqueta,omitempty"`
 	// ParticipacionRef sólo existe cuando la autoridad de Bolsa ha creado un
 	// vínculo a una participación válida del orden vigente.
 	ParticipacionRef string `json:"participacion_ref,omitempty"`

@@ -1,0 +1,7 @@
+# Instalar sólo pendientes, en orden causal; AD252/AD259 pueden estar instaladas.
+# Nunca DOWN ni reaplicar historia. AUT89 no concede roles automáticamente.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000252_exito_nominal_lectura_documentos_bolsa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000259_exito_nominal_configuracion_y_origen_bolsa.up.sql
+deploy/postgresql/autorizacion/migraciones/000089_lectura_origen_ct_actual.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000110_origen_llamamiento_ct.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000261_origen_bolsa_ct_auditado.up.sql

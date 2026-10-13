@@ -141,6 +141,16 @@ type ordenIntentoAuditoriaSQL struct {
 	CorrelacionRef      string `json:"correlacion_ref"`
 }
 
+// SerializarOrdenIntentoAuditoria conserva el formato común al componer una
+// lectura propietaria que registra el asiento dentro de su función SQL.
+func SerializarOrdenIntentoAuditoria(orden ports.OrdenIntentoAuditoria) (contexto, vinculo, material []byte, err error) {
+	datos, err := orden.Datos()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return serializarIntentoAuditoria(datos)
+}
+
 func serializarIntentoAuditoria(
 	datos ports.DatosOrdenIntentoAuditoria,
 ) (contextoCanonico, vinculoCanonico, ordenCanonica []byte, err error) {

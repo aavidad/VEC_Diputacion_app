@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"time"
 
@@ -305,15 +304,42 @@ type rutasFirmasR5V2CTDesarrollo struct {
 func nuevasRutasFirmasR5V2CTDesarrollo(cfg config.Config, alta *dependenciasAltaContratacionTemporalDesarrollo,
 	derivador *derivadorIdentidadOperacionDesarrollo, reloj relojContratacionTemporalDesarrollo,
 ) (*rutasFirmasR5V2CTDesarrollo, error) {
+	fallar := func(etapa, requisito string, causa error) (*rutasFirmasR5V2CTDesarrollo, error) {
+		return nil, diagnosticarSelectorCTArranque(envCTFirmasR5V2Enabled, "ct_firmas_r5_v2", etapa, requisito,
+			errFirmasR5V2CTDesarrolloNoDisponible, causa)
+	}
 	activo, err := selectorCapacidadRRHHDesarrollo(cfg, envCTFirmasR5V2Enabled)
-	if err != nil || !activo {
-		return nil, err
+	if err != nil {
+		return fallar("selector", "VEC_CT_FIRMAS_R5_V2_ENABLED=true|false; doble_llave_desarrollo", err)
+	}
+	if !activo {
+		return nil, nil
 	}
 	if alta == nil || alta.soporte == nil || alta.autorizador == nil || alta.postgresql.ejecucion == nil ||
 		alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil ||
-		alta.postgresql.proveedorMaterial == nil || derivador == nil || !derivador.valido() {
-		return nil, errFirmasR5V2CTDesarrolloNoDisponible
+		alta.postgresql.proveedorMaterial == nil || derivador == nil || !derivador.valido() || dependenciaEsNulaContratacionTemporalDesarrollo(reloj) {
+		return fallar("dependencias", "VEC_CT_DATABASE_URL; VEC_CT_GOBIERNO_DATABASE_URL; VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL", nil)
 	}
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
+	defer cancelar()
+	// Comprobar el registrador dedicado antes de publicar motivos o perfiles.
+	// Un fallo de su configuración nunca se resuelve con una cuenta de negocio.
+	if _, err := leerConfiguracionAuditoriaIntentosDesarrollo(cfg); err != nil {
+		return fallar("auditoria_configuracion", "VEC_DEVELOPMENT_MATERIAL_DIR: auditoria-intentos.json; esquema=vec.auditoria.intentos.servidor.v1; canal=interna_corporativa", err)
+	}
+	reservados := []string{alta.postgresql.gobierno.Config().ConnConfig.User,
+		alta.postgresql.registroAutorizacion.Config().ConnConfig.User, alta.postgresql.ejecucion.Config().ConnConfig.User}
+	intentos, proceso, cerrar, err := AbrirRegistradorIntentosAuditoriaDesarrollo(ctx, cfg, alta.postgresql.ejecucion, reservados)
+	if err != nil {
+		return fallar("auditoria_preflight", "auditoria-intentos.json: dsn_file; LOGIN dedicado; AD169 proceso/canal; TEMP; misma_base", err)
+	}
+	compuestas := false
+	defer func() {
+		if !compuestas {
+			cerrar()
+		}
+	}()
+
 	s := alta.soporte
 	ahora := reloj.Ahora()
 	principal := dominiovec.Principal{
@@ -330,76 +356,61 @@ func nuevasRutasFirmasR5V2CTDesarrollo(cfg config.Config, alta *dependenciasAlta
 			return nuevaInstantaneaFirmasR5V2CTDesarrollo(principalID, perfilRef, ahora)
 		})
 	if err != nil {
-		return nil, errFirmasR5V2CTDesarrolloNoDisponible
+		return fallar("constructor", "dependencias_firmas_r5_v2", err)
 	}
 	fijo.metodo = http.MethodPost
-	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
-	defer cancelar()
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(ahora)
-	if !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
-		[]dominiovec.ReferenciaEntradaCatalogo{motivoFirmasR5V2CTDesarrollo()}, desde) != nil {
-		log.Print("contratacion temporal: firmas V2 no disponibles; etapa=catalogo_motivos")
-		return nil, errFirmasR5V2CTDesarrolloNoDisponible
+	if !vigente {
+		return fallar("ventana_desarrollo", "material_desarrollo: ventana_autoridad_sintetica_vigente", nil)
+	}
+	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+		[]dominiovec.ReferenciaEntradaCatalogo{motivoFirmasR5V2CTDesarrollo()}, desde); err != nil {
+		return fallar("catalogo_motivos", "VEC_CT_GOBIERNO_DATABASE_URL: gobierno_catalogos", err)
 	}
 	if err := s.registrarPerfilFijoCTDesarrollo(fijo); err != nil {
-		return nil, err
+		return fallar("registro_perfil", "perfil_fijo_firmas_r5_v2_unico", err)
 	}
 	if err := asegurarPerfilesFijosCTDesarrollo(ctx, alta.postgresql.gobierno, s,
 		aprobacionProvisionPerfilesRRHHDesdeConfig(cfg), fijo); err != nil {
-		log.Print("contratacion temporal: firmas V2 no disponibles; etapa=perfil_fijo")
-		return nil, err
+		return fallar("perfil_fijo", "VEC_CT_PROVISION_PERFILES_RRHH_APROBACION; VEC_CT_PROVISION_PERFILES_RRHH_PREIMAGENES: CAS propio", err)
 	}
 	dConsulta, dRecuperacion := descriptoresMaterialFirmasR5V2CTDesarrollo()
 	emisores := make([]*emisorMaterialRenovableCTDesarrollo, 0, 2)
 	for _, d := range []descriptorMaterialConsumidorV3Desarrollo{dConsulta, dRecuperacion} {
 		material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, ahora)
 		if err != nil {
-			return nil, errFirmasR5V2CTDesarrolloNoDisponible
+			return fallar("constructor", "dependencias_firmas_r5_v2", err)
 		}
 		material.fuenteConfianza = alta.postgresql.proveedorMaterial.fuenteConfianza
 		proveedor, err := nuevoProveedorMaterialConsumidorConDescriptorDesarrollo(ctx, alta.postgresql.gobierno, material, s, reloj, d)
 		material.borrarCopiasEfimeras()
 		if err != nil {
-			log.Print("contratacion temporal: firmas V2 no disponibles; etapa=material_" + d.Audiencia)
-			return nil, errFirmasR5V2CTDesarrolloNoDisponible
+			return fallar("material_capacidad", "VEC_CT_GOBIERNO_DATABASE_URL: gobierno_audiencias_AD162_AD178", err)
 		}
 		emisor, err := nuevoEmisorMaterialRenovableCTDesarrollo(alta.autorizador, proveedor)
 		if err != nil {
-			return nil, errFirmasR5V2CTDesarrolloNoDisponible
+			return fallar("constructor", "dependencias_firmas_r5_v2", err)
 		}
 		emisores = append(emisores, emisor)
 	}
-	reservados := []string{alta.postgresql.gobierno.Config().ConnConfig.User,
-		alta.postgresql.registroAutorizacion.Config().ConnConfig.User, alta.postgresql.ejecucion.Config().ConnConfig.User}
-	intentos, proceso, cerrar, err := AbrirRegistradorIntentosAuditoriaDesarrollo(ctx, cfg, alta.postgresql.ejecucion, reservados)
-	if err != nil {
-		log.Print("contratacion temporal: firmas V2 no disponibles; etapa=registrador_intentos")
-		return nil, errFirmasR5V2CTDesarrolloNoDisponible
-	}
-	compuestas := false
-	defer func() {
-		if !compuestas {
-			cerrar()
-		}
-	}()
 	fuente := nuevaFuenteNominalFirmasR5V2CTDesarrollo(s, fijo, reloj, proceso)
 	emisor, err := firmaemisorv2.NuevoEmisor(fuente, &emisorFirmasR5V2CTDesarrollo{porAccion: map[string]*emisorMaterialRenovableCTDesarrollo{
 		ports.AccionConsultarFirmasR5V2: emisores[0], ports.AccionRecuperarFirmasR5V2: emisores[1]}},
 		motivoFirmasR5V2CTDesarrollo(), reloj)
 	if err != nil {
-		return nil, errFirmasR5V2CTDesarrolloNoDisponible
+		return fallar("constructor", "dependencias_firmas_r5_v2", err)
 	}
 	registro, err := postgresct.NuevoRegistroFirmasVerificadasPostgreSQL(alta.postgresql.ejecucion)
 	if err != nil {
-		return nil, errFirmasR5V2CTDesarrolloNoDisponible
+		return fallar("constructor", "dependencias_firmas_r5_v2", err)
 	}
 	consulta, err := httpinterno.NuevoManejadorConsultaFirmasR5V2(fuente, emisor, registro, intentos, fuente)
 	if err != nil {
-		return nil, errFirmasR5V2CTDesarrolloNoDisponible
+		return fallar("constructor", "dependencias_firmas_r5_v2", err)
 	}
 	recuperacion, err := httpinterno.NuevoManejadorRecuperacionFirmasR5V2(fuente, emisor, registro, intentos, fuente)
 	if err != nil {
-		return nil, errFirmasR5V2CTDesarrolloNoDisponible
+		return fallar("constructor", "dependencias_firmas_r5_v2", err)
 	}
 	compuestas = true
 	return &rutasFirmasR5V2CTDesarrollo{cerrar: cerrar, rutas: []vechttp.RutaExacta{

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -11,7 +12,7 @@ import (
 )
 
 // AutoridadVersionarRolBolsaExterna comparte el emisor y la transacción de B1,
-// pero acredita un LOGIN propio con EXECUTE exclusivamente sobre AUT77 v1.
+// pero acredita un LOGIN propio con las fachadas AUT77 y la lectura AUT85.
 type AutoridadVersionarRolBolsaExterna struct{ base *AutoridadVersionarRolBolsa }
 
 var _ ports.AutoridadVersionarRolBolsaExterna = (*AutoridadVersionarRolBolsaExterna)(nil)
@@ -19,8 +20,9 @@ var _ ports.AutoridadCompletaVersionarRolBolsaExterna = (*AutoridadVersionarRolB
 var _ ports.AutoridadActosAdministracionPerfiles = (*AutoridadVersionarRolBolsaExterna)(nil)
 
 const (
-	proponerVersionarRolBolsaExternaSQL = `SELECT vec_autorizacion.proponer_version_rol_bolsa_externa_v1` + argumentosV3
-	cerrarVersionarRolBolsaExternaSQL   = `SELECT vec_autorizacion.cerrar_version_rol_bolsa_externa_v1` + argumentosV3
+	proponerVersionarRolBolsaExternaSQL              = `SELECT vec_autorizacion.proponer_version_rol_bolsa_externa_v1` + argumentosV3
+	cerrarVersionarRolBolsaExternaSQL                = `SELECT vec_autorizacion.cerrar_version_rol_bolsa_externa_v1` + argumentosV3
+	resolverBaseHistoricaVersionarRolBolsaExternaSQL = `SELECT vec_autorizacion.resolver_base_version_rol_bolsa_externa_historica_v1($1,$2,$3::numeric,$4)`
 )
 
 const acreditarVersionarRolBolsaExternaSQL = `SELECT current_user=session_user AND r.rolcanlogin AND r.rolinherit
@@ -36,6 +38,7 @@ const acreditarVersionarRolBolsaExternaSQL = `SELECT current_user=session_user A
  AND pg_catalog.to_regprocedure('vec_autorizacion.cerrar_version_rol_bolsa_externa_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.resolver_base_version_rol_bolsa_externa_v1()') IS NOT NULL
+ AND pg_catalog.to_regprocedure('vec_autorizacion.resolver_base_version_rol_bolsa_externa_historica_v1(text,text,numeric,text)') IS NOT NULL
  AND pg_catalog.has_function_privilege(current_user,
    pg_catalog.to_regprocedure('vec_autorizacion.proponer_version_rol_bolsa_externa_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
  AND pg_catalog.has_function_privilege(current_user,
@@ -44,12 +47,15 @@ const acreditarVersionarRolBolsaExternaSQL = `SELECT current_user=session_user A
    pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)'),'EXECUTE')
  AND pg_catalog.has_function_privilege(current_user,
    pg_catalog.to_regprocedure('vec_autorizacion.resolver_base_version_rol_bolsa_externa_v1()'),'EXECUTE')
+ AND pg_catalog.has_function_privilege(current_user,
+   pg_catalog.to_regprocedure('vec_autorizacion.resolver_base_version_rol_bolsa_externa_historica_v1(text,text,numeric,text)'),'EXECUTE')
  AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
    WHERE n.nspname LIKE 'vec\_%' ESCAPE '\' AND pg_catalog.has_function_privilege(current_user,p.oid,'EXECUTE')
    AND p.oid NOT IN (pg_catalog.to_regprocedure('vec_autorizacion.proponer_version_rol_bolsa_externa_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
     pg_catalog.to_regprocedure('vec_autorizacion.cerrar_version_rol_bolsa_externa_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
     pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)'),
-    pg_catalog.to_regprocedure('vec_autorizacion.resolver_base_version_rol_bolsa_externa_v1()')))
+    pg_catalog.to_regprocedure('vec_autorizacion.resolver_base_version_rol_bolsa_externa_v1()'),
+    pg_catalog.to_regprocedure('vec_autorizacion.resolver_base_version_rol_bolsa_externa_historica_v1(text,text,numeric,text)')))
  FROM pg_catalog.pg_roles r WHERE r.rolname=session_user`
 
 func NuevaAutoridadVersionarRolBolsaExterna(ctx context.Context, pool *pgxpool.Pool,
@@ -100,8 +106,8 @@ func (*AutoridadVersionarRolBolsaExterna) CerrarPropuestaSensible(ctx context.Co
 	return ports.CierrePropuestaAdministracionPerfiles{}, errorActoAjenoGobierno(ctx)
 }
 
-// ResolverFuentesVersionarRolBolsaExterna toma las dos entradas del catálogo
-// gobernado y la preimagen externa del resolver nominal AUT77.
+// ResolverFuentesVersionarRolBolsaExterna toma las entradas del catálogo
+// gobernado y la preimagen histórica exacta del resolver nominal AUT85.
 func (a *AutoridadVersionarRolBolsaExterna) ResolverFuentesVersionarRolBolsaExterna(ctx context.Context,
 	s domain.SolicitudPropuestaVersionarRolBolsaExterna) (ports.FuentesVersionarRolBolsaExterna, error) {
 	var vacio ports.FuentesVersionarRolBolsaExterna
@@ -117,7 +123,9 @@ func (a *AutoridadVersionarRolBolsaExterna) ResolverFuentesVersionarRolBolsaExte
 		return vacio, ports.ConClaseVersionBolsa("catalogo_consulta", err)
 	}
 	var b []byte
-	if err := a.base.pool.QueryRow(ctx, "SELECT vec_autorizacion.resolver_base_version_rol_bolsa_externa_v1()").Scan(&b); err != nil {
+	if err := a.base.pool.QueryRow(ctx, resolverBaseHistoricaVersionarRolBolsaExternaSQL,
+		s.Intencion.BaseRef, s.Intencion.BaseHuellaSHA256,
+		strconv.FormatUint(s.Intencion.ControlRevision, 10), s.Intencion.ControlHuellaSHA256).Scan(&b); err != nil {
 		return vacio, ports.ConClaseVersionBolsa("base_externa_consulta", traducirGobiernoRol(ctx, err))
 	}
 	var base domain.PerfilPublicadoAdministracionV1

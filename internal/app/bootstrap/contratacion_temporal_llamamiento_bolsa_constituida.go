@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"sync"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/bolsa/adapters/fuentesintetica"
@@ -18,7 +19,6 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
-	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 // El puente CT recibe la emisión nativa de Bolsa ya compuesta con contexto,
@@ -34,7 +34,7 @@ type proveedorConfiguracionEmisionCT func(context.Context, preparacionLlamamient
 )
 
 type registradorLecturaOrdenCT func(context.Context, preparacionLlamamientoDesarrollo,
-	puertosbolsa.OrigenLlamamientoCT, *puertosbolsa.EmisionLlamamiento) (vecports.OrdenIntentoAuditoria, error)
+	string) (puertosbolsa.CapturaOrigenCT, error)
 
 var _ emisorNativoLlamamientoCT = (*appbolsa.ServicioEmisionLlamamiento)(nil)
 
@@ -95,7 +95,7 @@ type origenConstituidoVerificadoCT struct {
 	registro     puertosbolsa.OrigenLlamamientoCT
 	bolsa        dominiobolsa.BolsaConstituida
 	instantanea  dominiobolsa.InstantaneaOrdenBolsa
-	reserva      *puertosbolsa.EmisionLlamamiento
+	reserva      *puertosbolsa.ReservaOrigenCT
 	auditoriaRef string
 }
 
@@ -108,6 +108,39 @@ type preparacionOrigenConstituidoCT struct {
 	refNecesidad  ports.ReferenciaVersionadaIntegracionBolsa
 	refBolsa      ports.ReferenciaVersionadaIntegracionBolsa
 	refPolitica   ports.ReferenciaVersionadaIntegracionBolsa
+}
+
+type claveEstadoOrigenConstituidoCT struct{}
+
+// Vive únicamente en el contexto de una POST ya autorizada. La consulta
+// nominal y su acuse se conservan durante las seis etapas del mismo servicio;
+// no hay estado compartido entre peticiones, actores ni reinicios.
+type estadoOrigenConstituidoCT struct {
+	organizacion, expediente, clave string
+	version                         uint64
+	unaLectura                      sync.Once
+	preparado                       preparacionOrigenConstituidoCT
+	fallo                           error
+}
+
+func (e *estadoOrigenConstituidoCT) cargar(ctx context.Context, d preparacionLlamamientoDesarrollo,
+	consultar func() (preparacionOrigenConstituidoCT, error),
+) (preparacionOrigenConstituidoCT, error) {
+	vacio := preparacionOrigenConstituidoCT{}
+	if e == nil || ctx == nil || ctx.Err() != nil || consultar == nil ||
+		e.organizacion != d.expediente.Fiscalizado.OrganizacionRef ||
+		e.expediente != d.expediente.Fiscalizado.Referencia ||
+		e.version != d.expediente.Fiscalizado.Version || e.clave != d.clave {
+		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
+	}
+	e.unaLectura.Do(func() { e.preparado, e.fallo = consultar() })
+	if err := ctx.Err(); err != nil {
+		return vacio, err
+	}
+	if e.fallo != nil {
+		return vacio, e.fallo
+	}
+	return e.preparado, nil
 }
 
 func posicionesOrigenConstituidoCT(o puertosbolsa.OrigenLlamamientoCT) (uint32, uint32, error) {
@@ -126,9 +159,10 @@ func posicionesOrigenConstituidoCT(o puertosbolsa.OrigenLlamamientoCT) (uint32, 
 func huellaDecisionOrigenConstituidoCT(o puertosbolsa.OrigenLlamamientoCT) (string, error) {
 	material, err := json.Marshal(struct {
 		Acta, Bolsa, Instantanea, Politica, HuellaOrden, HuellaPolitica string
+		PoliticaProvisional                                             bool
 		Entradas                                                        []puertosbolsa.EntradaOrigenLlamamientoCT
 	}{o.ActaRef, o.BolsaRef, o.InstantaneaRef, o.PoliticaRef, o.HuellaInstantaneaSHA256,
-		o.HuellaPoliticaSHA256, o.Entradas})
+		o.HuellaPoliticaSHA256, o.PoliticaProvisional, o.Entradas})
 	if err != nil {
 		return "", ports.ErrRespuestaBolsaNoConfiable
 	}
@@ -159,6 +193,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) procedenciaOrigenConstituidoCT(
 			EmitidaEn:    ahora, ValidaHasta: c.ValidaHasta,
 		},
 		SinRetencionDeclarada: true,
+		PoliticaProvisional:   o.registro.PoliticaProvisional,
 	}
 }
 
@@ -238,7 +273,8 @@ func (p *puenteBolsaLlamamientoDesarrollo) prepararOrdenCompletoConstituidaCT(
 			origen.origen.registro.HuellaInstantaneaSHA256) ||
 		resultado.CantidadDisponible != disponibles || disponibles == 0 ||
 		resultado.CantidadDisponible > posiciones || !resultado.CantidadExacta || !resultado.Disponible ||
-		!resultado.Procedencia.SinRetencionDeclarada {
+		!resultado.Procedencia.SinRetencionDeclarada ||
+		resultado.Procedencia.PoliticaProvisional != origen.origen.registro.PoliticaProvisional {
 		return vacio, ports.ErrRespuestaBolsaNoConfiable
 	}
 	c, err := p.contexto(ctx, d, d.operacionOrden, puertosbolsa.AccionConsultarOrigenCT, origen.refBolsa)
@@ -304,6 +340,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) prepararContextoLlamamientoConstituid
 	if err != nil || d.expediente.VersionActual != d.expediente.Fiscalizado.Version ||
 		recibo.OperacionRef != d.operacionOrden || !recibo.OrdenGenerada || !recibo.OrdenCompleta ||
 		!recibo.OrdenAtestada || !recibo.Procedencia.SinRetencionDeclarada ||
+		recibo.Procedencia.PoliticaProvisional != o.PoliticaProvisional ||
 		recibo.Necesidad != origen.refNecesidad || recibo.Bolsa != origen.refBolsa ||
 		recibo.Politica != origen.refPolitica || recibo.Resultado != refResultado ||
 		recibo.TotalPosiciones != posiciones || recibo.AccionLlamamiento !=
@@ -465,6 +502,28 @@ func decodificarCanonBolsaCT(raw []byte, destino any) error {
 	return nil
 }
 
+func clonarLecturaOrigenCT(o puertosbolsa.OrigenLlamamientoCT) puertosbolsa.OrigenLlamamientoCT {
+	copia := o
+	copia.BolsaCanonica = bytes.Clone(o.BolsaCanonica)
+	copia.InstantaneaCanonica = bytes.Clone(o.InstantaneaCanonica)
+	copia.Entradas = append([]puertosbolsa.EntradaOrigenLlamamientoCT(nil), o.Entradas...)
+	for i := range copia.Entradas {
+		if anterior := o.Entradas[i].OrdenVigente; anterior != nil {
+			orden := *anterior
+			copia.Entradas[i].OrdenVigente = &orden
+		}
+	}
+	if o.BolsaVigenteHasta != nil {
+		fecha := *o.BolsaVigenteHasta
+		copia.BolsaVigenteHasta = &fecha
+	}
+	if o.PoliticaVigenteHasta != nil {
+		fecha := *o.PoliticaVigenteHasta
+		copia.PoliticaVigenteHasta = &fecha
+	}
+	return copia
+}
+
 func (p *puenteBolsaLlamamientoDesarrollo) cargarOrigenConstituidoCT(ctx context.Context, d preparacionLlamamientoDesarrollo) (origenConstituidoVerificadoCT, error) {
 	vacio := origenConstituidoVerificadoCT{}
 	if p == nil || p.alta == nil || p.alta.soporte == nil || p.origenNativo == nil ||
@@ -474,24 +533,36 @@ func (p *puenteBolsaLlamamientoDesarrollo) cargarOrigenConstituidoCT(ctx context
 	if _, err := p.alta.soporte.contextoOperativoDesarrollo(ctx); err != nil {
 		return vacio, err
 	}
-	var orden vecports.OrdenIntentoAuditoria
+	operativo, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil || operativo.Resultado.Validar() != nil ||
+		operativo.Vinculo.ValidarPara(operativo.Resultado) != nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	vinculoCanonico, err := json.Marshal(operativo.Vinculo)
+	if err != nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	var captura puertosbolsa.CapturaOrigenCT
 	o, reserva, acuse, err := p.origenNativo.ConsultarOrigenCTAuditado(ctx,
-		d.expediente.Fiscalizado.Referencia, d.clave, d.categoria,
-		func(origen puertosbolsa.OrigenLlamamientoCT, anterior *puertosbolsa.EmisionLlamamiento) (vecports.OrdenIntentoAuditoria, error) {
-			construida, fallo := p.auditarOrdenNativo(ctx, d, origen, anterior)
-			orden = construida
+		d.expediente.Fiscalizado.Referencia, d.clave, d.categoria, d.unidad,
+		operativo.Resultado.RepresentacionCanonica, vinculoCanonico,
+		func(bolsaRef string) (puertosbolsa.CapturaOrigenCT, error) {
+			construida, fallo := p.auditarOrdenNativo(ctx, d, bolsaRef)
+			captura = construida
 			return construida, fallo
 		})
-	if err != nil || acuse.ValidarPara(orden) != nil ||
+	if err != nil || captura.Permiso.BolsaRef != o.BolsaRef ||
+		acuse.ValidarPara(captura.Auditoria) != nil ||
 		!puertosbolsa.ReferenciaOpacaLlamamientoValida(acuse.AuditoriaRef) {
 		if err != nil {
 			return vacio, err
 		}
 		return vacio, ports.ErrRespuestaBolsaNoConfiable
 	}
-	if reserva != nil && (reserva.OrigenCT == nil ||
-		reserva.OrigenCT.ExpedienteRef != d.expediente.Fiscalizado.Referencia ||
-		reserva.OrigenCT.ClaveCT != d.clave || len(reserva.Participaciones) != 1) {
+	if reserva != nil && (reserva.ExpedienteRef != d.expediente.Fiscalizado.Referencia ||
+		reserva.UnidadRef != d.unidad || reserva.ClaveCT != d.clave ||
+		reserva.ParticipacionRef == "" || reserva.CandidatoRef == "" ||
+		reserva.OrdenSeleccionado == 0) {
 		return vacio, ports.ErrRespuestaBolsaNoConfiable
 	}
 	if ctx.Err() != nil {
@@ -608,6 +679,21 @@ func (p *puenteBolsaLlamamientoDesarrollo) fuenteLegadaReservadaCT(
 func (p *puenteBolsaLlamamientoDesarrollo) prepararOrigenConstituidoCT(
 	ctx context.Context, d preparacionLlamamientoDesarrollo,
 ) (preparacionOrigenConstituidoCT, error) {
+	if ctx == nil {
+		return preparacionOrigenConstituidoCT{}, ports.ErrPeticionIntegracionBolsaInvalida
+	}
+	estado, ok := ctx.Value(claveEstadoOrigenConstituidoCT{}).(*estadoOrigenConstituidoCT)
+	if !ok {
+		return preparacionOrigenConstituidoCT{}, ports.ErrPeticionIntegracionBolsaInvalida
+	}
+	return estado.cargar(ctx, d, func() (preparacionOrigenConstituidoCT, error) {
+		return p.prepararOrigenConstituidoSinCacheCT(ctx, d)
+	})
+}
+
+func (p *puenteBolsaLlamamientoDesarrollo) prepararOrigenConstituidoSinCacheCT(
+	ctx context.Context, d preparacionLlamamientoDesarrollo,
+) (preparacionOrigenConstituidoCT, error) {
 	vacio := preparacionOrigenConstituidoCT{}
 	if p == nil || p.emisorNativo == nil || p.origenNativo == nil ||
 		p.configuracionNativa == nil || p.auditarOrdenNativo == nil || d.expediente.Fiscalizado.Analisis == nil ||
@@ -624,13 +710,13 @@ func (p *puenteBolsaLlamamientoDesarrollo) prepararOrigenConstituidoCT(
 	}
 	reserva := origen.reserva
 	if reserva != nil {
-		if reserva.OrigenCT.BolsaRef != origen.registro.BolsaRef ||
-			reserva.OrigenCT.InstantaneaRef != origen.registro.InstantaneaRef ||
-			reserva.OrigenCT.HuellaInstantaneaSHA256 != origen.registro.HuellaInstantaneaSHA256 {
+		if reserva.UnidadRef != d.unidad ||
+			reserva.ExpedienteRef != d.expediente.Fiscalizado.Referencia ||
+			reserva.ClaveCT != d.clave {
 			return vacio, ports.ErrRespuestaBolsaNoConfiable
 		}
-		// La reserva B7 conserva el comando original, incluso si cambió el
-		// catálogo de correo antes del reintento.
+		// La concesión actual incluye exactamente los diez campos del comando
+		// B7 que se necesitan para reproducir la reserva original.
 		configuracion = reserva.Configuracion
 	}
 	e := d.expediente.Fiscalizado
@@ -658,9 +744,9 @@ func (p *puenteBolsaLlamamientoDesarrollo) prepararOrigenConstituidoCT(
 		}
 	}
 	if reserva != nil && (seleccion.OrdenVigente == nil ||
-		reserva.Participaciones[0] != seleccion.ParticipacionRef ||
-		reserva.OrigenCT.CandidatoRef != seleccion.CandidatoRef ||
-		reserva.OrigenCT.OrdenSeleccionado != *seleccion.OrdenVigente) {
+		reserva.ParticipacionRef != seleccion.ParticipacionRef ||
+		reserva.CandidatoRef != seleccion.CandidatoRef ||
+		reserva.OrdenSeleccionado != *seleccion.OrdenVigente) {
 		return vacio, ports.ErrRespuestaBolsaNoConfiable
 	}
 	huellaNecesidad, err := necesidad.HuellaCanonicaSHA256()
@@ -694,14 +780,14 @@ func (p *puenteBolsaLlamamientoDesarrollo) emitirLlamamientoConstituidoCT(
 	e := d.expediente.Fiscalizado
 	o := preparado.origen.registro
 	origenCT := puertosbolsa.OrigenEmisionCT{
-		OrganizacionRef: e.OrganizacionRef, ExpedienteRef: e.Referencia, VersionExpediente: e.Version,
+		OrganizacionRef: e.OrganizacionRef, UnidadRef: d.unidad, ExpedienteRef: e.Referencia, VersionExpediente: e.Version,
 		ClaveCT: d.clave, NecesidadRef: d.necesidad, ActaRef: o.ActaRef, CategoriaRef: o.CategoriaRef,
 		BolsaRef: o.BolsaRef, VersionBolsa: o.VersionBolsa, HuellaBolsaSHA256: o.HuellaBolsaSHA256,
 		InstantaneaRef: o.InstantaneaRef, VersionInstantanea: o.VersionInstantanea,
 		HuellaInstantaneaSHA256: o.HuellaInstantaneaSHA256,
 		PoliticaRef:             o.PoliticaRef, VersionPolitica: o.VersionPolitica, HuellaPoliticaSHA256: o.HuellaPoliticaSHA256,
 		ParticipacionRef: preparado.seleccion.ParticipacionRef, CandidatoRef: preparado.seleccion.CandidatoRef,
-		OrdenSeleccionado: *preparado.seleccion.OrdenVigente, Lectura: o,
+		OrdenSeleccionado: *preparado.seleccion.OrdenVigente, Lectura: clonarLecturaOrigenCT(o),
 	}
 	emision, err := p.emisorNativo.EmitirLlamamiento(ctx, puertosbolsa.SolicitudEmitirLlamamiento{
 		Vinculo: operativo.Vinculo, ResultadoContexto: operativo.Resultado,
