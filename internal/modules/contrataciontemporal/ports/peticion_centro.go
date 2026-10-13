@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -29,12 +30,14 @@ var (
 // ComandoPeticionCentro contiene exclusivamente datos del formulario. Centro y
 // contacto de la solicitud no son la identidad ni el cargo de quien actúa.
 type ComandoPeticionCentro struct {
-	Operacion         string                  `json:"operacion"`
-	ClaveIdempotencia string                  `json:"clave_idempotencia"`
-	PeticionRef       string                  `json:"peticion_ref,omitempty"`
-	VersionEsperada   uint64                  `json:"version_esperada,omitempty"`
-	Solicitud         *domain.SolicitudCentro `json:"solicitud,omitempty"`
-	Motivo            string                  `json:"motivo,omitempty"`
+	Operacion         string                     `json:"operacion"`
+	ClaveIdempotencia string                     `json:"clave_idempotencia"`
+	EsquemaAlta       string                     `json:"esquema,omitempty"`
+	NecesidadEntrada  *domain.DatosNecesidadAlta `json:"necesidad,omitempty"`
+	PeticionRef       string                     `json:"peticion_ref,omitempty"`
+	VersionEsperada   uint64                     `json:"version_esperada,omitempty"`
+	Solicitud         *domain.SolicitudCentro    `json:"solicitud,omitempty"`
+	Motivo            string                     `json:"motivo,omitempty"`
 }
 
 func (s ComandoPeticionCentro) Validar() error {
@@ -43,11 +46,14 @@ func (s ComandoPeticionCentro) Validar() error {
 	}
 	switch s.Operacion {
 	case OperacionPresentarPeticionCentro:
-		if s.Solicitud == nil || s.Solicitud.Validar() != nil || s.PeticionRef != "" || s.VersionEsperada != 0 || s.Motivo != "" {
+		if s.Solicitud == nil || s.Solicitud.Validar() != nil || s.Solicitud.Necesidad != nil ||
+			s.PeticionRef != "" || s.VersionEsperada != 0 || s.Motivo != "" ||
+			!entradaNecesidadPeticionCentroValida(s) {
 			return domain.ErrPeticionCentroInvalida
 		}
 	case OperacionRatificarPeticionCentro:
 		if !domain.ReferenciaOpacaValida(s.PeticionRef) || s.VersionEsperada != 1 || s.Solicitud != nil ||
+			s.EsquemaAlta != "" || s.NecesidadEntrada != nil ||
 			s.Motivo == "" || strings.TrimSpace(s.Motivo) != s.Motivo || len(s.Motivo) > 1000 || strings.IndexFunc(s.Motivo, unicode.IsControl) >= 0 {
 			return domain.ErrPeticionCentroInvalida
 		}
@@ -55,6 +61,26 @@ func (s ComandoPeticionCentro) Validar() error {
 		return domain.ErrPeticionCentroInvalida
 	}
 	return nil
+}
+
+func entradaNecesidadPeticionCentroValida(s ComandoPeticionCentro) bool {
+	if s.EsquemaAlta == "" {
+		return s.NecesidadEntrada == nil
+	}
+	if s.EsquemaAlta != EsquemaAltaNecesidadV1 || s.NecesidadEntrada == nil || s.Solicitud == nil {
+		return false
+	}
+	n := s.NecesidadEntrada
+	if personas := n.Campos["numero_personas"]; personas != "" &&
+		personas != strconv.FormatUint(uint64(s.Solicitud.NumeroPersonas), 10) {
+		return false
+	}
+	return n.Esquema == "vec.ct.necesidad_alta.v1" &&
+		domain.ReferenciaOpacaValida(n.CatalogoRef) && n.CatalogoVersion > 0 &&
+		patronHuellaPuestoRPTAlta.MatchString(n.CatalogoHuellaSHA256) &&
+		n.CausaClave == s.Solicitud.MotivoClave && n.Periodo == s.Solicitud.Periodo &&
+		n.JornadaMinutos == s.Solicitud.JornadaMinutos && n.JornadaMinutos > 0 &&
+		len(n.Campos) > 0 && len(n.Campos) <= 32 && len(n.CatalogoInstantanea) == 0
 }
 
 func (s ComandoPeticionCentro) Clonar() (ComandoPeticionCentro, error) {
@@ -67,6 +93,14 @@ func (s ComandoPeticionCentro) Clonar() (ComandoPeticionCentro, error) {
 			return ComandoPeticionCentro{}, err
 		}
 		s.Solicitud = &c
+	}
+	if s.NecesidadEntrada != nil {
+		copia := *s.NecesidadEntrada
+		copia.Campos = make(map[string]string, len(s.NecesidadEntrada.Campos))
+		for clave, valor := range s.NecesidadEntrada.Campos {
+			copia.Campos[clave] = valor
+		}
+		s.NecesidadEntrada = &copia
 	}
 	return s, nil
 }
@@ -103,8 +137,23 @@ func (m MaterialPeticionCentro) Validar() error {
 	}
 	d := m.Peticion
 	if m.Comando.Operacion == OperacionPresentarPeticionCentro {
+		solicitud := *m.Comando.Solicitud
+		if m.Comando.EsquemaAlta == EsquemaAltaNecesidadV1 {
+			necesidad := d.Solicitud.Necesidad
+			if necesidad == nil || necesidad.ValidarInstantanea() != nil {
+				return domain.ErrPeticionCentroInvalida
+			}
+			sinInstantanea := *necesidad
+			sinInstantanea.CatalogoInstantanea = nil
+			if !reflect.DeepEqual(*m.Comando.NecesidadEntrada, sinInstantanea) {
+				return domain.ErrPeticionCentroInvalida
+			}
+			solicitud.Necesidad = necesidad
+		} else if d.Solicitud.Necesidad != nil {
+			return domain.ErrPeticionCentroInvalida
+		}
 		if d.Referencia != "peticion:centro:"+m.Comando.ClaveIdempotencia || d.Version != 1 ||
-			m.Actor != d.Configuracion.Solicitante || !reflect.DeepEqual(*m.Comando.Solicitud, d.Solicitud) {
+			m.Actor != d.Configuracion.Solicitante || !reflect.DeepEqual(solicitud, d.Solicitud) {
 			return domain.ErrPeticionCentroInvalida
 		}
 	} else if d.Referencia != m.Comando.PeticionRef || d.Version != m.Comando.VersionEsperada+1 ||
@@ -123,6 +172,11 @@ func (m MaterialPeticionCentro) MismaPeticion(actor domain.ActorPeticionCentro, 
 		copia := *historico.Solicitud
 		copia.Periodo.PoliticaFin = domain.PoliticaFin{}
 		historico.Solicitud = &copia
+	}
+	if historico.NecesidadEntrada != nil {
+		copia := *historico.NecesidadEntrada
+		copia.Periodo.PoliticaFin = domain.PoliticaFin{}
+		historico.NecesidadEntrada = &copia
 	}
 	return reflect.DeepEqual(historico, s)
 }

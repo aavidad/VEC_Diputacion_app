@@ -8,7 +8,7 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v2";
+} from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v3";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { enlaceCTSinVersionFueraDePagina } from "./portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
 import {
@@ -129,7 +129,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
-      import("./modulos/contratacion-temporal/contrato.js?v=20261009-centro-campos-cohorte-v5"),
+      import("./modulos/contratacion-temporal/contrato.js?v=20261013-ct-firma-tres-v3"),
       import("./modulos/contratacion-temporal/cliente-http.js?v=20261013-ct-firma-tres-v3"),
 
     ]);
@@ -137,7 +137,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const cargarCompleto = () => {
       completos ??= Promise.all([
         import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261011-ct-bolsa-vinculo-v1"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261011-ct-bolsa-vinculo-v1"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261013-ct-firma-tres-v3"),
         import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261011-ct-bolsa-vinculo-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
@@ -152,10 +152,10 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       const [auditoriaVista, auditoriaCliente, original, preflight, firmaVec, autoFirma, documentos] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1"),
-        import("./modulos/contratacion-temporal/original-firmable-api.js?v=20261013-ct-firma-tres-v2"),
-        import("./modulos/contratacion-temporal/preflight-firma-api.js?v=20261013-ct-firma-tres-v2"),
-        import("./modulos/contratacion-temporal/firma-vec-api.js?v=20261013-ct-firma-tres-v1"),
-        import("./modulos/contratacion-temporal/firma-autofirma.js?v=20261013-ct-firma-tres-v1"),
+        import("./modulos/contratacion-temporal/original-firmable-api.js?v=20261013-ct-firma-tres-v3"),
+        import("./modulos/contratacion-temporal/preflight-firma-api.js?v=20261013-ct-firma-tres-v3"),
+        import("./modulos/contratacion-temporal/firma-vec-api.js?v=20261013-ct-firma-tres-v3"),
+        import("./modulos/contratacion-temporal/firma-autofirma.js?v=20261013-ct-firma-tres-v3"),
         import("./modulos/documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1"),
       ]);
       const clienteOriginal = original.crearClienteOriginalFirmable({ exigirComprobante: true });
@@ -1358,7 +1358,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261011-ct-bolsa-vinculo-v1");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261013-ct-firma-tres-v3");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }

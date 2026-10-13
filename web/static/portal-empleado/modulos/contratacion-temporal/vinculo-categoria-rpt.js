@@ -7,7 +7,7 @@
  * junto al botón y, sólo tras un recibo válido, la muestra como vinculada.
  */
 import { validarEntradaVinculoRPT } from "./contrato-vinculo-categoria-rpt.js";
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v2";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
 import { cargarTextos } from "../../../comun/textos.js";
 
 export const cargarTextosVinculoCategoriaRPT = (opciones) => cargarTextos("contratacion-temporal-vinculo-categoria-rpt", opciones);

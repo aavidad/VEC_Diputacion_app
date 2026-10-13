@@ -1,3 +1,6 @@
+# Orden de entrega: primero CT215 de lista_sql_codexk_peticion_necesidad_rpt_20261014.txt.
+# Esta lista contiene sólo las nueve SQL de firma pendientes después de esa entrega.
+# CT215 ya instalada se conserva: no se incluye aquí para evitar otra aplicación.
 # AUT87 → AUT90 → AUT91 → CT209 → CA45 → AUT93 → CT214. Una vez en base que no las tenga instaladas.
 # Si alguna está instalada, conservarla; no DOWN ni reaplicar.
 # SHA256 2df5b9e48bda259551b86d25f9df80a63a8ba40a0ec5b1439652776b0742d328

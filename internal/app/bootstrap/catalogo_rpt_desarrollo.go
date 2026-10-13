@@ -72,6 +72,7 @@ func cargarCategoriasRPTDesarrollo(ruta string) ([]categoriaCatalogosAltaContrat
 			Referencia:      "categoria:rpt:" + clave,
 			Etiqueta:        denominacion,
 			GruposSubgrupos: grupos,
+			rptClave:        clave,
 		})
 	}
 	if len(categorias) == 0 {

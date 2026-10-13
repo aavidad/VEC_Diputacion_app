@@ -11,7 +11,6 @@ Las preguntas se agrupan por módulo: Contratación temporal (38, 63, 72–74, 9
 **Actualización del 8 de octubre de 2026.** Gracias por las respuestas del 2 de octubre. Las preguntas 1–16, 43, 64, 66 y 75 ya se retiraron por esas respuestas o por normas publicadas. Ahora retiramos también la 95: el [RD 424/2017][rd424] (arts. 10.2 y 12.4) inicia un nuevo cómputo al remitir de nuevo el expediente completo tras subsanar. La 147 queda resuelta por los arts. 8 y 11 del [Reglamento][rgl]: en la oferta publicada, no responder no causa baja; en el llamamiento directo rigen la falta de aceptación y los dos procesos de contacto sin éxito. El plazo desde la publicación se consulta en la nueva pregunta 153. El [BOP de 27/01/2026][bop-correccion] solo corrige la fecha de una sesión plenaria en la exposición del Reglamento; su articulado no cambia.
 
 
-
 Buenos días:
 
 Estamos completando los recorridos funcionales de VEC. Necesitamos concretar estas cuestiones para que la aplicación reproduzca vuestros procedimientos:
@@ -285,11 +284,7 @@ Las preguntas 77 a 94 salen del estudio `docs/estudio_requisitos/datos_personale
 
 161. **Conservación del informe y la resolución firmados.** ¿Durante cuánto tiempo deben conservarse el informe definitivo firmado y la resolución firmada del expediente? Por ahora ambos siguen el mismo plazo de diez años previsto en el catálogo del expediente. ¿Confirmáis ese plazo, su fecha de inicio y las condiciones para eliminar o conservar estos documentos?
 
-162. **Necesidad de la RPT en la petición del centro (pendiente de producto, #1088).**
-La petición del centro debe elegir la necesidad publicada de la RPT, validada por el lector existente.
-La presentación y la ratificación deben conservar esa elección y sus datos para que RRHH tramite la misma petición y alta.
-El formulario actual solo guarda el puesto como texto libre; este cambio sigue pendiente y no se sustituye con datos inventados.
-Responsable: Codex-K, en el siguiente corte, por decisión de dirección del 13/10/2026 a las 21:05.
+162. **Necesidad publicada en la petición del centro (resuelta en candidata; integración pendiente).** El centro elige el puesto y la categoría de la RPT publicada. Otra persona ratifica esos mismos datos y Recursos Humanos utiliza la misma petición para crear el expediente. El ensayo local recuperó el mismo recibo después de reiniciar la aplicación y la base. Queda integrar la candidata; no se requiere una respuesta nueva de RRHH para este cambio.
 
 [rgl]: https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1768521622300-final-680c0e98.pdf
 [bop-correccion]: https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1769472066115-final-42c9b1bc.pdf

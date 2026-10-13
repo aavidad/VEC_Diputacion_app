@@ -1,5 +1,5 @@
 /** Recupera el PDF original que el servidor custodia una sola vez. */
-import { huellaPDFFirmado } from "./firma-vec-api.js?v=20261013-ct-firma-tres-v1";
+import { huellaPDFFirmado } from "./firma-vec-api.js?v=20261013-ct-firma-tres-v3";
 
 export const RUTA_ORIGINAL_FIRMABLE = "/api/vec/contratacion-temporal/firmas-documento/original";
 const MAXIMO_PDF = 1 << 20;

@@ -7,11 +7,11 @@
  * Encima de todo va la fase de firma de cada documento (fase-firma.js).
  */
 
-import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v2";
-import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261013-ct-firma-tres-v2";
-import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261013-ct-firma-tres-v2";
+import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
+import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261013-ct-firma-tres-v3";
+import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261013-ct-firma-tres-v3";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
-import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261013-ct-firma-tres-v2";
+import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261013-ct-firma-tres-v3";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";

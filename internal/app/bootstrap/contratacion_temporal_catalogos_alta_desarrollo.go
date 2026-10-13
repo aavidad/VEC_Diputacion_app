@@ -58,6 +58,7 @@ type categoriaCatalogosAltaContratacionTemporalDesarrollo struct {
 	Referencia      string                                                   `json:"referencia"`
 	Etiqueta        string                                                   `json:"etiqueta"`
 	GruposSubgrupos []opcionClaveCatalogosAltaContratacionTemporalDesarrollo `json:"grupos_subgrupos"`
+	rptClave        string
 }
 
 type catalogosAltaContratacionTemporalDesarrollo struct {
@@ -71,6 +72,9 @@ type catalogosAltaContratacionTemporalDesarrollo struct {
 	// (centro-520), no la referencia adaptada del alta (centro:rpt:520).
 	// Queda fuera del JSON del catálogo de alta.
 	centrosOrganizacion []string
+	// Códigos fuente de la misma publicación Personal que produjo los centros.
+	// La clave es la referencia original que conserva la petición del centro.
+	centrosCodigoFuente map[string]string
 	// analisis son las opciones del análisis RRHH resueltas del catálogo de
 	// reglas; nulo significa las de siempre. No se publica con el alta.
 	analisis        *opcionesAnalisisCTDesarrollo
@@ -289,12 +293,16 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 	}
 	var centros []centroCatalogosAltaContratacionTemporalDesarrollo
 	var centrosOrganizacion []string
+	centrosCodigoFuente := make(map[string]string)
 	for _, u := range datos.Unidades {
 		if u.Tipo == "centro" {
 			if !domain.ReferenciaOpacaValida(u.Clave) {
 				return nil, marcarFalloFuenteConfiguracionArranque("fuente_organizacion", errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles)
 			}
 			centrosOrganizacion = append(centrosOrganizacion, u.Clave)
+			if u.CodigoFuente != "" {
+				centrosCodigoFuente[u.Clave] = u.CodigoFuente
+			}
 			cod := u.CodigoFuente
 			if cod == "" {
 				cod = u.Clave
@@ -345,6 +353,7 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 		Motivos:             motivos,
 		Documentos:          make([]opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo, 0),
 		centrosOrganizacion: centrosOrganizacion,
+		centrosCodigoFuente: centrosCodigoFuente,
 	}, nil
 }
 

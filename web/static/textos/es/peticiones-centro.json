@@ -87,6 +87,7 @@
     "local_confirmarPresentar": "Confirmar presentación de esta petición",
     "local_confirmarRatificar": "Confirmar ratificación de esta petición",
     "local_conflicto": "La petición cambió. Se ha recargado la bandeja; revise antes de continuar.",
+    "local_noCoinciden": "Revise la necesidad, el centro y la categoría. Si ha cambiado la RPT, vuelva a buscar el puesto.",
     "local_datosNoDisponibles": "No hay detalle seleccionado.",
     "local_descripcion": "Una petición previa reúne la necesidad del centro antes de que RRHH la transfiera al expediente de personal temporal.",
     "local_detalle": "Detalle revisable",

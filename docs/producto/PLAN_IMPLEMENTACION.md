@@ -132,7 +132,7 @@ la principal del 13/10 (`deploy/principal/habilitacion_ad262_actual_20261013.md`
 
 ### 2.3 En curso
 
-PR abiertas, todas en borrador:
+PR abiertas (el estado de borrador se comprueba en GitHub):
 
 | PR | Qué | Equipo | Fase |
 | --- | --- | --- | --- |
