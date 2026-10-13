@@ -129,15 +129,15 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
-      import("./modulos/contratacion-temporal/contrato.js?v=20261009-centro-campos-cohorte-v5"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261011-ct-bolsa-vinculo-v1"),
+      import("./modulos/contratacion-temporal/contrato.js?v=20261014-need-centro-v1"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261014-need-centro-v1"),
 
     ]);
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
         import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261011-ct-bolsa-vinculo-v1"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261011-ct-bolsa-vinculo-v1"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261014-need-centro-v1"),
         import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261011-ct-bolsa-vinculo-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
@@ -148,7 +148,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261012-ct-b2-cese-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261014-need-centro-v1");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
@@ -1338,7 +1338,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261011-ct-bolsa-vinculo-v1");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261014-need-centro-v1");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }

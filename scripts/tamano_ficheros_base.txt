@@ -136,7 +136,7 @@
 2917 deploy/postgresql/autorizacion_atestada_v3/migraciones/000218_carga_convoca_bolsa.up.sql
 3144 deploy/postgresql/autorizacion_atestada_v3/migraciones/000220_gobierno_rol_nuevo.up.sql
 3057 deploy/postgresql/autorizacion_atestada_v3/migraciones/000227_version_rol_bolsa_v3.up.sql
-874 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
+899 web/static/portal-empleado/modulos/contratacion-temporal/contrato.js
 963 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitacion.js
 470 deploy/postgresql/contratacion_temporal/migraciones/000194_validacion_necesidad_alta_v3.up.sql
 1026 deploy/postgresql/contratacion_temporal/migraciones/000200_peticion_centro_datos_puesto.up.sql
@@ -172,3 +172,16 @@
 1693 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 928 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go
 850 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_desarrollo.go
+678 deploy/postgresql/contratacion_temporal/migraciones/000215_necesidad_peticion_centro.down.sql
+780 deploy/postgresql/contratacion_temporal/migraciones/000215_necesidad_peticion_centro.up.sql
+728 internal/app/bootstrap/contratacion_temporal_catalogos_alta_desarrollo.go
+605 internal/app/bootstrap/contratacion_temporal_catalogos_alta_desarrollo_test.go
+471 internal/app/bootstrap/contratacion_temporal_entrega_peticion_desarrollo.go
+486 internal/app/bootstrap/contratacion_temporal_entrega_peticion_desarrollo_test.go
+464 internal/app/bootstrap/contratacion_temporal_peticion_centro_desarrollo.go
+323 internal/modules/contrataciontemporal/application/peticion_centro_test.go
+617 web/static/portal-empleado/modulos/contratacion-temporal/alta-renderer-puro.js
+992 web/static/portal-empleado/peticiones-centro/peticiones-centro.js
+598 web/static/portal-empleado/peticiones-centro/peticiones-centro.test.mjs
+334 web/static/textos/en/peticiones-centro.json
+334 web/static/textos/es/peticiones-centro.json
