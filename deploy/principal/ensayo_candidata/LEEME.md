@@ -42,8 +42,8 @@ TLS permanece activa. No hay respuesta simulada, cookie ni estado web guardado.
 - `--salida`: carpeta nueva fuera de Git, con padre privado `0700`.
   Cada ejecución tiene su salida; las anteriores no se sobrescriben.
 
-`pasos_hz39.json` mantiene el caso aprobado: cinco pasos externos y los pasos
-1 a 21, con 7b (firma de remisión) y 16a → 17 → 16b (descarga, incorporación,
+`pasos_hz39.json` mantiene el caso aprobado: el recorrido principal comienza
+en la petición con Antonio disponible en la bolsa y contiene los pasos 1 a 21, con 7b (firma de remisión) y 16a → 17 → 16b (descarga, incorporación,
 confirmación GINPIX). Los datos que falten se ajustan por los guiones/semillas
 existentes en la copia; este guion no fabrica filas ni otra implementación.
 
@@ -64,8 +64,10 @@ python3 deploy/principal/ensayo_candidata/recorrer.py \
 ```
 
 `comprobar` no abre Chrome ni conecta: revisa entradas y enumera lo disponible.
-`--pasos e1,e2,e3` limita una observación; su resultado nunca cierra el caso
-completo. Cada paso ejecutado guarda HTTP, tiempo, dueño, recibos y capturas de
+`--pasos` limita la observación. Los tramos e1–e5 son demostraciones opcionales
+que se ejecutan aparte al pedir sus IDs y no bloquean el principal (orden de
+Alberto del 14/10 a las 00:20). Sólo se cierra el principal si todos sus pasos
+terminan; ejecutar únicamente la demostración nunca lo cierra. Cada paso ejecutado guarda HTTP, tiempo, dueño, recibos y capturas de
 1440/390. Los vídeos son privados y se graban por contexto/certificado. Las
 contraseñas, cuerpos y cabeceras de identidad no van a la evidencia.
 
@@ -106,7 +108,7 @@ La opción `--reinicio-acreditado` declara la actuación del dueño de la copia;
 por sí sola no demuestra el reinicio.
 
 Salida: `resultado.json`, `paso-*.json`, intenciones minimizadas antes de los
-POST, capturas, documentos y vídeo. Sólo `completo: true` con todos los pasos
+POST, capturas, documentos y vídeo. Sólo `completo: true` con todos los pasos principales
 OK acredita el recorrido del guion; parcial o pendiente devuelve código 1.
 Una precondición inválida devuelve código 2 sin atribuir una ejecución válida.
 

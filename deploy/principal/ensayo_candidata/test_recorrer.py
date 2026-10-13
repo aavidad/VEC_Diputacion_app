@@ -157,6 +157,22 @@ class GuionHZ39(unittest.TestCase):
                 runner.candidata(datos)
         self.assertEqual(runner.candidata({"candidata": "a" * 40}), "a" * 40)
 
+    def test_demostracion_opcional_no_bloquea_el_principal(self):
+        pasos = [{"id": "01"}, {"id": "e1", "opcional": True}]
+        self.assertTrue(
+            runner.recorrido_principal_completo(
+                pasos, [{"id": "01", "estado": "OK"}, {"id": "e1", "estado": "FALLO"}]
+            )
+        )
+        self.assertFalse(
+            runner.recorrido_principal_completo(pasos, [{"id": "e1", "estado": "OK"}])
+        )
+        self.assertFalse(
+            runner.recorrido_principal_completo(
+                [{"id": "e1", "opcional": True}], [{"id": "e1", "estado": "OK"}]
+            )
+        )
+
     def test_catalogo_y_referencias_faltantes_no_se_inventan(self):
         self.assertEqual(len(runner.catalogo(ROOT / "pasos_hz39.json")), 28)
         with self.assertRaises(runner.EntradaInvalida):

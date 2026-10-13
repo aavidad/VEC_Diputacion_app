@@ -548,6 +548,8 @@ def ejecutar(
         contextos = {}
         try:
             for p in pasos:
+                if p.get("opcional") and not args.pasos:
+                    continue
                 if args.pasos and p["id"] not in args.pasos.split(","):
                     continue
                 if (
@@ -574,6 +576,7 @@ def ejecutar(
                     "actor": p["actor"],
                     "actor_navegador": actor,
                     "dueno": p["dueno"],
+                    "opcional": p.get("opcional", False),
                     "estado": "PENDIENTE",
                     "http": [],
                     "recibos": [],
@@ -799,11 +802,15 @@ def ejecutar(
             for c, _page in contextos.values():
                 c.close()
             browser.close()
-    resultado["completo"] = len(resultado["pasos"]) == len(pasos) and all(
-        p["estado"] == "OK" for p in resultado["pasos"]
-    )
+    resultado["completo"] = recorrido_principal_completo(pasos, resultado["pasos"])
     escribir(salida, "resultado.json", resultado)
     return resultado
+
+
+def recorrido_principal_completo(pasos: list[dict], registros: list[dict]) -> bool:
+    requeridos = {p["id"] for p in pasos if not p.get("opcional")}
+    confirmados = {r["id"] for r in registros if r["estado"] == "OK"}
+    return bool(requeridos) and requeridos.issubset(confirmados)
 
 
 def main() -> int:
