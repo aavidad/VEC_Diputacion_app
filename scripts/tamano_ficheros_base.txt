@@ -169,6 +169,6 @@
 4891 deploy/postgresql/autorizacion_atestada_v3/migraciones/000260_alegaciones_dos_objetos.up.sql
 3752 deploy/postgresql/autorizacion_atestada_v3/migraciones/000262_cartera_meritos_preimagen_actual.up.sql
 1124 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
-1638 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1693 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 928 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go
 850 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_desarrollo.go

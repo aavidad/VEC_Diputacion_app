@@ -2,21 +2,119 @@ package bootstrap
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
+	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
+	appbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
+
+type ejecutorSeleccionConstituidaDegradadaCT struct {
+	puente *puenteBolsaLlamamientoDesarrollo
+}
+
+func (e ejecutorSeleccionConstituidaDegradadaCT) SeleccionarYLlamarParaAdaptador(ctx context.Context,
+	_ application.SolicitudSeleccionLlamamiento,
+) (application.DatosReciboSeleccionLlamamientoParaAdaptador, error) {
+	d := preparacionLlamamientoDesarrollo{expediente: ports.ExpedienteParaSeleccion{Fiscalizado: domain.Expediente{
+		Analisis: &domain.AnalisisRRHH{}, Fiscalizacion: &domain.FiscalizacionRegistrada{},
+	}}}
+	_, err := e.puente.prepararOrigenConstituidoSinCacheCT(ctx, d)
+	return application.DatosReciboSeleccionLlamamientoParaAdaptador{}, err
+}
+
+func TestSeleccionConstituidaConfigRotaDevuelve503SinAbortarMontajeOpcional(t *testing.T) {
+	rutaM10 := filepath.Join(t.TempDir(), "m10-invalido.json")
+	if err := os.WriteFile(rutaM10, []byte(`{"version":`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(rutaClienteM10LlamamientoCT, rutaM10)
+	for _, caso := range []struct {
+		nombre, rpt, etapa, causa string
+	}{
+		{nombre: "rpt_ausente", etapa: "rpt_ruta", causa: "fuente_ausente"},
+		{nombre: "m10_invalido", rpt: filepath.Join("..", "..", "..", "data", "catalogos", "rpt", "v1.rpt-2026.json"),
+			etapa: "m10_configuracion", causa: "material_privado_no_admitido"},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			if caso.rpt != "" {
+				if _, err := os.Stat(caso.rpt); err != nil {
+					t.Fatalf("la fuente RPT publicada de la prueba no existe: %v", err)
+				}
+			}
+			var salidaLog bytes.Buffer
+			anterior := slog.Default()
+			slog.SetDefault(slog.New(slog.NewTextHandler(&salidaLog, nil)))
+			defer slog.SetDefault(anterior)
+			puente := &puenteBolsaLlamamientoDesarrollo{
+				emisorNativo: &appbolsa.ServicioEmisionLlamamiento{},
+				auditarOrdenNativo: func(context.Context, preparacionLlamamientoDesarrollo, string) (puertosbolsa.CapturaOrigenCT, error) {
+					return puertosbolsa.CapturaOrigenCT{}, nil
+				},
+			}
+			// El proceso común puede ser válido para otras lecturas y ajeno a B110.
+			configurarOrigenConstituidoOpcionalCT(&pgxpool.Pool{}, configuracionAuditoriaIntentosDesarrollo{
+				Proceso: "otro-proceso", Canal: "interna_corporativa",
+			}, puente)
+			if puente.origenNativo != nil {
+				t.Fatal("proceso ajeno compuso el lector B110")
+			}
+			configurarOrigenConstituidoOpcionalCT(&pgxpool.Pool{}, configuracionAuditoriaIntentosDesarrollo{
+				Proceso: "vec-rrhh", Canal: "otro-canal",
+			}, puente)
+			if puente.origenNativo != nil {
+				t.Fatal("canal ajeno compuso el lector B110")
+			}
+			// Aisla la degradación M10 en el consumidor: aun con fuente B110
+			// presente, los datos no publicados impiden abrir un llamamiento.
+			puente.origenNativo = &postgresbolsa.LectorOrigenLlamamientoCTAuditadoPostgreSQL{}
+			cerrar := configurarDatosEmisionConstituidaOpcionalCT(config.Config{RPTCatalogoPath: caso.rpt}, puente, nil,
+				func() time.Time { return time.Now().UTC() })
+			defer cerrar()
+			if puente.configuracionNativa != nil {
+				t.Fatal("se configuraron datos de una fuente privada inválida")
+			}
+			traza := salidaLog.String()
+			if !strings.Contains(traza, "etapa="+caso.etapa) || !strings.Contains(traza, "causa="+caso.causa) ||
+				strings.Contains(traza, rutaM10) || strings.Contains(traza, `{"version":`) {
+				t.Fatalf("registro de degradación incompleto o con material privado: %q", traza)
+			}
+			handler, err := httpinterno.NuevoManejadorSeleccionLlamamiento(ejecutorSeleccionConstituidaDegradadaCT{puente})
+			if err != nil {
+				t.Fatal(err)
+			}
+			peticion := httptest.NewRequest(http.MethodPost, httpinterno.RutaSeleccionLlamamiento,
+				strings.NewReader(`{"expediente_ref":"expediente:ct:001","version_esperada":6,"clave_idempotencia":"11111111-1111-4111-8111-111111111111"}`))
+			peticion.Header.Set("Content-Type", "application/json; charset=utf-8")
+			peticion.Header.Set("Accept", "application/json")
+			respuesta := httptest.NewRecorder()
+			handler.ServeHTTP(respuesta, peticion)
+			if respuesta.Code != http.StatusServiceUnavailable || !bytes.Contains(respuesta.Body.Bytes(), []byte(`"codigo":"servicio_no_disponible"`)) {
+				t.Fatalf("selección degradada: estado=%d cuerpo=%s", respuesta.Code, respuesta.Body)
+			}
+		})
+	}
+}
 
 func TestConsultasContratacionTemporalDesarrolloDenieganComoNoCompuestasEnListenerTLSReal(
 	t *testing.T,

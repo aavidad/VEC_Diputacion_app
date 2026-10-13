@@ -21,13 +21,17 @@ Dirección crea el archivo privado en el directorio de configuración que ya mon
 }
 ```
 
+También debe estar configurada `VEC_RPT_CATALOGO_PATH`, con la ruta del catálogo RPT publicado que ya utiliza el alta. Se conserva su valor actual del lanzador privado; no se sustituye por otro catálogo.
+
+El archivo privado `auditoria-intentos.json` debe indicar `proceso: "vec-rrhh"` y `canal: "interna_corporativa"`. Su LOGIN de auditoría necesita una fila con esos mismos valores en `vec_autorizacion_atestada_v3.configuracion_runtime_intentos`, provisionada por su autoridad existente. Esta tabla conserva historia: si el LOGIN actual tiene otro proceso o canal, Dirección provisiona otro LOGIN y su archivo DSN; no modifica la fila anterior. El lector reutiliza el pool de auditoría de CT.
+
 El certificado debe pertenecer al actor RRHH y permitir consultar la organización histórica de Personal. El directorio y las rutas son los del contenedor de la aplicación; no se copian claves al repositorio. Dirección añade la variable al lanzador privado y reinicia cuando haya completado la instalación y la provisión.
 
 La ausencia o el rechazo de esta configuración mantiene cerrado este paso con 503 y permite arrancar el resto de la aplicación.
 
 ## Instalación y permisos
 
-Instalar únicamente las migraciones pendientes, en el orden de `deploy/principal/lista_sql_codexk_origen_ct_nativo_20261013.txt`. AD252 y AD259 pueden estar instaladas; no repetirlas ni ejecutar DOWN.
+Instalar únicamente las migraciones pendientes, en el orden de `deploy/principal/lista_sql_codexk_origen_ct_nativo_20261013.txt`. AD252 y AD259 ya están instaladas y quedan fuera de la lista. No repetirlas ni ejecutar DOWN.
 
 Admitir la fuente completa `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json` y publicar la concesión nominal de `bolsa.origen_ct.consultar`, con sus 38 campos exactos, por la autoridad ADMIN existente. AUT89 no concede permisos al instalarse. Los actos de B7 conservan su decisión V3; la consulta de origen comprueba la sesión vigente y confirma su apunte nominal antes de entregar datos.
 

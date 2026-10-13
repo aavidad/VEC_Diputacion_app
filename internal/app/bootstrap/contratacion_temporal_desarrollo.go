@@ -2,11 +2,13 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"reflect"
@@ -643,6 +645,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var consultaReciboRespuestaReal http.Handler
 	var consultaComunicacionesReal http.Handler
 	var eventoPlazoReal http.Handler
+	var poolAuditoriaLecturasCT *pgxpool.Pool
+	var configuracionAuditoriaLecturasCT configuracionAuditoriaIntentosDesarrollo
 	if alta.postgresql.bolsa != nil {
 		if alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.ejecucion == nil {
 			return nil, nil, nil, ports.ErrConsultaRRHHNoDisponible
@@ -653,12 +657,21 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
 			alta.postgresql.bolsa.Config().ConnConfig.User,
 		}
-		alta.auditoriaLecturasCT, alta.procesoAuditoriaLecturasCT, alta.cerrarAuditoriaLecturasCT, err =
-			AbrirRegistradorIntentosAuditoriaDesarrollo(ctxIntentos, cfg, alta.postgresql.ejecucion, reservadosIntentos)
+		configuracionAuditoriaLecturasCT, err = leerConfiguracionAuditoriaIntentosDesarrollo(cfg)
+		if err != nil {
+			cancelarIntentos()
+			return nil, nil, nil, err
+		}
+		var registrador *postgresvec.RegistradorIntentosAuditoriaPostgreSQL
+		registrador, poolAuditoriaLecturasCT, alta.cerrarAuditoriaLecturasCT, err =
+			abrirComponentesRegistradorIntentosAuditoriaDesarrollo(ctxIntentos, cfg, alta.postgresql.ejecucion,
+				reservadosIntentos, configuracionAuditoriaLecturasCT)
 		cancelarIntentos()
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		alta.auditoriaLecturasCT = registrador
+		alta.procesoAuditoriaLecturasCT = configuracionAuditoriaLecturasCT.Proceso
 		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj, origen.etiquetasReferenciasCatalogosAlta())
 		if err != nil {
 			return nil, nil, nil, err
@@ -1139,12 +1152,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var manejadorSituacion http.Handler
 	cerrarBorrador := func() {}
 	cerrarClienteM10CT := func() {}
-	cerrarOrigenAuditadoCT := func() {}
 	cerrarClienteM10CTPendiente := true
 	defer func() {
 		if cerrarClienteM10CTPendiente {
 			cerrarClienteM10CT()
-			cerrarOrigenAuditadoCT()
 		}
 	}()
 	personalizacionB7 := &fuentePersonalizacionB7{}
@@ -1190,51 +1201,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			if err := seleccion.puente.configurarEmisorNativoLlamamientoCT(emisorNativoPrivadoCT{puente: seleccion.puente}); err != nil {
 				return nil, nil, nil, err
 			}
-			cAuditoria, err := leerConfiguracionAuditoriaIntentosDesarrollo(cfg)
-			if err != nil {
+			configurarOrigenConstituidoOpcionalCT(poolAuditoriaLecturasCT, configuracionAuditoriaLecturasCT, seleccion.puente)
+			if err := seleccion.puente.configurarAuditoriaLecturaOrdenCT(nuevoConstructorOrdenOrigenCT(&alta, seleccion.puente, bolsa.preparador, configuracionAuditoriaLecturasCT.Proceso, configuracionAuditoriaLecturasCT.Canal)); err != nil {
 				return nil, nil, nil, err
 			}
-			reservados := []string{alta.postgresql.gobierno.Config().ConnConfig.User,
-				alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
-				alta.postgresql.bolsa.Config().ConnConfig.User}
-			_, poolAuditado, cerrarAuditado, err := abrirComponentesRegistradorIntentosAuditoriaDesarrollo(
-				context.Background(), cfg, alta.postgresql.ejecucion, reservados, cAuditoria)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			cerrarOrigenAuditadoCT = cerrarAuditado
-			lectorAuditado, err := postgresbolsa.NuevoLectorOrigenLlamamientoCTAuditadoPostgreSQL(
-				poolAuditado, cAuditoria.Proceso, cAuditoria.Canal)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			if lectorAuditado.Preflight(context.Background()) == nil {
-				if err := seleccion.puente.configurarOrigenConstituidoLlamamientoCT(lectorAuditado); err != nil {
-					return nil, nil, nil, err
-				}
-			}
-			if err := seleccion.puente.configurarAuditoriaLecturaOrdenCT(nuevoConstructorOrdenOrigenCT(&alta, seleccion.puente, bolsa.preparador, cAuditoria.Proceso, cAuditoria.Canal)); err != nil {
-				return nil, nil, nil, err
-			}
-			if os.Getenv(rutaClienteM10LlamamientoCT) != "" {
-				if cfg.RPTCatalogoPath == "" {
-					return nil, nil, nil, fmt.Errorf("VEC_RPT_CATALOGO_PATH: %w", ports.ErrIntegracionBolsaNoDisponible)
-				}
-				fuenteRPT, err := personalrpt.NuevaFuente(cfg.RPTCatalogoPath)
-				if err != nil {
-					return nil, nil, nil, err
-				}
-				clienteM10, organismoRef, err := cargarClienteM10LlamamientoCT()
-				if err != nil {
-					return nil, nil, nil, fmt.Errorf("%s: %w", rutaClienteM10LlamamientoCT, err)
-				}
-				cerrarClienteM10CT = clienteM10.Cerrar
-				resolverPuesto := nuevoResolutorPuestoRPTConstituidoCT(clienteM10, organismoRef, reloj.Ahora)
-				if err := seleccion.puente.configurarDatosEmisionConstituidaCT(nuevoProveedorDatosEmisionConstituidaCT(
-					fuenteRPT, reglasLlamamiento, reloj.Ahora, resolverPuesto)); err != nil {
-					return nil, nil, nil, err
-				}
-			}
+			cerrarClienteM10CT = configurarDatosEmisionConstituidaOpcionalCT(cfg, seleccion.puente, reglasLlamamiento, reloj.Ahora)
 		}
 	}
 	cerrarBorradorPendiente := true
@@ -1454,7 +1425,6 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		cerrarAuditoria()
 		cerrarBorrador()
 		cerrarClienteM10CT()
-		cerrarOrigenAuditadoCT()
 		cerrarIncorporacion()
 		consultasRRHH.cerrar()
 		coberturaReal.cerrar()
@@ -1468,6 +1438,91 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	cerrarFronteraAuditoriaPendiente = false
 	cerrarAutoridadesPlantillasPendiente = false
 	return rutas, autoridad, dependencias.Cerrar, nil
+}
+
+func advertirSeleccionConstituidaCT(etapa string, err error) {
+	// Sólo códigos internos fijos: los errores de fichero, TLS y SQL pueden
+	// contener rutas o material privado que no pertenece al registro.
+	causa := "dependencia_no_disponible"
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		causa = "plazo_agotado"
+	case etapa == "rpt_ruta" && errors.Is(err, personal.ErrConsultaRPTPublicaInvalida):
+		causa = "fuente_ausente"
+	case etapa == "rpt_fuente" && errors.Is(err, personal.ErrConsultaRPTPublicaInvalida):
+		causa = "ruta_no_admitida"
+	case etapa == "rpt_publicacion" && errors.Is(err, personal.ErrRPTPublicaNoDisponible):
+		causa = "publicacion_no_verificada"
+	case etapa == "m10_configuracion" && errors.Is(err, puertosbolsa.ErrEmisionLlamamientoNoDisponible):
+		causa = "material_privado_no_admitido"
+	case etapa == "datos_emision" && errors.Is(err, ports.ErrIntegracionBolsaNoDisponible):
+		causa = "proveedor_no_compuesto"
+	case (etapa == "lector_origen" || etapa == "preflight_origen") && errors.Is(err, puertosbolsa.ErrOrigenLlamamientoCTNoDisponible):
+		causa = "capacidad_no_confirmada"
+	}
+	slog.Warn("contratación temporal: selección constituida no disponible", "etapa", etapa, "causa", causa)
+}
+
+func configurarOrigenConstituidoOpcionalCT(pool *pgxpool.Pool, c configuracionAuditoriaIntentosDesarrollo,
+	puente *puenteBolsaLlamamientoDesarrollo,
+) {
+	if puente == nil {
+		return
+	}
+	lector, err := postgresbolsa.NuevoLectorOrigenLlamamientoCTAuditadoPostgreSQL(pool, c.Proceso, c.Canal)
+	if err != nil {
+		advertirSeleccionConstituidaCT("lector_origen", err)
+		return
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
+	defer cancelar()
+	if err := lector.Preflight(ctx); err != nil {
+		advertirSeleccionConstituidaCT("preflight_origen", err)
+		return
+	}
+	if err := puente.configurarOrigenConstituidoLlamamientoCT(lector); err != nil {
+		advertirSeleccionConstituidaCT("origen", err)
+	}
+}
+
+// Un material M10 opcional defectuoso deja el puente nativo sin datos de
+// emisión. El emisor ya está configurado: no puede reabrir la fuente fija.
+func configurarDatosEmisionConstituidaOpcionalCT(cfg config.Config, puente *puenteBolsaLlamamientoDesarrollo,
+	resolutor *reglas.Resolutor, ahora func() time.Time,
+) func() {
+	cerrar := func() {}
+	if os.Getenv(rutaClienteM10LlamamientoCT) == "" || puente == nil {
+		return cerrar
+	}
+	if cfg.RPTCatalogoPath == "" {
+		advertirSeleccionConstituidaCT("rpt_ruta", personal.ErrConsultaRPTPublicaInvalida)
+		return cerrar
+	}
+	perfilRPT, err := personalrpt.NuevaFuente(cfg.RPTCatalogoPath)
+	if err != nil {
+		advertirSeleccionConstituidaCT("rpt_fuente", err)
+		return cerrar
+	}
+	ctxRPT, cancelarRPT := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
+	_, err = perfilRPT.ObtenerRPTPublica(ctxRPT)
+	cancelarRPT()
+	if err != nil {
+		advertirSeleccionConstituidaCT("rpt_publicacion", err)
+		return cerrar
+	}
+	clienteM10, organismoRef, err := cargarClienteM10LlamamientoCT()
+	if err != nil {
+		advertirSeleccionConstituidaCT("m10_configuracion", err)
+		return cerrar
+	}
+	resolverPuesto := nuevoResolutorPuestoRPTConstituidoCT(clienteM10, organismoRef, ahora)
+	if err := puente.configurarDatosEmisionConstituidaCT(nuevoProveedorDatosEmisionConstituidaCT(
+		perfilRPT, resolutor, ahora, resolverPuesto)); err != nil {
+		clienteM10.Cerrar()
+		advertirSeleccionConstituidaCT("datos_emision", err)
+		return cerrar
+	}
+	return clienteM10.Cerrar
 }
 
 func debeComponerBorradorLlamamientoDesarrollo(cfg config.Config) bool {
