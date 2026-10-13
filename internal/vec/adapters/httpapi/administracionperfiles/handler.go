@@ -232,7 +232,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.denegarActor(w, r, sesion, http.StatusNotFound, "recurso_no_encontrado", "escribir", "")
 		return
 	}
-	if (r.URL.Path == RutaVersionarRolBolsaB103Proponer || r.URL.Path == RutaVersionarRolBolsaB103Cerrar) && h.versionBolsaB103 == nil {
+	if (r.URL.Path == RutaVersionarRolBolsaB103Proponer || r.URL.Path == RutaVersionarRolBolsaB103Cerrar ||
+		r.URL.Path == RutaVersionarRolBolsaRRHHProponer || r.URL.Path == RutaVersionarRolBolsaRRHHCerrar) && h.versionBolsaB103 == nil {
 		h.denegarActor(w, r, sesion, http.StatusNotFound, "recurso_no_encontrado", "escribir", "")
 		return
 	}
