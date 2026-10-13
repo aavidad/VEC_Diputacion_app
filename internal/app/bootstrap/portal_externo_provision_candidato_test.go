@@ -40,6 +40,14 @@ func TestProvisionCandidatoPlanDeterministaSinIdentidadEnResumen(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	// La v1 ya publicada es inmutable. Su documento debe reutilizarse antes
+	// de que los actos ADMIN añadan preferencias e inscripción.
+	if len(p.semilla.VersionRol.Concesiones) != 7 {
+		t.Fatalf("concesiones v1: actual=%d esperadas=7", len(p.semilla.VersionRol.Concesiones))
+	}
+	if p.rol.RolHuellaSHA256 != "11044c697a11418870dc21794a9cb570505e017090ca8d767ad316851ec34b15" {
+		t.Fatalf("rol v1 divergente: actual=%s", p.rol.RolHuellaSHA256)
+	}
 	p2, e := PrepararProvisionCandidatoExterno(cfg, f, "autorizacion", time.Now().Add(time.Minute))
 	if e != nil || !reflect.DeepEqual(p.resumen, p2.resumen) {
 		t.Fatal("plan depende del reloj de ejecución")
