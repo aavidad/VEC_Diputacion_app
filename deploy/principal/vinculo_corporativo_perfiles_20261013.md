@@ -39,9 +39,9 @@ también el perfil explícito. No se editan migraciones anteriores instaladas.
 ## Evidencia local
 
 CA43 final se instaló una vez sobre la copia posterior a CA42, en PostgreSQL
-18, en 0,094 s. El vínculo C3 conserva el plan original y recupera idénticos
-recibo y evento: comprobación 41,3 ms y replay 29,6 ms. El segundo perfil se
-comprobó en 46,3 ms y se publicó en 36,2 ms; ambos punteros quedan activos.
+18, en 0,113 s. El vínculo C3 conserva el plan original y recupera idénticos
+recibo y evento: comprobación 40,7 ms y replay 33,7 ms. El segundo perfil se
+comprobó en 36,9 ms y se publicó en 40,4 ms; ambos punteros quedan activos.
 Son tiempos de CLI y conexión, no de pantalla.
 
 La prueba SQL terminada en ROLLBACK comprueba dos CA40 positivos, perfil
@@ -49,6 +49,12 @@ cruzado y contexto caducado denegados, recibos y FK. Un cambio del puntero a
 un perfil ajeno falla por FK. Publicador y runtime siguen sin acceso directo
 a la tabla. Los cuerpos previos y las ACL se cotejan por huella durante la
 instalación; no se reaplicó SQL ni se ejecutó DOWN.
+
+La regresión de replay cambia sólo la referencia de contexto y, después, sólo
+la procedencia acreditada en versiones de ensayo. Ambos casos se deniegan y
+el ROLLBACK conserva puntero, prueba y recibo original. Se ensayó sobre una
+copia limpia con el cuerpo final de CA42 cotejado por su huella, evitando una
+versión provisional que carecía de cinco comparaciones de replay.
 
 El runtime legado de CA9 de esta copia no acredita su configuración previa;
 no se declara una llamada nominal positiva a CA9 ni se modifica esa guarda.
