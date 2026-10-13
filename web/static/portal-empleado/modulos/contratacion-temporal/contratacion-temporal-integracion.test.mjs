@@ -67,8 +67,10 @@ test("los campos exclusivos del Centro usan su catálogo en el renderer comparti
     assert.equal(typeof catalogo.general[clave], "string", clave);
     assert.match(rendererPuroFuente, new RegExp(`tCentro\\("${clave}"\\)`));
   }
-  assert.match(consumidor, /renderizarFormularioPuro\(estado, traducirCentro, traducirCentro\)/u);
-  assert.match(consumidor, /renderizarRevisionPura\(estado, traducirCentro, LOCALIZACION, traducirCentro\)/u);
+  assert.match(consumidor, /const traducir = estado\.catalogos\.esquema === ESQUEMA_CATALOGOS_NECESIDADES\s*\? traducirFormulario : traducirCentro/u);
+  assert.match(consumidor, /if \(typeof plantilla !== "string"\) return traducirCentro\(clave, variables\)/u);
+  assert.match(consumidor, /renderizarFormularioPuro\(estado, traducir, traducir\)/u);
+  assert.match(consumidor, /renderizarRevisionPura\(estado, traducir, LOCALIZACION, traducir\)/u);
 });
 
 test("el módulo no usa red, cookies, almacenamiento web ni registra claves", () => {
@@ -122,7 +124,7 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos, Die
   assert.match(coordinadorFuente, /componerCronosInterno/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-saldo-conectado\.js\?v=/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-permisos-propios\.js\?v=/);
-  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261011-ct-bolsa-vinculo-v1"\)/);
+  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261014-need-centro-v1"\)/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);
   assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/vista-expedientes\.js\?v=/);
