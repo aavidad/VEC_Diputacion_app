@@ -72,7 +72,8 @@ BEGIN
   OR EXISTS(SELECT 1 FROM pg_catalog.jsonb_each(d) e WHERE e.value='null'::jsonb)
   OR d->>'esquema'<>'vec.organizacion.correspondencia.v1'
   OR (d->>'correspondencia_ref' ~ '^correspondencia-org:[0-9a-f-]{36}$') IS NOT TRUE
-  OR (d->>'organizacion_operativa_ref' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,511}$') IS NOT TRUE
+  OR length(d->>'organizacion_operativa_ref') NOT BETWEEN 3 AND 512
+  OR (d->>'organizacion_operativa_ref' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]+$') IS NOT TRUE
   OR vec_contexto_actor_v1.organizacion_ref_valida(d->>'organizacion_canonica_ref') IS NOT TRUE
   OR d->>'organizacion_operativa_ref'=d->>'organizacion_canonica_ref'
   OR d->>'estado' NOT IN('vigente','retirada')
