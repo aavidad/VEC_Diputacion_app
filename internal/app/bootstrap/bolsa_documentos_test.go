@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +19,43 @@ import (
 
 type lectorDocumentosRRHHPrueba struct {
 	lecturas int
+}
+
+func TestDocumentosBolsaRRHHPropagaCausaFiltroInvalido(t *testing.T) {
+	for _, caso := range []struct {
+		query  string
+		escape bool
+	}{
+		{query: "texto=%XX", escape: true}, {query: "limite=abc"},
+	} {
+		t.Run(caso.query, func(t *testing.T) {
+			lector := &lectorDocumentosRRHHPrueba{}
+			servicio, err := bolsaapp.NuevoServicioDocumentosBolsa(lector)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var observado error
+			h := &bolsasRRHHDesarrollo{documentos: servicio, controlDocumentos: &controlLecturaDocumentosBolsa{
+				Autorizar: func(context.Context, string, string) error { return nil },
+				Auditar:   func(_ context.Context, _, _ string, causa error) error { observado = causa; return nil },
+			}}
+			respuesta := httptest.NewRecorder()
+			h.ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet,
+				rutaBolsasRRHHDesarrollo+"/bolsa:01/documentos?"+caso.query, nil))
+			if respuesta.Code != http.StatusBadRequest || lector.lecturas != 0 ||
+				!errors.Is(observado, bolsaapp.ErrConsultaDocumentosBolsaInvalida) {
+				t.Fatalf("filtro: status=%d lecturas=%d causa=%v", respuesta.Code, lector.lecturas, observado)
+			}
+			var escape url.EscapeError
+			var numero *strconv.NumError
+			if caso.escape && !errors.As(observado, &escape) || !caso.escape && !errors.As(observado, &numero) {
+				t.Fatalf("la auditoría perdió la causa tipada: %v", observado)
+			}
+			if strings.Contains(respuesta.Body.String(), caso.query) {
+				t.Fatal("la respuesta expone el filtro mal formado")
+			}
+		})
+	}
 }
 
 func (l *lectorDocumentosRRHHPrueba) ListarVigentesBolsa(_ context.Context, bolsa string) ([]ports.ConstitucionVigente, error) {
