@@ -18,8 +18,11 @@ apartado 4.0.
    `ON_ERROR_STOP`. Comprobar el SHA-256 de cada fichero antes de aplicarlo.
 2. **Datos del recorrido**: `datos/` (guion repetible de K: centro 520, puesto
    9/01, plaza 2026/0033, bolsa de Administrativo).
-3. **Entrada del aspirante**: Mi Bolsa interna (HZ37) por defecto. La confianza
-   externa (#1120, `deploy/principal/confianza_externa_hz38.md`) solo si su
+3. **Entrada del aspirante**: Mi Bolsa interna (HZ37) para el recorrido
+   principal, con Antonio disponible en la bolsa vigente. Los pasos e1–e5 son
+   opcionales y se enseñan aparte. La inscripción RRHH queda apagada
+   (`VEC_BOLSA_INSCRIPCIONES_ENABLED=false`), como en HZ37; su lector nominal
+   se resolverá después del ensayo principal. La confianza externa (#1120, `deploy/principal/confianza_externa_hz38.md`) solo si su
    ensayo valida el acceso y el recorrido; decisión de corte el 13/10 a las
    17:00 y se anota aquí la vía elegida.
 4. **Actos de administración**, por la vía de gobierno existente y con dos
@@ -31,17 +34,26 @@ apartado 4.0.
      resultantes y reinicio.
 5. **Arranque vigilado** con vuelta atrás automática.
 6. **Recorrido** con el guion de P (`deploy/principal/ensayo_candidata/`):
-   e1–e5 del aspirante y los pasos del caso, reinicio de app y PostgreSQL y
-   repetición de lecturas; mismos recibos y sin duplicados.
+   los pasos principales del caso, reinicio de app y PostgreSQL y repetición
+   de lecturas; mismos recibos y sin duplicados.
 
 ## Estado del ensayo
 
 | Pieza | Estado |
 | --- | --- |
 | SQL (11) | Aplicadas sin error en la copia de P |
-| Datos del recorrido | Pendiente de `datos/` (K) |
-| Vía del aspirante | Pendiente del corte de las 17:00 |
-| Plan de firma y cinco firmas | En curso (H) |
-| Recorrido completo y reinicio | En curso (P) |
+| Datos del recorrido | Antonio disponible y primer turno confirmados en la copia; adaptación de la plantilla inicial pendiente |
+| Vía del aspirante | Mi Bolsa interna; inscripción RRHH opcional apagada por dirección |
+| Plan de firma y cinco firmas | Pendientes (H); el registro y el verificador siguen activados en la configuración |
+| Recorrido completo y reinicio | No ejecutados; ensayo pausado por dirección |
 
 Lo que no se haya ensayado en la copia no se instala en cidonia.
+
+El 14/10 dirección pausó el ensayo para presentar primero una maqueta en una
+rama aparte. La copia arrancó con el código `29870030b` en 2,819 segundos tras
+restaurar las ACL de tipos y trasladar sus conexiones y almacén al destino local.
+Ese arranque no acredita el recorrido. Los servicios de la copia se detuvieron;
+la preparación se conserva en un respaldo privado, fuera de Git. Antes de
+retomar faltan la adaptación de los datos iniciales del puesto, el plan de
+firma definitivo, el orden GINPIX–Personal confirmado y el ensayo en Chrome
+con recuperación tras reinicio.
