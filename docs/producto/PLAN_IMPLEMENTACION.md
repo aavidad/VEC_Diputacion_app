@@ -613,6 +613,21 @@ documento (apartado 13).
 
 ## 10. Cómo se trabaja
 
+### 10.0 Reglas fijas de entrega y subida (14/10)
+
+Alberto las fijó el 14/10 y mandan sobre lo que diga en contra el resto de este
+apartado, también el paso 5 de 10.3. El texto completo está en `AGENTS.md`,
+sección «Entrega y subida»; aquí va solo el resumen:
+
+1. A cidonia solo sube una candidata congelada y ensayada entera en una copia
+   de cidonia, y se instala exactamente lo ensayado.
+2. Una PR está lista solo si trae código, guion de activación y la prueba de
+   que la app arranca con esa configuración y sin ella.
+3. Hay un único caso de aceptación del recorrido:
+   [FLUJO_APP.md, apartado 4.0](FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación).
+4. Ninguna configuración nueva tumba la app; cidonia nunca queda apagada.
+5. Con datos ficticios, si falta un dato se ajusta el dato, no se programa.
+
 ### 10.1 Encargo y trabajo paralelo
 
 - **Un identificador de tarea por agente.** Nadie toma otra tarea por
