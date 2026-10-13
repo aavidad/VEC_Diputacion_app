@@ -164,7 +164,11 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 			if err != nil {
 				return err
 			}
-			if publicoIgualExternoV3(propuesta, estado.Actual) {
+			coincide, err := publicoIgualExternoV3(propuesta, estado.Actual)
+			if err != nil {
+				return err
+			}
+			if coincide {
 				// La renovación diaria sólo cambia la configuración. Los proveedores
 				// vivos conservan las coordenadas de estas mismas claves.
 				reutilizadas = actual.Claves
@@ -174,7 +178,11 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 					if err := tx.QueryRow(ctx, `SELECT vec_autorizacion_atestada_v3.gestionar_publicacion_externa_v1($1::pg_catalog.jsonb)`, propuesta).Scan(&confirmado); err != nil {
 						return err
 					}
-					if !publicoIgualExternoV3(propuesta, confirmado) {
+					coincide, err := publicoIgualExternoV3(propuesta, confirmado)
+					if err != nil {
+						return err
+					}
+					if !coincide {
 						return falloPublicacionConfianzaExterna(nil)
 					}
 					return tx.Commit(ctx)
@@ -211,7 +219,11 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 		if err := tx.QueryRow(ctx, `SELECT vec_autorizacion_atestada_v3.gestionar_publicacion_externa_v1($1::pg_catalog.jsonb)`, propuesta).Scan(&confirmado); err != nil {
 			return err
 		}
-		if !publicoIgualExternoV3(propuesta, confirmado) {
+		coincide, err := publicoIgualExternoV3(propuesta, confirmado)
+		if err != nil {
+			return err
+		}
+		if !coincide {
 			return falloPublicacionConfianzaExterna(nil)
 		}
 		return tx.Commit(ctx)
@@ -242,7 +254,14 @@ func confirmarPublicacionExternaV3(ctx context.Context, pool *pgxpool.Pool, espe
 		return falloPublicacionConfianzaExterna(nil)
 	}
 	var estado estadoPublicacionExternaV3
-	if json.Unmarshal(respuesta, &estado) != nil || !publicoIgualExternoV3(esperada, estado.Actual) {
+	if err := json.Unmarshal(respuesta, &estado); err != nil {
+		return falloPublicacionConfianzaExterna(err)
+	}
+	coincide, err := publicoIgualExternoV3(esperada, estado.Actual)
+	if err != nil {
+		return falloPublicacionConfianzaExterna(err)
+	}
+	if !coincide {
 		return falloPublicacionConfianzaExterna(nil)
 	}
 	return tx.Commit(ctx)
@@ -332,10 +351,10 @@ func serializarMaterialExternoV3(lista []*materialAtestacionContratacionTemporal
 	})
 }
 
-func publicoIgualExternoV3(propuesta, publicado []byte) bool {
+func publicoIgualExternoV3(propuesta, publicado []byte) (bool, error) {
 	var m map[string]json.RawMessage
-	if json.Unmarshal(propuesta, &m) != nil {
-		return false
+	if err := json.Unmarshal(propuesta, &m); err != nil {
+		return false, err
 	}
 	delete(m, "claves")
 	// La respuesta SQL omite solo los secretos de las claves. Reconstruir esa
@@ -343,24 +362,27 @@ func publicoIgualExternoV3(propuesta, publicado []byte) bool {
 	var entrada struct {
 		Claves []map[string]any `json:"claves"`
 	}
-	if json.Unmarshal(propuesta, &entrada) != nil {
-		return false
+	if err := json.Unmarshal(propuesta, &entrada); err != nil {
+		return false, err
 	}
 	for _, clave := range entrada.Claves {
 		delete(clave, "secreto_hmac_hex")
 	}
 	claves, err := json.Marshal(entrada.Claves)
 	if err != nil {
-		return false
+		return false, err
 	}
 	m["claves"] = claves
 	esperado, err := json.Marshal(m)
 	if err != nil {
-		return false
+		return false, err
 	}
 	var a, b map[string]any
-	if json.Unmarshal(esperado, &a) != nil || json.Unmarshal(publicado, &b) != nil {
-		return false
+	if err := json.Unmarshal(esperado, &a); err != nil {
+		return false, err
+	}
+	if err := json.Unmarshal(publicado, &b); err != nil {
+		return false, err
 	}
 	// SQL ordena por la colación de la base; el orden no forma parte del
 	// material de confianza. Cotejar por audiencia sin admitir duplicados.
@@ -387,7 +409,7 @@ func publicoIgualExternoV3(propuesta, publicado []byte) bool {
 		m["claves"] = claves
 		return true
 	}
-	return normalizar(a) && normalizar(b) && reflect.DeepEqual(a, b)
+	return normalizar(a) && normalizar(b) && reflect.DeepEqual(a, b), nil
 }
 
 func falloPublicacionConfianzaExterna(causa error) error {
