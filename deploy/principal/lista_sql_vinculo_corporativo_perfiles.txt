@@ -1,0 +1,1 @@
+deploy/postgresql/contexto_actor_v1/migraciones/000043_vinculo_corporativo_por_perfil.up.sql
