@@ -236,6 +236,13 @@ Salud del proceso: `GET /livez` (el proceso vive) y `GET /readyz` (sus
 dependencias responden); `/healthz` es un alias de `/readyz`
 (`internal/app/server/server.go`).
 
+La confianza del portal externo se prepara administrativamente antes de arrancar
+la web. `preparar-portal-externo --publicador-confianza-dsn <fichero privado>`
+publica una raíz y claves derivadas del material externo, mediante un LOGIN
+nominal con un único grupo y sin acceso al propietario AD3. Conserva el inventario
+`externo/v3` y la auditoría común; la web no recibe ese DSN. Orden de instalación
+y uso: `deploy/principal/confianza_externa_hz38.md`.
+
 ### Selectores `VEC_*_ENABLED`
 
 Cada capacidad que necesita algo más que el núcleo se enciende con un selector de
