@@ -276,6 +276,7 @@ después de la fiscalización favorable y la propuesta exige el expediente en
 | 5 | Carmen | Ficha, Vía de cobertura | Elige bolsa vigente | Recibo; `asignacion_unidad/en_curso`, v3 |
 | 6 | Carmen | Ficha, Asignación | Asigna la unidad gestora | Recibo; `asignacion_unidad/en_curso`, v4 |
 | 7 | Carmen | Ficha, Informe jurídico | Prepara el informe | Recibo; `informe_juridico/en_curso`, v5 |
+| 7b | Jefatura (firmante) | Ficha, Firma | Firma con su certificado el informe de remisión a Intervención (la fiscalización exige el informe firmado) | Recibo de firma verificada |
 | 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6 |
 | 9 | Carmen | Ficha, Llamamiento y comunicación | Abre el llamamiento desde la bolsa Administrativo y registra la comunicación | Recibo del llamamiento con Antonio como llamado; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas) |
 | 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo de dos días | Recibo de su respuesta |
@@ -284,8 +285,9 @@ después de la fiscalización favorable y la propuesta exige el expediente en
 | 13 | Carmen | Ficha, Formalización | Registra la resolución | Recibo; `nombramiento/en_curso`, v8 |
 | 14 | Carmen | Ficha, Documentos | Descarga en PDF y Word los borradores | Cada documento se abre con el logotipo y los datos del expediente |
 | 15 | Firmantes | Ficha, panel de firma (GrxFirma) | Firman en el orden del catálogo (ver «Documentos») | Cada firma con su justificante y el PDF verificado |
-| 16 | Carmen | Ficha, GINPIX | Descarga la ficha y confirma número y fecha de la grabación manual | Recibo de confirmación GINPIX |
+| 16a | Carmen | Ficha, GINPIX | Descarga la ficha para la grabación manual | Ficha descargada |
 | 17 | Lucía (centro) | `peticiones-centro/`, Incorporaciones | Acredita la incorporación de Antonio con fecha y documento | Recibo de incorporación |
+| 16b | Carmen | Ficha, GINPIX | Confirma número y fecha de la grabación manual (el formulario exige la incorporación ya acreditada) | Recibo de confirmación GINPIX |
 | 18 | Carmen | Ficha, Paso a Personal | Revisa el plan de alta y lo confirma | Antonio aparece en Personal con su relación y su ocupación |
 | 19 | Carmen | Ficha, Cese | Registra el cese con causa y justificante | Recibo de cese |
 | 20 | (automático) Bolsa | Mi Bolsa de Antonio y Bolsas de RRHH | Bolsa recibe el cese | Antonio vuelve a la bolsa Administrativo como **Disponible** o **Disponible desde** la fecha que marque la política |
