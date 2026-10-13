@@ -249,7 +249,7 @@ func TestConsultaDosRevisionesConservaCadenaPersistida(t *testing.T) {
 	segunda.RevisionLongitud = 500
 	segunda.ByteRange = [4]uint64{0, 300, 400, 100}
 	segunda.RevisionHuellaSHA256 = f.FirmadoHuella
-	segunda.EvidenciaFirmasCanonica = json.RawMessage(`[{"privado":"primera"},{"privado":"segunda"}]`)
+	segunda.EvidenciaFirmasCanonica = json.RawMessage(`[{"privado":"evidencia-no-exponer"},{"privado":"segunda"}]`)
 	h := sha256.Sum256(segunda.EvidenciaFirmasCanonica)
 	segunda.EvidenciaFirmasHuellaSHA256 = hex.EncodeToString(h[:])
 	l.l.Firmas = append(l.l.Firmas, f)

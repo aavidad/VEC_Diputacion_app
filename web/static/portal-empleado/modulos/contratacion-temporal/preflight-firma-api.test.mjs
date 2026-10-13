@@ -54,3 +54,12 @@ test("cancelación y original ausente no emiten peticiones", async () => {
   await assert.rejects(cliente.consultar(solicitud, { signal: c.signal }), (e) => e.codigo === "operacion_abortada");
   assert.equal(peticiones, 0);
 });
+
+test("tercer paso exige entrada custodiada anterior y garantía sustancial cerrada", () => {
+  const d = { ...datos(), paso_pendiente: 3, entrada_documento_ref: "revision:segunda",
+    garantia_autenticacion: "sustancial" };
+  assert.equal(validarPreflightFirma(d, solicitud).paso_pendiente, 3);
+  assert.equal(validarPreflightFirma({ ...d, paso_pendiente: 4 }, solicitud), null);
+  assert.equal(validarPreflightFirma({ ...d, garantia_autenticacion: "alto" }, solicitud), null);
+  assert.equal(validarPreflightFirma({ ...d, entrada_documento_ref: d.original_ref }, solicitud), null);
+});

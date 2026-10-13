@@ -19,9 +19,11 @@ import (
 )
 
 type dependenciasConsultasRRHHDesarrollo struct {
-	emisorCuadro          *emisorMaterialRenovableCTDesarrollo
-	materialDetalle       *proveedorMaterialAltaContratacionTemporalDesarrollo
-	sesion                ports.SesionConsultaRRHH
+	emisorCuadro    *emisorMaterialRenovableCTDesarrollo
+	materialDetalle *proveedorMaterialAltaContratacionTemporalDesarrollo
+	sesion          ports.SesionConsultaRRHH
+	// La firma VEC reutiliza la fachada histórica v7 con otra sesión nominal.
+	sesionOriginal        ports.SesionConsultaRRHH
 	motivos               ports.ResolutorMotivoConsultaRRHH
 	identidad             *proveedorSesionConsultaRRHHDesarrollo
 	autoridad             *autoridadConsultasRRHHDesarrollo
@@ -471,7 +473,7 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
-	base := dependenciasConsultasRRHHDesarrollo{descargas: descargas, materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: consultorDetalleConDisponibilidadRRHH{lector: detalle, documentalMontado: documentalMontado}, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, plazosFase: dependenciasCT.plazosFase, cerrar: cerrar}
+	base := dependenciasConsultasRRHHDesarrollo{descargas: descargas, materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, sesionOriginal: sesionOriginal, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: consultorDetalleConDisponibilidadRRHH{lector: detalle, documentalMontado: documentalMontado}, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, plazosFase: dependenciasCT.plazosFase, cerrar: cerrar}
 	if len(lectores) > 0 {
 		lectoresDependencias, err := nuevasDependenciasLectoresRRHHDesarrollo(ctx, cfg, alta, derivador, reloj, lectores, poolConsultas, motivos, motivoCuadro, motivoDetalle, base, fronteras, documentalMontado)
 		if err != nil {

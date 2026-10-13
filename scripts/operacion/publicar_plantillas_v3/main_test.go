@@ -23,7 +23,7 @@ func TestCatalogoExacto1065(t *testing.T) {
 	if err = os.WriteFile(cambiado, b, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, _, err = cargar(context.Background(), cambiado); err == nil || !strings.Contains(err.Error(), "catálogo.huella") {
+	if _, _, _, err = cargar(context.Background(), cambiado); err == nil || !strings.Contains(err.Error(), "catalogo.huella") {
 		t.Fatalf("debe rechazar otro contenido válido antes de conectar: %v", err)
 	}
 }

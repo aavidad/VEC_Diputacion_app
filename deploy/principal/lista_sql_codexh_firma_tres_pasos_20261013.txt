@@ -1,0 +1,5 @@
+# AUT87 → CT209: sólo nuevas migraciones, una vez. Sin DOWN ni reaplicar.
+# SHA256 2df5b9e48bda259551b86d25f9df80a63a8ba40a0ec5b1439652776b0742d328
+deploy/postgresql/autorizacion/migraciones/000087_cargos_firma_sustancial_desarrollo.up.sql
+# SHA256 3ce22a91c3c2a73a860929ea5efe7a9381a374854f17d1f6e93046bf329187cf
+deploy/postgresql/contratacion_temporal/migraciones/000209_firma_pdf_tres_pasos.up.sql

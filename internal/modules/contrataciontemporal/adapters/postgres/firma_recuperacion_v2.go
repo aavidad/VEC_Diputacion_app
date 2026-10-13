@@ -157,7 +157,7 @@ func proyectarRecuperacionesSQL175(m ports.MaterialConsultaFirmasR5V2, base port
 			canon.Circuito.Referencia != revision.CatalogoRef || canon.Circuito.HuellaSHA256 != revision.CatalogoHuella ||
 			!canon.FechaHistorica.Equal(revision.RegistradaEn) ||
 			(revision.OrdenFirmaPDF == 1 && canon.Recurso.EntradaRevision != nil) ||
-			(revision.OrdenFirmaPDF == 2 && (canon.Recurso.EntradaRevision == nil ||
+			(revision.OrdenFirmaPDF > 1 && (canon.Recurso.EntradaRevision == nil ||
 				canon.Recurso.EntradaRevision.Referencia != revision.EntradaDocumentoRef ||
 				canon.Recurso.EntradaRevision.Version != revision.EntradaDocumentoVersion ||
 				canon.Recurso.EntradaRevision.HuellaSHA256 != revision.EntradaDocumentoHuella)) {
@@ -171,5 +171,5 @@ func proyectarRecuperacionesSQL175(m ports.MaterialConsultaFirmasR5V2, base port
 }
 
 func ordenRecuperacionCoincide(canon uint64, orden int) bool {
-	return canon == 1 && orden == 1 || canon == 2 && orden == 2
+	return orden >= 1 && orden <= ports.MaximoPasosFirmasVerificadasV2 && canon == uint64(orden)
 }

@@ -13,17 +13,19 @@ export class ErrorPreflightFirma extends Error {
 }
 function entero(v) { return Number.isSafeInteger(v) && v > 0; }
 function referencia(v) { return typeof v === "string" && REFERENCIA.test(v); }
-function exacto(v, claves) {
+function exacto(v, claves, opcionales = []) {
   return v !== null && typeof v === "object" && Object.getPrototypeOf(v) === Object.prototype
-    && Object.keys(v).length === claves.length && claves.every((c) => Object.hasOwn(v, c));
+    && claves.every((c) => Object.hasOwn(v, c))
+    && Object.keys(v).every((c) => claves.includes(c) || opcionales.includes(c));
 }
 export function validarPreflightFirma(datos, solicitud) {
-  if (!exacto(datos, CAMPOS) || datos.esquema !== "vec.contratacion-temporal.preflight-firma.v2"
+  if (!exacto(datos, CAMPOS, ["garantia_autenticacion"])
+    || (Object.hasOwn(datos ?? {}, "garantia_autenticacion") && datos.garantia_autenticacion !== "sustancial") || datos.esquema !== "vec.contratacion-temporal.preflight-firma.v2"
     || !solicitud || datos.version_expediente !== solicitud.version
     || !entero(datos.version_expediente) || datos.documento !== solicitud.documento
     || !DOCUMENTO.test(datos.documento) || !referencia(datos.catalogo_ref)
     || typeof datos.catalogo_huella !== "string" || !HUELLA.test(datos.catalogo_huella)
-    || !Number.isSafeInteger(datos.paso_pendiente) || datos.paso_pendiente < 0 || datos.paso_pendiente > 2
+    || !Number.isSafeInteger(datos.paso_pendiente) || datos.paso_pendiente < 0 || datos.paso_pendiente > 3
     || datos.original_ref !== solicitud.originalRef || !referencia(datos.original_ref)
     || datos.original_version !== solicitud.originalVersion || !entero(datos.original_version)
     || !Array.isArray(datos.vias_disponibles) || datos.vias_disponibles.length > 2

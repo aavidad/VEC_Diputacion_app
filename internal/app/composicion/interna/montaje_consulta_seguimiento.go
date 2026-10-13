@@ -37,8 +37,6 @@ type proveedoresConsultaSeguimiento struct {
 	autoridadRutas                    httpapi.AutoridadRutasExactas
 	auditoriaRutas                    vecports.RegistradorAuditoriaFronteraRutaExacta
 	vincularPersonalB2                func(context.Context) (context.Context, error)
-	vincularOriginalCT                func(context.Context) (context.Context, error)
-	originalCT                        http.Handler
 	vincularOrganizacionHistorica     func(context.Context) (context.Context, error)
 	organizacionHistorica             http.Handler
 	organizacionHistoricaNoDisponible bool
@@ -62,8 +60,6 @@ type puenteConsultaSeguimiento struct {
 	api                               http.Handler
 	auditoria                         vecports.RegistradorAuditoriaFronteraRutaExacta
 	vincularB2                        func(context.Context) (context.Context, error)
-	vincularOriginalCT                func(context.Context) (context.Context, error)
-	originalCT                        bool
 	vincularOH                        func(context.Context) (context.Context, error)
 	organizacionHistorica             bool
 	organizacionHistoricaNoDisponible bool
@@ -85,9 +81,8 @@ func (p *puenteConsultaSeguimiento) ServeHTTP(w http.ResponseWriter, r *http.Req
 		return
 	}
 	esOH := r.URL.Path == httpapi.RutaOrganizacionHistoricaPersonal
-	esOriginalCT := r.URL.Path == httpct.RutaOriginalFirmableCT
 	if r.URL.Path != httpct.RutaConsultaSeguimientoV2 &&
-		(!(esOH && (p.organizacionHistorica || p.organizacionHistoricaNoDisponible) || esOriginalCT && p.originalCT || !esOH && !esOriginalCT && p.personalB2) || !internagobierno.RutaInternaGobernada(r.URL.Path)) {
+		(!(esOH && (p.organizacionHistorica || p.organizacionHistoricaNoDisponible) || !esOH && p.personalB2) || !internagobierno.RutaInternaGobernada(r.URL.Path)) {
 		responderPuenteSeguimiento(w, http.StatusNotFound)
 		return
 	}
@@ -127,8 +122,6 @@ func (p *puenteConsultaSeguimiento) ServeHTTP(w http.ResponseWriter, r *http.Req
 		vincular := p.vincularB2
 		if esOH {
 			vincular = p.vincularOH
-		} else if esOriginalCT {
-			vincular = p.vincularOriginalCT
 		}
 		if vincular == nil {
 			responderPuenteSeguimiento(w, http.StatusServiceUnavailable)
@@ -155,15 +148,11 @@ func (p *puenteConsultaSeguimiento) auditarDenegacionPersonalB2(ctx context.Cont
 	if p == nil || ctx == nil || interfazNulaIdentidadOffline(p.auditoria) {
 		return false
 	}
-	superficie := vecports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
-	if ruta != httpct.RutaOriginalFirmableCT {
-		superficie = superficieAuditoriaPersonal(ruta)
-		ruta = rutaAuditoriaPersonal(ruta)
-	}
+	ruta = rutaAuditoriaPersonal(ruta)
 	orden := vecports.OrdenAuditoriaFronteraRutaExacta{
 		CorrelacionRef: correlacionDenegacionSeguimiento(),
 		Motivo:         vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado,
-		Superficie:     superficie,
+		Superficie:     superficieAuditoriaPersonal(ruta),
 		Ruta:           ruta,
 	}
 	if orden.Validar() != nil {
@@ -192,7 +181,7 @@ func (p *puenteConsultaSeguimiento) auditarAutenticacionRequerida(ctx context.Co
 	}
 	correlacion := correlacionDenegacionSeguimiento()
 	superficie := vecports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
-	if ruta != httpct.RutaConsultaSeguimientoV2 && ruta != httpct.RutaOriginalFirmableCT {
+	if ruta != httpct.RutaConsultaSeguimientoV2 {
 		superficie = superficieAuditoriaPersonal(ruta)
 		ruta = rutaAuditoriaPersonal(ruta)
 	}
@@ -237,11 +226,7 @@ func nuevaAPIConsultaSeguimiento(p proveedoresConsultaSeguimiento, s *inc.Servid
 	if err != nil || ruta.Ruta != httpct.RutaConsultaSeguimientoV2 || manejadorNulo(ruta.Manejador) {
 		return nil, ErrAPIInternaNoDisponible
 	}
-	rutasCT := []httpapi.RutaExacta{ruta}
-	if !manejadorNulo(p.originalCT) {
-		rutasCT = append(rutasCT, httpapi.RutaExacta{Ruta: httpct.RutaOriginalFirmableCT, Manejador: p.originalCT})
-	}
-	ctAPI, err := httpapi.NewHandlerSoloRutasExactas(rutasCT, p.autoridadRutas, p.auditoriaRutas)
+	ctAPI, err := httpapi.NewHandlerSoloRutasExactas([]httpapi.RutaExacta{ruta}, p.autoridadRutas, p.auditoriaRutas)
 	if err != nil {
 		return nil, ErrAPIInternaNoDisponible
 	}
@@ -265,7 +250,6 @@ func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p prove
 		interfazNulaIdentidadOffline(p.autoridadRutas) ||
 		interfazNulaIdentidadOffline(p.auditoriaRutas) ||
 		(!manejadorNulo(p.fichaPersonalB2) && p.vincularPersonalB2 == nil) ||
-		(!manejadorNulo(p.originalCT) && p.vincularOriginalCT == nil) ||
 		(!manejadorNulo(p.organizacionHistorica) && p.vincularOrganizacionHistorica == nil) ||
 		interfazNulaIdentidadOffline(p.configuracionV2.FuenteAutoridad) {
 		return nil, ErrDependenciasProductivasNoDisponibles
@@ -284,8 +268,7 @@ func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p prove
 	}
 	limiteCuerpo := min(cfg.normalizar().MaximoBytesPeticion, int64(1<<20))
 	puente := &puenteConsultaSeguimiento{extractor: p.extractor, api: api, auditoria: p.auditoriaRutas, limiteCuerpo: limiteCuerpo,
-		vincularB2:         p.vincularPersonalB2,
-		vincularOriginalCT: p.vincularOriginalCT, originalCT: !manejadorNulo(p.originalCT),
+		vincularB2: p.vincularPersonalB2,
 		vincularOH: p.vincularOrganizacionHistorica, organizacionHistorica: !manejadorNulo(p.organizacionHistorica),
 		organizacionHistoricaNoDisponible: p.organizacionHistoricaNoDisponible,
 		personalB2: !manejadorNulo(p.fichaPersonalB2) && !manejadorNulo(p.vacantesPersonalB2) &&

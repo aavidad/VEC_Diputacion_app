@@ -52,14 +52,15 @@ type entradaPreflightFirmaR5 struct {
 }
 
 type resultadoPreflightFirmaR5JSON struct {
-	VersionExpediente uint64   `json:"version_expediente"`
-	Documento         string   `json:"documento"`
-	CatalogoRef       string   `json:"catalogo_ref"`
-	CatalogoHuella    string   `json:"catalogo_huella"`
-	PasoPendiente     int      `json:"paso_pendiente"`
-	OriginalRef       string   `json:"original_ref"`
-	OriginalVersion   uint64   `json:"original_version"`
-	ViasDisponibles   []string `json:"vias_disponibles"`
+	GarantiaAutenticacion string   `json:"garantia_autenticacion,omitempty"`
+	VersionExpediente     uint64   `json:"version_expediente"`
+	Documento             string   `json:"documento"`
+	CatalogoRef           string   `json:"catalogo_ref"`
+	CatalogoHuella        string   `json:"catalogo_huella"`
+	PasoPendiente         int      `json:"paso_pendiente"`
+	OriginalRef           string   `json:"original_ref"`
+	OriginalVersion       uint64   `json:"original_version"`
+	ViasDisponibles       []string `json:"vias_disponibles"`
 }
 
 type resultadoPreflightFirmaR5V2JSON struct {
@@ -116,6 +117,11 @@ func (h *manejadorPreflightFirmaR5) ServeHTTP(w http.ResponseWriter, r *http.Req
 			ExpedienteRef: entrada.ExpedienteRef, VersionObservada: *entrada.VersionObservada,
 		}, Documento: entrada.Documento, OriginalRef: entrada.OriginalRef, OriginalVersion: *entrada.OriginalVersion,
 	}
+	garantia, err := garantiaAutenticacionFirmaV2(r.Context(), h.autoridad)
+	if err != nil {
+		responderErrorPreflightFirma(w, r, err, errorPreflightFirmaR5(err))
+		return
+	}
 	var resultado ports.ResultadoPreflightFirmaR5
 	var resultadoV2 *ports.ResultadoPreflightFirmaR5V2
 	if !dependenciaNula(h.consultorV2) {
@@ -141,7 +147,8 @@ func (h *manejadorPreflightFirmaR5) ServeHTTP(w http.ResponseWriter, r *http.Req
 		return
 	}
 	vista := resultadoPreflightFirmaR5JSON{
-		VersionExpediente: resultado.VersionExpediente, Documento: resultado.Documento,
+		GarantiaAutenticacion: garantia,
+		VersionExpediente:     resultado.VersionExpediente, Documento: resultado.Documento,
 		CatalogoRef: resultado.CatalogoRef, CatalogoHuella: resultado.CatalogoHuella,
 		PasoPendiente: resultado.PasoPendiente, OriginalRef: resultado.OriginalRef,
 		OriginalVersion: resultado.OriginalVersion, ViasDisponibles: resultado.ViasDisponibles,

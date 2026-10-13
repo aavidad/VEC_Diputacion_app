@@ -43,7 +43,7 @@ type Solicitud struct {
 
 func (s Solicitud) Validar() error {
 	if !domain.ReferenciaOpacaValida(s.ExpedienteRef) || s.VersionExpediente < 1 || s.VersionExpediente > 9007199254740991 ||
-		!domain.ClaveDocumentoFirmaValida(s.Documento) || s.PasoOrden < 1 || s.PasoOrden > 2 ||
+		!domain.ClaveDocumentoFirmaValida(s.Documento) || s.PasoOrden < 1 || s.PasoOrden > ports.MaximoPasosFirmasVerificadasV2 ||
 		!ports.ClaveIdempotenciaFirmaValida(s.ClaveIdempotencia) || !domain.HuellaSHA256FirmaValida(s.CatalogoHuella) ||
 		(s.Via != ports.ViaFirmaCertificadoVEC && s.Via != ports.ViaFirmaExternaPortafirmas) {
 		return ports.ErrSolicitudFirmaDocumentoInvalida

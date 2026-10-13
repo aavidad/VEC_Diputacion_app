@@ -136,6 +136,7 @@ func solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx context.Context, 
 // registro PostgreSQL; la ruta se compone cuando llega el circuito.
 type firmaDocumentoCTDesarrollo struct {
 	alta          *dependenciasAltaContratacionTemporalDesarrollo
+	nominal       *fuenteNominalSesionFirmaCT
 	circuito      *reglas.Resolutor
 	registro      *postgrescontratacion.RegistroFirmasDocumentoPostgreSQL
 	lector        ports.LectorFirmasDocumentoAutorizadas

@@ -87,12 +87,25 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 	principal, err := m.autoridad.resolvedor.ResolveDemoIdentity(
 		r.Context(), r,
 	)
+	if m.autoridad.firmaVecR5 != nil &&
+		(rutaFirmaVecR5CT(r.URL.Path) || r.URL.Path == httpinterno.RutaOriginalFirmableCT) {
+		if candidato, ok := m.autoridad.firmaVecR5.nominal.principalCanal(r); ok {
+			principal, err = candidato, nil
+		}
+	}
 	validoRuta := principalContratacionTemporalDesarrolloValidoParaRuta(principal, r.URL.Path)
 	if bolsapersonal.EsRutaPortal(r.URL.Path) {
 		validoRuta = m.autoridad.resolvedor.principalCandidatoBolsaValido(principal)
 	}
 	if protegidaComun && !protegidaCT {
 		validoRuta = principalContratacionTemporalDesarrolloValido(principal)
+	}
+	if rutaFirmaVecR5CT(r.URL.Path) && m.autoridad.firmaVecR5 != nil {
+		validoRuta = m.autoridad.firmaVecR5.nominal.admitePrincipal(principal)
+	}
+	if r.URL.Path == httpinterno.RutaOriginalFirmableCT && m.autoridad.firmaVecR5 != nil &&
+		m.autoridad.firmaVecR5.nominal.admitePrincipal(principal) {
+		validoRuta = true
 	}
 	if (rutaConsultaRRHHContratacionTemporalDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaEstadisticasRRHH) && len(m.autoridad.resolvedor.lectoresRRHH) != 0 {
 		_, validoRuta = m.autoridad.resolvedor.lectorConsultaRRHH(principal)
@@ -159,7 +172,9 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: r.Method, ruta: r.URL.Path, superficie: fronteraComun.Superficie, catalogo: m.fronteras, descriptor: fronteraComun})
 		}
 		r = r.WithContext(ctx)
-	} else if err == nil && (protegidaCT || protegidaComun) && principalSinteticoContratacionTemporalDesarrolloValido(principal) {
+	} else if err == nil && (protegidaCT || protegidaComun) &&
+		(principalSinteticoContratacionTemporalDesarrolloValido(principal) ||
+			(rutaFirmaVecR5CT(r.URL.Path) || r.URL.Path == httpinterno.RutaOriginalFirmableCT) && principalCertificadoFirmaVecDesarrolloValido(principal)) {
 		// Una identidad mTLS válida pero sin el perfil/ámbito de esta ruta está
 		// autenticada. Se conserva una capacidad deliberadamente no sellada para
 		// que la autoridad exacta responda 403, no el 401 de identidad ausente.

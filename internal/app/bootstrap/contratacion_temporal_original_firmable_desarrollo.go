@@ -218,13 +218,17 @@ type pdpOriginalFirmableCTDesarrollo interface {
 // pdpCTOriginalFirmableDesarrollo implementa el puerto anterior con el PDP y
 // el material de Documentos que ya compone el alta de CT.
 type pdpCTOriginalFirmableDesarrollo struct {
-	alta *dependenciasAltaContratacionTemporalDesarrollo
+	alta    *dependenciasAltaContratacionTemporalDesarrollo
+	nominal *fuenteNominalSesionFirmaCT
 }
 
 // solicitarOriginalV3 consume el perfil fijo de la ruta sellada y pide al PDP
 // la decisión con la sesión registrada de ese perfil. Una caída de la fuente
 // es indisponibilidad; una revocación o un recurso ajeno, denegación.
 func (p pdpCTOriginalFirmableDesarrollo) solicitarOriginalV3(ctx context.Context, accion, finalidad string, recurso dominiovec.RecursoAutorizable) (solicitudCustodiaCTDesarrollo, error) {
+	if ctx != nil && ctx.Value(clavePeticionNominalFirmaCT{}) != nil {
+		return p.solicitarOriginalNominalV3(ctx, accion, finalidad, recurso)
+	}
 	var vacia solicitudCustodiaCTDesarrollo
 	if ctx == nil || p.alta == nil || p.alta.soporte == nil || dependenciaEsNulaContratacionTemporalDesarrollo(p.alta.autorizador) {
 		return vacia, errOriginalFirmableCTDenegado

@@ -50,22 +50,19 @@ type Configuracion struct {
 // Proveedores conserva la propiedad de los pools y la devuelve al montaje.
 // No instala SQL, claves, asignaciones ni gobierno al arrancar.
 type Proveedores struct {
-	Cadena            *inc.CadenaAutorizacionAplicacion
-	Detalle           *appct.ServicioConsultaDetalleRRHH
-	DetalleOriginal   *appct.ServicioConsultaDetalleRRHH
-	OriginalPropuesta *appct.ServicioConsultaDetalleRRHH
-	Planes            []byte
-	TernaPlanes       ct.ReferenciaVersionadaPersonalRPT
-	FuentePersonal    []byte
-	TernaPersonal     fuenteejercicio.TernaEsperada
-	pools             []*pgxpool.Pool
-	motivos           *pgct.PoolResolucionMotivosRRHHPostgreSQL
-	consultas         *pgct.PoolConsultasRRHHPostgreSQL
-	firmante          *firmanteV3
-	pdp               *app.ServicioAutorizacionSolicitudLigadaV3
-	atestador         *app.ServicioAtestacionesAutorizacionV3
-	catalogoMotivos   string
-	gobierno          *gobiernoV3Compartido
+	Cadena          *inc.CadenaAutorizacionAplicacion
+	Detalle         *appct.ServicioConsultaDetalleRRHH
+	Planes          []byte
+	TernaPlanes     ct.ReferenciaVersionadaPersonalRPT
+	FuentePersonal  []byte
+	TernaPersonal   fuenteejercicio.TernaEsperada
+	pools           []*pgxpool.Pool
+	motivos         *pgct.PoolResolucionMotivosRRHHPostgreSQL
+	consultas       *pgct.PoolConsultasRRHHPostgreSQL
+	firmante        *firmanteV3
+	pdp             *app.ServicioAutorizacionSolicitudLigadaV3
+	catalogoMotivos string
+	gobierno        *gobiernoV3Compartido
 }
 
 // gobiernoV3Compartido es la única raíz de atestación del proceso: la carga CT
@@ -100,7 +97,6 @@ func (p *Proveedores) Cerrar() {
 		p.firmante = nil
 	}
 	p.pdp = nil
-	p.atestador = nil
 	p.gobierno = nil
 	p.catalogoMotivos = ""
 	clear(p.Planes)
@@ -212,7 +208,6 @@ func Construir(ctx context.Context, c Configuracion) (Proveedores, error) {
 		return fallo()
 	}
 	salida.pdp = pdp
-	salida.atestador = atestador
 	salida.catalogoMotivos = m.CatalogoMotivos
 	salida.Cadena, e = inc.NuevaCadenaAutorizacionAplicacion(pdp, atestador, verificador, emisiones)
 	if e != nil {
@@ -262,18 +257,6 @@ func Construir(ctx context.Context, c Configuracion) (Proveedores, error) {
 		return fallo()
 	}
 	salida.Detalle, e = appct.NuevoServicioConsultaDetalleRRHH(AutoridadDetalle{Fuente: c.Fuente, Reloj: c.Reloj}, emisor, sesion, c.Reloj)
-	if e != nil {
-		return fallo()
-	}
-	salida.DetalleOriginal, e = appct.NuevoServicioConsultaDetalleRRHH(AutoridadDetalleOriginalR5(c.Fuente, c.Reloj), emisor, sesion, c.Reloj)
-	if e != nil {
-		return fallo()
-	}
-	sesionOriginal, e := pgct.NuevaSesionConsultaOriginalPropuestaRRHHPostgreSQL(consultaPool)
-	if e != nil {
-		return fallo()
-	}
-	salida.OriginalPropuesta, e = appct.NuevoServicioConsultaDetalleRRHH(AutoridadDetalleOriginalR5(c.Fuente, c.Reloj), emisor, sesionOriginal, c.Reloj)
 	if e != nil {
 		return fallo()
 	}
@@ -546,21 +529,6 @@ func funcionesEsperadasPerfil(p perfilPool) []string {
 		return []string{
 			"vec_autorizacion.resolver_motivo_cuadro_rrhh_v1(timestamptz)",
 			"vec_autorizacion.resolver_motivo_detalle_rrhh_v1(timestamptz)",
-		}
-	case "vec_documentos_ejecutor":
-		// ACL efectiva del LOGIN documental canónico: Documentos 1, 2, 3,
-		// 9 y 13. La sonda exige el conjunto completo y rechaza cualquier
-		// EXECUTE extra, aunque esta ruta R5 use solo tres fachadas.
-		return []string{
-			"vec_documentos.listar_expediente_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
-			"vec_documentos.obtener_original_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
-			"vec_documentos.confirmar_alta_v2(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
-			"vec_documentos.preparar_notificacion_v2(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
-			"vec_documentos.registrar_referencia_externa_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
-			"vec_documentos.listar_expediente_v2(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
-			"vec_documentos.custodiar_firmado_v1(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
-			"vec_documentos.reservar_original_firmable_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
-			"vec_documentos.confirmar_original_firmable_v1(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
 		}
 	case "vec_contratacion_temporal_consultor_rrhh":
 		return []string{

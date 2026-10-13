@@ -80,6 +80,8 @@
     "circuito_firma_siguiente_original": "Este PDF conserva la firma anterior. Utilícelo para añadir la siguiente firma.",
     "circuito_firma_original_descargado": "PDF preparado descargado.",
     "circuito_firma_registro_confirmado": "Firma verificada y registrada con el recibo {recibo}. Siguiente paso: Portafirmas.",
+    "circuito_firma_registro_confirmado_sustancial": "Firma registrada con garantía sustancial. Recibo: {recibo}.",
+    "circuito_firma_garantia_sustancial": "Garantía sustancial",
     "circuito_firma_cancelada": "Operación cancelada.",
     "circuito_firma_recuperacion": "No se ha podido confirmar el registro. Reintente con el mismo PDF; VEC comprobará si ya está registrado.",
     "circuito_firma_reintentar_registro": "Reintentar registro",

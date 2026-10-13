@@ -2,7 +2,6 @@ package interna
 
 import (
 	"context"
-	"errors"
 	"log"
 	"os"
 	"strings"
@@ -32,7 +31,6 @@ type recursoGobiernoInterno struct {
 	ct                    *internactproveedores.Proveedores
 	personalB2            interface{ Cerrar() }
 	organizacionHistorica interface{ Cerrar() }
-	originalR5            func() error
 	propiedad             atomic.Bool
 	unaVez                sync.Once
 	errorCierre           error
@@ -60,17 +58,12 @@ func (r *recursoGobiernoInterno) cerrarSinPropiedad() error {
 		if r.personalB2 != nil {
 			r.personalB2.Cerrar()
 		}
-		if r.originalR5 != nil {
-			if err := r.originalR5(); err != nil {
-				r.errorCierre = errors.Join(r.errorCierre, ErrDependenciasProductivasNoDisponibles, err)
-			}
-		}
 		if r.ct != nil {
 			r.ct.Cerrar()
 		}
 		if r.hmac != nil {
-			if cierreErr := r.hmac.Cerrar(); cierreErr != nil {
-				r.errorCierre = errors.Join(r.errorCierre, ErrDependenciasProductivasNoDisponibles, cierreErr)
+			if r.hmac.Cerrar() != nil {
+				r.errorCierre = ErrDependenciasProductivasNoDisponibles
 			}
 		}
 		r.pools.Cerrar()
@@ -80,7 +73,7 @@ func (r *recursoGobiernoInterno) cerrarSinPropiedad() error {
 
 // cargarProveedoresGobernados sólo conecta autoridades ya publicadas. No
 // instala SQL, no crea persona/cuenta/perfil ni genera claves al arrancar.
-func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (resultado proveedoresConsultaSeguimiento, err error) {
+func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (proveedoresConsultaSeguimiento, error) {
 	var vacio proveedoresConsultaSeguimiento
 	if ctx == nil || ctx.Err() != nil || cfg.Validar() != nil {
 		return vacio, ErrDependenciasProductivasNoDisponibles
@@ -106,9 +99,7 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (result
 	recursos := &recursoGobiernoInterno{}
 	defer func() {
 		if !exito {
-			if cierreErr := recursos.cerrarSinPropiedad(); cierreErr != nil {
-				err = errors.Join(err, ErrDependenciasProductivasNoDisponibles, cierreErr)
-			}
+			_ = recursos.cerrarSinPropiedad()
 			cerrarPoolsSeguimiento(poolsConsultaSeguimiento(configuracionV2))
 		}
 	}()
@@ -215,15 +206,6 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (result
 		autoridadRutas: autoridadRuta, auditoriaRutas: auditoria,
 		configuracionV2: configuracionV2,
 		recursos:        []recursoCerrableAplicacionInterna{recursos},
-	}
-	originalR5, seleccionadoR5, err := montarOriginalR5Gobernado(ctx, directorio, materialV3, recursos.ct, fuenteF1, reloj)
-	if err != nil {
-		return vacio, ErrDependenciasProductivasNoDisponibles
-	}
-	if seleccionadoR5 {
-		recursos.originalR5 = originalR5.cerrar
-		salida.originalCT = originalR5.manejador
-		salida.vincularOriginalCT = originalR5.vincular
 	}
 	if disponible {
 		salida.vincularPersonalB2 = fuenteF1.VincularContextoPersonalB2

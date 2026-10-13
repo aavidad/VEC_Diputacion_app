@@ -173,5 +173,5 @@ func validarRecuperacion(m ports.MaterialConsultaFirmasR5V2, f Firma, registro p
 }
 
 func ordenCanonValido(canon uint64, orden int) bool {
-	return orden == 1 && canon == 1 || orden == 2 && canon == 2
+	return orden >= 1 && orden <= ports.MaximoPasosFirmasVerificadasV2 && canon == uint64(orden)
 }

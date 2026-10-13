@@ -54,7 +54,7 @@ export function validarSolicitudRecuperacionFirmasV2(x) {
   if (!exacto(x, ["expediente_ref", "version_expediente", "documento", "paso_orden",
     "clave_idempotencia", "catalogo_huella", "via"])
     || !coincide(x.expediente_ref, REF) || !entero(x.version_expediente, 1)
-    || !coincide(x.documento, CLAVE_DOCUMENTO) || ![1, 2].includes(x.paso_orden)
+    || !coincide(x.documento, CLAVE_DOCUMENTO) || ![1, 2, 3].includes(x.paso_orden)
     || !coincide(x.clave_idempotencia, CLAVE_IDEMPOTENCIA) || !coincide(x.catalogo_huella, SHA)
     || !["certificado_vec", "portafirmas_registro_rrhh"].includes(x.via)) {
     throw new TypeError("solicitud_recuperacion_firmas_invalida");
@@ -64,7 +64,7 @@ export function validarSolicitudRecuperacionFirmasV2(x) {
 
 function validarFirma(x, solicitud) {
   if (!exacto(x, CAMPOS_FIRMA) || !coincide(x.firma_ref, REF) || !coincide(x.recibo_ref, REF)
-    || !fecha(x.registrada_en) || !entero(x.secuencia, 1) || ![1, 2].includes(x.paso_orden)
+    || !fecha(x.registrada_en) || !entero(x.secuencia, 1) || ![1, 2, 3].includes(x.paso_orden)
     || !coincide(x.paso_ref, REF) || !entero(x.version_expediente, 1)
     || x.version_expediente > solicitud.version_expediente
     || !["", "certificado_vec", "portafirmas_registro_rrhh"].includes(x.via)
@@ -85,11 +85,11 @@ function validarFirma(x, solicitud) {
   }
   if (x.revision_pdf !== null) {
     const r = x.revision_pdf;
-    if (!exacto(r, CAMPOS_REVISION) || ![1, 2].includes(r.orden_firma)
+    if (!exacto(r, CAMPOS_REVISION) || ![1, 2, 3].includes(r.orden_firma)
       || r.orden_firma !== x.paso_orden
       || typeof r.firma_anterior_ref !== "string" || typeof r.recibo_anterior_ref !== "string"
       || r.orden_firma === 1 && (r.firma_anterior_ref !== "" || r.recibo_anterior_ref !== "")
-      || r.orden_firma === 2 && (!coincide(r.firma_anterior_ref, REF) || !coincide(r.recibo_anterior_ref, REF))
+      || r.orden_firma > 1 && (!coincide(r.firma_anterior_ref, REF) || !coincide(r.recibo_anterior_ref, REF))
       || !documento(r.entrada_documento) || !entero(r.entrada_longitud, 1)
       || !Array.isArray(r.byte_range) || r.byte_range.length !== 4
       || !r.byte_range.every((v) => entero(v))
@@ -149,7 +149,7 @@ async function validarCanon(rec, firma, solicitud, cryptoImpl) {
     || canon.circuito?.huella_sha256 !== firma.catalogo_huella
     || canon.fecha_historica !== firma.registrada_en
     || revision.orden_firma === 1 && recurso.entrada_revision !== null
-    || revision.orden_firma === 2 && (
+    || revision.orden_firma > 1 && (
       recurso.entrada_revision?.referencia !== revision.entrada_documento.documento_ref
       || recurso.entrada_revision?.version !== revision.entrada_documento.version
       || recurso.entrada_revision?.huella_sha256 !== revision.entrada_documento.huella_sha256
@@ -182,12 +182,12 @@ export async function validarRespuestaRecuperacionFirmasV2(x, solicitud, cryptoI
     firmas.set(firma.firma_ref, firma);
   }
   for (const firma of firmas.values()) {
-    if (firma.paso_orden !== 2 || firma.revision_pdf === null) continue;
+    if (firma.paso_orden < 2 || firma.revision_pdf === null) continue;
     const revision = firma.revision_pdf;
     const previa = firmas.get(revision.firma_anterior_ref);
     const custodia = previa?.documento_custodiado;
     const revisionPrevia = previa?.revision_pdf;
-    if (!previa || previa.paso_orden !== 1 || !custodia || !revisionPrevia
+    if (!previa || previa.paso_orden !== firma.paso_orden - 1 || !custodia || !revisionPrevia
       || revision.recibo_anterior_ref !== previa.recibo_ref
       || firma.secuencia !== previa.secuencia + 1
       || firma.catalogo_ref !== previa.catalogo_ref

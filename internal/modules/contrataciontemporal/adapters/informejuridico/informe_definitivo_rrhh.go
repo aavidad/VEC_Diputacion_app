@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -108,6 +109,14 @@ func contenidoBorradorDesarrollo(
 		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
 	}
 	fuente := fuenteCampos{detalle: detalle, etiquetar: etiquetar, plantillas: plantillas, plantilla: plantilla, omitirReferencias: omitirReferencias}
+	if tipo == ports.BorradorInformeDefinitivo && plantilla.RequiereAccion == "generar_informe_juridico" {
+		hito, vigente := ctapplication.HitoInformeVigenteParaOriginalRRHH(detalle)
+		if !vigente {
+			return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
+		}
+		fuente.requerido = &hito
+		return plantilla.Rellenar(fuente.valores())
+	}
 	if plantilla.RequiereAccion == "" {
 		if detalle.Resumen.FaseClave != "nombramiento" || detalle.Resumen.EstadoClave != domain.EstadoEnCurso {
 			return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible

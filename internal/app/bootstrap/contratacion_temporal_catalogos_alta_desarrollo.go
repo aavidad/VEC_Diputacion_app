@@ -10,11 +10,12 @@ import (
 	"strconv"
 	"strings"
 
-	"vec-diputacion-granada/internal/app/composicion/firmasct"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/catalogoalta"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/numeracion"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	personalcatalogos "vec-diputacion-granada/internal/modules/personal/adapters/catalogosvec"
+	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -272,13 +273,23 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 	if strings.TrimSpace(rutaFuente) == "" {
 		return nil, nil
 	}
-	unidades, err := firmasct.CargarUnidadesPublicadas(context.Background(), rutaFuente)
+	fuente, err := fichero.NuevaConsultaCatalogos(rutaFuente)
+	if err != nil {
+		return nil, marcarFalloFuenteConfiguracionArranque("fuente_organizacion", err)
+	}
+	consulta, err := personalcatalogos.NuevaConsultaEstructuraOrganizativa(
+		fuente, "estructura-organizativa-dipgra", 1,
+	)
+	if err != nil {
+		return nil, marcarFalloFuenteConfiguracionArranque("fuente_organizacion", err)
+	}
+	datos, err := consulta.Obtener(context.Background())
 	if err != nil {
 		return nil, marcarFalloFuenteConfiguracionArranque("fuente_organizacion", err)
 	}
 	var centros []centroCatalogosAltaContratacionTemporalDesarrollo
 	var centrosOrganizacion []string
-	for _, u := range unidades {
+	for _, u := range datos.Unidades {
 		if u.Tipo == "centro" {
 			if !domain.ReferenciaOpacaValida(u.Clave) {
 				return nil, marcarFalloFuenteConfiguracionArranque("fuente_organizacion", errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles)
@@ -685,20 +696,19 @@ func (o *origenConsultasContratacionTemporalDesarrollo) etiquetasReferenciasCata
 			}
 			return ""
 		}
-		entradas := make([]firmasct.ReferenciaEtiqueta, 0, len(catalogos.Centros)+len(catalogos.Categorias))
 		for _, centro := range catalogos.Centros {
-			entradas = append(entradas, firmasct.ReferenciaEtiqueta{Referencia: centro.Referencia, Etiqueta: centro.Etiqueta})
+			if centro.Referencia == referencia {
+				return centro.Etiqueta
+			}
 			for _, contacto := range centro.Contactos {
-				entradas = append(entradas, firmasct.ReferenciaEtiqueta{Referencia: contacto.Referencia, Etiqueta: contacto.Etiqueta})
+				if contacto.Referencia == referencia {
+					return contacto.Etiqueta
+				}
 			}
 		}
 		for _, categoria := range catalogos.Categorias {
-			entradas = append(entradas, firmasct.ReferenciaEtiqueta{Referencia: categoria.Referencia, Etiqueta: categoria.Etiqueta})
-		}
-		etiquetar, err := firmasct.NuevoEtiquetadorReferencias(entradas)
-		if err == nil {
-			if nombre := etiquetar(referencia); nombre != "" {
-				return nombre
+			if categoria.Referencia == referencia {
+				return categoria.Etiqueta
 			}
 		}
 		if referencia == categoriaAltaContratacionTemporalDesarrollo {

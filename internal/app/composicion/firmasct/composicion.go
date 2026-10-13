@@ -34,6 +34,17 @@ type Dependencias struct {
 	PDFAnterior       ports.FuentePDFFirmaAnterior
 	Competencia       ports.FuenteCompetenciaFirmante
 	PoliticaFirmantes ports.FuentePoliticaMismaPersonaEnPasos
+	// Vec separa la sesión y el emisor del firmante de los de RRHH que
+	// registran la vía externa. Ambas vías conservan el mismo durable y plan.
+	// nil mantiene el ensamblaje común de los consumidores existentes.
+	Vec *DependenciasViaVec
+}
+
+type DependenciasViaVec struct {
+	EmisorPlan  ports.EmisorMaterialPlanFirmaV2
+	Consulta    ports.AutorizadorConsultaFirmasR5V2
+	Autorizar   ports.AutorizadorFirmaVerificadaV2
+	Competencia ports.FuenteCompetenciaFirmante
 }
 
 type Servicios struct {
@@ -72,8 +83,18 @@ func Componer(d Dependencias) (Servicios, error) {
 	if err != nil {
 		return cero, errors.Join(ErrComposicionNoDisponible, err)
 	}
-	vec, err := ct.NuevoServicioFirmaVecV2(&base, d.Verificador, registro,
-		d.Autorizar, d.Consulta, d.PDFAnterior, d.Competencia, d.PoliticaFirmantes)
+	registroVec := registro
+	autorizarVec, consultaVec, competenciaVec := d.Autorizar, d.Consulta, d.Competencia
+	if d.Vec != nil {
+		registroVec, err = firmaautorizacionv2.NuevoRegistroConPlanV2(d.DescriptorPlan, d.Vec.EmisorPlan,
+			d.Registro, consultaSinRegistroDirecto{d.Registro})
+		if err != nil {
+			return cero, errors.Join(ErrComposicionNoDisponible, err)
+		}
+		autorizarVec, consultaVec, competenciaVec = d.Vec.Autorizar, d.Vec.Consulta, d.Vec.Competencia
+	}
+	vec, err := ct.NuevoServicioFirmaVecV2(&base, d.Verificador, registroVec,
+		autorizarVec, consultaVec, d.PDFAnterior, competenciaVec, d.PoliticaFirmantes)
 	if err != nil {
 		return cero, errors.Join(ErrComposicionNoDisponible, err)
 	}

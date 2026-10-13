@@ -134,3 +134,30 @@ test("los dos catálogos JSON tienen el mismo contrato y no hay idioma en el tra
   }
   assert.throws(() => crearTraductorRecuperacionFirmasV2({}), TypeError);
 });
+
+test("tercera firma conserva cadena y canon de la segunda revisión", async () => {
+  const x = respuestaDosFirmas();
+  const previa = x.firmas[1];
+  const tercera = structuredClone(previa);
+  Object.assign(tercera, { firma_ref: "firma:tercera", recibo_ref: "recibo:tercero", paso_ref: "paso:tercero", paso_orden: 3, secuencia: 3 });
+  Object.assign(tercera.documento_custodiado, { documento_ref: "ref:" + h("7"), huella_sha256: h("7"), version: 3 });
+  Object.assign(tercera.revision_pdf, { orden_firma: 3, firma_anterior_ref: previa.firma_ref, recibo_anterior_ref: previa.recibo_ref,
+    entrada_documento: structuredClone(previa.documento_custodiado), entrada_longitud: previa.revision_pdf.revision_longitud,
+    revision_sha256: h("7"), contenido_firmado_sha256: h("8"), byte_range: [0, 500, 600, 100], revision_longitud: 700 });
+  delete tercera.revision_pdf.entrada_documento.expediente_ref;
+  const rec = structuredClone(x.recuperaciones[1]);
+  const canon = JSON.parse(rec.canon_nominal);
+  Object.assign(canon, { paso_ref: tercera.paso_ref, paso_orden: 3 });
+  Object.assign(canon.recurso, { numero_firmas: 3, entrada_revision: {
+    referencia: previa.documento_custodiado.documento_ref, version: previa.documento_custodiado.version,
+    huella_sha256: previa.documento_custodiado.huella_sha256 }, firmado: {
+    referencia: tercera.documento_custodiado.documento_ref, version: 3, huella_sha256: h("7") } });
+  rec.firma_ref = tercera.firma_ref;
+  rec.canon_nominal = JSON.stringify(canon);
+  rec.canon_nominal_sha256 = createHash("sha256").update(rec.canon_nominal).digest("hex");
+  rec.canon_nominal_ref = "evidencia:competencia-firmante-ct:" + rec.canon_nominal_sha256;
+  x.firmas.push(tercera); x.recuperaciones.push(rec);
+  assert.equal((await validarRespuestaRecuperacionFirmasV2(x, solicitud, webcrypto)).firmas.length, 3);
+  tercera.revision_pdf.firma_anterior_ref = x.firmas[0].firma_ref;
+  await assert.rejects(validarRespuestaRecuperacionFirmasV2(x, solicitud, webcrypto), TypeError);
+});

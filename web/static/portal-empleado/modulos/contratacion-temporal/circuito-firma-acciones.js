@@ -4,8 +4,8 @@
  */
 
 import { escaparHTML } from "./componentes-expedientes.js?v=20261011-ct-bolsa-vinculo-v1";
-import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261003-ct-firma-v2-v1";
-import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261003-ct-firma-v2-v1";
+import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261013-ct-firma-tres-v1";
+import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261013-ct-firma-tres-v1";
 import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261011-ct-bolsa-vinculo-v1";
 
 /** Une el circuito del catálogo con el estado real registrado. */
@@ -128,7 +128,7 @@ export function crearAccionesFirma({
     const p = s.preflight; const id = `ct-firma-${s.contexto.documento}-${s.contexto.pasoOrden}`;
     const vec = p.vias_disponibles.includes("certificado_vec") && typeof autofirma?.firmarPDF === "function" && typeof registrarVec === "function";
     const externa = p.vias_disponibles.includes("portafirmas_registro_rrhh") && typeof registrarExterna === "function";
-    s.bloque.innerHTML = `<p id="${id}-resultado" class="ct-circuito-resultado" role="status" aria-live="polite" tabindex="-1" data-ct-firma-resultado>${escaparHTML(t(p.paso_pendiente === 0 ? "circuito_firma_completo" : vec || externa ? "circuito_firma_opciones" : "circuito_firma_sin_vias"))}</p>
+    s.bloque.innerHTML = `<p id="${id}-resultado" class="ct-circuito-resultado" role="status" aria-live="polite" tabindex="-1" data-ct-firma-resultado>${escaparHTML(t(p.paso_pendiente === 0 ? "circuito_firma_completo" : vec || externa ? "circuito_firma_opciones" : "circuito_firma_sin_vias"))}${p.garantia_autenticacion === "sustancial" ? ` · ${escaparHTML(t("circuito_firma_garantia_sustancial"))}` : ""}</p>
       ${p.paso_pendiente > 1 ? `<p>${escaparHTML(t("circuito_firma_siguiente_original"))}</p>` : ""}
       ${vec ? `<button type="button" class="boton-primario" data-ct-firma-accion="certificado_vec" aria-describedby="${id}-resultado">${escaparHTML(t("circuito_firma_autofirma_prueba"))}</button>` : ""}
       ${externa ? `<button type="button" class="boton-secundario" data-ct-firma-accion="descargar" aria-describedby="${id}-resultado">${escaparHTML(t("circuito_firma_descargar_externo"))}</button>
@@ -295,8 +295,10 @@ export function crearAccionesFirma({
     if (!recibo) throw { codigo: "resultado_no_confiable" };
     s.recibo = recibo;
     recuperacion = null;
-    const aviso = t("circuito_firma_registro_confirmado", { recibo: recibo.recibo_ref });
-    decir(s, "circuito_firma_registro_confirmado", { recibo: recibo.recibo_ref }, true);
+    const claveConfirmacion = recibo.garantia_autenticacion === "sustancial"
+      ? "circuito_firma_registro_confirmado_sustancial" : "circuito_firma_registro_confirmado";
+    const aviso = t(claveConfirmacion, { recibo: recibo.recibo_ref });
+    decir(s, claveConfirmacion, { recibo: recibo.recibo_ref }, true);
     s.preflight = null; s.reintento = null;
     // El recibo ya está confirmado. Un fallo al refrescar no lo convierte en fallo de registro.
     try { await alCambiar?.(aviso, recibo); } catch { /* se conserva la confirmación y se cierran acciones */ }

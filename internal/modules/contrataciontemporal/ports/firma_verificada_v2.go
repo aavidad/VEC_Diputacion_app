@@ -11,6 +11,10 @@ import (
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
 
+// MaximoPasosFirmasVerificadasV2 limita la cadena incremental admitida por CT.
+// El plan gobernado sigue decidiendo qué pasos requiere cada documento.
+const MaximoPasosFirmasVerificadasV2 = 3
+
 const (
 	AudienciaFirmaVecV2         = "vec_contratacion_temporal.firma_vec.v2"
 	AudienciaFirmaExternaV2     = "vec_contratacion_temporal.firma_externa.v2"
@@ -50,7 +54,7 @@ func (m MaterialFirmaVerificadaV2) Validar() error {
 	if (base.Via == ViaFirmaCertificadoVEC && MaterialFirmaVec(base).Validar() != nil) ||
 		(base.Via == ViaFirmaExternaPortafirmas && base.Validar() != nil) ||
 		(base.Via != ViaFirmaCertificadoVEC && base.Via != ViaFirmaExternaPortafirmas) ||
-		m.PasoOrden < 1 || m.PasoOrden > 2 || m.OrdenFirmaPDF != m.PasoOrden ||
+		m.PasoOrden < 1 || m.PasoOrden > MaximoPasosFirmasVerificadasV2 || m.OrdenFirmaPDF != m.PasoOrden ||
 		!domain.ReferenciaOpacaValida(m.EntradaDocumentoRef) || m.EntradaDocumentoVersion < 1 || m.EntradaDocumentoVersion > 9007199254740991 ||
 		m.EntradaDocumentoLongitud < 1 || m.EntradaDocumentoLongitud >= m.RevisionLongitud || m.RevisionLongitud > 32*1024*1024 ||
 		!domain.HuellaSHA256FirmaValida(m.EntradaDocumentoHuella) ||
@@ -198,7 +202,7 @@ func (m MaterialConsultaFirmasR5V2) Canonico() ([]byte, error) {
 	}
 	// UnidadRef es la unidad de la asignación de quien consulta (CT186): sólo
 	// en la vía VEC; CC10 la liga en SQL a un paso del plan publicado.
-	if m.PasoOrden < 1 || m.PasoOrden > 2 || (m.Via != ViaFirmaCertificadoVEC && m.Via != ViaFirmaExternaPortafirmas) ||
+	if m.PasoOrden < 1 || m.PasoOrden > MaximoPasosFirmasVerificadasV2 || (m.Via != ViaFirmaCertificadoVEC && m.Via != ViaFirmaExternaPortafirmas) ||
 		(m.UnidadRef != "" && (m.Via != ViaFirmaCertificadoVEC || !domain.ReferenciaOpacaValida(m.UnidadRef))) {
 		return nil, ErrSolicitudFirmaDocumentoInvalida
 	}

@@ -113,6 +113,60 @@ func TestFuenteOriginalRRHHConsultaVersionV3YRenderizaUnaVez(t *testing.T) {
 	}
 }
 
+func TestOriginalInformePrevioAdmiteEmisionYReemisionAntesDeFiscalizacion(t *testing.T) {
+	for _, nombre := range []string{"inicial", "expediente_informe_nuevo_v8.json"} {
+		t.Run(nombre, func(t *testing.T) {
+			f, in, actual, historico, _, render := prepararFuenteOriginalRRHHPrueba(t)
+			archivo := "../domain/testdata/" + nombre
+			if nombre == "inicial" {
+				archivo = "../domain/testdata/expediente_nombramiento_v7.json"
+			}
+			contenido, err := os.ReadFile(archivo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var e domain.Expediente
+			if err := json.Unmarshal(contenido, &e); err != nil {
+				t.Fatal(err)
+			}
+			if nombre == "inicial" {
+				e.Version = 5
+				e.Actuaciones = e.Actuaciones[:5]
+				e.Fiscalizacion = nil
+				e.FaseActual, e.EstadoActual = domain.FaseInformeJuridico, domain.EstadoEnCurso
+				e.ActualizadoEn = e.Actuaciones[4].RealizadaEn
+			}
+			if err := e.Validar(); err != nil {
+				t.Fatal(err)
+			}
+			ahora := e.ActualizadoEn.Add(time.Minute)
+			contexto := contextoConsultaRRHHV3Prueba(t, ahora)
+			q, err := ports.NuevaSolicitudDetalleRRHH(e.Referencia, e.Version)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cap := capacidadConsultaDetalleRRHHV3Prueba(t, contexto, q, ahora)
+			recibo := reciboConsultaRRHHPrueba(t, contexto, cap, ahora, e.Referencia, e.Version, 1)
+			actual.detalle, err = ports.NuevoDetalleExpedienteRRHH(e, recibo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			in.ExpedienteRef = e.Referencia
+			in.Documento = string(ports.BorradorInformeDefinitivo)
+			in.OriginalVersion = e.Version
+			in.OriginalRef = identidadOriginalFirmableRRHH(in).Referencia()
+			if _, err := f.ObtenerPDFOriginalCT(t.Context(), in); err != nil || historico.llamadas != 0 || render.version != e.Version {
+				t.Fatalf("informe previo rechazado o reconstruido por propuesta: %v", err)
+			}
+			in.OriginalVersion--
+			in.OriginalRef = identidadOriginalFirmableRRHH(in).Referencia()
+			if _, err := f.ObtenerPDFOriginalCT(t.Context(), in); !errors.Is(err, vecports.ErrOriginalFirmableCTConflicto) || historico.llamadas != 0 {
+				t.Fatal("se reconstruyó un informe de una versión anterior")
+			}
+		})
+	}
+}
+
 func TestFuenteOriginalRRHHRecuperaPropuestaV7ConFachadaHistorica(t *testing.T) {
 	t.Parallel()
 	f, in, actual, historico, tipos, render := prepararFuenteOriginalRRHHPrueba(t)

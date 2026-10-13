@@ -92,7 +92,8 @@ export function validarReciboFirmaV2(datos, solicitud, externo = false) {
   const custodia = datos?.documento_custodiado;
   const verificacion = datos?.verificacion_tecnica;
   const revision = datos?.revision_pdf;
-  if (!campos(datos, claves) || datos.esquema !== (externo ? "vec.contratacion-temporal.registro-firma-externa.v2" : ESQUEMA) || datos.firma_eficaz !== false
+  if (!campos(datos, claves, ["garantia_autenticacion"])
+    || (Object.hasOwn(datos ?? {}, "garantia_autenticacion") && (externo || datos.garantia_autenticacion !== "sustancial")) || datos.esquema !== (externo ? "vec.contratacion-temporal.registro-firma-externa.v2" : ESQUEMA) || datos.firma_eficaz !== false
     || datos.expediente_ref !== solicitud.expedienteRef || datos.version_expediente !== solicitud.version
     || datos.documento !== solicitud.documento || datos.paso_orden !== solicitud.pasoOrden
     || !referenciaValida(datos.recibo_ref) || !referenciaValida(datos.firma_ref) || !referenciaValida(datos.paso_ref)

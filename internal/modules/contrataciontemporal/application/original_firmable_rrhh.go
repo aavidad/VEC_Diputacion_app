@@ -81,6 +81,11 @@ func (f *FuenteOriginalFirmableRRHH) ObtenerPDFOriginalCT(
 	}
 	detalle := actual
 	if actual.Resumen.Version != in.OriginalVersion {
+		// El informe previo se prepara en su versión viva de emisión. Nunca
+		// usa la fachada histórica de propuesta de nombramiento para rehacerlo.
+		if tipo == ports.BorradorInformeDefinitivo {
+			return vacio, vecports.ErrOriginalFirmableCTConflicto
+		}
 		if in.OriginalVersion != 7 ||
 			(actual.Resumen.Version != 8 && actual.Resumen.Version != 9) {
 			return vacio, vecports.ErrOriginalFirmableCTConflicto
@@ -109,7 +114,11 @@ func (f *FuenteOriginalFirmableRRHH) ObtenerPDFOriginalCT(
 		detalle.Resumen.ExpedienteRef != in.ExpedienteRef {
 		return vacio, vecports.ErrOriginalFirmableCTConflicto
 	}
-	if detalle.Resumen.Version < 7 || len(detalle.Hitos) < 7 ||
+	if tipo == ports.BorradorInformeDefinitivo {
+		if _, ok := HitoInformeVigenteParaOriginalRRHH(detalle); !ok {
+			return vacio, vecports.ErrOriginalFirmableCTConflicto
+		}
+	} else if detalle.Resumen.Version < 7 || len(detalle.Hitos) < 7 ||
 		detalle.Hitos[6].AccionClave != "registrar_propuesta_formalizacion" ||
 		detalle.Hitos[6].FaseDestino != "nombramiento" ||
 		detalle.Hitos[6].EstadoDestino != domain.EstadoEnCurso {
@@ -141,6 +150,22 @@ func (f *FuenteOriginalFirmableRRHH) ObtenerPDFOriginalCT(
 		return vacio, vecports.ErrOriginalFirmableCTNoDisponible
 	}
 	return vecports.PDFOriginalCT{TipoRef: tipoRef, Contenido: bytes.Clone(contenido)}, nil
+}
+
+// HitoInformeVigenteParaOriginalRRHH admite la emisión inicial o una reemisión
+// real tras subsanar, antes de la siguiente fiscalización. El último hito tiene
+// que ser esa emisión: una subsanación pendiente o un informe anterior no la
+// sustituyen. Su versión forma parte de la identidad inmutable del original.
+func HitoInformeVigenteParaOriginalRRHH(d ports.DetalleExpedienteRRHH) (ports.HitoExpedienteRRHH, bool) {
+	if d.Resumen.Version < 5 || len(d.Hitos) == 0 {
+		return ports.HitoExpedienteRRHH{}, false
+	}
+	h := d.Hitos[len(d.Hitos)-1]
+	valida := h.AccionClave == domain.AccionEmitirInformeJuridico && h.VersionExpediente == d.Resumen.Version &&
+		h.Secuencia == d.Resumen.Version && h.FaseDestino == d.Resumen.FaseClave && h.EstadoDestino == d.Resumen.EstadoClave &&
+		(h.FaseDestino == domain.FaseInformeJuridico && h.EstadoDestino == domain.EstadoEnCurso ||
+			h.FaseDestino == domain.FaseSubsanacionUnidad && h.EstadoDestino == domain.EstadoIncidencia)
+	return h, valida
 }
 
 func identidadOriginalFirmableRRHH(in vecports.SolicitudOriginalFirmableCT) almacencanonico.IdentidadOriginalCT {
