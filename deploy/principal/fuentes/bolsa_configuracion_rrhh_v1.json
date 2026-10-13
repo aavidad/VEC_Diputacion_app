@@ -1,0 +1,54 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:configuracion_rrhh",
+  "version": 1,
+  "huella_sha256": "6bf7663b22201e24ac896648c5a27d60ff03bf5ab752154421499cf8fcfe360e",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.configuracion.consultar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:configuracion_rrhh\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.configuracion.consultar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"perfil_rrhh_bolsa\",\"finalidades\":[\"consulta_configuracion_bolsa_rrhh\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"acciones[]\",\"ambito.ambito_ref\",\"ambito.unidad_ref\",\"canales[].activo\",\"canales[].acuse\",\"canales[].admite_respuesta\",\"canales[].al_emitir\",\"canales[].canal\",\"canales[].limite_caracteres\",\"canales[].modo\",\"canales[].requiere_alta_voluntaria\",\"canales[].resultados[]\",\"canales[].resultados_cierre[]\",\"canales[].seguimiento\",\"consultada_en\",\"rol.nombre\",\"rol.version\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.configuracion.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:configuracion_rrhh",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "6bf7663b22201e24ac896648c5a27d60ff03bf5ab752154421499cf8fcfe360e",
+      "concesion": {
+        "accion": "bolsa.configuracion.consultar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "perfil_rrhh_bolsa",
+        "finalidades": [
+          "consulta_configuracion_bolsa_rrhh"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "acciones[]",
+          "ambito.ambito_ref",
+          "ambito.unidad_ref",
+          "canales[].activo",
+          "canales[].acuse",
+          "canales[].admite_respuesta",
+          "canales[].al_emitir",
+          "canales[].canal",
+          "canales[].limite_caracteres",
+          "canales[].modo",
+          "canales[].requiere_alta_voluntaria",
+          "canales[].resultados[]",
+          "canales[].resultados_cierre[]",
+          "canales[].seguimiento",
+          "consultada_en",
+          "rol.nombre",
+          "rol.version"
+        ],
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z"
+    }
+  ]
+}
