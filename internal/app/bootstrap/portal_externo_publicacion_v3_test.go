@@ -47,12 +47,23 @@ func TestMaterialPublicacionExternaV3CompletoYPropio(t *testing.T) {
 		delete(valor.(map[string]any), "secreto_hmac_hex")
 	}
 	publico, err := json.Marshal(contenido)
-	if err != nil || !publicoIgualExternoV3(propuesta, publico) {
+	if err != nil {
+		t.Fatal(err)
+	}
+	coincide, err := publicoIgualExternoV3(propuesta, publico)
+	if err != nil || !coincide {
 		t.Fatal("la publicación pública no coincide")
 	}
 	claves[0].(map[string]any)["huella_secreto_sha256"] = strings.Repeat("0", 64)
 	alterado, err := json.Marshal(contenido)
-	if err != nil || publicoIgualExternoV3(propuesta, alterado) {
+	if err != nil {
+		t.Fatal(err)
+	}
+	coincide, err = publicoIgualExternoV3(propuesta, alterado)
+	if err != nil || coincide {
 		t.Fatal("replay divergente aceptado")
+	}
+	if coincide, err = publicoIgualExternoV3(propuesta, []byte("{")); err == nil || coincide {
+		t.Fatal("JSON público malformado no comunica su error")
 	}
 }
