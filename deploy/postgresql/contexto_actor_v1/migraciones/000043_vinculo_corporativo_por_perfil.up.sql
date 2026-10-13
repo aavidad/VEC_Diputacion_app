@@ -64,10 +64,10 @@ BEGIN
  IF n<>0 THEN RAISE EXCEPTION 'CA43: PARO clave=funciones_bajo_lock actual=deriva esperado=literal_instalado' USING ERRCODE='55000'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_class WHERE oid='vec_contexto_actor_v1.vinculo_corporativo_actual'::regclass
   AND relowner='vec_contexto_actor_v1_propietario'::regrole AND relkind='r'
-  AND relrowsecurity AND relforcerowsecurity AND relacl IS NULL)
+  AND relrowsecurity AND relforcerowsecurity AND (relacl IS NULL OR relacl=acldefault('r',relowner)))
  OR NOT EXISTS(SELECT 1 FROM pg_class WHERE oid='vec_contexto_actor_v1.vinculo_corporativo_versiones'::regclass
   AND relowner='vec_contexto_actor_v1_propietario'::regrole AND relkind='r'
-  AND relrowsecurity AND relforcerowsecurity AND relacl IS NULL)
+  AND relrowsecurity AND relforcerowsecurity AND (relacl IS NULL OR relacl=acldefault('r',relowner)))
  OR NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='vec_contexto_actor_v1.vinculo_corporativo_actual'::regclass
   AND conname='vinculo_corporativo_actual_pk' AND pg_get_constraintdef(oid,false)='PRIMARY KEY (cuenta_ref, superficie, uso)')
  OR NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='vec_contexto_actor_v1.vinculo_corporativo_actual'::regclass
@@ -603,7 +603,7 @@ BEGIN
    ON v.vinculo_corporativo_ref=a.vinculo_corporativo_ref AND v.version=a.version
   WHERE a.perfil_ref IS DISTINCT FROM v.perfil_ref)
  OR NOT EXISTS(SELECT 1 FROM pg_class WHERE oid='vec_contexto_actor_v1.vinculo_corporativo_actual'::regclass
-  AND relowner='vec_contexto_actor_v1_propietario'::regrole AND relrowsecurity AND relforcerowsecurity AND relacl IS NULL)
+  AND relowner='vec_contexto_actor_v1_propietario'::regrole AND relrowsecurity AND relforcerowsecurity AND (relacl IS NULL OR relacl=acldefault('r',relowner)))
  OR (SELECT count(*) FROM pg_trigger WHERE tgrelid='vec_contexto_actor_v1.vinculo_corporativo_actual'::regclass
   AND NOT tgisinternal AND tgenabled='O'
   AND tgname IN ('serializar_mutacion_punteros_actuales_v2','avanzar_generacion_punteros_actuales_v2','puntero_actual_no_truncable_v2'))<>3
