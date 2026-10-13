@@ -26,6 +26,7 @@ var accionesInscripcionRRHHB103 = [...]string{
 
 // La ampliación C3 usa el mismo acto de dos ADMIN y conserva el plan histórico.
 const AccionLecturaOrigenContactoBolsa = "bolsa.datos_contacto_participacion.origen.consultar"
+const AccionLecturaAlegacionesRRHHBolsa = "bolsa.inscripcion.alegacion.rrhh.consultar"
 
 func CamposLecturaOrigenContactoBolsa() []string {
 	return []string{"enmascarados", "origen", "participacion_ref", "registrada_en", "sin_contacto", "version"}
@@ -93,6 +94,18 @@ func concesionDeltaRRHHB103(c ConcesionRol, accion string) bool {
 		return c.TipoRecurso == "solicitud_inscripcion" && slices.Equal(c.Finalidades, []string{"incorporar_inscripcion"}) && len(c.CamposPermitidos) == 0
 	}
 	return false
+}
+
+func CamposLecturaAlegacionesRRHHBolsa() []string {
+	base := []string{"alegacion_ref", "objeto.tipo", "objeto.solicitud_ref", "objeto.participacion_ref",
+		"objeto.acto_ref", "objeto.version_acto", "fundamento", "estado", "presentada_en", "recibo_ref",
+		"auditoria_ref", "persona_resumen"}
+	campos := []string{"total", "cursor_siguiente", "ambitos[].tipo", "ambitos[].referencia", "ambitos[].titulo"}
+	for _, hoja := range base {
+		campos = append(campos, "alegaciones[]."+hoja, hoja)
+	}
+	slices.Sort(campos)
+	return campos
 }
 
 // IntencionVersionarRolBolsaB103 sólo identifica la cabeza, el catálogo y

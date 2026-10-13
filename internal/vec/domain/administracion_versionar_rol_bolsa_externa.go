@@ -22,10 +22,14 @@ var accionesInscripcionBolsaExterna = [...]string{
 	"bolsa.inscripcion.propias.listar", "bolsa.inscripcion.propia.consultar", "bolsa.inscripcion.presentar",
 }
 
+var accionesAlegacionesBolsaExterna = [...]string{
+	"bolsa.alegacion.propias.consultar", "bolsa.inscripcion.alegacion.presentar",
+}
+
 func accionesDeltaBolsaExterna(rol VersionRol, selecciones int) []string {
 	if (selecciones != len(accionesVersionarRolBolsaExterna) && selecciones != len(accionesInscripcionBolsaExterna)) ||
 		rol.RolID != RolIDVersionarBolsaExterna ||
-		rol.Version < 1 || rol.Version > 2 {
+		rol.Version < 1 || rol.Version > 3 {
 		return nil
 	}
 	base := rol
@@ -35,6 +39,33 @@ func accionesDeltaBolsaExterna(rol VersionRol, selecciones int) []string {
 	base.Version = 1
 	base.Concesiones = rol.Concesiones[:len(accionesBaseVersionarRolBolsaExterna)]
 	if !baseVersionarRolBolsaExterna(base) {
+		return nil
+	}
+	if rol.Version == 3 {
+		if selecciones != len(accionesAlegacionesBolsaExterna) ||
+			len(rol.Concesiones) != len(accionesBaseVersionarRolBolsaExterna)+
+				len(accionesVersionarRolBolsaExterna)+len(accionesInscripcionBolsaExterna) {
+			return nil
+		}
+		ordenes := [][2][]string{
+			{accionesVersionarRolBolsaExterna[:], accionesInscripcionBolsaExterna[:]},
+			{accionesInscripcionBolsaExterna[:], accionesVersionarRolBolsaExterna[:]},
+		}
+		for _, orden := range ordenes {
+			indice, valido := len(accionesBaseVersionarRolBolsaExterna), true
+			for _, tramo := range orden {
+				for _, accion := range tramo {
+					if !concesionDeltaBolsaExterna(rol.Concesiones[indice], accion) {
+						valido = false
+						break
+					}
+					indice++
+				}
+			}
+			if valido {
+				return accionesAlegacionesBolsaExterna[:]
+			}
+		}
 		return nil
 	}
 	if selecciones == len(accionesVersionarRolBolsaExterna) {
@@ -270,7 +301,32 @@ func camposInscripcionBolsaExterna(accion string) []string {
 	return campos
 }
 
+func camposAlegacionesBolsaExterna() []string {
+	campos := []string{"total", "cursor_siguiente", "objetos[].tipo", "objetos[].solicitud_ref",
+		"objetos[].participacion_ref", "objetos[].acto_ref", "objetos[].version_acto", "objetos[].titulo",
+		"objetos[].estado", "objetos[].ocurrido_en", "objetos[].convocatoria_ref", "objetos[].bolsa_ref"}
+	for _, hoja := range []string{"alegacion_ref", "objeto.tipo", "objeto.solicitud_ref", "objeto.participacion_ref",
+		"objeto.acto_ref", "objeto.version_acto", "fundamento", "estado", "presentada_en", "recibo_ref", "auditoria_ref"} {
+		campos = append(campos, "alegaciones[]."+hoja)
+	}
+	slices.Sort(campos)
+	return campos
+}
+
 func concesionDeltaBolsaExterna(c ConcesionRol, accion string) bool {
+	if slices.Contains(accionesAlegacionesBolsaExterna[:], accion) {
+		if c.Validar() != nil || c.ModuloID != "bolsa" || c.Accion != accion ||
+			c.GarantiaMinima != AuthAssuranceHigh || len(c.Obligaciones) != 0 {
+			return false
+		}
+		if accion == accionesAlegacionesBolsaExterna[0] {
+			return c.TipoRecurso == "alegaciones_propias" &&
+				slices.Equal(c.Finalidades, []string{"consulta_alegaciones_propias"}) &&
+				slices.Equal(c.CamposPermitidos, camposAlegacionesBolsaExterna())
+		}
+		return c.TipoRecurso == "alegacion_bolsa" &&
+			slices.Equal(c.Finalidades, []string{"presentacion_alegacion_propia"}) && len(c.CamposPermitidos) == 0
+	}
 	if !slices.Contains(accionesInscripcionBolsaExterna[:], accion) {
 		return concesionVersionarRolBolsaExterna(c, accion)
 	}

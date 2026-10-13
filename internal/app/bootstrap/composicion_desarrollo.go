@@ -413,7 +413,8 @@ func nuevoServidorDesarrollo(
 			}
 		}()
 	}
-	inscripcionRRHH, err := nuevaInscripcionRRHHDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialInscripcionBolsa)
+	inscripcionRRHH, err := nuevaInscripcionRRHHDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia,
+		autoridadContratacion.materialInscripcionBolsa, fuenteConstituida)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("inscripcion_bolsa_rrhh", err)
 	}

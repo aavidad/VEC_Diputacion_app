@@ -119,5 +119,6 @@ func (s *sesionInternaInscripcionBolsa) ResolverInscripcion(r *http.Request) (co
 }
 
 func rutaInscripcionInterna(path string) bool {
-	return path == httpinscripcion.RutaRRHH || strings.HasPrefix(path, httpinscripcion.RutaRRHH+"/")
+	return path == httpinscripcion.RutaRRHH || strings.HasPrefix(path, httpinscripcion.RutaRRHH+"/") ||
+		path == httpinscripcion.RutaAlegacionesRRHH || strings.HasPrefix(path, httpinscripcion.RutaAlegacionesRRHH+"/")
 }

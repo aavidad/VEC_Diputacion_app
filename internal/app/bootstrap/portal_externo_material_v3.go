@@ -49,6 +49,7 @@ const (
 	consumidorPreferenciasBolsasPortalExternoV3 = "preferencias_bolsas"
 	consumidorMeritosCarteraPortalExternoV3     = "meritos_cartera"
 	audienciaPresentarInscripcionExternaV3      = "vec_bolsa_llamamientos.inscripcion.presentar.v1"
+	audienciaPresentarAlegacionExternaV3        = "vec_bolsa_llamamientos.alegacion.presentar.v1"
 	accionPresentarInscripcionExternaV3         = "bolsa.inscripcion.presentar"
 	tipoRecursoPresentarInscripcionExternaV3    = "inscripcion_convocatoria"
 )
@@ -68,6 +69,15 @@ func descriptorMaterialPresentarInscripcionExternaV3() descriptorMaterialConsumi
 		Dominio:          "vec.bolsa.inscripcion.presentar.desarrollo.capacidad-v3",
 		Prefijo:          "clave:capacidad:bolsa-inscripcion-presentar:",
 		ProveedorNominal: "proveedor-material-bolsa-inscripcion-presentar",
+	}
+}
+
+func descriptorMaterialPresentarAlegacionExternaV3() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia:        audienciaPresentarAlegacionExternaV3,
+		Dominio:          "vec.bolsa.alegacion.presentar.desarrollo.capacidad-v3",
+		Prefijo:          "clave:capacidad:bolsa-alegacion-presentar:",
+		ProveedorNominal: "proveedor-material-bolsa-alegacion-presentar",
 	}
 }
 
@@ -102,7 +112,7 @@ func audienciasConsumidorPortalExternoV3(consumidor string) []string {
 			puertosbolsa.AudienciaConfirmarContactoPropio,
 		}
 	case consumidorInscripcionPortalExternoV3:
-		return []string{audienciaPresentarInscripcionExternaV3}
+		return []string{audienciaPresentarInscripcionExternaV3, audienciaPresentarAlegacionExternaV3}
 	case consumidorPreferenciasBolsasPortalExternoV3:
 		return []string{puertosbolsa.AudienciaOrdenarPreferenciasBolsas}
 	case consumidorMeritosCarteraPortalExternoV3:
@@ -124,6 +134,7 @@ func descriptoresMaterialPortalExternoV3() []descriptorMaterialConsumidorV3Desar
 	todos = append(todos, descriptoresMaterialPortalCandidatoDesarrollo()...)
 	todos = append(todos, descriptoresMaterialContactoPropioDesarrollo()...)
 	todos = append(todos, descriptorMaterialPresentarInscripcionExternaV3())
+	todos = append(todos, descriptorMaterialPresentarAlegacionExternaV3())
 	todos = append(todos, descriptorMaterialOrdenarPreferenciasBolsasExternaV3())
 	todos = append(todos, descriptorMaterialRetirarCarteraExternaV3())
 	todos = append(todos, descriptoresMaterialMeritosInternosDesarrollo()[0])

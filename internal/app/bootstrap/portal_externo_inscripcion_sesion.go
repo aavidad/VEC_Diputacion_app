@@ -166,5 +166,6 @@ func (s *SesionExternaInscripcion) ResolverSesionExterna(r *http.Request) (conte
 // Las rutas de la persona aspirante tienen prefijo propio, fuera de Mi Bolsa.
 func rutaInscripcionExterna(ruta string) bool {
 	return ruta == httpinscripcion.RutaAbiertas || strings.HasPrefix(ruta, httpinscripcion.RutaAbiertas+"/") ||
-		ruta == httpinscripcion.RutaPropias || strings.HasPrefix(ruta, httpinscripcion.RutaPropias+"/")
+		ruta == httpinscripcion.RutaPropias || strings.HasPrefix(ruta, httpinscripcion.RutaPropias+"/") ||
+		ruta == httpinscripcion.RutaAlegacionesPropias || strings.HasPrefix(ruta, httpinscripcion.RutaAlegacionesPropias+"/")
 }

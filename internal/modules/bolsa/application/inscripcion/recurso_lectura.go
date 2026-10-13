@@ -13,6 +13,9 @@ func RecursoLectura(accion, personaRef, idioma string, filtro Filtro, ref string
 	if !referenciaOpaca.MatchString(personaRef) || (idioma != "es" && idioma != "en") {
 		return "", ErrSolicitudInvalida
 	}
+	if accion == AccionObjetosAlegacion || accion == AccionAlegacionesRRHH {
+		return recursoLecturaAlegacion(accion, personaRef, idioma, filtro, ref)
+	}
 	switch accion {
 	case AccionConvocatoriasRRHH:
 		if ref != "" || filtro.Estado != "" || filtro.ConvocatoriaRef != "" ||

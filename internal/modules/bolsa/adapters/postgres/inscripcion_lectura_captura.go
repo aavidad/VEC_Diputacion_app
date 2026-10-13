@@ -93,12 +93,16 @@ func finalidadLecturaInscripcion(accion string) string {
 		return "consulta_convocatoria_abierta"
 	case inscripcion.AccionListarPropias, inscripcion.AccionDetallePropia:
 		return "consulta_inscripcion_propia"
+	case inscripcion.AccionObjetosAlegacion:
+		return "consulta_alegaciones_propias"
 	case inscripcion.AccionListarRRHH, inscripcion.AccionDetalleRRHH:
 		return "consulta_inscripcion_rrhh"
 	case inscripcion.AccionConvocatoriasRRHH:
 		return "consulta_convocatorias_gestion_rrhh"
 	case inscripcion.AccionMotivosRRHH:
 		return "consulta_motivos_inscripcion_rrhh"
+	case inscripcion.AccionAlegacionesRRHH:
+		return "consulta_alegaciones_rrhh"
 	default:
 		return ""
 	}
@@ -107,9 +111,9 @@ func finalidadLecturaInscripcion(accion string) string {
 func canalLecturaInscripcion(accion, canal string) bool {
 	switch accion {
 	case inscripcion.AccionListarAbiertas, inscripcion.AccionDetalleAbierta,
-		inscripcion.AccionListarPropias, inscripcion.AccionDetallePropia:
+		inscripcion.AccionListarPropias, inscripcion.AccionDetallePropia, inscripcion.AccionObjetosAlegacion:
 		return canal == "externa_personal" || canal == "interna_corporativa"
-	case inscripcion.AccionListarRRHH, inscripcion.AccionConvocatoriasRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH:
+	case inscripcion.AccionListarRRHH, inscripcion.AccionConvocatoriasRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH, inscripcion.AccionAlegacionesRRHH:
 		return canal == "interna_corporativa"
 	default:
 		return false

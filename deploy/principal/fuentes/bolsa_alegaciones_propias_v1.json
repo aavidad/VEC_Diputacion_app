@@ -1,0 +1,132 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:alegaciones_propias_v1",
+  "version": 1,
+  "huella_sha256": "5b9f0fc2d99f4c2cf7b08829bb56bcddd5262c5cb44cc797b48a3f1f072a1060",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.alegacion.propias.consultar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:alegaciones_propias_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.alegacion.propias.consultar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"alegaciones_propias\",\"finalidades\":[\"consulta_alegaciones_propias\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"alegaciones[].alegacion_ref\",\"alegaciones[].auditoria_ref\",\"alegaciones[].estado\",\"alegaciones[].fundamento\",\"alegaciones[].objeto.acto_ref\",\"alegaciones[].objeto.participacion_ref\",\"alegaciones[].objeto.solicitud_ref\",\"alegaciones[].objeto.tipo\",\"alegaciones[].objeto.version_acto\",\"alegaciones[].presentada_en\",\"alegaciones[].recibo_ref\",\"cursor_siguiente\",\"objetos[].acto_ref\",\"objetos[].bolsa_ref\",\"objetos[].convocatoria_ref\",\"objetos[].estado\",\"objetos[].ocurrido_en\",\"objetos[].participacion_ref\",\"objetos[].solicitud_ref\",\"objetos[].tipo\",\"objetos[].titulo\",\"objetos[].version_acto\",\"total\"]},\"dimensiones_ambito\":[\"candidato_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"},{\"referencia\":\"accion:bolsa.inscripcion.alegacion.presentar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:alegaciones_propias_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.inscripcion.alegacion.presentar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"alegacion_bolsa\",\"finalidades\":[\"presentacion_alegacion_propia\"],\"garantia_minima\":\"alto\"},\"dimensiones_ambito\":[\"candidato_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"},{\"referencia\":\"accion:bolsa.inscripcion.alegacion.rrhh.consultar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:alegaciones_propias_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.inscripcion.alegacion.rrhh.consultar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"alegaciones_bolsa\",\"finalidades\":[\"consulta_alegaciones_rrhh\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"alegacion_ref\",\"alegaciones[].alegacion_ref\",\"alegaciones[].auditoria_ref\",\"alegaciones[].estado\",\"alegaciones[].fundamento\",\"alegaciones[].objeto.acto_ref\",\"alegaciones[].objeto.participacion_ref\",\"alegaciones[].objeto.solicitud_ref\",\"alegaciones[].objeto.tipo\",\"alegaciones[].objeto.version_acto\",\"alegaciones[].persona_resumen\",\"alegaciones[].presentada_en\",\"alegaciones[].recibo_ref\",\"ambitos[].referencia\",\"ambitos[].tipo\",\"ambitos[].titulo\",\"auditoria_ref\",\"cursor_siguiente\",\"estado\",\"fundamento\",\"objeto.acto_ref\",\"objeto.participacion_ref\",\"objeto.solicitud_ref\",\"objeto.tipo\",\"objeto.version_acto\",\"persona_resumen\",\"presentada_en\",\"recibo_ref\",\"total\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.alegacion.propias.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:alegaciones_propias_v1",
+      "fuente_version": 1,
+      "concesion": {
+        "accion": "bolsa.alegacion.propias.consultar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "alegaciones_propias",
+        "finalidades": [
+          "consulta_alegaciones_propias"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "alegaciones[].alegacion_ref",
+          "alegaciones[].auditoria_ref",
+          "alegaciones[].estado",
+          "alegaciones[].fundamento",
+          "alegaciones[].objeto.acto_ref",
+          "alegaciones[].objeto.participacion_ref",
+          "alegaciones[].objeto.solicitud_ref",
+          "alegaciones[].objeto.tipo",
+          "alegaciones[].objeto.version_acto",
+          "alegaciones[].presentada_en",
+          "alegaciones[].recibo_ref",
+          "cursor_siguiente",
+          "objetos[].acto_ref",
+          "objetos[].bolsa_ref",
+          "objetos[].convocatoria_ref",
+          "objetos[].estado",
+          "objetos[].ocurrido_en",
+          "objetos[].participacion_ref",
+          "objetos[].solicitud_ref",
+          "objetos[].tipo",
+          "objetos[].titulo",
+          "objetos[].version_acto",
+          "total"
+        ]
+      },
+      "dimensiones_ambito": [
+        "candidato_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z",
+      "fuente_huella_sha256": "5b9f0fc2d99f4c2cf7b08829bb56bcddd5262c5cb44cc797b48a3f1f072a1060"
+    },
+    {
+      "referencia": "accion:bolsa.inscripcion.alegacion.presentar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:alegaciones_propias_v1",
+      "fuente_version": 1,
+      "concesion": {
+        "accion": "bolsa.inscripcion.alegacion.presentar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "alegacion_bolsa",
+        "finalidades": [
+          "presentacion_alegacion_propia"
+        ],
+        "garantia_minima": "alto"
+      },
+      "dimensiones_ambito": [
+        "candidato_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z",
+      "fuente_huella_sha256": "5b9f0fc2d99f4c2cf7b08829bb56bcddd5262c5cb44cc797b48a3f1f072a1060"
+    },
+    {
+      "referencia": "accion:bolsa.inscripcion.alegacion.rrhh.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:alegaciones_propias_v1",
+      "fuente_version": 1,
+      "concesion": {
+        "accion": "bolsa.inscripcion.alegacion.rrhh.consultar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "alegaciones_bolsa",
+        "finalidades": [
+          "consulta_alegaciones_rrhh"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "alegacion_ref",
+          "alegaciones[].alegacion_ref",
+          "alegaciones[].auditoria_ref",
+          "alegaciones[].estado",
+          "alegaciones[].fundamento",
+          "alegaciones[].objeto.acto_ref",
+          "alegaciones[].objeto.participacion_ref",
+          "alegaciones[].objeto.solicitud_ref",
+          "alegaciones[].objeto.tipo",
+          "alegaciones[].objeto.version_acto",
+          "alegaciones[].persona_resumen",
+          "alegaciones[].presentada_en",
+          "alegaciones[].recibo_ref",
+          "ambitos[].referencia",
+          "ambitos[].tipo",
+          "ambitos[].titulo",
+          "auditoria_ref",
+          "cursor_siguiente",
+          "estado",
+          "fundamento",
+          "objeto.acto_ref",
+          "objeto.participacion_ref",
+          "objeto.solicitud_ref",
+          "objeto.tipo",
+          "objeto.version_acto",
+          "persona_resumen",
+          "presentada_en",
+          "recibo_ref",
+          "total"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z",
+      "fuente_huella_sha256": "5b9f0fc2d99f4c2cf7b08829bb56bcddd5262c5cb44cc797b48a3f1f072a1060"
+    }
+  ]
+}

@@ -27,15 +27,17 @@ type consultadorACLMiBolsaInscripcionPrueba struct {
 	firmaB104            any
 	firmaLecturaB104     any
 	firmaIntentoB104     any
+	firmaB114            any
 }
 
 func (q *consultadorACLMiBolsaInscripcionPrueba) QueryRow(_ context.Context, consulta string, args ...any) pgx.Row {
 	q.consulta = consulta
-	if len(args) == 5 {
+	if len(args) == 6 {
 		q.firma = args[0]
 		q.firmaB104 = args[2]
 		q.firmaLecturaB104 = args[3]
 		q.firmaIntentoB104 = args[4]
+		q.firmaB114 = args[5]
 	}
 	return filaACLMiBolsaInscripcionPrueba{q}
 }
@@ -45,7 +47,7 @@ type filaACLMiBolsaInscripcionPrueba struct {
 }
 
 func (f filaACLMiBolsaInscripcionPrueba) Scan(dest ...any) error {
-	if len(dest) != 10 {
+	if len(dest) != 12 {
 		return ErrMaterialV3PortalExternoInvalido
 	}
 	*dest[0].(*[]string) = slices.Clone(f.q.funciones)
@@ -58,12 +60,14 @@ func (f filaACLMiBolsaInscripcionPrueba) Scan(dest ...any) error {
 	*dest[7].(*bool) = f.q.lecturaB104Exacta
 	*dest[8].(*int) = f.q.funcionesIntentoB104
 	*dest[9].(*bool) = f.q.intentoB104Exacta
+	*dest[10].(*int) = 0
+	*dest[11].(*bool) = false
 	return nil
 }
 
 func TestMaterialInscripcionPortalExternoAudienciaSeparada(t *testing.T) {
 	if !consumidorPortalExternoValido(consumidorInscripcionPortalExternoV3) ||
-		!slices.Equal(audienciasConsumidorPortalExternoV3(consumidorInscripcionPortalExternoV3), []string{audienciaPresentarInscripcionExternaV3}) ||
+		!slices.Equal(audienciasConsumidorPortalExternoV3(consumidorInscripcionPortalExternoV3), []string{audienciaPresentarInscripcionExternaV3, audienciaPresentarAlegacionExternaV3}) ||
 		accionPresentarInscripcionExternaV3 != inscripcion.AccionPresentar ||
 		tipoRecursoPresentarInscripcionExternaV3 != "inscripcion_convocatoria" {
 		t.Fatal("consumidor de inscripción sin acción, recurso o audiencia exactos")
@@ -72,6 +76,9 @@ func TestMaterialInscripcionPortalExternoAudienciaSeparada(t *testing.T) {
 	d, presente := catalogo.descriptorPara(audienciaPresentarInscripcionExternaV3)
 	if err != nil || !presente || d != descriptorMaterialPresentarInscripcionExternaV3() {
 		t.Fatalf("descriptor de inscripción ausente o compartido: %v", err)
+	}
+	if d, presente = catalogo.descriptorPara(audienciaPresentarAlegacionExternaV3); !presente || d != descriptorMaterialPresentarAlegacionExternaV3() {
+		t.Fatal("descriptor nominal de alegación ausente")
 	}
 	publicados := materialesPublicadosPrueba(t, "mi_bolsa", consumidorInscripcionPortalExternoV3)
 	directorio := directorioExternoPrueba(t)
@@ -83,7 +90,9 @@ func TestMaterialInscripcionPortalExternoAudienciaSeparada(t *testing.T) {
 		t.Fatal(err)
 	}
 	inscripcionMaterial, err := materialesConsumidorV3PortalExterno(directorio, inv, consumidorInscripcionPortalExternoV3, inv.Configuracion)
-	if err != nil || len(inscripcionMaterial) != 1 || inscripcionMaterial[0].audienciaConsumo != audienciaPresentarInscripcionExternaV3 {
+	if err != nil || len(inscripcionMaterial) != 2 || inscripcionMaterial[0].audienciaConsumo != audienciaPresentarInscripcionExternaV3 ||
+		inscripcionMaterial[1].audienciaConsumo != audienciaPresentarAlegacionExternaV3 ||
+		inscripcionMaterial[0].claveHMACID == inscripcionMaterial[1].claveHMACID {
 		t.Fatalf("material de inscripción no recuperado: %v", err)
 	}
 	miBolsa, err := materialesConsumidorV3PortalExterno(directorio, inv, "mi_bolsa", inv.Configuracion)
@@ -177,6 +186,7 @@ func TestACLPortalExternoDualExactaAntesYDespuesB96(t *testing.T) {
 				q.firmaB104 != firmaOrdenarPreferenciasBolsasPortalExterno ||
 				q.firmaLecturaB104 != firmaConsultarPreferenciasBolsasPortalExterno ||
 				q.firmaIntentoB104 != firmaIntentoPreferenciasBolsasPortalExterno ||
+				q.firmaB114 != firmaPresentarAlegacionPortalExterno ||
 				!strings.Contains(q.consulta, "array_agg(proname::text") ||
 				!strings.Contains(q.consulta, "aclexplode(p.proacl)") ||
 				!strings.Contains(q.consulta, "has_table_privilege") {
