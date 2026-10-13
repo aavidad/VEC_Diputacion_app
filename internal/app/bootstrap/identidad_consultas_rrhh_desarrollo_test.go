@@ -126,7 +126,8 @@ func TestCargarIdentidadesConsultasRRHHDesarrolloRegistraTecnicoExistente(t *tes
 	}
 	entrada.Subject = sujeto
 	entrada.PerfilRef = referenciaAltaContratacionTemporalDesarrollo(
-		"prf_", sujeto+"\x00"+hex.EncodeToString(huella[:])+"\x00perfil",
+		"prf_", sujeto+"\x00"+hex.EncodeToString(huella[:])+"\x00"+
+			discriminadorPerfilFijoCTDesarrollo(clavePerfilFijoAltaCTDesarrollo).perfil,
 	)
 	escribir(t, archivoManifiestoConsultasRRHHDesarrollo{Version: 1, Autoridad: AutoridadNoAutoritativa, Entradas: []archivoEntradaConsultaRRHHDesarrollo{entrada}})
 	lectores, activo, err := cargarIdentidadesConsultasRRHHDesarrollo(raiz, ca, tecnico)
@@ -134,6 +135,9 @@ func TestCargarIdentidadesConsultasRRHHDesarrolloRegistraTecnicoExistente(t *tes
 		t.Fatalf("técnico válido: %+v activo=%v err=%v", lectores, activo, err)
 	}
 	for nombre, cambiar := range map[string]func(*archivoEntradaConsultaRRHHDesarrollo){
+		"perfil genérico del técnico": func(e *archivoEntradaConsultaRRHHDesarrollo) {
+			e.PerfilRef = referenciaAltaContratacionTemporalDesarrollo("prf_", sujeto+"\x00"+hex.EncodeToString(huella[:])+"\x00perfil")
+		},
 		"subject técnico distinto": func(e *archivoEntradaConsultaRRHHDesarrollo) { e.Subject = "tecnico:ajeno" },
 		"organización ajena":       func(e *archivoEntradaConsultaRRHHDesarrollo) { e.OrganizacionRef = "organizacion:ajena" },
 	} {

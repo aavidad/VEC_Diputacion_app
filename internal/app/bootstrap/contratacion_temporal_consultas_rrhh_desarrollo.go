@@ -68,8 +68,13 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		if err != nil {
 			return vacio, err
 		}
-		if err = publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, soporte); err != nil {
-			return vacio, err
+		// Alta ya publicó el contexto fijo con su propia operación. El lector
+		// técnico lo consume; una publicación genérica colisionaría con el
+		// contexto dinámico. Los lectores ordinarios conservan su circuito.
+		if !soporte.tecnicoConsultaRRHH {
+			if err = publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, soporte); err != nil {
+				return vacio, err
+			}
 		}
 		local := &dependenciasAltaContratacionTemporalDesarrollo{soporte: soporte, autorizador: autorizador, postgresql: alta.postgresql}
 		identidad, cerrarIdentidad, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, cfg.ContratacionTemporalPostgreSQL, local, derivador, reloj, soporte, fronteras)
@@ -273,12 +278,34 @@ func nuevoSoporteLectorRRHHDesarrollo(
 	alta *dependenciasAltaContratacionTemporalDesarrollo, lector identidadConsultaRRHHDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
 ) (*soporteAltaContratacionTemporalDesarrollo, autorizadorLigadoContratacionTemporalDesarrollo, error) {
-	if alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil || lector.identidad.principal.ID == "" {
+	if alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil || lector.identidad.principal.ID == "" || len(lector.identidad.principal.Roles) != 1 {
 		return nil, nil, ports.ErrConsultaRRHHNoDisponible
 	}
-	contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(lector.identidad.principal, reloj.Ahora())
-	if err != nil {
-		return nil, nil, err
+	var contexto ports.ContextoAutorizacionAltaV3
+	if lector.identidad.principal.Roles[0] == rolTecnicoRRHHContratacionTemporalDesarrollo {
+		if alta.soporte.principalID != lector.identidad.principal.ID ||
+			alta.soporte.certificadoSHA256 != lector.identidad.principal.Attributes["certificate_sha256"] {
+			return nil, nil, ports.ErrConsultaRRHHNoDisponible
+		}
+		encontrado := false
+		for _, fijo := range alta.soporte.perfilesFijosRegistrados() {
+			if fijo != nil && fijo.clave == clavePerfilFijoAltaCTDesarrollo && fijo.perfilRef() == lector.perfilRef {
+				if encontrado {
+					return nil, nil, ports.ErrConsultaRRHHNoDisponible
+				}
+				contexto = fijo.contexto
+				encontrado = true
+			}
+		}
+		if !encontrado {
+			return nil, nil, ports.ErrConsultaRRHHNoDisponible
+		}
+	} else {
+		var err error
+		contexto, err = nuevoContextoSinteticoContratacionTemporalDesarrollo(lector.identidad.principal, reloj.Ahora())
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	datos, err := contexto.Vinculo.Datos()
 	if err != nil || datos.PerfilActivoRef != lector.perfilRef {
