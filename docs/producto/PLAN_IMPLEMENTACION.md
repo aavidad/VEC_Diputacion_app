@@ -788,7 +788,7 @@ cumple su condición.
 | Hito | Condición de llegada | Depende de |
 | --- | --- | --- |
 | H1. Subida desbloqueada | AD262 y lo fusionado sin subir instalados en cidonia, sin 404 ni 503 nuevos | Ensayo de AD262, hecho en copia |
-| H2. Presentación a RRHH | Alberto recorre él mismo, cambiando de perfil, de la inscripción de la aspirante al cese y la vuelta a la bolsa. Prevista para el 13 o el 14 de octubre, según Alberto | H1 y las tareas de fase 1 de O, M, K y H |
+| H2. Presentación a RRHH | Alberto recorre él mismo, cambiando de perfil, el caso de `FLUJO_APP.md` §4.0: empieza con la inscripción del aspirante en la bolsa y el alta de sus títulos, y termina con el cese y la vuelta a la bolsa. Prevista para el 13 o el 14 de octubre, según Alberto | H1 y las tareas de fase 1 de O, M, K y H |
 | H3. Bolsa y CT cerradas | Las cuatro condiciones de la fase 1, con acta | H2 y la firma de punta a punta |
 | H4. Base de Personal y RPT | Criterio de la fase 2 | H3 |
 | H5. Cronos | Doce capacidades en cidonia | H4 y respuestas de RRHH |
