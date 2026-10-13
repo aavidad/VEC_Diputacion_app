@@ -351,9 +351,10 @@ type manejadorParticipacionBolsaDesarrollo struct {
 	correoEmisor         puertosbolsa.EmisorCorreoBolsa
 	correoPersonalizado  aplicacionbolsa.CorreoPersonalizadoLlamamiento
 	// datos y emision reciben después la regla del contacto de origen CONVOCA.
-	datos   *aplicacionbolsa.ServicioDatosContactoParticipacion
-	emision *aplicacionbolsa.ServicioEmisionLlamamiento
-	fuente  *fuenteCorreoParticipacionB7
+	datos            *aplicacionbolsa.ServicioDatosContactoParticipacion
+	emision          *aplicacionbolsa.ServicioEmisionLlamamiento
+	emisionInternaCT *aplicacionbolsa.ServicioEmisionLlamamiento
+	fuente           *fuenteCorreoParticipacionB7
 	// canales publica los canales de aviso activos (catálogo + adaptador).
 	canales *aplicacionbolsa.RegistroCanalesLlamamiento
 }

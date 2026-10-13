@@ -122,6 +122,7 @@ func nuevaOperacionBolsaNativaCT(
 	if err != nil {
 		return nil, err
 	}
+	m.emisionInternaCT = emision
 	return &operacionBolsaNativaCT{ct: soporteCT, bolsa: m.preparador.soporte,
 		publico: publico, privado: privado, sesion: sesion, servicio: servicio,
 		emision: emision}, nil
