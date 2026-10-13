@@ -5,6 +5,8 @@ package pdf
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -29,8 +31,8 @@ type Renderizador struct {
 	// Idioma procede del catálogo. Vacío conserva el español de los consumidores anteriores.
 	Idioma string
 	// Membrete pone el logotipo institucional arriba a la izquierda de la
-	// primera página. Falso conserva byte a byte la salida anterior, de la que
-	// dependen huellas ya guardadas (originales, resoluciones, certificados).
+	// primera página. Falso conserva la composición anterior del documento;
+	// los PDF nuevos de ambos modos incorporan /ID en el trailer.
 	Membrete bool
 }
 
@@ -102,7 +104,39 @@ func (r Renderizador) Renderizar(ctx context.Context, contenido domain.Contenido
 	if err := documento.Output(&salida); err != nil {
 		return nil, fmt.Errorf("pdf: escribir: %w", err)
 	}
-	return salida.Bytes(), nil
+	return incluirIdentificador(salida.Bytes())
+}
+
+// fpdf no emite /ID en los PDF sin cifrar. Se eleva su cabecera 1.3 a 1.4
+// cambiando un byte y se inserta el identificador en el trailer, despues de
+// xref; ninguna de las dos operaciones mueve los objetos.
+// Ambos elementos son iguales en el original; una firma incremental conserva
+// el primero y puede actualizar el segundo.
+func incluirIdentificador(original []byte) ([]byte, error) {
+	const apertura = "\ntrailer\n<<\n"
+	const cierre = ">>\nstartxref\n"
+	if bytes.HasPrefix(original, []byte("%PDF-1.3\n")) {
+		original = bytes.Clone(original)
+		original[len("%PDF-1.")] = '4'
+	}
+	inicio := bytes.LastIndex(original, []byte(apertura))
+	fin := bytes.LastIndex(original, []byte(cierre))
+	if inicio < 0 || fin <= inicio+len(apertura) ||
+		bytes.Contains(original[inicio:fin], []byte("/ID")) {
+		return nil, errors.New("pdf: trailer sin identificador insertable")
+	}
+	huella := sha256.Sum256(original)
+	id := make([]byte, hex.EncodedLen(16))
+	hex.Encode(id, huella[:16])
+	salida := make([]byte, 0, len(original)+len("/ID [<> <>]\n")+2*len(id))
+	salida = append(salida, original[:fin]...)
+	salida = append(salida, []byte("/ID [<")...)
+	salida = append(salida, id...)
+	salida = append(salida, []byte("> <")...)
+	salida = append(salida, id...)
+	salida = append(salida, []byte(">]\n")...)
+	salida = append(salida, original[fin:]...)
+	return salida, nil
 }
 
 // ponerMembrete dibuja el logotipo en la esquina superior izquierda, dentro de
