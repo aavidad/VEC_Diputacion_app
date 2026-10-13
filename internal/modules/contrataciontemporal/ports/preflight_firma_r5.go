@@ -81,3 +81,9 @@ type PreparacionViaFirmaR5 struct {
 type PreparadorViasFirmaR5 interface {
 	PrepararViasFirmaR5(context.Context, SolicitudDisponibilidadFirmaR5) ([]PreparacionViaFirmaR5, error)
 }
+
+// ResolutorAmbitosConsultaFirmaVec aporta los ámbitos de la asignación vigente
+// del contexto registrado. No admite selección de unidad por el navegador.
+type ResolutorAmbitosConsultaFirmaVec interface {
+	ResolverAmbitosConsultaFirmaVec(context.Context) (organizacion, unidad string, err error)
+}

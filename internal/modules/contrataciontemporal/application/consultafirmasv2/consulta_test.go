@@ -116,7 +116,7 @@ func lecturaPrueba() ports.LecturaFirmasR5V2 {
 	return ports.LecturaFirmasR5V2{LecturaFirmasR5: ports.LecturaFirmasR5{Firmas: []ports.FirmaRegistrada{f}, HistoriaRevision: 1, HistoriaHuella: strings.Repeat("f", 64)}, RevisionesPDF: []ports.FirmaRegistradaRevisionPDFV2{r}}
 }
 func servicioPrueba(t *testing.T) (*Servicio, *fuentePrueba, *autorizadorPrueba, *lectorPrueba) {
-	f := &fuentePrueba{c: Contexto{"organizacion:central", "per_candidato_nominal"}}
+	f := &fuentePrueba{c: Contexto{OrganizacionRef: "organizacion:central", UnidadRef: "unidad:rrhh", FirmantePrincipalCandidatoRef: "per_candidato_nominal"}}
 	a := &autorizadorPrueba{t: t}
 	l := &lectorPrueba{l: lecturaPrueba()}
 	s, e := Nuevo(f, a, l)
@@ -131,7 +131,7 @@ func TestConsultaLigaContextoCentralYMinimiza(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if a.m.OrganizacionRef != "organizacion:central" || a.m.FirmantePrincipalCandidatoRef != "per_candidato_nominal" || a.m.UnidadRef != "" || l.llamadas != 1 {
+	if a.m.OrganizacionRef != "organizacion:central" || a.m.FirmantePrincipalCandidatoRef != "per_candidato_nominal" || a.m.UnidadRef != "unidad:rrhh" || l.llamadas != 1 {
 		t.Fatal("material no procede del contexto")
 	}
 	b, e := json.Marshal(r)
@@ -263,5 +263,17 @@ func TestConsultaDosRevisionesConservaCadenaPersistida(t *testing.T) {
 	l.l.RevisionesPDF[1].ReciboAnteriorRef = "recibo:ajeno"
 	if _, e = s.Consultar(context.Background(), q); !errors.Is(e, ports.ErrResultadoFirmaDocumentoInvalido) {
 		t.Fatal("antecedente ajeno admitido")
+	}
+}
+
+func TestConsultaPortafirmasNoIncorporaUnidadDeFirmaVec(t *testing.T) {
+	s, _, a, _ := servicioPrueba(t)
+	q := solicitudPrueba()
+	q.Via = ports.ViaFirmaExternaPortafirmas
+	if _, err := s.Consultar(context.Background(), q); err != nil {
+		t.Fatal(err)
+	}
+	if a.m.UnidadRef != "" || a.m.Via != ports.ViaFirmaExternaPortafirmas {
+		t.Fatal("ámbito VEC usado en vía externa")
 	}
 }

@@ -16,9 +16,10 @@ import (
 // Reutiliza la lectura R5 y la ronda del servicio existente. No registra
 // firmas, reserva documentos ni convierte disponibilidad en autorización.
 type ServicioPreflightFirmaR5 struct {
-	firmas         *ServicioFirmaExterna
-	contextos      ports.ResolutorContextoAutorizacionAltaV3
-	disponibilidad ports.PreparadorViasFirmaR5
+	firmas                      *ServicioFirmaExterna
+	contextos                   ports.ResolutorContextoAutorizacionAltaV3
+	disponibilidad              ports.PreparadorViasFirmaR5
+	viaConsulta, unidadConsulta string
 }
 
 func NuevoServicioPreflightFirmaR5(firmas *ServicioFirmaExterna, contextos ports.ResolutorContextoAutorizacionAltaV3, disponibilidad ports.PreparadorViasFirmaR5) (*ServicioPreflightFirmaR5, error) {
@@ -117,6 +118,14 @@ func (s *ServicioPreflightFirmaR5) consultar(ctx context.Context, q ports.Solici
 	}
 	nominal := *s
 	nominal.firmas = &firmas
+	nominal.viaConsulta = ports.ViaFirmaExternaPortafirmas
+	if fuente, ok := s.contextos.(ports.ResolutorAmbitosConsultaFirmaVec); ok {
+		org, unidad, err := fuente.ResolverAmbitosConsultaFirmaVec(ctx)
+		if err != nil || org != q.Canal.OrganizacionRef || !domain.ReferenciaOpacaValida(unidad) {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		nominal.viaConsulta, nominal.unidadConsulta = ports.ViaFirmaCertificadoVEC, unidad
+	}
 	r, err := nominal.consultarNominalConEntrada(ctx, q, actor, contexto.Resultado.HuellaSHA256, conEntrada)
 	if ctx.Err() != nil {
 		return cero, ctx.Err()
@@ -146,7 +155,7 @@ func (s *ServicioPreflightFirmaR5) consultarNominalConEntrada(ctx context.Contex
 	if _, err := rand.Read(nonce[:]); err != nil {
 		return cero, ports.ErrPreflightFirmaR5NoDisponible
 	}
-	catalogo, doc, lectura, err := s.firmas.leerHistoriaPreflightFirmaR5(ctx, q.Canal.OrganizacionRef,
+	catalogo, doc, lectura, err := s.leerHistoriaPreflightFirmaR5(ctx, q.Canal.OrganizacionRef,
 		q.Canal.ExpedienteRef, q.Documento, q.Canal.VersionObservada, actor, hex.EncodeToString(nonce[:]), 1)
 	if ctx.Err() != nil {
 		return cero, ctx.Err()
@@ -166,7 +175,7 @@ func (s *ServicioPreflightFirmaR5) consultarNominalConEntrada(ctx context.Contex
 	// La concesión del paso inicial no autoriza consultar la preparación de
 	// otro paso. Releer con el pendiente exacto exige una segunda decisión.
 	if estado.PasoPendiente > 1 {
-		actualCatalogo, actualDoc, actualLectura, err := s.firmas.leerHistoriaPreflightFirmaR5(ctx, q.Canal.OrganizacionRef,
+		actualCatalogo, actualDoc, actualLectura, err := s.leerHistoriaPreflightFirmaR5(ctx, q.Canal.OrganizacionRef,
 			q.Canal.ExpedienteRef, q.Documento, q.Canal.VersionObservada, actor, hex.EncodeToString(nonce[:]), estado.PasoPendiente)
 		if err != nil {
 			return cero, err
@@ -285,7 +294,7 @@ func (s *ServicioPreflightFirmaR5) consultarNominalConEntrada(ctx context.Contex
 		}
 		return cero, ports.ErrPreflightFirmaR5NoDisponible
 	}
-	actual, _, cabeza, err := s.firmas.leerHistoriaPreflightFirmaR5(ctx, q.Canal.OrganizacionRef,
+	actual, _, cabeza, err := s.leerHistoriaPreflightFirmaR5(ctx, q.Canal.OrganizacionRef,
 		q.Canal.ExpedienteRef, q.Documento, q.Canal.VersionObservada, actor, hex.EncodeToString(nonce[:]), paso.Orden)
 	if err != nil || actual.CatalogoRef != catalogo.CatalogoRef || actual.HuellaCatalogo != catalogo.HuellaCatalogo ||
 		cabeza.HistoriaRevision != lectura.HistoriaRevision || cabeza.HistoriaHuella != lectura.HistoriaHuella {

@@ -45,7 +45,7 @@ func (s *ServicioPreflightFirmaR5) validarCabezaPreflightConEntrada(
 	ctx context.Context, q ports.SolicitudPreflightFirmaR5, actor, clave string, orden int,
 	catalogo domain.CircuitoFirma, lectura ports.LecturaFirmasR5,
 ) error {
-	actual, _, cabeza, err := s.firmas.leerHistoriaPreflightFirmaR5(ctx, q.Canal.OrganizacionRef,
+	actual, _, cabeza, err := s.leerHistoriaPreflightFirmaR5(ctx, q.Canal.OrganizacionRef,
 		q.Canal.ExpedienteRef, q.Documento, q.Canal.VersionObservada, actor, clave, orden)
 	if ctx.Err() != nil {
 		return ctx.Err()
@@ -59,11 +59,11 @@ func (s *ServicioPreflightFirmaR5) validarCabezaPreflightConEntrada(
 
 // La preparación utiliza la autoridad de lectura del registrador RRHH. Las
 // comprobaciones nominales de cada vía siguen perteneciendo a disponibilidad.
-func (s *ServicioFirmaExterna) leerHistoriaPreflightFirmaR5(ctx context.Context, org, exp, documento string, version uint64, candidato, clave string, orden int) (domain.CircuitoFirma, domain.CircuitoFirmaDocumento, ports.LecturaFirmasR5, error) {
-	if s.multiple == nil {
-		return s.leerHistoria(ctx, org, exp, documento, version, candidato, clave, orden)
+func (s *ServicioPreflightFirmaR5) leerHistoriaPreflightFirmaR5(ctx context.Context, org, exp, documento string, version uint64, candidato, clave string, orden int) (domain.CircuitoFirma, domain.CircuitoFirmaDocumento, ports.LecturaFirmasR5, error) {
+	if s.firmas.multiple == nil {
+		return s.firmas.leerHistoria(ctx, org, exp, documento, version, candidato, clave, orden)
 	}
-	c, err := s.base.circuitoValido(ctx)
+	c, err := s.firmas.base.circuitoValido(ctx)
 	if err != nil {
 		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, ports.LecturaFirmasR5{}, err
 	}
@@ -71,13 +71,17 @@ func (s *ServicioFirmaExterna) leerHistoriaPreflightFirmaR5(ctx context.Context,
 	if !ok || orden < 1 || orden > len(doc.Pasos) {
 		return c, doc, ports.LecturaFirmasR5{}, ports.ErrPreflightFirmaR5Invalido
 	}
-	m := ports.MaterialConsultaFirmasR5V2{Via: ports.ViaFirmaExternaPortafirmas,
+	via := s.viaConsulta
+	if via == "" {
+		via = ports.ViaFirmaExternaPortafirmas
+	}
+	m := ports.MaterialConsultaFirmasR5V2{Via: via, UnidadRef: s.unidadConsulta,
 		MaterialConsultaFirmasR5: ports.MaterialConsultaFirmasR5{
 			OrganizacionRef: org, ExpedienteRef: exp, VersionExpediente: version,
 			Documento: documento, FirmantePrincipalCandidatoRef: candidato,
 			ClaveIdempotencia: clave, PasoOrden: orden, CatalogoHuella: c.HuellaCatalogo,
 		}}
-	capacidad, err := s.multiple.consulta.AutorizarConsultaFirmasR5V2(ctx, m)
+	capacidad, err := s.firmas.multiple.consulta.AutorizarConsultaFirmasR5V2(ctx, m)
 	if err != nil {
 		if ctx.Err() != nil {
 			return c, doc, ports.LecturaFirmasR5{}, ctx.Err()
@@ -87,7 +91,7 @@ func (s *ServicioFirmaExterna) leerHistoriaPreflightFirmaR5(ctx context.Context,
 	if err := ValidarCapacidadConsultaFirmasR5V2(capacidad, m); err != nil {
 		return c, doc, ports.LecturaFirmasR5{}, err
 	}
-	l, err := s.multiple.registro.ConsultarFirmasAutorizadasV2(ctx, m, capacidad)
+	l, err := s.firmas.multiple.registro.ConsultarFirmasAutorizadasV2(ctx, m, capacidad)
 	if err != nil {
 		return c, doc, ports.LecturaFirmasR5{}, err
 	}

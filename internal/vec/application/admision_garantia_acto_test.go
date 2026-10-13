@@ -14,13 +14,25 @@ func TestAdmisionFirmaSeleccionaConcesionUnicaSinReescribirRol(t *testing.T) {
 	otra := c
 	otra.Accion = "contratacion_temporal.documento.firmas_r5_v2.consultar"
 	rol := []core.ConcesionRol{otra, c}
-	if !concesionUnicaAdmisionFirmaVec(rol, d) || len(rol) != 2 || rol[0].Accion != otra.Accion { t.Fatal("rol íntegro con dos permisos") }
-	if concesionUnicaAdmisionFirmaVec([]core.ConcesionRol{otra}, d) { t.Fatal("acto ausente admitido") }
-	if concesionUnicaAdmisionFirmaVec(append(rol, c), d) { t.Fatal("acto duplicado admitido") }
+	if !concesionUnicaAdmisionFirmaVec(rol, d) || len(rol) != 2 || rol[0].Accion != otra.Accion {
+		t.Fatal("rol íntegro con dos permisos")
+	}
+	if concesionUnicaAdmisionFirmaVec([]core.ConcesionRol{otra}, d) {
+		t.Fatal("acto ausente admitido")
+	}
+	if concesionUnicaAdmisionFirmaVec(append(rol, c), d) {
+		t.Fatal("acto duplicado admitido")
+	}
 	alta := c
 	alta.GarantiaMinima = core.AuthAssuranceHigh
-	if concesionUnicaAdmisionFirmaVec([]core.ConcesionRol{alta}, d) { t.Fatal("garantía alta rebajada") }
-	if concesionUnicaAdmisionFirmaVec(append(rol, alta), d) { t.Fatal("garantías ambiguas admitidas") }
+	if concesionUnicaAdmisionFirmaVec([]core.ConcesionRol{alta}, d) {
+		t.Fatal("garantía alta rebajada")
+	}
+	if concesionUnicaAdmisionFirmaVec(append(rol, alta), d) {
+		t.Fatal("garantías ambiguas admitidas")
+	}
 	c.Finalidades = append(c.Finalidades, "otra_finalidad")
-	if concesionUnicaAdmisionFirmaVec([]core.ConcesionRol{c}, d) { t.Fatal("finalidad ampliada admitida") }
+	if concesionUnicaAdmisionFirmaVec([]core.ConcesionRol{c}, d) {
+		t.Fatal("finalidad ampliada admitida")
+	}
 }

@@ -231,7 +231,7 @@ func (l *lectorRecuperacionPrueba) RecuperarFirmasAutorizadasV2(context.Context,
 func TestServicioRecuperacionExigeCapacidadPropiaYNoExponeTrasCancelar(t *testing.T) {
 	a := &autorizadorRecuperacionPrueba{t: t, ajena: true}
 	l := &lectorRecuperacionPrueba{l: lecturaRecuperacionPrueba(t)}
-	s, err := NuevaRecuperacion(&fuentePrueba{c: Contexto{"organizacion:central", "per_candidato_nominal"}}, a, l)
+	s, err := NuevaRecuperacion(&fuentePrueba{c: Contexto{OrganizacionRef: "organizacion:central", UnidadRef: "unidad:rrhh", FirmantePrincipalCandidatoRef: "per_candidato_nominal"}}, a, l)
 	if err != nil {
 		t.Fatal(err)
 	}

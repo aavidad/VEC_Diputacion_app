@@ -17,6 +17,7 @@ import (
 // certificado, el cargo o la petición. En consulta y recuperación HTTP la
 // persona candidata es la del contexto registrado de quien consulta.
 type Contexto struct {
+	UnidadRef                     string
 	OrganizacionRef               string
 	FirmantePrincipalCandidatoRef string
 }
@@ -130,6 +131,9 @@ func (s *Servicio) Consultar(ctx context.Context, q Solicitud) (Resultado, error
 		OrganizacionRef: c.OrganizacionRef, ExpedienteRef: q.ExpedienteRef, VersionExpediente: q.VersionExpediente,
 		Documento: q.Documento, FirmantePrincipalCandidatoRef: c.FirmantePrincipalCandidatoRef,
 		PasoOrden: q.PasoOrden, ClaveIdempotencia: q.ClaveIdempotencia, CatalogoHuella: q.CatalogoHuella}, Via: q.Via}
+	if q.Via == ports.ViaFirmaCertificadoVEC {
+		m.UnidadRef = c.UnidadRef
+	}
 	if _, err := m.Canonico(); err != nil {
 		return cero, err
 	}

@@ -217,8 +217,38 @@ func (f *fuenteNominalSesionFirmaCT) ResolverContextoConsultaFirmasR5V2(ctx cont
 	if err != nil {
 		return consultafirmasv2.Contexto{}, err
 	}
-	org, err := f.ResolverOrganizacionFirmaVec(ctx)
-	return consultafirmasv2.Contexto{OrganizacionRef: org, FirmantePrincipalCandidatoRef: e.Resultado.Contexto.PersonaRef}, err
+	org, unidad, err := f.ResolverAmbitosConsultaFirmaVec(ctx)
+	return consultafirmasv2.Contexto{OrganizacionRef: org, UnidadRef: unidad, FirmantePrincipalCandidatoRef: e.Resultado.Contexto.PersonaRef}, err
+}
+
+// Los dos ámbitos se resuelven juntos desde la misma asignación vigente.
+func (f *fuenteNominalSesionFirmaCT) ResolverAmbitosConsultaFirmaVec(ctx context.Context) (string, string, error) {
+	e, err := f.contexto(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	i, err := f.asignaciones.ObtenerInstantaneaAutorizacion(ctx, e.Resultado.Contexto.PersonaRef, e.Resultado.Contexto.PerfilActivoRef)
+	if err != nil || i.Validar() != nil {
+		return "", "", ports.ErrFirmaDocumentoDenegada
+	}
+	var org, unidad string
+	for _, a := range i.AsignacionPerfil.Ambitos {
+		if len(a.Valores) != 1 {
+			return "", "", ports.ErrFirmaDocumentoDenegada
+		}
+		switch a.Clave {
+		case "organizacion_ref":
+			org = a.Valores[0]
+		case "unidad_ref":
+			unidad = a.Valores[0]
+		default:
+			return "", "", ports.ErrFirmaDocumentoDenegada
+		}
+	}
+	if org == "" || unidad == "" {
+		return "", "", ports.ErrFirmaDocumentoDenegada
+	}
+	return org, unidad, nil
 }
 
 func (f *fuenteNominalSesionFirmaCT) GarantiaAutenticacionFirmaV2(ctx context.Context) (string, error) {

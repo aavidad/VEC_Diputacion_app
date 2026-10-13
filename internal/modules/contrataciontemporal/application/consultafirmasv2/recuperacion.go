@@ -57,6 +57,9 @@ func (s *ServicioRecuperacion) Recuperar(ctx context.Context, q Solicitud) (Resu
 		OrganizacionRef: c.OrganizacionRef, ExpedienteRef: q.ExpedienteRef, VersionExpediente: q.VersionExpediente,
 		Documento: q.Documento, FirmantePrincipalCandidatoRef: c.FirmantePrincipalCandidatoRef,
 		PasoOrden: q.PasoOrden, ClaveIdempotencia: q.ClaveIdempotencia, CatalogoHuella: q.CatalogoHuella}, Via: q.Via}
+	if q.Via == ports.ViaFirmaCertificadoVEC {
+		m.UnidadRef = c.UnidadRef
+	}
 	if _, err := m.Canonico(); err != nil {
 		return cero, err
 	}

@@ -222,3 +222,27 @@ func TestPreflightFirmaR5RechazaCapacidadDeOtroContextoAntesDeConsumir(t *testin
 		})
 	}
 }
+
+// Detiene la consulta en el autorizador para comprobar el material previo a
+// canonización, capacidad y acceso SQL; no reescribe el material en el emisor.
+type capturaAmbitosPreflightV2 struct {
+	material ports.MaterialConsultaFirmasR5V2
+}
+
+func (a *capturaAmbitosPreflightV2) AutorizarConsultaFirmasR5V2(_ context.Context, m ports.MaterialConsultaFirmasR5V2) (ports.CapacidadConsultaFirmasR5V2, error) {
+	a.material = m
+	return ports.CapacidadConsultaFirmasR5V2{}, ports.ErrFirmaDocumentoDenegada
+}
+func TestPreflightV2UsaViaYUnidadNominalAntesDeAutorizar(t *testing.T) {
+	s, _, _ := servicioPreflightPrueba(nil)
+	a := &capturaAmbitosPreflightV2{}
+	s.firmas.multiple = &dependenciasFirmaMultipleR5{consulta: a}
+	s.viaConsulta, s.unidadConsulta = ports.ViaFirmaCertificadoVEC, "unidad:rrhh"
+	q := solicitudPreflightPrueba()
+	_, _, _, err := s.leerHistoriaPreflightFirmaR5(context.Background(), q.Canal.OrganizacionRef,
+		q.Canal.ExpedienteRef, q.Documento, q.Canal.VersionObservada, "per_actual_sintetico_001", "clave-firma-preflight-001", 1)
+	if !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || a.material.Via != ports.ViaFirmaCertificadoVEC ||
+		a.material.UnidadRef != "unidad:rrhh" || a.material.OrganizacionRef != q.Canal.OrganizacionRef {
+		t.Fatalf("material nominal de consulta perdido: %+v %v", a.material, err)
+	}
+}
