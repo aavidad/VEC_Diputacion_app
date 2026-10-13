@@ -251,7 +251,7 @@ una con su perfil:
 | Ratificador | Manuel García Robles, del mismo centro | Centro, ratificador |
 | RRHH | Carmen Molina Ortega, técnica de RRHH (usuario web `rrhh`) | Técnico de RRHH |
 | Intervención | Francisco Javier López Serrano | Intervención |
-| Firmantes de la resolución | Jefatura del Servicio de RRHH, Diputado/a delegado/a de RRHH y Secretaría General | Cargos de firma del circuito v2, asignados por Administración. **Pendiente:** en el repositorio no constan personas ficticias para estos tres cargos; hay que elegirlas y emitir sus certificados |
+| Firmantes de la resolución | Jefatura del Servicio de RRHH, Diputado/a delegado/a de RRHH y Secretaría General | Cargos de firma del circuito v2, asignados por Administración. Las personas ficticias de los tres cargos, con su usuario web y su perfil del circuito, están en `scripts/operacion/firma_ct_tres_pasos/firmantes.json`; esa es la fuente, no esta tabla |
 
 Una persona no ocupa dos papeles. Ratificador y solicitante son personas
 distintas, y ningún firmante firma dos pasos del mismo documento.
@@ -261,16 +261,27 @@ y su puesto publicados: **centro 520, categoría Administrativo de la RPT (9),
 puesto 9/01, plaza 2026/0033**. Los datos se cargan con un guion de datos
 repetible (no con código), sin tocar los demás puestos. La bolsa es
 `bolsa:administrativo:2026-09-17` v1, ya constituida y con su orden. El alta,
-la ocupación y el cese no se precargan: se hacen en pantalla en el recorrido. Antonio figura
-en ella como disponible y en el puesto que le toca el llamamiento. Si un dato no
-cuadra, se ajusta el dato, no el código (regla 5).
+la ocupación y el cese no se precargan: se hacen en pantalla en el recorrido. Antonio ya
+figura en ella como disponible y en el puesto que le toca el llamamiento (lo deja así el guion
+de datos). Si un dato no cuadra, se ajusta el dato, no el código (regla 5).
 
-**Pasos.** Es el orden que sigue hoy el código (4.3.2): el llamamiento va
+**Pasos.** El recorrido principal empieza en la petición del centro (paso 1) y
+llega hasta el cese y la vuelta a la bolsa; es el que decide si la candidata
+está completa. Sigue el orden que tiene hoy el código (4.3.2): el llamamiento va
 después de la fiscalización favorable y la propuesta exige el expediente en
-`fiscalizacion/en_curso`.
+`fiscalizacion/en_curso`. Los pasos e1 a e5 (aspirante: inscripción, méritos,
+admisión, incorporación y alegaciones) son una **demostración aparte, no
+bloqueante**, con Mi Bolsa interna; pueden enseñarse antes o después del
+recorrido principal. Alberto, 14/10: «el recorrido puede empezar por donde sea
+conveniente».
 
 | # | Quién | Pantalla | Qué hace | Resultado esperado |
 | --- | --- | --- | --- | --- |
+| e1 | Antonio (aspirante) | `/area-personal/?vista=inscripcion`, Inscribirme en una bolsa | Elige la convocatoria de Administrativo, declara que cumple cada requisito, revisa y presenta la solicitud | Recibo de presentación; solicitud `pendiente` («Pendiente de revisión» en Mis solicitudes) |
+| e2 | Antonio | `/area-personal/?vista=meritos`, Mis méritos | Pulsa «Añadir título o mérito» y declara sus títulos y méritos | Cada mérito queda «Declarado, pendiente de revisión» |
+| e3 | Carmen (RRHH) | `/portal-empleado/#solicitudes`, Bolsas → Solicitudes y admisión | Elige la convocatoria, revisa la solicitud de Antonio y la admite | Solicitud `admitida_a_convocatoria`; Antonio ve «Admitida. Pendiente de incorporación a la bolsa» |
+| e4 | Carmen | La misma pantalla | Incorpora a Antonio a la bolsa `bolsa:administrativo:2026-09-17`, ya constituida, con el número del acta | Solicitud `incorporada`; Antonio aparece en Mi Bolsa como **Disponible** con su posición |
+| e5 | Antonio, después Carmen | `/area-personal/?vista=alegaciones`; RRHH en `/portal-empleado/#alegaciones`, Bolsas → Alegaciones | Antonio presenta una alegación sobre su participación; Carmen la consulta | Justificante de presentación en VEC; la alegación aparece en la bandeja de RRHH de esa bolsa |
 | 1 | Lucía (centro) | `/portal-empleado/peticiones-centro/` | Presenta la petición: elige categoría Administrativo y el puesto de la RPT publicada, motivo, fechas, crédito y una persona | Recibo de presentación; petición `pendiente_ratificacion`, versión 1 |
 | 2 | Manuel (ratificador) | La misma pantalla, bandeja del centro | Revisa y ratifica con motivo | Recibo de ratificación; petición `ratificada`, versión 2 |
 | 3 | Carmen (RRHH) | `peticiones-centro/?vista=rrhh` | Teclea el número de expediente de MOAD y crea el expediente | Recibo de alta; expediente `solicitud/en_curso`, v1, con la necesidad de la RPT conservada |
@@ -294,6 +305,9 @@ después de la fiscalización favorable y la propuesta exige el expediente en
 | 19 | Carmen | Ficha, Cese | Registra el cese con causa y justificante | Recibo de cese |
 | 20 | (automático) Bolsa | Mi Bolsa de Antonio y Bolsas de RRHH | Bolsa recibe el cese | Antonio vuelve a la bolsa Administrativo como **Disponible** o **Disponible desde** la fecha que marque la política |
 | 21 | Carmen | Ficha, Cierre | Cierra el expediente | `nombramiento/completado` |
+
+La vía del aspirante es Mi Bolsa interna (HZ37); la entrada externa propia solo
+si el ensayo la valida (corte 17:00 del 13/10).
 
 **Documentos.** Los que genera hoy el código desde la ficha, con el expediente en
 v7 o posterior (4.3.4), y el orden de firma del catálogo
