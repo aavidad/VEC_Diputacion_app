@@ -68,8 +68,40 @@ El ejecutor necesita CT130, CT134, CT153 y los consumidores AD92/AD98 con sus de
 
 Se reutiliza el perfil fijo `reincorporacion_titular`, su contexto nominal registrado y su sesión propia derivada de RRHH. La provisión existente comprueba el acto de asignación, la versión de rol, las concesiones y la preimagen; el selector no aporta una identidad ni un permiso.
 
+La ventana final de diagnóstico, con el mismo material y la aplicación anterior detenida, localizó el fallo restante en la política Bolsa: `bolsa_borrador_politica_desarrollo.go:249`, `version_rol esperado=7 / recibido=8`. La asignación preparada es v2 y está dentro del rango admitido; `prepararInstantanea` no devuelve error. El rol v7 ya está publicado y asignado a otro perfil, mientras el perfil de `identidad/bolsa-bback.json` sigue en rol v5. La preparación avanza a v8 y la guarda detiene el arranque antes de publicar por CAS. El salto previsto es v5→v7; activar ofertas para forzar v8 no es una corrección.
+
+Se trasladó a dirección y al equipo de Bolsa la provisión gobernada del perfil objetivo sobre el rol existente o el ajuste de su publicación. No se cambió el código de Bolsa, no se reutilizó el perfil de otra persona y no se debilitó la guarda. Por tanto, `VEC_CT_REINCORPORACION_TITULAR_ENABLED=true` sigue pendiente de esa dependencia en la copia recibida; las variables y LOGIN anteriores son prerrequisitos, no una solución acreditada de este último bloqueo.
+
 ## Alcance y comprobación pendiente
 
 Este corte modifica el diagnóstico y el orden del preflight de R5, sin añadir SQL ni nuevas autoridades. `VEC_CT_FIRMAS_R5_V2_ENABLED` compone consulta y recuperación nominales; encenderlo no acredita por sí solo las dos vías de registro, la firma de dos personas ni un PDF firmado.
 
-Formato y `git diff --check` comprobados. Se entrega una prueba focal que exige conservar la causa sin imprimir un DSN o una identidad sintéticos. Dirección ejecutará las pruebas, el arranque sobre su clon PostgreSQL 18, Chrome y CI. No se han ejecutado compilación, pruebas Go ni accesos a cidonia en este encargo.
+La cabeza `1e36d923f` compila con CGO desactivado y conserva verdes las pruebas focales de originales y renderizado. Su revisión sensible dio GO. La CI anterior `38345199047` terminó con las cinco puertas verdes; la CI de la cabeza final se comprobará antes de entregar. No se ha accedido a cidonia.
+
+## Preparación comprobada en la copia local
+
+PostgreSQL 18.4 restaurado desde el dump del 13/10, certificados y material privados; aplicación local con R5 v2, Documentos, circuito RRHH v2 y fuente de plantillas v4. Chrome del sistema, sin respuestas HTTP simuladas.
+
+La resolución de 2026/CT-000127, versión 9 después de reparo, subsanación y reemisión, se prepara por el botón de la ficha. La respuesta del original fue HTTP 200 en 126 ms, con `numero_vec: VEC-2026-4`, fecha `2026-10-13T05:53:08.11566Z` y SHA-256 `db878712c7e403a625621e9ef16a3b2ff11a0b26b6410d119146118d93c4cc11`. La pantalla muestra «Documento preparado; pendiente de envío a firma» y el recibo. A 1280 px no hay desbordamiento horizontal global. Este tiempo corresponde a recuperar el original custodiado; no acredita que todas las consultas comunes estén por debajo de 100 ms.
+
+El informe nuevo v5 usa la fuente v4: 29.699 bytes, SHA-256 `b98e80ea37d32da25fbcfa46af3f5d231d517a3339ecef652bd47dd42f9e143c`; las tres frases retiradas no aparecen en su texto. La publicación de plantillas en PostgreSQL debe acompañarse de la ruta de archivo indicada en el LEEME. Los originales anteriores se conservan intactos.
+
+Después de reiniciar el contenedor PostgreSQL propio y la aplicación, Chrome abre de nuevo la ficha y pulsa el botón. Recupera HTTP 200 en 116 ms, el mismo `VEC-2026-4`, la misma fecha y el mismo SHA-256. La pantalla conserva el estado preparado y no presenta desbordamiento horizontal. No se acredita una firma aceptada ni el recorrido posterior de fiscalización con este resultado.
+
+## Dependencia de GrxFirma pendiente de Alberto
+
+GrxFirma canónico permanece sin cambios, en `80e7dd5ceb4baab07e238f012ca8fa6eaeff8407`. Su verificador HTTPS real usa los certificados, CA y CRL privados. El registro nominal VEC llega al verificador y responde `422 firma_no_verificada`; no hay firma registrada ni recibo de firma acreditado.
+
+Todas las variantes siguientes parten del mismo informe original de 29.699 bytes:
+
+| Productor | Salida | SHA-256 | Dictamen real |
+| --- | ---: | --- | --- |
+| CLI GrxFirma actual | 68.978 bytes | `391ba0782a10fdebc438718ae6ae88f3a50fdc7f203977dbb6ec061c33a4ff5c` | `indeterminada`, `pdf_no_comprobado`, sin firmas reconocidas |
+| AutoFirma oficial, `alwaysCreateRevision=true` | 85.593 bytes | `5671526dea8ca3553bffc03374e177e42038be2ac78a293a6005049ddedbb593` | `indeterminada`, `identificador_pdf_modificado`, una firma reconocida |
+| GrxFirma actual más el arreglo existente `978ace06d6ba22da9a0fffac4be6758c51005eeb`, sólo en herramienta privada | 38.238 bytes | `b909ce725b693946bdb548745ae800b6d7bea56f263a403e18c490082783e1c2` | `no_valida`, `cambios_no_permitidos` / `catalogo_modificado`, una firma reconocida |
+
+El CLI actual reintenta por tamaño CMS y acaba escribiendo dos mitades idénticas con referencias xref incoherentes. El original VEC no contiene campo de firma ni reserva `/Contents`: la reserva pertenece al productor GrxFirma. El arreglo ya existente evita ese reintento en este caso; no modifica VEC ni su verificador.
+
+La salida incremental de AutoFirma conserva el prefijo original, pero añade `/ID` cuando el original no lo tenía. La salida con el arreglo GrxFirma conserva el prefijo y tiene integridad, cadena, certificado y CRL válidos; añade `/Version /1.5` al catálogo de un PDF con cabecera 1.3. Los campos originales Type, Pages, Lang y Names se conservan. El productor está en `third_party/pdfsign/sign/pdfcatalog.go:31`; el clasificador `internal/adapters/outbound/common/signer/pades_v2_changes.go:230` normaliza esa promoción sólo desde cabecera 1.4. Alberto debe decidir la corrección del producto GrxFirma. No se rebajan guardas, no se alteran originales emitidos y no se declara firmado un documento rechazado.
+
+La verificación se solicitó a `/v2/verify` con contrato `autofirmav2.dictamen-verificacion.v2`, PDF firmado y PDF original. PDF, dictámenes íntegros y captura quedan en la carpeta privada de ensayo para dirección; no se incluyen certificados, claves ni tokens en Git.

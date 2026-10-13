@@ -34,6 +34,14 @@ Conservar Documentos, GrxFirma, el circuito v2 y la doble llave de desarrollo ya
 
 LOGIN mínimos existentes en la copia recibida: registro de identidad `vec_ct_identidad_registro_desarrollo`; revalidación `vec_ct_identidad_revalidacion_desarrollo`; contexto `vec_ct_contexto_actor_desarrollo`; consulta CT `vec_ct_rrhh_consultas_desarrollo`; motivos RRHH `vec_ct_rrhh_motivos_desarrollo`; ejecución CT `vec_ct_o207_runtime`; registro V3 `vec_autorizacion_o207_registro`. Fuente y motivos generales pueden usar los LOGIN existentes `vec_ct_personal_b2_fuente` y `vec_ct_personal_b2_motivos` si dirección confirma su configuración exclusiva. Las conexiones privadas llevan sus credenciales actuales. No usar los grupos NOLOGIN como usuarios de conexión ni crear otro pool por cada firmante.
 
-Comprobar en la web: informe antes de fiscalización firmado por Jefatura, fiscalización con reparo/subsanación, resolución firmada por Jefatura y Diputación delegada según RRHH v2 y recuperación del mismo recibo después del reinicio. Cada firma requiere un PDF realmente firmado y verificado. La pantalla muestra garantía sustancial y el recibo. Portafirmas sólo puede mostrar enviado tras aceptación real.
+Pasos de pantalla del circuito RRHH v2:
+
+1. El técnico abre Contratación temporal y el expediente; prepara el informe para firma. La pantalla muestra el documento preparado y su recibo.
+2. Jefatura entra con su certificado, abre ese expediente y pulsa «Firmar con certificado». Debe aprobar la operación en AutoFirma. Sólo una verificación aceptada permite mostrar la firma registrada.
+3. Intervención fiscaliza el informe firmado. Si hay reparo, RRHH subsana y remite de nuevo por el circuito existente.
+4. En nombramiento, el técnico pulsa «Preparar resolución para firma». Jefatura firma primero y Diputación delegada firma después, cada persona con su certificado.
+5. Después de reiniciar, abrir el expediente y comprobar el mismo documento y recibo. Portafirmas sólo muestra enviado tras aceptación real.
+
+En la copia local se comprobó la preparación de la resolución tras subsanación y reemisión: expediente 2026/CT-000127, versión 9, HTTP 200 y recibo `VEC-2026-4`. El botón muestra «Documento preparado; pendiente de envío a firma». La firma sigue pendiente de resolver la interoperabilidad con GrxFirma descrita en `docs/operacion/codexh_selectores_ct_20261013.md`; no se ha acreditado el recorrido completo de los pasos 2–4.
 
 La configuración privada de Documentos necesita `custodia_firmado.documentos` con estos dos valores: `informe_definitivo: contratacion_temporal.informe_definitivo_firmado.v1` y `resolucion: contratacion_temporal.resolucion_firmada.v1`. D19 reserva el primer tipo; los catálogos de conservación mantienen sus políticas separadas. Conservar cuentas, motivos, registro externo, almacén y conexiones vigentes de Documentos. Su conexión de registro de autorización requiere un LOGIN separado con membresía exclusiva en `vec_autorizacion_registro`, `INHERIT TRUE` y `SET FALSE`; no reutilizar otro LOGIN cuya membresía permite `SET ROLE`. El informe no se identifica como resolución.
