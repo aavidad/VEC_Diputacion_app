@@ -96,8 +96,8 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 	}
 	s = seleccionMaterialCTDesarrollo{
 		borradoresBolsa:              cfg.BolsaBorradoresEnabled,
-		miBolsa:                      debeComponerMiBolsaDesarrollo(cfg),
-		portalCandidato:              debeComponerPortalCandidatoDesarrollo(cfg),
+		miBolsa:                      debeComponerMiBolsaDesarrollo(cfg) && !superficieExternaUsuariosEnProceso(cfg),
+		portalCandidato:              debeComponerPortalCandidatoDesarrollo(cfg) && !superficieExternaUsuariosEnProceso(cfg),
 		dietas:                       dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled),
 		cronos:                       cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled),
 		documentos:                   documentosSolicitados(cfg.DocumentosEnabled),
