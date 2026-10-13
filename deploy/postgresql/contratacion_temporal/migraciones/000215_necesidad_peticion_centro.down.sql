@@ -201,9 +201,11 @@ BEGIN
 END
 $_$;
 
+-- Restaura el cuerpo CT151 instalado byte a byte; el metadato search_path
+-- conserva pg_temp para el SECURITY DEFINER según la guarda de CI1114.
 CREATE OR REPLACE FUNCTION vec_contratacion_temporal.gestionar_entrega_peticion_centro_v1(p_material text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'pg_catalog'
+    SET search_path TO 'pg_catalog', 'pg_temp'
     SET row_security TO 'on'
     SET "TimeZone" TO 'UTC'
     SET lock_timeout TO '2s'
@@ -661,4 +663,16 @@ BEGIN
         'reserva_creada_ahora',false,'confirmacion_creada_ahora',true);
 END
 $_$;
+DO $post$
+DECLARE f regprocedure:='vec_contratacion_temporal.gestionar_entrega_peticion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+BEGIN
+ IF (SELECT proowner<>'vec_contratacion_temporal_propietario'::regrole OR NOT prosecdef
+       OR proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp',
+         'row_security=on','TimeZone=UTC','lock_timeout=2s',
+         'statement_timeout=15s','idle_in_transaction_session_timeout=20s']::text[]
+       OR encode(sha256(convert_to(prosrc,'UTF8')),'hex')
+         IS DISTINCT FROM '1faa7d805e292180a5d16f41f05afe18e1c4fd1f05a966d64b44dd8aa80be02a'
+      FROM pg_proc WHERE oid=f) IS NOT FALSE
+ THEN RAISE EXCEPTION 'CT215 DOWN: CT151 restaurada con metadatos incompatibles' USING ERRCODE='55000'; END IF;
+END $post$;
 COMMIT;

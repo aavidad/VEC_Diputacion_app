@@ -10,7 +10,7 @@ CT215 reconstruye las dos funciones instaladas de presentación y entrega, desde
 
 CONFIG NUEVA: ninguna. Utiliza `VEC_CT_NECESIDADES_ALTA_SOURCE_PATH`, `VEC_RPT_CATALOGO_PATH` y la fuente de organización existentes. Los valores de jornada y las causas permanecen en su catálogo.
 
-UP SHA256: `4457ba04513c7daf09e49feeb5024eeea40ef754d9575e7246288bd5f06910c2`. Una instalación final en copia local PostgreSQL 18.4 terminó en COMMIT; posthashes de las dos funciones `f414c20f…` y `954e2750…`, permisos owner/ejecutor intactos y `search_path=pg_catalog,pg_temp`. Sin SQL en cidonia.
+UP SHA256: `4457ba04513c7daf09e49feeb5024eeea40ef754d9575e7246288bd5f06910c2`. Una instalación final en copia local PostgreSQL 18.4 terminó en COMMIT; posthashes de las dos funciones `f414c20f…` y `954e2750…`, permisos owner/ejecutor intactos y `search_path=pg_catalog,pg_temp`. Sin SQL en cidonia. El DOWN conserva los cuerpos históricos, pero mantiene `search_path=pg_catalog,pg_temp` al restaurarlos; una guarda comprueba sus metadatos y su cuerpo. Esta corrección recibió GO independiente sobre el archivo SHA256 `c7c9ba16a9497559f4e0b0084c9ab591b7d1d7b49acf5319cafd7a83110e751b`. No se ejecutó DOWN ni se repitió el ensayo del UP.
 
 ## Recorrido local
 
