@@ -36,13 +36,10 @@ type perfilPropioBolsaRRHH struct {
 func (m *manejadorParticipacionBolsaDesarrollo) ConsultarPerfilBolsaRRHH(ctx context.Context) (salida any, fallo error) {
 	denegado := vecdomain.ErrAutorizacionDenegada
 	if m == nil || m.preparador == nil || m.preparador.soporte == nil ||
-		m.preparador.fuenteRespuestas == nil || m.registradorPerfil == nil || m.procesoPerfil == "" || ctx == nil || ctx.Err() != nil {
+		m.registradorPerfil == nil || m.procesoPerfil == "" || ctx == nil || ctx.Err() != nil {
 		return nil, vecports.ErrFuenteAutorizacionNoDisponible
 	}
 	p := m.preparador
-	if p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" {
-		return nil, denegado
-	}
 	contexto, err := p.contextoRevalidado(ctx)
 	if err != nil {
 		return nil, denegado
@@ -69,6 +66,12 @@ func (m *manejadorParticipacionBolsaDesarrollo) ConsultarPerfilBolsaRRHH(ctx con
 			salida = perfil
 		}
 	}()
+	if p.fuenteRespuestas == nil {
+		return nil, vecports.ErrFuenteAutorizacionNoDisponible
+	}
+	if p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" {
+		return nil, denegado
+	}
 	datos, err := contexto.Vinculo.Datos()
 	if err != nil || datos.Superficie != "interna_corporativa" || datos.CuentaPrivilegiada {
 		return nil, denegado

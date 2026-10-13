@@ -104,6 +104,7 @@ const erroresRecursosVistas = new Set();
 const grupoRecursosVista = (vista) => vista === "portal" ? "inicio"
   : vista === "mis-tramites" ? "accesos"
     : vista === "contratos" && !vistaBolsaPendienteNoCompuesta(vista) ? "operaciones"
+    : vista === "documentos" ? "documentosBolsa"
     : vista === VISTA_DOCUMENTOS_EXPEDIENTE ? "documentos"
   : vista === "auditoria" ? "auditoria" : vista === "llamamientos" ? "ofertas" : null;
 function cargarRecursosVista(grupo) {
@@ -117,6 +118,8 @@ function cargarRecursosVista(grupo) {
       ? import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2")
       : grupo === "operaciones"
         ? import("./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1")
+      : grupo === "documentosBolsa"
+        ? import("./modulos/bolsa/documentos-vista.js?v=20261013-documentos-bolsa-v2")
       : grupo === "documentos"
     ? import("./modulos/documentos/i18n.js?v=20260928-ppt-v2")
     : grupo === "auditoria"
@@ -162,7 +165,7 @@ const TITULOS = Object.freeze({
   reglas: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_reglas_y_versiones")],
   consulta: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_consulta_segura_para_candidatos")],
   estadisticas: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_estadisticas")],
-  documentos: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_documentos_y_firma")],
+  documentos: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("bolsa_documentos_titulo")],
   comunicaciones: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_correo_y_mensajeria")],
   auditoria: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_auditoria_y_trazabilidad")],
   configuracion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_configuracion_y_roles")],
@@ -292,6 +295,7 @@ function cargarEstilosVista(grupo) {
   }).finally(() => { cargasEstilosVistas.delete(grupo); });
 }
 function grupoTextosDeVista(vista) {
+  if (vista === "documentos") return null;
   if (vista === "mis-preferencias") return "preferencias";
   return moduloDeVistaPortal(vista) === "bolsa" ? "bolsa" : null;
 }
@@ -331,7 +335,7 @@ function esperarTextosDeVista(grupo) {
 function instalarReintentoTextosVista() {
   const espacio = porId("espacio-trabajo");
   espacio?.addEventListener("click", (evento) => {
-    if (!evento.target?.closest?.("[data-bolsa-ruta-reintentar]") || estado.vista !== "bolsa-candidatos") return;
+    if (!evento.target?.closest?.("[data-bolsa-ruta-reintentar]") || !["bolsa-candidatos", "documentos"].includes(estado.vista)) return;
     void controladorBolsas?.cargarBolsas();
   });
   espacio?.addEventListener("click", (evento) => {
@@ -368,6 +372,7 @@ function instalarReintentoTextosVista() {
     void prepararResumenInicioVisible();
   });
 }
+let vistaDocumentosBolsa = null;
 let vistaAuditoriaBolsa = null;
 let vistaPoliticaCese = null;
 let vistaConfiguracionBolsa = null;
@@ -481,6 +486,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
       montarVistaBolsa(vista, raiz, opciones);
       return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
         controladorBolsas?.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieOfertasBolsa?.desmontar(); superficieRRHHPlazos?.desmontar(); }
+        if (vista === "documentos") { vistaDocumentosBolsa?.desmontar(); vistaDocumentosBolsa = null; }
         if (vista === "auditoria") { vistaAuditoriaBolsa?.desmontar(); vistaAuditoriaBolsa = null; }
         if (vista === "reglas") { vistaPoliticaCese?.desmontar(); vistaPoliticaCese = null; }
         if (vista === "configuracion") desmontarConfiguracionBolsa();
@@ -1209,6 +1215,37 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     const carga = estado.datosBolsas?.carga;
     const error = carga === "error" || carga === "denegado";
     contenedor.innerHTML = `<section class="panel" ${error ? 'role="alert"' : 'role="status" aria-busy="true"'}><div class="cuerpo-panel"><p>${textoPortal(carga === "denegado" ? "txt_la_sesion_actual_no_dispone_de_permisos_suficien" : error ? "txt_no_se_pudieron_cargar_las_bolsas_de_trabajo" : "estado_modulo_comprobando")}</p>${carga === "error" ? `<button type="button" class="boton-secundario" data-bolsa-ruta-reintentar>${textoPortal("accion_reintentar")}</button>` : ""}</div></section>`;
+    return;
+  }
+  if (vista === "documentos") {
+    if (vistaDocumentosBolsa && contenedor.querySelector("[data-bolsa-documentos]")) return;
+    vistaDocumentosBolsa?.desmontar();
+    vistaDocumentosBolsa = null;
+    if (estado.datosBolsas?.carga !== "listo") {
+      const carga = estado.datosBolsas?.carga;
+      const error = carga === "error" || carga === "denegado";
+      contenedor.innerHTML = `<section class="panel" ${error ? 'role="alert"' : 'role="status" aria-busy="true"'}><div class="cuerpo-panel"><p>${textoPortal(carga === "denegado" ? "txt_la_sesion_actual_no_dispone_de_permisos_suficien" : error ? "txt_no_se_pudieron_cargar_las_bolsas_de_trabajo" : "estado_modulo_comprobando")}</p>${carga === "error" ? `<button type="button" class="boton-secundario" data-bolsa-ruta-reintentar>${textoPortal("accion_reintentar")}</button>` : ""}</div></section>`;
+      return;
+    }
+    const controlador = new AbortController();
+    vistaDocumentosBolsa = { desmontar: () => controlador.abort() };
+    void recursosVistas.get("documentosBolsa").montarVistaDocumentosBolsa({ raiz: contenedor,
+      bolsas: estado.datosBolsas.datos.bolsas, anunciar,
+      registrarDesmontar: (limpiar) => { vistaDocumentosBolsa = { desmontar: () => { controlador.abort(); limpiar(); } }; },
+      abrirCandidatos: (bolsaRef) => {
+        estado.bolsaSeleccionada = bolsaRef;
+        estado.filtrosBolsa = { estado: "", texto: "" };
+        navegar("bolsa-candidatos", { enfocar: false });
+        void controladorBolsas.cargarCandidatosBolsa(bolsaRef, { enfocarDestino: true });
+      }, signal: controlador.signal,
+    }).then((montaje) => {
+      if (controlador.signal.aborted || estado.vista !== vista) { montaje?.desmontar(); return; }
+      vistaDocumentosBolsa = montaje;
+    }).catch(() => {
+      if (controlador.signal.aborted || estado.vista !== vista) return;
+      vistaDocumentosBolsa = null;
+      contenedor.innerHTML = `<section class="panel" role="alert"><div class="cuerpo-panel"><p>${textoPortal("descripcion_superficie_no_montada")}</p><button type="button" class="boton-secundario" data-recursos-vista-reintentar>${textoPortal("accion_reintentar")}</button></div></section>`;
+    });
     return;
   }
   if (vista === "reglas") {

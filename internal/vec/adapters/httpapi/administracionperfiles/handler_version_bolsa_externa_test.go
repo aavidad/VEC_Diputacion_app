@@ -120,6 +120,27 @@ func TestVersionBolsaExternaFronteraSoloAceptaPreimagenesYDosSelecciones(t *test
 	}
 }
 
+func TestVersionBolsaExternaFronteraAceptaCincoSeleccionesInscripcion(t *testing.T) {
+	h, _, servicio, _ := handlerVersionBolsaExternaPrueba(t)
+	cuerpo := cuerpoPropuestaVersionBolsaExterna(t)
+	selecciones := make([]any, 5)
+	for j := range selecciones {
+		selecciones[j] = map[string]any{"entrada_ref": "entrada:inscripcion", "entrada_version": 1,
+			"entrada_huella_sha256": strings.Repeat("e", 64)}
+	}
+	cuerpo["selecciones"] = selecciones
+	w := peticionPropuestaVersionBolsaExterna(t, h, cuerpo)
+	if w.Code != http.StatusForbidden || servicio.propuestas != 1 ||
+		len(servicio.propuesta.Intencion.Selecciones) != 5 {
+		t.Fatalf("delta aspirante no llegó al servicio: estado %d, llamadas %d", w.Code, servicio.propuestas)
+	}
+	cuerpo["selecciones"] = make([]any, 4)
+	w = peticionPropuestaVersionBolsaExterna(t, h, cuerpo)
+	if w.Code != http.StatusBadRequest || servicio.propuestas != 1 {
+		t.Fatal("aceptó mezcla de selecciones")
+	}
+}
+
 func TestVersionBolsaExternaCierreSoloSesionYReferencia(t *testing.T) {
 	h, sesion, servicio, auditor := handlerVersionBolsaExternaPrueba(t)
 	cuerpo := map[string]any{
