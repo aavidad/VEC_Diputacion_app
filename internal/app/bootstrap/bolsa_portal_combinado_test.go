@@ -26,8 +26,9 @@ func TestInscripcionCombinadaNoAbreDependenciasApagadaOSeparada(t *testing.T) {
 }
 
 func TestBolsaCombinadaConservaPersonaCandidatoYCertificadoAlCambiarPerfil(t *testing.T) {
-	base := identidadCandidatoBolsaDesarrollo{personaRef: "per_carmen_001", candidatoRef: "can_carmen_001", perfilRef: "prf_interno_001"}
+	base := identidadCandidatoBolsaDesarrollo{personaRef: "per_carmen_001", candidatoRef: "can_carmen_001", cuentaRef: "cta_carmen_001", perfilRef: "prf_interno_001"}
 	base.identidad.huella[0] = 1
+	base.identidad.principal.ID = "actor_carmen_001"
 	ext := base
 	ext.perfilRef = "prf_externo_001"
 	a := &resolvedorIdentidadDesarrollo{candidatoBolsa: &base}
@@ -38,6 +39,9 @@ func TestBolsaCombinadaConservaPersonaCandidatoYCertificadoAlCambiarPerfil(t *te
 	for _, cambiar := range []func(*identidadCandidatoBolsaDesarrollo){
 		func(c *identidadCandidatoBolsaDesarrollo) { c.personaRef = "per_otra_001" },
 		func(c *identidadCandidatoBolsaDesarrollo) { c.candidatoRef = "can_otro_001" },
+		func(c *identidadCandidatoBolsaDesarrollo) { c.cuentaRef = "cta_otra_001" },
+		func(c *identidadCandidatoBolsaDesarrollo) { c.perfilRef = base.perfilRef },
+		func(c *identidadCandidatoBolsaDesarrollo) { c.identidad.principal.ID = "actor_otro_001" },
 		func(c *identidadCandidatoBolsaDesarrollo) { c.identidad.huella[0] = 2 },
 	} {
 		ajeno := ext

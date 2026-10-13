@@ -95,7 +95,11 @@ func mismaIdentidadCandidataBolsa(interna, externa *resolvedorIdentidadDesarroll
 		return false
 	}
 	a, b := interna.candidatoBolsa, externa.candidatoBolsa
-	return a.identidad.huella != ([sha256.Size]byte{}) && a.personaRef != "" && a.candidatoRef != "" && a.identidad.huella == b.identidad.huella && a.personaRef == b.personaRef && a.candidatoRef == b.candidatoRef
+	return a.identidad.huella != ([sha256.Size]byte{}) && a.identidad.principal.ID != "" &&
+		a.personaRef != "" && a.candidatoRef != "" && a.cuentaRef != "" &&
+		a.perfilRef != "" && b.perfilRef != "" && a.perfilRef != b.perfilRef &&
+		a.identidad.huella == b.identidad.huella && a.identidad.principal.ID == b.identidad.principal.ID &&
+		a.personaRef == b.personaRef && a.candidatoRef == b.candidatoRef && a.cuentaRef == b.cuentaRef
 }
 
 // Despacha las autoridades externas antes de cualquier frontera interna CT.
