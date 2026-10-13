@@ -12,6 +12,7 @@ const SuperficieAuditoriaFronteraRutaExactaPersonal = "api.personal.registro_emp
 const SuperficieAuditoriaFronteraRutaExactaAuditoria = "api.auditoria.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias = "api.usuarios.preferencias.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaBolsaCandidato = "api.bolsa.candidato.ruta_exacta"
+const SuperficieAuditoriaFronteraRutaExactaMeritosCartera = "api.meritos.cartera.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH = "api.bolsa.rrhh.documentos.ruta_exacta"
 
 // Aspirantes no guarda `per_`: sus denegaciones de frontera nunca llevan actor.
@@ -52,7 +53,8 @@ func (o OrdenAuditoriaFronteraRutaExacta) Validar() error {
 		!rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(o.Superficie, o.Ruta) ||
 		(o.ActorRef != "" && !referenciaActorAuditoriaFronteraRutaExactaValida(o.ActorRef)) ||
 		((o.Superficie == SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias ||
-			o.Superficie == SuperficieAuditoriaFronteraRutaExactaBolsaCandidato) &&
+			o.Superficie == SuperficieAuditoriaFronteraRutaExactaBolsaCandidato ||
+			o.Superficie == SuperficieAuditoriaFronteraRutaExactaMeritosCartera) &&
 			((o.Motivo == MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida && o.ActorRef != "") ||
 				(o.Motivo == MotivoAuditoriaFronteraRutaExactaAccesoDenegado &&
 					!referenciaOpacaContextoActorValida(o.ActorRef, "per_")))) ||
@@ -117,6 +119,10 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 			ruta == "/api/vec/bolsa/mi-bolsa/preferencias"
 	case SuperficieAuditoriaFronteraRutaExactaAspirantes:
 		return ruta == "/api/vec/aspirantes/area-personal/mi-ficha"
+	case SuperficieAuditoriaFronteraRutaExactaMeritosCartera:
+		return ruta == "/api/vec/meritos/cartera" ||
+			ruta == "/api/vec/meritos/cartera/retiradas" ||
+			ruta == "/api/vec/meritos/cartera/declaraciones"
 	case SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases:
 		return ruta == "/api/vec/seleccion/preparacion-bases/guardar" ||
 			ruta == "/api/vec/seleccion/preparacion-bases/consultar"

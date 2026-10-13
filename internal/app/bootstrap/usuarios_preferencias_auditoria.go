@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	meritoshttp "vec-diputacion-granada/internal/modules/meritos/adapters/http"
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/shared/telemetria"
@@ -24,6 +25,7 @@ type registradorFronterasConUsuariosPreferencias struct {
 	interna    registradorDenegacionPreferenciasUsuarios
 	externa    registradorDenegacionPreferenciasUsuarios
 	aspirantes registradorDenegacionPreferenciasUsuarios
+	meritos    registradorDenegacionPreferenciasUsuarios
 }
 
 func (r registradorFronterasConUsuariosPreferencias) RegistrarAuditoriaFronteraRutaExacta(ctx context.Context, orden vecports.OrdenAuditoriaFronteraRutaExacta) error {
@@ -35,6 +37,12 @@ func (r registradorFronterasConUsuariosPreferencias) RegistrarAuditoriaFronteraR
 			return errComposicionUsuariosPreferencias
 		}
 		return r.aspirantes.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
+	}
+	if orden.Superficie == vecports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera {
+		if r.meritos == nil || orden.Ruta != meritoshttp.RutaCartera && orden.Ruta != meritoshttp.RutaRetiradasCartera {
+			return errComposicionUsuariosPreferencias
+		}
+		return r.meritos.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
 	}
 	if orden.Superficie != vecports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias {
 		if r.delegado == nil {

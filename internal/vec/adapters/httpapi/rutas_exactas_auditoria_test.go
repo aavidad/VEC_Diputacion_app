@@ -34,7 +34,12 @@ func TestRutasExactasAuditoriaEtiquetanSoloRutasNominales(t *testing.T) {
 		{"usuarios exterior sin permiso", http.MethodPut, "/api/vec/usuarios/area-personal/mis-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, true, true},
 		{"aspirantes sin autenticacion", http.MethodGet, "/api/vec/aspirantes/area-personal/mi-ficha", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaAspirantes, true, false},
 		{"aspirantes sin permiso", http.MethodPost, "/api/vec/aspirantes/area-personal/mi-ficha", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaAspirantes, true, false},
+		{"meritos lectura sin autenticacion", http.MethodGet, "/api/vec/meritos/cartera", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera, true, false},
+		{"meritos lectura sin permiso", http.MethodGet, "/api/vec/meritos/cartera", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera, true, true},
+		{"meritos retirada sin autenticacion", http.MethodPost, "/api/vec/meritos/cartera/retiradas", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera, true, false},
+		{"meritos retirada sin permiso", http.MethodPost, "/api/vec/meritos/cartera/retiradas", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera, true, true},
 		{"prefijo aspirantes", http.MethodGet, "/api/vec/aspirantes/area-personal/mi-ficha-extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal, false, false},
+		{"prefijo meritos", http.MethodGet, "/api/vec/meritos/cartera-extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal, false, false},
 		{"prefijo auditoria", http.MethodGet, "/api/vec/auditoria/opciones_extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 		{"otra ruta auditoria", http.MethodGet, "/api/vec/auditoria/otra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 		{"prefijo usuarios", http.MethodGet, "/api/vec/usuarios/mis-preferencias-extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
@@ -59,7 +64,8 @@ func TestRutasExactasAuditoriaEtiquetanSoloRutasNominales(t *testing.T) {
 			}
 			respuesta := httptest.NewRecorder()
 			peticion := httptest.NewRequest(caso.metodo, caso.ruta, nil)
-			if caso.superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias {
+			if caso.superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias ||
+				caso.superficie == ports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera {
 				peticion.Host = "otro-portal.invalid"
 				peticion.Header.Set("Referer", "https://otro-portal.invalid/api/vec/contratacion-temporal/")
 			}
@@ -140,6 +146,10 @@ func TestRutasExactasUsuariosFalloAuditoriaCierraSinReintentoNiDetalle(t *testin
 		{"usuarios 403", ruta, ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
 		{"usuarios exterior 401", rutaExterior, ErrAutenticacionRutaExactaRequerida, false, http.StatusServiceUnavailable},
 		{"usuarios exterior 403", rutaExterior, ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
+		{"meritos lectura 401", "/api/vec/meritos/cartera", ErrAutenticacionRutaExactaRequerida, false, http.StatusServiceUnavailable},
+		{"meritos lectura 403", "/api/vec/meritos/cartera", ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
+		{"meritos retirada 401", "/api/vec/meritos/cartera/retiradas", ErrAutenticacionRutaExactaRequerida, false, http.StatusServiceUnavailable},
+		{"meritos retirada 403", "/api/vec/meritos/cartera/retiradas", ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
 		{"aspirantes 403 sin persona", "/api/vec/aspirantes/area-personal/mi-ficha", ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
 		{"aspirantes 401", "/api/vec/aspirantes/area-personal/mi-ficha", ErrAutenticacionRutaExactaRequerida, false, http.StatusServiceUnavailable},
 		{"catalogo Personal sin auditoria", RutaCatalogosRegistroEmpleadoB2, ErrAccesoRutaExactaDenegado, false, http.StatusServiceUnavailable},

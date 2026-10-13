@@ -900,7 +900,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
   ]) versionesEspeciales.set(ruta, "20261012-ct-b2-cese-v1");
-  versionesEspeciales.set("portal-modulos-coordinador.js", "20261013-bolsa-menu-n3");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261013-meritos-convocatorias-v6");
   versionesEspeciales.set("modulos/auditoria/vista.js", "20261012-sin-prueba-v1");
   for (const ruta of [
     "portal-bolsas-contacto-origen.js", "portal-bolsas-api.js",
@@ -934,6 +934,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["portal.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal-bolsa-configuracion.js"]) versionesEspeciales.set(ruta, "20261013-bolsa-configuracion-n5");
   for (const ruta of ["portal.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js", "portal-panel-interno.js"]) versionesEspeciales.set(ruta, "20261013-auditoria-rrhh-v3");
   const versiones = new Map();
+  for (const ruta of ["portal.js", "portal-panel-interno.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js"]) versionesEspeciales.set(ruta, "20261013-meritos-integracion-v8");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
