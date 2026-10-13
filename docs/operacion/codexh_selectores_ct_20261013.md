@@ -46,7 +46,7 @@ Crear fuera de Git `auditoria-intentos.json` directamente bajo el directorio de 
 }
 ```
 
-`auditoria-intentos.dsn` contiene una única conexión privada con TLS válido y sin destinos alternativos. Debe apuntar a la misma base que CT. Su LOGIN es distinto de ejecución, gobierno y registro de autorización y tiene exclusivamente una membresía en `vec_autorizacion_atestada_v3_registrador_intentos`, con `ADMIN FALSE`, `INHERIT TRUE` y `SET FALSE`. El LOGIN necesita `LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`, sin `rolconfig` ni concesiones de negocio. También requiere `TEMPORARY` en la base para el preflight común de pools.
+`auditoria-intentos.dsn` contiene una única conexión privada con TLS válido y sin destinos alternativos. Debe apuntar a la misma base que CT. Su LOGIN es distinto de ejecución, gobierno y registro de autorización y tiene exclusivamente una membresía en `vec_autorizacion_atestada_v3_registrador_intentos`, con `ADMIN FALSE`, `INHERIT TRUE` y `SET FALSE`. El LOGIN necesita `LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`, sin `rolconfig` ni concesiones de negocio. El preflight común exige `TEMPORARY` denegado tanto a `PUBLIC` como al LOGIN de aplicación; no conceder ese privilegio.
 
 La provisión DBA debe conservar una fila inmutable en `vec_autorizacion_atestada_v3.configuracion_runtime_intentos` que ligue ese LOGIN al mismo `proceso` y al canal `interna_corporativa`. Una fila existente se coteja; no se actualiza ni se borra para hacer pasar el arranque. El código no crea el LOGIN ni esta fila. `roles_intentos_up.sql`, CA26, IS13 y AD169 son prerrequisitos ya existentes; solo se instalan los que falten en un entorno nuevo.
 
