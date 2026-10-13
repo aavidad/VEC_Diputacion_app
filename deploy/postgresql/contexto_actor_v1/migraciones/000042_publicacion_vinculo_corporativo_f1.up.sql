@@ -76,19 +76,41 @@ CREATE TABLE vec_contexto_actor_v1.buzon_publicacion_vinculo_f1 (
  plan_sha256 text NOT NULL CHECK(plan_sha256 ~ '^[0-9a-f]{64}$'),
  creada_en timestamptz(6) NOT NULL
 );
-DO $tablas$
-DECLARE t text;
-BEGIN
- FOREACH t IN ARRAY ARRAY['fuente_aprobada_vinculo_f1','prueba_publicacion_vinculo_f1','buzon_publicacion_vinculo_f1'] LOOP
-  EXECUTE format('ALTER TABLE vec_contexto_actor_v1.%I ENABLE ROW LEVEL SECURITY',t);
-  EXECUTE format('ALTER TABLE vec_contexto_actor_v1.%I FORCE ROW LEVEL SECURITY',t);
-  EXECUTE format('CREATE POLICY propietario_exacto ON vec_contexto_actor_v1.%I TO vec_contexto_actor_v1_propietario USING(current_user=%L) WITH CHECK(current_user=%L)',t,'vec_contexto_actor_v1_propietario','vec_contexto_actor_v1_propietario');
-  EXECUTE format('CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_contexto_actor_v1.%I FOR EACH ROW EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_mutacion_historia()',t);
-  EXECUTE format('CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_contexto_actor_v1.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_truncado()',t);
-  EXECUTE format('REVOKE ALL ON TABLE vec_contexto_actor_v1.%I FROM PUBLIC,vec_contexto_actor_v1_runtime',t);
-  EXECUTE format('REVOKE ALL ON TYPE vec_contexto_actor_v1.%I FROM PUBLIC,vec_contexto_actor_v1_runtime',t);
- END LOOP;
-END $tablas$;
+ALTER TABLE vec_contexto_actor_v1.fuente_aprobada_vinculo_f1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contexto_actor_v1.fuente_aprobada_vinculo_f1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_contexto_actor_v1.fuente_aprobada_vinculo_f1 TO vec_contexto_actor_v1_propietario
+ USING(current_user='vec_contexto_actor_v1_propietario')
+ WITH CHECK(current_user='vec_contexto_actor_v1_propietario');
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_contexto_actor_v1.fuente_aprobada_vinculo_f1
+ FOR EACH ROW EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_mutacion_historia();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_contexto_actor_v1.fuente_aprobada_vinculo_f1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_truncado();
+REVOKE ALL ON TABLE vec_contexto_actor_v1.fuente_aprobada_vinculo_f1 FROM PUBLIC,vec_contexto_actor_v1_runtime;
+REVOKE ALL ON TYPE vec_contexto_actor_v1.fuente_aprobada_vinculo_f1 FROM PUBLIC,vec_contexto_actor_v1_runtime;
+
+ALTER TABLE vec_contexto_actor_v1.prueba_publicacion_vinculo_f1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contexto_actor_v1.prueba_publicacion_vinculo_f1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_contexto_actor_v1.prueba_publicacion_vinculo_f1 TO vec_contexto_actor_v1_propietario
+ USING(current_user='vec_contexto_actor_v1_propietario')
+ WITH CHECK(current_user='vec_contexto_actor_v1_propietario');
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_contexto_actor_v1.prueba_publicacion_vinculo_f1
+ FOR EACH ROW EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_mutacion_historia();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_contexto_actor_v1.prueba_publicacion_vinculo_f1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_truncado();
+REVOKE ALL ON TABLE vec_contexto_actor_v1.prueba_publicacion_vinculo_f1 FROM PUBLIC,vec_contexto_actor_v1_runtime;
+REVOKE ALL ON TYPE vec_contexto_actor_v1.prueba_publicacion_vinculo_f1 FROM PUBLIC,vec_contexto_actor_v1_runtime;
+
+ALTER TABLE vec_contexto_actor_v1.buzon_publicacion_vinculo_f1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contexto_actor_v1.buzon_publicacion_vinculo_f1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_contexto_actor_v1.buzon_publicacion_vinculo_f1 TO vec_contexto_actor_v1_propietario
+ USING(current_user='vec_contexto_actor_v1_propietario')
+ WITH CHECK(current_user='vec_contexto_actor_v1_propietario');
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_contexto_actor_v1.buzon_publicacion_vinculo_f1
+ FOR EACH ROW EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_mutacion_historia();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_contexto_actor_v1.buzon_publicacion_vinculo_f1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_truncado();
+REVOKE ALL ON TABLE vec_contexto_actor_v1.buzon_publicacion_vinculo_f1 FROM PUBLIC,vec_contexto_actor_v1_runtime;
+REVOKE ALL ON TYPE vec_contexto_actor_v1.buzon_publicacion_vinculo_f1 FROM PUBLIC,vec_contexto_actor_v1_runtime;
 
 CREATE FUNCTION vec_contexto_actor_v1.preimagen_publicacion_vinculo_f1(
  p_operacion_ref text,p_cuenta_ref text,p_persona_ref text,p_perfil_ref text,

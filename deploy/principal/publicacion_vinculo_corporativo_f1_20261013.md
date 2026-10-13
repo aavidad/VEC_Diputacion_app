@@ -115,6 +115,12 @@ C3. En la copia se repusieron sólo TEMP de PUBLIC y el latido del sellador,
 caducado por estar detenida. No se cambió ningún cotejo ni guardia de código.
 Los estados de revocación y caducidad son datos de ensayo fuera de Git.
 
+La guarda de SQL pidió expresar las políticas y los disparadores como DDL
+literal. Se sustituyó sólo su bucle de construcción: las tres políticas, los
+seis disparadores y RLS/ACL coinciden con los objetos ensayados. El DDL literal
+se ejecutó y comparó en una transacción de prueba terminada en ROLLBACK; no se
+reaplicó la migración instalada ni cambió ninguna función del publicador.
+
 Las familias nuevas participan en la cadena SQL V5. El verificador offline
 actual no las representa; no declarar verificación offline completa ni omitir
 sus asientos. Dirección conserva el recorrido de C3 en Chrome tras instalar.
