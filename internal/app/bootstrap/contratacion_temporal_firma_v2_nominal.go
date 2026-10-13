@@ -3,7 +3,9 @@ package bootstrap
 import (
 	"context"
 	"net/http"
+	"reflect"
 	"sync"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/firmaemisorv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -27,13 +29,20 @@ type seleccionNominalFirmaCT struct {
 }
 
 type clavePeticionNominalFirmaCT struct{}
+type contextoNominalFirmaCT struct {
+	evidencia   ports.EvidenciaSesionFirmanteV2
+	instantanea core.InstantaneaAutorizacion
+}
+
 type peticionNominalFirmaCT struct {
-	fuente    *fuenteNominalSesionFirmaCT
-	solicitud ports.SolicitudSesionFirmanteV2
-	sesion    ports.SesionFirmanteV2
-	peticion  *http.Request
-	extras    map[string]ports.SesionFirmanteV2
-	mu        sync.Mutex
+	fuente      *fuenteNominalSesionFirmaCT
+	solicitud   ports.SolicitudSesionFirmanteV2
+	sesion      ports.SesionFirmanteV2
+	peticion    *http.Request
+	extras      map[string]ports.SesionFirmanteV2
+	rolesExtras map[string]string
+	contextos   map[string]contextoNominalFirmaCT
+	mu          sync.Mutex
 }
 
 type fuenteNominalSesionFirmaCT struct {
@@ -125,7 +134,9 @@ func (f *fuenteNominalSesionFirmaCT) prepararPeticionNominal(r *http.Request) (*
 	if err != nil {
 		return nil, err
 	}
-	nominal := &peticionNominalFirmaCT{fuente: f, solicitud: q, sesion: sesion, peticion: r, extras: make(map[string]ports.SesionFirmanteV2)}
+	nominal := &peticionNominalFirmaCT{fuente: f, solicitud: q, sesion: sesion, peticion: r,
+		extras: make(map[string]ports.SesionFirmanteV2), rolesExtras: make(map[string]string),
+		contextos: make(map[string]contextoNominalFirmaCT, 4)}
 	ctx := context.WithValue(r.Context(), clavePeticionNominalFirmaCT{}, nominal)
 	if _, err := f.contexto(ctx); err != nil {
 		return nil, err
@@ -184,10 +195,72 @@ func (f *fuenteNominalSesionFirmaCT) contexto(ctx context.Context) (ports.Eviden
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	snapshot, err := f.asignaciones.ObtenerInstantaneaAutorizacion(ctx, e.Resultado.Contexto.PersonaRef, e.Resultado.Contexto.PerfilActivoRef)
-	if err != nil || snapshot.Validar() != nil || snapshot.VersionRol.RolID != p.solicitud.RolEsperadoID {
+	if err != nil || snapshot.Validar() != nil || snapshot.VersionRol.RolID != p.solicitud.RolEsperadoID ||
+		snapshot.AsignacionPerfil.PrincipalID != p.solicitud.PersonaEsperadaRef ||
+		snapshot.AsignacionPerfil.PerfilActivoRef != p.solicitud.PerfilEsperadoRef {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
-	return e, nil
+	return p.conservarContextoNominalFirmaCT(e, snapshot, f.reloj.Ahora())
+}
+
+// El recibo F1 que usa una operación se fija una sola vez por petición y
+// perfil. La evidencia fresca se contrasta antes de devolverlo: una retirada,
+// cambio de control, procedencia o asignación cierra la operación, nunca
+// reemplaza silenciosamente la referencia que ya consumió otro puerto.
+// El llamador mantiene p.mu durante el cotejo y la copia defensiva.
+func (p *peticionNominalFirmaCT) conservarContextoNominalFirmaCT(
+	actual ports.EvidenciaSesionFirmanteV2, instantanea core.InstantaneaAutorizacion, ahora time.Time,
+) (ports.EvidenciaSesionFirmanteV2, error) {
+	var cero ports.EvidenciaSesionFirmanteV2
+	perfil := actual.Resultado.Contexto.PerfilActivoRef
+	if p.contextos == nil || perfil == "" || actual.Vinculo.ValidarPara(actual.Resultado) != nil ||
+		!actual.Vinculo.VigenteEn(ahora, actual.Resultado) || !ahora.Before(actual.CertificadoValidoHasta) ||
+		instantanea.Validar() != nil || !instantanea.AsignacionPerfil.VigenteEn(ahora) ||
+		instantanea.VersionRol.Estado != core.EstadoVersionRolPublicada ||
+		instantanea.ControlVigenciaVersionRol.Estado != core.EstadoControlVigenciaVersionRolHabilitada ||
+		instantanea.VersionRol.PublicadaEn.After(ahora) || instantanea.ControlVigenciaVersionRol.ActualizadoEn.After(ahora) {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	base, existe := p.contextos[perfil]
+	if !existe {
+		if len(p.contextos) >= 4 {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		clon, err := actual.Resultado.Clonar()
+		if err != nil {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		actual.Resultado = clon
+		p.contextos[perfil] = contextoNominalFirmaCT{evidencia: actual, instantanea: instantanea}
+		actual.Resultado, err = clon.Clonar()
+		if err != nil {
+			return cero, ports.ErrFirmaDocumentoDenegada
+		}
+		return actual, nil
+	}
+	if base.evidencia.CertificadoCanalSHA256 != actual.CertificadoCanalSHA256 ||
+		!base.evidencia.CertificadoValidoHasta.Equal(actual.CertificadoValidoHasta) ||
+		!base.evidencia.Vinculo.VigenteEn(ahora, base.evidencia.Resultado) ||
+		!mismoContextoEsperadoRegistradoDesarrollo(base.evidencia.Resultado, actual.Resultado) ||
+		!reflect.DeepEqual(base.instantanea, instantanea) {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	baseDatos, errBase := base.evidencia.Vinculo.Datos()
+	actualDatos, errActual := actual.Vinculo.Datos()
+	if errBase != nil || errActual != nil {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	actualDatos.RegistroContextoRef = baseDatos.RegistroContextoRef
+	actualDatos.ContextoActorHuellaSHA256 = baseDatos.ContextoActorHuellaSHA256
+	if actualDatos != baseDatos {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	clon, err := base.evidencia.Resultado.Clonar()
+	if err != nil {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	base.evidencia.Resultado = clon
+	return base.evidencia, nil
 }
 
 func (f *fuenteNominalSesionFirmaCT) RevalidarContextoActorFirmaV2(ctx context.Context) (firmaemisorv2.ContextoActorFirmaV2, error) {
@@ -359,9 +432,10 @@ func (f *fuenteNominalSesionFirmaCT) contextoPerfil(ctx context.Context, slot st
 			return cero, err
 		}
 		p.extras[perfil] = sesion
+		p.rolesExtras[perfil] = q.RolEsperadoID
 	}
 	e, err := sesion.RevalidarSesionFirmanteV2(ctx)
-	if err != nil || e.Resultado.Contexto.PersonaRef != principal.Resultado.Contexto.PersonaRef ||
+	if err != nil || e.Vinculo.ValidarPara(e.Resultado) != nil || e.Resultado.Contexto.PersonaRef != principal.Resultado.Contexto.PersonaRef ||
 		e.Resultado.Contexto.Instantanea.CuentaRef != principal.Resultado.Contexto.Instantanea.CuentaRef ||
 		e.Resultado.Contexto.PerfilActivoRef != perfil || e.CertificadoCanalSHA256 != principal.CertificadoCanalSHA256 {
 		return cero, ports.ErrFirmaDocumentoDenegada
@@ -370,6 +444,16 @@ func (f *fuenteNominalSesionFirmaCT) contextoPerfil(ctx context.Context, slot st
 	if err != nil || datos.GarantiaObservada != core.AuthAssuranceSubstantial || datos.CuentaPrivilegiada ||
 		!e.Vinculo.VigenteEn(f.reloj.Ahora(), e.Resultado) {
 		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	snapshot, err := f.asignaciones.ObtenerInstantaneaAutorizacion(ctx, e.Resultado.Contexto.PersonaRef, perfil)
+	if err != nil || snapshot.Validar() != nil || snapshot.VersionRol.RolID != p.rolesExtras[perfil] ||
+		snapshot.AsignacionPerfil.PrincipalID != principal.Resultado.Contexto.PersonaRef ||
+		snapshot.AsignacionPerfil.PerfilActivoRef != perfil {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	e, err = p.conservarContextoNominalFirmaCT(e, snapshot, f.reloj.Ahora())
+	if err != nil {
+		return cero, err
 	}
 	return ports.ContextoAutorizacionAltaV3{Vinculo: e.Vinculo, Resultado: e.Resultado}, nil
 }
