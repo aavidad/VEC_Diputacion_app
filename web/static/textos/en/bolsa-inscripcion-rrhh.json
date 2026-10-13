@@ -101,6 +101,7 @@
       "one": "{cuenta} pending application",
       "other": "{cuenta} pending applications"
     },
+    "revision_meritos_titulo": "Qualification and merit review",
     "convocatorias_titulo": "Recruitment notices",
     "convocatorias_listado": "Published and past notices",
     "convocatorias_ayuda_boton": "Help with recruitment notices",

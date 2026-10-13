@@ -40,7 +40,7 @@ export const VISTAS_INTERNAS_BOLSA = Object.freeze([
 // tienen todavía un servicio autorizado que pueda ejecutar su operación.
 export const VISTAS_BOLSA_PENDIENTES_NO_COMPUESTAS = Object.freeze([
   "contratos",
-  "meritos", "alegaciones", "consulta",
+  "alegaciones", "consulta",
 ]);
 
 export function vistaBolsaPendienteNoCompuesta(vista) {
@@ -84,6 +84,7 @@ export function resumenAccesosModulos(accesos, comprobandoBolsas, traducir = tra
  */
 export function vistaBolsaOfrecida(vista, capacidades = {}) {
   switch (vista) {
+    case "meritos":
     case "convocatorias":
       return capacidades?.inscripciones === true;
     case "importacion":
@@ -120,7 +121,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
  * el menú. Elaboración comprueba su API al abrirse por enlace.
  */
 export function vistaBolsaNavegable(vista, capacidades = {}) {
-  if (["solicitudes", "convocatorias", "importacion", "baremacion", "configuracion"].includes(vista)) return true;
+  if (["solicitudes", "meritos", "convocatorias", "importacion", "baremacion", "configuracion"].includes(vista)) return true;
   if (vista === "elaboracion") return capacidades?.borradores !== false;
   if (["documentos", "resumen", "estadisticas", "llamamientos", "comunicaciones", VISTA_CANDIDATOS_BOLSA].includes(vista)) return true;
   return vistaBolsaOfrecida(vista, capacidades);

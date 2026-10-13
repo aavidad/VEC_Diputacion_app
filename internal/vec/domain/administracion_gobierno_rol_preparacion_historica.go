@@ -13,6 +13,9 @@ import (
 // del solicitante jamás decide cuál de los dos casos se ejecuta.
 func PrepararPlanGobiernoRolNuevoDesdeCatalogo(c CatalogoAccionesAdministracionV1,
 	s SolicitudPlanGobiernoPerfil, ahora time.Time, actorPersonaRef string) (PlanGobiernoPerfil, time.Time, error) {
+	if s.Publicacion != nil && s.Publicacion.RolPropuesto.RolID == RolIDPersonaMeritosCartera {
+		return prepararPlanGobiernoRolMeritosCartera(c, s, ahora, actorPersonaRef)
+	}
 	var vacio PlanGobiernoPerfil
 	if c.Validar() != nil || !instanteAutorizacionCanonico(ahora) ||
 		s.Operacion != OperacionCrearPerfilGobernado || s.Publicacion == nil ||

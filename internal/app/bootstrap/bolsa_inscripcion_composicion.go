@@ -16,6 +16,7 @@ import (
 	httpinscripcion "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinscripcion"
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/bolsa/application/inscripcion"
+	meritoshttp "vec-diputacion-granada/internal/modules/meritos/adapters/http"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -266,8 +267,9 @@ func cuentasRRHHInscripcionDesarrollo(identidad *resolvedorIdentidadDesarrollo, 
 
 // inscripcionRRHHDesarrollo es la bandeja de RRHH compuesta en vec-server.
 type inscripcionRRHHDesarrollo struct {
-	manejador http.Handler
-	cerrar    func()
+	manejador       http.Handler
+	revisionMeritos http.Handler
+	cerrar          func()
 }
 
 // nuevaInscripcionRRHHDesarrollo compone /api/vec/bolsa/rrhh/inscripciones en
@@ -474,8 +476,12 @@ func nuevaInscripcionRRHHDesarrollo(cfg config.Config, resolvedor vechttp.DemoId
 	if err != nil {
 		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
+	revisionMeritos, err := NuevoHandlerRevisionMeritosRRHH(preparador, servicio, lector)
+	if err != nil {
+		return nil, err
+	}
 	completa = true
-	return &inscripcionRRHHDesarrollo{manejador: manejador, cerrar: cierre.cerrar}, nil
+	return &inscripcionRRHHDesarrollo{manejador: manejador, revisionMeritos: revisionMeritos, cerrar: cierre.cerrar}, nil
 }
 
 // componerRaizConInscripcionRRHH sólo añade el prefijo de RRHH cuando la
@@ -485,6 +491,9 @@ func componerRaizConInscripcionRRHH(raiz http.Handler, i *inscripcionRRHHDesarro
 		return raiz
 	}
 	mux := http.NewServeMux()
+	if i.revisionMeritos != nil {
+		mux.Handle(meritoshttp.RutaRevisionRRHH, i.revisionMeritos)
+	}
 	mux.Handle(httpinscripcion.RutaRRHH, i.manejador)
 	mux.Handle(httpinscripcion.RutaRRHH+"/", i.manejador)
 	mux.Handle("/", raiz)

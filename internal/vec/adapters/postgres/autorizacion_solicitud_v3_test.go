@@ -283,6 +283,30 @@ func TestRegistroCandidatoExternoUsaSoloFachadaNominal(t *testing.T) {
 	}
 }
 
+func TestRegistroMeritosExternoUsaSoloFachadaNominal(t *testing.T) {
+	escenario := nuevoEscenarioRegistroContextoActorV3PostgreSQLPrueba(t, true)
+	orden, err := ports.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(
+		escenario.solicitud, escenario.decision, escenario.motivo, escenario.resultado,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huella, _ := domain.HuellaSHA256DecisionAutorizacionV3(escenario.decision)
+	registrada := escenario.ahora.Add(time.Microsecond)
+	tx := nuevaTransaccionRegistroContextoActorV3PostgreSQLPrueba(true, "concedida", huella, registrada)
+	a, err := nuevoAlmacenAutorizacion(&iniciadorRegistroContextoActorV3PostgreSQLPrueba{tx: tx})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.externo, a.registroMeritosExterno = true, true
+	if _, err = a.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(context.Background(), orden); err != nil {
+		t.Fatal(err)
+	}
+	if tx.consulta != consultaRegistrarDecisionMeritosExternoV3 || !tx.commitInvocado {
+		t.Fatalf("frontera meritos: consulta=%q commit=%v", tx.consulta, tx.commitInvocado)
+	}
+}
+
 func TestRegistroDenegacionContextoActorV3PostgreSQLUsaMismaFronteraSinConfirmar(t *testing.T) {
 	escenario := nuevoEscenarioRegistroContextoActorV3PostgreSQLPrueba(t, false)
 	orden, err := ports.NuevaOrdenRegistroDenegacionAutorizacionLigadaV3(
