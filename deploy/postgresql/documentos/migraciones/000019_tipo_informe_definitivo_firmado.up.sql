@@ -13,6 +13,14 @@ BEGIN
   RAISE EXCEPTION 'D19 clave=tipo_reservado_firmado esperado=resolucion_firmada.v1 actual=ausente_o_divergente' USING ERRCODE='55000';
  END IF;
 END $pre$;
+-- El catálogo D9 tiene FORCE RLS y sólo política de lectura del propietario.
+-- La instalación autoriza exclusivamente esta fila, dentro de la misma TX,
+-- y retira la política antes del COMMIT: los permisos runtime no cambian.
+CREATE POLICY instalar_tipo_informe_d19 ON vec_documentos.tipo_reservado_firmado
+ FOR INSERT TO vec_documentos_propietario WITH CHECK(
+ tipo_ref='ref:956a159e958e8881eaf47da9f84663748108e8aaff2108d59fe7bc8c1202f99a'
+ AND tipo='contratacion_temporal.informe_definitivo_firmado.v1' AND modulo_id='contratacion_temporal');
 INSERT INTO vec_documentos.tipo_reservado_firmado(tipo_ref,tipo,modulo_id)
 VALUES('ref:956a159e958e8881eaf47da9f84663748108e8aaff2108d59fe7bc8c1202f99a','contratacion_temporal.informe_definitivo_firmado.v1','contratacion_temporal');
+DROP POLICY instalar_tipo_informe_d19 ON vec_documentos.tipo_reservado_firmado;
 COMMIT;
