@@ -388,7 +388,8 @@ test("la fase de firma se ve en cualquier fase del expediente real, sin botones 
       consultado = solicitud.expediente_ref;
       return consultaV2(catalogo, ref, 9, [{ paso_orden: 1, secuencia: 1,
         catalogo_ref: catalogo.catalogo_ref, catalogo_huella: catalogo.huella_sha256,
-        resultado: "firmado", registrada_en: "2026-09-28T08:30:00Z" }]);
+        resultado: "firmado", via: "certificado_vec", revision_pdf: {}, documento_custodiado: {},
+        registrada_en: "2026-09-28T08:30:00Z" }]);
     } },
   });
   gestor.montarSiProcede(estado);
@@ -491,7 +492,7 @@ test("Documentos recupera el PDF custodiado en ambas vistas sin montar acciones 
   const catalogo = validarCircuitoFirma(circuito());
   const datos = consultaV2(catalogo, ref, 8, [{ paso_orden: 1, secuencia: 1,
     catalogo_ref: catalogo.catalogo_ref, catalogo_huella: catalogo.huella_sha256,
-    resultado: "firmado", documento_custodiado: custodiado }]);
+    resultado: "firmado", via: "certificado_vec", revision_pdf: {}, documento_custodiado: custodiado }]);
   let estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
     expediente: { expediente_ref: ref, version: 8, demostracion: false },
     documentos: { expediente_ref: ref, version: 8, demostracion: false },
@@ -547,7 +548,7 @@ test("Documentos descarta la lectura firmada tardía y las referencias cruzadas"
   const pendienteA = new Promise((resolver) => { resolverA = resolver; });
   const datos = consultaV2(catalogo, refA, 8, [{ paso_orden: 1, secuencia: 1,
     catalogo_ref: catalogo.catalogo_ref, catalogo_huella: catalogo.huella_sha256,
-    resultado: "firmado", documento_custodiado: { expediente_ref: `ref:${"e".repeat(64)}`,
+    resultado: "firmado", via: "certificado_vec", revision_pdf: {}, documento_custodiado: { expediente_ref: `ref:${"e".repeat(64)}`,
       documento_ref: `ref:${"d".repeat(64)}`, version: 1, huella_sha256: "c".repeat(64) } }]);
   const gestor = crearGestorCircuitoFirma({ raiz, cargarTextos: cargarTextosPrueba, obtenerEstado: () => estado,
     cliente: { obtenerCircuitoConEstado: async () => ({ estado: "disponible", circuito: catalogo }) },

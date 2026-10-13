@@ -269,15 +269,18 @@ function fusionarConsultasV2(circuito, consultas) {
     for (const firma of lectura.firmas) {
       if ((ultimas.get(firma.paso_orden)?.secuencia ?? 0) < firma.secuencia) ultimas.set(firma.paso_orden, firma);
     }
-    const pendiente = documento.pasos.find((paso) => ultimas.get(paso.orden)?.resultado !== "firmado")?.orden ?? 0;
+    const firmada = (firma) => firma?.resultado === "firmado"
+      && ["certificado_vec", "portafirmas_registro_rrhh"].includes(firma.via)
+      && Boolean(firma.revision_pdf) && Boolean(firma.documento_custodiado);
+    const pendiente = documento.pasos.find((paso) => !firmada(ultimas.get(paso.orden)))?.orden ?? 0;
     documentos.push(Object.freeze({ ...documento, paso_pendiente: pendiente,
       pasos: Object.freeze(documento.pasos.map((paso) => {
         const firma = ultimas.get(paso.orden);
         return Object.freeze({ ...paso,
-          estado: firma?.resultado === "firmado" ? "firmado" : firma?.resultado === "devuelto" ? "devuelto"
+          estado: firmada(firma) ? "firmado" : firma?.resultado === "devuelto" ? "devuelto"
             : paso.orden === pendiente ? "pendiente_firma" : "en_espera",
-          registrada_en: firma?.registrada_en ?? "",
-          documento_custodiado: firma?.documento_custodiado ?? null,
+          registrada_en: firmada(firma) || firma?.resultado === "devuelto" ? firma.registrada_en : "",
+          documento_custodiado: firmada(firma) ? firma.documento_custodiado : null,
         });
       })) }));
   }
