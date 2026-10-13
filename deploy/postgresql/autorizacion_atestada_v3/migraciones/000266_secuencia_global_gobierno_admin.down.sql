@@ -10,8 +10,8 @@ DO $pre$
 DECLARE actual text;
 BEGIN
  SELECT encode(sha256(convert_to(pg_get_functiondef(to_regprocedure('vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(integer)')),'UTF8')),'hex') INTO actual;
- IF actual IS DISTINCT FROM 'c61ca09e4aff1f5b7c4267baf2a0a66e2befa1d1eb9d9e066c6ccc6dd25769d6' THEN
-  RAISE EXCEPTION 'AD266: PARO clave=instantanea_gobierno_admin_lectura_v1(integer) actual=% esperado=c61ca09e4aff1f5b7c4267baf2a0a66e2befa1d1eb9d9e066c6ccc6dd25769d6',coalesce(actual,'ausente') USING ERRCODE='55000';
+ IF actual IS DISTINCT FROM 'c941bede98181c85a3f35938a4f0b86e81825e62437d7c43b6c42cded733ecf1' THEN
+  RAISE EXCEPTION 'AD266: PARO clave=instantanea_gobierno_admin_lectura_v1(integer) actual=% esperado=c941bede98181c85a3f35938a4f0b86e81825e62437d7c43b6c42cded733ecf1',coalesce(actual,'ausente') USING ERRCODE='55000';
  END IF;
 END $pre$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
