@@ -3,6 +3,8 @@
 import importlib.util
 import json
 import unittest
+import tempfile
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -95,6 +97,38 @@ class GuionHZ39(unittest.TestCase):
         runner.comprobar_recuperacion(
             paso, original, {"recibos": original["recibos_efecto"]}
         )
+
+    def test_dos_continuaciones_conservan_la_intencion_incierta(self):
+        paso = {
+            "id": "01",
+            "actor": "rrhh",
+            "dueno": "CT",
+            "http": [{"metodo": "POST"}],
+        }
+        anterior = {"pasos": [{"id": "01", "estado": "FALLO", "efecto_iniciado": True}]}
+        with (
+            tempfile.TemporaryDirectory() as carpeta,
+            patch("playwright.sync_api.sync_playwright") as pw,
+        ):
+            browser = (
+                pw.return_value.__enter__.return_value.chromium.launch.return_value
+            )
+            for n, ident in enumerate(
+                ({"rrhh": {"origin": "https://127.0.0.1:9443"}}, {})
+            ):
+                args = SimpleNamespace(
+                    salida=Path(carpeta) / str(n),
+                    modo="continuar",
+                    pasos=None,
+                    visible=False,
+                )
+                with patch("builtins.print"):
+                    anterior = runner.ejecutar(
+                        args, [paso], {"valores": {}}, ident, anterior
+                    )
+                self.assertTrue(anterior["pasos"][0]["efecto_iniciado"])
+                self.assertEqual(anterior["pasos"][0]["estado"], "PENDIENTE")
+            browser.new_context.assert_not_called()
 
     def test_documentos_vacios_duplicados_o_distintos_no_pasan(self):
         paso = next(

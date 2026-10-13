@@ -568,6 +568,7 @@ def ejecutar(
                     if p["actor"] in {"firmantes", "jefatura_firmante"}
                     else p["actor"]
                 )
+                anterior_paso = previos.get(p["id"], {})
                 registro = {
                     "id": p["id"],
                     "actor": p["actor"],
@@ -579,6 +580,9 @@ def ejecutar(
                     "errores_js": 0,
                     "red_fallida": [],
                 }
+                if anterior_paso.get("efecto_iniciado"):
+                    registro["efecto_iniciado"] = True
+                    registro["recibos_efecto"] = anterior_paso.get("recibos_efecto", [])
                 resultado["pasos"].append(registro)
                 if pendientes and args.modo != "recuperar":
                     registro.update(
@@ -588,10 +592,6 @@ def ejecutar(
                 if not ident.get(actor):
                     registro["causa"] = "certificado_o_clave_no_disponible"
                     continue
-                anterior_paso = previos.get(p["id"], {})
-                if args.modo == "recuperar" and anterior_paso.get("efecto_iniciado"):
-                    registro["efecto_iniciado"] = True
-                    registro["recibos_efecto"] = anterior_paso.get("recibos_efecto", [])
                 if (
                     args.modo == "continuar"
                     and anterior_paso.get("efecto_iniciado")
