@@ -16,7 +16,7 @@ import (
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 )
 
-const aplicarCeseNativoCTSQL = `SELECT vec_bolsa_llamamientos.aplicar_cese_nativo_ct_v1($1::jsonb,$2::text,$3::text,$4::text,$5::text,$6::text,$7::bytea,$8::bytea,$9::bytea,$10::bytea,$11::numeric,$12::numeric,$13::bytea,$14::bytea,$15::bytea,$16::bytea)`
+const aplicarCeseNativoCTSQL = `SELECT vec_bolsa_llamamientos.aplicar_cese_nativo_ct_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 const ajustesCeseNativoCTSQL = `SELECT set_config('search_path','pg_catalog',true),set_config('row_security','on',true),set_config('timezone','UTC',true),set_config('lock_timeout','2s',true),set_config('statement_timeout','20s',true),set_config('idle_in_transaction_session_timeout','25s',true)`
 
 type RepositorioCeseNativoCTPostgreSQL struct{ pool *pgxpool.Pool }
@@ -30,18 +30,16 @@ func NuevoRepositorioCeseNativoCTPostgreSQL(pool *pgxpool.Pool) (*RepositorioCes
 
 func (r *RepositorioCeseNativoCTPostgreSQL) AplicarCeseNativoCT(ctx context.Context, o ports.OrdenCeseNativoCT) (ports.ReciboCeseNativoCT, error) {
 	var cero ports.ReciboCeseNativoCT
-	if ctx == nil || r == nil || r.pool == nil || o.Material.ValidarEstructura() != nil {
+	if ctx == nil || r == nil || r.pool == nil || o.Material.ValidarEstructura() != nil ||
+		o.ActorRef == "" || o.ActorRef != o.Solicitud.Personal.ActorRef ||
+		len(o.MaterialCanonico) == 0 || len(o.MaterialCanonico) > 16<<10 {
 		return cero, ports.ErrCeseNativoCTNoDisponible
-	}
-	b, err := json.Marshal(o.Solicitud.Selector)
-	if err != nil || len(b) == 0 || len(b) > 4096 {
-		return cero, ports.ErrCeseNativoCTInvalido
 	}
 	for intento := 0; intento < 3; intento++ {
 		if err := ctx.Err(); err != nil {
 			return cero, err
 		}
-		recibo, err := r.aplicarUna(ctx, o, b)
+		recibo, err := r.aplicarUna(ctx, o)
 		if err == nil {
 			return recibo, nil
 		}
@@ -54,7 +52,7 @@ func (r *RepositorioCeseNativoCTPostgreSQL) AplicarCeseNativoCT(ctx context.Cont
 	return cero, ports.ErrCeseNativoCTNoDisponible
 }
 
-func (r *RepositorioCeseNativoCTPostgreSQL) aplicarUna(ctx context.Context, o ports.OrdenCeseNativoCT, selector []byte) (ports.ReciboCeseNativoCT, error) {
+func (r *RepositorioCeseNativoCTPostgreSQL) aplicarUna(ctx context.Context, o ports.OrdenCeseNativoCT) (ports.ReciboCeseNativoCT, error) {
 	var cero ports.ReciboCeseNativoCT
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
@@ -71,8 +69,7 @@ func (r *RepositorioCeseNativoCTPostgreSQL) aplicarUna(ctx context.Context, o po
 	m := o.Material
 	s := o.Solicitud
 	var raw []byte
-	err = tx.QueryRow(ctx, aplicarCeseNativoCTSQL, string(selector), s.ParticipacionRef,
-		s.CeseCTReciboRef, s.RelacionReciboRef, s.OcupacionReciboRef, o.ActorRef,
+	err = tx.QueryRow(ctx, aplicarCeseNativoCTSQL, string(o.MaterialCanonico),
 		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(),
 		m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(),
 		m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&raw)

@@ -15,15 +15,47 @@ var (
 	ErrCeseNativoCTNoDisponible = errors.New("bolsa: cese nativo CT no disponible")
 )
 
+// PruebaCierrePersonalCeseCT es el contrato cerrado de P48. Su contenido
+// procede de ambos recibos originales de Personal y del cese CT confirmado.
+type PruebaCierrePersonalCeseCT struct {
+	Esquema            string `json:"esquema"`
+	ReciboCTRef        string `json:"recibo_ct_ref"`
+	VersionCT          uint64 `json:"version_ct"`
+	ActorRef           string `json:"actor_ref"`
+	EmpleadoRef        string `json:"empleado_ref"`
+	RelacionRef        string `json:"relacion_ref"`
+	OcupacionRef       string `json:"ocupacion_ref"`
+	OrganismoRef       string `json:"organismo_ref"`
+	UnidadRef          string `json:"unidad_ref"`
+	RelacionReciboRef  string `json:"relacion_recibo_ref"`
+	RelacionVersion    uint64 `json:"relacion_version"`
+	OcupacionReciboRef string `json:"ocupacion_recibo_ref"`
+	OcupacionVersion   uint64 `json:"ocupacion_version"`
+	VigenteHasta       string `json:"vigente_hasta"`
+	FuenteHuellaSHA256 string `json:"fuente_huella_sha256"`
+}
+
+const EsquemaPruebaCierrePersonalCeseCT = "vec.personal.cierre-cese-ct.bolsa.v1"
+const EsquemaActoCeseNativoCT = "vec.bolsa.cese-nativo-ct.acto.v1"
+
+// MaterialActoCeseNativoCT es la intención completa ligada por SHA-256 al ACT
+// V3 de la participación. P48 recibe el nodo Personal sin reserialización.
+type MaterialActoCeseNativoCT struct {
+	Esquema               string                     `json:"esquema"`
+	Selector              SelectorAceptacionNativaCT `json:"selector"`
+	ParticipacionRef      string                     `json:"participacion_ref"`
+	UnidadAutorizacionRef string                     `json:"unidad_autorizacion_ref"`
+	AmbitoRef             string                     `json:"ambito_ref"`
+	Personal              PruebaCierrePersonalCeseCT `json:"personal"`
+}
+
 // Todas las referencias son hechos opacos ya confirmados por CT, Personal y
 // Bolsa. La participación procede del anclaje B113 leído por composición;
 // B115 la resuelve de nuevo desde el origen B110 antes de escribir.
 type SolicitudCeseNativoCT struct {
 	Selector           SelectorAceptacionNativaCT
 	ParticipacionRef   string
-	CeseCTReciboRef    string
-	RelacionReciboRef  string
-	OcupacionReciboRef string
+	Personal           PruebaCierrePersonalCeseCT
 	Vinculo            core.VinculoAutenticacionActorV2
 	ResultadoContexto  core.ResultadoContextoActorRegistradoV2
 	Correlacion        core.ReferenciaCorrelacionAutorizacionV2
@@ -31,9 +63,10 @@ type SolicitudCeseNativoCT struct {
 }
 
 type OrdenCeseNativoCT struct {
-	Solicitud SolicitudCeseNativoCT
-	ActorRef  string
-	Material  vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	Solicitud        SolicitudCeseNativoCT
+	ActorRef         string
+	MaterialCanonico []byte
+	Material         vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 
 // El acuse usa las referencias B13/B45 originales. DisponibleDesde resulta
