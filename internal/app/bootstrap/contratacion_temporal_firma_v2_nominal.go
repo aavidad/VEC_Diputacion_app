@@ -16,13 +16,14 @@ import (
 // Es una selección privada de identidades ya provistas, no una concesión.
 // CA/IS/F1 y la asignación vigente contrastan todas sus referencias por uso.
 type seleccionNominalFirmaCT struct {
-	CertificadoSHA256   string `json:"certificado_sha256"`
-	PersonaRef          string `json:"persona_ref"`
-	CuentaRef           string `json:"cuenta_ref"`
-	CuentaID            string `json:"cuenta_id"`
-	PerfilRef           string `json:"perfil_firma_ref"`
-	PerfilConsultaCTRef string `json:"perfil_consulta_ct_ref"`
-	PerfilDocumentosRef string `json:"perfil_documentos_ref"`
+	CertificadoSHA256         string `json:"certificado_sha256"`
+	PersonaRef                string `json:"persona_ref"`
+	CuentaRef                 string `json:"cuenta_ref"`
+	CuentaID                  string `json:"cuenta_id"`
+	PerfilRef                 string `json:"perfil_firma_ref"`
+	PerfilConsultaCTRef       string `json:"perfil_consulta_ct_ref"`
+	PerfilConsultaCircuitoRef string `json:"perfil_consulta_circuito_ref"`
+	PerfilDocumentosRef       string `json:"perfil_documentos_ref"`
 }
 
 type clavePeticionNominalFirmaCT struct{}
@@ -42,6 +43,7 @@ type fuenteNominalSesionFirmaCT struct {
 	porCertificado map[string]seleccionNominalFirmaCT
 	reloj          ports.Reloj
 	proceso        string
+	lecturas       *montajeLecturasFirmaV2
 }
 
 func nuevaFuenteNominalSesionFirmaCT(a *autoridadSesionFirmanteV2, asignaciones vp.FuenteAutorizacion,
@@ -55,10 +57,19 @@ func nuevaFuenteNominalSesionFirmaCT(a *autoridadSesionFirmanteV2, asignaciones 
 	}
 	porCert := make(map[string]seleccionNominalFirmaCT, len(selectores))
 	cuentas := make(map[string]bool, len(selectores))
+	perfiles := make(map[string]bool, len(selectores)*4)
 	for _, s := range selectores {
 		if !huellaSHA256ValidaContratacionTemporalDesarrollo(s.CertificadoSHA256) || s.PersonaRef == "" || s.CuentaRef == "" ||
-			s.CuentaID == "" || !perfilActivoSeguridadComunValido(s.PerfilRef) || !perfilActivoSeguridadComunValido(s.PerfilConsultaCTRef) || !perfilActivoSeguridadComunValido(s.PerfilDocumentosRef) || s.PerfilConsultaCTRef == s.PerfilRef || s.PerfilDocumentosRef == s.PerfilRef || s.PerfilConsultaCTRef == s.PerfilDocumentosRef || porCert[s.CertificadoSHA256].CuentaRef != "" || cuentas[s.CuentaRef] {
+			s.CuentaID == "" || !perfilActivoSeguridadComunValido(s.PerfilRef) || !perfilActivoSeguridadComunValido(s.PerfilConsultaCTRef) ||
+			!perfilActivoSeguridadComunValido(s.PerfilConsultaCircuitoRef) || !perfilActivoSeguridadComunValido(s.PerfilDocumentosRef) ||
+			porCert[s.CertificadoSHA256].CuentaRef != "" || cuentas[s.CuentaRef] {
 			return nil, errSesionFirmanteV2NoDisponible
+		}
+		for _, perfil := range []string{s.PerfilRef, s.PerfilConsultaCTRef, s.PerfilConsultaCircuitoRef, s.PerfilDocumentosRef} {
+			if perfiles[perfil] {
+				return nil, errSesionFirmanteV2NoDisponible
+			}
+			perfiles[perfil] = true
 		}
 		porCert[s.CertificadoSHA256] = s
 		cuentas[s.CuentaRef] = true
@@ -76,42 +87,50 @@ func nuevaFuenteNominalSesionFirmaCT(a *autoridadSesionFirmanteV2, asignaciones 
 // autenticación de esta petición y conserva su garantía sustancial observada.
 func (f *fuenteNominalSesionFirmaCT) envolver(siguiente http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if f == nil || siguiente == nil || r == nil {
+		preparada, err := f.prepararPeticionNominal(r)
+		if err != nil || siguiente == nil {
 			responderNominalFirmaCT(w, http.StatusForbidden)
 			return
 		}
-		r = r.WithContext(context.WithValue(r.Context(), claveAcreditacionCertificadoFirmaCT{}, &acreditacionCertificadoPorPeticionCT{}))
-		if f.autoridad.preacreditar(r) != nil {
-			responderNominalFirmaCT(w, http.StatusForbidden)
-			return
-		}
-		hasta, huella, ok := certificadoSesionFirmanteV2(r, f.reloj.Ahora())
-		seleccion, presente := f.porCertificado[huella]
-		if !ok || !presente {
-			responderNominalFirmaCT(w, http.StatusForbidden)
-			return
-		}
-		snapshot, err := f.asignaciones.ObtenerInstantaneaAutorizacion(r.Context(), seleccion.PersonaRef, seleccion.PerfilRef)
-		if err != nil || snapshot.Validar() != nil || snapshot.AsignacionPerfil.PrincipalID != seleccion.PersonaRef || snapshot.AsignacionPerfil.PerfilActivoRef != seleccion.PerfilRef {
-			responderNominalFirmaCT(w, http.StatusForbidden)
-			return
-		}
-		q := ports.SolicitudSesionFirmanteV2{CertificadoCanalSHA256: huella, PersonaEsperadaRef: seleccion.PersonaRef,
-			CuentaEsperadaRef: seleccion.CuentaRef, PerfilEsperadoRef: seleccion.PerfilRef, RolEsperadoID: snapshot.VersionRol.RolID,
-			CertificadoVerificadoEn: f.reloj.Ahora(), CertificadoTLSValidoHasta: hasta}
-		sesion, err := f.fuente.AbrirSesionFirmanteV2(r.Context(), q)
-		if err != nil {
-			responderNominalFirmaCT(w, http.StatusServiceUnavailable)
-			return
-		}
-		nominal := &peticionNominalFirmaCT{fuente: f, solicitud: q, sesion: sesion, peticion: r, extras: make(map[string]ports.SesionFirmanteV2)}
-		ctx := context.WithValue(r.Context(), clavePeticionNominalFirmaCT{}, nominal)
-		if _, err := f.contexto(ctx); err != nil {
-			responderNominalFirmaCT(w, http.StatusForbidden)
-			return
-		}
-		siguiente.ServeHTTP(w, r.WithContext(ctx))
+		siguiente.ServeHTTP(w, preparada)
 	})
+}
+
+// También la cabecera del portal usa esta misma sesión F1, sin otra fuente
+// de identidad y sin tomar cargos o permisos de la selección JSON.
+func (f *fuenteNominalSesionFirmaCT) prepararPeticionNominal(r *http.Request) (*http.Request, error) {
+	if f == nil || r == nil {
+		return nil, ports.ErrFirmaDocumentoDenegada
+	}
+	r = r.WithContext(context.WithValue(r.Context(), claveAcreditacionCertificadoFirmaCT{}, &acreditacionCertificadoPorPeticionCT{}))
+	if err := f.autoridad.preacreditar(r); err != nil {
+		return nil, err
+	}
+	hasta, huella, ok := certificadoSesionFirmanteV2(r, f.reloj.Ahora())
+	seleccion, presente := f.porCertificado[huella]
+	if !ok || !presente {
+		return nil, ports.ErrFirmaDocumentoDenegada
+	}
+	snapshot, err := f.asignaciones.ObtenerInstantaneaAutorizacion(r.Context(), seleccion.PersonaRef, seleccion.PerfilRef)
+	if err != nil {
+		return nil, err
+	}
+	if snapshot.Validar() != nil || snapshot.AsignacionPerfil.PrincipalID != seleccion.PersonaRef || snapshot.AsignacionPerfil.PerfilActivoRef != seleccion.PerfilRef {
+		return nil, ports.ErrFirmaDocumentoDenegada
+	}
+	q := ports.SolicitudSesionFirmanteV2{CertificadoCanalSHA256: huella, PersonaEsperadaRef: seleccion.PersonaRef,
+		CuentaEsperadaRef: seleccion.CuentaRef, PerfilEsperadoRef: seleccion.PerfilRef, RolEsperadoID: snapshot.VersionRol.RolID,
+		CertificadoVerificadoEn: f.reloj.Ahora(), CertificadoTLSValidoHasta: hasta}
+	sesion, err := f.fuente.AbrirSesionFirmanteV2(r.Context(), q)
+	if err != nil {
+		return nil, err
+	}
+	nominal := &peticionNominalFirmaCT{fuente: f, solicitud: q, sesion: sesion, peticion: r, extras: make(map[string]ports.SesionFirmanteV2)}
+	ctx := context.WithValue(r.Context(), clavePeticionNominalFirmaCT{}, nominal)
+	if _, err := f.contexto(ctx); err != nil {
+		return nil, err
+	}
+	return r.WithContext(ctx), nil
 }
 
 func (f *fuenteNominalSesionFirmaCT) admitePrincipal(p core.Principal) bool {
@@ -142,7 +161,13 @@ func (f *fuenteNominalSesionFirmaCT) contexto(ctx context.Context) (ports.Eviden
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	p, ok := ctx.Value(clavePeticionNominalFirmaCT{}).(*peticionNominalFirmaCT)
-	if !ok || p == nil || p.fuente != f || p.peticion == nil || f.autoridad.preacreditar(p.peticion) != nil || dependenciaEsNulaContratacionTemporalDesarrollo(p.sesion) {
+	if !ok || p == nil || p.fuente != f || p.peticion == nil || dependenciaEsNulaContratacionTemporalDesarrollo(p.sesion) {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	// La auditoría de una descarga puede sobrevivir a la cancelación HTTP.
+	// Revalidar la misma hoja TLS y AUT56 con el contexto sin cancelación de
+	// esa petición conserva actor y certificado, sin abrir una identidad nueva.
+	if f.autoridad.preacreditar(p.peticion.WithContext(ctx)) != nil {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	p.mu.Lock()
@@ -278,6 +303,8 @@ func (f *fuenteNominalSesionFirmaCT) contextoPerfil(ctx context.Context, slot st
 	switch slot {
 	case "consulta_ct":
 		perfil = seleccion.PerfilConsultaCTRef
+	case "circuito":
+		perfil = seleccion.PerfilConsultaCircuitoRef
 	case "documentos":
 		perfil = seleccion.PerfilDocumentosRef
 	default:
@@ -352,13 +379,19 @@ func (f *fuenteNominalSesionFirmaCT) ResolverContextoConsultaRRHH(ctx context.Co
 		return ports.ContextoConsultaRRHH{}, err
 	}
 	snapshot, err := f.asignaciones.ObtenerInstantaneaAutorizacion(ctx, v.Resultado.Contexto.PersonaRef, v.Resultado.Contexto.PerfilActivoRef)
-	if err != nil {
-		return ports.ContextoConsultaRRHH{}, err
+	if err != nil || snapshot.Validar() != nil || len(snapshot.AsignacionPerfil.Ambitos) != 3 {
+		return ports.ContextoConsultaRRHH{}, ports.ErrFirmaDocumentoDenegada
 	}
+	ambitos := make(map[string]string, 3)
 	for _, a := range snapshot.AsignacionPerfil.Ambitos {
-		if a.Clave == "unidad_ref" && len(a.Valores) == 1 {
-			return ports.NuevoContextoConsultaRRHHConAmbito(v, org, ports.AmbitoUnidadGestionRRHH, a.Valores[0], f.reloj.Ahora())
+		if len(a.Valores) != 1 {
+			return ports.ContextoConsultaRRHH{}, ports.ErrFirmaDocumentoDenegada
 		}
+		ambitos[a.Clave] = a.Valores[0]
+	}
+	if len(ambitos) != 3 || ambitos["organizacion_ref"] != org ||
+		ambitos["clase_ambito"] != string(ports.AmbitoOrganizacionRRHH) || ambitos["ambito_ref"] != org {
+		return ports.ContextoConsultaRRHH{}, ports.ErrFirmaDocumentoDenegada
 	}
 	return ports.NuevoContextoConsultaRRHH(v, org, f.reloj.Ahora())
 }

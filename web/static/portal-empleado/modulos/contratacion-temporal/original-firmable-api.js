@@ -132,8 +132,16 @@ export function crearDependenciasPreparacionFirma({ clienteOriginal, clientePref
         if (await huellaPDFFirmado(vinculo.contenido) !== vinculo.originalHuella) throw new ErrorOriginalFirmable("resultado_no_confiable");
         return new Uint8Array(vinculo.contenido);
       }
-      if (solicitud.pasoOrden !== 2 || solicitud.revisionEntradaRef === vinculo.originalRef
+      if (![2, 3].includes(solicitud.pasoOrden) || solicitud.revisionEntradaRef === vinculo.originalRef
         || !DOCREF.test(vinculo.documentoCustodiado?.expediente_ref ?? "")) throw new ErrorOriginalFirmable("resultado_no_confiable");
+      if (typeof solicitud.entradaPDFBase64 === "string") {
+        let binario;
+        try { binario = atob(solicitud.entradaPDFBase64); } catch { throw new ErrorOriginalFirmable("resultado_no_confiable"); }
+        if (binario.length < 10 || binario.length > MAXIMO_PDF) throw new ErrorOriginalFirmable("resultado_no_confiable");
+        const contenido = Uint8Array.from(binario, (c) => c.charCodeAt(0));
+        if (await huellaPDFFirmado(contenido) !== solicitud.revisionEntradaHuella) throw new ErrorOriginalFirmable("resultado_no_confiable");
+        return contenido;
+      }
       const fuente = crearDocumentos({ expedienteRef: vinculo.documentoCustodiado.expediente_ref });
       const archivo = await fuente.descargar(solicitud.revisionEntradaRef, { version: solicitud.revisionEntradaVersion,
         huella: solicitud.revisionEntradaHuella, mime: "application/pdf", signal });

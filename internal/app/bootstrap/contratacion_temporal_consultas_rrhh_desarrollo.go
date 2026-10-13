@@ -38,8 +38,9 @@ type dependenciasConsultasRRHHDesarrollo struct {
 	plazosFase            ports.CalculadoraPlazoFaseRRHH
 	// descargas autoriza y registra la descarga de borradores de la ruta de
 	// detalle (AD199/CT177); con lectores, la del lector de la petición.
-	descargas ports.RegistradorDescargaBorradorRRHH
-	cerrar    func()
+	descargas    ports.RegistradorDescargaBorradorRRHH
+	repoDescarga ports.RepositorioDescargaBorradorRRHH
+	cerrar       func()
 }
 
 func nuevasDependenciasLectoresRRHHDesarrollo(
@@ -473,7 +474,7 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
-	base := dependenciasConsultasRRHHDesarrollo{descargas: descargas, materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, sesionOriginal: sesionOriginal, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: consultorDetalleConDisponibilidadRRHH{lector: detalle, documentalMontado: documentalMontado}, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, plazosFase: dependenciasCT.plazosFase, cerrar: cerrar}
+	base := dependenciasConsultasRRHHDesarrollo{descargas: descargas, repoDescarga: repoDescarga, materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, sesionOriginal: sesionOriginal, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: consultorDetalleConDisponibilidadRRHH{lector: detalle, documentalMontado: documentalMontado}, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, plazosFase: dependenciasCT.plazosFase, cerrar: cerrar}
 	if len(lectores) > 0 {
 		lectoresDependencias, err := nuevasDependenciasLectoresRRHHDesarrollo(ctx, cfg, alta, derivador, reloj, lectores, poolConsultas, motivos, motivoCuadro, motivoDetalle, base, fronteras, documentalMontado)
 		if err != nil {

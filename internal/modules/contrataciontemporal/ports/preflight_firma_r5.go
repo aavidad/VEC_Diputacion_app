@@ -43,6 +43,7 @@ type ResultadoPreflightFirmaR5V2 struct {
 	EntradaDocumentoRef     string
 	EntradaDocumentoVersion uint64
 	EntradaDocumentoHuella  string
+	EntradaContenido        []byte
 }
 
 // Esta petición interna liga cada comprobación a la identidad actual resuelta
@@ -66,23 +67,17 @@ type ComprobanteComponenteFirmaR5 struct {
 	HuellaSHA256 string
 }
 
-// Original conserva la referencia y SHA256 de la revisión exacta leída.
-// El adaptador de composición obtiene estos comprobantes de las dependencias
-// reales para la petición exacta. La existencia de un servicio, una opción de
-// configuración o una concesión pasada no constituye una comprobación.
-type DisponibilidadFirmaR5Verificada struct {
-	Solicitud    SolicitudDisponibilidadFirmaR5
-	Via          string
-	Original     ComprobanteComponenteFirmaR5
-	Verificador  ComprobanteComponenteFirmaR5
-	Competencia  ComprobanteComponenteFirmaR5
-	Perfil       ComprobanteComponenteFirmaR5
-	Custodia     ComprobanteComponenteFirmaR5
-	Registro     ComprobanteComponenteFirmaR5
-	ComprobadaEn time.Time
-	ValidaHasta  time.Time
+// PreparacionViaFirmaR5 sólo informa cómo preparar el paso en esta petición.
+// Conserva el original real leído, identidad y cabeza exactas. No acredita
+// salud del verificador, custodia futura ni autorización del acto de firma.
+type PreparacionViaFirmaR5 struct {
+	Solicitud   SolicitudDisponibilidadFirmaR5
+	Via         string
+	Original    ComprobanteComponenteFirmaR5
+	PreparadaEn time.Time
+	ValidaHasta time.Time
 }
 
-type VerificadorDisponibilidadFirmaR5 interface {
-	VerificarDisponibilidadFirmaR5(context.Context, SolicitudDisponibilidadFirmaR5) ([]DisponibilidadFirmaR5Verificada, error)
+type PreparadorViasFirmaR5 interface {
+	PrepararViasFirmaR5(context.Context, SolicitudDisponibilidadFirmaR5) ([]PreparacionViaFirmaR5, error)
 }

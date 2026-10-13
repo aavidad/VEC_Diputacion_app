@@ -3,8 +3,8 @@
  * vista no ejecuta acciones hasta que el servidor acredite el preflight R5.
  */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261011-ct-bolsa-vinculo-v1";
-import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261013-ct-firma-tres-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v2";
+import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261013-ct-firma-tres-v2";
 import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261013-ct-firma-tres-v1";
 import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261011-ct-bolsa-vinculo-v1";
 
@@ -33,7 +33,7 @@ export function fusionarEstadoFirmas(circuito, estado) {
 export function renderizarAccionesPaso(circuito, documento, paso, t) {
   if ((!circuito.registro && circuito.preflight_compuesto !== true) || circuito.acciones === false
     || (circuito.preflight_compuesto !== true && documento.paso_pendiente !== paso.orden)
-    || !Object.hasOwn(PERFILES_BORRADOR_RRHH, documento.documento)) return "";
+    || documento.acciones === false || !Object.hasOwn(PERFILES_BORRADOR_RRHH, documento.documento)) return "";
   const avisoId = `ct-firma-resultado-${documento.documento}-${paso.orden}`;
   const compuesto = circuito.preflight_compuesto === true;
   return `<div class="ct-circuito-acciones" data-ct-firma-controles data-ct-firma-documento="${escaparHTML(documento.documento)}" data-ct-firma-paso="${paso.orden}">
@@ -157,7 +157,8 @@ export function crearAccionesFirma({
       if (!p || p.catalogo_ref !== actual.catalogoRef || p.catalogo_huella !== actual.catalogoHuella
         || (p.paso_pendiente === 1 && p.entrada_documento_sha256 !== vinculo?.originalHuella)) throw { codigo: "conflicto" };
       s.solicitud = { ...solicitud, pasoOrden: p.paso_pendiente, revisionEntradaRef: p.entrada_documento_ref,
-        revisionEntradaVersion: p.entrada_documento_version, revisionEntradaHuella: p.entrada_documento_sha256 };
+        revisionEntradaVersion: p.entrada_documento_version, revisionEntradaHuella: p.entrada_documento_sha256,
+ entradaPDFBase64: p.entrada_pdf_base64 };
       s.vinculo = vinculo; s.preflight = p;
       if (igual(recuperacion?.contexto, actual) && recuperacion.solicitud.originalRef === solicitud.originalRef
         && recuperacion.solicitud.originalVersion === solicitud.originalVersion

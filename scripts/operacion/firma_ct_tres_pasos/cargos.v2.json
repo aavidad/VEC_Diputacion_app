@@ -29,7 +29,9 @@
       "nombre": "Técnico de RRHH · consulta",
       "version_anterior_sha256": "",
       "operaciones_v2": [
-        "consultar_detalle"
+        "consultar_cuadro",
+        "consultar_detalle",
+        "descargar_borrador"
       ],
       "competencias": [],
       "regla_asignacion": "lote_ordinario",
@@ -49,6 +51,21 @@
         "descargar_original",
         "escribir_original",
         "reservar_original"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": "organizacion:desarrollo:dipgra",
+      "vigente_desde": "2026-10-12T00:00:00Z",
+      "vigente_hasta": "2026-10-20T00:00:00Z",
+      "duracion_propuesta_segundos": 86400
+    },
+    {
+      "rol_id": "ct_cargo_tecnico_circuito_dev",
+      "version": 1,
+      "nombre": "Técnico de RRHH · circuito",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_circuito"
       ],
       "competencias": [],
       "regla_asignacion": "lote_ordinario",
@@ -105,7 +122,9 @@
       "nombre": "Jefatura del Servicio de RRHH · consulta",
       "version_anterior_sha256": "",
       "operaciones_v2": [
-        "consultar_detalle"
+        "consultar_cuadro",
+        "consultar_detalle",
+        "descargar_borrador"
       ],
       "competencias": [],
       "regla_asignacion": "lote_ordinario",
@@ -122,6 +141,21 @@
       "operaciones_v2": [
         "custodiar_firmado",
         "descargar_original"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": "organizacion:desarrollo:dipgra",
+      "vigente_desde": "2026-10-12T00:00:00Z",
+      "vigente_hasta": "2026-10-20T00:00:00Z",
+      "duracion_propuesta_segundos": 86400
+    },
+    {
+      "rol_id": "ct_cargo_jefatura_circuito_dev",
+      "version": 1,
+      "nombre": "Jefatura del Servicio de RRHH · circuito",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_circuito"
       ],
       "competencias": [],
       "regla_asignacion": "lote_ordinario",
@@ -158,7 +192,9 @@
       "nombre": "Diputación delegada de RRHH · consulta",
       "version_anterior_sha256": "",
       "operaciones_v2": [
-        "consultar_detalle"
+        "consultar_cuadro",
+        "consultar_detalle",
+        "descargar_borrador"
       ],
       "competencias": [],
       "regla_asignacion": "lote_ordinario",
@@ -175,6 +211,21 @@
       "operaciones_v2": [
         "custodiar_firmado",
         "descargar_original"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": "organizacion:desarrollo:dipgra",
+      "vigente_desde": "2026-10-12T00:00:00Z",
+      "vigente_hasta": "2026-10-20T00:00:00Z",
+      "duracion_propuesta_segundos": 86400
+    },
+    {
+      "rol_id": "ct_cargo_diputacion_circuito_dev",
+      "version": 1,
+      "nombre": "Diputación delegada de RRHH · circuito",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_circuito"
       ],
       "competencias": [],
       "regla_asignacion": "lote_ordinario",
@@ -221,7 +272,9 @@
       "nombre": "Secretaría General · consulta",
       "version_anterior_sha256": "",
       "operaciones_v2": [
-        "consultar_detalle"
+        "consultar_cuadro",
+        "consultar_detalle",
+        "descargar_borrador"
       ],
       "competencias": [],
       "regla_asignacion": "lote_ordinario",
@@ -238,6 +291,21 @@
       "operaciones_v2": [
         "custodiar_firmado",
         "descargar_original"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": "organizacion:desarrollo:dipgra",
+      "vigente_desde": "2026-10-12T00:00:00Z",
+      "vigente_hasta": "2026-10-20T00:00:00Z",
+      "duracion_propuesta_segundos": 86400
+    },
+    {
+      "rol_id": "ct_cargo_secretaria_circuito_dev",
+      "version": 1,
+      "nombre": "Secretaría General · circuito",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_circuito"
       ],
       "competencias": [],
       "regla_asignacion": "lote_ordinario",

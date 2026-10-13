@@ -152,7 +152,7 @@ func (f *fuenteSinteticaSesionFirmanteV2) AbrirSesionFirmanteV2(ctx context.Cont
 	seleccion, ok := f.selecciones[q.CertificadoCanalSHA256]
 	if !ok || seleccion.PersonaRef != q.PersonaEsperadaRef || seleccion.CuentaRef != q.CuentaEsperadaRef ||
 		(q.PerfilEsperadoRef != seleccion.PerfilRef && q.PerfilEsperadoRef != seleccion.PerfilConsultaCTRef &&
-			q.PerfilEsperadoRef != seleccion.PerfilDocumentosRef) {
+			q.PerfilEsperadoRef != seleccion.PerfilConsultaCircuitoRef && q.PerfilEsperadoRef != seleccion.PerfilDocumentosRef) {
 		return nil, errSesionFirmanteV2Denegada
 	}
 	if f.acreditarCA25 == nil || f.acreditarCA25(ctx, q.CertificadoCanalSHA256, seleccion) != nil {

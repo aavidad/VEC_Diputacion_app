@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -10,8 +12,17 @@ import (
 // ValidarResultadoPreflightFirmaR5V2 protege la proyección de metadatos. La
 // autorización y el vínculo con los bytes se comprueban antes en el servicio.
 func ValidarResultadoPreflightFirmaR5V2(r ports.ResultadoPreflightFirmaR5V2, q ports.SolicitudPreflightFirmaR5) error {
-	if ValidarResultadoPreflightFirmaR5(r.ResultadoPreflightFirmaR5, q) != nil || r.PasoPendiente > 2 {
+	if ValidarResultadoPreflightFirmaR5(r.ResultadoPreflightFirmaR5, q) != nil || r.PasoPendiente > ports.MaximoPasosFirmasVerificadasV2 {
 		return ports.ErrPreflightFirmaR5NoConfiable
+	}
+	if len(r.EntradaContenido) > 0 {
+		if len(r.EntradaContenido) > 1<<20 {
+			return ports.ErrPreflightFirmaR5NoConfiable
+		}
+		suma := sha256.Sum256(r.EntradaContenido)
+		if r.PasoPendiente == 0 || hex.EncodeToString(suma[:]) != r.EntradaDocumentoHuella {
+			return ports.ErrPreflightFirmaR5NoConfiable
+		}
 	}
 	if r.PasoPendiente == 0 {
 		if r.EntradaDocumentoRef != "" || r.EntradaDocumentoVersion != 0 || r.EntradaDocumentoHuella != "" {

@@ -4,7 +4,7 @@ const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const DOCUMENTO = /^[a-z][a-z0-9_]{1,63}$/u;
 const HUELLA = /^[0-9a-f]{64}$/u;
 const VIAS = ["certificado_vec", "portafirmas_registro_rrhh"];
-const MAXIMO_RESPUESTA = 16 * 1024;
+const MAXIMO_RESPUESTA = 2 * 1024 * 1024;
 const CAMPOS = ["esquema", "version_expediente", "documento", "catalogo_ref", "catalogo_huella", "paso_pendiente",
   "original_ref", "original_version", "vias_disponibles", "entrada_documento_ref", "entrada_documento_version", "entrada_documento_sha256"];
 
@@ -19,8 +19,9 @@ function exacto(v, claves, opcionales = []) {
     && Object.keys(v).every((c) => claves.includes(c) || opcionales.includes(c));
 }
 export function validarPreflightFirma(datos, solicitud) {
-  if (!exacto(datos, CAMPOS, ["garantia_autenticacion"])
-    || (Object.hasOwn(datos ?? {}, "garantia_autenticacion") && datos.garantia_autenticacion !== "sustancial") || datos.esquema !== "vec.contratacion-temporal.preflight-firma.v2"
+  if (!exacto(datos, CAMPOS, ["garantia_autenticacion", "entrada_pdf_base64"])
+    || (Object.hasOwn(datos ?? {}, "entrada_pdf_base64") && (typeof datos.entrada_pdf_base64 !== "string" || datos.entrada_pdf_base64.length > 1400000 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(datos.entrada_pdf_base64)))
+ || (Object.hasOwn(datos ?? {}, "garantia_autenticacion") && datos.garantia_autenticacion !== "sustancial") || datos.esquema !== "vec.contratacion-temporal.preflight-firma.v2"
     || !solicitud || datos.version_expediente !== solicitud.version
     || !entero(datos.version_expediente) || datos.documento !== solicitud.documento
     || !DOCUMENTO.test(datos.documento) || !referencia(datos.catalogo_ref)

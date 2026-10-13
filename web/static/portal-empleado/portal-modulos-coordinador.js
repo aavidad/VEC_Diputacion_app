@@ -8,7 +8,7 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20261011-ct-bolsa-vinculo-v1";
+} from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v2";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { enlaceCTSinVersionFueraDePagina } from "./portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
 import {
@@ -48,7 +48,7 @@ export function localizacionAdmitida(locale, indice = INDICE_IDIOMAS) {
   try { return Intl.DateTimeFormat.supportedLocalesOf([locale]).length === 1; }
   catch { return false; }
 }
-const PERFILES_CT_MENU = new Set(["tecnico_rrhh", "intervencion"]);
+const PERFILES_CT_MENU = new Set(["tecnico_rrhh", "intervencion", "ct_cargo_tecnico_firma_dev", "ct_cargo_jefatura_firma_dev", "ct_cargo_diputacion_firma_dev", "ct_cargo_secretaria_firma_dev"]);
 // El circuito se consulta al cargar CT. Un fallo transitorio de un catálogo no
 // debe quedar congelado en el módulo ni retrasar el arranque del portal.
 const cargarFasesCircuitoPredeterminado = async (idioma) =>
@@ -148,7 +148,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261013-ct-firma-tres-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261013-ct-firma-tres-v2");
 
       const [auditoriaVista, auditoriaCliente] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261012-sin-prueba-v1"),

@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -44,6 +45,7 @@ type montajeFirmaVecR5CT struct {
 	motivosDetalle     *pgvec.ValidadorReferenciaMotivoPostgreSQLV2
 	plan               *plannominal.Fuente
 	descriptor         *plannominal.FuenteDescriptorFirmaV2
+	seleccion          ports.FuenteSeleccionFirmanteV2
 	competencia        *fuenteCompetenciaFirmaVecV2
 	consulta           *firmaemisorv2.Emisor
 	firmas             *emisoresFirmaVecPorPerfilCT
@@ -134,6 +136,7 @@ func prepararMontajeFirmaVecR5CT(ctx context.Context, cfg config.Config, c confi
 	if err != nil {
 		return nil, err
 	}
+	m.seleccion = seleccion
 	// AUT56 consulta CA25 y Personal dentro de su fachada autorizada, en una
 	// transacción serializable revertida. El selector JSON no liga certificado
 	// con persona: esa relación se comprueba antes de abrir cada sesión F1.
@@ -143,8 +146,22 @@ func prepararMontajeFirmaVecR5CT(ctx context.Context, cfg config.Config, c confi
 			if err != nil {
 				return errSesionFirmanteV2Denegada
 			}
+			rol := ""
+			for _, a := range m.configuracion.Admisiones {
+				if a.PerfilRef == s.PerfilRef {
+					partes := strings.Split(a.RolVersionRef, ":")
+					if len(partes) == 3 && partes[0] == "rol" {
+						rol = partes[1]
+					}
+				}
+			}
+			if rol == "" {
+				return errSesionFirmanteV2Denegada
+			}
 			for _, paso := range plan.Pasos {
-				if paso.PerfilEsperadoRef != s.PerfilRef {
+				// El perfil del circuito es lógico; ADMIN asigna un prf_
+				// físico, que AUT56 coteja por certificado/cargo/rol.
+				if paso.RolID != rol {
 					continue
 				}
 				q := ports.SolicitudSeleccionFirmanteV2{CertificadoHuella: huella, CargoRef: paso.CargoRef,
@@ -356,7 +373,7 @@ func (m *montajeFirmaVecR5CT) rutas(f *firmaDocumentoCTDesarrollo, original *mon
 		politicaFirmantes: fuenteCircuitoFirmaReglasDesarrollo{resolutor: f.circuito}}); err != nil {
 		return nil, err
 	}
-	preflight, err := ctapp.NuevoServicioPreflightFirmaR5(f.firmaExterna, m.nominal, nil)
+	preflight, err := ctapp.NuevoServicioPreflightFirmaR5(f.firmaExterna, m.nominal, preparadorViaFirmaVecCT{montaje: m})
 	if err != nil {
 		return nil, err
 	}

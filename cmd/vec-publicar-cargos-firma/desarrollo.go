@@ -10,7 +10,7 @@ import (
 	vec "vec-diputacion-granada/internal/vec/ports"
 )
 
-var reRolDesarrollo = regexp.MustCompile(`^ct_cargo_(tecnico|jefatura|diputacion|secretaria)_(firma|consulta|documentos)_dev$`)
+var reRolDesarrollo = regexp.MustCompile(`^ct_cargo_(tecnico|jefatura|diputacion|secretaria)_(firma|consulta|documentos|circuito)_dev$`)
 
 func garantiaModo(desarrollo bool) vd.AuthAssurance {
 	if desarrollo {
@@ -19,10 +19,10 @@ func garantiaModo(desarrollo bool) vd.AuthAssurance {
 	return vd.AuthAssuranceHigh
 }
 
-// La variante sólo publica versiones iniciales nuevas. Los roles altos y sus
-// recibos anteriores siguen perteneciendo al contrato v1.
+// La variante sólo sucede roles del mismo circuito de desarrollo con CAS.
+// Los roles altos y sus recibos anteriores siguen perteneciendo al contrato v1.
 func rolDesarrolloValido(c cargoEntrada) bool {
-	if !reRolDesarrollo.MatchString(c.RolID) || c.Version != 1 || c.VersionAnteriorSHA256 != "" {
+	if !reRolDesarrollo.MatchString(c.RolID) || c.Version < 1 {
 		return false
 	}
 	clase := strings.Split(c.RolID, "_")[3]
@@ -36,7 +36,11 @@ func rolDesarrolloValido(c cargoEntrada) bool {
 				return false
 			}
 		case "consulta":
-			if op != "consultar_detalle" {
+			if op != "consultar_detalle" && op != "consultar_cuadro" && op != "descargar_borrador" {
+				return false
+			}
+		case "circuito":
+			if op != "consultar_circuito" {
 				return false
 			}
 		case "documentos":
@@ -66,6 +70,12 @@ func concesionModo(op string, desarrollo bool) (vd.ConcesionRol, bool) {
 	switch op {
 	case "consultar_detalle":
 		return crear(ct.AccionConsultarDetalleRRHH, ct.ModuloContratacion, ct.TipoRecursoExpediente, ct.FinalidadConsultarDetalleRRHH)
+	case "consultar_cuadro":
+		return crear(ct.AccionConsultarCuadroRRHH, ct.ModuloContratacion, ct.TipoRecursoCuadroRRHH, ct.FinalidadConsultarCuadroRRHH)
+	case "descargar_borrador":
+		return crear(ct.AccionDescargarBorradorRRHH, ct.ModuloContratacion, ct.TipoRecursoExpediente, ct.FinalidadDescargarBorradorRRHH)
+	case "consultar_circuito":
+		return vd.ConcesionRol{Accion: "contratacion_temporal.circuito.consultar", ModuloID: ct.ModuloContratacion, TipoRecurso: "expediente_circuito_rrhh", Finalidades: []string{"gestionar_contratacion_temporal"}, GarantiaMinima: vd.AuthAssuranceSubstantial, CamposPermitidos: []string{"circuito"}, Obligaciones: []string{"auditar"}}, true
 	case "descargar_original":
 		return crear(doc.AccionDescargar, "documentos", "documento_original", "descargar_documento_original", "contenido", "documento")
 	case "custodiar_firmado":

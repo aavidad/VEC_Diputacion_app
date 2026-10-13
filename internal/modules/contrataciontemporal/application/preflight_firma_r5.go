@@ -18,10 +18,10 @@ import (
 type ServicioPreflightFirmaR5 struct {
 	firmas         *ServicioFirmaExterna
 	contextos      ports.ResolutorContextoAutorizacionAltaV3
-	disponibilidad ports.VerificadorDisponibilidadFirmaR5
+	disponibilidad ports.PreparadorViasFirmaR5
 }
 
-func NuevoServicioPreflightFirmaR5(firmas *ServicioFirmaExterna, contextos ports.ResolutorContextoAutorizacionAltaV3, disponibilidad ports.VerificadorDisponibilidadFirmaR5) (*ServicioPreflightFirmaR5, error) {
+func NuevoServicioPreflightFirmaR5(firmas *ServicioFirmaExterna, contextos ports.ResolutorContextoAutorizacionAltaV3, disponibilidad ports.PreparadorViasFirmaR5) (*ServicioPreflightFirmaR5, error) {
 	if firmas == nil || firmas.base == nil || (firmas.multiple == nil && (dependenciaNula(firmas.consulta) || dependenciaNula(firmas.registro))) || dependenciaNula(contextos) {
 		return nil, ports.ErrPreflightFirmaR5NoDisponible
 	}
@@ -217,6 +217,7 @@ func (s *ServicioPreflightFirmaR5) consultarNominalConEntrada(ctx context.Contex
 	}
 	if conEntrada && estado.PasoPendiente == 1 {
 		r.EntradaDocumentoRef, r.EntradaDocumentoVersion, r.EntradaDocumentoHuella = original.Solicitud.OriginalRef, original.Solicitud.OriginalVersion, original.HuellaSHA256
+		r.EntradaContenido = bytes.Clone(original.Contenido)
 	}
 	if s.firmas.multiple != nil && estado.PasoPendiente > 1 {
 		// La disponibilidad del segundo paso exige custodia V2 recuperable.
@@ -247,6 +248,7 @@ func (s *ServicioPreflightFirmaR5) consultarNominalConEntrada(ctx context.Contex
 			}
 			entrada := anteriores[len(anteriores)-1].Firma
 			r.EntradaDocumentoRef, r.EntradaDocumentoVersion, r.EntradaDocumentoHuella = entrada.DocumentoCustodiaRef, entrada.DocumentoCustodiaVersion, entrada.FirmadoHuella
+			r.EntradaContenido = bytes.Clone(anteriores[len(anteriores)-1].PDFFirmado)
 		}
 	}
 	if conEntrada && ValidarResultadoPreflightFirmaR5V2(r, q) != nil {
@@ -273,7 +275,7 @@ func (s *ServicioPreflightFirmaR5) consultarNominalConEntrada(ctx context.Contex
 		PasoRef: paso.Referencia, PasoOrden: paso.Orden, HistoriaRevision: lectura.HistoriaRevision,
 		HistoriaHuella: lectura.HistoriaHuella, OriginalHuella: original.HuellaSHA256,
 	}
-	vias, err := s.disponibilidad.VerificarDisponibilidadFirmaR5(ctx, solicitud)
+	vias, err := s.disponibilidad.PrepararViasFirmaR5(ctx, solicitud)
 	if ctx.Err() != nil {
 		return cero, ctx.Err()
 	}
@@ -307,19 +309,14 @@ func (s *ServicioPreflightFirmaR5) consultarNominalConEntrada(ctx context.Contex
 	return r, nil
 }
 
-func disponibilidadFirmaR5Valida(d ports.DisponibilidadFirmaR5Verificada, q ports.SolicitudDisponibilidadFirmaR5, ahora time.Time) bool {
+func disponibilidadFirmaR5Valida(d ports.PreparacionViaFirmaR5, q ports.SolicitudDisponibilidadFirmaR5, ahora time.Time) bool {
 	if d.Solicitud != q || d.Original.Referencia != q.Preflight.OriginalRef ||
 		d.Original.HuellaSHA256 != q.OriginalHuella || (d.Via != ports.ViaFirmaCertificadoVEC && d.Via != ports.ViaFirmaExternaPortafirmas) ||
-		!domain.InstanteUTCCanonico(d.ComprobadaEn) || !domain.InstanteUTCCanonico(d.ValidaHasta) ||
-		d.ComprobadaEn.After(ahora) || !ahora.Before(d.ValidaHasta) {
+		!domain.InstanteUTCCanonico(d.PreparadaEn) || !domain.InstanteUTCCanonico(d.ValidaHasta) ||
+		d.PreparadaEn.After(ahora) || !ahora.Before(d.ValidaHasta) {
 		return false
 	}
-	for _, c := range []ports.ComprobanteComponenteFirmaR5{d.Original, d.Verificador, d.Competencia, d.Perfil, d.Custodia, d.Registro} {
-		if !domain.ReferenciaOpacaValida(c.Referencia) || !domain.HuellaSHA256FirmaValida(c.HuellaSHA256) {
-			return false
-		}
-	}
-	return true
+	return domain.ReferenciaOpacaValida(d.Original.Referencia) && domain.HuellaSHA256FirmaValida(d.Original.HuellaSHA256)
 }
 
 // El resumen solo cruza ligaduras. El lector existente conserva la verificación

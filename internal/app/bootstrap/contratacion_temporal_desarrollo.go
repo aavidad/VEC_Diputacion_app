@@ -724,6 +724,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		lectoresConsulta = append(lectoresConsulta, lector.perfilRef)
 	}
 	perfilesConsulta := perfilesConsultaContratacionTemporalDesarrollo(perfilCTCatalogo, lectoresConsulta)
+	if firmaVecActiva {
+		for _, firmante := range configuracionFirmaVec.Firmantes {
+			perfilesConsulta = append(perfilesConsulta, firmante.PerfilConsultaCTRef)
+		}
+	}
 	reincorporacionTitular, err := selectorCapacidadRRHHDesarrollo(cfg, envCTReincorporacionTitularEnabled)
 	if err != nil || (reincorporacionTitular && (!seguimientoCeseSolicitado(cfg) || !cfg.BolsaBorradoresEnabled)) {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
@@ -753,10 +758,16 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		declaracionesFrontera = append(declaracionesFrontera, descriptoresFronteraAjustesReglasCT(perfilCTCatalogo)...)
 	}
 	if consultaCircuitoRRHH != nil {
+		perfilesCircuito := []string{perfilCTCatalogo}
+		if firmaVecActiva {
+			for _, firmante := range configuracionFirmaVec.Firmantes {
+				perfilesCircuito = append(perfilesCircuito, firmante.PerfilConsultaCircuitoRef)
+			}
+		}
 		declaracionesFrontera = append(declaracionesFrontera,
 			fronteraContratacionTemporalDesarrollo("ct-circuito-rrhh-consultar",
 				postgresct.AccionConsultaCircuitoRRHH, httpinterno.RutaConsultaCircuitoRRHH,
-				[]string{perfilCTCatalogo}))
+				perfilesCircuito))
 	}
 	declaracionesFrontera, err = asignarPerfilesFijosEnFronterasCTDesarrollo(alta.soporte, perfilCTCatalogo, declaracionesFrontera)
 	if err != nil {
@@ -912,18 +923,29 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true}
 	}
 	var montajeFirmaVec *montajeFirmaVecR5CT
+	var lecturasFirmaVec *montajeLecturasFirmaV2
 	if firmaVecActiva {
-		if firmaDocumento == nil || alta.soporte.perfilesOriginal == nil || consultasRRHH.identidad == nil ||
+		if firmaDocumento == nil || alta.soporte.perfilesOriginal == nil || consultasRRHH.identidad == nil || consultaCircuitoRRHH == nil ||
 			fuenteAutorizacionPlantillas == nil || motivosEvaluadorPlantillas == nil {
 			return nil, nil, nil, errMontajeFirmaVecR5
 		}
 		ctxFirmaVec, cancelarFirmaVec := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
 		montajeFirmaVec, err = prepararMontajeFirmaVecR5CT(ctxFirmaVec, cfg, configuracionFirmaVec, &alta,
 			consultasRRHH, resolvedorDesarrollo, fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas, derivador)
+		if err != nil {
+			cancelarFirmaVec()
+			return nil, nil, nil, err
+		}
+		lecturasFirmaVec, err = nuevasLecturasFirmaV2(ctxFirmaVec, montajeFirmaVec, derivador, motivosEvaluadorPlantillas)
 		cancelarFirmaVec()
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		montajeFirmaVec.nominal.lecturas = lecturasFirmaVec
+		cuadroReal = consultorCuadroFirmaV2{legacy: cuadroReal, nominal: lecturasFirmaVec.cuadro}
+		detalleReal = consultorDetalleFirmaV2{legacy: detalleReal, nominal: lecturasFirmaVec.detalle}
+		originalPropuestaReal = consultorDetalleFirmaV2{legacy: originalPropuestaReal, nominal: lecturasFirmaVec.historico}
+		consultasRRHH.descargas = selectorDescargaFirmaV2{legacy: consultasRRHH.descargas, nominal: lecturasFirmaVec.descargas}
 	}
 	defer func() {
 		if cerrarAlta {
@@ -1036,8 +1058,19 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if lecturasFirmaVec != nil {
+		if err := lecturasFirmaVec.envolverRutas(rutas); err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
 	if consultaCircuitoRRHH != nil {
+		if lecturasFirmaVec != nil {
+			consultaCircuitoRRHH, err = lecturasFirmaVec.envolverCircuito(consultaCircuitoRRHH)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+		}
 		if dependenciaEsNulaContratacionTemporalDesarrollo(alta.postgresql.registradorAuditoriaFrontera) {
 			return nil, nil, nil, ports.ErrConsultaCircuitoRRHHNoDisponible
 		}

@@ -2,6 +2,7 @@ package httpinterno
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -69,6 +70,7 @@ type resultadoPreflightFirmaR5V2JSON struct {
 	EntradaDocumentoRef     string `json:"entrada_documento_ref"`
 	EntradaDocumentoVersion uint64 `json:"entrada_documento_version"`
 	EntradaDocumentoSHA256  string `json:"entrada_documento_sha256"`
+	EntradaPDFBase64        string `json:"entrada_pdf_base64,omitempty"`
 }
 
 func (h *manejadorPreflightFirmaR5) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -157,9 +159,13 @@ func (h *manejadorPreflightFirmaR5) ServeHTTP(w http.ResponseWriter, r *http.Req
 	if resultadoV2 != nil {
 		data = resultadoPreflightFirmaR5V2JSON{resultadoPreflightFirmaR5JSON: vista,
 			Esquema: EsquemaPreflightFirmaR5V2, EntradaDocumentoRef: resultadoV2.EntradaDocumentoRef,
-			EntradaDocumentoVersion: resultadoV2.EntradaDocumentoVersion, EntradaDocumentoSHA256: resultadoV2.EntradaDocumentoHuella}
+			EntradaDocumentoVersion: resultadoV2.EntradaDocumentoVersion, EntradaDocumentoSHA256: resultadoV2.EntradaDocumentoHuella, EntradaPDFBase64: base64.StdEncoding.EncodeToString(resultadoV2.EntradaContenido)}
 	}
-	responderJSONFirmaNominal(w, r, http.StatusOK, map[string]any{"data": data}, MaximoRespuestaConsultaRRHHBytes)
+	limite := MaximoRespuestaConsultaRRHHBytes
+	if resultadoV2 != nil {
+		limite = 2 << 20
+	}
+	responderJSONFirmaNominal(w, r, http.StatusOK, map[string]any{"data": data}, limite)
 }
 
 func errorPreflightFirmaR5(err error) errorPublicoConsultaRRHH {

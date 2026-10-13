@@ -88,7 +88,8 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		r.Context(), r,
 	)
 	if m.autoridad.firmaVecR5 != nil &&
-		(rutaFirmaVecR5CT(r.URL.Path) || r.URL.Path == httpinterno.RutaOriginalFirmableCT) {
+		(rutaFirmaVecR5CT(r.URL.Path) || r.URL.Path == httpinterno.RutaOriginalFirmableCT ||
+			rutaLecturaCTFirmaV2(r.URL.Path) || rutaCatalogoCTFirmaV2(r)) {
 		if candidato, ok := m.autoridad.firmaVecR5.nominal.principalCanal(r); ok {
 			principal, err = candidato, nil
 		}
@@ -109,6 +110,14 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 	}
 	if (rutaConsultaRRHHContratacionTemporalDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaEstadisticasRRHH) && len(m.autoridad.resolvedor.lectoresRRHH) != 0 {
 		_, validoRuta = m.autoridad.resolvedor.lectorConsultaRRHH(principal)
+	}
+	if rutaLecturaCTFirmaV2(r.URL.Path) && m.autoridad.firmaVecR5 != nil &&
+		m.autoridad.firmaVecR5.nominal.lecturas != nil && m.autoridad.firmaVecR5.nominal.admitePrincipal(principal) {
+		validoRuta = true
+	}
+	if rutaCatalogoCTFirmaV2(r) && m.autoridad.firmaVecR5 != nil &&
+		m.autoridad.firmaVecR5.nominal.admitePrincipal(principal) {
+		validoRuta = true
 	}
 	if err == nil && validoRuta {
 		capacidad := capacidadConsultaContratacionTemporalDesarrollo{
@@ -174,7 +183,8 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		r = r.WithContext(ctx)
 	} else if err == nil && (protegidaCT || protegidaComun) &&
 		(principalSinteticoContratacionTemporalDesarrolloValido(principal) ||
-			(rutaFirmaVecR5CT(r.URL.Path) || r.URL.Path == httpinterno.RutaOriginalFirmableCT) && principalCertificadoFirmaVecDesarrolloValido(principal)) {
+			(rutaFirmaVecR5CT(r.URL.Path) || r.URL.Path == httpinterno.RutaOriginalFirmableCT ||
+				rutaLecturaCTFirmaV2(r.URL.Path) || rutaCatalogoCTFirmaV2(r)) && principalCertificadoFirmaVecDesarrolloValido(principal)) {
 		// Una identidad mTLS válida pero sin el perfil/ámbito de esta ruta está
 		// autenticada. Se conserva una capacidad deliberadamente no sellada para
 		// que la autoridad exacta responda 403, no el 401 de identidad ausente.

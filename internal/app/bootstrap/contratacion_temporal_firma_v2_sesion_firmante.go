@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -102,7 +103,11 @@ func canalSesionFirmanteV2(r *http.Request) (string, bool) {
 		return "", false
 	}
 	referencia, err := httpseguridad.ReferenciaCanalAsercionPasarela(*r.TLS, httpseguridad.SuperficieInternaCorporativa)
-	if err != nil || referencia == "" {
+	if err != nil {
+		slog.WarnContext(r.Context(), "ct_firma_canal_rechazado", "causa", err)
+		return "", false
+	}
+	if referencia == "" {
 		return "", false
 	}
 	suma := sha256.Sum256([]byte(referencia))

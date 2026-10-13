@@ -7,12 +7,12 @@
  * Encima de todo va la fase de firma de cada documento (fase-firma.js).
  */
 
-import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261011-ct-bolsa-vinculo-v1";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261013-ct-firma-tres-v1";
+import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v2";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261013-ct-firma-tres-v2";
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
-import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261012-ct-firma-error-v4";
+import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261013-ct-firma-tres-v2";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
-import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261013-ct-firma-tres-v1";
+import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261013-ct-firma-tres-v2";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
@@ -380,7 +380,7 @@ export function crearGestorCircuitoFirma({
     const contextoActual = expedienteConsultable(estado);
     if (contextoEsperado && (contextoActual?.ref !== contextoEsperado.ref
       || contextoActual.version !== contextoEsperado.version || contextoActual.vista !== contextoEsperado.vista)) return resultado;
-    const solicitud = circuito ? solicitudInformeDefinitivoDesdeEstado(estado) : null;
+    const solicitud = circuito ? (solicitudInformeDefinitivoDesdeEstado(estado) || solicitudInformeDefinitivoDesdeEstado(estado, "informe_definitivo")) : null;
     const expedienteRef = circuito ? contextoActual?.ref : null;
     if (!expedienteRef) return resultado;
     let respuesta;
@@ -402,7 +402,8 @@ export function crearGestorCircuitoFirma({
     }) : consultaFirmaCompuesta && permitirAcciones ? Object.freeze({ ...circuito,
       acciones: true, preflight_compuesto: true, estado_no_acreditado: true,
     }) : null;
-    return { estado: real ? "disponible" : respuesta?.estado === "denegado" ? "denegado" : "no_disponible", circuito: real, catalogo: circuito };
+    const conPermisosDocumentales = real ? Object.freeze({ ...real, documentos: Object.freeze(real.documentos.map((d) => Object.freeze({ ...d, acciones: Boolean(solicitudInformeDefinitivoDesdeEstado(estado, d.documento)) }))) }) : null;
+ return { estado: real ? "disponible" : respuesta?.estado === "denegado" ? "denegado" : "no_disponible", circuito: conPermisosDocumentales, catalogo: circuito };
   }
 
   const acciones = crearAccionesFirma({

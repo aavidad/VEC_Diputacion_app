@@ -280,17 +280,13 @@ func (a *AdmisionGarantiaFirmaVecDesarrollo) Admitir(ctx context.Context,
 		snapshot.ControlVigenciaVersionRol.VersionRolRef != a.politica.RolVersionRef ||
 		snapshot.ControlVigenciaVersionRol.Revision != a.politica.ControlRevision ||
 		snapshot.ControlVigenciaVersionRol.Estado != core.EstadoControlVigenciaVersionRolHabilitada ||
-		ahora.Before(snapshot.ControlVigenciaVersionRol.ActualizadoEn) ||
-		len(snapshot.VersionRol.Concesiones) != 1 {
+		ahora.Before(snapshot.ControlVigenciaVersionRol.ActualizadoEn) {
 		return vacia, ErrAdmisionGarantiaActoDenegada
 	}
-	concesion := snapshot.VersionRol.Concesiones[0]
-	if concesion.Accion != descriptor.Accion || concesion.ModuloID != descriptor.ModuloID ||
-		concesion.TipoRecurso != descriptor.TipoRecurso ||
-		len(concesion.Finalidades) != 1 || concesion.Finalidades[0] != descriptor.Finalidad ||
-		concesion.GarantiaMinima != core.AuthAssuranceSubstantial {
+	if !concesionUnicaAdmisionFirmaVec(snapshot.VersionRol.Concesiones, descriptor) {
 		return vacia, ErrAdmisionGarantiaActoDenegada
 	}
+
 	rolSHA, err := snapshot.VersionRol.HuellaSHA256()
 	if err != nil || rolSHA != a.politica.RolSHA256 {
 		return vacia, ErrAdmisionGarantiaActoDenegada
@@ -366,4 +362,19 @@ func minimoAdmision(primero time.Time, resto ...time.Time) time.Time {
 		}
 	}
 	return primero
+}
+
+// El rol publicado se conserva íntegro para su huella y la decisión común.
+// La admisión selecciona una sola concesión del acto, sin sumar permisos.
+func concesionUnicaAdmisionFirmaVec(concesiones []core.ConcesionRol, d DescriptorAdmisionGarantiaActo) bool {
+	coincidentes := 0
+	valida := false
+	for _, c := range concesiones {
+		if c.Accion != d.Accion || c.ModuloID != d.ModuloID || c.TipoRecurso != d.TipoRecurso {
+			continue
+		}
+		coincidentes++
+		valida = len(c.Finalidades) == 1 && c.Finalidades[0] == d.Finalidad && c.GarantiaMinima == core.AuthAssuranceSubstantial
+	}
+	return coincidentes == 1 && valida
 }

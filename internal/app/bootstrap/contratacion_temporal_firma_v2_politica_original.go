@@ -37,7 +37,8 @@ func descriptoresAutorizacionContratacionTemporalConFirmaR5Desarrollo(ctx contex
 	contextual := m.politicaOriginalContextual(politica)
 	for i := range descriptores {
 		for _, frontera := range descriptores[i].Fronteras {
-			if frontera == "ct-original-firmable-preparar" {
+			if frontera == "ct-original-firmable-preparar" || frontera == "ct-cuadro-consultar" ||
+				frontera == "ct-expediente-consultar" || frontera == "ct-circuito-rrhh-consultar" {
 				descriptores[i].Politica = contextual
 			}
 		}
@@ -52,7 +53,8 @@ func (m *montajeFirmaVecR5CT) politicaOriginalContextual(legacy politicaAutoriza
 }
 
 func (p *politicaOriginalFirmaR5CT) nominal(ctx context.Context) (bool, bool) {
-	if p == nil || p.m == nil || p.m.nominal == nil || ctx == nil || rutaNominalFirmaCT(ctx) != httpinterno.RutaOriginalFirmableCT {
+	if p == nil || p.m == nil || p.m.nominal == nil || ctx == nil ||
+		!(rutaNominalFirmaCT(ctx) == httpinterno.RutaOriginalFirmableCT || rutaLecturaCTFirmaV2(rutaNominalFirmaCT(ctx))) {
 		return false, false
 	}
 	if _, ok := ctx.Value(clavePeticionNominalFirmaCT{}).(*peticionNominalFirmaCT); !ok {
@@ -105,6 +107,17 @@ func (p *politicaOriginalFirmaR5CT) ValidarReferenciaMotivoAutorizacionV2(ctx co
 			return core.ErrSolicitudAutorizacionInvalida
 		}
 		switch r.CatalogoID {
+		case motivoConsultaCircuitoRRHHDesarrollo().CatalogoID:
+			if p.m.nominal.lecturas == nil || p.m.nominal.lecturas.motivoCircuito == nil {
+				return core.ErrSolicitudAutorizacionInvalida
+			}
+			return p.m.nominal.lecturas.motivoCircuito.ValidarReferenciaMotivoAutorizacionV2(ctx, r, instante)
+		case p.m.alta.soporte.motivoCuadroRRHH.CatalogoID:
+			vigente, err := p.m.consultas.motivos.ResolverMotivoCuadroRRHH(ctx, instante)
+			if err == nil && vigente == r {
+				return nil
+			}
+			return core.ErrSolicitudAutorizacionInvalida
 		case motivoOriginalFirmableCTDesarrollo().CatalogoID:
 			return p.m.motivosOriginal.ValidarReferenciaMotivoAutorizacionV2(ctx, r, instante)
 		case p.m.motivosDetalleCatalogoID():

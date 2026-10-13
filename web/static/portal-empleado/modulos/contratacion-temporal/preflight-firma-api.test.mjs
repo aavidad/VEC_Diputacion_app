@@ -42,7 +42,7 @@ test("denegación, caída, conflicto y cuerpo no confiable son errores cerrados"
     [async () => respuesta({}, 409), "conflicto"], [async () => respuesta({}, 503), "servicio_no_disponible"],
     [async () => { throw new Error("red"); }, "servicio_no_disponible"],
     [async () => respuesta({ ...datos(), perfil: "ajeno" }), "resultado_no_confiable"],
-    [async () => new Response("x".repeat(17000), { headers: { "Content-Type": "application/json" } }), "resultado_no_confiable"],
+    [async () => new Response("x".repeat(2 * 1024 * 1024 + 1), { headers: { "Content-Type": "application/json" } }), "resultado_no_confiable"],
     [async () => new Response("{}", { headers: { "Content-Type": "text/html" } }), "resultado_no_confiable"],
   ]) await assert.rejects(crearClientePreflightFirma({ fetchImpl }).consultar(solicitud), (e) => e.codigo === codigo);
 });

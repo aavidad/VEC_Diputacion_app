@@ -66,9 +66,16 @@ func leerConfiguracionFirmaVecR5(cfg config.Config) (configuracionFirmasCT, bool
 		return configuracionFirmasCT{}, true, marcarFalloComponenteArranque("ct_firma_vec_retirada", &falloFuenteConfiguracionArranque{causa: errMontajeFirmaVecR5})
 	}
 	porPerfil := make(map[string]bool, len(c.Firmantes))
+	slots := make(map[string]bool, len(c.Firmantes)*4)
 	for _, s := range c.Firmantes {
 		if !perfilActivoSeguridadComunValido(s.PerfilRef) || porPerfil[s.PerfilRef] {
 			return configuracionFirmasCT{}, true, errMontajeFirmaVecR5
+		}
+		for _, perfil := range []string{s.PerfilRef, s.PerfilConsultaCTRef, s.PerfilConsultaCircuitoRef, s.PerfilDocumentosRef} {
+			if !perfilActivoSeguridadComunValido(perfil) || slots[perfil] {
+				return configuracionFirmasCT{}, true, errMontajeFirmaVecR5
+			}
+			slots[perfil] = true
 		}
 		porPerfil[s.PerfilRef] = true
 	}
