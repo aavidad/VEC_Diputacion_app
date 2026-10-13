@@ -27,6 +27,8 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	ceseActivo  bool
 	orden       *bolsaapplication.ServicioOrdenVigente
 	avisos      *bolsaapplication.ServicioAvisosRRHH
+
+	controlDocumentos *controlLecturaDocumentosBolsa
 	// Bolsa 000041: bandeja con parámetros del catálogo, publicación de la
 	// política y marcas por participación (bolsa_parametros_avisos_desarrollo.go).
 	consultaAvisos *postgresbolsa.ConsultaAvisosRRHHPostgreSQL

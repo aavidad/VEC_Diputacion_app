@@ -294,6 +294,9 @@ transportes_mtls_revisados=(
 	# fijas, same-origin, no-store, redirect error y no-referrer.
 	static/portal-empleado/modulos/bolsa/rrhh-plazos-api.js
 	static/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js
+	# Documentos Bolsa: dos GET internos acotados y revisados; sin actor del navegador.
+	# mTLS del mismo origen, no-store, redirect error, no-referrer y JSON limitado a 1 MiB.
+	static/portal-empleado/modulos/bolsa/documentos-api.js
 	static/portal-empleado/modulos/auditoria/cliente-http.js
 	static/portal-empleado/modulos/contratacion-temporal/rrhh-plantillas-cliente.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-borradores-publicados.js

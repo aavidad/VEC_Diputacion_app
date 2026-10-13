@@ -1,0 +1,6 @@
+# Lista de instalación completa. Aplicar solo las ausentes, nunca repetir UP.
+# En copia de ensayo propia AD256/AUT84 ya estaban instaladas: el ajuste se probó solo AUT85.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000256_objetivo_version_rol_inscripcion_externa.up.sql
+deploy/postgresql/autorizacion/migraciones/000084_inscripcion_roles_admin.up.sql
+deploy/postgresql/autorizacion/migraciones/000085_base_historica_version_rol_bolsa_externa.up.sql
+deploy/postgresql/autorizacion/migraciones/000086_nombre_rol_externo_no_autoritativo.up.sql

@@ -19,11 +19,10 @@ Este corte aporta su configuración. Dirección revisa el diff y prueba la web.
    historia y recibos. Las versiones ya existentes deben tener los mismos bytes.
 4. Tramitar `inscripcion_bolsa_actos_v1.json` mediante el gobierno ADMIN
    vigente: catálogo, propuesta y cierre con los dos ADMIN. Reutilizar el
-   circuito de catálogo del kit B103 de dirección y preparar la versión con el contrato
-   general `OperacionVersionarPerfilGobernado`. Su montaje HTTP de extensión
-   de inscripción sigue pendiente de dirección. El especializador B103 admite sólo
-   sus cuatro acciones, y el de Bolsa externa sólo las dos de preferencias;
-   no usar esas propuestas para los tres actos de inscripción. La fuente contiene cuatro lecturas
+   circuito de catálogo del kit B103 de dirección y los dos especializadores existentes
+   descritos en `gobierno_inscripcion.md`. Las tres acciones RRHH van por
+   B103 y las cinco del aspirante por el circuito de Bolsa externa. Ambos conservan las acciones históricas. No se utiliza la ruta genérica
+   de creación de roles para esta ampliación. La fuente contiene cuatro lecturas
    propias, la lectura RRHH de motivos y los actos presentar/decidir/incorporar;
    SHA-256 de `entradas_canon`:
    `07bf028039044c91a23f09a2d5d5fe0d2af254e2fe85aa7fbbacea7c473487fe`.
