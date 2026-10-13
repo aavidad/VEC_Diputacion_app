@@ -26,7 +26,7 @@ BEGIN
  WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
  AND c.conname='auditoria_tipo_disjunto_v4' AND c.contype='c' AND c.convalidated;
  IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM
-  '0e6c3c43bdc1c7b958b465f728777571a490ad638032c6799ade4b46bacf58f5'
+  'c53edaf4dfd7c6bc347d2bbc7dfb5d41f6fcc40a693577a28107f731df4e88c6'
  OR (length(d)-length(replace(d,marca,'')))/length(marca)<>1
  OR strpos(d,'''lectura_meritos_rrhh''::text')<>0
  THEN RAISE EXCEPTION 'AD255: familia de auditoría divergente' USING ERRCODE='55000'; END IF;
