@@ -286,7 +286,7 @@ después de la fiscalización favorable y la propuesta exige el expediente en
 | 12 | Carmen | Ficha, Formalización | Registra la propuesta de nombramiento | Recibo; `nombramiento/en_curso`, v7 |
 | 13 | Carmen | Ficha, Formalización | Registra la resolución | Recibo; `nombramiento/en_curso`, v8 |
 | 14 | Carmen | Ficha, Documentos | Descarga en PDF y Word los borradores | Cada documento se abre con el logotipo y los datos del expediente |
-| 15 | Firmantes | Ficha, panel de firma (GrxFirma) | Firman en el orden del catálogo (ver «Documentos») | Cada firma con su justificante y el PDF verificado |
+| 15 | Firmantes | Ficha, panel de firma (GrxFirma) | Firman con certificado el informe de remisión y la resolución, en el orden del catálogo (tres cargos). Los otros cuatro documentos (incluida la toma de posesión de Antonio) se generan y descargan sin firma, marcados «firma pendiente», sin simularla | Cada firma con su justificante y el PDF verificado; los cuatro restantes, descargables en PDF y Word |
 | 16a | Carmen | Ficha, GINPIX | Descarga la ficha para la grabación manual | Ficha descargada |
 | 17 | Lucía (centro) | `peticiones-centro/`, Incorporaciones | Acredita la incorporación de Antonio con fecha y documento | Recibo de incorporación |
 | 16b | Carmen | Ficha, GINPIX | Confirma número y fecha de la grabación manual (el formulario exige la incorporación ya acreditada) | Recibo de confirmación GINPIX |
