@@ -37,7 +37,17 @@ ACTORES = {
     "rrhh": "cliente.p12",
     "intervencion": "intervencion.p12",
 }
-TIPOS = {"goto", "click", "fill", "select", "check", "text", "externo", "upload"}
+TIPOS = {
+    "goto",
+    "click",
+    "fill",
+    "select",
+    "check",
+    "text",
+    "externo",
+    "upload",
+    "descargar",
+}
 MAX_JSON = 256 * 1024
 
 
@@ -173,7 +183,9 @@ def campo(datos: object, camino: str) -> object:
     return datos
 
 
-def accion(page, a: dict, datos: dict, origen: str, externo=None) -> None:
+def accion(
+    page, a: dict, datos: dict, origen: str, externo=None, descargar=None
+) -> None:
     tipo = a["tipo"]
     if tipo == "externo":
         if externo is None or not externo():
@@ -192,7 +204,13 @@ def accion(page, a: dict, datos: dict, origen: str, externo=None) -> None:
         return
     if elemento.count() != 1:
         raise EntradaInvalida("selector_no_unico")
-    if tipo == "click":
+    if tipo == "descargar":
+        if descargar is None:
+            raise EntradaInvalida("descarga_sin_registro")
+        with page.expect_download() as observado:
+            elemento.click()
+        descargar(observado.value, a["documento"])
+    elif tipo == "click":
         elemento.click()
     elif tipo == "fill":
         if not a.get("si_editable") or elemento.is_editable():
@@ -263,6 +281,74 @@ def comprobar_http(registro: dict, esperado: list[dict], datos: dict) -> None:
             raise EntradaInvalida("http_esperado_ausente:" + e["ruta"])
 
 
+def candidata(datos: dict) -> str:
+    valor = datos.get("candidata")
+    if not isinstance(valor, str) or not re.fullmatch(r"[0-9a-f]{40}", valor):
+        raise EntradaInvalida("candidata_hash_invalido")
+    return valor
+
+
+def comprobar_recuperacion(paso: dict, original: dict, actual: dict) -> None:
+    tiene_efecto = original.get("efecto_iniciado") or any(
+        x["metodo"] not in {"GET", "HEAD"} and not x.get("solo_lectura")
+        for x in paso.get("http", [])
+    )
+    originales = (
+        original.get("recibos_efecto", [])
+        if tiene_efecto
+        else original.get("recibos", [])
+    )
+    if tiene_efecto and not originales:
+        raise PendienteExterno("recibo_efecto_original_no_disponible")
+    # Estado de replay y auditoría de acceso pueden cambiar. Los campos del
+    # recibo original que identifican el acto y su fecha/versión deben conservarse.
+    estables = {
+        "recibo_ref",
+        "expediente_ref",
+        "peticion_ref",
+        "version",
+        "version_resultante",
+        "fecha",
+        "registrada_en",
+    }
+    for r in originales:
+        campos = {k: v for k, v in r.items() if k in estables}
+        if not any(
+            all(o.get(k) == v for k, v in campos.items())
+            for o in actual.get("recibos", [])
+        ):
+            raise EntradaInvalida("recibo_original_no_recuperado:" + r["recibo_ref"])
+
+
+def comprobar_documentos(
+    paso: dict, registro: dict, original: dict | None = None
+) -> None:
+    requeridos = {
+        a["documento"] for a in paso.get("acciones", []) if a["tipo"] == "descargar"
+    }
+    if not requeridos:
+        return
+
+    def indexar(valor):
+        documentos = valor.get("documentos", [])
+        if (
+            len(documentos) != len(requeridos)
+            or {d.get("documento") for d in documentos} != requeridos
+            or any(
+                not isinstance(d.get("bytes"), int)
+                or d["bytes"] <= 0
+                or not re.fullmatch(r"[0-9a-f]{64}", d.get("sha256", ""))
+                for d in documentos
+            )
+        ):
+            raise EntradaInvalida("documentos_incompletos")
+        return {d["documento"]: (d["bytes"], d["sha256"]) for d in documentos}
+
+    actuales = indexar(registro)
+    if original is not None and actuales != indexar(original):
+        raise EntradaInvalida("documentos_no_identicos")
+
+
 class Ejecucion:
     def __init__(self, salida: Path, datos: dict):
         self.salida, self.datos = salida, datos
@@ -311,7 +397,10 @@ class Ejecucion:
             except Exception:
                 return
             self.respuestas[(r["metodo"], r["ruta"])] = cuerpo
-            self.actual["recibos"].extend(recibos(cuerpo))
+            encontrados = recibos(cuerpo)
+            self.actual["recibos"].extend(encontrados)
+            if (r["metodo"], r["ruta"]) in self.efectos_actuales:
+                self.actual.setdefault("recibos_efecto", []).extend(encontrados)
             for x in self.datos.get("extraer", []):
                 if x["ruta"] == r["ruta"] and x["metodo"] == r["metodo"]:
                     v = campo(cuerpo, x["campo"])
@@ -398,7 +487,7 @@ class Ejecucion:
                 return False
         return True
 
-    def descargar(self, download):
+    def descargar(self, download, documento: str):
         if self.actual is None:
             return
         carpeta = self.salida / "documentos"
@@ -415,6 +504,7 @@ class Ejecucion:
             raise EntradaInvalida("descarga_demasiado_grande")
         self.actual.setdefault("documentos", []).append(
             {
+                "documento": documento,
                 "archivo": str(destino.relative_to(self.salida)),
                 "bytes": destino.stat().st_size,
                 "sha256": hashlib.sha256(destino.read_bytes()).hexdigest(),
@@ -499,6 +589,9 @@ def ejecutar(
                     registro["causa"] = "certificado_o_clave_no_disponible"
                     continue
                 anterior_paso = previos.get(p["id"], {})
+                if args.modo == "recuperar" and anterior_paso.get("efecto_iniciado"):
+                    registro["efecto_iniciado"] = True
+                    registro["recibos_efecto"] = anterior_paso.get("recibos_efecto", [])
                 if (
                     args.modo == "continuar"
                     and anterior_paso.get("efecto_iniciado")
@@ -508,6 +601,7 @@ def ejecutar(
                     escribir(salida, f"paso-{p['id']}.json", registro)
                     continue
                 e.actual = registro
+                e.respuestas = {}
                 e.efectos_actuales = set()
                 inicio = time.monotonic()
                 try:
@@ -569,7 +663,6 @@ def ejecutar(
                                 else None
                             ),
                         )
-                        page.on("download", e.descargar)
                         contextos[actor] = (c, page)
                     c, page = contextos[actor]
                     page.bring_to_front()
@@ -582,7 +675,13 @@ def ejecutar(
                         acciones = p.get("acciones_recuperacion", [])
                         if acciones:
                             for a in acciones:
-                                accion(page, a, datos["valores"], args.base_url)
+                                accion(
+                                    page,
+                                    a,
+                                    datos["valores"],
+                                    args.base_url,
+                                    descargar=e.descargar,
+                                )
                         else:
                             # Reutiliza sólo la apertura de la ficha ya definida en
                             # el tramo; jamás los botones que registran un efecto.
@@ -592,7 +691,13 @@ def ejecutar(
                                 ) == "click" and "data-ct-exp-abrir" in a.get(
                                     "selector", ""
                                 ):
-                                    accion(page, a, datos["valores"], args.base_url)
+                                    accion(
+                                        page,
+                                        a,
+                                        datos["valores"],
+                                        args.base_url,
+                                        descargar=e.descargar,
+                                    )
                             for a in p.get("lecturas", []):
                                 if a.get(
                                     "tipo"
@@ -611,6 +716,7 @@ def ejecutar(
                                 datos["valores"],
                                 args.base_url,
                                 lambda: e.firmas_completas(p["id"]),
+                                e.descargar,
                             )
                         esperado = p.get("http", [])
                     listo = p.get(
@@ -648,19 +754,10 @@ def ejecutar(
                     if p["id"] in {"07b", "15"} and not e.firmas_completas(p["id"]):
                         raise PendienteExterno("firmas_no_completas")
                     if args.modo == "recuperar":
-                        originales = {
-                            r["recibo_ref"]
-                            for r in previos.get(p["id"], {}).get("recibos", [])
-                        }
-                        observados = {r["recibo_ref"] for r in registro["recibos"]}
-                        if originales and not originales.issubset(observados):
-                            raise EntradaInvalida("recibo_original_no_recuperado")
-                    if args.modo == "recuperar" and p["id"] == "14":
-                        if {
-                            x["sha256"]
-                            for x in previos.get(p["id"], {}).get("documentos", [])
-                        } != {x["sha256"] for x in registro.get("documentos", [])}:
-                            raise EntradaInvalida("documentos_no_identicos")
+                        comprobar_recuperacion(p, anterior_paso, registro)
+                    comprobar_documentos(
+                        p, registro, anterior_paso if args.modo == "recuperar" else None
+                    )
                     registro["estado"] = "OK"
                 except PendienteExterno as exc:
                     registro["causa"] = str(exc)
@@ -745,6 +842,7 @@ def main() -> int:
             or not isinstance(claves, dict)
         ):
             raise EntradaInvalida("datos_invalidos")
+        candidata(datos)
         ident = identidades(
             a.certificados.expanduser().resolve(strict=True), claves, a.base_url
         )
@@ -754,7 +852,7 @@ def main() -> int:
         if a.modo == "recuperar" and not a.reinicio_acreditado:
             raise EntradaInvalida("reinicio_no_acreditado")
         if anterior:
-            if anterior.get("candidata") != datos.get("candidata"):
+            if candidata(anterior) != candidata(datos):
                 raise EntradaInvalida("candidata_distinta")
             datos["valores"].update(anterior.get("valores", {}))
         if a.modo == "comprobar":

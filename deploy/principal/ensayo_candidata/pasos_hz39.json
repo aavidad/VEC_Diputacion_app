@@ -1487,52 +1487,64 @@
         "selector": "[data-ct-exp-vista=\"documentos\"]"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-exp-accion=\"descargar-informe-definitivo\"]"
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-informe-definitivo\"]",
+        "documento": "informe-definitivo"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-exp-accion=\"descargar-resolucion\"]"
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-resolucion\"]",
+        "documento": "resolucion"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-exp-accion=\"descargar-diligencia\"]"
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-diligencia\"]",
+        "documento": "diligencia"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-exp-accion=\"descargar-toma-posesion\"]"
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-toma-posesion\"]",
+        "documento": "toma-posesion"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-exp-accion=\"descargar-notificacion\"]"
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-notificacion\"]",
+        "documento": "notificacion"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-exp-accion=\"descargar-comunicacion-centro\"]"
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-comunicacion-centro\"]",
+        "documento": "comunicacion-centro"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-exp-accion=\"descargar-docx-informe-definitivo\"]"
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-informe-definitivo\"]",
+        "documento": "docx-informe-definitivo"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-exp-accion=\"descargar-docx-resolucion\"]"
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-resolucion\"]",
+        "documento": "docx-resolucion"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-exp-accion=\"descargar-docx-diligencia\"]"
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-diligencia\"]",
+        "documento": "docx-diligencia"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-exp-accion=\"descargar-docx-toma-posesion\"]"
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-toma-posesion\"]",
+        "documento": "docx-toma-posesion"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-exp-accion=\"descargar-docx-notificacion\"]"
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-notificacion\"]",
+        "documento": "docx-notificacion"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-exp-accion=\"descargar-docx-comunicacion-centro\"]"
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-comunicacion-centro\"]",
+        "documento": "docx-comunicacion-centro"
       }
     ],
     "http": [
@@ -1541,7 +1553,8 @@
         "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
         "codigos": [
           200
-        ]
+        ],
+        "solo_lectura": true
       }
     ],
     "esperar": {
@@ -1567,9 +1580,79 @@
     "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
     "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
     "esperar_recuperacion": {
-      "selector": ".ct-exp-ficha-historial"
+      "selector": "[data-ct-exp-borradores-legados]"
     },
-    "criterio_recuperacion": "Descargar de nuevo documentos por lectura, comparar tamaño y SHA-256 de cada PDF y Word con lo guardado; ninguna escritura."
+    "criterio_recuperacion": "Descargar de nuevo documentos por lectura, comparar tamaño y SHA-256 de cada PDF y Word con lo guardado; ninguna escritura.",
+    "acciones_recuperacion": [
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-vista=\"documentos\"]"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-informe-definitivo\"]",
+        "documento": "informe-definitivo"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-resolucion\"]",
+        "documento": "resolucion"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-diligencia\"]",
+        "documento": "diligencia"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-toma-posesion\"]",
+        "documento": "toma-posesion"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-notificacion\"]",
+        "documento": "notificacion"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-comunicacion-centro\"]",
+        "documento": "comunicacion-centro"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-informe-definitivo\"]",
+        "documento": "docx-informe-definitivo"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-resolucion\"]",
+        "documento": "docx-resolucion"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-diligencia\"]",
+        "documento": "docx-diligencia"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-toma-posesion\"]",
+        "documento": "docx-toma-posesion"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-notificacion\"]",
+        "documento": "docx-notificacion"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-accion=\"descargar-docx-comunicacion-centro\"]",
+        "documento": "docx-comunicacion-centro"
+      }
+    ]
   },
   {
     "id": "15",
@@ -1580,6 +1663,14 @@
       "14"
     ],
     "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
       {
         "tipo": "click",
         "selector": "[data-ct-firma-detalles] summary"
@@ -1632,7 +1723,17 @@
     "esperar_recuperacion": {
       "selector": "[data-ct-fase-firma]"
     },
-    "criterio_recuperacion": "Comprobar en consulta de firmas el documento, paso, firmante, justificante y verificación positiva; el panel solo no basta."
+    "criterio_recuperacion": "Comprobar en consulta de firmas el documento, paso, firmante, justificante y verificación positiva; el panel solo no basta.",
+    "acciones_recuperacion": [
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-firma-detalles] summary"
+      }
+    ]
   },
   {
     "id": "16a",
@@ -1652,8 +1753,9 @@
         "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
       },
       {
-        "tipo": "click",
-        "selector": "[data-ct-ficha-ginpix-descargar]"
+        "tipo": "descargar",
+        "selector": "[data-ct-ficha-ginpix-descargar]",
+        "documento": "ginpix"
       }
     ],
     "http": [
@@ -1689,7 +1791,18 @@
     "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
     "esperar_recuperacion": {
       "selector": "[data-ct-ficha-ginpix]"
-    }
+    },
+    "acciones_recuperacion": [
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-ficha-ginpix-descargar]",
+        "documento": "ginpix"
+      }
+    ]
   },
   {
     "id": "17",

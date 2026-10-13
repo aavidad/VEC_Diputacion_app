@@ -30,7 +30,7 @@ TLS permanece activa. No hay respuesta simulada, cookie ni estado web guardado.
   `centro`, `ratificador`, `rrhh` e `intervencion`; sus valores son las
   contraseñas P12 entregadas por dirección. No ponerlas en argumentos ni Git.
   El guion comprueba los certificados públicos y rechaza personas repetidas.
-- `--datos`: JSON privado `0600` con `candidata` (hash exacto), `valores` y
+- `--datos`: JSON privado `0600` con `candidata` (hash Git exacto de 40 dígitos hexadecimales), `valores` y
   `extraer`. Los valores contienen el MOAD, categoría/puesto/centro publicados,
   fechas, RC, motivo, bolsa, datos de mérito, archivos aportados y opciones B2
   de ese caso. K proporciona la selección y receta de los datos existentes.
@@ -96,7 +96,11 @@ python3 deploy/principal/ensayo_candidata/recorrer.py \
 
 La recuperación usa pantallas y lecturas de la proyección. Bloquea las peticiones
 con efecto antes de enviarlas; permite los POST de consulta declarados. Compara
-referencias de recibo y huellas de descargas con la ejecución anterior. Si una
+el recibo, fecha y versión del acto original con la ejecución anterior. Un acto
+sin respuesta ni recibo sigue pendiente, aunque se vea una ficha; una recuperación
+fallida conserva el bloqueo para impedir que `continuar` lo repita. El paso 14
+vuelve a descargar los doce PDF/Word y exige identidad, tamaño y huella iguales;
+una lista de descargas vacía nunca pasa. Si una
 pantalla no permite recuperar un recibo, se informa y no se acredita ese paso.
 La opción `--reinicio-acreditado` declara la actuación del dueño de la copia;
 por sí sola no demuestra el reinicio.
