@@ -1,6 +1,6 @@
 # Ficha de requisitos de VEC Canal interno de información — 4 de octubre de 2026
 
-Estado: estudio de enlace o integración con el Sistema Interno de Información institucional. No autoriza una nueva bandeja de denuncias en RRHH ni acredita funcionamiento de un conector. Conserva la cola de producto vigente. Formato: [ficha Cronos](ficha_cronos_2026-09-23.md). Alcance: [matriz normativa](matriz_normativa_rrhh_2026.md), [catálogo funcional](catalogo_funcional_rrhh_y_hoja_ruta.md) y [materias reservadas](materias_reservadas_economicas_y_relaciones_laborales.md), apartado 8. Consulta de fuentes públicas oficiales: 04/10/2026; no se ha enviado ninguna comunicación ni se ha accedido a expedientes.
+Estado: estudio de enlace o integración con el Sistema Interno de Información institucional. No autoriza una nueva bandeja de denuncias en RRHH ni acredita funcionamiento de un conector. Conserva la cola de producto vigente. Formato: [ficha Cronos](ficha_cronos_2026-09-23.md). Alcance: [matriz normativa](matriz_normativa_rrhh_2026.md), [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md) y [materias reservadas](materias_reservadas_economicas_y_relaciones_laborales.md), apartado 8. Consulta de fuentes públicas oficiales: 04/10/2026; no se ha enviado ninguna comunicación ni se ha accedido a expedientes.
 
 ## Lo que existe y qué aporta VEC
 

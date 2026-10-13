@@ -2,7 +2,7 @@
 
 Estado: estudio funcional para validación de RRHH. El primer corte comprende la consulta de recibos propios procedentes de la fuente actual que confirme la Diputación. Esta ficha no acredita una aplicación de nómina operativa ni autoriza sustituir su cálculo, cierre o pago.
 
-Sigue el formato de [Cronos](ficha_cronos_2026-09-23.md) y concreta [el catálogo, §7](catalogo_funcional_rrhh_y_hoja_ruta.md#7-nómina-y-gestión-económica), [la matriz normativa, §4](matriz_normativa_rrhh_2026.md#4-nómina-seguridad-social-y-fiscalidad) y [las materias económicas reservadas, §3](materias_reservadas_economicas_y_relaciones_laborales.md#3-nómina-seguridad-social-y-fiscalidad). Son antecedentes del estudio; las fuentes públicas verificadas figuran al final. Se mantienen persona común, relaciones históricas y autoridades separadas de E02–E07 de `ESPECIFICACIONES_AGENTES.md`.
+Sigue el formato de [Cronos](ficha_cronos_2026-09-23.md) y concreta [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md), [la matriz normativa, §4](matriz_normativa_rrhh_2026.md#4-nómina-seguridad-social-y-fiscalidad) y [las materias económicas reservadas, §3](materias_reservadas_economicas_y_relaciones_laborales.md#3-nómina-seguridad-social-y-fiscalidad). Son antecedentes del estudio; las fuentes públicas verificadas figuran al final. Se mantienen persona común, relaciones históricas y autoridades separadas de E02–E07 de `ESPECIFICACIONES_AGENTES.md`.
 
 ## Qué debe hacer
 

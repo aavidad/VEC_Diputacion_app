@@ -39,7 +39,7 @@ La orden de dirección de las 16:50 y 16:55 es conservar el trabajo, entregar
 este plan y parar el módulo. No se han modificado padres, manifiestos, permisos,
 SQL ni servicios. Ninguna de las tres capacidades EMP está cerrada. EMP-004 (trabajo colaborativo) y EMP-005 (agenda compartida) quedan fuera de este encargo y de la estimación.
 
-Fuentes: [catálogo funcional](../estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md#6-portal-del-empleado-cronos-y-dietas),
+Fuentes: [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md),
 [análisis integral, apartados 17–21](../estudio_requisitos/analisis_integral_rrhh.md),
 [petición de RRHH](../estudio_requisitos/peticion_rrhh_transcripcion_y_lectura.md),
 [matriz normativa](../estudio_requisitos/matriz_normativa_rrhh_2026.md) y

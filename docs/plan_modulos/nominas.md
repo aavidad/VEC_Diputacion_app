@@ -1,6 +1,6 @@
 # Plan de Nóminas: 4 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 La persona consultará sus recibos originales por entidad, relación y periodo, con
 lectura y descarga autorizadas por separado. Podrá pedir revisión de una discrepancia.
@@ -10,7 +10,7 @@ ni instalación.
 
 Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos principales: [ficha de Nóminas](../estudio_requisitos/ficha_nominas_2026-10-04.md),
-N1–N12 y NOM-001–NOM-008 del [catálogo](../estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md#7-nómina-y-gestión-económica).
+N1–N12 y NOM-001–NOM-008 del [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md).
 Personal B mantiene relaciones y servicios; K identidad y perfiles; L las autoridades
 comunes. El plan no reasigna sus archivos ni modifica el seguimiento general.
 
