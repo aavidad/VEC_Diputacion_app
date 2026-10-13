@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -48,7 +49,13 @@ func (s *ServicioCeseNativoCT) AplicarCeseNativoCT(ctx context.Context, q ports.
 	}, false); err != nil {
 		return cero, ports.ErrCeseNativoCTInvalido
 	}
-	material, actor, canon, err := s.autorizarCeseNativoCT(ctx, q)
+	material, actor, canon, err := autorizarActoNativoCT(ctx, s.situacion, q.Selector,
+		q.ParticipacionRef, q.Personal.ActorRef, q.Vinculo, q.ResultadoContexto,
+		q.Correlacion, q.MotivoAutorizacion, func(unidad, ambito string) any {
+			return ports.MaterialActoCeseNativoCT{Esquema: ports.EsquemaActoCeseNativoCT,
+				Selector: q.Selector, ParticipacionRef: q.ParticipacionRef,
+				UnidadAutorizacionRef: unidad, AmbitoRef: ambito, Personal: q.Personal}
+		})
 	if err != nil {
 		return cero, err
 	}
@@ -71,51 +78,53 @@ func (s *ServicioCeseNativoCT) AplicarCeseNativoCT(ctx context.Context, q ports.
 	return r, nil
 }
 
-func (s *ServicioCeseNativoCT) autorizarCeseNativoCT(ctx context.Context, q ports.SolicitudCeseNativoCT) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, string, []byte, error) {
+func autorizarActoNativoCT(ctx context.Context, situacion *ServicioSituacionParticipacion,
+	selector ports.SelectorAceptacionNativaCT, participacion, actorFuente string,
+	vinculo core.VinculoAutenticacionActorV2, resultado core.ResultadoContextoActorRegistradoV2,
+	correlacion core.ReferenciaCorrelacionAutorizacionV2, motivo core.ReferenciaEntradaCatalogo,
+	construir func(string, string) any) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, string, []byte, error) {
 	var cero vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
-	if nuloPersonaAceptacionCT(s.situacion.contexto) || nuloPersonaAceptacionCT(s.situacion.autorizador) ||
-		nuloPersonaAceptacionCT(s.situacion.repositorio) || s.situacion.reloj == nil {
+	if situacion == nil || construir == nil || nuloPersonaAceptacionCT(situacion.contexto) || nuloPersonaAceptacionCT(situacion.autorizador) ||
+		nuloPersonaAceptacionCT(situacion.repositorio) || situacion.reloj == nil {
 		return cero, "", nil, ports.ErrCeseNativoCTNoDisponible
 	}
-	v, err := q.Vinculo.Datos()
-	if err != nil || v.PrincipalID == "" || v.PrincipalID != q.Personal.ActorRef ||
-		q.ResultadoContexto.Contexto.PersonaRef != v.PrincipalID {
+	v, err := vinculo.Datos()
+	if err != nil || v.PrincipalID == "" || v.PrincipalID != actorFuente ||
+		vinculo.ValidarPara(resultado) != nil {
 		return cero, "", nil, ports.ErrCeseNativoCTDenegado
 	}
-	resuelto, err := s.situacion.contexto.ResolverContextoSituacionParticipacion(ctx,
-		q.ResultadoContexto.Contexto, q.Selector.BolsaRef, q.ParticipacionRef)
+	resuelto, err := situacion.contexto.ResolverContextoSituacionParticipacion(ctx,
+		resultado.Contexto, selector.BolsaRef, participacion)
 	if err != nil || resuelto.Validar() != nil {
 		return cero, "", nil, ports.ErrCeseNativoCTNoDisponible
 	}
-	pertenece, err := s.situacion.repositorio.ParticipacionPerteneceABolsa(ctx,
-		q.Selector.BolsaRef, q.ParticipacionRef)
+	pertenece, err := situacion.repositorio.ParticipacionPerteneceABolsa(ctx,
+		selector.BolsaRef, participacion)
 	if err != nil {
 		return cero, "", nil, ports.ErrCeseNativoCTNoDisponible
 	}
 	if !pertenece {
 		return cero, "", nil, ports.ErrCeseNativoCTDenegado
 	}
-	intencion := ports.MaterialActoCeseNativoCT{Esquema: ports.EsquemaActoCeseNativoCT,
-		Selector: q.Selector, ParticipacionRef: q.ParticipacionRef,
-		UnidadAutorizacionRef: resuelto.UnidadRef, AmbitoRef: resuelto.AmbitoRef, Personal: q.Personal}
+	intencion := construir(resuelto.UnidadRef, resuelto.AmbitoRef)
 	canon, err := json.Marshal(intencion)
 	if err != nil || len(canon) == 0 || len(canon) > 16<<10 {
 		return cero, "", nil, ports.ErrCeseNativoCTInvalido
 	}
 	h := sha256.Sum256(canon)
-	recurso := core.RecursoAutorizable{Referencia: q.ParticipacionRef,
+	recurso := core.RecursoAutorizable{Referencia: participacion,
 		ModuloID: ports.ModuloSituacionParticipacion, Tipo: ports.TipoRecursoSituacionParticipacion,
 		Ambitos:   map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef},
 		Atributos: map[string]string{"material_sha256": hex.EncodeToString(h[:])}}
 	peticion, err := core.NuevaSolicitudAutorizacionLigadaV3(core.DatosSolicitudAutorizacionLigadaV3{
-		VinculoAutenticacionActor: q.Vinculo, ReferenciaMotivo: q.MotivoAutorizacion,
+		VinculoAutenticacionActor: vinculo, ReferenciaMotivo: motivo,
 		Accion: ports.AccionCambiarSituacionParticipacion, Recurso: recurso,
-		Finalidad: ports.FinalidadCambiarSituacionParticipacion, Correlacion: q.Correlacion})
+		Finalidad: ports.FinalidadCambiarSituacionParticipacion, Correlacion: correlacion})
 	if err != nil {
 		return cero, "", nil, ports.ErrCeseNativoCTDenegado
 	}
-	decision, confirmacion, exportador, err := s.situacion.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx,
-		peticion, q.ResultadoContexto)
+	decision, confirmacion, exportador, err := situacion.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx,
+		peticion, resultado)
 	if err != nil || nuloPersonaAceptacionCT(exportador) || decision.ValidarPara(peticion) != nil {
 		return cero, "", nil, ports.ErrCeseNativoCTNoDisponible
 	}
@@ -127,18 +136,18 @@ func (s *ServicioCeseNativoCT) autorizarCeseNativoCT(ctx context.Context, q port
 		return cero, "", nil, ports.ErrCeseNativoCTDenegado
 	}
 	orden, err := vecports.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(
-		peticion, decision, q.MotivoAutorizacion, q.ResultadoContexto)
+		peticion, decision, motivo, resultado)
 	if err != nil || confirmacion.ValidarPara(orden) != nil {
 		return cero, "", nil, ports.ErrCeseNativoCTNoDisponible
 	}
 	restricciones, err := decision.RestriccionesProyeccionPara(peticion)
 	if err != nil || len(restricciones.CamposPermitidos) != 0 || len(restricciones.Obligaciones) != 0 ||
-		!confirmacion.DentroDeVentanaEn(s.situacion.reloj().UTC().Truncate(time.Microsecond)) {
+		!confirmacion.DentroDeVentanaEn(situacion.reloj().UTC().Truncate(time.Microsecond)) {
 		return cero, "", nil, ports.ErrCeseNativoCTDenegado
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
 	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(peticion, decision, confirmacion,
-		q.ResultadoContexto, q.MotivoAutorizacion, material, ports.AudienciaCambiarSituacionParticipacion) {
+		resultado, motivo, material, ports.AudienciaCambiarSituacionParticipacion) {
 		return cero, "", nil, ports.ErrCeseNativoCTNoDisponible
 	}
 	return material, v.PrincipalID, canon, nil
@@ -167,3 +176,100 @@ func fechaCivilCeseNativoValida(s string) bool {
 }
 
 var _ ports.AplicadorCeseNativoCT = (*ServicioCeseNativoCT)(nil)
+
+// ServicioAltaNativaCT registra el hecho de incorporación B2 en la historia
+// B13 y sitúa la participación trabajando sólo después de CT/P23 confirmados.
+type ServicioAltaNativaCT struct {
+	situacion   *ServicioSituacionParticipacion
+	repositorio ports.RepositorioAltaNativaCT
+}
+
+func NuevoServicioAltaNativaCT(s *ServicioSituacionParticipacion, r ports.RepositorioAltaNativaCT) (*ServicioAltaNativaCT, error) {
+	if s == nil || s.reloj == nil || nuloPersonaAceptacionCT(r) {
+		return nil, ports.ErrAltaNativaCTNoDisponible
+	}
+	return &ServicioAltaNativaCT{situacion: s, repositorio: r}, nil
+}
+
+func (s *ServicioAltaNativaCT) AplicarAltaNativaCT(ctx context.Context, q ports.SolicitudAltaNativaCT) (ports.ReciboAltaNativaCT, error) {
+	var cero ports.ReciboAltaNativaCT
+	if ctx == nil || s == nil || s.situacion == nil || nuloPersonaAceptacionCT(s.repositorio) {
+		return cero, ports.ErrAltaNativaCTNoDisponible
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	if !referenciaAceptacionNativaCT.MatchString(q.ParticipacionRef) ||
+		!pruebaAltaPersonalCTValida(q.Personal) ||
+		q.ResultadoContexto.Validar() != nil || q.Vinculo.ValidarPara(q.ResultadoContexto) != nil ||
+		q.Correlacion.Validar() != nil || !core.ReferenciaMotivoAutorizacionV2Valida(q.MotivoAutorizacion) {
+		return cero, ports.ErrAltaNativaCTInvalida
+	}
+	if _, err := PrepararConsultaAceptacionNativaCT(ports.SolicitudConsultaAceptacionNativaCT{
+		Selector: q.Selector, ActorConfiable: ports.ActorConfiablePersonaAceptacionCT{
+			Vinculo: q.Vinculo, Resultado: q.ResultadoContexto,
+		},
+	}, false); err != nil {
+		return cero, ports.ErrAltaNativaCTInvalida
+	}
+	material, actor, canon, err := autorizarActoNativoCT(ctx, s.situacion, q.Selector,
+		q.ParticipacionRef, q.Personal.ActorRef, q.Vinculo, q.ResultadoContexto,
+		q.Correlacion, q.MotivoAutorizacion, func(unidad, ambito string) any {
+			return ports.MaterialActoAltaNativaCT{Esquema: ports.EsquemaAltaNativaCT,
+				Selector: q.Selector, ParticipacionRef: q.ParticipacionRef,
+				UnidadAutorizacionRef: unidad, AmbitoRef: ambito, Personal: q.Personal}
+		})
+	if err != nil {
+		return cero, errorAltaNativaCT(err)
+	}
+	r, err := s.repositorio.AplicarAltaNativaCT(ctx, ports.OrdenAltaNativaCT{
+		Solicitud: q, ActorRef: actor, MaterialCanonico: canon, Material: material})
+	if err != nil {
+		if ctx.Err() != nil {
+			return cero, ctx.Err()
+		}
+		return cero, err
+	}
+	instante, err := time.Parse("2006-01-02T15:04:05.000000Z", r.TrabajandoDesde)
+	if err != nil || instante.Location() != time.UTC ||
+		r.ParticipacionRef != q.ParticipacionRef || r.BolsaRef != q.Selector.BolsaRef ||
+		!strings.HasPrefix(r.EventoRef, "evento:ct:contrato-bolsa:") ||
+		!strings.HasPrefix(r.ReciboSituacion, "recibo:situacion:") ||
+		!strings.HasPrefix(r.OutboxRef, "evento:bolsa:alta-nativa:") ||
+		!referenciaAceptacionNativaCT.MatchString(r.AuditoriaRef) {
+		return cero, ports.ErrAltaNativaCTNoDisponible
+	}
+	return r, nil
+}
+
+func pruebaAltaPersonalCTValida(p ports.PruebaAltaPersonalCT) bool {
+	if p.VersionExpediente == 0 || p.RelacionVersion == 0 || p.OcupacionVersion == 0 ||
+		p.RelacionReciboRef == p.OcupacionReciboRef ||
+		!huellaPersonaAceptacionCT.MatchString(p.PlanSHA256) {
+		return false
+	}
+	for _, ref := range []string{p.ReciboCTRef, p.ActorRef, p.EmpleadoRef, p.RelacionRef,
+		p.RelacionReciboRef, p.OcupacionRef, p.OcupacionReciboRef, p.PlanRef} {
+		if !referenciaAceptacionNativaCT.MatchString(ref) {
+			return false
+		}
+	}
+	return true
+}
+
+func errorAltaNativaCT(err error) error {
+	switch {
+	case errors.Is(err, ports.ErrCeseNativoCTInvalido):
+		return ports.ErrAltaNativaCTInvalida
+	case errors.Is(err, ports.ErrCeseNativoCTDenegado):
+		return ports.ErrAltaNativaCTDenegada
+	case errors.Is(err, ports.ErrCeseNativoCTConflicto):
+		return ports.ErrAltaNativaCTConflicto
+	case errors.Is(err, ports.ErrCeseNativoCTNoDisponible):
+		return ports.ErrAltaNativaCTNoDisponible
+	default:
+		return err
+	}
+}
+
+var _ ports.AplicadorAltaNativaCT = (*ServicioAltaNativaCT)(nil)

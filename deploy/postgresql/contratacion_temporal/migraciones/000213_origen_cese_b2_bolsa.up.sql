@@ -22,6 +22,10 @@ BEGIN
     OR to_regclass('vec_contratacion_temporal.origen_incorporacion_personal_b2_v1') IS NULL
     OR to_regclass('vec_contratacion_temporal.plan_incorporacion_personal_b2_v1') IS NULL
     OR to_regprocedure('vec_contratacion_temporal.probar_cese_personal_b2_para_bolsa_v1(text)') IS NOT NULL
+    OR to_regprocedure('vec_contratacion_temporal.probar_incorporacion_personal_b2_para_bolsa_v1(text)') IS NOT NULL
+    OR to_regprocedure('vec_personal.probar_origen_incorporacion_plan_bolsa_v1(text,text,text,bigint,text,jsonb)') IS NULL
+    OR NOT has_function_privilege(current_user,
+       'vec_personal.probar_origen_incorporacion_plan_bolsa_v1(text,text,text,bigint,text,jsonb)','EXECUTE')
  THEN RAISE EXCEPTION 'CT213: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -191,6 +195,129 @@ REVOKE ALL ON FUNCTION vec_contratacion_temporal.probar_cese_personal_b2_para_bo
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.probar_cese_personal_b2_para_bolsa_v1(text)
  TO vec_bolsa_llamamientos_propietario;
 
+-- El recibo CT155 demuestra la comprobación P23 original dentro de la misma
+-- transacción de su outbox. P49 revalida el estado Personal sólo en la primera
+-- alta B115; los replays usan después el recibo B115 inmutable.
+CREATE FUNCTION vec_contratacion_temporal.probar_incorporacion_personal_b2_para_bolsa_v1(p_recibo_ct text)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
+DECLARE i vec_contratacion_temporal.origen_incorporacion_personal_b2_v1%ROWTYPE;
+ p vec_contratacion_temporal.plan_incorporacion_personal_b2_v1%ROWTYPE;
+ v vec_contratacion_temporal.expediente_version_integral%ROWTYPE;
+ o vec_contratacion_temporal.outbox_expediente_integral%ROWTYPE;
+ h jsonb; inicio date; fin date; cuerpo jsonb; evento jsonb; publicacion_ref text;
+BEGIN
+ IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
+    OR NOT pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
+    OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
+    OR current_setting('transaction_isolation')<>'serializable'
+    OR current_setting('transaction_read_only')<>'off'
+    OR current_setting('TimeZone')<>'UTC'
+ THEN RAISE EXCEPTION 'CT213: sesión de alta denegada' USING ERRCODE='42501'; END IF;
+ IF p_recibo_ct IS NULL OR octet_length(p_recibo_ct) NOT BETWEEN 8 AND 512
+ THEN RAISE EXCEPTION 'CT213: recibo de alta inválido' USING ERRCODE='22023'; END IF;
+ SELECT * INTO i FROM vec_contratacion_temporal.origen_incorporacion_personal_b2_v1 x
+  WHERE x.recibo_ref=p_recibo_ct AND x.protocolo='personal_b2_v1';
+ IF NOT FOUND OR i.transaccion_publicacion IS NULL
+    OR i.transaccion_publicacion>=pg_snapshot_xmin(pg_current_snapshot())
+    OR i.material_sha256 IS DISTINCT FROM encode(sha256(convert_to(i.material,'UTF8')),'hex')
+    OR i.recibo_json->>'recibo_ref' IS DISTINCT FROM i.recibo_ref
+    OR i.recibo_json->>'outbox_ref' IS DISTINCT FROM i.outbox_ref
+    OR i.recibo_json->'confirmacion' IS DISTINCT FROM i.material_json
+    OR i.recibo_json->>'protocolo' IS DISTINCT FROM 'personal_b2_v1'
+ THEN RAISE EXCEPTION 'CT213: incorporación CT no publicada' USING ERRCODE='23503'; END IF;
+ SELECT * INTO p FROM vec_contratacion_temporal.plan_incorporacion_personal_b2_v1 x
+  WHERE x.organizacion_ref=i.organizacion_ref AND x.expediente_ref=i.expediente_ref
+    AND x.plan_ref=i.plan_ref;
+ IF NOT FOUND OR p.material_json#>'{material,bolsa_nativa}' IS NULL
+    OR p.material_json#>'{material,bolsa}' IS NOT NULL
+    OR i.material_json->>'plan_ref' IS DISTINCT FROM p.plan_ref
+    OR i.material_json->>'plan_sha256' IS DISTINCT FROM p.material_sha256
+    OR i.material_json->>'organizacion_ref' IS DISTINCT FROM i.organizacion_ref
+    OR i.material_json->>'expediente_ref' IS DISTINCT FROM i.expediente_ref
+    OR i.material_json->>'plan_version' IS DISTINCT FROM '1'
+    OR i.material_json->'hechos' IS NULL
+ THEN RAISE EXCEPTION 'CT213: plan de alta nativo divergente' USING ERRCODE='23503'; END IF;
+ SELECT * INTO v FROM vec_contratacion_temporal.expediente_version_integral x
+  WHERE x.expediente_ref=i.expediente_ref AND x.version=p.version_expediente;
+ IF NOT FOUND OR NOT EXISTS(SELECT 1 FROM vec_contratacion_temporal.expediente_alta ea
+      WHERE ea.expediente_ref=i.expediente_ref AND ea.organizacion_ref=i.organizacion_ref)
+    OR v.agregado_json#>>'{analisis,categoria_ref}' IS DISTINCT FROM
+       p.material_json#>>'{material,categoria_ref}'
+    OR coalesce(v.agregado_json#>>'{analisis,modalidad_clave}','') !~ '^[a-z][a-z0-9_.-]{1,79}$'
+    OR coalesce(v.agregado_json#>>'{analisis,causa_clave}','') !~ '^[a-z][a-z0-9_.-]{1,79}$'
+ THEN RAISE EXCEPTION 'CT213: expediente de alta divergente' USING ERRCODE='23503'; END IF;
+ SELECT * INTO o FROM vec_contratacion_temporal.outbox_expediente_integral x
+  WHERE x.evento_ref=i.outbox_ref AND x.expediente_ref=i.expediente_ref
+    AND x.tipo_evento='ct.incorporacion-personal.v1';
+ IF NOT FOUND OR o.version_expediente IS DISTINCT FROM p.version_expediente
+    OR o.operacion_ref IS DISTINCT FROM 'origen:'||p.plan_ref
+    OR o.payload_huella_sha256 IS DISTINCT FROM encode(sha256(o.payload_canonico),'hex')
+    OR convert_from(o.payload_canonico,'UTF8')::jsonb IS DISTINCT FROM jsonb_build_object(
+      'esquema','vec.ct.incorporacion-personal-b2.evento.v1','protocolo','personal_b2_v1',
+      'organizacion_ref',i.organizacion_ref,'expediente_ref',i.expediente_ref,
+      'plan_ref',p.plan_ref,'recibo_ref',i.recibo_ref,'registrada_en',i.registrada_en)
+ THEN RAISE EXCEPTION 'CT213: outbox de alta divergente' USING ERRCODE='23503'; END IF;
+ h:=i.material_json->'hechos';
+ IF h->>'relacion_ref' IS DISTINCT FROM i.relacion_ref
+    OR h->>'ocupacion_ref' IS DISTINCT FROM i.ocupacion_ref
+    OR nullif(h->>'empleado_ref','') IS NULL
+    OR h->>'relacion_version' IS NULL OR h->>'ocupacion_version' IS NULL
+    OR nullif(h->>'relacion_recibo_ref','') IS NULL
+    OR nullif(h->>'ocupacion_recibo_ref','') IS NULL
+ THEN RAISE EXCEPTION 'CT213: hechos de alta incompletos' USING ERRCODE='23503'; END IF;
+ IF vec_personal.probar_origen_incorporacion_plan_bolsa_v1(
+     p.material_json#>>'{material,organismo_ref}',i.expediente_ref,p.plan_ref,1,
+     p.material_sha256,h) IS DISTINCT FROM h
+ THEN RAISE EXCEPTION 'CT213: Personal vigente no acredita alta' USING ERRCODE='23503'; END IF;
+ BEGIN
+  inicio:=(p.material_json#>>'{material,desde}')::date;
+  fin:=nullif(p.material_json#>>'{material,hasta}','')::date;
+ EXCEPTION WHEN data_exception THEN
+  RAISE EXCEPTION 'CT213: fechas de alta inválidas' USING ERRCODE='23503';
+ END;
+ IF inicio IS NULL OR NOT isfinite(inicio) OR (fin IS NOT NULL AND
+    (NOT isfinite(fin) OR fin<inicio))
+    OR p.material_json#>>'{material,bolsa_nativa,organizacion_ref}' IS DISTINCT FROM i.organizacion_ref
+    OR p.material_json#>>'{material,bolsa_nativa,expediente_ref}' IS DISTINCT FROM i.expediente_ref
+    OR nullif(p.material_json#>>'{material,bolsa_nativa,llamamiento_ref}','') IS NULL
+ THEN RAISE EXCEPTION 'CT213: selector o periodo de alta divergente' USING ERRCODE='23503'; END IF;
+ publicacion_ref:='evento:ct:contrato-bolsa:'||encode(sha256(convert_to(
+   'incorporacion'||chr(31)||i.outbox_ref,'UTF8')),'hex');
+ cuerpo:=jsonb_build_object('esquema','vec.contratacion-temporal.contrato-bolsa.v1',
+  'tipo','incorporacion','origen_ref',i.outbox_ref,
+  'organizacion_ref',i.organizacion_ref,'expediente_ref',i.expediente_ref,
+  'llamamiento_ref',p.material_json#>>'{material,bolsa_nativa,llamamiento_ref}',
+  'inicio',vec_contratacion_temporal.instante_contrato_bolsa_v1(inicio::timestamp AT TIME ZONE 'UTC'),
+  'fin_previsto',CASE WHEN fin IS NULL THEN NULL ELSE
+   vec_contratacion_temporal.instante_contrato_bolsa_v1(fin::timestamp AT TIME ZONE 'UTC') END,
+  'modalidad_clave',v.agregado_json#>>'{analisis,modalidad_clave}',
+  'categoria_ref',v.agregado_json#>>'{analisis,categoria_ref}',
+  'causa_clave',v.agregado_json#>>'{analisis,causa_clave}',
+  'ocurrido_en',vec_contratacion_temporal.instante_contrato_bolsa_v1(i.registrada_en));
+ evento:=cuerpo||jsonb_build_object('evento_ref',publicacion_ref);
+ RETURN jsonb_build_object(
+  'origen_ref',i.outbox_ref,'origen_huella_sha256',encode(sha256(convert_to(evento::text,'UTF8')),'hex'),
+  'origen_posicion',vec_contratacion_temporal.posicion_contrato_bolsa_v1(i.transaccion_publicacion),
+  'origen_creada_en',i.registrada_en,'evento',evento,
+  'organizacion_ref',i.organizacion_ref,'expediente_ref',i.expediente_ref,
+  'llamamiento_ref',p.material_json#>>'{material,bolsa_nativa,llamamiento_ref}',
+  'selector',p.material_json#>'{material,bolsa_nativa}',
+  'recibo_ct_ref',i.recibo_ref,'version_expediente',p.version_expediente,
+  'actor_ref',i.actor_ref,'plan_ref',p.plan_ref,'plan_sha256',p.material_sha256,
+  'empleado_ref',h->>'empleado_ref','relacion_ref',i.relacion_ref,
+  'relacion_version',h->>'relacion_version','relacion_recibo_ref',h->>'relacion_recibo_ref',
+  'ocupacion_ref',i.ocupacion_ref,'ocupacion_version',h->>'ocupacion_version',
+  'ocupacion_recibo_ref',h->>'ocupacion_recibo_ref',
+  'inicio',to_char(inicio,'YYYY-MM-DD'));
+END $f$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.probar_incorporacion_personal_b2_para_bolsa_v1(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.probar_incorporacion_personal_b2_para_bolsa_v1(text)
+ TO vec_bolsa_llamamientos_propietario;
+
 -- El objeto CT155 conserva OID, propietario y la ACL exacta anterior.
 DO $post$
 DECLARE f regprocedure:='vec_contratacion_temporal.origen_incorporacion_neutral_ct155(text,text,text)'::regprocedure;
@@ -204,6 +331,12 @@ BEGIN
        'vec_contratacion_temporal.probar_cese_personal_b2_para_bolsa_v1(text)','EXECUTE')
     OR has_function_privilege('vec_bolsa_llamamientos_ejecutor',
        'vec_contratacion_temporal.probar_cese_personal_b2_para_bolsa_v1(text)','EXECUTE')
+    OR has_function_privilege('public',
+       'vec_contratacion_temporal.probar_incorporacion_personal_b2_para_bolsa_v1(text)','EXECUTE')
+    OR NOT has_function_privilege('vec_bolsa_llamamientos_propietario',
+       'vec_contratacion_temporal.probar_incorporacion_personal_b2_para_bolsa_v1(text)','EXECUTE')
+    OR has_function_privilege('vec_bolsa_llamamientos_ejecutor',
+       'vec_contratacion_temporal.probar_incorporacion_personal_b2_para_bolsa_v1(text)','EXECUTE')
  THEN RAISE EXCEPTION 'CT213: proyección neutral cambió ACL' USING ERRCODE='42501'; END IF;
 END $post$;
 COMMIT;
