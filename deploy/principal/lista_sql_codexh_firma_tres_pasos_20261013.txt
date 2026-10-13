@@ -17,3 +17,6 @@ deploy/postgresql/autorizacion/migraciones/000093_correspondencia_organizacion_f
 
 # SHA256 b35cc459cafe08b9c0a1b1d8fb3190069c1d51cfa93f3ae1aebdf4fbe519aba6
 deploy/postgresql/contratacion_temporal/migraciones/000214_correspondencia_organizacion_firma.up.sql
+
+# SHA256 ce6c3421d453c89872be4f62429565d6c65128b99a811f3eef1419a557f9d27f
+deploy/postgresql/documentos/migraciones/000019_tipo_informe_definitivo_firmado.up.sql

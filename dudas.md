@@ -8,7 +8,9 @@ Las preguntas se agrupan por módulo: Contratación temporal (38, 63, 72–74, 9
 
 ## Texto para enviar
 
-**Actualización del 8 de octubre de 2026.** Gracias por las respuestas del 2 de octubre. Las preguntas 1–16, 43, 64, 66 y 75 ya se retiraron por esas respuestas o por normas publicadas. Ahora retiramos también la 95: el [RD 424/2017][rd424] (arts. 10.2 y 12.4) inicia un nuevo cómputo al remitir de nuevo el expediente completo tras subsanar. La 147 queda resuelta por los arts. 8 y 11 del [Reglamento][rgl]: en la oferta publicada, no responder no causa baja; en el llamamiento directo rigen la falta de aceptación y los dos procesos de contacto sin éxito. El plazo desde la publicación se consulta en la nueva pregunta 153. El [BOP de 27/01/2026][bop-correccion] solo corrige la fecha de una sesión plenaria en la exposición del Reglamento; su articulado no cambia.
+**Actualización del 8 de octubre de 2026.** Gracias por las respuestas del 2 de octubre. Las preguntas 1–16, 43, 64, 66 y 75 ya se retiraron por esas respuestas o por normas publicadas. Ahora retiramos también la 95: el [RD 424/2017][rd424] (arts. 10.2 y 12.4) inicia un nuevo cómputo al remitir de nuevo el expediente completo tras subsanar. La 147 queda resuelta por los arts. 8 y 11 del [Reglamento]161. **Conservación del informe y la resolución firmados.** ¿Durante cuánto tiempo deben conservarse el informe definitivo firmado y la resolución firmada del expediente? Por ahora ambos siguen el mismo plazo de diez años previsto en el catálogo del expediente. ¿Confirmáis ese plazo, su fecha de inicio y las condiciones para eliminar o conservar estos documentos?
+
+[rgl]: en la oferta publicada, no responder no causa baja; en el llamamiento directo rigen la falta de aceptación y los dos procesos de contacto sin éxito. El plazo desde la publicación se consulta en la nueva pregunta 153. El [BOP de 27/01/2026][bop-correccion] solo corrige la fecha de una sesión plenaria en la exposición del Reglamento; su articulado no cambia.
 
 Buenos días:
 
