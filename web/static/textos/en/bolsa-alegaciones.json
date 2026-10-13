@@ -1,0 +1,61 @@
+{
+  "alegaciones": {
+    "titulo": "Claims",
+    "propias_titulo": "My claims",
+    "elegir_objeto": "Select what you want to review",
+    "decision_inscripcion": "Application decision",
+    "acto_participacion": "Action in the recruitment pool",
+    "fundamento": "What you request and why",
+    "presentar": "Submit claim",
+    "presentando": "Submitting…",
+    "presentada": "Submitted in VEC",
+    "recibo_titulo": "Claim receipt",
+    "fecha": "Submission date",
+    "referencia": "Reference",
+    "objeto": "Decision or action",
+    "version": "Version",
+    "convocatoria": "Call for applications",
+    "persona": "Person",
+    "ver_alegacion": "View claim",
+    "ver_solicitud": "View application",
+    "ver_participacion": "View participation",
+    "nueva": "Submit a claim",
+    "volver": "Back",
+    "siguiente": "More claims",
+    "paginacion": "Claim pages",
+    "total": {
+      "one": "{cuenta} claim",
+      "other": "{cuenta} claims"
+    },
+    "vacio": "There are no claims for this selection.",
+    "objetos_vacios": "There are no decisions or actions against which you can submit a claim.",
+    "cargando": "Loading claims…",
+    "cargando_objetos": "Loading decisions and actions…",
+    "error": "Claims could not be loaded. Try again.",
+    "error_objetos": "Decisions and actions could not be loaded. Try again.",
+    "reintentar": "Try again",
+    "denegada": "Your current access does not allow you to view these claims. Contact the person responsible for access permissions.",
+    "no_disponible": "Claims could not be opened. Try again or contact the person responsible for recruitment pools.",
+    "objeto_cambiado": "The decision or action has changed. Select it again before submitting your claim.",
+    "datos_invalidos": "Check the claim details.",
+    "fundamento_falta": "Explain what you request and why.",
+    "fundamento_largo": "The text cannot exceed 4,000 characters.",
+    "respuesta_incierta": "The result could not be confirmed. Try again to retrieve the receipt.",
+    "error_presentar": "The claim could not be submitted. Try again.",
+    "ayuda_boton": "Help with claims",
+    "ayuda_propia": "Select a decision on your application or an action concerning your participation in a recruitment pool. Explain what you request and why. After submitting it, you can view the receipt and your claim on this page. The receipt confirms submission in VEC.",
+    "ayuda_rrhh": "View claims for the applications and participations you manage. Open a claim to read what the person requests and view the decision or action it concerns, together with its receipt.",
+    "cerrar_recibo": "Close receipt",
+    "bolsa": "Recruitment pool",
+    "total_objetos": {
+      "one": "{cuenta} decision or action",
+      "other": "{cuenta} decisions and actions"
+    },
+    "total_ambitos": {
+      "one": "{cuenta} call or pool with claims",
+      "other": "{cuenta} calls and pools with claims"
+    },
+    "bolsa_fecha": "Recruitment pool established on {fecha}",
+    "nombre_no_disponible": "Name not available"
+  }
+}

@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"crypto/sha256"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/separacionportales"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	meritoshttp "vec-diputacion-granada/internal/modules/meritos/adapters/http"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -85,7 +87,41 @@ func nuevasRutasBolsaPersonalCombinado(cfg config.Config, identidad *resolvedorI
 		cerrarBase()
 		return nil, nil, nada, err
 	}
-	return bolsa, inscripcion, func() { cerrarInscripcion(); cerrarBolsa(); cerrarBase() }, nil
+	cerrarCartera := nada
+	cartera := meritoshttp.NuevoHandlerCarteraNoDisponible()
+	if cierre, fallo := montarCarteraPortalExterno(ctx, externa, sesion, derivador, preflight); fallo != nil {
+		slog.Warn("cartera_meritos_combinado_no_disponible", "causa", fallo.Error())
+	} else {
+		cerrarCartera = cierre
+		rutas := map[string]http.Handler{
+			meritoshttp.RutaCartera:              sesion.cartera.proteger(sesion.cartera.manejador),
+			meritoshttp.RutaRetiradasCartera:     sesion.retirada.proteger(sesion.retirada.manejador),
+			meritoshttp.RutaDeclaracionesCartera: sesion.declaracion.proteger(sesion.declaracion.manejador),
+		}
+		cartera = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r != nil && r.URL != nil {
+				if manejador := rutas[r.URL.Path]; manejador != nil {
+					manejador.ServeHTTP(w, r)
+					return
+				}
+			}
+			http.NotFound(w, r)
+		})
+	}
+	bolsaPropia := bolsa
+	bolsa = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r != nil && r.URL != nil && rutaCarteraPersonalExterna(r.URL.Path) {
+			cartera.ServeHTTP(w, r)
+			return
+		}
+		bolsaPropia.ServeHTTP(w, r)
+	})
+	return bolsa, inscripcion, func() { cerrarCartera(); cerrarInscripcion(); cerrarBolsa(); cerrarBase() }, nil
+}
+
+func rutaCarteraPersonalExterna(ruta string) bool {
+	return ruta == meritoshttp.RutaCartera || ruta == meritoshttp.RutaRetiradasCartera ||
+		ruta == meritoshttp.RutaDeclaracionesCartera
 }
 
 // El cambio de perfil conserva la identidad certificada, Persona y candidato.
@@ -113,7 +149,7 @@ func componerRaizConBolsaPersonalExterna(raiz, bolsa, inscripcion http.Handler) 
 				inscripcion.ServeHTTP(w, r)
 				return
 			}
-			if bolsa != nil && bolsahttp.EsRutaPortal(r.URL.Path) {
+			if bolsa != nil && (bolsahttp.EsRutaPortal(r.URL.Path) || rutaCarteraPersonalExterna(r.URL.Path)) {
 				bolsa.ServeHTTP(w, r)
 				return
 			}

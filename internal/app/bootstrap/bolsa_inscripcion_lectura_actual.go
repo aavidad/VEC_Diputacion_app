@@ -65,11 +65,33 @@ func camposLecturaInscripcionBolsa(accion string, rrhh bool) []string {
 	case accionListarConvocatoriasGestionRRHHInscripcion:
 		campos = []string{"convocatorias[].convocatoria_ref", "convocatorias[].titulo", "convocatorias[].categorias_resumen",
 			"convocatorias[].plazo_fin", "convocatorias[].estado_publicacion", "convocatorias[].pendientes", "total", "cursor_siguiente"}
+	case inscripcion.AccionObjetosAlegacion:
+		campos = []string{"total", "cursor_siguiente",
+			"objetos[].tipo", "objetos[].solicitud_ref", "objetos[].participacion_ref", "objetos[].acto_ref",
+			"objetos[].version_acto", "objetos[].titulo", "objetos[].estado", "objetos[].ocurrido_en",
+			"objetos[].convocatoria_ref", "objetos[].bolsa_ref"}
+		campos = append(campos, hojasAlegacionInscripcion("alegaciones[].", false)...)
+	case inscripcion.AccionAlegacionesRRHH:
+		campos = []string{"total", "cursor_siguiente", "ambitos[].tipo", "ambitos[].referencia", "ambitos[].titulo"}
+		campos = append(campos, hojasAlegacionInscripcion("alegaciones[].", true)...)
+		campos = append(campos, hojasAlegacionInscripcion("", true)...)
 	default:
 		return nil
 	}
 	slices.Sort(campos)
 	return campos
+}
+
+func hojasAlegacionInscripcion(prefijo string, rrhh bool) []string {
+	hojas := []string{"alegacion_ref", "objeto.tipo", "objeto.solicitud_ref", "objeto.participacion_ref",
+		"objeto.acto_ref", "objeto.version_acto", "fundamento", "estado", "presentada_en", "recibo_ref", "auditoria_ref"}
+	if rrhh {
+		hojas = append(hojas, "persona_resumen")
+	}
+	for i := range hojas {
+		hojas[i] = prefijo + hojas[i]
+	}
+	return hojas
 }
 
 // El dueño Bolsa obtiene sólo metadatos opacos de un recurso publicado o
