@@ -168,3 +168,4 @@
 1212 deploy/postgresql/autorizacion/migraciones/000078_cartera_meritos_persona_externa.up.sql
 3751 deploy/postgresql/autorizacion_atestada_v3/migraciones/000250_cartera_meritos_externa.up.sql
 3325 deploy/postgresql/autorizacion_atestada_v3/migraciones/000253_meritos_basal_compatible.up.sql
+3752 deploy/postgresql/autorizacion_atestada_v3/migraciones/000262_cartera_meritos_preimagen_actual.up.sql
