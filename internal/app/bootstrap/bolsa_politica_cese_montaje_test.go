@@ -2,9 +2,13 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +21,34 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+func TestFuentePoliticaCeseCoherenteConConcesion(t *testing.T) {
+	contenido, err := os.ReadFile("../../../deploy/principal/fuentes/bolsa_politica_cese_rrhh_v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fuente struct {
+		Referencia string                                    `json:"referencia"`
+		Version    int                                       `json:"version"`
+		Huella     string                                    `json:"huella_sha256"`
+		Canon      string                                    `json:"entradas_canon"`
+		Entradas   []vecdomain.EntradaAccionAdministracionV1 `json:"entradas"`
+	}
+	if err := json.Unmarshal(contenido, &fuente); err != nil {
+		t.Fatal(err)
+	}
+	huella := sha256.Sum256([]byte(fuente.Canon))
+	if hex.EncodeToString(huella[:]) != fuente.Huella || len(fuente.Entradas) != 1 || strings.Contains(fuente.Canon, "fuente_huella_sha256") {
+		t.Fatal("huella/canon de la fuente incorrectos")
+	}
+	e := fuente.Entradas[0]
+	if e.Validar() != nil || e.FuenteRef != fuente.Referencia || e.FuenteVersion != fuente.Version || e.FuenteHuellaSHA256 != fuente.Huella ||
+		e.Concesion.Accion != bolsaports.AccionConsultarPoliticaCese || e.Concesion.TipoRecurso != bolsaports.TipoRecursoPoliticaCese ||
+		len(e.Concesion.Finalidades) != 1 || e.Concesion.Finalidades[0] != bolsaports.FinalidadConsultarPoliticaCese ||
+		len(e.Concesion.CamposPermitidos) != 1 || e.Concesion.CamposPermitidos[0] != bolsaports.CampoPoliticaCese {
+		t.Fatal("la entrada no pertenece a su fuente o no coincide con el lector")
+	}
+}
 
 type registroPoliticaCesePrueba struct {
 	registradorPerfilBolsaPrueba
