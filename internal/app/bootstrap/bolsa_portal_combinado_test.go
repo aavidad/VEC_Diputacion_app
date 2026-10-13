@@ -9,6 +9,7 @@ import (
 	"vec-diputacion-granada/config"
 	httpinscripcion "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinscripcion"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	meritoshttp "vec-diputacion-granada/internal/modules/meritos/adapters/http"
 )
 
 func TestInscripcionCombinadaNoAbreDependenciasApagadaOSeparada(t *testing.T) {
@@ -59,7 +60,8 @@ func TestBolsaCombinadaMiBolsaYPreferenciasCompartenMontajeExterno(t *testing.T)
 	raiz := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) })
 	externa := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusForbidden) })
 	compuesta := componerRaizConBolsaPersonalExterna(raiz, externa, nil)
-	for _, ruta := range []string{bolsahttp.RutaMiBolsa, bolsahttp.RutaMiBolsaHistorial, bolsahttp.RutaPreferenciasBolsas} {
+	for _, ruta := range []string{bolsahttp.RutaMiBolsa, bolsahttp.RutaMiBolsaHistorial, bolsahttp.RutaPreferenciasBolsas,
+		meritoshttp.RutaCartera, meritoshttp.RutaRetiradasCartera, meritoshttp.RutaDeclaracionesCartera} {
 		w := httptest.NewRecorder()
 		compuesta.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta, nil))
 		if w.Code != http.StatusForbidden {
@@ -70,6 +72,11 @@ func TestBolsaCombinadaMiBolsaYPreferenciasCompartenMontajeExterno(t *testing.T)
 	compuesta.ServeHTTP(w, httptest.NewRequest(http.MethodGet, httpinscripcion.RutaRRHH, nil))
 	if w.Code != http.StatusTeapot {
 		t.Fatal("la bandeja RRHH cayó al montaje externo")
+	}
+	w = httptest.NewRecorder()
+	compuesta.ServeHTTP(w, httptest.NewRequest(http.MethodGet, meritoshttp.RutaCartera+"-ajena", nil))
+	if w.Code != http.StatusTeapot {
+		t.Fatal("una ruta distinta de cartera cayó al montaje externo")
 	}
 }
 
