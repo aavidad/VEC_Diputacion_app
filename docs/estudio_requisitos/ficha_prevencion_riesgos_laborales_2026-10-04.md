@@ -2,7 +2,7 @@
 
 Estado: estudio funcional para el Servicio de Prevención y RRHH. El primer corte propuesto gestiona riesgos y medidas de un centro. La clínica permanece bajo custodia sanitaria; esta ficha no acredita un servicio preventivo integrado en VEC.
 
-Sigue el formato de [Cronos](ficha_cronos_2026-09-23.md), desarrolla PRL-001-PRL-003 del [catálogo, §8](catalogo_funcional_rrhh_y_hoja_ruta.md#8-acción-social-prl-igualdad-y-relaciones-laborales) y concreta [la matriz, §5](matriz_normativa_rrhh_2026.md#5-prevención-igualdad-y-materias-especialmente-protegidas) y [las materias reservadas, §6](materias_reservadas_economicas_y_relaciones_laborales.md#6-prevención-y-vigilancia-de-la-salud). Se aplican E02-E07 de `ESPECIFICACIONES_AGENTES.md`: misma persona, propietarios separados, acceso positivo y auditoría común.
+Sigue el formato de [Cronos](ficha_cronos_2026-09-23.md), desarrolla PRL-001-PRL-003 del [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md) y concreta [la matriz, §5](matriz_normativa_rrhh_2026.md#5-prevención-igualdad-y-materias-especialmente-protegidas) y [las materias reservadas, §6](materias_reservadas_economicas_y_relaciones_laborales.md#6-prevención-y-vigilancia-de-la-salud). Se aplican E02-E07 de `ESPECIFICACIONES_AGENTES.md`: misma persona, propietarios separados, acceso positivo y auditoría común.
 
 ## Qué debe hacer
 

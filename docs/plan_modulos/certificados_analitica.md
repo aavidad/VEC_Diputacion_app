@@ -1,8 +1,8 @@
 # Certificados y analítica: inventario y continuación
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
-Estado comprobado sobre `origin/main` `0a62a3ea6` el 1 de octubre de 2026. El catálogo funcional es `docs/estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md`; este plan no da por emitido ningún certificado ni por registrada una descarga.
+Estado comprobado sobre `origin/main` `0a62a3ea6` el 1 de octubre de 2026. El catálogo funcional es `docs/producto/PRD.md`; este plan no da por emitido ningún certificado ni por registrada una descarga.
 
 ## Qué existe
 

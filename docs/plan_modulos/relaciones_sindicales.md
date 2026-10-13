@@ -1,6 +1,6 @@
 # Plan de Relaciones sindicales — 4 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 VEC gestionará representación acreditada, mandatos, órganos, crédito horario,
 cesiones, dispensas y consumo; después incorporará mesas, actas, acuerdos y la
@@ -33,9 +33,9 @@ y facultades separados; tampoco ser representante acredita legitimación para to
 mesa. No se replica un órgano AGE como autoridad provincial.
 
 Aplican [materias reservadas, §§11 y 12](../estudio_requisitos/materias_reservadas_economicas_y_relaciones_laborales.md),
-[arquitectura](../portal_vec/arquitectura_tecnica.md),
+[arquitectura](../producto/TRD.md),
 [contrato de módulos](../portal_vec/contrato_modulos_vec.md),
-[roles y ámbitos](../portal_vec/matriz_roles_y_ambitos.md) y
+[roles y ámbitos](../producto/FLUJO_APP.md) y
 [cumplimiento](../portal_vec/cumplimiento_y_seguridad.md).
 La duda 135 de [dudas.md](../../dudas.md) pide carga y gobierno del mandato
 actual, circuito interno e integraciones autorizadas. No se modifica esa pregunta

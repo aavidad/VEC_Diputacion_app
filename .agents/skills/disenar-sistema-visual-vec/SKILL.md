@@ -5,59 +5,50 @@ description: Diseña o unifica pantallas web de VEC con el sistema visual corpor
 
 # Diseñar el sistema visual VEC
 
-**Aspecto concreto** (menú, cabecera, tarjetas, tablas, KPI, estados y ritmo): lo fija la skill `aspecto-vec` con las maquetas de RRHH como referencia. Aplicar las dos juntas.
+Procedimiento para componer pantallas con una sola gramática visual y comparar temas. El
+aspecto concreto lo trabaja `aspecto-vec`; aplicar las dos juntas. Las reglas están en
+`docs/producto/DISENO_UI_UX.md`; si algo de aquí choca con el documento, manda el
+documento.
 
-Mantener una sola gramática visual para todos los módulos. El color puede variar
-por tema; la estructura, los estados, la densidad, la navegación y la respuesta
-móvil no varían por módulo.
+## Dónde está cada regla
 
-Respetar la arquitectura hexagonal: dominio y casos de uso no conocen HTML, CSS
-ni temas. La vista recibe modelos de presentación; los clientes HTTP implementan
-puertos del frontend; el montaje inyecta ambos. Un cambio de tema no altera DTO,
-caso de uso, autorización, endpoint, recibo ni persistencia.
+| Qué | Dónde |
+| --- | --- |
+| Orden común de una pantalla (armazón, título, pestañas, indicadores, área de trabajo, resumen, acciones) y valor, rótulo y estado separados | `docs/producto/DISENO_UI_UX.md` §3 |
+| Componentes comunes y sus ficheros; no crear uno paralelo | `docs/producto/DISENO_UI_UX.md` §5 |
+| Ayuda solo tras «?»; no afirmar firma, envío o guardado sin respuesta real | `docs/producto/DISENO_UI_UX.md` §2, principios 6 y 12 |
+| Estados cargando, vacío, error, sin permiso, solo lectura; botón deshabilitado con el motivo en una frase | `docs/producto/DISENO_UI_UX.md` §6 (y §17, contradicción resuelta) |
+| Móvil, tablas con scroll propio | `docs/producto/DISENO_UI_UX.md` §7 |
+| Foco, etiquetas, contraste AA, orden semántico | `docs/producto/DISENO_UI_UX.md` §8 |
+| Temas: qué cambia y qué no, alto contraste como capa aparte | `docs/producto/DISENO_UI_UX.md` §4.4 |
+| Ninguna regla en HTTP, DOM ni navegador | `docs/producto/TRD.md` §2, regla 4 |
 
-## Formato común
+Regla que el documento no recoge y se mantiene aquí: la vista recibe modelos de
+presentación, los clientes HTTP implementan puertos del frontend y el montaje inyecta
+ambos. Un cambio de tema no altera DTO, caso de uso, autorización, endpoint, recibo ni
+persistencia.
 
-Componer las pantallas, en este orden cuando sus partes existan:
+## Cómo componer una pantalla
 
-1. shell corporativo con navegación lateral y cabecera contextual;
-2. título, miga y estado operativo real del módulo;
-3. navegación del recorrido o pestañas;
-4. indicadores con `rejilla-kpi` y `tarjeta-kpi`;
-5. área principal de trabajo con `panel`, `cabecera-panel` y `cuerpo-panel`;
-6. contexto o resumen lateral solo cuando ayude a decidir;
-7. acciones principales al final del bloque que modifican.
-
-Reutilizar primero los componentes de `web/static/portal-empleado/portal-componentes.css`
-y los tokens de `web/static/comun/tema-vec.css`. No crear un componente paralelo si el común expresa
-la misma función. Las variantes de tema solo redefinen tokens `--portal-*`.
-
-## Reglas de decisión
-
-- Mostrar valor, etiqueta y estado como elementos separados; nunca concatenar KPI
-  o metadatos en texto corrido.
-- Poner instrucciones extensas detrás de Ayuda. Dejar en la tarea solo contexto,
-  validación, error, resultado y límites imprescindibles.
-- Distinguir conectado, solo lectura, pendiente, vacío, error y denegado. No usar
-  color como única señal.
-- Una acción sin caso de uso queda deshabilitada y explica la dependencia concreta.
-- No afirmar firma, pago, envío, registro, cálculo o persistencia sin respuesta real.
-- Mantener foco visible, controles etiquetados, contraste WCAG AA y orden semántico.
-- En móvil apilar navegación, KPI y columnas; las tablas usan desplazamiento interno,
-  nunca ensanchan la página.
+1. Buscar la pantalla o una parecida (índice de código y ramas abiertas).
+2. Montarla en el orden de §3, reutilizando primero las clases de
+   `web/static/portal-empleado/portal-componentes.css`, `portal-patrones.css` y
+   `portal-flujos.css`, y los tokens de `web/static/comun/tema-vec.css`.
+3. Si falta algo, añadirlo en el fichero común, no en el módulo.
+4. Pintar cada estado de §6 con datos reales o forzando el fallo.
 
 ## Temas
 
-Comparar temas sobre el mismo mini-recorrido: navegación, KPI, panel, formulario,
-botón, estado, tabla y mapa. Cambiar únicamente tokens de color y, si se justifica,
-radio/sombra. No variar contenido ni distribución para favorecer una alternativa.
-
-Los tokens del tema viven en `web/static/comun/tema-vec.css`. Al cambiar el tema,
-comprobar al menos Portal, Dietas, Cronos, Personal y Bolsa en escritorio y móvil. El tema de alto
-contraste sigue siendo una capa de accesibilidad independiente de la paleta elegida.
+Comparar temas sobre el mismo mini-recorrido: navegación, KPI, panel, formulario, botón,
+estado, tabla y mapa. Cambiar únicamente tokens de color y, si se justifica, radio y
+sombra. No variar contenido ni distribución para favorecer una alternativa. Revisar al
+menos Portal, Dietas, Cronos, Personal y Bolsa en escritorio y móvil.
 
 ## Comprobación
 
-Verificar contraste de texto y controles, 1440 px y 390 px, foco por teclado,
-desbordamiento horizontal, estados carga/vacío/error y que la variante no añade
-cookies, almacenamiento web ni llamadas externas.
+- Contraste de texto y controles en tema claro, oscuro y alto contraste.
+- 1440, 1024 y 390 px y zoom 200 %, sin desbordamiento horizontal de la página.
+- Foco por teclado en toda la pantalla.
+- Estados carga, vacío y error vistos de verdad.
+- La variante no añade cookies, almacenamiento web, fuentes ni llamadas externas.
+- Bloques «Aspecto» y «Adaptación y accesibilidad» de `docs/producto/DISENO_UI_UX.md` §16.

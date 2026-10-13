@@ -175,4 +175,4 @@ o datos de esta rama por el hecho de estar descritos aquí.
 
 Siguen pendientes la firma con validez legal mediante el portafirmas corporativo, la acreditación de envío y entrega del correo, las reglas legales aún no aprobadas por RRHH y la transmisión automática a GINPIX. Una ficha manual o un número confirmado en VEC no son una confirmación del sistema externo obtenida por integración. Consulte la ayuda «?» y el estado del expediente antes de interpretar cualquier recibo.
 
-**Fuentes del alcance:** [estado del proyecto](../../ESTADO_PROYECTO.md), [flujo solicitado por RRHH](../portal_vec/expediente_contratacion_temporal_rrhh.md) y [contrato modular vigente](../portal_vec/contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026).
+**Fuentes del alcance:** [estado del proyecto](../../ESTADO_PROYECTO.md), [flujo solicitado por RRHH](../producto/FLUJO_APP.md) y [contrato modular vigente](../portal_vec/contrato_modulos_vec.md).

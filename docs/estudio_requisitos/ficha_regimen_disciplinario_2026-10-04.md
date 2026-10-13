@@ -1,6 +1,6 @@
 # Ficha de requisitos de VEC Régimen disciplinario — 4 de octubre de 2026
 
-Estado: estudio funcional, sin implementación ni autorización de datos reales. Conserva la cola de producto vigente. Sigue el formato de la [ficha Cronos](ficha_cronos_2026-09-23.md) y desarrolla la [matriz normativa](matriz_normativa_rrhh_2026.md), el [catálogo funcional](catalogo_funcional_rrhh_y_hoja_ruta.md) y [materias reservadas](materias_reservadas_economicas_y_relaciones_laborales.md), apartado 10. Contraste público realizado el 04/10/2026.
+Estado: estudio funcional, sin implementación ni autorización de datos reales. Conserva la cola de producto vigente. Sigue el formato de la [ficha Cronos](ficha_cronos_2026-09-23.md) y desarrolla la [matriz normativa](matriz_normativa_rrhh_2026.md), el [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md) y [materias reservadas](materias_reservadas_economicas_y_relaciones_laborales.md), apartado 10. Contraste público realizado el 04/10/2026.
 
 ## Lo que debe hacer
 

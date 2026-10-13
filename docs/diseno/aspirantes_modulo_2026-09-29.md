@@ -1,38 +1,27 @@
-# Módulo Aspirantes: diseño del primer corte
+# Módulo Aspirantes: diseño del servidor
 
-Fecha: 29 de septiembre de 2026. Fase 1, paso 5 del plan del estudio
-[`datos_personales_inscripciones_rgpd_2026-09-29.md`](../estudio_requisitos/datos_personales_inscripciones_rgpd_2026-09-29.md)
-(apartados 4, 5, 6 y 8). Solo datos sintéticos; nada se instala en la principal
-por estar en esta rama.
+Diseño del 29 de septiembre de 2026, ya en el código
+(`internal/modules/aspirantes/`, `deploy/postgresql/aspirantes/` y la migración
+`autorizacion_atestada_v3/000111_consumidor_aspirantes`). Sale del estudio
+[datos_personales_inscripciones_rgpd_2026-09-29.md](../estudio_requisitos/datos_personales_inscripciones_rgpd_2026-09-29.md).
 
-## Qué hace este corte
+Lo general ya está en los documentos de producto:
 
-Aspirantes es el dueño de los datos personales de las personas externas
-(aspirantes). Este corte le da:
+- la pantalla «Perfil y contacto», el enmascarado y los formatos que valida el
+  formulario: [DISENO_UI_UX §13.1](../producto/DISENO_UI_UX.md#131-perfil-y-contacto);
+- el esquema `vec_aspirantes`, su patrón de roles y sus códigos de error:
+  [ESQUEMA_BACKEND §2.2](../producto/ESQUEMA_BACKEND.md#22-módulos-de-negocio),
+  [§4](../producto/ESQUEMA_BACKEND.md#4-roles-postgresql) y
+  [§6](../producto/ESQUEMA_BACKEND.md#6-historia-versiones-e-idempotencia);
+- la separación entre internos y externos: [TRD §8](../producto/TRD.md#8-protección-de-datos).
 
-- una ficha por persona con identificador aleatorio `asp_`, nunca derivado del
-  documento ni del nombre;
-- cada dato cifrado por separado en la aplicación, con la clave del portal externo;
-- el documento de identidad con tipo, país y número, y su historial;
-- un índice ciego del documento para encontrar la ficha y detectar duplicados sin
-  descifrar;
-- historia de solo adición: cada cambio es una versión nueva con motivo;
-- registro de cada lectura, con su finalidad;
-- el apartado «Perfil y contacto» del área personal: teléfono, móvil, domicilio y
-  código postal, y solo los que pida el catálogo de campos.
+Lo que sigue es el detalle propio del módulo, que no está en otro sitio. El plan
+de cortes y las pruebas previstas del diseño original están en la historia de
+Git de este fichero.
 
-Queda fuera: datos de categoría especial (discapacidad, víctimas; fase 2), vistas
-de RRHH y tribunal, fusión de fichas, registro de correspondencias, «Mis datos» y el
-paso de Bolsa a `asp_`. Todo eso tiene su hueco previsto en el modelo.
-
-## Cortes
-
-| Corte | Contenido | PR |
-| --- | --- | --- |
-| 1 | Este diseño, dominio, puertos, forma canónica y aplicación, con pruebas | 1 |
-| 2 | Criptografía (AES-GCM e índice ciego), SQL (roles, esquema, consumidor V3), adaptador PostgreSQL y prueba PG18 | 2 |
-| 3 | API y lectura del certificado | 3 |
-| 4 | Catálogo de datos personales, composición en el arranque, registro de denegaciones de frontera (000002) y pantalla «Perfil y contacto» | 4 |
+Aspirantes es el dueño de los datos personales de las personas externas. Queda
+fuera, con su hueco previsto: datos de categoría especial (fase 2), vistas de
+RRHH y tribunal, fusión de fichas, «Mis datos» y el paso de Bolsa a `asp_`.
 
 ## Paquetes Go
 
@@ -67,24 +56,17 @@ Aspirantes no guarda `per_` en ninguna tabla. La ficha propia se encuentra por e
 
 ## Datos de la ficha
 
-Vocabulario cerrado. Añadir un campo exige otra migración.
-
-| Campo | Grupo | Origen | Validación |
-| --- | --- | --- | --- |
-| `nombre`, `apellidos` | identidad | certificado | letras, espacios, apóstrofo, guion y punto; hasta 100 caracteres el nombre y 200 los apellidos |
-| `telefono` | contacto | titular | 9 cifras nacionales (6, 7, 8 o 9 al inicio) o internacional `+` y 8 a 15 cifras; se guarda normalizado |
-| `movil` | contacto | titular | como el teléfono, pero nacional solo con 6 o 7 al inicio |
-| `domicilio` | contacto | titular | 5 a 200 caracteres imprimibles; espacios normalizados |
-| `codigo_postal` | contacto | titular | código postal español `01000`–`52999` |
+Vocabulario cerrado; añadir un campo exige otra migración. `nombre` y
+`apellidos` salen del certificado; `telefono`, `movil`, `domicilio` y
+`codigo_postal` los aporta la persona (formatos en DISENO_UI_UX §13.1) y se
+guardan normalizados.
 
 El certificado de la FNMT trae los dos apellidos juntos (atributo `surname`) y el
 DNIe solo el primero, con los dos en el nombre común. Separarlos sería adivinar, así
 que la ficha guarda un solo dato `apellidos` tal como lo acredita el certificado. Si
-un día hace falta el primer apellido por separado (por ejemplo, al cargar CONVOCA), se
-añadirá como campo nuevo con su fuente.
-
-El código postal solo admite el formato español. Un domicilio extranjero necesitará
-un campo de país: queda anotado para cuando el catálogo lo pida.
+hace falta el primer apellido por separado (por ejemplo, al cargar CONVOCA), se
+añadirá como campo nuevo con su fuente. Un domicilio extranjero necesitará un campo
+de país.
 
 ### Documento de identidad
 
@@ -258,16 +240,6 @@ Cabeceras `no-store`, cuerpo máximo 4 KiB, campos exactos por operación. Error
 401, 403, 404 (sin ficha al rectificar), 409, 422 y 503, sin revelar si un documento
 tiene ficha fuera de la propia.
 
-## Pantalla «Perfil y contacto»
-
-- «Tus datos de identidad»: nombre y apellidos y documento enmascarado, con la
-  indicación de que vienen del certificado y se corrigen en origen.
-- «Teléfono y domicilio»: solo los campos que pide el catálogo, con marca de
-  obligatorio. Si no pide ninguno, una frase lo explica.
-- Al cambiar un dato que ya tenía valor se pregunta si ha cambiado o estaba mal.
-- Sin ficha: se muestran los datos del certificado y un botón «Crear mi ficha».
-- Textos en el catálogo i18n; la ayuda va en el botón «?».
-
 ## Seguridad
 
 - Separación: esquema y roles propios; el ejecutor solo existe para el portal
@@ -297,15 +269,3 @@ tiene ficha fuera de la propia.
   el registro de accesos (a revisar con Seguridad, estudio §4.1).
 - La guarda de superficie del núcleo V3 solo se recorre con una V3 real: antes de
   desplegar en cidonia hace falta un recorrido completo (alta, consulta y rectificación).
-
-## Pruebas previstas
-
-- Dominio: DNI y NIE válidos e inválidos, normalización, enmascarado por tipo,
-  teléfonos, código postal, vocabulario cerrado, referencias aleatorias.
-- Aplicación con dobles: identidad del certificado frente a JSON, superficie
-  interna rechazada, catálogo que no pide campos, obligatorio vaciado, motivo
-  inválido, repetición con la misma clave, conflicto de versión, V3 ligada al
-  material, errores del registro.
-- PG18 efímero en `/dev/shm`: ACL y RLS reales, vector Go/SQL, alta, duplicado,
-  repetición, conflicto, rectificación, retirada, inmutabilidad, acceso anotado.
-- Ensayo de la lista SQL sobre el clon de la principal.

@@ -111,7 +111,7 @@ Astra dio GO al planteamiento inicial tras distinguir historia propia, rectifica
 
 Dirección deberá confirmar el orden y el primer encargo antes de reabrir código. El GO del plan no activa Personal000025 ni autoriza despliegue.
 
-Fuentes: `AGENTS.md`; `ESPECIFICACIONES_AGENTES.md` E02–E08; `docs/estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md` (PER, RPT y EMP); `docs/estudio_requisitos/analisis_integral_rrhh.md` §§15–22; `docs/estudio_requisitos/modelo_historico_rpt_plazas_puestos_y_vacantes.md`. Los estados de PR proceden del encargo de Dirección y requieren comprobación en Git/CI.
+Fuentes: `AGENTS.md`; `ESPECIFICACIONES_AGENTES.md` E02–E08; `docs/producto/PRD.md` (PER, RPT y EMP); `docs/estudio_requisitos/analisis_integral_rrhh.md` §§15–22; `docs/estudio_requisitos/modelo_historico_rpt_plazas_puestos_y_vacantes.md`. Los estados de PR proceden del encargo de Dirección y requieren comprobación en Git/CI.
 
 ## Contratos nominales preparados (1 de octubre de 2026)
 

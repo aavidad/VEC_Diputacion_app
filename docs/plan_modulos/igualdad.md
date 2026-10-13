@@ -1,6 +1,6 @@
 # Plan de Igualdad: 4 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 La unidad competente seguirá medidas de un plan de empleo acreditado, responsables,
 evidencias y evaluación anual. Los indicadores se consumirán desde sus propietarios
@@ -10,7 +10,7 @@ Este encargo entrega documentación, sin código, SQL ni instalación.
 
 Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos principales: [ficha de Igualdad](../estudio_requisitos/ficha_igualdad_2026-10-04.md),
-IG1–IG12 y IGU-001–IGU-002 del [catálogo](../estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md#8-acción-social-prl-igualdad-y-relaciones-laborales).
+IG1–IG12 y IGU-001–IGU-002 del [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md).
 Personal B conserva población/relaciones/servicios, cada módulo sus hechos, K
 identidad/perfiles y L auditoría/documentos/firma comunes. El plan no reasigna sus
 archivos ni sustituye el seguimiento general.

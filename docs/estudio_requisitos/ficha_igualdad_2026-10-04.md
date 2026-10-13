@@ -2,7 +2,7 @@
 
 Estado: estudio para RRHH y la unidad de Igualdad. Define seguimiento del plan de empleo público e indicadores revisados. No acredita un módulo actual ni declara vigente en octubre de 2026 el Plan aprobado en 2022.
 
-Sigue el formato de [Cronos](ficha_cronos_2026-09-23.md), desarrolla IGU-001-IGU-002 del [catálogo, §8](catalogo_funcional_rrhh_y_hoja_ruta.md#8-acción-social-prl-igualdad-y-relaciones-laborales) y concreta [la matriz, §5](matriz_normativa_rrhh_2026.md#5-prevención-igualdad-y-materias-especialmente-protegidas) y [las materias reservadas, §§7-8](materias_reservadas_economicas_y_relaciones_laborales.md#7-igualdad-y-no-discriminación). Se aplican E02-E07 de `ESPECIFICACIONES_AGENTES.md`: fuentes versionadas, dueños de datos, permisos positivos y auditoría común.
+Sigue el formato de [Cronos](ficha_cronos_2026-09-23.md), desarrolla IGU-001-IGU-002 del [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md) y concreta [la matriz, §5](matriz_normativa_rrhh_2026.md#5-prevención-igualdad-y-materias-especialmente-protegidas) y [las materias reservadas, §§7-8](materias_reservadas_economicas_y_relaciones_laborales.md#7-igualdad-y-no-discriminación). Se aplican E02-E07 de `ESPECIFICACIONES_AGENTES.md`: fuentes versionadas, dueños de datos, permisos positivos y auditoría común.
 
 ## Qué debe hacer
 

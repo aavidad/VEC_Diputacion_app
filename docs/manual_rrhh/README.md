@@ -673,7 +673,7 @@ Contratación temporal · VEC Diputación · Corte: 6 de septiembre de 2026.
 
 **Consulta de centros:** desde la bandeja, **Centros y organización de
 referencia** abre una tabla con búsqueda, tipo, adscripción y página de la RPT.
-La [guía](../../GUIA_RECORRIDO_ALBERTO.md#centros-y-organización-de-referencia)
+La [guía](../../GUIA_RECORRIDO_ALBERTO.md)
 detalla su cobertura: 41 centros, agrupaciones de la fuente y once puestos de
 Transformación Digital, todavía sin las dependencias funcionales completas.
 Una adscripción no identifica al ocupante ni a quien puede ratificar.
@@ -724,7 +724,7 @@ Chrome `201` y, tras reiniciar app/PostgreSQL principal, cuatro antecedentes `20
 y propuesta `200`, mismos propuesta/recibo/fecha/v7, sin duplicados. Cero errores
 JS, cookies, almacenamiento web y desbordamiento. Sin firma ni nombramiento eficaz.
 Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en Git.
-[Caso y claves](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
+[Caso y claves](../../GUIA_RECORRIDO_ALBERTO.md).
 
 **Objetivo 9: primer informe borrador descargado**, Chrome `200`, 29267 bytes,
 PDF y pantalla inspeccionados por dirección. Rectificación: primer fallo navegador
@@ -800,9 +800,9 @@ La presentación se recorre en la misma aplicación final, con perfiles y datos 
 | Descarga de borradores | Genera documentos preparatorios para revisar; no son documentos oficiales ni nombramiento eficaz. | Plantillas oficiales y firma con certificado o servicio corporativo admitido, según el circuito que se determine. |
 | Salida GINPIX | Hay piezas de exportación, pero no se acredita aquí una salida completa desde el portal ni una transmisión. | Conexión o carga autorizada, confirmación del sistema destino y seguimiento. |
 
-La [petición y ratificación del centro](../../GUIA_RECORRIDO_ALBERTO.md#petición-del-centro-y-ratificación)
+La [petición y ratificación del centro](../../GUIA_RECORRIDO_ALBERTO.md)
 ya se recorre con dos identidades sintéticas y recibos recuperados tras reinicio.
-La [entrega al expediente de RRHH](../../GUIA_RECORRIDO_ALBERTO.md#entregar-la-petición-ratificada-a-rrhh)
+La [entrega al expediente de RRHH](../../GUIA_RECORRIDO_ALBERTO.md)
 también está demostrada, con el mismo recibo tras reiniciar aplicación y base,
 sin otra alta. Ratificar no equivale a firmar. Si consta **Expediente creado**,
 consulte ese recibo; no repita la entrega para presentar el caso.
@@ -1037,7 +1037,7 @@ Para renuncia, dirección confirmó navegador real `200/201/201/201` y recuperac
 
 Tras reinicio se conservan esos datos, auditoría y carga de intención en la misma
 fila CT, sin duplicados ni siguiente ejecutado. Aceptación y declaración anteriores
-intactas. La [guía, caso de renuncia](../../GUIA_RECORRIDO_ALBERTO.md#corte-5-recuperar-la-renuncia-manual-sintética)
+intactas. La [guía, caso de renuncia](../../GUIA_RECORRIDO_ALBERTO.md)
 contiene expediente completo, cuatro claves y correo/huella/fecha originales.
 El método es manual provisional solo para desarrollo sintético, no aval del operador.
 
@@ -1051,7 +1051,7 @@ La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido exac
 #### Operación 5: continuar tras la renuncia sintética
 
 Recupere primero la renuncia. El mismo panel deriva expediente, resolución e
-intención; use la quinta clave original de la [guía](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-7-recuperar-la-continuación-tras-renuncia).
+intención; use la quinta clave original de la [guía](../../GUIA_RECORRIDO_ALBERTO.md).
 Confirme expresamente que abrirá un único nuevo llamamiento, sin otro `.eml`.
 El `201` muestra **Siguiente llamamiento abierto · ejercicio sintético**:
 recibo CT `recibo:b5bb611f-0126-4806-90c5-85b9f9b63778`, fecha UTC
@@ -1067,7 +1067,7 @@ conserve clave/material, sin reintentos automáticos ni otra clave para eludir `
 
 Tras recuperar la continuación, use **6. Registrar aviso local al sucesor** en el mismo panel.
 Referencias y versión `1` vienen de su recibo; solo introduzca la sexta clave original
-de la [guía](../../GUIA_RECORRIDO_ALBERTO.md#aviso-local-al-sucesor-ct62) y confirme expresamente.
+de la [guía](../../GUIA_RECORRIDO_ALBERTO.md) y confirme expresamente.
 `201` muestra **Aviso local al sucesor registrado · No enviado**; tras reinicio principal,
 `200` recupera la misma comunicación, recibo, fecha, versión `2` e intención local, sin duplicados.
 No cambia los recibos previos; habilita la declaración manual del paso 7, no una resolución. No envía ni abre plazo.
@@ -1078,7 +1078,7 @@ Conserve clave/material ante ambigüedad; no eluda un `409` con otra clave.
 Tras recuperar el aviso local `v2`, use **7. Registrar respuesta recibida del sucesor**.
 El panel deriva sus antecedentes; introduzca clave propia, respuesta declarada, referencia opaca de correo,
 fecha UTC y `.eml` hasta 2 MiB para huella local; confirme expresamente. No se conserva el contenido.
-[Clave, archivo exacto y recibo](../../GUIA_RECORRIDO_ALBERTO.md#declaración-de-respuesta-del-sucesor-ct63).
+[Clave, archivo exacto y recibo](../../GUIA_RECORRIDO_ALBERTO.md).
 Registro real `201`; siete operaciones `200` tras reinicio principal, mismos justificante/recibo/auditoría/fecha,
 sin duplicados. Aceptación solo declarada, no resuelta ni verificada en origen/firma/plazo.
 No cambia los recibos ni la resolución anterior. Mantenga clave/material ante ambigüedad; `409` no autoriza otra clave.
@@ -1087,7 +1087,7 @@ La resolución requiere la octava operación separada, no es automática.
 #### Operación 8: resolver manualmente al sucesor, solo ejercicio sintético
 
 Recupere las siete operaciones previas y use la octava con la clave original de la
-[guía](../../GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
+[guía](../../GUIA_RECORRIDO_ALBERTO.md).
 Respuesta, justificante y referencias se derivan, no se editan. Marque expresamente las dos revisiones
 de respuesta/justificante y plazo del ejercicio, inicialmente vacías, y confirme; sin otro `.eml`.
 Solo tras confirmar CT y Bolsa se muestra la aceptación sintética. En CT64, versión resultante `3`, expediente `6`.
@@ -1100,7 +1100,7 @@ CT65 permite la propuesta separada descrita debajo. Continúan cinco pasos compl
 ### 7. Nombramiento: propuesta de desarrollo y límites
 
 Para el sucesor aceptado, recupere las ocho operaciones anteriores y use el mismo formulario de propuesta,
-novena operación del panel: clave original y [recorrido CT65](../../GUIA_RECORRIDO_ALBERTO.md#propuesta-desde-la-aceptación-del-sucesor-ct65).
+novena operación del panel: clave original y [recorrido CT65](../../GUIA_RECORRIDO_ALBERTO.md).
 Referencias/publicaciones derivadas, confirmación expresa y versión esperada `6` incluso al recuperar desde `7`.
 Navegador: ocho antecedentes `200` y propuesta `201`; tras reiniciar app/PostgreSQL principal, nueve `200`,
 mismos recibo/fecha/v7 e historia. El expediente sucesor pasa a nombramiento/en_curso; propuesta original intacta.
@@ -1133,7 +1133,7 @@ La comunicación al centro no envía un aviso ni ordena la incorporación.
 En el caso validado `v8`, los mismos botones descargan los borradores de la
 propuesta anterior `v7`: no hay que crear otra propuesta ni cambiar su versión.
 No recupere la propuesta por POST ni repita el llamamiento para esta lectura.
-Ante error se conserva el detalle. [Instrucciones y SHA256](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
+Ante error se conserva el detalle. [Instrucciones y SHA256](../../GUIA_RECORRIDO_ALBERTO.md).
 AD3-20/CT61 y AD3-21 instaladas en ambas bases: no reaplicar; el PDF no añade SQL propio.
 
 El nombramiento completo exige la propuesta y los documentos y firmas que
@@ -1218,7 +1218,7 @@ con datos personales ni material de autenticación.
 
 ## Fuentes y ayuda
 
-- [Procedimiento normalizado de contratación temporal](../portal_vec/expediente_contratacion_temporal_rrhh.md).
+- [Procedimiento normalizado de contratación temporal](../producto/FLUJO_APP.md).
 - [Petición de RRHH: transcripción y lectura funcional](../estudio_requisitos/peticion_rrhh_transcripcion_y_lectura.md).
 - [Requisitos de acceso interno y separación de perfiles](../estudio_requisitos/acceso_interno_tecnicos_administracion.md).
 - [Acceso y operación actuales por Sistemas](../manual_sistemas/README.md#entorno-privado-vigente).

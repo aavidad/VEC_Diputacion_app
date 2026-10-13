@@ -2,7 +2,7 @@
 
 **Estado a 8 de octubre de 2026:** en cidonia RRHH tramita un expediente desde la petición del centro hasta la resolución, con el alta según la circular de mayo (CT193, instalada con HZ8); faltan el recorrido completo con reinicio hasta el cese, el paso a Personal, la incorporación acreditada y la firma de dos personas.
 
-Base comprobada: `origin/main@033fda6ed` más las PR fusionadas el 08/10 (#895 a #904). Los criterios para dar CT por cerrada están en [OBJETIVOS.md](OBJETIVOS.md). La firma tiene su plan en [firmas.md](firmas.md). El circuito que describió RRHH está en [decisiones_rrhh_2026-10-02.md](../estudio_requisitos/decisiones_rrhh_2026-10-02.md).
+Base comprobada: `origin/main@033fda6ed` más las PR fusionadas el 08/10 (#895 a #904). Los criterios para dar CT por cerrada están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md). La firma tiene su plan en [firmas.md](firmas.md). El circuito que describió RRHH está en [decisiones_rrhh_2026-10-02.md](../estudio_requisitos/decisiones_rrhh_2026-10-02.md).
 
 ## Lo que falta
 

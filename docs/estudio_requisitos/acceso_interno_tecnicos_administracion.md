@@ -24,7 +24,7 @@ El portal ciudadano se divide a su vez en zona anonima, limitada a informacion
 expresamente publicable, y area personal autenticada del titular o su
 representante acreditado. Una persona empleada no obtiene capacidades internas
 desde esa superficie. La linea base de perfiles y alcances esta en
-[`../portal_vec/matriz_roles_y_ambitos.md`](../portal_vec/matriz_roles_y_ambitos.md).
+[perfiles y ámbitos (FLUJO_APP, apartado 6)](../producto/FLUJO_APP.md).
 
 ### Primer corte de acceso externo
 
