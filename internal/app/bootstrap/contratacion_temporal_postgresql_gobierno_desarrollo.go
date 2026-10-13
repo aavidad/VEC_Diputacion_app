@@ -275,6 +275,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// publica con VEC_CT_FIRMA_REGISTRO_ENABLED.
 		ports.AudienciaFirmaDocumentoV3,
 		ports.AudienciaConsultaFirmasDocumentoV3,
+		ports.AudienciaFirmaVecV2,
+		ports.AudienciaFirmaExternaV2,
 		// Consulta (AD162) y recuperación (AD178) de firmas V2; sólo con
 		// VEC_CT_FIRMAS_R5_V2_ENABLED.
 		ports.AudienciaConsultaFirmasR5V2,
