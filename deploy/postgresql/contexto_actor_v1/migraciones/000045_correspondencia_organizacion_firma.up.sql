@@ -144,13 +144,17 @@ BEGIN
   WHERE a.organizacion_ref=canonica FOR SHARE OF a,h;
  ahora:=pg_catalog.clock_timestamp();
  IF org.estado<>'activo' OR ahora<org.vigente_desde OR ahora>=org.vigente_hasta
-  OR vec_contexto_actor_v1.procedencia_valida(org.procedencia_ref,org.procedencia_version,org.procedencia_huella_sha256,org.procedencia_autoridad) IS NOT TRUE
-  OR (prueba IS NOT NULL AND (org.version IS DISTINCT FROM v.organizacion_version
+  OR vec_contexto_actor_v1.procedencia_valida(org.procedencia_ref,org.procedencia_version,org.procedencia_huella_sha256,org.procedencia_autoridad) IS NOT TRUE THEN
+  RAISE EXCEPTION 'correspondencia_organizacion_fuente_no_vigente' USING ERRCODE='42501';
+ END IF;
+ IF prueba IS NOT NULL THEN
+  IF org.version IS DISTINCT FROM v.organizacion_version
    OR org.procedencia_ref IS DISTINCT FROM prueba->>'procedencia_ref'
    OR org.procedencia_version IS DISTINCT FROM (prueba->>'procedencia_version')::numeric
    OR org.procedencia_huella_sha256 IS DISTINCT FROM prueba->>'procedencia_huella_sha256'
-   OR org.procedencia_autoridad IS DISTINCT FROM prueba->>'procedencia_autoridad')) THEN
-  RAISE EXCEPTION 'correspondencia_organizacion_fuente_no_vigente' USING ERRCODE='42501';
+   OR org.procedencia_autoridad IS DISTINCT FROM prueba->>'procedencia_autoridad' THEN
+   RAISE EXCEPTION 'correspondencia_organizacion_fuente_no_vigente' USING ERRCODE='42501';
+  END IF;
  END IF;
  RETURN pg_catalog.jsonb_build_object('organizacion_operativa_ref',p_organizacion_operativa,'organizacion_canonica_ref',canonica,'prueba',prueba);
 EXCEPTION WHEN NO_DATA_FOUND OR TOO_MANY_ROWS THEN
@@ -160,6 +164,7 @@ REVOKE ALL ON FUNCTION vec_contexto_actor_v1.publicar_correspondencia_organizaci
  vec_contexto_actor_v1.resolver_correspondencia_organizacion_v1(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.publicar_correspondencia_organizacion_v1(text,numeric,text)
  TO vec_contexto_actor_v1_migrador;
+GRANT USAGE ON SCHEMA vec_contexto_actor_v1 TO vec_contratacion_temporal_propietario;
 GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.resolver_correspondencia_organizacion_v1(text)
  TO vec_autorizacion_propietario,vec_contratacion_temporal_propietario;
 COMMIT;
