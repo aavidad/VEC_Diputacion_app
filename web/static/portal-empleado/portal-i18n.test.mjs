@@ -911,7 +911,6 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["portal.js", "portal-panel-interno.js", "portal-bolsas-api.js", "portal-menu-bolsa.js", "portal-bolsas-global.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js"]) versionesEspeciales.set(ruta, "20261013-bolsa-menu-n3");
   for (const ruta of ["portal.js", "portal-panel-interno.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js"]) versionesEspeciales.set(ruta, "20261013-convocatorias-rrhh-v3");
   for (const ruta of ["portal-bolsas-ruta-filtros.js", "portal-bolsas-contrato.js", "portal-bolsas-api.js", "portal-bolsas-seguimiento.js", "portal-bolsas-global.js", "portal-bolsas-ofertas.js", "portal-bolsas-historial-ofrecimientos.js", "portal-llamamientos-operaciones-api.js", "portal-inicio.js", "portal-baremacion-ranking.js", "modulos/bolsa/carga-convoca/vista.js"]) versionesEspeciales.set(ruta, "20261013-bolsa-ranking-n4");
-  for (const ruta of ["portal.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal-bolsa-configuracion.js"]) versionesEspeciales.set(ruta, "20261013-bolsa-configuracion-n5");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -930,6 +929,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-menu-bolsa.js", "portal-panel-interno.js"])
     versionesEspeciales.set(ruta, "20261013-documentos-bolsa-v4");
   for (const ruta of ["modulos/bolsa/documentos-api.js", "modulos/bolsa/documentos-vista.js"]) versionesEspeciales.set(ruta, "20261013-documentos-bolsa-v2");
+  for (const ruta of ["portal.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal-bolsa-configuracion.js"]) versionesEspeciales.set(ruta, "20261013-bolsa-configuracion-n5");
   const versiones = new Map();
   const aristas = [];
   const codigo = new Map();
