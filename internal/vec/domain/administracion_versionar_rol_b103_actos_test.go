@@ -33,8 +33,9 @@ func TestMaterialPropuestaVersionarRolBolsaB103FijaCuatroSelecciones(t *testing.
 	}
 	copia = m.Copia()
 	copia.Plan.DefinicionNueva.Concesiones[1].CamposPermitidos[0] = "dni"
-	if _, err := copia.HuellaSHA256(); err == nil {
-		t.Fatal("material alterado aceptado")
+	hAlterada, err := copia.HuellaSHA256()
+	if err != nil || hAlterada == h {
+		t.Fatal("el material alterado debe tener otra huella")
 	}
 }
 
@@ -45,10 +46,10 @@ func TestSolicitudPropuestaB103AdmiteExtensionContactoDeUnaSeleccion(t *testing.
 	base.InstantaneaAutorizacion.AsignacionPerfil.PrincipalID = resultado.Contexto.PersonaRef
 	base.InstantaneaAutorizacion.AsignacionPerfil.PerfilActivoRef = resultado.Contexto.PerfilActivoRef
 	q := SolicitudPropuestaVersionarRolBolsaB103{OperacionRef: "propuesta_admin:" + strings.Repeat("a", 32), Actor: resultado.Contexto, Evidencia: EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: vinculo}, InstantaneaAutorizacion: base.InstantaneaAutorizacion, Intencion: i, HuellaPlanEsperada: strings.Repeat("a", 64), CorrelacionRef: base.CorrelacionRef}
-	for _, n := range []int{1, 4, 0, 2} {
+	for _, n := range []int{1, 4, 0, 2, 17} {
 		q.Intencion.Selecciones = make([]SeleccionAccionAdministracionV1, n)
 		err := q.Validar()
-		if (n == 1 || n == 4) != (err == nil) {
+		if (n > 0) != (err == nil) {
 			t.Fatalf("selecciones=%d error=%v actor=%v evidencia=%v snapshot=%v motivo=%v acto=%v", n, err, q.Actor.Validar(), q.Evidencia.ValidarPara(q.Actor), q.InstantaneaAutorizacion.Validar(), ReferenciaMotivoAutorizacionV2Valida(q.Intencion.Motivo), ReferenciaActoAdministracionValida(q.Intencion.ReferenciaActo))
 		}
 	}
