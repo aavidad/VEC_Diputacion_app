@@ -125,19 +125,49 @@ CREATE TABLE vec_bolsa_llamamientos.cese_nativo_ct_outbox_v1(
  creada_en timestamptz(6) NOT NULL CHECK(isfinite(creada_en)),
  CHECK(evento_ref='evento:bolsa:cese-nativo:'||encode(sha256(convert_to(origen_ref,'UTF8')),'hex'))
 );
-DO $seguridad$
-DECLARE t text;
-BEGIN
- FOREACH t IN ARRAY ARRAY['alta_nativa_ct_v1','alta_nativa_ct_outbox_v1',
-   'cese_nativo_ct_v1','cese_nativo_ct_outbox_v1'] LOOP
-  EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.%I ENABLE ROW LEVEL SECURITY',t);
-  EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.%I FORCE ROW LEVEL SECURITY',t);
-  EXECUTE format('CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.%I TO vec_bolsa_llamamientos_propietario USING(current_user=%L) WITH CHECK(current_user=%L)',t,'vec_bolsa_llamamientos_propietario','vec_bolsa_llamamientos_propietario');
-  EXECUTE format('REVOKE ALL ON TABLE vec_bolsa_llamamientos.%I FROM PUBLIC',t);
-  EXECUTE format('REVOKE ALL ON TYPE vec_bolsa_llamamientos.%I FROM PUBLIC',t);
-  EXECUTE format('CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.%I FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion()',t);
- END LOOP;
-END $seguridad$;
+ALTER TABLE vec_bolsa_llamamientos.alta_nativa_ct_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.alta_nativa_ct_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.alta_nativa_ct_v1
+ TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario')
+ WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.alta_nativa_ct_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.alta_nativa_ct_v1 FROM PUBLIC;
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.alta_nativa_ct_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+
+ALTER TABLE vec_bolsa_llamamientos.alta_nativa_ct_outbox_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.alta_nativa_ct_outbox_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.alta_nativa_ct_outbox_v1
+ TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario')
+ WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.alta_nativa_ct_outbox_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.alta_nativa_ct_outbox_v1 FROM PUBLIC;
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.alta_nativa_ct_outbox_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+
+ALTER TABLE vec_bolsa_llamamientos.cese_nativo_ct_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.cese_nativo_ct_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.cese_nativo_ct_v1
+ TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario')
+ WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.cese_nativo_ct_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.cese_nativo_ct_v1 FROM PUBLIC;
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.cese_nativo_ct_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+
+ALTER TABLE vec_bolsa_llamamientos.cese_nativo_ct_outbox_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.cese_nativo_ct_outbox_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.cese_nativo_ct_outbox_v1
+ TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario')
+ WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.cese_nativo_ct_outbox_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.cese_nativo_ct_outbox_v1 FROM PUBLIC;
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.cese_nativo_ct_outbox_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
 
 -- El relevo legado pagina sólo su propia historia. Una inserción nativa
 -- posterior no puede adelantar el cursor y ocultarle orígenes pendientes.
@@ -254,8 +284,8 @@ BEGIN
 
  -- Desde aquí sólo fuentes propietarias; ningún campo de Personal se acepta
  -- como hecho hasta que P48 y el cese CT publicado coincidan exactamente.
- SELECT to_jsonb(x) INTO c FROM vec_contratacion_temporal.probar_cese_personal_b2_para_bolsa_v1(
-  personal->>'recibo_ct_ref') x;
+ SELECT vec_contratacion_temporal.probar_cese_personal_b2_para_bolsa_v1(
+  personal->>'recibo_ct_ref') INTO c;
  IF c IS NULL OR c->>'recibo_ct_ref' IS DISTINCT FROM personal->>'recibo_ct_ref'
     OR c->>'organizacion_ref' IS DISTINCT FROM sel->>'organizacion_ref'
     OR c->>'expediente_ref' IS DISTINCT FROM sel->>'expediente_ref'
