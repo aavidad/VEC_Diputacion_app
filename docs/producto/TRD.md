@@ -252,7 +252,9 @@ La confianza del portal externo se prepara administrativamente antes de arrancar
 la web. `preparar-portal-externo --publicador-confianza-dsn <fichero privado>`
 publica una raíz y claves derivadas del material externo, mediante un LOGIN
 nominal con un único grupo y sin acceso al propietario AD3. Conserva el inventario
-`externo/v3` y la auditoría común; la web no recibe ese DSN. Orden de instalación
+`externo/v3` y la auditoría común; la web no recibe ese DSN. Una tarea administrativa
+separada comprueba cada quince minutos y renueva antes de caducar, conservando
+las claves del portal ya arrancado. Orden de instalación
 y uso: `deploy/principal/confianza_externa_hz38.md`.
 
 ### Selectores `VEC_*_ENABLED`

@@ -168,7 +168,7 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 				// La renovación diaria sólo cambia la configuración. Los proveedores
 				// vivos conservan las coordenadas de estas mismas claves.
 				reutilizadas = actual.Claves
-				if ahora.UTC().Before(actual.Configuracion.ExpiraEn) {
+				if ahora.UTC().Add(30 * time.Minute).Before(actual.Configuracion.ExpiraEn) {
 					esperada = propuesta
 					var confirmado []byte
 					if err := tx.QueryRow(ctx, `SELECT vec_autorizacion_atestada_v3.gestionar_publicacion_externa_v1($1::pg_catalog.jsonb)`, propuesta).Scan(&confirmado); err != nil {
@@ -197,7 +197,7 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 				versiones[i] = coordenadaClaveExternaV3{m.audienciaConsumo, estado.VersionSiguiente + uint64(i), estado.RevisionSiguiente + uint64(i), estado.OrdenSiguiente + uint64(i)}
 			}
 		}
-		publicada := time.Date(ahora.UTC().Year(), ahora.UTC().Month(), ahora.UTC().Day(), 0, 0, 0, 0, time.UTC)
+		publicada := ahora.UTC().Truncate(time.Microsecond)
 		if err := coordinarMaterialExternoV3(lista, "confianza:atestacion:externo:"+numeroDecimal64(estado.SecuenciaSiguiente),
 			estado.SecuenciaSiguiente, publicada, publicada.Add(24*time.Hour), lista[0].validaDesde, lista[0].validaHasta, versiones); err != nil {
 			return err

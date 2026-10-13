@@ -119,6 +119,31 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 	defer base.borrarCopiasEfimeras()
 	ctxConexion, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(2*time.Minute))
 	defer cancelar()
+	// Alias de las cuentas del Área personal, calculados por el propio
+	// proceso externo con su clave (ExportarSeudonimosPortalExterno).
+	if len(aliasPedidos.Cuentas) != 0 {
+		_, dsnGobierno, err := cfg.ContratacionTemporalPostgreSQL.DSNSeparados()
+		if err != nil {
+			return resumen, err
+		}
+		gobierno, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctxConexion, dsnGobierno,
+			"vec-preparar-alias-portal-externo", rolGobiernoPostgreSQLContratacionTemporalDesarrollo)
+		if err != nil {
+			return resumen, err
+		}
+		defer gobierno.Close()
+		if portal == separacionportales.PortalInterno {
+			// ID7 conserva los alias en su población propia. La herramienta de
+			// preparación coteja una provisión ya aprobada, nunca da de alta.
+			err = comprobarSeudonimosProvisionadosPortalExterno(ctxConexion, gobierno, aliasPedidos)
+		} else {
+			err = registrarSeudonimosPortalExterno(ctxConexion, gobierno, aliasPedidos)
+		}
+		if err != nil {
+			return resumen, err
+		}
+		resumen.Alias = len(aliasPedidos.Cuentas)
+	}
 	publicador, err := abrirPoolPublicadorConfianzaExterna(ctxConexion, opciones.PublicadorConfianzaDSN)
 	if err != nil {
 		return resumen, err
@@ -170,31 +195,7 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 			resumen.Consumidores = append(resumen.Consumidores, consumidor)
 		}
 	}
-	// Alias de las cuentas del Área personal, calculados por el propio
-	// proceso externo con su clave (ExportarSeudonimosPortalExterno).
-	if len(aliasPedidos.Cuentas) != 0 {
-		_, dsnGobierno, err := cfg.ContratacionTemporalPostgreSQL.DSNSeparados()
-		if err != nil {
-			return resumen, err
-		}
-		gobierno, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctxConexion, dsnGobierno,
-			"vec-preparar-alias-portal-externo", rolGobiernoPostgreSQLContratacionTemporalDesarrollo)
-		if err != nil {
-			return resumen, err
-		}
-		defer gobierno.Close()
-		if portal == separacionportales.PortalInterno {
-			// ID7 conserva los alias en su población propia. La herramienta de
-			// preparación coteja una provisión ya aprobada, nunca da de alta.
-			err = comprobarSeudonimosProvisionadosPortalExterno(ctxConexion, gobierno, aliasPedidos)
-		} else {
-			err = registrarSeudonimosPortalExterno(ctxConexion, gobierno, aliasPedidos)
-		}
-		if err != nil {
-			return resumen, err
-		}
-		resumen.Alias = len(aliasPedidos.Cuentas)
-	}
+
 	if err := escribirMaterialV3PortalExterno(destino, publicados); err != nil {
 		return resumen, err
 	}
