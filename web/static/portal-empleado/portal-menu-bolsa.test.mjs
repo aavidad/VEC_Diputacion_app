@@ -15,10 +15,10 @@ import {
   vistaBolsaOfrecida,
 } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 
-test("Auditoría de Bolsa exige una participación procedente de una ficha consultada", () => {
+test("Auditoría RRHH se abre sin partir de una ficha", () => {
   assert.equal(vistaBolsaOfrecida("auditoria", { panelInterno: true }), false);
-  assert.equal(vistaBolsaOfrecida("auditoria", { auditoriaReferencia: false }), false);
-  assert.equal(vistaBolsaOfrecida("auditoria", { auditoriaReferencia: true }), true);
+  assert.equal(vistaBolsaOfrecida("auditoria", { auditoriaConsulta: false }), false);
+  assert.equal(vistaBolsaOfrecida("auditoria", { auditoriaConsulta: true }), true);
 });
 
 test("Reglas de cese solo se ofrecen tras su consulta V3 positiva", () => {
@@ -443,7 +443,7 @@ test("los controles de rutas sin consumidor se retiran del DOM y se conserva la 
       getAttribute: () => vista, dataset: {}, remove: () => retirados.push(vista),
     }));
   } };
-  aplicarDisponibilidadMenuBolsa(raiz, { auditoriaReferencia: true });
+  aplicarDisponibilidadMenuBolsa(raiz, { auditoriaConsulta: true });
   assert.deepEqual(retirados, ["contratos"]);
 });
 
