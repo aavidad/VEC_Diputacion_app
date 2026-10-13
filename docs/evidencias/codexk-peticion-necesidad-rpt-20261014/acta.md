@@ -37,6 +37,6 @@ El formulario usa los paneles y controles comunes de Alta. La búsqueda RPT cons
 
 Capturas y respuestas completas permanecen en el acta privada local, fuera de Git: recibo del centro en escritorio/móvil, entrega RRHH y ficha tras reinicio. La revisión visual tomó como referencia `fotos/image004.png`.
 
-Focales Go de cuatro paquetes, guarda de presentación nueva v3 y recuperación v2, Node de centro/Alta, i18n, gofmt y vecsilencio verdes. SQL recibió GO independiente en `82c46596d`; backend sensible GO en `26d65fe4d`; corrección de pérdida de datos UI GO en `b472acf63`. Semgrep local sin hallazgos. Gosec no encontró problemas nuevos: conserva un G304 de lectura de configuración en una línea sin modificar y reporta carga parcial de 22 paquetes.
+Focales Go de cuatro paquetes, guarda de presentación nueva v3 y recuperación v2, Node de centro/Alta, i18n, gofmt y vecsilencio verdes. SQL recibió GO independiente en `82c46596d`; backend sensible GO en `26d65fe4d`, mantenido en `20091ac15` tras renombrar únicamente una UUID pública de prueba; corrección de pérdida de datos UI GO en `b472acf63`. Semgrep local sin hallazgos. Gosec no encontró problemas nuevos: conserva un G304 de lectura de configuración en una línea sin modificar y reporta carga parcial de 22 paquetes.
 
-La CI y la coordinación de las versiones compartidas de caché quedan pendientes al redactar esta acta. Este corte crea el expediente CT; la incorporación en Personal, el cese y la vuelta a Bolsa siguen en la cola de K.
+La cadena compartida de caché queda conciliada en una sola cohorte, con 6/6 comprobaciones focales. La CI queda pendiente al abrir la PR. Este corte crea el expediente CT; la incorporación en Personal, el cese y la vuelta a Bolsa siguen en la cola de K.
