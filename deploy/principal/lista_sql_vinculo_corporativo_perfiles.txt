@@ -1,1 +1,4 @@
+# Requiere instalada lista_sql_auditoria_rrhh.txt y después lista_sql_vinculo_corporativo_f1.txt:
+# AUT82 -> CT208 -> B109 -> P47 -> AD251 -> AD258 -> CA42.
+# Esta lista añade sólo CA43; no reaplicar SQL instalada ni ejecutar DOWN.
 deploy/postgresql/contexto_actor_v1/migraciones/000043_vinculo_corporativo_por_perfil.up.sql

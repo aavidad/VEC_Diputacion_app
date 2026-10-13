@@ -10,7 +10,8 @@ permisos entre perfiles ni los concede al publicar un vínculo.
 Aplicar una vez CA43 después de la PR F1: AD258 → CA42 → CA43. Su dependencia
 anterior es la lista de Auditoría: AUT82 → CT208 → B109 → P47 → AD251.
 `lista_sql_vinculo_corporativo_perfiles.txt` contiene sólo el incremento CA43;
-no reaplicar las anteriores. Conservar copia fría y vuelta atrás del kit.
+ambas listas F1 declaran esa dependencia en sus comentarios. No reaplicar las
+anteriores. Conservar copia fría y vuelta atrás del kit.
 
 CONFIG NUEVA: ninguna. Se conserva `VEC_VINCULO_CORPORATIVO_DSN`, el LOGIN
 exclusivo, la fila de fuente aprobada por DBA y el publicador de la PR F1.
