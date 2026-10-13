@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"context"
 	"errors"
-	"log"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -792,16 +791,21 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	cfg, derivador, reloj := dependencias.cfg, dependencias.derivador, dependencias.reloj
 	reincorporacion, err := selectorCapacidadRRHHDesarrollo(cfg, envCTReincorporacionTitularEnabled)
 	if err != nil {
-		return nil, err
+		return nil, diagnosticarSelectorCTArranque(envCTReincorporacionTitularEnabled, "ct_reincorporacion", "selector",
+			"VEC_CT_REINCORPORACION_TITULAR_ENABLED=true|false; doble_llave_desarrollo", errSeguimientoCeseDesarrolloNoDisponible, err)
+	}
+	selector := config.EnvCTSeguimientoCeseEnabled
+	if reincorporacion {
+		selector = envCTReincorporacionTitularEnabled
 	}
 	if alta == nil || alta.soporte == nil || alta.postgresql.ejecucion == nil || alta.postgresql.gobierno == nil ||
 		alta.postgresql.proveedorMaterial == nil || derivador == nil || !derivador.valido() {
-		log.Print("contratacion temporal: cese y modificacion no disponibles; etapa=dependencias")
-		return nil, errSeguimientoCeseDesarrolloNoDisponible
+		return nil, diagnosticarSelectorCTArranque(selector, "ct_seguimiento", "dependencias",
+			"VEC_CT_DATABASE_URL; VEC_CT_GOBIERNO_DATABASE_URL; material_desarrollo", errSeguimientoCeseDesarrolloNoDisponible, nil)
 	}
 	fallar := func(etapa string, err error) ([]vechttp.RutaExacta, error) {
-		log.Printf("contratacion temporal: cese y modificacion no disponibles; etapa=%s", etapa)
-		return nil, errors.Join(errSeguimientoCeseDesarrolloNoDisponible, err)
+		return nil, diagnosticarSelectorCTArranque(selector, "ct_seguimiento", etapa,
+			requisitoSeguimientoCTArranque(etapa), errSeguimientoCeseDesarrolloNoDisponible, err)
 	}
 	causas, err := fichero.NuevaConsultaCatalogos(cfg.ReglasEjemplo.CausasCeseSourcePath)
 	if err != nil {
@@ -811,7 +815,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	if err != nil {
 		return fallar("catalogo_motivos", err)
 	}
-	consultaReglas, err := fichero.NuevaConsultaCatalogos(cfg.ReglasEjemplo.CTSourcePath)
+	consultaReglas, err := fichero.NuevaConsultaCatalogoProvisionable(cfg.ReglasEjemplo.CTSourcePath)
 	if err != nil {
 		return fallar("catalogo_reglas", err)
 	}
@@ -830,18 +834,13 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 			return fallar("preflight_reincorporacion", err)
 		}
 		var instalada bool
-		if err := alta.postgresql.ejecucion.QueryRow(ctx, `SELECT
-			to_regprocedure('vec_contratacion_temporal.perfil_reincorporacion_ct153_v1()') IS NOT NULL AND
-			to_regclass('vec_contratacion_temporal.reincorporacion_titular_v1') IS NOT NULL AND
-			to_regprocedure('vec_contratacion_temporal.preparar_reincorporacion_titular_v1(jsonb)') IS NOT NULL AND
-			to_regprocedure('vec_contratacion_temporal.confirmar_reincorporacion_titular_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL AND
-			to_regprocedure('vec_contratacion_temporal.leer_antecedente_reincorporacion_titular_atestada_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL AND
-			to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_lectura_reincorporacion_titular_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL`).Scan(&instalada); err != nil || !instalada {
-			return fallar("migracion_reincorporacion", errSeguimientoCeseDesarrolloNoDisponible)
+		if err := comprobarMigracionesReincorporacionCTArranque(ctx, alta.postgresql.ejecucion); err != nil {
+			return nil, err
 		}
-		if err := alta.postgresql.ejecucion.QueryRow(ctx,
-			`SELECT vec_contratacion_temporal.perfil_reincorporacion_ct153_v1() = 'organizacion_ref'`).Scan(&instalada); err != nil || !instalada {
-			return fallar("perfil_reincorporacion_ct153", errSeguimientoCeseDesarrolloNoDisponible)
+		err := alta.postgresql.ejecucion.QueryRow(ctx,
+			`SELECT vec_contratacion_temporal.perfil_reincorporacion_ct153_v1() = 'organizacion_ref'`).Scan(&instalada)
+		if err != nil || !instalada {
+			return fallar("perfil_reincorporacion_ct153", err)
 		}
 	}
 	acreditada := incorporacionAcreditadaSolicitada(cfg)

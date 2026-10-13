@@ -71,6 +71,32 @@ func reciboSeleccionLlamamientoHTTPPrueba() application.DatosReciboSeleccionLlam
 	}
 }
 
+func TestProyeccionSeleccionLlamamientoPoliticaProvisionalOpcional(t *testing.T) {
+	recibo := reciboSeleccionLlamamientoHTTPPrueba()
+	for _, caso := range []struct {
+		nombre string
+		valor  *bool
+		parte  string
+	}{
+		{nombre: "legado"},
+		{nombre: "nativo vigente", valor: new(bool), parte: `"politica_provisional":false`},
+		{nombre: "nativo provisional", valor: func() *bool { v := true; return &v }(), parte: `"politica_provisional":true`},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			recibo.PoliticaProvisional = caso.valor
+			proyectado, valido := proyectarReciboSeleccionLlamamiento(recibo)
+			if !valido {
+				t.Fatal("recibo válido rechazado")
+			}
+			contenido, err := json.Marshal(proyectado)
+			if err != nil || strings.Contains(string(contenido), "politica_provisional") != (caso.valor != nil) ||
+				(caso.parte != "" && !strings.Contains(string(contenido), caso.parte)) {
+				t.Fatalf("proyección de política incorrecta: %s (%v)", contenido, err)
+			}
+		})
+	}
+}
+
 func nuevaPeticionSeleccionLlamamientoHTTPPrueba() *http.Request {
 	cuerpo := `{"expediente_ref":"expediente:http:001","version_esperada":6,"clave_idempotencia":"` +
 		claveSeleccionLlamamientoHTTPPrueba + `"}`
@@ -307,11 +333,13 @@ func TestManejadorSeleccionLlamamientoRechazaDependenciasNulas(t *testing.T) {
 	)
 	tipoProyeccion := reflect.TypeOf(application.DatosReciboSeleccionLlamamientoParaAdaptador{})
 	if !existe || metodo.Type.NumOut() != 2 || metodo.Type.Out(0) != tipoProyeccion ||
-		tipoProyeccion.NumField() != 5 || tipoProyeccion.Field(0).Name != "ReciboRef" ||
+		tipoProyeccion.NumField() != 6 || tipoProyeccion.Field(0).Name != "ReciboRef" ||
 		tipoProyeccion.Field(1).Name != "ConfirmadaEn" ||
 		tipoProyeccion.Field(2).Name != "OrganizacionRef" ||
 		tipoProyeccion.Field(3).Name != "LlamamientoRef" ||
-		tipoProyeccion.Field(4).Name != "VersionLlamamiento" {
+		tipoProyeccion.Field(4).Name != "VersionLlamamiento" ||
+		tipoProyeccion.Field(5).Name != "PoliticaProvisional" ||
+		tipoProyeccion.Field(5).Type != reflect.TypeOf((*bool)(nil)) {
 		t.Fatalf("HTTP no exige la proyeccion de application: %v", metodo.Type)
 	}
 }

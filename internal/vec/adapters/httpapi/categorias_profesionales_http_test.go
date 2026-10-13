@@ -23,7 +23,7 @@ func TestPersonalCategoriesUsaCatalogoGobernadoCompletoYNoExponeProcedenciaInter
 		t.Fatalf("GET categorias status = %d: %s", rec.Code, rec.Body.String())
 	}
 	cuerpo := rec.Body.String()
-	for _, esperado := range []string{`"total":68`, `"catalogo_id":"categorias-profesionales"`, `"demostracion":true`, `"slug":"administrativo"`, `"name":"Técnico de Administración General"`} {
+	for _, esperado := range []string{`"total":68`, `"catalogo_id":"categorias-profesionales"`, `"demostracion":false`, `"slug":"administrativo"`, `"name":"Técnico de Administración General"`} {
 		if !strings.Contains(cuerpo, esperado) {
 			t.Fatalf("catalogo gobernado no contiene %s: %s", esperado, cuerpo)
 		}

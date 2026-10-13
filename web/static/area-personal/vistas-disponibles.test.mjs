@@ -9,16 +9,16 @@ const catalogo = JSON.parse(textoCatalogo);
 const VISTAS_DISPONIBLES = leerVistasDisponibles(catalogo);
 
 test("las vistas sin servicio en el servidor no se ofrecen", () => {
-  for (const vista of ["subsanaciones", "alegaciones", "mensajes", "certificados"]) {
+  for (const vista of ["subsanaciones", "mensajes", "certificados"]) {
     assert.equal(VISTAS_DISPONIBLES.has(vista), false, vista);
   }
-  for (const vista of ["inicio", "llamamientos", "perfil", "preferencias", "ayuda"]) {
+  for (const vista of ["inicio", "llamamientos", "perfil", "meritos", "alegaciones", "preferencias", "ayuda"]) {
     assert.equal(VISTAS_DISPONIBLES.has(vista), true, vista);
   }
 });
 
-test("convocatorias, méritos y expedientes se retiran del catálogo", () => {
-  for (const vista of ["convocatorias", "convocatoria", "meritos", "seguimiento"]) {
+test("convocatorias y expedientes antiguos siguen fuera del catálogo", () => {
+  for (const vista of ["convocatorias", "convocatoria", "seguimiento"]) {
     assert.equal(Object.hasOwn(catalogo.vistas, vista), false, vista);
     assert.equal(VISTAS_DISPONIBLES.has(vista), false, vista);
   }

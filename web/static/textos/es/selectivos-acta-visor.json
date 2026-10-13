@@ -13,7 +13,7 @@
   "solo_local": "Revisión local",
   "archivo": "Archivo de salida del preparador · Obligatorio",
   "archivo_pista": "Seleccione la salida JSON del preparador de sesión, no su entrada ni la preparación del tribunal. Máximo 4 MiB.",
-  "limite": "Use sólo material sintético. El archivo no se verifica y no constituye un acta de una sesión celebrada.",
+  "limite": "El archivo se muestra tal como llega; no se verifica.",
   "vacio": "Abra un archivo del preparador para revisar las propuestas.",
   "cargando": "Leyendo el archivo…",
   "cargado": "Borrador abierto. Revise las propuestas y lo que falta por comprobar.",

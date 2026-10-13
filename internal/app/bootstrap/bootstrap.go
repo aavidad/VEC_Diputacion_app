@@ -481,7 +481,7 @@ func nuevasDependenciasCategoriasProfesionales(
 	if err != nil {
 		return nil, nil, err
 	}
-	consultaCatalogos, err := vecfichero.NuevaConsultaCatalogos(rutaCategorias)
+	consultaCatalogos, err := vecfichero.NuevaConsultaCatalogoProvisionable(rutaCategorias)
 	if err != nil {
 		return nil, nil, err
 	}

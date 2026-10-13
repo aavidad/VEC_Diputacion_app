@@ -3,9 +3,11 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +18,7 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 const (
@@ -62,6 +65,9 @@ type datasetBolsasRRHHDesarrollo struct {
 		Resultado   string `json:"resultado"`
 	} `json:"llamamientos"`
 	Contactos []dominiobolsa.ContactoParticipacion `json:"contactos"`
+	// Puntuaciones conserva el Total del acta CONVOCA por participación. Solo
+	// se rellena al leer el detalle autorizado de candidatos de una bolsa.
+	Puntuaciones map[string]string `json:"-"`
 	// Marcas (Bolsa 000041) por participación; nil si no están compuestas.
 	Marcas map[string]dominiobolsa.MarcasParticipacion `json:"-"`
 	// PoliticaIntentos, si el catálogo la tiene, permite rotular la baja
@@ -75,9 +81,16 @@ type politicaOrdenRRHHDesarrollo struct {
 	Provisional                                                              bool
 }
 
+type consultorPerfilPropioBolsaRRHH interface {
+	ConsultarPerfilBolsaRRHH(context.Context) (any, error)
+}
+
 type bolsasRRHHDesarrollo struct {
-	global cacheGlobalBolsasRRHH
-	cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	perfilPropio      consultorPerfilPropioBolsaRRHH
+	global            cacheGlobalBolsasRRHH
+	documentos        *bolsaapplication.ServicioDocumentosBolsa
+	controlDocumentos *controlLecturaDocumentosBolsa
+	cargar            func(context.Context) (datasetBolsasRRHHDesarrollo, error)
 	// resumen y cargarBolsa acotan la lectura (ver alcanceCargaBolsasRRHH);
 	// si faltan, se usa cargar con todo el detalle.
 	resumen          func(context.Context) (datasetBolsasRRHHDesarrollo, error)
@@ -117,9 +130,14 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 		manejador.avisos = fuente.avisos
 		manejador.resumen = fuente.cargarResumen
 		manejador.cargarBolsa = fuente.cargarBolsaRRHH
+		if lector, ok := fuente.repositorio.(puertosbolsa.LectorConstitucionVigenteBolsa); ok {
+			manejador.documentos, _ = bolsaapplication.NuevoServicioDocumentosBolsa(lector)
+		}
+		manejador.controlDocumentos = fuente.controlDocumentos
 	}
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]
+		manejador.perfilPropio, _ = mutadores[0].(consultorPerfilPropioBolsaRRHH)
 		manejador.contactos, _ = mutadores[0].(lectorContactosBolsaDesarrollo)
 		manejador.respuestasPortal, _ = mutadores[0].(lectorRespuestasPortalBolsaDesarrollo)
 		manejador.canales, _ = mutadores[0].(proveedorCanalesLlamamientoDesarrollo)
@@ -167,6 +185,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		_, _, esContratos = bolsahttp.ReferenciasRutaContratosParticipacion(r)
 	}
 	esSolicitudesDocumentales := h != nil && h.mutar != nil && r != nil && r.Method == http.MethodGet && r.URL != nil && r.URL.Path == bolsahttp.RutaSolicitudesDocumentalesPendientesRRHH
+	esDocumentosBolsa := r != nil && r.URL != nil && rutaDocumentosBolsaRRHHDesarrollo(r.URL.Path)
 	esSancion := h != nil && h.mutar != nil && r != nil && (r.Method == http.MethodPost || r.Method == http.MethodGet)
 	if esSancion {
 		_, _, _, esSancion = bolsahttp.ReferenciasRutaSancionesParticipacion(r)
@@ -178,6 +197,10 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			cabeceras = r.Header.Clone()
 			cabeceras.Del("Idempotency-Key")
 		}
+	}
+	if esDocumentosBolsa && h != nil {
+		h.responderDocumentosBolsa(w, r)
+		return
 	}
 	if h == nil || r == nil || r.URL == nil || r.URL.RawPath != "" || len(r.TransferEncoding) != 0 || cabeceraCatalogosAltaContratacionTemporalDesarrolloProhibida(cabeceras) {
 		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
@@ -210,6 +233,27 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	if r.URL.Path == rutaAvisosBolsaRRHHDesarrollo {
 		h.responderAvisos(w, r)
+		return
+	}
+	if r.URL.Path == rutaBolsasRRHHDesarrollo && r.URL.Query().Has("perfil") {
+		if r.URL.RawQuery != "perfil=propio" || r.ContentLength != 0 {
+			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
+			return
+		}
+		if h.perfilPropio == nil {
+			responderFalloBolsaRRHHDesarrollo(w, r, "perfil_propio", ErrComposicionDesarrolloIncompleta)
+			return
+		}
+		perfil, err := h.perfilPropio.ConsultarPerfilBolsaRRHH(r.Context())
+		if err != nil {
+			if errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
+				responderBolsaRRHHDesarrollo(w, http.StatusForbidden, map[string]string{"codigo": "acceso_denegado"})
+				return
+			}
+			responderFalloBolsaRRHHDesarrollo(w, r, "perfil_propio", err)
+			return
+		}
+		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": perfil}, r.Method == http.MethodHead)
 		return
 	}
 	if r.URL.Path == rutaBolsasRRHHDesarrollo {
@@ -425,8 +469,8 @@ func (h *bolsasRRHHDesarrollo) vistaBolsa(w http.ResponseWriter, r *http.Request
 }
 
 type consultaCandidatosRRHH struct {
-	estado, texto, cursor string
-	limite                int
+	estado, texto, cursor, orden string
+	limite                       int
 	// llamamiento limita la lista a las personas de ese llamamiento (las que
 	// tienen algún aviso o llamada suyos), en el orden de la bolsa, para
 	// seguirlo por teléfono. No se combina con otros filtros ni con cursor.
@@ -441,7 +485,7 @@ func consultaCandidatos(cruda string) (consultaCandidatosRRHH, bool) {
 		return resultado, true
 	}
 	valores, err := url.ParseQuery(cruda)
-	if err != nil || len(valores) > 4 {
+	if err != nil || len(valores) > 5 {
 		return resultado, false
 	}
 	for clave, valoresClave := range valores {
@@ -471,6 +515,11 @@ func consultaCandidatos(cruda string) (consultaCandidatosRRHH, bool) {
 				return resultado, false
 			}
 			resultado.limite = n
+		case "orden":
+			if valor != "acta" {
+				return resultado, false
+			}
+			resultado.orden = valor
 		case "llamamiento":
 			if !patronLlamamientoCandidatosRRHH.MatchString(valor) {
 				return resultado, false
@@ -480,7 +529,7 @@ func consultaCandidatos(cruda string) (consultaCandidatosRRHH, bool) {
 			return resultado, false
 		}
 	}
-	if resultado.llamamiento != "" && (resultado.estado != "" || resultado.texto != "" || resultado.cursor != "") {
+	if resultado.llamamiento != "" && (resultado.estado != "" || resultado.texto != "" || resultado.cursor != "" || resultado.orden != "") {
 		return resultado, false
 	}
 	return resultado, true
@@ -575,7 +624,16 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 		candidatas = append(candidatas, bolsaapplication.CandidatoTurno{ParticipacionRef: candidata.Referencia, NombreVisible: candidata.Nombre, Orden: candidata.Orden, OrdenActa: candidata.OrdenActa, Estado: candidata.Estado})
 		indices[candidata.Referencia] = indice
 	}
-	candidatas = bolsaapplication.OrdenarCandidatosTurno(candidatas)
+	if consulta.orden == "acta" {
+		sort.Slice(candidatas, func(i, j int) bool {
+			if candidatas[i].OrdenActa != candidatas[j].OrdenActa {
+				return candidatas[i].OrdenActa < candidatas[j].OrdenActa
+			}
+			return candidatas[i].ParticipacionRef < candidatas[j].ParticipacionRef
+		})
+	} else {
+		candidatas = bolsaapplication.OrdenarCandidatosTurno(candidatas)
+	}
 	inicio := 0
 	if consulta.cursor != "" {
 		for i, candidata := range candidatas {
@@ -673,6 +731,13 @@ func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
 		llamada = map[string]any{"llamamiento_ref": contacto.LlamamientoRef, "comunicado_en": contacto.Instante.UTC().Format(time.RFC3339Nano), "canal": contacto.Canal, "resultado": contacto.Resultado}
 	}
 	salida := map[string]any{"participacion_ref": candidata.Referencia, "orden": candidata.Orden, "orden_acta": candidata.OrdenActa, "razon_orden": candidata.RazonOrden, "nombre_visible": candidata.Nombre, "documento_enmascarado": candidata.Documento, "estado_clave": estadoBolsaCanonico(candidata.Estado), "estado_desde": candidata.EstadoDesde, "disponible_desde": candidata.Disponible, "ultimo_llamamiento": llamada, "contactos_total": contactos}
+	if h.datos.Puntuaciones != nil {
+		if puntuacion, existe := h.datos.Puntuaciones[candidata.Referencia]; existe {
+			salida["puntuacion"] = puntuacion
+		} else {
+			salida["puntuacion"] = nil
+		}
+	}
 	if h.datos.Marcas != nil {
 		salida["marcas"] = h.salidaMarcas(candidata.Referencia, candidata.Estado)
 	}

@@ -36,7 +36,13 @@ func componerContactoOrigenBolsaDesarrollo(resolutor *reglas.Resolutor, mutador 
 	if participacion.emision == nil || participacion.fuente == nil {
 		return nil
 	}
-	return participacion.emision.EstablecerAvisoContactoNoConfirmado(participacion.fuente)
+	if err := participacion.emision.EstablecerAvisoContactoNoConfirmado(participacion.fuente); err != nil {
+		return err
+	}
+	if participacion.emisionInternaCT != nil {
+		return participacion.emisionInternaCT.EstablecerAvisoContactoNoConfirmado(participacion.fuente)
+	}
+	return nil
 }
 
 // OrigenContactoParticipacion lee la marca de la versión vigente; sin contacto

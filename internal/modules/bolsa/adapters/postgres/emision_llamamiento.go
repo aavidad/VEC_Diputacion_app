@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -39,8 +40,27 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Reservar(ctx context.Context, 
 	}
 	var salidaJSON []byte
 	var reutilizada bool
-	err := r.pool.QueryRow(ctx, `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.reservar_llamamiento_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19)`, c.LlamamientoRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, participaciones, configuracion, c.EmitidoEn, huellaFinalizacion[:], m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&salidaJSON, &reutilizada)
+	sql := `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.reservar_llamamiento_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19)`
+	args := []any{c.LlamamientoRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, participaciones, configuracion, c.EmitidoEn, huellaFinalizacion[:], m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()}
+	if c.OrigenCT != nil {
+		if c.OrigenCT.BolsaRef != c.BolsaRef || c.OrigenCT.UnidadRef == "" || c.OrigenCT.ParticipacionRef == "" || c.OrigenCT.ExpedienteRef == "" || c.OrigenCT.ClaveCT == "" {
+			return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoInvalida
+		}
+		origen, err := json.Marshal(c.OrigenCT)
+		if err != nil {
+			return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoInvalida
+		}
+		args = append(args, origen)
+		sql = `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.reservar_llamamiento_ct_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19,$20::jsonb)`
+	}
+	err := r.pool.QueryRow(ctx, sql, args...).Scan(&salidaJSON, &reutilizada)
 	if err != nil {
+		if c.OrigenCT != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				return ports.EmisionLlamamiento{}, ports.ErrOrigenLlamamientoCTConflicto
+			}
+		}
 		return ports.EmisionLlamamiento{}, errorEmision(err)
 	}
 	var out ports.EmisionLlamamiento
@@ -51,6 +71,75 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Reservar(ctx context.Context, 
 	if reutilizada {
 		return r.conFuentesCorreo(ctx, out, c.BolsaRef, c.ClaveIdempotencia)
 	}
+	return out, nil
+}
+
+var _ ports.LectorOrigenEmisionCT = (*RepositorioEmisionLlamamientoPostgreSQL)(nil)
+
+// RecuperarOrigenEmisionCT devuelve únicamente el vínculo durable del
+// expediente y la clave exactos. La autorización nominal la exige la capa de
+// aplicación antes de llamar al repositorio.
+func (r *RepositorioEmisionLlamamientoPostgreSQL) RecuperarOrigenEmisionCT(ctx context.Context, expedienteRef, claveCT string) (ports.ReciboOrigenEmisionCT, error) {
+	if r == nil || r.pool == nil || ctx == nil || expedienteRef == "" || claveCT == "" {
+		return ports.ReciboOrigenEmisionCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	var raw []byte
+	if err := r.pool.QueryRow(ctx, `SELECT origen FROM (SELECT vec_bolsa_llamamientos.recuperar_origen_llamamiento_ct_v1($1::text,$2::text) AS origen) x WHERE origen IS NOT NULL`, expedienteRef, claveCT).Scan(&raw); errors.Is(err, pgx.ErrNoRows) {
+		return ports.ReciboOrigenEmisionCT{}, ports.ErrOrigenLlamamientoCTNoEncontrado
+	} else if err != nil {
+		return ports.ReciboOrigenEmisionCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	var out ports.ReciboOrigenEmisionCT
+	if json.Unmarshal(raw, &out) != nil || out.ExpedienteRef != expedienteRef || out.ClaveCT != claveCT || out.UnidadRef == "" || out.LlamamientoRef == "" || out.ReciboRef == "" || out.AuditoriaRef == "" || validarLecturaOrigenCT(out.Lectura) != nil {
+		return ports.ReciboOrigenEmisionCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	return out, nil
+}
+
+// RecuperarLecturaOrigenCT conserva exactamente el corte y los canónicos
+// guardados al reservar B7. Nunca reevalúa el orden de una bolsa actual.
+func (r *RepositorioEmisionLlamamientoPostgreSQL) RecuperarLecturaOrigenCT(ctx context.Context, expedienteRef, claveCT string) (ports.OrigenLlamamientoCT, error) {
+	if r == nil || r.pool == nil || ctx == nil || expedienteRef == "" || claveCT == "" {
+		return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	var raw []byte
+	if err := r.pool.QueryRow(ctx, `SELECT lectura FROM (SELECT vec_bolsa_llamamientos.recuperar_lectura_origen_ct_v1($1::text,$2::text) AS lectura) x WHERE lectura IS NOT NULL`, expedienteRef, claveCT).Scan(&raw); errors.Is(err, pgx.ErrNoRows) {
+		return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoEncontrado
+	} else if err != nil {
+		return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	var origen ports.OrigenLlamamientoCT
+	if json.Unmarshal(raw, &origen) != nil || validarLecturaOrigenCT(origen) != nil {
+		return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	return origen, nil
+}
+
+// RecuperarReservaLlamamientoCT distingue ausencia de fallo y conserva el
+// comando B7 original, incluso cuando aún no se registraron los contactos.
+func (r *RepositorioEmisionLlamamientoPostgreSQL) RecuperarReservaLlamamientoCT(ctx context.Context, expedienteRef, claveCT string) (ports.EmisionLlamamiento, error) {
+	if r == nil || r.pool == nil || ctx == nil || expedienteRef == "" || claveCT == "" {
+		return ports.EmisionLlamamiento{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	var raw []byte
+	if err := r.pool.QueryRow(ctx, `SELECT reserva FROM (SELECT vec_bolsa_llamamientos.recuperar_reserva_llamamiento_ct_v1($1::text,$2::text) AS reserva) x WHERE reserva IS NOT NULL`, expedienteRef, claveCT).Scan(&raw); errors.Is(err, pgx.ErrNoRows) {
+		return ports.EmisionLlamamiento{}, ports.ErrOrigenLlamamientoCTNoEncontrado
+	} else if err != nil {
+		return ports.EmisionLlamamiento{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	return decodificarReservaLlamamientoCT(raw, expedienteRef, claveCT)
+}
+
+func decodificarReservaLlamamientoCT(raw []byte, expedienteRef, claveCT string) (ports.EmisionLlamamiento, error) {
+	var out ports.EmisionLlamamiento
+	if json.Unmarshal(raw, &out) != nil || out.OrigenCT == nil || out.OrigenCT.UnidadRef == "" ||
+		out.OrigenCT.ExpedienteRef != expedienteRef || out.OrigenCT.ClaveCT != claveCT ||
+		out.LlamamientoRef != out.OrigenCT.LlamamientoRef || out.ReciboRef != out.OrigenCT.ReciboRef ||
+		out.BolsaRef != out.OrigenCT.BolsaRef || validarLecturaOrigenCT(out.OrigenCT.Lectura) != nil ||
+		len(out.Participaciones) != 1 || out.Participaciones[0] != out.OrigenCT.ParticipacionRef {
+		return ports.EmisionLlamamiento{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	out.Reutilizada = true
 	return out, nil
 }
 

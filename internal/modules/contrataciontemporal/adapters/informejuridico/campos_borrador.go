@@ -13,12 +13,13 @@ import (
 // identidad de la persona: ningún campo la aporta y las plantillas dejan su
 // hueco para completarlo en el circuito competente.
 type fuenteCampos struct {
-	detalle    ports.DetalleExpedienteRRHH
-	propuesta  ports.HitoExpedienteRRHH
-	requerido  *ports.HitoExpedienteRRHH
-	etiquetar  EtiquetadorReferencias
-	plantillas *PlantillasBorrador
-	plantilla  PlantillaBorrador
+	detalle           ports.DetalleExpedienteRRHH
+	propuesta         ports.HitoExpedienteRRHH
+	requerido         *ports.HitoExpedienteRRHH
+	etiquetar         EtiquetadorReferencias
+	plantillas        *PlantillasBorrador
+	plantilla         PlantillaBorrador
+	omitirReferencias bool
 }
 
 // camposBorrador es la lista cerrada de campos combinables. Añadir un campo
@@ -28,9 +29,13 @@ var camposBorrador = map[string]func(f *fuenteCampos) string{
 	"numero_expediente":  func(f *fuenteCampos) string { return f.detalle.Resumen.NumeroVisible },
 	"expediente_ref":     func(f *fuenteCampos) string { return f.detalle.Resumen.ExpedienteRef },
 	"version_expediente": func(f *fuenteCampos) string { return strconv.FormatUint(f.detalle.Resumen.Version, 10) },
-	"centro":             func(f *fuenteCampos) string { return referenciaConNombre(f.etiquetar, f.detalle.Resumen.CentroRef) },
-	"categoria":          func(f *fuenteCampos) string { return referenciaConNombre(f.etiquetar, f.detalle.Resumen.CategoriaRef) },
-	"grupo_subgrupo":     func(f *fuenteCampos) string { return f.detalle.Solicitud.GrupoSubgrupo },
+	"centro": func(f *fuenteCampos) string {
+		return referenciaConNombre(f.etiquetar, f.detalle.Resumen.CentroRef, f.omitirReferencias)
+	},
+	"categoria": func(f *fuenteCampos) string {
+		return referenciaConNombre(f.etiquetar, f.detalle.Resumen.CategoriaRef, f.omitirReferencias)
+	},
+	"grupo_subgrupo": func(f *fuenteCampos) string { return f.detalle.Solicitud.GrupoSubgrupo },
 	"modalidad": func(f *fuenteCampos) string {
 		return f.plantillas.etiqueta("modalidad.", string(f.detalle.Analisis.ModalidadClave))
 	},
@@ -62,10 +67,12 @@ var camposBorrador = map[string]func(f *fuenteCampos) string{
 		}
 		return fmt.Sprintf("%d,%02d %s", c.Centimos/100, c.Centimos%100, c.Moneda)
 	},
-	"fuente_coste":         func(f *fuenteCampos) string { return f.detalle.Analisis.FuenteCosteRef },
-	"observaciones":        func(f *fuenteCampos) string { return f.detalle.Analisis.Observaciones },
-	"via_cobertura":        func(f *fuenteCampos) string { return string(f.detalle.Cobertura.ViaClave) },
-	"unidad":               func(f *fuenteCampos) string { return referenciaConNombre(f.etiquetar, f.detalle.Asignacion.UnidadRef) },
+	"fuente_coste":  func(f *fuenteCampos) string { return f.detalle.Analisis.FuenteCosteRef },
+	"observaciones": func(f *fuenteCampos) string { return f.detalle.Analisis.Observaciones },
+	"via_cobertura": func(f *fuenteCampos) string { return string(f.detalle.Cobertura.ViaClave) },
+	"unidad": func(f *fuenteCampos) string {
+		return referenciaConNombre(f.etiquetar, f.detalle.Asignacion.UnidadRef, f.omitirReferencias)
+	},
 	"asignada_en":          func(f *fuenteCampos) string { return instanteDocumento(f.detalle.Asignacion.AsignadaEn) },
 	"comprobaciones_bolsa": comprobacionesBolsa,
 	"propuesta_actuacion":  func(f *fuenteCampos) string { return strconv.FormatUint(f.propuesta.Secuencia, 10) },

@@ -58,7 +58,7 @@
   "empleado": "Employee",
   "relacion": "Employment relationship",
   "ocupacion": "Post occupancy",
-  "limite": "Recording the start of work does not complete official signing or give the document administrative effect.",
+  "limite": "The document is officially signed in the signing process.",
   "motivo": "Reason (required)",
   "documento": "Commencement of service document (required)",
   "sin_documento": "No document is available. Review the appointment formalities before proceeding.",

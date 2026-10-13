@@ -1,7 +1,7 @@
 {
   "general": {
     "titulo": "Services for review",
-    "limite": "Draft pending validation. Coverage is unverified; an official certificate cannot be issued.",
+    "limite": "The source does not confirm that the list of services is complete. Check it before issuing a certificate.",
     "corte_efectivo": "Reference date",
     "corte_conocimiento": "Information known up to",
     "seleccionar_relacion": "Select an employment relationship to review its periods.",

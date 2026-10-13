@@ -139,7 +139,7 @@ func nuevaConsultaCatalogos(cfg config.Config) (*vecfichero.ConsultaCatalogos, e
 	if err != nil {
 		return nil, err
 	}
-	consulta, err := vecfichero.NuevaConsultaCatalogos(ruta)
+	consulta, err := vecfichero.NuevaConsultaCatalogoProvisionable(ruta)
 	if err != nil {
 		return nil, err
 	}

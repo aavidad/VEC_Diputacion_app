@@ -44,6 +44,13 @@ type finCesePersonalB2Desarrollo struct {
 	cese      *inc.CesePersonalB2
 	soporte   *soporteAltaContratacionTemporalDesarrollo
 	fronteras catalogoFronterasComunDesarrollo
+	efectos   *efectosBolsaNativosB115
+}
+
+type claveAnclajeNativoCeseB115 struct{}
+type anclajeNativoCeseB115 struct {
+	recibo        ct.ReciboOperacionSeguimiento
+	incorporacion string
 }
 
 // finCesePersonalB2 toma el enganche del único montaje de incorporación, si lo hay.
@@ -59,7 +66,10 @@ func (m *montajeIncorporacionPersonalB2) finCese(soporte *soporteAltaContratacio
 	if m == nil || m.cese == nil || soporte == nil {
 		return nil
 	}
-	return &finCesePersonalB2Desarrollo{cese: m.cese, soporte: soporte, fronteras: fronteras}
+	if m.finCeseMontado == nil {
+		m.finCeseMontado = &finCesePersonalB2Desarrollo{cese: m.cese, soporte: soporte, fronteras: fronteras, efectos: m.efectosBolsaNativos}
+	}
+	return m.finCeseMontado
 }
 
 // tiempoMaximoFinCesePersonalB2 acota las lecturas y el acto B2 que siguen
@@ -119,15 +129,30 @@ func (f *finCesePersonalB2Desarrollo) finalizar(ctx context.Context, s appct.Sol
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	capacidad, valida := f.soporte.capacidadValida(ctx)
+	if !valida || capacidad.ruta != httpct.RutaCesesNombramiento ||
+		!ct.ReciboOrigenIncorporacionPersonalB2(incorporacion) ||
+		!recibo.ValidoPara(ct.OperacionRegistrarCese, recibo.OrganizacionRef, recibo.ExpedienteRef, recibo.VersionAnterior) {
+		return errors.Join(ct.ErrOperacionSeguimientoNoDisponible, errFinPersonalB2Pendiente)
+	}
+	ctx = context.WithValue(ctx, claveAnclajeNativoCeseB115{}, anclajeNativoCeseB115{recibo: recibo, incorporacion: incorporacion})
 	nominal, ok := contextoNominalIncorporacionPersonalB2(ctx, f.soporte, f.fronteras, rutaPeticionIncorporacionB2{metodo: "POST", ruta: httpct.RutaCesesNombramiento})
 	if !ok {
 		return errors.Join(ct.ErrOperacionSeguimientoNoDisponible, errFinPersonalB2Pendiente)
 	}
 	nominal, cancelar := context.WithTimeout(nominal, plazoarranque.Ampliar(tiempoMaximoFinCesePersonalB2))
 	defer cancelar()
-	_, err := f.cese.FinalizarRelacionPersonalB2(nominal, inc.SolicitudCesePersonalB2{Recibo: recibo,
+	resultado, err := f.cese.FinalizarRelacionPersonalB2(nominal, inc.SolicitudCesePersonalB2{Recibo: recibo,
 		JustificanteRef: s.JustificanteRef, JustificanteSHA256: s.JustificanteSHA256, IncorporacionReciboRef: incorporacion})
 	if err == nil {
+		if !resultado.SelectorBolsaNativa.IsZero() {
+			if f.efectos == nil {
+				return errors.Join(ct.ErrOperacionSeguimientoNoDisponible, errFinPersonalB2Pendiente)
+			}
+			if err := f.efectos.confirmarCese(nominal, ctx, recibo, resultado); err != nil {
+				return errors.Join(ct.ErrOperacionSeguimientoNoDisponible, errFinPersonalB2Pendiente, err)
+			}
+		}
 		return nil
 	}
 	if ctx.Err() != nil {

@@ -247,16 +247,20 @@ export function validarReciboResolucionLlamamiento(entrada, solicitudEntrada) {
   return Object.freeze({ ...valor, intencion_siguiente: intencion });
 }
 export function validarReciboSeleccionLlamamiento(entrada) {
+  const provisional = entrada !== null && typeof entrada === "object"
+    && Object.hasOwn(entrada, "politica_provisional");
   const valor = registro(entrada, [
     "esquema", "estado", "recibo_ref", "confirmada_en",
     "organizacion_ref", "llamamiento_ref", "version_llamamiento",
+    ...(provisional ? ["politica_provisional"] : []),
   ]);
   exigir(valor.esquema === "vec.contratacion-temporal.recibo-seleccion-llamamiento.v1"
     && valor.estado === "confirmado" && referenciaLlamamientoValida(valor.recibo_ref)
     && referenciaLlamamientoValida(valor.organizacion_ref)
     && referenciaLlamamientoValida(valor.llamamiento_ref)
     && entero(valor.version_llamamiento) && valor.version_llamamiento < Number.MAX_SAFE_INTEGER
-    && instante(valor.confirmada_en));
+    && instante(valor.confirmada_en)
+    && (!provisional || typeof valor.politica_provisional === "boolean"));
   return valor;
 }
 export function validarReciboComunicacionLlamamiento(entrada, solicitudEntrada) {

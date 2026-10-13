@@ -12,7 +12,7 @@
   "abrir": "Abrir material preparado",
   "archivo": "Archivo del preparador",
   "archivo_pista": "Seleccione la salida JSON del preparador, no su archivo de entrada. Máximo 4 MiB; hasta 1.024 elementos por lista.",
-  "limite": "Revisión local de material sintético. El archivo no acredita una convocatoria, firma, aprobación ni publicación.",
+  "limite": "Revisión local del material preparado. Abrir el archivo no aprueba, firma ni publica las bases.",
   "vacio": "Consulte una preparación o abra un archivo del preparador.",
   "cargando": "Leyendo el archivo…",
   "cargado": "Archivo abierto: {archivo}. Revise los pendientes antes de continuar.",

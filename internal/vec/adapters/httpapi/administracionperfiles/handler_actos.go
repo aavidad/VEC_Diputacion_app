@@ -39,11 +39,11 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 		h.postVersionarRolBolsaCerrar(w, r, s)
 		return
 	}
-	if p == RutaVersionarRolBolsaB103Proponer {
+	if p == RutaVersionarRolBolsaB103Proponer || p == RutaVersionarRolBolsaRRHHProponer {
 		h.postVersionarRolBolsaB103Proponer(w, r, s)
 		return
 	}
-	if p == RutaVersionarRolBolsaB103Cerrar {
+	if p == RutaVersionarRolBolsaB103Cerrar || p == RutaVersionarRolBolsaRRHHCerrar {
 		h.postVersionarRolBolsaB103Cerrar(w, r, s)
 		return
 	}

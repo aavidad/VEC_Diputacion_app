@@ -141,6 +141,14 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 			DetalleColeccion:   true,
 		},
 	}, descriptoresFronterasOfertasBolsaDesarrollo(perfilActivoRef)...)
+	// Lectura de la política con la sesión Bolsa; su concesión se evalúa
+	// contra B103, sin añadir capacidad ni consumidor V3.
+	for _, metodo := range []string{http.MethodGet, http.MethodHead} {
+		descriptores = append(descriptores, descriptorFronteraComunDesarrollo{
+			Clave: "bolsa-politica-cese-" + metodo, Superficie: superficieInternaSeguridadComunDesarrollo,
+			Metodo: metodo, Ruta: bolsahttp.RutaPoliticaCese, PerfilesActivosRef: []string{perfilActivoRef},
+			ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarBorradorLlamamientoBolsa})
+	}
 	if len(capacidades) > 2 && capacidades[2] {
 		descriptores = append(descriptores,
 			descriptorFronteraComunDesarrollo{Clave: claveFronteraVistaPreviaCargaConvocaBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaVistaPreviaCargaConvoca, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadCargaConvocaBolsa},

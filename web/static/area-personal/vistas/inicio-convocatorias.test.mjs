@@ -13,10 +13,12 @@ test("la entrada se renueva y la vista de inicio conserva su URL vigente", async
     readFile(new URL("../arranque.js", import.meta.url), "utf8"),
     readFile(new URL("../aplicacion.js", import.meta.url), "utf8"),
   ]);
-  const version = "20261011-mibolsa-respuesta-anterior-v1";
-  assert.match(html, /\/area-personal\/arranque\.js\?v=20261011-mibolsa-respuesta-anterior-v1/u);
-  assert.match(arranque, new RegExp(`\\./aplicacion\\.js\\?v=${version}`));
-  assert.match(aplicacion, new RegExp(`\\./vistas/inicio-convocatorias\\.js\\?v=${version}`));
+  const entrada = html.match(/src="\/area-personal\/arranque\.js\?v=([a-zA-Z0-9._-]+)"/u);
+  const modulo = arranque.match(/from "\.\/aplicacion\.js\?v=([a-zA-Z0-9._-]+)"/u);
+  assert.ok(entrada, "falta la entrada versionada del área personal");
+  assert.ok(modulo, "falta el módulo de aplicación versionado");
+  assert.equal(modulo[1], entrada[1], "entrada y aplicación deben compartir la versión vigente");
+  assert.match(aplicacion, /from "\.\/vistas\/inicio-convocatorias\.js\?v=[a-zA-Z0-9._-]+"/u);
 });
 
 test("el inicio remite a Mi bolsa y ya no ofrece convocatorias ni expedientes", async () => {

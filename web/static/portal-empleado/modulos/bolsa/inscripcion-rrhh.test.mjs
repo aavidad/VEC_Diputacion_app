@@ -451,3 +451,31 @@ test("incorporar sin número de acta avisa junto al campo, lleva el foco y no en
   assert.equal(enfocados.at(-1), "[data-inscripcion-evidencia]");
   vista.desmontar();
 });
+
+
+test("Convocatorias reutiliza el selector, conserva idioma y abre solicitudes sin leerlas antes del clic", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "", addEventListener: (tipo, fn) => eventos.set(tipo, fn),
+    removeEventListener: (tipo) => eventos.delete(tipo), contains: () => true,
+    replaceChildren() { this.innerHTML = ""; } };
+  let lecturas = 0; let destino;
+  const sinConsulta = () => { throw new Error("lectura de solicitudes prematura"); };
+  const vista = await montarInscripcionesRRHH({ raiz, soloConvocatorias: true,
+    localizacion: new URL("https://vec.example/portal-empleado/?lang=en&inscripcion_convocatoria=anterior#bolsa/convocatorias"),
+    cargarCatalogo: (nombre) => cargarTextos(nombre, { idioma: "en", porDefecto: "en" }),
+    historial: { pushState() {} }, alAbrirSolicitudes: (ruta) => { destino = ruta; },
+    cliente: { convocatorias: async ({ idioma }) => { lecturas++; assert.equal(idioma, "en");
+      return { convocatorias: [convocatoriaHistorica], total: 1, cursor_siguiente: null }; },
+      listar: sinConsulta, detalle: sinConsulta, motivos: sinConsulta, decidir: sinConsulta, incorporar: sinConsulta } });
+  await new Promise((r) => setImmediate(r));
+  assert.match(raiz.innerHTML, /Recruitment notices/u);
+  assert.match(raiz.innerHTML, /Application deadline passed/u);
+  assert.doesNotMatch(raiz.innerHTML, /Solicitudes|Convocatorias publicadas/u);
+  const ruta = raiz.innerHTML.match(/href="([^"]+)" data-inscripcion-elegir/u)[1].replaceAll("&amp;", "&");
+  assert.match(ruta, /lang=en.*inscripcion_convocatoria=convocatoria%3Ahistorica.*#bolsa\/solicitudes/u);
+  const accion = { dataset: { inscripcionElegir: "convocatoria:historica" }, matches: () => true,
+    hasAttribute: () => false, getAttribute: () => ruta };
+  eventos.get("click")({ target: { closest: () => accion }, preventDefault() {} });
+  assert.equal(destino, ruta); assert.equal(lecturas, 1);
+  vista.desmontar(); assert.equal(raiz.innerHTML, "");
+});

@@ -104,3 +104,79 @@ func TestReciboOrdenRecuperadaMarcaCubiertaPorHMAC(t *testing.T) {
 		}
 	}
 }
+
+func TestReciboOrdenAtestadaConAcuseNominal(t *testing.T) {
+	ctx, base := context.Background(), instanteBolsaPrueba()
+	comando, recibo := comandoOrdenPrueba(t, base), reciboOrdenPrueba(t, base)
+	ahora := base.Add(3 * time.Minute)
+	recibo.ReciboRef, recibo.EventoRef = "", ""
+	if recibo.ValidarParaEn(comando, ahora) == nil {
+		t.Fatal("el caso mutante exige referencias reales de efecto")
+	}
+	recibo.OrdenAtestada = true
+	if recibo.ValidarParaEn(comando, ahora) != nil {
+		t.Fatal("la lectura completa debe admitirse con su acuse nominal")
+	}
+	emisor, err := NuevoEmisorEvidenciaIntegracionBolsa(autoridadRespuestaBolsaPrueba, claveRespuestaBolsaV1Prueba, selladorRespuestaBolsaPrueba())
+	if err != nil {
+		t.Fatal(err)
+	}
+	firmado, err := emisor.FirmarOrden(ctx, comando, recibo, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := verificadorRespuestaBolsaPrueba(claveRespuestaBolsaV1Prueba).VerificarReciboOrden(ctx, comando, firmado, ahora); err != nil {
+		t.Fatal(err)
+	}
+	material := materialReciboOrdenBolsa(comando, firmado)
+	firmado.OrdenAtestada = false
+	if bytes.Equal(material, materialReciboOrdenBolsa(comando, firmado)) || firmado.ValidarParaEn(comando, ahora) == nil {
+		t.Fatal("la marca autenticada no puede convertirse en un recibo mutante")
+	}
+	firmado = recibo
+	firmado.ReciboRef = "recibo:ficticio"
+	if firmado.ValidarParaEn(comando, ahora) == nil {
+		t.Fatal("la lectura no puede declarar recibo de escritura")
+	}
+	firmado = recibo
+	firmado.AuditoriaRef = ""
+	if firmado.ValidarParaEn(comando, ahora) == nil {
+		t.Fatal("la lectura requiere el acuse real de auditoría")
+	}
+}
+
+func TestOrdenConstituidaSinRetencionDeclaradaFirmada(t *testing.T) {
+	ctx, base := context.Background(), instanteBolsaPrueba()
+	comando, recibo := comandoOrdenPrueba(t, base), reciboOrdenPrueba(t, base)
+	ahora := base.Add(3 * time.Minute)
+	recibo.OrdenAtestada = true
+	recibo.ReciboRef, recibo.EventoRef = "", ""
+	recibo.Procedencia.SinRetencionDeclarada = true
+	recibo.Procedencia.Evidencia.RetenerHasta = time.Time{}
+	emisor, err := NuevoEmisorEvidenciaIntegracionBolsa(autoridadRespuestaBolsaPrueba, claveRespuestaBolsaV1Prueba, selladorRespuestaBolsaPrueba())
+	if err != nil {
+		t.Fatal(err)
+	}
+	firmado, err := emisor.FirmarOrden(ctx, comando, recibo, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verificador := verificadorRespuestaBolsaPrueba(claveRespuestaBolsaV1Prueba)
+	if _, evidencia, err := verificador.VerificarReciboOrden(ctx, comando, firmado, ahora); err != nil || !evidencia.SinRetencionDeclarada {
+		t.Fatal("la marca nativa debe quedar autenticada", err)
+	}
+	provisional := firmado
+	provisional.Procedencia.PoliticaProvisional = true
+	if provisional.ValidarParaEn(comando, ahora) != nil {
+		t.Fatal("la variante provisional debe conservar forma válida")
+	}
+	if _, _, err := verificador.VerificarReciboOrden(ctx, comando, provisional, ahora); err == nil {
+		t.Fatal("alterar la provisionalidad conservó indebidamente el HMAC")
+	}
+	marcado := materialReciboOrdenBolsa(comando, firmado)
+	firmado.Procedencia.SinRetencionDeclarada = false
+	if bytes.Equal(marcado, materialReciboOrdenBolsa(comando, firmado)) ||
+		firmado.ValidarParaEn(comando, ahora) == nil {
+		t.Fatal("no se puede atribuir retención legal a una lectura sin ella")
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -19,14 +20,30 @@ var accionesVersionarRolBolsaB103 = [...]string{
 	"bolsa.rrhh.respuestas_llamamiento.consultar",
 }
 
+var accionesInscripcionRRHHB103 = [...]string{
+	"bolsa.inscripcion.rrhh.motivos", "bolsa.inscripcion.rrhh.decidir", "bolsa.inscripcion.rrhh.incorporar",
+}
+
 // La ampliación C3 usa el mismo acto de dos ADMIN y conserva el plan histórico.
 const AccionLecturaOrigenContactoBolsa = "bolsa.datos_contacto_participacion.origen.consultar"
+const AccionLecturaAlegacionesRRHHBolsa = "bolsa.inscripcion.alegacion.rrhh.consultar"
 
 func CamposLecturaOrigenContactoBolsa() []string {
 	return []string{"enmascarados", "origen", "participacion_ref", "registrada_en", "sin_contacto", "version"}
 }
 
 func accionesDeltaVersionarBolsa(base VersionRol, selecciones int) []string {
+	if selecciones == len(accionesInscripcionRRHHB103) {
+		if base.RolID != RolIDVersionarBolsaB1 || base.Version < 1 {
+			return nil
+		}
+		for _, c := range base.Concesiones {
+			if slices.Contains(accionesInscripcionRRHHB103[:], c.Accion) {
+				return nil
+			}
+		}
+		return accionesInscripcionRRHHB103[:]
+	}
 	if selecciones == len(accionesVersionarRolBolsaB103) {
 		for _, c := range base.Concesiones {
 			if accionVersionarRolBolsaB103(c.Accion) || c.Accion == AccionLecturaOrigenContactoBolsa {
@@ -58,6 +75,39 @@ func accionesDeltaVersionarBolsa(base VersionRol, selecciones int) []string {
 	return []string{AccionLecturaOrigenContactoBolsa}
 }
 
+func concesionDeltaRRHHB103(c ConcesionRol, accion string) bool {
+	if !slices.Contains(accionesInscripcionRRHHB103[:], accion) {
+		return concesionVersionarRolBolsaB103(c, accion)
+	}
+	if c.Validar() != nil || c.ModuloID != "bolsa" || c.Accion != accion ||
+		c.GarantiaMinima != AuthAssuranceHigh || len(c.Obligaciones) != 0 {
+		return false
+	}
+	switch accion {
+	case accionesInscripcionRRHHB103[0]:
+		return c.TipoRecurso == "motivos_inscripcion" &&
+			slices.Equal(c.Finalidades, []string{"consulta_motivos_inscripcion_rrhh"}) &&
+			slices.Equal(c.CamposPermitidos, []string{"catalogo_version", "motivos[].codigo", "motivos[].etiqueta", "motivos[].obligatorio"})
+	case accionesInscripcionRRHHB103[1]:
+		return c.TipoRecurso == "solicitud_inscripcion" && slices.Equal(c.Finalidades, []string{"revisar_inscripcion"}) && len(c.CamposPermitidos) == 0
+	case accionesInscripcionRRHHB103[2]:
+		return c.TipoRecurso == "solicitud_inscripcion" && slices.Equal(c.Finalidades, []string{"incorporar_inscripcion"}) && len(c.CamposPermitidos) == 0
+	}
+	return false
+}
+
+func CamposLecturaAlegacionesRRHHBolsa() []string {
+	base := []string{"alegacion_ref", "objeto.tipo", "objeto.solicitud_ref", "objeto.participacion_ref",
+		"objeto.acto_ref", "objeto.version_acto", "fundamento", "estado", "presentada_en", "recibo_ref",
+		"auditoria_ref", "persona_resumen"}
+	campos := []string{"total", "cursor_siguiente", "ambitos[].tipo", "ambitos[].referencia", "ambitos[].titulo"}
+	for _, hoja := range base {
+		campos = append(campos, "alegaciones[]."+hoja, hoja)
+	}
+	slices.Sort(campos)
+	return campos
+}
+
 // IntencionVersionarRolBolsaB103 sólo identifica la cabeza, el catálogo y
 // preimágenes esperadas. No acredita publicación, identidad ni vigencia SQL.
 type IntencionVersionarRolBolsaB103 struct {
@@ -74,8 +124,8 @@ type IntencionVersionarRolBolsaB103 struct {
 	ReferenciaActo       string
 }
 
-// PlanVersionarRolBolsaB103 mantiene la forma del plan Bolsa anterior salvo
-// las cuatro selecciones nominales. Las asignaciones conservan sus ámbitos;
+// PlanVersionarRolBolsaB103 mantiene la forma del plan Bolsa anterior. Las
+// asignaciones conservan sus ámbitos;
 // bolsa_ref es dato de la consulta B103 y de su auditoría, no un ámbito nuevo.
 type PlanVersionarRolBolsaB103 struct {
 	Operacion             OperacionGobiernoPerfil                `json:"operacion"`
@@ -92,7 +142,6 @@ type PlanVersionarRolBolsaB103 struct {
 }
 
 func (p PlanVersionarRolBolsaB103) HuellaSHA256() (string, error) {
-	acciones := accionesDeltaVersionarBolsa(p.Base.Rol, len(p.Selecciones))
 	if p.Operacion != OperacionVersionarPerfilGobernado ||
 		!textoAutorizacionSinComodinSeguro(p.CatalogoRef, 512, false) || p.CatalogoVersion < 1 ||
 		!huellaSHA256AutorizacionV3NoNula(p.CatalogoHuellaSHA256) ||
@@ -102,34 +151,43 @@ func (p PlanVersionarRolBolsaB103) HuellaSHA256() (string, error) {
 		p.Base.Rol.Version == int(^uint(0)>>1) ||
 		p.DefinicionNueva.RolID != p.Base.Rol.RolID || p.DefinicionNueva.Version != p.Base.Rol.Version+1 ||
 		p.DefinicionNueva.Nombre != p.Base.Rol.Nombre || p.VersionRolObjetivoRef != p.DefinicionNueva.Referencia() ||
-		len(p.DefinicionNueva.Concesiones) != len(p.Base.Rol.Concesiones)+len(acciones) ||
+		len(p.Selecciones) == 0 || len(p.Selecciones) > maximoElementosAutorizacion-len(p.Base.Rol.Concesiones) ||
+		len(p.DefinicionNueva.Concesiones) != len(p.Base.Rol.Concesiones)+len(p.Selecciones) ||
 		len(p.DefinicionNueva.Concesiones) > maximoElementosAutorizacion ||
-		len(acciones) == 0 || len(p.Selecciones) != len(acciones) ||
 		len(p.Asignaciones) < 1 || len(p.Asignaciones) > 16 ||
 		!ReferenciaMotivoAutorizacionV2Valida(p.Motivo) || !ReferenciaActoAdministracionValida(p.ReferenciaActo) {
 		return "", ErrVersionarRolBolsaB103Invalido
 	}
 	for i, anterior := range p.Base.Rol.Concesiones {
-		if !reflect.DeepEqual(anterior, p.DefinicionNueva.Concesiones[i]) ||
-			slices.Contains(acciones, anterior.Accion) || accionPropiaInscripcionBolsa(anterior.Accion) {
+		if !reflect.DeepEqual(anterior, p.DefinicionNueva.Concesiones[i]) {
 			return "", ErrVersionarRolBolsaB103Invalido
 		}
 	}
-	for i, accion := range acciones {
+	vistas := make(map[string]bool, len(p.Selecciones))
+	acciones := make(map[string]bool, len(p.Base.Rol.Concesiones)+len(p.Selecciones))
+	for _, anterior := range p.Base.Rol.Concesiones {
+		acciones[anterior.Accion] = true
+	}
+	for i := range p.Selecciones {
 		s := p.Selecciones[i]
+		concesion := p.DefinicionNueva.Concesiones[len(p.Base.Rol.Concesiones)+i]
 		if !textoAutorizacionSinComodinSeguro(s.EntradaRef, 512, false) || s.EntradaVersion < 1 ||
 			!huellaSHA256AutorizacionV3NoNula(s.EntradaHuellaSHA256) ||
-			!concesionVersionarRolBolsaB103(p.DefinicionNueva.Concesiones[len(p.Base.Rol.Concesiones)+i], accion) {
+			vistas[s.EntradaRef] || concesion.Validar() != nil || concesion.ModuloID != "bolsa" ||
+			!strings.HasPrefix(concesion.Accion, "bolsa.") || accionExternaBolsaB103(concesion.Accion) ||
+			acciones[concesion.Accion] {
 			return "", ErrVersionarRolBolsaB103Invalido
 		}
+		vistas[s.EntradaRef] = true
+		acciones[concesion.Accion] = true
 	}
-	vistas := make(map[string]bool, len(p.Asignaciones))
+	vistasAsignacion := make(map[string]bool, len(p.Asignaciones))
 	for _, a := range p.Asignaciones {
 		if a.ValidarPara(p.Base.Rol.RolID, p.Base.Rol.Version) != nil ||
-			!ambitosRRHHBolsaB103(a.Documento.Ambitos) || vistas[a.Documento.AsignacionID] {
+			!ambitosRRHHBolsaB103(a.Documento.Ambitos) || vistasAsignacion[a.Documento.AsignacionID] {
 			return "", ErrVersionarRolBolsaB103Invalido
 		}
-		vistas[a.Documento.AsignacionID] = true
+		vistasAsignacion[a.Documento.AsignacionID] = true
 	}
 	return huellaAutorizacion(p)
 }
@@ -140,6 +198,15 @@ func accionVersionarRolBolsaB103(accion string) bool {
 
 func accionPropiaInscripcionBolsa(accion string) bool {
 	return accion == "bolsa.inscripcion.propias.listar" || accion == "bolsa.inscripcion.propia.consultar"
+}
+
+// La fuente RRHH no puede incorporar al rol interno las capacidades que
+// pertenecen al perfil candidato externo, aunque alguien les diera por error
+// dimensiones de unidad y ámbito dentro del catálogo administrativo.
+func accionExternaBolsaB103(accion string) bool {
+	return slices.Contains(accionesBaseVersionarRolBolsaExterna[:], accion) ||
+		slices.Contains(accionesVersionarRolBolsaExterna[:], accion) ||
+		slices.Contains(accionesInscripcionBolsaExterna[:], accion)
 }
 
 func ambitosRRHHBolsaB103(ambitos []AmbitoPerfil) bool {
@@ -223,7 +290,7 @@ func PrepararPlanVersionarRolBolsaB103(c CatalogoAccionesAdministracionV1,
 	if err != nil || !instanteAutorizacionCanonico(ahora) ||
 		!vigenteAccionesAdministracionEn(c.VigenteDesde, c.VigenteHasta, ahora) ||
 		c.Referencia != i.CatalogoRef || c.Version != i.CatalogoVersion || hc != i.CatalogoHuellaSHA256 ||
-		(len(i.Selecciones) != len(accionesVersionarRolBolsaB103) && len(i.Selecciones) != 1) ||
+		len(i.Selecciones) == 0 || len(i.Selecciones) > maximoElementosAutorizacion ||
 		len(i.Asignaciones) < 1 || len(i.Asignaciones) > 16 {
 		return vacio, ErrVersionarRolBolsaB103Invalido
 	}
@@ -239,25 +306,23 @@ func PrepararPlanVersionarRolBolsaB103(c CatalogoAccionesAdministracionV1,
 		base.ControlVigencia.ActualizadoEn.After(ahora) || base.Rol.Version == int(^uint(0)>>1) {
 		return vacio, ErrVersionarRolBolsaB103Invalido
 	}
-	acciones := accionesDeltaVersionarBolsa(base.Rol, len(i.Selecciones))
-	if len(acciones) == 0 {
+	if len(i.Selecciones) > maximoElementosAutorizacion-len(base.Rol.Concesiones) {
 		return vacio, ErrVersionarRolBolsaB103Invalido
 	}
 	hr, er := base.Rol.HuellaSHA256()
 	hcontrol, ec := base.ControlVigencia.HuellaSHA256()
 	if er != nil || ec != nil || i.BaseRef != base.Rol.Referencia() || i.BaseHuellaSHA256 != hr ||
 		i.ControlRevision != base.ControlVigencia.Revision || i.ControlHuellaSHA256 != hcontrol ||
-		len(base.Rol.Concesiones)+len(acciones) > maximoElementosAutorizacion {
+		len(base.Rol.Concesiones)+len(i.Selecciones) > maximoElementosAutorizacion {
 		return vacio, ErrVersionarRolBolsaB103Invalido
 	}
-	for _, anterior := range base.Rol.Concesiones {
-		if slices.Contains(acciones, anterior.Accion) || accionPropiaInscripcionBolsa(anterior.Accion) {
-			return vacio, ErrVersionarRolBolsaB103Invalido
-		}
-	}
 	concesiones := copiarConcesionesVersionarBolsa(base.Rol.Concesiones)
-	for j, accion := range acciones {
-		s := i.Selecciones[j]
+	acciones := make(map[string]bool, len(base.Rol.Concesiones)+len(i.Selecciones))
+	for _, anterior := range base.Rol.Concesiones {
+		acciones[anterior.Accion] = true
+	}
+	vistas := make(map[string]bool, len(i.Selecciones))
+	for _, s := range i.Selecciones {
 		var entrada *EntradaAccionAdministracionV1
 		for k := range c.Entradas {
 			e := &c.Entradas[k]
@@ -270,9 +335,13 @@ func PrepararPlanVersionarRolBolsaB103(c CatalogoAccionesAdministracionV1,
 		if entrada == nil || entrada.ClaseControl != string(ClaseControlPerfilOrdinario) ||
 			!vigenteAccionesAdministracionEn(entrada.VigenteDesde, entrada.VigenteHasta, ahora) ||
 			!dimensionesRRHHBolsaB103(entrada.DimensionesAmbito) ||
-			!concesionVersionarRolBolsaB103(entrada.Concesion, accion) {
+			entrada.Concesion.ModuloID != "bolsa" || !strings.HasPrefix(entrada.Concesion.Accion, "bolsa.") ||
+			accionExternaBolsaB103(entrada.Concesion.Accion) ||
+			vistas[s.EntradaRef] || acciones[entrada.Concesion.Accion] {
 			return vacio, ErrVersionarRolBolsaB103Invalido
 		}
+		vistas[s.EntradaRef] = true
+		acciones[entrada.Concesion.Accion] = true
 		concesiones = append(concesiones, copiarConcesionesVersionarBolsa([]ConcesionRol{entrada.Concesion})[0])
 	}
 	asignaciones := make([]SeleccionAsignacionVersionarRolBolsa, len(i.Asignaciones))

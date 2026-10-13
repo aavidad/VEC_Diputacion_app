@@ -130,10 +130,14 @@ func SeleccionOriginalValidaPara(seleccion ReciboSolicitudLlamamientoBolsa, orga
 	}
 	for _, ref := range []ReferenciaVersionadaIntegracionBolsa{seleccion.Necesidad, seleccion.Bolsa,
 		seleccion.Orden, seleccion.Politica, seleccion.Resultado, seleccion.Propuesta,
-		seleccion.AccionEvento, seleccion.RetencionSeleccion} {
+		seleccion.AccionEvento} {
 		if ref.Validar() != nil {
 			return ErrOperacionContinuacionNoDisponible
 		}
+	}
+	if (seleccion.Procedencia.SinRetencionDeclarada && seleccion.RetencionSeleccion != (ReferenciaVersionadaIntegracionBolsa{})) ||
+		(!seleccion.Procedencia.SinRetencionDeclarada && seleccion.RetencionSeleccion.Validar() != nil) {
+		return ErrOperacionContinuacionNoDisponible
 	}
 	return nil
 }

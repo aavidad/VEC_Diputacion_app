@@ -332,16 +332,29 @@ type emisorBorradorLlamamientoDesarrollo struct {
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
+	registradorPerfil                                                                                                 puertosvec.RegistradorIntentosAuditoria
+	procesoPerfil                                                                                                     string
 	situacion, operaciones, solicitudesDocumentales, contacto, datosContacto, contratos, sanciones, reincorporaciones http.Handler
 	preparador                                                                                                        *preparadorBorradorLlamamientoDesarrollo
 	servicio                                                                                                          *aplicacionbolsa.ServicioContactoParticipacion
 	respuestas                                                                                                        *aplicacionbolsa.ServicioRespuestasPortalRRHH
 	// servicioSituacion permite componer después las reglas de transición.
 	servicioSituacion *aplicacionbolsa.ServicioSituacionParticipacion
+	// La suboperación CT usa nuevas instancias nominales sobre estas mismas
+	// fuentes gobernadas, sin modificar la sesión ni el PDP del portal Bolsa.
+	politicaSituacion    politicaAutorizacionSolicitudLigadaV3Desarrollo
+	materialSituacion    *proveedorMaterialAltaContratacionTemporalDesarrollo
+	repositorioSituacion puertosbolsa.RepositorioSituacionParticipacion
+	materialEmision      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	repositorioEmision   puertosbolsa.RepositorioEmisionLlamamiento
+	correoFuente         puertosbolsa.FuenteCorreoParticipacion
+	correoEmisor         puertosbolsa.EmisorCorreoBolsa
+	correoPersonalizado  aplicacionbolsa.CorreoPersonalizadoLlamamiento
 	// datos y emision reciben después la regla del contacto de origen CONVOCA.
-	datos   *aplicacionbolsa.ServicioDatosContactoParticipacion
-	emision *aplicacionbolsa.ServicioEmisionLlamamiento
-	fuente  *fuenteCorreoParticipacionB7
+	datos            *aplicacionbolsa.ServicioDatosContactoParticipacion
+	emision          *aplicacionbolsa.ServicioEmisionLlamamiento
+	emisionInternaCT *aplicacionbolsa.ServicioEmisionLlamamiento
+	fuente           *fuenteCorreoParticipacionB7
 	// canales publica los canales de aviso activos (catálogo + adaptador).
 	canales *aplicacionbolsa.RegistroCanalesLlamamiento
 }
@@ -870,7 +883,9 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	fuenteCorreo := &fuenteCorreoParticipacionB7{repositorioDatos, dependenciasCT.kms}
-	servicioEmision, err := aplicacionbolsa.NuevoServicioEmisionLlamamiento(preparador, emisor, repositorioEmision, fuenteCorreo, &emisorCorreoBolsaB7{correoSMTP}, dependenciasCT.reloj.Ahora, aplicacionbolsa.CorreoPersonalizadoLlamamiento{Catalogo: catalogoCorreo, Personalizacion: personalizacion, Huellas: repositorioEmision})
+	correoEmisor := &emisorCorreoBolsaB7{correoSMTP}
+	correoPersonalizado := aplicacionbolsa.CorreoPersonalizadoLlamamiento{Catalogo: catalogoCorreo, Personalizacion: personalizacion, Huellas: repositorioEmision}
+	servicioEmision, err := aplicacionbolsa.NuevoServicioEmisionLlamamiento(preparador, emisor, repositorioEmision, fuenteCorreo, correoEmisor, dependenciasCT.reloj.Ahora, correoPersonalizado)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -930,7 +945,15 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	} else if strings.TrimSpace(os.Getenv(config.EnvBolsaB103FuenteAutorizacionDatabaseURL)) != "" {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{canales: canales, situacion: handlerSituacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	lectorPoliticaCese, err := postgresbolsa.NuevaConsultaPoliticaCesePostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, err
+	}
+	rutaPoliticaCese, err := nuevaRutaPoliticaCeseBolsa(preparador, lectorPoliticaCese.LeerPoliticaPublicada, registradorDocumentales, procesoDocumentales)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, err
+	}
+	mutador := &manejadorParticipacionBolsaDesarrollo{registradorPerfil: registradorDocumentales, procesoPerfil: procesoDocumentales, canales: canales, situacion: handlerSituacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, politicaSituacion: politicaB, materialSituacion: alta.postgresql.proveedorMaterialSituacion, repositorioSituacion: repositorioSituacion, materialEmision: alta.postgresql.proveedorMaterialEmision, repositorioEmision: repositorioEmision, correoFuente: fuenteCorreo, correoEmisor: correoEmisor, correoPersonalizado: correoPersonalizado, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	proyectorFicha, err := nuevoProyectorDisponibilidadFichaOperacionesBolsa(
 		preparador, politicaBolsa, dependenciasCT.reloj, mutador.solicitudesDocumentales, mutador.reincorporaciones)
 	if err != nil {
@@ -987,7 +1010,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		}
 	}
 	completa = true
-	rutas := []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaContactosOferta, Manejador: handlerContacto}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}
+	rutas := []vechttp.RutaExacta{rutaPoliticaCese, {Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaContactosOferta, Manejador: handlerContacto}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}
 	if cargaConvocaActiva {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsahttp.RutaVistaPreviaCargaConvoca, Manejador: handlerCargaConvoca},
 			vechttp.RutaExacta{Ruta: bolsahttp.RutaConfirmarCargaConvoca, Manejador: handlerCargaConvoca})

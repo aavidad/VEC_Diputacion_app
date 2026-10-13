@@ -128,7 +128,7 @@ func (relojCategoriasProfesionalesHTTPPrueba) Ahora() time.Time {
 
 func nuevoServicioCategoriasProfesionalesHTTPPrueba(t *testing.T) *personalapp.ServicioConsultaCategoriasProfesionales {
 	t.Helper()
-	consulta, err := vecfichero.NuevaConsultaCatalogos("../../../../data/catalogos/categorias-profesionales/v1.demo.json")
+	consulta, err := vecfichero.NuevaConsultaCatalogoProvisionable("../../../../data/catalogos/categorias-profesionales/v1.demo.json")
 	if err != nil {
 		t.Fatal(err)
 	}

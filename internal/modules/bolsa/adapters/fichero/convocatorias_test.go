@@ -21,7 +21,7 @@ func TestFuenteDemoCargaAgregadoCanonicoSinPIIYDevuelveCopias(t *testing.T) {
 	resultado, err := consulta.BuscarPublicadas(context.Background(), puertosbolsa.FiltroConvocatoriasPublicas{
 		Instante: time.Date(2026, 7, 15, 8, 0, 0, 0, time.UTC), Limite: 24,
 	})
-	if err != nil || resultado.Total != 36 || !resultado.Fuente.Demostracion {
+	if err != nil || resultado.Total != 36 || resultado.Fuente.Demostracion || resultado.Fuente.Aviso != "" {
 		t.Fatalf("resultado = %#v, error = %v", resultado, err)
 	}
 	resultado.Convocatorias[0].DatosPublicos.Titulo = "alterado"
@@ -31,7 +31,7 @@ func TestFuenteDemoCargaAgregadoCanonicoSinPIIYDevuelveCopias(t *testing.T) {
 	}
 }
 
-func TestFuenteDemoOfreceDosRecorridosAbiertosClaramenteRotulados(t *testing.T) {
+func TestFuenteOfreceDosPlazosAbiertosSinMarcasDeEnsayo(t *testing.T) {
 	consulta, err := NuevaConsultaConvocatorias(rutaDemoPrueba)
 	if err != nil {
 		t.Fatal(err)
@@ -43,9 +43,15 @@ func TestFuenteDemoOfreceDosRecorridosAbiertosClaramenteRotulados(t *testing.T) 
 		t.Fatalf("total = %d, error = %v", resultado.Total, err)
 	}
 	for _, convocatoria := range resultado.Convocatorias {
-		if convocatoria.Estado != "inscripcion" || len(convocatoria.DatosPublicos.Plazos) != 1 ||
-			!strings.Contains(convocatoria.DatosPublicos.Descripcion, "escenario sintético rotulado como DEMO") {
-			t.Fatalf("recorrido abierto no queda inequívocamente rotulado: %#v", convocatoria)
+		if convocatoria.Estado != "inscripcion" || len(convocatoria.DatosPublicos.Plazos) != 1 {
+			t.Fatalf("plazo abierto incoherente: %#v", convocatoria)
+		}
+		visible := strings.ToUpper(convocatoria.DatosPublicos.Descripcion + convocatoria.DatosPublicos.Plazos[0].Titulo +
+			convocatoria.DatosPublicos.Plazos[0].Descripcion)
+		for _, marca := range []string{"DEMO", "SINTÉTIC", "EJEMPLO", "VALIDEZ"} {
+			if strings.Contains(visible, marca) {
+				t.Fatalf("texto visible con marca %q: %#v", marca, convocatoria)
+			}
 		}
 	}
 }
@@ -79,6 +85,8 @@ func TestFuenteDemoRechazaJSONLaxoDuplicadoYDatosPersonales(t *testing.T) {
 		"espacio no canonico":          strings.Replace(string(base), `"titulo": "Bolsa de empleo`, `"titulo": " Bolsa de empleo`, 1),
 		"marca bidi":                   strings.Replace(string(base), `"titulo": "Bolsa de empleo`, `"titulo": "Bolsa \u202ede empleo`, 1),
 		"version catalogo incoherente": strings.Replace(string(base), `"clave": "bolsa_temporal", "version": 1`, `"clave": "bolsa_temporal", "version": 2`, 1),
+		"demostracion sin aviso":       strings.Replace(string(base), `"demostracion": false,`, `"demostracion": true,`, 1),
+		"aviso no canonico":            strings.Replace(string(base), `"aviso": ""`, `"aviso": " Aviso"`, 1),
 		"categorias embebidas":         strings.Replace(string(base), `"catalogos": [`, `"catalogos": [{"referencia":"categorias_convocatoria","version":1,"entradas":[{"clave":"auxiliar-administrativo","version":1,"etiqueta":"Auxiliar administrativo","semantica":"informacion","orden":1,"publicable":true}]},`, 1),
 	}
 	for nombre, contenido := range casos {

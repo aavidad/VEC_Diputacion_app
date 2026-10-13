@@ -19,6 +19,30 @@ function raizFalsa() {
   } };
 }
 
+test("desde el menú se elige un expediente y un motivo antes de consultar su historia", async () => {
+  const { eventos, raiz } = raizFalsa();
+  const busquedas = [], consultas = [];
+  const fuente = { obtenerOpciones: async () => ({ ...opciones, es_ejemplo: false, seleccion_objetivo: true, fuentes: ["ct", "bolsa", "persona"] }),
+    buscarObjetivos: async (entrada) => { busquedas.push(entrada); return { objetivos: [{ referencia: "exp_1", etiqueta: "2026/CT-000127" }], despues_ref: "" }; },
+    consultar: async (entrada) => { consultas.push(entrada); return { registros: [], siguiente_cursor: "" }; } };
+  const anterior = globalThis.FormData;
+  globalThis.FormData = class { get(k) { return { fuente_objetivo: "ct", busqueda: "000127", motivo_consulta: "Revisión administrativa", desde: "", hasta: "" }[k]; } };
+  const vista = montarVistaAuditoria({ raiz, fuente });
+  try {
+    await esperar(); assert.equal(consultas.length, 0);
+    assert.match(raiz.innerHTML, /Qué quiere consultar/u);
+    eventos.submit({ target: { matches: (s) => s === "[data-auditoria-busqueda]" }, preventDefault() {} });
+    await esperar(); assert.equal(busquedas.length, 1); assert.equal(consultas.length, 0);
+    assert.match(raiz.innerHTML, /2026\/CT-000127/u);
+    eventos.change({ target: { value: "exp_1", matches: (s) => s === "[data-auditoria-objetivo]" } });
+    eventos.submit({ target: { matches: (s) => s === "[data-auditoria-filtros]" }, preventDefault() {} });
+    await esperar(); assert.equal(consultas.length, 1);
+    assert.equal(consultas[0].expediente_ref, "exp_1");
+    assert.equal(consultas[0].motivo_consulta, "Revisión administrativa");
+    assert.match(raiz.innerHTML, /Sin registros para estos filtros/u);
+  } finally { vista.desmontar(); globalThis.FormData = anterior; }
+});
+
 test("sin expediente de navegación la consulta permanece cerrada y no ofrece vínculo ni actor libres", () => {
   const html = renderizarVistaAuditoria();
   assert.match(html, /Abra Auditoría desde un expediente o participación autorizados/u);
@@ -27,11 +51,11 @@ test("sin expediente de navegación la consulta permanece cerrada y no ofrece v�
   assert.doesNotMatch(html, /name="expediente_ref"|name="actor_ref"|<table/u);
 });
 
-test("solo muestra expediente exacto escapado y aviso de configuración de ejemplo", () => {
+test("solo muestra expediente exacto escapado y sin marcas de ejemplo", () => {
   const html = renderizarVistaAuditoria({ estado: "esperando", habilitada: true,
     expedienteRef: 'exp_1"><script>', fuenteContexto: "ct", ejemplo: true });
   assert.match(html, /Número no disponible/u);
-  assert.match(html, /Muestra ficticia/u);
+  assert.doesNotMatch(html, /ficticia|ficticio/u);
   assert.doesNotMatch(html, /exp_1&quot;&gt;&lt;script&gt;/u);
   assert.doesNotMatch(html, /<script>|name="expediente_ref"|name="actor_ref"/u);
   const bolsa = renderizarVistaAuditoria({ estado: "esperando", habilitada: true,
@@ -55,11 +79,11 @@ test("conserva el número humano recibido de la ficha sin derivarlo de la refere
   assert.doesNotMatch(extraño, /<CT-000127>/u);
 });
 
-test("la muestra enseña nombres y números ficticios; las referencias y huellas quedan plegadas", () => {
+test("la muestra enseña nombres y números; las referencias y huellas quedan plegadas", () => {
   const respuesta = validarRespuestaAuditoria({ registros: [{ ...registro, antes: { unidad: "<script>" } }], siguiente_cursor: "" });
   const html = renderizarVistaAuditoria({ estado: "disponible", habilitada: true, ejemplo: true, registros: respuesta.registros });
-  assert.match(html, /Carmen Molina \(ficticio\).*Actualizó la relación de servicio.*EXP-2026-001 \(ficticio\)/su);
-  assert.match(html, /<details><summary>Ver detalle técnico<\/summary>[\s\S]*per_1[\s\S]*relacion\.actualizada[\s\S]*Huella SHA-256/u);
+  assert.match(html, /Carmen Molina.*Actualizó la relación de servicio.*EXP-2026-001/su);
+  assert.match(html, /<details><summary>Ver detalle<\/summary>[\s\S]*per_1[\s\S]*relacion\.actualizada[\s\S]*Huella SHA-256/u);
   assert.match(html, /datetime="2026-09-28T08:00:00Z"/u);
   assert.match(html, /&lt;script&gt;/u);
   assert.doesNotMatch(html, /<script>/u);
@@ -73,7 +97,7 @@ test("paginación se mantiene y denegación no presenta datos previos", () => {
   const pagina = renderizarVistaAuditoria({ estado: "vacio", habilitada: true, pagina: 2, puedeAnterior: true, siguienteCursor: "cursor_3" });
   assert.match(pagina, /Página 2|data-auditoria-siguiente/u);
   const denegado = renderizarVistaAuditoria({ estado: "denegado", habilitada: true, registros: [registro] });
-  assert.match(denegado, /Acceso denegado/u);
+  assert.match(denegado, /No tiene acceso/u);
   assert.doesNotMatch(denegado, /per_1|<table/u);
 });
 
@@ -90,10 +114,10 @@ test("GET de opciones antecede al POST, que usa expediente de navegación y refs
     const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1", fuenteContexto: "ct" });
     assert.match(raiz.innerHTML, /Comprobando opciones/u);
     await esperar();
-    assert.match(raiz.innerHTML, /Muestra ficticia/u);
+    assert.doesNotMatch(raiz.innerHTML, /ficticia|ficticio/u);
     assert.equal(peticiones.length, 1, "consulta automática al abrir");
     assert.equal(Date.parse(peticiones[0].hasta) - Date.parse(peticiones[0].desde), 30 * 86400000);
-    assert.match(raiz.innerHTML, /Carmen Molina \(ficticio\)/u);
+    assert.match(raiz.innerHTML, /Carmen Molina/u);
     eventos.submit({ target: { matches: () => true }, preventDefault() {} });
     await esperar();
     assert.equal(peticiones.length, 2);
@@ -103,7 +127,7 @@ test("GET de opciones antecede al POST, que usa expediente de navegación y refs
     assert.equal(peticion.actor_ref, "");
     assert.equal(peticion.finalidad_ref, opciones.finalidad_ref);
     assert.equal(peticion.motivo_ref, opciones.motivo_ref);
-    assert.match(raiz.innerHTML, /Ver detalle técnico/u);
+    assert.match(raiz.innerHTML, /Ver detalle/u);
     vista.desmontar();
   } finally { globalThis.FormData = original; }
 });
@@ -151,7 +175,7 @@ test("sin expediente no pide opciones, y 403 en opciones no expone datos", async
   const denegada = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1", fuenteContexto: "ct" });
   await esperar();
   assert.equal(llamadas, 1);
-  assert.match(raiz.innerHTML, /Acceso denegado/u);
+  assert.match(raiz.innerHTML, /No tiene acceso/u);
   assert.doesNotMatch(raiz.innerHTML, /secreto|<table/u);
   denegada.desmontar();
 });
@@ -166,7 +190,7 @@ test("404 de opciones muestra capacidad no disponible, distinta de permiso deneg
   assert.equal(post, 0);
   assert.match(raiz.innerHTML, /La consulta de auditoría no está disponible/u);
   assert.match(raiz.innerHTML, /CT-000127/u);
-  assert.doesNotMatch(raiz.innerHTML, /Acceso denegado|secreto|<table/u);
+  assert.doesNotMatch(raiz.innerHTML, /No tiene acceso|secreto|<table/u);
   vista.desmontar();
 });
 
@@ -182,7 +206,7 @@ test("sin fuente de navegación o sin fuente ofrecida por GET no consulta", asyn
   await esperar();
   assert.equal(get, 1);
   assert.equal(post, 0);
-  assert.match(raiz.innerHTML, /Acceso denegado/u);
+  assert.match(raiz.innerHTML, /No tiene acceso/u);
   assert.doesNotMatch(raiz.innerHTML, /name="fuente"/u);
   noOfrecida.desmontar();
 });
@@ -256,7 +280,7 @@ test("cambiar fecha cancela respuesta tardía y limpia el resultado", async () =
     eventos.submit({ target: { matches: () => true }, preventDefault() {} });
     eventos.input({ target: { matches: () => true, name: "desde", value: "2026-09-28T08:30", selectionStart: null, selectionEnd: null } });
     assert.equal(signal.aborted, true);
-    assert.match(raiz.innerHTML, /role="status" aria-live="polite">Pulse Consultar para aplicar los filtros/u);
+    assert.match(raiz.innerHTML, /role="status" aria-live="polite">Elija un registro y pulse Consultar/u);
     assert.equal(focoRestaurado, true);
     resolver({ registros: [registro], siguiente_cursor: "" });
     await esperar();
@@ -316,5 +340,5 @@ test("la auditoría temporalmente no disponible permite reintentar y mantiene lo
     numeroVisible: "CT-000127", fuenteContexto: "ct" });
   assert.match(html, /data-auditoria-reintentar/u);
   assert.match(html, /name="desde"[^>]+disabled/u);
-  assert.doesNotMatch(html, /<table|Acceso denegado/u);
+  assert.doesNotMatch(html, /<table|No tiene acceso/u);
 });

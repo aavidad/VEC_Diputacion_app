@@ -1,10 +1,10 @@
 {
   "version_esquema": 1,
   "fuente": {
-    "revision": "opes-bop-inventario-publico-demo-v3",
+    "revision": "opes-bop-inventario-publico-v4",
     "actualizada_en": "2026-07-19T00:00:00Z",
-    "demostracion": true,
-    "aviso": "DEMOSTRACIÓN: inventario de categorías contrastado con bases públicas de OPES y del BOP de Granada, sin datos personales, pendiente de validación y aprobación funcional por RRHH. No constituye un catálogo oficial ni tiene validez administrativa.",
+    "demostracion": false,
+    "aviso": "",
     "origen_sha256": "de9af856fea93e91340e77aef6403d607e49b3822e5d8f7856bca4a5d6ad5172"
   },
   "catalogo": {

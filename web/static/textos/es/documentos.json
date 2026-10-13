@@ -4,7 +4,7 @@
     "miga": "Portal del Empleado → Documentos",
     "titulo": "Documentos del expediente",
     "ayuda_etiqueta": "Ayuda sobre documentos",
-    "aclaracion_firma": "Firma oficial pendiente significa que aún no consta una firma con validez oficial. Puede haber un PDF firmado de prueba en custodia sin que cambie ese estado. El número del documento es interno de VEC. Preparar una notificación no acredita su entrega. Si otro sistema guarda el original, VEC solo conserva su huella.",
+    "aclaracion_firma": "«Firma oficial pendiente» significa que el documento aún no está firmado en Portafirmas. El número del documento es interno de VEC. Preparar una notificación no acredita su entrega. Si otro sistema guarda el original, VEC solo conserva su huella.",
     "cargar_mas": "Cargar más",
     "sin_expediente": "Abra los documentos desde un expediente.",
     "no_configurado": "La consulta de documentos no está disponible.",

@@ -90,6 +90,10 @@ func (c *constructorCanonicoBolsa) procedencia(valor ProcedenciaIntegracionBolsa
 	c.instante("evidencia_emitida_en", valor.Evidencia.EmitidaEn)
 	c.instante("evidencia_valida_hasta", valor.Evidencia.ValidaHasta)
 	c.instante("evidencia_retener_hasta", valor.Evidencia.RetenerHasta)
+	if valor.SinRetencionDeclarada {
+		c.booleano("sin_retencion_declarada", true)
+		c.booleano("politica_provisional", valor.PoliticaProvisional)
+	}
 }
 
 func (c *constructorCanonicoBolsa) bytes() []byte {

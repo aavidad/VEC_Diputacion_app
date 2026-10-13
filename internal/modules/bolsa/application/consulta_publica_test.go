@@ -35,7 +35,7 @@ func servicioPublicoPrueba(t *testing.T, instante time.Time) *aplicacionbolsa.Se
 
 func categoriasPublicasPrueba(t *testing.T) puertosbolsa.ConsultaCategoriasPublicas {
 	t.Helper()
-	paquete, err := ficherovec.NuevaConsultaCatalogos("../../../../data/catalogos/categorias-profesionales/v1.demo.json")
+	paquete, err := ficherovec.NuevaConsultaCatalogoProvisionable("../../../../data/catalogos/categorias-profesionales/v1.demo.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestDirectorioPublicoExpone68CategoriasMinimizadasYConteos(t *testing.T) {
 	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC))
 	resultado, err := servicio.ListarCategorias(context.Background())
 	if err != nil || resultado.Esquema != "vec.bolsa.publico.categorias.v1" ||
-		resultado.Catalogo.Total != 68 || len(resultado.Categorias) != 68 || !resultado.Fuente.Demostracion {
+		resultado.Catalogo.Total != 68 || len(resultado.Categorias) != 68 || resultado.Fuente.Demostracion {
 		t.Fatalf("resultado=%#v error=%v", resultado, err)
 	}
 	if primera := resultado.Categorias[0]; primera.Clave != "administrativo" || primera.Orden != 1 ||
@@ -173,7 +173,7 @@ func TestConsultaPublicaAcotaFiltrosYPaginacion(t *testing.T) {
 	}
 }
 
-func TestDetalleDemoSeparaPublicacionRealYPlazoSinteticoAbierto(t *testing.T) {
+func TestDetalleSeparaPublicacionYPlazoAbierto(t *testing.T) {
 	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 19, 8, 0, 0, 0, time.UTC))
 	detalle, err := servicio.Obtener(context.Background(), "bolsa-operario-diputacion-2026")
 	if err != nil {
@@ -182,8 +182,8 @@ func TestDetalleDemoSeparaPublicacionRealYPlazoSinteticoAbierto(t *testing.T) {
 	if len(detalle.Plazos) != 1 || detalle.Convocatoria.Estado.Clave != "inscripcion" ||
 		!detalle.Convocatoria.PublicadaEn.Equal(time.Date(2026, 3, 5, 0, 0, 0, 0, time.UTC)) ||
 		len(detalle.Requisitos) != 6 || len(detalle.Documentos) != 2 ||
-		!strings.Contains(detalle.Descripcion, "escenario sintético rotulado como DEMO") {
-		t.Fatalf("detalle DEMO inesperado: %#v", detalle)
+		strings.Contains(strings.ToUpper(detalle.Descripcion), "DEMO") {
+		t.Fatalf("detalle inesperado: %#v", detalle)
 	}
 }
 

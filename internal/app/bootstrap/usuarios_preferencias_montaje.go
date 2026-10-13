@@ -14,6 +14,7 @@ import (
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/separacionportales"
 	aspiranteshttp "vec-diputacion-granada/internal/modules/aspirantes/adapters/httpapi"
+	meritoshttp "vec-diputacion-granada/internal/modules/meritos/adapters/http"
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	usuariospg "vec-diputacion-granada/internal/modules/usuarios/adapters/postgres"
 	usuariosapp "vec-diputacion-granada/internal/modules/usuarios/application"
@@ -77,6 +78,7 @@ type autoridadPreferenciasUsuariosDesarrollo struct {
 	manejador   http.Handler
 	proveedor   *proveedorPreferenciasUsuarios
 	registrador registradorDenegacionPreferenciasUsuarios
+	fuente      vecports.FuenteAutorizacion
 	incidencias vecports.EmisorIncidenciasTecnicas
 	cerrar      func()
 	ruta        string
@@ -94,9 +96,10 @@ type autoridadPreferenciasUsuariosDesarrollo struct {
 	prefijoError, metodoEscritura string
 	// Aspirantes (ficha propia): autoridad hermana solo en la superficie
 	// externa, con su propio registro de frontera y superficie de auditoría.
-	aspirantes           *autoridadPreferenciasUsuariosDesarrollo
-	componenteAspirantes *componenteAspirantes
-	superficieAuditoria  string
+	aspirantes                     *autoridadPreferenciasUsuariosDesarrollo
+	componenteAspirantes           *componenteAspirantes
+	cartera, retirada, declaracion *autoridadPreferenciasUsuariosDesarrollo
+	superficieAuditoria            string
 }
 
 type composicionPreferenciasUsuarios struct {
@@ -288,7 +291,11 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 			}
 			fallo(401, "no_autenticado")
 		}
-		if r.URL.RawPath != "" || r.URL.RawQuery != "" || r.URL.ForceQuery || len(r.TransferEncoding) != 0 || len(r.Trailer) != 0 {
+		// Solo el GET de cartera necesita selectores. Su handler los valida
+		// después de resolver la sesión y audita los intentos inválidos.
+		consultaCartera := a.ruta == meritoshttp.RutaCartera && r.Method == http.MethodGet
+		if r.URL.RawPath != "" || r.URL.RawQuery != "" && !consultaCartera ||
+			r.URL.ForceQuery || len(r.TransferEncoding) != 0 || len(r.Trailer) != 0 {
 			fallo(422, "peticion_invalida")
 			return
 		}
@@ -575,7 +582,9 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 		return nil, errComposicionUsuariosPreferencias
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: map[string]cuentaRutasDietasDesarrollo{}, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
-	a := &autoridadPreferenciasUsuariosDesarrollo{base: base, cuentas: cuentas, reloj: reloj, cerrar: cerrar, registrador: registrador, incidencias: incidencias, ruta: ruta, superficie: superficie, logins: logins}
+	a := &autoridadPreferenciasUsuariosDesarrollo{base: base, cuentas: cuentas, reloj: reloj, cerrar: cerrar,
+		registrador: registrador, fuente: fuente, incidencias: incidencias,
+		ruta: ruta, superficie: superficie, logins: logins}
 	a.proveedor = &proveedorPreferenciasUsuarios{autoridad: a, consulta: emisorConsulta, actualizacion: emisorActualizacion, motivoConsulta: c.MotivoConsulta, motivoActualizacion: c.MotivoActualizacion}
 	servicio, err := usuariosapp.NuevoServicioPreferencias(repositorio, time.Now)
 	if err != nil {

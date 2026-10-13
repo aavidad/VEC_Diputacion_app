@@ -36,15 +36,17 @@ type Posicion struct {
 // Filtro se liga por V3 a la consulta. Hasta es exclusivo y Antes, si existe,
 // excluye esa fila de la pagina siguiente.
 type Filtro struct {
-	Fuente        string
-	ExpedienteRef string
-	ActorRef      string
-	Desde         time.Time
-	Hasta         time.Time
-	Limite        uint16
-	Antes         Posicion
-	FinalidadRef  string
-	MotivoRef     string
+	Fuente          string
+	ExpedienteRef   string
+	ActorRef        string
+	Desde           time.Time
+	Hasta           time.Time
+	Limite          uint16
+	Antes           Posicion
+	FinalidadRef    string
+	MotivoRef       string
+	MotivoConsulta  string
+	AutorLecturaRef string
 }
 
 // ConsultaAutorizada transporta el material nominal V3 hasta el adaptador del
@@ -76,11 +78,17 @@ type Registro struct {
 	Antes            map[string]string `json:"antes"`
 	Despues          map[string]string `json:"despues"`
 	DatosDisponibles bool              `json:"datos_disponibles"`
+	PerfilRef        string            `json:"perfil_ref,omitempty"`
+	FinalidadRef     string            `json:"finalidad_ref,omitempty"`
+	Canal            string            `json:"canal,omitempty"`
 }
 
 // Cada fuente pertenece a su modulo y consulta solo su propio almacen. El
 // resultado viene ordenado por (ocurrido_en,fuente,id) descendente.
-type PaginaFuente struct{ Registros []Registro }
+type PaginaFuente struct {
+	Registros    []Registro
+	AuditoriaRef string
+}
 
 type FuenteAuditoria interface {
 	ConsultarAuditoria(context.Context, ConsultaAutorizada) (PaginaFuente, error)

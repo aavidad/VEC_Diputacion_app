@@ -12,7 +12,7 @@
   "abrir": "Open prepared material",
   "archivo": "Preparer output file",
   "archivo_pista": "Select the preparer JSON output, rather than its input file. Maximum 4 MiB; up to 1,024 items per list.",
-  "limite": "Local review of synthetic material. The file does not establish a call for applications, signature, approval or publication.",
+  "limite": "Local review of the prepared material. Opening the file does not approve, sign or publish the rules.",
   "vacio": "Look up a preparation or open a preparer output file.",
   "cargando": "Reading the file…",
   "cargado": "File opened: {archivo}. Review the outstanding checks before continuing.",

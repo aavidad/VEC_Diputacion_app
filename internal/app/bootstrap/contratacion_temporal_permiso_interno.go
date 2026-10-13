@@ -152,7 +152,8 @@ func PublicarPermisoInternoCT(ctx context.Context, pool *pgxpool.Pool, s Solicit
  JOIN vec_contexto_actor_v1.persona_actual xa ON xa.persona_ref=v.persona_ref
  JOIN vec_contexto_actor_v1.persona_versiones x ON (x.persona_ref,x.version)=(xa.persona_ref,xa.version)
  JOIN vec_contexto_actor_v1.vinculo_corporativo_actual vc ON
-   vc.cuenta_ref=v.cuenta_ref AND vc.superficie='interna_corporativa' AND vc.uso='consulta_rrhh'
+   vc.cuenta_ref=v.cuenta_ref AND vc.perfil_ref=v.perfil_ref
+   AND vc.superficie='interna_corporativa' AND vc.uso='consulta_rrhh'
  JOIN vec_contexto_actor_v1.vinculo_corporativo_versiones cv ON
    (cv.vinculo_corporativo_ref,cv.version)=(vc.vinculo_corporativo_ref,vc.version)
  JOIN vec_contexto_actor_v1.organizacion_actual oa ON oa.organizacion_ref=cv.organizacion_ref

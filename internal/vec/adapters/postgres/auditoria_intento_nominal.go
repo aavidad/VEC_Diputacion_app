@@ -141,6 +141,16 @@ type ordenIntentoAuditoriaSQL struct {
 	CorrelacionRef      string `json:"correlacion_ref"`
 }
 
+// SerializarOrdenIntentoAuditoria conserva el formato común al componer una
+// lectura propietaria que registra el asiento dentro de su función SQL.
+func SerializarOrdenIntentoAuditoria(orden ports.OrdenIntentoAuditoria) (contexto, vinculo, material []byte, err error) {
+	datos, err := orden.Datos()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return serializarIntentoAuditoria(datos)
+}
+
 func serializarIntentoAuditoria(
 	datos ports.DatosOrdenIntentoAuditoria,
 ) (contextoCanonico, vinculoCanonico, ordenCanonica []byte, err error) {
@@ -181,10 +191,6 @@ func serializarIntentoAuditoria(
 func (r *RegistradorIntentosAuditoriaPostgreSQL) appendEnTransaccion(
 	ctx context.Context, datos ports.DatosOrdenIntentoAuditoria,
 ) (ports.AcuseIntentoAuditoria, error) {
-	contextoCanonico, vinculoCanonico, ordenCanonica, err := serializarIntentoAuditoria(datos)
-	if err != nil {
-		return ports.AcuseIntentoAuditoria{}, err
-	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil || valorNuloPostgreSQL(tx) {
 		if err != nil {
@@ -196,14 +202,10 @@ func (r *RegistradorIntentosAuditoriaPostgreSQL) appendEnTransaccion(
 	if err = configurarTransaccionAutorizacion(ctx, tx); err != nil {
 		return ports.AcuseIntentoAuditoria{}, err
 	}
-	var acuse ports.AcuseIntentoAuditoria
-	if err = tx.QueryRow(ctx, consultaAppendIntentoAuditoria,
-		contextoCanonico, vinculoCanonico, ordenCanonica,
-	).Scan(&acuse.AuditoriaRef, &acuse.Secuencia, &acuse.HuellaSHA256,
-		&acuse.CorrelacionRef, &acuse.RegistradaEn); err != nil {
+	acuse, err := appendDatosIntentoAuditoriaEnTx(ctx, tx, datos)
+	if err != nil {
 		return ports.AcuseIntentoAuditoria{}, err
 	}
-	acuse.RegistradaEn = acuse.RegistradaEn.UTC()
 	if err = tx.Commit(ctx); err != nil {
 		return ports.AcuseIntentoAuditoria{}, err
 	}

@@ -526,6 +526,20 @@ test("doble envío no duplica operación y el recibo minimizado abre comunicaci�
   assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="seleccion"/u); assert.match(raiz.innerHTML, /data-ct-llamamiento-comunicacion open/u); assert.doesNotMatch(raiz.innerHTML, /Persona llamada\. El justificante no muestra sus datos\./u); assert.equal(solicitudes[0].version_esperada, 6);
 });
 
+test("el recibo de selección señala el orden provisional solo cuando Bolsa lo afirma", async () => {
+  for (const valor of [undefined, false, true]) {
+    const raiz = raizPrueba();
+    const desmontar = montar(raiz, { seleccionarLlamamiento: async () =>
+      valor === undefined ? recibo : { ...recibo, politica_provisional: valor } });
+    await raiz.enviar("seleccion", seleccion());
+    const reciboVisible = raiz.innerHTML.match(/<section class="ct-recibo" data-ct-llamamiento-recibo="seleccion"[\s\S]*?<\/section>/u)?.[0];
+    assert.ok(reciboVisible);
+    assert.equal(reciboVisible.includes("Se aplicó el orden provisional de la bolsa"), valor === true);
+    assert.doesNotMatch(reciboVisible, /aprobado|aprobada|politica_provisional|servidor|SHA/u);
+    desmontar();
+  }
+});
+
 test("respuesta perdida: recuperación usa petición congelada aunque cambien controles", async () => {
   const raiz = raizPrueba(), solicitudes = [];
   montar(raiz, { seleccionarLlamamiento: async (solicitud) => {

@@ -156,7 +156,13 @@ func prepararAsignacionMiBolsaPortalExterno(semilla dominiovec.InstantaneaAutori
 // exterior: una sola membresía directa heredada, sin SET ni administración,
 // sin cadena de roles y sin atributos privilegiados. No registra el DSN.
 func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpool.Pool, string, error) {
-	if ctx == nil || ctx.Err() != nil || dsn == "" || rol == "" {
+	return abrirPoolNominalPortalExterno(ctx, dsn, rol, "vec-portal-externo-mi-bolsa")
+}
+
+// abrirPoolNominalPortalExterno comparte la guarda de TLS, membresía única y
+// telemetría; cada módulo conserva LOGIN, rol y nombre técnico propios.
+func abrirPoolNominalPortalExterno(ctx context.Context, dsn, rol, nombreAplicacion string, otrosRoles ...string) (*pgxpool.Pool, string, error) {
+	if ctx == nil || ctx.Err() != nil || dsn == "" || rol == "" || nombreAplicacion == "" {
 		return nil, "", errMiBolsaNoDisponible
 	}
 	cfg, err := pgxpool.ParseConfig(dsn)
@@ -171,7 +177,7 @@ func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpo
 		cfg.ConnConfig.RuntimeParams = map[string]string{}
 	}
 	for clave, valor := range map[string]string{
-		"application_name": "vec-portal-externo-mi-bolsa", "timezone": "UTC", "search_path": "pg_catalog",
+		"application_name": nombreAplicacion, "timezone": "UTC", "search_path": "pg_catalog",
 		"statement_timeout": "10s", "lock_timeout": "2s", "idle_in_transaction_session_timeout": "15s",
 	} {
 		cfg.ConnConfig.RuntimeParams[clave] = valor
@@ -181,17 +187,26 @@ func abrirPoolMiBolsaPortalExterno(ctx context.Context, dsn, rol string) (*pgxpo
 	if err != nil {
 		return nil, "", errMiBolsaNoDisponible
 	}
+	roles := append([]string{rol}, otrosRoles...)
+	vistos := map[string]bool{}
+	for _, esperado := range roles {
+		if esperado == "" || vistos[esperado] {
+			pool.Close()
+			return nil, "", errMiBolsaNoDisponible
+		}
+		vistos[esperado] = true
+	}
 	var login string
 	var permitido bool
 	err = pool.QueryRow(ctx, `SELECT session_user::text,
  session_user=current_user AND r.rolcanlogin AND r.rolinherit AND
  NOT(r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
- AND (SELECT count(*)=1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)
- AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid=m.roleid
-             WHERE m.member=r.oid AND g.rolname=$1 AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option
+ AND (SELECT count(*)=cardinality($1::text[]) FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)
+ AND (SELECT count(*)=cardinality($1::text[]) FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid=m.roleid
+             WHERE m.member=r.oid AND g.rolname=ANY($1::text[]) AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option
                AND NOT(g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
                AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members superior WHERE superior.member=g.oid))
- FROM pg_catalog.pg_roles r WHERE r.rolname=session_user`, rol).Scan(&login, &permitido)
+ FROM pg_catalog.pg_roles r WHERE r.rolname=session_user`, roles).Scan(&login, &permitido)
 	if err != nil || !permitido {
 		pool.Close()
 		return nil, "", errMiBolsaNoDisponible
@@ -233,6 +248,8 @@ const firmaConsultarPreferenciasBolsasPortalExterno = "vec_bolsa_llamamientos.co
 
 const firmaIntentoPreferenciasBolsasPortalExterno = "vec_bolsa_llamamientos.registrar_intento_lectura_preferencias_bolsas_v1(text,bytea,bytea,jsonb)"
 
+const firmaPresentarAlegacionPortalExterno = "vec_bolsa_llamamientos.presentar_alegacion_v1(text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"
+
 // El estado SQL se decide por todas las sobrecargas B96 existentes, no por
 // el selector HTTP ni por la sola lista de GRANT del LOGIN.
 func funcionesMiBolsaPortalExternoExactas(obtenidas []string, funcionesB96 int, b96Exacta bool) bool {
@@ -243,6 +260,15 @@ func funcionesMiBolsaPortalExternoExactas(obtenidas []string, funcionesB96 int, 
 func funcionesMiBolsaPortalExternoExactasConPreferencias(obtenidas []string, funcionesB96 int, b96Exacta bool,
 	funcionesB104 int, b104Exacta bool, funcionesLecturaB104 int, lecturaB104Exacta bool,
 	funcionesIntentoB104 int, intentoB104Exacta bool,
+) bool {
+	return funcionesMiBolsaPortalExternoExactasConAlegaciones(obtenidas, funcionesB96, b96Exacta,
+		funcionesB104, b104Exacta, funcionesLecturaB104, lecturaB104Exacta,
+		funcionesIntentoB104, intentoB104Exacta, 0, false)
+}
+
+func funcionesMiBolsaPortalExternoExactasConAlegaciones(obtenidas []string, funcionesB96 int, b96Exacta bool,
+	funcionesB104 int, b104Exacta bool, funcionesLecturaB104 int, lecturaB104Exacta bool,
+	funcionesIntentoB104 int, intentoB104Exacta bool, funcionesB114 int, b114Exacta bool,
 ) bool {
 	preferenciasExactas := funcionesB104 == 1 && b104Exacta && funcionesLecturaB104 == 1 && lecturaB104Exacta &&
 		funcionesIntentoB104 == 1 && intentoB104Exacta
@@ -267,6 +293,11 @@ func funcionesMiBolsaPortalExternoExactasConPreferencias(obtenidas []string, fun
 			return false
 		}
 	default:
+		return false
+	}
+	if funcionesB114 == 1 && b114Exacta && funcionesB96 == 1 && b96Exacta {
+		esperadas = append(esperadas, "presentar_alegacion_v1")
+	} else if funcionesB114 != 0 || b114Exacta {
 		return false
 	}
 	if len(obtenidas) != len(esperadas) {
@@ -297,6 +328,11 @@ type consultadorACLMiBolsaPortalExterno interface {
 }
 
 func comprobarACLMiBolsaPortalExterno(ctx context.Context, consultador consultadorACLMiBolsaPortalExterno, requiereInscripcion bool) bool {
+	return comprobarACLMiBolsaPortalExternoConAlegaciones(ctx, consultador, requiereInscripcion, false)
+}
+
+func comprobarACLMiBolsaPortalExternoConAlegaciones(ctx context.Context, consultador consultadorACLMiBolsaPortalExterno,
+	requiereInscripcion, requiereAlegaciones bool) bool {
 	if ctx == nil || ctx.Err() != nil || consultador == nil {
 		return false
 	}
@@ -362,6 +398,19 @@ func comprobarACLMiBolsaPortalExterno(ctx context.Context, consultador consultad
   ),false) AS exacta
  FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
  WHERE n.nspname='vec_bolsa_llamamientos' AND p.proname='registrar_intento_lectura_preferencias_bolsas_v1'
+), b114 AS (
+ SELECT count(*)::integer AS total,
+  coalesce(bool_and(
+   p.oid=pg_catalog.to_regprocedure($6::text)::oid AND p.prosecdef
+   AND pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+   AND EXISTS(SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+    WHERE a.grantee=(SELECT r.oid FROM pg_catalog.pg_roles r WHERE r.rolname='vec_bolsa_llamamientos_portal_externo')
+      AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+    WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+  ),false) AS exacta
+ FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='vec_bolsa_llamamientos' AND p.proname='presentar_alegacion_v1'
 )
 SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM funciones),ARRAY[]::text[]),
  (SELECT coalesce(bool_and(prosecdef),false) FROM funciones)
@@ -392,7 +441,8 @@ SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM fun
  (SELECT total FROM b96),(SELECT exacta FROM b96),
  (SELECT total FROM b104),(SELECT exacta FROM b104),
  (SELECT total FROM b104_lectura),(SELECT exacta FROM b104_lectura),
- (SELECT total FROM b104_intento),(SELECT exacta FROM b104_intento)`
+ (SELECT total FROM b104_intento),(SELECT exacta FROM b104_intento),
+ (SELECT total FROM b114),(SELECT exacta FROM b114)`
 	var funciones []string
 	var permitido bool
 	var funcionesB96 int
@@ -403,15 +453,19 @@ SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM fun
 	var lecturaB104Exacta bool
 	var funcionesIntentoB104 int
 	var intentoB104Exacta bool
+	var funcionesB114 int
+	var b114Exacta bool
 	return consultador.QueryRow(ctx, acl, firmaSolicitarInscripcionPortalExterno, firmaSolicitarDocumentalPortalExterno,
 		firmaOrdenarPreferenciasBolsasPortalExterno, firmaConsultarPreferenciasBolsasPortalExterno,
-		firmaIntentoPreferenciasBolsasPortalExterno).
+		firmaIntentoPreferenciasBolsasPortalExterno, firmaPresentarAlegacionPortalExterno).
 		Scan(&funciones, &permitido, &funcionesB96, &b96Exacta, &funcionesB104, &b104Exacta,
-			&funcionesLecturaB104, &lecturaB104Exacta, &funcionesIntentoB104, &intentoB104Exacta) == nil &&
+			&funcionesLecturaB104, &lecturaB104Exacta, &funcionesIntentoB104, &intentoB104Exacta,
+			&funcionesB114, &b114Exacta) == nil &&
 		permitido && (!requiereInscripcion || funcionesB96 == 1 && b96Exacta) &&
-		funcionesMiBolsaPortalExternoExactasConPreferencias(funciones, funcionesB96, b96Exacta,
+		(!requiereAlegaciones || requiereInscripcion && funcionesB114 == 1 && b114Exacta) &&
+		funcionesMiBolsaPortalExternoExactasConAlegaciones(funciones, funcionesB96, b96Exacta,
 			funcionesB104, b104Exacta, funcionesLecturaB104, lecturaB104Exacta,
-			funcionesIntentoB104, intentoB104Exacta)
+			funcionesIntentoB104, intentoB104Exacta, funcionesB114, b114Exacta)
 }
 
 // nuevaSesionMiBolsaPortalExterno recibe los puertos nominales exteriores de

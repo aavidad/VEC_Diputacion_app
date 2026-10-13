@@ -7,7 +7,7 @@ import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=2026
 import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import {
-  renderizarAlegaciones, renderizarLlamamientos, renderizarSubsanaciones,
+  renderizarLlamamientos, renderizarSubsanaciones,
 } from "./vistas/seguimiento-tramites.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261011-mibolsa-respuesta-anterior-v1";
@@ -25,9 +25,10 @@ const RUTAS = Object.freeze({
       : renderizarPreferencias(estado.preferencias)) + (estado.imagen?.renderizar() ?? "") + (estado.correos?.renderizar() ?? "")],
   oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   perfil: ["areaPersonal.rutas.perfil", renderizarPerfil],
+  meritos: ["areaPersonal.rutas.meritos", () => '<div id="meritos-reales-montaje"></div>'],
   llamamientos: ["areaPersonal.rutas.llamamientos", renderizarLlamamientos],
   subsanaciones: ["areaPersonal.rutas.subsanaciones", renderizarSubsanaciones],
-  alegaciones: ["areaPersonal.rutas.alegaciones", renderizarAlegaciones],
+  alegaciones: ["areaPersonal.rutas.alegaciones", () => '<div id="alegaciones-reales-montaje"></div>'],
   mensajes: ["areaPersonal.rutas.mensajes", renderizarMensajes],
   certificados: ["areaPersonal.rutas.certificados", renderizarCertificados],
   inscripcion: ["areaPersonal.rutas.inscripcion", () => '<div id="inscripcion-bolsa-montaje"></div>'],
@@ -67,6 +68,8 @@ const PARAMETROS_URL_ADMITIDOS = Object.freeze(new Set(["vista", "id", "lang"]))
 
 export function exigirParametrosConocidos(parametros) {
   for (const nombre of parametros.keys()) {
+    if (nombre === "filtro" && parametros.get("vista") === "meritos") continue;
+    if (nombre === "alega_cursor" && parametros.get("vista") === "alegaciones") continue;
     if (!PARAMETROS_URL_ADMITIDOS.has(nombre)) throw new TypeError(t("parametrosNoAdmitidos"));
   }
 }
@@ -251,6 +254,16 @@ function actualizarShell(estado) {
 function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {}) {
   if (!estado.datos) return;
   const generacion = ++estado.generacionVista;
+  if (estado.montajeMeritos) {
+    estado.pendienteRetiradaMeritos = estado.montajeMeritos.pendiente();
+    estado.montajeMeritos.desmontar();
+    estado.montajeMeritos = null;
+  }
+  if (estado.montajeAlegaciones) {
+    estado.pendienteAlegacion = estado.montajeAlegaciones.pendiente();
+    estado.montajeAlegaciones.desmontar(); estado.montajeAlegaciones = null;
+  }
+  estado.controladorAlegaciones?.abort(); estado.controladorAlegaciones = null;
   estado.destruirInscripcionBolsa?.();
   estado.destruirInscripcionBolsa = null;
   estado.destruirHistorialMiBolsa?.();
@@ -272,6 +285,8 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
   if (estado.vista === "inscripcion") montarVistaInscripcion(estado, generacion);
+  if (estado.vista === "meritos") montarVistaMeritos(estado, generacion);
+  if (estado.vista === "alegaciones") montarVistaAlegaciones(estado, generacion);
   if (estado.avisoInicio && estado.vista !== "preferencias") {
     const aviso = document.createElement("p");
     aviso.className = "preferencias-estado preferencias-aviso";
@@ -326,6 +341,43 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   }
 }
 
+function montarVistaAlegaciones(estado, generacion) {
+  const contenedor = porId("alegaciones-reales-montaje");
+  const vigente = () => estado.generacionVista === generacion && estado.vista === "alegaciones";
+  const controlador = new AbortController(); estado.controladorAlegaciones = controlador;
+  contenedor.innerHTML = `<p role="status">${escaparHTML(traducir("areaPersonal.html.cargandoInformacion"))}</p>`;
+  estado.cargarVistaAlegaciones().then(async ({ montarAlegaciones }) => {
+    if (!vigente() || controlador.signal.aborted) return;
+    const { crearClienteAlegaciones } = await import("../comun/alegaciones-cliente.js?v=20261013-alegaciones-v1");
+    if (!vigente() || controlador.signal.aborted) return;
+    const montaje = await montarAlegaciones({ contenedor, modo: "propias", escaparHTML,
+      cliente: crearClienteAlegaciones({ fetchImpl: estado.fetchImpl }), signal: controlador.signal,
+      localizacion: window.location, historial: window.history, pendiente: estado.pendienteAlegacion });
+    if (!vigente() || controlador.signal.aborted) { montaje.desmontar(); return; }
+    estado.montajeAlegaciones = montaje;
+  }).catch((error) => {
+    if (!vigente() || controlador.signal.aborted) return;
+    console.error("alegaciones_vista_carga", { tipo: error?.name ?? "Error" });
+    contenedor.innerHTML = renderizarErrorCargaAreaPersonal(error);
+  });
+}
+
+function montarVistaMeritos(estado, generacion) {
+  const contenedor = porId("meritos-reales-montaje");
+  const vigente = () => estado.generacionVista === generacion && estado.vista === "meritos";
+  contenedor.innerHTML = `<p role="status">${escaparHTML(traducir("areaPersonal.html.cargandoInformacion"))}</p>`;
+  estado.cargarVistaMeritos().then(({ montarMeritosReales }) => {
+    if (!vigente()) return;
+    estado.montajeMeritos = montarMeritosReales({ contenedor, fetchImpl: estado.fetchImpl,
+      idioma: idiomaActivoAreaPersonal(), ubicacion: window.location,
+      historial: window.history, pendiente: estado.pendienteRetiradaMeritos });
+  }).catch((error) => {
+    if (!vigente()) return;
+    console.error("meritos_vista_carga", { tipo: error?.name ?? "Error" });
+    contenedor.innerHTML = renderizarErrorCargaAreaPersonal(error);
+  });
+}
+
 // La vista de inscripción se carga aparte y no depende de Mi Bolsa: la API
 // resuelve la identidad y autoriza cada petición, aunque no haya participación.
 function montarVistaInscripcion(estado, generacion) {
@@ -348,10 +400,12 @@ function montarVistaInscripcion(estado, generacion) {
 }
 
 // Entrar o salir de inscripción rehace los datos: su contenedor no usa los de Mi Bolsa.
-function recargarPorInscripcion(estado) {
-  if (estado.vista !== "inscripcion" && !estado.soloInscripcion) return false;
+function recargarPorVistaIndependiente(estado) {
+  if (!["inscripcion", "meritos", "alegaciones"].includes(estado.vista) && !estado.soloInscripcion && !estado.soloMeritos && !estado.soloAlegaciones) return false;
   estado.datos = null;
   estado.soloInscripcion = false;
+  estado.soloMeritos = false;
+  estado.soloAlegaciones = false;
   void cargar(estado);
   return true;
 }
@@ -364,7 +418,7 @@ function navegar(estado, vista) {
   window.history.pushState({ vista }, "", crearURL(estado, vista));
   cerrarMenu();
   cerrarMenuIdentidad();
-  if (recargarPorInscripcion(estado)) return;
+  if (recargarPorVistaIndependiente(estado)) return;
   if (vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
     estado.datos = null;
     estado.soloPreferencias = false;
@@ -631,7 +685,7 @@ function conectarEventos(estado) {
     const inicioAjeno = inicioAjenoElegido(estado.preferencias.estado);
     estado.vista = parametros.has("vista") ? rutaDesdeURL(estado) : inicioAjeno ? "inicio" : "llamamientos";
     estado.avisoInicio = !parametros.has("vista") && inicioAjeno;
-    if (recargarPorInscripcion(estado)) return;
+    if (recargarPorVistaIndependiente(estado)) return;
     if (estado.vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
       estado.datos = null;
       estado.soloPreferencias = false;
@@ -660,6 +714,15 @@ function conectarEventos(estado) {
 const inicioAjenoElegido = (e) => Boolean(e && e.version > 0 && e.valores?.inicio !== "bolsas"); // solo elección guardada (versión > 0)
 async function cargar(estado) {
   const carga = ++estado.cargaDatosVersion;
+  if (["meritos", "alegaciones"].includes(estado.vista) && rutaDisponible(estado, estado.vista)) {
+    const base = datosMinimosMiBolsa({ consultada_en: "" });
+    estado.datos = { ...base, meta: { origen: traducir(`areaPersonal.rutas.${estado.vista}`) } };
+    estado.soloMeritos = estado.vista === "meritos";
+    estado.soloAlegaciones = estado.vista === "alegaciones";
+    estado.error = null;
+    renderizar(estado);
+    return;
+  }
   if (estado.vista === "inscripcion" && rutaDisponible(estado, "inscripcion")) {
     const base = datosMinimosMiBolsa({ consultada_en: "" });
     estado.datos = { ...base, meta: { origen: "shell_inscripcion" }, sesion: { ...base.sesion, metodo: "" } };
@@ -711,7 +774,9 @@ async function cargar(estado) {
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
   errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false,
-  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261011-mibolsa-respuesta-anterior-v1") } = {}) {
+  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261011-mibolsa-respuesta-anterior-v1"),
+  cargarVistaMeritos = () => import("./meritos-reales-montaje.js?v=20261013-meritos-recorrido-v1"),
+  cargarVistaAlegaciones = () => import("../comun/alegaciones-vista.js?v=20261013-alegaciones-v1") } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }
@@ -723,10 +788,19 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     vistasDisponibles,
     datos: null,
     cargarVistaInscripcion,
+    cargarVistaMeritos,
+    cargarVistaAlegaciones,
+    montajeAlegaciones: null,
+    controladorAlegaciones: null,
+    pendienteAlegacion: null,
     destruirInscripcionBolsa: null,
+    montajeMeritos: null,
+    pendienteRetiradaMeritos: null,
     generacionVista: 0,
     cargaDatosVersion: 0,
     soloInscripcion: false,
+    soloMeritos: false,
+    soloAlegaciones: false,
     miBolsaIntentada: false,
     vista: parametros.has("vista") ? rutaDesdeURL({ vistasDisponibles }) : inicioAjeno ? "inicio" : "llamamientos",
     clientePreferencias,

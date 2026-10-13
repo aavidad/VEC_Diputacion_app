@@ -8,7 +8,7 @@ import (
 
 func TestRutaCatalogoAuditoriaConsultaDesarrollo(t *testing.T) {
 	activo := Config{ExecutionProfile: ExecutionProfileDevelopment, AuthMode: AuthModeDevelopment, DevelopmentGuard: DevelopmentGuardAcknowledgement}
-	if ruta, err := activo.RutaCatalogoAuditoriaConsultaDesarrollo(); err != nil || ruta != RutaCatalogoAuditoriaConsultaEjemplo {
+	if ruta, err := activo.RutaCatalogoAuditoriaConsultaDesarrollo(); err != nil || ruta != RutaCatalogoAuditoriaConsultaRRHH {
 		t.Fatalf("catalogo predeterminado: %q, %v", ruta, err)
 	}
 	t.Setenv(EnvAuditoriaConsultaCatalogoPath, " /tmp/catalogo-auditoria.json ")
