@@ -21,7 +21,7 @@ import {
 } from "./vista-expedientes-render.js?v=20261013-ct-firma-tres-v2";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261013-ct-firma-tres-v2";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261013-ct-firma-tres-v2";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261013-ct-firma-tres-v2";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261013-ct-firma-tres-v3";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261013-ct-firma-tres-v2";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261013-ct-firma-tres-v2";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261011-ct-bolsa-vinculo-v1";
@@ -160,6 +160,8 @@ export async function montarModuloContratacionTemporal({
   clienteBorradorRRHH,
   clienteBorradoresPublicados,
   clienteCircuitoFirma,
+  clienteFirmasV2,
+  clienteOriginalFirma,
   dependenciasFirma = {},
   entornoDescarga = globalThis,
   mensajes = {},
@@ -540,6 +542,8 @@ export async function montarModuloContratacionTemporal({
     raiz,
     obtenerEstado: () => presentador.obtenerEstado(),
     ...(clienteCircuitoFirma === undefined ? {} : { cliente: clienteCircuitoFirma }),
+    ...(clienteFirmasV2 === undefined ? {} : { clienteFirmasV2 }),
+    ...(clienteOriginalFirma === undefined ? {} : { clienteOriginal: clienteOriginalFirma }),
     dependenciasAcciones: dependenciasFirma,
     mensajes, esMontada,
     locale,

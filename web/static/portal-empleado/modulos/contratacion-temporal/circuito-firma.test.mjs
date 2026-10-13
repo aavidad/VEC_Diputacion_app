@@ -50,6 +50,11 @@ function circuitoConAlternativa() {
   return datos;
 }
 
+function consultaV2(catalogo, expedienteRef, version, firmas = []) {
+  return { expediente_ref: expedienteRef, version_expediente: version,
+    documento: catalogo.documentos[0].documento, firmas };
+}
+
 function respuestaJSON(cuerpo, estado = 200) {
   return new Response(JSON.stringify(cuerpo), { status: estado, headers: { "Content-Type": "application/json; charset=utf-8" } });
 }
@@ -320,7 +325,7 @@ test("un fallo de consulta deja el estado pendiente visible en el expediente act
   gestor.retirar();
 });
 
-test("el gestor distingue denegación 403 de indisponibilidad 503 de CT118", async () => {
+test("el gestor distingue denegación de indisponibilidad de la consulta V2", async () => {
   const ref = "expediente:ct:001";
   const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
     expediente: { expediente_ref: ref, version: 7, demostracion: false },
@@ -332,9 +337,11 @@ test("el gestor distingue denegación 403 de indisponibilidad 503 de CT118", asy
     const raiz = { querySelector: (selector) => (selector === ".ct-exp-progreso" ? fases : null) };
     const gestor = crearGestorCircuitoFirma({ cargarTextos: cargarTextosPrueba, raiz, obtenerEstado: () => estado,
       cliente: { obtenerCircuitoConEstado: async () => ({ estado: "disponible", circuito: validarCircuitoFirma(circuito()) }) },
-      clienteFirma: { consultarConEstado: async (expedienteRef) => {
-        assert.equal(expedienteRef, ref);
-        return { estado: resultado };
+      clienteFirmasV2: { consultar: async (solicitud) => {
+        assert.equal(solicitud.expediente_ref, ref);
+        assert.equal(solicitud.version_expediente, 7);
+        assert.equal(solicitud.catalogo_huella, "a".repeat(64));
+        throw Object.assign(new Error(resultado), { codigo: resultado === "denegado" ? "acceso_denegado" : "servicio_no_disponible" });
       } },
     });
     gestor.montarSiProcede(estado);
@@ -377,11 +384,11 @@ test("la fase de firma se ve en cualquier fase del expediente real, sin botones 
   let consultado = "";
   const gestor = crearGestorCircuitoFirma({ cargarTextos: cargarTextosPrueba, raiz, obtenerEstado: () => estado,
     cliente: { obtenerCircuitoConEstado: async () => ({ estado: "disponible", circuito: catalogo }) },
-    clienteFirma: { consultarConEstado: async (expedienteRef) => {
-      consultado = expedienteRef;
-      return { estado: "disponible", datos: { huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
-        documentos: [{ documento: "informe_definitivo", paso_pendiente: 2,
-          pasos: [{ estado: "firmado", registrada_en: "2026-09-28T08:30:00Z" }, { estado: "pendiente_firma" }] }] } };
+    clienteFirmasV2: { consultar: async (solicitud) => {
+      consultado = solicitud.expediente_ref;
+      return consultaV2(catalogo, ref, 9, [{ paso_orden: 1, secuencia: 1,
+        catalogo_ref: catalogo.catalogo_ref, catalogo_huella: catalogo.huella_sha256,
+        resultado: "firmado", registrada_en: "2026-09-28T08:30:00Z" }]);
     } },
   });
   gestor.montarSiProcede(estado);
@@ -482,9 +489,9 @@ test("Documentos recupera el PDF custodiado en ambas vistas sin montar acciones 
   const custodiado = { expediente_ref: `ref:${"e".repeat(64)}`, documento_ref: `ref:${"d".repeat(64)}`,
     version: 2, huella_sha256: "b".repeat(64) };
   const catalogo = validarCircuitoFirma(circuito());
-  const datos = { huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
-    documentos: [{ documento: "informe_definitivo", paso_pendiente: 2,
-      pasos: [{ estado: "firmado", documento_custodiado: custodiado }, { estado: "pendiente_firma" }] }] };
+  const datos = consultaV2(catalogo, ref, 8, [{ paso_orden: 1, secuencia: 1,
+    catalogo_ref: catalogo.catalogo_ref, catalogo_huella: catalogo.huella_sha256,
+    resultado: "firmado", documento_custodiado: custodiado }]);
   let estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
     expediente: { expediente_ref: ref, version: 8, demostracion: false },
     documentos: { expediente_ref: ref, version: 8, demostracion: false },
@@ -494,10 +501,13 @@ test("Documentos recupera el PDF custodiado en ambas vistas sin montar acciones 
   const ancla = { insertAdjacentHTML: (_posicion, html) => insertados.push(html) };
   const raiz = { querySelector: (selector) => selector === "[data-ct-exp-firmados]" ? zona
     : selector === "[data-ct-exp-ancla-firma]" ? ancla : null };
-  let respuesta = { estado: "disponible", datos };
+  let respuesta = datos;
   const gestor = crearGestorCircuitoFirma({ raiz, cargarTextos: cargarTextosPrueba, obtenerEstado: () => estado,
     cliente: { obtenerCircuitoConEstado: async () => ({ estado: "disponible", circuito: catalogo }) },
-    clienteFirma: { consultarConEstado: async () => respuesta } });
+    clienteFirmasV2: { consultar: async () => {
+      if (!respuesta) throw Object.assign(new Error("no disponible"), { codigo: "servicio_no_disponible" });
+      return respuesta;
+    } } });
   gestor.montarSiProcede(estado);
   await new Promise((resolver) => setTimeout(resolver, 0));
   assert.match(zona.innerHTML, /data-ct-descargar-firmado/u);
@@ -514,7 +524,7 @@ test("Documentos recupera el PDF custodiado en ambas vistas sin montar acciones 
   gestor.montarSiProcede(estado);
   await new Promise((resolver) => setTimeout(resolver, 0));
   assert.equal(insertados.length, 2);
-  respuesta = { estado: "no_disponible" };
+  respuesta = null;
   estado = { ...estado, vista: "documentos" };
   zona.innerHTML = "";
   gestor.montarSiProcede(estado);
@@ -535,20 +545,20 @@ test("Documentos descarta la lectura firmada tardía y las referencias cruzadas"
   const raiz = { querySelector: (selector) => selector === "[data-ct-exp-firmados]" ? zona : null };
   let resolverA;
   const pendienteA = new Promise((resolver) => { resolverA = resolver; });
-  const datos = { huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
-    documentos: [{ documento: "informe_definitivo", paso_pendiente: 2,
-      pasos: [{ estado: "firmado", documento_custodiado: { expediente_ref: `ref:${"e".repeat(64)}`,
-        documento_ref: `ref:${"d".repeat(64)}`, version: 1, huella_sha256: "c".repeat(64) } },
-      { estado: "pendiente_firma" }] }] };
+  const datos = consultaV2(catalogo, refA, 8, [{ paso_orden: 1, secuencia: 1,
+    catalogo_ref: catalogo.catalogo_ref, catalogo_huella: catalogo.huella_sha256,
+    resultado: "firmado", documento_custodiado: { expediente_ref: `ref:${"e".repeat(64)}`,
+      documento_ref: `ref:${"d".repeat(64)}`, version: 1, huella_sha256: "c".repeat(64) } }]);
   const gestor = crearGestorCircuitoFirma({ raiz, cargarTextos: cargarTextosPrueba, obtenerEstado: () => estado,
     cliente: { obtenerCircuitoConEstado: async () => ({ estado: "disponible", circuito: catalogo }) },
-    clienteFirma: { consultarConEstado: (ref) => ref === refA ? pendienteA : Promise.resolve({ estado: "no_disponible" }) } });
+    clienteFirmasV2: { consultar: (solicitud) => solicitud.expediente_ref === refA ? pendienteA
+      : Promise.reject(Object.assign(new Error("no disponible"), { codigo: "servicio_no_disponible" })) } });
   gestor.montarSiProcede(estado);
   await new Promise((resolver) => setTimeout(resolver, 0));
   estado = estadoDoc(refB); zona = { innerHTML: "" };
   gestor.montarSiProcede(estado);
   await new Promise((resolver) => setTimeout(resolver, 0));
-  resolverA({ estado: "disponible", datos });
+  resolverA(datos);
   await new Promise((resolver) => setTimeout(resolver, 0));
   assert.equal(zona.innerHTML, "", "la firma tardía de A no aparece en B");
   estado = { ...estadoDoc(refA), documentos: { ...estadoDoc(refA).documentos, expediente_ref: refB } };
@@ -569,7 +579,7 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261013-ct-firma-tres-v2"],
+    ["circuito-firma.js", "20261013-ct-firma-tres-v3"],
     ["vista-expedientes.js", "20261013-ct-firma-tres-v2"],
 
   ]);

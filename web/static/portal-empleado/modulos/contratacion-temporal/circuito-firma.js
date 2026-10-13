@@ -8,8 +8,7 @@
  */
 
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v2";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261013-ct-firma-tres-v2";
-import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
+import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261013-ct-firma-tres-v2";
 import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261013-ct-firma-tres-v2";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
 import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261013-ct-firma-tres-v2";
@@ -259,6 +258,33 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
   </section>`;
 }
 
+function fusionarConsultasV2(circuito, consultas) {
+  if (!Array.isArray(consultas) || consultas.length !== circuito.documentos.length) return null;
+  const documentos = [];
+  for (const documento of circuito.documentos) {
+    const lectura = consultas.find((x) => x.documento === documento.documento);
+    if (!lectura || lectura.firmas.some((f) => f.catalogo_ref !== circuito.catalogo_ref
+      || f.catalogo_huella !== circuito.huella_sha256 || f.paso_orden > documento.pasos.length)) return null;
+    const ultimas = new Map();
+    for (const firma of lectura.firmas) {
+      if ((ultimas.get(firma.paso_orden)?.secuencia ?? 0) < firma.secuencia) ultimas.set(firma.paso_orden, firma);
+    }
+    const pendiente = documento.pasos.find((paso) => ultimas.get(paso.orden)?.resultado !== "firmado")?.orden ?? 0;
+    documentos.push(Object.freeze({ ...documento, paso_pendiente: pendiente,
+      pasos: Object.freeze(documento.pasos.map((paso) => {
+        const firma = ultimas.get(paso.orden);
+        return Object.freeze({ ...paso,
+          estado: firma?.resultado === "firmado" ? "firmado" : firma?.resultado === "devuelto" ? "devuelto"
+            : paso.orden === pendiente ? "pendiente_firma" : "en_espera",
+          registrada_en: firma?.registrada_en ?? "",
+          documento_custodiado: firma?.documento_custodiado ?? null,
+        });
+      })) }));
+  }
+  return Object.freeze({ ...circuito, documentos: Object.freeze(documentos),
+    registro: Object.freeze({ verificacion: true }) });
+}
+
 /**
  * Monta el bloque tras la cabecera del expediente. La consulta se hace una
  * vez por montaje; si falla el catálogo, la fase oficial sigue visible y
@@ -266,7 +292,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
  */
 export function crearGestorCircuitoFirma({
   raiz, obtenerEstado, cliente = crearClienteHTTPCircuitoFirma(), mensajes = {}, esMontada = () => true,
-  clienteFirma = crearClienteFirmaDocumento(), dependenciasAcciones = {}, cargarTextos,
+  clienteFirmasV2 = null, dependenciasAcciones = {}, cargarTextos,
   locale = globalThis.document?.documentElement?.lang || "es-ES",
   crearDocumentos = crearFuenteDocumentosHTTP, entornoDescarga = globalThis,
   clienteOriginal = crearClienteOriginalFirmable({ exigirComprobante: true }),
@@ -383,19 +409,29 @@ export function crearGestorCircuitoFirma({
     const solicitud = circuito ? (solicitudInformeDefinitivoDesdeEstado(estado) || solicitudInformeDefinitivoDesdeEstado(estado, "informe_definitivo")) : null;
     const expedienteRef = circuito ? contextoActual?.ref : null;
     if (!expedienteRef) return resultado;
-    let respuesta;
-    if (typeof clienteFirma?.consultarConEstado === "function") {
-      respuesta = await clienteFirma.consultarConEstado(expedienteRef, { signal: controlador.signal })
-        .catch(() => ({ estado: "no_disponible" }));
-    } else if (typeof clienteFirma?.consultar === "function") {
-      const datos = await clienteFirma.consultar(expedienteRef, { signal: controlador.signal }).catch(() => null);
-      respuesta = { estado: datos ? "disponible" : "no_disponible", datos };
-    } else {
-      respuesta = { estado: "no_disponible" };
+    let respuesta = { estado: "no_disponible" };
+    if (typeof clienteFirmasV2?.consultar === "function") {
+      try {
+        const documentos = await Promise.all(circuito.documentos.map(async (documento) => {
+          if (documento.pasos.length > 3) throw new TypeError("circuito no consultable");
+          const datos = await clienteFirmasV2.consultar({
+            expediente_ref: expedienteRef, version_expediente: contextoActual.version,
+            documento: documento.documento, paso_orden: 1,
+            clave_idempotencia: globalThis.crypto.randomUUID(),
+            catalogo_huella: circuito.huella_sha256, via: "certificado_vec",
+          }, { signal: controlador.signal });
+          if (datos.expediente_ref !== expedienteRef || datos.version_expediente !== contextoActual.version
+            || datos.documento !== documento.documento) throw new TypeError("consulta cruzada");
+          return datos;
+        }));
+        respuesta = { estado: "disponible", datos: documentos };
+      } catch (error) {
+        respuesta = { estado: ["acceso_denegado", "denegado"].includes(error?.codigo) ? "denegado" : "no_disponible" };
+      }
     }
-    // El catálogo describe los pasos, pero no acredita su estado. Si CT118 no
-    // responde o no coincide, no se muestran estados derivados del ejemplo.
-    const fusionado = respuesta?.estado === "disponible" ? fusionarEstadoFirmas(circuito, respuesta.datos) : null;
+    // Sólo el historial validado acredita pasos. Ningún estado del catálogo
+    // se presenta como firma ejecutada y el preflight decide las acciones.
+    const fusionado = respuesta.estado === "disponible" ? fusionarConsultasV2(circuito, respuesta.datos) : null;
     const permitirAcciones = estado.vista === "expediente" && Boolean(solicitud);
     const real = fusionado ? Object.freeze({ ...fusionado,
       acciones: permitirAcciones, preflight_compuesto: consultaFirmaCompuesta && permitirAcciones,

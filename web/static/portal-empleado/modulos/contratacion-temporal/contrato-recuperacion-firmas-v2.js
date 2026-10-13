@@ -1,4 +1,5 @@
 export const ESQUEMA_RECUPERACION_FIRMAS_V2 = "vec.contratacion-temporal.recuperacion-firmas-r5.v2";
+export const ESQUEMA_CONSULTA_FIRMAS_V2 = "vec.contratacion-temporal.consulta-firmas-r5.v2";
 
 const REF = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const CLAVE_DOCUMENTO = /^[a-z][a-z0-9_]{1,63}$/u;
@@ -107,6 +108,48 @@ function validarFirma(x, solicitud) {
         || r.entrada_documento.huella_sha256 !== x.original.huella_sha256
       )) throw new TypeError("revision_historica_invalida");
   }
+}
+
+/** La consulta nominal comparte la validación de cada firma y su cadena con recuperación. */
+export function validarRespuestaConsultaFirmasV2(x, solicitud) {
+  const q = validarSolicitudRecuperacionFirmasV2(solicitud);
+  const claves = ["esquema", "expediente_ref", "version_expediente", "documento", "historia_revision",
+    "historia_sha256", "firmas", "recuperacion", "campos_no_disponibles", "firma_eficaz"];
+  const conGarantia = Object.hasOwn(x ?? {}, "garantia_autenticacion");
+  if (!exacto(x, conGarantia ? ["garantia_autenticacion", ...claves] : claves)
+    || x.esquema !== ESQUEMA_CONSULTA_FIRMAS_V2 || x.expediente_ref !== q.expediente_ref
+    || x.version_expediente !== q.version_expediente || x.documento !== q.documento
+    || !entero(x.historia_revision) || !coincide(x.historia_sha256, SHA)
+    || x.recuperacion !== "parcial" || x.firma_eficaz !== false
+    || !Array.isArray(x.campos_no_disponibles)
+    || x.campos_no_disponibles.length !== 2
+    || !["material_root_sha256", "canon_nominal"].every((campo) => x.campos_no_disponibles.includes(campo))
+    || conGarantia && x.garantia_autenticacion !== "sustancial"
+    || !Array.isArray(x.firmas) || x.firmas.length > 128) {
+    throw new TypeError("respuesta_consulta_firmas_invalida");
+  }
+  const firmas = new Map();
+  for (const firma of x.firmas) {
+    validarFirma(firma, q);
+    if (firma.catalogo_huella !== q.catalogo_huella || firmas.has(firma.firma_ref)) {
+      throw new TypeError("firma_consulta_cruzada");
+    }
+    firmas.set(firma.firma_ref, firma);
+  }
+  for (const firma of firmas.values()) {
+    if (firma.paso_orden < 2 || firma.revision_pdf === null) continue;
+    const revision = firma.revision_pdf;
+    const previa = firmas.get(revision.firma_anterior_ref);
+    if (!previa || previa.paso_orden !== firma.paso_orden - 1 || !previa.revision_pdf
+      || !previa.documento_custodiado || revision.recibo_anterior_ref !== previa.recibo_ref
+      || firma.secuencia !== previa.secuencia + 1
+      || revision.entrada_documento.documento_ref !== previa.documento_custodiado.documento_ref
+      || revision.entrada_documento.version !== previa.documento_custodiado.version
+      || revision.entrada_documento.huella_sha256 !== previa.documento_custodiado.huella_sha256) {
+      throw new TypeError("cadena_consulta_firmas_invalida");
+    }
+  }
+  return Object.freeze({ ...x, firmas: Object.freeze([...firmas.values()].map((firma) => Object.freeze(firma))) });
 }
 
 async function validarCanon(rec, firma, solicitud, cryptoImpl) {

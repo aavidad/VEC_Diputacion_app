@@ -130,7 +130,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js?v=20261009-centro-campos-cohorte-v5"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261011-ct-bolsa-vinculo-v1"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261013-ct-firma-tres-v3"),
 
     ]);
     let completos;
@@ -148,13 +148,28 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261013-ct-firma-tres-v2");
-
-      const [auditoriaVista, auditoriaCliente] = await Promise.all([
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261013-ct-firma-tres-v3");
+      const [auditoriaVista, auditoriaCliente, original, preflight, firmaVec, autoFirma, documentos] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1"),
+        import("./modulos/contratacion-temporal/original-firmable-api.js?v=20261013-ct-firma-tres-v2"),
+        import("./modulos/contratacion-temporal/preflight-firma-api.js?v=20261013-ct-firma-tres-v2"),
+        import("./modulos/contratacion-temporal/firma-vec-api.js?v=20261013-ct-firma-tres-v1"),
+        import("./modulos/contratacion-temporal/firma-autofirma.js?v=20261013-ct-firma-tres-v1"),
+        import("./modulos/documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1"),
       ]);
-      return Object.freeze({ vista, auditoriaVista, auditoriaCliente });
+      const clienteOriginal = original.crearClienteOriginalFirmable({ exigirComprobante: true });
+      const clientePreflight = preflight.crearClientePreflightFirma();
+      const preparacion = original.crearDependenciasPreparacionFirma({
+        clienteOriginal, clientePreflight, crearDocumentos: documentos.crearFuenteDocumentosHTTP,
+      });
+      const clienteFirmaVec = firmaVec.crearClienteFirmaVec();
+      const clienteAutoFirma = autoFirma.crearClienteAutoFirma();
+      return Object.freeze({ vista, auditoriaVista, auditoriaCliente, clienteOriginal,
+        dependenciasFirma: Object.freeze({ ...preparacion,
+          autofirma: clienteAutoFirma, registrarVec: (solicitud, opciones) => clienteFirmaVec.registrar(solicitud, opciones),
+        }),
+      });
     };
     return Object.freeze({ contrato, cliente, cargarCuadroLigero, cargarCompleto, cargarVista });
   },
@@ -788,7 +803,12 @@ export function crearCoordinadorModulosPortal({
         // Portada: recuentos de todo el cuadro calculados por el servidor con
         // la misma autorización que la lista.
         obtenerCuadroInicio: () => listadoCuadro,
-        montar: async (opciones) => (await esperarVista()).vista.montarModuloContratacionTemporal({ ...opciones, clienteResultadoBolsa: cliente }),
+        montar: async (opciones) => {
+          const partes = await esperarVista();
+          return partes.vista.montarModuloContratacionTemporal({ ...opciones, clienteResultadoBolsa: cliente,
+            clienteFirmasV2: cliente.firmasV2, dependenciasFirma: partes.dependenciasFirma ?? {},
+            clienteOriginalFirma: partes.clienteOriginal });
+        },
         montarFiscalizacion: async (opciones) => (await esperarVista()).vista
           .montarModuloFiscalizacionContratacionTemporal(opciones),
       }),
