@@ -107,22 +107,28 @@ func (p *politicaOriginalFirmaR5CT) ValidarReferenciaMotivoAutorizacionV2(ctx co
 		if !valida {
 			return core.ErrSolicitudAutorizacionInvalida
 		}
+		switch clasificarMotivoConsultaRRHHFirmaR5CT(r, p.m.alta.soporte.motivoCuadroRRHH, p.m.alta.soporte.motivoDetalleRRHH) {
+		case motivoCuadroFirmaR5CT:
+			vigente, err := p.m.consultas.motivos.ResolverMotivoCuadroRRHH(ctx, instante)
+			if err == nil && vigente == r {
+				return nil
+			}
+			return core.ErrSolicitudAutorizacionInvalida
+		case motivoDetalleFirmaR5CT:
+			return p.m.motivosDetalle.ValidarReferenciaMotivoAutorizacionV2(ctx, r, instante)
+		}
+		if r.CatalogoID == p.m.alta.soporte.motivoCuadroRRHH.CatalogoID ||
+			r.CatalogoID == p.m.alta.soporte.motivoDetalleRRHH.CatalogoID {
+			return core.ErrSolicitudAutorizacionInvalida
+		}
 		switch r.CatalogoID {
 		case motivoConsultaCircuitoRRHHDesarrollo().CatalogoID:
 			if p.m.nominal.lecturas == nil || p.m.nominal.lecturas.motivoCircuito == nil {
 				return core.ErrSolicitudAutorizacionInvalida
 			}
 			return p.m.nominal.lecturas.motivoCircuito.ValidarReferenciaMotivoAutorizacionV2(ctx, r, instante)
-		case p.m.alta.soporte.motivoCuadroRRHH.CatalogoID:
-			vigente, err := p.m.consultas.motivos.ResolverMotivoCuadroRRHH(ctx, instante)
-			if err == nil && vigente == r {
-				return nil
-			}
-			return core.ErrSolicitudAutorizacionInvalida
 		case motivoOriginalFirmableCTDesarrollo().CatalogoID:
 			return p.m.motivosOriginal.ValidarReferenciaMotivoAutorizacionV2(ctx, r, instante)
-		case p.m.motivosDetalleCatalogoID():
-			return p.m.motivosDetalle.ValidarReferenciaMotivoAutorizacionV2(ctx, r, instante)
 		default:
 			return core.ErrSolicitudAutorizacionInvalida
 		}
@@ -130,9 +136,23 @@ func (p *politicaOriginalFirmaR5CT) ValidarReferenciaMotivoAutorizacionV2(ctx co
 	return p.legacy.validadorMotivos.ValidarReferenciaMotivoAutorizacionV2(ctx, r, instante)
 }
 
-func (m *montajeFirmaVecR5CT) motivosDetalleCatalogoID() string {
-	if m == nil || m.alta == nil || m.alta.soporte == nil {
-		return ""
+type claseMotivoConsultaRRHHFirmaR5CT uint8
+
+const (
+	motivoAjenoFirmaR5CT claseMotivoConsultaRRHHFirmaR5CT = iota
+	motivoCuadroFirmaR5CT
+	motivoDetalleFirmaR5CT
+)
+
+// Cuadro y detalle pueden ser entradas distintas del mismo catálogo.
+// Comparar sólo CatalogoID envía detalle al resolutor de cuadro.
+func clasificarMotivoConsultaRRHHFirmaR5CT(r, cuadro, detalle core.ReferenciaEntradaCatalogo) claseMotivoConsultaRRHHFirmaR5CT {
+	switch r {
+	case cuadro:
+		return motivoCuadroFirmaR5CT
+	case detalle:
+		return motivoDetalleFirmaR5CT
+	default:
+		return motivoAjenoFirmaR5CT
 	}
-	return m.alta.soporte.motivoDetalleRRHH.CatalogoID
 }
