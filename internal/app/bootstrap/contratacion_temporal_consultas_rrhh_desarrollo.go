@@ -68,8 +68,13 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		if err != nil {
 			return vacio, err
 		}
-		if err = publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, soporte); err != nil {
-			return vacio, err
+		// Alta ya publicó el contexto fijo con su propia operación. El lector
+		// técnico lo consume; una publicación genérica colisionaría con el
+		// contexto dinámico. Los lectores ordinarios conservan su circuito.
+		if !soporte.tecnicoConsultaRRHH {
+			if err = publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, soporte); err != nil {
+				return vacio, err
+			}
 		}
 		local := &dependenciasAltaContratacionTemporalDesarrollo{soporte: soporte, autorizador: autorizador, postgresql: alta.postgresql}
 		identidad, cerrarIdentidad, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, cfg.ContratacionTemporalPostgreSQL, local, derivador, reloj, soporte, fronteras)
