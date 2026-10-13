@@ -11,7 +11,7 @@ import {
   validarBorradorAlta,
   validarCatalogosAlta,
   validarReciboAlta,
-} from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
+} from "./contrato.js?v=20261014-need-centro-v1";
 
 const FASE_EDICION = "edicion";
 const FASE_REVISION = "revision";
