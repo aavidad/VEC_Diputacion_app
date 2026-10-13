@@ -261,15 +261,19 @@ y su puesto publicados: **centro 520, categoría Administrativo de la RPT (9),
 puesto 9/01, plaza 2026/0033**. Los datos se cargan con un guion de datos
 repetible (no con código), sin tocar los demás puestos. La bolsa es
 `bolsa:administrativo:2026-09-17` v1, ya constituida y con su orden. El alta,
-la ocupación y el cese no se precargan: se hacen en pantalla en el recorrido. Antonio entra
-en ella en el paso e4, como disponible y en el puesto que le toca el llamamiento. Si un dato no
-cuadra, se ajusta el dato, no el código (regla 5).
+la ocupación y el cese no se precargan: se hacen en pantalla en el recorrido. Antonio ya
+figura en ella como disponible y en el puesto que le toca el llamamiento (lo deja así el guion
+de datos). Si un dato no cuadra, se ajusta el dato, no el código (regla 5).
 
-**Pasos.** El recorrido empieza por el aspirante: Antonio se inscribe en la
-bolsa y da de alta sus títulos (pasos e1 a e5, apartado 4.1). Después sigue el
-orden que tiene hoy el código (4.3.2): el llamamiento va después de la
-fiscalización favorable y la propuesta exige el expediente en
-`fiscalizacion/en_curso`.
+**Pasos.** El recorrido principal empieza en la petición del centro (paso 1) y
+llega hasta el cese y la vuelta a la bolsa; es el que decide si la candidata
+está completa. Sigue el orden que tiene hoy el código (4.3.2): el llamamiento va
+después de la fiscalización favorable y la propuesta exige el expediente en
+`fiscalizacion/en_curso`. Los pasos e1 a e5 (aspirante: inscripción, méritos,
+admisión, incorporación y alegaciones) son una **demostración aparte, no
+bloqueante**, con Mi Bolsa interna; pueden enseñarse antes o después del
+recorrido principal. Alberto, 14/10: «el recorrido puede empezar por donde sea
+conveniente».
 
 | # | Quién | Pantalla | Qué hace | Resultado esperado |
 | --- | --- | --- | --- | --- |
