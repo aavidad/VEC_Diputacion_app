@@ -83,7 +83,7 @@ sha_b=$(openssl x509 -in "$cert_b" -outform DER | sha256sum | cut -d ' ' -f 1)
 
 enviar() {
   local operacion=$1 certificado=$2 clave=$3 estado=$4 codigo
-  codigo=$(curl --silent --show-error --noproxy '*' --proto '=https' \
+  codigo=$(curl -q --silent --show-error --noproxy '*' --proto '=https' \
     --connect-timeout 10 --max-time 60 --max-filesize 65536 \
     --cacert "$ca" --cert "$certificado" --key "$clave" \
     --request POST --header 'Content-Type: application/json' --header 'Accept: application/json' \
