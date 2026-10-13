@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000252_exito_nominal_lectura_documentos_bolsa.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000210_auditoria_frontera_documentos_bolsa.up.sql

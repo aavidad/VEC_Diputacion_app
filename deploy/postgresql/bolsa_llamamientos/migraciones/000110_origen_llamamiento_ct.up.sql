@@ -13,12 +13,13 @@ DO $pre$
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
     OR to_regprocedure('vec_bolsa_llamamientos.leer_origen_llamamiento_ct_v1(text)') IS NOT NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.resolver_bolsa_origen_ct_v1(text,text,text,text)') IS NOT NULL
     OR to_regclass('vec_bolsa_llamamientos.constitucion') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.sustitucion_bolsa') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.llamamiento_emitido') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.constitucion_entrada') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.instantanea_orden_bolsa') IS NULL
-    OR to_regrole('vec_autorizacion_atestada_v3_registrador_intentos') IS NULL
+    OR to_regrole('vec_autorizacion_atestada_v3_propietario') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.vinculo_candidato') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.politica_orden_bolsa') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)') IS NULL
@@ -30,11 +31,10 @@ BEGIN
  THEN RAISE EXCEPTION 'B110: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
--- El LOGIN del registrador mantiene una sola membresía AD169. Accede a estas
--- funciones de lectura propietarias sin recibir rol ejecutor de Bolsa ni ACL
--- sobre tablas; el adaptador registra el éxito en la misma transacción.
+-- Sólo el propietario del wrapper AD261 accede a las primitivas de lectura.
+-- El LOGIN técnico nunca recibe ejecución directa ni acceso a tablas de Bolsa.
 GRANT USAGE ON SCHEMA vec_bolsa_llamamientos
- TO vec_autorizacion_atestada_v3_registrador_intentos;
+ TO vec_autorizacion_atestada_v3_propietario;
 
 CREATE FUNCTION vec_bolsa_llamamientos.leer_origen_llamamiento_ct_v1(p_categoria text)
 RETURNS TABLE(acta_ref text,categoria_ref text,bolsa_ref text,version_bolsa bigint,
@@ -127,13 +127,15 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.leer_origen_llamamiento_ct_v1(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.leer_origen_llamamiento_ct_v1(text)
- TO vec_bolsa_llamamientos_ejecutor,vec_autorizacion_atestada_v3_registrador_intentos;
+ TO vec_bolsa_llamamientos_ejecutor,vec_autorizacion_atestada_v3_propietario;
 
 -- El recibo de origen no sustituye el llamamiento_emitido B7. Lo enlaza con
 -- una sola necesidad CT y conserva el recibo y auditoría emitidos en el mismo
 -- consumo V3. El evento se guarda en outbox append-only de Bolsa.
 CREATE TABLE vec_bolsa_llamamientos.origen_llamamiento_ct_v1(
- organizacion_ref text NOT NULL,expediente_ref text NOT NULL,
+ organizacion_ref text NOT NULL,unidad_ref text NOT NULL
+  CHECK(unidad_ref ~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,191}$'),
+ expediente_ref text NOT NULL,
  version_expediente bigint NOT NULL CHECK(version_expediente>0),
  clave_ct text NOT NULL,necesidad_ref text NOT NULL,
  acta_ref text NOT NULL REFERENCES vec_bolsa_llamamientos.constitucion(acta_ref),
@@ -156,6 +158,7 @@ CREATE TABLE vec_bolsa_llamamientos.origen_llamamiento_ct_v1(
  CHECK(jsonb_typeof(origen_canonico)='object'
   AND origen_canonico->>'organizacion_ref' IS NOT DISTINCT FROM organizacion_ref
   AND origen_canonico->>'expediente_ref' IS NOT DISTINCT FROM expediente_ref
+  AND origen_canonico->>'unidad_ref' IS NOT DISTINCT FROM unidad_ref
   AND origen_canonico->>'clave_ct' IS NOT DISTINCT FROM clave_ct
   AND origen_canonico->>'bolsa_ref' IS NOT DISTINCT FROM bolsa_ref
   AND origen_canonico->>'participacion_ref' IS NOT DISTINCT FROM participacion_ref
@@ -179,18 +182,24 @@ CREATE TABLE vec_bolsa_llamamientos.origen_llamamiento_ct_outbox_v1(
  estado text NOT NULL CHECK(estado='pendiente'),
  creada_en timestamptz(6) NOT NULL
 );
-DO $seguridad$
-DECLARE t text;
-BEGIN
- FOREACH t IN ARRAY ARRAY['origen_llamamiento_ct_v1','origen_llamamiento_ct_outbox_v1'] LOOP
-  EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.%I ENABLE ROW LEVEL SECURITY',t);
-  EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.%I FORCE ROW LEVEL SECURITY',t);
-  EXECUTE format('CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.%I TO vec_bolsa_llamamientos_propietario USING(current_user=%L) WITH CHECK(current_user=%L)',t,'vec_bolsa_llamamientos_propietario','vec_bolsa_llamamientos_propietario');
-  EXECUTE format('REVOKE ALL ON TABLE vec_bolsa_llamamientos.%I FROM PUBLIC',t);
-  EXECUTE format('REVOKE ALL ON TYPE vec_bolsa_llamamientos.%I FROM PUBLIC',t);
-  EXECUTE format('CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.%I FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion()',t);
- END LOOP;
-END $seguridad$;
+ALTER TABLE vec_bolsa_llamamientos.origen_llamamiento_ct_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.origen_llamamiento_ct_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.origen_llamamiento_ct_v1 TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario')
+ WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.origen_llamamiento_ct_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.origen_llamamiento_ct_v1 FROM PUBLIC;
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.origen_llamamiento_ct_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+ALTER TABLE vec_bolsa_llamamientos.origen_llamamiento_ct_outbox_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.origen_llamamiento_ct_outbox_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.origen_llamamiento_ct_outbox_v1 TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario')
+ WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.origen_llamamiento_ct_outbox_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.origen_llamamiento_ct_outbox_v1 FROM PUBLIC;
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.origen_llamamiento_ct_outbox_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
 
 CREATE FUNCTION vec_bolsa_llamamientos.recuperar_origen_llamamiento_ct_v1(
  p_expediente text,p_clave_ct text) RETURNS jsonb
@@ -209,7 +218,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_
 $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.recuperar_origen_llamamiento_ct_v1(text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.recuperar_origen_llamamiento_ct_v1(text,text)
- TO vec_bolsa_llamamientos_ejecutor,vec_autorizacion_atestada_v3_registrador_intentos;
+ TO vec_bolsa_llamamientos_ejecutor,vec_autorizacion_atestada_v3_propietario;
 
 CREATE FUNCTION vec_bolsa_llamamientos.recuperar_lectura_origen_ct_v1(
  p_expediente text,p_clave_ct text) RETURNS jsonb
@@ -225,7 +234,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_
 $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.recuperar_lectura_origen_ct_v1(text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.recuperar_lectura_origen_ct_v1(text,text)
- TO vec_bolsa_llamamientos_ejecutor,vec_autorizacion_atestada_v3_registrador_intentos;
+ TO vec_bolsa_llamamientos_ejecutor,vec_autorizacion_atestada_v3_propietario;
 
 CREATE FUNCTION vec_bolsa_llamamientos.recuperar_reserva_llamamiento_ct_v1(
  p_expediente text,p_clave_ct text) RETURNS jsonb
@@ -243,7 +252,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_
 $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.recuperar_reserva_llamamiento_ct_v1(text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.recuperar_reserva_llamamiento_ct_v1(text,text)
- TO vec_bolsa_llamamientos_ejecutor,vec_autorizacion_atestada_v3_registrador_intentos;
+ TO vec_bolsa_llamamientos_ejecutor,vec_autorizacion_atestada_v3_propietario;
 
 -- No reconstruye B17: esta entrada CT usa las mismas filas nativas y el mismo
 -- consumidor V3 en la transacción de reserva, conservando auditoria_ref real.
@@ -287,8 +296,8 @@ BEGIN
       OR value#>>'{}'<>btrim(value#>>'{}')) FROM jsonb_each(p_configuracion))
     OR p_configuracion->>'plantilla_version' !~ '^bolsa-llamamiento-v[1-9][0-9]{0,3}$'
     OR jsonb_typeof(p_origen)<>'object'
-    OR (SELECT count(*) FROM jsonb_object_keys(p_origen))<>21
-    OR p_origen ?& ARRAY['organizacion_ref','expediente_ref','version_expediente','clave_ct',
+    OR (SELECT count(*) FROM jsonb_object_keys(p_origen))<>22
+    OR p_origen ?& ARRAY['organizacion_ref','unidad_ref','expediente_ref','version_expediente','clave_ct',
       'necesidad_ref','acta_ref','categoria_ref','bolsa_ref','version_bolsa','huella_bolsa_sha256',
       'instantanea_ref','version_instantanea','huella_instantanea_sha256','politica_ref',
       'version_politica','huella_politica_sha256','participacion_ref','candidato_ref','orden_seleccionado','lectura','version_token'] IS NOT TRUE
@@ -297,6 +306,7 @@ BEGIN
     OR p_origen->>'candidato_ref' !~ '^can_[A-Za-z0-9_-]{22,128}$'
     OR p_origen->>'clave_ct' IS NULL OR p_origen->>'expediente_ref' IS NULL
     OR p_origen->>'organizacion_ref' IS NULL OR p_origen->>'necesidad_ref' IS NULL
+    OR p_origen->>'unidad_ref' !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,191}$'
     OR p_origen->>'version_token' !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'
  THEN RAISE EXCEPTION 'B110: reserva CT inválida' USING ERRCODE='22023'; END IF;
  v_lectura:=p_origen->'lectura';
@@ -422,13 +432,13 @@ BEGIN
  VALUES(p_llamamiento,p_recibo,p_bolsa,p_actor,p_clave,p_participaciones,
   p_configuracion,v_huella,p_huella_finalizacion,'emision_reservada',p_emitido,consumo.decision_ref);
  INSERT INTO vec_bolsa_llamamientos.origen_llamamiento_ct_v1(
-  organizacion_ref,expediente_ref,version_expediente,clave_ct,necesidad_ref,
+  organizacion_ref,unidad_ref,expediente_ref,version_expediente,clave_ct,necesidad_ref,
   acta_ref,categoria_ref,bolsa_ref,version_bolsa,huella_bolsa_sha256,instantanea_ref,
   version_instantanea,huella_instantanea_sha256,politica_ref,version_politica,
   huella_politica_sha256,participacion_ref,candidato_ref,orden_seleccionado,version_token,
   llamamiento_ref,recibo_ref,decision_ref,auditoria_ref,evento_ref,emitido_en,
   origen_canonico,origen_huella_sha256)
- VALUES(p_origen->>'organizacion_ref',p_origen->>'expediente_ref',
+ VALUES(p_origen->>'organizacion_ref',p_origen->>'unidad_ref',p_origen->>'expediente_ref',
   (p_origen->>'version_expediente')::bigint,p_origen->>'clave_ct',p_origen->>'necesidad_ref',
   p_origen->>'acta_ref',p_origen->>'categoria_ref',p_bolsa,(p_origen->>'version_bolsa')::bigint,
   p_origen->>'huella_bolsa_sha256',p_origen->>'instantanea_ref',
@@ -454,5 +464,43 @@ REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.reservar_llamamiento_ct_v1(
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.reservar_llamamiento_ct_v1(
  text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,bytea,
  numeric,numeric,bytea,bytea,bytea,bytea,jsonb) TO vec_bolsa_llamamientos_ejecutor;
+
+-- Solo revela la referencia opaca previa a la captura de permiso. No lee
+-- entradas, candidatos ni bytes canónicos. La selección sigue en el lector.
+CREATE FUNCTION vec_bolsa_llamamientos.resolver_bolsa_origen_ct_v1(
+ p_expediente text,p_clave text,p_categoria text,p_unidad text)
+RETURNS text LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
+SET lock_timeout='2s' AS $f$
+DECLARE ref text;unidad text;categoria text;total bigint;ahora timestamptz(6):=statement_timestamp();
+BEGIN
+ IF p_expediente IS NULL OR p_clave IS NULL OR p_categoria IS NULL OR p_unidad IS NULL
+ OR p_categoria<>btrim(p_categoria) OR octet_length(p_categoria) NOT BETWEEN 3 AND 512
+ OR p_unidad !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,191}$'
+ THEN RAISE EXCEPTION 'B110: origen CT inválido' USING ERRCODE='22023'; END IF;
+ SELECT o.bolsa_ref,o.unidad_ref,o.categoria_ref INTO ref,unidad,categoria
+ FROM vec_bolsa_llamamientos.origen_llamamiento_ct_v1 o
+ WHERE o.expediente_ref=p_expediente AND o.clave_ct=p_clave;
+ IF FOUND THEN
+  IF unidad IS DISTINCT FROM p_unidad OR categoria IS DISTINCT FROM p_categoria
+  THEN RAISE EXCEPTION 'B110: reserva CT incompatible' USING ERRCODE='42501'; END IF;
+  RETURN ref;
+ END IF;
+ SELECT count(*),min(c.bolsa_ref) INTO total,ref
+ FROM vec_bolsa_llamamientos.constitucion c
+ JOIN vec_bolsa_llamamientos.bolsa_constituida b
+ ON b.bolsa_ref=c.bolsa_ref AND b.version=c.version_bolsa
+ AND b.huella_bolsa_sha256=c.huella_bolsa_sha256
+ WHERE c.categoria_ref=p_categoria AND b.estado='vigente'
+ AND b.vigente_desde<=ahora AND (b.vigente_hasta IS NULL OR ahora<b.vigente_hasta)
+ AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.sustitucion_bolsa s
+ WHERE s.bolsa_ref_sustituida=c.bolsa_ref AND s.version_sustituida=c.version_bolsa
+ AND s.huella_sustituida_sha256=c.huella_bolsa_sha256);
+ IF total<>1 THEN RAISE EXCEPTION 'B110: origen ausente o ambiguo' USING ERRCODE='P1101'; END IF;
+ RETURN ref;
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.resolver_bolsa_origen_ct_v1(text,text,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.resolver_bolsa_origen_ct_v1(text,text,text,text)
+ TO vec_autorizacion_atestada_v3_propietario;
 
 COMMIT;

@@ -332,6 +332,8 @@ type emisorBorradorLlamamientoDesarrollo struct {
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
+	registradorPerfil                                                                                                 puertosvec.RegistradorIntentosAuditoria
+	procesoPerfil                                                                                                     string
 	situacion, operaciones, solicitudesDocumentales, contacto, datosContacto, contratos, sanciones, reincorporaciones http.Handler
 	preparador                                                                                                        *preparadorBorradorLlamamientoDesarrollo
 	servicio                                                                                                          *aplicacionbolsa.ServicioContactoParticipacion
@@ -930,7 +932,15 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	} else if strings.TrimSpace(os.Getenv(config.EnvBolsaB103FuenteAutorizacionDatabaseURL)) != "" {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{canales: canales, situacion: handlerSituacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	lectorPoliticaCese, err := postgresbolsa.NuevaConsultaPoliticaCesePostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, err
+	}
+	rutaPoliticaCese, err := nuevaRutaPoliticaCeseBolsa(preparador, lectorPoliticaCese.LeerPoliticaPublicada, registradorDocumentales, procesoDocumentales)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, err
+	}
+	mutador := &manejadorParticipacionBolsaDesarrollo{registradorPerfil: registradorDocumentales, procesoPerfil: procesoDocumentales, canales: canales, situacion: handlerSituacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	proyectorFicha, err := nuevoProyectorDisponibilidadFichaOperacionesBolsa(
 		preparador, politicaBolsa, dependenciasCT.reloj, mutador.solicitudesDocumentales, mutador.reincorporaciones)
 	if err != nil {
@@ -987,7 +997,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		}
 	}
 	completa = true
-	rutas := []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaContactosOferta, Manejador: handlerContacto}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}
+	rutas := []vechttp.RutaExacta{rutaPoliticaCese, {Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaContactosOferta, Manejador: handlerContacto}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}
 	if cargaConvocaActiva {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsahttp.RutaVistaPreviaCargaConvoca, Manejador: handlerCargaConvoca},
 			vechttp.RutaExacta{Ruta: bolsahttp.RutaConfirmarCargaConvoca, Manejador: handlerCargaConvoca})

@@ -22,6 +22,11 @@ const consultaResolverMotivoCandidatoExternoV2 = `
 		$1::text, $2::integer, $3::text, $4::text, $5::timestamptz
 	)`
 
+const consultaResolverMotivoMeritosExternoV2 = `
+	SELECT vec_autorizacion.resolver_motivo_meritos_externo_v1(
+		$1::text, $2::integer, $3::text, $4::text, $5::timestamptz
+	)`
+
 // ValidadorReferenciaMotivoPostgreSQLV2 comprueba una referencia contra la
 // proyeccion historica publicada. Es de solo consulta: no proyecta catalogos,
 // no resuelve la vigencia actual y no conserva ni administra conexiones.
@@ -30,9 +35,10 @@ const consultaResolverMotivoCandidatoExternoV2 = `
 // pueda ejecutar resolver_motivo_autorizacion_v2_historico. No debe reutilizar
 // el pool del almacen V1 ni una identidad con privilegios de proyeccion.
 type ValidadorReferenciaMotivoPostgreSQLV2 struct {
-	consulta   consultorFilaMotivoAutorizacionV2
-	catalogoID string
-	externo    bool
+	consulta       consultorFilaMotivoAutorizacionV2
+	catalogoID     string
+	externo        bool
+	meritosExterno bool
 }
 
 type consultorFilaMotivoAutorizacionV2 interface {
@@ -58,6 +64,19 @@ func NuevoValidadorReferenciaMotivoPostgreSQLV2Externo(
 		return nil, err
 	}
 	v.externo = true
+	return v, nil
+}
+
+// NuevoValidadorReferenciaMotivoPostgreSQLV2MeritosExterno exige el pool
+// nominal de AUT78 y el catalogo tecnico propio de la cartera.
+func NuevoValidadorReferenciaMotivoPostgreSQLV2MeritosExterno(
+	pool *pgxpool.Pool,
+) (*ValidadorReferenciaMotivoPostgreSQLV2, error) {
+	v, err := nuevoValidadorReferenciaMotivoPostgreSQLV2(pool, "motivos_autorizacion_meritos_cartera")
+	if err != nil {
+		return nil, err
+	}
+	v.meritosExterno = true
 	return v, nil
 }
 
@@ -101,6 +120,9 @@ func (v *ValidadorReferenciaMotivoPostgreSQLV2) ValidarReferenciaMotivoAutorizac
 	consulta := consultaResolverMotivoAutorizacionV2Historico
 	if v.externo {
 		consulta = consultaResolverMotivoCandidatoExternoV2
+	}
+	if v.meritosExterno {
+		consulta = consultaResolverMotivoMeritosExternoV2
 	}
 	err := v.consulta.QueryRow(
 		ctx,

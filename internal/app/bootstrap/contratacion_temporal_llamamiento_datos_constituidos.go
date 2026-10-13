@@ -69,22 +69,65 @@ func cargarClienteM10LlamamientoCT() (*personalhttp.ClienteOrganizacionHistorica
 
 // La orden nace de la identidad mTLS revalidada y del recurso Bolsa leído en
 // la misma transacción. El acuse lo produce exclusivamente el registrador SQL.
+var camposLecturaOrigenCT = []string{
+	"acta_ref", "bolsa_canonica", "bolsa_ref",
+	"categoria_ref", "corte", "entradas[].candidato_ref",
+	"entradas[].elegible", "entradas[].orden_acta", "entradas[].orden_vigente",
+	"entradas[].participacion_ref", "entradas[].razon", "entradas[].situacion",
+	"huella_bolsa_sha256", "huella_instantanea_sha256", "huella_politica_sha256",
+	"instantanea_canonica", "instantanea_ref", "politica_provisional",
+	"politica_ref", "reserva.candidato_ref", "reserva.clave_ct",
+	"reserva.configuracion.asunto", "reserva.configuracion.categoria", "reserva.configuracion.centro",
+	"reserva.configuracion.cuerpo", "reserva.configuracion.descripcion", "reserva.configuracion.fecha_inicio",
+	"reserva.configuracion.modalidad", "reserva.configuracion.plantilla_version", "reserva.configuracion.plazo",
+	"reserva.configuracion.referencia", "reserva.expediente_ref", "reserva.orden_seleccionado",
+	"reserva.participacion_ref", "reserva.unidad_ref", "version_bolsa",
+	"version_instantanea", "version_politica",
+}
+
 func nuevoConstructorOrdenOrigenCT(
-	alta *dependenciasAltaContratacionTemporalDesarrollo, c configuracionAuditoriaIntentosDesarrollo,
+	alta *dependenciasAltaContratacionTemporalDesarrollo,
+	preparador *preparadorBorradorLlamamientoDesarrollo,
+	proceso, canal string,
 ) registradorLecturaOrdenCT {
-	return func(ctx context.Context, d preparacionLlamamientoDesarrollo, origen ports.OrigenLlamamientoCT,
-		reserva *ports.EmisionLlamamiento,
-	) (vecports.OrdenIntentoAuditoria, error) {
-		vacia := vecports.OrdenIntentoAuditoria{}
+	contrato := contratoLecturaBolsa{
+		accion:    ports.AccionConsultarOrigenCT,
+		finalidad: ports.FinalidadConsultarOrigenCT,
+		tipo:      "bolsa_constituida",
+		motivo:    "lectura_origen_ct_correcta",
+		campos:    camposLecturaOrigenCT,
+	}
+	return func(ctx context.Context, d preparacionLlamamientoDesarrollo, bolsaRef string) (ports.CapturaOrigenCT, error) {
+		vacia := ports.CapturaOrigenCT{}
 		if ctx == nil || ctx.Err() != nil || alta == nil || alta.soporte == nil ||
-			origen.BolsaRef == "" || origen.CategoriaRef != d.categoria ||
-			(reserva != nil && (reserva.BolsaRef != origen.BolsaRef || reserva.OrigenCT == nil ||
-				reserva.OrigenCT.ExpedienteRef != d.expediente.Fiscalizado.Referencia ||
-				reserva.OrigenCT.ClaveCT != d.clave)) {
+			preparador == nil || preparador.soporte == nil || preparador.fuenteRespuestas == nil ||
+			bolsaRef == "" || d.unidad == "" || d.unidad != preparador.soporte.unidadRef ||
+			preparador.soporte.ambitoRef == "" {
 			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
 		}
 		operativo, err := alta.soporte.contextoOperativoDesarrollo(ctx)
 		if err != nil || operativo.Resultado.Validar() != nil || operativo.Vinculo.ValidarPara(operativo.Resultado) != nil {
+			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
+		}
+		propio, err := preparador.contextoRevalidado(ctx)
+		if err != nil || propio.Resultado.Validar() != nil || propio.Vinculo.ValidarPara(propio.Resultado) != nil {
+			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
+		}
+		a, ea := operativo.Vinculo.Datos()
+		b, eb := propio.Vinculo.Datos()
+		if ea != nil || eb != nil || a.PrincipalID != b.PrincipalID ||
+			a.PerfilActivoRef != b.PerfilActivoRef || a.CuentaRef != b.CuentaRef ||
+			a.AutenticacionRef != b.AutenticacionRef || a.SesionRef != b.SesionRef {
+			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
+		}
+		permiso, err := capturarLecturaBolsa(ctx, preparador.fuenteRespuestas,
+			propio.Vinculo, propio.Resultado, preparador.soporte.unidadRef,
+			preparador.soporte.ambitoRef, bolsaRef, bolsaRef, contrato)
+		if err != nil {
+			return vacia, err
+		}
+		intento, err := vecports.NuevaReferenciaIntentoAuditoria()
+		if err != nil {
 			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
 		}
 		correlacion, err := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
@@ -95,21 +138,17 @@ func nuevoConstructorOrdenOrigenCT(
 		if err != nil {
 			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
 		}
-		intentoRef, err := vecports.NuevaReferenciaIntentoAuditoria()
-		if err != nil {
-			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
-		}
-		orden, err := vecports.NuevaOrdenIntentoAuditoria(intentoRef, operativo.Resultado, operativo.Vinculo,
+		orden, err := vecports.NuevaOrdenIntentoAuditoria(intento, propio.Resultado, propio.Vinculo,
 			domain.DatosIntentoAuditoria{
-				Accion: "bolsa.origen_ct.consultar", ModuloID: "bolsa", RecursoRef: origen.BolsaRef,
-				FinalidadRef: "gestionar_contratacion_temporal", Resultado: domain.ResultadoIntentoAuditoriaExito,
-				Motivo: motivoLlamamientoDesarrollo(false), Proceso: c.Proceso, Canal: c.Canal,
+				Accion: ports.AccionConsultarOrigenCT, ModuloID: "bolsa", RecursoRef: bolsaRef,
+				FinalidadRef: ports.FinalidadConsultarOrigenCT, Resultado: domain.ResultadoIntentoAuditoriaExito,
+				Motivo: motivoLlamamientoDesarrollo(false), Proceso: proceso, Canal: canal,
 				CorrelacionRef: correlacionRef,
 			})
 		if err != nil {
 			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
 		}
-		return orden, nil
+		return ports.CapturaOrigenCT{Permiso: permiso, Auditoria: orden}, nil
 	}
 }
 

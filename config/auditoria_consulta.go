@@ -17,8 +17,7 @@ func referenciaOpacaConfiguracionValida(valor string) bool {
 	return patronReferenciaOpacaConfiguracion.MatchString(valor)
 }
 
-// EnvAuditoriaConsultaCatalogoPath permite editar el ejemplo publicado para
-// RRHH. Solo se lee cuando la capacidad está activada con doble llave.
+// EnvAuditoriaConsultaCatalogoPath selecciona el catálogo publicado de motivos.
 const EnvAuditoriaConsultaCatalogoPath = "VEC_AUDITORIA_CONSULTA_CATALOGO_PATH"
 
 const (
@@ -33,6 +32,7 @@ const (
 )
 
 const RutaCatalogoAuditoriaConsultaEjemplo = "data/demo/reglas/auditoria_consulta.ejemplo.demo.json"
+const RutaCatalogoAuditoriaConsultaRRHH = "data/catalogos/auditoria/consulta.v2.json"
 
 var ErrCatalogoAuditoriaConsultaFueraDesarrollo = errors.New("config: catalogo de auditoria fuera de desarrollo")
 var ErrExpedientesAuditoriaConsultaInvalidos = errors.New("config: expedientes de auditoria no disponibles")
@@ -55,7 +55,7 @@ func (c Config) RutaCatalogoAuditoriaConsultaDesarrollo() (string, error) {
 		return "", ErrCatalogoAuditoriaConsultaFueraDesarrollo
 	}
 	if !declarada {
-		return RutaCatalogoAuditoriaConsultaEjemplo, nil
+		return RutaCatalogoAuditoriaConsultaRRHH, nil
 	}
 	ruta = strings.TrimSpace(ruta)
 	if ruta == "" {

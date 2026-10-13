@@ -63,13 +63,14 @@ type envoltorioReciboSeleccionLlamamiento struct {
 // continuar la comunicación. Omite expediente, correlación, selección
 // seudonimizada, posición, auditoría, evento y toda evidencia criptográfica.
 type reciboSeleccionLlamamientoJSON struct {
-	Esquema            string `json:"esquema"`
-	Estado             string `json:"estado"`
-	ReciboRef          string `json:"recibo_ref"`
-	ConfirmadaEn       string `json:"confirmada_en"`
-	OrganizacionRef    string `json:"organizacion_ref"`
-	LlamamientoRef     string `json:"llamamiento_ref"`
-	VersionLlamamiento uint64 `json:"version_llamamiento"`
+	Esquema             string `json:"esquema"`
+	Estado              string `json:"estado"`
+	ReciboRef           string `json:"recibo_ref"`
+	ConfirmadaEn        string `json:"confirmada_en"`
+	OrganizacionRef     string `json:"organizacion_ref"`
+	LlamamientoRef      string `json:"llamamiento_ref"`
+	VersionLlamamiento  uint64 `json:"version_llamamiento"`
+	PoliticaProvisional *bool  `json:"politica_provisional,omitempty"`
 }
 
 func proyectarReciboSeleccionLlamamiento(
@@ -83,13 +84,14 @@ func proyectarReciboSeleccionLlamamiento(
 		return reciboSeleccionLlamamientoJSON{}, false
 	}
 	return reciboSeleccionLlamamientoJSON{
-		Esquema:            EsquemaReciboSeleccionLlamamiento,
-		Estado:             "confirmado",
-		ReciboRef:          recibo.ReciboRef,
-		ConfirmadaEn:       recibo.ConfirmadaEn.UTC().Format(time.RFC3339Nano),
-		OrganizacionRef:    recibo.OrganizacionRef,
-		LlamamientoRef:     recibo.LlamamientoRef,
-		VersionLlamamiento: recibo.VersionLlamamiento,
+		Esquema:             EsquemaReciboSeleccionLlamamiento,
+		Estado:              "confirmado",
+		ReciboRef:           recibo.ReciboRef,
+		ConfirmadaEn:        recibo.ConfirmadaEn.UTC().Format(time.RFC3339Nano),
+		OrganizacionRef:     recibo.OrganizacionRef,
+		LlamamientoRef:      recibo.LlamamientoRef,
+		VersionLlamamiento:  recibo.VersionLlamamiento,
+		PoliticaProvisional: recibo.PoliticaProvisional,
 	}, true
 }
 

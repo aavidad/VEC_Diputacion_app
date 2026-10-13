@@ -1,0 +1,23 @@
+{
+  "id": "meritos.cartera.motivos",
+  "version": 1,
+  "estado": "borrador",
+  "entradas": [
+    {
+      "clave": "motivo_00000000000000000000000000000001",
+      "etiqueta": "Lo añadí por error",
+      "etiquetas": {
+        "es": "Lo añadí por error",
+        "en": "I added it by mistake"
+      }
+    },
+    {
+      "clave": "motivo_00000000000000000000000000000002",
+      "etiqueta": "Ya no está vigente",
+      "etiquetas": {
+        "es": "Ya no está vigente",
+        "en": "It is no longer valid"
+      }
+    }
+  ]
+}

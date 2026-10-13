@@ -7,6 +7,29 @@ const consulta = {
   actor_ref: "", finalidad_ref: "fin_control", motivo_ref: "catalogo:v1:mot_revision",
 };
 
+test("selección general: busca una persona con motivo y sin enviar identidad o perfil del cliente", async () => {
+  let cuerpo;
+  const fuente = crearFuenteAuditoriaHTTP({ fetchImpl: async (_ruta, opciones) => {
+    cuerpo = JSON.parse(opciones.body);
+    return new Response(JSON.stringify({ objetivos: [{ referencia: "per_0123456789", etiqueta: "Carmen Molina" }], despues_ref: "" }),
+      { status: 200, headers: { "Content-Type": "application/json" } });
+  } });
+  const entrada = { fuente: "persona", busqueda: "Carmen", finalidad_ref: "consulta_auditoria_rrhh",
+    motivo_ref: "motivos:v2:revision", motivo_consulta: "Revisión del historial", perfil_ref: "perfil_ajeno", actor_ref: "actor_ajeno" };
+  const pagina = await fuente.buscarObjetivos(entrada);
+  assert.equal(pagina.objetivos[0].etiqueta, "Carmen Molina");
+  assert.deepEqual(cuerpo, { operacion: "buscar", fuente: "persona", busqueda: "Carmen", despues_ref: "", limite: 20,
+    finalidad_ref: entrada.finalidad_ref, motivo_ref: entrada.motivo_ref, motivo_consulta: entrada.motivo_consulta });
+});
+
+test("la búsqueda sin motivo no pide datos personales", async () => {
+  let llamadas = 0;
+  const fuente = crearFuenteAuditoriaHTTP({ fetchImpl: async () => { ++llamadas; } });
+  await assert.rejects(fuente.buscarObjetivos({ fuente: "persona", busqueda: "", finalidad_ref: "consulta_auditoria_rrhh",
+    motivo_ref: "motivos:v2:revision", motivo_consulta: "" }), { codigo: "consulta_invalida" });
+  assert.equal(llamadas, 0);
+});
+
 test("POST mismo origen con referencias exactas y sin credenciales en URL", async () => {
   let llamada;
   const fuente = crearFuenteAuditoriaHTTP({ fetchImpl: async (ruta, opciones) => {

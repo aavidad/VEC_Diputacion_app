@@ -165,6 +165,14 @@ func TestOrdenConstituidaSinRetencionDeclaradaFirmada(t *testing.T) {
 	if _, evidencia, err := verificador.VerificarReciboOrden(ctx, comando, firmado, ahora); err != nil || !evidencia.SinRetencionDeclarada {
 		t.Fatal("la marca nativa debe quedar autenticada", err)
 	}
+	provisional := firmado
+	provisional.Procedencia.PoliticaProvisional = true
+	if provisional.ValidarParaEn(comando, ahora) != nil {
+		t.Fatal("la variante provisional debe conservar forma válida")
+	}
+	if _, _, err := verificador.VerificarReciboOrden(ctx, comando, provisional, ahora); err == nil {
+		t.Fatal("alterar la provisionalidad conservó indebidamente el HMAC")
+	}
 	marcado := materialReciboOrdenBolsa(comando, firmado)
 	firmado.Procedencia.SinRetencionDeclarada = false
 	if bytes.Equal(marcado, materialReciboOrdenBolsa(comando, firmado)) ||

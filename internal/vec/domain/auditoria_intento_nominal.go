@@ -60,7 +60,9 @@ func resultadoIntentoAuditoriaValido(d DatosIntentoAuditoria) bool {
 				(d.Accion == "lectura_bolsas_rrhh_consultar" ||
 					d.Accion == "lectura_bolsas_rrhh_descargar_recibo")) ||
 				(d.FinalidadRef == "gestionar_contratacion_temporal" &&
-					d.Accion == "bolsa.origen_ct.consultar"))
+					d.Accion == "bolsa.origen_ct.consultar") ||
+				(d.FinalidadRef == "consulta_configuracion_bolsa_rrhh" && d.Accion == "bolsa.configuracion.consultar" &&
+					strings.HasPrefix(d.RecursoRef, "bolsa:perfil:") && huellaAcuseIntentoAuditoriaValida(strings.TrimPrefix(d.RecursoRef, "bolsa:perfil:"))))
 	default:
 		return false
 	}

@@ -43,7 +43,7 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Reservar(ctx context.Context, 
 	sql := `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.reservar_llamamiento_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19)`
 	args := []any{c.LlamamientoRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, participaciones, configuracion, c.EmitidoEn, huellaFinalizacion[:], m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()}
 	if c.OrigenCT != nil {
-		if c.OrigenCT.BolsaRef != c.BolsaRef || c.OrigenCT.ParticipacionRef == "" || c.OrigenCT.ExpedienteRef == "" || c.OrigenCT.ClaveCT == "" {
+		if c.OrigenCT.BolsaRef != c.BolsaRef || c.OrigenCT.UnidadRef == "" || c.OrigenCT.ParticipacionRef == "" || c.OrigenCT.ExpedienteRef == "" || c.OrigenCT.ClaveCT == "" {
 			return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoInvalida
 		}
 		origen, err := json.Marshal(c.OrigenCT)
@@ -90,7 +90,7 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) RecuperarOrigenEmisionCT(ctx c
 		return ports.ReciboOrigenEmisionCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
 	}
 	var out ports.ReciboOrigenEmisionCT
-	if json.Unmarshal(raw, &out) != nil || out.ExpedienteRef != expedienteRef || out.ClaveCT != claveCT || out.LlamamientoRef == "" || out.ReciboRef == "" || out.AuditoriaRef == "" || validarLecturaOrigenCT(out.Lectura) != nil {
+	if json.Unmarshal(raw, &out) != nil || out.ExpedienteRef != expedienteRef || out.ClaveCT != claveCT || out.UnidadRef == "" || out.LlamamientoRef == "" || out.ReciboRef == "" || out.AuditoriaRef == "" || validarLecturaOrigenCT(out.Lectura) != nil {
 		return ports.ReciboOrigenEmisionCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
 	}
 	return out, nil
@@ -132,7 +132,7 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) RecuperarReservaLlamamientoCT(
 
 func decodificarReservaLlamamientoCT(raw []byte, expedienteRef, claveCT string) (ports.EmisionLlamamiento, error) {
 	var out ports.EmisionLlamamiento
-	if json.Unmarshal(raw, &out) != nil || out.OrigenCT == nil ||
+	if json.Unmarshal(raw, &out) != nil || out.OrigenCT == nil || out.OrigenCT.UnidadRef == "" ||
 		out.OrigenCT.ExpedienteRef != expedienteRef || out.OrigenCT.ClaveCT != claveCT ||
 		out.LlamamientoRef != out.OrigenCT.LlamamientoRef || out.ReciboRef != out.OrigenCT.ReciboRef ||
 		out.BolsaRef != out.OrigenCT.BolsaRef || validarLecturaOrigenCT(out.OrigenCT.Lectura) != nil ||

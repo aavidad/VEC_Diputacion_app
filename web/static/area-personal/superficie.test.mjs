@@ -104,8 +104,10 @@ test("la superficie cubre todos los recorridos solicitados y conserva semántica
   assert.doesNotMatch(html, /Inicio y plazos/u);
   // El asistente antiguo de solicitud y la autobaremación no tienen servicio: no se ofrecen.
   assert.doesNotMatch(html, /data-ruta="(?:solicitud|autobaremacion)"|id="dialogo-(?:confirmacion|recibo)"/u);
-  // Convocatorias, méritos y expedientes tampoco tienen servicio: se retiran del menú.
-  assert.doesNotMatch(html, /data-ruta="(?:convocatorias|convocatoria|meritos|seguimiento)"|id="busqueda-global"/u);
+  // La cartera propia tiene ruta y API reales; los enlaces antiguos de
+  // convocatorias y expedientes siguen fuera del menú.
+  assert.match(html, /data-ruta="meritos"/u);
+  assert.doesNotMatch(html, /data-ruta="(?:convocatorias|convocatoria|seguimiento)"|id="busqueda-global"/u);
   const vistasProducto = (await Promise.all((await archivosEn(join(RAIZ, "vistas"))).filter((ruta) => ruta.endsWith(".js"))
     .map((ruta) => readFile(ruta, "utf8")))).join("\n");
   assert.doesNotMatch(vistasProducto, /enlaceRuta\("(?:convocatorias|convocatoria|meritos|seguimiento)"|data-accion="(?:abrir-convocatoria|abrir-expediente|enfocar-nuevo-merito)"/u);

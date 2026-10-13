@@ -1,0 +1,1 @@
+deploy/principal/inscripcion_recorrido_20261013/version_certificada_v2/preparado/cargar_version_certificada_v2.sql

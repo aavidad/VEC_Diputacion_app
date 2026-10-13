@@ -51,11 +51,12 @@ type SolicitudSeleccionLlamamiento struct {
 // DatosReciboSeleccionLlamamientoParaAdaptador es la proyección mínima que
 // puede cruzar una frontera después de autenticar el recibo completo de Bolsa.
 type DatosReciboSeleccionLlamamientoParaAdaptador struct {
-	ReciboRef          string
-	ConfirmadaEn       time.Time
-	OrganizacionRef    string
-	LlamamientoRef     string
-	VersionLlamamiento uint64
+	ReciboRef           string
+	ConfirmadaEn        time.Time
+	OrganizacionRef     string
+	LlamamientoRef      string
+	VersionLlamamiento  uint64
+	PoliticaProvisional *bool
 }
 
 type ServicioSeleccionLlamamiento struct {
@@ -451,6 +452,11 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamarParaAdaptador(
 		return DatosReciboSeleccionLlamamientoParaAdaptador{},
 			ErrResultadoSeleccionLlamamientoNoConfiable
 	}
+	var politicaProvisional *bool
+	if recibo.Procedencia.SinRetencionDeclarada {
+		valor := recibo.Procedencia.PoliticaProvisional
+		politicaProvisional = &valor
+	}
 	return DatosReciboSeleccionLlamamientoParaAdaptador{
 		ReciboRef: recibo.ReciboRef, ConfirmadaEn: recibo.ConfirmadaEn,
 		OrganizacionRef: recibo.OrganizacionRef,
@@ -458,7 +464,8 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamarParaAdaptador(
 		// Versión inicial pactada para esta alta. El replay devuelve el mismo
 		// antecedente, no afirma consultar la versión actual del llamamiento.
 		// Propuesta.Version pertenece a otro objeto y no se usa como sustituto.
-		VersionLlamamiento: 1,
+		VersionLlamamiento:  1,
+		PoliticaProvisional: politicaProvisional,
 	}, nil
 }
 

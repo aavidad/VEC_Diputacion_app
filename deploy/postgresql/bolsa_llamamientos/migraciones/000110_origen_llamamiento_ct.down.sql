@@ -18,6 +18,7 @@ DROP FUNCTION vec_bolsa_llamamientos.reservar_llamamiento_ct_v1(
 DROP FUNCTION vec_bolsa_llamamientos.recuperar_origen_llamamiento_ct_v1(text,text);
 DROP FUNCTION vec_bolsa_llamamientos.recuperar_lectura_origen_ct_v1(text,text);
 DROP FUNCTION vec_bolsa_llamamientos.recuperar_reserva_llamamiento_ct_v1(text,text);
+DROP FUNCTION vec_bolsa_llamamientos.resolver_bolsa_origen_ct_v1(text,text,text,text);
 DROP FUNCTION vec_bolsa_llamamientos.leer_origen_llamamiento_ct_v1(text);
 DROP TABLE vec_bolsa_llamamientos.origen_llamamiento_ct_outbox_v1;
 DROP TABLE vec_bolsa_llamamientos.origen_llamamiento_ct_v1;

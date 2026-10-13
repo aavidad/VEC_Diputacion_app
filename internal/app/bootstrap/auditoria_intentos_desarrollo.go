@@ -101,7 +101,10 @@ func AbrirRegistradorIntentosAuditoriaExternaDesarrollo(ctx context.Context, cfg
 
 func abrirRegistradorIntentosAuditoriaConfiguradoDesarrollo(ctx context.Context, cfg config.Config, referencia *pgxpool.Pool, reservados []string, c configuracionAuditoriaIntentosDesarrollo) (vecports.RegistradorIntentosAuditoria, string, func(), error) {
 	r, _, cerrar, err := abrirComponentesRegistradorIntentosAuditoriaDesarrollo(ctx, cfg, referencia, reservados, c)
-	return r, c.Proceso, cerrar, err
+	if err != nil {
+		return nil, "", nil, err
+	}
+	return r, c.Proceso, cerrar, nil
 }
 
 // La raíz conserva el pool nominal para lecturas y su asiento en una sola TX.

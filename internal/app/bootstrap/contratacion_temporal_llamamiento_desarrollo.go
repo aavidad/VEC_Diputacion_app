@@ -127,6 +127,12 @@ func (e *ejecutorSeleccionLlamamientoDesarrollo) SeleccionarYLlamarParaAdaptador
 	if err := e.autorizador.exigirLecturaSeleccion(ctx, expediente); err != nil {
 		return vacio, err
 	}
+	ctx = context.WithValue(ctx, claveEstadoOrigenConstituidoCT{}, &estadoOrigenConstituidoCT{
+		organizacion: expediente.Fiscalizado.OrganizacionRef,
+		expediente:   expediente.Fiscalizado.Referencia,
+		version:      expediente.Fiscalizado.Version,
+		clave:        solicitud.ClaveIdempotencia,
+	})
 	// El servicio conserva la recuperación terminal existente. El proveedor
 	// rechaza efectos nuevos sobre versiones históricas; el replay sigue ligado
 	// al mismo expediente, intención y actor autorizado en esta petición.

@@ -90,6 +90,9 @@ type ProcedenciaIntegracionBolsa struct {
 	// Sólo el circuito constituido B7 puede usar una prueba sin fecha de
 	// retención declarada; la marca queda cubierta por el HMAC del recibo.
 	SinRetencionDeclarada bool `json:"sin_retencion_declarada,omitempty"`
+	// La lectura constituida conserva el estado real de la política B6. En el
+	// canon nativo se firma también false; los recibos legados no cambian.
+	PoliticaProvisional bool `json:"politica_provisional,omitempty"`
 }
 
 func (p ProcedenciaIntegracionBolsa) validarNominalEn(instante time.Time) bool {
@@ -102,7 +105,8 @@ func (p ProcedenciaIntegracionBolsa) validarNominal() bool {
 		domain.ReferenciaOpacaValida(p.RespuestaRef) &&
 		p.ContratoVersion == VersionContratoIntegracionBolsa &&
 		p.Fuente.Validar() == nil &&
-		p.Evidencia.validarSintaxis(dominioSelloRespuestaBolsa, p.SinRetencionDeclarada)
+		p.Evidencia.validarSintaxis(dominioSelloRespuestaBolsa, p.SinRetencionDeclarada) &&
+		(p.SinRetencionDeclarada || !p.PoliticaProvisional)
 }
 
 func enteroSeguroBolsa(valor uint64) bool {
