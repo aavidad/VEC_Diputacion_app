@@ -225,6 +225,7 @@ static/portal-empleado/modulos/contratacion-temporal/contrato-asignacion.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-informe-juridico.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-fiscalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-llamamiento.js
+static/portal-empleado/modulos/contratacion-temporal/contrato-recuperacion-firmas-v2.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-resolucion-formalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-anotacion-administrativa.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-cierre-administrativo.js
@@ -233,6 +234,7 @@ static/portal-empleado/modulos/contratacion-temporal/cliente-http-informe-juridi
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-fiscalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-consulta-recibo-respuesta.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-recuperacion-firmas-v2.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-consulta-comunicaciones-expediente.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-resolucion-formalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-anotacion-administrativa.js
