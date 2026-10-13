@@ -132,10 +132,12 @@ func mismaIdentidadCandidataBolsa(interna, externa *resolvedorIdentidadDesarroll
 	}
 	a, b := interna.candidatoBolsa, externa.candidatoBolsa
 	return a.identidad.huella != ([sha256.Size]byte{}) && a.identidad.principal.ID != "" &&
-		a.personaRef != "" && a.candidatoRef != "" && a.cuentaRef != "" &&
+		a.personaRef != "" && a.candidatoRef != "" && a.cuentaRef != "" && b.cuentaRef != "" &&
 		a.perfilRef != "" && b.perfilRef != "" && a.perfilRef != b.perfilRef &&
+		// ContextoActor (CTX15) segrega las cuentas: la externa es propia.
+		a.cuentaRef != b.cuentaRef &&
 		a.identidad.huella == b.identidad.huella && a.identidad.principal.ID == b.identidad.principal.ID &&
-		a.personaRef == b.personaRef && a.candidatoRef == b.candidatoRef && a.cuentaRef == b.cuentaRef
+		a.personaRef == b.personaRef && a.candidatoRef == b.candidatoRef
 }
 
 // Despacha las autoridades externas antes de cualquier frontera interna CT.
