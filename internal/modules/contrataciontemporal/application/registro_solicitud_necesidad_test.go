@@ -4,12 +4,75 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"reflect"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/catalogoalta"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
+
+func TestEntregaRatificadaRecuperaSnapshotOriginalTrasCambiarPublicacion(t *testing.T) {
+	escenario, fuente := escenarioNecesidadRegistroPrueba(t)
+	servicio, _ := construirServicioRegistro(t, escenario)
+	if err := servicio.ConfigurarFuenteNecesidadesAlta(fuente); err != nil {
+		t.Fatal(err)
+	}
+	entrada := *escenario.solicitud.NecesidadEntrada
+	sellada, err := fuente.catalogo.SellarDatos(entrada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud := escenario.solicitud.Solicitud
+	solicitud.Periodo, solicitud.Necesidad = sellada.Periodo, &sellada
+	configuracion := domain.ConfiguracionPeticionCentro{Referencia: "config:centro:001", Version: 1,
+		Solicitante: domain.ActorPeticionCentro{ActorRef: "actor:centro:uno", PerfilRef: "perfil:centro:uno", CentroRef: solicitud.CentroRef, PuestoRef: "puesto:centro:uno"},
+		Ratificador: domain.ActorPeticionCentro{ActorRef: "actor:centro:dos", PerfilRef: "perfil:centro:dos", CentroRef: solicitud.CentroRef, PuestoRef: "puesto:centro:dos"}}
+	peticion, err := domain.NuevaPeticionCentro("peticion:centro:historica", configuracion, solicitud, escenario.instante)
+	if err != nil {
+		t.Fatal(err)
+	}
+	peticion, err = peticion.Ratificar(configuracion.Ratificador, 1, "Revisión de segunda identidad", escenario.instante.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	vinculo, err := escenario.contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const idAlta = "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b"
+	const ambito = "hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v1:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	e := ports.EntregaPeticionCentro{Peticion: peticion.Datos(), EstadoEntrega: "preparada", ClaveAlta: idAlta,
+		AmbitoAltaHMAC: ambito, ActorRef: vinculo.PrincipalID, PerfilRef: vinculo.PerfilActivoRef}
+	ctx, err := ConNecesidadRatificadaPeticionCentro(t.Context(), escenario.solicitud.OrganizacionRef, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ambitos, err := ports.NuevaColeccionSellosHMAC(
+		selloHMACRegistroPrueba("vec.contratacion-temporal.ambito-idempotencia/v2", "c"), []string{ambito})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entrada.Periodo = sellada.Periodo
+	fuente.catalogo = domain.CatalogoNecesidadesAlta{} // La publicación activa ya cambió.
+	recuperada, err := servicio.prepararNecesidadAlta(ctx, entrada, ambitos,
+		escenario.solicitud.OrganizacionRef, e.ActorRef, e.PerfilRef)
+	if err != nil || !reflect.DeepEqual(recuperada, sellada) || fuente.resoluciones != 0 {
+		t.Fatalf("snapshot ratificada sustituida: error=%v, resoluciones=%d", err, fuente.resoluciones)
+	}
+	entrada.Campos = map[string]string{"puesto_codigo": "otro"}
+	if _, err := servicio.prepararNecesidadAlta(ctx, entrada, ambitos,
+		escenario.solicitud.OrganizacionRef, e.ActorRef, e.PerfilRef); !errors.Is(err, ports.ErrClaveIdempotenciaUsada) {
+		t.Fatalf("intención alterada admitida: %v", err)
+	}
+	entrada = *escenario.solicitud.NecesidadEntrada
+	entrada.Periodo = sellada.Periodo
+	if _, err := servicio.prepararNecesidadAlta(ctx, entrada, ambitos,
+		"organizacion:otra", e.ActorRef, e.PerfilRef); !errors.Is(err, ports.ErrClaveIdempotenciaUsada) {
+		t.Fatalf("marca de otra organización admitida: %v", err)
+	}
+}
 
 type fuenteNecesidadRegistroPrueba struct {
 	catalogo     domain.CatalogoNecesidadesAlta

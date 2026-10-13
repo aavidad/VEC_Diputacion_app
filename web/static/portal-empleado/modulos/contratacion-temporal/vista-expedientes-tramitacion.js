@@ -11,7 +11,7 @@ import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } f
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261009-centro-campos-cohorte-v5";
-import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
+import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261014-need-centro-v1";
 import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,

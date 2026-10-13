@@ -1,7 +1,7 @@
-.peticiones-centro-app { min-width: 320px; }
+.peticiones-centro-app { min-width:320px; height:100dvh; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr) auto; overflow:hidden; }
 .pc-barra { display:flex; gap:18px; align-items:center; padding:14px clamp(16px,4vw,42px); background:var(--portal-azul-950); color:#fff; }
 .pc-marca { color:#fff; font-weight:800; text-decoration:none; }
-.pc-contenido { max-width:1440px; margin:auto; padding:24px clamp(14px,3vw,38px) 40px; }
+.pc-contenido { width:100%; min-height:0; max-width:1440px; margin:0 auto; padding:24px clamp(14px,3vw,38px) 40px; overflow:auto; }
 .pc-pie { padding:18px; color:var(--portal-muted); text-align:center; font-size:.85rem; }
 .pc-cabecera, .pc-panel { padding:20px; border:1px solid var(--portal-borde); border-radius:var(--portal-radio); background:var(--portal-superficie); box-shadow:var(--portal-sombra-sm); }
 .pc-panel { min-width:0; }

@@ -126,3 +126,51 @@ func TestHTTPPeticionCentroDistingueDenegacionDeIndisponibilidad(t *testing.T) {
 		})
 	}
 }
+
+func TestHTTPPeticionCentroV3DerivaPeriodoYRechazaInstantaneaCliente(t *testing.T) {
+	id, _ := escenarioIdentidadCentroPrueba(t, "http-necesidad")
+	repo := &repositorioErroresPeticionCentroPrueba{err: ports.ErrPeticionCentroNoDisponible}
+	proveedor := &proveedorPeticionCentroDesarrollo{actores: map[string]*identidadPeticionCentroDesarrollo{
+		id.principal.ID: id}, catalogos: catalogoCentroPrueba{}, reloj: id.soporte.reloj}
+	servicio, err := application.NuevoServicioPeticionCentro(proveedor, repo, id.soporte.reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := &manejadorPeticionCentroDesarrollo{proveedor: proveedor, servicio: servicio, bandeja: repo}
+	periodo := domain.PeriodoPrevisto{Inicio: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC),
+		Fin: time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)}
+	solicitud := domain.SolicitudCentro{CentroRef: "centro-520", ContactoRef: "contacto:sintetico:001",
+		CategoriaRef: "categoria:rpt:administrativo", GrupoSubgrupo: "C1", MotivoClave: "vacante",
+		Detalle: "Cobertura requerida", Periodo: periodo, JornadaMinutos: 2250, NumeroPersonas: 1,
+		PuestoSolicitado: "Administrativo"}
+	necesidad := map[string]any{"esquema": "vec.ct.necesidad_alta.v1", "catalogo_ref": "catalogo:ct:necesidades",
+		"catalogo_version": 3, "catalogo_huella_sha256": strings.Repeat("a", 64),
+		"causa_clave": "vacante", "jornada_minutos": 2250,
+		"campos": map[string]string{"numero_personas": "1", "puesto_codigo": "9"}}
+	pedir := func() *httptest.ResponseRecorder {
+		t.Helper()
+		contenido, err := json.Marshal(map[string]any{"operacion": "presentar", "clave_idempotencia": "12345678-1234-4234-8234-123456789abc", "esquema": ports.EsquemaAltaNecesidadV1,
+			"solicitud": solicitud, "necesidad": necesidad})
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := httptest.NewRequest(http.MethodPost, rutaOperacionesPeticionCentro, bytes.NewReader(contenido)).WithContext(
+			contextoRutaCentroPrueba(id, rutaOperacionesPeticionCentro))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		return w
+	}
+	if respuesta := pedir(); respuesta.Code != http.StatusServiceUnavailable {
+		t.Fatalf("entrada v3 válida no llegó al repositorio: %d %s", respuesta.Code, respuesta.Body)
+	}
+	necesidad["catalogo_instantanea"] = "YWJj"
+	if respuesta := pedir(); respuesta.Code != http.StatusBadRequest {
+		t.Fatalf("instantánea del cliente admitida: %d", respuesta.Code)
+	}
+	delete(necesidad, "catalogo_instantanea")
+	necesidad["periodo"] = periodo
+	if respuesta := pedir(); respuesta.Code != http.StatusBadRequest {
+		t.Fatalf("periodo duplicado en necesidad admitido: %d", respuesta.Code)
+	}
+}

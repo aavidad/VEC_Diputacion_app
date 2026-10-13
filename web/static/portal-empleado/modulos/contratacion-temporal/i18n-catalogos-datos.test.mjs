@@ -138,8 +138,9 @@ const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
   "resultado_bolsa_anterior", "resultado_bolsa_error_lectura", "resultado_bolsa_revisar",
   "resultado_bolsa_contacto", "resultado_bolsa_fecha_contacto", "resultado_bolsa_justificante_contacto", "resultado_bolsa_contacto_contactado", "resultado_bolsa_contacto_comunica", "resultado_bolsa_contacto_no_contesta", "resultado_bolsa_contacto_buzon", "resultado_bolsa_contacto_acepta", "resultado_bolsa_contacto_rechaza", "resultado_bolsa_contacto_aplazado", "resultado_bolsa_contacto_otro", "resultado_bolsa_contacto_enviado", "resultado_bolsa_contacto_no_enviado", "resultado_bolsa_contacto_numero_erroneo", "resultado_bolsa_contacto_no_entregado", "resultado_bolsa_contacto_entrega_declarada",
 ]);
-// Nuevas claves de Alta: se comprueban aparte sin reescribir la preimagen anterior.
-const CLAVES_CAPACIDAD_ALTA = Object.freeze({
+// Las claves añadidas se comprueban aparte sin reescribir la preimagen anterior.
+const CLAVES_ADICIONALES = Object.freeze({
+  "i18n-llamamiento.js": ["llamamiento_orden_bolsa_provisional"],
   "i18n-textos-vistas.js": ["motivo_sustitucion"],
   "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",
     "necesidades_alta_no_disponibles_detalle"],
@@ -206,12 +207,12 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
         preimagen = Object.fromEntries(Object.entries(valor)
           .filter(([clave]) => !CLAVES_BORRADORES_FICHA.includes(clave)));
       }
-      if (CLAVES_CAPACIDAD_ALTA[archivo]) {
-        for (const clave of CLAVES_CAPACIDAD_ALTA[archivo]) {
+      if (CLAVES_ADICIONALES[archivo]) {
+        for (const clave of CLAVES_ADICIONALES[archivo]) {
           assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
         }
         preimagen = Object.fromEntries(Object.entries(preimagen)
-          .filter(([clave]) => !CLAVES_CAPACIDAD_ALTA[archivo].includes(clave)));
+          .filter(([clave]) => !CLAVES_ADICIONALES[archivo].includes(clave)));
       }
       assert.equal(huella(preimagen), anterior, nombre);
       assert.ok(Object.isFrozen(valor), nombre);

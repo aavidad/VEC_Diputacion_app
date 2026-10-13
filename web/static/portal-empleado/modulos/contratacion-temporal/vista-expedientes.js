@@ -1,6 +1,6 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
-import { validarReciboAlta } from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
+import { validarReciboAlta } from "./contrato.js?v=20261014-need-centro-v1";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261011-ct-bolsa-vinculo-v1";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261011-ct-bolsa-vinculo-v1";

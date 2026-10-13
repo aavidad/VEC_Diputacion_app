@@ -351,6 +351,12 @@ func (p *proveedorEntregaPeticionDesarrollo) RegistrarExpedientePeticion(ctx con
 	if e.ValidarReserva() != nil || e.EstadoEntrega != "preparada" || e.ActorRef != a || e.PerfilRef != perfil {
 		return vacia, ports.ErrAutorizacionDenegada
 	}
+	if e.Peticion.Solicitud.Necesidad != nil {
+		ctx, err = application.ConNecesidadRatificadaPeticionCentro(ctx, organizacionAltaContratacionTemporalDesarrollo, e)
+		if err != nil {
+			return vacia, err
+		}
+	}
 	ctx = context.WithValue(ctx, claveAltaDePeticionDesarrollo{}, e)
 	comando, err := p.alta.soporte.ResolverContextoCanalAlta(ctx)
 	if err != nil {
@@ -362,6 +368,9 @@ func (p *proveedorEntregaPeticionDesarrollo) RegistrarExpedientePeticion(ctx con
 	if err != nil {
 		return vacia, err
 	}
+	if err := trasladarNecesidadPublicadaEntregaPeticion(&comando); err != nil {
+		return vacia, err
+	}
 	sellos, err := p.sellosDeClaveAlta(ctx, e.ClaveAlta, a, perfil)
 	if err != nil || !sellos.Contiene(e.AmbitoAltaHMAC) {
 		return vacia, ports.ErrAutorizacionDenegada
@@ -371,6 +380,25 @@ func (p *proveedorEntregaPeticionDesarrollo) RegistrarExpedientePeticion(ctx con
 		return vacia, err
 	}
 	return ports.AltaDePeticionCentro{Recibo: recibo, AmbitoHMAC: e.AmbitoAltaHMAC}, nil
+}
+
+func trasladarNecesidadPublicadaEntregaPeticion(comando *application.SolicitudRegistrarExpediente) error {
+	if comando == nil {
+		return ports.ErrFuenteNecesidadesAltaNoDisponible
+	}
+	if comando.Solicitud.Necesidad == nil {
+		return nil // Historia v2: conserva la misma alta y su recuperación.
+	}
+	necesidad, err := comando.Solicitud.Necesidad.Clonar()
+	if err != nil || necesidad.CausaClave != comando.Solicitud.MotivoClave ||
+		necesidad.Periodo != comando.Solicitud.Periodo {
+		return ports.ErrFuenteNecesidadesAltaNoDisponible
+	}
+	necesidad.CatalogoInstantanea = nil
+	comando.Solicitud.Necesidad = nil
+	comando.EsquemaAlta = ports.EsquemaAltaNecesidadV1
+	comando.NecesidadEntrada = &necesidad
+	return nil
 }
 
 // VerificarOriginalAltaEntrega usa el perfil reservado sólo para recomponer

@@ -111,11 +111,12 @@ func nuevaIdentidadPeticionCentroDesarrollo(
 }
 
 type proveedorPeticionCentroDesarrollo struct {
-	alta      *dependenciasAltaContratacionTemporalDesarrollo
-	actores   map[string]*identidadPeticionCentroDesarrollo
-	catalogos vecports.ConsultaCatalogosConfigurables
-	version   int
-	reloj     relojContratacionTemporalDesarrollo
+	alta         *dependenciasAltaContratacionTemporalDesarrollo
+	actores      map[string]*identidadPeticionCentroDesarrollo
+	catalogos    vecports.ConsultaCatalogosConfigurables
+	catalogoAlta *catalogosAltaContratacionTemporalDesarrollo
+	version      int
+	reloj        relojContratacionTemporalDesarrollo
 }
 
 type claveMaterialPeticionCentroDesarrollo struct{}
@@ -155,6 +156,9 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 		return nil, err
 	}
 	p := &proveedorPeticionCentroDesarrollo{alta: alta, actores: make(map[string]*identidadPeticionCentroDesarrollo), catalogos: catalogos, version: cfg.PersonalOrganizacionVersion, reloj: reloj}
+	if len(catalogosAlta) > 0 {
+		p.catalogoAlta = catalogosAlta[0]
+	}
 	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
 	for _, principal := range principales {
@@ -340,6 +344,41 @@ func actorPeticionCentroPerteneceCatalogo(c vecdomain.CatalogoConfigurable, acto
 		}
 	}
 	return false
+}
+
+// La publicación RPT comprueba el código de puesto. Este cotejo añade el
+// ámbito exacto del solicitante desde la misma organización Personal y las
+// categorías RPT que ya forman las opciones del catálogo CT.
+func (p *proveedorPeticionCentroDesarrollo) ValidarPuestoRPTPeticionCentro(ctx context.Context,
+	actor domain.ActorPeticionCentro, solicitud domain.SolicitudCentro, puesto ports.PuestoRPTAltaVerificado,
+) error {
+	if p == nil || p.catalogoAlta == nil || ctx == nil || ctx.Err() != nil || actor.Validar() != nil ||
+		solicitud.CentroRef != actor.CentroRef || !puesto.ExisteEnPublicacion ||
+		puesto.CategoriaClave == "" || puesto.CentroCodigo == "" ||
+		p.catalogoAlta.centrosCodigoFuente[actor.CentroRef] != puesto.CentroCodigo {
+		return domain.ErrPeticionCentroInvalida
+	}
+	categoria := false
+	for _, opcion := range p.catalogoAlta.Categorias {
+		if opcion.Referencia == solicitud.CategoriaRef && opcion.rptClave == puesto.CategoriaClave {
+			categoria = true
+			break
+		}
+	}
+	if !categoria {
+		return domain.ErrPeticionCentroInvalida
+	}
+	organizacion, err := p.catalogoParaActor(ctx, actor)
+	if err != nil {
+		return err
+	}
+	for _, unidad := range organizacion.Entradas {
+		if unidad.Clave == actor.CentroRef && unidad.Atributos["tipo"] == "centro" &&
+			unidad.Atributos["codigo_fuente"] == puesto.CentroCodigo {
+			return nil
+		}
+	}
+	return domain.ErrPeticionCentroInvalida
 }
 
 func motivoPeticionCentroDesarrollo() vecdomain.ReferenciaEntradaCatalogo {
