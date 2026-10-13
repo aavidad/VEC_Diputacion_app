@@ -11,8 +11,42 @@ import (
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestPuestoPeticionCentroExigeCategoriaYCentroPublicados(t *testing.T) {
+	organizacion := "../../../data/catalogos/estructura-organizativa/v1.rpt-publica.json"
+	rpt := "../../../data/catalogos/rpt/v1.rpt-2026.json"
+	opciones, err := nuevoCatalogoDesarrollo(organizacion, rpt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lector, err := fichero.NuevaConsultaCatalogos(organizacion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proveedor := &proveedorPeticionCentroDesarrollo{catalogoAlta: opciones, catalogos: lector,
+		version: 1}
+	actor := domain.ActorPeticionCentro{ActorRef: "actor:centro:520", PerfilRef: "perfil:centro:520",
+		CentroRef: "centro-520", PuestoRef: "rpt-520-735"}
+	solicitud := domain.SolicitudCentro{CentroRef: actor.CentroRef, CategoriaRef: "categoria:rpt:administrativo"}
+	puesto := ports.PuestoRPTAltaVerificado{ExisteEnPublicacion: true, PuestoCodigo: "9",
+		CategoriaClave: "administrativo", CentroCodigo: "520"}
+	if err := proveedor.ValidarPuestoRPTPeticionCentro(t.Context(), actor, solicitud, puesto); err != nil {
+		t.Fatalf("código 9 publicado para centro 520/administrativo: %v", err)
+	}
+	cruzado := puesto
+	cruzado.CentroCodigo = "101"
+	if err := proveedor.ValidarPuestoRPTPeticionCentro(t.Context(), actor, solicitud, cruzado); err == nil {
+		t.Fatal("puesto de otro centro admitido")
+	}
+	cruzado = puesto
+	cruzado.CategoriaClave = "auxiliar"
+	if err := proveedor.ValidarPuestoRPTPeticionCentro(t.Context(), actor, solicitud, cruzado); err == nil {
+		t.Fatal("puesto de otra categoría admitido")
+	}
+}
 
 func TestPeticionCentroDesarrolloSeparaRolesYMaterial(t *testing.T) {
 	p := vecdomain.Principal{ID: "desarrollo:solicitante-centro", DisplayName: "Solicitante sintético", Roles: []string{"solicitante_centro"}, AuthMethod: vecdomain.AuthMethodCertificate, AuthAssurance: vecdomain.AuthAssuranceHigh,

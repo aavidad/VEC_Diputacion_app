@@ -3,18 +3,74 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/catalogoalta"
 	httpinterno "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personalrpt "vec-diputacion-granada/internal/modules/personal/adapters/rptpublica"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+func TestEntregaPeticionV3TrasladaInstantaneaYLegaV2Intacta(t *testing.T) {
+	catalogo, err := catalogoalta.CargarNecesidades("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fuenteRPT, err := personalrpt.NuevaFuente("../../../data/catalogos/rpt/v1.rpt-2026.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rpt, err := fuenteRPT.ObtenerRPTPublica(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	inicio := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	necesidad, err := catalogo.SellarDatos(domain.DatosNecesidadAlta{
+		Esquema: "vec.ct.necesidad_alta.v1", CatalogoRef: catalogo.Referencia,
+		CatalogoVersion: catalogo.Version, CatalogoHuellaSHA256: catalogo.HuellaSHA256,
+		CausaClave: "vacante", Periodo: domain.PeriodoPrevisto{Inicio: inicio, Fin: inicio.AddDate(1, 0, -1)},
+		JornadaMinutos: 2250, Campos: map[string]string{
+			"numero_personas": "1", "plaza_codigo": "1201", "puesto_codigo": "9",
+			"rpt_catalogo_ref": rpt.Fuente.Importacion, "rpt_catalogo_huella_sha256": rpt.Fuente.HuellaSHA256,
+			"organica_codigo": "100", "funcional_codigo": "200", "proyecto_gasto_codigo": "300",
+			"porcentaje_financiacion": "100",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, err := necesidad.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	comando := application.SolicitudRegistrarExpediente{Solicitud: domain.SolicitudCentro{
+		MotivoClave: "vacante", Periodo: necesidad.Periodo, Necesidad: &necesidad,
+	}}
+	if err := trasladarNecesidadPublicadaEntregaPeticion(&comando); err != nil ||
+		comando.EsquemaAlta != ports.EsquemaAltaNecesidadV1 || comando.Solicitud.Necesidad != nil ||
+		comando.NecesidadEntrada == nil || len(comando.NecesidadEntrada.CatalogoInstantanea) != 0 ||
+		!reflect.DeepEqual(necesidad, original) {
+		t.Fatalf("entrega v3 alteró la necesidad original: %v", err)
+	}
+	comando.NecesidadEntrada.Campos["puesto_codigo"] = "otro"
+	if necesidad.Campos["puesto_codigo"] != "9" {
+		t.Fatal("entrada de alta comparte campos con petición ratificada")
+	}
+	legado := application.SolicitudRegistrarExpediente{Solicitud: domain.SolicitudCentro{MotivoClave: "vacante"}}
+	if err := trasladarNecesidadPublicadaEntregaPeticion(&legado); err != nil ||
+		legado.EsquemaAlta != "" || legado.NecesidadEntrada != nil {
+		t.Fatalf("alta v2 histórica alterada: %v", err)
+	}
+}
 
 type auditorDenegacionEntregaPreV3Prueba struct {
 	ordenes []vecports.OrdenAuditoriaFronteraRutaExacta

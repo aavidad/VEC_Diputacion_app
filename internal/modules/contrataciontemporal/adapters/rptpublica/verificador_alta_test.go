@@ -32,6 +32,23 @@ func TestVerificadorAltaCompruebaPuestoYPublicacionExacta(t *testing.T) {
 	if err != nil || resultado.ValidarPara(s) != nil {
 		t.Fatal("puesto real rechazado", err)
 	}
+	conAmbito := false
+	for _, publicado := range c.Puestos {
+		if publicado.CategoriaClave == "" || publicado.CentroCodigo == "" {
+			continue
+		}
+		s.PuestoCodigo = publicado.Codigo
+		resultado, err = v.VerificarPuestoRPTAlta(context.Background(), s)
+		if err != nil || resultado.ValidarPara(s) != nil ||
+			resultado.CategoriaClave != publicado.CategoriaClave || resultado.CentroCodigo != publicado.CentroCodigo {
+			t.Fatal("el verificador perdió el ámbito publicado del puesto", err)
+		}
+		conAmbito = true
+		break
+	}
+	if !conAmbito {
+		t.Fatal("RPT sin puesto con categoría y centro publicados")
+	}
 	s.PuestoCodigo = "99999999-NO-EXISTE"
 	resultado, err = v.VerificarPuestoRPTAlta(context.Background(), s)
 	if err != nil || resultado.ExisteEnPublicacion {
