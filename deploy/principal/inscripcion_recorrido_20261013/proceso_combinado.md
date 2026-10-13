@@ -2,15 +2,17 @@
 
 Con `VEC_PORTAL_PROCESO` sin definir, el único `vec-server` atiende también
 «Inscribirme» y «Mis solicitudes». Reutiliza el montaje del portal externo y
-la sesión externa de Preferencias; RRHH conserva su bandeja y su sesión
+la sesión del candidato en Mi Bolsa externa; RRHH conserva su bandeja y su sesión
 interna. El proceso `interno` separado no abre estas conexiones externas.
 
 CONFIG NUEVA: en el proceso combinado se exige
 `VEC_EXTERNO_PREFLIGHT_V3_DATABASE_URL` con el LOGIN
 `vec_externo_preflight_v3_desarrollo`, y el material del consumidor
-`inscripcion_bolsa` en `$VEC_DEVELOPMENT_MATERIAL_DIR/externo/v3/`.
-No hay nuevas variables ni SQL en esta PR: son las dependencias existentes
-del montaje externo, ahora alcanzable desde la raíz combinada.
+`inscripcion_bolsa` en `$VEC_MATERIAL_PORTAL_EXTERNO_DIR/externo/v3/`.
+CONFIG NUEVA: `VEC_MATERIAL_PORTAL_EXTERNO_DIR=/vec-material-externo`, material
+privado externo distinto del interno y con idempotencia propia.
+No hay SQL nueva. La opción del directorio externo permite conservar su
+idempotencia y sus perfiles propios dentro del proceso combinado.
 
 Dirección mantiene las siguientes opciones en el entorno privado del proceso:
 
@@ -18,7 +20,7 @@ Dirección mantiene las siguientes opciones en el entorno privado del proceso:
 | --- | --- |
 | `VEC_PORTAL_PROCESO` | Sin definir, para el proceso combinado |
 | `VEC_BOLSA_INSCRIPCIONES_ENABLED` | `true` |
-| `VEC_USUARIOS_PREFERENCIAS_ENABLED` | `true`, con la sesión externa ya compuesta |
+| `VEC_MATERIAL_PORTAL_EXTERNO_DIR` | `/vec-material-externo`, mount privado propio |
 | `VEC_EXTERNO_BOLSA_INSCRIPCIONES_LECTOR_DATABASE_URL` | LOGIN `vec_bolsa_inscripciones_lector` |
 | `VEC_EXTERNO_BOLSA_DATABASE_URL` | LOGIN `vec_externo_bolsa_desarrollo` |
 | `VEC_EXTERNO_PREFLIGHT_V3_DATABASE_URL` | LOGIN `vec_externo_preflight_v3_desarrollo`, sólo lectura |
@@ -30,18 +32,18 @@ Los DSN usan TLS verificado. Ninguno se sustituye por el LOGIN interno de
 RRHH. Se conservan el lector de RRHH, su fichero de identidad y los permisos
 publicados según `LEEME.md` y `gobierno_inscripcion.md`.
 
-El preparador existente exige un directorio externo distinto del interno.
-Preparar allí el consumidor mediante `vec-server preparar-portal-externo
---material-externo "$VEC_MATERIAL_PORTAL_EXTERNO_DIR" --consumidores
-inscripcion_bolsa`. Mantener en ese inventario los otros consumidores externos
-que ya se utilicen. Antes de arrancar el proceso combinado, copiar sólo el
-subárbol privado `externo/v3/` preparado a
-`$VEC_DEVELOPMENT_MATERIAL_DIR/externo/v3/`, conservando los permisos privados
-(directorios 0700 y ficheros 0600). No copiar material interno al directorio
-externo ni guardar material o DSN en Git.
+Prepare [la base externa](base_material_externo.md) en un directorio privado del
+host, antes de montarlo en `/vec-material-externo`. Con el entorno interno,
+publique después los consumidores mediante `vec-server preparar-portal-externo
+--material-externo "$MATERIAL_EXTERNO" --consumidores
+mi_bolsa,portal_candidato,preferencias_bolsas,inscripcion_bolsa`, omitiendo
+`portal_candidato` si sus acciones están apagadas y conservando los otros
+consumidores ya publicados. El destino es distinto del material interno.
+No copie claves internas al externo ni guarde material o DSN en Git.
 
-La raíz despacha únicamente las rutas de convocatorias abiertas y solicitudes
-propias al montaje externo, fuera de la frontera interna de CT. Cada lectura
+La raíz despacha Mi Bolsa, Preferencias de Bolsa, convocatorias abiertas y
+solicitudes propias a sus montajes externos, fuera de la frontera interna de
+CT. La composición y provisión internas de Mi Bolsa se omiten en combinado. Cada lectura
 y presentación conserva las comprobaciones y la auditoría del constructor
 existente. Una dependencia ausente impide el arranque; con inscripción apagada
 no se abre el preflight. Los pools se cierran al fallar el arranque o al detener

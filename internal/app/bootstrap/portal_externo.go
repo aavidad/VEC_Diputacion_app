@@ -252,10 +252,10 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 	if portalCandidato && !miBolsa {
 		return nil, nada, errMiBolsaNoDisponible
 	}
-	// La inscripción reutiliza la sesión del Área personal: encendida sin
-	// Preferencias no se compone a medias, se detiene el arranque.
+	// La inscripción reutiliza la sesión externa del candidato en Mi Bolsa.
+	// Sin ese montaje no se sustituye por una sesión de Usuarios.
 	inscripcionActiva, err := cfg.BolsaInscripcionesExternoActivo()
-	if err != nil || (inscripcionActiva && !preferencias) {
+	if err != nil || (inscripcionActiva && !miBolsa) {
 		return nil, nada, errMontajeInscripcionBolsa
 	}
 	if !preferencias && !miBolsa {
@@ -302,13 +302,13 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 		}
 		personal = manejador
 	}
-	bolsa, cerrarBolsa, err := nuevaMiBolsaPortalExterno(ctx, cfg, identidad, derivador, preflight, emisor)
+	bolsa, sesionBolsa, cerrarBolsa, err := nuevaMiBolsaPortalExterno(ctx, cfg, identidad, derivador, preflight, emisor)
 	if err != nil {
 		cerrarPreferencias()
 		cerrar()
 		return nil, nada, err
 	}
-	inscripcionBolsa, cerrarInscripcion, err := nuevaInscripcionPortalExterno(ctx, cfg, autoridadPreferencias, preflight)
+	inscripcionBolsa, cerrarInscripcion, err := nuevaInscripcionPortalExterno(ctx, cfg, sesionBolsa, preflight)
 	if err != nil {
 		cerrarBolsa()
 		cerrarPreferencias()

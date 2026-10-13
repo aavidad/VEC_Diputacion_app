@@ -89,7 +89,7 @@
 875 internal/vec/ports/reconciliacion_documental_v4.go
 1179 scripts/smoke_nominas_peoplenet.js
 13067 web/static/app.js
-869 web/static/area-personal/aplicacion.js
+905 web/static/area-personal/aplicacion.js
 612 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 1015 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 956 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
@@ -106,7 +106,7 @@
 1761 web/static/portal-empleado/portal-modulos-coordinador.js
 1865 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1081 web/static/portal-empleado/portal-componentes.css
-2053 web/static/portal-empleado/portal.js
+2082 web/static/portal-empleado/portal.js
 1521 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1141 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
@@ -118,7 +118,6 @@
 780 internal/app/server/server_test.go
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1692 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
 1111 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
 1080 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
@@ -168,5 +167,8 @@
 1212 deploy/postgresql/autorizacion/migraciones/000078_cartera_meritos_persona_externa.up.sql
 3751 deploy/postgresql/autorizacion_atestada_v3/migraciones/000250_cartera_meritos_externa.up.sql
 3325 deploy/postgresql/autorizacion_atestada_v3/migraciones/000253_meritos_basal_compatible.up.sql
-821 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go
-849 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_desarrollo.go
+4891 deploy/postgresql/autorizacion_atestada_v3/migraciones/000260_alegaciones_dos_objetos.up.sql
+3752 deploy/postgresql/autorizacion_atestada_v3/migraciones/000262_cartera_meritos_preimagen_actual.up.sql
+927 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go
+850 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_desarrollo.go
+1638 internal/app/bootstrap/contratacion_temporal_desarrollo.go

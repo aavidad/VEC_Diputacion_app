@@ -494,7 +494,9 @@ test("el portal conserva el shell rico y delega el catálogo sin fijar módulos 
     "baremacion", "alegaciones", "importacion", "llamamientos", "estadisticas", "auditoria", "configuracion"])
     assert.match(html, new RegExp(`data-vista="${vista}"`));
   assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratos"/);
-  assert.match(html, /data-categoria-bolsa="documentos" data-vista="documentos"[^>]*disabled/u);
+  const documentos = html.match(/<button\b[^>]*data-categoria-bolsa="documentos" data-vista="documentos"[^>]*>/u);
+  assert.ok(documentos, "falta el acceso a los documentos de Bolsa");
+  assert.doesNotMatch(documentos[0], /\bdisabled(?:\s|=|>)/u);
   assert.match(javascript, /renderizarPantallaLlamamientos/u);
   assert.match(javascript, /instalarSelectorLlamamientos/u);
   assert.equal(traducirPortal("txt_elija_una_bolsa_para_iniciar_un_llamamiento"), "Elija una bolsa para iniciar un llamamiento.");

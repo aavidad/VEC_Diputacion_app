@@ -1,0 +1,10 @@
+# Sobre una base HZ24, instalar primero #1079 exactamente en este orden:
+#   AD256, AUT84, AUT85, AUT86 (lista_sql_codexo_inscripcion_gobierno_20261013.txt).
+# Después instalar #1081 en el orden de sus listas basal y RRHH, usando AD262
+# en lugar de AD250. Sólo los UP ausentes. AUT92 de #1100 debe preceder AUT88.
+# Aplicar las siguientes SQL UNA vez, en orden; si AUT92 ya consta instalada, omitirla.
+# Nunca DOWN ni reaplicar funciones con historia. PostgreSQL 18.4.
+deploy/postgresql/autorizacion/migraciones/000092_version_rol_bolsa_rrhh_generico.up.sql
+deploy/postgresql/autorizacion/migraciones/000088_alegaciones_gobierno_externo_v4.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000260_alegaciones_dos_objetos.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000114_alegaciones_dos_objetos.up.sql

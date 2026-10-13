@@ -25,12 +25,13 @@ import (
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecapp "vec-diputacion-granada/internal/vec/application"
 	core "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 // Composición de la inscripción en Bolsa en cada raíz. Con
 // VEC_BOLSA_INSCRIPCIONES_ENABLED apagado ninguna de las dos funciones abre
-// conexiones ni devuelve rutas. Encendido, cualquier dependencia ausente
-// (SQL, material V3, permisos o cuentas) impide arrancar: no hay modo parcial.
+// conexiones ni devuelve rutas. Encendido, Inscripción exige sus dependencias;
+// Alegaciones se cierra por separado hasta tener motivo y audiencia propios.
 
 // motivoPresentarInscripcionBolsaDesarrollo es el motivo V3 con el que la
 // persona aspirante presenta su solicitud. El validador central lo coteja en
@@ -76,12 +77,16 @@ func descriptoresLecturaInscripcionBolsa(superficie string) map[ClaveOperacionIn
 func descriptoresEscrituraInscripcionBolsa(superficie string, motivos map[string]core.ReferenciaEntradaCatalogo) map[ClaveOperacionInscripcionBolsa]DescriptorInscripcionBolsa {
 	resultado := map[ClaveOperacionInscripcionBolsa]DescriptorInscripcionBolsa{}
 	for _, clave := range clavesEscrituraInscripcionBolsa(superficie) {
+		motivo, presente := motivos[clave.Accion]
+		if !presente {
+			continue
+		}
 		tipo, finalidad, ok := tipoFinalidadInscripcionBolsa(clave)
 		if !ok {
 			return nil
 		}
 		resultado[clave] = DescriptorInscripcionBolsa{Accion: clave.Accion, ModuloID: "bolsa", TipoRecurso: tipo,
-			Finalidad: finalidad, Motivo: motivos[clave.Accion]}
+			Finalidad: finalidad, Motivo: motivo}
 	}
 	return resultado
 }
@@ -162,9 +167,25 @@ func nuevaInscripcionPortalExterno(ctx context.Context, cfg config.Config,
 		return nil, nada, errMontajeInscripcionBolsa
 	}
 	motivo := motivoPresentarInscripcionBolsaDesarrollo()
-	motivos, err := vecpg.NuevoValidadorReferenciaMotivoPostgreSQLV2Externo(cierre.pools[2], motivo.CatalogoID)
+	motivoBase, err := vecpg.NuevoValidadorReferenciaMotivoPostgreSQLV2Externo(cierre.pools[2], motivo.CatalogoID)
 	if err != nil {
 		return nil, nada, errMontajeInscripcionBolsa
+	}
+	instanteMotivos := time.Now().UTC()
+	if motivoBase.ValidarReferenciaMotivoAutorizacionV2(ctx, motivo, instanteMotivos) != nil {
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	var motivos vecports.ValidadorReferenciaMotivoAutorizacionV2 = motivoBase
+	var motivoAlegacion core.ReferenciaEntradaCatalogo
+	alegacionesDisponibles := false
+	if referencia, err := leerMotivoAlegacionesBolsa(cfg.DevelopmentMaterialDir); err != nil {
+		registrarAlegacionesBolsaNoDisponibles("configuracion")
+	} else if compuesto, err := nuevosValidadoresMotivoInscripcionAlegaciones(cierre.pools[2], referencia); err != nil {
+		registrarAlegacionesBolsaNoDisponibles("validador")
+	} else if err := compuesto.ValidarReferenciaMotivoAutorizacionV2(ctx, referencia, instanteMotivos); err != nil {
+		registrarAlegacionesBolsaNoDisponibles("catalogo")
+	} else {
+		motivos, motivoAlegacion, alegacionesDisponibles = compuesto, referencia, true
 	}
 	pdp, err := nuevaAutorizacionMiBolsaPortalExterno(fuente, registro, registro, motivos)
 	if err != nil {
@@ -172,8 +193,21 @@ func nuevaInscripcionPortalExterno(ctx context.Context, cfg config.Config,
 	}
 	reloj := relojContratacionTemporalDesarrollo{}
 	proveedores, err := nuevosProveedoresV3PortalExterno(ctx, cfg.DevelopmentMaterialDir, preflight, consumidorInscripcionPortalExternoV3, reloj)
-	if err != nil || proveedores[audienciaPresentarInscripcionExternaV3] == nil {
+	if err != nil {
+		base, errBase := proveedorBaseInscripcionPortalExterno(ctx, cfg.DevelopmentMaterialDir, preflight, reloj)
+		if errBase != nil {
+			return nil, nada, errMontajeInscripcionBolsa
+		}
+		registrarAlegacionesBolsaNoDisponibles("material")
+		proveedores = map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo{
+			audienciaPresentarInscripcionExternaV3: base}
+	}
+	if proveedores[audienciaPresentarInscripcionExternaV3] == nil {
 		return nil, nada, errMontajeInscripcionBolsa
+	}
+	if proveedores[audienciaPresentarAlegacionExternaV3] == nil {
+		registrarAlegacionesBolsaNoDisponibles("audiencia")
+		alegacionesDisponibles = false
 	}
 	superficie := superficieExternaInscripcionBolsa
 	decisor, err := NuevoDecisorLecturaActualInscripcionPostgreSQL(cierre.pools[0], ConfiguracionDecisorLecturaActualInscripcion{
@@ -181,15 +215,28 @@ func nuevaInscripcionPortalExterno(ctx context.Context, cfg config.Config,
 	if err != nil {
 		return nil, nada, errMontajeInscripcionBolsa
 	}
+	materialEscritura := map[ClaveOperacionInscripcionBolsa]*proveedorMaterialAltaContratacionTemporalDesarrollo{
+		{inscripcion.AccionPresentar, superficie}: proveedores[audienciaPresentarInscripcionExternaV3]}
+	motivosEscritura := map[string]core.ReferenciaEntradaCatalogo{inscripcion.AccionPresentar: motivo}
+	lecturasEscritura := descriptoresLecturaInscripcionBolsa(superficie)
+	if alegacionesDisponibles {
+		materialEscritura[ClaveOperacionInscripcionBolsa{inscripcion.AccionPresentarAlegacion, superficie}] =
+			proveedores[audienciaPresentarAlegacionExternaV3]
+		motivosEscritura[inscripcion.AccionPresentarAlegacion] = motivoAlegacion
+	} else {
+		delete(lecturasEscritura, ClaveOperacionInscripcionBolsa{inscripcion.AccionObjetosAlegacion, superficie})
+	}
 	autoridad, err := NuevaAutoridadInscripcionBolsa(ConfiguracionAutoridadInscripcionBolsa{
 		Superficie: superficie, Lectura: decisor, PDP: pdp, Motivos: motivos, Reloj: reloj, FuenteActual: decisor,
-		Material: map[ClaveOperacionInscripcionBolsa]*proveedorMaterialAltaContratacionTemporalDesarrollo{
-			{inscripcion.AccionPresentar, superficie}: proveedores[audienciaPresentarInscripcionExternaV3]},
-		Descriptores: descriptoresEscrituraInscripcionBolsa(superficie, map[string]core.ReferenciaEntradaCatalogo{inscripcion.AccionPresentar: motivo}),
-		Lecturas:     descriptoresLecturaInscripcionBolsa(superficie),
+		Material:     materialEscritura,
+		Descriptores: descriptoresEscrituraInscripcionBolsa(superficie, motivosEscritura),
+		Lecturas:     lecturasEscritura,
 	})
 	if err != nil {
 		return nil, nada, errMontajeInscripcionBolsa
+	}
+	if !alegacionesDisponibles {
+		autoridad = autoridadInscripcionSinAlegaciones{AutoridadInscripcionBolsa: autoridad}
 	}
 	sesion, err := NuevaSesionExternaInscripcion(preferencias)
 	if err != nil {
@@ -201,6 +248,9 @@ func nuevaInscripcionPortalExterno(ctx context.Context, cfg config.Config,
 	}
 	cierre.extra = append(cierre.extra, cerrarMontaje)
 	completa = true
+	if !alegacionesDisponibles {
+		manejador = cerrarRutasAlegacionesExterno(manejador)
+	}
 	return manejador, cierre.cerrar, nil
 }
 
@@ -269,6 +319,7 @@ func cuentasRRHHInscripcionDesarrollo(identidad *resolvedorIdentidadDesarrollo, 
 type inscripcionRRHHDesarrollo struct {
 	manejador       http.Handler
 	revisionMeritos http.Handler
+	alegaciones     http.Handler
 	cerrar          func()
 }
 
@@ -276,7 +327,7 @@ type inscripcionRRHHDesarrollo struct {
 // vec-server con la sesión interna nominal, el PDP interno, el ámbito de
 // gestión de RRHH y el material V3 de decidir e incorporar.
 func nuevaInscripcionRRHHDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo,
-	material materialInscripcionRRHHDesarrollo,
+	material materialInscripcionRRHHDesarrollo, fuenteNombres ...*fuenteConstituidaRRHHDesarrollo,
 ) (resultado *inscripcionRRHHDesarrollo, err error) {
 	fase := "selector"
 	defer func() {
@@ -480,8 +531,21 @@ func nuevaInscripcionRRHHDesarrollo(cfg config.Config, resolvedor vechttp.DemoId
 	if err != nil {
 		return nil, err
 	}
+	pa, ok := preparador.(httpinscripcion.PreparadorAlegaciones)
+	if !ok {
+		return nil, errMontajeInscripcionBolsa
+	}
+	var fuenteB7 *fuenteConstituidaRRHHDesarrollo
+	if len(fuenteNombres) > 0 {
+		fuenteB7 = fuenteNombres[0]
+	}
+	alegaciones, err := httpinscripcion.NuevoAlegacionesRRHH(pa,
+		aplicacionAlegacionesRRHHConNombres{AplicacionAlegaciones: servicio, fuente: fuenteB7})
+	if err != nil {
+		return nil, errMontajeInscripcionBolsa
+	}
 	completa = true
-	return &inscripcionRRHHDesarrollo{manejador: manejador, revisionMeritos: revisionMeritos, cerrar: cierre.cerrar}, nil
+	return &inscripcionRRHHDesarrollo{manejador: manejador, revisionMeritos: revisionMeritos, alegaciones: alegaciones, cerrar: cierre.cerrar}, nil
 }
 
 // componerRaizConInscripcionRRHH sólo añade el prefijo de RRHH cuando la
@@ -493,6 +557,10 @@ func componerRaizConInscripcionRRHH(raiz http.Handler, i *inscripcionRRHHDesarro
 	mux := http.NewServeMux()
 	if i.revisionMeritos != nil {
 		mux.Handle(meritoshttp.RutaRevisionRRHH, i.revisionMeritos)
+	}
+	if i.alegaciones != nil {
+		mux.Handle(httpinscripcion.RutaAlegacionesRRHH, i.alegaciones)
+		mux.Handle(httpinscripcion.RutaAlegacionesRRHH+"/", i.alegaciones)
 	}
 	mux.Handle(httpinscripcion.RutaRRHH, i.manejador)
 	mux.Handle(httpinscripcion.RutaRRHH+"/", i.manejador)

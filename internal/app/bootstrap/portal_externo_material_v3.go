@@ -49,6 +49,7 @@ const (
 	consumidorPreferenciasBolsasPortalExternoV3 = "preferencias_bolsas"
 	consumidorMeritosCarteraPortalExternoV3     = "meritos_cartera"
 	audienciaPresentarInscripcionExternaV3      = "vec_bolsa_llamamientos.inscripcion.presentar.v1"
+	audienciaPresentarAlegacionExternaV3        = "vec_bolsa_llamamientos.alegacion.presentar.v1"
 	accionPresentarInscripcionExternaV3         = "bolsa.inscripcion.presentar"
 	tipoRecursoPresentarInscripcionExternaV3    = "inscripcion_convocatoria"
 )
@@ -68,6 +69,15 @@ func descriptorMaterialPresentarInscripcionExternaV3() descriptorMaterialConsumi
 		Dominio:          "vec.bolsa.inscripcion.presentar.desarrollo.capacidad-v3",
 		Prefijo:          "clave:capacidad:bolsa-inscripcion-presentar:",
 		ProveedorNominal: "proveedor-material-bolsa-inscripcion-presentar",
+	}
+}
+
+func descriptorMaterialPresentarAlegacionExternaV3() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia:        audienciaPresentarAlegacionExternaV3,
+		Dominio:          "vec.bolsa.alegacion.presentar.desarrollo.capacidad-v3",
+		Prefijo:          "clave:capacidad:bolsa-alegacion-presentar:",
+		ProveedorNominal: "proveedor-material-bolsa-alegacion-presentar",
 	}
 }
 
@@ -102,7 +112,7 @@ func audienciasConsumidorPortalExternoV3(consumidor string) []string {
 			puertosbolsa.AudienciaConfirmarContactoPropio,
 		}
 	case consumidorInscripcionPortalExternoV3:
-		return []string{audienciaPresentarInscripcionExternaV3}
+		return []string{audienciaPresentarInscripcionExternaV3, audienciaPresentarAlegacionExternaV3}
 	case consumidorPreferenciasBolsasPortalExternoV3:
 		return []string{puertosbolsa.AudienciaOrdenarPreferenciasBolsas}
 	case consumidorMeritosCarteraPortalExternoV3:
@@ -110,6 +120,20 @@ func audienciasConsumidorPortalExternoV3(consumidor string) []string {
 	default:
 		return nil
 	}
+}
+
+// Inscripción conserva su primera audiencia obligatoria cuando el material
+// de Alegaciones aún no se ha publicado. Ningún otro consumidor cambia forma
+// ni se admite una audiencia distinta o fuera de orden.
+func audienciasInventarioPortalExternoV3(consumidor string, cantidad int) []string {
+	audiencias := audienciasConsumidorPortalExternoV3(consumidor)
+	if consumidor == consumidorInscripcionPortalExternoV3 && cantidad == 1 {
+		return audiencias[:1]
+	}
+	if audiencias != nil && cantidad == len(audiencias) {
+		return audiencias
+	}
+	return nil
 }
 
 // descriptoresMaterialPortalExternoV3 reúne, de los catálogos ya existentes,
@@ -124,6 +148,7 @@ func descriptoresMaterialPortalExternoV3() []descriptorMaterialConsumidorV3Desar
 	todos = append(todos, descriptoresMaterialPortalCandidatoDesarrollo()...)
 	todos = append(todos, descriptoresMaterialContactoPropioDesarrollo()...)
 	todos = append(todos, descriptorMaterialPresentarInscripcionExternaV3())
+	todos = append(todos, descriptorMaterialPresentarAlegacionExternaV3())
 	todos = append(todos, descriptorMaterialOrdenarPreferenciasBolsasExternaV3())
 	todos = append(todos, descriptorMaterialRetirarCarteraExternaV3())
 	todos = append(todos, descriptoresMaterialMeritosInternosDesarrollo()[0])
@@ -196,8 +221,8 @@ func inventarioDesdeMateriales(publicados map[string][]materialAtestacionContrat
 		if !ok {
 			continue
 		}
-		audiencias := audienciasConsumidorPortalExternoV3(consumidor)
-		if len(materiales) != len(audiencias) {
+		audiencias := audienciasInventarioPortalExternoV3(consumidor, len(materiales))
+		if audiencias == nil {
 			return inv, ErrMaterialV3PortalExternoInvalido
 		}
 		for i := range materiales {
@@ -372,8 +397,8 @@ func leerInventarioV3PortalExterno(directorio string) (inventarioV3PortalExterno
 		return inventarioV3PortalExterno{}, ErrMaterialV3PortalExternoInvalido
 	}
 	for consumidor, claves := range inv.Consumidores {
-		audiencias := audienciasConsumidorPortalExternoV3(consumidor)
-		if audiencias == nil || len(claves) != len(audiencias) {
+		audiencias := audienciasInventarioPortalExternoV3(consumidor, len(claves))
+		if audiencias == nil {
 			return inventarioV3PortalExterno{}, ErrMaterialV3PortalExternoInvalido
 		}
 		for i, clave := range claves {
