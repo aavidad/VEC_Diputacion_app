@@ -1,0 +1,5 @@
+# Dependencia causal: integrar e instalar primero AD252 del corte I, una sola vez.
+# Su archivo pertenece a Codex-I: 000252_exito_nominal_lectura_documentos_bolsa.up.sql.
+# AD259 exige preimagen AD252 exacta; no copiar la migración I en esta rama.
+# No ejecutar DOWN ni reaplicar AD252/AD259 sobre historia existente.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000259_exito_nominal_configuracion_y_origen_bolsa.up.sql

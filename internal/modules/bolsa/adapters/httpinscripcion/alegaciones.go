@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -116,7 +118,16 @@ func parametrosPaginaAlegacion(q url.Values, extras ...string) (int, string, boo
 	if _, ok := q["limite"]; ok {
 		var err error
 		limite, err = strconv.Atoi(q.Get("limite"))
-		if err != nil || limite < 1 || limite > 20 {
+		if err != nil {
+			var numero *strconv.NumError
+			if errors.As(err, &numero) {
+				slog.Warn("bolsa_alegaciones_limite_invalido", "clave", "limite", "esperado", "entero_1_20", "actual", "formato_invalido", "causa", numero.Err)
+			} else {
+				slog.Warn("bolsa_alegaciones_limite_invalido", "clave", "limite", "esperado", "entero_1_20", "actual", "conversion_invalida", "causa", err)
+			}
+			return 0, "", false
+		}
+		if limite < 1 || limite > 20 {
 			return 0, "", false
 		}
 	}

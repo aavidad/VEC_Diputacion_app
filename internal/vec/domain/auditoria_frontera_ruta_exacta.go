@@ -13,6 +13,7 @@ const SuperficieAuditoriaFronteraRutaExactaAuditoria = "api.auditoria.ruta_exact
 const SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias = "api.usuarios.preferencias.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaBolsaCandidato = "api.bolsa.candidato.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaMeritosCartera = "api.meritos.cartera.ruta_exacta"
+const SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH = "api.bolsa.rrhh.documentos.ruta_exacta"
 
 // Aspirantes no guarda `per_`: sus denegaciones de frontera nunca llevan actor.
 const SuperficieAuditoriaFronteraRutaExactaAspirantes = "api.aspirantes.ficha.ruta_exacta"
@@ -30,6 +31,7 @@ type MotivoAuditoriaFronteraRutaExacta string
 const (
 	MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida MotivoAuditoriaFronteraRutaExacta = "autenticacion_requerida"
 	MotivoAuditoriaFronteraRutaExactaAccesoDenegado         MotivoAuditoriaFronteraRutaExacta = "acceso_denegado"
+	MotivoAuditoriaFronteraRutaExactaServicioNoDisponible   MotivoAuditoriaFronteraRutaExacta = "servicio_no_disponible"
 )
 
 // OrdenAuditoriaFronteraRutaExacta conserva solo los datos minimizados de una
@@ -46,7 +48,8 @@ type OrdenAuditoriaFronteraRutaExacta struct {
 func (o OrdenAuditoriaFronteraRutaExacta) Validar() error {
 	if !correlacionAuditoriaFronteraRutaExactaValida(o.CorrelacionRef) ||
 		(o.Motivo != MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida &&
-			o.Motivo != MotivoAuditoriaFronteraRutaExactaAccesoDenegado) ||
+			o.Motivo != MotivoAuditoriaFronteraRutaExactaAccesoDenegado &&
+			!(o.Superficie == SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH && o.Motivo == MotivoAuditoriaFronteraRutaExactaServicioNoDisponible)) ||
 		!rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(o.Superficie, o.Ruta) ||
 		(o.ActorRef != "" && !referenciaActorAuditoriaFronteraRutaExactaValida(o.ActorRef)) ||
 		((o.Superficie == SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias ||
@@ -55,6 +58,8 @@ func (o OrdenAuditoriaFronteraRutaExacta) Validar() error {
 			((o.Motivo == MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida && o.ActorRef != "") ||
 				(o.Motivo == MotivoAuditoriaFronteraRutaExactaAccesoDenegado &&
 					!referenciaOpacaContextoActorValida(o.ActorRef, "per_")))) ||
+		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH &&
+			o.Motivo == MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida && o.ActorRef != "") ||
 		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaAspirantes && o.ActorRef != "") ||
 		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases &&
 			(o.ActorRef != "" || o.Motivo != MotivoAuditoriaFronteraRutaExactaAccesoDenegado)) ||
@@ -66,6 +71,8 @@ func (o OrdenAuditoriaFronteraRutaExacta) Validar() error {
 
 func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string) bool {
 	switch superficie {
+	case SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH:
+		return RutaAuditoriaDocumentosBolsaRRHHValida(ruta)
 	case SuperficieAuditoriaFronteraRutaExactaContratacionTemporal:
 		return rutaAuditoriaFronteraRutaExactaValida(ruta)
 	case SuperficieAuditoriaFronteraRutaExactaOrganizacionHistoricaPersonal:
@@ -172,6 +179,31 @@ func referenciaActorAuditoriaFronteraRutaExactaValida(actor string) bool {
 			(caracter < 'A' || caracter > 'Z') &&
 			(caracter < '0' || caracter > '9') &&
 			caracter != ':' && caracter != '-' && caracter != '_' {
+			return false
+		}
+	}
+	return true
+}
+
+// RutaAuditoriaDocumentosBolsaRRHHValida limita la bitácora a las dos lecturas
+// documentales publicadas, sin consulta ni contenido de documentos.
+func RutaAuditoriaDocumentosBolsaRRHHValida(ruta string) bool {
+	const prefijo = "/api/vec/bolsa/bolsas/"
+	if len(ruta) > 768 || !strings.HasPrefix(ruta, prefijo) || strings.ContainsAny(ruta, "?#%\\") || strings.Contains(ruta, "..") {
+		return false
+	}
+	partes := strings.Split(strings.TrimPrefix(ruta, prefijo), "/")
+	if (len(partes) != 2 && len(partes) != 4) || partes[1] != "documentos" || !strings.HasPrefix(partes[0], "bolsa:") || len(partes[0]) < 7 || !referenciaRecursoIntentoAuditoriaValida(partes[0]) {
+		return false
+	}
+	if len(partes) == 2 {
+		return true
+	}
+	if partes[3] != "recibo" || len(partes[2]) < 1 || len(partes[2]) > 512 {
+		return false
+	}
+	for i, r := range partes[2] {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && (i == 0 || (r != ':' && r != '.' && r != '_' && r != '~' && r != '-')) {
 			return false
 		}
 	}

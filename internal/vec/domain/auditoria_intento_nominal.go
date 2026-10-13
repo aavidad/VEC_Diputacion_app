@@ -7,13 +7,14 @@ import (
 
 var ErrDatosIntentoAuditoriaInvalidos = errors.New("vec: datos de intento de auditoria invalidos")
 
-// ResultadoIntentoAuditoria describe la respuesta observada al terminar una
-// operación fallida. No representa una decisión de autorización ni un consumo.
+// ResultadoIntentoAuditoria describe el resultado observado al terminar una
+// operación. No representa una decisión de autorización ni un consumo.
 type ResultadoIntentoAuditoria string
 
 const (
 	ResultadoIntentoAuditoriaDenegado ResultadoIntentoAuditoria = "denegado"
 	ResultadoIntentoAuditoriaError    ResultadoIntentoAuditoria = "error"
+	ResultadoIntentoAuditoriaExito    ResultadoIntentoAuditoria = "exito"
 )
 
 // DatosIntentoAuditoria contiene solo referencias y claves de catálogo. El
@@ -35,8 +36,7 @@ func (d DatosIntentoAuditoria) Validar() error {
 		!claveIntentoAuditoriaValida(d.ModuloID, 128) ||
 		!referenciaRecursoIntentoAuditoriaValida(d.RecursoRef) ||
 		!claveIntentoAuditoriaValida(d.FinalidadRef, 128) ||
-		(d.Resultado != ResultadoIntentoAuditoriaDenegado &&
-			d.Resultado != ResultadoIntentoAuditoriaError) ||
+		!resultadoIntentoAuditoriaValido(d) ||
 		d.Motivo.Validar() != nil || !claveIntentoAuditoriaValida(d.Motivo.Referencia(), 160) ||
 		!procesoIntentoAuditoriaValido(d.Proceso) ||
 		!claveIntentoAuditoriaValida(d.Canal, 128) ||
@@ -44,6 +44,28 @@ func (d DatosIntentoAuditoria) Validar() error {
 		return ErrDatosIntentoAuditoriaInvalidos
 	}
 	return nil
+}
+
+func resultadoIntentoAuditoriaValido(d DatosIntentoAuditoria) bool {
+	switch d.Resultado {
+	case ResultadoIntentoAuditoriaDenegado, ResultadoIntentoAuditoriaError:
+		return true
+	case ResultadoIntentoAuditoriaExito:
+		return d.ModuloID == "bolsa" &&
+			d.Proceso == "vec-rrhh" &&
+			d.Canal == "interna_corporativa" &&
+			strings.HasPrefix(d.RecursoRef, "bolsa:") &&
+			len(d.RecursoRef) > len("bolsa:") &&
+			((d.FinalidadRef == "gestion_bolsa_rrhh" &&
+				(d.Accion == "lectura_bolsas_rrhh_consultar" ||
+					d.Accion == "lectura_bolsas_rrhh_descargar_recibo")) ||
+				(d.FinalidadRef == "gestionar_contratacion_temporal" &&
+					d.Accion == "bolsa.origen_ct.consultar") ||
+				(d.FinalidadRef == "consulta_configuracion_bolsa_rrhh" && d.Accion == "bolsa.configuracion.consultar" &&
+					strings.HasPrefix(d.RecursoRef, "bolsa:perfil:") && huellaAcuseIntentoAuditoriaValida(strings.TrimPrefix(d.RecursoRef, "bolsa:perfil:"))))
+	default:
+		return false
+	}
 }
 
 func claveIntentoAuditoriaValida(valor string, limite int) bool {

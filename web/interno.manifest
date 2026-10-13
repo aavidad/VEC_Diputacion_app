@@ -674,3 +674,10 @@ static/comun/alegaciones-vista.js
 static/comun/alegaciones.css
 static/textos/es/bolsa-alegaciones.json
 static/textos/en/bolsa-alegaciones.json
+static/portal-empleado/portal-bolsa-configuracion.js
+static/textos/es/bolsa-configuracion.json
+static/textos/en/bolsa-configuracion.json
+static/portal-empleado/modulos/bolsa/documentos-api.js
+static/portal-empleado/modulos/bolsa/documentos-vista.js
+static/textos/es/bolsa-documentos.json
+static/textos/en/bolsa-documentos.json
