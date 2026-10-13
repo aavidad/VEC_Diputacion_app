@@ -8,7 +8,7 @@ SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_documen
 DO $pre$
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM vec_documentos.tipo_reservado_firmado
-  WHERE tipo_ref='ref:f0074a505ef2a693dfd5bf2195228c47a7ce2a1435d4acf6a6b9f50e89e5663c '
+  WHERE tipo_ref='ref:f0074a505ef2a693dfd5bf2195228c47a7ce2a1435d4acf6a6b9f50e89e5663c'
    AND tipo='contratacion_temporal.resolucion_firmada.v1' AND modulo_id='contratacion_temporal') THEN
   RAISE EXCEPTION 'D19 clave=tipo_reservado_firmado esperado=resolucion_firmada.v1 actual=ausente_o_divergente' USING ERRCODE='55000';
  END IF;
