@@ -8,7 +8,21 @@ SET LOCAL lock_timeout='2s';
 SET LOCAL statement_timeout='15s';
 DO $prueba$
 DECLARE cuenta text; r record; primero text; segundo text; j jsonb; n integer:=0;
+ cuerpo text; guarda text;
 BEGIN
+ SELECT prosrc INTO STRICT cuerpo FROM pg_proc
+ WHERE oid='vec_contexto_actor_v1.preimagen_publicacion_vinculo_f1(text,text,text,text,text,text,text)'::regprocedure;
+ FOREACH guarda IN ARRAY ARRAY[
+  'vc.vinculo_contexto_ref IS DISTINCT FROM s.vinculo_contexto_ref',
+  'vc.procedencia_ref IS DISTINCT FROM s.procedencia_ref',
+  'vc.procedencia_version IS DISTINCT FROM s.procedencia_version',
+  'vc.procedencia_huella_sha256 IS DISTINCT FROM s.procedencia_huella_sha256',
+  'vc.procedencia_autoridad IS DISTINCT FROM s.procedencia_autoridad'
+ ] LOOP
+  IF strpos(cuerpo,guarda)=0 THEN
+   RAISE EXCEPTION 'CA43 prueba: guarda de replay ausente (%).',guarda;
+  END IF;
+ END LOOP;
  IF NOT EXISTS(SELECT 1 FROM pg_constraint
   WHERE conrelid='vec_contexto_actor_v1.vinculo_corporativo_actual'::regclass
    AND conname='vinculo_corporativo_actual_pk'

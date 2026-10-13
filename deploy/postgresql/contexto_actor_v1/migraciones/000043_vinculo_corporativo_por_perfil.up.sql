@@ -21,7 +21,7 @@ BEGIN
   ('vec_contexto_actor_v1.revalidar_vinculo_corporativo_rrhh_v1(text,text,text,text,numeric)','05c5fa5a16e72114bafea2fef1b3123056bef657245b7e699650b0a8a2c38bff'),
   ('vec_contexto_actor_v1.cotejar_contexto_lectura_bolsa_actual_v1(bytea)','1034877e46f7770145a29d9d0322cd58f304a3cf5a6fed0eac33ce6f401e1d5f'),
   ('vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(text,text,text,numeric,text)','a868adf6ae1cb4c5d9eea7d74a11af6fffe39674195f73e8fd2effb2c5e9f30d'),
-  ('vec_contexto_actor_v1.preimagen_publicacion_vinculo_f1(text,text,text,text,text,text,text)','297c834dd5105b708efbf1930af2853aacd9d65d4e599bc962010e28e728b57f'),
+  ('vec_contexto_actor_v1.preimagen_publicacion_vinculo_f1(text,text,text,text,text,text,text)','06d525c0edb6c453c5591c4efbebd1ec3c4389dbde2cbea06fc2238a4e2a94cf'),
   ('vec_contexto_actor_v1.publicar_vinculo_corporativo_desde_fuente_v1(text,text,text,text,text,text,text,text)','6c7b9dc59df713d3b33ecd6cd8a6da117e86515301976d59cd3e0bfc2cd3213f')
  ) e(firma,huella) LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.firma)
  WHERE p.oid IS NULL OR p.proowner<>'vec_contexto_actor_v1_propietario'::regrole
@@ -56,7 +56,7 @@ BEGIN
   ('vec_contexto_actor_v1.revalidar_vinculo_corporativo_rrhh_v1(text,text,text,text,numeric)','05c5fa5a16e72114bafea2fef1b3123056bef657245b7e699650b0a8a2c38bff'),
   ('vec_contexto_actor_v1.cotejar_contexto_lectura_bolsa_actual_v1(bytea)','1034877e46f7770145a29d9d0322cd58f304a3cf5a6fed0eac33ce6f401e1d5f'),
   ('vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(text,text,text,numeric,text)','a868adf6ae1cb4c5d9eea7d74a11af6fffe39674195f73e8fd2effb2c5e9f30d'),
-  ('vec_contexto_actor_v1.preimagen_publicacion_vinculo_f1(text,text,text,text,text,text,text)','297c834dd5105b708efbf1930af2853aacd9d65d4e599bc962010e28e728b57f'),
+  ('vec_contexto_actor_v1.preimagen_publicacion_vinculo_f1(text,text,text,text,text,text,text)','06d525c0edb6c453c5591c4efbebd1ec3c4389dbde2cbea06fc2238a4e2a94cf'),
   ('vec_contexto_actor_v1.publicar_vinculo_corporativo_desde_fuente_v1(text,text,text,text,text,text,text,text)','6c7b9dc59df713d3b33ecd6cd8a6da117e86515301976d59cd3e0bfc2cd3213f')
  ) e(firma,huella) LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.firma)
  WHERE p.oid IS NULL OR p.proowner<>'vec_contexto_actor_v1_propietario'::regrole
@@ -474,6 +474,11 @@ BEGIN
   (vc.vinculo_corporativo_ref IS DISTINCT FROM s.vinculo_corporativo_ref
    OR vc.perfil_ref IS DISTINCT FROM s.perfil_ref OR vc.persona_ref IS DISTINCT FROM s.persona_ref
    OR vc.organizacion_ref IS DISTINCT FROM s.organizacion_ref OR vc.estado<>'activo'
+   OR vc.vinculo_contexto_ref IS DISTINCT FROM s.vinculo_contexto_ref
+   OR vc.procedencia_ref IS DISTINCT FROM s.procedencia_ref
+   OR vc.procedencia_version IS DISTINCT FROM s.procedencia_version
+   OR vc.procedencia_huella_sha256 IS DISTINCT FROM s.procedencia_huella_sha256
+   OR vc.procedencia_autoridad IS DISTINCT FROM s.procedencia_autoridad
    OR ahora<vc.vigente_desde OR ahora>=vc.vigente_hasta
    OR vc.cuenta_version IS DISTINCT FROM c.version OR vc.persona_version IS DISTINCT FROM x.version
    OR vc.perfil_version IS DISTINCT FROM p.version OR vc.vinculo_contexto_version IS DISTINCT FROM v.version
@@ -571,7 +576,7 @@ BEGIN
   ('vec_contexto_actor_v1.revalidar_vinculo_corporativo_rrhh_v1(text,text,text,text,numeric)','fcb368c2a6d5787b865af9ad8f9cc8c3479a4d6705ad042f4620152658d232f1'),
   ('vec_contexto_actor_v1.cotejar_contexto_lectura_bolsa_actual_v1(bytea)','52ceeca135a7a8c4e6c967e7cbd39bef79534c89c17bcef976eb37e5c77b8900'),
   ('vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(text,text,text,numeric,text)','15c7c93e574bd08c7d98d7877dfc04b41ce67afd2ada6e1c2d91d5472211e573'),
-  ('vec_contexto_actor_v1.preimagen_publicacion_vinculo_f1(text,text,text,text,text,text,text)','84b02c7fc5ba388274e574d69eb458641232c6dcfa62cb53a7f8a2ff223b0c0d'),
+  ('vec_contexto_actor_v1.preimagen_publicacion_vinculo_f1(text,text,text,text,text,text,text)','6a70b647c03b13f4be92d705c905e7c5156f2d0b972599ce39f06fa65831e4c7'),
   ('vec_contexto_actor_v1.publicar_vinculo_corporativo_desde_fuente_v1(text,text,text,text,text,text,text,text)','7b958b1614b60e29662e0fe5f15e0e689b4e2bb6f6d4e81d9101382eec29c820')
  ) e(firma,huella) LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.firma)
  WHERE p.oid IS NULL OR p.proowner<>'vec_contexto_actor_v1_propietario'::regrole
