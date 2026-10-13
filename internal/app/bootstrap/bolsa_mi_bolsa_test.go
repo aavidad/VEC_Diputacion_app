@@ -136,6 +136,11 @@ func TestMiBolsaFronteraSeparaCertificadosExternosEInternos(t *testing.T) {
 		Clave: "bolsa-mi-bolsa-historial-consultar", Superficie: superficieExternaPersonalSeguridadComunDesarrollo,
 		Metodo: http.MethodGet, Ruta: bolsapersonal.RutaMiBolsaHistorial,
 		PerfilesActivosRef: []string{identidad.perfilRef}, ClavePolitica: "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-bolsa-mi-bolsa-historial-consultar",
+	}, {
+		Clave: "ct-estadisticas-consultar", Superficie: superficieInternaSeguridadComunDesarrollo,
+		Metodo: http.MethodGet, Ruta: cthttp.RutaEstadisticasRRHH,
+		PerfilesActivosRef: []string{"prf_rrhh_sintetico_1234567890123456"},
+		ClavePolitica:      "politica-ct-consultar", ClaveCapacidad: "capacidad-ct-estadisticas-consultar",
 	}})
 	if err != nil {
 		t.Fatal(err)
