@@ -4,12 +4,12 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261014-need-centro-v1";
-const versionCircuito = "20261014-need-centro-v1";
-const versionVista = "20261014-need-centro-v1";
-const versionVistaPortal = "20261014-need-centro-v1";
-const versionAdaptador = "20261014-need-centro-v1";
-const versionRender = "20261011-ct-bolsa-vinculo-v1";
+const versionCoordinador = "20261013-ct-firma-tres-v3";
+const versionCircuito = "20261013-ct-firma-tres-v3";
+const versionVista = "20261013-ct-firma-tres-v3";
+const versionVistaPortal = "20261013-ct-firma-tres-v3";
+const versionAdaptador = "20261013-ct-firma-tres-v3";
+const versionRender = "20261013-ct-firma-tres-v3";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -35,7 +35,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
   exigirVersiones(vista, "./vista-expedientes-render.js", versionRender, 2);
   exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
-  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", "20261014-need-centro-v1");
+  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionVista);
   exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
 });
 
@@ -63,7 +63,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   // La consulta de circuito RRHH no cambió: conserva su URL anterior.
   exigirVersiones(vista, "./vista-circuito-rrhh.js", "20261002-ct-r5-grafo-v2");
   exigirVersiones(vista, "./circuito-firma.js", firma);
-  exigirVersiones(circuito, "./circuito-firma-acciones.js", "20261014-need-centro-v1");
+  exigirVersiones(circuito, "./circuito-firma-acciones.js", "20261013-ct-firma-tres-v3");
   for (const manifiesto of [interno, produccion]) {
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/firma-externa-cliente\.js$/mu);
   }
@@ -79,12 +79,12 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   const [html, coordinador, formalizacion, firma, categorias, montajeCategorias, clienteCategorias] =
     await Promise.all(rutas.map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const version = "20261007-pantallas-textos-final-v1";
-  const cohorteCT = "20261014-need-centro-v1";
+  const cohorteCT = versionCoordinador;
   exigirVersiones(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", "20261011-informe-legible-v1");
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteCT);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/adaptador-http-expedientes.js", versionAdaptador);
-  for (const hoja of ["./modulos/documentos/vista.js", "./modulos/documentos/cliente-http.js"])
-    exigirVersiones(coordinador, hoja, version);
+  exigirVersiones(coordinador, "./modulos/documentos/vista.js", version);
+  exigirVersiones(coordinador, "./modulos/documentos/cliente-http.js", version, 2);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", versionVistaPortal);
   exigirVersiones(formalizacion, "../documentos/cliente-http.js", version);
   exigirVersiones(firma, "../documentos/cliente-http.js", version);
@@ -109,14 +109,14 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const [html, portal, coordinador, cliente, altaHTTP, transporte, expedientes, tramitacion,
     vista, presentadorAlta, rendererAlta, i18n, contrato, interno, produccion, cache] = await Promise.all(
     nombres.map((nombre) => readFile(new URL(nombre, raiz), "utf8")));
-  const cohorte = "20261014-need-centro-v1";
+  const cohorte = versionCoordinador;
   const cohorteNavegacion = "20261012-ct-b2-cese-v1";
-  const cohorteClienteHTTP = "20261014-need-centro-v1";
+  const cohorteClienteHTTP = versionCoordinador;
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = cohorte;
   const cohorteIdioma = "20261011-ct-bolsa-vinculo-v1";
-  const cohorteEntrada = "20261014-need-centro-v1";
-  const cohorteFicha = "20261014-need-centro-v1";
+  const cohorteEntrada = "20261013-ct-firma-tres-v3";
+  const cohorteFicha = "20261013-ct-firma-tres-v3";
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
     ["/portal-empleado/portal-modulos-coordinador.js", "20261008-ct-inicio-v1"],
@@ -164,7 +164,7 @@ test("la ficha compartible y su aviso usan una única cohorte empaquetada", asyn
     "../../interno.manifest", "../../produccion.manifest", "cache-publica-v1.json",
   ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const cohorte = "20261008-r-fichas-idioma-nav-v1";
-  const entrada = "20261014-need-centro-v1";
+  const entrada = "20261013-ct-firma-tres-v3";
   exigirVersiones(html, "/portal-empleado/portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(portal, "./portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(coordinador, "./portal-ct-ruta-ficha.js", cohorte);

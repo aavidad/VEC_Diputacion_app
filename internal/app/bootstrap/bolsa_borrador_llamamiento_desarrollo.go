@@ -654,7 +654,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		}
 		descriptoresBolsa = append(descriptoresBolsa, descriptor)
 	}
-	descriptoresAutorizacion := append(descriptoresAutorizacionContratacionTemporalDesarrollo(politicaCT, reincorporacionActiva,
+	descriptoresAutorizacion := append(descriptoresAutorizacionContratacionTemporalConFirmaR5Desarrollo(ctx, politicaCT, reincorporacionActiva,
 		firmaDocumentoPerfilFijoCompuesto(alta.soporte),
 		alta.soporte.perfilFijoParaRuta(cthttp.RutaConsultaCircuitoRRHH) != nil,
 		alta.soporte.perfilFijoParaRuta(cthttp.RutaVinculosEmisionBolsa) != nil, alta.soporte.perfilesOriginal != nil), descriptoresBolsa...)

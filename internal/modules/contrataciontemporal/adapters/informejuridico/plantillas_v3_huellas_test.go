@@ -19,12 +19,12 @@ import (
 const rutaCatalogoPlantillasV3Prueba = "../../../../../data/catalogos/contratacion-temporal/plantillas_documentos.v3.json"
 
 var huellasPDFV3 = map[ports.TipoBorradorRRHH]string{
-	ports.BorradorInformeDefinitivo:  "e506fb6bee374eb01f0813eee9f91409b0e3d71c07cb72eb66b5781fcf3f7248",
-	ports.BorradorResolucion:         "0946ca378ef63b80776785f1b9be9664fa23e6d0fd6d476d37333966d2345f2d",
-	ports.BorradorDiligencia:         "581a713b9a9f099d1a81ec97ff4a9ec992e1f13858b00713ef283e995f73b514",
-	ports.BorradorTomaPosesion:       "742f3f6b8c229df930ab61872f4d445686b33dce802a52baf11f8dbfc2ca4ac9",
-	ports.BorradorNotificacion:       "3014b96e015e201b96b5bb9c96f5caac220043eb560576dfdbc650e4da948daf",
-	ports.BorradorComunicacionCentro: "40e3d2550a029ff415fdc37339414fce42af604173b357e2aa83321064856c33",
+	ports.BorradorInformeDefinitivo:  "6f9c632d14fccd44bf8f30d2478f60f7feb0ab161b1de5fd420d0432f33ea095",
+	ports.BorradorResolucion:         "18c8420afd0b773610159c1b9d0b900cd23c141170e65c969cb7bf1dd375680c",
+	ports.BorradorDiligencia:         "9e1d2c999a0673fc6ccedafb3ff687e45333823db9c4588087369a3e4bbab19f",
+	ports.BorradorTomaPosesion:       "bb79430b07e2cd0e01620a8cc4458a4ff3bc03ac4ae568e84bdb60382f35456a",
+	ports.BorradorNotificacion:       "154daeb3b30081298fe35d520614a6b7a80273517646b8841df6f97c19147890",
+	ports.BorradorComunicacionCentro: "397ebc52a509ed59397f60838f34d4a013cf5751cefcb38eb736d50325e14c2e",
 }
 
 func TestPlantillasV3SinMarcasDeEnsayoNiFirmaFingida(t *testing.T) {

@@ -112,6 +112,8 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	personalizacionB7 *fuentePersonalizacionB7
 	// firmaDocumento es nil salvo con VEC_CT_FIRMA_REGISTRO_ENABLED=true.
 	firmaDocumento *firmaDocumentoCTDesarrollo
+	// El montaje VEC se cierra cuando Documentos ya ha compuesto el original.
+	firmaVecR5 *montajeFirmaVecR5CT
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -339,6 +341,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	cfg, resolvedorDesarrollo, derivador, registro := dependencias.cfg, dependencias.resolvedor, dependencias.derivador, dependencias.registro
+	configuracionFirmaVec, firmaVecActiva, err := leerConfiguracionFirmaVecR5(cfg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if firmaVecActiva && (!cfg.BolsaBorradoresEnabled || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas()) {
+		return nil, nil, nil, errMontajeFirmaVecR5
+	}
 	plantillasActivas, err := plantillasCatalogoCTDesarrolloSolicitado(cfg)
 	ajustesCTActivos, errAjustes := ajustesReglasCTSolicitados(cfg)
 	if errAjustes != nil || ajustesCTActivos && !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
@@ -374,7 +383,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	autoridadesBolsaConfiguradas := debeComponerBorradorLlamamientoDesarrollo(cfg) &&
 		(strings.TrimSpace(os.Getenv(config.EnvAutorizacionFuenteDatabaseURL)) != "" ||
 			strings.TrimSpace(os.Getenv(config.EnvAutorizacionMotivosEvaluadorDatabaseURL)) != "")
-	if plantillasActivas || documentalActiva || preparacionBasesActiva || ajustesCTActivos || autoridadesBolsaConfiguradas {
+	if plantillasActivas || documentalActiva || preparacionBasesActiva || ajustesCTActivos || autoridadesBolsaConfiguradas || firmaVecActiva {
 		if !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
 		}
@@ -729,6 +738,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		lectoresConsulta = append(lectoresConsulta, lector.perfilRef)
 	}
 	perfilesConsulta := perfilesConsultaContratacionTemporalDesarrollo(perfilCTCatalogo, lectoresConsulta)
+	if firmaVecActiva {
+		for _, firmante := range configuracionFirmaVec.Firmantes {
+			perfilesConsulta = append(perfilesConsulta, firmante.PerfilConsultaCTRef)
+		}
+	}
 	reincorporacionTitular, err := selectorCapacidadRRHHDesarrollo(cfg, envCTReincorporacionTitularEnabled)
 	if err != nil || (reincorporacionTitular && (!seguimientoCeseSolicitado(cfg) || !cfg.BolsaBorradoresEnabled)) {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
@@ -758,21 +772,50 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		declaracionesFrontera = append(declaracionesFrontera, descriptoresFronteraAjustesReglasCT(perfilCTCatalogo)...)
 	}
 	if consultaCircuitoRRHH != nil {
+		perfilesCircuito := []string{perfilCTCatalogo}
 		declaracionesFrontera = append(declaracionesFrontera,
 			fronteraContratacionTemporalDesarrollo("ct-circuito-rrhh-consultar",
 				postgresct.AccionConsultaCircuitoRRHH, httpinterno.RutaConsultaCircuitoRRHH,
-				[]string{perfilCTCatalogo}))
+				perfilesCircuito))
 	}
 	declaracionesFrontera, err = asignarPerfilesFijosEnFronterasCTDesarrollo(alta.soporte, perfilCTCatalogo, declaracionesFrontera)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	// Primero resolver el perfil fijo legado con su guarda original. Los
+	// perfiles nominales explícitos se añaden después sólo a esta consulta.
+	if firmaVecActiva && consultaCircuitoRRHH != nil {
+		for i := range declaracionesFrontera {
+			d := &declaracionesFrontera[i]
+			if d.Ruta != httpinterno.RutaConsultaCircuitoRRHH || d.Metodo != http.MethodPost {
+				continue
+			}
+			vistos := map[string]bool{d.PerfilesActivosRef[0]: true}
+			for _, firmante := range configuracionFirmaVec.Firmantes {
+				perfil := firmante.PerfilConsultaCircuitoRef
+				if !perfilActivoSeguridadComunValido(perfil) || vistos[perfil] {
+					return nil, nil, nil, ErrActivacionDesarrolloInvalida
+				}
+				vistos[perfil] = true
+				d.PerfilesActivosRef = append(d.PerfilesActivosRef, perfil)
+			}
+		}
 	}
 	if alta.soporte.perfilesOriginal != nil {
 		fronteraOriginal, e := fronteraOriginalFirmableCTDesarrollo(alta.soporte.perfilesOriginal)
 		if e != nil {
 			return nil, nil, nil, e
 		}
+		if firmaVecActiva {
+			for _, firmante := range configuracionFirmaVec.Firmantes {
+				fronteraOriginal.PerfilesActivosRef = append(fronteraOriginal.PerfilesActivosRef,
+					firmante.PerfilConsultaCTRef, firmante.PerfilDocumentosRef)
+			}
+		}
 		declaracionesFrontera = append(declaracionesFrontera, fronteraOriginal)
+	}
+	if firmaVecActiva {
+		declaracionesFrontera = append(declaracionesFrontera, fronterasFirmaVecR5CT(configuracionFirmaVec)...)
 	}
 	if legadoConfigurado {
 		declaracionesFrontera, err = asignarPerfilesNominalesIncorporacionEnFronteras(alta.soporte, declaracionesFrontera)
@@ -907,6 +950,31 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		borradorFormalizacion = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
 		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true}
 	}
+	var montajeFirmaVec *montajeFirmaVecR5CT
+	var lecturasFirmaVec *montajeLecturasFirmaV2
+	if firmaVecActiva {
+		if firmaDocumento == nil || alta.soporte.perfilesOriginal == nil || consultasRRHH.identidad == nil || consultaCircuitoRRHH == nil ||
+			fuenteAutorizacionPlantillas == nil || motivosEvaluadorPlantillas == nil {
+			return nil, nil, nil, errMontajeFirmaVecR5
+		}
+		ctxFirmaVec, cancelarFirmaVec := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
+		montajeFirmaVec, err = prepararMontajeFirmaVecR5CT(ctxFirmaVec, cfg, configuracionFirmaVec, &alta,
+			consultasRRHH, resolvedorDesarrollo, fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas, derivador)
+		if err != nil {
+			cancelarFirmaVec()
+			return nil, nil, nil, err
+		}
+		lecturasFirmaVec, err = nuevasLecturasFirmaV2(ctxFirmaVec, montajeFirmaVec, derivador, motivosEvaluadorPlantillas)
+		cancelarFirmaVec()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		montajeFirmaVec.nominal.lecturas = lecturasFirmaVec
+		cuadroReal = consultorCuadroFirmaV2{legacy: cuadroReal, nominal: lecturasFirmaVec.cuadro}
+		detalleReal = consultorDetalleFirmaV2{legacy: detalleReal, nominal: lecturasFirmaVec.detalle}
+		originalPropuestaReal = consultorDetalleFirmaV2{legacy: originalPropuestaReal, nominal: lecturasFirmaVec.historico}
+		consultasRRHH.descargas = selectorDescargaFirmaV2{legacy: consultasRRHH.descargas, nominal: lecturasFirmaVec.descargas}
+	}
 	defer func() {
 		if cerrarAlta {
 			consultasRRHH.cerrar()
@@ -1018,8 +1086,19 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if lecturasFirmaVec != nil {
+		if err := lecturasFirmaVec.envolverRutas(rutas); err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
 	if consultaCircuitoRRHH != nil {
+		if lecturasFirmaVec != nil {
+			consultaCircuitoRRHH, err = lecturasFirmaVec.envolverCircuito(consultaCircuitoRRHH)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+		}
 		if dependenciaEsNulaContratacionTemporalDesarrollo(alta.postgresql.registradorAuditoriaFrontera) {
 			return nil, nil, nil, ports.ErrConsultaCircuitoRRHHNoDisponible
 		}
@@ -1030,7 +1109,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaConsultaCircuitoRRHH, Manejador: consultaCircuitoRRHH})
 	}
 	if firmasR5V2 != nil {
-		rutas = append(rutas, firmasR5V2.rutas...)
+		for _, rutaFirmaR5 := range firmasR5V2.rutas {
+			if firmaVecActiva && rutaFirmaR5.Ruta == httpinterno.RutaConsultaFirmasR5V2 {
+				continue // La consulta nominal ocupa la única ruta exacta R5.
+			}
+			rutas = append(rutas, rutaFirmaR5)
+		}
 	}
 	var coleccionesPersonalB2 []vechttp.RutaColeccion
 	if len(incorporacion) == 1 && incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil {
@@ -1167,13 +1251,20 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, err
 		}
 	}
+	if montajeFirmaVec != nil {
+		adicionales, e := montajeFirmaVec.autorizaciones()
+		if e != nil {
+			return nil, nil, nil, e
+		}
+		autorizacionesPreparacionBases = append(autorizacionesPreparacionBases, adicionales...)
+	}
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
 		if consultasRRHH.identidad == nil {
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		var errBorrador error
 		rutasBorrador, coleccionesBorrador, manejadorSituacion, seguridadBorrador, envolverBorrador, cerrarBorrador, errBorrador = nuevasDependenciasBorradorLlamamientoDesarrollo(
-			context.Background(), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad, personalizacionB7,
+			contextoMontajeFirmaVecR5CT(context.Background(), montajeFirmaVec), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad, personalizacionB7,
 			autorizacionesPreparacionBases,
 			autoridadesCargaConvoca,
 			alta.postgresql.proveedorMaterialConsultaReincorporacionTitular,
@@ -1408,16 +1499,24 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		presentadorCobertura:                             coberturaReal.presentador,
 		situacionBolsaCobertura:                          coberturaReal.situacionBolsa,
 		firmaDocumento:                                   firmaDocumento,
+		firmaVecR5:                                       montajeFirmaVec,
 	}
 	if alta.soporte.perfilesOriginal != nil {
 		autoridad.prepararOriginal = func(documentos *autoridadDocumentosDesarrollo, seudonimos *seudonimizadorAlmacenDesarrollo) ([]vechttp.RutaExacta, error) {
-			return nuevaRutaOriginalFirmableCTDesarrollo(&alta, consultasRRHH, borradorFormalizacion, documentos, seudonimos, reloj)
+			if montajeFirmaVec == nil {
+				return nuevaRutaOriginalFirmableCTDesarrollo(&alta, consultasRRHH, borradorFormalizacion, documentos, seudonimos, reloj)
+			}
+			return montarOriginalYFirmaVecR5(&alta, consultasRRHH, borradorFormalizacion, documentos, seudonimos,
+				reloj, firmaDocumento, montajeFirmaVec)
 		}
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	dependencias.cerrar = func() {
+		if montajeFirmaVec != nil {
+			montajeFirmaVec.cerrarAuditoria()
+		}
 		cerrarPreparacionBases()
 		cerrarBaremo()
 		cerrarAutoridadesPlantillas()

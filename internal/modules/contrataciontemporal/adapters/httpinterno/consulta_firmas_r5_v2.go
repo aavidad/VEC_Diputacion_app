@@ -42,13 +42,14 @@ func NuevoManejadorConsultaFirmasR5V2(fuente consultafirmasv2.FuenteContexto, au
 	if err != nil {
 		return nil, err
 	}
-	return &manejadorConsultaFirmasR5V2{servicio, intentos, fabrica}, nil
+	return &manejadorConsultaFirmasR5V2{servicio: servicio, intentos: intentos, fabrica: fabrica, fuente: fuente}, nil
 }
 
 type manejadorConsultaFirmasR5V2 struct {
 	servicio *consultafirmasv2.Servicio
 	intentos vecports.RegistradorIntentosAuditoria
 	fabrica  auditoriafirma.FabricaOrden
+	fuente   consultafirmasv2.FuenteContexto
 }
 
 func (h *manejadorConsultaFirmasR5V2) responderFallo(w http.ResponseWriter, r *http.Request, recurso string, causa error, problema errorPublicoConsultaRRHH) {
@@ -152,6 +153,11 @@ func (h *manejadorConsultaFirmasR5V2) ServeHTTP(w http.ResponseWriter, r *http.R
 		h.responderFallo(w, r, "", nil, errorContenidoConsultaRRHHNoValido)
 		return
 	}
+	garantia, err := garantiaAutenticacionFirmaV2(r.Context(), h.fuente)
+	if err != nil {
+		h.responderFallo(w, r, q.ExpedienteRef, err, errorPreflightFirmaR5(err))
+		return
+	}
 	resultado, err := h.servicio.Consultar(r.Context(), q)
 	if err != nil {
 		h.responderFallo(w, r, q.ExpedienteRef, err, errorPreflightFirmaR5(err))
@@ -160,6 +166,7 @@ func (h *manejadorConsultaFirmasR5V2) ServeHTTP(w http.ResponseWriter, r *http.R
 	envoltorio := struct {
 		Data consultaFirmasR5V2JSON `json:"data"`
 	}{proyectarConsultaFirmasR5V2(resultado)}
+	envoltorio.Data.GarantiaAutenticacion = garantia
 	// El helper común no audita su propio desbordamiento. Comprobar esta
 	// proyección inmutable antes de invocarlo conserva el acuse del error.
 	contenido, err := json.Marshal(envoltorio)
@@ -207,16 +214,17 @@ type firmaConsultaR5V2JSON struct {
 }
 
 type consultaFirmasR5V2JSON struct {
-	Esquema             string                  `json:"esquema"`
-	ExpedienteRef       string                  `json:"expediente_ref"`
-	VersionExpediente   uint64                  `json:"version_expediente"`
-	Documento           string                  `json:"documento"`
-	HistoriaRevision    uint64                  `json:"historia_revision"`
-	HistoriaSHA256      string                  `json:"historia_sha256"`
-	Firmas              []firmaConsultaR5V2JSON `json:"firmas"`
-	Recuperacion        string                  `json:"recuperacion"`
-	CamposNoDisponibles []string                `json:"campos_no_disponibles"`
-	FirmaEficaz         bool                    `json:"firma_eficaz"`
+	GarantiaAutenticacion string                  `json:"garantia_autenticacion,omitempty"`
+	Esquema               string                  `json:"esquema"`
+	ExpedienteRef         string                  `json:"expediente_ref"`
+	VersionExpediente     uint64                  `json:"version_expediente"`
+	Documento             string                  `json:"documento"`
+	HistoriaRevision      uint64                  `json:"historia_revision"`
+	HistoriaSHA256        string                  `json:"historia_sha256"`
+	Firmas                []firmaConsultaR5V2JSON `json:"firmas"`
+	Recuperacion          string                  `json:"recuperacion"`
+	CamposNoDisponibles   []string                `json:"campos_no_disponibles"`
+	FirmaEficaz           bool                    `json:"firma_eficaz"`
 }
 
 func documentoConsultaV2(d consultafirmasv2.Documento) documentoConsultaFirmasV2JSON {

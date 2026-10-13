@@ -1,0 +1,28 @@
+# Orden de entrega: primero CT215 de lista_sql_codexk_peticion_necesidad_rpt_20261014.txt.
+# Esta lista contiene sólo las nueve SQL de firma pendientes después de esa entrega.
+# CT215 ya instalada se conserva: no se incluye aquí para evitar otra aplicación.
+# AUT87 → AUT90 → AUT91 → CT209 → CA45 → AUT93 → CT214. Una vez en base que no las tenga instaladas.
+# Si alguna está instalada, conservarla; no DOWN ni reaplicar.
+# SHA256 2df5b9e48bda259551b86d25f9df80a63a8ba40a0ec5b1439652776b0742d328
+deploy/postgresql/autorizacion/migraciones/000087_cargos_firma_sustancial_desarrollo.up.sql
+# SHA256 72a9d2117bab182e97a003dd68c64d169b06918221e48814e6dcf2d4377d0fc0
+deploy/postgresql/autorizacion/migraciones/000090_cargos_firma_ambitos_auxiliares.up.sql
+# SHA256 c88b49e26f9320f4e6d9bcdf8a30ac641d707acfe2ab800e4f32240287f427d1
+deploy/postgresql/autorizacion/migraciones/000091_cargos_firma_lecturas_nominales.up.sql
+# SHA256 3ce22a91c3c2a73a860929ea5efe7a9381a374854f17d1f6e93046bf329187cf
+deploy/postgresql/contratacion_temporal/migraciones/000209_firma_pdf_tres_pasos.up.sql
+
+# SHA256 5db30b58a578e7167f15a1a9253339b9730f8e89b5354c960fe181a71a93d93d
+deploy/postgresql/contexto_actor_v1/migraciones/000045_correspondencia_organizacion_firma.up.sql
+
+# SHA256 b7bd3e53ebfb68e743607f636bf1bafd8b3cecf1f487cb830d508452b45ced6c
+deploy/postgresql/autorizacion/migraciones/000093_correspondencia_organizacion_firma_ct.up.sql
+
+# SHA256 bcc9504abb92bd6a23c7aa275259456fd5c4e4f6ec08e26ded32248d0c77c89f
+deploy/postgresql/contratacion_temporal/migraciones/000214_correspondencia_organizacion_firma.up.sql
+
+# SHA256 ef0a0ef963738730b1bf39dc78e2eced166c3aec7efa833d8784a92b6116614e
+deploy/postgresql/documentos/migraciones/000019_tipo_informe_definitivo_firmado.up.sql
+
+# SHA256 d2469d0bb2c91bb88d4b5a44d6bd9957956d55ce9f0269d36573029fd12e5eef
+deploy/postgresql/contratacion_temporal/migraciones/000216_detalle_rrhh_firma_nominal.up.sql

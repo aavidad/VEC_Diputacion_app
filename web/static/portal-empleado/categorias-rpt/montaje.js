@@ -1,4 +1,4 @@
-import { crearClienteCategorias } from "./cliente.js?v=20261014-need-centro-v1";
+import { crearClienteCategorias } from "./cliente.js?v=20261013-ct-firma-tres-v3";
 import { TEXTOS_CATEGORIAS, t } from "./i18n.js?v=20261001-rpt-categorias-v1";
 import { montarVistaCategorias } from "./vista.js?v=20261008-hz8-idioma-v1";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";

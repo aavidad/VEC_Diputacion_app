@@ -75,6 +75,11 @@ test("prepara la revisión previa con Documentos, ámbito y huella exactos sin r
   const segundo = { ...primero, pasoOrden: 2, revisionEntradaRef: `ref:${"f".repeat(64)}`, revisionEntradaVersion: 1, revisionEntradaHuella: anteriorHuella };
   assert.deepEqual(await deps.obtenerOriginal(segundo, { vinculoOriginal }), anterior);
   assert.deepEqual(consulta.cuerpo, { expediente_ref: datos().documento_custodiado.expediente_ref, documento_ref: segundo.revisionEntradaRef, version: 1 });
+  const consultaAnterior = consulta;
+  const tercero = { ...segundo, pasoOrden: 3, entradaPDFBase64: Buffer.from(anterior).toString("base64") };
+  assert.deepEqual(await deps.obtenerOriginal(tercero, { vinculoOriginal }), anterior);
+  assert.equal(consulta, consultaAnterior, "el PDF ya leído por preflight no dispara otra descarga");
+  await assert.rejects(deps.obtenerOriginal({ ...tercero, entradaPDFBase64: Buffer.from(pdf).toString("base64") }, { vinculoOriginal }));
   await assert.rejects(deps.obtenerOriginal({ ...segundo, expedienteRef: "expediente:ajeno" }, { vinculoOriginal }), (e) => e.codigo === "resultado_no_confiable");
   await assert.rejects(deps.obtenerOriginal({ ...segundo, revisionEntradaHuella: "a".repeat(64) }, { vinculoOriginal }));
 });

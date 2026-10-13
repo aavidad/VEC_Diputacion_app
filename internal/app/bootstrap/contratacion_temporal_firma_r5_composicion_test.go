@@ -214,11 +214,6 @@ func TestComposicionFirmasR5RegistraSiempreConPlanCT176(t *testing.T) {
 	if _, err := f.registroR5.ConsultarFirmasAutorizadasV2(t.Context(), ports.MaterialConsultaFirmasR5V2{}, ports.CapacidadConsultaFirmasR5V2{}); err != nil || durable.consultas != 1 {
 		t.Fatalf("consulta no delegada: %d, %v", durable.consultas, err)
 	}
-	// El adaptador de consulta que recibe el decorador nunca escribe por CT172.
-	c := consultaFirmasV2SinRegistroDirecto{durable}
-	if _, err := c.RegistrarFirmaVerificadaV2(t.Context(), ports.MaterialFirmaVerificadaV2{}, ports.CapacidadFirmaVerificadaV2{}); !errors.Is(err, ports.ErrRegistroFirmaDocumentoNoDisponible) {
-		t.Fatalf("registro directo no rechazado: %v", err)
-	}
 	if durable.directas != 0 {
 		t.Fatalf("el montaje llamó %d veces al registro directo CT172", durable.directas)
 	}

@@ -42,7 +42,7 @@ test("denegación, caída, conflicto y cuerpo no confiable son errores cerrados"
     [async () => respuesta({}, 409), "conflicto"], [async () => respuesta({}, 503), "servicio_no_disponible"],
     [async () => { throw new Error("red"); }, "servicio_no_disponible"],
     [async () => respuesta({ ...datos(), perfil: "ajeno" }), "resultado_no_confiable"],
-    [async () => new Response("x".repeat(17000), { headers: { "Content-Type": "application/json" } }), "resultado_no_confiable"],
+    [async () => new Response("x".repeat(2 * 1024 * 1024 + 1), { headers: { "Content-Type": "application/json" } }), "resultado_no_confiable"],
     [async () => new Response("{}", { headers: { "Content-Type": "text/html" } }), "resultado_no_confiable"],
   ]) await assert.rejects(crearClientePreflightFirma({ fetchImpl }).consultar(solicitud), (e) => e.codigo === codigo);
 });
@@ -53,4 +53,13 @@ test("cancelación y original ausente no emiten peticiones", async () => {
   const c = new AbortController(); c.abort();
   await assert.rejects(cliente.consultar(solicitud, { signal: c.signal }), (e) => e.codigo === "operacion_abortada");
   assert.equal(peticiones, 0);
+});
+
+test("tercer paso exige entrada custodiada anterior y garantía sustancial cerrada", () => {
+  const d = { ...datos(), paso_pendiente: 3, entrada_documento_ref: "revision:segunda",
+    garantia_autenticacion: "sustancial" };
+  assert.equal(validarPreflightFirma(d, solicitud).paso_pendiente, 3);
+  assert.equal(validarPreflightFirma({ ...d, paso_pendiente: 4 }, solicitud), null);
+  assert.equal(validarPreflightFirma({ ...d, garantia_autenticacion: "alto" }, solicitud), null);
+  assert.equal(validarPreflightFirma({ ...d, entrada_documento_ref: d.original_ref }, solicitud), null);
 });

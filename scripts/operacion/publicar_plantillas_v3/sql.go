@@ -46,7 +46,7 @@ const sqlPublicar = `WITH material AS (
  version,revision,estado,origen,catalogo,catalogo_huella_sha256,contenido_json_sha256,
  clave_idempotencia,solicitud_huella_sha256,recibo_ref,actor_ref,decision_ref,
  consumo_huella_sha256,auditoria_ref,registrada_en,organizacion_ref)
- SELECT 3,1,'publicado','publicacion',catalogo,huella,json_h,clave,solicitud_h,recibo,
+ SELECT (catalogo->>'version')::integer,(catalogo->>'revision')::integer,'publicado','publicacion',catalogo,huella,json_h,clave,solicitud_h,recibo,
  session_user::text,aprobacion,solicitud_h,auditoria,instante,'organizacion:desarrollo:dipgra' FROM solicitud
  RETURNING *
 ), auditoria AS (

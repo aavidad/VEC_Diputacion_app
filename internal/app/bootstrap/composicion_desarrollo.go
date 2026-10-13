@@ -529,7 +529,7 @@ func nuevoServidorDesarrollo(
 		return nil, nil, marcarFalloComponenteArranque("cobertura_rutas_ct", err)
 	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
-		cfg, emisor, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
+		cfg, emisor, resolvedorCarcasaFirmaCT(resolvedor, autoridadContratacion.firmaVecR5), categoriasPersonal, rutasContratacion, autoridadExactas,
 		registradorFrontera, autoridadDietas, coleccionesBolsasRRHH...,
 	)
 	if err != nil {

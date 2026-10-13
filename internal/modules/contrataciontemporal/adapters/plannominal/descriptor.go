@@ -66,7 +66,7 @@ func (f *FuenteDescriptorFirmaV2) DescriptorPlanFijadoFirmaV2(ctx context.Contex
 		return cero, err
 	}
 	// La cota local protege también la conversión al orden uint64 del plan.
-	if m.Validar() != nil || m.PasoOrden < 1 || m.PasoOrden > 2 {
+	if m.Validar() != nil || m.PasoOrden < 1 || m.PasoOrden > ports.MaximoPasosFirmasVerificadasV2 {
 		return cero, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
 	plan, err := f.plan.Plan(ctx)

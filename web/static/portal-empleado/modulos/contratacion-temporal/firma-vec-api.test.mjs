@@ -66,3 +66,17 @@ test("el recibo conserva las huellas del original raíz y de la entrada preparad
       (e) => e.codigo === "resultado_no_confiable");
   }
 });
+
+
+test("la garantía sustancial procede del recibo VEC y no admite otra garantía", async () => {
+  const data = recibo();
+  data.garantia_autenticacion = "sustancial";
+  const confirmado = await crearClienteFirmaVec({ fetchImpl: async () => respuesta(data) }).registrar(solicitud);
+  assert.equal(confirmado.garantia_autenticacion, "sustancial");
+  for (const valor of ["alto", "pkcs11", "desconocida", null]) {
+    const alterado = recibo();
+    alterado.garantia_autenticacion = valor;
+    await assert.rejects(crearClienteFirmaVec({ fetchImpl: async () => respuesta(alterado) }).registrar(solicitud),
+      (error) => error.codigo === "resultado_no_confiable");
+  }
+});

@@ -230,7 +230,7 @@ func TestPreflightFirmaV2ValidaDescriptorYNoAdmiteServicioV1(t *testing.T) {
 		{"huella ausente", func(r *ports.ResultadoPreflightFirmaR5V2) { r.EntradaDocumentoHuella = "" }},
 		{"original en segundo paso", func(r *ports.ResultadoPreflightFirmaR5V2) { r.EntradaDocumentoRef = r.OriginalRef }},
 		{"entrada tras terminar", func(r *ports.ResultadoPreflightFirmaR5V2) { r.PasoPendiente = 0 }},
-		{"paso no soportado", func(r *ports.ResultadoPreflightFirmaR5V2) { r.PasoPendiente = 3 }},
+		{"paso no soportado", func(r *ports.ResultadoPreflightFirmaR5V2) { r.PasoPendiente = 4 }},
 	}
 	for _, c := range casos {
 		t.Run(c.nombre, func(t *testing.T) {

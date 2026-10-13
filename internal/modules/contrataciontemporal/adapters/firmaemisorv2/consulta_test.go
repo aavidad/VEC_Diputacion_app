@@ -113,7 +113,7 @@ func TestConsultaMaterialInvalidoNoAlcanzaAutoridades(t *testing.T) {
 			m.Via, m.UnidadRef = ports.ViaFirmaExternaPortafirmas, "unidad:ajena"
 		},
 		"vía":       func(m *ports.MaterialConsultaFirmasR5V2) { m.Via = "otra" },
-		"paso":      func(m *ports.MaterialConsultaFirmasR5V2) { m.PasoOrden = 3 },
+		"paso":      func(m *ports.MaterialConsultaFirmasR5V2) { m.PasoOrden = ports.MaximoPasosFirmasVerificadasV2 + 1 },
 		"candidato": func(m *ports.MaterialConsultaFirmasR5V2) { m.FirmantePrincipalCandidatoRef = "" },
 		"versión":   func(m *ports.MaterialConsultaFirmasR5V2) { m.VersionExpediente = 0 },
 	} {

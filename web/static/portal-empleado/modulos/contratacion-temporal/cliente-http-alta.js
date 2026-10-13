@@ -4,7 +4,7 @@ import {
   validarComandoAltaNecesidad,
   ESQUEMA_ALTA_NECESIDAD,
   validarReciboAlta,
-} from "./contrato.js?v=20261014-need-centro-v1";
+} from "./contrato.js?v=20261013-ct-firma-tres-v3";
 
 const MAXIMO_SOLICITUD_ALTA_BYTES = 256 * 1024;
 const MAXIMO_RESPUESTA_ALTA_BYTES = 16 * 1024;

@@ -6,9 +6,9 @@ import {
   numeroExpedienteMOADValido,
   jornadaVisibleDesdeMinutos,
   ESQUEMA_CATALOGOS_NECESIDADES,
-} from "../modulos/contratacion-temporal/contrato.js?v=20261014-need-centro-v1";
+} from "../modulos/contratacion-temporal/contrato.js?v=20261013-ct-firma-tres-v3";
 import { extraerBorrador, formulario as renderizarFormularioPuro,
-  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261014-need-centro-v1";
+  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261013-ct-firma-tres-v3";
 import { cargarCatalogosContratacionEnIdioma } from "../modulos/contratacion-temporal/i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
 import { crearClienteHTTPRPTPublica } from "../modulos/personal/cliente-http-rpt-publica.js?v=20261008-alta-rpt-circular-v4";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
