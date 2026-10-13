@@ -1,0 +1,12 @@
+{
+  "catalogo_id": "motivos_alegaciones_bolsa",
+  "catalogo_version": 1,
+  "entradas": [
+    {
+      "clave": "motivo_06d6356430ac92195b61172110906fc0",
+      "vigente_desde": "2026-10-13T00:00:00.000000Z",
+      "vigente_hasta": null
+    }
+  ],
+  "catalogo_huella_publicada_sha256": "32c407a3839486073ca92900a75e037fdd6ea4ff7a752d6aea14a384b32ec343"
+}

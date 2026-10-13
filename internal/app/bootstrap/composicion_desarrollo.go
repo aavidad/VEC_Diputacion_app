@@ -413,7 +413,8 @@ func nuevoServidorDesarrollo(
 			}
 		}()
 	}
-	inscripcionRRHH, err := nuevaInscripcionRRHHDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialInscripcionBolsa)
+	inscripcionRRHH, err := nuevaInscripcionRRHHDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia,
+		autoridadContratacion.materialInscripcionBolsa, fuenteConstituida)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("inscripcion_bolsa_rrhh", err)
 	}
@@ -493,7 +494,8 @@ func nuevoServidorDesarrollo(
 		}()
 		rutasContratacion = append(rutasContratacion, rutaUsuariosPreferencias(usuariosPreferencias)...)
 	}
-	inscripcionExterna, cerrarInscripcionExterna, err := nuevaInscripcionCombinadaDesarrollo(cfg, usuariosPreferencias)
+	identidadPersonal, _ := resolvedor.(*resolvedorIdentidadDesarrollo)
+	bolsaPersonal, inscripcionExterna, cerrarInscripcionExterna, err := nuevasRutasBolsaPersonalCombinado(cfg, identidadPersonal, emisor)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("inscripcion_bolsa_externa", err)
 	}
@@ -554,7 +556,7 @@ func nuevoServidorDesarrollo(
 		return nil, nil, marcarFalloComponenteArranque("bolsas_publicas", err)
 	}
 	raiz := componerRaizConInscripcionRRHH(componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado), personalEmpleado), consultasPersonal), inscripcionRRHH)
-	servidor, err := server.NewHTTPServer(cfg, componerRaizConInscripcionExterna(raiz, inscripcionExterna))
+	servidor, err := server.NewHTTPServer(cfg, componerRaizConBolsaPersonalExterna(raiz, bolsaPersonal, inscripcionExterna))
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("servidor_http", err)
 	}

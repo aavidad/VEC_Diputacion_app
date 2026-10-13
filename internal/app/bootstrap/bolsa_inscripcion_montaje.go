@@ -32,10 +32,10 @@ func (c claseLectorInscripcionBolsa) identidad() (login, rol, aplicacion string,
 	switch c {
 	case lectorInscripcionExterno:
 		return "vec_bolsa_inscripciones_lector", "vec_bolsa_llamamientos_lector_inscripciones", "vec-bolsa-inscripcion-lector-externo",
-			[]string{"consultar_inscripcion_v1"}, true
+			[]string{"consultar_inscripcion_v1", "consultar_alegaciones_v1"}, true
 	case lectorInscripcionRRHH:
 		return "vec_bolsa_inscripciones_rrhh_lector", "vec_bolsa_llamamientos_lector_inscripciones_rrhh", "vec-bolsa-inscripcion-lector-rrhh",
-			[]string{"consultar_inscripcion_v1", "resolver_ambito_rrhh_inscripcion_previa_v1",
+			[]string{"consultar_inscripcion_v1", "consultar_alegaciones_v1", "resolver_ambito_rrhh_inscripcion_previa_v1",
 				"resolver_ambito_rrhh_inscripcion_v1", "resolver_conjunto_rrhh_inscripcion_previa_v1"}, true
 	default:
 		return "", "", "", nil, false
@@ -114,7 +114,7 @@ func abrirEjecutorExternoInscripcionBolsa(ctx context.Context, dsn string) (*pgx
 	if err != nil {
 		return nil, errMontajeInscripcionBolsa
 	}
-	if login != "vec_externo_bolsa_desarrollo" || !comprobarACLMiBolsaPortalExterno(ctx, pool, true) {
+	if login != "vec_externo_bolsa_desarrollo" || !comprobarACLMiBolsaPortalExternoConAlegaciones(ctx, pool, true, true) {
 		pool.Close()
 		return nil, errMontajeInscripcionBolsa
 	}
@@ -209,5 +209,19 @@ func nuevoMontajeInscripcionBolsaExterno(ctx context.Context, cfg config.Config,
 		cerrar()
 		return nil, nada, errMontajeInscripcionBolsa
 	}
-	return manejador, cerrar, nil
+	pa, ok := preparador.(httpinscripcion.PreparadorAlegaciones)
+	if !ok {
+		cerrar()
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	alegaciones, err := httpinscripcion.NuevoAlegacionesExterno(pa, servicio)
+	if err != nil {
+		cerrar()
+		return nil, nada, errMontajeInscripcionBolsa
+	}
+	mux := http.NewServeMux()
+	mux.Handle(httpinscripcion.RutaAlegacionesPropias, alegaciones)
+	mux.Handle(httpinscripcion.RutaAlegacionesPropias+"/", alegaciones)
+	mux.Handle("/", manejador)
+	return mux, cerrar, nil
 }

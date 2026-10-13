@@ -144,6 +144,26 @@ type operacionEscrituraInscripcion struct {
 	ref          string
 	material     []byte
 	presentacion *inscripcion.Presentacion
+	alegacion    *inscripcion.PresentacionAlegacion
+}
+
+func (p *preparadorInscripcionBolsa) PrepararLecturaAlegaciones(r *http.Request, accion, ref string, limite int, cursor string) (inscripcion.Actor, error) {
+	if r == nil || r.URL == nil || limite < 1 || limite > 20 {
+		return inscripcion.Actor{}, inscripcion.ErrSolicitudInvalida
+	}
+	rrhh := accion == inscripcion.AccionAlegacionesRRHH
+	if !rrhh && accion != inscripcion.AccionObjetosAlegacion {
+		return inscripcion.Actor{}, inscripcion.ErrSolicitudInvalida
+	}
+	return p.preparar(r, rrhh, &lecturaInscripcion{accion, ref, "es", inscripcion.Filtro{Limite: limite, Cursor: cursor}}, nil)
+}
+
+func (p *preparadorInscripcionBolsa) PrepararPresentacionAlegacion(r *http.Request, comando inscripcion.PresentacionAlegacion) (inscripcion.Actor, error) {
+	material, _, err := inscripcion.MaterialAlegacion(comando)
+	if err != nil {
+		return inscripcion.Actor{}, err
+	}
+	return p.preparar(r, false, nil, &operacionEscrituraInscripcion{material: material, alegacion: &comando})
 }
 
 func (p *preparadorInscripcionBolsa) PrepararPresentacion(r *http.Request, comando inscripcion.Presentacion) (inscripcion.Actor, error) {
@@ -282,6 +302,15 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 			return vacio, inscripcion.ErrSolicitudInvalida
 		}
 	}
+	if accion == inscripcion.AccionPresentarAlegacion {
+		if escritura == nil || escritura.alegacion == nil {
+			return vacio, inscripcion.ErrSolicitudInvalida
+		}
+		recurso, err = inscripcion.ReferenciaAlegacion(actor.PersonaRef, escritura.alegacion.ClaveIdempotencia)
+		if err != nil {
+			return vacio, inscripcion.ErrSolicitudInvalida
+		}
+	}
 	if r.Method == http.MethodGet {
 		captura, err := c.Autoridad.CapturarLectura(r.Context(), ctx, acreditacion, accion, recurso, filtro)
 		ahoraLectura := c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
@@ -369,6 +398,24 @@ func operacionInscripcionBolsa(r *http.Request, rrhh bool) (string, string, insc
 	}
 	path := r.URL.Path
 	if rrhh {
+		if path == httpinscripcion.RutaAlegacionesRRHH+"/ambitos" && r.Method == http.MethodGet && soloQueryInscripcion(q, "limite", "cursor") {
+			f, ok := filtroPaginaAlegaciones(q)
+			return inscripcion.AccionAlegacionesRRHH, "ambitos", f, ok
+		}
+		if path == httpinscripcion.RutaAlegacionesRRHH && r.Method == http.MethodGet &&
+			soloQueryInscripcion(q, "limite", "cursor", "convocatoria_ref", "bolsa_ref") &&
+			(q.Has("convocatoria_ref") != q.Has("bolsa_ref")) {
+			f, ok := filtroPaginaAlegaciones(q)
+			tipo, ref := "convocatoria", q.Get("convocatoria_ref")
+			if q.Has("bolsa_ref") {
+				tipo, ref = "bolsa", q.Get("bolsa_ref")
+			}
+			return inscripcion.AccionAlegacionesRRHH, tipo + ":" + ref, f, ok && ref != ""
+		}
+		if strings.HasPrefix(path, httpinscripcion.RutaAlegacionesRRHH+"/") && r.Method == http.MethodGet && len(q) == 0 {
+			ref := strings.TrimPrefix(path, httpinscripcion.RutaAlegacionesRRHH+"/")
+			return inscripcion.AccionAlegacionesRRHH, ref, inscripcion.Filtro{Limite: 1}, ref != "" && !strings.Contains(ref, "/")
+		}
 		if path == httpinscripcion.RutaRRHH+"/convocatorias" && r.Method == http.MethodGet && soloQueryInscripcion(q, "limite", "cursor", "idioma") {
 			f, ok := filtroListaInscripcion(q)
 			return inscripcion.AccionConvocatoriasRRHH, "inscripciones:rrhh:convocatorias", f, ok && f.Validar() == nil
@@ -399,6 +446,17 @@ func operacionInscripcionBolsa(r *http.Request, rrhh bool) (string, string, insc
 		}
 		return "", "", cero, false
 	}
+	if path == httpinscripcion.RutaAlegacionesPropias+"/objetos" && r.Method == http.MethodGet && soloQueryInscripcion(q, "limite", "cursor") {
+		f, ok := filtroPaginaAlegaciones(q)
+		return inscripcion.AccionObjetosAlegacion, "objetos", f, ok
+	}
+	if path == httpinscripcion.RutaAlegacionesPropias && len(q) == 0 && r.Method == http.MethodPost {
+		return inscripcion.AccionPresentarAlegacion, "alegaciones:propias", cero, true
+	}
+	if path == httpinscripcion.RutaAlegacionesPropias && r.Method == http.MethodGet && soloQueryInscripcion(q, "limite", "cursor") {
+		f, ok := filtroPaginaAlegaciones(q)
+		return inscripcion.AccionAlegacionesPropias, "propias", f, ok
+	}
 	if path == httpinscripcion.RutaAbiertas && r.Method == http.MethodGet && soloQueryInscripcion(q, "limite", "cursor", "idioma") {
 		f, ok := filtroListaInscripcion(q)
 		return inscripcion.AccionListarAbiertas, "convocatorias-abiertas", f, ok
@@ -419,6 +477,22 @@ func operacionInscripcionBolsa(r *http.Request, rrhh bool) (string, string, insc
 		return inscripcion.AccionDetallePropia, ref, cero, true
 	}
 	return "", "", cero, false
+}
+
+func filtroPaginaAlegaciones(q url.Values) (inscripcion.Filtro, bool) {
+	limite := 10
+	if q.Has("limite") {
+		var err error
+		limite, err = strconv.Atoi(q.Get("limite"))
+		if err != nil {
+			slog.Warn("bolsa alegaciones: límite de página ilegible", "causa", "formato")
+			return inscripcion.Filtro{}, false
+		}
+		if limite < 1 || limite > 20 {
+			return inscripcion.Filtro{}, false
+		}
+	}
+	return inscripcion.Filtro{Limite: limite, Cursor: q.Get("cursor")}, true
 }
 
 func soloQueryInscripcion(q url.Values, claves ...string) bool {

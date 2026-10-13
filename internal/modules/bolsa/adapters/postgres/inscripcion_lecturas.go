@@ -180,12 +180,12 @@ func (r *RepositorioInscripcionesPostgreSQL) seleccionarLectorInscripcion(canal,
 	var lector iniciadorTransacciones
 	switch accion {
 	case inscripcion.AccionListarAbiertas, inscripcion.AccionDetalleAbierta,
-		inscripcion.AccionListarPropias, inscripcion.AccionDetallePropia:
+		inscripcion.AccionListarPropias, inscripcion.AccionDetallePropia, inscripcion.AccionObjetosAlegacion:
 		if canal != "externa_personal" {
 			return nil, inscripcion.ErrAccesoDenegado
 		}
 		lector = r.lectorExterno
-	case inscripcion.AccionListarRRHH, inscripcion.AccionConvocatoriasRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH:
+	case inscripcion.AccionListarRRHH, inscripcion.AccionConvocatoriasRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH, inscripcion.AccionAlegacionesRRHH:
 		if canal != "interna_corporativa" {
 			return nil, inscripcion.ErrAccesoDenegado
 		}
