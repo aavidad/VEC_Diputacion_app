@@ -45,6 +45,7 @@
     {"variable": "VEC_CT_FIRMA_REGISTRO_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_CT_CIRCUITO_FIRMA_SOURCE_PATH"]},
     {"variable": "VEC_CT_ORIGINAL_FIRMABLE_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_DOCUMENTOS_ENABLED"], "nota": "Preparación y recuperación del original custodiado para firma."},
     {"variable": "VEC_CT_FIRMAS_R5_V2_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_CT_GOBIERNO_DATABASE_URL", "VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL"]},
+    {"variable": "VEC_CT_FIRMA_VEC_R5_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_FIRMA_REGISTRO_ENABLED", "VEC_CT_ORIGINAL_FIRMABLE_ENABLED", "VEC_CT_FIRMAS_R5_V2_ENABLED", "VEC_DOCUMENTOS_ENABLED"], "nota": "Firma nominal con certificado en el circuito CT."},
     {"variable": "VEC_CT_PLANTILLAS_GOBIERNO_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_CT_PLANTILLAS_SOURCE_PATH"]},
     {"variable": "VEC_CT_PLANTILLAS_DOCUMENTAL_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_CT_PLANTILLAS_SOURCE_PATH"]},
     {"variable": "VEC_CT_PROVISION_PERFILES_CENTRO_APROBACION", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_CT_PROVISION_PERFILES_CENTRO_PREIMAGENES"], "nota": "Sin las preimágenes la aprobación se ignora en silencio."},
