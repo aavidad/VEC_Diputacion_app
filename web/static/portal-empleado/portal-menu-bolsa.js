@@ -106,7 +106,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
     case "contratacion-temporal":
       return capacidades?.contratacionTemporal === true;
     case "auditoria":
-      return capacidades?.auditoriaReferencia === true;
+      return capacidades?.auditoriaConsulta === true;
     case "reglas":
       return capacidades?.politicaCese === true;
     default:

@@ -22,7 +22,6 @@ import (
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
-	"vec-diputacion-granada/internal/vec/auditoria"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -490,16 +489,6 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		descriptores := DescriptoresMaterialPreparacionBasesV3()
 		descriptoresMaterial = append(descriptoresMaterial, descriptores[:]...)
 	}
-	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
-	if err != nil {
-		return vacias, err
-	}
-	if auditoriaActiva {
-		if _, err := cfg.RutaCatalogoAuditoriaConsultaDesarrollo(); err != nil {
-			return vacias, err
-		}
-		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialAuditoriaConsultaDesarrollo())
-	}
 	descriptoresMaterial = materialCargaConvocaDesarrollo(descriptoresMaterial, seleccion.borradoresBolsa) // B1: ver bolsa_carga_convoca_gobernada.go
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
@@ -675,19 +664,6 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 		dependencias.proveedorMaterialConsultaFirmasDocumento, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, ports.AudienciaConsultaFirmasDocumentoV3)
-		if err != nil {
-			return vacias, err
-		}
-	}
-	etapa = "material_auditoria_rrhh"
-	if auditoriaActiva {
-		dependencias.proveedorMaterialAuditoriaCT, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
-			ctx, gobierno, material, reloj, catalogoMaterial, auditoria.AudienciaConsumo)
-		if err != nil {
-			return vacias, err
-		}
-		dependencias.proveedorMaterialAuditoriaBolsa, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
-			ctx, gobierno, material, reloj, catalogoMaterial, auditoria.AudienciaConsumo)
 		if err != nil {
 			return vacias, err
 		}

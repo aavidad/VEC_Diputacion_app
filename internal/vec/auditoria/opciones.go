@@ -16,12 +16,13 @@ type LectorCatalogoVigente interface {
 }
 
 type Opciones struct {
-	FinalidadRef     string                           `json:"finalidad_ref"`
-	MotivoRef        string                           `json:"motivo_ref"`
-	PermisoRequerido string                           `json:"permiso_requerido"`
-	EsEjemplo        bool                             `json:"es_ejemplo"`
-	Fuentes          []string                         `json:"fuentes"`
-	Motivo           domain.ReferenciaEntradaCatalogo `json:"-"`
+	FinalidadRef      string                           `json:"finalidad_ref"`
+	MotivoRef         string                           `json:"motivo_ref"`
+	PermisoRequerido  string                           `json:"permiso_requerido"`
+	EsEjemplo         bool                             `json:"es_ejemplo"`
+	Fuentes           []string                         `json:"fuentes"`
+	Motivo            domain.ReferenciaEntradaCatalogo `json:"-"`
+	SeleccionObjetivo bool                             `json:"seleccion_objetivo,omitempty"`
 }
 
 type ProveedorOpciones interface {
@@ -63,8 +64,9 @@ func (p *OpcionesCatalogo) Configuradas(ctx context.Context) (Opciones, error) {
 		return Opciones{}, ErrNoDisponible
 	}
 	e := elegidas[0]
+	dinamica := e.Atributos["ambito"] == "organizacion_ref" && e.Atributos["fuentes"] == "ct,bolsa,persona"
 	if e.Atributos["permiso"] != AccionConsultar || e.Atributos["tipo_recurso"] != TipoRecurso ||
-		e.Atributos["ambito"] != "expediente_exacto" || e.Atributos["fuentes"] != "ct,bolsa" ||
+		(!dinamica && (e.Atributos["ambito"] != "expediente_exacto" || e.Atributos["fuentes"] != "ct,bolsa")) ||
 		!referenciaExacta(e.Atributos["finalidad_ref"], 128) {
 		return Opciones{}, ErrNoDisponible
 	}
@@ -72,7 +74,11 @@ func (p *OpcionesCatalogo) Configuradas(ctx context.Context) (Opciones, error) {
 	if !domain.ReferenciaMotivoAutorizacionV2Valida(motivo) || !referenciaExacta(motivo.Referencia(), 128) {
 		return Opciones{}, ErrNoDisponible
 	}
-	return Opciones{FinalidadRef: e.Atributos["finalidad_ref"], MotivoRef: motivo.Referencia(), PermisoRequerido: AccionConsultar, EsEjemplo: catalogo.FuenteRef == reglas.MarcaPaqueteEjemplo, Fuentes: []string{"ct", "bolsa"}, Motivo: motivo}, nil
+	fuentes := []string{"ct", "bolsa"}
+	if dinamica {
+		fuentes = append(fuentes, "persona")
+	}
+	return Opciones{FinalidadRef: e.Atributos["finalidad_ref"], MotivoRef: motivo.Referencia(), PermisoRequerido: AccionConsultar, EsEjemplo: catalogo.FuenteRef == reglas.MarcaPaqueteEjemplo, Fuentes: fuentes, Motivo: motivo, SeleccionObjetivo: dinamica}, nil
 }
 
 func (p *OpcionesCatalogo) Actuales(ctx context.Context) (Opciones, error) {

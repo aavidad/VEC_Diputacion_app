@@ -1,0 +1,5 @@
+deploy/postgresql/autorizacion/migraciones/000082_cotejo_lectura_auditoria_rrhh.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000208_objetivos_auditoria_rrhh.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000109_objetivos_auditoria_rrhh.up.sql
+deploy/postgresql/personal/migraciones/000047_objetivos_persona_auditoria_rrhh.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000251_lectura_auditoria_rrhh.up.sql
