@@ -104,7 +104,7 @@
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-api.js?v=20261007-pantallas-textos-final-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-menu-bolsa.js?v=20261011-bolsa-b103-privacidad-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-menu-bolsa.js?v=20261013-documentos-bolsa-v4">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-selector.js?v=20261011-bolsa-b103-privacidad-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-preferencias-api.js?v=20261010-http-carga-v1">
@@ -160,11 +160,11 @@
             </button>
             <div class="submenu-bolsa" id="submenu-bolsas-candidatos" role="group" aria-label="Opciones de bolsas y candidatos" hidden data-i18n-portal-aria-label="txt_opciones_de_bolsas_y_candidatos">
               <button type="button" class="enlace-lateral enlace-submenu" data-vista="elaboracion"><span data-i18n-portal="txt_elaboracion_y_borradores">Elaboración y borradores</span></button>
-              <button type="button" class="enlace-lateral enlace-submenu" data-vista="convocatorias"><span data-i18n-portal="txt_convocatorias_bases_y_calendario">Convocatorias, bases y calendario</span></button>
+              <button type="button" class="enlace-lateral enlace-submenu" data-vista="convocatorias"><span data-i18n-portal="txt_convocatorias_bases_y_calendario">Convocatorias</span></button>
               <button type="button" class="enlace-lateral enlace-submenu" data-vista="solicitudes"><span data-i18n-portal="txt_solicitudes_y_admision">Solicitudes y admisión</span></button>
               <button type="button" class="enlace-lateral enlace-submenu" data-vista="meritos"><span data-i18n-portal="txt_revision_de_meritos">Revisión de méritos</span></button>
               <button type="button" class="enlace-lateral enlace-submenu" data-vista="alegaciones"><span data-i18n-portal="txt_alegaciones">Alegaciones</span></button>
-              <button type="button" class="enlace-lateral enlace-submenu" data-vista="importacion"><span data-i18n-portal="txt_importacion_convoca">Importación Convoca</span></button>
+              <a class="enlace-lateral enlace-submenu" data-vista="importacion" href="/portal-empleado/modulos/bolsa/carga-convoca/"><span data-i18n-portal="txt_importacion_convoca">Importación Convoca</span></a>
             </div>
           </div>
 
@@ -196,11 +196,10 @@
           <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="estadisticas" data-vista="estadisticas">
             <span class="numero-menu tono-oliva" aria-hidden="true">7</span><span data-i18n-portal="txt_estadisticas">Estadísticas</span>
           </button>
-          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="documentos" data-vista="documentos" aria-describedby="bolsa-documentos-pendientes" disabled>
+          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="documentos" data-vista="documentos">
             <span class="numero-menu tono-ambar" aria-hidden="true">8</span><span data-i18n-portal="bolsa_documentos_titulo">Documentos de Bolsa</span>
           </button>
-          <p id="bolsa-documentos-pendientes" class="dato-secundario" data-i18n-portal="bolsa_documentos_pendiente">Los documentos de Bolsa no están disponibles aquí. Consulte los documentos desde la petición de contratación correspondiente.</p>
-          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="comunicaciones" data-vista="llamamientos">
+          <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="comunicaciones" data-vista="comunicaciones">
             <span class="numero-menu tono-turquesa" aria-hidden="true">9</span><span data-i18n-portal="txt_correo_y_mensajeria">Correo y mensajería</span><span class="etiqueta-menu" aria-hidden="true" data-i18n-portal="txt_correo">Correo</span>
           </button>
 

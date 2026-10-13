@@ -57,7 +57,7 @@ func TestVersionBolsaB103RutaIndependienteYCuerpoSinIdentidad(t *testing.T) {
 	}
 }
 
-func TestVersionBolsaB103ExigeCuatroSeleccionesAntesDeFuente(t *testing.T) {
+func TestVersionBolsaB103ExigeCuatroOTresSeleccionesAntesDeFuente(t *testing.T) {
 	sesion := sesionAplicacionNominalPrueba(t)
 	auditor := &auditorPrueba{}
 	h, err := NuevoHandlerUsuariosMetadatos("https://admin.example.test",
@@ -89,11 +89,15 @@ func TestVersionBolsaB103ExigeCuatroSeleccionesAntesDeFuente(t *testing.T) {
 		}
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, peticionADMIN(http.MethodPost, RutaVersionarRolBolsaB103Proponer, string(cuerpo)))
-		if n != 4 && (w.Code != http.StatusBadRequest || fuente.llamadas != 0) {
+		esperadas := 1
+		if n == 4 {
+			esperadas = 2
+		}
+		if n == 5 && (w.Code != http.StatusBadRequest || fuente.llamadas != 1) {
 			t.Fatalf("%d selecciones cruzaron frontera: estado %d, fuente %d", n, w.Code, fuente.llamadas)
 		}
-		if n == 4 && (w.Code != http.StatusServiceUnavailable || fuente.llamadas != 1 || servicio.propuestas != 0) {
-			t.Fatalf("cuatro selecciones no llegaron a fuente: estado %d, fuente %d", w.Code, fuente.llamadas)
+		if (n == 4 || n == 3) && (w.Code != http.StatusServiceUnavailable || fuente.llamadas != esperadas || servicio.propuestas != 0) {
+			t.Fatalf("selecciones nominales no llegaron a fuente: estado %d, fuente %d", w.Code, fuente.llamadas)
 		}
 	}
 	if auditor.llamadas != 3 {

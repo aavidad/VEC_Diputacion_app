@@ -277,6 +277,8 @@ Las preguntas 77 a 94 salen del estudio `docs/estudio_requisitos/datos_personale
 
 158. **Vuelta a la bolsa tras cesar en una vacante (pregunta a RRHH).** El ejemplo actual trata el cese de un contrato por vacante como caso general y deja a la persona no disponible durante cinco meses desde la fecha efectiva del cese, conforme al plazo general del art. 9 del [Reglamento][rgl]. ¿Confirmáis que esa modalidad corresponde al caso general? Si requiere otro tratamiento, ¿qué plazo, fecha de inicio o excepciones debemos aplicar y dónde consta la regla aprobada? El valor se puede cambiar en el catálogo cuando nos lo indiquéis.
 
+159. **Requisitos de acceso y comprobación en la admisión (pregunta a RRHH; completa la 155).** ¿Qué requisitos son obligatorios para entrar en cada convocatoria y en qué momento deben cumplirse? ¿Qué documentos los acreditan y quién los comprueba antes de admitir? Si se exige una titulación como ESO, necesitamos su regla, equivalencias y forma de acreditación; declararla como mérito no comprueba por sí solo ese requisito. La nueva versión provisional del recorrido exige únicamente identidad certificada. Conservamos los requisitos de la versión anterior y sus solicitudes hasta que RRHH confirme las bases aplicables.
+
 [rgl]: https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1768521622300-final-680c0e98.pdf
 [bop-correccion]: https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1769472066115-final-42c9b1bc.pdf
 [circ]: https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf

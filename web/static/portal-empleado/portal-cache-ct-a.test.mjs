@@ -4,10 +4,10 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261012-sin-prueba-v1";
-const versionCircuito = "20261012-ct-firma-error-v4";
+const versionCoordinador = "20261013-ct-firma-tres-v1";
+const versionCircuito = "20261013-ct-firma-tres-v1";
 const versionVista = "20261011-informe-legible-v1";
-const versionVistaPortal = "20261012-ct-b2-cese-v1";
+const versionVistaPortal = "20261013-ct-firma-tres-v1";
 const versionAdaptador = "20261011-ct-bolsa-vinculo-v1";
 const versionRender = "20261011-ct-bolsa-vinculo-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
@@ -63,7 +63,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   // La consulta de circuito RRHH no cambió: conserva su URL anterior.
   exigirVersiones(vista, "./vista-circuito-rrhh.js", "20261002-ct-r5-grafo-v2");
   exigirVersiones(vista, "./circuito-firma.js", firma);
-  exigirVersiones(circuito, "./circuito-firma-acciones.js", "20261011-ct-bolsa-vinculo-v1");
+  exigirVersiones(circuito, "./circuito-firma-acciones.js", "20261013-ct-firma-tres-v1");
   for (const manifiesto of [interno, produccion]) {
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/firma-externa-cliente\.js$/mu);
   }
@@ -115,7 +115,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = cohorte;
   const cohorteIdioma = "20261011-ct-bolsa-vinculo-v1";
-  const cohorteEntrada = "20261012-sin-prueba-v1";
+  const cohorteEntrada = "20261013-documentos-bolsa-v4";
   const cohorteFicha = "20261011-informe-legible-v1";
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
@@ -164,7 +164,7 @@ test("la ficha compartible y su aviso usan una única cohorte empaquetada", asyn
     "../../interno.manifest", "../../produccion.manifest", "cache-publica-v1.json",
   ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const cohorte = "20261008-r-fichas-idioma-nav-v1";
-  const entrada = "20261012-sin-prueba-v1";
+  const entrada = "20261013-documentos-bolsa-v4";
   exigirVersiones(html, "/portal-empleado/portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(portal, "./portal-ct-ruta-ficha.js", cohorte);
   exigirVersiones(coordinador, "./portal-ct-ruta-ficha.js", cohorte);

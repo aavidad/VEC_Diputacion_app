@@ -900,7 +900,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
   ]) versionesEspeciales.set(ruta, "20261012-ct-b2-cese-v1");
-  versionesEspeciales.set("portal-modulos-coordinador.js", "20261012-sin-prueba-v1");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261013-bolsa-menu-n3");
   versionesEspeciales.set("modulos/auditoria/vista.js", "20261012-sin-prueba-v1");
   for (const ruta of [
     "portal-bolsas-contacto-origen.js", "portal-bolsas-api.js",
@@ -908,7 +908,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-panel-interno.js",
   ]) versionesEspeciales.set(ruta, "20261012-c3-contacto-v1");
   versionesEspeciales.set("portal-bolsas-api.js", "20261012-reglas-configuracion-v1");
-  versionesEspeciales.set("portal.js", "20261012-sin-prueba-v1");
+  for (const ruta of ["portal.js", "portal-panel-interno.js", "portal-bolsas-api.js", "portal-menu-bolsa.js", "portal-bolsas-global.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js"]) versionesEspeciales.set(ruta, "20261013-bolsa-menu-n3");
+  for (const ruta of ["portal.js", "portal-panel-interno.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js"]) versionesEspeciales.set(ruta, "20261013-convocatorias-rrhh-v3");
+  for (const ruta of ["portal-bolsas-ruta-filtros.js", "portal-bolsas-contrato.js", "portal-bolsas-api.js", "portal-bolsas-seguimiento.js", "portal-bolsas-global.js", "portal-bolsas-ofertas.js", "portal-bolsas-historial-ofrecimientos.js", "portal-llamamientos-operaciones-api.js", "portal-inicio.js", "portal-baremacion-ranking.js", "modulos/bolsa/carga-convoca/vista.js"]) versionesEspeciales.set(ruta, "20261013-bolsa-ranking-n4");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -919,6 +921,14 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
       else if (entrada.name.endsWith(".js")) archivos.push(nombre);
     }
   }
+  for (const ruta of ["portal-baremacion-ranking.js", "portal-bolsas-api.js", "portal-bolsas-contrato.js",
+    "portal-bolsas-global.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js",
+    "portal-bolsas-ruta-filtros.js", "portal-bolsas-seguimiento.js", "portal-inicio.js",
+    "portal-llamamientos-operaciones-api.js", "modulos/bolsa/carga-convoca/arranque.js",
+    "modulos/bolsa/carga-convoca/vista.js"]) versionesEspeciales.set(ruta, "20261013-bolsa-ranking-n4");
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-menu-bolsa.js", "portal-panel-interno.js"])
+    versionesEspeciales.set(ruta, "20261013-documentos-bolsa-v4");
+  for (const ruta of ["modulos/bolsa/documentos-api.js", "modulos/bolsa/documentos-vista.js"]) versionesEspeciales.set(ruta, "20261013-documentos-bolsa-v2");
   const versiones = new Map();
   const aristas = [];
   const codigo = new Map();

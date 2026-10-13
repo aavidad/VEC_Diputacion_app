@@ -106,11 +106,11 @@
 1761 web/static/portal-empleado/portal-modulos-coordinador.js
 1865 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1081 web/static/portal-empleado/portal-componentes.css
-1901 web/static/portal-empleado/portal.js
-1520 web/static/portal-empleado/portal-bolsas-api.js
+2001 web/static/portal-empleado/portal.js
+1521 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1141 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-1102 web/static/portal-empleado/portal-i18n.test.mjs
+1112 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 952 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
@@ -118,7 +118,7 @@
 780 internal/app/server/server_test.go
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1734 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1744 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
 1101 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
 1080 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
@@ -162,4 +162,6 @@
 1791 deploy/postgresql/autorizacion_atestada_v3/migraciones/000241_preferencias_bolsas.up.sql
 2998 deploy/postgresql/autorizacion_atestada_v3/migraciones/000247_campos_canonicos_original_firmable.up.sql
 822 internal/app/bootstrap/contratacion_temporal_perfiles_fijos_rrhh_desarrollo.go
+
+3043 deploy/postgresql/autorizacion_atestada_v3/migraciones/000256_objetivo_version_rol_inscripcion_externa.up.sql
 1142 deploy/postgresql/contratacion_temporal/migraciones/000209_firma_pdf_tres_pasos.up.sql
