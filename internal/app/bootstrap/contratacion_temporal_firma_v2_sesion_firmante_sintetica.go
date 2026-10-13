@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
-	"vec-diputacion-granada/internal/app/composicion/interna"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
@@ -123,7 +122,7 @@ func (f *fuenteSinteticaSesionFirmanteV2) principalSeleccionado(r *http.Request)
 	}
 	_, huella, ok := certificadoSesionFirmanteV2(r, f.reloj.Ahora())
 	s, presente := f.selecciones[huella]
-	if !ok || !presente || f.acreditarCA25 == nil || interna.ComprobarCRLFirmaR5(f.crlPath,
+	if !ok || !presente || f.acreditarCA25 == nil || comprobarCRLFirmaVecCT(f.crlPath,
 		r.TLS.VerifiedChains[0][0], r.TLS.VerifiedChains[0][1], f.reloj.Ahora()) != nil {
 		return core.Principal{}, false
 	}
