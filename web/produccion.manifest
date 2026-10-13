@@ -43,6 +43,7 @@ static/area-personal/mi-bolsa-contacto.js
 static/area-personal/mi-bolsa-historial.js
 static/area-personal/mi-bolsa-ofertas.js
 static/area-personal/mi-bolsa-portal.js
+static/area-personal/mi-bolsa-preferencias-bolsas.js
 static/area-personal/meritos-reales-cliente.js
 static/area-personal/meritos-reales-montaje.js
 static/area-personal/meritos-reales-vista.js
