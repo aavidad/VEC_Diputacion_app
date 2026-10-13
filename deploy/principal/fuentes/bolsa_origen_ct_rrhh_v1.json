@@ -2,8 +2,8 @@
   "modulo_id": "bolsa",
   "referencia": "fuente:bolsa:origen_ct_rrhh",
   "version": 1,
-  "huella_sha256": "119326cd6b84576bb32e57ac591d78875c37ce38080c72a3e0e67972228ffbc5",
-  "entradas_canon": "[{\"referencia\":\"accion:bolsa.origen_ct.consultar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:origen_ct_rrhh\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.origen_ct.consultar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"bolsa_constituida\",\"finalidades\":[\"gestionar_contratacion_temporal\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"acta_ref\",\"bolsa_canonica\",\"bolsa_ref\",\"categoria_ref\",\"corte\",\"entradas[].candidato_ref\",\"entradas[].elegible\",\"entradas[].orden_acta\",\"entradas[].orden_vigente\",\"entradas[].participacion_ref\",\"entradas[].razon\",\"entradas[].situacion\",\"huella_bolsa_sha256\",\"huella_instantanea_sha256\",\"huella_politica_sha256\",\"instantanea_canonica\",\"instantanea_ref\",\"politica_provisional\",\"politica_ref\",\"reserva.configuracion.asunto\",\"reserva.configuracion.categoria\",\"reserva.configuracion.centro\",\"reserva.configuracion.cuerpo\",\"reserva.configuracion.descripcion\",\"reserva.configuracion.fecha_inicio\",\"reserva.configuracion.modalidad\",\"reserva.configuracion.plantilla_version\",\"reserva.configuracion.plazo\",\"reserva.configuracion.referencia\",\"version_bolsa\",\"version_instantanea\",\"version_politica\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"}]",
+  "huella_sha256": "f3ca4451ea5a8eb8aca28ad9d72e42c80dd33af9287adba9d5dc319b81f582b3",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.origen_ct.consultar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:origen_ct_rrhh\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.origen_ct.consultar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"bolsa_constituida\",\"finalidades\":[\"gestionar_contratacion_temporal\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"acta_ref\",\"bolsa_canonica\",\"bolsa_ref\",\"categoria_ref\",\"corte\",\"entradas[].candidato_ref\",\"entradas[].elegible\",\"entradas[].orden_acta\",\"entradas[].orden_vigente\",\"entradas[].participacion_ref\",\"entradas[].razon\",\"entradas[].situacion\",\"huella_bolsa_sha256\",\"huella_instantanea_sha256\",\"huella_politica_sha256\",\"instantanea_canonica\",\"instantanea_ref\",\"politica_provisional\",\"politica_ref\",\"reserva.candidato_ref\",\"reserva.clave_ct\",\"reserva.configuracion.asunto\",\"reserva.configuracion.categoria\",\"reserva.configuracion.centro\",\"reserva.configuracion.cuerpo\",\"reserva.configuracion.descripcion\",\"reserva.configuracion.fecha_inicio\",\"reserva.configuracion.modalidad\",\"reserva.configuracion.plantilla_version\",\"reserva.configuracion.plazo\",\"reserva.configuracion.referencia\",\"reserva.expediente_ref\",\"reserva.orden_seleccionado\",\"reserva.participacion_ref\",\"reserva.unidad_ref\",\"version_bolsa\",\"version_instantanea\",\"version_politica\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"}]",
   "entradas": [
     {
       "referencia": "accion:bolsa.origen_ct.consultar",
@@ -38,6 +38,8 @@
           "instantanea_ref",
           "politica_provisional",
           "politica_ref",
+          "reserva.candidato_ref",
+          "reserva.clave_ct",
           "reserva.configuracion.asunto",
           "reserva.configuracion.categoria",
           "reserva.configuracion.centro",
@@ -48,6 +50,10 @@
           "reserva.configuracion.plantilla_version",
           "reserva.configuracion.plazo",
           "reserva.configuracion.referencia",
+          "reserva.expediente_ref",
+          "reserva.orden_seleccionado",
+          "reserva.participacion_ref",
+          "reserva.unidad_ref",
           "version_bolsa",
           "version_instantanea",
           "version_politica"
@@ -63,7 +69,7 @@
       "clase_control": "ordinario",
       "vigente_desde": "2026-10-01T00:00:00Z",
       "vigente_hasta": "2027-10-01T00:00:00Z",
-      "fuente_huella_sha256": "119326cd6b84576bb32e57ac591d78875c37ce38080c72a3e0e67972228ffbc5"
+      "fuente_huella_sha256": "f3ca4451ea5a8eb8aca28ad9d72e42c80dd33af9287adba9d5dc319b81f582b3"
     }
   ]
 }
