@@ -80,6 +80,18 @@ pública). Un valor mal escrito impide arrancar (`config/portal_proceso.go`,
 `runtime-publico` y `runtime-interno`, y la CI comprueba que cada una lleva solo
 lo suyo.
 
+En HZ37, el proceso combinado conserva el montaje interno de «Mi Bolsa» de
+HZ36 cuando faltan `VEC_EXTERNO_BOLSA_DATABASE_URL` y
+`VEC_MATERIAL_PORTAL_EXTERNO_DIR` y la inscripción está apagada. Conserva sus
+identidades, permisos, ámbitos, rutas y auditoría; una identidad externa no
+recibe acceso interno. Si se configura cualquiera de esos dos valores o se
+activa la inscripción, se exige el montaje externo completo, incluida su
+confianza V3. Una configuración parcial, inválida o sin confianza produce un
+error de arranque del componente, sin sustituirlo por el interno. Es una
+medida temporal hasta HZ38, cuando P publique la confianza externa propia.
+La selección se comparte entre rutas, fronteras y material en
+`internal/app/bootstrap/bolsa_portal_combinado.go`.
+
 ## 2. Arquitectura hexagonal
 
 VEC sigue la arquitectura hexagonal de forma estricta. Las reglas del negocio

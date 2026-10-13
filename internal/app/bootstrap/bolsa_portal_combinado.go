@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"vec-diputacion-granada/config"
@@ -16,19 +17,27 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
-func nuevasRutasBolsaPersonalCombinado(cfg config.Config, identidad *resolvedorIdentidadDesarrollo, incidencias vecports.EmisorIncidenciasTecnicas) (bolsa, inscripcion http.Handler, cerrar func(), err error) {
-	nada := func() {}
+// HZ37 conserva Mi Bolsa de HZ36 hasta seleccionar la autoridad externa.
+// Una selección incompleta o inválida nunca habilita el montaje interno.
+func miBolsaExternaSeleccionadaEnCombinado(cfg config.Config) bool {
 	if !superficieExternaUsuariosEnProceso(cfg) {
-		return nil, nil, nada, nil
+		return false
 	}
 	activa, err := cfg.BolsaInscripcionesExternoActivo()
+	_, sinBolsa := cfg.ExternoBolsaPostgreSQL.DSN()
+	return activa || err != nil || sinBolsa == nil || strings.TrimSpace(cfg.ExternoMaterialDir) != ""
+}
+
+func nuevasRutasBolsaPersonalCombinado(cfg config.Config, identidad *resolvedorIdentidadDesarrollo, incidencias vecports.EmisorIncidenciasTecnicas) (bolsa, inscripcion http.Handler, cerrar func(), err error) {
+	nada := func() {}
+	if !miBolsaExternaSeleccionadaEnCombinado(cfg) {
+		return nil, nil, nada, nil
+	}
+	_, err = cfg.BolsaInscripcionesExternoActivo()
 	if err != nil {
 		return nil, nil, nada, err
 	}
 	_, sinBolsa := cfg.ExternoBolsaPostgreSQL.DSN()
-	if !activa && sinBolsa != nil && (identidad == nil || identidad.candidatoBolsa == nil) {
-		return nil, nil, nada, nil
-	}
 	if identidad == nil || identidad.candidatoBolsa == nil || incidencias == nil || sinBolsa != nil {
 		return nil, nil, nada, errMiBolsaNoDisponible
 	}
