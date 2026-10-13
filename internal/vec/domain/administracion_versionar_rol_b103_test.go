@@ -116,23 +116,30 @@ func TestVersionarRolBolsaB103DeniegaConcesionesYAmbitosDivergentes(t *testing.T
 		{"catalogo", func(_ *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
 			i.CatalogoHuellaSHA256 = strings.Repeat("f", 64)
 		}},
-		{"orden", func(_ *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
-			i.Selecciones[0], i.Selecciones[1] = i.Selecciones[1], i.Selecciones[0]
+		{"seleccion_duplicada", func(_ *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
+			i.Selecciones[1] = i.Selecciones[0]
 		}},
-		{"hoja_extra", func(c *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
-			c.Entradas[0].Concesion.CamposPermitidos = append(c.Entradas[0].Concesion.CamposPermitidos, "solicitudes[].dni")
+		{"fuente_distinta", func(_ *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
+			i.Selecciones[0].EntradaHuellaSHA256 = strings.Repeat("a", 64)
+		}},
+		{"clase_admin", func(c *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
+			c.Entradas[0].ClaseControl = "administrativo"
 			refrescarCatalogoB103(t, c, i)
 		}},
-		{"hoja_ausente", func(c *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
-			c.Entradas[2].Concesion.CamposPermitidos = slices.Delete(c.Entradas[2].Concesion.CamposPermitidos, 0, 1)
+		{"dimension_extra", func(c *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
+			c.Entradas[0].DimensionesAmbito = append(c.Entradas[0].DimensionesAmbito, "bolsa_ref")
 			refrescarCatalogoB103(t, c, i)
 		}},
-		{"obligacion_b99", func(c *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
-			c.Entradas[1].Concesion.Obligaciones = []string{"auditar"}
+		{"entrada_caducada", func(c *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
+			c.Entradas[0].VigenteHasta = c.Entradas[0].VigenteDesde.Add(time.Second)
 			refrescarCatalogoB103(t, c, i)
 		}},
 		{"accion_externa", func(c *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
 			c.Entradas[0].Concesion.Accion = "bolsa.inscripcion.propias.listar"
+			refrescarCatalogoB103(t, c, i)
+		}},
+		{"modulo_ajeno", func(c *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
+			c.Entradas[0].Concesion.ModuloID = "administracion"
 			refrescarCatalogoB103(t, c, i)
 		}},
 		{"duplicada_base", func(c *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaB103) {
@@ -179,6 +186,31 @@ func refrescarCatalogoB103(t *testing.T, c *CatalogoAccionesAdministracionV1, i 
 	i.BaseHuellaSHA256 = hr
 }
 
+func TestVersionarRolBolsaB103CopiaSeleccionVariableDelCatalogo(t *testing.T) {
+	c, i, ahora := escenarioVersionarRolBolsaB103(t)
+	c.Entradas = c.Entradas[:2]
+	i.Selecciones = i.Selecciones[:2]
+	c.Entradas[0].Concesion = ConcesionRol{
+		Accion: "bolsa.rrhh.informe.consultar", ModuloID: "bolsa", TipoRecurso: "informe_bolsa",
+		Finalidades: []string{"consulta_informe_rrhh"}, GarantiaMinima: AuthAssuranceSubstantial,
+		CamposPermitidos: []string{"referencia", "estado"}, Obligaciones: []string{"auditar"},
+	}
+	refrescarCatalogoB103(t, &c, &i)
+	i.Selecciones[0], i.Selecciones[1] = i.Selecciones[1], i.Selecciones[0]
+	plan, err := PrepararPlanVersionarRolBolsaB103(c, i, ahora)
+	if err != nil || len(plan.Selecciones) != 2 || len(plan.DefinicionNueva.Concesiones) != len(c.Perfiles[0].Rol.Concesiones)+2 {
+		t.Fatalf("selección variable: %v", err)
+	}
+	base := len(c.Perfiles[0].Rol.Concesiones)
+	if !reflect.DeepEqual(plan.DefinicionNueva.Concesiones[base], c.Entradas[1].Concesion) ||
+		!reflect.DeepEqual(plan.DefinicionNueva.Concesiones[base+1], c.Entradas[0].Concesion) {
+		t.Fatal("la concesión no procede íntegra de la entrada seleccionada")
+	}
+	if _, err := plan.HuellaSHA256(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestVersionarRolBolsaB103AmpliaSoloOrigenDeContactoConservandoBase(t *testing.T) {
 	c, i, ahora := escenarioVersionarRolBolsaB103(t)
 	for _, e := range c.Entradas {
@@ -201,14 +233,19 @@ func TestVersionarRolBolsaB103AmpliaSoloOrigenDeContactoConservandoBase(t *testi
 	if _, err := p.HuellaSHA256(); err != nil {
 		t.Fatal(err)
 	}
+	hOriginal, err := p.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
 	p.DefinicionNueva.Concesiones[len(p.Base.Rol.Concesiones)].CamposPermitidos = append(CamposLecturaOrigenContactoBolsa(), "correo")
-	if _, err := p.HuellaSHA256(); err == nil {
-		t.Fatal("amplió al contacto completo")
+	hDistinta, err := p.HuellaSHA256()
+	if err != nil || hDistinta == hOriginal {
+		t.Fatal("la huella no refleja la alteración del plan")
 	}
 	c.Perfiles[0].Rol.Concesiones = c.Perfiles[0].Rol.Concesiones[:1]
 	refrescarCatalogoB103(t, &c, &i)
-	if _, err := PrepararPlanVersionarRolBolsaB103(c, i, ahora); err == nil {
-		t.Fatal("permitió extensión sin base B103")
+	if _, err := PrepararPlanVersionarRolBolsaB103(c, i, ahora); err != nil {
+		t.Fatal("la entrada vigente no depende de una lista histórica de concesiones")
 	}
 }
 
@@ -308,7 +345,8 @@ func TestVersionarRolBolsaB103InscripcionRRHHExacta(t *testing.T) {
 	}
 	c.Entradas[0].Concesion.CamposPermitidos = append(c.Entradas[0].Concesion.CamposPermitidos, "dni")
 	actualizar()
-	if _, err := PrepararPlanVersionarRolBolsaB103(c, i, ahora); err == nil {
-		t.Fatal("aceptó campo extra")
+	actualizado, err := PrepararPlanVersionarRolBolsaB103(c, i, ahora)
+	if err != nil || !reflect.DeepEqual(actualizado.DefinicionNueva.Concesiones[1], c.Entradas[0].Concesion) {
+		t.Fatal("la nueva concesión debe copiar los campos publicados")
 	}
 }

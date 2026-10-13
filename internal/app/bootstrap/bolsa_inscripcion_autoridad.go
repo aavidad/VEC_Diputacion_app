@@ -66,10 +66,10 @@ func clavesLecturaInscripcionBolsa(superficie string) []ClaveOperacionInscripcio
 	switch superficie {
 	case superficieExternaInscripcionBolsa:
 		acciones = []string{inscripcion.AccionListarAbiertas, inscripcion.AccionDetalleAbierta,
-			inscripcion.AccionListarPropias, inscripcion.AccionDetallePropia}
+			inscripcion.AccionListarPropias, inscripcion.AccionDetallePropia, inscripcion.AccionObjetosAlegacion}
 	case superficieInternaInscripcionBolsa:
 		acciones = []string{accionListarConvocatoriasGestionRRHHInscripcion, inscripcion.AccionListarRRHH,
-			inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH}
+			inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH, inscripcion.AccionAlegacionesRRHH}
 	}
 	claves := make([]ClaveOperacionInscripcionBolsa, 0, len(acciones))
 	for _, accion := range acciones {
@@ -81,7 +81,7 @@ func clavesLecturaInscripcionBolsa(superficie string) []ClaveOperacionInscripcio
 func clavesEscrituraInscripcionBolsa(superficie string) []ClaveOperacionInscripcionBolsa {
 	switch superficie {
 	case superficieExternaInscripcionBolsa:
-		return []ClaveOperacionInscripcionBolsa{{inscripcion.AccionPresentar, superficie}}
+		return []ClaveOperacionInscripcionBolsa{{inscripcion.AccionPresentar, superficie}, {inscripcion.AccionPresentarAlegacion, superficie}}
 	case superficieInternaInscripcionBolsa:
 		return []ClaveOperacionInscripcionBolsa{{inscripcion.AccionDecidir, superficie}, {inscripcion.AccionIncorporar, superficie}}
 	}
@@ -100,6 +100,14 @@ func tipoFinalidadInscripcionBolsa(clave ClaveOperacionInscripcionBolsa) (string
 		return "solicitud_inscripcion", "consulta_inscripcion_propia", true
 	case inscripcion.AccionPresentar:
 		return "inscripcion_convocatoria", "presentar_inscripcion", true
+	case inscripcion.AccionObjetosAlegacion:
+		return "alegaciones_propias", "consulta_alegaciones_propias", true
+	case inscripcion.AccionPresentarAlegacion:
+		return "alegacion_bolsa", "presentacion_alegacion_propia", true
+	case inscripcion.AccionAlegacionesRRHH:
+		if clave.Canal == "interna_corporativa" {
+			return "alegaciones_bolsa", "consulta_alegaciones_rrhh", true
+		}
 	case inscripcion.AccionListarRRHH, inscripcion.AccionDetalleRRHH:
 		if clave.Canal == "interna_corporativa" {
 			return "solicitud_inscripcion", "consulta_inscripcion_rrhh", true
@@ -192,10 +200,25 @@ func copiarIdentidadesRRHHInscripcion(lista []identidadConsultaRRHHDesarrollo) [
 
 var _ AutoridadInscripcionBolsa = (*autoridadNominalInscripcionBolsa)(nil)
 
+// El portal externo admite únicamente Inscripción sola o Inscripción con
+// Alegaciones. RRHH conserva su forma completa sin variantes.
+func operacionesEsperadasInscripcionBolsa(c ConfiguracionAutoridadInscripcionBolsa) ([]ClaveOperacionInscripcionBolsa, []ClaveOperacionInscripcionBolsa, bool) {
+	escrituras, lecturas := clavesEscrituraInscripcionBolsa(c.Superficie), clavesLecturaInscripcionBolsa(c.Superficie)
+	if c.Superficie == superficieExternaInscripcionBolsa &&
+		(len(c.Material) == 1 || len(c.Descriptores) == 1 || len(c.Lecturas) == 4) {
+		base := ClaveOperacionInscripcionBolsa{inscripcion.AccionPresentar, superficieExternaInscripcionBolsa}
+		if len(c.Material) != 1 || len(c.Descriptores) != 1 || len(c.Lecturas) != 4 || c.Material[base] == nil {
+			return nil, nil, false
+		}
+		return escrituras[:1], lecturas[:4], true
+	}
+	return escrituras, lecturas, len(escrituras) != 0
+}
+
 func NuevaAutoridadInscripcionBolsa(c ConfiguracionAutoridadInscripcionBolsa) (AutoridadInscripcionBolsa, error) {
-	escrituras, lecturasEsperadas := clavesEscrituraInscripcionBolsa(c.Superficie), clavesLecturaInscripcionBolsa(c.Superficie)
+	escrituras, lecturasEsperadas, formaValida := operacionesEsperadasInscripcionBolsa(c)
 	interna := c.Superficie == superficieInternaInscripcionBolsa
-	if len(escrituras) == 0 || nuloInscripcionBolsa(c.Lectura) || nuloInscripcionBolsa(c.FuenteActual) ||
+	if !formaValida || nuloInscripcionBolsa(c.Lectura) || nuloInscripcionBolsa(c.FuenteActual) ||
 		c.PDP == nil || len(c.Material) != len(escrituras) ||
 		nuloInscripcionBolsa(c.Motivos) || nuloInscripcionBolsa(c.Reloj) ||
 		len(c.Descriptores) != len(escrituras) || len(c.Lecturas) != len(lecturasEsperadas) ||
@@ -257,6 +280,11 @@ func (a *autoridadNominalInscripcionBolsa) CapturarLectura(ctx context.Context, 
 	if a == nil || ctx == nil || ctx.Err() != nil || nuloInscripcionBolsa(a.c.Lectura) || nuloInscripcionBolsa(a.c.Reloj) ||
 		!accionLecturaInscripcion(accion) || s.Resultado.Validar() != nil || s.Vinculo.ValidarPara(s.Resultado) != nil {
 		return vacia, inscripcion.ErrAccesoDenegado
+	}
+	if accion == inscripcion.AccionObjetosAlegacion {
+		if _, existe := a.c.Lecturas[ClaveOperacionInscripcionBolsa{accion, acreditacion.Canal}]; !existe {
+			return vacia, inscripcion.ErrNoDisponible
+		}
 	}
 	ahora := a.c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if !acreditacionInscripcionBolsaActual(s, acreditacion, ahora) {
@@ -353,7 +381,7 @@ func accionLecturaInscripcion(a string) bool {
 	switch a {
 	case inscripcion.AccionListarAbiertas, inscripcion.AccionDetalleAbierta, inscripcion.AccionListarPropias,
 		inscripcion.AccionDetallePropia, inscripcion.AccionListarRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH,
-		accionListarConvocatoriasGestionRRHHInscripcion:
+		accionListarConvocatoriasGestionRRHHInscripcion, inscripcion.AccionObjetosAlegacion, inscripcion.AccionAlegacionesRRHH:
 		return true
 	}
 	return false
@@ -362,7 +390,7 @@ func accionLecturaInscripcion(a string) bool {
 func accionRRHHInscripcion(a string) bool {
 	switch a {
 	case accionListarConvocatoriasGestionRRHHInscripcion, inscripcion.AccionListarRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH,
-		inscripcion.AccionDecidir, inscripcion.AccionIncorporar:
+		inscripcion.AccionDecidir, inscripcion.AccionIncorporar, inscripcion.AccionAlegacionesRRHH:
 		return true
 	default:
 		return false
@@ -371,7 +399,7 @@ func accionRRHHInscripcion(a string) bool {
 
 func canalLecturaInscripcion(a, canal string, superficie vecdomain.SuperficieAutenticacionActorV1) bool {
 	if a == accionListarConvocatoriasGestionRRHHInscripcion || a == inscripcion.AccionListarRRHH ||
-		a == inscripcion.AccionDetalleRRHH || a == inscripcion.AccionMotivosRRHH {
+		a == inscripcion.AccionDetalleRRHH || a == inscripcion.AccionMotivosRRHH || a == inscripcion.AccionAlegacionesRRHH {
 		return canal == "interna_corporativa" && superficie == vecdomain.SuperficieAutenticacionInternaCorporativaV1
 	}
 	return canal == "externa_personal" && superficie == vecdomain.SuperficieAutenticacionExternaPersonalV1
@@ -433,7 +461,7 @@ func identidadesRRHHInscripcionValidas(lista []identidadConsultaRRHHDesarrollo) 
 
 func (a *autoridadNominalInscripcionBolsa) ambitosEscrituraInscripcion(ctx context.Context, s contextoSeguridadComunDesarrollo, acreditacion AcreditacionSesionInscripcionBolsa, accion, recurso string, ahora time.Time) (contextoRecursoEscrituraInscripcionBolsa, error) {
 	vacio := contextoRecursoEscrituraInscripcionBolsa{}
-	if accion == inscripcion.AccionPresentar {
+	if accion == inscripcion.AccionPresentar || accion == inscripcion.AccionPresentarAlegacion {
 		v, err := s.Vinculo.Datos()
 		if err != nil {
 			return vacio, inscripcion.ErrAccesoDenegado
@@ -493,6 +521,20 @@ func recursoCanonicoDesdeMaterialInscripcion(accion string, material []byte, hue
 		}
 		return inscripcion.RecursoPresentacion(inscripcion.Presentacion{ConvocatoriaRef: v.ConvocatoriaRef, CategoriaRef: v.CategoriaRef,
 			CatalogoVersion: v.CatalogoVersion, ClaveIdempotencia: v.ClaveIdempotencia, Declaraciones: v.Declaraciones}, huella, contexto.Ambitos)
+	case inscripcion.AccionPresentarAlegacion:
+		if contexto.ConjuntoGestion != nil || contexto.AmbitoSolicitud != nil {
+			return nil, inscripcion.ErrAccesoDenegado
+		}
+		var v struct {
+			Objeto            inscripcion.ObjetoAlegacion `json:"objeto"`
+			Fundamento        string                      `json:"fundamento"`
+			ClaveIdempotencia string                      `json:"clave_idempotencia"`
+		}
+		if json.Unmarshal(material, &v) != nil {
+			return nil, inscripcion.ErrSolicitudInvalida
+		}
+		return inscripcion.RecursoPresentacionAlegacion(inscripcion.PresentacionAlegacion{
+			Objeto: v.Objeto, Fundamento: v.Fundamento, ClaveIdempotencia: v.ClaveIdempotencia}, huella, contexto.Ambitos)
 	case inscripcion.AccionDecidir:
 		if contexto.ConjuntoGestion == nil || contexto.AmbitoSolicitud == nil {
 			return nil, inscripcion.ErrAccesoDenegado
@@ -541,6 +583,9 @@ func (a *autoridadNominalInscripcionBolsa) AutorizarEscritura(ctx context.Contex
 	clave := ClaveOperacionInscripcionBolsa{accion, acreditacion.Canal}
 	d, ok := a.c.Descriptores[clave]
 	proveedor := a.c.Material[clave]
+	if accion == inscripcion.AccionPresentarAlegacion && (!ok || proveedor == nil) {
+		return vacia, inscripcion.ErrNoDisponible
+	}
 	if !ok || proveedor == nil || d.Accion != accion || d.Motivo.Validar() != nil || d.ModuloID == "" || d.TipoRecurso == "" || d.Finalidad == "" {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
@@ -553,7 +598,8 @@ func (a *autoridadNominalInscripcionBolsa) AutorizarEscritura(ctx context.Contex
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
 	v, err := s.Vinculo.Datos()
-	if err != nil || (accion != inscripcion.AccionPresentar && v.Superficie != vecdomain.SuperficieAutenticacionInternaCorporativaV1) {
+	if err != nil || (accion != inscripcion.AccionPresentar && accion != inscripcion.AccionPresentarAlegacion &&
+		v.Superficie != vecdomain.SuperficieAutenticacionInternaCorporativaV1) {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
 	if err := a.c.Motivos.ValidarReferenciaMotivoAutorizacionV2(ctx, d.Motivo, ahora); err != nil {
@@ -634,6 +680,10 @@ func audienciaEscrituraInscripcion(clave ClaveOperacionInscripcionBolsa) string 
 		if clave.Canal == "externa_personal" {
 			return "vec_bolsa_llamamientos.inscripcion.presentar.v1"
 		}
+	case inscripcion.AccionPresentarAlegacion:
+		if clave.Canal == "externa_personal" {
+			return "vec_bolsa_llamamientos.alegacion.presentar.v1"
+		}
 	case inscripcion.AccionDecidir:
 		if clave.Canal == "interna_corporativa" {
 			return "vec_bolsa_llamamientos.inscripcion.revisar.v1"
@@ -674,6 +724,28 @@ func atributosMaterialEscrituraInscripcion(accion, persona, recurso string, mate
 		}
 		atributos = map[string]string{"convocatoria_ref": p.ConvocatoriaRef, "categoria_ref": p.CategoriaRef,
 			"catalogo_version": strconv.FormatUint(p.CatalogoVersion, 10)}
+	case inscripcion.AccionPresentarAlegacion:
+		var v struct {
+			Esquema           string                      `json:"esquema"`
+			Objeto            inscripcion.ObjetoAlegacion `json:"objeto"`
+			Fundamento        string                      `json:"fundamento"`
+			ClaveIdempotencia string                      `json:"clave_idempotencia"`
+		}
+		if json.Unmarshal(material, &v) != nil || v.Esquema != inscripcion.EsquemaMaterialAlegacion {
+			return nil, false
+		}
+		p := inscripcion.PresentacionAlegacion{Objeto: v.Objeto, Fundamento: v.Fundamento, ClaveIdempotencia: v.ClaveIdempotencia}
+		esperado, huella, err = inscripcion.MaterialAlegacion(p)
+		if err == nil {
+			ref, err = inscripcion.ReferenciaAlegacion(persona, p.ClaveIdempotencia)
+		}
+		atributos = map[string]string{"tipo_objeto": p.Objeto.Tipo, "acto_ref": p.Objeto.ActoRef,
+			"version_acto": strconv.FormatUint(p.Objeto.VersionActo, 10)}
+		if p.Objeto.SolicitudRef != "" {
+			atributos["solicitud_ref"] = p.Objeto.SolicitudRef
+		} else {
+			atributos["participacion_ref"] = p.Objeto.ParticipacionRef
+		}
 	case inscripcion.AccionDecidir:
 		var v struct {
 			Esquema           string `json:"esquema"`

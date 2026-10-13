@@ -1,5 +1,5 @@
 # Lectura RRHH de Méritos. Base: HZ24 + AD256 (#1079) + AD253/RUM5 + M4 (AUT80/AUT81/CC13/
-# AUT78/AD250/RUM4) ya instalados sólo en el clon vec-m-meritos-pg-20261013.
+# AUT78/AD262/RUM4) instalados sólo donde correspondan, en orden causal.
 # No repetir esas migraciones ni aplicar DOWN. PostgreSQL 18.4, datos sintéticos.
 # La persona objetivo procede del hook autorizado de Bolsa tras DetalleRRHH;
 # nunca del query HTTP ni de PersonaResumen. El mismo actor usa su login

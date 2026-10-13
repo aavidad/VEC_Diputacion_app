@@ -8,7 +8,7 @@
     "meritos": true,
     "llamamientos": true,
     "subsanaciones": false,
-    "alegaciones": false,
+    "alegaciones": true,
     "mensajes": false,
     "certificados": false,
     "ayuda": true,

@@ -1,0 +1,61 @@
+{
+  "alegaciones": {
+    "titulo": "Alegaciones",
+    "propias_titulo": "Mis alegaciones",
+    "elegir_objeto": "Seleccione qué quiere revisar",
+    "decision_inscripcion": "Decisión sobre la solicitud",
+    "acto_participacion": "Actuación en la bolsa",
+    "fundamento": "Qué solicita y por qué",
+    "presentar": "Presentar alegación",
+    "presentando": "Presentando…",
+    "presentada": "Presentada en VEC",
+    "recibo_titulo": "Justificante de la alegación",
+    "fecha": "Fecha de presentación",
+    "referencia": "Referencia",
+    "objeto": "Decisión o actuación",
+    "version": "Versión",
+    "convocatoria": "Convocatoria",
+    "persona": "Persona",
+    "ver_alegacion": "Ver alegación",
+    "ver_solicitud": "Ver solicitud",
+    "ver_participacion": "Ver participación",
+    "nueva": "Presentar una alegación",
+    "volver": "Volver",
+    "siguiente": "Más alegaciones",
+    "paginacion": "Páginas de alegaciones",
+    "total": {
+      "one": "{cuenta} alegación",
+      "other": "{cuenta} alegaciones"
+    },
+    "vacio": "No hay alegaciones para esta selección.",
+    "objetos_vacios": "No hay decisiones o actuaciones sobre las que pueda presentar una alegación.",
+    "cargando": "Cargando alegaciones…",
+    "cargando_objetos": "Cargando decisiones y actuaciones…",
+    "error": "No se pudieron cargar las alegaciones. Reintente.",
+    "error_objetos": "No se pudieron cargar las decisiones y actuaciones. Reintente.",
+    "reintentar": "Reintentar",
+    "denegada": "No puede consultar estas alegaciones con su acceso actual. Consulte con la persona responsable de permisos.",
+    "no_disponible": "No se pudo abrir Alegaciones. Reintente o consulte con la persona responsable de bolsas.",
+    "objeto_cambiado": "La decisión o actuación ha cambiado. Vuelva a elegirla antes de presentar la alegación.",
+    "datos_invalidos": "Revise los datos de la alegación.",
+    "fundamento_falta": "Explique qué solicita y por qué.",
+    "fundamento_largo": "El texto no puede superar los 4.000 caracteres.",
+    "respuesta_incierta": "No se pudo confirmar el resultado. Reintente para recuperar el justificante.",
+    "error_presentar": "No se pudo presentar la alegación. Reintente.",
+    "ayuda_boton": "Ayuda sobre alegaciones",
+    "ayuda_propia": "Seleccione una decisión de su solicitud o una actuación de su participación en la bolsa. Explique qué solicita y por qué. Al presentarla, verá el justificante y podrá consultar la alegación en esta pantalla. Este justificante corresponde a su presentación en VEC.",
+    "ayuda_rrhh": "Consulte las alegaciones de las solicitudes y participaciones que gestiona. Abra una alegación para leer qué solicita la persona y ver la decisión o actuación a la que se refiere, junto con su justificante.",
+    "cerrar_recibo": "Cerrar justificante",
+    "bolsa": "Bolsa",
+    "total_objetos": {
+      "one": "{cuenta} decisión o actuación",
+      "other": "{cuenta} decisiones y actuaciones"
+    },
+    "total_ambitos": {
+      "one": "{cuenta} convocatoria o bolsa con alegaciones",
+      "other": "{cuenta} convocatorias y bolsas con alegaciones"
+    },
+    "bolsa_fecha": "Bolsa constituida el {fecha}",
+    "nombre_no_disponible": "Nombre no disponible"
+  }
+}

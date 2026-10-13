@@ -444,3 +444,41 @@ func refrescarBaseExterna(t *testing.T, b *PerfilPublicadoAdministracionV1, i *I
 	i.BaseRef, i.BaseHuellaSHA256 = b.Rol.Referencia(), hr
 	i.ControlHuellaSHA256 = hc
 }
+
+func TestVersionarRolBolsaExternaAlegacionesRespetaDosHistorias(t *testing.T) {
+	catalogo, base, _, _ := escenarioVersionarRolBolsaExterna(t)
+	preferencias := make([]ConcesionRol, 0, len(catalogo.Entradas))
+	for _, e := range catalogo.Entradas {
+		preferencias = append(preferencias, e.Concesion)
+	}
+	inscripciones := make([]ConcesionRol, 0, len(accionesInscripcionBolsaExterna))
+	for j, accion := range accionesInscripcionBolsaExterna {
+		c := ConcesionRol{Accion: accion, ModuloID: "bolsa", GarantiaMinima: AuthAssuranceHigh,
+			CamposPermitidos: camposInscripcionBolsaExterna(accion)}
+		switch j {
+		case 0, 1:
+			c.TipoRecurso = "convocatoria_inscripcion"
+			c.Finalidades = []string{"consulta_convocatoria_abierta"}
+		case 2, 3:
+			c.TipoRecurso = "solicitud_inscripcion"
+			c.Finalidades = []string{"consulta_inscripcion_propia"}
+		case 4:
+			c.TipoRecurso = "inscripcion_convocatoria"
+			c.Finalidades = []string{"presentar_inscripcion"}
+		}
+		inscripciones = append(inscripciones, c)
+	}
+	for _, tramos := range [][2][]ConcesionRol{{preferencias, inscripciones}, {inscripciones, preferencias}} {
+		rol := base.Rol
+		rol.Version = 3
+		rol.Concesiones = append(copiarConcesionesVersionarBolsa(base.Rol.Concesiones), tramos[0]...)
+		rol.Concesiones = append(rol.Concesiones, tramos[1]...)
+		if got := accionesDeltaBolsaExterna(rol, 2); !slices.Equal(got, accionesAlegacionesBolsaExterna[:]) {
+			t.Fatal("no reconoció historia externa exacta")
+		}
+		rol.Concesiones[len(rol.Concesiones)-1].Finalidades = []string{"finalidad_ajena"}
+		if got := accionesDeltaBolsaExterna(rol, 2); got != nil {
+			t.Fatal("aceptó base previa alterada")
+		}
+	}
+}

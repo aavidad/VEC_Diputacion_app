@@ -23,17 +23,18 @@ deploy/postgresql/meritos/migraciones/000005_basal_compatible.up.sql
 # previos #1056, AUT76/AD246, AUT77/AD248, AD249/B108 corregidos por #1060,
 # AUT79, CC11/CC12, CA15 y los catálogos/identidades nominales. Cada SQL
 # siguiente se aplica sólo si aún no tiene historia en el destino.
-# AUT80/81/78 y AD250 son M4 inéditas en HZ24 y ahora incluyen una tercera
+# AUT80/81/78 y AD262 son M4 inéditas en HZ24 y ahora incluyen una tercera
 # concesión exacta de declaración, compatible con dos concesiones históricas.
-# AD250 se ancla a la postimagen AD253 del núcleo (fuente
-# e939aa161ebaf676aca549bcd0dca4be3580afa1d1efbd851796f76450637893)
-# y audiencias; no permutar ni omitir AD253/RUM5.
+# AD262 sustituye AD250 no instalada: se ancla a la postimagen AD253 del núcleo
+# (fuente e939aa161ebaf676aca549bcd0dca4be3580afa1d1efbd851796f76450637893),
+# al CHECK auditor actual SHA 18d0a05d67484ed09120c313165782e53ef8cd66664afb0b7a6f3d6d634b41d4
+# y a las audiencias actuales; no permutar ni omitir AD253/RUM5.
 # AUT83 y AD254 permanecen reservadas como tombstone SIN archivo ni aplicación.
 deploy/postgresql/autorizacion/migraciones/000080_gobierno_rol_meritos_cartera_dos_concesiones.up.sql
 deploy/postgresql/autorizacion/migraciones/000081_asignacion_meritos_cartera_externa.up.sql
 deploy/postgresql/catalogos_configurables/migraciones/000013_motivos_meritos_cartera.up.sql
 deploy/postgresql/autorizacion/migraciones/000078_cartera_meritos_persona_externa.up.sql
-deploy/postgresql/autorizacion_atestada_v3/migraciones/000250_cartera_meritos_externa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000262_cartera_meritos_preimagen_actual.up.sql
 deploy/postgresql/meritos/migraciones/000004_cartera_retirada_propia_v1.up.sql
 
 # Antes del recorrido: acto ADMIN publica tres selecciones/concesiones exactas

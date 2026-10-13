@@ -207,7 +207,7 @@ func TestAutoridadInscripcionAtributosDecisionEIncorporacionExactos(t *testing.T
 }
 
 func TestAutoridadInscripcionDescriptoresSeparadosPorSuperficie(t *testing.T) {
-	esperadas := map[string][2]int{superficieExternaInscripcionBolsa: {4, 1}, superficieInternaInscripcionBolsa: {4, 2}}
+	esperadas := map[string][2]int{superficieExternaInscripcionBolsa: {5, 2}, superficieInternaInscripcionBolsa: {5, 2}}
 	vistas := map[ClaveOperacionInscripcionBolsa]struct{}{}
 	for superficie, cuenta := range esperadas {
 		lecturas, escrituras := clavesLecturaInscripcionBolsa(superficie), clavesEscrituraInscripcionBolsa(superficie)
@@ -264,5 +264,40 @@ func TestAutoridadInscripcionFuenteVigenteCambiaRecursoSinCambiarComando(t *test
 	materialRepetido, huellaRepetida, err := inscripcion.MaterialDecision(d)
 	if err != nil || !bytes.Equal(material, materialRepetido) || huella != huellaRepetida {
 		t.Fatalf("fuente actual reescribió comando idempotente: %v", err)
+	}
+}
+
+func TestFormaExternaInscripcionSolaOConAlegacionesExactas(t *testing.T) {
+	superficie := superficieExternaInscripcionBolsa
+	base := ClaveOperacionInscripcionBolsa{inscripcion.AccionPresentar, superficie}
+	alegacion := ClaveOperacionInscripcionBolsa{inscripcion.AccionPresentarAlegacion, superficie}
+	c := ConfiguracionAutoridadInscripcionBolsa{Superficie: superficie,
+		Material: map[ClaveOperacionInscripcionBolsa]*proveedorMaterialAltaContratacionTemporalDesarrollo{
+			base: {}},
+		Descriptores: descriptoresEscrituraInscripcionBolsa(superficie,
+			map[string]vecdomain.ReferenciaEntradaCatalogo{inscripcion.AccionPresentar: motivoPresentarInscripcionBolsaDesarrollo()}),
+		Lecturas: descriptoresLecturaInscripcionBolsa(superficie)}
+	delete(c.Lecturas, ClaveOperacionInscripcionBolsa{inscripcion.AccionObjetosAlegacion, superficie})
+	escrituras, lecturas, ok := operacionesEsperadasInscripcionBolsa(c)
+	if !ok || len(escrituras) != 1 || escrituras[0] != base || len(lecturas) != 4 || len(c.Descriptores) != 1 {
+		t.Fatal("Inscripción sola perdió su forma positiva")
+	}
+	c.Material[alegacion] = &proveedorMaterialAltaContratacionTemporalDesarrollo{}
+	if _, _, ok := operacionesEsperadasInscripcionBolsa(c); ok {
+		t.Fatal("material Alleg sin descriptor/lectura aceptado")
+	}
+	delete(c.Material, alegacion)
+	c.Descriptores[alegacion] = DescriptorInscripcionBolsa{Accion: inscripcion.AccionPresentarAlegacion}
+	if _, _, ok := operacionesEsperadasInscripcionBolsa(c); ok {
+		t.Fatal("descriptor Alleg sin material aceptado")
+	}
+	delete(c.Descriptores, alegacion)
+	c.Material[alegacion] = &proveedorMaterialAltaContratacionTemporalDesarrollo{}
+	c.Descriptores[alegacion] = DescriptorInscripcionBolsa{Accion: inscripcion.AccionPresentarAlegacion}
+	c.Lecturas[ClaveOperacionInscripcionBolsa{inscripcion.AccionObjetosAlegacion, superficie}] =
+		descriptoresLecturaInscripcionBolsa(superficie)[ClaveOperacionInscripcionBolsa{inscripcion.AccionObjetosAlegacion, superficie}]
+	escrituras, lecturas, ok = operacionesEsperadasInscripcionBolsa(c)
+	if !ok || len(escrituras) != 2 || len(lecturas) != 5 {
+		t.Fatal("forma completa de Alegaciones rechazada")
 	}
 }
