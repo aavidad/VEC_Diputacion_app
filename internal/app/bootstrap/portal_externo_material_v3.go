@@ -122,6 +122,20 @@ func audienciasConsumidorPortalExternoV3(consumidor string) []string {
 	}
 }
 
+// Inscripción conserva su primera audiencia obligatoria cuando el material
+// de Alegaciones aún no se ha publicado. Ningún otro consumidor cambia forma
+// ni se admite una audiencia distinta o fuera de orden.
+func audienciasInventarioPortalExternoV3(consumidor string, cantidad int) []string {
+	audiencias := audienciasConsumidorPortalExternoV3(consumidor)
+	if consumidor == consumidorInscripcionPortalExternoV3 && cantidad == 1 {
+		return audiencias[:1]
+	}
+	if audiencias != nil && cantidad == len(audiencias) {
+		return audiencias
+	}
+	return nil
+}
+
 // descriptoresMaterialPortalExternoV3 reúne, de los catálogos ya existentes,
 // los descriptores de las audiencias externas: mismo dominio y prefijo que
 // publica la composición combinada, de modo que la clave derivada es la misma.
@@ -207,8 +221,8 @@ func inventarioDesdeMateriales(publicados map[string][]materialAtestacionContrat
 		if !ok {
 			continue
 		}
-		audiencias := audienciasConsumidorPortalExternoV3(consumidor)
-		if len(materiales) != len(audiencias) {
+		audiencias := audienciasInventarioPortalExternoV3(consumidor, len(materiales))
+		if audiencias == nil {
 			return inv, ErrMaterialV3PortalExternoInvalido
 		}
 		for i := range materiales {
@@ -383,8 +397,8 @@ func leerInventarioV3PortalExterno(directorio string) (inventarioV3PortalExterno
 		return inventarioV3PortalExterno{}, ErrMaterialV3PortalExternoInvalido
 	}
 	for consumidor, claves := range inv.Consumidores {
-		audiencias := audienciasConsumidorPortalExternoV3(consumidor)
-		if audiencias == nil || len(claves) != len(audiencias) {
+		audiencias := audienciasInventarioPortalExternoV3(consumidor, len(claves))
+		if audiencias == nil {
 			return inventarioV3PortalExterno{}, ErrMaterialV3PortalExternoInvalido
 		}
 		for i, clave := range claves {

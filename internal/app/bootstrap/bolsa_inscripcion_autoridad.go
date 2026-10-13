@@ -200,10 +200,25 @@ func copiarIdentidadesRRHHInscripcion(lista []identidadConsultaRRHHDesarrollo) [
 
 var _ AutoridadInscripcionBolsa = (*autoridadNominalInscripcionBolsa)(nil)
 
+// El portal externo admite únicamente Inscripción sola o Inscripción con
+// Alegaciones. RRHH conserva su forma completa sin variantes.
+func operacionesEsperadasInscripcionBolsa(c ConfiguracionAutoridadInscripcionBolsa) ([]ClaveOperacionInscripcionBolsa, []ClaveOperacionInscripcionBolsa, bool) {
+	escrituras, lecturas := clavesEscrituraInscripcionBolsa(c.Superficie), clavesLecturaInscripcionBolsa(c.Superficie)
+	if c.Superficie == superficieExternaInscripcionBolsa &&
+		(len(c.Material) == 1 || len(c.Descriptores) == 1 || len(c.Lecturas) == 4) {
+		base := ClaveOperacionInscripcionBolsa{inscripcion.AccionPresentar, superficieExternaInscripcionBolsa}
+		if len(c.Material) != 1 || len(c.Descriptores) != 1 || len(c.Lecturas) != 4 || c.Material[base] == nil {
+			return nil, nil, false
+		}
+		return escrituras[:1], lecturas[:4], true
+	}
+	return escrituras, lecturas, len(escrituras) != 0
+}
+
 func NuevaAutoridadInscripcionBolsa(c ConfiguracionAutoridadInscripcionBolsa) (AutoridadInscripcionBolsa, error) {
-	escrituras, lecturasEsperadas := clavesEscrituraInscripcionBolsa(c.Superficie), clavesLecturaInscripcionBolsa(c.Superficie)
+	escrituras, lecturasEsperadas, formaValida := operacionesEsperadasInscripcionBolsa(c)
 	interna := c.Superficie == superficieInternaInscripcionBolsa
-	if len(escrituras) == 0 || nuloInscripcionBolsa(c.Lectura) || nuloInscripcionBolsa(c.FuenteActual) ||
+	if !formaValida || nuloInscripcionBolsa(c.Lectura) || nuloInscripcionBolsa(c.FuenteActual) ||
 		c.PDP == nil || len(c.Material) != len(escrituras) ||
 		nuloInscripcionBolsa(c.Motivos) || nuloInscripcionBolsa(c.Reloj) ||
 		len(c.Descriptores) != len(escrituras) || len(c.Lecturas) != len(lecturasEsperadas) ||
@@ -265,6 +280,11 @@ func (a *autoridadNominalInscripcionBolsa) CapturarLectura(ctx context.Context, 
 	if a == nil || ctx == nil || ctx.Err() != nil || nuloInscripcionBolsa(a.c.Lectura) || nuloInscripcionBolsa(a.c.Reloj) ||
 		!accionLecturaInscripcion(accion) || s.Resultado.Validar() != nil || s.Vinculo.ValidarPara(s.Resultado) != nil {
 		return vacia, inscripcion.ErrAccesoDenegado
+	}
+	if accion == inscripcion.AccionObjetosAlegacion {
+		if _, existe := a.c.Lecturas[ClaveOperacionInscripcionBolsa{accion, acreditacion.Canal}]; !existe {
+			return vacia, inscripcion.ErrNoDisponible
+		}
 	}
 	ahora := a.c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if !acreditacionInscripcionBolsaActual(s, acreditacion, ahora) {
@@ -563,6 +583,9 @@ func (a *autoridadNominalInscripcionBolsa) AutorizarEscritura(ctx context.Contex
 	clave := ClaveOperacionInscripcionBolsa{accion, acreditacion.Canal}
 	d, ok := a.c.Descriptores[clave]
 	proveedor := a.c.Material[clave]
+	if accion == inscripcion.AccionPresentarAlegacion && (!ok || proveedor == nil) {
+		return vacia, inscripcion.ErrNoDisponible
+	}
 	if !ok || proveedor == nil || d.Accion != accion || d.Motivo.Validar() != nil || d.ModuloID == "" || d.TipoRecurso == "" || d.Finalidad == "" {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
