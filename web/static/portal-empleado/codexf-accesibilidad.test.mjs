@@ -24,7 +24,7 @@ test("las tablas de candidato conservan semántica y cabeceras al convertirse en
   assert.match(html, /data-etiqueta="Estado"/);
 });
 
-test("el área personal conserva Perfil y Mi bolsa sin el formulario de méritos retirado", async () => {
+test("el área personal conserva Perfil y Mi bolsa con acceso a la cartera de méritos", async () => {
   const { renderizarPerfil } = await import("../area-personal/vistas/perfil-meritos-solicitud.js");
   const { renderizarLlamamientos } = await import("../area-personal/vistas/seguimiento-tramites.js");
   const { datosMinimosMiBolsa } = await import("../area-personal/aplicacion.js");
@@ -35,8 +35,8 @@ test("el área personal conserva Perfil y Mi bolsa sin el formulario de méritos
     readFile(new URL("../area-personal/vistas.json", import.meta.url), "utf8"),
     readFile(new URL("../area-personal/vistas/perfil-meritos-solicitud.js", import.meta.url), "utf8"),
   ]);
-  assert.equal(JSON.parse(rutas).vistas.meritos, undefined);
-  assert.doesNotMatch(html, /data-ruta="meritos"/u);
+  assert.equal(JSON.parse(rutas).vistas.meritos, true);
+  assert.match(html, /<a href="\?vista=meritos" data-ruta="meritos"/u);
   assert.doesNotMatch(fuentePerfil, /renderizarMeritos|formulario-merito|data-operacion="incorporar_merito"/u);
   const datos = datosMinimosMiBolsa({ consultada_en: "2026-10-08T10:00:00Z" });
   for (const [idioma, tituloBolsa] of [["es", "Mi bolsa"], ["en", "My job pool"]]) {
