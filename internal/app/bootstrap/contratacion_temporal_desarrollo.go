@@ -1170,16 +1170,24 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if errBorrador != nil {
 			return nil, nil, nil, errBorrador
 		}
+		var operacionNativa *operacionBolsaNativaCT
 		if seleccion, ok := seleccionReal.(*ejecutorSeleccionLlamamientoDesarrollo); ok {
 			bolsa, compuesta := manejadorSituacion.(*manejadorParticipacionBolsaDesarrollo)
 			if !compuesta || bolsa == nil || bolsa.emision == nil || seleccion.puente == nil {
 				return nil, nil, nil, ports.ErrIntegracionBolsaNoDisponible
 			}
+			operacionNativa, err = nuevaOperacionBolsaNativaCT(bolsa, alta.soporte, catalogoFronteras, reloj)
+			if err != nil {
+				return nil, nil, nil, err
+			}
 			derivadorToken, err := nuevoDerivadorTokenFinalizacionCTDesarrollo(derivador)
-			if err != nil || bolsa.emision.EstablecerDerivadorTokenFinalizacionCT(derivadorToken) != nil {
+			if err != nil || operacionNativa.emision.EstablecerDerivadorTokenFinalizacionCT(derivadorToken) != nil {
 				return nil, nil, nil, ports.ErrIntegracionBolsaNoDisponible
 			}
-			if err := seleccion.puente.configurarEmisorNativoLlamamientoCT(bolsa.emision); err != nil {
+			if err := seleccion.puente.configurarOperacionNativaCT(operacionNativa); err != nil {
+				return nil, nil, nil, err
+			}
+			if err := seleccion.puente.configurarEmisorNativoLlamamientoCT(emisorNativoPrivadoCT{puente: seleccion.puente}); err != nil {
 				return nil, nil, nil, err
 			}
 			cAuditoria, err := leerConfiguracionAuditoriaIntentosDesarrollo(cfg)
@@ -1205,7 +1213,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 					return nil, nil, nil, err
 				}
 			}
-			if err := seleccion.puente.configurarAuditoriaLecturaOrdenCT(nuevoConstructorOrdenOrigenCT(&alta, bolsa.preparador, cAuditoria.Proceso, cAuditoria.Canal)); err != nil {
+			if err := seleccion.puente.configurarAuditoriaLecturaOrdenCT(nuevoConstructorOrdenOrigenCT(&alta, seleccion.puente, bolsa.preparador, cAuditoria.Proceso, cAuditoria.Canal)); err != nil {
 				return nil, nil, nil, err
 			}
 			if os.Getenv(rutaClienteM10LlamamientoCT) != "" {
