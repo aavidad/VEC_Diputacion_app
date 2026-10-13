@@ -31,6 +31,8 @@ RUTAS = {
     "fiscalizacion": ("intervencion", f"{BASE}/fiscalizaciones/resultados"),
     "vinculo_rpt": ("RRHH", f"{BASE}/incorporacion-personal-b2/vinculo-categoria-rpt/v1"),
     "seleccion": ("RRHH", f"{BASE}/llamamientos/seleccion"),
+    "vinculo_bolsa": ("RRHH", f"{BASE}/expedientes/vinculos-bolsa"),
+    "respuesta_portal": ("candidato", "/api/vec/bolsa/mi-bolsa/respuestas"),
     "comunicacion": ("RRHH", f"{BASE}/llamamientos/comunicaciones"),
     "respuesta": ("RRHH", f"{BASE}/llamamientos/respuestas/registro"),
     "aceptacion": ("RRHH", f"{BASE}/llamamientos/resoluciones"),
@@ -38,6 +40,9 @@ RUTAS = {
     "resolucion": ("RRHH", f"{BASE}/resoluciones-formalizacion"),
 }
 CANON_GO = {
+    "seleccion": ("expediente_ref", "version_esperada", "clave_idempotencia"),
+    "vinculo_bolsa": ("expediente_ref", "version_esperada", "bolsa_ref",
+                     "llamamiento_ref", "recibo_emision_ref", "clave_idempotencia"),
     "comunicacion": ("clave_idempotencia", "organizacion_ref", "expediente_ref", "llamamiento_ref",
                      "version_esperada", "prueba_entrega_ref", "tipo_antecedente"),
     "respuesta": ("clave_idempotencia", "organizacion_ref", "expediente_ref", "llamamiento_ref",
@@ -52,6 +57,7 @@ CANON_GO = {
                   "politica_firma", "plan_firma"),
 }
 PLAN = f"{BASE}/incorporacion-personal-b2/plan/v1"
+RPT_PUBLICA = ROOT / "data/catalogos/rpt/v1.rpt-2026.json"
 
 
 class Corte(Exception):
@@ -108,6 +114,7 @@ def mTLS(args, actor):
         "centro-solicitante": ["cliente-centro-solicitante", "centro-solicitante"],
         "centro-ratificador": ["cliente-centro-ratificador", "centro-ratificador"],
         "intervencion": ["cliente-intervencion", "intervencion"],
+        "candidato": ["candidato"],
     }
     for base in aliases[actor]:
         cert, key = directory / (base + ".crt"), directory / (base + ".key")
@@ -184,7 +191,9 @@ def efecto(args, state, name, make_body):
     old = state["operaciones"].get(name)
     if old is None:
         body = make_body()
-        if name != "alta":
+        if name == "respuesta_portal":
+            body["clave"] = str(uuid.uuid4())
+        elif name != "alta":
             body["clave_idempotencia"] = str(uuid.uuid4())
         if name in CANON_GO:
             if set(body) != set(CANON_GO[name]) - ({"tipo_antecedente"} if name == "comunicacion" else set()):
@@ -298,34 +307,38 @@ def firma_fixture(args, state, expediente):
     guardar(args.estado, state)
 
 
-def anclaje_fixture(args, state, llamamiento):
-    if state["valores"].get("anclaje_fixture") == "confirmada":
-        return
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}", llamamiento):
-        raise Corte("FALTA: llamamiento_ref inválido para anclaje")
-    query = ("SELECT operacion_ref FROM vec_bolsa_llamamientos.integracion_desarrollo "
-             "WHERE tipo='propuesta' AND convert_from(registro_canonico,'UTF8')::jsonb"
-             f"->'llamamiento'->>'LlamamientoRef'='{llamamiento}'")
-    refs = lectura_db(args, query)
-    if len(refs) != 1:
-        raise Corte("FALTA: apertura original de Bolsa única para el llamamiento propio")
-    apertura = refs[0]
-    candidato = args.candidato
-    if not candidato:
-        raise Corte("FALTA: --candidato-ref CTX sintético existente para anclaje B67/B68")
-    variables = {"apertura": apertura, "llamamiento": llamamiento, "candidato": candidato}
-    state["valores"].update(anclaje_fixture="pendiente", apertura_ref=apertura, candidato_ref=candidato)
-    guardar(args.estado, state)
-    ejecutar_fixture(args, "fixture_anclaje.sql", variables)
-    state["valores"]["anclaje_fixture"] = "confirmada"
-    guardar(args.estado, state)
+def vincular_emision_nativa(args, state, expediente, seleccionado):
+    """CT201 enlaza el recibo B7 exacto; no crea Bolsa ni participación."""
+    if state["operaciones"].get("vinculo_bolsa", {}).get("estado") == "confirmada":
+        return state["operaciones"]["vinculo_bolsa"]["respuesta"]
+    llamamiento = campo(seleccionado, "llamamiento_ref")
+    recibo = campo(seleccionado, "recibo_ref")
+    clave = state["operaciones"]["seleccion"]["cuerpo"]["clave_idempotencia"]
+    for ref in (expediente, llamamiento, recibo, clave):
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}", ref):
+            raise Corte("FALTA: referencias de selección B7 no verificables")
+    query = ("SELECT o.bolsa_ref,o.recibo_ref,a.version FROM vec_bolsa_llamamientos.origen_llamamiento_ct_v1 o "
+             "JOIN vec_contratacion_temporal.expediente_integral_actual a ON a.expediente_ref=o.expediente_ref "
+             f"WHERE o.expediente_ref='{expediente}' AND o.clave_ct='{clave}' "
+             f"AND o.llamamiento_ref='{llamamiento}' AND o.recibo_ref='{recibo}'")
+    filas = lectura_db(args, query)
+    if len(filas) != 1 or len(filas[0].split("|")) != 3:
+        raise Corte("FALTA: origen B110 único y recibo B7 coincidente para CT201")
+    bolsa, recibo_real, version = filas[0].split("|")
+    if (recibo_real != recibo or not version.isdigit() or
+            not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}", bolsa)):
+        raise Corte("FALTA: versión CT u origen B7 no verificables")
+    return efecto(args, state, "vinculo_bolsa", lambda: {
+        "expediente_ref": expediente, "version_esperada": int(version),
+        "bolsa_ref": bolsa, "llamamiento_ref": llamamiento,
+        "recibo_emision_ref": recibo})
 
 
 def continuar_llamamiento(args, state, expediente):
     seleccionado = efecto(args, state, "seleccion", lambda: {
         "expediente_ref": expediente, "version_esperada": 6})
     llamamiento = campo(seleccionado, "llamamiento_ref")
-    anclaje_fixture(args, state, llamamiento)
+    vinculo_bolsa = vincular_emision_nativa(args, state, expediente, seleccionado)
 
     def comunicacion():
         return {"organizacion_ref": "organizacion:desarrollo:dipgra",
@@ -344,6 +357,12 @@ def continuar_llamamiento(args, state, expediente):
                 "correo_ref": correo_ref, "correo_sha256": huella,
                 "recibida_en": (datetime.now(timezone.utc) - timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")}
     respondida = efecto(args, state, "respuesta", respuesta)
+
+    # El recibo RRHH no decide por la persona. La aceptación firme se registra
+    # con su propio certificado y clave en Bolsa B30 antes de resolver en CT.
+    efecto(args, state, "respuesta_portal", lambda: {
+        "bolsa": campo(vinculo_bolsa, "bolsa_ref"), "respuesta": "acepta",
+        "causa": "", "justificante_ref": "", "justificante_sha256": ""})
 
     def aceptacion():
         return {"organizacion_ref": "organizacion:desarrollo:dipgra", "expediente_ref": expediente,
@@ -432,15 +451,65 @@ def rpt_compatible(args):
     return int(count[0]), org
 
 
+def necesidad_rpt_publicada():
+    try:
+        raw = RPT_PUBLICA.read_bytes()
+        catalogo = json.loads(raw)
+    except (OSError, ValueError) as exc:
+        raise Corte("FALTA: catálogo RPT público usado por el servidor") from exc
+    if not isinstance(catalogo, dict) or not isinstance(catalogo.get("puestos"), list):
+        raise Corte("FALTA: catálogo RPT público con estructura verificable")
+    candidatos = [p for p in catalogo["puestos"] if isinstance(p, dict) and p.get("codigo") == "9"
+                  and p.get("centro_codigo") == "520" and p.get("categoria_clave") == "administrativo"]
+    fuente = catalogo.get("fuente", {})
+    if len(candidatos) != 1 or not isinstance(fuente.get("importacion"), str) or not fuente["importacion"]:
+        raise Corte("FALTA: puesto Administrativo 9/01 del centro 520 en RPT pública")
+    return {"puesto_codigo": "9", "rpt_catalogo_ref": fuente["importacion"],
+            "rpt_catalogo_huella_sha256": hashlib.sha256(raw).hexdigest(),
+            "denominacion": candidatos[0]["denominacion"]}
+
+
 def preparar_rpt(args, state):
     count, _ = rpt_compatible(args)
     if count != 1:
         raise Corte("FALTA: RPT publicada compatible con centro 520, puesto 9 y plaza 2026/0033")
+    state["valores"]["rpt_necesidad"] = necesidad_rpt_publicada()
     state["valores"]["rpt_puesto9"] = "existente"
 
 
-def comprobar_fuente_bolsa_ct():
-    raise Corte("FALTA: selección CT con Bolsa constituida pendiente de montaje")
+def comprobar_fuente_bolsa_ct(args):
+    """Coteja el montaje SQL y una constitución vigente sin consumir su lectura nominal."""
+    query = ("SELECT "
+             "(SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
+             "WHERE n.nspname='vec_bolsa_llamamientos' AND p.proname='leer_origen_llamamiento_ct_v1'),"
+             "(SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
+             "WHERE n.nspname='vec_autorizacion_atestada_v3' AND p.proname='leer_origen_bolsa_ct_auditado_v1'),"
+             "(SELECT count(*) FROM vec_bolsa_llamamientos.constitucion c "
+             "JOIN vec_bolsa_llamamientos.bolsa_constituida b ON b.bolsa_ref=c.bolsa_ref "
+             "AND b.version=c.version_bolsa AND b.huella_bolsa_sha256=c.huella_bolsa_sha256 "
+             "WHERE c.categoria_ref='categoria:rpt:administrativo' AND b.estado='vigente' "
+             "AND b.vigente_desde<=now() AND (b.vigente_hasta IS NULL OR now()<b.vigente_hasta) "
+             "AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.sustitucion_bolsa s "
+             "WHERE s.bolsa_ref_sustituida=c.bolsa_ref AND s.version_sustituida=c.version_bolsa "
+             "AND s.huella_sustituida_sha256=c.huella_bolsa_sha256))")
+    if lectura_db(args, query) != ["1|1|1"]:
+        raise Corte("FALTA: B110/AD261 o Bolsa Administrativo constituida vigente única")
+    m10 = args.config.parent.parent / "cliente_m10_ct.json"
+    try:
+        cfg = json.loads(m10.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise Corte(f"FALTA: configuración privada M10 en {m10}") from exc
+    organismo = config_privada(args)
+    if not isinstance(cfg, dict) or (cfg.get("version") != 1 or cfg.get("origen") != args.origen or
+            cfg.get("organismo_ref") != (organismo or {}).get("organismo_ref") or
+            not all(cfg.get(k) for k in ("directorio", "autoridad_ca", "certificado_cliente", "clave_cliente"))):
+        raise Corte("FALTA: M10 no coincide con origen, organismo y material privado B2")
+    try:
+        launcher = args.launcher.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise Corte("FALTA: lanzador privado para verificar M10") from exc
+    if not re.search(r"(?m)^\s*(?:export\s+)?VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH\s*=\s*\S+", launcher):
+        raise Corte("FALTA: VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH en lanzador privado")
 
 
 def comando_catalogo_faltante(args, referencia):
@@ -472,19 +541,6 @@ def comando_catalogo_faltante(args, referencia):
             f"--data-binary {q('@' + str(cuerpo))} {q(endpoint)}")
 
 
-def candidato_ctx18_activo(args):
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}", args.candidato):
-        raise Corte("FALTA: --candidato-ref CTX18 inválido")
-    query = ("SELECT count(*) FROM vec_contexto_actor_v1.vinculo_referencia_actual a "
-             "JOIN vec_contexto_actor_v1.vinculo_referencia_versiones v USING(vinculo_ref,version) "
-             f"WHERE v.tipo='candidato' AND v.referencia='{args.candidato}' "
-             "AND v.estado='activo' AND v.vigente_desde<=now() "
-             "AND (v.vigente_hasta IS NULL OR now()<v.vigente_hasta)")
-    found = lectura_db(args, query)
-    if found != ["1"]:
-        raise Corte("FALTA: candidato CTX18 activo único; indicar --candidato-ref de la fuente autorizada")
-
-
 def comprobar(args):
     faltas = []
     ajustar = shlex.quote(str(Path(__file__).with_name("ajustar_privado.py")))
@@ -493,12 +549,7 @@ def comprobar(args):
         print("EXISTE PostgreSQL de solo lectura")
     except Corte:
         faltas.append("FALTA PostgreSQL: --motor podman --contenedor vec-postgresql-20260906")
-    try:
-        candidato_ctx18_activo(args)
-        print("EXISTE candidato CTX18 activo para el anclaje sintético")
-    except Corte as exc:
-        faltas.append(str(exc))
-    for actor in ("RRHH", "centro-solicitante", "centro-ratificador", "intervencion"):
+    for actor in ("RRHH", "centro-solicitante", "centro-ratificador", "intervencion", "candidato"):
         try:
             mTLS(args, actor)
             print(f"EXISTE mTLS {actor}")
@@ -507,7 +558,8 @@ def comprobar(args):
     if not (args.material / "ca/ca.crt").is_file():
         faltas.append("FALTA CA privada: --material <directorio-con-ca-y-mtls>")
     try:
-        comprobar_fuente_bolsa_ct()
+        comprobar_fuente_bolsa_ct(args)
+        print("EXISTE fuente B110/AD261, Bolsa Administrativo única y M10 configurado")
     except Corte as exc:
         faltas.append(str(exc))
     try:
@@ -525,12 +577,14 @@ def comprobar(args):
         faltas.append(f"FALTA personal_b2.cese_fecha_efecto; comando manual: python3 {ajustar} cese {shlex.quote(str(args.config))}")
     try:
         rpt_count, _ = rpt_compatible(args)
+        necesidad_rpt_publicada()
         if rpt_count == 1:
             print("EXISTE RPT puesto 9/01, plaza 2026/0033, unidad centro 520")
         else:
             faltas.append("FALTA: RPT publicada compatible con centro 520, puesto 9 y plaza 2026/0033")
     except Corte as exc:
         faltas.append(str(exc))
+    anterior = None
     if args.estado.exists():
         try:
             anterior = cargar(args.estado)
@@ -545,6 +599,9 @@ def comprobar(args):
             faltas.append("FALTA: estado B2 privado ilegible o inseguro")
     else:
         print("FALTA expediente B2 preparado en este estado; no hay recibo previo")
+    if not isinstance(anterior, dict) or not isinstance(anterior.get("operaciones", {}).get("alta"), dict):
+        faltas.append("FALTA: la entrega ratificada centro→RRHH no transporta necesidad RPT versionada; "
+                      "pendiente contrato de presentación/ratificación antes del primer POST")
     try:
         # El GET nominal sólo devuelve catálogo; se consulta con la identidad RRHH.
         route = "/api/vec/personal/catalogos-registro-empleado?tipo=regimen&estado=publicada&limite=100"
@@ -603,6 +660,9 @@ def nuevo_numero(args, state, pedido):
 
 def nueva_peticion(args, state):
     now = date.today()
+    rpt = state["valores"].get("rpt_necesidad")
+    if not isinstance(rpt, dict) or rpt.get("puesto_codigo") != "9":
+        raise Corte("FALTA: publicación RPT del puesto solicitado")
     # Después del cese sintético conservado el 20-11-2026. El dato es de ensayo.
     start = max(now + timedelta(days=21), date(2026, 12, 1))
     end = date(2027, 1, 31) if start == date(2026, 12, 1) else start + timedelta(days=61)
@@ -611,7 +671,7 @@ def nueva_peticion(args, state):
         x["solicitud"]["periodo"] = {"inicio": start.isoformat() + "T00:00:00Z",
                                       "fin": end.isoformat() + "T00:00:00Z"}
         x["solicitud"]["detalle"] = "Cobertura de la vacante de Administrativo para tramitar solicitudes y documentación de Transformación Digital."
-        x["solicitud"]["puesto_solicitado"] = "Puesto 9 — Administrativo de Transformación Digital"
+        x["solicitud"]["puesto_solicitado"] = "Puesto 9 — " + rpt["denominacion"]
         return x
     return efecto(args, state, "presentar", body)
 
@@ -670,6 +730,9 @@ def aplicar(args, state):
     def analisis():
         b = ejemplo(4, "analisis")
         b["expediente_ref"] = expediente
+        if (b["analisis"]["categoria_ref"] != state["operaciones"]["presentar"]["cuerpo"]["solicitud"]["categoria_ref"]
+                or state["valores"]["rpt_necesidad"]["puesto_codigo"] != "9"):
+            raise Corte("FALTA: análisis no coincide con la categoría y el puesto RPT solicitados")
         b["analisis"]["periodo"] = state["operaciones"]["presentar"]["cuerpo"]["solicitud"]["periodo"]
         b["analisis"]["observaciones"] = "La vacante de Administrativo permitirá tramitar las solicitudes y la documentación de Transformación Digital durante el periodo solicitado."
         # Son publicaciones técnicas gobernadas por la preparación RRHH.
@@ -738,7 +801,6 @@ def argumentos(argv):
     p.add_argument("--motor", choices=("podman", "docker"), default=os.environ.get("VEC_B2_MOTOR", "podman"))
     p.add_argument("--contenedor", default=os.environ.get("VEC_B2_CONTENEDOR", "vec-postgresql-20260906"))
     p.add_argument("--numero", default=os.environ.get("VEC_B2_NUMERO", ""))
-    p.add_argument("--candidato-ref", dest="candidato", default=os.environ.get("VEC_B2_CANDIDATO_REF", "can_5RckYrhrUeIrAYLjLTAkqnoyUdzdmqMtL0YX-41TK9c"))
     p.add_argument("--hasta", choices=("alta", "informe", "fiscalizacion", "resolucion"), default="resolucion")
     args = p.parse_args(argv)
     if args.aplicar is not None and args.aplicar != "PREPARA-ALTA-B2":

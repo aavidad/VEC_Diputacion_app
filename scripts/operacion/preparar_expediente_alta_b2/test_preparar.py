@@ -7,10 +7,58 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from preparar import Corte, comando_catalogo_faltante, comando_psql, cuerpo_canonico, data_http, efecto, guardar, cargar, http, lectura_db, nuevo_numero, serializar_cuerpo
+from preparar import Corte, comando_catalogo_faltante, comando_psql, comprobar_fuente_bolsa_ct, cuerpo_canonico, data_http, efecto, guardar, cargar, http, lectura_db, nuevo_numero, serializar_cuerpo, vincular_emision_nativa
 
 
 class CanonTrasReinicio(unittest.TestCase):
+    def test_fuente_nativa_exige_b110_ad261_bolsa_unica_y_m10(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            config = root / "config/personal-b2/servidor.json"
+            config.parent.mkdir(parents=True)
+            config.write_text('{"personal_b2":{"organismo_ref":"org:uno"}}')
+            (root / "config/cliente_m10_ct.json").write_text(json.dumps({
+                "version": 1, "organismo_ref": "org:uno", "origen": "https://127.0.0.1:18446",
+                "directorio": "/privado", "autoridad_ca": "/privado/ca",
+                "certificado_cliente": "/privado/cert", "clave_cliente": "/privado/key"}))
+            launcher = root / "arrancar.sh"
+            launcher.write_text("export VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH=/vec-incorporacion/cliente_m10_ct.json\n")
+            args = SimpleNamespace(config=config, launcher=launcher, origen="https://127.0.0.1:18446")
+            with patch("preparar.lectura_db", return_value=["1|1|1"]) as lectura:
+                comprobar_fuente_bolsa_ct(args)
+            self.assertIn("sustitucion_bolsa", lectura.call_args.args[1])
+            with patch("preparar.lectura_db", return_value=["1|1|2"]):
+                with self.assertRaisesRegex(Corte, "Bolsa Administrativo"):
+                    comprobar_fuente_bolsa_ct(args)
+
+    def test_vinculo_ct201_y_respuesta_portal_reusan_claves(self):
+        with tempfile.TemporaryDirectory() as folder:
+            ruta = Path(folder) / "estado.json"
+            state = {"esquema": "vec.preparar-alta-b2.v1", "operaciones": {
+                "seleccion": {"cuerpo": {"clave_idempotencia": "11111111-1111-4111-8111-111111111111"}}}, "valores": {}}
+            args = SimpleNamespace(estado=ruta)
+            seleccionado = {"llamamiento_ref": "llamamiento:uno", "recibo_ref": "recibo:uno"}
+            with patch("preparar.lectura_db", return_value=["bolsa:uno|recibo:uno|6"]), \
+                 patch("preparar.data_http", side_effect=Corte("respuesta incierta")):
+                with self.assertRaises(Corte):
+                    vincular_emision_nativa(args, state, "expediente:uno", seleccionado)
+            congelado = cargar(ruta)
+            clave = congelado["operaciones"]["vinculo_bolsa"]["cuerpo"]["clave_idempotencia"]
+            with patch("preparar.lectura_db", return_value=["bolsa:uno|recibo:uno|6"]), \
+                 patch("preparar.data_http", return_value={"recibo_vinculo_ref": "recibo:vinculo", "bolsa_ref": "bolsa:uno"}) as post:
+                vincular_emision_nativa(args, congelado, "expediente:uno", seleccionado)
+            self.assertEqual(post.call_args.args[4]["clave_idempotencia"], clave)
+            self.assertEqual(post.call_args.args[4]["version_esperada"], 6)
+            recuperado = cargar(ruta)["operaciones"]["vinculo_bolsa"]["cuerpo"]
+            wire = serializar_cuerpo(cuerpo_canonico("vinculo_bolsa", recuperado))
+            self.assertLess(wire.index(b'"expediente_ref"'), wire.index(b'"bolsa_ref"'))
+            with patch("preparar.data_http", side_effect=Corte("respuesta incierta")):
+                with self.assertRaises(Corte):
+                    efecto(args, congelado, "respuesta_portal", lambda: {"bolsa": "bolsa:uno", "respuesta": "acepta", "causa": "", "justificante_ref": "", "justificante_sha256": ""})
+            cuerpo = cargar(ruta)["operaciones"]["respuesta_portal"]["cuerpo"]
+            self.assertIn("clave", cuerpo)
+            self.assertNotIn("clave_idempotencia", cuerpo)
+
     def test_error_http_malformado_conserva_corte_nominal(self):
         for error in (None, "cadena", [], 4):
             with self.subTest(error=error), patch("preparar.http", return_value=(422, {"error": error})):
