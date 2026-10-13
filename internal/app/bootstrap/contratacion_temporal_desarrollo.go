@@ -798,7 +798,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		declaracionesFrontera = append(declaracionesFrontera,
 			descriptoresFronterasReincorporacionTitularDesarrollo(perfilReincorporacionTitular)...)
 	}
-	if candidato := resolvedorDesarrollo.candidatoBolsa; candidato != nil && !superficieExternaUsuariosEnProceso(cfg) {
+	if candidato := resolvedorDesarrollo.candidatoBolsa; candidato != nil && !miBolsaExternaSeleccionadaEnCombinado(cfg) {
 		if !debeComponerMiBolsaDesarrollo(cfg) || !perfilActivoSeguridadComunValido(candidato.perfilRef) {
 			return nil, nil, nil, errMiBolsaNoDisponible
 		}
@@ -1305,7 +1305,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		cerrarAuditoria = detener
 		rutas = append(rutas, rutasAuditoria...)
 	}
-	if resolvedorDesarrollo.candidatoBolsa != nil && !superficieExternaUsuariosEnProceso(cfg) {
+	if resolvedorDesarrollo.candidatoBolsa != nil && !miBolsaExternaSeleccionadaEnCombinado(cfg) {
 		if !debeComponerMiBolsaDesarrollo(cfg) || consultasRRHH.identidad == nil {
 			return nil, nil, nil, errMiBolsaNoDisponible
 		}

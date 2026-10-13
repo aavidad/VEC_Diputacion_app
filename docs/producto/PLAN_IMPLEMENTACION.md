@@ -132,6 +132,15 @@ la principal del 13/10 (`deploy/principal/habilitacion_ad262_actual_20261013.md`
 
 ### 2.3 En curso
 
+**HZ37, O: Mi Bolsa interna en combinado mientras no se seleccione el modo
+externo.** Recupera el montaje de HZ36 si no hay DSN ni material externo y la
+inscripción está apagada. La selección externa exige configuración completa
+y confianza vigente; si falla, devuelve error y no monta la interna. Conserva
+las autoridades y la separación de identidades de HZ36. Es temporal hasta
+HZ38: P prepara la publicación nominal de la confianza externa (opción B).
+El criterio de configuración está en `TRD.md`, apartado 1. La integración y
+el arranque en cidonia corresponden a dirección.
+
 PR abiertas, todas en borrador:
 
 | PR | Qué | Equipo | Fase |
