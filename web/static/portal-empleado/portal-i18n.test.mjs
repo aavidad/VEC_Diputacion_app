@@ -935,6 +935,18 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["portal.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js", "portal-panel-interno.js"]) versionesEspeciales.set(ruta, "20261013-auditoria-rrhh-v3");
   const versiones = new Map();
   for (const ruta of ["portal.js", "portal-panel-interno.js", "portal-menu-bolsa.js", "portal-modulos-coordinador.js"]) versionesEspeciales.set(ruta, "20261013-alegaciones-v2");
+  // La necesidad del centro renueva estos consumidores y sus importadores.
+  for (const ruta of [
+    "portal.js", "portal-modulos-coordinador.js", "categorias-rpt/montaje.js", "categorias-rpt/cliente.js",
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js", "modulos/contratacion-temporal/alta-renderer-puro.js",
+    "modulos/contratacion-temporal/circuito-firma.js", "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/cliente-http.js", "modulos/contratacion-temporal/cliente-http-alta.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js", "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/contrato.js", "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/presentador.js", "modulos/contratacion-temporal/vista.js",
+    "modulos/contratacion-temporal/vista-expedientes.js", "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+  ]) versionesEspeciales.set(ruta, "20261014-need-centro-v1");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
