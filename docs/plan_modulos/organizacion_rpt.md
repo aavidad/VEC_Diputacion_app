@@ -12,7 +12,7 @@ el código de Organización y RPT conserva los mismos bytes.
 Se remata el comparador ya producido y se conserva lo pendiente para mañana.
 
 Fuentes: [especificaciones](../../ESPECIFICACIONES_AGENTES.md),
-[catálogo funcional, apartado 4](../estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md#4-personal-organización-rpt-y-planificación)
+[catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md)
 y [modelo histórico](../estudio_requisitos/modelo_historico_rpt_plazas_puestos_y_vacantes.md).
 
 ## Qué existe en main

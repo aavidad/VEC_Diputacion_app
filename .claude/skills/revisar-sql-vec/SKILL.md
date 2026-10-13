@@ -5,6 +5,10 @@ description: Revisa migraciones SQL de VEC (PostgreSQL 18) antes de pedir su int
 
 # Revisar SQL de VEC
 
+Reglas de reserva de número, cabecera, guarda de preimagen, roles y ACL, DOWN y ensayo:
+`docs/producto/ESQUEMA_BACKEND.md` §4 y §9. Esta skill es el procedimiento de revisión y
+guarda la lista completa de fallos típicos (el documento solo la resume en §9.4).
+
 En Codex el ensayo sobre el clon de la principal lo ejecuta Dirección: incluye en la rama `deploy/principal/lista_sql_<rama>.txt` con las SQL nuevas en orden causal. Antes de avisar «PR: lista», repasa a mano el punto 3.
 
 1. Localiza las SQL nuevas o cambiadas de la rama (git diff contra origin/main) y su orden causal (lista `deploy/principal/lista_sql_*.txt` si existe; si no, por módulo y número).

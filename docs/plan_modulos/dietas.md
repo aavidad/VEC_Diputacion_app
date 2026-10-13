@@ -1,6 +1,6 @@
 # Dietas: continuación del módulo
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 Plan de 7 de octubre de 2026. Dietas se reanuda para completar la solicitud, la
 justificación, la decisión y la liquidación de comisiones de servicio. La principal

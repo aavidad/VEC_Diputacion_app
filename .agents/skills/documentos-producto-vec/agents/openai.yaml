@@ -1,0 +1,4 @@
+interface:
+  display_name: "Documentos de producto VEC"
+  short_description: "PRD, TRD, flujo, diseño, esquema y plan: leer antes, actualizar al entregar"
+  default_prompt: "Usa $documentos-producto-vec: lee los documentos de docs/producto/ que afectan a la tarea antes de empezar y actualízalos en la misma PR si cambias lo que describen."

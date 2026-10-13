@@ -81,7 +81,7 @@ Si la conexión falla, no cierre ni recargue la pestaña: reintente la misma
 operación cuando la pantalla lo permita. Los borradores sin confirmar solo
 viven en esa pestaña. Añadir un cargo no asigna una persona ni le concede
 permisos para solicitar o ratificar. Consulte la
-[guía vigente de organización](../../GUIA_RECORRIDO_ALBERTO.md#centros-y-organización-de-referencia).
+[guía vigente de organización](../../GUIA_RECORRIDO_ALBERTO.md).
 
 **Disponible: cinco pasos completos de Peticiones de personal temporal y partes del sexto
 y séptimo: llamamiento sintético y propuesta de nombramiento de desarrollo.** No están
@@ -401,7 +401,7 @@ El criterio manual es provisional y exclusivo de desarrollo sintético, no aval 
 
 Tras recuperar la renuncia, el mismo panel ofrece continuar; expediente, resolución
 e intención vienen de sus recibos, no se editan. Use la quinta clave original de la
-[guía](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-7-recuperar-la-continuación-tras-renuncia)
+[guía](../../GUIA_RECORRIDO_ALBERTO.md)
 y confirme expresamente la apertura de un único nuevo llamamiento, sin otro `.eml`.
 **Siguiente llamamiento abierto · ejercicio sintético** confirma la continuidad
 posterior: no reescribe el recibo de renuncia, ni acredita aviso enviado, entrega
@@ -412,7 +412,7 @@ material, reintento solo explícito. Un `409` no autoriza cambiar de clave.
 ### Sexta operación: aviso local al sucesor
 
 Recupere las cinco operaciones previas y use **6. Registrar aviso local al sucesor**.
-Solo introduzca su sexta clave original de la [guía](../../GUIA_RECORRIDO_ALBERTO.md#aviso-local-al-sucesor-ct62);
+Solo introduzca su sexta clave original de la [guía](../../GUIA_RECORRIDO_ALBERTO.md);
 el panel deriva las referencias y versión del recibo de continuación. Confirme expresamente.
 `201` muestra **Aviso local al sucesor registrado · No enviado**; tras reinicio principal,
 `200` recupera el mismo recibo, fecha, versión `2` e intención local, sin duplicados.
@@ -424,7 +424,7 @@ se conservan; ante ambigüedad mantenga clave/material, sin reintento automátic
 Tras el aviso local validado `v2`, **7. Registrar respuesta recibida del sucesor** deriva sus referencias.
 Declare aceptación o renuncia, referencia opaca de correo y fecha UTC; seleccione el `.eml` hasta 2 MiB,
 compruebe la huella calculada localmente y confirme con su clave propia. El contenido no se sube ni guarda.
-[Datos y archivo exactos para recuperar](../../GUIA_RECORRIDO_ALBERTO.md#declaración-de-respuesta-del-sucesor-ct63).
+[Datos y archivo exactos para recuperar](../../GUIA_RECORRIDO_ALBERTO.md).
 `201` real y siete operaciones `200` tras reinicio principal, mismos justificante/recibo/auditoría/fecha, sin duplicados.
 **Declaración de respuesta del sucesor registrada · Sin resolución**
 no acredita origen, firma, entrega ni plazo; tampoco cambia la resolución original. Conserve clave/material
@@ -433,7 +433,7 @@ ante ambigüedad. La resolución del sucesor requiere la octava operación separ
 ### Octava operación: resolución manual sintética del sucesor
 
 Recupere las siete operaciones anteriores y use la octava con la clave original de la
-[guía](../../GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
+[guía](../../GUIA_RECORRIDO_ALBERTO.md).
 El panel deriva la respuesta y el justificante; no los edite. Marque las dos revisiones explícitas,
 inicialmente vacías, de respuesta/justificante y plazo del ejercicio sintético, y confirme sin otro `.eml`.
 La aceptación solo se confirma tras CT y Bolsa: en CT64, versión resultante `3`, expediente conservado en `6`.
@@ -446,7 +446,7 @@ CT65 permite la propuesta separada descrita debajo. La métrica sigue en **5/8 m
 ### Propuesta de nombramiento tras aceptación
 
 Para el sucesor aceptado, recupere las ocho operaciones previas y use **Propuesta de nombramiento · desarrollo**,
-el mismo formulario, novena operación del panel. [Clave y datos CT65](../../GUIA_RECORRIDO_ALBERTO.md#propuesta-desde-la-aceptación-del-sucesor-ct65).
+el mismo formulario, novena operación del panel. [Clave y datos CT65](../../GUIA_RECORRIDO_ALBERTO.md).
 Revise los antecedentes derivados y las publicaciones; confirme con su clave original y versión esperada `6`,
 también al recuperar desde `7`. Ocho antecedentes `200` y propuesta `201`; tras reinicio principal,
 nueve `200`, mismos recibo/fecha/v7 e historia, sin duplicados. Propuesta original conservada.
@@ -456,7 +456,7 @@ no es un noveno paso RRHH ni acredita nuevas descargas de los seis PDF ya cerrad
 Para el caso original de la guía, el mismo panel ofrece **Propuesta de nombramiento · desarrollo** solo tras
 aceptación confirmada, nunca renuncia. Referencias y publicaciones no son editables;
 la solicitud conserva versión esperada `6`, también para recuperar el expediente ya en `7`.
-Use la clave original de la [guía](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento)
+Use la clave original de la [guía](../../GUIA_RECORRIDO_ALBERTO.md)
 y confirme expresamente, sin otro `.eml`. Si las publicaciones no cargan, no envíe.
 El recibo **Propuesta registrada · ejercicio sintético** conserva referencia y
 fecha; no es un nombramiento firmado. Ante ambigüedad mantenga clave/material:
@@ -478,7 +478,7 @@ En el detalle real `v7`, `nombramiento/en_curso`, elija un botón de cabecera:
 **Descargar notificación · borrador de desarrollo** (`notificacion-borrador.pdf`) o
 **Descargar comunicación al centro · borrador de desarrollo** (`comunicacion-centro-borrador.pdf`).
 No recupere la propuesta por POST ni repita las operaciones de llamamiento para descargar.
-Ante error se conserva el detalle. [Recorrido y huella comprobada](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
+Ante error se conserva el detalle. [Recorrido y huella comprobada](../../GUIA_RECORRIDO_ALBERTO.md).
 Son borradores sin firma: no certifican hechos, comparecencia, posesión real ni nombramiento eficaz;
 la notificación tampoco acredita envío, entrega ni apertura de plazo legal;
 la comunicación al centro no envía un aviso ni ordena la incorporación;

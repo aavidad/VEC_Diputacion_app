@@ -1,6 +1,6 @@
 # Plan de Acción social: 4 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 La persona consultará una ayuda aplicable, presentará su solicitud y recuperará el
 justificante; la unidad competente comprobará requisitos y gestionará subsanaciones.
@@ -10,7 +10,7 @@ entrega documentación, sin código, SQL ni instalación.
 
 Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos principales: [ficha de Acción social](../estudio_requisitos/ficha_accion_social_2026-10-04.md),
-AS1–AS12 y ASO-001–ASO-003 del [catálogo](../estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md#8-acción-social-prl-igualdad-y-relaciones-laborales).
+AS1–AS12 y ASO-001–ASO-003 del [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md).
 Personal B mantiene relaciones y servicios; K identidad/perfiles; L las autoridades
 comunes. El plan no toma sus archivos ni sustituye el seguimiento general.
 

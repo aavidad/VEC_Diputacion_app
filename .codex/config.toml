@@ -16,8 +16,9 @@ prevalece sobre el encargo. No crees objetivos persistentes distintos del
 encargo recibido.
 
 ARQUITECTURA Y PRODUCTO
-Lee AGENTS.md, INSTRUCCIONES_DIRECTOR_FUNCIONAL_VEC.md (ORDEN ACTIVA y plan
-vigente), ESPECIFICACIONES_AGENTES.md y ESTADO_PROYECTO.md. Conserva arquitectura
+Lee AGENTS.md, los documentos de docs/producto/ que afecten a tu encargo
+(siempre PRD.md y PLAN_IMPLEMENTACION.md) e INSTRUCCIONES_DIRECTOR_FUNCIONAL_VEC.md
+(ORDEN ACTIVA y plan vigente). Conserva arquitectura
 hexagonal, módulos enchufables, i18n común, autorización positiva, auditoría,
 privacidad, recibos e historia. Persona es común; cada módulo conserva sus datos
 y no consulta tablas de otro. Prioriza escritorio (lienzo sin scroll de página)

@@ -1,6 +1,6 @@
 # Plan de Régimen disciplinario — 4 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 VEC conservará actuaciones previas, iniciación, designaciones, instrucción,
 defensa, propuesta, resolución, recurso y ejecución en un expediente reservado.
@@ -35,9 +35,9 @@ Instrucción y sanción tienen órganos distintos; resolución, ejecutividad y f
 conservan estados y evidencia separados según la ficha.
 
 Se aplican [materias reservadas, §§8.1, 10 y 12](../estudio_requisitos/materias_reservadas_economicas_y_relaciones_laborales.md),
-[arquitectura](../portal_vec/arquitectura_tecnica.md),
+[arquitectura](../producto/TRD.md),
 [contrato de módulos](../portal_vec/contrato_modulos_vec.md),
-[roles y ámbitos](../portal_vec/matriz_roles_y_ambitos.md) y
+[roles y ámbitos](../producto/FLUJO_APP.md) y
 [cumplimiento](../portal_vec/cumplimiento_y_seguridad.md).
 El detalle jurídico procede de la ficha; no se crea una escala de faltas, sanciones
 o plazos con interpretaciones nuevas.

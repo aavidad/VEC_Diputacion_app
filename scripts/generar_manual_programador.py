@@ -135,7 +135,7 @@ Convenciones transversales del codigo:
 
 Documentos de contexto recomendados antes de tocar codigo:
 
-- [Arquitectura tecnica modular del portal](../portal_vec/arquitectura_tecnica.md)
+- [Requisitos técnicos (TRD)](../producto/TRD.md)
 - [Contrato de modulos VEC](../portal_vec/contrato_modulos_vec.md)
 - [Registro de decisiones y mejoras](../portal_vec/registro_decisiones.md)
 

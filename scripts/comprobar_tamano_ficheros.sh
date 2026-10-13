@@ -43,7 +43,7 @@ if (( fallos )); then
   cat >&2 <<'MENSAJE'
 Hay ficheros de codigo que han crecido por encima de su linea base.
 El objetivo de diseno son 500 lineas y el aviso salta a partir de 800; no es
-un tope duro (decision del operador del 23/09/2026, AGENTS.md, Calidad): un
+un tope duro (decision del operador del 23/09/2026, docs/producto/TRD.md, apartado 13): un
 fichero cohesionado grande es preferible a varios que solo se entienden
 juntos. Si el crecimiento esta justificado, sube su linea en
 scripts/tamano_ficheros_base.txt y explicalo en una linea del commit; si hay

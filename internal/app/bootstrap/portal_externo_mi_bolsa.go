@@ -46,7 +46,7 @@ func semillaMiBolsaPortalExterno(identidad *identidadCandidatoBolsaDesarrollo, a
 		!claveNombreMiBolsaPortalExterno.MatchString(nombreClave) {
 		return dominiovec.InstantaneaAutorizacion{}, errMiBolsaNoDisponible
 	}
-	semilla, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, true)
+	semilla, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, true, false)
 	if err != nil || semilla.VersionRol.RolID != rolPortalMiBolsaDesarrollo {
 		return dominiovec.InstantaneaAutorizacion{}, errMiBolsaNoDisponible
 	}

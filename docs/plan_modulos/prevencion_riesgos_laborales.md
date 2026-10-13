@@ -1,6 +1,6 @@
 # Plan de Prevención de riesgos laborales: 4 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 VEC permitirá seguir evaluaciones preventivas y medidas de un centro: responsable,
 plazo, evidencia de ejecución y revisión por el técnico competente. La persona
@@ -10,7 +10,7 @@ mínimo. Este encargo entrega documentación, sin código, SQL ni instalación.
 
 Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos principales: [ficha de PRL](../estudio_requisitos/ficha_prevencion_riesgos_laborales_2026-10-04.md),
-PR1–PR12 y PRL-001–PRL-003 del [catálogo](../estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md#8-acción-social-prl-igualdad-y-relaciones-laborales).
+PR1–PR12 y PRL-001–PRL-003 del [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md).
 Personal B conserva vínculo/servicios y su consumidor; Organización/RPT conserva
 centros/puestos; K identidad/perfiles; L auditoría/documentos/firma comunes.
 El plan no reasigna sus archivos ni abre una base clínica de RRHH.

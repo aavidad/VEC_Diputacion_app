@@ -1,280 +1,134 @@
-## Lectura obligatoria de especificaciones — 12 de septiembre de 2026
-
-Antes de asignar, implementar, revisar o integrar trabajo, leer
-[ESPECIFICACIONES_AGENTES.md](ESPECIFICACIONES_AGENTES.md) y los apartados de
-sus fuentes que afecten a la tarea. Dirección debe incluir requisitos concretos
-en cada encargo y transmitirlos a todos los subagentes. Esta obligación procede
-de la petición expresa del operador; no sustituye las instrucciones vigentes.
-
 # Instrucciones del repositorio para agentes
 
-## Dónde se trabaja y qué sigue vigente de los relevos anteriores
+## Lectura obligatoria de los documentos de producto — 13 de octubre de 2026
 
-El estado y el plan de cada módulo están en `ESTADO_PROYECTO.md` y en
-`docs/plan_modulos/`; las órdenes de dirección que prevalecen, en
-`INSTRUCCIONES_DESATASCO.md`. Los relevos operativos de julio a septiembre de
-2026 ya no forman parte de este fichero y se consultan en la historia de Git
-(`git log -p -- AGENTS.md`).
+Orden de Alberto: todo agente (Claude, subagente o Codex) lee, antes de
+programar, revisar o encargar trabajo, los documentos de `docs/producto/` que
+afecten a su tarea, y siempre `PRD.md` y `PLAN_IMPLEMENTACION.md`:
 
-- Se integra en `main` mediante PR. Cada tarea trabaja en su propia rama y en
-  un worktree de `.worktrees/`. El checkout de la raíz del repositorio está
-  desfasado respecto a `origin/main` y guarda WIP ajeno: no se programa allí ni
-  se toma como referencia de instrucciones o código.
-- Una migración ya instalada en una base con historia no se reaplica ni se
-  revierte con DOWN; se corrige con una migración nueva.
-- O3a (el runner endurecido) sigue en moratoria.
-- Un borrador no es un documento firmado, y autenticarse con certificado no es
-  firmar: ninguno de los dos se presenta como firma legal.
+- [PRD.md](docs/producto/PRD.md): qué es VEC, para quién y con qué prioridad.
+- [TRD.md](docs/producto/TRD.md): pila, arquitectura, seguridad y despliegue.
+- [FLUJO_APP.md](docs/producto/FLUJO_APP.md): recorridos y pantallas por perfil.
+- [DISENO_UI_UX.md](docs/producto/DISENO_UI_UX.md): reglas de diseño y usabilidad.
+- [ESQUEMA_BACKEND.md](docs/producto/ESQUEMA_BACKEND.md): esquemas, roles, migraciones y API.
+- [PLAN_IMPLEMENTACION.md](docs/producto/PLAN_IMPLEMENTACION.md): qué falta y en qué orden.
 
-## Prioridad vigente (07/10/2026)
+La skill `documentos-producto-vec` (`.agents/skills/documentos-producto-vec/`)
+dice cuál leer según la tarea y cuál actualizar en la misma PR cuando una
+entrega cambie lo que describen. Si un documento contradice el código o una
+orden vigente de este fichero, mandan el código y la orden; la diferencia se
+anota en la entrega.
 
-Se terminan todos los módulos de la app en paralelo: cada equipo en su área y,
-dentro de ella, primero lo que es base de otros (identidad, permisos,
-catálogos, datos maestros) y después las pantallas que lo usan. Lo que ve
-RRHH tiene que ir rápido: pantallas por debajo de 300 ms con volumen realista.
-Se trabaja en local y GitHub; el servidor de desarrollo compartido no se toca.
+Las reglas E01 a E13 de [ESPECIFICACIONES_AGENTES.md](ESPECIFICACIONES_AGENTES.md)
+ya viven en esos seis documentos; ese fichero solo dice dónde está cada una.
 
-## Lectura obligatoria
+## Cómo se trabaja: órdenes vigentes de Alberto
 
-Antes de editar:
+**Prioridad (08/10).** Bolsa y Contratación temporal primero, con las bases que
+necesitan; los demás módulos, después. Ya no rige «todos los módulos en
+paralelo» (07/10). Orden exacto y bases en
+[PLAN_IMPLEMENTACION.md](docs/producto/PLAN_IMPLEMENTACION.md), apartados 1 y 3.
 
-1. instrucciones de mayor prioridad del entorno;
-2. `AGENTS.md` y `ESPECIFICACIONES_AGENTES.md`;
-3. `INSTRUCCIONES_DESATASCO.md` y `ESTADO_PROYECTO.md`;
-4. `docs/plan_modulos/OBJETIVOS.md` y el plan del módulo en `docs/plan_modulos/` cuando la tarea sea de un módulo;
-5. la especificación y la matriz normativa que enlacen esos documentos.
+**Papeles.**
 
-Un agente recibe un identificador de tarea. No toma otra por iniciativa propia.
+- Claude es director, integrador y programador jefe: fija los encargos, revisa
+  cada PR, fusiona, sube a cidonia, lo comprueba en Chrome y programa piezas
+  propias en su carpeta de trabajo. Solo Claude despliega en cidonia.
+- Los equipos Codex (una letra cada uno) programan en local y en GitHub, cada
+  uno en su rama. Claude los lanza y los vigila por lo que hacen de verdad, no
+  solo por si siguen vivos.
+- Astra (Codex de arquitectura, solo lectura) no programa ni entra en un equipo:
+  solo debate con Claude.
+- Cada encargo termina en algo que se ve en la web. Lo visible que no funciona
+  se encarga a terminar; no se quita del menú salvo que Alberto lo pida.
 
+**Decisiones y preguntas (13/10).**
 
-## Trabajo paralelo
+- A Alberto no se le preguntan opciones. Claude decide por consenso escrito con
+  Astra, lo anota en el canal y le informa del resultado.
+- Solo van a Alberto: gastar dinero o créditos, datos reales, producción o
+  sistemas corporativos, y lo que el control de permisos bloquee pidiendo su
+  visto bueno expreso. Eso no se deriva a otro agente para saltarlo.
+- Ante un fallo, nada de apaños (filas SQL a mano, quitar comprobaciones, datos
+  inventados para tapar un hueco): solo vías del producto, como actos de
+  administración, migraciones revisadas o pantallas.
+- En dudas de diseño o de proceso se mira antes cómo lo resuelven tres a cinco
+  aplicaciones o administraciones de referencia, con fuentes públicas.
+- Lo que depende de RRHH: primero se busca en lo publicado (BOE, BOP de Granada,
+  Transparencia de la Diputación, el propio repositorio) y se aplica citando la
+  norma como valor configurable. Solo lo interno va a `dudas.md`, numerado tras
+  la última, en lenguaje de RRHH y por PR; lo resuelto se quita sin renumerar.
+  Lo de Informática va a
+  `docs/estudio_requisitos/peticion_informatica_integraciones_2026-09-23.md`.
 
-- Rama y worktree exclusivos fuera de `/tmp`.
-- Write-set declarado y disjunto.
-- Un agente productor no integra ni da el visto bueno a su propio trabajo.
-- El revisor reproduce pruebas y emite `GO` o `NO-GO`.
-- Solo dirección modifica los documentos transversales de estado durante la
-  integración.
-- No fusionar, rebasar ni limpiar ramas ajenas.
-- Commits pequeños con el identificador funcional, pruebas y documentación.
+**Coordinación.**
 
-## Granularidad obligatoria
+- Canal: `CANAL_CLAUDE_CODEX.md`, en la carpeta principal y fuera de Git. Los
+  equipos escriben ahí PREGUNTA, BLOQUEO, ESPERO o CESIÓN y Claude responde en
+  minutos.
+- Nada en cola: un encargo nuevo empieza ya, con un subagente o un equipo libre.
+- Antes de crear una migración se reserva su número en
+  `RESERVAS_MIGRACIONES.md` (carpeta principal, fuera de Git). Nunca se reutiliza
+  un número reservado por otra rama.
+- No se fusionan, rebasan ni limpian ramas ajenas. Quien crea una carpeta de
+  trabajo, una rama, un contenedor o temporales los borra cuando su trabajo está
+  integrado.
 
-Todo VEP se desarrolla mediante minitareas, también fuera de contratación
-temporal:
+**Encargos.** Cada encargo dice:
 
-- una minitarea tiene una sola responsabilidad observable y un único criterio
-  de cierre;
-- un agente recibe una sola minitarea y no amplía su alcance por iniciativa
-  propia;
-- código y pruebas forman un commit local autónomo; la evidencia de revisión y
-  el estado transversal se confirman inmediatamente después por integración;
-- como señal de alarma, una tarea que modifica más de tres ficheros de
-  producción, añade más de unas doscientas líneas productivas o necesita dos
-  motivos distintos en el mensaje se divide o justifica antes de programarse;
-- cada commit debe compilar y superar sus pruebas focales; no se admiten cortes
-  intermedios que dejen una API pública incompleta, una migración sin consumidor
-  coherente o una ruta registrada sin autoridad;
-- una capacidad grande se expresa como un grafo de minitareas con dependencias,
-  no como un identificador que acumula contratos, adaptadores, composición,
-  interfaz y E2E;
-- las piezas independientes se asignan a subagentes con write-sets disjuntos;
-  otro agente revisa el resultado antes de que dirección lo integre;
-- si dos minitareas necesitan el mismo fichero, se ejecutan en secuencia o se
-  separa primero una abstracción propietaria; nunca se resuelve permitiendo
-  edición concurrente del mismo archivo.
+- una sola tarea, con su identificador, rama y carpeta de trabajo propias fuera
+  de `/tmp` y la lista de ficheros que va a tocar;
+- que se busque primero lo que ya existe (índice de código, `gopls`,
+  `origin/main`, ramas y PR abiertas) y se reutilice: no se repite código hecho;
+- los documentos de `docs/producto/` y los apartados que debe leer;
+- las skills que tocan, que se usan siempre: `usabilidad-vec`, `aspecto-vec`,
+  `disenar-sistema-visual-vec` e `impeccable` para pantallas; `humanizer` para
+  textos que lee una persona; `programar-backend-vec`, `persistir-autorizar-vec`
+  y `programar-interfaz-vec` para programar; `revisar-sql-vec` y `ensayar-sql`
+  para SQL; `security-audit` y Semgrep local para autenticación, permisos, SQL o
+  entradas HTTP; `revisar-cambios-vec`, `documentar-entregar-vec` y `pr-vec`
+  para cerrar; `probar-recorridos-vec` para recorridos;
+- el modelo y el esfuerzo justos: el más barato que baste para lo mecánico y
+  esfuerzo alto para SQL, seguridad, firma, datos personales y revisiones. Como
+  mucho seis subagentes vivos por equipo.
 
-Dividir no significa producir commits rotos o cambios cosméticos sin valor. La
-unidad mínima es una capacidad compilable, protegida y verificable de extremo a
-extremo dentro de su alcance.
+**Cuota.** Se trabaja hasta el 100 % de la cuota semanal y nunca se gastan
+créditos; al llegar al 100 % se avisa a Alberto. Bolsa y CT nunca se quedan sin
+equipo: si falta cuota, se para antes el equipo de menor prioridad.
 
-## Arquitectura no negociable
+**Entrega (13/10).** Menos pruebas y menos esperas: en local solo pruebas
+focales; la CI pasa la puerta completa y nunca se repite una prueba sobre el
+mismo commit. SQL y seguridad conservan su ensayo en copia de la principal y un
+revisor; lo demás, lectura del diff por Claude. Se fusiona al pasar las puertas
+rápidas de la CI y se sube a cidonia tras cada fusión con algo visible. cidonia
+nunca puede quedar apagada por un fallo de arranque. Ciclo y formato de entrega
+en [PLAN_IMPLEMENTACION.md](docs/producto/PLAN_IMPLEMENTACION.md), apartados
+10.3 y 10.4. El agente no da su tarea por cerrada: lo hace dirección al
+integrar.
 
-- Hexagonal estricta.
-- `domain` no importa aplicación, puertos, adaptadores, HTTP, SQL ni
-  proveedores.
-- `application` coordina dominio y puertos; no conoce HTTP, PostgreSQL, Docker
-  ni SDK concretos.
-- `ports` contiene contratos mínimos y neutrales; no implementaciones.
-- `adapters` traduce proveedores y transportes sin redefinir reglas de negocio.
-- Ningún módulo lee o escribe tablas de otro módulo.
-- Los intercambios usan referencias opacas, comandos, eventos e
-  outbox/inbox.
-- El dominio y los casos de uso son neutrales al cliente. Web, escritorio,
-  CLI y MCP consumen las mismas capacidades de aplicación mediante
-  adaptadores distintos; ninguna regla funcional vive en HTTP, DOM o una
-  sesión de navegador.
-- Base de datos, almacenamiento, firma, antivirus, identidad, comunicaciones,
-  documentos, calendarios y sistemas externos son adaptadores intercambiables.
-- Fases, opciones, plantillas, formatos y reglas funcionales se gobiernan por
-  catálogos versionados. Solo las invariantes técnicas quedan compiladas.
-- No crear una segunda autoridad de identidad, roles, permisos, auditoría,
-  i18n o temas.
+**Commits y textos.**
 
-## Seguridad y protección de datos
+- Commits y PR solo con autoría de aavidad: sin `Co-Authored-By`, sin «Generated
+  with» y sin ninguna mención a IA (orden del 16/07).
+- Todo lo que lee Alberto, en castellano llano y sin siglas internas: se dice
+  qué hace cada cosa («revisión independiente», no «E10»).
+- Ningún secreto, certificado, ruta privada ni dato personal en Git. Nunca se
+  envía código ni datos a servicios externos para auditarlos.
 
-- Denegación predeterminada y privilegio mínimo.
-- La identidad y el perfil proceden de una frontera confiable; nunca de JSON,
-  cookies, parámetros, cabeceras libres o datos del navegador.
-- Cookies, `localStorage` y `sessionStorage` no son autoridades ni mecanismos
-  de sesión. La composición real no depende de ellos. Los clientes usan
-  credenciales breves, ligadas al emisor y verificadas por la API; escritorio
-  puede emplear certificado/mTLS y Kerberos corporativo mediante conectores.
-- La API rechaza por defecto `Cookie`, credenciales persistidas por el
-  navegador y cualquier cabecera de identidad que no esté atestada por la
-  frontera confiable. Ninguna respuesta real emite `Set-Cookie`.
-- Operaciones internas sensibles exigen garantía alta y superficie interna o
-  administrativa coherente.
-- Una decisión positiva queda ligada a acción, recurso, finalidad, ámbito,
-  motivo, actor, perfil, correlación y vigencia exactos.
-- Todo efecto consume la autorización dentro de la misma transacción que
-  escribe estado, auditoría y outbox.
-- Idempotencia semántica, control optimista de versión e historia de solo
-  adición.
-- Ningún secreto, certificado, clave, token, DSN, dato personal real o ruta
-  privada entra en Git, fixtures, errores o logs.
-- Datos minimizados y referencias opacas en listados, auditoría y eventos.
-- Cifrado en tránsito y reposo; claves fuera del proceso y rotables.
-- Límites de tamaño, tiempo, profundidad y cardinalidad antes de reservar
-  memoria o llamar conectores.
-- La indisponibilidad nunca se interpreta como autorización, validación,
-  firma, entrega o éxito.
-- No usar datos reales hasta cerrar EIPD, categorización ENS, análisis de
-  riesgos, registro de actividades y autorizaciones formales.
-- IA aplicada a selección, empleo, baremación, evaluación o asignación queda
-  cerrada hasta completar la clasificación y obligaciones del Reglamento de
-  IA. El bot público solo accede a corpus público gobernado.
+## Dónde están las reglas que antes vivían aquí
 
-La matriz vigente del módulo es
-`docs/portal_vec/matriz_normativa_contratacion_temporal_2026-07-23.md`.
+| Sección antigua | Dónde vive ahora |
+| --- | --- |
+| Prioridad vigente | [PLAN_IMPLEMENTACION.md](docs/producto/PLAN_IMPLEMENTACION.md), apartados 1 y 3 |
+| Trabajo paralelo y granularidad | [PLAN_IMPLEMENTACION.md](docs/producto/PLAN_IMPLEMENTACION.md), apartados 10.1 y 10.2 |
+| Ciclo obligatorio de entrega y formato de entrega | [PLAN_IMPLEMENTACION.md](docs/producto/PLAN_IMPLEMENTACION.md), apartados 10.3 y 10.4 |
+| Arquitectura no negociable | [TRD.md](docs/producto/TRD.md), apartados 2 y 3; datos entre módulos en [ESQUEMA_BACKEND.md](docs/producto/ESQUEMA_BACKEND.md), apartado 3 |
+| Seguridad y protección de datos | [TRD.md](docs/producto/TRD.md), apartados 5 a 8 y 11 |
+| i18n, idioma y presentación | [DISENO_UI_UX.md](docs/producto/DISENO_UI_UX.md), apartados 4, 8 y 9; parte técnica en [TRD.md](docs/producto/TRD.md), apartado 12 |
+| Calidad y tamaño de ficheros | [TRD.md](docs/producto/TRD.md), apartados 13 y 14; [PLAN_IMPLEMENTACION.md](docs/producto/PLAN_IMPLEMENTACION.md), apartado 10.2 |
+| Relevos de agosto y septiembre, checkpoint del 31/08, bloques OpenClaw | [docs/historico/AGENTS_historico_hasta_20261013.md](docs/historico/AGENTS_historico_hasta_20261013.md) |
 
-## i18n, idioma y presentación
-
-- Código de dominio en castellano coherente, salvo términos técnicos
-  universalmente adoptados y convenciones de Go.
-- No mezclar castellano e inglés en el mismo vocabulario.
-- Todo texto visible, mensaje de validación, estado, ayuda, documento y
-  notificación usa claves i18n.
-- i18n puro (orden del operador del 29 de septiembre de 2026): los textos
-  viven en catálogos de datos por idioma (`web/static/textos/<idioma>/<módulo>.json`),
-  nunca en diccionarios dentro de ficheros `.js` o `.go`. El código no nombra
-  idiomas concretos: los idiomas disponibles y el de respaldo salen del índice
-  `web/static/textos/idiomas.json`. Añadir un idioma es copiar una carpeta y
-  traducirla, sin tocar código.
-- Fechas, números, moneda, zonas horarias y plurales se formatean por
-  localización.
-- El tema común es la autoridad visual; ningún módulo duplica CSS estructural.
-- Accesibilidad desde diseño: teclado, foco, contraste, zoom, lector de
-  pantalla, estados alternativos y documentos descargables accesibles.
-
-## Herramientas obligatorias en VEC (orden de Alberto, 29/09/2026)
-
-Todo agente (Claude, subagente o Codex) usa SIEMPRE las skills, agentes y plugins instalados en el momento que les toca, y los nombra en cada encargo que delega:
-- Pantallas, textos visibles o flujos: skills `usabilidad-vec`, `aspecto-vec`, `disenar-sistema-visual-vec` e `impeccable` (su `VEC-PRIORIDAD.md`) antes de programar; revisión de usabilidad independiente antes de fusionar.
-- Textos que lee una persona (RRHH, Alberto, ayudas, documentos, `dudas.md`, correos): skill `humanizer` (su `VEC-USO.md`) antes de entregarlos.
-- SQL: skill `revisar-sql-vec` / `ensayar-sql` y revisión SQL independiente antes de fusionar, con ensayo en el clon de la principal.
-- Cambios y PR: `revisar-cambios-vec`, `documentar-entregar-vec`, `pr-vec`; backend con `programar-backend-vec` y `persistir-autorizar-vec`; interfaz con `programar-interfaz-vec`; recorridos con `probar-recorridos-vec`.
-- Buscar código: primero el índice (codebase-memory-mcp); grep solo para texto y configuración.
-- Navegador y capturas: Playwright con el Chrome del sistema.
-- i18n puro: ningún texto ni idioma dentro del código; textos en catálogos de datos por idioma.
-- Modelo: el más barato que baste (Sonnet para lo mecánico; Opus para diseño, SQL, seguridad y revisiones).
-Codex lee las skills de `.agents/skills/` del repositorio y Claude, de `~/.claude/skills/`.
-`ensayar-sql` y `pr-vec` solo existen en `~/.claude/skills/`: en Codex ese paso lo hace dirección.
-`security-audit` está en `~/.claude/skills/` y en `skills/` de cada CODEX_HOME.
-
-## Calidad
-
-### Rendimiento instantáneo — orden del operador, 6 de octubre de 2026
-
-La aplicación debe responder de forma instantánea en todos los módulos y
-soportar miles de personas conectadas a la vez. Es requisito de aceptación, no
-una mejora.
-
-- Objetivo: cada lectura responde en el servidor en menos de 300 ms (p95) con
-  volumen de datos real; la pantalla útil aparece en menos de 1 s.
-- Toda PR que añada o cambie una ruta aporta una medición con volumen realista
-  (`EXPLAIN ANALYZE` y tiempo de la ruta) o una prueba que fije el número de
-  consultas.
-- Prohibido el N+1: ni una consulta ni un consumo de autorización por fila. Se
-  trabaja en lotes, con índices y con transacciones cortas.
-- El portal muestra primero lo que ya tiene y carga cada módulo por separado,
-  sin que uno lento bloquee a los demás.
-- Antes de cada hito, prueba de carga local a cientos y miles de usuarios
-  concurrentes, con percentiles y errores.
-- La velocidad nunca se consigue quitando autorización, auditoría ni otras
-  comprobaciones.
-
-### Validación eficiente — orden del operador, 24 de septiembre de 2026
-
-- Durante la edición, ejecutar solo comprobaciones focales proporcionales al
-  cambio: formato, prueba del paquete o fichero afectado, `git diff --check` y
-  ensayo PostgreSQL desechable únicamente si se modifica su contrato. No lanzar
-  `go test -race ./...` ni `scripts/verificar_calidad.sh` por cada ajuste pequeño.
-- Congelar el candidato y pasar `scripts/verificar_calidad.sh` una vez sobre el
-  hash final antes del PR o la integración, conforme a la puerta vigente. Si
-  una revisión detecta `NO-GO`, detener la puerta de ese hash; corregir y validar
-  el candidato nuevo. No repetir una campaña verde sin cambio relevante o fallo
-  nuevo. Ningún encargo se cierra con su puerta exigida en rojo.
-- Ejecutar como máximo una puerta completa local a la vez y coordinarla con
-  PostgreSQL y CI para no superar dos campañas intensivas globales. La batería
-  `go test -race ./...`, en especial `internal/vec/ports`, usa CPU. Go, Node y
-  PostgreSQL no obtienen una aceleración útil trasladando esas pruebas a la GPU;
-  reducir campañas y usar pruebas focales es la medida de rendimiento aplicable.
-
-- Código documentado cuando la intención o el contrato no sean obvios.
-- Sin adaptadores ficticios en la composición real.
-- No declarar E2E, producción o cumplimiento por tener una pantalla o una
-  prueba aislada.
-- Tamaño de fichero: objetivo de 500 líneas y aviso a partir de 800 conforme a
-  DEC-051. Por decisión del operador del 23 de septiembre de 2026 **no es un
-  tope duro**: sirve para detectar ficheros que crecen sin justificación, no
-  para obligar a trocear. **Un fichero cohesionado de 1.000 líneas es preferible
-  a tres de 400 que solo se entienden juntos**; se parte cuando hay dos
-  responsabilidades de verdad, no para cumplir un número. Al superar el aviso se
-  congela el tamaño actual —en `scripts/tamano_ficheros_base.txt` o en el tope
-  de la prueba que lo mida— y se justifica en una línea del mensaje del commit.
-  Ningún corte de producto se detiene ni se reestructura por esta puerta.
-- Sin funciones monolíticas, estados globales mutables ni errores que filtren
-  detalles internos.
-- Contextos y cancelación en todas las fronteras lentas.
-- Copias defensivas al cruzar límites mutables.
-- Dependencias externas solo si están mantenidas, son compatibles en licencia
-  y reducen riesgo real.
-
-Puertas mínimas:
-
-```text
-gofmt
-go test del paquete afectado
-go test -race del paquete afectado
-go vet del paquete afectado
-git diff --check
-```
-
-Sobre el hash final, antes del PR o la integración, se pasa una vez
-`scripts/verificar_calidad.sh`, que ya incluye `go test ./...`, `go test -race ./...`,
-`go vet ./...` y la batería web. PostgreSQL se
-prueba en instancia efímera real con roles, ACL, concurrencia, reintento y
-reversión protegida. HTTP/web exige contrato, seguridad, accesibilidad y
-revisión visual.
-
-## Entrega
-
-```text
-Tarea:
-Estado: GO / NO-GO / bloqueada
-Commit(s):
-Archivos modificados:
-Resultado:
-Pruebas ejecutadas:
-Pruebas omitidas y motivo:
-Seguridad, privacidad, i18n y accesibilidad:
-Limitaciones:
-Riesgos:
-Siguiente tarea desbloqueada:
-Revisión independiente:
-```
-
-La documentación, pruebas y código se entregan juntos. El agente no cambia una
-tarea a cerrada ni actualiza el porcentaje; lo hace dirección tras verificar e
-integrar el commit.
+Las reglas de los relevos antiguos que siguen en vigor (no reaplicar migraciones
+con historia, identificarse no es firmar, un recibo local no confirma un sistema
+externo…) están en [PLAN_IMPLEMENTACION.md](docs/producto/PLAN_IMPLEMENTACION.md),
+apartado 8.
