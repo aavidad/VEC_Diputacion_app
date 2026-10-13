@@ -118,11 +118,21 @@ func (f *FuenteOriginalFirmableRRHH) ObtenerPDFOriginalCT(
 		if _, ok := HitoInformeVigenteParaOriginalRRHH(detalle); !ok {
 			return vacio, vecports.ErrOriginalFirmableCTConflicto
 		}
-	} else if detalle.Resumen.Version < 7 || len(detalle.Hitos) < 7 ||
-		detalle.Hitos[6].AccionClave != "registrar_propuesta_formalizacion" ||
-		detalle.Hitos[6].FaseDestino != "nombramiento" ||
-		detalle.Hitos[6].EstadoDestino != domain.EstadoEnCurso {
-		return vacio, vecports.ErrOriginalFirmableCTConflicto
+	} else {
+		var propuesta ports.HitoExpedienteRRHH
+		var ok bool
+		if tipo == ports.BorradorResolucion {
+			propuesta, ok = PropuestaFormalizacionBorrador(detalle.Hitos)
+		} else if len(detalle.Hitos) >= 7 {
+			// Los documentos posteriores conservan su antecedente v7. Su
+			// plantilla comprueba además la actuación posterior que exige.
+			propuesta = detalle.Hitos[6]
+			ok = propuesta.AccionClave == "registrar_propuesta_formalizacion"
+		}
+		if !ok || detalle.Resumen.Version < 7 || propuesta.VersionExpediente < 7 ||
+			propuesta.FaseDestino != "nombramiento" || propuesta.EstadoDestino != domain.EstadoEnCurso {
+			return vacio, vecports.ErrOriginalFirmableCTConflicto
+		}
 	}
 
 	tipoRef, err := f.Tipos.ResolverTipoOriginalRRHH(ctx, tipo)
