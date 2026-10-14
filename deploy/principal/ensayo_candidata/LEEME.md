@@ -53,8 +53,8 @@ TLS permanece activa. No hay respuesta simulada, cookie ni estado web guardado.
   Cada ejecución tiene su salida; las anteriores no se sobrescriben.
 
 `pasos_hz39.json` mantiene el caso aprobado: el recorrido principal comienza
-en la petición con Antonio disponible en la bolsa y contiene los pasos 1 a 21, con 7b (firma de remisión) y 16a → 17 → 16b (descarga, incorporación,
-confirmación GINPIX). Los datos que falten se ajustan por los guiones/semillas
+en la petición con Antonio disponible en la bolsa y contiene los pasos 1 a 21, con 7b (firma de remisión) y 17 → 18 → 16a → 16b (incorporación,
+relación de Personal, descarga y confirmación GINPIX). Los datos que falten se ajustan por los guiones/semillas
 existentes en la copia; este guion no fabrica filas ni otra implementación.
 
 ## Uso

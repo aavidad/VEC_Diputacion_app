@@ -33,12 +33,16 @@ apartado 4.0.
    17:00 y se anota aquí la vía elegida.
 4. **Actos de administración**, por la vía de gobierno existente y con dos
    administradores distintos:
-   - inscripción RRHH (lector técnico de Carmen) cuando la vía del paso 3 lo
+   - inscripción RRHH (lectora técnica Elena Ruiz Martín) cuando la vía del paso 3 lo
      permita, con reinicio vigilado;
    - plan de firma v2 de cinco pasos (`scripts/operacion/firma_ct_tres_pasos/`):
      crear y publicar; después `identidad/firma-vec.json` con los valores
      resultantes y reinicio.
-5. **Arranque vigilado** con vuelta atrás automática.
+5. **Arranque vigilado** con vuelta atrás. La firma nominal necesita también
+   `VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`: copiar el catálogo existente
+   `config/contratacion_temporal_circuito_rrhh_v2.json` al material de
+   incorporación y configurar su ruta de lectura. No confundirlo con el
+   catálogo de reglas de firma. Conservar ambos durante el arranque.
 6. **Recorrido** con el guion de P (`deploy/principal/ensayo_candidata/`):
    los pasos principales del caso, reinicio de app y PostgreSQL y repetición
    de lecturas; mismos recibos y sin duplicados.
@@ -50,8 +54,8 @@ apartado 4.0.
 | SQL (20) | Once SQL iniciales, AD266 y ocho SQL de Personal aplicadas una vez, sin error; ACL de tipos y base restauradas |
 | Datos del recorrido | Recetas #1135 aplicadas: plantilla existente, Antonio disponible y primer turno; manifiesto con la nueva referencia de candidato |
 | Vía del aspirante | Mi Bolsa interna; inscripción RRHH opcional apagada por dirección |
-| Plan de firma y cinco firmas | Pendientes; kit nominal de H disponible para producir actos y recibos propios de P |
-| Arranque | Último reinicio: composición en 2,614 segundos; firma y Mi Bolsa activas, inscripción RRHH apagada |
+| Plan de firma y cinco firmas | Plan de cinco pasos creado y publicado por dos administradores, con recibos reales. Catorce actos nominales confirmados. Las cinco firmas siguen pendientes |
+| Arranque | Mi Bolsa activa e inscripción RRHH apagada. La firma nominal encuentra un rechazo del lector del plan; vuelta atrás comprobada con respuesta de salud 200 |
 | Recorrido completo y reinicio | Pasos 1–7 con respuestas y recibos reales; informe preparado, firma 7b pendiente. Falta el recorrido final en copia limpia |
 | Administración propia | Fuentes, unidad y arranque con tres recibos propios. Gobierno confirmado; comprobación de cadena pendiente (`manifiesto_checkpoint_limite`) |
 | Mi Bolsa | Chrome muestra Administrativo, Disponible y orden inicial 1 de 12; lectura e historial responden 200. Preferencias devuelve 404 y se ha comunicado a su dueño |
@@ -77,15 +81,24 @@ un único expediente, con referencia MOAD `2026/39014`. Se registraron análisis
 vía Bolsa, asignación de unidad e informe jurídico mediante la pantalla y sus
 confirmaciones. El informe necesita su firma antes del tramo siguiente.
 
-La copia usa ahora el código `25547f2fbc50906f584d1ff8dc3f2621e8c69b6e`;
-el guion está en `590532615e630de17abd78e0d5514531b5eaf523`. Son versiones
-de preparación, todavía sin congelación final. La receta `mi_bolsa/` corrige
+La copia incorpora el código de GINPIX de la principal y el guion conserva
+el orden 17, 18, 16a y 16b aprobado por dirección. La versión definitiva
+se fijará al congelar. La receta `mi_bolsa/` corrige
 el ámbito ficticio de Antonio exclusivamente en la copia P; no se instala en
 cidonia. El ensayo final aplicará los datos antes de comenzar los actos del
 recorrido y conservará los recibos que produzca.
 
-La congelación del código, el plan nominal de firma, el tramo Personal/cese
-y la recuperación completa tras reiniciar siguen pendientes. El arranque y
+La configuración nominal, las cuatro admisiones, el plan y la ampliación de
+conexiones de auditoría tienen revisión independiente. El verificador de la
+copia responde por HTTPS con su CA y token propios. El arranque nominal
+localizó un requisito ausente del circuito RRHH y, después de añadirlo, un
+rechazo del lector del plan: su detector de teléfonos coincide dentro de
+una referencia opaca de cargo. Se ha comunicado a H; los actos y recibos
+publicados se conservan. La app vuelve a arrancar sin la firma nominal.
+
+El plan nominal ya se ha publicado. Siguen pendientes la activación de firma,
+la congelación del código, el tramo Personal/cese y la recuperación completa
+tras reiniciar. El arranque y
 las lecturas iniciales no acreditan esos pasos.
 Durante la preparación se incorporan correcciones y se continúa. La prueba
 que cuenta se ejecuta una vez al final, sobre una copia restaurada limpia,
