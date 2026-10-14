@@ -116,7 +116,8 @@ func audienciasConsumidorPortalExternoV3(consumidor string) []string {
 	case consumidorPreferenciasBolsasPortalExternoV3:
 		return []string{puertosbolsa.AudienciaOrdenarPreferenciasBolsas}
 	case consumidorMeritosCarteraPortalExternoV3:
-		return []string{puertosmeritos.AudienciaRetirarCartera, descriptoresMaterialMeritosInternosDesarrollo()[0].Audiencia}
+		return []string{puertosmeritos.AudienciaRetirarCartera, descriptoresMaterialMeritosInternosDesarrollo()[0].Audiencia,
+			audienciaSubidaLocalActoModulo, audienciaSubidaLocalDescargaPropia}
 	default:
 		return nil
 	}
@@ -129,6 +130,9 @@ func audienciasInventarioPortalExternoV3(consumidor string, cantidad int) []stri
 	audiencias := audienciasConsumidorPortalExternoV3(consumidor)
 	if consumidor == consumidorInscripcionPortalExternoV3 && cantidad == 1 {
 		return audiencias[:1]
+	}
+	if consumidor == consumidorMeritosCarteraPortalExternoV3 && cantidad == 2 {
+		return audiencias[:2]
 	}
 	if audiencias != nil && cantidad == len(audiencias) {
 		return audiencias
@@ -152,6 +156,7 @@ func descriptoresMaterialPortalExternoV3() []descriptorMaterialConsumidorV3Desar
 	todos = append(todos, descriptorMaterialOrdenarPreferenciasBolsasExternaV3())
 	todos = append(todos, descriptorMaterialRetirarCarteraExternaV3())
 	todos = append(todos, descriptoresMaterialMeritosInternosDesarrollo()[0])
+	todos = append(todos, descriptoresMaterialSubidaLocalExternaV3()...)
 	externas := map[string]bool{}
 	for _, consumidor := range consumidoresPortalExternoV3 {
 		for _, audiencia := range audienciasConsumidorPortalExternoV3(consumidor) {
