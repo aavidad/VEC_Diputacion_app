@@ -16,6 +16,11 @@ apartado 4.0.
 
 1. **SQL**: `lista_sql.txt`, en ese orden, cada una una vez y con
    `ON_ERROR_STOP`. Comprobar el SHA-256 de cada fichero antes de aplicarlo.
+   La lista incluye AD266, después de AD265; AUT235 ya forma parte de HZ37.
+   Al restaurar la copia, aplicar también las ACL de tipos y las ACL de la
+   base entregadas por dirección. El dump de datos no conserva las ACL de
+   la base: sin ellas faltan los permisos nominales de conexión y vuelve el
+   permiso temporal de PUBLIC. No se reconstruyen a mano.
 2. **Datos del recorrido**: `datos/` (guion repetible de K: centro 520, puesto
    9/01, plaza 2026/0033, bolsa de Administrativo).
 3. **Entrada del aspirante**: Mi Bolsa interna (HZ37) para el recorrido
@@ -41,19 +46,29 @@ apartado 4.0.
 
 | Pieza | Estado |
 | --- | --- |
-| SQL (11) | Aplicadas sin error en la copia de P |
-| Datos del recorrido | Antonio disponible y primer turno confirmados en la copia; adaptación de la plantilla inicial pendiente |
+| SQL (12) | Once SQL iniciales y AD266 aplicadas una vez, sin error, en la copia nueva de P; ACL de tipos y base restauradas |
+| Datos del recorrido | Recetas #1135 aplicadas: plantilla existente, Antonio disponible y primer turno; manifiesto con la nueva referencia de candidato |
 | Vía del aspirante | Mi Bolsa interna; inscripción RRHH opcional apagada por dirección |
 | Plan de firma y cinco firmas | Pendientes (H); el registro y el verificador siguen activados en la configuración |
-| Recorrido completo y reinicio | No ejecutados; ensayo pausado por dirección |
+| Arranque | Composición en 3,443 segundos y salud HTTPS con certificado; firma y Mi Bolsa activas, inscripción RRHH apagada |
+| Recorrido completo y reinicio | En curso; paso 1 pendiente de documento de crédito y de completar los campos del guion |
 
 Lo que no se haya ensayado en la copia no se instala en cidonia.
 
-El 14/10 dirección pausó el ensayo para presentar primero una maqueta en una
-rama aparte. La copia arrancó con el código `29870030b` en 2,819 segundos tras
-restaurar las ACL de tipos y trasladar sus conexiones y almacén al destino local.
-Ese arranque no acredita el recorrido. Los servicios de la copia se detuvieron;
-la preparación se conserva en un respaldo privado, fuera de Git. Antes de
-retomar faltan la adaptación de los datos iniciales del puesto, el plan de
-firma definitivo, el orden GINPIX–Personal confirmado y el ensayo en Chrome
-con recuperación tras reinicio.
+El ensayo se retomó el 14/10 desde el respaldo HZ37, en una copia nueva.
+La restauración terminó antes de aplicar la lista; un intento previo iniciado
+antes de terminar la restauración se descartó entero. Se conservaron las
+conexiones separadas, TLS y las comprobaciones de permisos. Las conexiones y
+la escucha se trasladaron a los puertos de la copia, accesibles solo desde
+loopback, y se preparó el directorio privado del almacén documental.
+
+Chrome del sistema abre la pantalla del centro sin errores de JavaScript ni
+de red, usando el transporte HTTPS existente del guion. La búsqueda espera
+el código RPT `9`; `9/01` es el código del puesto individual. El formulario
+también exige plaza y datos presupuestarios. El catálogo devuelve la lista
+de documentos vacía, por lo que todavía no permite elegir el documento de
+retención de crédito. Ninguna petición nueva se ha presentado.
+
+La congelación del código, el plan nominal de firma, el tramo Personal/cese
+y la recuperación completa tras reiniciar siguen pendientes. El arranque y
+las lecturas iniciales no acreditan esos pasos.

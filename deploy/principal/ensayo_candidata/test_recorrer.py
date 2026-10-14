@@ -151,6 +151,38 @@ class GuionHZ39(unittest.TestCase):
         with self.assertRaises(runner.EntradaInvalida):
             runner.comprobar_documentos(paso, alterado)
 
+    def test_aceptacion_confirma_y_recuperacion_descarga_los_mismos_documentos(self):
+        pasos = {p["id"]: p for p in runner.catalogo(ROOT / "pasos_hz39.json")}
+        acciones_aceptacion = pasos["10"]["acciones"]
+        formulario = '[data-portal-mi-bolsa="responder"][data-bolsa="$bolsa_ref"]'
+        self.assertEqual(
+            acciones_aceptacion[-2:],
+            [
+                {"tipo": "click", "selector": formulario + " [data-portal-iniciar-revision]"},
+                {"tipo": "click", "selector": formulario + ' [data-portal-revision] button[type="submit"]'},
+            ],
+        )
+
+        iniciales = [
+            (a["documento"], a["selector"])
+            for a in pasos["14"]["acciones"] if a["tipo"] == "descargar"
+        ]
+        recuperacion = pasos["14"]["acciones_recuperacion"]
+        self.assertEqual(
+            recuperacion[:2],
+            [
+                {"tipo": "click", "selector": '[data-ct-exp-abrir="$expediente_ref"]'},
+                {"tipo": "click", "selector": '[data-ct-exp-vista="documentos"]'},
+            ],
+        )
+        self.assertTrue(all(a["tipo"] == "descargar" for a in recuperacion[2:]))
+        self.assertEqual(len(iniciales), 12)
+        self.assertEqual(len({nombre for nombre, _ in iniciales}), 12)
+        self.assertEqual(
+            [(a["documento"], a["selector"]) for a in recuperacion[2:]],
+            iniciales,
+        )
+
     def test_candidata_ausente_no_equivale_a_la_misma(self):
         for datos in ({}, {"candidata": "main"}, {"candidata": None}):
             with self.assertRaises(runner.EntradaInvalida):

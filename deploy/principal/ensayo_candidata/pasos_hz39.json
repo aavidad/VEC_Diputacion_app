@@ -1236,6 +1236,10 @@
       {
         "tipo": "click",
         "selector": "[data-portal-mi-bolsa=\"responder\"][data-bolsa=\"$bolsa_ref\"] [data-portal-iniciar-revision]"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-portal-mi-bolsa=\"responder\"][data-bolsa=\"$bolsa_ref\"] [data-portal-revision] button[type=\"submit\"]"
       }
     ],
     "http": [
