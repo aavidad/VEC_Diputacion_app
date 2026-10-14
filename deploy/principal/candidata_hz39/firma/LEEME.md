@@ -39,6 +39,30 @@ con el paquete y recibo reales del plan, los cuatro recibos de certificados
 nominales y las asignaciones, roles y controles exportados de esta copia.
 Conservar la configuración y los materiales con permisos privados.
 
+## Empleados de los firmantes
+
+Antes de activar el panel nominal, aplicar `datos_empleados_firmantes.sql`
+en la copia con un archivo privado de parámetros de psql. Necesita
+`persona_tecnico`, `persona_jefatura`, `persona_diputacion`,
+`persona_secretaria` y sus cuatro `perfil_*`; además, `organismo_ref`,
+`unidad_ref`, `regimen_ref`, `modalidad_ref`, `vigente_desde` y `vigente_hasta`.
+Las personas y perfiles deben estar provistos y la unidad debe tener una
+única cabeza vigente. Usar fechas a medianoche UTC, un intervalo de 400 días
+y al menos 60 días restantes. El perfil debe estar vigente y cubrirlo.
+
+El guion añade los cuatro empleados y sus relaciones como datos ficticios,
+con origen `datos:recorrido:hz39`, según la orden de dirección. No produce
+decisiones ni recibos de negocio y no acredita un catálogo de régimen o
+modalidad del organismo. Rechaza datos anteriores distintos; una repetición
+exacta conserva la historia y la generación. La autoridad del firmante pide
+la proyección de empleado de Personal; la consulta CT general conserva su
+alcance anterior. La guarda de empleado sigue siendo obligatoria.
+
+```sh
+psql -X -v ON_ERROR_STOP=1 -f /ruta/privada/parametros-firmantes.psql \
+  -f deploy/principal/candidata_hz39/firma/datos_empleados_firmantes.sql
+```
+
 ## Vigencias
 
 El guion de certificados prepara los tres firmantes del catálogo con
@@ -165,6 +189,19 @@ exclusivo de `vec_auditoria_encadenador`, conexión TCP autenticada y TLS
 verificado. El sellador nativo mantiene la auditoría común y los accesos de
 CT. Un sellador que atienda solo la primera cadena no permite leer la ficha.
 No renovar latidos por SQL ni aumentar sus plazos para ocultar un fallo.
+
+Instalar también IS20 una sola vez, con su preimagen instalada. El cotejo de
+auditoría histórica reconoce la política de certificado personal de
+desarrollo en la fecha de autenticación: sesión interna, certificado,
+garantía sustancial y cuenta ordinaria. Administración conserva garantía
+alta. El firmante nominal declara sustancial; cambiarlo a alta no sustituye
+una autenticación acreditada ni es una opción de esta composición.
+
+El botón de PDF firmado usa `firmas-documento/descargas-v2` para la sesión
+nominal. El servidor consulta la historia autorizada en esa misma petición
+y descarga por Documentos su referencia, versión y huella. El navegador
+coteja también la huella de los bytes. La API general de Documentos conserva
+su frontera de garantía alta.
 
 ## Verificador de cada copia
 

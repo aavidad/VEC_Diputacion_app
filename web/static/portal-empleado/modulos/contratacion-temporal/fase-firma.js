@@ -100,18 +100,25 @@ function persona(fase, textos, nombrar) {
 }
 
 /**
- * Botón para descargar el PDF firmado que guarda Documentos. Los datos del
- * botón son los que la descarga liga en el servidor: expediente, documento,
- * versión y huella esperada.
+ * Botón del PDF firmado. La consulta R5 acreditada selecciona la descarga
+ * nominal; los expedientes anteriores conservan la terna de Documentos.
  */
-function botonFirmado(fase, etiqueta, textos) {
+function botonFirmado(fase, etiqueta, textos, documento) {
   const c = fase.custodiado?.documento_custodiado;
   if (!c) return "";
+  const nominal = documento?.descarga_nominal === true;
+  if (nominal && !fase.custodiado?.firma_ref) return "";
+  const atributosDescarga = nominal
+    ? `data-ct-firmado-modo="nominal" data-ct-firmado-tipo="${escaparHTML(documento.documento)}"
+          data-ct-firmado-firma-ref="${escaparHTML(fase.custodiado.firma_ref)}"
+          data-ct-firmado-custodia-ref="${escaparHTML(c.documento_ref)}" data-ct-firmado-custodia-version="${c.version}"
+          data-ct-firmado-huella="${escaparHTML(c.huella_sha256)}"`
+    : `data-ct-firmado-expediente="${escaparHTML(c.expediente_ref)}" data-ct-firmado-documento="${escaparHTML(c.documento_ref)}"
+          data-ct-firmado-version="${c.version}" data-ct-firmado-huella="${escaparHTML(c.huella_sha256)}"`;
   const pasoTexto = fase.total > 1 ? ` ${textos.traducir("fase.firmado_paso", { actual: fase.custodiado.orden, total: fase.total })}` : "";
   return `<div class="ct-fase-firma-firmado">
         <button type="button" class="boton-secundario" data-ct-descargar-firmado
-          data-ct-firmado-expediente="${escaparHTML(c.expediente_ref)}" data-ct-firmado-documento="${escaparHTML(c.documento_ref)}"
-          data-ct-firmado-version="${c.version}" data-ct-firmado-huella="${escaparHTML(c.huella_sha256)}"
+          ${atributosDescarga}
           aria-label="${escaparHTML(textos.traducir("fase.descargar_firmado_de", { documento: etiqueta }))}">${escaparHTML(textos.traducir("fase.descargar_firmado"))}</button>
         <span class="ct-fase-firma-rotulo">${escaparHTML(textos.traducir("fase.firmado_prueba"))}${escaparHTML(pasoTexto)}</span>
       </div>`;
@@ -145,7 +152,7 @@ export function renderizarFaseFirma({ catalogo, real, textos, nombrar = (_tipo, 
         <span>${escaparHTML(textoPersona)}</span></div>
       <div class="ct-fase-firma-dato"><span class="ct-fase-firma-rotulo">${escaparHTML(textos.traducir("fase.desde"))}</span>
         <span>${escaparHTML(textoDesde(fase, textos))}</span></div>
-      ${mostrarDescargaFirmado ? botonFirmado(fase, etiqueta, textos) : ""}
+      ${mostrarDescargaFirmado ? botonFirmado(fase, etiqueta, textos, documento) : ""}
     </li>`;
   }).join("");
   return `<section class="ct-fase-firma" aria-labelledby="ct-fase-firma-titulo" data-ct-fase-firma>
@@ -163,7 +170,7 @@ export function renderizarFirmadosEnDocumentos(real, textos, nombrar = (_tipo, v
     if (!fase.custodiado?.documento_custodiado) return "";
     const etiqueta = nombrar("documento", documento.etiqueta);
     return `<li class="ct-fase-firma-fila"><div class="ct-fase-firma-documento"><strong>${escaparHTML(etiqueta)}</strong></div>
-      ${botonFirmado(fase, etiqueta, textos)}</li>`;
+      ${botonFirmado(fase, etiqueta, textos, documento)}</li>`;
   }).filter(Boolean);
   return filas.length ? `<ul class="ct-exp-documentos-lista" aria-label="${escaparHTML(textos.traducir("fase.lista"))}">${filas.join("")}</ul>
     <p id="ct-firma-descarga-aviso" role="status" aria-live="polite"></p>` : "";

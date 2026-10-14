@@ -9,10 +9,11 @@
 
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
 import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261013-ct-firma-tres-v3";
-import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261013-ct-firma-tres-v3";
+import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261014-firma-pdf-v1";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
 import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261013-ct-firma-tres-v3";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
+import { crearClienteDescargaFirmaV2 } from "./cliente-http-descarga-firma-v2.js?v=20261014-firma-pdf-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
 const ESQUEMA_V1 = "vec.contratacion_temporal.circuito_firma.v1";
@@ -274,6 +275,7 @@ function fusionarConsultasV2(circuito, consultas) {
       && Boolean(firma.revision_pdf) && Boolean(firma.documento_custodiado);
     const pendiente = documento.pasos.find((paso) => !firmada(ultimas.get(paso.orden)))?.orden ?? 0;
     documentos.push(Object.freeze({ ...documento, paso_pendiente: pendiente,
+      descarga_nominal: lectura.garantia_autenticacion === "sustancial",
       pasos: Object.freeze(documento.pasos.map((paso) => {
         const firma = ultimas.get(paso.orden);
         return Object.freeze({ ...paso,
@@ -281,6 +283,7 @@ function fusionarConsultasV2(circuito, consultas) {
             : paso.orden === pendiente ? "pendiente_firma" : "en_espera",
           registrada_en: firmada(firma) || firma?.resultado === "devuelto" ? firma.registrada_en : "",
           documento_custodiado: firmada(firma) ? firma.documento_custodiado : null,
+          firma_ref: firmada(firma) ? firma.firma_ref : "",
         });
       })) }));
   }
@@ -298,6 +301,7 @@ export function crearGestorCircuitoFirma({
   clienteFirmasV2 = null, dependenciasAcciones = {}, cargarTextos,
   locale = globalThis.document?.documentElement?.lang || "es-ES",
   crearDocumentos = crearFuenteDocumentosHTTP, entornoDescarga = globalThis,
+  clienteDescargaFirmaV2 = crearClienteDescargaFirmaV2(),
   clienteOriginal = crearClienteOriginalFirmable({ exigirComprobante: true }),
 } = {}) {
   if (typeof obtenerEstado !== "function") throw new TypeError("estado del circuito de firma no disponible");
@@ -480,7 +484,9 @@ export function crearGestorCircuitoFirma({
     if (preparado && (!preparacionActual || !contexto || !mismaFicha(contexto))) return;
     if (descargando) return;
     descargando = true;
-    const descarga = preparado ? new AbortController() : null;
+    const nominal = !preparado && boton.dataset.ctFirmadoModo === "nominal";
+    if (nominal && (!contexto || !mismaFicha(contexto))) { descargando = false; return; }
+    const descarga = preparado || nominal ? new AbortController() : null;
     if (descarga) descargaPreparadaControlador = descarga;
     boton.setAttribute("aria-disabled", "true");
     boton.setAttribute("aria-describedby", preparado ? "ct-preparacion-aviso" : boton.closest?.("[data-ct-exp-firmados]")
@@ -506,6 +512,13 @@ export function crearGestorCircuitoFirma({
           || original.comprobante?.numero_vec !== preparacionActual.comprobante.numero_vec
           || original.comprobante?.custodiado_en !== preparacionActual.comprobante.custodiado_en) throw new TypeError("original cambiado");
         archivo = { contenido: original.contenido, tipo: "application/pdf", nombre: t("circuito_firma_original_nombre") };
+      } else if (nominal) {
+        archivo = await clienteDescargaFirmaV2.descargar({ expedienteRef: contexto.ref, version: contexto.version,
+          documento: d.ctFirmadoTipo, firmaRef: d.ctFirmadoFirmaRef,
+          custodiaRef: d.ctFirmadoCustodiaRef, custodiaVersion: Number(d.ctFirmadoCustodiaVersion),
+          huellaEsperada: d.ctFirmadoHuella }, { signal: descarga.signal });
+        if (!mismaFicha(contexto) || descarga.signal.aborted) return;
+        if (documento) archivo = { ...archivo, nombre: `${documento.replaceAll(/[\\/:*?"<>|]/gu, "-")}.pdf` };
       } else {
         const fuente = crearDocumentos({ expedienteRef: d.ctFirmadoExpediente });
         archivo = await fuente.descargar(d.ctFirmadoDocumento, {
@@ -524,8 +537,8 @@ export function crearGestorCircuitoFirma({
       } finally { enlace.remove(); }
       decir(preparado ? "circuito_firma_original_descargado" : documento ? "fase.descargado" : "fase.descargado_sin_nombre", { documento });
     } catch (error) {
-      if (controlador.signal.aborted) return;
-      if (preparado && !mismaFicha(contexto)) return;
+      if (controlador.signal.aborted || descarga?.signal.aborted) return;
+      if ((preparado || nominal) && !mismaFicha(contexto)) return;
       decir(preparado ? "circuito_firma_original_descarga_error" : error?.codigo === "denegado" ? "fase.descarga_denegada" : "fase.descarga_error");
     } finally {
       if (url) setTimeout(() => entornoDescarga.URL.revokeObjectURL?.(url), 0);

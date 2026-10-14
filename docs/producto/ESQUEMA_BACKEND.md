@@ -679,6 +679,23 @@ gestor documental externo.
   y `Content-Security-Policy` cerrada.
 - Límites de tamaño de cuerpo y de respuesta antes de reservar memoria.
 
+La descarga nominal de un PDF firmado de Contratación temporal usa
+`POST /api/vec/contratacion-temporal/firmas-documento/descargas-v2` con
+`expediente_ref`, `version_observada`, `documento` y `firma_ref`. Resuelve la
+custodia desde una consulta de firmas autorizada en la misma petición,
+descarga por la autoridad de Documentos y coteja versión, expediente,
+productor, tipo, longitud y huella. El navegador verifica también los bytes.
+Esta frontera conserva la garantía sustancial del certificado nominal; la
+API general de Documentos mantiene su garantía alta. El contexto de firma
+exige la proyección canónica de empleado de Personal.
+
+La auditoría histórica admite la política de certificado personal de
+desarrollo acreditada en la fecha original para una cuenta interna
+ordinaria, con método certificado y garantía sustancial. No exige que esa
+política siga activa para auditar una denegación posterior a su retirada.
+Los actos y lecturas continúan comprobando su autorización vigente;
+Administración mantiene garantía alta.
+
 ### 11.3 Contrato de errores
 
 ```json

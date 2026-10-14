@@ -951,6 +951,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true}
 	}
 	var montajeFirmaVec *montajeFirmaVecR5CT
+	defer func() {
+		if cerrarAlta && montajeFirmaVec != nil && montajeFirmaVec.cerrarAuditoria != nil {
+			montajeFirmaVec.cerrarAuditoria()
+		}
+	}()
 	var lecturasFirmaVec *montajeLecturasFirmaV2
 	if firmaVecActiva {
 		if firmaDocumento == nil || alta.soporte.perfilesOriginal == nil || consultasRRHH.identidad == nil || consultaCircuitoRRHH == nil ||
