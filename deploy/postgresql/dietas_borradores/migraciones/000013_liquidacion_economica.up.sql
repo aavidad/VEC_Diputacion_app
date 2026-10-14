@@ -1127,12 +1127,12 @@ DO $post$ BEGIN
        'vec_dietas.consultar_tarifa_publicada_v1(text,date,smallint,text)'::regprocedure)
        AND (p.proowner<>'vec_dietas_propietario'::regrole OR NOT p.prosecdef
         OR p.proacl::text IS DISTINCT FROM '{vec_dietas_propietario=X/vec_dietas_propietario,vec_dietas_ejecutor=X/vec_dietas_propietario}'
-        OR p.proconfig NOT @> ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']))
+        OR (p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']) IS NOT TRUE))
     OR (SELECT p.prosecdef IS NOT TRUE OR p.proowner<>'vec_dietas_propietario'::regrole
-        OR p.proconfig NOT @> ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
+        OR (p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']) IS NOT TRUE
         FROM pg_proc p WHERE p.oid='vec_dietas.registrar_liquidacion_economica_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
     OR (SELECT p.prosecdef IS NOT TRUE OR p.proowner<>'vec_dietas_propietario'::regrole
-        OR p.proconfig NOT @> ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
+        OR (p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']) IS NOT TRUE
         FROM pg_proc p WHERE p.oid='vec_dietas.consultar_liquidacion_economica_v1(text,bigint,bytea,bytea,jsonb)'::regprocedure)
     OR (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         WHERE n.nspname='vec_dietas' AND c.relname IN
