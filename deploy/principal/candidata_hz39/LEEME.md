@@ -51,7 +51,7 @@ apartado 4.0.
 
 | Pieza | Estado |
 | --- | --- |
-| SQL (20) | Once SQL iniciales, AD266 y ocho SQL de Personal aplicadas una vez, sin error; ACL de tipos y base restauradas |
+| SQL (22, en la copia) | Veinte SQL de esta candidata y CT218/IS20 de H aplicadas una vez, sin error; ACL exactas restauradas. Las dos nuevas siguen en #1137, pendiente de integración |
 | Datos del recorrido | Recetas #1135 aplicadas: plantilla existente, Antonio disponible y primer turno; manifiesto con la nueva referencia de candidato |
 | Vía del aspirante | Mi Bolsa interna; inscripción RRHH opcional apagada por dirección |
 | Plan de firma y cinco firmas | Plan de cinco pasos creado y publicado por dos administradores, con recibos reales. Catorce actos nominales confirmados. Las cinco firmas siguen pendientes |
@@ -99,10 +99,21 @@ solo puede haber un plan publicado en el módulo. La operación de publicación
 pendiente se retomó con su mismo material y clave, sin repetir la creación.
 El lector acepta el paquete nuevo y la app arranca con firma nominal activa.
 
-Chrome abre el expediente y consulta el circuito, pero las seis consultas de
-estado de firma devuelven 503. PostgreSQL señala «autenticación histórica
-inválida» en su cotejo de auditoría. H está corrigiendo este fallo; el panel no
-acredita ninguna firma mientras la consulta no funcione.
+El 14/10 se incorporó en la copia el código de H
+`a4158f4df9aa03b5d7c0417e8487ea57455265b7`, aún en #1137, junto con CT218 e
+IS20. La plantilla 4 y la firma nominal arrancan; salud 200. Los cuatro
+empleados y sus relaciones se cargaron como datos ficticios, con origen
+`datos:recorrido:hz39`, desde el 14 de octubre hasta el 11 de enero de 2027.
+La ventana de 89 días está cubierta por sus asignaciones y tiene revisión
+independiente. No se ampliaron esas asignaciones ni se modificaron sus recibos.
+
+Después de esos datos, sesión, módulos y lista de expedientes responden 200.
+La última lectura queda en «Comprobando» y agota el plazo al buscar el panel;
+no acredita consulta ni firma. H sigue corrigiendo el cotejo de cargo y rol
+que devuelve 422 al registrar. Las cinco firmas siguen pendientes.
+
+Dirección pidió el cierre ordenado el 14/10 a las 23:10. Se conserva la copia
+para retomar; esta pausa no deja la candidata lista para instalar.
 
 El plan nominal ya se ha publicado. Siguen pendientes la activación de firma,
 la congelación del código, el tramo Personal/cese y la recuperación completa
