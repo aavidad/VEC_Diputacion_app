@@ -338,7 +338,7 @@ BEGIN
    (j->>'propietario_version')::numeric IS DISTINCT FROM p_persona_version OR
    j->>'persona_ref' IS DISTINCT FROM (convert_from(p_contexto,'UTF8')::jsonb)->>'persona_ref'
   THEN RAISE EXCEPTION 'D20: reserva inválida' USING ERRCODE='42501'; END IF;
-  PERFORM pg_advisory_xact_lock(hashtextextended('vec_documentos:subida_local:'||j->>'persona_ref'||':'||j->>'clave_idempotencia_hmac',0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('vec_documentos:subida_local:'||(j->>'persona_ref')||':'||(j->>'clave_idempotencia_hmac'),0));
   SELECT * INTO r FROM vec_documentos.subida_local WHERE
    persona_ref=j->>'persona_ref' AND clave_idempotencia_hmac=j->>'clave_idempotencia_hmac' FOR UPDATE;
   IF FOUND THEN
@@ -410,7 +410,7 @@ BEGIN
    evidencia->>'Accion' IS DISTINCT FROM 'escribir' OR
    evidencia->>'AccionNegocio' IS DISTINCT FROM j->>'accion' OR
    evidencia->>'CargaRef' IS DISTINCT FROM r.carga_id OR
-   evidencia->>'RecursoRef' IS DISTINCT FROM r.recurso_ref OR
+   evidencia->>'RecursoRef' IS DISTINCT FROM r.carga_id OR
    evidencia->>'ModuloID' IS DISTINCT FROM r.modulo_id OR
    evidencia->>'Finalidad' IS DISTINCT FROM r.finalidad OR
    evidencia->>'CorrelacionRef' IS DISTINCT FROM r.correlacion_ref OR
@@ -420,7 +420,7 @@ BEGIN
    evidencia#>>'{Objeto,Version}' IS DISTINCT FROM objeto#>>'{Objeto,Version}'
   THEN RAISE EXCEPTION 'D20: recibo de cuarentena divergente' USING ERRCODE='42501'; END IF;
   recibo:='ref:'||encode(sha256(convert_to('vec.documentos.subida_local.recibo.v1:'||r.carga_id||':'||
-   objeto#>>'{Objeto,Referencia}'||':'||objeto#>>'{Objeto,Version}'||':'||r.huella_pdf_sha256,'UTF8')),'hex');
+   (objeto#>>'{Objeto,Referencia}')||':'||(objeto#>>'{Objeto,Version}')||':'||r.huella_pdf_sha256,'UTF8')),'hex');
   UPDATE vec_documentos.subida_local SET estado='recibido',version=2,cuarentena=jsonb_build_object(
    'Objeto',objeto,'Evidencia',evidencia),recibo_ref=recibo,actualizada_en=clock_timestamp() WHERE carga_id=r.carga_id;
   PERFORM vec_documentos.registrar_cambio_subida_local_v1(r.carga_id,2,'recibido',
@@ -481,7 +481,10 @@ BEGIN
     evidencia->>'Accion' IS DISTINCT FROM 'promover' OR
     evidencia->>'AccionNegocio' IS DISTINCT FROM j->>'accion' OR
     evidencia->>'CargaRef' IS DISTINCT FROM r.carga_id OR
-    evidencia->>'RecursoRef' IS DISTINCT FROM r.recurso_ref OR
+    evidencia->>'RecursoRef' IS DISTINCT FROM r.carga_id OR
+    evidencia->>'ModuloID' IS DISTINCT FROM r.modulo_id OR
+    evidencia->>'Finalidad' IS DISTINCT FROM r.finalidad OR
+    evidencia->>'FundamentoRef' IS DISTINCT FROM v_analisis->>'EvidenciaRef' OR
     evidencia->>'CorrelacionRef' IS DISTINCT FROM r.correlacion_ref OR
     evidencia->>'Referencia' IS DISTINCT FROM objeto->>'EvidenciaCreacionRef' OR
     evidencia->>'ConectorID' IS DISTINCT FROM objeto->>'ConectorID' OR

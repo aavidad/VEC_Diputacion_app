@@ -25,7 +25,8 @@ BEGIN
  f:='vec_autorizacion.publicar_asignacion_usuarios_externo_v1(bytea,text,bigint,text,text,text,text)'::regprocedure;
  s:=pg_get_functiondef(f);
  IF strpos(s,'rol_meritos_cartera_cinco_v2')=0 OR
-  strpos(s,'["accion":"meritos.cartera.consultar_propia"')=0
+  strpos(s,'[{"accion":"meritos.cartera.consultar_propia"')=0 OR
+  strpos(s,'"accion":"meritos.hecho.declarar"')=0
  THEN RAISE EXCEPTION 'AUT95: publicador perdió rol M4 legado'; END IF;
  IF vec_autorizacion.acciones_meritos_cartera_v2() IS DISTINCT FROM ARRAY[
   'meritos.cartera.comprobante.descargar_propio',

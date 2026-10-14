@@ -27,11 +27,11 @@ BEGIN
  END LOOP;
  def:=pg_get_functiondef(to_regprocedure('vec_documentos.operar_subida_local_interna_v1('||firma||')'));
  IF strpos(def,'registrar_cambio_subida_local_v1')=0 OR
-  strpos(def,"fase='registrar_analisis'")=0 OR
+  strpos(def,'fase=''registrar_analisis''')=0 OR
   strpos(def,'v_analisis IS DISTINCT FROM r.analisis')=0 OR
-  strpos(def,"j->>'objeto_version' IS DISTINCT FROM r.admitido")=0 OR
-  strpos(def,"r.propietario_version>p_persona_version")=0 OR
-  strpos(def,"documento_version=1")=0
+  strpos(def,'j->>''objeto_version'' IS DISTINCT FROM r.admitido')=0 OR
+  strpos(def,'r.propietario_version>p_persona_version')=0 OR
+  strpos(def,'documento_version=1')=0
  THEN RAISE EXCEPTION 'D20: transición, recuperación u objeto exacto ausentes'; END IF;
  IF strpos(pg_get_functiondef(to_regprocedure('vec_documentos.consumir_preimagen_subida_local_v1('||firma||')')),
   '{"ambitos":{"persona_ref":"%s"},"atributos":{"preimagen_sha256":"%s"}}')=0 OR
