@@ -163,7 +163,7 @@ export function montarVistaSaldoCronos({ raiz, cliente, mensajes = MENSAJES_CRON
       if (!activa || turno !== secuencia || controlador.signal.aborted) return;
       datos = null;
       estado = !(error instanceof ErrorClienteSaldoCronos) ? "error" : error.codigo === "acceso_denegado" ? "denegado"
-        : error.estado === 404 ? "no_disponible" : "error";
+        : [404, 503].includes(error.estado) ? "no_disponible" : "error";
       dibujar(); anunciar(t(estado === "denegado" ? "saldo_denegado" : estado === "no_disponible" ? "saldo_no_disponible" : "saldo_error"));
     }
   };

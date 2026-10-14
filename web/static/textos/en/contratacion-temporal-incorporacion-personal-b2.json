@@ -65,6 +65,21 @@
   "sin_catalogos": "Personnel terms are unavailable. Human Resources must review the catalogues.",
   "revision_lista": "Review these details before recording commencement of service.",
   "clase_ocupacion": "Occupancy type (required)",
+  "rrhh": {
+    "ct": {
+      "incorporacion": {
+        "b2": {
+          "clase_ocupacion": {
+            "opcion": {
+              "titular": "Holder",
+              "provisional": "Provisional",
+              "temporal": "Temporary"
+            }
+          }
+        }
+      }
+    }
+  },
   "personal": {
     "ocupacion": {
       "clase": {

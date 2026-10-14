@@ -9,9 +9,10 @@ import (
 // MaterialPropuestaFormalizacion liga cada etapa a la solicitud canónica.
 // La evidencia de Bolsa solo la aporta composición confiable, nunca el navegador.
 type MaterialPropuestaFormalizacion struct {
-	Etapa           string
-	Solicitud       SolicitudPropuestaFormalizacion
-	AceptacionBolsa *EvidenciaAceptacionBolsaPropuesta `json:",omitempty"`
+	Etapa                 string
+	Solicitud             SolicitudPropuestaFormalizacion
+	AceptacionBolsa       *EvidenciaAceptacionBolsaPropuesta `json:",omitempty"`
+	AceptacionBolsaNativa *EvidenciaAceptacionBolsaNativa    `json:",omitempty"`
 }
 
 func (m MaterialPropuestaFormalizacion) Validar() error {
@@ -23,12 +24,19 @@ func (m MaterialPropuestaFormalizacion) Validar() error {
 	}
 	switch m.Etapa {
 	case "consulta":
-		if m.AceptacionBolsa != nil {
+		if m.AceptacionBolsa != nil || m.AceptacionBolsaNativa != nil {
 			return ErrSolicitudPropuestaFormalizacionInvalida
 		}
 	case "confirmacion":
-		if m.AceptacionBolsa == nil || m.AceptacionBolsa.Validar() != nil ||
-			m.AceptacionBolsa.LlamamientoRef != m.Solicitud.LlamamientoRef {
+		if (m.AceptacionBolsa == nil) == (m.AceptacionBolsaNativa == nil) {
+			return ErrSolicitudPropuestaFormalizacionInvalida
+		}
+		if m.AceptacionBolsa != nil && (m.AceptacionBolsa.Validar() != nil ||
+			m.AceptacionBolsa.LlamamientoRef != m.Solicitud.LlamamientoRef) {
+			return ErrSolicitudPropuestaFormalizacionInvalida
+		}
+		if m.AceptacionBolsaNativa != nil && (m.AceptacionBolsaNativa.Validar() != nil ||
+			m.AceptacionBolsaNativa.Selector.LlamamientoRef != m.Solicitud.LlamamientoRef) {
 			return ErrSolicitudPropuestaFormalizacionInvalida
 		}
 	default:
@@ -43,7 +51,47 @@ func (m MaterialPropuestaFormalizacion) Clonar() MaterialPropuestaFormalizacion 
 		copia := *m.AceptacionBolsa
 		m.AceptacionBolsa = &copia
 	}
+	if m.AceptacionBolsaNativa != nil {
+		copia := *m.AceptacionBolsaNativa
+		m.AceptacionBolsaNativa = &copia
+	}
 	return m
+}
+
+// EvidenciaAceptacionBolsaNativa describe B110/B7/B30 sin reaprovechar
+// OperacionRef, AperturaOperacionRef ni PropuestaRef del ledger antiguo.
+// CT211 revalida estos hechos en Bolsa tras consumir la autorización CT.
+type EvidenciaAceptacionBolsaNativa struct {
+	Selector     domain.SelectorBolsaPlanB2Nativo
+	RespuestaRef string
+	RespondidaEn time.Time
+}
+
+func (e EvidenciaAceptacionBolsaNativa) Validar() error {
+	if !e.Selector.Valido() || !domain.ReferenciaOpacaValida(e.RespuestaRef) ||
+		!domain.InstanteUTCCanonico(e.RespondidaEn) || e.RespondidaEn.Nanosecond()%1000 != 0 {
+		return ErrResolucionLlamamientoNoAceptada
+	}
+	return nil
+}
+
+func (e EvidenciaAceptacionBolsaNativa) ValidarPara(a AntecedentePropuestaFormalizacion) error {
+	r := a.Resolucion
+	j := a.Justificante
+	if e.Validar() != nil || r.ValidarPara(r.Solicitud) != nil ||
+		r.Solicitud.Respuesta != RespuestaLlamamientoAceptada || j.ValidarPara(r.Solicitud) != nil ||
+		j.Continuacion != nil || !j.Seleccion.Procedencia.SinRetencionDeclarada ||
+		e.Selector.ClaveCT != a.SeleccionClave ||
+		e.Selector.OrganizacionRef != r.Solicitud.OrganizacionRef ||
+		e.Selector.ExpedienteRef != r.Solicitud.ExpedienteRef ||
+		e.Selector.LlamamientoRef != r.Solicitud.LlamamientoRef ||
+		e.Selector.NecesidadRef != j.Seleccion.Necesidad.Referencia ||
+		e.Selector.BolsaRef != j.Seleccion.Bolsa.Referencia ||
+		e.Selector.ReciboEmisionRef != j.Seleccion.ReciboRef ||
+		e.RespondidaEn.Before(j.Seleccion.ConfirmadaEn) || e.RespondidaEn.After(r.ResueltaEn) {
+		return ErrResolucionLlamamientoNoAceptada
+	}
+	return nil
 }
 
 // AntecedentePropuestaFormalizacion conserva los recibos originales CT; no

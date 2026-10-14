@@ -55,6 +55,7 @@ type ContratoPlanNominal struct {
 	ReservaIdempotente  string
 	DatosPersonal       DatosActosPersonalB2
 	SelectorBolsa       dom.SelectorBolsaPlanB2
+	SelectorBolsaNativa dom.SelectorBolsaPlanB2Nativo
 }
 
 // DatosActosPersonalB2 conserva selecciones verificadas de RRHH y sus fuentes.
@@ -392,6 +393,14 @@ func contratoB2Valido(c ContratoPlanNominal) bool {
 }
 
 func selectorBolsaPlanB2Valido(c ContratoPlanNominal) bool {
+	if !c.SelectorBolsaNativa.IsZero() {
+		s := c.SelectorBolsaNativa
+		return c.SelectorBolsa.IsZero() && s.Valido() &&
+			s.OrganizacionRef == c.OrganizacionRef && s.ExpedienteRef == c.ExpedienteRef &&
+			s.CategoriaRef == c.CategoriaRef && s.LlamamientoRef == c.LlamamientoRef &&
+			s.ReciboRespuestaRef == c.SeleccionReciboRef &&
+			c.DatosPersonal.CategoriaID == c.CategoriaRef
+	}
 	s := c.SelectorBolsa
 	for _, r := range []string{s.UnidadRef, s.CategoriaRef, s.NecesidadRef, s.AceptacionOperacionRef, s.AperturaOperacionRef, s.LlamamientoRef, s.PropuestaRef} {
 		if !dom.ReferenciaOpacaValida(r) {

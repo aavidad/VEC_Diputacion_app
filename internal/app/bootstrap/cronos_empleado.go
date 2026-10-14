@@ -1,15 +1,12 @@
 package bootstrap
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"path/filepath"
 	"runtime"
@@ -43,7 +40,7 @@ const prefijoRutasCronosEmpleado = "/api/interna/cronos/"
 // El archivo privado sólo selecciona cuentas registradas, conexiones
 // nominales, motivos y la política del canal remoto. Las claves V3 son las del
 // gobierno único que publica Contratación. Con el selector activado, su
-// ausencia o cualquier dependencia incompleta impide arrancar.
+// ausencia o cualquier dependencia incompleta cierra las rutas de Cronos.
 type configuracionCronosEmpleadoDesarrollo struct {
 	redaccionMaterialRutasDietas
 	Version                  int                           `json:"version"`
@@ -359,7 +356,8 @@ func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Poo
 }
 
 // nuevasRutasCronosEmpleadoDesarrollo devuelve nil con el selector apagado.
-// Con él activado, cualquier pieza ausente o incoherente impide arrancar.
+// Con él activado, cualquier pieza ausente o incoherente devuelve un error
+// que el montaje supervisado aísla en las rutas de Cronos.
 func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, material materialCronosDesdeCTDesarrollo) (*autoridadCronosEmpleadoDesarrollo, error) {
 	activo, err := cfg.CronosEmpleadoDesarrolloActivo()
 	if err != nil {
@@ -381,73 +379,14 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		(notificaciones && !material.completoNotificaciones()) {
 		return nil, errCronosEmpleadoEn()
 	}
-	contenido, err := leerFicheroMaterialSeguro(filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "cronos-empleado.json"), 256<<10)
-	if err != nil || validarClavesJSONUnicas(contenido) != nil {
-		return nil, errCronosEmpleadoEn()
-	}
-	defer borrarBytes(contenido)
-	var c configuracionCronosEmpleadoDesarrollo
-	dec := json.NewDecoder(bytes.NewReader(contenido))
-	dec.DisallowUnknownFields()
-	var extra any
-	if dec.Decode(&c) != nil || !errors.Is(dec.Decode(&extra), io.EOF) || c.Version != 1 || c.Autoridad != AutoridadNoAutoritativa || len(c.Cuentas) == 0 || len(c.Cuentas) > 64 ||
-		(c.ZonaHoraria != cronosdomain.ZonaSaldoPeninsula && c.ZonaHoraria != cronosdomain.ZonaSaldoCanarias) {
-		return nil, errCronosEmpleadoEn()
-	}
-	motivos := cronoscomp.MotivosCronos{Saldo: c.Motivos.Saldo, Marcaje: c.Motivos.Marcaje, Disponibilidad: c.Motivos.Disponibilidad, Recuperacion: c.Motivos.Recuperacion,
-		Movimientos: c.Motivos.Movimientos, Correccion: c.Motivos.Correccion, Permisos: c.Motivos.Permisos, Permiso: c.Motivos.Permiso}
-	if !core.ReferenciaMotivoAutorizacionV2Valida(c.AuditoriaIntentos.MotivoDenegado) ||
-		c.AuditoriaIntentos.MotivoDenegado.Referencia() == motivos.Saldo.Referencia() {
-		return nil, errCronosEmpleadoEn()
-	}
-	comunes := []core.ReferenciaEntradaCatalogo{motivos.Marcaje, motivos.Disponibilidad, motivos.Recuperacion, motivos.Movimientos, motivos.Correccion, motivos.Permisos, motivos.Permiso}
-	// La resolución exige sus cuatro motivos con su selector; sin él se
-	// ignoran para no emitir decisiones de una capacidad no compuesta.
-	if resolucion {
-		motivos.Bandeja, motivos.Resolucion, motivos.Avisos, motivos.ArchivoAviso = c.Motivos.Bandeja, c.Motivos.Resolucion, c.Motivos.Avisos, c.Motivos.ArchivoAviso
-		comunes = append(comunes, motivos.Bandeja, motivos.Resolucion, motivos.Avisos, motivos.ArchivoAviso)
-	}
-	// Igual para las notificaciones a RRHH.
-	if notificaciones {
-		motivos.Notificacion, motivos.Notificaciones = c.Motivos.Notificacion, c.Motivos.Notificaciones
-		motivos.BandejaNotificaciones, motivos.AtencionNotificacion = c.Motivos.BandejaNotificaciones, c.Motivos.AtencionNotificacion
-		comunes = append(comunes, motivos.Notificacion, motivos.Notificaciones, motivos.BandejaNotificaciones, motivos.AtencionNotificacion)
-	}
-	for _, m := range comunes {
-		if m.CatalogoID != motivos.Saldo.CatalogoID || m.Referencia() == c.AuditoriaIntentos.MotivoDenegado.Referencia() {
-			return nil, errCronosEmpleadoEn()
-		}
-	}
-	canal, err := cronosdomain.NuevaAcreditacionCanalMarcaje(cronosdomain.DatosAcreditacionCanalMarcaje{PoliticaVersionRef: c.CanalRemoto.PoliticaVersionRef, CanalRef: c.CanalRemoto.CanalRef, OrigenRef: cronosdomain.OrigenMarcajeRemoto, CalidadRef: c.CanalRemoto.CalidadRef})
+	datos, err := cargarConfiguracionCronosValidada(cfg, identidad, resolucion, notificaciones)
 	if err != nil {
 		return nil, errCronosEmpleadoEn()
 	}
-	zona, err := time.LoadLocation(c.ZonaHoraria)
-	if err != nil {
-		return nil, errCronosEmpleadoEn()
-	}
-	cuentas := map[string]cuentaRutasDietasDesarrollo{}
-	for _, cuenta := range c.Cuentas {
-		b, e := hex.DecodeString(cuenta.CertificadoSHA256)
-		if e != nil || len(b) != sha256.Size || hex.EncodeToString(b) != cuenta.CertificadoSHA256 || cuenta.Sujeto == "" || cuenta.CuentaRef == "" || cuenta.PerfilRef == "" {
-			return nil, errCronosEmpleadoEn()
-		}
-		var digest [32]byte
-		copy(digest[:], b)
-		principal, existe := identidad.porHuella[digest]
-		if !existe || principal.ID != cuenta.Sujeto || principal.AuthMethod != core.AuthMethodCertificate || principal.AuthAssurance != core.AuthAssuranceHigh || cuentas[cuenta.CertificadoSHA256].Sujeto != "" {
-			return nil, errCronosEmpleadoEn()
-		}
-		cuentas[cuenta.CertificadoSHA256] = cuenta
-	}
+	c, motivos, canal, zona, cuentas := datos.archivo, datos.motivos, datos.canal, datos.zona, datos.cuentas
 	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancel()
-	entradas := []struct{ dsn, rol string }{
-		{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"},
-		{c.DSNContexto, "vec_contexto_actor_v1_runtime"}, {c.DSNFuenteAutorizacion, "vec_autorizacion_fuente"},
-		{c.DSNRegistroAutorizacion, "vec_autorizacion_registro"}, {c.DSNMotivos, "vec_autorizacion_motivos_evaluador"},
-		{c.DSNCronos, "vec_cronos_v1_ejecutor"}, {c.DSNCronosAuditor, "vec_cronos_v1_auditor"},
-	}
+	entradas := entradasConexionCronos(c)
 	var pools []*pgxpool.Pool
 	var cerrarIntentos func()
 	var unaVez sync.Once

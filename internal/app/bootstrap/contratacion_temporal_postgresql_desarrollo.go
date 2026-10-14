@@ -554,37 +554,6 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 	}
-	etapa = "material_cronos"
-	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
-		var cronos [8]*proveedorMaterialAltaContratacionTemporalDesarrollo
-		for i, audiencia := range audienciasCronosEmpleadoDesarrollo() {
-			cronos[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
-			if err != nil {
-				return vacias, err
-			}
-		}
-		dependencias.materialCronos = materialCronosDesdeProveedores(cronos)
-		if cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled) {
-			var resolucion [4]*proveedorMaterialAltaContratacionTemporalDesarrollo
-			for i, audiencia := range audienciasCronosResolucionDesarrollo() {
-				resolucion[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
-				if err != nil {
-					return vacias, err
-				}
-			}
-			dependencias.materialCronos = dependencias.materialCronos.conResolucion(resolucion)
-		}
-		if cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled) {
-			var notificaciones [4]*proveedorMaterialAltaContratacionTemporalDesarrollo
-			for i, audiencia := range audienciasCronosNotificacionesDesarrollo() {
-				notificaciones[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
-				if err != nil {
-					return vacias, err
-				}
-			}
-			dependencias.materialCronos = dependencias.materialCronos.conNotificaciones(notificaciones)
-		}
-	}
 	etapa = "material_documentos"
 	if documentosSolicitados(cfg.DocumentosEnabled) {
 		dependencias.materialDocumentos, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptoresMaterialDocumentosDesarrollo()[0].Audiencia)
@@ -902,6 +871,19 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			registrarFalloDietasArranque("material", falloDietas)
 		} else {
 			dependencias.materialDietas = materialDietas
+		}
+	}
+	// Cronos es opcional: se publica después de completar CT y con un plazo
+	// propio. Un agotamiento suyo no cancela las conexiones ni los pasos de CT.
+	etapa = "material_cronos"
+	if seleccion.cronos {
+		cancelar() // Ya terminaron las operaciones de CT que usan su plazo.
+		ctxCronos, cancelarCronos := contextoPublicacionCronos(ctx)
+		var falloCronos error
+		dependencias.materialCronos, falloCronos = publicarMaterialCronosEnLote(ctxCronos, gobierno, material, reloj, catalogoMaterial, seleccion)
+		cancelarCronos()
+		if falloCronos != nil {
+			registrarFalloCronosArranque(marcarFalloComponenteArranque("cronos_material_v3", falloCronos))
 		}
 	}
 	completa = true

@@ -1,18 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261008-alta-rpt-circular-v6";
+import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
+import { consultaB2GINPIX } from "./ficha-ginpix-fixture.mjs";
 
-const recibo = {
-  esquema: "vec.contratacion-temporal.incorporacion-ejercicio.recibo.v2",
-  expediente_ref: "expediente:ct:foco", solicitud_personal_ref: "solicitud:foco",
-  relacion_ref: "relacion:foco", recibo_ref: "recibo:foco", actuacion_ref: "actuacion:foco",
-  registrada_en: "2026-09-10T10:00:00Z",
-  periodo_incorporacion: { desde: "2026-09-11T00:00:00Z", hasta: "2026-09-12T00:00:00Z" },
-  version_solicitud_personal: 1, version_actual_expediente: 2,
-  seguimiento_ref: "seguimiento:foco", version_seguimiento_anterior: 0,
-  version_seguimiento_resultante: 1, auditoria_ref: "auditoria:foco", outbox_ref: "outbox:foco",
-  ejercicio_sintetico: true, firma_oficial: false, eficacia_administrativa: false,
-};
+const consulta = consultaB2GINPIX();
 
 function diferida() {
   let resolver, rechazar;
@@ -58,7 +49,7 @@ function fichaDOM() {
 
 test("teclado: conserva botón enfocado y estado ocupado hasta descargar una sola vez", async () => {
   const dom = fichaDOM(); const pendiente = diferida(); let consultas = 0, archivos = 0;
-  montarFichaGINPIX({ raiz: dom.raiz, recibo,
+  montarFichaGINPIX({ raiz: dom.raiz, consulta,
     cliente: { descargarFichaGINPIX: () => { consultas++; return pendiente.promesa; } },
     descargarArchivo: () => { archivos++; },
   });
@@ -80,7 +71,7 @@ test("teclado: conserva botón enfocado y estado ocupado hasta descargar una sol
 
 test("teclado: el error mantiene el disparador y no roba foco a otro control", async () => {
   const dom = fichaDOM(); const pendientes = [diferida(), diferida()]; let indice = 0;
-  montarFichaGINPIX({ raiz: dom.raiz, recibo,
+  montarFichaGINPIX({ raiz: dom.raiz, consulta,
     cliente: { descargarFichaGINPIX: () => pendientes[indice++].promesa }, descargarArchivo: () => {},
   });
   const disparador = dom.boton(); disparador.focus();
@@ -98,7 +89,7 @@ test("teclado: el error mantiene el disparador y no roba foco a otro control", a
 
 test("desmontaje: una respuesta tardía no actualiza la ficha ni recupera foco", async () => {
   const dom = fichaDOM(); const pendiente = diferida(); let archivos = 0;
-  const desmontar = montarFichaGINPIX({ raiz: dom.raiz, recibo,
+  const desmontar = montarFichaGINPIX({ raiz: dom.raiz, consulta,
     cliente: { descargarFichaGINPIX: () => pendiente.promesa },
     descargarArchivo: () => { archivos++; },
   });
