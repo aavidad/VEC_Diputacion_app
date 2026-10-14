@@ -1,9 +1,11 @@
 package bootstrap
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"vec-diputacion-granada/config"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -59,6 +61,43 @@ func componerDietasAisladasDesarrollo(
 		m.denegar = true
 	}
 	return m
+}
+
+// publicarMaterialDietasAisladoDesarrollo da a Dietas un plazo propio.
+// Si alguna audiencia falla, no entrega ni siquiera los proveedores ya creados.
+func publicarMaterialDietasAisladoDesarrollo(
+	plazo time.Duration,
+	publicar func(context.Context, string) (*proveedorMaterialAltaContratacionTemporalDesarrollo, error),
+) (materialDietasDesdeCTDesarrollo, error) {
+	if publicar == nil || plazo <= 0 {
+		return materialDietasDesdeCTDesarrollo{}, ErrComposicionDesarrolloIncompleta
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), plazo)
+	defer cancelar()
+	descriptores := descriptoresMaterialDietasDesarrollo()
+	proveedores := make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo, len(descriptores))
+	for _, descriptor := range descriptores {
+		proveedor, err := publicar(ctx, descriptor.Audiencia)
+		if err != nil {
+			return materialDietasDesdeCTDesarrollo{}, err
+		}
+		if err := ctx.Err(); err != nil {
+			return materialDietasDesdeCTDesarrollo{}, err
+		}
+		if proveedor == nil {
+			return materialDietasDesdeCTDesarrollo{}, ErrComposicionDesarrolloIncompleta
+		}
+		proveedores[descriptor.Audiencia] = proveedor
+	}
+	if len(proveedores) == 0 {
+		return materialDietasDesdeCTDesarrollo{}, ErrComposicionDesarrolloIncompleta
+	}
+	return materialDietasDesdeCTDesarrollo{
+		personal:    proveedores[audienciaConsumoPersonalDietasDesarrollo],
+		crear:       proveedores[audienciaConsumoCrearDietasDesarrollo],
+		consultar:   proveedores[audienciaConsumoConsultarDietasDesarrollo],
+		adicionales: proveedores,
+	}, nil
 }
 
 // El mensaje del error puede contener rutas, DSN o material privado. Sólo se

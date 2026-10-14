@@ -554,27 +554,6 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 	}
-	etapa = "material_dietas"
-	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
-		proveedoresDietas := make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo)
-		descriptoresDietas := descriptoresMaterialDietasDesarrollo()
-		for _, descriptor := range descriptoresDietas {
-			proveedor, fallo := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia)
-			if fallo != nil {
-				registrarFalloDietasArranque("material", fallo)
-				break
-			}
-			proveedoresDietas[descriptor.Audiencia] = proveedor
-		}
-		if len(proveedoresDietas) == len(descriptoresDietas) {
-			dependencias.materialDietas = materialDietasDesdeCTDesarrollo{
-				personal:    proveedoresDietas[audienciaConsumoPersonalDietasDesarrollo],
-				crear:       proveedoresDietas[audienciaConsumoCrearDietasDesarrollo],
-				consultar:   proveedoresDietas[audienciaConsumoConsultarDietasDesarrollo],
-				adicionales: proveedoresDietas,
-			}
-		}
-	}
 	etapa = "material_cronos"
 	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
 		var cronos [8]*proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -908,6 +887,22 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		registrarFalloPostgreSQLContratacionTemporalDesarrollo(
 			"material_organizacion_historica", "capacidad_no_disponible",
 		)
+	}
+	// Dietas se compone después de las operaciones obligatorias de CT. Su
+	// tiempo de espera propio no puede agotar el contexto compartido de CT.
+	etapa = "material_dietas"
+	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
+		materialDietas, falloDietas := publicarMaterialDietasAisladoDesarrollo(
+			plazoarranque.Ampliar(15*time.Second),
+			func(ctxDietas context.Context, audiencia string) (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
+				return nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctxDietas, gobierno, material, reloj, catalogoMaterial, audiencia)
+			},
+		)
+		if falloDietas != nil {
+			registrarFalloDietasArranque("material", falloDietas)
+		} else {
+			dependencias.materialDietas = materialDietas
+		}
 	}
 	completa = true
 	return dependencias, nil

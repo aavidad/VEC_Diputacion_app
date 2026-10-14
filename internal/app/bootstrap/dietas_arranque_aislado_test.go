@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -12,10 +13,32 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/config"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+func TestMaterialDietasAgotadoNoCancelaComposicionCT(t *testing.T) {
+	ctxCT, cancelarCT := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancelarCT()
+	llamadas := 0
+	material, err := publicarMaterialDietasAisladoDesarrollo(20*time.Millisecond,
+		func(ctxDietas context.Context, _ string) (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
+			llamadas++
+			if llamadas == 1 {
+				return &proveedorMaterialAltaContratacionTemporalDesarrollo{}, nil
+			}
+			<-ctxDietas.Done()
+			return nil, ctxDietas.Err()
+		})
+	if !errors.Is(err, context.DeadlineExceeded) || llamadas != 2 || material.completo() {
+		t.Fatalf("Dietas entregó material parcial o no agotó su plazo: llamadas=%d error=%v", llamadas, err)
+	}
+	if err := ctxCT.Err(); err != nil {
+		t.Fatalf("el plazo propio de Dietas canceló CT: %v", err)
+	}
+}
 
 func TestDietasIncompletaConservaShellYDeniegaRutas(t *testing.T) {
 	base, rutas := generarMaterialDesarrolloPrueba(t)
