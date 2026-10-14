@@ -6,7 +6,9 @@ import json
 import os
 import re
 import shlex
+import stat
 from pathlib import Path
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 
 def comando_psql(args):
@@ -36,12 +38,35 @@ def comando_datos_ejercicio(args):
             f"chmod 600 {q(str(ruta))}")
 
 
-def comprobar_relevo_cese(launcher):
+def leer_conexiones_privadas(ruta):
+    try:
+        fd = os.open(ruta, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(fd, "r", encoding="utf-8") as origen:
+            meta = os.fstat(origen.fileno())
+            if (not stat.S_ISREG(meta.st_mode) or stat.S_IMODE(meta.st_mode) != 0o600 or
+                    meta.st_nlink != 1 or meta.st_size > 1024 * 1024):
+                raise ValueError("FALTA: --conexiones exige fichero privado regular 0600")
+            return origen.read()
+    except (OSError, UnicodeError) as exc:
+        raise ValueError("FALTA: --conexiones no se puede leer con seguridad") from exc
+
+
+def comprobar_relevo_cese(launcher, conexiones=""):
+    fuentes = launcher + "\n" + conexiones
+
     def valor(nombre):
-        halladas = list(re.finditer(rf"(?m)^[ \t]*(?:export[ \t]+)?{nombre}[ \t]*=[ \t]*['\"]?([^'\"\s#]+)", launcher))
+        patron = rf"(?m)^[ \t]*(?:export[ \t]+)?{nombre}[ \t]*=[ \t]*(.*)$"
+        halladas = list(re.finditer(patron, fuentes))
         if len(halladas) > 1:
-            raise ValueError(f"FALTA: {nombre} tiene varias asignaciones en el lanzador")
-        return halladas[0].group(1) if halladas else ""
+            raise ValueError(f"FALTA: {nombre} tiene varias asignaciones privadas")
+        if not halladas:
+            return ""
+        bruto = halladas[0].group(1).strip()
+        forma = re.fullmatch(r"(?:'([^']*)'|\"([^\"$`\\]*)\"|([A-Za-z0-9:/?%=._~+@,!-]+))(?:[ \t]+#.*)?", bruto)
+        literal = next((x for x in forma.groups() if x is not None), "") if forma else ""
+        if not literal or any(c in literal for c in ("$", "`", "\\", "\n", "\r")):
+            raise ValueError(f"FALTA: {nombre} no tiene valor literal verificable")
+        return literal
 
     for selector in ("VEC_CT_SEGUIMIENTO_CESE_ENABLED", "VEC_BOLSA_CESE_CT_ENABLED"):
         if valor(selector) != "true":
@@ -56,8 +81,33 @@ def comprobar_relevo_cese(launcher):
         segundos = sum(float(numero) * factores[unidad] for numero, unidad in trozos)
         if not 1 <= segundos <= 3600:
             raise ValueError("FALTA: intervalo del relevo de cese debe estar entre 1s y 1h")
-    if not valor("VEC_BOLSA_CESE_CT_DATABASE_URL"):
+    dsn = valor("VEC_BOLSA_CESE_CT_DATABASE_URL")
+    if not dsn:
         raise ValueError("FALTA: DSN nominal VEC_BOLSA_CESE_CT_DATABASE_URL en lanzador activo")
+    if dsn.startswith(("postgres://", "postgresql://")):
+        try:
+            partes = urlsplit(dsn)
+            parametros = parse_qsl(partes.query, keep_blank_values=True)
+            modos = [v for k, v in parametros if k == "sslmode"]
+            seguro = (bool(partes.hostname) and "/" not in unquote(partes.hostname) and
+                      partes.port is not None and 1 <= partes.port <= 65535 and
+                      modos == ["verify-full"] and
+                      not any(k in ("host", "hostaddr", "service") for k, _ in parametros))
+        except ValueError:
+            seguro = False
+    else:
+        partes = shlex.split(dsn)
+        pares = [parte.split("=", 1) for parte in partes]
+        claves = [par[0] for par in pares if len(par) == 2]
+        valores = dict(par for par in pares if len(par) == 2)
+        puerto = valores.get("port", "")
+        host = valores.get("host", "")
+        seguro = (len(pares) == len(claves) == len(set(claves)) and
+                  valores.get("sslmode") == "verify-full" and bool(host) and
+                  "/" not in host and "hostaddr" not in valores and "service" not in valores and
+                  puerto.isdigit() and 1 <= int(puerto) <= 65535)
+    if not seguro:
+        raise ValueError("FALTA: DSN de cese sin TLS verify-full verificable")
 
 
 def comando_catalogo_faltante(args, referencia, cert, key, ejemplos, base):
