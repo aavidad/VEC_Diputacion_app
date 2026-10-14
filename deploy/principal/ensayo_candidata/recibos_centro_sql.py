@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import re
 import subprocess
@@ -9,6 +10,10 @@ import subprocess
 
 CONTENEDOR = re.compile(r"vec-codexp-hz39-pg-[0-9]{8}\Z")
 REFERENCIA = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}\Z")
+INSTANTE = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
+    r"(?:\.(?P<fraccion>[0-9]{1,18}))?(?:Z|[+-][0-9]{2}:[0-9]{2})\Z"
+)
 ESTADOS = {"01": (1, "pendiente_ratificacion"), "02": (2, "ratificada")}
 CONSULTA = r"""
 SELECT jsonb_build_object(
@@ -19,6 +24,7 @@ SELECT jsonb_build_object(
     'registrado_en', r.recibo_json->>'registrado_en',
     'integridad', r.recibo_json->>'peticion_ref'=r.peticion_ref
         AND r.recibo_json->>'recibo_ref'=r.recibo_ref
+        AND r.recibo_json->>'estado'=r.estado
         AND (r.recibo_json->>'version')::smallint=r.version
         AND (r.recibo_json->>'registrado_en')::timestamptz=r.registrada_en
 )::text
@@ -32,6 +38,19 @@ class ReciboNoConfirmado(ValueError):
     """La copia no acredita los dos recibos originales exactos."""
 
 
+def _instante(valor: object) -> datetime:
+    if not isinstance(valor, str) or len(valor) > 40:
+        raise ReciboNoConfirmado("instante_recibo_invalido")
+    forma = INSTANTE.fullmatch(valor)
+    if forma is None or any(digito != "0" for digito in (forma["fraccion"] or "")[6:]):
+        raise ReciboNoConfirmado("instante_recibo_invalido")
+    try:
+        fecha = datetime.fromisoformat(valor.replace("Z", "+00:00"))
+        return fecha.astimezone(timezone.utc)
+    except ValueError as exc:
+        raise ReciboNoConfirmado("instante_recibo_invalido") from exc
+
+
 def _validar(originales: dict, contenedor: str, puerto: int) -> None:
     if not isinstance(contenedor, str) or not CONTENEDOR.fullmatch(contenedor):
         raise ReciboNoConfirmado("contenedor_fuera_de_la_copia_hz39")
@@ -39,20 +58,20 @@ def _validar(originales: dict, contenedor: str, puerto: int) -> None:
         raise ReciboNoConfirmado("puerto_postgresql_invalido")
     if not isinstance(originales, dict) or set(originales) != set(ESTADOS):
         raise ReciboNoConfirmado("recibos_originales_incompletos")
-    for paso, (version, _) in ESTADOS.items():
+    for paso, (version, estado) in ESTADOS.items():
         recibo = originales[paso]
-        if not isinstance(recibo, dict) or set(recibo) != {
-            "peticion_ref", "recibo_ref", "version", "registrado_en"
-        }:
+        requeridos = {"peticion_ref", "recibo_ref", "version", "registrado_en"}
+        if (not isinstance(recibo, dict) or not requeridos <= set(recibo)
+                or not set(recibo) <= requeridos | {"estado"}):
             raise ReciboNoConfirmado("recibo_original_invalido")
         if (
             not all(isinstance(recibo[k], str) and REFERENCIA.fullmatch(recibo[k])
                     for k in ("peticion_ref", "recibo_ref"))
             or type(recibo["version"]) is not int or recibo["version"] != version
-            or not isinstance(recibo["registrado_en"], str)
-            or not re.fullmatch(r"[0-9T:.+Z-]{20,40}", recibo["registrado_en"])
+            or ("estado" in recibo and recibo["estado"] != estado)
         ):
             raise ReciboNoConfirmado("recibo_original_invalido")
+        _instante(recibo["registrado_en"])
     if (originales["01"]["peticion_ref"] != originales["02"]["peticion_ref"]
             or originales["01"]["recibo_ref"] == originales["02"]["recibo_ref"]):
         raise ReciboNoConfirmado("recibos_originales_no_relacionados")
@@ -93,10 +112,13 @@ def cotejar_recibos(originales: dict, *, contenedor: str, puerto: int = 55639) -
         version, estado = ESTADOS[paso]
         if (fila.get("integridad") is not True or fila.get("version") != version
                 or fila.get("estado") != estado
-                or any(fila.get(k) != esperado[k] for k in esperado)):
+                or any(fila.get(k) != esperado[k] for k in esperado if k != "registrado_en")
+                or _instante(fila.get("registrado_en")) != _instante(esperado["registrado_en"])):
             raise ReciboNoConfirmado("recibo_sql_distinto_del_original")
         cotejados[paso] = {k: fila[k] for k in
-                           ("peticion_ref", "recibo_ref", "version", "estado", "registrado_en")}
+                           ("peticion_ref", "recibo_ref", "version", "estado")}
+        cotejados[paso]["registrado_en"] = esperado["registrado_en"]
+        cotejados[paso]["registrado_en_sql"] = fila["registrado_en"]
     return cotejados
 
 
@@ -148,6 +170,8 @@ def preparar_recuperacion(previos: dict, valores: dict, checkpoint: dict, *,
             raise ReciboNoConfirmado("peticion_ref_original_divergente")
         originales[paso] = {"peticion_ref": referencia,
                            **{k: original.get(k) for k in ("recibo_ref", "version", "registrado_en")}}
+        if "estado" in original:
+            originales[paso]["estado"] = original["estado"]
     peticion = _peticion_unica(checkpoint, referencia)
     return {"recibos": cotejar_recibos(originales, contenedor=contenedor, puerto=puerto),
             "peticion": peticion}

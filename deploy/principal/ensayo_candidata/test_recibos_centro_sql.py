@@ -62,6 +62,7 @@ class RecibosCentroSQL(unittest.TestCase):
         self.assertEqual(orden[orden.index("-p") + 1], "55639")
         self.assertEqual(orden[-2:], ["-f", "-"])
         self.assertIn("WHERE r.recibo_ref IN (:'recibo_01', :'recibo_02')", ejecutar.call_args.kwargs["input"].decode())
+        self.assertIn("r.recibo_json->>'estado'=r.estado", ejecutar.call_args.kwargs["input"].decode())
         self.assertNotIn("recibo:centro:uno", ejecutar.call_args.kwargs["input"].decode())
         self.assertEqual(ejecutar.call_args.kwargs["env"]["DOCKER_HOST"], "unix:///var/run/docker.sock")
         self.assertNotIn("shell", ejecutar.call_args.kwargs)
@@ -98,17 +99,60 @@ class RecibosCentroSQL(unittest.TestCase):
                 with self.assertRaises(recibos.ReciboNoConfirmado):
                     recibos.cotejar_recibos(originales(), contenedor=CONTENEDOR)
 
+    def test_instante_z_y_offset_utc_son_el_mismo_microsegundo(self):
+        salida_sql = filas()
+        salida_sql[0]["registrado_en"] = "2026-10-14T23:00:00+00:00"
+        salida_sql[1]["registrado_en"] = "2026-10-14T23:01:00.000000+00:00"
+        respuesta = b"\n".join(json.dumps(fila).encode() for fila in salida_sql) + b"\n"
+        with patch.object(recibos.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=respuesta)):
+            resultado = recibos.cotejar_recibos(originales(), contenedor=CONTENEDOR)
+        self.assertEqual(resultado["01"]["registrado_en"], FECHA_1)
+        self.assertEqual(resultado["01"]["registrado_en_sql"], "2026-10-14T23:00:00+00:00")
+
+    def test_un_microsegundo_distinto_o_precision_no_representable_fallan(self):
+        un_microsegundo = filas()
+        un_microsegundo[0]["registrado_en"] = "2026-10-14T23:00:00.000001+00:00"
+        respuesta = b"\n".join(json.dumps(fila).encode() for fila in un_microsegundo) + b"\n"
+        with patch.object(recibos.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=respuesta)):
+            with self.assertRaises(recibos.ReciboNoConfirmado):
+                recibos.cotejar_recibos(originales(), contenedor=CONTENEDOR)
+        original = originales()
+        original["01"]["registrado_en"] = "2026-10-14T23:00:00.0000001Z"
+        with patch.object(recibos.subprocess, "run") as ejecutar:
+            with self.assertRaises(recibos.ReciboNoConfirmado):
+                recibos.cotejar_recibos(original, contenedor=CONTENEDOR)
+            ejecutar.assert_not_called()
+
+    def test_estado_original_y_estado_sql_deben_concordar(self):
+        original = originales()
+        original["01"]["estado"] = "ratificada"
+        with patch.object(recibos.subprocess, "run") as ejecutar:
+            with self.assertRaises(recibos.ReciboNoConfirmado):
+                recibos.cotejar_recibos(original, contenedor=CONTENEDOR)
+            ejecutar.assert_not_called()
+        original["01"]["estado"] = "pendiente_ratificacion"
+        original["02"]["estado"] = "ratificada"
+        respuesta = b"\n".join(json.dumps(fila).encode() for fila in filas()) + b"\n"
+        with patch.object(recibos.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=respuesta)):
+            self.assertEqual(recibos.cotejar_recibos(original, contenedor=CONTENEDOR)["02"]["estado"], "ratificada")
+
     def test_preparar_recuperacion_usa_recibos_unicos_y_checkpoint_final(self):
         previos_sin_ref = previos()
         for paso in previos_sin_ref["pasos"]:
             del paso["recibos_efecto"][0]["peticion_ref"]
+            paso["recibos_efecto"][0]["estado"] = (
+                "pendiente_ratificacion" if paso["id"] == "01" else "ratificada"
+            )
         with patch.object(recibos, "cotejar_recibos", return_value={"01": filas()[0], "02": filas()[1]}) as sql:
             preparada = recibos.preparar_recuperacion(
                 previos_sin_ref, {"peticion_ref": PETICION}, bandeja(),
                 contenedor=CONTENEDOR,
             )
         self.assertEqual(sql.call_count, 1)
-        self.assertEqual(sql.call_args.args[0], originales())
+        esperados = originales()
+        esperados["01"]["estado"] = "pendiente_ratificacion"
+        esperados["02"]["estado"] = "ratificada"
+        self.assertEqual(sql.call_args.args[0], esperados)
         self.assertEqual(preparada["peticion"],
                          {"referencia": PETICION, "version": 3, "estado": "entregada"})
         self.assertEqual(recibos.cotejar_bandeja(bandeja(), preparada), preparada["peticion"])
