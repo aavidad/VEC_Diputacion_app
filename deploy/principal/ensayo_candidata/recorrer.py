@@ -50,6 +50,7 @@ TIPOS = {
     "externo",
     "upload",
     "descargar",
+    "confirmar_dialogo",
 }
 MAX_JSON = 256 * 1024
 
@@ -199,6 +200,17 @@ def accion(
             origen + ruta_local(resolver(a["valor"], datos)),
             wait_until="domcontentloaded",
         )
+        return
+    if tipo == "confirmar_dialogo":
+        referencia = resolver(a["valor"], datos)
+
+        def confirmar(dialogo):
+            if dialogo.type != "confirm" or not referencia or referencia not in dialogo.message:
+                dialogo.dismiss()
+                raise EntradaInvalida("confirmacion_no_corresponde_al_acto")
+            dialogo.accept()
+
+        page.once("dialog", confirmar)
         return
     elemento = page.locator(resolver(a["selector"], datos))
     if tipo == "check" and a.get("todos"):

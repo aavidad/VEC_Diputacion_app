@@ -841,9 +841,8 @@
         "selector": "[data-ct-cobertura-form] [name=\"via_elegida\"][value=\"$via_cobertura\"]"
       },
       {
-        "tipo": "select",
-        "selector": "[data-ct-cobertura-form] [name=\"motivo_clave\"]",
-        "valor": "$motivo_cobertura"
+        "tipo": "confirmar_dialogo",
+        "valor": "$expediente_ref"
       },
       {
         "tipo": "click",
@@ -907,6 +906,10 @@
         "selector": "[data-ct-asignacion-form] [name=\"confirmacion\"]"
       },
       {
+        "tipo": "confirmar_dialogo",
+        "valor": "$expediente_ref"
+      },
+      {
         "tipo": "click",
         "selector": "[data-ct-asignacion-form] button[type=\"submit\"]"
       }
@@ -968,8 +971,16 @@
         "selector": "[data-ct-informe-form] [name=\"confirmacion\"]"
       },
       {
+        "tipo": "confirmar_dialogo",
+        "valor": "$expediente_ref"
+      },
+      {
         "tipo": "click",
         "selector": "[data-ct-informe-form] button[type=\"submit\"]"
+      },
+      {
+        "tipo": "click",
+        "selector": ".ct-exp-historial > summary"
       }
     ],
     "http": [

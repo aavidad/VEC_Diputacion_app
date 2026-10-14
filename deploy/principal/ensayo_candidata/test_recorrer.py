@@ -17,6 +17,23 @@ spec.loader.exec_module(runner)
 
 
 class GuionHZ39(unittest.TestCase):
+    def test_dialogo_solo_confirma_el_expediente_previsto(self):
+        eventos = []
+        pagina = SimpleNamespace(once=lambda evento, manejador: eventos.append((evento, manejador)))
+        runner.accion(pagina, {"tipo": "confirmar_dialogo", "valor": "$expediente_ref"},
+                      {"expediente_ref": "expediente:1"}, "https://127.0.0.1:9443")
+        self.assertEqual(eventos[0][0], "dialog")
+        aceptados, rechazados = [], []
+        dialogo = SimpleNamespace(type="confirm", message="Confirmar expediente:1",
+                                  accept=lambda: aceptados.append(True), dismiss=lambda: rechazados.append(True))
+        eventos[0][1](dialogo)
+        self.assertEqual(aceptados, [True])
+        dialogo.message = "Confirmar expediente:2"
+        with self.assertRaises(runner.EntradaInvalida):
+            eventos[0][1](dialogo)
+        self.assertEqual(rechazados, [True])
+        self.assertEqual(aceptados, [True])
+
     def test_fecha_del_recibo_de_peticion_se_conserva_al_recuperar(self):
         recibo = {"recibo_ref": "recibo:centro:1", "version": 1,
                   "registrado_en": "2026-10-14T17:00:00.000001Z"}
