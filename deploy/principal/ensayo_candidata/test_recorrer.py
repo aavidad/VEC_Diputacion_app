@@ -277,6 +277,29 @@ class GuionHZ39(unittest.TestCase):
             iniciales,
         )
 
+    def test_ginpix_sigue_alta_b2_y_respeta_dependencias(self):
+        pasos = runner.catalogo(ROOT / "pasos_hz39.json")
+        por_id = {paso["id"]: paso for paso in pasos}
+        cadena = ("15", "17", "18", "16a", "16b", "19", "20", "21")
+        ids = [paso["id"] for paso in pasos]
+        self.assertEqual(ids[ids.index("15"):ids.index("21") + 1], list(cadena))
+        for anterior, siguiente in zip(cadena, cadena[1:]):
+            self.assertEqual(por_id[siguiente]["depende_de"], [anterior])
+
+        ficha = por_id["16a"]
+        self.assertEqual(
+            [(accion["tipo"], accion.get("documento")) for accion in ficha["acciones"][-1:]],
+            [("descargar", "ginpix")],
+        )
+        self.assertEqual(ficha["acciones"][-1], ficha["acciones_recuperacion"][-1])
+        self.assertIn("[data-ct-exp-ficha-ginpix-b2]", ficha["acciones"][-1]["selector"])
+        self.assertEqual(ficha["http"][0]["metodo"], "GET")
+        confirmacion = por_id["16b"]
+        self.assertEqual(confirmacion["http"][0]["ruta"],
+                         "/api/vec/contratacion-temporal/confirmaciones-ginpix")
+        self.assertEqual(confirmacion["acciones"][-1]["selector"],
+                         '[data-ct-seg-form="ginpix"] button[type="submit"]')
+
     def test_candidata_ausente_no_equivale_a_la_misma(self):
         for datos in ({}, {"candidata": "main"}, {"candidata": None}):
             with self.assertRaises(runner.EntradaInvalida):

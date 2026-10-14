@@ -1772,81 +1772,12 @@
     ]
   },
   {
-    "id": "16a",
-    "actor": "rrhh",
-    "dueno": "GINPIX/Contratación temporal",
-    "ruta": "/portal-empleado/#contratacion-temporal",
-    "depende_de": [
-      "15"
-    ],
-    "acciones": [
-      {
-        "tipo": "goto",
-        "valor": "/portal-empleado/#contratacion-temporal"
-      },
-      {
-        "tipo": "click",
-        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
-      },
-      {
-        "tipo": "descargar",
-        "selector": "[data-ct-ficha-ginpix-descargar]",
-        "documento": "ginpix"
-      }
-    ],
-    "http": [
-      {
-        "metodo": "GET",
-        "ruta": "/api/vec/contratacion-temporal/incorporaciones-ejercicio/ficha-ginpix",
-        "codigos": [
-          200
-        ]
-      }
-    ],
-    "esperar": {
-      "selector": "[data-ct-ficha-ginpix]"
-    },
-    "resultado_esperado": "Ficha GINPIX descargada para la grabación manual; conservar bytes y huella. La descarga no confirma la grabación.",
-    "lecturas": [
-      {
-        "tipo": "ui",
-        "ruta": "/portal-empleado/#contratacion-temporal",
-        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
-        "sin_efecto": true
-      },
-      {
-        "metodo": "POST",
-        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
-        "codigos": [
-          200
-        ],
-        "solo_lectura": true
-      }
-    ],
-    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
-    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
-    "esperar_recuperacion": {
-      "selector": "[data-ct-ficha-ginpix]"
-    },
-    "acciones_recuperacion": [
-      {
-        "tipo": "click",
-        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
-      },
-      {
-        "tipo": "descargar",
-        "selector": "[data-ct-ficha-ginpix-descargar]",
-        "documento": "ginpix"
-      }
-    ]
-  },
-  {
     "id": "17",
     "actor": "centro",
     "dueno": "K/Centro",
     "ruta": "/portal-empleado/peticiones-centro/",
     "depende_de": [
-      "16a"
+      "15"
     ],
     "acciones": [
       {
@@ -1919,81 +1850,12 @@
     }
   },
   {
-    "id": "16b",
-    "actor": "rrhh",
-    "dueno": "GINPIX/Contratación temporal",
-    "ruta": "/portal-empleado/#contratacion-temporal",
-    "depende_de": [
-      "17"
-    ],
-    "acciones": [
-      {
-        "tipo": "goto",
-        "valor": "/portal-empleado/#contratacion-temporal"
-      },
-      {
-        "tipo": "click",
-        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
-      },
-      {
-        "tipo": "fill",
-        "selector": "[data-ct-seg-form=\"ginpix\"] [name=\"ginpix_numero\"]",
-        "valor": "$ginpix_numero"
-      },
-      {
-        "tipo": "fill",
-        "selector": "[data-ct-seg-form=\"ginpix\"] [name=\"ginpix_confirmada_en\"]",
-        "valor": "$ginpix_fecha"
-      },
-      {
-        "tipo": "click",
-        "selector": "[data-ct-seg-form=\"ginpix\"] button[type=\"submit\"]"
-      }
-    ],
-    "http": [
-      {
-        "metodo": "POST",
-        "ruta": "/api/vec/contratacion-temporal/confirmaciones-ginpix",
-        "codigos": [
-          200,
-          201
-        ]
-      }
-    ],
-    "esperar": {
-      "selector": "[data-ct-seg-aviso]"
-    },
-    "resultado_esperado": "Número y fecha de la grabación manual GINPIX confirmados; recibo conservado, sin transmisión automática.",
-    "lecturas": [
-      {
-        "tipo": "ui",
-        "ruta": "/portal-empleado/#contratacion-temporal",
-        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
-        "sin_efecto": true
-      },
-      {
-        "metodo": "POST",
-        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
-        "codigos": [
-          200
-        ],
-        "solo_lectura": true
-      }
-    ],
-    "recuperacion": "Comparar número, fecha y recibo GINPIX en seguimiento; no repetir confirmación.",
-    "aceptacion": "Recibo nominal y estado de seguimiento coinciden tras reiniciar.",
-    "esperar_recuperacion": {
-      "selector": "[data-ct-seg-cese] .ct-exp-fase-datos",
-      "texto": "$ginpix_numero"
-    }
-  },
-  {
     "id": "18",
     "actor": "rrhh",
     "dueno": "K/Personal",
     "ruta": "/portal-empleado/#contratacion-temporal",
     "depende_de": [
-      "16b"
+      "17"
     ],
     "acciones": [
       {
@@ -2099,7 +1961,7 @@
         "solo_lectura": true
       }
     ],
-    "resultado_esperado": "Alta Personal y ocupación según plan B2 después de confirmar GINPIX en 16b.",
+    "resultado_esperado": "Alta Personal y ocupación según plan B2 tras acreditar el centro la incorporación en 17; recibo de alta confirmado.",
     "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
     "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
     "bloqueo_datos": "Los select B2 usan índices de las opciones leídas del plan, no claves inventadas; la fecha puede venir bloqueada por la fuente. El runner debe omitir campos readonly/inexistentes como scripts/recorridos-a/recorrer.mjs.",
@@ -2108,12 +1970,150 @@
     }
   },
   {
+    "id": "16a",
+    "actor": "rrhh",
+    "dueno": "GINPIX/Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "18"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-ficha-ginpix-b2] [data-ct-ficha-ginpix-descargar]",
+        "documento": "ginpix"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "GET",
+        "ruta": "/api/vec/contratacion-temporal/incorporaciones-ejercicio/ficha-ginpix",
+        "codigos": [
+          200
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-exp-ficha-ginpix-b2] [data-ct-ficha-ginpix]"
+    },
+    "resultado_esperado": "Ficha GINPIX descargada con las referencias del alta B2 confirmada; conservar bytes y huella. La descarga no confirma la grabación manual.",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
+    "esperar_recuperacion": {
+      "selector": "[data-ct-exp-ficha-ginpix-b2] [data-ct-ficha-ginpix]"
+    },
+    "acciones_recuperacion": [
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "descargar",
+        "selector": "[data-ct-exp-ficha-ginpix-b2] [data-ct-ficha-ginpix-descargar]",
+        "documento": "ginpix"
+      }
+    ]
+  },
+  {
+    "id": "16b",
+    "actor": "rrhh",
+    "dueno": "GINPIX/Contratación temporal",
+    "ruta": "/portal-empleado/#contratacion-temporal",
+    "depende_de": [
+      "16a"
+    ],
+    "acciones": [
+      {
+        "tipo": "goto",
+        "valor": "/portal-empleado/#contratacion-temporal"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-seg-form=\"ginpix\"] [name=\"ginpix_numero\"]",
+        "valor": "$ginpix_numero"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[data-ct-seg-form=\"ginpix\"] [name=\"ginpix_confirmada_en\"]",
+        "valor": "$ginpix_fecha"
+      },
+      {
+        "tipo": "click",
+        "selector": "[data-ct-seg-form=\"ginpix\"] button[type=\"submit\"]"
+      }
+    ],
+    "http": [
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/confirmaciones-ginpix",
+        "codigos": [
+          200,
+          201
+        ]
+      }
+    ],
+    "esperar": {
+      "selector": "[data-ct-seg-aviso]"
+    },
+    "resultado_esperado": "Número y fecha de la grabación manual GINPIX confirmados; recibo conservado, sin transmisión automática.",
+    "lecturas": [
+      {
+        "tipo": "ui",
+        "ruta": "/portal-empleado/#contratacion-temporal",
+        "selector": "[data-ct-exp-abrir=\"$expediente_ref\"]",
+        "sin_efecto": true
+      },
+      {
+        "metodo": "POST",
+        "ruta": "/api/vec/contratacion-temporal/expedientes/consultas",
+        "codigos": [
+          200
+        ],
+        "solo_lectura": true
+      }
+    ],
+    "recuperacion": "Comparar número, fecha y recibo GINPIX en seguimiento; no repetir confirmación.",
+    "aceptacion": "Recibo nominal y estado de seguimiento coinciden tras reiniciar.",
+    "esperar_recuperacion": {
+      "selector": "[data-ct-seg-cese] .ct-exp-fase-datos",
+      "texto": "$ginpix_numero"
+    }
+  },
+  {
     "id": "19",
     "actor": "rrhh",
     "dueno": "Contratación temporal",
     "ruta": "/portal-empleado/#contratacion-temporal",
     "depende_de": [
-      "18"
+      "16b"
     ],
     "acciones": [
       {
