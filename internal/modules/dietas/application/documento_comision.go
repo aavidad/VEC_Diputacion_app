@@ -80,7 +80,7 @@ func ValidarSolicitudEditarBase(s ports.SolicitudEditarComisionPropia) error {
 		return domain.ErrDocumentoComisionInvalido
 	}
 	crear := ports.SolicitudCrearBorradorPropio{ClaveIdempotencia: s.ClaveIdempotencia, FechaInicio: s.FechaInicio, FechaFin: s.FechaFin, HoraInicio: s.HoraInicio, HoraFin: s.HoraFin, Motivo: s.Motivo, CodigosRuta: s.CodigosRuta, RelacionRef: s.RelacionRef}
-	if validarSolicitudCrear(crear) != nil || len(s.CodigosRuta) < 2 || (s.Calculo == nil) != (s.Documento == nil) || (s.VehiculoPropio && (len(s.Rutas) < 1 || len(s.Rutas) > 8)) || (!s.VehiculoPropio && len(s.Rutas) != 0) || !domain.VersionTarifaProvisionalValida(s.VersionTarifaAceptada) || len(s.TramosAceptados) > 62 {
+	if validarSolicitudCrear(crear) != nil || len(s.CodigosRuta) < 2 || (s.Calculo == nil) != (s.Documento == nil) || (s.VehiculoPropio && (len(s.Rutas) < 1 || len(s.Rutas) > 8)) || (!s.VehiculoPropio && len(s.Rutas) != 0) || !domain.VersionTarifaComisionValida(s.VersionTarifaAceptada) || len(s.TramosAceptados) > 62 {
 		return domain.ErrDocumentoComisionInvalido
 	}
 	ant := -1
@@ -323,6 +323,9 @@ func (p *PreparadorComision) PrepararEdicion(ctx context.Context, s ports.Solici
 	}
 	fechaLocal := inicio.In(zona)
 	fechaTarifa := time.Date(fechaLocal.Year(), fechaLocal.Month(), fechaLocal.Day(), 0, 0, 0, 0, time.UTC)
+	if p.publicadas != nil {
+		return p.prepararEdicionConTarifaPublicada(ctx, s, inicio, fin, fechaTarifa)
+	}
 	regla, eRegla := p.tarifas.ConsultarRegla(ctx, s.VersionTarifaAceptada, fechaTarifa)
 	if eRegla != nil || regla.Validar() != nil || regla.VersionTarifaRef != s.VersionTarifaAceptada {
 		return s, domain.ErrTramosProvisionalesNoDisponibles

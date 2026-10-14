@@ -902,6 +902,22 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			registrarFalloDietasArranque("material", falloDietas)
 		} else {
 			dependencias.materialDietas = materialDietas
+			ctxEconomia, cancelarEconomia := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
+			proveedorEconomia, falloEconomia := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctxEconomia, gobierno, material, reloj, catalogoMaterial, audienciaConsumoLiquidacionEconomicaDietas)
+			cancelarEconomia()
+			if falloEconomia != nil || proveedorEconomia == nil {
+				registrarFalloDietasArranque("material_liquidacion", ErrComposicionDesarrolloIncompleta)
+			} else {
+				dependencias.materialDietas.adicionales[audienciaConsumoLiquidacionEconomicaDietas] = proveedorEconomia
+			}
+			ctxRutas, cancelarRutas := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
+			proveedorRutas, falloRutas := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctxRutas, gobierno, material, reloj, catalogoMaterial, audienciaConsumoRutasDietasDesarrollo)
+			cancelarRutas()
+			if falloRutas != nil || proveedorRutas == nil {
+				registrarFalloDietasArranque("material_rutas", ErrComposicionDesarrolloIncompleta)
+			} else {
+				dependencias.materialDietas.rutas = proveedorRutas
+			}
 		}
 	}
 	completa = true

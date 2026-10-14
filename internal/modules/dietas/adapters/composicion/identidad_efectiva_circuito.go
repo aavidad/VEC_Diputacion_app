@@ -132,6 +132,11 @@ func (r *ResolutorIdentidadEfectivaCircuito) ResolverIdentidadEfectivaCircuito(c
 	if err != nil || efecto.Recurso.Referencia != recurso {
 		return cero, dietasports.ErrAccesoCircuitoDenegado
 	}
+	return r.emitir(ctx, base, unidad, accion, recurso, finalidad, audiencia, efecto)
+}
+
+func (r *ResolutorIdentidadEfectivaCircuito) emitir(ctx context.Context, base IdentidadRegistradaBorrador, unidad, accion, recurso, finalidad, audiencia string, efecto dietasports.EfectoAutorizacionCircuito) (dietasports.IdentidadEfectivaCircuito, error) {
+	var cero dietasports.IdentidadEfectivaCircuito
 	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
 	if err != nil {
 		return cero, dietasports.ErrAccesoCircuitoDenegado

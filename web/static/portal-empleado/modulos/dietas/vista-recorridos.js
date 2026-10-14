@@ -1,6 +1,6 @@
 import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n-dietas-v1";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20261007-u-dietas-catalogo-v1";
-import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20261007-pantallas-textos-final-v1";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20261014-dietas-consulta-economia-v1";
+import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20261014-dietas-consulta-economia-v1";
 
 import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260929-i18n-dietas-v1";
 
@@ -24,6 +24,7 @@ export function montarVistaRecorridosDietas(contenedor, {
   clienteAsignacion,
   clienteRectificacion,
   clienteCircuito,
+  clienteLiquidacion,
   clienteRectificacionAdmin,
   clienteCatalogoCompetente,
   calculadorRuta,
@@ -117,7 +118,7 @@ export function montarVistaRecorridosDietas(contenedor, {
   raiz.append(cabecera, pasos, estadoCompetencias, cuerpo);
 
   const vistaBorradores = montarVistaBorradoresPropios(areaBorradores, {
-    cliente: clienteBorradores, clienteAsignacion, clienteRectificacion, calculadorRuta, visorRuta,
+    cliente: clienteBorradores, clienteAsignacion, clienteRectificacion, clienteLiquidacion, calculadorRuta, visorRuta,
     relacionesAutorizadas, fechaReferenciaPersonal, estadoRelaciones, motivoRelaciones,
     traducir, anunciar, formularioInicialmenteVisible: false,
   });
@@ -135,7 +136,7 @@ export function montarVistaRecorridosDietas(contenedor, {
     });
   }
   function seleccionarEtapa(siguiente) {
-    if (etapa === siguiente) return;
+    if (etapa === siguiente || vistaCircuito?.bloqueaSalida?.()) return;
     etapa = siguiente;
     vistaCircuito?.desmontar();
     vistaCircuito = null;
@@ -146,11 +147,13 @@ export function montarVistaRecorridosDietas(contenedor, {
       });
     } else if (siguiente === "control" && clienteCircuito && etapasCircuito.length) {
       vistaCircuito = montarVistaBandejaCircuitoDietas(areaCircuito, {
-        cliente: clienteCircuito, traducir, anunciar, etapaInicial: etapasCircuito[0], etapas: etapasCircuito, control: true,
+        cliente: clienteCircuito, clienteLiquidacion, traducir, anunciar, etapaInicial: etapasCircuito[0], etapas: etapasCircuito, control: true,
+        alCambiarBloqueo: (bloqueada) => { pasos.querySelectorAll("button").forEach((boton) => { boton.disabled = bloqueada; }); },
       });
     } else if (ETAPAS_CIRCUITO.includes(siguiente) && clienteCircuito) {
       vistaCircuito = montarVistaBandejaCircuitoDietas(areaCircuito, {
-        cliente: clienteCircuito, traducir, anunciar, etapaInicial: siguiente, etapas: [siguiente],
+        cliente: clienteCircuito, clienteLiquidacion, traducir, anunciar, etapaInicial: siguiente, etapas: [siguiente],
+        alCambiarBloqueo: (bloqueada) => { pasos.querySelectorAll("button").forEach((boton) => { boton.disabled = bloqueada; }); },
       });
     }
     pintar();

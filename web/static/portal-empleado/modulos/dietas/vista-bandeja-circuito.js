@@ -6,6 +6,10 @@ import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v
 import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { describirOtroGasto } from "./formulario-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { recortarBordes } from "./texto-dietas.js?v=20260925-d5d6-v1";
+import { cargarTextos } from "../../../comun/textos.js";
+import { montarVistaLiquidacionEconomica } from "./vista-liquidacion-economica.js?v=20261014-dietas-consulta-economia-v1";
+
+const textosLiquidacion = await cargarTextos("dietas");
 
 const codificador = new TextEncoder();
 const errorMotivo = (motivo, decision) => {
@@ -65,8 +69,10 @@ function describirLinea(linea, t) {
  */
 export function montarVistaBandejaCircuitoDietas(contenedor, {
   cliente,
+  clienteLiquidacion,
   traducir = crearTraductorDietas(MENSAJES_DIETAS),
   anunciar = () => {},
+  alCambiarBloqueo = () => {},
   generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
   registrarDesmontar,
   etapaInicial = "revision",
@@ -101,7 +107,7 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
   let consulta = { etapa: etapaInicial, limit: 20 }; let pagina = { items: [], competencia: "acreditada" };
   // Solo cursores de la consulta activa: las páginas anteriores se consultan de nuevo.
   let cursores = [undefined]; let indicePagina = 0; let generacionDocumento = 0;
-  let pendiente = null; let abierto = null; let mensaje = ""; let nivel = ""; let nivelDetalle = "";
+  let pendiente = null; let abierto = null; let mensaje = ""; let nivel = ""; let nivelDetalle = ""; let vistaLiquidacion;
   const publicar = (texto) => { if (activa) anunciar(texto); };
   const filtrada = () => Boolean(consulta.fecha_desde || consulta.fecha_hasta);
   const puedeRestaurarFoco = (disparador) => {
@@ -152,6 +158,7 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
   }
 
   function pintarDetalle() {
+    vistaLiquidacion?.desmontar(); vistaLiquidacion = undefined;
     detalle.replaceChildren(); detalle.hidden = !abierto;
     if (!abierto) return;
     const volver = nodo(documento, "button", t("circuito_volver")); volver.disabled = Boolean(pendiente); volver.type = "button"; volver.className = "boton-secundario"; volver.dataset.dietasCircuitoVolver = "";
@@ -207,13 +214,35 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
     const botones = nodo(documento, "div"); botones.className = "dietas-circuito-botones";
     const aprobar = nodo(documento, "button", t(`circuito_aprobar_${consulta.etapa}`)); aprobar.type = "button"; aprobar.className = "boton-primario"; aprobar.dataset.dietasCircuitoDecision = "aprobar";
     const devolver = nodo(documento, "button", t("circuito_devolver")); devolver.type = "button"; devolver.className = "boton-peligro"; devolver.dataset.dietasCircuitoDecision = "devolver";
+    const esLiquidacion = consulta.etapa === "liquidacion";
     const bloqueado = Boolean(controladorDecision || pendiente); aprobar.disabled = bloqueado; devolver.disabled = bloqueado; motivo.readOnly = bloqueado;
-    botones.append(aprobar, devolver);
+    if (!esLiquidacion) botones.append(aprobar);
+    botones.append(devolver);
     if (pendiente?.incierta) { const reintento = nodo(documento, "button", t("circuito_reintentar_decision")); reintento.disabled = Boolean(controladorDecision); reintento.type = "button"; reintento.className = "boton-secundario"; reintento.dataset.dietasCircuitoReintento = ""; botones.append(reintento); }
     decision.append(etiqueta, motivo);
     if (errorCampo) decision.append(errorCampo);
     decision.append(botones);
     detalle.append(encabezado, resumen, marco, decision);
+    if (esLiquidacion || consulta.etapa === "fiscalizacion") {
+      if (clienteLiquidacion?.leer && (consulta.etapa === "fiscalizacion"
+        || clienteLiquidacion?.propuesta && clienteLiquidacion?.registrar)) {
+        const region = nodo(documento, "div"); detalle.append(region);
+        vistaLiquidacion = montarVistaLiquidacionEconomica(region, { cliente: clienteLiquidacion,
+          referencia: abierto.referencia, version: esLiquidacion ? abierto.version : "actual", generarClaveIdempotencia,
+          modoConsulta: consulta.etapa === "fiscalizacion",
+          alRegistrar: () => { if (abierto?.referencia === d.referencia) { abierto = { ...abierto, liquidacionRegistrada: true }; decision.hidden = true; } },
+          alCambiarBloqueo: (bloqueada) => {
+            alCambiarBloqueo(bloqueada);
+            [selectorEtapa, desde, hasta, buscar].forEach((campo) => { campo.disabled = bloqueada; });
+            const volverActual = detalle.querySelector?.("[data-dietas-circuito-volver]");
+            if (volverActual) volverActual.disabled = bloqueada;
+            const devolverActual = detalle.querySelector?.('[data-dietas-circuito-decision="devolver"]');
+            if (devolverActual) devolverActual.disabled = bloqueada;
+            const motivoActual = detalle.querySelector?.("[data-dietas-circuito-motivo]");
+            if (motivoActual) motivoActual.readOnly = bloqueada;
+          } });
+      } else detalle.append(nodo(documento, "p", textosLiquidacion.traducir("liquidacion_economica.no_disponible")));
+    }
   }
 
   function pintar() {
@@ -223,16 +252,16 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
   }
 
   function pintarBloqueo() {
-    const bloqueado = Boolean(controladorDecision || pendiente);
+    const bloqueado = Boolean(controladorDecision || pendiente || vistaLiquidacion?.bloqueaSalida());
     [selectorEtapa, desde, hasta, buscar].forEach((campo) => { campo.disabled = bloqueado; });
     detalle.setAttribute("aria-busy", String(Boolean(controladorDecision)));
   }
 
   async function cargar(indice = indicePagina, enfocar = false) {
-    if (!activa || pendiente || !Number.isInteger(indice) || indice < 0 || indice >= cursores.length) return;
+    if (!activa || pendiente || vistaLiquidacion?.bloqueaSalida() || !Number.isInteger(indice) || indice < 0 || indice >= cursores.length) return;
     const disparador = documento.activeElement;
     controladorLectura?.abort(); controladorLectura = new AbortController(); const actual = ++generacion;
-    controladorDocumento?.abort(); ++generacionDocumento; abierto = null;
+    controladorDocumento?.abort(); ++generacionDocumento; abierto = null; vistaLiquidacion?.desmontar(); vistaLiquidacion = undefined;
     const nuevaConsulta = { ...consulta, ...(cursores[indice] ? { cursor: cursores[indice] } : {}) };
     indicePagina = indice; pagina = { items: [], competencia: "acreditada" };
     mensaje = t("circuito_cargando"); nivel = "cargando"; contenido.setAttribute("aria-busy", "true"); pintar();
@@ -283,13 +312,14 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
     }
   }
 
-  function cerrar() { if (pendiente) return; controladorDocumento?.abort(); ++generacionDocumento; const referencia = abierto?.referencia; abierto = null; pintar(); contenido.querySelector?.(`[data-dietas-circuito-abrir="${referencia}"]`)?.focus?.(); }
+  function cerrar() { if (pendiente || vistaLiquidacion?.bloqueaSalida()) return; const recargar = abierto?.liquidacionRegistrada; vistaLiquidacion?.desmontar(); vistaLiquidacion = undefined; controladorDocumento?.abort(); ++generacionDocumento; const referencia = abierto?.referencia; abierto = null; pintar(); contenido.querySelector?.(`[data-dietas-circuito-abrir="${referencia}"]`)?.focus?.(); if (recargar) cargar(indicePagina); }
 
   async function decidir(reintentar, boton) {
-    if (controladorDecision || !activa || !abierto?.documento) return;
+    if (controladorDecision || !activa || !abierto?.documento || abierto.liquidacionRegistrada || vistaLiquidacion?.bloqueaSalida()) return;
     if (!reintentar && pendiente) return;
     const decision = reintentar ? pendiente?.entrada.decision : boton?.dataset?.dietasCircuitoDecision;
     if (!["aprobar", "devolver"].includes(decision)) return;
+    if (consulta.etapa === "liquidacion" && decision === "aprobar") return;
     const campoMotivo = detalle.querySelector?.("[data-dietas-circuito-motivo]");
     // Recorta los mismos blancos de borde que Go rechaza (también U+0085).
     const motivo = reintentar ? pendiente.entrada.motivo : recortarBordes(campoMotivo?.value);
@@ -345,7 +375,7 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
   }
   async function enviarFiltros(evento) {
     evento?.preventDefault?.();
-    if (pendiente) return;
+    if (pendiente || vistaLiquidacion?.bloqueaSalida()) return;
     abierto = null;
     consulta = { etapa: selectorEtapa.value, limit: 20, ...(desde.value ? { fecha_desde: desde.value } : {}), ...(hasta.value ? { fecha_hasta: hasta.value } : {}) };
     cursores = [undefined]; indicePagina = 0;
@@ -353,10 +383,11 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
   }
   function desmontar() {
     if (!activa) return; activa = false;
+    vistaLiquidacion?.desmontar(); vistaLiquidacion = undefined;
     controladorLectura?.abort(); controladorDocumento?.abort(); controladorDecision?.abort();
     pagina = { items: [], competencia: "acreditada" }; cursores = []; abierto = null; pendiente = null;
     raiz.removeEventListener("click", clic); filtros.removeEventListener("submit", enviarFiltros); raiz.remove();
   }
   raiz.addEventListener("click", clic); filtros.addEventListener("submit", enviarFiltros); registrarDesmontar?.(desmontar); cargar();
-  return Object.freeze({ desmontar, recargar: () => cargar() });
+  return Object.freeze({ desmontar, recargar: () => cargar(), bloqueaSalida: () => Boolean(controladorDecision || pendiente || vistaLiquidacion?.bloqueaSalida()) });
 }

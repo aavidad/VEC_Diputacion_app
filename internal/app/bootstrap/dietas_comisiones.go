@@ -148,6 +148,9 @@ var referenciaRutaComisionDietas = regexp.MustCompile(`^dco_[A-Za-z0-9_-]{22,128
 var referenciaRutaRelacionPersonalDietas = regexp.MustCompile(`^rel_[A-Za-z0-9_-]{22,128}$`)
 
 func metodoComisionesDietasValido(ruta, metodo string) bool {
+	if esRutaLiquidacionEconomica(ruta) {
+		return metodoLiquidacionEconomicaValido(ruta, metodo)
+	}
 	if esRutaRectificacionDietas(ruta) {
 		return metodoRectificacionDietasValido(ruta, metodo)
 	}
@@ -677,6 +680,21 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	emisoresPorAccion[personalports.AccionSolicitarRectificacionDietas] = emisores[personalports.AudienciaSolicitarRectificacionDietas]
 	emisoresPorAccion[personalports.AccionConsultarRectificacionDietas] = emisores[personalports.AudienciaConsultarRectificacionDietas]
 	emisoresPorAccion[personalports.AccionConsultarRectificacionesCompetentesDietas] = emisores[personalports.AudienciaConsultarRectificacionesCompetentesDietas]
+	var liquidacion *dependenciasLiquidacionEconomica
+	configLiquidacion, falloLiquidacion := leerConfiguracionLiquidacionDietas(cfg)
+	if falloLiquidacion != nil {
+		registrarFalloDietasArranque("configuracion_liquidacion", falloLiquidacion)
+	} else if configLiquidacion != nil {
+		proveedor := material.adicionales[audienciaConsumoLiquidacionEconomicaDietas]
+		if proveedor == nil {
+			registrarFalloDietasArranque("material_liquidacion", errLiquidacionEconomicaNoDisponible)
+		} else if emisorEconomia, e := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, proveedor); e != nil {
+			registrarFalloDietasArranque("material_liquidacion", e)
+		} else {
+			emisoresPorAccion[dietasapp.AccionRegistrarLiquidacionEconomica] = emisorEconomia
+			liquidacion = &dependenciasLiquidacionEconomica{config: configLiquidacion, fuente: fuente, motivo: c.MotivoCrear}
+		}
+	}
 	// Resolver no se inyecta: la confirmación completa depende todavía de D7.
 	// Circuito: cada acción firma con su audiencia propia del gobierno CT.
 	for _, accion := range accionesCircuitoDietas() {
@@ -700,7 +718,7 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	if err != nil || calculador == nil {
 		return nil, errComposicionDietasEn()
 	}
-	tarifas, err := dietaspg.NuevoRepositorioTarifasProvisionales(propios.Dietas())
+	tarifas, err := dietaspg.NuevoRepositorioTarifasPublicadas(propios.Dietas())
 	if err != nil {
 		return nil, errComposicionDietasEn()
 	}
@@ -708,7 +726,7 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	for _, punto := range dietas.ProvinceRoutePoints() {
 		puntos[punto.Code] = dietasports.CoordenadaRuta{Latitud: punto.Latitude, Longitud: punto.Longitude, Nombre: punto.Name}
 	}
-	preparador, err := dietasapp.NuevoPreparadorComision(puntos, calculador, tarifas)
+	preparador, err := dietasapp.NuevoPreparadorComisionPublicado(puntos, calculador, tarifas)
 	if err != nil {
 		return nil, errComposicionDietasEn()
 	}
@@ -716,7 +734,7 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	if err != nil {
 		return nil, errComposicionDietasEn()
 	}
-	rutas, colecciones, err := componerBorradoresDietas(dependenciasBorradoresDietas{personal: propios.Personal(), personalAsignacion: asignacionPersonal, dietas: propios.Dietas(), auditoriaPersonal: registradorPersonal, auditoriaRectificacion: registradorRectificacion, seguridad: seguridadComisiones, reloj: reloj, emisorPersonal: &emisorComisionesDietasDesarrollo{personal: emisores[audienciaConsumoPersonalDietasDesarrollo], adicionales: emisoresPorAccion}, emisorDietas: &emisorComisionesDietasDesarrollo{crear: emisores[audienciaConsumoCrearDietasDesarrollo], consultar: emisores[audienciaConsumoConsultarDietasDesarrollo], adicionales: emisoresPorAccion}, motivoPersonal: c.MotivoPersonal, motivoDietas: c.MotivoCrear, preparador: preparador, fuenteCompetencia: fuenteCompetencia})
+	rutas, colecciones, err := componerBorradoresDietas(dependenciasBorradoresDietas{personal: propios.Personal(), personalAsignacion: asignacionPersonal, dietas: propios.Dietas(), auditoriaPersonal: registradorPersonal, auditoriaRectificacion: registradorRectificacion, seguridad: seguridadComisiones, reloj: reloj, emisorPersonal: &emisorComisionesDietasDesarrollo{personal: emisores[audienciaConsumoPersonalDietasDesarrollo], adicionales: emisoresPorAccion}, emisorDietas: &emisorComisionesDietasDesarrollo{crear: emisores[audienciaConsumoCrearDietasDesarrollo], consultar: emisores[audienciaConsumoConsultarDietasDesarrollo], adicionales: emisoresPorAccion}, motivoPersonal: c.MotivoPersonal, motivoDietas: c.MotivoCrear, preparador: preparador, fuenteCompetencia: fuenteCompetencia, liquidacion: liquidacion})
 	if err != nil {
 		return nil, err
 	}

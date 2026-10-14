@@ -28,25 +28,25 @@ func componerDietasAisladasDesarrollo(
 	material materialDietasDesdeCTDesarrollo,
 ) montajeDietasAislado {
 	m := montajeDietasAislado{cerrarRutas: func() {}, cfgShell: cfg}
+	cartografiaValida := true
 	// El shell construye su manejador OSRM más tarde. Se valida aquí para
 	// impedir que un campo cartográfico incompleto pare el arranque común.
 	if _, err := nuevoCasoUsoCalculoRutas(cfg); err != nil {
 		registrarFalloDietasArranque("cartografia", err)
-		m.denegar = true
+		cartografiaValida = false
 		m.cfgShell.OSRMBaseURL = ""
 		m.cfgShell.OSRMScopeName = ""
 		m.cfgShell.OSRMScopeBounds = ""
 		m.cfgShell.OSRMAllowedCIDRs = nil
 		m.cfgShell.OSRMGraphVersion = ""
-		return m
 	}
 	var err error
-	m.rutas, m.cerrarRutas, err = nuevasRutasDietasDesarrollo(cfg, resolvedor, derivador)
-	if err != nil {
-		registrarFalloDietasArranque("rutas", err)
-		m.rutas = nil
-		m.denegar = true
-		return m
+	if cartografiaValida {
+		m.rutas, m.cerrarRutas, err = nuevasRutasDietasConMaterialComunDesarrollo(cfg, resolvedor, derivador, material.rutas)
+		if err != nil {
+			registrarFalloDietasArranque("rutas", err)
+			m.rutas = nil
+		}
 	}
 	if m.cerrarRutas == nil {
 		m.cerrarRutas = func() {}
@@ -60,7 +60,18 @@ func componerDietasAisladasDesarrollo(
 		m.comisiones = nil
 		m.denegar = true
 	}
+	if m.comisiones != nil && m.rutas == nil {
+		m.rutas = autoridadRutasDietasNoDisponible{}
+	}
 	return m
+}
+
+// La autoridad cerrada permite que la ausencia local de cartografía devuelva
+// 503 en las dos rutas, incluso cuando el resto de Dietas está operativo.
+type autoridadRutasDietasNoDisponible struct{}
+
+func (autoridadRutasDietasNoDisponible) AutorizarPeticionRutaDietas(context.Context, *http.Request) error {
+	return vechttp.ErrRutaDietasNoDisponible
 }
 
 // publicarMaterialDietasAisladoDesarrollo da a Dietas un plazo propio.

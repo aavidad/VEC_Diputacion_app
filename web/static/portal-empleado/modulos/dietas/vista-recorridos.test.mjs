@@ -215,3 +215,39 @@ test("una respuesta tardía tras desmontar no monta pasos y las etapas vacías s
   assert.equal(otra.querySelectorAll("[data-dietas-cambiar-etapa]").length, 0);
   vistaVacia.desmontar();
 });
+
+test('el recorrido pasa la liquidación al panel y bloquea cambio de pestaña durante el registro', async () => {
+  const contenedor = raiz(); const ref = 'dco_1234567890123456789012'; let resolver;
+  const clienteCircuito = {
+    competencias: async () => ({ fuente: 'acreditada', etapas: ['liquidacion'] }),
+    listar: async () => ({ items: [{ referencia: ref, estado: 'pendiente_liquidacion', version: 3, fecha_inicio: '2026-10-13', fecha_fin: '2026-10-14' }], competencia: 'acreditada' }),
+    documento: async () => ({ referencia: ref, numero_documento: 'VEC-D-2026-000012', fecha_apertura: '2026-10-13T08:00:00Z',
+      estado: 'pendiente_liquidacion', version: 3, fecha_inicio: '2026-10-13', fecha_fin: '2026-10-14', hora_inicio: '08:00', hora_fin: '18:00',
+      motivo: 'Visita técnica', codigos_ruta: [], calculo: {}, documento: { lineas: [], total_orientativo_centimos: 1000 } }),
+    decidir: async () => assert.fail('decisión antigua'),
+  };
+  const propuesta = { catalogo: { referencia: 'cat', version: 'v1', publicacion_ref: 'pub', fecha_publicacion: '2026-01-01',
+    vigente_desde: '2026-01-01', vigente_hasta: '2026-12-31', version_tarifa_ref: 'tarifa-v1', ambito: 'España', grupo: 2,
+    normas: [{ referencia: 'RD', articulo: 'art. 1', url: 'https://example.invalid' }], reglas: [{ referencia: 'r1', tipo: 'dieta', concepto: 'manutencion' }] },
+    lineas: [{ indice: 0, regla_ref: 'r1', original_centimos: 1000, calculado_publicado_centimos: 1000, diferencia_centimos: 0, reconocido_propuesto_centimos: 1000, rechazado_centimos: 0, motivo_codigo: '' }],
+    totales: { original_centimos: 1000, calculado_publicado_centimos: 1000, diferencia_centimos: 0, reconocido_propuesto_centimos: 1000, rechazado_centimos: 0 }, decision_pendiente: false };
+  const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores: clienteBorradores(), clienteCircuito,
+    clienteLiquidacion: { propuesta: async () => propuesta, registrar: async () => new Promise((resolve) => { resolver = resolve; }), leer: async () => ({}) } });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const panel = contenedor.querySelector('[data-dietas-recorridos]');
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-cambiar-etapa="liquidacion"]') });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const bandeja = panel.querySelector('[data-dietas-bandeja-circuito]');
+  await bandeja.listeners.click({ target: bandeja.querySelector('[data-dietas-circuito-abrir]') });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const economica = panel.querySelector('[data-dietas-liquidacion]'); assert.ok(economica);
+  await economica.listeners.click({ target: economica.querySelector('[data-dietas-liquidacion-accion="revisar"]') });
+  const envio = economica.listeners.click({ target: economica.querySelector('[data-dietas-liquidacion-accion="confirmar"]') });
+  assert.equal(panel.querySelector('[data-dietas-cambiar-etapa="solicitante"]').disabled, true);
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-cambiar-etapa="solicitante"]') });
+  assert.equal(panel.querySelector('[data-dietas-panel-etapa="circuito"]').hidden, false);
+  resolver({ constancia: { version_entrada: 3, version_resultante: 4, recibo_ref: 'recibo-real', fecha: '2026-10-14T10:00:00Z' }, economia: propuesta });
+  await envio;
+  assert.equal(panel.querySelector('[data-dietas-cambiar-etapa="solicitante"]').disabled, false);
+  vista.desmontar();
+});

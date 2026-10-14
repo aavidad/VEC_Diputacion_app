@@ -160,6 +160,13 @@ export function componerDietasInternas(recursos, entorno) {
   // dependen de la competencia que acredite la fuente gobernada.
   const clienteCircuito = typeof recursos?.clienteCircuito?.crearClienteCircuitoDietasHTTP === "function"
     ? recursos.clienteCircuito.crearClienteCircuitoDietasHTTP({ fetchImpl }) : undefined;
+  // La liquidación económica se añade al circuito disponible sin impedir
+  // consultas y devoluciones si su cliente todavía no puede componerse.
+  let clienteLiquidacion;
+  if (typeof recursos?.clienteLiquidacion?.crearClienteLiquidacionDietasHTTP === "function") {
+    try { clienteLiquidacion = recursos.clienteLiquidacion.crearClienteLiquidacionDietasHTTP({ fetchImpl }); }
+    catch { clienteLiquidacion = undefined; }
+  }
   const clienteRectificacion = typeof recursos?.clienteRectificacion?.crearClienteRectificacionDietasHTTP === "function"
     ? recursos.clienteRectificacion.crearClienteRectificacionDietasHTTP({ fetchImpl }) : undefined;
   return Object.freeze({
@@ -182,7 +189,7 @@ export function componerDietasInternas(recursos, entorno) {
       }
       if (!vigente) return Object.freeze({ desmontar() {} });
       return recursos.recorridos.montarVistaRecorridosDietas(raiz, {
-        clienteBorradores, clienteAsignacion, clienteCircuito, clienteRectificacion, calculadorRuta, visorRuta, ...relaciones,
+        clienteBorradores, clienteAsignacion, clienteCircuito, clienteLiquidacion, clienteRectificacion, calculadorRuta, visorRuta, ...relaciones,
         anunciar, registrarDesmontar,
       });
     },

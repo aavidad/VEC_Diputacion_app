@@ -32,6 +32,7 @@ const (
 	audienciaConsumoBandejaLiquidacionDietas   = "vec_dietas.bandeja.liquidacion.consultar.v1"
 	audienciaConsumoBandejaFiscalizacionDietas = "vec_dietas.bandeja.fiscalizacion.consultar.v1"
 	audienciaConsumoRevisorDocumentoDietas     = "vec_dietas.circuito.documento.consultar.v1"
+	audienciaConsumoLiquidacionEconomicaDietas = "vec_dietas.liquidacion_economica.registrar.v1"
 )
 
 // audienciasCircuitoDietasDesarrollo enumera las audiencias del circuito en
@@ -42,10 +43,20 @@ func audienciasCircuitoDietasDesarrollo() []string {
 		audienciaConsumoRevisorDocumentoDietas}
 }
 
+func descriptorMaterialLiquidacionEconomicaDietas() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia:        audienciaConsumoLiquidacionEconomicaDietas,
+		Dominio:          "vec.dietas.liquidacion-economica.registrar.desarrollo.capacidad-v3",
+		Prefijo:          "clave:capacidad:dietas-liquidacion-economica:",
+		ProveedorNominal: "proveedor-material-dietas-liquidacion-economica",
+	}
+}
+
 // materialDietasDesdeCTDesarrollo transporta proveedores nominales gobernados
 // desde la composición de Contratación. No expone claves.
 type materialDietasDesdeCTDesarrollo struct {
 	personal, crear, consultar *proveedorMaterialAltaContratacionTemporalDesarrollo
+	rutas                      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	adicionales                map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
 }
 

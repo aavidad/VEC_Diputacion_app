@@ -15,12 +15,17 @@ type LectorTarifasComision interface {
 	ConsultarRegla(context.Context, string, time.Time) (domain.ReglaDevengoProvisional, error)
 }
 
+type LectorTarifasPublicadas interface {
+	Consultar(context.Context, string, int, string, time.Time) (domain.CatalogoLiquidacionPublicado, error)
+}
+
 // PreparadorComision sólo toma códigos de localidad y tiempos del navegador.
 // Coordenadas, distancias, grafo y cuantías proceden de autoridades del servidor.
 type PreparadorComision struct {
-	puntos  map[string]ports.CoordenadaRuta
-	rutas   ports.CalculadorRutas
-	tarifas LectorTarifasComision
+	puntos     map[string]ports.CoordenadaRuta
+	rutas      ports.CalculadorRutas
+	tarifas    LectorTarifasComision
+	publicadas LectorTarifasPublicadas
 }
 
 func NuevoPreparadorComision(puntos map[string]ports.CoordenadaRuta, rutas ports.CalculadorRutas, tarifas LectorTarifasComision) (*PreparadorComision, error) {
@@ -75,6 +80,9 @@ func (p *PreparadorComision) Preparar(ctx context.Context, s ports.SolicitudCrea
 	}
 	fechaLocal := inicio.In(zona)
 	fechaTarifa := time.Date(fechaLocal.Year(), fechaLocal.Month(), fechaLocal.Day(), 0, 0, 0, 0, time.UTC)
+	if p.publicadas != nil {
+		return p.prepararConTarifaPublicada(ctx, s, inicio, fin, fechaTarifa, ruta)
+	}
 	regla, err := p.tarifas.ConsultarRegla(ctx, "", fechaTarifa)
 	if err != nil || regla.Validar() != nil {
 		return s, domain.ErrTramosProvisionalesNoDisponibles

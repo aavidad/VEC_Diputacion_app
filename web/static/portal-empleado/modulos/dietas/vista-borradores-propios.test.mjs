@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { montarVistaBorradoresPropios as montarVistaConPuerto } from "./vista-borradores-propios.js";
+import { montarVistaBorradoresPropios as montarVistaConPuerto, describirRotuloCalculoDietas } from "./vista-borradores-propios.js";
+import { cargarTextos } from "../../../comun/textos.js";
 import { crearClienteBorradoresDietasHTTP } from "./cliente-borradores-http.js";
 import { ESQUEMA_CATALOGO_RUTAS_DIETAS } from "./contrato.js";
 
@@ -2014,4 +2015,38 @@ test("editar una comisión con gastos anteriores a D5 los marca y al guardar lle
     assert.equal(contenedor.ownerDocument.activeElement, tipo);
     assert.equal(tipo.attrs["aria-invalid"], "true");
   } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
+test('la orientación traduce la clave de tarifa publicada y conserva rótulos históricos literales', async () => {
+  const [es, en] = await Promise.all([
+    cargarTextos('dietas', { idioma: 'es', porDefecto: 'es' }), cargarTextos('dietas', { idioma: 'en', porDefecto: 'es' }),
+  ]);
+  assert.equal(describirRotuloCalculoDietas('dietas_tarifa_publicada', (clave) => es.traducir(`general.${clave}`)), 'Tarifa publicada para Dietas');
+  assert.equal(describirRotuloCalculoDietas('dietas_tarifa_publicada', (clave) => en.traducir(`general.${clave}`)), 'Published expenses rate');
+  assert.equal(describirRotuloCalculoDietas('PROVISIONAL · pendiente de confirmación por RRHH', () => assert.fail('traducción inesperada')),
+    'PROVISIONAL · pendiente de confirmación por RRHH');
+});
+
+test('la ficha propia consulta el último registro auditado sin preparar ni registrar otra liquidación', async () => {
+  const contenedor = raiz(); const consultas = [];
+  const propio = { ...item, comision: { ...item.comision, estado: 'pendiente_fiscalizacion', version: 4,
+    numero_documento: 'VEC-D-2026-000012' } };
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [propio] }), obtener: async () => propio, crear: async () => assert.fail('POST borrador') },
+    clienteLiquidacion: { leer: async (ref, version, opciones) => { consultas.push([ref, version, opciones.signal]); return {
+      constancia: { numero_documento: 'VEC-D-2026-000012', recibo_ref: 'recibo-liquidacion-real', fecha: '2026-10-14T10:00:00Z', version_resultante: 4 },
+      economia: { totales: { reconocido_propuesto_centimos: 1200 } },
+    }; }, propuesta: async () => assert.fail('GET propuesta'), registrar: async () => assert.fail('POST liquidación') },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  const lista = contenedor.querySelector('[data-dietas-borrador-detalle]');
+  await contenedor.querySelector('[data-dietas-borradores-propios]').listeners.click({ target: lista });
+  const boton = contenedor.querySelector('[data-dietas-consultar-liquidacion]'); assert.ok(boton);
+  assert.equal(consultas.length, 0);
+  await contenedor.querySelector('[data-dietas-borradores-propios]').listeners.click({ target: boton });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(consultas.length, 1); assert.equal(consultas[0][1], 'actual');
+  assert.match(textoVisible(contenedor), /recibo-liquidacion-real/u);
+  assert.match(textoVisible(contenedor), /VEC-D-2026-000012/u);
+  vista.desmontar();
 });
