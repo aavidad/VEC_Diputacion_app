@@ -470,7 +470,6 @@
   "liquidacion_economica": {
     "titulo": "Liquidación económica",
     "cargando": "Consultando la propuesta económica…",
-    "propuesta_lista": "Revise las diferencias entre el importe declarado y el cálculo con tarifa publicada. Elija qué hacer con cada línea.",
     "fuente_aplicable": "Fuente de la propuesta",
     "catalogo": "Catálogo y versión",
     "publicacion": "Publicación",

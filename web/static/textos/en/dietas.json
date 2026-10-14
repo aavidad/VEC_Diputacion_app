@@ -470,7 +470,6 @@
   "liquidacion_economica": {
     "titulo": "Expense settlement",
     "cargando": "Loading the financial proposal…",
-    "propuesta_lista": "Review the difference between the declared amount and the calculation using published rates. Choose what to do with each line.",
     "fuente_aplicable": "Proposal source",
     "catalogo": "Catalogue and version",
     "publicacion": "Publication",

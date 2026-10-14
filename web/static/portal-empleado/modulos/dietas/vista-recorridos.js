@@ -1,6 +1,6 @@
 import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n-dietas-v1";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20261014-dietas-consulta-economia-v1";
-import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20261014-dietas-consulta-economia-v1";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20261014-dietas-consulta-economia-v2";
+import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20261014-dietas-consulta-economia-v2";
 
 import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260929-i18n-dietas-v1";
 

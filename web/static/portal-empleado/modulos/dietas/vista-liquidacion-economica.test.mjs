@@ -12,6 +12,7 @@ class Nodo {
   removeChild(nodo) { this.children = this.children.filter((n) => n !== nodo); nodo.parent = null; }
   addEventListener(tipo, f) { this.listeners[tipo] = f; } removeEventListener(tipo) { delete this.listeners[tipo]; }
   setAttribute(k, v) { this.attrs[k] = String(v); }
+  removeAttribute(k) { delete this.attrs[k]; }
   focus() { this.ownerDocument.activeElement = this; }
   matches(sel) { const m = sel.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/u); if (!m) return this.tagName === sel; const v = this.dataset[dato(m[1])]; return v !== undefined && (m[2] === undefined || v === m[2]); }
   closest(sel) { for (let a = this; a; a = a.parent) if (a.matches(sel)) return a; return null; }
@@ -76,6 +77,65 @@ test('catálogos cargados mantienen sección e importes localizados', async () =
   const [es, en] = await Promise.all([cargarTextos('dietas', { idioma: 'es', porDefecto: 'es' }), cargarTextos('dietas', { idioma: 'en', porDefecto: 'es' })]);
   assert.match(es.traducir('liquidacion_economica.pendiente_firma'), /pendiente/u);
   assert.match(en.traducir('liquidacion_economica.pendiente_firma'), /awaiting/u);
+});
+
+test('la propuesta cargada no deja una ayuda permanente en ninguno de los idiomas', async () => {
+  for (const idioma of ['es', 'en']) {
+    const textos = await cargarTextos('dietas', { idioma, porDefecto: 'es' }); const contenedor = raiz();
+    const vista = montarVistaLiquidacionEconomica(contenedor, { referencia: ref, version: 3,
+      cliente: { propuesta: async () => propuesta, registrar: async () => assert.fail('POST inesperado'), leer: async () => assert.fail('GET inesperado') },
+      cargarTextosImpl: async () => textos });
+    await tick(); const panel = contenedor.querySelector('[data-dietas-liquidacion]');
+    assert.equal(panel.querySelector('[data-dietas-liquidacion-estado]').textContent, '');
+    assert.ok(panel.querySelector('[data-dietas-liquidacion-decision]'));
+    vista.desmontar();
+  }
+});
+
+test('el teclado mantiene el foco en cada decisión y pasa al importe al ajustar', async () => {
+  const textos = await cargarTextos('dietas', { idioma: 'es', porDefecto: 'es' }); const contenedor = raiz();
+  const pendiente = { ...propuesta, decision_pendiente: true,
+    lineas: [{ ...propuesta.lineas[0], calculado_publicado_centimos: 1200, diferencia_centimos: 200, reconocido_propuesto_centimos: 1200 }] };
+  const vista = montarVistaLiquidacionEconomica(contenedor, { referencia: ref, version: 3,
+    cliente: { propuesta: async () => pendiente, registrar: async () => assert.fail('POST inesperado'), leer: async () => assert.fail('GET inesperado') },
+    cargarTextosImpl: async () => textos });
+  await tick(); const panel = contenedor.querySelector('[data-dietas-liquidacion]');
+  for (const opcion of ['aceptar', 'orientativo', 'ajustar']) {
+    const anterior = panel.querySelector('[data-dietas-liquidacion-decision]'); anterior.focus(); anterior.value = opcion;
+    await panel.listeners.change({ target: anterior });
+    const esperado = panel.querySelector(opcion === 'ajustar' ? '[data-dietas-liquidacion-indice]' : '[data-dietas-liquidacion-decision]');
+    assert.notEqual(esperado, anterior); assert.equal(contenedor.ownerDocument.activeElement, esperado, opcion);
+  }
+  vista.desmontar();
+});
+
+test('el error se anuncia junto a decisión, importe y motivo y desaparece al corregir', async () => {
+  const textos = await cargarTextos('dietas', { idioma: 'es', porDefecto: 'es' }); const contenedor = raiz();
+  const pendiente = { ...propuesta, decision_pendiente: true,
+    lineas: [{ ...propuesta.lineas[0], calculado_publicado_centimos: 1200, diferencia_centimos: 200, reconocido_propuesto_centimos: 1200 }] };
+  const vista = montarVistaLiquidacionEconomica(contenedor, { referencia: ref, version: 3,
+    cliente: { propuesta: async () => pendiente, registrar: async () => assert.fail('POST inesperado'), leer: async () => assert.fail('GET inesperado') },
+    cargarTextosImpl: async () => textos });
+  await tick(); const panel = contenedor.querySelector('[data-dietas-liquidacion]');
+  const comprobarError = (control) => {
+    const aviso = panel.querySelector('[data-dietas-liquidacion-error-campo]');
+    assert.ok(aviso); assert.equal(control.attrs['aria-invalid'], 'true'); assert.equal(control.attrs['aria-describedby'], aviso.id);
+    assert.equal(control.closest('td').querySelector('[data-dietas-liquidacion-error-campo]'), aviso);
+    assert.equal(contenedor.ownerDocument.activeElement, control);
+  };
+  await click(panel, 'revisar'); const decision = panel.querySelector('[data-dietas-liquidacion-decision]'); comprobarError(decision);
+  decision.value = 'ajustar'; await panel.listeners.change({ target: decision });
+  assert.equal(panel.querySelector('[data-dietas-liquidacion-error-campo]'), null);
+  const importe = panel.querySelector('[data-dietas-liquidacion-indice]'); importe.value = '13';
+  await click(panel, 'revisar'); comprobarError(importe);
+  importe.value = '11'; panel.listeners.input({ target: importe });
+  assert.equal(importe.attrs['aria-invalid'], undefined); assert.equal(importe.attrs['aria-describedby'], undefined);
+  assert.equal(panel.querySelector('[data-dietas-liquidacion-error-campo]'), null);
+  await click(panel, 'revisar'); const motivo = panel.querySelector('[data-dietas-liquidacion-motivo]'); comprobarError(motivo);
+  motivo.value = 'revision_documental'; await panel.listeners.change({ target: motivo });
+  assert.equal(motivo.attrs['aria-invalid'], undefined); assert.equal(motivo.attrs['aria-describedby'], undefined);
+  assert.equal(panel.querySelector('[data-dietas-liquidacion-error-campo]'), null);
+  vista.desmontar();
 });
 
 test('un 409 no atribuye recibo ajeno; reintenta exactamente el mismo POST y su clave', async () => {

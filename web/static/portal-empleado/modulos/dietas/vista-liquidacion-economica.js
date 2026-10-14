@@ -18,7 +18,7 @@ export function montarVistaLiquidacionEconomica(contenedor, { cliente, referenci
   const titulo = nodo(doc, "h4"); const estado = nodo(doc, "p"); estado.setAttribute("role", "status"); estado.setAttribute("aria-live", "polite"); estado.setAttribute("tabindex", "-1"); estado.dataset.dietasLiquidacionEstado = "";
   const contenido = nodo(doc, "div"); contenido.className = "cuerpo-panel"; raiz.append(titulo, estado, contenido); contenedor.append(raiz);
   let viva = true; let controlador; let generacion = 0; let textos; let propuesta; let revisiones = []; let decisiones = []; let revisionVisible = false; let revisionConfirmada; let pendiente; let liquidacion; let denegada = false;
-  let descargaControlador; let urlDocumento; let revocacion;
+  let descargaControlador; let urlDocumento; let revocacion; let errorCampo;
   const liberarURL = () => { if (revocacion) clearTimeout(revocacion); revocacion = undefined;
     if (urlDocumento) entornoDescarga.URL?.revokeObjectURL?.(urlDocumento); urlDocumento = undefined; };
   const t = (clave, variables) => textos?.traducir(`liquidacion_economica.${clave}`, variables) ?? "";
@@ -26,6 +26,25 @@ export function montarVistaLiquidacionEconomica(contenedor, { cliente, referenci
   const fecha = (valor) => new Intl.DateTimeFormat(textos.localizacion, { dateStyle: "medium", timeStyle: "short", timeZone: ZONA_HORARIA_PORTAL }).format(new Date(valor));
   const fechaCivil = (valor) => new Intl.DateTimeFormat(textos.localizacion, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${valor}T00:00:00Z`));
   const ponerEstado = (clave) => { estado.textContent = t(clave); };
+  const limpiarErrorCampo = () => {
+    if (!errorCampo) return;
+    errorCampo.control.removeAttribute("aria-invalid"); errorCampo.control.removeAttribute("aria-describedby");
+    errorCampo.mensaje.remove(); errorCampo = undefined;
+  };
+  const mostrarErrorCampo = ({ error, control }) => {
+    limpiarErrorCampo(); ponerEstado(error);
+    if (control) {
+      const mensaje = nodo(doc, "p", t(error));
+      const indice = control.dataset.dietasLiquidacionDecision ?? control.dataset.dietasLiquidacionIndice ?? control.dataset.dietasLiquidacionMotivo;
+      const tipo = control.dataset.dietasLiquidacionDecision !== undefined ? "decision"
+        : control.dataset.dietasLiquidacionIndice !== undefined ? "importe" : "motivo";
+      mensaje.id = `dietas-liquidacion-error-${referencia}-${indice}-${tipo}`;
+      mensaje.dataset.dietasLiquidacionErrorCampo = "";
+      control.setAttribute("aria-invalid", "true"); control.setAttribute("aria-describedby", mensaje.id);
+      control.closest("td")?.append(mensaje); errorCampo = { control, mensaje };
+      control.focus();
+    }
+  };
   const boton = (clave, accion, clase = "boton-secundario") => { const b = nodo(doc, "button", t(clave)); b.type = "button"; b.className = clase; b.dataset.dietasLiquidacionAccion = accion; return b; };
   const par = (clave, valor) => { const grupo = nodo(doc, "div"); grupo.append(nodo(doc, "dt", t(clave)), nodo(doc, "dd", String(valor ?? ""))); return grupo; };
   const calculado = (linea) => linea.calculado_publicado_centimos ?? 0;
@@ -60,7 +79,7 @@ export function montarVistaLiquidacionEconomica(contenedor, { cliente, referenci
   }
   function pintar() {
     if (!viva || !textos) return;
-    titulo.textContent = t(modoConsulta ? "consulta_titulo" : "titulo"); contenido.replaceChildren();
+    titulo.textContent = t(modoConsulta ? "consulta_titulo" : "titulo"); limpiarErrorCampo(); contenido.replaceChildren();
     if (liquidacion) {
       const c = liquidacion.constancia;
       const resumen = nodo(doc, "dl"); resumen.append(par("numero_documento", c.numero_documento), par("recibo", c.recibo_ref), par("fecha_registro", fecha(c.fecha)),
@@ -148,7 +167,7 @@ export function montarVistaLiquidacionEconomica(contenedor, { cliente, referenci
       decisiones = p.lineas.map((l) => p.decision_pendiente && diferencia(l) ? ""
         : l.reconocido_propuesto_centimos === calculado(l) ? "aceptar"
           : calculado(l) > l.original_centimos && l.reconocido_propuesto_centimos === l.original_centimos && !l.motivo_codigo ? "orientativo" : "ajustar");
-      ponerEstado("propuesta_lista"); estado.dataset.nivel = ""; pintar();
+      estado.textContent = ""; estado.dataset.nivel = ""; pintar();
     } catch (e) {
       if (!viva || actual !== generacion || e?.codigo === "operacion_abortada") return;
       denegada = !modoConsulta && ["acceso_denegado", "competencia_sin_fuente"].includes(e?.codigo);
@@ -162,7 +181,7 @@ export function montarVistaLiquidacionEconomica(contenedor, { cliente, referenci
     if (controlador || !propuesta || liquidacion || denegada || (pendiente && !reintento) || (reintento && !pendiente?.incierta)) return;
     if (!reintento) {
       const comprobacion = capturar();
-      if (comprobacion.error) { ponerEstado(comprobacion.error); comprobacion.control?.focus?.(); return; }
+      if (comprobacion.error) { mostrarErrorCampo(comprobacion); return; }
       if (!revisionVisible || JSON.stringify(revisiones) !== revisionConfirmada) { revisionVisible = false; ponerEstado("revisar_actualizado"); pintar(); return; }
       const clave = generarClaveIdempotencia();
       if (typeof clave !== "string" || !/^[A-Za-z0-9:_-]{16,128}$/u.test(clave)) { ponerEstado("error_envio"); return; }
@@ -224,7 +243,7 @@ export function montarVistaLiquidacionEconomica(contenedor, { cliente, referenci
     if (accion === "descargar_pdf" || accion === "descargar_docx") return descargar(accion.slice("descargar_".length));
     if (accion === "corregir") { revisionVisible = false; revisionConfirmada = undefined; pintar(); return; }
     if (accion === "revisar") {
-      const resultado = capturar(); if (resultado.error) { ponerEstado(resultado.error); resultado.control?.focus?.(); return; }
+      const resultado = capturar(); if (resultado.error) { mostrarErrorCampo(resultado); return; }
       revisionVisible = true; revisionConfirmada = JSON.stringify(revisiones); ponerEstado("revisar_aviso"); pintar(); estado.focus?.(); return;
     }
     if (accion === "confirmar" && revisionVisible) return registrar();
@@ -232,21 +251,28 @@ export function montarVistaLiquidacionEconomica(contenedor, { cliente, referenci
   async function cambio(evento) {
     const eleccion = evento.target?.closest?.("[data-dietas-liquidacion-decision]");
     if (eleccion) {
+      limpiarErrorCampo();
       const i = Number(eleccion.dataset.dietasLiquidacionDecision); decisiones[i] = eleccion.value;
       const linea = propuesta.lineas[i];
       if (eleccion.value === "aceptar") { revisiones[i].reconocido_propuesto_centimos = calculado(linea);
         revisiones[i].motivo_codigo = diferencia(linea) ? MOTIVO_DIFERENCIA : ""; }
       else if (eleccion.value === "orientativo") { revisiones[i].reconocido_propuesto_centimos = linea.original_centimos; revisiones[i].motivo_codigo = ""; }
       revisionVisible = false; revisionConfirmada = undefined; estado.textContent = ""; pintar();
-      if (eleccion.value === "ajustar") contenido.querySelector?.(`[data-dietas-liquidacion-indice="${i}"]`)?.focus?.();
+      const selectorFoco = eleccion.value === "ajustar" ? `[data-dietas-liquidacion-indice="${i}"]` : `[data-dietas-liquidacion-decision="${i}"]`;
+      contenido.querySelector?.(selectorFoco)?.focus?.();
       return;
     }
     if (evento.target?.closest?.("[data-dietas-liquidacion-indice]") || evento.target?.closest?.("[data-dietas-liquidacion-motivo]")) {
+      if (errorCampo?.control === evento.target) limpiarErrorCampo();
       revisionVisible = false; revisionConfirmada = undefined; estado.textContent = "";
     }
   }
-  function desmontar() { if (!viva) return; viva = false; ++generacion; controlador?.abort(); descargaControlador?.abort(); liberarURL(); raiz.removeEventListener("click", clic); raiz.removeEventListener("change", cambio); raiz.remove(); }
-  raiz.addEventListener("click", clic); raiz.addEventListener("change", cambio); registrarDesmontar?.(desmontar);
+  function editarCampo(evento) {
+    if (errorCampo?.control !== evento.target) return;
+    limpiarErrorCampo(); revisionVisible = false; revisionConfirmada = undefined; estado.textContent = "";
+  }
+  function desmontar() { if (!viva) return; viva = false; ++generacion; controlador?.abort(); descargaControlador?.abort(); liberarURL(); raiz.removeEventListener("click", clic); raiz.removeEventListener("change", cambio); raiz.removeEventListener("input", editarCampo); raiz.remove(); }
+  raiz.addEventListener("click", clic); raiz.addEventListener("change", cambio); raiz.addEventListener("input", editarCampo); registrarDesmontar?.(desmontar);
   cargarTextosImpl("dietas").then((c) => { if (!viva) return; textos = c; consultar(); }).catch(() => { if (viva) { estado.textContent = ""; estado.dataset.nivel = "error"; } });
   return Object.freeze({ desmontar, recargar: consultar, bloqueaSalida: () => Boolean((pendiente && !pendiente.conflicto) || descargaControlador) });
 }
