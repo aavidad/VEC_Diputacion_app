@@ -81,6 +81,9 @@ func (r *RepositorioRelacionEmpleadoPostgreSQL) ConsultarRelacionesPropiasDietas
 	if err = tx.QueryRow(ctx, consultaRelacionesPropiasDietas, parametros...).Scan(&recibo, &decision, &efecto, &huella, &auditoria, &consultadaEn, &n, &relacionesJSON); err != nil {
 		return cero, normalizarErrorRelacionEmpleado(ctx, err)
 	}
+	// El timestamptz binario conserva el instante, pero pgx puede representarlo
+	// en time.Local aunque la transacción use UTC. El contrato valida UTC.
+	consultadaEn = consultadaEn.UTC()
 	resultado, err := decodificarRelacionesPropias(relacionesJSON, n, c, o.Autorizacion, recibo, decision, efecto, huella, auditoria, consultadaEn)
 	if err != nil {
 		return cero, personalports.ErrRelacionEmpleadoNoDisponible
