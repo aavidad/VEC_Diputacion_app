@@ -80,7 +80,7 @@ BEGIN
  atr:='{"contexto_actor_ref":'||(i->'contexto_actor_ref')::text||',"contexto_version":'||to_jsonb(i->>'contexto_version')::text||',"cuenta_ref":'||(i->'cuenta_ref')::text||',"cuenta_version":'||to_jsonb(i->>'cuenta_version')::text||',"fecha_referencia":'||(i->'fecha_referencia')::text||',"fuente_ref":'||(i->'fuente_ref')::text||',"fuente_version":'||to_jsonb(i->>'fuente_version')::text||',"material_sha256":"'||encode(sha256(convert_to(p_material,'UTF8')),'hex')||'","operacion":'||to_jsonb(m->>'operacion')::text||',"perfil_version":'||to_jsonb(i->>'perfil_version')::text||',"persona_version":'||to_jsonb(i->>'persona_version')::text||',"procedencia_acto_ref":'||(i->'procedencia_acto_ref')::text||',"recurso_ref":'||(m->'recurso_ref')::text||',"relacion_version":'||to_jsonb(i->>'relacion_version')::text||',"vigente_desde":'||(i->'vigente_desde')::text||',"vigente_hasta":'||to_jsonb(hasta)::text||'}';
  h:=encode(sha256(convert_to('{"ambitos":'||amb||',"atributos":'||atr||'}','UTF8')),'hex');
  RETURN d->>'accion'=accion AND d->>'finalidad'=finalidad AND d->>'modulo_id'='dietas' AND d->>'tipo_recurso'='comision_borrador' AND d->>'recurso_ref'=m->>'recurso_ref' AND d->>'contexto_recurso_huella_sha256'=h AND c->>'operacion'=accion AND c->>'efecto_ref'=m->>'recurso_ref' AND c->>'huella_efecto_sha256'=h;
-END $function$
+END $function$;
 
 
 DO $pre_1$
@@ -165,7 +165,7 @@ BEGIN
  atr:='{"contexto_actor_ref":'||(i->'contexto_actor_ref')::text||',"contexto_version":'||to_jsonb(i->>'contexto_version')::text||',"cuenta_ref":'||(i->'cuenta_ref')::text||',"cuenta_version":'||to_jsonb(i->>'cuenta_version')::text||',"fecha_referencia":'||(i->'fecha_referencia')::text||',"fuente_ref":'||(i->'fuente_ref')::text||',"fuente_version":'||to_jsonb(i->>'fuente_version')::text||',"material_sha256":"'||encode(sha256(convert_to(p_material,'UTF8')),'hex')||'","operacion":'||to_jsonb(operacion)::text||',"perfil_version":'||to_jsonb(i->>'perfil_version')::text||',"persona_version":'||to_jsonb(i->>'persona_version')::text||',"procedencia_acto_ref":'||(i->'procedencia_acto_ref')::text||',"recurso_ref":'||(m->'recurso_ref')::text||',"relacion_version":'||to_jsonb(i->>'relacion_version')::text||',"vigente_desde":'||(i->'vigente_desde')::text||',"vigente_hasta":'||to_jsonb(hasta)::text||'}';
  h:=encode(sha256(convert_to('{"ambitos":'||amb||',"atributos":'||atr||'}','UTF8')),'hex');
  RETURN d->>'contexto_recurso_huella_sha256'=h AND c->>'huella_efecto_sha256'=h;
-END $function$
+END $function$;
 
 
 DO $post_0$
