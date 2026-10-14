@@ -23,26 +23,30 @@ const limitePDFSubidaLocal = 16 << 20
 // clave de declaración tras renovar sesión, sin aceptar correlación del HTTP.
 type DerivadorCorrelacionSubidaLocalHMAC struct{ clave [32]byte }
 
-func NuevoDerivadorCorrelacionSubidaLocalHMAC(clave []byte) (*DerivadorCorrelacionSubidaLocalHMAC,error) {
-	if len(clave)!=32 { return nil,docports.ErrSubidaLocalNoDisponible }
-	d:=&DerivadorCorrelacionSubidaLocalHMAC{}
-	copy(d.clave[:],clave)
-	return d,nil
+func NuevoDerivadorCorrelacionSubidaLocalHMAC(clave []byte) (*DerivadorCorrelacionSubidaLocalHMAC, error) {
+	if len(clave) != 32 {
+		return nil, docports.ErrSubidaLocalNoDisponible
+	}
+	d := &DerivadorCorrelacionSubidaLocalHMAC{}
+	copy(d.clave[:], clave)
+	return d, nil
 }
 
-func (d *DerivadorCorrelacionSubidaLocalHMAC) CorrelacionSubida(ctx context.Context,persona,clave string) (string,error) {
-	if d==nil || ctx==nil || ctx.Err()!=nil || persona=="" || clave=="" || len(clave)>256 {
-		return "",docports.ErrSubidaLocalNoDisponible
+func (d *DerivadorCorrelacionSubidaLocalHMAC) CorrelacionSubida(ctx context.Context, persona, clave string) (string, error) {
+	if d == nil || ctx == nil || ctx.Err() != nil || persona == "" || clave == "" || len(clave) > 256 {
+		return "", docports.ErrSubidaLocalNoDisponible
 	}
-	mac:=hmac.New(sha256.New,d.clave[:])
-	_,_=mac.Write([]byte("vec.documentos.subida.local.correlacion.v1\x00"))
+	mac := hmac.New(sha256.New, d.clave[:])
+	_, _ = mac.Write([]byte("vec.documentos.subida.local.correlacion.v1\x00"))
 	var longitud [8]byte
-	binary.BigEndian.PutUint64(longitud[:],uint64(len(persona)))
-	_,_=mac.Write(longitud[:]); _,_=mac.Write([]byte(persona))
-	binary.BigEndian.PutUint64(longitud[:],uint64(len(clave)))
-	_,_=mac.Write(longitud[:]); _,_=mac.Write([]byte(clave))
-	suma:=mac.Sum(nil)
-	return "correlacion_"+hex.EncodeToString(suma[:16]),nil
+	binary.BigEndian.PutUint64(longitud[:], uint64(len(persona)))
+	_, _ = mac.Write(longitud[:])
+	_, _ = mac.Write([]byte(persona))
+	binary.BigEndian.PutUint64(longitud[:], uint64(len(clave)))
+	_, _ = mac.Write(longitud[:])
+	_, _ = mac.Write([]byte(clave))
+	suma := mac.Sum(nil)
+	return "correlacion_" + hex.EncodeToString(suma[:16]), nil
 }
 
 var _ docports.DerivadorCorrelacionSubidaLocal = (*DerivadorCorrelacionSubidaLocalHMAC)(nil)
@@ -605,3 +609,84 @@ func (s *ServicioSubidaLocal) AbrirOriginal(ctx context.Context, q docports.Soli
 }
 
 var _ docports.SubidorLocal = (*ServicioSubidaLocal)(nil)
+
+// ConsultarOriginalAdmitido relee la postimagen propia y abre los bytes con
+// una autorización nueva. D20 solo admite el acto M4; las parejas C/D del
+// puerto Go permanecen cerradas hasta sus autoridades y SQL nominales.
+func (s *ServicioSubidaLocal) ConsultarOriginalAdmitido(ctx context.Context,
+	q docports.SolicitudOriginalSubidaLocalPropio) (docports.OriginalSubidaLocalAcreditado, error) {
+	var vacio docports.OriginalSubidaLocalAcreditado
+	if s == nil || ctx == nil || ctx.Err() != nil || q.DocumentoID == "" ||
+		q.DocumentoVersion == 0 || q.CorrelacionRef == "" {
+		return vacio, docports.ErrSubidaLocalDenegada
+	}
+	if s.c.ModuloID != "meritos" || s.c.TipoRecurso != "hecho" ||
+		s.c.AccionDescargar != docports.AccionMeritosComprobanteDescargarLocal {
+		return vacio, docports.ErrSubidaLocalNoDisponible
+	}
+	actor, err := q.ActorRegistradoV2.Clonar()
+	if err != nil || q.VinculoV2.ValidarPara(actor) != nil {
+		return vacio, docports.ErrSubidaLocalDenegada
+	}
+	consulta := docports.SolicitudConsultaLocal{ActorRegistradoV2: actor, VinculoV2: q.VinculoV2,
+		DocumentoID: q.DocumentoID, CorrelacionRef: q.CorrelacionRef}
+	primera, err := s.consultarSQL(ctx, docports.ConsultaPersistenciaSubidaLocal{
+		ActorRegistradoV2: actor, VinculoV2: q.VinculoV2, Accion: s.c.AccionDescargar,
+		Fase: docports.FaseSubidaLocalConsultarDocumento, DocumentoID: q.DocumentoID,
+		CorrelacionRef: q.CorrelacionRef, RecursoRef: q.DocumentoID}, q.DocumentoID, s.c.Finalidad)
+	if err != nil {
+		return vacio, err
+	}
+	if primera.Resultado.DocumentoVersion < 1 ||
+		uint64(primera.Resultado.DocumentoVersion) != q.DocumentoVersion ||
+		primera.Resultado.Estado != docports.EstadoSubidaLocalAdmitida {
+		return vacio, docports.ErrSubidaLocalDenegada
+	}
+	original, err := s.AbrirOriginal(ctx, consulta)
+	if err != nil {
+		return vacio, err
+	}
+	contenido, errorLectura := io.ReadAll(io.LimitReader(original, limitePDFSubidaLocal+1))
+	errorCierre := original.Close()
+	if errorLectura != nil || errorCierre != nil {
+		return vacio, docports.ErrSubidaLocalNoDisponible
+	}
+	return acreditarOriginalSubidaLocal(primera, actor.Contexto.PersonaRef,
+		q.DocumentoID, q.DocumentoVersion, contenido, s.c)
+}
+
+func acreditarOriginalSubidaLocal(i docports.InstantaneaSubidaLocal, persona, documentoID string,
+	version uint64, contenido []byte, c ConfiguracionServicioSubidaLocal,
+) (docports.OriginalSubidaLocalAcreditado, error) {
+	var vacio docports.OriginalSubidaLocalAcreditado
+	if c.ModuloID != "meritos" || c.TipoRecurso != "hecho" ||
+		c.Finalidad != "custodiar_evidencia_meritos" ||
+		i.PersonaRef == "" || i.PersonaRef != persona || i.RecursoRef == "" ||
+		i.Resultado.ComprobanteRef != documentoID || i.Resultado.DocumentoVersion < 1 ||
+		uint64(i.Resultado.DocumentoVersion) != version ||
+		i.Resultado.Estado != docports.EstadoSubidaLocalAdmitida ||
+		i.Resultado.ReciboRef == "" || i.Resultado.RegistradoEn.IsZero() ||
+		i.Analisis == nil || i.Analisis.Estado != vecports.EstadoAnalisisContenidoLimpio ||
+		i.Admitido == nil || i.Admitido.Objeto.Zona != vecports.ZonaAlmacenAdmitida ||
+		i.Admitido.Objeto.ConectorID == "" ||
+		i.Admitido.Objeto.HuellaSHA256 != i.HuellaPDFSHA256 ||
+		i.Admitido.Objeto.Tamano != i.Tamano || i.Admitido.Objeto.MIME != "application/pdf" ||
+		i.MIME != "application/pdf" || i.Tamano < 1 || i.Tamano > limitePDFSubidaLocal ||
+		int64(len(contenido)) != i.Tamano {
+		return vacio, docports.ErrSubidaLocalDenegada
+	}
+	suma := sha256.Sum256(contenido)
+	if hex.EncodeToString(suma[:]) != i.HuellaPDFSHA256 {
+		return vacio, docports.ErrSubidaLocalDenegada
+	}
+	return docports.OriginalSubidaLocalAcreditado{
+		DocumentoID: documentoID, DocumentoVersion: version, HuellaSHA256Bytes: i.HuellaPDFSHA256,
+		ReciboRef: i.Resultado.ReciboRef, RecursoRef: i.RecursoRef,
+		PersonaTitularRef: i.PersonaRef, PersonaAportanteRef: i.PersonaRef,
+		CustodioID: i.Admitido.Objeto.ConectorID, ModuloID: c.ModuloID,
+		TipoRecurso: c.TipoRecurso, Finalidad: c.Finalidad,
+		EstadoAdmision: docports.EstadoSubidaLocalAdmitida,
+	}, nil
+}
+
+var _ docports.ConsultaOriginalSubidaLocalPropio = (*ServicioSubidaLocal)(nil)

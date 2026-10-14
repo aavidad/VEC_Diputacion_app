@@ -96,7 +96,7 @@ autoriza el enlace en Cronos; no sustituye la acción documental de subida.
    homóloga cuando C la publique. Una ausencia, error, versión distinta o
    estado no editable deniega solo la subida. El cotejo se hace en la
    transacción serializable que reserva o admite el original.
-3. El puerto Go por implementar se llama
+3. El puerto Go publicado se llama
    `ConsultaOriginalSubidaLocalPropio.ConsultarOriginalAdmitido(ctx,
    SolicitudOriginalSubidaLocalPropio)`. La solicitud contiene actor y
    vínculo V2 ya atestados, `DocumentoID`, `DocumentoVersion` y
@@ -104,8 +104,8 @@ autoriza el enlace en Cronos; no sustituye la acción documental de subida.
    Devuelve `OriginalSubidaLocalAcreditado` con `DocumentoID`, `DocumentoVersion`,
    `HuellaSHA256Bytes`, `ReciboRef`, `RecursoRef`, `PersonaTitularRef`,
    `PersonaAportanteRef`, `CustodioID`, `ModuloID`, `TipoRecurso`, `Finalidad`,
-   `EstadoAdmision` y `RegistradoEn`. Es el nombre de la proyección Go por
-   implementar, no una respuesta existente de D20. En esta integración se
+   `EstadoAdmision` y `RegistradoEn`. La proyección Go está implementada para Méritos; todavía no es
+   una respuesta de la fachada SQL que consumirán Cronos y Dietas. En esta integración se
    admite únicamente la aportación propia: `PersonaAportanteRef` es la
    persona del actor atestado que realizó la reserva, y debe coincidir con
    la titular. `CustodioID` identifica el conector de almacén que figura en

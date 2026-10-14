@@ -57,6 +57,37 @@ type SolicitudConsultaLocal struct {
 	CorrelacionRef    string
 }
 
+// La identidad de consulta procede de la frontera. La versión solicitada
+// identifica el original exacto; la persona y su huella no llegan del cliente.
+type SolicitudOriginalSubidaLocalPropio struct {
+	ActorRegistradoV2 domain.ResultadoContextoActorRegistradoV2
+	VinculoV2         domain.VinculoAutenticacionActorV2
+	DocumentoID       string
+	DocumentoVersion  uint64
+	CorrelacionRef    string
+}
+
+// CustodioID identifica el conector que guardó los bytes admitidos. No
+// atribuye una custodia jurídica distinta de la evidencia de Documentos.
+type OriginalSubidaLocalAcreditado struct {
+	DocumentoID         string            `json:"documento_id"`
+	DocumentoVersion    uint64            `json:"documento_version"`
+	HuellaSHA256Bytes   string            `json:"huella_sha256_bytes"`
+	ReciboRef           string            `json:"recibo_ref"`
+	RecursoRef          string            `json:"recurso_ref"`
+	PersonaTitularRef   string            `json:"persona_titular_ref"`
+	PersonaAportanteRef string            `json:"persona_aportante_ref"`
+	CustodioID          string            `json:"custodio_id"`
+	ModuloID            string            `json:"modulo_id"`
+	TipoRecurso         string            `json:"tipo_recurso"`
+	Finalidad           string            `json:"finalidad"`
+	EstadoAdmision      EstadoSubidaLocal `json:"estado_admision"`
+}
+
+type ConsultaOriginalSubidaLocalPropio interface {
+	ConsultarOriginalAdmitido(context.Context, SolicitudOriginalSubidaLocalPropio) (OriginalSubidaLocalAcreditado, error)
+}
+
 type ResultadoSubidaLocal struct {
 	CargaID          string            `json:"carga_id"`
 	RecursoRef       string            `json:"-"`
@@ -106,7 +137,7 @@ type ResolutorActoSubidaLocal interface {
 }
 
 type DerivadorCorrelacionSubidaLocal interface {
-	CorrelacionSubida(context.Context,string,string) (string,error)
+	CorrelacionSubida(context.Context, string, string) (string, error)
 }
 
 // AutorizacionActoSubidaLocalV3 sólo transporta material emitido por el PDP
