@@ -86,5 +86,3 @@ def comando_catalogo_faltante(args, referencia, cert, key, ejemplos, base):
             "-H 'Accept: application/json' -H 'Content-Type: application/json' "
             f"-H \"Idempotency-Key: $(cat {q(str(privado))})\" "
             f"--data-binary {q('@' + str(cuerpo))} {q(endpoint)}")
-
-
