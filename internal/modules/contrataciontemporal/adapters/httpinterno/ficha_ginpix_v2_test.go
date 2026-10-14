@@ -56,6 +56,9 @@ func TestManejadorFichaGINPIXV2EntregaJSONConUTF8(t *testing.T) {
 	if got := w.Header().Get("Content-Type"); got != "application/json; charset=utf-8" {
 		t.Fatalf("content-type: got %q", got)
 	}
+	if got := w.Header().Get("Content-Disposition"); got != "attachment; filename=ficha-ginpix-personal.json" {
+		t.Fatalf("content-disposition: got %q", got)
+	}
 }
 
 func preparacionFichaGINPIXV2Prueba(t *testing.T) ginpixfichero.PreparacionExportacion {

@@ -1,4 +1,4 @@
-import { crearClienteHTTPContratacionTemporal } from "../modulos/contratacion-temporal/cliente-http.js?v=20261013-ct-firma-tres-v3";
+import { crearClienteHTTPContratacionTemporal } from "../modulos/contratacion-temporal/cliente-http.js?v=20261014-ginpix-personal-b2-v1";
 import { crearPuertoCategorias } from "./puerto.js?v=20261001-rpt-categorias-v1";
 
 export const PLAZO_CONSULTA_MS = 10000;

@@ -4,12 +4,13 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261014-cronos-activacion-v1";
-const versionEntrada = "20261014-cronos-activacion-v1";
-const versionClienteCT = "20261013-ct-firma-tres-v3";
-const versionCircuito = "20261013-ct-firma-tres-v3";
+const versionCoordinador = "20261014-ginpix-cronos-v1";
+const versionEntrada = versionCoordinador;
+const versionClienteCT = "20261014-ginpix-personal-b2-v1";
+const versionBaseCT = "20261013-ct-firma-tres-v3";
+const versionCircuito = "20261014-ginpix-personal-b2-v1";
 const versionVista = "20261013-ct-firma-tres-v3";
-const versionVistaPortal = "20261013-ct-firma-tres-v3";
+const versionVistaPortal = "20261014-ginpix-personal-b2-v1";
 const versionAdaptador = "20261013-ct-firma-tres-v3";
 const versionRender = "20261013-ct-firma-tres-v3";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
@@ -35,7 +36,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
     "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
   ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   exigirVersiones(vista, "./vista-expedientes-render.js", versionRender, 2);
-  exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
+  exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVistaPortal);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
   exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionVista);
   exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
@@ -65,7 +66,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   // La consulta de circuito RRHH no cambió: conserva su URL anterior.
   exigirVersiones(vista, "./vista-circuito-rrhh.js", "20261002-ct-r5-grafo-v2");
   exigirVersiones(vista, "./circuito-firma.js", firma);
-  exigirVersiones(circuito, "./circuito-firma-acciones.js", "20261013-ct-firma-tres-v3");
+  exigirVersiones(circuito, "./circuito-firma-acciones.js", versionCircuito);
   for (const manifiesto of [interno, produccion]) {
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/firma-externa-cliente\.js$/mu);
   }
@@ -111,14 +112,14 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const [html, portal, coordinador, cliente, altaHTTP, transporte, expedientes, tramitacion,
     vista, presentadorAlta, rendererAlta, i18n, contrato, interno, produccion, cache] = await Promise.all(
     nombres.map((nombre) => readFile(new URL(nombre, raiz), "utf8")));
-  const cohorte = versionClienteCT;
+  const cohorte = versionBaseCT;
   const cohorteNavegacion = "20261012-ct-b2-cese-v1";
   const cohorteClienteHTTP = versionClienteCT;
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
-  const cohorteCapacidad = cohorte;
+  const cohorteCapacidad = versionBaseCT;
   const cohorteIdioma = "20261011-ct-bolsa-vinculo-v1";
   const cohorteEntrada = versionEntrada;
-  const cohorteFicha = "20261013-ct-firma-tres-v3";
+  const cohorteFicha = versionVistaPortal;
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
     ["/portal-empleado/portal-modulos-coordinador.js", "20261008-ct-inicio-v1"],
@@ -132,7 +133,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     [portal, "./portal-modulos-coordinador.js", versionCoordinador],
     [coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteClienteHTTP],
     [cliente, "./cliente-http-alta.js", cohorte],
-    [cliente, "./cliente-http-transporte.js", "20261011-ct-bolsa-vinculo-v1"],
+    [cliente, "./cliente-http-transporte.js", versionClienteCT],
     [coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", versionVistaPortal],
     [expedientes, "./vista-expedientes-tramitacion.js", cohorteFicha],
     [tramitacion, "./vista.js", cohorteCapacidad],
