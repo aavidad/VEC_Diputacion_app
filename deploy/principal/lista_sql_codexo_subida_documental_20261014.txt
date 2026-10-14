@@ -1,0 +1,3 @@
+deploy/postgresql/autorizacion/migraciones/000095_autorizacion_subida_documental_externa.up.sql
+deploy/postgresql/documentos/migraciones/000020_subida_documental_comun.up.sql
+deploy/postgresql/meritos/migraciones/000007_cartera_evidencias_subidas.up.sql

@@ -19,6 +19,7 @@ const SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH = "api.bolsa.rrhh
 const SuperficieAuditoriaFronteraRutaExactaAspirantes = "api.aspirantes.ficha.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases = "api.seleccion.preparacion_bases.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo = "api.bolsa.reglas_baremo.ruta_exacta"
+const SuperficieAuditoriaFronteraRutaExactaDocumentosSubidaLocal = "api.documentos.subida_local.ruta_exacta"
 
 var ErrOrdenAuditoriaFronteraRutaExactaInvalida = errors.New(
 	"vec ports: orden de auditoria de frontera de ruta exacta invalida",
@@ -58,6 +59,10 @@ func (o OrdenAuditoriaFronteraRutaExacta) Validar() error {
 			((o.Motivo == MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida && o.ActorRef != "") ||
 				(o.Motivo == MotivoAuditoriaFronteraRutaExactaAccesoDenegado &&
 					!referenciaOpacaContextoActorValida(o.ActorRef, "per_")))) ||
+		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaDocumentosSubidaLocal &&
+			((o.Motivo == MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida && o.ActorRef != "") ||
+				(o.Motivo == MotivoAuditoriaFronteraRutaExactaAccesoDenegado &&
+					!actorAuditoriaSubidaDocumentalValido(o.ActorRef)))) ||
 		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH &&
 			o.Motivo == MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida && o.ActorRef != "") ||
 		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaAspirantes && o.ActorRef != "") ||
@@ -67,6 +72,20 @@ func (o OrdenAuditoriaFronteraRutaExacta) Validar() error {
 		return ErrOrdenAuditoriaFronteraRutaExactaInvalida
 	}
 	return nil
+}
+
+// La bitácora documental no registra identidad civil ni la referencia del
+// archivo: un actor conocido se representa con HMAC sobre el certificado.
+func actorAuditoriaSubidaDocumentalValido(valor string) bool {
+	if !strings.HasPrefix(valor, "docactor_") || len(valor) != len("docactor_")+64 {
+		return false
+	}
+	for _, caracter := range valor[len("docactor_"):] {
+		if (caracter < '0' || caracter > '9') && (caracter < 'a' || caracter > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string) bool {
@@ -123,6 +142,10 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 		return ruta == "/api/vec/meritos/cartera" ||
 			ruta == "/api/vec/meritos/cartera/retiradas" ||
 			ruta == "/api/vec/meritos/cartera/declaraciones"
+	case SuperficieAuditoriaFronteraRutaExactaDocumentosSubidaLocal:
+		return ruta == "/api/vec/meritos/cartera/comprobantes" ||
+			ruta == "/api/vec/meritos/cartera/comprobantes/estado" ||
+			ruta == "/api/vec/meritos/cartera/comprobantes/{comprobante_ref}/original"
 	case SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases:
 		return ruta == "/api/vec/seleccion/preparacion-bases/guardar" ||
 			ruta == "/api/vec/seleccion/preparacion-bases/consultar"

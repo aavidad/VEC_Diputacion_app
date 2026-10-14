@@ -775,7 +775,7 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
   errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false,
   cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261011-mibolsa-respuesta-anterior-v1"),
-  cargarVistaMeritos = () => import("./meritos-reales-montaje.js?v=20261013-meritos-recorrido-v1"),
+  cargarVistaMeritos = () => import("./meritos-reales-montaje.js?v=20261014-aspirante-pdf-local-v1"),
   cargarVistaAlegaciones = () => import("../comun/alegaciones-vista.js?v=20261013-alegaciones-v1") } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));

@@ -215,7 +215,7 @@ func (l decisionAlmacenV3Ligada) huellaPlan(v VinculosOperacionAlmacen, e especi
 // validarEstructuraV3 repite todos los cotejos sobre los datos guardados:
 // una copia alterada del contexto nunca se acepta.
 func (d *datosContextoOperacionAlmacen) validarEstructuraV3() error {
-	especificacion, existe := especificacionAlmacenV3(d.accionNegocio)
+	especificacion, existe := especificacionAlmacenV3ParaPaso(d.accionNegocio, d.pasoRef)
 	if !existe || d.huellaManifiestoSHA256 != "" || !pasosIgualesAlmacen(d.pasos, especificacion.pasos) ||
 		especificacion.requiereObjeto != (d.objetoVinculado != (ReferenciaObjetoAlmacen{})) {
 		return ErrAutorizacionAlmacenInvalida
@@ -242,7 +242,33 @@ func (d *datosContextoOperacionAlmacen) validarEstructuraV3() error {
 // especificacionAlmacenV3 es la lista cerrada de planes que admiten una
 // decisión V3; los campos exactos salen del plan, nunca de la decisión.
 func especificacionAlmacenV3(accionNegocio string) (especificacionAutorizacionAlmacen, bool) {
+	return especificacionAlmacenV3ParaPaso(accionNegocio, "")
+}
+
+func especificacionAlmacenV3ParaPaso(accionNegocio string, paso PasoOperacionAlmacen) (especificacionAutorizacionAlmacen, bool) {
 	switch accionNegocio {
+	case accionAlmacenSubirComprobanteMeritos, accionAlmacenSubirJustificanteDietas,
+		accionAlmacenSubirJustificacionCronos:
+		switch paso {
+		case PasoAlmacenEscribirSubidaLocal:
+			return especificacionSubidaLocal(accionNegocio, FaseAlmacenSubidaLocalEscribir)
+		case PasoAlmacenLeerParaAnalisis, PasoAlmacenAnalizarContenido:
+			return especificacionSubidaLocal(accionNegocio, FaseAlmacenSubidaLocalAnalizar)
+		case PasoAlmacenPromover:
+			return especificacionSubidaLocal(accionNegocio, FaseAlmacenSubidaLocalPromover)
+		case PasoAlmacenRecuperarEscrituraSubidaLocal:
+			return especificacionSubidaLocal(accionNegocio, FaseAlmacenSubidaLocalRecuperarEscritura)
+		case PasoAlmacenRecuperarPromocionSubidaLocal:
+			return especificacionSubidaLocal(accionNegocio, FaseAlmacenSubidaLocalRecuperarPromocion)
+		default:
+			return especificacionAutorizacionAlmacen{}, false
+		}
+	case accionAlmacenDescargarComprobanteMeritos, accionAlmacenDescargarJustificanteDietas,
+		accionAlmacenDescargarJustificacionCronos:
+		if paso == PasoAlmacenLeerOriginalDocumento {
+			return especificacionSubidaLocal(accionNegocio, FaseAlmacenSubidaLocalDescargar)
+		}
+		return especificacionAutorizacionAlmacen{}, false
 	case AccionNegocioCustodiarDocumentoFirmadoExpediente:
 		return especificacionCustodiarDocumentoFirmadoExpediente(), true
 	case AccionNegocioEscribirOriginalFirmable:

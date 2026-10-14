@@ -173,6 +173,7 @@ func concesionCarteraExacta(i vec.InstantaneaAutorizacion) bool {
 func copiarFichasCartera(entrada []ports.FichaCartera) []ports.FichaCartera {
 	salida := slices.Clone(entrada)
 	for i := range salida {
+		salida[i].Evidencias = append([]vec.ReferenciaDocumento{}, salida[i].Evidencias...)
 		if salida[i].Retirada != nil {
 			r := *salida[i].Retirada
 			salida[i].Retirada = &r

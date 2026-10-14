@@ -99,6 +99,7 @@ type autoridadPreferenciasUsuariosDesarrollo struct {
 	aspirantes                     *autoridadPreferenciasUsuariosDesarrollo
 	componenteAspirantes           *componenteAspirantes
 	cartera, retirada, declaracion *autoridadPreferenciasUsuariosDesarrollo
+	documentos                     *componenteSubidaDocumentosExterna
 	superficieAuditoria            string
 }
 

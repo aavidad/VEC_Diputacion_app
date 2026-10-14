@@ -15,6 +15,7 @@ import (
 	"vec-diputacion-granada/internal/modules/meritos/application"
 	"vec-diputacion-granada/internal/modules/meritos/domain"
 	"vec-diputacion-granada/internal/modules/meritos/ports"
+	documentosports "vec-diputacion-granada/internal/vec/documentos/ports"
 	vec "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -31,20 +32,26 @@ type DeclaradorCartera interface {
 	Declarar(context.Context, application.Solicitud) (ports.Recibo, error)
 }
 
+type DeclaradorConComprobanteCartera interface {
+	Declarar(context.Context, application.Solicitud, string) (ports.Recibo, error)
+}
+
 type HandlerDeclaracionesCartera struct {
-	proveedor ProveedorDeclaracionCartera
-	servicio  DeclaradorCartera
-	reloj     vecports.Reloj
+	proveedor      ProveedorDeclaracionCartera
+	servicio       DeclaradorCartera
+	conComprobante DeclaradorConComprobanteCartera
+	reloj          vecports.Reloj
 }
 
 type entradaDeclaracionCartera struct {
-	Tipo         string `json:"tipo"`
-	Denominacion string `json:"denominacion"`
-	Desde        string `json:"fecha_desde"`
-	Hasta        string `json:"fecha_hasta,omitempty"`
-	Horas        *int   `json:"horas,omitempty"`
-	DeclaradaEn  string `json:"declarada_en"`
-	Clave        string `json:"clave_idempotencia"`
+	Tipo           string `json:"tipo"`
+	Denominacion   string `json:"denominacion"`
+	Desde          string `json:"fecha_desde"`
+	Hasta          string `json:"fecha_hasta,omitempty"`
+	Horas          *int   `json:"horas,omitempty"`
+	DeclaradaEn    string `json:"declarada_en"`
+	Clave          string `json:"clave_idempotencia"`
+	ComprobanteRef string `json:"comprobante_ref,omitempty"`
 }
 
 func NuevoHandlerDeclaracionesCartera(p ProveedorDeclaracionCartera, s DeclaradorCartera, r vecports.Reloj) (*HandlerDeclaracionesCartera, error) {
@@ -52,6 +59,17 @@ func NuevoHandlerDeclaracionesCartera(p ProveedorDeclaracionCartera, s Declarado
 		return nil, ports.ErrCarteraNoDisponible
 	}
 	return &HandlerDeclaracionesCartera{proveedor: p, servicio: s, reloj: r}, nil
+}
+
+// ConComprobantes habilita el vínculo documental solo si la composición
+// aporta el caso de uso que consulta la versión propia ya confirmada.
+func (h *HandlerDeclaracionesCartera) ConComprobantes(s DeclaradorConComprobanteCartera) (*HandlerDeclaracionesCartera, error) {
+	if h == nil || dependenciaConsultaNula(s) {
+		return nil, ports.ErrComprobanteMeritoNoDisponible
+	}
+	copia := *h
+	copia.conComprobante = s
+	return &copia, nil
 }
 
 func (h *HandlerDeclaracionesCartera) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -101,14 +119,27 @@ func (h *HandlerDeclaracionesCartera) ServeHTTP(w http.ResponseWriter, r *http.R
 		Version: 1, Tipo: entrada.Tipo, ConceptoRef: "tipo:" + entrada.Tipo, Denominacion: entrada.Denominacion, Horas: entrada.Horas,
 		Procedencia: domain.Procedencia{FuenteRef: "meritos:declaracion-personal", Version: "1", HechoOrigenRef: hechoRef, CapturadaEn: entrada.DeclaradaEn},
 		Vigencia:    domain.Vigencia{Desde: entrada.Desde, Hasta: entrada.Hasta}, Estado: domain.Declarado, Evidencias: []vec.ReferenciaDocumento{}}
-	recibo, err := h.servicio.Declarar(operacionCtx, solicitud)
+	var recibo ports.Recibo
+	if entrada.ComprobanteRef != "" {
+		if !domain.ReferenciaValida(entrada.ComprobanteRef) {
+			responderErrorCartera(w, http.StatusBadRequest, "meritos.error.solicitud_invalida")
+			return
+		}
+		if dependenciaConsultaNula(h.conComprobante) {
+			responderErrorCartera(w, http.StatusServiceUnavailable, "meritos.error.comprobante_no_disponible")
+			return
+		}
+		recibo, err = h.conComprobante.Declarar(operacionCtx, solicitud, entrada.ComprobanteRef)
+	} else {
+		recibo, err = h.servicio.Declarar(operacionCtx, solicitud)
+	}
 	if err != nil {
 		switch {
 		case errors.Is(err, application.ErrSolicitud):
 			responderErrorCartera(w, http.StatusUnprocessableEntity, "meritos.error.solicitud_invalida")
 		case errors.Is(err, ports.ErrConflictoVersion), errors.Is(err, ports.ErrClaveReutilizada):
 			responderErrorCartera(w, http.StatusConflict, "meritos.error.conflicto_version")
-		case errors.Is(err, vec.ErrAutorizacionDenegada):
+		case errors.Is(err, vec.ErrAutorizacionDenegada), errors.Is(err, documentosports.ErrSubidaLocalDenegada):
 			responderErrorCartera(w, http.StatusForbidden, "meritos.error.cartera_denegada")
 		default:
 			responderFalloCartera(w, err)
@@ -136,10 +167,45 @@ func leerDeclaracionCartera(w http.ResponseWriter, r *http.Request) (entradaDecl
 	if err != nil {
 		return entrada, application.ErrSolicitud
 	}
+	if !declaracionJSONSinDuplicados(body) {
+		return entradaDeclaracionCartera{}, application.ErrSolicitud
+	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(&entrada) != nil || decoder.Decode(new(any)) != io.EOF {
 		return entradaDeclaracionCartera{}, application.ErrSolicitud
 	}
 	return entrada, nil
+}
+
+func declaracionJSONSinDuplicados(body []byte) bool {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	token, err := decoder.Token()
+	if err != nil || token != json.Delim('{') {
+		return false
+	}
+	vistas := map[string]bool{}
+	for decoder.More() {
+		token, err := decoder.Token()
+		clave, ok := token.(string)
+		if err != nil || !ok || vistas[clave] {
+			return false
+		}
+		vistas[clave] = true
+		var valor json.RawMessage
+		if decoder.Decode(&valor) != nil {
+			return false
+		}
+		if clave == "comprobante_ref" {
+			var ref string
+			if json.Unmarshal(valor, &ref) != nil || !domain.ReferenciaValida(ref) {
+				return false
+			}
+		}
+	}
+	fin, err := decoder.Token()
+	if err != nil || fin != json.Delim('}') {
+		return false
+	}
+	return decoder.Decode(new(any)) == io.EOF
 }

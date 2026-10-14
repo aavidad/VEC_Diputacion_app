@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"regexp"
 	"sync"
@@ -174,9 +175,13 @@ func montarCarteraPortalExterno(ctx context.Context, cfg config.Config,
 		}},
 	}
 	var pools []*pgxpool.Pool
+	var cerrarDocumentos func()
 	var unaVez sync.Once
 	cerrar := func() {
 		unaVez.Do(func() {
+			if cerrarDocumentos != nil {
+				cerrarDocumentos()
+			}
 			for _, pool := range pools {
 				pool.Close()
 			}
@@ -318,14 +323,24 @@ func montarCarteraPortalExterno(ctx context.Context, cfg config.Config,
 		return nil, falloMontajeCartera("handler_retirada")
 	}
 	declaracion := nuevaAutoridad(meritoshttp.RutaDeclaracionesCartera)
+	ctxDocumentos, cancelarDocumentos := context.WithTimeout(ctx, 10*time.Second)
+	documentos, falloDocumentos := montarSubidaDocumentosCarteraExterna(ctxDocumentos, cfg,
+		cartera, declaracion, topologia, autorizador, proveedores, privada.MotivoRetirada)
+	cancelarDocumentos()
+	if falloDocumentos != nil {
+		slog.Warn("comprobante_local_meritos_no_disponible")
+	} else {
+		cerrarDocumentos = documentos.cerrar
+	}
 	poolOperacion, err := montarDeclaracionMeritosCartera(ctx, cfg, declaracion, privada, topologia, pools[0], autorizador,
-		proveedores[descriptoresMaterialMeritosInternosDesarrollo()[0].Audiencia])
+		proveedores[descriptoresMaterialMeritosInternosDesarrollo()[0].Audiencia], documentos)
 	if err != nil {
 		return nil, err
 	}
 	pools = append(pools, poolOperacion)
 	externa.declaracion = declaracion
 	externa.cartera, externa.retirada = cartera, retirada
+	externa.documentos = documentos
 	completo = true
 	return cerrar, nil
 }
