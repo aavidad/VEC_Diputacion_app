@@ -28,10 +28,11 @@ class GuionHZ39(unittest.TestCase):
                                   accept=lambda: aceptados.append(True), dismiss=lambda: rechazados.append(True))
         eventos[0][1](dialogo)
         self.assertEqual(aceptados, [True])
-        dialogo.message = "Confirmar expediente:2"
-        with self.assertRaises(runner.EntradaInvalida):
-            eventos[0][1](dialogo)
-        self.assertEqual(rechazados, [True])
+        for mensaje in ("Confirmar expediente:2", "Referencia: expediente:10"):
+            dialogo.message = mensaje
+            with self.assertRaises(runner.EntradaInvalida):
+                eventos[0][1](dialogo)
+        self.assertEqual(rechazados, [True, True])
         self.assertEqual(aceptados, [True])
 
     def test_fecha_del_recibo_de_peticion_se_conserva_al_recuperar(self):

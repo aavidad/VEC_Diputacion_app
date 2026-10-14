@@ -205,7 +205,7 @@ def accion(
         referencia = resolver(a["valor"], datos)
 
         def confirmar(dialogo):
-            if dialogo.type != "confirm" or not referencia or referencia not in dialogo.message:
+            if dialogo.type != "confirm" or not referencia or referencia not in dialogo.message.split():
                 dialogo.dismiss()
                 raise EntradaInvalida("confirmacion_no_corresponde_al_acto")
             dialogo.accept()
