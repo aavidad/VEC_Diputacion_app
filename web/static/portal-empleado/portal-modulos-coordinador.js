@@ -16,7 +16,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261014-dietas-recorrido-economia-v3";
+} from "./portal-composicion-empleado.js?v=20261014-dietas-tarifa-publicada-web-v4";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-alegaciones-v2";
 import { cargarTextos } from "../comun/textos.js";
 import { INDICE_IDIOMAS } from "../comun/idioma.js";
@@ -207,8 +207,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito, clienteRectificacion, clienteLiquidacion] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20261014-dietas-recorrido-economia-v3"),
-      import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
+      import("./modulos/dietas/vista-recorridos.js?v=20261014-dietas-tarifa-publicada-web-v4"),
+      import("./modulos/dietas/cliente-borradores-http.js?v=20261014-dietas-tarifa-publicada-web-v4"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/mapa-ruta.js?v=20261007-u-dietas-catalogo-v1"),

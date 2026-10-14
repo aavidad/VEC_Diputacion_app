@@ -6,7 +6,7 @@ import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGas
 import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20261007-u-dietas-catalogo-v1";
 import { validarCatalogoRutasDietas } from "./contrato.js";
 import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20261007-pantallas-textos-final-v1";
-import { montarVistaLiquidacionEconomica } from "./vista-liquidacion-economica.js?v=20261014-dietas-recorrido-economia-v3";
+import { montarVistaLiquidacionEconomica } from "./vista-liquidacion-economica.js?v=20261014-dietas-tarifa-publicada-web-v4";
 
 
 // NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.
@@ -58,7 +58,7 @@ function comisionCorregible(item) { return ["borrador", "devuelta"].includes(ite
 function enCorreccion(item) { return item?.comision?.estado === "devuelta" || Boolean(item?.comision?.devolucion); }
 function euros(centimos) { return new Intl.NumberFormat(LOCALIZACION_ACTUAL, { style: "currency", currency: "EUR" }).format(centimos / 100); }
 export function describirRotuloCalculoDietas(rotulo, traducir) {
-  return rotulo === "dietas_tarifa_publicada" ? traducir("dietas_tarifa_publicada") : rotulo;
+  return traducir(rotulo === "dietas_tarifa_publicada" ? "dietas_tarifa_publicada" : "dietas_tarifa_provisional");
 }
 function rutaLegible(codigos, traducir, nombres = new Map()) {
   return codigos.length

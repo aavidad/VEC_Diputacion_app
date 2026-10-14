@@ -2017,14 +2017,16 @@ test("editar una comisión con gastos anteriores a D5 los marca y al guardar lle
   } finally { globalThis.FormData = original; vista.desmontar(); }
 });
 
-test('la orientación traduce la clave de tarifa publicada y conserva rótulos históricos literales', async () => {
+test('la orientación traduce tarifas publicadas e históricas sin mostrar el literal heredado', async () => {
   const [es, en] = await Promise.all([
     cargarTextos('dietas', { idioma: 'es', porDefecto: 'es' }), cargarTextos('dietas', { idioma: 'en', porDefecto: 'es' }),
   ]);
   assert.equal(describirRotuloCalculoDietas('dietas_tarifa_publicada', (clave) => es.traducir(`general.${clave}`)), 'Tarifa publicada para Dietas');
   assert.equal(describirRotuloCalculoDietas('dietas_tarifa_publicada', (clave) => en.traducir(`general.${clave}`)), 'Published expenses rate');
-  assert.equal(describirRotuloCalculoDietas('PROVISIONAL · pendiente de confirmación por RRHH', () => assert.fail('traducción inesperada')),
-    'PROVISIONAL · pendiente de confirmación por RRHH');
+  assert.equal(describirRotuloCalculoDietas('PROVISIONAL · pendiente de confirmación por RRHH', (clave) => es.traducir(`general.${clave}`)),
+    'Tarifa provisional para Dietas');
+  assert.equal(describirRotuloCalculoDietas('PROVISIONAL · pendiente de confirmación por RRHH', (clave) => en.traducir(`general.${clave}`)),
+    'Provisional expenses rate');
 });
 
 test('la ficha propia consulta el último registro auditado sin preparar ni registrar otra liquidación', async () => {
