@@ -18,10 +18,11 @@ type identidadCertificadoDesarrollo struct {
 }
 
 type resolvedorIdentidadDesarrollo struct {
-	porHuella      map[[sha256.Size]byte]vecdomain.Principal
-	porSujeto      map[string]adscripcionCentroDesarrollo
-	lectoresRRHH   map[[sha256.Size]byte]identidadConsultaRRHHDesarrollo
-	candidatoBolsa *identidadCandidatoBolsaDesarrollo
+	porHuella             map[[sha256.Size]byte]vecdomain.Principal
+	porSujeto             map[string]adscripcionCentroDesarrollo
+	lectoresRRHH          map[[sha256.Size]byte]identidadConsultaRRHHDesarrollo
+	lectoresRRHHInvalidos bool
+	candidatoBolsa        *identidadCandidatoBolsaDesarrollo
 }
 
 func (r *resolvedorIdentidadDesarrollo) registrarCandidatoBolsa(c identidadCandidatoBolsaDesarrollo) error {
@@ -90,7 +91,7 @@ func (r *resolvedorIdentidadDesarrollo) registrarLectoresRRHH(lectores []identid
 }
 
 func (r *resolvedorIdentidadDesarrollo) lectorConsultaRRHH(principal vecdomain.Principal) (identidadConsultaRRHHDesarrollo, bool) {
-	if r == nil || !principalSinteticoContratacionTemporalDesarrolloValido(principal) || len(principal.Roles) != 1 {
+	if r == nil || r.lectoresRRHHInvalidos || !principalSinteticoContratacionTemporalDesarrolloValido(principal) || len(principal.Roles) != 1 {
 		return identidadConsultaRRHHDesarrollo{}, false
 	}
 	for huella, lector := range r.lectoresRRHH {

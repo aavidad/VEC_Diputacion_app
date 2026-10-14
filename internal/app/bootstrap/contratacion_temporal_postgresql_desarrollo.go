@@ -611,11 +611,16 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if etapa = "material_inscripcion_bolsa"; seleccion.inscripcionBolsa {
 		var proveedores [2]*proveedorMaterialAltaContratacionTemporalDesarrollo
 		for i, descriptor := range descriptoresMaterialInscripcionRRHHDesarrollo() {
-			if proveedores[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia); err != nil {
-				return vacias, err
+			proveedor, fallo := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia)
+			if fallo != nil {
+				slog.Warn("inscripción RRHH no disponible", "etapa", "material_v3")
+				break
 			}
+			proveedores[i] = proveedor
 		}
-		dependencias.materialInscripcionBolsa = materialInscripcionRRHHDesarrollo{revisar: proveedores[0], incorporar: proveedores[1]}
+		if proveedores[0] != nil && proveedores[1] != nil {
+			dependencias.materialInscripcionBolsa = materialInscripcionRRHHDesarrollo{revisar: proveedores[0], incorporar: proveedores[1]}
+		}
 	}
 	etapa = "material_personal_ficha_propia"
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {

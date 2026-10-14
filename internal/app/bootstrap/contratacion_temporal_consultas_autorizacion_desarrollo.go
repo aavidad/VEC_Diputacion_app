@@ -108,8 +108,12 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		m.autoridad.firmaVecR5.nominal.admitePrincipal(principal) {
 		validoRuta = true
 	}
-	if (rutaConsultaRRHHContratacionTemporalDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaEstadisticasRRHH) && len(m.autoridad.resolvedor.lectoresRRHH) != 0 {
-		_, validoRuta = m.autoridad.resolvedor.lectorConsultaRRHH(principal)
+	if rutaConsultaRRHHContratacionTemporalDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaEstadisticasRRHH {
+		if m.autoridad.resolvedor.lectoresRRHHInvalidos {
+			validoRuta = false
+		} else if len(m.autoridad.resolvedor.lectoresRRHH) != 0 {
+			_, validoRuta = m.autoridad.resolvedor.lectorConsultaRRHH(principal)
+		}
 	}
 	if rutaLecturaCTFirmaV2(r.URL.Path) && m.autoridad.firmaVecR5 != nil &&
 		m.autoridad.firmaVecR5.nominal.lecturas != nil && m.autoridad.firmaVecR5.nominal.admitePrincipal(principal) {

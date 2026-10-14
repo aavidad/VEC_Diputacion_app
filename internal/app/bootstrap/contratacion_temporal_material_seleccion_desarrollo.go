@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -92,7 +93,8 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 	}
 	inscripcionBolsa, err := cfg.BolsaInscripcionesInternoActivo()
 	if err != nil {
-		return s, err
+		slog.Warn("inscripción RRHH no disponible", "etapa", "selector")
+		inscripcionBolsa = false
 	}
 	s = seleccionMaterialCTDesarrollo{
 		borradoresBolsa:              cfg.BolsaBorradoresEnabled,

@@ -28,14 +28,28 @@ func miBolsaExternaSeleccionadaEnCombinado(cfg config.Config) bool {
 	return activa || err != nil || sinBolsa == nil || strings.TrimSpace(cfg.ExternoMaterialDir) != ""
 }
 
+// La selección externa permanece aunque su material sea inválido: ninguna
+// petición puede pasar entonces al perfil interno por una vía alternativa.
+func componerBolsaPersonalExternaOpcionalDesarrollo(cfg config.Config, identidad *resolvedorIdentidadDesarrollo,
+	incidencias vecports.EmisorIncidenciasTecnicas,
+) (bolsa, inscripcion http.Handler, cerrar func()) {
+	bolsa, inscripcion, cerrar, err := nuevasRutasBolsaPersonalCombinado(cfg, identidad, incidencias)
+	if err != nil {
+		cerrar()
+		etapa := "montaje"
+		if _, falloSelector := cfg.BolsaInscripcionesExternoActivo(); falloSelector != nil {
+			etapa = "selector"
+		}
+		slog.Warn("portal personal externo no disponible", "etapa", etapa)
+		return nil, nil, func() {}
+	}
+	return bolsa, inscripcion, cerrar
+}
+
 func nuevasRutasBolsaPersonalCombinado(cfg config.Config, identidad *resolvedorIdentidadDesarrollo, incidencias vecports.EmisorIncidenciasTecnicas) (bolsa, inscripcion http.Handler, cerrar func(), err error) {
 	nada := func() {}
 	if !miBolsaExternaSeleccionadaEnCombinado(cfg) {
 		return nil, nil, nada, nil
-	}
-	_, err = cfg.BolsaInscripcionesExternoActivo()
-	if err != nil {
-		return nil, nil, nada, err
 	}
 	_, sinBolsa := cfg.ExternoBolsaPostgreSQL.DSN()
 	if identidad == nil || identidad.candidatoBolsa == nil || incidencias == nil || sinBolsa != nil {
@@ -91,11 +105,7 @@ func nuevasRutasBolsaPersonalCombinado(cfg config.Config, identidad *resolvedorI
 		return nil, nil, nada, err
 	}
 	inscripcion, cerrarInscripcion, err := nuevaInscripcionPortalExterno(ctx, externa, sesion, preflight)
-	if err != nil {
-		cerrarBolsa()
-		cerrarBase()
-		return nil, nil, nada, err
-	}
+	inscripcion, cerrarInscripcion = aislarFalloInscripcionExterna(inscripcion, cerrarInscripcion, err)
 	cerrarCartera := nada
 	cartera := meritoshttp.NuevoHandlerCarteraNoDisponible()
 	if cierre, fallo := montarCarteraPortalExterno(ctx, externa, sesion, derivador, preflight); fallo != nil {
@@ -126,6 +136,19 @@ func nuevasRutasBolsaPersonalCombinado(cfg config.Config, identidad *resolvedorI
 		bolsaPropia.ServeHTTP(w, r)
 	})
 	return bolsa, inscripcion, func() { cerrarCartera(); cerrarInscripcion(); cerrarBolsa(); cerrarBase() }, nil
+}
+
+// Inscripción comparte la sesión de Mi Bolsa, pero su fallo solo retira sus
+// rutas. El constructor de inscripción cierra sus pools parciales al fallar.
+func aislarFalloInscripcionExterna(manejador http.Handler, cerrar func(), fallo error) (http.Handler, func()) {
+	if fallo == nil {
+		return manejador, cerrar
+	}
+	if cerrar != nil {
+		cerrar()
+	}
+	slog.Warn("inscripción externa no disponible", "etapa", "inscripcion")
+	return nil, func() {}
 }
 
 func rutaCarteraPersonalExterna(ruta string) bool {

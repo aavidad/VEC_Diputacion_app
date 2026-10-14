@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -283,8 +284,12 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	lectoresRRHH, manifiestoLectoresActivo, err := cargarIdentidadesConsultasRRHHDesarrollo(
 		cfg.DevelopmentMaterialDir, ca, identidadRRHH,
 	)
+	lectoresRRHHInvalidos := err != nil
 	if err != nil {
-		return materialSeguridadDesarrollo{}, err
+		// El manifiesto de lectores amplía sólo consultas RRHH. Un fallo suyo
+		// no puede invalidar la identidad obligatoria ni habilitar un lector.
+		slog.Warn("lectores RRHH no disponibles", "etapa", "manifiesto")
+		lectoresRRHH, manifiestoLectoresActivo = nil, false
 	}
 	candidato, err := cargarIdentidadCandidatoBolsaDesarrollo(cfg.DevelopmentMaterialDir, ca)
 	if err != nil {
@@ -294,27 +299,48 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	if candidato != nil {
 		identidades = append(identidades, candidato.identidad)
 	}
-	for _, lector := range lectoresRRHH {
-		if lector.identidad.huella == identidadRRHH.huella {
-			continue
+	// Construir primero el resolvedor obligatorio. El opcional se arma en
+	// otra instancia para que un conflicto de huellas no altere el primero.
+	construirIdentidad := func(conLectores bool) (*resolvedorIdentidadDesarrollo, error) {
+		lista := append([]identidadCertificadoDesarrollo(nil), identidades...)
+		if conLectores {
+			for _, lector := range lectoresRRHH {
+				if lector.identidad.huella != identidadRRHH.huella {
+					lista = append(lista, lector.identidad)
+				}
+			}
 		}
-		identidades = append(identidades, lector.identidad)
+		resuelta, err := nuevoResolvedorIdentidadDesarrollo(lista...)
+		if err != nil {
+			return nil, err
+		}
+		for sujeto, adscripcion := range adscripciones.Adscripciones {
+			resuelta.porSujeto[sujeto] = adscripcion
+		}
+		if candidato != nil {
+			if err := resuelta.registrarCandidatoBolsa(*candidato); err != nil {
+				return nil, err
+			}
+		}
+		if conLectores {
+			if err := resuelta.registrarLectoresRRHH(lectoresRRHH); err != nil {
+				return nil, err
+			}
+		}
+		return resuelta, nil
 	}
-	identidad, err = nuevoResolvedorIdentidadDesarrollo(identidades...)
+	identidad, err = construirIdentidad(false)
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
 	}
-	for subject, adscripcion := range adscripciones.Adscripciones {
-		identidad.porSujeto[subject] = adscripcion
-	}
+	identidad.lectoresRRHHInvalidos = lectoresRRHHInvalidos
 	if manifiestoLectoresActivo {
-		if err := identidad.registrarLectoresRRHH(lectoresRRHH); err != nil {
-			return materialSeguridadDesarrollo{}, err
-		}
-	}
-	if candidato != nil {
-		if err := identidad.registrarCandidatoBolsa(*candidato); err != nil {
-			return materialSeguridadDesarrollo{}, err
+		conLectores, falloLectores := construirIdentidad(true)
+		if falloLectores != nil {
+			slog.Warn("lectores RRHH no disponibles", "etapa", "resolvedor")
+			identidad.lectoresRRHHInvalidos = true
+		} else {
+			identidad = conLectores
 		}
 	}
 

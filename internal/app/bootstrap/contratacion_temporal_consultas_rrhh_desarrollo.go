@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
 	"log/slog"
 	"sync"
 	"time"
@@ -61,7 +62,9 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 	completo := false
 	defer func() {
 		if !completo {
-			for _, cerrar := range cierres {
+			// El primer cierre pertenece a la consulta base. Si falla un lector
+			// opcional, esa consulta sigue viva para los demás actos de CT.
+			for _, cerrar := range cierres[1:] {
 				cerrar()
 			}
 		}
@@ -80,7 +83,13 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 			}
 		}
 		local := &dependenciasAltaContratacionTemporalDesarrollo{soporte: soporte, autorizador: autorizador, postgresql: alta.postgresql}
-		identidad, cerrarIdentidad, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, cfg.ContratacionTemporalPostgreSQL, local, derivador, reloj, soporte, fronteras)
+		altaCuenta := local
+		if soporte.tecnicoConsultaRRHH {
+			// El técnico usa el perfil fijo para consultar, pero comparte la
+			// cuenta nominal ya acreditada por el alta original de CT.
+			altaCuenta = alta
+		}
+		identidad, cerrarIdentidad, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, cfg.ContratacionTemporalPostgreSQL, altaCuenta, derivador, reloj, soporte, fronteras)
 		if err != nil {
 			return vacio, err
 		}
@@ -502,15 +511,33 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 		return vacio, err
 	}
 	base := dependenciasConsultasRRHHDesarrollo{descargas: descargas, repoDescarga: repoDescarga, materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, sesionOriginal: sesionOriginal, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: consultorDetalleConDisponibilidadRRHH{lector: detalle, documentalMontado: documentalMontado}, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, plazosFase: dependenciasCT.plazosFase, cerrar: cerrar}
-	if len(lectores) > 0 {
+	if resolvedor.lectoresRRHHInvalidos {
+		cerrarConsultasLectoresRRHHDesarrollo(&base, resolvedor)
+	} else if len(lectores) > 0 {
 		lectoresDependencias, err := nuevasDependenciasLectoresRRHHDesarrollo(ctx, cfg, alta, derivador, reloj, lectores, poolConsultas, motivos, motivoCuadro, motivoDetalle, base, fronteras, documentalMontado)
 		if err != nil {
-			return vacio, err
+			slog.Warn("lectores RRHH no disponibles", "etapa", "montaje")
+			cerrarConsultasLectoresRRHHDesarrollo(&base, resolvedor)
+		} else {
+			base.cuadroHTTP, base.detalleHTTP, base.originalPropuestaHTTP, base.cerrar = lectoresDependencias.cuadroHTTP, lectoresDependencias.detalleHTTP, lectoresDependencias.originalPropuestaHTTP, lectoresDependencias.cerrar
+			base.descargas = lectoresDependencias.descargas
 		}
-		base.cuadroHTTP, base.detalleHTTP, base.originalPropuestaHTTP, base.cerrar = lectoresDependencias.cuadroHTTP, lectoresDependencias.detalleHTTP, lectoresDependencias.originalPropuestaHTTP, lectoresDependencias.cerrar
-		base.descargas = lectoresDependencias.descargas
 	}
 	completa = true
 	identidadCompuesta = true
 	return base, nil
+}
+
+// Un manifiesto presente pero no consumible nunca activa el lector de
+// organización del modo histórico. La identidad y las operaciones base de CT
+// siguen compuestas; las consultas del lector se cierran en ambas fronteras.
+func cerrarConsultasLectoresRRHHDesarrollo(base *dependenciasConsultasRRHHDesarrollo, resolvedor *resolvedorIdentidadDesarrollo) {
+	if base == nil || resolvedor == nil {
+		return
+	}
+	resolvedor.lectoresRRHHInvalidos = true
+	resolvedor.lectoresRRHH = make(map[[sha256.Size]byte]identidadConsultaRRHHDesarrollo)
+	base.cuadroHTTP = &consultorCuadroNoCompuestoContratacionTemporalDesarrollo{}
+	base.detalleHTTP = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{}
+	base.originalPropuestaHTTP = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{}
 }

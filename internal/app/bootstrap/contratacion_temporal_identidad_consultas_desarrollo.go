@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"reflect"
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -102,7 +103,11 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	if err != nil {
 		return nil, nil, fallo
 	}
-	if err = prepararCuentaNominalConsultasDesarrollo(ctx, alta.postgresql.gobierno, soporte, seudonimos); err != nil {
+	cuentaNominal, err := soporteCuentaNominalConsultasRRHHDesarrollo(alta, soporte)
+	if err != nil {
+		return nil, nil, fallo
+	}
+	if err = prepararCuentaNominalConsultasDesarrollo(ctx, alta.postgresql.gobierno, cuentaNominal, seudonimos); err != nil {
 		return nil, nil, fallo
 	}
 	resolutor, err := postgrescontexto.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx, poolContexto)
@@ -146,4 +151,53 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	}
 	completa = true
 	return proveedor, cerrar, nil
+}
+
+// El técnico lector comparte la cuenta y el certificado del alta de CT,
+// aunque consulta con su perfil fijo. El preparador nominal genérico acredita
+// el replay de la cuenta base; nunca se le presenta el perfil fijo como si
+// fuese el perfil dinámico ni se registra otro alias o cuenta.
+func soporteCuentaNominalConsultasRRHHDesarrollo(
+	alta *dependenciasAltaContratacionTemporalDesarrollo,
+	lector *soporteAltaContratacionTemporalDesarrollo,
+) (*soporteAltaContratacionTemporalDesarrollo, error) {
+	if alta == nil || lector == nil {
+		return nil, ports.ErrConsultaRRHHNoDisponible
+	}
+	if !lector.tecnicoConsultaRRHH {
+		return lector, nil
+	}
+	base := alta.soporte
+	if base == nil || !lector.lectorConsultasRRHH || lector.principalID == "" ||
+		lector.principalID != base.principalID || lector.certificadoSHA256 == "" ||
+		lector.certificadoSHA256 != base.certificadoSHA256 ||
+		lector.contexto.Vinculo.ValidarPara(lector.contexto.Resultado) != nil {
+		return nil, ports.ErrConsultaRRHHNoDisponible
+	}
+	baseVinculo, errBase := base.contexto.Vinculo.Datos()
+	lectorVinculo, errLector := lector.contexto.Vinculo.Datos()
+	identidadCertificada := lector.principalID + "\x00" + lector.certificadoSHA256
+	perfilFijo := referenciaAltaContratacionTemporalDesarrollo("prf_", identidadCertificada+"\x00"+
+		discriminadorPerfilFijoCTDesarrollo(clavePerfilFijoAltaCTDesarrollo).perfil)
+	if errBase != nil || errLector != nil || baseVinculo.CuentaRef == "" ||
+		baseVinculo.CuentaRef != lectorVinculo.CuentaRef ||
+		baseVinculo.CuentaOrdinariaRef != lectorVinculo.CuentaOrdinariaRef ||
+		baseVinculo.PrincipalID != lectorVinculo.PrincipalID ||
+		base.contexto.Resultado.Contexto.PersonaRef != lector.contexto.Resultado.Contexto.PersonaRef ||
+		lectorVinculo.PerfilActivoRef != perfilFijo ||
+		lector.contexto.Resultado.Contexto.PerfilActivoRef != perfilFijo ||
+		baseVinculo.PerfilActivoRef == perfilFijo {
+		return nil, ports.ErrConsultaRRHHNoDisponible
+	}
+	coincidencias := 0
+	for _, fijo := range base.perfilesFijosRegistrados() {
+		if fijo != nil && fijo.clave == clavePerfilFijoAltaCTDesarrollo &&
+			fijo.perfilRef() == perfilFijo && reflect.DeepEqual(fijo.contexto, lector.contexto) {
+			coincidencias++
+		}
+	}
+	if coincidencias != 1 {
+		return nil, ports.ErrConsultaRRHHNoDisponible
+	}
+	return base, nil
 }
