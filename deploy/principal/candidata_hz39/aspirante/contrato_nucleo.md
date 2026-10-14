@@ -9,3 +9,24 @@ El consumidor de datos usa exclusivamente el LOGIN `vec_externo_documentos_datos
 AD273 debe aceptar únicamente las dos audiencias nuevas `vec_documentos.subida_local.acto_modulo.v1` para subir y consulta propia por carga y `vec_documentos.subida_local.descarga_propia.v1` para consulta por documento y apertura. La referencia del recurso PDP es `carga_id` salvo primera consulta por `documento_id`; ambos tienen forma `ref:<64 hex>`. El efecto se liga al SHA-256 del JSON compacto `{"ambitos":{"persona_ref":"<persona>"},"atributos":{"preimagen_sha256":"<sha256 de bytes de preimagen>"}}`. La decisión de almacén usa otra huella y no debe servir para D20. C consolida el núcleo desde el cuerpo instalado en HZ37, conservando sus permisos, consumo, auditoría y toda la familia Mayan histórica. La publicación de confianza externa amplía la lista positiva de 23 a 25 audiencias sin retirar ninguna.
 
 La fachada D20 y el lector de cartera dependen además de que AD273 adapte `registrar_lectura_cartera_meritos_v1` para los ocho campos anteriores y los nueve nuevos, manteniendo `cotejar_cartera_meritos_actual_v1` como autoridad viva. El grupo propio de frontera es `vec_documentos_frontera_externa`; su LOGIN `vec_externo_documentos_frontera` queda separado del de datos. D20 publica las seis fachadas de estado y la auditoría de frontera con estos grupos. Dietas y Cronos quedan cerrados hasta publicar sus actos, autorías y funciones nominales de propiedad; la rama instalada de este corte acepta solo Méritos.
+
+## Preparación de Dietas y Cronos para el siguiente corte
+
+El contrato de puertos, datos, funciones del dueño y límites de lo que existe
+está en [`contrato_subida_comun.md`](contrato_subida_comun.md). Los
+identificadores Go preparados son `dietas.justificante.subir_propio` y
+`dietas.justificante.descargar_propio`, con finalidad
+`custodiar_justificante_dietas`, y `cronos.justificacion.subir_propio` y
+`cronos.justificacion.descargar_propio`, con finalidad
+`custodiar_justificacion_cronos`. No son concesiones publicadas ni quedan
+habilitados por AD273, AUT95 o D20 tal como están.
+
+Cuando Dietas y Cronos publiquen fuente, perfil, motivo y función nominal de
+titularidad, C añadirá al núcleo consolidado AD273 únicamente las audiencias
+y ramas exactas de esos actos. Cada acción conserva su identidad,
+superficie, finalidad, campos y obligación propios; el consumidor común no
+convierte el acto de Méritos en un permiso para los otros módulos. Dietas16
+ya define `vec_dietas.validar_propietario_subida_documental_v1(text,bigint,text,text)`
+y espera la fachada Documentos de seis parámetros. La función Cronos y la
+proyección de original admitido siguen pendientes. Ninguna de estas piezas
+forma parte del ensayo de Méritos de esta candidata.
